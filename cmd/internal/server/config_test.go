@@ -20,7 +20,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
-	memorystore "github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
 func testPublicKey(fill byte) giznet.PublicKey {
@@ -480,6 +479,11 @@ func TestParseConfigRejectsUnknownLoggingFields(t *testing.T) {
 		"stores:\n  agent-memory:\n    kind: memory\n    volc_memory:\n      api_key_id: x\n      unknown: y\n",
 		"stores:\n  agent-memory:\n    kind: memory\n    flowcraft:\n      async:\n        unknown: y\n",
 		"stores:\n  agent-memory:\n    kind: memory\n    volc_memory:\n      mem0:\n        unknown: y\n",
+		"stores:\n  agent-memory:\n    kind: memory\n    flowcraft:\n      runtime_id: legacy\n",
+		"stores:\n  agent-memory:\n    kind: memory\n    flowcraft:\n      async:\n        worker_id: legacy\n",
+		"stores:\n  agent-memory:\n    kind: memory\n    mem0:\n      user_id: legacy\n",
+		"stores:\n  agent-memory:\n    kind: memory\n    volc_memory:\n      mem0:\n        run_id: legacy\n",
+		"stores:\n  agent-memory:\n    kind: memory\n    flowcraft:\n      bbh:\n        unknown: y\n",
 	} {
 		if _, err := parseConfigData([]byte(data)); err == nil {
 			t.Fatalf("parseConfigData(%q) error = nil", data)
@@ -518,12 +522,12 @@ stores:
     kind: memory
     flowcraft:
       dir: memory
-      runtime_id: app
-      user_id: user
       stage_timeout: 2s
+      graph_enabled: true
+      bbh:
+        search_overfetch: 17
       async:
         enabled: true
-        worker_id: worker
   remote-memory:
     kind: memory
     mem0:
@@ -535,7 +539,7 @@ stores:
 		t.Fatal(err)
 	}
 	local := cfg.Stores["local-memory"].Flowcraft
-	if local == nil || local.StageTimeout != 2*time.Second || !local.Async.Enabled || local.Async.WorkerID != "worker" {
+	if local == nil || local.StageTimeout != 2*time.Second || !local.GraphEnabled || local.BBH.SearchOverfetch != 17 || !local.Async.Enabled {
 		t.Fatalf("flowcraft config = %+v", local)
 	}
 	remote := cfg.Stores["remote-memory"].Mem0
@@ -578,8 +582,8 @@ func TestNewStoreRegistryThreadsFlowcraftModelLoader(t *testing.T) {
 	cfg := Config{Stores: map[string]stores.Config{
 		"agent-memory": {
 			Kind: stores.KindMemoryStore,
-			Flowcraft: &memorystore.FlowcraftConfig{
-				RuntimeID: "app", UserID: "user", ExtractionModel: "extract",
+			Flowcraft: &stores.FlowcraftConfig{
+				ExtractionModel: "extract",
 			},
 		},
 	}}
@@ -600,8 +604,8 @@ func TestNewStoreRegistryExpandsFlowcraftModelsBeforeLoaderCheck(t *testing.T) {
 	cfg := Config{Stores: map[string]stores.Config{
 		"agent-memory": {
 			Kind: stores.KindMemoryStore,
-			Flowcraft: &memorystore.FlowcraftConfig{
-				RuntimeID: "app", UserID: "user", ExtractionModel: "$GIZCLAW_TEST_OPTIONAL_MEMORY_MODEL",
+			Flowcraft: &stores.FlowcraftConfig{
+				ExtractionModel: "$GIZCLAW_TEST_OPTIONAL_MEMORY_MODEL",
 			},
 		},
 	}}
@@ -620,8 +624,8 @@ func TestNewStoreRegistryThreadsCallerContext(t *testing.T) {
 	cfg := Config{Stores: map[string]stores.Config{
 		"agent-memory": {
 			Kind: stores.KindMemoryStore,
-			Flowcraft: &memorystore.FlowcraftConfig{
-				RuntimeID: "app", UserID: "user", ExtractionModel: "extract",
+			Flowcraft: &stores.FlowcraftConfig{
+				ExtractionModel: "extract",
 			},
 		},
 	}}

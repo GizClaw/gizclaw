@@ -1,4 +1,4 @@
-package memory
+package volc
 
 import (
 	"context"
@@ -10,43 +10,47 @@ import (
 	"strings"
 	"time"
 
+	memorystore "github.com/GizClaw/gizclaw-go/pkgs/store/memory"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/memory/mem0"
 	"github.com/volcengine/volc-sdk-golang/base"
 )
 
 const volcMemoryAPIVersion = "2025-10-10"
 
-// VolcConfig configures Volcengine AgentKit/Viking MEM0. The control plane
+// Config configures Volcengine AgentKit/Viking MEM0. The control plane
 // resolves a Mem0 API key; fact traffic then uses the Mem0 HTTP protocol.
-type VolcConfig struct {
-	Mem0            Mem0Config `yaml:"mem0"`
-	APIKeyID        string     `yaml:"api_key_id"`
-	MemoryProjectID string     `yaml:"memory_project_id"`
-	ControlEndpoint string     `yaml:"control_endpoint"`
-	Region          string     `yaml:"region"`
-	AccessKeyID     string     `yaml:"access_key_id"`
-	AccessKeySecret string     `yaml:"access_key_secret"`
+type Config struct {
+	Mem0            mem0.Config
+	APIKeyID        string
+	MemoryProjectID string
+	ControlEndpoint string
+	Region          string
+	AccessKeyID     string
+	AccessKeySecret string
+	Resolver        CredentialResolver
 }
 
-// VolcCredentialResolver resolves a Volc memory project's Mem0 API key.
-type VolcCredentialResolver interface {
-	ResolveMem0APIKey(ctx context.Context, config VolcConfig) (string, error)
+// CredentialResolver resolves a Volc memory project's Mem0 API key.
+type CredentialResolver interface {
+	ResolveMem0APIKey(ctx context.Context, config Config) (string, error)
 }
 
-// VolcStore is a Volcengine credential adapter over the shared Mem0 data plane.
-type VolcStore struct {
-	*Mem0Store
+// Store is a Volcengine credential adapter over the shared Mem0 data plane.
+type Store struct {
+	*mem0.Store
 }
 
-// OpenVolcStore resolves control-plane credentials when needed and constructs
+// Open resolves control-plane credentials when needed and constructs
 // the Mem0 data-plane adapter.
-func OpenVolcStore(ctx context.Context, config VolcConfig, resolver VolcCredentialResolver, client HTTPClient) (*VolcStore, error) {
+func Open(ctx context.Context, config Config) (*Store, error) {
 	if strings.TrimSpace(config.Mem0.Endpoint) == "" {
-		return nil, fmt.Errorf("%w: volc memory mem0 endpoint is required", ErrInvalidInput)
+		return nil, fmt.Errorf("%w: volc memory mem0 endpoint is required", memorystore.ErrInvalidInput)
 	}
 	if config.Mem0.Flavor == "" {
-		config.Mem0.Flavor = Mem0Platform
+		config.Mem0.Flavor = mem0.Platform
 	}
 	if config.Mem0.APIKey == "" {
+		resolver := config.Resolver
 		if resolver == nil {
 			var err error
 			resolver, err = newVolcCredentialClient(config)
@@ -60,31 +64,31 @@ func OpenVolcStore(ctx context.Context, config VolcConfig, resolver VolcCredenti
 		}
 		key = strings.TrimSpace(key)
 		if key == "" {
-			return nil, fmt.Errorf("%w: volc memory API key is empty", ErrUnavailable)
+			return nil, fmt.Errorf("%w: volc memory API key is empty", memorystore.ErrUnavailable)
 		}
 		config.Mem0.APIKey = key
 	}
-	store, err := NewMem0Store(config.Mem0, client)
+	store, err := mem0.New(config.Mem0)
 	if err != nil {
 		return nil, err
 	}
-	return &VolcStore{Mem0Store: store}, nil
+	return &Store{Store: store}, nil
 }
 
 type volcCredentialClient struct {
 	client *base.Client
 }
 
-func newVolcCredentialClient(config VolcConfig) (*volcCredentialClient, error) {
+func newVolcCredentialClient(config Config) (*volcCredentialClient, error) {
 	if strings.TrimSpace(config.AccessKeyID) == "" || strings.TrimSpace(config.AccessKeySecret) == "" {
-		return nil, fmt.Errorf("%w: volc access_key_id and access_key_secret are required", ErrInvalidInput)
+		return nil, fmt.Errorf("%w: volc access_key_id and access_key_secret are required", memorystore.ErrInvalidInput)
 	}
 	region := strings.TrimSpace(config.Region)
 	if region == "" {
 		region = "cn-beijing"
 	}
 	if !isVolcRegion(region) {
-		return nil, fmt.Errorf("%w: volc region is invalid", ErrInvalidInput)
+		return nil, fmt.Errorf("%w: volc region is invalid", memorystore.ErrInvalidInput)
 	}
 	scheme, host, err := volcControlAddress(config.ControlEndpoint, region)
 	if err != nil {
@@ -123,10 +127,10 @@ func volcControlAddress(endpoint, region string) (string, string, error) {
 	}
 	parsed, err := url.Parse(endpoint)
 	if err != nil || parsed.Scheme == "" || parsed.Host == "" || parsed.Path != "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
-		return "", "", fmt.Errorf("%w: volc control_endpoint must contain only scheme and host", ErrInvalidInput)
+		return "", "", fmt.Errorf("%w: volc control_endpoint must contain only scheme and host", memorystore.ErrInvalidInput)
 	}
 	if parsed.Scheme != "http" && parsed.Scheme != "https" {
-		return "", "", fmt.Errorf("%w: volc control_endpoint scheme must be http or https", ErrInvalidInput)
+		return "", "", fmt.Errorf("%w: volc control_endpoint scheme must be http or https", memorystore.ErrInvalidInput)
 	}
 	return parsed.Scheme, parsed.Host, nil
 }
@@ -143,10 +147,10 @@ func isVolcRegion(region string) bool {
 	return true
 }
 
-func (c *volcCredentialClient) ResolveMem0APIKey(ctx context.Context, config VolcConfig) (string, error) {
+func (c *volcCredentialClient) ResolveMem0APIKey(ctx context.Context, config Config) (string, error) {
 	projectID := strings.TrimSpace(config.MemoryProjectID)
 	if projectID == "" {
-		return "", fmt.Errorf("%w: volc memory_project_id is required", ErrInvalidInput)
+		return "", fmt.Errorf("%w: volc memory_project_id is required", memorystore.ErrInvalidInput)
 	}
 	apiKeyID := strings.TrimSpace(config.APIKeyID)
 	if apiKeyID == "" {
@@ -165,7 +169,7 @@ func (c *volcCredentialClient) ResolveMem0APIKey(ctx context.Context, config Vol
 			} `json:"Result"`
 		}
 		if err := json.Unmarshal(raw, &response); err != nil {
-			return "", fmt.Errorf("%w: decode volc memory project response", ErrUnavailable)
+			return "", fmt.Errorf("%w: decode volc memory project response", memorystore.ErrUnavailable)
 		}
 		if err := response.ResponseMetadata.err(); err != nil {
 			return "", err
@@ -184,9 +188,9 @@ func (c *volcCredentialClient) ResolveMem0APIKey(ctx context.Context, config Vol
 		}
 		if apiKeyID == "" {
 			if hasAPIKey {
-				return "", fmt.Errorf("%w: volc memory project has no ready API key", ErrUnavailable)
+				return "", fmt.Errorf("%w: volc memory project has no ready API key", memorystore.ErrUnavailable)
 			}
-			return "", fmt.Errorf("%w: volc memory project has no API key", ErrNotFound)
+			return "", fmt.Errorf("%w: volc memory project has no API key", memorystore.ErrNotFound)
 		}
 	}
 	body, _ := json.Marshal(map[string]string{"MemoryProjectId": projectID, "APIKeyId": apiKeyID})
@@ -201,7 +205,7 @@ func (c *volcCredentialClient) ResolveMem0APIKey(ctx context.Context, config Vol
 		} `json:"Result"`
 	}
 	if err := json.Unmarshal(raw, &response); err != nil {
-		return "", fmt.Errorf("%w: decode volc API key response", ErrUnavailable)
+		return "", fmt.Errorf("%w: decode volc API key response", memorystore.ErrUnavailable)
 	}
 	if err := response.ResponseMetadata.err(); err != nil {
 		return "", err
@@ -223,11 +227,11 @@ func (m volcResponseMetadata) err() error {
 	code := strings.ToLower(m.Error.Code)
 	switch {
 	case strings.Contains(code, "notfound") || strings.Contains(code, "not_found"):
-		return fmt.Errorf("%w: volc memory resource not found", ErrNotFound)
+		return fmt.Errorf("%w: volc memory resource not found", memorystore.ErrNotFound)
 	case strings.Contains(code, "invalid"):
-		return fmt.Errorf("%w: volc memory request is invalid", ErrInvalidInput)
+		return fmt.Errorf("%w: volc memory request is invalid", memorystore.ErrInvalidInput)
 	default:
-		return fmt.Errorf("%w: volc memory control plane returned %s", ErrUnavailable, truncate(m.Error.Code, 128))
+		return fmt.Errorf("%w: volc memory control plane returned %s", memorystore.ErrUnavailable, truncate(m.Error.Code, 128))
 	}
 }
 
@@ -236,13 +240,20 @@ func mapVolcControlError(operation string, status int, err error) error {
 		return err
 	}
 	if status == http.StatusNotFound {
-		return fmt.Errorf("%w: volc %s", ErrNotFound, operation)
+		return fmt.Errorf("%w: volc %s", memorystore.ErrNotFound, operation)
 	}
 	if status >= 400 && status < 500 {
-		return fmt.Errorf("%w: volc %s", ErrInvalidInput, operation)
+		return fmt.Errorf("%w: volc %s", memorystore.ErrInvalidInput, operation)
 	}
-	return fmt.Errorf("%w: volc %s", ErrUnavailable, operation)
+	return fmt.Errorf("%w: volc %s", memorystore.ErrUnavailable, operation)
 }
 
-var _ Store = (*VolcStore)(nil)
-var _ OperationWaiter = (*VolcStore)(nil)
+func truncate(value string, length int) string {
+	if len(value) <= length {
+		return value
+	}
+	return value[:length]
+}
+
+var _ memorystore.Store = (*Store)(nil)
+var _ memorystore.OperationWaiter = (*Store)(nil)

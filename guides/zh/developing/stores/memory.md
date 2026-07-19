@@ -1,35 +1,51 @@
 # Memory Store
 
-[`pkgs/store/memory`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/store/memory) 定义 Agent runtime 可复用的长期记忆边界。它接收原始 observation，由 provider 提取并保存事实；读取侧返回 provider-neutral fact 和相关性分数。`genx.ModelContext` 是调用模型前的组合结果，不是这个 package 的存储模型。
+[`pkgs/store/memory`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/store/memory) 是 Agent runtime 共用的 provider-neutral 长期记忆边界。Flowcraft、Mem0 和 Volc 适配器分别位于 `flowcraft`、`mem0`、`volc` 子包。
 
-## 核心边界
+## 契约
 
-`Store` 提供四个操作：
+`Observation.Scope` 和 `Query.Scope` 是产品层拥有的不透明 namespace。上层决定哪些产品上下文共享一份记忆，但不需要知道或传入 runtime、user、agent、run、project、worker ID 等 provider-native 字段。每个适配器在包内完成协议映射。
 
-- `Observe`：提交原始文本或带 role、speaker 和时间的 turns，触发事实提取；当前不支持非空的 turn attributes。
-- `Recall`：按自然语言和结构化 filter 查询事实。
-- `Update`：修改事实文本；支持 provider 时可同时 patch attributes 和校验 revision。
-- `Delete`：删除或退休事实；支持 provider 时可校验 revision。
+```go
+result, err := store.Observe(ctx, memory.Observation{
+	Scope: memory.Scope("player:42"),
+	Turns: turns,
+})
 
-异步 provider 在 `ObserveResult.Operation` 返回状态。实现 `OperationWaiter` 的 store 由调用方使用已有 `context.Context` 等待完成，不在 constructor 中启动后台 goroutine。持久化 Flowcraft store 会在重启后从 canonical episode fact 恢复 operation ID；提取失败返回 terminal failed operation。
+recalled, err := store.Recall(ctx, memory.Query{
+	Scope: memory.Scope("player:42"),
+	Text:  "玩家偏好什么？",
+	Limit: 10,
+})
+```
 
-`AppID`、`UserID`、`AgentID` 和 `RunID` 是业务记忆 scope。它们不替代进程、credential 或远端服务自身的多租户隔离。Mem0 Platform 配置必须提供 API key，并至少设置其中一个 scope。Mem0 会把每个已配置 entity 作为独立的 memory layer；多 entity recall 使用 `OR`，不是层级交集。
+`Update` 和 `Delete` 只接收 store 返回的不透明 fact ID，以及可选的不透明 revision。`Wait` 只接收不透明 operation ID。基于 ID 的操作不再要求上层重复传 scope；适配器把再次路由所需的信息编码在 locator 内。
 
-## Provider
+异步 `Observe` 返回 operation。实现 `OperationWaiter` 的 store 使用调用方已有的 `context.Context` 等待，不在 constructor 中启动后台 goroutine。使用相同持久化依赖重新构造 Flowcraft adapter 后，仍可恢复 durable operation locator。
 
-| Provider | 执行位置 | 持久化与模型配置 | 更新限制 |
-| --- | --- | --- | --- |
-| Flowcraft | 进程内 | `dir` 使用 Flowcraft workspace backend；模型资源名通过 `FlowcraftModelLoader` 解析 | append-only revision；支持文本、attributes 和 revision 校验，但 provider-owned fact 字段不能作为 metadata patch |
-| Mem0 | 远端 HTTP | Platform 使用 `Authorization: Token`；self-hosted API key 使用 `X-API-Key`，模型由远端服务配置 | 支持文本更新；update/delete 会先确认目标至少匹配一个已配置 entity scope；不支持的 filter、attribute patch 或条件写入返回 `ErrUnsupported` |
-| Volcengine AgentKit/Viking MEM0 | Volc control plane + Mem0 data plane | 必须配置项目 data-plane endpoint；可直接配置 Mem0 API key，也可使用 AK/SK 在必填的 memory project 中解析，并可选指定 API key ID | 与 Mem0 data plane 相同 |
+## Provider 构造
 
-Flowcraft 未配置 extraction model 时会把 observation 确定性地保存为 `note`。配置 extraction、embedding 或 rerank model 时，调用方必须向 `OpenFlowcraftStore` 或 `stores.NewWithStorageOptions` 提供 model loader。
+Provider 包只接收内存中的 runtime dependency，不解析 YAML、不展开环境变量、不读取配置文件，也不决定产品身份。
 
-Volc provider 不复制一套 fact CRUD 协议。它通过签名的 `DescribeMemoryProjectDetail` 和 `DescribeAPIKeyDetail` control-plane 调用解析 API key，然后复用 Mem0 client 执行 observation、recall、update、delete 和 event polling。`volc_memory.mem0.endpoint` 是必填项，避免 Volc credential 回退并发送到 Mem0 Platform 公共 endpoint。control plane 默认使用 `https://mem0.<region>.volcengineapi.com`，也可由 `control_endpoint` 覆盖。control-plane 解析必须提供 `memory_project_id`；可选的 `api_key_id` 用于在该项目内指定 key。未显式指定 key ID 时，resolver 只选择状态为 `Ready` 的 key。
+Flowcraft 只通过一个 `flowcraft.Config` 构造。该结构可注入 `ModelLoader`、retrieval index、temporal store、evidence store、async queue 和 side-effect outbox。注入的 dependency 仍由调用方拥有；没有注入时，adapter 使用 Flowcraft 的内存实现。
 
-## Server 配置
+```go
+store, err := flowcraft.New(ctx, flowcraft.Config{
+	Loader:         loader,
+	Extraction:     flowcraft.ExtractionConfig{Model: "extractor"},
+	Embedding:      flowcraft.EmbeddingConfig{Model: "embedding"},
+	RetrievalIndex: index,
+	TemporalStore:  temporal,
+})
+```
 
-一个 logical memory store 必须只选择一个 provider：
+Mem0 只通过一个 `mem0.Config` 构造。`FlavorPlatform` 使用 `Authorization: Token`；`FlavorSelfHosted` 在配置 key 时使用 `X-API-Key`。Adapter 在内部把 operation scope 映射为 Mem0 的 `user_id`，update/delete 直接使用返回的 memory ID。
+
+Volcengine AgentKit/Viking MEM0 只通过一个 `volc.Config` 构造。它接收显式的 Mem0 data-plane key 或 credential resolver，解析 credential 后复用 Mem0 adapter；data-plane endpoint 必填。
+
+## 组合与 YAML
+
+`cmd/internal/stores` 是 composition root，负责 serializable YAML DTO、环境变量展开、workspace/index 构造、model loader 注入、credential 解析和 lifecycle。Flowcraft `dir` 属于这一层：command 创建 Flowcraft workspace 和 BBH retrieval index，再把对应 interface 注入 adapter。
 
 ```yaml
 stores:
@@ -37,8 +53,12 @@ stores:
     kind: memory
     flowcraft:
       dir: ${GIZCLAW_MEMORY_DIR}
-      runtime_id: detective-game
-      user_id: player-42
+      extraction_model: memory-extractor
+      embedding_model: text-embedding
+      extraction_mode: single_pass
+      graph_enabled: true
+      async:
+        enabled: true
 ```
 
 Mem0 Platform：
@@ -51,9 +71,6 @@ stores:
       endpoint: https://api.mem0.ai
       api_key: ${MEM0_API_KEY}
       flavor: platform
-      app_id: detective-game
-      user_id: player-42
-      agent_id: narrator
 ```
 
 Volcengine AgentKit/Viking MEM0：
@@ -65,22 +82,16 @@ stores:
     volc_memory:
       mem0:
         endpoint: ${VOLC_MEM0_ENDPOINT}
-        user_id: player-42
       memory_project_id: ${VOLC_MEMORY_PROJECT_ID}
       region: cn-beijing
       access_key_id: ${VOLC_ACCESS_KEY_ID}
       access_key_secret: ${VOLC_ACCESS_KEY_SECRET}
 ```
 
-`cmd/internal/stores` 负责展开环境变量和管理 Flowcraft lifecycle。HTTP client、Volc credential resolver 和 Flowcraft model loader 都通过 `Options` 注入，测试和 Agent runtime 不需要修改公共 `Store` 契约。
-显式配置的 Flowcraft `dir` 只能引用已设置且非空的环境变量，且展开后路径不能为空；否则 registry 构造返回 `ErrInvalidInput`，不会静默打开易失的进程内存储。
-默认 server registry 不持有 model loader，因此会明确拒绝环境变量展开后非空的 Flowcraft model 字段；需要这些字段的 Agent runtime 必须使用 option-aware registry 路径。
+一个 logical memory store 必须只选择一个 provider。未知 YAML 字段会被拒绝；scope 和 backend-native routing 字段都不是合法的 server 配置。
 
-Mem0 V3 search 只在 `filters` 内传递 entity ID。原生 entity、time、category 和 memory-ID 字段使用文档中的 operator；`FilterNotIn` 编码为包裹 `in` 的 `NOT`。其他 provider-neutral 字段表示自定义 metadata，只支持等值和不等值：Platform 将其放在 `metadata` 下，self-hosted Mem0 使用直接 metadata 字段 selector。无法精确映射的 operator 返回 `ErrUnsupported`。
+## Ownership 与错误
 
-## 错误语义
+Provider adapter 不关闭注入的 dependency。构造 workspace、index、HTTP client 或 credential dependency 的 composition root 拥有它们，并按构造顺序的逆序关闭资源。
 
-公共 sentinel errors 是 `ErrInvalidInput`、`ErrNotFound`、`ErrUnsupported`、`ErrConflict` 和 `ErrUnavailable`。Provider 必须保留 `errors.Is` 语义，不得在错误中返回 API key、AK/SK 或远端 response body 中的 credential。
-
-不同 provider 无法保持某个 filter、attribute patch 或 conditional write 语义时，必须返回 `ErrUnsupported`，不能静默丢弃请求条件。
-在定义 provider-neutral 的 extraction context 映射前，per-turn attributes 同样遵循这一规则。
+稳定的 sentinel errors 是 `ErrInvalidInput`、`ErrNotFound`、`ErrUnsupported`、`ErrConflict` 和 `ErrUnavailable`。Provider 保留 `errors.Is` 语义。无法完整保持 filter、attribute patch 或 conditional-write 语义时，必须返回 `ErrUnsupported`，不能静默丢弃条件。错误不得暴露 API key、access-key credential 或带 credential 的 response body。

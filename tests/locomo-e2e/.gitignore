@@ -1,0 +1,5 @@
+.env
+testdata/*.json
+testdata/*.jsonl
+reports/
+sandboxes/

@@ -1,35 +1,51 @@
 # Memory Store
 
-[`pkgs/store/memory`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/store/memory) defines the long-term memory boundary shared by Agent runtimes. It accepts raw observations and delegates fact extraction and persistence to a provider. Reads return provider-neutral facts and relevance scores. `genx.ModelContext` is composed before model invocation and is not the storage model of this package.
+[`pkgs/store/memory`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/store/memory) is the provider-neutral long-term memory boundary used by Agent runtimes. Provider adapters live in the `flowcraft`, `mem0`, and `volc` subpackages.
 
-## Core boundary
+## Contract
 
-`Store` exposes four operations:
+`Observation.Scope` and `Query.Scope` are opaque product-owned namespaces. Callers decide which product context shares a memory namespace, but they do not provide provider-native fields such as runtime, user, agent, run, project, or worker IDs. Each adapter privately maps the opaque scope to its backend protocol.
 
-- `Observe` submits raw text or ordered turns with role, speaker, and timestamps for fact extraction. Non-empty turn attributes are currently unsupported.
-- `Recall` queries facts with natural language and typed filters.
-- `Update` changes fact text and, when supported, patches attributes and checks a revision.
-- `Delete` removes or retires a fact and, when supported, checks a revision.
+```go
+result, err := store.Observe(ctx, memory.Observation{
+	Scope: memory.Scope("player:42"),
+	Turns: turns,
+})
 
-Asynchronous providers return an operation in `ObserveResult`. Stores implementing `OperationWaiter` use the caller's `context.Context` to wait for completion. Constructors do not start background goroutines. Durable Flowcraft stores recover operation IDs from canonical episode facts after restart; extraction failures return a terminal failed operation.
+recalled, err := store.Recall(ctx, memory.Query{
+	Scope: memory.Scope("player:42"),
+	Text:  "What does the player prefer?",
+	Limit: 10,
+})
+```
 
-`AppID`, `UserID`, `AgentID`, and `RunID` are business memory scopes. They do not replace process, credential, or remote-service tenant isolation. Mem0 Platform configurations require an API key and must set at least one of these scopes. Mem0 stores each configured entity as a separate memory layer; recall across multiple configured entities uses `OR`, not a hierarchical intersection.
+`Update` and `Delete` take only the opaque fact ID previously returned by the store, plus an optional opaque revision. `Wait` takes only the opaque operation ID. Callers must not resubmit a scope for identity-based operations; adapters encode any routing state they need in those opaque locators.
 
-## Providers
+Asynchronous `Observe` calls return an operation. Stores implementing `OperationWaiter` wait using the caller's `context.Context`; constructors do not start background goroutines. Flowcraft can recover durable operation locators after the adapter is reconstructed with the same injected stores.
 
-| Provider | Execution | Persistence and model configuration | Update limits |
-| --- | --- | --- | --- |
-| Flowcraft | In process | `dir` selects the Flowcraft workspace backend; model resource names are resolved through `FlowcraftModelLoader` | Append-only revisions with text, attribute, and revision checks; provider-owned fact fields cannot be patched as metadata |
-| Mem0 | Remote HTTP | Platform uses `Authorization: Token`; self-hosted API keys use `X-API-Key`, and the deployment owns its model configuration | Text updates; update/delete first verify that the target matches at least one configured entity scope; unsupported filters, attribute patches, and conditional writes return `ErrUnsupported` |
-| Volcengine AgentKit/Viking MEM0 | Volc control plane and Mem0 data plane | Requires the project data-plane endpoint; uses an explicit Mem0 API key or resolves one within a required memory project, optionally selecting an API key ID | Same behavior as the Mem0 data plane |
+## Provider construction
 
-Without an extraction model, Flowcraft deterministically stores an observation as a `note`. Configured extraction, embedding, and rerank models require a model loader passed to `OpenFlowcraftStore` or `stores.NewWithStorageOptions`.
+Provider packages accept in-memory runtime dependencies only. They do not decode YAML, expand environment variables, open configuration files, or choose product identity.
 
-The Volc provider does not duplicate the fact CRUD protocol. It resolves the data-plane API key through signed `DescribeMemoryProjectDetail` and `DescribeAPIKeyDetail` calls, then reuses the Mem0 client. `volc_memory.mem0.endpoint` is mandatory so a Volc credential can never fall back to Mem0 Platform's public endpoint. The control plane defaults to `https://mem0.<region>.volcengineapi.com`; `control_endpoint` overrides it. `memory_project_id` is required for control-plane resolution; an optional `api_key_id` selects a key within that project. Without an explicit key ID, the resolver selects only a key whose status is `Ready`.
+Flowcraft is constructed with one `flowcraft.Config`. The config can inject a `ModelLoader`, retrieval index, temporal store, evidence store, async queue, and side-effect outbox. Injected dependencies remain caller-owned. If a dependency is omitted, the adapter uses Flowcraft's in-memory implementation.
 
-## Server configuration
+```go
+store, err := flowcraft.New(ctx, flowcraft.Config{
+	Loader:         loader,
+	Extraction:     flowcraft.ExtractionConfig{Model: "extractor"},
+	Embedding:      flowcraft.EmbeddingConfig{Model: "embedding"},
+	RetrievalIndex: index,
+	TemporalStore:  temporal,
+})
+```
 
-A logical memory store selects exactly one provider:
+Mem0 is constructed with one `mem0.Config`. `FlavorPlatform` uses `Authorization: Token`; `FlavorSelfHosted` uses `X-API-Key` when a key is supplied. The adapter maps an operation scope to Mem0's native `user_id` internally. Update and delete use the returned memory ID directly.
+
+Volcengine AgentKit/Viking MEM0 is constructed with one `volc.Config`. It accepts either an explicit Mem0 data-plane key or a credential resolver. The adapter resolves credentials and delegates fact operations to the Mem0 adapter; a data-plane endpoint is mandatory.
+
+## Composition and YAML
+
+`cmd/internal/stores` is the composition root. It owns serializable YAML DTOs, environment expansion, workspace/index construction, model-loader injection, credential resolution, and lifecycle management. A Flowcraft `dir` belongs to this layer: the command creates the Flowcraft workspace and BBH retrieval index, then injects their interfaces into the adapter.
 
 ```yaml
 stores:
@@ -37,8 +53,12 @@ stores:
     kind: memory
     flowcraft:
       dir: ${GIZCLAW_MEMORY_DIR}
-      runtime_id: detective-game
-      user_id: player-42
+      extraction_model: memory-extractor
+      embedding_model: text-embedding
+      extraction_mode: single_pass
+      graph_enabled: true
+      async:
+        enabled: true
 ```
 
 Mem0 Platform:
@@ -51,9 +71,6 @@ stores:
       endpoint: https://api.mem0.ai
       api_key: ${MEM0_API_KEY}
       flavor: platform
-      app_id: detective-game
-      user_id: player-42
-      agent_id: narrator
 ```
 
 Volcengine AgentKit/Viking MEM0:
@@ -65,22 +82,16 @@ stores:
     volc_memory:
       mem0:
         endpoint: ${VOLC_MEM0_ENDPOINT}
-        user_id: player-42
       memory_project_id: ${VOLC_MEMORY_PROJECT_ID}
       region: cn-beijing
       access_key_id: ${VOLC_ACCESS_KEY_ID}
       access_key_secret: ${VOLC_ACCESS_KEY_SECRET}
 ```
 
-`cmd/internal/stores` expands environment variables and owns the Flowcraft lifecycle. HTTP clients, Volc credential resolvers, and Flowcraft model loaders are injected through `Options`.
-An explicitly configured Flowcraft `dir` must reference only set, non-empty environment variables and must expand to a non-empty path; otherwise registry construction returns `ErrInvalidInput` instead of opening a volatile in-memory store.
-The default server registry has no model loader and rejects non-empty Flowcraft model fields after environment expansion; an Agent runtime that supplies those fields must use the option-aware registry path.
+A logical memory store selects exactly one provider. Unknown YAML fields are rejected. Scope and backend-native routing fields are not valid server configuration.
 
-Mem0 V3 search puts entity IDs only inside `filters`. Native entity, time, category, and memory-ID fields use their documented operators; `FilterNotIn` is encoded as `NOT` around `in`. Other provider-neutral fields address custom metadata and support only equality and inequality: Platform nests them under `metadata`, while self-hosted Mem0 uses direct metadata field selectors. Operators without an exact remote equivalent return `ErrUnsupported`.
+## Ownership and errors
 
-## Error semantics
+Provider adapters do not close injected dependencies. The composition root that constructs a workspace, index, HTTP client, or credential dependency owns it and closes resources in reverse construction order.
 
-The stable sentinel errors are `ErrInvalidInput`, `ErrNotFound`, `ErrUnsupported`, `ErrConflict`, and `ErrUnavailable`. Providers preserve `errors.Is` behavior and must not expose API keys, AK/SK credentials, or credential-bearing response bodies in facts, logs, or errors.
-
-When a provider cannot preserve a filter, attribute patch, or conditional write, it returns `ErrUnsupported` instead of silently discarding the condition.
-The same rule applies to per-turn attributes until a provider-neutral extraction-context mapping is defined.
+The stable sentinel errors are `ErrInvalidInput`, `ErrNotFound`, `ErrUnsupported`, `ErrConflict`, and `ErrUnavailable`. Providers preserve `errors.Is` behavior. If a provider cannot preserve a filter, attribute patch, or conditional-write semantic, it returns `ErrUnsupported` rather than discarding the condition. Errors must not expose API keys, access-key credentials, or credential-bearing response bodies.

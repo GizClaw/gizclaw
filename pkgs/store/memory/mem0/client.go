@@ -1,4 +1,4 @@
-package memory
+package mem0
 
 import (
 	"bytes"
@@ -22,21 +22,21 @@ type HTTPClient interface {
 type mem0Client struct {
 	endpoint string
 	apiKey   string
-	flavor   Mem0Flavor
+	flavor   Flavor
 	client   HTTPClient
 }
 
-func newMem0Client(endpoint, apiKey string, flavor Mem0Flavor, client HTTPClient) (*mem0Client, error) {
+func newMem0Client(endpoint, apiKey string, flavor Flavor, client HTTPClient) (*mem0Client, error) {
 	endpoint = strings.TrimRight(strings.TrimSpace(endpoint), "/")
 	parsed, err := url.Parse(endpoint)
 	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
-		return nil, fmt.Errorf("%w: mem0 endpoint must be an absolute URL", ErrInvalidInput)
+		return nil, fmt.Errorf("%w: mem0 endpoint must be an absolute URL", errInvalidInput)
 	}
 	if parsed.Scheme != "http" && parsed.Scheme != "https" {
-		return nil, fmt.Errorf("%w: mem0 endpoint scheme must be http or https", ErrInvalidInput)
+		return nil, fmt.Errorf("%w: mem0 endpoint scheme must be http or https", errInvalidInput)
 	}
 	if parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
-		return nil, fmt.Errorf("%w: mem0 endpoint must not contain credentials, query, or fragment", ErrInvalidInput)
+		return nil, fmt.Errorf("%w: mem0 endpoint must not contain credentials, query, or fragment", errInvalidInput)
 	}
 	if client == nil {
 		client = http.DefaultClient
@@ -62,7 +62,7 @@ func (c *mem0Client) do(ctx context.Context, method, path string, requestBody an
 		request.Header.Set("Content-Type", "application/json")
 	}
 	if c.apiKey != "" {
-		if c.flavor == Mem0SelfHosted {
+		if c.flavor == SelfHosted {
 			request.Header.Set("X-API-Key", c.apiKey)
 		} else {
 			request.Header.Set("Authorization", "Token "+c.apiKey)
@@ -73,19 +73,19 @@ func (c *mem0Client) do(ctx context.Context, method, path string, requestBody an
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			return err
 		}
-		return fmt.Errorf("%w: mem0 request: %v", ErrUnavailable, redactSecret(err.Error(), c.apiKey))
+		return fmt.Errorf("%w: mem0 request: %v", errUnavailable, redactSecret(err.Error(), c.apiKey))
 	}
 	if response == nil || response.Body == nil {
-		return fmt.Errorf("%w: mem0 response has no body", ErrUnavailable)
+		return fmt.Errorf("%w: mem0 response has no body", errUnavailable)
 	}
 	defer response.Body.Close()
 	limited := io.LimitReader(response.Body, maxMem0ResponseBytes+1)
 	raw, err := io.ReadAll(limited)
 	if err != nil {
-		return fmt.Errorf("%w: mem0 read response", ErrUnavailable)
+		return fmt.Errorf("%w: mem0 read response", errUnavailable)
 	}
 	if len(raw) > maxMem0ResponseBytes {
-		return fmt.Errorf("%w: mem0 response exceeds %d bytes", ErrUnavailable, maxMem0ResponseBytes)
+		return fmt.Errorf("%w: mem0 response exceeds %d bytes", errUnavailable, maxMem0ResponseBytes)
 	}
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		return mapMem0Status(response.StatusCode)
@@ -94,7 +94,7 @@ func (c *mem0Client) do(ctx context.Context, method, path string, requestBody an
 		return nil
 	}
 	if err := json.Unmarshal(raw, responseBody); err != nil {
-		return fmt.Errorf("%w: mem0 decode response", ErrUnavailable)
+		return fmt.Errorf("%w: mem0 decode response", errUnavailable)
 	}
 	return nil
 }
@@ -102,18 +102,18 @@ func (c *mem0Client) do(ctx context.Context, method, path string, requestBody an
 func mapMem0Status(status int) error {
 	switch status {
 	case http.StatusBadRequest, http.StatusUnprocessableEntity:
-		return fmt.Errorf("%w: mem0 returned HTTP %d", ErrInvalidInput, status)
+		return fmt.Errorf("%w: mem0 returned HTTP %d", errInvalidInput, status)
 	case http.StatusNotFound:
-		return fmt.Errorf("%w: mem0 returned HTTP %d", ErrNotFound, status)
+		return fmt.Errorf("%w: mem0 returned HTTP %d", errNotFound, status)
 	case http.StatusConflict, http.StatusPreconditionFailed:
-		return fmt.Errorf("%w: mem0 returned HTTP %d", ErrConflict, status)
+		return fmt.Errorf("%w: mem0 returned HTTP %d", errConflict, status)
 	case http.StatusNotImplemented:
-		return fmt.Errorf("%w: mem0 returned HTTP %d", ErrUnsupported, status)
+		return fmt.Errorf("%w: mem0 returned HTTP %d", errUnsupported, status)
 	case http.StatusUnauthorized, http.StatusForbidden:
-		return fmt.Errorf("%w: mem0 returned HTTP %d", ErrUnavailable, status)
+		return fmt.Errorf("%w: mem0 returned HTTP %d", errUnavailable, status)
 	default:
 		if status == http.StatusTooManyRequests || status >= 500 {
-			return fmt.Errorf("%w: mem0 returned HTTP %d", ErrUnavailable, status)
+			return fmt.Errorf("%w: mem0 returned HTTP %d", errUnavailable, status)
 		}
 		return fmt.Errorf("mem0 returned HTTP %d", status)
 	}

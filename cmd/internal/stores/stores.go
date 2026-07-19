@@ -14,11 +14,18 @@ import (
 	"strings"
 	"time"
 
+	flowrecall "github.com/GizClaw/flowcraft/memory/recall"
+	flowworkspace "github.com/GizClaw/flowcraft/memory/recall/store/workspace"
+	"github.com/GizClaw/flowcraft/memory/retrieval/bbh"
+	sdkworkspace "github.com/GizClaw/flowcraft/sdk/workspace"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/storage"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/graph"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	memorystore "github.com/GizClaw/gizclaw-go/pkgs/store/memory"
+	memoryflowcraft "github.com/GizClaw/gizclaw-go/pkgs/store/memory/flowcraft"
+	memorymem0 "github.com/GizClaw/gizclaw-go/pkgs/store/memory/mem0"
+	memoryvolc "github.com/GizClaw/gizclaw-go/pkgs/store/memory/volc"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/vecstore"
@@ -55,20 +62,59 @@ type Config struct {
 	Dim     int    `yaml:"dim"`     // legacy vecstore dimension field
 	DSN     string `yaml:"dsn"`     // legacy sql connection string field
 
-	Prometheus *metrics.PrometheusConfig    `yaml:"prometheus"`
-	ClickHouse *ClickHouseConfig            `yaml:"clickhouse"`
-	Memory     *struct{}                    `yaml:"memory"`
-	Volc       *logstore.VolcConfig         `yaml:"volc"`
-	Flowcraft  *memorystore.FlowcraftConfig `yaml:"flowcraft"`
-	Mem0       *memorystore.Mem0Config      `yaml:"mem0"`
-	VolcMemory *memorystore.VolcConfig      `yaml:"volc_memory"`
+	Prometheus *metrics.PrometheusConfig `yaml:"prometheus"`
+	ClickHouse *ClickHouseConfig         `yaml:"clickhouse"`
+	Memory     *struct{}                 `yaml:"memory"`
+	Volc       *logstore.VolcConfig      `yaml:"volc"`
+	Flowcraft  *FlowcraftConfig          `yaml:"flowcraft"`
+	Mem0       *Mem0Config               `yaml:"mem0"`
+	VolcMemory *VolcMemoryConfig         `yaml:"volc_memory"`
 }
 
 // Options supplies runtime dependencies that cannot be represented in YAML.
 type Options struct {
-	FlowcraftModelLoader memorystore.FlowcraftModelLoader
-	VolcResolver         memorystore.VolcCredentialResolver
-	HTTPClient           memorystore.HTTPClient
+	FlowcraftModelLoader memoryflowcraft.ModelLoader
+	VolcResolver         memoryvolc.CredentialResolver
+	HTTPClient           memorymem0.HTTPClient
+}
+
+// FlowcraftConfig is the process-serializable projection for the embedded
+// provider. Runtime dependencies are constructed below and never decoded by
+// the provider package.
+type FlowcraftConfig struct {
+	Dir             string                       `yaml:"dir"`
+	ExtractionModel string                       `yaml:"extraction_model"`
+	EmbeddingModel  string                       `yaml:"embedding_model"`
+	RerankModel     string                       `yaml:"rerank_model"`
+	ExtractionMode  flowrecall.LLMExtractionMode `yaml:"extraction_mode"`
+	SystemPrompt    string                       `yaml:"system_prompt"`
+	SchemaName      string                       `yaml:"schema_name"`
+	Temperature     *float64                     `yaml:"temperature"`
+	StageTimeout    time.Duration                `yaml:"stage_timeout"`
+	GraphEnabled    bool                         `yaml:"graph_enabled"`
+	Async           FlowcraftAsyncConfig         `yaml:"async"`
+	BBH             bbh.Config                   `yaml:"bbh"`
+}
+
+type FlowcraftAsyncConfig struct {
+	Enabled bool `yaml:"enabled"`
+}
+
+type Mem0Config struct {
+	Endpoint     string            `yaml:"endpoint"`
+	APIKey       string            `yaml:"api_key"`
+	Flavor       memorymem0.Flavor `yaml:"flavor"`
+	PollInterval time.Duration     `yaml:"poll_interval"`
+}
+
+type VolcMemoryConfig struct {
+	Mem0            Mem0Config `yaml:"mem0"`
+	APIKeyID        string     `yaml:"api_key_id"`
+	MemoryProjectID string     `yaml:"memory_project_id"`
+	ControlEndpoint string     `yaml:"control_endpoint"`
+	Region          string     `yaml:"region"`
+	AccessKeyID     string     `yaml:"access_key_id"`
+	AccessKeySecret string     `yaml:"access_key_secret"`
 }
 
 // ClickHouseConfig is the command-layer connection configuration projected
@@ -570,16 +616,19 @@ func (r *Stores) newMemory(ctx context.Context, name string, cfg Config, options
 			return nil, nil, fmt.Errorf("stores: memory %q flowcraft: %w", name, err)
 		}
 		expandFlowcraftConfig(&config)
-		store, err := memorystore.OpenFlowcraftStore(ctx, config, options.FlowcraftModelLoader)
+		store, closer, err := openFlowcraftMemory(ctx, config, options.FlowcraftModelLoader)
 		if err != nil {
 			return nil, nil, fmt.Errorf("stores: memory %q flowcraft: %w", name, err)
 		}
-		return store, store, nil
+		return store, closer, nil
 	}
 	if cfg.Mem0 != nil {
 		config := *cfg.Mem0
 		expandMem0Config(&config)
-		store, err := memorystore.NewMem0Store(config, options.HTTPClient)
+		store, err := memorymem0.New(memorymem0.Config{
+			Endpoint: config.Endpoint, APIKey: config.APIKey, Flavor: config.Flavor,
+			PollInterval: config.PollInterval, HTTPClient: options.HTTPClient,
+		})
 		if err != nil {
 			return nil, nil, fmt.Errorf("stores: memory %q mem0: %w", name, err)
 		}
@@ -587,24 +636,101 @@ func (r *Stores) newMemory(ctx context.Context, name string, cfg Config, options
 	}
 	config := *cfg.VolcMemory
 	expandVolcMemoryConfig(&config)
-	store, err := memorystore.OpenVolcStore(ctx, config, options.VolcResolver, options.HTTPClient)
+	store, err := memoryvolc.Open(ctx, memoryvolc.Config{
+		Mem0: memorymem0.Config{
+			Endpoint: config.Mem0.Endpoint, APIKey: config.Mem0.APIKey, Flavor: config.Mem0.Flavor,
+			PollInterval: config.Mem0.PollInterval, HTTPClient: options.HTTPClient,
+		},
+		APIKeyID: config.APIKeyID, MemoryProjectID: config.MemoryProjectID,
+		ControlEndpoint: config.ControlEndpoint, Region: config.Region,
+		AccessKeyID: config.AccessKeyID, AccessKeySecret: config.AccessKeySecret,
+		Resolver: options.VolcResolver,
+	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("stores: memory %q volc_memory: %w", name, err)
 	}
 	return store, nil, nil
 }
 
-func expandFlowcraftConfig(config *memorystore.FlowcraftConfig) {
-	config.RuntimeID = os.ExpandEnv(config.RuntimeID)
-	config.AgentID = os.ExpandEnv(config.AgentID)
-	config.UserID = os.ExpandEnv(config.UserID)
+func openFlowcraftMemory(ctx context.Context, config FlowcraftConfig, loader memoryflowcraft.ModelLoader) (*memoryflowcraft.Store, io.Closer, error) {
+	runtimeConfig := memoryflowcraft.Config{
+		Loader: loader,
+		Extraction: memoryflowcraft.ExtractionConfig{
+			Model: config.ExtractionModel, Mode: config.ExtractionMode,
+			SystemPrompt: config.SystemPrompt, SchemaName: config.SchemaName,
+			Temperature: config.Temperature, StageTimeout: config.StageTimeout,
+		},
+		Embedding:    memoryflowcraft.EmbeddingConfig{Model: config.EmbeddingModel},
+		Rerank:       memoryflowcraft.RerankConfig{Model: config.RerankModel},
+		GraphEnabled: config.GraphEnabled,
+	}
+	owned := make([]io.Closer, 0, 2)
+	closeOwned := func() error {
+		var err error
+		for i := len(owned) - 1; i >= 0; i-- {
+			err = errors.Join(err, owned[i].Close())
+		}
+		return err
+	}
+	if config.Dir != "" {
+		metadataWorkspace, err := sdkworkspace.NewLocalWorkspace(filepath.Join(config.Dir, "metadata"))
+		if err != nil {
+			return nil, nil, err
+		}
+		backend, err := flowworkspace.New(metadataWorkspace)
+		if err != nil {
+			return nil, nil, err
+		}
+		owned = append(owned, backend)
+		runtimeConfig.TemporalStore = backend.TemporalStore()
+		runtimeConfig.EvidenceStore = backend.EvidenceStore()
+		runtimeConfig.SideEffectOutbox = backend.SideEffectOutbox()
+		if config.Async.Enabled {
+			runtimeConfig.AsyncQueue = backend.AsyncSemanticQueue()
+		}
+		retrievalWorkspace, err := sdkworkspace.NewLocalWorkspace(filepath.Join(config.Dir, "retrieval"))
+		if err != nil {
+			return nil, nil, errors.Join(err, closeOwned())
+		}
+		index, err := bbh.New(retrievalWorkspace, bbh.WithConfig(config.BBH))
+		if err != nil {
+			return nil, nil, errors.Join(err, closeOwned())
+		}
+		owned = append(owned, index)
+		runtimeConfig.RetrievalIndex = index
+	} else if config.Async.Enabled {
+		runtimeConfig.AsyncQueue = flowrecall.NewInMemoryAsyncSemanticQueue()
+	}
+	store, err := memoryflowcraft.New(ctx, runtimeConfig)
+	if err != nil {
+		return nil, nil, errors.Join(err, closeOwned())
+	}
+	closers := []io.Closer{store}
+	for i := len(owned) - 1; i >= 0; i-- {
+		closers = append(closers, owned[i])
+	}
+	return store, multiCloser(closers), nil
+}
+
+type multiCloser []io.Closer
+
+func (closers multiCloser) Close() error {
+	var err error
+	for _, closer := range closers {
+		if closer != nil {
+			err = errors.Join(err, closer.Close())
+		}
+	}
+	return err
+}
+
+func expandFlowcraftConfig(config *FlowcraftConfig) {
 	config.ExtractionModel = os.ExpandEnv(config.ExtractionModel)
 	config.EmbeddingModel = os.ExpandEnv(config.EmbeddingModel)
 	config.RerankModel = os.ExpandEnv(config.RerankModel)
-	config.ExtractionMode = os.ExpandEnv(config.ExtractionMode)
+	config.ExtractionMode = flowrecall.LLMExtractionMode(os.ExpandEnv(string(config.ExtractionMode)))
 	config.SystemPrompt = os.ExpandEnv(config.SystemPrompt)
 	config.SchemaName = os.ExpandEnv(config.SchemaName)
-	config.Async.WorkerID = os.ExpandEnv(config.Async.WorkerID)
 }
 
 func expandFlowcraftDir(dir string) (string, error) {
@@ -644,17 +770,13 @@ func expandFlowcraftDir(dir string) (string, error) {
 	return expanded, nil
 }
 
-func expandMem0Config(config *memorystore.Mem0Config) {
+func expandMem0Config(config *Mem0Config) {
 	config.Endpoint = os.ExpandEnv(config.Endpoint)
 	config.APIKey = os.ExpandEnv(config.APIKey)
-	config.Flavor = memorystore.Mem0Flavor(os.ExpandEnv(string(config.Flavor)))
-	config.AppID = os.ExpandEnv(config.AppID)
-	config.UserID = os.ExpandEnv(config.UserID)
-	config.AgentID = os.ExpandEnv(config.AgentID)
-	config.RunID = os.ExpandEnv(config.RunID)
+	config.Flavor = memorymem0.Flavor(os.ExpandEnv(string(config.Flavor)))
 }
 
-func expandVolcMemoryConfig(config *memorystore.VolcConfig) {
+func expandVolcMemoryConfig(config *VolcMemoryConfig) {
 	expandMem0Config(&config.Mem0)
 	config.APIKeyID = os.ExpandEnv(config.APIKeyID)
 	config.MemoryProjectID = os.ExpandEnv(config.MemoryProjectID)

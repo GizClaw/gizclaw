@@ -447,21 +447,26 @@ func validateMemoryStoreConfigShape(name string, mapping map[string]any) error {
 	if value, exists := mapping["flowcraft"]; exists {
 		path := "server: stores." + name + ".flowcraft"
 		if err := validateConfigMappingFields(path, value, []string{
-			"dir", "runtime_id", "agent_id", "user_id", "extraction_model", "embedding_model", "rerank_model",
-			"extraction_mode", "system_prompt", "schema_name", "temperature", "stage_timeout", "async",
+			"dir", "extraction_model", "embedding_model", "rerank_model", "extraction_mode", "system_prompt",
+			"schema_name", "temperature", "stage_timeout", "graph_enabled", "async", "bbh",
 		}); err != nil {
 			return err
 		}
 		flowcraft := value.(map[string]any)
 		if async, exists := flowcraft["async"]; exists {
-			if err := validateConfigMappingFields(path+".async", async, []string{"enabled", "worker_id"}); err != nil {
+			if err := validateConfigMappingFields(path+".async", async, []string{"enabled"}); err != nil {
+				return err
+			}
+		}
+		if bbh, exists := flowcraft["bbh"]; exists {
+			if err := validateBBHConfigShape(path+".bbh", bbh); err != nil {
 				return err
 			}
 		}
 	}
 	if value, exists := mapping["mem0"]; exists {
 		if err := validateConfigMappingFields("server: stores."+name+".mem0", value, []string{
-			"endpoint", "api_key", "flavor", "app_id", "user_id", "agent_id", "run_id", "poll_interval",
+			"endpoint", "api_key", "flavor", "poll_interval",
 		}); err != nil {
 			return err
 		}
@@ -476,11 +481,35 @@ func validateMemoryStoreConfigShape(name string, mapping map[string]any) error {
 		volc := value.(map[string]any)
 		if mem0, exists := volc["mem0"]; exists {
 			if err := validateConfigMappingFields(path+".mem0", mem0, []string{
-				"endpoint", "api_key", "flavor", "app_id", "user_id", "agent_id", "run_id", "poll_interval",
+				"endpoint", "api_key", "flavor", "poll_interval",
 			}); err != nil {
 				return err
 			}
 		}
+	}
+	return nil
+}
+
+func validateBBHConfigShape(path string, value any) error {
+	if err := validateConfigMappingFields(path, value, []string{"search_overfetch", "bleve", "hnsw"}); err != nil {
+		return err
+	}
+	mapping := value.(map[string]any)
+	if bleve, exists := mapping["bleve"]; exists {
+		if err := validateConfigMappingFields(path+".bleve", bleve, []string{"analyzer", "gojieba"}); err != nil {
+			return err
+		}
+		bleveMapping := bleve.(map[string]any)
+		if gojieba, exists := bleveMapping["gojieba"]; exists {
+			if err := validateConfigMappingFields(path+".bleve.gojieba", gojieba, []string{
+				"mode", "hmm", "dict_path", "hmm_path", "user_dict_path", "idf_path", "stop_words_path",
+			}); err != nil {
+				return err
+			}
+		}
+	}
+	if hnsw, exists := mapping["hnsw"]; exists {
+		return validateConfigMappingFields(path+".hnsw", hnsw, []string{"flush_interval"})
 	}
 	return nil
 }

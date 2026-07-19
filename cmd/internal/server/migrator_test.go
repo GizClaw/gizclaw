@@ -5,15 +5,14 @@ import (
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/cmd/internal/stores"
-	memorystore "github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
 func TestNewMigratorSkipsUnrelatedMemoryStores(t *testing.T) {
 	cfg := validLayeredConfig(t.TempDir())
 	cfg.Stores["agent-memory"] = stores.Config{
 		Kind: stores.KindMemoryStore,
-		Flowcraft: &memorystore.FlowcraftConfig{
-			RuntimeID: "app", UserID: "user", ExtractionModel: "requires-loader",
+		Flowcraft: &stores.FlowcraftConfig{
+			ExtractionModel: "requires-loader",
 		},
 	}
 	migrator, err := NewMigrator(cfg)
