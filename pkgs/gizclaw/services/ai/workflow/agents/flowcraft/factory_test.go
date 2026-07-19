@@ -1658,6 +1658,21 @@ func TestOwnedRuntimeNilHistoryAndClose(t *testing.T) {
 	}
 }
 
+func TestOwnedRuntimeResponseSurfacesTerminalChunkError(t *testing.T) {
+	response := &ownedRuntimeResponse{stream: &sliceStream{chunks: []*genx.MessageChunk{{
+		Role: genx.RoleModel,
+		Part: genx.Text(""),
+		Ctrl: &genx.StreamCtrl{EndOfStream: true, Error: "owned runtime failed"},
+	}}}}
+	event, err := response.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if event.Type != runtimeEventError || !event.IsError || event.Err != "owned runtime failed" {
+		t.Fatalf("runtime event = %#v", event)
+	}
+}
+
 func TestRunTurnReturnsClawEventError(t *testing.T) {
 	a := &agent{
 		transformers: fakeTransformerProvider{transformer: fakeVoiceTransformer{}},

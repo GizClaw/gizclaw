@@ -177,8 +177,15 @@ func (s *genXStreamMessage) Next() bool {
 		if chunk == nil {
 			continue
 		}
+		if chunk.IsEndOfStream() {
+			if chunk.Ctrl != nil && chunk.Ctrl.Error != "" {
+				s.err = errors.New(chunk.Ctrl.Error)
+				return false
+			}
+			continue
+		}
 		s.current = flowmodel.StreamChunk{Role: flowmodel.RoleAssistant}
-		if text, ok := chunk.Part.(genx.Text); ok && !chunk.IsEndOfStream() {
+		if text, ok := chunk.Part.(genx.Text); ok {
 			s.current.Content = string(text)
 			s.content += string(text)
 		}

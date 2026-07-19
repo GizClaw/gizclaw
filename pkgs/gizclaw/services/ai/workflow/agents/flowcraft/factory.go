@@ -633,7 +633,13 @@ func (r *ownedRuntimeResponse) Next() (runtimeEvent, error) {
 		if err != nil {
 			return runtimeEvent{}, err
 		}
-		if chunk == nil || chunk.Role != genx.RoleModel || chunk.IsEndOfStream() {
+		if chunk == nil || chunk.Role != genx.RoleModel {
+			continue
+		}
+		if chunk.IsEndOfStream() {
+			if chunk.Ctrl != nil && chunk.Ctrl.Error != "" {
+				return runtimeEvent{Type: runtimeEventError, Err: chunk.Ctrl.Error, IsError: true}, nil
+			}
 			continue
 		}
 		text, ok := chunk.Part.(genx.Text)

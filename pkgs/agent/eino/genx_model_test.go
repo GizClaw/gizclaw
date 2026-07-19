@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
@@ -92,6 +93,21 @@ func TestGenXChatModelPreservesToolsMessagesAndStreamingCalls(t *testing.T) {
 	}
 }
 
+func TestGenXChatModelSurfacesTerminalChunkError(t *testing.T) {
+	model, err := NewGenXChatModel(terminalErrorGenerator{}, "model/chat")
+	if err != nil {
+		t.Fatal(err)
+	}
+	stream, err := model.Stream(t.Context(), []*schema.Message{schema.UserMessage("hello")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stream.Close()
+	if _, err := stream.Recv(); err == nil || !strings.Contains(err.Error(), "provider failed") {
+		t.Fatalf("Recv() error = %v", err)
+	}
+}
+
 type capturingGenerator struct {
 	pattern string
 	context genx.ModelContext
@@ -118,3 +134,24 @@ func (*capturingGenerator) Invoke(context.Context, string, genx.ModelContext, *g
 }
 
 func (g *capturingGenerator) snapshot() (string, genx.ModelContext) { return g.pattern, g.context }
+
+type terminalErrorGenerator struct{}
+
+func (terminalErrorGenerator) GenerateStream(_ context.Context, _ string, modelContext genx.ModelContext) (genx.Stream, error) {
+	builder := genx.NewGrowableStreamBuilder(modelContext, 1)
+	if err := builder.Add(&genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: genx.Text(""),
+		Ctrl: &genx.StreamCtrl{EndOfStream: true, Error: "provider failed"},
+	}); err != nil {
+		return nil, err
+	}
+	if err := builder.Done(genx.Usage{}); err != nil {
+		return nil, err
+	}
+	return builder.Stream(), nil
+}
+
+func (terminalErrorGenerator) Invoke(context.Context, string, genx.ModelContext, *genx.FuncTool) (genx.Usage, *genx.FuncCall, error) {
+	return genx.Usage{}, nil, errors.New("unexpected Invoke")
+}

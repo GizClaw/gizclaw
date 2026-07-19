@@ -20,6 +20,27 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
+func TestGenXStreamMessageSurfacesTerminalChunkError(t *testing.T) {
+	builder := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 1)
+	if err := builder.Add(&genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: genx.Text(""),
+		Ctrl: &genx.StreamCtrl{EndOfStream: true, Error: "provider failed"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := builder.Done(genx.Usage{}); err != nil {
+		t.Fatal(err)
+	}
+	stream := &genXStreamMessage{stream: builder.Stream()}
+	if stream.Next() {
+		t.Fatal("Next() = true for terminal error chunk")
+	}
+	if err := stream.Err(); err == nil || !strings.Contains(err.Error(), "provider failed") {
+		t.Fatalf("Err() = %v", err)
+	}
+}
+
 func TestAgentRunsFlowcraftToolsStrictlyInProviderOrder(t *testing.T) {
 	var mu sync.Mutex
 	var calls []commonagent.ToolCall

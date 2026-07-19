@@ -3,6 +3,7 @@ package eino
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -93,6 +94,10 @@ func (m *GenXChatModel) Stream(ctx context.Context, input []*schema.Message, opt
 			}
 			if err != nil {
 				writer.Send(nil, err)
+				return
+			}
+			if chunk != nil && chunk.IsEndOfStream() && chunk.Ctrl != nil && chunk.Ctrl.Error != "" {
+				writer.Send(nil, errors.New(chunk.Ctrl.Error))
 				return
 			}
 			message := einoMessageChunk(chunk)

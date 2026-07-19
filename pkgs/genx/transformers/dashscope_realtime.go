@@ -569,6 +569,25 @@ func (t *DashScopeRealtime) processLoop(ctx context.Context, input genx.Stream, 
 			audioRouteOpen = false
 			return true
 		}
+		startProviderResponse := func(providerID string) (string, bool, error) {
+			streamID, accepted, fresh := beginProviderResponse(providerID)
+			if !accepted || !fresh {
+				return streamID, accepted, nil
+			}
+			textRouteOpen = false
+			audioRouteOpen = true
+			assistant.setAccept(true)
+			assistant.nextEpoch()
+			assistant.markStarted(streamID)
+			if err := output.Push(&genx.MessageChunk{
+				Role: genx.RoleModel,
+				Part: &genx.Blob{MIMEType: t.getOutputAudioMIMEType()},
+				Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: dashScopeRealtimeAssistantLabel, BeginOfStream: true},
+			}); err != nil {
+				return "", false, err
+			}
+			return streamID, true, nil
+		}
 		for event, err := range session.Events() {
 			if err != nil {
 				output.CloseWithError(err)
@@ -596,26 +615,12 @@ func (t *DashScopeRealtime) processLoop(ctx context.Context, input genx.Stream, 
 				allowProviderResponse()
 
 			case dashscope.EventTypeResponseCreated:
-				streamID, accepted, fresh := beginProviderResponse(event.ResponseID)
+				_, accepted, err := startProviderResponse(event.ResponseID)
+				if err != nil {
+					return
+				}
 				if !accepted {
 					continue
-				}
-				if !fresh {
-					continue
-				}
-				textRouteOpen = false
-				audioRouteOpen = true
-				assistant.setAccept(true)
-				assistant.nextEpoch()
-				assistant.markStarted(streamID)
-				// Send BOS to signal start of new audio stream
-				bosChunk := &genx.MessageChunk{
-					Role: genx.RoleModel,
-					Part: &genx.Blob{MIMEType: t.getOutputAudioMIMEType()},
-					Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: dashScopeRealtimeAssistantLabel, BeginOfStream: true},
-				}
-				if err := output.Push(bosChunk); err != nil {
-					return
 				}
 
 			case dashscope.EventTypeInputAudioTranscriptionCompleted:
@@ -638,7 +643,7 @@ func (t *DashScopeRealtime) processLoop(ctx context.Context, input genx.Stream, 
 					eosChunk := &genx.MessageChunk{
 						Role: genx.RoleUser,
 						Part: genx.Text(""),
-						Ctrl: &genx.StreamCtrl{StreamID: streamID, EndOfStream: true},
+						Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: dashScopeRealtimeTranscriptLabel, EndOfStream: true},
 					}
 					if err := output.Push(eosChunk); err != nil {
 						return
@@ -649,7 +654,13 @@ func (t *DashScopeRealtime) processLoop(ctx context.Context, input genx.Stream, 
 				if !assistant.acceptsOutput() {
 					continue
 				}
-				streamID := getResponseStreamID()
+				streamID, accepted, err := startProviderResponse(event.ResponseID)
+				if err != nil {
+					return
+				}
+				if !accepted {
+					continue
+				}
 				// Model text response
 				if event.Delta != "" {
 					textRouteOpen = true
@@ -671,7 +682,13 @@ func (t *DashScopeRealtime) processLoop(ctx context.Context, input genx.Stream, 
 				if !assistant.acceptsOutput() {
 					continue
 				}
-				streamID := getResponseStreamID()
+				streamID, accepted, err := startProviderResponse(event.ResponseID)
+				if err != nil {
+					return
+				}
+				if !accepted {
+					continue
+				}
 				// TTS transcript (what the model is saying)
 				if event.Delta != "" {
 					textRouteOpen = true
@@ -692,7 +709,13 @@ func (t *DashScopeRealtime) processLoop(ctx context.Context, input genx.Stream, 
 				if !assistant.acceptsOutput() {
 					continue
 				}
-				streamID := getResponseStreamID()
+				streamID, accepted, err := startProviderResponse(event.ResponseID)
+				if err != nil {
+					return
+				}
+				if !accepted {
+					continue
+				}
 				// Audio response
 				if len(event.Audio) > 0 {
 					audioRouteOpen = true
@@ -716,7 +739,13 @@ func (t *DashScopeRealtime) processLoop(ctx context.Context, input genx.Stream, 
 				if !assistant.acceptsOutput() {
 					continue
 				}
-				streamID := getResponseStreamID()
+				streamID, accepted, err := startProviderResponse(event.ResponseID)
+				if err != nil {
+					return
+				}
+				if !accepted {
+					continue
+				}
 				// DashScope's choices format response
 				if event.Delta != "" {
 					textRouteOpen = true
@@ -747,6 +776,11 @@ func (t *DashScopeRealtime) processLoop(ctx context.Context, input genx.Stream, 
 				calls := takePendingCalls()
 				if !assistant.acceptsOutput() {
 					finishProviderResponse(event.ResponseID, false)
+					continue
+				}
+				if _, accepted, err := startProviderResponse(event.ResponseID); err != nil {
+					return
+				} else if !accepted {
 					continue
 				}
 				if len(calls) == 0 {
@@ -783,6 +817,9 @@ func (t *DashScopeRealtime) processLoop(ctx context.Context, input genx.Stream, 
 					}
 					output.CloseWithError(callErr)
 					return
+				}
+				if interrupted {
+					continue
 				}
 				if len(outputs) != len(calls) {
 					err := fmt.Errorf("dashscope realtime function-call handler returned %d outputs for %d calls", len(outputs), len(calls))

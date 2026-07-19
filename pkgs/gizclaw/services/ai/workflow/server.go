@@ -267,6 +267,14 @@ func validateDriverSpec(spec apitypes.WorkflowSpec) error {
 			return errors.New("spec.pet does not accept Flowcraft graph or memory configuration")
 		}
 		return nil
+	case apitypes.WorkflowDriverDoubaoRealtime:
+		if spec.DoubaoRealtime == nil {
+			return errors.New("spec.doubao_realtime is required")
+		}
+		if strings.TrimSpace(spec.DoubaoRealtime.Model) == "" {
+			return errors.New("spec.doubao_realtime.model is required")
+		}
+		return nil
 	case apitypes.WorkflowDriverDashscopeRealtime:
 		if spec.DashscopeRealtime == nil {
 			return errors.New("spec.dashscope_realtime is required")

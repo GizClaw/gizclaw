@@ -87,6 +87,76 @@ func TestDashScopeRealtimeProviderEndClosesBlockedInput(t *testing.T) {
 	}
 }
 
+func TestDashScopeRealtimeTranscriptEOSPreservesLabel(t *testing.T) {
+	eventsFinished := make(chan struct{})
+	session := &fakeDashScopeRealtimeSession{
+		events: []*dashscope.RealtimeEvent{{
+			Type:       dashscope.EventTypeInputAudioTranscriptionCompleted,
+			Transcript: "hello",
+		}},
+		finished: eventsFinished,
+	}
+	input := &dashScopeConcurrentInput{firstRead: make(chan struct{}), eventsFinished: eventsFinished}
+	output := newBufferStream(2)
+	(&DashScopeRealtime{}).processLoop(t.Context(), input, output, session, DashScopeRealtimeCtxOptions{})
+
+	textChunk, err := output.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	eosChunk, err := output.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if textChunk.Ctrl.StreamID != eosChunk.Ctrl.StreamID {
+		t.Fatalf("transcript StreamIDs = %q and %q", textChunk.Ctrl.StreamID, eosChunk.Ctrl.StreamID)
+	}
+	if textChunk.Ctrl.Label != dashScopeRealtimeTranscriptLabel || eosChunk.Ctrl.Label != dashScopeRealtimeTranscriptLabel {
+		t.Fatalf("transcript labels = %q and %q, want %q", textChunk.Ctrl.Label, eosChunk.Ctrl.Label, dashScopeRealtimeTranscriptLabel)
+	}
+	if !eosChunk.IsEndOfStream() {
+		t.Fatalf("transcript EOS = %#v", eosChunk)
+	}
+}
+
+func TestDashScopeRealtimeStartsResponseWithoutCreatedEvent(t *testing.T) {
+	eventsFinished := make(chan struct{})
+	session := &fakeDashScopeRealtimeSession{
+		events: []*dashscope.RealtimeEvent{
+			{Type: dashscope.EventTypeResponseTextDelta, ResponseID: "provider-response", Delta: "hello"},
+			{Type: dashscope.EventTypeResponseDone, ResponseID: "provider-response"},
+		},
+		finished: eventsFinished,
+	}
+	input := &dashScopeConcurrentInput{firstRead: make(chan struct{}), eventsFinished: eventsFinished}
+	output := newBufferStream(4)
+	(&DashScopeRealtime{}).processLoop(t.Context(), input, output, session, DashScopeRealtimeCtxOptions{})
+
+	var chunks []*genx.MessageChunk
+	for {
+		chunk, err := output.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		chunks = append(chunks, chunk)
+	}
+	if len(chunks) != 4 {
+		t.Fatalf("chunks = %#v, want BOS, text, and two route EOS chunks", chunks)
+	}
+	streamID := chunks[0].Ctrl.StreamID
+	if streamID == "" || !chunks[0].IsBeginOfStream() {
+		t.Fatalf("response BOS = %#v", chunks[0])
+	}
+	for _, chunk := range chunks {
+		if chunk.Ctrl == nil || chunk.Ctrl.StreamID != streamID {
+			t.Fatalf("response chunk = %#v, want StreamID %q", chunk, streamID)
+		}
+	}
+}
+
 func TestDashScopeRealtimeExecutesFunctionCallsInOutputIndexOrder(t *testing.T) {
 	eventsFinished := make(chan struct{})
 	session := &fakeDashScopeRealtimeSession{
@@ -275,6 +345,44 @@ func TestDashScopeRealtimeInterruptDiscardsBufferedOutputAndEmitsEOS(t *testing.
 		if !chunk.IsEndOfStream() || chunk.Ctrl.Error != "interrupted" || chunk.Ctrl.StreamID != streamID {
 			t.Fatalf("interrupt chunk = %#v", chunk)
 		}
+	}
+}
+
+func TestDashScopeRealtimeInterruptDropsSuccessfulLateToolOutput(t *testing.T) {
+	handlerStarted := make(chan struct{})
+	eventsFinished := make(chan struct{})
+	session := &fakeDashScopeRealtimeSession{
+		events: []*dashscope.RealtimeEvent{
+			{Type: dashscope.EventTypeResponseCreated, ResponseID: "provider-response"},
+			{Type: dashscope.EventTypeResponseFunctionCallArgumentsDone, ResponseID: "provider-response", CallID: "call-1", Name: "tool", Arguments: `{}`},
+			{Type: dashscope.EventTypeResponseDone, ResponseID: "provider-response"},
+		},
+		finished: eventsFinished,
+		canceled: make(chan struct{}),
+	}
+	input := &dashScopeInterruptInput{textSent: handlerStarted, eventsFinished: eventsFinished}
+	output := newBufferStream(4)
+	done := make(chan struct{})
+	go func() {
+		(&DashScopeRealtime{}).processLoop(t.Context(), input, output, session, DashScopeRealtimeCtxOptions{
+			FunctionCallHandler: func(ctx context.Context, calls []DashScopeRealtimeFunctionCall) ([]DashScopeRealtimeFunctionCallOutput, error) {
+				close(handlerStarted)
+				<-ctx.Done()
+				return []DashScopeRealtimeFunctionCallOutput{{CallID: calls[0].CallID, Output: `{"late":true}`}}, nil
+			},
+		})
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("processLoop did not finish")
+	}
+	if got := session.submittedIDs(); len(got) != 0 {
+		t.Fatalf("submitted stale Tool outputs = %v", got)
+	}
+	if got := session.createCount(); got != 0 {
+		t.Fatalf("CreateResponse calls after interruption = %d, want 0", got)
 	}
 }
 

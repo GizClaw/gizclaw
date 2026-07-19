@@ -284,6 +284,10 @@ func TestServerAcceptsAgentWorkflowSpecs(t *testing.T) {
 		document apitypes.Workflow
 		driver   apitypes.WorkflowDriver
 	}{
+		"doubao realtime": {
+			document: mustDocument(t, `{"name":"doubao-agent","spec":{"driver":"doubao-realtime","doubao_realtime":{"model":"doubao"}}}`),
+			driver:   apitypes.WorkflowDriverDoubaoRealtime,
+		},
 		"dashscope realtime": {
 			document: mustDocument(t, `{"name":"dashscope-agent","spec":{"driver":"dashscope-realtime","dashscope_realtime":{"model":"dashscope","provider_model":"qwen3.5-omni-flash-realtime","max_tool_calls":4}}}`),
 			driver:   apitypes.WorkflowDriverDashscopeRealtime,
@@ -312,6 +316,8 @@ func TestValidateDriverSpecRejectsInvalidAgentConfig(t *testing.T) {
 	negative := -1
 	zero := 0
 	cases := []apitypes.WorkflowSpec{
+		{Driver: apitypes.WorkflowDriverDoubaoRealtime},
+		{Driver: apitypes.WorkflowDriverDoubaoRealtime, DoubaoRealtime: &apitypes.DoubaoRealtimeWorkflowSpec{}},
 		{Driver: apitypes.WorkflowDriverDashscopeRealtime},
 		{Driver: apitypes.WorkflowDriverDashscopeRealtime, DashscopeRealtime: &apitypes.DashScopeRealtimeWorkflowSpec{}},
 		{Driver: apitypes.WorkflowDriverDashscopeRealtime, DashscopeRealtime: &apitypes.DashScopeRealtimeWorkflowSpec{Model: "chat", MaxToolCalls: &negative}},
