@@ -3,7 +3,6 @@ package gizclaw
 import (
 	"net/http"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/observability"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
 )
@@ -25,12 +24,7 @@ func (s *Server) peerOpenAIHTTPHandler(sessions *publiclogin.SessionManager) htt
 			http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
 			return
 		}
-		var profile *apitypes.RuntimeProfile
-		if authenticated.Registration != nil {
-			value := authenticated.Registration.RuntimeProfile
-			profile = &value
-		}
-		resources := s.peerService.peerResourcesWithProfile(publicKey, profile)
+		resources := s.peerService.peerResourcesForHTTPSession(publicKey, authenticated.Registration)
 		http.StripPrefix("/openai", s.peerService.openAIHTTPHandlerForPeer(publicKey, nil, resources)).ServeHTTP(w, r)
 	})
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/openaiapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
 )
@@ -66,14 +67,32 @@ func (s *PeerService) openAIHTTPHandlerForPeer(publicKey giznet.PublicKey, genxS
 }
 
 func (s *PeerService) peerResources(publicKey giznet.PublicKey) *peerresource.Server {
-	return s.peerResourcesWithProfile(publicKey, nil)
+	return s.peerResourcesWithRegistration(publicKey, nil, true)
 }
 
-func (s *PeerService) peerResourcesWithProfile(publicKey giznet.PublicKey, sessionProfile *apitypes.RuntimeProfile) *peerresource.Server {
+func (s *PeerService) peerResourcesForHTTPSession(publicKey giznet.PublicKey, registration *runtimeprofile.Registration) *peerresource.Server {
+	return s.peerResourcesWithRegistration(publicKey, registration, false)
+}
+
+func (s *PeerService) peerResourcesWithRegistration(publicKey giznet.PublicKey, sessionRegistration *runtimeprofile.Registration, inheritActiveConnection bool) *peerresource.Server {
 	if s == nil || s.manager == nil {
 		return nil
 	}
 	manager := s.manager
+	var snapshot *runtimeprofile.Registration
+	if sessionRegistration != nil {
+		value := *sessionRegistration
+		snapshot = &value
+	}
+	registration := func() (runtimeprofile.Registration, bool) {
+		if snapshot != nil {
+			return *snapshot, true
+		}
+		if inheritActiveConnection {
+			return manager.PeerRegistration(publicKey)
+		}
+		return runtimeprofile.Registration{}, false
+	}
 	return &peerresource.Server{
 		Caller:       publicKey,
 		Firmwares:    manager.Firmwares,
@@ -88,11 +107,7 @@ func (s *PeerService) peerResourcesWithProfile(publicKey giznet.PublicKey, sessi
 		Gameplay:     manager.Gameplay,
 		Tools:        manager.Tools,
 		RuntimeProfile: func() *apitypes.RuntimeProfile {
-			if sessionProfile != nil {
-				profile := *sessionProfile
-				return &profile
-			}
-			registration, ok := manager.PeerRegistration(publicKey)
+			registration, ok := registration()
 			if !ok {
 				return nil
 			}
@@ -100,7 +115,7 @@ func (s *PeerService) peerResourcesWithProfile(publicKey giznet.PublicKey, sessi
 			return &profile
 		},
 		FirmwareName: func() string {
-			registration, ok := manager.PeerRegistration(publicKey)
+			registration, ok := registration()
 			if !ok {
 				return ""
 			}

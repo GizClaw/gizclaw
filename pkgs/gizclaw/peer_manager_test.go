@@ -130,6 +130,45 @@ func TestManagerPeerRegistrationFollowsActiveConnection(t *testing.T) {
 	}
 }
 
+func TestPeerResourcesForHTTPSessionDoesNotInheritActiveConnectionRegistration(t *testing.T) {
+	manager := &Manager{}
+	key := giznet.PublicKey{1}
+	conn := &testGiznetConn{}
+	activeRegistration := runtimeprofile.Registration{
+		FirmwareName: "firmware-connection",
+		RuntimeProfile: apitypes.RuntimeProfile{
+			Name: "profile-connection",
+		},
+	}
+	manager.SetPeerUp(key, conn)
+	if !manager.SetPeerRegistration(key, conn, activeRegistration) {
+		t.Fatal("SetPeerRegistration() rejected active connection")
+	}
+	service := &PeerService{manager: manager}
+
+	unregistered := service.peerResourcesForHTTPSession(key, nil)
+	if profile := unregistered.RuntimeProfile(); profile != nil {
+		t.Fatalf("unregistered HTTP session inherited RuntimeProfile = %#v", profile)
+	}
+	if firmware := unregistered.FirmwareName(); firmware != "" {
+		t.Fatalf("unregistered HTTP session inherited firmware = %q", firmware)
+	}
+
+	sessionRegistration := runtimeprofile.Registration{
+		FirmwareName: "firmware-session",
+		RuntimeProfile: apitypes.RuntimeProfile{
+			Name: "profile-session",
+		},
+	}
+	registered := service.peerResourcesForHTTPSession(key, &sessionRegistration)
+	if profile := registered.RuntimeProfile(); profile == nil || profile.Name != "profile-session" {
+		t.Fatalf("registered HTTP RuntimeProfile = %#v", profile)
+	}
+	if firmware := registered.FirmwareName(); firmware != "firmware-session" {
+		t.Fatalf("registered HTTP firmware = %q", firmware)
+	}
+}
+
 func TestManagerSetPeerUpAndDownUpdatesRuntime(t *testing.T) {
 	manager := &Manager{}
 	key := giznet.PublicKey{1}

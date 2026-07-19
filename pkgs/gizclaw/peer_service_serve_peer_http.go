@@ -152,12 +152,7 @@ func (s *PeerService) edgeOpenAIHTTPHandler(sessions *publiclogin.SessionManager
 			_ = json.NewEncoder(w).Encode(apitypes.NewErrorResponse("EDGE_CLIENT_REQUIRED", "edge public HTTP only proxies active client peers"))
 			return
 		}
-		var profile *apitypes.RuntimeProfile
-		if authenticated.Registration != nil {
-			value := authenticated.Registration.RuntimeProfile
-			profile = &value
-		}
-		resources := s.peerResourcesWithProfile(publicKey, profile)
+		resources := s.peerResourcesForHTTPSession(publicKey, authenticated.Registration)
 		http.StripPrefix("/openai", s.openAIHTTPHandlerForPeer(publicKey, nil, resources)).ServeHTTP(w, r)
 	})
 }

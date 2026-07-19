@@ -1174,6 +1174,7 @@ class MePage extends StatelessWidget {
       await data.addOrSelectServer(
         name: server.name,
         accessPoint: server.accessPoint,
+        registrationToken: server.registrationToken,
       );
     } catch (_) {
       if (!context.mounted) return;
