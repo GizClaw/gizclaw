@@ -42,7 +42,7 @@ func TestMem0PlatformLifecycle(t *testing.T) {
 				_, _ = w.Write([]byte(`{"status":"pending"}`))
 				return
 			}
-			_, _ = w.Write([]byte(`{"status":"completed","results":[{"id":"fact-1","memory":"Alice likes tea","metadata":{"lane":"preferences","gizclaw.observation_id":"observation","gizclaw.turn_ids":["turn"]}}]}`))
+			_, _ = w.Write([]byte(`{"id":"event-1","status":"completed","results":[{"id":"fact-1","memory":"Alice likes tea","metadata":{"lane":"preferences","gizclaw.observation_id":"observation","gizclaw.turn_ids":["turn"]}}]}`))
 		case r.Method == http.MethodPost && r.URL.Path == "/v3/memories/search/":
 			var body map[string]any
 			_ = json.NewDecoder(r.Body).Decode(&body)
@@ -51,9 +51,9 @@ func TestMem0PlatformLifecycle(t *testing.T) {
 			if len(and) != 2 {
 				t.Errorf("search filters = %#v", filters)
 			}
-			_, _ = w.Write([]byte(`{"results":[{"id":"fact-1","memory":"Alice likes tea","score":0.91,"metadata":{"lane":"preferences","hash":"rev-1","score":"user-value"}}]}`))
+			_, _ = w.Write([]byte(`{"results":[{"id":"fact-1","hash":"rev-1","memory":"Alice likes tea","score":0.91,"metadata":{"lane":"preferences","score":"user-value"}}]}`))
 		case r.Method == http.MethodPut && r.URL.Path == "/v1/memories/fact-1":
-			_, _ = w.Write([]byte(`{"id":"fact-1","memory":"Alice prefers tea","metadata":{"hash":"rev-2"}}`))
+			_, _ = w.Write([]byte(`{"id":"fact-1","hash":"rev-2","memory":"Alice prefers tea"}`))
 		case r.Method == http.MethodDelete && r.URL.Path == "/v1/memories/fact-1":
 			w.WriteHeader(http.StatusNoContent)
 		default:
@@ -94,7 +94,7 @@ func TestMem0PlatformLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if updated.Text != text {
+	if updated.Text != text || updated.Revision != "rev-2" {
 		t.Fatalf("Update() = %+v", updated)
 	}
 	if err := store.Delete(context.Background(), DeleteRequest{ID: "fact-1"}); err != nil {
@@ -104,7 +104,7 @@ func TestMem0PlatformLifecycle(t *testing.T) {
 
 func TestMem0RejectsUnsupportedConditionalAndAttributeUpdates(t *testing.T) {
 	t.Parallel()
-	store, err := NewMem0Store(Mem0Config{Endpoint: "https://example.invalid", Flavor: Mem0Platform}, nil)
+	store, err := NewMem0Store(Mem0Config{Endpoint: "https://example.invalid", Flavor: Mem0Platform, UserID: "user"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +120,7 @@ func TestMem0RejectsUnsupportedConditionalAndAttributeUpdates(t *testing.T) {
 func TestMem0TransportRedactsAPIKey(t *testing.T) {
 	t.Parallel()
 	client := roundTripClient(func(*http.Request) (*http.Response, error) { return nil, errors.New("request secret-value failed") })
-	store, err := NewMem0Store(Mem0Config{Endpoint: "https://example.invalid", APIKey: "secret-value"}, client)
+	store, err := NewMem0Store(Mem0Config{Endpoint: "https://example.invalid", APIKey: "secret-value", UserID: "user"}, client)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -213,11 +213,12 @@ func TestMem0FiltersUseV3OperatorNames(t *testing.T) {
 func TestMem0ConstructorValidation(t *testing.T) {
 	t.Parallel()
 	for name, config := range map[string]Mem0Config{
+		"scope":                {Endpoint: "https://example.test", Flavor: Mem0Platform},
 		"flavor":               {Endpoint: "https://example.test", Flavor: "unknown"},
-		"endpoint":             {Endpoint: "relative", Flavor: Mem0Platform},
-		"userinfo":             {Endpoint: "https://user:pass@example.test", Flavor: Mem0Platform},
-		"scheme":               {Endpoint: "ftp://example.test", Flavor: Mem0Platform},
-		"poll":                 {Endpoint: "https://example.test", Flavor: Mem0Platform, PollInterval: -1},
+		"endpoint":             {Endpoint: "relative", Flavor: Mem0Platform, UserID: "user"},
+		"userinfo":             {Endpoint: "https://user:pass@example.test", Flavor: Mem0Platform, UserID: "user"},
+		"scheme":               {Endpoint: "ftp://example.test", Flavor: Mem0Platform, UserID: "user"},
+		"poll":                 {Endpoint: "https://example.test", Flavor: Mem0Platform, UserID: "user", PollInterval: -1},
 		"self hosted endpoint": {Flavor: Mem0SelfHosted},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -239,7 +240,7 @@ func TestMem0HTTPStatusErrors(t *testing.T) {
 			client := roundTripClient(func(*http.Request) (*http.Response, error) {
 				return &http.Response{StatusCode: status, Body: http.NoBody, Header: make(http.Header)}, nil
 			})
-			store, err := NewMem0Store(Mem0Config{Endpoint: "https://example.test"}, client)
+			store, err := NewMem0Store(Mem0Config{Endpoint: "https://example.test", UserID: "user"}, client)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -255,7 +256,7 @@ func TestMem0WaitHonorsCancellation(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(`{"status":"pending"}`)) }))
 	t.Cleanup(server.Close)
-	store, err := NewMem0Store(Mem0Config{Endpoint: server.URL, PollInterval: time.Hour}, server.Client())
+	store, err := NewMem0Store(Mem0Config{Endpoint: server.URL, UserID: "user", PollInterval: time.Hour}, server.Client())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -272,7 +273,7 @@ func TestMem0WaitFailureAndInvalidID(t *testing.T) {
 		_, _ = w.Write([]byte(`{"status":"failed","error":"do not expose this"}`))
 	}))
 	t.Cleanup(server.Close)
-	store, err := NewMem0Store(Mem0Config{Endpoint: server.URL}, server.Client())
+	store, err := NewMem0Store(Mem0Config{Endpoint: server.URL, UserID: "user"}, server.Client())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -294,7 +295,7 @@ func TestMem0ResponseValidation(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			server := httptest.NewServer(handler)
 			t.Cleanup(server.Close)
-			store, err := NewMem0Store(Mem0Config{Endpoint: server.URL}, server.Client())
+			store, err := NewMem0Store(Mem0Config{Endpoint: server.URL, UserID: "user"}, server.Client())
 			if err != nil {
 				t.Fatal(err)
 			}

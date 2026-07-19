@@ -370,6 +370,8 @@ func TestWriteWorkspaceIdentityReadError(t *testing.T) {
 func TestResolveWorkspaceStoreConfigsPreservesAbsoluteDirs(t *testing.T) {
 	root := t.TempDir()
 	absoluteDir := filepath.Join(t.TempDir(), "files")
+	environmentDir := filepath.Join(t.TempDir(), "memory")
+	t.Setenv("GIZCLAW_MEMORY_DIR", environmentDir)
 
 	gotStorage := resolveWorkspaceStorageConfigs(root, map[string]storage.Config{
 		"fw": {
@@ -391,12 +393,19 @@ func TestResolveWorkspaceStoreConfigsPreservesAbsoluteDirs(t *testing.T) {
 			Kind:      stores.KindMemoryStore,
 			Flowcraft: &memorystore.FlowcraftConfig{Dir: "memory"},
 		},
+		"environment-memory": {
+			Kind:      stores.KindMemoryStore,
+			Flowcraft: &memorystore.FlowcraftConfig{Dir: "$GIZCLAW_MEMORY_DIR"},
+		},
 	})
 	if gotStores["kv"].Dir != absoluteDir {
 		t.Fatalf("kv store dir = %q, want %q", gotStores["kv"].Dir, absoluteDir)
 	}
 	if gotStores["memory"].Flowcraft.Dir != filepath.Join(root, "memory") {
 		t.Fatalf("flowcraft dir = %q", gotStores["memory"].Flowcraft.Dir)
+	}
+	if gotStores["environment-memory"].Flowcraft.Dir != environmentDir {
+		t.Fatalf("environment flowcraft dir = %q, want %q", gotStores["environment-memory"].Flowcraft.Dir, environmentDir)
 	}
 }
 

@@ -1145,7 +1145,7 @@ func TestMemoryRegistryMem0ExpandsEnvironment(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 	registry, err := NewWithStorageOptions(context.Background(), nil, map[string]Config{
-		"agent": {Kind: KindMemoryStore, Mem0: &memorystore.Mem0Config{Endpoint: server.URL, APIKey: "$GIZCLAW_TEST_MEM0_KEY"}},
+		"agent": {Kind: KindMemoryStore, Mem0: &memorystore.Mem0Config{Endpoint: server.URL, APIKey: "$GIZCLAW_TEST_MEM0_KEY", UserID: "user"}},
 	}, Options{HTTPClient: server.Client()})
 	if err != nil {
 		t.Fatal(err)
@@ -1170,7 +1170,7 @@ func TestMemoryRegistryVolcUsesResolver(t *testing.T) {
 	t.Cleanup(server.Close)
 	resolver := memoryVolcResolverFunc(func(context.Context, memorystore.VolcConfig) (string, error) { return "resolved-key", nil })
 	registry, err := NewWithStorageOptions(context.Background(), nil, map[string]Config{
-		"agent": {Kind: KindMemoryStore, VolcMemory: &memorystore.VolcConfig{Mem0: memorystore.Mem0Config{Endpoint: server.URL}, APIKeyID: "key-id"}},
+		"agent": {Kind: KindMemoryStore, VolcMemory: &memorystore.VolcConfig{Mem0: memorystore.Mem0Config{Endpoint: server.URL, UserID: "user"}, APIKeyID: "key-id"}},
 	}, Options{VolcResolver: resolver, HTTPClient: server.Client()})
 	if err != nil {
 		t.Fatal(err)

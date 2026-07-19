@@ -45,7 +45,7 @@ func TestVolcStoreResolvesKeyAndUsesMem0DataPlane(t *testing.T) {
 func TestVolcStoreSkipsResolverForExplicitMem0Key(t *testing.T) {
 	t.Parallel()
 	resolver := &fakeVolcResolver{}
-	_, err := OpenVolcStore(context.Background(), VolcConfig{Mem0: Mem0Config{Endpoint: "https://example.invalid", APIKey: "explicit"}}, resolver, nil)
+	_, err := OpenVolcStore(context.Background(), VolcConfig{Mem0: Mem0Config{Endpoint: "https://example.invalid", APIKey: "explicit", UserID: "user"}}, resolver, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -107,10 +107,10 @@ func TestVolcValidationAndErrorMapping(t *testing.T) {
 	if _, err := newVolcCredentialClient(VolcConfig{ControlEndpoint: "ftp://example.test", AccessKeyID: "ak", AccessKeySecret: "sk"}); !errors.Is(err, ErrInvalidInput) {
 		t.Fatalf("scheme error = %v", err)
 	}
-	if _, err := OpenVolcStore(context.Background(), VolcConfig{Mem0: Mem0Config{Endpoint: "https://example.test"}}, fakeVolcResolverError{}, nil); !errors.Is(err, ErrUnavailable) {
+	if _, err := OpenVolcStore(context.Background(), VolcConfig{Mem0: Mem0Config{Endpoint: "https://example.test", UserID: "user"}}, fakeVolcResolverError{}, nil); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("resolver error = %v", err)
 	}
-	if _, err := OpenVolcStore(context.Background(), VolcConfig{Mem0: Mem0Config{Endpoint: "https://example.test"}}, memoryVolcEmptyResolver{}, nil); !errors.Is(err, ErrUnavailable) {
+	if _, err := OpenVolcStore(context.Background(), VolcConfig{Mem0: Mem0Config{Endpoint: "https://example.test", UserID: "user"}}, memoryVolcEmptyResolver{}, nil); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("empty resolver error = %v", err)
 	}
 	for status, want := range map[int]error{http.StatusNotFound: ErrNotFound, http.StatusBadRequest: ErrInvalidInput, http.StatusBadGateway: ErrUnavailable} {

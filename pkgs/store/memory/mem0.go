@@ -50,6 +50,9 @@ func NewMem0Store(config Mem0Config, client HTTPClient) (*Mem0Store, error) {
 	if config.Flavor != Mem0Platform && config.Flavor != Mem0SelfHosted {
 		return nil, fmt.Errorf("%w: unknown mem0 flavor %q", ErrInvalidInput, config.Flavor)
 	}
+	if config.Flavor == Mem0Platform && !hasMem0EntityScope(config) {
+		return nil, fmt.Errorf("%w: mem0 platform requires at least one app_id, user_id, agent_id, or run_id", ErrInvalidInput)
+	}
 	if config.Endpoint == "" {
 		if config.Flavor == Mem0Platform {
 			config.Endpoint = "https://api.mem0.ai"
@@ -65,6 +68,13 @@ func NewMem0Store(config Mem0Config, client HTTPClient) (*Mem0Store, error) {
 		return nil, err
 	}
 	return &Mem0Store{config: config, client: transport}, nil
+}
+
+func hasMem0EntityScope(config Mem0Config) bool {
+	return strings.TrimSpace(config.AppID) != "" ||
+		strings.TrimSpace(config.UserID) != "" ||
+		strings.TrimSpace(config.AgentID) != "" ||
+		strings.TrimSpace(config.RunID) != ""
 }
 
 // Observe submits raw messages for Mem0 extraction.
@@ -206,7 +216,7 @@ func (s *Mem0Store) Wait(ctx context.Context, operationID string) (ObserveResult
 		status := strings.ToLower(response.Status)
 		switch status {
 		case "completed", "complete", "succeeded", "success":
-			return ObserveResult{Facts: response.facts(), Operation: &Operation{ID: operationID, Status: OperationSucceeded}}, nil
+			return ObserveResult{Facts: response.resultFacts(), Operation: &Operation{ID: operationID, Status: OperationSucceeded}}, nil
 		case "failed", "error":
 			return ObserveResult{Operation: &Operation{ID: operationID, Status: OperationFailed, Error: "mem0 operation failed"}}, nil
 		}
@@ -282,6 +292,7 @@ type mem0Envelope struct {
 	Status    string          `json:"status"`
 	Error     string          `json:"error"`
 	ID        string          `json:"id"`
+	Hash      string          `json:"hash"`
 	Memory    string          `json:"memory"`
 	Text      string          `json:"text"`
 	Score     float64         `json:"score"`
@@ -305,6 +316,19 @@ func (e mem0Envelope) entries() []mem0Envelope {
 	if e.ID != "" {
 		return []mem0Envelope{e}
 	}
+	return e.resultEntries()
+}
+
+func (e mem0Envelope) resultFacts() []Fact {
+	entries := e.resultEntries()
+	facts := make([]Fact, len(entries))
+	for index, entry := range entries {
+		facts[index] = entry.fact()
+	}
+	return facts
+}
+
+func (e mem0Envelope) resultEntries() []mem0Envelope {
 	for _, raw := range []json.RawMessage{e.Results, e.Data} {
 		if len(raw) == 0 {
 			continue
@@ -321,8 +345,11 @@ func (e mem0Envelope) entries() []mem0Envelope {
 		}
 		var nested mem0Envelope
 		if json.Unmarshal(raw, &nested) == nil {
-			if entries := nested.entries(); len(entries) > 0 {
+			if entries := nested.resultEntries(); len(entries) > 0 {
 				return entries
+			}
+			if nested.ID != "" {
+				return []mem0Envelope{nested}
 			}
 		}
 	}
@@ -338,8 +365,9 @@ func (e mem0Envelope) fact() Fact {
 	if attributes == nil {
 		attributes = make(map[string]any)
 	}
-	revision := ""
-	if hash, ok := attributes["hash"].(string); ok {
+	revision := e.Hash
+	if revision == "" {
+		hash, _ := attributes["hash"].(string)
 		revision = hash
 	}
 	observationID, _ := attributes[mem0ObservationIDMetadata].(string)

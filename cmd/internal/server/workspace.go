@@ -154,7 +154,7 @@ func resolveWorkspaceStoreConfigs(root string, cfgs map[string]stores.Config) ma
 		}
 		if cfg.Flowcraft != nil {
 			flowcraft := *cfg.Flowcraft
-			flowcraft.Dir = resolveWorkspaceDir(root, flowcraft.Dir)
+			flowcraft.Dir = resolveWorkspaceDir(root, os.ExpandEnv(flowcraft.Dir))
 			cfg.Flowcraft = &flowcraft
 		}
 		resolved[name] = cfg
