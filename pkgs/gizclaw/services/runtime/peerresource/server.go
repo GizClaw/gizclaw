@@ -811,6 +811,9 @@ func (s *Server) handleWorkflowGet(ctx context.Context, req *rpcapi.RPCRequest) 
 		return internalError(req.Id, err.Error())
 	}
 	if rpcResp != nil {
+		if isNotFoundResponse(rpcResp) {
+			return statusError(req.Id, http.StatusNotFound, "workflow not found")
+		}
 		return withRequestID(req.Id, rpcResp)
 	}
 	return resultResponse(req.Id, rpcapi.WorkflowGetResponse{
@@ -884,6 +887,9 @@ func (s *Server) handleModelGet(ctx context.Context, req *rpcapi.RPCRequest) *rp
 	}
 	item, response := s.getModelValue(ctx, binding.ResourceId)
 	if response != nil {
+		if isNotFoundResponse(response) {
+			return statusError(req.Id, http.StatusNotFound, "model not found")
+		}
 		return withRequestID(req.Id, response)
 	}
 	projected, err := modelRPCProjection(params.Alias, binding, item)
@@ -975,6 +981,9 @@ func (s *Server) handleVoiceGet(ctx context.Context, req *rpcapi.RPCRequest) *rp
 		return internalError(req.Id, err.Error())
 	}
 	if rpcResp != nil {
+		if isNotFoundResponse(rpcResp) {
+			return statusError(req.Id, http.StatusNotFound, "voice not found")
+		}
 		return withRequestID(req.Id, rpcResp)
 	}
 	return resultResponse(req.Id, rpcapi.VoiceGetResponse{

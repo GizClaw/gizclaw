@@ -680,13 +680,20 @@ class MobileDataController extends ChangeNotifier {
     String? profileName;
     String? profileRevision;
     for (final collection in appWorkflowCollections) {
+      final collectionItems = <Workflow>[];
       String? cursor;
       do {
-        final response = await client.listWorkflows(
-          collection: collection.id,
-          cursor: cursor,
-          limit: 200,
-        );
+        final WorkflowListResponse response;
+        try {
+          response = await client.listWorkflows(
+            collection: collection.id,
+            cursor: cursor,
+            limit: 200,
+          );
+        } on RpcError catch (error) {
+          if (error.code == 404 && cursor == null) break;
+          rethrow;
+        }
         profileName ??= response.runtimeProfileName;
         profileRevision ??= response.runtimeProfileRevision;
         if (response.runtimeProfileName != profileName ||
@@ -702,12 +709,13 @@ class MobileDataController extends ChangeNotifier {
           if (!aliases.add(workflow.alias)) {
             throw StateError('Duplicate workflow alias ${workflow.alias}');
           }
-          loaded.add(workflow.deepCopy());
+          collectionItems.add(workflow.deepCopy());
         }
         cursor = response.hasNext && response.hasNextCursor()
             ? response.nextCursor
             : null;
       } while (cursor != null && cursor.isNotEmpty);
+      loaded.addAll(collectionItems);
     }
     if (!isCurrent()) return;
     _workflowResources = List.unmodifiable(loaded);

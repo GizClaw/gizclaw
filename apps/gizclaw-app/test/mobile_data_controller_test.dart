@@ -168,6 +168,34 @@ void main() {
     expect(client.requests.single.hasParameters(), isFalse);
   });
 
+  test('treats a missing workflow collection as empty', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    final client = _PartialWorkflowCatalogClient();
+    final connection = _RefreshTestConnection(
+      profile: _profile('gizclaw.local:9820'),
+      client: client,
+      serverId: 'server-a',
+    );
+    final controller = MobileDataController(
+      database: database,
+      connectionController: connection,
+      dataRepository: _ReconnectRepository(database),
+    )..connectionState = MobileConnectionState.connected;
+    addTearDown(controller.close);
+
+    await controller.refresh(client: client, serverId: 'server-a');
+
+    expect(client.collections, [
+      'assistants',
+      'translates',
+      'raids',
+      'story-teller',
+      'role-play',
+    ]);
+    expect(controller.workflows.map((workflow) => workflow.name), ['chat']);
+    expect(controller.lastError, isNull);
+  });
+
   test('waits for an in-flight refresh before closing resources', () async {
     final database = _TrackingDatabase();
     final client = _RunWorkspaceClient();
@@ -1414,6 +1442,39 @@ class _RunWorkspaceClient extends GizClawClient {
   @override
   Future<ServerGetRunWorkspaceResponse> getRunWorkspace() async {
     return ServerGetRunWorkspaceResponse(value: PeerRunWorkspaceState());
+  }
+}
+
+class _PartialWorkflowCatalogClient extends _RunWorkspaceClient {
+  final collections = <String>[];
+
+  @override
+  Future<WorkflowListResponse> listWorkflows({
+    required String collection,
+    String? cursor,
+    int? limit,
+  }) async {
+    collections.add(collection);
+    if (collection == 'translates') {
+      throw RpcError(404, 'workflow collection not found');
+    }
+    return WorkflowListResponse(
+      items: collection == 'assistants'
+          ? [
+              Workflow(
+                alias: 'chat',
+                collection: 'assistants',
+                driver: WorkflowDriver.WORKFLOW_DRIVER_FLOWCRAFT,
+                i18n: {
+                  'en': AliasI18nText(displayName: 'Chat'),
+                  'zh-CN': AliasI18nText(displayName: '聊天'),
+                }.entries,
+              ),
+            ]
+          : const [],
+      runtimeProfileName: 'default',
+      runtimeProfileRevision: 'revision-1',
+    );
   }
 }
 

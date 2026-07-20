@@ -1036,6 +1036,22 @@ int main(void) {
     return 1;
   }
 
+  fake_webrtc.response_mode = FAKE_RESPONSE_PROTO_ERROR;
+  memset(&speech_error, 0, sizeof(speech_error));
+  rc = gzc_rpc_speech_synthesize(
+      client,
+      &synthesize_request,
+      &synthesis_metadata,
+      count_speech_audio,
+      &stream_count,
+      &speech_error);
+  if (expect(
+          rc == GZC_ERR_RPC && speech_error.code == 7 &&
+              str_eq_cstr(speech_error.message, "denied"),
+          "speech synthesis preserves RPC error storage") != 0) {
+    return 1;
+  }
+
   fake_webrtc.response_mode = FAKE_RESPONSE_PROTO;
   upload = NULL;
   rc = gzc_rpc_speech_transcribe_open(NULL, &transcribe_request, &upload);

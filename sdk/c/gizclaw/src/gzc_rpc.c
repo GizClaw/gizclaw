@@ -790,6 +790,7 @@ void gzc_rpc_speech_transcribe_cancel(gzc_rpc_speech_upload_t *upload) {
 }
 
 typedef struct {
+  gzc_client_t *client;
   gizclaw_rpc_v1_SpeechSynthesizeResponse *metadata;
   gzc_rpc_speech_audio_cb on_audio;
   void *userdata;
@@ -802,10 +803,18 @@ static int speech_synthesis_frame(void *userdata, const gzc_rpc_frame_t *frame) 
   gzc_speech_synthesis_context_t *context =
       (gzc_speech_synthesis_context_t *)userdata;
   if (!context->saw_metadata) {
+    gzc_str_t response_payload;
+    int rc = gzc_client_store_rpc_response_internal(
+        context->client,
+        frame->data,
+        frame->len,
+        &response_payload);
+    if (rc != GZC_OK) {
+      context->rc = rc;
+      return rc;
+    }
     gzc_rpc_response_t response;
-    int rc = gzc_rpc_decode_response_envelope(
-        gzc_str_from_parts((const char *)frame->data, frame->len),
-        &response);
+    rc = gzc_rpc_decode_response_envelope(response_payload, &response);
     if (rc != GZC_OK) {
       context->rc = rc;
       return rc;
@@ -869,6 +878,7 @@ int gzc_rpc_speech_synthesize(
   }
   gzc_speech_synthesis_context_t context;
   memset(&context, 0, sizeof(context));
+  context.client = client;
   context.metadata = out_metadata;
   context.on_audio = on_audio;
   context.userdata = userdata;

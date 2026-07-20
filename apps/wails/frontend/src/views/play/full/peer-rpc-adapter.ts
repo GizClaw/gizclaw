@@ -316,38 +316,127 @@ export const getPeerWorkspaceHistoryAudio = async (options: RequestOptions): Pro
 export const listPeerFirmwares = (options?: RequestOptions) => currentDataClient ? snapshotResult("firmwares") : callRPC(RPC_METHODS["server.firmware.list"], options);
 const playCollections = ["assistants", "translates", "raids", "story-teller", "role-play"] as const;
 
-export const listPeerWorkspaces = async (options?: RequestOptions): Promise<ApiResult<RPCWorkspaceListResponse>> => {
-  if (currentDataClient) return snapshotResult<RPCWorkspaceListResponse>("workspaces");
-  const results = await Promise.all(playCollections.map((collection) => callRPC(RPC_METHODS["server.workspace.list"], {
-    query: { ...(options?.query ?? {}), collection },
-  })));
+type RuntimeCollectionPage<T> = {
+  has_next: boolean;
+  items: T[];
+  next_cursor?: string;
+  runtime_profile_name: string;
+  runtime_profile_revision: string;
+};
+
+function rpcErrorCode(error: unknown): number | undefined {
+  return isRecord(error) && typeof error.code === "number" ? error.code : undefined;
+}
+
+async function drainRuntimeCollection<T>(
+  collection: string,
+  options: RequestOptions | undefined,
+  fetchPage: (options: RequestOptions) => Promise<ApiResult<RuntimeCollectionPage<T>>>,
+  missingIsEmpty = false,
+): Promise<ApiResult<RuntimeCollectionPage<T>>> {
+  const query = { ...(options?.query ?? {}) };
+  delete query.collection;
+  delete query.cursor;
+  const items: T[] = [];
+  const seenCursors = new Set<string>();
+  let cursor: string | undefined;
+  let runtimeProfileName = "";
+  let runtimeProfileRevision = "";
+  for (;;) {
+    const result = await fetchPage({
+      ...(options ?? {}),
+      query: { ...query, collection, ...(cursor == null ? {} : { cursor }) },
+    });
+    if (result.error != null) {
+      if (missingIsEmpty && rpcErrorCode(result.error) === 404) {
+        return {
+          data: {
+            has_next: false,
+            items: [],
+            runtime_profile_name: "",
+            runtime_profile_revision: "",
+          },
+        };
+      }
+      return { error: result.error };
+    }
+    const page = result.data;
+    if (page == null) return { error: new Error(`Collection ${collection} returned an empty response.`) };
+    if (runtimeProfileRevision !== "" && (
+      page.runtime_profile_name !== runtimeProfileName ||
+      page.runtime_profile_revision !== runtimeProfileRevision
+    )) {
+      return { error: new Error(`Runtime profile changed while loading collection ${collection}.`) };
+    }
+    runtimeProfileName = page.runtime_profile_name;
+    runtimeProfileRevision = page.runtime_profile_revision;
+    items.push(...page.items);
+    if (!page.has_next) break;
+    const nextCursor = page.next_cursor?.trim() ?? "";
+    if (nextCursor === "" || seenCursors.has(nextCursor)) {
+      return { error: new Error(`Collection ${collection} returned an invalid pagination cursor.`) };
+    }
+    seenCursors.add(nextCursor);
+    cursor = nextCursor;
+  }
+  return {
+    data: {
+      has_next: false,
+      items,
+      runtime_profile_name: runtimeProfileName,
+      runtime_profile_revision: runtimeProfileRevision,
+    },
+  };
+}
+
+function combineRuntimeCollections<T>(results: Array<ApiResult<RuntimeCollectionPage<T>>>): ApiResult<RuntimeCollectionPage<T>> {
   const failed = results.find((result) => result.error != null);
   if (failed?.error != null) return { error: failed.error };
-  const values = results.flatMap((result) => result.data?.items ?? []);
-  const metadata = results.find((result) => result.data != null)?.data;
-  return { data: {
-    has_next: false,
-    items: values,
-    runtime_profile_name: metadata?.runtime_profile_name ?? "",
-    runtime_profile_revision: metadata?.runtime_profile_revision ?? "",
-  } };
+  const items: T[] = [];
+  let runtimeProfileName = "";
+  let runtimeProfileRevision = "";
+  for (const result of results) {
+    const page = result.data;
+    if (page == null) continue;
+    if (page.runtime_profile_revision !== "") {
+      if (runtimeProfileRevision !== "" && (
+        page.runtime_profile_name !== runtimeProfileName ||
+        page.runtime_profile_revision !== runtimeProfileRevision
+      )) {
+        return { error: new Error("Runtime profile changed while loading collections.") };
+      }
+      runtimeProfileName = page.runtime_profile_name;
+      runtimeProfileRevision = page.runtime_profile_revision;
+    }
+    items.push(...page.items);
+  }
+  return {
+    data: {
+      has_next: false,
+      items,
+      runtime_profile_name: runtimeProfileName,
+      runtime_profile_revision: runtimeProfileRevision,
+    },
+  };
+}
+
+export const listPeerWorkspaces = async (options?: RequestOptions): Promise<ApiResult<RPCWorkspaceListResponse>> => {
+  if (currentDataClient) return snapshotResult<RPCWorkspaceListResponse>("workspaces");
+  return combineRuntimeCollections(await Promise.all(playCollections.map((collection) => drainRuntimeCollection(
+    collection,
+    options,
+    (pageOptions) => callRPC(RPC_METHODS["server.workspace.list"], pageOptions),
+  ))));
 };
 
 export const listPeerWorkflows = async (options?: RequestOptions): Promise<ApiResult<RPCWorkflowListResponse>> => {
   if (currentDataClient) return snapshotResult<RPCWorkflowListResponse>("workflows");
-  const results = await Promise.all(playCollections.map((collection) => callRPC(RPC_METHODS["server.workflow.list"], {
-    query: { ...(options?.query ?? {}), collection },
-  })));
-  const failed = results.find((result) => result.error != null);
-  if (failed?.error != null) return { error: failed.error };
-  const values = results.flatMap((result) => result.data?.items ?? []);
-  const metadata = results.find((result) => result.data != null)?.data;
-  return { data: {
-    has_next: false,
-    items: values,
-    runtime_profile_name: metadata?.runtime_profile_name ?? "",
-    runtime_profile_revision: metadata?.runtime_profile_revision ?? "",
-  } };
+  return combineRuntimeCollections(await Promise.all(playCollections.map((collection) => drainRuntimeCollection(
+    collection,
+    options,
+    (pageOptions) => callRPC(RPC_METHODS["server.workflow.list"], pageOptions),
+    true,
+  ))));
 };
 export const listPeerModels = (options?: RequestOptions): Promise<ApiResult<RPCModelListResponse>> => currentDataClient ? snapshotResult<RPCModelListResponse>("models") : callRPC(RPC_METHODS["server.model.list"], options);
 export const listPeerVoices = (options?: RequestOptions) => currentDataClient ? snapshotResult("voices") : callRPC(RPC_METHODS["server.voice.list"], options);
