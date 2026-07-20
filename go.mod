@@ -30,7 +30,7 @@ require (
 	github.com/pion/ice/v4 v4.2.1
 	github.com/pion/logging v0.2.4
 	github.com/pion/rtp v1.10.1
-	github.com/pion/sdp/v3 v3.0.18
+	github.com/pion/sdp/v3 v3.0.19
 	github.com/pion/turn/v4 v4.1.4
 	github.com/pion/webrtc/v4 v4.2.9
 	github.com/prometheus/prometheus v0.313.0
