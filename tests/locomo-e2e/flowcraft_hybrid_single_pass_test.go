@@ -11,10 +11,10 @@ import (
 )
 
 func TestLoCoMoFlowcraftHybridSinglePass(t *testing.T) {
-	settings := requireLiveSettings(t, liveNeeds{extraction: true, embedding: true})
+	settings := requireLiveSettings(t, liveNeeds{embedding: true})
 	resources := newFlowcraftResources(t, "flowcraft-hybrid-single-pass")
 	store, err := memoryflowcraft.New(context.Background(), memoryflowcraft.Config{
-		Loader: openAIModelLoader{apiKey: settings.apiKey, baseURL: settings.baseURL},
+		Loader: settings.loader(),
 		Extraction: memoryflowcraft.ExtractionConfig{
 			Model: settings.extractionModel, Mode: recall.LLMExtractionSinglePass,
 		},
@@ -32,5 +32,7 @@ func TestLoCoMoFlowcraftHybridSinglePass(t *testing.T) {
 	}
 	profile := "flowcraft_hybrid_single_pass"
 	fingerprint := configFingerprint(profile, settings.extractionModel, settings.embeddingModel, settings.rerankModel)
-	runLiveProfile(t, settings, profile, fingerprint, store, resources.closer(store))
+	runLiveProfile(t, settings, profile, fingerprint, reportModels{
+		Extraction: settings.extractionModel, Embedding: settings.embeddingModel, Rerank: settings.rerankModel,
+	}, store, resources.closer(store))
 }

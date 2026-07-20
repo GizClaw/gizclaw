@@ -44,36 +44,6 @@ class MobileDataRepository {
     return (await query.getSingleOrNull())?.id;
   }
 
-  Stream<List<WorkflowCard>> watchWorkflows(
-    String serverId, {
-    required String locale,
-  }) {
-    return watchWorkflowCatalog(serverId, locale: locale).map(
-      (items) => items
-          .where(
-            (item) => item.source == ResourceSource.RESOURCE_SOURCE_RUNTIME,
-          )
-          .toList(growable: false),
-    );
-  }
-
-  Stream<List<WorkflowCard>> watchWorkflowCatalog(
-    String serverId, {
-    required String locale,
-  }) {
-    final query = database.select(database.workflowEntries)
-      ..where((row) => row.serverId.equals(serverId))
-      ..orderBy([
-        (row) => OrderingTerm.asc(row.source),
-        (row) => OrderingTerm.asc(row.name),
-      ]);
-    return query.watch().map(
-      (rows) => rows
-          .map((row) => _workflowCardFromRow(row, locale))
-          .toList(growable: false),
-    );
-  }
-
   Stream<List<WorkspaceCard>> watchWorkspaces(String serverId) {
     final query = database.select(database.workspaceEntries)
       ..where((row) => row.serverId.equals(serverId))
@@ -132,40 +102,6 @@ class MobileDataRepository {
     );
   }
 
-  Future<bool> hasWorkflow(
-    String serverId,
-    String name, {
-    required ResourceSource source,
-  }) async {
-    final query = database.select(database.workflowEntries)
-      ..where(
-        (row) =>
-            row.serverId.equals(serverId) &
-            row.source.equals(source.value) &
-            row.name.equals(name),
-      )
-      ..limit(1);
-    return await query.getSingleOrNull() != null;
-  }
-
-  Future<WorkflowCard?> workflowCard(
-    String serverId,
-    String name, {
-    required String locale,
-    required ResourceSource source,
-  }) async {
-    final query = database.select(database.workflowEntries)
-      ..where(
-        (row) =>
-            row.serverId.equals(serverId) &
-            row.source.equals(source.value) &
-            row.name.equals(name),
-      )
-      ..limit(1);
-    final row = await query.getSingleOrNull();
-    return row == null ? null : _workflowCardFromRow(row, locale);
-  }
-
   Future<Workspace?> workspaceDocument(String serverId, String name) async {
     final query = database.select(database.workspaceEntries)
       ..where((row) => row.serverId.equals(serverId) & row.name.equals(name))
@@ -197,23 +133,9 @@ class MobileDataRepository {
     required GizClawClient client,
     required String endpoint,
     required bool Function() isCurrent,
-    required String locale,
     required String serverId,
   }) async {
     final warnings = <MobileDataRefreshWarning>[];
-    try {
-      await _refreshWorkflowSnapshot(
-        client: client,
-        endpoint: endpoint,
-        isCurrent: isCurrent,
-        locale: locale,
-        serverId: serverId,
-      );
-    } catch (error) {
-      warnings.add(MobileDataRefreshWarning(scope: 'Workflows', error: error));
-    }
-    if (!isCurrent()) return warnings;
-
     try {
       await refreshWorkspaceSnapshot(
         client: client,
@@ -328,66 +250,6 @@ class MobileDataRepository {
     );
   }
 
-  Future<bool> _refreshWorkflowSnapshot({
-    required GizClawClient client,
-    required String endpoint,
-    required bool Function() isCurrent,
-    required String locale,
-    required String serverId,
-  }) async {
-    final workflows = await _allWorkflows(client);
-    if (!isCurrent()) return false;
-    final refreshedAt = DateTime.now().toUtc();
-
-    try {
-      await database.transaction(() async {
-        _requireCurrent(isCurrent);
-        await _upsertServer(
-          endpoint: endpoint,
-          refreshedAt: refreshedAt,
-          serverId: serverId,
-        );
-        _requireCurrent(isCurrent);
-        await (database.delete(
-          database.workflowEntries,
-        )..where((row) => row.serverId.equals(serverId))).go();
-        _requireCurrent(isCurrent);
-        await database.batch((batch) {
-          batch.insertAllOnConflictUpdate(
-            database.workflowEntries,
-            workflows.map((item) {
-              final workflow = item.workflow;
-              return WorkflowEntriesCompanion.insert(
-                serverId: serverId,
-                source: item.source.value,
-                name: workflow.name,
-                locale: Value(locale),
-                description: '',
-                driver: workflow.spec.driver.name,
-                iconPng: const Value(null),
-                rawProtobuf: Uint8List.fromList(workflow.writeToBuffer()),
-                refreshedAt: refreshedAt,
-              );
-            }).toList(),
-          );
-        });
-        _requireCurrent(isCurrent);
-        await database
-            .into(database.syncStates)
-            .insertOnConflictUpdate(
-              SyncStatesCompanion.insert(
-                serverId: serverId,
-                scope: 'workflow-snapshot',
-                lastSuccessfulRefreshAt: Value(refreshedAt),
-              ),
-            );
-      });
-    } on _StaleRefresh {
-      return false;
-    }
-    return true;
-  }
-
   Future<void> _upsertServer({
     required String endpoint,
     required DateTime refreshedAt,
@@ -482,37 +344,6 @@ void _requireCurrent(bool Function() isCurrent) {
   if (!isCurrent()) throw const _StaleRefresh();
 }
 
-Future<List<_SourcedWorkflow>> _allWorkflows(GizClawClient client) async {
-  final items = <_SourcedWorkflow>[];
-  for (final source in const [
-    ResourceSource.RESOURCE_SOURCE_RUNTIME,
-    ResourceSource.RESOURCE_SOURCE_OWNED,
-  ]) {
-    String? cursor;
-    do {
-      final response = await client.listWorkflows(
-        source: source,
-        cursor: cursor,
-        limit: 100,
-      );
-      items.addAll(
-        response.items.map(
-          (workflow) => _SourcedWorkflow(source: source, workflow: workflow),
-        ),
-      );
-      cursor = response.hasNext ? response.nextCursor : null;
-    } while (cursor != null && cursor.isNotEmpty);
-  }
-  return items;
-}
-
-class _SourcedWorkflow {
-  const _SourcedWorkflow({required this.source, required this.workflow});
-
-  final ResourceSource source;
-  final Workflow workflow;
-}
-
 Future<List<Workspace>> _allWorkspaces(GizClawClient client) async {
   final items = <Workspace>[];
   String? cursor;
@@ -576,17 +407,6 @@ String _friendGroupKey(FriendGroupObject group) {
   if (group.id.trim().isNotEmpty) return group.id.trim();
   if (group.workspaceName.trim().isNotEmpty) return group.workspaceName.trim();
   return group.name.trim();
-}
-
-WorkflowCard _workflowCardFromRow(WorkflowEntry row, String locale) {
-  return WorkflowCard.fromServer(
-    name: row.name,
-    description: '',
-    driver: row.driver,
-    source:
-        ResourceSource.valueOf(row.source) ??
-        ResourceSource.RESOURCE_SOURCE_UNSPECIFIED,
-  );
 }
 
 WorkspaceCard _workspaceCardFromRow(WorkspaceEntry row) {

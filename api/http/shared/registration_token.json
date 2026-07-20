@@ -10,11 +10,10 @@
     "schemas": {
       "RegistrationToken": {
         "type": "object",
-        "required": ["name", "firmware_name", "runtime_profile_name", "created_at"],
+        "required": ["name", "runtime_profile_name", "created_at"],
         "additionalProperties": false,
         "properties": {
           "name": { "type": "string" },
-          "firmware_name": { "type": "string" },
           "runtime_profile_name": { "type": "string" },
           "created_at": {
             "type": "string",

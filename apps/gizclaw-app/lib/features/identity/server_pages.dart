@@ -158,7 +158,6 @@ class AddServerPage extends StatefulWidget {
 class _AddServerPageState extends State<AddServerPage> {
   final _nameController = TextEditingController();
   final _accessPointController = TextEditingController();
-  final _registrationTokenController = TextEditingController();
   bool _busy = false;
   Object? _error;
 
@@ -166,7 +165,6 @@ class _AddServerPageState extends State<AddServerPage> {
   void dispose() {
     _nameController.dispose();
     _accessPointController.dispose();
-    _registrationTokenController.dispose();
     super.dispose();
   }
 
@@ -203,7 +201,6 @@ class _AddServerPageState extends State<AddServerPage> {
       await MobileDataScope.watch(context).addServer(
         name: _nameController.text,
         accessPoint: _accessPointController.text,
-        registrationToken: _registrationTokenController.text,
       );
       if (mounted) Navigator.of(context).pop();
     } catch (error) {
@@ -266,19 +263,6 @@ class _AddServerPageState extends State<AddServerPage> {
               controller: _accessPointController,
               placeholder: 'gizclaw.example.com:9820',
               keyboardType: TextInputType.url,
-              autocorrect: false,
-              enableSuggestions: false,
-              textInputAction: TextInputAction.done,
-              padding: const EdgeInsets.all(14),
-              onChanged: (_) => setState(() => _error = null),
-              onSubmitted: (_) => _add(),
-            ),
-            const SizedBox(height: 10),
-            CupertinoTextField(
-              key: const ValueKey('server-registration-token-field'),
-              controller: _registrationTokenController,
-              placeholder: 'Registration token (optional)',
-              obscureText: true,
               autocorrect: false,
               enableSuggestions: false,
               textInputAction: TextInputAction.done,

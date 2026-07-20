@@ -60,6 +60,7 @@
   "readyToShare": "可以扫码连接",
   "lanAddress": "局域网地址",
   "noLANAddress": "没有可用的局域网地址",
+  "notReadyToShare": "启动服务器后即可分享",
   "serverPublicKey": "服务器公钥",
   "copyServerPublicKey": "复制服务器公钥",
   "serverControls": "服务器控制",

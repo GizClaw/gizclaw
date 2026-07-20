@@ -84,7 +84,8 @@ message ServerRegisterRequest {
 }
 
 message ServerRegisterResponse {
-  string firmware_name = 1;
+  reserved 1;
+  reserved "firmware_name";
   string runtime_profile_name = 2;
 }
 message Runtime {

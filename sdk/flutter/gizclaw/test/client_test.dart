@@ -30,10 +30,7 @@ void main() {
             id: request.id,
             payload: encodeRpcResponsePayload(
               'server.register',
-              ServerRegisterResponse(
-                firmwareName: 'firmware-a',
-                runtimeProfileName: 'profile-a',
-              ),
+              ServerRegisterResponse(runtimeProfileName: 'profile-a'),
             ),
           ).writeToBuffer(),
         ),

@@ -562,8 +562,7 @@ func TestPeerServiceEdgeOpenAIRequiresActiveClientPeer(t *testing.T) {
 			return runtimeprofile.Registration{}, errors.New("invalid token")
 		}
 		return runtimeprofile.Registration{
-			TokenName:    "edge-runtime",
-			FirmwareName: "edge-firmware",
+			TokenName: "edge-runtime",
 			RuntimeProfile: apitypes.RuntimeProfile{
 				Name: "edge-runtime",
 				Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{Models: &profileModels}},

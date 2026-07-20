@@ -36,11 +36,10 @@ const (
 
 // Server owns RuntimeProfile and RegistrationToken state.
 type Server struct {
-	Store          kv.Store
-	Now            func() time.Time
-	Random         io.Reader
-	FirmwareExists func(context.Context, string) (bool, error)
-	mutationMu     sync.Mutex
+	Store      kv.Store
+	Now        func() time.Time
+	Random     io.Reader
+	mutationMu sync.Mutex
 }
 
 type AdminService interface {
@@ -60,7 +59,6 @@ var _ AdminService = (*Server)(nil)
 // Registration is the connection-local result of consuming a RegistrationToken.
 type Registration struct {
 	TokenName      string
-	FirmwareName   string
 	RuntimeProfile apitypes.RuntimeProfile
 }
 
@@ -90,16 +88,7 @@ func (s *Server) ResolveRegistration(ctx context.Context, rawToken string) (Regi
 	if err != nil {
 		return Registration{}, err
 	}
-	if s.FirmwareExists != nil {
-		exists, err := s.FirmwareExists(ctx, record.FirmwareName)
-		if err != nil {
-			return Registration{}, err
-		}
-		if !exists {
-			return Registration{}, kv.ErrNotFound
-		}
-	}
-	return Registration{TokenName: record.Name, FirmwareName: record.FirmwareName, RuntimeProfile: profile}, nil
+	return Registration{TokenName: record.Name, RuntimeProfile: profile}, nil
 }
 
 func (s *Server) ListRuntimeProfiles(ctx context.Context, request adminhttp.ListRuntimeProfilesRequestObject) (adminhttp.ListRuntimeProfilesResponseObject, error) {
@@ -239,13 +228,12 @@ func (s *Server) CreateRegistrationToken(ctx context.Context, request adminhttp.
 	}
 	in := *request.Body
 	name := strings.TrimSpace(in.Name)
-	if err := customid.ValidateField("name", name); err != nil {
+	if err := customid.ValidateRegistrationTokenName(name); err != nil {
 		return adminhttp.CreateRegistrationToken400JSONResponse(invalid(err.Error())), nil
 	}
-	firmwareName := strings.TrimSpace(in.FirmwareName)
 	profileName := strings.TrimSpace(in.RuntimeProfileName)
-	if firmwareName == "" || profileName == "" {
-		return adminhttp.CreateRegistrationToken400JSONResponse(invalid("firmware_name and runtime_profile_name are required")), nil
+	if profileName == "" {
+		return adminhttp.CreateRegistrationToken400JSONResponse(invalid("runtime_profile_name is required")), nil
 	}
 	s.mutationMu.Lock()
 	defer s.mutationMu.Unlock()
@@ -260,22 +248,13 @@ func (s *Server) CreateRegistrationToken(ctx context.Context, request adminhttp.
 		}
 		return adminhttp.CreateRegistrationToken500JSONResponse(internalError(err)), nil
 	}
-	if s.FirmwareExists != nil {
-		exists, err := s.FirmwareExists(ctx, firmwareName)
-		if err != nil {
-			return adminhttp.CreateRegistrationToken500JSONResponse(internalError(err)), nil
-		}
-		if !exists {
-			return adminhttp.CreateRegistrationToken400JSONResponse(invalid("firmware_name does not exist")), nil
-		}
-	}
 	raw, err := s.newUniqueToken(ctx, store)
 	if err != nil {
 		return adminhttp.CreateRegistrationToken500JSONResponse(internalError(err)), nil
 	}
 	digest := tokenDigest(raw)
 	createdAt := s.now()
-	record := tokenRecord{RegistrationToken: apitypes.RegistrationToken{Name: name, FirmwareName: firmwareName, RuntimeProfileName: profileName, CreatedAt: createdAt}, TokenHash: digest}
+	record := tokenRecord{RegistrationToken: apitypes.RegistrationToken{Name: name, RuntimeProfileName: profileName, CreatedAt: createdAt}, TokenHash: digest}
 	encoded, err := json.Marshal(record)
 	if err != nil {
 		return adminhttp.CreateRegistrationToken500JSONResponse(internalError(err)), nil
@@ -283,7 +262,7 @@ func (s *Server) CreateRegistrationToken(ctx context.Context, request adminhttp.
 	if err := store.BatchSet(ctx, []kv.Entry{{Key: tokenKey(name), Value: encoded}, {Key: tokenHashKey(digest), Value: []byte(name)}}); err != nil {
 		return adminhttp.CreateRegistrationToken500JSONResponse(internalError(err)), nil
 	}
-	return adminhttp.CreateRegistrationToken200JSONResponse(apitypes.RegistrationTokenCreateResult{Name: name, FirmwareName: firmwareName, RuntimeProfileName: profileName, CreatedAt: createdAt, Token: raw}), nil
+	return adminhttp.CreateRegistrationToken200JSONResponse(apitypes.RegistrationTokenCreateResult{Name: name, RuntimeProfileName: profileName, CreatedAt: createdAt, Token: raw}), nil
 }
 
 func (s *Server) GetRegistrationToken(ctx context.Context, request adminhttp.GetRegistrationTokenRequestObject) (adminhttp.GetRegistrationTokenResponseObject, error) {
@@ -363,7 +342,7 @@ func getTokenRecord(ctx context.Context, store kv.Store, name string) (tokenReco
 
 func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedName string) (apitypes.RuntimeProfile, error) {
 	name := strings.TrimSpace(in.Name)
-	if err := customid.ValidateField("name", name); err != nil {
+	if err := validateProfileName(name); err != nil {
 		return apitypes.RuntimeProfile{}, err
 	}
 	if expectedName != "" && name != expectedName {
@@ -402,6 +381,13 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedName string) (a
 		}
 	}
 	return apitypes.RuntimeProfile{Name: name, Spec: spec}, nil
+}
+
+func validateProfileName(name string) error {
+	if name == "default" {
+		return nil
+	}
+	return customid.ValidateField("name", name)
 }
 
 func normalizeResourceMap(values map[string]string) (map[string]string, error) {

@@ -14,8 +14,6 @@ import (
 	clitest "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cmd"
 )
 
-const cSDKFirmwareName = "devkit-firmware-main"
-
 func TestCSDKPing(t *testing.T) {
 	runCSDKRPC(t, "ping", cgointernal.CSDKPing)
 }
@@ -120,9 +118,7 @@ func createCSDKRegistrationToken(t *testing.T, h *clitest.Harness, scenario stri
 	tokenName := "cgo-" + scenario
 	_, _ = api.DeleteRegistrationTokenWithResponse(ctx, tokenName)
 	tokenResp, err := api.CreateRegistrationTokenWithResponse(ctx, adminhttp.RegistrationTokenUpsert{
-		Name:               tokenName,
-		FirmwareName:       cSDKFirmwareName,
-		RuntimeProfileName: profileName,
+		Name: tokenName, RuntimeProfileName: profileName,
 	})
 	if err != nil {
 		t.Fatalf("create C SDK RegistrationToken: %v", err)

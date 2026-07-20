@@ -9,7 +9,7 @@
 | `server.info.*` | Server/Peer information 的读取与更新 |
 | `server.runtime.*`、`server.status.*` | Runtime 与 status 查询 |
 | `server.run.*` | Agent、Workspace、history、memory、recall、say、reload 与 stop |
-| `server.firmware.*` | Firmware list/get 与 files download |
+| `server.firmware.*` | 仅保留兼容接口：list 为空，get/download 返回 not found；Firmware 由 Admin 独立管理，不通过注册投影 |
 | `server.workspace.*` | Workspace CRUD、history 与 history audio |
 | `server.workflow.*` | 按 source 查询 Workflow，以及 owned Workflow CRUD |
 | `server.model.*` | Model CRUD |
@@ -18,7 +18,7 @@
 | `server.contact.*` | Contact CRUD |
 | `server.friend.*` | Friend 与 invite-token operations |
 | `server.friend_group.*` | Group、member、message 与 invite-token operations |
-| `server.register` | 使用 RegistrationToken 选择当前 connection 的 Firmware 与 RuntimeProfile |
+| `server.register` | 使用 RegistrationToken 选择当前 connection 的 RuntimeProfile |
 | `server.pet.*` | Pet resource CRUD 与 drive |
 | `runtime.adopt` | 从当前 connection 的 RuntimeProfile 领养 Pet |
 | `server.pet.actions.get` | 按 Pet 获取可用 actions，不返回完整 PetDef |
