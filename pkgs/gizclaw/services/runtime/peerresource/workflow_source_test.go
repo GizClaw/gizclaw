@@ -149,6 +149,21 @@ func TestListModelsProjectsRuntimeAliases(t *testing.T) {
 	if want := []string{"extract-model", "generate-model"}; !reflect.DeepEqual(ids, want) {
 		t.Fatalf("ListModels() ids = %#v, want aliases %#v", ids, want)
 	}
+	gotResponse, err := server.GetModel(ctx, adminhttp.GetModelRequestObject{Id: "generate-model"})
+	if err != nil {
+		t.Fatalf("GetModel(alias) error = %v", err)
+	}
+	got, ok := gotResponse.(adminhttp.GetModel200JSONResponse)
+	if !ok || got.Id != "generate-model" {
+		t.Fatalf("GetModel(alias) = %#v", gotResponse)
+	}
+	canonicalResponse, err := server.GetModel(ctx, adminhttp.GetModelRequestObject{Id: "tenant-model-canonical"})
+	if err != nil {
+		t.Fatalf("GetModel(canonical) error = %v", err)
+	}
+	if _, ok := canonicalResponse.(adminhttp.GetModel404JSONResponse); !ok {
+		t.Fatalf("GetModel(canonical) = %#v, want 404", canonicalResponse)
+	}
 }
 
 func assertAliasNotFound(t *testing.T, response *rpcapi.RPCResponse, message, canonicalID string) {

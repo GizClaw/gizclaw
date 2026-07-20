@@ -3,8 +3,10 @@ package gizcli
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"net"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -78,6 +80,52 @@ func TestTranscribeSpeechStreamsReaderBeforeEOF(t *testing.T) {
 	}
 	if result.Transcript != "hello" {
 		t.Fatalf("Transcript = %q", result.Transcript)
+	}
+	if err := <-serverDone; err != nil {
+		t.Fatalf("server error = %v", err)
+	}
+}
+
+func TestTranscribeSpeechReturnsEarlyServerErrorBeforeAudioEOF(t *testing.T) {
+	serverSide, clientSide := net.Pipe()
+	defer serverSide.Close()
+	defer clientSide.Close()
+	serverDone := make(chan error, 1)
+	go func() {
+		stream, err := newRPCStream(context.Background(), serverSide)
+		if err != nil {
+			serverDone <- err
+			return
+		}
+		defer stream.Close()
+		request, requestEOS, err := stream.ReadRequestEnvelope()
+		if err == nil && requestEOS {
+			err = io.ErrUnexpectedEOF
+		}
+		if err == nil {
+			_, err = stream.WriteResponseEnvelopeForMethod(request.Method, rpcapi.Error{
+				RequestID: request.Id,
+				Code:      rpcapi.RPCErrorCodeInvalidParams,
+				Message:   "model alias is invalid",
+			}.RPCResponse())
+		}
+		if err == nil {
+			err = stream.WriteEOS()
+		}
+		serverDone <- err
+	}()
+
+	audio, writer := io.Pipe()
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	result, err := (&rpcClient{}).TranscribeSpeech(ctx, clientSide, "invalid", rpcapi.SpeechTranscribeRequest{
+		ModelAlias: "missing", ContentType: "audio/L16;rate=16000;channels=1",
+	}, audio)
+	if result != nil || err == nil || !strings.Contains(err.Error(), "model alias is invalid") {
+		t.Fatalf("TranscribeSpeech() = (%+v, %v)", result, err)
+	}
+	if _, err := writer.Write([]byte{1}); !errors.Is(err, io.ErrClosedPipe) {
+		t.Fatalf("audio writer error = %v, want closed pipe", err)
 	}
 	if err := <-serverDone; err != nil {
 		t.Fatalf("server error = %v", err)

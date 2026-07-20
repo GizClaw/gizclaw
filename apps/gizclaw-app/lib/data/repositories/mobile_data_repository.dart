@@ -365,11 +365,17 @@ Future<List<({String collection, Workspace value})>> _allWorkspaces(
   for (final collection in appWorkflowCollections) {
     String? cursor;
     do {
-      final response = await client.listWorkspaces(
-        collection: collection.id,
-        cursor: cursor,
-        limit: 100,
-      );
+      late final WorkspaceListResponse response;
+      try {
+        response = await client.listWorkspaces(
+          collection: collection.id,
+          cursor: cursor,
+          limit: 100,
+        );
+      } on RpcError catch (error) {
+        if (error.code == 404 && cursor == null) break;
+        rethrow;
+      }
       profileName ??= response.runtimeProfileName;
       profileRevision ??= response.runtimeProfileRevision;
       if (response.runtimeProfileName != profileName ||

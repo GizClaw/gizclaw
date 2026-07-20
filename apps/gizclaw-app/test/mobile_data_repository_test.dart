@@ -172,6 +172,28 @@ void main() {
     );
   });
 
+  test('treats an absent workspace collection as empty', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    final repository = MobileDataRepository(database);
+    final client = _FakeClient(
+      workspaces: [Workspace(name: 'visible', workflowAlias: 'flow-a')],
+      missingWorkspaceCollections: const {'role-play'},
+    );
+
+    await repository.refreshWorkspaceSnapshot(
+      client: client,
+      endpoint: 'local',
+      isCurrent: () => true,
+      serverId: 'server-a',
+    );
+
+    expect(
+      (await repository.watchWorkspaces('server-a').first).single.name,
+      'visible',
+    );
+  });
+
   test('workspace snapshot evidence belongs to the committing call', () async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(database.close);
@@ -360,12 +382,14 @@ class _FakeClient extends GizClawClient {
     this.friends = const [],
     this.friendGroups = const [],
     this.workspaceProfileRevisions = const {},
+    this.missingWorkspaceCollections = const {},
   }) : super(_NeverDataChannelFactory());
 
   final List<FriendGroupObject> friendGroups;
   final List<FriendObject> friends;
   final List<Workspace> workspaces;
   final Map<String, String> workspaceProfileRevisions;
+  final Set<String> missingWorkspaceCollections;
   bool failFriends = false;
   bool failFriendGroups = false;
   bool failWorkspaces = false;
@@ -392,6 +416,9 @@ class _FakeClient extends GizClawClient {
     String? prefix,
   }) async {
     if (failWorkspaces) throw StateError('workspace catalog unavailable');
+    if (missingWorkspaceCollections.contains(collection) && cursor == null) {
+      throw RpcError(404, 'workspace collection not found');
+    }
     return WorkspaceListResponse(
       items: collection == 'raids' ? workspaces : [],
       runtimeProfileName: 'default',

@@ -797,6 +797,39 @@ type AssertAssignable<T extends U, U> = T;
 type PeerRPCMethodParameter = Parameters<ReturnType<typeof createPeerRPCClient>["call"]>[0];
 // @ts-expect-error edge RPC methods must use createEdgeRPCClient.
 type PeerRPCRejectsEdgeMethod = AssertAssignable<"server.peer.assign", PeerRPCMethodParameter>;
+// @ts-expect-error streaming speech must use PeerRPCClient.transcribeSpeech.
+type PeerRPCRejectsSpeechTranscribe = AssertAssignable<"server.speech.transcribe", PeerRPCMethodParameter>;
+// @ts-expect-error streaming speech must use PeerRPCClient.synthesizeSpeech.
+type PeerRPCRejectsSpeechSynthesize = AssertAssignable<"server.speech.synthesize", PeerRPCMethodParameter>;
+
+test("createPeerRPCClient forwards dedicated streaming speech methods", async () => {
+  const audio = [new Uint8Array([1, 2])];
+  const calls: string[] = [];
+  const client = {
+    call: async () => ({}),
+    callBinary: async () => ({ body: new Uint8Array(), result: {} }),
+    transcribeSpeech: async (params: { model_alias: string }, input: Iterable<Uint8Array>) => {
+      calls.push(`transcribe:${params.model_alias}:${Array.from(input)[0]?.byteLength ?? 0}`);
+      return { transcript: "hello" };
+    },
+    synthesizeSpeech: async (params: { voice_alias: string }) => {
+      calls.push(`synthesize:${params.voice_alias}`);
+      return {
+        body: (async function* () { yield new Uint8Array([3, 4]); })(),
+        cancel: () => {},
+        result: { content_type: "audio/pcm" },
+      };
+    },
+  } as unknown as WebRTCRPCClient;
+  const rpc = createPeerRPCClient(client);
+
+  assert.equal((await rpc.transcribeSpeech({ model_alias: "2fa-asr", content_type: "audio/L16;rate=16000;channels=1" }, audio)).transcript, "hello");
+  const synthesis = await rpc.synthesizeSpeech({ voice_alias: "2fa-voice", text: "hello", accepted_content_types: ["audio/pcm"] });
+  let synthesizedBytes = 0;
+  for await (const chunk of synthesis.body) synthesizedBytes += chunk.byteLength;
+  assert.equal(synthesizedBytes, 2);
+  assert.deepEqual(calls, ["transcribe:2fa-asr:2", "synthesize:2fa-voice"]);
+});
 
 test("createWebRTCFetch turns generated-client fetch calls into RPC calls", async () => {
   const calls: Array<{ method: string; params: unknown }> = [];

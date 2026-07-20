@@ -13,6 +13,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 )
 
 const (
@@ -464,17 +465,7 @@ func validateSpeechSynthesizeRequest(request rpcapi.SpeechSynthesizeRequest, max
 }
 
 func validRuntimeAlias(value string) bool {
-	if value == "" || len(value) > 63 || value[0] < 'a' || value[0] > 'z' {
-		return false
-	}
-	for i := 1; i < len(value); i++ {
-		ch := value[i]
-		if (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '-' {
-			continue
-		}
-		return false
-	}
-	return value[len(value)-1] != '-'
+	return runtimeprofile.ValidateAlias("speech alias", value) == nil
 }
 
 func speechRPCError(err error) (rpcapi.RPCErrorCode, string) {

@@ -29,18 +29,21 @@ func (s *Server) GetModel(ctx context.Context, request adminhttp.GetModelRequest
 	if s.Models == nil {
 		return adminhttp.GetModel500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "model service not configured")), nil
 	}
-	response, err := s.Models.GetModel(ctx, request)
+	alias := strings.TrimSpace(request.Id)
+	resourceID, ok := s.ResolveModelAlias(alias)
+	if !ok {
+		return adminhttp.GetModel404JSONResponse(apitypes.NewErrorResponse("MODEL_NOT_FOUND", "model not found")), nil
+	}
+	response, err := s.Models.GetModel(ctx, adminhttp.GetModelRequestObject{Id: resourceID})
 	if err != nil {
 		return nil, err
 	}
-	_, rpcResponse, decodeErr := adminResult[apitypes.Model](response.VisitGetModelResponse)
+	item, rpcResponse, decodeErr := adminResult[apitypes.Model](response.VisitGetModelResponse)
 	if decodeErr != nil || rpcResponse != nil {
 		return response, nil
 	}
-	if !s.profileAllows(profileModels, request.Id) {
-		return adminhttp.GetModel404JSONResponse(apitypes.NewErrorResponse("MODEL_NOT_FOUND", "model not found")), nil
-	}
-	return response, nil
+	item.Id = alias
+	return adminhttp.GetModel200JSONResponse(item), nil
 }
 
 func (s *Server) ListVoices(ctx context.Context, request adminhttp.ListVoicesRequestObject) (adminhttp.ListVoicesResponseObject, error) {

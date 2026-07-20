@@ -1,5 +1,5 @@
 import { GIZCLAW_SERVICE_EDGE_RPC, GIZCLAW_SERVICE_PEER_RPC, WebRTCRPCClient } from "./index.ts";
-import type { RPCBinaryCallResult, RPCCallOptions, WebRTCRPCClientOptions, WebRTCRPCDataChannelFactory } from "./index.ts";
+import type { RPCBinaryCallResult, RPCCallOptions, RPCStreamingCallResult, WebRTCRPCClientOptions, WebRTCRPCDataChannelFactory } from "./index.ts";
 import type { RPCMethodMap as GeneratedRPCMethodMap, RPCMethodName as GeneratedRPCMethodName } from "./generated/rpc/method-map.ts";
 import type * as RPCPayload from "./generated/rpc/payload-codec.ts";
 
@@ -48,10 +48,11 @@ export type RPCMethodMap = Override<GeneratedRPCMethodMap, {
   }>;
 }>;
 export type EdgeRPCMethodName = Extract<RPCMethodName, "server.peer.lookup" | "server.peer.assign" | "server.route.resolve">;
-export type PeerRPCMethodName = Exclude<RPCMethodName, EdgeRPCMethodName>;
+export type StreamingPeerRPCMethodName = Extract<RPCMethodName, "server.speech.transcribe" | "server.speech.synthesize">;
+export type PeerRPCMethodName = Exclude<RPCMethodName, EdgeRPCMethodName | StreamingPeerRPCMethodName>;
 
 export type PeerRPCClientOptions = Omit<WebRTCRPCClientOptions, "service">;
-export type PeerRPCCaller = Pick<WebRTCRPCClient, "call" | "callBinary">;
+export type PeerRPCCaller = Pick<WebRTCRPCClient, "call" | "callBinary" | "transcribeSpeech" | "synthesizeSpeech">;
 export type EdgeRPCClientOptions = Omit<WebRTCRPCClientOptions, "service">;
 export type EdgeRPCCaller = Pick<WebRTCRPCClient, "call" | "callBinary">;
 
@@ -82,6 +83,21 @@ export class PeerRPCClient {
     options?: RPCCallOptions,
   ): Promise<RPCBinaryCallResult<RPCMethodMap[M]["response"]>> {
     return this.client.callBinary<RPCMethodMap[M]["response"], RPCMethodMap[M]["request"]>(method, params, options);
+  }
+
+  transcribeSpeech(
+    params: RPCPayload.SpeechTranscribeRequest,
+    audio: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
+    options?: RPCCallOptions,
+  ): Promise<RPCPayload.SpeechTranscribeResponse> {
+    return this.client.transcribeSpeech(params, audio, options);
+  }
+
+  synthesizeSpeech(
+    params: RPCPayload.SpeechSynthesizeRequest,
+    options?: RPCCallOptions,
+  ): Promise<RPCStreamingCallResult<RPCPayload.SpeechSynthesizeResponse>> {
+    return this.client.synthesizeSpeech(params, options);
   }
 }
 

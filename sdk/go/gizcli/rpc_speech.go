@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 )
@@ -43,24 +44,85 @@ func (c *rpcClient) TranscribeSpeech(ctx context.Context, conn net.Conn, id stri
 	if err := stream.WriteRequestEnvelope(newRPCRequest(id, rpcapi.RPCMethodServerSpeechTranscribe, params)); err != nil {
 		return nil, err
 	}
+	type responseResult struct {
+		value *rpcapi.SpeechTranscribeResponse
+		err   error
+	}
+	responses := make(chan responseResult, 1)
+	go func() {
+		value, err := readSpeechTranscriptionResponse(stream)
+		responses <- responseResult{value: value, err: err}
+	}()
+	uploads := make(chan error, 1)
+	uploadDone := make(chan struct{})
+	go func() {
+		defer close(uploadDone)
+		uploads <- writeSpeechTranscriptionAudio(stream, audio)
+	}()
+
+	for {
+		select {
+		case response := <-responses:
+			interruptSpeechUpload(stream, audio, uploadDone)
+			return response.value, response.err
+		case err := <-uploads:
+			if err != nil {
+				select {
+				case response := <-responses:
+					return response.value, response.err
+				default:
+					return nil, err
+				}
+			}
+			select {
+			case response := <-responses:
+				return response.value, response.err
+			case <-ctx.Done():
+				interruptSpeechUpload(stream, audio, uploadDone)
+				return nil, ctx.Err()
+			}
+		case <-ctx.Done():
+			interruptSpeechUpload(stream, audio, uploadDone)
+			return nil, ctx.Err()
+		}
+	}
+}
+
+func writeSpeechTranscriptionAudio(stream *rpcStream, audio io.Reader) error {
 	buf := make([]byte, rpcapi.MaxFrameSize)
 	for {
 		n, readErr := audio.Read(buf)
 		if n > 0 {
 			if err := stream.WriteFrame(rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: buf[:n]}); err != nil {
-				return nil, err
+				return err
 			}
 		}
 		if readErr != nil {
 			if readErr != io.EOF {
-				return nil, readErr
+				return readErr
 			}
 			break
 		}
 	}
-	if err := stream.WriteEOS(); err != nil {
-		return nil, err
+	return stream.WriteEOS()
+}
+
+func interruptSpeechUpload(stream *rpcStream, audio io.Reader, uploadDone <-chan struct{}) {
+	// Stop the context watcher before installing the terminal deadline so the
+	// deferred Close cannot clear it while an upload goroutine is still exiting.
+	_ = stream.Close()
+	_ = stream.conn.SetDeadline(time.Now())
+	select {
+	case <-uploadDone:
+		return
+	default:
 	}
+	if closer, ok := audio.(io.Closer); ok {
+		_ = closer.Close()
+	}
+}
+
+func readSpeechTranscriptionResponse(stream *rpcStream) (*rpcapi.SpeechTranscribeResponse, error) {
 	resp, responseEOS, err := stream.ReadResponseEnvelopeForMethod(rpcapi.RPCMethodServerSpeechTranscribe)
 	if err != nil {
 		return nil, err

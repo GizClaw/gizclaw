@@ -83,6 +83,20 @@ func TestRPCSpeechTranscribeStreamsUploadBeforeEOS(t *testing.T) {
 	readSpeechEOS(t, stream)
 }
 
+func TestRPCSpeechAcceptsLeadingDigitRuntimeAliases(t *testing.T) {
+	t.Parallel()
+	if _, err := validateSpeechTranscribeRequest(rpcapi.SpeechTranscribeRequest{
+		ModelAlias: "2fa-asr", ContentType: "audio/L16;rate=16000;channels=1",
+	}); err != nil {
+		t.Fatalf("validateSpeechTranscribeRequest() error = %v", err)
+	}
+	if _, err := validateSpeechSynthesizeRequest(rpcapi.SpeechSynthesizeRequest{
+		VoiceAlias: "2fa-voice", Text: "hello", AcceptedContentTypes: []string{"audio/pcm"},
+	}, rpcSpeechMaxTextBytes); err != nil {
+		t.Fatalf("validateSpeechSynthesizeRequest() error = %v", err)
+	}
+}
+
 func TestRPCSpeechTranscribeLimitIsBadRequest(t *testing.T) {
 	service := speechServiceFuncs{
 		transcribe: func(_ context.Context, _, _ string, input genx.Stream) (string, error) {
