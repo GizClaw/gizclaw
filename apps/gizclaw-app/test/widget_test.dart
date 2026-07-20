@@ -656,30 +656,138 @@ void main() {
     expect(find.byKey(const ValueKey('global-audio-field-edge')), findsNothing);
   });
 
-  appTestWidgets('slides the voice thumb between PTT and realtime', (
+  appTestWidgets('selects voice modes only from the labelled targets', (
     tester,
   ) async {
     final controller = _ModeSwitchController();
     await pumpApp(tester, controller: controller);
 
-    final thumb = find.byKey(const ValueKey('voice-mode-thumb'));
-    final pttPosition = tester.getTopLeft(thumb);
-    await tester.drag(thumb, const Offset(64, 0));
+    await tester.tap(find.byKey(const ValueKey('voice-mode-realtime')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 320));
 
     expect(controller.mode, WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME);
+    expect(controller.modeSelectionCalls, 1);
     expect(controller.chat.startInputCalls, 1);
     expect(controller.chat.recording, isTrue);
-    expect(tester.getTopLeft(thumb).dx, greaterThan(pttPosition.dx + 50));
 
-    await tester.drag(thumb, const Offset(-64, 0));
+    await tester.tap(find.byKey(const ValueKey('voice-mode-ptt')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 320));
     expect(
       controller.mode,
       WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK,
     );
+    expect(controller.modeSelectionCalls, 2);
+  });
+
+  appTestWidgets('holds and releases one PTT turn without switching mode', (
+    tester,
+  ) async {
+    final controller = _ModeSwitchController();
+    await pumpApp(tester, controller: controller);
+
+    final thumb = find.byKey(const ValueKey('voice-mode-thumb'));
+    final gesture = await tester.startGesture(tester.getCenter(thumb));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(controller.chat.startInputCalls, 1);
+    expect(controller.chat.recording, isTrue);
+    expect(controller.modeSelectionCalls, 0);
+
+    await gesture.moveBy(const Offset(-24, 0));
+    await tester.pump();
+
+    expect(controller.chat.finishInputCalls, 0);
+    expect(controller.chat.recording, isTrue);
+    expect(controller.modeSelectionCalls, 0);
+
+    await gesture.up();
+    await tester.pump();
+
+    expect(controller.chat.finishInputCalls, 1);
+    expect(controller.chat.recording, isFalse);
+    expect(controller.modeSelectionCalls, 0);
+  });
+
+  appTestWidgets('cancels one active PTT turn without switching mode', (
+    tester,
+  ) async {
+    final controller = _ModeSwitchController();
+    await pumpApp(tester, controller: controller);
+
+    final thumb = find.byKey(const ValueKey('voice-mode-thumb'));
+    final gesture = await tester.startGesture(tester.getCenter(thumb));
+    await tester.pump(const Duration(milliseconds: 100));
+    await gesture.cancel();
+    await tester.pump();
+
+    expect(controller.chat.startInputCalls, 1);
+    expect(controller.chat.finishInputCalls, 1);
+    expect(controller.chat.recording, isFalse);
+    expect(controller.modeSelectionCalls, 0);
+  });
+
+  appTestWidgets('releases a short PTT press without starting a turn', (
+    tester,
+  ) async {
+    final controller = _ModeSwitchController();
+    await pumpApp(tester, controller: controller);
+
+    final thumb = find.byKey(const ValueKey('voice-mode-thumb'));
+    final gesture = await tester.startGesture(tester.getCenter(thumb));
+    await tester.pump(const Duration(milliseconds: 50));
+    await gesture.up();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(controller.chat.startInputCalls, 0);
+    expect(controller.chat.finishInputCalls, 0);
+    expect(controller.modeSelectionCalls, 0);
+  });
+
+  appTestWidgets('keeps a moved PTT pointer in the same turn and mode', (
+    tester,
+  ) async {
+    final controller = _ModeSwitchController();
+    await pumpApp(tester, controller: controller);
+
+    final thumb = find.byKey(const ValueKey('voice-mode-thumb'));
+    final gesture = await tester.startGesture(tester.getCenter(thumb));
+    await gesture.moveBy(const Offset(64, 0));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(controller.chat.startInputCalls, 1);
+    expect(controller.chat.recording, isTrue);
+    expect(controller.modeSelectionCalls, 0);
+
+    await gesture.up();
+    await tester.pump();
+
+    expect(controller.chat.finishInputCalls, 1);
+    expect(controller.chat.recording, isFalse);
+    expect(controller.modeSelectionCalls, 0);
+    expect(find.text('Unable to switch mode'), findsNothing);
+  });
+
+  appTestWidgets('ignores thumb movement in realtime mode', (tester) async {
+    final controller = _ModeSwitchController();
+    await pumpApp(tester, controller: controller);
+
+    await tester.tap(find.byKey(const ValueKey('voice-mode-realtime')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 320));
+
+    final thumb = find.byKey(const ValueKey('voice-mode-thumb'));
+    final gesture = await tester.startGesture(tester.getCenter(thumb));
+    await gesture.moveBy(const Offset(-64, 0));
+    await gesture.up();
+    await tester.pump();
+
+    expect(controller.mode, WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME);
+    expect(controller.modeSelectionCalls, 1);
+    expect(controller.chat.startInputCalls, 1);
+    expect(controller.chat.finishInputCalls, 0);
+    expect(controller.chat.recording, isTrue);
   });
 
   appTestWidgets('shows a red unavailable microphone and retries on tap', (
@@ -1041,6 +1149,7 @@ class _ModeSwitchController extends MobileDataController {
 
   WorkspaceInputMode mode =
       WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK;
+  int modeSelectionCalls = 0;
 
   @override
   String? get activeWorkspaceName => 'Parser pass';
@@ -1056,6 +1165,7 @@ class _ModeSwitchController extends MobileDataController {
 
   @override
   Future<void> setActiveInputMode(WorkspaceInputMode mode) async {
+    modeSelectionCalls += 1;
     this.mode = mode;
     notifyListeners();
   }

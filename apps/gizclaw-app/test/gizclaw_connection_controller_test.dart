@@ -28,6 +28,54 @@ void main() {
     expect(events, ['register:registration-secret', 'publish']);
   });
 
+  test('enables remote audio before preparing the output route', () async {
+    final remoteTrack = _FakeTrack('remote-1')..enabled = false;
+    final peerConnection = _FakePeerConnection(
+      receivers: [_FakeReceiver(remoteTrack)],
+    );
+    var routePrepared = false;
+    final controller = _controller(
+      acquire: () => Future.error(StateError('No audio input device')),
+      connect:
+          ({
+            required localAudioStream,
+            required peerRpcHandlers,
+            required prepareOffer,
+            required sendOffer,
+          }) async => peerConnection,
+      prepareAudioOutput: () async {
+        expect(remoteTrack.enabled, isTrue);
+        routePrepared = true;
+      },
+    );
+    addTearDown(controller.close);
+
+    await controller.connect();
+
+    expect(routePrepared, isTrue);
+  });
+
+  test('output routing failure cleans up the pending connection', () async {
+    final peerConnection = _FakePeerConnection();
+    final controller = _controller(
+      acquire: () => Future.error(StateError('No audio input device')),
+      connect:
+          ({
+            required localAudioStream,
+            required peerRpcHandlers,
+            required prepareOffer,
+            required sendOffer,
+          }) async => peerConnection,
+      prepareAudioOutput: () => Future.error(StateError('routing failed')),
+    );
+
+    await expectLater(controller.connect(), throwsStateError);
+
+    expect(controller.peerConnection, isNull);
+    expect(peerConnection.closeCalls, 1);
+    expect(peerConnection.disposeCalls, 1);
+  });
+
   test(
     'offers a disabled track and gates both the track and RTP sender',
     () async {
@@ -464,6 +512,7 @@ GizClawConnectionController _controller({
   required AcquireMicrophoneStream acquire,
   required ConnectGizClawWebRtc connect,
   ConfigureMicrophoneSending? configureMicrophoneSending,
+  PrepareAudioOutput? prepareAudioOutput,
   String registrationToken = '',
   RegisterGizClawServer? registerServer,
   PublishGizClawClientInfo? publishClientInfo,
@@ -480,16 +529,22 @@ GizClawConnectionController _controller({
         configureMicrophoneSending ?? (_, _) async => (_) async {},
     connectWebRtc: connect,
     fetchServerInfo: (_) async => const GiznetServerInfo(publicKey: key),
+    prepareAudioOutput: prepareAudioOutput ?? () async {},
     publishClientInfo: publishClientInfo ?? (_, _) async {},
     registerServer: registerServer,
   );
 }
 
 class _FakePeerConnection extends Fake implements rtc.RTCPeerConnection {
-  _FakePeerConnection({this.failClose = false, this.operations});
+  _FakePeerConnection({
+    this.failClose = false,
+    this.operations,
+    List<rtc.RTCRtpReceiver> receivers = const [],
+  }) : _receivers = receivers;
 
   final bool failClose;
   final List<String>? operations;
+  final List<rtc.RTCRtpReceiver> _receivers;
   int closeCalls = 0;
   int disposeCalls = 0;
   rtc.RTCPeerConnectionState? _connectionState =
@@ -514,7 +569,7 @@ class _FakePeerConnection extends Fake implements rtc.RTCPeerConnection {
   }
 
   @override
-  Future<List<rtc.RTCRtpReceiver>> getReceivers() async => const [];
+  Future<List<rtc.RTCRtpReceiver>> getReceivers() async => _receivers;
 
   @override
   Future<void> close() async {
@@ -528,6 +583,13 @@ class _FakePeerConnection extends Fake implements rtc.RTCPeerConnection {
     disposeCalls += 1;
     operations?.add('peerConnection.dispose');
   }
+}
+
+class _FakeReceiver extends Fake implements rtc.RTCRtpReceiver {
+  _FakeReceiver(this.track);
+
+  @override
+  final rtc.MediaStreamTrack track;
 }
 
 class _FakeStream extends Fake implements rtc.MediaStream {

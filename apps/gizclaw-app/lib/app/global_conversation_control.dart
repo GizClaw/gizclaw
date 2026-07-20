@@ -1185,11 +1185,11 @@ class _VoiceModeToggle extends StatefulWidget {
 }
 
 class _VoiceModeToggleState extends State<_VoiceModeToggle> {
-  static const _dragThreshold = 14.0;
+  static const _realtimeTapCancelThreshold = 14.0;
   Timer? _holdTimer;
   int? _pointer;
   Offset? _pointerOrigin;
-  bool _dragged = false;
+  bool _realtimeTapCancelled = false;
   bool _pttStarted = false;
   bool _startedInRealtime = false;
 
@@ -1203,13 +1203,13 @@ class _VoiceModeToggleState extends State<_VoiceModeToggle> {
     }
     _pointer = event.pointer;
     _pointerOrigin = event.position;
-    _dragged = false;
+    _realtimeTapCancelled = false;
     _pttStarted = false;
     _startedInRealtime =
         widget.mode == WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME;
     if (_startedInRealtime || widget.onPttStart == null) return;
     _holdTimer = Timer(const Duration(milliseconds: 90), () {
-      if (_pointer == event.pointer && !_dragged) {
+      if (_pointer == event.pointer) {
         _pttStarted = true;
         widget.onPttStart?.call();
       }
@@ -1218,29 +1218,22 @@ class _VoiceModeToggleState extends State<_VoiceModeToggle> {
 
   void _handlePointerMove(PointerMoveEvent event) {
     final origin = _pointerOrigin;
-    if (_pointer != event.pointer || origin == null || _dragged) return;
-    final delta = event.position.dx - origin.dx;
-    if (_startedInRealtime && delta < -_dragThreshold) {
-      _switchMode(WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK);
-    } else if (!_startedInRealtime && delta > _dragThreshold) {
-      _holdTimer?.cancel();
-      _finishPtt();
-      _switchMode(WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME);
+    if (_pointer != event.pointer ||
+        origin == null ||
+        !_startedInRealtime ||
+        _realtimeTapCancelled) {
+      return;
     }
-  }
-
-  void _switchMode(WorkspaceInputMode mode) {
-    final selectMode = widget.onSelectMode;
-    if (selectMode == null || widget.switchingMode) return;
-    _dragged = true;
-    selectMode(mode);
+    if ((event.position.dx - origin.dx).abs() > _realtimeTapCancelThreshold) {
+      _realtimeTapCancelled = true;
+    }
   }
 
   void _handlePointerUp(PointerUpEvent event) {
     if (_pointer != event.pointer) return;
     _holdTimer?.cancel();
     if (_startedInRealtime) {
-      if (!_dragged) widget.onRealtimeTap?.call();
+      if (!_realtimeTapCancelled) widget.onRealtimeTap?.call();
     } else {
       _finishPtt();
     }
@@ -1263,7 +1256,7 @@ class _VoiceModeToggleState extends State<_VoiceModeToggle> {
   void _resetPointer() {
     _pointer = null;
     _pointerOrigin = null;
-    _dragged = false;
+    _realtimeTapCancelled = false;
   }
 
   @override
