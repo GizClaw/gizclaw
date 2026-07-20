@@ -196,6 +196,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get conversationStatusHoldToTalk => 'HOLD TO TALK';
 
   @override
+  String get newMessagesBelow => 'New messages below';
+
+  @override
   String get onboardingHeroTitle => 'Your agents, everywhere.';
 
   @override

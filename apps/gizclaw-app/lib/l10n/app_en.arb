@@ -118,6 +118,8 @@
   "@conversationStatusRealtimeReady": {"description": "Conversation status when realtime voice input is ready."},
   "conversationStatusHoldToTalk": "HOLD TO TALK",
   "@conversationStatusHoldToTalk": {"description": "Conversation status when push-to-talk is ready."},
+  "newMessagesBelow": "New messages below",
+  "@newMessagesBelow": {"description": "Button that returns a conversation to its newest message."},
   "onboardingHeroTitle": "Your agents, everywhere.",
   "@onboardingHeroTitle": {"description": "Onboarding hero heading."},
   "onboardingHeroDescription": "Connect to a GizClaw server to unlock voice, workflows, and companions across your devices.",

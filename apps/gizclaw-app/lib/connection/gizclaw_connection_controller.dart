@@ -58,6 +58,7 @@ typedef ConfigureMicrophoneSending =
       rtc.RTCPeerConnection peerConnection,
       rtc.MediaStreamTrack microphoneTrack,
     );
+typedef PrepareAudioOutput = Future<void> Function();
 
 class GizClawConnectionProfile {
   const GizClawConnectionProfile({
@@ -105,6 +106,7 @@ class GizClawConnectionController extends ChangeNotifier {
     PublishGizClawClientInfo? publishClientInfo,
     RegisterGizClawServer? registerServer,
     ConfigureMicrophoneSending? configureMicrophoneSending,
+    PrepareAudioOutput? prepareAudioOutput,
   }) : _acquireMicrophoneStream =
            acquireMicrophoneStream ?? _defaultAcquireMicrophoneStream,
        _configureMicrophoneSending =
@@ -112,6 +114,7 @@ class GizClawConnectionController extends ChangeNotifier {
        _connectWebRtc = connectWebRtc ?? _defaultConnectGizClawWebRtc,
        _deviceInfo = deviceInfo ?? DeviceInfo(name: 'GizClaw App'),
        _fetchServerInfo = fetchServerInfo ?? _defaultFetchServerInfo,
+       _prepareAudioOutput = prepareAudioOutput ?? _defaultPrepareAudioOutput,
        _profile = profile,
        _publishClientInfo = publishClientInfo ?? _defaultPublishClientInfo,
        _registerServer = registerServer ?? _defaultRegisterServer;
@@ -122,6 +125,7 @@ class GizClawConnectionController extends ChangeNotifier {
   final ConnectGizClawWebRtc _connectWebRtc;
   final DeviceInfo _deviceInfo;
   final FetchGizClawServerInfo _fetchServerInfo;
+  final PrepareAudioOutput _prepareAudioOutput;
   final PublishGizClawClientInfo _publishClientInfo;
   final RegisterGizClawServer _registerServer;
 
@@ -244,7 +248,7 @@ class GizClawConnectionController extends ChangeNotifier {
         }
       }
       await _waitForPeerConnection(peerConnection);
-      await _prepareAudioPlayback(peerConnection);
+      await _prepareAudioPlayback(peerConnection, _prepareAudioOutput);
       _ensureCurrentProfile(connectionRevision, activeProfile);
       final dataChannelFactory = FlutterWebRtcDataChannelFactory(
         peerConnection,
@@ -401,6 +405,16 @@ class GizClawConnectionController extends ChangeNotifier {
         ),
       );
       rethrow;
+    }
+    try {
+      await _prepareAudioOutput();
+    } catch (error) {
+      if (!kReleaseMode) {
+        debugPrint(
+          'GizClaw audio output route restore after microphone '
+          'active=$active failed: $error',
+        );
+      }
     }
   }
 
@@ -560,12 +574,19 @@ Future<void> _disposeMediaStream(rtc.MediaStream stream) async {
 Future<void> _stopMediaStreamTracks(rtc.MediaStream stream) =>
     Future.wait([for (final track in stream.getTracks()) track.stop()]);
 
-Future<void> _prepareAudioPlayback(rtc.RTCPeerConnection peerConnection) async {
+Future<void> _prepareAudioPlayback(
+  rtc.RTCPeerConnection peerConnection,
+  PrepareAudioOutput prepareAudioOutput,
+) async {
   for (final receiver in await peerConnection.getReceivers()) {
     final track = receiver.track;
     if (track?.kind == 'audio') track!.enabled = true;
   }
-  if (Platform.isAndroid) {
+  await prepareAudioOutput();
+}
+
+Future<void> _defaultPrepareAudioOutput() async {
+  if (Platform.isAndroid || Platform.isIOS) {
     await rtc.Helper.setSpeakerphoneOnButPreferBluetooth();
   }
 }
@@ -624,17 +645,7 @@ Future<void> _configureAppleAudioSession() async {
   if (!Platform.isIOS) return;
   final existing = _appleAudioSessionConfiguration;
   if (existing != null) return existing;
-  final configuration = rtc.Helper.setAppleAudioConfiguration(
-    rtc.AppleAudioConfiguration(
-      appleAudioCategory: rtc.AppleAudioCategory.playAndRecord,
-      appleAudioCategoryOptions: {
-        rtc.AppleAudioCategoryOption.allowBluetooth,
-        rtc.AppleAudioCategoryOption.defaultToSpeaker,
-        rtc.AppleAudioCategoryOption.mixWithOthers,
-      },
-      appleAudioMode: rtc.AppleAudioMode.voiceChat,
-    ),
-  );
+  final configuration = _applyAppleAudioSessionConfiguration();
   _appleAudioSessionConfiguration = configuration;
   try {
     await configuration;
@@ -645,6 +656,19 @@ Future<void> _configureAppleAudioSession() async {
     rethrow;
   }
 }
+
+Future<void> _applyAppleAudioSessionConfiguration() =>
+    rtc.Helper.setAppleAudioConfiguration(
+      rtc.AppleAudioConfiguration(
+        appleAudioCategory: rtc.AppleAudioCategory.playAndRecord,
+        appleAudioCategoryOptions: {
+          rtc.AppleAudioCategoryOption.allowBluetooth,
+          rtc.AppleAudioCategoryOption.defaultToSpeaker,
+          rtc.AppleAudioCategoryOption.mixWithOthers,
+        },
+        appleAudioMode: rtc.AppleAudioMode.voiceChat,
+      ),
+    );
 
 Future<void> _waitForPeerConnection(rtc.RTCPeerConnection peerConnection) {
   if (peerConnection.connectionState ==

@@ -15,6 +15,7 @@ import 'package:gizclaw_app/features/identity/server_pages.dart';
 import 'package:gizclaw_app/features/onboarding/server_onboarding_page.dart';
 import 'package:gizclaw_app/giz_ui/giz_ui.dart';
 import 'package:gizclaw_app/identity/app_identity_store.dart';
+import 'package:gizclaw_app/l10n/generated/app_localizations.dart';
 import 'package:gizclaw_app/prototype/prototype_data.dart';
 import 'package:gizclaw_app/prototype/prototype_models.dart';
 import 'package:gizclaw_app/workflows/app_workflow_catalog.dart';
@@ -517,16 +518,20 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  appTestWidgets('does not auto-scroll messages during a user drag', (
+  appTestWidgets('does not auto-scroll realtime messages during a user drag', (
     tester,
   ) async {
     final controller = _ScrollableMessagesController();
+    controller.mode = WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME;
+    controller.scrollChat.recording = true;
     dataControllers.add(controller);
     await tester.pumpWidget(
       MobileDataScope(
         controller: controller,
         child: const CupertinoApp(
           theme: gizCupertinoTheme,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: WorkspaceChatPage(workspaceName: 'Parser pass'),
         ),
       ),
@@ -548,11 +553,69 @@ void main() {
     controller.scrollChat.appendMessage('Message received while dragging');
     await tester.pump();
     expect(scrollable.position.pixels, greaterThan(48));
+    expect(find.byKey(const ValueKey('new-messages-below')), findsOneWidget);
 
     await gesture.up();
     await tester.pump(const Duration(milliseconds: 500));
     expect(scrollable.position.pixels, greaterThan(48));
   });
+
+  appTestWidgets(
+    'preserves a settled history position until new messages are requested',
+    (tester) async {
+      final controller = _ScrollableMessagesController();
+      dataControllers.add(controller);
+      await tester.pumpWidget(
+        MobileDataScope(
+          controller: controller,
+          child: const CupertinoApp(
+            theme: gizCupertinoTheme,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: WorkspaceChatPage(workspaceName: 'Parser pass'),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final messageList = find.byKey(const ValueKey('workspace-message-list'));
+      final scrollable = tester.state<ScrollableState>(
+        find.descendant(of: messageList, matching: find.byType(Scrollable)),
+      );
+      final gesture = await tester.startGesture(tester.getCenter(messageList));
+      await gesture.moveBy(const Offset(0, 260));
+      await tester.pump();
+      await gesture.up();
+      await tester.pump(const Duration(seconds: 1));
+      final previousPixels = scrollable.position.pixels;
+      final previousExtent = scrollable.position.maxScrollExtent;
+      expect(previousPixels, greaterThan(48));
+
+      controller.scrollChat.appendMessage('Message received while reading');
+      await tester.pump();
+      await tester.pump();
+
+      final extentGrowth = scrollable.position.maxScrollExtent - previousExtent;
+      expect(extentGrowth, greaterThan(0));
+      expect(
+        scrollable.position.pixels,
+        closeTo(previousPixels + extentGrowth, 3),
+      );
+      expect(find.byKey(const ValueKey('new-messages-below')), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('new-messages-below')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(scrollable.position.pixels, closeTo(0, 0.5));
+      expect(find.byKey(const ValueKey('new-messages-below')), findsNothing);
+
+      controller.scrollChat.appendMessage('Message followed at the bottom');
+      await tester.pump();
+      await tester.pump();
+      expect(scrollable.position.pixels, closeTo(0, 0.5));
+    },
+  );
 
   appTestWidgets('follows system brightness in the workspace signal room', (
     tester,
@@ -656,30 +719,138 @@ void main() {
     expect(find.byKey(const ValueKey('global-audio-field-edge')), findsNothing);
   });
 
-  appTestWidgets('slides the voice thumb between PTT and realtime', (
+  appTestWidgets('selects voice modes only from the labelled targets', (
     tester,
   ) async {
     final controller = _ModeSwitchController();
     await pumpApp(tester, controller: controller);
 
-    final thumb = find.byKey(const ValueKey('voice-mode-thumb'));
-    final pttPosition = tester.getTopLeft(thumb);
-    await tester.drag(thumb, const Offset(64, 0));
+    await tester.tap(find.byKey(const ValueKey('voice-mode-realtime')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 320));
 
     expect(controller.mode, WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME);
+    expect(controller.modeSelectionCalls, 1);
     expect(controller.chat.startInputCalls, 1);
     expect(controller.chat.recording, isTrue);
-    expect(tester.getTopLeft(thumb).dx, greaterThan(pttPosition.dx + 50));
 
-    await tester.drag(thumb, const Offset(-64, 0));
+    await tester.tap(find.byKey(const ValueKey('voice-mode-ptt')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 320));
     expect(
       controller.mode,
       WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK,
     );
+    expect(controller.modeSelectionCalls, 2);
+  });
+
+  appTestWidgets('holds and releases one PTT turn without switching mode', (
+    tester,
+  ) async {
+    final controller = _ModeSwitchController();
+    await pumpApp(tester, controller: controller);
+
+    final thumb = find.byKey(const ValueKey('voice-mode-thumb'));
+    final gesture = await tester.startGesture(tester.getCenter(thumb));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(controller.chat.startInputCalls, 1);
+    expect(controller.chat.recording, isTrue);
+    expect(controller.modeSelectionCalls, 0);
+
+    await gesture.moveBy(const Offset(-24, 0));
+    await tester.pump();
+
+    expect(controller.chat.finishInputCalls, 0);
+    expect(controller.chat.recording, isTrue);
+    expect(controller.modeSelectionCalls, 0);
+
+    await gesture.up();
+    await tester.pump();
+
+    expect(controller.chat.finishInputCalls, 1);
+    expect(controller.chat.recording, isFalse);
+    expect(controller.modeSelectionCalls, 0);
+  });
+
+  appTestWidgets('cancels one active PTT turn without switching mode', (
+    tester,
+  ) async {
+    final controller = _ModeSwitchController();
+    await pumpApp(tester, controller: controller);
+
+    final thumb = find.byKey(const ValueKey('voice-mode-thumb'));
+    final gesture = await tester.startGesture(tester.getCenter(thumb));
+    await tester.pump(const Duration(milliseconds: 100));
+    await gesture.cancel();
+    await tester.pump();
+
+    expect(controller.chat.startInputCalls, 1);
+    expect(controller.chat.finishInputCalls, 1);
+    expect(controller.chat.recording, isFalse);
+    expect(controller.modeSelectionCalls, 0);
+  });
+
+  appTestWidgets('releases a short PTT press without starting a turn', (
+    tester,
+  ) async {
+    final controller = _ModeSwitchController();
+    await pumpApp(tester, controller: controller);
+
+    final thumb = find.byKey(const ValueKey('voice-mode-thumb'));
+    final gesture = await tester.startGesture(tester.getCenter(thumb));
+    await tester.pump(const Duration(milliseconds: 50));
+    await gesture.up();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(controller.chat.startInputCalls, 0);
+    expect(controller.chat.finishInputCalls, 0);
+    expect(controller.modeSelectionCalls, 0);
+  });
+
+  appTestWidgets('keeps a moved PTT pointer in the same turn and mode', (
+    tester,
+  ) async {
+    final controller = _ModeSwitchController();
+    await pumpApp(tester, controller: controller);
+
+    final thumb = find.byKey(const ValueKey('voice-mode-thumb'));
+    final gesture = await tester.startGesture(tester.getCenter(thumb));
+    await gesture.moveBy(const Offset(64, 0));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(controller.chat.startInputCalls, 1);
+    expect(controller.chat.recording, isTrue);
+    expect(controller.modeSelectionCalls, 0);
+
+    await gesture.up();
+    await tester.pump();
+
+    expect(controller.chat.finishInputCalls, 1);
+    expect(controller.chat.recording, isFalse);
+    expect(controller.modeSelectionCalls, 0);
+    expect(find.text('Unable to switch mode'), findsNothing);
+  });
+
+  appTestWidgets('ignores thumb movement in realtime mode', (tester) async {
+    final controller = _ModeSwitchController();
+    await pumpApp(tester, controller: controller);
+
+    await tester.tap(find.byKey(const ValueKey('voice-mode-realtime')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 320));
+
+    final thumb = find.byKey(const ValueKey('voice-mode-thumb'));
+    final gesture = await tester.startGesture(tester.getCenter(thumb));
+    await gesture.moveBy(const Offset(-64, 0));
+    await gesture.up();
+    await tester.pump();
+
+    expect(controller.mode, WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME);
+    expect(controller.modeSelectionCalls, 1);
+    expect(controller.chat.startInputCalls, 1);
+    expect(controller.chat.finishInputCalls, 0);
+    expect(controller.chat.recording, isTrue);
   });
 
   appTestWidgets('shows a red unavailable microphone and retries on tap', (
@@ -1041,6 +1212,7 @@ class _ModeSwitchController extends MobileDataController {
 
   WorkspaceInputMode mode =
       WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK;
+  int modeSelectionCalls = 0;
 
   @override
   String? get activeWorkspaceName => 'Parser pass';
@@ -1056,6 +1228,7 @@ class _ModeSwitchController extends MobileDataController {
 
   @override
   Future<void> setActiveInputMode(WorkspaceInputMode mode) async {
+    modeSelectionCalls += 1;
     this.mode = mode;
     notifyListeners();
   }
