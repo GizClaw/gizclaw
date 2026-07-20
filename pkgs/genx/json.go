@@ -16,7 +16,7 @@ func unmarshalJSON(data []byte, v any) error {
 		return nil
 	}
 	if _, ok := err.(*json.SyntaxError); ok {
-		fixed, err := jsonrepair.JSONRepair(string(data))
+		fixed, err := jsonrepair.Repair(string(data))
 		if err != nil {
 			return err
 		}

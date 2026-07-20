@@ -4,6 +4,10 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    groups:
+      codeql-actions:
+        patterns:
+          - github/codeql-action/*
 
   - package-ecosystem: gitsubmodule
     directory: /
@@ -54,16 +58,46 @@ updates:
     directory: /apps/wails/frontend
     schedule:
       interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      wails-frontend-tooling:
+        dependency-type: development
+        patterns:
+          - typescript
+          - vite
+          - "@vitejs/*"
+      wails-frontend-ui:
+        patterns:
+          - lucide-react
+          - react
+          - react-dom
+          - react-router-dom
+          - "@radix-ui/*"
+          - radix-ui
 
   - package-ecosystem: npm
     directory: /sdk/js
     schedule:
       interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      sdk-js-tooling:
+        dependency-type: development
+        patterns:
+          - typescript
+          - "@hey-api/*"
 
   - package-ecosystem: npm
     directory: /sdk/js/gizclaw
     schedule:
       interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      sdk-js-noble:
+        patterns:
+          - "@noble/curves"
+          - "@noble/hashes"
+          - "@noble/ciphers"
 
   - package-ecosystem: npm
     directory: /js/packages/pixa
