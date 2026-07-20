@@ -188,6 +188,28 @@ func TestWaitFlowcraftHistoryProgressAcceptsCappedContentChange(t *testing.T) {
 	}
 }
 
+func TestAcceptRoundEventStreamBindsResponseLocalID(t *testing.T) {
+	inputID := "input-1"
+	responseID := "response-1"
+	otherResponseID := "response-2"
+	var bound string
+	if !acceptRoundEventStream(apitypes.PeerStreamEvent{StreamId: &responseID}, inputID, &bound) {
+		t.Fatal("first response-local StreamID was rejected")
+	}
+	if bound != responseID {
+		t.Fatalf("bound StreamID = %q, want %q", bound, responseID)
+	}
+	if !acceptRoundEventStream(apitypes.PeerStreamEvent{StreamId: &responseID}, inputID, &bound) {
+		t.Fatal("bound response-local StreamID was rejected")
+	}
+	if acceptRoundEventStream(apitypes.PeerStreamEvent{StreamId: &otherResponseID}, inputID, &bound) {
+		t.Fatal("different response-local StreamID was accepted")
+	}
+	if !acceptRoundEventStream(apitypes.PeerStreamEvent{StreamId: &inputID}, inputID, &bound) {
+		t.Fatal("input-derived StreamID compatibility was rejected")
+	}
+}
+
 func TestWaitFlowcraftHistoryProgressAllowsAvailableHistoryWithoutAdvance(t *testing.T) {
 	items := testHistoryEntries("已有回复")
 	driver := &personaDriver{
@@ -1027,7 +1049,7 @@ func TestVerifyAssistantAudioASRIgnoresFailedTailAfterExpectedTextIsCovered(t *t
 		t.Skip("requires native opus runtime")
 	}
 	frames, err := opusPacketsFromPCM16LE(
-		silencePCM16Mono16K(time.Duration(assistantASRFramesPerChunk+100)*20*time.Millisecond),
+		testSignalPCM16Mono16K(time.Duration(assistantASRFramesPerChunk+100)*20*time.Millisecond),
 		16000,
 		1,
 	)

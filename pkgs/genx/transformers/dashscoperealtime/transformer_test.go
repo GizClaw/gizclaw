@@ -77,6 +77,13 @@ func TestDashScopeStreamIDsSeparateInputAndResponseRoutes(t *testing.T) {
 	if routed := ids.response("provider-response-1"); routed != firstResponseID {
 		t.Fatalf("provider response StreamID = %q, want %q", routed, firstResponseID)
 	}
+	transcriptResponseID := ids.responseTranscript("provider-response-1")
+	if transcriptResponseID == "" || transcriptResponseID == firstResponseID {
+		t.Fatalf("response transcript StreamID = %q, response = %q", transcriptResponseID, firstResponseID)
+	}
+	if repeated := ids.responseTranscript("provider-response-1"); repeated != transcriptResponseID {
+		t.Fatalf("repeated response transcript StreamID = %q, want %q", repeated, transcriptResponseID)
+	}
 
 	// The next ASR completion now consumes turn-2, independent of whether its
 	// response.created event arrives before or after it.

@@ -74,10 +74,11 @@ type dashScopeStreamIDs struct {
 }
 
 type dashScopeStreamTurn struct {
-	inputStreamID     string
-	responseStreamID  string
-	transcriptionSeen bool
-	responseSeen      bool
+	inputStreamID              string
+	responseStreamID           string
+	responseTranscriptStreamID string
+	transcriptionSeen          bool
+	responseSeen               bool
 }
 
 func (s *dashScopeStreamIDs) pushInput(streamID string) {
@@ -160,6 +161,34 @@ func (s *dashScopeStreamIDs) response(providerResponseID string) string {
 	s.turns = append(s.turns, turn)
 	s.rememberResponseLocked(providerResponseID, turn)
 	return turn.responseStreamID
+}
+
+func (s *dashScopeStreamIDs) responseTranscript(providerResponseID string) string {
+	responseStreamID := s.response(providerResponseID)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var turn *dashScopeStreamTurn
+	if providerResponseID != "" && s.responses != nil {
+		turn = s.responses[providerResponseID]
+	}
+	if turn == nil && s.currentResponse != nil && s.currentResponse.responseStreamID == responseStreamID {
+		turn = s.currentResponse
+	}
+	if turn == nil {
+		for _, candidate := range s.turns {
+			if candidate.responseStreamID == responseStreamID {
+				turn = candidate
+				break
+			}
+		}
+	}
+	if turn == nil {
+		return genx.NewStreamID()
+	}
+	if turn.responseTranscriptStreamID == "" {
+		turn.responseTranscriptStreamID = genx.NewStreamID()
+	}
+	return turn.responseTranscriptStreamID
 }
 
 func (s *dashScopeStreamIDs) rememberResponseLocked(providerResponseID string, turn *dashScopeStreamTurn) {
@@ -559,7 +588,7 @@ func (t *Transformer) processLoop(input genx.Stream, output *bufferStream, sessi
 				}
 
 			case dashscope.EventTypeResponseTranscriptDelta:
-				responseStreamID := streamIDs.response(dashScopeResponseID(event))
+				responseStreamID := streamIDs.responseTranscript(dashScopeResponseID(event))
 				// TTS transcript (what the model is saying)
 				if event.Delta != "" {
 					outChunk := &genx.MessageChunk{
@@ -573,7 +602,7 @@ func (t *Transformer) processLoop(input genx.Stream, output *bufferStream, sessi
 				}
 
 			case dashscope.EventTypeResponseTranscriptDone:
-				responseStreamID := streamIDs.response(dashScopeResponseID(event))
+				responseStreamID := streamIDs.responseTranscript(dashScopeResponseID(event))
 				// TTS transcript done - emit text EOS
 				eosChunk := &genx.MessageChunk{
 					Role: genx.RoleModel,

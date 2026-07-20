@@ -17,6 +17,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/internal/streamkit"
 )
 
 const (
@@ -153,7 +154,11 @@ func newTransformer(client *doubaospeech.Client, opts ...option) *Transformer {
 }
 
 func (t *Transformer) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
-	return t.transform(ctx, input)
+	source, err := t.transform(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+	return streamkit.NewResponseStream(source)
 }
 
 func (t *Transformer) transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {

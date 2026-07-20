@@ -18,6 +18,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/ogg"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/internal/streamkit"
 )
 
 // Transformer is a realtime transformer using Doubao realtime dialogue.
@@ -315,7 +316,11 @@ func newTransformer(client *doubaospeech.Client, opts ...option) *Transformer {
 // Transform converts audio input to audio output via realtime dialogue.
 // It returns the output stream immediately and reports connection errors on it.
 func (t *Transformer) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
-	return t.transform(ctx, input)
+	source, err := t.transform(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+	return streamkit.NewResponseStream(source)
 }
 
 func (t *Transformer) transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
