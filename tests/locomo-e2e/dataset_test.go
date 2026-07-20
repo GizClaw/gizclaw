@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 type benchmarkDataset struct {
@@ -29,10 +30,12 @@ type benchmarkConversation struct {
 }
 
 type benchmarkTurn struct {
-	Role       string `json:"role"`
-	Content    string `json:"content"`
-	EvidenceID string `json:"evidence_id"`
-	SessionID  string `json:"session_id"`
+	Role       string    `json:"role"`
+	Speaker    string    `json:"speaker"`
+	Content    string    `json:"content"`
+	EvidenceID string    `json:"evidence_id"`
+	SessionID  string    `json:"session_id"`
+	ObservedAt time.Time `json:"observed_at"`
 }
 
 type benchmarkQuestion struct {
@@ -126,13 +129,18 @@ func validateDataset(dataset *benchmarkDataset) error {
 			return fmt.Errorf("duplicate conversation ID %q", conversation.ID)
 		}
 		evidence := make(map[string]struct{}, len(conversation.Turns))
+		sessionTimes := make(map[string]time.Time)
 		for index, turn := range conversation.Turns {
 			if turn.Role != "user" && turn.Role != "assistant" {
 				return fmt.Errorf("conversation %q turn %d has invalid role %q", conversation.ID, index, turn.Role)
 			}
-			if strings.TrimSpace(turn.Content) == "" || strings.TrimSpace(turn.EvidenceID) == "" || strings.TrimSpace(turn.SessionID) == "" {
-				return fmt.Errorf("conversation %q turn %d requires content, evidence_id, and session_id", conversation.ID, index)
+			if strings.TrimSpace(turn.Speaker) == "" || strings.TrimSpace(turn.Content) == "" || strings.TrimSpace(turn.EvidenceID) == "" || strings.TrimSpace(turn.SessionID) == "" || turn.ObservedAt.IsZero() {
+				return fmt.Errorf("conversation %q turn %d requires speaker, content, evidence_id, session_id, and observed_at", conversation.ID, index)
 			}
+			if observedAt, exists := sessionTimes[turn.SessionID]; exists && !observedAt.Equal(turn.ObservedAt) {
+				return fmt.Errorf("conversation %q session %q has inconsistent observed_at values", conversation.ID, turn.SessionID)
+			}
+			sessionTimes[turn.SessionID] = turn.ObservedAt
 			if _, exists := evidence[turn.EvidenceID]; exists {
 				return fmt.Errorf("duplicate evidence ID %q", turn.EvidenceID)
 			}

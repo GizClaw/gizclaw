@@ -31,6 +31,10 @@ func TestDatasetBundledSmokeSubset(t *testing.T) {
 	if dataset.Conversations[0].MinimumFactsPerSession != 1 {
 		t.Fatalf("minimum facts per session=%d, want 1", dataset.Conversations[0].MinimumFactsPerSession)
 	}
+	first := dataset.Conversations[0].Turns[0]
+	if first.Speaker != "Gina" || first.ObservedAt.Format(time.RFC3339) != "2023-01-20T16:04:00Z" {
+		t.Fatalf("first turn speaker=%q observed_at=%s", first.Speaker, first.ObservedAt.Format(time.RFC3339))
+	}
 }
 
 func TestDatasetRejectsInvalidReferencesAndContent(t *testing.T) {
@@ -53,6 +57,18 @@ func TestDatasetRejectsInvalidReferencesAndContent(t *testing.T) {
 		},
 		"empty answer": func(dataset *benchmarkDataset) {
 			dataset.Questions[0].GoldAnswers = []string{" "}
+		},
+		"missing speaker": func(dataset *benchmarkDataset) {
+			dataset.Conversations[0].Turns[0].Speaker = " "
+		},
+		"missing timestamp": func(dataset *benchmarkDataset) {
+			dataset.Conversations[0].Turns[0].ObservedAt = time.Time{}
+		},
+		"inconsistent session timestamp": func(dataset *benchmarkDataset) {
+			turn := dataset.Conversations[0].Turns[0]
+			turn.EvidenceID = "turn-2"
+			turn.ObservedAt = turn.ObservedAt.Add(time.Minute)
+			dataset.Conversations[0].Turns = append(dataset.Conversations[0].Turns, turn)
 		},
 	}
 	for name, mutate := range tests {
@@ -229,6 +245,9 @@ func TestEvidenceHitUsesFactSources(t *testing.T) {
 	if hit := evidenceHit(matches, nil); hit != nil {
 		t.Fatalf("unscored question returned evidence result: %v", *hit)
 	}
+	if hit := evidenceHit(nil, []string{"turn-1"}); hit == nil || *hit {
+		t.Fatalf("missing provenance should be an evidence miss: %v", hit)
+	}
 }
 
 func TestCloseStoreUsesOwnedCloser(t *testing.T) {
@@ -275,13 +294,14 @@ func TestRedactionReportContainsOnlyFingerprint(t *testing.T) {
 
 func TestSessionObservationsPreserveEvidenceIDs(t *testing.T) {
 	t.Parallel()
+	observedAt := time.Date(2023, time.January, 20, 16, 4, 0, 0, time.UTC)
 	conversation := benchmarkConversation{ID: "conversation", Turns: []benchmarkTurn{
-		{Role: "user", Content: "hello", EvidenceID: "dia-1", SessionID: "session-1"},
-		{Role: "assistant", Content: "hi", EvidenceID: "dia-2", SessionID: "session-1"},
-		{Role: "user", Content: "later", EvidenceID: "dia-3", SessionID: "session-2"},
+		{Role: "user", Speaker: "Jon", Content: "hello", EvidenceID: "dia-1", SessionID: "session-1", ObservedAt: observedAt},
+		{Role: "assistant", Speaker: "Gina", Content: "hi", EvidenceID: "dia-2", SessionID: "session-1", ObservedAt: observedAt},
+		{Role: "user", Speaker: "Jon", Content: "later", EvidenceID: "dia-3", SessionID: "session-2", ObservedAt: observedAt.Add(time.Hour)},
 	}}
 	observations := sessionObservations("scope", conversation)
-	if len(observations) != 2 || observations[0].ID != "session-1" || len(observations[0].Turns) != 2 || observations[0].Turns[0].ID != "dia-1" || observations[1].Turns[0].ID != "dia-3" {
+	if len(observations) != 2 || observations[0].ID != "session-1" || !observations[0].ObservedAt.Equal(observedAt) || len(observations[0].Turns) != 2 || observations[0].Turns[0].ID != "dia-1" || observations[0].Turns[0].Speaker != "Jon" || !observations[0].Turns[0].ObservedAt.Equal(observedAt) || observations[1].Turns[0].ID != "dia-3" {
 		t.Fatalf("observations=%+v", observations)
 	}
 }
@@ -410,9 +430,10 @@ func (*recordingStore) Update(context.Context, memorystore.UpdateRequest) (memor
 func (*recordingStore) Delete(context.Context, memorystore.DeleteRequest) error { return nil }
 
 func validOfflineDataset() *benchmarkDataset {
+	observedAt := time.Date(2023, time.January, 20, 16, 4, 0, 0, time.UTC)
 	return &benchmarkDataset{
 		Conversations: []benchmarkConversation{{
-			ID: "conversation", Turns: []benchmarkTurn{{Role: "user", Content: "tea", EvidenceID: "turn-1", SessionID: "session-1"}},
+			ID: "conversation", Turns: []benchmarkTurn{{Role: "user", Speaker: "Jon", Content: "tea", EvidenceID: "turn-1", SessionID: "session-1", ObservedAt: observedAt}},
 		}},
 		Questions: []benchmarkQuestion{{
 			ID: "question", ConversationID: "conversation", Query: "drink?", GoldAnswers: []string{"tea"}, EvidenceIDs: []string{"turn-1"},

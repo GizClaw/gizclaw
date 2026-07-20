@@ -253,12 +253,13 @@ func sessionObservations(scope memorystore.Scope, conversation benchmarkConversa
 	for _, turn := range conversation.Turns {
 		if len(observations) == 0 || observations[len(observations)-1].ID != turn.SessionID {
 			observations = append(observations, memorystore.Observation{
-				Scope: scope, ID: turn.SessionID,
+				Scope: scope, ID: turn.SessionID, ObservedAt: turn.ObservedAt,
 			})
 		}
 		current := &observations[len(observations)-1]
 		current.Turns = append(current.Turns, memorystore.Turn{
-			ID: turn.EvidenceID, Role: memorystore.Role(turn.Role), Text: turn.Content,
+			ID: turn.EvidenceID, Role: memorystore.Role(turn.Role), Speaker: turn.Speaker,
+			Text: turn.Content, ObservedAt: turn.ObservedAt,
 		})
 	}
 	return observations
@@ -357,9 +358,6 @@ func evidenceHit(matches []memorystore.Match, expected []string) *bool {
 		for _, source := range match.Fact.Sources {
 			recalled = append(recalled, source.TurnIDs...)
 		}
-	}
-	if len(recalled) == 0 {
-		return nil
 	}
 	hit := false
 	for _, evidenceID := range expected {

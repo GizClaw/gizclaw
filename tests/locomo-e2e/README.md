@@ -46,9 +46,10 @@ bash tests/locomo-e2e/run_tests.sh
 The script accepts one explicit live test name and applies a 30-minute default
 whole-test timeout plus per-session and per-question timeouts.
 The Go runner groups source turns by their official session, writes each session
-through `memory.Store.Observe`, recalls for every question, asks Doubao to answer
-from the returned facts, and computes deterministic EM/F1 and evidence-hit
-metrics locally. No Python package or official LoCoMo Go library is required.
+through `memory.Store.Observe` with the official speaker and session time,
+recalls for every question, asks Doubao to answer from the returned facts, and
+computes deterministic EM/F1 and evidence-hit metrics locally. No Python package
+or official LoCoMo Go library is required.
 The default quality gate rejects a run with aggregate F1 below `0.05`, and
 rejects evidence-aware stores with an evidence hit rate below `0.50`; these
 thresholds can be raised for a lane through `.env`. The committed dataset also

@@ -26,7 +26,12 @@ and changes.
 The runner schema is newline-delimited JSON:
 
 - one `conversation` record with ordered turns and stable evidence/session IDs;
+- every turn carries its source speaker and normalized session timestamp;
 - one `question` record per query with gold answers, evidence IDs, and tags.
+
+The upstream session timestamps do not specify a timezone. The subset maps the
+unchanged wall-clock date and time onto UTC solely as a deterministic Go
+`ObservedAt` representation; the `Z` suffix does not claim a source timezone.
 
 The dataset payload is stored with Git LFS. Run `git lfs pull` if the working
 tree contains only an LFS pointer.

@@ -8,7 +8,7 @@
   },
   "derived": {
     "path": "locomo10_smoke.jsonl",
-    "sha256": "a20fd82dfeee9ec8d079f954303347d311e42b2f5b897a618cb1e1995e749475",
+    "sha256": "4868104c2a78b92d6ba47308ce455ac02baca3a6b0f54fa30f6f9a6ea745d1a8",
     "conversation_ids": ["conv-30"],
     "session_ids": ["session_1", "session_2", "session_3"],
     "turn_count": 58,
@@ -20,7 +20,7 @@
       "conv-30-q8",
       "conv-30-q48"
     ],
-    "changes": "Selected sessions 1 through 3 from conv-30 and six QA records whose evidence is contained in those sessions, then transformed them into the GizClaw runner JSONL schema. The conversation record declares a smoke-contract minimum of one materialized fact per session. Image URLs and generated observations/summaries are not included."
+    "changes": "Selected sessions 1 through 3 from conv-30 and six QA records whose evidence is contained in those sessions, then transformed them into the GizClaw runner JSONL schema. Source speaker names and session wall-clock timestamps are preserved on every turn. Because the upstream timestamps have no timezone, their unchanged wall-clock values are mapped onto UTC solely as a deterministic Go time representation; this does not assert a source timezone. The conversation record declares a smoke-contract minimum of one materialized fact per session. Image URLs and generated observations/summaries are not included."
   },
   "license": {
     "spdx": "CC-BY-NC-4.0",
