@@ -502,13 +502,27 @@ async function rpcUploadCall<TResult>(
     options.signal,
     options.timeoutMs,
   );
+  const responseOutcome = response.promise.then((value) => ({ kind: "response" as const, value }));
+  const iterator = Symbol.asyncIterator in body
+    ? body[Symbol.asyncIterator]()
+    : body[Symbol.iterator]();
+  let uploadComplete = false;
   try {
     await waitForDataChannelOpen(channel, options.signal, options.timeoutMs);
     await sendInboundRPCFrames(
       channel,
       encodeRPCEnvelopeFrames(encodeRPCRequestEnvelope(request)),
     );
-    for await (const chunk of body) {
+    for (;;) {
+      const outcome = await Promise.race([
+        Promise.resolve(iterator.next()).then((result) => ({ kind: "chunk" as const, result })),
+        responseOutcome,
+      ]);
+      if (outcome.kind === "response") {
+        return outcome.value;
+      }
+      if (outcome.result.done) break;
+      const chunk = outcome.result.value;
       if (!(chunk instanceof Uint8Array) || chunk.length === 0) {
         throw new Error("speech audio chunks must be non-empty Uint8Array values");
       }
@@ -521,6 +535,7 @@ async function rpcUploadCall<TResult>(
         ]);
       }
     }
+    uploadComplete = true;
     await sendInboundRPCFrames(channel, [encodeFrame(RPC_FRAME_TYPE_EOS)]);
     return await response.promise;
   } catch (error) {
@@ -532,6 +547,10 @@ async function rpcUploadCall<TResult>(
       // Ignore close races while unwinding a failed upload.
     }
     throw error;
+  } finally {
+    if (!uploadComplete && iterator.return != null) {
+      await Promise.resolve(iterator.return()).catch(() => undefined);
+    }
   }
 }
 

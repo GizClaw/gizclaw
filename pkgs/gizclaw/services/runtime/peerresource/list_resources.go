@@ -46,6 +46,11 @@ func (s *Server) GetModel(ctx context.Context, request adminhttp.GetModelRequest
 	return adminhttp.GetModel200JSONResponse(item), nil
 }
 
+// GetCanonicalModel returns a model by its administrator-owned resource ID.
+func (s *Server) GetCanonicalModel(ctx context.Context, request adminhttp.GetModelRequestObject) (adminhttp.GetModelResponseObject, error) {
+	return s.Models.GetModel(ctx, request)
+}
+
 func (s *Server) ListVoices(ctx context.Context, request adminhttp.ListVoicesRequestObject) (adminhttp.ListVoicesResponseObject, error) {
 	if s.Voices == nil {
 		return adminhttp.ListVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "voice service not configured")), nil
@@ -135,4 +140,9 @@ func (s *Server) GetVoice(ctx context.Context, request adminhttp.GetVoiceRequest
 	}
 	item.Id = alias
 	return adminhttp.GetVoice200JSONResponse(item), nil
+}
+
+// GetCanonicalVoice returns a voice by its administrator-owned resource ID.
+func (s *Server) GetCanonicalVoice(ctx context.Context, request adminhttp.GetVoiceRequestObject) (adminhttp.GetVoiceResponseObject, error) {
+	return s.Voices.GetVoice(ctx, request)
 }

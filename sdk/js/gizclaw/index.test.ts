@@ -510,6 +510,45 @@ test("WebRTCRPCClient streams transcription audio before request EOS", async () 
   assert.equal(channel.closed, true);
 });
 
+test("WebRTCRPCClient stops a live transcription upload on an early response", async () => {
+  const pc = new FakePeerConnection();
+  const client = new WebRTCRPCClient(pc, { createID: () => "speech-early-error" });
+  let reads = 0;
+  let returned = false;
+  const audio: AsyncIterable<Uint8Array> = {
+    [Symbol.asyncIterator]() {
+      return {
+        next: async () => {
+          reads += 1;
+          if (reads === 1) return { done: false, value: new Uint8Array([1, 2]) };
+          return await new Promise<IteratorResult<Uint8Array>>(() => {});
+        },
+        return: async () => {
+          returned = true;
+          return { done: true, value: undefined };
+        },
+      };
+    },
+  };
+
+  const promise = client.transcribeSpeech({
+    model_alias: "missing",
+    content_type: "audio/L16;rate=16000;channels=1",
+  }, audio);
+  const channel = pc.lastChannel();
+  channel.open();
+  await channel.waitForSentCount(2);
+  channel.receive(encodeRPCResponse({
+    error: { code: -32602, message: "model alias is invalid" },
+    id: "speech-early-error",
+    v: 1,
+  }, "server.speech.transcribe"));
+
+  await assert.rejects(promise, /model alias is invalid/);
+  assert.equal(returned, true);
+  assert.equal(channel.closed, true);
+});
+
 test("WebRTCRPCClient exposes synthesized audio before response EOS", async () => {
   const pc = new FakePeerConnection();
   const client = new WebRTCRPCClient(pc, { createID: () => "speech-synthesize" });

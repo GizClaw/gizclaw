@@ -953,7 +953,7 @@ func (s *Server) handleVoiceList(ctx context.Context, req *rpcapi.RPCRequest) *r
 	items := make([]rpcapi.Voice, 0, len(page))
 	for _, alias := range page {
 		binding := bindings[alias]
-		resp, err := s.GetVoice(ctx, adminhttp.GetVoiceRequestObject{Id: binding.ResourceId})
+		resp, err := s.Voices.GetVoice(ctx, adminhttp.GetVoiceRequestObject{Id: binding.ResourceId})
 		if err != nil {
 			return internalError(req.Id, err.Error())
 		}
@@ -991,7 +991,7 @@ func (s *Server) handleVoiceGet(ctx context.Context, req *rpcapi.RPCRequest) *rp
 	if !exists {
 		return statusError(req.Id, http.StatusNotFound, "voice not found")
 	}
-	adminResp, err := s.GetVoice(ctx, adminhttp.GetVoiceRequestObject{Id: binding.ResourceId})
+	adminResp, err := s.Voices.GetVoice(ctx, adminhttp.GetVoiceRequestObject{Id: binding.ResourceId})
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}

@@ -224,6 +224,42 @@ func TestListVoicesProjectsRuntimeAliases(t *testing.T) {
 	if _, ok := canonicalResponse.(adminhttp.GetVoice404JSONResponse); !ok {
 		t.Fatalf("GetVoice(canonical) = %#v, want 404", canonicalResponse)
 	}
+
+	var listPayload rpcapi.RPCPayload
+	if err := listPayload.FromVoiceListRequest(rpcapi.VoiceListRequest{}); err != nil {
+		t.Fatal(err)
+	}
+	rpcListResponse := server.handleVoiceList(ctx, &rpcapi.RPCRequest{Id: "voice-list", Params: &listPayload})
+	if rpcListResponse.Error != nil || rpcListResponse.Result == nil {
+		t.Fatalf("handleVoiceList() response = %#v", rpcListResponse)
+	}
+	rpcList, err := rpcListResponse.Result.AsVoiceListResponse()
+	if err != nil {
+		t.Fatalf("AsVoiceListResponse() error = %v", err)
+	}
+	rpcAliases := make([]string, len(rpcList.Items))
+	for i, item := range rpcList.Items {
+		rpcAliases[i] = item.Alias
+	}
+	if want := []string{"assistant-voice", "narrator-voice"}; !reflect.DeepEqual(rpcAliases, want) {
+		t.Fatalf("handleVoiceList() aliases = %#v, want %#v", rpcAliases, want)
+	}
+
+	var getPayload rpcapi.RPCPayload
+	if err := getPayload.FromVoiceGetRequest(rpcapi.VoiceGetRequest{Alias: "narrator-voice"}); err != nil {
+		t.Fatal(err)
+	}
+	rpcGetResponse := server.handleVoiceGet(ctx, &rpcapi.RPCRequest{Id: "voice-get", Params: &getPayload})
+	if rpcGetResponse.Error != nil || rpcGetResponse.Result == nil {
+		t.Fatalf("handleVoiceGet() response = %#v", rpcGetResponse)
+	}
+	rpcGet, err := rpcGetResponse.Result.AsVoiceGetResponse()
+	if err != nil {
+		t.Fatalf("AsVoiceGetResponse() error = %v", err)
+	}
+	if rpcGet.Value.Alias != "narrator-voice" {
+		t.Fatalf("handleVoiceGet() alias = %q, want narrator-voice", rpcGet.Value.Alias)
+	}
 }
 
 func assertAliasNotFound(t *testing.T, response *rpcapi.RPCResponse, message, canonicalID string) {

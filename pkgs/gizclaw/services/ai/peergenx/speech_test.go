@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
@@ -19,6 +20,10 @@ func (m aliasModels) ResolveModelAlias(alias string) (string, bool) {
 	return value, ok
 }
 
+func (m aliasModels) GetCanonicalModel(ctx context.Context, request adminhttp.GetModelRequestObject) (adminhttp.GetModelResponseObject, error) {
+	return m.fakeModels.GetModel(ctx, request)
+}
+
 type aliasVoices struct {
 	fakeVoices
 	aliases map[string]string
@@ -27,6 +32,10 @@ type aliasVoices struct {
 func (v aliasVoices) ResolveVoiceAlias(alias string) (string, bool) {
 	value, ok := v.aliases[alias]
 	return value, ok
+}
+
+func (v aliasVoices) GetCanonicalVoice(ctx context.Context, request adminhttp.GetVoiceRequestObject) (adminhttp.GetVoiceResponseObject, error) {
+	return v.fakeVoices.GetVoice(ctx, request)
 }
 
 func TestTranscribeResolvesASRAliasAndRejectsCanonicalID(t *testing.T) {

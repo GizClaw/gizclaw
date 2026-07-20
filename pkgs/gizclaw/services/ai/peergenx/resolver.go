@@ -371,7 +371,13 @@ func (s *Service) resolveVoiceTenant(ctx context.Context, voice apitypes.Voice) 
 }
 
 func (s *Service) getModel(ctx context.Context, id string) (apitypes.Model, error) {
-	response, err := s.Models.GetModel(ctx, adminhttp.GetModelRequestObject{Id: id})
+	get := s.Models.GetModel
+	if getter, ok := s.Models.(interface {
+		GetCanonicalModel(context.Context, adminhttp.GetModelRequestObject) (adminhttp.GetModelResponseObject, error)
+	}); ok {
+		get = getter.GetCanonicalModel
+	}
+	response, err := get(ctx, adminhttp.GetModelRequestObject{Id: id})
 	if err != nil {
 		return apitypes.Model{}, err
 	}
@@ -386,7 +392,13 @@ func (s *Service) getModel(ctx context.Context, id string) (apitypes.Model, erro
 }
 
 func (s *Service) getVoice(ctx context.Context, id string) (apitypes.Voice, error) {
-	response, err := s.Voices.GetVoice(ctx, adminhttp.GetVoiceRequestObject{Id: id})
+	get := s.Voices.GetVoice
+	if getter, ok := s.Voices.(interface {
+		GetCanonicalVoice(context.Context, adminhttp.GetVoiceRequestObject) (adminhttp.GetVoiceResponseObject, error)
+	}); ok {
+		get = getter.GetCanonicalVoice
+	}
+	response, err := get(ctx, adminhttp.GetVoiceRequestObject{Id: id})
 	if err != nil {
 		return apitypes.Voice{}, err
 	}
