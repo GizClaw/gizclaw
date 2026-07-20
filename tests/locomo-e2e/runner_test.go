@@ -409,7 +409,7 @@ func exactMatch(prediction string, answers []string) bool {
 		if normalizedAnswer == "" {
 			continue
 		}
-		if normalizedPrediction == normalizedAnswer || strings.Contains(" "+normalizedPrediction+" ", " "+normalizedAnswer+" ") {
+		if normalizedPrediction == normalizedAnswer {
 			return true
 		}
 	}

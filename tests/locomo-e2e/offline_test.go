@@ -105,8 +105,11 @@ func TestDatasetRejectsTrailingJSON(t *testing.T) {
 
 func TestScoreDeterministicEMAndF1(t *testing.T) {
 	t.Parallel()
-	if !exactMatch("Alice prefers green tea.", []string{"green tea"}) {
-		t.Fatal("exactMatch should accept a normalized contained answer")
+	if !exactMatch("The green tea.", []string{"green tea"}) {
+		t.Fatal("exactMatch should accept normalized equality")
+	}
+	if exactMatch("not green tea", []string{"green tea"}) {
+		t.Fatal("exactMatch should reject a containing but non-equal answer")
 	}
 	if got := tokenF1("green tea", []string{"green tea"}); got != 1 {
 		t.Fatalf("F1 = %v, want 1", got)
