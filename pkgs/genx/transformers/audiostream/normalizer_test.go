@@ -54,6 +54,22 @@ func TestNormalizerPreservesInvalidMP3ID3Bytes(t *testing.T) {
 	}
 }
 
+func TestNormalizerRemovesTrailingMP3ID3v1Tag(t *testing.T) {
+	normalizer := NewNormalizer("audio/mpeg")
+	tag := make([]byte, 128)
+	copy(tag, "TAG")
+	copy(tag[20:], "ID3 inside metadata")
+	data := append([]byte("frame-a"), tag...)
+	var got []byte
+	for _, chunk := range [][]byte{data[:5], data[5:70], data[70:]} {
+		got = append(got, normalizer.Normalize(chunk)...)
+	}
+	got = append(got, normalizer.Flush()...)
+	if string(got) != "frame-a" {
+		t.Fatalf("normalized MP3 = %q, want frame-a", got)
+	}
+}
+
 func fakeID3v2Tag(payload []byte) []byte {
 	header := []byte{'I', 'D', '3', 4, 0, 0, 0, 0, 0, 0}
 	size := len(payload)

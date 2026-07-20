@@ -5,12 +5,14 @@ import (
 	"strings"
 )
 
+const mp3MetadataTailSize = 128 + 2
+
 // Normalizer makes chunks of one audio MIME stream safe to concatenate while
 // preserving that stream's codec and MIME type. Formats that need no special
 // handling are passed through unchanged.
 //
-// The current format-specific handling removes ID3v2 metadata from MP3 byte
-// streams. Additional formats may be handled without changing callers.
+// The current format-specific handling removes ID3v1 and ID3v2 metadata from
+// MP3 byte streams. Additional formats may be handled without changing callers.
 type Normalizer struct {
 	mimeType string
 	pending  []byte
@@ -54,6 +56,9 @@ func (n *Normalizer) isMP3() bool {
 }
 
 func (n *Normalizer) drainMP3(final bool) []byte {
+	if final {
+		n.pending = stripID3v1Tag(n.pending)
+	}
 	var out []byte
 	for len(n.pending) > 0 {
 		if bytes.HasPrefix(n.pending, []byte("ID3")) {
@@ -77,18 +82,21 @@ func (n *Normalizer) drainMP3(final bool) []byte {
 			continue
 		}
 
-		idx := bytes.Index(n.pending, []byte("ID3"))
+		searchable := n.pending
+		if !final {
+			if len(searchable) <= mp3MetadataTailSize {
+				return out
+			}
+			searchable = searchable[:len(searchable)-mp3MetadataTailSize]
+		}
+		idx := bytes.Index(searchable, []byte("ID3"))
 		if idx < 0 {
-			const signatureOverlap = 2
 			if final {
 				out = append(out, n.pending...)
 				n.pending = nil
 				return out
 			}
-			if len(n.pending) <= signatureOverlap {
-				return out
-			}
-			emit := len(n.pending) - signatureOverlap
+			emit := len(n.pending) - mp3MetadataTailSize
 			out = append(out, n.pending[:emit]...)
 			n.pending = n.pending[emit:]
 			return out
@@ -100,6 +108,14 @@ func (n *Normalizer) drainMP3(final bool) []byte {
 		}
 	}
 	return out
+}
+
+func stripID3v1Tag(data []byte) []byte {
+	const id3v1Size = 128
+	if len(data) >= id3v1Size && bytes.Equal(data[len(data)-id3v1Size:len(data)-id3v1Size+3], []byte("TAG")) {
+		return data[:len(data)-id3v1Size]
+	}
+	return data
 }
 
 func normalizeMIME(mimeType string) string {
