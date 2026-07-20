@@ -15,6 +15,7 @@ import 'package:gizclaw_app/features/identity/server_pages.dart';
 import 'package:gizclaw_app/features/onboarding/server_onboarding_page.dart';
 import 'package:gizclaw_app/giz_ui/giz_ui.dart';
 import 'package:gizclaw_app/identity/app_identity_store.dart';
+import 'package:gizclaw_app/l10n/generated/app_localizations.dart';
 import 'package:gizclaw_app/prototype/prototype_data.dart';
 import 'package:gizclaw_app/prototype/prototype_models.dart';
 import 'package:gizclaw_app/workflows/app_workflow_catalog.dart';
@@ -517,16 +518,20 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  appTestWidgets('does not auto-scroll messages during a user drag', (
+  appTestWidgets('does not auto-scroll realtime messages during a user drag', (
     tester,
   ) async {
     final controller = _ScrollableMessagesController();
+    controller.mode = WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME;
+    controller.scrollChat.recording = true;
     dataControllers.add(controller);
     await tester.pumpWidget(
       MobileDataScope(
         controller: controller,
         child: const CupertinoApp(
           theme: gizCupertinoTheme,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: WorkspaceChatPage(workspaceName: 'Parser pass'),
         ),
       ),
@@ -548,11 +553,69 @@ void main() {
     controller.scrollChat.appendMessage('Message received while dragging');
     await tester.pump();
     expect(scrollable.position.pixels, greaterThan(48));
+    expect(find.byKey(const ValueKey('new-messages-below')), findsOneWidget);
 
     await gesture.up();
     await tester.pump(const Duration(milliseconds: 500));
     expect(scrollable.position.pixels, greaterThan(48));
   });
+
+  appTestWidgets(
+    'preserves a settled history position until new messages are requested',
+    (tester) async {
+      final controller = _ScrollableMessagesController();
+      dataControllers.add(controller);
+      await tester.pumpWidget(
+        MobileDataScope(
+          controller: controller,
+          child: const CupertinoApp(
+            theme: gizCupertinoTheme,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: WorkspaceChatPage(workspaceName: 'Parser pass'),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final messageList = find.byKey(const ValueKey('workspace-message-list'));
+      final scrollable = tester.state<ScrollableState>(
+        find.descendant(of: messageList, matching: find.byType(Scrollable)),
+      );
+      final gesture = await tester.startGesture(tester.getCenter(messageList));
+      await gesture.moveBy(const Offset(0, 260));
+      await tester.pump();
+      await gesture.up();
+      await tester.pump(const Duration(seconds: 1));
+      final previousPixels = scrollable.position.pixels;
+      final previousExtent = scrollable.position.maxScrollExtent;
+      expect(previousPixels, greaterThan(48));
+
+      controller.scrollChat.appendMessage('Message received while reading');
+      await tester.pump();
+      await tester.pump();
+
+      final extentGrowth = scrollable.position.maxScrollExtent - previousExtent;
+      expect(extentGrowth, greaterThan(0));
+      expect(
+        scrollable.position.pixels,
+        closeTo(previousPixels + extentGrowth, 3),
+      );
+      expect(find.byKey(const ValueKey('new-messages-below')), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('new-messages-below')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(scrollable.position.pixels, closeTo(0, 0.5));
+      expect(find.byKey(const ValueKey('new-messages-below')), findsNothing);
+
+      controller.scrollChat.appendMessage('Message followed at the bottom');
+      await tester.pump();
+      await tester.pump();
+      expect(scrollable.position.pixels, closeTo(0, 0.5));
+    },
+  );
 
   appTestWidgets('follows system brightness in the workspace signal room', (
     tester,

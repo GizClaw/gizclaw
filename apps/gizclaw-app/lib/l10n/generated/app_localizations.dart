@@ -453,6 +453,12 @@ abstract class AppLocalizations {
   /// **'HOLD TO TALK'**
   String get conversationStatusHoldToTalk;
 
+  /// Button that returns a conversation to its newest message.
+  ///
+  /// In en, this message translates to:
+  /// **'New messages below'**
+  String get newMessagesBelow;
+
   /// Onboarding hero heading.
   ///
   /// In en, this message translates to:

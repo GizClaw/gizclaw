@@ -97,6 +97,7 @@
   "conversationStatusSpeaking": "正在播放",
   "conversationStatusRealtimeReady": "实时通话已就绪",
   "conversationStatusHoldToTalk": "按住说话",
+  "newMessagesBelow": "下方有新消息",
   "onboardingHeroTitle": "你的智能体，随处相伴。",
   "@onboardingHeroTitle": {"description": "引导页主标题"},
   "onboardingHeroDescription": "连接 GizClaw 服务器，在所有设备上使用语音、工作流和智能伙伴。",

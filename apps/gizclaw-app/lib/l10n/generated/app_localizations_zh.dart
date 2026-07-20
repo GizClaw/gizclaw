@@ -189,6 +189,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get conversationStatusHoldToTalk => '按住说话';
 
   @override
+  String get newMessagesBelow => '下方有新消息';
+
+  @override
   String get onboardingHeroTitle => '你的智能体，随处相伴。';
 
   @override
@@ -551,6 +554,9 @@ class AppLocalizationsZhCn extends AppLocalizationsZh {
 
   @override
   String get conversationStatusHoldToTalk => '按住说话';
+
+  @override
+  String get newMessagesBelow => '下方有新消息';
 
   @override
   String get onboardingHeroTitle => '你的智能体，随处相伴。';

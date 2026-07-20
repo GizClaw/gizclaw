@@ -693,6 +693,7 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
   bool _autoScrollScheduled = false;
   bool _stickToBottom = true;
   bool _userScrolling = false;
+  bool _newMessagesBelow = false;
   int _chatRequest = 0;
 
   @override
@@ -725,7 +726,7 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
     _chatViewSnapshot = _workspaceChatViewSnapshot(viewer);
     setState(() {});
     if (previousMessages != _chatViewSnapshot?.messages) {
-      _scheduleBottomFollow();
+      _scheduleMessageViewportUpdate();
     }
   }
 
@@ -742,6 +743,7 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
     _chatViewSnapshot = _workspaceChatViewSnapshot(chat);
     _stickToBottom = true;
     _userScrolling = false;
+    _newMessagesBelow = false;
     chat.addListener(_handleChatChanged);
     if (notify && mounted) setState(() {});
   }
@@ -752,22 +754,37 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
     final messagesChanged = next.messages != _chatViewSnapshot?.messages;
     if (next == _chatViewSnapshot) return;
     _chatViewSnapshot = next;
+    if (messagesChanged && !_stickToBottom) _newMessagesBelow = true;
     setState(() {});
-    if (messagesChanged) _scheduleBottomFollow();
+    if (messagesChanged) _scheduleMessageViewportUpdate();
   }
 
-  void _scheduleBottomFollow() {
-    if (_autoScrollScheduled || _userScrolling || !_stickToBottom) return;
+  void _scheduleMessageViewportUpdate() {
+    if (_autoScrollScheduled || _userScrolling) return;
+    final preserve = !_stickToBottom && _scrollController.hasClients
+        ? (
+            pixels: _scrollController.position.pixels,
+            maxScrollExtent: _scrollController.position.maxScrollExtent,
+          )
+        : null;
     _autoScrollScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _autoScrollScheduled = false;
-      if (!mounted ||
-          _userScrolling ||
-          !_stickToBottom ||
-          !_scrollController.hasClients) {
+      if (!mounted || _userScrolling || !_scrollController.hasClients) {
         return;
       }
-      _scrollController.jumpTo(_scrollController.position.minScrollExtent);
+      final position = _scrollController.position;
+      if (_stickToBottom) {
+        _scrollController.jumpTo(position.minScrollExtent);
+        return;
+      }
+      if (preserve == null) return;
+      final extentGrowth = position.maxScrollExtent - preserve.maxScrollExtent;
+      final target = (preserve.pixels + extentGrowth).clamp(
+        position.minScrollExtent,
+        position.maxScrollExtent,
+      );
+      _scrollController.jumpTo(target);
     });
   }
 
@@ -786,11 +803,27 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
       _userScrolling = false;
       _stickToBottom = _isNearBottom(notification.metrics);
     }
+    if (_stickToBottom && _newMessagesBelow) {
+      setState(() => _newMessagesBelow = false);
+    }
     return false;
   }
 
   bool _isNearBottom(ScrollMetrics metrics) =>
       metrics.pixels <= metrics.minScrollExtent + _bottomFollowThreshold;
+
+  void _showNewestMessages() {
+    _stickToBottom = true;
+    setState(() => _newMessagesBelow = false);
+    if (!_scrollController.hasClients) return;
+    unawaited(
+      _scrollController.animateTo(
+        _scrollController.position.minScrollExtent,
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
+      ),
+    );
+  }
 
   @override
   void dispose() {
@@ -828,17 +861,38 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
           recording: chat?.recording ?? false,
           accent: accent,
           signal: signal,
-          child: NotificationListener<ScrollNotification>(
-            onNotification: _handleScrollNotification,
-            child: _WorkspaceMessageList(
-              controller: _scrollController,
-              messages: messages,
-              state: chat?.state ?? WorkspaceChatState.loading,
-              signal: signal,
-              error: chat?.lastError,
-              replayingHistoryId: chat?.replayingHistoryId,
-              onReplay: isActiveWorkspace ? chat?.replayHistory : null,
-            ),
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: NotificationListener<ScrollNotification>(
+                  onNotification: _handleScrollNotification,
+                  child: _WorkspaceMessageList(
+                    controller: _scrollController,
+                    messages: messages,
+                    state: chat?.state ?? WorkspaceChatState.loading,
+                    signal: signal,
+                    error: chat?.lastError,
+                    replayingHistoryId: chat?.replayingHistoryId,
+                    onReplay: isActiveWorkspace ? chat?.replayHistory : null,
+                  ),
+                ),
+              ),
+              if (_newMessagesBelow)
+                Positioned(
+                  left: 24,
+                  right: 24,
+                  bottom:
+                      GlobalConversationOverlay.bottomContentInset(context) + 4,
+                  child: Center(
+                    child: CupertinoButton.tinted(
+                      key: const ValueKey('new-messages-below'),
+                      sizeStyle: CupertinoButtonSize.small,
+                      onPressed: _showNewestMessages,
+                      child: Text(context.l10n.newMessagesBelow),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ),
