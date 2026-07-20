@@ -232,6 +232,22 @@ func TestDanglingRuntimeProfileResourceNamesAreAccepted(t *testing.T) {
 	}
 }
 
+func TestRuntimeProfileAcceptsDefaultName(t *testing.T) {
+	t.Parallel()
+	s := &Server{Store: kv.NewMemory(nil)}
+	response, err := s.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
+		Name: "default",
+		Spec: apitypes.RuntimeProfileSpec{},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, ok := response.(adminhttp.CreateRuntimeProfile200JSONResponse)
+	if !ok || created.Name != "default" {
+		t.Fatalf("CreateRuntimeProfile() = %#v, want RuntimeProfile/default", response)
+	}
+}
+
 func createProfile(t *testing.T, s *Server, name string, models map[string]string) {
 	t.Helper()
 	resources := apitypes.RuntimeProfileResources{}

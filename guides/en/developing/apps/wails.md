@@ -43,6 +43,13 @@ in its credential-bearing `registration_token` field so GizClaw App can register
 scanning. Desktop does not create RegistrationTokens for
 remote Pods.
 
+Completed local Pods do not replay the full bootstrap catalog during start,
+restart, or Desktop upgrade. A legacy local Pod performs one targeted migration
+after its Server is ready: Desktop applies only `RuntimeProfile/default`, creates
+a fresh `RegistrationToken/app:com.gizclaw.opensource`, and records the local
+catalog version in `pod.json`. Other resources, including user edits, remain
+unchanged.
+
 ## Local Server recovery
 
 Each running local Server stores `workspace/server.pid`. After an abnormal Desktop exit, recovery

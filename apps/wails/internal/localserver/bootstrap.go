@@ -34,6 +34,83 @@ type Bootstrapper struct {
 	RunOutput  func(context.Context, string, []string, []string) ([]byte, error)
 }
 
+// MigrateRuntimeContract installs only the fixed App registration contract for
+// a completed legacy Pod. It deliberately does not reapply the rest of the
+// bootstrap catalog because those resources may have been edited by the user.
+func (b *Bootstrapper) MigrateRuntimeContract(ctx context.Context, podDir string) error {
+	if b == nil || b.Catalog == nil || b.Executable == nil {
+		return fmt.Errorf("local server bootstrap: bootstrapper is not configured")
+	}
+	var profile *ResourceEntry
+	for i := range b.Catalog.Resources {
+		entry := &b.Catalog.Resources[i]
+		if entry.Kind == "RuntimeProfile" && entry.Name == defaultRuntimeProfileName {
+			profile = entry
+			break
+		}
+	}
+	if profile == nil {
+		return fmt.Errorf("local server bootstrap: RuntimeProfile/%s is missing from the catalog", defaultRuntimeProfileName)
+	}
+	executable, err := b.Executable()
+	if err != nil {
+		return err
+	}
+	tempDir, environment, err := prepareAdminWorkspace(podDir)
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(tempDir)
+	file, err := b.extract(tempDir, profile.Path)
+	if err != nil {
+		return err
+	}
+	run := b.Run
+	if run == nil {
+		run = runBootstrapCommand
+	}
+	if err := runBootstrapOperation(ctx, run, executable, []string{"admin", "apply", "--context", "local", "-f", file}, environment); err != nil {
+		return fmt.Errorf("local server bootstrap: migrate RuntimeProfile/%s: %w", defaultRuntimeProfileName, err)
+	}
+	// Retrying a partially completed migration must produce a raw token that
+	// matches the private handoff file written below.
+	_ = runBootstrapOperation(ctx, run, executable, []string{"admin", "registration-tokens", "delete", appRegistrationTokenName, "--context", "local"}, environment)
+	if err := b.createRegistrationToken(ctx, tempDir, podDir, executable, environment); err != nil {
+		return fmt.Errorf("local server bootstrap: migrate RegistrationToken/%s: %w", appRegistrationTokenName, err)
+	}
+	return nil
+}
+
+func prepareAdminWorkspace(podDir string) (string, []string, error) {
+	tempDir, err := os.MkdirTemp(podDir, ".runtime-contract-")
+	if err != nil {
+		return "", nil, fmt.Errorf("local server bootstrap: create private migration workspace: %w", err)
+	}
+	cleanup := func(err error) (string, []string, error) {
+		_ = os.RemoveAll(tempDir)
+		return "", nil, err
+	}
+	if err := os.Chmod(tempDir, 0o700); err != nil {
+		return cleanup(fmt.Errorf("local server bootstrap: secure private migration workspace: %w", err))
+	}
+	configHome := filepath.Join(tempDir, "config")
+	contextDir := filepath.Join(configHome, "gizclaw", "local")
+	if err := os.MkdirAll(contextDir, 0o700); err != nil {
+		return cleanup(fmt.Errorf("local server bootstrap: create Admin context: %w", err))
+	}
+	contextData, err := os.ReadFile(filepath.Join(podDir, "admin_context", "local", "config.yaml"))
+	if err != nil {
+		return cleanup(fmt.Errorf("local server bootstrap: read generated Admin context: %w", err))
+	}
+	if err := os.WriteFile(filepath.Join(contextDir, "config.yaml"), contextData, 0o600); err != nil {
+		return cleanup(fmt.Errorf("local server bootstrap: materialize Admin context: %w", err))
+	}
+	environment := mergedCommandEnvironment(nil)
+	environment = setCommandEnvironment(environment, "XDG_CONFIG_HOME", configHome)
+	environment = setCommandEnvironment(environment, "AppData", configHome)
+	return tempDir, environment, nil
+}
+
 // Apply creates every declarative resource, synchronizes dynamic voice
 // resources, and uploads PetDef assets to one newly started local Server.
 func (b *Bootstrapper) Apply(ctx context.Context, podDir string, savedEnvironment map[string]string) error {

@@ -23,6 +23,7 @@ const (
 	PodManifestFile         = "pod.json"
 	PodInitializationMarker = ".initializing"
 	PodVersion              = 1
+	LocalCatalogVersion     = 1
 	DefaultPort             = 9820
 )
 
@@ -37,6 +38,7 @@ type Pod struct {
 	Name                  string         `json:"name"`
 	Description           string         `json:"description,omitempty"`
 	IdentitiesInitialized bool           `json:"identities_initialized,omitempty"`
+	LocalCatalogVersion   int            `json:"local_catalog_version,omitempty"`
 	LocalServer           *LocalServer   `json:"local_server,omitempty"`
 	RemoteServers         []RemoteServer `json:"remote_servers,omitempty"`
 	RemoteAccessPoint     string         `json:"remote_access_point,omitempty"`

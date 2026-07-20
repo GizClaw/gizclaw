@@ -45,12 +45,15 @@ background task starts the Server, applies the embedded deploy-derived catalog,
 syncs Volc voices, uploads all Workflow and PetDef assets, and creates the
 fixed `RegistrationToken/app:com.gizclaw.opensource`, which selects only
 `RuntimeProfile/default`. The embedded declarative catalog contains 43 resources
-and no Firmware or Workspace. A successful task
-clears the state; a failed task stops the process and persists its redacted
-error so the Pod remains visible and deletable. Desktop startup removes a Pod
-left actively initializing after an interrupted creation, while failed Pods
-remain visible. Successful Pods are never reconciled or bootstrapped again
-during start, restart, or app upgrade.
+and no Firmware or Workspace. A successful task clears the state; a failed task
+stops the process and persists its redacted error so the Pod remains visible and
+deletable. Desktop startup removes a Pod left actively initializing after an
+interrupted creation, while failed Pods remain visible. Successful Pods never
+replay the full catalog during start, restart, or app upgrade. A legacy local
+Pod performs one targeted runtime-contract migration after its Server is ready:
+Desktop applies only `RuntimeProfile/default`, creates a fresh
+`RegistrationToken/app:com.gizclaw.opensource`, and records the catalog version
+in `pod.json`. User-modified resources are otherwise preserved.
 A remote Pod has one `remote_access_point` and zero or more
 `remote_servers`; Servers may be added after the Pod is created. Each Server's
 Admin private key is supplied by the user and stored write-only; omitting it

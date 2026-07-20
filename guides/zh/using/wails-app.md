@@ -48,7 +48,9 @@ Server、apply 内嵌 Credential/Tenant/Model/Workflow/PetDef 与唯一的
 
 初始化失败会停止 Server，并在 Pod 详情中保留脱敏错误、目录入口和删除操作。退出
 Desktop 或崩溃时仍在初始化的 Pod 会在下次启动时清理；已经成功创建的 Pod 在
-Desktop 或 Server 重启时不会重新 apply，因此用户后续修改和删除的资源会保留。
+Desktop 或 Server 重启时不会重放完整 catalog，因此用户后续修改和删除的资源会保留。
+旧版 local Pod 会在 Server ready 后执行一次兼容迁移，只安装
+`RuntimeProfile/default` 并轮换固定 App RegistrationToken，不改动其他资源。
 
 ## 健康状态
 

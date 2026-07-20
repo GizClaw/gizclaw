@@ -59,8 +59,11 @@ restart、Admin 和 Play 操作；delete 会先取消并等待后台任务。
 `.initializing` 是 `0600` 的持久化 JSON 状态：`initializing` 会出现在 Pod 列表和
 详情中，成功后删除；失败时停止进程并原子改写为带脱敏错误的 `failed`，由用户查看
 目录或删除。启动 Desktop 时只清理被退出或崩溃中断的 `initializing` 目录，保留
-`failed` Pod。状态清除后的 Pod 不会在普通 start、restart 或 Desktop upgrade 时
-重新 apply。
+`failed` Pod。状态清除后的 Pod 不会在普通 start、restart 或 Desktop upgrade 时重放
+完整 catalog。旧版 local Pod 在 Server ready 后只执行一次 runtime contract 迁移：apply
+`RuntimeProfile/default`、创建新的
+`RegistrationToken/app:com.gizclaw.opensource`，并把 catalog version 记录到
+`pod.json`；其他可能已被用户修改的资源保持不变。
 
 本地 Play 打开时，Bridge 通过每次 launch 独立保护的 Browser Runtime handoff 传递 raw RegistrationToken；
 Play 在同一条持久 WebRTC 连接上先调用 `server.register`，再加载 RuntimeProfile 资源。

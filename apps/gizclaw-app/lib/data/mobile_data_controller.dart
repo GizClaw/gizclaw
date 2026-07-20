@@ -1422,8 +1422,11 @@ Workspace? workspaceWithDefaultInputParameters(
       driver != WorkflowDriverKind.astTranslate) {
     return null;
   }
-  return workspace.deepCopy()
-    ..parameters = newWorkspaceParametersForDriver(driver);
+  final definition = appWorkflowDefinition(workspace.workflowName);
+  final parameters = definition != null && definition.driver == driver
+      ? definition.workspaceParameters()
+      : newWorkspaceParametersForDriver(driver);
+  return workspace.deepCopy()..parameters = parameters;
 }
 
 bool _runWorkspaceNeedsReload(PeerRunWorkspaceState state) {

@@ -691,6 +691,26 @@ void main() {
     );
   });
 
+  test('repairs translation parameters from the fixed workflow alias', () {
+    final workspace = Workspace(
+      name: 'japanese-translator',
+      workflowName: 'translate-zh-ja',
+      workflowSource: ResourceSource.RESOURCE_SOURCE_RUNTIME,
+      parameters: WorkspaceParameters(),
+    );
+
+    final repaired = workspaceWithDefaultInputParameters(
+      workspace,
+      WorkflowDriverKind.astTranslate,
+    );
+
+    expect(repaired, isNotNull);
+    final parameters = repaired!.parameters.asttranslateWorkspaceParameters;
+    expect(parameters.enableSourceLanguageDetect, isFalse);
+    expect(parameters.langPair, 'zh/ja');
+    expect(parameters.mode, ASTTranslateMode.ASTTRANSLATE_MODE_S2S);
+  });
+
   test('preserves existing typed workspace parameters', () {
     final workspace = Workspace(
       parameters: WorkspaceParameters(

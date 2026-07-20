@@ -33,6 +33,7 @@ type PodBridge struct {
 	WebUI                *webui.Manager
 
 	mutationMu   sync.Mutex
+	contractMu   sync.Mutex
 	tokenMu      sync.Mutex
 	creating     sync.Map
 	initializing sync.Map
@@ -42,6 +43,7 @@ type PodBridge struct {
 
 type LocalPodBootstrapper interface {
 	Apply(context.Context, string, map[string]string) error
+	MigrateRuntimeContract(context.Context, string) error
 	RecoverRegistrationToken(context.Context, string, map[string]string) error
 }
 
@@ -173,9 +175,17 @@ func (b *PodBridge) RecoverLocalServers(ctx context.Context) error {
 		if entry.Err != nil || entry.Pod.LocalServer == nil {
 			continue
 		}
-		if _, err := b.recoverLocalServer(ctx, entry.Pod); err != nil {
+		status, err := b.recoverLocalServer(ctx, entry.Pod)
+		if err != nil {
 			endpoint := fmt.Sprintf("127.0.0.1:%d", entry.Pod.LocalServer.Port)
 			b.Health.MarkUnreachable(endpoint, fmt.Sprintf("local server recovery failed: %v", err))
+			continue
+		}
+		if status.State == "running" {
+			if err := b.migrateLocalRuntimeContract(ctx, entry.Pod.ID); err != nil {
+				endpoint := fmt.Sprintf("127.0.0.1:%d", entry.Pod.LocalServer.Port)
+				b.Health.MarkUnreachable(endpoint, fmt.Sprintf("local runtime migration failed: %v", err))
+			}
 		}
 	}
 	return nil
@@ -439,6 +449,10 @@ func (b *PodBridge) initializeLocalPod(ctx context.Context, pod appconfig.Pod, d
 	}
 	if err := b.Bootstrapper.Apply(ctx, dir, savedEnvironment); err != nil {
 		return err
+	}
+	pod.LocalCatalogVersion = appconfig.LocalCatalogVersion
+	if err := b.Store.Save(pod); err != nil {
+		return fmt.Errorf("desktop bridge: record local catalog version: %w", err)
 	}
 	if status := b.Local.Status(pod.ID); status.State != "running" {
 		return errors.New("desktop bridge: local server exited during bootstrap")
@@ -733,7 +747,48 @@ func (b *PodBridge) StartLocal(ctx context.Context, id string) (PodSummary, erro
 	if _, err := b.Local.Start(id, workspace); err != nil {
 		return PodSummary{}, err
 	}
+	if pod.LocalCatalogVersion < appconfig.LocalCatalogVersion {
+		if err := b.waitLocalReady(ctx, pod.ID, pod.LocalServer.Port); err != nil {
+			return PodSummary{}, err
+		}
+		if err := b.migrateLocalRuntimeContract(ctx, pod.ID); err != nil {
+			return PodSummary{}, err
+		}
+	}
+	pod, err = b.Store.Load(id)
+	if err != nil {
+		return PodSummary{}, err
+	}
 	return b.summary(pod), nil
+}
+
+func (b *PodBridge) migrateLocalRuntimeContract(ctx context.Context, id string) error {
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, time.Minute)
+		defer cancel()
+	}
+	b.contractMu.Lock()
+	defer b.contractMu.Unlock()
+	pod, err := b.Store.Load(id)
+	if err != nil {
+		return err
+	}
+	if pod.LocalServer == nil || pod.LocalCatalogVersion >= appconfig.LocalCatalogVersion {
+		return nil
+	}
+	if b.Bootstrapper == nil {
+		return errors.New("desktop bridge: local runtime migration requires a bootstrapper")
+	}
+	podDir := filepath.Join(b.Paths.PodsDir, id)
+	if err := b.Bootstrapper.MigrateRuntimeContract(ctx, podDir); err != nil {
+		return fmt.Errorf("desktop bridge: migrate local runtime contract: %w", err)
+	}
+	pod.LocalCatalogVersion = appconfig.LocalCatalogVersion
+	if err := b.Store.Save(pod); err != nil {
+		return fmt.Errorf("desktop bridge: record local catalog version: %w", err)
+	}
+	return nil
 }
 
 func (b *PodBridge) StopLocal(ctx context.Context, id string) (PodSummary, error) {
@@ -1011,6 +1066,7 @@ func (b *PodBridge) inputToPod(input PodInput, existing *appconfig.Pod) (appconf
 	pod := appconfig.Pod{Version: input.Version, ID: strings.TrimSpace(input.ID), Name: strings.TrimSpace(input.Name), Description: strings.TrimSpace(input.Description), RemoteAccessPoint: strings.TrimSpace(input.RemoteAccessPoint)}
 	if existing != nil {
 		pod.IdentitiesInitialized = existing.IdentitiesInitialized
+		pod.LocalCatalogVersion = existing.LocalCatalogVersion
 	}
 	if pod.Version == 0 {
 		pod.Version = appconfig.PodVersion

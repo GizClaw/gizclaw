@@ -342,7 +342,7 @@ func getTokenRecord(ctx context.Context, store kv.Store, name string) (tokenReco
 
 func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedName string) (apitypes.RuntimeProfile, error) {
 	name := strings.TrimSpace(in.Name)
-	if err := customid.ValidateField("name", name); err != nil {
+	if err := validateProfileName(name); err != nil {
 		return apitypes.RuntimeProfile{}, err
 	}
 	if expectedName != "" && name != expectedName {
@@ -381,6 +381,13 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedName string) (a
 		}
 	}
 	return apitypes.RuntimeProfile{Name: name, Spec: spec}, nil
+}
+
+func validateProfileName(name string) error {
+	if name == "default" {
+		return nil
+	}
+	return customid.ValidateField("name", name)
 }
 
 func normalizeResourceMap(values map[string]string) (map[string]string, error) {
