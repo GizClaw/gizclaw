@@ -64,6 +64,48 @@ func (c dashScopeRealtimeClient) Connect(ctx context.Context, config *dashscope.
 	return c.client.Realtime.Connect(ctx, config)
 }
 
+type dashScopeStreamIDs struct {
+	mu sync.Mutex
+
+	queue             []string
+	lastInputStreamID string
+	inputStreamID     string
+	responseStreamID  string
+}
+
+func (s *dashScopeStreamIDs) pushInput(streamID string) {
+	if streamID == "" {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if streamID == s.lastInputStreamID {
+		return
+	}
+	s.lastInputStreamID = streamID
+	s.queue = append(s.queue, streamID)
+}
+
+func (s *dashScopeStreamIDs) bindNextResponse() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if len(s.queue) > 0 {
+		s.inputStreamID = s.queue[0]
+		s.queue = s.queue[1:]
+		s.responseStreamID = genx.NewStreamID()
+		return
+	}
+	if s.responseStreamID == "" {
+		s.responseStreamID = genx.NewStreamID()
+	}
+}
+
+func (s *dashScopeStreamIDs) current() (inputStreamID, responseStreamID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.inputStreamID, s.responseStreamID
+}
+
 var _ genx.Transformer = (*Transformer)(nil)
 
 // option is a functional option for Transformer.
@@ -355,39 +397,10 @@ func (t *Transformer) processLoop(input genx.Stream, output *bufferStream, sessi
 	defer output.Close()
 	defer session.Close()
 
-	// StreamID tracking for correlating input/output
-	// We use a queue because input and output are processed asynchronously.
-	// Input StreamIDs are queued as they arrive, and popped when a response starts.
-	var streamIDMu sync.Mutex
-	var streamIDQueue []string  // Queue of input StreamIDs
-	var responseStreamID string // StreamID for current response
-
-	// Push a new input StreamID to the queue
-	pushStreamID := func(id string) {
-		streamIDMu.Lock()
-		defer streamIDMu.Unlock()
-		// Only push if different from the last one
-		if len(streamIDQueue) == 0 || streamIDQueue[len(streamIDQueue)-1] != id {
-			streamIDQueue = append(streamIDQueue, id)
-		}
-	}
-
-	// Pop StreamID from queue for response (called when response.created)
-	popStreamIDForResponse := func() {
-		streamIDMu.Lock()
-		defer streamIDMu.Unlock()
-		if len(streamIDQueue) > 0 {
-			responseStreamID = streamIDQueue[0]
-			streamIDQueue = streamIDQueue[1:]
-		}
-	}
-
-	// Get the current response StreamID
-	getResponseStreamID := func() string {
-		streamIDMu.Lock()
-		defer streamIDMu.Unlock()
-		return responseStreamID
-	}
+	// Input IDs correlate ASR output to the caller's route. Every model
+	// response receives a fresh ID so its text/audio routes cannot collide with
+	// the user transcript's text/plain EOS.
+	streamIDs := &dashScopeStreamIDs{}
 
 	// Start goroutine to receive events
 	eventsDone := make(chan struct{})
@@ -405,11 +418,10 @@ func (t *Transformer) processLoop(input genx.Stream, output *bufferStream, sessi
 			// This handles servers that may not send response.created
 			if event.Type == dashscope.EventTypeResponseCreated ||
 				event.Type == dashscope.EventTypeInputAudioTranscriptionCompleted {
-				popStreamIDForResponse()
+				streamIDs.bindNextResponse()
 			}
 
-			// Get StreamID for this response
-			streamID := getResponseStreamID()
+			inputStreamID, responseStreamID := streamIDs.current()
 
 			switch event.Type {
 			case dashscope.EventTypeInputSpeechStarted:
@@ -424,7 +436,7 @@ func (t *Transformer) processLoop(input genx.Stream, output *bufferStream, sessi
 				bosChunk := &genx.MessageChunk{
 					Role: genx.RoleModel,
 					Part: &genx.Blob{MIMEType: t.getOutputAudioMIMEType()},
-					Ctrl: &genx.StreamCtrl{StreamID: streamID, BeginOfStream: true},
+					Ctrl: &genx.StreamCtrl{StreamID: responseStreamID, BeginOfStream: true},
 				}
 				if err := output.Push(bosChunk); err != nil {
 					return
@@ -436,7 +448,7 @@ func (t *Transformer) processLoop(input genx.Stream, output *bufferStream, sessi
 					outChunk := &genx.MessageChunk{
 						Role: genx.RoleUser,
 						Part: genx.Text(event.Transcript),
-						Ctrl: &genx.StreamCtrl{StreamID: streamID},
+						Ctrl: &genx.StreamCtrl{StreamID: inputStreamID},
 					}
 					if err := output.Push(outChunk); err != nil {
 						return
@@ -445,7 +457,7 @@ func (t *Transformer) processLoop(input genx.Stream, output *bufferStream, sessi
 					eosChunk := &genx.MessageChunk{
 						Role: genx.RoleUser,
 						Part: genx.Text(""),
-						Ctrl: &genx.StreamCtrl{StreamID: streamID, EndOfStream: true},
+						Ctrl: &genx.StreamCtrl{StreamID: inputStreamID, EndOfStream: true},
 					}
 					if err := output.Push(eosChunk); err != nil {
 						return
@@ -458,7 +470,7 @@ func (t *Transformer) processLoop(input genx.Stream, output *bufferStream, sessi
 					outChunk := &genx.MessageChunk{
 						Role: genx.RoleModel,
 						Part: genx.Text(event.Delta),
-						Ctrl: &genx.StreamCtrl{StreamID: streamID},
+						Ctrl: &genx.StreamCtrl{StreamID: responseStreamID},
 					}
 					if err := output.Push(outChunk); err != nil {
 						return
@@ -470,7 +482,7 @@ func (t *Transformer) processLoop(input genx.Stream, output *bufferStream, sessi
 				eosChunk := &genx.MessageChunk{
 					Role: genx.RoleModel,
 					Part: genx.Text(""),
-					Ctrl: &genx.StreamCtrl{StreamID: streamID, EndOfStream: true},
+					Ctrl: &genx.StreamCtrl{StreamID: responseStreamID, EndOfStream: true},
 				}
 				if err := output.Push(eosChunk); err != nil {
 					return
@@ -482,7 +494,7 @@ func (t *Transformer) processLoop(input genx.Stream, output *bufferStream, sessi
 					outChunk := &genx.MessageChunk{
 						Role: genx.RoleModel,
 						Part: genx.Text(event.Delta),
-						Ctrl: &genx.StreamCtrl{StreamID: streamID},
+						Ctrl: &genx.StreamCtrl{StreamID: responseStreamID},
 					}
 					if err := output.Push(outChunk); err != nil {
 						return
@@ -494,7 +506,7 @@ func (t *Transformer) processLoop(input genx.Stream, output *bufferStream, sessi
 				eosChunk := &genx.MessageChunk{
 					Role: genx.RoleModel,
 					Part: genx.Text(""),
-					Ctrl: &genx.StreamCtrl{StreamID: streamID, EndOfStream: true},
+					Ctrl: &genx.StreamCtrl{StreamID: responseStreamID, EndOfStream: true},
 				}
 				if err := output.Push(eosChunk); err != nil {
 					return
@@ -509,7 +521,7 @@ func (t *Transformer) processLoop(input genx.Stream, output *bufferStream, sessi
 							MIMEType: t.getOutputAudioMIMEType(),
 							Data:     event.Audio,
 						},
-						Ctrl: &genx.StreamCtrl{StreamID: streamID},
+						Ctrl: &genx.StreamCtrl{StreamID: responseStreamID},
 					}
 					if err := output.Push(outChunk); err != nil {
 						return
@@ -521,7 +533,7 @@ func (t *Transformer) processLoop(input genx.Stream, output *bufferStream, sessi
 				eosChunk := &genx.MessageChunk{
 					Role: genx.RoleModel,
 					Part: &genx.Blob{MIMEType: t.getOutputAudioMIMEType()},
-					Ctrl: &genx.StreamCtrl{StreamID: streamID, EndOfStream: true},
+					Ctrl: &genx.StreamCtrl{StreamID: responseStreamID, EndOfStream: true},
 				}
 				if err := output.Push(eosChunk); err != nil {
 					return
@@ -533,7 +545,7 @@ func (t *Transformer) processLoop(input genx.Stream, output *bufferStream, sessi
 					outChunk := &genx.MessageChunk{
 						Role: genx.RoleModel,
 						Part: genx.Text(event.Delta),
-						Ctrl: &genx.StreamCtrl{StreamID: streamID},
+						Ctrl: &genx.StreamCtrl{StreamID: responseStreamID},
 					}
 					if err := output.Push(outChunk); err != nil {
 						return
@@ -623,7 +635,7 @@ func (t *Transformer) processLoop(input genx.Stream, output *bufferStream, sessi
 
 		// Track StreamID from input chunks - push to queue for response correlation
 		if chunk.Ctrl != nil && chunk.Ctrl.StreamID != "" {
-			pushStreamID(chunk.Ctrl.StreamID)
+			streamIDs.pushInput(chunk.Ctrl.StreamID)
 		}
 
 		// Cancel ongoing response when new user input starts (BOS)

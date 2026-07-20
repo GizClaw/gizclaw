@@ -50,6 +50,37 @@ func TestTransformerConcurrentCallsOwnSessions(t *testing.T) {
 	}
 }
 
+func TestDashScopeStreamIDsSeparateInputAndResponseRoutes(t *testing.T) {
+	var ids dashScopeStreamIDs
+	ids.pushInput("turn-1")
+	ids.pushInput("turn-1")
+	ids.bindNextResponse()
+	inputID, firstResponseID := ids.current()
+	if inputID != "turn-1" {
+		t.Fatalf("input StreamID = %q, want turn-1", inputID)
+	}
+	if firstResponseID == "" || firstResponseID == inputID {
+		t.Fatalf("response StreamID = %q, input StreamID = %q", firstResponseID, inputID)
+	}
+
+	// A second event that starts the same response must keep its response ID.
+	ids.bindNextResponse()
+	_, sameResponseID := ids.current()
+	if sameResponseID != firstResponseID {
+		t.Fatalf("same response StreamID = %q, want %q", sameResponseID, firstResponseID)
+	}
+
+	ids.pushInput("turn-2")
+	ids.bindNextResponse()
+	inputID, secondResponseID := ids.current()
+	if inputID != "turn-2" {
+		t.Fatalf("second input StreamID = %q, want turn-2", inputID)
+	}
+	if secondResponseID == "" || secondResponseID == inputID || secondResponseID == firstResponseID {
+		t.Fatalf("second response StreamID = %q, first = %q, input = %q", secondResponseID, firstResponseID, inputID)
+	}
+}
+
 type emptyDashScopeStream struct{}
 
 func (emptyDashScopeStream) Next() (*genx.MessageChunk, error) { return nil, genx.ErrDone }
