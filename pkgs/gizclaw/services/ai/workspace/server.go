@@ -51,6 +51,7 @@ type ModelService interface {
 }
 
 type runtimeWorkflowBindingsContextKey struct{}
+type runtimeModelBindingsContextKey struct{}
 
 // WithRuntimeWorkflowBindings attaches the authenticated connection's current
 // RuntimeProfile Workflow alias snapshot to Workspace validation.
@@ -60,6 +61,16 @@ func WithRuntimeWorkflowBindings(ctx context.Context, bindings map[string]string
 		cloned[alias] = name
 	}
 	return context.WithValue(ctx, runtimeWorkflowBindingsContextKey{}, cloned)
+}
+
+// WithRuntimeModelBindings attaches the same RuntimeProfile snapshot's Model
+// alias bindings so Workspace overrides can be validated before persistence.
+func WithRuntimeModelBindings(ctx context.Context, bindings map[string]string) context.Context {
+	cloned := make(map[string]string, len(bindings))
+	for alias, name := range bindings {
+		cloned[alias] = name
+	}
+	return context.WithValue(ctx, runtimeModelBindingsContextKey{}, cloned)
 }
 
 type WorkspaceAdminService interface {
@@ -557,6 +568,9 @@ func normalizeWorkspaceUpsert(in adminhttp.WorkspaceUpsert, expectedName string)
 }
 
 func validateWorkspaceWorkflowName(value string) error {
+	if err := customid.ValidateField("workflow_name", value); err == nil {
+		return nil
+	}
 	return runtimeprofile.ValidateAlias("workflow_name", value)
 }
 
@@ -667,17 +681,31 @@ func (s *Server) validateReferences(ctx context.Context, store kv.Store, workspa
 	if workflow.Spec.Driver != apitypes.WorkflowDriverFlowcraft {
 		return nil
 	}
+	var references []FlowcraftModelReference
 	if runtimeAlias {
-		// Runtime Workspaces persist symbolic model aliases. The active
-		// RuntimeProfile resolves and validates them on every reload.
-		return nil
+		// Workflow defaults were already validated when this RuntimeProfile
+		// snapshot was applied. Only Workspace-level overrides are new input.
+		references, err = resolveFlowcraftModelOverrides(workspace.Parameters)
+	} else {
+		references, err = ResolveFlowcraftModelReferences(workflow, workspace.Parameters)
 	}
-	references, err := ResolveFlowcraftModelReferences(workflow, workspace.Parameters)
 	if err != nil {
 		return err
 	}
 	for _, reference := range references {
-		if err := s.validateGeneratorModel(ctx, reference.Role, reference.ModelID); err != nil {
+		modelID := reference.ModelID
+		visibleModelID := modelID
+		if runtimeAlias {
+			bindings, present := ctx.Value(runtimeModelBindingsContextKey{}).(map[string]string)
+			if !present {
+				return errors.New("runtime model bindings not configured")
+			}
+			modelID = strings.TrimSpace(bindings[reference.ModelID])
+			if modelID == "" {
+				return invalidWorkspaceReference("flowcraft parameter %q references missing runtime Model alias %q", reference.Role, reference.ModelID)
+			}
+		}
+		if err := s.validateFlowcraftModel(ctx, reference.Role, modelID, visibleModelID); err != nil {
 			return err
 		}
 	}
@@ -694,6 +722,34 @@ func resolveWorkflowReference(ctx context.Context, workspace adminhttp.Workspace
 		return resolved, true, nil
 	}
 	return name, false, nil
+}
+
+func resolveFlowcraftModelOverrides(workspaceParameters *apitypes.WorkspaceParameters) ([]FlowcraftModelReference, error) {
+	if workspaceParameters == nil {
+		return nil, nil
+	}
+	parameters, err := workspaceParameters.AsFlowcraftWorkspaceParameters()
+	if err != nil {
+		return nil, invalidWorkspaceReference("flowcraft parameters are required: %v", err)
+	}
+	roles := []struct {
+		name  string
+		value *string
+	}{
+		{name: "generate_model", value: parameters.GenerateModel},
+		{name: "extract_model", value: parameters.ExtractModel},
+		{name: "embedding_model", value: parameters.EmbeddingModel},
+	}
+	references := make([]FlowcraftModelReference, 0, len(roles))
+	for _, role := range roles {
+		if role.value == nil {
+			continue
+		}
+		if modelAlias := strings.TrimSpace(*role.value); modelAlias != "" {
+			references = append(references, FlowcraftModelReference{Role: role.name, ModelID: modelAlias})
+		}
+	}
+	return references, nil
 }
 
 // FlowcraftModelReference is one effective Model selected for a FlowCraft role.
@@ -765,7 +821,7 @@ func resolveFlowcraftModel(name string, workspaceValue *string, settings map[str
 	return configured, true
 }
 
-func (s *Server) validateGeneratorModel(ctx context.Context, role, modelID string) error {
+func (s *Server) validateFlowcraftModel(ctx context.Context, role, modelID, visibleModelID string) error {
 	if s == nil || s.Models == nil {
 		return errors.New("model service not configured")
 	}
@@ -775,13 +831,17 @@ func (s *Server) validateGeneratorModel(ctx context.Context, role, modelID strin
 	}
 	model, ok := response.(adminhttp.GetModel200JSONResponse)
 	if _, missing := response.(adminhttp.GetModel404JSONResponse); missing {
-		return invalidWorkspaceReference("flowcraft parameter %q references missing Model %q", role, modelID)
+		return invalidWorkspaceReference("flowcraft parameter %q references missing Model %q", role, visibleModelID)
 	}
 	if !ok {
-		return fmt.Errorf("validate flowcraft parameter %q Model %q: model service returned %T", role, modelID, response)
+		return fmt.Errorf("validate flowcraft parameter %q Model %q: model service returned %T", role, visibleModelID, response)
 	}
-	if model.Kind != apitypes.ModelKindLlm {
-		return invalidWorkspaceReference("flowcraft parameter %q Model %q has kind %q, want %q", role, modelID, model.Kind, apitypes.ModelKindLlm)
+	want := apitypes.ModelKindLlm
+	if role == "embedding_model" {
+		want = apitypes.ModelKindEmbedding
+	}
+	if model.Kind != want {
+		return invalidWorkspaceReference("flowcraft parameter %q Model %q has kind %q, want %q", role, visibleModelID, model.Kind, want)
 	}
 	return nil
 }

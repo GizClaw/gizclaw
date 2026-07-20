@@ -130,6 +130,44 @@ func TestRegistrationTokenAcceptsScopedAppName(t *testing.T) {
 	}
 }
 
+func TestDeleteRuntimeProfileAllowsOnlyRecognizedLegacyBindings(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	store := kv.NewMemory(nil)
+	s := &Server{Store: store}
+	legacy := []byte(`{"created_at":"2026-07-01T00:00:00Z","name":"default","spec":{"resources":{"workflows":{"chat":"flowcraft-chat"},"models":{"generate-model":"minimax-default"}}},"updated_at":"2026-07-01T00:00:00Z"}`)
+	if err := store.Set(ctx, profileKey("default"), legacy); err != nil {
+		t.Fatal(err)
+	}
+
+	response, err := s.DeleteRuntimeProfile(ctx, adminhttp.DeleteRuntimeProfileRequestObject{Name: "default"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	deleted, ok := response.(adminhttp.DeleteRuntimeProfile200JSONResponse)
+	if !ok || deleted.Name != "default" || deleted.Revision != "legacy-deleted" {
+		t.Fatalf("DeleteRuntimeProfile(legacy) = %#v", response)
+	}
+	if _, err := store.Get(ctx, profileKey("default")); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("legacy profile remains after deletion: %v", err)
+	}
+
+	corrupt := []byte(`{"name":"default","spec":{"resources":{"models":{"generate-model":{"resource_id":123}}}}}`)
+	if err := store.Set(ctx, profileKey("default"), corrupt); err != nil {
+		t.Fatal(err)
+	}
+	response, err = s.DeleteRuntimeProfile(ctx, adminhttp.DeleteRuntimeProfileRequestObject{Name: "default"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := response.(adminhttp.DeleteRuntimeProfile500JSONResponse); !ok {
+		t.Fatalf("DeleteRuntimeProfile(corrupt) = %#v, want 500", response)
+	}
+	if _, err := store.Get(ctx, profileKey("default")); err != nil {
+		t.Fatalf("corrupt profile was deleted: %v", err)
+	}
+}
+
 func TestRegistrationTokenIgnoresLegacyPersistedFirmwareName(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

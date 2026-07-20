@@ -184,6 +184,11 @@ func (b *PodBridge) RecoverLocalServers(ctx context.Context) error {
 		if status.State == "running" {
 			pod := entry.Pod
 			if pod.LocalCatalogVersion < appconfig.LocalCatalogVersion {
+				if err := b.Store.Save(pod); err != nil {
+					endpoint := fmt.Sprintf("127.0.0.1:%d", pod.LocalServer.Port)
+					b.Health.MarkUnreachable(endpoint, fmt.Sprintf("local server workspace upgrade failed: %v", err))
+					continue
+				}
 				restartCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 				_, restartErr := b.Local.Restart(restartCtx, pod.ID, filepath.Join(b.Paths.PodsDir, pod.ID, "workspace"))
 				cancel()

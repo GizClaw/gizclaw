@@ -45,8 +45,9 @@ remote Pods.
 
 Completed local Pods do not replay the full bootstrap catalog during start,
 restart, or Desktop upgrade. A legacy local Pod performs one targeted migration
-after its Server is ready: Desktop reapplies only the bundled Workflows referenced
-by `RuntimeProfile/default`, applies that Profile, creates a fresh
+after its Server is ready: Desktop reapplies the bundled Workflows referenced
+by `RuntimeProfile/default` plus the Server-owned `chatroom` Workflow, replaces
+that Profile, creates a fresh
 `RegistrationToken/app:com.gizclaw.opensource`, retires
 `RegistrationToken/desktop-local`, and records the local catalog version in
 `pod.json`. A recovered legacy process is restarted with the current companion

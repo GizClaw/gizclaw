@@ -943,6 +943,10 @@ class MobileDataController extends ChangeNotifier {
           name: workspaceName,
           collection: normalizedCollection,
           workflowAlias: normalizedAlias,
+          parameters: newWorkspaceParametersForDriver(
+            selected.driver,
+            workflowAlias: normalizedAlias,
+          ),
         ),
       ),
     );
@@ -1409,6 +1413,7 @@ String _newWorkspaceName(String workflowName) {
 @visibleForTesting
 WorkspaceParameters newWorkspaceParametersForDriver(
   WorkflowDriverKind driver, {
+  String workflowAlias = '',
   String? generateModel,
   String? extractModel,
   String? embeddingModel,
@@ -1442,7 +1447,12 @@ WorkspaceParameters newWorkspaceParametersForDriver(
           .ASTTRANSLATE_WORKSPACE_PARAMETERS_AGENT_TYPE_AST_TRANSLATE,
       enableSourceLanguageDetect: true,
       input: WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK,
-      langPair: 'auto',
+      langPair: switch (workflowAlias.trim()) {
+        'translate-zh-ja' => 'zh/ja',
+        'translate-zh-ko' => 'zh/ko',
+        'translate-zh-es' => 'zh/es',
+        _ => 'auto',
+      },
       mode: ASTTranslateMode.ASTTRANSLATE_MODE_S2S,
     ),
   ),
@@ -1463,7 +1473,10 @@ Workspace? workspaceWithDefaultInputParameters(
     return null;
   }
   return workspace.deepCopy()
-    ..parameters = newWorkspaceParametersForDriver(driver);
+    ..parameters = newWorkspaceParametersForDriver(
+      driver,
+      workflowAlias: workspace.workflowAlias,
+    );
 }
 
 bool _runWorkspaceNeedsReload(PeerRunWorkspaceState state) {

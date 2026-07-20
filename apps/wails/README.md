@@ -52,8 +52,8 @@ interrupted creation, while failed Pods remain visible. Successful Pods never
 replay the full catalog during start, restart, or app upgrade. A legacy local
 Pod performs one targeted runtime-contract migration after its Server is ready:
 Desktop restarts a recovered legacy process with the current companion, reapplies
-only the bundled Workflows referenced by `RuntimeProfile/default`, applies that
-Profile, creates a fresh
+the bundled Workflows referenced by `RuntimeProfile/default` plus the
+Server-owned `chatroom` Workflow, replaces that Profile, creates a fresh
 `RegistrationToken/app:com.gizclaw.opensource`, retires the legacy
 `RegistrationToken/desktop-local`, and records the catalog version in `pod.json`.
 The default profile retains the legacy translation aliases needed by existing

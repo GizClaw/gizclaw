@@ -218,12 +218,64 @@ func (s *Server) DeleteRuntimeProfile(ctx context.Context, request adminhttp.Del
 		return adminhttp.DeleteRuntimeProfile404JSONResponse(notFound("runtime profile", name)), nil
 	}
 	if err != nil {
-		return adminhttp.DeleteRuntimeProfile500JSONResponse(internalError(err)), nil
+		data, readErr := store.Get(ctx, profileKey(name))
+		if readErr != nil {
+			return adminhttp.DeleteRuntimeProfile500JSONResponse(internalError(readErr)), nil
+		}
+		legacy, ok := legacyProfileForDeletion(data, name)
+		if !ok {
+			return adminhttp.DeleteRuntimeProfile500JSONResponse(internalError(err)), nil
+		}
+		item = legacy
 	}
 	if err := store.Delete(ctx, profileKey(name)); err != nil {
 		return adminhttp.DeleteRuntimeProfile500JSONResponse(internalError(err)), nil
 	}
 	return adminhttp.DeleteRuntimeProfile200JSONResponse(item), nil
+}
+
+// legacyProfileForDeletion recognizes the previous RuntimeProfile storage
+// shape without converting its bindings. It exists only so an administrator
+// can delete-and-recreate that record during the explicit breaking rollout;
+// malformed or mixed-shape records still fail closed.
+func legacyProfileForDeletion(data []byte, expectedName string) (apitypes.RuntimeProfile, bool) {
+	var document struct {
+		CreatedAt time.Time `json:"created_at"`
+		Name      string    `json:"name"`
+		Spec      struct {
+			Resources map[string]json.RawMessage `json:"resources"`
+		} `json:"spec"`
+		UpdatedAt time.Time `json:"updated_at"`
+	}
+	if json.Unmarshal(data, &document) != nil || document.Name != expectedName || len(document.Spec.Resources) == 0 {
+		return apitypes.RuntimeProfile{}, false
+	}
+	legacy := false
+	for kind, raw := range document.Spec.Resources {
+		var bindings map[string]json.RawMessage
+		if json.Unmarshal(raw, &bindings) != nil {
+			return apitypes.RuntimeProfile{}, false
+		}
+		if kind == "workflows" {
+			legacy = true
+		}
+		for _, binding := range bindings {
+			var resourceID string
+			if json.Unmarshal(binding, &resourceID) != nil {
+				return apitypes.RuntimeProfile{}, false
+			}
+			legacy = true
+		}
+	}
+	if !legacy {
+		return apitypes.RuntimeProfile{}, false
+	}
+	return apitypes.RuntimeProfile{
+		CreatedAt: document.CreatedAt,
+		Name:      document.Name,
+		Revision:  "legacy-deleted",
+		UpdatedAt: document.UpdatedAt,
+	}, true
 }
 
 func (s *Server) ListRegistrationTokens(ctx context.Context, request adminhttp.ListRegistrationTokensRequestObject) (adminhttp.ListRegistrationTokensResponseObject, error) {

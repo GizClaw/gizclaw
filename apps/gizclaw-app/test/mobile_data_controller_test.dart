@@ -165,8 +165,55 @@ void main() {
 
     expect(client.requests.single.workflowAlias, 'journey');
     expect(client.requests.single.collection, 'raids');
-    expect(client.requests.single.hasParameters(), isFalse);
+    expect(client.requests.single.hasParameters(), isTrue);
+    expect(
+      client.requests.single.parameters.flowcraftWorkspaceParameters.input,
+      WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK,
+    );
   });
+
+  test(
+    'creates translation workspaces with the selected language pair',
+    () async {
+      final client = _WorkspaceCreateClient();
+      final aliases = <String, String>{
+        'translate-zh-en-auto': 'auto',
+        'translate-zh-ja': 'zh/ja',
+        'translate-zh-ko': 'zh/ko',
+        'translate-zh-es': 'zh/es',
+      };
+      final controller = _WorkspaceCreateTestController(client)
+        ..connectionState = MobileConnectionState.connected
+        ..workflows = aliases.keys
+            .map(
+              (alias) => WorkflowCard(
+                name: alias,
+                title: alias,
+                subtitle: '',
+                driverLabel: 'AST Translate',
+                collection: 'translates',
+                bannerColor: const Color(0xff000000),
+                icon: const IconData(0),
+                driver: WorkflowDriverKind.astTranslate,
+              ),
+            )
+            .toList(growable: false);
+      addTearDown(controller.close);
+
+      for (final entry in aliases.entries) {
+        await controller.createWorkspace(
+          collection: 'translates',
+          workflowAlias: entry.key,
+        );
+        final request = client.requests.last;
+        expect(request.workflowAlias, entry.key);
+        expect(
+          request.parameters.asttranslateWorkspaceParameters.langPair,
+          entry.value,
+        );
+      }
+    },
+  );
 
   test('treats a missing workflow collection as empty', () async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
@@ -729,7 +776,7 @@ void main() {
     );
   });
 
-  test('repairs translation parameters without App-owned aliases', () {
+  test('repairs translation parameters using the selected workflow alias', () {
     final workspace = Workspace(
       name: 'japanese-translator',
       workflowAlias: 'translate-zh-ja',
@@ -744,7 +791,7 @@ void main() {
     expect(repaired, isNotNull);
     final parameters = repaired!.parameters.asttranslateWorkspaceParameters;
     expect(parameters.enableSourceLanguageDetect, isTrue);
-    expect(parameters.langPair, 'auto');
+    expect(parameters.langPair, 'zh/ja');
     expect(parameters.mode, ASTTranslateMode.ASTTRANSLATE_MODE_S2S);
   });
 

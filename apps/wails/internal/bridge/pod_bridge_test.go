@@ -914,6 +914,17 @@ func TestRecoveringRunningLegacyLocalPodMigratesRuntimeContract(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	configPath := filepath.Join(workspace, "config.yaml")
+	legacyConfig, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacyConfig = bytes.ReplaceAll(legacyConfig, []byte("generate_model: minimax"), []byte("generate_model: minimax-default"))
+	legacyConfig = bytes.ReplaceAll(legacyConfig, []byte("extract_model: extract-model"), []byte("extract_model: minimax-extract"))
+	legacyConfig = bytes.ReplaceAll(legacyConfig, []byte("asr_model: asr-model"), []byte("asr_model: volc-bigasr-sauc"))
+	if err := os.WriteFile(configPath, legacyConfig, 0o600); err != nil {
+		t.Fatal(err)
+	}
 	bootstrapper := &fakeLocalPodBootstrapper{}
 	b := &PodBridge{
 		Paths:          paths,
@@ -933,6 +944,20 @@ func TestRecoveringRunningLegacyLocalPodMigratesRuntimeContract(t *testing.T) {
 	}
 	if currentPID := local.Status(pod.ID).PID; currentPID == 0 || currentPID == initial.PID {
 		t.Fatalf("recovered legacy local Pod PID = %d, legacy PID = %d", currentPID, initial.PID)
+	}
+	upgradedConfig, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"generate_model: minimax", "extract_model: extract-model", "asr_model: asr-model"} {
+		if !bytes.Contains(upgradedConfig, []byte(want)) {
+			t.Fatalf("upgraded workspace config omits %q:\n%s", want, upgradedConfig)
+		}
+	}
+	for _, legacy := range []string{"minimax-default", "minimax-extract", "volc-bigasr-sauc"} {
+		if bytes.Contains(upgradedConfig, []byte(legacy)) {
+			t.Fatalf("upgraded workspace config retains %q:\n%s", legacy, upgradedConfig)
+		}
 	}
 	loaded, err := store.Load(pod.ID)
 	if err != nil {

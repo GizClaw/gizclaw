@@ -487,7 +487,10 @@ func (s *Server) handleWorkspaceCreate(ctx context.Context, req *rpcapi.RPCReque
 		Name: params.Name, WorkflowName: alias,
 		Parameters: parameters, Toolkit: toolkitPolicy, Labels: &labels,
 	}
-	workspaceCtx := workspace.WithRuntimeWorkflowBindings(s.ownerContext(ctx), s.profileBindings(profileWorkflows))
+	workspaceCtx := workspace.WithRuntimeModelBindings(
+		workspace.WithRuntimeWorkflowBindings(s.ownerContext(ctx), profileBindingsFrom(profile, profileWorkflows)),
+		profileBindingsFrom(profile, profileModels),
+	)
 	adminResp, err := s.Workspaces.CreateWorkspace(workspaceCtx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
 	if err != nil {
 		return internalError(req.Id, err.Error()), true, nil
@@ -523,6 +526,10 @@ func (s *Server) handleWorkspacePut(ctx context.Context, req *rpcapi.RPCRequest)
 	if response := s.requireOwner(req.Id, current.OwnerPublicKey); response != nil {
 		return response, true, nil
 	}
+	profile := s.currentRuntimeProfile()
+	if profile == nil {
+		return internalError(req.Id, "runtime profile not configured"), true, nil
+	}
 	body := adminhttp.PutWorkspaceJSONRequestBody{
 		Name: current.Name, WorkflowName: current.WorkflowName,
 		Parameters: current.Parameters, Toolkit: current.Toolkit,
@@ -541,13 +548,16 @@ func (s *Server) handleWorkspacePut(ctx context.Context, req *rpcapi.RPCRequest)
 		}
 		body.Toolkit = toolkitPolicy
 	}
-	workspaceCtx := workspace.WithRuntimeWorkflowBindings(s.ownerContext(ctx), s.profileBindings(profileWorkflows))
+	workspaceCtx := workspace.WithRuntimeModelBindings(
+		workspace.WithRuntimeWorkflowBindings(s.ownerContext(ctx), profileBindingsFrom(profile, profileWorkflows)),
+		profileBindingsFrom(profile, profileModels),
+	)
 	adminResp, err := s.Workspaces.PutWorkspace(workspaceCtx, adminhttp.PutWorkspaceRequestObject{Name: params.Name, Body: &body})
 	if err != nil {
 		return internalError(req.Id, err.Error()), true, nil
 	}
 	return workspaceAdminRPCResponse(ctx, req.Id, adminResp.VisitPutWorkspaceResponse, func(payload *rpcapi.RPCPayload, item apitypes.Workspace) error {
-		projected, err := workspaceRPCProjection(item, workspaceAvailable(s.currentRuntimeProfile(), item))
+		projected, err := workspaceRPCProjection(item, workspaceAvailable(profile, item))
 		if err != nil {
 			return err
 		}

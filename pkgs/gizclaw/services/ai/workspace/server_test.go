@@ -522,18 +522,20 @@ func TestServerRejectsInvalidWorkspaceReferences(t *testing.T) {
 	}
 }
 
-func TestNormalizeWorkspaceUpsertAcceptsWorkflowAlias(t *testing.T) {
+func TestNormalizeWorkspaceUpsertAcceptsWorkflowAliasesAndResourceIDs(t *testing.T) {
 	t.Parallel()
 
-	got, err := normalizeWorkspaceUpsert(adminhttp.WorkspaceUpsert{
-		Name:         "runtime-workspace",
-		WorkflowName: "2fa-chat",
-	}, "")
-	if err != nil {
-		t.Fatalf("normalizeWorkspaceUpsert() error = %v", err)
-	}
-	if got.WorkflowName != "2fa-chat" {
-		t.Fatalf("normalizeWorkspaceUpsert() workflow_name = %q, want 2fa-chat", got.WorkflowName)
+	for _, workflowName := range []string{"2fa-chat", "my_workflow"} {
+		got, err := normalizeWorkspaceUpsert(adminhttp.WorkspaceUpsert{
+			Name:         "runtime-workspace",
+			WorkflowName: workflowName,
+		}, "")
+		if err != nil {
+			t.Fatalf("normalizeWorkspaceUpsert(%q) error = %v", workflowName, err)
+		}
+		if got.WorkflowName != workflowName {
+			t.Fatalf("normalizeWorkspaceUpsert() workflow_name = %q, want %q", got.WorkflowName, workflowName)
+		}
 	}
 }
 
@@ -641,6 +643,7 @@ func TestServerRejectsIncompleteFlowcraftModelParameters(t *testing.T) {
 	ctx := context.Background()
 	seedFlowcraftWorkflow(t, srv, "flowcraft-chat", true)
 	seedModel(t, srv, "chat-model", apitypes.ModelKindLlm)
+	seedModel(t, srv, "embedding-model", apitypes.ModelKindEmbedding)
 	seedModel(t, srv, "speech-model", apitypes.ModelKindTts)
 
 	tests := []struct {
@@ -652,12 +655,13 @@ func TestServerRejectsIncompleteFlowcraftModelParameters(t *testing.T) {
 		{name: "missing parameters", body: `{"name":"missing-params","workflow_name":"flowcraft-chat"}`, want: `"generate_model" requires a concrete Model resource name`},
 		{name: "missing generate", body: `{"name":"missing-generate","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft"}}`, want: `"generate_model" requires a concrete Model resource name`},
 		{name: "symbolic generate", body: `{"name":"symbolic-generate","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft","generate_model":"generate_model","extract_model":"chat-model"}}`, want: `"generate_model" requires a concrete Model resource name`},
-		{name: "missing model", body: `{"name":"missing-model","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft","generate_model":"not-found","extract_model":"chat-model","embedding_model":"chat-model"}}`, want: `references missing Model "not-found"`},
-		{name: "wrong kind", body: `{"name":"wrong-kind","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft","generate_model":"speech-model","extract_model":"chat-model","embedding_model":"chat-model"}}`, want: `has kind "tts", want "llm"`},
+		{name: "missing model", body: `{"name":"missing-model","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft","generate_model":"not-found","extract_model":"chat-model","embedding_model":"embedding-model"}}`, want: `references missing Model "not-found"`},
+		{name: "wrong kind", body: `{"name":"wrong-kind","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft","generate_model":"speech-model","extract_model":"chat-model","embedding_model":"embedding-model"}}`, want: `has kind "tts", want "llm"`},
 		{name: "missing extract", body: `{"name":"missing-extract","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft","generate_model":"chat-model"}}`, want: `"extract_model" requires a concrete Model resource name`},
 		{name: "missing embedding", body: `{"name":"missing-embedding","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft","generate_model":"chat-model","extract_model":"chat-model"}}`, want: `"embedding_model" requires a concrete Model resource name`},
 		{name: "missing embedding model", body: `{"name":"missing-embedding-model","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft","generate_model":"chat-model","extract_model":"chat-model","embedding_model":"not-found"}}`, want: `references missing Model "not-found"`},
-		{name: "valid", body: `{"name":"valid-models","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft","generate_model":"chat-model","extract_model":"chat-model","embedding_model":"chat-model"}}`, ok: true},
+		{name: "wrong embedding kind", body: `{"name":"wrong-embedding-kind","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft","generate_model":"chat-model","extract_model":"chat-model","embedding_model":"chat-model"}}`, want: `has kind "llm", want "embedding"`},
+		{name: "valid", body: `{"name":"valid-models","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft","generate_model":"chat-model","extract_model":"chat-model","embedding_model":"embedding-model"}}`, ok: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -683,13 +687,79 @@ func TestServerRejectsIncompleteFlowcraftModelParameters(t *testing.T) {
 	}
 
 	srv.Models = nil
-	body := mustWorkspaceUpsert(t, `{"name":"model-service-missing","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft","generate_model":"chat-model","extract_model":"chat-model","embedding_model":"chat-model"}}`)
+	body := mustWorkspaceUpsert(t, `{"name":"model-service-missing","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft","generate_model":"chat-model","extract_model":"chat-model","embedding_model":"embedding-model"}}`)
 	resp, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
 	if err != nil {
 		t.Fatalf("CreateWorkspace(model service missing) error = %v", err)
 	}
 	if _, ok := resp.(adminhttp.CreateWorkspace500JSONResponse); !ok {
 		t.Fatalf("CreateWorkspace(model service missing) response = %#v, want 500", resp)
+	}
+}
+
+func TestServerValidatesRuntimeFlowcraftModelAliases(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(t)
+	seedFlowcraftWorkflow(t, srv, "flowcraft-chat", true)
+	seedModel(t, srv, "chat-model", apitypes.ModelKindLlm)
+	seedModel(t, srv, "embedding-resource", apitypes.ModelKindEmbedding)
+	ctx := WithRuntimeModelBindings(
+		WithRuntimeWorkflowBindings(context.Background(), map[string]string{"2fa-chat": "flowcraft-chat"}),
+		map[string]string{
+			"generate-model":  "chat-model",
+			"extract-model":   "chat-model",
+			"embedding-model": "embedding-resource",
+			"wrong-embedding": "chat-model",
+		},
+	)
+
+	tests := []struct {
+		name string
+		body string
+		want string
+		ok   bool
+	}{
+		{
+			name: "valid aliases",
+			body: `{"name":"runtime-valid","workflow_name":"2fa-chat","parameters":{"agent_type":"flowcraft","generate_model":"generate-model","extract_model":"extract-model","embedding_model":"embedding-model"}}`,
+			ok:   true,
+		},
+		{
+			name: "missing override alias",
+			body: `{"name":"runtime-missing","workflow_name":"2fa-chat","parameters":{"agent_type":"flowcraft","generate_model":"missing-alias","extract_model":"extract-model","embedding_model":"embedding-model"}}`,
+			want: `references missing runtime Model alias "missing-alias"`,
+		},
+		{
+			name: "wrong override kind",
+			body: `{"name":"runtime-wrong-kind","workflow_name":"2fa-chat","parameters":{"agent_type":"flowcraft","generate_model":"generate-model","extract_model":"extract-model","embedding_model":"wrong-embedding"}}`,
+			want: `has kind "llm", want "embedding"`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body := mustWorkspaceUpsert(t, tt.body)
+			resp, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
+			if err != nil {
+				t.Fatalf("CreateWorkspace() error = %v", err)
+			}
+			if tt.ok {
+				if _, ok := resp.(adminhttp.CreateWorkspace200JSONResponse); !ok {
+					t.Fatalf("CreateWorkspace() response = %#v", resp)
+				}
+				return
+			}
+			invalid, ok := resp.(adminhttp.CreateWorkspace400JSONResponse)
+			if !ok {
+				t.Fatalf("CreateWorkspace() response = %#v, want 400", resp)
+			}
+			if !strings.Contains(invalid.Error.Message, tt.want) {
+				t.Fatalf("CreateWorkspace() message = %q, want substring %q", invalid.Error.Message, tt.want)
+			}
+			if strings.Contains(invalid.Error.Message, "chat-model") {
+				t.Fatalf("CreateWorkspace() message exposes canonical runtime Model: %q", invalid.Error.Message)
+			}
+		})
 	}
 }
 

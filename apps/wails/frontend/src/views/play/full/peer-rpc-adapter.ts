@@ -426,6 +426,7 @@ export const listPeerWorkspaces = async (options?: RequestOptions): Promise<ApiR
     collection,
     options,
     (pageOptions) => callRPC(RPC_METHODS["server.workspace.list"], pageOptions),
+    true,
   ))));
 };
 

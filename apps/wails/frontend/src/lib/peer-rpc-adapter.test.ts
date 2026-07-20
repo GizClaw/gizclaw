@@ -17,8 +17,8 @@ test("collection fan-out drains every workspace and workflow page", async (t) =>
       calls.push({ method, params });
       const collection = String(params.collection);
       const cursor = params.cursor == null ? "" : String(params.cursor);
-      if (method === "server.workflow.list" && collection === "role-play") {
-        throw Object.assign(new Error("workflow collection not found"), { code: 404 });
+      if ((method === "server.workspace.list" || method === "server.workflow.list") && collection === "role-play") {
+        throw Object.assign(new Error(`${method} collection not found`), { code: 404 });
       }
       const prefix = method === "server.workspace.list" ? "workspace" : "workflow";
       const paginated = collection === "assistants";

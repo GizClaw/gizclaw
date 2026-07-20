@@ -131,7 +131,10 @@ func (s *Server) profileBindings(kind profileResourceKind) map[string]string {
 	if s == nil || s.RuntimeProfile == nil {
 		return map[string]string{}
 	}
-	profile := s.RuntimeProfile()
+	return profileBindingsFrom(s.RuntimeProfile(), kind)
+}
+
+func profileBindingsFrom(profile *apitypes.RuntimeProfile, kind profileResourceKind) map[string]string {
 	if profile == nil {
 		return map[string]string{}
 	}

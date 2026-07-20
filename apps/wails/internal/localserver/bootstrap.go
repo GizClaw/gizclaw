@@ -25,6 +25,7 @@ const (
 	appRegistrationTokenName    = "app:com.gizclaw.opensource"
 	legacyRegistrationTokenName = "desktop-local"
 	defaultRuntimeProfileName   = "default"
+	systemRuntimeWorkflowName   = "chatroom"
 )
 
 // Bootstrapper applies a validated catalog through the packaged companion CLI.
@@ -36,9 +37,9 @@ type Bootstrapper struct {
 }
 
 // MigrateRuntimeContract installs the fixed App runtime contract for a
-// completed legacy Pod. It reapplies only the bundled Workflows referenced by
-// RuntimeProfile/default before applying that Profile; unrelated resources and
-// Workflows remain untouched.
+// completed legacy Pod. It reapplies the bundled Workflows referenced by
+// RuntimeProfile/default plus the Server-owned chatroom Workflow before
+// replacing that Profile; unrelated resources and Workflows remain untouched.
 func (b *Bootstrapper) MigrateRuntimeContract(ctx context.Context, podDir string) error {
 	if b == nil || b.Catalog == nil || b.Executable == nil {
 		return fmt.Errorf("local server bootstrap: bootstrapper is not configured")
@@ -72,6 +73,12 @@ func (b *Bootstrapper) MigrateRuntimeContract(ctx context.Context, podDir string
 		run = runBootstrapCommand
 	}
 	for _, entry := range contractEntries {
+		if entry.Kind == "RuntimeProfile" {
+			err := runBootstrapOperation(ctx, run, executable, []string{"admin", "runtime-profiles", "delete", entry.Name, "--context", "local"}, environment)
+			if err != nil && !strings.Contains(err.Error(), "RESOURCE_NOT_FOUND:") {
+				return fmt.Errorf("local server bootstrap: replace %s/%s: %w", entry.Kind, entry.Name, err)
+			}
+		}
 		file, err := b.extract(tempDir, entry.Path)
 		if err != nil {
 			return err
@@ -118,6 +125,10 @@ func (b *Bootstrapper) runtimeContractEntries(profile ResourceEntry) ([]Resource
 			}
 		}
 	}
+	// Chatroom is a Server-owned system Workflow rather than a selectable
+	// RuntimeProfile alias, but its ASR input follows the same runtime alias
+	// contract and must be refreshed with the selectable Workflows.
+	referenced[systemRuntimeWorkflowName] = true
 	entries := make([]ResourceEntry, 0, len(referenced)+1)
 	for _, entry := range b.Catalog.Resources {
 		if entry.Kind == "Workflow" && referenced[entry.Name] {
