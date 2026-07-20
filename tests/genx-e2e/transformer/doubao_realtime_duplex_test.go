@@ -226,14 +226,14 @@ func (r *duplexRoundResult) observe(streamID string, chunk *genx.MessageChunk) e
 		label = chunk.Ctrl.Label
 		chunkStreamID = chunk.Ctrl.StreamID
 	}
-	if (label == duplexTranscriptLabel || label == duplexAssistantLabel) &&
-		!roundStreamMatches(chunkStreamID, streamID) {
-		return nil
-	}
 	if err := duplexChunkError(chunk); err != nil {
+		if (label == duplexTranscriptLabel || label == duplexAssistantLabel) &&
+			!roundStreamMatches(chunkStreamID, streamID) {
+			return nil
+		}
 		return err
 	}
-	if label == duplexTranscriptLabel {
+	if label == duplexTranscriptLabel && roundStreamMatches(chunkStreamID, streamID) {
 		if text, ok := chunk.Part.(genx.Text); ok && strings.TrimSpace(string(text)) != "" {
 			r.transcript.WriteString(string(text))
 		}
