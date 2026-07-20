@@ -8,7 +8,7 @@ Stream Processing holds provider-neutral Transformer composition and lifecycle b
 | --- | --- |
 | `transformers.Mux` | Select one `genx.Transformer` without creating capability-specific registries. |
 | `transformers/internal/streamkit` | Per-Transform output queue, pull observation, StreamID/MIME-route completion, interruption, cancellation, and shared TTS segmentation. |
-| `audio/codecconv.TTSAudioNormalizer` | Remove repeated provider container headers from streaming TTS audio. |
+| `transformers/audiostream.Normalizer` | Apply MIME-specific concatenation handling while preserving the input codec and MIME; the current MP3 handler removes ID3v2 metadata across chunk boundaries. |
 
 StreamKit is internal to the `transformers` subtree. It does not expose a public construction surface and does not depend on providers, agents, models, tools, Workspace, Workflow, RPC, or devices.
 
@@ -24,4 +24,4 @@ StreamKit never supplies a model role or `assistant` label. Producers provide ro
 
 The internal TTS pipeline maintains one sentence segmenter per input StreamID. It can synthesize complete sentences before input EOS, flushes remaining text at EOS, preserves role/name/label metadata, and emits audio EOS on the same logical route. Inputs without a StreamID receive a fresh non-empty ID at the producer boundary.
 
-Provider packages own SDK requests and audio synthesis. Container normalization remains in `pkgs/audio/codecconv` so callers outside Go's `internal` boundary can reuse it.
+Provider packages own SDK requests and audio synthesis. The public `transformers/audiostream` package only processes Transformer audio byte streams. Callers always construct a `Normalizer` with the actual MIME type and do not preselect a format-specific implementation. MIME types that require no handling or are not yet handled pass through unchanged; currently only MP3 removes ID3v2 metadata. The normalizer does not convert codecs, sample rates, or MIME types. StreamKit owns invocation and route termination rather than parsing audio container bytes.

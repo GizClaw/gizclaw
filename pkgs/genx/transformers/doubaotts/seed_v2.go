@@ -9,8 +9,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/GizClaw/doubao-speech-go"
-	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/audiostream"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/internal/streamkit"
 )
 
@@ -111,7 +111,7 @@ func (t *SeedV2) synthesize(ctx context.Context, text string, meta streamkit.TTS
 		Language:   t.language,
 	}
 
-	normalizer := codecconv.NewTTSAudioNormalizer(mimeType)
+	normalizer := audiostream.NewNormalizer(mimeType)
 	start := time.Now()
 	firstAudio := false
 	for chunk, err := range t.client.TTSV2.Stream(ctx, req) {
@@ -120,7 +120,7 @@ func (t *SeedV2) synthesize(ctx context.Context, text string, meta streamkit.TTS
 		}
 
 		if chunk.Audio != nil && len(chunk.Audio) > 0 {
-			audio := normalizer.Write(chunk.Audio)
+			audio := normalizer.Normalize(chunk.Audio)
 			if ttsDebugEnabled() && !firstAudio && len(audio) > 0 {
 				firstAudio = true
 				slog.Info(

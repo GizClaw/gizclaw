@@ -6,8 +6,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/audiostream"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/internal/streamkit"
 	"github.com/GizClaw/minimax-go"
 )
@@ -112,7 +112,7 @@ func (t *Transformer) synthesize(ctx context.Context, text string, _ streamkit.T
 	}
 	defer stream.Close()
 
-	normalizer := codecconv.NewTTSAudioNormalizer(mimeType)
+	normalizer := audiostream.NewNormalizer(mimeType)
 	for {
 		chunk, nextErr := stream.Next(ctx)
 		if nextErr != nil {
@@ -122,7 +122,7 @@ func (t *Transformer) synthesize(ctx context.Context, text string, _ streamkit.T
 			return nextErr
 		}
 		if len(chunk.Audio) > 0 {
-			if err := emit(normalizer.Write(chunk.Audio)); err != nil {
+			if err := emit(normalizer.Normalize(chunk.Audio)); err != nil {
 				return err
 			}
 		}
