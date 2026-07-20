@@ -81,7 +81,6 @@ func createCSDKChatRegistrationToken(t *testing.T, h *clitest.Harness, scenario 
 	_, _ = api.DeleteRegistrationTokenWithResponse(ctx, tokenName)
 	tokenResp, err := api.CreateRegistrationTokenWithResponse(ctx, adminhttp.RegistrationTokenUpsert{
 		Name:               tokenName,
-		FirmwareName:       "devkit-firmware-main",
 		RuntimeProfileName: profileName,
 	})
 	if err != nil {

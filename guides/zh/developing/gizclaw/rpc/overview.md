@@ -9,7 +9,7 @@ RPC 模块负责 GizClaw RPC 的 client/server、dispatch、stream framing 和�
 | [Common](./all) | 所有 RPC connection 共用的 Ping。 | `rpc_all.go` |
 | [Client](./client) | Client-side RPC receiver、Client info 与 identifiers 查询。 | `rpc_client.go` |
 | [Server](./server) | RPC Server composition、dispatch、Server methods 与未实现 method 处理。 | `rpc_server.go` |
-| [Firmware Download](./firmware) | Firmware binary streaming。 | `rpc_firmware.go` |
+| [Firmware Download](./firmware) | 保留 Firmware streaming RPC 的兼容 framing；当前 peer projection 返回 not found。 | `rpc_firmware.go` |
 | [Gameplay Assets](./gameplay-pixa) | Gameplay pixa asset streaming。 | `rpc_gameplay_pixa.go` |
 | [Workspace History](./workspace-history) | History audio streaming。 | `rpc_workspace_history.go` |
 | [Speed Test](./speed) | 双向 RPC/DataChannel throughput test。 | `rpc_speed.go` |
@@ -40,7 +40,7 @@ flowchart TB
     Utilities --> Stream
 
     Runtime --> RuntimeServices["Runtime services"]
-    Firmware --> Device["Device / Firmware service"]
+    Firmware --> Compat["Compatibility response<br/>not found"]
     Gameplay --> GameplaySvc["Gameplay services"]
     Edge --> Routes["Peer Route service"]
 ```

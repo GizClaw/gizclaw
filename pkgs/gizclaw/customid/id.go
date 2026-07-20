@@ -1,6 +1,9 @@
 package customid
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 const (
 	MinLength = 8
@@ -40,6 +43,19 @@ func Validate(id string) error {
 func ValidateField(field, id string) error {
 	if err := Validate(id); err != nil {
 		return fmt.Errorf("%s: %w", field, err)
+	}
+	return nil
+}
+
+// ValidateRegistrationTokenName accepts canonical custom IDs and the scoped
+// app:<bundle-id> form reserved for RegistrationToken resources.
+func ValidateRegistrationTokenName(name string) error {
+	const appPrefix = "app:"
+	if !strings.HasPrefix(name, appPrefix) {
+		return Validate(name)
+	}
+	if err := Validate(strings.TrimPrefix(name, appPrefix)); err != nil {
+		return fmt.Errorf("registration token app name: %w", err)
 	}
 	return nil
 }

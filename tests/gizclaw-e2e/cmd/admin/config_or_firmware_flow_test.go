@@ -36,12 +36,14 @@ func TestAdminRuntimeProfileRegistrationTokenFlow(t *testing.T) {
 	tokenPath := filepath.Join(h.SandboxDir, "registration-token.json")
 	writeAdminFixture(t, tokenPath, `{
   "name":"device-default",
-  "firmware_name":"devkit",
   "runtime_profile_name":"device-default"
 }`)
 	created := h.RunCLI("admin", "registration-tokens", "create", "-f", tokenPath, "--context", "admin-a")
 	created.MustSucceed(t)
-	assertContains(t, created.Stdout, `"token":"`, `"firmware_name":"devkit"`, `"runtime_profile_name":"device-default"`)
+	assertContains(t, created.Stdout, `"token":"`, `"runtime_profile_name":"device-default"`)
+	if strings.Contains(created.Stdout, `"firmware_name"`) {
+		t.Fatalf("registration token retained Firmware coupling:\n%s", created.Stdout)
+	}
 
 	got := h.RunCLI("admin", "registration-tokens", "get", "device-default", "--context", "admin-a")
 	got.MustSucceed(t)

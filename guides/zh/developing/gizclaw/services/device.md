@@ -24,7 +24,7 @@ services/device/
 
 ```mermaid
 flowchart LR
-    GizClaw["pkgs/gizclaw<br/>Admin / Peer surface"] --> Firmware["services/device/firmware"]
+    GizClaw["pkgs/gizclaw<br/>Admin surface"] --> Firmware["services/device/firmware"]
     Firmware --> KV["KV metadata store"]
     Firmware --> Object["Object artifact store"]
 ```
