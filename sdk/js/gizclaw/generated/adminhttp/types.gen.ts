@@ -320,7 +320,6 @@ export type RegistrationTokenList = {
 
 export type RegistrationTokenUpsert = {
     name: string;
-    firmware_name: string;
     runtime_profile_name: string;
 };
 
@@ -500,7 +499,6 @@ export type RegistrationTokenResource = {
     kind: 'RegistrationToken';
     metadata: ResourceMetadata;
     spec: {
-        firmware_name: string;
         runtime_profile_name: string;
     };
 };
@@ -1470,7 +1468,6 @@ export type Registration = {
 
 export type RegistrationToken = {
     name: string;
-    firmware_name: string;
     runtime_profile_name: string;
     created_at: string;
 };
@@ -2306,7 +2303,6 @@ export type RegistrationTokenResourceWritable = {
     kind: 'RegistrationToken';
     metadata: ResourceMetadata;
     spec: {
-        firmware_name: string;
         runtime_profile_name: string;
     };
     /**

@@ -769,7 +769,7 @@ func registerClient(t *testing.T, client *Client, registrationToken string) {
 	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_REGISTER, &rpcpb.ServerRegisterRequest{
 		Token: registrationToken,
 	}, &response)
-	if response.GetFirmwareName() == "" || response.GetRuntimeProfileName() == "" {
+	if response.GetRuntimeProfileName() == "" {
 		t.Fatalf("invalid server.register response: %s", response.String())
 	}
 }

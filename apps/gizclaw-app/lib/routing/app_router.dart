@@ -12,7 +12,6 @@ import '../features/pet/pet_page.dart';
 import '../features/social/social_pages.dart';
 import '../giz_ui/giz_ui.dart';
 import '../l10n/l10n.dart';
-import '../prototype/prototype_models.dart';
 
 GoRouter createAppRouter({required MobileDataController dataController}) {
   final rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -83,52 +82,36 @@ GoRouter createAppRouter({required MobileDataController dataController}) {
             ],
           ),
           StatefulShellBranch(
-            initialLocation: '/raids',
+            initialLocation: '/workspaces',
             routes: [
               GoRoute(
-                path: '/raids',
-                redirect: (context, state) => state.uri.path == '/raids'
-                    ? '/raids/drivers/flowcraft'
-                    : null,
+                path: '/workspaces',
                 pageBuilder: (context, state) =>
                     _page(state, const ChatsPage()),
                 routes: [
                   GoRoute(
-                    path: 'drivers/:driver',
-                    pageBuilder: (context, state) => _page(
-                      state,
-                      DriverWorkspacesPage(
-                        driver: WorkflowDriverKind.fromRouteKey(
-                          state.pathParameters['driver']!,
+                    path: ':workspaceName',
+                    parentNavigatorKey: rootNavigatorKey,
+                    pageBuilder: (context, state) {
+                      final workspaceName =
+                          state.pathParameters['workspaceName']!;
+                      final workspace = dataController.workspace(workspaceName);
+                      final isChatroom =
+                          workspace.chatroomKind != null ||
+                          dataController.chatroomWorkspace(workspaceName) !=
+                              null;
+                      return _page(
+                        state,
+                        GlobalConversationOverlay(
+                          location: state.uri,
+                          child: isChatroom
+                              ? ChatroomWorkspacePage(
+                                  workspaceName: workspaceName,
+                                )
+                              : WorkspaceChatPage(workspaceName: workspaceName),
                         ),
-                      ),
-                    ),
-                    routes: [
-                      GoRoute(
-                        path: ':workspaceName',
-                        parentNavigatorKey: rootNavigatorKey,
-                        pageBuilder: (context, state) {
-                          final workspaceName =
-                              state.pathParameters['workspaceName']!;
-                          final driver = WorkflowDriverKind.fromRouteKey(
-                            state.pathParameters['driver']!,
-                          );
-                          return _page(
-                            state,
-                            GlobalConversationOverlay(
-                              location: state.uri,
-                              child: driver == WorkflowDriverKind.chatroom
-                                  ? ChatroomWorkspacePage(
-                                      workspaceName: workspaceName,
-                                    )
-                                  : WorkspaceChatPage(
-                                      workspaceName: workspaceName,
-                                    ),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
+                      );
+                    },
                   ),
                 ],
               ),

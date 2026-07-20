@@ -102,9 +102,7 @@ class FriendsPage extends StatelessWidget {
     if (!context.mounted || friend == null) return;
     final workspaceName = friend.workspaceName.trim();
     if (workspaceName.isEmpty) return;
-    context.push(
-      '/raids/drivers/chatroom/${Uri.encodeComponent(workspaceName)}',
-    );
+    context.push('/workspaces/${Uri.encodeComponent(workspaceName)}');
   }
 
   Future<void> _deleteFriend(
@@ -297,10 +295,7 @@ class FriendRow extends StatelessWidget {
   }
 
   void _openChat(BuildContext context) {
-    context.push(
-      '/raids/drivers/chatroom/'
-      '${Uri.encodeComponent(friend.workspaceName)}',
-    );
+    context.push('/workspaces/${Uri.encodeComponent(friend.workspaceName)}');
   }
 
   Future<void> _showActions(BuildContext context) async {

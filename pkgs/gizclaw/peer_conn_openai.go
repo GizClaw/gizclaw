@@ -95,7 +95,6 @@ func (s *PeerService) peerResourcesWithRegistration(publicKey giznet.PublicKey, 
 	}
 	return &peerresource.Server{
 		Caller:       publicKey,
-		Firmwares:    manager.Firmwares,
 		Workspaces:   manager.Workspaces,
 		Workflows:    manager.Workflows,
 		Models:       manager.Models,
@@ -113,13 +112,6 @@ func (s *PeerService) peerResourcesWithRegistration(publicKey giznet.PublicKey, 
 			}
 			profile := registration.RuntimeProfile
 			return &profile
-		},
-		FirmwareName: func() string {
-			registration, ok := registration()
-			if !ok {
-				return ""
-			}
-			return registration.FirmwareName
 		},
 	}
 }

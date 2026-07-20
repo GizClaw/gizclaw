@@ -27,7 +27,7 @@ jobs:
             runner: ubuntu-24.04-arm
     steps:
       - name: Check out repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
           lfs: true
 
@@ -51,7 +51,7 @@ jobs:
             sh -lc 'ldd /out/gizclaw-linux-${{ matrix.arch }} && /out/gizclaw-linux-${{ matrix.arch }} --help >/dev/null'
 
       - name: Upload workflow artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: gizclaw-linux-${{ matrix.arch }}
           path: .tmp/deploy/gizclaw-linux-${{ matrix.arch }}
@@ -65,7 +65,7 @@ jobs:
       contents: read
     steps:
       - name: Check out repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
           lfs: true
 
@@ -79,7 +79,7 @@ jobs:
         run: test "$(uname -m)" = "arm64"
 
       - name: Set up Go
-        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
         with:
           go-version-file: go.mod
           cache: true
@@ -102,7 +102,7 @@ jobs:
           .tmp/deploy/gizclaw-darwin-arm64 --help >/dev/null
 
       - name: Upload workflow artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: gizclaw-darwin-arm64
           path: .tmp/deploy/gizclaw-darwin-arm64

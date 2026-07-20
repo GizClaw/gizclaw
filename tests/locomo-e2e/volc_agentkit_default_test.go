@@ -44,5 +44,5 @@ func TestLoCoMoVolcAgentKitDefault(t *testing.T) {
 	}
 	profile := "volc_agentkit_default"
 	fingerprint := configFingerprint(profile, endpoint, identity, apiKeyID, projectID)
-	runLiveProfile(t, settings, profile, fingerprint, store, nil)
+	runLiveProfile(t, settings, profile, fingerprint, reportModels{}, store, nil)
 }

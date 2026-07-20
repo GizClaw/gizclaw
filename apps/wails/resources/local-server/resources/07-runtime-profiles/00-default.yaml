@@ -2,10 +2,14 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: RuntimeProfile
 metadata:
-  name: desktop-local
+  name: default
 spec:
   resources:
     workflows:
+      translate-zh-en-auto: ast-translate-zh-en-auto
+      translate-zh-ja: ast-translate-zh-ja
+      translate-zh-ko: ast-translate-zh-ko
+      translate-zh-es: ast-translate-zh-es
       ast-translate-zh-en-auto: ast-translate-zh-en-auto
       ast-translate-zh-ja: ast-translate-zh-ja
       ast-translate-zh-ko: ast-translate-zh-ko

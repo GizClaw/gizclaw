@@ -923,6 +923,8 @@ function PodShareFace({
   publicKey: string;
 }) {
   const t = useMessages();
+  const registrationToken = pod.registration_token ?? "";
+  const shareReady = endpoint !== "" && registrationToken !== "";
   const payload = useMemo(
     () =>
       serverDeepLink(
@@ -930,17 +932,19 @@ function PodShareFace({
         pod.name,
         pod.mode,
         publicKey,
-        pod.registration_token ?? "",
+        registrationToken,
       ),
-    [endpoint, pod.mode, pod.name, pod.registration_token, publicKey],
+    [endpoint, pod.mode, pod.name, publicKey, registrationToken],
   );
   return (
     <div className="share-face-layout">
       <div className="share-qr">
-        {endpoint ? (
+        {shareReady ? (
           <QRCodeImage label={t("serverQRCode")} payload={payload} />
         ) : (
-          <div className="qr-code qr-unavailable">{t("noLANAddress")}</div>
+          <div className="qr-code qr-unavailable">
+            {endpoint ? t("notReadyToShare") : t("noLANAddress")}
+          </div>
         )}
         <span>{t("scanToAddServer")}</span>
       </div>
