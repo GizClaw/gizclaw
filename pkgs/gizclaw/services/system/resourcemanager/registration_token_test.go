@@ -29,7 +29,7 @@ func TestApplyRegistrationTokenReturnsOneTimeToken(t *testing.T) {
 			"apiVersion":"gizclaw.admin/v1alpha1",
 			"kind":"RegistrationToken",
 			"metadata":{"name":"device-a"},
-			"spec":{"firmware_name":"firmware-a","runtime_profile_name":"profile-a"}
+			"spec":{"runtime_profile_name":"profile-a"}
 		}]}
 	}`))
 	if err != nil {

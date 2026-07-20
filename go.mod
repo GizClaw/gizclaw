@@ -6,7 +6,6 @@ require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.47.0
 	github.com/GizClaw/dashscope-realtime-go v0.0.0-20260512045013-1d5b538966ad
 	github.com/GizClaw/doubao-speech-go v0.0.0-20260627203027-6f08ce8eb502
-	github.com/GizClaw/flowcraft/eval v0.0.0-20260716084055-d6270ff568ec
 	github.com/GizClaw/flowcraft/memory v0.1.7
 	github.com/GizClaw/flowcraft/sdk v0.4.8
 	github.com/GizClaw/flowcraft/sdkx v0.4.10
@@ -23,16 +22,16 @@ require (
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/kaptinlin/jsonrepair v0.2.6
 	github.com/kardianos/service v1.2.4
-	github.com/lib/pq v1.12.0
+	github.com/lib/pq v1.12.3
 	github.com/oapi-codegen/runtime v1.3.1
 	github.com/openai/openai-go v1.12.0
-	github.com/pion/datachannel v1.6.0
-	github.com/pion/ice/v4 v4.2.1
+	github.com/pion/datachannel v1.6.2
+	github.com/pion/ice/v4 v4.3.0
 	github.com/pion/logging v0.2.4
-	github.com/pion/rtp v1.10.1
-	github.com/pion/sdp/v3 v3.0.18
+	github.com/pion/rtp v1.10.4
+	github.com/pion/sdp/v3 v3.0.19
 	github.com/pion/turn/v4 v4.1.4
-	github.com/pion/webrtc/v4 v4.2.9
+	github.com/pion/webrtc/v4 v4.2.17
 	github.com/prometheus/prometheus v0.313.0
 	github.com/spf13/cobra v1.10.2
 	github.com/tphakala/go-audio-resampling v0.0.0-20251123212058-a9dde25e8eea
@@ -130,20 +129,20 @@ require (
 	github.com/oapi-codegen/oapi-codegen/v2 v2.6.0 // indirect
 	github.com/oasdiff/yaml v0.0.0-20250309154309-f31be36b4037 // indirect
 	github.com/oasdiff/yaml3 v0.0.0-20250309153720-d2182401db90 // indirect
-	github.com/oklog/ulid/v2 v2.1.1 // indirect
 	github.com/paulmach/orb v0.13.0 // indirect
 	github.com/perimeterx/marshmallow v1.1.5 // indirect
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
 	github.com/pierrec/lz4/v4 v4.1.27 // indirect
-	github.com/pion/dtls/v3 v3.1.2 // indirect
-	github.com/pion/interceptor v0.1.44 // indirect
+	github.com/pion/dtls/v3 v3.1.5 // indirect
+	github.com/pion/interceptor v0.1.45 // indirect
 	github.com/pion/mdns/v2 v2.1.0 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
-	github.com/pion/rtcp v1.2.16 // indirect
-	github.com/pion/sctp v1.9.2 // indirect
-	github.com/pion/srtp/v3 v3.0.10 // indirect
-	github.com/pion/stun/v3 v3.1.1 // indirect
-	github.com/pion/transport/v4 v4.0.1 // indirect
+	github.com/pion/rtcp v1.2.17 // indirect
+	github.com/pion/sctp v1.11.0 // indirect
+	github.com/pion/srtp/v3 v3.0.12 // indirect
+	github.com/pion/stun/v3 v3.1.6 // indirect
+	github.com/pion/transport/v4 v4.0.2 // indirect
+	github.com/pion/turn/v5 v5.0.12 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pkoukk/tiktoken-go v0.1.8 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect

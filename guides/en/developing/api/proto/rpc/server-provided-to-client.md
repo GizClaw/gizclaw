@@ -9,7 +9,7 @@ This set of capabilities is implemented by Server and called by Client/Device th
 | `server.info.*` | Reading and updating Server/Peer information |
 | `server.runtime.*`, `server.status.*` | Runtime and status query |
 | `server.run.*` | Agent, Workspace, history, memory, recall, say, reload and stop |
-| `server.firmware.*` | Firmware list/get and files download |
+| `server.firmware.*` | Compatibility surface only: list is empty and get/download return not found; Firmware is Admin-managed and is not projected by registration |
 | `server.workspace.*` | Workspace CRUD, history and history audio |
 | `server.workflow.*` | Source-qualified Workflow list/get and owned Workflow CRUD |
 | `server.model.*` | Model CRUD |
@@ -18,7 +18,7 @@ This set of capabilities is implemented by Server and called by Client/Device th
 | `server.contact.*` | Contact CRUD |
 | `server.friend.*` | Friend and invite-token operations |
 | `server.friend_group.*` | Group, member, message and invite-token operations |
-| `server.register` | Select the current connection's Firmware and RuntimeProfile with a RegistrationToken |
+| `server.register` | Select the current connection's RuntimeProfile with a RegistrationToken |
 | `server.pet.*` | Pet resource CRUD and drive |
 | `runtime.adopt` | Adopt a Pet from the current connection's RuntimeProfile |
 | `server.pet.actions.get` | Press Pet to get available actions, without returning the complete PetDef |

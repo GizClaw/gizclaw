@@ -48,89 +48,18 @@ class WorkflowCard {
   final ResourceSource source;
   final String? imagePath;
 
-  factory WorkflowCard.fromServer({
-    required String name,
-    String? displayName,
-    required String description,
-    required String driver,
-    ResourceSource source = ResourceSource.RESOURCE_SOURCE_RUNTIME,
-  }) {
-    final title = displayName?.trim().isNotEmpty == true
-        ? displayName!.trim()
-        : name;
-    final normalized = driver.toLowerCase();
-    if (normalized.contains('flowcraft')) {
-      return WorkflowCard(
-        name: name,
-        title: title,
-        subtitle: description,
-        driverLabel: 'Flowcraft',
-        category: 'Productivity',
-        bannerColor: GizColors.blue,
-        icon: GizIcons.rectangle_3_offgrid,
-        driver: WorkflowDriverKind.flowcraft,
-        source: source,
-      );
-    }
-    if (normalized.contains('doubao')) {
-      return WorkflowCard(
-        name: name,
-        title: title,
-        subtitle: description,
-        driverLabel: 'Doubao Realtime',
-        category: 'Audio',
-        bannerColor: GizColors.coral,
-        icon: GizIcons.waveform_path,
-        driver: WorkflowDriverKind.doubaoRealtime,
-        source: source,
-      );
-    }
-    if (normalized.contains('ast')) {
-      return WorkflowCard(
-        name: name,
-        title: title,
-        subtitle: description,
-        driverLabel: 'AST Translate',
-        category: 'Code',
-        bannerColor: GizColors.lavender,
-        icon: GizIcons.chevron_left_slash_chevron_right,
-        driver: WorkflowDriverKind.astTranslate,
-        source: source,
-      );
-    }
-    if (normalized.contains('chatroom')) {
-      return WorkflowCard(
-        name: name,
-        title: title,
-        subtitle: description,
-        driverLabel: 'Chatroom',
-        category: 'Conversation',
-        bannerColor: GizColors.accent,
-        icon: GizIcons.waveform,
-        driver: WorkflowDriverKind.chatroom,
-        source: source,
-      );
-    }
-    return WorkflowCard(
-      name: name,
-      title: title,
-      subtitle: description,
-      driverLabel: 'Unavailable',
-      category: 'Other',
-      bannerColor: GizColors.secondaryInk,
-      icon: GizIcons.question_circle,
-      driver: WorkflowDriverKind.unsupported,
-      source: source,
-    );
-  }
-
   factory WorkflowCard.unknown(
     String name, {
     ResourceSource source = ResourceSource.RESOURCE_SOURCE_RUNTIME,
-  }) => WorkflowCard.fromServer(
+  }) => WorkflowCard(
     name: name,
-    description: 'Workflow data is not available yet.',
-    driver: '',
+    title: name,
+    subtitle: 'Workflow is not supported by this app version.',
+    driverLabel: 'Unavailable',
+    category: 'Other',
+    bannerColor: GizColors.secondaryInk,
+    icon: GizIcons.question_circle,
+    driver: WorkflowDriverKind.unsupported,
     source: source,
   );
 }

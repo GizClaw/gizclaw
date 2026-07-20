@@ -527,10 +527,8 @@ func TestServerServeHTTPLoginRegisterAndPeerAPI(t *testing.T) {
 	if _, ok := profileResponse.(adminhttp.CreateRuntimeProfile200JSONResponse); !ok {
 		t.Fatalf("CreateRuntimeProfile response = %#v", profileResponse)
 	}
-	server.manager.RuntimeProfiles.FirmwareExists = func(context.Context, string) (bool, error) { return true, nil }
 	tokenResponse, err := server.manager.RuntimeProfiles.CreateRegistrationToken(context.Background(), adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
 		Name:               "public-http-token",
-		FirmwareName:       "test-firmware",
 		RuntimeProfileName: "public-http-profile",
 	}})
 	if err != nil {

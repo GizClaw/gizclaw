@@ -15,15 +15,34 @@ set -a
 source "${env_file}"
 set +a
 
-: "${GIZCLAW_LOCOMO_E2E_TEST_REGEX:?select one or more explicit TestLoCoMo... tests}"
-: "${GIZCLAW_LOCOMO_E2E_DATASET:?set the converted Flowcraft eval JSONL dataset path}"
-: "${GIZCLAW_LOCOMO_E2E_ANSWER_MODEL:?set the provider-independent answer model}"
-: "${GIZCLAW_LOCOMO_E2E_OPENAI_API_KEY:?set the OpenAI-compatible credential used by answer/judge and Flowcraft profiles}"
+: "${GIZCLAW_LOCOMO_E2E_TEST_REGEX:?select one explicit TestLoCoMo... test}"
+: "${GIZCLAW_LOCOMO_E2E_MODEL_API_KEY:?set the Volcengine Ark API key used by Doubao}"
 
-if [[ "${GIZCLAW_LOCOMO_E2E_DATASET}" != "synthetic" && ! -f "${repo_root}/${GIZCLAW_LOCOMO_E2E_DATASET}" && ! -f "${GIZCLAW_LOCOMO_E2E_DATASET}" ]]; then
-  echo "dataset not found: ${GIZCLAW_LOCOMO_E2E_DATASET}" >&2
+case "${GIZCLAW_LOCOMO_E2E_TEST_REGEX}" in
+  TestLoCoMoFlowcraftBM25SinglePass | \
+    TestLoCoMoFlowcraftHybridSinglePass | \
+    TestLoCoMoFlowcraftHybridTwoPass | \
+    TestLoCoMoMem0PlatformDefault | \
+    TestLoCoMoMem0PlatformCustomInstructions | \
+    TestLoCoMoVolcAgentKitDefault) ;;
+  *)
+    echo "GIZCLAW_LOCOMO_E2E_TEST_REGEX must name one supported live test exactly" >&2
+    exit 1
+    ;;
+esac
+
+dataset="${GIZCLAW_LOCOMO_E2E_DATASET:-tests/locomo-e2e/testdata/locomo10_smoke.jsonl}"
+test_timeout="${GIZCLAW_LOCOMO_E2E_TEST_TIMEOUT:-30m}"
+if [[ ! -f "${dataset}" && ! -f "${repo_root}/${dataset}" ]]; then
+  echo "dataset not found: ${dataset}" >&2
   exit 1
 fi
 
 cd "${repo_root}"
-go test -count=1 -v -tags gizclaw_locomo_e2e -run "${GIZCLAW_LOCOMO_E2E_TEST_REGEX}" ./tests/locomo-e2e
+go test \
+  -count=1 \
+  -timeout "${test_timeout}" \
+  -v \
+  -tags gizclaw_locomo_e2e \
+  -run "^${GIZCLAW_LOCOMO_E2E_TEST_REGEX}$" \
+  ./tests/locomo-e2e

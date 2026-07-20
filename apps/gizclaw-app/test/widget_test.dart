@@ -17,6 +17,7 @@ import 'package:gizclaw_app/giz_ui/giz_ui.dart';
 import 'package:gizclaw_app/identity/app_identity_store.dart';
 import 'package:gizclaw_app/prototype/prototype_data.dart';
 import 'package:gizclaw_app/prototype/prototype_models.dart';
+import 'package:gizclaw_app/workflows/app_workflow_catalog.dart';
 
 AppDatabase _testDatabase() => AppDatabase.forTesting(NativeDatabase.memory());
 
@@ -102,14 +103,7 @@ void main() {
     expect(find.byKey(const ValueKey('voice-mode-thumb')), findsOneWidget);
     expect(find.text('LIVE'), findsNothing);
     expect(find.byType(CupertinoTabBar), findsNothing);
-    for (final destination in [
-      'Flowcraft',
-      'Doubao',
-      'Translate',
-      'Friends',
-      'Groups',
-      'Pets',
-    ]) {
+    for (final destination in ['Workspaces', 'Friends', 'Groups', 'Pets']) {
       expect(primaryNav(destination), findsOneWidget);
     }
     expect(primaryNav('Raids'), findsNothing);
@@ -314,39 +308,51 @@ void main() {
     expect(find.byType(ChatroomWorkspacePage), findsOneWidget);
   });
 
-  appTestWidgets('opens workflow drivers directly from the dock', (
+  appTestWidgets('opens the unified workspace destination from the dock', (
     tester,
   ) async {
     await pumpApp(tester);
 
-    await tapPrimaryNav(tester, 'Flowcraft');
+    await tapPrimaryNav(tester, 'Workspaces');
     await tester.pumpAndSettle();
 
-    expect(find.byType(DriverWorkspacesPage), findsOneWidget);
-    expect(find.text('Raids'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('create-workspace-flowcraft')),
-      findsOneWidget,
-    );
+    expect(find.byType(ChatsPage), findsOneWidget);
+    expect(find.text('Workspaces'), findsOneWidget);
+    expect(find.byKey(const ValueKey('create-workspace')), findsOneWidget);
     expect(find.text('Mobile app plan'), findsOneWidget);
-    expect(find.text('Morning check-in'), findsNothing);
+    expect(find.text('Avery'), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('create-workspace-flowcraft')));
+    await tester.tap(find.byKey(const ValueKey('create-workspace')));
     await tester.pumpAndSettle();
     expect(
-      find.byKey(const ValueKey('create-workspace-sheet-flowcraft')),
+      find.byKey(const ValueKey('create-workspace-sheet')),
       findsOneWidget,
     );
-    expect(find.text('New Raid'), findsNWidgets(2));
-    expect(find.text('Flowcraft Studio'), findsOneWidget);
+    expect(find.text('New Workspace'), findsNWidgets(2));
+    expect(find.text('Doubao Realtime'), findsOneWidget);
+    await tester.tap(find.text('Doubao Realtime'));
+    await tester.pumpAndSettle();
+    for (final title in [
+      'Doubao Realtime',
+      'Chinese ↔ English',
+      'Chinese → Japanese',
+      'Chinese → Korean',
+      'Chinese → Spanish',
+      'Chat',
+      'Journey',
+      'Murder Mystery',
+    ]) {
+      expect(find.text(title), findsWidgets);
+    }
+    expect(find.text('Chatroom'), findsNothing);
+    Navigator.of(tester.element(find.byType(CupertinoActionSheet))).pop();
+    await tester.pumpAndSettle();
     expect(
       find.byKey(const ValueKey('workspace-display-name')),
       findsOneWidget,
     );
     Navigator.of(
-      tester.element(
-        find.byKey(const ValueKey('create-workspace-sheet-flowcraft')),
-      ),
+      tester.element(find.byKey(const ValueKey('create-workspace-sheet'))),
     ).pop();
     await tester.pumpAndSettle();
 
@@ -372,9 +378,9 @@ void main() {
     final controller = _FlowcraftCreateController();
     await pumpApp(tester, controller: controller);
 
-    await tapPrimaryNav(tester, 'Flowcraft');
+    await tapPrimaryNav(tester, 'Workspaces');
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('create-workspace-flowcraft')));
+    await tester.tap(find.byKey(const ValueKey('create-workspace')));
     await tester.pumpAndSettle();
     expect(
       find.byKey(const ValueKey('workspace-generate-model')),
@@ -411,41 +417,44 @@ void main() {
 
     expect(controller.generateModel, 'chat-a');
     expect(controller.extractModel, 'chat-b');
+    expect(find.byType(WorkspaceChatPage), findsOneWidget);
   });
 
-  appTestWidgets('keeps driver destinations visible without workspaces', (
+  appTestWidgets('keeps the fixed workspace catalog visible', (tester) async {
+    final controller = MobileDataController.demo(database: _testDatabase());
+    controller.workspaces = const [];
+    await pumpApp(tester, controller: controller);
+
+    expect(primaryNav('Workspaces'), findsOneWidget);
+    expect(primaryNav('Doubao'), findsNothing);
+    expect(primaryNav('Translate'), findsNothing);
+    expect(primaryNav('Flowcraft'), findsNothing);
+
+    await tapPrimaryNav(tester, 'Workspaces');
+    await tester.pumpAndSettle();
+    expect(find.text('Workspaces'), findsOneWidget);
+    expect(find.byKey(const ValueKey('create-workspace')), findsOneWidget);
+    expect(find.text('No workspaces yet.'), findsOneWidget);
+  });
+
+  appTestWidgets('marks a legacy workspace with an unknown alias unavailable', (
     tester,
   ) async {
     final controller = MobileDataController.demo(database: _testDatabase());
-    controller.workspaces = controller.workspaces
-        .where(
-          (workspace) =>
-              workspace.workflowName != 'realtime-lab' &&
-              workspace.workflowName != 'ast-translate',
-        )
-        .toList(growable: false);
+    controller.workspaces = const [
+      WorkspaceCard(
+        name: 'legacy-workspace',
+        workflowName: 'legacy-dynamic-workflow',
+        lastActive: 'Previously created',
+      ),
+    ];
     await pumpApp(tester, controller: controller);
 
-    expect(primaryNav('Doubao'), findsOneWidget);
-    expect(primaryNav('Translate'), findsOneWidget);
-
-    await tapPrimaryNav(tester, 'Doubao');
+    await tapPrimaryNav(tester, 'Workspaces');
     await tester.pumpAndSettle();
-    expect(find.text('Doubao'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('create-workspace-doubao-realtime')),
-      findsOneWidget,
-    );
-    expect(find.text('No Doubao Realtime workspaces yet.'), findsOneWidget);
 
-    await tapPrimaryNav(tester, 'Translate');
-    await tester.pumpAndSettle();
-    expect(find.text('Translate'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('create-workspace-ast-translate')),
-      findsOneWidget,
-    );
-    expect(find.text('No AST Translate workspaces yet.'), findsOneWidget);
+    expect(find.text('legacy-workspace'), findsOneWidget);
+    expect(find.textContaining('Unavailable'), findsOneWidget);
   });
 
   appTestWidgets('hides tabs in chat and restores the driver destination', (
@@ -453,9 +462,9 @@ void main() {
   ) async {
     await pumpApp(tester);
 
-    await tapPrimaryNav(tester, 'Flowcraft');
+    await tapPrimaryNav(tester, 'Workspaces');
     await tester.pumpAndSettle();
-    expect(find.byType(DriverWorkspacesPage), findsOneWidget);
+    expect(find.byType(ChatsPage), findsOneWidget);
     await tester.tap(find.text('Mobile app plan'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
@@ -468,22 +477,22 @@ void main() {
 
     await tester.tap(find.byIcon(GizIcons.chevron_left).hitTestable());
     await tester.pumpAndSettle();
-    expect(find.byType(DriverWorkspacesPage), findsOneWidget);
+    expect(find.byType(ChatsPage), findsOneWidget);
     expect(find.byType(CupertinoTabBar), findsNothing);
-    expect(primaryNav('Flowcraft'), findsOneWidget);
+    expect(primaryNav('Workspaces'), findsOneWidget);
     await tapPrimaryNav(tester, 'Home');
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.byType(ActiveWorkspacePage), findsOneWidget);
 
-    await tapPrimaryNav(tester, 'Flowcraft');
+    await tapPrimaryNav(tester, 'Workspaces');
     await tester.pump(const Duration(milliseconds: 500));
-    expect(find.byType(DriverWorkspacesPage), findsOneWidget);
+    expect(find.byType(ChatsPage), findsOneWidget);
   });
 
   appTestWidgets('renders the workspace signal room', (tester) async {
     await pumpApp(tester);
 
-    await tapPrimaryNav(tester, 'Translate');
+    await tapPrimaryNav(tester, 'Workspaces');
     await tester.pumpAndSettle();
     await tester.tap(find.text('Parser pass'));
     await tester.pump();
@@ -552,7 +561,7 @@ void main() {
     addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
     await pumpApp(tester);
 
-    await tapPrimaryNav(tester, 'Translate');
+    await tapPrimaryNav(tester, 'Workspaces');
     await tester.pumpAndSettle();
     await tester.tap(find.text('Parser pass'));
     await tester.pump();
@@ -588,9 +597,7 @@ void main() {
 
     for (final label in [
       'Home',
-      'Flowcraft',
-      'Doubao',
-      'Translate',
+      'Workspaces',
       'Friends',
       'Groups',
       'Pets',
@@ -599,13 +606,8 @@ void main() {
       expect(primaryNav(label), findsOneWidget);
     }
     expect(find.byIcon(GizIcons.house_fill), findsOneWidget);
-    expect(find.byIcon(GizIcons.game_controller), findsOneWidget);
-    expect(find.byIcon(GizIcons.wand_stars), findsOneWidget);
+    expect(find.byIcon(GizIcons.rectangle_3_offgrid), findsOneWidget);
     expect(find.byIcon(GizIcons.paw), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('primary-nav-translate-glyph')),
-      findsOneWidget,
-    );
     expect(find.byKey(const ValueKey('primary-nav-scroll')), findsOneWidget);
     expect(find.byKey(const ValueKey('primary-nav-edge-fade')), findsOneWidget);
   });
@@ -888,6 +890,10 @@ void main() {
     await tester.tap(find.bySemanticsLabel('Add server'));
     await tester.pumpAndSettle();
 
+    expect(
+      find.byKey(const ValueKey('server-registration-token-field')),
+      findsNothing,
+    );
     await tester.enterText(
       find.byKey(const ValueKey('server-name-field')),
       'Office',
@@ -1004,7 +1010,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await pumpApp(tester);
-    await tapPrimaryNav(tester, 'Translate');
+    await tapPrimaryNav(tester, 'Workspaces');
     await tester.pumpAndSettle();
     await tester.tap(find.text('Parser pass'));
     await tester.pump();
@@ -1175,7 +1181,7 @@ class _ServerListTestController extends MobileDataController {
           GizClawServer(name: 'Office', accessPoint: _testServerEndpoint),
         ],
       ) {
-    workflows = allWorkflows;
+    workflows = appWorkflowCards(const Locale('en'));
     workspaces = workflowWorkspaces;
     chatroomWorkspaces = chatroomWorkspaceMetadata;
   }
@@ -1197,10 +1203,15 @@ class _FlowcraftCreateController extends MobileDataController {
         ),
       ) {
     workflows = [
-      WorkflowCard.fromServer(
-        name: 'flow-models',
-        description: 'Requires concrete models',
-        driver: 'flowcraft',
+      const WorkflowCard(
+        name: 'chat',
+        title: 'Chat',
+        subtitle: 'Requires concrete models',
+        driverLabel: 'Flowcraft',
+        category: 'raids',
+        bannerColor: GizColors.blue,
+        icon: GizIcons.rectangle_3_offgrid,
+        driver: WorkflowDriverKind.flowcraft,
       ),
     ];
   }
@@ -1231,13 +1242,11 @@ class _FlowcraftCreateController extends MobileDataController {
 
   @override
   Future<Workspace> createWorkspace({
-    required WorkflowDriverKind driver,
     required String workflowName,
     required String name,
     String? generateModel,
     String? extractModel,
     String? embeddingModel,
-    FlowcraftModelRequirements? flowcraftRequirements,
   }) async {
     this.generateModel = generateModel;
     this.extractModel = extractModel;

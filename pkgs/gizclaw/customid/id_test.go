@@ -61,3 +61,16 @@ func TestValidateFieldAnnotatesFieldName(t *testing.T) {
 		t.Fatalf("ValidateField error = %q, want field prefix", got)
 	}
 }
+
+func TestValidateRegistrationTokenName(t *testing.T) {
+	for _, name := range []string{"desktop-local", "app:com.gizclaw.opensource"} {
+		if err := ValidateRegistrationTokenName(name); err != nil {
+			t.Errorf("ValidateRegistrationTokenName(%q) = %v", name, err)
+		}
+	}
+	for _, name := range []string{"app:", "app:Com.gizclaw.opensource", "other:com.gizclaw.opensource"} {
+		if err := ValidateRegistrationTokenName(name); err == nil {
+			t.Errorf("ValidateRegistrationTokenName(%q) succeeded", name)
+		}
+	}
+}

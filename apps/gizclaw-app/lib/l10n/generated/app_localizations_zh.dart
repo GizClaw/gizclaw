@@ -12,6 +12,60 @@ class AppLocalizationsZh extends AppLocalizations {
   String get appTitle => 'GizClaw OpenSource';
 
   @override
+  String get workspacesTitle => '工作空间';
+
+  @override
+  String get newWorkspace => '新建工作空间';
+
+  @override
+  String get noWorkspaces => '还没有工作空间。';
+
+  @override
+  String get workflowDoubaoRealtimeTitle => '豆包实时对话';
+
+  @override
+  String get workflowDoubaoRealtimeSubtitle => '实时语音对话';
+
+  @override
+  String get workflowTranslateZhEnTitle => '中英互译';
+
+  @override
+  String get workflowTranslateZhJaTitle => '中译日';
+
+  @override
+  String get workflowTranslateZhKoTitle => '中译韩';
+
+  @override
+  String get workflowTranslateZhEsTitle => '中译西';
+
+  @override
+  String get workflowTranslationSubtitle => '实时语音翻译';
+
+  @override
+  String get workflowChatTitle => '聊天';
+
+  @override
+  String get workflowChatSubtitle => '通用 AI 助手';
+
+  @override
+  String get workflowJourneyTitle => '旅程';
+
+  @override
+  String get workflowJourneySubtitle => '互动故事向导';
+
+  @override
+  String get workflowMurderMysteryTitle => '谋杀之谜';
+
+  @override
+  String get workflowMurderMysterySubtitle => '互动推理游戏';
+
+  @override
+  String get workflowChatroomTitle => '聊天室';
+
+  @override
+  String get workflowChatroomSubtitle => '好友与群组对话';
+
+  @override
   String get language => '语言';
 
   @override
@@ -267,6 +321,7 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String actionText({required String key}) {
     String _temp0 = intl.Intl.selectLogic(key, {
+      'unavailable': '不可用',
       'unableActivate': '无法激活',
       'unableSwitchMode': '无法切换模式',
       'actionFailed': '无法完成操作，请重试。',
@@ -319,6 +374,60 @@ class AppLocalizationsZhCn extends AppLocalizationsZh {
 
   @override
   String get appTitle => 'GizClaw OpenSource';
+
+  @override
+  String get workspacesTitle => '工作空间';
+
+  @override
+  String get newWorkspace => '新建工作空间';
+
+  @override
+  String get noWorkspaces => '还没有工作空间。';
+
+  @override
+  String get workflowDoubaoRealtimeTitle => '豆包实时对话';
+
+  @override
+  String get workflowDoubaoRealtimeSubtitle => '实时语音对话';
+
+  @override
+  String get workflowTranslateZhEnTitle => '中英互译';
+
+  @override
+  String get workflowTranslateZhJaTitle => '中译日';
+
+  @override
+  String get workflowTranslateZhKoTitle => '中译韩';
+
+  @override
+  String get workflowTranslateZhEsTitle => '中译西';
+
+  @override
+  String get workflowTranslationSubtitle => '实时语音翻译';
+
+  @override
+  String get workflowChatTitle => '聊天';
+
+  @override
+  String get workflowChatSubtitle => '通用 AI 助手';
+
+  @override
+  String get workflowJourneyTitle => '旅程';
+
+  @override
+  String get workflowJourneySubtitle => '互动故事向导';
+
+  @override
+  String get workflowMurderMysteryTitle => '谋杀之谜';
+
+  @override
+  String get workflowMurderMysterySubtitle => '互动推理游戏';
+
+  @override
+  String get workflowChatroomTitle => '聊天室';
+
+  @override
+  String get workflowChatroomSubtitle => '好友与群组对话';
 
   @override
   String get language => '语言';
@@ -576,6 +685,7 @@ class AppLocalizationsZhCn extends AppLocalizationsZh {
   @override
   String actionText({required String key}) {
     String _temp0 = intl.Intl.selectLogic(key, {
+      'unavailable': '不可用',
       'unableActivate': '无法激活',
       'unableSwitchMode': '无法切换模式',
       'actionFailed': '无法完成操作，请重试。',
