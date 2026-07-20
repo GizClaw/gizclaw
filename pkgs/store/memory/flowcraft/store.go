@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -144,6 +145,9 @@ func (s *Store) Recall(ctx context.Context, query memorystore.Query) (memorystor
 		}
 		out.Matches[i] = match{Fact: fact, Score: hit.Score}
 	}
+	sort.SliceStable(out.Matches, func(i, j int) bool {
+		return out.Matches[i].Score > out.Matches[j].Score
+	})
 	return out, nil
 }
 

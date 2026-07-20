@@ -26,18 +26,33 @@ Schema source of desktop bridge DTO; generated through `gen:sdk` of `sdk/js` aft
 ## Local Server bootstrap
 
 `resources/local-server` is the versioned, read-only bootstrap source embedded in the Desktop
-binary. It contains Credentials, Tenants, Models, Workflows, PetDefs, a Firmware, a RuntimeProfile,
-and the PetDef assets required by a new local Server. It contains no Workspace because
+binary. It contains 43 declarative resources: Credentials, Tenants, Models, Workflows, PetDefs,
+and exactly one `RuntimeProfile/default`, plus the PetDef assets required by a new local Server. It
+contains no Firmware or Workspace because Firmware is not part of registration and
 Workspaces remain client-created resources.
 
 After applying the catalog, synchronizing dynamic Volc Voices, and uploading owner-managed assets,
-Desktop creates a RegistrationToken mapped to the bundled Firmware and RuntimeProfile. Its raw value
+Desktop creates `RegistrationToken/app:com.gizclaw.opensource`, mapped only to
+`RuntimeProfile/default`. Its raw value
 is written only to the Pod's private workspace with mode `0600`. When local Play opens, the bridge
 passes that token through the separately protected per-launch Browser Runtime handoff. Play calls
 `server.register` on the
 same persistent WebRTC connection before loading RuntimeProfile resources. The RegistrationToken
-never enters the URL, `pod.json`, Web Storage, or logs. Desktop does not create RegistrationTokens for
+never enters the URL, `pod.json`, Web Storage, or logs. The local Pod share QR carries the raw value
+in its credential-bearing `registration_token` field so GizClaw App can register immediately after
+scanning. Desktop does not create RegistrationTokens for
 remote Pods.
+
+Completed local Pods do not replay the full bootstrap catalog during start,
+restart, or Desktop upgrade. A legacy local Pod performs one targeted migration
+after its Server is ready: Desktop applies only `RuntimeProfile/default`, creates
+a fresh `RegistrationToken/app:com.gizclaw.opensource`, retires
+`RegistrationToken/desktop-local`, and records the local catalog version in
+`pod.json`. A recovered legacy process is restarted with the current companion
+before migration, and the default profile preserves legacy translation aliases
+for existing Workspaces. Other resources, including user edits, remain unchanged.
+Desktop suppresses QR handoff until this migration completes; opening local Play
+starts the current companion and migrates before handing off the new token.
 
 ## Local Server recovery
 

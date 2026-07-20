@@ -10,8 +10,8 @@ import '../identity/app_identity_store.dart';
 import '../l10n/locale_resolution.dart';
 import '../prototype/prototype_data.dart';
 import '../prototype/prototype_models.dart';
+import '../workflows/app_workflow_catalog.dart';
 import 'database/app_database.dart';
-import 'device_workspace_provisioner.dart';
 import 'repositories/mobile_data_repository.dart';
 import 'repositories/workspace_chat_repository.dart';
 import 'workspace_chat_controller.dart';
@@ -41,43 +41,24 @@ class MobileWorkspaceDestination {
     required this.surface,
     required this.workspaceName,
     this.resourceId,
-    this.driver,
   }) : assert(
          surface != MobileWorkspaceSurface.pet || resourceId != null,
          'Pet destinations require a resource ID',
-       ),
-       assert(
-         surface != MobileWorkspaceSurface.raid || driver != null,
-         'Raid destinations require a driver',
        );
 
-  final WorkflowDriverKind? driver;
   final String? resourceId;
   final MobileWorkspaceSurface surface;
   final String workspaceName;
 
   String get route => switch (surface) {
     MobileWorkspaceSurface.friend =>
-      '/raids/drivers/chatroom/${Uri.encodeComponent(workspaceName)}',
+      '/workspaces/${Uri.encodeComponent(workspaceName)}',
     MobileWorkspaceSurface.group =>
       '/groups/${Uri.encodeComponent(workspaceName)}',
     MobileWorkspaceSurface.pet => '/pets/${Uri.encodeComponent(resourceId!)}',
     MobileWorkspaceSurface.raid =>
-      '/raids/drivers/${driver!.routeKey}/'
-          '${Uri.encodeComponent(workspaceName)}',
+      '/workspaces/${Uri.encodeComponent(workspaceName)}',
   };
-}
-
-class FlowcraftModelRequirements {
-  const FlowcraftModelRequirements({
-    required this.generateModel,
-    required this.extractModel,
-    required this.embeddingModel,
-  });
-
-  final bool generateModel;
-  final bool extractModel;
-  final bool embeddingModel;
 }
 
 class MobileDataController extends ChangeNotifier {
@@ -113,12 +94,12 @@ class MobileDataController extends ChangeNotifier {
     repository = dataRepository ?? MobileDataRepository(this.database);
     _observedMicrophoneStatus = connection.microphoneStatus;
     connection.addListener(_handleConnectionChanged);
+    workflows = appWorkflowCards(_effectiveLocale);
   }
 
   factory MobileDataController.demo({AppDatabase? database}) {
     final controller = _DemoMobileDataController(database: database);
-    controller._workflowCatalog = allWorkflows;
-    controller.workflows = allWorkflows;
+    controller.workflows = appWorkflowCards(controller._effectiveLocale);
     controller.workspaces = workflowWorkspaces;
     controller.chatroomWorkspaces = chatroomWorkspaceMetadata;
     return controller;
@@ -134,13 +115,11 @@ class MobileDataController extends ChangeNotifier {
   late final WorkspaceChatRepository workspaceChatRepository =
       WorkspaceChatRepository(database);
 
-  StreamSubscription<List<WorkflowCard>>? _workflowSubscription;
   StreamSubscription<List<WorkspaceCard>>? _workspaceSubscription;
   StreamSubscription<List<ChatroomWorkspaceMetadata>>? _friendChatSubscription;
   StreamSubscription<List<ChatroomWorkspaceMetadata>>?
   _friendGroupChatSubscription;
   List<WorkflowCard> workflows = const [];
-  List<WorkflowCard> _workflowCatalog = const [];
   List<WorkspaceCard> workspaces = const [];
   List<ChatroomWorkspaceMetadata> chatroomWorkspaces = const [];
   List<ChatroomWorkspaceMetadata> _friendChats = const [];
@@ -160,8 +139,6 @@ class MobileDataController extends ChangeNotifier {
   GizClawClient? _pendingRefreshClient;
   String? _pendingRefreshEndpoint;
   String? _pendingRefreshServerId;
-  int _pendingRefreshLocaleGeneration = 0;
-  int _localeGeneration = 0;
   Locale _effectiveLocale = appEnglishLocale;
   int _serverWatchGeneration = 0;
   int _startGeneration = 0;
@@ -334,10 +311,7 @@ class MobileDataController extends ChangeNotifier {
         : appEnglishLocale;
     if (_effectiveLocale == normalized) return;
     _effectiveLocale = normalized;
-    _localeGeneration += 1;
-    final serverId = activeServerId;
-    if (serverId != null) unawaited(_watchServer(serverId));
-    if (connection.isConnected) unawaited(refresh());
+    workflows = appWorkflowCards(_effectiveLocale);
     notifyListeners();
   }
 
@@ -391,10 +365,6 @@ class MobileDataController extends ChangeNotifier {
       connectionState = MobileConnectionState.connected;
       notifyListeners();
       await refresh(client: client, serverId: serverId);
-      if (_isCurrentStart(generation, endpoint) &&
-          connectionState == MobileConnectionState.connected) {
-        await _ensureDeviceWorkspace(client: client, serverId: serverId);
-      }
     } catch (error) {
       if (!_isCurrentStart(generation, endpoint)) return;
       final discoveredServerId = connection.serverId;
@@ -526,8 +496,7 @@ class MobileDataController extends ChangeNotifier {
     activeServerId = null;
     peerName = '';
     peerEmoji = '';
-    _workflowCatalog = const [];
-    workflows = const [];
+    workflows = appWorkflowCards(_effectiveLocale);
     workspaces = const [];
     chatroomWorkspaces = const [];
     _friendChats = const [];
@@ -538,43 +507,6 @@ class MobileDataController extends ChangeNotifier {
     unawaited(start());
   }
 
-  Future<void> _ensureDeviceWorkspace({
-    required GizClawClient client,
-    required String serverId,
-  }) async {
-    final clientPublicKey = connection.clientPublicKey;
-    if (clientPublicKey == null ||
-        !await repository.hasWorkflow(
-          serverId,
-          mobileAstWorkflowName,
-          source: ResourceSource.RESOURCE_SOURCE_RUNTIME,
-        )) {
-      return;
-    }
-    try {
-      final workspaceName = mobileAstWorkspaceName(clientPublicKey);
-      final existingWorkspace = await repository.workspaceDocument(
-        serverId,
-        workspaceName,
-      );
-      final refreshNeeded = await DeviceWorkspaceProvisioner.forClient(client)
-          .ensureMobileAstWorkspace(
-            clientPublicKey,
-            existingWorkspace: existingWorkspace,
-          );
-      if (refreshNeeded) {
-        await refresh(client: client, serverId: serverId);
-      }
-    } catch (error) {
-      lastError = error;
-      assert(() {
-        debugPrint('GizClaw device workspace ensure failed: $error');
-        return true;
-      }());
-      notifyListeners();
-    }
-  }
-
   Future<void> _watchServer(String serverId) async {
     final generation = ++_serverWatchGeneration;
     if (activeServerId != serverId) {
@@ -582,22 +514,10 @@ class MobileDataController extends ChangeNotifier {
       peerEmoji = '';
     }
     activeServerId = serverId;
-    await _workflowSubscription?.cancel();
     await _workspaceSubscription?.cancel();
     await _friendChatSubscription?.cancel();
     await _friendGroupChatSubscription?.cancel();
     if (generation != _serverWatchGeneration) return;
-    _workflowSubscription = repository
-        .watchWorkflowCatalog(serverId, locale: appLocaleTag(_effectiveLocale))
-        .listen((value) {
-          _workflowCatalog = value;
-          workflows = value
-              .where(
-                (item) => item.source == ResourceSource.RESOURCE_SOURCE_RUNTIME,
-              )
-              .toList(growable: false);
-          notifyListeners();
-        });
     _workspaceSubscription = repository.watchWorkspaces(serverId).listen((
       value,
     ) {
@@ -620,11 +540,9 @@ class MobileDataController extends ChangeNotifier {
 
   Future<void> _stopWatchingServer() async {
     _serverWatchGeneration += 1;
-    await _workflowSubscription?.cancel();
     await _workspaceSubscription?.cancel();
     await _friendChatSubscription?.cancel();
     await _friendGroupChatSubscription?.cancel();
-    _workflowSubscription = null;
     _workspaceSubscription = null;
     _friendChatSubscription = null;
     _friendGroupChatSubscription = null;
@@ -645,7 +563,6 @@ class MobileDataController extends ChangeNotifier {
     _pendingRefreshClient = activeClient;
     _pendingRefreshEndpoint = connection.profile.endpoint;
     _pendingRefreshServerId = resolvedServerId;
-    _pendingRefreshLocaleGeneration = _localeGeneration;
     _refreshAgain = true;
     final inFlight = _refreshInFlight;
     if (inFlight != null) return inFlight;
@@ -664,22 +581,17 @@ class MobileDataController extends ChangeNotifier {
         final client = _pendingRefreshClient!;
         final endpoint = _pendingRefreshEndpoint!;
         final serverId = _pendingRefreshServerId!;
-        final localeGeneration = _pendingRefreshLocaleGeneration;
-        final effectiveLocale = _effectiveLocale;
         lastError = null;
         try {
           final warnings = await repository.refresh(
             client: client,
             endpoint: endpoint,
             isCurrent: () =>
-                localeGeneration == _localeGeneration &&
                 connection.profile.endpoint == endpoint &&
                 identical(connection.client, client),
-            locale: appLocaleTag(effectiveLocale),
             serverId: serverId,
           );
-          if (localeGeneration != _localeGeneration ||
-              connection.profile.endpoint != endpoint ||
+          if (connection.profile.endpoint != endpoint ||
               !identical(connection.client, client)) {
             continue;
           }
@@ -696,8 +608,7 @@ class MobileDataController extends ChangeNotifier {
             }());
           }
         } catch (error) {
-          if (localeGeneration != _localeGeneration ||
-              connection.profile.endpoint != endpoint ||
+          if (connection.profile.endpoint != endpoint ||
               !identical(connection.client, client)) {
             continue;
           }
@@ -916,13 +827,11 @@ class MobileDataController extends ChangeNotifier {
   }
 
   Future<Workspace> createWorkspace({
-    required WorkflowDriverKind driver,
     required String workflowName,
     required String name,
     String? generateModel,
     String? extractModel,
     String? embeddingModel,
-    FlowcraftModelRequirements? flowcraftRequirements,
   }) async {
     final normalizedWorkflow = workflowName.trim();
     final normalizedName = name.trim();
@@ -935,13 +844,17 @@ class MobileDataController extends ChangeNotifier {
     if (normalizedName.length > 80) {
       throw ArgumentError.value(name, 'name', 'must be at most 80 characters');
     }
+    final definition = appWorkflowDefinition(normalizedWorkflow);
+    if (definition == null ||
+        !definition.selectable ||
+        isLegacyAppWorkflowAlias(normalizedWorkflow)) {
+      throw StateError('Workflow $normalizedWorkflow is not supported');
+    }
     final normalizedGenerateModel = generateModel?.trim() ?? '';
     final normalizedExtractModel = extractModel?.trim() ?? '';
     final normalizedEmbeddingModel = embeddingModel?.trim() ?? '';
-    if (driver == WorkflowDriverKind.flowcraft) {
-      final requirements =
-          flowcraftRequirements ??
-          await flowcraftModelRequirements(normalizedWorkflow);
+    if (definition.driver == WorkflowDriverKind.flowcraft) {
+      final requirements = definition.flowcraftRequirements!;
       if (requirements.generateModel && normalizedGenerateModel.isEmpty) {
         throw StateError('Choose a generation model');
       }
@@ -959,8 +872,7 @@ class MobileDataController extends ChangeNotifier {
           name: workspaceName,
           workflowName: normalizedWorkflow,
           workflowSource: ResourceSource.RESOURCE_SOURCE_RUNTIME,
-          parameters: newWorkspaceParametersForDriver(
-            driver,
+          parameters: definition.workspaceParameters(
             generateModel: normalizedGenerateModel,
             extractModel: normalizedExtractModel,
             embeddingModel: normalizedEmbeddingModel,
@@ -993,38 +905,15 @@ class MobileDataController extends ChangeNotifier {
   Future<FlowcraftModelRequirements> flowcraftModelRequirements(
     String workflowName,
   ) async {
-    final response = await runRpc(
-      (client) => client.getWorkflow(
-        workflowName,
-        source: ResourceSource.RESOURCE_SOURCE_RUNTIME,
-      ),
-    );
-    final workflow = response.value;
-    if (!workflow.hasSpec() || !workflow.spec.hasFlowcraft()) {
-      throw StateError('Workflow $workflowName is not a FlowCraft workflow');
+    final definition = appWorkflowDefinition(workflowName.trim());
+    final requirements = definition?.flowcraftRequirements;
+    if (definition?.driver != WorkflowDriverKind.flowcraft ||
+        requirements == null) {
+      throw StateError(
+        'Workflow $workflowName is not a fixed FlowCraft workflow',
+      );
     }
-    final settings = workflow.spec.flowcraft.fields.fields['settings'];
-    final fields = settings != null && settings.hasStructValue()
-        ? settings.structValue.fields
-        : null;
-    final generate = fields?['generate_model'];
-    final extract = fields?['extract_model'];
-    final embedding = fields?['embedding_model'];
-    return FlowcraftModelRequirements(
-      generateModel:
-          generate == null ||
-          !generate.hasStringValue() ||
-          generate.stringValue.trim().isEmpty ||
-          generate.stringValue.trim() == 'generate_model',
-      extractModel:
-          extract != null &&
-          extract.hasStringValue() &&
-          extract.stringValue.trim() == 'extract_model',
-      embeddingModel:
-          embedding != null &&
-          embedding.hasStringValue() &&
-          embedding.stringValue.trim() == 'embedding_model',
-    );
+    return requirements;
   }
 
   bool _isCurrentStart(int generation, String endpoint) {
@@ -1037,11 +926,12 @@ class MobileDataController extends ChangeNotifier {
     String name, {
     ResourceSource source = ResourceSource.RESOURCE_SOURCE_RUNTIME,
   }) {
-    for (final item in _workflowCatalog) {
-      if (item.name == name && item.source == source) return item;
-    }
     for (final item in workflows) {
       if (item.name == name && item.source == source) return item;
+    }
+    if (source == ResourceSource.RESOURCE_SOURCE_RUNTIME) {
+      final compatibility = appWorkflowCard(name, _effectiveLocale);
+      if (compatibility != null) return compatibility;
     }
     return WorkflowCard.unknown(name, source: source);
   }
@@ -1094,14 +984,9 @@ class MobileDataController extends ChangeNotifier {
         // Pet discovery is optional when routing an ordinary workspace.
       }
     }
-    final workspace = this.workspace(workspaceName);
     return MobileWorkspaceDestination(
       surface: MobileWorkspaceSurface.raid,
       workspaceName: workspaceName,
-      driver: workflow(
-        workspace.workflowName,
-        source: workspace.workflowSource,
-      ).driver,
     );
   }
 
@@ -1310,16 +1195,7 @@ class MobileDataController extends ChangeNotifier {
         ? workspace.workflowSource
         : ResourceSource.RESOURCE_SOURCE_OWNED;
     final cached = workflow(workspace.workflowName, source: source).driver;
-    if (cached != WorkflowDriverKind.unsupported) return cached;
-    final serverId = activeServerId;
-    if (serverId == null) return cached;
-    return (await repository.workflowCard(
-          serverId,
-          workspace.workflowName,
-          locale: appLocaleTag(_effectiveLocale),
-          source: source,
-        ))?.driver ??
-        cached;
+    return cached;
   }
 
   Future<WorkspaceChatController> _installActiveWorkspaceChat(
@@ -1443,12 +1319,10 @@ class MobileDataController extends ChangeNotifier {
     await chat?.releaseInputTrack();
     _activeWorkspaceChat = null;
     final subscriptions = <StreamSubscription<dynamic>?>[
-      _workflowSubscription,
       _workspaceSubscription,
       _friendChatSubscription,
       _friendGroupChatSubscription,
     ];
-    _workflowSubscription = null;
     _workspaceSubscription = null;
     _friendChatSubscription = null;
     _friendGroupChatSubscription = null;
@@ -1534,7 +1408,7 @@ WorkspaceParameters newWorkspaceParametersForDriver(
           .ASTTRANSLATE_WORKSPACE_PARAMETERS_AGENT_TYPE_AST_TRANSLATE,
       enableSourceLanguageDetect: true,
       input: WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK,
-      langPair: mobileAstLanguagePair,
+      langPair: 'auto',
       mode: ASTTranslateMode.ASTTRANSLATE_MODE_S2S,
     ),
   ),
@@ -1554,8 +1428,11 @@ Workspace? workspaceWithDefaultInputParameters(
       driver != WorkflowDriverKind.astTranslate) {
     return null;
   }
-  return workspace.deepCopy()
-    ..parameters = newWorkspaceParametersForDriver(driver);
+  final definition = appWorkflowDefinition(workspace.workflowName);
+  final parameters = definition != null && definition.driver == driver
+      ? definition.workspaceParameters()
+      : newWorkspaceParametersForDriver(driver);
+  return workspace.deepCopy()..parameters = parameters;
 }
 
 bool _runWorkspaceNeedsReload(PeerRunWorkspaceState state) {

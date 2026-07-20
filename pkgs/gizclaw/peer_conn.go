@@ -287,7 +287,6 @@ func (h *PeerConn) peerResources() *peerresource.Server {
 	manager := h.Service.manager
 	return &peerresource.Server{
 		Caller:       h.Conn.PublicKey(),
-		Firmwares:    manager.Firmwares,
 		Workspaces:   manager.Workspaces,
 		Workflows:    manager.Workflows,
 		Models:       manager.Models,
@@ -305,13 +304,6 @@ func (h *PeerConn) peerResources() *peerresource.Server {
 			}
 			profile := registration.RuntimeProfile
 			return &profile
-		},
-		FirmwareName: func() string {
-			registration := h.registration.Load()
-			if registration == nil {
-				return ""
-			}
-			return registration.FirmwareName
 		},
 	}
 }

@@ -1,0 +1,32 @@
+{
+  "name": "locomo10_smoke",
+  "source": {
+    "repository": "https://github.com/snap-research/locomo",
+    "commit": "3eb6f2c585f5e1699204e3c3bdf7adc5c28cb376",
+    "path": "data/locomo10.json",
+    "sha256": "79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4"
+  },
+  "derived": {
+    "path": "locomo10_smoke.jsonl",
+    "sha256": "4868104c2a78b92d6ba47308ce455ac02baca3a6b0f54fa30f6f9a6ea745d1a8",
+    "conversation_ids": ["conv-30"],
+    "session_ids": ["session_1", "session_2", "session_3"],
+    "turn_count": 58,
+    "question_ids": [
+      "conv-30-q1",
+      "conv-30-q3",
+      "conv-30-q4",
+      "conv-30-q6",
+      "conv-30-q8",
+      "conv-30-q48"
+    ],
+    "changes": "Selected sessions 1 through 3 from conv-30 and six QA records whose evidence is contained in those sessions, then transformed them into the GizClaw runner JSONL schema. Source speaker names and session wall-clock timestamps are preserved on every turn. Because the upstream timestamps have no timezone, their unchanged wall-clock values are mapped onto UTC solely as a deterministic Go time representation; this does not assert a source timezone. The conversation record declares a smoke-contract minimum of one materialized fact per session. Image URLs and generated observations/summaries are not included."
+  },
+  "license": {
+    "spdx": "CC-BY-NC-4.0",
+    "url": "https://creativecommons.org/licenses/by-nc/4.0/",
+    "path": "LICENSE.locomo.txt",
+    "sha256": "41003d4a74749c0220e33dd415042164b5a1093ed401f36277234f772d22d3d0",
+    "use": "noncommercial only"
+  }
+}

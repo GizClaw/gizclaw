@@ -33,7 +33,7 @@ func TestNewAppUsesConfiguredHome(t *testing.T) {
 	}
 }
 
-func TestNewAppRecoversLocalServerFromWorkspacePID(t *testing.T) {
+func TestNewAppRestartsRecoveredLegacyLocalServerBeforeMigration(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("the test helper is a POSIX shell script")
 	}
@@ -48,10 +48,20 @@ func TestNewAppRecoversLocalServerFromWorkspacePID(t *testing.T) {
 		t.Fatal(err)
 	}
 	executable := filepath.Join(t.TempDir(), "gizclaw")
-	script := "#!/bin/sh\ntrap 'exit 0' INT TERM\nwhile :; do sleep 1; done\n"
+	script := `#!/bin/sh
+if [ "$1" = "serve" ]; then
+  trap 'exit 0' INT TERM
+  while :; do sleep 1; done
+fi
+if [ "$1" = "admin" ] && [ "$2" = "registration-tokens" ] && [ "$3" = "create" ]; then
+  printf '{"token":"migrated-secret"}\n'
+fi
+exit 0
+`
 	if err := os.WriteFile(executable, []byte(script), 0o700); err != nil {
 		t.Fatal(err)
 	}
+	t.Setenv(localserver.EnvExecutable, executable)
 	seed.bridge.Local.Executable = executable
 	workspace := filepath.Join(paths.PodsDir, created.ID, "workspace")
 	started, err := seed.bridge.Local.Start(created.ID, workspace)
@@ -70,8 +80,15 @@ func TestNewAppRecoversLocalServerFromWorkspacePID(t *testing.T) {
 		restarted.bridge.Local.Shutdown(ctx)
 	})
 	recovered := restarted.bridge.Local.Status(created.ID)
-	if recovered.State != "running" || recovered.PID != started.PID {
-		t.Fatalf("recovered process = %+v, want PID %d", recovered, started.PID)
+	if recovered.State != "running" || recovered.PID == 0 || recovered.PID == started.PID {
+		t.Fatalf("upgraded process = %+v, legacy PID %d", recovered, started.PID)
+	}
+	pod, err := restarted.bridge.Store.Load(created.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pod.LocalCatalogVersion != appconfig.LocalCatalogVersion {
+		t.Fatalf("local catalog version = %d", pod.LocalCatalogVersion)
 	}
 	if attempts.Load() < 3 {
 		t.Fatalf("server-info attempts = %d, want at least 3", attempts.Load())
@@ -263,7 +280,7 @@ func TestAppPodFacadeNeverReturnsPrivateKeys(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if created.Local == nil || !created.Local.AdminConfigured || !created.PlayConfigured {
+	if created.Local == nil || !created.Local.AdminConfigured || created.PlayConfigured {
 		t.Fatalf("created = %+v", created)
 	}
 	bootstrap, err := app.Bootstrap()

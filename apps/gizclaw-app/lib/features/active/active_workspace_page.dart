@@ -53,8 +53,7 @@ class _ActiveWorkspacePageState extends State<ActiveWorkspacePage> {
     return right != null &&
         left.surface == right.surface &&
         left.workspaceName == right.workspaceName &&
-        left.resourceId == right.resourceId &&
-        left.driver == right.driver;
+        left.resourceId == right.resourceId;
   }
 
   Future<void> _resolve(

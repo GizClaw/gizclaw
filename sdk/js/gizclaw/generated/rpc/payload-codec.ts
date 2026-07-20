@@ -1124,7 +1124,6 @@ export type ServerRegisterRequest = {
   "token": string;
 };
 export type ServerRegisterResponse = {
-  "firmware_name": string;
   "runtime_profile_name": string;
 };
 export type ServerReloadRunRequest = Record<string, never>;
@@ -6634,11 +6633,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   },
   "ServerRegisterResponse": {
     "fields": [
-      {
-        "name": "firmware_name",
-        "number": 1,
-        "type": "string"
-      },
       {
         "name": "runtime_profile_name",
         "number": 2,

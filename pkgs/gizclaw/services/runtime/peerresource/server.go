@@ -22,7 +22,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/voice"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
@@ -35,7 +34,6 @@ import (
 
 type Server struct {
 	Caller         giznet.PublicKey
-	Firmwares      *firmware.Server
 	Workspaces     workspace.WorkspaceAdminService
 	Workflows      workflow.WorkflowAdminService
 	Models         model.ModelAdminService
@@ -47,7 +45,6 @@ type Server struct {
 	Gameplay       *gameplay.Runtime
 	Tools          *toolkit.Server
 	RuntimeProfile func() *apitypes.RuntimeProfile
-	FirmwareName   func() string
 }
 
 type WorkspaceHistoryService interface {

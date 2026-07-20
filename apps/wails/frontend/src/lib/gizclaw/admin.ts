@@ -244,7 +244,7 @@ const sectionSpecs: SectionSpec[] = [
   { description: "Friend pair resources.", key: "friends", list: listFriends as ListFn, title: "Friends" },
   { description: "Friend group resources.", key: "friend-groups", list: listFriendGroups as ListFn, title: "Friend Groups" },
   { description: "Device product resource and gameplay qualification.", key: "runtime-profiles", list: listRuntimeProfiles as ListFn, title: "Runtime Profiles" },
-  { description: "Firmware and RuntimeProfile registration credentials.", key: "registration-tokens", list: listRegistrationTokens as ListFn, title: "Registration Tokens" },
+  { description: "RuntimeProfile registration credentials.", key: "registration-tokens", list: listRegistrationTokens as ListFn, title: "Registration Tokens" },
   { description: "Gemini provider tenants.", key: "gemini-tenants", list: listGeminiTenants as ListFn, title: "Gemini Tenants" },
   { description: "DashScope provider tenants.", key: "dashscope-tenants", list: listDashScopeTenants as ListFn, title: "DashScope Tenants" },
   { description: "OpenAI provider tenants.", key: "openai-tenants", list: listOpenAiTenants as ListFn, title: "OpenAI Tenants" },

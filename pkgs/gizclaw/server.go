@@ -422,16 +422,7 @@ func (s *Server) init() error {
 	}
 	credentialServer := &credential.Server{Store: credentialStore}
 	firmwareServer := &firmware.Server{Store: firmwareStore, Assets: s.FirmwareAssets}
-	runtimeProfileServer := &runtimeprofile.Server{
-		Store: runtimeProfileStore,
-		FirmwareExists: func(ctx context.Context, name string) (bool, error) {
-			_, err := firmware.Get(ctx, firmwareStore, name)
-			if errors.Is(err, kv.ErrNotFound) {
-				return false, nil
-			}
-			return err == nil, err
-		},
-	}
+	runtimeProfileServer := &runtimeprofile.Server{Store: runtimeProfileStore}
 	publicLoginServer.RegistrationResolver = runtimeProfileServer.ResolveRegistration
 	voiceServer := &voice.Server{Store: voiceStore}
 	toolServer := &toolkit.Server{Store: toolStore}

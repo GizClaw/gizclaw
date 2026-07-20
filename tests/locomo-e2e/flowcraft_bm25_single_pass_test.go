@@ -11,10 +11,10 @@ import (
 )
 
 func TestLoCoMoFlowcraftBM25SinglePass(t *testing.T) {
-	settings := requireLiveSettings(t, liveNeeds{extraction: true})
+	settings := requireLiveSettings(t, liveNeeds{})
 	resources := newFlowcraftResources(t, "flowcraft-bm25-single-pass")
 	store, err := memoryflowcraft.New(context.Background(), memoryflowcraft.Config{
-		Loader: openAIModelLoader{apiKey: settings.apiKey, baseURL: settings.baseURL},
+		Loader: settings.loader(),
 		Extraction: memoryflowcraft.ExtractionConfig{
 			Model: settings.extractionModel, Mode: recall.LLMExtractionSinglePass,
 		},
@@ -31,5 +31,7 @@ func TestLoCoMoFlowcraftBM25SinglePass(t *testing.T) {
 	}
 	profile := "flowcraft_bm25_single_pass"
 	fingerprint := configFingerprint(profile, settings.extractionModel, settings.rerankModel)
-	runLiveProfile(t, settings, profile, fingerprint, store, resources.closer(store))
+	runLiveProfile(t, settings, profile, fingerprint, reportModels{
+		Extraction: settings.extractionModel, Rerank: settings.rerankModel,
+	}, store, resources.closer(store))
 }

@@ -144,7 +144,7 @@ test("admin view covers provider, AI, social, and settings sections", async ({ p
   await page.getByRole("combobox").click();
   await page.getByRole("option", { name: "RegistrationToken" }).click();
   await expect(resourceJSON).toHaveValue(/"kind": "RegistrationToken"/);
-  await expect(resourceJSON).toHaveValue(/"firmware_name": "firmware-default"/);
+  await expect(resourceJSON).not.toHaveValue(/"firmware_name"/);
   await expect(resourceJSON).toHaveValue(/"runtime_profile_name": "runtime-profile-default"/);
   await page.getByRole("combobox").click();
   await page.getByRole("option", { name: "PetDef" }).click();
