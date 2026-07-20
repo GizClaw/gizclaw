@@ -3026,7 +3026,6 @@ type Registration struct {
 // RegistrationToken defines model for RegistrationToken.
 type RegistrationToken struct {
 	CreatedAt          time.Time `json:"created_at"`
-	FirmwareName       string    `json:"firmware_name"`
 	Name               string    `json:"name"`
 	RuntimeProfileName string    `json:"runtime_profile_name"`
 }
@@ -3034,7 +3033,6 @@ type RegistrationToken struct {
 // RegistrationTokenCreateResult defines model for RegistrationTokenCreateResult.
 type RegistrationTokenCreateResult struct {
 	CreatedAt          time.Time `json:"created_at"`
-	FirmwareName       string    `json:"firmware_name"`
 	Name               string    `json:"name"`
 	RuntimeProfileName string    `json:"runtime_profile_name"`
 
@@ -3049,7 +3047,6 @@ type RegistrationTokenResource struct {
 	Kind       RegistrationTokenResourceKind `json:"kind"`
 	Metadata   ResourceMetadata              `json:"metadata"`
 	Spec       struct {
-		FirmwareName       string `json:"firmware_name"`
 		RuntimeProfileName string `json:"runtime_profile_name"`
 	} `json:"spec"`
 

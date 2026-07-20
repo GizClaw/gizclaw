@@ -13,10 +13,10 @@ Pods live under `os.UserConfigDir()/GizClaw/pods/<id>/` by default:
 ├── pod.json
 ├── workspace/                 # local Pods only
 │   ├── config.yaml
-│   └── registration-token     # private desktop-local RegistrationToken
+│   └── registration-token     # raw app:com.gizclaw.opensource credential
 ├── admin_context/<context-id>/ # projected Admin contexts
 │   └── config.yaml
-└── client_context/            # generated desktop-local Play identity
+└── client_context/            # generated local Play identity
     └── config.yaml
 ```
 
@@ -35,14 +35,17 @@ A local Pod has one `local_server` with a stable port. The Server listens on
 `127.0.0.1:<port>`. The generated Server workspace publishes a current LAN
 candidate when one is available; that address is not persisted in `pod.json`.
 A local Pod automatically generates its Server identity, Admin identity, and
-desktop-local Play identity. Existing Pods missing these identities are filled
-on desktop bootstrap. The share QR contains only the display name, selected LAN
-endpoint, and Server public key; a scanning client generates its own identity.
+local Play identity. Existing Pods missing these identities are filled on
+desktop bootstrap. The share QR contains the display name, selected LAN
+endpoint, Server public key, and raw local App registration credential; a
+scanning client generates its own identity and stores the credential securely.
 A new local Pod is returned as soon as its manifest and projections are
 persisted. The response carries an `initializing` state while a cancellable
 background task starts the Server, applies the embedded deploy-derived catalog,
 syncs Volc voices, uploads all Workflow and PetDef assets, and creates the
-RegistrationToken that selects the bundled Firmware and RuntimeProfile. A successful task
+fixed `RegistrationToken/app:com.gizclaw.opensource`, which selects only
+`RuntimeProfile/default`. The embedded declarative catalog contains 43 resources
+and no Firmware or Workspace. A successful task
 clears the state; a failed task stops the process and persists its redacted
 error so the Pod remains visible and deletable. Desktop startup removes a Pod
 left actively initializing after an interrupted creation, while failed Pods
@@ -85,6 +88,9 @@ for local Server support.
 - Local Play receives its raw RegistrationToken only through the protected runtime
   handoff and calls `server.register` before loading RuntimeProfile resources. The
   RegistrationToken is not placed in the URL, `pod.json`, browser storage, or logs.
+- A local Pod share QR deliberately carries that same raw credential in its
+  `registration_token` field for GizClaw App enrollment. The stable resource
+  name is `app:com.gizclaw.opensource`; the raw credential is not that name.
 - The frameless shell provides native-runtime hide, minimise, and maximise
   controls. Closing the window hides it while Server and browser listeners keep
   running.

@@ -94,10 +94,10 @@ func TestBootstrapperAppliesResourcesSyncsVoicesUploadsPetAssetsAndCreatesRegist
 			if err != nil {
 				t.Fatal(err)
 			}
-			if got := string(request); !strings.Contains(got, `"name":"desktop-local"`) || !strings.Contains(got, `"firmware_name":"desktop-local"`) || !strings.Contains(got, `"runtime_profile_name":"desktop-local"`) {
+			if got := string(request); !strings.Contains(got, `"name":"app:com.gizclaw.opensource"`) || strings.Contains(got, `"firmware_name"`) || !strings.Contains(got, `"runtime_profile_name":"default"`) {
 				t.Fatalf("RegistrationToken request = %s", got)
 			}
-			return []byte(`{"name":"desktop-local","firmware_name":"desktop-local","runtime_profile_name":"desktop-local","token":"registration-secret"}`), nil
+			return []byte(`{"name":"app:com.gizclaw.opensource","runtime_profile_name":"default","token":"registration-secret"}`), nil
 		},
 	}
 	if err := bootstrapper.Apply(context.Background(), podDir, map[string]string{"BOOTSTRAP_SAVED": "desktop"}); err != nil {
@@ -157,7 +157,7 @@ func TestBootstrapperRecoversRegistrationTokenWithoutReapplyingCatalog(t *testin
 	if err := bootstrapper.RecoverRegistrationToken(context.Background(), podDir, nil); err != nil {
 		t.Fatal(err)
 	}
-	if len(commands) != 2 || !strings.Contains(commands[0], "registration-tokens delete desktop-local") || !strings.Contains(commands[1], "registration-tokens create") {
+	if len(commands) != 2 || !strings.Contains(commands[0], "registration-tokens delete app:com.gizclaw.opensource") || !strings.Contains(commands[1], "registration-tokens create") {
 		t.Fatalf("recovery commands = %v", commands)
 	}
 	token, err := os.ReadFile(filepath.Join(podDir, "workspace", RegistrationTokenFile))

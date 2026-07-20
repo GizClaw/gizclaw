@@ -2,12 +2,14 @@ package localserver_test
 
 import (
 	"io/fs"
+	"maps"
 	"strings"
 	"testing"
 	"testing/fstest"
 
 	"github.com/GizClaw/gizclaw-go/apps/wails/internal/localserver"
 	desktopresources "github.com/GizClaw/gizclaw-go/apps/wails/resources"
+	"github.com/goccy/go-yaml"
 )
 
 func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
@@ -19,8 +21,8 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(catalog.Resources) != 44 {
-		t.Fatalf("resources = %d, want 44", len(catalog.Resources))
+	if len(catalog.Resources) != 43 {
+		t.Fatalf("resources = %d, want 43", len(catalog.Resources))
 	}
 	if len(catalog.PetDefPIXAs) != 9 || len(catalog.VoiceSyncs) != 1 {
 		t.Fatalf("assets = pets:%d voice-sync:%d", len(catalog.PetDefPIXAs), len(catalog.VoiceSyncs))
@@ -37,10 +39,7 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 			t.Fatalf("bundled client-created resource: %+v", resource)
 		}
 	}
-	for _, identity := range []string{
-		"Firmware/desktop-local",
-		"RuntimeProfile/desktop-local",
-	} {
+	for _, identity := range []string{"RuntimeProfile/default"} {
 		if !identities[identity] {
 			t.Fatalf("missing local Play registration dependency %s", identity)
 		}
@@ -48,23 +47,47 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 	for kind, want := range map[string]int{
 		"Credential": 7, "VolcTenant": 2, "MiniMaxTenant": 1,
 		"OpenAITenant": 2, "DashScopeTenant": 1, "Model": 10,
-		"Workflow": 10, "PetDef": 9, "Firmware": 1, "RuntimeProfile": 1,
+		"Workflow": 10, "PetDef": 9, "RuntimeProfile": 1,
 	} {
 		if kinds[kind] != want {
 			t.Fatalf("%s resources = %d, want %d", kind, kinds[kind], want)
 		}
 	}
-	for _, removed := range []string{"ACLRole", "ACLView", "ACLPolicyBinding", "GameRuleset"} {
+	for _, removed := range []string{"ACLRole", "ACLView", "ACLPolicyBinding", "GameRuleset", "Firmware"} {
 		if kinds[removed] != 0 {
 			t.Fatalf("legacy %s resources = %d, want 0", removed, kinds[removed])
 		}
 	}
-	profile, err := fs.ReadFile(catalog.FS, "resources/07-gameplay/20-default-gameplay.yaml")
+	profile, err := fs.ReadFile(catalog.FS, "resources/07-runtime-profiles/00-default.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if strings.Contains(string(profile), "pet-care") {
 		t.Fatalf("built-in pet-care Workflow must not be exposed by RuntimeProfile:\n%s", profile)
+	}
+	var parsed struct {
+		Spec struct {
+			Resources struct {
+				Workflows map[string]string `yaml:"workflows"`
+			} `yaml:"resources"`
+		} `yaml:"spec"`
+	}
+	if err := yaml.Unmarshal(profile, &parsed); err != nil {
+		t.Fatal(err)
+	}
+	wantWorkflows := map[string]string{
+		"translate-zh-en-auto": "ast-translate-zh-en-auto",
+		"translate-zh-ja":      "ast-translate-zh-ja",
+		"translate-zh-ko":      "ast-translate-zh-ko",
+		"translate-zh-es":      "ast-translate-zh-es",
+		"doubao-realtime":      "doubao-realtime-conversation",
+		"chat":                 "flowcraft-chat-assistant",
+		"journey":              "flowcraft-journey-guide",
+		"murder-mystery":       "flowcraft-murder-mystery",
+		"chatroom":             "chatroom",
+	}
+	if !maps.Equal(parsed.Spec.Resources.Workflows, wantWorkflows) {
+		t.Fatalf("RuntimeProfile/default Workflows = %#v, want %#v", parsed.Spec.Resources.Workflows, wantWorkflows)
 	}
 	for _, requirement := range catalog.Requirements {
 		if requirement.Name == "input" {

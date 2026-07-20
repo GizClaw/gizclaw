@@ -21,8 +21,9 @@ import (
 const (
 	// RegistrationTokenFile is the private workspace file that hands the local
 	// Desktop client's registration credential to the Play surface.
-	RegistrationTokenFile = "registration-token"
-	desktopResourceName   = "desktop-local"
+	RegistrationTokenFile     = "registration-token"
+	appRegistrationTokenName  = "app:com.gizclaw.opensource"
+	defaultRuntimeProfileName = "default"
 )
 
 // Bootstrapper applies a validated catalog through the packaged companion CLI.
@@ -180,7 +181,7 @@ func (b *Bootstrapper) RecoverRegistrationToken(ctx context.Context, podDir stri
 	// A missing token resource is the expected legacy case. Ignore deletion
 	// errors here; creation below still reports connection, authorization, or
 	// conflict failures without pretending recovery succeeded.
-	_ = runBootstrapOperation(ctx, run, executable, []string{"admin", "registration-tokens", "delete", desktopResourceName, "--context", "local"}, environment)
+	_ = runBootstrapOperation(ctx, run, executable, []string{"admin", "registration-tokens", "delete", appRegistrationTokenName, "--context", "local"}, environment)
 	if err := b.createRegistrationToken(ctx, tempDir, podDir, executable, environment); err != nil {
 		return fmt.Errorf("local server bootstrap: recover Play registration token: %w", err)
 	}
@@ -190,12 +191,10 @@ func (b *Bootstrapper) RecoverRegistrationToken(ctx context.Context, podDir stri
 func (b *Bootstrapper) createRegistrationToken(ctx context.Context, tempDir, podDir, executable string, environment []string) error {
 	request := struct {
 		Name               string `json:"name"`
-		FirmwareName       string `json:"firmware_name"`
 		RuntimeProfileName string `json:"runtime_profile_name"`
 	}{
-		Name:               desktopResourceName,
-		FirmwareName:       desktopResourceName,
-		RuntimeProfileName: desktopResourceName,
+		Name:               appRegistrationTokenName,
+		RuntimeProfileName: defaultRuntimeProfileName,
 	}
 	data, err := json.Marshal(request)
 	if err != nil {
@@ -211,7 +210,7 @@ func (b *Bootstrapper) createRegistrationToken(ctx context.Context, tempDir, pod
 	}
 	output, err := runOutput(ctx, executable, []string{"admin", "registration-tokens", "create", "--context", "local", "-f", requestFile}, environment)
 	if err != nil {
-		return fmt.Errorf("local server bootstrap: create RegistrationToken/%s: %w", desktopResourceName, err)
+		return fmt.Errorf("local server bootstrap: create RegistrationToken/%s: %w", appRegistrationTokenName, err)
 	}
 	var result struct {
 		Token *string `json:"token"`

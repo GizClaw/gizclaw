@@ -10,8 +10,10 @@ import 'package:gizclaw_app/data/mobile_data_controller.dart';
 import 'package:gizclaw_app/data/repositories/mobile_data_repository.dart';
 import 'package:gizclaw_app/data/repositories/workspace_chat_repository.dart';
 import 'package:gizclaw_app/data/workspace_chat_controller.dart';
+import 'package:gizclaw_app/identity/app_identity_store.dart';
 import 'package:gizclaw_app/l10n/locale_resolution.dart';
 import 'package:gizclaw_app/prototype/prototype_models.dart';
+import 'package:gizclaw_app/workflows/app_workflow_catalog.dart';
 
 void main() {
   test('classifies only iOS LAN failures as local-network recovery', () {
@@ -87,6 +89,76 @@ void main() {
     expect(controller.serverEndpoint, isEmpty);
     expect(controller.hasActiveServer, isFalse);
     expect(controller.servers, isEmpty);
+  });
+
+  test(
+    'rescanning the same server rotates its raw registration token',
+    () async {
+      final connection = _RefreshTestConnection(
+        profile: const GizClawConnectionProfile(
+          endpoint: 'office.local:9820',
+          clientPrivateKey: 'test-key',
+          registrationToken: 'expired-secret',
+        ),
+        client: _RunWorkspaceClient(),
+        serverId: 'server-a',
+      );
+      final controller = MobileDataController(
+        database: AppDatabase.forTesting(NativeDatabase.memory()),
+        connectionController: connection,
+        servers: const [
+          GizClawServer(
+            name: 'Office',
+            accessPoint: 'office.local:9820',
+            registrationToken: 'expired-secret',
+          ),
+        ],
+      );
+      addTearDown(controller.close);
+
+      await controller.addOrSelectServer(
+        name: 'Ignored duplicate name',
+        accessPoint: 'office.local:9820',
+        registrationToken: 'replacement-secret',
+      );
+
+      expect(controller.servers, hasLength(1));
+      expect(controller.servers.single.registrationToken, 'replacement-secret');
+      expect(connection.profile.registrationToken, 'replacement-secret');
+    },
+  );
+
+  test('creates every selectable fixed alias as a runtime workspace', () async {
+    final client = _WorkspaceCreateClient();
+    final controller = _WorkspaceCreateTestController(client)
+      ..connectionState = MobileConnectionState.connected;
+    addTearDown(controller.close);
+
+    for (final definition in appWorkflowDefinitions.where(
+      (definition) => definition.selectable,
+    )) {
+      await controller.createWorkspace(
+        workflowName: definition.alias,
+        name: definition.alias,
+        generateModel: 'generate-model',
+        extractModel: 'extract-model',
+        embeddingModel: 'embedding-model',
+      );
+    }
+
+    expect(
+      client.requests.map((request) => request.workflowName),
+      appWorkflowDefinitions
+          .where((definition) => definition.selectable)
+          .map((definition) => definition.alias),
+    );
+    expect(
+      client.requests.every(
+        (request) =>
+            request.workflowSource == ResourceSource.RESOURCE_SOURCE_RUNTIME,
+      ),
+      isTrue,
+    );
   });
 
   test('waits for an in-flight refresh before closing resources', () async {
@@ -521,7 +593,6 @@ void main() {
     expect(controller.activeServerId, 'new-server');
     expect(controller.peerName, isEmpty);
     expect(controller.peerEmoji, isEmpty);
-    expect(repository.workflowWatchServerIds, ['new-server']);
     expect(repository.refreshServerIds, ['new-server']);
   });
 
@@ -691,17 +762,10 @@ void main() {
                 serverId: 'server-a',
               ),
             )
-            ..workflows = [
-              WorkflowCard.fromServer(
-                name: 'flow-a',
-                description: '',
-                driver: 'flowcraft',
-              ),
-            ]
             ..workspaces = const [
               WorkspaceCard(
                 name: 'workspace-a',
-                workflowName: 'flow-a',
+                workflowName: 'chat',
                 lastActive: '',
               ),
             ];
@@ -712,30 +776,21 @@ void main() {
       );
 
       expect(destination.surface, MobileWorkspaceSurface.raid);
-      expect(destination.driver, WorkflowDriverKind.flowcraft);
+      expect(destination.workspaceName, 'workspace-a');
     },
   );
 
   test('repairs the selected workspace before runtime reload', () async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
     final client = _WorkspaceActivationClient();
-    final controller =
-        MobileDataController(
-            database: database,
-            connectionController: _RefreshTestConnection(
-              profile: _profile('gizclaw.local:9820'),
-              client: client,
-              serverId: 'server-a',
-            ),
-          )
-          ..connectionState = MobileConnectionState.connected
-          ..workflows = [
-            WorkflowCard.fromServer(
-              name: 'flow-a',
-              description: '',
-              driver: 'flowcraft',
-            ),
-          ];
+    final controller = MobileDataController(
+      database: database,
+      connectionController: _RefreshTestConnection(
+        profile: _profile('gizclaw.local:9820'),
+        client: client,
+        serverId: 'server-a',
+      ),
+    )..connectionState = MobileConnectionState.connected;
     addTearDown(controller.close);
 
     await controller.activateWorkspaceChat('workspace-new');
@@ -1001,7 +1056,6 @@ class _QueuedRefreshRepository extends MobileDataRepository {
     required GizClawClient client,
     required String endpoint,
     required bool Function() isCurrent,
-    required String locale,
     required String serverId,
   }) {
     endpoints.add(endpoint);
@@ -1013,24 +1067,13 @@ class _QueuedRefreshRepository extends MobileDataRepository {
 class _ReconnectRepository extends MobileDataRepository {
   _ReconnectRepository(super.database);
 
-  final workflowWatchServerIds = <String>[];
   final refreshServerIds = <String>[];
-
-  @override
-  Stream<List<WorkflowCard>> watchWorkflowCatalog(
-    String serverId, {
-    required String locale,
-  }) {
-    workflowWatchServerIds.add(serverId);
-    return const Stream.empty();
-  }
 
   @override
   Future<List<MobileDataRefreshWarning>> refresh({
     required GizClawClient client,
     required String endpoint,
     required bool Function() isCurrent,
-    required String locale,
     required String serverId,
   }) async {
     refreshServerIds.add(serverId);
@@ -1334,6 +1377,40 @@ class _RunWorkspaceClient extends GizClawClient {
   }
 }
 
+class _WorkspaceCreateClient extends _RunWorkspaceClient {
+  final requests = <WorkspaceUpsert>[];
+
+  @override
+  Future<WorkspaceCreateResponse> createWorkspace(
+    WorkspaceUpsert workspace,
+  ) async {
+    requests.add(WorkspaceUpsert.fromBuffer(workspace.writeToBuffer()));
+    return WorkspaceCreateResponse(
+      value: Workspace(
+        name: workspace.name,
+        workflowName: workspace.workflowName,
+        workflowSource: workspace.workflowSource,
+        parameters: workspace.parameters,
+      ),
+    );
+  }
+}
+
+class _WorkspaceCreateTestController extends MobileDataController {
+  _WorkspaceCreateTestController(_WorkspaceCreateClient client)
+    : super(
+        database: AppDatabase.forTesting(NativeDatabase.memory()),
+        connectionController: _RefreshTestConnection(
+          profile: _profile('gizclaw.local:9820'),
+          client: client,
+          serverId: 'server-a',
+        ),
+      );
+
+  @override
+  Future<void> refresh({GizClawClient? client, String? serverId}) async {}
+}
+
 class _FailingPetListClient extends _RunWorkspaceClient {
   @override
   Future<ServerPetListResponse> listPets({String? cursor, int? limit}) async {
@@ -1345,13 +1422,13 @@ class _WorkspaceActivationClient extends _RunWorkspaceClient {
   final workspaces = <String, Workspace>{
     'workspace-old': Workspace(
       name: 'workspace-old',
-      workflowName: 'flow-a',
+      workflowName: 'chat',
       workflowSource: ResourceSource.RESOURCE_SOURCE_RUNTIME,
       parameters: newWorkspaceParametersForDriver(WorkflowDriverKind.flowcraft),
     ),
     'workspace-new': Workspace(
       name: 'workspace-new',
-      workflowName: 'flow-a',
+      workflowName: 'chat',
       workflowSource: ResourceSource.RESOURCE_SOURCE_RUNTIME,
       parameters: WorkspaceParameters(),
     ),

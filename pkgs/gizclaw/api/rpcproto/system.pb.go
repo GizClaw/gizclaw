@@ -794,7 +794,6 @@ func (x *ServerRegisterRequest) GetToken() string {
 
 type ServerRegisterResponse struct {
 	state              protoimpl.MessageState `protogen:"open.v1"`
-	FirmwareName       string                 `protobuf:"bytes,1,opt,name=firmware_name,json=firmwareName,proto3" json:"firmware_name,omitempty"`
 	RuntimeProfileName string                 `protobuf:"bytes,2,opt,name=runtime_profile_name,json=runtimeProfileName,proto3" json:"runtime_profile_name,omitempty"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
@@ -828,13 +827,6 @@ func (x *ServerRegisterResponse) ProtoReflect() protoreflect.Message {
 // Deprecated: Use ServerRegisterResponse.ProtoReflect.Descriptor instead.
 func (*ServerRegisterResponse) Descriptor() ([]byte, []int) {
 	return file_payload_system_proto_rawDescGZIP(), []int{14}
-}
-
-func (x *ServerRegisterResponse) GetFirmwareName() string {
-	if x != nil {
-		return x.FirmwareName
-	}
-	return ""
 }
 
 func (x *ServerRegisterResponse) GetRuntimeProfileName() string {
@@ -1351,10 +1343,9 @@ const file_payload_system_proto_rawDesc = "" +
 	"\vserver_time\x18\x01 \x01(\x03R\n" +
 	"serverTime\"-\n" +
 	"\x15ServerRegisterRequest\x12\x14\n" +
-	"\x05token\x18\x01 \x01(\tR\x05token\"o\n" +
-	"\x16ServerRegisterResponse\x12#\n" +
-	"\rfirmware_name\x18\x01 \x01(\tR\ffirmwareName\x120\n" +
-	"\x14runtime_profile_name\x18\x02 \x01(\tR\x12runtimeProfileName\"\xcd\x01\n" +
+	"\x05token\x18\x01 \x01(\tR\x05token\"_\n" +
+	"\x16ServerRegisterResponse\x120\n" +
+	"\x14runtime_profile_name\x18\x02 \x01(\tR\x12runtimeProfileNameJ\x04\b\x01\x10\x02R\rfirmware_name\"\xcd\x01\n" +
 	"\aRuntime\x12 \n" +
 	"\tlast_addr\x18\x01 \x01(\tH\x00R\blastAddr\x88\x01\x01\x12 \n" +
 	"\flast_seen_at\x18\x02 \x01(\tR\n" +

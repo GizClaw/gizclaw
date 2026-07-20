@@ -178,7 +178,7 @@ func registerRuntimeProfile(t *testing.T, h *clitest.Harness, peer *gizcli.Clien
 	tokenName := "e2e-token-" + contextName
 	_, _ = api.DeleteRegistrationTokenWithResponse(ctx, tokenName)
 	tokenResp, err := api.CreateRegistrationTokenWithResponse(ctx, adminhttp.RegistrationTokenUpsert{
-		Name: tokenName, FirmwareName: sharedFirmware, RuntimeProfileName: profileName,
+		Name: tokenName, RuntimeProfileName: profileName,
 	})
 	if err != nil {
 		t.Fatalf("create RegistrationToken for %s: %v", contextName, err)
@@ -190,7 +190,7 @@ func registerRuntimeProfile(t *testing.T, h *clitest.Harness, peer *gizcli.Clien
 	if err != nil {
 		t.Fatalf("server.register for %s: %v", contextName, err)
 	}
-	if registered.RuntimeProfileName != profileName || registered.FirmwareName != sharedFirmware {
+	if registered.RuntimeProfileName != profileName {
 		t.Fatalf("server.register for %s = %#v", contextName, registered)
 	}
 }

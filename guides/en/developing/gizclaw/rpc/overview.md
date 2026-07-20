@@ -9,7 +9,7 @@ The RPC module is responsible for client/server, dispatch, stream framing and do
 | [Common](./all) | Ping common to all RPC connections. | `rpc_all.go` |
 | [Client](./client) | Client-side RPC receiver, Client info and identifiers query. | `rpc_client.go` |
 | [Server](./server) | RPC Server composition, dispatch, Server methods, and handling for unimplemented methods. | `rpc_server.go` |
-| [Firmware Download](./firmware) | Firmware binary streaming. | `rpc_firmware.go` |
+| [Firmware Download](./firmware) | Retains Firmware streaming RPC framing for compatibility; the current peer projection returns not found. | `rpc_firmware.go` |
 | [Gameplay Assets](./gameplay-pixa) | Gameplay pixa asset streaming. | `rpc_gameplay_pixa.go` |
 | [Workspace History](./workspace-history) | History audio streaming. | `rpc_workspace_history.go` |
 | [Speed Test](./speed) | Bidirectional RPC/DataChannel throughput test. | `rpc_speed.go` |
@@ -40,7 +40,7 @@ flowchart TB
     Utilities --> Stream
 
     Runtime --> RuntimeServices["Runtime services"]
-    Firmware --> Device["Device / Firmware service"]
+    Firmware --> Compat["Compatibility response<br/>not found"]
     Gameplay --> GameplaySvc["Gameplay services"]
     Edge --> Routes["Peer Route service"]
 ```
