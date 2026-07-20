@@ -58,8 +58,6 @@ github.com/GizClaw/dashscope-realtime-go v0.0.0-20260512045013-1d5b538966ad h1:e
 github.com/GizClaw/dashscope-realtime-go v0.0.0-20260512045013-1d5b538966ad/go.mod h1:9J5t3V2iMH+OZD1kSoJxRQHEaNTU1L2T7KQwCxKjhfE=
 github.com/GizClaw/doubao-speech-go v0.0.0-20260627203027-6f08ce8eb502 h1:QulUP2Ld22hJCH065bezQq3z9g/cgU2I6KwghzbHq48=
 github.com/GizClaw/doubao-speech-go v0.0.0-20260627203027-6f08ce8eb502/go.mod h1:4R3wUAZkYk1BSgzv+QVF+2SZPu3VDy8NvaQdNRYGgBs=
-github.com/GizClaw/flowcraft/eval v0.0.0-20260716084055-d6270ff568ec h1:wuNaLF4LVjCxxhkDXvOpZ/gXXbSW5W8gMgmr237hmuk=
-github.com/GizClaw/flowcraft/eval v0.0.0-20260716084055-d6270ff568ec/go.mod h1:1We/0ODYOpdAfgu/DtD3Apw19p9a6DYreH4iSxp2zl0=
 github.com/GizClaw/flowcraft/memory v0.1.7 h1:dGxDjnH4W/DtaQNv9IkkNhP5QyDQ8gTF/h7Oun9KARQ=
 github.com/GizClaw/flowcraft/memory v0.1.7/go.mod h1:0so+oNUTRZqXYU3OZ8gsGEt4LV5Rn46KUVMO9SUkLb4=
 github.com/GizClaw/flowcraft/sdk v0.4.8 h1:fgbgMfZW8U3qAhzIjU+lFFRpoR0GcrF4MB0Oolq8+dI=
@@ -555,8 +553,6 @@ github.com/oasdiff/yaml v0.0.0-20250309154309-f31be36b4037 h1:G7ERwszslrBzRxj//J
 github.com/oasdiff/yaml v0.0.0-20250309154309-f31be36b4037/go.mod h1:2bpvgLBZEtENV5scfDFEtB/5+1M4hkQhDQrccEJ/qGw=
 github.com/oasdiff/yaml3 v0.0.0-20250309153720-d2182401db90 h1:bQx3WeLcUWy+RletIKwUIt4x3t8n2SxavmoclizMb8c=
 github.com/oasdiff/yaml3 v0.0.0-20250309153720-d2182401db90/go.mod h1:y5+oSEHCPT/DGrS++Wc/479ERge0zTFxaF8PbGKcg2o=
-github.com/oklog/ulid/v2 v2.1.1 h1:suPZ4ARWLOJLegGFiZZ1dFAkqzhMjL3J1TzI+5wHz8s=
-github.com/oklog/ulid/v2 v2.1.1/go.mod h1:rcEKHmBBKfef9DhnvX7y1HZBYxjXb0cP5ExxNsTT1QQ=
 github.com/onsi/ginkgo v1.6.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=
 github.com/onsi/ginkgo v1.7.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=
 github.com/onsi/ginkgo v1.10.2/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=
@@ -583,7 +579,6 @@ github.com/pascaldekloe/goe v0.0.0-20180627143212-57f6aae5913c/go.mod h1:lzWF7FI
 github.com/pascaldekloe/goe v0.1.0/go.mod h1:lzWF7FIEvWOWxwDKqyGYQf6ZUaNfKdP144TG7ZOy1lc=
 github.com/paulmach/orb v0.13.0 h1:r7n7mQGGF+cj/CbcivEj9J3HGK+XR+yXnvzRdq9saIw=
 github.com/paulmach/orb v0.13.0/go.mod h1:6scRWINywA2Jf05dcjOfLfxrUIMECvTSG2MVbRLxu/k=
-github.com/pborman/getopt v0.0.0-20170112200414-7148bc3a4c30/go.mod h1:85jBQOZwpVEaDAr341tbn15RS4fCAsIst0qp7i8ex1o=
 github.com/performancecopilot/speed/v4 v4.0.0/go.mod h1:qxrSyuDGrTOWfV+uKRFhfxw6h/4HXRGUiZiufxo49BM=
 github.com/perimeterx/marshmallow v1.1.5 h1:a2LALqQ1BlHM8PZblsDdidgv1mWi1DgC2UmX50IvK2s=
 github.com/perimeterx/marshmallow v1.1.5/go.mod h1:dsXbUu8CRzfYP5a87xpp0xq9S3u0Vchtcl8we9tYaXw=

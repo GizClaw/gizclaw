@@ -6,7 +6,6 @@ require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.47.0
 	github.com/GizClaw/dashscope-realtime-go v0.0.0-20260512045013-1d5b538966ad
 	github.com/GizClaw/doubao-speech-go v0.0.0-20260627203027-6f08ce8eb502
-	github.com/GizClaw/flowcraft/eval v0.0.0-20260716084055-d6270ff568ec
 	github.com/GizClaw/flowcraft/memory v0.1.7
 	github.com/GizClaw/flowcraft/sdk v0.4.8
 	github.com/GizClaw/flowcraft/sdkx v0.4.10
@@ -130,7 +129,6 @@ require (
 	github.com/oapi-codegen/oapi-codegen/v2 v2.6.0 // indirect
 	github.com/oasdiff/yaml v0.0.0-20250309154309-f31be36b4037 // indirect
 	github.com/oasdiff/yaml3 v0.0.0-20250309153720-d2182401db90 // indirect
-	github.com/oklog/ulid/v2 v2.1.1 // indirect
 	github.com/paulmach/orb v0.13.0 // indirect
 	github.com/perimeterx/marshmallow v1.1.5 // indirect
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
