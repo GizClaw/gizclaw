@@ -509,10 +509,11 @@ async function rpcUploadCall<TResult>(
   let uploadComplete = false;
   try {
     await waitForDataChannelOpen(channel, options.signal, options.timeoutMs);
-    await sendInboundRPCFrames(
-      channel,
-      encodeRPCEnvelopeFrames(encodeRPCRequestEnvelope(request)),
-    );
+    const requestEnvelope = encodeRPCRequestEnvelope(request);
+    await sendInboundRPCFrames(channel, encodeRPCEnvelopeFrames(requestEnvelope));
+    if (requestEnvelope.length > RPC_MAX_FRAME_PAYLOAD_SIZE) {
+      await sendInboundRPCFrames(channel, [encodeFrame(RPC_FRAME_TYPE_EOS)]);
+    }
     for (;;) {
       const outcome = await Promise.race([
         Promise.resolve(iterator.next()).then((result) => ({ kind: "chunk" as const, result })),

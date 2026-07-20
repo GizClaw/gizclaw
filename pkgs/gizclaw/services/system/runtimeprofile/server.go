@@ -711,6 +711,9 @@ func validateWorkflowRuntimeAliases(path string, workflow apitypes.WorkflowSpec,
 		if workflow.AstTranslate == nil {
 			return fmt.Errorf("%s has no ast_translate spec", path)
 		}
+		if workflow.AstTranslate.LangPair == nil || strings.TrimSpace(*workflow.AstTranslate.LangPair) == "" {
+			return fmt.Errorf("%s.lang_pair is required for Peer Workspace initialization", path)
+		}
 		if err := requireModel("translation_model", workflow.AstTranslate.TranslationModel, apitypes.ModelKindTranslation); err != nil {
 			return err
 		}

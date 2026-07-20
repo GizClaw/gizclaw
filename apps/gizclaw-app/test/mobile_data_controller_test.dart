@@ -189,11 +189,7 @@ void main() {
       'extract-model',
     );
     expect(
-      client
-          .requests
-          .single
-          .parameters
-          .flowcraftWorkspaceParameters
+      client.requests.single.parameters.flowcraftWorkspaceParameters
           .hasEmbeddingModel(),
       isFalse,
     );
@@ -205,7 +201,7 @@ void main() {
       final client = _WorkspaceCreateClient();
       final aliases = <String, String>{
         'translate-zh-en-auto': 'auto',
-        'translate-zh-ja': 'zh/ja',
+        'japanese': 'zh/ja',
         'translate-zh-ko': 'zh/ko',
         'translate-zh-es': 'zh/es',
       };
@@ -222,6 +218,7 @@ void main() {
                 bannerColor: const Color(0xff000000),
                 icon: const IconData(0),
                 driver: WorkflowDriverKind.astTranslate,
+                workspaceLangPair: aliases[alias],
               ),
             )
             .toList(growable: false);
@@ -817,7 +814,7 @@ void main() {
     );
   });
 
-  test('repairs translation parameters using the selected workflow alias', () {
+  test('repairs missing translation parameters with the safe auto default', () {
     final workspace = Workspace(
       name: 'japanese-translator',
       workflowAlias: 'translate-zh-ja',
@@ -831,8 +828,8 @@ void main() {
 
     expect(repaired, isNotNull);
     final parameters = repaired!.parameters.asttranslateWorkspaceParameters;
-    expect(parameters.enableSourceLanguageDetect, isFalse);
-    expect(parameters.langPair, 'zh/ja');
+    expect(parameters.enableSourceLanguageDetect, isTrue);
+    expect(parameters.langPair, 'auto');
     expect(parameters.mode, ASTTranslateMode.ASTTRANSLATE_MODE_S2S);
   });
 

@@ -650,6 +650,7 @@ class ASTTranslateWorkflowSpec extends $pb.GeneratedMessage {
     $core.String? translationModel,
     $core.String? ttsResourceId,
     ASTTranslateVoiceParameters? voice,
+    $core.String? langPair,
   }) {
     final result = create();
     if (denoise != null) result.denoise = denoise;
@@ -663,6 +664,7 @@ class ASTTranslateWorkflowSpec extends $pb.GeneratedMessage {
     if (translationModel != null) result.translationModel = translationModel;
     if (ttsResourceId != null) result.ttsResourceId = ttsResourceId;
     if (voice != null) result.voice = voice;
+    if (langPair != null) result.langPair = langPair;
     return result;
   }
 
@@ -691,6 +693,7 @@ class ASTTranslateWorkflowSpec extends $pb.GeneratedMessage {
     ..aOS(9, _omitFieldNames ? '' : 'ttsResourceId')
     ..aOM<ASTTranslateVoiceParameters>(10, _omitFieldNames ? '' : 'voice',
         subBuilder: ASTTranslateVoiceParameters.create)
+    ..aOS(11, _omitFieldNames ? '' : 'langPair')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -804,6 +807,15 @@ class ASTTranslateWorkflowSpec extends $pb.GeneratedMessage {
   void clearVoice() => $_clearField(10);
   @$pb.TagNumber(10)
   ASTTranslateVoiceParameters ensureVoice() => $_ensure(9);
+
+  @$pb.TagNumber(11)
+  $core.String get langPair => $_getSZ(10);
+  @$pb.TagNumber(11)
+  set langPair($core.String value) => $_setString(10, value);
+  @$pb.TagNumber(11)
+  $core.bool hasLangPair() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearLangPair() => $_clearField(11);
 }
 
 class ASTTranslateWorkspaceParameters extends $pb.GeneratedMessage {
@@ -3829,17 +3841,17 @@ class Model extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'Model',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'alias')
-    ..m<$core.String, AliasI18nText>(2, _omitFieldNames ? '' : 'i18n',
+    ..aOS(13, _omitFieldNames ? '' : 'alias')
+    ..m<$core.String, AliasI18nText>(14, _omitFieldNames ? '' : 'i18n',
         entryClassName: 'Model.I18nEntry',
         keyFieldType: $pb.PbFieldType.OS,
         valueFieldType: $pb.PbFieldType.OM,
         valueCreator: AliasI18nText.create,
         valueDefaultOrMaker: AliasI18nText.getDefault,
         packageName: const $pb.PackageName('gizclaw.rpc.v1'))
-    ..aE<$1.ModelKind>(3, _omitFieldNames ? '' : 'kind',
+    ..aE<$1.ModelKind>(15, _omitFieldNames ? '' : 'kind',
         enumValues: $1.ModelKind.values)
-    ..aOM<ModelCapabilities>(4, _omitFieldNames ? '' : 'capabilities',
+    ..aOM<ModelCapabilities>(16, _omitFieldNames ? '' : 'capabilities',
         subBuilder: ModelCapabilities.create)
     ..hasRequiredFields = false;
 
@@ -3861,36 +3873,36 @@ class Model extends $pb.GeneratedMessage {
       _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Model>(create);
   static Model? _defaultInstance;
 
-  @$pb.TagNumber(1)
+  @$pb.TagNumber(13)
   $core.String get alias => $_getSZ(0);
-  @$pb.TagNumber(1)
+  @$pb.TagNumber(13)
   set alias($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
+  @$pb.TagNumber(13)
   $core.bool hasAlias() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearAlias() => $_clearField(1);
+  @$pb.TagNumber(13)
+  void clearAlias() => $_clearField(13);
 
-  @$pb.TagNumber(2)
+  @$pb.TagNumber(14)
   $pb.PbMap<$core.String, AliasI18nText> get i18n => $_getMap(1);
 
-  @$pb.TagNumber(3)
+  @$pb.TagNumber(15)
   $1.ModelKind get kind => $_getN(2);
-  @$pb.TagNumber(3)
-  set kind($1.ModelKind value) => $_setField(3, value);
-  @$pb.TagNumber(3)
+  @$pb.TagNumber(15)
+  set kind($1.ModelKind value) => $_setField(15, value);
+  @$pb.TagNumber(15)
   $core.bool hasKind() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearKind() => $_clearField(3);
+  @$pb.TagNumber(15)
+  void clearKind() => $_clearField(15);
 
-  @$pb.TagNumber(4)
+  @$pb.TagNumber(16)
   ModelCapabilities get capabilities => $_getN(3);
-  @$pb.TagNumber(4)
-  set capabilities(ModelCapabilities value) => $_setField(4, value);
-  @$pb.TagNumber(4)
+  @$pb.TagNumber(16)
+  set capabilities(ModelCapabilities value) => $_setField(16, value);
+  @$pb.TagNumber(16)
   $core.bool hasCapabilities() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearCapabilities() => $_clearField(4);
-  @$pb.TagNumber(4)
+  @$pb.TagNumber(16)
+  void clearCapabilities() => $_clearField(16);
+  @$pb.TagNumber(16)
   ModelCapabilities ensureCapabilities() => $_ensure(3);
 }
 
@@ -4432,8 +4444,8 @@ class Voice extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'Voice',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'alias')
-    ..m<$core.String, AliasI18nText>(2, _omitFieldNames ? '' : 'i18n',
+    ..aOS(10, _omitFieldNames ? '' : 'alias')
+    ..m<$core.String, AliasI18nText>(11, _omitFieldNames ? '' : 'i18n',
         entryClassName: 'Voice.I18nEntry',
         keyFieldType: $pb.PbFieldType.OS,
         valueFieldType: $pb.PbFieldType.OM,
@@ -4460,16 +4472,16 @@ class Voice extends $pb.GeneratedMessage {
       _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Voice>(create);
   static Voice? _defaultInstance;
 
-  @$pb.TagNumber(1)
+  @$pb.TagNumber(10)
   $core.String get alias => $_getSZ(0);
-  @$pb.TagNumber(1)
+  @$pb.TagNumber(10)
   set alias($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
+  @$pb.TagNumber(10)
   $core.bool hasAlias() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearAlias() => $_clearField(1);
+  @$pb.TagNumber(10)
+  void clearAlias() => $_clearField(10);
 
-  @$pb.TagNumber(2)
+  @$pb.TagNumber(11)
   $pb.PbMap<$core.String, AliasI18nText> get i18n => $_getMap(1);
 }
 
@@ -4779,12 +4791,14 @@ class Workflow extends $pb.GeneratedMessage {
     $core.Iterable<$core.MapEntry<$core.String, AliasI18nText>>? i18n,
     $core.String? collection,
     $1.WorkflowDriver? driver,
+    $core.String? workspaceLangPair,
   }) {
     final result = create();
     if (alias != null) result.alias = alias;
     if (i18n != null) result.i18n.addEntries(i18n);
     if (collection != null) result.collection = collection;
     if (driver != null) result.driver = driver;
+    if (workspaceLangPair != null) result.workspaceLangPair = workspaceLangPair;
     return result;
   }
 
@@ -4801,17 +4815,18 @@ class Workflow extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'Workflow',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'alias')
-    ..m<$core.String, AliasI18nText>(2, _omitFieldNames ? '' : 'i18n',
+    ..aOS(6, _omitFieldNames ? '' : 'alias')
+    ..m<$core.String, AliasI18nText>(7, _omitFieldNames ? '' : 'i18n',
         entryClassName: 'Workflow.I18nEntry',
         keyFieldType: $pb.PbFieldType.OS,
         valueFieldType: $pb.PbFieldType.OM,
         valueCreator: AliasI18nText.create,
         valueDefaultOrMaker: AliasI18nText.getDefault,
         packageName: const $pb.PackageName('gizclaw.rpc.v1'))
-    ..aOS(3, _omitFieldNames ? '' : 'collection')
-    ..aE<$1.WorkflowDriver>(4, _omitFieldNames ? '' : 'driver',
+    ..aOS(8, _omitFieldNames ? '' : 'collection')
+    ..aE<$1.WorkflowDriver>(9, _omitFieldNames ? '' : 'driver',
         enumValues: $1.WorkflowDriver.values)
+    ..aOS(10, _omitFieldNames ? '' : 'workspaceLangPair')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -4832,35 +4847,44 @@ class Workflow extends $pb.GeneratedMessage {
       _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Workflow>(create);
   static Workflow? _defaultInstance;
 
-  @$pb.TagNumber(1)
+  @$pb.TagNumber(6)
   $core.String get alias => $_getSZ(0);
-  @$pb.TagNumber(1)
+  @$pb.TagNumber(6)
   set alias($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
+  @$pb.TagNumber(6)
   $core.bool hasAlias() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearAlias() => $_clearField(1);
+  @$pb.TagNumber(6)
+  void clearAlias() => $_clearField(6);
 
-  @$pb.TagNumber(2)
+  @$pb.TagNumber(7)
   $pb.PbMap<$core.String, AliasI18nText> get i18n => $_getMap(1);
 
-  @$pb.TagNumber(3)
+  @$pb.TagNumber(8)
   $core.String get collection => $_getSZ(2);
-  @$pb.TagNumber(3)
+  @$pb.TagNumber(8)
   set collection($core.String value) => $_setString(2, value);
-  @$pb.TagNumber(3)
+  @$pb.TagNumber(8)
   $core.bool hasCollection() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearCollection() => $_clearField(3);
+  @$pb.TagNumber(8)
+  void clearCollection() => $_clearField(8);
 
-  @$pb.TagNumber(4)
+  @$pb.TagNumber(9)
   $1.WorkflowDriver get driver => $_getN(3);
-  @$pb.TagNumber(4)
-  set driver($1.WorkflowDriver value) => $_setField(4, value);
-  @$pb.TagNumber(4)
+  @$pb.TagNumber(9)
+  set driver($1.WorkflowDriver value) => $_setField(9, value);
+  @$pb.TagNumber(9)
   $core.bool hasDriver() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearDriver() => $_clearField(4);
+  @$pb.TagNumber(9)
+  void clearDriver() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $core.String get workspaceLangPair => $_getSZ(4);
+  @$pb.TagNumber(10)
+  set workspaceLangPair($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(10)
+  $core.bool hasWorkspaceLangPair() => $_has(4);
+  @$pb.TagNumber(10)
+  void clearWorkspaceLangPair() => $_clearField(10);
 }
 
 class WorkflowGetRequest extends $pb.GeneratedMessage {

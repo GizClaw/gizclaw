@@ -508,6 +508,7 @@ type ASTTranslateWorkflowSpec struct {
 	TranslationModel           string                       `protobuf:"bytes,8,opt,name=translation_model,json=translationModel,proto3" json:"translation_model,omitempty"`
 	TtsResourceId              *string                      `protobuf:"bytes,9,opt,name=tts_resource_id,json=ttsResourceId,proto3,oneof" json:"tts_resource_id,omitempty"`
 	Voice                      *ASTTranslateVoiceParameters `protobuf:"bytes,10,opt,name=voice,proto3,oneof" json:"voice,omitempty"`
+	LangPair                   *string                      `protobuf:"bytes,11,opt,name=lang_pair,json=langPair,proto3,oneof" json:"lang_pair,omitempty"`
 	unknownFields              protoimpl.UnknownFields
 	sizeCache                  protoimpl.SizeCache
 }
@@ -610,6 +611,13 @@ func (x *ASTTranslateWorkflowSpec) GetVoice() *ASTTranslateVoiceParameters {
 		return x.Voice
 	}
 	return nil
+}
+
+func (x *ASTTranslateWorkflowSpec) GetLangPair() string {
+	if x != nil && x.LangPair != nil {
+		return *x.LangPair
+	}
+	return ""
 }
 
 type ASTTranslateWorkspaceParameters struct {
@@ -3505,13 +3513,14 @@ func (x *VoiceListResponse) GetRuntimeProfileRevision() string {
 }
 
 type Workflow struct {
-	state         protoimpl.MessageState    `protogen:"open.v1"`
-	Alias         string                    `protobuf:"bytes,6,opt,name=alias,proto3" json:"alias,omitempty"`
-	I18N          map[string]*AliasI18NText `protobuf:"bytes,7,rep,name=i18n,proto3" json:"i18n,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	Collection    string                    `protobuf:"bytes,8,opt,name=collection,proto3" json:"collection,omitempty"`
-	Driver        WorkflowDriver            `protobuf:"varint,9,opt,name=driver,proto3,enum=gizclaw.rpc.v1.WorkflowDriver" json:"driver,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state             protoimpl.MessageState    `protogen:"open.v1"`
+	Alias             string                    `protobuf:"bytes,6,opt,name=alias,proto3" json:"alias,omitempty"`
+	I18N              map[string]*AliasI18NText `protobuf:"bytes,7,rep,name=i18n,proto3" json:"i18n,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Collection        string                    `protobuf:"bytes,8,opt,name=collection,proto3" json:"collection,omitempty"`
+	Driver            WorkflowDriver            `protobuf:"varint,9,opt,name=driver,proto3,enum=gizclaw.rpc.v1.WorkflowDriver" json:"driver,omitempty"`
+	WorkspaceLangPair *string                   `protobuf:"bytes,10,opt,name=workspace_lang_pair,json=workspaceLangPair,proto3,oneof" json:"workspace_lang_pair,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *Workflow) Reset() {
@@ -3570,6 +3579,13 @@ func (x *Workflow) GetDriver() WorkflowDriver {
 		return x.Driver
 	}
 	return WorkflowDriver_WORKFLOW_DRIVER_UNSPECIFIED
+}
+
+func (x *Workflow) GetWorkspaceLangPair() string {
+	if x != nil && x.WorkspaceLangPair != nil {
+		return *x.WorkspaceLangPair
+	}
+	return ""
 }
 
 type WorkflowGetRequest struct {
@@ -4357,7 +4373,7 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\x1bASTTranslateVoiceParameters\x12\x90\x01\n" +
 	"(asttranslate_internal_speaker_parameters\x18\x01 \x01(\v25.gizclaw.rpc.v1.ASTTranslateInternalSpeakerParametersH\x00R%asttranslateInternalSpeakerParameters\x12\x8a\x01\n" +
 	"&asttranslate_external_voice_parameters\x18\x02 \x01(\v23.gizclaw.rpc.v1.ASTTranslateExternalVoiceParametersH\x00R#asttranslateExternalVoiceParametersB\a\n" +
-	"\x05value\"\x99\x05\n" +
+	"\x05value\"\xc9\x05\n" +
 	"\x18ASTTranslateWorkflowSpec\x12\x1d\n" +
 	"\adenoise\x18\x01 \x01(\bH\x00R\adenoise\x88\x01\x01\x12F\n" +
 	"\x1denable_source_language_detect\x18\x02 \x01(\bH\x01R\x1aenableSourceLanguageDetect\x88\x01\x01\x12/\n" +
@@ -4372,7 +4388,8 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\x11translation_model\x18\b \x01(\tR\x10translationModel\x12+\n" +
 	"\x0ftts_resource_id\x18\t \x01(\tH\aR\rttsResourceId\x88\x01\x01\x12F\n" +
 	"\x05voice\x18\n" +
-	" \x01(\v2+.gizclaw.rpc.v1.ASTTranslateVoiceParametersH\bR\x05voice\x88\x01\x01B\n" +
+	" \x01(\v2+.gizclaw.rpc.v1.ASTTranslateVoiceParametersH\bR\x05voice\x88\x01\x01\x12 \n" +
+	"\tlang_pair\x18\v \x01(\tH\tR\blangPair\x88\x01\x01B\n" +
 	"\n" +
 	"\b_denoiseB \n" +
 	"\x1e_enable_source_language_detectB\x14\n" +
@@ -4382,7 +4399,9 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\v_speaker_idB\x0e\n" +
 	"\f_speech_rateB\x12\n" +
 	"\x10_tts_resource_idB\b\n" +
-	"\x06_voice\"\xf6\x06\n" +
+	"\x06_voiceB\f\n" +
+	"\n" +
+	"_lang_pair\"\xf6\x06\n" +
 	"\x1fASTTranslateWorkspaceParameters\x12W\n" +
 	"\n" +
 	"agent_type\x18\x01 \x01(\x0e28.gizclaw.rpc.v1.ASTTranslateWorkspaceParametersAgentTypeR\tagentType\x12\x1d\n" +
@@ -4757,17 +4776,20 @@ const file_payload_ai_proto_rawDesc = "" +
 	"nextCursor\x88\x01\x01\x120\n" +
 	"\x14runtime_profile_name\x18\x04 \x01(\tR\x12runtimeProfileName\x128\n" +
 	"\x18runtime_profile_revision\x18\x05 \x01(\tR\x16runtimeProfileRevisionB\x0e\n" +
-	"\f_next_cursor\"\x8e\x02\n" +
+	"\f_next_cursor\"\xdb\x02\n" +
 	"\bWorkflow\x12\x14\n" +
 	"\x05alias\x18\x06 \x01(\tR\x05alias\x126\n" +
 	"\x04i18n\x18\a \x03(\v2\".gizclaw.rpc.v1.Workflow.I18nEntryR\x04i18n\x12\x1e\n" +
 	"\n" +
 	"collection\x18\b \x01(\tR\n" +
 	"collection\x126\n" +
-	"\x06driver\x18\t \x01(\x0e2\x1e.gizclaw.rpc.v1.WorkflowDriverR\x06driver\x1aV\n" +
+	"\x06driver\x18\t \x01(\x0e2\x1e.gizclaw.rpc.v1.WorkflowDriverR\x06driver\x123\n" +
+	"\x13workspace_lang_pair\x18\n" +
+	" \x01(\tH\x00R\x11workspaceLangPair\x88\x01\x01\x1aV\n" +
 	"\tI18nEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x123\n" +
-	"\x05value\x18\x02 \x01(\v2\x1d.gizclaw.rpc.v1.AliasI18nTextR\x05value:\x028\x01J\x04\b\x01\x10\x06\"6\n" +
+	"\x05value\x18\x02 \x01(\v2\x1d.gizclaw.rpc.v1.AliasI18nTextR\x05value:\x028\x01B\x16\n" +
+	"\x14_workspace_lang_pairJ\x04\b\x01\x10\x06\"6\n" +
 	"\x12WorkflowGetRequest\x12\x14\n" +
 	"\x05alias\x18\x01 \x01(\tR\x05aliasJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04\"\xb1\x01\n" +
 	"\x13WorkflowGetResponse\x12.\n" +
@@ -5074,6 +5096,7 @@ func file_payload_ai_proto_init() {
 	file_payload_ai_proto_msgTypes[48].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[52].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[53].OneofWrappers = []any{}
+	file_payload_ai_proto_msgTypes[54].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[57].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[58].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[60].OneofWrappers = []any{}

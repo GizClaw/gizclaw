@@ -71,6 +71,7 @@ export type ASTTranslateWorkflowSpec = {
   "translation_model": string;
   "tts_resource_id"?: string;
   "voice"?: ASTTranslateVoiceParameters;
+  "lang_pair"?: string;
 };
 export type ASTTranslateWorkspaceParameters = {
   "agent_type": string;
@@ -1129,6 +1130,7 @@ export type Workflow = {
   "i18n": Record<string, AliasI18nText>;
   "collection": string;
   "driver": WorkflowDriver;
+  "workspace_lang_pair"?: string;
 };
 export type WorkflowGetRequest = {
   "alias": string;
@@ -1568,6 +1570,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 10,
         "optional": true,
         "type": "ASTTranslateVoiceParameters"
+      },
+      {
+        "name": "lang_pair",
+        "number": 11,
+        "optional": true,
+        "type": "string"
       }
     ]
   },
@@ -6378,6 +6386,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "driver",
         "number": 9,
         "type": "WorkflowDriver"
+      },
+      {
+        "name": "workspace_lang_pair",
+        "number": 10,
+        "optional": true,
+        "type": "string"
       }
     ]
   },

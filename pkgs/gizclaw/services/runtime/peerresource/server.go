@@ -842,10 +842,14 @@ func (s *Server) handleWorkflowGet(ctx context.Context, req *rpcapi.RPCRequest) 
 }
 
 func workflowRPCProjection(item apitypes.Workflow, alias, collection string, binding apitypes.RuntimeProfileBinding) rpcapi.Workflow {
-	return rpcapi.Workflow{
+	result := rpcapi.Workflow{
 		Alias: alias, Collection: collection, I18n: bindingI18n(binding),
 		Driver: rpcapi.WorkflowDriver(item.Spec.Driver),
 	}
+	if item.Spec.AstTranslate != nil {
+		result.WorkspaceLangPair = item.Spec.AstTranslate.LangPair
+	}
+	return result
 }
 
 func (s *Server) handleModelList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {

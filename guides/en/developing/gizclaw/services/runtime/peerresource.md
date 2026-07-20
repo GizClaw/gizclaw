@@ -2,7 +2,7 @@
 
 [Go API Reference](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource)
 
-`peerresource` projects the current RuntimeProfile into the Peer RPC surface. Workflow, Model, Voice, and Tool values are safe alias DTOs; the projection never returns canonical resource IDs, providers, tenants, credentials, ownership, or executor routing.
+`peerresource` projects the current RuntimeProfile into the Peer RPC surface. Workflow, Model, Voice, and Tool values are safe alias DTOs; AST Workflow values additionally carry the Workspace language-pair default needed for alias-independent creation. The projection never returns canonical resource IDs, providers, tenants, credentials, ownership, or executor routing.
 
 ```mermaid
 flowchart LR

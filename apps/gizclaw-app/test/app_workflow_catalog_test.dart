@@ -44,6 +44,22 @@ void main() {
     expect(chinese.driver, WorkflowDriverKind.flowcraft);
   });
 
+  test('projects AST workspace language metadata independently of alias', () {
+    final card = appWorkflowCard(
+      Workflow(
+        alias: 'japanese',
+        collection: 'translates',
+        driver: WorkflowDriver.WORKFLOW_DRIVER_AST_TRANSLATE,
+        workspaceLangPair: 'zh/ja',
+        i18n: {'en': AliasI18nText(displayName: 'Japanese')}.entries,
+      ),
+      const Locale('en'),
+    );
+
+    expect(card.workspaceLangPair, 'zh/ja');
+    expect(card.driver, WorkflowDriverKind.astTranslate);
+  });
+
   test('falls back to English and marks unknown drivers unavailable', () {
     final card = appWorkflowCard(
       Workflow(

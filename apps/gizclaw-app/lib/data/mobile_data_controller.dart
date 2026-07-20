@@ -945,7 +945,7 @@ class MobileDataController extends ChangeNotifier {
           workflowAlias: normalizedAlias,
           parameters: newWorkspaceParametersForDriver(
             selected.driver,
-            workflowAlias: normalizedAlias,
+            langPair: selected.workspaceLangPair,
           ),
         ),
       ),
@@ -1413,7 +1413,7 @@ String _newWorkspaceName(String workflowName) {
 @visibleForTesting
 WorkspaceParameters newWorkspaceParametersForDriver(
   WorkflowDriverKind driver, {
-  String workflowAlias = '',
+  String? langPair,
   String? generateModel = 'generate-model',
   String? extractModel = 'extract-model',
   String? embeddingModel,
@@ -1445,9 +1445,9 @@ WorkspaceParameters newWorkspaceParametersForDriver(
     asttranslateWorkspaceParameters: ASTTranslateWorkspaceParameters(
       agentType: ASTTranslateWorkspaceParametersAgentType
           .ASTTRANSLATE_WORKSPACE_PARAMETERS_AGENT_TYPE_AST_TRANSLATE,
-      enableSourceLanguageDetect: _translationLangPair(workflowAlias) == 'auto',
+      enableSourceLanguageDetect: _workspaceLangPair(langPair) == 'auto',
       input: WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK,
-      langPair: _translationLangPair(workflowAlias),
+      langPair: _workspaceLangPair(langPair),
       mode: ASTTranslateMode.ASTTRANSLATE_MODE_S2S,
     ),
   ),
@@ -1456,13 +1456,10 @@ WorkspaceParameters newWorkspaceParametersForDriver(
   ),
 };
 
-String _translationLangPair(String workflowAlias) =>
-    switch (workflowAlias.trim()) {
-      'translate-zh-ja' => 'zh/ja',
-      'translate-zh-ko' => 'zh/ko',
-      'translate-zh-es' => 'zh/es',
-      _ => 'auto',
-    };
+String _workspaceLangPair(String? value) {
+  final normalized = value?.trim() ?? '';
+  return normalized.isEmpty ? 'auto' : normalized;
+}
 
 @visibleForTesting
 Workspace? workspaceWithDefaultInputParameters(
@@ -1476,10 +1473,7 @@ Workspace? workspaceWithDefaultInputParameters(
     return null;
   }
   return workspace.deepCopy()
-    ..parameters = newWorkspaceParametersForDriver(
-      driver,
-      workflowAlias: workspace.workflowAlias,
-    );
+    ..parameters = newWorkspaceParametersForDriver(driver);
 }
 
 bool _runWorkspaceNeedsReload(PeerRunWorkspaceState state) {

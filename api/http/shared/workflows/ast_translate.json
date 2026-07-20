@@ -26,6 +26,10 @@
             "type": "string",
             "description": "RuntimeProfile translation Model alias resolved when the Workspace reloads."
           },
+          "lang_pair": {
+            "type": "string",
+            "description": "Default Workspace language pair projected to clients, for example zh/ja or auto."
+          },
           "mode": {
             "$ref": "#/components/schemas/ASTTranslateMode"
           },

@@ -510,6 +510,34 @@ test("WebRTCRPCClient streams transcription audio before request EOS", async () 
   assert.equal(channel.closed, true);
 });
 
+test("WebRTCRPCClient delimits a split transcription envelope before audio", async () => {
+  const largeID = "r".repeat(0xffff + 1024);
+  const pc = new FakePeerConnection();
+  const client = new WebRTCRPCClient(pc, { createID: () => largeID });
+  const promise = client.transcribeSpeech({
+    model_alias: "asr-main",
+    content_type: "audio/L16;rate=16000;channels=1",
+  }, [new Uint8Array([1, 2])]);
+  const channel = pc.lastChannel();
+  channel.open();
+  await channel.waitForSentCount(5);
+
+  assert.equal(decodeFrames(channel.sent[0] ?? new ArrayBuffer(0))[0]?.type, RPC_FRAME_TYPE_TEXT);
+  assert.equal(decodeFrames(channel.sent[1] ?? new ArrayBuffer(0))[0]?.type, RPC_FRAME_TYPE_TEXT);
+  assert.equal(decodeFrames(channel.sent[2] ?? new ArrayBuffer(0))[0]?.type, RPC_FRAME_TYPE_EOS);
+  assert.deepEqual(decodeFrames(channel.sent[3] ?? new ArrayBuffer(0)), [
+    { payload: new Uint8Array([1, 2]), type: RPC_FRAME_TYPE_BINARY },
+  ]);
+  assert.equal(decodeFrames(channel.sent[4] ?? new ArrayBuffer(0))[0]?.type, RPC_FRAME_TYPE_EOS);
+
+  channel.receive(encodeRPCResponse({
+    id: largeID,
+    result: { transcript: "hello" },
+    v: 1,
+  }, "server.speech.transcribe"));
+  assert.deepEqual(await promise, { transcript: "hello" });
+});
+
 test("WebRTCRPCClient stops a live transcription upload on an early response", async () => {
   const pc = new FakePeerConnection();
   const client = new WebRTCRPCClient(pc, { createID: () => "speech-early-error" });

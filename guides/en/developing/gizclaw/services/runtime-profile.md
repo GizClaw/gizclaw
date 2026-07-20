@@ -67,7 +67,7 @@ Public HTTP login may submit the same token through `X-Registration-Token`. Regi
 
 ## Peer surface and ownership
 
-- Workflow, Model, Voice, and Tool list/get return safe alias projections only. They do not expose canonical IDs, providers, tenants, credentials, owners, or execution routing.
+- Workflow, Model, Voice, and Tool list/get return safe alias projections only. An AST Workflow projection includes its Workspace language-pair default so a client never infers behavior from the dynamic alias. Projections do not expose canonical IDs, providers, tenants, credentials, owners, or execution routing.
 - Workflow list requires a Collection. Workflow get uses the globally unique alias. There is no `source=runtime|owned` selector.
 - Workflow, Model, Credential, and Tool create/put/delete are not Peer RPC methods. Admin owns canonical resource management.
 - Workspace create requires `collection` and `workflow_alias`; Workspace list requires `collection`. The Server stores Collection as an internal Workspace label and does not return generic labels through Peer RPC.

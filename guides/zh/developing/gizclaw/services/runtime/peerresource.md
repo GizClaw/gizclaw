@@ -2,7 +2,7 @@
 
 [Go API Reference](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource)
 
-`peerresource` 把当前 RuntimeProfile 投影为 Peer RPC surface。Workflow、Model、Voice 和 Tool 都使用安全 alias DTO；projection 不返回真实资源 ID、provider、tenant、credential、ownership 或 executor routing。
+`peerresource` 把当前 RuntimeProfile 投影为 Peer RPC surface。Workflow、Model、Voice 和 Tool 都使用安全 alias DTO；AST Workflow 还会携带与 alias 无关的 Workspace 默认语言对。projection 不返回真实资源 ID、provider、tenant、credential、ownership 或 executor routing。
 
 ```mermaid
 flowchart LR

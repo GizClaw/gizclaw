@@ -4,4 +4,4 @@ kind: Workflow
 metadata: {name: ast-translate-zh-ja}
 spec:
   driver: ast-translate
-  ast_translate: {translation_model: translation-model, mode: s2s, voice: {tts_voice: translator}, resource_id: volc.service_type.10053, denoise: false}
+  ast_translate: {translation_model: translation-model, lang_pair: zh/ja, mode: s2s, voice: {tts_voice: translator}, resource_id: volc.service_type.10053, denoise: false}

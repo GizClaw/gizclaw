@@ -1305,11 +1305,14 @@ type ASTTranslateVoiceParameters struct {
 
 // ASTTranslateWorkflowSpec defines model for ASTTranslateWorkflowSpec.
 type ASTTranslateWorkflowSpec struct {
-	Denoise                    *bool             `json:"denoise,omitempty"`
-	EnableSourceLanguageDetect *bool             `json:"enable_source_language_detect,omitempty"`
-	IsCustomSpeaker            *bool             `json:"is_custom_speaker,omitempty"`
-	Mode                       *ASTTranslateMode `json:"mode,omitempty"`
-	ResourceId                 *string           `json:"resource_id,omitempty"`
+	Denoise                    *bool `json:"denoise,omitempty"`
+	EnableSourceLanguageDetect *bool `json:"enable_source_language_detect,omitempty"`
+	IsCustomSpeaker            *bool `json:"is_custom_speaker,omitempty"`
+
+	// LangPair Default Workspace language pair projected to clients, for example zh/ja or auto.
+	LangPair   *string           `json:"lang_pair,omitempty"`
+	Mode       *ASTTranslateMode `json:"mode,omitempty"`
+	ResourceId *string           `json:"resource_id,omitempty"`
 
 	// SpeakerId Deprecated compatibility field. Prefer voice.speaker_id.
 	SpeakerId  *string `json:"speaker_id,omitempty"`

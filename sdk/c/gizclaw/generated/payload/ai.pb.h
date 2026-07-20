@@ -81,6 +81,7 @@ typedef struct _gizclaw_rpc_v1_ASTTranslateWorkflowSpec {
     pb_callback_t tts_resource_id;
     bool has_voice;
     gizclaw_rpc_v1_ASTTranslateVoiceParameters voice;
+    pb_callback_t lang_pair;
 } gizclaw_rpc_v1_ASTTranslateWorkflowSpec;
 
 typedef struct _gizclaw_rpc_v1_ASTTranslateWorkspaceParameters {
@@ -478,6 +479,7 @@ typedef struct _gizclaw_rpc_v1_Workflow {
     pb_callback_t i18n;
     pb_callback_t collection;
     gizclaw_rpc_v1_WorkflowDriver driver;
+    pb_callback_t workspace_lang_pair;
 } gizclaw_rpc_v1_Workflow;
 
 typedef struct _gizclaw_rpc_v1_Workflow_I18nEntry {
@@ -587,7 +589,7 @@ extern "C" {
 #define gizclaw_rpc_v1_ASTTranslateExternalVoiceParameters_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ASTTranslateInternalSpeakerParameters_init_default {false, 0, {{NULL}, NULL}, false, 0, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ASTTranslateVoiceParameters_init_default {0, {gizclaw_rpc_v1_ASTTranslateInternalSpeakerParameters_init_default}}
-#define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_init_default {false, 0, false, 0, false, 0, false, _gizclaw_rpc_v1_ASTTranslateMode_MIN, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_ASTTranslateVoiceParameters_init_default}
+#define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_init_default {false, 0, false, 0, false, 0, false, _gizclaw_rpc_v1_ASTTranslateMode_MIN, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_ASTTranslateVoiceParameters_init_default, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_init_default {_gizclaw_rpc_v1_ASTTranslateWorkspaceParametersAgentType_MIN, false, 0, false, 0, false, 0, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, 0, {{NULL}, NULL}, false, _gizclaw_rpc_v1_ASTTranslateMode_MIN, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_ASTTranslateVoiceParameters_init_default}
 #define gizclaw_rpc_v1_ChatRoomWorkflowHistorySpec_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ChatRoomWorkflowSpec_init_default {false, gizclaw_rpc_v1_ChatRoomWorkflowHistorySpec_init_default, false, gizclaw_rpc_v1_ChatRoomWorkflowTranscriptSpec_init_default}
@@ -637,7 +639,7 @@ extern "C" {
 #define gizclaw_rpc_v1_VoiceGetResponse_init_default {false, gizclaw_rpc_v1_Voice_init_default, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_VoiceListRequest_init_default {{{NULL}, NULL}, false, 0}
 #define gizclaw_rpc_v1_VoiceListResponse_init_default {0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_Workflow_init_default     {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_WorkflowDriver_MIN}
+#define gizclaw_rpc_v1_Workflow_init_default     {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_WorkflowDriver_MIN, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_Workflow_I18nEntry_init_default {{{NULL}, NULL}, false, gizclaw_rpc_v1_AliasI18nText_init_default}
 #define gizclaw_rpc_v1_WorkflowGetRequest_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_WorkflowGetResponse_init_default {false, gizclaw_rpc_v1_Workflow_init_default, {{NULL}, NULL}, {{NULL}, NULL}}
@@ -661,7 +663,7 @@ extern "C" {
 #define gizclaw_rpc_v1_ASTTranslateExternalVoiceParameters_init_zero {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ASTTranslateInternalSpeakerParameters_init_zero {false, 0, {{NULL}, NULL}, false, 0, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ASTTranslateVoiceParameters_init_zero {0, {gizclaw_rpc_v1_ASTTranslateInternalSpeakerParameters_init_zero}}
-#define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_init_zero {false, 0, false, 0, false, 0, false, _gizclaw_rpc_v1_ASTTranslateMode_MIN, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_ASTTranslateVoiceParameters_init_zero}
+#define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_init_zero {false, 0, false, 0, false, 0, false, _gizclaw_rpc_v1_ASTTranslateMode_MIN, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_ASTTranslateVoiceParameters_init_zero, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_init_zero {_gizclaw_rpc_v1_ASTTranslateWorkspaceParametersAgentType_MIN, false, 0, false, 0, false, 0, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, 0, {{NULL}, NULL}, false, _gizclaw_rpc_v1_ASTTranslateMode_MIN, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_ASTTranslateVoiceParameters_init_zero}
 #define gizclaw_rpc_v1_ChatRoomWorkflowHistorySpec_init_zero {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ChatRoomWorkflowSpec_init_zero {false, gizclaw_rpc_v1_ChatRoomWorkflowHistorySpec_init_zero, false, gizclaw_rpc_v1_ChatRoomWorkflowTranscriptSpec_init_zero}
@@ -711,7 +713,7 @@ extern "C" {
 #define gizclaw_rpc_v1_VoiceGetResponse_init_zero {false, gizclaw_rpc_v1_Voice_init_zero, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_VoiceListRequest_init_zero {{{NULL}, NULL}, false, 0}
 #define gizclaw_rpc_v1_VoiceListResponse_init_zero {0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_Workflow_init_zero        {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_WorkflowDriver_MIN}
+#define gizclaw_rpc_v1_Workflow_init_zero        {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_WorkflowDriver_MIN, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_Workflow_I18nEntry_init_zero {{{NULL}, NULL}, false, gizclaw_rpc_v1_AliasI18nText_init_zero}
 #define gizclaw_rpc_v1_WorkflowGetRequest_init_zero {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_WorkflowGetResponse_init_zero {false, gizclaw_rpc_v1_Workflow_init_zero, {{NULL}, NULL}, {{NULL}, NULL}}
@@ -758,6 +760,7 @@ extern "C" {
 #define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_translation_model_tag 8
 #define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_tts_resource_id_tag 9
 #define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_voice_tag 10
+#define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_lang_pair_tag 11
 #define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_agent_type_tag 1
 #define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_denoise_tag 2
 #define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_e2e_tag 3
@@ -929,6 +932,7 @@ extern "C" {
 #define gizclaw_rpc_v1_Workflow_i18n_tag         7
 #define gizclaw_rpc_v1_Workflow_collection_tag   8
 #define gizclaw_rpc_v1_Workflow_driver_tag       9
+#define gizclaw_rpc_v1_Workflow_workspace_lang_pair_tag 10
 #define gizclaw_rpc_v1_Workflow_I18nEntry_key_tag 1
 #define gizclaw_rpc_v1_Workflow_I18nEntry_value_tag 2
 #define gizclaw_rpc_v1_WorkflowGetRequest_alias_tag 1
@@ -1032,7 +1036,8 @@ X(a, CALLBACK, OPTIONAL, STRING,   speaker_id,        6) \
 X(a, STATIC,   OPTIONAL, INT64,    speech_rate,       7) \
 X(a, CALLBACK, SINGULAR, STRING,   translation_model,   8) \
 X(a, CALLBACK, OPTIONAL, STRING,   tts_resource_id,   9) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  voice,            10)
+X(a, STATIC,   OPTIONAL, MESSAGE,  voice,            10) \
+X(a, CALLBACK, OPTIONAL, STRING,   lang_pair,        11)
 #define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_DEFAULT NULL
 #define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_voice_MSGTYPE gizclaw_rpc_v1_ASTTranslateVoiceParameters
@@ -1450,7 +1455,8 @@ X(a, CALLBACK, SINGULAR, STRING,   runtime_profile_revision,   5)
 X(a, CALLBACK, SINGULAR, STRING,   alias,             6) \
 X(a, CALLBACK, REPEATED, MESSAGE,  i18n,              7) \
 X(a, CALLBACK, SINGULAR, STRING,   collection,        8) \
-X(a, STATIC,   SINGULAR, UENUM,    driver,            9)
+X(a, STATIC,   SINGULAR, UENUM,    driver,            9) \
+X(a, CALLBACK, OPTIONAL, STRING,   workspace_lang_pair,  10)
 #define gizclaw_rpc_v1_Workflow_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_Workflow_DEFAULT NULL
 #define gizclaw_rpc_v1_Workflow_i18n_MSGTYPE gizclaw_rpc_v1_Workflow_I18nEntry

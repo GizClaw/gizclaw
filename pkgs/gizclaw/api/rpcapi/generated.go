@@ -3032,10 +3032,11 @@ type VolcTenantVoiceProviderData struct {
 
 // Workflow defines model for Workflow.
 type Workflow struct {
-	Alias      string                   `json:"alias"`
-	I18n       map[string]AliasI18nText `json:"i18n"`
-	Collection string                   `json:"collection"`
-	Driver     WorkflowDriver           `json:"driver"`
+	Alias             string                   `json:"alias"`
+	I18n              map[string]AliasI18nText `json:"i18n"`
+	Collection        string                   `json:"collection"`
+	Driver            WorkflowDriver           `json:"driver"`
+	WorkspaceLangPair *string                  `json:"workspace_lang_pair,omitempty"`
 }
 
 // WorkflowDriver defines model for WorkflowDriver.

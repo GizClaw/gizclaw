@@ -345,12 +345,18 @@ func TestValidateVoiceProducingWorkflowsRequireRuntimeVoiceAliases(t *testing.T)
 		"translation-model": {Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindTranslation}},
 	}
 	s2s := apitypes.ASTTranslateModeS2s
+	langPair := "auto"
 	translation := apitypes.WorkflowSpec{
 		Driver: apitypes.WorkflowDriverAstTranslate,
 		AstTranslate: &apitypes.ASTTranslateWorkflowSpec{
-			Mode: &s2s, TranslationModel: "translation-model",
+			Mode: &s2s, TranslationModel: "translation-model", LangPair: &langPair,
 		},
 	}
+	translation.AstTranslate.LangPair = nil
+	if err := validateWorkflowRuntimeAliases("workflows.collections.translates.demo", translation, models, &voices); err == nil || !strings.Contains(err.Error(), "lang_pair is required") {
+		t.Fatalf("validateWorkflowRuntimeAliases(AST without lang_pair) error = %v", err)
+	}
+	translation.AstTranslate.LangPair = &langPair
 	if err := validateWorkflowRuntimeAliases("workflows.collections.translates.demo", translation, models, &voices); err == nil || !strings.Contains(err.Error(), "RuntimeProfile Voice alias") {
 		t.Fatalf("validateWorkflowRuntimeAliases(AST without voice) error = %v", err)
 	}

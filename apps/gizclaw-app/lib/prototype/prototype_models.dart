@@ -33,6 +33,7 @@ class WorkflowCard {
     required this.icon,
     required this.driver,
     this.imagePath,
+    this.workspaceLangPair,
   });
 
   final String name;
@@ -44,6 +45,7 @@ class WorkflowCard {
   final IconData icon;
   final WorkflowDriverKind driver;
   final String? imagePath;
+  final String? workspaceLangPair;
 
   factory WorkflowCard.unknown(String name, {required String collection}) =>
       WorkflowCard(

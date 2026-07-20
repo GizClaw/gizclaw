@@ -1930,6 +1930,10 @@ export type AstTranslateWorkflowSpec = {
      * RuntimeProfile translation Model alias resolved when the Workspace reloads.
      */
     translation_model: string;
+    /**
+     * Default Workspace language pair projected to clients, for example zh/ja or auto.
+     */
+    lang_pair?: string;
     mode?: AstTranslateMode;
     voice?: AstTranslateVoiceParameters;
     /**

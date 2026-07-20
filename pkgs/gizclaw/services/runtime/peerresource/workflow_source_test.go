@@ -39,6 +39,9 @@ func TestListRuntimeWorkflowsUsesCollectionAliasesAndSkipsDanglingBindings(t *te
 		if item.Collection != "assistants" || item.I18n["en"].DisplayName == "" {
 			t.Fatalf("workflow projection = %#v", item)
 		}
+		if item.Alias == "translate" && (item.WorkspaceLangPair == nil || *item.WorkspaceLangPair != "zh/ja") {
+			t.Fatalf("translation workflow projection = %#v", item)
+		}
 	}
 	if !reflect.DeepEqual(aliases, []string{"chat", "translate"}) {
 		t.Fatalf("aliases = %#v", aliases)
@@ -277,7 +280,18 @@ func assertAliasNotFound(t *testing.T, response *rpcapi.RPCResponse, message, ca
 
 func createWorkflowForCollectionTest(t *testing.T, ctx context.Context, server *workflow.Server, name string) {
 	t.Helper()
-	document := apitypes.Workflow{Name: name, Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverFlowcraft}}
+	spec := apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverFlowcraft}
+	if strings.Contains(name, "translate") {
+		langPair := "zh/ja"
+		spec = apitypes.WorkflowSpec{
+			Driver: apitypes.WorkflowDriverAstTranslate,
+			AstTranslate: &apitypes.ASTTranslateWorkflowSpec{
+				TranslationModel: "translation-model",
+				LangPair:         &langPair,
+			},
+		}
+	}
+	document := apitypes.Workflow{Name: name, Spec: spec}
 	response, err := server.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &document})
 	if err != nil {
 		t.Fatalf("CreateWorkflow(%q) error = %v", name, err)

@@ -65,6 +65,7 @@ message ASTTranslateWorkflowSpec {
   string translation_model = 8;
   optional string tts_resource_id = 9;
   optional ASTTranslateVoiceParameters voice = 10;
+  optional string lang_pair = 11;
 }
 
 message ASTTranslateWorkspaceParameters {
@@ -369,6 +370,7 @@ message Workflow {
   map<string, AliasI18nText> i18n = 7;
   string collection = 8;
   WorkflowDriver driver = 9;
+  optional string workspace_lang_pair = 10;
 }
 
 message WorkflowGetRequest {

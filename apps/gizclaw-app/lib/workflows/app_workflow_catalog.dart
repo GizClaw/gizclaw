@@ -83,6 +83,9 @@ WorkflowCard appWorkflowCard(Workflow workflow, Locale locale) {
     bannerColor: collection.bannerColor,
     icon: collection.icon,
     driver: driver,
+    workspaceLangPair: workflow.hasWorkspaceLangPair()
+        ? workflow.workspaceLangPair
+        : null,
   );
 }
 

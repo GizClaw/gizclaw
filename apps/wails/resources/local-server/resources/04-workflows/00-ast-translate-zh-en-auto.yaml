@@ -6,6 +6,7 @@ spec:
   driver: ast-translate
   ast_translate:
     translation_model: translation-model
+    lang_pair: auto
     mode: s2s
     voice: {tts_voice: translator}
     resource_id: volc.service_type.10053
