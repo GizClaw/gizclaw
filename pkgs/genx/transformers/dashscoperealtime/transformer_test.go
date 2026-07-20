@@ -54,30 +54,42 @@ func TestDashScopeStreamIDsSeparateInputAndResponseRoutes(t *testing.T) {
 	var ids dashScopeStreamIDs
 	ids.pushInput("turn-1")
 	ids.pushInput("turn-1")
-	ids.bindNextResponse()
-	inputID, firstResponseID := ids.current()
+	ids.pushInput("turn-2")
+
+	// response.created may arrive before ASR completion. Binding it must not
+	// consume turn-2 when the turn-1 transcription arrives later.
+	inputID, firstResponseID := ids.bindResponse("provider-response-1")
 	if inputID != "turn-1" {
 		t.Fatalf("input StreamID = %q, want turn-1", inputID)
 	}
 	if firstResponseID == "" || firstResponseID == inputID {
 		t.Fatalf("response StreamID = %q, input StreamID = %q", firstResponseID, inputID)
 	}
-
-	// A second event that starts the same response must keep its response ID.
-	ids.bindNextResponse()
-	_, sameResponseID := ids.current()
+	inputID, sameResponseID := ids.bindTranscription()
+	if inputID != "turn-1" {
+		t.Fatalf("transcription StreamID = %q, want turn-1", inputID)
+	}
 	if sameResponseID != firstResponseID {
-		t.Fatalf("same response StreamID = %q, want %q", sameResponseID, firstResponseID)
+		t.Fatalf("transcription response StreamID = %q, want %q", sameResponseID, firstResponseID)
 	}
 
-	ids.pushInput("turn-2")
-	ids.bindNextResponse()
-	inputID, secondResponseID := ids.current()
+	// The provider ID keeps interleaved events on the response that created it.
+	if routed := ids.response("provider-response-1"); routed != firstResponseID {
+		t.Fatalf("provider response StreamID = %q, want %q", routed, firstResponseID)
+	}
+
+	// The next ASR completion now consumes turn-2, independent of whether its
+	// response.created event arrives before or after it.
+	inputID, secondResponseID := ids.bindTranscription()
 	if inputID != "turn-2" {
 		t.Fatalf("second input StreamID = %q, want turn-2", inputID)
 	}
 	if secondResponseID == "" || secondResponseID == inputID || secondResponseID == firstResponseID {
 		t.Fatalf("second response StreamID = %q, first = %q, input = %q", secondResponseID, firstResponseID, inputID)
+	}
+	responseInputID, routedSecondResponseID := ids.bindResponse("provider-response-2")
+	if responseInputID != "turn-2" || routedSecondResponseID != secondResponseID {
+		t.Fatalf("second response binding = (%q, %q), want (turn-2, %q)", responseInputID, routedSecondResponseID, secondResponseID)
 	}
 }
 

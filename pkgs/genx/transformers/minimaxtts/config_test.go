@@ -1,6 +1,7 @@
 package minimaxtts
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/internal/streamkit"
 	"github.com/GizClaw/minimax-go"
+	"github.com/coder/websocket"
 )
 
 func TestConfigValidationDefaultsAndPointerCopies(t *testing.T) {
@@ -52,17 +54,7 @@ func TestConfigValidationDefaultsAndPointerCopies(t *testing.T) {
 
 func TestSynthesizeMapsTypedConfigToProviderRequest(t *testing.T) {
 	requestBody := make(chan map[string]any, 1)
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
-		var body map[string]any
-		if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
-			t.Errorf("decode request: %v", err)
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		requestBody <- body
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"base_resp":{"status_code":0,"status_msg":"ok"},"data":{"audio_hex":"0102"}}`))
-	}))
+	server := newMiniMaxTTSTestServer(t, requestBody)
 	defer server.Close()
 
 	client, err := minimax.NewClient(minimax.Config{BaseURL: server.URL, APIKey: "test", HTTPClient: server.Client()})
@@ -88,14 +80,18 @@ func TestSynthesizeMapsTypedConfigToProviderRequest(t *testing.T) {
 		t.Fatalf("New() error = %v", err)
 	}
 	var audio []byte
+	emissions := 0
 	if err := transformer.synthesize(context.Background(), "hello", streamkit.TTSMeta{}, "audio/pcm", func(data []byte) error {
+		if len(data) > 0 {
+			emissions++
+		}
 		audio = append(audio, data...)
 		return nil
 	}); err != nil {
 		t.Fatalf("synthesize() error = %v", err)
 	}
-	if len(audio) == 0 {
-		t.Fatal("synthesize() emitted no audio")
+	if !bytes.Equal(audio, []byte{1, 2}) || emissions != 2 {
+		t.Fatalf("streamed audio = %v in %d emissions, want [1 2] in 2", audio, emissions)
 	}
 
 	body := <-requestBody
@@ -113,10 +109,7 @@ func TestSynthesizeMapsTypedConfigToProviderRequest(t *testing.T) {
 }
 
 func TestTransformerConcurrentCallsAreIndependent(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"base_resp":{"status_code":0,"status_msg":"ok"},"data":{"audio_hex":"0102"}}`))
-	}))
+	server := newMiniMaxTTSTestServer(t, nil)
 	defer server.Close()
 
 	client, err := minimax.NewClient(minimax.Config{BaseURL: server.URL, APIKey: "test", HTTPClient: server.Client()})
@@ -163,6 +156,87 @@ func TestTransformerConcurrentCallsAreIndependent(t *testing.T) {
 	for err := range errors {
 		t.Error(err)
 	}
+}
+
+func newMiniMaxTTSTestServer(t *testing.T, requests chan<- map[string]any) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		conn, err := websocket.Accept(w, request, nil)
+		if err != nil {
+			t.Errorf("accept websocket: %v", err)
+			return
+		}
+		defer conn.Close(websocket.StatusNormalClosure, "")
+
+		if err := writeMiniMaxWebSocketJSON(conn, map[string]any{
+			"event":     "connected_success",
+			"base_resp": map[string]any{"status_code": 0, "status_msg": "success"},
+		}); err != nil {
+			t.Errorf("write connected event: %v", err)
+			return
+		}
+		start, err := readMiniMaxWebSocketJSON(conn)
+		if err != nil {
+			t.Errorf("read start message: %v", err)
+			return
+		}
+		if err := writeMiniMaxWebSocketJSON(conn, map[string]any{
+			"event":     "task_started",
+			"base_resp": map[string]any{"status_code": 0, "status_msg": "success"},
+		}); err != nil {
+			t.Errorf("write started event: %v", err)
+			return
+		}
+		continueMessage, err := readMiniMaxWebSocketJSON(conn)
+		if err != nil {
+			t.Errorf("read continue message: %v", err)
+			return
+		}
+		start["text"] = continueMessage["text"]
+		if requests != nil {
+			requests <- start
+		}
+		if _, err := readMiniMaxWebSocketJSON(conn); err != nil {
+			t.Errorf("read finish message: %v", err)
+			return
+		}
+		for _, audio := range []string{"01", "02"} {
+			if err := writeMiniMaxWebSocketJSON(conn, map[string]any{
+				"event":     "task_result",
+				"data":      map[string]any{"audio": audio},
+				"base_resp": map[string]any{"status_code": 0, "status_msg": "success"},
+			}); err != nil {
+				t.Errorf("write audio event: %v", err)
+				return
+			}
+		}
+		if err := writeMiniMaxWebSocketJSON(conn, map[string]any{
+			"event":     "task_finished",
+			"base_resp": map[string]any{"status_code": 0, "status_msg": "success"},
+		}); err != nil {
+			t.Errorf("write finished event: %v", err)
+		}
+	}))
+}
+
+func writeMiniMaxWebSocketJSON(conn *websocket.Conn, value any) error {
+	data, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+	return conn.Write(context.Background(), websocket.MessageText, data)
+}
+
+func readMiniMaxWebSocketJSON(conn *websocket.Conn) (map[string]any, error) {
+	_, data, err := conn.Read(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	var value map[string]any
+	if err := json.Unmarshal(data, &value); err != nil {
+		return nil, err
+	}
+	return value, nil
 }
 
 type configTestStream struct {

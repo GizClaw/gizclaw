@@ -67,10 +67,17 @@ func (c dashScopeRealtimeClient) Connect(ctx context.Context, config *dashscope.
 type dashScopeStreamIDs struct {
 	mu sync.Mutex
 
-	queue             []string
+	turns             []*dashScopeStreamTurn
+	responses         map[string]*dashScopeStreamTurn
+	currentResponse   *dashScopeStreamTurn
 	lastInputStreamID string
+}
+
+type dashScopeStreamTurn struct {
 	inputStreamID     string
 	responseStreamID  string
+	transcriptionSeen bool
+	responseSeen      bool
 }
 
 func (s *dashScopeStreamIDs) pushInput(streamID string) {
@@ -83,27 +90,97 @@ func (s *dashScopeStreamIDs) pushInput(streamID string) {
 		return
 	}
 	s.lastInputStreamID = streamID
-	s.queue = append(s.queue, streamID)
+	s.turns = append(s.turns, &dashScopeStreamTurn{
+		inputStreamID:    streamID,
+		responseStreamID: genx.NewStreamID(),
+	})
 }
 
-func (s *dashScopeStreamIDs) bindNextResponse() {
+func (s *dashScopeStreamIDs) bindTranscription() (inputStreamID, responseStreamID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if len(s.queue) > 0 {
-		s.inputStreamID = s.queue[0]
-		s.queue = s.queue[1:]
-		s.responseStreamID = genx.NewStreamID()
+	for _, turn := range s.turns {
+		if !turn.transcriptionSeen {
+			turn.transcriptionSeen = true
+			return turn.inputStreamID, turn.responseStreamID
+		}
+	}
+	return "", ""
+}
+
+func (s *dashScopeStreamIDs) bindResponse(providerResponseID string) (inputStreamID, responseStreamID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if providerResponseID != "" && s.responses != nil {
+		if turn := s.responses[providerResponseID]; turn != nil {
+			s.currentResponse = turn
+			return turn.inputStreamID, turn.responseStreamID
+		}
+	}
+	for _, turn := range s.turns {
+		if !turn.responseSeen {
+			turn.responseSeen = true
+			s.rememberResponseLocked(providerResponseID, turn)
+			return turn.inputStreamID, turn.responseStreamID
+		}
+	}
+	turn := &dashScopeStreamTurn{
+		responseStreamID:  genx.NewStreamID(),
+		transcriptionSeen: true,
+		responseSeen:      true,
+	}
+	s.turns = append(s.turns, turn)
+	s.rememberResponseLocked(providerResponseID, turn)
+	return "", turn.responseStreamID
+}
+
+func (s *dashScopeStreamIDs) response(providerResponseID string) string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if providerResponseID != "" && s.responses != nil {
+		if turn := s.responses[providerResponseID]; turn != nil {
+			return turn.responseStreamID
+		}
+	}
+	if s.currentResponse != nil && providerResponseID == "" {
+		return s.currentResponse.responseStreamID
+	}
+	for _, turn := range s.turns {
+		if !turn.responseSeen {
+			turn.responseSeen = true
+			s.rememberResponseLocked(providerResponseID, turn)
+			return turn.responseStreamID
+		}
+	}
+	turn := &dashScopeStreamTurn{
+		responseStreamID:  genx.NewStreamID(),
+		transcriptionSeen: true,
+		responseSeen:      true,
+	}
+	s.turns = append(s.turns, turn)
+	s.rememberResponseLocked(providerResponseID, turn)
+	return turn.responseStreamID
+}
+
+func (s *dashScopeStreamIDs) rememberResponseLocked(providerResponseID string, turn *dashScopeStreamTurn) {
+	s.currentResponse = turn
+	if providerResponseID == "" {
 		return
 	}
-	if s.responseStreamID == "" {
-		s.responseStreamID = genx.NewStreamID()
+	if s.responses == nil {
+		s.responses = make(map[string]*dashScopeStreamTurn)
 	}
+	s.responses[providerResponseID] = turn
 }
 
-func (s *dashScopeStreamIDs) current() (inputStreamID, responseStreamID string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.inputStreamID, s.responseStreamID
+func dashScopeResponseID(event *dashscope.RealtimeEvent) string {
+	if event.ResponseID != "" {
+		return event.ResponseID
+	}
+	if event.Response != nil {
+		return event.Response.ID
+	}
+	return ""
 }
 
 var _ genx.Transformer = (*Transformer)(nil)
@@ -412,17 +489,6 @@ func (t *Transformer) processLoop(input genx.Stream, output *bufferStream, sessi
 				return
 			}
 
-			// Pop StreamID for response on:
-			// 1. response.created - start of a new response cycle
-			// 2. input_audio_transcription.completed - ASR marks end of user turn
-			// This handles servers that may not send response.created
-			if event.Type == dashscope.EventTypeResponseCreated ||
-				event.Type == dashscope.EventTypeInputAudioTranscriptionCompleted {
-				streamIDs.bindNextResponse()
-			}
-
-			inputStreamID, responseStreamID := streamIDs.current()
-
 			switch event.Type {
 			case dashscope.EventTypeInputSpeechStarted:
 				// User started speaking - cancel current response
@@ -432,6 +498,7 @@ func (t *Transformer) processLoop(input genx.Stream, output *bufferStream, sessi
 				}
 
 			case dashscope.EventTypeResponseCreated:
+				_, responseStreamID := streamIDs.bindResponse(dashScopeResponseID(event))
 				// Send BOS to signal start of new audio stream
 				bosChunk := &genx.MessageChunk{
 					Role: genx.RoleModel,
@@ -443,6 +510,7 @@ func (t *Transformer) processLoop(input genx.Stream, output *bufferStream, sessi
 				}
 
 			case dashscope.EventTypeInputAudioTranscriptionCompleted:
+				inputStreamID, _ := streamIDs.bindTranscription()
 				// ASR result for user input - emit text then EOS
 				if event.Transcript != "" {
 					outChunk := &genx.MessageChunk{
@@ -465,6 +533,7 @@ func (t *Transformer) processLoop(input genx.Stream, output *bufferStream, sessi
 				}
 
 			case dashscope.EventTypeResponseTextDelta:
+				responseStreamID := streamIDs.response(dashScopeResponseID(event))
 				// Model text response
 				if event.Delta != "" {
 					outChunk := &genx.MessageChunk{
@@ -478,6 +547,7 @@ func (t *Transformer) processLoop(input genx.Stream, output *bufferStream, sessi
 				}
 
 			case dashscope.EventTypeResponseTextDone:
+				responseStreamID := streamIDs.response(dashScopeResponseID(event))
 				// Model text response done - emit EOS
 				eosChunk := &genx.MessageChunk{
 					Role: genx.RoleModel,
@@ -489,6 +559,7 @@ func (t *Transformer) processLoop(input genx.Stream, output *bufferStream, sessi
 				}
 
 			case dashscope.EventTypeResponseTranscriptDelta:
+				responseStreamID := streamIDs.response(dashScopeResponseID(event))
 				// TTS transcript (what the model is saying)
 				if event.Delta != "" {
 					outChunk := &genx.MessageChunk{
@@ -502,6 +573,7 @@ func (t *Transformer) processLoop(input genx.Stream, output *bufferStream, sessi
 				}
 
 			case dashscope.EventTypeResponseTranscriptDone:
+				responseStreamID := streamIDs.response(dashScopeResponseID(event))
 				// TTS transcript done - emit text EOS
 				eosChunk := &genx.MessageChunk{
 					Role: genx.RoleModel,
@@ -513,6 +585,7 @@ func (t *Transformer) processLoop(input genx.Stream, output *bufferStream, sessi
 				}
 
 			case dashscope.EventTypeResponseAudioDelta:
+				responseStreamID := streamIDs.response(dashScopeResponseID(event))
 				// Audio response
 				if len(event.Audio) > 0 {
 					outChunk := &genx.MessageChunk{
@@ -529,6 +602,7 @@ func (t *Transformer) processLoop(input genx.Stream, output *bufferStream, sessi
 				}
 
 			case dashscope.EventTypeResponseAudioDone:
+				responseStreamID := streamIDs.response(dashScopeResponseID(event))
 				// Audio response done - emit EOS
 				eosChunk := &genx.MessageChunk{
 					Role: genx.RoleModel,
@@ -540,6 +614,7 @@ func (t *Transformer) processLoop(input genx.Stream, output *bufferStream, sessi
 				}
 
 			case dashscope.EventTypeChoicesResponse:
+				responseStreamID := streamIDs.response(dashScopeResponseID(event))
 				// DashScope's choices format response
 				if event.Delta != "" {
 					outChunk := &genx.MessageChunk{

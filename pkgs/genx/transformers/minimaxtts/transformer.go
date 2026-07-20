@@ -3,6 +3,7 @@ package minimaxtts
 import (
 	"context"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
@@ -92,7 +93,7 @@ func (t *Transformer) synthesize(ctx context.Context, text string, _ streamkit.T
 	sampleRate := t.sampleRate
 	bitrate := t.bitrate
 
-	response, err := t.client.Speech.Synthesize(ctx, minimax.SpeechRequest{
+	stream, err := t.client.Speech.OpenWebSocket(ctx, minimax.SpeechWebSocketRequest{
 		Model:   t.model,
 		Text:    text,
 		VoiceID: t.voiceID,
@@ -109,10 +110,25 @@ func (t *Transformer) synthesize(ctx context.Context, text string, _ streamkit.T
 	if err != nil {
 		return err
 	}
+	defer stream.Close()
 
 	normalizer := codecconv.NewTTSAudioNormalizer(mimeType)
-	if err := emit(normalizer.Write(response.Audio)); err != nil {
-		return err
+	for {
+		chunk, nextErr := stream.Next(ctx)
+		if nextErr != nil {
+			if nextErr == io.EOF {
+				break
+			}
+			return nextErr
+		}
+		if len(chunk.Audio) > 0 {
+			if err := emit(normalizer.Write(chunk.Audio)); err != nil {
+				return err
+			}
+		}
+		if chunk.Done {
+			break
+		}
 	}
 	if err := emit(normalizer.Flush()); err != nil {
 		return err
