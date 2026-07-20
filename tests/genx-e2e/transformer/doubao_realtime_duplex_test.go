@@ -220,16 +220,20 @@ func (r *duplexRoundResult) observe(streamID string, chunk *genx.MessageChunk) e
 	if chunk == nil {
 		return nil
 	}
-	if err := duplexChunkError(chunk); err != nil {
-		return err
-	}
 	label := ""
 	chunkStreamID := ""
 	if chunk.Ctrl != nil {
 		label = chunk.Ctrl.Label
 		chunkStreamID = chunk.Ctrl.StreamID
 	}
-	if label == duplexTranscriptLabel && roundStreamMatches(chunkStreamID, streamID) {
+	if (label == duplexTranscriptLabel || label == duplexAssistantLabel) &&
+		!roundStreamMatches(chunkStreamID, streamID) {
+		return nil
+	}
+	if err := duplexChunkError(chunk); err != nil {
+		return err
+	}
+	if label == duplexTranscriptLabel {
 		if text, ok := chunk.Part.(genx.Text); ok && strings.TrimSpace(string(text)) != "" {
 			r.transcript.WriteString(string(text))
 		}
@@ -258,6 +262,29 @@ func (r *duplexRoundResult) observe(streamID string, chunk *genx.MessageChunk) e
 		}
 	}
 	return nil
+}
+
+func TestDuplexRoundResultIgnoresOtherStreamTerminalError(t *testing.T) {
+	var result duplexRoundResult
+	oldStreamError := &genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: genx.Text(""),
+		Ctrl: &genx.StreamCtrl{
+			StreamID:    "round-1:rt:1",
+			Label:       duplexAssistantLabel,
+			EndOfStream: true,
+			Error:       "interrupted",
+		},
+	}
+	if err := result.observe("round-2", oldStreamError); err != nil {
+		t.Fatalf("observe() unrelated terminal error = %v", err)
+	}
+
+	currentStreamError := oldStreamError.Clone()
+	currentStreamError.Ctrl.StreamID = "round-2:rt:1"
+	if err := result.observe("round-2", currentStreamError); err == nil {
+		t.Fatal("observe() current terminal error = nil")
+	}
 }
 
 func (r *duplexRoundResult) done() bool {
