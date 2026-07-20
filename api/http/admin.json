@@ -11158,15 +11158,11 @@
         "type": "object",
         "required": [
           "name",
-          "firmware_name",
           "runtime_profile_name"
         ],
         "additionalProperties": false,
         "properties": {
           "name": {
-            "type": "string"
-          },
-          "firmware_name": {
             "type": "string"
           },
           "runtime_profile_name": {

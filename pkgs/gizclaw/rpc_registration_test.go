@@ -17,8 +17,8 @@ import (
 
 func TestRPCRegistrationReplacesSnapshotAndRejectedTokenPreservesIt(t *testing.T) {
 	t.Parallel()
-	registrations, tokenA := registrationServerAndToken(t, "profile-a", "firmware-a")
-	tokenB := createRegistrationToken(t, registrations, "profile-b", "firmware-b")
+	registrations, tokenA := registrationServerAndToken(t, "profile-a")
+	tokenB := createRegistrationToken(t, registrations, "profile-b")
 	var snapshot atomic.Pointer[runtimeprofile.Registration]
 	server := &rpcServer{
 		registrations:   registrations,
@@ -29,10 +29,10 @@ func TestRPCRegistrationReplacesSnapshotAndRejectedTokenPreservesIt(t *testing.T
 	}
 
 	response := registerRPC(t, server, tokenA)
-	if response.FirmwareName != "firmware-a" || response.RuntimeProfileName != "profile-a" {
+	if response.RuntimeProfileName != "profile-a" {
 		t.Fatalf("first registration = %#v", response)
 	}
-	if got := snapshot.Load(); got == nil || got.FirmwareName != "firmware-a" || got.RuntimeProfile.Name != "profile-a" {
+	if got := snapshot.Load(); got == nil || got.RuntimeProfile.Name != "profile-a" {
 		t.Fatalf("first snapshot = %#v", got)
 	}
 
@@ -48,17 +48,17 @@ func TestRPCRegistrationReplacesSnapshotAndRejectedTokenPreservesIt(t *testing.T
 	}
 
 	response = registerRPC(t, server, tokenB)
-	if response.FirmwareName != "firmware-b" || response.RuntimeProfileName != "profile-b" {
+	if response.RuntimeProfileName != "profile-b" {
 		t.Fatalf("second registration = %#v", response)
 	}
-	if got := snapshot.Load(); got == nil || got.FirmwareName != "firmware-b" || got.RuntimeProfile.Name != "profile-b" {
+	if got := snapshot.Load(); got == nil || got.RuntimeProfile.Name != "profile-b" {
 		t.Fatalf("second snapshot = %#v", got)
 	}
 }
 
 func TestRPCRegistrationSnapshotIsRaceSafe(t *testing.T) {
-	registrations, tokenA := registrationServerAndToken(t, "profile-a", "firmware-a")
-	tokenB := createRegistrationToken(t, registrations, "profile-b", "firmware-b")
+	registrations, tokenA := registrationServerAndToken(t, "profile-a")
+	tokenB := createRegistrationToken(t, registrations, "profile-b")
 	var snapshot atomic.Pointer[runtimeprofile.Registration]
 	server := &rpcServer{registrations: registrations, onRegistration: func(registration runtimeprofile.Registration) {
 		snapshot.Store(&registration)
@@ -85,16 +85,13 @@ func TestRPCRegistrationSnapshotIsRaceSafe(t *testing.T) {
 	}
 }
 
-func registrationServerAndToken(t *testing.T, profileName, firmwareName string) (*runtimeprofile.Server, string) {
+func registrationServerAndToken(t *testing.T, profileName string) (*runtimeprofile.Server, string) {
 	t.Helper()
-	server := &runtimeprofile.Server{
-		Store:          kv.NewMemory(nil),
-		FirmwareExists: func(context.Context, string) (bool, error) { return true, nil },
-	}
-	return server, createRegistrationToken(t, server, profileName, firmwareName)
+	server := &runtimeprofile.Server{Store: kv.NewMemory(nil)}
+	return server, createRegistrationToken(t, server, profileName)
 }
 
-func createRegistrationToken(t *testing.T, server *runtimeprofile.Server, profileName, firmwareName string) string {
+func createRegistrationToken(t *testing.T, server *runtimeprofile.Server, profileName string) string {
 	t.Helper()
 	ctx := context.Background()
 	profileResponse, err := server.PutRuntimeProfile(ctx, adminhttp.PutRuntimeProfileRequestObject{
@@ -113,7 +110,6 @@ func createRegistrationToken(t *testing.T, server *runtimeprofile.Server, profil
 	tokenResponse, err := server.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{
 		Body: &adminhttp.RegistrationTokenUpsert{
 			Name:               "token-" + profileName,
-			FirmwareName:       firmwareName,
 			RuntimeProfileName: profileName,
 		},
 	})

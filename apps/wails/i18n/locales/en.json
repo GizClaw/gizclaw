@@ -60,6 +60,7 @@
   "readyToShare": "Ready to share",
   "lanAddress": "LAN address",
   "noLANAddress": "No LAN address available",
+  "notReadyToShare": "Start the server to prepare sharing",
   "serverPublicKey": "Server public key",
   "copyServerPublicKey": "Copy Server public key",
   "serverControls": "Server controls",

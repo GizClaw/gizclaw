@@ -12,6 +12,60 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appTitle => 'GizClaw OpenSource';
 
   @override
+  String get workspacesTitle => 'Workspaces';
+
+  @override
+  String get newWorkspace => 'New Workspace';
+
+  @override
+  String get noWorkspaces => 'No workspaces yet.';
+
+  @override
+  String get workflowDoubaoRealtimeTitle => 'Doubao Realtime';
+
+  @override
+  String get workflowDoubaoRealtimeSubtitle => 'Live voice conversation';
+
+  @override
+  String get workflowTranslateZhEnTitle => 'Chinese ↔ English';
+
+  @override
+  String get workflowTranslateZhJaTitle => 'Chinese → Japanese';
+
+  @override
+  String get workflowTranslateZhKoTitle => 'Chinese → Korean';
+
+  @override
+  String get workflowTranslateZhEsTitle => 'Chinese → Spanish';
+
+  @override
+  String get workflowTranslationSubtitle => 'Realtime speech translation';
+
+  @override
+  String get workflowChatTitle => 'Chat';
+
+  @override
+  String get workflowChatSubtitle => 'General AI assistant';
+
+  @override
+  String get workflowJourneyTitle => 'Journey';
+
+  @override
+  String get workflowJourneySubtitle => 'Interactive story guide';
+
+  @override
+  String get workflowMurderMysteryTitle => 'Murder Mystery';
+
+  @override
+  String get workflowMurderMysterySubtitle => 'Interactive mystery game';
+
+  @override
+  String get workflowChatroomTitle => 'Chatroom';
+
+  @override
+  String get workflowChatroomSubtitle => 'Friend and group conversation';
+
+  @override
   String get language => 'Language';
 
   @override
@@ -285,6 +339,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String actionText({required String key}) {
     String _temp0 = intl.Intl.selectLogic(key, {
+      'unavailable': 'Unavailable',
       'unableActivate': 'Unable to activate',
       'unableSwitchMode': 'Unable to switch mode',
       'actionFailed': 'The action could not be completed. Please try again.',

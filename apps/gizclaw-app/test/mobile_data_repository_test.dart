@@ -6,277 +6,96 @@ import 'package:gizclaw_app/data/repositories/mobile_data_repository.dart';
 import 'package:gizclaw_app/prototype/prototype_models.dart';
 
 void main() {
-  test('refreshes workflow and workspace snapshots into Drift', () async {
-    final database = AppDatabase.forTesting(NativeDatabase.memory());
-    addTearDown(database.close);
-    final repository = MobileDataRepository(database);
-    final client = _FakeClient(
-      workflows: [
-        Workflow(
-          name: 'build-helper',
-          spec: WorkflowSpec(driver: WorkflowDriver.WORKFLOW_DRIVER_FLOWCRAFT),
-        ),
-      ],
-      workspaces: [
-        Workspace(
-          name: 'mobile-plan',
-          workflowName: 'build-helper',
-          lastActiveAt: '2026-07-12T00:00:00Z',
-        ),
-        Workspace(
-          name: 'social-group-a',
-          workflowName: 'chatroom',
-          parameters: WorkspaceParameters(
-            chatRoomWorkspaceParameters: ChatRoomWorkspaceParameters(
-              mode: ChatRoomMode.CHAT_ROOM_MODE_GROUP,
-            ),
-          ),
-        ),
-      ],
-      friends: [
-        FriendObject(
-          id: 'friend-a',
-          peerPublicKey: 'peer-public-key-a',
-          workspaceName: 'social-direct-a',
-        ),
-      ],
-      friendGroups: [
-        FriendGroupObject(
-          id: 'group-a',
-          name: 'Builder Crew',
-          description: 'Shipping together',
-          workspaceName: 'social-group-a',
-        ),
-      ],
-    );
-
-    await repository.refresh(
-      client: client,
-      endpoint: '127.0.0.1:23820',
-      isCurrent: () => true,
-      locale: 'zh-CN',
-      serverId: 'server-a',
-    );
-
-    final workflows = await repository
-        .watchWorkflows('server-a', locale: 'zh-CN')
-        .first;
-    final workspaces = await repository.watchWorkspaces('server-a').first;
-    expect(workflows.single.name, 'build-helper');
-    expect(workflows.single.title, 'build-helper');
-    expect(workflows.single.subtitle, isEmpty);
-    expect(workflows.single.driverLabel, 'Flowcraft');
-    expect(client.workflowSources, [
-      ResourceSource.RESOURCE_SOURCE_RUNTIME,
-      ResourceSource.RESOURCE_SOURCE_OWNED,
-    ]);
-    final mobileWorkspace = workspaces.firstWhere(
-      (workspace) => workspace.name == 'mobile-plan',
-    );
-    expect(mobileWorkspace.title, 'mobile-plan');
-    expect(mobileWorkspace.workflowName, 'build-helper');
-    expect(
-      workspaces
-          .firstWhere((workspace) => workspace.name == 'social-group-a')
-          .chatroomKind,
-      ChatroomWorkspaceKind.group,
-    );
-    expect(await repository.serverIdForEndpoint('127.0.0.1:23820'), 'server-a');
-    expect(
-      await repository.hasWorkflow(
-        'server-a',
-        'build-helper',
-        source: ResourceSource.RESOURCE_SOURCE_RUNTIME,
-      ),
-      isTrue,
-    );
-    expect(
-      await repository.hasWorkflow(
-        'server-a',
-        'missing',
-        source: ResourceSource.RESOURCE_SOURCE_RUNTIME,
-      ),
-      isFalse,
-    );
-    expect(
-      (await repository.workspaceDocument(
-        'server-a',
-        'mobile-plan',
-      ))?.workflowName,
-      'build-helper',
-    );
-    expect(await repository.workspaceDocument('server-a', 'missing'), isNull);
-    final friendChats = await repository.watchFriendChats('server-a').first;
-    expect(friendChats.single.workspaceName, 'social-direct-a');
-    expect(friendChats.single.title, 'friend-a');
-    expect(friendChats.single.resourceId, 'friend-a');
-    final groupChats = await repository.watchFriendGroupChats('server-a').first;
-    expect(groupChats.single.workspaceName, 'social-group-a');
-    expect(groupChats.single.title, 'Builder Crew');
-    expect(groupChats.single.description, 'Shipping together');
-  });
-
-  test('uses English for an unsupported effective locale', () async {
-    final database = AppDatabase.forTesting(NativeDatabase.memory());
-    addTearDown(database.close);
-    final repository = MobileDataRepository(database);
-    final client = _FakeClient(
-      workflows: [
-        Workflow(
-          name: 'stable-name',
-          spec: WorkflowSpec(driver: WorkflowDriver.WORKFLOW_DRIVER_FLOWCRAFT),
-        ),
-      ],
-      workspaces: const [],
-    );
-
-    await repository.refresh(
-      client: client,
-      endpoint: 'local',
-      isCurrent: () => true,
-      locale: 'en',
-      serverId: 'server-a',
-    );
-
-    final card =
-        (await repository.watchWorkflows('server-a', locale: 'en').first)
-            .single;
-    expect(card.title, 'stable-name');
-    expect(card.subtitle, isEmpty);
-    expect(client.workflowSources, [
-      ResourceSource.RESOURCE_SOURCE_RUNTIME,
-      ResourceSource.RESOURCE_SOURCE_OWNED,
-    ]);
-  });
-
   test(
-    'caches runtime aliases and owned workflow names independently',
+    'refreshes workspace and social snapshots without listing workflows',
     () async {
       final database = AppDatabase.forTesting(NativeDatabase.memory());
       addTearDown(database.close);
       final repository = MobileDataRepository(database);
       final client = _FakeClient(
-        workflows: [
-          Workflow(
-            name: 'shared-id',
-            spec: WorkflowSpec(
-              driver: WorkflowDriver.WORKFLOW_DRIVER_FLOWCRAFT,
+        workspaces: [
+          Workspace(
+            name: 'mobile-plan',
+            workflowName: 'build-helper',
+            lastActiveAt: '2026-07-12T00:00:00Z',
+          ),
+          Workspace(
+            name: 'social-group-a',
+            workflowName: 'chatroom',
+            parameters: WorkspaceParameters(
+              chatRoomWorkspaceParameters: ChatRoomWorkspaceParameters(
+                mode: ChatRoomMode.CHAT_ROOM_MODE_GROUP,
+              ),
             ),
           ),
         ],
-        ownedWorkflows: [
-          Workflow(
-            name: 'shared-id',
-            spec: WorkflowSpec(driver: WorkflowDriver.WORKFLOW_DRIVER_CHATROOM),
+        friends: [
+          FriendObject(
+            id: 'friend-a',
+            peerPublicKey: 'peer-public-key-a',
+            workspaceName: 'social-direct-a',
           ),
         ],
-        workspaces: [
-          Workspace(
-            name: 'owned-room',
-            workflowName: 'shared-id',
-            workflowSource: ResourceSource.RESOURCE_SOURCE_OWNED,
+        friendGroups: [
+          FriendGroupObject(
+            id: 'group-a',
+            name: 'Builder Crew',
+            description: 'Shipping together',
+            workspaceName: 'social-group-a',
           ),
         ],
       );
 
       await repository.refresh(
         client: client,
-        endpoint: 'local',
+        endpoint: '127.0.0.1:23820',
         isCurrent: () => true,
-        locale: 'en',
         serverId: 'server-a',
       );
 
-      final runtime =
-          (await repository.watchWorkflows('server-a', locale: 'en').first)
-              .single;
-      final catalog = await repository
-          .watchWorkflowCatalog('server-a', locale: 'en')
-          .first;
-      final owned = await repository.workflowCard(
-        'server-a',
-        'shared-id',
-        locale: 'en',
-        source: ResourceSource.RESOURCE_SOURCE_OWNED,
+      final workspaces = await repository.watchWorkspaces('server-a').first;
+      expect(client.workflowSources, isEmpty);
+      final mobileWorkspace = workspaces.firstWhere(
+        (workspace) => workspace.name == 'mobile-plan',
       );
-      final workspace =
-          (await repository.watchWorkspaces('server-a').first).single;
-
-      expect(runtime.source, ResourceSource.RESOURCE_SOURCE_RUNTIME);
-      expect(runtime.driver, WorkflowDriverKind.flowcraft);
-      expect(catalog, hasLength(2));
-      expect(owned?.driver, WorkflowDriverKind.chatroom);
-      expect(workspace.workflowSource, ResourceSource.RESOURCE_SOURCE_OWNED);
+      expect(mobileWorkspace.title, 'mobile-plan');
+      expect(mobileWorkspace.workflowName, 'build-helper');
+      expect(
+        workspaces
+            .firstWhere((workspace) => workspace.name == 'social-group-a')
+            .chatroomKind,
+        ChatroomWorkspaceKind.group,
+      );
+      expect(
+        await repository.serverIdForEndpoint('127.0.0.1:23820'),
+        'server-a',
+      );
+      expect(
+        (await repository.workspaceDocument(
+          'server-a',
+          'mobile-plan',
+        ))?.workflowName,
+        'build-helper',
+      );
+      expect(await repository.workspaceDocument('server-a', 'missing'), isNull);
+      final friendChats = await repository.watchFriendChats('server-a').first;
+      expect(friendChats.single.workspaceName, 'social-direct-a');
+      expect(friendChats.single.title, 'friend-a');
+      expect(friendChats.single.resourceId, 'friend-a');
+      final groupChats = await repository
+          .watchFriendGroupChats('server-a')
+          .first;
+      expect(groupChats.single.workspaceName, 'social-group-a');
+      expect(groupChats.single.title, 'Builder Crew');
+      expect(groupChats.single.description, 'Shipping together');
     },
   );
-
-  test('uses stable aliases independently of the app locale', () async {
-    final database = AppDatabase.forTesting(NativeDatabase.memory());
-    addTearDown(database.close);
-    final repository = MobileDataRepository(database);
-    final client = _FakeClient(
-      workflows: [
-        Workflow(
-          name: 'stable-name',
-          spec: WorkflowSpec(driver: WorkflowDriver.WORKFLOW_DRIVER_FLOWCRAFT),
-        ),
-      ],
-      workspaces: const [],
-    );
-    await repository.refresh(
-      client: client,
-      endpoint: 'local',
-      isCurrent: () => true,
-      locale: 'zh-CN',
-      serverId: 'server-a',
-    );
-
-    final card =
-        (await repository.watchWorkflows('server-a', locale: 'en').first)
-            .single;
-    expect(card.title, 'stable-name');
-    expect(card.subtitle, isEmpty);
-  });
-
-  test('does not write a refresh from a stale locale generation', () async {
-    final database = AppDatabase.forTesting(NativeDatabase.memory());
-    addTearDown(database.close);
-    final repository = MobileDataRepository(database);
-    final client = _FakeClient(
-      workflows: [
-        Workflow(
-          name: 'stale',
-          spec: WorkflowSpec(driver: WorkflowDriver.WORKFLOW_DRIVER_FLOWCRAFT),
-        ),
-      ],
-      workspaces: const [],
-    );
-
-    await repository.refresh(
-      client: client,
-      endpoint: 'local',
-      isCurrent: () => false,
-      locale: 'en',
-      serverId: 'server-a',
-    );
-
-    expect(
-      await repository.watchWorkflows('server-a', locale: 'en').first,
-      isEmpty,
-    );
-  });
 
   test('complete refresh removes rows absent from the snapshot', () async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(database.close);
     final repository = MobileDataRepository(database);
     final client = _FakeClient(
-      workflows: [
-        Workflow(
-          name: 'temporary',
-          spec: WorkflowSpec(driver: WorkflowDriver.WORKFLOW_DRIVER_CHATROOM),
-        ),
-      ],
       workspaces: [
         Workspace(name: 'temporary-room', workflowName: 'temporary'),
       ],
@@ -285,75 +104,18 @@ void main() {
       client: client,
       endpoint: 'local',
       isCurrent: () => true,
-      locale: 'en',
       serverId: 'server-a',
     );
 
-    client.workflows.clear();
     client.workspaces.clear();
     await repository.refresh(
       client: client,
       endpoint: 'local',
       isCurrent: () => true,
-      locale: 'en',
       serverId: 'server-a',
     );
 
-    expect(
-      await repository.watchWorkflows('server-a', locale: 'en').first,
-      isEmpty,
-    );
     expect(await repository.watchWorkspaces('server-a').first, isEmpty);
-  });
-
-  test('workflow failure does not block a workspace snapshot', () async {
-    final database = AppDatabase.forTesting(NativeDatabase.memory());
-    addTearDown(database.close);
-    final repository = MobileDataRepository(database);
-    final client = _FakeClient(
-      workflows: [
-        Workflow(
-          name: 'stable-workflow',
-          spec: WorkflowSpec(driver: WorkflowDriver.WORKFLOW_DRIVER_FLOWCRAFT),
-        ),
-      ],
-      workspaces: [
-        Workspace(name: 'stale-workspace', workflowName: 'stable-workflow'),
-      ],
-    );
-    await repository.refresh(
-      client: client,
-      endpoint: 'local',
-      isCurrent: () => true,
-      locale: 'en',
-      serverId: 'server-a',
-    );
-
-    client.failWorkflows = true;
-    client.workspaces
-      ..clear()
-      ..add(
-        Workspace(name: 'fresh-workspace', workflowName: 'stable-workflow'),
-      );
-    final warnings = await repository.refresh(
-      client: client,
-      endpoint: 'local',
-      isCurrent: () => true,
-      locale: 'en',
-      serverId: 'server-a',
-    );
-
-    expect(warnings.map((warning) => warning.scope), contains('Workflows'));
-    expect(
-      (await repository.watchWorkflows('server-a', locale: 'en').first)
-          .single
-          .name,
-      'stable-workflow',
-    );
-    expect(
-      (await repository.watchWorkspaces('server-a').first).single.name,
-      'fresh-workspace',
-    );
   });
 
   test('workspace failure preserves the previous projection', () async {
@@ -361,7 +123,6 @@ void main() {
     addTearDown(database.close);
     final repository = MobileDataRepository(database);
     final client = _FakeClient(
-      workflows: const [],
       workspaces: [Workspace(name: 'cached', workflowName: 'flow-a')],
     );
     await repository.refreshWorkspaceSnapshot(
@@ -377,7 +138,6 @@ void main() {
       client: client,
       endpoint: 'local',
       isCurrent: () => true,
-      locale: 'en',
       serverId: 'server-a',
     );
 
@@ -393,7 +153,6 @@ void main() {
     addTearDown(database.close);
     final repository = MobileDataRepository(database);
     final client = _FakeClient(
-      workflows: const [],
       workspaces: [Workspace(name: 'visible', workflowName: 'flow-a')],
     );
 
@@ -431,7 +190,6 @@ void main() {
       });
       final repository = MobileDataRepository(database);
       final client = _FakeClient(
-        workflows: const [],
         workspaces: [Workspace(name: 'cached', workflowName: 'flow-a')],
       );
       await repository.refreshWorkspaceSnapshot(
@@ -466,7 +224,6 @@ void main() {
     addTearDown(database.close);
     final repository = MobileDataRepository(database);
     final client = _FakeClient(
-      workflows: const [],
       workspaces: [Workspace(name: 'shared-name', workflowName: 'flow-a')],
     );
     for (final serverId in ['server-a', 'server-b']) {
@@ -499,7 +256,6 @@ void main() {
     addTearDown(database.close);
     final repository = MobileDataRepository(database);
     final client = _FakeClient(
-      workflows: const [],
       workspaces: [Workspace(name: 'visible', workflowName: 'flow-a')],
     );
     await repository.refreshWorkspaceSnapshot(
@@ -529,14 +285,6 @@ void main() {
       addTearDown(database.close);
       final repository = MobileDataRepository(database);
       final client = _FakeClient(
-        workflows: [
-          Workflow(
-            name: 'old-workflow',
-            spec: WorkflowSpec(
-              driver: WorkflowDriver.WORKFLOW_DRIVER_FLOWCRAFT,
-            ),
-          ),
-        ],
         workspaces: [
           Workspace(name: 'old-workspace', workflowName: 'old-workflow'),
         ],
@@ -552,23 +300,12 @@ void main() {
         client: client,
         endpoint: 'local',
         isCurrent: () => true,
-        locale: 'en',
         serverId: 'server-a',
       );
 
-      client.workflows
-        ..clear()
-        ..add(
-          Workflow(
-            name: 'new-workflow',
-            spec: WorkflowSpec(
-              driver: WorkflowDriver.WORKFLOW_DRIVER_AST_TRANSLATE,
-            ),
-          ),
-        );
       client.workspaces
         ..clear()
-        ..add(Workspace(name: 'new-workspace', workflowName: 'new-workflow'));
+        ..add(Workspace(name: 'new-workspace', workflowName: 'chat'));
       client.failFriends = true;
       client.failFriendGroups = true;
 
@@ -576,18 +313,11 @@ void main() {
         client: client,
         endpoint: 'local',
         isCurrent: () => true,
-        locale: 'en',
         serverId: 'server-a',
       );
 
       expect(warnings, hasLength(2));
       expect(warnings.map((warning) => warning.scope), ['Friends', 'Groups']);
-      expect(
-        (await repository.watchWorkflows('server-a', locale: 'en').first)
-            .single
-            .name,
-        'new-workflow',
-      );
       expect(
         (await repository.watchWorkspaces('server-a').first).single.name,
         'new-workspace',
@@ -602,21 +332,16 @@ void main() {
 
 class _FakeClient extends GizClawClient {
   _FakeClient({
-    required this.workflows,
     required this.workspaces,
-    this.ownedWorkflows = const [],
     this.friends = const [],
     this.friendGroups = const [],
   }) : super(_NeverDataChannelFactory());
 
   final List<FriendGroupObject> friendGroups;
   final List<FriendObject> friends;
-  final List<Workflow> ownedWorkflows;
-  final List<Workflow> workflows;
   final List<Workspace> workspaces;
   bool failFriends = false;
   bool failFriendGroups = false;
-  bool failWorkflows = false;
   bool failWorkspaces = false;
   final List<ResourceSource> workflowSources = [];
 
@@ -626,13 +351,8 @@ class _FakeClient extends GizClawClient {
     String? cursor,
     int? limit,
   }) async {
-    if (failWorkflows) throw StateError('workflow catalog unavailable');
     workflowSources.add(source);
-    return WorkflowListResponse(
-      items: source == ResourceSource.RESOURCE_SOURCE_OWNED
-          ? ownedWorkflows
-          : workflows,
-    );
+    return WorkflowListResponse();
   }
 
   @override

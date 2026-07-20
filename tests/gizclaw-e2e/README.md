@@ -194,8 +194,8 @@ gizclaw_bin="tests/gizclaw-e2e/testdata/bin/gizclaw"
 ```
 
 `context create` generates a new client identity. To expose seeded resources to
-that device, create a RegistrationToken for the intended firmware and
-RuntimeProfile through the admin CLI, then pass the raw token once with
+that device, create a RegistrationToken for the intended RuntimeProfile through
+the admin CLI, then pass the raw token once with
 `--registration-token` on a resource command. The server snapshots that profile
 onto the connection; reconnecting requires registration again.
 

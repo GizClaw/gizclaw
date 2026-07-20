@@ -17,6 +17,17 @@ import (
 
 const testScope Scope = "conversation-a"
 
+type recallMemoryWithHits struct {
+	recall.Memory
+	hits  []recall.Hit
+	query recall.Query
+}
+
+func (m *recallMemoryWithHits) Recall(_ context.Context, _ recall.Scope, query recall.Query) ([]recall.Hit, error) {
+	m.query = query
+	return m.hits, nil
+}
+
 func TestStoreScopesAreIsolated(t *testing.T) {
 	t.Parallel()
 	store := newTestStore(t, Config{})
@@ -42,6 +53,37 @@ func TestStoreScopesAreIsolated(t *testing.T) {
 		}
 		if _, leaked := result.Matches[0].Fact.Attributes["scope"]; leaked {
 			t.Fatalf("scope leaked into fact attributes: %+v", result.Matches[0].Fact.Attributes)
+		}
+	}
+}
+
+func TestStoreRecallReturnsStableDescendingScores(t *testing.T) {
+	t.Parallel()
+	base := newTestStore(t, Config{})
+	memory := &recallMemoryWithHits{
+		Memory: base.memory,
+		hits: []recall.Hit{
+			{Fact: recall.TemporalFact{ID: "first", Content: "first"}, Score: 0.2},
+			{Fact: recall.TemporalFact{ID: "second", Content: "second"}, Score: 0.8},
+			{Fact: recall.TemporalFact{ID: "third", Content: "third"}, Score: 0.8},
+			{Fact: recall.TemporalFact{ID: "fourth", Content: "fourth"}, Score: 0.1},
+		},
+	}
+	store := newStore(Config{}, memory, base.temporal, nil)
+	result, err := store.Recall(context.Background(), Query{Scope: testScope, Text: "query", Limit: 4})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if memory.query.Limit != 4 {
+		t.Fatalf("native query limit = %d, want 4", memory.query.Limit)
+	}
+	want := []string{"second", "third", "first", "fourth"}
+	if len(result.Matches) != len(want) {
+		t.Fatalf("Recall() returned %d matches, want %d", len(result.Matches), len(want))
+	}
+	for i, text := range want {
+		if result.Matches[i].Fact.Text != text {
+			t.Fatalf("Recall().Matches[%d].Fact.Text = %q, want %q", i, result.Matches[i].Fact.Text, text)
 		}
 	}
 }

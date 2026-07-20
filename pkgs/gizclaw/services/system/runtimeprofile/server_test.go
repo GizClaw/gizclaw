@@ -20,10 +20,9 @@ func TestRegistrationTokenIsReturnedOnceAndStoredAsHash(t *testing.T) {
 	now := time.Date(2026, 7, 18, 10, 0, 0, 0, time.UTC)
 	store := kv.NewMemory(nil)
 	s := &Server{
-		Store:          store,
-		Now:            func() time.Time { return now },
-		Random:         strings.NewReader(strings.Repeat("x", tokenBytes)),
-		FirmwareExists: func(context.Context, string) (bool, error) { return true, nil },
+		Store:  store,
+		Now:    func() time.Time { return now },
+		Random: strings.NewReader(strings.Repeat("x", tokenBytes)),
 	}
 	createProfile(t, s, "pet-runtime", map[string]string{
 		"primary":   "model-a",
@@ -32,7 +31,7 @@ func TestRegistrationTokenIsReturnedOnceAndStoredAsHash(t *testing.T) {
 	})
 
 	response, err := s.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
-		Name: "pet-board", FirmwareName: "h106", RuntimeProfileName: "pet-runtime",
+		Name: "pet-board", RuntimeProfileName: "pet-runtime",
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -77,7 +76,7 @@ func TestRegistrationTokenIsReturnedOnceAndStoredAsHash(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if registration.FirmwareName != "h106" || registration.RuntimeProfile.Name != "pet-runtime" {
+	if registration.RuntimeProfile.Name != "pet-runtime" {
 		t.Fatalf("registration = %#v", registration)
 	}
 	models := *registration.RuntimeProfile.Spec.Resources.Models
@@ -93,7 +92,7 @@ func TestRegistrationTokenCanBeReusedUntilDeleted(t *testing.T) {
 	s := &Server{Store: store, Random: strings.NewReader(strings.Repeat("y", tokenBytes))}
 	createProfile(t, s, "pet-runtime", nil)
 	response, err := s.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
-		Name: "pet-board", FirmwareName: "h106", RuntimeProfileName: "pet-runtime",
+		Name: "pet-board", RuntimeProfileName: "pet-runtime",
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -112,27 +111,59 @@ func TestRegistrationTokenCanBeReusedUntilDeleted(t *testing.T) {
 	}
 }
 
-func TestRegistrationTokenCannotResolveAfterFirmwareDeletion(t *testing.T) {
+func TestRegistrationTokenAcceptsScopedAppName(t *testing.T) {
+	t.Parallel()
+	s := &Server{
+		Store:  kv.NewMemory(nil),
+		Random: strings.NewReader(strings.Repeat("a", tokenBytes)),
+	}
+	createProfile(t, s, "app-runtime", nil)
+	response, err := s.CreateRegistrationToken(context.Background(), adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
+		Name: "app:com.gizclaw.opensource", RuntimeProfileName: "app-runtime",
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, ok := response.(adminhttp.CreateRegistrationToken200JSONResponse)
+	if !ok || created.Name != "app:com.gizclaw.opensource" || created.RuntimeProfileName != "app-runtime" {
+		t.Fatalf("CreateRegistrationToken() = %#v", response)
+	}
+}
+
+func TestRegistrationTokenIgnoresLegacyPersistedFirmwareName(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	store := kv.NewMemory(nil)
-	firmwareExists := true
 	s := &Server{
-		Store:          store,
-		Random:         strings.NewReader(strings.Repeat("z", tokenBytes)),
-		FirmwareExists: func(context.Context, string) (bool, error) { return firmwareExists, nil },
+		Store:  store,
+		Random: strings.NewReader(strings.Repeat("z", tokenBytes)),
 	}
 	createProfile(t, s, "pet-runtime", nil)
 	response, err := s.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
-		Name: "pet-board", FirmwareName: "h106", RuntimeProfileName: "pet-runtime",
+		Name: "pet-board", RuntimeProfileName: "pet-runtime",
 	}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	created := response.(adminhttp.CreateRegistrationToken200JSONResponse)
-	firmwareExists = false
-	if _, err := s.ResolveRegistration(ctx, created.Token); !errors.Is(err, kv.ErrNotFound) {
-		t.Fatalf("ResolveRegistration() error = %v, want not found", err)
+	data, err := store.Get(ctx, tokenKey("pet-board"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var legacy map[string]any
+	if err := json.Unmarshal(data, &legacy); err != nil {
+		t.Fatal(err)
+	}
+	legacy["firmware_name"] = "deleted-firmware"
+	data, err = json.Marshal(legacy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Set(ctx, tokenKey("pet-board"), data); err != nil {
+		t.Fatal(err)
+	}
+	if registration, err := s.ResolveRegistration(ctx, created.Token); err != nil || registration.RuntimeProfile.Name != "pet-runtime" {
+		t.Fatalf("ResolveRegistration() = %#v, %v", registration, err)
 	}
 }
 
@@ -149,7 +180,7 @@ func TestConcurrentRegistrationTokenCreateKeepsNameAndHashIndexesConsistent(t *t
 	for range attempts {
 		wg.Go(func() {
 			response, err := s.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
-				Name: "pet-board", FirmwareName: "h106", RuntimeProfileName: "pet-runtime",
+				Name: "pet-board", RuntimeProfileName: "pet-runtime",
 			}})
 			if err != nil {
 				t.Errorf("CreateRegistrationToken() error = %v", err)
@@ -198,6 +229,22 @@ func TestDanglingRuntimeProfileResourceNamesAreAccepted(t *testing.T) {
 	}
 	if _, ok := response.(adminhttp.CreateRuntimeProfile200JSONResponse); !ok {
 		t.Fatalf("response = %#v, want success", response)
+	}
+}
+
+func TestRuntimeProfileAcceptsDefaultName(t *testing.T) {
+	t.Parallel()
+	s := &Server{Store: kv.NewMemory(nil)}
+	response, err := s.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
+		Name: "default",
+		Spec: apitypes.RuntimeProfileSpec{},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, ok := response.(adminhttp.CreateRuntimeProfile200JSONResponse)
+	if !ok || created.Name != "default" {
+		t.Fatalf("CreateRuntimeProfile() = %#v, want RuntimeProfile/default", response)
 	}
 }
 

@@ -27,5 +27,5 @@ func TestLoCoMoMem0PlatformCustomInstructions(t *testing.T) {
 	}
 	profile := "mem0_platform_custom_instructions"
 	fingerprint := configFingerprint(profile, endpoint, identity)
-	runLiveProfile(t, settings, profile, fingerprint, store, nil)
+	runLiveProfile(t, settings, profile, fingerprint, reportModels{}, store, nil)
 }
