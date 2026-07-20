@@ -17,7 +17,7 @@ require (
 	github.com/gofiber/fiber/v2 v2.52.14
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/snappy v1.0.0
-	github.com/google/jsonschema-go v0.4.2
+	github.com/google/jsonschema-go v0.4.3
 	github.com/googleapis/gax-go/v2 v2.22.0
 	github.com/hajimehoshi/go-mp3 v0.3.4
 	github.com/jmoiron/sqlx v1.4.0
