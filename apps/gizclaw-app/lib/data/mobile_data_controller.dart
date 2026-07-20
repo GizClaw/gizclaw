@@ -845,7 +845,9 @@ class MobileDataController extends ChangeNotifier {
       throw ArgumentError.value(name, 'name', 'must be at most 80 characters');
     }
     final definition = appWorkflowDefinition(normalizedWorkflow);
-    if (definition == null || !definition.selectable) {
+    if (definition == null ||
+        !definition.selectable ||
+        isLegacyAppWorkflowAlias(normalizedWorkflow)) {
       throw StateError('Workflow $normalizedWorkflow is not supported');
     }
     final normalizedGenerateModel = generateModel?.trim() ?? '';
@@ -926,6 +928,10 @@ class MobileDataController extends ChangeNotifier {
   }) {
     for (final item in workflows) {
       if (item.name == name && item.source == source) return item;
+    }
+    if (source == ResourceSource.RESOURCE_SOURCE_RUNTIME) {
+      final compatibility = appWorkflowCard(name, _effectiveLocale);
+      if (compatibility != null) return compatibility;
     }
     return WorkflowCard.unknown(name, source: source);
   }

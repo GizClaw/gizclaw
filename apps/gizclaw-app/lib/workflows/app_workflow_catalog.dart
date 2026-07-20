@@ -46,7 +46,7 @@ class AppWorkflowDefinition {
   final String? languagePair;
   final bool selectable;
 
-  WorkflowCard card(AppLocalizations l10n) {
+  WorkflowCard card(AppLocalizations l10n, {String? name}) {
     final (title, subtitle) = switch (alias) {
       'doubao-realtime' => (
         l10n.workflowDoubaoRealtimeTitle,
@@ -78,7 +78,7 @@ class AppWorkflowDefinition {
       _ => (alias, ''),
     };
     return WorkflowCard(
-      name: alias,
+      name: name ?? alias,
       title: title,
       subtitle: subtitle,
       driverLabel: driver.label,
@@ -218,11 +218,21 @@ const appWorkflowDefinitions = <AppWorkflowDefinition>[
 ];
 
 AppWorkflowDefinition? appWorkflowDefinition(String alias) {
+  alias = _legacyWorkflowAliases[alias] ?? alias;
   for (final definition in appWorkflowDefinitions) {
     if (definition.alias == alias) return definition;
   }
   return null;
 }
+
+WorkflowCard? appWorkflowCard(String alias, Locale locale) {
+  final definition = appWorkflowDefinition(alias);
+  if (definition == null) return null;
+  return definition.card(lookupAppLocalizations(locale), name: alias);
+}
+
+bool isLegacyAppWorkflowAlias(String alias) =>
+    _legacyWorkflowAliases.containsKey(alias);
 
 List<WorkflowCard> appWorkflowCards(Locale locale, {bool selectable = false}) {
   final l10n = lookupAppLocalizations(locale);
@@ -236,3 +246,10 @@ String? _nonEmpty(String? value) {
   final normalized = value?.trim() ?? '';
   return normalized.isEmpty ? null : normalized;
 }
+
+const _legacyWorkflowAliases = <String, String>{
+  'ast-translate-zh-en-auto': 'translate-zh-en-auto',
+  'ast-translate-zh-ja': 'translate-zh-ja',
+  'ast-translate-zh-ko': 'translate-zh-ko',
+  'ast-translate-zh-es': 'translate-zh-es',
+};

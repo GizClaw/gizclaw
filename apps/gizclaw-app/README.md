@@ -115,4 +115,6 @@ local alias catalog rather than the Server Workflow execution contract.
 The fixed selectable aliases are `doubao-realtime`, `translate-zh-en-auto`,
 `translate-zh-ja`, `translate-zh-ko`, `translate-zh-es`, `chat`, `journey`, and
 `murder-mystery`. `chatroom` is a fixed internal alias for Friend and Group
-flows and is not offered by the picker.
+flows and is not offered by the picker. The legacy `ast-translate-zh-*` aliases
+map to the corresponding localized translation cards for existing Workspaces,
+but remain unavailable for new Workspace creation.

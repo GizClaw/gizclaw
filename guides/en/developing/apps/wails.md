@@ -51,6 +51,8 @@ a fresh `RegistrationToken/app:com.gizclaw.opensource`, retires
 `pod.json`. A recovered legacy process is restarted with the current companion
 before migration, and the default profile preserves legacy translation aliases
 for existing Workspaces. Other resources, including user edits, remain unchanged.
+Desktop suppresses QR handoff until this migration completes; opening local Play
+starts the current companion and migrates before handing off the new token.
 
 ## Local Server recovery
 

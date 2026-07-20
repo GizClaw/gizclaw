@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gizclaw/gizclaw.dart';
+import 'package:gizclaw_app/prototype/prototype_models.dart';
 import 'package:gizclaw_app/workflows/app_workflow_catalog.dart';
 
 void main() {
@@ -48,6 +49,23 @@ void main() {
     expect(english.last.title, 'Chatroom');
     expect(chinese.last.title, '聊天室');
     expect(chinese.last.subtitle, '好友与群组对话');
+  });
+
+  test('maps legacy translation aliases without making them selectable', () {
+    const legacyAlias = 'ast-translate-zh-ja';
+    final definition = appWorkflowDefinition(legacyAlias);
+    final card = appWorkflowCard(legacyAlias, const Locale('en'));
+
+    expect(definition?.alias, 'translate-zh-ja');
+    expect(definition?.languagePair, 'zh/ja');
+    expect(isLegacyAppWorkflowAlias(legacyAlias), isTrue);
+    expect(card?.name, legacyAlias);
+    expect(card?.title, 'Chinese → Japanese');
+    expect(card?.driver, WorkflowDriverKind.astTranslate);
+    expect(
+      appWorkflowDefinitions.map((definition) => definition.alias),
+      isNot(contains(legacyAlias)),
+    );
   });
 
   test('builds typed parameters for every selectable workflow', () {

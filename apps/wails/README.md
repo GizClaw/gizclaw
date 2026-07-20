@@ -56,7 +56,9 @@ only `RuntimeProfile/default`, creates a fresh
 `RegistrationToken/app:com.gizclaw.opensource`, retires the legacy
 `RegistrationToken/desktop-local`, and records the catalog version in `pod.json`.
 The default profile retains the legacy translation aliases needed by existing
-Workspaces. User-modified resources are otherwise preserved.
+Workspaces. User-modified resources are otherwise preserved. Until this
+migration completes, Desktop suppresses the legacy QR credential; opening Play
+starts the current companion and completes migration before token handoff.
 A remote Pod has one `remote_access_point` and zero or more
 `remote_servers`; Servers may be added after the Pod is created. Each Server's
 Admin private key is supplied by the user and stored write-only; omitting it

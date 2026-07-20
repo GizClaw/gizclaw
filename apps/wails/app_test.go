@@ -280,7 +280,7 @@ func TestAppPodFacadeNeverReturnsPrivateKeys(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if created.Local == nil || !created.Local.AdminConfigured || !created.PlayConfigured {
+	if created.Local == nil || !created.Local.AdminConfigured || created.PlayConfigured {
 		t.Fatalf("created = %+v", created)
 	}
 	bootstrap, err := app.Bootstrap()

@@ -750,13 +750,21 @@ func (b *PodBridge) StartLocal(ctx context.Context, id string) (PodSummary, erro
 		return PodSummary{}, fmt.Errorf("desktop bridge: refresh local workspace: %w", err)
 	}
 	workspace := filepath.Join(b.Paths.PodsDir, id, "workspace")
-	if b.Local.Status(id).State != "running" {
+	legacyProcessRunning := pod.LocalCatalogVersion < appconfig.LocalCatalogVersion && b.Local.Status(id).State == "running"
+	if legacyProcessRunning {
+		restartCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		_, err = b.Local.Restart(restartCtx, id, workspace)
+		cancel()
+		if err != nil {
+			return PodSummary{}, err
+		}
+	} else if b.Local.Status(id).State != "running" {
 		if listenErr := appconfig.CheckPortAvailable(pod.LocalServer.Port); listenErr != nil {
 			return PodSummary{}, fmt.Errorf("desktop bridge: local server port %d is already in use", pod.LocalServer.Port)
 		}
-	}
-	if _, err := b.Local.Start(id, workspace); err != nil {
-		return PodSummary{}, err
+		if _, err := b.Local.Start(id, workspace); err != nil {
+			return PodSummary{}, err
+		}
 	}
 	pod, err = b.ensureLocalRuntimeContract(ctx, pod)
 	if err != nil {
@@ -923,6 +931,15 @@ func (b *PodBridge) PlayURL(ctx context.Context, podID string) (string, error) {
 	if pod.ClientPrivateKey == "" {
 		return "", fmt.Errorf("desktop bridge: Play is not configured for this pod")
 	}
+	if pod.LocalServer != nil && pod.LocalCatalogVersion < appconfig.LocalCatalogVersion {
+		if _, err := b.StartLocal(ctx, podID); err != nil {
+			return "", fmt.Errorf("desktop bridge: prepare local Play runtime: %w", err)
+		}
+		pod, err = b.Store.Load(podID)
+		if err != nil {
+			return "", err
+		}
+	}
 	endpoint := pod.RemoteAccessPoint
 	if pod.LocalServer != nil {
 		endpoint = fmt.Sprintf("127.0.0.1:%d", pod.LocalServer.Port)
@@ -970,11 +987,9 @@ func (b *PodBridge) PlayURL(ctx context.Context, podID string) (string, error) {
 }
 
 func (b *PodBridge) summary(pod appconfig.Pod) PodSummary {
-	playConfigured := pod.ClientPrivateKey != ""
-	if pod.LocalServer == nil {
-		playConfigured = playConfigured && strings.TrimSpace(pod.RegistrationToken) != ""
-	}
-	summary := PodSummary{ID: pod.ID, Name: pod.Name, Description: pod.Description, PlayConfigured: playConfigured, PlayPublicKey: publicKeyForPrivate(pod.ClientPrivateKey), RegistrationToken: b.shareRegistrationToken(pod), Valid: true}
+	registrationToken := b.shareRegistrationToken(pod)
+	playConfigured := pod.ClientPrivateKey != "" && registrationToken != ""
+	summary := PodSummary{ID: pod.ID, Name: pod.Name, Description: pod.Description, PlayConfigured: playConfigured, PlayPublicKey: publicKeyForPrivate(pod.ClientPrivateKey), RegistrationToken: registrationToken, Valid: true}
 	if initialization, err := b.Store.Initialization(pod.ID); err != nil {
 		summary.Initialization = &InitializationSummary{State: "failed", Error: err.Error()}
 	} else if initialization != nil {
@@ -999,6 +1014,9 @@ func (b *PodBridge) summary(pod appconfig.Pod) PodSummary {
 func (b *PodBridge) shareRegistrationToken(pod appconfig.Pod) string {
 	if pod.LocalServer == nil {
 		return strings.TrimSpace(pod.RegistrationToken)
+	}
+	if pod.LocalCatalogVersion < appconfig.LocalCatalogVersion {
+		return ""
 	}
 	data, err := os.ReadFile(filepath.Join(b.Paths.PodsDir, pod.ID, "workspace", localserver.RegistrationTokenFile))
 	if err != nil {

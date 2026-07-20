@@ -7,6 +7,8 @@ App 内置与 `RuntimeProfile/default` 对应的固定 catalog：`doubao-realtim
 App 不调用 `server.workflow.list` 发现产品能力。一个 Workspaces 入口统一列出全部
 Workspace；唯一的 `+` 操作按 App 固定顺序展示八个可选 alias，并使用 App 自己的
 i18n、icon 与 typed parameters 创建 `source=runtime` Workspace。
+旧版已保存 Workspace 使用的 `ast-translate-zh-*` alias 会映射到对应翻译卡片并继续可用，
+但不会出现在新建 Workspace 的选择列表中。
 
 扫描 Desktop 本地 Pod 二维码后，App 将 raw registration credential 按 Server 保存到
 安全存储，并把连接注册到 `RuntimeProfile/default`。App 使用固定的应用 token identity

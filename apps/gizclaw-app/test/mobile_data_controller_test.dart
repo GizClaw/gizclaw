@@ -64,6 +64,19 @@ void main() {
     await firstClose;
   });
 
+  test('projects a legacy translation alias through its fixed App card', () {
+    final controller = MobileDataController.demo(
+      database: AppDatabase.forTesting(NativeDatabase.memory()),
+    );
+    addTearDown(controller.close);
+
+    final workflow = controller.workflow('ast-translate-zh-ja');
+
+    expect(workflow.name, 'ast-translate-zh-ja');
+    expect(workflow.driver, WorkflowDriverKind.astTranslate);
+    expect(workflow.title, isNotEmpty);
+  });
+
   test('rejects blank server endpoints before selecting or saving', () async {
     final controller = MobileDataController(
       database: AppDatabase.forTesting(NativeDatabase.memory()),
