@@ -11,7 +11,7 @@ require (
 	github.com/GizClaw/flowcraft/sdkx v0.4.10
 	github.com/GizClaw/minimax-go v0.0.0-20260625231851-7a1c8a1f2111
 	github.com/coder/websocket v1.8.15
-	github.com/dgraph-io/badger/v4 v4.9.1
+	github.com/dgraph-io/badger/v4 v4.9.4
 	github.com/felixge/httpsnoop v1.0.4
 	github.com/goccy/go-yaml v1.19.2
 	github.com/gofiber/fiber/v2 v2.52.14
