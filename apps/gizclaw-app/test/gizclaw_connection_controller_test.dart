@@ -257,6 +257,35 @@ void main() {
     );
   });
 
+  test('route restore failure does not fail a microphone transition', () async {
+    final track = _FakeTrack('mic-1');
+    var routeCalls = 0;
+    final controller = _controller(
+      acquire: () async => _FakeStream('stream-1', [track]),
+      configureMicrophoneSending: (_, _) async => (_) async {},
+      connect:
+          ({
+            required localAudioStream,
+            required peerRpcHandlers,
+            required prepareOffer,
+            required sendOffer,
+          }) async => _FakePeerConnection(),
+      prepareAudioOutput: () async {
+        routeCalls += 1;
+        if (routeCalls > 1) throw StateError('routing failed');
+      },
+    );
+    addTearDown(controller.close);
+    await controller.connect();
+
+    await controller.setMicrophoneSending(true);
+    expect(track.enabled, isTrue);
+    await controller.setMicrophoneSending(false);
+    expect(track.enabled, isFalse);
+    expect(controller.microphoneStatus, const MicrophoneStatus.ready());
+    expect(routeCalls, 3);
+  });
+
   test('notifies when the native peer connection leaves connected', () async {
     final peerConnection = _FakePeerConnection();
     final controller = _controller(

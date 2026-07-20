@@ -406,7 +406,16 @@ class GizClawConnectionController extends ChangeNotifier {
       );
       rethrow;
     }
-    await _prepareAudioOutput();
+    try {
+      await _prepareAudioOutput();
+    } catch (error) {
+      if (!kReleaseMode) {
+        debugPrint(
+          'GizClaw audio output route restore after microphone '
+          'active=$active failed: $error',
+        );
+      }
+    }
   }
 
   void _setMicrophoneStatus(MicrophoneStatus status) {
