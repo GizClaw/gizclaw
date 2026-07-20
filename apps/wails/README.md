@@ -51,9 +51,12 @@ deletable. Desktop startup removes a Pod left actively initializing after an
 interrupted creation, while failed Pods remain visible. Successful Pods never
 replay the full catalog during start, restart, or app upgrade. A legacy local
 Pod performs one targeted runtime-contract migration after its Server is ready:
-Desktop applies only `RuntimeProfile/default`, creates a fresh
-`RegistrationToken/app:com.gizclaw.opensource`, and records the catalog version
-in `pod.json`. User-modified resources are otherwise preserved.
+Desktop restarts a recovered legacy process with the current companion, applies
+only `RuntimeProfile/default`, creates a fresh
+`RegistrationToken/app:com.gizclaw.opensource`, retires the legacy
+`RegistrationToken/desktop-local`, and records the catalog version in `pod.json`.
+The default profile retains the legacy translation aliases needed by existing
+Workspaces. User-modified resources are otherwise preserved.
 A remote Pod has one `remote_access_point` and zero or more
 `remote_servers`; Servers may be added after the Pod is created. Each Server's
 Admin private key is supplied by the user and stored write-only; omitting it

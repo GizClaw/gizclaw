@@ -10,6 +10,10 @@ spec:
       translate-zh-ja: ast-translate-zh-ja
       translate-zh-ko: ast-translate-zh-ko
       translate-zh-es: ast-translate-zh-es
+      ast-translate-zh-en-auto: ast-translate-zh-en-auto
+      ast-translate-zh-ja: ast-translate-zh-ja
+      ast-translate-zh-ko: ast-translate-zh-ko
+      ast-translate-zh-es: ast-translate-zh-es
       doubao-realtime: doubao-realtime-conversation
       chat: flowcraft-chat-assistant
       journey: flowcraft-journey-guide

@@ -21,9 +21,10 @@ import (
 const (
 	// RegistrationTokenFile is the private workspace file that hands the local
 	// Desktop client's registration credential to the Play surface.
-	RegistrationTokenFile     = "registration-token"
-	appRegistrationTokenName  = "app:com.gizclaw.opensource"
-	defaultRuntimeProfileName = "default"
+	RegistrationTokenFile       = "registration-token"
+	appRegistrationTokenName    = "app:com.gizclaw.opensource"
+	legacyRegistrationTokenName = "desktop-local"
+	defaultRuntimeProfileName   = "default"
 )
 
 // Bootstrapper applies a validated catalog through the packaged companion CLI.
@@ -77,6 +78,9 @@ func (b *Bootstrapper) MigrateRuntimeContract(ctx context.Context, podDir string
 	_ = runBootstrapOperation(ctx, run, executable, []string{"admin", "registration-tokens", "delete", appRegistrationTokenName, "--context", "local"}, environment)
 	if err := b.createRegistrationToken(ctx, tempDir, podDir, executable, environment); err != nil {
 		return fmt.Errorf("local server bootstrap: migrate RegistrationToken/%s: %w", appRegistrationTokenName, err)
+	}
+	if err := runBootstrapOperation(ctx, run, executable, []string{"admin", "registration-tokens", "delete", legacyRegistrationTokenName, "--context", "local"}, environment); err != nil && !strings.Contains(err.Error(), "RESOURCE_NOT_FOUND:") {
+		return fmt.Errorf("local server bootstrap: retire RegistrationToken/%s: %w", legacyRegistrationTokenName, err)
 	}
 	return nil
 }

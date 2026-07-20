@@ -50,7 +50,9 @@ Server、apply 内嵌 Credential/Tenant/Model/Workflow/PetDef 与唯一的
 Desktop 或崩溃时仍在初始化的 Pod 会在下次启动时清理；已经成功创建的 Pod 在
 Desktop 或 Server 重启时不会重放完整 catalog，因此用户后续修改和删除的资源会保留。
 旧版 local Pod 会在 Server ready 后执行一次兼容迁移，只安装
-`RuntimeProfile/default` 并轮换固定 App RegistrationToken，不改动其他资源。
+`RuntimeProfile/default`、轮换固定 App RegistrationToken 并删除旧 Desktop token，不改动
+其他资源。若 Desktop 恢复到旧版 Server 进程，会先使用当前 companion 重启；旧翻译
+alias 会继续保留，已有 Workspace 不需要重建。
 
 ## 健康状态
 

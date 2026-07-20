@@ -213,7 +213,7 @@ func TestBootstrapperMigratesOnlyDefaultRuntimeContract(t *testing.T) {
 	if err := bootstrapper.MigrateRuntimeContract(context.Background(), podDir); err != nil {
 		t.Fatal(err)
 	}
-	if len(commands) != 3 || !strings.Contains(commands[0], "admin apply") || !strings.Contains(commands[1], "registration-tokens delete app:com.gizclaw.opensource") || !strings.Contains(commands[2], "registration-tokens create") {
+	if len(commands) != 4 || !strings.Contains(commands[0], "admin apply") || !strings.Contains(commands[1], "registration-tokens delete app:com.gizclaw.opensource") || !strings.Contains(commands[2], "registration-tokens create") || !strings.Contains(commands[3], "registration-tokens delete desktop-local") {
 		t.Fatalf("migration commands = %v", commands)
 	}
 	token, err := os.ReadFile(filepath.Join(podDir, "workspace", RegistrationTokenFile))

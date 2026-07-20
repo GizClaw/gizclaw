@@ -772,6 +772,21 @@ func TestStartingLegacyLocalPodMigratesRuntimeContractOnce(t *testing.T) {
 	if bootstrapper.migrationCalled.Load() {
 		t.Fatal("current local Pod repeated runtime migration")
 	}
+	loaded.LocalCatalogVersion = 0
+	if err := store.Save(loaded); err != nil {
+		t.Fatal(err)
+	}
+	bootstrapper.migrationCalled.Store(false)
+	previousPID := local.Status(pod.ID).PID
+	if _, err := b.RestartLocal(context.Background(), pod.ID); err != nil {
+		t.Fatal(err)
+	}
+	if !bootstrapper.migrationCalled.Load() {
+		t.Fatal("restarted legacy local Pod did not migrate its runtime contract")
+	}
+	if currentPID := local.Status(pod.ID).PID; currentPID == 0 || currentPID == previousPID {
+		t.Fatalf("RestartLocal() PID = %d, previous PID = %d", currentPID, previousPID)
+	}
 	stopCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	_, _ = local.Stop(stopCtx, pod.ID)
@@ -808,17 +823,19 @@ func TestRecoveringRunningLegacyLocalPodMigratesRuntimeContract(t *testing.T) {
 		t.Fatal(err)
 	}
 	workspace := filepath.Join(paths.PodsDir, pod.ID, "workspace")
-	if _, err := local.Start(pod.ID, workspace); err != nil {
+	initial, err := local.Start(pod.ID, workspace)
+	if err != nil {
 		t.Fatal(err)
 	}
 	bootstrapper := &fakeLocalPodBootstrapper{}
 	b := &PodBridge{
-		Paths:        paths,
-		Store:        store,
-		Bootstrapper: bootstrapper,
-		Health:       endpointhealth.New(),
-		Local:        local,
-		WebUI:        webui.New(fstest.MapFS{}),
+		Paths:          paths,
+		Store:          store,
+		Bootstrapper:   bootstrapper,
+		WaitLocalReady: func(context.Context, string, int) error { return nil },
+		Health:         endpointhealth.New(),
+		Local:          local,
+		WebUI:          webui.New(fstest.MapFS{}),
 	}
 	defer b.WebUI.Shutdown()
 	if err := b.RecoverLocalServers(context.Background()); err != nil {
@@ -826,6 +843,9 @@ func TestRecoveringRunningLegacyLocalPodMigratesRuntimeContract(t *testing.T) {
 	}
 	if !bootstrapper.migrationCalled.Load() {
 		t.Fatal("recovered legacy local Pod did not migrate its runtime contract")
+	}
+	if currentPID := local.Status(pod.ID).PID; currentPID == 0 || currentPID == initial.PID {
+		t.Fatalf("recovered legacy local Pod PID = %d, legacy PID = %d", currentPID, initial.PID)
 	}
 	loaded, err := store.Load(pod.ID)
 	if err != nil {

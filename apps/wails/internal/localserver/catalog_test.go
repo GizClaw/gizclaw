@@ -76,15 +76,19 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 		t.Fatal(err)
 	}
 	wantWorkflows := map[string]string{
-		"translate-zh-en-auto": "ast-translate-zh-en-auto",
-		"translate-zh-ja":      "ast-translate-zh-ja",
-		"translate-zh-ko":      "ast-translate-zh-ko",
-		"translate-zh-es":      "ast-translate-zh-es",
-		"doubao-realtime":      "doubao-realtime-conversation",
-		"chat":                 "flowcraft-chat-assistant",
-		"journey":              "flowcraft-journey-guide",
-		"murder-mystery":       "flowcraft-murder-mystery",
-		"chatroom":             "chatroom",
+		"translate-zh-en-auto":     "ast-translate-zh-en-auto",
+		"translate-zh-ja":          "ast-translate-zh-ja",
+		"translate-zh-ko":          "ast-translate-zh-ko",
+		"translate-zh-es":          "ast-translate-zh-es",
+		"ast-translate-zh-en-auto": "ast-translate-zh-en-auto",
+		"ast-translate-zh-ja":      "ast-translate-zh-ja",
+		"ast-translate-zh-ko":      "ast-translate-zh-ko",
+		"ast-translate-zh-es":      "ast-translate-zh-es",
+		"doubao-realtime":          "doubao-realtime-conversation",
+		"chat":                     "flowcraft-chat-assistant",
+		"journey":                  "flowcraft-journey-guide",
+		"murder-mystery":           "flowcraft-murder-mystery",
+		"chatroom":                 "chatroom",
 	}
 	if !maps.Equal(parsed.Spec.Resources.Workflows, wantWorkflows) {
 		t.Fatalf("RuntimeProfile/default Workflows = %#v, want %#v", parsed.Spec.Resources.Workflows, wantWorkflows)

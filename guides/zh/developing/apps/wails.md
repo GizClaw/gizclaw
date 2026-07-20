@@ -62,8 +62,10 @@ restart、Admin 和 Play 操作；delete 会先取消并等待后台任务。
 `failed` Pod。状态清除后的 Pod 不会在普通 start、restart 或 Desktop upgrade 时重放
 完整 catalog。旧版 local Pod 在 Server ready 后只执行一次 runtime contract 迁移：apply
 `RuntimeProfile/default`、创建新的
-`RegistrationToken/app:com.gizclaw.opensource`，并把 catalog version 记录到
-`pod.json`；其他可能已被用户修改的资源保持不变。
+`RegistrationToken/app:com.gizclaw.opensource`、删除旧
+`RegistrationToken/desktop-local`，并把 catalog version 记录到 `pod.json`。若恢复到
+旧版遗留进程，Desktop 会先用当前 companion 重启；default profile 同时保留已有
+Workspace 所需的旧翻译 alias。其他可能已被用户修改的资源保持不变。
 
 本地 Play 打开时，Bridge 通过每次 launch 独立保护的 Browser Runtime handoff 传递 raw RegistrationToken；
 Play 在同一条持久 WebRTC 连接上先调用 `server.register`，再加载 RuntimeProfile 资源。
