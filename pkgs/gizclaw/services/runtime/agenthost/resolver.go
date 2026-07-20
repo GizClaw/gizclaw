@@ -111,6 +111,8 @@ func (r ServiceResolver) resolveToolkit(ctx context.Context, ws apitypes.Workspa
 	if err != nil {
 		return nil, fmt.Errorf("agenthost: workspace toolkit policy: %w", err)
 	}
+	workflowIDs = resolveToolAliases(workflowIDs, access.profileToolBindings)
+	workspaceIDs = resolveToolAliases(workspaceIDs, access.profileToolBindings)
 	restrict := workflowRestrict || workspaceRestrict
 	ids := workflowIDs
 	switch {
@@ -129,6 +131,18 @@ func (r ServiceResolver) resolveToolkit(ctx context.Context, ws apitypes.Workspa
 			RestrictToolIDs: restrict,
 		},
 	}, nil
+}
+
+func resolveToolAliases(ids []string, bindings map[string]string) []string {
+	out := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if resourceID := strings.TrimSpace(bindings[id]); resourceID != "" {
+			out = append(out, resourceID)
+			continue
+		}
+		out = append(out, id)
+	}
+	return out
 }
 
 func policyToolIDs(policy *apitypes.ToolkitPolicy) ([]string, bool, error) {

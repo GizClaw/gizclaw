@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"maps"
 	"slices"
 	"strings"
 	"sync"
@@ -89,15 +90,15 @@ func TestServiceReloadAppliesPendingAndStop(t *testing.T) {
 	}
 }
 
-func TestRuntimeProfileToolIDsUsesAliasOrder(t *testing.T) {
+func TestRuntimeProfileToolBindingsPreserveAliases(t *testing.T) {
 	tools := map[string]apitypes.RuntimeProfileBinding{
 		"weather": {ResourceId: "tool-weather"},
 		"clock":   {ResourceId: "tool-clock"},
 		"alarm":   {ResourceId: "tool-alarm"},
 	}
-	want := []string{"tool-alarm", "tool-clock", "tool-weather"}
-	if got := runtimeProfileToolIDs(&tools); !slices.Equal(got, want) {
-		t.Fatalf("runtimeProfileToolIDs() = %#v, want %#v", got, want)
+	want := map[string]string{"weather": "tool-weather", "clock": "tool-clock", "alarm": "tool-alarm"}
+	if got := runtimeProfileToolBindings(&tools); !maps.Equal(got, want) {
+		t.Fatalf("runtimeProfileToolBindings() = %#v, want %#v", got, want)
 	}
 }
 

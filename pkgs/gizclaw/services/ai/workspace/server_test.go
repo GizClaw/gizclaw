@@ -780,6 +780,60 @@ func TestServerValidatesRuntimeFlowcraftModelAliases(t *testing.T) {
 	}
 }
 
+func TestServerValidatesRuntimeASTTranslateAliases(t *testing.T) {
+	t.Parallel()
+	srv := newTestServer(t)
+	store, err := srv.workflowStore()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Set(context.Background(), workflowReferenceKey("ast-workflow"), []byte(`{"name":"ast-workflow","spec":{"driver":"ast-translate","ast_translate":{"translation_model":"translate-model","lang_pair":"auto"}}}`)); err != nil {
+		t.Fatal(err)
+	}
+	seedModel(t, srv, "translation-resource", apitypes.ModelKindTranslation)
+	seedModel(t, srv, "llm-resource", apitypes.ModelKindLlm)
+	ctx := WithRuntimeVoiceBindings(
+		WithRuntimeModelBindings(
+			WithRuntimeWorkflowBindings(context.Background(), map[string]string{"translate": "ast-workflow"}),
+			map[string]string{"translate-model": "translation-resource", "wrong-model": "llm-resource"},
+		),
+		map[string]string{"translator": "voice-resource"},
+	)
+	tests := []struct {
+		name string
+		body string
+		want string
+		ok   bool
+	}{
+		{name: "valid", body: `{"name":"ast-valid","workflow_name":"translate","parameters":{"agent_type":"ast-translate","translation_model":"translate-model","voice":{"tts_voice":"translator"}}}`, ok: true},
+		{name: "missing model", body: `{"name":"ast-missing-model","workflow_name":"translate","parameters":{"agent_type":"ast-translate","translation_model":"missing"}}`, want: `missing runtime Model alias "missing"`},
+		{name: "wrong model kind", body: `{"name":"ast-wrong-model","workflow_name":"translate","parameters":{"agent_type":"ast-translate","translation_model":"wrong-model"}}`, want: `has kind "llm", want "translation"`},
+		{name: "missing voice", body: `{"name":"ast-missing-voice","workflow_name":"translate","parameters":{"agent_type":"ast-translate","voice":{"tts_voice":"missing"}}}`, want: `missing runtime Voice alias "missing"`},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			body := mustWorkspaceUpsert(t, test.body)
+			response, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if test.ok {
+				if _, ok := response.(adminhttp.CreateWorkspace200JSONResponse); !ok {
+					t.Fatalf("CreateWorkspace() = %#v, want 200", response)
+				}
+				return
+			}
+			invalid, ok := response.(adminhttp.CreateWorkspace400JSONResponse)
+			if !ok || !strings.Contains(invalid.Error.Message, test.want) {
+				t.Fatalf("CreateWorkspace() = %#v, want %q", response, test.want)
+			}
+			if strings.Contains(invalid.Error.Message, "translation-resource") || strings.Contains(invalid.Error.Message, "llm-resource") {
+				t.Fatalf("CreateWorkspace() exposes canonical Model ID: %q", invalid.Error.Message)
+			}
+		})
+	}
+}
+
 func TestServerStoreHelpers(t *testing.T) {
 	t.Parallel()
 

@@ -487,9 +487,12 @@ func (s *Server) handleWorkspaceCreate(ctx context.Context, req *rpcapi.RPCReque
 		Name: params.Name, WorkflowName: alias,
 		Parameters: parameters, Toolkit: toolkitPolicy, Labels: &labels,
 	}
-	workspaceCtx := workspace.WithRuntimeModelBindings(
-		workspace.WithRuntimeWorkflowBindings(s.ownerContext(ctx), profileBindingsFrom(profile, profileWorkflows)),
-		profileBindingsFrom(profile, profileModels),
+	workspaceCtx := workspace.WithRuntimeVoiceBindings(
+		workspace.WithRuntimeModelBindings(
+			workspace.WithRuntimeWorkflowBindings(s.ownerContext(ctx), profileBindingsFrom(profile, profileWorkflows)),
+			profileBindingsFrom(profile, profileModels),
+		),
+		profileBindingsFrom(profile, profileVoices),
 	)
 	adminResp, err := s.Workspaces.CreateWorkspace(workspaceCtx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
 	if err != nil {
@@ -548,9 +551,12 @@ func (s *Server) handleWorkspacePut(ctx context.Context, req *rpcapi.RPCRequest)
 		}
 		body.Toolkit = toolkitPolicy
 	}
-	workspaceCtx := workspace.WithRuntimeModelBindings(
-		workspace.WithRuntimeWorkflowBindings(s.ownerContext(ctx), profileBindingsFrom(profile, profileWorkflows)),
-		profileBindingsFrom(profile, profileModels),
+	workspaceCtx := workspace.WithRuntimeVoiceBindings(
+		workspace.WithRuntimeModelBindings(
+			workspace.WithRuntimeWorkflowBindings(s.ownerContext(ctx), profileBindingsFrom(profile, profileWorkflows)),
+			profileBindingsFrom(profile, profileModels),
+		),
+		profileBindingsFrom(profile, profileVoices),
 	)
 	adminResp, err := s.Workspaces.PutWorkspace(workspaceCtx, adminhttp.PutWorkspaceRequestObject{Name: params.Name, Body: &body})
 	if err != nil {

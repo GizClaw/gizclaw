@@ -52,6 +52,7 @@ type ModelService interface {
 
 type runtimeWorkflowBindingsContextKey struct{}
 type runtimeModelBindingsContextKey struct{}
+type runtimeVoiceBindingsContextKey struct{}
 
 // WithRuntimeWorkflowBindings attaches the authenticated connection's current
 // RuntimeProfile Workflow alias snapshot to Workspace validation.
@@ -71,6 +72,16 @@ func WithRuntimeModelBindings(ctx context.Context, bindings map[string]string) c
 		cloned[alias] = name
 	}
 	return context.WithValue(ctx, runtimeModelBindingsContextKey{}, cloned)
+}
+
+// WithRuntimeVoiceBindings attaches the same RuntimeProfile snapshot's Voice
+// alias bindings so Workspace overrides can be validated before persistence.
+func WithRuntimeVoiceBindings(ctx context.Context, bindings map[string]string) context.Context {
+	cloned := make(map[string]string, len(bindings))
+	for alias, name := range bindings {
+		cloned[alias] = name
+	}
+	return context.WithValue(ctx, runtimeVoiceBindingsContextKey{}, cloned)
 }
 
 type WorkspaceAdminService interface {
@@ -678,6 +689,9 @@ func (s *Server) validateReferences(ctx context.Context, store kv.Store, workspa
 	if err := json.Unmarshal(data, &workflow); err != nil {
 		return fmt.Errorf("decode workflow %q: %w", workflowName, err)
 	}
+	if workflow.Spec.Driver == apitypes.WorkflowDriverAstTranslate && runtimeAlias {
+		return s.validateASTTranslateOverrides(ctx, workspace.Parameters)
+	}
 	if workflow.Spec.Driver != apitypes.WorkflowDriverFlowcraft {
 		return nil
 	}
@@ -708,6 +722,51 @@ func (s *Server) validateReferences(ctx context.Context, store kv.Store, workspa
 		if err := s.validateFlowcraftModel(ctx, reference.Role, modelID, visibleModelID); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func (s *Server) validateASTTranslateOverrides(ctx context.Context, workspaceParameters *apitypes.WorkspaceParameters) error {
+	if workspaceParameters == nil {
+		return nil
+	}
+	parameters, err := workspaceParameters.AsASTTranslateWorkspaceParameters()
+	if err != nil {
+		return invalidWorkspaceReference("ast-translate parameters are required: %v", err)
+	}
+	if parameters.TranslationModel != nil {
+		alias := strings.TrimSpace(*parameters.TranslationModel)
+		if alias != "" {
+			bindings, present := ctx.Value(runtimeModelBindingsContextKey{}).(map[string]string)
+			if !present {
+				return errors.New("runtime model bindings not configured")
+			}
+			modelID := strings.TrimSpace(bindings[alias])
+			if modelID == "" {
+				return invalidWorkspaceReference("ast-translate parameter %q references missing runtime Model alias %q", "translation_model", alias)
+			}
+			if err := s.validateModelKind(ctx, "ast-translate parameter", "translation_model", modelID, alias, apitypes.ModelKindTranslation); err != nil {
+				return err
+			}
+		}
+	}
+	if parameters.Voice == nil {
+		return nil
+	}
+	external, err := parameters.Voice.AsASTTranslateExternalVoiceParameters()
+	if err != nil {
+		return invalidWorkspaceReference("ast-translate voice parameters are invalid: %v", err)
+	}
+	alias := strings.TrimSpace(external.TtsVoice)
+	if alias == "" {
+		return nil
+	}
+	bindings, present := ctx.Value(runtimeVoiceBindingsContextKey{}).(map[string]string)
+	if !present {
+		return errors.New("runtime voice bindings not configured")
+	}
+	if strings.TrimSpace(bindings[alias]) == "" {
+		return invalidWorkspaceReference("ast-translate parameter %q references missing runtime Voice alias %q", "voice.tts_voice", alias)
 	}
 	return nil
 }
@@ -822,6 +881,14 @@ func resolveFlowcraftModel(name string, workspaceValue *string, settings map[str
 }
 
 func (s *Server) validateFlowcraftModel(ctx context.Context, role, modelID, visibleModelID string) error {
+	want := apitypes.ModelKindLlm
+	if role == "embedding_model" {
+		want = apitypes.ModelKindEmbedding
+	}
+	return s.validateModelKind(ctx, "flowcraft parameter", role, modelID, visibleModelID, want)
+}
+
+func (s *Server) validateModelKind(ctx context.Context, subject, role, modelID, visibleModelID string, want apitypes.ModelKind) error {
 	if s == nil || s.Models == nil {
 		return errors.New("model service not configured")
 	}
@@ -831,17 +898,13 @@ func (s *Server) validateFlowcraftModel(ctx context.Context, role, modelID, visi
 	}
 	model, ok := response.(adminhttp.GetModel200JSONResponse)
 	if _, missing := response.(adminhttp.GetModel404JSONResponse); missing {
-		return invalidWorkspaceReference("flowcraft parameter %q references missing Model %q", role, visibleModelID)
+		return invalidWorkspaceReference("%s %q references missing Model %q", subject, role, visibleModelID)
 	}
 	if !ok {
-		return fmt.Errorf("validate flowcraft parameter %q Model %q: model service returned %T", role, visibleModelID, response)
-	}
-	want := apitypes.ModelKindLlm
-	if role == "embedding_model" {
-		want = apitypes.ModelKindEmbedding
+		return fmt.Errorf("validate %s %q Model %q: model service returned %T", subject, role, visibleModelID, response)
 	}
 	if model.Kind != want {
-		return invalidWorkspaceReference("flowcraft parameter %q Model %q has kind %q, want %q", role, visibleModelID, model.Kind, want)
+		return invalidWorkspaceReference("%s %q Model %q has kind %q, want %q", subject, role, visibleModelID, model.Kind, want)
 	}
 	return nil
 }

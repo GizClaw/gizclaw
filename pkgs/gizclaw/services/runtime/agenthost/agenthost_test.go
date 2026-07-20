@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"slices"
 	"strings"
 	"testing"
 
@@ -148,6 +149,17 @@ func TestServiceResolverRequiresSubjectForToolkit(t *testing.T) {
 
 	if _, err := resolver.Resolve(context.Background(), "demo"); err == nil || !strings.Contains(err.Error(), "resource access context") {
 		t.Fatalf("Resolve() error = %v, want resource access context error", err)
+	}
+}
+
+func TestResolveToolAliasesUsesRuntimeProfileBindings(t *testing.T) {
+	got := resolveToolAliases([]string{"search", "system.clock", "missing"}, map[string]string{
+		"search": "system.search",
+		"clock":  "system.clock",
+	})
+	want := []string{"system.search", "system.clock", "missing"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("resolveToolAliases() = %#v, want %#v", got, want)
 	}
 }
 
