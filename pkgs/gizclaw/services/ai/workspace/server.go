@@ -17,6 +17,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/iconasset"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
@@ -556,24 +557,7 @@ func normalizeWorkspaceUpsert(in adminhttp.WorkspaceUpsert, expectedName string)
 }
 
 func validateWorkspaceWorkflowName(value string) error {
-	if len(value) == 0 || len(value) > 63 {
-		return errors.New("workflow_name: must be 1-63 characters")
-	}
-	if value[0] < 'a' || value[0] > 'z' {
-		return errors.New("workflow_name: must start with a lowercase ASCII letter")
-	}
-	for index := range len(value) {
-		character := value[index]
-		if (character >= 'a' && character <= 'z') || (character >= '0' && character <= '9') || character == '-' {
-			continue
-		}
-		return errors.New("workflow_name: must use lowercase kebab-case")
-	}
-	last := value[len(value)-1]
-	if !((last >= 'a' && last <= 'z') || (last >= '0' && last <= '9')) {
-		return errors.New("workflow_name: must end with a lowercase ASCII letter or digit")
-	}
-	return nil
+	return runtimeprofile.ValidateAlias("workflow_name", value)
 }
 
 func normalizeWorkspaceLabels(labels *map[string]string) (*map[string]string, error) {

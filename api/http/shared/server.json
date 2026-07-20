@@ -223,8 +223,15 @@
           "limit": {
             "type": "integer",
             "minimum": 1
+          },
+          "collection": {
+            "type": "string",
+            "minLength": 1
           }
-        }
+        },
+        "required": [
+          "collection"
+        ]
       },
       "WorkspaceListResponse": {
         "type": "object",

@@ -360,6 +360,8 @@ Future<List<({String collection, Workspace value})>> _allWorkspaces(
   GizClawClient client,
 ) async {
   final items = <({String collection, Workspace value})>[];
+  String? profileName;
+  String? profileRevision;
   for (final collection in appWorkflowCollections) {
     String? cursor;
     do {
@@ -368,6 +370,12 @@ Future<List<({String collection, Workspace value})>> _allWorkspaces(
         cursor: cursor,
         limit: 100,
       );
+      profileName ??= response.runtimeProfileName;
+      profileRevision ??= response.runtimeProfileRevision;
+      if (response.runtimeProfileName != profileName ||
+          response.runtimeProfileRevision != profileRevision) {
+        throw StateError('Runtime profile changed while loading workspaces');
+      }
       items.addAll(
         response.items.map(
           (workspace) => (collection: collection.id, value: workspace),

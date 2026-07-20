@@ -34,6 +34,8 @@ export const RPC_FRAME_TYPE_EOS = 0;
 export const RPC_FRAME_TYPE_JSON = 1;
 export const RPC_FRAME_TYPE_BINARY = 2;
 export const RPC_FRAME_TYPE_TEXT = 3;
+export const SPEECH_TRANSCRIPTION_REQUEST_TIMEOUT_MS = 80000;
+export const SPEECH_SYNTHESIS_REQUEST_TIMEOUT_MS = 125000;
 const RPC_MAX_FRAME_PAYLOAD_SIZE = 0xffff;
 const RPC_MAX_ENVELOPE_SIZE = RPC_MAX_FRAME_PAYLOAD_SIZE * 16;
 const DATA_CHANNEL_SEND_RETRY_DELAY_MS = 5;
@@ -227,7 +229,7 @@ export class WebRTCRPCClient {
       {
         ...options,
         id: options.id ?? this.createID(),
-        timeoutMs: options.timeoutMs ?? this.requestTimeoutMs,
+        timeoutMs: options.timeoutMs ?? Math.max(this.requestTimeoutMs, SPEECH_TRANSCRIPTION_REQUEST_TIMEOUT_MS),
       },
     );
   }
@@ -244,7 +246,7 @@ export class WebRTCRPCClient {
       {
         ...options,
         id: options.id ?? this.createID(),
-        timeoutMs: options.timeoutMs ?? this.requestTimeoutMs,
+        timeoutMs: options.timeoutMs ?? Math.max(this.requestTimeoutMs, SPEECH_SYNTHESIS_REQUEST_TIMEOUT_MS),
       },
     );
   }

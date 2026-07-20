@@ -102,6 +102,55 @@ func TestSynthesizeResolvesVoiceAliasAndRejectsCanonicalID(t *testing.T) {
 	}
 }
 
+func TestSynthesizeReportsConfiguredMiniMaxPCMSampleRate(t *testing.T) {
+	events := []string{}
+	sampleRate := 24000
+	svc := New(Service{
+		Voices: aliasVoices{
+			fakeVoices: fakeVoices{
+				events:       &events,
+				providerKind: apitypes.VoiceProviderKindMinimaxTenant,
+				sampleRate:   &sampleRate,
+			},
+			aliases: map[string]string{"narrator": "canonical-voice"},
+		},
+		Credentials:     fakeCredentials{events: &events},
+		ProviderTenants: fakeTenants{events: &events},
+		Builder:         fakeBuilder{events: &events},
+	})
+
+	result, err := svc.Synthesize(context.Background(), "narrator", "hello", []string{"audio/pcm"})
+	if err != nil {
+		t.Fatalf("Synthesize() error = %v", err)
+	}
+	_ = result.Stream.Close()
+	if result.SampleRateHz == nil || *result.SampleRateHz != int32(sampleRate) || result.Channels == nil || *result.Channels != 1 {
+		t.Fatalf("Synthesize() metadata = %+v, want %d Hz mono", result, sampleRate)
+	}
+}
+
+func TestSynthesizeRejectsInvalidMiniMaxPCMSampleRate(t *testing.T) {
+	events := []string{}
+	sampleRate := 0
+	svc := New(Service{
+		Voices: aliasVoices{
+			fakeVoices: fakeVoices{
+				events:       &events,
+				providerKind: apitypes.VoiceProviderKindMinimaxTenant,
+				sampleRate:   &sampleRate,
+			},
+			aliases: map[string]string{"narrator": "canonical-voice"},
+		},
+		Credentials:     fakeCredentials{events: &events},
+		ProviderTenants: fakeTenants{events: &events},
+		Builder:         fakeBuilder{events: &events},
+	})
+
+	if _, err := svc.Synthesize(context.Background(), "narrator", "hello", []string{"audio/pcm"}); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("Synthesize() error = %v, want %v", err, ErrInvalid)
+	}
+}
+
 func TestSelectSpeechSynthesisFormatHonorsOrderedPreference(t *testing.T) {
 	format, contentType, raw, err := selectSpeechSynthesisFormat(
 		string(apitypes.VoiceProviderKindVolcTenant),

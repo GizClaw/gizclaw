@@ -125,6 +125,7 @@ func (s *rpcServer) handleSpeechTranscribe(ctx context.Context, stream *rpcStrea
 	}
 	transcript, callErr := service.Transcribe(callCtx, strings.TrimSpace(params.ModelAlias), language, builder.Stream())
 	if callErr != nil {
+		cancel()
 		_ = builder.Abort(callErr)
 	}
 	uploadErr := <-uploadDone

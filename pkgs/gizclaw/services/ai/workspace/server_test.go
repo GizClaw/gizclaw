@@ -527,13 +527,13 @@ func TestNormalizeWorkspaceUpsertAcceptsWorkflowAlias(t *testing.T) {
 
 	got, err := normalizeWorkspaceUpsert(adminhttp.WorkspaceUpsert{
 		Name:         "runtime-workspace",
-		WorkflowName: "chat",
+		WorkflowName: "2fa-chat",
 	}, "")
 	if err != nil {
 		t.Fatalf("normalizeWorkspaceUpsert() error = %v", err)
 	}
-	if got.WorkflowName != "chat" {
-		t.Fatalf("normalizeWorkspaceUpsert() workflow_name = %q, want chat", got.WorkflowName)
+	if got.WorkflowName != "2fa-chat" {
+		t.Fatalf("normalizeWorkspaceUpsert() workflow_name = %q, want 2fa-chat", got.WorkflowName)
 	}
 }
 

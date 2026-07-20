@@ -1536,6 +1536,7 @@ func mustMiniMaxVoiceProviderData(t *testing.T, data apitypes.MiniMaxTenantVoice
 type fakeVoices struct {
 	events       *[]string
 	providerKind apitypes.VoiceProviderKind
+	sampleRate   *int
 }
 
 func (f fakeVoices) GetVoice(_ context.Context, request adminhttp.GetVoiceRequestObject) (adminhttp.GetVoiceResponseObject, error) {
@@ -1549,7 +1550,7 @@ func (f fakeVoices) GetVoice(_ context.Context, request adminhttp.GetVoiceReques
 	var err error
 	switch providerKind {
 	case apitypes.VoiceProviderKindMinimaxTenant:
-		err = providerData.FromMiniMaxTenantVoiceProviderData(apitypes.MiniMaxTenantVoiceProviderData{VoiceId: &voiceID})
+		err = providerData.FromMiniMaxTenantVoiceProviderData(apitypes.MiniMaxTenantVoiceProviderData{VoiceId: &voiceID, SampleRate: f.sampleRate})
 	default:
 		err = providerData.FromVolcTenantVoiceProviderData(apitypes.VolcTenantVoiceProviderData{VoiceId: &voiceID})
 	}

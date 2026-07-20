@@ -380,7 +380,7 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedName string) (a
 	collections := make(apitypes.RuntimeProfileWorkflowCollections, len(spec.Workflows.Collections))
 	for collection, bindings := range spec.Workflows.Collections {
 		collection = strings.TrimSpace(collection)
-		if err := validateRuntimeAlias("workflow collection", collection); err != nil {
+		if err := ValidateAlias("workflow collection", collection); err != nil {
 			return apitypes.RuntimeProfile{}, err
 		}
 		normalized, err := normalizeBindingMap(bindings)
@@ -747,7 +747,7 @@ func normalizeBindingMap(values map[string]apitypes.RuntimeProfileBinding) (map[
 	out := make(map[string]apitypes.RuntimeProfileBinding, len(values))
 	for alias, binding := range values {
 		alias = strings.TrimSpace(alias)
-		if err := validateRuntimeAlias("resource alias", alias); err != nil {
+		if err := ValidateAlias("resource alias", alias); err != nil {
 			return nil, err
 		}
 		binding.ResourceId = strings.TrimSpace(binding.ResourceId)
@@ -787,7 +787,9 @@ func normalizeBindingMap(values map[string]apitypes.RuntimeProfileBinding) (map[
 	return out, nil
 }
 
-func validateRuntimeAlias(kind, value string) error {
+// ValidateAlias applies the canonical RuntimeProfile alias contract used by
+// profile bindings and resources that persist those aliases.
+func ValidateAlias(kind, value string) error {
 	if len(value) == 0 || len(value) > 63 || !runtimeAliasPattern.MatchString(value) {
 		return fmt.Errorf("%s %q must be 1-63 characters of lowercase kebab-case", kind, value)
 	}

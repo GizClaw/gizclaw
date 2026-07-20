@@ -118,6 +118,30 @@ void main() {
     expect(await repository.watchWorkspaces('server-a').first, isEmpty);
   });
 
+  test('rejects workspace snapshots spanning runtime revisions', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    final repository = MobileDataRepository(database);
+    final client = _FakeClient(
+      workspaces: const [],
+      workspaceProfileRevisions: const {
+        'assistants': 'revision-1',
+        'translates': 'revision-2',
+      },
+    );
+
+    await expectLater(
+      repository.refreshWorkspaceSnapshot(
+        client: client,
+        endpoint: 'local',
+        isCurrent: () => true,
+        serverId: 'server-a',
+      ),
+      throwsA(isA<StateError>()),
+    );
+    expect(await repository.watchWorkspaces('server-a').first, isEmpty);
+  });
+
   test('workspace failure preserves the previous projection', () async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(database.close);
@@ -335,11 +359,13 @@ class _FakeClient extends GizClawClient {
     required this.workspaces,
     this.friends = const [],
     this.friendGroups = const [],
+    this.workspaceProfileRevisions = const {},
   }) : super(_NeverDataChannelFactory());
 
   final List<FriendGroupObject> friendGroups;
   final List<FriendObject> friends;
   final List<Workspace> workspaces;
+  final Map<String, String> workspaceProfileRevisions;
   bool failFriends = false;
   bool failFriendGroups = false;
   bool failWorkspaces = false;
@@ -368,6 +394,8 @@ class _FakeClient extends GizClawClient {
     if (failWorkspaces) throw StateError('workspace catalog unavailable');
     return WorkspaceListResponse(
       items: collection == 'raids' ? workspaces : [],
+      runtimeProfileName: 'default',
+      runtimeProfileRevision: workspaceProfileRevisions[collection] ?? 'test',
     );
   }
 

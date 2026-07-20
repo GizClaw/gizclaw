@@ -14,6 +14,8 @@ import {
   RPC_FRAME_TYPE_EOS,
   RPC_FRAME_TYPE_BINARY,
   RPC_FRAME_TYPE_TEXT,
+  SPEECH_SYNTHESIS_REQUEST_TIMEOUT_MS,
+  SPEECH_TRANSCRIPTION_REQUEST_TIMEOUT_MS,
   WebRTCRPCClient,
   WebRTCRPCError,
   applyGiznetServerInfoICEServers,
@@ -542,6 +544,52 @@ test("WebRTCRPCClient exposes synthesized audio before response EOS", async () =
   assert.deepEqual(await iterator.next(), { done: false, value: new Uint8Array([3, 4]) });
   assert.deepEqual(await iterator.next(), { done: true, value: undefined });
   assert.equal(channel.closed, true);
+});
+
+test("WebRTCRPCClient gives speech calls speech-specific default timeouts", async () => {
+  assert.equal(SPEECH_TRANSCRIPTION_REQUEST_TIMEOUT_MS, 80000);
+  assert.equal(SPEECH_SYNTHESIS_REQUEST_TIMEOUT_MS, 125000);
+
+  const transcriptionPC = new FakePeerConnection();
+  const transcriptionClient = new WebRTCRPCClient(transcriptionPC, {
+    createID: () => "slow-transcription",
+    requestTimeoutMs: 1,
+  });
+  const transcription = transcriptionClient.transcribeSpeech({
+    model_alias: "asr-main",
+    content_type: "audio/L16;rate=16000;channels=1",
+  }, [new Uint8Array([1, 2])]);
+  const transcriptionChannel = transcriptionPC.lastChannel();
+  transcriptionChannel.open();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  transcriptionChannel.receive(encodeRPCResponse({
+    id: "slow-transcription",
+    result: { transcript: "hello" },
+    v: 1,
+  }, "server.speech.transcribe"));
+  assert.deepEqual(await transcription, { transcript: "hello" });
+
+  const synthesisPC = new FakePeerConnection();
+  const synthesisClient = new WebRTCRPCClient(synthesisPC, {
+    createID: () => "slow-synthesis",
+    requestTimeoutMs: 1,
+  });
+  const synthesis = synthesisClient.synthesizeSpeech({
+    voice_alias: "narrator",
+    text: "hello",
+    accepted_content_types: ["audio/pcm"],
+  });
+  const synthesisChannel = synthesisPC.lastChannel();
+  synthesisChannel.open();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  synthesisChannel.receive(encodeRPCResponse({
+    id: "slow-synthesis",
+    result: { content_type: "audio/pcm", sample_rate_hz: 16000, channels: 1 },
+    v: 1,
+  }, "server.speech.synthesize").slice(0, -4));
+  synthesisChannel.receive(encodeFrame(RPC_FRAME_TYPE_EOS));
+  const result = await synthesis;
+  assert.equal(result.result.content_type, "audio/pcm");
 });
 
 test("WebRTCRPCClient reads continuation metadata plus binary response frames", async () => {

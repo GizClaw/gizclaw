@@ -96,6 +96,13 @@ func (s *Service) Synthesize(ctx context.Context, voiceAlias, text string, accep
 	if err != nil {
 		return SpeechSynthesis{}, err
 	}
+	sampleRate := int32(defaultTTSAudioSampleRate)
+	if raw {
+		sampleRate, err = speechSynthesisSampleRate(cfg)
+		if err != nil {
+			return SpeechSynthesis{}, err
+		}
+	}
 	if cfg.Params == nil {
 		cfg.Params = make(map[string]any)
 	}
@@ -110,11 +117,29 @@ func (s *Service) Synthesize(ctx context.Context, voiceAlias, text string, accep
 	}
 	result := SpeechSynthesis{Stream: stream, ContentType: contentType}
 	if raw {
-		sampleRate, channels := int32(defaultTTSAudioSampleRate), int32(1)
+		channels := int32(1)
 		result.SampleRateHz = &sampleRate
 		result.Channels = &channels
 	}
 	return result, nil
+}
+
+func speechSynthesisSampleRate(cfg TransformerConfig) (int32, error) {
+	if cfg.Voice == nil || cfg.Tenant.Kind != string(apitypes.VoiceProviderKindMinimaxTenant) || cfg.Voice.ProviderData == nil {
+		return int32(defaultTTSAudioSampleRate), nil
+	}
+	providerData, err := cfg.Voice.ProviderData.AsMiniMaxTenantVoiceProviderData()
+	if err != nil {
+		return 0, fmt.Errorf("%w: decode minimax voice provider_data: %w", ErrInvalid, err)
+	}
+	if providerData.SampleRate == nil {
+		return int32(defaultTTSAudioSampleRate), nil
+	}
+	sampleRate := int64(*providerData.SampleRate)
+	if sampleRate <= 0 || sampleRate > int64(1<<31-1) {
+		return 0, fmt.Errorf("%w: voice %q has invalid sample_rate %d", ErrInvalid, cfg.Voice.Id, *providerData.SampleRate)
+	}
+	return int32(sampleRate), nil
 }
 
 func selectSpeechSynthesisFormat(provider string, accepted []string) (format, contentType string, raw bool, err error) {
