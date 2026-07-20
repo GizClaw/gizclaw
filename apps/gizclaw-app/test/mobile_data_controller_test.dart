@@ -170,6 +170,33 @@ void main() {
       client.requests.single.parameters.flowcraftWorkspaceParameters.input,
       WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK,
     );
+    expect(
+      client
+          .requests
+          .single
+          .parameters
+          .flowcraftWorkspaceParameters
+          .generateModel,
+      'generate-model',
+    );
+    expect(
+      client
+          .requests
+          .single
+          .parameters
+          .flowcraftWorkspaceParameters
+          .extractModel,
+      'extract-model',
+    );
+    expect(
+      client
+          .requests
+          .single
+          .parameters
+          .flowcraftWorkspaceParameters
+          .hasEmbeddingModel(),
+      isFalse,
+    );
   });
 
   test(
@@ -732,7 +759,14 @@ void main() {
     expect(doubao.input, WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK);
   });
 
-  test('includes concrete FlowCraft model parameters', () {
+  test('includes RuntimeProfile FlowCraft model aliases by default', () {
+    final defaults = newWorkspaceParametersForDriver(
+      WorkflowDriverKind.flowcraft,
+    ).flowcraftWorkspaceParameters;
+    expect(defaults.generateModel, 'generate-model');
+    expect(defaults.extractModel, 'extract-model');
+    expect(defaults.hasEmbeddingModel(), isFalse);
+
     final parameters = newWorkspaceParametersForDriver(
       WorkflowDriverKind.flowcraft,
       generateModel: 'chat-model',

@@ -100,17 +100,17 @@ spec:
           zh-CN: {display_name: 文本向量}
     voices:
       doubao-assistant:
-        resource_id: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
+        resource_id: volc-tenant:volc-main:zh_female_vv_mars_bigtts
         i18n:
           en: {display_name: Doubao Assistant}
           zh-CN: {display_name: 豆包助手}
       general-assistant:
-        resource_id: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
+        resource_id: volc-tenant:volc-main:zh_female_qingxinnvsheng_mars_bigtts
         i18n:
           en: {display_name: General Assistant}
           zh-CN: {display_name: 通用助手}
       translator:
-        resource_id: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
+        resource_id: volc-tenant:volc-main:zh_female_sophie_conversation_wvae_bigtts
         i18n:
           en: {display_name: Translator}
           zh-CN: {display_name: 翻译员}
@@ -120,17 +120,17 @@ spec:
           en: {display_name: Narrator}
           zh-CN: {display_name: 旁白}
       game-master:
-        resource_id: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
+        resource_id: volc-tenant:volc-main:zh_male_changtianyi_mars_bigtts
         i18n:
           en: {display_name: Game Master}
           zh-CN: {display_name: 游戏主持人}
       detective:
-        resource_id: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
+        resource_id: volc-tenant:volc-main:ICL_zh_male_lengjungaozhi_tob
         i18n:
           en: {display_name: Detective}
           zh-CN: {display_name: 侦探}
       police-officer:
-        resource_id: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
+        resource_id: volc-tenant:volc-main:ICL_zh_male_zhengzhiqingnian_tob
         i18n:
           en: {display_name: Police Officer}
           zh-CN: {display_name: 警察}

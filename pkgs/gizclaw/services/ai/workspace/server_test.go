@@ -761,6 +761,23 @@ func TestServerValidatesRuntimeFlowcraftModelAliases(t *testing.T) {
 			}
 		})
 	}
+	getResp, err := srv.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Name: "runtime-valid"})
+	if err != nil {
+		t.Fatalf("GetWorkspace(runtime-valid) error = %v", err)
+	}
+	stored, ok := getResp.(adminhttp.GetWorkspace200JSONResponse)
+	if !ok {
+		t.Fatalf("GetWorkspace(runtime-valid) response = %#v", getResp)
+	}
+	parameters, err := stored.Parameters.AsFlowcraftWorkspaceParameters()
+	if err != nil {
+		t.Fatalf("stored Workspace parameters: %v", err)
+	}
+	if parameters.GenerateModel == nil || *parameters.GenerateModel != "generate-model" ||
+		parameters.ExtractModel == nil || *parameters.ExtractModel != "extract-model" ||
+		parameters.EmbeddingModel == nil || *parameters.EmbeddingModel != "embedding-model" {
+		t.Fatalf("stored Workspace parameters = %#v, want runtime aliases", parameters)
+	}
 }
 
 func TestServerStoreHelpers(t *testing.T) {

@@ -1414,8 +1414,8 @@ String _newWorkspaceName(String workflowName) {
 WorkspaceParameters newWorkspaceParametersForDriver(
   WorkflowDriverKind driver, {
   String workflowAlias = '',
-  String? generateModel,
-  String? extractModel,
+  String? generateModel = 'generate-model',
+  String? extractModel = 'extract-model',
   String? embeddingModel,
 }) => switch (driver) {
   WorkflowDriverKind.flowcraft => WorkspaceParameters(

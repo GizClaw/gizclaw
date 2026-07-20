@@ -104,15 +104,31 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 	if !maps.Equal(gotWorkflows, wantWorkflows) {
 		t.Fatalf("RuntimeProfile/default Workflows = %#v, want %#v", gotWorkflows, wantWorkflows)
 	}
-	wantCharacterVoices := map[string]string{
-		"sun-wukong":   "volc-tenant:volc-main:zh_male_sunwukong_mars_bigtts",
-		"tang-sanzang": "volc-tenant:volc-main:zh_male_tangseng_mars_bigtts",
-		"zhu-bajie":    "volc-tenant:volc-main:zh_male_zhubajie_mars_bigtts",
+	wantVoices := map[string]string{
+		"doubao-assistant":  "volc-tenant:volc-main:zh_female_vv_mars_bigtts",
+		"general-assistant": "volc-tenant:volc-main:zh_female_qingxinnvsheng_mars_bigtts",
+		"translator":        "volc-tenant:volc-main:zh_female_sophie_conversation_wvae_bigtts",
+		"narrator":          "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+		"game-master":       "volc-tenant:volc-main:zh_male_changtianyi_mars_bigtts",
+		"detective":         "volc-tenant:volc-main:ICL_zh_male_lengjungaozhi_tob",
+		"police-officer":    "volc-tenant:volc-main:ICL_zh_male_zhengzhiqingnian_tob",
+		"sun-wukong":        "volc-tenant:volc-main:zh_male_sunwukong_mars_bigtts",
+		"tang-sanzang":      "volc-tenant:volc-main:zh_male_tangseng_mars_bigtts",
+		"zhu-bajie":         "volc-tenant:volc-main:zh_male_zhubajie_mars_bigtts",
 	}
-	for alias, want := range wantCharacterVoices {
-		if got := parsed.Spec.Resources.Voices[alias].ResourceID; got != want {
-			t.Fatalf("RuntimeProfile/default Voice %s = %q, want %q", alias, got, want)
-		}
+	gotVoices := make(map[string]string, len(parsed.Spec.Resources.Voices))
+	for alias, binding := range parsed.Spec.Resources.Voices {
+		gotVoices[alias] = binding.ResourceID
+	}
+	if !maps.Equal(gotVoices, wantVoices) {
+		t.Fatalf("RuntimeProfile/default Voices = %#v, want %#v", gotVoices, wantVoices)
+	}
+	resourceIDs := map[string]struct{}{}
+	for _, resourceID := range gotVoices {
+		resourceIDs[resourceID] = struct{}{}
+	}
+	if len(resourceIDs) != len(gotVoices) {
+		t.Fatalf("RuntimeProfile/default Voices reuse resource IDs: %#v", gotVoices)
 	}
 	for _, requirement := range catalog.Requirements {
 		if requirement.Name == "input" {
