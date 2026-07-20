@@ -731,6 +731,31 @@ static int expect(bool ok, const char *message) {
 }
 
 int main(void) {
+  gizclaw_rpc_v1_Workspace workspace = gizclaw_rpc_v1_Workspace_init_default;
+  workspace.has_owner_public_key = true;
+  strcpy(workspace.owner_public_key, "peer-public-key");
+  uint8_t workspace_bytes[128];
+  pb_ostream_t workspace_output =
+      pb_ostream_from_buffer(workspace_bytes, sizeof(workspace_bytes));
+  if (expect(pb_encode(&workspace_output, gizclaw_rpc_v1_Workspace_fields,
+                       &workspace),
+             "encode workspace owner public key") != 0) {
+    return 1;
+  }
+  gizclaw_rpc_v1_Workspace decoded_workspace =
+      gizclaw_rpc_v1_Workspace_init_default;
+  pb_istream_t workspace_input =
+      pb_istream_from_buffer(workspace_bytes, workspace_output.bytes_written);
+  if (expect(pb_decode(&workspace_input, gizclaw_rpc_v1_Workspace_fields,
+                       &decoded_workspace),
+             "decode workspace owner public key") != 0 ||
+      expect(decoded_workspace.has_owner_public_key &&
+                 strcmp(decoded_workspace.owner_public_key,
+                        "peer-public-key") == 0,
+             "workspace owner public key uses bounded nanopb storage") != 0) {
+    return 1;
+  }
+
   const gzc_platform_t *platform = gzc_default_platform();
   fake_webrtc_t fake_webrtc;
   memset(&fake_webrtc, 0, sizeof(fake_webrtc));

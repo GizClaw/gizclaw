@@ -456,7 +456,7 @@ func validateSpeechSynthesizeRequest(request rpcapi.SpeechSynthesizeRequest, max
 		}
 		mediaType = strings.ToLower(mediaType)
 		if _, exists := seen[mediaType]; exists {
-			return nil, fmt.Errorf("accepted_content_types contains duplicate media type %q", mediaType)
+			return nil, fmt.Errorf("%w: accepted_content_types contains duplicate media type %q", errSpeechBadRequest, mediaType)
 		}
 		seen[mediaType] = struct{}{}
 		accepted = append(accepted, mediaType)

@@ -410,6 +410,21 @@ func TestRuntimeProfileRejectsAliasesSharedAcrossResourceKinds(t *testing.T) {
 	}
 }
 
+func TestRuntimeProfileRejectsWorkflowCollectionsDuplicatedAfterNormalization(t *testing.T) {
+	t.Parallel()
+	_, err := normalizeProfile(adminhttp.RuntimeProfileUpsert{
+		Name: "test-profile",
+		Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{
+			Collections: apitypes.RuntimeProfileWorkflowCollections{
+				"assistants":   {},
+				" assistants ": {},
+			},
+		}}}, "")
+	if err == nil || !strings.Contains(err.Error(), "duplicated after normalization") {
+		t.Fatalf("normalizeProfile() error = %v, want normalized collection collision", err)
+	}
+}
+
 func TestRuntimeProfileRejectsInvalidGameplayReferences(t *testing.T) {
 	t.Parallel()
 	s := &Server{Store: kv.NewMemory(nil)}

@@ -13,6 +13,7 @@ gizclaw.rpc.v1.FriendInfoGetRequest.id max_size:256
 gizclaw.rpc.v1.FriendInfoGetResponse.id max_size:256
 gizclaw.rpc.v1.ServerRegisterRequest.token max_size:256
 gizclaw.rpc.v1.ServerRegisterResponse.runtime_profile_name max_size:256
+gizclaw.rpc.v1.Workspace.owner_public_key max_size:65
 gizclaw.rpc.v1.SpeechTranscribeRequest.model_alias max_size:64
 gizclaw.rpc.v1.SpeechTranscribeRequest.content_type max_size:129
 gizclaw.rpc.v1.SpeechTranscribeRequest.language max_size:33

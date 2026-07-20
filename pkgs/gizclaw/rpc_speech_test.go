@@ -471,6 +471,12 @@ func TestValidateSpeechSynthesizeRequestRejectsDuplicateMediaTypes(t *testing.T)
 	if err == nil {
 		t.Fatal("validateSpeechSynthesizeRequest() accepted duplicate media types")
 	}
+	if !errors.Is(err, errSpeechBadRequest) {
+		t.Fatalf("validateSpeechSynthesizeRequest() error = %v, want errSpeechBadRequest", err)
+	}
+	if code, _ := speechRPCError(err); code != rpcapi.RPCErrorCodeBadRequest {
+		t.Fatalf("speechRPCError() code = %v, want BAD_REQUEST", code)
+	}
 }
 
 type speechServiceFuncs struct {

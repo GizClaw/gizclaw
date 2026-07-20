@@ -435,6 +435,9 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedName string) (a
 		if err := ValidateAlias("workflow collection", collection); err != nil {
 			return apitypes.RuntimeProfile{}, err
 		}
+		if _, exists := collections[collection]; exists {
+			return apitypes.RuntimeProfile{}, fmt.Errorf("workflow collection %q is duplicated after normalization", collection)
+		}
 		normalized, err := normalizeBindingMap(bindings)
 		if err != nil {
 			return apitypes.RuntimeProfile{}, fmt.Errorf("workflows.collections.%s: %w", collection, err)

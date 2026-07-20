@@ -362,7 +362,8 @@ typedef struct _gizclaw_rpc_v1_Workspace {
     bool system;
     bool has_icon;
     gizclaw_rpc_v1_Icon icon;
-    pb_callback_t owner_public_key;
+    bool has_owner_public_key;
+    char owner_public_key[65];
     bool available;
 } gizclaw_rpc_v1_Workspace;
 
@@ -464,7 +465,7 @@ extern "C" {
 #define gizclaw_rpc_v1_ServerSetRunWorkspaceResponse_init_default {false, gizclaw_rpc_v1_PeerRunWorkspaceState_init_default}
 #define gizclaw_rpc_v1_ServerStopRunRequest_init_default {0}
 #define gizclaw_rpc_v1_ServerStopRunResponse_init_default {false, gizclaw_rpc_v1_PeerRunStatus_init_default}
-#define gizclaw_rpc_v1_Workspace_init_default    {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_WorkspaceParameters_init_default, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_ToolkitPolicy_init_default, 0, false, gizclaw_rpc_v1_Icon_init_default, {{NULL}, NULL}, 0}
+#define gizclaw_rpc_v1_Workspace_init_default    {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_WorkspaceParameters_init_default, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_ToolkitPolicy_init_default, 0, false, gizclaw_rpc_v1_Icon_init_default, false, "", 0}
 #define gizclaw_rpc_v1_WorkspaceCreateBody_init_default {{{NULL}, NULL}, false, gizclaw_rpc_v1_WorkspaceParameters_init_default, {{NULL}, NULL}, false, gizclaw_rpc_v1_ToolkitPolicy_init_default, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_WorkspacePutBody_init_default {false, gizclaw_rpc_v1_WorkspaceParameters_init_default, false, gizclaw_rpc_v1_ToolkitPolicy_init_default}
 #define gizclaw_rpc_v1_WorkspaceIconDownloadRequest_init_default {"", _gizclaw_rpc_v1_IconFormat_MIN}
@@ -528,7 +529,7 @@ extern "C" {
 #define gizclaw_rpc_v1_ServerSetRunWorkspaceResponse_init_zero {false, gizclaw_rpc_v1_PeerRunWorkspaceState_init_zero}
 #define gizclaw_rpc_v1_ServerStopRunRequest_init_zero {0}
 #define gizclaw_rpc_v1_ServerStopRunResponse_init_zero {false, gizclaw_rpc_v1_PeerRunStatus_init_zero}
-#define gizclaw_rpc_v1_Workspace_init_zero       {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_WorkspaceParameters_init_zero, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_ToolkitPolicy_init_zero, 0, false, gizclaw_rpc_v1_Icon_init_zero, {{NULL}, NULL}, 0}
+#define gizclaw_rpc_v1_Workspace_init_zero       {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_WorkspaceParameters_init_zero, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_ToolkitPolicy_init_zero, 0, false, gizclaw_rpc_v1_Icon_init_zero, false, "", 0}
 #define gizclaw_rpc_v1_WorkspaceCreateBody_init_zero {{{NULL}, NULL}, false, gizclaw_rpc_v1_WorkspaceParameters_init_zero, {{NULL}, NULL}, false, gizclaw_rpc_v1_ToolkitPolicy_init_zero, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_WorkspacePutBody_init_zero {false, gizclaw_rpc_v1_WorkspaceParameters_init_zero, false, gizclaw_rpc_v1_ToolkitPolicy_init_zero}
 #define gizclaw_rpc_v1_WorkspaceIconDownloadRequest_init_zero {"", _gizclaw_rpc_v1_IconFormat_MIN}
@@ -1002,7 +1003,7 @@ X(a, CALLBACK, SINGULAR, STRING,   workflow_alias,    6) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  toolkit,           7) \
 X(a, STATIC,   SINGULAR, BOOL,     system,            8) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  icon,              9) \
-X(a, CALLBACK, OPTIONAL, STRING,   owner_public_key,  10) \
+X(a, STATIC,   OPTIONAL, STRING,   owner_public_key,  10) \
 X(a, STATIC,   SINGULAR, BOOL,     available,        12)
 #define gizclaw_rpc_v1_Workspace_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_Workspace_DEFAULT NULL
