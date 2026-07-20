@@ -1,13 +1,9 @@
 package dashscoperealtime
 
 import (
-	"context"
 	"fmt"
 
 	dashscope "github.com/GizClaw/dashscope-realtime-go"
-	"github.com/GizClaw/gizclaw-go/pkgs/genx"
-	legacy "github.com/GizClaw/gizclaw-go/pkgs/genx/transformers"
-	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/agentkit"
 )
 
 // Config contains immutable DashScope realtime dependencies and session options.
@@ -27,14 +23,6 @@ type Config struct {
 	OutputAudioFormat string
 }
 
-// Transformer adapts DashScope realtime sessions to the GenX contract.
-type Transformer struct {
-	config      Config
-	newDelegate func() genx.Transformer
-}
-
-var _ genx.Transformer = (*Transformer)(nil)
-
 // New constructs a DashScope realtime transformer without opening a WebSocket.
 func New(config Config) (*Transformer, error) {
 	if config.Client == nil {
@@ -48,64 +36,44 @@ func New(config Config) (*Transformer, error) {
 		turnDetection := *config.TurnDetection
 		config.TurnDetection = &turnDetection
 	}
-	return &Transformer{config: config}, nil
-}
-
-func (t *Transformer) delegate() genx.Transformer {
-	if t.newDelegate != nil {
-		return t.newDelegate()
-	}
-	config := t.config
-	opts := make([]legacy.DashScopeRealtimeOption, 0, 12)
+	opts := make([]option, 0, 12)
 	if config.Model != "" {
-		opts = append(opts, legacy.WithDashScopeRealtimeModel(config.Model))
+		opts = append(opts, withModel(config.Model))
 	}
 	if config.Voice != "" {
-		opts = append(opts, legacy.WithDashScopeRealtimeVoice(config.Voice))
+		opts = append(opts, withVoice(config.Voice))
 	}
 	if config.Instructions != "" {
-		opts = append(opts, legacy.WithDashScopeRealtimeInstructions(config.Instructions))
+		opts = append(opts, withInstructions(config.Instructions))
 	}
 	if config.Modalities != nil {
-		opts = append(opts, legacy.WithDashScopeRealtimeModalities(append([]string(nil), config.Modalities...)))
+		opts = append(opts, withModalities(append([]string(nil), config.Modalities...)))
 	}
 	if config.VAD != "" {
-		opts = append(opts, legacy.WithDashScopeRealtimeVAD(config.VAD))
+		opts = append(opts, withVAD(config.VAD))
 	}
 	if config.Temperature != nil {
-		opts = append(opts, legacy.WithDashScopeRealtimeTemperature(*config.Temperature))
+		opts = append(opts, withTemperature(*config.Temperature))
 	}
 	if config.MaxOutputTokens != nil {
-		opts = append(opts, legacy.WithDashScopeRealtimeMaxOutputTokens(*config.MaxOutputTokens))
+		opts = append(opts, withMaxOutputTokens(*config.MaxOutputTokens))
 	}
 	if config.EnableASR != nil {
-		opts = append(opts, legacy.WithDashScopeRealtimeEnableASR(*config.EnableASR))
+		opts = append(opts, withEnableASR(*config.EnableASR))
 	}
 	if config.ASRModel != "" {
-		opts = append(opts, legacy.WithDashScopeRealtimeASRModel(config.ASRModel))
+		opts = append(opts, withASRModel(config.ASRModel))
 	}
 	if config.TurnDetection != nil {
-		opts = append(opts, legacy.WithDashScopeRealtimeTurnDetection(config.TurnDetection))
+		opts = append(opts, withTurnDetection(config.TurnDetection))
 	}
 	if config.InputAudioFormat != "" {
-		opts = append(opts, legacy.WithDashScopeRealtimeInputAudioFormat(config.InputAudioFormat))
+		opts = append(opts, withInputAudioFormat(config.InputAudioFormat))
 	}
 	if config.OutputAudioFormat != "" {
-		opts = append(opts, legacy.WithDashScopeRealtimeOutputAudioFormat(config.OutputAudioFormat))
+		opts = append(opts, withOutputAudioFormat(config.OutputAudioFormat))
 	}
-	return legacy.NewDashScopeRealtime(config.Client, opts...)
-}
-
-// Transform starts one independent DashScope WebSocket for this invocation.
-func (t *Transformer) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
-	if t == nil || t.config.Client == nil && t.newDelegate == nil {
-		return nil, fmt.Errorf("dashscope realtime: transformer is not initialized")
-	}
-	output, err := t.delegate().Transform(ctx, input)
-	if err != nil {
-		return nil, err
-	}
-	return agentkit.NewResponseStream(output)
+	return newTransformer(config.Client, opts...), nil
 }
 
 func cloneFloat64(value *float64) *float64 {

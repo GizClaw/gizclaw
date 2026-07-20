@@ -7,7 +7,6 @@ import (
 	"io"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
-	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/agentkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/trie"
 )
 
@@ -66,30 +65,6 @@ func (m *Mux) get(pattern string) (genx.Transformer, error) {
 		return nil, fmt.Errorf("transformers: transformer not found for %s", pattern)
 	}
 	return t, nil
-}
-
-// bufferStream preserves the package-private compatibility surface while the
-// provider-neutral implementation lives in agentkit.
-type bufferStream struct {
-	*agentkit.Output
-}
-
-func newBufferStream(size int) *bufferStream {
-	return &bufferStream{Output: agentkit.NewOutput(agentkit.OutputConfig{InitialCapacity: size})}
-}
-
-func (s *bufferStream) setOutputObserver(observe func(*genx.MessageChunk)) {
-	if s == nil {
-		return
-	}
-	s.SetOutputObserver(observe)
-}
-
-func (s *bufferStream) discard(predicate func(*genx.MessageChunk) bool) int {
-	if s == nil || s.Output == nil {
-		return 0
-	}
-	return s.Discard(predicate)
 }
 
 // streamToReader converts a genx.Stream of Text chunks to an io.Reader.

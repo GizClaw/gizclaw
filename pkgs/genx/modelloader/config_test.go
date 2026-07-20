@@ -13,6 +13,8 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/generators"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/labelers"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/doubaorealtime"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/doubaorealtimeduplex"
 )
 
 func TestExpandEnv(t *testing.T) {
@@ -422,7 +424,7 @@ func TestRegisterDoubaoASRUsesFixedTransportAudioDefaults(t *testing.T) {
 	}
 }
 
-func TestRegisterDoubaoRealtimeUsesLegacyTransformer(t *testing.T) {
+func TestRegisterDoubaoRealtimeUsesIndependentTransformer(t *testing.T) {
 	oldDefaultMux := transformers.DefaultMux
 	transformers.DefaultMux = transformers.NewMux()
 	t.Cleanup(func() {
@@ -448,8 +450,8 @@ func TestRegisterDoubaoRealtimeUsesLegacyTransformer(t *testing.T) {
 	}
 
 	registered := mustRegisteredDefaultTransformer(t, "realtime/test")
-	if _, ok := registered.(*transformers.DoubaoRealtime); !ok {
-		t.Fatalf("registered transformer = %T, want *transformers.DoubaoRealtime", registered)
+	if _, ok := registered.(*doubaorealtime.Transformer); !ok {
+		t.Fatalf("registered transformer = %T, want *doubaorealtime.Transformer", registered)
 	}
 	if got := stringField(t, registered, "format"); got != "ogg_opus" {
 		t.Fatalf("format = %q, want fixed default ogg_opus", got)
@@ -505,8 +507,8 @@ func TestRegisterDoubaoRealtimeDuplexIgnoresOutputAudioDefaults(t *testing.T) {
 	}
 
 	registered := mustRegisteredDefaultTransformer(t, "realtime-duplex/test")
-	if _, ok := registered.(*transformers.DoubaoRealtimeDuplexRealtime); !ok {
-		t.Fatalf("registered transformer = %T, want *transformers.DoubaoRealtimeDuplexRealtime", registered)
+	if _, ok := registered.(*doubaorealtimeduplex.Transformer); !ok {
+		t.Fatalf("registered transformer = %T, want *doubaorealtimeduplex.Transformer", registered)
 	}
 	if got := stringField(t, registered, "outputFormat"); got != "ogg_opus" {
 		t.Fatalf("outputFormat = %q, want fixed default ogg_opus", got)
@@ -549,8 +551,8 @@ func TestRegisterDoubaoRealtimeDuplexRealtimeMode(t *testing.T) {
 	}
 
 	registered := mustRegisteredDefaultTransformer(t, "realtime-duplex/realtime-test")
-	if _, ok := registered.(*transformers.DoubaoRealtimeDuplexRealtime); !ok {
-		t.Fatalf("registered transformer = %T, want *transformers.DoubaoRealtimeDuplexRealtime", registered)
+	if _, ok := registered.(*doubaorealtimeduplex.Transformer); !ok {
+		t.Fatalf("registered transformer = %T, want *doubaorealtimeduplex.Transformer", registered)
 	}
 }
 

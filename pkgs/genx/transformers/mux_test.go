@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
@@ -96,29 +95,5 @@ func TestStreamToReaderPropagatesNonDoneError(t *testing.T) {
 	_, err := io.ReadAll(r)
 	if !errors.Is(err, wantErr) {
 		t.Fatalf("expected %v, got %v", wantErr, err)
-	}
-}
-
-func TestBufferStreamConcurrentCloseIsIdempotent(t *testing.T) {
-	stream := newBufferStream(1)
-	wantErr := errors.New("closed with error")
-	var wg sync.WaitGroup
-	for i := range 100 {
-		wg.Go(func() {
-			if i%2 == 0 {
-				_ = stream.Close()
-				return
-			}
-			_ = stream.CloseWithError(wantErr)
-		})
-	}
-	wg.Wait()
-	select {
-	case <-stream.Done():
-	default:
-		t.Fatal("Done() remained open after Close")
-	}
-	if _, err := stream.Next(); !errors.Is(err, io.EOF) && !errors.Is(err, wantErr) {
-		t.Fatalf("Next() error = %v, want EOF or close error", err)
 	}
 }

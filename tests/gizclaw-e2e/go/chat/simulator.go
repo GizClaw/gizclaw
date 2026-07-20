@@ -788,8 +788,11 @@ func (d *personaDriver) runInterruptScenario(ctx context.Context, index int, mod
 		return nil
 	}
 	var interruptedAt time.Time
+	var firstAssistantStreamID string
 	var secondTranscript string
+	var secondTranscriptStreamID string
 	var secondAssistant strings.Builder
+	var secondAssistantStreamID string
 	secondAssistantTextDone := false
 	secondAssistantAudioDone := false
 	var secondFrames [][]byte
@@ -890,7 +893,7 @@ func (d *personaDriver) runInterruptScenario(ctx context.Context, index int, mod
 		case event := <-d.transport.events:
 			trace.add("event stream=%s label=%s type=%s text=%q error=%s", eventStreamID(event.event), eventLabel(event.event), event.event.Type, eventText(event.event), eventError(event.event))
 			if eventLabel(event.event) == "assistant" && event.event.Error != nil && *event.event.Error == "interrupted" {
-				if event.event.StreamId != nil && !streamIDMatches(*event.event.StreamId, firstStreamID) {
+				if !acceptRoundEventStream(event.event, firstStreamID, &firstAssistantStreamID) {
 					continue
 				}
 				stat.InterruptedAfter = event.since(start)
@@ -904,24 +907,37 @@ func (d *personaDriver) runInterruptScenario(ctx context.Context, index int, mod
 				return stat, fmt.Errorf("interrupt peer event error: %s; recent events: %s", msg, trace.String())
 			}
 			if interruptedAt.IsZero() {
-				if event.event.StreamId != nil && streamIDMatches(*event.event.StreamId, firstStreamID) && eventLabel(event.event) == "assistant" && event.event.Text != nil && strings.TrimSpace(*event.event.Text) != "" {
+				label := eventLabel(event.event)
+				if label == "assistant" && acceptRoundEventStream(event.event, firstStreamID, &firstAssistantStreamID) && event.event.Text != nil && strings.TrimSpace(*event.event.Text) != "" {
 					stat.FirstAssistantStarted = true
 					if err := sendSecondTurn(); err != nil {
 						return stat, err
 					}
 				}
-				if event.event.StreamId == nil || !streamIDMatches(*event.event.StreamId, secondStreamID) {
+				if label != "transcript" || event.event.StreamId == nil || !streamIDMatches(*event.event.StreamId, secondStreamID) {
 					continue
 				}
 				return stat, fmt.Errorf("interrupt second stream started before interrupted assistant EOS: stream=%s label=%s type=%s; recent events: %s", *event.event.StreamId, eventLabel(event.event), event.event.Type, trace.String())
 			}
-			if event.event.StreamId != nil && !streamIDMatches(*event.event.StreamId, secondStreamID) {
-				if streamIDMatches(*event.event.StreamId, firstStreamID) && !interruptedAt.IsZero() && eventLabel(event.event) == "assistant" && event.event.Text != nil && strings.TrimSpace(*event.event.Text) != "" {
-					return stat, fmt.Errorf("interrupt first response continued after interruption: stream=%s text=%q", *event.event.StreamId, *event.event.Text)
+			label := eventLabel(event.event)
+			switch label {
+			case "transcript":
+				if !acceptRoundEventStream(event.event, secondStreamID, &secondTranscriptStreamID) {
+					continue
 				}
+			case "assistant":
+				if firstAssistantStreamID != "" && event.event.StreamId != nil && streamIDMatches(*event.event.StreamId, firstAssistantStreamID) {
+					if event.event.Text != nil && strings.TrimSpace(*event.event.Text) != "" {
+						return stat, fmt.Errorf("interrupt first response continued after interruption: stream=%s text=%q", *event.event.StreamId, *event.event.Text)
+					}
+					continue
+				}
+				if !acceptRoundEventStream(event.event, secondStreamID, &secondAssistantStreamID) {
+					continue
+				}
+			default:
 				continue
 			}
-			label := eventLabel(event.event)
 			eventLatency := event.since(interruptedAt)
 			switch label {
 			case "transcript":

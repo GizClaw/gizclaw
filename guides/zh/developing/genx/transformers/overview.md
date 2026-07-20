@@ -1,6 +1,6 @@
 # Transformers 总览
 
-`pkgs/genx/transformers` 将一个 `genx.Stream` 转换为另一个 Stream。Provider Adapters 负责外部 speech/realtime 协议；Stream Processing 负责 provider-neutral 的生命周期、buffer、TTS normalization、segmentation 和组合。
+`pkgs/genx/transformers` 将一个 `genx.Stream` 转换为另一个 Stream。Provider Adapters 负责外部 speech/realtime 协议；Stream Processing 负责 provider-neutral 的生命周期、buffer、audio byte stream filtering、TTS segmentation 和组合。
 
 [Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx/transformers)
 
@@ -11,20 +11,26 @@
 | [Doubao Speech](./doubao) | ASR、TTS、Realtime、Realtime Duplex 与 speech translation。 |
 | [DashScope](./dashscope) | Realtime multimodal conversation。 |
 | [MiniMax](./minimax) | Streaming TTS。 |
-| [Stream Processing](./stream-processing) | Provider-neutral 的 mux、TTS normalization、文本分段和 stream wrapper。 |
+| [Stream Processing](./stream-processing) | Provider-neutral 的 mux、Stream lifecycle、audio byte stream filtering 和文本分段。 |
 
-Agent-capable adapter 使用独立 package 暴露 typed Config：
+Provider 实现与共享的内部 Stream lifecycle 使用独立 package：
 
 ```text
 pkgs/genx/transformers/
-├── agentkit/
+├── audiostream/
+├── internal/streamkit/
+├── doubaoasr/
+├── doubaotts/
+├── minimaxtts/
 ├── doubaoast/
 ├── doubaorealtime/
 ├── doubaorealtimeduplex/
 └── dashscoperealtime/
 ```
 
-每个 provider package 都提供 `New(Config) (*Transformer, error)`，constructor 只解析不可变配置，不建立连接。每次 `Transform(ctx, input)` 单独建立并管理 provider session。flat `transformers.New*` constructors 仍作为现有调用方的兼容入口。
+每个 provider package 都提供 typed constructor，例如 `doubaoasr.New`、`doubaotts.NewSeedV2` 和 `minimaxtts.New`。Constructor 只解析不可变配置，不建立连接；每次 `Transform(ctx, input)` 单独建立并管理 provider session。Provider adapter 不再通过 flat `transformers.New*` constructor 暴露。
+
+ASR、TTS、AST 和 Doubao Realtime Dialogue 都只是 Stream-to-Stream Transformer，不属于 agent-capable runtime。当前 provider 协议能够支持 Toolkit continuation 的 package 是 Doubao Realtime Duplex 与 DashScope Realtime。StreamKit 与该分类无关，也不拥有 Tool 或 Toolkit。
 
 ```mermaid
 flowchart LR

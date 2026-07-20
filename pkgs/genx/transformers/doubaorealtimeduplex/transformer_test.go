@@ -1,13 +1,9 @@
 package doubaorealtimeduplex
 
 import (
-	"context"
-	"sync"
 	"testing"
 
 	doubaospeech "github.com/GizClaw/doubao-speech-go"
-	"github.com/GizClaw/gizclaw-go/pkgs/genx"
-	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/agentkit"
 )
 
 func TestNew(t *testing.T) {
@@ -27,6 +23,18 @@ func TestNewCopiesConfigAndBuildsConfiguredDelegate(t *testing.T) {
 	transcode := false
 	speed := 1
 	loudness := 2
+	strict := true
+	tools := []doubaospeech.RealtimeDuplexFunctionTool{{
+		Type: "function",
+		Name: "get_weather",
+		Parameters: &doubaospeech.RealtimeDuplexJSONSchema{
+			Type: "object",
+			Properties: map[string]*doubaospeech.RealtimeDuplexJSONSchema{
+				"city": {Type: "string"},
+			},
+		},
+		Strict: &strict,
+	}}
 	extension := &doubaospeech.RealtimeDuplexExtension{}
 	transformer, err := New(Config{
 		Client:          doubaospeech.NewClient(""),
@@ -42,6 +50,7 @@ func TestNewCopiesConfigAndBuildsConfiguredDelegate(t *testing.T) {
 		Instructions:    "instructions",
 		OutputSpeed:     &speed,
 		OutputLoudness:  &loudness,
+		Tools:           tools,
 		Extension:       extension,
 	})
 	if err != nil {
@@ -49,61 +58,30 @@ func TestNewCopiesConfigAndBuildsConfiguredDelegate(t *testing.T) {
 	}
 	transcode = true
 	speed = 9
-	if transformer.config.InputTranscode == nil || *transformer.config.InputTranscode {
+	tools[0].Name = "mutated"
+	tools[0].Parameters.Properties["city"].Type = "number"
+	strict = false
+	if transformer.inputTranscode {
 		t.Fatal("New() retained caller-owned InputTranscode pointer")
 	}
-	if transformer.config.OutputSpeed == nil || *transformer.config.OutputSpeed != 1 {
+	if transformer.outputSpeed == nil || *transformer.outputSpeed != 1 {
 		t.Fatal("New() retained caller-owned OutputSpeed pointer")
 	}
-	if transformer.config.Extension == extension {
+	if transformer.extension == extension {
 		t.Fatal("New() retained caller-owned Extension pointer")
 	}
-	if transformer.delegate() == nil {
-		t.Fatal("delegate() returned nil")
+	if len(transformer.tools) != 1 || transformer.tools[0].Name != "get_weather" ||
+		transformer.tools[0].Strict == nil || !*transformer.tools[0].Strict ||
+		transformer.tools[0].Parameters == nil ||
+		transformer.tools[0].Parameters.Properties["city"].Type != "string" {
+		t.Fatalf("New() retained caller-owned Tools data: %#v", transformer.tools)
 	}
-}
-
-func TestTransformerConcurrentInvocationsUseIndependentResponses(t *testing.T) {
-	transformer := &Transformer{newDelegate: func() genx.Transformer { return concurrentDelegate{} }}
-	assertConcurrentResponses(t, transformer)
-}
-
-type concurrentDelegate struct{}
-
-func (concurrentDelegate) Transform(context.Context, genx.Stream) (genx.Stream, error) {
-	output := agentkit.NewOutput(agentkit.OutputConfig{})
-	_ = output.Push(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("response"), Ctrl: &genx.StreamCtrl{StreamID: "provider-response"}})
-	_ = output.Close()
-	return output, nil
-}
-
-func assertConcurrentResponses(t *testing.T, transformer *Transformer) {
-	t.Helper()
-	const count = 8
-	ids := make(chan string, count)
-	var wg sync.WaitGroup
-	for range count {
-		wg.Go(func() {
-			output, err := transformer.Transform(context.Background(), nil)
-			if err != nil {
-				t.Errorf("Transform() error = %v", err)
-				return
-			}
-			chunk, err := output.Next()
-			if err != nil {
-				t.Errorf("Next() error = %v", err)
-				return
-			}
-			ids <- chunk.Ctrl.StreamID
-		})
-	}
-	wg.Wait()
-	close(ids)
-	seen := make(map[string]bool, count)
-	for id := range ids {
-		if id == "" || seen[id] {
-			t.Fatalf("response StreamID %q is empty or reused", id)
-		}
-		seen[id] = true
+	if transformer.outputVoice != "speaker" || transformer.outputFormat != "ogg_opus" ||
+		transformer.outputSampleRate != 24000 || transformer.inputFormat != "speech_opus" ||
+		transformer.inputSampleRate != 16000 || transformer.inputChannels != 1 ||
+		transformer.model != "model" || transformer.sessionID != "session" ||
+		transformer.instructions != "instructions" || transformer.outputLoudness == nil ||
+		*transformer.outputLoudness != 2 {
+		t.Fatalf("configured transformer = %#v", transformer)
 	}
 }

@@ -1,34 +1,27 @@
 # Stream Processing
 
-Stream Processing 保存不属于特定 provider 的 Transformer 组合能力。通用 `Mux` 负责按 pattern 选择 Adapter；选中的 Adapter 直接消费输入 `genx.Stream` 并返回输出 `genx.Stream`。
+Stream Processing 保存 provider-neutral 的 Transformer 组合与生命周期行为。`Mux` 按 pattern 选择 Adapter；选中的 Adapter 直接消费并返回 `genx.Stream`。
 
-## 核心结构与主函数
+## Ownership
 
-| 结构或函数 | 作用 |
+| Owner | 职责 |
 | --- | --- |
-| [`TTSAudioNormalizer`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx/transformers#TTSAudioNormalizer) | 统一 TTS output stream 的 audio MIME type 与 chunk boundary。 |
-| [`Mux`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx/transformers#Mux) | 按 pattern 选择一个 `genx.Transformer`，不建立第二套 ASR/TTS registry。 |
-| `agentkit.Output` | 每个 Transform invocation 独占的 growable pull-output queue；支持显式 byte limit、丢弃未拉取 chunk 和 pull-visible observer。 |
-| `agentkit.Response` | 跟踪一个 assistant response 的 StreamID、MIME route 和 terminal EOS。 |
-| `agentkit.Invocation` | 组合 per-call context、output、active response、cancel 与 interrupt 生命周期。 |
-| `runTTSTransform` | Package 内部的公共 TTS pipeline；消费 text Stream，按 StreamID 聚合和切分文本，调用 Adapter synthesize，并输出 audio Stream。 |
+| `transformers.Mux` | 选择一个 `genx.Transformer`，不建立能力类别专用 registry。 |
+| `transformers/internal/streamkit` | Per-Transform output queue、pull observation、StreamID/MIME route 终态、interrupt、cancel 和共享 TTS segmentation。 |
+| `transformers/audiostream.Normalizer` | 根据音频 MIME 对 byte stream 做可拼接处理，输入输出保持相同 codec 和 MIME；当前 MP3 handler 跨 chunk 去除 ID3v1 和 ID3v2 metadata。 |
 
-`ASR` 和 `TTS` 是能力类别，不需要额外导出 facade、session 或 segment 类型。所有 Adapter 统一注册到 Transformer registry，调用方使用 `genx.Stream` 的 BOS、data、EOS 和 StreamID 表达连续输入与分段。Provider connection/session 只作为 Adapter 内部实现存在。
+StreamKit 是 `transformers` subtree 的内部实现，不提供 public construction surface，也不依赖 provider、agent、model、Tool、Workspace、Workflow、RPC 或设备类型。
+
+## Stream lifecycle
+
+每个 `Transform` invocation 独占 context、provider session、input reader、output queue 和 response state。同一个已配置 Transformer 可以并发执行多个调用；取消其中一个 invocation 不能关闭其他 invocation。
+
+Output queue 不依赖 downstream 及时调用 `Next()`。显式 byte limit 超限时返回 `streamkit.ErrOutputLimit`；pull observer 只在 `Next()` 成功返回 chunk 后执行。Interrupt 只删除匹配 response 尚未拉取的 suffix，保留已经拉取的 prefix，为仍打开的每个 MIME route 发出一次 `EOS(error="interrupted")`，并拒绝迟到事件。Model response 使用 invocation-local 的新 StreamID，不复用已结束的 user transcript route；replacement response 也使用新的 StreamID。
+
+StreamKit 不提供 model role 或 `assistant` label。Producer 负责提供 route metadata，StreamKit 只在生成 terminal chunk 时保留这些值。
 
 ## TTS Stream Processing
 
-公共 TTS pipeline 消费 GenX text Stream，按 StreamID 分别维护 sentence segmenter。输入过程中可以将完整句子提前交给 Adapter 合成；收到该 StreamID 的 EOS 后，pipeline flush 剩余文本，并输出对应 audio EOS。
+内部 TTS pipeline 按输入 StreamID 分别维护 sentence segmenter，可以在输入 EOS 前提前合成完整句子；EOS 到达后 flush 剩余文本，在同一逻辑 route 输出 audio EOS，并保留 role、name 与 label。没有 StreamID 的输入在 producer boundary 获得新的非空 ID。
 
-文本分段、audio normalization 和 debug wrapper 属于公共 pipeline。通用 StreamID、BOS、EOS 和 Stream close contract 定义在 [GenX 总览](../overview#streamid-与-eos)；ASR、Realtime 等 Adapter 如何映射 provider 事件，由各 Adapter 文档说明。
-
-## AgentKit Stream 生命周期
-
-一个 `Transform` invocation 独占 context、provider session、输入 reader、输出 queue 和 response 状态。同一个已配置 Transformer 可以并发启动多个 invocation，取消其中一个不会关闭其他 invocation。
-
-每个 assistant response 使用新生成的非空 StreamID；同一 response 的 text/audio 共享该 ID，但分别使用各自 MIME EOS。正常完成、provider failure、cancel、interrupt 和 buffer overflow 都必须产生调用方可观察的终态。
-
-`Output` 不依赖 downstream 及时调用 `Next()`，provider reader 可以持续把 chunk 放入 growable queue。`MaxBytes > 0` 时，超过限制会终止该 invocation 并从 `Next()` 返回 `agentkit.ErrOutputLimit`，不会静默丢弃或重排。observer 只在 chunk 已由 `Next()` 成功交给调用方后执行；生产或进入 queue 不代表调用方已经收到。
-
-interrupt 只终止当前 assistant response：先删除该 response 尚未拉取的 buffered suffix，再为仍打开的每个 MIME route 输出 `EOS(error="interrupted")`，并拒绝该 response 的迟到 provider event。已经拉取的 prefix 保留为 delivered output；replacement response 使用新的 StreamID。cancel 则终止完整 invocation 并释放 provider 和 stream 资源。
-
-AgentKit 不定义 Tool、Toolkit、ToolCall、ToolResult、HistoryStore、LogStore 或 MemoryStore，也不依赖 Workspace、Workflow、RPC、Peer 或设备类型。
+Provider package 负责 SDK request 和 audio synthesis。公开的 `transformers/audiostream` 只处理 Transformer audio byte stream；调用方始终按实际 MIME 构造 `Normalizer`，无需预先判断具体格式。无需特殊处理或尚未支持的 MIME 原样透传；当前只有 MP3 会去除 ID3v1 和 ID3v2 metadata。Normalizer 不转换 codec、sample rate 或 MIME type。StreamKit 负责调用生命周期和 route 终态，不解析音频 container bytes。

@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
-	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/doubaorealtime"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -504,8 +504,8 @@ func TestDefaultBuilderBuildsVolcRealtimeTransformer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BuildTransformer() error = %v", err)
 	}
-	if _, ok := tf.(*transformers.DoubaoRealtime); !ok {
-		t.Fatalf("transformer = %T, want *transformers.DoubaoRealtime", tf)
+	if _, ok := tf.(*doubaorealtime.Transformer); !ok {
+		t.Fatalf("transformer = %T, want *doubaorealtime.Transformer", tf)
 	}
 	if got := transformerStringField(t, tf, "model"); got != "O" {
 		t.Fatalf("realtime model = %q, want O", got)
@@ -592,8 +592,8 @@ func TestDefaultBuilderBuildsVolcRealtimeTransformerFromWorkflowParams(t *testin
 	if err != nil {
 		t.Fatalf("BuildTransformer() error = %v", err)
 	}
-	if _, ok := tf.(*transformers.DoubaoRealtime); !ok {
-		t.Fatalf("transformer = %T, want *transformers.DoubaoRealtime", tf)
+	if _, ok := tf.(*doubaorealtime.Transformer); !ok {
+		t.Fatalf("transformer = %T, want *doubaorealtime.Transformer", tf)
 	}
 	if got := transformerNestedStringField(t, tf, "client", "config", "resourceID"); got != "volc.speech.dialog" {
 		t.Fatalf("realtime resourceID = %q, want volc.speech.dialog", got)

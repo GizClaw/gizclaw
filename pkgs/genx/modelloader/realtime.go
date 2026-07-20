@@ -6,6 +6,8 @@ import (
 
 	"github.com/GizClaw/doubao-speech-go"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/doubaorealtime"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/doubaorealtimeduplex"
 )
 
 func registerRealtimeBySchema(cfg ConfigFile) ([]string, error) {
@@ -53,24 +55,22 @@ func registerDoubaoRealtime(cfg ConfigFile) ([]string, error) {
 	client := doubaospeech.NewClient(cfg.AppID, doubaospeech.WithAPIKey(cfg.APIKey))
 
 	// Extract default params
-	var defaultOpts []transformers.DoubaoRealtimeOption
-	mode := transformers.DoubaoRealtimeModePushToTalk
+	config := doubaorealtime.Config{Client: client, Mode: doubaorealtime.ModePushToTalk}
 	if cfg.DefaultParams != nil {
 		if model, ok := cfg.DefaultParams["model"].(string); ok {
-			defaultOpts = append(defaultOpts, transformers.WithDoubaoRealtimeModel(model))
+			config.Model = model
 		}
 		parsedMode, err := doubaoRealtimeModeFromParams(cfg.DefaultParams)
 		if err != nil {
 			return nil, err
 		}
 		if parsedMode != "" {
-			mode = parsedMode
+			config.Mode = parsedMode
 		}
 		if dialogID := realtimeParamString(cfg.DefaultParams, "dialog_id"); dialogID != "" {
-			defaultOpts = append(defaultOpts, transformers.WithDoubaoRealtimeDialogID(dialogID))
+			config.DialogID = dialogID
 		}
 	}
-	defaultOpts = append(defaultOpts, transformers.WithDoubaoRealtimeMode(mode))
 
 	var names []string
 
@@ -82,16 +82,14 @@ func registerDoubaoRealtime(cfg ConfigFile) ([]string, error) {
 		}
 
 		// Build options for this model
-		opts := make([]transformers.DoubaoRealtimeOption, len(defaultOpts))
-		copy(opts, defaultOpts)
-
-		// Use Voice field for speaker
+		modelConfig := config
 		if m.Voice != "" {
-			opts = append(opts, transformers.WithDoubaoRealtimeSpeaker(m.Voice))
+			modelConfig.Speaker = m.Voice
 		}
-
-		// Create realtime transformer
-		rt := transformers.NewDoubaoRealtime(client, opts...)
+		rt, err := doubaorealtime.New(modelConfig)
+		if err != nil {
+			return nil, fmt.Errorf("construct realtime transformer %q: %w", m.Name, err)
+		}
 		if err := transformers.Handle(m.Name, rt); err != nil {
 			return nil, fmt.Errorf("register realtime transformer %q: %w", m.Name, err)
 		}
@@ -111,13 +109,13 @@ func registerDoubaoRealtimeDuplex(cfg ConfigFile) ([]string, error) {
 
 	client := doubaospeech.NewClient(cfg.AppID, doubaospeech.WithAPIKey(cfg.APIKey))
 
-	var defaultOpts []transformers.DoubaoRealtimeDuplexOption
+	config := doubaorealtimeduplex.Config{Client: client}
 	if cfg.DefaultParams != nil {
 		if model, ok := cfg.DefaultParams["model"].(string); ok {
-			defaultOpts = append(defaultOpts, transformers.WithDoubaoRealtimeDuplexModel(model))
+			config.Model = model
 		}
 		if dialogID := realtimeParamString(cfg.DefaultParams, "dialog_id"); dialogID != "" {
-			defaultOpts = append(defaultOpts, transformers.WithDoubaoRealtimeDuplexSessionID(dialogID))
+			config.SessionID = dialogID
 		}
 		if err := validateDoubaoRealtimeDuplexMode(cfg.DefaultParams); err != nil {
 			return nil, err
@@ -130,13 +128,14 @@ func registerDoubaoRealtimeDuplex(cfg ConfigFile) ([]string, error) {
 			return nil, fmt.Errorf("realtime duplex model entry missing name")
 		}
 
-		opts := make([]transformers.DoubaoRealtimeDuplexOption, len(defaultOpts))
-		copy(opts, defaultOpts)
+		modelConfig := config
 		if m.Voice != "" {
-			opts = append(opts, transformers.WithDoubaoRealtimeDuplexSpeaker(m.Voice))
+			modelConfig.Speaker = m.Voice
 		}
-
-		rt := transformers.NewDoubaoRealtimeDuplexRealtime(client, opts...)
+		rt, err := doubaorealtimeduplex.New(modelConfig)
+		if err != nil {
+			return nil, fmt.Errorf("construct realtime duplex transformer %q: %w", m.Name, err)
+		}
 		if err := transformers.Handle(m.Name, rt); err != nil {
 			return nil, fmt.Errorf("register realtime duplex transformer %q: %w", m.Name, err)
 		}
@@ -146,7 +145,7 @@ func registerDoubaoRealtimeDuplex(cfg ConfigFile) ([]string, error) {
 	return names, nil
 }
 
-func doubaoRealtimeModeFromParams(params map[string]any) (transformers.DoubaoRealtimeMode, error) {
+func doubaoRealtimeModeFromParams(params map[string]any) (doubaorealtime.Mode, error) {
 	for _, key := range []string{"mode", "input_mode", "input"} {
 		value, ok := params[key].(string)
 		if !ok || strings.TrimSpace(value) == "" {
@@ -154,11 +153,11 @@ func doubaoRealtimeModeFromParams(params map[string]any) (transformers.DoubaoRea
 		}
 		switch strings.ToLower(strings.TrimSpace(value)) {
 		case "push-to-talk", "push_to_talk", "ptt", "default":
-			return transformers.DoubaoRealtimeModePushToTalk, nil
+			return doubaorealtime.ModePushToTalk, nil
 		case "realtime", "real-time", "real_time":
-			return transformers.DoubaoRealtimeModeRealtime, nil
+			return doubaorealtime.ModeRealtime, nil
 		case "text":
-			return transformers.DoubaoRealtimeModeText, nil
+			return doubaorealtime.ModeText, nil
 		default:
 			return "", fmt.Errorf("unsupported doubao realtime mode %q", value)
 		}

@@ -18,7 +18,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
-	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/audiostream"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/openaihttp"
@@ -614,7 +614,7 @@ func writeChatCompletionSSE(w io.Writer, stream genx.Stream, model string, now t
 }
 
 func writeSpeechSSE(w io.Writer, stream genx.Stream, contentType string) error {
-	var normalizer *transformers.TTSAudioNormalizer
+	var normalizer *audiostream.Normalizer
 	for {
 		chunk, err := stream.Next()
 		if err != nil {
@@ -623,7 +623,13 @@ func writeSpeechSSE(w io.Writer, stream genx.Stream, contentType string) error {
 			}
 			return err
 		}
-		if chunk == nil || chunk.IsEndOfStream() {
+		if chunk == nil {
+			continue
+		}
+		if chunk.Ctrl != nil && strings.TrimSpace(chunk.Ctrl.Error) != "" {
+			return errors.New(chunk.Ctrl.Error)
+		}
+		if chunk.IsEndOfStream() {
 			continue
 		}
 		blob, ok := chunk.Part.(*genx.Blob)
@@ -631,9 +637,9 @@ func writeSpeechSSE(w io.Writer, stream genx.Stream, contentType string) error {
 			continue
 		}
 		if normalizer == nil {
-			normalizer = transformers.NewTTSAudioNormalizer(blobContentType(blob, contentType))
+			normalizer = audiostream.NewNormalizer(blobContentType(blob, contentType))
 		}
-		if err := writeSpeechAudioDelta(w, normalizer.Write(blob.Data)); err != nil {
+		if err := writeSpeechAudioDelta(w, normalizer.Normalize(blob.Data)); err != nil {
 			return err
 		}
 	}
@@ -748,7 +754,7 @@ func readBlobStreamWithMIME(stream genx.Stream, contentType string) ([]byte, str
 	if contentType == "" {
 		contentType = "application/octet-stream"
 	}
-	var normalizer *transformers.TTSAudioNormalizer
+	var normalizer *audiostream.Normalizer
 	for {
 		chunk, err := stream.Next()
 		if err != nil {
@@ -760,7 +766,13 @@ func readBlobStreamWithMIME(stream genx.Stream, contentType string) ([]byte, str
 			}
 			return nil, "", err
 		}
-		if chunk == nil || chunk.IsEndOfStream() {
+		if chunk == nil {
+			continue
+		}
+		if chunk.Ctrl != nil && strings.TrimSpace(chunk.Ctrl.Error) != "" {
+			return nil, "", errors.New(chunk.Ctrl.Error)
+		}
+		if chunk.IsEndOfStream() {
 			continue
 		}
 		if blob, ok := chunk.Part.(*genx.Blob); ok {
@@ -768,9 +780,9 @@ func readBlobStreamWithMIME(stream genx.Stream, contentType string) ([]byte, str
 				contentType = strings.TrimSpace(blob.MIMEType)
 			}
 			if normalizer == nil {
-				normalizer = transformers.NewTTSAudioNormalizer(contentType)
+				normalizer = audiostream.NewNormalizer(contentType)
 			}
-			out.Write(normalizer.Write(blob.Data))
+			out.Write(normalizer.Normalize(blob.Data))
 		}
 	}
 }

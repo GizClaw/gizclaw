@@ -20,7 +20,7 @@ import (
 	doubaospeech "github.com/GizClaw/doubao-speech-go"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
-	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/doubaorealtimeduplex"
 )
 
 const (
@@ -46,13 +46,18 @@ func TestDoubaoRealtimeDuplexConversation(t *testing.T) {
 
 	packets := embeddedPromptOpusPackets(t)
 	client := doubaospeech.NewClient(appID, doubaospeech.WithAPIKey(apiKey))
-	opts := []transformers.DoubaoRealtimeDuplexOption{
-		transformers.WithDoubaoRealtimeDuplexInstructions("Reply in one short English sentence."),
-		transformers.WithDoubaoRealtimeDuplexInputTranscode(false),
+	transcode := false
+	config := doubaorealtimeduplex.Config{
+		Client:         client,
+		Instructions:   "Reply in one short English sentence.",
+		InputTranscode: &transcode,
 	}
 
 	t.Run("realtime_server_vad_multi_round", func(t *testing.T) {
-		tfr := transformers.NewDoubaoRealtimeDuplexRealtime(client, opts...)
+		tfr, err := doubaorealtimeduplex.New(config)
+		if err != nil {
+			t.Fatalf("New() failed: %v", err)
+		}
 		results := runDuplexConversation(t, tfr, packets)
 		for i, result := range results {
 			assertDuplexRound(t, i+1, result)
@@ -215,14 +220,18 @@ func (r *duplexRoundResult) observe(streamID string, chunk *genx.MessageChunk) e
 	if chunk == nil {
 		return nil
 	}
-	if err := duplexChunkError(chunk); err != nil {
-		return err
-	}
 	label := ""
 	chunkStreamID := ""
 	if chunk.Ctrl != nil {
 		label = chunk.Ctrl.Label
 		chunkStreamID = chunk.Ctrl.StreamID
+	}
+	if err := duplexChunkError(chunk); err != nil {
+		if (label == duplexTranscriptLabel || label == duplexAssistantLabel) &&
+			!roundStreamMatches(chunkStreamID, streamID) {
+			return nil
+		}
+		return err
 	}
 	if label == duplexTranscriptLabel && roundStreamMatches(chunkStreamID, streamID) {
 		if text, ok := chunk.Part.(genx.Text); ok && strings.TrimSpace(string(text)) != "" {
@@ -253,6 +262,29 @@ func (r *duplexRoundResult) observe(streamID string, chunk *genx.MessageChunk) e
 		}
 	}
 	return nil
+}
+
+func TestDuplexRoundResultIgnoresOtherStreamTerminalError(t *testing.T) {
+	var result duplexRoundResult
+	oldStreamError := &genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: genx.Text(""),
+		Ctrl: &genx.StreamCtrl{
+			StreamID:    "round-1:rt:1",
+			Label:       duplexAssistantLabel,
+			EndOfStream: true,
+			Error:       "interrupted",
+		},
+	}
+	if err := result.observe("round-2", oldStreamError); err != nil {
+		t.Fatalf("observe() unrelated terminal error = %v", err)
+	}
+
+	currentStreamError := oldStreamError.Clone()
+	currentStreamError.Ctrl.StreamID = "round-2:rt:1"
+	if err := result.observe("round-2", currentStreamError); err == nil {
+		t.Fatal("observe() current terminal error = nil")
+	}
 }
 
 func (r *duplexRoundResult) done() bool {

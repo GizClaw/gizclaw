@@ -1,14 +1,10 @@
 package doubaorealtime
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 
 	doubaospeech "github.com/GizClaw/doubao-speech-go"
-	"github.com/GizClaw/gizclaw-go/pkgs/genx"
-	legacy "github.com/GizClaw/gizclaw-go/pkgs/genx/transformers"
-	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/agentkit"
 )
 
 // Mode controls how client input boundaries are interpreted.
@@ -50,14 +46,6 @@ type Config struct {
 	Mode              Mode
 }
 
-// Transformer adapts Doubao realtime dialogue to the GenX contract.
-type Transformer struct {
-	config      Config
-	newDelegate func() genx.Transformer
-}
-
-var _ genx.Transformer = (*Transformer)(nil)
-
 // New constructs a Doubao realtime transformer without opening a WebSocket.
 func New(config Config) (*Transformer, error) {
 	if config.Client == nil {
@@ -67,94 +55,74 @@ func New(config Config) (*Transformer, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Transformer{config: config}, nil
-}
-
-func (t *Transformer) delegate() genx.Transformer {
-	if t.newDelegate != nil {
-		return t.newDelegate()
-	}
-	config := t.config
-	opts := make([]legacy.DoubaoRealtimeOption, 0, 24)
+	opts := make([]option, 0, 24)
 	if config.Speaker != "" {
-		opts = append(opts, legacy.WithDoubaoRealtimeSpeaker(config.Speaker))
+		opts = append(opts, withSpeaker(config.Speaker))
 	}
 	if config.Format != "" {
-		opts = append(opts, legacy.WithDoubaoRealtimeFormat(config.Format))
+		opts = append(opts, withFormat(config.Format))
 	}
 	if config.SampleRate != 0 {
-		opts = append(opts, legacy.WithDoubaoRealtimeSampleRate(config.SampleRate))
+		opts = append(opts, withSampleRate(config.SampleRate))
 	}
 	if config.Channels != 0 {
-		opts = append(opts, legacy.WithDoubaoRealtimeChannels(config.Channels))
+		opts = append(opts, withChannels(config.Channels))
 	}
 	if config.SpeechRate != nil {
-		opts = append(opts, legacy.WithDoubaoRealtimeSpeechRate(*config.SpeechRate))
+		opts = append(opts, withSpeechRate(*config.SpeechRate))
 	}
 	if config.LoudnessRate != nil {
-		opts = append(opts, legacy.WithDoubaoRealtimeLoudnessRate(*config.LoudnessRate))
+		opts = append(opts, withLoudnessRate(*config.LoudnessRate))
 	}
 	if config.InputFormat != "" {
-		opts = append(opts, legacy.WithDoubaoRealtimeInputFormat(config.InputFormat))
+		opts = append(opts, withInputFormat(config.InputFormat))
 	}
 	if config.InputSampleRate != 0 {
-		opts = append(opts, legacy.WithDoubaoRealtimeInputSampleRate(config.InputSampleRate))
+		opts = append(opts, withInputSampleRate(config.InputSampleRate))
 	}
 	if config.InputChannels != 0 {
-		opts = append(opts, legacy.WithDoubaoRealtimeInputChannels(config.InputChannels))
+		opts = append(opts, withInputChannels(config.InputChannels))
 	}
 	if config.InputTranscode != nil {
-		opts = append(opts, legacy.WithDoubaoRealtimeInputTranscode(*config.InputTranscode))
+		opts = append(opts, withInputTranscode(*config.InputTranscode))
 	}
 	if config.ASRExtra != nil {
-		opts = append(opts, legacy.WithDoubaoRealtimeASRExtra(*config.ASRExtra))
+		opts = append(opts, withASRExtra(*config.ASRExtra))
 	}
 	if config.TTSExtra != nil {
-		opts = append(opts, legacy.WithDoubaoRealtimeTTSExtra(*config.TTSExtra))
+		opts = append(opts, withTTSExtra(*config.TTSExtra))
 	}
 	if config.BotName != "" {
-		opts = append(opts, legacy.WithDoubaoRealtimeBotName(config.BotName))
+		opts = append(opts, withBotName(config.BotName))
 	}
 	if config.SystemRole != "" {
-		opts = append(opts, legacy.WithDoubaoRealtimeSystemRole(config.SystemRole))
+		opts = append(opts, withSystemRole(config.SystemRole))
 	}
 	if config.VADWindow != 0 {
-		opts = append(opts, legacy.WithDoubaoRealtimeVADWindow(config.VADWindow))
+		opts = append(opts, withVADWindow(config.VADWindow))
 	}
 	if config.SpeakingStyle != "" {
-		opts = append(opts, legacy.WithDoubaoRealtimeSpeakingStyle(config.SpeakingStyle))
+		opts = append(opts, withSpeakingStyle(config.SpeakingStyle))
 	}
 	if config.CharacterManifest != "" {
-		opts = append(opts, legacy.WithDoubaoRealtimeCharacterManifest(config.CharacterManifest))
+		opts = append(opts, withCharacterManifest(config.CharacterManifest))
 	}
 	if config.DialogID != "" {
-		opts = append(opts, legacy.WithDoubaoRealtimeDialogID(config.DialogID))
+		opts = append(opts, withDialogID(config.DialogID))
 	}
 	if config.DialogExtra != nil {
-		opts = append(opts, legacy.WithDoubaoRealtimeDialogExtra(*config.DialogExtra))
+		opts = append(opts, withDialogExtra(*config.DialogExtra))
 	}
 	if config.SearchAPIKey != "" {
-		opts = append(opts, legacy.WithDoubaoRealtimeSearchAPIKey(config.SearchAPIKey))
+		opts = append(opts, withSearchAPIKey(config.SearchAPIKey))
 	}
 	if config.Model != "" {
-		opts = append(opts, legacy.WithDoubaoRealtimeModel(config.Model))
+		opts = append(opts, withModel(config.Model))
 	}
 	if config.Mode != "" {
-		opts = append(opts, legacy.WithDoubaoRealtimeMode(legacy.DoubaoRealtimeMode(config.Mode)))
+		opts = append(opts, withMode(config.Mode))
 	}
-	return legacy.NewDoubaoRealtime(config.Client, opts...)
-}
-
-// Transform starts one independent provider session for this invocation.
-func (t *Transformer) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
-	if t == nil || t.config.Client == nil && t.newDelegate == nil {
-		return nil, fmt.Errorf("doubao realtime: transformer is not initialized")
-	}
-	output, err := t.delegate().Transform(ctx, input)
-	if err != nil {
-		return nil, err
-	}
-	return agentkit.NewResponseStream(output)
+	return newTransformer(config.Client, opts...), nil
 }
 
 func cloneConfig(config Config) (Config, error) {

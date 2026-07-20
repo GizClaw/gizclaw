@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	doubaospeech "github.com/GizClaw/doubao-speech-go"
-	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/doubaoast"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
@@ -37,8 +37,8 @@ func TestDefaultBuilderBuildsVolcASTTranslateTransformer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BuildTransformer() error = %v", err)
 	}
-	if _, ok := transformer.(*transformers.DoubaoASTTranslate); !ok {
-		t.Fatalf("transformer = %T, want *DoubaoASTTranslate", transformer)
+	if _, ok := transformer.(*doubaoast.Transformer); !ok {
+		t.Fatalf("transformer = %T, want *doubaoast.Transformer", transformer)
 	}
 	if got := transformerStringField(t, transformer, "inputMode"); got != "push-to-talk" {
 		t.Fatalf("AST translate inputMode = %q, want push-to-talk", got)

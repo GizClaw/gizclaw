@@ -6,6 +6,8 @@ import (
 
 	"github.com/GizClaw/doubao-speech-go"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/doubaotts"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/minimaxtts"
 	"github.com/GizClaw/minimax-go"
 )
 
@@ -38,14 +40,13 @@ func registerDoubaoTTS(cfg ConfigFile) ([]string, error) {
 	// Create Doubao client
 	client := doubaospeech.NewClient(cfg.AppID, doubaospeech.WithAPIKey(cfg.APIKey))
 
-	// Parse default params
-	var opts []transformers.DoubaoTTSSeedV2Option
+	config := doubaotts.SeedV2Config{Client: client}
 	if cfg.DefaultParams != nil {
 		if format, ok := cfg.DefaultParams["format"].(string); ok && format != "" {
-			opts = append(opts, transformers.WithDoubaoTTSSeedV2Format(format))
+			config.Format = format
 		}
 		if sampleRate, ok := cfg.DefaultParams["sample_rate"].(float64); ok && sampleRate > 0 {
-			opts = append(opts, transformers.WithDoubaoTTSSeedV2SampleRate(int(sampleRate)))
+			config.SampleRate = int(sampleRate)
 		}
 	}
 
@@ -57,7 +58,12 @@ func registerDoubaoTTS(cfg ConfigFile) ([]string, error) {
 
 		// Use DoubaoTTSSeedV2 for all voices
 		// The transformer will auto-detect resource ID based on voice suffix
-		tts := transformers.NewDoubaoTTSSeedV2(client, v.VoiceID, opts...)
+		voiceConfig := config
+		voiceConfig.Speaker = v.VoiceID
+		tts, err := doubaotts.NewSeedV2(voiceConfig)
+		if err != nil {
+			return nil, fmt.Errorf("create transformer %q: %w", v.Name, err)
+		}
 		if err := transformers.Handle(v.Name, tts); err != nil {
 			return nil, fmt.Errorf("register transformer %q: %w", v.Name, err)
 		}
@@ -87,12 +93,10 @@ func registerMinimaxTTS(cfg ConfigFile) ([]string, error) {
 			return nil, fmt.Errorf("voice entry missing name or voice_id")
 		}
 
-		ttsOpts := []transformers.MinimaxTTSOption{}
-		if cfg.Model != "" {
-			ttsOpts = append(ttsOpts, transformers.WithMinimaxTTSModel(cfg.Model))
+		tts, err := minimaxtts.New(minimaxtts.Config{Client: client, VoiceID: v.VoiceID, Model: cfg.Model})
+		if err != nil {
+			return nil, fmt.Errorf("create transformer %q: %w", v.Name, err)
 		}
-
-		tts := transformers.NewMinimaxTTS(client, v.VoiceID, ttsOpts...)
 		if err := transformers.Handle(v.Name, tts); err != nil {
 			return nil, fmt.Errorf("register transformer %q: %w", v.Name, err)
 		}
