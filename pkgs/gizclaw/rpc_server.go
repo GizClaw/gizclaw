@@ -177,8 +177,8 @@ func (s *rpcServer) handleRegister(ctx context.Context, req *rpcapi.RPCRequest) 
 	if s.onRegistration != nil {
 		s.onRegistration(registration)
 	}
-	slog.InfoContext(ctx, "device registration accepted", "peer_public_key", s.callerPublicKey.String(), "source", s.registrationSource, "registration_token", registration.TokenName, "firmware", registration.FirmwareName, "runtime_profile", registration.RuntimeProfile.Name)
-	response := rpcapi.ServerRegisterResponse{FirmwareName: registration.FirmwareName, RuntimeProfileName: registration.RuntimeProfile.Name}
+	slog.InfoContext(ctx, "device registration accepted", "peer_public_key", s.callerPublicKey.String(), "source", s.registrationSource, "registration_token", registration.TokenName, "runtime_profile", registration.RuntimeProfile.Name)
+	response := rpcapi.ServerRegisterResponse{RuntimeProfileName: registration.RuntimeProfile.Name}
 	return newRPCResultResponse(req.Id, response, (*rpcapi.RPCPayload).FromServerRegisterResponse)
 }
 

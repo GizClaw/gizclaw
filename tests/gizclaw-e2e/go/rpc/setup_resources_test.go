@@ -3,10 +3,7 @@
 package rpc_test
 
 import (
-	"archive/tar"
-	"bytes"
 	"context"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -69,25 +66,6 @@ func TestSharedSetupRPCResourcesPagination(t *testing.T) {
 		t.Fatalf("unowned Credentials unexpectedly accessible: %#v", credentialNames)
 	}
 
-	firmwareNames := collectFirmwareNames(t, env.ctx, env.peer, 25)
-	requireName(t, firmwareNames, "devkit-firmware-main")
-	if len(firmwareNames) != 1 {
-		t.Fatalf("firmware list = %#v, want only RegistrationToken Firmware", firmwareNames)
-	}
-}
-
-func TestSharedSetupRPCFirmwareDownloadFixture(t *testing.T) {
-	env := newSharedSetupRPCHarness(t)
-
-	got, err := env.peer.GetFirmware(env.ctx, "shared.firmware.get", rpcapi.FirmwareGetRequest{FirmwareId: "devkit-firmware-main"})
-	if err != nil {
-		t.Fatalf("firmware.get devkit-firmware-main: %v", err)
-	}
-	if got.Slots.Stable.Artifact == nil || strings.TrimSpace(got.Slots.Stable.Artifact.TarPath) == "" {
-		t.Fatalf("firmware artifact = %#v", got.Slots.Stable.Artifact)
-	}
-
-	assertFirmwareBundleRPCDownloads(t, env.ctx, env.peer, "shared.firmware.files.download", "devkit-firmware-main")
 }
 
 func TestSharedSetupRPCSocialFixtures(t *testing.T) {
@@ -266,31 +244,6 @@ func collectCredentialNames(t *testing.T, ctx context.Context, peer *gizcli.Clie
 	return names
 }
 
-func collectFirmwareNames(t *testing.T, ctx context.Context, peer *gizcli.Client, limit int) map[string]bool {
-	t.Helper()
-
-	names := map[string]bool{}
-	var cursor *string
-	for page := 0; page < 100; page++ {
-		list, err := peer.ListFirmwares(ctx, "shared.firmware.list", rpcapi.FirmwareListRequest{Cursor: cursor, Limit: &limit})
-		if err != nil {
-			t.Fatalf("firmware.list page %d: %v", page, err)
-		}
-		for _, item := range list.Items {
-			names[item.Name] = true
-		}
-		if !list.HasNext {
-			return names
-		}
-		if list.NextCursor == nil || *list.NextCursor == "" {
-			t.Fatalf("firmware.list page %d has_next without next cursor: %#v", page, list)
-		}
-		cursor = list.NextCursor
-	}
-	t.Fatal("firmware.list pagination did not terminate")
-	return names
-}
-
 func requireName(t *testing.T, names map[string]bool, name string) {
 	t.Helper()
 	if !names[name] {
@@ -349,33 +302,6 @@ func requirePrefixCount(t *testing.T, names map[string]bool, prefix string, want
 	if got < want {
 		t.Fatalf("prefix %q count = %d, want at least %d", prefix, got, want)
 	}
-}
-
-func assertTarContains(t *testing.T, data []byte, name string, want string) {
-	t.Helper()
-
-	tr := tar.NewReader(bytes.NewReader(data))
-	for {
-		header, err := tr.Next()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			t.Fatalf("read tar: %v", err)
-		}
-		if header.Name != name {
-			continue
-		}
-		body, err := io.ReadAll(tr)
-		if err != nil {
-			t.Fatalf("read tar member %q: %v", name, err)
-		}
-		if !strings.Contains(string(body), want) {
-			t.Fatalf("tar member %q missing %q: %s", name, want, string(body))
-		}
-		return
-	}
-	t.Fatalf("tar member %q not found", name)
 }
 
 func getenvDefault(key, fallback string) string {

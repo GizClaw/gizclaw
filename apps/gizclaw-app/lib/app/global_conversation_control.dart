@@ -81,9 +81,7 @@ class _GlobalBottomDock extends StatelessWidget {
 
   static const _rootPaths = {
     '/active',
-    '/raids/drivers/flowcraft',
-    '/raids/drivers/doubao-realtime',
-    '/raids/drivers/ast-translate',
+    '/workspaces',
     '/friends',
     '/groups',
     '/pets',
@@ -411,22 +409,10 @@ class _PrimaryDockNavigation extends StatefulWidget {
   static const _items = [
     (GizIcons.house, GizIcons.house_fill, 'Home', '/active'),
     (
-      GizIcons.game_controller,
-      GizIcons.game_controller_solid,
-      'Flowcraft',
-      '/raids/drivers/flowcraft',
-    ),
-    (
-      GizIcons.wand_stars,
-      GizIcons.wand_stars_inverse,
-      'Doubao',
-      '/raids/drivers/doubao-realtime',
-    ),
-    (
-      GizIcons.globe,
-      GizIcons.globe,
-      'Translate',
-      '/raids/drivers/ast-translate',
+      GizIcons.rectangle_3_offgrid,
+      GizIcons.rectangle_3_offgrid,
+      'Workspaces',
+      '/workspaces',
     ),
     (GizIcons.person_2, GizIcons.person_2_fill, 'Friends', '/friends'),
     (GizIcons.person_3, GizIcons.person_3_fill, 'Groups', '/groups'),
@@ -593,65 +579,16 @@ class _PrimaryDockNavigationState extends State<_PrimaryDockNavigation> {
                           ]
                         : null,
                   ),
-                  child: item.$3 == 'Translate'
-                      ? _TranslateDockIcon(
-                          color: foreground,
-                          selected: selected,
-                        )
-                      : Icon(
-                          selected ? item.$2 : item.$1,
-                          size: 23,
-                          color: foreground,
-                        ),
+                  child: Icon(
+                    selected ? item.$2 : item.$1,
+                    size: 23,
+                    color: foreground,
+                  ),
                 ),
               ),
             );
           },
         ),
-      ),
-    );
-  }
-}
-
-class _TranslateDockIcon extends StatelessWidget {
-  const _TranslateDockIcon({required this.color, required this.selected});
-
-  final Color color;
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox.square(
-      key: const ValueKey('primary-nav-translate-glyph'),
-      dimension: 26,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Icon(GizIcons.globe, size: 22, color: color),
-          Positioned(
-            right: 0,
-            bottom: 0,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: selected
-                    ? const Color(0xFF171817)
-                    : CupertinoDynamicColor.resolve(
-                        CupertinoColors.systemBackground,
-                        context,
-                      ),
-                shape: BoxShape.circle,
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(1.5),
-                child: Icon(
-                  GizIcons.arrow_right_arrow_left,
-                  size: 9,
-                  color: color,
-                ),
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -902,11 +839,14 @@ _DockContext _dockContext(Uri location, MobileDataController data) {
   final segments = location.pathSegments
       .map(Uri.decodeComponent)
       .toList(growable: false);
-  if (segments.length >= 4 && segments[0] == 'raids') {
-    final driver = WorkflowDriverKind.fromRouteKey(segments[2]);
-    final workspaceName = segments[3];
+  if (segments.length >= 2 && segments[0] == 'workspaces') {
+    final workspaceName = segments[1];
     final active = data.activeWorkspaceName == workspaceName;
     final chatroom = data.chatroomWorkspace(workspaceName);
+    final workspace = data.workspace(workspaceName);
+    final driver = data
+        .workflow(workspace.workflowName, source: workspace.workflowSource)
+        .driver;
     final contextLabel = chatroom == null
         ? driver.label
         : chatroom.kind == ChatroomWorkspaceKind.direct
@@ -921,17 +861,9 @@ _DockContext _dockContext(Uri location, MobileDataController data) {
       subtitle: active
           ? '$contextLabel  /  $mode'
           : '$contextLabel  /  Viewing',
-      fallbackRoute: '/raids/drivers/${driver.routeKey}',
+      fallbackRoute: '/workspaces',
       active: active,
       workspaceName: workspaceName,
-    );
-  }
-  if (segments.length >= 3 && segments[0] == 'raids') {
-    final driver = WorkflowDriverKind.fromRouteKey(segments[2]);
-    return _DockContext(
-      title: driver.label,
-      subtitle: 'Available workspaces',
-      fallbackRoute: '/raids',
     );
   }
   if (segments.length >= 2 && segments[0] == 'groups') {

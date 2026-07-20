@@ -1003,11 +1003,9 @@ class ServerRegisterRequest extends $pb.GeneratedMessage {
 
 class ServerRegisterResponse extends $pb.GeneratedMessage {
   factory ServerRegisterResponse({
-    $core.String? firmwareName,
     $core.String? runtimeProfileName,
   }) {
     final result = create();
-    if (firmwareName != null) result.firmwareName = firmwareName;
     if (runtimeProfileName != null)
       result.runtimeProfileName = runtimeProfileName;
     return result;
@@ -1026,7 +1024,6 @@ class ServerRegisterResponse extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'ServerRegisterResponse',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'firmwareName')
     ..aOS(2, _omitFieldNames ? '' : 'runtimeProfileName')
     ..hasRequiredFields = false;
 
@@ -1050,21 +1047,12 @@ class ServerRegisterResponse extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<ServerRegisterResponse>(create);
   static ServerRegisterResponse? _defaultInstance;
 
-  @$pb.TagNumber(1)
-  $core.String get firmwareName => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set firmwareName($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasFirmwareName() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearFirmwareName() => $_clearField(1);
-
   @$pb.TagNumber(2)
-  $core.String get runtimeProfileName => $_getSZ(1);
+  $core.String get runtimeProfileName => $_getSZ(0);
   @$pb.TagNumber(2)
-  set runtimeProfileName($core.String value) => $_setString(1, value);
+  set runtimeProfileName($core.String value) => $_setString(0, value);
   @$pb.TagNumber(2)
-  $core.bool hasRuntimeProfileName() => $_has(1);
+  $core.bool hasRuntimeProfileName() => $_has(0);
   @$pb.TagNumber(2)
   void clearRuntimeProfileName() => $_clearField(2);
 }

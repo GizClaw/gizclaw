@@ -105,6 +105,114 @@ abstract class AppLocalizations {
   /// **'GizClaw OpenSource'**
   String get appTitle;
 
+  /// Unified Workspace destination title.
+  ///
+  /// In en, this message translates to:
+  /// **'Workspaces'**
+  String get workspacesTitle;
+
+  /// Unified Workspace creation action and sheet title.
+  ///
+  /// In en, this message translates to:
+  /// **'New Workspace'**
+  String get newWorkspace;
+
+  /// Empty state for the unified Workspace list.
+  ///
+  /// In en, this message translates to:
+  /// **'No workspaces yet.'**
+  String get noWorkspaces;
+
+  /// Fixed Doubao realtime Workflow title.
+  ///
+  /// In en, this message translates to:
+  /// **'Doubao Realtime'**
+  String get workflowDoubaoRealtimeTitle;
+
+  /// Fixed Doubao realtime Workflow subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Live voice conversation'**
+  String get workflowDoubaoRealtimeSubtitle;
+
+  /// Fixed Chinese and English translation Workflow title.
+  ///
+  /// In en, this message translates to:
+  /// **'Chinese ↔ English'**
+  String get workflowTranslateZhEnTitle;
+
+  /// Fixed Chinese to Japanese translation Workflow title.
+  ///
+  /// In en, this message translates to:
+  /// **'Chinese → Japanese'**
+  String get workflowTranslateZhJaTitle;
+
+  /// Fixed Chinese to Korean translation Workflow title.
+  ///
+  /// In en, this message translates to:
+  /// **'Chinese → Korean'**
+  String get workflowTranslateZhKoTitle;
+
+  /// Fixed Chinese to Spanish translation Workflow title.
+  ///
+  /// In en, this message translates to:
+  /// **'Chinese → Spanish'**
+  String get workflowTranslateZhEsTitle;
+
+  /// Fixed translation Workflow subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Realtime speech translation'**
+  String get workflowTranslationSubtitle;
+
+  /// Fixed chat Raid Workflow title.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat'**
+  String get workflowChatTitle;
+
+  /// Fixed chat Raid Workflow subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'General AI assistant'**
+  String get workflowChatSubtitle;
+
+  /// Fixed journey Raid Workflow title.
+  ///
+  /// In en, this message translates to:
+  /// **'Journey'**
+  String get workflowJourneyTitle;
+
+  /// Fixed journey Raid Workflow subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Interactive story guide'**
+  String get workflowJourneySubtitle;
+
+  /// Fixed murder mystery Raid Workflow title.
+  ///
+  /// In en, this message translates to:
+  /// **'Murder Mystery'**
+  String get workflowMurderMysteryTitle;
+
+  /// Fixed murder mystery Raid Workflow subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Interactive mystery game'**
+  String get workflowMurderMysterySubtitle;
+
+  /// Fixed internal chatroom Workflow title.
+  ///
+  /// In en, this message translates to:
+  /// **'Chatroom'**
+  String get workflowChatroomTitle;
+
+  /// Fixed internal chatroom Workflow subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Friend and group conversation'**
+  String get workflowChatroomSubtitle;
+
   /// Language setting title.
   ///
   /// In en, this message translates to:
@@ -504,7 +612,7 @@ abstract class AppLocalizations {
   /// Shared actions, field labels, and short status text.
   ///
   /// In en, this message translates to:
-  /// **'{key, select, unableActivate {Unable to activate} unableSwitchMode {Unable to switch mode} actionFailed {The action could not be completed. Please try again.} pushToTalk {Push to talk} realtime {Realtime} addFriend {Add Friend} remove {Remove} createGroup {Create Group} createGroupA11y {Create group} groupName {Group name} optionalDescription {Description (optional)} connect {Connect} myInvite {My Invite} inviteToken {Invite token} revoke {Revoke} friendUnavailable {Friend unavailable} openChat {Open Chat} removeFriend {Remove Friend} directChatRemoved {The direct chat workspace will also be removed.} curiousToday {Curious today} mood {Mood} streak {Streak} chooseWorkflow {Choose Workflow} adoptPet {Adopt a pet} namePet {Name your pet} optionalName {Optional name} adopt {Adopt} other {{key}}}'**
+  /// **'{key, select, unavailable {Unavailable} unableActivate {Unable to activate} unableSwitchMode {Unable to switch mode} actionFailed {The action could not be completed. Please try again.} pushToTalk {Push to talk} realtime {Realtime} addFriend {Add Friend} remove {Remove} createGroup {Create Group} createGroupA11y {Create group} groupName {Group name} optionalDescription {Description (optional)} connect {Connect} myInvite {My Invite} inviteToken {Invite token} revoke {Revoke} friendUnavailable {Friend unavailable} openChat {Open Chat} removeFriend {Remove Friend} directChatRemoved {The direct chat workspace will also be removed.} curiousToday {Curious today} mood {Mood} streak {Streak} chooseWorkflow {Choose Workflow} adoptPet {Adopt a pet} namePet {Name your pet} optionalName {Optional name} adopt {Adopt} other {{key}}}'**
   String actionText({required String key});
 
   /// Remove friend confirmation title.

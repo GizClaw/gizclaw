@@ -627,7 +627,6 @@ type RegistrationTokenList struct {
 
 // RegistrationTokenUpsert defines model for RegistrationTokenUpsert.
 type RegistrationTokenUpsert struct {
-	FirmwareName       string `json:"firmware_name"`
 	Name               string `json:"name"`
 	RuntimeProfileName string `json:"runtime_profile_name"`
 }
