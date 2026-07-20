@@ -1,4 +1,4 @@
-package transformers
+package doubaorealtime
 
 import (
 	"errors"
@@ -305,7 +305,7 @@ func realtimeAssistantOpusDuration(chunk *genx.MessageChunk, label string) time.
 		return 0
 	}
 	blob, ok := chunk.Part.(*genx.Blob)
-	if !ok || blob == nil || len(blob.Data) == 0 || baseAudioMIME(blob.MIMEType) != "audio/opus" {
+	if !ok || blob == nil || len(blob.Data) == 0 || realtimeBaseMIME(blob.MIMEType) != "audio/opus" {
 		return 0
 	}
 	return time.Duration(historyOpusPacketDurationMS(blob.Data)) * time.Millisecond
@@ -376,7 +376,7 @@ type doubaoRealtimePTTCompletion struct {
 	once sync.Once
 }
 
-func newDoubaoRealtimePTTCompletion() *doubaoRealtimePTTCompletion {
+func newTransformerPTTCompletion() *doubaoRealtimePTTCompletion {
 	return &doubaoRealtimePTTCompletion{done: make(chan struct{})}
 }
 
@@ -520,7 +520,7 @@ func (t *doubaoRealtimePTTTurn) begin(output realtimeChunkOutput, streamID, assi
 	t.hypothesis = ""
 	t.output = output
 	t.assistantOut = newRealtimePTTOutputGate(output, streamID, assistantLabel, limit, maxBytes)
-	t.completion = newDoubaoRealtimePTTCompletion()
+	t.completion = newTransformerPTTCompletion()
 	t.mu.Unlock()
 	previous.Discard()
 	previousCompletion.complete()
@@ -1006,14 +1006,14 @@ func chunkInputStreamID(chunk *genx.MessageChunk, fallback string) string {
 type doubaoRealtimeStreamIDs struct {
 	mu sync.Mutex
 
-	mode       DoubaoRealtimeMode
+	mode       Mode
 	baseInput  string
 	inputID    string
 	responseID string
 	segment    int
 }
 
-func newDoubaoRealtimeStreamIDs(mode DoubaoRealtimeMode) *doubaoRealtimeStreamIDs {
+func newDoubaoRealtimeStreamIDs(mode Mode) *doubaoRealtimeStreamIDs {
 	return &doubaoRealtimeStreamIDs{mode: mode}
 }
 
@@ -1068,7 +1068,7 @@ func (s *doubaoRealtimeStreamIDs) historyInput(chunk *genx.MessageChunk) string 
 	if s == nil {
 		return chunkInputStreamID(chunk, "")
 	}
-	if s.mode != DoubaoRealtimeModeRealtime {
+	if s.mode != ModeRealtime {
 		return chunkInputStreamID(chunk, s.input())
 	}
 	s.mu.Lock()
@@ -1092,7 +1092,7 @@ func (s *doubaoRealtimeStreamIDs) endInputSegment() string {
 	}
 	ended := s.inputID
 	s.responseID = ended
-	if s.mode == DoubaoRealtimeModeRealtime {
+	if s.mode == ModeRealtime {
 		s.segment++
 		s.inputID = s.inputForSegmentLocked()
 	}
@@ -1119,7 +1119,7 @@ func (s *doubaoRealtimeStreamIDs) inputForSegmentLocked() string {
 	if base == "" {
 		base = "audio"
 	}
-	if s.mode != DoubaoRealtimeModeRealtime {
+	if s.mode != ModeRealtime {
 		return base
 	}
 	segment := s.segment

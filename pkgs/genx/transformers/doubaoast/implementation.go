@@ -1,4 +1,4 @@
-package transformers
+package doubaoast
 
 import (
 	"bytes"
@@ -31,11 +31,11 @@ const (
 
 var errDoubaoASTTranslatePTTOutputLimit = errors.New("doubao ast translate: push-to-talk output audio limit exceeded")
 
-type DoubaoASTTranslate struct {
+type Transformer struct {
 	client                     *doubaospeech.Client
 	resourceID                 string
 	mode                       doubaospeech.ASTTranslateMode
-	inputMode                  DoubaoASTTranslateInputMode
+	inputMode                  InputMode
 	sourceLanguage             string
 	targetLanguage             string
 	speakerID                  string
@@ -49,7 +49,7 @@ type DoubaoASTTranslate struct {
 	newSession func(context.Context, doubaospeech.ASTTranslateConfig) (doubaoASTTranslateSession, error)
 }
 
-var _ genx.Transformer = (*DoubaoASTTranslate)(nil)
+var _ genx.Transformer = (*Transformer)(nil)
 
 type doubaoASTTranslateSession interface {
 	SendAudio(context.Context, []byte) error
@@ -58,97 +58,90 @@ type doubaoASTTranslateSession interface {
 	Close() error
 }
 
-type DoubaoASTTranslateOption func(*DoubaoASTTranslate)
+type option func(*Transformer)
 
-type DoubaoASTTranslateInputMode string
-
-const (
-	DoubaoASTTranslateInputModeRealtime   DoubaoASTTranslateInputMode = "realtime"
-	DoubaoASTTranslateInputModePushToTalk DoubaoASTTranslateInputMode = "push-to-talk"
-)
-
-func WithDoubaoASTTranslateResourceID(resourceID string) DoubaoASTTranslateOption {
-	return func(t *DoubaoASTTranslate) {
+func withResourceID(resourceID string) option {
+	return func(t *Transformer) {
 		t.resourceID = resourceID
 	}
 }
 
-func WithDoubaoASTTranslateMode(mode doubaospeech.ASTTranslateMode) DoubaoASTTranslateOption {
-	return func(t *DoubaoASTTranslate) {
+func withMode(mode doubaospeech.ASTTranslateMode) option {
+	return func(t *Transformer) {
 		if mode != "" {
 			t.mode = mode
 		}
 	}
 }
 
-func WithDoubaoASTTranslateInputMode(mode DoubaoASTTranslateInputMode) DoubaoASTTranslateOption {
-	return func(t *DoubaoASTTranslate) {
+func withInputMode(mode InputMode) option {
+	return func(t *Transformer) {
 		if mode != "" {
 			t.inputMode = mode
 		}
 	}
 }
 
-func WithDoubaoASTTranslateSourceLanguage(language string) DoubaoASTTranslateOption {
-	return func(t *DoubaoASTTranslate) {
+func withSourceLanguage(language string) option {
+	return func(t *Transformer) {
 		t.sourceLanguage = language
 	}
 }
 
-func WithDoubaoASTTranslateTargetLanguage(language string) DoubaoASTTranslateOption {
-	return func(t *DoubaoASTTranslate) {
+func withTargetLanguage(language string) option {
+	return func(t *Transformer) {
 		t.targetLanguage = language
 	}
 }
 
-func WithDoubaoASTTranslateSpeakerID(speakerID string) DoubaoASTTranslateOption {
-	return func(t *DoubaoASTTranslate) {
+func withSpeakerID(speakerID string) option {
+	return func(t *Transformer) {
 		t.speakerID = speakerID
 	}
 }
 
-func WithDoubaoASTTranslateCustomSpeaker(enabled bool) DoubaoASTTranslateOption {
-	return func(t *DoubaoASTTranslate) {
+func withCustomSpeaker(enabled bool) option {
+	return func(t *Transformer) {
 		t.isCustomSpeaker = enabled
 	}
 }
 
-func WithDoubaoASTTranslateTTSResourceID(resourceID string) DoubaoASTTranslateOption {
-	return func(t *DoubaoASTTranslate) {
+func withTTSResourceID(resourceID string) option {
+	return func(t *Transformer) {
 		t.ttsResourceID = resourceID
 	}
 }
 
-func WithDoubaoASTTranslateSpeechRate(rate int) DoubaoASTTranslateOption {
-	return func(t *DoubaoASTTranslate) {
+func withSpeechRate(rate int) option {
+	return func(t *Transformer) {
 		t.speechRate = rate
 	}
 }
 
-func WithDoubaoASTTranslateSourceLanguageDetect(enabled bool) DoubaoASTTranslateOption {
-	return func(t *DoubaoASTTranslate) {
+func withSourceLanguageDetect(enabled bool) option {
+	return func(t *Transformer) {
 		t.enableSourceLanguageDetect = enabled
 	}
 }
 
-func WithDoubaoASTTranslateDenoise(enabled bool) DoubaoASTTranslateOption {
-	return func(t *DoubaoASTTranslate) {
+func withDenoise(enabled bool) option {
+	return func(t *Transformer) {
 		t.denoise = &enabled
 	}
 }
 
-func WithDoubaoASTTranslateRealtimePacing(enabled bool) DoubaoASTTranslateOption {
-	return func(t *DoubaoASTTranslate) {
+func withRealtimePacing(enabled bool) option {
+	return func(t *Transformer) {
 		t.realtimePacing = enabled
 	}
 }
 
-func NewDoubaoASTTranslate(client *doubaospeech.Client, opts ...DoubaoASTTranslateOption) *DoubaoASTTranslate {
-	t := &DoubaoASTTranslate{
+func newTransformer(client *doubaospeech.Client, opts ...option) *Transformer {
+	t := &Transformer{
 		client:         client,
 		resourceID:     doubaospeech.ResourceASTTranslate,
 		mode:           doubaospeech.ASTTranslateModeS2T,
-		inputMode:      DoubaoASTTranslateInputModeRealtime,
+		inputMode:      InputModeRealtime,
 		sourceLanguage: "zhen",
 		targetLanguage: "zhen",
 		realtimePacing: true,
@@ -159,7 +152,11 @@ func NewDoubaoASTTranslate(client *doubaospeech.Client, opts ...DoubaoASTTransla
 	return t
 }
 
-func (t *DoubaoASTTranslate) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
+func (t *Transformer) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
+	return t.transform(ctx, input)
+}
+
+func (t *Transformer) transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
 	if t == nil || t.client == nil {
 		return nil, fmt.Errorf("doubao ast translate: client is required")
 	}
@@ -171,7 +168,7 @@ func (t *DoubaoASTTranslate) Transform(ctx context.Context, input genx.Stream) (
 	return output, nil
 }
 
-func (t *DoubaoASTTranslate) transformLoop(parent context.Context, input genx.Stream, output *bufferStream) {
+func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, output *bufferStream) {
 	defer output.Close()
 	ctx, cancel := context.WithCancel(parent)
 	defer cancel()
@@ -229,7 +226,7 @@ func (t *DoubaoASTTranslate) transformLoop(parent context.Context, input genx.St
 			output: output,
 			active: active,
 		})
-		if t.inputMode == DoubaoASTTranslateInputModePushToTalk {
+		if t.inputMode == InputModePushToTalk {
 			sessionGate = newASTTranslatePTTOutputGate(output, active, streamID)
 			eventOutput = sessionGate
 		} else {
@@ -536,7 +533,7 @@ func (t *DoubaoASTTranslate) transformLoop(parent context.Context, input genx.St
 						return
 					}
 				}
-				wait := t.inputMode != DoubaoASTTranslateInputModeRealtime
+				wait := t.inputMode != InputModeRealtime
 				if err := finishSession(wait); err != nil {
 					output.CloseWithError(err)
 					return
@@ -607,7 +604,7 @@ func (t *DoubaoASTTranslate) transformLoop(parent context.Context, input genx.St
 	}
 }
 
-func (t *DoubaoASTTranslate) sessionConfig() doubaospeech.ASTTranslateConfig {
+func (t *Transformer) sessionConfig() doubaospeech.ASTTranslateConfig {
 	cfg := doubaospeech.DefaultASTTranslateConfig()
 	cfg.ResourceID = strings.TrimSpace(t.resourceID)
 	cfg.Mode = t.mode
@@ -639,11 +636,11 @@ func (t *DoubaoASTTranslate) sessionConfig() doubaospeech.ASTTranslateConfig {
 	return cfg
 }
 
-func (t *DoubaoASTTranslate) openSession(ctx context.Context, cfg doubaospeech.ASTTranslateConfig) (doubaoASTTranslateSession, error) {
+func (t *Transformer) openSession(ctx context.Context, cfg doubaospeech.ASTTranslateConfig) (doubaoASTTranslateSession, error) {
 	return t.client.ASTTranslate.OpenSession(ctx, &cfg)
 }
 
-func (t *DoubaoASTTranslate) prepareAudioBlob(blob *genx.Blob, rawOpusDecoder **opus.Decoder) ([]byte, error) {
+func (t *Transformer) prepareAudioBlob(blob *genx.Blob, rawOpusDecoder **opus.Decoder) ([]byte, error) {
 	if blob == nil || len(blob.Data) == 0 {
 		return nil, nil
 	}
@@ -656,7 +653,7 @@ func (t *DoubaoASTTranslate) prepareAudioBlob(blob *genx.Blob, rawOpusDecoder **
 	mimeType := baseAudioMIME(blob.MIMEType)
 	switch {
 	case isASRMP3MIME(mimeType):
-		return (&DoubaoASRSAUC{}).decodeMP3ToPCM(blob.Data, cfg)
+		return decodeMP3ToPCM(blob.Data, cfg)
 	case isASRPCMMIME(mimeType):
 		return blob.Data, nil
 	case isOggAudioMIME(mimeType):
@@ -672,7 +669,7 @@ func (t *DoubaoASTTranslate) prepareAudioBlob(blob *genx.Blob, rawOpusDecoder **
 	}
 }
 
-func (t *DoubaoASTTranslate) audioChunkSize() int {
+func (t *Transformer) audioChunkSize() int {
 	return doubaoASTTranslateSourceSampleRate * doubaoASTTranslateSourceChannels * (doubaoASTTranslateSourceBits / 8) / 10
 }
 
@@ -885,7 +882,7 @@ func (o astTranslateGatedOutput) Push(chunk *genx.MessageChunk) error {
 	return o.output.Push(chunk)
 }
 
-func (t *DoubaoASTTranslate) forwardEvents(
+func (t *Transformer) forwardEvents(
 	output astTranslateOutput,
 	session doubaoASTTranslateSession,
 	streamID string,
@@ -897,7 +894,7 @@ func (t *DoubaoASTTranslate) forwardEvents(
 	translation := astTranslateTextState{role: genx.RoleModel, label: doubaoASTTranslateAssistantLabel, streamID: streamID}
 	audio := astTranslateAudioState{streamID: streamID, mimeType: "audio/opus", decoder: newASTOggOpusFrameDecoder()}
 	segment := 0
-	segmentByProvider := t.inputMode != DoubaoASTTranslateInputModePushToTalk
+	segmentByProvider := t.inputMode != InputModePushToTalk
 	ensureSegment := func() string {
 		if segment == 0 {
 			segment = 1

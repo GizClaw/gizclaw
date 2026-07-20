@@ -1,86 +1,102 @@
-package transformers
+package doubaorealtime
 
 import (
-	"strings"
+	"io"
+	"sync"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
 
-func TestDoubaoRealtimeAdaptersShareMediaContract(t *testing.T) {
-	factories := []struct {
-		name string
-		new  func() *doubaoRealtimeAudioInputs
-	}{
-		{name: "realtime", new: func() *doubaoRealtimeAudioInputs {
-			return newDoubaoRealtimeAudioInputs("pcm", 16000, 1, false)
-		}},
-		{name: "duplex", new: func() *doubaoRealtimeAudioInputs {
-			return newDoubaoRealtimeDuplexAudioInputs("pcm", 16000, 1, false)
-		}},
-	}
-
-	for _, factory := range factories {
-		t.Run(factory.name, func(t *testing.T) {
-			inputs := factory.new()
-			pcm := &genx.Blob{
-				MIMEType: "audio/pcm;rate=16000",
-				Data:     []byte{1, 0, 2, 0},
-			}
-			input, err := inputs.streamForBlob("turn-1", pcm)
-			if err != nil {
-				t.Fatalf("streamForBlob(PCM) error = %v", err)
-			}
-			frames, err := input.prepareFrames(pcm)
-			if err != nil {
-				t.Fatalf("prepareFrames(PCM) error = %v", err)
-			}
-			if len(frames) != 1 || string(frames[0]) != string([]byte{1, 0, 2, 0}) {
-				t.Fatalf("prepareFrames(PCM) = %#v", frames)
-			}
-
-			if _, err := inputs.streamForBlob("turn-1", &genx.Blob{MIMEType: "audio/opus"}); err == nil || !strings.Contains(err.Error(), "changed MIME type") {
-				t.Fatalf("streamForBlob(MIME change) error = %v", err)
-			}
-			inputs.close()
-			if len(inputs.streams) != 0 || len(inputs.mimeTypes) != 0 {
-				t.Fatalf("close() retained streams=%d mimeTypes=%d", len(inputs.streams), len(inputs.mimeTypes))
-			}
-		})
-	}
+type sliceRealtimeStream struct {
+	chunks []*genx.MessageChunk
+	index  int
 }
 
-func TestDoubaoRealtimeAdaptersShareStreamIDContract(t *testing.T) {
-	factories := []struct {
-		name string
-		new  func() *doubaoRealtimeStreamIDs
-	}{
-		{name: "realtime", new: func() *doubaoRealtimeStreamIDs {
-			return newDoubaoRealtimeStreamIDs(DoubaoRealtimeModeRealtime)
-		}},
-		{name: "duplex", new: func() *doubaoRealtimeStreamIDs {
-			return newDoubaoRealtimeDuplexStreamIDs()
-		}},
+func (s *sliceRealtimeStream) Next() (*genx.MessageChunk, error) {
+	if s.index >= len(s.chunks) {
+		return nil, io.EOF
 	}
+	chunk := s.chunks[s.index]
+	s.index++
+	return chunk, nil
+}
 
-	for _, factory := range factories {
-		t.Run(factory.name, func(t *testing.T) {
-			ids := factory.new()
-			ids.beginInput("turn")
-			if got := ids.input(); got != "turn:rt:1" {
-				t.Fatalf("input() = %q, want turn:rt:1", got)
-			}
-			if got := ids.endInputSegment(); got != "turn:rt:1" {
-				t.Fatalf("endInputSegment() = %q, want turn:rt:1", got)
-			}
-			if got := ids.response(); got != "turn:rt:1" {
-				t.Fatalf("response() = %q, want turn:rt:1", got)
-			}
-			if got := ids.input(); got != "turn:rt:2" {
-				t.Fatalf("next input() = %q, want turn:rt:2", got)
-			}
-		})
+func (s *sliceRealtimeStream) Close() error               { return nil }
+func (s *sliceRealtimeStream) CloseWithError(error) error { return nil }
+
+type gatedRealtimeStream struct {
+	first            []*genx.MessageChunk
+	rest             []*genx.MessageChunk
+	gate             <-chan struct{}
+	firstDrained     chan<- struct{}
+	firstDrainedOnce sync.Once
+	index            int
+}
+
+func (s *gatedRealtimeStream) Next() (*genx.MessageChunk, error) {
+	if s.index < len(s.first) {
+		chunk := s.first[s.index]
+		s.index++
+		if s.index == len(s.first) && s.firstDrained != nil {
+			s.firstDrainedOnce.Do(func() { close(s.firstDrained) })
+		}
+		return chunk, nil
 	}
+	if s.gate != nil {
+		<-s.gate
+		s.gate = nil
+	}
+	restIndex := s.index - len(s.first)
+	if restIndex >= len(s.rest) {
+		return nil, io.EOF
+	}
+	chunk := s.rest[restIndex]
+	s.index++
+	return chunk, nil
+}
+
+func (s *gatedRealtimeStream) Close() error               { return nil }
+func (s *gatedRealtimeStream) CloseWithError(error) error { return nil }
+
+type blockingRealtimeStream struct {
+	started     chan struct{}
+	done        chan struct{}
+	startedOnce sync.Once
+	doneOnce    sync.Once
+	errMu       sync.Mutex
+	err         error
+}
+
+func newBlockingRealtimeStream() *blockingRealtimeStream {
+	return &blockingRealtimeStream{started: make(chan struct{}), done: make(chan struct{})}
+}
+
+func (s *blockingRealtimeStream) Next() (*genx.MessageChunk, error) {
+	s.startedOnce.Do(func() { close(s.started) })
+	<-s.done
+	s.errMu.Lock()
+	defer s.errMu.Unlock()
+	return nil, s.err
+}
+
+func (s *blockingRealtimeStream) Close() error {
+	s.close(nil)
+	return nil
+}
+
+func (s *blockingRealtimeStream) CloseWithError(err error) error {
+	s.close(err)
+	return nil
+}
+
+func (s *blockingRealtimeStream) close(err error) {
+	s.doneOnce.Do(func() {
+		s.errMu.Lock()
+		s.err = err
+		s.errMu.Unlock()
+		close(s.done)
+	})
 }
 
 func TestRealtimeAssistantLifecycleInterruptsCurrentEpoch(t *testing.T) {

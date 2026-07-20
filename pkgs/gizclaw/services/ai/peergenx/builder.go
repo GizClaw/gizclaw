@@ -15,6 +15,8 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/doubaoast"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/doubaorealtime"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
@@ -302,7 +304,7 @@ func (b DefaultBuilder) buildVolcRealtime(cfg TransformerConfig) (genx.Transform
 	if modelName == "" {
 		return nil, fmt.Errorf("%w: model %q missing upstream_model for doubao realtime", ErrInvalid, cfg.Model.Id)
 	}
-	mode := transformers.DoubaoRealtimeModePushToTalk
+	mode := doubaorealtime.ModePushToTalk
 	if value := mapString(data, "mode", "input_mode", "input"); value != "" {
 		parsed, err := doubaoRealtimeMode(value)
 		if err != nil {
@@ -312,77 +314,74 @@ func (b DefaultBuilder) buildVolcRealtime(cfg TransformerConfig) (genx.Transform
 	}
 
 	client := doubaospeech.NewClient(appID, clientOpts...)
-	opts := []transformers.DoubaoRealtimeOption{
-		transformers.WithDoubaoRealtimeModel(modelName),
-		transformers.WithDoubaoRealtimeMode(mode),
-	}
+	config := doubaorealtime.Config{Client: client, Model: modelName, Mode: mode}
 	if value := mapString(data, "instructions", "system_role"); value != "" {
-		opts = append(opts, transformers.WithDoubaoRealtimeSystemRole(value))
+		config.SystemRole = value
 	}
 	if value := mapString(data, "dialog_id"); value != "" {
-		opts = append(opts, transformers.WithDoubaoRealtimeDialogID(value))
+		config.DialogID = value
 	}
 	extension, err := doubaoRealtimeExtension(data)
 	if err != nil {
 		return nil, err
 	}
 	if asrExtra := doubaoRealtimeASRExtra(extension); asrExtra != nil {
-		opts = append(opts, transformers.WithDoubaoRealtimeASRExtra(*asrExtra))
+		config.ASRExtra = asrExtra
 	}
 	if ttsExtra := doubaoRealtimeTTSExtra(extension); ttsExtra != nil {
-		opts = append(opts, transformers.WithDoubaoRealtimeTTSExtra(*ttsExtra))
+		config.TTSExtra = ttsExtra
 	}
 	dialogExtra := doubaoRealtimeDialogExtra(extension)
 	if dialogExtra != nil {
-		opts = append(opts, transformers.WithDoubaoRealtimeDialogExtra(*dialogExtra))
+		config.DialogExtra = dialogExtra
 		if doubaoRealtimeWebsearchEnabled(dialogExtra) {
 			searchAPIKey := firstString(credentialBody.SearchApiKey)
 			if searchAPIKey == "" {
 				return nil, fmt.Errorf("%w: credential %q missing search_api_key for doubao realtime web search", ErrInvalid, cfg.Credential.Name)
 			}
-			opts = append(opts, transformers.WithDoubaoRealtimeSearchAPIKey(searchAPIKey))
+			config.SearchAPIKey = searchAPIKey
 		}
 	}
 	if value := mapString(data, "output_voice", "voice", "speaker"); value != "" {
-		opts = append(opts, transformers.WithDoubaoRealtimeSpeaker(value))
+		config.Speaker = value
 	}
 	if value := mapString(data, "output_format", "format"); value != "" {
-		opts = append(opts, transformers.WithDoubaoRealtimeFormat(value))
+		config.Format = value
 	}
 	if value, ok := mapInt(data, "output_sample_rate", "sample_rate"); ok {
-		opts = append(opts, transformers.WithDoubaoRealtimeSampleRate(value))
+		config.SampleRate = value
 	}
 	if value, ok := mapInt(data, "output_speed", "speech_rate", "speed"); ok {
-		opts = append(opts, transformers.WithDoubaoRealtimeSpeechRate(value))
+		config.SpeechRate = &value
 	}
 	if value, ok := mapInt(data, "output_loudness", "loudness_rate", "loudness"); ok {
-		opts = append(opts, transformers.WithDoubaoRealtimeLoudnessRate(value))
+		config.LoudnessRate = &value
 	}
 	if value := mapString(data, "input_format"); value != "" {
-		opts = append(opts, transformers.WithDoubaoRealtimeInputFormat(value))
+		config.InputFormat = value
 	}
 	if value, ok := mapInt(data, "input_sample_rate"); ok {
-		opts = append(opts, transformers.WithDoubaoRealtimeInputSampleRate(value))
+		config.InputSampleRate = value
 	}
 	if value, ok := mapInt(data, "input_channels"); ok {
-		opts = append(opts, transformers.WithDoubaoRealtimeInputChannels(value))
+		config.InputChannels = value
 	}
 	if value, ok := mapBool(data, "input_transcode"); ok {
-		opts = append(opts, transformers.WithDoubaoRealtimeInputTranscode(value))
+		config.InputTranscode = &value
 	}
 	if value := mapString(data, "bot_name"); value != "" {
-		opts = append(opts, transformers.WithDoubaoRealtimeBotName(value))
+		config.BotName = value
 	}
 	if value, ok := mapInt(data, "vad_window_ms"); ok {
-		opts = append(opts, transformers.WithDoubaoRealtimeVADWindow(value))
+		config.VADWindow = value
 	}
 	if value := mapString(data, "speaking_style"); value != "" {
-		opts = append(opts, transformers.WithDoubaoRealtimeSpeakingStyle(value))
+		config.SpeakingStyle = value
 	}
 	if value := mapString(data, "character_manifest"); value != "" {
-		opts = append(opts, transformers.WithDoubaoRealtimeCharacterManifest(value))
+		config.CharacterManifest = value
 	}
-	return transformers.NewDoubaoRealtime(client, opts...), nil
+	return doubaorealtime.New(config)
 }
 
 func doubaoRealtimeExtension(data map[string]any) (*apitypes.DoubaoRealtimeExtension, error) {
@@ -554,52 +553,51 @@ func (b DefaultBuilder) buildVolcASTTranslate(cfg TransformerConfig) (genx.Trans
 	}
 	clientOpts = append(clientOpts, doubaospeech.WithAPIKey(apiKey))
 
-	opts := []transformers.DoubaoASTTranslateOption{
-		transformers.WithDoubaoASTTranslateResourceID(resourceID),
-	}
+	config := doubaoast.Config{ResourceID: resourceID}
 	if value := mapString(data, "mode"); value != "" {
 		mode, err := doubaoASTTranslateMode(value)
 		if err != nil {
 			return nil, err
 		}
-		opts = append(opts, transformers.WithDoubaoASTTranslateMode(mode))
+		config.Mode = mode
 	}
 	if value := mapString(data, "source_language", "source"); value != "" {
-		opts = append(opts, transformers.WithDoubaoASTTranslateSourceLanguage(value))
+		config.SourceLanguage = value
 	}
 	if value := mapString(data, "target_language", "target"); value != "" {
-		opts = append(opts, transformers.WithDoubaoASTTranslateTargetLanguage(value))
+		config.TargetLanguage = value
 	}
 	if value := mapString(data, "speaker_id", "speaker"); value != "" {
-		opts = append(opts, transformers.WithDoubaoASTTranslateSpeakerID(value))
+		config.SpeakerID = value
 	}
 	if value, ok := mapBool(data, "is_custom_speaker", "custom_speaker"); ok {
-		opts = append(opts, transformers.WithDoubaoASTTranslateCustomSpeaker(value))
+		config.CustomSpeaker = value
 	}
 	if value := mapString(data, "tts_resource_id"); value != "" {
-		opts = append(opts, transformers.WithDoubaoASTTranslateTTSResourceID(value))
+		config.TTSResourceID = value
 	}
 	if value, ok := mapInt(data, "speech_rate"); ok {
-		opts = append(opts, transformers.WithDoubaoASTTranslateSpeechRate(value))
+		config.SpeechRate = value
 	}
 	if value, ok := mapBool(data, "enable_source_language_detect", "source_language_detect"); ok {
-		opts = append(opts, transformers.WithDoubaoASTTranslateSourceLanguageDetect(value))
+		config.SourceLanguageDetect = value
 	}
 	if value, ok := mapBool(data, "denoise"); ok {
-		opts = append(opts, transformers.WithDoubaoASTTranslateDenoise(value))
+		config.Denoise = &value
 	}
 	if value, ok := mapBool(data, "realtime_pacing", "realtimePacing"); ok {
-		opts = append(opts, transformers.WithDoubaoASTTranslateRealtimePacing(value))
+		config.RealtimePacing = &value
 	}
 	if value := mapString(data, "input", "input_mode"); value != "" {
 		inputMode, err := doubaoASTTranslateInputMode(value)
 		if err != nil {
 			return nil, err
 		}
-		opts = append(opts, transformers.WithDoubaoASTTranslateInputMode(inputMode))
+		config.InputMode = inputMode
 	}
 	client := doubaospeech.NewClient(appID, clientOpts...)
-	return transformers.NewDoubaoASTTranslate(client, opts...), nil
+	config.Client = client
+	return doubaoast.New(config)
 }
 
 func normalizeVolcASTTranslateLanguagePair(data map[string]any) error {
@@ -666,12 +664,12 @@ func doubaoASTTranslateMode(mode string) (doubaospeech.ASTTranslateMode, error) 
 	}
 }
 
-func doubaoASTTranslateInputMode(value string) (transformers.DoubaoASTTranslateInputMode, error) {
+func doubaoASTTranslateInputMode(value string) (doubaoast.InputMode, error) {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case "", "push-to-talk", "push_to_talk", "ptt", "default":
-		return transformers.DoubaoASTTranslateInputModePushToTalk, nil
+		return doubaoast.InputModePushToTalk, nil
 	case "realtime", "real-time", "real_time":
-		return transformers.DoubaoASTTranslateInputModeRealtime, nil
+		return doubaoast.InputModeRealtime, nil
 	default:
 		return "", fmt.Errorf("%w: doubao ast translate input mode %q", ErrUnsupported, value)
 	}
@@ -778,14 +776,14 @@ func firstString(values ...any) string {
 	return ""
 }
 
-func doubaoRealtimeMode(value string) (transformers.DoubaoRealtimeMode, error) {
+func doubaoRealtimeMode(value string) (doubaorealtime.Mode, error) {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case "push-to-talk", "push_to_talk", "ptt", "default":
-		return transformers.DoubaoRealtimeModePushToTalk, nil
+		return doubaorealtime.ModePushToTalk, nil
 	case "realtime", "real-time", "real_time":
-		return transformers.DoubaoRealtimeModeRealtime, nil
+		return doubaorealtime.ModeRealtime, nil
 	case "text":
-		return transformers.DoubaoRealtimeModeText, nil
+		return doubaorealtime.ModeText, nil
 	default:
 		return "", fmt.Errorf("%w: doubao realtime mode %q", ErrUnsupported, value)
 	}

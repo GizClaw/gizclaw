@@ -1,13 +1,9 @@
 package doubaorealtime
 
 import (
-	"context"
-	"sync"
 	"testing"
 
 	doubaospeech "github.com/GizClaw/doubao-speech-go"
-	"github.com/GizClaw/gizclaw-go/pkgs/genx"
-	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/agentkit"
 )
 
 func TestNew(t *testing.T) {
@@ -60,17 +56,23 @@ func TestNewCopiesConfigAndBuildsConfiguredDelegate(t *testing.T) {
 	}
 	speechRate = 9
 	transcode = true
-	if transformer.config.SpeechRate == nil || *transformer.config.SpeechRate != 1 {
+	if transformer.speechRate == nil || *transformer.speechRate != 1 {
 		t.Fatal("New() retained caller-owned SpeechRate pointer")
 	}
-	if transformer.config.InputTranscode == nil || *transformer.config.InputTranscode {
+	if transformer.inputTranscode {
 		t.Fatal("New() retained caller-owned InputTranscode pointer")
 	}
-	if transformer.config.ASRExtra == asr || transformer.config.TTSExtra == tts || transformer.config.DialogExtra == dialog {
+	if transformer.asrExtra == asr || transformer.ttsExtra == tts || transformer.dialogExtra == dialog {
 		t.Fatal("New() retained caller-owned provider config pointers")
 	}
-	if transformer.delegate() == nil {
-		t.Fatal("delegate() returned nil")
+	if transformer.speaker != "speaker" || transformer.format != "ogg_opus" ||
+		transformer.sampleRate != 24000 || transformer.channels != 1 ||
+		transformer.inputFormat != "speech_opus" || transformer.inputSampleRate != 16000 ||
+		transformer.inputChannels != 1 || transformer.botName != "bot" ||
+		transformer.systemRole != "role" || transformer.vadWindowMs != 200 ||
+		transformer.speakingStyle != "style" || transformer.characterManifest != "character" ||
+		transformer.dialogID != "dialog" || transformer.model != "O" || transformer.mode != ModeRealtime {
+		t.Fatalf("configured transformer = %#v", transformer)
 	}
 }
 
@@ -78,50 +80,5 @@ func TestCloneJSONRejectsUnsupportedValue(t *testing.T) {
 	value := make(chan int)
 	if _, err := cloneJSON(&value); err == nil {
 		t.Fatal("cloneJSON() succeeded for a channel")
-	}
-}
-
-func TestTransformerConcurrentInvocationsUseIndependentResponses(t *testing.T) {
-	transformer := &Transformer{newDelegate: func() genx.Transformer { return concurrentDelegate{} }}
-	assertConcurrentResponses(t, transformer)
-}
-
-type concurrentDelegate struct{}
-
-func (concurrentDelegate) Transform(context.Context, genx.Stream) (genx.Stream, error) {
-	output := agentkit.NewOutput(agentkit.OutputConfig{})
-	_ = output.Push(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("response"), Ctrl: &genx.StreamCtrl{StreamID: "provider-response"}})
-	_ = output.Close()
-	return output, nil
-}
-
-func assertConcurrentResponses(t *testing.T, transformer *Transformer) {
-	t.Helper()
-	const count = 8
-	ids := make(chan string, count)
-	var wg sync.WaitGroup
-	for range count {
-		wg.Go(func() {
-			output, err := transformer.Transform(context.Background(), nil)
-			if err != nil {
-				t.Errorf("Transform() error = %v", err)
-				return
-			}
-			chunk, err := output.Next()
-			if err != nil {
-				t.Errorf("Next() error = %v", err)
-				return
-			}
-			ids <- chunk.Ctrl.StreamID
-		})
-	}
-	wg.Wait()
-	close(ids)
-	seen := make(map[string]bool, count)
-	for id := range ids {
-		if id == "" || seen[id] {
-			t.Fatalf("response StreamID %q is empty or reused", id)
-		}
-		seen[id] = true
 	}
 }

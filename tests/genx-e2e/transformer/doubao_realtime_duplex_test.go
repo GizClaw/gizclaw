@@ -20,7 +20,7 @@ import (
 	doubaospeech "github.com/GizClaw/doubao-speech-go"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
-	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/doubaorealtimeduplex"
 )
 
 const (
@@ -46,13 +46,18 @@ func TestDoubaoRealtimeDuplexConversation(t *testing.T) {
 
 	packets := embeddedPromptOpusPackets(t)
 	client := doubaospeech.NewClient(appID, doubaospeech.WithAPIKey(apiKey))
-	opts := []transformers.DoubaoRealtimeDuplexOption{
-		transformers.WithDoubaoRealtimeDuplexInstructions("Reply in one short English sentence."),
-		transformers.WithDoubaoRealtimeDuplexInputTranscode(false),
+	transcode := false
+	config := doubaorealtimeduplex.Config{
+		Client:         client,
+		Instructions:   "Reply in one short English sentence.",
+		InputTranscode: &transcode,
 	}
 
 	t.Run("realtime_server_vad_multi_round", func(t *testing.T) {
-		tfr := transformers.NewDoubaoRealtimeDuplexRealtime(client, opts...)
+		tfr, err := doubaorealtimeduplex.New(config)
+		if err != nil {
+			t.Fatalf("New() failed: %v", err)
+		}
 		results := runDuplexConversation(t, tfr, packets)
 		for i, result := range results {
 			assertDuplexRound(t, i+1, result)

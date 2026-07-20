@@ -1,4 +1,4 @@
-package transformers
+package doubaorealtimeduplex
 
 import (
 	"bytes"
@@ -52,6 +52,68 @@ func TestDoubaoRealtimeDuplexAudioInputDecodesOpusToPCM(t *testing.T) {
 	}
 	if bytes.Equal(got, packet) {
 		t.Fatal("prepare returned raw opus packet")
+	}
+}
+
+func TestTransformerConcurrentCallsOwnSessions(t *testing.T) {
+	const calls = 8
+	gate := make(chan struct{})
+	sessions := make([]*fakeDoubaoRealtimeDuplexSession, calls)
+	for i := range calls {
+		sessions[i] = &fakeDoubaoRealtimeDuplexSession{blockAfterEvents: gate}
+	}
+	opener := &fakeDoubaoRealtimeDuplexOpener{sessions: sessions}
+	transformer := newTransformer(nil, withDoubaoRealtimeDuplexOpener(opener))
+
+	cancels := make(chan context.CancelFunc, calls)
+	inputs := make(chan *bufferStream, calls)
+	outputs := make(chan genx.Stream, calls)
+	errs := make(chan error, calls)
+	var wg sync.WaitGroup
+	for range calls {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			ctx, cancel := context.WithCancel(context.Background())
+			cancels <- cancel
+			input := newBufferStream(1)
+			output, err := transformer.Transform(ctx, input)
+			if err != nil {
+				errs <- err
+				return
+			}
+			inputs <- input
+			outputs <- output
+		}()
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for opener.openCount() != calls && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if opener.openCount() != calls {
+		t.Fatalf("OpenSession calls = %d, want %d", opener.openCount(), calls)
+	}
+	close(inputs)
+	for input := range inputs {
+		_ = input.Close()
+	}
+	close(cancels)
+	for cancel := range cancels {
+		cancel()
+	}
+	close(gate)
+	close(outputs)
+	for output := range outputs {
+		for {
+			if _, err := output.Next(); err != nil {
+				break
+			}
+		}
 	}
 }
 
@@ -308,18 +370,18 @@ func TestDoubaoRealtimeDuplexAudioInputsRejectMIMEChange(t *testing.T) {
 func TestDoubaoRealtimeDuplexConfigSetsDuplexSession(t *testing.T) {
 	strict := true
 	enableMusic := true
-	tfr := NewDoubaoRealtimeDuplex(nil,
-		WithDoubaoRealtimeDuplexModel("1.2.6.0"),
-		WithDoubaoRealtimeDuplexSessionID("workspace-dialog-id"),
-		WithDoubaoRealtimeDuplexInstructions("简短回答。"),
-		WithDoubaoRealtimeDuplexSpeaker("voice-a"),
-		WithDoubaoRealtimeDuplexFormat("ogg_opus"),
-		WithDoubaoRealtimeDuplexSampleRate(24000),
-		WithDoubaoRealtimeDuplexInputFormat("speech_opus"),
-		WithDoubaoRealtimeDuplexInputSampleRate(16000),
-		WithDoubaoRealtimeDuplexOutputSpeed(1),
-		WithDoubaoRealtimeDuplexOutputLoudness(-1),
-		WithDoubaoRealtimeDuplexTools([]doubaospeech.RealtimeDuplexFunctionTool{{
+	tfr := newTransformer(nil,
+		withModel("1.2.6.0"),
+		withSessionID("workspace-dialog-id"),
+		withInstructions("简短回答。"),
+		withSpeaker("voice-a"),
+		withFormat("ogg_opus"),
+		withSampleRate(24000),
+		withInputFormat("speech_opus"),
+		withInputSampleRate(16000),
+		withOutputSpeed(1),
+		withOutputLoudness(-1),
+		withTools([]doubaospeech.RealtimeDuplexFunctionTool{{
 			Type:   "function",
 			Name:   "get_weather",
 			Strict: &strict,
@@ -328,7 +390,7 @@ func TestDoubaoRealtimeDuplexConfigSetsDuplexSession(t *testing.T) {
 				AdditionalProperties: &strict,
 			},
 		}}),
-		WithDoubaoRealtimeDuplexExtension(&doubaospeech.RealtimeDuplexExtension{
+		withExtension(&doubaospeech.RealtimeDuplexExtension{
 			Dialog: &doubaospeech.RealtimeDuplexDialogExtension{
 				Extra: &doubaospeech.RealtimeDuplexDialogExtra{EnableMusic: &enableMusic},
 			},
@@ -459,7 +521,7 @@ func TestDoubaoRealtimeDuplexOutputAudioBlobsExtractsOggOpusPackets(t *testing.T
 		t.Fatalf("write opus packet: %v", err)
 	}
 
-	tfr := NewDoubaoRealtimeDuplex(nil, WithDoubaoRealtimeDuplexFormat("ogg_opus"))
+	tfr := newTransformer(nil, withFormat("ogg_opus"))
 	blobs, err := tfr.outputAudioBlobs(buf.Bytes())
 	if err != nil {
 		t.Fatalf("outputAudioBlobs: %v", err)
@@ -490,8 +552,8 @@ func TestDoubaoRealtimeDuplexSendsFakeFunctionCallOutputs(t *testing.T) {
 		},
 	}
 	opener := &fakeDoubaoRealtimeDuplexOpener{session: session}
-	tfr := NewDoubaoRealtimeDuplex(nil, withDoubaoRealtimeDuplexOpener(opener))
-	stream, err := tfr.Transform(context.Background(), emptyRealtimeStream{})
+	tfr := newTransformer(nil, withDoubaoRealtimeDuplexOpener(opener))
+	stream, err := tfr.transform(context.Background(), emptyRealtimeStream{})
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -535,7 +597,7 @@ func TestDoubaoRealtimeDuplexReturnsFunctionCallOutputError(t *testing.T) {
 		},
 		functionCallErr: wantErr,
 	}
-	tfr := NewDoubaoRealtimeDuplex(nil)
+	tfr := newTransformer(nil)
 	_, err := tfr.processLoop(context.Background(), emptyRealtimeStream{}, newBufferStream(1), session)
 	if !errors.Is(err, wantErr) {
 		t.Fatalf("processLoop() error = %v, want %v", err, wantErr)
@@ -552,7 +614,7 @@ func TestDoubaoRealtimeDuplexReturnsDuplexErrorEvent(t *testing.T) {
 			{Type: doubaospeech.RealtimeDuplexEventError, Error: wantErr},
 		},
 	}
-	tfr := NewDoubaoRealtimeDuplex(nil)
+	tfr := newTransformer(nil)
 	_, err := tfr.processLoop(context.Background(), emptyRealtimeStream{}, newBufferStream(1), session)
 	if !errors.Is(err, wantErr) {
 		t.Fatalf("processLoop() error = %v, want %v", err, wantErr)
@@ -571,7 +633,7 @@ func TestDoubaoRealtimeDuplexErrorEventClosesBlockedInput(t *testing.T) {
 			{Type: doubaospeech.RealtimeDuplexEventError, Error: wantErr},
 		},
 	}
-	tfr := NewDoubaoRealtimeDuplex(nil)
+	tfr := newTransformer(nil)
 
 	done := make(chan error, 1)
 	go func() {
@@ -609,11 +671,11 @@ func TestDoubaoRealtimeDuplexMapsDuplexEventsToStreamChunks(t *testing.T) {
 			{Type: doubaospeech.RealtimeDuplexEventSessionClosed},
 		},
 	}
-	tfr := NewDoubaoRealtimeDuplex(nil,
+	tfr := newTransformer(nil,
 		withDoubaoRealtimeDuplexOpener(&fakeDoubaoRealtimeDuplexOpener{session: session}),
-		WithDoubaoRealtimeDuplexFormat("pcm"),
+		withFormat("pcm"),
 	)
-	stream, err := tfr.Transform(context.Background(), emptyRealtimeStream{})
+	stream, err := tfr.transform(context.Background(), emptyRealtimeStream{})
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -693,14 +755,14 @@ func TestDoubaoRealtimeDuplexInputEOSClosesLocalStream(t *testing.T) {
 				beforeRecv: inputDrained,
 				events:     []*doubaospeech.RealtimeDuplexEvent{{Type: doubaospeech.RealtimeDuplexEventSessionClosed}},
 			}
-			tfr := NewDoubaoRealtimeDuplexRealtime(nil,
-				WithDoubaoRealtimeDuplexInputFormat("pcm"),
-				WithDoubaoRealtimeDuplexInputTranscode(false),
+			tfr := newTransformer(nil,
+				withInputFormat("pcm"),
+				withInputTranscode(false),
 				withDoubaoRealtimeDuplexOpener(&fakeDoubaoRealtimeDuplexOpener{session: session}),
 			)
 			input := &gatedRealtimeStream{first: tc.chunks, firstDrained: inputDrained}
 
-			if err := runDoubaoRealtimeDuplexProcessLoop(t, tfr.DoubaoRealtimeDuplex, input, session); err != nil {
+			if err := runDoubaoRealtimeDuplexProcessLoop(t, tfr, input, session); err != nil {
 				t.Fatalf("processLoop() error = %v", err)
 			}
 			if got := session.audioCount(); got != tc.wantAudio {
@@ -726,9 +788,9 @@ func TestDoubaoRealtimeDuplexSessionClosedWhileWaitingForInputDoesNotDropNextChu
 		audioSent:  secondAudioSent,
 	}
 	opener := &fakeDoubaoRealtimeDuplexOpener{sessions: []*fakeDoubaoRealtimeDuplexSession{firstSession, secondSession}}
-	tfr := NewDoubaoRealtimeDuplexRealtime(nil,
-		WithDoubaoRealtimeDuplexInputFormat("pcm"),
-		WithDoubaoRealtimeDuplexInputTranscode(false),
+	tfr := newTransformer(nil,
+		withInputFormat("pcm"),
+		withInputTranscode(false),
 		withDoubaoRealtimeDuplexOpener(opener),
 	)
 	input := &gatedRealtimeStream{
@@ -855,9 +917,9 @@ func TestDoubaoRealtimeDuplexTextDoneAfterAudioDoneAllowsNextTurn(t *testing.T) 
 		eventsDrained:    eventsDrained,
 		blockAfterEvents: releaseEvents,
 	}
-	tfr := NewDoubaoRealtimeDuplexRealtime(nil,
-		WithDoubaoRealtimeDuplexInputFormat("pcm"),
-		WithDoubaoRealtimeDuplexInputTranscode(false),
+	tfr := newTransformer(nil,
+		withInputFormat("pcm"),
+		withInputTranscode(false),
 		withDoubaoRealtimeDuplexOpener(&fakeDoubaoRealtimeDuplexOpener{session: session}),
 	)
 	input := &gatedRealtimeStream{
@@ -943,8 +1005,8 @@ func TestDoubaoRealtimeDuplexUsesDoneTextWhenNoDeltaArrived(t *testing.T) {
 			{Type: doubaospeech.RealtimeDuplexEventSessionClosed},
 		},
 	}
-	tfr := NewDoubaoRealtimeDuplex(nil, withDoubaoRealtimeDuplexOpener(&fakeDoubaoRealtimeDuplexOpener{session: session}))
-	stream, err := tfr.Transform(context.Background(), emptyRealtimeStream{})
+	tfr := newTransformer(nil, withDoubaoRealtimeDuplexOpener(&fakeDoubaoRealtimeDuplexOpener{session: session}))
+	stream, err := tfr.transform(context.Background(), emptyRealtimeStream{})
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -974,7 +1036,7 @@ func TestDoubaoRealtimeDuplexUsesDoneTextWhenNoDeltaArrived(t *testing.T) {
 	}
 }
 
-func runDoubaoRealtimeDuplexProcessLoop(t *testing.T, tfr *DoubaoRealtimeDuplex, input genx.Stream, session *fakeDoubaoRealtimeDuplexSession) error {
+func runDoubaoRealtimeDuplexProcessLoop(t *testing.T, tfr *Transformer, input genx.Stream, session *fakeDoubaoRealtimeDuplexSession) error {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()

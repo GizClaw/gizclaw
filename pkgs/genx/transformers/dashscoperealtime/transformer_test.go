@@ -2,13 +2,104 @@ package dashscoperealtime
 
 import (
 	"context"
+	"iter"
 	"sync"
 	"testing"
 
 	dashscope "github.com/GizClaw/dashscope-realtime-go"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
-	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/agentkit"
 )
+
+func TestTransformerConcurrentCallsOwnSessions(t *testing.T) {
+	opener := &fakeDashScopeOpener{}
+	transformer := newTransformer(nil)
+	transformer.realtime = opener
+
+	const calls = 8
+	streams := make(chan *Stream, calls)
+	errs := make(chan error, calls)
+	var wg sync.WaitGroup
+	for range calls {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			stream, err := transformer.Transform(context.Background(), emptyDashScopeStream{})
+			if err != nil {
+				errs <- err
+				return
+			}
+			streams <- stream.(*Stream)
+		}()
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	close(streams)
+
+	seen := make(map[dashScopeRealtimeSession]struct{}, calls)
+	for stream := range streams {
+		if _, exists := seen[stream.session]; exists {
+			t.Fatal("concurrent Transform calls shared a provider session")
+		}
+		seen[stream.session] = struct{}{}
+	}
+	if len(seen) != calls || opener.count() != calls {
+		t.Fatalf("sessions = %d, opens = %d, want %d", len(seen), opener.count(), calls)
+	}
+}
+
+type emptyDashScopeStream struct{}
+
+func (emptyDashScopeStream) Next() (*genx.MessageChunk, error) { return nil, genx.ErrDone }
+func (emptyDashScopeStream) Close() error                      { return nil }
+func (emptyDashScopeStream) CloseWithError(error) error        { return nil }
+
+type fakeDashScopeOpener struct {
+	mu       sync.Mutex
+	sessions []*fakeDashScopeSession
+}
+
+func (o *fakeDashScopeOpener) Connect(context.Context, *dashscope.RealtimeConfig) (dashScopeRealtimeSession, error) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	session := &fakeDashScopeSession{}
+	o.sessions = append(o.sessions, session)
+	return session, nil
+}
+
+func (o *fakeDashScopeOpener) count() int {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	return len(o.sessions)
+}
+
+type fakeDashScopeSession struct {
+	mu         sync.Mutex
+	eventCalls int
+}
+
+func (s *fakeDashScopeSession) UpdateSession(*dashscope.SessionConfig) error { return nil }
+func (s *fakeDashScopeSession) AppendAudio([]byte) error                     { return nil }
+func (s *fakeDashScopeSession) CommitInput() error                           { return nil }
+func (s *fakeDashScopeSession) ClearInput() error                            { return nil }
+func (s *fakeDashScopeSession) CreateResponse(*dashscope.ResponseCreateOptions) error {
+	return nil
+}
+func (s *fakeDashScopeSession) CancelResponse() error { return nil }
+func (s *fakeDashScopeSession) Close() error          { return nil }
+func (s *fakeDashScopeSession) Events() iter.Seq2[*dashscope.RealtimeEvent, error] {
+	s.mu.Lock()
+	s.eventCalls++
+	call := s.eventCalls
+	s.mu.Unlock()
+	return func(yield func(*dashscope.RealtimeEvent, error) bool) {
+		if call == 1 {
+			yield(&dashscope.RealtimeEvent{Type: dashscope.EventTypeSessionCreated}, nil)
+		}
+	}
+}
 
 func TestNew(t *testing.T) {
 	if _, err := New(Config{}); err == nil {
@@ -50,61 +141,20 @@ func TestNewCopiesConfigAndBuildsConfiguredDelegate(t *testing.T) {
 	modalities[0] = "changed"
 	temperature = 1
 	turnDetection.Type = "changed"
-	if transformer.config.Modalities[0] != "text" {
+	if transformer.modalities[0] != "text" {
 		t.Fatal("New() retained caller-owned Modalities slice")
 	}
-	if transformer.config.Temperature == nil || *transformer.config.Temperature != 0.5 {
+	if transformer.temperature == nil || *transformer.temperature != 0.5 {
 		t.Fatal("New() retained caller-owned Temperature pointer")
 	}
-	if transformer.config.TurnDetection == nil || transformer.config.TurnDetection.Type != "server_vad" {
+	if transformer.turnDetection == nil || transformer.turnDetection.Type != "server_vad" {
 		t.Fatal("New() retained caller-owned TurnDetection pointer")
 	}
-	if transformer.delegate() == nil {
-		t.Fatal("delegate() returned nil")
-	}
-}
-
-func TestTransformerConcurrentInvocationsUseIndependentResponses(t *testing.T) {
-	transformer := &Transformer{newDelegate: func() genx.Transformer { return concurrentDelegate{} }}
-	assertConcurrentResponses(t, transformer)
-}
-
-type concurrentDelegate struct{}
-
-func (concurrentDelegate) Transform(context.Context, genx.Stream) (genx.Stream, error) {
-	output := agentkit.NewOutput(agentkit.OutputConfig{})
-	_ = output.Push(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("response"), Ctrl: &genx.StreamCtrl{StreamID: "provider-response"}})
-	_ = output.Close()
-	return output, nil
-}
-
-func assertConcurrentResponses(t *testing.T, transformer *Transformer) {
-	t.Helper()
-	const count = 8
-	ids := make(chan string, count)
-	var wg sync.WaitGroup
-	for range count {
-		wg.Go(func() {
-			output, err := transformer.Transform(context.Background(), nil)
-			if err != nil {
-				t.Errorf("Transform() error = %v", err)
-				return
-			}
-			chunk, err := output.Next()
-			if err != nil {
-				t.Errorf("Next() error = %v", err)
-				return
-			}
-			ids <- chunk.Ctrl.StreamID
-		})
-	}
-	wg.Wait()
-	close(ids)
-	seen := make(map[string]bool, count)
-	for id := range ids {
-		if id == "" || seen[id] {
-			t.Fatalf("response StreamID %q is empty or reused", id)
-		}
-		seen[id] = true
+	if transformer.model != "model" || transformer.voice != "voice" ||
+		transformer.instructions != "instructions" || transformer.vadType != "server_vad" ||
+		transformer.maxOutputTokens == nil || *transformer.maxOutputTokens != 10 ||
+		transformer.enableInputAudioTranscription || transformer.inputAudioTranscriptionModel != "asr-model" ||
+		transformer.inputAudioFormat != "pcm16" || transformer.outputAudioFormat != "pcm16" {
+		t.Fatalf("configured transformer = %#v", transformer)
 	}
 }

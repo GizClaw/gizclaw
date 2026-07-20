@@ -1,9 +1,10 @@
-package transformers
+package dashscoperealtime
 
 import (
 	"context"
 	"fmt"
 	"io"
+	"iter"
 	"log/slog"
 	"sync"
 	"time"
@@ -12,7 +13,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
 
-// DashScopeRealtime is a realtime transformer using DashScope Qwen-Omni-Realtime.
+// Transformer is a realtime transformer using DashScope Qwen-Omni-Realtime.
 //
 // Model: qwen-omni-turbo-realtime-latest (default) or qwen3-omni-flash-realtime
 //
@@ -21,8 +22,9 @@ import (
 // Output: genx.Stream with audio Blob chunks (PCM16 24kHz)
 //
 // Internally uses Qwen-Omni model for speech-to-speech.
-type DashScopeRealtime struct {
+type Transformer struct {
 	client       *dashscope.Client
+	realtime     dashScopeRealtimeOpener
 	model        string
 	voice        string
 	instructions string
@@ -39,114 +41,138 @@ type DashScopeRealtime struct {
 	outputAudioFormat             string // pcm16, mp3, wav
 }
 
-var _ genx.Transformer = (*DashScopeRealtime)(nil)
+type dashScopeRealtimeOpener interface {
+	Connect(context.Context, *dashscope.RealtimeConfig) (dashScopeRealtimeSession, error)
+}
 
-// DashScopeRealtimeOption is a functional option for DashScopeRealtime.
-type DashScopeRealtimeOption func(*DashScopeRealtime)
+type dashScopeRealtimeSession interface {
+	UpdateSession(*dashscope.SessionConfig) error
+	AppendAudio([]byte) error
+	CommitInput() error
+	ClearInput() error
+	CreateResponse(*dashscope.ResponseCreateOptions) error
+	CancelResponse() error
+	Events() iter.Seq2[*dashscope.RealtimeEvent, error]
+	Close() error
+}
 
-// WithDashScopeRealtimeModel sets the model.
+type dashScopeRealtimeClient struct {
+	client *dashscope.Client
+}
+
+func (c dashScopeRealtimeClient) Connect(ctx context.Context, config *dashscope.RealtimeConfig) (dashScopeRealtimeSession, error) {
+	return c.client.Realtime.Connect(ctx, config)
+}
+
+var _ genx.Transformer = (*Transformer)(nil)
+
+// option is a functional option for Transformer.
+type option func(*Transformer)
+
+// withModel sets the model.
 // Options: qwen-omni-turbo-realtime-latest, qwen3-omni-flash-realtime
-func WithDashScopeRealtimeModel(model string) DashScopeRealtimeOption {
-	return func(t *DashScopeRealtime) {
+func withModel(model string) option {
+	return func(t *Transformer) {
 		t.model = model
 	}
 }
 
-// WithDashScopeRealtimeVoice sets the TTS voice.
+// withVoice sets the TTS voice.
 // Options: Chelsie, Cherry, Serena, Ethan
-func WithDashScopeRealtimeVoice(voice string) DashScopeRealtimeOption {
-	return func(t *DashScopeRealtime) {
+func withVoice(voice string) option {
+	return func(t *Transformer) {
 		t.voice = voice
 	}
 }
 
-// WithDashScopeRealtimeInstructions sets the system prompt.
-func WithDashScopeRealtimeInstructions(instructions string) DashScopeRealtimeOption {
-	return func(t *DashScopeRealtime) {
+// withInstructions sets the system prompt.
+func withInstructions(instructions string) option {
+	return func(t *Transformer) {
 		t.instructions = instructions
 	}
 }
 
-// WithDashScopeRealtimeModalities sets the output modalities.
+// withModalities sets the output modalities.
 // Options: ["text"], ["audio"], ["text", "audio"]
-func WithDashScopeRealtimeModalities(modalities []string) DashScopeRealtimeOption {
-	return func(t *DashScopeRealtime) {
+func withModalities(modalities []string) option {
+	return func(t *Transformer) {
 		t.modalities = modalities
 	}
 }
 
-// WithDashScopeRealtimeVAD sets the VAD mode.
+// withVAD sets the VAD mode.
 // Options: server_vad, disabled (empty string means manual mode)
-func WithDashScopeRealtimeVAD(vadType string) DashScopeRealtimeOption {
-	return func(t *DashScopeRealtime) {
+func withVAD(vadType string) option {
+	return func(t *Transformer) {
 		t.vadType = vadType
 	}
 }
 
-// WithDashScopeRealtimeTemperature sets the temperature for response generation.
+// withTemperature sets the temperature for response generation.
 // Range: 0.0-2.0. Higher values make output more random.
-func WithDashScopeRealtimeTemperature(temp float64) DashScopeRealtimeOption {
-	return func(t *DashScopeRealtime) {
+func withTemperature(temp float64) option {
+	return func(t *Transformer) {
 		t.temperature = &temp
 	}
 }
 
-// WithDashScopeRealtimeMaxOutputTokens sets the maximum output tokens.
+// withMaxOutputTokens sets the maximum output tokens.
 // Use -1 for unlimited.
-func WithDashScopeRealtimeMaxOutputTokens(tokens int) DashScopeRealtimeOption {
-	return func(t *DashScopeRealtime) {
+func withMaxOutputTokens(tokens int) option {
+	return func(t *Transformer) {
 		t.maxOutputTokens = &tokens
 	}
 }
 
-// WithDashScopeRealtimeEnableASR enables input audio transcription (ASR).
+// withEnableASR enables input audio transcription (ASR).
 // When enabled, the transformer will emit user speech transcription.
-func WithDashScopeRealtimeEnableASR(enable bool) DashScopeRealtimeOption {
-	return func(t *DashScopeRealtime) {
+func withEnableASR(enable bool) option {
+	return func(t *Transformer) {
 		t.enableInputAudioTranscription = enable
 	}
 }
 
-// WithDashScopeRealtimeASRModel sets the model for input audio transcription.
+// withASRModel sets the model for input audio transcription.
 // Example: "qwen-audio-turbo"
-func WithDashScopeRealtimeASRModel(model string) DashScopeRealtimeOption {
-	return func(t *DashScopeRealtime) {
+func withASRModel(model string) option {
+	return func(t *Transformer) {
 		t.inputAudioTranscriptionModel = model
 	}
 }
 
-// WithDashScopeRealtimeTurnDetection sets detailed VAD configuration.
+// withTurnDetection sets detailed VAD configuration.
 // Use this for fine-grained control over voice activity detection.
-func WithDashScopeRealtimeTurnDetection(td *dashscope.TurnDetection) DashScopeRealtimeOption {
-	return func(t *DashScopeRealtime) {
+func withTurnDetection(td *dashscope.TurnDetection) option {
+	return func(t *Transformer) {
 		t.turnDetection = td
 	}
 }
 
-// WithDashScopeRealtimeInputAudioFormat sets the input audio format.
+// withInputAudioFormat sets the input audio format.
 // Options: pcm16 (default, 16kHz), mp3, wav
-func WithDashScopeRealtimeInputAudioFormat(format string) DashScopeRealtimeOption {
-	return func(t *DashScopeRealtime) {
+func withInputAudioFormat(format string) option {
+	return func(t *Transformer) {
 		t.inputAudioFormat = format
 	}
 }
 
-// WithDashScopeRealtimeOutputAudioFormat sets the output audio format.
+// withOutputAudioFormat sets the output audio format.
 // Options: pcm16 (default, 24kHz), mp3, wav
-func WithDashScopeRealtimeOutputAudioFormat(format string) DashScopeRealtimeOption {
-	return func(t *DashScopeRealtime) {
+func withOutputAudioFormat(format string) option {
+	return func(t *Transformer) {
 		t.outputAudioFormat = format
 	}
 }
 
-// NewDashScopeRealtime creates a new DashScopeRealtime transformer.
+// newTransformer creates a Transformer.
 //
 // Parameters:
 //   - client: DashScope client
 //   - opts: Optional configuration
-func NewDashScopeRealtime(client *dashscope.Client, opts ...DashScopeRealtimeOption) *DashScopeRealtime {
-	t := &DashScopeRealtime{
+func newTransformer(client *dashscope.Client, opts ...option) *Transformer {
+	t := &Transformer{
 		client:                        client,
+		realtime:                      dashScopeRealtimeClient{client: client},
 		model:                         dashscope.ModelQwenOmniTurboRealtimeLatest,
 		voice:                         dashscope.VoiceChelsie,
 		modalities:                    []string{dashscope.ModalityAudio, dashscope.ModalityText},
@@ -160,7 +186,7 @@ func NewDashScopeRealtime(client *dashscope.Client, opts ...DashScopeRealtimeOpt
 }
 
 // getOutputAudioMIMEType returns the MIME type based on the configured output format.
-func (t *DashScopeRealtime) getOutputAudioMIMEType() string {
+func (t *Transformer) getOutputAudioMIMEType() string {
 	switch t.outputAudioFormat {
 	case dashscope.AudioFormatMP3:
 		return "audio/mpeg"
@@ -171,24 +197,11 @@ func (t *DashScopeRealtime) getOutputAudioMIMEType() string {
 	}
 }
 
-// DashScopeRealtimeCtxKey is the context key for runtime options.
-type dashScopeRealtimeCtxKey struct{}
-
-// DashScopeRealtimeCtxOptions are runtime options passed via context.
-// TODO: Add fields as needed for runtime configuration.
-type DashScopeRealtimeCtxOptions struct{}
-
-// WithDashScopeRealtimeCtxOptions attaches runtime options to context.
-func WithDashScopeRealtimeCtxOptions(ctx context.Context, opts DashScopeRealtimeCtxOptions) context.Context {
-	return context.WithValue(ctx, dashScopeRealtimeCtxKey{}, opts)
-}
-
-// DashScopeStream is a Stream returned by DashScopeRealtime.Transform().
+// Stream is returned by Transformer.Transform and exposes supported live controls.
 // It provides methods to dynamically update session configuration.
-type DashScopeStream struct {
-	*bufferStream
-	session     *dashscope.RealtimeSession
-	transformer *DashScopeRealtime
+type Stream struct {
+	genx.Stream
+	session dashScopeRealtimeSession
 }
 
 // UpdateRequest contains fields that can be updated mid-session.
@@ -217,7 +230,7 @@ type UpdateRequest struct {
 
 // Update updates the session configuration.
 // Only non-nil fields are included in the update request.
-func (s *DashScopeStream) Update(req *UpdateRequest) error {
+func (s *Stream) Update(req *UpdateRequest) error {
 	config := &dashscope.SessionConfig{}
 
 	if req.Voice != nil {
@@ -244,18 +257,18 @@ func (s *DashScopeStream) Update(req *UpdateRequest) error {
 
 // CancelResponse cancels the current response being generated.
 // Use this to interrupt the AI when the user starts speaking.
-func (s *DashScopeStream) CancelResponse() error {
+func (s *Stream) CancelResponse() error {
 	return s.session.CancelResponse()
 }
 
 // ClearAudioBuffer clears the input audio buffer.
-func (s *DashScopeStream) ClearAudioBuffer() error {
+func (s *Stream) ClearAudioBuffer() error {
 	return s.session.ClearInput()
 }
 
 // TriggerResponse commits the current input audio and requests a response.
 // Use this in manual mode (without VAD) to trigger the AI to respond.
-func (s *DashScopeStream) TriggerResponse() error {
+func (s *Stream) TriggerResponse() error {
 	if err := s.session.CommitInput(); err != nil {
 		return err
 	}
@@ -265,9 +278,15 @@ func (s *DashScopeStream) TriggerResponse() error {
 // Transform converts audio input to audio output via Qwen-Omni realtime.
 // It synchronously waits for the WebSocket connection to be established
 // and session.created event to be received before returning.
-func (t *DashScopeRealtime) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
+func (t *Transformer) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
+	if t == nil || t.realtime == nil {
+		return nil, fmt.Errorf("dashscope realtime: transformer is not initialized")
+	}
+	if input == nil {
+		return nil, fmt.Errorf("dashscope realtime: input stream is required")
+	}
 	// Connect to realtime service
-	session, err := t.client.Realtime.Connect(ctx, &dashscope.RealtimeConfig{
+	session, err := t.realtime.Connect(ctx, &dashscope.RealtimeConfig{
 		Model: t.model,
 	})
 	if err != nil {
@@ -321,10 +340,9 @@ func (t *DashScopeRealtime) Transform(ctx context.Context, input genx.Stream) (g
 
 	// Create output stream
 	output := newBufferStream(100)
-	stream := &DashScopeStream{
-		bufferStream: output,
-		session:      session,
-		transformer:  t,
+	stream := &Stream{
+		Stream:  output,
+		session: session,
 	}
 
 	// Start background processing
@@ -333,7 +351,7 @@ func (t *DashScopeRealtime) Transform(ctx context.Context, input genx.Stream) (g
 	return stream, nil
 }
 
-func (t *DashScopeRealtime) processLoop(input genx.Stream, output *bufferStream, session *dashscope.RealtimeSession) {
+func (t *Transformer) processLoop(input genx.Stream, output *bufferStream, session dashScopeRealtimeSession) {
 	defer output.Close()
 	defer session.Close()
 

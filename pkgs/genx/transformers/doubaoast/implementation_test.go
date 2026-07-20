@@ -1,10 +1,11 @@
-package transformers
+package doubaoast
 
 import (
 	"bytes"
 	"context"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"iter"
 	"strings"
@@ -18,16 +19,24 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
 
-func TestDoubaoASTTranslateStreamsTranslationAndAudio(t *testing.T) {
+func buildASRAudioFrame(frameSize, channels int) []int16 {
+	frame := make([]int16, frameSize*channels)
+	for i := range frame {
+		frame[i] = int16((i * 97) % 24000)
+	}
+	return frame
+}
+
+func TestTransformerStreamsTranslationAndAudio(t *testing.T) {
 	if !opus.IsRuntimeSupported() {
 		t.Skip("native opus runtime is not available")
 	}
 	input := newBufferStream(4)
 	sourcePacket := buildASTTranslateRawOpusPacket(t, buildASRAudioFrame(doubaoASTTranslateSourceSampleRate/50, 1))
-	tr := NewDoubaoASTTranslate(doubaospeech.NewClient("app-id"),
-		WithDoubaoASTTranslateMode(doubaospeech.ASTTranslateModeS2S),
-		WithDoubaoASTTranslateSourceLanguage("zh"),
-		WithDoubaoASTTranslateTargetLanguage("ja"),
+	tr := newTransformer(doubaospeech.NewClient("app-id"),
+		withMode(doubaospeech.ASTTranslateModeS2S),
+		withSourceLanguage("zh"),
+		withTargetLanguage("ja"),
 	)
 	fake := &fakeASTTranslateSession{
 		events: []*doubaospeech.ASTTranslateEvent{
@@ -49,7 +58,7 @@ func TestDoubaoASTTranslateStreamsTranslationAndAudio(t *testing.T) {
 		}
 		return fake, nil
 	}
-	out, err := tr.Transform(context.Background(), input)
+	out, err := tr.transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -84,17 +93,82 @@ func TestDoubaoASTTranslateStreamsTranslationAndAudio(t *testing.T) {
 	assertASTTranslateEOS(t, chunks, genx.RoleModel, doubaoASTTranslateAssistantLabel, "turn-1")
 }
 
-func TestDoubaoASTTranslateSplitsProviderSubtitleSegments(t *testing.T) {
+func TestTransformerConcurrentCallsOwnSessions(t *testing.T) {
+	transformer := newTransformer(doubaospeech.NewClient("app-id"), withRealtimePacing(false))
+	recvGate := make(chan struct{})
+	var mu sync.Mutex
+	var sessions []*fakeASTTranslateSession
+	transformer.newSession = func(context.Context, doubaospeech.ASTTranslateConfig) (doubaoASTTranslateSession, error) {
+		session := &fakeASTTranslateSession{beforeRecv: recvGate}
+		mu.Lock()
+		sessions = append(sessions, session)
+		mu.Unlock()
+		return session, nil
+	}
+
+	const calls = 8
+	outputs := make(chan genx.Stream, calls)
+	inputs := make(chan *bufferStream, calls)
+	errs := make(chan error, calls)
+	var wg sync.WaitGroup
+	for i := range calls {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			input := newBufferStream(2)
+			streamID := fmt.Sprintf("turn-%d", i)
+			output, err := transformer.Transform(context.Background(), input)
+			if err != nil {
+				errs <- err
+				return
+			}
+			_ = input.Push(&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: streamID, BeginOfStream: true}})
+			_ = input.Push(&genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}}, Ctrl: &genx.StreamCtrl{StreamID: streamID}})
+			inputs <- input
+			outputs <- output
+		}()
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		t.Fatalf("Transform() error = %v", err)
+	}
+
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		mu.Lock()
+		opened := len(sessions)
+		mu.Unlock()
+		if opened == calls {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("opened sessions = %d, want %d", opened, calls)
+		}
+		time.Sleep(time.Millisecond)
+	}
+	close(inputs)
+	for input := range inputs {
+		_ = input.Close()
+	}
+	close(recvGate)
+	close(outputs)
+	for output := range outputs {
+		readAllASTTranslateChunks(t, output)
+	}
+}
+
+func TestTransformerSplitsProviderSubtitleSegments(t *testing.T) {
 	if !opus.IsRuntimeSupported() {
 		t.Skip("native opus runtime is not available")
 	}
 	input := newBufferStream(8)
 	firstAudio := buildASTTranslateRawOpusPacket(t, buildASRAudioFrame(doubaoASTTranslateSourceSampleRate/50, 1))
 	secondAudio := buildASTTranslateRawOpusPacket(t, buildASRAudioFrame(doubaoASTTranslateSourceSampleRate/50, 1))
-	tr := NewDoubaoASTTranslate(doubaospeech.NewClient("app-id"),
-		WithDoubaoASTTranslateMode(doubaospeech.ASTTranslateModeS2S),
-		WithDoubaoASTTranslateSourceLanguage("zh"),
-		WithDoubaoASTTranslateTargetLanguage("ja"),
+	tr := newTransformer(doubaospeech.NewClient("app-id"),
+		withMode(doubaospeech.ASTTranslateModeS2S),
+		withSourceLanguage("zh"),
+		withTargetLanguage("ja"),
 	)
 	fake := &fakeASTTranslateSession{
 		beforeRecv:        make(chan struct{}),
@@ -125,7 +199,7 @@ func TestDoubaoASTTranslateSplitsProviderSubtitleSegments(t *testing.T) {
 	tr.newSession = func(context.Context, doubaospeech.ASTTranslateConfig) (doubaoASTTranslateSession, error) {
 		return fake, nil
 	}
-	out, err := tr.Transform(context.Background(), input)
+	out, err := tr.transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -164,15 +238,15 @@ func TestDoubaoASTTranslateSplitsProviderSubtitleSegments(t *testing.T) {
 	assertASTTranslateEOS(t, chunks, genx.RoleModel, doubaoASTTranslateAssistantLabel, "turn-1:ast:2")
 }
 
-func TestDoubaoASTTranslatePushToTalkKeepsProviderSegmentsInOneTurn(t *testing.T) {
+func TestTransformerPushToTalkKeepsProviderSegmentsInOneTurn(t *testing.T) {
 	if !opus.IsRuntimeSupported() {
 		t.Skip("native opus runtime is not available")
 	}
 	input := newBufferStream(8)
 	audioPacket := buildASTTranslateRawOpusPacket(t, buildASRAudioFrame(doubaoASTTranslateSourceSampleRate/50, 1))
-	tr := NewDoubaoASTTranslate(doubaospeech.NewClient("app-id"),
-		WithDoubaoASTTranslateMode(doubaospeech.ASTTranslateModeS2S),
-		WithDoubaoASTTranslateInputMode(DoubaoASTTranslateInputModePushToTalk),
+	tr := newTransformer(doubaospeech.NewClient("app-id"),
+		withMode(doubaospeech.ASTTranslateModeS2S),
+		withInputMode(InputModePushToTalk),
 	)
 	providerEventsDone := make(chan struct{})
 	fake := &fakeASTTranslateSession{
@@ -202,7 +276,7 @@ func TestDoubaoASTTranslatePushToTalkKeepsProviderSegmentsInOneTurn(t *testing.T
 	tr.newSession = func(context.Context, doubaospeech.ASTTranslateConfig) (doubaoASTTranslateSession, error) {
 		return fake, nil
 	}
-	out, err := tr.Transform(context.Background(), input)
+	out, err := tr.transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -277,7 +351,7 @@ func TestDoubaoASTTranslatePushToTalkKeepsProviderSegmentsInOneTurn(t *testing.T
 	}
 }
 
-func TestDoubaoASTTranslatePTTOutputGateOpusDurationLimit(t *testing.T) {
+func TestTransformerPTTOutputGateOpusDurationLimit(t *testing.T) {
 	packet := []byte{0x98}
 	packetDuration := time.Duration(historyOpusPacketDurationMS(packet)) * time.Millisecond
 	if packetDuration <= 0 || doubaoASTTranslatePTTOutputLimit%packetDuration != 0 {
@@ -370,7 +444,7 @@ func TestDoubaoASTTranslatePTTOutputGateOpusDurationLimit(t *testing.T) {
 	}
 }
 
-func TestDoubaoASTTranslatePTTOutputLimitKeepsTransformerUsable(t *testing.T) {
+func TestTransformerPTTOutputLimitKeepsTransformerUsable(t *testing.T) {
 	packet := []byte{0x98}
 	packetDuration := time.Duration(historyOpusPacketDurationMS(packet)) * time.Millisecond
 	framesAtLimit := int(doubaoASTTranslatePTTOutputLimit / packetDuration)
@@ -381,9 +455,9 @@ func TestDoubaoASTTranslatePTTOutputLimitKeepsTransformerUsable(t *testing.T) {
 	}
 
 	input := newBufferStream(12)
-	tr := NewDoubaoASTTranslate(doubaospeech.NewClient("app-id"),
-		WithDoubaoASTTranslateMode(doubaospeech.ASTTranslateModeS2S),
-		WithDoubaoASTTranslateInputMode(DoubaoASTTranslateInputModePushToTalk),
+	tr := newTransformer(doubaospeech.NewClient("app-id"),
+		withMode(doubaospeech.ASTTranslateModeS2S),
+		withInputMode(InputModePushToTalk),
 	)
 	limited := &fakeASTTranslateSession{
 		events: []*doubaospeech.ASTTranslateEvent{
@@ -412,7 +486,7 @@ func TestDoubaoASTTranslatePTTOutputLimitKeepsTransformerUsable(t *testing.T) {
 		sessions = sessions[1:]
 		return next, nil
 	}
-	out, err := tr.Transform(context.Background(), input)
+	out, err := tr.transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -489,7 +563,7 @@ func TestDoubaoASTTranslatePTTOutputLimitKeepsTransformerUsable(t *testing.T) {
 	}
 }
 
-func TestDoubaoASTTranslatePTTOutputGateCommitWaitsForProviderFailure(t *testing.T) {
+func TestTransformerPTTOutputGateCommitWaitsForProviderFailure(t *testing.T) {
 	providerErr := &doubaospeech.Error{Code: 500, Message: "provider failed concurrently with input EOS"}
 	output := &recordingASTTranslateOutput{}
 	gate := newASTTranslatePTTOutputGate(output, func() bool { return true }, "turn-provider-error")
@@ -554,7 +628,7 @@ func TestDoubaoASTTranslatePTTOutputGateCommitWaitsForProviderFailure(t *testing
 	}
 }
 
-func TestDoubaoASTTranslatePTTProviderErrorBeforeEOSDoesNotLeak(t *testing.T) {
+func TestTransformerPTTProviderErrorBeforeEOSDoesNotLeak(t *testing.T) {
 	providerErr := &doubaospeech.Error{Code: 500, Message: "provider failed before input EOS"}
 	terminalHandled := make(chan struct{})
 	allowRecvReturn := make(chan struct{})
@@ -567,9 +641,9 @@ func TestDoubaoASTTranslatePTTProviderErrorBeforeEOSDoesNotLeak(t *testing.T) {
 	}
 	defer release()
 	input := newBufferStream(4)
-	tr := NewDoubaoASTTranslate(doubaospeech.NewClient("app-id"),
-		WithDoubaoASTTranslateMode(doubaospeech.ASTTranslateModeS2S),
-		WithDoubaoASTTranslateInputMode(DoubaoASTTranslateInputModePushToTalk),
+	tr := newTransformer(doubaospeech.NewClient("app-id"),
+		withMode(doubaospeech.ASTTranslateModeS2S),
+		withInputMode(InputModePushToTalk),
 	)
 	fake := &fakeASTTranslateSession{
 		yieldReturnedCh: terminalHandled,
@@ -584,7 +658,7 @@ func TestDoubaoASTTranslatePTTProviderErrorBeforeEOSDoesNotLeak(t *testing.T) {
 	tr.newSession = func(context.Context, doubaospeech.ASTTranslateConfig) (doubaoASTTranslateSession, error) {
 		return fake, nil
 	}
-	out, err := tr.Transform(context.Background(), input)
+	out, err := tr.transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -629,11 +703,11 @@ func TestDoubaoASTTranslatePTTProviderErrorBeforeEOSDoesNotLeak(t *testing.T) {
 	}
 }
 
-func TestDoubaoASTTranslatePushToTalkS2TCommitsAtEOS(t *testing.T) {
+func TestTransformerPushToTalkS2TCommitsAtEOS(t *testing.T) {
 	providerDone := make(chan struct{})
 	input := newBufferStream(4)
-	tr := NewDoubaoASTTranslate(doubaospeech.NewClient("app-id"),
-		WithDoubaoASTTranslateInputMode(DoubaoASTTranslateInputModePushToTalk),
+	tr := newTransformer(doubaospeech.NewClient("app-id"),
+		withInputMode(InputModePushToTalk),
 	)
 	fake := &fakeASTTranslateSession{
 		doneCh: providerDone,
@@ -653,7 +727,7 @@ func TestDoubaoASTTranslatePushToTalkS2TCommitsAtEOS(t *testing.T) {
 		}
 		return fake, nil
 	}
-	out, err := tr.Transform(context.Background(), input)
+	out, err := tr.transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -694,11 +768,11 @@ func TestDoubaoASTTranslatePushToTalkS2TCommitsAtEOS(t *testing.T) {
 	}
 }
 
-func TestDoubaoASTTranslateRealtimeStillPublishesBeforeEOS(t *testing.T) {
+func TestTransformerRealtimeStillPublishesBeforeEOS(t *testing.T) {
 	providerDone := make(chan struct{})
 	input := newBufferStream(4)
-	tr := NewDoubaoASTTranslate(doubaospeech.NewClient("app-id"),
-		WithDoubaoASTTranslateInputMode(DoubaoASTTranslateInputModeRealtime),
+	tr := newTransformer(doubaospeech.NewClient("app-id"),
+		withInputMode(InputModeRealtime),
 	)
 	fake := &fakeASTTranslateSession{
 		doneCh: providerDone,
@@ -712,7 +786,7 @@ func TestDoubaoASTTranslateRealtimeStillPublishesBeforeEOS(t *testing.T) {
 	tr.newSession = func(context.Context, doubaospeech.ASTTranslateConfig) (doubaoASTTranslateSession, error) {
 		return fake, nil
 	}
-	out, err := tr.Transform(context.Background(), input)
+	out, err := tr.transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -746,11 +820,11 @@ func TestDoubaoASTTranslateRealtimeStillPublishesBeforeEOS(t *testing.T) {
 	_ = readAllASTTranslateChunks(t, out)
 }
 
-func TestDoubaoASTTranslatePushToTalkCancelBeforeEOSDoesNotLeak(t *testing.T) {
+func TestTransformerPushToTalkCancelBeforeEOSDoesNotLeak(t *testing.T) {
 	input := newBufferStream(4)
 	ctx, cancel := context.WithCancel(context.Background())
-	tr := NewDoubaoASTTranslate(doubaospeech.NewClient("app-id"),
-		WithDoubaoASTTranslateInputMode(DoubaoASTTranslateInputModePushToTalk),
+	tr := newTransformer(doubaospeech.NewClient("app-id"),
+		withInputMode(InputModePushToTalk),
 	)
 	fake := &fakeASTTranslateSession{
 		sentAudioNotify:   make(chan struct{}),
@@ -763,7 +837,7 @@ func TestDoubaoASTTranslatePushToTalkCancelBeforeEOSDoesNotLeak(t *testing.T) {
 	tr.newSession = func(context.Context, doubaospeech.ASTTranslateConfig) (doubaoASTTranslateSession, error) {
 		return fake, nil
 	}
-	out, err := tr.Transform(ctx, input)
+	out, err := tr.transform(ctx, input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -787,10 +861,10 @@ func TestDoubaoASTTranslatePushToTalkCancelBeforeEOSDoesNotLeak(t *testing.T) {
 	}
 }
 
-func TestDoubaoASTTranslateInterruptsActiveSessionOnNewInputStream(t *testing.T) {
+func TestTransformerInterruptsActiveSessionOnNewInputStream(t *testing.T) {
 	input := newBufferStream(8)
-	tr := NewDoubaoASTTranslate(doubaospeech.NewClient("app-id"),
-		WithDoubaoASTTranslateMode(doubaospeech.ASTTranslateModeS2S),
+	tr := newTransformer(doubaospeech.NewClient("app-id"),
+		withMode(doubaospeech.ASTTranslateModeS2S),
 	)
 	first := &fakeASTTranslateSession{
 		closeCh: make(chan struct{}),
@@ -812,7 +886,7 @@ func TestDoubaoASTTranslateInterruptsActiveSessionOnNewInputStream(t *testing.T)
 		sessions = sessions[1:]
 		return next, nil
 	}
-	out, err := tr.Transform(context.Background(), input)
+	out, err := tr.transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -864,11 +938,11 @@ func TestDoubaoASTTranslateInterruptsActiveSessionOnNewInputStream(t *testing.T)
 	}
 }
 
-func TestDoubaoASTTranslateRealtimeStartsNextSessionAfterPreviousFinished(t *testing.T) {
+func TestTransformerRealtimeStartsNextSessionAfterPreviousFinished(t *testing.T) {
 	input := newBufferStream(8)
-	tr := NewDoubaoASTTranslate(doubaospeech.NewClient("app-id"),
-		WithDoubaoASTTranslateMode(doubaospeech.ASTTranslateModeS2S),
-		WithDoubaoASTTranslateInputMode(DoubaoASTTranslateInputModeRealtime),
+	tr := newTransformer(doubaospeech.NewClient("app-id"),
+		withMode(doubaospeech.ASTTranslateModeS2S),
+		withInputMode(InputModeRealtime),
 	)
 	firstDone := make(chan struct{})
 	first := &fakeASTTranslateSession{
@@ -894,7 +968,7 @@ func TestDoubaoASTTranslateRealtimeStartsNextSessionAfterPreviousFinished(t *tes
 		sessions = sessions[1:]
 		return next, nil
 	}
-	out, err := tr.Transform(context.Background(), input)
+	out, err := tr.transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -944,11 +1018,11 @@ func TestDoubaoASTTranslateRealtimeStartsNextSessionAfterPreviousFinished(t *tes
 	}
 }
 
-func TestDoubaoASTTranslateIgnoresLateInterruptedStreamChunks(t *testing.T) {
+func TestTransformerIgnoresLateInterruptedStreamChunks(t *testing.T) {
 	input := newBufferStream(10)
-	tr := NewDoubaoASTTranslate(doubaospeech.NewClient("app-id"),
-		WithDoubaoASTTranslateMode(doubaospeech.ASTTranslateModeS2S),
-		WithDoubaoASTTranslateInputMode(DoubaoASTTranslateInputModePushToTalk),
+	tr := newTransformer(doubaospeech.NewClient("app-id"),
+		withMode(doubaospeech.ASTTranslateModeS2S),
+		withInputMode(InputModePushToTalk),
 	)
 	first := &fakeASTTranslateSession{
 		closeCh: make(chan struct{}),
@@ -983,7 +1057,7 @@ func TestDoubaoASTTranslateIgnoresLateInterruptedStreamChunks(t *testing.T) {
 		sessions = sessions[1:]
 		return next, nil
 	}
-	out, err := tr.Transform(context.Background(), input)
+	out, err := tr.transform(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}

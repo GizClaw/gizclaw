@@ -1,4 +1,4 @@
-package transformers
+package doubaorealtimeduplex
 
 import (
 	"bytes"
@@ -19,10 +19,10 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
 
-// DoubaoRealtimeDuplex is a realtime-only transformer backed by the Doubao
+// Transformer is a realtime-only transformer backed by the Doubao
 // Realtime Duplex API. Client-side push-to-talk turns are handled by
 // DoubaoRealtime, not this Duplex API.
-type DoubaoRealtimeDuplex struct {
+type Transformer struct {
 	client           *doubaospeech.Client
 	duplex           doubaoRealtimeDuplexOpener
 	sessionID        string
@@ -41,14 +41,7 @@ type DoubaoRealtimeDuplex struct {
 	extension        *doubaospeech.RealtimeDuplexExtension
 }
 
-var _ genx.Transformer = (*DoubaoRealtimeDuplex)(nil)
-
-// DoubaoRealtimeDuplexRealtime is a Duplex transformer for continuous audio.
-type DoubaoRealtimeDuplexRealtime struct {
-	*DoubaoRealtimeDuplex
-}
-
-var _ genx.Transformer = (*DoubaoRealtimeDuplexRealtime)(nil)
+var _ genx.Transformer = (*Transformer)(nil)
 
 const (
 	doubaoRealtimeDuplexTranscriptLabel = "transcript"
@@ -61,6 +54,8 @@ const (
 	doubaoRealtimeDuplexFixedOutputFormat     = "ogg_opus"
 	doubaoRealtimeDuplexFixedOutputSampleRate = 24000
 )
+
+const doubaoRealtimeTranscriptLabel = doubaoRealtimeDuplexTranscriptLabel
 
 type doubaoRealtimeDuplexOpener interface {
 	OpenSession(context.Context, *doubaospeech.RealtimeDuplexConfig) (doubaoRealtimeDuplexSession, error)
@@ -85,125 +80,111 @@ func (c doubaoRealtimeDuplexClient) OpenSession(ctx context.Context, cfg *doubao
 	return c.client.RealtimeDuplex.OpenSession(ctx, cfg)
 }
 
-// DoubaoRealtimeDuplexOption is a functional option for DoubaoRealtimeDuplex.
-type DoubaoRealtimeDuplexOption func(*DoubaoRealtimeDuplex)
+// option is a functional option for Transformer.
+type option func(*Transformer)
 
-// WithDoubaoRealtimeDuplexSpeaker sets the Duplex output voice.
-func WithDoubaoRealtimeDuplexSpeaker(speaker string) DoubaoRealtimeDuplexOption {
-	return func(t *DoubaoRealtimeDuplex) {
+// withSpeaker sets the Duplex output voice.
+func withSpeaker(speaker string) option {
+	return func(t *Transformer) {
 		t.outputVoice = speaker
 	}
 }
 
-// WithDoubaoRealtimeDuplexFormat sets the Duplex output audio format.
-func WithDoubaoRealtimeDuplexFormat(format string) DoubaoRealtimeDuplexOption {
-	return func(t *DoubaoRealtimeDuplex) {
+// withFormat sets the Duplex output audio format.
+func withFormat(format string) option {
+	return func(t *Transformer) {
 		t.outputFormat = format
 	}
 }
 
-// WithDoubaoRealtimeDuplexSampleRate sets the Duplex output sample rate.
-func WithDoubaoRealtimeDuplexSampleRate(sampleRate int) DoubaoRealtimeDuplexOption {
-	return func(t *DoubaoRealtimeDuplex) {
+// withSampleRate sets the Duplex output sample rate.
+func withSampleRate(sampleRate int) option {
+	return func(t *Transformer) {
 		t.outputSampleRate = sampleRate
 	}
 }
 
-// WithDoubaoRealtimeDuplexInputFormat sets the audio format sent to Doubao.
-func WithDoubaoRealtimeDuplexInputFormat(format string) DoubaoRealtimeDuplexOption {
-	return func(t *DoubaoRealtimeDuplex) {
+// withInputFormat sets the audio format sent to Doubao.
+func withInputFormat(format string) option {
+	return func(t *Transformer) {
 		t.inputFormat = format
 	}
 }
 
-// WithDoubaoRealtimeDuplexInputSampleRate sets the input audio sample rate sent to Doubao.
-func WithDoubaoRealtimeDuplexInputSampleRate(sampleRate int) DoubaoRealtimeDuplexOption {
-	return func(t *DoubaoRealtimeDuplex) {
+// withInputSampleRate sets the input audio sample rate sent to Doubao.
+func withInputSampleRate(sampleRate int) option {
+	return func(t *Transformer) {
 		t.inputSampleRate = sampleRate
 	}
 }
 
-// WithDoubaoRealtimeDuplexInputChannels sets the local input audio channel count used for transcoding.
-func WithDoubaoRealtimeDuplexInputChannels(channels int) DoubaoRealtimeDuplexOption {
-	return func(t *DoubaoRealtimeDuplex) {
+// withInputChannels sets the local input audio channel count used for transcoding.
+func withInputChannels(channels int) option {
+	return func(t *Transformer) {
 		t.inputChannels = channels
 	}
 }
 
-// WithDoubaoRealtimeDuplexInputTranscode forces input audio through the local codec
+// withInputTranscode forces input audio through the local codec
 // before sending it to Doubao. This keeps network transport compressed while
 // normalizing peer Opus packets to Doubao's expected speech_opus settings.
-func WithDoubaoRealtimeDuplexInputTranscode(enabled bool) DoubaoRealtimeDuplexOption {
-	return func(t *DoubaoRealtimeDuplex) {
+func withInputTranscode(enabled bool) option {
+	return func(t *Transformer) {
 		t.inputTranscode = enabled
 	}
 }
 
-// WithDoubaoRealtimeDuplexModel sets the upstream Duplex model version.
-func WithDoubaoRealtimeDuplexModel(model string) DoubaoRealtimeDuplexOption {
-	return func(t *DoubaoRealtimeDuplex) {
+// withModel sets the upstream Duplex model version.
+func withModel(model string) option {
+	return func(t *Transformer) {
 		t.model = model
 	}
 }
 
-func WithDoubaoRealtimeDuplexSessionID(sessionID string) DoubaoRealtimeDuplexOption {
-	return func(t *DoubaoRealtimeDuplex) {
+func withSessionID(sessionID string) option {
+	return func(t *Transformer) {
 		t.sessionID = sessionID
 	}
 }
 
-func WithDoubaoRealtimeDuplexInstructions(instructions string) DoubaoRealtimeDuplexOption {
-	return func(t *DoubaoRealtimeDuplex) {
+func withInstructions(instructions string) option {
+	return func(t *Transformer) {
 		t.instructions = instructions
 	}
 }
 
-func WithDoubaoRealtimeDuplexOutputSpeed(speed int) DoubaoRealtimeDuplexOption {
-	return func(t *DoubaoRealtimeDuplex) {
+func withOutputSpeed(speed int) option {
+	return func(t *Transformer) {
 		t.outputSpeed = &speed
 	}
 }
 
-func WithDoubaoRealtimeDuplexOutputLoudness(loudness int) DoubaoRealtimeDuplexOption {
-	return func(t *DoubaoRealtimeDuplex) {
+func withOutputLoudness(loudness int) option {
+	return func(t *Transformer) {
 		t.outputLoudness = &loudness
 	}
 }
 
-func WithDoubaoRealtimeDuplexTools(tools []doubaospeech.RealtimeDuplexFunctionTool) DoubaoRealtimeDuplexOption {
-	return func(t *DoubaoRealtimeDuplex) {
+func withTools(tools []doubaospeech.RealtimeDuplexFunctionTool) option {
+	return func(t *Transformer) {
 		t.tools = append([]doubaospeech.RealtimeDuplexFunctionTool(nil), tools...)
 	}
 }
 
-func WithDoubaoRealtimeDuplexExtension(extension *doubaospeech.RealtimeDuplexExtension) DoubaoRealtimeDuplexOption {
-	return func(t *DoubaoRealtimeDuplex) {
+func withExtension(extension *doubaospeech.RealtimeDuplexExtension) option {
+	return func(t *Transformer) {
 		t.extension = extension
 	}
 }
 
-func withDoubaoRealtimeDuplexOpener(opener doubaoRealtimeDuplexOpener) DoubaoRealtimeDuplexOption {
-	return func(t *DoubaoRealtimeDuplex) {
+func withDoubaoRealtimeDuplexOpener(opener doubaoRealtimeDuplexOpener) option {
+	return func(t *Transformer) {
 		t.duplex = opener
 	}
 }
 
-// NewDoubaoRealtimeDuplexRealtime creates a Duplex realtime transformer.
-func NewDoubaoRealtimeDuplexRealtime(client *doubaospeech.Client, opts ...DoubaoRealtimeDuplexOption) *DoubaoRealtimeDuplexRealtime {
-	return &DoubaoRealtimeDuplexRealtime{DoubaoRealtimeDuplex: newDoubaoRealtimeDuplex(client, opts...)}
-}
-
-// NewDoubaoRealtimeDuplex creates a new DoubaoRealtimeDuplex transformer.
-//
-// Parameters:
-//   - client: Doubao speech client
-//   - opts: Optional configuration
-func NewDoubaoRealtimeDuplex(client *doubaospeech.Client, opts ...DoubaoRealtimeDuplexOption) *DoubaoRealtimeDuplex {
-	return newDoubaoRealtimeDuplex(client, opts...)
-}
-
-func newDoubaoRealtimeDuplex(client *doubaospeech.Client, opts ...DoubaoRealtimeDuplexOption) *DoubaoRealtimeDuplex {
-	t := &DoubaoRealtimeDuplex{
+func newTransformer(client *doubaospeech.Client, opts ...option) *Transformer {
+	t := &Transformer{
 		client:           client,
 		model:            doubaospeech.RealtimeDuplexModelDefault,
 		inputFormat:      doubaoRealtimeDuplexFixedInputFormat,
@@ -223,20 +204,19 @@ func newDoubaoRealtimeDuplex(client *doubaospeech.Client, opts ...DoubaoRealtime
 	return t
 }
 
-// DoubaoRealtimeDuplexCtxKey is the context key for runtime options.
-type doubaoRealtimeDuplexCtxKey struct{}
-
-// DoubaoRealtimeDuplexCtxOptions are runtime options passed via context.
-type DoubaoRealtimeDuplexCtxOptions struct{}
-
-// WithDoubaoRealtimeDuplexCtxOptions attaches runtime options to context.
-func WithDoubaoRealtimeDuplexCtxOptions(ctx context.Context, opts DoubaoRealtimeDuplexCtxOptions) context.Context {
-	return context.WithValue(ctx, doubaoRealtimeDuplexCtxKey{}, opts)
-}
-
 // Transform converts audio input to audio output via realtime dialogue.
 // It returns the output stream immediately and reports connection errors on it.
-func (t *DoubaoRealtimeDuplex) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
+func (t *Transformer) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
+	return t.transform(ctx, input)
+}
+
+func (t *Transformer) transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
+	if t == nil || t.client == nil && t.duplex == nil {
+		return nil, fmt.Errorf("doubao realtime duplex: transformer is not initialized")
+	}
+	if input == nil {
+		return nil, fmt.Errorf("doubao realtime duplex: input stream is required")
+	}
 	config := t.realtimeConfig()
 	slog.Info(
 		"doubao: realtime duplex session config",
@@ -257,7 +237,7 @@ func (t *DoubaoRealtimeDuplex) Transform(ctx context.Context, input genx.Stream)
 	return output, nil
 }
 
-func (t *DoubaoRealtimeDuplex) realtimeConfig() *doubaospeech.RealtimeDuplexConfig {
+func (t *Transformer) realtimeConfig() *doubaospeech.RealtimeDuplexConfig {
 	config := &doubaospeech.RealtimeDuplexConfig{
 		Session: doubaospeech.RealtimeDuplexSessionConfig{
 			ID:           strings.TrimSpace(t.sessionID),
@@ -291,7 +271,7 @@ func (t *DoubaoRealtimeDuplex) realtimeConfig() *doubaospeech.RealtimeDuplexConf
 	return config
 }
 
-func (t *DoubaoRealtimeDuplex) sessionLoop(ctx context.Context, input genx.Stream, output *bufferStream) {
+func (t *Transformer) sessionLoop(ctx context.Context, input genx.Stream, output *bufferStream) {
 	defer output.Close()
 	input = newDoubaoRealtimeDuplexInputReader(input)
 	defer input.Close()
@@ -319,7 +299,7 @@ func (t *DoubaoRealtimeDuplex) sessionLoop(ctx context.Context, input genx.Strea
 	}
 }
 
-func (t *DoubaoRealtimeDuplex) processLoop(ctx context.Context, input genx.Stream, output *bufferStream, session doubaoRealtimeDuplexSession) (*genx.MessageChunk, error) {
+func (t *Transformer) processLoop(ctx context.Context, input genx.Stream, output *bufferStream, session doubaoRealtimeDuplexSession) (*genx.MessageChunk, error) {
 	defer session.Close()
 	var restarting atomic.Bool
 	assistant := newRealtimeAssistantLifecycle()
@@ -1004,7 +984,7 @@ func doubaoRealtimeDuplexNextOrDone(input genx.Stream, done <-chan struct{}) (*g
 	return chunk, err, false
 }
 
-func (t *DoubaoRealtimeDuplex) pushInputEOSError(output *bufferStream, streamID string, err error) {
+func (t *Transformer) pushInputEOSError(output *bufferStream, streamID string, err error) {
 	if output == nil || err == nil {
 		return
 	}
@@ -1159,41 +1139,7 @@ func realtimeDuplexASRResponseEndsSegment(event *doubaospeech.RealtimeEvent, del
 	return false
 }
 
-type doubaoRealtimeDuplexAudioInput = doubaoRealtimeAudioInput
-
-type doubaoRealtimeDuplexAudioInputs = doubaoRealtimeAudioInputs
-
-func newDoubaoRealtimeDuplexAudioInputs(format string, sampleRate, channels int, transcode bool) *doubaoRealtimeDuplexAudioInputs {
-	return newDoubaoRealtimeAudioInputs(format, sampleRate, channels, transcode)
-}
-
-func newDoubaoRealtimeDuplexAudioInput(format string, sampleRate, channels int, transcode bool) *doubaoRealtimeDuplexAudioInput {
-	return newDoubaoRealtimeAudioInput(format, sampleRate, channels, transcode)
-}
-
-func doubaoRealtimeDuplexChunkInputStreamID(chunk *genx.MessageChunk, fallback string) string {
-	return realtimeChunkInputStreamID(chunk, fallback)
-}
-
-type doubaoRealtimeDuplexStreamIDs = doubaoRealtimeStreamIDs
-
-func newDoubaoRealtimeDuplexStreamIDs() *doubaoRealtimeDuplexStreamIDs {
-	return newDoubaoRealtimeStreamIDs(DoubaoRealtimeModeRealtime)
-}
-
-func doubaoRealtimeDuplexAudioFormat(format string) string {
-	return realtimeAudioFormat(format)
-}
-
-func doubaoRealtimeDuplexAudioSampleRate(sampleRate int) int {
-	return realtimeAudioSampleRate(sampleRate)
-}
-
-func doubaoRealtimeDuplexPCM16LE(samples []int16) []byte {
-	return realtimePCM16LE(samples)
-}
-
-func (t *DoubaoRealtimeDuplex) mimeType() string {
+func (t *Transformer) mimeType() string {
 	switch strings.ToLower(strings.TrimSpace(t.outputFormat)) {
 	case "mp3":
 		return "audio/mpeg"
@@ -1206,14 +1152,14 @@ func (t *DoubaoRealtimeDuplex) mimeType() string {
 	}
 }
 
-func (t *DoubaoRealtimeDuplex) outputMIMEType() string {
+func (t *Transformer) outputMIMEType() string {
 	if strings.EqualFold(strings.TrimSpace(t.outputFormat), "ogg_opus") {
 		return "audio/opus"
 	}
 	return t.mimeType()
 }
 
-func (t *DoubaoRealtimeDuplex) outputAudioBlobs(audio []byte) ([]*genx.Blob, error) {
+func (t *Transformer) outputAudioBlobs(audio []byte) ([]*genx.Blob, error) {
 	if len(audio) == 0 {
 		return nil, nil
 	}

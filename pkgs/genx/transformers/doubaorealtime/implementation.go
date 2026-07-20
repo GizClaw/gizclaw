@@ -1,4 +1,4 @@
-package transformers
+package doubaorealtime
 
 import (
 	"bytes"
@@ -20,7 +20,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
 
-// DoubaoRealtime is a realtime transformer using Doubao realtime dialogue.
+// Transformer is a realtime transformer using Doubao realtime dialogue.
 //
 // Resource ID: volc.speech.dialog
 //
@@ -29,7 +29,7 @@ import (
 // Output: genx.Stream with audio Blob chunks (model response)
 //
 // Internally uses ASR → LLM → TTS pipeline.
-type DoubaoRealtime struct {
+type Transformer struct {
 	client            *doubaospeech.Client
 	realtime          doubaoRealtimeOpener
 	speaker           string
@@ -52,13 +52,13 @@ type DoubaoRealtime struct {
 	dialogID          string
 	dialogExtra       *doubaospeech.RealtimeDialogExtra
 	model             string // Model version: O, SC, 1.2.1.0 (O2.0), 2.2.0.0 (SC2.0)
-	mode              DoubaoRealtimeMode
+	mode              Mode
 	retryInitial      time.Duration
 	retryMax          time.Duration
 	retryWait         func(context.Context, <-chan struct{}, time.Duration) bool
 }
 
-var _ genx.Transformer = (*DoubaoRealtime)(nil)
+var _ genx.Transformer = (*Transformer)(nil)
 
 const (
 	doubaoRealtimeTranscriptLabel = "transcript"
@@ -76,15 +76,6 @@ const (
 	doubaoRealtimePTTOutputMaxBytes = 32 << 20
 	doubaoRealtimeRetryInitial      = 100 * time.Millisecond
 	doubaoRealtimeRetryMax          = 5 * time.Second
-)
-
-// DoubaoRealtimeMode controls how client input boundaries are interpreted.
-type DoubaoRealtimeMode string
-
-const (
-	DoubaoRealtimeModePushToTalk DoubaoRealtimeMode = "push_to_talk"
-	DoubaoRealtimeModeRealtime   DoubaoRealtimeMode = "realtime"
-	DoubaoRealtimeModeText       DoubaoRealtimeMode = "text"
 )
 
 type doubaoRealtimeOpener interface {
@@ -111,151 +102,151 @@ func (c doubaoRealtimeClient) OpenSession(ctx context.Context, cfg *doubaospeech
 	return c.client.Realtime.Connect(ctx, cfg)
 }
 
-// DoubaoRealtimeOption is a functional option for DoubaoRealtime.
-type DoubaoRealtimeOption func(*DoubaoRealtime)
+// option is a functional option for Transformer.
+type option func(*Transformer)
 
-// WithDoubaoRealtimeSpeaker sets the TTS speaker voice.
-func WithDoubaoRealtimeSpeaker(speaker string) DoubaoRealtimeOption {
-	return func(t *DoubaoRealtime) {
+// withSpeaker sets the TTS speaker voice.
+func withSpeaker(speaker string) option {
+	return func(t *Transformer) {
 		t.speaker = speaker
 	}
 }
 
-// WithDoubaoRealtimeFormat sets the TTS output audio format.
-func WithDoubaoRealtimeFormat(format string) DoubaoRealtimeOption {
-	return func(t *DoubaoRealtime) {
+// withFormat sets the TTS output audio format.
+func withFormat(format string) option {
+	return func(t *Transformer) {
 		t.format = format
 	}
 }
 
-// WithDoubaoRealtimeSampleRate sets the sample rate.
-func WithDoubaoRealtimeSampleRate(sampleRate int) DoubaoRealtimeOption {
-	return func(t *DoubaoRealtime) {
+// withSampleRate sets the sample rate.
+func withSampleRate(sampleRate int) option {
+	return func(t *Transformer) {
 		t.sampleRate = sampleRate
 	}
 }
 
-// WithDoubaoRealtimeChannels sets the number of channels.
-func WithDoubaoRealtimeChannels(channels int) DoubaoRealtimeOption {
-	return func(t *DoubaoRealtime) {
+// withChannels sets the number of channels.
+func withChannels(channels int) option {
+	return func(t *Transformer) {
 		t.channels = channels
 	}
 }
 
-// WithDoubaoRealtimeSpeechRate sets the realtime TTS speech rate.
-func WithDoubaoRealtimeSpeechRate(rate int) DoubaoRealtimeOption {
-	return func(t *DoubaoRealtime) {
+// withSpeechRate sets the realtime TTS speech rate.
+func withSpeechRate(rate int) option {
+	return func(t *Transformer) {
 		t.speechRate = &rate
 	}
 }
 
-// WithDoubaoRealtimeLoudnessRate sets the realtime TTS loudness rate.
-func WithDoubaoRealtimeLoudnessRate(rate int) DoubaoRealtimeOption {
-	return func(t *DoubaoRealtime) {
+// withLoudnessRate sets the realtime TTS loudness rate.
+func withLoudnessRate(rate int) option {
+	return func(t *Transformer) {
 		t.loudnessRate = &rate
 	}
 }
 
-// WithDoubaoRealtimeInputFormat sets the audio format sent to Doubao.
-func WithDoubaoRealtimeInputFormat(format string) DoubaoRealtimeOption {
-	return func(t *DoubaoRealtime) {
+// withInputFormat sets the audio format sent to Doubao.
+func withInputFormat(format string) option {
+	return func(t *Transformer) {
 		t.inputFormat = format
 	}
 }
 
-// WithDoubaoRealtimeInputSampleRate sets the input audio sample rate sent to Doubao.
-func WithDoubaoRealtimeInputSampleRate(sampleRate int) DoubaoRealtimeOption {
-	return func(t *DoubaoRealtime) {
+// withInputSampleRate sets the input audio sample rate sent to Doubao.
+func withInputSampleRate(sampleRate int) option {
+	return func(t *Transformer) {
 		t.inputSampleRate = sampleRate
 	}
 }
 
-// WithDoubaoRealtimeInputChannels sets the input audio channel count sent to Doubao.
-func WithDoubaoRealtimeInputChannels(channels int) DoubaoRealtimeOption {
-	return func(t *DoubaoRealtime) {
+// withInputChannels sets the input audio channel count sent to Doubao.
+func withInputChannels(channels int) option {
+	return func(t *Transformer) {
 		t.inputChannels = channels
 	}
 }
 
-// WithDoubaoRealtimeInputTranscode forces input audio through the local codec
+// withInputTranscode forces input audio through the local codec
 // before sending it to Doubao. This keeps network transport compressed while
 // normalizing peer Opus packets to Doubao's expected speech_opus settings.
-func WithDoubaoRealtimeInputTranscode(enabled bool) DoubaoRealtimeOption {
-	return func(t *DoubaoRealtime) {
+func withInputTranscode(enabled bool) option {
+	return func(t *Transformer) {
 		t.inputTranscode = enabled
 	}
 }
 
-// WithDoubaoRealtimeBotName sets the bot name.
-func WithDoubaoRealtimeBotName(botName string) DoubaoRealtimeOption {
-	return func(t *DoubaoRealtime) {
+// withBotName sets the bot name.
+func withBotName(botName string) option {
+	return func(t *Transformer) {
 		t.botName = botName
 	}
 }
 
-// WithDoubaoRealtimeSystemRole sets the system role/prompt.
-func WithDoubaoRealtimeSystemRole(systemRole string) DoubaoRealtimeOption {
-	return func(t *DoubaoRealtime) {
+// withSystemRole sets the system role/prompt.
+func withSystemRole(systemRole string) option {
+	return func(t *Transformer) {
 		t.systemRole = systemRole
 	}
 }
 
-// WithDoubaoRealtimeVADWindow sets the VAD end detection window in milliseconds.
+// withVADWindow sets the VAD end detection window in milliseconds.
 // Smaller values (100-200ms) give faster response but may cut off speech.
 // Larger values (500-1000ms) are more tolerant of pauses but slower.
-func WithDoubaoRealtimeVADWindow(windowMs int) DoubaoRealtimeOption {
-	return func(t *DoubaoRealtime) {
+func withVADWindow(windowMs int) option {
+	return func(t *Transformer) {
 		t.vadWindowMs = windowMs
 	}
 }
 
-// WithDoubaoRealtimeASRExtra sets provider-specific typed ASR options.
-func WithDoubaoRealtimeASRExtra(extra doubaospeech.RealtimeASRExtra) DoubaoRealtimeOption {
-	return func(t *DoubaoRealtime) {
+// withASRExtra sets provider-specific typed ASR options.
+func withASRExtra(extra doubaospeech.RealtimeASRExtra) option {
+	return func(t *Transformer) {
 		t.asrExtra = cloneDoubaoRealtimeASRExtra(&extra)
 	}
 }
 
-// WithDoubaoRealtimeTTSExtra sets provider-specific typed TTS options.
-func WithDoubaoRealtimeTTSExtra(extra doubaospeech.RealtimeTTSExtra) DoubaoRealtimeOption {
-	return func(t *DoubaoRealtime) {
+// withTTSExtra sets provider-specific typed TTS options.
+func withTTSExtra(extra doubaospeech.RealtimeTTSExtra) option {
+	return func(t *Transformer) {
 		t.ttsExtra = cloneDoubaoRealtimeTTSExtra(&extra)
 	}
 }
 
-// WithDoubaoRealtimeSpeakingStyle sets the speaking style.
-func WithDoubaoRealtimeSpeakingStyle(style string) DoubaoRealtimeOption {
-	return func(t *DoubaoRealtime) {
+// withSpeakingStyle sets the speaking style.
+func withSpeakingStyle(style string) option {
+	return func(t *Transformer) {
 		t.speakingStyle = style
 	}
 }
 
-// WithDoubaoRealtimeCharacterManifest sets the character manifest for role-playing.
-func WithDoubaoRealtimeCharacterManifest(manifest string) DoubaoRealtimeOption {
-	return func(t *DoubaoRealtime) {
+// withCharacterManifest sets the character manifest for role-playing.
+func withCharacterManifest(manifest string) option {
+	return func(t *Transformer) {
 		t.characterManifest = manifest
 	}
 }
 
-// WithDoubaoRealtimeDialogID sets the stable dialog id used to continue
+// withDialogID sets the stable dialog id used to continue
 // provider-side conversation memory.
-func WithDoubaoRealtimeDialogID(dialogID string) DoubaoRealtimeOption {
-	return func(t *DoubaoRealtime) {
+func withDialogID(dialogID string) option {
+	return func(t *Transformer) {
 		t.dialogID = dialogID
 	}
 }
 
-// WithDoubaoRealtimeDialogExtra sets provider-specific typed dialog options.
-func WithDoubaoRealtimeDialogExtra(extra doubaospeech.RealtimeDialogExtra) DoubaoRealtimeOption {
-	return func(t *DoubaoRealtime) {
+// withDialogExtra sets provider-specific typed dialog options.
+func withDialogExtra(extra doubaospeech.RealtimeDialogExtra) option {
+	return func(t *Transformer) {
 		t.dialogExtra = cloneDoubaoRealtimeDialogExtra(&extra)
 	}
 }
 
-// WithDoubaoRealtimeSearchAPIKey fills the credential-backed web search key on
+// withSearchAPIKey fills the credential-backed web search key on
 // an already enabled dialog search extra.
-func WithDoubaoRealtimeSearchAPIKey(apiKey string) DoubaoRealtimeOption {
-	return func(t *DoubaoRealtime) {
+func withSearchAPIKey(apiKey string) option {
+	return func(t *Transformer) {
 		if strings.TrimSpace(apiKey) == "" {
 			return
 		}
@@ -266,37 +257,37 @@ func WithDoubaoRealtimeSearchAPIKey(apiKey string) DoubaoRealtimeOption {
 	}
 }
 
-// WithDoubaoRealtimeModel sets the model version.
+// WithModel sets the model version.
 // Valid values: "O" (default), "SC", "1.2.1.0" (O2.0), "2.2.0.0" (SC2.0)
-func WithDoubaoRealtimeModel(model string) DoubaoRealtimeOption {
-	return func(t *DoubaoRealtime) {
+func withModel(model string) option {
+	return func(t *Transformer) {
 		t.model = model
 	}
 }
 
-// WithDoubaoRealtimeMode sets the client input mode.
-func WithDoubaoRealtimeMode(mode DoubaoRealtimeMode) DoubaoRealtimeOption {
-	return func(t *DoubaoRealtime) {
+// WithMode sets the client input mode.
+func withMode(mode Mode) option {
+	return func(t *Transformer) {
 		switch mode {
-		case DoubaoRealtimeModePushToTalk, DoubaoRealtimeModeRealtime, DoubaoRealtimeModeText:
+		case ModePushToTalk, ModeRealtime, ModeText:
 			t.mode = mode
 		}
 	}
 }
 
-func withDoubaoRealtimeOpener(opener doubaoRealtimeOpener) DoubaoRealtimeOption {
-	return func(t *DoubaoRealtime) {
+func withDoubaoRealtimeOpener(opener doubaoRealtimeOpener) option {
+	return func(t *Transformer) {
 		t.realtime = opener
 	}
 }
 
-// NewDoubaoRealtime creates a new DoubaoRealtime transformer.
+// newTransformer creates a Transformer.
 //
 // Parameters:
 //   - client: Doubao speech client
 //   - opts: Optional configuration
-func NewDoubaoRealtime(client *doubaospeech.Client, opts ...DoubaoRealtimeOption) *DoubaoRealtime {
-	t := &DoubaoRealtime{
+func newTransformer(client *doubaospeech.Client, opts ...option) *Transformer {
+	t := &Transformer{
 		client:          client,
 		speaker:         "zh_female_vv_jupiter_bigtts", // O version default voice
 		format:          doubaoRealtimeFixedOutputFormat,
@@ -308,7 +299,7 @@ func NewDoubaoRealtime(client *doubaospeech.Client, opts ...DoubaoRealtimeOption
 		inputTranscode:  true,
 		model:           "O",  // Default to O version
 		botName:         "豆包", // Default bot name
-		mode:            DoubaoRealtimeModePushToTalk,
+		mode:            ModePushToTalk,
 		retryInitial:    doubaoRealtimeRetryInitial,
 		retryMax:        doubaoRealtimeRetryMax,
 	}
@@ -321,20 +312,19 @@ func NewDoubaoRealtime(client *doubaospeech.Client, opts ...DoubaoRealtimeOption
 	return t
 }
 
-// DoubaoRealtimeCtxKey is the context key for runtime options.
-type doubaoRealtimeCtxKey struct{}
-
-// DoubaoRealtimeCtxOptions are runtime options passed via context.
-type DoubaoRealtimeCtxOptions struct{}
-
-// WithDoubaoRealtimeCtxOptions attaches runtime options to context.
-func WithDoubaoRealtimeCtxOptions(ctx context.Context, opts DoubaoRealtimeCtxOptions) context.Context {
-	return context.WithValue(ctx, doubaoRealtimeCtxKey{}, opts)
-}
-
 // Transform converts audio input to audio output via realtime dialogue.
 // It returns the output stream immediately and reports connection errors on it.
-func (t *DoubaoRealtime) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
+func (t *Transformer) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
+	return t.transform(ctx, input)
+}
+
+func (t *Transformer) transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
+	if t == nil || t.client == nil && t.realtime == nil {
+		return nil, fmt.Errorf("doubao realtime: transformer is not initialized")
+	}
+	if input == nil {
+		return nil, fmt.Errorf("doubao realtime: input stream is required")
+	}
 	config := t.realtimeConfig()
 	slog.Info(
 		"doubao: realtime session config",
@@ -355,7 +345,7 @@ func (t *DoubaoRealtime) Transform(ctx context.Context, input genx.Stream) (genx
 	return output, nil
 }
 
-func (t *DoubaoRealtime) realtimeConfig() *doubaospeech.RealtimeConfig {
+func (t *Transformer) realtimeConfig() *doubaospeech.RealtimeConfig {
 	asrExtra := cloneDoubaoRealtimeASRExtra(t.asrExtra)
 	if t.vadWindowMs > 0 {
 		if asrExtra == nil {
@@ -479,11 +469,11 @@ func cloneDoubaoRealtimeDialogExtra(extra *doubaospeech.RealtimeDialogExtra) *do
 	return &copied
 }
 
-func (t *DoubaoRealtime) realtimeInputMode() doubaospeech.RealtimeInputMode {
+func (t *Transformer) realtimeInputMode() doubaospeech.RealtimeInputMode {
 	switch t.mode {
-	case DoubaoRealtimeModePushToTalk:
+	case ModePushToTalk:
 		return doubaospeech.RealtimeInputModePushToTalk
-	case DoubaoRealtimeModeText:
+	case ModeText:
 		return doubaospeech.RealtimeInputModeText
 	default:
 		return doubaospeech.RealtimeInputModeDefault
@@ -532,7 +522,7 @@ type doubaoRealtimeRuntime struct {
 	audioInputs *doubaoRealtimeAudioInputs
 }
 
-func newDoubaoRealtimeRuntime(t *DoubaoRealtime) *doubaoRealtimeRuntime {
+func newDoubaoRealtimeRuntime(t *Transformer) *doubaoRealtimeRuntime {
 	return &doubaoRealtimeRuntime{
 		assistant:   newRealtimeAssistantLifecycle(),
 		pushToTalk:  &doubaoPushToTalkState{},
@@ -548,7 +538,7 @@ func (r *doubaoRealtimeRuntime) close() {
 	}
 }
 
-func (r *doubaoRealtimeRuntime) providerLost(t *DoubaoRealtime, output realtimeChunkOutput, cause error) {
+func (r *doubaoRealtimeRuntime) providerLost(t *Transformer, output realtimeChunkOutput, cause error) {
 	if r == nil {
 		return
 	}
@@ -762,7 +752,7 @@ func doubaoRealtimeNextOrDone(input genx.Stream, done <-chan struct{}) (*genx.Me
 	return chunk, err, false
 }
 
-func (t *DoubaoRealtime) sessionLoop(ctx context.Context, input genx.Stream, output *bufferStream) {
+func (t *Transformer) sessionLoop(ctx context.Context, input genx.Stream, output *bufferStream) {
 	workerCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	go func() {
@@ -854,14 +844,14 @@ func (t *DoubaoRealtime) sessionLoop(ctx context.Context, input genx.Stream, out
 	}
 }
 
-func (t *DoubaoRealtime) waitRetry(ctx context.Context, outputDone, inputDone <-chan struct{}, delay time.Duration) bool {
+func (t *Transformer) waitRetry(ctx context.Context, outputDone, inputDone <-chan struct{}, delay time.Duration) bool {
 	if t != nil && t.retryWait != nil {
 		return t.retryWait(ctx, outputDone, delay)
 	}
 	return waitDoubaoRealtimeRetry(ctx, outputDone, inputDone, delay)
 }
 
-func (t *DoubaoRealtime) processLoop(ctx context.Context, input genx.Stream, output *bufferStream, session doubaoRealtimeSession) (*genx.MessageChunk, error) {
+func (t *Transformer) processLoop(ctx context.Context, input genx.Stream, output *bufferStream, session doubaoRealtimeSession) (*genx.MessageChunk, error) {
 	reader := newDoubaoRealtimeInputReader(input)
 	defer reader.Close()
 	runtime := newDoubaoRealtimeRuntime(t)
@@ -888,7 +878,7 @@ func waitDoubaoRealtimeRetry(ctx context.Context, outputDone, inputDone <-chan s
 	}
 }
 
-func (t *DoubaoRealtime) processSession(
+func (t *Transformer) processSession(
 	ctx context.Context,
 	input genx.Stream,
 	output *bufferStream,
@@ -951,7 +941,7 @@ func (t *DoubaoRealtime) processSession(
 		if !assistant.canPush(epoch) {
 			return nil
 		}
-		if t.mode != DoubaoRealtimeModePushToTalk {
+		if t.mode != ModePushToTalk {
 			return output.Push(chunk)
 		}
 		if response == nil {
@@ -998,7 +988,7 @@ func (t *DoubaoRealtime) processSession(
 		}
 		receive := func() (retErr error) {
 			defer func() {
-				if t.mode == DoubaoRealtimeModeRealtime && transcriptOpen {
+				if t.mode == ModeRealtime && transcriptOpen {
 					errText := ""
 					if isDoubaoRealtimeRecoverable(retErr) {
 						errText = retErr.Error()
@@ -1022,14 +1012,14 @@ func (t *DoubaoRealtime) processSession(
 				slog.Debug("doubao: received event", "type", event.Type, "text", event.Text, "audioLen", len(event.Audio))
 
 				streamID := streamIDs.response()
-				if t.mode == DoubaoRealtimeModePushToTalk {
+				if t.mode == ModePushToTalk {
 					streamID = firstNonEmptyString(pttTurn.stream(), streamID)
 				}
 
 				switch event.Type {
 				case doubaospeech.EventASRInfo:
 					slog.Info("doubao: ASR info - speech detected")
-					if t.mode == DoubaoRealtimeModeRealtime {
+					if t.mode == ModeRealtime {
 						if _, err := interruptAssistant(streamID, false); err != nil {
 							return err
 						}
@@ -1041,7 +1031,7 @@ func (t *DoubaoRealtime) processSession(
 						text = realtimeASRText(event.Payload)
 					}
 					slog.Info("doubao: ASR response", "text", text)
-					if t.mode == DoubaoRealtimeModePushToTalk {
+					if t.mode == ModePushToTalk {
 						pttControl.Lock()
 						generation := pttASR.peek(pttTurn.currentGeneration())
 						pttTurn.updateHypothesisFor(generation, text)
@@ -1053,7 +1043,7 @@ func (t *DoubaoRealtime) processSession(
 						if delta == "" {
 							continue
 						}
-						if t.mode == DoubaoRealtimeModeRealtime && !transcriptOpen && !realtimeTextHasSemantic(delta) {
+						if t.mode == ModeRealtime && !transcriptOpen && !realtimeTextHasSemantic(delta) {
 							lastTranscriptText = ""
 							continue
 						}
@@ -1067,7 +1057,7 @@ func (t *DoubaoRealtime) processSession(
 							return err
 						}
 						transcriptOpen = true
-						if t.mode == DoubaoRealtimeModeRealtime && realtimeASRResponseEndsSegment(event, delta) {
+						if t.mode == ModeRealtime && realtimeASRResponseEndsSegment(event, delta) {
 							if err := closeInputSegment(""); err != nil {
 								return err
 							}
@@ -1076,7 +1066,7 @@ func (t *DoubaoRealtime) processSession(
 
 				case doubaospeech.EventASREnded:
 					slog.Info("doubao: ASR ended")
-					if t.mode == DoubaoRealtimeModePushToTalk {
+					if t.mode == ModePushToTalk {
 						pttControl.Lock()
 						pttGeneration, ok := pttASR.take()
 						if !ok {
@@ -1128,7 +1118,7 @@ func (t *DoubaoRealtime) processSession(
 				case doubaospeech.EventTTSStarted:
 					var response *doubaoRealtimePTTResponse
 					var epoch uint64
-					if t.mode == DoubaoRealtimeModePushToTalk {
+					if t.mode == ModePushToTalk {
 						response = pttResponses.match(doubaoRealtimeEventResponseIdentity(event))
 						if response == nil {
 							continue
@@ -1141,7 +1131,7 @@ func (t *DoubaoRealtime) processSession(
 						if !assistant.acceptsOutput() {
 							continue
 						}
-						if t.mode == DoubaoRealtimeModeText {
+						if t.mode == ModeText {
 							textResponses.markTTSStarted()
 						}
 						epoch = markAssistantStarted(streamID)
@@ -1170,7 +1160,7 @@ func (t *DoubaoRealtime) processSession(
 				case doubaospeech.EventChatResponse:
 					var response *doubaoRealtimePTTResponse
 					epoch := assistant.currentEpoch()
-					if t.mode == DoubaoRealtimeModePushToTalk {
+					if t.mode == ModePushToTalk {
 						response = pttResponses.match(doubaoRealtimeEventResponseIdentity(event))
 						if response == nil {
 							continue
@@ -1197,7 +1187,7 @@ func (t *DoubaoRealtime) processSession(
 				case doubaospeech.EventTTSAudioData:
 					var response *doubaoRealtimePTTResponse
 					epoch := assistant.currentEpoch()
-					if t.mode == DoubaoRealtimeModePushToTalk {
+					if t.mode == ModePushToTalk {
 						response = pttResponses.match(doubaoRealtimeEventResponseIdentity(event))
 						if response == nil {
 							continue
@@ -1208,7 +1198,7 @@ func (t *DoubaoRealtime) processSession(
 						pushToTalk.responseStarted(streamID, true)
 					} else if !assistant.acceptsOutput() {
 						continue
-					} else if t.mode == DoubaoRealtimeModeText {
+					} else if t.mode == ModeText {
 						textResponses.markTTSStarted()
 					}
 					if len(event.Audio) > 0 {
@@ -1232,7 +1222,7 @@ func (t *DoubaoRealtime) processSession(
 				case doubaospeech.EventTTSFinished:
 					var response *doubaoRealtimePTTResponse
 					epoch := assistant.currentEpoch()
-					if t.mode == DoubaoRealtimeModePushToTalk {
+					if t.mode == ModePushToTalk {
 						response = pttResponses.match(doubaoRealtimeEventResponseIdentity(event))
 						if response == nil {
 							continue
@@ -1240,7 +1230,7 @@ func (t *DoubaoRealtime) processSession(
 						streamID = response.streamID
 						epoch = response.epoch
 					} else if !assistant.acceptsOutput() {
-						if t.mode == DoubaoRealtimeModeText {
+						if t.mode == ModeText {
 							textResponses.markTTSFinished()
 						}
 						continue
@@ -1254,18 +1244,18 @@ func (t *DoubaoRealtime) processSession(
 					if err := pushAssistantOutput(epoch, response, eosChunk); err != nil {
 						return err
 					}
-					if t.mode == DoubaoRealtimeModePushToTalk {
+					if t.mode == ModePushToTalk {
 						pushToTalk.ttsFinished(streamID)
 						response.ttsFinished = true
 						pttResponses.finish(response)
-					} else if t.mode == DoubaoRealtimeModeText {
+					} else if t.mode == ModeText {
 						textResponses.markTTSFinished()
 					}
 
 				case doubaospeech.EventChatEnded:
 					var response *doubaoRealtimePTTResponse
 					epoch := assistant.currentEpoch()
-					if t.mode == DoubaoRealtimeModePushToTalk {
+					if t.mode == ModePushToTalk {
 						response = pttResponses.match(doubaoRealtimeEventResponseIdentity(event))
 						if response == nil {
 							continue
@@ -1274,7 +1264,7 @@ func (t *DoubaoRealtime) processSession(
 						epoch = response.epoch
 						pushToTalk.chatEnded(streamID)
 					} else if !assistant.acceptsOutput() {
-						if t.mode == DoubaoRealtimeModeText {
+						if t.mode == ModeText {
 							textResponses.markChatEnded()
 						}
 						continue
@@ -1295,7 +1285,7 @@ func (t *DoubaoRealtime) processSession(
 					if response != nil {
 						response.chatEnded = true
 						pttResponses.finish(response)
-					} else if t.mode == DoubaoRealtimeModeText {
+					} else if t.mode == ModeText {
 						textResponses.markChatEnded()
 					}
 
@@ -1352,9 +1342,9 @@ func (t *DoubaoRealtime) processSession(
 			var responseDone <-chan struct{}
 			var wait bool
 			switch t.mode {
-			case DoubaoRealtimeModePushToTalk:
+			case ModePushToTalk:
 				responseDone, wait = pttTurn.responseDone()
-			case DoubaoRealtimeModeText:
+			case ModeText:
 				responseDone, wait = textResponses.responseDone()
 			}
 			if wait {
@@ -1380,7 +1370,7 @@ func (t *DoubaoRealtime) processSession(
 		if chunk == nil {
 			continue
 		}
-		if t.mode == DoubaoRealtimeModePushToTalk && pushToTalk.discard(chunk) {
+		if t.mode == ModePushToTalk && pushToTalk.discard(chunk) {
 			if realtimeAudioInputEOS(chunk) {
 				streamID := streamIDs.serviceInput(chunk)
 				historyStreamID := streamIDs.historyInput(chunk)
@@ -1397,7 +1387,7 @@ func (t *DoubaoRealtime) processSession(
 		}
 
 		if chunk.IsBeginOfStream() && chunk.Ctrl != nil && chunk.Ctrl.StreamID != "" {
-			if t.mode == DoubaoRealtimeModePushToTalk {
+			if t.mode == ModePushToTalk {
 				pttControl.Lock()
 				bargeIn, previousStreamID, err := pushToTalk.begin(chunk.Ctrl.StreamID)
 				if err != nil {
@@ -1439,7 +1429,7 @@ func (t *DoubaoRealtime) processSession(
 
 		if realtimeAudioInputEOS(chunk) {
 			streamID := streamIDs.serviceInput(chunk)
-			if t.mode == DoubaoRealtimeModePushToTalk {
+			if t.mode == ModePushToTalk {
 				if err := pushToTalk.end(); err != nil {
 					return err
 				}
@@ -1460,7 +1450,7 @@ func (t *DoubaoRealtime) processSession(
 				if err := pttTurn.markInputEnded(); err != nil {
 					return err
 				}
-			} else if t.mode != DoubaoRealtimeModeText {
+			} else if t.mode != ModeText {
 				slog.Info("doubao: received realtime EOS, closing local audio input", "streamID", streamID, "audioSent", audioSent)
 			}
 			audioInputs.closeStream(streamID)
@@ -1469,10 +1459,10 @@ func (t *DoubaoRealtime) processSession(
 
 		switch p := chunk.Part.(type) {
 		case *genx.Blob:
-			if t.mode == DoubaoRealtimeModeText {
+			if t.mode == ModeText {
 				return fmt.Errorf("doubao realtime text mode does not accept audio input")
 			}
-			if t.mode == DoubaoRealtimeModePushToTalk {
+			if t.mode == ModePushToTalk {
 				if err := pushToTalk.requireCapturing("audio"); err != nil {
 					return err
 				}
@@ -1480,7 +1470,7 @@ func (t *DoubaoRealtime) processSession(
 			if len(p.Data) > 0 {
 				streamID := streamIDs.serviceInput(chunk)
 				historyStreamID := streamIDs.historyInput(chunk)
-				if t.mode != DoubaoRealtimeModeRealtime {
+				if t.mode != ModeRealtime {
 					if err := output.Push(historyUserAudioChunk(chunk, historyStreamID)); err != nil {
 						return err
 					}
@@ -1520,7 +1510,7 @@ func (t *DoubaoRealtime) processSession(
 			if len(p) > 0 {
 				slog.Info("doubao: sending text", "text", string(p))
 				var response *doubaoRealtimeTextResponse
-				if t.mode == DoubaoRealtimeModeText {
+				if t.mode == ModeText {
 					response = textResponses.begin()
 					if inputStreamID := streamIDs.serviceInput(chunk); inputStreamID != "" {
 						streamIDs.beginInput(inputStreamID)
@@ -1544,7 +1534,7 @@ func isDoubaoRealtimeAssistantChunk(chunk *genx.MessageChunk, streamID string) b
 		chunk.Ctrl.StreamID == streamID && chunk.Ctrl.Label == doubaoRealtimeAssistantLabel
 }
 
-func (t *DoubaoRealtime) pushInputEOSError(output *bufferStream, streamID string, err error) {
+func (t *Transformer) pushInputEOSError(output *bufferStream, streamID string, err error) {
 	if output == nil || err == nil {
 		return
 	}
@@ -1604,6 +1594,15 @@ func realtimeASRText(payload []byte) string {
 			if text := strings.TrimSpace(alternatives[j].Text); text != "" {
 				return text
 			}
+		}
+	}
+	return ""
+}
+
+func firstNonEmptyString(values ...string) string {
+	for _, value := range values {
+		if value = strings.TrimSpace(value); value != "" {
+			return value
 		}
 	}
 	return ""
@@ -1687,7 +1686,7 @@ func realtimeASRResponseEndsSegment(event *doubaospeech.RealtimeEvent, delta str
 	return false
 }
 
-func (t *DoubaoRealtime) mimeType() string {
+func (t *Transformer) mimeType() string {
 	switch strings.ToLower(strings.TrimSpace(t.format)) {
 	case "mp3":
 		return "audio/mpeg"
@@ -1700,7 +1699,7 @@ func (t *DoubaoRealtime) mimeType() string {
 	}
 }
 
-func (t *DoubaoRealtime) outputMIMEType() string {
+func (t *Transformer) outputMIMEType() string {
 	if strings.EqualFold(strings.TrimSpace(t.format), "ogg_opus") {
 		return "audio/opus"
 	}
@@ -1735,7 +1734,7 @@ func realtimePTTOutputByteLimit(limit time.Duration, sampleRate, channels int) i
 	return min(bytesPerSecond*seconds, int64(doubaoRealtimePTTOutputMaxBytes))
 }
 
-func (t *DoubaoRealtime) outputAudioBlobs(audio []byte) ([]*genx.Blob, error) {
+func (t *Transformer) outputAudioBlobs(audio []byte) ([]*genx.Blob, error) {
 	if len(audio) == 0 {
 		return nil, nil
 	}

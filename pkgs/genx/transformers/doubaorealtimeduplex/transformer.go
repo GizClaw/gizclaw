@@ -1,14 +1,10 @@
 package doubaorealtimeduplex
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 
 	doubaospeech "github.com/GizClaw/doubao-speech-go"
-	"github.com/GizClaw/gizclaw-go/pkgs/genx"
-	legacy "github.com/GizClaw/gizclaw-go/pkgs/genx/transformers"
-	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/agentkit"
 )
 
 // Config contains immutable Doubao realtime Duplex dependencies and options.
@@ -30,14 +26,6 @@ type Config struct {
 	Extension       *doubaospeech.RealtimeDuplexExtension
 }
 
-// Transformer adapts the Doubao realtime Duplex API to the GenX contract.
-type Transformer struct {
-	config      Config
-	newDelegate func() genx.Transformer
-}
-
-var _ genx.Transformer = (*Transformer)(nil)
-
 // New constructs a Duplex transformer without opening a WebSocket.
 func New(config Config) (*Transformer, error) {
 	if config.Client == nil {
@@ -53,55 +41,47 @@ func New(config Config) (*Transformer, error) {
 		}
 		config.Extension = extension
 	}
-	return &Transformer{config: config}, nil
-}
-
-func (t *Transformer) delegate() genx.Transformer {
-	if t.newDelegate != nil {
-		return t.newDelegate()
-	}
-	config := t.config
-	opts := make([]legacy.DoubaoRealtimeDuplexOption, 0, 14)
+	opts := make([]option, 0, 14)
 	if config.Speaker != "" {
-		opts = append(opts, legacy.WithDoubaoRealtimeDuplexSpeaker(config.Speaker))
+		opts = append(opts, withSpeaker(config.Speaker))
 	}
 	if config.Format != "" {
-		opts = append(opts, legacy.WithDoubaoRealtimeDuplexFormat(config.Format))
+		opts = append(opts, withFormat(config.Format))
 	}
 	if config.SampleRate != 0 {
-		opts = append(opts, legacy.WithDoubaoRealtimeDuplexSampleRate(config.SampleRate))
+		opts = append(opts, withSampleRate(config.SampleRate))
 	}
 	if config.InputFormat != "" {
-		opts = append(opts, legacy.WithDoubaoRealtimeDuplexInputFormat(config.InputFormat))
+		opts = append(opts, withInputFormat(config.InputFormat))
 	}
 	if config.InputSampleRate != 0 {
-		opts = append(opts, legacy.WithDoubaoRealtimeDuplexInputSampleRate(config.InputSampleRate))
+		opts = append(opts, withInputSampleRate(config.InputSampleRate))
 	}
 	if config.InputChannels != 0 {
-		opts = append(opts, legacy.WithDoubaoRealtimeDuplexInputChannels(config.InputChannels))
+		opts = append(opts, withInputChannels(config.InputChannels))
 	}
 	if config.InputTranscode != nil {
-		opts = append(opts, legacy.WithDoubaoRealtimeDuplexInputTranscode(*config.InputTranscode))
+		opts = append(opts, withInputTranscode(*config.InputTranscode))
 	}
 	if config.Model != "" {
-		opts = append(opts, legacy.WithDoubaoRealtimeDuplexModel(config.Model))
+		opts = append(opts, withModel(config.Model))
 	}
 	if config.SessionID != "" {
-		opts = append(opts, legacy.WithDoubaoRealtimeDuplexSessionID(config.SessionID))
+		opts = append(opts, withSessionID(config.SessionID))
 	}
 	if config.Instructions != "" {
-		opts = append(opts, legacy.WithDoubaoRealtimeDuplexInstructions(config.Instructions))
+		opts = append(opts, withInstructions(config.Instructions))
 	}
 	if config.OutputSpeed != nil {
-		opts = append(opts, legacy.WithDoubaoRealtimeDuplexOutputSpeed(*config.OutputSpeed))
+		opts = append(opts, withOutputSpeed(*config.OutputSpeed))
 	}
 	if config.OutputLoudness != nil {
-		opts = append(opts, legacy.WithDoubaoRealtimeDuplexOutputLoudness(*config.OutputLoudness))
+		opts = append(opts, withOutputLoudness(*config.OutputLoudness))
 	}
 	if config.Extension != nil {
-		opts = append(opts, legacy.WithDoubaoRealtimeDuplexExtension(config.Extension))
+		opts = append(opts, withExtension(config.Extension))
 	}
-	return legacy.NewDoubaoRealtimeDuplexRealtime(config.Client, opts...)
+	return newTransformer(config.Client, opts...), nil
 }
 
 func cloneExtension(extension *doubaospeech.RealtimeDuplexExtension) (*doubaospeech.RealtimeDuplexExtension, error) {
@@ -114,18 +94,6 @@ func cloneExtension(extension *doubaospeech.RealtimeDuplexExtension) (*doubaospe
 		return nil, fmt.Errorf("doubao realtime duplex: decode extension: %w", err)
 	}
 	return &clone, nil
-}
-
-// Transform starts one independent Duplex WebSocket for this invocation.
-func (t *Transformer) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
-	if t == nil || t.config.Client == nil && t.newDelegate == nil {
-		return nil, fmt.Errorf("doubao realtime duplex: transformer is not initialized")
-	}
-	output, err := t.delegate().Transform(ctx, input)
-	if err != nil {
-		return nil, err
-	}
-	return agentkit.NewResponseStream(output)
 }
 
 func cloneInt(value *int) *int {

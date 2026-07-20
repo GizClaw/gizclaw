@@ -2,6 +2,8 @@
 
 Doubao Speech Adapter adapts Doubao speech protocol to `genx.Transformer`, covering one-way recognition, speech generation, real-time dialogue, duplex real-time dialogue and voice translation.
 
+Agent-capable adapters use `doubaoast.New`, `doubaorealtime.New`, and `doubaorealtimeduplex.New` with their package-specific typed Config. Constructors do not open provider sessions; each concurrent `Transform` call owns its session and runtime state.
+
 ## Abilities
 
 | Transformer | Input and Output |
@@ -9,15 +11,15 @@ Doubao Speech Adapter adapts Doubao speech protocol to `genx.Transformer`, cover
 | [`DoubaoASRSAUC`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx/transformers#DoubaoASRSAUC) | Audio Stream → transcription Stream. |
 | [`DoubaoTTSSeedV2`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx/transformers#DoubaoTTSSeedV2) | Text Stream → generated audio Stream. |
 | [`DoubaoTTSICLV2`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx/transformers#DoubaoTTSICLV2) | Text Stream → ICL voice audio Stream. |
-| [`DoubaoRealtime`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx/transformers#DoubaoRealtime) | Adaptation bean bag Realtime Dialogue API (`volc.speech.dialog`), explicitly handles ASR, Chat, TTS events, and supports Push-to-Talk, continuous voice and text input. |
-| [`DoubaoRealtimeDuplex`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx/transformers#DoubaoRealtimeDuplex) | Adapt to the independent Realtime Duplex API, which only handles continuous duplex audio; use transcription, response text/audio, function call and response cancel events. |
-| [`DoubaoASTTranslate`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx/transformers#DoubaoASTTranslate) | Speech input → translated text/audio Stream. |
+| `doubaorealtime.Transformer` | Adapts the Doubao Realtime Dialogue API (`volc.speech.dialog`), explicitly handles ASR, Chat, and TTS events, and supports Push-to-Talk, continuous voice, and text input. |
+| `doubaorealtimeduplex.Transformer` | Adapts the independent Realtime Duplex API, which handles continuous duplex audio and its transcription, response text/audio, function call, and response cancellation events. |
+| `doubaoast.Transformer` | Speech input → translated text/audio Stream. |
 
-Each Transformer's constructor options define stable configuration, and per-request options are passed through the context. The Adapter must internally convert beanbag events, audio formats, usage, final states, and errors to GenX Stream.
+Each Transformer's typed Config defines stable configuration, while the context passed to `Transform` controls one request's lifecycle. The Adapter must internally convert provider events, audio formats, usage, terminal states, and errors to GenX Stream.
 
 ## AST Translate input modes
 
-`DoubaoASTTranslate` supports realtime and Push-to-Talk audio input while keeping provider upload and event reception concurrent:
+`doubaoast.Transformer` supports realtime and Push-to-Talk audio input while keeping provider upload and event reception concurrent:
 
 | Mode | Output boundary |
 | --- | --- |
@@ -32,7 +34,7 @@ Unpublished assistant TTS output is limited to two minutes of normalized Opus pa
 
 | Boundary | Realtime Dialogue | Realtime Duplex |
 | --- | --- | --- |
-| Go Adapter | `DoubaoRealtime` | `DoubaoRealtimeDuplex` |
+| Go Adapter | `doubaorealtime.Transformer` | `doubaorealtimeduplex.Transformer` |
 | Provider session | `Client.Realtime.Connect` | `Client.RealtimeDuplex.OpenSession` |
 | Input method | Push-to-Talk, continuous realtime, text | Continuous full-duplex audio |
 | Provider events | ASR, Chat, TTS, Session | Transcription, Response text/audio, Function call, Session |
@@ -43,7 +45,7 @@ The two Adapters can share GenX Stream, audio conversion, StreamID, and lifecycl
 
 ## Realtime Dialogue input mode
 
-`DoubaoRealtime` supports three input modes:
+`doubaorealtime.Transformer` supports three input modes:
 
 | Mode | Input Boundaries |
 | --- | --- |
@@ -57,9 +59,9 @@ Input already handed to a failed session is not replayed. Unread input remains b
 
 Realtime mode treats BOS, MIME EOS, and route EOS as local stream boundaries. They do not call `EndASR`, inject silence, commit audio, close the provider session, or trigger reconnect. Input EOF remains terminal for the transform: it stops reconnecting and closes the current session after draining the matching Chat/TTS response for a submitted finite Push-to-Talk or Text turn; it closes immediately when no response is pending and never triggers a rebuild. Provider `ASRInfo` interrupts a pending or active assistant response at most once; duplicate speech-detection events and speech detection while no response is active are no-ops on the same healthy session.
 
-### DoubaoRealtime Push-to-Talk state machine
+### doubaorealtime Push-to-Talk state machine
 
-This section only describes `DoubaoRealtime`’s adaptation to the Realtime Dialogue API’s native Push-to-Talk mode. `DoubaoRealtimeDuplex` does not support Push-to-Talk and does not use this set of state machines.
+This section only describes `doubaorealtime.Transformer`'s adaptation to the Realtime Dialogue API's native Push-to-Talk mode. `doubaorealtimeduplex.Transformer` does not support Push-to-Talk and does not use this state machine.
 
 ```mermaid
 stateDiagram-v2
@@ -73,7 +75,7 @@ stateDiagram-v2
     Responding --> Capturing: BOS / interrupt response
 ```
 
-`DoubaoRealtime`’s Push-to-Talk adaptation must explicitly track the current turn: the Idle state cannot receive audio or EOS; each turn in Capturing can only accept EOS once; after EOS, it cannot continue to send audio to the same turn. When the new BOS arrives, if the previous assistant is still outputting, `Interrupt` of the Realtime Dialogue session should be called, and then the input boundary for the new turn should be established.
+`doubaorealtime.Transformer`'s Push-to-Talk adaptation must explicitly track the current turn: the Idle state cannot receive audio or EOS; each turn in Capturing can only accept EOS once; after EOS, it cannot continue to send audio to the same turn. When the new BOS arrives, if the previous assistant is still outputting, `Interrupt` of the Realtime Dialogue session should be called, and then the input boundary for the new turn should be established.
 
 Push-to-Talk retains the latest ASR hypothesis and all assistant output until both input audio EOS and provider `ASREnded` have occurred. It then publishes one final transcript plus transcript EOS before releasing assistant chunks in provider order. Retained assistant Opus is limited to two minutes of normalized packet duration; exceeding the limit discards the uncommitted turn, emits one assistant error EOS, and keeps the transformer available for later turns.
 
