@@ -53,7 +53,34 @@ typedef struct {
   const gzc_platform_t *platform;
 } fake_crypto_t;
 
+typedef struct {
+  int call_count;
+  int method;
+} fake_rpc_provider_t;
+
 static fake_webrtc_t *global_fake_webrtc;
+
+static int test_rpc_provider(
+    void *userdata,
+    int method,
+    gzc_str_t request_payload,
+    gzc_rpc_provider_respond_fn respond,
+    void *respond_userdata) {
+  fake_rpc_provider_t *provider = (fake_rpc_provider_t *)userdata;
+  uint8_t response_payload[] = {0x0a, 0x00};
+  if (provider == NULL || respond == NULL || request_payload.len != 0u) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  provider->call_count++;
+  provider->method = method;
+  const gzc_rpc_provider_response_t response = {
+      .payload = response_payload,
+      .payload_len = sizeof(response_payload),
+  };
+  int rc = respond(respond_userdata, &response);
+  memset(response_payload, 0xff, sizeof(response_payload));
+  return rc;
+}
 
 static bool str_eq_cstr(gzc_str_t value, const char *want) {
   size_t want_len = strlen(want);
@@ -821,6 +848,10 @@ int main(void) {
   config.webrtc = &webrtc;
   config.cipher_mode = GZC_CIPHER_PLAINTEXT;
   config.connect_timeout_ms = 1000;
+  fake_rpc_provider_t rpc_provider;
+  memset(&rpc_provider, 0, sizeof(rpc_provider));
+  config.rpc_provider = test_rpc_provider;
+  config.rpc_provider_userdata = &rpc_provider;
 
   gzc_client_t *client = NULL;
   rc = gzc_client_create(&config, &client);
@@ -1437,6 +1468,50 @@ int main(void) {
     return 1;
   }
 
+  announce_remote_rpc(&fake_webrtc, 0);
+  gzc_buf_reset(&inbound_request);
+  gzc_buf_reset(&inbound_framed);
+  gzc_buf_reset(&fake_webrtc.sent);
+  rc = gzc_rpc_encode_request_envelope(
+      platform, gzc_str_from_cstr("client-info"),
+      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_INFO_GET,
+      gzc_str_from_parts("", 0), &inbound_request);
+  if (rc == GZC_OK) {
+    rc = append_test_frame(platform, &inbound_framed, GZC_RPC_FRAME_BINARY,
+                           inbound_request.data, inbound_request.len);
+  }
+  if (rc == GZC_OK) {
+    rc = append_test_frame(platform, &inbound_framed, GZC_RPC_FRAME_EOS, NULL,
+                           0);
+  }
+  if (expect(rc == GZC_OK, "build inbound client-info request") != 0) {
+    return 1;
+  }
+  fake_webrtc.callbacks.on_channel_message(
+      fake_webrtc.callbacks.userdata, &fake_webrtc.peer,
+      &fake_webrtc.remote_channels[0], NULL, inbound_framed.data,
+      inbound_framed.len, false);
+  inbound_frame_size = first_frame_size(&fake_webrtc.sent);
+  rc = gzc_rpc_frame_decode(fake_webrtc.sent.data, inbound_frame_size,
+                            &inbound_frame);
+  if (rc == GZC_OK) {
+    rc = gzc_rpc_decode_response_envelope(
+        gzc_str_from_parts((const char *)inbound_frame.data,
+                           inbound_frame.len),
+        &inbound_response);
+  }
+  if (expect(rc == GZC_OK && !inbound_response.has_error &&
+                 inbound_response.result_payload.len == 2u &&
+                 (uint8_t)inbound_response.result_payload.data[0] == 0x0au &&
+                 (uint8_t)inbound_response.result_payload.data[1] == 0x00u &&
+                 rpc_provider.call_count == 1 &&
+                 rpc_provider.method ==
+                     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_INFO_GET,
+             "inbound client-info dispatches configured provider") != 0) {
+    return 1;
+  }
+  close_remote_rpc(&fake_webrtc, 0);
+
   for (size_t i = 0; i < GZC_RPC_MAX_INBOUND_CHANNELS; i++) {
     announce_remote_rpc(&fake_webrtc, i);
   }
@@ -1603,6 +1678,7 @@ int main(void) {
   const gizclaw_rpc_v1_RpcMethod missing_payload_methods[] = {
       gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
       gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_SPEED_TEST_RUN,
+      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_INFO_GET,
   };
   for (size_t i = 0; i < sizeof(missing_payload_methods) / sizeof(missing_payload_methods[0]); i++) {
     announce_remote_rpc(&fake_webrtc, 0);

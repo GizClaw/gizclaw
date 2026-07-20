@@ -930,6 +930,24 @@ int gzc_client_poll(gzc_client_t *client, int timeout_ms) {
   return GZC_OK;
 }
 
+int gzc_client_dispatch_rpc_internal(
+    gzc_client_t *client,
+    int method,
+    gzc_str_t request_payload,
+    gzc_rpc_provider_respond_fn respond,
+    void *respond_userdata) {
+  if (client == NULL || respond == NULL ||
+      (request_payload.data == NULL && request_payload.len != 0u)) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  if (client->config.rpc_provider == NULL) {
+    return GZC_ERR_UNSUPPORTED;
+  }
+  return client->config.rpc_provider(client->config.rpc_provider_userdata,
+                                     method, request_payload, respond,
+                                     respond_userdata);
+}
+
 void gzc_client_destroy(gzc_client_t *client) {
   if (client == NULL) {
     return;
