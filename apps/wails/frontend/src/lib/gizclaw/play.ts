@@ -107,7 +107,7 @@ export function createPlayDataClientFromPeerConnection(pc: RTCPeerConnection): P
 export function createRPCPlayDataClient(rpc: PeerRPCClient): PlayDataClient {
   return {
     async loadSnapshot(): Promise<PlaySnapshot> {
-	  const collections = ["assistants", "translates", "raids", "story-teller", "role-play"] as const;
+      const collections = ["assistants", "translates", "raids", "story-teller", "role-play"] as const;
       const [
         runWorkspace,
         history,
@@ -128,18 +128,25 @@ export function createRPCPlayDataClient(rpc: PeerRPCClient): PlayDataClient {
         captureCall(RPC_METHODS["server.friend.list"], () => rpc.call(RPC_METHODS["server.friend.list"], {})),
         captureCall(RPC_METHODS["server.friend_group.list"], () => rpc.call(RPC_METHODS["server.friend_group.list"], {})),
         captureCall(RPC_METHODS["server.firmware.list"], () => rpc.call(RPC_METHODS["server.firmware.list"], {})),
-		captureCall(RPC_METHODS["server.workspace.list"], async () => ({ items: (await Promise.all(
-		  collections.map((collection) => rpc.call(RPC_METHODS["server.workspace.list"], { collection })),
-		)).flatMap(listItems) })),
-		captureCall(RPC_METHODS["server.workflow.list"], async () => ({ items: (await Promise.all(
-		  collections.map((collection) => rpc.call(RPC_METHODS["server.workflow.list"], { collection })),
-		)).flatMap(listItems) })),
+        captureCall(RPC_METHODS["server.workspace.list"], async () => ({
+          items: (await Promise.all(collections.map((collection) => collectCollectionPages(
+            (params) => rpc.call(RPC_METHODS["server.workspace.list"], params),
+            collection,
+          )))).flat(),
+        })),
+        captureCall(RPC_METHODS["server.workflow.list"], async () => ({
+          items: (await Promise.all(collections.map((collection) => collectCollectionPages(
+            (params) => rpc.call(RPC_METHODS["server.workflow.list"], params),
+            collection,
+            true,
+          )))).flat(),
+        })),
         captureCall(RPC_METHODS["server.model.list"], () => rpc.call(RPC_METHODS["server.model.list"], {})),
         captureCall(RPC_METHODS["server.voice.list"], () => rpc.call(RPC_METHODS["server.voice.list"], {})),
       ]);
       return {
         contacts: listItems(contacts.value).map((item) => itemToResourceRow(item, "contact")),
-		credentials: [],
+        credentials: [],
         firmwares: listItems(firmwares.value).map((item) => itemToResourceRow(item, "firmware")),
         friendGroups: listItems(friendGroups.value).map((item) => itemToResourceRow(item, "friend-group")),
         friends: listItems(friends.value).map((item) => itemToResourceRow(item, "friend")),
@@ -194,6 +201,41 @@ async function captureCall<T>(label: string, fn: () => Promise<T>): Promise<{ va
   } catch (err) {
     return { warning: `${label}: ${errorMessage(err)}` };
   }
+}
+
+async function collectCollectionPages(
+  call: (params: { collection: string; cursor?: string }) => Promise<unknown>,
+  collection: string,
+  missingCollectionIsEmpty = false,
+): Promise<unknown[]> {
+  const items: unknown[] = [];
+  const seenCursors = new Set<string>();
+  let cursor: string | undefined;
+  for (;;) {
+    let page: unknown;
+    try {
+      page = await call(cursor == null ? { collection } : { collection, cursor });
+    } catch (err) {
+      if (cursor == null && missingCollectionIsEmpty && isNotFoundError(err)) {
+        return [];
+      }
+      throw err;
+    }
+    items.push(...listItems(page));
+    if (!isRecord(page) || page.has_next !== true) {
+      return items;
+    }
+    const nextCursor = stringValue(page.next_cursor);
+    if (nextCursor == null || seenCursors.has(nextCursor)) {
+      throw new Error(`${collection}: invalid pagination cursor`);
+    }
+    seenCursors.add(nextCursor);
+    cursor = nextCursor;
+  }
+}
+
+function isNotFoundError(err: unknown): boolean {
+  return isRecord(err) && (err.code === 404 || err.code === "404");
 }
 
 function errorMessage(err: unknown): string {

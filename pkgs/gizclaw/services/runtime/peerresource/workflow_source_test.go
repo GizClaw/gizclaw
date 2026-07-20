@@ -106,6 +106,51 @@ func TestAliasGetsHideDanglingCanonicalResourceIDs(t *testing.T) {
 	assertAliasNotFound(t, server.handleVoiceGet(context.Background(), &rpcapi.RPCRequest{Id: "voice", Params: &voicePayload}), "voice not found", "volc-tenant:main:canonical-secret")
 }
 
+func TestListModelsProjectsRuntimeAliases(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	store := kv.NewMemory(nil)
+	t.Cleanup(func() { _ = store.Close() })
+	models := &model.Server{Store: store}
+	canonical := adminhttp.ModelUpsert{
+		Id: "tenant-model-canonical", Kind: apitypes.ModelKindLlm, Source: apitypes.ModelSourceManual,
+		Provider: apitypes.ModelProvider{Kind: apitypes.ModelProviderKindOpenaiTenant, Name: "primary"},
+	}
+	response, err := models.CreateModel(ctx, adminhttp.CreateModelRequestObject{Body: &canonical})
+	if err != nil {
+		t.Fatalf("CreateModel() error = %v", err)
+	}
+	if _, ok := response.(adminhttp.CreateModel200JSONResponse); !ok {
+		t.Fatalf("CreateModel() response = %#v", response)
+	}
+	bindings := map[string]apitypes.RuntimeProfileBinding{
+		"extract-model":  collectionTestBinding("tenant-model-canonical", "Extract Model"),
+		"generate-model": collectionTestBinding("tenant-model-canonical", "Generate Model"),
+		"missing-model":  collectionTestBinding("deleted-model", "Missing Model"),
+	}
+	profile := apitypes.RuntimeProfile{
+		Name: "default", Revision: "r1",
+		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{Models: &bindings}},
+	}
+	server := &Server{Models: models, RuntimeProfile: func() *apitypes.RuntimeProfile { return &profile }}
+
+	listed, err := server.ListModels(ctx, adminhttp.ListModelsRequestObject{})
+	if err != nil {
+		t.Fatalf("ListModels() error = %v", err)
+	}
+	list, ok := listed.(adminhttp.ListModels200JSONResponse)
+	if !ok {
+		t.Fatalf("ListModels() response = %#v", listed)
+	}
+	ids := make([]string, len(list.Items))
+	for i, item := range list.Items {
+		ids[i] = item.Id
+	}
+	if want := []string{"extract-model", "generate-model"}; !reflect.DeepEqual(ids, want) {
+		t.Fatalf("ListModels() ids = %#v, want aliases %#v", ids, want)
+	}
+}
+
 func assertAliasNotFound(t *testing.T, response *rpcapi.RPCResponse, message, canonicalID string) {
 	t.Helper()
 	if response == nil || response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeNotFound {

@@ -125,7 +125,7 @@ func (s *rpcServer) handleSpeechTranscribe(ctx context.Context, stream *rpcStrea
 	}
 	transcript, callErr := service.Transcribe(callCtx, strings.TrimSpace(params.ModelAlias), language, builder.Stream())
 	if callErr != nil {
-		cancel()
+		_ = builder.Abort(callErr)
 	}
 	uploadErr := <-uploadDone
 	if callErr == nil {
@@ -198,6 +198,7 @@ func readSpeechAudio(stream *rpcStream, builder *genx.StreamBuilder, contentType
 			}
 			data := append([]byte(nil), frame.Payload...)
 			if err := builder.Add(&genx.MessageChunk{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: contentType, Data: data}}); err != nil {
+				drainSpeechUpload(stream)
 				return err
 			}
 		case rpcapi.FrameTypeEOS:

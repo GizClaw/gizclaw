@@ -645,7 +645,7 @@ func TestPeerServiceEdgeOpenAIRequiresActiveClientPeer(t *testing.T) {
 				if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
 					t.Fatalf("decode models response: %v", err)
 				}
-				if len(result.Data) != 1 || result.Data[0].Id != "profile-model" {
+				if len(result.Data) != 1 || result.Data[0].Id != "primary" {
 					t.Fatalf("runtime models = %#v", result.Data)
 				}
 			}

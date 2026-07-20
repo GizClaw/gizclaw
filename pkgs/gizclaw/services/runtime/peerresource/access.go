@@ -205,16 +205,26 @@ func (s *Server) ResolveVoiceAlias(alias string) (string, bool) {
 }
 
 func (s *Server) effectiveModels(ctx context.Context) ([]apitypes.Model, error) {
-	ids := s.profileNames(profileModels)
-	items := make([]apitypes.Model, 0, len(ids))
-	for _, id := range ids {
-		item, response := s.getModelValue(ctx, id)
+	profile := s.currentRuntimeProfile()
+	if profile == nil {
+		return nil, nil
+	}
+	bindings := bindingMap(profile.Spec.Resources.Models)
+	aliases := sortedBindingAliases(bindings)
+	items := make([]apitypes.Model, 0, len(aliases))
+	for _, alias := range aliases {
+		resourceID := strings.TrimSpace(bindings[alias].ResourceId)
+		if resourceID == "" {
+			continue
+		}
+		item, response := s.getModelValue(ctx, resourceID)
 		if isNotFoundResponse(response) {
 			continue
 		}
 		if response != nil {
-			return nil, fmt.Errorf("get profile Model %q: %s", id, response.Error.Message)
+			return nil, fmt.Errorf("get profile Model alias %q: %s", alias, response.Error.Message)
 		}
+		item.Id = alias
 		items = append(items, item)
 	}
 	return items, nil

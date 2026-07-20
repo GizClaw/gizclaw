@@ -231,6 +231,64 @@ func TestRPCSpeechTranscribeTimeoutInterruptsStalledUpload(t *testing.T) {
 	readSpeechEOS(t, stream)
 }
 
+func TestRPCSpeechTranscribeEarlyErrorUnblocksBufferedUpload(t *testing.T) {
+	service := speechServiceFuncs{
+		transcribe: func(context.Context, string, string, genx.Stream) (string, error) {
+			return "", errors.New("unknown ASR alias")
+		},
+	}
+	client, serverDone := startSpeechRPCServer(t, service, SpeechLimits{})
+	defer finishSpeechRPCServer(t, client, serverDone)
+
+	stream := newSpeechClientStream(t, client)
+	defer stream.Close()
+	writeSpeechRequest(t, stream, "early-error", rpcapi.RPCMethodServerSpeechTranscribe,
+		rpcapi.SpeechTranscribeRequest{ModelAlias: "missing", ContentType: "audio/L16;rate=16000;channels=1"},
+		(*rpcapi.RPCPayload).FromSpeechTranscribeRequest)
+	uploadDone := make(chan error, 1)
+	go func() {
+		for range rpcSpeechInputBufferChunks + 4 {
+			if err := stream.WriteFrame(rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: []byte{1, 2}}); err != nil {
+				uploadDone <- err
+				return
+			}
+		}
+		uploadDone <- stream.WriteEOS()
+	}()
+
+	responseDone := make(chan struct {
+		response *rpcapi.RPCResponse
+		err      error
+	}, 1)
+	go func() {
+		response, err := stream.ReadResponseForMethod(rpcapi.RPCMethodServerSpeechTranscribe)
+		responseDone <- struct {
+			response *rpcapi.RPCResponse
+			err      error
+		}{response: response, err: err}
+	}()
+	select {
+	case result := <-responseDone:
+		if result.err != nil {
+			t.Fatalf("ReadResponse() error = %v", result.err)
+		}
+		if result.response.Error == nil || result.response.Error.Code != rpcapi.RPCErrorCodeInternalError {
+			t.Fatalf("response = %+v", result.response)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("early transcription error did not unblock buffered upload")
+	}
+	select {
+	case err := <-uploadDone:
+		if err != nil {
+			t.Fatalf("upload error = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("upload did not drain after early transcription error")
+	}
+	readSpeechEOS(t, stream)
+}
+
 func TestRPCSpeechSynthesizeStreamsAudioBeforeEOS(t *testing.T) {
 	release := make(chan struct{})
 	service := speechServiceFuncs{

@@ -729,7 +729,7 @@ func TestServerServeHTTPLoginRegisterAndPeerAPI(t *testing.T) {
 	if err := json.NewDecoder(openAIResp.Body).Decode(&modelList); err != nil {
 		t.Fatalf("decode GET /openai/v1/models response: %v", err)
 	}
-	if len(modelList.Data) != 1 || modelList.Data[0].Id != "profile-model" {
+	if len(modelList.Data) != 1 || modelList.Data[0].Id != "primary" {
 		t.Fatalf("GET /openai/v1/models data = %#v", modelList.Data)
 	}
 }
