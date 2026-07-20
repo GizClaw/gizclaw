@@ -13,6 +13,19 @@
 | [MiniMax](./minimax) | Streaming TTS. |
 | [Stream Processing](./stream-processing) | Provider-neutral mux, TTS normalization, text segmentation, and stream wrapper. |
 
+Agent-capable adapters expose typed Config values from independent packages:
+
+```text
+pkgs/genx/transformers/
+├── agentkit/
+├── doubaoast/
+├── doubaorealtime/
+├── doubaorealtimeduplex/
+└── dashscoperealtime/
+```
+
+Each provider package supplies `New(Config) (*Transformer, error)`. Constructors only resolve immutable configuration and do not connect to the provider; each `Transform(ctx, input)` call creates and owns its provider session. Agent-capable adapters are no longer exposed through flat `transformers.New*` constructors, so callers must import the corresponding provider package directly.
+
 ```mermaid
 flowchart LR
     Input["Input Stream"] --> Mux["Transformer Mux"]

@@ -24,7 +24,7 @@ pkgs/genx/transformers/
 └── dashscoperealtime/
 ```
 
-每个 provider package 都提供 `New(Config) (*Transformer, error)`，constructor 只解析不可变配置，不建立连接。每次 `Transform(ctx, input)` 单独建立并管理 provider session。flat `transformers.New*` constructors 仍作为现有调用方的兼容入口。
+每个 provider package 都提供 `New(Config) (*Transformer, error)`，constructor 只解析不可变配置，不建立连接。每次 `Transform(ctx, input)` 单独建立并管理 provider session。Agent-capable adapter 不再通过 flat `transformers.New*` constructor 暴露；调用方必须直接导入对应的 provider package。
 
 ```mermaid
 flowchart LR
