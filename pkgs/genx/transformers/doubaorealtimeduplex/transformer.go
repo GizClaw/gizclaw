@@ -8,7 +8,6 @@ import (
 )
 
 // Config contains immutable Doubao realtime Duplex dependencies and options.
-// It does not configure tools or function-call execution.
 type Config struct {
 	Client          *doubaospeech.Client
 	Speaker         string
@@ -23,7 +22,9 @@ type Config struct {
 	Instructions    string
 	OutputSpeed     *int
 	OutputLoudness  *int
-	Extension       *doubaospeech.RealtimeDuplexExtension
+	// Tools are provider-native function declarations advertised to each session.
+	Tools     []doubaospeech.RealtimeDuplexFunctionTool
+	Extension *doubaospeech.RealtimeDuplexExtension
 }
 
 // New constructs a Duplex transformer without opening a WebSocket.
@@ -34,6 +35,13 @@ func New(config Config) (*Transformer, error) {
 	config.InputTranscode = cloneBool(config.InputTranscode)
 	config.OutputSpeed = cloneInt(config.OutputSpeed)
 	config.OutputLoudness = cloneInt(config.OutputLoudness)
+	if config.Tools != nil {
+		tools, err := cloneTools(config.Tools)
+		if err != nil {
+			return nil, err
+		}
+		config.Tools = tools
+	}
 	if config.Extension != nil {
 		extension, err := cloneExtension(config.Extension)
 		if err != nil {
@@ -41,7 +49,7 @@ func New(config Config) (*Transformer, error) {
 		}
 		config.Extension = extension
 	}
-	opts := make([]option, 0, 14)
+	opts := make([]option, 0, 15)
 	if config.Speaker != "" {
 		opts = append(opts, withSpeaker(config.Speaker))
 	}
@@ -78,10 +86,25 @@ func New(config Config) (*Transformer, error) {
 	if config.OutputLoudness != nil {
 		opts = append(opts, withOutputLoudness(*config.OutputLoudness))
 	}
+	if config.Tools != nil {
+		opts = append(opts, withTools(config.Tools))
+	}
 	if config.Extension != nil {
 		opts = append(opts, withExtension(config.Extension))
 	}
 	return newTransformer(config.Client, opts...), nil
+}
+
+func cloneTools(tools []doubaospeech.RealtimeDuplexFunctionTool) ([]doubaospeech.RealtimeDuplexFunctionTool, error) {
+	data, err := json.Marshal(tools)
+	if err != nil {
+		return nil, fmt.Errorf("doubao realtime duplex: encode tools: %w", err)
+	}
+	var clone []doubaospeech.RealtimeDuplexFunctionTool
+	if err := json.Unmarshal(data, &clone); err != nil {
+		return nil, fmt.Errorf("doubao realtime duplex: decode tools: %w", err)
+	}
+	return clone, nil
 }
 
 func cloneExtension(extension *doubaospeech.RealtimeDuplexExtension) (*doubaospeech.RealtimeDuplexExtension, error) {

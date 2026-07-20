@@ -23,6 +23,18 @@ func TestNewCopiesConfigAndBuildsConfiguredDelegate(t *testing.T) {
 	transcode := false
 	speed := 1
 	loudness := 2
+	strict := true
+	tools := []doubaospeech.RealtimeDuplexFunctionTool{{
+		Type: "function",
+		Name: "get_weather",
+		Parameters: &doubaospeech.RealtimeDuplexJSONSchema{
+			Type: "object",
+			Properties: map[string]*doubaospeech.RealtimeDuplexJSONSchema{
+				"city": {Type: "string"},
+			},
+		},
+		Strict: &strict,
+	}}
 	extension := &doubaospeech.RealtimeDuplexExtension{}
 	transformer, err := New(Config{
 		Client:          doubaospeech.NewClient(""),
@@ -38,6 +50,7 @@ func TestNewCopiesConfigAndBuildsConfiguredDelegate(t *testing.T) {
 		Instructions:    "instructions",
 		OutputSpeed:     &speed,
 		OutputLoudness:  &loudness,
+		Tools:           tools,
 		Extension:       extension,
 	})
 	if err != nil {
@@ -45,6 +58,9 @@ func TestNewCopiesConfigAndBuildsConfiguredDelegate(t *testing.T) {
 	}
 	transcode = true
 	speed = 9
+	tools[0].Name = "mutated"
+	tools[0].Parameters.Properties["city"].Type = "number"
+	strict = false
 	if transformer.inputTranscode {
 		t.Fatal("New() retained caller-owned InputTranscode pointer")
 	}
@@ -53,6 +69,12 @@ func TestNewCopiesConfigAndBuildsConfiguredDelegate(t *testing.T) {
 	}
 	if transformer.extension == extension {
 		t.Fatal("New() retained caller-owned Extension pointer")
+	}
+	if len(transformer.tools) != 1 || transformer.tools[0].Name != "get_weather" ||
+		transformer.tools[0].Strict == nil || !*transformer.tools[0].Strict ||
+		transformer.tools[0].Parameters == nil ||
+		transformer.tools[0].Parameters.Properties["city"].Type != "string" {
+		t.Fatalf("New() retained caller-owned Tools data: %#v", transformer.tools)
 	}
 	if transformer.outputVoice != "speaker" || transformer.outputFormat != "ogg_opus" ||
 		transformer.outputSampleRate != 24000 || transformer.inputFormat != "speech_opus" ||
