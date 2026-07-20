@@ -94,10 +94,10 @@ func TestBootstrapperAppliesResourcesSyncsVoicesUploadsPetAssetsAndCreatesRegist
 			if err != nil {
 				t.Fatal(err)
 			}
-			if got := string(request); !strings.Contains(got, `"name":"desktop-local"`) || !strings.Contains(got, `"firmware_name":"desktop-local"`) || !strings.Contains(got, `"runtime_profile_name":"desktop-local"`) {
+			if got := string(request); !strings.Contains(got, `"name":"app:com.gizclaw.opensource"`) || strings.Contains(got, `"firmware_name"`) || !strings.Contains(got, `"runtime_profile_name":"default"`) {
 				t.Fatalf("RegistrationToken request = %s", got)
 			}
-			return []byte(`{"name":"desktop-local","firmware_name":"desktop-local","runtime_profile_name":"desktop-local","token":"registration-secret"}`), nil
+			return []byte(`{"name":"app:com.gizclaw.opensource","runtime_profile_name":"default","token":"registration-secret"}`), nil
 		},
 	}
 	if err := bootstrapper.Apply(context.Background(), podDir, map[string]string{"BOOTSTRAP_SAVED": "desktop"}); err != nil {
@@ -157,7 +157,7 @@ func TestBootstrapperRecoversRegistrationTokenWithoutReapplyingCatalog(t *testin
 	if err := bootstrapper.RecoverRegistrationToken(context.Background(), podDir, nil); err != nil {
 		t.Fatal(err)
 	}
-	if len(commands) != 2 || !strings.Contains(commands[0], "registration-tokens delete desktop-local") || !strings.Contains(commands[1], "registration-tokens create") {
+	if len(commands) != 2 || !strings.Contains(commands[0], "registration-tokens delete app:com.gizclaw.opensource") || !strings.Contains(commands[1], "registration-tokens create") {
 		t.Fatalf("recovery commands = %v", commands)
 	}
 	token, err := os.ReadFile(filepath.Join(podDir, "workspace", RegistrationTokenFile))
@@ -166,6 +166,62 @@ func TestBootstrapperRecoversRegistrationTokenWithoutReapplyingCatalog(t *testin
 	}
 	if string(token) != "replacement-secret" {
 		t.Fatalf("replacement token = %q", token)
+	}
+}
+
+func TestBootstrapperMigratesOnlyDefaultRuntimeContract(t *testing.T) {
+	podDir := t.TempDir()
+	contextDir := filepath.Join(podDir, "admin_context", "local")
+	if err := os.MkdirAll(contextDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(contextDir, "config.yaml"), []byte("context"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	catalog := &Catalog{
+		FS: fstest.MapFS{
+			"resources/00-credentials/a.yaml":               {Data: []byte("kind: Credential\nmetadata: {name: a}\n")},
+			"resources/07-runtime-profiles/00-default.yaml": {Data: []byte("kind: RuntimeProfile\nmetadata: {name: default}\n")},
+		},
+		Resources: []ResourceEntry{
+			{Path: "resources/00-credentials/a.yaml", Kind: "Credential", Name: "a"},
+			{Path: "resources/07-runtime-profiles/00-default.yaml", Kind: "RuntimeProfile", Name: "default"},
+		},
+	}
+	var commands []string
+	bootstrapper := &Bootstrapper{
+		Catalog:    catalog,
+		Executable: func() (string, error) { return "/fake/gizclaw", nil },
+		Run: func(_ context.Context, _ string, args, _ []string) error {
+			commands = append(commands, strings.Join(args, " "))
+			if args[1] == "apply" {
+				data, err := os.ReadFile(args[len(args)-1])
+				if err != nil {
+					t.Fatal(err)
+				}
+				if strings.Contains(string(data), "Credential") || !strings.Contains(string(data), "RuntimeProfile") {
+					t.Fatalf("migration apply = %s", data)
+				}
+			}
+			return nil
+		},
+		RunOutput: func(_ context.Context, _ string, args, _ []string) ([]byte, error) {
+			commands = append(commands, strings.Join(args, " "))
+			return []byte(`{"token":"migrated-secret"}`), nil
+		},
+	}
+	if err := bootstrapper.MigrateRuntimeContract(context.Background(), podDir); err != nil {
+		t.Fatal(err)
+	}
+	if len(commands) != 4 || !strings.Contains(commands[0], "admin apply") || !strings.Contains(commands[1], "registration-tokens delete app:com.gizclaw.opensource") || !strings.Contains(commands[2], "registration-tokens create") || !strings.Contains(commands[3], "registration-tokens delete desktop-local") {
+		t.Fatalf("migration commands = %v", commands)
+	}
+	token, err := os.ReadFile(filepath.Join(podDir, "workspace", RegistrationTokenFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(token) != "migrated-secret" {
+		t.Fatalf("migration token = %q", token)
 	}
 }
 

@@ -27,5 +27,5 @@ func TestLoCoMoMem0PlatformDefault(t *testing.T) {
 	}
 	profile := "mem0_platform_default"
 	fingerprint := configFingerprint(profile, endpoint, identity)
-	runLiveProfile(t, settings, profile, fingerprint, store, nil)
+	runLiveProfile(t, settings, profile, fingerprint, reportModels{}, store, nil)
 }

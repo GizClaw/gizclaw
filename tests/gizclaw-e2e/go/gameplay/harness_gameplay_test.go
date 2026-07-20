@@ -75,7 +75,6 @@ func registerGameplayProfile(t *testing.T, h *clitest.Harness, peer *gizcli.Clie
 	_, _ = api.DeleteRegistrationTokenWithResponse(ctx, tokenName)
 	tokenResp, err := api.CreateRegistrationTokenWithResponse(ctx, adminhttp.RegistrationTokenUpsert{
 		Name:               tokenName,
-		FirmwareName:       "devkit-firmware-main",
 		RuntimeProfileName: "default-gameplay",
 	})
 	if err != nil {
@@ -88,7 +87,7 @@ func registerGameplayProfile(t *testing.T, h *clitest.Harness, peer *gizcli.Clie
 	if err != nil {
 		t.Fatalf("register gameplay connection: %v", err)
 	}
-	if registered.FirmwareName != "devkit-firmware-main" || registered.RuntimeProfileName != "default-gameplay" {
+	if registered.RuntimeProfileName != "default-gameplay" {
 		t.Fatalf("register gameplay connection = %#v", registered)
 	}
 }

@@ -7,7 +7,8 @@ project targets iOS and Android.
 
 - Configure a GizClaw server and keep the generated device identity in the
   platform secure store.
-- Browse Flowcraft, Doubao, and translation workflows and their workspaces.
+- Browse all supported workspaces through one Workspaces destination and create
+  one from the App's fixed Workflow picker.
 - Create and activate workspaces, switch between push-to-talk and realtime
   input, and view or replay workspace history.
 - Manage friend invitations and friends, create groups, and open their chatroom
@@ -15,10 +16,13 @@ project targets iOS and Android.
 - List and adopt pets, load their presentation and optional PIXA animation, and
   invoke pet actions.
 
-Workflow, workspace, friend, group, and pet surfaces use the live GizClaw RPCs.
-Drift caches the catalog and history data needed for responsive listing and
-offline presentation. Prototype fixtures are limited to the demo controller and
-widget tests.
+Workspace, friend, group, and pet surfaces use the live GizClaw RPCs. The App's
+Workflow aliases, ordering, i18n, icons, and typed creation parameters are fixed
+release data matching `RuntimeProfile/default`; product navigation does not call
+`server.workflow.list` or cache a server-provided Workflow catalog. Drift caches
+Workspace and history data needed for responsive listing and offline
+presentation. Prototype fixtures are limited to the demo controller and widget
+tests.
 
 ## Development
 
@@ -42,9 +46,7 @@ building or testing:
 flutter gen-l10n
 ```
 
-The resolved app locale is also sent explicitly by workflow list and get RPCs
-as `WORKFLOW_LOCALE_EN` or `WORKFLOW_LOCALE_ZH_CN`. Keep app strings out of RPC
-payloads and do not cache localized workflow catalogs without their locale.
+Keep App strings in the local fixed catalog and out of RPC payloads.
 
 For a development server, inject the ignored e2e identity at build time. The
 iOS simulator can reach a server on the host through `127.0.0.1`:
@@ -67,7 +69,11 @@ On a physical iOS or Android device, use the development machine's LAN address
 and make sure the server listens on that interface.
 
 The app does not ship with preset server endpoints. Add a server manually or
-scan a GizClaw server QR code during setup or from the Identity screen.
+scan a GizClaw server QR code during setup or from the Identity screen. A
+Desktop local Pod QR supplies the raw credential for the fixed application
+token `app:com.gizclaw.opensource`; it is stored per Server only in platform
+secure storage. The App does not expose arbitrary RegistrationToken editing or
+selection.
 
 GizClaw servers currently use plain HTTP. An endpoint without an explicit
 scheme is therefore interpreted as `http://<host>:<port>`.
@@ -106,12 +112,9 @@ Mobile presentation is keyed by the RuntimeProfile Workflow alias. Keep the
 localized name, icon, banner, and other presentation metadata in the App's
 local alias catalog rather than the Server Workflow execution contract.
 
-Expected future contract work:
-
-- Expand the local alias catalog for workflow cards with fields such as banner
-  image, category, featured rank, and short subtitle.
-- Add a workflow filter to workspace listing so a workflow detail screen can
-  load only its workspaces without client-side filtering.
-- Decide whether mobile chat uses Peer OpenAI-compatible chat completions,
-  workspace run status/history, or a dedicated chatroom workflow stream for each
-  driver.
+The fixed selectable aliases are `doubao-realtime`, `translate-zh-en-auto`,
+`translate-zh-ja`, `translate-zh-ko`, `translate-zh-es`, `chat`, `journey`, and
+`murder-mystery`. `chatroom` is a fixed internal alias for Friend and Group
+flows and is not offered by the picker. The legacy `ast-translate-zh-*` aliases
+map to the corresponding localized translation cards for existing Workspaces,
+but remain unavailable for new Workspace creation.

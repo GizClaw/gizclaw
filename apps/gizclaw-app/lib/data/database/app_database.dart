@@ -12,23 +12,6 @@ class Servers extends Table {
   Set<Column<Object>> get primaryKey => {id};
 }
 
-class WorkflowEntries extends Table {
-  TextColumn get serverId => text()();
-  IntColumn get source => integer()();
-  TextColumn get name => text()();
-  TextColumn get locale => text().nullable()();
-  TextColumn get description => text()();
-  TextColumn get driver => text()();
-  // Kept as a nullable cache column for existing databases. Runtime Workflow
-  // icons are no longer fetched; clients render their alias-owned icon mapping.
-  BlobColumn get iconPng => blob().nullable()();
-  BlobColumn get rawProtobuf => blob()();
-  DateTimeColumn get refreshedAt => dateTime()();
-
-  @override
-  Set<Column<Object>> get primaryKey => {serverId, source, name};
-}
-
 class WorkspaceEntries extends Table {
   TextColumn get serverId => text()();
   TextColumn get name => text()();
@@ -95,7 +78,6 @@ class FriendGroupEntries extends Table {
 @DriftDatabase(
   tables: [
     Servers,
-    WorkflowEntries,
     WorkspaceEntries,
     SyncStates,
     WorkspaceChatEntries,
@@ -109,7 +91,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -122,18 +104,8 @@ class AppDatabase extends _$AppDatabase {
         await migrator.createTable(friendEntries);
         await migrator.createTable(friendGroupEntries);
       }
-      if (from < 4) {
-        await migrator.addColumn(workflowEntries, workflowEntries.locale);
-      }
-      if (from < 5) {
-        await migrator.addColumn(workflowEntries, workflowEntries.iconPng);
-      }
-      if (from < 6) {
-        // This table is a disposable server projection. Recreate it so the
-        // source becomes part of the key and runtime aliases can safely match
-        // owned concrete Workflow names.
-        await customStatement('DROP TABLE workflow_entries');
-        await migrator.createTable(workflowEntries);
+      if (from < 7) {
+        await customStatement('DROP TABLE IF EXISTS workflow_entries');
       }
     },
   );

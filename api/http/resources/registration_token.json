@@ -24,10 +24,9 @@
           },
           "spec": {
             "type": "object",
-            "required": ["firmware_name", "runtime_profile_name"],
+            "required": ["runtime_profile_name"],
             "additionalProperties": false,
             "properties": {
-              "firmware_name": { "type": "string" },
               "runtime_profile_name": { "type": "string" }
             }
           },

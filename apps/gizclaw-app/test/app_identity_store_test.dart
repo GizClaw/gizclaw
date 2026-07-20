@@ -92,7 +92,7 @@ void main() {
     expect(servers.single.accessPoint, 'office.local:9820');
   });
 
-  test('stores per-server registration tokens in secure storage', () async {
+  test('stores and rotates per-server registration tokens securely', () async {
     final secureValues = _MemoryValueStore();
     final preferences = _MemoryValueStore();
     final store = AppIdentityStore(
@@ -108,22 +108,29 @@ void main() {
       GizClawServer(
         name: 'Office',
         accessPoint: 'office.local:9820',
-        registrationToken: 'registration-secret',
+        registrationToken: 'expired-secret',
+      ),
+    ]);
+    await store.saveCustomServers(const [
+      GizClawServer(
+        name: 'Office',
+        accessPoint: 'office.local:9820',
+        registrationToken: 'replacement-secret',
       ),
     ]);
     await store.saveEndpoint('office.local:9820');
 
     final profile = await store.loadProfile();
     final servers = await store.loadServers();
-    expect(profile.registrationToken, 'registration-secret');
-    expect(servers.single.registrationToken, 'registration-secret');
+    expect(profile.registrationToken, 'replacement-secret');
+    expect(servers.single.registrationToken, 'replacement-secret');
     expect(
       secureValues.values[AppIdentityStore.registrationTokensStorageKey],
-      contains('registration-secret'),
+      allOf(contains('replacement-secret'), isNot(contains('expired-secret'))),
     );
     expect(
       preferences.values[AppIdentityStore.customServersStorageKey],
-      isNot(contains('registration-secret')),
+      isNot(contains('replacement-secret')),
     );
   });
 

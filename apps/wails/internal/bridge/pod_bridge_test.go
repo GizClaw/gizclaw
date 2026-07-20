@@ -140,6 +140,7 @@ func TestLocalPlayRuntimeHandsOffRegistrationTokenWithoutPuttingItInURL(t *testi
 		ID:                    "local-play",
 		Name:                  "Local Play",
 		IdentitiesInitialized: true,
+		LocalCatalogVersion:   appconfig.LocalCatalogVersion,
 		LocalServer:           &appconfig.LocalServer{Port: 19820, AdminPrivateKey: bridgeTestKey(t, 0x74)},
 		ClientPrivateKey:      bridgeTestKey(t, 0x75),
 	}
@@ -192,6 +193,7 @@ func TestLocalPlayRuntimeRecoversMissingRegistrationToken(t *testing.T) {
 		ID:                    "legacy-local-play",
 		Name:                  "Legacy Local Play",
 		IdentitiesInitialized: true,
+		LocalCatalogVersion:   appconfig.LocalCatalogVersion,
 		LocalServer:           &appconfig.LocalServer{Port: 19821, AdminPrivateKey: bridgeTestKey(t, 0x76)},
 		ClientPrivateKey:      bridgeTestKey(t, 0x77),
 	}
@@ -222,6 +224,81 @@ func TestLocalPlayRuntimeRecoversMissingRegistrationToken(t *testing.T) {
 	if string(token) != "recovered-registration-secret" {
 		t.Fatalf("recovered RegistrationToken = %q", token)
 	}
+}
+
+func TestLegacyStoppedLocalPlayMigratesBeforeTokenHandoff(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("test helper uses a POSIX shell script")
+	}
+	paths := appconfig.NewPaths(t.TempDir())
+	if err := paths.Ensure(); err != nil {
+		t.Fatal(err)
+	}
+	web := webui.New(fstest.MapFS{"play.html": {Data: []byte("play")}})
+	defer web.Shutdown()
+	executable := filepath.Join(t.TempDir(), "fake-gizclaw")
+	if err := os.WriteFile(executable, []byte("#!/bin/sh\ntrap 'exit 0' INT TERM\nwhile :; do sleep 1; done\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	local := localserver.New()
+	local.Executable = executable
+	port, err := appconfig.FindAvailablePort(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pod := appconfig.Pod{
+		Version:               appconfig.PodVersion,
+		ID:                    "legacy-stopped-play",
+		Name:                  "Legacy Stopped Play",
+		IdentitiesInitialized: true,
+		LocalServer:           &appconfig.LocalServer{Port: port, AdminPrivateKey: bridgeTestKey(t, 0x78)},
+		ClientPrivateKey:      bridgeTestKey(t, 0x79),
+	}
+	store := appconfig.Store{Paths: paths}
+	if err := store.Save(pod); err != nil {
+		t.Fatal(err)
+	}
+	tokenPath := filepath.Join(paths.PodsDir, pod.ID, "workspace", localserver.RegistrationTokenFile)
+	if err := os.WriteFile(tokenPath, []byte("legacy-registration-secret"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	bootstrapper := &fakeLocalPodBootstrapper{migrationToken: "migrated-registration-secret"}
+	b := &PodBridge{
+		Paths:          paths,
+		Store:          store,
+		Bootstrapper:   bootstrapper,
+		WaitLocalReady: func(context.Context, string, int) error { return nil },
+		Health:         endpointhealth.New(),
+		Local:          local,
+		WebUI:          web,
+	}
+	if summary := b.summary(pod); summary.PlayConfigured || summary.RegistrationToken != "" {
+		t.Fatalf("legacy local share exposed before migration: %+v", summary)
+	}
+	launch, err := b.PlayURL(context.Background(), pod.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bootstrapper.migrationCalled.Load() {
+		t.Fatal("PlayURL did not migrate the legacy local runtime contract")
+	}
+	loaded, err := store.Load(pod.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.LocalCatalogVersion != appconfig.LocalCatalogVersion {
+		t.Fatalf("local catalog version = %d", loaded.LocalCatalogVersion)
+	}
+	token, err := os.ReadFile(tokenPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(token) != "migrated-registration-secret" || strings.Contains(launch, string(token)) {
+		t.Fatalf("migrated token = %q, launch = %q", token, launch)
+	}
+	stopCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	_, _ = local.Stop(stopCtx, pod.ID)
 }
 
 func TestLocalPodCreationAssignsDistinctStablePorts(t *testing.T) {
@@ -521,7 +598,7 @@ func TestPodCreationGeneratesInternalIDsAndAllowsEmptyRemoteInventory(t *testing
 	if !strings.HasPrefix(local.ID, "pod-") || !strings.HasPrefix(remote.ID, "pod-") || local.ID == remote.ID {
 		t.Fatalf("generated IDs = %q / %q", local.ID, remote.ID)
 	}
-	if !local.PlayConfigured || local.PlayPublicKey == "" || local.Local == nil || !local.Local.AdminConfigured || local.Local.AdminPublicKey == "" || local.Local.ServerPublicKey == "" {
+	if local.PlayConfigured || local.PlayPublicKey == "" || local.Local == nil || !local.Local.AdminConfigured || local.Local.AdminPublicKey == "" || local.Local.ServerPublicKey == "" {
 		t.Fatalf("generated local identities = %+v", local)
 	}
 	if remote.PlayConfigured || remote.PlayPublicKey == "" {
@@ -578,7 +655,7 @@ func TestListPodsMigratesMissingDesktopIdentities(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(pods) != 1 || !pods[0].PlayConfigured || pods[0].PlayPublicKey == "" || pods[0].Local == nil || !pods[0].Local.AdminConfigured || pods[0].Local.AdminPublicKey == "" {
+	if len(pods) != 1 || pods[0].PlayConfigured || pods[0].PlayPublicKey == "" || pods[0].Local == nil || !pods[0].Local.AdminConfigured || pods[0].Local.AdminPublicKey == "" {
 		t.Fatalf("migrated summary = %+v", pods)
 	}
 	loaded, err := store.Load("legacy-local")
@@ -591,15 +668,32 @@ func TestListPodsMigratesMissingDesktopIdentities(t *testing.T) {
 }
 
 type fakeLocalPodBootstrapper struct {
-	called         atomic.Bool
-	calls          atomic.Int32
-	err            error
-	recoveryCalled atomic.Bool
-	recoveryErr    error
-	recoveryToken  string
-	started        chan struct{}
-	release        chan struct{}
-	once           sync.Once
+	called          atomic.Bool
+	calls           atomic.Int32
+	err             error
+	migrationCalled atomic.Bool
+	migrationErr    error
+	migrationToken  string
+	recoveryCalled  atomic.Bool
+	recoveryErr     error
+	recoveryToken   string
+	started         chan struct{}
+	release         chan struct{}
+	once            sync.Once
+}
+
+func (f *fakeLocalPodBootstrapper) MigrateRuntimeContract(_ context.Context, podDir string) error {
+	f.migrationCalled.Store(true)
+	if f.migrationToken != "" {
+		workspaceDir := filepath.Join(podDir, "workspace")
+		if err := os.MkdirAll(workspaceDir, 0o700); err != nil {
+			return err
+		}
+		if err := os.WriteFile(filepath.Join(workspaceDir, localserver.RegistrationTokenFile), []byte(f.migrationToken), 0o600); err != nil {
+			return err
+		}
+	}
+	return f.migrationErr
 }
 
 func (f *fakeLocalPodBootstrapper) RecoverRegistrationToken(_ context.Context, podDir string, _ map[string]string) error {
@@ -702,6 +796,154 @@ func TestLocalPodCreationReturnsWhileBootstrapRunsInBackground(t *testing.T) {
 	stopCtx, cancel = context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	_, _ = local.Stop(stopCtx, created.ID)
+}
+
+func TestStartingLegacyLocalPodMigratesRuntimeContractOnce(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("test helper uses a POSIX shell script")
+	}
+	paths := appconfig.NewPaths(t.TempDir())
+	if err := paths.Ensure(); err != nil {
+		t.Fatal(err)
+	}
+	executable := filepath.Join(t.TempDir(), "fake-gizclaw")
+	if err := os.WriteFile(executable, []byte("#!/bin/sh\ntrap 'exit 0' INT TERM\nwhile :; do sleep 1; done\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	local := localserver.New()
+	local.Executable = executable
+	port, err := appconfig.FindAvailablePort(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pod := appconfig.Pod{
+		Version:               appconfig.PodVersion,
+		ID:                    "legacy-runtime",
+		Name:                  "Legacy Runtime",
+		IdentitiesInitialized: true,
+		LocalServer:           &appconfig.LocalServer{Port: port, AdminPrivateKey: bridgeTestKey(t, 0x81)},
+		ClientPrivateKey:      bridgeTestKey(t, 0x82),
+	}
+	store := appconfig.Store{Paths: paths}
+	if err := store.Save(pod); err != nil {
+		t.Fatal(err)
+	}
+	bootstrapper := &fakeLocalPodBootstrapper{}
+	b := &PodBridge{
+		Paths:          paths,
+		Store:          store,
+		Bootstrapper:   bootstrapper,
+		WaitLocalReady: func(context.Context, string, int) error { return nil },
+		Health:         endpointhealth.New(),
+		Local:          local,
+		WebUI:          webui.New(fstest.MapFS{}),
+	}
+	defer b.WebUI.Shutdown()
+	if _, err := b.StartLocal(context.Background(), pod.ID); err != nil {
+		t.Fatal(err)
+	}
+	if !bootstrapper.migrationCalled.Load() {
+		t.Fatal("legacy local Pod did not migrate its runtime contract")
+	}
+	loaded, err := store.Load(pod.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.LocalCatalogVersion != appconfig.LocalCatalogVersion {
+		t.Fatalf("local catalog version = %d", loaded.LocalCatalogVersion)
+	}
+	bootstrapper.migrationCalled.Store(false)
+	if _, err := b.StartLocal(context.Background(), pod.ID); err != nil {
+		t.Fatal(err)
+	}
+	if bootstrapper.migrationCalled.Load() {
+		t.Fatal("current local Pod repeated runtime migration")
+	}
+	loaded.LocalCatalogVersion = 0
+	if err := store.Save(loaded); err != nil {
+		t.Fatal(err)
+	}
+	bootstrapper.migrationCalled.Store(false)
+	previousPID := local.Status(pod.ID).PID
+	if _, err := b.RestartLocal(context.Background(), pod.ID); err != nil {
+		t.Fatal(err)
+	}
+	if !bootstrapper.migrationCalled.Load() {
+		t.Fatal("restarted legacy local Pod did not migrate its runtime contract")
+	}
+	if currentPID := local.Status(pod.ID).PID; currentPID == 0 || currentPID == previousPID {
+		t.Fatalf("RestartLocal() PID = %d, previous PID = %d", currentPID, previousPID)
+	}
+	stopCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	_, _ = local.Stop(stopCtx, pod.ID)
+}
+
+func TestRecoveringRunningLegacyLocalPodMigratesRuntimeContract(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("test helper uses a POSIX shell script")
+	}
+	paths := appconfig.NewPaths(t.TempDir())
+	if err := paths.Ensure(); err != nil {
+		t.Fatal(err)
+	}
+	executable := filepath.Join(t.TempDir(), "fake-gizclaw")
+	if err := os.WriteFile(executable, []byte("#!/bin/sh\ntrap 'exit 0' INT TERM\nwhile :; do sleep 1; done\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	local := localserver.New()
+	local.Executable = executable
+	port, err := appconfig.FindAvailablePort(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pod := appconfig.Pod{
+		Version:               appconfig.PodVersion,
+		ID:                    "recovered-legacy-runtime",
+		Name:                  "Recovered Legacy Runtime",
+		IdentitiesInitialized: true,
+		LocalServer:           &appconfig.LocalServer{Port: port, AdminPrivateKey: bridgeTestKey(t, 0x91)},
+		ClientPrivateKey:      bridgeTestKey(t, 0x92),
+	}
+	store := appconfig.Store{Paths: paths}
+	if err := store.Save(pod); err != nil {
+		t.Fatal(err)
+	}
+	workspace := filepath.Join(paths.PodsDir, pod.ID, "workspace")
+	initial, err := local.Start(pod.ID, workspace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bootstrapper := &fakeLocalPodBootstrapper{}
+	b := &PodBridge{
+		Paths:          paths,
+		Store:          store,
+		Bootstrapper:   bootstrapper,
+		WaitLocalReady: func(context.Context, string, int) error { return nil },
+		Health:         endpointhealth.New(),
+		Local:          local,
+		WebUI:          webui.New(fstest.MapFS{}),
+	}
+	defer b.WebUI.Shutdown()
+	if err := b.RecoverLocalServers(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if !bootstrapper.migrationCalled.Load() {
+		t.Fatal("recovered legacy local Pod did not migrate its runtime contract")
+	}
+	if currentPID := local.Status(pod.ID).PID; currentPID == 0 || currentPID == initial.PID {
+		t.Fatalf("recovered legacy local Pod PID = %d, legacy PID = %d", currentPID, initial.PID)
+	}
+	loaded, err := store.Load(pod.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.LocalCatalogVersion != appconfig.LocalCatalogVersion {
+		t.Fatalf("local catalog version = %d", loaded.LocalCatalogVersion)
+	}
+	stopCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	_, _ = local.Stop(stopCtx, pod.ID)
 }
 
 func TestDeletePodCancelsBackgroundInitialization(t *testing.T) {

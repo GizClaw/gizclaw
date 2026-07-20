@@ -12,118 +12,16 @@ import '../../data/workspace_chat_controller.dart';
 import '../../giz_ui/giz_ui.dart';
 import '../../l10n/l10n.dart';
 import '../../prototype/prototype_models.dart';
+import '../../workflows/app_workflow_catalog.dart';
 
 class ChatsPage extends StatelessWidget {
   const ChatsPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return CupertinoPageScaffold(
-      child: SafeArea(
-        bottom: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-              child: Text(
-                context.l10n.uiText(key: 'raids'),
-                style: GizText.pageTitle,
-              ),
-            ),
-            const Expanded(child: _ChatTypeMenu()),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ChatTypeMenu extends StatelessWidget {
-  const _ChatTypeMenu();
-
-  @override
-  Widget build(BuildContext context) {
     final data = MobileDataScope.watch(context);
-    final drivers = WorkflowDriverKind.values
-        .where((driver) {
-          if (driver == WorkflowDriverKind.unsupported ||
-              driver == WorkflowDriverKind.chatroom) {
-            return false;
-          }
-          return data.workflows.any((workflow) => workflow.driver == driver);
-        })
-        .toList(growable: false);
-    if (drivers.isEmpty) {
-      return Center(
-        child: Text(
-          'No chat workspaces yet.',
-          style: GizText.body.copyWith(color: GizColors.secondaryInk),
-        ),
-      );
-    }
-    return ListView.builder(
-      key: const PageStorageKey('chat-types'),
-      padding: const EdgeInsets.only(bottom: 112),
-      itemCount: drivers.length,
-      itemBuilder: (context, index) {
-        final driver = drivers[index];
-        final count = data.workspaces.where((workspace) {
-          return data
-                  .workflow(
-                    workspace.workflowName,
-                    source: workspace.workflowSource,
-                  )
-                  .driver ==
-              driver;
-        }).length;
-        return GizListRow(
-              leading: _ChatTypeIcon(driver: driver),
-              title: driver.label,
-              subtitle: '$count workspaces',
-              onPressed: () =>
-                  context.push('/raids/drivers/${driver.routeKey}'),
-            )
-            .animate(delay: (index * 45).ms)
-            .fadeIn(duration: 280.ms)
-            .slideY(begin: 0.05, end: 0, curve: Curves.easeOutCubic);
-      },
-    );
-  }
-}
-
-class _ChatTypeIcon extends StatelessWidget {
-  const _ChatTypeIcon({required this.driver});
-
-  final WorkflowDriverKind driver;
-
-  @override
-  Widget build(BuildContext context) {
-    return GizResourceInitial(id: driver.routeKey);
-  }
-}
-
-class DriverWorkspacesPage extends StatelessWidget {
-  const DriverWorkspacesPage({super.key, required this.driver});
-
-  final WorkflowDriverKind driver;
-
-  @override
-  Widget build(BuildContext context) {
-    final data = MobileDataScope.watch(context);
-    final workspaces = data.workspaces
-        .where((workspace) {
-          return data
-                  .workflow(
-                    workspace.workflowName,
-                    source: workspace.workflowSource,
-                  )
-                  .driver ==
-              driver;
-        })
-        .toList(growable: false);
     final workflows = data.workflows
-        .where((workflow) => workflow.driver == driver)
+        .where((workflow) => workflow.driver != WorkflowDriverKind.chatroom)
         .toList(growable: false);
     return CupertinoPageScaffold(
       child: SafeArea(
@@ -136,25 +34,23 @@ class DriverWorkspacesPage extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      _driverPageTitle(driver),
+                      context.l10n.workspacesTitle,
                       style: GizText.pageTitle,
                     ),
                   ),
                   GizPageActionButton(
-                    key: ValueKey('create-workspace-${driver.routeKey}'),
+                    key: const ValueKey('create-workspace'),
                     icon: GizIcons.add_circled_solid,
-                    semanticLabel: _newWorkspaceLabel(driver),
-                    onPressed: workflows.isEmpty
-                        ? null
-                        : () => _showCreateWorkspace(context, data, workflows),
+                    semanticLabel: context.l10n.newWorkspace,
+                    onPressed: () =>
+                        _showCreateWorkspace(context, data, workflows),
                   ),
                 ],
               ),
             ),
             Expanded(
-              child: _DriverWorkspaceList(
-                driver: driver,
-                workspaces: workspaces,
+              child: _WorkspaceList(
+                workspaces: data.workspaces,
                 chatroomMetadata: data.chatroomWorkspaces,
               ),
             ),
@@ -171,29 +67,18 @@ class DriverWorkspacesPage extends StatelessWidget {
   ) async {
     final workspaceName = await showCupertinoModalPopup<String>(
       context: context,
-      builder: (context) => _CreateWorkspaceSheet(
-        data: data,
-        driver: driver,
-        workflows: workflows,
-      ),
+      builder: (context) =>
+          _CreateWorkspaceSheet(data: data, workflows: workflows),
     );
     if (!context.mounted || workspaceName == null) return;
-    context.push(
-      '/raids/drivers/${driver.routeKey}/'
-      '${Uri.encodeComponent(workspaceName)}',
-    );
+    context.push('/workspaces/${Uri.encodeComponent(workspaceName)}');
   }
 }
 
 class _CreateWorkspaceSheet extends StatefulWidget {
-  const _CreateWorkspaceSheet({
-    required this.data,
-    required this.driver,
-    required this.workflows,
-  });
+  const _CreateWorkspaceSheet({required this.data, required this.workflows});
 
   final MobileDataController data;
-  final WorkflowDriverKind driver;
   final List<WorkflowCard> workflows;
 
   @override
@@ -217,7 +102,7 @@ class _CreateWorkspaceSheetState extends State<_CreateWorkspaceSheet> {
   void initState() {
     super.initState();
     _workflow = widget.workflows.first;
-    if (widget.driver == WorkflowDriverKind.flowcraft) {
+    if (_workflow.driver == WorkflowDriverKind.flowcraft) {
       unawaited(_loadFlowcraftModels());
     }
   }
@@ -260,8 +145,19 @@ class _CreateWorkspaceSheetState extends State<_CreateWorkspaceSheet> {
     );
     if (workflow != null && mounted) {
       setState(() => _workflow = workflow);
-      if (widget.driver == WorkflowDriverKind.flowcraft) {
+      if (_workflow.driver == WorkflowDriverKind.flowcraft) {
         await _loadFlowcraftModels();
+      } else {
+        _modelLoadGeneration += 1;
+        setState(() {
+          _loadingFlowcraftModels = false;
+          _flowcraftRequirements = null;
+          _flowcraftModels = const [];
+          _generateModel = null;
+          _extractModel = null;
+          _embeddingModel = null;
+          _error = null;
+        });
       }
     }
   }
@@ -349,7 +245,7 @@ class _CreateWorkspaceSheetState extends State<_CreateWorkspaceSheet> {
   }
 
   bool get _modelsReady {
-    if (widget.driver != WorkflowDriverKind.flowcraft) return true;
+    if (_workflow.driver != WorkflowDriverKind.flowcraft) return true;
     final requirements = _flowcraftRequirements;
     if (_loadingFlowcraftModels || requirements == null) return false;
     if (requirements.generateModel && _generateModel == null) return false;
@@ -367,13 +263,11 @@ class _CreateWorkspaceSheetState extends State<_CreateWorkspaceSheet> {
     });
     try {
       final workspace = await widget.data.createWorkspace(
-        driver: widget.driver,
         workflowName: _workflow.name,
         name: name,
         generateModel: _generateModel,
         extractModel: _extractModel,
         embeddingModel: _embeddingModel,
-        flowcraftRequirements: _flowcraftRequirements,
       );
       if (mounted) Navigator.pop(context, workspace.name);
     } catch (error) {
@@ -393,7 +287,7 @@ class _CreateWorkspaceSheetState extends State<_CreateWorkspaceSheet> {
     );
     final safeBottom = MediaQuery.viewPaddingOf(context).bottom;
     return Container(
-      key: ValueKey('create-workspace-sheet-${widget.driver.routeKey}'),
+      key: const ValueKey('create-workspace-sheet'),
       decoration: BoxDecoration(
         color: background,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
@@ -414,7 +308,7 @@ class _CreateWorkspaceSheetState extends State<_CreateWorkspaceSheet> {
             ),
           ),
           const SizedBox(height: 18),
-          Text(_newWorkspaceLabel(widget.driver), style: GizText.sectionTitle),
+          Text(context.l10n.newWorkspace, style: GizText.sectionTitle),
           const SizedBox(height: 16),
           Text(
             'WORKFLOW',
@@ -529,7 +423,7 @@ class _CreateWorkspaceSheetState extends State<_CreateWorkspaceSheet> {
             child: _busy
                 ? const CupertinoActivityIndicator(color: GizColors.surface)
                 : Text(
-                    _newWorkspaceLabel(widget.driver),
+                    context.l10n.newWorkspace,
                     style: GizText.label.copyWith(color: GizColors.surface),
                   ),
           ),
@@ -584,34 +478,18 @@ class _WorkspaceModelSelector extends StatelessWidget {
   }
 }
 
-String _driverPageTitle(WorkflowDriverKind driver) => switch (driver) {
-  WorkflowDriverKind.flowcraft => 'Raids',
-  WorkflowDriverKind.doubaoRealtime => 'Doubao',
-  WorkflowDriverKind.astTranslate => 'Translate',
-  _ => driver.label,
-};
-
-String _newWorkspaceLabel(WorkflowDriverKind driver) => switch (driver) {
-  WorkflowDriverKind.flowcraft => 'New Raid',
-  WorkflowDriverKind.doubaoRealtime => 'New Doubao Session',
-  WorkflowDriverKind.astTranslate => 'New Translation',
-  _ => 'New Workspace',
-};
-
 String _workspaceErrorMessage(Object error) {
   final text = error.toString();
   return text.startsWith('Bad state: ') ? text.substring(11) : text;
 }
 
-class _DriverWorkspaceList extends StatelessWidget {
-  const _DriverWorkspaceList({
-    required this.driver,
+class _WorkspaceList extends StatelessWidget {
+  const _WorkspaceList({
     required this.workspaces,
     required this.chatroomMetadata,
   });
 
   final List<ChatroomWorkspaceMetadata> chatroomMetadata;
-  final WorkflowDriverKind driver;
   final List<WorkspaceCard> workspaces;
 
   @override
@@ -619,28 +497,23 @@ class _DriverWorkspaceList extends StatelessWidget {
     if (workspaces.isEmpty) {
       return Center(
         child: Text(
-          'No ${driver.label} workspaces yet.',
+          context.l10n.noWorkspaces,
           style: GizText.body.copyWith(color: GizColors.secondaryInk),
         ),
       );
     }
     return ListView.builder(
-      key: PageStorageKey('driver-workspaces-${driver.routeKey}'),
+      key: const PageStorageKey('workspaces'),
       padding: const EdgeInsets.only(bottom: 124),
       itemCount: workspaces.length,
       itemBuilder: (context, index) {
         final workspace = workspaces[index];
-        final metadata = driver == WorkflowDriverKind.chatroom
-            ? _metadataForWorkspace(workspace.name)
-            : null;
+        final metadata = _metadataForWorkspace(workspace.name);
         void onPressed() {
-          context.push(
-            '/raids/drivers/${driver.routeKey}/'
-            '${Uri.encodeComponent(workspace.name)}',
-          );
+          context.push('/workspaces/${Uri.encodeComponent(workspace.name)}');
         }
 
-        final row = driver == WorkflowDriverKind.chatroom
+        final row = metadata != null || workspace.chatroomKind != null
             ? _ChatroomWorkspaceListTile(
                 workspace: workspace,
                 metadata: metadata,
@@ -729,15 +602,17 @@ class _WorkspaceListTile extends StatelessWidget {
     final workflow = MobileDataScope.watch(
       context,
     ).workflow(workspace.workflowName, source: workspace.workflowSource);
+    final workflowLabel = workflow.driver == WorkflowDriverKind.unsupported
+        ? context.l10n.actionText(key: 'unavailable')
+        : workflow.title;
     return GizListRow(
       leading: _WorkflowIcon(workflow: workflow),
       title: workspace.title,
-      subtitle: '${workflow.title}  |  ${workspace.lastActive}',
+      subtitle: '$workflowLabel  |  ${workspace.lastActive}',
       onPressed:
           onPressed ??
           () => context.push(
-            '/raids/drivers/${workflow.driver.routeKey}/'
-            '${Uri.encodeComponent(workspace.name)}',
+            '/workspaces/${Uri.encodeComponent(workspace.name)}',
           ),
     );
   }
