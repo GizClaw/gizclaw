@@ -623,7 +623,13 @@ func writeSpeechSSE(w io.Writer, stream genx.Stream, contentType string) error {
 			}
 			return err
 		}
-		if chunk == nil || chunk.IsEndOfStream() {
+		if chunk == nil {
+			continue
+		}
+		if chunk.Ctrl != nil && strings.TrimSpace(chunk.Ctrl.Error) != "" {
+			return errors.New(chunk.Ctrl.Error)
+		}
+		if chunk.IsEndOfStream() {
 			continue
 		}
 		blob, ok := chunk.Part.(*genx.Blob)
@@ -760,7 +766,13 @@ func readBlobStreamWithMIME(stream genx.Stream, contentType string) ([]byte, str
 			}
 			return nil, "", err
 		}
-		if chunk == nil || chunk.IsEndOfStream() {
+		if chunk == nil {
+			continue
+		}
+		if chunk.Ctrl != nil && strings.TrimSpace(chunk.Ctrl.Error) != "" {
+			return nil, "", errors.New(chunk.Ctrl.Error)
+		}
+		if chunk.IsEndOfStream() {
 			continue
 		}
 		if blob, ok := chunk.Part.(*genx.Blob); ok {

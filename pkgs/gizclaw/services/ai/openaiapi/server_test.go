@@ -752,6 +752,36 @@ func TestOpenAIAPIStreamHelpers(t *testing.T) {
 	}
 }
 
+func TestSpeechStreamHelpersReturnRouteEOSError(t *testing.T) {
+	wantErr := "provider failed"
+	chunks := func() []*genx.MessageChunk {
+		return []*genx.MessageChunk{
+			{Part: &genx.Blob{MIMEType: "audio/mpeg", Data: []byte("partial")}},
+			{
+				Part: &genx.Blob{MIMEType: "audio/mpeg"},
+				Ctrl: &genx.StreamCtrl{Error: wantErr, EndOfStream: true},
+			},
+		}
+	}
+
+	var buf bytes.Buffer
+	err := writeSpeechSSE(&buf, &sliceStream{chunks: chunks()}, "audio/mpeg")
+	if err == nil || err.Error() != wantErr {
+		t.Fatalf("writeSpeechSSE() error = %v, want %q", err, wantErr)
+	}
+	if strings.Contains(buf.String(), "speech.audio.done") {
+		t.Fatalf("writeSpeechSSE() emitted done after route failure: %s", buf.String())
+	}
+
+	audio, contentType, err := readBlobStreamWithMIME(&sliceStream{chunks: chunks()}, "audio/mpeg")
+	if err == nil || err.Error() != wantErr {
+		t.Fatalf("readBlobStreamWithMIME() error = %v, want %q", err, wantErr)
+	}
+	if audio != nil || contentType != "" {
+		t.Fatalf("readBlobStreamWithMIME() = (%q, %q), want no partial response", audio, contentType)
+	}
+}
+
 func TestWriteSpeechSSEStripsMP3ID3Tags(t *testing.T) {
 	var buf bytes.Buffer
 	err := writeSpeechSSE(&buf, &sliceStream{chunks: []*genx.MessageChunk{
