@@ -13,6 +13,32 @@ extern "C" {
 typedef struct gzc_client gzc_client_t;
 typedef struct gzc_service_channel gzc_service_channel_t;
 
+typedef struct {
+  const uint8_t *payload;
+  size_t payload_len;
+  bool has_error;
+  int error_code;
+  gzc_str_t error_message;
+} gzc_rpc_provider_response_t;
+
+/* Consumes one provider response synchronously. Borrowed response views only
+ * need to remain valid until this function returns. */
+typedef int (*gzc_rpc_provider_respond_fn)(
+    void *userdata,
+    const gzc_rpc_provider_response_t *response);
+
+/*
+ * Handles server-initiated client.* methods. Request and response payloads are
+ * protobuf message bytes. The provider must call respond exactly once before
+ * returning GZC_OK.
+ */
+typedef int (*gzc_rpc_provider_fn)(
+    void *userdata,
+    int method,
+    gzc_str_t request_payload,
+    gzc_rpc_provider_respond_fn respond,
+    void *respond_userdata);
+
 /* Maximum live server-created ServicePeerRPC exchanges per client. */
 #define GZC_RPC_MAX_INBOUND_CHANNELS 4u
 
@@ -25,6 +51,8 @@ typedef struct {
   const gzc_webrtc_vtable_t *webrtc;
   gzc_cipher_mode_t cipher_mode;
   int connect_timeout_ms;
+  gzc_rpc_provider_fn rpc_provider;
+  void *rpc_provider_userdata;
   void *userdata;
 } gzc_client_config_t;
 

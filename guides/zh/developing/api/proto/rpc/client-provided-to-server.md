@@ -23,4 +23,4 @@ sequenceDiagram
 
 Client provider 只能返回该 Client 拥有或可执行的数据。Server resources、ACL decision、跨 Peer lookup 和持久化管理不能实现为 `client.*`。
 
-Go Client 的 provider dispatch 位于 `sdk/go/gizcli` 的 RPC Client implementation；Server 侧通过在线 Peer connection 调用这些 methods。
+Go Client 的 provider dispatch 位于 `sdk/go/gizcli` 的 RPC Client implementation；C Client 通过 `gzc_client_config_t.rpc_provider` 注册同一方向的 provider，callback 在返回前提供 borrowed protobuf response bytes 或稳定的 RPC error。Server 侧通过在线 Peer connection 调用这些 methods。
