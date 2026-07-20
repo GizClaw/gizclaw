@@ -277,6 +277,9 @@ func (s *Server) handleWorkspaceList(ctx context.Context, req *rpcapi.RPCRequest
 	if profile == nil {
 		return internalError(req.Id, "runtime profile not configured")
 	}
+	if _, exists := profile.Spec.Workflows.Collections[collection]; !exists {
+		return statusError(req.Id, http.StatusNotFound, "workflow collection not found")
+	}
 	items, err := s.effectiveWorkspacesByLabels(ctx, map[string]string{"collection": collection})
 	if err != nil {
 		return internalError(req.Id, err.Error())
@@ -353,7 +356,13 @@ func workspaceRPCProjection(item apitypes.Workspace, available bool) (rpcapi.Wor
 }
 
 func workspaceAvailable(profile *apitypes.RuntimeProfile, item apitypes.Workspace) bool {
-	if profile == nil || item.Labels == nil {
+	if profile == nil {
+		return false
+	}
+	if item.System != nil && *item.System {
+		return true
+	}
+	if item.Labels == nil {
 		return false
 	}
 	collection := strings.TrimSpace((*item.Labels)["collection"])

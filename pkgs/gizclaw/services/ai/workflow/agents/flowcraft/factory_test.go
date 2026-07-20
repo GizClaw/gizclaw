@@ -2277,10 +2277,12 @@ func TestBuildClawConfigInjectsOptionalModelRoles(t *testing.T) {
 	})
 	generateModel := "chat"
 	extractModel := "extract"
+	embeddingModel := "embed"
 	var workspaceParams apitypes.WorkspaceParameters
 	if err := workspaceParams.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{
-		GenerateModel: &generateModel,
-		ExtractModel:  &extractModel,
+		GenerateModel:  &generateModel,
+		ExtractModel:   &extractModel,
+		EmbeddingModel: &embeddingModel,
 	}); err != nil {
 		t.Fatalf("FromFlowcraftWorkspaceParameters() error = %v", err)
 	}
@@ -2291,11 +2293,11 @@ func TestBuildClawConfigInjectsOptionalModelRoles(t *testing.T) {
 		t.Fatalf("buildClawConfig() error = %v", err)
 	}
 	settings := got["settings"].(map[string]any)
-	if settings["generate_model"] != "chat" || settings["extract_model"] != "extract" {
+	if settings["generate_model"] != "chat" || settings["extract_model"] != "extract" || settings["embedding_model"] != "embed" {
 		t.Fatalf("settings = %#v", settings)
 	}
 	models := got["models"].(map[string]any)
-	if models["chat"] != "generate_model" || models["extractor"] != "extract_model" {
+	if models["chat"] != "generate_model" || models["extractor"] != "extract_model" || models["embedder"] != "embedding_model" {
 		t.Fatalf("models aliases = %#v", models)
 	}
 	llm := models["llm"].(map[string]any)
@@ -2304,6 +2306,13 @@ func TestBuildClawConfigInjectsOptionalModelRoles(t *testing.T) {
 	}
 	if _, ok := llm["extract"]; !ok {
 		t.Fatalf("missing extract llm config: %#v", llm)
+	}
+	if _, ok := llm["embed"]; ok {
+		t.Fatalf("embedding model leaked into llm config: %#v", llm)
+	}
+	embedding := models["embedding"].(map[string]any)
+	if model, ok := embedding["embed"].(map[string]any); !ok || model["provider"] != "openai" {
+		t.Fatalf("embedding config = %#v", embedding)
 	}
 }
 
@@ -2982,6 +2991,8 @@ func (f fakeModels) model(id string) apitypes.Model {
 	if id == "asr" || id == "e2e-asr" {
 		kind = apitypes.ModelKindAsr
 		providerKind = apitypes.ModelProviderKindVolcTenant
+	} else if id == "embed" {
+		kind = apitypes.ModelKindEmbedding
 	}
 	providerData := apitypes.ModelProviderData{}
 	switch providerKind {

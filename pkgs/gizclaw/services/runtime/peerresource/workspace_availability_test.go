@@ -36,7 +36,7 @@ func TestWorkspaceRemainsVisibleWhenRuntimeAliasDisappears(t *testing.T) {
 		t.Fatalf("created Workspace = %#v, want available", created)
 	}
 
-	profile.Spec.Workflows.Collections = apitypes.RuntimeProfileWorkflowCollections{}
+	profile.Spec.Workflows.Collections["story-teller"] = map[string]apitypes.RuntimeProfileBinding{}
 	profile.Revision = "r2"
 	listed := callWorkspaceList(t, ctx, server, "story-teller")
 	if len(listed.Items) != 1 || listed.Items[0].Name != "journey-1" || listed.Items[0].Available {
@@ -57,6 +57,48 @@ func TestWorkspaceRemainsVisibleWhenRuntimeAliasDisappears(t *testing.T) {
 	}
 	if name, rpcErr := server.ValidateRunWorkspaceSelection(ctx, "journey-1"); rpcErr != nil || name != "journey-1" {
 		t.Fatalf("ValidateRunWorkspaceSelection() = %q, %#v", name, rpcErr)
+	}
+}
+
+func TestWorkspaceListRejectsUnknownRuntimeCollection(t *testing.T) {
+	ctx := context.Background()
+	store := kv.NewMemory(nil)
+	t.Cleanup(func() { _ = store.Close() })
+	profile := runtimeProfileWithWorkspaceAlias("r1")
+	server := &Server{
+		Caller:     giznet.PublicKey{1},
+		Workspaces: &workspace.Server{Store: store, WorkflowStore: store},
+		RuntimeProfile: func() *apitypes.RuntimeProfile {
+			return &profile
+		},
+	}
+	var payload rpcapi.RPCPayload
+	if err := payload.FromWorkspaceListRequest(rpcapi.WorkspaceListRequest{Collection: "missing"}); err != nil {
+		t.Fatal(err)
+	}
+	response := server.handleWorkspaceList(ctx, &rpcapi.RPCRequest{Id: "list", Params: &payload})
+	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeNotFound || response.Result != nil {
+		t.Fatalf("workspace list response = %#v, want NOT_FOUND", response)
+	}
+}
+
+func TestSystemWorkspaceAvailabilityDoesNotRequireCollectionLabel(t *testing.T) {
+	system := true
+	profile := runtimeProfileWithWorkspaceAlias("r1")
+	if !workspaceAvailable(&profile, apitypes.Workspace{
+		Name: "pet-1", WorkflowName: "pet-care", System: &system,
+	}) {
+		t.Fatal("system Workspace without labels is unavailable")
+	}
+	if workspaceAvailable(nil, apitypes.Workspace{
+		Name: "pet-1", WorkflowName: "pet-care", System: &system,
+	}) {
+		t.Fatal("system Workspace without a RuntimeProfile is available")
+	}
+	if workspaceAvailable(&profile, apitypes.Workspace{
+		Name: "legacy", WorkflowName: "pet-care",
+	}) {
+		t.Fatal("ordinary unlabeled Workspace is available")
 	}
 }
 

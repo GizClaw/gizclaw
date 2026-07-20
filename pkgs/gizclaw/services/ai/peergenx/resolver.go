@@ -28,6 +28,12 @@ type GeneratorConfig struct {
 	Credential apitypes.Credential
 }
 
+// EmbeddingConfig contains the resources resolved for one embedding model.
+// It aliases GeneratorConfig because both model kinds use the same provider,
+// tenant, and credential resource shape while their resolvers enforce distinct
+// ModelKind contracts.
+type EmbeddingConfig = GeneratorConfig
+
 type TransformerConfig struct {
 	Pattern    string
 	Model      *apitypes.Model
@@ -77,9 +83,19 @@ func (s *Service) ListAccessibleGeneratorConfigs(ctx context.Context) ([]Generat
 }
 
 func (s *Service) ResolveGenerator(ctx context.Context, pattern string) (GeneratorConfig, error) {
+	return s.resolveModelConfig(ctx, pattern, apitypes.ModelKindLlm, "generator")
+}
+
+// ResolveEmbedding resolves an embedding model alias into its canonical model,
+// provider tenant, and credential resources.
+func (s *Service) ResolveEmbedding(ctx context.Context, pattern string) (EmbeddingConfig, error) {
+	return s.resolveModelConfig(ctx, pattern, apitypes.ModelKindEmbedding, "embedding model")
+}
+
+func (s *Service) resolveModelConfig(ctx context.Context, pattern string, kind apitypes.ModelKind, role string) (GeneratorConfig, error) {
 	modelID, ok := parsePattern(pattern, "model", "models")
 	if !ok {
-		return GeneratorConfig{}, fmt.Errorf("%w: generator pattern %q must target model/<id>", ErrInvalid, pattern)
+		return GeneratorConfig{}, fmt.Errorf("%w: %s pattern %q must target model/<id>", ErrInvalid, role, pattern)
 	}
 	modelID, err := s.resolveModelAliasID(modelID)
 	if err != nil {
@@ -89,8 +105,8 @@ func (s *Service) ResolveGenerator(ctx context.Context, pattern string) (Generat
 	if err != nil {
 		return GeneratorConfig{}, err
 	}
-	if model.Kind != apitypes.ModelKindLlm {
-		return GeneratorConfig{}, fmt.Errorf("%w: model %q kind %q is not a generator", ErrInvalid, model.Id, model.Kind)
+	if model.Kind != kind {
+		return GeneratorConfig{}, fmt.Errorf("%w: model %q kind %q does not satisfy the %s role", ErrInvalid, model.Id, model.Kind, role)
 	}
 	return GeneratorConfig{
 		Pattern:    pattern,

@@ -8,6 +8,9 @@
 
 #define GZC_RPC_MAX_ENVELOPE_SIZE (GZC_RPC_MAX_FRAME_SIZE * 16u)
 #define GZC_RPC_DOWNLOAD_FRAMES_PER_POLL 16u
+/* Keep client reads beyond the default server deadlines by a transport grace window. */
+#define GZC_RPC_SPEECH_TRANSCRIPTION_TIMEOUT_MS 80000
+#define GZC_RPC_SPEECH_SYNTHESIS_TIMEOUT_MS 125000
 #define GZC_SERVICE_PEER_RPC 0x00u
 #define GZC_SERVICE_EDGE_RPC 0x31u
 
@@ -498,12 +501,13 @@ int gzc_rpc_call(gzc_client_t *client, gizclaw_rpc_v1_RpcMethod method, gzc_str_
   return rc;
 }
 
-int gzc_rpc_call_stream(
+static int gzc_rpc_call_stream_with_timeout(
     gzc_client_t *client,
     gizclaw_rpc_v1_RpcMethod method,
     gzc_str_t params_payload,
     gzc_rpc_frame_cb on_frame,
-    void *userdata) {
+    void *userdata,
+    int response_timeout_ms) {
   if (client == NULL || on_frame == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
@@ -534,7 +538,7 @@ int gzc_rpc_call_stream(
   bool saw_response = false;
   bool saw_continuation = false;
   for (;;) {
-    rc = read_frame(client, platform, 5000, &frame_bytes, &frame);
+    rc = read_frame(client, platform, response_timeout_ms, &frame_bytes, &frame);
     if (rc != GZC_OK) {
       break;
     }
@@ -602,6 +606,16 @@ int gzc_rpc_call_stream(
   gzc_buf_free(&frame_bytes, platform);
   close_rpc_channel_on_error(client, rc);
   return rc;
+}
+
+int gzc_rpc_call_stream(
+    gzc_client_t *client,
+    gizclaw_rpc_v1_RpcMethod method,
+    gzc_str_t params_payload,
+    gzc_rpc_frame_cb on_frame,
+    void *userdata) {
+  return gzc_rpc_call_stream_with_timeout(
+      client, method, params_payload, on_frame, userdata, 5000);
 }
 
 int gzc_rpc_speech_transcribe_open(
@@ -722,7 +736,11 @@ int gzc_rpc_speech_transcribe_finish(
   bool continued = false;
   while (rc == GZC_OK) {
     gzc_rpc_frame_t frame;
-    rc = read_service_frame(upload->channel, 5000, &frame_bytes, &frame);
+    rc = read_service_frame(
+        upload->channel,
+        GZC_RPC_SPEECH_TRANSCRIPTION_TIMEOUT_MS,
+        &frame_bytes,
+        &frame);
     if (rc != GZC_OK) {
       break;
     }
@@ -883,12 +901,13 @@ int gzc_rpc_speech_synthesize(
   context.on_audio = on_audio;
   context.userdata = userdata;
   context.out_error = out_error;
-  rc = gzc_rpc_call_stream(
+  rc = gzc_rpc_call_stream_with_timeout(
       client,
       gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_SPEECH_SYNTHESIZE,
       gzc_str_from_parts((const char *)payload.data, payload.len),
       speech_synthesis_frame,
-      &context);
+      &context,
+      GZC_RPC_SPEECH_SYNTHESIS_TIMEOUT_MS);
   gzc_buf_free(&payload, platform);
   if (context.rc != GZC_OK) {
     return context.rc;

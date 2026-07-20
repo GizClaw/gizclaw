@@ -1115,6 +1115,42 @@ func TestResolveGeneratorSupportsAdditionalTenantKinds(t *testing.T) {
 	}
 }
 
+func TestResolveEmbeddingRequiresEmbeddingModel(t *testing.T) {
+	events := []string{}
+	svc := New(Service{
+		Peer:            newTestPeer(),
+		Models:          fakeModels{events: &events, modelKind: apitypes.ModelKindEmbedding},
+		Credentials:     fakeCredentials{events: &events},
+		ProviderTenants: fakeTenants{events: &events},
+	})
+
+	cfg, err := svc.ResolveEmbedding(context.Background(), "model/embed")
+	if err != nil {
+		t.Fatalf("ResolveEmbedding() error = %v", err)
+	}
+	if cfg.Model.Id != "embed" || cfg.Model.Kind != apitypes.ModelKindEmbedding {
+		t.Fatalf("ResolveEmbedding() = %#v", cfg)
+	}
+	want := []string{
+		"get:model:embed",
+		"get:tenant:openai:main",
+		"get:credential:openai-key",
+	}
+	if !reflect.DeepEqual(events, want) {
+		t.Fatalf("events = %#v, want %#v", events, want)
+	}
+
+	wrongKind := New(Service{
+		Peer:            newTestPeer(),
+		Models:          fakeModels{events: &events},
+		Credentials:     fakeCredentials{events: &events},
+		ProviderTenants: fakeTenants{events: &events},
+	})
+	if _, err := wrongKind.ResolveEmbedding(context.Background(), "model/chat"); err == nil || !strings.Contains(err.Error(), "embedding model role") {
+		t.Fatalf("ResolveEmbedding(LLM) error = %v", err)
+	}
+}
+
 func TestListAccessibleGeneratorConfigsEnumeratesAuthorizedLLMs(t *testing.T) {
 	ctx := context.Background()
 	events := []string{}

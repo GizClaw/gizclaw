@@ -53,11 +53,12 @@ const (
 var clawModelRoles = []struct {
 	settingKey string
 	modelsKey  string
+	configKey  string
 	required   bool
 }{
-	{settingKey: "generate_model", modelsKey: "chat", required: true},
-	{settingKey: "extract_model", modelsKey: "extractor"},
-	{settingKey: "embedding_model", modelsKey: "embedder"},
+	{settingKey: "generate_model", modelsKey: "chat", configKey: "llm", required: true},
+	{settingKey: "extract_model", modelsKey: "extractor", configKey: "llm"},
+	{settingKey: "embedding_model", modelsKey: "embedder", configKey: "embedding"},
 }
 
 type Factory struct {
@@ -2742,7 +2743,6 @@ func buildConfiguredClawConfig(ctx context.Context, genxService *peergenx.Servic
 	}
 	settings := ensureMap(out, "settings")
 	models := ensureMap(out, "models")
-	llm := ensureMap(models, "llm")
 	for _, role := range clawModelRoles {
 		modelAlias, ok, err := configuredModelIDForRole(options, out, role.settingKey, role.required)
 		if err != nil {
@@ -2751,17 +2751,25 @@ func buildConfiguredClawConfig(ctx context.Context, genxService *peergenx.Servic
 		if !ok {
 			continue
 		}
-		generatorCfg, err := genxService.ResolveGenerator(ctx, "model/"+modelAlias)
+		var resolved peergenx.GeneratorConfig
+		switch role.configKey {
+		case "llm":
+			resolved, err = genxService.ResolveGenerator(ctx, "model/"+modelAlias)
+		case "embedding":
+			resolved, err = genxService.ResolveEmbedding(ctx, "model/"+modelAlias)
+		default:
+			err = fmt.Errorf("flowcraft: unsupported model config section %q", role.configKey)
+		}
 		if err != nil {
 			return nil, fmt.Errorf("flowcraft: resolve model alias %q: %w", modelAlias, err)
 		}
-		modelCfg, err := clawModelConfig(generatorCfg)
+		modelCfg, err := clawModelConfig(resolved)
 		if err != nil {
 			return nil, err
 		}
 		settings[role.settingKey] = modelAlias
 		models[role.modelsKey] = role.settingKey
-		llm[modelAlias] = modelCfg
+		ensureMap(models, role.configKey)[modelAlias] = modelCfg
 	}
 	ensureDefaultAgent(out)
 	if err := addToolkitToolsToClawConfig(ctx, out, options.Toolkit); err != nil {
