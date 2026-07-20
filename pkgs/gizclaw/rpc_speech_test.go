@@ -122,9 +122,9 @@ func TestRPCSpeechTranscribeLimitIsBadRequest(t *testing.T) {
 	if err := stream.WriteFrame(rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: []byte{1, 2, 3, 4}}); err != nil {
 		t.Fatalf("WriteFrame() error = %v", err)
 	}
-	if err := stream.WriteEOS(); err != nil {
-		t.Fatalf("WriteEOS() error = %v", err)
-	}
+	// The server rejects the oversized frame immediately, before request EOS.
+	// Read the full-duplex response instead of synchronously writing against it
+	// on the unbuffered net.Pipe.
 	response, err := stream.ReadResponseForMethod(rpcapi.RPCMethodServerSpeechTranscribe)
 	if err != nil {
 		t.Fatalf("ReadResponse() error = %v", err)
