@@ -9,6 +9,33 @@ import "payload/enums.proto";
 
 option go_package = "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpb";
 
+message AliasI18nText {
+  string display_name = 1;
+  optional string description = 2;
+}
+
+message SpeechTranscribeRequest {
+  string model_alias = 1;
+  string content_type = 2;
+  optional string language = 3;
+}
+
+message SpeechTranscribeResponse {
+  string transcript = 1;
+}
+
+message SpeechSynthesizeRequest {
+  string voice_alias = 1;
+  string text = 2;
+  repeated string accepted_content_types = 3;
+}
+
+message SpeechSynthesizeResponse {
+  string content_type = 1;
+  optional int32 sample_rate_hz = 2;
+  optional int32 channels = 3;
+}
+
 message ASTTranslateExternalVoiceParameters {
   string tts_voice = 1;
 }
@@ -85,86 +112,6 @@ message ChatRoomWorkspaceParameters {
 message ChatRoomWorkspaceTranscriptParameters {
   optional string asr_model = 1;
   optional bool enabled = 2;
-}
-
-message Credential {
-  CredentialBody body = 1;
-  string created_at = 2;
-  optional string description = 3;
-  string name = 4;
-  string provider = 5;
-  string updated_at = 6;
-  optional string owner_public_key = 7;
-}
-
-message CredentialBody {
-  oneof value {
-    OpenAICredentialBody open_aicredential_body = 1;
-    GeminiCredentialBody gemini_credential_body = 2;
-    DashScopeCredentialBody dash_scope_credential_body = 3;
-    MiniMaxCredentialBody mini_max_credential_body = 4;
-    VolcCredentialBody volc_credential_body = 5;
-  }
-}
-
-message CredentialCreateRequest {
-  Credential value = 1;
-}
-
-message CredentialCreateResponse {
-  Credential value = 1;
-}
-
-message CredentialDeleteRequest {
-  string name = 1;
-}
-
-message CredentialDeleteResponse {
-  Credential value = 1;
-}
-
-message CredentialGetRequest {
-  string name = 1;
-}
-
-message CredentialGetResponse {
-  Credential value = 1;
-}
-
-message CredentialListRequest {
-  optional string cursor = 1;
-  optional int64 limit = 2;
-}
-
-message CredentialListResponse {
-  bool has_next = 1;
-  repeated Credential items = 2;
-  optional string next_cursor = 3;
-}
-
-message CredentialPutRequest {
-  Credential body = 1;
-  string name = 2;
-}
-
-message CredentialPutResponse {
-  Credential value = 1;
-}
-
-message DashScopeCredentialBody {
-  optional string api_key = 1;
-  optional string base_url = 2;
-  optional string token = 3;
-}
-
-message DashScopeTenantModelProviderData {
-  optional DashScopeTenantModelProviderDataApiMode api_mode = 1;
-  optional string upstream_model = 2;
-}
-
-message DashScopeTenantVoiceProviderData {
-  google.protobuf.Struct raw = 1;
-  optional string voice_id = 2;
 }
 
 message DoubaoRealtimeAIGCMetadata {
@@ -339,51 +286,11 @@ message PetWorkspaceParameters {
   PetVoiceParameters voice = 5;
 }
 
-message GeminiCredentialBody {
-  optional string api_key = 1;
-  optional string base_url = 2;
-  optional string token = 3;
-}
-
-message GeminiTenantModelProviderData {
-  optional string upstream_model = 1;
-}
-
-message GeminiTenantVoiceProviderData {
-  google.protobuf.Struct raw = 1;
-  optional string voice_id = 2;
-}
-
-message MiniMaxCredentialBody {
-  optional string api_key = 1;
-  optional string base_url = 2;
-  optional string minimax_voice_base_url = 3;
-  optional string token = 4;
-  optional string voice_base_url = 5;
-}
-
-message MiniMaxTenantVoiceProviderData {
-  optional string format = 1;
-  optional string model = 2;
-  google.protobuf.Struct raw = 3;
-  optional int64 sample_rate = 4;
-  optional string voice_id = 5;
-  optional string voice_type = 6;
-}
-
 message Model {
-  optional ModelCapabilities capabilities = 1;
-  string created_at = 2;
-  optional string description = 3;
-  string id = 4;
-  ModelKind kind = 5;
-  optional string name = 6;
-  ModelProvider provider = 7;
-  optional ModelProviderData provider_data = 8;
-  ModelSource source = 9;
-  optional string synced_at = 10;
-  string updated_at = 11;
-  optional string owner_public_key = 12;
+  string alias = 1;
+  map<string, AliasI18nText> i18n = 2;
+  ModelKind kind = 3;
+  optional ModelCapabilities capabilities = 4;
 }
 
 message ModelCapabilities {
@@ -395,28 +302,14 @@ message ModelCapabilities {
   optional bool tool_calls = 6;
 }
 
-message ModelCreateRequest {
-  Model value = 1;
-}
-
-message ModelCreateResponse {
-  Model value = 1;
-}
-
-message ModelDeleteRequest {
-  string id = 1;
-}
-
-message ModelDeleteResponse {
-  Model value = 1;
-}
-
 message ModelGetRequest {
-  string id = 1;
+  string alias = 1;
 }
 
 message ModelGetResponse {
   Model value = 1;
+  string runtime_profile_name = 2;
+  string runtime_profile_revision = 3;
 }
 
 message ModelListRequest {
@@ -428,29 +321,8 @@ message ModelListResponse {
   bool has_next = 1;
   repeated Model items = 2;
   optional string next_cursor = 3;
-}
-
-message ModelProvider {
-  ModelProviderKind kind = 1;
-  string name = 2;
-}
-
-message ModelProviderData {
-  oneof value {
-    GeminiTenantModelProviderData gemini_tenant_model_provider_data = 1;
-    DashScopeTenantModelProviderData dash_scope_tenant_model_provider_data = 2;
-    OpenAITenantModelProviderData open_aitenant_model_provider_data = 3;
-    VolcTenantModelProviderData volc_tenant_model_provider_data = 4;
-  }
-}
-
-message ModelPutRequest {
-  Model body = 1;
-  string id = 2;
-}
-
-message ModelPutResponse {
-  Model value = 1;
+  string runtime_profile_name = 4;
+  string runtime_profile_revision = 5;
 }
 
 message ModelThinkingCapability {
@@ -461,50 +333,19 @@ message ModelThinkingCapability {
   bool supported = 5;
 }
 
-message OpenAICredentialBody {
-  optional string api_key = 1;
-  optional string base_url = 2;
-  optional string organization = 3;
-  optional string project = 4;
-  optional string token = 5;
-}
-
-message OpenAITenantModelProviderData {
-  optional string default_thinking_level = 1;
-  optional bool support_json_output = 2;
-  optional bool support_text_only = 3;
-  optional bool support_thinking = 4;
-  optional bool support_tool_calls = 5;
-  optional string thinking_level_param = 6;
-  repeated string thinking_levels = 7;
-  optional string thinking_param = 8;
-  optional string upstream_model = 9;
-  optional bool use_system_role = 10;
-}
-
-message OpenAITenantVoiceProviderData {
-  google.protobuf.Struct raw = 1;
-  optional string voice_id = 2;
-}
-
 message Voice {
-  string created_at = 1;
-  optional string description = 2;
-  string id = 3;
-  optional string name = 4;
-  VoiceProvider provider = 5;
-  optional VoiceProviderData provider_data = 6;
-  VoiceSource source = 7;
-  optional string synced_at = 8;
-  string updated_at = 9;
+  string alias = 1;
+  map<string, AliasI18nText> i18n = 2;
 }
 
 message VoiceGetRequest {
-  string id = 1;
+  string alias = 1;
 }
 
 message VoiceGetResponse {
   Voice value = 1;
+  string runtime_profile_name = 2;
+  string runtime_profile_revision = 3;
 }
 
 message VoiceListRequest {
@@ -516,116 +357,41 @@ message VoiceListResponse {
   bool has_next = 1;
   repeated Voice items = 2;
   optional string next_cursor = 3;
-}
-
-message VoiceProvider {
-  VoiceProviderKind kind = 1;
-  string name = 2;
-}
-
-message VoiceProviderData {
-  oneof value {
-    GeminiTenantVoiceProviderData gemini_tenant_voice_provider_data = 1;
-    DashScopeTenantVoiceProviderData dash_scope_tenant_voice_provider_data = 2;
-    OpenAITenantVoiceProviderData open_aitenant_voice_provider_data = 3;
-    MiniMaxTenantVoiceProviderData mini_max_tenant_voice_provider_data = 4;
-    VolcTenantVoiceProviderData volc_tenant_voice_provider_data = 5;
-  }
-}
-
-message VolcCredentialBody {
-  optional string speech_api_key = 1;
-  optional string speech_app_id = 2;
-  optional string openapi_access_key = 3;
-  optional string openapi_access_key_id = 4;
-  optional string search_api_key = 5;
-  optional string ark_api_key = 6;
-}
-
-message VolcTenantModelProviderData {
-  optional VolcTenantModelProviderDataApiMode api_mode = 1;
-  optional string default_thinking_level = 2;
-  optional string resource_id = 3;
-  optional bool support_json_output = 4;
-  optional bool support_text_only = 5;
-  optional bool support_thinking = 6;
-  optional bool support_tool_calls = 7;
-  optional string thinking_level_param = 8;
-  repeated string thinking_levels = 9;
-  optional string thinking_param = 10;
-  optional string upstream_model = 11;
-  optional bool use_system_role = 12;
-}
-
-message VolcTenantVoiceProviderData {
-  google.protobuf.Struct raw = 1;
-  optional string resource_id = 2;
-  optional string state = 3;
-  optional string status = 4;
-  optional string voice_id = 5;
+  string runtime_profile_name = 4;
+  string runtime_profile_revision = 5;
 }
 
 message Workflow {
-  string name = 1;
-  WorkflowSpec spec = 2;
-  reserved 3, 4;
-  optional string owner_public_key = 5;
-}
-
-message WorkflowUpsert {
-  string name = 1;
-  WorkflowSpec spec = 2;
-}
-
-message WorkflowCreateRequest {
-  ResourceSource source = 1;
-  WorkflowUpsert body = 2;
-}
-
-message WorkflowCreateResponse {
-  Workflow value = 1;
-}
-
-message WorkflowDeleteRequest {
-  string name = 1;
-  ResourceSource source = 2;
-}
-
-message WorkflowDeleteResponse {
-  Workflow value = 1;
+  string alias = 1;
+  map<string, AliasI18nText> i18n = 2;
+  string collection = 3;
+  WorkflowDriver driver = 4;
 }
 
 message WorkflowGetRequest {
-  string name = 1;
-  reserved 2;
-  ResourceSource source = 3;
+  string alias = 1;
+  reserved 2, 3;
 }
 
 message WorkflowGetResponse {
   Workflow value = 1;
+  string runtime_profile_name = 2;
+  string runtime_profile_revision = 3;
 }
 
 message WorkflowListRequest {
   optional string cursor = 1;
   optional int64 limit = 2;
-  reserved 3;
-  ResourceSource source = 4;
+  string collection = 3;
+  reserved 4;
 }
 
 message WorkflowListResponse {
   bool has_next = 1;
   repeated Workflow items = 2;
   optional string next_cursor = 3;
-}
-
-message WorkflowPutRequest {
-  string name = 1;
-  WorkflowUpsert body = 2;
-  ResourceSource source = 3;
-}
-
-message WorkflowPutResponse {
-  Workflow value = 1;
+  string runtime_profile_name = 4;
+  string runtime_profile_revision = 5;
 }
 
 message ToolkitPolicyToolIds {
@@ -636,54 +402,11 @@ message ToolkitPolicy {
   optional ToolkitPolicyToolIds tool_ids = 1;
 }
 
-message WorkflowSpec {
-  optional ASTTranslateWorkflowSpec ast_translate = 1;
-  optional ChatRoomWorkflowSpec chatroom = 2;
-  optional DoubaoRealtimeWorkflowSpec doubao_realtime = 3;
-  WorkflowDriver driver = 4;
-  optional FlowcraftWorkflowSpec flowcraft = 5;
-  optional ToolkitPolicy toolkit = 6;
-  optional PetWorkflowSpec pet = 7;
-}
-
-message ToolExecutor {
-  ToolExecutorKind kind = 1;
-  optional string name = 2;
-  optional string method = 3;
-  optional string peer_id = 4;
-  optional google.protobuf.Struct config = 5;
-}
-
-message ToolTriggerExample {
-  string input = 1;
-  optional google.protobuf.Struct args = 2;
-  optional string output = 3;
-}
-
-message ToolTrigger {
-  string name = 1;
-  optional string description = 2;
-  repeated string patterns = 3;
-  repeated ToolTriggerExample examples = 4;
-  optional google.protobuf.Struct metadata = 5;
-}
-
 message Tool {
-  string id = 1;
-  optional string name = 2;
-  optional string description = 3;
-  ToolSource source = 4;
-  optional bool enabled = 5;
-  optional string owner_peer = 6;
-  optional string version = 7;
-  google.protobuf.Struct input_schema = 8;
-  optional google.protobuf.Struct output_schema = 9;
-  repeated ToolTrigger triggers = 10;
-  ToolExecutor executor = 11;
-  optional google.protobuf.Struct metadata = 12;
-  string created_at = 13;
-  string updated_at = 14;
-  optional string owner_public_key = 15;
+  string alias = 1;
+  map<string, AliasI18nText> i18n = 2;
+  google.protobuf.Struct input_schema = 3;
+  optional google.protobuf.Struct output_schema = 4;
 }
 
 message ToolListRequest {
@@ -695,39 +418,18 @@ message ToolListResponse {
   repeated Tool items = 1;
   bool has_next = 2;
   optional string next_cursor = 3;
+  string runtime_profile_name = 4;
+  string runtime_profile_revision = 5;
 }
 
 message ToolGetRequest {
-  string id = 1;
+  string alias = 1;
 }
 
 message ToolGetResponse {
   Tool value = 1;
-}
-
-message ToolCreateRequest {
-  Tool value = 1;
-}
-
-message ToolCreateResponse {
-  Tool value = 1;
-}
-
-message ToolPutRequest {
-  string id = 1;
-  Tool body = 2;
-}
-
-message ToolPutResponse {
-  Tool value = 1;
-}
-
-message ToolDeleteRequest {
-  string id = 1;
-}
-
-message ToolDeleteResponse {
-  Tool value = 1;
+  string runtime_profile_name = 2;
+  string runtime_profile_revision = 3;
 }
 
 message ToolInvokeRequest {

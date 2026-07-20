@@ -81,7 +81,11 @@ class _GlobalBottomDock extends StatelessWidget {
 
   static const _rootPaths = {
     '/active',
-    '/workspaces',
+    '/collections/assistants',
+    '/collections/translates',
+    '/collections/raids',
+    '/collections/story-teller',
+    '/collections/role-play',
     '/friends',
     '/groups',
     '/pets',
@@ -409,10 +413,24 @@ class _PrimaryDockNavigation extends StatefulWidget {
   static const _items = [
     (GizIcons.house, GizIcons.house_fill, 'Home', '/active'),
     (
-      GizIcons.rectangle_3_offgrid,
-      GizIcons.rectangle_3_offgrid,
-      'Workspaces',
-      '/workspaces',
+      GizIcons.waveform_path,
+      GizIcons.waveform_path,
+      'Assistants',
+      '/collections/assistants',
+    ),
+    (GizIcons.globe, GizIcons.globe, 'Translates', '/collections/translates'),
+    (GizIcons.scope, GizIcons.scope, 'Raids', '/collections/raids'),
+    (
+      GizIcons.wand_stars,
+      GizIcons.wand_stars_inverse,
+      'Story Teller',
+      '/collections/story-teller',
+    ),
+    (
+      GizIcons.person_fill,
+      GizIcons.person_fill,
+      'Role Play',
+      '/collections/role-play',
     ),
     (GizIcons.person_2, GizIcons.person_2_fill, 'Friends', '/friends'),
     (GizIcons.person_3, GizIcons.person_3_fill, 'Groups', '/groups'),
@@ -839,13 +857,42 @@ _DockContext _dockContext(Uri location, MobileDataController data) {
   final segments = location.pathSegments
       .map(Uri.decodeComponent)
       .toList(growable: false);
+  if (segments.length >= 3 && segments[0] == 'collections') {
+    final collection = segments[1];
+    final workspaceName = segments[2];
+    if (workspaceName == 'new') {
+      return _DockContext(
+        title: 'Choose workflow',
+        subtitle: collection,
+        fallbackRoute: '/collections/$collection',
+      );
+    }
+    final active = data.activeWorkspaceName == workspaceName;
+    final workspace = data.workspace(workspaceName);
+    final driver = data
+        .workflow(workspace.workflowAlias, collection: workspace.collection)
+        .driver;
+    final mode =
+        data.activeInputMode == WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME
+        ? 'Realtime'
+        : 'Push to Talk';
+    return _DockContext(
+      title: workspace.title,
+      subtitle: active
+          ? '${driver.label}  /  $mode'
+          : '${driver.label}  /  Viewing',
+      fallbackRoute: '/collections/$collection',
+      active: active,
+      workspaceName: workspaceName,
+    );
+  }
   if (segments.length >= 2 && segments[0] == 'workspaces') {
     final workspaceName = segments[1];
     final active = data.activeWorkspaceName == workspaceName;
     final chatroom = data.chatroomWorkspace(workspaceName);
     final workspace = data.workspace(workspaceName);
     final driver = data
-        .workflow(workspace.workflowName, source: workspace.workflowSource)
+        .workflow(workspace.workflowAlias, collection: workspace.collection)
         .driver;
     final contextLabel = chatroom == null
         ? driver.label

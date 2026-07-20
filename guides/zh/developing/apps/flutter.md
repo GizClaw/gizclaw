@@ -30,12 +30,16 @@ flutter gen-l10n
 未配置服务器时也必须能打开语言选择器。跟随系统时只把英文和简体中文映射为
 支持的 locale；繁体中文及其他未支持语言回退到英文。
 
-当前有效 locale 同时决定 UI 和 workflow RPC locale：英文必须显式传
-`WORKFLOW_LOCALE_EN`，简体中文必须显式传 `WORKFLOW_LOCALE_ZH_CN`，不得省略或
-传 `WORKFLOW_LOCALE_UNSPECIFIED`。切换语言会刷新 workflow catalog；Drift 中的
-本地化 workflow 数据必须记录对应 locale，读取时忽略 locale 不匹配的旧缓存，
-并以稳定的 `Workflow.name` 回退。异步刷新还必须在写缓存前校验 locale generation，
-避免较早请求覆盖切换后的语言。
+App 固定拥有 `assistants`、`translates`、`raids`、`story-teller` 和 `role-play`
+五个 Workflow Collection，包括菜单名称、顺序与图标。App 必须逐个显式请求
+Collection，并按当前 locale 投影 RuntimeProfile 返回的 alias i18n；缺失时先回退英文，
+最后回退稳定 alias。RuntimeProfile 不翻译 Collection 或 Profile 自己。
+
+Catalog refresh 必须原子协调五个 Collection snapshot，并拒绝混合 RuntimeProfile
+revision 或重复 alias。用户选择 Workflow 后，App 使用它的 `collection` 与
+`workflow_alias` 新建 Workspace，然后直接进入，不再要求选择真实 Model 或 Voice。
+Workspace reload 会重新解析当前 RuntimeProfile alias；alias 缺失的 Workspace 仍在
+列表中，但显示为 unavailable。
 
 Android 的应用名和 locale 声明放在 `android/app/src/main/res`，iOS 的应用名与
 权限说明放在 `Runner/*lproj/InfoPlist.strings`。新增语言时必须同步 Flutter、Android

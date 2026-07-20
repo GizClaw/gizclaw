@@ -33,30 +33,12 @@ func (s *Server) GetModel(ctx context.Context, request adminhttp.GetModelRequest
 	if err != nil {
 		return nil, err
 	}
-	item, rpcResponse, decodeErr := adminResult[apitypes.Model](response.VisitGetModelResponse)
+	_, rpcResponse, decodeErr := adminResult[apitypes.Model](response.VisitGetModelResponse)
 	if decodeErr != nil || rpcResponse != nil {
 		return response, nil
 	}
-	if !s.profileAllows(profileModels, request.Id) && !s.owns(item.OwnerPublicKey) {
+	if !s.profileAllows(profileModels, request.Id) {
 		return adminhttp.GetModel404JSONResponse(apitypes.NewErrorResponse("MODEL_NOT_FOUND", "model not found")), nil
-	}
-	return response, nil
-}
-
-func (s *Server) GetCredential(ctx context.Context, request adminhttp.GetCredentialRequestObject) (adminhttp.GetCredentialResponseObject, error) {
-	if s.Credentials == nil {
-		return adminhttp.GetCredential500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "credential service not configured")), nil
-	}
-	response, err := s.Credentials.GetCredential(ctx, request)
-	if err != nil {
-		return nil, err
-	}
-	item, rpcResponse, decodeErr := adminResult[apitypes.Credential](response.VisitGetCredentialResponse)
-	if decodeErr != nil || rpcResponse != nil {
-		return response, nil
-	}
-	if !s.owns(item.OwnerPublicKey) {
-		return adminhttp.GetCredential404JSONResponse(apitypes.NewErrorResponse("CREDENTIAL_NOT_FOUND", "credential not found")), nil
 	}
 	return response, nil
 }

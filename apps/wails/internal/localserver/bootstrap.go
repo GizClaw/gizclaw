@@ -191,7 +191,16 @@ func (b *Bootstrapper) Apply(ctx context.Context, podDir string, savedEnvironmen
 		}
 		return nil
 	}
-	if err := applyEntries("desktop-bootstrap-resources", b.Catalog.Resources); err != nil {
+	resources := make([]ResourceEntry, 0, len(b.Catalog.Resources))
+	runtimeProfiles := make([]ResourceEntry, 0, 1)
+	for _, entry := range b.Catalog.Resources {
+		if entry.Kind == "RuntimeProfile" {
+			runtimeProfiles = append(runtimeProfiles, entry)
+			continue
+		}
+		resources = append(resources, entry)
+	}
+	if err := applyEntries("desktop-bootstrap-resources", resources); err != nil {
 		return err
 	}
 	for _, item := range b.Catalog.VoiceSyncs {
@@ -199,6 +208,9 @@ func (b *Bootstrapper) Apply(ctx context.Context, podDir string, savedEnvironmen
 		if err := runBootstrapOperation(ctx, run, executable, args, environment); err != nil {
 			return fmt.Errorf("local server bootstrap: sync %s voices for %s: %w", item.Provider, item.Tenant, err)
 		}
+	}
+	if err := applyEntries("desktop-bootstrap-runtime-profiles", runtimeProfiles); err != nil {
+		return err
 	}
 	for _, asset := range b.Catalog.PetDefPIXAs {
 		file, err := b.extract(tempDir, asset.PIXA)

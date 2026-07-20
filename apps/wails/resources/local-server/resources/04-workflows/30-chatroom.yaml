@@ -10,4 +10,4 @@ spec:
       ttl: 168h
     transcript:
       enabled: true
-      asr_model: volc-bigasr-sauc
+      asr_model: asr-model

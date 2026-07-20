@@ -1,15 +1,52 @@
+import 'package:gizclaw/gizclaw.dart';
+
 import 'prototype_models.dart';
+
+final demoWorkflows = <Workflow>[
+  Workflow(
+    alias: 'doubao-realtime',
+    collection: 'assistants',
+    driver: WorkflowDriver.WORKFLOW_DRIVER_DOUBAO_REALTIME,
+    i18n: {
+      'en': AliasI18nText(
+        displayName: 'Doubao',
+        description: 'Realtime assistant',
+      ),
+      'zh-CN': AliasI18nText(displayName: '豆包', description: '实时智能助手'),
+    }.entries,
+  ),
+  Workflow(
+    alias: 'translate-zh-en-auto',
+    collection: 'translates',
+    driver: WorkflowDriver.WORKFLOW_DRIVER_AST_TRANSLATE,
+    i18n: {
+      'en': AliasI18nText(displayName: 'Chinese / English'),
+      'zh-CN': AliasI18nText(displayName: '中英翻译'),
+    }.entries,
+  ),
+  Workflow(
+    alias: 'journey',
+    collection: 'raids',
+    driver: WorkflowDriver.WORKFLOW_DRIVER_FLOWCRAFT,
+    i18n: {
+      'en': AliasI18nText(displayName: 'Journey'),
+      'zh-CN': AliasI18nText(displayName: '赛博佩特'),
+    }.entries,
+  ),
+];
 
 const recentWorkspaces = [
   WorkspaceCard(
     name: 'Morning check-in',
-    workflowName: 'chatroom',
+    workflowAlias: 'chatroom',
+    collection: 'assistants',
     lastActive: '12 min ago',
     chatroomKind: ChatroomWorkspaceKind.direct,
   ),
   WorkspaceCard(
     name: 'Mobile app plan',
-    workflowName: 'chat',
+    workflowAlias: 'journey',
+    collection: 'raids',
     lastActive: 'Yesterday',
   ),
 ];
@@ -18,18 +55,21 @@ const workflowWorkspaces = [
   ...recentWorkspaces,
   WorkspaceCard(
     name: 'Builder crew room',
-    workflowName: 'chatroom',
+    workflowAlias: 'chatroom',
+    collection: 'assistants',
     lastActive: 'Today',
     chatroomKind: ChatroomWorkspaceKind.group,
   ),
   WorkspaceCard(
     name: 'Hands-free test',
-    workflowName: 'doubao-realtime',
+    workflowAlias: 'doubao-realtime',
+    collection: 'assistants',
     lastActive: '2 days ago',
   ),
   WorkspaceCard(
     name: 'Parser pass',
-    workflowName: 'translate-zh-en-auto',
+    workflowAlias: 'translate-zh-en-auto',
+    collection: 'translates',
     lastActive: 'Last week',
   ),
 ];

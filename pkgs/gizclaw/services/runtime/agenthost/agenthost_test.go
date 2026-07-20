@@ -204,7 +204,7 @@ func TestServiceResolverErrors(t *testing.T) {
 	}
 }
 
-func TestServiceResolverRejectsDirectWorkflowForNonSystemWorkspace(t *testing.T) {
+func TestServiceResolverAllowsAdminWorkspaceWithCanonicalWorkflow(t *testing.T) {
 	resolver := ServiceResolver{
 		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{
 			"demo": {Name: "demo", WorkflowName: "workflow-1"},
@@ -214,8 +214,8 @@ func TestServiceResolverRejectsDirectWorkflowForNonSystemWorkspace(t *testing.T)
 		}},
 	}
 
-	if _, err := resolver.Resolve(context.Background(), "demo"); err == nil || !strings.Contains(err.Error(), "requires a system workspace") {
-		t.Fatalf("Resolve() error = %v, want system workspace error", err)
+	if _, err := resolver.Resolve(context.Background(), "demo"); err != nil {
+		t.Fatalf("Resolve() error = %v", err)
 	}
 }
 

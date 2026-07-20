@@ -15,7 +15,8 @@ class Servers extends Table {
 class WorkspaceEntries extends Table {
   TextColumn get serverId => text()();
   TextColumn get name => text()();
-  TextColumn get workflowName => text()();
+  TextColumn get workflowAlias => text().named('workflow_name')();
+  TextColumn get collection => text().withDefault(const Constant(''))();
   DateTimeColumn get createdAt => dateTime().nullable()();
   DateTimeColumn get lastActiveAt => dateTime().nullable()();
   DateTimeColumn get updatedAt => dateTime().nullable()();
@@ -91,7 +92,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -106,6 +107,9 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 7) {
         await customStatement('DROP TABLE IF EXISTS workflow_entries');
+      }
+      if (from < 8) {
+        await migrator.addColumn(workspaceEntries, workspaceEntries.collection);
       }
     },
   );

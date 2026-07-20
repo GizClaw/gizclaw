@@ -130,7 +130,12 @@ export type VolcSyncVoicesResult = {
 export type WorkspaceUpsert = {
     name: string;
     workflow_name: string;
-    workflow_source?: 'runtime' | 'owned';
+    /**
+     * Stored Workspace labels. Omission preserves labels on put; an explicit empty object clears them.
+     */
+    labels?: {
+        [key: string]: string;
+    };
     parameters?: WorkspaceParameters;
     toolkit?: ToolkitPolicy;
     icon?: Icon;
@@ -661,10 +666,6 @@ export type WorkspaceResource = {
 
 export type Credential = {
     name: string;
-    /**
-     * Immutable Public Key of the Client that created this Credential. Admin-created Credentials omit it.
-     */
-    readonly owner_public_key?: string;
     provider: string;
     body: CredentialBody;
     description?: string;
@@ -1215,10 +1216,6 @@ export type MiniMaxTenantSpec = {
 
 export type Model = {
     id: string;
-    /**
-     * Immutable Public Key of the Client that created this Model. Admin-created Models omit it.
-     */
-    readonly owner_public_key?: string;
     kind: ModelKind;
     source: ModelSource;
     provider: ModelProvider;
@@ -1489,22 +1486,45 @@ export type Runtime = {
 
 export type RuntimeProfile = {
     name: string;
+    /**
+     * Deterministic opaque revision of the normalized RuntimeProfile spec.
+     */
+    revision: string;
     spec: RuntimeProfileSpec;
     created_at: string;
     updated_at: string;
 };
 
+export type RuntimeProfileAdoptionSpec = {
+    pool?: Array<RuntimeProfilePetPoolEntry>;
+};
+
+export type RuntimeProfileBinding = {
+    resource_id: string;
+    i18n: {
+        [key: string]: RuntimeProfileI18nText;
+    };
+};
+
 export type RuntimeProfileDriveSpec = {
-    default_reward?: RuntimeProfileRewardSpec;
-    game_rewards?: {
+    default?: RuntimeProfileRewardSpec;
+    games?: {
+        [key: string]: RuntimeProfileRewardSpec;
+    };
+    pet_actions?: {
         [key: string]: RuntimeProfileRewardSpec;
     };
 };
 
 export type RuntimeProfileGameplaySpec = {
     points?: RuntimeProfilePointsSpec;
-    pet_pool?: Array<RuntimeProfilePetPoolEntry>;
-    drive?: RuntimeProfileDriveSpec;
+    adoption?: RuntimeProfileAdoptionSpec;
+    rewards?: RuntimeProfileDriveSpec;
+};
+
+export type RuntimeProfileI18nText = {
+    display_name: string;
+    description?: string;
 };
 
 export type RuntimeProfilePetPoolEntry = {
@@ -1519,26 +1539,23 @@ export type RuntimeProfilePointsSpec = {
 };
 
 export type RuntimeProfileResources = {
-    workflows?: {
-        [key: string]: string;
-    };
     models?: {
-        [key: string]: string;
+        [key: string]: RuntimeProfileBinding;
     };
     voices?: {
-        [key: string]: string;
+        [key: string]: RuntimeProfileBinding;
     };
     tools?: {
-        [key: string]: string;
+        [key: string]: RuntimeProfileBinding;
     };
     pet_defs?: {
-        [key: string]: string;
+        [key: string]: RuntimeProfileBinding;
     };
     game_defs?: {
-        [key: string]: string;
+        [key: string]: RuntimeProfileBinding;
     };
     badge_defs?: {
-        [key: string]: string;
+        [key: string]: RuntimeProfileBinding;
     };
 };
 
@@ -1551,8 +1568,19 @@ export type RuntimeProfileRewardSpec = {
 };
 
 export type RuntimeProfileSpec = {
+    workflows: RuntimeProfileWorkflows;
     resources: RuntimeProfileResources;
     gameplay?: RuntimeProfileGameplaySpec;
+};
+
+export type RuntimeProfileWorkflowCollections = {
+    [key: string]: {
+        [key: string]: RuntimeProfileBinding;
+    };
+};
+
+export type RuntimeProfileWorkflows = {
+    collections: RuntimeProfileWorkflowCollections;
 };
 
 export type FriendGroupInviteTokenClearResponse = {
@@ -1862,10 +1890,6 @@ export type Workflow = {
      */
     name: string;
     spec: WorkflowSpec;
-    /**
-     * Immutable Public Key of the Client that created this Workflow. Admin-created Workflows omit it.
-     */
-    readonly owner_public_key?: string;
 };
 
 export type WorkflowDriver = 'flowcraft' | 'doubao-realtime' | 'ast-translate' | 'chatroom' | 'pet';
@@ -1882,7 +1906,7 @@ export type WorkflowSpec = {
 
 export type AstTranslateExternalVoiceParameters = {
     /**
-     * GizClaw voice resource name used by an external TTS path.
+     * RuntimeProfile Voice alias used by the external TTS path.
      */
     tts_voice: string;
 };
@@ -1903,7 +1927,7 @@ export type AstTranslateVoiceParameters = AstTranslateInternalSpeakerParameters 
 
 export type AstTranslateWorkflowSpec = {
     /**
-     * GizClaw model resource used to resolve the Volc tenant credential for AST translate.
+     * RuntimeProfile translation Model alias resolved when the Workspace reloads.
      */
     translation_model: string;
     mode?: AstTranslateMode;
@@ -1938,7 +1962,7 @@ export type ChatRoomWorkflowTranscriptSpec = {
      */
     enabled?: boolean;
     /**
-     * GizClaw ASR model resource used to transcribe gear audio.
+     * RuntimeProfile ASR Model alias resolved when the Workspace reloads.
      */
     asr_model?: string;
 };
@@ -2059,7 +2083,7 @@ export type DoubaoRealtimeTtsExtra = {
 
 export type DoubaoRealtimeWorkflowSpec = {
     /**
-     * GizClaw Model resource name. The upstream Doubao model version is configured on Model provider_data.upstream_model.
+     * RuntimeProfile realtime Model alias. The canonical Model and upstream version are resolved on Workspace reload.
      */
     model: string;
     instructions?: string;
@@ -2083,9 +2107,11 @@ export type Workspace = {
      */
     readonly owner_public_key?: string;
     /**
-     * Identifier namespace for a Client-created Workspace Workflow reference. Internal system Workspaces omit it.
+     * Stored Workspace labels used by Admin and internal exact-match filtering. Peer RPC does not project this map.
      */
-    workflow_source?: 'runtime' | 'owned';
+    labels?: {
+        [key: string]: string;
+    };
     workflow_name: string;
     /**
      * Whether the Workspace lifecycle is owned by another domain service. System Workspaces cannot be deleted through generic Workspace operations.
@@ -2104,7 +2130,7 @@ export type Workspace = {
 
 export type WorkspaceParametersAstTranslateExternalVoiceParameters = {
     /**
-     * GizClaw voice resource name used by an external TTS path.
+     * RuntimeProfile Voice alias used by the external TTS path.
      */
     tts_voice: string;
 };
@@ -2177,7 +2203,7 @@ export type ChatRoomWorkspaceTranscriptParameters = {
 export type DoubaoRealtimeWorkspaceParameters = {
     agent_type: 'doubao-realtime';
     /**
-     * GizClaw Model resource name. Defaults to Workflow.spec.doubao_realtime.model.
+     * RuntimeProfile Model alias. Defaults to Workflow.spec.doubao_realtime.model.
      */
     model?: string;
     instructions?: string;
@@ -2231,7 +2257,7 @@ export type PetPersonaParameters = {
 
 export type PetVoiceParameters = {
     /**
-     * GizClaw Voice resource name used for this pet.
+     * RuntimeProfile Voice alias used for this pet.
      */
     voice_id: string;
     /**
@@ -2274,28 +2300,10 @@ export type WorkspaceSpec = {
     toolkit?: ToolkitPolicy;
 };
 
-export type CredentialListWritable = {
-    has_next: boolean;
-    next_cursor?: string | null;
-    items: Array<CredentialWritable>;
-};
-
-export type ModelListWritable = {
-    has_next: boolean;
-    next_cursor?: string | null;
-    items: Array<ModelWritable>;
-};
-
 export type WorkspaceListWritable = {
     has_next: boolean;
     next_cursor?: string | null;
     items: Array<WorkspaceWritable>;
-};
-
-export type WorkflowListWritable = {
-    has_next: boolean;
-    next_cursor?: string | null;
-    items: Array<WorkflowWritable>;
 };
 
 export type RegistrationTokenResourceWritable = {
@@ -2383,47 +2391,18 @@ export type ResourceListSpecWritable = {
     items: Array<ResourceWritable>;
 };
 
-export type CredentialWritable = {
-    name: string;
-    provider: string;
-    body: CredentialBody;
-    description?: string;
-    created_at: string;
-    updated_at: string;
-};
-
-export type ModelWritable = {
-    id: string;
-    kind: ModelKind;
-    source: ModelSource;
-    provider: ModelProvider;
-    name?: string;
-    description?: string;
-    capabilities?: ModelCapabilities;
-    provider_data?: ModelProviderData;
-    synced_at?: string;
-    created_at: string;
-    updated_at: string;
-};
-
 export type FriendGroupInviteTokenClearResponseWritable = {
     [key: string]: never;
-};
-
-export type WorkflowWritable = {
-    /**
-     * Stable workflow ID used by storage, paths, RuntimeProfiles, and workspace references.
-     */
-    name: string;
-    spec: WorkflowSpec;
 };
 
 export type WorkspaceWritable = {
     name: string;
     /**
-     * Identifier namespace for a Client-created Workspace Workflow reference. Internal system Workspaces omit it.
+     * Stored Workspace labels used by Admin and internal exact-match filtering. Peer RPC does not project this map.
      */
-    workflow_source?: 'runtime' | 'owned';
+    labels?: {
+        [key: string]: string;
+    };
     workflow_name: string;
     parameters?: WorkspaceParameters;
     toolkit?: ToolkitPolicy;
@@ -3561,7 +3540,7 @@ export type ListWorkflowsResponses = {
 export type ListWorkflowsResponse = ListWorkflowsResponses[keyof ListWorkflowsResponses];
 
 export type CreateWorkflowData = {
-    body: WorkflowWritable;
+    body: Workflow;
     path?: never;
     query?: never;
     url: '/workflows';
@@ -5379,7 +5358,7 @@ export type GetWorkflowResponses = {
 export type GetWorkflowResponse = GetWorkflowResponses[keyof GetWorkflowResponses];
 
 export type PutWorkflowData = {
-    body: WorkflowWritable;
+    body: Workflow;
     path: {
         /**
          * Workflow name
@@ -5424,11 +5403,19 @@ export type ListWorkspacesData = {
          * Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
          */
         limit?: number;
+        /**
+         * Repeated exact-match selector in key=value form. Multiple selectors use AND semantics and filtering occurs before pagination.
+         */
+        label?: Array<string>;
     };
     url: '/workspaces';
 };
 
 export type ListWorkspacesErrors = {
+    /**
+     * Invalid label selector
+     */
+    400: ErrorResponse;
     /**
      * Internal error
      */

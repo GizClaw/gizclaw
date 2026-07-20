@@ -110,9 +110,9 @@ func (s *Service) Reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 	if s.RuntimeProfile != nil {
 		if profile := s.RuntimeProfile(); profile != nil {
 			profileToolIDs = runtimeProfileToolIDs(profile.Spec.Resources.Tools)
-			if profile.Spec.Resources.Workflows != nil {
-				for alias, name := range *profile.Spec.Resources.Workflows {
-					profileWorkflowBindings[alias] = name
+			for _, workflows := range profile.Spec.Workflows.Collections {
+				for alias, binding := range workflows {
+					profileWorkflowBindings[alias] = binding.ResourceId
 				}
 			}
 		}
@@ -161,7 +161,7 @@ func (s *Service) Reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 	return status, nil
 }
 
-func runtimeProfileToolIDs(tools *map[string]string) []string {
+func runtimeProfileToolIDs(tools *map[string]apitypes.RuntimeProfileBinding) []string {
 	if tools == nil {
 		return nil
 	}
@@ -172,7 +172,7 @@ func runtimeProfileToolIDs(tools *map[string]string) []string {
 	sort.Strings(aliases)
 	ids := make([]string, 0, len(aliases))
 	for _, alias := range aliases {
-		ids = append(ids, (*tools)[alias])
+		ids = append(ids, (*tools)[alias].ResourceId)
 	}
 	return ids
 }

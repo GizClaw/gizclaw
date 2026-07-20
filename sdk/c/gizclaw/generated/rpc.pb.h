@@ -59,21 +59,10 @@ typedef enum _gizclaw_rpc_v1_RpcMethod {
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKSPACE_HISTORY_AUDIO_GET = 32,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKFLOW_LIST = 33,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKFLOW_GET = 34,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKFLOW_CREATE = 35,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKFLOW_PUT = 36,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKFLOW_DELETE = 37,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_MODEL_LIST = 38,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_MODEL_GET = 39,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_MODEL_CREATE = 40,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_MODEL_PUT = 41,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_MODEL_DELETE = 42,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_VOICE_LIST = 43,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_VOICE_GET = 44,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_CREDENTIAL_LIST = 45,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_CREDENTIAL_GET = 46,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_CREDENTIAL_CREATE = 47,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_CREDENTIAL_PUT = 48,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_CREDENTIAL_DELETE = 49,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_CONTACT_LIST = 50,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_CONTACT_GET = 51,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_CONTACT_CREATE = 52,
@@ -119,9 +108,6 @@ typedef enum _gizclaw_rpc_v1_RpcMethod {
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_REWARD_GRANT_GET = 94,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_TOOL_LIST = 95,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_TOOL_GET = 96,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_TOOL_CREATE = 97,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_TOOL_PUT = 98,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_TOOL_DELETE = 99,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_INVOKE = 100,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PEER_LOOKUP = 101,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PEER_ASSIGN = 102,
@@ -130,7 +116,9 @@ typedef enum _gizclaw_rpc_v1_RpcMethod {
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD = 105,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD = 107,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_INFO_GET = 108,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_REGISTER = 109
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_REGISTER = 109,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_SPEECH_TRANSCRIBE = 110,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_SPEECH_SYNTHESIZE = 111
 } gizclaw_rpc_v1_RpcMethod;
 
 /* Struct definitions */
@@ -185,8 +173,8 @@ extern "C" {
 #define _gizclaw_rpc_v1_RpcErrorCode_ARRAYSIZE ((gizclaw_rpc_v1_RpcErrorCode)(gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_CONFLICT+1))
 
 #define _gizclaw_rpc_v1_RpcMethod_MIN gizclaw_rpc_v1_RpcMethod_RPC_METHOD_UNSPECIFIED
-#define _gizclaw_rpc_v1_RpcMethod_MAX gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_REGISTER
-#define _gizclaw_rpc_v1_RpcMethod_ARRAYSIZE ((gizclaw_rpc_v1_RpcMethod)(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_REGISTER+1))
+#define _gizclaw_rpc_v1_RpcMethod_MAX gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_SPEECH_SYNTHESIZE
+#define _gizclaw_rpc_v1_RpcMethod_ARRAYSIZE ((gizclaw_rpc_v1_RpcMethod)(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_SPEECH_SYNTHESIZE+1))
 
 
 

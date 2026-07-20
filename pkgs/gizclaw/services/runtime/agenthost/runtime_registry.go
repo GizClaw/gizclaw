@@ -49,7 +49,7 @@ func runtimeKey(workspaceName string, spec Spec) string {
 	if spec.Toolkit == nil {
 		return workspaceName
 	}
-	return workspaceName + "#toolkit-owner=" + spec.Toolkit.BuildRequest.OwnerPublicKey
+	return workspaceName + "#toolkit-caller=" + spec.Toolkit.BuildRequest.CallerPublicKey
 }
 
 func (r *RuntimeRegistry) releaseFunc(key string, current *workspaceRuntime) func() {

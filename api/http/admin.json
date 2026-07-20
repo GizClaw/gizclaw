@@ -5069,6 +5069,20 @@
               "format": "int32",
               "default": 50
             }
+          },
+          {
+            "name": "label",
+            "in": "query",
+            "required": false,
+            "description": "Repeated exact-match selector in key=value form. Multiple selectors use AND semantics and filtering occurs before pagination.",
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         ],
         "responses": {
@@ -5078,6 +5092,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/WorkspaceList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid label selector",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -10504,12 +10528,13 @@
           "workflow_name": {
             "type": "string"
           },
-          "workflow_source": {
-            "type": "string",
-            "enum": [
-              "runtime",
-              "owned"
-            ]
+          "labels": {
+            "type": "object",
+            "maxProperties": 32,
+            "description": "Stored Workspace labels. Omission preserves labels on put; an explicit empty object clears them.",
+            "additionalProperties": {
+              "type": "string"
+            }
           },
           "parameters": {
             "$ref": "./shared.json#/components/schemas/WorkspaceParameters"

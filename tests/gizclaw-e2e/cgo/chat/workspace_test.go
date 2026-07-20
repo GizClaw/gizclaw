@@ -53,11 +53,11 @@ func createCSDKChatRegistrationToken(t *testing.T, h *clitest.Harness, scenario 
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	workflows := map[string]string{
+	workflowResources := map[string]string{
 		"chatroom": "chatroom-direct",
 		"realtime": "doubao-realtime-conversation",
 	}
-	models := map[string]string{
+	modelResources := map[string]string{
 		"llm":      "doubao-lite-chat",
 		"tts":      "volc-bigtts",
 		"asr":      "volc-bigasr-sauc",
@@ -67,9 +67,10 @@ func createCSDKChatRegistrationToken(t *testing.T, h *clitest.Harness, scenario 
 	profileResp, err := api.PutRuntimeProfileWithResponse(ctx, profileName, adminhttp.RuntimeProfileUpsert{
 		Name: profileName,
 		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{
-			Workflows: &workflows,
-			Models:    &models,
-		}},
+			Models: ptr(runtimeBindings(modelResources)),
+		}, Workflows: apitypes.RuntimeProfileWorkflows{Collections: apitypes.RuntimeProfileWorkflowCollections{
+			"assistants": runtimeBindings(workflowResources),
+		}}},
 	})
 	if err != nil {
 		t.Fatalf("put C SDK chat RuntimeProfile: %v", err)
@@ -91,3 +92,19 @@ func createCSDKChatRegistrationToken(t *testing.T, h *clitest.Harness, scenario 
 	}
 	return tokenResp.JSON200.Token
 }
+
+func runtimeBindings(resources map[string]string) map[string]apitypes.RuntimeProfileBinding {
+	bindings := make(map[string]apitypes.RuntimeProfileBinding, len(resources))
+	for alias, resourceID := range resources {
+		bindings[alias] = apitypes.RuntimeProfileBinding{
+			ResourceId: resourceID,
+			I18n: map[string]apitypes.RuntimeProfileI18nText{
+				"en":    {DisplayName: alias},
+				"zh-CN": {DisplayName: alias},
+			},
+		}
+	}
+	return bindings
+}
+
+func ptr[T any](value T) *T { return &value }

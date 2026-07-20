@@ -130,21 +130,10 @@ const (
 	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_HISTORY_AUDIO_GET      RpcMethod = 32
 	RpcMethod_RPC_METHOD_SERVER_WORKFLOW_LIST                    RpcMethod = 33
 	RpcMethod_RPC_METHOD_SERVER_WORKFLOW_GET                     RpcMethod = 34
-	RpcMethod_RPC_METHOD_SERVER_WORKFLOW_CREATE                  RpcMethod = 35
-	RpcMethod_RPC_METHOD_SERVER_WORKFLOW_PUT                     RpcMethod = 36
-	RpcMethod_RPC_METHOD_SERVER_WORKFLOW_DELETE                  RpcMethod = 37
 	RpcMethod_RPC_METHOD_SERVER_MODEL_LIST                       RpcMethod = 38
 	RpcMethod_RPC_METHOD_SERVER_MODEL_GET                        RpcMethod = 39
-	RpcMethod_RPC_METHOD_SERVER_MODEL_CREATE                     RpcMethod = 40
-	RpcMethod_RPC_METHOD_SERVER_MODEL_PUT                        RpcMethod = 41
-	RpcMethod_RPC_METHOD_SERVER_MODEL_DELETE                     RpcMethod = 42
 	RpcMethod_RPC_METHOD_SERVER_VOICE_LIST                       RpcMethod = 43
 	RpcMethod_RPC_METHOD_SERVER_VOICE_GET                        RpcMethod = 44
-	RpcMethod_RPC_METHOD_SERVER_CREDENTIAL_LIST                  RpcMethod = 45
-	RpcMethod_RPC_METHOD_SERVER_CREDENTIAL_GET                   RpcMethod = 46
-	RpcMethod_RPC_METHOD_SERVER_CREDENTIAL_CREATE                RpcMethod = 47
-	RpcMethod_RPC_METHOD_SERVER_CREDENTIAL_PUT                   RpcMethod = 48
-	RpcMethod_RPC_METHOD_SERVER_CREDENTIAL_DELETE                RpcMethod = 49
 	RpcMethod_RPC_METHOD_SERVER_CONTACT_LIST                     RpcMethod = 50
 	RpcMethod_RPC_METHOD_SERVER_CONTACT_GET                      RpcMethod = 51
 	RpcMethod_RPC_METHOD_SERVER_CONTACT_CREATE                   RpcMethod = 52
@@ -190,9 +179,6 @@ const (
 	RpcMethod_RPC_METHOD_SERVER_REWARD_GRANT_GET                 RpcMethod = 94
 	RpcMethod_RPC_METHOD_SERVER_TOOL_LIST                        RpcMethod = 95
 	RpcMethod_RPC_METHOD_SERVER_TOOL_GET                         RpcMethod = 96
-	RpcMethod_RPC_METHOD_SERVER_TOOL_CREATE                      RpcMethod = 97
-	RpcMethod_RPC_METHOD_SERVER_TOOL_PUT                         RpcMethod = 98
-	RpcMethod_RPC_METHOD_SERVER_TOOL_DELETE                      RpcMethod = 99
 	RpcMethod_RPC_METHOD_CLIENT_TOOL_INVOKE                      RpcMethod = 100
 	RpcMethod_RPC_METHOD_SERVER_PEER_LOOKUP                      RpcMethod = 101
 	RpcMethod_RPC_METHOD_SERVER_PEER_ASSIGN                      RpcMethod = 102
@@ -202,6 +188,8 @@ const (
 	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD          RpcMethod = 107
 	RpcMethod_RPC_METHOD_SERVER_FRIEND_INFO_GET                  RpcMethod = 108
 	RpcMethod_RPC_METHOD_SERVER_REGISTER                         RpcMethod = 109
+	RpcMethod_RPC_METHOD_SERVER_SPEECH_TRANSCRIBE                RpcMethod = 110
+	RpcMethod_RPC_METHOD_SERVER_SPEECH_SYNTHESIZE                RpcMethod = 111
 )
 
 // Enum value maps for RpcMethod.
@@ -242,21 +230,10 @@ var (
 		32:  "RPC_METHOD_SERVER_WORKSPACE_HISTORY_AUDIO_GET",
 		33:  "RPC_METHOD_SERVER_WORKFLOW_LIST",
 		34:  "RPC_METHOD_SERVER_WORKFLOW_GET",
-		35:  "RPC_METHOD_SERVER_WORKFLOW_CREATE",
-		36:  "RPC_METHOD_SERVER_WORKFLOW_PUT",
-		37:  "RPC_METHOD_SERVER_WORKFLOW_DELETE",
 		38:  "RPC_METHOD_SERVER_MODEL_LIST",
 		39:  "RPC_METHOD_SERVER_MODEL_GET",
-		40:  "RPC_METHOD_SERVER_MODEL_CREATE",
-		41:  "RPC_METHOD_SERVER_MODEL_PUT",
-		42:  "RPC_METHOD_SERVER_MODEL_DELETE",
 		43:  "RPC_METHOD_SERVER_VOICE_LIST",
 		44:  "RPC_METHOD_SERVER_VOICE_GET",
-		45:  "RPC_METHOD_SERVER_CREDENTIAL_LIST",
-		46:  "RPC_METHOD_SERVER_CREDENTIAL_GET",
-		47:  "RPC_METHOD_SERVER_CREDENTIAL_CREATE",
-		48:  "RPC_METHOD_SERVER_CREDENTIAL_PUT",
-		49:  "RPC_METHOD_SERVER_CREDENTIAL_DELETE",
 		50:  "RPC_METHOD_SERVER_CONTACT_LIST",
 		51:  "RPC_METHOD_SERVER_CONTACT_GET",
 		52:  "RPC_METHOD_SERVER_CONTACT_CREATE",
@@ -302,9 +279,6 @@ var (
 		94:  "RPC_METHOD_SERVER_REWARD_GRANT_GET",
 		95:  "RPC_METHOD_SERVER_TOOL_LIST",
 		96:  "RPC_METHOD_SERVER_TOOL_GET",
-		97:  "RPC_METHOD_SERVER_TOOL_CREATE",
-		98:  "RPC_METHOD_SERVER_TOOL_PUT",
-		99:  "RPC_METHOD_SERVER_TOOL_DELETE",
 		100: "RPC_METHOD_CLIENT_TOOL_INVOKE",
 		101: "RPC_METHOD_SERVER_PEER_LOOKUP",
 		102: "RPC_METHOD_SERVER_PEER_ASSIGN",
@@ -314,6 +288,8 @@ var (
 		107: "RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD",
 		108: "RPC_METHOD_SERVER_FRIEND_INFO_GET",
 		109: "RPC_METHOD_SERVER_REGISTER",
+		110: "RPC_METHOD_SERVER_SPEECH_TRANSCRIBE",
+		111: "RPC_METHOD_SERVER_SPEECH_SYNTHESIZE",
 	}
 	RpcMethod_value = map[string]int32{
 		"RPC_METHOD_UNSPECIFIED":                             0,
@@ -351,21 +327,10 @@ var (
 		"RPC_METHOD_SERVER_WORKSPACE_HISTORY_AUDIO_GET":      32,
 		"RPC_METHOD_SERVER_WORKFLOW_LIST":                    33,
 		"RPC_METHOD_SERVER_WORKFLOW_GET":                     34,
-		"RPC_METHOD_SERVER_WORKFLOW_CREATE":                  35,
-		"RPC_METHOD_SERVER_WORKFLOW_PUT":                     36,
-		"RPC_METHOD_SERVER_WORKFLOW_DELETE":                  37,
 		"RPC_METHOD_SERVER_MODEL_LIST":                       38,
 		"RPC_METHOD_SERVER_MODEL_GET":                        39,
-		"RPC_METHOD_SERVER_MODEL_CREATE":                     40,
-		"RPC_METHOD_SERVER_MODEL_PUT":                        41,
-		"RPC_METHOD_SERVER_MODEL_DELETE":                     42,
 		"RPC_METHOD_SERVER_VOICE_LIST":                       43,
 		"RPC_METHOD_SERVER_VOICE_GET":                        44,
-		"RPC_METHOD_SERVER_CREDENTIAL_LIST":                  45,
-		"RPC_METHOD_SERVER_CREDENTIAL_GET":                   46,
-		"RPC_METHOD_SERVER_CREDENTIAL_CREATE":                47,
-		"RPC_METHOD_SERVER_CREDENTIAL_PUT":                   48,
-		"RPC_METHOD_SERVER_CREDENTIAL_DELETE":                49,
 		"RPC_METHOD_SERVER_CONTACT_LIST":                     50,
 		"RPC_METHOD_SERVER_CONTACT_GET":                      51,
 		"RPC_METHOD_SERVER_CONTACT_CREATE":                   52,
@@ -411,9 +376,6 @@ var (
 		"RPC_METHOD_SERVER_REWARD_GRANT_GET":                 94,
 		"RPC_METHOD_SERVER_TOOL_LIST":                        95,
 		"RPC_METHOD_SERVER_TOOL_GET":                         96,
-		"RPC_METHOD_SERVER_TOOL_CREATE":                      97,
-		"RPC_METHOD_SERVER_TOOL_PUT":                         98,
-		"RPC_METHOD_SERVER_TOOL_DELETE":                      99,
 		"RPC_METHOD_CLIENT_TOOL_INVOKE":                      100,
 		"RPC_METHOD_SERVER_PEER_LOOKUP":                      101,
 		"RPC_METHOD_SERVER_PEER_ASSIGN":                      102,
@@ -423,6 +385,8 @@ var (
 		"RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD":          107,
 		"RPC_METHOD_SERVER_FRIEND_INFO_GET":                  108,
 		"RPC_METHOD_SERVER_REGISTER":                         109,
+		"RPC_METHOD_SERVER_SPEECH_TRANSCRIBE":                110,
+		"RPC_METHOD_SERVER_SPEECH_SYNTHESIZE":                111,
 	}
 )
 
@@ -915,7 +879,7 @@ const file_rpc_proto_rawDesc = "" +
 	"\x1aRPC_ERROR_CODE_BAD_REQUEST\x10\x90\x03\x12\x1d\n" +
 	"\x18RPC_ERROR_CODE_FORBIDDEN\x10\x93\x03\x12\x1d\n" +
 	"\x18RPC_ERROR_CODE_NOT_FOUND\x10\x94\x03\x12\x1c\n" +
-	"\x17RPC_ERROR_CODE_CONFLICT\x10\x99\x03*\xc1d\n" +
+	"\x17RPC_ERROR_CODE_CONFLICT\x10\x99\x03*\xf3^\n" +
 	"\tRpcMethod\x12\x1a\n" +
 	"\x16RPC_METHOD_UNSPECIFIED\x10\x00\x12B\n" +
 	"\x13RPC_METHOD_ALL_PING\x10\x01\x1a)\xc2\xf3\x18%\n" +
@@ -986,37 +950,15 @@ const file_rpc_proto_rawDesc = "" +
 	"\x1fRPC_METHOD_SERVER_WORKFLOW_LIST\x10!\x1aE\xc2\xf3\x18A\n" +
 	"\x14server.workflow.list\x12\x13WorkflowListRequest\x1a\x14WorkflowListResponse\x12f\n" +
 	"\x1eRPC_METHOD_SERVER_WORKFLOW_GET\x10\"\x1aB\xc2\xf3\x18>\n" +
-	"\x13server.workflow.get\x12\x12WorkflowGetRequest\x1a\x13WorkflowGetResponse\x12r\n" +
-	"!RPC_METHOD_SERVER_WORKFLOW_CREATE\x10#\x1aK\xc2\xf3\x18G\n" +
-	"\x16server.workflow.create\x12\x15WorkflowCreateRequest\x1a\x16WorkflowCreateResponse\x12f\n" +
-	"\x1eRPC_METHOD_SERVER_WORKFLOW_PUT\x10$\x1aB\xc2\xf3\x18>\n" +
-	"\x13server.workflow.put\x12\x12WorkflowPutRequest\x1a\x13WorkflowPutResponse\x12r\n" +
-	"!RPC_METHOD_SERVER_WORKFLOW_DELETE\x10%\x1aK\xc2\xf3\x18G\n" +
-	"\x16server.workflow.delete\x12\x15WorkflowDeleteRequest\x1a\x16WorkflowDeleteResponse\x12^\n" +
+	"\x13server.workflow.get\x12\x12WorkflowGetRequest\x1a\x13WorkflowGetResponse\x12^\n" +
 	"\x1cRPC_METHOD_SERVER_MODEL_LIST\x10&\x1a<\xc2\xf3\x188\n" +
 	"\x11server.model.list\x12\x10ModelListRequest\x1a\x11ModelListResponse\x12Z\n" +
 	"\x1bRPC_METHOD_SERVER_MODEL_GET\x10'\x1a9\xc2\xf3\x185\n" +
-	"\x10server.model.get\x12\x0fModelGetRequest\x1a\x10ModelGetResponse\x12f\n" +
-	"\x1eRPC_METHOD_SERVER_MODEL_CREATE\x10(\x1aB\xc2\xf3\x18>\n" +
-	"\x13server.model.create\x12\x12ModelCreateRequest\x1a\x13ModelCreateResponse\x12Z\n" +
-	"\x1bRPC_METHOD_SERVER_MODEL_PUT\x10)\x1a9\xc2\xf3\x185\n" +
-	"\x10server.model.put\x12\x0fModelPutRequest\x1a\x10ModelPutResponse\x12f\n" +
-	"\x1eRPC_METHOD_SERVER_MODEL_DELETE\x10*\x1aB\xc2\xf3\x18>\n" +
-	"\x13server.model.delete\x12\x12ModelDeleteRequest\x1a\x13ModelDeleteResponse\x12^\n" +
+	"\x10server.model.get\x12\x0fModelGetRequest\x1a\x10ModelGetResponse\x12^\n" +
 	"\x1cRPC_METHOD_SERVER_VOICE_LIST\x10+\x1a<\xc2\xf3\x188\n" +
 	"\x11server.voice.list\x12\x10VoiceListRequest\x1a\x11VoiceListResponse\x12Z\n" +
 	"\x1bRPC_METHOD_SERVER_VOICE_GET\x10,\x1a9\xc2\xf3\x185\n" +
-	"\x10server.voice.get\x12\x0fVoiceGetRequest\x1a\x10VoiceGetResponse\x12r\n" +
-	"!RPC_METHOD_SERVER_CREDENTIAL_LIST\x10-\x1aK\xc2\xf3\x18G\n" +
-	"\x16server.credential.list\x12\x15CredentialListRequest\x1a\x16CredentialListResponse\x12n\n" +
-	" RPC_METHOD_SERVER_CREDENTIAL_GET\x10.\x1aH\xc2\xf3\x18D\n" +
-	"\x15server.credential.get\x12\x14CredentialGetRequest\x1a\x15CredentialGetResponse\x12z\n" +
-	"#RPC_METHOD_SERVER_CREDENTIAL_CREATE\x10/\x1aQ\xc2\xf3\x18M\n" +
-	"\x18server.credential.create\x12\x17CredentialCreateRequest\x1a\x18CredentialCreateResponse\x12n\n" +
-	" RPC_METHOD_SERVER_CREDENTIAL_PUT\x100\x1aH\xc2\xf3\x18D\n" +
-	"\x15server.credential.put\x12\x14CredentialPutRequest\x1a\x15CredentialPutResponse\x12z\n" +
-	"#RPC_METHOD_SERVER_CREDENTIAL_DELETE\x101\x1aQ\xc2\xf3\x18M\n" +
-	"\x18server.credential.delete\x12\x17CredentialDeleteRequest\x1a\x18CredentialDeleteResponse\x12f\n" +
+	"\x10server.voice.get\x12\x0fVoiceGetRequest\x1a\x10VoiceGetResponse\x12f\n" +
 	"\x1eRPC_METHOD_SERVER_CONTACT_LIST\x102\x1aB\xc2\xf3\x18>\n" +
 	"\x13server.contact.list\x12\x12ContactListRequest\x1a\x13ContactListResponse\x12b\n" +
 	"\x1dRPC_METHOD_SERVER_CONTACT_GET\x103\x1a?\xc2\xf3\x18;\n" +
@@ -1107,12 +1049,6 @@ const file_rpc_proto_rawDesc = "" +
 	"\x10server.tool.list\x12\x0fToolListRequest\x1a\x10ToolListResponse\x12V\n" +
 	"\x1aRPC_METHOD_SERVER_TOOL_GET\x10`\x1a6\xc2\xf3\x182\n" +
 	"\x0fserver.tool.get\x12\x0eToolGetRequest\x1a\x0fToolGetResponse\x12b\n" +
-	"\x1dRPC_METHOD_SERVER_TOOL_CREATE\x10a\x1a?\xc2\xf3\x18;\n" +
-	"\x12server.tool.create\x12\x11ToolCreateRequest\x1a\x12ToolCreateResponse\x12V\n" +
-	"\x1aRPC_METHOD_SERVER_TOOL_PUT\x10b\x1a6\xc2\xf3\x182\n" +
-	"\x0fserver.tool.put\x12\x0eToolPutRequest\x1a\x0fToolPutResponse\x12b\n" +
-	"\x1dRPC_METHOD_SERVER_TOOL_DELETE\x10c\x1a?\xc2\xf3\x18;\n" +
-	"\x12server.tool.delete\x12\x11ToolDeleteRequest\x1a\x12ToolDeleteResponse\x12b\n" +
 	"\x1dRPC_METHOD_CLIENT_TOOL_INVOKE\x10d\x1a?\xc2\xf3\x18;\n" +
 	"\x12client.tool.invoke\x12\x11ToolInvokeRequest\x1a\x12ToolInvokeResponse\x12n\n" +
 	"\x1dRPC_METHOD_SERVER_PEER_LOOKUP\x10e\x1aK\xc2\xf3\x18G\n" +
@@ -1130,7 +1066,11 @@ const file_rpc_proto_rawDesc = "" +
 	"!RPC_METHOD_SERVER_FRIEND_INFO_GET\x10l\x1aI\xc2\xf3\x18E\n" +
 	"\x16server.friend.info.get\x12\x14FriendInfoGetRequest\x1a\x15FriendInfoGetResponse\x12d\n" +
 	"\x1aRPC_METHOD_SERVER_REGISTER\x10m\x1aD\xc2\xf3\x18@\n" +
-	"\x0fserver.register\x12\x15ServerRegisterRequest\x1a\x16ServerRegisterResponse\"\x04\bM\x10M\"\x04\bj\x10j*(RPC_METHOD_SERVER_WORKFLOW_ICON_DOWNLOAD:d\n" +
+	"\x0fserver.register\x12\x15ServerRegisterRequest\x1a\x16ServerRegisterResponse\x12z\n" +
+	"#RPC_METHOD_SERVER_SPEECH_TRANSCRIBE\x10n\x1aQ\xc2\xf3\x18M\n" +
+	"\x18server.speech.transcribe\x12\x17SpeechTranscribeRequest\x1a\x18SpeechTranscribeResponse\x12z\n" +
+	"#RPC_METHOD_SERVER_SPEECH_SYNTHESIZE\x10o\x1aQ\xc2\xf3\x18M\n" +
+	"\x18server.speech.synthesize\x12\x17SpeechSynthesizeRequest\x1a\x18SpeechSynthesizeResponse\"\x04\b#\x10#\"\x04\b$\x10$\"\x04\b%\x10%\"\x04\b(\x10(\"\x04\b)\x10)\"\x04\b*\x10*\"\x04\b-\x10-\"\x04\b.\x10.\"\x04\b/\x10/\"\x04\b0\x100\"\x04\b1\x101\"\x04\bM\x10M\"\x04\ba\x10a\"\x04\bb\x10b\"\x04\bc\x10c\"\x04\bj\x10j*!RPC_METHOD_SERVER_WORKFLOW_CREATE*\x1eRPC_METHOD_SERVER_WORKFLOW_PUT*!RPC_METHOD_SERVER_WORKFLOW_DELETE*\x1eRPC_METHOD_SERVER_MODEL_CREATE*\x1bRPC_METHOD_SERVER_MODEL_PUT*\x1eRPC_METHOD_SERVER_MODEL_DELETE*!RPC_METHOD_SERVER_CREDENTIAL_LIST* RPC_METHOD_SERVER_CREDENTIAL_GET*#RPC_METHOD_SERVER_CREDENTIAL_CREATE* RPC_METHOD_SERVER_CREDENTIAL_PUT*#RPC_METHOD_SERVER_CREDENTIAL_DELETE*\x1dRPC_METHOD_SERVER_TOOL_CREATE*\x1aRPC_METHOD_SERVER_TOOL_PUT*\x1dRPC_METHOD_SERVER_TOOL_DELETE*(RPC_METHOD_SERVER_WORKFLOW_ICON_DOWNLOAD:d\n" +
 	"\n" +
 	"rpc_method\x12!.google.protobuf.EnumValueOptions\x18\xb8\x8e\x03 \x01(\v2 .gizclaw.rpc.v1.RpcMethodOptionsR\trpcMethodB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
 

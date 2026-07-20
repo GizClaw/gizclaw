@@ -499,13 +499,12 @@ func CSDKChatWorkspace(t *testing.T, identityDir, registrationToken string) {
 	defer client.Close()
 	registerClient(t, client, registrationToken)
 	workspaceName := fmt.Sprintf("cgo-direct-chatroom-%d", time.Now().UnixMilli())
-	workflowSource := rpcpb.ResourceSource_RESOURCE_SOURCE_RUNTIME
 	var createResponse rpcpb.WorkspaceCreateResponse
 	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_WORKSPACE_CREATE, &rpcpb.WorkspaceCreateRequest{
-		Value: &rpcpb.WorkspaceUpsert{
-			Name:           workspaceName,
-			WorkflowName:   "chatroom",
-			WorkflowSource: &workflowSource,
+		Value: &rpcpb.WorkspaceCreateBody{
+			Name:          workspaceName,
+			Collection:    "assistants",
+			WorkflowAlias: "chatroom",
 			Parameters: &rpcpb.WorkspaceParameters{Value: &rpcpb.WorkspaceParameters_ChatRoomWorkspaceParameters{
 				ChatRoomWorkspaceParameters: &rpcpb.ChatRoomWorkspaceParameters{},
 			}},
@@ -517,7 +516,7 @@ func CSDKChatWorkspace(t *testing.T, identityDir, registrationToken string) {
 	var workspaceResponse rpcpb.WorkspaceGetResponse
 	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_WORKSPACE_GET, &rpcpb.WorkspaceGetRequest{Name: workspaceName}, &workspaceResponse)
 	workspace := workspaceResponse.GetValue()
-	if workspace == nil || workspace.GetName() != workspaceName || workspace.GetWorkflowName() != "chatroom" || workspace.GetWorkflowSource() != rpcpb.ResourceSource_RESOURCE_SOURCE_RUNTIME {
+	if workspace == nil || workspace.GetName() != workspaceName || workspace.GetWorkflowAlias() != "chatroom" || !workspace.GetAvailable() {
 		t.Fatalf("invalid server.workspace.get: %s", workspaceResponse.String())
 	}
 	setChatWorkspace(t, client, workspaceName)

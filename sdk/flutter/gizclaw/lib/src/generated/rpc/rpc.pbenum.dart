@@ -133,36 +133,14 @@ class RpcMethod extends $pb.ProtobufEnum {
       RpcMethod._(33, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKFLOW_LIST');
   static const RpcMethod RPC_METHOD_SERVER_WORKFLOW_GET =
       RpcMethod._(34, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKFLOW_GET');
-  static const RpcMethod RPC_METHOD_SERVER_WORKFLOW_CREATE = RpcMethod._(
-      35, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKFLOW_CREATE');
-  static const RpcMethod RPC_METHOD_SERVER_WORKFLOW_PUT =
-      RpcMethod._(36, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKFLOW_PUT');
-  static const RpcMethod RPC_METHOD_SERVER_WORKFLOW_DELETE = RpcMethod._(
-      37, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKFLOW_DELETE');
   static const RpcMethod RPC_METHOD_SERVER_MODEL_LIST =
       RpcMethod._(38, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_MODEL_LIST');
   static const RpcMethod RPC_METHOD_SERVER_MODEL_GET =
       RpcMethod._(39, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_MODEL_GET');
-  static const RpcMethod RPC_METHOD_SERVER_MODEL_CREATE =
-      RpcMethod._(40, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_MODEL_CREATE');
-  static const RpcMethod RPC_METHOD_SERVER_MODEL_PUT =
-      RpcMethod._(41, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_MODEL_PUT');
-  static const RpcMethod RPC_METHOD_SERVER_MODEL_DELETE =
-      RpcMethod._(42, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_MODEL_DELETE');
   static const RpcMethod RPC_METHOD_SERVER_VOICE_LIST =
       RpcMethod._(43, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_VOICE_LIST');
   static const RpcMethod RPC_METHOD_SERVER_VOICE_GET =
       RpcMethod._(44, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_VOICE_GET');
-  static const RpcMethod RPC_METHOD_SERVER_CREDENTIAL_LIST = RpcMethod._(
-      45, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_CREDENTIAL_LIST');
-  static const RpcMethod RPC_METHOD_SERVER_CREDENTIAL_GET =
-      RpcMethod._(46, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_CREDENTIAL_GET');
-  static const RpcMethod RPC_METHOD_SERVER_CREDENTIAL_CREATE = RpcMethod._(
-      47, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_CREDENTIAL_CREATE');
-  static const RpcMethod RPC_METHOD_SERVER_CREDENTIAL_PUT =
-      RpcMethod._(48, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_CREDENTIAL_PUT');
-  static const RpcMethod RPC_METHOD_SERVER_CREDENTIAL_DELETE = RpcMethod._(
-      49, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_CREDENTIAL_DELETE');
   static const RpcMethod RPC_METHOD_SERVER_CONTACT_LIST =
       RpcMethod._(50, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_CONTACT_LIST');
   static const RpcMethod RPC_METHOD_SERVER_CONTACT_GET =
@@ -278,12 +256,6 @@ class RpcMethod extends $pb.ProtobufEnum {
       RpcMethod._(95, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_TOOL_LIST');
   static const RpcMethod RPC_METHOD_SERVER_TOOL_GET =
       RpcMethod._(96, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_TOOL_GET');
-  static const RpcMethod RPC_METHOD_SERVER_TOOL_CREATE =
-      RpcMethod._(97, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_TOOL_CREATE');
-  static const RpcMethod RPC_METHOD_SERVER_TOOL_PUT =
-      RpcMethod._(98, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_TOOL_PUT');
-  static const RpcMethod RPC_METHOD_SERVER_TOOL_DELETE =
-      RpcMethod._(99, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_TOOL_DELETE');
   static const RpcMethod RPC_METHOD_CLIENT_TOOL_INVOKE =
       RpcMethod._(100, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_TOOL_INVOKE');
   static const RpcMethod RPC_METHOD_SERVER_PEER_LOOKUP =
@@ -303,6 +275,10 @@ class RpcMethod extends $pb.ProtobufEnum {
       108, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_INFO_GET');
   static const RpcMethod RPC_METHOD_SERVER_REGISTER =
       RpcMethod._(109, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_REGISTER');
+  static const RpcMethod RPC_METHOD_SERVER_SPEECH_TRANSCRIBE = RpcMethod._(
+      110, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_SPEECH_TRANSCRIBE');
+  static const RpcMethod RPC_METHOD_SERVER_SPEECH_SYNTHESIZE = RpcMethod._(
+      111, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_SPEECH_SYNTHESIZE');
 
   static const $core.List<RpcMethod> values = <RpcMethod>[
     RPC_METHOD_UNSPECIFIED,
@@ -340,21 +316,10 @@ class RpcMethod extends $pb.ProtobufEnum {
     RPC_METHOD_SERVER_WORKSPACE_HISTORY_AUDIO_GET,
     RPC_METHOD_SERVER_WORKFLOW_LIST,
     RPC_METHOD_SERVER_WORKFLOW_GET,
-    RPC_METHOD_SERVER_WORKFLOW_CREATE,
-    RPC_METHOD_SERVER_WORKFLOW_PUT,
-    RPC_METHOD_SERVER_WORKFLOW_DELETE,
     RPC_METHOD_SERVER_MODEL_LIST,
     RPC_METHOD_SERVER_MODEL_GET,
-    RPC_METHOD_SERVER_MODEL_CREATE,
-    RPC_METHOD_SERVER_MODEL_PUT,
-    RPC_METHOD_SERVER_MODEL_DELETE,
     RPC_METHOD_SERVER_VOICE_LIST,
     RPC_METHOD_SERVER_VOICE_GET,
-    RPC_METHOD_SERVER_CREDENTIAL_LIST,
-    RPC_METHOD_SERVER_CREDENTIAL_GET,
-    RPC_METHOD_SERVER_CREDENTIAL_CREATE,
-    RPC_METHOD_SERVER_CREDENTIAL_PUT,
-    RPC_METHOD_SERVER_CREDENTIAL_DELETE,
     RPC_METHOD_SERVER_CONTACT_LIST,
     RPC_METHOD_SERVER_CONTACT_GET,
     RPC_METHOD_SERVER_CONTACT_CREATE,
@@ -400,9 +365,6 @@ class RpcMethod extends $pb.ProtobufEnum {
     RPC_METHOD_SERVER_REWARD_GRANT_GET,
     RPC_METHOD_SERVER_TOOL_LIST,
     RPC_METHOD_SERVER_TOOL_GET,
-    RPC_METHOD_SERVER_TOOL_CREATE,
-    RPC_METHOD_SERVER_TOOL_PUT,
-    RPC_METHOD_SERVER_TOOL_DELETE,
     RPC_METHOD_CLIENT_TOOL_INVOKE,
     RPC_METHOD_SERVER_PEER_LOOKUP,
     RPC_METHOD_SERVER_PEER_ASSIGN,
@@ -412,10 +374,12 @@ class RpcMethod extends $pb.ProtobufEnum {
     RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD,
     RPC_METHOD_SERVER_FRIEND_INFO_GET,
     RPC_METHOD_SERVER_REGISTER,
+    RPC_METHOD_SERVER_SPEECH_TRANSCRIBE,
+    RPC_METHOD_SERVER_SPEECH_SYNTHESIZE,
   ];
 
   static final $core.List<RpcMethod?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 109);
+      $pb.ProtobufEnum.$_initByValueList(values, 111);
   static RpcMethod? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

@@ -67,31 +67,34 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 	}
 	var parsed struct {
 		Spec struct {
-			Resources struct {
-				Workflows map[string]string `yaml:"workflows"`
-			} `yaml:"resources"`
+			Workflows struct {
+				Collections map[string]map[string]struct {
+					ResourceID string `yaml:"resource_id"`
+				} `yaml:"collections"`
+			} `yaml:"workflows"`
 		} `yaml:"spec"`
 	}
 	if err := yaml.Unmarshal(profile, &parsed); err != nil {
 		t.Fatal(err)
 	}
 	wantWorkflows := map[string]string{
-		"translate-zh-en-auto":     "ast-translate-zh-en-auto",
-		"translate-zh-ja":          "ast-translate-zh-ja",
-		"translate-zh-ko":          "ast-translate-zh-ko",
-		"translate-zh-es":          "ast-translate-zh-es",
-		"ast-translate-zh-en-auto": "ast-translate-zh-en-auto",
-		"ast-translate-zh-ja":      "ast-translate-zh-ja",
-		"ast-translate-zh-ko":      "ast-translate-zh-ko",
-		"ast-translate-zh-es":      "ast-translate-zh-es",
-		"doubao-realtime":          "doubao-realtime-conversation",
-		"chat":                     "flowcraft-chat-assistant",
-		"journey":                  "flowcraft-journey-guide",
-		"murder-mystery":           "flowcraft-murder-mystery",
-		"chatroom":                 "chatroom",
+		"translate-zh-en-auto": "ast-translate-zh-en-auto",
+		"translate-zh-ja":      "ast-translate-zh-ja",
+		"translate-zh-ko":      "ast-translate-zh-ko",
+		"translate-zh-es":      "ast-translate-zh-es",
+		"doubao-realtime":      "doubao-realtime-conversation",
+		"chat":                 "flowcraft-chat-assistant",
+		"journey":              "flowcraft-journey-guide",
+		"murder-mystery":       "flowcraft-murder-mystery",
 	}
-	if !maps.Equal(parsed.Spec.Resources.Workflows, wantWorkflows) {
-		t.Fatalf("RuntimeProfile/default Workflows = %#v, want %#v", parsed.Spec.Resources.Workflows, wantWorkflows)
+	gotWorkflows := map[string]string{}
+	for _, workflows := range parsed.Spec.Workflows.Collections {
+		for alias, binding := range workflows {
+			gotWorkflows[alias] = binding.ResourceID
+		}
+	}
+	if !maps.Equal(gotWorkflows, wantWorkflows) {
+		t.Fatalf("RuntimeProfile/default Workflows = %#v, want %#v", gotWorkflows, wantWorkflows)
 	}
 	for _, requirement := range catalog.Requirements {
 		if requirement.Name == "input" {

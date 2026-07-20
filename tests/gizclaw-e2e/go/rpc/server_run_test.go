@@ -13,10 +13,10 @@ func TestServerRunRPC(t *testing.T) {
 	workspaceName := "run-rpc-workspace"
 	_, _ = env.peer.DeleteWorkspace(env.ctx, "server.run.workspace.delete.preclean", rpcapi.WorkspaceDeleteRequest{Name: workspaceName})
 	if _, err := env.peer.CreateWorkspace(env.ctx, "server.run.workspace.create", rpcapi.WorkspaceCreateRequest{
-		Name:           workspaceName,
-		WorkflowName:   "chatroom",
-		WorkflowSource: runtimeSourcePtr(),
-		Parameters:     rpcChatroomWorkspaceParameters(t),
+		Name:          workspaceName,
+		Collection:    "assistants",
+		WorkflowAlias: "chatroom",
+		Parameters:    rpcChatroomWorkspaceParameters(t),
 	}); err != nil {
 		t.Fatalf("server.run workspace.create: %v", err)
 	}

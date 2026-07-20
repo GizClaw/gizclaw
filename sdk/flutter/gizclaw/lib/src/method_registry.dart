@@ -219,24 +219,6 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     requestType: 'WorkflowGetRequest',
     responseType: 'WorkflowGetResponse',
   ),
-  'server.workflow.create': RpcMethodDescriptor(
-    id: 35,
-    name: 'server.workflow.create',
-    requestType: 'WorkflowCreateRequest',
-    responseType: 'WorkflowCreateResponse',
-  ),
-  'server.workflow.put': RpcMethodDescriptor(
-    id: 36,
-    name: 'server.workflow.put',
-    requestType: 'WorkflowPutRequest',
-    responseType: 'WorkflowPutResponse',
-  ),
-  'server.workflow.delete': RpcMethodDescriptor(
-    id: 37,
-    name: 'server.workflow.delete',
-    requestType: 'WorkflowDeleteRequest',
-    responseType: 'WorkflowDeleteResponse',
-  ),
   'server.model.list': RpcMethodDescriptor(
     id: 38,
     name: 'server.model.list',
@@ -249,24 +231,6 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     requestType: 'ModelGetRequest',
     responseType: 'ModelGetResponse',
   ),
-  'server.model.create': RpcMethodDescriptor(
-    id: 40,
-    name: 'server.model.create',
-    requestType: 'ModelCreateRequest',
-    responseType: 'ModelCreateResponse',
-  ),
-  'server.model.put': RpcMethodDescriptor(
-    id: 41,
-    name: 'server.model.put',
-    requestType: 'ModelPutRequest',
-    responseType: 'ModelPutResponse',
-  ),
-  'server.model.delete': RpcMethodDescriptor(
-    id: 42,
-    name: 'server.model.delete',
-    requestType: 'ModelDeleteRequest',
-    responseType: 'ModelDeleteResponse',
-  ),
   'server.voice.list': RpcMethodDescriptor(
     id: 43,
     name: 'server.voice.list',
@@ -278,36 +242,6 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     name: 'server.voice.get',
     requestType: 'VoiceGetRequest',
     responseType: 'VoiceGetResponse',
-  ),
-  'server.credential.list': RpcMethodDescriptor(
-    id: 45,
-    name: 'server.credential.list',
-    requestType: 'CredentialListRequest',
-    responseType: 'CredentialListResponse',
-  ),
-  'server.credential.get': RpcMethodDescriptor(
-    id: 46,
-    name: 'server.credential.get',
-    requestType: 'CredentialGetRequest',
-    responseType: 'CredentialGetResponse',
-  ),
-  'server.credential.create': RpcMethodDescriptor(
-    id: 47,
-    name: 'server.credential.create',
-    requestType: 'CredentialCreateRequest',
-    responseType: 'CredentialCreateResponse',
-  ),
-  'server.credential.put': RpcMethodDescriptor(
-    id: 48,
-    name: 'server.credential.put',
-    requestType: 'CredentialPutRequest',
-    responseType: 'CredentialPutResponse',
-  ),
-  'server.credential.delete': RpcMethodDescriptor(
-    id: 49,
-    name: 'server.credential.delete',
-    requestType: 'CredentialDeleteRequest',
-    responseType: 'CredentialDeleteResponse',
   ),
   'server.contact.list': RpcMethodDescriptor(
     id: 50,
@@ -579,24 +513,6 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     requestType: 'ToolGetRequest',
     responseType: 'ToolGetResponse',
   ),
-  'server.tool.create': RpcMethodDescriptor(
-    id: 97,
-    name: 'server.tool.create',
-    requestType: 'ToolCreateRequest',
-    responseType: 'ToolCreateResponse',
-  ),
-  'server.tool.put': RpcMethodDescriptor(
-    id: 98,
-    name: 'server.tool.put',
-    requestType: 'ToolPutRequest',
-    responseType: 'ToolPutResponse',
-  ),
-  'server.tool.delete': RpcMethodDescriptor(
-    id: 99,
-    name: 'server.tool.delete',
-    requestType: 'ToolDeleteRequest',
-    responseType: 'ToolDeleteResponse',
-  ),
   'client.tool.invoke': RpcMethodDescriptor(
     id: 100,
     name: 'client.tool.invoke',
@@ -651,6 +567,18 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     requestType: 'ServerRegisterRequest',
     responseType: 'ServerRegisterResponse',
   ),
+  'server.speech.transcribe': RpcMethodDescriptor(
+    id: 110,
+    name: 'server.speech.transcribe',
+    requestType: 'SpeechTranscribeRequest',
+    responseType: 'SpeechTranscribeResponse',
+  ),
+  'server.speech.synthesize': RpcMethodDescriptor(
+    id: 111,
+    name: 'server.speech.synthesize',
+    requestType: 'SpeechSynthesizeRequest',
+    responseType: 'SpeechSynthesizeResponse',
+  ),
 };
 
 const rpcMethodNamesById = <int, String>{
@@ -688,21 +616,10 @@ const rpcMethodNamesById = <int, String>{
   32: 'server.workspace.history.audio.get',
   33: 'server.workflow.list',
   34: 'server.workflow.get',
-  35: 'server.workflow.create',
-  36: 'server.workflow.put',
-  37: 'server.workflow.delete',
   38: 'server.model.list',
   39: 'server.model.get',
-  40: 'server.model.create',
-  41: 'server.model.put',
-  42: 'server.model.delete',
   43: 'server.voice.list',
   44: 'server.voice.get',
-  45: 'server.credential.list',
-  46: 'server.credential.get',
-  47: 'server.credential.create',
-  48: 'server.credential.put',
-  49: 'server.credential.delete',
   50: 'server.contact.list',
   51: 'server.contact.get',
   52: 'server.contact.create',
@@ -748,9 +665,6 @@ const rpcMethodNamesById = <int, String>{
   94: 'server.reward_grant.get',
   95: 'server.tool.list',
   96: 'server.tool.get',
-  97: 'server.tool.create',
-  98: 'server.tool.put',
-  99: 'server.tool.delete',
   100: 'client.tool.invoke',
   101: 'server.peer.lookup',
   102: 'server.peer.assign',
@@ -760,6 +674,8 @@ const rpcMethodNamesById = <int, String>{
   107: 'server.workspace.icon.download',
   108: 'server.friend.info.get',
   109: 'server.register',
+  110: 'server.speech.transcribe',
+  111: 'server.speech.synthesize',
 };
 
 RpcMethodDescriptor rpcMethodByName(String name) {

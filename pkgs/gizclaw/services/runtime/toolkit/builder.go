@@ -13,7 +13,7 @@ type AvailabilityChecker interface {
 }
 
 type BuildRequest struct {
-	OwnerPublicKey  string
+	CallerPublicKey string
 	ProfileToolIDs  []string
 	AllowedToolIDs  []string
 	RestrictToolIDs bool
@@ -28,29 +28,15 @@ func (b *Builder) Build(ctx context.Context, req BuildRequest) (ToolKit, error) 
 	if b == nil || b.Tools == nil {
 		return ToolKit{}, ErrNotConfigured
 	}
-	owner := strings.TrimSpace(req.OwnerPublicKey)
-	ownedTools, err := b.Tools.ListToolsByOwner(ctx, owner)
-	if err != nil {
-		return ToolKit{}, err
-	}
-	byID := make(map[string]Tool, len(ownedTools))
-	ownedIDs := make([]string, 0, len(ownedTools))
-	for _, tool := range ownedTools {
-		byID[tool.ID] = tool
-		ownedIDs = append(ownedIDs, tool.ID)
-	}
-	toolIDs := orderedToolIDs(req.ProfileToolIDs, ownedIDs)
+	toolIDs := orderedToolIDs(req.ProfileToolIDs)
 	tools := make([]Tool, 0, len(toolIDs))
 	for _, id := range toolIDs {
-		tool, ok := byID[id]
-		if !ok {
-			tool, err = b.Tools.GetTool(ctx, id)
-			if errors.Is(err, ErrToolNotFound) {
-				continue
-			}
-			if err != nil {
-				return ToolKit{}, err
-			}
+		tool, err := b.Tools.GetTool(ctx, id)
+		if errors.Is(err, ErrToolNotFound) {
+			continue
+		}
+		if err != nil {
+			return ToolKit{}, err
 		}
 		tools = append(tools, tool)
 	}
@@ -81,21 +67,19 @@ func (b *Builder) Build(ctx context.Context, req BuildRequest) (ToolKit, error) 
 	return ToolKit{Tools: cloneTools(out)}, nil
 }
 
-func orderedToolIDs(profile, owned []string) []string {
-	seen := make(map[string]struct{}, len(profile)+len(owned))
-	out := make([]string, 0, len(profile)+len(owned))
-	for _, values := range [][]string{profile, owned} {
-		for _, id := range values {
-			id = strings.TrimSpace(id)
-			if id == "" {
-				continue
-			}
-			if _, ok := seen[id]; ok {
-				continue
-			}
-			seen[id] = struct{}{}
-			out = append(out, id)
+func orderedToolIDs(profile []string) []string {
+	seen := make(map[string]struct{}, len(profile))
+	out := make([]string, 0, len(profile))
+	for _, id := range profile {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			continue
 		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
 	}
 	return out
 }

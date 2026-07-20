@@ -225,7 +225,7 @@ func TestFactoryRequiresConfiguredModelResourcesToBeOperational(t *testing.T) {
 		},
 		Config: Config{GenerateModel: "server-chat", ExtractModel: "server-extract", ASRModel: "server-asr"},
 	}).NewAgent(context.Background(), spec)
-	if err == nil || !strings.Contains(err.Error(), "server-chat") || !strings.Contains(err.Error(), "not accessible as a generator") {
+	if err == nil || !strings.Contains(err.Error(), "server-chat") || !strings.Contains(err.Error(), "resolve model alias") || !strings.Contains(err.Error(), "not found") {
 		t.Fatalf("NewAgent() error = %v, want missing configured model %q", err, "server-chat")
 	}
 }

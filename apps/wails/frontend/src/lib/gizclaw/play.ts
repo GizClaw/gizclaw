@@ -107,6 +107,7 @@ export function createPlayDataClientFromPeerConnection(pc: RTCPeerConnection): P
 export function createRPCPlayDataClient(rpc: PeerRPCClient): PlayDataClient {
   return {
     async loadSnapshot(): Promise<PlaySnapshot> {
+	  const collections = ["assistants", "translates", "raids", "story-teller", "role-play"] as const;
       const [
         runWorkspace,
         history,
@@ -119,7 +120,6 @@ export function createRPCPlayDataClient(rpc: PeerRPCClient): PlayDataClient {
         workflows,
         models,
         voices,
-        credentials,
       ] = await Promise.all([
         captureCall(RPC_METHODS["server.run.workspace.get"], () => rpc.call(RPC_METHODS["server.run.workspace.get"], {})),
         captureCall(RPC_METHODS["server.run.workspace.history"], () => rpc.call(RPC_METHODS["server.run.workspace.history"], { limit: 30 })),
@@ -128,19 +128,18 @@ export function createRPCPlayDataClient(rpc: PeerRPCClient): PlayDataClient {
         captureCall(RPC_METHODS["server.friend.list"], () => rpc.call(RPC_METHODS["server.friend.list"], {})),
         captureCall(RPC_METHODS["server.friend_group.list"], () => rpc.call(RPC_METHODS["server.friend_group.list"], {})),
         captureCall(RPC_METHODS["server.firmware.list"], () => rpc.call(RPC_METHODS["server.firmware.list"], {})),
-        captureCall(RPC_METHODS["server.workspace.list"], () => rpc.call(RPC_METHODS["server.workspace.list"], {})),
-        captureCall(RPC_METHODS["server.workflow.list"], () =>
-          rpc.call(RPC_METHODS["server.workflow.list"], {
-            source: "runtime",
-          }),
-        ),
+		captureCall(RPC_METHODS["server.workspace.list"], async () => ({ items: (await Promise.all(
+		  collections.map((collection) => rpc.call(RPC_METHODS["server.workspace.list"], { collection })),
+		)).flatMap(listItems) })),
+		captureCall(RPC_METHODS["server.workflow.list"], async () => ({ items: (await Promise.all(
+		  collections.map((collection) => rpc.call(RPC_METHODS["server.workflow.list"], { collection })),
+		)).flatMap(listItems) })),
         captureCall(RPC_METHODS["server.model.list"], () => rpc.call(RPC_METHODS["server.model.list"], {})),
         captureCall(RPC_METHODS["server.voice.list"], () => rpc.call(RPC_METHODS["server.voice.list"], {})),
-        captureCall(RPC_METHODS["server.credential.list"], () => rpc.call(RPC_METHODS["server.credential.list"], {})),
       ]);
       return {
         contacts: listItems(contacts.value).map((item) => itemToResourceRow(item, "contact")),
-        credentials: listItems(credentials.value).map((item) => itemToResourceRow(item, "credential")),
+		credentials: [],
         firmwares: listItems(firmwares.value).map((item) => itemToResourceRow(item, "firmware")),
         friendGroups: listItems(friendGroups.value).map((item) => itemToResourceRow(item, "friend-group")),
         friends: listItems(friends.value).map((item) => itemToResourceRow(item, "friend")),
@@ -161,7 +160,6 @@ export function createRPCPlayDataClient(rpc: PeerRPCClient): PlayDataClient {
           workflows,
           models,
           voices,
-          credentials,
         ].flatMap((item) => (item.warning ? [item.warning] : [])),
         workflows: listItems(workflows.value).map((item) => itemToResourceRow(item, "workflow")),
         workspaces: listItems(workspaces.value).map((item) => itemToResourceRow(item, "workspace")),

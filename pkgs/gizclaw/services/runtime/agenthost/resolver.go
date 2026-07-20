@@ -53,11 +53,6 @@ func (r ServiceResolver) Resolve(ctx context.Context, pattern string) (Spec, err
 	if err != nil {
 		return Spec{}, err
 	}
-	if ws.WorkflowSource != nil && *ws.WorkflowSource == apitypes.WorkspaceWorkflowSourceOwned {
-		if ws.OwnerPublicKey == nil || workflow.OwnerPublicKey == nil || *ws.OwnerPublicKey != *workflow.OwnerPublicKey {
-			return Spec{}, fmt.Errorf("agenthost: owned workflow %q is not owned by workspace owner", ws.WorkflowName)
-		}
-	}
 	agentType, err := resolveAgentType(ws, workflow)
 	if err != nil {
 		return Spec{}, err
@@ -83,14 +78,7 @@ func (r ServiceResolver) Resolve(ctx context.Context, pattern string) (Spec, err
 }
 
 func resolveWorkspaceWorkflowName(ctx context.Context, ws apitypes.Workspace) (string, error) {
-	if ws.WorkflowSource == nil {
-		if ws.System == nil || !*ws.System {
-			return "", fmt.Errorf("agenthost: direct workflow reference requires a system workspace")
-		}
-		return string(ws.WorkflowName), nil
-	}
-	switch *ws.WorkflowSource {
-	case apitypes.WorkspaceWorkflowSourceRuntime:
+	if ws.OwnerPublicKey != nil && ws.Labels != nil && strings.TrimSpace((*ws.Labels)["collection"]) != "" {
 		access, ok := resourceAccessFromContext(ctx)
 		if !ok {
 			return "", fmt.Errorf("agenthost: resource access context is required for runtime workflow %q", ws.WorkflowName)
@@ -100,11 +88,8 @@ func resolveWorkspaceWorkflowName(ctx context.Context, ws apitypes.Workspace) (s
 			return "", fmt.Errorf("agenthost: runtime workflow alias %q not found", ws.WorkflowName)
 		}
 		return name, nil
-	case apitypes.WorkspaceWorkflowSourceOwned:
-		return string(ws.WorkflowName), nil
-	default:
-		return "", fmt.Errorf("agenthost: unsupported workflow source %q", *ws.WorkflowSource)
 	}
+	return string(ws.WorkflowName), nil
 }
 
 func (r ServiceResolver) resolveToolkit(ctx context.Context, ws apitypes.Workspace, workflow apitypes.Workflow) (*ToolkitContext, error) {
@@ -138,7 +123,7 @@ func (r ServiceResolver) resolveToolkit(ctx context.Context, ws apitypes.Workspa
 		Builder:   r.ToolBuilder,
 		Executors: r.ToolExecutors,
 		BuildRequest: toolkit.BuildRequest{
-			OwnerPublicKey:  access.ownerPublicKey,
+			CallerPublicKey: access.ownerPublicKey,
 			ProfileToolIDs:  append([]string(nil), access.profileToolIDs...),
 			AllowedToolIDs:  ids,
 			RestrictToolIDs: restrict,

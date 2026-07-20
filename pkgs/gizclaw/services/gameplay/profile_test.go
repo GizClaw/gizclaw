@@ -15,31 +15,31 @@ func TestResolveProfileRulesUsesLocalAliasesAndSkipsMissingResources(t *testing.
 	catalog := testCatalog(t, time.Date(2026, 7, 18, 12, 0, 0, 0, time.UTC))
 	profile := seedGameplayCatalog(t, ctx, catalog)
 
-	petDefs := map[string]string{
-		"tragon":  "petdef-basic",
-		"missing": "petdef-missing",
+	petDefs := map[string]apitypes.RuntimeProfileBinding{
+		"tragon":  gameplayTestBinding("petdef-basic"),
+		"missing": gameplayTestBinding("petdef-missing"),
 	}
-	gameDefs := map[string]string{
-		"dinodive": "game-basic",
-		"missing":  "game-missing",
+	gameDefs := map[string]apitypes.RuntimeProfileBinding{
+		"dinodive": gameplayTestBinding("game-basic"),
+		"missing":  gameplayTestBinding("game-missing"),
 	}
-	badgeDefs := map[string]string{
-		"dinodive-master": "badge-basic",
-		"missing":         "badge-missing",
+	badgeDefs := map[string]apitypes.RuntimeProfileBinding{
+		"dinodive-master": gameplayTestBinding("badge-basic"),
+		"missing":         gameplayTestBinding("badge-missing"),
 	}
 	adoptionCost := int64(10)
 	profile.Spec.Resources.PetDefs = &petDefs
 	profile.Spec.Resources.GameDefs = &gameDefs
 	profile.Spec.Resources.BadgeDefs = &badgeDefs
-	profile.Spec.Gameplay.PetPool = &[]apitypes.RuntimeProfilePetPoolEntry{
+	profile.Spec.Gameplay.Adoption = &apitypes.RuntimeProfileAdoptionSpec{Pool: &[]apitypes.RuntimeProfilePetPoolEntry{
 		{PetDef: "tragon", Weight: 100, AdoptionCost: &adoptionCost},
 		{PetDef: "missing", Weight: 1},
-	}
+	}}
 	badgeDelta := map[string]int64{"dinodive-master": 100, "missing": 200}
 	missingBadgeDelta := map[string]int64{"missing": 300}
-	profile.Spec.Gameplay.Drive = &apitypes.RuntimeProfileDriveSpec{
-		DefaultReward: &apitypes.RuntimeProfileRewardSpec{BadgeExpDelta: &badgeDelta},
-		GameRewards: &map[string]apitypes.RuntimeProfileRewardSpec{
+	profile.Spec.Gameplay.Rewards = &apitypes.RuntimeProfileDriveSpec{
+		Default: &apitypes.RuntimeProfileRewardSpec{BadgeExpDelta: &badgeDelta},
+		Games: &map[string]apitypes.RuntimeProfileRewardSpec{
 			"dinodive": {BadgeExpDelta: &badgeDelta},
 			"missing":  {BadgeExpDelta: &missingBadgeDelta},
 		},
@@ -61,19 +61,19 @@ func TestResolveProfileRulesUsesLocalAliasesAndSkipsMissingResources(t *testing.
 	if got, want := rules.Spec.BadgeDefIds, []string{"badge-basic"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("BadgeDefIds = %#v, want %#v", got, want)
 	}
-	if rules.Spec.Drive == nil || rules.Spec.Drive.GameRewards == nil {
+	if rules.Spec.Drive == nil || rules.Spec.Drive.Games == nil {
 		t.Fatalf("Drive = %#v, want resolved rewards", rules.Spec.Drive)
 	}
 	wantRewards := map[string]apitypes.RuntimeProfileRewardSpec{
 		"game-basic": {BadgeExpDelta: &map[string]int64{"badge-basic": 100}},
 	}
-	if got := *rules.Spec.Drive.GameRewards; !reflect.DeepEqual(got, wantRewards) {
+	if got := *rules.Spec.Drive.Games; !reflect.DeepEqual(got, wantRewards) {
 		t.Fatalf("GameRewards = %#v, want %#v", got, wantRewards)
 	}
 	wantDefault := map[string]int64{"badge-basic": 100}
-	if rules.Spec.Drive.DefaultReward == nil || rules.Spec.Drive.DefaultReward.BadgeExpDelta == nil ||
-		!reflect.DeepEqual(*rules.Spec.Drive.DefaultReward.BadgeExpDelta, wantDefault) {
-		t.Fatalf("DefaultReward = %#v, want badge aliases resolved and missing refs skipped", rules.Spec.Drive.DefaultReward)
+	if rules.Spec.Drive.Default == nil || rules.Spec.Drive.Default.BadgeExpDelta == nil ||
+		!reflect.DeepEqual(*rules.Spec.Drive.Default.BadgeExpDelta, wantDefault) {
+		t.Fatalf("DefaultReward = %#v, want badge aliases resolved and missing refs skipped", rules.Spec.Drive.Default)
 	}
 }
 
@@ -82,7 +82,7 @@ func TestValidateGameResultTreatsEmptyProfileMapAsAllowNone(t *testing.T) {
 	ctx := context.Background()
 	catalog := testCatalog(t, time.Date(2026, 7, 18, 12, 0, 0, 0, time.UTC))
 	profile := seedGameplayCatalog(t, ctx, catalog)
-	empty := map[string]string{}
+	empty := map[string]apitypes.RuntimeProfileBinding{}
 	profile.Spec.Resources.GameDefs = &empty
 	runtime := &Runtime{Catalog: catalog}
 	rules, err := runtime.resolveProfileRules(WithRuntimeProfile(ctx, profile), "default")

@@ -8,7 +8,6 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/jmoiron/sqlx"
@@ -27,14 +26,17 @@ func TestOrderedUniqueKeepsProfileBeforeOwner(t *testing.T) {
 }
 
 func TestProfileNamesUsesImmutableSnapshotAndUnregisteredHasNone(t *testing.T) {
-	models := map[string]string{"a": "profile-a", "b": "profile-b", "duplicate": "profile-a", "empty": " "}
+	models := map[string]apitypes.RuntimeProfileBinding{
+		"a": {ResourceId: "profile-a"}, "b": {ResourceId: "profile-b"},
+		"duplicate": {ResourceId: "profile-a"}, "empty": {ResourceId: " "},
+	}
 	profile := apitypes.RuntimeProfile{
 		Name: "device",
 		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{Models: &models}},
 	}
 	server := &Server{RuntimeProfile: func() *apitypes.RuntimeProfile { return &profile }}
 	got := server.profileNames(profileModels)
-	models["a"] = "changed"
+	models["a"] = apitypes.RuntimeProfileBinding{ResourceId: "changed"}
 	if !reflect.DeepEqual(got, []string{"profile-a", "profile-b"}) {
 		t.Fatalf("profileNames() = %#v", got)
 	}
@@ -56,33 +58,19 @@ func TestPageModelsUsesEffectiveOrder(t *testing.T) {
 	}
 }
 
-func TestPageWorkspacesUsesEffectiveOrder(t *testing.T) {
-	items := []apitypes.Workspace{{Name: "profile-a"}, {Name: "profile-b"}, {Name: "owner-a"}}
-	limit := 2
-	page, hasNext, cursor := pageWorkspaces(items, nil, &limit)
-	if !reflect.DeepEqual(page, items[:2]) || !hasNext || cursor == nil || *cursor != "profile-b" {
-		t.Fatalf("first page = %#v, hasNext=%v cursor=%v", page, hasNext, cursor)
-	}
-	page, hasNext, cursor = pageWorkspaces(items, cursor, &limit)
-	if !reflect.DeepEqual(page, items[2:]) || hasNext || cursor != nil {
-		t.Fatalf("second page = %#v, hasNext=%v cursor=%v", page, hasNext, cursor)
-	}
-}
-
-func TestPageWorkflowsUsesProfileOrder(t *testing.T) {
-	items := []rpcapi.Workflow{{Name: "profile-a"}, {Name: "profile-b"}, {Name: "profile-c"}}
+func TestPageAliasesBindsCursorToRuntimeProfileRevision(t *testing.T) {
+	aliases := []string{"profile-a", "profile-b", "profile-c"}
 	limit := 1
-	page, hasNext, cursor := pageWorkflows(items, nil, &limit)
-	if !reflect.DeepEqual(page, items[:1]) || !hasNext || cursor == nil || *cursor != "profile-a" {
-		t.Fatalf("first page = %#v, hasNext=%v cursor=%v", page, hasNext, cursor)
+	page, hasNext, cursor, conflict := pageAliases(aliases, nil, &limit, "revision-1")
+	if !reflect.DeepEqual(page, aliases[:1]) || !hasNext || cursor == nil || conflict {
+		t.Fatalf("first page = %#v, hasNext=%v cursor=%v conflict=%v", page, hasNext, cursor, conflict)
 	}
-	page, hasNext, cursor = pageWorkflows(items, cursor, &limit)
-	if !reflect.DeepEqual(page, items[1:2]) || !hasNext || cursor == nil || *cursor != "profile-b" {
-		t.Fatalf("second page = %#v, hasNext=%v cursor=%v", page, hasNext, cursor)
+	page, hasNext, nextCursor, conflict := pageAliases(aliases, cursor, &limit, "revision-1")
+	if !reflect.DeepEqual(page, aliases[1:2]) || !hasNext || nextCursor == nil || conflict {
+		t.Fatalf("second page = %#v, hasNext=%v cursor=%v conflict=%v", page, hasNext, nextCursor, conflict)
 	}
-	page, hasNext, cursor = pageWorkflows(items, cursor, &limit)
-	if !reflect.DeepEqual(page, items[2:]) || hasNext || cursor != nil {
-		t.Fatalf("third page = %#v, hasNext=%v cursor=%v", page, hasNext, cursor)
+	if page, _, _, conflict := pageAliases(aliases, cursor, &limit, "revision-2"); len(page) != 0 || !conflict {
+		t.Fatalf("stale cursor page = %#v, conflict=%v", page, conflict)
 	}
 }
 

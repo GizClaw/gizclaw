@@ -81,7 +81,8 @@ func TestManagerSetPeerUpSameConnectionDoesNotReplace(t *testing.T) {
 }
 
 func TestManagerPeerRegistrationFollowsActiveConnection(t *testing.T) {
-	manager := &Manager{}
+	profiles, _ := registrationServerAndToken(t, "profile-old")
+	manager := &Manager{RuntimeProfiles: profiles}
 	key := giznet.PublicKey{1}
 	oldConn := &testGiznetConn{}
 	newConn := &testGiznetConn{}
@@ -112,6 +113,7 @@ func TestManagerPeerRegistrationFollowsActiveConnection(t *testing.T) {
 			Name: "profile-new",
 		},
 	}
+	createRegistrationToken(t, profiles, "profile-new")
 	if !manager.SetPeerRegistration(key, newConn, newRegistration) {
 		t.Fatal("SetPeerRegistration() rejected replacement connection")
 	}
@@ -126,7 +128,8 @@ func TestManagerPeerRegistrationFollowsActiveConnection(t *testing.T) {
 }
 
 func TestPeerResourcesForHTTPSessionDoesNotInheritActiveConnectionRegistration(t *testing.T) {
-	manager := &Manager{}
+	profiles, _ := registrationServerAndToken(t, "profile-connection")
+	manager := &Manager{RuntimeProfiles: profiles}
 	key := giznet.PublicKey{1}
 	conn := &testGiznetConn{}
 	activeRegistration := runtimeprofile.Registration{
@@ -150,6 +153,7 @@ func TestPeerResourcesForHTTPSessionDoesNotInheritActiveConnectionRegistration(t
 			Name: "profile-session",
 		},
 	}
+	createRegistrationToken(t, profiles, "profile-session")
 	registered := service.peerResourcesForHTTPSession(key, &sessionRegistration)
 	if profile := registered.RuntimeProfile(); profile == nil || profile.Name != "profile-session" {
 		t.Fatalf("registered HTTP RuntimeProfile = %#v", profile)

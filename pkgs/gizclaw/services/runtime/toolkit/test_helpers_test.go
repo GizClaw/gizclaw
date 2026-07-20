@@ -19,14 +19,13 @@ func testBuiltinTool(id string) Tool {
 
 func testDeviceTool(id, peer string) Tool {
 	return Tool{
-		ID:             id,
-		Name:           stringPtr(id),
-		Description:    stringPtr("device tool"),
-		Source:         ToolSourceDevice,
-		Enabled:        true,
-		OwnerPeer:      stringPtr(peer),
-		OwnerPublicKey: stringPtr(peer),
-		InputSchema:    jsonschema.Schema{Type: "object"},
+		ID:          id,
+		Name:        stringPtr(id),
+		Description: stringPtr("device tool"),
+		Source:      ToolSourceDevice,
+		Enabled:     true,
+		OwnerPeer:   stringPtr(peer),
+		InputSchema: jsonschema.Schema{Type: "object"},
 		Executor: ToolExecutor{
 			Kind:   ToolExecutorKindDeviceRPC,
 			Method: stringPtr("music.play"),

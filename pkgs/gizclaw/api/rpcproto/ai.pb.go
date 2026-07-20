@@ -24,6 +24,282 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type AliasI18NText struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DisplayName   string                 `protobuf:"bytes,1,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	Description   *string                `protobuf:"bytes,2,opt,name=description,proto3,oneof" json:"description,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AliasI18NText) Reset() {
+	*x = AliasI18NText{}
+	mi := &file_payload_ai_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AliasI18NText) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AliasI18NText) ProtoMessage() {}
+
+func (x *AliasI18NText) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_ai_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AliasI18NText.ProtoReflect.Descriptor instead.
+func (*AliasI18NText) Descriptor() ([]byte, []int) {
+	return file_payload_ai_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *AliasI18NText) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
+	}
+	return ""
+}
+
+func (x *AliasI18NText) GetDescription() string {
+	if x != nil && x.Description != nil {
+		return *x.Description
+	}
+	return ""
+}
+
+type SpeechTranscribeRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ModelAlias    string                 `protobuf:"bytes,1,opt,name=model_alias,json=modelAlias,proto3" json:"model_alias,omitempty"`
+	ContentType   string                 `protobuf:"bytes,2,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
+	Language      *string                `protobuf:"bytes,3,opt,name=language,proto3,oneof" json:"language,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SpeechTranscribeRequest) Reset() {
+	*x = SpeechTranscribeRequest{}
+	mi := &file_payload_ai_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SpeechTranscribeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SpeechTranscribeRequest) ProtoMessage() {}
+
+func (x *SpeechTranscribeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_ai_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SpeechTranscribeRequest.ProtoReflect.Descriptor instead.
+func (*SpeechTranscribeRequest) Descriptor() ([]byte, []int) {
+	return file_payload_ai_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *SpeechTranscribeRequest) GetModelAlias() string {
+	if x != nil {
+		return x.ModelAlias
+	}
+	return ""
+}
+
+func (x *SpeechTranscribeRequest) GetContentType() string {
+	if x != nil {
+		return x.ContentType
+	}
+	return ""
+}
+
+func (x *SpeechTranscribeRequest) GetLanguage() string {
+	if x != nil && x.Language != nil {
+		return *x.Language
+	}
+	return ""
+}
+
+type SpeechTranscribeResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Transcript    string                 `protobuf:"bytes,1,opt,name=transcript,proto3" json:"transcript,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SpeechTranscribeResponse) Reset() {
+	*x = SpeechTranscribeResponse{}
+	mi := &file_payload_ai_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SpeechTranscribeResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SpeechTranscribeResponse) ProtoMessage() {}
+
+func (x *SpeechTranscribeResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_ai_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SpeechTranscribeResponse.ProtoReflect.Descriptor instead.
+func (*SpeechTranscribeResponse) Descriptor() ([]byte, []int) {
+	return file_payload_ai_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *SpeechTranscribeResponse) GetTranscript() string {
+	if x != nil {
+		return x.Transcript
+	}
+	return ""
+}
+
+type SpeechSynthesizeRequest struct {
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	VoiceAlias           string                 `protobuf:"bytes,1,opt,name=voice_alias,json=voiceAlias,proto3" json:"voice_alias,omitempty"`
+	Text                 string                 `protobuf:"bytes,2,opt,name=text,proto3" json:"text,omitempty"`
+	AcceptedContentTypes []string               `protobuf:"bytes,3,rep,name=accepted_content_types,json=acceptedContentTypes,proto3" json:"accepted_content_types,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *SpeechSynthesizeRequest) Reset() {
+	*x = SpeechSynthesizeRequest{}
+	mi := &file_payload_ai_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SpeechSynthesizeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SpeechSynthesizeRequest) ProtoMessage() {}
+
+func (x *SpeechSynthesizeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_ai_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SpeechSynthesizeRequest.ProtoReflect.Descriptor instead.
+func (*SpeechSynthesizeRequest) Descriptor() ([]byte, []int) {
+	return file_payload_ai_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *SpeechSynthesizeRequest) GetVoiceAlias() string {
+	if x != nil {
+		return x.VoiceAlias
+	}
+	return ""
+}
+
+func (x *SpeechSynthesizeRequest) GetText() string {
+	if x != nil {
+		return x.Text
+	}
+	return ""
+}
+
+func (x *SpeechSynthesizeRequest) GetAcceptedContentTypes() []string {
+	if x != nil {
+		return x.AcceptedContentTypes
+	}
+	return nil
+}
+
+type SpeechSynthesizeResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ContentType   string                 `protobuf:"bytes,1,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
+	SampleRateHz  *int32                 `protobuf:"varint,2,opt,name=sample_rate_hz,json=sampleRateHz,proto3,oneof" json:"sample_rate_hz,omitempty"`
+	Channels      *int32                 `protobuf:"varint,3,opt,name=channels,proto3,oneof" json:"channels,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SpeechSynthesizeResponse) Reset() {
+	*x = SpeechSynthesizeResponse{}
+	mi := &file_payload_ai_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SpeechSynthesizeResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SpeechSynthesizeResponse) ProtoMessage() {}
+
+func (x *SpeechSynthesizeResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_ai_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SpeechSynthesizeResponse.ProtoReflect.Descriptor instead.
+func (*SpeechSynthesizeResponse) Descriptor() ([]byte, []int) {
+	return file_payload_ai_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *SpeechSynthesizeResponse) GetContentType() string {
+	if x != nil {
+		return x.ContentType
+	}
+	return ""
+}
+
+func (x *SpeechSynthesizeResponse) GetSampleRateHz() int32 {
+	if x != nil && x.SampleRateHz != nil {
+		return *x.SampleRateHz
+	}
+	return 0
+}
+
+func (x *SpeechSynthesizeResponse) GetChannels() int32 {
+	if x != nil && x.Channels != nil {
+		return *x.Channels
+	}
+	return 0
+}
+
 type ASTTranslateExternalVoiceParameters struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TtsVoice      string                 `protobuf:"bytes,1,opt,name=tts_voice,json=ttsVoice,proto3" json:"tts_voice,omitempty"`
@@ -33,7 +309,7 @@ type ASTTranslateExternalVoiceParameters struct {
 
 func (x *ASTTranslateExternalVoiceParameters) Reset() {
 	*x = ASTTranslateExternalVoiceParameters{}
-	mi := &file_payload_ai_proto_msgTypes[0]
+	mi := &file_payload_ai_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -45,7 +321,7 @@ func (x *ASTTranslateExternalVoiceParameters) String() string {
 func (*ASTTranslateExternalVoiceParameters) ProtoMessage() {}
 
 func (x *ASTTranslateExternalVoiceParameters) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[0]
+	mi := &file_payload_ai_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -58,7 +334,7 @@ func (x *ASTTranslateExternalVoiceParameters) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use ASTTranslateExternalVoiceParameters.ProtoReflect.Descriptor instead.
 func (*ASTTranslateExternalVoiceParameters) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{0}
+	return file_payload_ai_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ASTTranslateExternalVoiceParameters) GetTtsVoice() string {
@@ -80,7 +356,7 @@ type ASTTranslateInternalSpeakerParameters struct {
 
 func (x *ASTTranslateInternalSpeakerParameters) Reset() {
 	*x = ASTTranslateInternalSpeakerParameters{}
-	mi := &file_payload_ai_proto_msgTypes[1]
+	mi := &file_payload_ai_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -92,7 +368,7 @@ func (x *ASTTranslateInternalSpeakerParameters) String() string {
 func (*ASTTranslateInternalSpeakerParameters) ProtoMessage() {}
 
 func (x *ASTTranslateInternalSpeakerParameters) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[1]
+	mi := &file_payload_ai_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -105,7 +381,7 @@ func (x *ASTTranslateInternalSpeakerParameters) ProtoReflect() protoreflect.Mess
 
 // Deprecated: Use ASTTranslateInternalSpeakerParameters.ProtoReflect.Descriptor instead.
 func (*ASTTranslateInternalSpeakerParameters) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{1}
+	return file_payload_ai_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *ASTTranslateInternalSpeakerParameters) GetIsCustomSpeaker() bool {
@@ -149,7 +425,7 @@ type ASTTranslateVoiceParameters struct {
 
 func (x *ASTTranslateVoiceParameters) Reset() {
 	*x = ASTTranslateVoiceParameters{}
-	mi := &file_payload_ai_proto_msgTypes[2]
+	mi := &file_payload_ai_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -161,7 +437,7 @@ func (x *ASTTranslateVoiceParameters) String() string {
 func (*ASTTranslateVoiceParameters) ProtoMessage() {}
 
 func (x *ASTTranslateVoiceParameters) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[2]
+	mi := &file_payload_ai_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -174,7 +450,7 @@ func (x *ASTTranslateVoiceParameters) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ASTTranslateVoiceParameters.ProtoReflect.Descriptor instead.
 func (*ASTTranslateVoiceParameters) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{2}
+	return file_payload_ai_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ASTTranslateVoiceParameters) GetValue() isASTTranslateVoiceParameters_Value {
@@ -238,7 +514,7 @@ type ASTTranslateWorkflowSpec struct {
 
 func (x *ASTTranslateWorkflowSpec) Reset() {
 	*x = ASTTranslateWorkflowSpec{}
-	mi := &file_payload_ai_proto_msgTypes[3]
+	mi := &file_payload_ai_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -250,7 +526,7 @@ func (x *ASTTranslateWorkflowSpec) String() string {
 func (*ASTTranslateWorkflowSpec) ProtoMessage() {}
 
 func (x *ASTTranslateWorkflowSpec) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[3]
+	mi := &file_payload_ai_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -263,7 +539,7 @@ func (x *ASTTranslateWorkflowSpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ASTTranslateWorkflowSpec.ProtoReflect.Descriptor instead.
 func (*ASTTranslateWorkflowSpec) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{3}
+	return file_payload_ai_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *ASTTranslateWorkflowSpec) GetDenoise() bool {
@@ -357,7 +633,7 @@ type ASTTranslateWorkspaceParameters struct {
 
 func (x *ASTTranslateWorkspaceParameters) Reset() {
 	*x = ASTTranslateWorkspaceParameters{}
-	mi := &file_payload_ai_proto_msgTypes[4]
+	mi := &file_payload_ai_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -369,7 +645,7 @@ func (x *ASTTranslateWorkspaceParameters) String() string {
 func (*ASTTranslateWorkspaceParameters) ProtoMessage() {}
 
 func (x *ASTTranslateWorkspaceParameters) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[4]
+	mi := &file_payload_ai_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -382,7 +658,7 @@ func (x *ASTTranslateWorkspaceParameters) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ASTTranslateWorkspaceParameters.ProtoReflect.Descriptor instead.
 func (*ASTTranslateWorkspaceParameters) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{4}
+	return file_payload_ai_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *ASTTranslateWorkspaceParameters) GetAgentType() ASTTranslateWorkspaceParametersAgentType {
@@ -485,7 +761,7 @@ type ChatRoomWorkflowHistorySpec struct {
 
 func (x *ChatRoomWorkflowHistorySpec) Reset() {
 	*x = ChatRoomWorkflowHistorySpec{}
-	mi := &file_payload_ai_proto_msgTypes[5]
+	mi := &file_payload_ai_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -497,7 +773,7 @@ func (x *ChatRoomWorkflowHistorySpec) String() string {
 func (*ChatRoomWorkflowHistorySpec) ProtoMessage() {}
 
 func (x *ChatRoomWorkflowHistorySpec) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[5]
+	mi := &file_payload_ai_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -510,7 +786,7 @@ func (x *ChatRoomWorkflowHistorySpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChatRoomWorkflowHistorySpec.ProtoReflect.Descriptor instead.
 func (*ChatRoomWorkflowHistorySpec) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{5}
+	return file_payload_ai_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ChatRoomWorkflowHistorySpec) GetTtl() string {
@@ -530,7 +806,7 @@ type ChatRoomWorkflowSpec struct {
 
 func (x *ChatRoomWorkflowSpec) Reset() {
 	*x = ChatRoomWorkflowSpec{}
-	mi := &file_payload_ai_proto_msgTypes[6]
+	mi := &file_payload_ai_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -542,7 +818,7 @@ func (x *ChatRoomWorkflowSpec) String() string {
 func (*ChatRoomWorkflowSpec) ProtoMessage() {}
 
 func (x *ChatRoomWorkflowSpec) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[6]
+	mi := &file_payload_ai_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -555,7 +831,7 @@ func (x *ChatRoomWorkflowSpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChatRoomWorkflowSpec.ProtoReflect.Descriptor instead.
 func (*ChatRoomWorkflowSpec) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{6}
+	return file_payload_ai_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ChatRoomWorkflowSpec) GetHistory() *ChatRoomWorkflowHistorySpec {
@@ -582,7 +858,7 @@ type ChatRoomWorkflowTranscriptSpec struct {
 
 func (x *ChatRoomWorkflowTranscriptSpec) Reset() {
 	*x = ChatRoomWorkflowTranscriptSpec{}
-	mi := &file_payload_ai_proto_msgTypes[7]
+	mi := &file_payload_ai_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -594,7 +870,7 @@ func (x *ChatRoomWorkflowTranscriptSpec) String() string {
 func (*ChatRoomWorkflowTranscriptSpec) ProtoMessage() {}
 
 func (x *ChatRoomWorkflowTranscriptSpec) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[7]
+	mi := &file_payload_ai_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -607,7 +883,7 @@ func (x *ChatRoomWorkflowTranscriptSpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChatRoomWorkflowTranscriptSpec.ProtoReflect.Descriptor instead.
 func (*ChatRoomWorkflowTranscriptSpec) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{7}
+	return file_payload_ai_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ChatRoomWorkflowTranscriptSpec) GetAsrModel() string {
@@ -633,7 +909,7 @@ type ChatRoomWorkspaceHistoryParameters struct {
 
 func (x *ChatRoomWorkspaceHistoryParameters) Reset() {
 	*x = ChatRoomWorkspaceHistoryParameters{}
-	mi := &file_payload_ai_proto_msgTypes[8]
+	mi := &file_payload_ai_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -645,7 +921,7 @@ func (x *ChatRoomWorkspaceHistoryParameters) String() string {
 func (*ChatRoomWorkspaceHistoryParameters) ProtoMessage() {}
 
 func (x *ChatRoomWorkspaceHistoryParameters) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[8]
+	mi := &file_payload_ai_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -658,7 +934,7 @@ func (x *ChatRoomWorkspaceHistoryParameters) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use ChatRoomWorkspaceHistoryParameters.ProtoReflect.Descriptor instead.
 func (*ChatRoomWorkspaceHistoryParameters) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{8}
+	return file_payload_ai_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ChatRoomWorkspaceHistoryParameters) GetTtl() string {
@@ -681,7 +957,7 @@ type ChatRoomWorkspaceParameters struct {
 
 func (x *ChatRoomWorkspaceParameters) Reset() {
 	*x = ChatRoomWorkspaceParameters{}
-	mi := &file_payload_ai_proto_msgTypes[9]
+	mi := &file_payload_ai_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -693,7 +969,7 @@ func (x *ChatRoomWorkspaceParameters) String() string {
 func (*ChatRoomWorkspaceParameters) ProtoMessage() {}
 
 func (x *ChatRoomWorkspaceParameters) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[9]
+	mi := &file_payload_ai_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -706,7 +982,7 @@ func (x *ChatRoomWorkspaceParameters) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChatRoomWorkspaceParameters.ProtoReflect.Descriptor instead.
 func (*ChatRoomWorkspaceParameters) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{9}
+	return file_payload_ai_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ChatRoomWorkspaceParameters) GetAgentType() ChatRoomWorkspaceParametersAgentType {
@@ -754,7 +1030,7 @@ type ChatRoomWorkspaceTranscriptParameters struct {
 
 func (x *ChatRoomWorkspaceTranscriptParameters) Reset() {
 	*x = ChatRoomWorkspaceTranscriptParameters{}
-	mi := &file_payload_ai_proto_msgTypes[10]
+	mi := &file_payload_ai_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -766,7 +1042,7 @@ func (x *ChatRoomWorkspaceTranscriptParameters) String() string {
 func (*ChatRoomWorkspaceTranscriptParameters) ProtoMessage() {}
 
 func (x *ChatRoomWorkspaceTranscriptParameters) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[10]
+	mi := &file_payload_ai_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -779,7 +1055,7 @@ func (x *ChatRoomWorkspaceTranscriptParameters) ProtoReflect() protoreflect.Mess
 
 // Deprecated: Use ChatRoomWorkspaceTranscriptParameters.ProtoReflect.Descriptor instead.
 func (*ChatRoomWorkspaceTranscriptParameters) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{10}
+	return file_payload_ai_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ChatRoomWorkspaceTranscriptParameters) GetAsrModel() string {
@@ -796,864 +1072,6 @@ func (x *ChatRoomWorkspaceTranscriptParameters) GetEnabled() bool {
 	return false
 }
 
-type Credential struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	Body           *CredentialBody        `protobuf:"bytes,1,opt,name=body,proto3" json:"body,omitempty"`
-	CreatedAt      string                 `protobuf:"bytes,2,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	Description    *string                `protobuf:"bytes,3,opt,name=description,proto3,oneof" json:"description,omitempty"`
-	Name           string                 `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
-	Provider       string                 `protobuf:"bytes,5,opt,name=provider,proto3" json:"provider,omitempty"`
-	UpdatedAt      string                 `protobuf:"bytes,6,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	OwnerPublicKey *string                `protobuf:"bytes,7,opt,name=owner_public_key,json=ownerPublicKey,proto3,oneof" json:"owner_public_key,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
-}
-
-func (x *Credential) Reset() {
-	*x = Credential{}
-	mi := &file_payload_ai_proto_msgTypes[11]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *Credential) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Credential) ProtoMessage() {}
-
-func (x *Credential) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[11]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use Credential.ProtoReflect.Descriptor instead.
-func (*Credential) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{11}
-}
-
-func (x *Credential) GetBody() *CredentialBody {
-	if x != nil {
-		return x.Body
-	}
-	return nil
-}
-
-func (x *Credential) GetCreatedAt() string {
-	if x != nil {
-		return x.CreatedAt
-	}
-	return ""
-}
-
-func (x *Credential) GetDescription() string {
-	if x != nil && x.Description != nil {
-		return *x.Description
-	}
-	return ""
-}
-
-func (x *Credential) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-func (x *Credential) GetProvider() string {
-	if x != nil {
-		return x.Provider
-	}
-	return ""
-}
-
-func (x *Credential) GetUpdatedAt() string {
-	if x != nil {
-		return x.UpdatedAt
-	}
-	return ""
-}
-
-func (x *Credential) GetOwnerPublicKey() string {
-	if x != nil && x.OwnerPublicKey != nil {
-		return *x.OwnerPublicKey
-	}
-	return ""
-}
-
-type CredentialBody struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Types that are valid to be assigned to Value:
-	//
-	//	*CredentialBody_OpenAicredentialBody
-	//	*CredentialBody_GeminiCredentialBody
-	//	*CredentialBody_DashScopeCredentialBody
-	//	*CredentialBody_MiniMaxCredentialBody
-	//	*CredentialBody_VolcCredentialBody
-	Value         isCredentialBody_Value `protobuf_oneof:"value"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *CredentialBody) Reset() {
-	*x = CredentialBody{}
-	mi := &file_payload_ai_proto_msgTypes[12]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *CredentialBody) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CredentialBody) ProtoMessage() {}
-
-func (x *CredentialBody) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[12]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CredentialBody.ProtoReflect.Descriptor instead.
-func (*CredentialBody) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{12}
-}
-
-func (x *CredentialBody) GetValue() isCredentialBody_Value {
-	if x != nil {
-		return x.Value
-	}
-	return nil
-}
-
-func (x *CredentialBody) GetOpenAicredentialBody() *OpenAICredentialBody {
-	if x != nil {
-		if x, ok := x.Value.(*CredentialBody_OpenAicredentialBody); ok {
-			return x.OpenAicredentialBody
-		}
-	}
-	return nil
-}
-
-func (x *CredentialBody) GetGeminiCredentialBody() *GeminiCredentialBody {
-	if x != nil {
-		if x, ok := x.Value.(*CredentialBody_GeminiCredentialBody); ok {
-			return x.GeminiCredentialBody
-		}
-	}
-	return nil
-}
-
-func (x *CredentialBody) GetDashScopeCredentialBody() *DashScopeCredentialBody {
-	if x != nil {
-		if x, ok := x.Value.(*CredentialBody_DashScopeCredentialBody); ok {
-			return x.DashScopeCredentialBody
-		}
-	}
-	return nil
-}
-
-func (x *CredentialBody) GetMiniMaxCredentialBody() *MiniMaxCredentialBody {
-	if x != nil {
-		if x, ok := x.Value.(*CredentialBody_MiniMaxCredentialBody); ok {
-			return x.MiniMaxCredentialBody
-		}
-	}
-	return nil
-}
-
-func (x *CredentialBody) GetVolcCredentialBody() *VolcCredentialBody {
-	if x != nil {
-		if x, ok := x.Value.(*CredentialBody_VolcCredentialBody); ok {
-			return x.VolcCredentialBody
-		}
-	}
-	return nil
-}
-
-type isCredentialBody_Value interface {
-	isCredentialBody_Value()
-}
-
-type CredentialBody_OpenAicredentialBody struct {
-	OpenAicredentialBody *OpenAICredentialBody `protobuf:"bytes,1,opt,name=open_aicredential_body,json=openAicredentialBody,proto3,oneof"`
-}
-
-type CredentialBody_GeminiCredentialBody struct {
-	GeminiCredentialBody *GeminiCredentialBody `protobuf:"bytes,2,opt,name=gemini_credential_body,json=geminiCredentialBody,proto3,oneof"`
-}
-
-type CredentialBody_DashScopeCredentialBody struct {
-	DashScopeCredentialBody *DashScopeCredentialBody `protobuf:"bytes,3,opt,name=dash_scope_credential_body,json=dashScopeCredentialBody,proto3,oneof"`
-}
-
-type CredentialBody_MiniMaxCredentialBody struct {
-	MiniMaxCredentialBody *MiniMaxCredentialBody `protobuf:"bytes,4,opt,name=mini_max_credential_body,json=miniMaxCredentialBody,proto3,oneof"`
-}
-
-type CredentialBody_VolcCredentialBody struct {
-	VolcCredentialBody *VolcCredentialBody `protobuf:"bytes,5,opt,name=volc_credential_body,json=volcCredentialBody,proto3,oneof"`
-}
-
-func (*CredentialBody_OpenAicredentialBody) isCredentialBody_Value() {}
-
-func (*CredentialBody_GeminiCredentialBody) isCredentialBody_Value() {}
-
-func (*CredentialBody_DashScopeCredentialBody) isCredentialBody_Value() {}
-
-func (*CredentialBody_MiniMaxCredentialBody) isCredentialBody_Value() {}
-
-func (*CredentialBody_VolcCredentialBody) isCredentialBody_Value() {}
-
-type CredentialCreateRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Value         *Credential            `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *CredentialCreateRequest) Reset() {
-	*x = CredentialCreateRequest{}
-	mi := &file_payload_ai_proto_msgTypes[13]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *CredentialCreateRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CredentialCreateRequest) ProtoMessage() {}
-
-func (x *CredentialCreateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[13]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CredentialCreateRequest.ProtoReflect.Descriptor instead.
-func (*CredentialCreateRequest) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{13}
-}
-
-func (x *CredentialCreateRequest) GetValue() *Credential {
-	if x != nil {
-		return x.Value
-	}
-	return nil
-}
-
-type CredentialCreateResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Value         *Credential            `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *CredentialCreateResponse) Reset() {
-	*x = CredentialCreateResponse{}
-	mi := &file_payload_ai_proto_msgTypes[14]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *CredentialCreateResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CredentialCreateResponse) ProtoMessage() {}
-
-func (x *CredentialCreateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[14]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CredentialCreateResponse.ProtoReflect.Descriptor instead.
-func (*CredentialCreateResponse) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{14}
-}
-
-func (x *CredentialCreateResponse) GetValue() *Credential {
-	if x != nil {
-		return x.Value
-	}
-	return nil
-}
-
-type CredentialDeleteRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *CredentialDeleteRequest) Reset() {
-	*x = CredentialDeleteRequest{}
-	mi := &file_payload_ai_proto_msgTypes[15]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *CredentialDeleteRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CredentialDeleteRequest) ProtoMessage() {}
-
-func (x *CredentialDeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[15]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CredentialDeleteRequest.ProtoReflect.Descriptor instead.
-func (*CredentialDeleteRequest) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{15}
-}
-
-func (x *CredentialDeleteRequest) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-type CredentialDeleteResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Value         *Credential            `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *CredentialDeleteResponse) Reset() {
-	*x = CredentialDeleteResponse{}
-	mi := &file_payload_ai_proto_msgTypes[16]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *CredentialDeleteResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CredentialDeleteResponse) ProtoMessage() {}
-
-func (x *CredentialDeleteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[16]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CredentialDeleteResponse.ProtoReflect.Descriptor instead.
-func (*CredentialDeleteResponse) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{16}
-}
-
-func (x *CredentialDeleteResponse) GetValue() *Credential {
-	if x != nil {
-		return x.Value
-	}
-	return nil
-}
-
-type CredentialGetRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *CredentialGetRequest) Reset() {
-	*x = CredentialGetRequest{}
-	mi := &file_payload_ai_proto_msgTypes[17]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *CredentialGetRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CredentialGetRequest) ProtoMessage() {}
-
-func (x *CredentialGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[17]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CredentialGetRequest.ProtoReflect.Descriptor instead.
-func (*CredentialGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{17}
-}
-
-func (x *CredentialGetRequest) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-type CredentialGetResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Value         *Credential            `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *CredentialGetResponse) Reset() {
-	*x = CredentialGetResponse{}
-	mi := &file_payload_ai_proto_msgTypes[18]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *CredentialGetResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CredentialGetResponse) ProtoMessage() {}
-
-func (x *CredentialGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[18]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CredentialGetResponse.ProtoReflect.Descriptor instead.
-func (*CredentialGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{18}
-}
-
-func (x *CredentialGetResponse) GetValue() *Credential {
-	if x != nil {
-		return x.Value
-	}
-	return nil
-}
-
-type CredentialListRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Cursor        *string                `protobuf:"bytes,1,opt,name=cursor,proto3,oneof" json:"cursor,omitempty"`
-	Limit         *int64                 `protobuf:"varint,2,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *CredentialListRequest) Reset() {
-	*x = CredentialListRequest{}
-	mi := &file_payload_ai_proto_msgTypes[19]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *CredentialListRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CredentialListRequest) ProtoMessage() {}
-
-func (x *CredentialListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[19]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CredentialListRequest.ProtoReflect.Descriptor instead.
-func (*CredentialListRequest) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{19}
-}
-
-func (x *CredentialListRequest) GetCursor() string {
-	if x != nil && x.Cursor != nil {
-		return *x.Cursor
-	}
-	return ""
-}
-
-func (x *CredentialListRequest) GetLimit() int64 {
-	if x != nil && x.Limit != nil {
-		return *x.Limit
-	}
-	return 0
-}
-
-type CredentialListResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	HasNext       bool                   `protobuf:"varint,1,opt,name=has_next,json=hasNext,proto3" json:"has_next,omitempty"`
-	Items         []*Credential          `protobuf:"bytes,2,rep,name=items,proto3" json:"items,omitempty"`
-	NextCursor    *string                `protobuf:"bytes,3,opt,name=next_cursor,json=nextCursor,proto3,oneof" json:"next_cursor,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *CredentialListResponse) Reset() {
-	*x = CredentialListResponse{}
-	mi := &file_payload_ai_proto_msgTypes[20]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *CredentialListResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CredentialListResponse) ProtoMessage() {}
-
-func (x *CredentialListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[20]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CredentialListResponse.ProtoReflect.Descriptor instead.
-func (*CredentialListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{20}
-}
-
-func (x *CredentialListResponse) GetHasNext() bool {
-	if x != nil {
-		return x.HasNext
-	}
-	return false
-}
-
-func (x *CredentialListResponse) GetItems() []*Credential {
-	if x != nil {
-		return x.Items
-	}
-	return nil
-}
-
-func (x *CredentialListResponse) GetNextCursor() string {
-	if x != nil && x.NextCursor != nil {
-		return *x.NextCursor
-	}
-	return ""
-}
-
-type CredentialPutRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Body          *Credential            `protobuf:"bytes,1,opt,name=body,proto3" json:"body,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *CredentialPutRequest) Reset() {
-	*x = CredentialPutRequest{}
-	mi := &file_payload_ai_proto_msgTypes[21]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *CredentialPutRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CredentialPutRequest) ProtoMessage() {}
-
-func (x *CredentialPutRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[21]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CredentialPutRequest.ProtoReflect.Descriptor instead.
-func (*CredentialPutRequest) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{21}
-}
-
-func (x *CredentialPutRequest) GetBody() *Credential {
-	if x != nil {
-		return x.Body
-	}
-	return nil
-}
-
-func (x *CredentialPutRequest) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-type CredentialPutResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Value         *Credential            `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *CredentialPutResponse) Reset() {
-	*x = CredentialPutResponse{}
-	mi := &file_payload_ai_proto_msgTypes[22]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *CredentialPutResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CredentialPutResponse) ProtoMessage() {}
-
-func (x *CredentialPutResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[22]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CredentialPutResponse.ProtoReflect.Descriptor instead.
-func (*CredentialPutResponse) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{22}
-}
-
-func (x *CredentialPutResponse) GetValue() *Credential {
-	if x != nil {
-		return x.Value
-	}
-	return nil
-}
-
-type DashScopeCredentialBody struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ApiKey        *string                `protobuf:"bytes,1,opt,name=api_key,json=apiKey,proto3,oneof" json:"api_key,omitempty"`
-	BaseUrl       *string                `protobuf:"bytes,2,opt,name=base_url,json=baseUrl,proto3,oneof" json:"base_url,omitempty"`
-	Token         *string                `protobuf:"bytes,3,opt,name=token,proto3,oneof" json:"token,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *DashScopeCredentialBody) Reset() {
-	*x = DashScopeCredentialBody{}
-	mi := &file_payload_ai_proto_msgTypes[23]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *DashScopeCredentialBody) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*DashScopeCredentialBody) ProtoMessage() {}
-
-func (x *DashScopeCredentialBody) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[23]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use DashScopeCredentialBody.ProtoReflect.Descriptor instead.
-func (*DashScopeCredentialBody) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{23}
-}
-
-func (x *DashScopeCredentialBody) GetApiKey() string {
-	if x != nil && x.ApiKey != nil {
-		return *x.ApiKey
-	}
-	return ""
-}
-
-func (x *DashScopeCredentialBody) GetBaseUrl() string {
-	if x != nil && x.BaseUrl != nil {
-		return *x.BaseUrl
-	}
-	return ""
-}
-
-func (x *DashScopeCredentialBody) GetToken() string {
-	if x != nil && x.Token != nil {
-		return *x.Token
-	}
-	return ""
-}
-
-type DashScopeTenantModelProviderData struct {
-	state         protoimpl.MessageState                   `protogen:"open.v1"`
-	ApiMode       *DashScopeTenantModelProviderDataApiMode `protobuf:"varint,1,opt,name=api_mode,json=apiMode,proto3,enum=gizclaw.rpc.v1.DashScopeTenantModelProviderDataApiMode,oneof" json:"api_mode,omitempty"`
-	UpstreamModel *string                                  `protobuf:"bytes,2,opt,name=upstream_model,json=upstreamModel,proto3,oneof" json:"upstream_model,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *DashScopeTenantModelProviderData) Reset() {
-	*x = DashScopeTenantModelProviderData{}
-	mi := &file_payload_ai_proto_msgTypes[24]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *DashScopeTenantModelProviderData) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*DashScopeTenantModelProviderData) ProtoMessage() {}
-
-func (x *DashScopeTenantModelProviderData) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[24]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use DashScopeTenantModelProviderData.ProtoReflect.Descriptor instead.
-func (*DashScopeTenantModelProviderData) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{24}
-}
-
-func (x *DashScopeTenantModelProviderData) GetApiMode() DashScopeTenantModelProviderDataApiMode {
-	if x != nil && x.ApiMode != nil {
-		return *x.ApiMode
-	}
-	return DashScopeTenantModelProviderDataApiMode_DASH_SCOPE_TENANT_MODEL_PROVIDER_DATA_API_MODE_UNSPECIFIED
-}
-
-func (x *DashScopeTenantModelProviderData) GetUpstreamModel() string {
-	if x != nil && x.UpstreamModel != nil {
-		return *x.UpstreamModel
-	}
-	return ""
-}
-
-type DashScopeTenantVoiceProviderData struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Raw           *structpb.Struct       `protobuf:"bytes,1,opt,name=raw,proto3" json:"raw,omitempty"`
-	VoiceId       *string                `protobuf:"bytes,2,opt,name=voice_id,json=voiceId,proto3,oneof" json:"voice_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *DashScopeTenantVoiceProviderData) Reset() {
-	*x = DashScopeTenantVoiceProviderData{}
-	mi := &file_payload_ai_proto_msgTypes[25]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *DashScopeTenantVoiceProviderData) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*DashScopeTenantVoiceProviderData) ProtoMessage() {}
-
-func (x *DashScopeTenantVoiceProviderData) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[25]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use DashScopeTenantVoiceProviderData.ProtoReflect.Descriptor instead.
-func (*DashScopeTenantVoiceProviderData) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{25}
-}
-
-func (x *DashScopeTenantVoiceProviderData) GetRaw() *structpb.Struct {
-	if x != nil {
-		return x.Raw
-	}
-	return nil
-}
-
-func (x *DashScopeTenantVoiceProviderData) GetVoiceId() string {
-	if x != nil && x.VoiceId != nil {
-		return *x.VoiceId
-	}
-	return ""
-}
-
 type DoubaoRealtimeAIGCMetadata struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	ContentProducer   *string                `protobuf:"bytes,1,opt,name=content_producer,json=contentProducer,proto3,oneof" json:"content_producer,omitempty"`
@@ -1667,7 +1085,7 @@ type DoubaoRealtimeAIGCMetadata struct {
 
 func (x *DoubaoRealtimeAIGCMetadata) Reset() {
 	*x = DoubaoRealtimeAIGCMetadata{}
-	mi := &file_payload_ai_proto_msgTypes[26]
+	mi := &file_payload_ai_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1679,7 +1097,7 @@ func (x *DoubaoRealtimeAIGCMetadata) String() string {
 func (*DoubaoRealtimeAIGCMetadata) ProtoMessage() {}
 
 func (x *DoubaoRealtimeAIGCMetadata) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[26]
+	mi := &file_payload_ai_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1692,7 +1110,7 @@ func (x *DoubaoRealtimeAIGCMetadata) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DoubaoRealtimeAIGCMetadata.ProtoReflect.Descriptor instead.
 func (*DoubaoRealtimeAIGCMetadata) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{26}
+	return file_payload_ai_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *DoubaoRealtimeAIGCMetadata) GetContentProducer() string {
@@ -1740,7 +1158,7 @@ type DoubaoRealtimeASRContext struct {
 
 func (x *DoubaoRealtimeASRContext) Reset() {
 	*x = DoubaoRealtimeASRContext{}
-	mi := &file_payload_ai_proto_msgTypes[27]
+	mi := &file_payload_ai_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1752,7 +1170,7 @@ func (x *DoubaoRealtimeASRContext) String() string {
 func (*DoubaoRealtimeASRContext) ProtoMessage() {}
 
 func (x *DoubaoRealtimeASRContext) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[27]
+	mi := &file_payload_ai_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1765,7 +1183,7 @@ func (x *DoubaoRealtimeASRContext) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DoubaoRealtimeASRContext.ProtoReflect.Descriptor instead.
 func (*DoubaoRealtimeASRContext) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{27}
+	return file_payload_ai_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *DoubaoRealtimeASRContext) GetCorrectWords() map[string]string {
@@ -1791,7 +1209,7 @@ type DoubaoRealtimeASRExtension struct {
 
 func (x *DoubaoRealtimeASRExtension) Reset() {
 	*x = DoubaoRealtimeASRExtension{}
-	mi := &file_payload_ai_proto_msgTypes[28]
+	mi := &file_payload_ai_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1803,7 +1221,7 @@ func (x *DoubaoRealtimeASRExtension) String() string {
 func (*DoubaoRealtimeASRExtension) ProtoMessage() {}
 
 func (x *DoubaoRealtimeASRExtension) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[28]
+	mi := &file_payload_ai_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1816,7 +1234,7 @@ func (x *DoubaoRealtimeASRExtension) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DoubaoRealtimeASRExtension.ProtoReflect.Descriptor instead.
 func (*DoubaoRealtimeASRExtension) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{28}
+	return file_payload_ai_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *DoubaoRealtimeASRExtension) GetExtra() *DoubaoRealtimeASRExtra {
@@ -1842,7 +1260,7 @@ type DoubaoRealtimeASRExtra struct {
 
 func (x *DoubaoRealtimeASRExtra) Reset() {
 	*x = DoubaoRealtimeASRExtra{}
-	mi := &file_payload_ai_proto_msgTypes[29]
+	mi := &file_payload_ai_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1854,7 +1272,7 @@ func (x *DoubaoRealtimeASRExtra) String() string {
 func (*DoubaoRealtimeASRExtra) ProtoMessage() {}
 
 func (x *DoubaoRealtimeASRExtra) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[29]
+	mi := &file_payload_ai_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1867,7 +1285,7 @@ func (x *DoubaoRealtimeASRExtra) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DoubaoRealtimeASRExtra.ProtoReflect.Descriptor instead.
 func (*DoubaoRealtimeASRExtra) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{29}
+	return file_payload_ai_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *DoubaoRealtimeASRExtra) GetBoostingTableId() string {
@@ -1935,7 +1353,7 @@ type DoubaoRealtimeASRHotword struct {
 
 func (x *DoubaoRealtimeASRHotword) Reset() {
 	*x = DoubaoRealtimeASRHotword{}
-	mi := &file_payload_ai_proto_msgTypes[30]
+	mi := &file_payload_ai_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1947,7 +1365,7 @@ func (x *DoubaoRealtimeASRHotword) String() string {
 func (*DoubaoRealtimeASRHotword) ProtoMessage() {}
 
 func (x *DoubaoRealtimeASRHotword) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[30]
+	mi := &file_payload_ai_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1960,7 +1378,7 @@ func (x *DoubaoRealtimeASRHotword) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DoubaoRealtimeASRHotword.ProtoReflect.Descriptor instead.
 func (*DoubaoRealtimeASRHotword) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{30}
+	return file_payload_ai_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *DoubaoRealtimeASRHotword) GetWord() string {
@@ -1980,7 +1398,7 @@ type DoubaoRealtimeAudio struct {
 
 func (x *DoubaoRealtimeAudio) Reset() {
 	*x = DoubaoRealtimeAudio{}
-	mi := &file_payload_ai_proto_msgTypes[31]
+	mi := &file_payload_ai_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1992,7 +1410,7 @@ func (x *DoubaoRealtimeAudio) String() string {
 func (*DoubaoRealtimeAudio) ProtoMessage() {}
 
 func (x *DoubaoRealtimeAudio) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[31]
+	mi := &file_payload_ai_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2005,7 +1423,7 @@ func (x *DoubaoRealtimeAudio) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DoubaoRealtimeAudio.ProtoReflect.Descriptor instead.
 func (*DoubaoRealtimeAudio) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{31}
+	return file_payload_ai_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *DoubaoRealtimeAudio) GetInput() *DoubaoRealtimeAudioInput {
@@ -2032,7 +1450,7 @@ type DoubaoRealtimeAudioFormat struct {
 
 func (x *DoubaoRealtimeAudioFormat) Reset() {
 	*x = DoubaoRealtimeAudioFormat{}
-	mi := &file_payload_ai_proto_msgTypes[32]
+	mi := &file_payload_ai_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2044,7 +1462,7 @@ func (x *DoubaoRealtimeAudioFormat) String() string {
 func (*DoubaoRealtimeAudioFormat) ProtoMessage() {}
 
 func (x *DoubaoRealtimeAudioFormat) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[32]
+	mi := &file_payload_ai_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2057,7 +1475,7 @@ func (x *DoubaoRealtimeAudioFormat) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DoubaoRealtimeAudioFormat.ProtoReflect.Descriptor instead.
 func (*DoubaoRealtimeAudioFormat) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{32}
+	return file_payload_ai_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *DoubaoRealtimeAudioFormat) GetRate() int64 {
@@ -2083,7 +1501,7 @@ type DoubaoRealtimeAudioInput struct {
 
 func (x *DoubaoRealtimeAudioInput) Reset() {
 	*x = DoubaoRealtimeAudioInput{}
-	mi := &file_payload_ai_proto_msgTypes[33]
+	mi := &file_payload_ai_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2095,7 +1513,7 @@ func (x *DoubaoRealtimeAudioInput) String() string {
 func (*DoubaoRealtimeAudioInput) ProtoMessage() {}
 
 func (x *DoubaoRealtimeAudioInput) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[33]
+	mi := &file_payload_ai_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2108,7 +1526,7 @@ func (x *DoubaoRealtimeAudioInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DoubaoRealtimeAudioInput.ProtoReflect.Descriptor instead.
 func (*DoubaoRealtimeAudioInput) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{33}
+	return file_payload_ai_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *DoubaoRealtimeAudioInput) GetFormat() *DoubaoRealtimeAudioFormat {
@@ -2130,7 +1548,7 @@ type DoubaoRealtimeAudioOutput struct {
 
 func (x *DoubaoRealtimeAudioOutput) Reset() {
 	*x = DoubaoRealtimeAudioOutput{}
-	mi := &file_payload_ai_proto_msgTypes[34]
+	mi := &file_payload_ai_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2142,7 +1560,7 @@ func (x *DoubaoRealtimeAudioOutput) String() string {
 func (*DoubaoRealtimeAudioOutput) ProtoMessage() {}
 
 func (x *DoubaoRealtimeAudioOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[34]
+	mi := &file_payload_ai_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2155,7 +1573,7 @@ func (x *DoubaoRealtimeAudioOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DoubaoRealtimeAudioOutput.ProtoReflect.Descriptor instead.
 func (*DoubaoRealtimeAudioOutput) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{34}
+	return file_payload_ai_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *DoubaoRealtimeAudioOutput) GetFormat() *DoubaoRealtimeAudioFormat {
@@ -2195,7 +1613,7 @@ type DoubaoRealtimeDialogExtension struct {
 
 func (x *DoubaoRealtimeDialogExtension) Reset() {
 	*x = DoubaoRealtimeDialogExtension{}
-	mi := &file_payload_ai_proto_msgTypes[35]
+	mi := &file_payload_ai_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2207,7 +1625,7 @@ func (x *DoubaoRealtimeDialogExtension) String() string {
 func (*DoubaoRealtimeDialogExtension) ProtoMessage() {}
 
 func (x *DoubaoRealtimeDialogExtension) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[35]
+	mi := &file_payload_ai_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2220,7 +1638,7 @@ func (x *DoubaoRealtimeDialogExtension) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DoubaoRealtimeDialogExtension.ProtoReflect.Descriptor instead.
 func (*DoubaoRealtimeDialogExtension) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{35}
+	return file_payload_ai_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *DoubaoRealtimeDialogExtension) GetExtra() *DoubaoRealtimeDialogExtra {
@@ -2249,7 +1667,7 @@ type DoubaoRealtimeDialogExtra struct {
 
 func (x *DoubaoRealtimeDialogExtra) Reset() {
 	*x = DoubaoRealtimeDialogExtra{}
-	mi := &file_payload_ai_proto_msgTypes[36]
+	mi := &file_payload_ai_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2261,7 +1679,7 @@ func (x *DoubaoRealtimeDialogExtra) String() string {
 func (*DoubaoRealtimeDialogExtra) ProtoMessage() {}
 
 func (x *DoubaoRealtimeDialogExtra) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[36]
+	mi := &file_payload_ai_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2274,7 +1692,7 @@ func (x *DoubaoRealtimeDialogExtra) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DoubaoRealtimeDialogExtra.ProtoReflect.Descriptor instead.
 func (*DoubaoRealtimeDialogExtra) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{36}
+	return file_payload_ai_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *DoubaoRealtimeDialogExtra) GetAuditResponse() string {
@@ -2365,7 +1783,7 @@ type DoubaoRealtimeExtension struct {
 
 func (x *DoubaoRealtimeExtension) Reset() {
 	*x = DoubaoRealtimeExtension{}
-	mi := &file_payload_ai_proto_msgTypes[37]
+	mi := &file_payload_ai_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2377,7 +1795,7 @@ func (x *DoubaoRealtimeExtension) String() string {
 func (*DoubaoRealtimeExtension) ProtoMessage() {}
 
 func (x *DoubaoRealtimeExtension) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[37]
+	mi := &file_payload_ai_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2390,7 +1808,7 @@ func (x *DoubaoRealtimeExtension) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DoubaoRealtimeExtension.ProtoReflect.Descriptor instead.
 func (*DoubaoRealtimeExtension) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{37}
+	return file_payload_ai_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *DoubaoRealtimeExtension) GetAsr() *DoubaoRealtimeASRExtension {
@@ -2427,7 +1845,7 @@ type DoubaoRealtimeFunctionTool struct {
 
 func (x *DoubaoRealtimeFunctionTool) Reset() {
 	*x = DoubaoRealtimeFunctionTool{}
-	mi := &file_payload_ai_proto_msgTypes[38]
+	mi := &file_payload_ai_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2439,7 +1857,7 @@ func (x *DoubaoRealtimeFunctionTool) String() string {
 func (*DoubaoRealtimeFunctionTool) ProtoMessage() {}
 
 func (x *DoubaoRealtimeFunctionTool) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[38]
+	mi := &file_payload_ai_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2452,7 +1870,7 @@ func (x *DoubaoRealtimeFunctionTool) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DoubaoRealtimeFunctionTool.ProtoReflect.Descriptor instead.
 func (*DoubaoRealtimeFunctionTool) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{38}
+	return file_payload_ai_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *DoubaoRealtimeFunctionTool) GetDescription() string {
@@ -2510,7 +1928,7 @@ type DoubaoRealtimeJSONSchema struct {
 
 func (x *DoubaoRealtimeJSONSchema) Reset() {
 	*x = DoubaoRealtimeJSONSchema{}
-	mi := &file_payload_ai_proto_msgTypes[39]
+	mi := &file_payload_ai_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2522,7 +1940,7 @@ func (x *DoubaoRealtimeJSONSchema) String() string {
 func (*DoubaoRealtimeJSONSchema) ProtoMessage() {}
 
 func (x *DoubaoRealtimeJSONSchema) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[39]
+	mi := &file_payload_ai_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2535,7 +1953,7 @@ func (x *DoubaoRealtimeJSONSchema) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DoubaoRealtimeJSONSchema.ProtoReflect.Descriptor instead.
 func (*DoubaoRealtimeJSONSchema) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{39}
+	return file_payload_ai_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *DoubaoRealtimeJSONSchema) GetAdditionalProperties() bool {
@@ -2631,7 +2049,7 @@ type DoubaoRealtimeTTSExtension struct {
 
 func (x *DoubaoRealtimeTTSExtension) Reset() {
 	*x = DoubaoRealtimeTTSExtension{}
-	mi := &file_payload_ai_proto_msgTypes[40]
+	mi := &file_payload_ai_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2643,7 +2061,7 @@ func (x *DoubaoRealtimeTTSExtension) String() string {
 func (*DoubaoRealtimeTTSExtension) ProtoMessage() {}
 
 func (x *DoubaoRealtimeTTSExtension) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[40]
+	mi := &file_payload_ai_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2656,7 +2074,7 @@ func (x *DoubaoRealtimeTTSExtension) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DoubaoRealtimeTTSExtension.ProtoReflect.Descriptor instead.
 func (*DoubaoRealtimeTTSExtension) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{40}
+	return file_payload_ai_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *DoubaoRealtimeTTSExtension) GetExtra() *DoubaoRealtimeTTSExtra {
@@ -2677,7 +2095,7 @@ type DoubaoRealtimeTTSExtra struct {
 
 func (x *DoubaoRealtimeTTSExtra) Reset() {
 	*x = DoubaoRealtimeTTSExtra{}
-	mi := &file_payload_ai_proto_msgTypes[41]
+	mi := &file_payload_ai_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2689,7 +2107,7 @@ func (x *DoubaoRealtimeTTSExtra) String() string {
 func (*DoubaoRealtimeTTSExtra) ProtoMessage() {}
 
 func (x *DoubaoRealtimeTTSExtra) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[41]
+	mi := &file_payload_ai_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2702,7 +2120,7 @@ func (x *DoubaoRealtimeTTSExtra) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DoubaoRealtimeTTSExtra.ProtoReflect.Descriptor instead.
 func (*DoubaoRealtimeTTSExtra) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{41}
+	return file_payload_ai_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *DoubaoRealtimeTTSExtra) GetAigcMetadata() *DoubaoRealtimeAIGCMetadata {
@@ -2739,7 +2157,7 @@ type DoubaoRealtimeWorkflowSpec struct {
 
 func (x *DoubaoRealtimeWorkflowSpec) Reset() {
 	*x = DoubaoRealtimeWorkflowSpec{}
-	mi := &file_payload_ai_proto_msgTypes[42]
+	mi := &file_payload_ai_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2751,7 +2169,7 @@ func (x *DoubaoRealtimeWorkflowSpec) String() string {
 func (*DoubaoRealtimeWorkflowSpec) ProtoMessage() {}
 
 func (x *DoubaoRealtimeWorkflowSpec) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[42]
+	mi := &file_payload_ai_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2764,7 +2182,7 @@ func (x *DoubaoRealtimeWorkflowSpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DoubaoRealtimeWorkflowSpec.ProtoReflect.Descriptor instead.
 func (*DoubaoRealtimeWorkflowSpec) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{42}
+	return file_payload_ai_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *DoubaoRealtimeWorkflowSpec) GetAudio() *DoubaoRealtimeAudio {
@@ -2818,7 +2236,7 @@ type DoubaoRealtimeWorkspaceParameters struct {
 
 func (x *DoubaoRealtimeWorkspaceParameters) Reset() {
 	*x = DoubaoRealtimeWorkspaceParameters{}
-	mi := &file_payload_ai_proto_msgTypes[43]
+	mi := &file_payload_ai_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2830,7 +2248,7 @@ func (x *DoubaoRealtimeWorkspaceParameters) String() string {
 func (*DoubaoRealtimeWorkspaceParameters) ProtoMessage() {}
 
 func (x *DoubaoRealtimeWorkspaceParameters) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[43]
+	mi := &file_payload_ai_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2843,7 +2261,7 @@ func (x *DoubaoRealtimeWorkspaceParameters) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use DoubaoRealtimeWorkspaceParameters.ProtoReflect.Descriptor instead.
 func (*DoubaoRealtimeWorkspaceParameters) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{43}
+	return file_payload_ai_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *DoubaoRealtimeWorkspaceParameters) GetAgentType() DoubaoRealtimeWorkspaceParametersAgentType {
@@ -2912,7 +2330,7 @@ type FlowcraftConversationParameters struct {
 
 func (x *FlowcraftConversationParameters) Reset() {
 	*x = FlowcraftConversationParameters{}
-	mi := &file_payload_ai_proto_msgTypes[44]
+	mi := &file_payload_ai_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2924,7 +2342,7 @@ func (x *FlowcraftConversationParameters) String() string {
 func (*FlowcraftConversationParameters) ProtoMessage() {}
 
 func (x *FlowcraftConversationParameters) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[44]
+	mi := &file_payload_ai_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2937,7 +2355,7 @@ func (x *FlowcraftConversationParameters) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FlowcraftConversationParameters.ProtoReflect.Descriptor instead.
 func (*FlowcraftConversationParameters) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{44}
+	return file_payload_ai_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *FlowcraftConversationParameters) GetAgentInitiativePolicy() FlowcraftConversationParametersAgentInitiativePolicy {
@@ -2963,7 +2381,7 @@ type FlowcraftWorkflowSpec struct {
 
 func (x *FlowcraftWorkflowSpec) Reset() {
 	*x = FlowcraftWorkflowSpec{}
-	mi := &file_payload_ai_proto_msgTypes[45]
+	mi := &file_payload_ai_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2975,7 +2393,7 @@ func (x *FlowcraftWorkflowSpec) String() string {
 func (*FlowcraftWorkflowSpec) ProtoMessage() {}
 
 func (x *FlowcraftWorkflowSpec) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[45]
+	mi := &file_payload_ai_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2988,7 +2406,7 @@ func (x *FlowcraftWorkflowSpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FlowcraftWorkflowSpec.ProtoReflect.Descriptor instead.
 func (*FlowcraftWorkflowSpec) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{45}
+	return file_payload_ai_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *FlowcraftWorkflowSpec) GetFields() *structpb.Struct {
@@ -3013,7 +2431,7 @@ type FlowcraftWorkspaceParameters struct {
 
 func (x *FlowcraftWorkspaceParameters) Reset() {
 	*x = FlowcraftWorkspaceParameters{}
-	mi := &file_payload_ai_proto_msgTypes[46]
+	mi := &file_payload_ai_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3025,7 +2443,7 @@ func (x *FlowcraftWorkspaceParameters) String() string {
 func (*FlowcraftWorkspaceParameters) ProtoMessage() {}
 
 func (x *FlowcraftWorkspaceParameters) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[46]
+	mi := &file_payload_ai_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3038,7 +2456,7 @@ func (x *FlowcraftWorkspaceParameters) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FlowcraftWorkspaceParameters.ProtoReflect.Descriptor instead.
 func (*FlowcraftWorkspaceParameters) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{46}
+	return file_payload_ai_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *FlowcraftWorkspaceParameters) GetAgentType() FlowcraftWorkspaceParametersAgentType {
@@ -3099,7 +2517,7 @@ type PetConversationParameters struct {
 
 func (x *PetConversationParameters) Reset() {
 	*x = PetConversationParameters{}
-	mi := &file_payload_ai_proto_msgTypes[47]
+	mi := &file_payload_ai_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3111,7 +2529,7 @@ func (x *PetConversationParameters) String() string {
 func (*PetConversationParameters) ProtoMessage() {}
 
 func (x *PetConversationParameters) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[47]
+	mi := &file_payload_ai_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3124,7 +2542,7 @@ func (x *PetConversationParameters) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PetConversationParameters.ProtoReflect.Descriptor instead.
 func (*PetConversationParameters) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{47}
+	return file_payload_ai_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *PetConversationParameters) GetInitiative() PetConversationParametersInitiative {
@@ -3143,7 +2561,7 @@ type PetPersonaParameters struct {
 
 func (x *PetPersonaParameters) Reset() {
 	*x = PetPersonaParameters{}
-	mi := &file_payload_ai_proto_msgTypes[48]
+	mi := &file_payload_ai_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3155,7 +2573,7 @@ func (x *PetPersonaParameters) String() string {
 func (*PetPersonaParameters) ProtoMessage() {}
 
 func (x *PetPersonaParameters) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[48]
+	mi := &file_payload_ai_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3168,7 +2586,7 @@ func (x *PetPersonaParameters) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PetPersonaParameters.ProtoReflect.Descriptor instead.
 func (*PetPersonaParameters) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{48}
+	return file_payload_ai_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *PetPersonaParameters) GetPrompt() string {
@@ -3188,7 +2606,7 @@ type PetVoiceParameters struct {
 
 func (x *PetVoiceParameters) Reset() {
 	*x = PetVoiceParameters{}
-	mi := &file_payload_ai_proto_msgTypes[49]
+	mi := &file_payload_ai_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3200,7 +2618,7 @@ func (x *PetVoiceParameters) String() string {
 func (*PetVoiceParameters) ProtoMessage() {}
 
 func (x *PetVoiceParameters) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[49]
+	mi := &file_payload_ai_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3213,7 +2631,7 @@ func (x *PetVoiceParameters) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PetVoiceParameters.ProtoReflect.Descriptor instead.
 func (*PetVoiceParameters) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{49}
+	return file_payload_ai_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *PetVoiceParameters) GetPrompt() string {
@@ -3238,7 +2656,7 @@ type PetWorkflowSpec struct {
 
 func (x *PetWorkflowSpec) Reset() {
 	*x = PetWorkflowSpec{}
-	mi := &file_payload_ai_proto_msgTypes[50]
+	mi := &file_payload_ai_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3250,7 +2668,7 @@ func (x *PetWorkflowSpec) String() string {
 func (*PetWorkflowSpec) ProtoMessage() {}
 
 func (x *PetWorkflowSpec) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[50]
+	mi := &file_payload_ai_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3263,7 +2681,7 @@ func (x *PetWorkflowSpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PetWorkflowSpec.ProtoReflect.Descriptor instead.
 func (*PetWorkflowSpec) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{50}
+	return file_payload_ai_proto_rawDescGZIP(), []int{40}
 }
 
 type PetWorkspaceParameters struct {
@@ -3279,7 +2697,7 @@ type PetWorkspaceParameters struct {
 
 func (x *PetWorkspaceParameters) Reset() {
 	*x = PetWorkspaceParameters{}
-	mi := &file_payload_ai_proto_msgTypes[51]
+	mi := &file_payload_ai_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3291,7 +2709,7 @@ func (x *PetWorkspaceParameters) String() string {
 func (*PetWorkspaceParameters) ProtoMessage() {}
 
 func (x *PetWorkspaceParameters) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[51]
+	mi := &file_payload_ai_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3304,7 +2722,7 @@ func (x *PetWorkspaceParameters) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PetWorkspaceParameters.ProtoReflect.Descriptor instead.
 func (*PetWorkspaceParameters) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{51}
+	return file_payload_ai_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *PetWorkspaceParameters) GetAgentType() PetWorkspaceParametersAgentType {
@@ -3342,343 +2760,19 @@ func (x *PetWorkspaceParameters) GetVoice() *PetVoiceParameters {
 	return nil
 }
 
-type GeminiCredentialBody struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ApiKey        *string                `protobuf:"bytes,1,opt,name=api_key,json=apiKey,proto3,oneof" json:"api_key,omitempty"`
-	BaseUrl       *string                `protobuf:"bytes,2,opt,name=base_url,json=baseUrl,proto3,oneof" json:"base_url,omitempty"`
-	Token         *string                `protobuf:"bytes,3,opt,name=token,proto3,oneof" json:"token,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GeminiCredentialBody) Reset() {
-	*x = GeminiCredentialBody{}
-	mi := &file_payload_ai_proto_msgTypes[52]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GeminiCredentialBody) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GeminiCredentialBody) ProtoMessage() {}
-
-func (x *GeminiCredentialBody) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[52]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GeminiCredentialBody.ProtoReflect.Descriptor instead.
-func (*GeminiCredentialBody) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{52}
-}
-
-func (x *GeminiCredentialBody) GetApiKey() string {
-	if x != nil && x.ApiKey != nil {
-		return *x.ApiKey
-	}
-	return ""
-}
-
-func (x *GeminiCredentialBody) GetBaseUrl() string {
-	if x != nil && x.BaseUrl != nil {
-		return *x.BaseUrl
-	}
-	return ""
-}
-
-func (x *GeminiCredentialBody) GetToken() string {
-	if x != nil && x.Token != nil {
-		return *x.Token
-	}
-	return ""
-}
-
-type GeminiTenantModelProviderData struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	UpstreamModel *string                `protobuf:"bytes,1,opt,name=upstream_model,json=upstreamModel,proto3,oneof" json:"upstream_model,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GeminiTenantModelProviderData) Reset() {
-	*x = GeminiTenantModelProviderData{}
-	mi := &file_payload_ai_proto_msgTypes[53]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GeminiTenantModelProviderData) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GeminiTenantModelProviderData) ProtoMessage() {}
-
-func (x *GeminiTenantModelProviderData) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[53]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GeminiTenantModelProviderData.ProtoReflect.Descriptor instead.
-func (*GeminiTenantModelProviderData) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{53}
-}
-
-func (x *GeminiTenantModelProviderData) GetUpstreamModel() string {
-	if x != nil && x.UpstreamModel != nil {
-		return *x.UpstreamModel
-	}
-	return ""
-}
-
-type GeminiTenantVoiceProviderData struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Raw           *structpb.Struct       `protobuf:"bytes,1,opt,name=raw,proto3" json:"raw,omitempty"`
-	VoiceId       *string                `protobuf:"bytes,2,opt,name=voice_id,json=voiceId,proto3,oneof" json:"voice_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GeminiTenantVoiceProviderData) Reset() {
-	*x = GeminiTenantVoiceProviderData{}
-	mi := &file_payload_ai_proto_msgTypes[54]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GeminiTenantVoiceProviderData) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GeminiTenantVoiceProviderData) ProtoMessage() {}
-
-func (x *GeminiTenantVoiceProviderData) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[54]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GeminiTenantVoiceProviderData.ProtoReflect.Descriptor instead.
-func (*GeminiTenantVoiceProviderData) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{54}
-}
-
-func (x *GeminiTenantVoiceProviderData) GetRaw() *structpb.Struct {
-	if x != nil {
-		return x.Raw
-	}
-	return nil
-}
-
-func (x *GeminiTenantVoiceProviderData) GetVoiceId() string {
-	if x != nil && x.VoiceId != nil {
-		return *x.VoiceId
-	}
-	return ""
-}
-
-type MiniMaxCredentialBody struct {
-	state               protoimpl.MessageState `protogen:"open.v1"`
-	ApiKey              *string                `protobuf:"bytes,1,opt,name=api_key,json=apiKey,proto3,oneof" json:"api_key,omitempty"`
-	BaseUrl             *string                `protobuf:"bytes,2,opt,name=base_url,json=baseUrl,proto3,oneof" json:"base_url,omitempty"`
-	MinimaxVoiceBaseUrl *string                `protobuf:"bytes,3,opt,name=minimax_voice_base_url,json=minimaxVoiceBaseUrl,proto3,oneof" json:"minimax_voice_base_url,omitempty"`
-	Token               *string                `protobuf:"bytes,4,opt,name=token,proto3,oneof" json:"token,omitempty"`
-	VoiceBaseUrl        *string                `protobuf:"bytes,5,opt,name=voice_base_url,json=voiceBaseUrl,proto3,oneof" json:"voice_base_url,omitempty"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
-}
-
-func (x *MiniMaxCredentialBody) Reset() {
-	*x = MiniMaxCredentialBody{}
-	mi := &file_payload_ai_proto_msgTypes[55]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *MiniMaxCredentialBody) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*MiniMaxCredentialBody) ProtoMessage() {}
-
-func (x *MiniMaxCredentialBody) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[55]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use MiniMaxCredentialBody.ProtoReflect.Descriptor instead.
-func (*MiniMaxCredentialBody) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{55}
-}
-
-func (x *MiniMaxCredentialBody) GetApiKey() string {
-	if x != nil && x.ApiKey != nil {
-		return *x.ApiKey
-	}
-	return ""
-}
-
-func (x *MiniMaxCredentialBody) GetBaseUrl() string {
-	if x != nil && x.BaseUrl != nil {
-		return *x.BaseUrl
-	}
-	return ""
-}
-
-func (x *MiniMaxCredentialBody) GetMinimaxVoiceBaseUrl() string {
-	if x != nil && x.MinimaxVoiceBaseUrl != nil {
-		return *x.MinimaxVoiceBaseUrl
-	}
-	return ""
-}
-
-func (x *MiniMaxCredentialBody) GetToken() string {
-	if x != nil && x.Token != nil {
-		return *x.Token
-	}
-	return ""
-}
-
-func (x *MiniMaxCredentialBody) GetVoiceBaseUrl() string {
-	if x != nil && x.VoiceBaseUrl != nil {
-		return *x.VoiceBaseUrl
-	}
-	return ""
-}
-
-type MiniMaxTenantVoiceProviderData struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Format        *string                `protobuf:"bytes,1,opt,name=format,proto3,oneof" json:"format,omitempty"`
-	Model         *string                `protobuf:"bytes,2,opt,name=model,proto3,oneof" json:"model,omitempty"`
-	Raw           *structpb.Struct       `protobuf:"bytes,3,opt,name=raw,proto3" json:"raw,omitempty"`
-	SampleRate    *int64                 `protobuf:"varint,4,opt,name=sample_rate,json=sampleRate,proto3,oneof" json:"sample_rate,omitempty"`
-	VoiceId       *string                `protobuf:"bytes,5,opt,name=voice_id,json=voiceId,proto3,oneof" json:"voice_id,omitempty"`
-	VoiceType     *string                `protobuf:"bytes,6,opt,name=voice_type,json=voiceType,proto3,oneof" json:"voice_type,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *MiniMaxTenantVoiceProviderData) Reset() {
-	*x = MiniMaxTenantVoiceProviderData{}
-	mi := &file_payload_ai_proto_msgTypes[56]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *MiniMaxTenantVoiceProviderData) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*MiniMaxTenantVoiceProviderData) ProtoMessage() {}
-
-func (x *MiniMaxTenantVoiceProviderData) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[56]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use MiniMaxTenantVoiceProviderData.ProtoReflect.Descriptor instead.
-func (*MiniMaxTenantVoiceProviderData) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{56}
-}
-
-func (x *MiniMaxTenantVoiceProviderData) GetFormat() string {
-	if x != nil && x.Format != nil {
-		return *x.Format
-	}
-	return ""
-}
-
-func (x *MiniMaxTenantVoiceProviderData) GetModel() string {
-	if x != nil && x.Model != nil {
-		return *x.Model
-	}
-	return ""
-}
-
-func (x *MiniMaxTenantVoiceProviderData) GetRaw() *structpb.Struct {
-	if x != nil {
-		return x.Raw
-	}
-	return nil
-}
-
-func (x *MiniMaxTenantVoiceProviderData) GetSampleRate() int64 {
-	if x != nil && x.SampleRate != nil {
-		return *x.SampleRate
-	}
-	return 0
-}
-
-func (x *MiniMaxTenantVoiceProviderData) GetVoiceId() string {
-	if x != nil && x.VoiceId != nil {
-		return *x.VoiceId
-	}
-	return ""
-}
-
-func (x *MiniMaxTenantVoiceProviderData) GetVoiceType() string {
-	if x != nil && x.VoiceType != nil {
-		return *x.VoiceType
-	}
-	return ""
-}
-
 type Model struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	Capabilities   *ModelCapabilities     `protobuf:"bytes,1,opt,name=capabilities,proto3,oneof" json:"capabilities,omitempty"`
-	CreatedAt      string                 `protobuf:"bytes,2,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	Description    *string                `protobuf:"bytes,3,opt,name=description,proto3,oneof" json:"description,omitempty"`
-	Id             string                 `protobuf:"bytes,4,opt,name=id,proto3" json:"id,omitempty"`
-	Kind           ModelKind              `protobuf:"varint,5,opt,name=kind,proto3,enum=gizclaw.rpc.v1.ModelKind" json:"kind,omitempty"`
-	Name           *string                `protobuf:"bytes,6,opt,name=name,proto3,oneof" json:"name,omitempty"`
-	Provider       *ModelProvider         `protobuf:"bytes,7,opt,name=provider,proto3" json:"provider,omitempty"`
-	ProviderData   *ModelProviderData     `protobuf:"bytes,8,opt,name=provider_data,json=providerData,proto3,oneof" json:"provider_data,omitempty"`
-	Source         ModelSource            `protobuf:"varint,9,opt,name=source,proto3,enum=gizclaw.rpc.v1.ModelSource" json:"source,omitempty"`
-	SyncedAt       *string                `protobuf:"bytes,10,opt,name=synced_at,json=syncedAt,proto3,oneof" json:"synced_at,omitempty"`
-	UpdatedAt      string                 `protobuf:"bytes,11,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	OwnerPublicKey *string                `protobuf:"bytes,12,opt,name=owner_public_key,json=ownerPublicKey,proto3,oneof" json:"owner_public_key,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state         protoimpl.MessageState    `protogen:"open.v1"`
+	Alias         string                    `protobuf:"bytes,1,opt,name=alias,proto3" json:"alias,omitempty"`
+	I18N          map[string]*AliasI18NText `protobuf:"bytes,2,rep,name=i18n,proto3" json:"i18n,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Kind          ModelKind                 `protobuf:"varint,3,opt,name=kind,proto3,enum=gizclaw.rpc.v1.ModelKind" json:"kind,omitempty"`
+	Capabilities  *ModelCapabilities        `protobuf:"bytes,4,opt,name=capabilities,proto3,oneof" json:"capabilities,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Model) Reset() {
 	*x = Model{}
-	mi := &file_payload_ai_proto_msgTypes[57]
+	mi := &file_payload_ai_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3690,7 +2784,7 @@ func (x *Model) String() string {
 func (*Model) ProtoMessage() {}
 
 func (x *Model) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[57]
+	mi := &file_payload_ai_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3703,35 +2797,21 @@ func (x *Model) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Model.ProtoReflect.Descriptor instead.
 func (*Model) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{57}
+	return file_payload_ai_proto_rawDescGZIP(), []int{42}
 }
 
-func (x *Model) GetCapabilities() *ModelCapabilities {
+func (x *Model) GetAlias() string {
 	if x != nil {
-		return x.Capabilities
+		return x.Alias
+	}
+	return ""
+}
+
+func (x *Model) GetI18N() map[string]*AliasI18NText {
+	if x != nil {
+		return x.I18N
 	}
 	return nil
-}
-
-func (x *Model) GetCreatedAt() string {
-	if x != nil {
-		return x.CreatedAt
-	}
-	return ""
-}
-
-func (x *Model) GetDescription() string {
-	if x != nil && x.Description != nil {
-		return *x.Description
-	}
-	return ""
-}
-
-func (x *Model) GetId() string {
-	if x != nil {
-		return x.Id
-	}
-	return ""
 }
 
 func (x *Model) GetKind() ModelKind {
@@ -3741,53 +2821,11 @@ func (x *Model) GetKind() ModelKind {
 	return ModelKind_MODEL_KIND_UNSPECIFIED
 }
 
-func (x *Model) GetName() string {
-	if x != nil && x.Name != nil {
-		return *x.Name
-	}
-	return ""
-}
-
-func (x *Model) GetProvider() *ModelProvider {
+func (x *Model) GetCapabilities() *ModelCapabilities {
 	if x != nil {
-		return x.Provider
+		return x.Capabilities
 	}
 	return nil
-}
-
-func (x *Model) GetProviderData() *ModelProviderData {
-	if x != nil {
-		return x.ProviderData
-	}
-	return nil
-}
-
-func (x *Model) GetSource() ModelSource {
-	if x != nil {
-		return x.Source
-	}
-	return ModelSource_MODEL_SOURCE_UNSPECIFIED
-}
-
-func (x *Model) GetSyncedAt() string {
-	if x != nil && x.SyncedAt != nil {
-		return *x.SyncedAt
-	}
-	return ""
-}
-
-func (x *Model) GetUpdatedAt() string {
-	if x != nil {
-		return x.UpdatedAt
-	}
-	return ""
-}
-
-func (x *Model) GetOwnerPublicKey() string {
-	if x != nil && x.OwnerPublicKey != nil {
-		return *x.OwnerPublicKey
-	}
-	return ""
 }
 
 type ModelCapabilities struct {
@@ -3804,7 +2842,7 @@ type ModelCapabilities struct {
 
 func (x *ModelCapabilities) Reset() {
 	*x = ModelCapabilities{}
-	mi := &file_payload_ai_proto_msgTypes[58]
+	mi := &file_payload_ai_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3816,7 +2854,7 @@ func (x *ModelCapabilities) String() string {
 func (*ModelCapabilities) ProtoMessage() {}
 
 func (x *ModelCapabilities) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[58]
+	mi := &file_payload_ai_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3829,7 +2867,7 @@ func (x *ModelCapabilities) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModelCapabilities.ProtoReflect.Descriptor instead.
 func (*ModelCapabilities) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{58}
+	return file_payload_ai_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *ModelCapabilities) GetJsonOutput() bool {
@@ -3874,192 +2912,16 @@ func (x *ModelCapabilities) GetToolCalls() bool {
 	return false
 }
 
-type ModelCreateRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Value         *Model                 `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ModelCreateRequest) Reset() {
-	*x = ModelCreateRequest{}
-	mi := &file_payload_ai_proto_msgTypes[59]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ModelCreateRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ModelCreateRequest) ProtoMessage() {}
-
-func (x *ModelCreateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[59]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ModelCreateRequest.ProtoReflect.Descriptor instead.
-func (*ModelCreateRequest) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{59}
-}
-
-func (x *ModelCreateRequest) GetValue() *Model {
-	if x != nil {
-		return x.Value
-	}
-	return nil
-}
-
-type ModelCreateResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Value         *Model                 `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ModelCreateResponse) Reset() {
-	*x = ModelCreateResponse{}
-	mi := &file_payload_ai_proto_msgTypes[60]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ModelCreateResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ModelCreateResponse) ProtoMessage() {}
-
-func (x *ModelCreateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[60]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ModelCreateResponse.ProtoReflect.Descriptor instead.
-func (*ModelCreateResponse) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{60}
-}
-
-func (x *ModelCreateResponse) GetValue() *Model {
-	if x != nil {
-		return x.Value
-	}
-	return nil
-}
-
-type ModelDeleteRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ModelDeleteRequest) Reset() {
-	*x = ModelDeleteRequest{}
-	mi := &file_payload_ai_proto_msgTypes[61]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ModelDeleteRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ModelDeleteRequest) ProtoMessage() {}
-
-func (x *ModelDeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[61]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ModelDeleteRequest.ProtoReflect.Descriptor instead.
-func (*ModelDeleteRequest) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{61}
-}
-
-func (x *ModelDeleteRequest) GetId() string {
-	if x != nil {
-		return x.Id
-	}
-	return ""
-}
-
-type ModelDeleteResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Value         *Model                 `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ModelDeleteResponse) Reset() {
-	*x = ModelDeleteResponse{}
-	mi := &file_payload_ai_proto_msgTypes[62]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ModelDeleteResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ModelDeleteResponse) ProtoMessage() {}
-
-func (x *ModelDeleteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[62]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ModelDeleteResponse.ProtoReflect.Descriptor instead.
-func (*ModelDeleteResponse) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{62}
-}
-
-func (x *ModelDeleteResponse) GetValue() *Model {
-	if x != nil {
-		return x.Value
-	}
-	return nil
-}
-
 type ModelGetRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Alias         string                 `protobuf:"bytes,1,opt,name=alias,proto3" json:"alias,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ModelGetRequest) Reset() {
 	*x = ModelGetRequest{}
-	mi := &file_payload_ai_proto_msgTypes[63]
+	mi := &file_payload_ai_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4071,7 +2933,7 @@ func (x *ModelGetRequest) String() string {
 func (*ModelGetRequest) ProtoMessage() {}
 
 func (x *ModelGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[63]
+	mi := &file_payload_ai_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4084,26 +2946,28 @@ func (x *ModelGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModelGetRequest.ProtoReflect.Descriptor instead.
 func (*ModelGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{63}
+	return file_payload_ai_proto_rawDescGZIP(), []int{44}
 }
 
-func (x *ModelGetRequest) GetId() string {
+func (x *ModelGetRequest) GetAlias() string {
 	if x != nil {
-		return x.Id
+		return x.Alias
 	}
 	return ""
 }
 
 type ModelGetResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Value         *Model                 `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"open.v1"`
+	Value                  *Model                 `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
+	RuntimeProfileName     string                 `protobuf:"bytes,2,opt,name=runtime_profile_name,json=runtimeProfileName,proto3" json:"runtime_profile_name,omitempty"`
+	RuntimeProfileRevision string                 `protobuf:"bytes,3,opt,name=runtime_profile_revision,json=runtimeProfileRevision,proto3" json:"runtime_profile_revision,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *ModelGetResponse) Reset() {
 	*x = ModelGetResponse{}
-	mi := &file_payload_ai_proto_msgTypes[64]
+	mi := &file_payload_ai_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4115,7 +2979,7 @@ func (x *ModelGetResponse) String() string {
 func (*ModelGetResponse) ProtoMessage() {}
 
 func (x *ModelGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[64]
+	mi := &file_payload_ai_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4128,7 +2992,7 @@ func (x *ModelGetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModelGetResponse.ProtoReflect.Descriptor instead.
 func (*ModelGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{64}
+	return file_payload_ai_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *ModelGetResponse) GetValue() *Model {
@@ -4136,6 +3000,20 @@ func (x *ModelGetResponse) GetValue() *Model {
 		return x.Value
 	}
 	return nil
+}
+
+func (x *ModelGetResponse) GetRuntimeProfileName() string {
+	if x != nil {
+		return x.RuntimeProfileName
+	}
+	return ""
+}
+
+func (x *ModelGetResponse) GetRuntimeProfileRevision() string {
+	if x != nil {
+		return x.RuntimeProfileRevision
+	}
+	return ""
 }
 
 type ModelListRequest struct {
@@ -4148,7 +3026,7 @@ type ModelListRequest struct {
 
 func (x *ModelListRequest) Reset() {
 	*x = ModelListRequest{}
-	mi := &file_payload_ai_proto_msgTypes[65]
+	mi := &file_payload_ai_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4160,7 +3038,7 @@ func (x *ModelListRequest) String() string {
 func (*ModelListRequest) ProtoMessage() {}
 
 func (x *ModelListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[65]
+	mi := &file_payload_ai_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4173,7 +3051,7 @@ func (x *ModelListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModelListRequest.ProtoReflect.Descriptor instead.
 func (*ModelListRequest) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{65}
+	return file_payload_ai_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *ModelListRequest) GetCursor() string {
@@ -4191,17 +3069,19 @@ func (x *ModelListRequest) GetLimit() int64 {
 }
 
 type ModelListResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	HasNext       bool                   `protobuf:"varint,1,opt,name=has_next,json=hasNext,proto3" json:"has_next,omitempty"`
-	Items         []*Model               `protobuf:"bytes,2,rep,name=items,proto3" json:"items,omitempty"`
-	NextCursor    *string                `protobuf:"bytes,3,opt,name=next_cursor,json=nextCursor,proto3,oneof" json:"next_cursor,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"open.v1"`
+	HasNext                bool                   `protobuf:"varint,1,opt,name=has_next,json=hasNext,proto3" json:"has_next,omitempty"`
+	Items                  []*Model               `protobuf:"bytes,2,rep,name=items,proto3" json:"items,omitempty"`
+	NextCursor             *string                `protobuf:"bytes,3,opt,name=next_cursor,json=nextCursor,proto3,oneof" json:"next_cursor,omitempty"`
+	RuntimeProfileName     string                 `protobuf:"bytes,4,opt,name=runtime_profile_name,json=runtimeProfileName,proto3" json:"runtime_profile_name,omitempty"`
+	RuntimeProfileRevision string                 `protobuf:"bytes,5,opt,name=runtime_profile_revision,json=runtimeProfileRevision,proto3" json:"runtime_profile_revision,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *ModelListResponse) Reset() {
 	*x = ModelListResponse{}
-	mi := &file_payload_ai_proto_msgTypes[66]
+	mi := &file_payload_ai_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4213,7 +3093,7 @@ func (x *ModelListResponse) String() string {
 func (*ModelListResponse) ProtoMessage() {}
 
 func (x *ModelListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[66]
+	mi := &file_payload_ai_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4226,7 +3106,7 @@ func (x *ModelListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModelListResponse.ProtoReflect.Descriptor instead.
 func (*ModelListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{66}
+	return file_payload_ai_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *ModelListResponse) GetHasNext() bool {
@@ -4250,266 +3130,18 @@ func (x *ModelListResponse) GetNextCursor() string {
 	return ""
 }
 
-type ModelProvider struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Kind          ModelProviderKind      `protobuf:"varint,1,opt,name=kind,proto3,enum=gizclaw.rpc.v1.ModelProviderKind" json:"kind,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ModelProvider) Reset() {
-	*x = ModelProvider{}
-	mi := &file_payload_ai_proto_msgTypes[67]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ModelProvider) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ModelProvider) ProtoMessage() {}
-
-func (x *ModelProvider) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[67]
+func (x *ModelListResponse) GetRuntimeProfileName() string {
 	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ModelProvider.ProtoReflect.Descriptor instead.
-func (*ModelProvider) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{67}
-}
-
-func (x *ModelProvider) GetKind() ModelProviderKind {
-	if x != nil {
-		return x.Kind
-	}
-	return ModelProviderKind_MODEL_PROVIDER_KIND_UNSPECIFIED
-}
-
-func (x *ModelProvider) GetName() string {
-	if x != nil {
-		return x.Name
+		return x.RuntimeProfileName
 	}
 	return ""
 }
 
-type ModelProviderData struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Types that are valid to be assigned to Value:
-	//
-	//	*ModelProviderData_GeminiTenantModelProviderData
-	//	*ModelProviderData_DashScopeTenantModelProviderData
-	//	*ModelProviderData_OpenAitenantModelProviderData
-	//	*ModelProviderData_VolcTenantModelProviderData
-	Value         isModelProviderData_Value `protobuf_oneof:"value"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ModelProviderData) Reset() {
-	*x = ModelProviderData{}
-	mi := &file_payload_ai_proto_msgTypes[68]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ModelProviderData) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ModelProviderData) ProtoMessage() {}
-
-func (x *ModelProviderData) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[68]
+func (x *ModelListResponse) GetRuntimeProfileRevision() string {
 	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ModelProviderData.ProtoReflect.Descriptor instead.
-func (*ModelProviderData) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{68}
-}
-
-func (x *ModelProviderData) GetValue() isModelProviderData_Value {
-	if x != nil {
-		return x.Value
-	}
-	return nil
-}
-
-func (x *ModelProviderData) GetGeminiTenantModelProviderData() *GeminiTenantModelProviderData {
-	if x != nil {
-		if x, ok := x.Value.(*ModelProviderData_GeminiTenantModelProviderData); ok {
-			return x.GeminiTenantModelProviderData
-		}
-	}
-	return nil
-}
-
-func (x *ModelProviderData) GetDashScopeTenantModelProviderData() *DashScopeTenantModelProviderData {
-	if x != nil {
-		if x, ok := x.Value.(*ModelProviderData_DashScopeTenantModelProviderData); ok {
-			return x.DashScopeTenantModelProviderData
-		}
-	}
-	return nil
-}
-
-func (x *ModelProviderData) GetOpenAitenantModelProviderData() *OpenAITenantModelProviderData {
-	if x != nil {
-		if x, ok := x.Value.(*ModelProviderData_OpenAitenantModelProviderData); ok {
-			return x.OpenAitenantModelProviderData
-		}
-	}
-	return nil
-}
-
-func (x *ModelProviderData) GetVolcTenantModelProviderData() *VolcTenantModelProviderData {
-	if x != nil {
-		if x, ok := x.Value.(*ModelProviderData_VolcTenantModelProviderData); ok {
-			return x.VolcTenantModelProviderData
-		}
-	}
-	return nil
-}
-
-type isModelProviderData_Value interface {
-	isModelProviderData_Value()
-}
-
-type ModelProviderData_GeminiTenantModelProviderData struct {
-	GeminiTenantModelProviderData *GeminiTenantModelProviderData `protobuf:"bytes,1,opt,name=gemini_tenant_model_provider_data,json=geminiTenantModelProviderData,proto3,oneof"`
-}
-
-type ModelProviderData_DashScopeTenantModelProviderData struct {
-	DashScopeTenantModelProviderData *DashScopeTenantModelProviderData `protobuf:"bytes,2,opt,name=dash_scope_tenant_model_provider_data,json=dashScopeTenantModelProviderData,proto3,oneof"`
-}
-
-type ModelProviderData_OpenAitenantModelProviderData struct {
-	OpenAitenantModelProviderData *OpenAITenantModelProviderData `protobuf:"bytes,3,opt,name=open_aitenant_model_provider_data,json=openAitenantModelProviderData,proto3,oneof"`
-}
-
-type ModelProviderData_VolcTenantModelProviderData struct {
-	VolcTenantModelProviderData *VolcTenantModelProviderData `protobuf:"bytes,4,opt,name=volc_tenant_model_provider_data,json=volcTenantModelProviderData,proto3,oneof"`
-}
-
-func (*ModelProviderData_GeminiTenantModelProviderData) isModelProviderData_Value() {}
-
-func (*ModelProviderData_DashScopeTenantModelProviderData) isModelProviderData_Value() {}
-
-func (*ModelProviderData_OpenAitenantModelProviderData) isModelProviderData_Value() {}
-
-func (*ModelProviderData_VolcTenantModelProviderData) isModelProviderData_Value() {}
-
-type ModelPutRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Body          *Model                 `protobuf:"bytes,1,opt,name=body,proto3" json:"body,omitempty"`
-	Id            string                 `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ModelPutRequest) Reset() {
-	*x = ModelPutRequest{}
-	mi := &file_payload_ai_proto_msgTypes[69]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ModelPutRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ModelPutRequest) ProtoMessage() {}
-
-func (x *ModelPutRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[69]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ModelPutRequest.ProtoReflect.Descriptor instead.
-func (*ModelPutRequest) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{69}
-}
-
-func (x *ModelPutRequest) GetBody() *Model {
-	if x != nil {
-		return x.Body
-	}
-	return nil
-}
-
-func (x *ModelPutRequest) GetId() string {
-	if x != nil {
-		return x.Id
+		return x.RuntimeProfileRevision
 	}
 	return ""
-}
-
-type ModelPutResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Value         *Model                 `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ModelPutResponse) Reset() {
-	*x = ModelPutResponse{}
-	mi := &file_payload_ai_proto_msgTypes[70]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ModelPutResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ModelPutResponse) ProtoMessage() {}
-
-func (x *ModelPutResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[70]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ModelPutResponse.ProtoReflect.Descriptor instead.
-func (*ModelPutResponse) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{70}
-}
-
-func (x *ModelPutResponse) GetValue() *Model {
-	if x != nil {
-		return x.Value
-	}
-	return nil
 }
 
 type ModelThinkingCapability struct {
@@ -4525,7 +3157,7 @@ type ModelThinkingCapability struct {
 
 func (x *ModelThinkingCapability) Reset() {
 	*x = ModelThinkingCapability{}
-	mi := &file_payload_ai_proto_msgTypes[71]
+	mi := &file_payload_ai_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4537,7 +3169,7 @@ func (x *ModelThinkingCapability) String() string {
 func (*ModelThinkingCapability) ProtoMessage() {}
 
 func (x *ModelThinkingCapability) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[71]
+	mi := &file_payload_ai_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4550,7 +3182,7 @@ func (x *ModelThinkingCapability) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModelThinkingCapability.ProtoReflect.Descriptor instead.
 func (*ModelThinkingCapability) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{71}
+	return file_payload_ai_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *ModelThinkingCapability) GetDefaultLevel() string {
@@ -4588,268 +3220,17 @@ func (x *ModelThinkingCapability) GetSupported() bool {
 	return false
 }
 
-type OpenAICredentialBody struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ApiKey        *string                `protobuf:"bytes,1,opt,name=api_key,json=apiKey,proto3,oneof" json:"api_key,omitempty"`
-	BaseUrl       *string                `protobuf:"bytes,2,opt,name=base_url,json=baseUrl,proto3,oneof" json:"base_url,omitempty"`
-	Organization  *string                `protobuf:"bytes,3,opt,name=organization,proto3,oneof" json:"organization,omitempty"`
-	Project       *string                `protobuf:"bytes,4,opt,name=project,proto3,oneof" json:"project,omitempty"`
-	Token         *string                `protobuf:"bytes,5,opt,name=token,proto3,oneof" json:"token,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *OpenAICredentialBody) Reset() {
-	*x = OpenAICredentialBody{}
-	mi := &file_payload_ai_proto_msgTypes[72]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *OpenAICredentialBody) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*OpenAICredentialBody) ProtoMessage() {}
-
-func (x *OpenAICredentialBody) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[72]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use OpenAICredentialBody.ProtoReflect.Descriptor instead.
-func (*OpenAICredentialBody) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{72}
-}
-
-func (x *OpenAICredentialBody) GetApiKey() string {
-	if x != nil && x.ApiKey != nil {
-		return *x.ApiKey
-	}
-	return ""
-}
-
-func (x *OpenAICredentialBody) GetBaseUrl() string {
-	if x != nil && x.BaseUrl != nil {
-		return *x.BaseUrl
-	}
-	return ""
-}
-
-func (x *OpenAICredentialBody) GetOrganization() string {
-	if x != nil && x.Organization != nil {
-		return *x.Organization
-	}
-	return ""
-}
-
-func (x *OpenAICredentialBody) GetProject() string {
-	if x != nil && x.Project != nil {
-		return *x.Project
-	}
-	return ""
-}
-
-func (x *OpenAICredentialBody) GetToken() string {
-	if x != nil && x.Token != nil {
-		return *x.Token
-	}
-	return ""
-}
-
-type OpenAITenantModelProviderData struct {
-	state                protoimpl.MessageState `protogen:"open.v1"`
-	DefaultThinkingLevel *string                `protobuf:"bytes,1,opt,name=default_thinking_level,json=defaultThinkingLevel,proto3,oneof" json:"default_thinking_level,omitempty"`
-	SupportJsonOutput    *bool                  `protobuf:"varint,2,opt,name=support_json_output,json=supportJsonOutput,proto3,oneof" json:"support_json_output,omitempty"`
-	SupportTextOnly      *bool                  `protobuf:"varint,3,opt,name=support_text_only,json=supportTextOnly,proto3,oneof" json:"support_text_only,omitempty"`
-	SupportThinking      *bool                  `protobuf:"varint,4,opt,name=support_thinking,json=supportThinking,proto3,oneof" json:"support_thinking,omitempty"`
-	SupportToolCalls     *bool                  `protobuf:"varint,5,opt,name=support_tool_calls,json=supportToolCalls,proto3,oneof" json:"support_tool_calls,omitempty"`
-	ThinkingLevelParam   *string                `protobuf:"bytes,6,opt,name=thinking_level_param,json=thinkingLevelParam,proto3,oneof" json:"thinking_level_param,omitempty"`
-	ThinkingLevels       []string               `protobuf:"bytes,7,rep,name=thinking_levels,json=thinkingLevels,proto3" json:"thinking_levels,omitempty"`
-	ThinkingParam        *string                `protobuf:"bytes,8,opt,name=thinking_param,json=thinkingParam,proto3,oneof" json:"thinking_param,omitempty"`
-	UpstreamModel        *string                `protobuf:"bytes,9,opt,name=upstream_model,json=upstreamModel,proto3,oneof" json:"upstream_model,omitempty"`
-	UseSystemRole        *bool                  `protobuf:"varint,10,opt,name=use_system_role,json=useSystemRole,proto3,oneof" json:"use_system_role,omitempty"`
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
-}
-
-func (x *OpenAITenantModelProviderData) Reset() {
-	*x = OpenAITenantModelProviderData{}
-	mi := &file_payload_ai_proto_msgTypes[73]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *OpenAITenantModelProviderData) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*OpenAITenantModelProviderData) ProtoMessage() {}
-
-func (x *OpenAITenantModelProviderData) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[73]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use OpenAITenantModelProviderData.ProtoReflect.Descriptor instead.
-func (*OpenAITenantModelProviderData) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{73}
-}
-
-func (x *OpenAITenantModelProviderData) GetDefaultThinkingLevel() string {
-	if x != nil && x.DefaultThinkingLevel != nil {
-		return *x.DefaultThinkingLevel
-	}
-	return ""
-}
-
-func (x *OpenAITenantModelProviderData) GetSupportJsonOutput() bool {
-	if x != nil && x.SupportJsonOutput != nil {
-		return *x.SupportJsonOutput
-	}
-	return false
-}
-
-func (x *OpenAITenantModelProviderData) GetSupportTextOnly() bool {
-	if x != nil && x.SupportTextOnly != nil {
-		return *x.SupportTextOnly
-	}
-	return false
-}
-
-func (x *OpenAITenantModelProviderData) GetSupportThinking() bool {
-	if x != nil && x.SupportThinking != nil {
-		return *x.SupportThinking
-	}
-	return false
-}
-
-func (x *OpenAITenantModelProviderData) GetSupportToolCalls() bool {
-	if x != nil && x.SupportToolCalls != nil {
-		return *x.SupportToolCalls
-	}
-	return false
-}
-
-func (x *OpenAITenantModelProviderData) GetThinkingLevelParam() string {
-	if x != nil && x.ThinkingLevelParam != nil {
-		return *x.ThinkingLevelParam
-	}
-	return ""
-}
-
-func (x *OpenAITenantModelProviderData) GetThinkingLevels() []string {
-	if x != nil {
-		return x.ThinkingLevels
-	}
-	return nil
-}
-
-func (x *OpenAITenantModelProviderData) GetThinkingParam() string {
-	if x != nil && x.ThinkingParam != nil {
-		return *x.ThinkingParam
-	}
-	return ""
-}
-
-func (x *OpenAITenantModelProviderData) GetUpstreamModel() string {
-	if x != nil && x.UpstreamModel != nil {
-		return *x.UpstreamModel
-	}
-	return ""
-}
-
-func (x *OpenAITenantModelProviderData) GetUseSystemRole() bool {
-	if x != nil && x.UseSystemRole != nil {
-		return *x.UseSystemRole
-	}
-	return false
-}
-
-type OpenAITenantVoiceProviderData struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Raw           *structpb.Struct       `protobuf:"bytes,1,opt,name=raw,proto3" json:"raw,omitempty"`
-	VoiceId       *string                `protobuf:"bytes,2,opt,name=voice_id,json=voiceId,proto3,oneof" json:"voice_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *OpenAITenantVoiceProviderData) Reset() {
-	*x = OpenAITenantVoiceProviderData{}
-	mi := &file_payload_ai_proto_msgTypes[74]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *OpenAITenantVoiceProviderData) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*OpenAITenantVoiceProviderData) ProtoMessage() {}
-
-func (x *OpenAITenantVoiceProviderData) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[74]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use OpenAITenantVoiceProviderData.ProtoReflect.Descriptor instead.
-func (*OpenAITenantVoiceProviderData) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{74}
-}
-
-func (x *OpenAITenantVoiceProviderData) GetRaw() *structpb.Struct {
-	if x != nil {
-		return x.Raw
-	}
-	return nil
-}
-
-func (x *OpenAITenantVoiceProviderData) GetVoiceId() string {
-	if x != nil && x.VoiceId != nil {
-		return *x.VoiceId
-	}
-	return ""
-}
-
 type Voice struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	CreatedAt     string                 `protobuf:"bytes,1,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	Description   *string                `protobuf:"bytes,2,opt,name=description,proto3,oneof" json:"description,omitempty"`
-	Id            string                 `protobuf:"bytes,3,opt,name=id,proto3" json:"id,omitempty"`
-	Name          *string                `protobuf:"bytes,4,opt,name=name,proto3,oneof" json:"name,omitempty"`
-	Provider      *VoiceProvider         `protobuf:"bytes,5,opt,name=provider,proto3" json:"provider,omitempty"`
-	ProviderData  *VoiceProviderData     `protobuf:"bytes,6,opt,name=provider_data,json=providerData,proto3,oneof" json:"provider_data,omitempty"`
-	Source        VoiceSource            `protobuf:"varint,7,opt,name=source,proto3,enum=gizclaw.rpc.v1.VoiceSource" json:"source,omitempty"`
-	SyncedAt      *string                `protobuf:"bytes,8,opt,name=synced_at,json=syncedAt,proto3,oneof" json:"synced_at,omitempty"`
-	UpdatedAt     string                 `protobuf:"bytes,9,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	state         protoimpl.MessageState    `protogen:"open.v1"`
+	Alias         string                    `protobuf:"bytes,1,opt,name=alias,proto3" json:"alias,omitempty"`
+	I18N          map[string]*AliasI18NText `protobuf:"bytes,2,rep,name=i18n,proto3" json:"i18n,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Voice) Reset() {
 	*x = Voice{}
-	mi := &file_payload_ai_proto_msgTypes[75]
+	mi := &file_payload_ai_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4861,7 +3242,7 @@ func (x *Voice) String() string {
 func (*Voice) ProtoMessage() {}
 
 func (x *Voice) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[75]
+	mi := &file_payload_ai_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4874,82 +3255,33 @@ func (x *Voice) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Voice.ProtoReflect.Descriptor instead.
 func (*Voice) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{75}
+	return file_payload_ai_proto_rawDescGZIP(), []int{49}
 }
 
-func (x *Voice) GetCreatedAt() string {
+func (x *Voice) GetAlias() string {
 	if x != nil {
-		return x.CreatedAt
+		return x.Alias
 	}
 	return ""
 }
 
-func (x *Voice) GetDescription() string {
-	if x != nil && x.Description != nil {
-		return *x.Description
-	}
-	return ""
-}
-
-func (x *Voice) GetId() string {
+func (x *Voice) GetI18N() map[string]*AliasI18NText {
 	if x != nil {
-		return x.Id
-	}
-	return ""
-}
-
-func (x *Voice) GetName() string {
-	if x != nil && x.Name != nil {
-		return *x.Name
-	}
-	return ""
-}
-
-func (x *Voice) GetProvider() *VoiceProvider {
-	if x != nil {
-		return x.Provider
+		return x.I18N
 	}
 	return nil
-}
-
-func (x *Voice) GetProviderData() *VoiceProviderData {
-	if x != nil {
-		return x.ProviderData
-	}
-	return nil
-}
-
-func (x *Voice) GetSource() VoiceSource {
-	if x != nil {
-		return x.Source
-	}
-	return VoiceSource_VOICE_SOURCE_UNSPECIFIED
-}
-
-func (x *Voice) GetSyncedAt() string {
-	if x != nil && x.SyncedAt != nil {
-		return *x.SyncedAt
-	}
-	return ""
-}
-
-func (x *Voice) GetUpdatedAt() string {
-	if x != nil {
-		return x.UpdatedAt
-	}
-	return ""
 }
 
 type VoiceGetRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Alias         string                 `protobuf:"bytes,1,opt,name=alias,proto3" json:"alias,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *VoiceGetRequest) Reset() {
 	*x = VoiceGetRequest{}
-	mi := &file_payload_ai_proto_msgTypes[76]
+	mi := &file_payload_ai_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4961,7 +3293,7 @@ func (x *VoiceGetRequest) String() string {
 func (*VoiceGetRequest) ProtoMessage() {}
 
 func (x *VoiceGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[76]
+	mi := &file_payload_ai_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4974,26 +3306,28 @@ func (x *VoiceGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VoiceGetRequest.ProtoReflect.Descriptor instead.
 func (*VoiceGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{76}
+	return file_payload_ai_proto_rawDescGZIP(), []int{50}
 }
 
-func (x *VoiceGetRequest) GetId() string {
+func (x *VoiceGetRequest) GetAlias() string {
 	if x != nil {
-		return x.Id
+		return x.Alias
 	}
 	return ""
 }
 
 type VoiceGetResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Value         *Voice                 `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"open.v1"`
+	Value                  *Voice                 `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
+	RuntimeProfileName     string                 `protobuf:"bytes,2,opt,name=runtime_profile_name,json=runtimeProfileName,proto3" json:"runtime_profile_name,omitempty"`
+	RuntimeProfileRevision string                 `protobuf:"bytes,3,opt,name=runtime_profile_revision,json=runtimeProfileRevision,proto3" json:"runtime_profile_revision,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *VoiceGetResponse) Reset() {
 	*x = VoiceGetResponse{}
-	mi := &file_payload_ai_proto_msgTypes[77]
+	mi := &file_payload_ai_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5005,7 +3339,7 @@ func (x *VoiceGetResponse) String() string {
 func (*VoiceGetResponse) ProtoMessage() {}
 
 func (x *VoiceGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[77]
+	mi := &file_payload_ai_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5018,7 +3352,7 @@ func (x *VoiceGetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VoiceGetResponse.ProtoReflect.Descriptor instead.
 func (*VoiceGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{77}
+	return file_payload_ai_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *VoiceGetResponse) GetValue() *Voice {
@@ -5026,6 +3360,20 @@ func (x *VoiceGetResponse) GetValue() *Voice {
 		return x.Value
 	}
 	return nil
+}
+
+func (x *VoiceGetResponse) GetRuntimeProfileName() string {
+	if x != nil {
+		return x.RuntimeProfileName
+	}
+	return ""
+}
+
+func (x *VoiceGetResponse) GetRuntimeProfileRevision() string {
+	if x != nil {
+		return x.RuntimeProfileRevision
+	}
+	return ""
 }
 
 type VoiceListRequest struct {
@@ -5038,7 +3386,7 @@ type VoiceListRequest struct {
 
 func (x *VoiceListRequest) Reset() {
 	*x = VoiceListRequest{}
-	mi := &file_payload_ai_proto_msgTypes[78]
+	mi := &file_payload_ai_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5050,7 +3398,7 @@ func (x *VoiceListRequest) String() string {
 func (*VoiceListRequest) ProtoMessage() {}
 
 func (x *VoiceListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[78]
+	mi := &file_payload_ai_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5063,7 +3411,7 @@ func (x *VoiceListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VoiceListRequest.ProtoReflect.Descriptor instead.
 func (*VoiceListRequest) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{78}
+	return file_payload_ai_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *VoiceListRequest) GetCursor() string {
@@ -5081,17 +3429,19 @@ func (x *VoiceListRequest) GetLimit() int64 {
 }
 
 type VoiceListResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	HasNext       bool                   `protobuf:"varint,1,opt,name=has_next,json=hasNext,proto3" json:"has_next,omitempty"`
-	Items         []*Voice               `protobuf:"bytes,2,rep,name=items,proto3" json:"items,omitempty"`
-	NextCursor    *string                `protobuf:"bytes,3,opt,name=next_cursor,json=nextCursor,proto3,oneof" json:"next_cursor,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"open.v1"`
+	HasNext                bool                   `protobuf:"varint,1,opt,name=has_next,json=hasNext,proto3" json:"has_next,omitempty"`
+	Items                  []*Voice               `protobuf:"bytes,2,rep,name=items,proto3" json:"items,omitempty"`
+	NextCursor             *string                `protobuf:"bytes,3,opt,name=next_cursor,json=nextCursor,proto3,oneof" json:"next_cursor,omitempty"`
+	RuntimeProfileName     string                 `protobuf:"bytes,4,opt,name=runtime_profile_name,json=runtimeProfileName,proto3" json:"runtime_profile_name,omitempty"`
+	RuntimeProfileRevision string                 `protobuf:"bytes,5,opt,name=runtime_profile_revision,json=runtimeProfileRevision,proto3" json:"runtime_profile_revision,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *VoiceListResponse) Reset() {
 	*x = VoiceListResponse{}
-	mi := &file_payload_ai_proto_msgTypes[79]
+	mi := &file_payload_ai_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5103,7 +3453,7 @@ func (x *VoiceListResponse) String() string {
 func (*VoiceListResponse) ProtoMessage() {}
 
 func (x *VoiceListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[79]
+	mi := &file_payload_ai_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5116,7 +3466,7 @@ func (x *VoiceListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VoiceListResponse.ProtoReflect.Descriptor instead.
 func (*VoiceListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{79}
+	return file_payload_ai_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *VoiceListResponse) GetHasNext() bool {
@@ -5140,492 +3490,33 @@ func (x *VoiceListResponse) GetNextCursor() string {
 	return ""
 }
 
-type VoiceProvider struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Kind          VoiceProviderKind      `protobuf:"varint,1,opt,name=kind,proto3,enum=gizclaw.rpc.v1.VoiceProviderKind" json:"kind,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *VoiceProvider) Reset() {
-	*x = VoiceProvider{}
-	mi := &file_payload_ai_proto_msgTypes[80]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *VoiceProvider) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*VoiceProvider) ProtoMessage() {}
-
-func (x *VoiceProvider) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[80]
+func (x *VoiceListResponse) GetRuntimeProfileName() string {
 	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use VoiceProvider.ProtoReflect.Descriptor instead.
-func (*VoiceProvider) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{80}
-}
-
-func (x *VoiceProvider) GetKind() VoiceProviderKind {
-	if x != nil {
-		return x.Kind
-	}
-	return VoiceProviderKind_VOICE_PROVIDER_KIND_UNSPECIFIED
-}
-
-func (x *VoiceProvider) GetName() string {
-	if x != nil {
-		return x.Name
+		return x.RuntimeProfileName
 	}
 	return ""
 }
 
-type VoiceProviderData struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Types that are valid to be assigned to Value:
-	//
-	//	*VoiceProviderData_GeminiTenantVoiceProviderData
-	//	*VoiceProviderData_DashScopeTenantVoiceProviderData
-	//	*VoiceProviderData_OpenAitenantVoiceProviderData
-	//	*VoiceProviderData_MiniMaxTenantVoiceProviderData
-	//	*VoiceProviderData_VolcTenantVoiceProviderData
-	Value         isVoiceProviderData_Value `protobuf_oneof:"value"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *VoiceProviderData) Reset() {
-	*x = VoiceProviderData{}
-	mi := &file_payload_ai_proto_msgTypes[81]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *VoiceProviderData) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*VoiceProviderData) ProtoMessage() {}
-
-func (x *VoiceProviderData) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[81]
+func (x *VoiceListResponse) GetRuntimeProfileRevision() string {
 	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use VoiceProviderData.ProtoReflect.Descriptor instead.
-func (*VoiceProviderData) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{81}
-}
-
-func (x *VoiceProviderData) GetValue() isVoiceProviderData_Value {
-	if x != nil {
-		return x.Value
-	}
-	return nil
-}
-
-func (x *VoiceProviderData) GetGeminiTenantVoiceProviderData() *GeminiTenantVoiceProviderData {
-	if x != nil {
-		if x, ok := x.Value.(*VoiceProviderData_GeminiTenantVoiceProviderData); ok {
-			return x.GeminiTenantVoiceProviderData
-		}
-	}
-	return nil
-}
-
-func (x *VoiceProviderData) GetDashScopeTenantVoiceProviderData() *DashScopeTenantVoiceProviderData {
-	if x != nil {
-		if x, ok := x.Value.(*VoiceProviderData_DashScopeTenantVoiceProviderData); ok {
-			return x.DashScopeTenantVoiceProviderData
-		}
-	}
-	return nil
-}
-
-func (x *VoiceProviderData) GetOpenAitenantVoiceProviderData() *OpenAITenantVoiceProviderData {
-	if x != nil {
-		if x, ok := x.Value.(*VoiceProviderData_OpenAitenantVoiceProviderData); ok {
-			return x.OpenAitenantVoiceProviderData
-		}
-	}
-	return nil
-}
-
-func (x *VoiceProviderData) GetMiniMaxTenantVoiceProviderData() *MiniMaxTenantVoiceProviderData {
-	if x != nil {
-		if x, ok := x.Value.(*VoiceProviderData_MiniMaxTenantVoiceProviderData); ok {
-			return x.MiniMaxTenantVoiceProviderData
-		}
-	}
-	return nil
-}
-
-func (x *VoiceProviderData) GetVolcTenantVoiceProviderData() *VolcTenantVoiceProviderData {
-	if x != nil {
-		if x, ok := x.Value.(*VoiceProviderData_VolcTenantVoiceProviderData); ok {
-			return x.VolcTenantVoiceProviderData
-		}
-	}
-	return nil
-}
-
-type isVoiceProviderData_Value interface {
-	isVoiceProviderData_Value()
-}
-
-type VoiceProviderData_GeminiTenantVoiceProviderData struct {
-	GeminiTenantVoiceProviderData *GeminiTenantVoiceProviderData `protobuf:"bytes,1,opt,name=gemini_tenant_voice_provider_data,json=geminiTenantVoiceProviderData,proto3,oneof"`
-}
-
-type VoiceProviderData_DashScopeTenantVoiceProviderData struct {
-	DashScopeTenantVoiceProviderData *DashScopeTenantVoiceProviderData `protobuf:"bytes,2,opt,name=dash_scope_tenant_voice_provider_data,json=dashScopeTenantVoiceProviderData,proto3,oneof"`
-}
-
-type VoiceProviderData_OpenAitenantVoiceProviderData struct {
-	OpenAitenantVoiceProviderData *OpenAITenantVoiceProviderData `protobuf:"bytes,3,opt,name=open_aitenant_voice_provider_data,json=openAitenantVoiceProviderData,proto3,oneof"`
-}
-
-type VoiceProviderData_MiniMaxTenantVoiceProviderData struct {
-	MiniMaxTenantVoiceProviderData *MiniMaxTenantVoiceProviderData `protobuf:"bytes,4,opt,name=mini_max_tenant_voice_provider_data,json=miniMaxTenantVoiceProviderData,proto3,oneof"`
-}
-
-type VoiceProviderData_VolcTenantVoiceProviderData struct {
-	VolcTenantVoiceProviderData *VolcTenantVoiceProviderData `protobuf:"bytes,5,opt,name=volc_tenant_voice_provider_data,json=volcTenantVoiceProviderData,proto3,oneof"`
-}
-
-func (*VoiceProviderData_GeminiTenantVoiceProviderData) isVoiceProviderData_Value() {}
-
-func (*VoiceProviderData_DashScopeTenantVoiceProviderData) isVoiceProviderData_Value() {}
-
-func (*VoiceProviderData_OpenAitenantVoiceProviderData) isVoiceProviderData_Value() {}
-
-func (*VoiceProviderData_MiniMaxTenantVoiceProviderData) isVoiceProviderData_Value() {}
-
-func (*VoiceProviderData_VolcTenantVoiceProviderData) isVoiceProviderData_Value() {}
-
-type VolcCredentialBody struct {
-	state              protoimpl.MessageState `protogen:"open.v1"`
-	SpeechApiKey       *string                `protobuf:"bytes,1,opt,name=speech_api_key,json=speechApiKey,proto3,oneof" json:"speech_api_key,omitempty"`
-	SpeechAppId        *string                `protobuf:"bytes,2,opt,name=speech_app_id,json=speechAppId,proto3,oneof" json:"speech_app_id,omitempty"`
-	OpenapiAccessKey   *string                `protobuf:"bytes,3,opt,name=openapi_access_key,json=openapiAccessKey,proto3,oneof" json:"openapi_access_key,omitempty"`
-	OpenapiAccessKeyId *string                `protobuf:"bytes,4,opt,name=openapi_access_key_id,json=openapiAccessKeyId,proto3,oneof" json:"openapi_access_key_id,omitempty"`
-	SearchApiKey       *string                `protobuf:"bytes,5,opt,name=search_api_key,json=searchApiKey,proto3,oneof" json:"search_api_key,omitempty"`
-	ArkApiKey          *string                `protobuf:"bytes,6,opt,name=ark_api_key,json=arkApiKey,proto3,oneof" json:"ark_api_key,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
-}
-
-func (x *VolcCredentialBody) Reset() {
-	*x = VolcCredentialBody{}
-	mi := &file_payload_ai_proto_msgTypes[82]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *VolcCredentialBody) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*VolcCredentialBody) ProtoMessage() {}
-
-func (x *VolcCredentialBody) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[82]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use VolcCredentialBody.ProtoReflect.Descriptor instead.
-func (*VolcCredentialBody) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{82}
-}
-
-func (x *VolcCredentialBody) GetSpeechApiKey() string {
-	if x != nil && x.SpeechApiKey != nil {
-		return *x.SpeechApiKey
-	}
-	return ""
-}
-
-func (x *VolcCredentialBody) GetSpeechAppId() string {
-	if x != nil && x.SpeechAppId != nil {
-		return *x.SpeechAppId
-	}
-	return ""
-}
-
-func (x *VolcCredentialBody) GetOpenapiAccessKey() string {
-	if x != nil && x.OpenapiAccessKey != nil {
-		return *x.OpenapiAccessKey
-	}
-	return ""
-}
-
-func (x *VolcCredentialBody) GetOpenapiAccessKeyId() string {
-	if x != nil && x.OpenapiAccessKeyId != nil {
-		return *x.OpenapiAccessKeyId
-	}
-	return ""
-}
-
-func (x *VolcCredentialBody) GetSearchApiKey() string {
-	if x != nil && x.SearchApiKey != nil {
-		return *x.SearchApiKey
-	}
-	return ""
-}
-
-func (x *VolcCredentialBody) GetArkApiKey() string {
-	if x != nil && x.ArkApiKey != nil {
-		return *x.ArkApiKey
-	}
-	return ""
-}
-
-type VolcTenantModelProviderData struct {
-	state                protoimpl.MessageState              `protogen:"open.v1"`
-	ApiMode              *VolcTenantModelProviderDataApiMode `protobuf:"varint,1,opt,name=api_mode,json=apiMode,proto3,enum=gizclaw.rpc.v1.VolcTenantModelProviderDataApiMode,oneof" json:"api_mode,omitempty"`
-	DefaultThinkingLevel *string                             `protobuf:"bytes,2,opt,name=default_thinking_level,json=defaultThinkingLevel,proto3,oneof" json:"default_thinking_level,omitempty"`
-	ResourceId           *string                             `protobuf:"bytes,3,opt,name=resource_id,json=resourceId,proto3,oneof" json:"resource_id,omitempty"`
-	SupportJsonOutput    *bool                               `protobuf:"varint,4,opt,name=support_json_output,json=supportJsonOutput,proto3,oneof" json:"support_json_output,omitempty"`
-	SupportTextOnly      *bool                               `protobuf:"varint,5,opt,name=support_text_only,json=supportTextOnly,proto3,oneof" json:"support_text_only,omitempty"`
-	SupportThinking      *bool                               `protobuf:"varint,6,opt,name=support_thinking,json=supportThinking,proto3,oneof" json:"support_thinking,omitempty"`
-	SupportToolCalls     *bool                               `protobuf:"varint,7,opt,name=support_tool_calls,json=supportToolCalls,proto3,oneof" json:"support_tool_calls,omitempty"`
-	ThinkingLevelParam   *string                             `protobuf:"bytes,8,opt,name=thinking_level_param,json=thinkingLevelParam,proto3,oneof" json:"thinking_level_param,omitempty"`
-	ThinkingLevels       []string                            `protobuf:"bytes,9,rep,name=thinking_levels,json=thinkingLevels,proto3" json:"thinking_levels,omitempty"`
-	ThinkingParam        *string                             `protobuf:"bytes,10,opt,name=thinking_param,json=thinkingParam,proto3,oneof" json:"thinking_param,omitempty"`
-	UpstreamModel        *string                             `protobuf:"bytes,11,opt,name=upstream_model,json=upstreamModel,proto3,oneof" json:"upstream_model,omitempty"`
-	UseSystemRole        *bool                               `protobuf:"varint,12,opt,name=use_system_role,json=useSystemRole,proto3,oneof" json:"use_system_role,omitempty"`
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
-}
-
-func (x *VolcTenantModelProviderData) Reset() {
-	*x = VolcTenantModelProviderData{}
-	mi := &file_payload_ai_proto_msgTypes[83]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *VolcTenantModelProviderData) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*VolcTenantModelProviderData) ProtoMessage() {}
-
-func (x *VolcTenantModelProviderData) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[83]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use VolcTenantModelProviderData.ProtoReflect.Descriptor instead.
-func (*VolcTenantModelProviderData) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{83}
-}
-
-func (x *VolcTenantModelProviderData) GetApiMode() VolcTenantModelProviderDataApiMode {
-	if x != nil && x.ApiMode != nil {
-		return *x.ApiMode
-	}
-	return VolcTenantModelProviderDataApiMode_VOLC_TENANT_MODEL_PROVIDER_DATA_API_MODE_UNSPECIFIED
-}
-
-func (x *VolcTenantModelProviderData) GetDefaultThinkingLevel() string {
-	if x != nil && x.DefaultThinkingLevel != nil {
-		return *x.DefaultThinkingLevel
-	}
-	return ""
-}
-
-func (x *VolcTenantModelProviderData) GetResourceId() string {
-	if x != nil && x.ResourceId != nil {
-		return *x.ResourceId
-	}
-	return ""
-}
-
-func (x *VolcTenantModelProviderData) GetSupportJsonOutput() bool {
-	if x != nil && x.SupportJsonOutput != nil {
-		return *x.SupportJsonOutput
-	}
-	return false
-}
-
-func (x *VolcTenantModelProviderData) GetSupportTextOnly() bool {
-	if x != nil && x.SupportTextOnly != nil {
-		return *x.SupportTextOnly
-	}
-	return false
-}
-
-func (x *VolcTenantModelProviderData) GetSupportThinking() bool {
-	if x != nil && x.SupportThinking != nil {
-		return *x.SupportThinking
-	}
-	return false
-}
-
-func (x *VolcTenantModelProviderData) GetSupportToolCalls() bool {
-	if x != nil && x.SupportToolCalls != nil {
-		return *x.SupportToolCalls
-	}
-	return false
-}
-
-func (x *VolcTenantModelProviderData) GetThinkingLevelParam() string {
-	if x != nil && x.ThinkingLevelParam != nil {
-		return *x.ThinkingLevelParam
-	}
-	return ""
-}
-
-func (x *VolcTenantModelProviderData) GetThinkingLevels() []string {
-	if x != nil {
-		return x.ThinkingLevels
-	}
-	return nil
-}
-
-func (x *VolcTenantModelProviderData) GetThinkingParam() string {
-	if x != nil && x.ThinkingParam != nil {
-		return *x.ThinkingParam
-	}
-	return ""
-}
-
-func (x *VolcTenantModelProviderData) GetUpstreamModel() string {
-	if x != nil && x.UpstreamModel != nil {
-		return *x.UpstreamModel
-	}
-	return ""
-}
-
-func (x *VolcTenantModelProviderData) GetUseSystemRole() bool {
-	if x != nil && x.UseSystemRole != nil {
-		return *x.UseSystemRole
-	}
-	return false
-}
-
-type VolcTenantVoiceProviderData struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Raw           *structpb.Struct       `protobuf:"bytes,1,opt,name=raw,proto3" json:"raw,omitempty"`
-	ResourceId    *string                `protobuf:"bytes,2,opt,name=resource_id,json=resourceId,proto3,oneof" json:"resource_id,omitempty"`
-	State         *string                `protobuf:"bytes,3,opt,name=state,proto3,oneof" json:"state,omitempty"`
-	Status        *string                `protobuf:"bytes,4,opt,name=status,proto3,oneof" json:"status,omitempty"`
-	VoiceId       *string                `protobuf:"bytes,5,opt,name=voice_id,json=voiceId,proto3,oneof" json:"voice_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *VolcTenantVoiceProviderData) Reset() {
-	*x = VolcTenantVoiceProviderData{}
-	mi := &file_payload_ai_proto_msgTypes[84]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *VolcTenantVoiceProviderData) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*VolcTenantVoiceProviderData) ProtoMessage() {}
-
-func (x *VolcTenantVoiceProviderData) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[84]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use VolcTenantVoiceProviderData.ProtoReflect.Descriptor instead.
-func (*VolcTenantVoiceProviderData) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{84}
-}
-
-func (x *VolcTenantVoiceProviderData) GetRaw() *structpb.Struct {
-	if x != nil {
-		return x.Raw
-	}
-	return nil
-}
-
-func (x *VolcTenantVoiceProviderData) GetResourceId() string {
-	if x != nil && x.ResourceId != nil {
-		return *x.ResourceId
-	}
-	return ""
-}
-
-func (x *VolcTenantVoiceProviderData) GetState() string {
-	if x != nil && x.State != nil {
-		return *x.State
-	}
-	return ""
-}
-
-func (x *VolcTenantVoiceProviderData) GetStatus() string {
-	if x != nil && x.Status != nil {
-		return *x.Status
-	}
-	return ""
-}
-
-func (x *VolcTenantVoiceProviderData) GetVoiceId() string {
-	if x != nil && x.VoiceId != nil {
-		return *x.VoiceId
+		return x.RuntimeProfileRevision
 	}
 	return ""
 }
 
 type Workflow struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	Name           string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Spec           *WorkflowSpec          `protobuf:"bytes,2,opt,name=spec,proto3" json:"spec,omitempty"`
-	OwnerPublicKey *string                `protobuf:"bytes,5,opt,name=owner_public_key,json=ownerPublicKey,proto3,oneof" json:"owner_public_key,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state         protoimpl.MessageState    `protogen:"open.v1"`
+	Alias         string                    `protobuf:"bytes,1,opt,name=alias,proto3" json:"alias,omitempty"`
+	I18N          map[string]*AliasI18NText `protobuf:"bytes,2,rep,name=i18n,proto3" json:"i18n,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Collection    string                    `protobuf:"bytes,3,opt,name=collection,proto3" json:"collection,omitempty"`
+	Driver        WorkflowDriver            `protobuf:"varint,4,opt,name=driver,proto3,enum=gizclaw.rpc.v1.WorkflowDriver" json:"driver,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Workflow) Reset() {
 	*x = Workflow{}
-	mi := &file_payload_ai_proto_msgTypes[85]
+	mi := &file_payload_ai_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5637,7 +3528,7 @@ func (x *Workflow) String() string {
 func (*Workflow) ProtoMessage() {}
 
 func (x *Workflow) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[85]
+	mi := &file_payload_ai_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5650,285 +3541,47 @@ func (x *Workflow) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Workflow.ProtoReflect.Descriptor instead.
 func (*Workflow) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{85}
+	return file_payload_ai_proto_rawDescGZIP(), []int{54}
 }
 
-func (x *Workflow) GetName() string {
+func (x *Workflow) GetAlias() string {
 	if x != nil {
-		return x.Name
+		return x.Alias
 	}
 	return ""
 }
 
-func (x *Workflow) GetSpec() *WorkflowSpec {
+func (x *Workflow) GetI18N() map[string]*AliasI18NText {
 	if x != nil {
-		return x.Spec
+		return x.I18N
 	}
 	return nil
 }
 
-func (x *Workflow) GetOwnerPublicKey() string {
-	if x != nil && x.OwnerPublicKey != nil {
-		return *x.OwnerPublicKey
+func (x *Workflow) GetCollection() string {
+	if x != nil {
+		return x.Collection
 	}
 	return ""
 }
 
-type WorkflowUpsert struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Spec          *WorkflowSpec          `protobuf:"bytes,2,opt,name=spec,proto3" json:"spec,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *WorkflowUpsert) Reset() {
-	*x = WorkflowUpsert{}
-	mi := &file_payload_ai_proto_msgTypes[86]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *WorkflowUpsert) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*WorkflowUpsert) ProtoMessage() {}
-
-func (x *WorkflowUpsert) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[86]
+func (x *Workflow) GetDriver() WorkflowDriver {
 	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
+		return x.Driver
 	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use WorkflowUpsert.ProtoReflect.Descriptor instead.
-func (*WorkflowUpsert) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{86}
-}
-
-func (x *WorkflowUpsert) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-func (x *WorkflowUpsert) GetSpec() *WorkflowSpec {
-	if x != nil {
-		return x.Spec
-	}
-	return nil
-}
-
-type WorkflowCreateRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Source        ResourceSource         `protobuf:"varint,1,opt,name=source,proto3,enum=gizclaw.rpc.v1.ResourceSource" json:"source,omitempty"`
-	Body          *WorkflowUpsert        `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *WorkflowCreateRequest) Reset() {
-	*x = WorkflowCreateRequest{}
-	mi := &file_payload_ai_proto_msgTypes[87]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *WorkflowCreateRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*WorkflowCreateRequest) ProtoMessage() {}
-
-func (x *WorkflowCreateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[87]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use WorkflowCreateRequest.ProtoReflect.Descriptor instead.
-func (*WorkflowCreateRequest) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{87}
-}
-
-func (x *WorkflowCreateRequest) GetSource() ResourceSource {
-	if x != nil {
-		return x.Source
-	}
-	return ResourceSource_RESOURCE_SOURCE_UNSPECIFIED
-}
-
-func (x *WorkflowCreateRequest) GetBody() *WorkflowUpsert {
-	if x != nil {
-		return x.Body
-	}
-	return nil
-}
-
-type WorkflowCreateResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Value         *Workflow              `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *WorkflowCreateResponse) Reset() {
-	*x = WorkflowCreateResponse{}
-	mi := &file_payload_ai_proto_msgTypes[88]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *WorkflowCreateResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*WorkflowCreateResponse) ProtoMessage() {}
-
-func (x *WorkflowCreateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[88]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use WorkflowCreateResponse.ProtoReflect.Descriptor instead.
-func (*WorkflowCreateResponse) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{88}
-}
-
-func (x *WorkflowCreateResponse) GetValue() *Workflow {
-	if x != nil {
-		return x.Value
-	}
-	return nil
-}
-
-type WorkflowDeleteRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Source        ResourceSource         `protobuf:"varint,2,opt,name=source,proto3,enum=gizclaw.rpc.v1.ResourceSource" json:"source,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *WorkflowDeleteRequest) Reset() {
-	*x = WorkflowDeleteRequest{}
-	mi := &file_payload_ai_proto_msgTypes[89]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *WorkflowDeleteRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*WorkflowDeleteRequest) ProtoMessage() {}
-
-func (x *WorkflowDeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[89]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use WorkflowDeleteRequest.ProtoReflect.Descriptor instead.
-func (*WorkflowDeleteRequest) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{89}
-}
-
-func (x *WorkflowDeleteRequest) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-func (x *WorkflowDeleteRequest) GetSource() ResourceSource {
-	if x != nil {
-		return x.Source
-	}
-	return ResourceSource_RESOURCE_SOURCE_UNSPECIFIED
-}
-
-type WorkflowDeleteResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Value         *Workflow              `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *WorkflowDeleteResponse) Reset() {
-	*x = WorkflowDeleteResponse{}
-	mi := &file_payload_ai_proto_msgTypes[90]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *WorkflowDeleteResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*WorkflowDeleteResponse) ProtoMessage() {}
-
-func (x *WorkflowDeleteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[90]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use WorkflowDeleteResponse.ProtoReflect.Descriptor instead.
-func (*WorkflowDeleteResponse) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{90}
-}
-
-func (x *WorkflowDeleteResponse) GetValue() *Workflow {
-	if x != nil {
-		return x.Value
-	}
-	return nil
+	return WorkflowDriver_WORKFLOW_DRIVER_UNSPECIFIED
 }
 
 type WorkflowGetRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Source        ResourceSource         `protobuf:"varint,3,opt,name=source,proto3,enum=gizclaw.rpc.v1.ResourceSource" json:"source,omitempty"`
+	Alias         string                 `protobuf:"bytes,1,opt,name=alias,proto3" json:"alias,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *WorkflowGetRequest) Reset() {
 	*x = WorkflowGetRequest{}
-	mi := &file_payload_ai_proto_msgTypes[91]
+	mi := &file_payload_ai_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5940,7 +3593,7 @@ func (x *WorkflowGetRequest) String() string {
 func (*WorkflowGetRequest) ProtoMessage() {}
 
 func (x *WorkflowGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[91]
+	mi := &file_payload_ai_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5953,33 +3606,28 @@ func (x *WorkflowGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkflowGetRequest.ProtoReflect.Descriptor instead.
 func (*WorkflowGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{91}
+	return file_payload_ai_proto_rawDescGZIP(), []int{55}
 }
 
-func (x *WorkflowGetRequest) GetName() string {
+func (x *WorkflowGetRequest) GetAlias() string {
 	if x != nil {
-		return x.Name
+		return x.Alias
 	}
 	return ""
 }
 
-func (x *WorkflowGetRequest) GetSource() ResourceSource {
-	if x != nil {
-		return x.Source
-	}
-	return ResourceSource_RESOURCE_SOURCE_UNSPECIFIED
-}
-
 type WorkflowGetResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Value         *Workflow              `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"open.v1"`
+	Value                  *Workflow              `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
+	RuntimeProfileName     string                 `protobuf:"bytes,2,opt,name=runtime_profile_name,json=runtimeProfileName,proto3" json:"runtime_profile_name,omitempty"`
+	RuntimeProfileRevision string                 `protobuf:"bytes,3,opt,name=runtime_profile_revision,json=runtimeProfileRevision,proto3" json:"runtime_profile_revision,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *WorkflowGetResponse) Reset() {
 	*x = WorkflowGetResponse{}
-	mi := &file_payload_ai_proto_msgTypes[92]
+	mi := &file_payload_ai_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5991,7 +3639,7 @@ func (x *WorkflowGetResponse) String() string {
 func (*WorkflowGetResponse) ProtoMessage() {}
 
 func (x *WorkflowGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[92]
+	mi := &file_payload_ai_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6004,7 +3652,7 @@ func (x *WorkflowGetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkflowGetResponse.ProtoReflect.Descriptor instead.
 func (*WorkflowGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{92}
+	return file_payload_ai_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *WorkflowGetResponse) GetValue() *Workflow {
@@ -6014,18 +3662,32 @@ func (x *WorkflowGetResponse) GetValue() *Workflow {
 	return nil
 }
 
+func (x *WorkflowGetResponse) GetRuntimeProfileName() string {
+	if x != nil {
+		return x.RuntimeProfileName
+	}
+	return ""
+}
+
+func (x *WorkflowGetResponse) GetRuntimeProfileRevision() string {
+	if x != nil {
+		return x.RuntimeProfileRevision
+	}
+	return ""
+}
+
 type WorkflowListRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Cursor        *string                `protobuf:"bytes,1,opt,name=cursor,proto3,oneof" json:"cursor,omitempty"`
 	Limit         *int64                 `protobuf:"varint,2,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
-	Source        ResourceSource         `protobuf:"varint,4,opt,name=source,proto3,enum=gizclaw.rpc.v1.ResourceSource" json:"source,omitempty"`
+	Collection    string                 `protobuf:"bytes,3,opt,name=collection,proto3" json:"collection,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *WorkflowListRequest) Reset() {
 	*x = WorkflowListRequest{}
-	mi := &file_payload_ai_proto_msgTypes[93]
+	mi := &file_payload_ai_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6037,7 +3699,7 @@ func (x *WorkflowListRequest) String() string {
 func (*WorkflowListRequest) ProtoMessage() {}
 
 func (x *WorkflowListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[93]
+	mi := &file_payload_ai_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6050,7 +3712,7 @@ func (x *WorkflowListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkflowListRequest.ProtoReflect.Descriptor instead.
 func (*WorkflowListRequest) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{93}
+	return file_payload_ai_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *WorkflowListRequest) GetCursor() string {
@@ -6067,25 +3729,27 @@ func (x *WorkflowListRequest) GetLimit() int64 {
 	return 0
 }
 
-func (x *WorkflowListRequest) GetSource() ResourceSource {
+func (x *WorkflowListRequest) GetCollection() string {
 	if x != nil {
-		return x.Source
+		return x.Collection
 	}
-	return ResourceSource_RESOURCE_SOURCE_UNSPECIFIED
+	return ""
 }
 
 type WorkflowListResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	HasNext       bool                   `protobuf:"varint,1,opt,name=has_next,json=hasNext,proto3" json:"has_next,omitempty"`
-	Items         []*Workflow            `protobuf:"bytes,2,rep,name=items,proto3" json:"items,omitempty"`
-	NextCursor    *string                `protobuf:"bytes,3,opt,name=next_cursor,json=nextCursor,proto3,oneof" json:"next_cursor,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"open.v1"`
+	HasNext                bool                   `protobuf:"varint,1,opt,name=has_next,json=hasNext,proto3" json:"has_next,omitempty"`
+	Items                  []*Workflow            `protobuf:"bytes,2,rep,name=items,proto3" json:"items,omitempty"`
+	NextCursor             *string                `protobuf:"bytes,3,opt,name=next_cursor,json=nextCursor,proto3,oneof" json:"next_cursor,omitempty"`
+	RuntimeProfileName     string                 `protobuf:"bytes,4,opt,name=runtime_profile_name,json=runtimeProfileName,proto3" json:"runtime_profile_name,omitempty"`
+	RuntimeProfileRevision string                 `protobuf:"bytes,5,opt,name=runtime_profile_revision,json=runtimeProfileRevision,proto3" json:"runtime_profile_revision,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *WorkflowListResponse) Reset() {
 	*x = WorkflowListResponse{}
-	mi := &file_payload_ai_proto_msgTypes[94]
+	mi := &file_payload_ai_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6097,7 +3761,7 @@ func (x *WorkflowListResponse) String() string {
 func (*WorkflowListResponse) ProtoMessage() {}
 
 func (x *WorkflowListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[94]
+	mi := &file_payload_ai_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6110,7 +3774,7 @@ func (x *WorkflowListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkflowListResponse.ProtoReflect.Descriptor instead.
 func (*WorkflowListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{94}
+	return file_payload_ai_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *WorkflowListResponse) GetHasNext() bool {
@@ -6134,108 +3798,18 @@ func (x *WorkflowListResponse) GetNextCursor() string {
 	return ""
 }
 
-type WorkflowPutRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Body          *WorkflowUpsert        `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
-	Source        ResourceSource         `protobuf:"varint,3,opt,name=source,proto3,enum=gizclaw.rpc.v1.ResourceSource" json:"source,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *WorkflowPutRequest) Reset() {
-	*x = WorkflowPutRequest{}
-	mi := &file_payload_ai_proto_msgTypes[95]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *WorkflowPutRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*WorkflowPutRequest) ProtoMessage() {}
-
-func (x *WorkflowPutRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[95]
+func (x *WorkflowListResponse) GetRuntimeProfileName() string {
 	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use WorkflowPutRequest.ProtoReflect.Descriptor instead.
-func (*WorkflowPutRequest) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{95}
-}
-
-func (x *WorkflowPutRequest) GetName() string {
-	if x != nil {
-		return x.Name
+		return x.RuntimeProfileName
 	}
 	return ""
 }
 
-func (x *WorkflowPutRequest) GetBody() *WorkflowUpsert {
+func (x *WorkflowListResponse) GetRuntimeProfileRevision() string {
 	if x != nil {
-		return x.Body
+		return x.RuntimeProfileRevision
 	}
-	return nil
-}
-
-func (x *WorkflowPutRequest) GetSource() ResourceSource {
-	if x != nil {
-		return x.Source
-	}
-	return ResourceSource_RESOURCE_SOURCE_UNSPECIFIED
-}
-
-type WorkflowPutResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Value         *Workflow              `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *WorkflowPutResponse) Reset() {
-	*x = WorkflowPutResponse{}
-	mi := &file_payload_ai_proto_msgTypes[96]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *WorkflowPutResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*WorkflowPutResponse) ProtoMessage() {}
-
-func (x *WorkflowPutResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[96]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use WorkflowPutResponse.ProtoReflect.Descriptor instead.
-func (*WorkflowPutResponse) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{96}
-}
-
-func (x *WorkflowPutResponse) GetValue() *Workflow {
-	if x != nil {
-		return x.Value
-	}
-	return nil
+	return ""
 }
 
 type ToolkitPolicyToolIds struct {
@@ -6247,7 +3821,7 @@ type ToolkitPolicyToolIds struct {
 
 func (x *ToolkitPolicyToolIds) Reset() {
 	*x = ToolkitPolicyToolIds{}
-	mi := &file_payload_ai_proto_msgTypes[97]
+	mi := &file_payload_ai_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6259,7 +3833,7 @@ func (x *ToolkitPolicyToolIds) String() string {
 func (*ToolkitPolicyToolIds) ProtoMessage() {}
 
 func (x *ToolkitPolicyToolIds) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[97]
+	mi := &file_payload_ai_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6272,7 +3846,7 @@ func (x *ToolkitPolicyToolIds) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolkitPolicyToolIds.ProtoReflect.Descriptor instead.
 func (*ToolkitPolicyToolIds) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{97}
+	return file_payload_ai_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *ToolkitPolicyToolIds) GetValue() []string {
@@ -6291,7 +3865,7 @@ type ToolkitPolicy struct {
 
 func (x *ToolkitPolicy) Reset() {
 	*x = ToolkitPolicy{}
-	mi := &file_payload_ai_proto_msgTypes[98]
+	mi := &file_payload_ai_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6303,7 +3877,7 @@ func (x *ToolkitPolicy) String() string {
 func (*ToolkitPolicy) ProtoMessage() {}
 
 func (x *ToolkitPolicy) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[98]
+	mi := &file_payload_ai_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6316,7 +3890,7 @@ func (x *ToolkitPolicy) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolkitPolicy.ProtoReflect.Descriptor instead.
 func (*ToolkitPolicy) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{98}
+	return file_payload_ai_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *ToolkitPolicy) GetToolIds() *ToolkitPolicyToolIds {
@@ -6326,334 +3900,19 @@ func (x *ToolkitPolicy) GetToolIds() *ToolkitPolicyToolIds {
 	return nil
 }
 
-type WorkflowSpec struct {
-	state          protoimpl.MessageState      `protogen:"open.v1"`
-	AstTranslate   *ASTTranslateWorkflowSpec   `protobuf:"bytes,1,opt,name=ast_translate,json=astTranslate,proto3,oneof" json:"ast_translate,omitempty"`
-	Chatroom       *ChatRoomWorkflowSpec       `protobuf:"bytes,2,opt,name=chatroom,proto3,oneof" json:"chatroom,omitempty"`
-	DoubaoRealtime *DoubaoRealtimeWorkflowSpec `protobuf:"bytes,3,opt,name=doubao_realtime,json=doubaoRealtime,proto3,oneof" json:"doubao_realtime,omitempty"`
-	Driver         WorkflowDriver              `protobuf:"varint,4,opt,name=driver,proto3,enum=gizclaw.rpc.v1.WorkflowDriver" json:"driver,omitempty"`
-	Flowcraft      *FlowcraftWorkflowSpec      `protobuf:"bytes,5,opt,name=flowcraft,proto3,oneof" json:"flowcraft,omitempty"`
-	Toolkit        *ToolkitPolicy              `protobuf:"bytes,6,opt,name=toolkit,proto3,oneof" json:"toolkit,omitempty"`
-	Pet            *PetWorkflowSpec            `protobuf:"bytes,7,opt,name=pet,proto3,oneof" json:"pet,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
-}
-
-func (x *WorkflowSpec) Reset() {
-	*x = WorkflowSpec{}
-	mi := &file_payload_ai_proto_msgTypes[99]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *WorkflowSpec) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*WorkflowSpec) ProtoMessage() {}
-
-func (x *WorkflowSpec) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[99]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use WorkflowSpec.ProtoReflect.Descriptor instead.
-func (*WorkflowSpec) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{99}
-}
-
-func (x *WorkflowSpec) GetAstTranslate() *ASTTranslateWorkflowSpec {
-	if x != nil {
-		return x.AstTranslate
-	}
-	return nil
-}
-
-func (x *WorkflowSpec) GetChatroom() *ChatRoomWorkflowSpec {
-	if x != nil {
-		return x.Chatroom
-	}
-	return nil
-}
-
-func (x *WorkflowSpec) GetDoubaoRealtime() *DoubaoRealtimeWorkflowSpec {
-	if x != nil {
-		return x.DoubaoRealtime
-	}
-	return nil
-}
-
-func (x *WorkflowSpec) GetDriver() WorkflowDriver {
-	if x != nil {
-		return x.Driver
-	}
-	return WorkflowDriver_WORKFLOW_DRIVER_UNSPECIFIED
-}
-
-func (x *WorkflowSpec) GetFlowcraft() *FlowcraftWorkflowSpec {
-	if x != nil {
-		return x.Flowcraft
-	}
-	return nil
-}
-
-func (x *WorkflowSpec) GetToolkit() *ToolkitPolicy {
-	if x != nil {
-		return x.Toolkit
-	}
-	return nil
-}
-
-func (x *WorkflowSpec) GetPet() *PetWorkflowSpec {
-	if x != nil {
-		return x.Pet
-	}
-	return nil
-}
-
-type ToolExecutor struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Kind          ToolExecutorKind       `protobuf:"varint,1,opt,name=kind,proto3,enum=gizclaw.rpc.v1.ToolExecutorKind" json:"kind,omitempty"`
-	Name          *string                `protobuf:"bytes,2,opt,name=name,proto3,oneof" json:"name,omitempty"`
-	Method        *string                `protobuf:"bytes,3,opt,name=method,proto3,oneof" json:"method,omitempty"`
-	PeerId        *string                `protobuf:"bytes,4,opt,name=peer_id,json=peerId,proto3,oneof" json:"peer_id,omitempty"`
-	Config        *structpb.Struct       `protobuf:"bytes,5,opt,name=config,proto3,oneof" json:"config,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ToolExecutor) Reset() {
-	*x = ToolExecutor{}
-	mi := &file_payload_ai_proto_msgTypes[100]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ToolExecutor) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ToolExecutor) ProtoMessage() {}
-
-func (x *ToolExecutor) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[100]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ToolExecutor.ProtoReflect.Descriptor instead.
-func (*ToolExecutor) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{100}
-}
-
-func (x *ToolExecutor) GetKind() ToolExecutorKind {
-	if x != nil {
-		return x.Kind
-	}
-	return ToolExecutorKind_TOOL_EXECUTOR_KIND_UNSPECIFIED
-}
-
-func (x *ToolExecutor) GetName() string {
-	if x != nil && x.Name != nil {
-		return *x.Name
-	}
-	return ""
-}
-
-func (x *ToolExecutor) GetMethod() string {
-	if x != nil && x.Method != nil {
-		return *x.Method
-	}
-	return ""
-}
-
-func (x *ToolExecutor) GetPeerId() string {
-	if x != nil && x.PeerId != nil {
-		return *x.PeerId
-	}
-	return ""
-}
-
-func (x *ToolExecutor) GetConfig() *structpb.Struct {
-	if x != nil {
-		return x.Config
-	}
-	return nil
-}
-
-type ToolTriggerExample struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Input         string                 `protobuf:"bytes,1,opt,name=input,proto3" json:"input,omitempty"`
-	Args          *structpb.Struct       `protobuf:"bytes,2,opt,name=args,proto3,oneof" json:"args,omitempty"`
-	Output        *string                `protobuf:"bytes,3,opt,name=output,proto3,oneof" json:"output,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ToolTriggerExample) Reset() {
-	*x = ToolTriggerExample{}
-	mi := &file_payload_ai_proto_msgTypes[101]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ToolTriggerExample) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ToolTriggerExample) ProtoMessage() {}
-
-func (x *ToolTriggerExample) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[101]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ToolTriggerExample.ProtoReflect.Descriptor instead.
-func (*ToolTriggerExample) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{101}
-}
-
-func (x *ToolTriggerExample) GetInput() string {
-	if x != nil {
-		return x.Input
-	}
-	return ""
-}
-
-func (x *ToolTriggerExample) GetArgs() *structpb.Struct {
-	if x != nil {
-		return x.Args
-	}
-	return nil
-}
-
-func (x *ToolTriggerExample) GetOutput() string {
-	if x != nil && x.Output != nil {
-		return *x.Output
-	}
-	return ""
-}
-
-type ToolTrigger struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Description   *string                `protobuf:"bytes,2,opt,name=description,proto3,oneof" json:"description,omitempty"`
-	Patterns      []string               `protobuf:"bytes,3,rep,name=patterns,proto3" json:"patterns,omitempty"`
-	Examples      []*ToolTriggerExample  `protobuf:"bytes,4,rep,name=examples,proto3" json:"examples,omitempty"`
-	Metadata      *structpb.Struct       `protobuf:"bytes,5,opt,name=metadata,proto3,oneof" json:"metadata,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ToolTrigger) Reset() {
-	*x = ToolTrigger{}
-	mi := &file_payload_ai_proto_msgTypes[102]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ToolTrigger) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ToolTrigger) ProtoMessage() {}
-
-func (x *ToolTrigger) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[102]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ToolTrigger.ProtoReflect.Descriptor instead.
-func (*ToolTrigger) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{102}
-}
-
-func (x *ToolTrigger) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-func (x *ToolTrigger) GetDescription() string {
-	if x != nil && x.Description != nil {
-		return *x.Description
-	}
-	return ""
-}
-
-func (x *ToolTrigger) GetPatterns() []string {
-	if x != nil {
-		return x.Patterns
-	}
-	return nil
-}
-
-func (x *ToolTrigger) GetExamples() []*ToolTriggerExample {
-	if x != nil {
-		return x.Examples
-	}
-	return nil
-}
-
-func (x *ToolTrigger) GetMetadata() *structpb.Struct {
-	if x != nil {
-		return x.Metadata
-	}
-	return nil
-}
-
 type Tool struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	Id             string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Name           *string                `protobuf:"bytes,2,opt,name=name,proto3,oneof" json:"name,omitempty"`
-	Description    *string                `protobuf:"bytes,3,opt,name=description,proto3,oneof" json:"description,omitempty"`
-	Source         ToolSource             `protobuf:"varint,4,opt,name=source,proto3,enum=gizclaw.rpc.v1.ToolSource" json:"source,omitempty"`
-	Enabled        *bool                  `protobuf:"varint,5,opt,name=enabled,proto3,oneof" json:"enabled,omitempty"`
-	OwnerPeer      *string                `protobuf:"bytes,6,opt,name=owner_peer,json=ownerPeer,proto3,oneof" json:"owner_peer,omitempty"`
-	Version        *string                `protobuf:"bytes,7,opt,name=version,proto3,oneof" json:"version,omitempty"`
-	InputSchema    *structpb.Struct       `protobuf:"bytes,8,opt,name=input_schema,json=inputSchema,proto3" json:"input_schema,omitempty"`
-	OutputSchema   *structpb.Struct       `protobuf:"bytes,9,opt,name=output_schema,json=outputSchema,proto3,oneof" json:"output_schema,omitempty"`
-	Triggers       []*ToolTrigger         `protobuf:"bytes,10,rep,name=triggers,proto3" json:"triggers,omitempty"`
-	Executor       *ToolExecutor          `protobuf:"bytes,11,opt,name=executor,proto3" json:"executor,omitempty"`
-	Metadata       *structpb.Struct       `protobuf:"bytes,12,opt,name=metadata,proto3,oneof" json:"metadata,omitempty"`
-	CreatedAt      string                 `protobuf:"bytes,13,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt      string                 `protobuf:"bytes,14,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	OwnerPublicKey *string                `protobuf:"bytes,15,opt,name=owner_public_key,json=ownerPublicKey,proto3,oneof" json:"owner_public_key,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state         protoimpl.MessageState    `protogen:"open.v1"`
+	Alias         string                    `protobuf:"bytes,1,opt,name=alias,proto3" json:"alias,omitempty"`
+	I18N          map[string]*AliasI18NText `protobuf:"bytes,2,rep,name=i18n,proto3" json:"i18n,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	InputSchema   *structpb.Struct          `protobuf:"bytes,3,opt,name=input_schema,json=inputSchema,proto3" json:"input_schema,omitempty"`
+	OutputSchema  *structpb.Struct          `protobuf:"bytes,4,opt,name=output_schema,json=outputSchema,proto3,oneof" json:"output_schema,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Tool) Reset() {
 	*x = Tool{}
-	mi := &file_payload_ai_proto_msgTypes[103]
+	mi := &file_payload_ai_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6665,7 +3924,7 @@ func (x *Tool) String() string {
 func (*Tool) ProtoMessage() {}
 
 func (x *Tool) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[103]
+	mi := &file_payload_ai_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6678,56 +3937,21 @@ func (x *Tool) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Tool.ProtoReflect.Descriptor instead.
 func (*Tool) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{103}
+	return file_payload_ai_proto_rawDescGZIP(), []int{61}
 }
 
-func (x *Tool) GetId() string {
+func (x *Tool) GetAlias() string {
 	if x != nil {
-		return x.Id
+		return x.Alias
 	}
 	return ""
 }
 
-func (x *Tool) GetName() string {
-	if x != nil && x.Name != nil {
-		return *x.Name
-	}
-	return ""
-}
-
-func (x *Tool) GetDescription() string {
-	if x != nil && x.Description != nil {
-		return *x.Description
-	}
-	return ""
-}
-
-func (x *Tool) GetSource() ToolSource {
+func (x *Tool) GetI18N() map[string]*AliasI18NText {
 	if x != nil {
-		return x.Source
+		return x.I18N
 	}
-	return ToolSource_TOOL_SOURCE_UNSPECIFIED
-}
-
-func (x *Tool) GetEnabled() bool {
-	if x != nil && x.Enabled != nil {
-		return *x.Enabled
-	}
-	return false
-}
-
-func (x *Tool) GetOwnerPeer() string {
-	if x != nil && x.OwnerPeer != nil {
-		return *x.OwnerPeer
-	}
-	return ""
-}
-
-func (x *Tool) GetVersion() string {
-	if x != nil && x.Version != nil {
-		return *x.Version
-	}
-	return ""
+	return nil
 }
 
 func (x *Tool) GetInputSchema() *structpb.Struct {
@@ -6744,48 +3968,6 @@ func (x *Tool) GetOutputSchema() *structpb.Struct {
 	return nil
 }
 
-func (x *Tool) GetTriggers() []*ToolTrigger {
-	if x != nil {
-		return x.Triggers
-	}
-	return nil
-}
-
-func (x *Tool) GetExecutor() *ToolExecutor {
-	if x != nil {
-		return x.Executor
-	}
-	return nil
-}
-
-func (x *Tool) GetMetadata() *structpb.Struct {
-	if x != nil {
-		return x.Metadata
-	}
-	return nil
-}
-
-func (x *Tool) GetCreatedAt() string {
-	if x != nil {
-		return x.CreatedAt
-	}
-	return ""
-}
-
-func (x *Tool) GetUpdatedAt() string {
-	if x != nil {
-		return x.UpdatedAt
-	}
-	return ""
-}
-
-func (x *Tool) GetOwnerPublicKey() string {
-	if x != nil && x.OwnerPublicKey != nil {
-		return *x.OwnerPublicKey
-	}
-	return ""
-}
-
 type ToolListRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Cursor        *string                `protobuf:"bytes,1,opt,name=cursor,proto3,oneof" json:"cursor,omitempty"`
@@ -6796,7 +3978,7 @@ type ToolListRequest struct {
 
 func (x *ToolListRequest) Reset() {
 	*x = ToolListRequest{}
-	mi := &file_payload_ai_proto_msgTypes[104]
+	mi := &file_payload_ai_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6808,7 +3990,7 @@ func (x *ToolListRequest) String() string {
 func (*ToolListRequest) ProtoMessage() {}
 
 func (x *ToolListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[104]
+	mi := &file_payload_ai_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6821,7 +4003,7 @@ func (x *ToolListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolListRequest.ProtoReflect.Descriptor instead.
 func (*ToolListRequest) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{104}
+	return file_payload_ai_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *ToolListRequest) GetCursor() string {
@@ -6839,17 +4021,19 @@ func (x *ToolListRequest) GetLimit() int64 {
 }
 
 type ToolListResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Items         []*Tool                `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
-	HasNext       bool                   `protobuf:"varint,2,opt,name=has_next,json=hasNext,proto3" json:"has_next,omitempty"`
-	NextCursor    *string                `protobuf:"bytes,3,opt,name=next_cursor,json=nextCursor,proto3,oneof" json:"next_cursor,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"open.v1"`
+	Items                  []*Tool                `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	HasNext                bool                   `protobuf:"varint,2,opt,name=has_next,json=hasNext,proto3" json:"has_next,omitempty"`
+	NextCursor             *string                `protobuf:"bytes,3,opt,name=next_cursor,json=nextCursor,proto3,oneof" json:"next_cursor,omitempty"`
+	RuntimeProfileName     string                 `protobuf:"bytes,4,opt,name=runtime_profile_name,json=runtimeProfileName,proto3" json:"runtime_profile_name,omitempty"`
+	RuntimeProfileRevision string                 `protobuf:"bytes,5,opt,name=runtime_profile_revision,json=runtimeProfileRevision,proto3" json:"runtime_profile_revision,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *ToolListResponse) Reset() {
 	*x = ToolListResponse{}
-	mi := &file_payload_ai_proto_msgTypes[105]
+	mi := &file_payload_ai_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6861,7 +4045,7 @@ func (x *ToolListResponse) String() string {
 func (*ToolListResponse) ProtoMessage() {}
 
 func (x *ToolListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[105]
+	mi := &file_payload_ai_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6874,7 +4058,7 @@ func (x *ToolListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolListResponse.ProtoReflect.Descriptor instead.
 func (*ToolListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{105}
+	return file_payload_ai_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *ToolListResponse) GetItems() []*Tool {
@@ -6898,16 +4082,30 @@ func (x *ToolListResponse) GetNextCursor() string {
 	return ""
 }
 
+func (x *ToolListResponse) GetRuntimeProfileName() string {
+	if x != nil {
+		return x.RuntimeProfileName
+	}
+	return ""
+}
+
+func (x *ToolListResponse) GetRuntimeProfileRevision() string {
+	if x != nil {
+		return x.RuntimeProfileRevision
+	}
+	return ""
+}
+
 type ToolGetRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Alias         string                 `protobuf:"bytes,1,opt,name=alias,proto3" json:"alias,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ToolGetRequest) Reset() {
 	*x = ToolGetRequest{}
-	mi := &file_payload_ai_proto_msgTypes[106]
+	mi := &file_payload_ai_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6919,7 +4117,7 @@ func (x *ToolGetRequest) String() string {
 func (*ToolGetRequest) ProtoMessage() {}
 
 func (x *ToolGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[106]
+	mi := &file_payload_ai_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6932,26 +4130,28 @@ func (x *ToolGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolGetRequest.ProtoReflect.Descriptor instead.
 func (*ToolGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{106}
+	return file_payload_ai_proto_rawDescGZIP(), []int{64}
 }
 
-func (x *ToolGetRequest) GetId() string {
+func (x *ToolGetRequest) GetAlias() string {
 	if x != nil {
-		return x.Id
+		return x.Alias
 	}
 	return ""
 }
 
 type ToolGetResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Value         *Tool                  `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"open.v1"`
+	Value                  *Tool                  `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
+	RuntimeProfileName     string                 `protobuf:"bytes,2,opt,name=runtime_profile_name,json=runtimeProfileName,proto3" json:"runtime_profile_name,omitempty"`
+	RuntimeProfileRevision string                 `protobuf:"bytes,3,opt,name=runtime_profile_revision,json=runtimeProfileRevision,proto3" json:"runtime_profile_revision,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *ToolGetResponse) Reset() {
 	*x = ToolGetResponse{}
-	mi := &file_payload_ai_proto_msgTypes[107]
+	mi := &file_payload_ai_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6963,7 +4163,7 @@ func (x *ToolGetResponse) String() string {
 func (*ToolGetResponse) ProtoMessage() {}
 
 func (x *ToolGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[107]
+	mi := &file_payload_ai_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6976,7 +4176,7 @@ func (x *ToolGetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolGetResponse.ProtoReflect.Descriptor instead.
 func (*ToolGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{107}
+	return file_payload_ai_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *ToolGetResponse) GetValue() *Tool {
@@ -6986,276 +4186,18 @@ func (x *ToolGetResponse) GetValue() *Tool {
 	return nil
 }
 
-type ToolCreateRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Value         *Tool                  `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ToolCreateRequest) Reset() {
-	*x = ToolCreateRequest{}
-	mi := &file_payload_ai_proto_msgTypes[108]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ToolCreateRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ToolCreateRequest) ProtoMessage() {}
-
-func (x *ToolCreateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[108]
+func (x *ToolGetResponse) GetRuntimeProfileName() string {
 	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ToolCreateRequest.ProtoReflect.Descriptor instead.
-func (*ToolCreateRequest) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{108}
-}
-
-func (x *ToolCreateRequest) GetValue() *Tool {
-	if x != nil {
-		return x.Value
-	}
-	return nil
-}
-
-type ToolCreateResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Value         *Tool                  `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ToolCreateResponse) Reset() {
-	*x = ToolCreateResponse{}
-	mi := &file_payload_ai_proto_msgTypes[109]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ToolCreateResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ToolCreateResponse) ProtoMessage() {}
-
-func (x *ToolCreateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[109]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ToolCreateResponse.ProtoReflect.Descriptor instead.
-func (*ToolCreateResponse) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{109}
-}
-
-func (x *ToolCreateResponse) GetValue() *Tool {
-	if x != nil {
-		return x.Value
-	}
-	return nil
-}
-
-type ToolPutRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Body          *Tool                  `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ToolPutRequest) Reset() {
-	*x = ToolPutRequest{}
-	mi := &file_payload_ai_proto_msgTypes[110]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ToolPutRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ToolPutRequest) ProtoMessage() {}
-
-func (x *ToolPutRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[110]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ToolPutRequest.ProtoReflect.Descriptor instead.
-func (*ToolPutRequest) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{110}
-}
-
-func (x *ToolPutRequest) GetId() string {
-	if x != nil {
-		return x.Id
+		return x.RuntimeProfileName
 	}
 	return ""
 }
 
-func (x *ToolPutRequest) GetBody() *Tool {
+func (x *ToolGetResponse) GetRuntimeProfileRevision() string {
 	if x != nil {
-		return x.Body
-	}
-	return nil
-}
-
-type ToolPutResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Value         *Tool                  `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ToolPutResponse) Reset() {
-	*x = ToolPutResponse{}
-	mi := &file_payload_ai_proto_msgTypes[111]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ToolPutResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ToolPutResponse) ProtoMessage() {}
-
-func (x *ToolPutResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[111]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ToolPutResponse.ProtoReflect.Descriptor instead.
-func (*ToolPutResponse) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{111}
-}
-
-func (x *ToolPutResponse) GetValue() *Tool {
-	if x != nil {
-		return x.Value
-	}
-	return nil
-}
-
-type ToolDeleteRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ToolDeleteRequest) Reset() {
-	*x = ToolDeleteRequest{}
-	mi := &file_payload_ai_proto_msgTypes[112]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ToolDeleteRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ToolDeleteRequest) ProtoMessage() {}
-
-func (x *ToolDeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[112]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ToolDeleteRequest.ProtoReflect.Descriptor instead.
-func (*ToolDeleteRequest) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{112}
-}
-
-func (x *ToolDeleteRequest) GetId() string {
-	if x != nil {
-		return x.Id
+		return x.RuntimeProfileRevision
 	}
 	return ""
-}
-
-type ToolDeleteResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Value         *Tool                  `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ToolDeleteResponse) Reset() {
-	*x = ToolDeleteResponse{}
-	mi := &file_payload_ai_proto_msgTypes[113]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ToolDeleteResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ToolDeleteResponse) ProtoMessage() {}
-
-func (x *ToolDeleteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[113]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ToolDeleteResponse.ProtoReflect.Descriptor instead.
-func (*ToolDeleteResponse) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{113}
-}
-
-func (x *ToolDeleteResponse) GetValue() *Tool {
-	if x != nil {
-		return x.Value
-	}
-	return nil
 }
 
 type ToolInvokeRequest struct {
@@ -7270,7 +4212,7 @@ type ToolInvokeRequest struct {
 
 func (x *ToolInvokeRequest) Reset() {
 	*x = ToolInvokeRequest{}
-	mi := &file_payload_ai_proto_msgTypes[114]
+	mi := &file_payload_ai_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7282,7 +4224,7 @@ func (x *ToolInvokeRequest) String() string {
 func (*ToolInvokeRequest) ProtoMessage() {}
 
 func (x *ToolInvokeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[114]
+	mi := &file_payload_ai_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7295,7 +4237,7 @@ func (x *ToolInvokeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolInvokeRequest.ProtoReflect.Descriptor instead.
 func (*ToolInvokeRequest) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{114}
+	return file_payload_ai_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *ToolInvokeRequest) GetCallId() string {
@@ -7335,7 +4277,7 @@ type ToolInvokeResponse struct {
 
 func (x *ToolInvokeResponse) Reset() {
 	*x = ToolInvokeResponse{}
-	mi := &file_payload_ai_proto_msgTypes[115]
+	mi := &file_payload_ai_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7347,7 +4289,7 @@ func (x *ToolInvokeResponse) String() string {
 func (*ToolInvokeResponse) ProtoMessage() {}
 
 func (x *ToolInvokeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_ai_proto_msgTypes[115]
+	mi := &file_payload_ai_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7360,7 +4302,7 @@ func (x *ToolInvokeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolInvokeResponse.ProtoReflect.Descriptor instead.
 func (*ToolInvokeResponse) Descriptor() ([]byte, []int) {
-	return file_payload_ai_proto_rawDescGZIP(), []int{115}
+	return file_payload_ai_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *ToolInvokeResponse) GetDataJson() string {
@@ -7374,7 +4316,32 @@ var File_payload_ai_proto protoreflect.FileDescriptor
 
 const file_payload_ai_proto_rawDesc = "" +
 	"\n" +
-	"\x10payload/ai.proto\x12\x0egizclaw.rpc.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x13payload/enums.proto\"B\n" +
+	"\x10payload/ai.proto\x12\x0egizclaw.rpc.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x13payload/enums.proto\"i\n" +
+	"\rAliasI18nText\x12!\n" +
+	"\fdisplay_name\x18\x01 \x01(\tR\vdisplayName\x12%\n" +
+	"\vdescription\x18\x02 \x01(\tH\x00R\vdescription\x88\x01\x01B\x0e\n" +
+	"\f_description\"\x8b\x01\n" +
+	"\x17SpeechTranscribeRequest\x12\x1f\n" +
+	"\vmodel_alias\x18\x01 \x01(\tR\n" +
+	"modelAlias\x12!\n" +
+	"\fcontent_type\x18\x02 \x01(\tR\vcontentType\x12\x1f\n" +
+	"\blanguage\x18\x03 \x01(\tH\x00R\blanguage\x88\x01\x01B\v\n" +
+	"\t_language\":\n" +
+	"\x18SpeechTranscribeResponse\x12\x1e\n" +
+	"\n" +
+	"transcript\x18\x01 \x01(\tR\n" +
+	"transcript\"\x84\x01\n" +
+	"\x17SpeechSynthesizeRequest\x12\x1f\n" +
+	"\vvoice_alias\x18\x01 \x01(\tR\n" +
+	"voiceAlias\x12\x12\n" +
+	"\x04text\x18\x02 \x01(\tR\x04text\x124\n" +
+	"\x16accepted_content_types\x18\x03 \x03(\tR\x14acceptedContentTypes\"\xa9\x01\n" +
+	"\x18SpeechSynthesizeResponse\x12!\n" +
+	"\fcontent_type\x18\x01 \x01(\tR\vcontentType\x12)\n" +
+	"\x0esample_rate_hz\x18\x02 \x01(\x05H\x00R\fsampleRateHz\x88\x01\x01\x12\x1f\n" +
+	"\bchannels\x18\x03 \x01(\x05H\x01R\bchannels\x88\x01\x01B\x11\n" +
+	"\x0f_sample_rate_hzB\v\n" +
+	"\t_channels\"B\n" +
 	"#ASTTranslateExternalVoiceParameters\x12\x1b\n" +
 	"\ttts_voice\x18\x01 \x01(\tR\bttsVoice\"\x84\x02\n" +
 	"%ASTTranslateInternalSpeakerParameters\x12/\n" +
@@ -7488,72 +4455,7 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\n" +
 	"_asr_modelB\n" +
 	"\n" +
-	"\b_enabled\"\xa9\x02\n" +
-	"\n" +
-	"Credential\x122\n" +
-	"\x04body\x18\x01 \x01(\v2\x1e.gizclaw.rpc.v1.CredentialBodyR\x04body\x12\x1d\n" +
-	"\n" +
-	"created_at\x18\x02 \x01(\tR\tcreatedAt\x12%\n" +
-	"\vdescription\x18\x03 \x01(\tH\x00R\vdescription\x88\x01\x01\x12\x12\n" +
-	"\x04name\x18\x04 \x01(\tR\x04name\x12\x1a\n" +
-	"\bprovider\x18\x05 \x01(\tR\bprovider\x12\x1d\n" +
-	"\n" +
-	"updated_at\x18\x06 \x01(\tR\tupdatedAt\x12-\n" +
-	"\x10owner_public_key\x18\a \x01(\tH\x01R\x0eownerPublicKey\x88\x01\x01B\x0e\n" +
-	"\f_descriptionB\x13\n" +
-	"\x11_owner_public_key\"\xf7\x03\n" +
-	"\x0eCredentialBody\x12\\\n" +
-	"\x16open_aicredential_body\x18\x01 \x01(\v2$.gizclaw.rpc.v1.OpenAICredentialBodyH\x00R\x14openAicredentialBody\x12\\\n" +
-	"\x16gemini_credential_body\x18\x02 \x01(\v2$.gizclaw.rpc.v1.GeminiCredentialBodyH\x00R\x14geminiCredentialBody\x12f\n" +
-	"\x1adash_scope_credential_body\x18\x03 \x01(\v2'.gizclaw.rpc.v1.DashScopeCredentialBodyH\x00R\x17dashScopeCredentialBody\x12`\n" +
-	"\x18mini_max_credential_body\x18\x04 \x01(\v2%.gizclaw.rpc.v1.MiniMaxCredentialBodyH\x00R\x15miniMaxCredentialBody\x12V\n" +
-	"\x14volc_credential_body\x18\x05 \x01(\v2\".gizclaw.rpc.v1.VolcCredentialBodyH\x00R\x12volcCredentialBodyB\a\n" +
-	"\x05value\"K\n" +
-	"\x17CredentialCreateRequest\x120\n" +
-	"\x05value\x18\x01 \x01(\v2\x1a.gizclaw.rpc.v1.CredentialR\x05value\"L\n" +
-	"\x18CredentialCreateResponse\x120\n" +
-	"\x05value\x18\x01 \x01(\v2\x1a.gizclaw.rpc.v1.CredentialR\x05value\"-\n" +
-	"\x17CredentialDeleteRequest\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\"L\n" +
-	"\x18CredentialDeleteResponse\x120\n" +
-	"\x05value\x18\x01 \x01(\v2\x1a.gizclaw.rpc.v1.CredentialR\x05value\"*\n" +
-	"\x14CredentialGetRequest\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\"I\n" +
-	"\x15CredentialGetResponse\x120\n" +
-	"\x05value\x18\x01 \x01(\v2\x1a.gizclaw.rpc.v1.CredentialR\x05value\"d\n" +
-	"\x15CredentialListRequest\x12\x1b\n" +
-	"\x06cursor\x18\x01 \x01(\tH\x00R\x06cursor\x88\x01\x01\x12\x19\n" +
-	"\x05limit\x18\x02 \x01(\x03H\x01R\x05limit\x88\x01\x01B\t\n" +
-	"\a_cursorB\b\n" +
-	"\x06_limit\"\x9b\x01\n" +
-	"\x16CredentialListResponse\x12\x19\n" +
-	"\bhas_next\x18\x01 \x01(\bR\ahasNext\x120\n" +
-	"\x05items\x18\x02 \x03(\v2\x1a.gizclaw.rpc.v1.CredentialR\x05items\x12$\n" +
-	"\vnext_cursor\x18\x03 \x01(\tH\x00R\n" +
-	"nextCursor\x88\x01\x01B\x0e\n" +
-	"\f_next_cursor\"Z\n" +
-	"\x14CredentialPutRequest\x12.\n" +
-	"\x04body\x18\x01 \x01(\v2\x1a.gizclaw.rpc.v1.CredentialR\x04body\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\"I\n" +
-	"\x15CredentialPutResponse\x120\n" +
-	"\x05value\x18\x01 \x01(\v2\x1a.gizclaw.rpc.v1.CredentialR\x05value\"\x95\x01\n" +
-	"\x17DashScopeCredentialBody\x12\x1c\n" +
-	"\aapi_key\x18\x01 \x01(\tH\x00R\x06apiKey\x88\x01\x01\x12\x1e\n" +
-	"\bbase_url\x18\x02 \x01(\tH\x01R\abaseUrl\x88\x01\x01\x12\x19\n" +
-	"\x05token\x18\x03 \x01(\tH\x02R\x05token\x88\x01\x01B\n" +
-	"\n" +
-	"\b_api_keyB\v\n" +
-	"\t_base_urlB\b\n" +
-	"\x06_token\"\xc7\x01\n" +
-	" DashScopeTenantModelProviderData\x12W\n" +
-	"\bapi_mode\x18\x01 \x01(\x0e27.gizclaw.rpc.v1.DashScopeTenantModelProviderDataApiModeH\x00R\aapiMode\x88\x01\x01\x12*\n" +
-	"\x0eupstream_model\x18\x02 \x01(\tH\x01R\rupstreamModel\x88\x01\x01B\v\n" +
-	"\t_api_modeB\x11\n" +
-	"\x0f_upstream_model\"z\n" +
-	" DashScopeTenantVoiceProviderData\x12)\n" +
-	"\x03raw\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x03raw\x12\x1e\n" +
-	"\bvoice_id\x18\x02 \x01(\tH\x00R\avoiceId\x88\x01\x01B\v\n" +
-	"\t_voice_id\"\xc0\x02\n" +
+	"\b_enabled\"\xc0\x02\n" +
 	"\x1aDoubaoRealtimeAIGCMetadata\x12.\n" +
 	"\x10content_producer\x18\x01 \x01(\tH\x00R\x0fcontentProducer\x88\x01\x01\x122\n" +
 	"\x12content_propagator\x18\x02 \x01(\tH\x01R\x11contentPropagator\x88\x01\x01\x12\x1b\n" +
@@ -7773,71 +4675,16 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\r_conversationB\b\n" +
 	"\x06_inputB\n" +
 	"\n" +
-	"\b_persona\"\x92\x01\n" +
-	"\x14GeminiCredentialBody\x12\x1c\n" +
-	"\aapi_key\x18\x01 \x01(\tH\x00R\x06apiKey\x88\x01\x01\x12\x1e\n" +
-	"\bbase_url\x18\x02 \x01(\tH\x01R\abaseUrl\x88\x01\x01\x12\x19\n" +
-	"\x05token\x18\x03 \x01(\tH\x02R\x05token\x88\x01\x01B\n" +
-	"\n" +
-	"\b_api_keyB\v\n" +
-	"\t_base_urlB\b\n" +
-	"\x06_token\"^\n" +
-	"\x1dGeminiTenantModelProviderData\x12*\n" +
-	"\x0eupstream_model\x18\x01 \x01(\tH\x00R\rupstreamModel\x88\x01\x01B\x11\n" +
-	"\x0f_upstream_model\"w\n" +
-	"\x1dGeminiTenantVoiceProviderData\x12)\n" +
-	"\x03raw\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x03raw\x12\x1e\n" +
-	"\bvoice_id\x18\x02 \x01(\tH\x00R\avoiceId\x88\x01\x01B\v\n" +
-	"\t_voice_id\"\xa6\x02\n" +
-	"\x15MiniMaxCredentialBody\x12\x1c\n" +
-	"\aapi_key\x18\x01 \x01(\tH\x00R\x06apiKey\x88\x01\x01\x12\x1e\n" +
-	"\bbase_url\x18\x02 \x01(\tH\x01R\abaseUrl\x88\x01\x01\x128\n" +
-	"\x16minimax_voice_base_url\x18\x03 \x01(\tH\x02R\x13minimaxVoiceBaseUrl\x88\x01\x01\x12\x19\n" +
-	"\x05token\x18\x04 \x01(\tH\x03R\x05token\x88\x01\x01\x12)\n" +
-	"\x0evoice_base_url\x18\x05 \x01(\tH\x04R\fvoiceBaseUrl\x88\x01\x01B\n" +
-	"\n" +
-	"\b_api_keyB\v\n" +
-	"\t_base_urlB\x19\n" +
-	"\x17_minimax_voice_base_urlB\b\n" +
-	"\x06_tokenB\x11\n" +
-	"\x0f_voice_base_url\"\xae\x02\n" +
-	"\x1eMiniMaxTenantVoiceProviderData\x12\x1b\n" +
-	"\x06format\x18\x01 \x01(\tH\x00R\x06format\x88\x01\x01\x12\x19\n" +
-	"\x05model\x18\x02 \x01(\tH\x01R\x05model\x88\x01\x01\x12)\n" +
-	"\x03raw\x18\x03 \x01(\v2\x17.google.protobuf.StructR\x03raw\x12$\n" +
-	"\vsample_rate\x18\x04 \x01(\x03H\x02R\n" +
-	"sampleRate\x88\x01\x01\x12\x1e\n" +
-	"\bvoice_id\x18\x05 \x01(\tH\x03R\avoiceId\x88\x01\x01\x12\"\n" +
-	"\n" +
-	"voice_type\x18\x06 \x01(\tH\x04R\tvoiceType\x88\x01\x01B\t\n" +
-	"\a_formatB\b\n" +
-	"\x06_modelB\x0e\n" +
-	"\f_sample_rateB\v\n" +
-	"\t_voice_idB\r\n" +
-	"\v_voice_type\"\xfd\x04\n" +
-	"\x05Model\x12J\n" +
-	"\fcapabilities\x18\x01 \x01(\v2!.gizclaw.rpc.v1.ModelCapabilitiesH\x00R\fcapabilities\x88\x01\x01\x12\x1d\n" +
-	"\n" +
-	"created_at\x18\x02 \x01(\tR\tcreatedAt\x12%\n" +
-	"\vdescription\x18\x03 \x01(\tH\x01R\vdescription\x88\x01\x01\x12\x0e\n" +
-	"\x02id\x18\x04 \x01(\tR\x02id\x12-\n" +
-	"\x04kind\x18\x05 \x01(\x0e2\x19.gizclaw.rpc.v1.ModelKindR\x04kind\x12\x17\n" +
-	"\x04name\x18\x06 \x01(\tH\x02R\x04name\x88\x01\x01\x129\n" +
-	"\bprovider\x18\a \x01(\v2\x1d.gizclaw.rpc.v1.ModelProviderR\bprovider\x12K\n" +
-	"\rprovider_data\x18\b \x01(\v2!.gizclaw.rpc.v1.ModelProviderDataH\x03R\fproviderData\x88\x01\x01\x123\n" +
-	"\x06source\x18\t \x01(\x0e2\x1b.gizclaw.rpc.v1.ModelSourceR\x06source\x12 \n" +
-	"\tsynced_at\x18\n" +
-	" \x01(\tH\x04R\bsyncedAt\x88\x01\x01\x12\x1d\n" +
-	"\n" +
-	"updated_at\x18\v \x01(\tR\tupdatedAt\x12-\n" +
-	"\x10owner_public_key\x18\f \x01(\tH\x05R\x0eownerPublicKey\x88\x01\x01B\x0f\n" +
-	"\r_capabilitiesB\x0e\n" +
-	"\f_descriptionB\a\n" +
-	"\x05_nameB\x10\n" +
-	"\x0e_provider_dataB\f\n" +
-	"\n" +
-	"_synced_atB\x13\n" +
-	"\x11_owner_public_key\"\xf0\x02\n" +
+	"\b_persona\"\xb6\x02\n" +
+	"\x05Model\x12\x14\n" +
+	"\x05alias\x18\x01 \x01(\tR\x05alias\x123\n" +
+	"\x04i18n\x18\x02 \x03(\v2\x1f.gizclaw.rpc.v1.Model.I18nEntryR\x04i18n\x12-\n" +
+	"\x04kind\x18\x03 \x01(\x0e2\x19.gizclaw.rpc.v1.ModelKindR\x04kind\x12J\n" +
+	"\fcapabilities\x18\x04 \x01(\v2!.gizclaw.rpc.v1.ModelCapabilitiesH\x00R\fcapabilities\x88\x01\x01\x1aV\n" +
+	"\tI18nEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x123\n" +
+	"\x05value\x18\x02 \x01(\v2\x1d.gizclaw.rpc.v1.AliasI18nTextR\x05value:\x028\x01B\x0f\n" +
+	"\r_capabilities\"\xf0\x02\n" +
 	"\x11ModelCapabilities\x12$\n" +
 	"\vjson_output\x18\x01 \x01(\bH\x00R\n" +
 	"jsonOutput\x88\x01\x01\x12$\n" +
@@ -7854,44 +4701,26 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\n" +
 	"_text_onlyB\v\n" +
 	"\t_thinkingB\r\n" +
-	"\v_tool_calls\"A\n" +
-	"\x12ModelCreateRequest\x12+\n" +
-	"\x05value\x18\x01 \x01(\v2\x15.gizclaw.rpc.v1.ModelR\x05value\"B\n" +
-	"\x13ModelCreateResponse\x12+\n" +
-	"\x05value\x18\x01 \x01(\v2\x15.gizclaw.rpc.v1.ModelR\x05value\"$\n" +
-	"\x12ModelDeleteRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"B\n" +
-	"\x13ModelDeleteResponse\x12+\n" +
-	"\x05value\x18\x01 \x01(\v2\x15.gizclaw.rpc.v1.ModelR\x05value\"!\n" +
-	"\x0fModelGetRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"?\n" +
+	"\v_tool_calls\"'\n" +
+	"\x0fModelGetRequest\x12\x14\n" +
+	"\x05alias\x18\x01 \x01(\tR\x05alias\"\xab\x01\n" +
 	"\x10ModelGetResponse\x12+\n" +
-	"\x05value\x18\x01 \x01(\v2\x15.gizclaw.rpc.v1.ModelR\x05value\"_\n" +
+	"\x05value\x18\x01 \x01(\v2\x15.gizclaw.rpc.v1.ModelR\x05value\x120\n" +
+	"\x14runtime_profile_name\x18\x02 \x01(\tR\x12runtimeProfileName\x128\n" +
+	"\x18runtime_profile_revision\x18\x03 \x01(\tR\x16runtimeProfileRevision\"_\n" +
 	"\x10ModelListRequest\x12\x1b\n" +
 	"\x06cursor\x18\x01 \x01(\tH\x00R\x06cursor\x88\x01\x01\x12\x19\n" +
 	"\x05limit\x18\x02 \x01(\x03H\x01R\x05limit\x88\x01\x01B\t\n" +
 	"\a_cursorB\b\n" +
-	"\x06_limit\"\x91\x01\n" +
+	"\x06_limit\"\xfd\x01\n" +
 	"\x11ModelListResponse\x12\x19\n" +
 	"\bhas_next\x18\x01 \x01(\bR\ahasNext\x12+\n" +
 	"\x05items\x18\x02 \x03(\v2\x15.gizclaw.rpc.v1.ModelR\x05items\x12$\n" +
 	"\vnext_cursor\x18\x03 \x01(\tH\x00R\n" +
-	"nextCursor\x88\x01\x01B\x0e\n" +
-	"\f_next_cursor\"Z\n" +
-	"\rModelProvider\x125\n" +
-	"\x04kind\x18\x01 \x01(\x0e2!.gizclaw.rpc.v1.ModelProviderKindR\x04kind\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\"\x8d\x04\n" +
-	"\x11ModelProviderData\x12y\n" +
-	"!gemini_tenant_model_provider_data\x18\x01 \x01(\v2-.gizclaw.rpc.v1.GeminiTenantModelProviderDataH\x00R\x1dgeminiTenantModelProviderData\x12\x83\x01\n" +
-	"%dash_scope_tenant_model_provider_data\x18\x02 \x01(\v20.gizclaw.rpc.v1.DashScopeTenantModelProviderDataH\x00R dashScopeTenantModelProviderData\x12y\n" +
-	"!open_aitenant_model_provider_data\x18\x03 \x01(\v2-.gizclaw.rpc.v1.OpenAITenantModelProviderDataH\x00R\x1dopenAitenantModelProviderData\x12s\n" +
-	"\x1fvolc_tenant_model_provider_data\x18\x04 \x01(\v2+.gizclaw.rpc.v1.VolcTenantModelProviderDataH\x00R\x1bvolcTenantModelProviderDataB\a\n" +
-	"\x05value\"L\n" +
-	"\x0fModelPutRequest\x12)\n" +
-	"\x04body\x18\x01 \x01(\v2\x15.gizclaw.rpc.v1.ModelR\x04body\x12\x0e\n" +
-	"\x02id\x18\x02 \x01(\tR\x02id\"?\n" +
-	"\x10ModelPutResponse\x12+\n" +
-	"\x05value\x18\x01 \x01(\v2\x15.gizclaw.rpc.v1.ModelR\x05value\"\xe6\x01\n" +
+	"nextCursor\x88\x01\x01\x120\n" +
+	"\x14runtime_profile_name\x18\x04 \x01(\tR\x12runtimeProfileName\x128\n" +
+	"\x18runtime_profile_revision\x18\x05 \x01(\tR\x16runtimeProfileRevisionB\x0e\n" +
+	"\f_next_cursor\"\xe6\x01\n" +
 	"\x17ModelThinkingCapability\x12(\n" +
 	"\rdefault_level\x18\x01 \x01(\tH\x00R\fdefaultLevel\x88\x01\x01\x12$\n" +
 	"\vlevel_param\x18\x02 \x01(\tH\x01R\n" +
@@ -7901,283 +4730,97 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\tsupported\x18\x05 \x01(\bR\tsupportedB\x10\n" +
 	"\x0e_default_levelB\x0e\n" +
 	"\f_level_paramB\b\n" +
-	"\x06_param\"\xf7\x01\n" +
-	"\x14OpenAICredentialBody\x12\x1c\n" +
-	"\aapi_key\x18\x01 \x01(\tH\x00R\x06apiKey\x88\x01\x01\x12\x1e\n" +
-	"\bbase_url\x18\x02 \x01(\tH\x01R\abaseUrl\x88\x01\x01\x12'\n" +
-	"\forganization\x18\x03 \x01(\tH\x02R\forganization\x88\x01\x01\x12\x1d\n" +
-	"\aproject\x18\x04 \x01(\tH\x03R\aproject\x88\x01\x01\x12\x19\n" +
-	"\x05token\x18\x05 \x01(\tH\x04R\x05token\x88\x01\x01B\n" +
-	"\n" +
-	"\b_api_keyB\v\n" +
-	"\t_base_urlB\x0f\n" +
-	"\r_organizationB\n" +
-	"\n" +
-	"\b_projectB\b\n" +
-	"\x06_token\"\xd0\x05\n" +
-	"\x1dOpenAITenantModelProviderData\x129\n" +
-	"\x16default_thinking_level\x18\x01 \x01(\tH\x00R\x14defaultThinkingLevel\x88\x01\x01\x123\n" +
-	"\x13support_json_output\x18\x02 \x01(\bH\x01R\x11supportJsonOutput\x88\x01\x01\x12/\n" +
-	"\x11support_text_only\x18\x03 \x01(\bH\x02R\x0fsupportTextOnly\x88\x01\x01\x12.\n" +
-	"\x10support_thinking\x18\x04 \x01(\bH\x03R\x0fsupportThinking\x88\x01\x01\x121\n" +
-	"\x12support_tool_calls\x18\x05 \x01(\bH\x04R\x10supportToolCalls\x88\x01\x01\x125\n" +
-	"\x14thinking_level_param\x18\x06 \x01(\tH\x05R\x12thinkingLevelParam\x88\x01\x01\x12'\n" +
-	"\x0fthinking_levels\x18\a \x03(\tR\x0ethinkingLevels\x12*\n" +
-	"\x0ethinking_param\x18\b \x01(\tH\x06R\rthinkingParam\x88\x01\x01\x12*\n" +
-	"\x0eupstream_model\x18\t \x01(\tH\aR\rupstreamModel\x88\x01\x01\x12+\n" +
-	"\x0fuse_system_role\x18\n" +
-	" \x01(\bH\bR\ruseSystemRole\x88\x01\x01B\x19\n" +
-	"\x17_default_thinking_levelB\x16\n" +
-	"\x14_support_json_outputB\x14\n" +
-	"\x12_support_text_onlyB\x13\n" +
-	"\x11_support_thinkingB\x15\n" +
-	"\x13_support_tool_callsB\x17\n" +
-	"\x15_thinking_level_paramB\x11\n" +
-	"\x0f_thinking_paramB\x11\n" +
-	"\x0f_upstream_modelB\x12\n" +
-	"\x10_use_system_role\"w\n" +
-	"\x1dOpenAITenantVoiceProviderData\x12)\n" +
-	"\x03raw\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x03raw\x12\x1e\n" +
-	"\bvoice_id\x18\x02 \x01(\tH\x00R\avoiceId\x88\x01\x01B\v\n" +
-	"\t_voice_id\"\xad\x03\n" +
-	"\x05Voice\x12\x1d\n" +
-	"\n" +
-	"created_at\x18\x01 \x01(\tR\tcreatedAt\x12%\n" +
-	"\vdescription\x18\x02 \x01(\tH\x00R\vdescription\x88\x01\x01\x12\x0e\n" +
-	"\x02id\x18\x03 \x01(\tR\x02id\x12\x17\n" +
-	"\x04name\x18\x04 \x01(\tH\x01R\x04name\x88\x01\x01\x129\n" +
-	"\bprovider\x18\x05 \x01(\v2\x1d.gizclaw.rpc.v1.VoiceProviderR\bprovider\x12K\n" +
-	"\rprovider_data\x18\x06 \x01(\v2!.gizclaw.rpc.v1.VoiceProviderDataH\x02R\fproviderData\x88\x01\x01\x123\n" +
-	"\x06source\x18\a \x01(\x0e2\x1b.gizclaw.rpc.v1.VoiceSourceR\x06source\x12 \n" +
-	"\tsynced_at\x18\b \x01(\tH\x03R\bsyncedAt\x88\x01\x01\x12\x1d\n" +
-	"\n" +
-	"updated_at\x18\t \x01(\tR\tupdatedAtB\x0e\n" +
-	"\f_descriptionB\a\n" +
-	"\x05_nameB\x10\n" +
-	"\x0e_provider_dataB\f\n" +
-	"\n" +
-	"_synced_at\"!\n" +
-	"\x0fVoiceGetRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"?\n" +
+	"\x06_param\"\xaa\x01\n" +
+	"\x05Voice\x12\x14\n" +
+	"\x05alias\x18\x01 \x01(\tR\x05alias\x123\n" +
+	"\x04i18n\x18\x02 \x03(\v2\x1f.gizclaw.rpc.v1.Voice.I18nEntryR\x04i18n\x1aV\n" +
+	"\tI18nEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x123\n" +
+	"\x05value\x18\x02 \x01(\v2\x1d.gizclaw.rpc.v1.AliasI18nTextR\x05value:\x028\x01\"'\n" +
+	"\x0fVoiceGetRequest\x12\x14\n" +
+	"\x05alias\x18\x01 \x01(\tR\x05alias\"\xab\x01\n" +
 	"\x10VoiceGetResponse\x12+\n" +
-	"\x05value\x18\x01 \x01(\v2\x15.gizclaw.rpc.v1.VoiceR\x05value\"_\n" +
+	"\x05value\x18\x01 \x01(\v2\x15.gizclaw.rpc.v1.VoiceR\x05value\x120\n" +
+	"\x14runtime_profile_name\x18\x02 \x01(\tR\x12runtimeProfileName\x128\n" +
+	"\x18runtime_profile_revision\x18\x03 \x01(\tR\x16runtimeProfileRevision\"_\n" +
 	"\x10VoiceListRequest\x12\x1b\n" +
 	"\x06cursor\x18\x01 \x01(\tH\x00R\x06cursor\x88\x01\x01\x12\x19\n" +
 	"\x05limit\x18\x02 \x01(\x03H\x01R\x05limit\x88\x01\x01B\t\n" +
 	"\a_cursorB\b\n" +
-	"\x06_limit\"\x91\x01\n" +
+	"\x06_limit\"\xfd\x01\n" +
 	"\x11VoiceListResponse\x12\x19\n" +
 	"\bhas_next\x18\x01 \x01(\bR\ahasNext\x12+\n" +
 	"\x05items\x18\x02 \x03(\v2\x15.gizclaw.rpc.v1.VoiceR\x05items\x12$\n" +
 	"\vnext_cursor\x18\x03 \x01(\tH\x00R\n" +
-	"nextCursor\x88\x01\x01B\x0e\n" +
-	"\f_next_cursor\"Z\n" +
-	"\rVoiceProvider\x125\n" +
-	"\x04kind\x18\x01 \x01(\x0e2!.gizclaw.rpc.v1.VoiceProviderKindR\x04kind\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\"\x8c\x05\n" +
-	"\x11VoiceProviderData\x12y\n" +
-	"!gemini_tenant_voice_provider_data\x18\x01 \x01(\v2-.gizclaw.rpc.v1.GeminiTenantVoiceProviderDataH\x00R\x1dgeminiTenantVoiceProviderData\x12\x83\x01\n" +
-	"%dash_scope_tenant_voice_provider_data\x18\x02 \x01(\v20.gizclaw.rpc.v1.DashScopeTenantVoiceProviderDataH\x00R dashScopeTenantVoiceProviderData\x12y\n" +
-	"!open_aitenant_voice_provider_data\x18\x03 \x01(\v2-.gizclaw.rpc.v1.OpenAITenantVoiceProviderDataH\x00R\x1dopenAitenantVoiceProviderData\x12}\n" +
-	"#mini_max_tenant_voice_provider_data\x18\x04 \x01(\v2..gizclaw.rpc.v1.MiniMaxTenantVoiceProviderDataH\x00R\x1eminiMaxTenantVoiceProviderData\x12s\n" +
-	"\x1fvolc_tenant_voice_provider_data\x18\x05 \x01(\v2+.gizclaw.rpc.v1.VolcTenantVoiceProviderDataH\x00R\x1bvolcTenantVoiceProviderDataB\a\n" +
-	"\x05value\"\x9c\x03\n" +
-	"\x12VolcCredentialBody\x12)\n" +
-	"\x0espeech_api_key\x18\x01 \x01(\tH\x00R\fspeechApiKey\x88\x01\x01\x12'\n" +
-	"\rspeech_app_id\x18\x02 \x01(\tH\x01R\vspeechAppId\x88\x01\x01\x121\n" +
-	"\x12openapi_access_key\x18\x03 \x01(\tH\x02R\x10openapiAccessKey\x88\x01\x01\x126\n" +
-	"\x15openapi_access_key_id\x18\x04 \x01(\tH\x03R\x12openapiAccessKeyId\x88\x01\x01\x12)\n" +
-	"\x0esearch_api_key\x18\x05 \x01(\tH\x04R\fsearchApiKey\x88\x01\x01\x12#\n" +
-	"\vark_api_key\x18\x06 \x01(\tH\x05R\tarkApiKey\x88\x01\x01B\x11\n" +
-	"\x0f_speech_api_keyB\x10\n" +
-	"\x0e_speech_app_idB\x15\n" +
-	"\x13_openapi_access_keyB\x18\n" +
-	"\x16_openapi_access_key_idB\x11\n" +
-	"\x0f_search_api_keyB\x0e\n" +
-	"\f_ark_api_key\"\xe5\x06\n" +
-	"\x1bVolcTenantModelProviderData\x12R\n" +
-	"\bapi_mode\x18\x01 \x01(\x0e22.gizclaw.rpc.v1.VolcTenantModelProviderDataApiModeH\x00R\aapiMode\x88\x01\x01\x129\n" +
-	"\x16default_thinking_level\x18\x02 \x01(\tH\x01R\x14defaultThinkingLevel\x88\x01\x01\x12$\n" +
-	"\vresource_id\x18\x03 \x01(\tH\x02R\n" +
-	"resourceId\x88\x01\x01\x123\n" +
-	"\x13support_json_output\x18\x04 \x01(\bH\x03R\x11supportJsonOutput\x88\x01\x01\x12/\n" +
-	"\x11support_text_only\x18\x05 \x01(\bH\x04R\x0fsupportTextOnly\x88\x01\x01\x12.\n" +
-	"\x10support_thinking\x18\x06 \x01(\bH\x05R\x0fsupportThinking\x88\x01\x01\x121\n" +
-	"\x12support_tool_calls\x18\a \x01(\bH\x06R\x10supportToolCalls\x88\x01\x01\x125\n" +
-	"\x14thinking_level_param\x18\b \x01(\tH\aR\x12thinkingLevelParam\x88\x01\x01\x12'\n" +
-	"\x0fthinking_levels\x18\t \x03(\tR\x0ethinkingLevels\x12*\n" +
-	"\x0ethinking_param\x18\n" +
-	" \x01(\tH\bR\rthinkingParam\x88\x01\x01\x12*\n" +
-	"\x0eupstream_model\x18\v \x01(\tH\tR\rupstreamModel\x88\x01\x01\x12+\n" +
-	"\x0fuse_system_role\x18\f \x01(\bH\n" +
-	"R\ruseSystemRole\x88\x01\x01B\v\n" +
-	"\t_api_modeB\x19\n" +
-	"\x17_default_thinking_levelB\x0e\n" +
-	"\f_resource_idB\x16\n" +
-	"\x14_support_json_outputB\x14\n" +
-	"\x12_support_text_onlyB\x13\n" +
-	"\x11_support_thinkingB\x15\n" +
-	"\x13_support_tool_callsB\x17\n" +
-	"\x15_thinking_level_paramB\x11\n" +
-	"\x0f_thinking_paramB\x11\n" +
-	"\x0f_upstream_modelB\x12\n" +
-	"\x10_use_system_role\"\xf8\x01\n" +
-	"\x1bVolcTenantVoiceProviderData\x12)\n" +
-	"\x03raw\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x03raw\x12$\n" +
-	"\vresource_id\x18\x02 \x01(\tH\x00R\n" +
-	"resourceId\x88\x01\x01\x12\x19\n" +
-	"\x05state\x18\x03 \x01(\tH\x01R\x05state\x88\x01\x01\x12\x1b\n" +
-	"\x06status\x18\x04 \x01(\tH\x02R\x06status\x88\x01\x01\x12\x1e\n" +
-	"\bvoice_id\x18\x05 \x01(\tH\x03R\avoiceId\x88\x01\x01B\x0e\n" +
-	"\f_resource_idB\b\n" +
-	"\x06_stateB\t\n" +
-	"\a_statusB\v\n" +
-	"\t_voice_id\"\xa0\x01\n" +
-	"\bWorkflow\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x120\n" +
-	"\x04spec\x18\x02 \x01(\v2\x1c.gizclaw.rpc.v1.WorkflowSpecR\x04spec\x12-\n" +
-	"\x10owner_public_key\x18\x05 \x01(\tH\x00R\x0eownerPublicKey\x88\x01\x01B\x13\n" +
-	"\x11_owner_public_keyJ\x04\b\x03\x10\x04J\x04\b\x04\x10\x05\"V\n" +
-	"\x0eWorkflowUpsert\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x120\n" +
-	"\x04spec\x18\x02 \x01(\v2\x1c.gizclaw.rpc.v1.WorkflowSpecR\x04spec\"\x83\x01\n" +
-	"\x15WorkflowCreateRequest\x126\n" +
-	"\x06source\x18\x01 \x01(\x0e2\x1e.gizclaw.rpc.v1.ResourceSourceR\x06source\x122\n" +
-	"\x04body\x18\x02 \x01(\v2\x1e.gizclaw.rpc.v1.WorkflowUpsertR\x04body\"H\n" +
-	"\x16WorkflowCreateResponse\x12.\n" +
-	"\x05value\x18\x01 \x01(\v2\x18.gizclaw.rpc.v1.WorkflowR\x05value\"c\n" +
-	"\x15WorkflowDeleteRequest\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x126\n" +
-	"\x06source\x18\x02 \x01(\x0e2\x1e.gizclaw.rpc.v1.ResourceSourceR\x06source\"H\n" +
-	"\x16WorkflowDeleteResponse\x12.\n" +
-	"\x05value\x18\x01 \x01(\v2\x18.gizclaw.rpc.v1.WorkflowR\x05value\"f\n" +
-	"\x12WorkflowGetRequest\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x126\n" +
-	"\x06source\x18\x03 \x01(\x0e2\x1e.gizclaw.rpc.v1.ResourceSourceR\x06sourceJ\x04\b\x02\x10\x03\"E\n" +
+	"nextCursor\x88\x01\x01\x120\n" +
+	"\x14runtime_profile_name\x18\x04 \x01(\tR\x12runtimeProfileName\x128\n" +
+	"\x18runtime_profile_revision\x18\x05 \x01(\tR\x16runtimeProfileRevisionB\x0e\n" +
+	"\f_next_cursor\"\x88\x02\n" +
+	"\bWorkflow\x12\x14\n" +
+	"\x05alias\x18\x01 \x01(\tR\x05alias\x126\n" +
+	"\x04i18n\x18\x02 \x03(\v2\".gizclaw.rpc.v1.Workflow.I18nEntryR\x04i18n\x12\x1e\n" +
+	"\n" +
+	"collection\x18\x03 \x01(\tR\n" +
+	"collection\x126\n" +
+	"\x06driver\x18\x04 \x01(\x0e2\x1e.gizclaw.rpc.v1.WorkflowDriverR\x06driver\x1aV\n" +
+	"\tI18nEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x123\n" +
+	"\x05value\x18\x02 \x01(\v2\x1d.gizclaw.rpc.v1.AliasI18nTextR\x05value:\x028\x01\"6\n" +
+	"\x12WorkflowGetRequest\x12\x14\n" +
+	"\x05alias\x18\x01 \x01(\tR\x05aliasJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04\"\xb1\x01\n" +
 	"\x13WorkflowGetResponse\x12.\n" +
-	"\x05value\x18\x01 \x01(\v2\x18.gizclaw.rpc.v1.WorkflowR\x05value\"\xa0\x01\n" +
+	"\x05value\x18\x01 \x01(\v2\x18.gizclaw.rpc.v1.WorkflowR\x05value\x120\n" +
+	"\x14runtime_profile_name\x18\x02 \x01(\tR\x12runtimeProfileName\x128\n" +
+	"\x18runtime_profile_revision\x18\x03 \x01(\tR\x16runtimeProfileRevision\"\x88\x01\n" +
 	"\x13WorkflowListRequest\x12\x1b\n" +
 	"\x06cursor\x18\x01 \x01(\tH\x00R\x06cursor\x88\x01\x01\x12\x19\n" +
-	"\x05limit\x18\x02 \x01(\x03H\x01R\x05limit\x88\x01\x01\x126\n" +
-	"\x06source\x18\x04 \x01(\x0e2\x1e.gizclaw.rpc.v1.ResourceSourceR\x06sourceB\t\n" +
+	"\x05limit\x18\x02 \x01(\x03H\x01R\x05limit\x88\x01\x01\x12\x1e\n" +
+	"\n" +
+	"collection\x18\x03 \x01(\tR\n" +
+	"collectionB\t\n" +
 	"\a_cursorB\b\n" +
-	"\x06_limitJ\x04\b\x03\x10\x04\"\x97\x01\n" +
+	"\x06_limitJ\x04\b\x04\x10\x05\"\x83\x02\n" +
 	"\x14WorkflowListResponse\x12\x19\n" +
 	"\bhas_next\x18\x01 \x01(\bR\ahasNext\x12.\n" +
 	"\x05items\x18\x02 \x03(\v2\x18.gizclaw.rpc.v1.WorkflowR\x05items\x12$\n" +
 	"\vnext_cursor\x18\x03 \x01(\tH\x00R\n" +
-	"nextCursor\x88\x01\x01B\x0e\n" +
-	"\f_next_cursor\"\x94\x01\n" +
-	"\x12WorkflowPutRequest\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x122\n" +
-	"\x04body\x18\x02 \x01(\v2\x1e.gizclaw.rpc.v1.WorkflowUpsertR\x04body\x126\n" +
-	"\x06source\x18\x03 \x01(\x0e2\x1e.gizclaw.rpc.v1.ResourceSourceR\x06source\"E\n" +
-	"\x13WorkflowPutResponse\x12.\n" +
-	"\x05value\x18\x01 \x01(\v2\x18.gizclaw.rpc.v1.WorkflowR\x05value\",\n" +
+	"nextCursor\x88\x01\x01\x120\n" +
+	"\x14runtime_profile_name\x18\x04 \x01(\tR\x12runtimeProfileName\x128\n" +
+	"\x18runtime_profile_revision\x18\x05 \x01(\tR\x16runtimeProfileRevisionB\x0e\n" +
+	"\f_next_cursor\",\n" +
 	"\x14ToolkitPolicyToolIds\x12\x14\n" +
 	"\x05value\x18\x01 \x03(\tR\x05value\"b\n" +
 	"\rToolkitPolicy\x12D\n" +
 	"\btool_ids\x18\x01 \x01(\v2$.gizclaw.rpc.v1.ToolkitPolicyToolIdsH\x00R\atoolIds\x88\x01\x01B\v\n" +
-	"\t_tool_ids\"\xd0\x04\n" +
-	"\fWorkflowSpec\x12R\n" +
-	"\rast_translate\x18\x01 \x01(\v2(.gizclaw.rpc.v1.ASTTranslateWorkflowSpecH\x00R\fastTranslate\x88\x01\x01\x12E\n" +
-	"\bchatroom\x18\x02 \x01(\v2$.gizclaw.rpc.v1.ChatRoomWorkflowSpecH\x01R\bchatroom\x88\x01\x01\x12X\n" +
-	"\x0fdoubao_realtime\x18\x03 \x01(\v2*.gizclaw.rpc.v1.DoubaoRealtimeWorkflowSpecH\x02R\x0edoubaoRealtime\x88\x01\x01\x126\n" +
-	"\x06driver\x18\x04 \x01(\x0e2\x1e.gizclaw.rpc.v1.WorkflowDriverR\x06driver\x12H\n" +
-	"\tflowcraft\x18\x05 \x01(\v2%.gizclaw.rpc.v1.FlowcraftWorkflowSpecH\x03R\tflowcraft\x88\x01\x01\x12<\n" +
-	"\atoolkit\x18\x06 \x01(\v2\x1d.gizclaw.rpc.v1.ToolkitPolicyH\x04R\atoolkit\x88\x01\x01\x126\n" +
-	"\x03pet\x18\a \x01(\v2\x1f.gizclaw.rpc.v1.PetWorkflowSpecH\x05R\x03pet\x88\x01\x01B\x10\n" +
-	"\x0e_ast_translateB\v\n" +
-	"\t_chatroomB\x12\n" +
-	"\x10_doubao_realtimeB\f\n" +
-	"\n" +
-	"_flowcraftB\n" +
-	"\n" +
-	"\b_toolkitB\x06\n" +
-	"\x04_pet\"\xf9\x01\n" +
-	"\fToolExecutor\x124\n" +
-	"\x04kind\x18\x01 \x01(\x0e2 .gizclaw.rpc.v1.ToolExecutorKindR\x04kind\x12\x17\n" +
-	"\x04name\x18\x02 \x01(\tH\x00R\x04name\x88\x01\x01\x12\x1b\n" +
-	"\x06method\x18\x03 \x01(\tH\x01R\x06method\x88\x01\x01\x12\x1c\n" +
-	"\apeer_id\x18\x04 \x01(\tH\x02R\x06peerId\x88\x01\x01\x124\n" +
-	"\x06config\x18\x05 \x01(\v2\x17.google.protobuf.StructH\x03R\x06config\x88\x01\x01B\a\n" +
-	"\x05_nameB\t\n" +
-	"\a_methodB\n" +
-	"\n" +
-	"\b_peer_idB\t\n" +
-	"\a_config\"\x8d\x01\n" +
-	"\x12ToolTriggerExample\x12\x14\n" +
-	"\x05input\x18\x01 \x01(\tR\x05input\x120\n" +
-	"\x04args\x18\x02 \x01(\v2\x17.google.protobuf.StructH\x00R\x04args\x88\x01\x01\x12\x1b\n" +
-	"\x06output\x18\x03 \x01(\tH\x01R\x06output\x88\x01\x01B\a\n" +
-	"\x05_argsB\t\n" +
-	"\a_output\"\xfb\x01\n" +
-	"\vToolTrigger\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x12%\n" +
-	"\vdescription\x18\x02 \x01(\tH\x00R\vdescription\x88\x01\x01\x12\x1a\n" +
-	"\bpatterns\x18\x03 \x03(\tR\bpatterns\x12>\n" +
-	"\bexamples\x18\x04 \x03(\v2\".gizclaw.rpc.v1.ToolTriggerExampleR\bexamples\x128\n" +
-	"\bmetadata\x18\x05 \x01(\v2\x17.google.protobuf.StructH\x01R\bmetadata\x88\x01\x01B\x0e\n" +
-	"\f_descriptionB\v\n" +
-	"\t_metadata\"\xf9\x05\n" +
-	"\x04Tool\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
-	"\x04name\x18\x02 \x01(\tH\x00R\x04name\x88\x01\x01\x12%\n" +
-	"\vdescription\x18\x03 \x01(\tH\x01R\vdescription\x88\x01\x01\x122\n" +
-	"\x06source\x18\x04 \x01(\x0e2\x1a.gizclaw.rpc.v1.ToolSourceR\x06source\x12\x1d\n" +
-	"\aenabled\x18\x05 \x01(\bH\x02R\aenabled\x88\x01\x01\x12\"\n" +
-	"\n" +
-	"owner_peer\x18\x06 \x01(\tH\x03R\townerPeer\x88\x01\x01\x12\x1d\n" +
-	"\aversion\x18\a \x01(\tH\x04R\aversion\x88\x01\x01\x12:\n" +
-	"\finput_schema\x18\b \x01(\v2\x17.google.protobuf.StructR\vinputSchema\x12A\n" +
-	"\routput_schema\x18\t \x01(\v2\x17.google.protobuf.StructH\x05R\foutputSchema\x88\x01\x01\x127\n" +
-	"\btriggers\x18\n" +
-	" \x03(\v2\x1b.gizclaw.rpc.v1.ToolTriggerR\btriggers\x128\n" +
-	"\bexecutor\x18\v \x01(\v2\x1c.gizclaw.rpc.v1.ToolExecutorR\bexecutor\x128\n" +
-	"\bmetadata\x18\f \x01(\v2\x17.google.protobuf.StructH\x06R\bmetadata\x88\x01\x01\x12\x1d\n" +
-	"\n" +
-	"created_at\x18\r \x01(\tR\tcreatedAt\x12\x1d\n" +
-	"\n" +
-	"updated_at\x18\x0e \x01(\tR\tupdatedAt\x12-\n" +
-	"\x10owner_public_key\x18\x0f \x01(\tH\aR\x0eownerPublicKey\x88\x01\x01B\a\n" +
-	"\x05_nameB\x0e\n" +
-	"\f_descriptionB\n" +
-	"\n" +
-	"\b_enabledB\r\n" +
-	"\v_owner_peerB\n" +
-	"\n" +
-	"\b_versionB\x10\n" +
-	"\x0e_output_schemaB\v\n" +
-	"\t_metadataB\x13\n" +
-	"\x11_owner_public_key\"^\n" +
+	"\t_tool_ids\"\xb9\x02\n" +
+	"\x04Tool\x12\x14\n" +
+	"\x05alias\x18\x01 \x01(\tR\x05alias\x122\n" +
+	"\x04i18n\x18\x02 \x03(\v2\x1e.gizclaw.rpc.v1.Tool.I18nEntryR\x04i18n\x12:\n" +
+	"\finput_schema\x18\x03 \x01(\v2\x17.google.protobuf.StructR\vinputSchema\x12A\n" +
+	"\routput_schema\x18\x04 \x01(\v2\x17.google.protobuf.StructH\x00R\foutputSchema\x88\x01\x01\x1aV\n" +
+	"\tI18nEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x123\n" +
+	"\x05value\x18\x02 \x01(\v2\x1d.gizclaw.rpc.v1.AliasI18nTextR\x05value:\x028\x01B\x10\n" +
+	"\x0e_output_schema\"^\n" +
 	"\x0fToolListRequest\x12\x1b\n" +
 	"\x06cursor\x18\x01 \x01(\tH\x00R\x06cursor\x88\x01\x01\x12\x19\n" +
 	"\x05limit\x18\x02 \x01(\x03H\x01R\x05limit\x88\x01\x01B\t\n" +
 	"\a_cursorB\b\n" +
-	"\x06_limit\"\x8f\x01\n" +
+	"\x06_limit\"\xfb\x01\n" +
 	"\x10ToolListResponse\x12*\n" +
 	"\x05items\x18\x01 \x03(\v2\x14.gizclaw.rpc.v1.ToolR\x05items\x12\x19\n" +
 	"\bhas_next\x18\x02 \x01(\bR\ahasNext\x12$\n" +
 	"\vnext_cursor\x18\x03 \x01(\tH\x00R\n" +
-	"nextCursor\x88\x01\x01B\x0e\n" +
-	"\f_next_cursor\" \n" +
-	"\x0eToolGetRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"=\n" +
+	"nextCursor\x88\x01\x01\x120\n" +
+	"\x14runtime_profile_name\x18\x04 \x01(\tR\x12runtimeProfileName\x128\n" +
+	"\x18runtime_profile_revision\x18\x05 \x01(\tR\x16runtimeProfileRevisionB\x0e\n" +
+	"\f_next_cursor\"&\n" +
+	"\x0eToolGetRequest\x12\x14\n" +
+	"\x05alias\x18\x01 \x01(\tR\x05alias\"\xa9\x01\n" +
 	"\x0fToolGetResponse\x12*\n" +
-	"\x05value\x18\x01 \x01(\v2\x14.gizclaw.rpc.v1.ToolR\x05value\"?\n" +
-	"\x11ToolCreateRequest\x12*\n" +
-	"\x05value\x18\x01 \x01(\v2\x14.gizclaw.rpc.v1.ToolR\x05value\"@\n" +
-	"\x12ToolCreateResponse\x12*\n" +
-	"\x05value\x18\x01 \x01(\v2\x14.gizclaw.rpc.v1.ToolR\x05value\"J\n" +
-	"\x0eToolPutRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12(\n" +
-	"\x04body\x18\x02 \x01(\v2\x14.gizclaw.rpc.v1.ToolR\x04body\"=\n" +
-	"\x0fToolPutResponse\x12*\n" +
-	"\x05value\x18\x01 \x01(\v2\x14.gizclaw.rpc.v1.ToolR\x05value\"#\n" +
-	"\x11ToolDeleteRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"@\n" +
-	"\x12ToolDeleteResponse\x12*\n" +
-	"\x05value\x18\x01 \x01(\v2\x14.gizclaw.rpc.v1.ToolR\x05value\"\x8a\x01\n" +
+	"\x05value\x18\x01 \x01(\v2\x14.gizclaw.rpc.v1.ToolR\x05value\x120\n" +
+	"\x14runtime_profile_name\x18\x02 \x01(\tR\x12runtimeProfileName\x128\n" +
+	"\x18runtime_profile_revision\x18\x03 \x01(\tR\x16runtimeProfileRevision\"\x8a\x01\n" +
 	"\x11ToolInvokeRequest\x12\x17\n" +
 	"\acall_id\x18\x01 \x01(\tR\x06callId\x12\x17\n" +
 	"\atool_id\x18\x02 \x01(\tR\x06toolId\x12\x16\n" +
@@ -8198,306 +4841,187 @@ func file_payload_ai_proto_rawDescGZIP() []byte {
 	return file_payload_ai_proto_rawDescData
 }
 
-var file_payload_ai_proto_msgTypes = make([]protoimpl.MessageInfo, 118)
+var file_payload_ai_proto_msgTypes = make([]protoimpl.MessageInfo, 74)
 var file_payload_ai_proto_goTypes = []any{
-	(*ASTTranslateExternalVoiceParameters)(nil),               // 0: gizclaw.rpc.v1.ASTTranslateExternalVoiceParameters
-	(*ASTTranslateInternalSpeakerParameters)(nil),             // 1: gizclaw.rpc.v1.ASTTranslateInternalSpeakerParameters
-	(*ASTTranslateVoiceParameters)(nil),                       // 2: gizclaw.rpc.v1.ASTTranslateVoiceParameters
-	(*ASTTranslateWorkflowSpec)(nil),                          // 3: gizclaw.rpc.v1.ASTTranslateWorkflowSpec
-	(*ASTTranslateWorkspaceParameters)(nil),                   // 4: gizclaw.rpc.v1.ASTTranslateWorkspaceParameters
-	(*ChatRoomWorkflowHistorySpec)(nil),                       // 5: gizclaw.rpc.v1.ChatRoomWorkflowHistorySpec
-	(*ChatRoomWorkflowSpec)(nil),                              // 6: gizclaw.rpc.v1.ChatRoomWorkflowSpec
-	(*ChatRoomWorkflowTranscriptSpec)(nil),                    // 7: gizclaw.rpc.v1.ChatRoomWorkflowTranscriptSpec
-	(*ChatRoomWorkspaceHistoryParameters)(nil),                // 8: gizclaw.rpc.v1.ChatRoomWorkspaceHistoryParameters
-	(*ChatRoomWorkspaceParameters)(nil),                       // 9: gizclaw.rpc.v1.ChatRoomWorkspaceParameters
-	(*ChatRoomWorkspaceTranscriptParameters)(nil),             // 10: gizclaw.rpc.v1.ChatRoomWorkspaceTranscriptParameters
-	(*Credential)(nil),                                        // 11: gizclaw.rpc.v1.Credential
-	(*CredentialBody)(nil),                                    // 12: gizclaw.rpc.v1.CredentialBody
-	(*CredentialCreateRequest)(nil),                           // 13: gizclaw.rpc.v1.CredentialCreateRequest
-	(*CredentialCreateResponse)(nil),                          // 14: gizclaw.rpc.v1.CredentialCreateResponse
-	(*CredentialDeleteRequest)(nil),                           // 15: gizclaw.rpc.v1.CredentialDeleteRequest
-	(*CredentialDeleteResponse)(nil),                          // 16: gizclaw.rpc.v1.CredentialDeleteResponse
-	(*CredentialGetRequest)(nil),                              // 17: gizclaw.rpc.v1.CredentialGetRequest
-	(*CredentialGetResponse)(nil),                             // 18: gizclaw.rpc.v1.CredentialGetResponse
-	(*CredentialListRequest)(nil),                             // 19: gizclaw.rpc.v1.CredentialListRequest
-	(*CredentialListResponse)(nil),                            // 20: gizclaw.rpc.v1.CredentialListResponse
-	(*CredentialPutRequest)(nil),                              // 21: gizclaw.rpc.v1.CredentialPutRequest
-	(*CredentialPutResponse)(nil),                             // 22: gizclaw.rpc.v1.CredentialPutResponse
-	(*DashScopeCredentialBody)(nil),                           // 23: gizclaw.rpc.v1.DashScopeCredentialBody
-	(*DashScopeTenantModelProviderData)(nil),                  // 24: gizclaw.rpc.v1.DashScopeTenantModelProviderData
-	(*DashScopeTenantVoiceProviderData)(nil),                  // 25: gizclaw.rpc.v1.DashScopeTenantVoiceProviderData
-	(*DoubaoRealtimeAIGCMetadata)(nil),                        // 26: gizclaw.rpc.v1.DoubaoRealtimeAIGCMetadata
-	(*DoubaoRealtimeASRContext)(nil),                          // 27: gizclaw.rpc.v1.DoubaoRealtimeASRContext
-	(*DoubaoRealtimeASRExtension)(nil),                        // 28: gizclaw.rpc.v1.DoubaoRealtimeASRExtension
-	(*DoubaoRealtimeASRExtra)(nil),                            // 29: gizclaw.rpc.v1.DoubaoRealtimeASRExtra
-	(*DoubaoRealtimeASRHotword)(nil),                          // 30: gizclaw.rpc.v1.DoubaoRealtimeASRHotword
-	(*DoubaoRealtimeAudio)(nil),                               // 31: gizclaw.rpc.v1.DoubaoRealtimeAudio
-	(*DoubaoRealtimeAudioFormat)(nil),                         // 32: gizclaw.rpc.v1.DoubaoRealtimeAudioFormat
-	(*DoubaoRealtimeAudioInput)(nil),                          // 33: gizclaw.rpc.v1.DoubaoRealtimeAudioInput
-	(*DoubaoRealtimeAudioOutput)(nil),                         // 34: gizclaw.rpc.v1.DoubaoRealtimeAudioOutput
-	(*DoubaoRealtimeDialogExtension)(nil),                     // 35: gizclaw.rpc.v1.DoubaoRealtimeDialogExtension
-	(*DoubaoRealtimeDialogExtra)(nil),                         // 36: gizclaw.rpc.v1.DoubaoRealtimeDialogExtra
-	(*DoubaoRealtimeExtension)(nil),                           // 37: gizclaw.rpc.v1.DoubaoRealtimeExtension
-	(*DoubaoRealtimeFunctionTool)(nil),                        // 38: gizclaw.rpc.v1.DoubaoRealtimeFunctionTool
-	(*DoubaoRealtimeJSONSchema)(nil),                          // 39: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema
-	(*DoubaoRealtimeTTSExtension)(nil),                        // 40: gizclaw.rpc.v1.DoubaoRealtimeTTSExtension
-	(*DoubaoRealtimeTTSExtra)(nil),                            // 41: gizclaw.rpc.v1.DoubaoRealtimeTTSExtra
-	(*DoubaoRealtimeWorkflowSpec)(nil),                        // 42: gizclaw.rpc.v1.DoubaoRealtimeWorkflowSpec
-	(*DoubaoRealtimeWorkspaceParameters)(nil),                 // 43: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters
-	(*FlowcraftConversationParameters)(nil),                   // 44: gizclaw.rpc.v1.FlowcraftConversationParameters
-	(*FlowcraftWorkflowSpec)(nil),                             // 45: gizclaw.rpc.v1.FlowcraftWorkflowSpec
-	(*FlowcraftWorkspaceParameters)(nil),                      // 46: gizclaw.rpc.v1.FlowcraftWorkspaceParameters
-	(*PetConversationParameters)(nil),                         // 47: gizclaw.rpc.v1.PetConversationParameters
-	(*PetPersonaParameters)(nil),                              // 48: gizclaw.rpc.v1.PetPersonaParameters
-	(*PetVoiceParameters)(nil),                                // 49: gizclaw.rpc.v1.PetVoiceParameters
-	(*PetWorkflowSpec)(nil),                                   // 50: gizclaw.rpc.v1.PetWorkflowSpec
-	(*PetWorkspaceParameters)(nil),                            // 51: gizclaw.rpc.v1.PetWorkspaceParameters
-	(*GeminiCredentialBody)(nil),                              // 52: gizclaw.rpc.v1.GeminiCredentialBody
-	(*GeminiTenantModelProviderData)(nil),                     // 53: gizclaw.rpc.v1.GeminiTenantModelProviderData
-	(*GeminiTenantVoiceProviderData)(nil),                     // 54: gizclaw.rpc.v1.GeminiTenantVoiceProviderData
-	(*MiniMaxCredentialBody)(nil),                             // 55: gizclaw.rpc.v1.MiniMaxCredentialBody
-	(*MiniMaxTenantVoiceProviderData)(nil),                    // 56: gizclaw.rpc.v1.MiniMaxTenantVoiceProviderData
-	(*Model)(nil),                                             // 57: gizclaw.rpc.v1.Model
-	(*ModelCapabilities)(nil),                                 // 58: gizclaw.rpc.v1.ModelCapabilities
-	(*ModelCreateRequest)(nil),                                // 59: gizclaw.rpc.v1.ModelCreateRequest
-	(*ModelCreateResponse)(nil),                               // 60: gizclaw.rpc.v1.ModelCreateResponse
-	(*ModelDeleteRequest)(nil),                                // 61: gizclaw.rpc.v1.ModelDeleteRequest
-	(*ModelDeleteResponse)(nil),                               // 62: gizclaw.rpc.v1.ModelDeleteResponse
-	(*ModelGetRequest)(nil),                                   // 63: gizclaw.rpc.v1.ModelGetRequest
-	(*ModelGetResponse)(nil),                                  // 64: gizclaw.rpc.v1.ModelGetResponse
-	(*ModelListRequest)(nil),                                  // 65: gizclaw.rpc.v1.ModelListRequest
-	(*ModelListResponse)(nil),                                 // 66: gizclaw.rpc.v1.ModelListResponse
-	(*ModelProvider)(nil),                                     // 67: gizclaw.rpc.v1.ModelProvider
-	(*ModelProviderData)(nil),                                 // 68: gizclaw.rpc.v1.ModelProviderData
-	(*ModelPutRequest)(nil),                                   // 69: gizclaw.rpc.v1.ModelPutRequest
-	(*ModelPutResponse)(nil),                                  // 70: gizclaw.rpc.v1.ModelPutResponse
-	(*ModelThinkingCapability)(nil),                           // 71: gizclaw.rpc.v1.ModelThinkingCapability
-	(*OpenAICredentialBody)(nil),                              // 72: gizclaw.rpc.v1.OpenAICredentialBody
-	(*OpenAITenantModelProviderData)(nil),                     // 73: gizclaw.rpc.v1.OpenAITenantModelProviderData
-	(*OpenAITenantVoiceProviderData)(nil),                     // 74: gizclaw.rpc.v1.OpenAITenantVoiceProviderData
-	(*Voice)(nil),                                             // 75: gizclaw.rpc.v1.Voice
-	(*VoiceGetRequest)(nil),                                   // 76: gizclaw.rpc.v1.VoiceGetRequest
-	(*VoiceGetResponse)(nil),                                  // 77: gizclaw.rpc.v1.VoiceGetResponse
-	(*VoiceListRequest)(nil),                                  // 78: gizclaw.rpc.v1.VoiceListRequest
-	(*VoiceListResponse)(nil),                                 // 79: gizclaw.rpc.v1.VoiceListResponse
-	(*VoiceProvider)(nil),                                     // 80: gizclaw.rpc.v1.VoiceProvider
-	(*VoiceProviderData)(nil),                                 // 81: gizclaw.rpc.v1.VoiceProviderData
-	(*VolcCredentialBody)(nil),                                // 82: gizclaw.rpc.v1.VolcCredentialBody
-	(*VolcTenantModelProviderData)(nil),                       // 83: gizclaw.rpc.v1.VolcTenantModelProviderData
-	(*VolcTenantVoiceProviderData)(nil),                       // 84: gizclaw.rpc.v1.VolcTenantVoiceProviderData
-	(*Workflow)(nil),                                          // 85: gizclaw.rpc.v1.Workflow
-	(*WorkflowUpsert)(nil),                                    // 86: gizclaw.rpc.v1.WorkflowUpsert
-	(*WorkflowCreateRequest)(nil),                             // 87: gizclaw.rpc.v1.WorkflowCreateRequest
-	(*WorkflowCreateResponse)(nil),                            // 88: gizclaw.rpc.v1.WorkflowCreateResponse
-	(*WorkflowDeleteRequest)(nil),                             // 89: gizclaw.rpc.v1.WorkflowDeleteRequest
-	(*WorkflowDeleteResponse)(nil),                            // 90: gizclaw.rpc.v1.WorkflowDeleteResponse
-	(*WorkflowGetRequest)(nil),                                // 91: gizclaw.rpc.v1.WorkflowGetRequest
-	(*WorkflowGetResponse)(nil),                               // 92: gizclaw.rpc.v1.WorkflowGetResponse
-	(*WorkflowListRequest)(nil),                               // 93: gizclaw.rpc.v1.WorkflowListRequest
-	(*WorkflowListResponse)(nil),                              // 94: gizclaw.rpc.v1.WorkflowListResponse
-	(*WorkflowPutRequest)(nil),                                // 95: gizclaw.rpc.v1.WorkflowPutRequest
-	(*WorkflowPutResponse)(nil),                               // 96: gizclaw.rpc.v1.WorkflowPutResponse
-	(*ToolkitPolicyToolIds)(nil),                              // 97: gizclaw.rpc.v1.ToolkitPolicyToolIds
-	(*ToolkitPolicy)(nil),                                     // 98: gizclaw.rpc.v1.ToolkitPolicy
-	(*WorkflowSpec)(nil),                                      // 99: gizclaw.rpc.v1.WorkflowSpec
-	(*ToolExecutor)(nil),                                      // 100: gizclaw.rpc.v1.ToolExecutor
-	(*ToolTriggerExample)(nil),                                // 101: gizclaw.rpc.v1.ToolTriggerExample
-	(*ToolTrigger)(nil),                                       // 102: gizclaw.rpc.v1.ToolTrigger
-	(*Tool)(nil),                                              // 103: gizclaw.rpc.v1.Tool
-	(*ToolListRequest)(nil),                                   // 104: gizclaw.rpc.v1.ToolListRequest
-	(*ToolListResponse)(nil),                                  // 105: gizclaw.rpc.v1.ToolListResponse
-	(*ToolGetRequest)(nil),                                    // 106: gizclaw.rpc.v1.ToolGetRequest
-	(*ToolGetResponse)(nil),                                   // 107: gizclaw.rpc.v1.ToolGetResponse
-	(*ToolCreateRequest)(nil),                                 // 108: gizclaw.rpc.v1.ToolCreateRequest
-	(*ToolCreateResponse)(nil),                                // 109: gizclaw.rpc.v1.ToolCreateResponse
-	(*ToolPutRequest)(nil),                                    // 110: gizclaw.rpc.v1.ToolPutRequest
-	(*ToolPutResponse)(nil),                                   // 111: gizclaw.rpc.v1.ToolPutResponse
-	(*ToolDeleteRequest)(nil),                                 // 112: gizclaw.rpc.v1.ToolDeleteRequest
-	(*ToolDeleteResponse)(nil),                                // 113: gizclaw.rpc.v1.ToolDeleteResponse
-	(*ToolInvokeRequest)(nil),                                 // 114: gizclaw.rpc.v1.ToolInvokeRequest
-	(*ToolInvokeResponse)(nil),                                // 115: gizclaw.rpc.v1.ToolInvokeResponse
-	nil,                                                       // 116: gizclaw.rpc.v1.DoubaoRealtimeASRContext.CorrectWordsEntry
-	nil,                                                       // 117: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.PropertiesEntry
-	(ASTTranslateMode)(0),                                     // 118: gizclaw.rpc.v1.ASTTranslateMode
-	(ASTTranslateWorkspaceParametersAgentType)(0),             // 119: gizclaw.rpc.v1.ASTTranslateWorkspaceParametersAgentType
-	(WorkspaceInputMode)(0),                                   // 120: gizclaw.rpc.v1.WorkspaceInputMode
-	(ChatRoomWorkspaceParametersAgentType)(0),                 // 121: gizclaw.rpc.v1.ChatRoomWorkspaceParametersAgentType
-	(ChatRoomMode)(0),                                         // 122: gizclaw.rpc.v1.ChatRoomMode
-	(DashScopeTenantModelProviderDataApiMode)(0),              // 123: gizclaw.rpc.v1.DashScopeTenantModelProviderDataApiMode
-	(*structpb.Struct)(nil),                                   // 124: google.protobuf.Struct
-	(DoubaoRealtimeAudioFormatType)(0),                        // 125: gizclaw.rpc.v1.DoubaoRealtimeAudioFormatType
-	(DoubaoRealtimeDialogExtraVolcWebsearchType)(0),           // 126: gizclaw.rpc.v1.DoubaoRealtimeDialogExtraVolcWebsearchType
-	(DoubaoRealtimeFunctionToolType)(0),                       // 127: gizclaw.rpc.v1.DoubaoRealtimeFunctionToolType
-	(DoubaoRealtimeWorkspaceParametersAgentType)(0),           // 128: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParametersAgentType
-	(FlowcraftConversationParametersAgentInitiativePolicy)(0), // 129: gizclaw.rpc.v1.FlowcraftConversationParametersAgentInitiativePolicy
-	(FlowcraftConversationParametersInitiative)(0),            // 130: gizclaw.rpc.v1.FlowcraftConversationParametersInitiative
-	(FlowcraftWorkspaceParametersAgentType)(0),                // 131: gizclaw.rpc.v1.FlowcraftWorkspaceParametersAgentType
-	(PetConversationParametersInitiative)(0),                  // 132: gizclaw.rpc.v1.PetConversationParametersInitiative
-	(PetWorkspaceParametersAgentType)(0),                      // 133: gizclaw.rpc.v1.PetWorkspaceParametersAgentType
-	(ModelKind)(0),                                            // 134: gizclaw.rpc.v1.ModelKind
-	(ModelSource)(0),                                          // 135: gizclaw.rpc.v1.ModelSource
-	(ModelProviderKind)(0),                                    // 136: gizclaw.rpc.v1.ModelProviderKind
-	(VoiceSource)(0),                                          // 137: gizclaw.rpc.v1.VoiceSource
-	(VoiceProviderKind)(0),                                    // 138: gizclaw.rpc.v1.VoiceProviderKind
-	(VolcTenantModelProviderDataApiMode)(0),                   // 139: gizclaw.rpc.v1.VolcTenantModelProviderDataApiMode
-	(ResourceSource)(0),                                       // 140: gizclaw.rpc.v1.ResourceSource
-	(WorkflowDriver)(0),                                       // 141: gizclaw.rpc.v1.WorkflowDriver
-	(ToolExecutorKind)(0),                                     // 142: gizclaw.rpc.v1.ToolExecutorKind
-	(ToolSource)(0),                                           // 143: gizclaw.rpc.v1.ToolSource
+	(*AliasI18NText)(nil),                                     // 0: gizclaw.rpc.v1.AliasI18nText
+	(*SpeechTranscribeRequest)(nil),                           // 1: gizclaw.rpc.v1.SpeechTranscribeRequest
+	(*SpeechTranscribeResponse)(nil),                          // 2: gizclaw.rpc.v1.SpeechTranscribeResponse
+	(*SpeechSynthesizeRequest)(nil),                           // 3: gizclaw.rpc.v1.SpeechSynthesizeRequest
+	(*SpeechSynthesizeResponse)(nil),                          // 4: gizclaw.rpc.v1.SpeechSynthesizeResponse
+	(*ASTTranslateExternalVoiceParameters)(nil),               // 5: gizclaw.rpc.v1.ASTTranslateExternalVoiceParameters
+	(*ASTTranslateInternalSpeakerParameters)(nil),             // 6: gizclaw.rpc.v1.ASTTranslateInternalSpeakerParameters
+	(*ASTTranslateVoiceParameters)(nil),                       // 7: gizclaw.rpc.v1.ASTTranslateVoiceParameters
+	(*ASTTranslateWorkflowSpec)(nil),                          // 8: gizclaw.rpc.v1.ASTTranslateWorkflowSpec
+	(*ASTTranslateWorkspaceParameters)(nil),                   // 9: gizclaw.rpc.v1.ASTTranslateWorkspaceParameters
+	(*ChatRoomWorkflowHistorySpec)(nil),                       // 10: gizclaw.rpc.v1.ChatRoomWorkflowHistorySpec
+	(*ChatRoomWorkflowSpec)(nil),                              // 11: gizclaw.rpc.v1.ChatRoomWorkflowSpec
+	(*ChatRoomWorkflowTranscriptSpec)(nil),                    // 12: gizclaw.rpc.v1.ChatRoomWorkflowTranscriptSpec
+	(*ChatRoomWorkspaceHistoryParameters)(nil),                // 13: gizclaw.rpc.v1.ChatRoomWorkspaceHistoryParameters
+	(*ChatRoomWorkspaceParameters)(nil),                       // 14: gizclaw.rpc.v1.ChatRoomWorkspaceParameters
+	(*ChatRoomWorkspaceTranscriptParameters)(nil),             // 15: gizclaw.rpc.v1.ChatRoomWorkspaceTranscriptParameters
+	(*DoubaoRealtimeAIGCMetadata)(nil),                        // 16: gizclaw.rpc.v1.DoubaoRealtimeAIGCMetadata
+	(*DoubaoRealtimeASRContext)(nil),                          // 17: gizclaw.rpc.v1.DoubaoRealtimeASRContext
+	(*DoubaoRealtimeASRExtension)(nil),                        // 18: gizclaw.rpc.v1.DoubaoRealtimeASRExtension
+	(*DoubaoRealtimeASRExtra)(nil),                            // 19: gizclaw.rpc.v1.DoubaoRealtimeASRExtra
+	(*DoubaoRealtimeASRHotword)(nil),                          // 20: gizclaw.rpc.v1.DoubaoRealtimeASRHotword
+	(*DoubaoRealtimeAudio)(nil),                               // 21: gizclaw.rpc.v1.DoubaoRealtimeAudio
+	(*DoubaoRealtimeAudioFormat)(nil),                         // 22: gizclaw.rpc.v1.DoubaoRealtimeAudioFormat
+	(*DoubaoRealtimeAudioInput)(nil),                          // 23: gizclaw.rpc.v1.DoubaoRealtimeAudioInput
+	(*DoubaoRealtimeAudioOutput)(nil),                         // 24: gizclaw.rpc.v1.DoubaoRealtimeAudioOutput
+	(*DoubaoRealtimeDialogExtension)(nil),                     // 25: gizclaw.rpc.v1.DoubaoRealtimeDialogExtension
+	(*DoubaoRealtimeDialogExtra)(nil),                         // 26: gizclaw.rpc.v1.DoubaoRealtimeDialogExtra
+	(*DoubaoRealtimeExtension)(nil),                           // 27: gizclaw.rpc.v1.DoubaoRealtimeExtension
+	(*DoubaoRealtimeFunctionTool)(nil),                        // 28: gizclaw.rpc.v1.DoubaoRealtimeFunctionTool
+	(*DoubaoRealtimeJSONSchema)(nil),                          // 29: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema
+	(*DoubaoRealtimeTTSExtension)(nil),                        // 30: gizclaw.rpc.v1.DoubaoRealtimeTTSExtension
+	(*DoubaoRealtimeTTSExtra)(nil),                            // 31: gizclaw.rpc.v1.DoubaoRealtimeTTSExtra
+	(*DoubaoRealtimeWorkflowSpec)(nil),                        // 32: gizclaw.rpc.v1.DoubaoRealtimeWorkflowSpec
+	(*DoubaoRealtimeWorkspaceParameters)(nil),                 // 33: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters
+	(*FlowcraftConversationParameters)(nil),                   // 34: gizclaw.rpc.v1.FlowcraftConversationParameters
+	(*FlowcraftWorkflowSpec)(nil),                             // 35: gizclaw.rpc.v1.FlowcraftWorkflowSpec
+	(*FlowcraftWorkspaceParameters)(nil),                      // 36: gizclaw.rpc.v1.FlowcraftWorkspaceParameters
+	(*PetConversationParameters)(nil),                         // 37: gizclaw.rpc.v1.PetConversationParameters
+	(*PetPersonaParameters)(nil),                              // 38: gizclaw.rpc.v1.PetPersonaParameters
+	(*PetVoiceParameters)(nil),                                // 39: gizclaw.rpc.v1.PetVoiceParameters
+	(*PetWorkflowSpec)(nil),                                   // 40: gizclaw.rpc.v1.PetWorkflowSpec
+	(*PetWorkspaceParameters)(nil),                            // 41: gizclaw.rpc.v1.PetWorkspaceParameters
+	(*Model)(nil),                                             // 42: gizclaw.rpc.v1.Model
+	(*ModelCapabilities)(nil),                                 // 43: gizclaw.rpc.v1.ModelCapabilities
+	(*ModelGetRequest)(nil),                                   // 44: gizclaw.rpc.v1.ModelGetRequest
+	(*ModelGetResponse)(nil),                                  // 45: gizclaw.rpc.v1.ModelGetResponse
+	(*ModelListRequest)(nil),                                  // 46: gizclaw.rpc.v1.ModelListRequest
+	(*ModelListResponse)(nil),                                 // 47: gizclaw.rpc.v1.ModelListResponse
+	(*ModelThinkingCapability)(nil),                           // 48: gizclaw.rpc.v1.ModelThinkingCapability
+	(*Voice)(nil),                                             // 49: gizclaw.rpc.v1.Voice
+	(*VoiceGetRequest)(nil),                                   // 50: gizclaw.rpc.v1.VoiceGetRequest
+	(*VoiceGetResponse)(nil),                                  // 51: gizclaw.rpc.v1.VoiceGetResponse
+	(*VoiceListRequest)(nil),                                  // 52: gizclaw.rpc.v1.VoiceListRequest
+	(*VoiceListResponse)(nil),                                 // 53: gizclaw.rpc.v1.VoiceListResponse
+	(*Workflow)(nil),                                          // 54: gizclaw.rpc.v1.Workflow
+	(*WorkflowGetRequest)(nil),                                // 55: gizclaw.rpc.v1.WorkflowGetRequest
+	(*WorkflowGetResponse)(nil),                               // 56: gizclaw.rpc.v1.WorkflowGetResponse
+	(*WorkflowListRequest)(nil),                               // 57: gizclaw.rpc.v1.WorkflowListRequest
+	(*WorkflowListResponse)(nil),                              // 58: gizclaw.rpc.v1.WorkflowListResponse
+	(*ToolkitPolicyToolIds)(nil),                              // 59: gizclaw.rpc.v1.ToolkitPolicyToolIds
+	(*ToolkitPolicy)(nil),                                     // 60: gizclaw.rpc.v1.ToolkitPolicy
+	(*Tool)(nil),                                              // 61: gizclaw.rpc.v1.Tool
+	(*ToolListRequest)(nil),                                   // 62: gizclaw.rpc.v1.ToolListRequest
+	(*ToolListResponse)(nil),                                  // 63: gizclaw.rpc.v1.ToolListResponse
+	(*ToolGetRequest)(nil),                                    // 64: gizclaw.rpc.v1.ToolGetRequest
+	(*ToolGetResponse)(nil),                                   // 65: gizclaw.rpc.v1.ToolGetResponse
+	(*ToolInvokeRequest)(nil),                                 // 66: gizclaw.rpc.v1.ToolInvokeRequest
+	(*ToolInvokeResponse)(nil),                                // 67: gizclaw.rpc.v1.ToolInvokeResponse
+	nil,                                                       // 68: gizclaw.rpc.v1.DoubaoRealtimeASRContext.CorrectWordsEntry
+	nil,                                                       // 69: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.PropertiesEntry
+	nil,                                                       // 70: gizclaw.rpc.v1.Model.I18nEntry
+	nil,                                                       // 71: gizclaw.rpc.v1.Voice.I18nEntry
+	nil,                                                       // 72: gizclaw.rpc.v1.Workflow.I18nEntry
+	nil,                                                       // 73: gizclaw.rpc.v1.Tool.I18nEntry
+	(ASTTranslateMode)(0),                                     // 74: gizclaw.rpc.v1.ASTTranslateMode
+	(ASTTranslateWorkspaceParametersAgentType)(0),             // 75: gizclaw.rpc.v1.ASTTranslateWorkspaceParametersAgentType
+	(WorkspaceInputMode)(0),                                   // 76: gizclaw.rpc.v1.WorkspaceInputMode
+	(ChatRoomWorkspaceParametersAgentType)(0),                 // 77: gizclaw.rpc.v1.ChatRoomWorkspaceParametersAgentType
+	(ChatRoomMode)(0),                                         // 78: gizclaw.rpc.v1.ChatRoomMode
+	(DoubaoRealtimeAudioFormatType)(0),                        // 79: gizclaw.rpc.v1.DoubaoRealtimeAudioFormatType
+	(DoubaoRealtimeDialogExtraVolcWebsearchType)(0),           // 80: gizclaw.rpc.v1.DoubaoRealtimeDialogExtraVolcWebsearchType
+	(DoubaoRealtimeFunctionToolType)(0),                       // 81: gizclaw.rpc.v1.DoubaoRealtimeFunctionToolType
+	(DoubaoRealtimeWorkspaceParametersAgentType)(0),           // 82: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParametersAgentType
+	(FlowcraftConversationParametersAgentInitiativePolicy)(0), // 83: gizclaw.rpc.v1.FlowcraftConversationParametersAgentInitiativePolicy
+	(FlowcraftConversationParametersInitiative)(0),            // 84: gizclaw.rpc.v1.FlowcraftConversationParametersInitiative
+	(*structpb.Struct)(nil),                                   // 85: google.protobuf.Struct
+	(FlowcraftWorkspaceParametersAgentType)(0),                // 86: gizclaw.rpc.v1.FlowcraftWorkspaceParametersAgentType
+	(PetConversationParametersInitiative)(0),                  // 87: gizclaw.rpc.v1.PetConversationParametersInitiative
+	(PetWorkspaceParametersAgentType)(0),                      // 88: gizclaw.rpc.v1.PetWorkspaceParametersAgentType
+	(ModelKind)(0),                                            // 89: gizclaw.rpc.v1.ModelKind
+	(WorkflowDriver)(0),                                       // 90: gizclaw.rpc.v1.WorkflowDriver
 }
 var file_payload_ai_proto_depIdxs = []int32{
-	1,   // 0: gizclaw.rpc.v1.ASTTranslateVoiceParameters.asttranslate_internal_speaker_parameters:type_name -> gizclaw.rpc.v1.ASTTranslateInternalSpeakerParameters
-	0,   // 1: gizclaw.rpc.v1.ASTTranslateVoiceParameters.asttranslate_external_voice_parameters:type_name -> gizclaw.rpc.v1.ASTTranslateExternalVoiceParameters
-	118, // 2: gizclaw.rpc.v1.ASTTranslateWorkflowSpec.mode:type_name -> gizclaw.rpc.v1.ASTTranslateMode
-	2,   // 3: gizclaw.rpc.v1.ASTTranslateWorkflowSpec.voice:type_name -> gizclaw.rpc.v1.ASTTranslateVoiceParameters
-	119, // 4: gizclaw.rpc.v1.ASTTranslateWorkspaceParameters.agent_type:type_name -> gizclaw.rpc.v1.ASTTranslateWorkspaceParametersAgentType
-	120, // 5: gizclaw.rpc.v1.ASTTranslateWorkspaceParameters.input:type_name -> gizclaw.rpc.v1.WorkspaceInputMode
-	118, // 6: gizclaw.rpc.v1.ASTTranslateWorkspaceParameters.mode:type_name -> gizclaw.rpc.v1.ASTTranslateMode
-	2,   // 7: gizclaw.rpc.v1.ASTTranslateWorkspaceParameters.voice:type_name -> gizclaw.rpc.v1.ASTTranslateVoiceParameters
-	5,   // 8: gizclaw.rpc.v1.ChatRoomWorkflowSpec.history:type_name -> gizclaw.rpc.v1.ChatRoomWorkflowHistorySpec
-	7,   // 9: gizclaw.rpc.v1.ChatRoomWorkflowSpec.transcript:type_name -> gizclaw.rpc.v1.ChatRoomWorkflowTranscriptSpec
-	121, // 10: gizclaw.rpc.v1.ChatRoomWorkspaceParameters.agent_type:type_name -> gizclaw.rpc.v1.ChatRoomWorkspaceParametersAgentType
-	8,   // 11: gizclaw.rpc.v1.ChatRoomWorkspaceParameters.history:type_name -> gizclaw.rpc.v1.ChatRoomWorkspaceHistoryParameters
-	120, // 12: gizclaw.rpc.v1.ChatRoomWorkspaceParameters.input:type_name -> gizclaw.rpc.v1.WorkspaceInputMode
-	122, // 13: gizclaw.rpc.v1.ChatRoomWorkspaceParameters.mode:type_name -> gizclaw.rpc.v1.ChatRoomMode
-	10,  // 14: gizclaw.rpc.v1.ChatRoomWorkspaceParameters.transcript:type_name -> gizclaw.rpc.v1.ChatRoomWorkspaceTranscriptParameters
-	12,  // 15: gizclaw.rpc.v1.Credential.body:type_name -> gizclaw.rpc.v1.CredentialBody
-	72,  // 16: gizclaw.rpc.v1.CredentialBody.open_aicredential_body:type_name -> gizclaw.rpc.v1.OpenAICredentialBody
-	52,  // 17: gizclaw.rpc.v1.CredentialBody.gemini_credential_body:type_name -> gizclaw.rpc.v1.GeminiCredentialBody
-	23,  // 18: gizclaw.rpc.v1.CredentialBody.dash_scope_credential_body:type_name -> gizclaw.rpc.v1.DashScopeCredentialBody
-	55,  // 19: gizclaw.rpc.v1.CredentialBody.mini_max_credential_body:type_name -> gizclaw.rpc.v1.MiniMaxCredentialBody
-	82,  // 20: gizclaw.rpc.v1.CredentialBody.volc_credential_body:type_name -> gizclaw.rpc.v1.VolcCredentialBody
-	11,  // 21: gizclaw.rpc.v1.CredentialCreateRequest.value:type_name -> gizclaw.rpc.v1.Credential
-	11,  // 22: gizclaw.rpc.v1.CredentialCreateResponse.value:type_name -> gizclaw.rpc.v1.Credential
-	11,  // 23: gizclaw.rpc.v1.CredentialDeleteResponse.value:type_name -> gizclaw.rpc.v1.Credential
-	11,  // 24: gizclaw.rpc.v1.CredentialGetResponse.value:type_name -> gizclaw.rpc.v1.Credential
-	11,  // 25: gizclaw.rpc.v1.CredentialListResponse.items:type_name -> gizclaw.rpc.v1.Credential
-	11,  // 26: gizclaw.rpc.v1.CredentialPutRequest.body:type_name -> gizclaw.rpc.v1.Credential
-	11,  // 27: gizclaw.rpc.v1.CredentialPutResponse.value:type_name -> gizclaw.rpc.v1.Credential
-	123, // 28: gizclaw.rpc.v1.DashScopeTenantModelProviderData.api_mode:type_name -> gizclaw.rpc.v1.DashScopeTenantModelProviderDataApiMode
-	124, // 29: gizclaw.rpc.v1.DashScopeTenantVoiceProviderData.raw:type_name -> google.protobuf.Struct
-	116, // 30: gizclaw.rpc.v1.DoubaoRealtimeASRContext.correct_words:type_name -> gizclaw.rpc.v1.DoubaoRealtimeASRContext.CorrectWordsEntry
-	30,  // 31: gizclaw.rpc.v1.DoubaoRealtimeASRContext.hotwords:type_name -> gizclaw.rpc.v1.DoubaoRealtimeASRHotword
-	29,  // 32: gizclaw.rpc.v1.DoubaoRealtimeASRExtension.extra:type_name -> gizclaw.rpc.v1.DoubaoRealtimeASRExtra
-	27,  // 33: gizclaw.rpc.v1.DoubaoRealtimeASRExtra.context:type_name -> gizclaw.rpc.v1.DoubaoRealtimeASRContext
-	33,  // 34: gizclaw.rpc.v1.DoubaoRealtimeAudio.input:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudioInput
-	34,  // 35: gizclaw.rpc.v1.DoubaoRealtimeAudio.output:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudioOutput
-	125, // 36: gizclaw.rpc.v1.DoubaoRealtimeAudioFormat.type:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudioFormatType
-	32,  // 37: gizclaw.rpc.v1.DoubaoRealtimeAudioInput.format:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudioFormat
-	32,  // 38: gizclaw.rpc.v1.DoubaoRealtimeAudioOutput.format:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudioFormat
-	36,  // 39: gizclaw.rpc.v1.DoubaoRealtimeDialogExtension.extra:type_name -> gizclaw.rpc.v1.DoubaoRealtimeDialogExtra
-	126, // 40: gizclaw.rpc.v1.DoubaoRealtimeDialogExtra.volc_websearch_type:type_name -> gizclaw.rpc.v1.DoubaoRealtimeDialogExtraVolcWebsearchType
-	28,  // 41: gizclaw.rpc.v1.DoubaoRealtimeExtension.asr:type_name -> gizclaw.rpc.v1.DoubaoRealtimeASRExtension
-	35,  // 42: gizclaw.rpc.v1.DoubaoRealtimeExtension.dialog:type_name -> gizclaw.rpc.v1.DoubaoRealtimeDialogExtension
-	40,  // 43: gizclaw.rpc.v1.DoubaoRealtimeExtension.tts:type_name -> gizclaw.rpc.v1.DoubaoRealtimeTTSExtension
-	39,  // 44: gizclaw.rpc.v1.DoubaoRealtimeFunctionTool.parameters:type_name -> gizclaw.rpc.v1.DoubaoRealtimeJSONSchema
-	127, // 45: gizclaw.rpc.v1.DoubaoRealtimeFunctionTool.type:type_name -> gizclaw.rpc.v1.DoubaoRealtimeFunctionToolType
-	39,  // 46: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.any_of:type_name -> gizclaw.rpc.v1.DoubaoRealtimeJSONSchema
-	39,  // 47: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.items:type_name -> gizclaw.rpc.v1.DoubaoRealtimeJSONSchema
-	117, // 48: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.properties:type_name -> gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.PropertiesEntry
-	41,  // 49: gizclaw.rpc.v1.DoubaoRealtimeTTSExtension.extra:type_name -> gizclaw.rpc.v1.DoubaoRealtimeTTSExtra
-	26,  // 50: gizclaw.rpc.v1.DoubaoRealtimeTTSExtra.aigc_metadata:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAIGCMetadata
-	31,  // 51: gizclaw.rpc.v1.DoubaoRealtimeWorkflowSpec.audio:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudio
-	37,  // 52: gizclaw.rpc.v1.DoubaoRealtimeWorkflowSpec.extension:type_name -> gizclaw.rpc.v1.DoubaoRealtimeExtension
-	38,  // 53: gizclaw.rpc.v1.DoubaoRealtimeWorkflowSpec.tools:type_name -> gizclaw.rpc.v1.DoubaoRealtimeFunctionTool
-	128, // 54: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters.agent_type:type_name -> gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParametersAgentType
-	31,  // 55: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters.audio:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudio
-	37,  // 56: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters.extension:type_name -> gizclaw.rpc.v1.DoubaoRealtimeExtension
-	120, // 57: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters.input:type_name -> gizclaw.rpc.v1.WorkspaceInputMode
-	38,  // 58: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters.tools:type_name -> gizclaw.rpc.v1.DoubaoRealtimeFunctionTool
-	129, // 59: gizclaw.rpc.v1.FlowcraftConversationParameters.agent_initiative_policy:type_name -> gizclaw.rpc.v1.FlowcraftConversationParametersAgentInitiativePolicy
-	130, // 60: gizclaw.rpc.v1.FlowcraftConversationParameters.initiative:type_name -> gizclaw.rpc.v1.FlowcraftConversationParametersInitiative
-	124, // 61: gizclaw.rpc.v1.FlowcraftWorkflowSpec.fields:type_name -> google.protobuf.Struct
-	131, // 62: gizclaw.rpc.v1.FlowcraftWorkspaceParameters.agent_type:type_name -> gizclaw.rpc.v1.FlowcraftWorkspaceParametersAgentType
-	44,  // 63: gizclaw.rpc.v1.FlowcraftWorkspaceParameters.conversation:type_name -> gizclaw.rpc.v1.FlowcraftConversationParameters
-	120, // 64: gizclaw.rpc.v1.FlowcraftWorkspaceParameters.input:type_name -> gizclaw.rpc.v1.WorkspaceInputMode
-	132, // 65: gizclaw.rpc.v1.PetConversationParameters.initiative:type_name -> gizclaw.rpc.v1.PetConversationParametersInitiative
-	133, // 66: gizclaw.rpc.v1.PetWorkspaceParameters.agent_type:type_name -> gizclaw.rpc.v1.PetWorkspaceParametersAgentType
-	47,  // 67: gizclaw.rpc.v1.PetWorkspaceParameters.conversation:type_name -> gizclaw.rpc.v1.PetConversationParameters
-	120, // 68: gizclaw.rpc.v1.PetWorkspaceParameters.input:type_name -> gizclaw.rpc.v1.WorkspaceInputMode
-	48,  // 69: gizclaw.rpc.v1.PetWorkspaceParameters.persona:type_name -> gizclaw.rpc.v1.PetPersonaParameters
-	49,  // 70: gizclaw.rpc.v1.PetWorkspaceParameters.voice:type_name -> gizclaw.rpc.v1.PetVoiceParameters
-	124, // 71: gizclaw.rpc.v1.GeminiTenantVoiceProviderData.raw:type_name -> google.protobuf.Struct
-	124, // 72: gizclaw.rpc.v1.MiniMaxTenantVoiceProviderData.raw:type_name -> google.protobuf.Struct
-	58,  // 73: gizclaw.rpc.v1.Model.capabilities:type_name -> gizclaw.rpc.v1.ModelCapabilities
-	134, // 74: gizclaw.rpc.v1.Model.kind:type_name -> gizclaw.rpc.v1.ModelKind
-	67,  // 75: gizclaw.rpc.v1.Model.provider:type_name -> gizclaw.rpc.v1.ModelProvider
-	68,  // 76: gizclaw.rpc.v1.Model.provider_data:type_name -> gizclaw.rpc.v1.ModelProviderData
-	135, // 77: gizclaw.rpc.v1.Model.source:type_name -> gizclaw.rpc.v1.ModelSource
-	71,  // 78: gizclaw.rpc.v1.ModelCapabilities.thinking:type_name -> gizclaw.rpc.v1.ModelThinkingCapability
-	57,  // 79: gizclaw.rpc.v1.ModelCreateRequest.value:type_name -> gizclaw.rpc.v1.Model
-	57,  // 80: gizclaw.rpc.v1.ModelCreateResponse.value:type_name -> gizclaw.rpc.v1.Model
-	57,  // 81: gizclaw.rpc.v1.ModelDeleteResponse.value:type_name -> gizclaw.rpc.v1.Model
-	57,  // 82: gizclaw.rpc.v1.ModelGetResponse.value:type_name -> gizclaw.rpc.v1.Model
-	57,  // 83: gizclaw.rpc.v1.ModelListResponse.items:type_name -> gizclaw.rpc.v1.Model
-	136, // 84: gizclaw.rpc.v1.ModelProvider.kind:type_name -> gizclaw.rpc.v1.ModelProviderKind
-	53,  // 85: gizclaw.rpc.v1.ModelProviderData.gemini_tenant_model_provider_data:type_name -> gizclaw.rpc.v1.GeminiTenantModelProviderData
-	24,  // 86: gizclaw.rpc.v1.ModelProviderData.dash_scope_tenant_model_provider_data:type_name -> gizclaw.rpc.v1.DashScopeTenantModelProviderData
-	73,  // 87: gizclaw.rpc.v1.ModelProviderData.open_aitenant_model_provider_data:type_name -> gizclaw.rpc.v1.OpenAITenantModelProviderData
-	83,  // 88: gizclaw.rpc.v1.ModelProviderData.volc_tenant_model_provider_data:type_name -> gizclaw.rpc.v1.VolcTenantModelProviderData
-	57,  // 89: gizclaw.rpc.v1.ModelPutRequest.body:type_name -> gizclaw.rpc.v1.Model
-	57,  // 90: gizclaw.rpc.v1.ModelPutResponse.value:type_name -> gizclaw.rpc.v1.Model
-	124, // 91: gizclaw.rpc.v1.OpenAITenantVoiceProviderData.raw:type_name -> google.protobuf.Struct
-	80,  // 92: gizclaw.rpc.v1.Voice.provider:type_name -> gizclaw.rpc.v1.VoiceProvider
-	81,  // 93: gizclaw.rpc.v1.Voice.provider_data:type_name -> gizclaw.rpc.v1.VoiceProviderData
-	137, // 94: gizclaw.rpc.v1.Voice.source:type_name -> gizclaw.rpc.v1.VoiceSource
-	75,  // 95: gizclaw.rpc.v1.VoiceGetResponse.value:type_name -> gizclaw.rpc.v1.Voice
-	75,  // 96: gizclaw.rpc.v1.VoiceListResponse.items:type_name -> gizclaw.rpc.v1.Voice
-	138, // 97: gizclaw.rpc.v1.VoiceProvider.kind:type_name -> gizclaw.rpc.v1.VoiceProviderKind
-	54,  // 98: gizclaw.rpc.v1.VoiceProviderData.gemini_tenant_voice_provider_data:type_name -> gizclaw.rpc.v1.GeminiTenantVoiceProviderData
-	25,  // 99: gizclaw.rpc.v1.VoiceProviderData.dash_scope_tenant_voice_provider_data:type_name -> gizclaw.rpc.v1.DashScopeTenantVoiceProviderData
-	74,  // 100: gizclaw.rpc.v1.VoiceProviderData.open_aitenant_voice_provider_data:type_name -> gizclaw.rpc.v1.OpenAITenantVoiceProviderData
-	56,  // 101: gizclaw.rpc.v1.VoiceProviderData.mini_max_tenant_voice_provider_data:type_name -> gizclaw.rpc.v1.MiniMaxTenantVoiceProviderData
-	84,  // 102: gizclaw.rpc.v1.VoiceProviderData.volc_tenant_voice_provider_data:type_name -> gizclaw.rpc.v1.VolcTenantVoiceProviderData
-	139, // 103: gizclaw.rpc.v1.VolcTenantModelProviderData.api_mode:type_name -> gizclaw.rpc.v1.VolcTenantModelProviderDataApiMode
-	124, // 104: gizclaw.rpc.v1.VolcTenantVoiceProviderData.raw:type_name -> google.protobuf.Struct
-	99,  // 105: gizclaw.rpc.v1.Workflow.spec:type_name -> gizclaw.rpc.v1.WorkflowSpec
-	99,  // 106: gizclaw.rpc.v1.WorkflowUpsert.spec:type_name -> gizclaw.rpc.v1.WorkflowSpec
-	140, // 107: gizclaw.rpc.v1.WorkflowCreateRequest.source:type_name -> gizclaw.rpc.v1.ResourceSource
-	86,  // 108: gizclaw.rpc.v1.WorkflowCreateRequest.body:type_name -> gizclaw.rpc.v1.WorkflowUpsert
-	85,  // 109: gizclaw.rpc.v1.WorkflowCreateResponse.value:type_name -> gizclaw.rpc.v1.Workflow
-	140, // 110: gizclaw.rpc.v1.WorkflowDeleteRequest.source:type_name -> gizclaw.rpc.v1.ResourceSource
-	85,  // 111: gizclaw.rpc.v1.WorkflowDeleteResponse.value:type_name -> gizclaw.rpc.v1.Workflow
-	140, // 112: gizclaw.rpc.v1.WorkflowGetRequest.source:type_name -> gizclaw.rpc.v1.ResourceSource
-	85,  // 113: gizclaw.rpc.v1.WorkflowGetResponse.value:type_name -> gizclaw.rpc.v1.Workflow
-	140, // 114: gizclaw.rpc.v1.WorkflowListRequest.source:type_name -> gizclaw.rpc.v1.ResourceSource
-	85,  // 115: gizclaw.rpc.v1.WorkflowListResponse.items:type_name -> gizclaw.rpc.v1.Workflow
-	86,  // 116: gizclaw.rpc.v1.WorkflowPutRequest.body:type_name -> gizclaw.rpc.v1.WorkflowUpsert
-	140, // 117: gizclaw.rpc.v1.WorkflowPutRequest.source:type_name -> gizclaw.rpc.v1.ResourceSource
-	85,  // 118: gizclaw.rpc.v1.WorkflowPutResponse.value:type_name -> gizclaw.rpc.v1.Workflow
-	97,  // 119: gizclaw.rpc.v1.ToolkitPolicy.tool_ids:type_name -> gizclaw.rpc.v1.ToolkitPolicyToolIds
-	3,   // 120: gizclaw.rpc.v1.WorkflowSpec.ast_translate:type_name -> gizclaw.rpc.v1.ASTTranslateWorkflowSpec
-	6,   // 121: gizclaw.rpc.v1.WorkflowSpec.chatroom:type_name -> gizclaw.rpc.v1.ChatRoomWorkflowSpec
-	42,  // 122: gizclaw.rpc.v1.WorkflowSpec.doubao_realtime:type_name -> gizclaw.rpc.v1.DoubaoRealtimeWorkflowSpec
-	141, // 123: gizclaw.rpc.v1.WorkflowSpec.driver:type_name -> gizclaw.rpc.v1.WorkflowDriver
-	45,  // 124: gizclaw.rpc.v1.WorkflowSpec.flowcraft:type_name -> gizclaw.rpc.v1.FlowcraftWorkflowSpec
-	98,  // 125: gizclaw.rpc.v1.WorkflowSpec.toolkit:type_name -> gizclaw.rpc.v1.ToolkitPolicy
-	50,  // 126: gizclaw.rpc.v1.WorkflowSpec.pet:type_name -> gizclaw.rpc.v1.PetWorkflowSpec
-	142, // 127: gizclaw.rpc.v1.ToolExecutor.kind:type_name -> gizclaw.rpc.v1.ToolExecutorKind
-	124, // 128: gizclaw.rpc.v1.ToolExecutor.config:type_name -> google.protobuf.Struct
-	124, // 129: gizclaw.rpc.v1.ToolTriggerExample.args:type_name -> google.protobuf.Struct
-	101, // 130: gizclaw.rpc.v1.ToolTrigger.examples:type_name -> gizclaw.rpc.v1.ToolTriggerExample
-	124, // 131: gizclaw.rpc.v1.ToolTrigger.metadata:type_name -> google.protobuf.Struct
-	143, // 132: gizclaw.rpc.v1.Tool.source:type_name -> gizclaw.rpc.v1.ToolSource
-	124, // 133: gizclaw.rpc.v1.Tool.input_schema:type_name -> google.protobuf.Struct
-	124, // 134: gizclaw.rpc.v1.Tool.output_schema:type_name -> google.protobuf.Struct
-	102, // 135: gizclaw.rpc.v1.Tool.triggers:type_name -> gizclaw.rpc.v1.ToolTrigger
-	100, // 136: gizclaw.rpc.v1.Tool.executor:type_name -> gizclaw.rpc.v1.ToolExecutor
-	124, // 137: gizclaw.rpc.v1.Tool.metadata:type_name -> google.protobuf.Struct
-	103, // 138: gizclaw.rpc.v1.ToolListResponse.items:type_name -> gizclaw.rpc.v1.Tool
-	103, // 139: gizclaw.rpc.v1.ToolGetResponse.value:type_name -> gizclaw.rpc.v1.Tool
-	103, // 140: gizclaw.rpc.v1.ToolCreateRequest.value:type_name -> gizclaw.rpc.v1.Tool
-	103, // 141: gizclaw.rpc.v1.ToolCreateResponse.value:type_name -> gizclaw.rpc.v1.Tool
-	103, // 142: gizclaw.rpc.v1.ToolPutRequest.body:type_name -> gizclaw.rpc.v1.Tool
-	103, // 143: gizclaw.rpc.v1.ToolPutResponse.value:type_name -> gizclaw.rpc.v1.Tool
-	103, // 144: gizclaw.rpc.v1.ToolDeleteResponse.value:type_name -> gizclaw.rpc.v1.Tool
-	124, // 145: gizclaw.rpc.v1.ToolInvokeRequest.args:type_name -> google.protobuf.Struct
-	39,  // 146: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.PropertiesEntry.value:type_name -> gizclaw.rpc.v1.DoubaoRealtimeJSONSchema
-	147, // [147:147] is the sub-list for method output_type
-	147, // [147:147] is the sub-list for method input_type
-	147, // [147:147] is the sub-list for extension type_name
-	147, // [147:147] is the sub-list for extension extendee
-	0,   // [0:147] is the sub-list for field type_name
+	6,  // 0: gizclaw.rpc.v1.ASTTranslateVoiceParameters.asttranslate_internal_speaker_parameters:type_name -> gizclaw.rpc.v1.ASTTranslateInternalSpeakerParameters
+	5,  // 1: gizclaw.rpc.v1.ASTTranslateVoiceParameters.asttranslate_external_voice_parameters:type_name -> gizclaw.rpc.v1.ASTTranslateExternalVoiceParameters
+	74, // 2: gizclaw.rpc.v1.ASTTranslateWorkflowSpec.mode:type_name -> gizclaw.rpc.v1.ASTTranslateMode
+	7,  // 3: gizclaw.rpc.v1.ASTTranslateWorkflowSpec.voice:type_name -> gizclaw.rpc.v1.ASTTranslateVoiceParameters
+	75, // 4: gizclaw.rpc.v1.ASTTranslateWorkspaceParameters.agent_type:type_name -> gizclaw.rpc.v1.ASTTranslateWorkspaceParametersAgentType
+	76, // 5: gizclaw.rpc.v1.ASTTranslateWorkspaceParameters.input:type_name -> gizclaw.rpc.v1.WorkspaceInputMode
+	74, // 6: gizclaw.rpc.v1.ASTTranslateWorkspaceParameters.mode:type_name -> gizclaw.rpc.v1.ASTTranslateMode
+	7,  // 7: gizclaw.rpc.v1.ASTTranslateWorkspaceParameters.voice:type_name -> gizclaw.rpc.v1.ASTTranslateVoiceParameters
+	10, // 8: gizclaw.rpc.v1.ChatRoomWorkflowSpec.history:type_name -> gizclaw.rpc.v1.ChatRoomWorkflowHistorySpec
+	12, // 9: gizclaw.rpc.v1.ChatRoomWorkflowSpec.transcript:type_name -> gizclaw.rpc.v1.ChatRoomWorkflowTranscriptSpec
+	77, // 10: gizclaw.rpc.v1.ChatRoomWorkspaceParameters.agent_type:type_name -> gizclaw.rpc.v1.ChatRoomWorkspaceParametersAgentType
+	13, // 11: gizclaw.rpc.v1.ChatRoomWorkspaceParameters.history:type_name -> gizclaw.rpc.v1.ChatRoomWorkspaceHistoryParameters
+	76, // 12: gizclaw.rpc.v1.ChatRoomWorkspaceParameters.input:type_name -> gizclaw.rpc.v1.WorkspaceInputMode
+	78, // 13: gizclaw.rpc.v1.ChatRoomWorkspaceParameters.mode:type_name -> gizclaw.rpc.v1.ChatRoomMode
+	15, // 14: gizclaw.rpc.v1.ChatRoomWorkspaceParameters.transcript:type_name -> gizclaw.rpc.v1.ChatRoomWorkspaceTranscriptParameters
+	68, // 15: gizclaw.rpc.v1.DoubaoRealtimeASRContext.correct_words:type_name -> gizclaw.rpc.v1.DoubaoRealtimeASRContext.CorrectWordsEntry
+	20, // 16: gizclaw.rpc.v1.DoubaoRealtimeASRContext.hotwords:type_name -> gizclaw.rpc.v1.DoubaoRealtimeASRHotword
+	19, // 17: gizclaw.rpc.v1.DoubaoRealtimeASRExtension.extra:type_name -> gizclaw.rpc.v1.DoubaoRealtimeASRExtra
+	17, // 18: gizclaw.rpc.v1.DoubaoRealtimeASRExtra.context:type_name -> gizclaw.rpc.v1.DoubaoRealtimeASRContext
+	23, // 19: gizclaw.rpc.v1.DoubaoRealtimeAudio.input:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudioInput
+	24, // 20: gizclaw.rpc.v1.DoubaoRealtimeAudio.output:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudioOutput
+	79, // 21: gizclaw.rpc.v1.DoubaoRealtimeAudioFormat.type:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudioFormatType
+	22, // 22: gizclaw.rpc.v1.DoubaoRealtimeAudioInput.format:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudioFormat
+	22, // 23: gizclaw.rpc.v1.DoubaoRealtimeAudioOutput.format:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudioFormat
+	26, // 24: gizclaw.rpc.v1.DoubaoRealtimeDialogExtension.extra:type_name -> gizclaw.rpc.v1.DoubaoRealtimeDialogExtra
+	80, // 25: gizclaw.rpc.v1.DoubaoRealtimeDialogExtra.volc_websearch_type:type_name -> gizclaw.rpc.v1.DoubaoRealtimeDialogExtraVolcWebsearchType
+	18, // 26: gizclaw.rpc.v1.DoubaoRealtimeExtension.asr:type_name -> gizclaw.rpc.v1.DoubaoRealtimeASRExtension
+	25, // 27: gizclaw.rpc.v1.DoubaoRealtimeExtension.dialog:type_name -> gizclaw.rpc.v1.DoubaoRealtimeDialogExtension
+	30, // 28: gizclaw.rpc.v1.DoubaoRealtimeExtension.tts:type_name -> gizclaw.rpc.v1.DoubaoRealtimeTTSExtension
+	29, // 29: gizclaw.rpc.v1.DoubaoRealtimeFunctionTool.parameters:type_name -> gizclaw.rpc.v1.DoubaoRealtimeJSONSchema
+	81, // 30: gizclaw.rpc.v1.DoubaoRealtimeFunctionTool.type:type_name -> gizclaw.rpc.v1.DoubaoRealtimeFunctionToolType
+	29, // 31: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.any_of:type_name -> gizclaw.rpc.v1.DoubaoRealtimeJSONSchema
+	29, // 32: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.items:type_name -> gizclaw.rpc.v1.DoubaoRealtimeJSONSchema
+	69, // 33: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.properties:type_name -> gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.PropertiesEntry
+	31, // 34: gizclaw.rpc.v1.DoubaoRealtimeTTSExtension.extra:type_name -> gizclaw.rpc.v1.DoubaoRealtimeTTSExtra
+	16, // 35: gizclaw.rpc.v1.DoubaoRealtimeTTSExtra.aigc_metadata:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAIGCMetadata
+	21, // 36: gizclaw.rpc.v1.DoubaoRealtimeWorkflowSpec.audio:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudio
+	27, // 37: gizclaw.rpc.v1.DoubaoRealtimeWorkflowSpec.extension:type_name -> gizclaw.rpc.v1.DoubaoRealtimeExtension
+	28, // 38: gizclaw.rpc.v1.DoubaoRealtimeWorkflowSpec.tools:type_name -> gizclaw.rpc.v1.DoubaoRealtimeFunctionTool
+	82, // 39: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters.agent_type:type_name -> gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParametersAgentType
+	21, // 40: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters.audio:type_name -> gizclaw.rpc.v1.DoubaoRealtimeAudio
+	27, // 41: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters.extension:type_name -> gizclaw.rpc.v1.DoubaoRealtimeExtension
+	76, // 42: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters.input:type_name -> gizclaw.rpc.v1.WorkspaceInputMode
+	28, // 43: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters.tools:type_name -> gizclaw.rpc.v1.DoubaoRealtimeFunctionTool
+	83, // 44: gizclaw.rpc.v1.FlowcraftConversationParameters.agent_initiative_policy:type_name -> gizclaw.rpc.v1.FlowcraftConversationParametersAgentInitiativePolicy
+	84, // 45: gizclaw.rpc.v1.FlowcraftConversationParameters.initiative:type_name -> gizclaw.rpc.v1.FlowcraftConversationParametersInitiative
+	85, // 46: gizclaw.rpc.v1.FlowcraftWorkflowSpec.fields:type_name -> google.protobuf.Struct
+	86, // 47: gizclaw.rpc.v1.FlowcraftWorkspaceParameters.agent_type:type_name -> gizclaw.rpc.v1.FlowcraftWorkspaceParametersAgentType
+	34, // 48: gizclaw.rpc.v1.FlowcraftWorkspaceParameters.conversation:type_name -> gizclaw.rpc.v1.FlowcraftConversationParameters
+	76, // 49: gizclaw.rpc.v1.FlowcraftWorkspaceParameters.input:type_name -> gizclaw.rpc.v1.WorkspaceInputMode
+	87, // 50: gizclaw.rpc.v1.PetConversationParameters.initiative:type_name -> gizclaw.rpc.v1.PetConversationParametersInitiative
+	88, // 51: gizclaw.rpc.v1.PetWorkspaceParameters.agent_type:type_name -> gizclaw.rpc.v1.PetWorkspaceParametersAgentType
+	37, // 52: gizclaw.rpc.v1.PetWorkspaceParameters.conversation:type_name -> gizclaw.rpc.v1.PetConversationParameters
+	76, // 53: gizclaw.rpc.v1.PetWorkspaceParameters.input:type_name -> gizclaw.rpc.v1.WorkspaceInputMode
+	38, // 54: gizclaw.rpc.v1.PetWorkspaceParameters.persona:type_name -> gizclaw.rpc.v1.PetPersonaParameters
+	39, // 55: gizclaw.rpc.v1.PetWorkspaceParameters.voice:type_name -> gizclaw.rpc.v1.PetVoiceParameters
+	70, // 56: gizclaw.rpc.v1.Model.i18n:type_name -> gizclaw.rpc.v1.Model.I18nEntry
+	89, // 57: gizclaw.rpc.v1.Model.kind:type_name -> gizclaw.rpc.v1.ModelKind
+	43, // 58: gizclaw.rpc.v1.Model.capabilities:type_name -> gizclaw.rpc.v1.ModelCapabilities
+	48, // 59: gizclaw.rpc.v1.ModelCapabilities.thinking:type_name -> gizclaw.rpc.v1.ModelThinkingCapability
+	42, // 60: gizclaw.rpc.v1.ModelGetResponse.value:type_name -> gizclaw.rpc.v1.Model
+	42, // 61: gizclaw.rpc.v1.ModelListResponse.items:type_name -> gizclaw.rpc.v1.Model
+	71, // 62: gizclaw.rpc.v1.Voice.i18n:type_name -> gizclaw.rpc.v1.Voice.I18nEntry
+	49, // 63: gizclaw.rpc.v1.VoiceGetResponse.value:type_name -> gizclaw.rpc.v1.Voice
+	49, // 64: gizclaw.rpc.v1.VoiceListResponse.items:type_name -> gizclaw.rpc.v1.Voice
+	72, // 65: gizclaw.rpc.v1.Workflow.i18n:type_name -> gizclaw.rpc.v1.Workflow.I18nEntry
+	90, // 66: gizclaw.rpc.v1.Workflow.driver:type_name -> gizclaw.rpc.v1.WorkflowDriver
+	54, // 67: gizclaw.rpc.v1.WorkflowGetResponse.value:type_name -> gizclaw.rpc.v1.Workflow
+	54, // 68: gizclaw.rpc.v1.WorkflowListResponse.items:type_name -> gizclaw.rpc.v1.Workflow
+	59, // 69: gizclaw.rpc.v1.ToolkitPolicy.tool_ids:type_name -> gizclaw.rpc.v1.ToolkitPolicyToolIds
+	73, // 70: gizclaw.rpc.v1.Tool.i18n:type_name -> gizclaw.rpc.v1.Tool.I18nEntry
+	85, // 71: gizclaw.rpc.v1.Tool.input_schema:type_name -> google.protobuf.Struct
+	85, // 72: gizclaw.rpc.v1.Tool.output_schema:type_name -> google.protobuf.Struct
+	61, // 73: gizclaw.rpc.v1.ToolListResponse.items:type_name -> gizclaw.rpc.v1.Tool
+	61, // 74: gizclaw.rpc.v1.ToolGetResponse.value:type_name -> gizclaw.rpc.v1.Tool
+	85, // 75: gizclaw.rpc.v1.ToolInvokeRequest.args:type_name -> google.protobuf.Struct
+	29, // 76: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.PropertiesEntry.value:type_name -> gizclaw.rpc.v1.DoubaoRealtimeJSONSchema
+	0,  // 77: gizclaw.rpc.v1.Model.I18nEntry.value:type_name -> gizclaw.rpc.v1.AliasI18nText
+	0,  // 78: gizclaw.rpc.v1.Voice.I18nEntry.value:type_name -> gizclaw.rpc.v1.AliasI18nText
+	0,  // 79: gizclaw.rpc.v1.Workflow.I18nEntry.value:type_name -> gizclaw.rpc.v1.AliasI18nText
+	0,  // 80: gizclaw.rpc.v1.Tool.I18nEntry.value:type_name -> gizclaw.rpc.v1.AliasI18nText
+	81, // [81:81] is the sub-list for method output_type
+	81, // [81:81] is the sub-list for method input_type
+	81, // [81:81] is the sub-list for extension type_name
+	81, // [81:81] is the sub-list for extension extendee
+	0,  // [0:81] is the sub-list for field type_name
 }
 
 func init() { file_payload_ai_proto_init() }
@@ -8506,101 +5030,61 @@ func file_payload_ai_proto_init() {
 		return
 	}
 	file_payload_enums_proto_init()
+	file_payload_ai_proto_msgTypes[0].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[1].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[2].OneofWrappers = []any{
+	file_payload_ai_proto_msgTypes[4].OneofWrappers = []any{}
+	file_payload_ai_proto_msgTypes[6].OneofWrappers = []any{}
+	file_payload_ai_proto_msgTypes[7].OneofWrappers = []any{
 		(*ASTTranslateVoiceParameters_AsttranslateInternalSpeakerParameters)(nil),
 		(*ASTTranslateVoiceParameters_AsttranslateExternalVoiceParameters)(nil),
 	}
-	file_payload_ai_proto_msgTypes[3].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[4].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[5].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[6].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[7].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[8].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[9].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[10].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[11].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[12].OneofWrappers = []any{
-		(*CredentialBody_OpenAicredentialBody)(nil),
-		(*CredentialBody_GeminiCredentialBody)(nil),
-		(*CredentialBody_DashScopeCredentialBody)(nil),
-		(*CredentialBody_MiniMaxCredentialBody)(nil),
-		(*CredentialBody_VolcCredentialBody)(nil),
-	}
+	file_payload_ai_proto_msgTypes[12].OneofWrappers = []any{}
+	file_payload_ai_proto_msgTypes[13].OneofWrappers = []any{}
+	file_payload_ai_proto_msgTypes[14].OneofWrappers = []any{}
+	file_payload_ai_proto_msgTypes[15].OneofWrappers = []any{}
+	file_payload_ai_proto_msgTypes[16].OneofWrappers = []any{}
+	file_payload_ai_proto_msgTypes[18].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[19].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[20].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[23].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[24].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[25].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[26].OneofWrappers = []any{}
+	file_payload_ai_proto_msgTypes[27].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[28].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[29].OneofWrappers = []any{}
+	file_payload_ai_proto_msgTypes[30].OneofWrappers = []any{}
+	file_payload_ai_proto_msgTypes[31].OneofWrappers = []any{}
+	file_payload_ai_proto_msgTypes[32].OneofWrappers = []any{}
+	file_payload_ai_proto_msgTypes[33].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[34].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[35].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[36].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[37].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[38].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[39].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[40].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[41].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[42].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[43].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[44].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[46].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[47].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[48].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[49].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[51].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[52].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[53].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[54].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[55].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[56].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[57].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[58].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[65].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[66].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[68].OneofWrappers = []any{
-		(*ModelProviderData_GeminiTenantModelProviderData)(nil),
-		(*ModelProviderData_DashScopeTenantModelProviderData)(nil),
-		(*ModelProviderData_OpenAitenantModelProviderData)(nil),
-		(*ModelProviderData_VolcTenantModelProviderData)(nil),
-	}
-	file_payload_ai_proto_msgTypes[71].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[72].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[73].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[74].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[75].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[78].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[79].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[81].OneofWrappers = []any{
-		(*VoiceProviderData_GeminiTenantVoiceProviderData)(nil),
-		(*VoiceProviderData_DashScopeTenantVoiceProviderData)(nil),
-		(*VoiceProviderData_OpenAitenantVoiceProviderData)(nil),
-		(*VoiceProviderData_MiniMaxTenantVoiceProviderData)(nil),
-		(*VoiceProviderData_VolcTenantVoiceProviderData)(nil),
-	}
-	file_payload_ai_proto_msgTypes[82].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[83].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[84].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[85].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[93].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[94].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[98].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[99].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[100].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[101].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[102].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[103].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[104].OneofWrappers = []any{}
-	file_payload_ai_proto_msgTypes[105].OneofWrappers = []any{}
+	file_payload_ai_proto_msgTypes[60].OneofWrappers = []any{}
+	file_payload_ai_proto_msgTypes[61].OneofWrappers = []any{}
+	file_payload_ai_proto_msgTypes[62].OneofWrappers = []any{}
+	file_payload_ai_proto_msgTypes[63].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_payload_ai_proto_rawDesc), len(file_payload_ai_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   118,
+			NumMessages:   74,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

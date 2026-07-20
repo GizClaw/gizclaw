@@ -12,6 +12,8 @@ RPC 模块负责 GizClaw RPC 的 client/server、dispatch、stream framing 和�
 | [Firmware Download](./firmware) | 保留 Firmware streaming RPC 的兼容 framing；当前 peer projection 返回 not found。 | `rpc_firmware.go` |
 | [Gameplay Assets](./gameplay-pixa) | Gameplay pixa asset streaming。 | `rpc_gameplay_pixa.go` |
 | [Workspace History](./workspace-history) | History audio streaming。 | `rpc_workspace_history.go` |
+| [Speech Transcription](./transcription) | 独立流式 audio-to-text。 | `rpc_speech.go` |
+| [Speech Synthesis](./synthesis) | 独立流式 text-to-audio。 | `rpc_speech.go` |
 | [Speed Test](./speed) | 双向 RPC/DataChannel throughput test。 | `rpc_speed.go` |
 | [Streaming](./stream) | Frame、protobuf envelope 与 EOS。 | `rpc_stream.go` |
 | [Tool Invocation](./tool) | Server 调用在线 Peer tool。 | `rpc_tool.go` |
@@ -31,6 +33,7 @@ flowchart TB
     Server --> Firmware["Firmware Download"]
     Server --> Gameplay["Gameplay Assets"]
     Server --> History["Workspace History"]
+    Server --> Speech["Standalone Speech"]
     Server --> Speed["Speed Test"]
     Connection --> Edge["Edge Routing<br/>独立 Edge RPC dispatch"]
 

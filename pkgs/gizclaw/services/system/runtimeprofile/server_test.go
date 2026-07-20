@@ -80,7 +80,7 @@ func TestRegistrationTokenIsReturnedOnceAndStoredAsHash(t *testing.T) {
 		t.Fatalf("registration = %#v", registration)
 	}
 	models := *registration.RuntimeProfile.Spec.Resources.Models
-	if len(models) != 3 || models["primary"] != "model-a" || models["secondary"] != "model-b" || models["duplicate"] != "model-a" {
+	if len(models) != 3 || models["primary"].ResourceId != "model-a" || models["secondary"].ResourceId != "model-b" || models["duplicate"].ResourceId != "model-a" {
 		t.Fatalf("normalized models = %#v", models)
 	}
 }
@@ -214,21 +214,182 @@ func TestConcurrentRegistrationTokenCreateKeepsNameAndHashIndexesConsistent(t *t
 	}
 }
 
-func TestDanglingRuntimeProfileResourceNamesAreAccepted(t *testing.T) {
+func TestDanglingRuntimeProfileResourceNamesAreRejected(t *testing.T) {
 	t.Parallel()
-	s := &Server{Store: kv.NewMemory(nil)}
+	s := &Server{
+		Store: kv.NewMemory(nil),
+		ResolveResource: func(context.Context, apitypes.ResourceKind, string) (apitypes.Resource, error) {
+			return apitypes.Resource{}, kv.ErrNotFound
+		},
+	}
 	response, err := s.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
 		Name: "pet-runtime",
-		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{
-			Workflows: new(map[string]string{"missing": "missing-workflow"}),
-			Models:    new(map[string]string{"missing": "missing-model"}),
-		}},
+		Spec: apitypes.RuntimeProfileSpec{
+			Workflows: apitypes.RuntimeProfileWorkflows{Collections: apitypes.RuntimeProfileWorkflowCollections{
+				"assistants": {"missing": runtimeProfileTestBinding("missing-workflow")},
+			}},
+			Resources: apitypes.RuntimeProfileResources{Models: new(map[string]apitypes.RuntimeProfileBinding{"missing": runtimeProfileTestBinding("missing-model")})},
+		},
 	}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := response.(adminhttp.CreateRuntimeProfile200JSONResponse); !ok {
-		t.Fatalf("response = %#v, want success", response)
+	if _, ok := response.(adminhttp.CreateRuntimeProfile400JSONResponse); !ok {
+		t.Fatalf("response = %#v, want invalid resource", response)
+	}
+}
+
+func TestRuntimeProfileRejectsResolverReturningWrongResourceKind(t *testing.T) {
+	t.Parallel()
+	s := &Server{
+		Store: kv.NewMemory(nil),
+		ResolveResource: func(context.Context, apitypes.ResourceKind, string) (apitypes.Resource, error) {
+			var resource apitypes.Resource
+			err := resource.FromVoiceResource(apitypes.VoiceResource{
+				ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
+				Kind:       apitypes.VoiceResourceKindVoice,
+				Metadata:   apitypes.ResourceMetadata{Name: "wrong-kind"},
+			})
+			return resource, err
+		},
+	}
+	models := map[string]apitypes.RuntimeProfileBinding{"asr-model": runtimeProfileTestBinding("wrong-kind")}
+	response, err := s.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
+		Name: "test-profile",
+		Spec: apitypes.RuntimeProfileSpec{
+			Workflows: apitypes.RuntimeProfileWorkflows{Collections: apitypes.RuntimeProfileWorkflowCollections{}},
+			Resources: apitypes.RuntimeProfileResources{Models: &models},
+		},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := response.(adminhttp.CreateRuntimeProfile400JSONResponse); !ok {
+		t.Fatalf("response = %#v, want wrong-kind rejection", response)
+	}
+}
+
+func TestValidateFlowcraftRuntimeAliasesRejectsWrongModelKindAndMissingVoice(t *testing.T) {
+	t.Parallel()
+	voices := map[string]apitypes.RuntimeProfileBinding{"narrator": runtimeProfileTestBinding("voice-a")}
+	models := map[string]apitypes.ModelResource{
+		"generate-model": {Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindEmbedding}},
+	}
+	workflow := apitypes.WorkflowSpec{
+		Driver: apitypes.WorkflowDriverFlowcraft,
+		Flowcraft: &apitypes.FlowcraftWorkflowSpec{
+			"settings":      map[string]any{"generate_model": "generate-model"},
+			"voice_adapter": map[string]any{"default_voice": "narrator"},
+		},
+	}
+	if err := validateWorkflowRuntimeAliases("workflows.collections.raids.demo", workflow, models, &voices); err == nil || !strings.Contains(err.Error(), "want \"llm\"") {
+		t.Fatalf("validateWorkflowRuntimeAliases(wrong model kind) error = %v", err)
+	}
+
+	models["generate-model"] = apitypes.ModelResource{Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindLlm}}
+	workflow.Flowcraft = &apitypes.FlowcraftWorkflowSpec{
+		"settings":      map[string]any{"generate_model": "generate-model"},
+		"voice_adapter": map[string]any{"default_voice": "missing-voice"},
+	}
+	if err := validateWorkflowRuntimeAliases("workflows.collections.raids.demo", workflow, models, &voices); err == nil || !strings.Contains(err.Error(), "not declared in resources.voices") {
+		t.Fatalf("validateWorkflowRuntimeAliases(missing voice) error = %v", err)
+	}
+}
+
+func TestValidateVoiceProducingWorkflowsRequireRuntimeVoiceAliases(t *testing.T) {
+	t.Parallel()
+	voices := map[string]apitypes.RuntimeProfileBinding{
+		"assistant":  runtimeProfileTestBinding("voice-assistant"),
+		"translator": runtimeProfileTestBinding("voice-translator"),
+	}
+	models := map[string]apitypes.ModelResource{
+		"realtime-model":    {Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindRealtime}},
+		"translation-model": {Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindTranslation}},
+	}
+	s2s := apitypes.ASTTranslateModeS2s
+	translation := apitypes.WorkflowSpec{
+		Driver: apitypes.WorkflowDriverAstTranslate,
+		AstTranslate: &apitypes.ASTTranslateWorkflowSpec{
+			Mode: &s2s, TranslationModel: "translation-model",
+		},
+	}
+	if err := validateWorkflowRuntimeAliases("workflows.collections.translates.demo", translation, models, &voices); err == nil || !strings.Contains(err.Error(), "RuntimeProfile Voice alias") {
+		t.Fatalf("validateWorkflowRuntimeAliases(AST without voice) error = %v", err)
+	}
+	internal := apitypes.ASTTranslateVoiceParameters{}
+	if err := internal.FromASTTranslateInternalSpeakerParameters(apitypes.ASTTranslateInternalSpeakerParameters{SpeakerId: "provider-speaker"}); err != nil {
+		t.Fatal(err)
+	}
+	translation.AstTranslate.Voice = &internal
+	if err := validateWorkflowRuntimeAliases("workflows.collections.translates.demo", translation, models, &voices); err == nil || !strings.Contains(err.Error(), "voice.tts_voice") {
+		t.Fatalf("validateWorkflowRuntimeAliases(AST provider speaker) error = %v", err)
+	}
+	external := apitypes.ASTTranslateVoiceParameters{}
+	if err := external.FromASTTranslateExternalVoiceParameters(apitypes.ASTTranslateExternalVoiceParameters{TtsVoice: "translator"}); err != nil {
+		t.Fatal(err)
+	}
+	translation.AstTranslate.Voice = &external
+	if err := validateWorkflowRuntimeAliases("workflows.collections.translates.demo", translation, models, &voices); err != nil {
+		t.Fatalf("validateWorkflowRuntimeAliases(AST alias) error = %v", err)
+	}
+
+	realtime := apitypes.WorkflowSpec{
+		Driver: apitypes.WorkflowDriverDoubaoRealtime,
+		DoubaoRealtime: &apitypes.DoubaoRealtimeWorkflowSpec{
+			Model: "realtime-model",
+		},
+	}
+	if err := validateWorkflowRuntimeAliases("workflows.collections.assistants.demo", realtime, models, &voices); err == nil || !strings.Contains(err.Error(), "RuntimeProfile Voice alias") {
+		t.Fatalf("validateWorkflowRuntimeAliases(Doubao without voice) error = %v", err)
+	}
+	voice := "assistant"
+	realtime.DoubaoRealtime.Audio = &apitypes.DoubaoRealtimeAudio{
+		Input:  apitypes.DoubaoRealtimeAudioInput{Format: apitypes.DoubaoRealtimeAudioFormat{Rate: 16000, Type: apitypes.DoubaoRealtimeAudioFormatTypePcm}},
+		Output: apitypes.DoubaoRealtimeAudioOutput{Format: apitypes.DoubaoRealtimeAudioFormat{Rate: 24000, Type: apitypes.DoubaoRealtimeAudioFormatTypePcm}, Voice: &voice},
+	}
+	if err := validateWorkflowRuntimeAliases("workflows.collections.assistants.demo", realtime, models, &voices); err != nil {
+		t.Fatalf("validateWorkflowRuntimeAliases(Doubao alias) error = %v", err)
+	}
+}
+
+func TestRuntimeProfileRejectsAliasesSharedAcrossResourceKinds(t *testing.T) {
+	t.Parallel()
+	s := &Server{Store: kv.NewMemory(nil)}
+	models := map[string]apitypes.RuntimeProfileBinding{"assistant": runtimeProfileTestBinding("model-a")}
+	voices := map[string]apitypes.RuntimeProfileBinding{"assistant": runtimeProfileTestBinding("voice-a")}
+	response, err := s.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
+		Name: "test-profile",
+		Spec: apitypes.RuntimeProfileSpec{
+			Workflows: apitypes.RuntimeProfileWorkflows{Collections: apitypes.RuntimeProfileWorkflowCollections{}},
+			Resources: apitypes.RuntimeProfileResources{Models: &models, Voices: &voices},
+		},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := response.(adminhttp.CreateRuntimeProfile400JSONResponse); !ok {
+		t.Fatalf("response = %#v, want duplicate alias rejection", response)
+	}
+}
+
+func TestRuntimeProfileRejectsInvalidGameplayReferences(t *testing.T) {
+	t.Parallel()
+	s := &Server{Store: kv.NewMemory(nil)}
+	negative := int64(-1)
+	pool := []apitypes.RuntimeProfilePetPoolEntry{{PetDef: "missing", Weight: 1, AdoptionCost: &negative}}
+	response, err := s.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
+		Name: "test-profile",
+		Spec: apitypes.RuntimeProfileSpec{
+			Workflows: apitypes.RuntimeProfileWorkflows{Collections: apitypes.RuntimeProfileWorkflowCollections{}},
+			Resources: apitypes.RuntimeProfileResources{},
+			Gameplay:  &apitypes.RuntimeProfileGameplaySpec{Adoption: &apitypes.RuntimeProfileAdoptionSpec{Pool: &pool}},
+		},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := response.(adminhttp.CreateRuntimeProfile400JSONResponse); !ok {
+		t.Fatalf("response = %#v, want invalid gameplay rejection", response)
 	}
 }
 
@@ -252,7 +413,11 @@ func createProfile(t *testing.T, s *Server, name string, models map[string]strin
 	t.Helper()
 	resources := apitypes.RuntimeProfileResources{}
 	if models != nil {
-		resources.Models = &models
+		bindings := make(map[string]apitypes.RuntimeProfileBinding, len(models))
+		for alias, resourceID := range models {
+			bindings[alias] = runtimeProfileTestBinding(resourceID)
+		}
+		resources.Models = &bindings
 	}
 	response, err := s.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
 		Name: name, Spec: apitypes.RuntimeProfileSpec{Resources: resources},
@@ -263,4 +428,10 @@ func createProfile(t *testing.T, s *Server, name string, models map[string]strin
 	if _, ok := response.(adminhttp.CreateRuntimeProfile200JSONResponse); !ok {
 		t.Fatalf("create profile response = %#v", response)
 	}
+}
+
+func runtimeProfileTestBinding(resourceID string) apitypes.RuntimeProfileBinding {
+	return apitypes.RuntimeProfileBinding{ResourceId: resourceID, I18n: map[string]apitypes.RuntimeProfileI18nText{
+		"en": {DisplayName: "Test"}, "zh-CN": {DisplayName: "测试"},
+	}}
 }

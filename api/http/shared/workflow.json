@@ -25,11 +25,6 @@
           },
           "spec": {
             "$ref": "./workflow_spec.json#/components/schemas/WorkflowSpec"
-          },
-          "owner_public_key": {
-            "type": "string",
-            "readOnly": true,
-            "description": "Immutable Public Key of the Client that created this Workflow. Admin-created Workflows omit it."
           }
         }
       }

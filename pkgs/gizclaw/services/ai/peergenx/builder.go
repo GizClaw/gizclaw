@@ -712,6 +712,9 @@ func (b DefaultBuilder) buildVolcTTS(cfg TransformerConfig) (genx.Transformer, e
 	if value := firstString(providerData.ResourceId); value != "" {
 		transformerConfig.ResourceID = value
 	}
+	if format := mapString(cfg.Params, "format"); format != "" {
+		transformerConfig.Format = format
+	}
 	client := doubaospeech.NewClient(appID, doubaospeech.WithAPIKey(apiKey))
 	transformerConfig.Client = client
 	return doubaotts.NewSeedV2(transformerConfig)
@@ -762,6 +765,9 @@ func (b DefaultBuilder) buildMiniMaxTTS(cfg TransformerConfig) (genx.Transformer
 	}
 	if providerData.SampleRate != nil {
 		transformerConfig.SampleRate = *providerData.SampleRate
+	}
+	if format := mapString(cfg.Params, "format"); format != "" {
+		transformerConfig.Format = format
 	}
 	return minimaxtts.New(transformerConfig)
 }

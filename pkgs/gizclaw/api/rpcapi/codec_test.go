@@ -403,220 +403,42 @@ func TestPayloadCodecMapsGoDTOsDirectlyToProtobuf(t *testing.T) {
 		t.Fatalf("chatroom input = %s", chatProto.GetInput())
 	}
 
-	input := WorkspaceInputModeRealtime
-	var workspaceParams WorkspaceParameters
-	if err := workspaceParams.FromFlowcraftWorkspaceParameters(FlowcraftWorkspaceParameters{Input: &input}); err != nil {
-		t.Fatalf("FromFlowcraftWorkspaceParameters error = %v", err)
-	}
-	var workspacePayload RPCPayload
-	if err := workspacePayload.FromWorkspacePutRequest(WorkspacePutRequest{
-		Name: "workspace-a",
-		Body: WorkspaceUpsert{
-			Name:         "workspace-a",
-			WorkflowName: "workflow-a",
-			Parameters:   &workspaceParams,
-		},
-	}); err != nil {
-		t.Fatalf("FromWorkspacePutRequest error = %v", err)
-	}
-	gotWorkspace, err := workspacePayload.AsWorkspacePutRequest()
-	if err != nil {
-		t.Fatalf("AsWorkspacePutRequest error = %v", err)
-	}
-	if gotWorkspace.Body.Parameters == nil {
-		t.Fatalf("workspace parameters were dropped: %#v", gotWorkspace)
-	}
-	gotFlowcraft, err := gotWorkspace.Body.Parameters.AsFlowcraftWorkspaceParameters()
-	if err != nil {
-		t.Fatalf("AsFlowcraftWorkspaceParameters error = %v", err)
-	}
-	if gotFlowcraft.Input == nil || *gotFlowcraft.Input != WorkspaceInputModeRealtime {
-		t.Fatalf("workspace input = %#v, want realtime", gotFlowcraft.Input)
-	}
-	var workspaceResponse RPCPayload
-	if err := workspaceResponse.FromWorkspaceGetResponse(WorkspaceGetResponse{Name: "workspace-a", System: true}); err != nil {
-		t.Fatalf("FromWorkspaceGetResponse error = %v", err)
-	}
-	gotWorkspaceResponse, err := workspaceResponse.AsWorkspaceGetResponse()
-	if err != nil {
-		t.Fatalf("AsWorkspaceGetResponse error = %v", err)
-	}
-	if !gotWorkspaceResponse.System {
-		t.Fatalf("workspace response system = false, want true: %#v", gotWorkspaceResponse)
-	}
-
-	voicePrompt := "warm"
-	var petWorkspaceParams WorkspaceParameters
-	if err := petWorkspaceParams.FromPetWorkspaceParameters(PetWorkspaceParameters{
-		Voice: PetVoiceParameters{VoiceId: "voice-a", Prompt: &voicePrompt},
-	}); err != nil {
-		t.Fatalf("FromPetWorkspaceParameters error = %v", err)
-	}
-	var petWorkspacePayload RPCPayload
-	if err := petWorkspacePayload.FromWorkspacePutRequest(WorkspacePutRequest{
-		Name: "pet-a",
-		Body: WorkspaceUpsert{Name: "pet-a", WorkflowName: "pet-care", Parameters: &petWorkspaceParams},
-	}); err != nil {
-		t.Fatalf("FromWorkspacePutRequest(pet) error = %v", err)
-	}
-	gotPetWorkspace, err := petWorkspacePayload.AsWorkspacePutRequest()
-	if err != nil {
-		t.Fatalf("AsWorkspacePutRequest(pet) error = %v", err)
-	}
-	gotPetParameters, err := gotPetWorkspace.Body.Parameters.AsPetWorkspaceParameters()
-	if err != nil {
-		t.Fatalf("AsPetWorkspaceParameters error = %v", err)
-	}
-	if gotPetParameters.AgentType != PetWorkspaceParametersAgentTypePet || gotPetParameters.Voice.VoiceId != "voice-a" || gotPetParameters.Voice.Prompt == nil || *gotPetParameters.Voice.Prompt != voicePrompt {
-		t.Fatalf("pet workspace parameters = %#v", gotPetParameters)
-	}
-
-	var modelPayload RPCPayload
-	if err := modelPayload.FromModelCreateRequest(ModelCreateRequest{
-		Id:     "m1",
-		Kind:   ModelKindLlm,
-		Source: ModelSourceManual,
-		Provider: ModelProvider{
-			Kind: ModelProviderKindDashscopeTenant,
-			Name: "dash",
-		},
-	}); err != nil {
-		t.Fatalf("FromModel() error = %v", err)
-	}
-	var modelProto rpcpb.ModelCreateRequest
-	if err := proto.Unmarshal(modelPayload.payload, &modelProto); err != nil {
-		t.Fatalf("unmarshal model payload error = %v", err)
-	}
-	if modelProto.GetValue().GetProvider().GetKind() != rpcpb.ModelProviderKind_MODEL_PROVIDER_KIND_DASHSCOPE_TENANT {
-		t.Fatalf("model provider kind = %s", modelProto.GetValue().GetProvider().GetKind())
-	}
-
 	var workspaceCreate RPCPayload
 	workspaceToolIDs := []string{"system.toolkit.echo"}
 	if err := workspaceCreate.FromWorkspaceCreateRequest(WorkspaceCreateRequest{
-		Name:         "demo",
-		Toolkit:      &ToolkitPolicy{ToolIds: &workspaceToolIDs},
-		WorkflowName: "chat",
+		Name: "demo", Collection: "assistants", WorkflowAlias: "chat",
+		Toolkit: &ToolkitPolicy{ToolIds: &workspaceToolIDs},
 	}); err != nil {
 		t.Fatalf("FromWorkspaceCreateRequest() error = %v", err)
 	}
-	var workspaceCreateProto rpcpb.WorkspaceCreateRequest
-	if err := proto.Unmarshal(workspaceCreate.payload, &workspaceCreateProto); err != nil {
-		t.Fatalf("unmarshal workspace create payload error = %v", err)
-	}
-	if workspaceCreateProto.GetValue().GetName() != "demo" || workspaceCreateProto.GetValue().GetWorkflowName() != "chat" {
-		t.Fatalf("workspace create = %+v", workspaceCreateProto.GetValue())
-	}
-	if got := workspaceCreateProto.GetValue().GetToolkit().GetToolIds().GetValue(); len(got) != 1 || got[0] != "system.toolkit.echo" {
-		t.Fatalf("workspace toolkit = %#v", got)
-	}
-	emptyToolIDs := []string{}
-	var emptyWorkspaceCreate RPCPayload
-	if err := emptyWorkspaceCreate.FromWorkspaceCreateRequest(WorkspaceCreateRequest{
-		Name:         "demo-empty",
-		Toolkit:      &ToolkitPolicy{ToolIds: &emptyToolIDs},
-		WorkflowName: "chat",
-	}); err != nil {
-		t.Fatalf("FromWorkspaceCreateRequest(empty toolkit) error = %v", err)
-	}
-	var emptyWorkspaceCreateProto rpcpb.WorkspaceCreateRequest
-	if err := proto.Unmarshal(emptyWorkspaceCreate.payload, &emptyWorkspaceCreateProto); err != nil {
-		t.Fatalf("unmarshal empty workspace create payload error = %v", err)
-	}
-	if emptyWorkspaceCreateProto.GetValue().GetToolkit().GetToolIds() == nil {
-		t.Fatalf("workspace empty toolkit tool_ids presence lost: %+v", emptyWorkspaceCreateProto.GetValue().GetToolkit())
-	}
-	if got := emptyWorkspaceCreateProto.GetValue().GetToolkit().GetToolIds().GetValue(); len(got) != 0 {
-		t.Fatalf("workspace empty toolkit = %#v, want empty list", got)
-	}
-	emptyWorkspaceDecoded, err := emptyWorkspaceCreate.AsWorkspaceCreateRequest()
+	workspaceCreateDecoded, err := workspaceCreate.AsWorkspaceCreateRequest()
 	if err != nil {
-		t.Fatalf("AsWorkspaceCreateRequest(empty toolkit) error = %v", err)
+		t.Fatalf("AsWorkspaceCreateRequest() error = %v", err)
 	}
-	if emptyWorkspaceDecoded.Toolkit == nil || emptyWorkspaceDecoded.Toolkit.ToolIds == nil || len(*emptyWorkspaceDecoded.Toolkit.ToolIds) != 0 {
-		t.Fatalf("decoded empty toolkit = %#v, want explicit empty list", emptyWorkspaceDecoded.Toolkit)
+	if workspaceCreateDecoded.Collection != "assistants" || workspaceCreateDecoded.WorkflowAlias != "chat" {
+		t.Fatalf("workspace create = %#v", workspaceCreateDecoded)
 	}
 
 	var workflowGet RPCPayload
-	workflowToolIDs := []string{"system.toolkit.echo"}
-	if err := workflowGet.FromWorkflowGetRequest(WorkflowGetRequest{Name: "flowcraft-toolkit", Source: ResourceSourceRuntime}); err != nil {
+	if err := workflowGet.FromWorkflowGetRequest(WorkflowGetRequest{Alias: "flowcraft-toolkit"}); err != nil {
 		t.Fatalf("FromWorkflowGetRequest() error = %v", err)
 	}
-	var workflowGetProto rpcpb.WorkflowGetRequest
-	if err := proto.Unmarshal(workflowGet.payload, &workflowGetProto); err != nil {
-		t.Fatalf("unmarshal workflow get payload error = %v", err)
-	}
-	if workflowGetProto.GetName() != "flowcraft-toolkit" || workflowGetProto.GetSource() != rpcpb.ResourceSource_RESOURCE_SOURCE_RUNTIME {
-		t.Fatalf("workflow get protobuf = %#v", &workflowGetProto)
-	}
 	workflowGetDecoded, err := workflowGet.AsWorkflowGetRequest()
-	if err != nil {
-		t.Fatalf("AsWorkflowGetRequest() error = %v", err)
-	}
-	if workflowGetDecoded.Source != ResourceSourceRuntime {
-		t.Fatalf("workflow get source = %q", workflowGetDecoded.Source)
-	}
-
-	var workflowCreate RPCPayload
-	workflowCreateRequest := WorkflowCreateRequest{
-		Source: ResourceSourceOwned,
-		Body: WorkflowUpsert{
-			Name: "owned-workflow",
-			Spec: WorkflowSpec{Driver: WorkflowDriverFlowcraft, Flowcraft: &FlowcraftWorkflowSpec{}},
-		},
-	}
-	if err := workflowCreate.FromWorkflowCreateRequest(workflowCreateRequest); err != nil {
-		t.Fatalf("FromWorkflowCreateRequest() error = %v", err)
-	}
-	workflowCreateDecoded, err := workflowCreate.AsWorkflowCreateRequest()
-	if err != nil {
-		t.Fatalf("AsWorkflowCreateRequest() error = %v", err)
-	}
-	if workflowCreateDecoded.Source != workflowCreateRequest.Source ||
-		workflowCreateDecoded.Body.Name != workflowCreateRequest.Body.Name ||
-		workflowCreateDecoded.Body.Spec.Driver != workflowCreateRequest.Body.Spec.Driver {
-		t.Fatalf("WorkflowCreateRequest round trip = %#v, want %#v", workflowCreateDecoded, workflowCreateRequest)
+	if err != nil || workflowGetDecoded.Alias != "flowcraft-toolkit" {
+		t.Fatalf("workflow get = %#v, %v", workflowGetDecoded, err)
 	}
 
 	var workflowResponse RPCPayload
-	if err := workflowResponse.FromWorkflowGetResponse(Workflow{
-		Name: "flowcraft-toolkit",
-		Spec: WorkflowSpec{
-			Driver:  WorkflowDriverFlowcraft,
-			Toolkit: &ToolkitPolicy{ToolIds: &workflowToolIDs},
-		},
-	}); err != nil {
+	workflow := WorkflowGetResponse{
+		Value:              Workflow{Alias: "flowcraft-toolkit", Collection: "assistants", Driver: WorkflowDriverFlowcraft, I18n: map[string]AliasI18nText{"en": {DisplayName: "Flowcraft"}}},
+		RuntimeProfileName: "default", RuntimeProfileRevision: "revision",
+	}
+	if err := workflowResponse.FromWorkflowGetResponse(workflow); err != nil {
 		t.Fatalf("FromWorkflowGetResponse() error = %v", err)
 	}
-	var workflowResponseProto rpcpb.WorkflowGetResponse
-	if err := proto.Unmarshal(workflowResponse.payload, &workflowResponseProto); err != nil {
-		t.Fatalf("unmarshal workflow response payload error = %v", err)
-	}
-	if got := workflowResponseProto.GetValue().GetSpec().GetToolkit().GetToolIds().GetValue(); len(got) != 1 || got[0] != "system.toolkit.echo" {
-		t.Fatalf("workflow toolkit = %#v", got)
-	}
 	workflowDecoded, err := workflowResponse.AsWorkflowGetResponse()
-	if err != nil {
-		t.Fatalf("AsWorkflowGetResponse() error = %v", err)
-	}
-	if workflowDecoded.Name != "flowcraft-toolkit" {
-		t.Fatalf("workflow decoded = %#v", workflowDecoded)
-	}
-
-	petSpec := PetWorkflowSpec{}
-	var petWorkflowPayload RPCPayload
-	if err := petWorkflowPayload.FromWorkflowGetResponse(Workflow{
-		Name: "pet-care",
-		Spec: WorkflowSpec{Driver: WorkflowDriverPet, Pet: &petSpec},
-	}); err != nil {
-		t.Fatalf("FromWorkflowGetResponse(pet) error = %v", err)
-	}
-	gotPetWorkflow, err := petWorkflowPayload.AsWorkflowGetResponse()
-	if err != nil {
-		t.Fatalf("AsWorkflowGetResponse(pet) error = %v", err)
-	}
-	if gotPetWorkflow.Spec.Driver != WorkflowDriverPet || gotPetWorkflow.Spec.Pet == nil {
-		t.Fatalf("pet workflow = %#v", gotPetWorkflow)
+	if err != nil || workflowDecoded.Value.Alias != workflow.Value.Alias {
+		t.Fatalf("workflow response = %#v, %v", workflowDecoded, err)
 	}
 
 	var statPayload RPCPayload

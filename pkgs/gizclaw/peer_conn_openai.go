@@ -98,7 +98,6 @@ func (s *PeerService) peerResourcesWithRegistration(publicKey giznet.PublicKey, 
 		Workspaces:   manager.Workspaces,
 		Workflows:    manager.Workflows,
 		Models:       manager.Models,
-		Credentials:  manager.Credentials,
 		Voices:       manager.Voices,
 		Contacts:     manager.Contacts,
 		Friends:      manager.Friends,
@@ -110,7 +109,13 @@ func (s *PeerService) peerResourcesWithRegistration(publicKey giznet.PublicKey, 
 			if !ok {
 				return nil
 			}
-			profile := registration.RuntimeProfile
+			if manager.RuntimeProfiles == nil {
+				return nil
+			}
+			profile, err := manager.RuntimeProfiles.ResolveProfile(context.Background(), registration.RuntimeProfile.Name)
+			if err != nil {
+				return nil
+			}
 			return &profile
 		},
 	}

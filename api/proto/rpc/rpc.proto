@@ -96,21 +96,16 @@ enum RpcMethod {
   RPC_METHOD_SERVER_WORKSPACE_HISTORY_AUDIO_GET = 32 [(rpc_method) = { name: "server.workspace.history.audio.get" request: "WorkspaceHistoryAudioGetRequest" response: "WorkspaceHistoryAudioGetResponse" }];
   RPC_METHOD_SERVER_WORKFLOW_LIST = 33 [(rpc_method) = { name: "server.workflow.list" request: "WorkflowListRequest" response: "WorkflowListResponse" }];
   RPC_METHOD_SERVER_WORKFLOW_GET = 34 [(rpc_method) = { name: "server.workflow.get" request: "WorkflowGetRequest" response: "WorkflowGetResponse" }];
-  RPC_METHOD_SERVER_WORKFLOW_CREATE = 35 [(rpc_method) = { name: "server.workflow.create" request: "WorkflowCreateRequest" response: "WorkflowCreateResponse" }];
-  RPC_METHOD_SERVER_WORKFLOW_PUT = 36 [(rpc_method) = { name: "server.workflow.put" request: "WorkflowPutRequest" response: "WorkflowPutResponse" }];
-  RPC_METHOD_SERVER_WORKFLOW_DELETE = 37 [(rpc_method) = { name: "server.workflow.delete" request: "WorkflowDeleteRequest" response: "WorkflowDeleteResponse" }];
+  reserved 35, 36, 37;
+  reserved "RPC_METHOD_SERVER_WORKFLOW_CREATE", "RPC_METHOD_SERVER_WORKFLOW_PUT", "RPC_METHOD_SERVER_WORKFLOW_DELETE";
   RPC_METHOD_SERVER_MODEL_LIST = 38 [(rpc_method) = { name: "server.model.list" request: "ModelListRequest" response: "ModelListResponse" }];
   RPC_METHOD_SERVER_MODEL_GET = 39 [(rpc_method) = { name: "server.model.get" request: "ModelGetRequest" response: "ModelGetResponse" }];
-  RPC_METHOD_SERVER_MODEL_CREATE = 40 [(rpc_method) = { name: "server.model.create" request: "ModelCreateRequest" response: "ModelCreateResponse" }];
-  RPC_METHOD_SERVER_MODEL_PUT = 41 [(rpc_method) = { name: "server.model.put" request: "ModelPutRequest" response: "ModelPutResponse" }];
-  RPC_METHOD_SERVER_MODEL_DELETE = 42 [(rpc_method) = { name: "server.model.delete" request: "ModelDeleteRequest" response: "ModelDeleteResponse" }];
+  reserved 40, 41, 42;
+  reserved "RPC_METHOD_SERVER_MODEL_CREATE", "RPC_METHOD_SERVER_MODEL_PUT", "RPC_METHOD_SERVER_MODEL_DELETE";
   RPC_METHOD_SERVER_VOICE_LIST = 43 [(rpc_method) = { name: "server.voice.list" request: "VoiceListRequest" response: "VoiceListResponse" }];
   RPC_METHOD_SERVER_VOICE_GET = 44 [(rpc_method) = { name: "server.voice.get" request: "VoiceGetRequest" response: "VoiceGetResponse" }];
-  RPC_METHOD_SERVER_CREDENTIAL_LIST = 45 [(rpc_method) = { name: "server.credential.list" request: "CredentialListRequest" response: "CredentialListResponse" }];
-  RPC_METHOD_SERVER_CREDENTIAL_GET = 46 [(rpc_method) = { name: "server.credential.get" request: "CredentialGetRequest" response: "CredentialGetResponse" }];
-  RPC_METHOD_SERVER_CREDENTIAL_CREATE = 47 [(rpc_method) = { name: "server.credential.create" request: "CredentialCreateRequest" response: "CredentialCreateResponse" }];
-  RPC_METHOD_SERVER_CREDENTIAL_PUT = 48 [(rpc_method) = { name: "server.credential.put" request: "CredentialPutRequest" response: "CredentialPutResponse" }];
-  RPC_METHOD_SERVER_CREDENTIAL_DELETE = 49 [(rpc_method) = { name: "server.credential.delete" request: "CredentialDeleteRequest" response: "CredentialDeleteResponse" }];
+  reserved 45, 46, 47, 48, 49;
+  reserved "RPC_METHOD_SERVER_CREDENTIAL_LIST", "RPC_METHOD_SERVER_CREDENTIAL_GET", "RPC_METHOD_SERVER_CREDENTIAL_CREATE", "RPC_METHOD_SERVER_CREDENTIAL_PUT", "RPC_METHOD_SERVER_CREDENTIAL_DELETE";
   RPC_METHOD_SERVER_CONTACT_LIST = 50 [(rpc_method) = { name: "server.contact.list" request: "ContactListRequest" response: "ContactListResponse" }];
   RPC_METHOD_SERVER_CONTACT_GET = 51 [(rpc_method) = { name: "server.contact.get" request: "ContactGetRequest" response: "ContactGetResponse" }];
   RPC_METHOD_SERVER_CONTACT_CREATE = 52 [(rpc_method) = { name: "server.contact.create" request: "ContactCreateRequest" response: "ContactCreateResponse" }];
@@ -157,9 +152,8 @@ enum RpcMethod {
   RPC_METHOD_SERVER_REWARD_GRANT_GET = 94 [(rpc_method) = { name: "server.reward_grant.get" request: "ServerRewardGrantGetRequest" response: "ServerRewardGrantGetResponse" }];
   RPC_METHOD_SERVER_TOOL_LIST = 95 [(rpc_method) = { name: "server.tool.list" request: "ToolListRequest" response: "ToolListResponse" }];
   RPC_METHOD_SERVER_TOOL_GET = 96 [(rpc_method) = { name: "server.tool.get" request: "ToolGetRequest" response: "ToolGetResponse" }];
-  RPC_METHOD_SERVER_TOOL_CREATE = 97 [(rpc_method) = { name: "server.tool.create" request: "ToolCreateRequest" response: "ToolCreateResponse" }];
-  RPC_METHOD_SERVER_TOOL_PUT = 98 [(rpc_method) = { name: "server.tool.put" request: "ToolPutRequest" response: "ToolPutResponse" }];
-  RPC_METHOD_SERVER_TOOL_DELETE = 99 [(rpc_method) = { name: "server.tool.delete" request: "ToolDeleteRequest" response: "ToolDeleteResponse" }];
+  reserved 97, 98, 99;
+  reserved "RPC_METHOD_SERVER_TOOL_CREATE", "RPC_METHOD_SERVER_TOOL_PUT", "RPC_METHOD_SERVER_TOOL_DELETE";
   RPC_METHOD_CLIENT_TOOL_INVOKE = 100 [(rpc_method) = { name: "client.tool.invoke" request: "ToolInvokeRequest" response: "ToolInvokeResponse" }];
   RPC_METHOD_SERVER_PEER_LOOKUP = 101 [(rpc_method) = { name: "server.peer.lookup" request: "ServerPeerLookupRequest" response: "ServerPeerLookupResponse" }];
   RPC_METHOD_SERVER_PEER_ASSIGN = 102 [(rpc_method) = { name: "server.peer.assign" request: "ServerPeerAssignRequest" response: "ServerPeerAssignResponse" }];
@@ -171,4 +165,6 @@ enum RpcMethod {
   RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD = 107 [(rpc_method) = { name: "server.workspace.icon.download" request: "WorkspaceIconDownloadRequest" response: "WorkspaceIconDownloadResponse" }];
   RPC_METHOD_SERVER_FRIEND_INFO_GET = 108 [(rpc_method) = { name: "server.friend.info.get" request: "FriendInfoGetRequest" response: "FriendInfoGetResponse" }];
   RPC_METHOD_SERVER_REGISTER = 109 [(rpc_method) = { name: "server.register" request: "ServerRegisterRequest" response: "ServerRegisterResponse" }];
+  RPC_METHOD_SERVER_SPEECH_TRANSCRIBE = 110 [(rpc_method) = { name: "server.speech.transcribe" request: "SpeechTranscribeRequest" response: "SpeechTranscribeResponse" }];
+  RPC_METHOD_SERVER_SPEECH_SYNTHESIZE = 111 [(rpc_method) = { name: "server.speech.synthesize" request: "SpeechSynthesizeRequest" response: "SpeechSynthesizeResponse" }];
 }

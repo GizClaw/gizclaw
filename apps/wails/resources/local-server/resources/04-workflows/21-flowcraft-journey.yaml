@@ -1872,25 +1872,25 @@ spec:
         save_conversation: true
         tier: general
     settings:
-      extract_model: extract_model
-      generate_model: generate_model
+      extract_model: extract-model
+      generate_model: generate-model
     workspace:
       history_root: history
       memory_root: memory
       state_root: state
     voice_adapter:
-      asr_model: volc-bigasr-sauc
-      default_voice: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
+      asr_model: asr-model
+      default_voice: narrator
       node_voices:
-        reroute_storyteller_arrival: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
-        reroute_storyteller_heaven: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
-        reroute_storyteller_kingdoms: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
-        reroute_storyteller_origin: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
-        reroute_storyteller_pilgrimage: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
-        reroute_storyteller_trials: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
-        storyteller_arrival: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
-        storyteller_heaven: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
-        storyteller_kingdoms: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
-        storyteller_origin: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
-        storyteller_pilgrimage: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
-        storyteller_trials: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
+        reroute_storyteller_arrival: narrator
+        reroute_storyteller_heaven: narrator
+        reroute_storyteller_kingdoms: narrator
+        reroute_storyteller_origin: narrator
+        reroute_storyteller_pilgrimage: narrator
+        reroute_storyteller_trials: narrator
+        storyteller_arrival: narrator
+        storyteller_heaven: narrator
+        storyteller_kingdoms: narrator
+        storyteller_origin: narrator
+        storyteller_pilgrimage: narrator
+        storyteller_trials: narrator

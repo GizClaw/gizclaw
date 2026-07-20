@@ -70,6 +70,87 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.SystemLog.Level != "info" {
 		t.Fatalf("SystemLog.Level = %q, want info", cfg.SystemLog.Level)
 	}
+	if cfg.Speech.Transcription.MaxAudioBytes != 2*1024*1024 ||
+		cfg.Speech.Transcription.MaxAudioDuration != "60s" ||
+		cfg.Speech.Transcription.RequestTimeout != "75s" {
+		t.Fatalf("Speech.Transcription = %+v", cfg.Speech.Transcription)
+	}
+	if cfg.Speech.Synthesis.MaxTextBytes != 4096 ||
+		cfg.Speech.Synthesis.MaxOutputBytes != 4*1024*1024 ||
+		cfg.Speech.Synthesis.RequestTimeout != "120s" {
+		t.Fatalf("Speech.Synthesis = %+v", cfg.Speech.Synthesis)
+	}
+}
+
+func TestParseConfigSpeechLimits(t *testing.T) {
+	cfg, err := parseConfigData([]byte(`
+speech:
+  transcription:
+    max_audio_bytes: 1024
+    max_audio_duration: 3s
+    request_timeout: 4s
+  synthesis:
+    max_text_bytes: 512
+    max_output_bytes: 2048
+    request_timeout: 5s
+`))
+	if err != nil {
+		t.Fatalf("parseConfigData error = %v", err)
+	}
+	if cfg.Speech.Transcription.MaxAudioBytes != 1024 ||
+		cfg.Speech.Transcription.MaxAudioDuration != "3s" ||
+		cfg.Speech.Transcription.RequestTimeout != "4s" ||
+		cfg.Speech.Synthesis.MaxTextBytes != 512 ||
+		cfg.Speech.Synthesis.MaxOutputBytes != 2048 ||
+		cfg.Speech.Synthesis.RequestTimeout != "5s" {
+		t.Fatalf("Speech = %+v", cfg.Speech)
+	}
+}
+
+func TestValidateSpeechLimits(t *testing.T) {
+	tests := []struct {
+		name string
+		edit func(*Config)
+		want string
+	}{
+		{"audio bytes", func(c *Config) { c.Speech.Transcription.MaxAudioBytes = -1 }, "server: speech.transcription.max_audio_bytes must be > 0"},
+		{"audio duration", func(c *Config) { c.Speech.Transcription.MaxAudioDuration = "0s" }, "server: speech.transcription.max_audio_duration: must be > 0"},
+		{"transcription timeout", func(c *Config) { c.Speech.Transcription.RequestTimeout = "later" }, "server: speech.transcription.request_timeout: time: invalid duration \"later\""},
+		{"text bytes", func(c *Config) { c.Speech.Synthesis.MaxTextBytes = 0 }, "server: speech.synthesis.max_text_bytes must be > 0"},
+		{"output bytes", func(c *Config) { c.Speech.Synthesis.MaxOutputBytes = -1 }, "server: speech.synthesis.max_output_bytes must be > 0"},
+		{"synthesis timeout", func(c *Config) { c.Speech.Synthesis.RequestTimeout = "0s" }, "server: speech.synthesis.request_timeout: must be > 0"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			cfg := DefaultConfig()
+			test.edit(&cfg)
+			err := cfg.validate()
+			if err == nil || err.Error() != test.want {
+				t.Fatalf("validate error = %v, want %q", err, test.want)
+			}
+		})
+	}
+}
+
+func TestParseConfigRejectsExplicitInvalidSpeechLimits(t *testing.T) {
+	tests := []struct {
+		name string
+		yaml string
+		want string
+	}{
+		{"zero audio bytes", "speech:\n  transcription:\n    max_audio_bytes: 0\n", "server: speech.transcription.max_audio_bytes must be > 0"},
+		{"zero text bytes", "speech:\n  synthesis:\n    max_text_bytes: 0\n", "server: speech.synthesis.max_text_bytes must be > 0"},
+		{"empty transcription timeout", "speech:\n  transcription:\n    request_timeout: \"\"\n", "server: speech.transcription.request_timeout: time: invalid duration \"\""},
+		{"zero synthesis timeout", "speech:\n  synthesis:\n    request_timeout: 0s\n", "server: speech.synthesis.request_timeout: must be > 0"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := parseConfigData([]byte(test.yaml))
+			if err == nil || err.Error() != test.want {
+				t.Fatalf("parseConfigData() error = %v, want %q", err, test.want)
+			}
+		})
+	}
 }
 
 func TestParseConfigServeToClients(t *testing.T) {
@@ -300,7 +381,9 @@ func TestNewWiresPeerListenerFactory(t *testing.T) {
 }
 
 func TestConfigValidateRequiresStores(t *testing.T) {
-	cfg := Config{Listen: "127.0.0.1:9820", Endpoint: "127.0.0.1:9820"}
+	cfg := DefaultConfig()
+	cfg.Listen = "127.0.0.1:9820"
+	cfg.Endpoint = "127.0.0.1:9820"
 	if err := cfg.validate(); err != nil {
 		t.Fatalf("validate should allow default store names without service bindings: %v", err)
 	}

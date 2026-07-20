@@ -14,7 +14,7 @@ spec:
   character:
     prompt: A stack of three small dark-purple robots with glowing faces and an inventive collaborative personality.
   voice:
-    voice_id: volc-tenant:volc-main:zh_male_sunwukong_mars_bigtts
+    voice_id: sun-wukong
     prompt: Playful, coordinated, concise replies that sound like a tiny helpful team.
   drive:
     actions:

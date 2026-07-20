@@ -358,8 +358,7 @@ func ensureWorkspace(ctx context.Context, client runControlClient, cfg config) (
 	workspaceDisplayName := cfg.Workspace
 
 	workflow, err := client.GetWorkflow(ctx, "workspacetest.workflow.get", rpcapi.WorkflowGetRequest{
-		Name:   cfg.Workflow.Name,
-		Source: rpcapi.ResourceSourceRuntime,
+		Alias: cfg.Workflow.Name,
 	})
 	if err != nil {
 		if isRPCNotFound(err) {
@@ -367,11 +366,11 @@ func ensureWorkspace(ctx context.Context, client runControlClient, cfg config) (
 		}
 		return config{}, fmt.Errorf("get workflow %q (%s): %w", cfg.Workflow.Name, workflowDisplayName, err)
 	}
-	if workflow == nil || strings.TrimSpace(workflow.Name) == "" {
+	if workflow == nil || strings.TrimSpace(workflow.Value.Alias) == "" {
 		return config{}, fmt.Errorf("get workflow %q (%s): empty workflow id", cfg.Workflow.Name, workflowDisplayName)
 	}
-	if workflow.Name != cfg.Workflow.Name {
-		return config{}, fmt.Errorf("get workflow %q (%s): returned workflow id %q", cfg.Workflow.Name, workflowDisplayName, workflow.Name)
+	if workflow.Value.Alias != cfg.Workflow.Name {
+		return config{}, fmt.Errorf("get workflow %q (%s): returned workflow id %q", cfg.Workflow.Name, workflowDisplayName, workflow.Value.Alias)
 	}
 
 	workspace, err := workspaceDocument(cfg)
@@ -520,13 +519,10 @@ func workspaceDocument(cfg config) (rpcapi.WorkspaceCreateRequest, error) {
 		}
 	}
 	return rpcapi.WorkspaceCreateRequest{
-		Name:         cfg.Workspace,
-		WorkflowName: cfg.Workflow.Name,
-		WorkflowSource: func() *rpcapi.ResourceSource {
-			value := rpcapi.ResourceSourceRuntime
-			return &value
-		}(),
-		Parameters: &parameters,
+		Name:          cfg.Workspace,
+		Collection:    "assistants",
+		WorkflowAlias: cfg.Workflow.Name,
+		Parameters:    &parameters,
 	}, nil
 }
 

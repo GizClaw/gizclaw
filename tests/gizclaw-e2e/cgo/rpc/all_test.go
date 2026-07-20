@@ -107,7 +107,10 @@ func createCSDKRegistrationToken(t *testing.T, h *clitest.Harness, scenario stri
 	profileName := "cgo-firmware"
 	profileResp, err := api.PutRuntimeProfileWithResponse(ctx, profileName, adminhttp.RuntimeProfileUpsert{
 		Name: profileName,
-		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{}},
+		Spec: apitypes.RuntimeProfileSpec{
+			Resources: apitypes.RuntimeProfileResources{},
+			Workflows: apitypes.RuntimeProfileWorkflows{Collections: apitypes.RuntimeProfileWorkflowCollections{}},
+		},
 	})
 	if err != nil {
 		t.Fatalf("put C SDK RuntimeProfile: %v", err)

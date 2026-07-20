@@ -52,20 +52,8 @@ func TestSharedSetupRPCResourcesPagination(t *testing.T) {
 	requireName(t, workflowNames, "shared")
 	requireName(t, workflowNames, "chatroom")
 
-	workspaceNames := collectWorkspaceNames(t, env.ctx, env.peer, 25)
-	requirePrefixCount(t, workspaceNames, "social-", 2)
-	if workspaceNames["support-desk-workspace"] {
-		t.Fatalf("unowned support Workspace unexpectedly accessible: %#v", workspaceNames)
-	}
-
 	modelIDs := collectModelIDs(t, env.ctx, env.peer, 25)
-	requireName(t, modelIDs, "fake-openai-chat-000")
-
-	credentialNames := collectCredentialNames(t, env.ctx, env.peer, 25)
-	if len(credentialNames) != 0 {
-		t.Fatalf("unowned Credentials unexpectedly accessible: %#v", credentialNames)
-	}
-
+	requireName(t, modelIDs, "generate-model")
 }
 
 func TestSharedSetupRPCSocialFixtures(t *testing.T) {
@@ -116,46 +104,18 @@ func TestSharedSetupRPCSocialFixtures(t *testing.T) {
 	}
 }
 
-func TestSharedSetupRPCMutationFixtures(t *testing.T) {
-	env := newSharedSetupRPCHarness(t)
-
-	_, _ = env.peer.DeleteModel(env.ctx, "shared.model.delete.preclean", rpcapi.ModelDeleteRequest{Id: "mutation-openai-model"})
-	createdModel, err := env.peer.CreateModel(env.ctx, "shared.model.create", rpcModel("mutation-openai-model", "openai-main"))
-	if err != nil {
-		t.Fatalf("model.create mutation-openai-model: %v", err)
-	}
-	if createdModel.Id != "mutation-openai-model" {
-		t.Fatalf("model.create = %#v", createdModel)
-	}
-	if _, err := env.peer.DeleteModel(env.ctx, "shared.model.delete", rpcapi.ModelDeleteRequest{Id: "mutation-openai-model"}); err != nil {
-		t.Fatalf("model.delete mutation-openai-model: %v", err)
-	}
-
-	_, _ = env.peer.DeleteCredential(env.ctx, "shared.credential.delete.preclean", rpcapi.CredentialDeleteRequest{Name: "mutation-openai-credential"})
-	createdCredential, err := env.peer.CreateCredential(env.ctx, "shared.credential.create", rpcCredential("mutation-openai-credential", "sk-mutation-openai"))
-	if err != nil {
-		t.Fatalf("credential.create mutation-openai-credential: %v", err)
-	}
-	if createdCredential.Name != "mutation-openai-credential" {
-		t.Fatalf("credential.create = %#v", createdCredential)
-	}
-	if _, err := env.peer.DeleteCredential(env.ctx, "shared.credential.delete", rpcapi.CredentialDeleteRequest{Name: "mutation-openai-credential"}); err != nil {
-		t.Fatalf("credential.delete mutation-openai-credential: %v", err)
-	}
-}
-
 func collectWorkflowNames(t *testing.T, ctx context.Context, peer *gizcli.Client, limit int) map[string]bool {
 	t.Helper()
 
 	names := map[string]bool{}
 	var cursor *string
 	for page := 0; page < 100; page++ {
-		list, err := peer.ListWorkflows(ctx, "shared.workflow.list", rpcapi.WorkflowListRequest{Source: rpcapi.ResourceSourceRuntime, Cursor: cursor, Limit: &limit})
+		list, err := peer.ListWorkflows(ctx, "shared.workflow.list", rpcapi.WorkflowListRequest{Collection: "assistants", Cursor: cursor, Limit: &limit})
 		if err != nil {
 			t.Fatalf("workflow.list page %d: %v", page, err)
 		}
 		for _, item := range list.Items {
-			names[item.Name] = true
+			names[item.Alias] = true
 		}
 		if !list.HasNext {
 			return names
@@ -205,7 +165,7 @@ func collectModelIDs(t *testing.T, ctx context.Context, peer *gizcli.Client, lim
 			t.Fatalf("model.list page %d: %v", page, err)
 		}
 		for _, item := range list.Items {
-			names[item.Id] = true
+			names[item.Alias] = true
 		}
 		if !list.HasNext {
 			return names
@@ -216,31 +176,6 @@ func collectModelIDs(t *testing.T, ctx context.Context, peer *gizcli.Client, lim
 		cursor = list.NextCursor
 	}
 	t.Fatal("model.list pagination did not terminate")
-	return names
-}
-
-func collectCredentialNames(t *testing.T, ctx context.Context, peer *gizcli.Client, limit int) map[string]bool {
-	t.Helper()
-
-	names := map[string]bool{}
-	var cursor *string
-	for page := 0; page < 100; page++ {
-		list, err := peer.ListCredentials(ctx, "shared.credential.list", rpcapi.CredentialListRequest{Cursor: cursor, Limit: &limit})
-		if err != nil {
-			t.Fatalf("credential.list page %d: %v", page, err)
-		}
-		for _, item := range list.Items {
-			names[item.Name] = true
-		}
-		if !list.HasNext {
-			return names
-		}
-		if list.NextCursor == nil || *list.NextCursor == "" {
-			t.Fatalf("credential.list page %d has_next without next cursor: %#v", page, list)
-		}
-		cursor = list.NextCursor
-	}
-	t.Fatal("credential.list pagination did not terminate")
 	return names
 }
 

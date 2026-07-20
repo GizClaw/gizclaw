@@ -514,7 +514,11 @@ func TestServerServeHTTPLoginRegisterAndPeerAPI(t *testing.T) {
 	if _, ok := modelResponse.(adminhttp.CreateModel200JSONResponse); !ok {
 		t.Fatalf("CreateModel response = %#v", modelResponse)
 	}
-	models := map[string]string{"primary": "profile-model"}
+	models := map[string]apitypes.RuntimeProfileBinding{
+		"primary": {ResourceId: "profile-model", I18n: map[string]apitypes.RuntimeProfileI18nText{
+			"en": {DisplayName: "Primary"}, "zh-CN": {DisplayName: "主要模型"},
+		}},
+	}
 	profileResponse, err := server.manager.RuntimeProfiles.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
 		Name: "public-http-profile",
 		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{

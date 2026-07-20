@@ -186,10 +186,9 @@ message ServerReloadRunWorkspaceResponse {
 }
 
 message ServerRunSayRequest {
-  optional string credential_name = 1;
-  optional string model_id = 2;
+  reserved 1, 2;
   string text = 3;
-  optional string voice_id = 4;
+  string voice_alias = 4;
 }
 
 message ServerRunSayResponse {
@@ -233,22 +232,27 @@ message Workspace {
   string name = 3;
   optional WorkspaceParameters parameters = 4;
   string updated_at = 5;
-  string workflow_name = 6;
+  string workflow_alias = 6;
   optional ToolkitPolicy toolkit = 7;
   bool system = 8;
   optional Icon icon = 9;
   optional string owner_public_key = 10;
-  optional ResourceSource workflow_source = 11;
+  reserved 11;
+  bool available = 12;
 }
 
-// Field numbers match Workspace so existing create and put clients remain wire
-// compatible while output-only lifecycle fields stay out of write payloads.
-message WorkspaceUpsert {
+message WorkspaceCreateBody {
   string name = 3;
   optional WorkspaceParameters parameters = 4;
-  string workflow_name = 6;
+  string workflow_alias = 6;
   optional ToolkitPolicy toolkit = 7;
-  optional ResourceSource workflow_source = 11;
+  reserved 11;
+  string collection = 12;
+}
+
+message WorkspacePutBody {
+  optional WorkspaceParameters parameters = 4;
+  optional ToolkitPolicy toolkit = 7;
 }
 
 message WorkspaceIconDownloadRequest {
@@ -263,7 +267,7 @@ message WorkspaceIconDownloadResponse {
 }
 
 message WorkspaceCreateRequest {
-  WorkspaceUpsert value = 1;
+  WorkspaceCreateBody value = 1;
 }
 
 message WorkspaceCreateResponse {
@@ -284,6 +288,8 @@ message WorkspaceGetRequest {
 
 message WorkspaceGetResponse {
   Workspace value = 1;
+  string runtime_profile_name = 2;
+  string runtime_profile_revision = 3;
 }
 
 message WorkspaceHistoryAudioGetRequest {
@@ -322,12 +328,15 @@ message WorkspaceListRequest {
   optional string cursor = 1;
   optional int64 limit = 2;
   optional string prefix = 3;
+  string collection = 4;
 }
 
 message WorkspaceListResponse {
   bool has_next = 1;
   repeated Workspace items = 2;
   optional string next_cursor = 3;
+  string runtime_profile_name = 4;
+  string runtime_profile_revision = 5;
 }
 
 message WorkspaceParameters {
@@ -341,7 +350,7 @@ message WorkspaceParameters {
 }
 
 message WorkspacePutRequest {
-  WorkspaceUpsert body = 1;
+  WorkspacePutBody body = 1;
   string name = 2;
 }
 

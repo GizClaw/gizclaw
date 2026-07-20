@@ -480,7 +480,8 @@ func (r *Runtime) DrivePet(ctx context.Context, owner string, req apitypes.PetDr
 		}
 	}
 	var result *apitypes.GameResult
-	reward := mergeRewards(defaultReward(ruleset), actionEffectReward(actionSpec))
+	reward := mergeRewards(defaultReward(ruleset), petActionReward(ruleset, action))
+	reward = mergeRewards(reward, actionEffectReward(actionSpec))
 	if req.GameResult != nil {
 		if err := r.validateGameResult(ctx, ruleset, req.GameResult.GameDefId); err != nil {
 			return apitypes.PetDriveResponse{}, err
@@ -734,19 +735,26 @@ func filterResolvedDrive(
 		return nil
 	}
 	out := &apitypes.RuntimeProfileDriveSpec{}
-	if drive.DefaultReward != nil {
-		reward := filterResolvedReward(*drive.DefaultReward, existingBadgeDefs)
-		out.DefaultReward = &reward
+	if drive.Default != nil {
+		reward := filterResolvedReward(*drive.Default, existingBadgeDefs)
+		out.Default = &reward
 	}
-	if drive.GameRewards != nil {
-		rewards := make(map[string]apitypes.RuntimeProfileRewardSpec, len(*drive.GameRewards))
-		for gameDefID, reward := range *drive.GameRewards {
+	if drive.Games != nil {
+		rewards := make(map[string]apitypes.RuntimeProfileRewardSpec, len(*drive.Games))
+		for gameDefID, reward := range *drive.Games {
 			if _, ok := existingGameDefs[gameDefID]; !ok {
 				continue
 			}
 			rewards[gameDefID] = filterResolvedReward(reward, existingBadgeDefs)
 		}
-		out.GameRewards = &rewards
+		out.Games = &rewards
+	}
+	if drive.PetActions != nil {
+		rewards := make(map[string]apitypes.RuntimeProfileRewardSpec, len(*drive.PetActions))
+		for action, reward := range *drive.PetActions {
+			rewards[action] = filterResolvedReward(reward, existingBadgeDefs)
+		}
+		out.PetActions = &rewards
 	}
 	return out
 }

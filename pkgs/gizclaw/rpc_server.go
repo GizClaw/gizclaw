@@ -60,6 +60,7 @@ type rpcServer struct {
 	peerRunRuntime     rpcPeerRunRuntime
 	serverResources    rpcServerResourceService
 	serverGenX         rpcServerGenXService
+	speechLimits       SpeechLimits
 	registrations      *runtimeprofile.Server
 	onRegistration     func(runtimeprofile.Registration)
 	registrationSource string
@@ -83,6 +84,10 @@ func (s *rpcServer) dispatchStream(ctx context.Context, stream *rpcStream, req *
 	switch req.Method {
 	case rpcapi.RPCMethodAllSpeedTestRun:
 		return true, s.handleSpeedTest(ctx, stream, req)
+	case rpcapi.RPCMethodServerSpeechTranscribe:
+		return true, s.handleSpeechTranscribe(ctx, stream, req)
+	case rpcapi.RPCMethodServerSpeechSynthesize:
+		return true, s.handleSpeechSynthesize(ctx, stream, req)
 	case rpcapi.RPCMethodServerFirmwareFilesDownload:
 		return true, s.handleFirmwareBinDownload(ctx, stream, req)
 	case rpcapi.RPCMethodServerPetPixaDownload:
@@ -204,14 +209,6 @@ func isPlannedServerMethod(method rpcapi.RPCMethod) bool {
 		rpcapi.RPCMethodServerWorkflowGet,
 		rpcapi.RPCMethodServerModelList,
 		rpcapi.RPCMethodServerModelGet,
-		rpcapi.RPCMethodServerModelCreate,
-		rpcapi.RPCMethodServerModelPut,
-		rpcapi.RPCMethodServerModelDelete,
-		rpcapi.RPCMethodServerCredentialList,
-		rpcapi.RPCMethodServerCredentialGet,
-		rpcapi.RPCMethodServerCredentialCreate,
-		rpcapi.RPCMethodServerCredentialPut,
-		rpcapi.RPCMethodServerCredentialDelete,
 		rpcapi.RPCMethodServerContactList,
 		rpcapi.RPCMethodServerContactGet,
 		rpcapi.RPCMethodServerContactCreate,
@@ -729,10 +726,8 @@ func (s *rpcServer) handleServerRunSay(ctx context.Context, req *rpcapi.RPCReque
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "peergenx service not configured"}.RPCResponse(), nil
 	}
 	resp, err := s.serverGenX.Say(ctx, peergenx.SayRequest{
-		Text:           params.Text,
-		VoiceID:        stringPtrValue(params.VoiceId),
-		ModelID:        stringPtrValue(params.ModelId),
-		CredentialName: stringPtrValue(params.CredentialName),
+		Text:       params.Text,
+		VoiceAlias: strings.TrimSpace(params.VoiceAlias),
 	})
 	if err != nil {
 		switch {
@@ -748,11 +743,4 @@ func (s *rpcServer) handleServerRunSay(ctx context.Context, req *rpcapi.RPCReque
 	}
 	result := rpcapi.ServerRunSayResponse{Accepted: resp.Accepted}
 	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCPayload).FromServerRunSayResponse)
-}
-
-func stringPtrValue(value *string) string {
-	if value == nil {
-		return ""
-	}
-	return strings.TrimSpace(*value)
 }

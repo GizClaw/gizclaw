@@ -18,7 +18,9 @@ typedef enum {
   FAKE_RESPONSE_PROTO_CONTINUATION = 1,
   FAKE_RESPONSE_PROTO_OVERSIZED_CONTINUATION = 2,
   FAKE_RESPONSE_BINARY_STREAM = 3,
-  FAKE_RESPONSE_PROTO_ERROR = 4
+  FAKE_RESPONSE_PROTO_ERROR = 4,
+  FAKE_RESPONSE_SPEECH_TRANSCRIBE = 5,
+  FAKE_RESPONSE_SPEECH_SYNTHESIZE = 6
 } fake_response_mode_t;
 
 typedef struct {
@@ -26,6 +28,7 @@ typedef struct {
   struct gzc_rtc_peer peer;
   struct gzc_rtc_channel packet_channel;
   struct gzc_rtc_channel rpc_channel;
+  struct gzc_rtc_channel service_channels[16];
   struct gzc_rtc_channel edge_channel;
   struct gzc_rtc_channel remote_channels[GZC_RPC_MAX_INBOUND_CHANNELS + 1u];
   gzc_buf_t sent;
@@ -146,7 +149,16 @@ static int test_peer_create_data_channel(gzc_rtc_peer_t *peer, const gzc_rtc_cha
     if (!config->ordered || !config->reliable) {
       return GZC_ERR_INVALID_ARGUMENT;
     }
-    *out_channel = &fake->rpc_channel;
+    size_t service_index = fake->create_channel_count < 2
+                               ? 0
+                               : (size_t)(fake->create_channel_count - 2);
+    if (service_index >= 16) {
+      return GZC_ERR_NO_MEMORY;
+    }
+    gzc_rtc_channel_t *channel = fake->create_channel_count < 2
+                                     ? &fake->rpc_channel
+                                     : &fake->service_channels[service_index];
+    *out_channel = channel;
     if (fake->callbacks.on_channel_state != NULL) {
       gzc_rtc_channel_info_t info;
       memset(&info, 0, sizeof(info));
@@ -154,7 +166,7 @@ static int test_peer_create_data_channel(gzc_rtc_peer_t *peer, const gzc_rtc_cha
       info.stream_id = 1;
       info.ordered = true;
       info.reliable = true;
-      fake->callbacks.on_channel_state(fake->callbacks.userdata, peer, &fake->rpc_channel, &info, GZC_RTC_CHANNEL_OPEN);
+      fake->callbacks.on_channel_state(fake->callbacks.userdata, peer, channel, &info, GZC_RTC_CHANNEL_OPEN);
     }
   } else if (config->label.len == strlen("giznet/v1/service/49") &&
              strncmp(config->label.data, "giznet/v1/service/49", config->label.len) == 0) {
@@ -344,12 +356,21 @@ static int test_channel_send(gzc_rtc_channel_t *channel, const uint8_t *data, si
       return gzc_buf_append(&fake->sent, fake->platform, data, len);
     }
   }
-  if ((channel != &fake->rpc_channel && channel != &fake->edge_channel) || is_text) {
+  bool known_channel = channel == &fake->rpc_channel || channel == &fake->edge_channel;
+  for (size_t i = 0; i < 16 && !known_channel; i++) {
+    known_channel = channel == &fake->service_channels[i];
+  }
+  if (!known_channel || is_text) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
   gzc_rtc_channel_t *response_channel = channel;
   gzc_rpc_frame_t request_frame;
-  if (gzc_rpc_frame_decode(data, len, &request_frame) == GZC_OK && request_frame.type == GZC_RPC_FRAME_EOS) {
+  bool is_eos = gzc_rpc_frame_decode(data, len, &request_frame) == GZC_OK &&
+                request_frame.type == GZC_RPC_FRAME_EOS;
+  if (fake->response_mode == FAKE_RESPONSE_SPEECH_TRANSCRIBE && !is_eos) {
+    return gzc_buf_append(&fake->sent, fake->platform, data, len);
+  }
+  if (is_eos && fake->response_mode != FAKE_RESPONSE_SPEECH_TRANSCRIBE) {
     return GZC_OK;
   }
   gzc_buf_reset(&fake->sent);
@@ -357,7 +378,8 @@ static int test_channel_send(gzc_rtc_channel_t *channel, const uint8_t *data, si
   if (rc != GZC_OK) {
     return rc;
   }
-  if (fake->response_mode == FAKE_RESPONSE_BINARY_STREAM) {
+  if (fake->response_mode == FAKE_RESPONSE_BINARY_STREAM ||
+      fake->response_mode == FAKE_RESPONSE_SPEECH_SYNTHESIZE) {
     const char *response_id = "1";
     const uint8_t first[] = {0x01, 0x02};
     const uint8_t second[] = {0x03};
@@ -367,8 +389,17 @@ static int test_channel_send(gzc_rtc_channel_t *channel, const uint8_t *data, si
     gzc_buf_init(&response_result);
     gzc_buf_init(&response_payload);
     gzc_buf_init(&framed);
-    rc = append_test_proto_varint(fake->platform, &response_result, 1, 3);
-    if (rc == GZC_OK) {
+    if (fake->response_mode == FAKE_RESPONSE_SPEECH_SYNTHESIZE) {
+      rc = append_test_proto_bytes(
+          fake->platform,
+          &response_result,
+          1,
+          (const uint8_t *)"audio/pcm",
+          strlen("audio/pcm"));
+    } else {
+      rc = append_test_proto_varint(fake->platform, &response_result, 1, 3);
+    }
+    if (rc == GZC_OK && fake->response_mode == FAKE_RESPONSE_BINARY_STREAM) {
       rc = append_test_proto_varint(fake->platform, &response_result, 2, 0);
     }
     if (rc == GZC_OK) {
@@ -446,6 +477,13 @@ static int test_channel_send(gzc_rtc_channel_t *channel, const uint8_t *data, si
     if (rc == GZC_OK) {
       rc = append_test_proto_bytes(fake->platform, &response_error, 2, (const uint8_t *)"denied", strlen("denied"));
     }
+  } else if (fake->response_mode == FAKE_RESPONSE_SPEECH_TRANSCRIBE) {
+    rc = append_test_proto_bytes(
+        fake->platform,
+        &response_result,
+        1,
+        (const uint8_t *)"hello",
+        strlen("hello"));
   } else {
     rc = append_test_proto_varint(fake->platform, &response_result, 1, 99);
   }
@@ -555,6 +593,16 @@ static int count_stream_frame(void *userdata, const gzc_rpc_frame_t *frame) {
   }
   count->frame_count++;
   count->binary_bytes += frame->len;
+  return GZC_OK;
+}
+
+static int count_speech_audio(void *userdata, const uint8_t *data, size_t len) {
+  stream_count_t *count = (stream_count_t *)userdata;
+  if (count == NULL || data == NULL || len == 0) {
+    return GZC_ERR_RPC;
+  }
+  count->frame_count++;
+  count->binary_bytes += len;
   return GZC_OK;
 }
 
@@ -933,6 +981,75 @@ int main(void) {
     return 1;
   }
   if (expect(stream_count.envelope_count == 1 && stream_count.frame_count == 2 && stream_count.binary_bytes == 3, "stream frames counted") != 0) {
+    return 1;
+  }
+
+  gizclaw_rpc_v1_SpeechTranscribeRequest transcribe_request =
+      gizclaw_rpc_v1_SpeechTranscribeRequest_init_zero;
+  strcpy(transcribe_request.model_alias, "asr-main");
+  strcpy(
+      transcribe_request.content_type,
+      "audio/L16;rate=16000;channels=1");
+  gzc_rpc_speech_upload_t *upload = NULL;
+  fake_webrtc.response_mode = FAKE_RESPONSE_SPEECH_TRANSCRIBE;
+  rc = gzc_rpc_speech_transcribe_open(client, &transcribe_request, &upload);
+  if (expect(rc == GZC_OK && upload != NULL, "speech transcribe open") != 0) {
+    return 1;
+  }
+  const uint8_t speech_input[] = {0x01, 0x02, 0x03, 0x04};
+  rc = gzc_rpc_speech_transcribe_write(upload, speech_input, sizeof(speech_input));
+  if (expect(rc == GZC_OK, "speech transcribe write") != 0) {
+    gzc_rpc_speech_transcribe_cancel(upload);
+    return 1;
+  }
+  gizclaw_rpc_v1_SpeechTranscribeResponse transcription =
+      gizclaw_rpc_v1_SpeechTranscribeResponse_init_zero;
+  gzc_rpc_error_t speech_error;
+  rc = gzc_rpc_speech_transcribe_finish(upload, &transcription, &speech_error);
+  if (expect(rc == GZC_OK && strcmp(transcription.transcript, "hello") == 0,
+             "speech transcribe finish") != 0) {
+    return 1;
+  }
+
+  gizclaw_rpc_v1_SpeechSynthesizeRequest synthesize_request =
+      gizclaw_rpc_v1_SpeechSynthesizeRequest_init_zero;
+  strcpy(synthesize_request.voice_alias, "narrator");
+  strcpy(synthesize_request.text, "hello");
+  synthesize_request.accepted_content_types_count = 1;
+  strcpy(synthesize_request.accepted_content_types[0], "audio/pcm");
+  gizclaw_rpc_v1_SpeechSynthesizeResponse synthesis_metadata =
+      gizclaw_rpc_v1_SpeechSynthesizeResponse_init_zero;
+  memset(&stream_count, 0, sizeof(stream_count));
+  fake_webrtc.response_mode = FAKE_RESPONSE_SPEECH_SYNTHESIZE;
+  rc = gzc_rpc_speech_synthesize(
+      client,
+      &synthesize_request,
+      &synthesis_metadata,
+      count_speech_audio,
+      &stream_count,
+      &speech_error);
+  if (expect(
+          rc == GZC_OK &&
+              strcmp(synthesis_metadata.content_type, "audio/pcm") == 0 &&
+              stream_count.frame_count == 2 && stream_count.binary_bytes == 3,
+          "speech synthesis stream") != 0) {
+    return 1;
+  }
+
+  fake_webrtc.response_mode = FAKE_RESPONSE_PROTO;
+  upload = NULL;
+  rc = gzc_rpc_speech_transcribe_open(NULL, &transcribe_request, &upload);
+  if (expect(rc == GZC_ERR_INVALID_ARGUMENT, "speech transcribe public API") != 0) {
+    return 1;
+  }
+  rc = gzc_rpc_speech_synthesize(
+      NULL,
+      &synthesize_request,
+      &synthesis_metadata,
+      count_speech_audio,
+      &stream_count,
+      &speech_error);
+  if (expect(rc == GZC_ERR_INVALID_ARGUMENT, "speech synthesis public API") != 0) {
     return 1;
   }
 

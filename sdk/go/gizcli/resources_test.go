@@ -17,16 +17,16 @@ func TestClientResourceMethodsRequireConnection(t *testing.T) {
 		call func() (any, error)
 	}{
 		{"workspace list", func() (any, error) {
-			return client.ListWorkspaces(ctx, "workspace-list", rpcapi.WorkspaceListRequest{})
+			return client.ListWorkspaces(ctx, "workspace-list", rpcapi.WorkspaceListRequest{Collection: "assistants"})
 		}},
 		{"workspace get", func() (any, error) {
 			return client.GetWorkspace(ctx, "workspace-get", rpcapi.WorkspaceGetRequest{Name: "workspace-a"})
 		}},
 		{"workspace create", func() (any, error) {
-			return client.CreateWorkspace(ctx, "workspace-create", rpcapi.WorkspaceCreateRequest{Name: "workspace-a", WorkflowName: "flow-a"})
+			return client.CreateWorkspace(ctx, "workspace-create", rpcapi.WorkspaceCreateRequest{Name: "workspace-a", Collection: "assistants", WorkflowAlias: "flow-a"})
 		}},
 		{"workspace put", func() (any, error) {
-			return client.PutWorkspace(ctx, "workspace-put", rpcapi.WorkspacePutRequest{Name: "workspace-a", Body: rpcapi.WorkspaceUpsert{Name: "workspace-a", WorkflowName: "flow-a"}})
+			return client.PutWorkspace(ctx, "workspace-put", rpcapi.WorkspacePutRequest{Name: "workspace-a", Body: rpcapi.WorkspacePutBody{}})
 		}},
 		{"workspace delete", func() (any, error) {
 			return client.DeleteWorkspace(ctx, "workspace-delete", rpcapi.WorkspaceDeleteRequest{Name: "workspace-a"})
@@ -41,33 +41,15 @@ func TestClientResourceMethodsRequireConnection(t *testing.T) {
 			var out strings.Builder
 			return client.GetWorkspaceHistoryAudio(ctx, "workspace-history-audio-get", rpcapi.WorkspaceHistoryAudioGetRequest{WorkspaceName: "workspace-a", HistoryId: "history-a"}, &out)
 		}},
-		{"workflow list", func() (any, error) { return client.ListWorkflows(ctx, "workflow-list", rpcapi.WorkflowListRequest{}) }},
+		{"workflow list", func() (any, error) {
+			return client.ListWorkflows(ctx, "workflow-list", rpcapi.WorkflowListRequest{Collection: "assistants"})
+		}},
 		{"workflow get", func() (any, error) {
-			return client.GetWorkflow(ctx, "workflow-get", rpcapi.WorkflowGetRequest{Name: "flow-a"})
+			return client.GetWorkflow(ctx, "workflow-get", rpcapi.WorkflowGetRequest{Alias: "flow-a"})
 		}},
 		{"model list", func() (any, error) { return client.ListModels(ctx, "model-list", rpcapi.ModelListRequest{}) }},
-		{"model get", func() (any, error) { return client.GetModel(ctx, "model-get", rpcapi.ModelGetRequest{Id: "model-a"}) }},
-		{"model create", func() (any, error) { return client.CreateModel(ctx, "model-create", resourceModel("model-a")) }},
-		{"model put", func() (any, error) {
-			return client.PutModel(ctx, "model-put", rpcapi.ModelPutRequest{Id: "model-a", Body: resourceModel("model-a")})
-		}},
-		{"model delete", func() (any, error) {
-			return client.DeleteModel(ctx, "model-delete", rpcapi.ModelDeleteRequest{Id: "model-a"})
-		}},
-		{"credential list", func() (any, error) {
-			return client.ListCredentials(ctx, "credential-list", rpcapi.CredentialListRequest{})
-		}},
-		{"credential get", func() (any, error) {
-			return client.GetCredential(ctx, "credential-get", rpcapi.CredentialGetRequest{Name: "credential-a"})
-		}},
-		{"credential create", func() (any, error) {
-			return client.CreateCredential(ctx, "credential-create", resourceCredential("credential-a"))
-		}},
-		{"credential put", func() (any, error) {
-			return client.PutCredential(ctx, "credential-put", rpcapi.CredentialPutRequest{Name: "credential-a", Body: resourceCredential("credential-a")})
-		}},
-		{"credential delete", func() (any, error) {
-			return client.DeleteCredential(ctx, "credential-delete", rpcapi.CredentialDeleteRequest{Name: "credential-a"})
+		{"model get", func() (any, error) {
+			return client.GetModel(ctx, "model-get", rpcapi.ModelGetRequest{Alias: "model-a"})
 		}},
 		{"contact list", func() (any, error) { return client.ListContacts(ctx, "contact-list", rpcapi.ContactListRequest{}) }},
 		{"contact get", func() (any, error) {

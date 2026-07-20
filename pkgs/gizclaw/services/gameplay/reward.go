@@ -5,17 +5,24 @@ import (
 )
 
 func defaultReward(profileRules ProfileRules) apitypes.RuntimeProfileRewardSpec {
-	if profileRules.Spec.Drive == nil || profileRules.Spec.Drive.DefaultReward == nil {
+	if profileRules.Spec.Drive == nil || profileRules.Spec.Drive.Default == nil {
 		return apitypes.RuntimeProfileRewardSpec{}
 	}
-	return *profileRules.Spec.Drive.DefaultReward
+	return *profileRules.Spec.Drive.Default
 }
 
 func gameReward(profileRules ProfileRules, gameDefID string) apitypes.RuntimeProfileRewardSpec {
-	if gameDefID == "" || profileRules.Spec.Drive == nil || profileRules.Spec.Drive.GameRewards == nil {
+	if gameDefID == "" || profileRules.Spec.Drive == nil || profileRules.Spec.Drive.Games == nil {
 		return apitypes.RuntimeProfileRewardSpec{}
 	}
-	return (*profileRules.Spec.Drive.GameRewards)[gameDefID]
+	return (*profileRules.Spec.Drive.Games)[gameDefID]
+}
+
+func petActionReward(profileRules ProfileRules, action string) apitypes.RuntimeProfileRewardSpec {
+	if action == "" || profileRules.Spec.Drive == nil || profileRules.Spec.Drive.PetActions == nil {
+		return apitypes.RuntimeProfileRewardSpec{}
+	}
+	return (*profileRules.Spec.Drive.PetActions)[action]
 }
 
 func mergeRewards(left, right apitypes.RuntimeProfileRewardSpec) apitypes.RuntimeProfileRewardSpec {

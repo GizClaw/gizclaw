@@ -14,7 +14,7 @@ spec:
   character:
     prompt: A small dark robot with a red NULL display, smoky antenna, muted body, and a dry mysterious personality.
   voice:
-    voice_id: volc-tenant:volc-main:zh_male_sunwukong_mars_bigtts
+    voice_id: sun-wukong
     prompt: Dry, minimal, concise replies with understated deadpan humor.
   drive:
     actions:

@@ -69,6 +69,7 @@ type Manager struct {
 	Gameplay         *gameplay.Runtime
 	PetWorkflow      petagent.Config
 	FlowcraftHistory logstore.MutableStore
+	SpeechLimits     SpeechLimits
 	Tools            *toolkit.Server
 	ToolBuilder      *toolkit.Builder
 	ToolExecutors    *toolkit.ExecutorRegistry

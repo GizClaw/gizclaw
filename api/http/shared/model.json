@@ -22,11 +22,6 @@
     "id": {
       "type": "string"
     },
-    "owner_public_key": {
-      "type": "string",
-      "readOnly": true,
-      "description": "Immutable Public Key of the Client that created this Model. Admin-created Models omit it."
-    },
           "kind": {
             "$ref": "./model_kind.json#/components/schemas/ModelKind"
           },

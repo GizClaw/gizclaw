@@ -2,6 +2,7 @@ package peerresource
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"slices"
@@ -17,20 +18,12 @@ import (
 
 type profileResourceKind string
 
-type ownedModelLister interface {
-	ListModelsByOwner(context.Context, string) ([]apitypes.Model, error)
-}
-
-type ownedCredentialLister interface {
-	ListCredentialsByOwner(context.Context, string) ([]apitypes.Credential, error)
-}
-
 type ownedWorkspaceLister interface {
 	ListWorkspacesByOwner(context.Context, string) ([]apitypes.Workspace, error)
 }
 
-type ownedWorkflowLister interface {
-	ListWorkflowsByOwner(context.Context, string) ([]apitypes.Workflow, error)
+type ownedWorkspaceLabelLister interface {
+	ListWorkspacesByOwnerAndLabels(context.Context, string, map[string]string) ([]apitypes.Workspace, error)
 }
 
 const (
@@ -48,6 +41,67 @@ func (s *Server) ownerContext(ctx context.Context) context.Context {
 		return ctx
 	}
 	return ownership.WithOwner(ctx, s.Caller.String())
+}
+
+func (s *Server) currentRuntimeProfile() *apitypes.RuntimeProfile {
+	if s == nil || s.RuntimeProfile == nil {
+		return nil
+	}
+	return s.RuntimeProfile()
+}
+
+func bindingMap(values *map[string]apitypes.RuntimeProfileBinding) map[string]apitypes.RuntimeProfileBinding {
+	if values == nil {
+		return map[string]apitypes.RuntimeProfileBinding{}
+	}
+	return *values
+}
+
+func bindingI18n(binding apitypes.RuntimeProfileBinding) map[string]rpcapi.AliasI18nText {
+	out := make(map[string]rpcapi.AliasI18nText, len(binding.I18n))
+	for locale, text := range binding.I18n {
+		out[locale] = rpcapi.AliasI18nText{DisplayName: text.DisplayName, Description: text.Description}
+	}
+	return out
+}
+
+func workflowBinding(profile *apitypes.RuntimeProfile, alias string) (string, apitypes.RuntimeProfileBinding, bool) {
+	if profile == nil {
+		return "", apitypes.RuntimeProfileBinding{}, false
+	}
+	alias = strings.TrimSpace(alias)
+	for collection, bindings := range profile.Spec.Workflows.Collections {
+		if binding, ok := bindings[alias]; ok {
+			return collection, binding, true
+		}
+	}
+	return "", apitypes.RuntimeProfileBinding{}, false
+}
+
+func pageAliases(aliases []string, cursor *string, requested *int, revision string) ([]string, bool, *string, bool) {
+	limit := peerListLimit(requested)
+	start := 0
+	if cursor != nil && strings.TrimSpace(*cursor) != "" {
+		decoded, err := base64.RawURLEncoding.DecodeString(*cursor)
+		if err != nil {
+			return nil, false, nil, true
+		}
+		parts := strings.SplitN(string(decoded), "\x00", 2)
+		if len(parts) != 2 || parts[0] != revision {
+			return nil, false, nil, true
+		}
+		start = sort.SearchStrings(aliases, parts[1])
+		if start < len(aliases) && aliases[start] == parts[1] {
+			start++
+		}
+	}
+	end := min(start+limit, len(aliases))
+	page := aliases[start:end]
+	if end == len(aliases) || len(page) == 0 {
+		return page, false, nil, false
+	}
+	next := base64.RawURLEncoding.EncodeToString([]byte(revision + "\x00" + page[len(page)-1]))
+	return page, true, &next, false
 }
 
 func (s *Server) profileNames(kind profileResourceKind) []string {
@@ -82,10 +136,20 @@ func (s *Server) profileBindings(kind profileResourceKind) map[string]string {
 		return map[string]string{}
 	}
 	resources := profile.Spec.Resources
-	var values *map[string]string
+	var values *map[string]apitypes.RuntimeProfileBinding
 	switch kind {
 	case profileWorkflows:
-		values = resources.Workflows
+		out := make(map[string]string)
+		for _, bindings := range profile.Spec.Workflows.Collections {
+			for alias, binding := range bindings {
+				alias = strings.TrimSpace(alias)
+				value := strings.TrimSpace(binding.ResourceId)
+				if alias != "" && value != "" {
+					out[alias] = value
+				}
+			}
+		}
+		return out
 	case profileModels:
 		values = resources.Models
 	case profileVoices:
@@ -103,9 +167,9 @@ func (s *Server) profileBindings(kind profileResourceKind) map[string]string {
 		return map[string]string{}
 	}
 	out := make(map[string]string, len(*values))
-	for alias, rawValue := range *values {
+	for alias, binding := range *values {
 		alias = strings.TrimSpace(alias)
-		value := strings.TrimSpace(rawValue)
+		value := strings.TrimSpace(binding.ResourceId)
 		if alias == "" || value == "" {
 			continue
 		}
@@ -114,159 +178,46 @@ func (s *Server) profileBindings(kind profileResourceKind) map[string]string {
 	return out
 }
 
-func (s *Server) runtimeWorkflowName(alias string) (string, bool) {
-	value := strings.TrimSpace(s.profileBindings(profileWorkflows)[strings.TrimSpace(alias)])
-	return value, value != ""
-}
-
-func (s *Server) ownedWorkflows(ctx context.Context) ([]apitypes.Workflow, error) {
-	if lister, ok := s.Workflows.(ownedWorkflowLister); ok {
-		return lister.ListWorkflowsByOwner(ctx, s.Caller.String())
-	}
-	items := make([]apitypes.Workflow, 0)
-	limit := int32(200)
-	var cursor *string
-	for {
-		response, err := s.Workflows.ListWorkflows(ctx, adminhttp.ListWorkflowsRequestObject{
-			Params: adminhttp.ListWorkflowsParams{Cursor: cursor, Limit: &limit},
-		})
-		if err != nil {
-			return nil, err
-		}
-		page, rpcResponse, err := adminResult[adminhttp.WorkflowList](response.VisitListWorkflowsResponse)
-		if err != nil {
-			return nil, err
-		}
-		if rpcResponse != nil {
-			return nil, fmt.Errorf("list Workflows: %s", rpcResponse.Error.Message)
-		}
-		for _, item := range page.Items {
-			if s.owns(item.OwnerPublicKey) {
-				items = append(items, item)
-			}
-		}
-		if !page.HasNext || page.NextCursor == nil || *page.NextCursor == "" {
-			return items, nil
-		}
-		cursor = page.NextCursor
-	}
-}
-
-func sortedWorkflowAliases(bindings map[string]string) []string {
-	aliases := make([]string, 0, len(bindings))
-	for alias := range bindings {
-		aliases = append(aliases, alias)
-	}
-	sort.Strings(aliases)
-	return aliases
-}
-
 func (s *Server) profileAllows(kind profileResourceKind, name string) bool {
 	return slices.Contains(s.profileNames(kind), name)
 }
 
-// ProfileAllowsModel reports whether the current connection's RuntimeProfile
-// explicitly grants the concrete model. GenX uses this to distinguish an
-// approved profile model from a merely owner-accessible model before reading
-// a server-owned provider credential.
-func (s *Server) ProfileAllowsModel(name string) bool {
-	return s.profileAllows(profileModels, name)
+// ResolveModelAlias resolves an allowed RuntimeProfile alias without exposing
+// the canonical resource ID to the peer.
+func (s *Server) ResolveModelAlias(alias string) (string, bool) {
+	profile := s.currentRuntimeProfile()
+	if profile == nil {
+		return "", false
+	}
+	binding, ok := bindingMap(profile.Spec.Resources.Models)[strings.TrimSpace(alias)]
+	return strings.TrimSpace(binding.ResourceId), ok && strings.TrimSpace(binding.ResourceId) != ""
 }
 
-func (s *Server) ownedModels(ctx context.Context) ([]apitypes.Model, error) {
-	if lister, ok := s.Models.(ownedModelLister); ok {
-		return lister.ListModelsByOwner(ctx, s.Caller.String())
+// ResolveVoiceAlias resolves an allowed RuntimeProfile alias without exposing
+// the canonical resource ID to the peer.
+func (s *Server) ResolveVoiceAlias(alias string) (string, bool) {
+	profile := s.currentRuntimeProfile()
+	if profile == nil {
+		return "", false
 	}
-	items := make([]apitypes.Model, 0)
-	limit := int32(200)
-	var cursor *string
-	for {
-		response, err := s.Models.ListModels(ctx, adminhttp.ListModelsRequestObject{
-			Params: adminhttp.ListModelsParams{Cursor: cursor, Limit: &limit},
-		})
-		if err != nil {
-			return nil, err
-		}
-		page, rpcResponse, err := adminResult[adminhttp.ModelList](response.VisitListModelsResponse)
-		if err != nil {
-			return nil, err
-		}
-		if rpcResponse != nil {
-			return nil, fmt.Errorf("list Models: %s", rpcResponse.Error.Message)
-		}
-		for _, item := range page.Items {
-			if s.owns(item.OwnerPublicKey) {
-				items = append(items, item)
-			}
-		}
-		if !page.HasNext || page.NextCursor == nil || *page.NextCursor == "" {
-			return items, nil
-		}
-		cursor = page.NextCursor
-	}
+	binding, ok := bindingMap(profile.Spec.Resources.Voices)[strings.TrimSpace(alias)]
+	return strings.TrimSpace(binding.ResourceId), ok && strings.TrimSpace(binding.ResourceId) != ""
 }
 
 func (s *Server) effectiveModels(ctx context.Context) ([]apitypes.Model, error) {
-	ownedItems, err := s.ownedModels(ctx)
-	if err != nil {
-		return nil, err
-	}
-	byID := make(map[string]apitypes.Model, len(ownedItems))
-	owned := make([]string, 0, len(ownedItems))
-	for _, item := range ownedItems {
-		byID[item.Id] = item
-		owned = append(owned, item.Id)
-	}
-	ordered := orderedUnique(s.profileNames(profileModels), owned)
-	items := make([]apitypes.Model, 0, len(ordered))
-	for _, id := range ordered {
-		item, ok := byID[id]
-		if !ok {
-			value, response := s.getModelValue(ctx, id)
-			if isNotFoundResponse(response) {
-				continue
-			}
-			if response != nil {
-				return nil, fmt.Errorf("get profile Model %q: %s", id, response.Error.Message)
-			}
-			item = value
+	ids := s.profileNames(profileModels)
+	items := make([]apitypes.Model, 0, len(ids))
+	for _, id := range ids {
+		item, response := s.getModelValue(ctx, id)
+		if isNotFoundResponse(response) {
+			continue
+		}
+		if response != nil {
+			return nil, fmt.Errorf("get profile Model %q: %s", id, response.Error.Message)
 		}
 		items = append(items, item)
 	}
 	return items, nil
-}
-
-func (s *Server) ownedCredentials(ctx context.Context) ([]apitypes.Credential, error) {
-	if lister, ok := s.Credentials.(ownedCredentialLister); ok {
-		return lister.ListCredentialsByOwner(ctx, s.Caller.String())
-	}
-	items := make([]apitypes.Credential, 0)
-	limit := int32(200)
-	var cursor *string
-	for {
-		response, err := s.Credentials.ListCredentials(ctx, adminhttp.ListCredentialsRequestObject{
-			Params: adminhttp.ListCredentialsParams{Cursor: cursor, Limit: &limit},
-		})
-		if err != nil {
-			return nil, err
-		}
-		page, rpcResponse, err := adminResult[adminhttp.CredentialList](response.VisitListCredentialsResponse)
-		if err != nil {
-			return nil, err
-		}
-		if rpcResponse != nil {
-			return nil, fmt.Errorf("list Credentials: %s", rpcResponse.Error.Message)
-		}
-		for _, item := range page.Items {
-			if s.owns(item.OwnerPublicKey) {
-				items = append(items, item)
-			}
-		}
-		if !page.HasNext || page.NextCursor == nil || *page.NextCursor == "" {
-			return items, nil
-		}
-		cursor = page.NextCursor
-	}
 }
 
 func (s *Server) ownedWorkspaces(ctx context.Context) ([]apitypes.Workspace, error) {
@@ -300,6 +251,71 @@ func (s *Server) ownedWorkspaces(ctx context.Context) ([]apitypes.Workspace, err
 		}
 		cursor = page.NextCursor
 	}
+}
+
+func (s *Server) ownedWorkspacesByLabels(ctx context.Context, selector map[string]string) ([]apitypes.Workspace, error) {
+	if lister, ok := s.Workspaces.(ownedWorkspaceLabelLister); ok {
+		return lister.ListWorkspacesByOwnerAndLabels(ctx, s.Caller.String(), selector)
+	}
+	items, err := s.ownedWorkspaces(ctx)
+	if err != nil {
+		return nil, err
+	}
+	filtered := make([]apitypes.Workspace, 0, len(items))
+	for _, item := range items {
+		if workspaceLabelsMatch(item.Labels, selector) {
+			filtered = append(filtered, item)
+		}
+	}
+	return filtered, nil
+}
+
+func workspaceLabelsMatch(labels *map[string]string, selector map[string]string) bool {
+	if len(selector) == 0 {
+		return true
+	}
+	if labels == nil {
+		return false
+	}
+	for key, value := range selector {
+		if (*labels)[key] != value {
+			return false
+		}
+	}
+	return true
+}
+
+func (s *Server) effectiveWorkspacesByLabels(ctx context.Context, selector map[string]string) ([]apitypes.Workspace, error) {
+	ownedItems, err := s.ownedWorkspacesByLabels(ctx, selector)
+	if err != nil {
+		return nil, err
+	}
+	allItems, err := s.effectiveWorkspaces(ctx)
+	if err != nil {
+		return nil, err
+	}
+	byName := make(map[string]apitypes.Workspace, len(ownedItems))
+	for _, item := range ownedItems {
+		byName[item.Name] = item
+	}
+	for _, item := range allItems {
+		if _, owned := byName[item.Name]; owned {
+			continue
+		}
+		if workspaceLabelsMatch(item.Labels, selector) {
+			byName[item.Name] = item
+		}
+	}
+	names := make([]string, 0, len(byName))
+	for name := range byName {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	items := make([]apitypes.Workspace, 0, len(names))
+	for _, name := range names {
+		items = append(items, byName[name])
+	}
+	return items, nil
 }
 
 func (s *Server) effectiveWorkspaces(ctx context.Context) ([]apitypes.Workspace, error) {
@@ -528,14 +544,6 @@ func (s *Server) getModelValue(ctx context.Context, id string) (apitypes.Model, 
 	return item, rpcResponse
 }
 
-func (s *Server) canUseModel(ctx context.Context, id string) bool {
-	if s.profileAllows(profileModels, id) {
-		return true
-	}
-	item, rpcResponse := s.getModelValue(ctx, id)
-	return rpcResponse == nil && s.owns(item.OwnerPublicKey)
-}
-
 func isNotFoundResponse(response *rpcapi.RPCResponse) bool {
 	return response != nil && response.Error != nil && response.Error.Code == rpcapi.RPCErrorCodeNotFound
 }
@@ -560,75 +568,6 @@ func pageModels(items []apitypes.Model, cursor *string, requested *int) ([]apity
 		return page, false, nil
 	}
 	next := page[len(page)-1].Id
-	return page, true, &next
-}
-
-func pageCredentials(items []apitypes.Credential, cursor *string, requested *int) ([]apitypes.Credential, bool, *string) {
-	limit := 50
-	if requested != nil && *requested > 0 {
-		limit = min(*requested, 200)
-	}
-	start := 0
-	if cursor != nil && *cursor != "" {
-		for i := range items {
-			if items[i].Name == *cursor {
-				start = i + 1
-				break
-			}
-		}
-	}
-	end := min(start+limit, len(items))
-	page := items[start:end]
-	if end == len(items) || len(page) == 0 {
-		return page, false, nil
-	}
-	next := page[len(page)-1].Name
-	return page, true, &next
-}
-
-func pageWorkspaces(items []apitypes.Workspace, cursor *string, requested *int) ([]apitypes.Workspace, bool, *string) {
-	limit := 50
-	if requested != nil && *requested > 0 {
-		limit = min(*requested, 200)
-	}
-	start := 0
-	if cursor != nil && *cursor != "" {
-		for i := range items {
-			if items[i].Name == *cursor {
-				start = i + 1
-				break
-			}
-		}
-	}
-	end := min(start+limit, len(items))
-	page := items[start:end]
-	if end == len(items) || len(page) == 0 {
-		return page, false, nil
-	}
-	next := page[len(page)-1].Name
-	return page, true, &next
-}
-
-func pageWorkflows(items []rpcapi.Workflow, cursor *string, requested *int) ([]rpcapi.Workflow, bool, *string) {
-	limit := 50
-	if requested != nil && *requested > 0 {
-		limit = min(*requested, 200)
-	}
-	start := 0
-	if cursor != nil && *cursor != "" {
-		for i := range items {
-			if items[i].Name == *cursor {
-				start = i + 1
-				break
-			}
-		}
-	}
-	end := min(start+limit, len(items))
-	page := items[start:end]
-	if end == len(items) || len(page) == 0 {
-		return page, false, nil
-	}
-	next := page[len(page)-1].Name
 	return page, true, &next
 }
 

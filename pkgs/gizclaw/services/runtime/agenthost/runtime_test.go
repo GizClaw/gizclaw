@@ -90,10 +90,10 @@ func TestServiceReloadAppliesPendingAndStop(t *testing.T) {
 }
 
 func TestRuntimeProfileToolIDsUsesAliasOrder(t *testing.T) {
-	tools := map[string]string{
-		"weather": "tool-weather",
-		"clock":   "tool-clock",
-		"alarm":   "tool-alarm",
+	tools := map[string]apitypes.RuntimeProfileBinding{
+		"weather": {ResourceId: "tool-weather"},
+		"clock":   {ResourceId: "tool-clock"},
+		"alarm":   {ResourceId: "tool-alarm"},
 	}
 	want := []string{"tool-alarm", "tool-clock", "tool-weather"}
 	if got := runtimeProfileToolIDs(&tools); !slices.Equal(got, want) {

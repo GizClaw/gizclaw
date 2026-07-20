@@ -6,41 +6,29 @@ import (
 	"github.com/google/jsonschema-go/jsonschema"
 )
 
-func TestToolPayloadRoundTripAndMethodRegistry(t *testing.T) {
-	method, err := ProtoMethod(RPCMethodServerToolCreate)
+func TestSafeToolPayloadRoundTripAndMethodRegistry(t *testing.T) {
+	method, err := ProtoMethod(RPCMethodServerToolGet)
 	if err != nil {
-		t.Fatalf("ProtoMethod(server.tool.create) error = %v", err)
+		t.Fatalf("ProtoMethod(server.tool.get) error = %v", err)
 	}
-	if got, err := MethodFromProto(method); err != nil || got != RPCMethodServerToolCreate {
+	if got, err := MethodFromProto(method); err != nil || got != RPCMethodServerToolGet {
 		t.Fatalf("MethodFromProto() = %q, %v", got, err)
 	}
-	name := "play_music"
-	peer := "peer-a"
-	owner := "owner-a"
-	enabled := true
 	tool := Tool{
-		Id:             "peer.peer-a.music.play",
-		Name:           &name,
-		Source:         ToolSourceDevice,
-		Enabled:        &enabled,
-		OwnerPeer:      &peer,
-		OwnerPublicKey: &owner,
-		InputSchema: jsonschema.Schema{
-			Type:       "object",
-			Required:   []string{"query"},
-			Properties: map[string]*jsonschema.Schema{"query": {Type: "string"}},
-		},
-		Executor: ToolExecutor{Kind: ToolExecutorKindDeviceRpc, Method: &name, PeerId: &peer},
+		Alias:       "play-music",
+		I18n:        map[string]AliasI18nText{"en": {DisplayName: "Play Music"}, "zh-CN": {DisplayName: "播放音乐"}},
+		InputSchema: jsonschema.Schema{Type: "object", Required: []string{"query"}, Properties: map[string]*jsonschema.Schema{"query": {Type: "string"}}},
 	}
+	response := ToolGetResponse{Value: tool, RuntimeProfileName: "default", RuntimeProfileRevision: "revision"}
 	var payload RPCPayload
-	if err := payload.FromToolCreateRequest(tool); err != nil {
-		t.Fatalf("FromToolCreateRequest() error = %v", err)
+	if err := payload.FromToolGetResponse(response); err != nil {
+		t.Fatalf("FromToolGetResponse() error = %v", err)
 	}
-	got, err := payload.AsToolCreateRequest()
+	got, err := payload.AsToolGetResponse()
 	if err != nil {
-		t.Fatalf("AsToolCreateRequest() error = %v", err)
+		t.Fatalf("AsToolGetResponse() error = %v", err)
 	}
-	if got.Id != tool.Id || got.OwnerPublicKey == nil || *got.OwnerPublicKey != owner || got.InputSchema.Type != "object" || got.InputSchema.Properties["query"].Type != "string" {
+	if got.Value.Alias != tool.Alias || got.Value.InputSchema.Properties["query"].Type != "string" {
 		t.Fatalf("Tool round trip = %#v", got)
 	}
 

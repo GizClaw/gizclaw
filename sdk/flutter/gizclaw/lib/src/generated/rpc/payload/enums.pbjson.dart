@@ -30,21 +30,6 @@ final $typed_data.Uint8List iconFormatDescriptor = $convert.base64Decode(
     'CgpJY29uRm9ybWF0EhsKF0lDT05fRk9STUFUX1VOU1BFQ0lGSUVEEAASFAoQSUNPTl9GT1JNQV'
     'RfUElYQRABEhMKD0lDT05fRk9STUFUX1BORxAC');
 
-@$core.Deprecated('Use resourceSourceDescriptor instead')
-const ResourceSource$json = {
-  '1': 'ResourceSource',
-  '2': [
-    {'1': 'RESOURCE_SOURCE_UNSPECIFIED', '2': 0},
-    {'1': 'RESOURCE_SOURCE_RUNTIME', '2': 1},
-    {'1': 'RESOURCE_SOURCE_OWNED', '2': 2},
-  ],
-};
-
-/// Descriptor for `ResourceSource`. Decode as a `google.protobuf.EnumDescriptorProto`.
-final $typed_data.Uint8List resourceSourceDescriptor = $convert.base64Decode(
-    'Cg5SZXNvdXJjZVNvdXJjZRIfChtSRVNPVVJDRV9TT1VSQ0VfVU5TUEVDSUZJRUQQABIbChdSRV'
-    'NPVVJDRV9TT1VSQ0VfUlVOVElNRRABEhkKFVJFU09VUkNFX1NPVVJDRV9PV05FRBAC');
-
 @$core.Deprecated('Use aSTTranslateModeDescriptor instead')
 const ASTTranslateMode$json = {
   '1': 'ASTTranslateMode',
@@ -434,40 +419,6 @@ final $typed_data.Uint8List modelKindDescriptor = $convert.base64Decode(
     'TkRfUkVBTFRJTUUQBBIaChZNT0RFTF9LSU5EX1RSQU5TTEFUSU9OEAUSGAoUTU9ERUxfS0lORF'
     '9FTUJFRERJTkcQBg==');
 
-@$core.Deprecated('Use modelProviderKindDescriptor instead')
-const ModelProviderKind$json = {
-  '1': 'ModelProviderKind',
-  '2': [
-    {'1': 'MODEL_PROVIDER_KIND_UNSPECIFIED', '2': 0},
-    {'1': 'MODEL_PROVIDER_KIND_GEMINI_TENANT', '2': 1},
-    {'1': 'MODEL_PROVIDER_KIND_DASHSCOPE_TENANT', '2': 2},
-    {'1': 'MODEL_PROVIDER_KIND_OPENAI_TENANT', '2': 3},
-    {'1': 'MODEL_PROVIDER_KIND_VOLC_TENANT', '2': 4},
-  ],
-};
-
-/// Descriptor for `ModelProviderKind`. Decode as a `google.protobuf.EnumDescriptorProto`.
-final $typed_data.Uint8List modelProviderKindDescriptor = $convert.base64Decode(
-    'ChFNb2RlbFByb3ZpZGVyS2luZBIjCh9NT0RFTF9QUk9WSURFUl9LSU5EX1VOU1BFQ0lGSUVEEA'
-    'ASJQohTU9ERUxfUFJPVklERVJfS0lORF9HRU1JTklfVEVOQU5UEAESKAokTU9ERUxfUFJPVklE'
-    'RVJfS0lORF9EQVNIU0NPUEVfVEVOQU5UEAISJQohTU9ERUxfUFJPVklERVJfS0lORF9PUEVOQU'
-    'lfVEVOQU5UEAMSIwofTU9ERUxfUFJPVklERVJfS0lORF9WT0xDX1RFTkFOVBAE');
-
-@$core.Deprecated('Use modelSourceDescriptor instead')
-const ModelSource$json = {
-  '1': 'ModelSource',
-  '2': [
-    {'1': 'MODEL_SOURCE_UNSPECIFIED', '2': 0},
-    {'1': 'MODEL_SOURCE_SYNC', '2': 1},
-    {'1': 'MODEL_SOURCE_MANUAL', '2': 2},
-  ],
-};
-
-/// Descriptor for `ModelSource`. Decode as a `google.protobuf.EnumDescriptorProto`.
-final $typed_data.Uint8List modelSourceDescriptor = $convert.base64Decode(
-    'CgtNb2RlbFNvdXJjZRIcChhNT0RFTF9TT1VSQ0VfVU5TUEVDSUZJRUQQABIVChFNT0RFTF9TT1'
-    'VSQ0VfU1lOQxABEhcKE01PREVMX1NPVVJDRV9NQU5VQUwQAg==');
-
 @$core.Deprecated('Use peerRunHistoryEntryTypeDescriptor instead')
 const PeerRunHistoryEntryType$json = {
   '1': 'PeerRunHistoryEntryType',
@@ -522,42 +473,6 @@ final $typed_data.Uint8List peerRunStatusStateDescriptor = $convert.base64Decode
     'VVNfU1RBVEVfU1RBUlRJTkcQAhIhCh1QRUVSX1JVTl9TVEFUVVNfU1RBVEVfUlVOTklORxADEi'
     'IKHlBFRVJfUlVOX1NUQVRVU19TVEFURV9TVE9QUElORxAEEh8KG1BFRVJfUlVOX1NUQVRVU19T'
     'VEFURV9FUlJPUhAF');
-
-@$core.Deprecated('Use voiceProviderKindDescriptor instead')
-const VoiceProviderKind$json = {
-  '1': 'VoiceProviderKind',
-  '2': [
-    {'1': 'VOICE_PROVIDER_KIND_UNSPECIFIED', '2': 0},
-    {'1': 'VOICE_PROVIDER_KIND_GEMINI_TENANT', '2': 1},
-    {'1': 'VOICE_PROVIDER_KIND_DASHSCOPE_TENANT', '2': 2},
-    {'1': 'VOICE_PROVIDER_KIND_OPENAI_TENANT', '2': 3},
-    {'1': 'VOICE_PROVIDER_KIND_MINIMAX_TENANT', '2': 4},
-    {'1': 'VOICE_PROVIDER_KIND_VOLC_TENANT', '2': 5},
-  ],
-};
-
-/// Descriptor for `VoiceProviderKind`. Decode as a `google.protobuf.EnumDescriptorProto`.
-final $typed_data.Uint8List voiceProviderKindDescriptor = $convert.base64Decode(
-    'ChFWb2ljZVByb3ZpZGVyS2luZBIjCh9WT0lDRV9QUk9WSURFUl9LSU5EX1VOU1BFQ0lGSUVEEA'
-    'ASJQohVk9JQ0VfUFJPVklERVJfS0lORF9HRU1JTklfVEVOQU5UEAESKAokVk9JQ0VfUFJPVklE'
-    'RVJfS0lORF9EQVNIU0NPUEVfVEVOQU5UEAISJQohVk9JQ0VfUFJPVklERVJfS0lORF9PUEVOQU'
-    'lfVEVOQU5UEAMSJgoiVk9JQ0VfUFJPVklERVJfS0lORF9NSU5JTUFYX1RFTkFOVBAEEiMKH1ZP'
-    'SUNFX1BST1ZJREVSX0tJTkRfVk9MQ19URU5BTlQQBQ==');
-
-@$core.Deprecated('Use voiceSourceDescriptor instead')
-const VoiceSource$json = {
-  '1': 'VoiceSource',
-  '2': [
-    {'1': 'VOICE_SOURCE_UNSPECIFIED', '2': 0},
-    {'1': 'VOICE_SOURCE_SYNC', '2': 1},
-    {'1': 'VOICE_SOURCE_MANUAL', '2': 2},
-  ],
-};
-
-/// Descriptor for `VoiceSource`. Decode as a `google.protobuf.EnumDescriptorProto`.
-final $typed_data.Uint8List voiceSourceDescriptor = $convert.base64Decode(
-    'CgtWb2ljZVNvdXJjZRIcChhWT0lDRV9TT1VSQ0VfVU5TUEVDSUZJRUQQABIVChFWT0lDRV9TT1'
-    'VSQ0VfU1lOQxABEhcKE1ZPSUNFX1NPVVJDRV9NQU5VQUwQAg==');
 
 @$core.Deprecated('Use volcTenantModelProviderDataApiModeDescriptor instead')
 const VolcTenantModelProviderDataApiMode$json = {
@@ -632,36 +547,3 @@ final $typed_data.Uint8List workspaceInputModeDescriptor = $convert.base64Decode
     'ChJXb3Jrc3BhY2VJbnB1dE1vZGUSJAogV09SS1NQQUNFX0lOUFVUX01PREVfVU5TUEVDSUZJRU'
     'QQABIlCiFXT1JLU1BBQ0VfSU5QVVRfTU9ERV9QVVNIX1RPX1RBTEsQARIhCh1XT1JLU1BBQ0Vf'
     'SU5QVVRfTU9ERV9SRUFMVElNRRAC');
-
-@$core.Deprecated('Use toolSourceDescriptor instead')
-const ToolSource$json = {
-  '1': 'ToolSource',
-  '2': [
-    {'1': 'TOOL_SOURCE_UNSPECIFIED', '2': 0},
-    {'1': 'TOOL_SOURCE_BUILTIN', '2': 1},
-    {'1': 'TOOL_SOURCE_DEVICE', '2': 2},
-    {'1': 'TOOL_SOURCE_ADMIN', '2': 3},
-  ],
-};
-
-/// Descriptor for `ToolSource`. Decode as a `google.protobuf.EnumDescriptorProto`.
-final $typed_data.Uint8List toolSourceDescriptor = $convert.base64Decode(
-    'CgpUb29sU291cmNlEhsKF1RPT0xfU09VUkNFX1VOU1BFQ0lGSUVEEAASFwoTVE9PTF9TT1VSQ0'
-    'VfQlVJTFRJThABEhYKElRPT0xfU09VUkNFX0RFVklDRRACEhUKEVRPT0xfU09VUkNFX0FETUlO'
-    'EAM=');
-
-@$core.Deprecated('Use toolExecutorKindDescriptor instead')
-const ToolExecutorKind$json = {
-  '1': 'ToolExecutorKind',
-  '2': [
-    {'1': 'TOOL_EXECUTOR_KIND_UNSPECIFIED', '2': 0},
-    {'1': 'TOOL_EXECUTOR_KIND_BUILTIN', '2': 1},
-    {'1': 'TOOL_EXECUTOR_KIND_DEVICE_RPC', '2': 2},
-  ],
-};
-
-/// Descriptor for `ToolExecutorKind`. Decode as a `google.protobuf.EnumDescriptorProto`.
-final $typed_data.Uint8List toolExecutorKindDescriptor = $convert.base64Decode(
-    'ChBUb29sRXhlY3V0b3JLaW5kEiIKHlRPT0xfRVhFQ1VUT1JfS0lORF9VTlNQRUNJRklFRBAAEh'
-    '4KGlRPT0xfRVhFQ1VUT1JfS0lORF9CVUlMVElOEAESIQodVE9PTF9FWEVDVVRPUl9LSU5EX0RF'
-    'VklDRV9SUEMQAg==');

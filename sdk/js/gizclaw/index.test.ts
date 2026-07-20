@@ -212,16 +212,25 @@ test("RPC payload codec round-trips pet workspace parameters", () => {
 
 test("RPC payload codec round-trips system workspace classification", () => {
   const payload = encodeRPCResponsePayload("server.workspace.get", {
-    created_at: "2026-07-16T00:00:00Z",
-    last_active_at: "2026-07-16T00:00:00Z",
-    name: "friend-chat",
-    system: true,
-    updated_at: "2026-07-16T00:00:00Z",
-    workflow_name: "chatroom",
+    runtime_profile_name: "default",
+    runtime_profile_revision: "revision-1",
+    value: {
+      created_at: "2026-07-16T00:00:00Z",
+      last_active_at: "2026-07-16T00:00:00Z",
+      name: "friend-chat",
+      system: true,
+      updated_at: "2026-07-16T00:00:00Z",
+      workflow_alias: "chatroom",
+    },
   });
 
-  const decoded = decodeRPCResponsePayload("server.workspace.get", payload) as { system?: boolean };
-  assert.equal(decoded.system, true);
+  const decoded = decodeRPCResponsePayload("server.workspace.get", payload) as {
+    runtime_profile_name?: string;
+    value?: { system?: boolean; workflow_alias?: string };
+  };
+  assert.equal(decoded.value?.system, true);
+  assert.equal(decoded.value?.workflow_alias, "chatroom");
+  assert.equal(decoded.runtime_profile_name, "default");
 });
 
 test("RPC payload codec rejects ambiguous numeric workspace discriminators", () => {
@@ -240,69 +249,15 @@ test("RPC payload codec rejects ambiguous numeric workspace discriminators", () 
   );
 });
 
-test("RPC payload codec maps numeric provider discriminators", () => {
-  const payload = encodeRPCRequestPayload("server.model.create", {
-    created_at: "now",
-    id: "model-1",
-    kind: "llm",
-    name: "model",
-    provider: {
-      kind: 1,
-      name: "gemini",
-    },
-    provider_data: {
-      upstream_model: "gemini-2",
-    },
-    source: "manual",
-    updated_at: "now",
-  });
-
-  const decoded = decodeRPCRequestPayload("server.model.create", payload) as {
-    provider?: { kind?: string };
-    provider_data?: { upstream_model?: string };
-  };
-
-  assert.equal(decoded.provider?.kind, "gemini-tenant");
-  assert.equal(decoded.provider_data?.upstream_model, "gemini-2");
-});
-
-test("RPC payload codec rejects ambiguous oneof payloads", () => {
-  assert.throws(
-    () => encodeRPCRequestPayload("server.credential.create", {
-      body: {
-        unknown: true,
-      },
-      created_at: "now",
-      name: "cred",
-      provider: "unknown",
-      updated_at: "now",
-    }),
-    /no protobuf oneof candidate for CredentialBody/,
-  );
-});
-
-test("RPC payload codec preserves service-owned Volc credentials", () => {
-  const body = {
-    speech_api_key: "speech-key",
-    speech_app_id: "speech-app",
-    openapi_access_key: "openapi-secret",
-    openapi_access_key_id: "openapi-id",
-    search_api_key: "search-key",
-    ark_api_key: "ark-key",
-  };
-  const payload = encodeRPCRequestPayload("server.credential.create", {
-    body,
-    created_at: "now",
-    name: "volc-main",
-    provider: "volc",
-    updated_at: "now",
-  });
-
-  const decoded = decodeRPCRequestPayload("server.credential.create", payload) as {
-    body?: Record<string, string>;
-  };
-
-  assert.deepEqual(decoded.body, body);
+test("RPC payload codec excludes peer resource mutation methods", () => {
+  for (const method of [
+    "server.workflow.create",
+    "server.model.create",
+    "server.credential.create",
+    "server.tool.create",
+  ]) {
+    assert.throws(() => encodeRPCRequestPayload(method, {}), new RegExp(`unknown RPC method: ${method.replaceAll(".", "\\.")}`));
+  }
 });
 
 test("RPC method map preserves generated payload types", () => {
@@ -322,6 +277,8 @@ test("RPC payload codec decodes omitted proto3 defaults", () => {
   assert.deepEqual(decodeRPCResponsePayload("server.workspace.list", new Uint8Array()), {
     has_next: false,
     items: [],
+    runtime_profile_name: "",
+    runtime_profile_revision: "",
   });
 });
 
@@ -332,32 +289,25 @@ test("RPC payload codec preserves Tool invocation JSON strings", () => {
   assert.deepEqual(decodeRPCResponsePayload("client.tool.invoke", payload), value);
 });
 
-test("RPC payload codec preserves optional JSON schema field absence", () => {
-  const payload = encodeRPCResponsePayload("server.workflow.get", {
-    name: "doubao",
-    spec: {
-      driver: "doubao-realtime",
-      doubao_realtime: {
-        model: "realtime",
-        tools: [
-          {
-            type: "function",
-            name: "lookup",
-            parameters: {
-              type: "string",
-              additionalProperties: false,
-              minLength: 1,
-            },
-          },
-        ],
+test("RPC payload codec preserves safe Tool JSON schema fields", () => {
+  const payload = encodeRPCResponsePayload("server.tool.get", {
+    runtime_profile_name: "default",
+    runtime_profile_revision: "revision-1",
+    value: {
+      alias: "lookup",
+      i18n: {},
+      input_schema: {
+        type: "string",
+        additionalProperties: false,
+        minLength: 1,
       },
     },
   });
 
-  const decoded = decodeRPCResponsePayload("server.workflow.get", payload) as {
-    spec?: { doubao_realtime?: { tools?: Array<{ parameters?: Record<string, unknown> }> } };
+  const decoded = decodeRPCResponsePayload("server.tool.get", payload) as {
+    value?: { input_schema?: Record<string, unknown> };
   };
-  const parameters = decoded.spec?.doubao_realtime?.tools?.[0]?.parameters;
+  const parameters = decoded.value?.input_schema;
 
   assert.equal(parameters?.additionalProperties, false);
   assert.equal(parameters?.minLength, 1);
@@ -367,37 +317,36 @@ test("RPC payload codec preserves optional JSON schema field absence", () => {
   assert.equal(Object.prototype.hasOwnProperty.call(parameters ?? {}, "anyOf"), false);
 });
 
-test("RPC payload codec preserves workflow ownership metadata", () => {
+test("RPC payload codec exposes only runtime workflow aliases", () => {
   const workflow = {
-    name: "assistant",
-    owner_public_key: "peer-a",
-    spec: { driver: "flowcraft" },
+    runtime_profile_name: "default",
+    runtime_profile_revision: "revision-1",
+    value: {
+      alias: "assistant",
+      collection: "assistants",
+      driver: "doubao-realtime",
+      i18n: {
+        en: { display_name: "Assistant" },
+      },
+    },
   };
   const payload = encodeRPCResponsePayload("server.workflow.get", workflow);
-  const decoded = decodeRPCResponsePayload("server.workflow.get", payload) as typeof workflow;
+  const decoded = decodeRPCResponsePayload("server.workflow.get", payload) as {
+    value?: { alias?: string; collection?: string; owner_public_key?: string; spec?: unknown };
+  };
 
-  assert.equal(decoded.owner_public_key, workflow.owner_public_key);
+  assert.equal(decoded.value?.alias, "assistant");
+  assert.equal(decoded.value?.collection, "assistants");
+  assert.equal(decoded.value?.owner_public_key, undefined);
+  assert.equal(decoded.value?.spec, undefined);
 });
 
-test("RPC payload codec preserves the workflow source enum", () => {
+test("RPC payload codec addresses workflows by globally unique alias", () => {
   const payload = encodeRPCRequestPayload("server.workflow.get", {
-    name: "assistant",
-	  source: "runtime",
+    alias: "assistant",
   });
   assert.deepEqual(decodeRPCRequestPayload("server.workflow.get", payload), {
-    name: "assistant",
-	  source: "runtime",
-  });
-});
-
-test("RPC payload codec emits unspecified when workflow source is omitted", () => {
-  const payload = encodeRPCRequestPayload("server.workflow.get", {
-    name: "assistant",
-  });
-
-  assert.deepEqual(decodeRPCRequestPayload("server.workflow.get", payload), {
-    name: "assistant",
-	  source: "",
+    alias: "assistant",
   });
 });
 
@@ -516,6 +465,82 @@ test("WebRTCRPCClient reads metadata plus binary response frames", async () => {
     workspace_name: "",
   });
   assert.deepEqual(result.body, new Uint8Array([1, 2, 3, 4, 5]));
+  assert.equal(channel.closed, true);
+});
+
+test("WebRTCRPCClient streams transcription audio before request EOS", async () => {
+  const pc = new FakePeerConnection();
+  const client = new WebRTCRPCClient(pc, { createID: () => "speech-transcribe" });
+  let releaseUpload!: () => void;
+  const uploadGate = new Promise<void>((resolve) => {
+    releaseUpload = resolve;
+  });
+  async function* audio(): AsyncIterable<Uint8Array> {
+    yield new Uint8Array([1, 2]);
+    await uploadGate;
+    yield new Uint8Array([3, 4]);
+  }
+
+  const promise = client.transcribeSpeech({
+    model_alias: "asr-main",
+    content_type: "audio/L16;rate=16000;channels=1",
+  }, audio());
+  const channel = pc.lastChannel();
+  channel.open();
+  await channel.waitForSentCount(2);
+
+  assert.equal(decodeFrames(channel.sent[0] ?? new ArrayBuffer(0))[0]?.type, RPC_FRAME_TYPE_BINARY);
+  assert.deepEqual(decodeFrames(channel.sent[1] ?? new ArrayBuffer(0)), [
+    { payload: new Uint8Array([1, 2]), type: RPC_FRAME_TYPE_BINARY },
+  ]);
+  assert.equal(channel.sent.some((message) => decodeFrames(message)[0]?.type === RPC_FRAME_TYPE_EOS), false);
+
+  releaseUpload();
+  await channel.waitForSentCount(4);
+  assert.equal(decodeFrames(channel.sent[3] ?? new ArrayBuffer(0))[0]?.type, RPC_FRAME_TYPE_EOS);
+  channel.receive(encodeRPCResponse({
+    id: "speech-transcribe",
+    result: { transcript: "hello" },
+    v: 1,
+  }, "server.speech.transcribe"));
+
+  assert.deepEqual(await promise, { transcript: "hello" });
+  assert.equal(channel.closed, true);
+});
+
+test("WebRTCRPCClient exposes synthesized audio before response EOS", async () => {
+  const pc = new FakePeerConnection();
+  const client = new WebRTCRPCClient(pc, { createID: () => "speech-synthesize" });
+  const promise = client.synthesizeSpeech({
+    voice_alias: "narrator",
+    text: "hello",
+    accepted_content_types: ["audio/pcm"],
+  });
+  const channel = pc.lastChannel();
+  channel.open();
+  await channel.waitForSent();
+
+  channel.receive(encodeRPCResponse({
+    id: "speech-synthesize",
+    result: { content_type: "audio/pcm", sample_rate_hz: 16000, channels: 1 },
+    v: 1,
+  }, "server.speech.synthesize").slice(0, -4));
+  channel.receive(encodeFrame(RPC_FRAME_TYPE_BINARY, new Uint8Array([1, 2])));
+
+  const result = await promise;
+  assert.deepEqual(result.result, {
+    channels: 1,
+    content_type: "audio/pcm",
+    sample_rate_hz: 16000,
+  });
+  const iterator = result.body[Symbol.asyncIterator]();
+  assert.deepEqual(await iterator.next(), { done: false, value: new Uint8Array([1, 2]) });
+  assert.equal(channel.closed, false);
+
+  channel.receive(encodeFrame(RPC_FRAME_TYPE_BINARY, new Uint8Array([3, 4])));
+  channel.receive(encodeFrame(RPC_FRAME_TYPE_EOS));
+  assert.deepEqual(await iterator.next(), { done: false, value: new Uint8Array([3, 4]) });
+  assert.deepEqual(await iterator.next(), { done: true, value: undefined });
   assert.equal(channel.closed, true);
 });
 

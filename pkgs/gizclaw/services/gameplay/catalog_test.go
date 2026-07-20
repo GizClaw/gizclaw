@@ -166,23 +166,29 @@ func seedGameplayCatalog(t *testing.T, ctx context.Context, catalog *Catalog) ap
 	requireResponse[adminhttp.CreateGameDef200JSONResponse](t, gameResp)
 	initialBalance, adoptionCost, points, gameExp := int64(50), int64(15), int64(30), int64(20)
 	badgeDelta := map[string]int64{"basic": 100}
-	petDefs := map[string]string{"basic": "petdef-basic"}
-	gameDefs := map[string]string{"basic": "game-basic"}
-	badgeDefs := map[string]string{"basic": "badge-basic"}
+	petDefs := map[string]apitypes.RuntimeProfileBinding{"basic": gameplayTestBinding("petdef-basic")}
+	gameDefs := map[string]apitypes.RuntimeProfileBinding{"basic": gameplayTestBinding("game-basic")}
+	badgeDefs := map[string]apitypes.RuntimeProfileBinding{"basic": gameplayTestBinding("badge-basic")}
 	pool := []apitypes.RuntimeProfilePetPoolEntry{{PetDef: "basic", Weight: 10, AdoptionCost: &adoptionCost}}
 	return apitypes.RuntimeProfile{
 		Name: "default",
 		Spec: apitypes.RuntimeProfileSpec{
 			Resources: apitypes.RuntimeProfileResources{PetDefs: &petDefs, GameDefs: &gameDefs, BadgeDefs: &badgeDefs},
 			Gameplay: &apitypes.RuntimeProfileGameplaySpec{
-				Points:  &apitypes.RuntimeProfilePointsSpec{InitialBalance: &initialBalance},
-				PetPool: &pool,
-				Drive: &apitypes.RuntimeProfileDriveSpec{GameRewards: &map[string]apitypes.RuntimeProfileRewardSpec{
+				Points:   &apitypes.RuntimeProfilePointsSpec{InitialBalance: &initialBalance},
+				Adoption: &apitypes.RuntimeProfileAdoptionSpec{Pool: &pool},
+				Rewards: &apitypes.RuntimeProfileDriveSpec{Games: &map[string]apitypes.RuntimeProfileRewardSpec{
 					"basic": {PointsDelta: &points, PetExpDelta: &gameExp, BadgeExpDelta: &badgeDelta},
 				}},
 			},
 		},
 	}
+}
+
+func gameplayTestBinding(resourceID string) apitypes.RuntimeProfileBinding {
+	return apitypes.RuntimeProfileBinding{ResourceId: resourceID, I18n: map[string]apitypes.RuntimeProfileI18nText{
+		"en": {DisplayName: resourceID}, "zh-CN": {DisplayName: resourceID},
+	}}
 }
 
 func testPetDefI18n(displayName string) apitypes.PetDefI18nSpec {

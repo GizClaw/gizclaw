@@ -4,59 +4,166 @@ kind: RuntimeProfile
 metadata:
   name: default
 spec:
+  workflows:
+    collections:
+      assistants:
+        doubao-realtime:
+          resource_id: doubao-realtime-conversation
+          i18n:
+            en: {display_name: Doubao Assistant}
+            zh-CN: {display_name: 豆包助手}
+        chat:
+          resource_id: flowcraft-chat-assistant
+          i18n:
+            en: {display_name: Chat Assistant}
+            zh-CN: {display_name: 聊天助手}
+      translates:
+        translate-zh-en-auto:
+          resource_id: ast-translate-zh-en-auto
+          i18n:
+            en: {display_name: Chinese and English}
+            zh-CN: {display_name: 中英翻译}
+        translate-zh-ja:
+          resource_id: ast-translate-zh-ja
+          i18n:
+            en: {display_name: Chinese and Japanese}
+            zh-CN: {display_name: 中日翻译}
+        translate-zh-ko:
+          resource_id: ast-translate-zh-ko
+          i18n:
+            en: {display_name: Chinese and Korean}
+            zh-CN: {display_name: 中韩翻译}
+        translate-zh-es:
+          resource_id: ast-translate-zh-es
+          i18n:
+            en: {display_name: Chinese and Spanish}
+            zh-CN: {display_name: 中西翻译}
+      raids:
+        murder-mystery:
+          resource_id: flowcraft-murder-mystery
+          i18n:
+            en: {display_name: Murder Mystery}
+            zh-CN: {display_name: 雨夜惊魂}
+      story-teller:
+        journey:
+          resource_id: flowcraft-journey-guide
+          i18n:
+            en: {display_name: Journey to the West}
+            zh-CN: {display_name: 西游记}
+      role-play: {}
   resources:
-    workflows:
-      translate-zh-en-auto: ast-translate-zh-en-auto
-      translate-zh-ja: ast-translate-zh-ja
-      translate-zh-ko: ast-translate-zh-ko
-      translate-zh-es: ast-translate-zh-es
-      ast-translate-zh-en-auto: ast-translate-zh-en-auto
-      ast-translate-zh-ja: ast-translate-zh-ja
-      ast-translate-zh-ko: ast-translate-zh-ko
-      ast-translate-zh-es: ast-translate-zh-es
-      doubao-realtime: doubao-realtime-conversation
-      chat: flowcraft-chat-assistant
-      journey: flowcraft-journey-guide
-      murder-mystery: flowcraft-murder-mystery
-      chatroom: chatroom
     models:
-      tts: volc-bigtts
-      asr: volc-bigasr-sauc
-      realtime: doubao-realtime-dialog
-      translate: volc-ast-translate
-      deepseek-flash: deepseek-v4-flash
-      deepseek-pro: deepseek-v4-pro
-      minimax: minimax-cn-m3
-      doubao-lite: doubao-seed-2-0-lite
-      vision-embedding: doubao-embedding-vision
-      text-embedding: qwen3.7-text-embedding
+      asr-model:
+        resource_id: volc-bigasr-sauc
+        i18n:
+          en: {display_name: Speech Recognition}
+          zh-CN: {display_name: 语音识别}
+      realtime-model:
+        resource_id: doubao-realtime-dialog
+        i18n:
+          en: {display_name: Realtime Conversation}
+          zh-CN: {display_name: 实时对话}
+      translation-model:
+        resource_id: volc-ast-translate
+        i18n:
+          en: {display_name: Translation Model}
+          zh-CN: {display_name: 翻译模型}
+      generate-model:
+        resource_id: doubao-seed-2-0-lite
+        i18n:
+          en: {display_name: Generate Model}
+          zh-CN: {display_name: 生成模型}
+      extract-model:
+        resource_id: deepseek-v4-flash
+        i18n:
+          en: {display_name: Extract Model}
+          zh-CN: {display_name: 提取模型}
+      deepseek-pro:
+        resource_id: deepseek-v4-pro
+        i18n:
+          en: {display_name: DeepSeek Pro}
+          zh-CN: {display_name: DeepSeek 专业}
+      minimax:
+        resource_id: minimax-cn-m3
+        i18n:
+          en: {display_name: MiniMax M3}
+          zh-CN: {display_name: MiniMax M3}
+      vision-embedding:
+        resource_id: doubao-embedding-vision
+        i18n:
+          en: {display_name: Vision Embedding}
+          zh-CN: {display_name: 视觉向量}
+      embedding-model:
+        resource_id: qwen3.7-text-embedding
+        i18n:
+          en: {display_name: Text Embedding}
+          zh-CN: {display_name: 文本向量}
     voices:
-      assistant: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
-      pet: volc-tenant:volc-main:zh_male_sunwukong_mars_bigtts
+      doubao-assistant:
+        resource_id: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
+        i18n:
+          en: {display_name: Doubao Assistant}
+          zh-CN: {display_name: 豆包助手}
+      general-assistant:
+        resource_id: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
+        i18n:
+          en: {display_name: General Assistant}
+          zh-CN: {display_name: 通用助手}
+      translator:
+        resource_id: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
+        i18n:
+          en: {display_name: Translator}
+          zh-CN: {display_name: 翻译员}
+      narrator:
+        resource_id: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
+        i18n:
+          en: {display_name: Narrator}
+          zh-CN: {display_name: 旁白}
+      game-master:
+        resource_id: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
+        i18n:
+          en: {display_name: Game Master}
+          zh-CN: {display_name: 游戏主持人}
+      detective:
+        resource_id: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
+        i18n:
+          en: {display_name: Detective}
+          zh-CN: {display_name: 侦探}
+      police-officer:
+        resource_id: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
+        i18n:
+          en: {display_name: Police Officer}
+          zh-CN: {display_name: 警察}
+      sun-wukong:
+        resource_id: volc-tenant:volc-main:zh_male_sunwukong_mars_bigtts
+        i18n:
+          en: {display_name: Sun Wukong}
+          zh-CN: {display_name: 孙悟空}
     pet_defs:
-      bsod: petdef-bsod
-      codex: petdef-codex
-      dewey: petdef-dewey
-      fireball: petdef-fireball
-      hoots: petdef-hoots
-      null-signal: petdef-null-signal
-      rocky: petdef-rocky
-      seedy: petdef-seedy
-      stacky: petdef-stacky
+      bsod: {resource_id: petdef-bsod, i18n: {en: {display_name: BSOD}, zh-CN: {display_name: 蓝屏}}}
+      codex: {resource_id: petdef-codex, i18n: {en: {display_name: Codex}, zh-CN: {display_name: Codex}}}
+      dewey: {resource_id: petdef-dewey, i18n: {en: {display_name: Dewey}, zh-CN: {display_name: 杜威}}}
+      fireball: {resource_id: petdef-fireball, i18n: {en: {display_name: Fireball}, zh-CN: {display_name: 火球}}}
+      hoots: {resource_id: petdef-hoots, i18n: {en: {display_name: Hoots}, zh-CN: {display_name: 呼呼}}}
+      null-signal: {resource_id: petdef-null-signal, i18n: {en: {display_name: Null Signal}, zh-CN: {display_name: 空信号}}}
+      rocky: {resource_id: petdef-rocky, i18n: {en: {display_name: Rocky}, zh-CN: {display_name: 洛奇}}}
+      seedy: {resource_id: petdef-seedy, i18n: {en: {display_name: Seedy}, zh-CN: {display_name: 种子}}}
+      stacky: {resource_id: petdef-stacky, i18n: {en: {display_name: Stacky}, zh-CN: {display_name: 栈栈}}}
   gameplay:
     points:
       initial_balance: 100
-    drive:
-      default_reward:
+    adoption:
+      pool:
+        - {pet_def: bsod, weight: 100, rarity: common, adoption_cost: 10}
+        - {pet_def: codex, weight: 100, rarity: common, adoption_cost: 10}
+        - {pet_def: dewey, weight: 100, rarity: common, adoption_cost: 10}
+        - {pet_def: fireball, weight: 100, rarity: common, adoption_cost: 10}
+        - {pet_def: hoots, weight: 100, rarity: common, adoption_cost: 10}
+        - {pet_def: null-signal, weight: 100, rarity: common, adoption_cost: 10}
+        - {pet_def: rocky, weight: 100, rarity: common, adoption_cost: 10}
+        - {pet_def: seedy, weight: 100, rarity: common, adoption_cost: 10}
+        - {pet_def: stacky, weight: 100, rarity: common, adoption_cost: 10}
+    rewards:
+      default:
         points_delta: 5
         pet_exp_delta: 3
-    pet_pool:
-      - {pet_def: bsod, weight: 100, rarity: common, adoption_cost: 10}
-      - {pet_def: codex, weight: 100, rarity: common, adoption_cost: 10}
-      - {pet_def: dewey, weight: 100, rarity: common, adoption_cost: 10}
-      - {pet_def: fireball, weight: 100, rarity: common, adoption_cost: 10}
-      - {pet_def: hoots, weight: 100, rarity: common, adoption_cost: 10}
-      - {pet_def: null-signal, weight: 100, rarity: common, adoption_cost: 10}
-      - {pet_def: rocky, weight: 100, rarity: common, adoption_cost: 10}
-      - {pet_def: seedy, weight: 100, rarity: common, adoption_cost: 10}
-      - {pet_def: stacky, weight: 100, rarity: common, adoption_cost: 10}

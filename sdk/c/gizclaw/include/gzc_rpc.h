@@ -32,6 +32,12 @@ typedef struct {
 } gzc_rpc_response_t;
 
 typedef int (*gzc_rpc_frame_cb)(void *userdata, const gzc_rpc_frame_t *frame);
+typedef int (*gzc_rpc_speech_audio_cb)(
+    void *userdata,
+    const uint8_t *data,
+    size_t len);
+
+typedef struct gzc_rpc_speech_upload gzc_rpc_speech_upload_t;
 
 int gzc_rpc_encode_request_envelope(
     const gzc_platform_t *platform,
@@ -54,6 +60,30 @@ int gzc_rpc_call_stream(
     gzc_rpc_frame_cb on_frame,
     void *userdata);
 int gzc_rpc_send_frame(gzc_client_t *client, const gzc_rpc_frame_t *frame);
+/* Opens an incremental transcription upload on a dedicated Peer RPC stream. */
+int gzc_rpc_speech_transcribe_open(
+    gzc_client_t *client,
+    const gizclaw_rpc_v1_SpeechTranscribeRequest *request,
+    gzc_rpc_speech_upload_t **out_upload);
+int gzc_rpc_speech_transcribe_write(
+    gzc_rpc_speech_upload_t *upload,
+    const uint8_t *data,
+    size_t len);
+/* Sends request EOS, reads the typed response and consumes upload. */
+int gzc_rpc_speech_transcribe_finish(
+    gzc_rpc_speech_upload_t *upload,
+    gizclaw_rpc_v1_SpeechTranscribeResponse *out_response,
+    gzc_rpc_error_t *out_error);
+void gzc_rpc_speech_transcribe_cancel(gzc_rpc_speech_upload_t *upload);
+
+/* Streams synthesis frames to on_audio after decoding response metadata. */
+int gzc_rpc_speech_synthesize(
+    gzc_client_t *client,
+    const gizclaw_rpc_v1_SpeechSynthesizeRequest *request,
+    gizclaw_rpc_v1_SpeechSynthesizeResponse *out_metadata,
+    gzc_rpc_speech_audio_cb on_audio,
+    void *userdata,
+    gzc_rpc_error_t *out_error);
 void gzc_rpc_response_free(gzc_client_t *client, gzc_rpc_response_t *response);
 
 #ifdef __cplusplus

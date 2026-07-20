@@ -14,7 +14,7 @@ spec:
   character:
     prompt: A small cream robot with a green seed emblem and a living sprout growing from its head, with a hopeful nurturing personality.
   voice:
-    voice_id: volc-tenant:volc-main:zh_male_sunwukong_mars_bigtts
+    voice_id: sun-wukong
     prompt: Gentle, hopeful, concise replies with patient growing energy.
   drive:
     actions:

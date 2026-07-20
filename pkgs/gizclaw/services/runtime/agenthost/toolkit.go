@@ -40,7 +40,7 @@ func (c *ToolkitContext) Invoke(ctx context.Context, callID, name string, args j
 func (c *ToolkitContext) requestForContext(ctx context.Context) toolkit.BuildRequest {
 	req := c.BuildRequest
 	if access, ok := resourceAccessFromContext(ctx); ok {
-		req.OwnerPublicKey = access.ownerPublicKey
+		req.CallerPublicKey = access.ownerPublicKey
 		req.ProfileToolIDs = append([]string(nil), access.profileToolIDs...)
 	}
 	return req

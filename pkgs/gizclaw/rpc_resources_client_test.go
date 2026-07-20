@@ -71,35 +71,3 @@ func (c *rpcClient) ListModels(ctx context.Context, conn net.Conn, id string, re
 func (c *rpcClient) GetModel(ctx context.Context, conn net.Conn, id string, request rpcapi.ModelGetRequest) (*rpcapi.ModelGetResponse, error) {
 	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerModelGet, request, (*rpcapi.RPCPayload).FromModelGetRequest, rpcapi.RPCPayload.AsModelGetResponse, "model get")
 }
-
-func (c *rpcClient) CreateModel(ctx context.Context, conn net.Conn, id string, request rpcapi.ModelCreateRequest) (*rpcapi.ModelCreateResponse, error) {
-	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerModelCreate, request, (*rpcapi.RPCPayload).FromModelCreateRequest, rpcapi.RPCPayload.AsModelCreateResponse, "model create")
-}
-
-func (c *rpcClient) PutModel(ctx context.Context, conn net.Conn, id string, request rpcapi.ModelPutRequest) (*rpcapi.ModelPutResponse, error) {
-	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerModelPut, request, (*rpcapi.RPCPayload).FromModelPutRequest, rpcapi.RPCPayload.AsModelPutResponse, "model put")
-}
-
-func (c *rpcClient) DeleteModel(ctx context.Context, conn net.Conn, id string, request rpcapi.ModelDeleteRequest) (*rpcapi.ModelDeleteResponse, error) {
-	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerModelDelete, request, (*rpcapi.RPCPayload).FromModelDeleteRequest, rpcapi.RPCPayload.AsModelDeleteResponse, "model delete")
-}
-
-func (c *rpcClient) ListCredentials(ctx context.Context, conn net.Conn, id string, request rpcapi.CredentialListRequest) (*rpcapi.CredentialListResponse, error) {
-	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerCredentialList, request, (*rpcapi.RPCPayload).FromCredentialListRequest, rpcapi.RPCPayload.AsCredentialListResponse, "credential list")
-}
-
-func (c *rpcClient) GetCredential(ctx context.Context, conn net.Conn, id string, request rpcapi.CredentialGetRequest) (*rpcapi.CredentialGetResponse, error) {
-	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerCredentialGet, request, (*rpcapi.RPCPayload).FromCredentialGetRequest, rpcapi.RPCPayload.AsCredentialGetResponse, "credential get")
-}
-
-func (c *rpcClient) CreateCredential(ctx context.Context, conn net.Conn, id string, request rpcapi.CredentialCreateRequest) (*rpcapi.CredentialCreateResponse, error) {
-	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerCredentialCreate, request, (*rpcapi.RPCPayload).FromCredentialCreateRequest, rpcapi.RPCPayload.AsCredentialCreateResponse, "credential create")
-}
-
-func (c *rpcClient) PutCredential(ctx context.Context, conn net.Conn, id string, request rpcapi.CredentialPutRequest) (*rpcapi.CredentialPutResponse, error) {
-	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerCredentialPut, request, (*rpcapi.RPCPayload).FromCredentialPutRequest, rpcapi.RPCPayload.AsCredentialPutResponse, "credential put")
-}
-
-func (c *rpcClient) DeleteCredential(ctx context.Context, conn net.Conn, id string, request rpcapi.CredentialDeleteRequest) (*rpcapi.CredentialDeleteResponse, error) {
-	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerCredentialDelete, request, (*rpcapi.RPCPayload).FromCredentialDeleteRequest, rpcapi.RPCPayload.AsCredentialDeleteResponse, "credential delete")
-}

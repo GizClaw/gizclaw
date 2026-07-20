@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -34,12 +35,15 @@ const (
 	tokenAttempts    = 8
 )
 
+var runtimeAliasPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
+
 // Server owns RuntimeProfile and RegistrationToken state.
 type Server struct {
-	Store      kv.Store
-	Now        func() time.Time
-	Random     io.Reader
-	mutationMu sync.Mutex
+	Store           kv.Store
+	Now             func() time.Time
+	Random          io.Reader
+	ResolveResource func(context.Context, apitypes.ResourceKind, string) (apitypes.Resource, error)
+	mutationMu      sync.Mutex
 }
 
 type AdminService interface {
@@ -60,6 +64,16 @@ var _ AdminService = (*Server)(nil)
 type Registration struct {
 	TokenName      string
 	RuntimeProfile apitypes.RuntimeProfile
+}
+
+// ResolveProfile returns the current persisted revision for a profile name.
+// Registrations pin the name, not a configuration snapshot.
+func (s *Server) ResolveProfile(ctx context.Context, name string) (apitypes.RuntimeProfile, error) {
+	store, err := s.store()
+	if err != nil {
+		return apitypes.RuntimeProfile{}, err
+	}
+	return GetProfile(ctx, store, strings.TrimSpace(name))
 }
 
 type tokenRecord struct {
@@ -115,6 +129,9 @@ func (s *Server) CreateRuntimeProfile(ctx context.Context, request adminhttp.Cre
 	if err != nil {
 		return adminhttp.CreateRuntimeProfile400JSONResponse(invalid(err.Error())), nil
 	}
+	if err := s.validateResources(ctx, item.Spec); err != nil {
+		return adminhttp.CreateRuntimeProfile400JSONResponse(invalid(err.Error())), nil
+	}
 	s.mutationMu.Lock()
 	defer s.mutationMu.Unlock()
 	if _, err := GetProfile(ctx, store, item.Name); err == nil {
@@ -163,6 +180,9 @@ func (s *Server) PutRuntimeProfile(ctx context.Context, request adminhttp.PutRun
 	}
 	item, err := normalizeProfile(*request.Body, name)
 	if err != nil {
+		return adminhttp.PutRuntimeProfile400JSONResponse(invalid(err.Error())), nil
+	}
+	if err := s.validateResources(ctx, item.Spec); err != nil {
 		return adminhttp.PutRuntimeProfile400JSONResponse(invalid(err.Error())), nil
 	}
 	s.mutationMu.Lock()
@@ -317,10 +337,16 @@ func GetProfile(ctx context.Context, store kv.Store, name string) (apitypes.Runt
 	if err := json.Unmarshal(data, &item); err != nil {
 		return apitypes.RuntimeProfile{}, fmt.Errorf("runtime profile: decode %s: %w", name, err)
 	}
+	if err := setProfileRevision(&item); err != nil {
+		return apitypes.RuntimeProfile{}, fmt.Errorf("runtime profile: revision %s: %w", name, err)
+	}
 	return item, nil
 }
 
 func writeProfile(ctx context.Context, store kv.Store, item apitypes.RuntimeProfile) error {
+	if err := setProfileRevision(&item); err != nil {
+		return err
+	}
 	data, err := json.Marshal(item)
 	if err != nil {
 		return err
@@ -349,38 +375,365 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedName string) (a
 		return apitypes.RuntimeProfile{}, fmt.Errorf("name %q must match path name %q", name, expectedName)
 	}
 	spec := in.Spec
-	for _, resourceMap := range []*map[string]string{spec.Resources.Workflows, spec.Resources.Models, spec.Resources.Voices, spec.Resources.Tools, spec.Resources.PetDefs, spec.Resources.GameDefs, spec.Resources.BadgeDefs} {
-		if resourceMap == nil {
+	allAliases := make(map[string]string)
+	workflowAliases := make(map[string]string)
+	collections := make(apitypes.RuntimeProfileWorkflowCollections, len(spec.Workflows.Collections))
+	for collection, bindings := range spec.Workflows.Collections {
+		collection = strings.TrimSpace(collection)
+		if err := validateRuntimeAlias("workflow collection", collection); err != nil {
+			return apitypes.RuntimeProfile{}, err
+		}
+		normalized, err := normalizeBindingMap(bindings)
+		if err != nil {
+			return apitypes.RuntimeProfile{}, fmt.Errorf("workflows.collections.%s: %w", collection, err)
+		}
+		for alias := range normalized {
+			if previous, exists := workflowAliases[alias]; exists {
+				return apitypes.RuntimeProfile{}, fmt.Errorf("workflow alias %q is duplicated in collections %q and %q", alias, previous, collection)
+			}
+			workflowAliases[alias] = collection
+			if err := registerProfileAlias(allAliases, alias, "workflow"); err != nil {
+				return apitypes.RuntimeProfile{}, err
+			}
+		}
+		collections[collection] = normalized
+	}
+	spec.Workflows.Collections = collections
+	resourceMaps := []struct {
+		name   string
+		values *map[string]apitypes.RuntimeProfileBinding
+	}{
+		{name: "model", values: spec.Resources.Models},
+		{name: "voice", values: spec.Resources.Voices},
+		{name: "tool", values: spec.Resources.Tools},
+		{name: "pet definition", values: spec.Resources.PetDefs},
+		{name: "game definition", values: spec.Resources.GameDefs},
+		{name: "badge definition", values: spec.Resources.BadgeDefs},
+	}
+	for _, resourceMap := range resourceMaps {
+		if resourceMap.values == nil {
 			continue
 		}
-		normalized, err := normalizeResourceMap(*resourceMap)
+		normalized, err := normalizeBindingMap(*resourceMap.values)
 		if err != nil {
 			return apitypes.RuntimeProfile{}, err
 		}
-		*resourceMap = normalized
+		for alias := range normalized {
+			if err := registerProfileAlias(allAliases, alias, resourceMap.name); err != nil {
+				return apitypes.RuntimeProfile{}, err
+			}
+		}
+		*resourceMap.values = normalized
 	}
-	if spec.Gameplay != nil && spec.Gameplay.PetPool != nil {
-		for i := range *spec.Gameplay.PetPool {
-			entry := &(*spec.Gameplay.PetPool)[i]
+	if spec.Gameplay != nil && spec.Gameplay.Points != nil && spec.Gameplay.Points.InitialBalance != nil && *spec.Gameplay.Points.InitialBalance < 0 {
+		return apitypes.RuntimeProfile{}, errors.New("gameplay.points.initial_balance must not be negative")
+	}
+	if spec.Gameplay != nil && spec.Gameplay.Adoption != nil && spec.Gameplay.Adoption.Pool != nil {
+		for i := range *spec.Gameplay.Adoption.Pool {
+			entry := &(*spec.Gameplay.Adoption.Pool)[i]
 			entry.PetDef = strings.TrimSpace(entry.PetDef)
 			if entry.PetDef == "" || entry.Weight <= 0 {
-				return apitypes.RuntimeProfile{}, fmt.Errorf("gameplay.pet_pool[%d] requires pet_def and positive weight", i)
+				return apitypes.RuntimeProfile{}, fmt.Errorf("gameplay.adoption.pool[%d] requires pet_def and positive weight", i)
+			}
+			if entry.AdoptionCost != nil && *entry.AdoptionCost < 0 {
+				return apitypes.RuntimeProfile{}, fmt.Errorf("gameplay.adoption.pool[%d].adoption_cost must not be negative", i)
+			}
+			if _, ok := bindingByAlias(spec.Resources.PetDefs, entry.PetDef); !ok {
+				return apitypes.RuntimeProfile{}, fmt.Errorf("gameplay.adoption.pool[%d].pet_def %q is not declared in resources.pet_defs", i, entry.PetDef)
 			}
 		}
 	}
-	if spec.Gameplay != nil && spec.Gameplay.Drive != nil {
-		if err := normalizeRewardAliases(spec.Gameplay.Drive.DefaultReward); err != nil {
-			return apitypes.RuntimeProfile{}, fmt.Errorf("gameplay.drive.default_reward: %w", err)
+	if spec.Gameplay != nil && spec.Gameplay.Rewards != nil {
+		if err := normalizeRewardAliases(spec.Gameplay.Rewards.Default); err != nil {
+			return apitypes.RuntimeProfile{}, fmt.Errorf("gameplay.rewards.default: %w", err)
 		}
-		if spec.Gameplay.Drive.GameRewards != nil {
-			normalized, err := normalizeGameRewards(*spec.Gameplay.Drive.GameRewards)
+		if spec.Gameplay.Rewards.Games != nil {
+			normalized, err := normalizeGameRewards(*spec.Gameplay.Rewards.Games)
 			if err != nil {
-				return apitypes.RuntimeProfile{}, fmt.Errorf("gameplay.drive.game_rewards: %w", err)
+				return apitypes.RuntimeProfile{}, fmt.Errorf("gameplay.rewards.games: %w", err)
 			}
-			*spec.Gameplay.Drive.GameRewards = normalized
+			*spec.Gameplay.Rewards.Games = normalized
+			for alias := range normalized {
+				if _, ok := bindingByAlias(spec.Resources.GameDefs, alias); !ok {
+					return apitypes.RuntimeProfile{}, fmt.Errorf("gameplay.rewards.games.%s is not declared in resources.game_defs", alias)
+				}
+			}
+		}
+		if spec.Gameplay.Rewards.PetActions != nil {
+			normalized, err := normalizeGameRewards(*spec.Gameplay.Rewards.PetActions)
+			if err != nil {
+				return apitypes.RuntimeProfile{}, fmt.Errorf("gameplay.rewards.pet_actions: %w", err)
+			}
+			*spec.Gameplay.Rewards.PetActions = normalized
+		}
+		if err := validateRewardBadgeAliases(spec.Gameplay.Rewards, spec.Resources.BadgeDefs); err != nil {
+			return apitypes.RuntimeProfile{}, err
 		}
 	}
-	return apitypes.RuntimeProfile{Name: name, Spec: spec}, nil
+	item := apitypes.RuntimeProfile{Name: name, Spec: spec}
+	if err := setProfileRevision(&item); err != nil {
+		return apitypes.RuntimeProfile{}, err
+	}
+	return item, nil
+}
+
+func registerProfileAlias(aliases map[string]string, alias, kind string) error {
+	if previous, exists := aliases[alias]; exists {
+		return fmt.Errorf("runtime profile alias %q is used by both %s and %s", alias, previous, kind)
+	}
+	aliases[alias] = kind
+	return nil
+}
+
+func bindingByAlias(values *map[string]apitypes.RuntimeProfileBinding, alias string) (apitypes.RuntimeProfileBinding, bool) {
+	if values == nil {
+		return apitypes.RuntimeProfileBinding{}, false
+	}
+	binding, ok := (*values)[alias]
+	return binding, ok
+}
+
+func validateRewardBadgeAliases(rewards *apitypes.RuntimeProfileDriveSpec, badges *map[string]apitypes.RuntimeProfileBinding) error {
+	if rewards == nil {
+		return nil
+	}
+	validate := func(path string, reward *apitypes.RuntimeProfileRewardSpec) error {
+		if reward == nil || reward.BadgeExpDelta == nil {
+			return nil
+		}
+		for alias := range *reward.BadgeExpDelta {
+			if _, ok := bindingByAlias(badges, alias); !ok {
+				return fmt.Errorf("%s.badge_exp_delta.%s is not declared in resources.badge_defs", path, alias)
+			}
+		}
+		return nil
+	}
+	if err := validate("gameplay.rewards.default", rewards.Default); err != nil {
+		return err
+	}
+	if rewards.Games != nil {
+		for alias, reward := range *rewards.Games {
+			if err := validate("gameplay.rewards.games."+alias, &reward); err != nil {
+				return err
+			}
+		}
+	}
+	if rewards.PetActions != nil {
+		for action, reward := range *rewards.PetActions {
+			if err := validate("gameplay.rewards.pet_actions."+action, &reward); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (s *Server) validateResources(ctx context.Context, spec apitypes.RuntimeProfileSpec) error {
+	if s == nil || s.ResolveResource == nil {
+		return nil
+	}
+	resolve := func(path string, kind apitypes.ResourceKind, binding apitypes.RuntimeProfileBinding) (apitypes.Resource, error) {
+		resource, err := s.ResolveResource(ctx, kind, binding.ResourceId)
+		if err != nil {
+			return apitypes.Resource{}, fmt.Errorf("%s.resource_id %q does not resolve to %s: %w", path, binding.ResourceId, kind, err)
+		}
+		discriminator, err := resource.Discriminator()
+		if err != nil {
+			return apitypes.Resource{}, fmt.Errorf("%s.resource_id %q returned a resource without a valid kind: %w", path, binding.ResourceId, err)
+		}
+		expected := string(kind)
+		if discriminator != expected && discriminator != expected+"Resource" {
+			return apitypes.Resource{}, fmt.Errorf("%s.resource_id %q returned kind %q, want %q", path, binding.ResourceId, discriminator, expected)
+		}
+		return resource, nil
+	}
+	type resolvedWorkflow struct {
+		path     string
+		resource apitypes.WorkflowResource
+	}
+	workflows := make([]resolvedWorkflow, 0)
+	for collection, bindings := range spec.Workflows.Collections {
+		for alias, binding := range bindings {
+			path := "workflows.collections." + collection + "." + alias
+			resource, err := resolve(path, apitypes.ResourceKindWorkflow, binding)
+			if err != nil {
+				return err
+			}
+			workflow, err := resource.AsWorkflowResource()
+			if err != nil {
+				return fmt.Errorf("%s.resource_id %q returned an invalid Workflow: %w", path, binding.ResourceId, err)
+			}
+			workflows = append(workflows, resolvedWorkflow{path: path, resource: workflow})
+		}
+	}
+	models := make(map[string]apitypes.ModelResource)
+	if spec.Resources.Models != nil {
+		for alias, binding := range *spec.Resources.Models {
+			path := "resources.models." + alias
+			resource, err := resolve(path, apitypes.ResourceKindModel, binding)
+			if err != nil {
+				return err
+			}
+			model, err := resource.AsModelResource()
+			if err != nil {
+				return fmt.Errorf("%s.resource_id %q returned an invalid Model: %w", path, binding.ResourceId, err)
+			}
+			models[alias] = model
+		}
+	}
+	groups := []struct {
+		path   string
+		kind   apitypes.ResourceKind
+		values *map[string]apitypes.RuntimeProfileBinding
+	}{
+		{path: "resources.voices", kind: apitypes.ResourceKindVoice, values: spec.Resources.Voices},
+		{path: "resources.tools", kind: apitypes.ResourceKindTool, values: spec.Resources.Tools},
+		{path: "resources.game_defs", kind: apitypes.ResourceKindGameDef, values: spec.Resources.GameDefs},
+		{path: "resources.badge_defs", kind: apitypes.ResourceKindBadgeDef, values: spec.Resources.BadgeDefs},
+	}
+	for _, group := range groups {
+		if group.values == nil {
+			continue
+		}
+		for alias, binding := range *group.values {
+			if _, err := resolve(group.path+"."+alias, group.kind, binding); err != nil {
+				return err
+			}
+		}
+	}
+	petActions := make(map[string]struct{})
+	if spec.Resources.PetDefs != nil {
+		for alias, binding := range *spec.Resources.PetDefs {
+			resource, err := resolve("resources.pet_defs."+alias, apitypes.ResourceKindPetDef, binding)
+			if err != nil {
+				return err
+			}
+			petDef, err := resource.AsPetDefResource()
+			if err != nil {
+				return fmt.Errorf("resources.pet_defs.%s.resource_id %q returned an invalid PetDef: %w", alias, binding.ResourceId, err)
+			}
+			for _, action := range petDef.Spec.Drive.Actions {
+				petActions[action.Id] = struct{}{}
+			}
+		}
+	}
+	if spec.Gameplay != nil && spec.Gameplay.Rewards != nil && spec.Gameplay.Rewards.PetActions != nil {
+		for action := range *spec.Gameplay.Rewards.PetActions {
+			if _, ok := petActions[action]; !ok {
+				return fmt.Errorf("gameplay.rewards.pet_actions.%s is not declared by a RuntimeProfile PetDef", action)
+			}
+		}
+	}
+	for _, workflow := range workflows {
+		if err := validateWorkflowRuntimeAliases(workflow.path, workflow.resource.Spec, models, spec.Resources.Voices); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateWorkflowRuntimeAliases(path string, workflow apitypes.WorkflowSpec, models map[string]apitypes.ModelResource, voices *map[string]apitypes.RuntimeProfileBinding) error {
+	requireModel := func(field, alias string, kind apitypes.ModelKind) error {
+		alias = strings.TrimSpace(alias)
+		model, ok := models[alias]
+		if !ok {
+			return fmt.Errorf("%s.%s model alias %q is not declared in resources.models", path, field, alias)
+		}
+		if model.Spec.Kind != kind {
+			return fmt.Errorf("%s.%s model alias %q has kind %q, want %q", path, field, alias, model.Spec.Kind, kind)
+		}
+		return nil
+	}
+	requireVoice := func(field, alias string) error {
+		alias = strings.TrimSpace(alias)
+		if _, ok := bindingByAlias(voices, alias); !ok {
+			return fmt.Errorf("%s.%s voice alias %q is not declared in resources.voices", path, field, alias)
+		}
+		return nil
+	}
+	switch workflow.Driver {
+	case apitypes.WorkflowDriverAstTranslate:
+		if workflow.AstTranslate == nil {
+			return fmt.Errorf("%s has no ast_translate spec", path)
+		}
+		if err := requireModel("translation_model", workflow.AstTranslate.TranslationModel, apitypes.ModelKindTranslation); err != nil {
+			return err
+		}
+		if workflow.AstTranslate.Mode == nil || *workflow.AstTranslate.Mode != apitypes.ASTTranslateModeS2s {
+			break
+		}
+		if workflow.AstTranslate.Voice == nil {
+			return fmt.Errorf("%s.voice requires a RuntimeProfile Voice alias for s2s", path)
+		}
+		external, err := workflow.AstTranslate.Voice.AsASTTranslateExternalVoiceParameters()
+		if err != nil || strings.TrimSpace(external.TtsVoice) == "" {
+			return fmt.Errorf("%s.voice must use voice.tts_voice as a RuntimeProfile Voice alias for s2s", path)
+		}
+		return requireVoice("voice.tts_voice", external.TtsVoice)
+	case apitypes.WorkflowDriverChatroom:
+		if workflow.Chatroom != nil && workflow.Chatroom.Transcript != nil && workflow.Chatroom.Transcript.AsrModel != nil {
+			return requireModel("transcript.asr_model", *workflow.Chatroom.Transcript.AsrModel, apitypes.ModelKindAsr)
+		}
+	case apitypes.WorkflowDriverDoubaoRealtime:
+		if workflow.DoubaoRealtime == nil {
+			return fmt.Errorf("%s has no doubao_realtime spec", path)
+		}
+		if err := requireModel("model", workflow.DoubaoRealtime.Model, apitypes.ModelKindRealtime); err != nil {
+			return err
+		}
+		if workflow.DoubaoRealtime.Audio == nil || workflow.DoubaoRealtime.Audio.Output.Voice == nil || strings.TrimSpace(*workflow.DoubaoRealtime.Audio.Output.Voice) == "" {
+			return fmt.Errorf("%s.audio.output.voice requires a RuntimeProfile Voice alias", path)
+		}
+		return requireVoice("audio.output.voice", *workflow.DoubaoRealtime.Audio.Output.Voice)
+	case apitypes.WorkflowDriverFlowcraft:
+		if workflow.Flowcraft == nil {
+			return fmt.Errorf("%s has no flowcraft spec", path)
+		}
+		encoded, err := json.Marshal(workflow.Flowcraft)
+		if err != nil {
+			return fmt.Errorf("%s: encode flowcraft spec: %w", path, err)
+		}
+		var config struct {
+			Settings struct {
+				GenerateModel  string `json:"generate_model"`
+				ExtractModel   string `json:"extract_model"`
+				EmbeddingModel string `json:"embedding_model"`
+			} `json:"settings"`
+			VoiceAdapter struct {
+				ASRModel     string            `json:"asr_model"`
+				DefaultVoice string            `json:"default_voice"`
+				NodeVoices   map[string]string `json:"node_voices"`
+			} `json:"voice_adapter"`
+		}
+		if err := json.Unmarshal(encoded, &config); err != nil {
+			return fmt.Errorf("%s: decode flowcraft runtime aliases: %w", path, err)
+		}
+		for _, model := range []struct {
+			field string
+			alias string
+			kind  apitypes.ModelKind
+		}{
+			{field: "settings.generate_model", alias: config.Settings.GenerateModel, kind: apitypes.ModelKindLlm},
+			{field: "settings.extract_model", alias: config.Settings.ExtractModel, kind: apitypes.ModelKindLlm},
+			{field: "settings.embedding_model", alias: config.Settings.EmbeddingModel, kind: apitypes.ModelKindEmbedding},
+			{field: "voice_adapter.asr_model", alias: config.VoiceAdapter.ASRModel, kind: apitypes.ModelKindAsr},
+		} {
+			if strings.TrimSpace(model.alias) != "" {
+				if err := requireModel(model.field, model.alias, model.kind); err != nil {
+					return err
+				}
+			}
+		}
+		if err := requireVoice("voice_adapter.default_voice", config.VoiceAdapter.DefaultVoice); err != nil {
+			return err
+		}
+		for nodeID, alias := range config.VoiceAdapter.NodeVoices {
+			if err := requireVoice("voice_adapter.node_voices."+nodeID, alias); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func validateProfileName(name string) error {
@@ -390,20 +743,65 @@ func validateProfileName(name string) error {
 	return customid.ValidateField("name", name)
 }
 
-func normalizeResourceMap(values map[string]string) (map[string]string, error) {
-	out := make(map[string]string, len(values))
-	for alias, value := range values {
+func normalizeBindingMap(values map[string]apitypes.RuntimeProfileBinding) (map[string]apitypes.RuntimeProfileBinding, error) {
+	out := make(map[string]apitypes.RuntimeProfileBinding, len(values))
+	for alias, binding := range values {
 		alias = strings.TrimSpace(alias)
-		value = strings.TrimSpace(value)
-		if alias == "" || value == "" {
-			return nil, errors.New("runtime profile resource aliases and names must not be empty")
+		if err := validateRuntimeAlias("resource alias", alias); err != nil {
+			return nil, err
+		}
+		binding.ResourceId = strings.TrimSpace(binding.ResourceId)
+		if binding.ResourceId == "" {
+			return nil, fmt.Errorf("runtime profile binding %q requires resource_id", alias)
+		}
+		i18n := make(map[string]apitypes.RuntimeProfileI18nText, len(binding.I18n))
+		for locale, text := range binding.I18n {
+			locale = strings.TrimSpace(locale)
+			if locale == "" {
+				return nil, fmt.Errorf("runtime profile binding %q contains an empty locale", alias)
+			}
+			if _, exists := i18n[locale]; exists {
+				return nil, fmt.Errorf("runtime profile binding %q contains duplicate locale %q", alias, locale)
+			}
+			text.DisplayName = strings.TrimSpace(text.DisplayName)
+			if text.DisplayName == "" {
+				return nil, fmt.Errorf("runtime profile binding %q locale %q requires display_name", alias, locale)
+			}
+			if text.Description != nil {
+				description := strings.TrimSpace(*text.Description)
+				text.Description = &description
+			}
+			i18n[locale] = text
+		}
+		binding.I18n = i18n
+		for _, required := range []string{"en", "zh-CN"} {
+			if _, ok := binding.I18n[required]; !ok {
+				return nil, fmt.Errorf("runtime profile binding %q requires i18n.%s", alias, required)
+			}
 		}
 		if _, exists := out[alias]; exists {
 			return nil, fmt.Errorf("duplicate runtime profile resource alias %q", alias)
 		}
-		out[alias] = value
+		out[alias] = binding
 	}
 	return out, nil
+}
+
+func validateRuntimeAlias(kind, value string) error {
+	if len(value) == 0 || len(value) > 63 || !runtimeAliasPattern.MatchString(value) {
+		return fmt.Errorf("%s %q must be 1-63 characters of lowercase kebab-case", kind, value)
+	}
+	return nil
+}
+
+func setProfileRevision(item *apitypes.RuntimeProfile) error {
+	encoded, err := json.Marshal(item.Spec)
+	if err != nil {
+		return fmt.Errorf("encode normalized spec: %w", err)
+	}
+	digest := sha256.Sum256(encoded)
+	item.Revision = hex.EncodeToString(digest[:])
+	return nil
 }
 
 func normalizeGameRewards(values map[string]apitypes.RuntimeProfileRewardSpec) (map[string]apitypes.RuntimeProfileRewardSpec, error) {
@@ -452,6 +850,9 @@ func listProfiles(ctx context.Context, store kv.Store, cursor *string, limit *in
 	for _, entry := range entries {
 		var item apitypes.RuntimeProfile
 		if err := json.Unmarshal(entry.Value, &item); err != nil {
+			return nil, false, nil, err
+		}
+		if err := setProfileRevision(&item); err != nil {
 			return nil, false, nil, err
 		}
 		items = append(items, item)

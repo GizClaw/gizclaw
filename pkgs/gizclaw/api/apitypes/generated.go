@@ -1246,24 +1246,6 @@ func (e WorkflowResourceKind) Valid() bool {
 	}
 }
 
-// Defines values for WorkspaceWorkflowSource.
-const (
-	WorkspaceWorkflowSourceOwned   WorkspaceWorkflowSource = "owned"
-	WorkspaceWorkflowSourceRuntime WorkspaceWorkflowSource = "runtime"
-)
-
-// Valid indicates whether the value is a known member of the WorkspaceWorkflowSource enum.
-func (e WorkspaceWorkflowSource) Valid() bool {
-	switch e {
-	case WorkspaceWorkflowSourceOwned:
-		return true
-	case WorkspaceWorkflowSourceRuntime:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for WorkspaceInputMode.
 const (
 	WorkspaceInputModePushToTalk WorkspaceInputMode = "push-to-talk"
@@ -1299,7 +1281,7 @@ func (e WorkspaceResourceKind) Valid() bool {
 
 // ASTTranslateExternalVoiceParameters defines model for ASTTranslateExternalVoiceParameters.
 type ASTTranslateExternalVoiceParameters struct {
-	// TtsVoice GizClaw voice resource name used by an external TTS path.
+	// TtsVoice RuntimeProfile Voice alias used by the external TTS path.
 	TtsVoice string `json:"tts_voice"`
 }
 
@@ -1333,7 +1315,7 @@ type ASTTranslateWorkflowSpec struct {
 	SpeakerId  *string `json:"speaker_id,omitempty"`
 	SpeechRate *int    `json:"speech_rate,omitempty"`
 
-	// TranslationModel GizClaw model resource used to resolve the Volc tenant credential for AST translate.
+	// TranslationModel RuntimeProfile translation Model alias resolved when the Workspace reloads.
 	TranslationModel string                       `json:"translation_model"`
 	TtsResourceId    *string                      `json:"tts_resource_id,omitempty"`
 	Voice            *ASTTranslateVoiceParameters `json:"voice,omitempty"`
@@ -1460,7 +1442,7 @@ type ChatRoomWorkflowSpec struct {
 
 // ChatRoomWorkflowTranscriptSpec defines model for ChatRoomWorkflowTranscriptSpec.
 type ChatRoomWorkflowTranscriptSpec struct {
-	// AsrModel GizClaw ASR model resource used to transcribe gear audio.
+	// AsrModel RuntimeProfile ASR Model alias resolved when the Workspace reloads.
 	AsrModel *string `json:"asr_model,omitempty"`
 
 	// Enabled Whether gear audio should be transcribed and written as text in workspace history.
@@ -1527,11 +1509,8 @@ type Credential struct {
 	CreatedAt   time.Time      `json:"created_at"`
 	Description *string        `json:"description,omitempty"`
 	Name        string         `json:"name"`
-
-	// OwnerPublicKey Immutable Public Key of the Client that created this Credential. Admin-created Credentials omit it.
-	OwnerPublicKey *string   `json:"owner_public_key,omitempty"`
-	Provider       string    `json:"provider"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	Provider    string         `json:"provider"`
+	UpdatedAt   time.Time      `json:"updated_at"`
 }
 
 // CredentialBody Provider-specific credential payload. The shape is selected by Credential.provider.
@@ -1772,7 +1751,7 @@ type DoubaoRealtimeWorkflowSpec struct {
 	Extension    *DoubaoRealtimeExtension `json:"extension,omitempty"`
 	Instructions *string                  `json:"instructions,omitempty"`
 
-	// Model GizClaw Model resource name. The upstream Doubao model version is configured on Model provider_data.upstream_model.
+	// Model RuntimeProfile realtime Model alias. The canonical Model and upstream version are resolved on Workspace reload.
 	Model string                        `json:"model"`
 	Tools *[]DoubaoRealtimeFunctionTool `json:"tools,omitempty"`
 }
@@ -1788,7 +1767,7 @@ type DoubaoRealtimeWorkspaceParameters struct {
 	Input        *WorkspaceInputMode      `json:"input,omitempty"`
 	Instructions *string                  `json:"instructions,omitempty"`
 
-	// Model GizClaw Model resource name. Defaults to Workflow.spec.doubao_realtime.model.
+	// Model RuntimeProfile Model alias. Defaults to Workflow.spec.doubao_realtime.model.
 	Model *string                       `json:"model,omitempty"`
 	Tools *[]DoubaoRealtimeFunctionTool `json:"tools,omitempty"`
 }
@@ -2269,12 +2248,9 @@ type Model struct {
 	Id           string             `json:"id"`
 
 	// Kind Runtime role of a model.
-	Kind ModelKind `json:"kind"`
-	Name *string   `json:"name,omitempty"`
-
-	// OwnerPublicKey Immutable Public Key of the Client that created this Model. Admin-created Models omit it.
-	OwnerPublicKey *string       `json:"owner_public_key,omitempty"`
-	Provider       ModelProvider `json:"provider"`
+	Kind     ModelKind     `json:"kind"`
+	Name     *string       `json:"name,omitempty"`
+	Provider ModelProvider `json:"provider"`
 
 	// ProviderData Provider-specific model runtime configuration. The shape is selected by Model.provider.kind.
 	ProviderData *ModelProviderData `json:"provider_data,omitempty"`
@@ -2960,7 +2936,7 @@ type PetVoiceParameters struct {
 	// Prompt Workspace-specific speaking style prompt appended to the PetDef voice prompt.
 	Prompt *string `json:"prompt,omitempty"`
 
-	// VoiceId GizClaw Voice resource name used for this pet.
+	// VoiceId RuntimeProfile Voice alias used for this pet.
 	VoiceId string `json:"voice_id"`
 }
 
@@ -3134,23 +3110,44 @@ type Runtime struct {
 
 // RuntimeProfile defines model for RuntimeProfile.
 type RuntimeProfile struct {
-	CreatedAt time.Time          `json:"created_at"`
-	Name      string             `json:"name"`
+	CreatedAt time.Time `json:"created_at"`
+	Name      string    `json:"name"`
+
+	// Revision Deterministic opaque revision of the normalized RuntimeProfile spec.
+	Revision  string             `json:"revision"`
 	Spec      RuntimeProfileSpec `json:"spec"`
 	UpdatedAt time.Time          `json:"updated_at"`
 }
 
+// RuntimeProfileAdoptionSpec defines model for RuntimeProfileAdoptionSpec.
+type RuntimeProfileAdoptionSpec struct {
+	Pool *[]RuntimeProfilePetPoolEntry `json:"pool,omitempty"`
+}
+
+// RuntimeProfileBinding defines model for RuntimeProfileBinding.
+type RuntimeProfileBinding struct {
+	I18n       map[string]RuntimeProfileI18nText `json:"i18n"`
+	ResourceId string                            `json:"resource_id"`
+}
+
 // RuntimeProfileDriveSpec defines model for RuntimeProfileDriveSpec.
 type RuntimeProfileDriveSpec struct {
-	DefaultReward *RuntimeProfileRewardSpec            `json:"default_reward,omitempty"`
-	GameRewards   *map[string]RuntimeProfileRewardSpec `json:"game_rewards,omitempty"`
+	Default    *RuntimeProfileRewardSpec            `json:"default,omitempty"`
+	Games      *map[string]RuntimeProfileRewardSpec `json:"games,omitempty"`
+	PetActions *map[string]RuntimeProfileRewardSpec `json:"pet_actions,omitempty"`
 }
 
 // RuntimeProfileGameplaySpec defines model for RuntimeProfileGameplaySpec.
 type RuntimeProfileGameplaySpec struct {
-	Drive   *RuntimeProfileDriveSpec      `json:"drive,omitempty"`
-	PetPool *[]RuntimeProfilePetPoolEntry `json:"pet_pool,omitempty"`
-	Points  *RuntimeProfilePointsSpec     `json:"points,omitempty"`
+	Adoption *RuntimeProfileAdoptionSpec `json:"adoption,omitempty"`
+	Points   *RuntimeProfilePointsSpec   `json:"points,omitempty"`
+	Rewards  *RuntimeProfileDriveSpec    `json:"rewards,omitempty"`
+}
+
+// RuntimeProfileI18nText defines model for RuntimeProfileI18nText.
+type RuntimeProfileI18nText struct {
+	Description *string `json:"description,omitempty"`
+	DisplayName string  `json:"display_name"`
 }
 
 // RuntimeProfilePetPoolEntry defines model for RuntimeProfilePetPoolEntry.
@@ -3180,13 +3177,12 @@ type RuntimeProfileResourceKind string
 
 // RuntimeProfileResources defines model for RuntimeProfileResources.
 type RuntimeProfileResources struct {
-	BadgeDefs *map[string]string `json:"badge_defs,omitempty"`
-	GameDefs  *map[string]string `json:"game_defs,omitempty"`
-	Models    *map[string]string `json:"models,omitempty"`
-	PetDefs   *map[string]string `json:"pet_defs,omitempty"`
-	Tools     *map[string]string `json:"tools,omitempty"`
-	Voices    *map[string]string `json:"voices,omitempty"`
-	Workflows *map[string]string `json:"workflows,omitempty"`
+	BadgeDefs *map[string]RuntimeProfileBinding `json:"badge_defs,omitempty"`
+	GameDefs  *map[string]RuntimeProfileBinding `json:"game_defs,omitempty"`
+	Models    *map[string]RuntimeProfileBinding `json:"models,omitempty"`
+	PetDefs   *map[string]RuntimeProfileBinding `json:"pet_defs,omitempty"`
+	Tools     *map[string]RuntimeProfileBinding `json:"tools,omitempty"`
+	Voices    *map[string]RuntimeProfileBinding `json:"voices,omitempty"`
 }
 
 // RuntimeProfileRewardSpec defines model for RuntimeProfileRewardSpec.
@@ -3200,6 +3196,15 @@ type RuntimeProfileRewardSpec struct {
 type RuntimeProfileSpec struct {
 	Gameplay  *RuntimeProfileGameplaySpec `json:"gameplay,omitempty"`
 	Resources RuntimeProfileResources     `json:"resources"`
+	Workflows RuntimeProfileWorkflows     `json:"workflows"`
+}
+
+// RuntimeProfileWorkflowCollections defines model for RuntimeProfileWorkflowCollections.
+type RuntimeProfileWorkflowCollections map[string]map[string]RuntimeProfileBinding
+
+// RuntimeProfileWorkflows defines model for RuntimeProfileWorkflows.
+type RuntimeProfileWorkflows struct {
+	Collections RuntimeProfileWorkflowCollections `json:"collections"`
 }
 
 // ServerInfo defines model for ServerInfo.
@@ -3273,13 +3278,10 @@ type Tool struct {
 	// OutputSchema JSON Schema draft-07 or 2020-12 object. Provider adapters decide which keywords they can preserve.
 	OutputSchema *ToolJSONSchema `json:"output_schema,omitempty"`
 	OwnerPeer    *string         `json:"owner_peer,omitempty"`
-
-	// OwnerPublicKey Immutable Public Key of the Client that created this Tool. Admin-created Tools omit it.
-	OwnerPublicKey *string        `json:"owner_public_key,omitempty"`
-	Source         ToolSource     `json:"source"`
-	Triggers       *[]ToolTrigger `json:"triggers,omitempty"`
-	UpdatedAt      time.Time      `json:"updated_at"`
-	Version        *string        `json:"version,omitempty"`
+	Source       ToolSource      `json:"source"`
+	Triggers     *[]ToolTrigger  `json:"triggers,omitempty"`
+	UpdatedAt    time.Time       `json:"updated_at"`
+	Version      *string         `json:"version,omitempty"`
 }
 
 // ToolExecutor defines model for ToolExecutor.
@@ -3490,11 +3492,8 @@ type VolcTenantVoiceProviderData struct {
 // Workflow defines model for Workflow.
 type Workflow struct {
 	// Name Stable workflow ID used by storage, paths, RuntimeProfiles, and workspace references.
-	Name string `json:"name"`
-
-	// OwnerPublicKey Immutable Public Key of the Client that created this Workflow. Admin-created Workflows omit it.
-	OwnerPublicKey *string      `json:"owner_public_key,omitempty"`
-	Spec           WorkflowSpec `json:"spec"`
+	Name string       `json:"name"`
+	Spec WorkflowSpec `json:"spec"`
 }
 
 // WorkflowDriver defines model for WorkflowDriver.
@@ -3532,6 +3531,9 @@ type Workspace struct {
 	CreatedAt time.Time `json:"created_at"`
 	Icon      *Icon     `json:"icon,omitempty"`
 
+	// Labels Stored Workspace labels used by Admin and internal exact-match filtering. Peer RPC does not project this map.
+	Labels *map[string]string `json:"labels,omitempty"`
+
 	// LastActiveAt Last user-visible workspace conversation or history activity time. Configuration-only updates must not modify this field.
 	LastActiveAt time.Time `json:"last_active_at"`
 	Name         string    `json:"name"`
@@ -3549,13 +3551,7 @@ type Workspace struct {
 	Toolkit      *ToolkitPolicy `json:"toolkit,omitempty"`
 	UpdatedAt    time.Time      `json:"updated_at"`
 	WorkflowName string         `json:"workflow_name"`
-
-	// WorkflowSource Identifier namespace for a Client-created Workspace Workflow reference. Internal system Workspaces omit it.
-	WorkflowSource *WorkspaceWorkflowSource `json:"workflow_source,omitempty"`
 }
-
-// WorkspaceWorkflowSource Identifier namespace for a Client-created Workspace Workflow reference. Internal system Workspaces omit it.
-type WorkspaceWorkflowSource string
 
 // WorkspaceInputMode defines model for WorkspaceInputMode.
 type WorkspaceInputMode string

@@ -520,11 +520,6 @@ const (
 	RPCMethodServerContactGet                   RPCMethod = "server.contact.get"
 	RPCMethodServerContactList                  RPCMethod = "server.contact.list"
 	RPCMethodServerContactPut                   RPCMethod = "server.contact.put"
-	RPCMethodServerCredentialCreate             RPCMethod = "server.credential.create"
-	RPCMethodServerCredentialDelete             RPCMethod = "server.credential.delete"
-	RPCMethodServerCredentialGet                RPCMethod = "server.credential.get"
-	RPCMethodServerCredentialList               RPCMethod = "server.credential.list"
-	RPCMethodServerCredentialPut                RPCMethod = "server.credential.put"
 	RPCMethodServerFirmwareFilesDownload        RPCMethod = "server.firmware.files.download"
 	RPCMethodServerFirmwareGet                  RPCMethod = "server.firmware.get"
 	RPCMethodServerFirmwareList                 RPCMethod = "server.firmware.list"
@@ -556,11 +551,8 @@ const (
 	RPCMethodServerInfoGet                      RPCMethod = "server.info.get"
 	RPCMethodServerInfoPut                      RPCMethod = "server.info.put"
 	RPCMethodServerRegister                     RPCMethod = "server.register"
-	RPCMethodServerModelCreate                  RPCMethod = "server.model.create"
-	RPCMethodServerModelDelete                  RPCMethod = "server.model.delete"
 	RPCMethodServerModelGet                     RPCMethod = "server.model.get"
 	RPCMethodServerModelList                    RPCMethod = "server.model.list"
-	RPCMethodServerModelPut                     RPCMethod = "server.model.put"
 	RPCMethodRuntimeAdopt                       RPCMethod = "runtime.adopt"
 	RPCMethodServerPetDelete                    RPCMethod = "server.pet.delete"
 	RPCMethodServerPetDrive                     RPCMethod = "server.pet.drive"
@@ -592,13 +584,12 @@ const (
 	RPCMethodServerRunWorkspaceSet              RPCMethod = "server.run.workspace.set"
 	RPCMethodServerRuntimeGet                   RPCMethod = "server.runtime.get"
 	RPCMethodServerStatusGet                    RPCMethod = "server.status.get"
+	RPCMethodServerSpeechSynthesize             RPCMethod = "server.speech.synthesize"
+	RPCMethodServerSpeechTranscribe             RPCMethod = "server.speech.transcribe"
 	RPCMethodServerVoiceGet                     RPCMethod = "server.voice.get"
 	RPCMethodServerVoiceList                    RPCMethod = "server.voice.list"
-	RPCMethodServerWorkflowCreate               RPCMethod = "server.workflow.create"
-	RPCMethodServerWorkflowDelete               RPCMethod = "server.workflow.delete"
 	RPCMethodServerWorkflowGet                  RPCMethod = "server.workflow.get"
 	RPCMethodServerWorkflowList                 RPCMethod = "server.workflow.list"
-	RPCMethodServerWorkflowPut                  RPCMethod = "server.workflow.put"
 	RPCMethodServerWorkspaceCreate              RPCMethod = "server.workspace.create"
 	RPCMethodServerWorkspaceDelete              RPCMethod = "server.workspace.delete"
 	RPCMethodServerWorkspaceGet                 RPCMethod = "server.workspace.get"
@@ -638,16 +629,6 @@ func (e RPCMethod) Valid() bool {
 	case RPCMethodServerContactList:
 		return true
 	case RPCMethodServerContactPut:
-		return true
-	case RPCMethodServerCredentialCreate:
-		return true
-	case RPCMethodServerCredentialDelete:
-		return true
-	case RPCMethodServerCredentialGet:
-		return true
-	case RPCMethodServerCredentialList:
-		return true
-	case RPCMethodServerCredentialPut:
 		return true
 	case RPCMethodServerFirmwareFilesDownload:
 		return true
@@ -711,15 +692,9 @@ func (e RPCMethod) Valid() bool {
 		return true
 	case RPCMethodServerRegister:
 		return true
-	case RPCMethodServerModelCreate:
-		return true
-	case RPCMethodServerModelDelete:
-		return true
 	case RPCMethodServerModelGet:
 		return true
 	case RPCMethodServerModelList:
-		return true
-	case RPCMethodServerModelPut:
 		return true
 	case RPCMethodRuntimeAdopt:
 		return true
@@ -783,29 +758,21 @@ func (e RPCMethod) Valid() bool {
 		return true
 	case RPCMethodServerStatusGet:
 		return true
-	case RPCMethodServerToolCreate:
+	case RPCMethodServerSpeechSynthesize:
 		return true
-	case RPCMethodServerToolDelete:
+	case RPCMethodServerSpeechTranscribe:
 		return true
 	case RPCMethodServerToolGet:
 		return true
 	case RPCMethodServerToolList:
 		return true
-	case RPCMethodServerToolPut:
-		return true
 	case RPCMethodServerVoiceGet:
 		return true
 	case RPCMethodServerVoiceList:
 		return true
-	case RPCMethodServerWorkflowCreate:
-		return true
-	case RPCMethodServerWorkflowDelete:
-		return true
 	case RPCMethodServerWorkflowGet:
 		return true
 	case RPCMethodServerWorkflowList:
-		return true
-	case RPCMethodServerWorkflowPut:
 		return true
 	case RPCMethodServerWorkspaceCreate:
 		return true
@@ -2099,24 +2066,15 @@ type MiniMaxTenantVoiceProviderData struct {
 
 // Model defines model for Model.
 type Model struct {
-	Capabilities *ModelCapabilities `json:"capabilities,omitempty"`
-	CreatedAt    time.Time          `json:"created_at"`
-	Description  *string            `json:"description,omitempty"`
-	Id           string             `json:"id"`
+	Alias        string                   `json:"alias"`
+	I18n         map[string]AliasI18nText `json:"i18n"`
+	Kind         ModelKind                `json:"kind"`
+	Capabilities *ModelCapabilities       `json:"capabilities,omitempty"`
+}
 
-	// Kind Runtime role of a model.
-	Kind           ModelKind     `json:"kind"`
-	Name           *string       `json:"name,omitempty"`
-	OwnerPublicKey *string       `json:"owner_public_key,omitempty"`
-	Provider       ModelProvider `json:"provider"`
-
-	// ProviderData Provider-specific model runtime configuration. The shape is selected by Model.provider.kind.
-	ProviderData *ModelProviderData `json:"provider_data,omitempty"`
-
-	// Source How the model entered the global catalog
-	Source    ModelSource `json:"source"`
-	SyncedAt  *time.Time  `json:"synced_at,omitempty"`
-	UpdatedAt time.Time   `json:"updated_at"`
+type AliasI18nText struct {
+	DisplayName string  `json:"display_name"`
+	Description *string `json:"description,omitempty"`
 }
 
 // ModelCapabilities defines model for ModelCapabilities.
@@ -2145,11 +2103,14 @@ type ModelDeleteResponse = Model
 
 // ModelGetRequest defines model for ModelGetRequest.
 type ModelGetRequest struct {
-	Id string `json:"id"`
+	Alias string `json:"alias"`
 }
 
-// ModelGetResponse defines model for ModelGetResponse.
-type ModelGetResponse = Model
+type ModelGetResponse struct {
+	Value                  Model  `json:"value"`
+	RuntimeProfileName     string `json:"runtime_profile_name"`
+	RuntimeProfileRevision string `json:"runtime_profile_revision"`
+}
 
 // ModelKind Runtime role of a model.
 type ModelKind string
@@ -2162,9 +2123,11 @@ type ModelListRequest struct {
 
 // ModelListResponse defines model for ModelListResponse.
 type ModelListResponse struct {
-	HasNext    bool    `json:"has_next"`
-	Items      []Model `json:"items"`
-	NextCursor *string `json:"next_cursor,omitempty"`
+	HasNext                bool    `json:"has_next"`
+	Items                  []Model `json:"items"`
+	NextCursor             *string `json:"next_cursor,omitempty"`
+	RuntimeProfileName     string  `json:"runtime_profile_name"`
+	RuntimeProfileRevision string  `json:"runtime_profile_revision"`
 }
 
 // ModelProvider defines model for ModelProvider.
@@ -2902,10 +2865,8 @@ type ServerRewardGrantListResponse = RewardGrantListResponse
 
 // ServerRunSayRequest defines model for ServerRunSayRequest.
 type ServerRunSayRequest struct {
-	CredentialName *string `json:"credential_name,omitempty"`
-	ModelId        *string `json:"model_id,omitempty"`
-	Text           string  `json:"text"`
-	VoiceId        *string `json:"voice_id,omitempty"`
+	Text       string `json:"text"`
+	VoiceAlias string `json:"voice_alias"`
 }
 
 // ServerRunSayResponse defines model for ServerRunSayResponse.
@@ -2983,28 +2944,20 @@ type PetWorkspaceParametersAgentType string
 
 // Voice defines model for Voice.
 type Voice struct {
-	CreatedAt   time.Time     `json:"created_at"`
-	Description *string       `json:"description,omitempty"`
-	Id          string        `json:"id"`
-	Name        *string       `json:"name,omitempty"`
-	Provider    VoiceProvider `json:"provider"`
-
-	// ProviderData Provider-specific voice runtime configuration. The shape is selected by Voice.provider.kind.
-	ProviderData *VoiceProviderData `json:"provider_data,omitempty"`
-
-	// Source How the voice entered the global catalog
-	Source    VoiceSource `json:"source"`
-	SyncedAt  *time.Time  `json:"synced_at,omitempty"`
-	UpdatedAt time.Time   `json:"updated_at"`
+	Alias string                   `json:"alias"`
+	I18n  map[string]AliasI18nText `json:"i18n"`
 }
 
 // VoiceGetRequest defines model for VoiceGetRequest.
 type VoiceGetRequest struct {
-	Id string `json:"id"`
+	Alias string `json:"alias"`
 }
 
-// VoiceGetResponse defines model for VoiceGetResponse.
-type VoiceGetResponse = Voice
+type VoiceGetResponse struct {
+	Value                  Voice  `json:"value"`
+	RuntimeProfileName     string `json:"runtime_profile_name"`
+	RuntimeProfileRevision string `json:"runtime_profile_revision"`
+}
 
 // VoiceListRequest defines model for VoiceListRequest.
 type VoiceListRequest struct {
@@ -3014,9 +2967,11 @@ type VoiceListRequest struct {
 
 // VoiceListResponse defines model for VoiceListResponse.
 type VoiceListResponse struct {
-	HasNext    bool    `json:"has_next"`
-	Items      []Voice `json:"items"`
-	NextCursor *string `json:"next_cursor,omitempty"`
+	HasNext                bool    `json:"has_next"`
+	Items                  []Voice `json:"items"`
+	NextCursor             *string `json:"next_cursor,omitempty"`
+	RuntimeProfileName     string  `json:"runtime_profile_name"`
+	RuntimeProfileRevision string  `json:"runtime_profile_revision"`
 }
 
 // VoiceProvider defines model for VoiceProvider.
@@ -3077,9 +3032,10 @@ type VolcTenantVoiceProviderData struct {
 
 // Workflow defines model for Workflow.
 type Workflow struct {
-	Name           string       `json:"name"`
-	OwnerPublicKey *string      `json:"owner_public_key,omitempty"`
-	Spec           WorkflowSpec `json:"spec"`
+	Alias      string                   `json:"alias"`
+	I18n       map[string]AliasI18nText `json:"i18n"`
+	Collection string                   `json:"collection"`
+	Driver     WorkflowDriver           `json:"driver"`
 }
 
 // WorkflowDriver defines model for WorkflowDriver.
@@ -3087,71 +3043,30 @@ type WorkflowDriver string
 
 // WorkflowGetRequest defines model for WorkflowGetRequest.
 type WorkflowGetRequest struct {
-	Name   string         `json:"name"`
-	Source ResourceSource `json:"source"`
+	Alias string `json:"alias"`
 }
 
-// WorkflowGetResponse defines model for WorkflowGetResponse.
-type WorkflowGetResponse = Workflow
+type WorkflowGetResponse struct {
+	Value                  Workflow `json:"value"`
+	RuntimeProfileName     string   `json:"runtime_profile_name"`
+	RuntimeProfileRevision string   `json:"runtime_profile_revision"`
+}
 
 // WorkflowListRequest defines model for WorkflowListRequest.
 type WorkflowListRequest struct {
-	Cursor *string        `json:"cursor,omitempty"`
-	Limit  *int           `json:"limit,omitempty"`
-	Source ResourceSource `json:"source"`
+	Cursor     *string `json:"cursor,omitempty"`
+	Limit      *int    `json:"limit,omitempty"`
+	Collection string  `json:"collection"`
 }
 
 // WorkflowListResponse defines model for WorkflowListResponse.
 type WorkflowListResponse struct {
-	HasNext    bool       `json:"has_next"`
-	Items      []Workflow `json:"items"`
-	NextCursor *string    `json:"next_cursor,omitempty"`
+	HasNext                bool       `json:"has_next"`
+	Items                  []Workflow `json:"items"`
+	NextCursor             *string    `json:"next_cursor,omitempty"`
+	RuntimeProfileName     string     `json:"runtime_profile_name"`
+	RuntimeProfileRevision string     `json:"runtime_profile_revision"`
 }
-
-// ResourceSource selects the RuntimeProfile alias namespace or caller-owned namespace.
-type ResourceSource string
-
-const (
-	ResourceSourceRuntime ResourceSource = "runtime"
-	ResourceSourceOwned   ResourceSource = "owned"
-)
-
-func (e ResourceSource) Valid() bool {
-	switch e {
-	case ResourceSourceRuntime, ResourceSourceOwned:
-		return true
-	default:
-		return false
-	}
-}
-
-// WorkflowUpsert defines the caller-controlled Workflow fields.
-type WorkflowUpsert struct {
-	Name string       `json:"name"`
-	Spec WorkflowSpec `json:"spec"`
-}
-
-type WorkflowCreateRequest struct {
-	Body   WorkflowUpsert `json:"body"`
-	Source ResourceSource `json:"source"`
-}
-
-type WorkflowCreateResponse = Workflow
-
-type WorkflowPutRequest struct {
-	Body   WorkflowUpsert `json:"body"`
-	Name   string         `json:"name"`
-	Source ResourceSource `json:"source"`
-}
-
-type WorkflowPutResponse = Workflow
-
-type WorkflowDeleteRequest struct {
-	Name   string         `json:"name"`
-	Source ResourceSource `json:"source"`
-}
-
-type WorkflowDeleteResponse = Workflow
 
 // ToolkitPolicy defines model for ToolkitPolicy.
 type ToolkitPolicy struct {
@@ -3172,6 +3087,7 @@ type WorkflowSpec struct {
 
 // Workspace defines model for Workspace.
 type Workspace struct {
+	Available bool      `json:"available"`
 	CreatedAt time.Time `json:"created_at"`
 	Icon      *Icon     `json:"icon,omitempty"`
 
@@ -3181,23 +3097,26 @@ type Workspace struct {
 	OwnerPublicKey *string   `json:"owner_public_key,omitempty"`
 
 	// Parameters Agent-specific workspace parameters. The shape is selected by agent_type.
-	Parameters     *WorkspaceParameters `json:"parameters,omitempty"`
-	System         bool                 `json:"system"`
-	Toolkit        *ToolkitPolicy       `json:"toolkit,omitempty"`
-	UpdatedAt      time.Time            `json:"updated_at"`
-	WorkflowName   string               `json:"workflow_name"`
-	WorkflowSource *ResourceSource      `json:"workflow_source,omitempty"`
+	Parameters    *WorkspaceParameters `json:"parameters,omitempty"`
+	System        bool                 `json:"system"`
+	Toolkit       *ToolkitPolicy       `json:"toolkit,omitempty"`
+	UpdatedAt     time.Time            `json:"updated_at"`
+	WorkflowAlias string               `json:"workflow_alias"`
 }
 
-// WorkspaceUpsert defines model for WorkspaceUpsert.
-type WorkspaceUpsert struct {
-	Name string `json:"name"`
+type WorkspaceCreateBody struct {
+	Name       string `json:"name"`
+	Collection string `json:"collection"`
 
 	// Parameters Agent-specific workspace parameters. The shape is selected by agent_type.
-	Parameters     *WorkspaceParameters `json:"parameters,omitempty"`
-	Toolkit        *ToolkitPolicy       `json:"toolkit,omitempty"`
-	WorkflowName   string               `json:"workflow_name"`
-	WorkflowSource *ResourceSource      `json:"workflow_source,omitempty"`
+	Parameters    *WorkspaceParameters `json:"parameters,omitempty"`
+	Toolkit       *ToolkitPolicy       `json:"toolkit,omitempty"`
+	WorkflowAlias string               `json:"workflow_alias"`
+}
+
+type WorkspacePutBody struct {
+	Parameters *WorkspaceParameters `json:"parameters,omitempty"`
+	Toolkit    *ToolkitPolicy       `json:"toolkit,omitempty"`
 }
 
 // WorkspaceIconDownloadRequest defines model for WorkspaceIconDownloadRequest.
@@ -3214,7 +3133,7 @@ type WorkspaceIconDownloadResponse struct {
 }
 
 // WorkspaceCreateRequest defines model for WorkspaceCreateRequest.
-type WorkspaceCreateRequest = WorkspaceUpsert
+type WorkspaceCreateRequest = WorkspaceCreateBody
 
 // WorkspaceCreateResponse defines model for WorkspaceCreateResponse.
 type WorkspaceCreateResponse = Workspace
@@ -3232,8 +3151,11 @@ type WorkspaceGetRequest struct {
 	Name string `json:"name"`
 }
 
-// WorkspaceGetResponse defines model for WorkspaceGetResponse.
-type WorkspaceGetResponse = Workspace
+type WorkspaceGetResponse struct {
+	Value                  Workspace `json:"value"`
+	RuntimeProfileName     string    `json:"runtime_profile_name"`
+	RuntimeProfileRevision string    `json:"runtime_profile_revision"`
+}
 
 // WorkspaceHistoryAudioGetRequest defines model for WorkspaceHistoryAudioGetRequest.
 type WorkspaceHistoryAudioGetRequest struct {
@@ -3277,16 +3199,19 @@ type WorkspaceInputMode string
 
 // WorkspaceListRequest defines model for WorkspaceListRequest.
 type WorkspaceListRequest struct {
-	Cursor *string `json:"cursor,omitempty"`
-	Limit  *int    `json:"limit,omitempty"`
-	Prefix *string `json:"prefix,omitempty"`
+	Cursor     *string `json:"cursor,omitempty"`
+	Limit      *int    `json:"limit,omitempty"`
+	Prefix     *string `json:"prefix,omitempty"`
+	Collection string  `json:"collection"`
 }
 
 // WorkspaceListResponse defines model for WorkspaceListResponse.
 type WorkspaceListResponse struct {
-	HasNext    bool        `json:"has_next"`
-	Items      []Workspace `json:"items"`
-	NextCursor *string     `json:"next_cursor,omitempty"`
+	HasNext                bool        `json:"has_next"`
+	Items                  []Workspace `json:"items"`
+	NextCursor             *string     `json:"next_cursor,omitempty"`
+	RuntimeProfileName     string      `json:"runtime_profile_name"`
+	RuntimeProfileRevision string      `json:"runtime_profile_revision"`
 }
 
 // WorkspaceParameters Agent-specific workspace parameters. The shape is selected by agent_type.
@@ -3296,8 +3221,8 @@ type WorkspaceParameters struct {
 
 // WorkspacePutRequest defines model for WorkspacePutRequest.
 type WorkspacePutRequest struct {
-	Body WorkspaceUpsert `json:"body"`
-	Name string          `json:"name"`
+	Body WorkspacePutBody `json:"body"`
+	Name string           `json:"name"`
 }
 
 // WorkspacePutResponse defines model for WorkspacePutResponse.
@@ -4077,48 +4002,6 @@ func (t *RPCPayload) FromWorkflowGetRequest(v WorkflowGetRequest) error {
 // MergeWorkflowGetRequest performs a merge with any protobuf payload, using the provided WorkflowGetRequest
 func (t *RPCPayload) MergeWorkflowGetRequest(v WorkflowGetRequest) error {
 	return t.merge("WorkflowGetRequest", v)
-}
-
-func (t RPCPayload) AsWorkflowCreateRequest() (WorkflowCreateRequest, error) {
-	var body WorkflowCreateRequest
-	err := t.decode("WorkflowCreateRequest", &body)
-	return body, err
-}
-
-func (t *RPCPayload) FromWorkflowCreateRequest(v WorkflowCreateRequest) error {
-	return t.encode("WorkflowCreateRequest", v)
-}
-
-func (t *RPCPayload) MergeWorkflowCreateRequest(v WorkflowCreateRequest) error {
-	return t.merge("WorkflowCreateRequest", v)
-}
-
-func (t RPCPayload) AsWorkflowPutRequest() (WorkflowPutRequest, error) {
-	var body WorkflowPutRequest
-	err := t.decode("WorkflowPutRequest", &body)
-	return body, err
-}
-
-func (t *RPCPayload) FromWorkflowPutRequest(v WorkflowPutRequest) error {
-	return t.encode("WorkflowPutRequest", v)
-}
-
-func (t *RPCPayload) MergeWorkflowPutRequest(v WorkflowPutRequest) error {
-	return t.merge("WorkflowPutRequest", v)
-}
-
-func (t RPCPayload) AsWorkflowDeleteRequest() (WorkflowDeleteRequest, error) {
-	var body WorkflowDeleteRequest
-	err := t.decode("WorkflowDeleteRequest", &body)
-	return body, err
-}
-
-func (t *RPCPayload) FromWorkflowDeleteRequest(v WorkflowDeleteRequest) error {
-	return t.encode("WorkflowDeleteRequest", v)
-}
-
-func (t *RPCPayload) MergeWorkflowDeleteRequest(v WorkflowDeleteRequest) error {
-	return t.merge("WorkflowDeleteRequest", v)
 }
 
 // AsModelListRequest decodes the RPCPayload as a ModelListRequest
@@ -5632,48 +5515,6 @@ func (t *RPCPayload) FromWorkflowGetResponse(v WorkflowGetResponse) error {
 // MergeWorkflowGetResponse performs a merge with any protobuf payload, using the provided WorkflowGetResponse
 func (t *RPCPayload) MergeWorkflowGetResponse(v WorkflowGetResponse) error {
 	return t.merge("WorkflowGetResponse", v)
-}
-
-func (t RPCPayload) AsWorkflowCreateResponse() (WorkflowCreateResponse, error) {
-	var body WorkflowCreateResponse
-	err := t.decode("WorkflowCreateResponse", &body)
-	return body, err
-}
-
-func (t *RPCPayload) FromWorkflowCreateResponse(v WorkflowCreateResponse) error {
-	return t.encode("WorkflowCreateResponse", v)
-}
-
-func (t *RPCPayload) MergeWorkflowCreateResponse(v WorkflowCreateResponse) error {
-	return t.merge("WorkflowCreateResponse", v)
-}
-
-func (t RPCPayload) AsWorkflowPutResponse() (WorkflowPutResponse, error) {
-	var body WorkflowPutResponse
-	err := t.decode("WorkflowPutResponse", &body)
-	return body, err
-}
-
-func (t *RPCPayload) FromWorkflowPutResponse(v WorkflowPutResponse) error {
-	return t.encode("WorkflowPutResponse", v)
-}
-
-func (t *RPCPayload) MergeWorkflowPutResponse(v WorkflowPutResponse) error {
-	return t.merge("WorkflowPutResponse", v)
-}
-
-func (t RPCPayload) AsWorkflowDeleteResponse() (WorkflowDeleteResponse, error) {
-	var body WorkflowDeleteResponse
-	err := t.decode("WorkflowDeleteResponse", &body)
-	return body, err
-}
-
-func (t *RPCPayload) FromWorkflowDeleteResponse(v WorkflowDeleteResponse) error {
-	return t.encode("WorkflowDeleteResponse", v)
-}
-
-func (t *RPCPayload) MergeWorkflowDeleteResponse(v WorkflowDeleteResponse) error {
-	return t.merge("WorkflowDeleteResponse", v)
 }
 
 // AsModelListResponse decodes the RPCPayload as a ModelListResponse

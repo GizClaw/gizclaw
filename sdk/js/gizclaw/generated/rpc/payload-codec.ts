@@ -40,19 +40,12 @@ export type FriendGroupMemberMutableRole = "" | "admin" | "member" | "unspecifie
 export type FriendGroupMemberRole = "" | "admin" | "member" | "owner" | "unspecified" | number;
 export type IconFormat = "" | "pixa" | "png" | "unspecified" | number;
 export type ModelKind = "" | "asr" | "embedding" | "llm" | "realtime" | "translation" | "tts" | "unspecified" | number;
-export type ModelProviderKind = "" | "dashscope-tenant" | "gemini-tenant" | "openai-tenant" | "unspecified" | "volc-tenant" | number;
-export type ModelSource = "" | "manual" | "sync" | "unspecified" | number;
 export type PeerRole = "" | "admin" | "client" | "edge-node" | "server" | "unspecified" | number;
 export type PeerRunHistoryEntryType = "" | "agent" | "gear" | "unspecified" | number;
 export type PeerRunHistoryListRequestOrder = "" | "asc" | "desc" | "unspecified" | number;
 export type PeerRunStatusState = "" | "error" | "running" | "starting" | "stopped" | "stopping" | "unspecified" | number;
 export type PetConversationParametersInitiative = "" | "agent" | "peer" | "unspecified" | number;
 export type PetWorkspaceParametersAgentType = "" | "pet" | "unspecified" | number;
-export type ResourceSource = "" | "owned" | "runtime" | "unspecified" | number;
-export type ToolExecutorKind = "" | "builtin" | "device_rpc" | "unspecified" | number;
-export type ToolSource = "" | "admin" | "builtin" | "device" | "unspecified" | number;
-export type VoiceProviderKind = "" | "dashscope-tenant" | "gemini-tenant" | "minimax-tenant" | "openai-tenant" | "unspecified" | "volc-tenant" | number;
-export type VoiceSource = "" | "manual" | "sync" | "unspecified" | number;
 export type VolcTenantModelProviderDataApiMode = "" | "asr" | "realtime" | "tts" | "unspecified" | number;
 export type WorkflowDriver = "" | "ast-translate" | "chatroom" | "doubao-realtime" | "flowcraft" | "pet" | "unspecified" | number;
 export type WorkspaceHistoryListRequestOrder = "" | "asc" | "desc" | "unspecified" | number;
@@ -96,6 +89,10 @@ export type ASTTranslateWorkspaceParameters = {
 };
 export type AgentSelection = {
   "workspace_name": string;
+};
+export type AliasI18nText = {
+  "display_name": string;
+  "description"?: string;
 };
 export type Badge = {
   "active": boolean;
@@ -185,53 +182,6 @@ export type ContactPutRequest = {
   "phone_number"?: string;
 };
 export type ContactPutResponse = ContactObject;
-export type Credential = {
-  "body": CredentialBody;
-  "created_at": string;
-  "description"?: string;
-  "name": string;
-  "provider": string;
-  "updated_at": string;
-  "owner_public_key"?: string;
-};
-export type CredentialBody = OpenAICredentialBody | GeminiCredentialBody | DashScopeCredentialBody | MiniMaxCredentialBody | VolcCredentialBody;
-export type CredentialCreateRequest = Credential;
-export type CredentialCreateResponse = Credential;
-export type CredentialDeleteRequest = {
-  "name": string;
-};
-export type CredentialDeleteResponse = Credential;
-export type CredentialGetRequest = {
-  "name": string;
-};
-export type CredentialGetResponse = Credential;
-export type CredentialListRequest = {
-  "cursor"?: string;
-  "limit"?: number;
-};
-export type CredentialListResponse = {
-  "has_next": boolean;
-  "items": Credential[];
-  "next_cursor"?: string;
-};
-export type CredentialPutRequest = {
-  "body": Credential;
-  "name": string;
-};
-export type CredentialPutResponse = Credential;
-export type DashScopeCredentialBody = {
-  "api_key"?: string;
-  "base_url"?: string;
-  "token"?: string;
-};
-export type DashScopeTenantModelProviderData = {
-  "api_mode"?: DashScopeTenantModelProviderDataApiMode;
-  "upstream_model"?: string;
-};
-export type DashScopeTenantVoiceProviderData = {
-  "raw": Record<string, unknown>;
-  "voice_id"?: string;
-};
 export type DeviceIdentifiers = {
   "sn"?: string;
   "imeis"?: PeerIMEI[];
@@ -647,18 +597,6 @@ export type GameplayListRequest = {
 export type GameplayMetadata = {
   "fields": Record<string, unknown>;
 };
-export type GeminiCredentialBody = {
-  "api_key"?: string;
-  "base_url"?: string;
-  "token"?: string;
-};
-export type GeminiTenantModelProviderData = {
-  "upstream_model"?: string;
-};
-export type GeminiTenantVoiceProviderData = {
-  "raw": Record<string, unknown>;
-  "voice_id"?: string;
-};
 export type HardwareInfo = {
   "hardware_revision"?: string;
   "manufacturer"?: string;
@@ -668,34 +606,11 @@ export type Icon = {
   "pixa"?: string;
   "png"?: string;
 };
-export type MiniMaxCredentialBody = {
-  "api_key"?: string;
-  "base_url"?: string;
-  "minimax_voice_base_url"?: string;
-  "token"?: string;
-  "voice_base_url"?: string;
-};
-export type MiniMaxTenantVoiceProviderData = {
-  "format"?: string;
-  "model"?: string;
-  "raw": Record<string, unknown>;
-  "sample_rate"?: number;
-  "voice_id"?: string;
-  "voice_type"?: string;
-};
 export type Model = {
-  "capabilities"?: ModelCapabilities;
-  "created_at": string;
-  "description"?: string;
-  "id": string;
+  "alias": string;
+  "i18n": Record<string, AliasI18nText>;
   "kind": ModelKind;
-  "name"?: string;
-  "provider": ModelProvider;
-  "provider_data"?: ModelProviderData;
-  "source": ModelSource;
-  "synced_at"?: string;
-  "updated_at": string;
-  "owner_public_key"?: string;
+  "capabilities"?: ModelCapabilities;
 };
 export type ModelCapabilities = {
   "json_output"?: boolean;
@@ -705,16 +620,14 @@ export type ModelCapabilities = {
   "thinking"?: ModelThinkingCapability;
   "tool_calls"?: boolean;
 };
-export type ModelCreateRequest = Model;
-export type ModelCreateResponse = Model;
-export type ModelDeleteRequest = {
-  "id": string;
-};
-export type ModelDeleteResponse = Model;
 export type ModelGetRequest = {
-  "id": string;
+  "alias": string;
 };
-export type ModelGetResponse = Model;
+export type ModelGetResponse = {
+  "value": Model;
+  "runtime_profile_name": string;
+  "runtime_profile_revision": string;
+};
 export type ModelListRequest = {
   "cursor"?: string;
   "limit"?: number;
@@ -723,46 +636,15 @@ export type ModelListResponse = {
   "has_next": boolean;
   "items": Model[];
   "next_cursor"?: string;
+  "runtime_profile_name": string;
+  "runtime_profile_revision": string;
 };
-export type ModelProvider = {
-  "kind": ModelProviderKind;
-  "name": string;
-};
-export type ModelProviderData = GeminiTenantModelProviderData | DashScopeTenantModelProviderData | OpenAITenantModelProviderData | VolcTenantModelProviderData;
-export type ModelPutRequest = {
-  "body": Model;
-  "id": string;
-};
-export type ModelPutResponse = Model;
 export type ModelThinkingCapability = {
   "default_level"?: string;
   "level_param"?: string;
   "levels": string[];
   "param"?: string;
   "supported": boolean;
-};
-export type OpenAICredentialBody = {
-  "api_key"?: string;
-  "base_url"?: string;
-  "organization"?: string;
-  "project"?: string;
-  "token"?: string;
-};
-export type OpenAITenantModelProviderData = {
-  "default_thinking_level"?: string;
-  "support_json_output"?: boolean;
-  "support_text_only"?: boolean;
-  "support_thinking"?: boolean;
-  "support_tool_calls"?: boolean;
-  "thinking_level_param"?: string;
-  "thinking_levels": string[];
-  "thinking_param"?: string;
-  "upstream_model"?: string;
-  "use_system_role"?: boolean;
-};
-export type OpenAITenantVoiceProviderData = {
-  "raw": Record<string, unknown>;
-  "voice_id"?: string;
 };
 export type PeerAssignment = {
   "peer_public_key": string;
@@ -1141,10 +1023,8 @@ export type ServerRouteResolveResponse = {
   "assignment": PeerAssignment;
 };
 export type ServerRunSayRequest = {
-  "credential_name"?: string;
-  "model_id"?: string;
   "text": string;
-  "voice_id"?: string;
+  "voice_alias": string;
 };
 export type ServerRunSayResponse = {
   "accepted": boolean;
@@ -1157,6 +1037,24 @@ export type ServerSetRunWorkspaceRequest = AgentSelection;
 export type ServerSetRunWorkspaceResponse = PeerRunWorkspaceState;
 export type ServerStopRunRequest = Record<string, never>;
 export type ServerStopRunResponse = PeerRunStatus;
+export type SpeechSynthesizeRequest = {
+  "voice_alias": string;
+  "text": string;
+  "accepted_content_types": string[];
+};
+export type SpeechSynthesizeResponse = {
+  "content_type": string;
+  "sample_rate_hz"?: number;
+  "channels"?: number;
+};
+export type SpeechTranscribeRequest = {
+  "model_alias": string;
+  "content_type": string;
+  "language"?: string;
+};
+export type SpeechTranscribeResponse = {
+  "transcript": string;
+};
 export type SpeedTestRequest = {
   "down_content_length": number;
   "up_content_length": number;
@@ -1166,39 +1064,19 @@ export type SpeedTestResponse = {
   "up_content_length": number;
 };
 export type Tool = {
-  "id": string;
-  "name"?: string;
-  "description"?: string;
-  "source": ToolSource;
-  "enabled"?: boolean;
-  "owner_peer"?: string;
-  "version"?: string;
+  "alias": string;
+  "i18n": Record<string, AliasI18nText>;
   "input_schema": Record<string, unknown>;
   "output_schema"?: Record<string, unknown>;
-  "triggers": ToolTrigger[];
-  "executor": ToolExecutor;
-  "metadata"?: Record<string, unknown>;
-  "created_at": string;
-  "updated_at": string;
-  "owner_public_key"?: string;
-};
-export type ToolCreateRequest = Tool;
-export type ToolCreateResponse = Tool;
-export type ToolDeleteRequest = {
-  "id": string;
-};
-export type ToolDeleteResponse = Tool;
-export type ToolExecutor = {
-  "kind": ToolExecutorKind;
-  "name"?: string;
-  "method"?: string;
-  "peer_id"?: string;
-  "config"?: Record<string, unknown>;
 };
 export type ToolGetRequest = {
-  "id": string;
+  "alias": string;
 };
-export type ToolGetResponse = Tool;
+export type ToolGetResponse = {
+  "value": Tool;
+  "runtime_profile_name": string;
+  "runtime_profile_revision": string;
+};
 export type ToolInvokeRequest = {
   "call_id": string;
   "tool_id": string;
@@ -1216,43 +1094,25 @@ export type ToolListResponse = {
   "items": Tool[];
   "has_next": boolean;
   "next_cursor"?: string;
-};
-export type ToolPutRequest = {
-  "id": string;
-  "body": Tool;
-};
-export type ToolPutResponse = Tool;
-export type ToolTrigger = {
-  "name": string;
-  "description"?: string;
-  "patterns": string[];
-  "examples": ToolTriggerExample[];
-  "metadata"?: Record<string, unknown>;
-};
-export type ToolTriggerExample = {
-  "input": string;
-  "args"?: Record<string, unknown>;
-  "output"?: string;
+  "runtime_profile_name": string;
+  "runtime_profile_revision": string;
 };
 export type ToolkitPolicy = {
   "tool_ids"?: ToolkitPolicyToolIds;
 };
 export type ToolkitPolicyToolIds = string[];
 export type Voice = {
-  "created_at": string;
-  "description"?: string;
-  "id": string;
-  "name"?: string;
-  "provider": VoiceProvider;
-  "provider_data"?: VoiceProviderData;
-  "source": VoiceSource;
-  "synced_at"?: string;
-  "updated_at": string;
+  "alias": string;
+  "i18n": Record<string, AliasI18nText>;
 };
 export type VoiceGetRequest = {
-  "id": string;
+  "alias": string;
 };
-export type VoiceGetResponse = Voice;
+export type VoiceGetResponse = {
+  "value": Voice;
+  "runtime_profile_name": string;
+  "runtime_profile_revision": string;
+};
 export type VoiceListRequest = {
   "cursor"?: string;
   "limit"?: number;
@@ -1261,89 +1121,34 @@ export type VoiceListResponse = {
   "has_next": boolean;
   "items": Voice[];
   "next_cursor"?: string;
-};
-export type VoiceProvider = {
-  "kind": VoiceProviderKind;
-  "name": string;
-};
-export type VoiceProviderData = GeminiTenantVoiceProviderData | DashScopeTenantVoiceProviderData | OpenAITenantVoiceProviderData | MiniMaxTenantVoiceProviderData | VolcTenantVoiceProviderData;
-export type VolcCredentialBody = {
-  "speech_api_key"?: string;
-  "speech_app_id"?: string;
-  "openapi_access_key"?: string;
-  "openapi_access_key_id"?: string;
-  "search_api_key"?: string;
-  "ark_api_key"?: string;
-};
-export type VolcTenantModelProviderData = {
-  "api_mode"?: VolcTenantModelProviderDataApiMode;
-  "default_thinking_level"?: string;
-  "resource_id"?: string;
-  "support_json_output"?: boolean;
-  "support_text_only"?: boolean;
-  "support_thinking"?: boolean;
-  "support_tool_calls"?: boolean;
-  "thinking_level_param"?: string;
-  "thinking_levels": string[];
-  "thinking_param"?: string;
-  "upstream_model"?: string;
-  "use_system_role"?: boolean;
-};
-export type VolcTenantVoiceProviderData = {
-  "raw": Record<string, unknown>;
-  "resource_id"?: string;
-  "state"?: string;
-  "status"?: string;
-  "voice_id"?: string;
+  "runtime_profile_name": string;
+  "runtime_profile_revision": string;
 };
 export type Workflow = {
-  "name": string;
-  "spec": WorkflowSpec;
-  "owner_public_key"?: string;
+  "alias": string;
+  "i18n": Record<string, AliasI18nText>;
+  "collection": string;
+  "driver": WorkflowDriver;
 };
-export type WorkflowCreateRequest = {
-  "source": ResourceSource;
-  "body": WorkflowUpsert;
-};
-export type WorkflowCreateResponse = Workflow;
-export type WorkflowDeleteRequest = {
-  "name": string;
-  "source": ResourceSource;
-};
-export type WorkflowDeleteResponse = Workflow;
 export type WorkflowGetRequest = {
-  "name": string;
-  "source": ResourceSource;
+  "alias": string;
 };
-export type WorkflowGetResponse = Workflow;
+export type WorkflowGetResponse = {
+  "value": Workflow;
+  "runtime_profile_name": string;
+  "runtime_profile_revision": string;
+};
 export type WorkflowListRequest = {
   "cursor"?: string;
   "limit"?: number;
-  "source": ResourceSource;
+  "collection": string;
 };
 export type WorkflowListResponse = {
   "has_next": boolean;
   "items": Workflow[];
   "next_cursor"?: string;
-};
-export type WorkflowPutRequest = {
-  "name": string;
-  "body": WorkflowUpsert;
-  "source": ResourceSource;
-};
-export type WorkflowPutResponse = Workflow;
-export type WorkflowSpec = {
-  "ast_translate"?: ASTTranslateWorkflowSpec;
-  "chatroom"?: ChatRoomWorkflowSpec;
-  "doubao_realtime"?: DoubaoRealtimeWorkflowSpec;
-  "driver": WorkflowDriver;
-  "flowcraft"?: FlowcraftWorkflowSpec;
-  "toolkit"?: ToolkitPolicy;
-  "pet"?: PetWorkflowSpec;
-};
-export type WorkflowUpsert = {
-  "name": string;
-  "spec": WorkflowSpec;
+  "runtime_profile_name": string;
+  "runtime_profile_revision": string;
 };
 export type Workspace = {
   "created_at": string;
@@ -1351,14 +1156,21 @@ export type Workspace = {
   "name": string;
   "parameters"?: WorkspaceParameters;
   "updated_at": string;
-  "workflow_name": string;
+  "workflow_alias": string;
   "toolkit"?: ToolkitPolicy;
   "system": boolean;
   "icon"?: Icon;
   "owner_public_key"?: string;
-  "workflow_source"?: ResourceSource;
+  "available": boolean;
 };
-export type WorkspaceCreateRequest = WorkspaceUpsert;
+export type WorkspaceCreateBody = {
+  "name": string;
+  "parameters"?: WorkspaceParameters;
+  "workflow_alias": string;
+  "toolkit"?: ToolkitPolicy;
+  "collection": string;
+};
+export type WorkspaceCreateRequest = WorkspaceCreateBody;
 export type WorkspaceCreateResponse = Workspace;
 export type WorkspaceDeleteRequest = {
   "name": string;
@@ -1367,7 +1179,11 @@ export type WorkspaceDeleteResponse = Workspace;
 export type WorkspaceGetRequest = {
   "name": string;
 };
-export type WorkspaceGetResponse = Workspace;
+export type WorkspaceGetResponse = {
+  "value": Workspace;
+  "runtime_profile_name": string;
+  "runtime_profile_revision": string;
+};
 export type WorkspaceHistoryAudioGetRequest = {
   "history_id": string;
   "workspace_name": string;
@@ -1403,25 +1219,25 @@ export type WorkspaceListRequest = {
   "cursor"?: string;
   "limit"?: number;
   "prefix"?: string;
+  "collection": string;
 };
 export type WorkspaceListResponse = {
   "has_next": boolean;
   "items": Workspace[];
   "next_cursor"?: string;
+  "runtime_profile_name": string;
+  "runtime_profile_revision": string;
 };
 export type WorkspaceParameters = FlowcraftWorkspaceParameters | DoubaoRealtimeWorkspaceParameters | ASTTranslateWorkspaceParameters | ChatRoomWorkspaceParameters | PetWorkspaceParameters;
+export type WorkspacePutBody = {
+  "parameters"?: WorkspaceParameters;
+  "toolkit"?: ToolkitPolicy;
+};
 export type WorkspacePutRequest = {
-  "body": WorkspaceUpsert;
+  "body": WorkspacePutBody;
   "name": string;
 };
 export type WorkspacePutResponse = Workspace;
-export type WorkspaceUpsert = {
-  "name": string;
-  "parameters"?: WorkspaceParameters;
-  "workflow_name": string;
-  "toolkit"?: ToolkitPolicy;
-  "workflow_source"?: ResourceSource;
-};
 
 const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "all.ping": "PingRequest",
@@ -1438,11 +1254,6 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.contact.get": "ContactGetRequest",
   "server.contact.list": "ContactListRequest",
   "server.contact.put": "ContactPutRequest",
-  "server.credential.create": "CredentialCreateRequest",
-  "server.credential.delete": "CredentialDeleteRequest",
-  "server.credential.get": "CredentialGetRequest",
-  "server.credential.list": "CredentialListRequest",
-  "server.credential.put": "CredentialPutRequest",
   "server.firmware.files.download": "FirmwareFilesDownloadRequest",
   "server.firmware.get": "FirmwareGetRequest",
   "server.firmware.list": "FirmwareListRequest",
@@ -1473,11 +1284,8 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.game_result.list": "ServerGameResultListRequest",
   "server.info.get": "ServerGetInfoRequest",
   "server.info.put": "ServerPutInfoRequest",
-  "server.model.create": "ModelCreateRequest",
-  "server.model.delete": "ModelDeleteRequest",
   "server.model.get": "ModelGetRequest",
   "server.model.list": "ModelListRequest",
-  "server.model.put": "ModelPutRequest",
   "server.peer.assign": "ServerPeerAssignRequest",
   "server.peer.lookup": "ServerPeerLookupRequest",
   "server.pet.actions.get": "ServerPetActionsGetRequest",
@@ -1508,19 +1316,15 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.run.workspace.reload": "ServerReloadRunWorkspaceRequest",
   "server.run.workspace.set": "ServerSetRunWorkspaceRequest",
   "server.runtime.get": "ServerGetRuntimeRequest",
+  "server.speech.synthesize": "SpeechSynthesizeRequest",
+  "server.speech.transcribe": "SpeechTranscribeRequest",
   "server.status.get": "ServerGetStatusRequest",
-  "server.tool.create": "ToolCreateRequest",
-  "server.tool.delete": "ToolDeleteRequest",
   "server.tool.get": "ToolGetRequest",
   "server.tool.list": "ToolListRequest",
-  "server.tool.put": "ToolPutRequest",
   "server.voice.get": "VoiceGetRequest",
   "server.voice.list": "VoiceListRequest",
-  "server.workflow.create": "WorkflowCreateRequest",
-  "server.workflow.delete": "WorkflowDeleteRequest",
   "server.workflow.get": "WorkflowGetRequest",
   "server.workflow.list": "WorkflowListRequest",
-  "server.workflow.put": "WorkflowPutRequest",
   "server.workspace.create": "WorkspaceCreateRequest",
   "server.workspace.delete": "WorkspaceDeleteRequest",
   "server.workspace.get": "WorkspaceGetRequest",
@@ -1546,11 +1350,6 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.contact.get": "ContactGetResponse",
   "server.contact.list": "ContactListResponse",
   "server.contact.put": "ContactPutResponse",
-  "server.credential.create": "CredentialCreateResponse",
-  "server.credential.delete": "CredentialDeleteResponse",
-  "server.credential.get": "CredentialGetResponse",
-  "server.credential.list": "CredentialListResponse",
-  "server.credential.put": "CredentialPutResponse",
   "server.firmware.files.download": "FirmwareFilesDownloadResponse",
   "server.firmware.get": "FirmwareGetResponse",
   "server.firmware.list": "FirmwareListResponse",
@@ -1581,11 +1380,8 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.game_result.list": "ServerGameResultListResponse",
   "server.info.get": "ServerGetInfoResponse",
   "server.info.put": "ServerPutInfoResponse",
-  "server.model.create": "ModelCreateResponse",
-  "server.model.delete": "ModelDeleteResponse",
   "server.model.get": "ModelGetResponse",
   "server.model.list": "ModelListResponse",
-  "server.model.put": "ModelPutResponse",
   "server.peer.assign": "ServerPeerAssignResponse",
   "server.peer.lookup": "ServerPeerLookupResponse",
   "server.pet.actions.get": "ServerPetActionsGetResponse",
@@ -1616,19 +1412,15 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.run.workspace.reload": "ServerReloadRunWorkspaceResponse",
   "server.run.workspace.set": "ServerSetRunWorkspaceResponse",
   "server.runtime.get": "ServerGetRuntimeResponse",
+  "server.speech.synthesize": "SpeechSynthesizeResponse",
+  "server.speech.transcribe": "SpeechTranscribeResponse",
   "server.status.get": "ServerGetStatusResponse",
-  "server.tool.create": "ToolCreateResponse",
-  "server.tool.delete": "ToolDeleteResponse",
   "server.tool.get": "ToolGetResponse",
   "server.tool.list": "ToolListResponse",
-  "server.tool.put": "ToolPutResponse",
   "server.voice.get": "VoiceGetResponse",
   "server.voice.list": "VoiceListResponse",
-  "server.workflow.create": "WorkflowCreateResponse",
-  "server.workflow.delete": "WorkflowDeleteResponse",
   "server.workflow.get": "WorkflowGetResponse",
   "server.workflow.list": "WorkflowListResponse",
-  "server.workflow.put": "WorkflowPutResponse",
   "server.workspace.create": "WorkspaceCreateResponse",
   "server.workspace.delete": "WorkspaceDeleteResponse",
   "server.workspace.get": "WorkspaceGetResponse",
@@ -1645,6 +1437,21 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "workspace_name",
         "number": 1,
+        "type": "string"
+      }
+    ]
+  },
+  "AliasI18nText": {
+    "fields": [
+      {
+        "name": "display_name",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "description",
+        "number": 2,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -2227,248 +2034,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "value",
         "number": 1,
         "type": "ContactObject"
-      }
-    ]
-  },
-  "Credential": {
-    "fields": [
-      {
-        "name": "body",
-        "number": 1,
-        "type": "CredentialBody"
-      },
-      {
-        "name": "created_at",
-        "number": 2,
-        "type": "string"
-      },
-      {
-        "name": "description",
-        "number": 3,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "name",
-        "number": 4,
-        "type": "string"
-      },
-      {
-        "name": "provider",
-        "number": 5,
-        "type": "string"
-      },
-      {
-        "name": "updated_at",
-        "number": 6,
-        "type": "string"
-      },
-      {
-        "name": "owner_public_key",
-        "number": 7,
-        "optional": true,
-        "type": "string"
-      }
-    ]
-  },
-  "CredentialBody": {
-    "fields": [
-      {
-        "name": "open_aicredential_body",
-        "number": 1,
-        "oneof": true,
-        "type": "OpenAICredentialBody"
-      },
-      {
-        "name": "gemini_credential_body",
-        "number": 2,
-        "oneof": true,
-        "type": "GeminiCredentialBody"
-      },
-      {
-        "name": "dash_scope_credential_body",
-        "number": 3,
-        "oneof": true,
-        "type": "DashScopeCredentialBody"
-      },
-      {
-        "name": "mini_max_credential_body",
-        "number": 4,
-        "oneof": true,
-        "type": "MiniMaxCredentialBody"
-      },
-      {
-        "name": "volc_credential_body",
-        "number": 5,
-        "oneof": true,
-        "type": "VolcCredentialBody"
-      }
-    ]
-  },
-  "CredentialCreateRequest": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "Credential"
-      }
-    ]
-  },
-  "CredentialCreateResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "Credential"
-      }
-    ]
-  },
-  "CredentialDeleteRequest": {
-    "fields": [
-      {
-        "name": "name",
-        "number": 1,
-        "type": "string"
-      }
-    ]
-  },
-  "CredentialDeleteResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "Credential"
-      }
-    ]
-  },
-  "CredentialGetRequest": {
-    "fields": [
-      {
-        "name": "name",
-        "number": 1,
-        "type": "string"
-      }
-    ]
-  },
-  "CredentialGetResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "Credential"
-      }
-    ]
-  },
-  "CredentialListRequest": {
-    "fields": [
-      {
-        "name": "cursor",
-        "number": 1,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "limit",
-        "number": 2,
-        "optional": true,
-        "type": "int64"
-      }
-    ]
-  },
-  "CredentialListResponse": {
-    "fields": [
-      {
-        "name": "has_next",
-        "number": 1,
-        "type": "bool"
-      },
-      {
-        "name": "items",
-        "number": 2,
-        "repeated": true,
-        "type": "Credential"
-      },
-      {
-        "name": "next_cursor",
-        "number": 3,
-        "optional": true,
-        "type": "string"
-      }
-    ]
-  },
-  "CredentialPutRequest": {
-    "fields": [
-      {
-        "name": "body",
-        "number": 1,
-        "type": "Credential"
-      },
-      {
-        "name": "name",
-        "number": 2,
-        "type": "string"
-      }
-    ]
-  },
-  "CredentialPutResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "Credential"
-      }
-    ]
-  },
-  "DashScopeCredentialBody": {
-    "fields": [
-      {
-        "name": "api_key",
-        "number": 1,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "base_url",
-        "number": 2,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "token",
-        "number": 3,
-        "optional": true,
-        "type": "string"
-      }
-    ]
-  },
-  "DashScopeTenantModelProviderData": {
-    "fields": [
-      {
-        "name": "api_mode",
-        "number": 1,
-        "optional": true,
-        "type": "DashScopeTenantModelProviderDataApiMode"
-      },
-      {
-        "name": "upstream_model",
-        "number": 2,
-        "optional": true,
-        "type": "string"
-      }
-    ]
-  },
-  "DashScopeTenantVoiceProviderData": {
-    "fields": [
-      {
-        "name": "raw",
-        "number": 1,
-        "type": "google.protobuf.Struct"
-      },
-      {
-        "name": "voice_id",
-        "number": 2,
-        "optional": true,
-        "type": "string"
       }
     ]
   },
@@ -4301,53 +3866,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
-  "GeminiCredentialBody": {
-    "fields": [
-      {
-        "name": "api_key",
-        "number": 1,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "base_url",
-        "number": 2,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "token",
-        "number": 3,
-        "optional": true,
-        "type": "string"
-      }
-    ]
-  },
-  "GeminiTenantModelProviderData": {
-    "fields": [
-      {
-        "name": "upstream_model",
-        "number": 1,
-        "optional": true,
-        "type": "string"
-      }
-    ]
-  },
-  "GeminiTenantVoiceProviderData": {
-    "fields": [
-      {
-        "name": "raw",
-        "number": 1,
-        "type": "google.protobuf.Struct"
-      },
-      {
-        "name": "voice_id",
-        "number": 2,
-        "optional": true,
-        "type": "string"
-      }
-    ]
-  },
   "HardwareInfo": {
     "fields": [
       {
@@ -4386,146 +3904,29 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
-  "MiniMaxCredentialBody": {
-    "fields": [
-      {
-        "name": "api_key",
-        "number": 1,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "base_url",
-        "number": 2,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "minimax_voice_base_url",
-        "number": 3,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "token",
-        "number": 4,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "voice_base_url",
-        "number": 5,
-        "optional": true,
-        "type": "string"
-      }
-    ]
-  },
-  "MiniMaxTenantVoiceProviderData": {
-    "fields": [
-      {
-        "name": "format",
-        "number": 1,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "model",
-        "number": 2,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "raw",
-        "number": 3,
-        "type": "google.protobuf.Struct"
-      },
-      {
-        "name": "sample_rate",
-        "number": 4,
-        "optional": true,
-        "type": "int64"
-      },
-      {
-        "name": "voice_id",
-        "number": 5,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "voice_type",
-        "number": 6,
-        "optional": true,
-        "type": "string"
-      }
-    ]
-  },
   "Model": {
     "fields": [
       {
-        "name": "capabilities",
+        "name": "alias",
         "number": 1,
-        "optional": true,
-        "type": "ModelCapabilities"
+        "type": "string"
       },
       {
-        "name": "created_at",
+        "mapValue": "AliasI18nText",
+        "name": "i18n",
         "number": 2,
-        "type": "string"
-      },
-      {
-        "name": "description",
-        "number": 3,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "id",
-        "number": 4,
-        "type": "string"
+        "type": "map"
       },
       {
         "name": "kind",
-        "number": 5,
+        "number": 3,
         "type": "ModelKind"
       },
       {
-        "name": "name",
-        "number": 6,
+        "name": "capabilities",
+        "number": 4,
         "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "provider",
-        "number": 7,
-        "type": "ModelProvider"
-      },
-      {
-        "name": "provider_data",
-        "number": 8,
-        "optional": true,
-        "type": "ModelProviderData"
-      },
-      {
-        "name": "source",
-        "number": 9,
-        "type": "ModelSource"
-      },
-      {
-        "name": "synced_at",
-        "number": 10,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "updated_at",
-        "number": 11,
-        "type": "string"
-      },
-      {
-        "name": "owner_public_key",
-        "number": 12,
-        "optional": true,
-        "type": "string"
+        "type": "ModelCapabilities"
       }
     ]
   },
@@ -4569,46 +3970,10 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
-  "ModelCreateRequest": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "Model"
-      }
-    ]
-  },
-  "ModelCreateResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "Model"
-      }
-    ]
-  },
-  "ModelDeleteRequest": {
-    "fields": [
-      {
-        "name": "id",
-        "number": 1,
-        "type": "string"
-      }
-    ]
-  },
-  "ModelDeleteResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "Model"
-      }
-    ]
-  },
   "ModelGetRequest": {
     "fields": [
       {
-        "name": "id",
+        "name": "alias",
         "number": 1,
         "type": "string"
       }
@@ -4620,6 +3985,16 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "value",
         "number": 1,
         "type": "Model"
+      },
+      {
+        "name": "runtime_profile_name",
+        "number": 2,
+        "type": "string"
+      },
+      {
+        "name": "runtime_profile_revision",
+        "number": 3,
+        "type": "string"
       }
     ]
   },
@@ -4657,71 +4032,16 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 3,
         "optional": true,
         "type": "string"
-      }
-    ]
-  },
-  "ModelProvider": {
-    "fields": [
-      {
-        "name": "kind",
-        "number": 1,
-        "type": "ModelProviderKind"
       },
       {
-        "name": "name",
-        "number": 2,
-        "type": "string"
-      }
-    ]
-  },
-  "ModelProviderData": {
-    "fields": [
-      {
-        "name": "gemini_tenant_model_provider_data",
-        "number": 1,
-        "oneof": true,
-        "type": "GeminiTenantModelProviderData"
-      },
-      {
-        "name": "dash_scope_tenant_model_provider_data",
-        "number": 2,
-        "oneof": true,
-        "type": "DashScopeTenantModelProviderData"
-      },
-      {
-        "name": "open_aitenant_model_provider_data",
-        "number": 3,
-        "oneof": true,
-        "type": "OpenAITenantModelProviderData"
-      },
-      {
-        "name": "volc_tenant_model_provider_data",
+        "name": "runtime_profile_name",
         "number": 4,
-        "oneof": true,
-        "type": "VolcTenantModelProviderData"
-      }
-    ]
-  },
-  "ModelPutRequest": {
-    "fields": [
-      {
-        "name": "body",
-        "number": 1,
-        "type": "Model"
+        "type": "string"
       },
       {
-        "name": "id",
-        "number": 2,
+        "name": "runtime_profile_revision",
+        "number": 5,
         "type": "string"
-      }
-    ]
-  },
-  "ModelPutResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "Model"
       }
     ]
   },
@@ -4755,119 +4075,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "supported",
         "number": 5,
         "type": "bool"
-      }
-    ]
-  },
-  "OpenAICredentialBody": {
-    "fields": [
-      {
-        "name": "api_key",
-        "number": 1,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "base_url",
-        "number": 2,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "organization",
-        "number": 3,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "project",
-        "number": 4,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "token",
-        "number": 5,
-        "optional": true,
-        "type": "string"
-      }
-    ]
-  },
-  "OpenAITenantModelProviderData": {
-    "fields": [
-      {
-        "name": "default_thinking_level",
-        "number": 1,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "support_json_output",
-        "number": 2,
-        "optional": true,
-        "type": "bool"
-      },
-      {
-        "name": "support_text_only",
-        "number": 3,
-        "optional": true,
-        "type": "bool"
-      },
-      {
-        "name": "support_thinking",
-        "number": 4,
-        "optional": true,
-        "type": "bool"
-      },
-      {
-        "name": "support_tool_calls",
-        "number": 5,
-        "optional": true,
-        "type": "bool"
-      },
-      {
-        "name": "thinking_level_param",
-        "number": 6,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "thinking_levels",
-        "number": 7,
-        "repeated": true,
-        "type": "string"
-      },
-      {
-        "name": "thinking_param",
-        "number": 8,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "upstream_model",
-        "number": 9,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "use_system_role",
-        "number": 10,
-        "optional": true,
-        "type": "bool"
-      }
-    ]
-  },
-  "OpenAITenantVoiceProviderData": {
-    "fields": [
-      {
-        "name": "raw",
-        "number": 1,
-        "type": "google.protobuf.Struct"
-      },
-      {
-        "name": "voice_id",
-        "number": 2,
-        "optional": true,
-        "type": "string"
       }
     ]
   },
@@ -6721,26 +5928,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "ServerRunSayRequest": {
     "fields": [
       {
-        "name": "credential_name",
-        "number": 1,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "model_id",
-        "number": 2,
-        "optional": true,
-        "type": "string"
-      },
-      {
         "name": "text",
         "number": 3,
         "type": "string"
       },
       {
-        "name": "voice_id",
+        "name": "voice_alias",
         "number": 4,
-        "optional": true,
         "type": "string"
       }
     ]
@@ -6820,6 +6014,76 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "SpeechSynthesizeRequest": {
+    "fields": [
+      {
+        "name": "voice_alias",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "text",
+        "number": 2,
+        "type": "string"
+      },
+      {
+        "name": "accepted_content_types",
+        "number": 3,
+        "repeated": true,
+        "type": "string"
+      }
+    ]
+  },
+  "SpeechSynthesizeResponse": {
+    "fields": [
+      {
+        "name": "content_type",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "sample_rate_hz",
+        "number": 2,
+        "optional": true,
+        "type": "int32"
+      },
+      {
+        "name": "channels",
+        "number": 3,
+        "optional": true,
+        "type": "int32"
+      }
+    ]
+  },
+  "SpeechTranscribeRequest": {
+    "fields": [
+      {
+        "name": "model_alias",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "content_type",
+        "number": 2,
+        "type": "string"
+      },
+      {
+        "name": "language",
+        "number": 3,
+        "optional": true,
+        "type": "string"
+      }
+    ]
+  },
+  "SpeechTranscribeResponse": {
+    "fields": [
+      {
+        "name": "transcript",
+        "number": 1,
+        "type": "string"
+      }
+    ]
+  },
   "SpeedTestRequest": {
     "fields": [
       {
@@ -6851,155 +6115,24 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "Tool": {
     "fields": [
       {
-        "name": "id",
+        "name": "alias",
         "number": 1,
         "type": "string"
       },
       {
-        "name": "name",
+        "mapValue": "AliasI18nText",
+        "name": "i18n",
         "number": 2,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "description",
-        "number": 3,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "source",
-        "number": 4,
-        "type": "ToolSource"
-      },
-      {
-        "name": "enabled",
-        "number": 5,
-        "optional": true,
-        "type": "bool"
-      },
-      {
-        "name": "owner_peer",
-        "number": 6,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "version",
-        "number": 7,
-        "optional": true,
-        "type": "string"
+        "type": "map"
       },
       {
         "name": "input_schema",
-        "number": 8,
+        "number": 3,
         "type": "google.protobuf.Struct"
       },
       {
         "name": "output_schema",
-        "number": 9,
-        "optional": true,
-        "type": "google.protobuf.Struct"
-      },
-      {
-        "name": "triggers",
-        "number": 10,
-        "repeated": true,
-        "type": "ToolTrigger"
-      },
-      {
-        "name": "executor",
-        "number": 11,
-        "type": "ToolExecutor"
-      },
-      {
-        "name": "metadata",
-        "number": 12,
-        "optional": true,
-        "type": "google.protobuf.Struct"
-      },
-      {
-        "name": "created_at",
-        "number": 13,
-        "type": "string"
-      },
-      {
-        "name": "updated_at",
-        "number": 14,
-        "type": "string"
-      },
-      {
-        "name": "owner_public_key",
-        "number": 15,
-        "optional": true,
-        "type": "string"
-      }
-    ]
-  },
-  "ToolCreateRequest": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "Tool"
-      }
-    ]
-  },
-  "ToolCreateResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "Tool"
-      }
-    ]
-  },
-  "ToolDeleteRequest": {
-    "fields": [
-      {
-        "name": "id",
-        "number": 1,
-        "type": "string"
-      }
-    ]
-  },
-  "ToolDeleteResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "Tool"
-      }
-    ]
-  },
-  "ToolExecutor": {
-    "fields": [
-      {
-        "name": "kind",
-        "number": 1,
-        "type": "ToolExecutorKind"
-      },
-      {
-        "name": "name",
-        "number": 2,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "method",
-        "number": 3,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "peer_id",
         "number": 4,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "config",
-        "number": 5,
         "optional": true,
         "type": "google.protobuf.Struct"
       }
@@ -7008,7 +6141,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "ToolGetRequest": {
     "fields": [
       {
-        "name": "id",
+        "name": "alias",
         "number": 1,
         "type": "string"
       }
@@ -7020,6 +6153,16 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "value",
         "number": 1,
         "type": "Tool"
+      },
+      {
+        "name": "runtime_profile_name",
+        "number": 2,
+        "type": "string"
+      },
+      {
+        "name": "runtime_profile_revision",
+        "number": 3,
+        "type": "string"
       }
     ]
   },
@@ -7110,82 +6253,15 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 3,
         "optional": true,
         "type": "string"
-      }
-    ]
-  },
-  "ToolPutRequest": {
-    "fields": [
-      {
-        "name": "id",
-        "number": 1,
-        "type": "string"
       },
       {
-        "name": "body",
-        "number": 2,
-        "type": "Tool"
-      }
-    ]
-  },
-  "ToolPutResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "Tool"
-      }
-    ]
-  },
-  "ToolTrigger": {
-    "fields": [
-      {
-        "name": "name",
-        "number": 1,
-        "type": "string"
-      },
-      {
-        "name": "description",
-        "number": 2,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "patterns",
-        "number": 3,
-        "repeated": true,
-        "type": "string"
-      },
-      {
-        "name": "examples",
+        "name": "runtime_profile_name",
         "number": 4,
-        "repeated": true,
-        "type": "ToolTriggerExample"
-      },
-      {
-        "name": "metadata",
-        "number": 5,
-        "optional": true,
-        "type": "google.protobuf.Struct"
-      }
-    ]
-  },
-  "ToolTriggerExample": {
-    "fields": [
-      {
-        "name": "input",
-        "number": 1,
         "type": "string"
       },
       {
-        "name": "args",
-        "number": 2,
-        "optional": true,
-        "type": "google.protobuf.Struct"
-      },
-      {
-        "name": "output",
-        "number": 3,
-        "optional": true,
+        "name": "runtime_profile_revision",
+        "number": 5,
         "type": "string"
       }
     ]
@@ -7193,60 +6269,22 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "Voice": {
     "fields": [
       {
-        "name": "created_at",
+        "name": "alias",
         "number": 1,
         "type": "string"
       },
       {
-        "name": "description",
+        "mapValue": "AliasI18nText",
+        "name": "i18n",
         "number": 2,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "id",
-        "number": 3,
-        "type": "string"
-      },
-      {
-        "name": "name",
-        "number": 4,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "provider",
-        "number": 5,
-        "type": "VoiceProvider"
-      },
-      {
-        "name": "provider_data",
-        "number": 6,
-        "optional": true,
-        "type": "VoiceProviderData"
-      },
-      {
-        "name": "source",
-        "number": 7,
-        "type": "VoiceSource"
-      },
-      {
-        "name": "synced_at",
-        "number": 8,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "updated_at",
-        "number": 9,
-        "type": "string"
+        "type": "map"
       }
     ]
   },
   "VoiceGetRequest": {
     "fields": [
       {
-        "name": "id",
+        "name": "alias",
         "number": 1,
         "type": "string"
       }
@@ -7258,6 +6296,16 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "value",
         "number": 1,
         "type": "Voice"
+      },
+      {
+        "name": "runtime_profile_name",
+        "number": 2,
+        "type": "string"
+      },
+      {
+        "name": "runtime_profile_revision",
+        "number": 3,
+        "type": "string"
       }
     ]
   },
@@ -7295,202 +6343,15 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 3,
         "optional": true,
         "type": "string"
-      }
-    ]
-  },
-  "VoiceProvider": {
-    "fields": [
-      {
-        "name": "kind",
-        "number": 1,
-        "type": "VoiceProviderKind"
       },
       {
-        "name": "name",
-        "number": 2,
-        "type": "string"
-      }
-    ]
-  },
-  "VoiceProviderData": {
-    "fields": [
-      {
-        "name": "gemini_tenant_voice_provider_data",
-        "number": 1,
-        "oneof": true,
-        "type": "GeminiTenantVoiceProviderData"
-      },
-      {
-        "name": "dash_scope_tenant_voice_provider_data",
-        "number": 2,
-        "oneof": true,
-        "type": "DashScopeTenantVoiceProviderData"
-      },
-      {
-        "name": "open_aitenant_voice_provider_data",
-        "number": 3,
-        "oneof": true,
-        "type": "OpenAITenantVoiceProviderData"
-      },
-      {
-        "name": "mini_max_tenant_voice_provider_data",
+        "name": "runtime_profile_name",
         "number": 4,
-        "oneof": true,
-        "type": "MiniMaxTenantVoiceProviderData"
+        "type": "string"
       },
       {
-        "name": "volc_tenant_voice_provider_data",
+        "name": "runtime_profile_revision",
         "number": 5,
-        "oneof": true,
-        "type": "VolcTenantVoiceProviderData"
-      }
-    ]
-  },
-  "VolcCredentialBody": {
-    "fields": [
-      {
-        "name": "speech_api_key",
-        "number": 1,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "speech_app_id",
-        "number": 2,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "openapi_access_key",
-        "number": 3,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "openapi_access_key_id",
-        "number": 4,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "search_api_key",
-        "number": 5,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "ark_api_key",
-        "number": 6,
-        "optional": true,
-        "type": "string"
-      }
-    ]
-  },
-  "VolcTenantModelProviderData": {
-    "fields": [
-      {
-        "name": "api_mode",
-        "number": 1,
-        "optional": true,
-        "type": "VolcTenantModelProviderDataApiMode"
-      },
-      {
-        "name": "default_thinking_level",
-        "number": 2,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "resource_id",
-        "number": 3,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "support_json_output",
-        "number": 4,
-        "optional": true,
-        "type": "bool"
-      },
-      {
-        "name": "support_text_only",
-        "number": 5,
-        "optional": true,
-        "type": "bool"
-      },
-      {
-        "name": "support_thinking",
-        "number": 6,
-        "optional": true,
-        "type": "bool"
-      },
-      {
-        "name": "support_tool_calls",
-        "number": 7,
-        "optional": true,
-        "type": "bool"
-      },
-      {
-        "name": "thinking_level_param",
-        "number": 8,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "thinking_levels",
-        "number": 9,
-        "repeated": true,
-        "type": "string"
-      },
-      {
-        "name": "thinking_param",
-        "number": 10,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "upstream_model",
-        "number": 11,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "use_system_role",
-        "number": 12,
-        "optional": true,
-        "type": "bool"
-      }
-    ]
-  },
-  "VolcTenantVoiceProviderData": {
-    "fields": [
-      {
-        "name": "raw",
-        "number": 1,
-        "type": "google.protobuf.Struct"
-      },
-      {
-        "name": "resource_id",
-        "number": 2,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "state",
-        "number": 3,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "status",
-        "number": 4,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "voice_id",
-        "number": 5,
-        "optional": true,
         "type": "string"
       }
     ]
@@ -7498,80 +6359,34 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "Workflow": {
     "fields": [
       {
-        "name": "name",
+        "name": "alias",
         "number": 1,
         "type": "string"
       },
       {
-        "name": "spec",
+        "mapValue": "AliasI18nText",
+        "name": "i18n",
         "number": 2,
-        "type": "WorkflowSpec"
+        "type": "map"
       },
       {
-        "name": "owner_public_key",
-        "number": 5,
-        "optional": true,
-        "type": "string"
-      }
-    ]
-  },
-  "WorkflowCreateRequest": {
-    "fields": [
-      {
-        "name": "source",
-        "number": 1,
-        "type": "ResourceSource"
-      },
-      {
-        "name": "body",
-        "number": 2,
-        "type": "WorkflowUpsert"
-      }
-    ]
-  },
-  "WorkflowCreateResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "Workflow"
-      }
-    ]
-  },
-  "WorkflowDeleteRequest": {
-    "fields": [
-      {
-        "name": "name",
-        "number": 1,
+        "name": "collection",
+        "number": 3,
         "type": "string"
       },
       {
-        "name": "source",
-        "number": 2,
-        "type": "ResourceSource"
-      }
-    ]
-  },
-  "WorkflowDeleteResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "Workflow"
+        "name": "driver",
+        "number": 4,
+        "type": "WorkflowDriver"
       }
     ]
   },
   "WorkflowGetRequest": {
     "fields": [
       {
-        "name": "name",
+        "name": "alias",
         "number": 1,
         "type": "string"
-      },
-      {
-        "name": "source",
-        "number": 3,
-        "type": "ResourceSource"
       }
     ]
   },
@@ -7581,6 +6396,16 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "value",
         "number": 1,
         "type": "Workflow"
+      },
+      {
+        "name": "runtime_profile_name",
+        "number": 2,
+        "type": "string"
+      },
+      {
+        "name": "runtime_profile_revision",
+        "number": 3,
+        "type": "string"
       }
     ]
   },
@@ -7599,9 +6424,9 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "int64"
       },
       {
-        "name": "source",
-        "number": 4,
-        "type": "ResourceSource"
+        "name": "collection",
+        "number": 3,
+        "type": "string"
       }
     ]
   },
@@ -7623,93 +6448,16 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 3,
         "optional": true,
         "type": "string"
-      }
-    ]
-  },
-  "WorkflowPutRequest": {
-    "fields": [
-      {
-        "name": "name",
-        "number": 1,
-        "type": "string"
       },
       {
-        "name": "body",
-        "number": 2,
-        "type": "WorkflowUpsert"
-      },
-      {
-        "name": "source",
-        "number": 3,
-        "type": "ResourceSource"
-      }
-    ]
-  },
-  "WorkflowPutResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "Workflow"
-      }
-    ]
-  },
-  "WorkflowSpec": {
-    "fields": [
-      {
-        "name": "ast_translate",
-        "number": 1,
-        "optional": true,
-        "type": "ASTTranslateWorkflowSpec"
-      },
-      {
-        "name": "chatroom",
-        "number": 2,
-        "optional": true,
-        "type": "ChatRoomWorkflowSpec"
-      },
-      {
-        "name": "doubao_realtime",
-        "number": 3,
-        "optional": true,
-        "type": "DoubaoRealtimeWorkflowSpec"
-      },
-      {
-        "name": "driver",
+        "name": "runtime_profile_name",
         "number": 4,
-        "type": "WorkflowDriver"
-      },
-      {
-        "name": "flowcraft",
-        "number": 5,
-        "optional": true,
-        "type": "FlowcraftWorkflowSpec"
-      },
-      {
-        "name": "toolkit",
-        "number": 6,
-        "optional": true,
-        "type": "ToolkitPolicy"
-      },
-      {
-        "name": "pet",
-        "number": 7,
-        "optional": true,
-        "type": "PetWorkflowSpec"
-      }
-    ]
-  },
-  "WorkflowUpsert": {
-    "fields": [
-      {
-        "name": "name",
-        "number": 1,
         "type": "string"
       },
       {
-        "name": "spec",
-        "number": 2,
-        "type": "WorkflowSpec"
+        "name": "runtime_profile_revision",
+        "number": 5,
+        "type": "string"
       }
     ]
   },
@@ -7742,7 +6490,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "workflow_name",
+        "name": "workflow_alias",
         "number": 6,
         "type": "string"
       },
@@ -7770,10 +6518,40 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "workflow_source",
-        "number": 11,
+        "name": "available",
+        "number": 12,
+        "type": "bool"
+      }
+    ]
+  },
+  "WorkspaceCreateBody": {
+    "fields": [
+      {
+        "name": "name",
+        "number": 3,
+        "type": "string"
+      },
+      {
+        "name": "parameters",
+        "number": 4,
         "optional": true,
-        "type": "ResourceSource"
+        "type": "WorkspaceParameters"
+      },
+      {
+        "name": "workflow_alias",
+        "number": 6,
+        "type": "string"
+      },
+      {
+        "name": "toolkit",
+        "number": 7,
+        "optional": true,
+        "type": "ToolkitPolicy"
+      },
+      {
+        "name": "collection",
+        "number": 12,
+        "type": "string"
       }
     ]
   },
@@ -7782,7 +6560,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "value",
         "number": 1,
-        "type": "WorkspaceUpsert"
+        "type": "WorkspaceCreateBody"
       }
     ]
   },
@@ -7828,6 +6606,16 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "value",
         "number": 1,
         "type": "Workspace"
+      },
+      {
+        "name": "runtime_profile_name",
+        "number": 2,
+        "type": "string"
+      },
+      {
+        "name": "runtime_profile_revision",
+        "number": 3,
+        "type": "string"
       }
     ]
   },
@@ -7980,6 +6768,11 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 3,
         "optional": true,
         "type": "string"
+      },
+      {
+        "name": "collection",
+        "number": 4,
+        "type": "string"
       }
     ]
   },
@@ -8000,6 +6793,16 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "next_cursor",
         "number": 3,
         "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "runtime_profile_name",
+        "number": 4,
+        "type": "string"
+      },
+      {
+        "name": "runtime_profile_revision",
+        "number": 5,
         "type": "string"
       }
     ]
@@ -8038,12 +6841,28 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "WorkspacePutBody": {
+    "fields": [
+      {
+        "name": "parameters",
+        "number": 4,
+        "optional": true,
+        "type": "WorkspaceParameters"
+      },
+      {
+        "name": "toolkit",
+        "number": 7,
+        "optional": true,
+        "type": "ToolkitPolicy"
+      }
+    ]
+  },
   "WorkspacePutRequest": {
     "fields": [
       {
         "name": "body",
         "number": 1,
-        "type": "WorkspaceUpsert"
+        "type": "WorkspacePutBody"
       },
       {
         "name": "name",
@@ -8058,38 +6877,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "value",
         "number": 1,
         "type": "Workspace"
-      }
-    ]
-  },
-  "WorkspaceUpsert": {
-    "fields": [
-      {
-        "name": "name",
-        "number": 3,
-        "type": "string"
-      },
-      {
-        "name": "parameters",
-        "number": 4,
-        "optional": true,
-        "type": "WorkspaceParameters"
-      },
-      {
-        "name": "workflow_name",
-        "number": 6,
-        "type": "string"
-      },
-      {
-        "name": "toolkit",
-        "number": 7,
-        "optional": true,
-        "type": "ToolkitPolicy"
-      },
-      {
-        "name": "workflow_source",
-        "number": 11,
-        "optional": true,
-        "type": "ResourceSource"
       }
     ]
   }
@@ -8321,34 +7108,6 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "6": "embedding"
     }
   },
-  "ModelProviderKind": {
-    "byName": {
-      "dashscope-tenant": 2,
-      "gemini-tenant": 1,
-      "openai-tenant": 3,
-      "unspecified": 0,
-      "volc-tenant": 4
-    },
-    "byNumber": {
-      "0": "",
-      "1": "gemini-tenant",
-      "2": "dashscope-tenant",
-      "3": "openai-tenant",
-      "4": "volc-tenant"
-    }
-  },
-  "ModelSource": {
-    "byName": {
-      "manual": 2,
-      "sync": 1,
-      "unspecified": 0
-    },
-    "byNumber": {
-      "0": "",
-      "1": "sync",
-      "2": "manual"
-    }
-  },
   "PeerRole": {
     "byName": {
       "admin": 1,
@@ -8427,74 +7186,6 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
     "byNumber": {
       "0": "",
       "1": "pet"
-    }
-  },
-  "ResourceSource": {
-    "byName": {
-      "owned": 2,
-      "runtime": 1,
-      "unspecified": 0
-    },
-    "byNumber": {
-      "0": "",
-      "1": "runtime",
-      "2": "owned"
-    }
-  },
-  "ToolExecutorKind": {
-    "byName": {
-      "builtin": 1,
-      "device_rpc": 2,
-      "unspecified": 0
-    },
-    "byNumber": {
-      "0": "",
-      "1": "builtin",
-      "2": "device_rpc"
-    }
-  },
-  "ToolSource": {
-    "byName": {
-      "admin": 3,
-      "builtin": 1,
-      "device": 2,
-      "unspecified": 0
-    },
-    "byNumber": {
-      "0": "",
-      "1": "builtin",
-      "2": "device",
-      "3": "admin"
-    }
-  },
-  "VoiceProviderKind": {
-    "byName": {
-      "dashscope-tenant": 2,
-      "gemini-tenant": 1,
-      "minimax-tenant": 4,
-      "openai-tenant": 3,
-      "unspecified": 0,
-      "volc-tenant": 5
-    },
-    "byNumber": {
-      "0": "",
-      "1": "gemini-tenant",
-      "2": "dashscope-tenant",
-      "3": "openai-tenant",
-      "4": "minimax-tenant",
-      "5": "volc-tenant"
-    }
-  },
-  "VoiceSource": {
-    "byName": {
-      "manual": 2,
-      "sync": 1,
-      "unspecified": 0
-    },
-    "byNumber": {
-      "0": "",
-      "1": "sync",
-      "2": "manual"
     }
   },
   "VolcTenantModelProviderDataApiMode": {

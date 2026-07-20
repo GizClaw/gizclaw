@@ -14,7 +14,7 @@ spec:
   character:
     prompt: A small friendly creature formed from a rugged gray-brown rock, with rosy cheeks and a steady resilient personality.
   voice:
-    voice_id: volc-tenant:volc-main:zh_male_sunwukong_mars_bigtts
+    voice_id: sun-wukong
     prompt: Grounded, reassuring, concise replies with patient confidence.
   drive:
     actions:

@@ -2068,7 +2068,6 @@ func toolkitTestContext(t *testing.T, owner string, allowed []string) *agenthost
 		Description:    ptr("Play music"),
 		Source:         toolkit.ToolSourceBuiltin,
 		Enabled:        true,
-		OwnerPublicKey: ptr(owner),
 		InputSchema:    jsonschema.Schema{Type: "object"},
 		Executor: toolkit.ToolExecutor{
 			Kind: toolkit.ToolExecutorKindBuiltin,
@@ -2082,7 +2081,8 @@ func toolkitTestContext(t *testing.T, owner string, allowed []string) *agenthost
 		Builder:   &toolkit.Builder{Tools: store},
 		Executors: toolkit.NewExecutorRegistry(),
 		BuildRequest: toolkit.BuildRequest{
-			OwnerPublicKey:  owner,
+			CallerPublicKey: owner,
+			ProfileToolIDs:  []string{"system.music.play"},
 			AllowedToolIDs:  allowed,
 			RestrictToolIDs: true,
 		},
@@ -2127,7 +2127,7 @@ func TestBuildClawConfigInjectsPeerResolvedOpenAIModel(t *testing.T) {
 	}
 
 	wantPrefix := []string{
-		"list:models",
+		"get:model:chat",
 		"get:tenant:openai:main",
 		"get:credential:openai-key",
 	}

@@ -247,6 +247,17 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 		gizServer.FriendGroupMessageCleanup = interval
 	}
 	gizServer.FriendGroupMessageMaxBytes = cfg.FriendGroups.MessageMaxAudioBytes
+	transcriptionDuration, _ := parsePositiveConfigDuration(cfg.Speech.Transcription.MaxAudioDuration)
+	transcriptionTimeout, _ := parsePositiveConfigDuration(cfg.Speech.Transcription.RequestTimeout)
+	synthesisTimeout, _ := parsePositiveConfigDuration(cfg.Speech.Synthesis.RequestTimeout)
+	gizServer.SpeechLimits = gizclaw.SpeechLimits{
+		TranscriptionMaxAudioBytes:    cfg.Speech.Transcription.MaxAudioBytes,
+		TranscriptionMaxAudioDuration: transcriptionDuration,
+		TranscriptionRequestTimeout:   transcriptionTimeout,
+		SynthesisMaxTextBytes:         int(cfg.Speech.Synthesis.MaxTextBytes),
+		SynthesisMaxOutputBytes:       cfg.Speech.Synthesis.MaxOutputBytes,
+		SynthesisRequestTimeout:       synthesisTimeout,
+	}
 	if !cfg.AdminPublicKey.IsZero() {
 		gizServer.SecurityPolicy = adminPublicKeySecurityPolicy{
 			PublicKey: cfg.AdminPublicKey,

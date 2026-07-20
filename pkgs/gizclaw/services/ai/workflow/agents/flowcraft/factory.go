@@ -2743,32 +2743,25 @@ func buildConfiguredClawConfig(ctx context.Context, genxService *peergenx.Servic
 	settings := ensureMap(out, "settings")
 	models := ensureMap(out, "models")
 	llm := ensureMap(models, "llm")
-	var accessibleModels map[string]peergenx.GeneratorConfig
 	for _, role := range clawModelRoles {
-		modelID, ok, err := configuredModelIDForRole(options, out, role.settingKey, role.required)
+		modelAlias, ok, err := configuredModelIDForRole(options, out, role.settingKey, role.required)
 		if err != nil {
 			return nil, err
 		}
 		if !ok {
 			continue
 		}
-		if accessibleModels == nil {
-			accessibleModels, err = accessibleGeneratorModels(ctx, genxService)
-			if err != nil {
-				return nil, err
-			}
-		}
-		generatorCfg, ok := accessibleModels[modelID]
-		if !ok {
-			return nil, fmt.Errorf("flowcraft: model %q is not accessible as a generator", modelID)
+		generatorCfg, err := genxService.ResolveGenerator(ctx, "model/"+modelAlias)
+		if err != nil {
+			return nil, fmt.Errorf("flowcraft: resolve model alias %q: %w", modelAlias, err)
 		}
 		modelCfg, err := clawModelConfig(generatorCfg)
 		if err != nil {
 			return nil, err
 		}
-		settings[role.settingKey] = modelID
+		settings[role.settingKey] = modelAlias
 		models[role.modelsKey] = role.settingKey
-		llm[modelID] = modelCfg
+		llm[modelAlias] = modelCfg
 	}
 	ensureDefaultAgent(out)
 	if err := addToolkitToolsToClawConfig(ctx, out, options.Toolkit); err != nil {

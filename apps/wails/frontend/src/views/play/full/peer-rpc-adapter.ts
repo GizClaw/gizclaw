@@ -2,8 +2,6 @@ import { applyGiznetServerInfoICEServers, fetchGiznetServerInfo, rewriteGiznetWe
 import {
   RPC_METHODS,
   type ContactObject as RPCContactObject,
-  type Credential as RPCCredential,
-  type CredentialListResponse as RPCCredentialListResponse,
   type Firmware as RPCFirmware,
   type FriendGroupInviteTokenGetResponse as RPCFriendGroupInviteTokenGetResponse,
   type FriendGroupMemberMutableRole as RPCFriendGroupMemberMutableRole,
@@ -29,6 +27,7 @@ import {
   type PeerRunWorkspaceState as RPCPeerRunWorkspaceState,
   type RPCMethodMap,
   type Workspace as RPCWorkspace,
+  type WorkspaceGetResponse as RPCWorkspaceGetResponse,
   type WorkspaceListResponse as RPCWorkspaceListResponse,
   type WorkspaceParameters as RPCWorkspaceParameters,
   type Workflow as RPCWorkflow,
@@ -173,7 +172,6 @@ async function callRPCBinary<M extends PeerRPCMethodName>(method: M, options?: R
 }
 
 export type ContactObject = RPCContactObject;
-export type Credential = RPCCredential;
 export type FriendGroupInviteTokenGetResponse = RPCFriendGroupInviteTokenGetResponse;
 export type FriendGroupMemberMutableRole = RPCFriendGroupMemberMutableRole;
 export type FriendGroupMemberObject = RPCFriendGroupMemberObject;
@@ -295,7 +293,10 @@ export const playPeerRunWorkspaceHistory = async (options: RequestOptions) => cu
 export const getPeerRunWorkspaceMemoryStats = async () => currentDataClient ? { data: (await currentDataClient.loadSnapshot()).memoryStats } : callRPC(RPC_METHODS["server.run.workspace.memory.stats"]);
 export const recallPeerRunWorkspaceMemory = async (options: RequestOptions) => currentDataClient ? { data: normalizeInjectedRecallResponse(await currentDataClient.recallMemory?.(String(options.body?.query ?? ""))) } : callRPC(RPC_METHODS["server.run.workspace.recall"], options);
 export const setPeerRunWorkspaceMode = (options: RequestOptions) => callRPC(RPC_METHODS["server.run.workspace.set"], options);
-export const getPeerRunWorkspaceDetails = (options?: RequestOptions) => callRPC(RPC_METHODS["server.workspace.get"], options);
+export const getPeerRunWorkspaceDetails = async (options?: RequestOptions): Promise<ApiResult<RPCWorkspace>> => {
+  const result: ApiResult<RPCWorkspaceGetResponse> = await callRPC(RPC_METHODS["server.workspace.get"], options);
+  return result.error != null ? { error: result.error } : { data: result.data?.value };
+};
 export const putPeerRunWorkspaceDetails = (options: RequestOptions) => callRPC(RPC_METHODS["server.workspace.put"], options);
 export const listPeerWorkspaceHistory = (options: RequestOptions) => callRPC(RPC_METHODS["server.workspace.history.list"], options);
 export const getPeerWorkspaceHistoryAudio = async (options: RequestOptions): Promise<ApiResult<Blob>> => {
@@ -313,10 +314,42 @@ export const getPeerWorkspaceHistoryAudio = async (options: RequestOptions): Pro
 };
 
 export const listPeerFirmwares = (options?: RequestOptions) => currentDataClient ? snapshotResult("firmwares") : callRPC(RPC_METHODS["server.firmware.list"], options);
-export const listPeerWorkspaces = (options?: RequestOptions): Promise<ApiResult<RPCWorkspaceListResponse>> => currentDataClient ? snapshotResult<RPCWorkspaceListResponse>("workspaces") : callRPC(RPC_METHODS["server.workspace.list"], options);
-export const listPeerWorkflows = (options?: RequestOptions): Promise<ApiResult<RPCWorkflowListResponse>> => currentDataClient ? snapshotResult<RPCWorkflowListResponse>("workflows") : callRPC(RPC_METHODS["server.workflow.list"], options);
+const playCollections = ["assistants", "translates", "raids", "story-teller", "role-play"] as const;
+
+export const listPeerWorkspaces = async (options?: RequestOptions): Promise<ApiResult<RPCWorkspaceListResponse>> => {
+  if (currentDataClient) return snapshotResult<RPCWorkspaceListResponse>("workspaces");
+  const results = await Promise.all(playCollections.map((collection) => callRPC(RPC_METHODS["server.workspace.list"], {
+    query: { ...(options?.query ?? {}), collection },
+  })));
+  const failed = results.find((result) => result.error != null);
+  if (failed?.error != null) return { error: failed.error };
+  const values = results.flatMap((result) => result.data?.items ?? []);
+  const metadata = results.find((result) => result.data != null)?.data;
+  return { data: {
+    has_next: false,
+    items: values,
+    runtime_profile_name: metadata?.runtime_profile_name ?? "",
+    runtime_profile_revision: metadata?.runtime_profile_revision ?? "",
+  } };
+};
+
+export const listPeerWorkflows = async (options?: RequestOptions): Promise<ApiResult<RPCWorkflowListResponse>> => {
+  if (currentDataClient) return snapshotResult<RPCWorkflowListResponse>("workflows");
+  const results = await Promise.all(playCollections.map((collection) => callRPC(RPC_METHODS["server.workflow.list"], {
+    query: { ...(options?.query ?? {}), collection },
+  })));
+  const failed = results.find((result) => result.error != null);
+  if (failed?.error != null) return { error: failed.error };
+  const values = results.flatMap((result) => result.data?.items ?? []);
+  const metadata = results.find((result) => result.data != null)?.data;
+  return { data: {
+    has_next: false,
+    items: values,
+    runtime_profile_name: metadata?.runtime_profile_name ?? "",
+    runtime_profile_revision: metadata?.runtime_profile_revision ?? "",
+  } };
+};
 export const listPeerModels = (options?: RequestOptions): Promise<ApiResult<RPCModelListResponse>> => currentDataClient ? snapshotResult<RPCModelListResponse>("models") : callRPC(RPC_METHODS["server.model.list"], options);
-export const listPeerCredentials = (options?: RequestOptions): Promise<ApiResult<RPCCredentialListResponse>> => currentDataClient ? snapshotResult<RPCCredentialListResponse>("credentials") : callRPC(RPC_METHODS["server.credential.list"], options);
 export const listPeerVoices = (options?: RequestOptions) => currentDataClient ? snapshotResult("voices") : callRPC(RPC_METHODS["server.voice.list"], options);
 export const listClientVoices = listPeerVoices;
 

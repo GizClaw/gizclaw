@@ -53,8 +53,8 @@ func profileRulesFromContext(ctx context.Context, requestedName string) (Profile
 	}
 	gameplay := profile.Spec.Gameplay
 	pool := []ProfilePetPoolEntry{}
-	if gameplay.PetPool != nil {
-		for _, entry := range *gameplay.PetPool {
+	if gameplay.Adoption != nil && gameplay.Adoption.Pool != nil {
+		for _, entry := range *gameplay.Adoption.Pool {
 			petDefID, exists := resourceAlias(profile.Spec.Resources.PetDefs, entry.PetDef)
 			if !exists {
 				continue
@@ -71,7 +71,7 @@ func profileRulesFromContext(ctx context.Context, requestedName string) (Profile
 		Name: profile.Name,
 		Spec: ProfileRulesSpec{
 			BadgeDefIds: resourceValues(profile.Spec.Resources.BadgeDefs),
-			Drive:       resolveDrive(gameplay.Drive, profile.Spec.Resources.GameDefs, profile.Spec.Resources.BadgeDefs),
+			Drive:       resolveDrive(gameplay.Rewards, profile.Spec.Resources.GameDefs, profile.Spec.Resources.BadgeDefs),
 			GameDefIds:  resourceValues(profile.Spec.Resources.GameDefs),
 			PetPool:     pool,
 			Points:      gameplay.Points,
@@ -79,16 +79,16 @@ func profileRulesFromContext(ctx context.Context, requestedName string) (Profile
 	}, nil
 }
 
-func resourceAlias(resources *map[string]string, alias string) (string, bool) {
+func resourceAlias(resources *map[string]apitypes.RuntimeProfileBinding, alias string) (string, bool) {
 	if resources == nil {
 		return "", false
 	}
-	value, ok := (*resources)[strings.TrimSpace(alias)]
-	value = strings.TrimSpace(value)
+	binding, ok := (*resources)[strings.TrimSpace(alias)]
+	value := strings.TrimSpace(binding.ResourceId)
 	return value, ok && value != ""
 }
 
-func resourceValues(resources *map[string]string) []string {
+func resourceValues(resources *map[string]apitypes.RuntimeProfileBinding) []string {
 	if resources == nil {
 		return nil
 	}
@@ -100,7 +100,7 @@ func resourceValues(resources *map[string]string) []string {
 	seen := make(map[string]struct{}, len(aliases))
 	out := make([]string, 0, len(aliases))
 	for _, alias := range aliases {
-		value := strings.TrimSpace((*resources)[alias])
+		value := strings.TrimSpace((*resources)[alias].ResourceId)
 		if value == "" {
 			continue
 		}
@@ -113,18 +113,18 @@ func resourceValues(resources *map[string]string) []string {
 	return out
 }
 
-func resolveDrive(in *apitypes.RuntimeProfileDriveSpec, gameDefs, badgeDefs *map[string]string) *apitypes.RuntimeProfileDriveSpec {
+func resolveDrive(in *apitypes.RuntimeProfileDriveSpec, gameDefs, badgeDefs *map[string]apitypes.RuntimeProfileBinding) *apitypes.RuntimeProfileDriveSpec {
 	if in == nil {
 		return nil
 	}
 	out := &apitypes.RuntimeProfileDriveSpec{}
-	if in.DefaultReward != nil {
-		reward := resolveReward(*in.DefaultReward, badgeDefs)
-		out.DefaultReward = &reward
+	if in.Default != nil {
+		reward := resolveReward(*in.Default, badgeDefs)
+		out.Default = &reward
 	}
-	if in.GameRewards != nil {
-		aliases := make([]string, 0, len(*in.GameRewards))
-		for alias := range *in.GameRewards {
+	if in.Games != nil {
+		aliases := make([]string, 0, len(*in.Games))
+		for alias := range *in.Games {
 			aliases = append(aliases, alias)
 		}
 		sort.Strings(aliases)
@@ -137,14 +137,21 @@ func resolveDrive(in *apitypes.RuntimeProfileDriveSpec, gameDefs, badgeDefs *map
 			if _, exists := resolved[gameDefID]; exists {
 				continue
 			}
-			resolved[gameDefID] = resolveReward((*in.GameRewards)[alias], badgeDefs)
+			resolved[gameDefID] = resolveReward((*in.Games)[alias], badgeDefs)
 		}
-		out.GameRewards = &resolved
+		out.Games = &resolved
+	}
+	if in.PetActions != nil {
+		resolved := make(map[string]apitypes.RuntimeProfileRewardSpec, len(*in.PetActions))
+		for action, reward := range *in.PetActions {
+			resolved[action] = resolveReward(reward, badgeDefs)
+		}
+		out.PetActions = &resolved
 	}
 	return out
 }
 
-func resolveReward(in apitypes.RuntimeProfileRewardSpec, badgeDefs *map[string]string) apitypes.RuntimeProfileRewardSpec {
+func resolveReward(in apitypes.RuntimeProfileRewardSpec, badgeDefs *map[string]apitypes.RuntimeProfileBinding) apitypes.RuntimeProfileRewardSpec {
 	out := apitypes.RuntimeProfileRewardSpec{
 		PetExpDelta: in.PetExpDelta,
 		PointsDelta: in.PointsDelta,

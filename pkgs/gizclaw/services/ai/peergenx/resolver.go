@@ -81,6 +81,10 @@ func (s *Service) ResolveGenerator(ctx context.Context, pattern string) (Generat
 	if !ok {
 		return GeneratorConfig{}, fmt.Errorf("%w: generator pattern %q must target model/<id>", ErrInvalid, pattern)
 	}
+	modelID, err := s.resolveModelAliasID(modelID)
+	if err != nil {
+		return GeneratorConfig{}, err
+	}
 	model, tenant, credential, err := s.resolveModel(ctx, modelID)
 	if err != nil {
 		return GeneratorConfig{}, err
@@ -114,12 +118,6 @@ func (s *Service) generatorConfigFromListedModel(ctx context.Context, model apit
 		}
 		return GeneratorConfig{}, false, err
 	}
-	if err := s.authorizeModelCredential(model, credential); err != nil {
-		if errors.Is(err, ErrDenied) {
-			return GeneratorConfig{}, false, nil
-		}
-		return GeneratorConfig{}, false, err
-	}
 	return GeneratorConfig{
 		Pattern:    "model/" + string(model.Id),
 		Model:      model,
@@ -134,6 +132,10 @@ func (s *Service) ResolveTransformer(ctx context.Context, pattern string) (Trans
 		return TransformerConfig{}, err
 	}
 	if voiceID, ok := parsePattern(basePattern, "voice", "voices"); ok {
+		voiceID, err = s.resolveVoiceAliasID(voiceID)
+		if err != nil {
+			return TransformerConfig{}, err
+		}
 		voice, tenant, credential, err := s.resolveVoice(ctx, voiceID)
 		if err != nil {
 			return TransformerConfig{}, err
@@ -151,6 +153,10 @@ func (s *Service) ResolveTransformer(ctx context.Context, pattern string) (Trans
 	if !ok {
 		return TransformerConfig{}, fmt.Errorf("%w: transformer pattern %q must target model/<id> or voice/<id>", ErrInvalid, pattern)
 	}
+	modelID, err = s.resolveModelAliasID(modelID)
+	if err != nil {
+		return TransformerConfig{}, err
+	}
 	model, tenant, credential, err := s.resolveModel(ctx, modelID)
 	if err != nil {
 		return TransformerConfig{}, err
@@ -160,6 +166,11 @@ func (s *Service) ResolveTransformer(ctx context.Context, pattern string) (Trans
 	default:
 		return TransformerConfig{}, fmt.Errorf("%w: model %q kind %q is not a transformer", ErrInvalid, model.Id, model.Kind)
 	}
+	if model.Kind == apitypes.ModelKindRealtime {
+		if err := s.resolveRealtimeVoiceAlias(ctx, model, params); err != nil {
+			return TransformerConfig{}, err
+		}
+	}
 	return TransformerConfig{
 		Pattern:    pattern,
 		Model:      &model,
@@ -167,6 +178,71 @@ func (s *Service) ResolveTransformer(ctx context.Context, pattern string) (Trans
 		Credential: credential,
 		Params:     params,
 	}, nil
+}
+
+func (s *Service) resolveRealtimeVoiceAlias(ctx context.Context, model apitypes.Model, params map[string]any) error {
+	alias, _ := params["output_voice"].(string)
+	alias = strings.TrimSpace(alias)
+	if alias == "" {
+		return nil
+	}
+	voiceID, err := s.resolveVoiceAliasID(alias)
+	if err != nil {
+		return err
+	}
+	voice, err := s.getVoice(ctx, voiceID)
+	if err != nil {
+		return err
+	}
+	if voice.Provider.Kind != apitypes.VoiceProviderKind(model.Provider.Kind) || voice.Provider.Name != model.Provider.Name {
+		return fmt.Errorf("%w: realtime voice alias %q uses an incompatible provider", ErrInvalid, alias)
+	}
+	if voice.ProviderData == nil {
+		return fmt.Errorf("%w: realtime voice alias %q has no provider data", ErrInvalid, alias)
+	}
+	providerData, err := voice.ProviderData.AsVolcTenantVoiceProviderData()
+	if err != nil {
+		return fmt.Errorf("%w: decode realtime voice alias %q: %v", ErrInvalid, alias, err)
+	}
+	voiceName := strings.TrimSpace(valueOrEmpty(providerData.VoiceId))
+	if voiceName == "" {
+		return fmt.Errorf("%w: realtime voice alias %q has no provider voice_id", ErrInvalid, alias)
+	}
+	params["output_voice"] = voiceName
+	return nil
+}
+
+func valueOrEmpty(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
+}
+
+func (s *Service) resolveModelAliasID(value string) (string, error) {
+	value = strings.TrimSpace(value)
+	resolver, ok := s.Models.(modelAliasResolver)
+	if !ok {
+		return value, nil
+	}
+	resolved, ok := resolver.ResolveModelAlias(value)
+	if !ok || strings.TrimSpace(resolved) == "" {
+		return "", fmt.Errorf("%w: model alias %q", ErrNotFound, value)
+	}
+	return strings.TrimSpace(resolved), nil
+}
+
+func (s *Service) resolveVoiceAliasID(value string) (string, error) {
+	value = strings.TrimSpace(value)
+	resolver, ok := s.Voices.(voiceAliasResolver)
+	if !ok {
+		return value, nil
+	}
+	resolved, ok := resolver.ResolveVoiceAlias(value)
+	if !ok || strings.TrimSpace(resolved) == "" {
+		return "", fmt.Errorf("%w: voice alias %q", ErrNotFound, value)
+	}
+	return strings.TrimSpace(resolved), nil
 }
 
 func (s *Service) resolveModel(ctx context.Context, id string) (apitypes.Model, Tenant, apitypes.Credential, error) {
@@ -185,33 +261,7 @@ func (s *Service) resolveModel(ctx context.Context, id string) (apitypes.Model, 
 	if err != nil {
 		return apitypes.Model{}, Tenant{}, apitypes.Credential{}, err
 	}
-	if err := s.authorizeModelCredential(model, credential); err != nil {
-		return apitypes.Model{}, Tenant{}, apitypes.Credential{}, err
-	}
 	return model, tenant, credential, nil
-}
-
-func (s *Service) authorizeModelCredential(model apitypes.Model, credential apitypes.Credential) error {
-	if model.OwnerPublicKey == nil {
-		return nil
-	}
-	if s == nil {
-		return fmt.Errorf("%w: owned model %q has no service", ErrDenied, model.Id)
-	}
-	if checker, ok := s.Models.(ProfileModelChecker); ok && checker.ProfileAllowsModel(string(model.Id)) {
-		return nil
-	}
-	if s.Peer == nil {
-		return fmt.Errorf("%w: owned model %q has no authenticated peer", ErrDenied, model.Id)
-	}
-	caller := s.Peer.PublicKey().String()
-	if strings.TrimSpace(*model.OwnerPublicKey) != caller {
-		return fmt.Errorf("%w: model %q belongs to another peer", ErrDenied, model.Id)
-	}
-	if credential.OwnerPublicKey != nil && strings.TrimSpace(*credential.OwnerPublicKey) == caller {
-		return nil
-	}
-	return fmt.Errorf("%w: owned model %q cannot use credential %q", ErrDenied, model.Id, credential.Name)
 }
 
 func (s *Service) resolveVoice(ctx context.Context, id string) (apitypes.Voice, Tenant, apitypes.Credential, error) {

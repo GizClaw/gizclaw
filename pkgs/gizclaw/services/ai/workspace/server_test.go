@@ -12,6 +12,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/model"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
@@ -319,6 +320,154 @@ func TestServerListWorkspacesPagination(t *testing.T) {
 	}
 }
 
+func TestServerWorkspaceLabelsRoundTripPreserveAndClear(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(t)
+	seedWorkflow(t, srv, "workflow-1")
+	ctx := context.Background()
+	inputLabels := map[string]string{"collection": "raids", "tier": "Gold"}
+	body := adminhttp.WorkspaceUpsert{Name: "labels01", WorkflowName: "workflow-1", Labels: &inputLabels}
+	response, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
+	if err != nil {
+		t.Fatalf("CreateWorkspace() error = %v", err)
+	}
+	created, ok := response.(adminhttp.CreateWorkspace200JSONResponse)
+	if !ok || created.Labels == nil || (*created.Labels)["collection"] != "raids" {
+		t.Fatalf("CreateWorkspace() = %#v", response)
+	}
+	inputLabels["collection"] = "mutated"
+	(*created.Labels)["collection"] = "also-mutated"
+
+	getResponse, err := srv.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Name: "labels01"})
+	if err != nil {
+		t.Fatalf("GetWorkspace() error = %v", err)
+	}
+	stored := getResponse.(adminhttp.GetWorkspace200JSONResponse)
+	if stored.Labels == nil || (*stored.Labels)["collection"] != "raids" {
+		t.Fatalf("stored labels = %#v", stored.Labels)
+	}
+
+	preserve := adminhttp.WorkspaceUpsert{Name: "labels01", WorkflowName: "workflow-1"}
+	putResponse, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Name: "labels01", Body: &preserve})
+	if err != nil {
+		t.Fatalf("PutWorkspace(preserve) error = %v", err)
+	}
+	preserved := putResponse.(adminhttp.PutWorkspace200JSONResponse)
+	if preserved.Labels == nil || (*preserved.Labels)["collection"] != "raids" {
+		t.Fatalf("preserved labels = %#v", preserved.Labels)
+	}
+
+	empty := map[string]string{}
+	clear := adminhttp.WorkspaceUpsert{Name: "labels01", WorkflowName: "workflow-1", Labels: &empty}
+	putResponse, err = srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Name: "labels01", Body: &clear})
+	if err != nil {
+		t.Fatalf("PutWorkspace(clear) error = %v", err)
+	}
+	cleared := putResponse.(adminhttp.PutWorkspace200JSONResponse)
+	if cleared.Labels == nil || len(*cleared.Labels) != 0 {
+		t.Fatalf("cleared labels = %#v", cleared.Labels)
+	}
+}
+
+func TestServerWorkspaceLabelValidation(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		labels map[string]string
+	}{
+		{name: "empty key", labels: map[string]string{"": "value"}},
+		{name: "uppercase key", labels: map[string]string{"Collection": "value"}},
+		{name: "invalid key character", labels: map[string]string{"collection/x": "value"}},
+		{name: "invalid key end", labels: map[string]string{"collection-": "value"}},
+		{name: "empty value", labels: map[string]string{"collection": ""}},
+		{name: "leading whitespace", labels: map[string]string{"collection": " raids"}},
+		{name: "control character", labels: map[string]string{"collection": "raid\n"}},
+		{name: "invalid utf8", labels: map[string]string{"collection": string([]byte{0xff})}},
+		{name: "oversized value", labels: map[string]string{"collection": strings.Repeat("x", maxWorkspaceLabelValueBytes+1)}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			srv := newTestServer(t)
+			seedWorkflow(t, srv, "workflow-1")
+			body := adminhttp.WorkspaceUpsert{Name: "invalid1", WorkflowName: "workflow-1", Labels: &test.labels}
+			response, err := srv.CreateWorkspace(context.Background(), adminhttp.CreateWorkspaceRequestObject{Body: &body})
+			if err != nil {
+				t.Fatalf("CreateWorkspace() error = %v", err)
+			}
+			if _, ok := response.(adminhttp.CreateWorkspace400JSONResponse); !ok {
+				t.Fatalf("CreateWorkspace() response = %#v, want 400", response)
+			}
+			if _, err := getWorkspace(context.Background(), srv.Store, "invalid1"); !errors.Is(err, kv.ErrNotFound) {
+				t.Fatalf("invalid Workspace write error = %v, want kv.ErrNotFound", err)
+			}
+		})
+	}
+}
+
+func TestServerWorkspaceLabelFilteringBeforePagination(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(t)
+	seedWorkflow(t, srv, "workflow-1")
+	ctx := ownership.WithOwner(context.Background(), "peer-a")
+	fixtures := []struct {
+		name       string
+		collection string
+		tier       string
+	}{
+		{name: "alpha001", collection: "raids", tier: "gold"},
+		{name: "beta0001", collection: "assistants", tier: "gold"},
+		{name: "gamma001", collection: "raids", tier: "silver"},
+		{name: "omega001", collection: "raids", tier: "gold"},
+	}
+	for _, fixture := range fixtures {
+		labels := map[string]string{"collection": fixture.collection, "tier": fixture.tier}
+		body := adminhttp.WorkspaceUpsert{Name: fixture.name, WorkflowName: "workflow-1", Labels: &labels}
+		if _, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body}); err != nil {
+			t.Fatalf("CreateWorkspace(%q) error = %v", fixture.name, err)
+		}
+	}
+
+	selectors := []string{"collection=raids"}
+	limit := int32(2)
+	firstResponse, err := srv.ListWorkspaces(context.Background(), adminhttp.ListWorkspacesRequestObject{Params: adminhttp.ListWorkspacesParams{Label: &selectors, Limit: &limit}})
+	if err != nil {
+		t.Fatalf("ListWorkspaces(first) error = %v", err)
+	}
+	first := firstResponse.(adminhttp.ListWorkspaces200JSONResponse)
+	if len(first.Items) != 2 || first.Items[0].Name != "alpha001" || first.Items[1].Name != "gamma001" || !first.HasNext || first.NextCursor == nil {
+		t.Fatalf("ListWorkspaces(first) = %#v", first)
+	}
+	cursor := *first.NextCursor
+	secondResponse, err := srv.ListWorkspaces(context.Background(), adminhttp.ListWorkspacesRequestObject{Params: adminhttp.ListWorkspacesParams{Cursor: &cursor, Label: &selectors, Limit: &limit}})
+	if err != nil {
+		t.Fatalf("ListWorkspaces(second) error = %v", err)
+	}
+	second := secondResponse.(adminhttp.ListWorkspaces200JSONResponse)
+	if len(second.Items) != 1 || second.Items[0].Name != "omega001" || second.HasNext {
+		t.Fatalf("ListWorkspaces(second) = %#v", second)
+	}
+
+	owned, err := srv.ListWorkspacesByOwnerAndLabels(context.Background(), "peer-a", map[string]string{"collection": "raids", "tier": "gold"})
+	if err != nil {
+		t.Fatalf("ListWorkspacesByOwnerAndLabels() error = %v", err)
+	}
+	if len(owned) != 2 || owned[0].Name != "alpha001" || owned[1].Name != "omega001" {
+		t.Fatalf("ListWorkspacesByOwnerAndLabels() = %#v", owned)
+	}
+
+	invalid := []string{"collection"}
+	invalidResponse, err := srv.ListWorkspaces(context.Background(), adminhttp.ListWorkspacesRequestObject{Params: adminhttp.ListWorkspacesParams{Label: &invalid}})
+	if err != nil {
+		t.Fatalf("ListWorkspaces(invalid) error = %v", err)
+	}
+	if _, ok := invalidResponse.(adminhttp.ListWorkspaces400JSONResponse); !ok {
+		t.Fatalf("ListWorkspaces(invalid) = %#v, want 400", invalidResponse)
+	}
+}
+
 func TestServerRejectsInvalidWorkspaceReferences(t *testing.T) {
 	t.Parallel()
 
@@ -373,14 +522,12 @@ func TestServerRejectsInvalidWorkspaceReferences(t *testing.T) {
 	}
 }
 
-func TestNormalizeWorkspaceUpsertAcceptsShortRuntimeAlias(t *testing.T) {
+func TestNormalizeWorkspaceUpsertAcceptsWorkflowAlias(t *testing.T) {
 	t.Parallel()
 
-	source := adminhttp.Runtime
 	got, err := normalizeWorkspaceUpsert(adminhttp.WorkspaceUpsert{
-		Name:           "runtime-workspace",
-		WorkflowName:   " chat ",
-		WorkflowSource: &source,
+		Name:         "runtime-workspace",
+		WorkflowName: "chat",
 	}, "")
 	if err != nil {
 		t.Fatalf("normalizeWorkspaceUpsert() error = %v", err)

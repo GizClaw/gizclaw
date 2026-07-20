@@ -152,10 +152,10 @@ func newRunStatusCmd() *cobra.Command {
 
 func newSayCmd() *cobra.Command {
 	var opts connectRPCOptions
-	var voiceID string
+	var voiceAlias string
 
 	cmd := &cobra.Command{
-		Use:   "say --voice <voice-id> <text>",
+		Use:   "say --voice <voice-alias> <text>",
 		Short: "Ask the server to synthesize speech for this connection",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if err := cobra.MinimumNArgs(1)(cmd, args); err != nil {
@@ -164,22 +164,22 @@ func newSayCmd() *cobra.Command {
 			if strings.TrimSpace(strings.Join(args, " ")) == "" {
 				return fmt.Errorf("text must not be empty")
 			}
-			if strings.TrimSpace(voiceID) == "" {
-				return fmt.Errorf("voice id is required")
+			if strings.TrimSpace(voiceAlias) == "" {
+				return fmt.Errorf("voice alias is required")
 			}
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
 				return c.ServerRunSay(ctx, "server.run.say", rpcapi.ServerRunSayRequest{
-					Text:    strings.Join(args, " "),
-					VoiceId: stringPtr(strings.TrimSpace(voiceID)),
+					Text:       strings.Join(args, " "),
+					VoiceAlias: strings.TrimSpace(voiceAlias),
 				})
 			})
 		},
 	}
 	opts.addFlags(cmd)
-	cmd.Flags().StringVar(&voiceID, "voice", "", "voice id")
+	cmd.Flags().StringVar(&voiceAlias, "voice", "", "RuntimeProfile voice alias")
 	return cmd
 }
 

@@ -3,7 +3,7 @@ import type { JSX, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEv
 import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 import { drawPixaFrame, parsePixa, pixaClipFrameIndex, selectPixaClip, type PixaAsset } from "@gizclaw/pixa";
-import { ArrowLeft, Bot, Brain, BriefcaseBusiness, ChevronDown, Clock3, ContactRound, Database, KeyRound, Loader2, MessageCircle, Mic2, PackageCheck, PawPrint, Pencil, Play, Plus, RefreshCw, Search, SendHorizontal, Trash2, UserPlus, Users, Volume2, VolumeX, Workflow } from "lucide-react";
+import { ArrowLeft, Bot, Brain, BriefcaseBusiness, ChevronDown, Clock3, ContactRound, Database, Loader2, MessageCircle, Mic2, PackageCheck, PawPrint, Pencil, Play, Plus, RefreshCw, Search, SendHorizontal, Trash2, UserPlus, Users, Volume2, VolumeX, Workflow } from "lucide-react";
 import { toast } from "sonner";
 import {
   ActionBarPrimitive,
@@ -58,7 +58,6 @@ import {
   listPeerBadges,
   listClientVoices,
   listPeerContacts,
-  listPeerCredentials,
   listPeerFirmwares,
   listPeerFriendGroupMembers,
   listPeerFriendGroups,
@@ -85,7 +84,6 @@ import {
   streamPlayableVoices as streamPlayableVoicesSDK,
   type BadgeObject,
   type ContactObject,
-  type Credential,
   type FriendGroupInviteTokenGetResponse,
   type FriendGroupMemberMutableRole,
   type FriendGroupMemberObject,
@@ -136,18 +134,12 @@ import { cn } from "@/components/ui/utils";
 import { DashboardEmptyState, DashboardPager, DashboardShell, DashboardTable, DashboardTableCard, type DashboardNavItem } from "@/dashboard";
 import { getPlayOpenAIClient, readPlaySpeechAudioBlob } from "../../../lib/gizclaw/openai";
 
-type Section = "overview" | "contacts" | "friends" | "friendGroups" | "gameplay" | "workspaces" | "workflows" | "models" | "credentials" | "firmwares" | "voices";
+type Section = "overview" | "contacts" | "friends" | "friendGroups" | "gameplay" | "workspaces" | "workflows" | "models" | "firmwares" | "voices";
 type TopDrawer = "workspace" | "social-chat" | "test-chat" | null;
 
 type Voice = {
-  id: string;
-  name?: string;
-  provider: {
-    kind: string;
-    name: string;
-  };
-  source: string;
-  updated_at?: string;
+	alias: string;
+	i18n: Record<string, { display_name: string; description?: string }>;
 };
 
 type PageResponse<T> = {
@@ -236,7 +228,6 @@ const sections: Array<DashboardNavItem<Section>> = [
   { icon: BriefcaseBusiness, id: "workspaces", label: "Workspaces" },
   { icon: Workflow, id: "workflows", label: "Workflows" },
   { icon: Bot, id: "models", label: "Models" },
-  { icon: KeyRound, id: "credentials", label: "Credentials" },
   { icon: PackageCheck, id: "firmwares", label: "Firmwares" },
   { icon: Mic2, id: "voices", label: "Voices" },
 ];
@@ -359,7 +350,6 @@ export function PlayFullApp({ contextName, onSignOut }: { contextName?: string; 
                 {section === "workspaces" ? <WorkspacesPanel /> : null}
                 {section === "workflows" ? <WorkflowsPanel /> : null}
                 {section === "models" ? <ModelsPanel initialModels={models} /> : null}
-                {section === "credentials" ? <CredentialsPanel /> : null}
                 {section === "firmwares" ? (
                   selectedFirmware == null ? (
                     <FirmwaresPanel onOpenFirmware={setSelectedFirmware} />
@@ -2030,7 +2020,7 @@ function WorkspaceDrawer({ onOpenChange, open }: { onOpenChange: (open: boolean)
       return;
     }
     try {
-      const details = await expectData(getPeerRunWorkspaceDetails({ query: { workspace_name: name } }));
+	  const details = await expectData(getPeerRunWorkspaceDetails({ query: { name } }));
       setWorkspace(details);
       setWorkspaceParametersText(formatWorkspaceParameters(details.parameters));
       setWorkspaceError("");
@@ -2202,12 +2192,10 @@ function WorkspaceDrawer({ onOpenChange, open }: { onOpenChange: (open: boolean)
     }
     setWorkspaceSaving(true);
     try {
-      const updated = await expectData(putPeerRunWorkspaceDetails({ body: {
-        parameters,
-        workspace_name: workspaceName,
-        workflow_name: workspaceDetails?.workflow_name ?? "",
-        workflow_source: workspaceDetails?.workflow_source,
-      } }));
+	  const updated = await expectData(putPeerRunWorkspaceDetails({ body: {
+		name: workspaceName,
+		body: { parameters },
+	  } }));
       setWorkspace(updated);
       setWorkspaceParametersText(formatWorkspaceParameters(updated.parameters));
       setWorkspaceError("");
@@ -2375,7 +2363,7 @@ function WorkspacePanel({
               <div className="flex flex-col gap-5">
                 <div className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
                   <WorkspaceInfoItem label="Workspace ID" value={details.name || "-"} />
-                  <WorkspaceInfoItem label="Workflow" value={details.workflow_name || "-"} />
+				  <WorkspaceInfoItem label="Workflow" value={details.workflow_alias || "-"} />
                 </div>
                 <FieldGroup>
                 <ShadField data-invalid={error !== ""}>
@@ -3126,7 +3114,7 @@ function ChatTester({ models, onOpenChange, open }: { models: Model[]; onOpenCha
   const [thinkingLevel, setThinkingLevel] = useState("");
   const [chatError, setChatError] = useState("");
   const [resetToken, setResetToken] = useState(0);
-  const selectedModelSpec = useMemo(() => models.find((model) => model.id === selectedModel), [models, selectedModel]);
+	const selectedModelSpec = useMemo(() => models.find((model) => model.alias === selectedModel), [models, selectedModel]);
   const playableVoices = useMemo(() => voices.filter(isPlayableVoice), [voices]);
   const thinkingLevels = useMemo(() => selectedModelSpec?.capabilities?.thinking?.levels ?? [], [selectedModelSpec]);
   const supportsThinking = selectedModelSpec?.capabilities?.thinking?.supported === true;
@@ -3170,7 +3158,7 @@ function ChatTester({ models, onOpenChange, open }: { models: Model[]; onOpenCha
 
   useEffect(() => {
     if (selectedModel === "" && models.length > 0) {
-      setSelectedModel(models[0].id);
+	  setSelectedModel(models[0].alias);
     }
   }, [models, selectedModel]);
 
@@ -3185,8 +3173,8 @@ function ChatTester({ models, onOpenChange, open }: { models: Model[]; onOpenCha
       setSelectedVoice("");
       return;
     }
-    if (!playableVoices.some((voice) => voice.id === selectedVoice)) {
-      setSelectedVoice(playableVoices[0].id);
+	if (!playableVoices.some((voice) => voice.alias === selectedVoice)) {
+	  setSelectedVoice(playableVoices[0].alias);
     }
   }, [playableVoices, selectedVoice]);
 
@@ -3270,11 +3258,11 @@ function ChatTester({ models, onOpenChange, open }: { models: Model[]; onOpenCha
         <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px]">
           <div className="flex min-h-0 flex-col">
             <div className="grid gap-3 border-b p-4 md:grid-cols-[minmax(0,1fr)_160px]">
-              <SelectField label="Model" value={selectedModel} onChange={setSelectedModel} options={models.map((model) => model.id)} />
+			  <SelectField label="Model" value={selectedModel} onChange={setSelectedModel} options={models.map((model) => model.alias)} />
               {supportsTemperature ? <Field label="Temperature" value={temperature} onChange={setTemperature} /> : <div />}
               <div className="md:col-span-2">
                 <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_160px]">
-                  <ScrollableSelectField label="Voice" loading={voicesLoading} value={selectedVoice} onChange={setSelectedVoice} onOpen={loadVoices} options={playableVoices.map((voice) => voice.id)} />
+				  <ScrollableSelectField label="Voice" loading={voicesLoading} value={selectedVoice} onChange={setSelectedVoice} onOpen={loadVoices} options={playableVoices.map((voice) => voice.alias)} />
                   <SwitchField label="Auto Speak" checked={autoSpeak} onChange={setAutoSpeakEnabled} />
                 </div>
               </div>
@@ -4192,7 +4180,7 @@ function WorkspacesPanel(): JSX.Element {
       columns={["Name", "Workflow", "Last active", "Updated"]}
       empty="No workspaces"
       loadPage={loadPage}
-      row={(item) => [item.name, item.workflow_name, formatDate(item.last_active_at), formatDate(item.updated_at)]}
+	  row={(item) => [item.name, item.workflow_alias, formatDate(item.last_active_at), formatDate(item.updated_at)]}
       title="Workspaces"
     />
   );
@@ -4205,21 +4193,8 @@ function WorkflowsPanel(): JSX.Element {
       columns={["Alias", "Driver"]}
       empty="No workflows"
       loadPage={loadPage}
-      row={(item) => [item.name, String(item.spec.driver)]}
+	  row={(item) => [item.alias, String(item.driver)]}
       title="Workflows"
-    />
-  );
-}
-
-function CredentialsPanel(): JSX.Element {
-  const loadPage = useCallback((cursor: string) => listCredentialsPage(cursor), []);
-  return (
-    <PagedSimpleTable
-      columns={["Name", "Provider", "Auth fields", "Description", "Updated"]}
-      empty="No credentials"
-      loadPage={loadPage}
-      row={(item) => [item.name, item.provider, credentialAuthSummary(item), item.description ?? "", formatDate(item.updated_at)]}
-      title="Credentials"
     />
   );
 }
@@ -4431,13 +4406,13 @@ function ModelsPanel({ initialModels }: { initialModels: Model[] }): JSX.Element
                 </TableHeader>
                 <TableBody>
                   {models.map((model) => (
-                    <TableRow key={model.id}>
-                      <TableCell className="font-mono text-xs font-medium">{model.id}</TableCell>
-                      <TableCell>{model.kind ?? "-"}</TableCell>
-                      <TableCell>{model.provider == null ? "-" : `${model.provider.kind}/${model.provider.name}`}</TableCell>
-                      <TableCell>{model.capabilities?.thinking?.supported === true ? <Badge variant="outline">{model.capabilities.thinking.param || "on"}</Badge> : "-"}</TableCell>
-                      <TableCell>{model.source ?? "-"}</TableCell>
-                      <TableCell className="text-muted-foreground">{formatDate(model.updated_at)}</TableCell>
+				  <TableRow key={model.alias}>
+					<TableCell className="font-mono text-xs font-medium">{model.alias}</TableCell>
+					<TableCell>{model.kind ?? "-"}</TableCell>
+					<TableCell>-</TableCell>
+					<TableCell>{model.capabilities?.thinking?.supported === true ? <Badge variant="outline">{model.capabilities.thinking.param || "on"}</Badge> : "-"}</TableCell>
+					<TableCell>RuntimeProfile</TableCell>
+					<TableCell className="text-muted-foreground">-</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -4453,14 +4428,14 @@ function VoicesPanel(): JSX.Element {
   const loadPage = useCallback((cursor: string) => listVoicesPage(cursor), []);
   const pager = usePagedList(loadPage);
 
-  return (
-    <SimpleTable
-      action={<PageAction canNext={pager.page.hasNext} canPrevious={pager.page.cursors.length > 1} loading={pager.page.loading} onNext={pager.next} onPrevious={pager.previous} onRefresh={pager.refresh} pageIndex={pager.page.cursors.length} />}
-      columns={["ID", "Provider", "Name", "Source", "Updated"]}
-      empty={pager.page.loading ? "Loading" : pager.error || "No voices"}
-      rows={pager.page.items.map((item) => [compactID(item.id), `${item.provider.kind}/${item.provider.name}`, item.name ?? "", item.source, formatDate(item.updated_at)])}
-      title="Voices"
-    />
+	return (
+	  <SimpleTable
+		action={<PageAction canNext={pager.page.hasNext} canPrevious={pager.page.cursors.length > 1} loading={pager.page.loading} onNext={pager.next} onPrevious={pager.previous} onRefresh={pager.refresh} pageIndex={pager.page.cursors.length} />}
+		columns={["Alias", "English", "Chinese"]}
+		empty={pager.page.loading ? "Loading" : pager.error || "No voices"}
+		rows={pager.page.items.map((item) => [item.alias, item.i18n.en?.display_name ?? "", item.i18n["zh-CN"]?.display_name ?? ""])}
+		title="Voices"
+	  />
   );
 }
 
@@ -4650,15 +4625,11 @@ function listVoicesPage(cursor: string): Promise<PageResponse<Voice>> {
 }
 
 function listWorkflowsPage(cursor: string): Promise<PageResponse<PeerWorkflow>> {
-  return expectData(listPeerWorkflows({ query: { ...pageQuery(cursor), source: "runtime" } }));
+	return expectData(listPeerWorkflows({ query: pageQuery(cursor) }));
 }
 
 function listWorkspacesPage(cursor: string): Promise<PageResponse<Workspace>> {
   return expectData(listPeerWorkspaces({ query: pageQuery(cursor) }));
-}
-
-function listCredentialsPage(cursor: string): Promise<PageResponse<Credential>> {
-  return expectData(listPeerCredentials({ query: pageQuery(cursor) }));
 }
 
 function listFirmwaresPage(cursor: string): Promise<PageResponse<Firmware>> {
@@ -4688,17 +4659,17 @@ function mergeVoices(voices: Voice[]): Voice[] {
   const seen = new Set<string>();
   const out: Voice[] = [];
   for (const voice of voices) {
-    if (seen.has(voice.id)) {
+	if (seen.has(voice.alias)) {
       continue;
     }
-    seen.add(voice.id);
+	seen.add(voice.alias);
     out.push(voice);
   }
   return out;
 }
 
 function isPlayableVoice(voice: Voice): boolean {
-  return voice.provider.kind === "volc-tenant";
+	return voice.alias.trim() !== "";
 }
 
 async function createWorkspaceVoiceSession({
@@ -5007,13 +4978,6 @@ function workspaceActivityTime(item: Workspace): number {
     }
   }
   return 0;
-}
-
-function credentialAuthSummary(credential: Credential): string {
-  const keys = Object.entries(credential.body)
-    .filter(([, value]) => value !== undefined && value !== "")
-    .map(([key]) => key);
-  return keys.length === 0 ? "empty body" : keys.join(", ");
 }
 
 function jsonSummary(value: unknown): string {

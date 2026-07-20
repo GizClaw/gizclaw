@@ -123,7 +123,7 @@ func createChatRegistrationToken(t *testing.T, selected workspaceCase) string {
 		t.Fatalf("create chat admin client: %v", err)
 	}
 
-	workflows := map[string]string{
+	workflowResources := map[string]string{
 		"volc-ast-translate":                "volc-ast-translate",
 		"volc-ast-translate-tts":            "volc-ast-translate-tts",
 		"volc-ast-translate-zh-en":          "volc-ast-translate-zh-en",
@@ -139,14 +139,14 @@ func createChatRegistrationToken(t *testing.T, selected workspaceCase) string {
 		"flowcraft-poetry-adventure-li-bai": "flowcraft-poetry-adventure-li-bai",
 		"flowcraft-werewolf-game":           "flowcraft-werewolf-game",
 	}
-	models := map[string]string{
+	modelResources := map[string]string{
 		"llm":         "doubao-lite-chat",
 		"tts":         "volc-bigtts",
 		"asr":         "volc-bigasr-sauc",
 		"realtime":    "doubao-realtime-dialog",
 		"translation": "volc-ast-translate",
 	}
-	voices := map[string]string{
+	voiceResources := map[string]string{
 		"assistant":   "volc-tenant:volc-main:zh_female_vv_mars_bigtts",
 		"storyteller": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
 		"monster":     "volc-tenant:volc-main:ICL_zh_female_bingjiao3_tob",
@@ -160,10 +160,11 @@ func createChatRegistrationToken(t *testing.T, selected workspaceCase) string {
 	profileResp, err := api.PutRuntimeProfileWithResponse(ctx, profileName, adminhttp.RuntimeProfileUpsert{
 		Name: profileName,
 		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{
-			Workflows: &workflows,
-			Models:    &models,
-			Voices:    &voices,
-		}},
+			Models: ptr(runtimeBindings(modelResources)),
+			Voices: ptr(runtimeBindings(voiceResources)),
+		}, Workflows: apitypes.RuntimeProfileWorkflows{Collections: apitypes.RuntimeProfileWorkflowCollections{
+			"assistants": runtimeBindings(workflowResources),
+		}}},
 	})
 	if err != nil {
 		t.Fatalf("put chat RuntimeProfile: %v", err)
@@ -186,6 +187,22 @@ func createChatRegistrationToken(t *testing.T, selected workspaceCase) string {
 	}
 	return tokenResp.JSON200.Token
 }
+
+func runtimeBindings(resources map[string]string) map[string]apitypes.RuntimeProfileBinding {
+	bindings := make(map[string]apitypes.RuntimeProfileBinding, len(resources))
+	for alias, resourceID := range resources {
+		bindings[alias] = apitypes.RuntimeProfileBinding{
+			ResourceId: resourceID,
+			I18n: map[string]apitypes.RuntimeProfileI18nText{
+				"en":    {DisplayName: alias},
+				"zh-CN": {DisplayName: alias},
+			},
+		}
+	}
+	return bindings
+}
+
+func ptr[T any](value T) *T { return &value }
 
 func runConfigWithLiveRetry(path, contextConfigPath string, selected workspaceCase) error {
 	var err error

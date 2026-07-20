@@ -480,15 +480,15 @@ spec:
         save_conversation: true
         tier: general
     settings:
-      generate_model: generate_model
+      generate_model: generate-model
     workspace:
       history_root: history
       memory_root: memory
       state_root: state
     voice_adapter:
-      asr_model: volc-bigasr-sauc
-      default_voice: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
+      asr_model: asr-model
+      default_voice: game-master
       node_voices:
-        call_case_solved: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
-        generate_game_master: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
-        solved_chat: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
+        call_case_solved: police-officer
+        generate_game_master: game-master
+        solved_chat: detective

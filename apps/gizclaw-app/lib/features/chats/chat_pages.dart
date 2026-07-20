@@ -14,14 +14,17 @@ import '../../l10n/l10n.dart';
 import '../../prototype/prototype_models.dart';
 import '../../workflows/app_workflow_catalog.dart';
 
-class ChatsPage extends StatelessWidget {
-  const ChatsPage({super.key});
+class CollectionWorkspacesPage extends StatelessWidget {
+  const CollectionWorkspacesPage({super.key, required this.collection});
+
+  final String collection;
 
   @override
   Widget build(BuildContext context) {
     final data = MobileDataScope.watch(context);
-    final workflows = data.workflows
-        .where((workflow) => workflow.driver != WorkflowDriverKind.chatroom)
+    final definition = appWorkflowCollection(collection);
+    final workspaces = data.workspaces
+        .where((workspace) => workspace.collection == collection)
         .toList(growable: false);
     return CupertinoPageScaffold(
       child: SafeArea(
@@ -34,23 +37,24 @@ class ChatsPage extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      context.l10n.workspacesTitle,
+                      definition.displayName(data.effectiveLocale),
                       style: GizText.pageTitle,
                     ),
                   ),
                   GizPageActionButton(
-                    key: const ValueKey('create-workspace'),
+                    key: ValueKey('create-workspace-$collection'),
                     icon: GizIcons.add_circled_solid,
                     semanticLabel: context.l10n.newWorkspace,
                     onPressed: () =>
-                        _showCreateWorkspace(context, data, workflows),
+                        context.push('/collections/$collection/new'),
                   ),
                 ],
               ),
             ),
             Expanded(
               child: _WorkspaceList(
-                workspaces: data.workspaces,
+                collection: collection,
+                workspaces: workspaces,
                 chatroomMetadata: data.chatroomWorkspaces,
               ),
             ),
@@ -59,221 +63,44 @@ class ChatsPage extends StatelessWidget {
       ),
     );
   }
-
-  Future<void> _showCreateWorkspace(
-    BuildContext context,
-    MobileDataController data,
-    List<WorkflowCard> workflows,
-  ) async {
-    final workspaceName = await showCupertinoModalPopup<String>(
-      context: context,
-      builder: (context) =>
-          _CreateWorkspaceSheet(data: data, workflows: workflows),
-    );
-    if (!context.mounted || workspaceName == null) return;
-    context.push('/workspaces/${Uri.encodeComponent(workspaceName)}');
-  }
 }
 
-class _CreateWorkspaceSheet extends StatefulWidget {
-  const _CreateWorkspaceSheet({required this.data, required this.workflows});
+class WorkflowPickerPage extends StatefulWidget {
+  const WorkflowPickerPage({super.key, required this.collection});
 
-  final MobileDataController data;
-  final List<WorkflowCard> workflows;
+  final String collection;
 
   @override
-  State<_CreateWorkspaceSheet> createState() => _CreateWorkspaceSheetState();
+  State<WorkflowPickerPage> createState() => _WorkflowPickerPageState();
 }
 
-class _CreateWorkspaceSheetState extends State<_CreateWorkspaceSheet> {
-  final _nameController = TextEditingController();
-  late WorkflowCard _workflow;
-  bool _busy = false;
+class _WorkflowPickerPageState extends State<WorkflowPickerPage> {
+  String? _creatingAlias;
   Object? _error;
-  bool _loadingFlowcraftModels = false;
-  FlowcraftModelRequirements? _flowcraftRequirements;
-  List<String> _flowcraftModels = const [];
-  String? _generateModel;
-  String? _extractModel;
-  String? _embeddingModel;
-  int _modelLoadGeneration = 0;
 
-  @override
-  void initState() {
-    super.initState();
-    _workflow = widget.workflows.first;
-    if (_workflow.driver == WorkflowDriverKind.flowcraft) {
-      unawaited(_loadFlowcraftModels());
+  Future<void> _select(WorkflowCard workflow) async {
+    if (_creatingAlias != null ||
+        workflow.driver == WorkflowDriverKind.unsupported ||
+        workflow.driver == WorkflowDriverKind.chatroom) {
+      return;
     }
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _chooseWorkflow() async {
-    if (_busy || widget.workflows.length < 2) return;
-    final workflow = await showCupertinoModalPopup<WorkflowCard>(
-      context: context,
-      builder: (context) => CupertinoActionSheet(
-        title: Text(context.l10n.actionText(key: 'chooseWorkflow')),
-        actions: [
-          for (final workflow in widget.workflows)
-            CupertinoActionSheetAction(
-              onPressed: () => Navigator.pop(context, workflow),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _WorkflowIcon(workflow: workflow, size: 28),
-                  const SizedBox(width: 8),
-                  if (workflow.name == _workflow.name) ...[
-                    const Icon(GizIcons.checkmark_alt, size: 17),
-                    const SizedBox(width: 8),
-                  ],
-                  Flexible(child: Text(workflow.title)),
-                ],
-              ),
-            ),
-        ],
-        cancelButton: CupertinoActionSheetAction(
-          onPressed: () => Navigator.pop(context),
-          child: Text(context.l10n.commonCancel),
-        ),
-      ),
-    );
-    if (workflow != null && mounted) {
-      setState(() => _workflow = workflow);
-      if (_workflow.driver == WorkflowDriverKind.flowcraft) {
-        await _loadFlowcraftModels();
-      } else {
-        _modelLoadGeneration += 1;
-        setState(() {
-          _loadingFlowcraftModels = false;
-          _flowcraftRequirements = null;
-          _flowcraftModels = const [];
-          _generateModel = null;
-          _extractModel = null;
-          _embeddingModel = null;
-          _error = null;
-        });
-      }
-    }
-  }
-
-  Future<void> _loadFlowcraftModels() async {
-    final generation = ++_modelLoadGeneration;
-    final workflowName = _workflow.name;
     setState(() {
-      _loadingFlowcraftModels = true;
-      _flowcraftRequirements = null;
-      _flowcraftModels = const [];
-      _generateModel = null;
-      _extractModel = null;
-      _embeddingModel = null;
+      _creatingAlias = workflow.name;
       _error = null;
     });
     try {
-      final requirements = await widget.data.flowcraftModelRequirements(
-        workflowName,
+      final workspace = await MobileDataScope.watch(context).createWorkspace(
+        collection: widget.collection,
+        workflowAlias: workflow.name,
       );
-      final models =
-          requirements.generateModel ||
-              requirements.extractModel ||
-              requirements.embeddingModel
-          ? (await widget.data.listGeneratorModels())
-                .map((model) => model.id)
-                .toList()
-          : const <String>[];
-      if (!mounted ||
-          generation != _modelLoadGeneration ||
-          workflowName != _workflow.name) {
-        return;
-      }
-      setState(() {
-        _loadingFlowcraftModels = false;
-        _flowcraftRequirements = requirements;
-        _flowcraftModels = models;
-        if (_flowcraftModels.isEmpty &&
-            (requirements.generateModel ||
-                requirements.extractModel ||
-                requirements.embeddingModel)) {
-          _error = StateError(context.l10n.noCompatibleGeneratorModels);
-        }
-      });
-    } catch (error) {
-      if (!mounted ||
-          generation != _modelLoadGeneration ||
-          workflowName != _workflow.name) {
-        return;
-      }
-      setState(() {
-        _loadingFlowcraftModels = false;
-        _error = error;
-      });
-    }
-  }
-
-  Future<String?> _chooseModel(String? selected) {
-    return showCupertinoModalPopup<String>(
-      context: context,
-      builder: (context) => CupertinoActionSheet(
-        title: Text(context.l10n.chooseModel),
-        actions: [
-          for (final model in _flowcraftModels)
-            CupertinoActionSheetAction(
-              onPressed: () => Navigator.pop(context, model),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (model == selected) ...[
-                    const Icon(GizIcons.checkmark_alt, size: 17),
-                    const SizedBox(width: 8),
-                  ],
-                  Flexible(child: Text(model)),
-                ],
-              ),
-            ),
-        ],
-        cancelButton: CupertinoActionSheetAction(
-          onPressed: () => Navigator.pop(context),
-          child: Text(context.l10n.commonCancel),
-        ),
-      ),
-    );
-  }
-
-  bool get _modelsReady {
-    if (_workflow.driver != WorkflowDriverKind.flowcraft) return true;
-    final requirements = _flowcraftRequirements;
-    if (_loadingFlowcraftModels || requirements == null) return false;
-    if (requirements.generateModel && _generateModel == null) return false;
-    if (requirements.extractModel && _extractModel == null) return false;
-    if (requirements.embeddingModel && _embeddingModel == null) return false;
-    return true;
-  }
-
-  Future<void> _create() async {
-    final name = _nameController.text.trim();
-    if (_busy || name.isEmpty) return;
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-    try {
-      final workspace = await widget.data.createWorkspace(
-        workflowName: _workflow.name,
-        name: name,
-        generateModel: _generateModel,
-        extractModel: _extractModel,
-        embeddingModel: _embeddingModel,
+      if (!mounted) return;
+      context.go(
+        '/collections/${widget.collection}/${Uri.encodeComponent(workspace.name)}',
       );
-      if (mounted) Navigator.pop(context, workspace.name);
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _busy = false;
+        _creatingAlias = null;
         _error = error;
       });
     }
@@ -281,198 +108,66 @@ class _CreateWorkspaceSheetState extends State<_CreateWorkspaceSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final background = CupertinoColors.systemBackground.resolveFrom(context);
-    final secondary = CupertinoColors.secondarySystemBackground.resolveFrom(
-      context,
-    );
-    final safeBottom = MediaQuery.viewPaddingOf(context).bottom;
-    return Container(
-      key: const ValueKey('create-workspace-sheet'),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+    final data = MobileDataScope.watch(context);
+    final collection = appWorkflowCollection(widget.collection);
+    final workflows = data.workflowsForCollection(widget.collection);
+    return CupertinoPageScaffold(
+      navigationBar: CupertinoNavigationBar(
+        middle: Text(collection.displayName(data.effectiveLocale)),
+        border: null,
       ),
-      padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + safeBottom),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Center(
-            child: Container(
-              width: 36,
-              height: 5,
-              decoration: BoxDecoration(
-                color: CupertinoColors.systemGrey4.resolveFrom(context),
-                borderRadius: BorderRadius.circular(3),
-              ),
-            ),
-          ),
-          const SizedBox(height: 18),
-          Text(context.l10n.newWorkspace, style: GizText.sectionTitle),
-          const SizedBox(height: 16),
-          Text(
-            'WORKFLOW',
-            style: GizText.label.copyWith(color: GizColors.secondaryInk),
-          ),
-          const SizedBox(height: 7),
-          CupertinoButton(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            color: secondary,
-            disabledColor: secondary,
-            onPressed: widget.workflows.length > 1 ? _chooseWorkflow : null,
-            child: Row(
-              children: [
-                _WorkflowIcon(workflow: _workflow, size: 34),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    _workflow.title,
-                    overflow: TextOverflow.ellipsis,
-                    style: GizText.body.copyWith(color: GizColors.ink),
+      child: SafeArea(
+        child: Column(
+          children: [
+            if (_error case final error?)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                child: Text(
+                  _workspaceErrorMessage(error),
+                  style: GizText.body.copyWith(
+                    color: CupertinoColors.systemRed.resolveFrom(context),
                   ),
                 ),
-                if (widget.workflows.length > 1)
-                  const Icon(
-                    GizIcons.chevron_up_chevron_down,
-                    size: 16,
-                    color: GizColors.secondaryInk,
-                  ),
-              ],
-            ),
-          ),
-          if (_loadingFlowcraftModels) ...[
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                const CupertinoActivityIndicator(),
-                const SizedBox(width: 8),
-                Text(context.l10n.workspaceModelLoading),
-              ],
-            ),
-          ] else if (_flowcraftRequirements case final requirements?) ...[
-            if (requirements.generateModel) ...[
-              const SizedBox(height: 14),
-              _WorkspaceModelSelector(
-                key: const ValueKey('workspace-generate-model'),
-                label: context.l10n.generationModel,
-                value: _generateModel,
-                onPressed: () async {
-                  final model = await _chooseModel(_generateModel);
-                  if (model != null && mounted) {
-                    setState(() => _generateModel = model);
-                  }
-                },
               ),
-            ],
-            if (requirements.extractModel) ...[
-              const SizedBox(height: 14),
-              _WorkspaceModelSelector(
-                key: const ValueKey('workspace-extract-model'),
-                label: context.l10n.extractionModel,
-                value: _extractModel,
-                onPressed: () async {
-                  final model = await _chooseModel(_extractModel);
-                  if (model != null && mounted) {
-                    setState(() => _extractModel = model);
-                  }
-                },
-              ),
-            ],
-            if (requirements.embeddingModel) ...[
-              const SizedBox(height: 14),
-              _WorkspaceModelSelector(
-                key: const ValueKey('workspace-embedding-model'),
-                label: context.l10n.embeddingModel,
-                value: _embeddingModel,
-                onPressed: () async {
-                  final model = await _chooseModel(_embeddingModel);
-                  if (model != null && mounted) {
-                    setState(() => _embeddingModel = model);
-                  }
-                },
-              ),
-            ],
-          ],
-          const SizedBox(height: 14),
-          CupertinoTextField(
-            key: const ValueKey('workspace-display-name'),
-            controller: _nameController,
-            placeholder: context.l10n.uiText(key: 'name'),
-            maxLength: 80,
-            autofocus: true,
-            textInputAction: TextInputAction.done,
-            onSubmitted: (_) => _create(),
-            padding: const EdgeInsets.all(14),
-          ),
-          if (_error != null) ...[
-            const SizedBox(height: 12),
-            Text(
-              _workspaceErrorMessage(_error!),
-              textAlign: TextAlign.center,
-              style: GizText.body.copyWith(
-                color: CupertinoColors.systemRed.resolveFrom(context),
-              ),
+            Expanded(
+              child: workflows.isEmpty
+                  ? Center(
+                      child: Text(
+                        context.l10n.actionText(key: 'unavailable'),
+                        style: GizText.body.copyWith(
+                          color: GizColors.secondaryInk,
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      key: ValueKey('workflow-picker-${widget.collection}'),
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+                      itemCount: workflows.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 8),
+                      itemBuilder: (context, index) {
+                        final workflow = workflows[index];
+                        final busy = _creatingAlias == workflow.name;
+                        final available =
+                            workflow.driver != WorkflowDriverKind.unsupported &&
+                            workflow.driver != WorkflowDriverKind.chatroom;
+                        return GizListRow(
+                          leading: _WorkflowIcon(workflow: workflow),
+                          title: workflow.title,
+                          subtitle: workflow.subtitle.isEmpty
+                              ? workflow.driverLabel
+                              : workflow.subtitle,
+                          trailing: busy
+                              ? const CupertinoActivityIndicator()
+                              : const Icon(GizIcons.chevron_forward),
+                          onPressed: available && _creatingAlias == null
+                              ? () => _select(workflow)
+                              : null,
+                        );
+                      },
+                    ),
             ),
           ],
-          const SizedBox(height: 14),
-          CupertinoButton(
-            key: const ValueKey('create-workspace-submit'),
-            color: GizColors.ink,
-            disabledColor: GizColors.secondaryInk,
-            onPressed: _busy || !_modelsReady ? null : _create,
-            child: _busy
-                ? const CupertinoActivityIndicator(color: GizColors.surface)
-                : Text(
-                    context.l10n.newWorkspace,
-                    style: GizText.label.copyWith(color: GizColors.surface),
-                  ),
-          ),
-          SizedBox(height: MediaQuery.viewInsetsOf(context).bottom),
-        ],
-      ),
-    );
-  }
-}
-
-class _WorkspaceModelSelector extends StatelessWidget {
-  const _WorkspaceModelSelector({
-    super.key,
-    required this.label,
-    required this.value,
-    required this.onPressed,
-  });
-
-  final String label;
-  final String? value;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return CupertinoButton(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      color: CupertinoColors.secondarySystemBackground.resolveFrom(context),
-      onPressed: onPressed,
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: GizText.label),
-                const SizedBox(height: 3),
-                Text(
-                  value ?? context.l10n.chooseModel,
-                  style: GizText.body.copyWith(color: GizColors.ink),
-                ),
-              ],
-            ),
-          ),
-          const Icon(
-            GizIcons.chevron_up_chevron_down,
-            size: 16,
-            color: GizColors.secondaryInk,
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -485,11 +180,13 @@ String _workspaceErrorMessage(Object error) {
 
 class _WorkspaceList extends StatelessWidget {
   const _WorkspaceList({
+    required this.collection,
     required this.workspaces,
     required this.chatroomMetadata,
   });
 
   final List<ChatroomWorkspaceMetadata> chatroomMetadata;
+  final String collection;
   final List<WorkspaceCard> workspaces;
 
   @override
@@ -503,14 +200,16 @@ class _WorkspaceList extends StatelessWidget {
       );
     }
     return ListView.builder(
-      key: const PageStorageKey('workspaces'),
+      key: PageStorageKey('workspaces-$collection'),
       padding: const EdgeInsets.only(bottom: 124),
       itemCount: workspaces.length,
       itemBuilder: (context, index) {
         final workspace = workspaces[index];
         final metadata = _metadataForWorkspace(workspace.name);
         void onPressed() {
-          context.push('/workspaces/${Uri.encodeComponent(workspace.name)}');
+          context.push(
+            '/collections/$collection/${Uri.encodeComponent(workspace.name)}',
+          );
         }
 
         final row = metadata != null || workspace.chatroomKind != null
@@ -601,7 +300,7 @@ class _WorkspaceListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final workflow = MobileDataScope.watch(
       context,
-    ).workflow(workspace.workflowName, source: workspace.workflowSource);
+    ).workflow(workspace.workflowAlias, collection: workspace.collection);
     final workflowLabel = workflow.driver == WorkflowDriverKind.unsupported
         ? context.l10n.actionText(key: 'unavailable')
         : workflow.title;
@@ -612,16 +311,15 @@ class _WorkspaceListTile extends StatelessWidget {
       onPressed:
           onPressed ??
           () => context.push(
-            '/workspaces/${Uri.encodeComponent(workspace.name)}',
+            '/collections/${workspace.collection}/${Uri.encodeComponent(workspace.name)}',
           ),
     );
   }
 }
 
 class _WorkflowIcon extends StatelessWidget {
-  const _WorkflowIcon({required this.workflow, this.size = 50});
+  const _WorkflowIcon({required this.workflow});
 
-  final double size;
   final WorkflowCard workflow;
 
   @override
@@ -630,8 +328,8 @@ class _WorkflowIcon extends StatelessWidget {
       icon: workflow.icon,
       backgroundColor: workflow.bannerColor,
       foregroundColor: GizColors.surface,
-      size: size,
-      iconSize: size * 0.44,
+      size: 50,
+      iconSize: 22,
     );
   }
 }
@@ -839,8 +537,8 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
     final data = MobileDataScope.watch(context);
     final workspace = data.workspace(widget.workspaceName);
     final workflow = data.workflow(
-      workspace.workflowName,
-      source: workspace.workflowSource,
+      workspace.workflowAlias,
+      collection: workspace.collection,
     );
     final chatroomMetadata = data.chatroomWorkspace(widget.workspaceName);
     final chat = _chat;

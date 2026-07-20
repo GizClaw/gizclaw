@@ -24,26 +24,26 @@ func TestServerWorkspaceRPC(t *testing.T) {
 	t.Cleanup(func() { _, _ = admin.DeleteWorkflowWithResponse(env.ctx, mutationWorkflow) })
 	createInput := rpcapi.WorkspaceInputModePushToTalk
 	workspace, err := env.peer.CreateWorkspace(env.ctx, "workspace.create", rpcapi.WorkspaceCreateRequest{
-		Name:           mutationWorkspace,
-		WorkflowName:   "mutation",
-		WorkflowSource: runtimeSourcePtr(),
-		Parameters:     rpcFlowcraftWorkspaceParameters(t, createInput),
+		Name:          mutationWorkspace,
+		Collection:    "assistants",
+		WorkflowAlias: "mutation",
+		Parameters:    rpcFlowcraftWorkspaceParameters(t, createInput),
 	})
 	if err != nil {
 		t.Fatalf("workspace.create: %v", err)
 	}
-	if workspace.Name != mutationWorkspace || workspace.WorkflowName != "mutation" || workspace.WorkflowSource == nil || *workspace.WorkflowSource != rpcapi.ResourceSourceRuntime {
+	if workspace.Name != mutationWorkspace || workspace.WorkflowAlias != "mutation" || !workspace.Available {
 		t.Fatalf("workspace.create = %#v", workspace)
 	}
 	if _, err := env.peer.CreateWorkspace(env.ctx, "workspace.create.page", rpcapi.WorkspaceCreateRequest{
-		Name:           pageWorkspace,
-		WorkflowName:   "mutation",
-		WorkflowSource: runtimeSourcePtr(),
-		Parameters:     rpcFlowcraftWorkspaceParameters(t, createInput),
+		Name:          pageWorkspace,
+		Collection:    "assistants",
+		WorkflowAlias: "mutation",
+		Parameters:    rpcFlowcraftWorkspaceParameters(t, createInput),
 	}); err != nil {
 		t.Fatalf("workspace.create page item: %v", err)
 	}
-	workspaceList, err := env.peer.ListWorkspaces(env.ctx, "workspace.list.owned", rpcapi.WorkspaceListRequest{})
+	workspaceList, err := env.peer.ListWorkspaces(env.ctx, "workspace.list.owned", rpcapi.WorkspaceListRequest{Collection: "assistants"})
 	if err != nil {
 		t.Fatalf("workspace.list owned: %v", err)
 	}
@@ -55,27 +55,24 @@ func TestServerWorkspaceRPC(t *testing.T) {
 	updateInput := rpcapi.WorkspaceInputModeRealtime
 	workspace, err = env.peer.PutWorkspace(env.ctx, "workspace.put", rpcapi.WorkspacePutRequest{
 		Name: mutationWorkspace,
-		Body: rpcapi.WorkspaceUpsert{
-			Name:           mutationWorkspace,
-			WorkflowName:   "mutation",
-			WorkflowSource: runtimeSourcePtr(),
-			Parameters:     rpcFlowcraftWorkspaceParameters(t, updateInput),
+		Body: rpcapi.WorkspacePutBody{
+			Parameters: rpcFlowcraftWorkspaceParameters(t, updateInput),
 		},
 	})
 	if err != nil {
 		t.Fatalf("workspace.put: %v", err)
 	}
-	if workspace.Name != mutationWorkspace || workspace.WorkflowName != "mutation" || workspace.WorkflowSource == nil || *workspace.WorkflowSource != rpcapi.ResourceSourceRuntime {
+	if workspace.Name != mutationWorkspace || workspace.WorkflowAlias != "mutation" || !workspace.Available {
 		t.Fatalf("workspace.put = %#v", workspace)
 	}
-	workspace, err = env.peer.GetWorkspace(env.ctx, "workspace.get.updated", rpcapi.WorkspaceGetRequest{Name: mutationWorkspace})
+	gotWorkspace, err := env.peer.GetWorkspace(env.ctx, "workspace.get.updated", rpcapi.WorkspaceGetRequest{Name: mutationWorkspace})
 	if err != nil {
 		t.Fatalf("workspace.get updated: %v", err)
 	}
-	if workspace.Parameters == nil {
-		t.Fatalf("workspace.get updated parameters are nil: %#v", workspace)
+	if gotWorkspace.Value.Parameters == nil {
+		t.Fatalf("workspace.get updated parameters are nil: %#v", gotWorkspace)
 	}
-	typed, err := workspace.Parameters.AsFlowcraftWorkspaceParameters()
+	typed, err := gotWorkspace.Value.Parameters.AsFlowcraftWorkspaceParameters()
 	if err != nil {
 		t.Fatalf("workspace.get updated parameters decode: %v", err)
 	}
@@ -96,17 +93,14 @@ func TestServerResourceUnavailableWithoutProfileOrOwnership(t *testing.T) {
 
 	denied := env.h.ConnectClientFromContext("peer-denied")
 	defer denied.Close()
-	if _, err := denied.GetWorkflow(env.ctx, "workflow.get.denied", rpcapi.WorkflowGetRequest{Name: "shared", Source: rpcapi.ResourceSourceRuntime}); err == nil {
+	if _, err := denied.GetWorkflow(env.ctx, "workflow.get.denied", rpcapi.WorkflowGetRequest{Alias: "shared"}); err == nil {
 		t.Fatalf("denied peer workflow.get error = %v", err)
 	}
 	if _, err := denied.GetWorkspace(env.ctx, "workspace.get.denied", rpcapi.WorkspaceGetRequest{Name: sharedWorkspace}); err == nil {
 		t.Fatalf("denied peer workspace.get error = %v", err)
 	}
-	if _, err := denied.GetModel(env.ctx, "model.get.denied", rpcapi.ModelGetRequest{Id: sharedModel}); err == nil {
+	if _, err := denied.GetModel(env.ctx, "model.get.denied", rpcapi.ModelGetRequest{Alias: "generate-model"}); err == nil {
 		t.Fatalf("denied peer model.get error = %v", err)
-	}
-	if _, err := denied.GetCredential(env.ctx, "credential.get.denied", rpcapi.CredentialGetRequest{Name: sharedCredential}); err == nil {
-		t.Fatalf("denied peer credential.get error = %v", err)
 	}
 	assertDeniedListsAreEmpty(t, env.ctx, denied)
 }
@@ -117,18 +111,12 @@ func TestServerResourceCreatorOwnsConcreteResources(t *testing.T) {
 
 	workspaceName := "owner-workspace"
 	unownedWorkspaceName := "unowned-workspace"
-	modelID := "owner-model"
-	credentialName := "owner-credential"
 	t.Cleanup(func() {
 		_, _ = admin.DeleteWorkspaceWithResponse(env.ctx, workspaceName)
 		_, _ = admin.DeleteWorkspaceWithResponse(env.ctx, unownedWorkspaceName)
-		_, _ = admin.DeleteModelWithResponse(env.ctx, modelID)
-		_, _ = admin.DeleteCredentialWithResponse(env.ctx, credentialName)
 	})
 	_, _ = admin.DeleteWorkspaceWithResponse(env.ctx, workspaceName)
 	_, _ = admin.DeleteWorkspaceWithResponse(env.ctx, unownedWorkspaceName)
-	_, _ = admin.DeleteModelWithResponse(env.ctx, modelID)
-	_, _ = admin.DeleteCredentialWithResponse(env.ctx, credentialName)
 
 	input := apitypes.WorkspaceInputModePushToTalk
 	var adminParameters apitypes.WorkspaceParameters
@@ -153,52 +141,23 @@ func TestServerResourceCreatorOwnsConcreteResources(t *testing.T) {
 	}
 
 	if _, err := env.peer.CreateWorkspace(env.ctx, "owner.workspace.create", rpcapi.WorkspaceCreateRequest{
-		Name:           workspaceName,
-		WorkflowName:   "shared",
-		WorkflowSource: runtimeSourcePtr(),
-		Parameters:     rpcFlowcraftWorkspaceParameters(t, rpcapi.WorkspaceInputModePushToTalk),
+		Name:          workspaceName,
+		Collection:    "assistants",
+		WorkflowAlias: "shared",
+		Parameters:    rpcFlowcraftWorkspaceParameters(t, rpcapi.WorkspaceInputModePushToTalk),
 	}); err != nil {
 		t.Fatalf("workspace.create owner: %v", err)
 	}
 	if _, err := env.peer.PutWorkspace(env.ctx, "owner.workspace.put", rpcapi.WorkspacePutRequest{
 		Name: workspaceName,
-		Body: rpcapi.WorkspaceUpsert{
-			Name:           workspaceName,
-			WorkflowName:   "shared",
-			WorkflowSource: runtimeSourcePtr(),
-			Parameters:     rpcFlowcraftWorkspaceParameters(t, rpcapi.WorkspaceInputModePushToTalk),
+		Body: rpcapi.WorkspacePutBody{
+			Parameters: rpcFlowcraftWorkspaceParameters(t, rpcapi.WorkspaceInputModePushToTalk),
 		},
 	}); err != nil {
 		t.Fatalf("workspace.put owner: %v", err)
 	}
 	if _, err := env.peer.DeleteWorkspace(env.ctx, "owner.workspace.delete", rpcapi.WorkspaceDeleteRequest{Name: workspaceName}); err != nil {
 		t.Fatalf("workspace.delete owner: %v", err)
-	}
-
-	if _, err := env.peer.CreateModel(env.ctx, "owner.model.create", rpcModel(modelID, "openai-main")); err != nil {
-		t.Fatalf("model.create owner: %v", err)
-	}
-	if _, err := env.peer.PutModel(env.ctx, "owner.model.put", rpcapi.ModelPutRequest{
-		Id:   modelID,
-		Body: rpcModel(modelID, "openai-main"),
-	}); err != nil {
-		t.Fatalf("model.put owner: %v", err)
-	}
-	if _, err := env.peer.DeleteModel(env.ctx, "owner.model.delete", rpcapi.ModelDeleteRequest{Id: modelID}); err != nil {
-		t.Fatalf("model.delete owner: %v", err)
-	}
-
-	if _, err := env.peer.CreateCredential(env.ctx, "owner.credential.create", rpcCredential(credentialName, "sk-created")); err != nil {
-		t.Fatalf("credential.create owner: %v", err)
-	}
-	if _, err := env.peer.PutCredential(env.ctx, "owner.credential.put", rpcapi.CredentialPutRequest{
-		Name: credentialName,
-		Body: rpcCredential(credentialName, "sk-updated"),
-	}); err != nil {
-		t.Fatalf("credential.put owner: %v", err)
-	}
-	if _, err := env.peer.DeleteCredential(env.ctx, "owner.credential.delete", rpcapi.CredentialDeleteRequest{Name: credentialName}); err != nil {
-		t.Fatalf("credential.delete owner: %v", err)
 	}
 }
 

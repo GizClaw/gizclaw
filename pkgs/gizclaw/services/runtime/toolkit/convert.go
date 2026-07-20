@@ -9,16 +9,15 @@ import (
 
 func FromAPI(tool apitypes.Tool) (Tool, error) {
 	converted := Tool{
-		ID:             tool.Id,
-		Name:           tool.Name,
-		Description:    tool.Description,
-		Source:         ToolSource(tool.Source),
-		Enabled:        tool.Enabled,
-		OwnerPeer:      tool.OwnerPeer,
-		OwnerPublicKey: tool.OwnerPublicKey,
-		Version:        tool.Version,
-		InputSchema:    tool.InputSchema,
-		OutputSchema:   tool.OutputSchema,
+		ID:           tool.Id,
+		Name:         tool.Name,
+		Description:  tool.Description,
+		Source:       ToolSource(tool.Source),
+		Enabled:      tool.Enabled,
+		OwnerPeer:    tool.OwnerPeer,
+		Version:      tool.Version,
+		InputSchema:  tool.InputSchema,
+		OutputSchema: tool.OutputSchema,
 		Executor: ToolExecutor{
 			Kind:   ToolExecutorKind(tool.Executor.Kind),
 			Name:   tool.Executor.Name,
@@ -49,16 +48,15 @@ func ToAPI(tool Tool) (apitypes.Tool, error) {
 		return apitypes.Tool{}, err
 	}
 	out := apitypes.Tool{
-		Id:             tool.ID,
-		Name:           tool.Name,
-		Description:    tool.Description,
-		Source:         apitypes.ToolSource(tool.Source),
-		Enabled:        tool.Enabled,
-		OwnerPeer:      tool.OwnerPeer,
-		OwnerPublicKey: tool.OwnerPublicKey,
-		Version:        tool.Version,
-		InputSchema:    tool.InputSchema,
-		OutputSchema:   tool.OutputSchema,
+		Id:           tool.ID,
+		Name:         tool.Name,
+		Description:  tool.Description,
+		Source:       apitypes.ToolSource(tool.Source),
+		Enabled:      tool.Enabled,
+		OwnerPeer:    tool.OwnerPeer,
+		Version:      tool.Version,
+		InputSchema:  tool.InputSchema,
+		OutputSchema: tool.OutputSchema,
 		Executor: apitypes.ToolExecutor{
 			Kind:   apitypes.ToolExecutorKind(tool.Executor.Kind),
 			Name:   tool.Executor.Name,
@@ -124,88 +122,6 @@ func ToSpec(tool Tool) (apitypes.ToolSpec, error) {
 		Executor:     value.Executor,
 		Metadata:     value.Metadata,
 	}, nil
-}
-
-func FromRPC(tool rpcapi.Tool) (Tool, error) {
-	enabled := true
-	if tool.Enabled != nil {
-		enabled = *tool.Enabled
-	}
-	converted := Tool{
-		ID:             tool.Id,
-		Name:           tool.Name,
-		Description:    tool.Description,
-		Source:         ToolSource(tool.Source),
-		Enabled:        enabled,
-		OwnerPeer:      tool.OwnerPeer,
-		OwnerPublicKey: tool.OwnerPublicKey,
-		Version:        tool.Version,
-		InputSchema:    tool.InputSchema,
-		OutputSchema:   tool.OutputSchema,
-		Executor: ToolExecutor{
-			Kind:   ToolExecutorKind(tool.Executor.Kind),
-			Name:   tool.Executor.Name,
-			Method: tool.Executor.Method,
-			PeerID: tool.Executor.PeerId,
-		},
-		CreatedAt: tool.CreatedAt,
-		UpdatedAt: tool.UpdatedAt,
-	}
-	var err error
-	if converted.Metadata, err = mapToRaw(tool.Metadata); err != nil {
-		return Tool{}, err
-	}
-	if converted.Executor.Config, err = mapToRaw(tool.Executor.Config); err != nil {
-		return Tool{}, err
-	}
-	if tool.Triggers != nil {
-		if converted.Triggers, err = triggersFromRPC(*tool.Triggers); err != nil {
-			return Tool{}, err
-		}
-	}
-	return NormalizeTool(converted)
-}
-
-func ToRPC(tool Tool) (rpcapi.Tool, error) {
-	tool, err := NormalizeTool(tool)
-	if err != nil {
-		return rpcapi.Tool{}, err
-	}
-	enabled := tool.Enabled
-	out := rpcapi.Tool{
-		Id:             tool.ID,
-		Name:           tool.Name,
-		Description:    tool.Description,
-		Source:         rpcapi.ToolSource(tool.Source),
-		Enabled:        &enabled,
-		OwnerPeer:      tool.OwnerPeer,
-		OwnerPublicKey: tool.OwnerPublicKey,
-		Version:        tool.Version,
-		InputSchema:    tool.InputSchema,
-		OutputSchema:   tool.OutputSchema,
-		Executor: rpcapi.ToolExecutor{
-			Kind:   rpcapi.ToolExecutorKind(tool.Executor.Kind),
-			Name:   tool.Executor.Name,
-			Method: tool.Executor.Method,
-			PeerId: tool.Executor.PeerID,
-		},
-		CreatedAt: tool.CreatedAt,
-		UpdatedAt: tool.UpdatedAt,
-	}
-	if out.Metadata, err = rawToMap(tool.Metadata); err != nil {
-		return rpcapi.Tool{}, err
-	}
-	if out.Executor.Config, err = rawToMap(tool.Executor.Config); err != nil {
-		return rpcapi.Tool{}, err
-	}
-	if len(tool.Triggers) > 0 {
-		triggers, err := triggersToRPC(tool.Triggers)
-		if err != nil {
-			return rpcapi.Tool{}, err
-		}
-		out.Triggers = &triggers
-	}
-	return out, nil
 }
 
 func mapToRaw(in *map[string]interface{}) (json.RawMessage, error) {

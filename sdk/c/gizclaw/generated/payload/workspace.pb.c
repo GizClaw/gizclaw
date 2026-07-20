@@ -135,7 +135,10 @@ PB_BIND(gizclaw_rpc_v1_ServerStopRunResponse, gizclaw_rpc_v1_ServerStopRunRespon
 PB_BIND(gizclaw_rpc_v1_Workspace, gizclaw_rpc_v1_Workspace, 2)
 
 
-PB_BIND(gizclaw_rpc_v1_WorkspaceUpsert, gizclaw_rpc_v1_WorkspaceUpsert, 2)
+PB_BIND(gizclaw_rpc_v1_WorkspaceCreateBody, gizclaw_rpc_v1_WorkspaceCreateBody, 2)
+
+
+PB_BIND(gizclaw_rpc_v1_WorkspacePutBody, gizclaw_rpc_v1_WorkspacePutBody, 2)
 
 
 PB_BIND(gizclaw_rpc_v1_WorkspaceIconDownloadRequest, gizclaw_rpc_v1_WorkspaceIconDownloadRequest, 2)

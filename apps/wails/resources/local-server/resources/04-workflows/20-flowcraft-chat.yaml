@@ -100,14 +100,14 @@ spec:
         save_conversation: true
         tier: general
     settings:
-      extract_model: extract_model
-      generate_model: generate_model
+      extract_model: extract-model
+      generate_model: generate-model
     workspace:
       history_root: history
       memory_root: memory
       state_root: state
     voice_adapter:
-      asr_model: volc-bigasr-sauc
-      default_voice: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
+      asr_model: asr-model
+      default_voice: general-assistant
       node_voices:
-        answer: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
+        answer: general-assistant

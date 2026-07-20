@@ -5,9 +5,9 @@ metadata: {name: ast-translate-zh-en-auto}
 spec:
   driver: ast-translate
   ast_translate:
-    translation_model: volc-ast-translate
+    translation_model: translation-model
     mode: s2s
-    voice: {speaker_id: zh_female_vv_uranus_bigtts}
+    voice: {tts_voice: translator}
     resource_id: volc.service_type.10053
     enable_source_language_detect: true
     denoise: false

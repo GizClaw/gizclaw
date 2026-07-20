@@ -31,13 +31,19 @@ func (m *Manager) applyWorkspace(ctx context.Context, resource apitypes.Resource
 		return apitypes.ApplyResult{}, err
 	}
 	if exists {
+		desiredLabels := item.Metadata.Labels
+		if desiredLabels == nil {
+			desiredLabels = existing.Labels
+		}
 		same, err := semanticEqual(
 			struct {
-				Spec apitypes.WorkspaceSpec `json:"spec"`
-			}{Spec: workspaceSpec(existing)},
+				Labels *map[string]string     `json:"labels,omitempty"`
+				Spec   apitypes.WorkspaceSpec `json:"spec"`
+			}{Labels: cloneWorkspaceLabels(existing.Labels), Spec: workspaceSpec(existing)},
 			struct {
-				Spec apitypes.WorkspaceSpec `json:"spec"`
-			}{Spec: item.Spec},
+				Labels *map[string]string     `json:"labels,omitempty"`
+				Spec   apitypes.WorkspaceSpec `json:"spec"`
+			}{Labels: cloneWorkspaceLabels(desiredLabels), Spec: item.Spec},
 		)
 		if err != nil {
 			return apitypes.ApplyResult{}, applyError(500, "RESOURCE_COMPARE_FAILED", err.Error())
@@ -127,6 +133,7 @@ func workspaceSpec(workspace apitypes.Workspace) apitypes.WorkspaceSpec {
 
 func workspaceUpsert(resource apitypes.WorkspaceResource) adminhttp.WorkspaceUpsert {
 	return adminhttp.WorkspaceUpsert{
+		Labels:       cloneWorkspaceLabels(resource.Metadata.Labels),
 		Name:         string(resource.Metadata.Name),
 		Parameters:   resource.Spec.Parameters,
 		Toolkit:      resource.Spec.Toolkit,
@@ -138,8 +145,19 @@ func resourceFromWorkspace(item apitypes.Workspace) (apitypes.Resource, error) {
 	return marshalResource(apitypes.WorkspaceResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.WorkspaceResourceKind(apitypes.ResourceKindWorkspace),
-		Metadata:   apitypes.ResourceMetadata{Name: string(item.Name)},
+		Metadata:   apitypes.ResourceMetadata{Name: string(item.Name), Labels: cloneWorkspaceLabels(item.Labels)},
 		Icon:       item.Icon,
 		Spec:       workspaceSpec(item),
 	})
+}
+
+func cloneWorkspaceLabels(labels *map[string]string) *map[string]string {
+	if labels == nil {
+		return nil
+	}
+	cloned := make(map[string]string, len(*labels))
+	for key, value := range *labels {
+		cloned[key] = value
+	}
+	return &cloned
 }

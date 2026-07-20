@@ -16,11 +16,11 @@ services/system/
 
 ### ownership
 
-为 Workspace、Model、Credential 和 Tool 提供统一 owner context 与 KV index 约定。Owner 可以读取、使用、更新和删除资源；非 owner 不能通过 owner 机制访问。Friend、FriendGroup 和 Pet 的 system Workspace 由各自领域关系补充可见性。
+提供 persisted resource 使用的 owner context 与 KV index 约定。在 Peer surface 上，Workspace 是用户创建状态；真实 Model、Credential、Workflow 和 Tool 只能由 Admin 修改。Friend、FriendGroup 和 Pet 的 system Workspace 由各自领域关系补充可见性。
 
 ### runtimeprofile
 
-拥有 RuntimeProfile 和 RegistrationToken 的 KV 状态、校验、hash 索引和注册解析。RuntimeProfile allow list 与 owner 资源取并集，不定义只读、成员或管理员等 role。完整结构见 [RuntimeProfile 与设备注册](./runtime-profile)。
+拥有 RuntimeProfile 和 RegistrationToken 的 KV 状态、schema validation、确定性 revision、hash 索引和注册解析。它通过安全 alias 投影 Admin 资源，不定义 reader/member role system。完整结构见 [RuntimeProfile 与设备注册](./runtime-profile)。
 
 ### publiclogin
 

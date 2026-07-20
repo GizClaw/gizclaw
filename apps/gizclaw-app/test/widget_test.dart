@@ -104,10 +104,18 @@ void main() {
     expect(find.byKey(const ValueKey('voice-mode-thumb')), findsOneWidget);
     expect(find.text('LIVE'), findsNothing);
     expect(find.byType(CupertinoTabBar), findsNothing);
-    for (final destination in ['Workspaces', 'Friends', 'Groups', 'Pets']) {
+    for (final destination in [
+      'Assistants',
+      'Translates',
+      'Raids',
+      'Story Teller',
+      'Role Play',
+      'Friends',
+      'Groups',
+      'Pets',
+    ]) {
       expect(primaryNav(destination), findsOneWidget);
     }
-    expect(primaryNav('Raids'), findsNothing);
   });
 
   appTestWidgets('forwards background and resume lifecycle changes', (
@@ -309,116 +317,43 @@ void main() {
     expect(find.byType(ChatroomWorkspacePage), findsOneWidget);
   });
 
-  appTestWidgets('opens the unified workspace destination from the dock', (
+  appTestWidgets('opens collection menus and a full workflow picker', (
     tester,
   ) async {
     await pumpApp(tester);
 
-    await tapPrimaryNav(tester, 'Workspaces');
-    await tester.pumpAndSettle();
-
-    expect(find.byType(ChatsPage), findsOneWidget);
-    expect(find.text('Workspaces'), findsOneWidget);
-    expect(find.byKey(const ValueKey('create-workspace')), findsOneWidget);
-    expect(find.text('Mobile app plan'), findsOneWidget);
-    expect(find.text('Avery'), findsOneWidget);
-
-    await tester.tap(find.byKey(const ValueKey('create-workspace')));
-    await tester.pumpAndSettle();
-    expect(
-      find.byKey(const ValueKey('create-workspace-sheet')),
-      findsOneWidget,
-    );
-    expect(find.text('New Workspace'), findsNWidgets(2));
-    expect(find.text('Doubao Realtime'), findsOneWidget);
-    await tester.tap(find.text('Doubao Realtime'));
-    await tester.pumpAndSettle();
-    for (final title in [
-      'Doubao Realtime',
-      'Chinese ↔ English',
-      'Chinese → Japanese',
-      'Chinese → Korean',
-      'Chinese → Spanish',
-      'Chat',
-      'Journey',
-      'Murder Mystery',
+    for (final label in [
+      'Assistants',
+      'Translates',
+      'Raids',
+      'Story Teller',
+      'Role Play',
     ]) {
-      expect(find.text(title), findsWidgets);
+      expect(primaryNav(label), findsOneWidget);
     }
-    expect(find.text('Chatroom'), findsNothing);
-    Navigator.of(tester.element(find.byType(CupertinoActionSheet))).pop();
+
+    await tapPrimaryNav(tester, 'Raids');
     await tester.pumpAndSettle();
+
+    expect(find.byType(CollectionWorkspacesPage), findsOneWidget);
+    expect(find.text('Raids'), findsOneWidget);
     expect(
-      find.byKey(const ValueKey('workspace-display-name')),
+      find.byKey(const ValueKey('create-workspace-raids')),
       findsOneWidget,
     );
-    Navigator.of(
-      tester.element(find.byKey(const ValueKey('create-workspace-sheet'))),
-    ).pop();
+    expect(find.text('Mobile app plan'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('create-workspace-raids')));
     await tester.pumpAndSettle();
 
-    await tapPrimaryNav(tester, 'Groups');
-    await tester.pumpAndSettle();
-    expect(find.text('Builder Crew'), findsOneWidget);
-    expect(find.text('Avery'), findsNothing);
-    expect(find.text('Mobile app plan'), findsNothing);
-
-    await tester.tap(find.text('Builder Crew'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 700));
-    expect(find.byType(ChatroomWorkspacePage), findsOneWidget);
-    expect(find.byType(WorkspaceChatPage), findsOneWidget);
-    expect(find.text('Builder Crew'), findsOneWidget);
-    expect(find.textContaining('Group chat'), findsOneWidget);
-    expect(find.byType(CupertinoTextField), findsNothing);
-  });
-
-  appTestWidgets('requires concrete FlowCraft model choices before creation', (
-    tester,
-  ) async {
-    final controller = _FlowcraftCreateController();
-    await pumpApp(tester, controller: controller);
-
-    await tapPrimaryNav(tester, 'Workspaces');
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('create-workspace')));
-    await tester.pumpAndSettle();
+    expect(find.byType(WorkflowPickerPage), findsOneWidget);
+    expect(find.text('Journey'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('workspace-generate-model')),
-      findsOneWidget,
+      findsNothing,
     );
-    expect(
-      find.byKey(const ValueKey('workspace-extract-model')),
-      findsOneWidget,
-    );
-    expect(
-      tester
-          .widget<CupertinoButton>(
-            find.byKey(const ValueKey('create-workspace-submit')),
-          )
-          .onPressed,
-      isNull,
-    );
-
-    await tester.tap(find.byKey(const ValueKey('workspace-generate-model')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('chat-a').last);
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('workspace-extract-model')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('chat-b').last);
-    await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const ValueKey('workspace-display-name')),
-      'Model-backed raid',
-    );
-    await tester.tap(find.byKey(const ValueKey('create-workspace-submit')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-
-    expect(controller.generateModel, 'chat-a');
-    expect(controller.extractModel, 'chat-b');
-    expect(find.byType(WorkspaceChatPage), findsOneWidget);
+    expect(find.byKey(const ValueKey('workspace-extract-model')), findsNothing);
+    expect(find.byType(CupertinoTextField), findsNothing);
   });
 
   appTestWidgets('keeps the fixed workspace catalog visible', (tester) async {
@@ -426,15 +361,19 @@ void main() {
     controller.workspaces = const [];
     await pumpApp(tester, controller: controller);
 
-    expect(primaryNav('Workspaces'), findsOneWidget);
-    expect(primaryNav('Doubao'), findsNothing);
-    expect(primaryNav('Translate'), findsNothing);
-    expect(primaryNav('Flowcraft'), findsNothing);
+    expect(primaryNav('Assistants'), findsOneWidget);
+    expect(primaryNav('Translates'), findsOneWidget);
+    expect(primaryNav('Raids'), findsOneWidget);
+    expect(primaryNav('Story Teller'), findsOneWidget);
+    expect(primaryNav('Role Play'), findsOneWidget);
 
-    await tapPrimaryNav(tester, 'Workspaces');
+    await tapPrimaryNav(tester, 'Raids');
     await tester.pumpAndSettle();
-    expect(find.text('Workspaces'), findsOneWidget);
-    expect(find.byKey(const ValueKey('create-workspace')), findsOneWidget);
+    expect(find.text('Raids'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('create-workspace-raids')),
+      findsOneWidget,
+    );
     expect(find.text('No workspaces yet.'), findsOneWidget);
   });
 
@@ -445,13 +384,14 @@ void main() {
     controller.workspaces = const [
       WorkspaceCard(
         name: 'legacy-workspace',
-        workflowName: 'legacy-dynamic-workflow',
+        workflowAlias: 'legacy-dynamic-workflow',
+        collection: 'raids',
         lastActive: 'Previously created',
       ),
     ];
     await pumpApp(tester, controller: controller);
 
-    await tapPrimaryNav(tester, 'Workspaces');
+    await tapPrimaryNav(tester, 'Raids');
     await tester.pumpAndSettle();
 
     expect(find.text('legacy-workspace'), findsOneWidget);
@@ -463,9 +403,9 @@ void main() {
   ) async {
     await pumpApp(tester);
 
-    await tapPrimaryNav(tester, 'Workspaces');
+    await tapPrimaryNav(tester, 'Raids');
     await tester.pumpAndSettle();
-    expect(find.byType(ChatsPage), findsOneWidget);
+    expect(find.byType(CollectionWorkspacesPage), findsOneWidget);
     await tester.tap(find.text('Mobile app plan'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
@@ -478,22 +418,22 @@ void main() {
 
     await tester.tap(find.byIcon(GizIcons.chevron_left).hitTestable());
     await tester.pumpAndSettle();
-    expect(find.byType(ChatsPage), findsOneWidget);
+    expect(find.byType(CollectionWorkspacesPage), findsOneWidget);
     expect(find.byType(CupertinoTabBar), findsNothing);
-    expect(primaryNav('Workspaces'), findsOneWidget);
+    expect(primaryNav('Raids'), findsOneWidget);
     await tapPrimaryNav(tester, 'Home');
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.byType(ActiveWorkspacePage), findsOneWidget);
 
-    await tapPrimaryNav(tester, 'Workspaces');
+    await tapPrimaryNav(tester, 'Raids');
     await tester.pump(const Duration(milliseconds: 500));
-    expect(find.byType(ChatsPage), findsOneWidget);
+    expect(find.byType(CollectionWorkspacesPage), findsOneWidget);
   });
 
   appTestWidgets('renders the workspace signal room', (tester) async {
     await pumpApp(tester);
 
-    await tapPrimaryNav(tester, 'Workspaces');
+    await tapPrimaryNav(tester, 'Translates');
     await tester.pumpAndSettle();
     await tester.tap(find.text('Parser pass'));
     await tester.pump();
@@ -624,7 +564,7 @@ void main() {
     addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
     await pumpApp(tester);
 
-    await tapPrimaryNav(tester, 'Workspaces');
+    await tapPrimaryNav(tester, 'Translates');
     await tester.pumpAndSettle();
     await tester.tap(find.text('Parser pass'));
     await tester.pump();
@@ -660,7 +600,11 @@ void main() {
 
     for (final label in [
       'Home',
-      'Workspaces',
+      'Assistants',
+      'Translates',
+      'Raids',
+      'Story Teller',
+      'Role Play',
       'Friends',
       'Groups',
       'Pets',
@@ -669,7 +613,6 @@ void main() {
       expect(primaryNav(label), findsOneWidget);
     }
     expect(find.byIcon(GizIcons.house_fill), findsOneWidget);
-    expect(find.byIcon(GizIcons.rectangle_3_offgrid), findsOneWidget);
     expect(find.byIcon(GizIcons.paw), findsOneWidget);
     expect(find.byKey(const ValueKey('primary-nav-scroll')), findsOneWidget);
     expect(find.byKey(const ValueKey('primary-nav-edge-fade')), findsOneWidget);
@@ -1181,7 +1124,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await pumpApp(tester);
-    await tapPrimaryNav(tester, 'Workspaces');
+    await tapPrimaryNav(tester, 'Translates');
     await tester.pumpAndSettle();
     await tester.tap(find.text('Parser pass'));
     await tester.pump();
@@ -1354,7 +1297,9 @@ class _ServerListTestController extends MobileDataController {
           GizClawServer(name: 'Office', accessPoint: _testServerEndpoint),
         ],
       ) {
-    workflows = appWorkflowCards(const Locale('en'));
+    workflows = demoWorkflows
+        .map((workflow) => appWorkflowCard(workflow, const Locale('en')))
+        .toList();
     workspaces = workflowWorkspaces;
     chatroomWorkspaces = chatroomWorkspaceMetadata;
   }
@@ -1363,67 +1308,6 @@ class _ServerListTestController extends MobileDataController {
   Future<void> start() async {
     connectionState = MobileConnectionState.offline;
     notifyListeners();
-  }
-}
-
-class _FlowcraftCreateController extends MobileDataController {
-  _FlowcraftCreateController()
-    : super(
-        database: _testDatabase(),
-        profile: const GizClawConnectionProfile(
-          endpoint: _testServerEndpoint,
-          clientPrivateKey: 'test-key',
-        ),
-      ) {
-    workflows = [
-      const WorkflowCard(
-        name: 'chat',
-        title: 'Chat',
-        subtitle: 'Requires concrete models',
-        driverLabel: 'Flowcraft',
-        category: 'raids',
-        bannerColor: GizColors.blue,
-        icon: GizIcons.rectangle_3_offgrid,
-        driver: WorkflowDriverKind.flowcraft,
-      ),
-    ];
-  }
-
-  String? generateModel;
-  String? extractModel;
-
-  @override
-  Future<void> start() async {
-    connectionState = MobileConnectionState.offline;
-    notifyListeners();
-  }
-
-  @override
-  Future<List<Model>> listGeneratorModels() async => [
-    Model(id: 'chat-a', kind: ModelKind.MODEL_KIND_LLM),
-    Model(id: 'chat-b', kind: ModelKind.MODEL_KIND_LLM),
-  ];
-
-  @override
-  Future<FlowcraftModelRequirements> flowcraftModelRequirements(
-    String workflowName,
-  ) async => const FlowcraftModelRequirements(
-    generateModel: true,
-    extractModel: true,
-    embeddingModel: false,
-  );
-
-  @override
-  Future<Workspace> createWorkspace({
-    required String workflowName,
-    required String name,
-    String? generateModel,
-    String? extractModel,
-    String? embeddingModel,
-  }) async {
-    this.generateModel = generateModel;
-    this.extractModel = extractModel;
-    return Workspace(name: 'created-workspace', workflowName: workflowName);
   }
 }
 

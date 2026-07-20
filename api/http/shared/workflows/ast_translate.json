@@ -24,7 +24,7 @@
         "properties": {
           "translation_model": {
             "type": "string",
-            "description": "GizClaw model resource used to resolve the Volc tenant credential for AST translate."
+            "description": "RuntimeProfile translation Model alias resolved when the Workspace reloads."
           },
           "mode": {
             "$ref": "#/components/schemas/ASTTranslateMode"
@@ -97,7 +97,7 @@
         "properties": {
           "tts_voice": {
             "type": "string",
-            "description": "GizClaw voice resource name used by an external TTS path."
+            "description": "RuntimeProfile Voice alias used by the external TTS path."
           }
         }
       }
