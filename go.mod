@@ -1,6 +1,6 @@
 module github.com/GizClaw/gizclaw-go
 
-go 1.26
+go 1.26.4
 
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.47.0
@@ -20,7 +20,7 @@ require (
 	github.com/googleapis/gax-go/v2 v2.22.0
 	github.com/hajimehoshi/go-mp3 v0.3.4
 	github.com/jmoiron/sqlx v1.4.0
-	github.com/kaptinlin/jsonrepair v0.2.6
+	github.com/kaptinlin/jsonrepair v0.4.8
 	github.com/kardianos/service v1.2.4
 	github.com/lib/pq v1.12.3
 	github.com/oapi-codegen/runtime v1.3.1
@@ -93,6 +93,7 @@ require (
 	github.com/getkin/kin-openapi v0.133.0 // indirect
 	github.com/go-faster/city v1.0.1 // indirect
 	github.com/go-faster/errors v0.7.1 // indirect
+	github.com/go-json-experiment/json v0.0.0-20260601182631-00ed12fed2a6 // indirect
 	github.com/go-kit/kit v0.12.0 // indirect
 	github.com/go-kit/log v0.2.1 // indirect
 	github.com/go-logfmt/logfmt v0.6.0 // indirect
