@@ -3908,23 +3908,23 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
     "fields": [
       {
         "name": "alias",
-        "number": 1,
+        "number": 13,
         "type": "string"
       },
       {
         "mapValue": "AliasI18nText",
         "name": "i18n",
-        "number": 2,
+        "number": 14,
         "type": "map"
       },
       {
         "name": "kind",
-        "number": 3,
+        "number": 15,
         "type": "ModelKind"
       },
       {
         "name": "capabilities",
-        "number": 4,
+        "number": 16,
         "optional": true,
         "type": "ModelCapabilities"
       }
@@ -6270,13 +6270,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
     "fields": [
       {
         "name": "alias",
-        "number": 1,
+        "number": 10,
         "type": "string"
       },
       {
         "mapValue": "AliasI18nText",
         "name": "i18n",
-        "number": 2,
+        "number": 11,
         "type": "map"
       }
     ]
@@ -6360,23 +6360,23 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
     "fields": [
       {
         "name": "alias",
-        "number": 1,
+        "number": 6,
         "type": "string"
       },
       {
         "mapValue": "AliasI18nText",
         "name": "i18n",
-        "number": 2,
+        "number": 7,
         "type": "map"
       },
       {
         "name": "collection",
-        "number": 3,
+        "number": 8,
         "type": "string"
       },
       {
         "name": "driver",
-        "number": 4,
+        "number": 9,
         "type": "WorkflowDriver"
       }
     ]

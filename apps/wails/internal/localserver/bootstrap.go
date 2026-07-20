@@ -68,11 +68,20 @@ func (b *Bootstrapper) MigrateRuntimeContract(ctx context.Context, podDir string
 		return err
 	}
 	defer os.RemoveAll(tempDir)
+	environment = setCommandEnvironment(environment, "input", "${input}")
 	run := b.Run
 	if run == nil {
 		run = runBootstrapCommand
 	}
 	for _, entry := range contractEntries {
+		if entry.Kind == "RuntimeProfile" {
+			for _, item := range b.Catalog.VoiceSyncs {
+				args := []string{"admin", item.Provider + "-tenants", "sync-voices", item.Tenant, "--context", "local"}
+				if err := runBootstrapOperation(ctx, run, executable, args, environment); err != nil {
+					return fmt.Errorf("local server bootstrap: sync %s voices for %s during runtime migration: %w", item.Provider, item.Tenant, err)
+				}
+			}
+		}
 		if entry.Kind == "RuntimeProfile" {
 			err := runBootstrapOperation(ctx, run, executable, []string{"admin", "runtime-profiles", "delete", entry.Name, "--context", "local"}, environment)
 			if err != nil && !strings.Contains(err.Error(), "RESOURCE_NOT_FOUND:") {

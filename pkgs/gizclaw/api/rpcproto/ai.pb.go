@@ -2762,10 +2762,10 @@ func (x *PetWorkspaceParameters) GetVoice() *PetVoiceParameters {
 
 type Model struct {
 	state         protoimpl.MessageState    `protogen:"open.v1"`
-	Alias         string                    `protobuf:"bytes,1,opt,name=alias,proto3" json:"alias,omitempty"`
-	I18N          map[string]*AliasI18NText `protobuf:"bytes,2,rep,name=i18n,proto3" json:"i18n,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	Kind          ModelKind                 `protobuf:"varint,3,opt,name=kind,proto3,enum=gizclaw.rpc.v1.ModelKind" json:"kind,omitempty"`
-	Capabilities  *ModelCapabilities        `protobuf:"bytes,4,opt,name=capabilities,proto3,oneof" json:"capabilities,omitempty"`
+	Alias         string                    `protobuf:"bytes,13,opt,name=alias,proto3" json:"alias,omitempty"`
+	I18N          map[string]*AliasI18NText `protobuf:"bytes,14,rep,name=i18n,proto3" json:"i18n,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Kind          ModelKind                 `protobuf:"varint,15,opt,name=kind,proto3,enum=gizclaw.rpc.v1.ModelKind" json:"kind,omitempty"`
+	Capabilities  *ModelCapabilities        `protobuf:"bytes,16,opt,name=capabilities,proto3,oneof" json:"capabilities,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3222,8 +3222,8 @@ func (x *ModelThinkingCapability) GetSupported() bool {
 
 type Voice struct {
 	state         protoimpl.MessageState    `protogen:"open.v1"`
-	Alias         string                    `protobuf:"bytes,1,opt,name=alias,proto3" json:"alias,omitempty"`
-	I18N          map[string]*AliasI18NText `protobuf:"bytes,2,rep,name=i18n,proto3" json:"i18n,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Alias         string                    `protobuf:"bytes,10,opt,name=alias,proto3" json:"alias,omitempty"`
+	I18N          map[string]*AliasI18NText `protobuf:"bytes,11,rep,name=i18n,proto3" json:"i18n,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3506,10 +3506,10 @@ func (x *VoiceListResponse) GetRuntimeProfileRevision() string {
 
 type Workflow struct {
 	state         protoimpl.MessageState    `protogen:"open.v1"`
-	Alias         string                    `protobuf:"bytes,1,opt,name=alias,proto3" json:"alias,omitempty"`
-	I18N          map[string]*AliasI18NText `protobuf:"bytes,2,rep,name=i18n,proto3" json:"i18n,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	Collection    string                    `protobuf:"bytes,3,opt,name=collection,proto3" json:"collection,omitempty"`
-	Driver        WorkflowDriver            `protobuf:"varint,4,opt,name=driver,proto3,enum=gizclaw.rpc.v1.WorkflowDriver" json:"driver,omitempty"`
+	Alias         string                    `protobuf:"bytes,6,opt,name=alias,proto3" json:"alias,omitempty"`
+	I18N          map[string]*AliasI18NText `protobuf:"bytes,7,rep,name=i18n,proto3" json:"i18n,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Collection    string                    `protobuf:"bytes,8,opt,name=collection,proto3" json:"collection,omitempty"`
+	Driver        WorkflowDriver            `protobuf:"varint,9,opt,name=driver,proto3,enum=gizclaw.rpc.v1.WorkflowDriver" json:"driver,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4675,16 +4675,16 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\r_conversationB\b\n" +
 	"\x06_inputB\n" +
 	"\n" +
-	"\b_persona\"\xb6\x02\n" +
+	"\b_persona\"\xbc\x02\n" +
 	"\x05Model\x12\x14\n" +
-	"\x05alias\x18\x01 \x01(\tR\x05alias\x123\n" +
-	"\x04i18n\x18\x02 \x03(\v2\x1f.gizclaw.rpc.v1.Model.I18nEntryR\x04i18n\x12-\n" +
-	"\x04kind\x18\x03 \x01(\x0e2\x19.gizclaw.rpc.v1.ModelKindR\x04kind\x12J\n" +
-	"\fcapabilities\x18\x04 \x01(\v2!.gizclaw.rpc.v1.ModelCapabilitiesH\x00R\fcapabilities\x88\x01\x01\x1aV\n" +
+	"\x05alias\x18\r \x01(\tR\x05alias\x123\n" +
+	"\x04i18n\x18\x0e \x03(\v2\x1f.gizclaw.rpc.v1.Model.I18nEntryR\x04i18n\x12-\n" +
+	"\x04kind\x18\x0f \x01(\x0e2\x19.gizclaw.rpc.v1.ModelKindR\x04kind\x12J\n" +
+	"\fcapabilities\x18\x10 \x01(\v2!.gizclaw.rpc.v1.ModelCapabilitiesH\x00R\fcapabilities\x88\x01\x01\x1aV\n" +
 	"\tI18nEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x123\n" +
 	"\x05value\x18\x02 \x01(\v2\x1d.gizclaw.rpc.v1.AliasI18nTextR\x05value:\x028\x01B\x0f\n" +
-	"\r_capabilities\"\xf0\x02\n" +
+	"\r_capabilitiesJ\x04\b\x01\x10\r\"\xf0\x02\n" +
 	"\x11ModelCapabilities\x12$\n" +
 	"\vjson_output\x18\x01 \x01(\bH\x00R\n" +
 	"jsonOutput\x88\x01\x01\x12$\n" +
@@ -4730,13 +4730,15 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\tsupported\x18\x05 \x01(\bR\tsupportedB\x10\n" +
 	"\x0e_default_levelB\x0e\n" +
 	"\f_level_paramB\b\n" +
-	"\x06_param\"\xaa\x01\n" +
+	"\x06_param\"\xb0\x01\n" +
 	"\x05Voice\x12\x14\n" +
-	"\x05alias\x18\x01 \x01(\tR\x05alias\x123\n" +
-	"\x04i18n\x18\x02 \x03(\v2\x1f.gizclaw.rpc.v1.Voice.I18nEntryR\x04i18n\x1aV\n" +
+	"\x05alias\x18\n" +
+	" \x01(\tR\x05alias\x123\n" +
+	"\x04i18n\x18\v \x03(\v2\x1f.gizclaw.rpc.v1.Voice.I18nEntryR\x04i18n\x1aV\n" +
 	"\tI18nEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x123\n" +
-	"\x05value\x18\x02 \x01(\v2\x1d.gizclaw.rpc.v1.AliasI18nTextR\x05value:\x028\x01\"'\n" +
+	"\x05value\x18\x02 \x01(\v2\x1d.gizclaw.rpc.v1.AliasI18nTextR\x05value:\x028\x01J\x04\b\x01\x10\n" +
+	"\"'\n" +
 	"\x0fVoiceGetRequest\x12\x14\n" +
 	"\x05alias\x18\x01 \x01(\tR\x05alias\"\xab\x01\n" +
 	"\x10VoiceGetResponse\x12+\n" +
@@ -4755,17 +4757,17 @@ const file_payload_ai_proto_rawDesc = "" +
 	"nextCursor\x88\x01\x01\x120\n" +
 	"\x14runtime_profile_name\x18\x04 \x01(\tR\x12runtimeProfileName\x128\n" +
 	"\x18runtime_profile_revision\x18\x05 \x01(\tR\x16runtimeProfileRevisionB\x0e\n" +
-	"\f_next_cursor\"\x88\x02\n" +
+	"\f_next_cursor\"\x8e\x02\n" +
 	"\bWorkflow\x12\x14\n" +
-	"\x05alias\x18\x01 \x01(\tR\x05alias\x126\n" +
-	"\x04i18n\x18\x02 \x03(\v2\".gizclaw.rpc.v1.Workflow.I18nEntryR\x04i18n\x12\x1e\n" +
+	"\x05alias\x18\x06 \x01(\tR\x05alias\x126\n" +
+	"\x04i18n\x18\a \x03(\v2\".gizclaw.rpc.v1.Workflow.I18nEntryR\x04i18n\x12\x1e\n" +
 	"\n" +
-	"collection\x18\x03 \x01(\tR\n" +
+	"collection\x18\b \x01(\tR\n" +
 	"collection\x126\n" +
-	"\x06driver\x18\x04 \x01(\x0e2\x1e.gizclaw.rpc.v1.WorkflowDriverR\x06driver\x1aV\n" +
+	"\x06driver\x18\t \x01(\x0e2\x1e.gizclaw.rpc.v1.WorkflowDriverR\x06driver\x1aV\n" +
 	"\tI18nEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x123\n" +
-	"\x05value\x18\x02 \x01(\v2\x1d.gizclaw.rpc.v1.AliasI18nTextR\x05value:\x028\x01\"6\n" +
+	"\x05value\x18\x02 \x01(\v2\x1d.gizclaw.rpc.v1.AliasI18nTextR\x05value:\x028\x01J\x04\b\x01\x10\x06\"6\n" +
 	"\x12WorkflowGetRequest\x12\x14\n" +
 	"\x05alias\x18\x01 \x01(\tR\x05aliasJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04\"\xb1\x01\n" +
 	"\x13WorkflowGetResponse\x12.\n" +

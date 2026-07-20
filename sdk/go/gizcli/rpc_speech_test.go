@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"strings"
@@ -168,6 +169,62 @@ func TestTranscribeSpeechStreamsReaderBeforeEOF(t *testing.T) {
 		t.Fatalf("TranscribeSpeech() error = %v", err)
 	}
 	if result.Transcript != "hello" {
+		t.Fatalf("Transcript = %q", result.Transcript)
+	}
+	if err := <-serverDone; err != nil {
+		t.Fatalf("server error = %v", err)
+	}
+}
+
+func TestTranscribeSpeechDelimitsSplitRequestEnvelopeBeforeAudio(t *testing.T) {
+	serverSide, clientSide := net.Pipe()
+	defer serverSide.Close()
+	defer clientSide.Close()
+	serverDone := make(chan error, 1)
+	go func() {
+		stream, err := newRPCStream(context.Background(), serverSide)
+		if err != nil {
+			serverDone <- err
+			return
+		}
+		defer stream.Close()
+		request, requestEOS, err := stream.ReadRequestEnvelope()
+		if err == nil && !requestEOS {
+			err = errors.New("split request envelope did not consume its EOS delimiter")
+		}
+		if err == nil {
+			var frame rpcapi.Frame
+			frame, err = stream.ReadFrame()
+			if err == nil && (frame.Type != rpcapi.FrameTypeBinary || !bytes.Equal(frame.Payload, []byte{1, 2, 3})) {
+				err = fmt.Errorf("audio frame = %#v", frame)
+			}
+		}
+		if err == nil {
+			err = stream.ReadEOS()
+		}
+		if err == nil {
+			var response *rpcapi.RPCResponse
+			response, err = newRPCResultResponse(request.Id, rpcapi.SpeechTranscribeResponse{Transcript: "ok"}, (*rpcapi.RPCPayload).FromSpeechTranscribeResponse)
+			if err == nil {
+				_, err = stream.WriteResponseEnvelopeForMethod(request.Method, response)
+			}
+		}
+		if err == nil {
+			err = stream.WriteEOS()
+		}
+		serverDone <- err
+	}()
+
+	largeID := string(bytes.Repeat([]byte("r"), rpcapi.MaxFrameSize+1024))
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	result, err := (&rpcClient{}).TranscribeSpeech(ctx, clientSide, largeID, rpcapi.SpeechTranscribeRequest{
+		ModelAlias: "asr-main", ContentType: "audio/L16;rate=16000;channels=1",
+	}, bytes.NewReader([]byte{1, 2, 3}))
+	if err != nil {
+		t.Fatalf("TranscribeSpeech() error = %v", err)
+	}
+	if result.Transcript != "ok" {
 		t.Fatalf("Transcript = %q", result.Transcript)
 	}
 	if err := <-serverDone; err != nil {

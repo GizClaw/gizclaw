@@ -47,8 +47,14 @@ func (c *rpcClient) TranscribeSpeech(ctx context.Context, conn net.Conn, id stri
 		return nil, err
 	}
 	defer stream.Close()
-	if err := stream.WriteRequestEnvelope(newRPCRequest(id, rpcapi.RPCMethodServerSpeechTranscribe, params)); err != nil {
+	requestEnvelopeSplit, err := stream.writeRequestEnvelope(newRPCRequest(id, rpcapi.RPCMethodServerSpeechTranscribe, params))
+	if err != nil {
 		return nil, err
+	}
+	if requestEnvelopeSplit {
+		if err := stream.WriteEOS(); err != nil {
+			return nil, err
+		}
 	}
 	type responseResult struct {
 		value *rpcapi.SpeechTranscribeResponse

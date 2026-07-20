@@ -287,10 +287,11 @@ message PetWorkspaceParameters {
 }
 
 message Model {
-  string alias = 1;
-  map<string, AliasI18nText> i18n = 2;
-  ModelKind kind = 3;
-  optional ModelCapabilities capabilities = 4;
+  reserved 1 to 12;
+  string alias = 13;
+  map<string, AliasI18nText> i18n = 14;
+  ModelKind kind = 15;
+  optional ModelCapabilities capabilities = 16;
 }
 
 message ModelCapabilities {
@@ -334,8 +335,9 @@ message ModelThinkingCapability {
 }
 
 message Voice {
-  string alias = 1;
-  map<string, AliasI18nText> i18n = 2;
+  reserved 1 to 9;
+  string alias = 10;
+  map<string, AliasI18nText> i18n = 11;
 }
 
 message VoiceGetRequest {
@@ -362,10 +364,11 @@ message VoiceListResponse {
 }
 
 message Workflow {
-  string alias = 1;
-  map<string, AliasI18nText> i18n = 2;
-  string collection = 3;
-  WorkflowDriver driver = 4;
+  reserved 1 to 5;
+  string alias = 6;
+  map<string, AliasI18nText> i18n = 7;
+  string collection = 8;
+  WorkflowDriver driver = 9;
 }
 
 message WorkflowGetRequest {

@@ -903,15 +903,15 @@ extern "C" {
 #define gizclaw_rpc_v1_ModelCapabilities_text_only_tag 4
 #define gizclaw_rpc_v1_ModelCapabilities_thinking_tag 5
 #define gizclaw_rpc_v1_ModelCapabilities_tool_calls_tag 6
-#define gizclaw_rpc_v1_Model_alias_tag           1
-#define gizclaw_rpc_v1_Model_i18n_tag            2
-#define gizclaw_rpc_v1_Model_kind_tag            3
-#define gizclaw_rpc_v1_Model_capabilities_tag    4
+#define gizclaw_rpc_v1_Model_alias_tag           13
+#define gizclaw_rpc_v1_Model_i18n_tag            14
+#define gizclaw_rpc_v1_Model_kind_tag            15
+#define gizclaw_rpc_v1_Model_capabilities_tag    16
 #define gizclaw_rpc_v1_ModelGetResponse_value_tag 1
 #define gizclaw_rpc_v1_ModelGetResponse_runtime_profile_name_tag 2
 #define gizclaw_rpc_v1_ModelGetResponse_runtime_profile_revision_tag 3
-#define gizclaw_rpc_v1_Voice_alias_tag           1
-#define gizclaw_rpc_v1_Voice_i18n_tag            2
+#define gizclaw_rpc_v1_Voice_alias_tag           10
+#define gizclaw_rpc_v1_Voice_i18n_tag            11
 #define gizclaw_rpc_v1_Voice_I18nEntry_key_tag   1
 #define gizclaw_rpc_v1_Voice_I18nEntry_value_tag 2
 #define gizclaw_rpc_v1_VoiceGetRequest_alias_tag 1
@@ -925,10 +925,10 @@ extern "C" {
 #define gizclaw_rpc_v1_VoiceListResponse_next_cursor_tag 3
 #define gizclaw_rpc_v1_VoiceListResponse_runtime_profile_name_tag 4
 #define gizclaw_rpc_v1_VoiceListResponse_runtime_profile_revision_tag 5
-#define gizclaw_rpc_v1_Workflow_alias_tag        1
-#define gizclaw_rpc_v1_Workflow_i18n_tag         2
-#define gizclaw_rpc_v1_Workflow_collection_tag   3
-#define gizclaw_rpc_v1_Workflow_driver_tag       4
+#define gizclaw_rpc_v1_Workflow_alias_tag        6
+#define gizclaw_rpc_v1_Workflow_i18n_tag         7
+#define gizclaw_rpc_v1_Workflow_collection_tag   8
+#define gizclaw_rpc_v1_Workflow_driver_tag       9
 #define gizclaw_rpc_v1_Workflow_I18nEntry_key_tag 1
 #define gizclaw_rpc_v1_Workflow_I18nEntry_value_tag 2
 #define gizclaw_rpc_v1_WorkflowGetRequest_alias_tag 1
@@ -1338,10 +1338,10 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  voice,             5)
 #define gizclaw_rpc_v1_PetWorkspaceParameters_voice_MSGTYPE gizclaw_rpc_v1_PetVoiceParameters
 
 #define gizclaw_rpc_v1_Model_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   alias,             1) \
-X(a, CALLBACK, REPEATED, MESSAGE,  i18n,              2) \
-X(a, STATIC,   SINGULAR, UENUM,    kind,              3) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  capabilities,      4)
+X(a, CALLBACK, SINGULAR, STRING,   alias,            13) \
+X(a, CALLBACK, REPEATED, MESSAGE,  i18n,             14) \
+X(a, STATIC,   SINGULAR, UENUM,    kind,             15) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  capabilities,     16)
 #define gizclaw_rpc_v1_Model_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_Model_DEFAULT NULL
 #define gizclaw_rpc_v1_Model_i18n_MSGTYPE gizclaw_rpc_v1_Model_I18nEntry
@@ -1404,8 +1404,8 @@ X(a, STATIC,   SINGULAR, BOOL,     supported,         5)
 #define gizclaw_rpc_v1_ModelThinkingCapability_DEFAULT NULL
 
 #define gizclaw_rpc_v1_Voice_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   alias,             1) \
-X(a, CALLBACK, REPEATED, MESSAGE,  i18n,              2)
+X(a, CALLBACK, SINGULAR, STRING,   alias,            10) \
+X(a, CALLBACK, REPEATED, MESSAGE,  i18n,             11)
 #define gizclaw_rpc_v1_Voice_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_Voice_DEFAULT NULL
 #define gizclaw_rpc_v1_Voice_i18n_MSGTYPE gizclaw_rpc_v1_Voice_I18nEntry
@@ -1447,10 +1447,10 @@ X(a, CALLBACK, SINGULAR, STRING,   runtime_profile_revision,   5)
 #define gizclaw_rpc_v1_VoiceListResponse_items_MSGTYPE gizclaw_rpc_v1_Voice
 
 #define gizclaw_rpc_v1_Workflow_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   alias,             1) \
-X(a, CALLBACK, REPEATED, MESSAGE,  i18n,              2) \
-X(a, CALLBACK, SINGULAR, STRING,   collection,        3) \
-X(a, STATIC,   SINGULAR, UENUM,    driver,            4)
+X(a, CALLBACK, SINGULAR, STRING,   alias,             6) \
+X(a, CALLBACK, REPEATED, MESSAGE,  i18n,              7) \
+X(a, CALLBACK, SINGULAR, STRING,   collection,        8) \
+X(a, STATIC,   SINGULAR, UENUM,    driver,            9)
 #define gizclaw_rpc_v1_Workflow_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_Workflow_DEFAULT NULL
 #define gizclaw_rpc_v1_Workflow_i18n_MSGTYPE gizclaw_rpc_v1_Workflow_I18nEntry

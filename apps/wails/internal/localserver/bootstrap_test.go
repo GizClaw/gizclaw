@@ -196,13 +196,17 @@ func TestBootstrapperMigratesReferencedWorkflowsBeforeDefaultRuntimeContract(t *
 			{Path: "resources/04-workflows/02-unreferenced.yaml", Kind: "Workflow", Name: "unreferenced"},
 			{Path: "resources/07-runtime-profiles/00-default.yaml", Kind: "RuntimeProfile", Name: "default"},
 		},
+		VoiceSyncs: []VoiceSync{{Provider: "volc", Tenant: "volc-main"}},
 	}
 	var commands []string
 	var applied []string
 	bootstrapper := &Bootstrapper{
 		Catalog:    catalog,
 		Executable: func() (string, error) { return "/fake/gizclaw", nil },
-		Run: func(_ context.Context, _ string, args, _ []string) error {
+		Run: func(_ context.Context, _ string, args, environment []string) error {
+			if !slices.Contains(environment, "input=${input}") {
+				t.Fatalf("migration environment does not preserve input placeholder: %v", environment)
+			}
 			commands = append(commands, strings.Join(args, " "))
 			if args[1] == "apply" {
 				data, err := os.ReadFile(args[len(args)-1])
@@ -233,7 +237,7 @@ func TestBootstrapperMigratesReferencedWorkflowsBeforeDefaultRuntimeContract(t *
 	if got := strings.Join(applied, ","); got != "Workflow/referenced,Workflow/chatroom,RuntimeProfile/default" {
 		t.Fatalf("migration applied = %s", got)
 	}
-	if len(commands) != 7 || !strings.Contains(commands[0], "admin apply") || !strings.Contains(commands[1], "admin apply") || !strings.Contains(commands[2], "runtime-profiles delete default") || !strings.Contains(commands[3], "admin apply") || !strings.Contains(commands[4], "registration-tokens delete app:com.gizclaw.opensource") || !strings.Contains(commands[5], "registration-tokens create") || !strings.Contains(commands[6], "registration-tokens delete desktop-local") {
+	if len(commands) != 8 || !strings.Contains(commands[0], "admin apply") || !strings.Contains(commands[1], "admin apply") || !strings.Contains(commands[2], "volc-tenants sync-voices volc-main") || !strings.Contains(commands[3], "runtime-profiles delete default") || !strings.Contains(commands[4], "admin apply") || !strings.Contains(commands[5], "registration-tokens delete app:com.gizclaw.opensource") || !strings.Contains(commands[6], "registration-tokens create") || !strings.Contains(commands[7], "registration-tokens delete desktop-local") {
 		t.Fatalf("migration commands = %v", commands)
 	}
 	token, err := os.ReadFile(filepath.Join(podDir, "workspace", RegistrationTokenFile))
