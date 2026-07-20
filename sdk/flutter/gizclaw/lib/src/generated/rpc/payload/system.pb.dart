@@ -1024,7 +1024,7 @@ class ServerRegisterResponse extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'ServerRegisterResponse',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOS(2, _omitFieldNames ? '' : 'runtimeProfileName')
+    ..aOS(1, _omitFieldNames ? '' : 'runtimeProfileName')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1047,14 +1047,14 @@ class ServerRegisterResponse extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<ServerRegisterResponse>(create);
   static ServerRegisterResponse? _defaultInstance;
 
-  @$pb.TagNumber(2)
+  @$pb.TagNumber(1)
   $core.String get runtimeProfileName => $_getSZ(0);
-  @$pb.TagNumber(2)
+  @$pb.TagNumber(1)
   set runtimeProfileName($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(2)
+  @$pb.TagNumber(1)
   $core.bool hasRuntimeProfileName() => $_has(0);
-  @$pb.TagNumber(2)
-  void clearRuntimeProfileName() => $_clearField(2);
+  @$pb.TagNumber(1)
+  void clearRuntimeProfileName() => $_clearField(1);
 }
 
 class Runtime extends $pb.GeneratedMessage {

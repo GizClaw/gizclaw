@@ -263,83 +263,47 @@ const ASTTranslateWorkflowSpec$json = {
       '17': true
     },
     {
-      '1': 'is_custom_speaker',
-      '3': 3,
-      '4': 1,
-      '5': 8,
-      '9': 2,
-      '10': 'isCustomSpeaker',
-      '17': true
-    },
-    {
       '1': 'mode',
-      '3': 4,
+      '3': 3,
       '4': 1,
       '5': 14,
       '6': '.gizclaw.rpc.v1.ASTTranslateMode',
-      '9': 3,
+      '9': 2,
       '10': 'mode',
       '17': true
     },
     {
       '1': 'resource_id',
-      '3': 5,
+      '3': 4,
       '4': 1,
       '5': 9,
-      '9': 4,
+      '9': 3,
       '10': 'resourceId',
       '17': true
     },
     {
-      '1': 'speaker_id',
-      '3': 6,
-      '4': 1,
-      '5': 9,
-      '9': 5,
-      '10': 'speakerId',
-      '17': true
-    },
-    {
-      '1': 'speech_rate',
-      '3': 7,
-      '4': 1,
-      '5': 3,
-      '9': 6,
-      '10': 'speechRate',
-      '17': true
-    },
-    {
       '1': 'translation_model',
-      '3': 8,
+      '3': 5,
       '4': 1,
       '5': 9,
       '10': 'translationModel'
     },
     {
-      '1': 'tts_resource_id',
-      '3': 9,
-      '4': 1,
-      '5': 9,
-      '9': 7,
-      '10': 'ttsResourceId',
-      '17': true
-    },
-    {
       '1': 'voice',
-      '3': 10,
+      '3': 6,
       '4': 1,
       '5': 11,
       '6': '.gizclaw.rpc.v1.ASTTranslateVoiceParameters',
-      '9': 8,
+      '9': 4,
       '10': 'voice',
       '17': true
     },
     {
       '1': 'lang_pair',
-      '3': 11,
+      '3': 7,
       '4': 1,
       '5': 9,
-      '9': 9,
+      '9': 5,
       '10': 'langPair',
       '17': true
     },
@@ -347,12 +311,8 @@ const ASTTranslateWorkflowSpec$json = {
   '8': [
     {'1': '_denoise'},
     {'1': '_enable_source_language_detect'},
-    {'1': '_is_custom_speaker'},
     {'1': '_mode'},
     {'1': '_resource_id'},
-    {'1': '_speaker_id'},
-    {'1': '_speech_rate'},
-    {'1': '_tts_resource_id'},
     {'1': '_voice'},
     {'1': '_lang_pair'},
   ],
@@ -362,17 +322,13 @@ const ASTTranslateWorkflowSpec$json = {
 final $typed_data.Uint8List aSTTranslateWorkflowSpecDescriptor = $convert.base64Decode(
     'ChhBU1RUcmFuc2xhdGVXb3JrZmxvd1NwZWMSHQoHZGVub2lzZRgBIAEoCEgAUgdkZW5vaXNliA'
     'EBEkYKHWVuYWJsZV9zb3VyY2VfbGFuZ3VhZ2VfZGV0ZWN0GAIgASgISAFSGmVuYWJsZVNvdXJj'
-    'ZUxhbmd1YWdlRGV0ZWN0iAEBEi8KEWlzX2N1c3RvbV9zcGVha2VyGAMgASgISAJSD2lzQ3VzdG'
-    '9tU3BlYWtlcogBARI5CgRtb2RlGAQgASgOMiAuZ2l6Y2xhdy5ycGMudjEuQVNUVHJhbnNsYXRl'
-    'TW9kZUgDUgRtb2RliAEBEiQKC3Jlc291cmNlX2lkGAUgASgJSARSCnJlc291cmNlSWSIAQESIg'
-    'oKc3BlYWtlcl9pZBgGIAEoCUgFUglzcGVha2VySWSIAQESJAoLc3BlZWNoX3JhdGUYByABKANI'
-    'BlIKc3BlZWNoUmF0ZYgBARIrChF0cmFuc2xhdGlvbl9tb2RlbBgIIAEoCVIQdHJhbnNsYXRpb2'
-    '5Nb2RlbBIrCg90dHNfcmVzb3VyY2VfaWQYCSABKAlIB1INdHRzUmVzb3VyY2VJZIgBARJGCgV2'
-    'b2ljZRgKIAEoCzIrLmdpemNsYXcucnBjLnYxLkFTVFRyYW5zbGF0ZVZvaWNlUGFyYW1ldGVyc0'
-    'gIUgV2b2ljZYgBARIgCglsYW5nX3BhaXIYCyABKAlICVIIbGFuZ1BhaXKIAQFCCgoIX2Rlbm9p'
-    'c2VCIAoeX2VuYWJsZV9zb3VyY2VfbGFuZ3VhZ2VfZGV0ZWN0QhQKEl9pc19jdXN0b21fc3BlYW'
-    'tlckIHCgVfbW9kZUIOCgxfcmVzb3VyY2VfaWRCDQoLX3NwZWFrZXJfaWRCDgoMX3NwZWVjaF9y'
-    'YXRlQhIKEF90dHNfcmVzb3VyY2VfaWRCCAoGX3ZvaWNlQgwKCl9sYW5nX3BhaXI=');
+    'ZUxhbmd1YWdlRGV0ZWN0iAEBEjkKBG1vZGUYAyABKA4yIC5naXpjbGF3LnJwYy52MS5BU1RUcm'
+    'Fuc2xhdGVNb2RlSAJSBG1vZGWIAQESJAoLcmVzb3VyY2VfaWQYBCABKAlIA1IKcmVzb3VyY2VJ'
+    'ZIgBARIrChF0cmFuc2xhdGlvbl9tb2RlbBgFIAEoCVIQdHJhbnNsYXRpb25Nb2RlbBJGCgV2b2'
+    'ljZRgGIAEoCzIrLmdpemNsYXcucnBjLnYxLkFTVFRyYW5zbGF0ZVZvaWNlUGFyYW1ldGVyc0gE'
+    'UgV2b2ljZYgBARIgCglsYW5nX3BhaXIYByABKAlIBVIIbGFuZ1BhaXKIAQFCCgoIX2Rlbm9pc2'
+    'VCIAoeX2VuYWJsZV9zb3VyY2VfbGFuZ3VhZ2VfZGV0ZWN0QgcKBV9tb2RlQg4KDF9yZXNvdXJj'
+    'ZV9pZEIICgZfdm9pY2VCDAoKX2xhbmdfcGFpcg==');
 
 @$core.Deprecated('Use aSTTranslateWorkspaceParametersDescriptor instead')
 const ASTTranslateWorkspaceParameters$json = {
@@ -416,76 +372,40 @@ const ASTTranslateWorkspaceParameters$json = {
       '17': true
     },
     {
-      '1': 'is_custom_speaker',
+      '1': 'lang_pair',
       '3': 6,
       '4': 1,
-      '5': 8,
-      '9': 4,
-      '10': 'isCustomSpeaker',
-      '17': true
-    },
-    {
-      '1': 'lang_pair',
-      '3': 7,
-      '4': 1,
       '5': 9,
-      '9': 5,
+      '9': 4,
       '10': 'langPair',
       '17': true
     },
     {
       '1': 'mode',
-      '3': 8,
+      '3': 7,
       '4': 1,
       '5': 14,
       '6': '.gizclaw.rpc.v1.ASTTranslateMode',
-      '9': 6,
+      '9': 5,
       '10': 'mode',
       '17': true
     },
     {
-      '1': 'speaker_id',
-      '3': 9,
-      '4': 1,
-      '5': 9,
-      '9': 7,
-      '10': 'speakerId',
-      '17': true
-    },
-    {
-      '1': 'speech_rate',
-      '3': 10,
-      '4': 1,
-      '5': 3,
-      '9': 8,
-      '10': 'speechRate',
-      '17': true
-    },
-    {
       '1': 'translation_model',
-      '3': 11,
+      '3': 8,
       '4': 1,
       '5': 9,
-      '9': 9,
+      '9': 6,
       '10': 'translationModel',
       '17': true
     },
     {
-      '1': 'tts_resource_id',
-      '3': 12,
-      '4': 1,
-      '5': 9,
-      '9': 10,
-      '10': 'ttsResourceId',
-      '17': true
-    },
-    {
       '1': 'voice',
-      '3': 13,
+      '3': 9,
       '4': 1,
       '5': 11,
       '6': '.gizclaw.rpc.v1.ASTTranslateVoiceParameters',
-      '9': 11,
+      '9': 7,
       '10': 'voice',
       '17': true
     },
@@ -495,13 +415,9 @@ const ASTTranslateWorkspaceParameters$json = {
     {'1': '_e2e'},
     {'1': '_enable_source_language_detect'},
     {'1': '_input'},
-    {'1': '_is_custom_speaker'},
     {'1': '_lang_pair'},
     {'1': '_mode'},
-    {'1': '_speaker_id'},
-    {'1': '_speech_rate'},
     {'1': '_translation_model'},
-    {'1': '_tts_resource_id'},
     {'1': '_voice'},
   ],
 };
@@ -513,17 +429,13 @@ final $typed_data.Uint8List aSTTranslateWorkspaceParametersDescriptor = $convert
     'UglhZ2VudFR5cGUSHQoHZGVub2lzZRgCIAEoCEgAUgdkZW5vaXNliAEBEhUKA2UyZRgDIAEoCE'
     'gBUgNlMmWIAQESRgodZW5hYmxlX3NvdXJjZV9sYW5ndWFnZV9kZXRlY3QYBCABKAhIAlIaZW5h'
     'YmxlU291cmNlTGFuZ3VhZ2VEZXRlY3SIAQESPQoFaW5wdXQYBSABKA4yIi5naXpjbGF3LnJwYy'
-    '52MS5Xb3Jrc3BhY2VJbnB1dE1vZGVIA1IFaW5wdXSIAQESLwoRaXNfY3VzdG9tX3NwZWFrZXIY'
-    'BiABKAhIBFIPaXNDdXN0b21TcGVha2VyiAEBEiAKCWxhbmdfcGFpchgHIAEoCUgFUghsYW5nUG'
-    'FpcogBARI5CgRtb2RlGAggASgOMiAuZ2l6Y2xhdy5ycGMudjEuQVNUVHJhbnNsYXRlTW9kZUgG'
-    'UgRtb2RliAEBEiIKCnNwZWFrZXJfaWQYCSABKAlIB1IJc3BlYWtlcklkiAEBEiQKC3NwZWVjaF'
-    '9yYXRlGAogASgDSAhSCnNwZWVjaFJhdGWIAQESMAoRdHJhbnNsYXRpb25fbW9kZWwYCyABKAlI'
-    'CVIQdHJhbnNsYXRpb25Nb2RlbIgBARIrCg90dHNfcmVzb3VyY2VfaWQYDCABKAlIClINdHRzUm'
-    'Vzb3VyY2VJZIgBARJGCgV2b2ljZRgNIAEoCzIrLmdpemNsYXcucnBjLnYxLkFTVFRyYW5zbGF0'
-    'ZVZvaWNlUGFyYW1ldGVyc0gLUgV2b2ljZYgBAUIKCghfZGVub2lzZUIGCgRfZTJlQiAKHl9lbm'
-    'FibGVfc291cmNlX2xhbmd1YWdlX2RldGVjdEIICgZfaW5wdXRCFAoSX2lzX2N1c3RvbV9zcGVh'
-    'a2VyQgwKCl9sYW5nX3BhaXJCBwoFX21vZGVCDQoLX3NwZWFrZXJfaWRCDgoMX3NwZWVjaF9yYX'
-    'RlQhQKEl90cmFuc2xhdGlvbl9tb2RlbEISChBfdHRzX3Jlc291cmNlX2lkQggKBl92b2ljZQ==');
+    '52MS5Xb3Jrc3BhY2VJbnB1dE1vZGVIA1IFaW5wdXSIAQESIAoJbGFuZ19wYWlyGAYgASgJSARS'
+    'CGxhbmdQYWlyiAEBEjkKBG1vZGUYByABKA4yIC5naXpjbGF3LnJwYy52MS5BU1RUcmFuc2xhdG'
+    'VNb2RlSAVSBG1vZGWIAQESMAoRdHJhbnNsYXRpb25fbW9kZWwYCCABKAlIBlIQdHJhbnNsYXRp'
+    'b25Nb2RlbIgBARJGCgV2b2ljZRgJIAEoCzIrLmdpemNsYXcucnBjLnYxLkFTVFRyYW5zbGF0ZV'
+    'ZvaWNlUGFyYW1ldGVyc0gHUgV2b2ljZYgBAUIKCghfZGVub2lzZUIGCgRfZTJlQiAKHl9lbmFi'
+    'bGVfc291cmNlX2xhbmd1YWdlX2RldGVjdEIICgZfaW5wdXRCDAoKX2xhbmdfcGFpckIHCgVfbW'
+    '9kZUIUChJfdHJhbnNsYXRpb25fbW9kZWxCCAoGX3ZvaWNl');
 
 @$core.Deprecated('Use chatRoomWorkflowHistorySpecDescriptor instead')
 const ChatRoomWorkflowHistorySpec$json = {
@@ -2003,10 +1915,10 @@ final $typed_data.Uint8List petWorkspaceParametersDescriptor = $convert.base64De
 const Model$json = {
   '1': 'Model',
   '2': [
-    {'1': 'alias', '3': 13, '4': 1, '5': 9, '10': 'alias'},
+    {'1': 'alias', '3': 1, '4': 1, '5': 9, '10': 'alias'},
     {
       '1': 'i18n',
-      '3': 14,
+      '3': 2,
       '4': 3,
       '5': 11,
       '6': '.gizclaw.rpc.v1.Model.I18nEntry',
@@ -2014,7 +1926,7 @@ const Model$json = {
     },
     {
       '1': 'kind',
-      '3': 15,
+      '3': 3,
       '4': 1,
       '5': 14,
       '6': '.gizclaw.rpc.v1.ModelKind',
@@ -2022,7 +1934,7 @@ const Model$json = {
     },
     {
       '1': 'capabilities',
-      '3': 16,
+      '3': 4,
       '4': 1,
       '5': 11,
       '6': '.gizclaw.rpc.v1.ModelCapabilities',
@@ -2034,9 +1946,6 @@ const Model$json = {
   '3': [Model_I18nEntry$json],
   '8': [
     {'1': '_capabilities'},
-  ],
-  '9': [
-    {'1': 1, '2': 13},
   ],
 };
 
@@ -2059,12 +1968,12 @@ const Model_I18nEntry$json = {
 
 /// Descriptor for `Model`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List modelDescriptor = $convert.base64Decode(
-    'CgVNb2RlbBIUCgVhbGlhcxgNIAEoCVIFYWxpYXMSMwoEaTE4bhgOIAMoCzIfLmdpemNsYXcucn'
-    'BjLnYxLk1vZGVsLkkxOG5FbnRyeVIEaTE4bhItCgRraW5kGA8gASgOMhkuZ2l6Y2xhdy5ycGMu'
-    'djEuTW9kZWxLaW5kUgRraW5kEkoKDGNhcGFiaWxpdGllcxgQIAEoCzIhLmdpemNsYXcucnBjLn'
+    'CgVNb2RlbBIUCgVhbGlhcxgBIAEoCVIFYWxpYXMSMwoEaTE4bhgCIAMoCzIfLmdpemNsYXcucn'
+    'BjLnYxLk1vZGVsLkkxOG5FbnRyeVIEaTE4bhItCgRraW5kGAMgASgOMhkuZ2l6Y2xhdy5ycGMu'
+    'djEuTW9kZWxLaW5kUgRraW5kEkoKDGNhcGFiaWxpdGllcxgEIAEoCzIhLmdpemNsYXcucnBjLn'
     'YxLk1vZGVsQ2FwYWJpbGl0aWVzSABSDGNhcGFiaWxpdGllc4gBARpWCglJMThuRW50cnkSEAoD'
     'a2V5GAEgASgJUgNrZXkSMwoFdmFsdWUYAiABKAsyHS5naXpjbGF3LnJwYy52MS5BbGlhc0kxOG'
-    '5UZXh0UgV2YWx1ZToCOAFCDwoNX2NhcGFiaWxpdGllc0oECAEQDQ==');
+    '5UZXh0UgV2YWx1ZToCOAFCDwoNX2NhcGFiaWxpdGllcw==');
 
 @$core.Deprecated('Use modelCapabilitiesDescriptor instead')
 const ModelCapabilities$json = {
@@ -2307,10 +2216,10 @@ final $typed_data.Uint8List modelThinkingCapabilityDescriptor = $convert.base64D
 const Voice$json = {
   '1': 'Voice',
   '2': [
-    {'1': 'alias', '3': 10, '4': 1, '5': 9, '10': 'alias'},
+    {'1': 'alias', '3': 1, '4': 1, '5': 9, '10': 'alias'},
     {
       '1': 'i18n',
-      '3': 11,
+      '3': 2,
       '4': 3,
       '5': 11,
       '6': '.gizclaw.rpc.v1.Voice.I18nEntry',
@@ -2318,9 +2227,6 @@ const Voice$json = {
     },
   ],
   '3': [Voice_I18nEntry$json],
-  '9': [
-    {'1': 1, '2': 10},
-  ],
 };
 
 @$core.Deprecated('Use voiceDescriptor instead')
@@ -2342,10 +2248,10 @@ const Voice_I18nEntry$json = {
 
 /// Descriptor for `Voice`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List voiceDescriptor = $convert.base64Decode(
-    'CgVWb2ljZRIUCgVhbGlhcxgKIAEoCVIFYWxpYXMSMwoEaTE4bhgLIAMoCzIfLmdpemNsYXcucn'
+    'CgVWb2ljZRIUCgVhbGlhcxgBIAEoCVIFYWxpYXMSMwoEaTE4bhgCIAMoCzIfLmdpemNsYXcucn'
     'BjLnYxLlZvaWNlLkkxOG5FbnRyeVIEaTE4bhpWCglJMThuRW50cnkSEAoDa2V5GAEgASgJUgNr'
     'ZXkSMwoFdmFsdWUYAiABKAsyHS5naXpjbGF3LnJwYy52MS5BbGlhc0kxOG5UZXh0UgV2YWx1ZT'
-    'oCOAFKBAgBEAo=');
+    'oCOAE=');
 
 @$core.Deprecated('Use voiceGetRequestDescriptor instead')
 const VoiceGetRequest$json = {
@@ -2467,19 +2373,19 @@ final $typed_data.Uint8List voiceListResponseDescriptor = $convert.base64Decode(
 const Workflow$json = {
   '1': 'Workflow',
   '2': [
-    {'1': 'alias', '3': 6, '4': 1, '5': 9, '10': 'alias'},
+    {'1': 'alias', '3': 1, '4': 1, '5': 9, '10': 'alias'},
     {
       '1': 'i18n',
-      '3': 7,
+      '3': 2,
       '4': 3,
       '5': 11,
       '6': '.gizclaw.rpc.v1.Workflow.I18nEntry',
       '10': 'i18n'
     },
-    {'1': 'collection', '3': 8, '4': 1, '5': 9, '10': 'collection'},
+    {'1': 'collection', '3': 3, '4': 1, '5': 9, '10': 'collection'},
     {
       '1': 'driver',
-      '3': 9,
+      '3': 4,
       '4': 1,
       '5': 14,
       '6': '.gizclaw.rpc.v1.WorkflowDriver',
@@ -2487,7 +2393,7 @@ const Workflow$json = {
     },
     {
       '1': 'workspace_lang_pair',
-      '3': 10,
+      '3': 5,
       '4': 1,
       '5': 9,
       '9': 0,
@@ -2498,9 +2404,6 @@ const Workflow$json = {
   '3': [Workflow_I18nEntry$json],
   '8': [
     {'1': '_workspace_lang_pair'},
-  ],
-  '9': [
-    {'1': 1, '2': 6},
   ],
 };
 
@@ -2523,13 +2426,13 @@ const Workflow_I18nEntry$json = {
 
 /// Descriptor for `Workflow`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List workflowDescriptor = $convert.base64Decode(
-    'CghXb3JrZmxvdxIUCgVhbGlhcxgGIAEoCVIFYWxpYXMSNgoEaTE4bhgHIAMoCzIiLmdpemNsYX'
-    'cucnBjLnYxLldvcmtmbG93LkkxOG5FbnRyeVIEaTE4bhIeCgpjb2xsZWN0aW9uGAggASgJUgpj'
-    'b2xsZWN0aW9uEjYKBmRyaXZlchgJIAEoDjIeLmdpemNsYXcucnBjLnYxLldvcmtmbG93RHJpdm'
-    'VyUgZkcml2ZXISMwoTd29ya3NwYWNlX2xhbmdfcGFpchgKIAEoCUgAUhF3b3Jrc3BhY2VMYW5n'
+    'CghXb3JrZmxvdxIUCgVhbGlhcxgBIAEoCVIFYWxpYXMSNgoEaTE4bhgCIAMoCzIiLmdpemNsYX'
+    'cucnBjLnYxLldvcmtmbG93LkkxOG5FbnRyeVIEaTE4bhIeCgpjb2xsZWN0aW9uGAMgASgJUgpj'
+    'b2xsZWN0aW9uEjYKBmRyaXZlchgEIAEoDjIeLmdpemNsYXcucnBjLnYxLldvcmtmbG93RHJpdm'
+    'VyUgZkcml2ZXISMwoTd29ya3NwYWNlX2xhbmdfcGFpchgFIAEoCUgAUhF3b3Jrc3BhY2VMYW5n'
     'UGFpcogBARpWCglJMThuRW50cnkSEAoDa2V5GAEgASgJUgNrZXkSMwoFdmFsdWUYAiABKAsyHS'
     '5naXpjbGF3LnJwYy52MS5BbGlhc0kxOG5UZXh0UgV2YWx1ZToCOAFCFgoUX3dvcmtzcGFjZV9s'
-    'YW5nX3BhaXJKBAgBEAY=');
+    'YW5nX3BhaXI=');
 
 @$core.Deprecated('Use workflowGetRequestDescriptor instead')
 const WorkflowGetRequest$json = {
@@ -2537,15 +2440,11 @@ const WorkflowGetRequest$json = {
   '2': [
     {'1': 'alias', '3': 1, '4': 1, '5': 9, '10': 'alias'},
   ],
-  '9': [
-    {'1': 2, '2': 3},
-    {'1': 3, '2': 4},
-  ],
 };
 
 /// Descriptor for `WorkflowGetRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List workflowGetRequestDescriptor = $convert.base64Decode(
-    'ChJXb3JrZmxvd0dldFJlcXVlc3QSFAoFYWxpYXMYASABKAlSBWFsaWFzSgQIAhADSgQIAxAE');
+final $typed_data.Uint8List workflowGetRequestDescriptor = $convert
+    .base64Decode('ChJXb3JrZmxvd0dldFJlcXVlc3QSFAoFYWxpYXMYASABKAlSBWFsaWFz');
 
 @$core.Deprecated('Use workflowGetResponseDescriptor instead')
 const WorkflowGetResponse$json = {
@@ -2595,16 +2494,13 @@ const WorkflowListRequest$json = {
     {'1': '_cursor'},
     {'1': '_limit'},
   ],
-  '9': [
-    {'1': 4, '2': 5},
-  ],
 };
 
 /// Descriptor for `WorkflowListRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List workflowListRequestDescriptor = $convert.base64Decode(
     'ChNXb3JrZmxvd0xpc3RSZXF1ZXN0EhsKBmN1cnNvchgBIAEoCUgAUgZjdXJzb3KIAQESGQoFbG'
     'ltaXQYAiABKANIAVIFbGltaXSIAQESHgoKY29sbGVjdGlvbhgDIAEoCVIKY29sbGVjdGlvbkIJ'
-    'CgdfY3Vyc29yQggKBl9saW1pdEoECAQQBQ==');
+    'CgdfY3Vyc29yQggKBl9saW1pdA==');
 
 @$core.Deprecated('Use workflowListResponseDescriptor instead')
 const WorkflowListResponse$json = {

@@ -84,9 +84,7 @@ message ServerRegisterRequest {
 }
 
 message ServerRegisterResponse {
-  reserved 1;
-  reserved "firmware_name";
-  string runtime_profile_name = 2;
+  string runtime_profile_name = 1;
 }
 message Runtime {
   optional string last_addr = 1;

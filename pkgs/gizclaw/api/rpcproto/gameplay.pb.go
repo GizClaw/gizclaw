@@ -506,9 +506,9 @@ func (x *GameResultListResponse) GetNextCursor() string {
 
 type GameRewardSpec struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	BadgeExpDelta map[string]int64       `protobuf:"bytes,2,rep,name=badge_exp_delta,json=badgeExpDelta,proto3" json:"badge_exp_delta,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
-	PetExpDelta   *int64                 `protobuf:"varint,4,opt,name=pet_exp_delta,json=petExpDelta,proto3,oneof" json:"pet_exp_delta,omitempty"`
-	PointsDelta   *int64                 `protobuf:"varint,5,opt,name=points_delta,json=pointsDelta,proto3,oneof" json:"points_delta,omitempty"`
+	BadgeExpDelta map[string]int64       `protobuf:"bytes,1,rep,name=badge_exp_delta,json=badgeExpDelta,proto3" json:"badge_exp_delta,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
+	PetExpDelta   *int64                 `protobuf:"varint,2,opt,name=pet_exp_delta,json=petExpDelta,proto3,oneof" json:"pet_exp_delta,omitempty"`
+	PointsDelta   *int64                 `protobuf:"varint,3,opt,name=points_delta,json=pointsDelta,proto3,oneof" json:"points_delta,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -706,17 +706,17 @@ func (x *GameplayMetadata) GetFields() *structpb.Struct {
 
 type Pet struct {
 	state              protoimpl.MessageState `protogen:"open.v1"`
-	CreatedAt          string                 `protobuf:"bytes,2,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	DisplayName        string                 `protobuf:"bytes,3,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
-	Id                 string                 `protobuf:"bytes,5,opt,name=id,proto3" json:"id,omitempty"`
-	LastActiveAt       string                 `protobuf:"bytes,6,opt,name=last_active_at,json=lastActiveAt,proto3" json:"last_active_at,omitempty"`
-	Life               *PetLife               `protobuf:"bytes,8,opt,name=life,proto3" json:"life,omitempty"`
-	OwnerPublicKey     string                 `protobuf:"bytes,9,opt,name=owner_public_key,json=ownerPublicKey,proto3" json:"owner_public_key,omitempty"`
-	PetdefId           string                 `protobuf:"bytes,10,opt,name=petdef_id,json=petdefId,proto3" json:"petdef_id,omitempty"`
-	RuntimeProfileName string                 `protobuf:"bytes,11,opt,name=runtime_profile_name,json=runtimeProfileName,proto3" json:"runtime_profile_name,omitempty"`
-	UpdatedAt          string                 `protobuf:"bytes,12,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	WorkspaceName      string                 `protobuf:"bytes,14,opt,name=workspace_name,json=workspaceName,proto3" json:"workspace_name,omitempty"`
-	Progression        *PetProgression        `protobuf:"bytes,15,opt,name=progression,proto3" json:"progression,omitempty"`
+	CreatedAt          string                 `protobuf:"bytes,1,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	DisplayName        string                 `protobuf:"bytes,2,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	Id                 string                 `protobuf:"bytes,3,opt,name=id,proto3" json:"id,omitempty"`
+	LastActiveAt       string                 `protobuf:"bytes,4,opt,name=last_active_at,json=lastActiveAt,proto3" json:"last_active_at,omitempty"`
+	Life               *PetLife               `protobuf:"bytes,5,opt,name=life,proto3" json:"life,omitempty"`
+	OwnerPublicKey     string                 `protobuf:"bytes,6,opt,name=owner_public_key,json=ownerPublicKey,proto3" json:"owner_public_key,omitempty"`
+	PetdefId           string                 `protobuf:"bytes,7,opt,name=petdef_id,json=petdefId,proto3" json:"petdef_id,omitempty"`
+	RuntimeProfileName string                 `protobuf:"bytes,8,opt,name=runtime_profile_name,json=runtimeProfileName,proto3" json:"runtime_profile_name,omitempty"`
+	UpdatedAt          string                 `protobuf:"bytes,9,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	WorkspaceName      string                 `protobuf:"bytes,10,opt,name=workspace_name,json=workspaceName,proto3" json:"workspace_name,omitempty"`
+	Progression        *PetProgression        `protobuf:"bytes,11,opt,name=progression,proto3" json:"progression,omitempty"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
@@ -2118,18 +2118,18 @@ func (x *PointsTransactionListResponse) GetNextCursor() string {
 
 type RewardGrant struct {
 	state              protoimpl.MessageState `protogen:"open.v1"`
-	BadgeExpDelta      map[string]int64       `protobuf:"bytes,2,rep,name=badge_exp_delta,json=badgeExpDelta,proto3" json:"badge_exp_delta,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
-	CreatedAt          string                 `protobuf:"bytes,3,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	GameResultId       *string                `protobuf:"bytes,4,opt,name=game_result_id,json=gameResultId,proto3,oneof" json:"game_result_id,omitempty"`
-	Id                 string                 `protobuf:"bytes,5,opt,name=id,proto3" json:"id,omitempty"`
-	OwnerPublicKey     string                 `protobuf:"bytes,7,opt,name=owner_public_key,json=ownerPublicKey,proto3" json:"owner_public_key,omitempty"`
-	PetExpDelta        int64                  `protobuf:"varint,8,opt,name=pet_exp_delta,json=petExpDelta,proto3" json:"pet_exp_delta,omitempty"`
-	PetId              *string                `protobuf:"bytes,9,opt,name=pet_id,json=petId,proto3,oneof" json:"pet_id,omitempty"`
-	PointsDelta        int64                  `protobuf:"varint,10,opt,name=points_delta,json=pointsDelta,proto3" json:"points_delta,omitempty"`
-	Reason             *string                `protobuf:"bytes,11,opt,name=reason,proto3,oneof" json:"reason,omitempty"`
-	RuntimeProfileName string                 `protobuf:"bytes,12,opt,name=runtime_profile_name,json=runtimeProfileName,proto3" json:"runtime_profile_name,omitempty"`
-	SourceId           string                 `protobuf:"bytes,13,opt,name=source_id,json=sourceId,proto3" json:"source_id,omitempty"`
-	SourceType         string                 `protobuf:"bytes,14,opt,name=source_type,json=sourceType,proto3" json:"source_type,omitempty"`
+	BadgeExpDelta      map[string]int64       `protobuf:"bytes,1,rep,name=badge_exp_delta,json=badgeExpDelta,proto3" json:"badge_exp_delta,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
+	CreatedAt          string                 `protobuf:"bytes,2,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	GameResultId       *string                `protobuf:"bytes,3,opt,name=game_result_id,json=gameResultId,proto3,oneof" json:"game_result_id,omitempty"`
+	Id                 string                 `protobuf:"bytes,4,opt,name=id,proto3" json:"id,omitempty"`
+	OwnerPublicKey     string                 `protobuf:"bytes,5,opt,name=owner_public_key,json=ownerPublicKey,proto3" json:"owner_public_key,omitempty"`
+	PetExpDelta        int64                  `protobuf:"varint,6,opt,name=pet_exp_delta,json=petExpDelta,proto3" json:"pet_exp_delta,omitempty"`
+	PetId              *string                `protobuf:"bytes,7,opt,name=pet_id,json=petId,proto3,oneof" json:"pet_id,omitempty"`
+	PointsDelta        int64                  `protobuf:"varint,8,opt,name=points_delta,json=pointsDelta,proto3" json:"points_delta,omitempty"`
+	Reason             *string                `protobuf:"bytes,9,opt,name=reason,proto3,oneof" json:"reason,omitempty"`
+	RuntimeProfileName string                 `protobuf:"bytes,10,opt,name=runtime_profile_name,json=runtimeProfileName,proto3" json:"runtime_profile_name,omitempty"`
+	SourceId           string                 `protobuf:"bytes,11,opt,name=source_id,json=sourceId,proto3" json:"source_id,omitempty"`
+	SourceType         string                 `protobuf:"bytes,12,opt,name=source_type,json=sourceType,proto3" json:"source_type,omitempty"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
@@ -3954,17 +3954,16 @@ const file_payload_gameplay_proto_rawDesc = "" +
 	"\x05items\x18\x02 \x03(\v2\x1a.gizclaw.rpc.v1.GameResultR\x05items\x12$\n" +
 	"\vnext_cursor\x18\x03 \x01(\tH\x00R\n" +
 	"nextCursor\x88\x01\x01B\x0e\n" +
-	"\f_next_cursor\"\xc8\x02\n" +
+	"\f_next_cursor\"\xa1\x02\n" +
 	"\x0eGameRewardSpec\x12Y\n" +
-	"\x0fbadge_exp_delta\x18\x02 \x03(\v21.gizclaw.rpc.v1.GameRewardSpec.BadgeExpDeltaEntryR\rbadgeExpDelta\x12'\n" +
-	"\rpet_exp_delta\x18\x04 \x01(\x03H\x00R\vpetExpDelta\x88\x01\x01\x12&\n" +
-	"\fpoints_delta\x18\x05 \x01(\x03H\x01R\vpointsDelta\x88\x01\x01\x1a@\n" +
+	"\x0fbadge_exp_delta\x18\x01 \x03(\v21.gizclaw.rpc.v1.GameRewardSpec.BadgeExpDeltaEntryR\rbadgeExpDelta\x12'\n" +
+	"\rpet_exp_delta\x18\x02 \x01(\x03H\x00R\vpetExpDelta\x88\x01\x01\x12&\n" +
+	"\fpoints_delta\x18\x03 \x01(\x03H\x01R\vpointsDelta\x88\x01\x01\x1a@\n" +
 	"\x12BadgeExpDeltaEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01B\x10\n" +
 	"\x0e_pet_exp_deltaB\x0f\n" +
-	"\r_points_deltaJ\x04\b\x01\x10\x02J\x04\b\x03\x10\x04R\rability_deltaR\n" +
-	"life_delta\"$\n" +
+	"\r_points_delta\"$\n" +
 	"\x12GameplayGetRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"b\n" +
 	"\x13GameplayListRequest\x12\x1b\n" +
@@ -3973,25 +3972,25 @@ const file_payload_gameplay_proto_rawDesc = "" +
 	"\a_cursorB\b\n" +
 	"\x06_limit\"C\n" +
 	"\x10GameplayMetadata\x12/\n" +
-	"\x06fields\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x06fields\"\xe7\x03\n" +
+	"\x06fields\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x06fields\"\xab\x03\n" +
 	"\x03Pet\x12\x1d\n" +
 	"\n" +
-	"created_at\x18\x02 \x01(\tR\tcreatedAt\x12!\n" +
-	"\fdisplay_name\x18\x03 \x01(\tR\vdisplayName\x12\x0e\n" +
-	"\x02id\x18\x05 \x01(\tR\x02id\x12$\n" +
-	"\x0elast_active_at\x18\x06 \x01(\tR\flastActiveAt\x12+\n" +
-	"\x04life\x18\b \x01(\v2\x17.gizclaw.rpc.v1.PetLifeR\x04life\x12(\n" +
-	"\x10owner_public_key\x18\t \x01(\tR\x0eownerPublicKey\x12\x1b\n" +
-	"\tpetdef_id\x18\n" +
-	" \x01(\tR\bpetdefId\x120\n" +
-	"\x14runtime_profile_name\x18\v \x01(\tR\x12runtimeProfileName\x12\x1d\n" +
+	"created_at\x18\x01 \x01(\tR\tcreatedAt\x12!\n" +
+	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12\x0e\n" +
+	"\x02id\x18\x03 \x01(\tR\x02id\x12$\n" +
+	"\x0elast_active_at\x18\x04 \x01(\tR\flastActiveAt\x12+\n" +
+	"\x04life\x18\x05 \x01(\v2\x17.gizclaw.rpc.v1.PetLifeR\x04life\x12(\n" +
+	"\x10owner_public_key\x18\x06 \x01(\tR\x0eownerPublicKey\x12\x1b\n" +
+	"\tpetdef_id\x18\a \x01(\tR\bpetdefId\x120\n" +
+	"\x14runtime_profile_name\x18\b \x01(\tR\x12runtimeProfileName\x12\x1d\n" +
 	"\n" +
-	"updated_at\x18\f \x01(\tR\tupdatedAt\x12%\n" +
-	"\x0eworkspace_name\x18\x0e \x01(\tR\rworkspaceName\x12@\n" +
-	"\vprogression\x18\x0f \x01(\v2\x1e.gizclaw.rpc.v1.PetProgressionR\vprogressionJ\x04\b\x01\x10\x02J\x04\b\x04\x10\x05J\x04\b\a\x10\bJ\x04\b\r\x10\x0eR\aabilityR\x03expR\x05levelR\rworkflow_name\"^\n" +
+	"updated_at\x18\t \x01(\tR\tupdatedAt\x12%\n" +
+	"\x0eworkspace_name\x18\n" +
+	" \x01(\tR\rworkspaceName\x12@\n" +
+	"\vprogression\x18\v \x01(\v2\x1e.gizclaw.rpc.v1.PetProgressionR\vprogression\"J\n" +
 	"\x0fPetAdoptRequest\x12&\n" +
 	"\fdisplay_name\x18\x01 \x01(\tH\x00R\vdisplayName\x88\x01\x01B\x0f\n" +
-	"\r_display_nameJ\x04\b\x02\x10\x03R\fruleset_name\"\xb5\x01\n" +
+	"\r_display_name\"\xb5\x01\n" +
 	"\x10PetAdoptResponse\x12%\n" +
 	"\x03pet\x18\x01 \x01(\v2\x13.gizclaw.rpc.v1.PetR\x03pet\x125\n" +
 	"\x06points\x18\x02 \x01(\v2\x1d.gizclaw.rpc.v1.PointsAccountR\x06points\x12C\n" +
@@ -4132,30 +4131,29 @@ const file_payload_gameplay_proto_rawDesc = "" +
 	"\x05items\x18\x02 \x03(\v2!.gizclaw.rpc.v1.PointsTransactionR\x05items\x12$\n" +
 	"\vnext_cursor\x18\x03 \x01(\tH\x00R\n" +
 	"nextCursor\x88\x01\x01B\x0e\n" +
-	"\f_next_cursor\"\xeb\x04\n" +
+	"\f_next_cursor\"\xc4\x04\n" +
 	"\vRewardGrant\x12V\n" +
-	"\x0fbadge_exp_delta\x18\x02 \x03(\v2..gizclaw.rpc.v1.RewardGrant.BadgeExpDeltaEntryR\rbadgeExpDelta\x12\x1d\n" +
+	"\x0fbadge_exp_delta\x18\x01 \x03(\v2..gizclaw.rpc.v1.RewardGrant.BadgeExpDeltaEntryR\rbadgeExpDelta\x12\x1d\n" +
 	"\n" +
-	"created_at\x18\x03 \x01(\tR\tcreatedAt\x12)\n" +
-	"\x0egame_result_id\x18\x04 \x01(\tH\x00R\fgameResultId\x88\x01\x01\x12\x0e\n" +
-	"\x02id\x18\x05 \x01(\tR\x02id\x12(\n" +
-	"\x10owner_public_key\x18\a \x01(\tR\x0eownerPublicKey\x12\"\n" +
-	"\rpet_exp_delta\x18\b \x01(\x03R\vpetExpDelta\x12\x1a\n" +
-	"\x06pet_id\x18\t \x01(\tH\x01R\x05petId\x88\x01\x01\x12!\n" +
-	"\fpoints_delta\x18\n" +
-	" \x01(\x03R\vpointsDelta\x12\x1b\n" +
-	"\x06reason\x18\v \x01(\tH\x02R\x06reason\x88\x01\x01\x120\n" +
-	"\x14runtime_profile_name\x18\f \x01(\tR\x12runtimeProfileName\x12\x1b\n" +
-	"\tsource_id\x18\r \x01(\tR\bsourceId\x12\x1f\n" +
-	"\vsource_type\x18\x0e \x01(\tR\n" +
+	"created_at\x18\x02 \x01(\tR\tcreatedAt\x12)\n" +
+	"\x0egame_result_id\x18\x03 \x01(\tH\x00R\fgameResultId\x88\x01\x01\x12\x0e\n" +
+	"\x02id\x18\x04 \x01(\tR\x02id\x12(\n" +
+	"\x10owner_public_key\x18\x05 \x01(\tR\x0eownerPublicKey\x12\"\n" +
+	"\rpet_exp_delta\x18\x06 \x01(\x03R\vpetExpDelta\x12\x1a\n" +
+	"\x06pet_id\x18\a \x01(\tH\x01R\x05petId\x88\x01\x01\x12!\n" +
+	"\fpoints_delta\x18\b \x01(\x03R\vpointsDelta\x12\x1b\n" +
+	"\x06reason\x18\t \x01(\tH\x02R\x06reason\x88\x01\x01\x120\n" +
+	"\x14runtime_profile_name\x18\n" +
+	" \x01(\tR\x12runtimeProfileName\x12\x1b\n" +
+	"\tsource_id\x18\v \x01(\tR\bsourceId\x12\x1f\n" +
+	"\vsource_type\x18\f \x01(\tR\n" +
 	"sourceType\x1a@\n" +
 	"\x12BadgeExpDeltaEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01B\x11\n" +
 	"\x0f_game_result_idB\t\n" +
 	"\a_pet_idB\t\n" +
-	"\a_reasonJ\x04\b\x01\x10\x02J\x04\b\x06\x10\aR\rability_deltaR\n" +
-	"life_delta\"\x9d\x01\n" +
+	"\a_reason\"\x9d\x01\n" +
 	"\x17RewardGrantListResponse\x12\x19\n" +
 	"\bhas_next\x18\x01 \x01(\bR\ahasNext\x121\n" +
 	"\x05items\x18\x02 \x03(\v2\x1b.gizclaw.rpc.v1.RewardGrantR\x05items\x12$\n" +
@@ -4209,8 +4207,8 @@ const file_payload_gameplay_proto_rawDesc = "" +
 	"\x13ServerPetPutRequest\x123\n" +
 	"\x05value\x18\x01 \x01(\v2\x1d.gizclaw.rpc.v1.PetPutRequestR\x05value\"A\n" +
 	"\x14ServerPetPutResponse\x12)\n" +
-	"\x05value\x18\x01 \x01(\v2\x13.gizclaw.rpc.v1.PetR\x05value\",\n" +
-	"\x16ServerPointsGetRequestJ\x04\b\x01\x10\x02R\fruleset_name\"N\n" +
+	"\x05value\x18\x01 \x01(\v2\x13.gizclaw.rpc.v1.PetR\x05value\"\x18\n" +
+	"\x16ServerPointsGetRequest\"N\n" +
 	"\x17ServerPointsGetResponse\x123\n" +
 	"\x05value\x18\x01 \x01(\v2\x1d.gizclaw.rpc.v1.PointsAccountR\x05value\"]\n" +
 	"!ServerPointsTransactionGetRequest\x128\n" +

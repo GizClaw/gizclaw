@@ -794,7 +794,7 @@ func (x *ServerRegisterRequest) GetToken() string {
 
 type ServerRegisterResponse struct {
 	state              protoimpl.MessageState `protogen:"open.v1"`
-	RuntimeProfileName string                 `protobuf:"bytes,2,opt,name=runtime_profile_name,json=runtimeProfileName,proto3" json:"runtime_profile_name,omitempty"`
+	RuntimeProfileName string                 `protobuf:"bytes,1,opt,name=runtime_profile_name,json=runtimeProfileName,proto3" json:"runtime_profile_name,omitempty"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
@@ -1343,9 +1343,9 @@ const file_payload_system_proto_rawDesc = "" +
 	"\vserver_time\x18\x01 \x01(\x03R\n" +
 	"serverTime\"-\n" +
 	"\x15ServerRegisterRequest\x12\x14\n" +
-	"\x05token\x18\x01 \x01(\tR\x05token\"_\n" +
+	"\x05token\x18\x01 \x01(\tR\x05token\"J\n" +
 	"\x16ServerRegisterResponse\x120\n" +
-	"\x14runtime_profile_name\x18\x02 \x01(\tR\x12runtimeProfileNameJ\x04\b\x01\x10\x02R\rfirmware_name\"\xcd\x01\n" +
+	"\x14runtime_profile_name\x18\x01 \x01(\tR\x12runtimeProfileName\"\xcd\x01\n" +
 	"\aRuntime\x12 \n" +
 	"\tlast_addr\x18\x01 \x01(\tH\x00R\blastAddr\x88\x01\x01\x12 \n" +
 	"\flast_seen_at\x18\x02 \x01(\tR\n" +

@@ -36,19 +36,6 @@
           "voice": {
             "$ref": "#/components/schemas/ASTTranslateVoiceParameters"
           },
-          "speaker_id": {
-            "type": "string",
-            "description": "Deprecated compatibility field. Prefer voice.speaker_id."
-          },
-          "is_custom_speaker": {
-            "type": "boolean"
-          },
-          "tts_resource_id": {
-            "type": "string"
-          },
-          "speech_rate": {
-            "type": "integer"
-          },
           "enable_source_language_detect": {
             "type": "boolean"
           },

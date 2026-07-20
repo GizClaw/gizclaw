@@ -63,13 +63,9 @@ export type ASTTranslateVoiceParameters = ASTTranslateInternalSpeakerParameters 
 export type ASTTranslateWorkflowSpec = {
   "denoise"?: boolean;
   "enable_source_language_detect"?: boolean;
-  "is_custom_speaker"?: boolean;
   "mode"?: ASTTranslateMode;
   "resource_id"?: string;
-  "speaker_id"?: string;
-  "speech_rate"?: number;
   "translation_model": string;
-  "tts_resource_id"?: string;
   "voice"?: ASTTranslateVoiceParameters;
   "lang_pair"?: string;
 };
@@ -79,13 +75,9 @@ export type ASTTranslateWorkspaceParameters = {
   "e2e"?: boolean;
   "enable_source_language_detect"?: boolean;
   "input"?: WorkspaceInputMode;
-  "is_custom_speaker"?: boolean;
   "lang_pair"?: string;
   "mode"?: ASTTranslateMode;
-  "speaker_id"?: string;
-  "speech_rate"?: number;
   "translation_model"?: string;
-  "tts_resource_id"?: string;
   "voice"?: ASTTranslateVoiceParameters;
 };
 export type AgentSelection = {
@@ -1525,55 +1517,31 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "bool"
       },
       {
-        "name": "is_custom_speaker",
-        "number": 3,
-        "optional": true,
-        "type": "bool"
-      },
-      {
         "name": "mode",
-        "number": 4,
+        "number": 3,
         "optional": true,
         "type": "ASTTranslateMode"
       },
       {
         "name": "resource_id",
-        "number": 5,
+        "number": 4,
         "optional": true,
         "type": "string"
-      },
-      {
-        "name": "speaker_id",
-        "number": 6,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "speech_rate",
-        "number": 7,
-        "optional": true,
-        "type": "int64"
       },
       {
         "name": "translation_model",
-        "number": 8,
-        "type": "string"
-      },
-      {
-        "name": "tts_resource_id",
-        "number": 9,
-        "optional": true,
+        "number": 5,
         "type": "string"
       },
       {
         "name": "voice",
-        "number": 10,
+        "number": 6,
         "optional": true,
         "type": "ASTTranslateVoiceParameters"
       },
       {
         "name": "lang_pair",
-        "number": 11,
+        "number": 7,
         "optional": true,
         "type": "string"
       }
@@ -1611,50 +1579,26 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "WorkspaceInputMode"
       },
       {
-        "name": "is_custom_speaker",
-        "number": 6,
-        "optional": true,
-        "type": "bool"
-      },
-      {
         "name": "lang_pair",
-        "number": 7,
+        "number": 6,
         "optional": true,
         "type": "string"
       },
       {
         "name": "mode",
-        "number": 8,
+        "number": 7,
         "optional": true,
         "type": "ASTTranslateMode"
       },
       {
-        "name": "speaker_id",
-        "number": 9,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "speech_rate",
-        "number": 10,
-        "optional": true,
-        "type": "int64"
-      },
-      {
         "name": "translation_model",
-        "number": 11,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "tts_resource_id",
-        "number": 12,
+        "number": 8,
         "optional": true,
         "type": "string"
       },
       {
         "name": "voice",
-        "number": 13,
+        "number": 9,
         "optional": true,
         "type": "ASTTranslateVoiceParameters"
       }
@@ -3857,18 +3801,18 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "mapValue": "int64",
         "name": "badge_exp_delta",
-        "number": 2,
+        "number": 1,
         "type": "map"
       },
       {
         "name": "pet_exp_delta",
-        "number": 4,
+        "number": 2,
         "optional": true,
         "type": "int64"
       },
       {
         "name": "points_delta",
-        "number": 5,
+        "number": 3,
         "optional": true,
         "type": "int64"
       }
@@ -3916,23 +3860,23 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
     "fields": [
       {
         "name": "alias",
-        "number": 13,
+        "number": 1,
         "type": "string"
       },
       {
         "mapValue": "AliasI18nText",
         "name": "i18n",
-        "number": 14,
+        "number": 2,
         "type": "map"
       },
       {
         "name": "kind",
-        "number": 15,
+        "number": 3,
         "type": "ModelKind"
       },
       {
         "name": "capabilities",
-        "number": 16,
+        "number": 4,
         "optional": true,
         "type": "ModelCapabilities"
       }
@@ -4636,57 +4580,57 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
     "fields": [
       {
         "name": "created_at",
-        "number": 2,
+        "number": 1,
         "type": "string"
       },
       {
         "name": "display_name",
-        "number": 3,
+        "number": 2,
         "type": "string"
       },
       {
         "name": "id",
-        "number": 5,
+        "number": 3,
         "type": "string"
       },
       {
         "name": "last_active_at",
-        "number": 6,
+        "number": 4,
         "type": "string"
       },
       {
         "name": "life",
-        "number": 8,
+        "number": 5,
         "type": "PetLife"
       },
       {
         "name": "owner_public_key",
-        "number": 9,
+        "number": 6,
         "type": "string"
       },
       {
         "name": "petdef_id",
-        "number": 10,
+        "number": 7,
         "type": "string"
       },
       {
         "name": "runtime_profile_name",
-        "number": 11,
+        "number": 8,
         "type": "string"
       },
       {
         "name": "updated_at",
-        "number": 12,
+        "number": 9,
         "type": "string"
       },
       {
         "name": "workspace_name",
-        "number": 14,
+        "number": 10,
         "type": "string"
       },
       {
         "name": "progression",
-        "number": 15,
+        "number": 11,
         "type": "PetProgression"
       }
     ]
@@ -5271,65 +5215,65 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "mapValue": "int64",
         "name": "badge_exp_delta",
-        "number": 2,
+        "number": 1,
         "type": "map"
       },
       {
         "name": "created_at",
-        "number": 3,
+        "number": 2,
         "type": "string"
       },
       {
         "name": "game_result_id",
-        "number": 4,
+        "number": 3,
         "optional": true,
         "type": "string"
       },
       {
         "name": "id",
-        "number": 5,
+        "number": 4,
         "type": "string"
       },
       {
         "name": "owner_public_key",
-        "number": 7,
+        "number": 5,
         "type": "string"
       },
       {
         "name": "pet_exp_delta",
-        "number": 8,
+        "number": 6,
         "type": "int64"
       },
       {
         "name": "pet_id",
-        "number": 9,
+        "number": 7,
         "optional": true,
         "type": "string"
       },
       {
         "name": "points_delta",
-        "number": 10,
+        "number": 8,
         "type": "int64"
       },
       {
         "name": "reason",
-        "number": 11,
+        "number": 9,
         "optional": true,
         "type": "string"
       },
       {
         "name": "runtime_profile_name",
-        "number": 12,
+        "number": 10,
         "type": "string"
       },
       {
         "name": "source_id",
-        "number": 13,
+        "number": 11,
         "type": "string"
       },
       {
         "name": "source_type",
-        "number": 14,
+        "number": 12,
         "type": "string"
       }
     ]
@@ -5850,7 +5794,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
     "fields": [
       {
         "name": "runtime_profile_name",
-        "number": 2,
+        "number": 1,
         "type": "string"
       }
     ]
@@ -5937,12 +5881,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
     "fields": [
       {
         "name": "text",
-        "number": 3,
+        "number": 1,
         "type": "string"
       },
       {
         "name": "voice_alias",
-        "number": 4,
+        "number": 2,
         "type": "string"
       }
     ]
@@ -6278,13 +6222,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
     "fields": [
       {
         "name": "alias",
-        "number": 10,
+        "number": 1,
         "type": "string"
       },
       {
         "mapValue": "AliasI18nText",
         "name": "i18n",
-        "number": 11,
+        "number": 2,
         "type": "map"
       }
     ]
@@ -6368,28 +6312,28 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
     "fields": [
       {
         "name": "alias",
-        "number": 6,
+        "number": 1,
         "type": "string"
       },
       {
         "mapValue": "AliasI18nText",
         "name": "i18n",
-        "number": 7,
+        "number": 2,
         "type": "map"
       },
       {
         "name": "collection",
-        "number": 8,
+        "number": 3,
         "type": "string"
       },
       {
         "name": "driver",
-        "number": 9,
+        "number": 4,
         "type": "WorkflowDriver"
       },
       {
         "name": "workspace_lang_pair",
-        "number": 10,
+        "number": 5,
         "optional": true,
         "type": "string"
       }
@@ -6533,7 +6477,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       },
       {
         "name": "available",
-        "number": 12,
+        "number": 11,
         "type": "bool"
       }
     ]
@@ -6542,29 +6486,29 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
     "fields": [
       {
         "name": "name",
-        "number": 3,
+        "number": 1,
         "type": "string"
       },
       {
         "name": "parameters",
-        "number": 4,
+        "number": 2,
         "optional": true,
         "type": "WorkspaceParameters"
       },
       {
         "name": "workflow_alias",
-        "number": 6,
+        "number": 3,
         "type": "string"
       },
       {
         "name": "toolkit",
-        "number": 7,
+        "number": 4,
         "optional": true,
         "type": "ToolkitPolicy"
       },
       {
         "name": "collection",
-        "number": 12,
+        "number": 5,
         "type": "string"
       }
     ]

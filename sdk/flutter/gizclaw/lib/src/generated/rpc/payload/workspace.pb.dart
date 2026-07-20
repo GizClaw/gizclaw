@@ -2401,8 +2401,8 @@ class ServerRunSayRequest extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'ServerRunSayRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOS(3, _omitFieldNames ? '' : 'text')
-    ..aOS(4, _omitFieldNames ? '' : 'voiceAlias')
+    ..aOS(1, _omitFieldNames ? '' : 'text')
+    ..aOS(2, _omitFieldNames ? '' : 'voiceAlias')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2424,23 +2424,23 @@ class ServerRunSayRequest extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<ServerRunSayRequest>(create);
   static ServerRunSayRequest? _defaultInstance;
 
-  @$pb.TagNumber(3)
+  @$pb.TagNumber(1)
   $core.String get text => $_getSZ(0);
-  @$pb.TagNumber(3)
+  @$pb.TagNumber(1)
   set text($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(3)
+  @$pb.TagNumber(1)
   $core.bool hasText() => $_has(0);
-  @$pb.TagNumber(3)
-  void clearText() => $_clearField(3);
+  @$pb.TagNumber(1)
+  void clearText() => $_clearField(1);
 
-  @$pb.TagNumber(4)
+  @$pb.TagNumber(2)
   $core.String get voiceAlias => $_getSZ(1);
-  @$pb.TagNumber(4)
+  @$pb.TagNumber(2)
   set voiceAlias($core.String value) => $_setString(1, value);
-  @$pb.TagNumber(4)
+  @$pb.TagNumber(2)
   $core.bool hasVoiceAlias() => $_has(1);
-  @$pb.TagNumber(4)
-  void clearVoiceAlias() => $_clearField(4);
+  @$pb.TagNumber(2)
+  void clearVoiceAlias() => $_clearField(2);
 }
 
 class ServerRunSayResponse extends $pb.GeneratedMessage {
@@ -3006,7 +3006,7 @@ class Workspace extends $pb.GeneratedMessage {
     ..aOB(8, _omitFieldNames ? '' : 'system')
     ..aOM<$3.Icon>(9, _omitFieldNames ? '' : 'icon', subBuilder: $3.Icon.create)
     ..aOS(10, _omitFieldNames ? '' : 'ownerPublicKey')
-    ..aOB(12, _omitFieldNames ? '' : 'available')
+    ..aOB(11, _omitFieldNames ? '' : 'available')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3123,14 +3123,14 @@ class Workspace extends $pb.GeneratedMessage {
   @$pb.TagNumber(10)
   void clearOwnerPublicKey() => $_clearField(10);
 
-  @$pb.TagNumber(12)
+  @$pb.TagNumber(11)
   $core.bool get available => $_getBF(10);
-  @$pb.TagNumber(12)
+  @$pb.TagNumber(11)
   set available($core.bool value) => $_setBool(10, value);
-  @$pb.TagNumber(12)
+  @$pb.TagNumber(11)
   $core.bool hasAvailable() => $_has(10);
-  @$pb.TagNumber(12)
-  void clearAvailable() => $_clearField(12);
+  @$pb.TagNumber(11)
+  void clearAvailable() => $_clearField(11);
 }
 
 class WorkspaceCreateBody extends $pb.GeneratedMessage {
@@ -3163,13 +3163,13 @@ class WorkspaceCreateBody extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'WorkspaceCreateBody',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOS(3, _omitFieldNames ? '' : 'name')
-    ..aOM<WorkspaceParameters>(4, _omitFieldNames ? '' : 'parameters',
+    ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..aOM<WorkspaceParameters>(2, _omitFieldNames ? '' : 'parameters',
         subBuilder: WorkspaceParameters.create)
-    ..aOS(6, _omitFieldNames ? '' : 'workflowAlias')
-    ..aOM<$2.ToolkitPolicy>(7, _omitFieldNames ? '' : 'toolkit',
+    ..aOS(3, _omitFieldNames ? '' : 'workflowAlias')
+    ..aOM<$2.ToolkitPolicy>(4, _omitFieldNames ? '' : 'toolkit',
         subBuilder: $2.ToolkitPolicy.create)
-    ..aOS(12, _omitFieldNames ? '' : 'collection')
+    ..aOS(5, _omitFieldNames ? '' : 'collection')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3191,54 +3191,54 @@ class WorkspaceCreateBody extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<WorkspaceCreateBody>(create);
   static WorkspaceCreateBody? _defaultInstance;
 
-  @$pb.TagNumber(3)
+  @$pb.TagNumber(1)
   $core.String get name => $_getSZ(0);
-  @$pb.TagNumber(3)
+  @$pb.TagNumber(1)
   set name($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(3)
+  @$pb.TagNumber(1)
   $core.bool hasName() => $_has(0);
-  @$pb.TagNumber(3)
-  void clearName() => $_clearField(3);
+  @$pb.TagNumber(1)
+  void clearName() => $_clearField(1);
 
-  @$pb.TagNumber(4)
+  @$pb.TagNumber(2)
   WorkspaceParameters get parameters => $_getN(1);
-  @$pb.TagNumber(4)
-  set parameters(WorkspaceParameters value) => $_setField(4, value);
-  @$pb.TagNumber(4)
+  @$pb.TagNumber(2)
+  set parameters(WorkspaceParameters value) => $_setField(2, value);
+  @$pb.TagNumber(2)
   $core.bool hasParameters() => $_has(1);
-  @$pb.TagNumber(4)
-  void clearParameters() => $_clearField(4);
-  @$pb.TagNumber(4)
+  @$pb.TagNumber(2)
+  void clearParameters() => $_clearField(2);
+  @$pb.TagNumber(2)
   WorkspaceParameters ensureParameters() => $_ensure(1);
 
-  @$pb.TagNumber(6)
+  @$pb.TagNumber(3)
   $core.String get workflowAlias => $_getSZ(2);
-  @$pb.TagNumber(6)
+  @$pb.TagNumber(3)
   set workflowAlias($core.String value) => $_setString(2, value);
-  @$pb.TagNumber(6)
+  @$pb.TagNumber(3)
   $core.bool hasWorkflowAlias() => $_has(2);
-  @$pb.TagNumber(6)
-  void clearWorkflowAlias() => $_clearField(6);
+  @$pb.TagNumber(3)
+  void clearWorkflowAlias() => $_clearField(3);
 
-  @$pb.TagNumber(7)
+  @$pb.TagNumber(4)
   $2.ToolkitPolicy get toolkit => $_getN(3);
-  @$pb.TagNumber(7)
-  set toolkit($2.ToolkitPolicy value) => $_setField(7, value);
-  @$pb.TagNumber(7)
+  @$pb.TagNumber(4)
+  set toolkit($2.ToolkitPolicy value) => $_setField(4, value);
+  @$pb.TagNumber(4)
   $core.bool hasToolkit() => $_has(3);
-  @$pb.TagNumber(7)
-  void clearToolkit() => $_clearField(7);
-  @$pb.TagNumber(7)
+  @$pb.TagNumber(4)
+  void clearToolkit() => $_clearField(4);
+  @$pb.TagNumber(4)
   $2.ToolkitPolicy ensureToolkit() => $_ensure(3);
 
-  @$pb.TagNumber(12)
+  @$pb.TagNumber(5)
   $core.String get collection => $_getSZ(4);
-  @$pb.TagNumber(12)
+  @$pb.TagNumber(5)
   set collection($core.String value) => $_setString(4, value);
-  @$pb.TagNumber(12)
+  @$pb.TagNumber(5)
   $core.bool hasCollection() => $_has(4);
-  @$pb.TagNumber(12)
-  void clearCollection() => $_clearField(12);
+  @$pb.TagNumber(5)
+  void clearCollection() => $_clearField(5);
 }
 
 class WorkspacePutBody extends $pb.GeneratedMessage {

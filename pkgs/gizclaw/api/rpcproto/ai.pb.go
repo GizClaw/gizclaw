@@ -500,15 +500,11 @@ type ASTTranslateWorkflowSpec struct {
 	state                      protoimpl.MessageState       `protogen:"open.v1"`
 	Denoise                    *bool                        `protobuf:"varint,1,opt,name=denoise,proto3,oneof" json:"denoise,omitempty"`
 	EnableSourceLanguageDetect *bool                        `protobuf:"varint,2,opt,name=enable_source_language_detect,json=enableSourceLanguageDetect,proto3,oneof" json:"enable_source_language_detect,omitempty"`
-	IsCustomSpeaker            *bool                        `protobuf:"varint,3,opt,name=is_custom_speaker,json=isCustomSpeaker,proto3,oneof" json:"is_custom_speaker,omitempty"`
-	Mode                       *ASTTranslateMode            `protobuf:"varint,4,opt,name=mode,proto3,enum=gizclaw.rpc.v1.ASTTranslateMode,oneof" json:"mode,omitempty"`
-	ResourceId                 *string                      `protobuf:"bytes,5,opt,name=resource_id,json=resourceId,proto3,oneof" json:"resource_id,omitempty"`
-	SpeakerId                  *string                      `protobuf:"bytes,6,opt,name=speaker_id,json=speakerId,proto3,oneof" json:"speaker_id,omitempty"`
-	SpeechRate                 *int64                       `protobuf:"varint,7,opt,name=speech_rate,json=speechRate,proto3,oneof" json:"speech_rate,omitempty"`
-	TranslationModel           string                       `protobuf:"bytes,8,opt,name=translation_model,json=translationModel,proto3" json:"translation_model,omitempty"`
-	TtsResourceId              *string                      `protobuf:"bytes,9,opt,name=tts_resource_id,json=ttsResourceId,proto3,oneof" json:"tts_resource_id,omitempty"`
-	Voice                      *ASTTranslateVoiceParameters `protobuf:"bytes,10,opt,name=voice,proto3,oneof" json:"voice,omitempty"`
-	LangPair                   *string                      `protobuf:"bytes,11,opt,name=lang_pair,json=langPair,proto3,oneof" json:"lang_pair,omitempty"`
+	Mode                       *ASTTranslateMode            `protobuf:"varint,3,opt,name=mode,proto3,enum=gizclaw.rpc.v1.ASTTranslateMode,oneof" json:"mode,omitempty"`
+	ResourceId                 *string                      `protobuf:"bytes,4,opt,name=resource_id,json=resourceId,proto3,oneof" json:"resource_id,omitempty"`
+	TranslationModel           string                       `protobuf:"bytes,5,opt,name=translation_model,json=translationModel,proto3" json:"translation_model,omitempty"`
+	Voice                      *ASTTranslateVoiceParameters `protobuf:"bytes,6,opt,name=voice,proto3,oneof" json:"voice,omitempty"`
+	LangPair                   *string                      `protobuf:"bytes,7,opt,name=lang_pair,json=langPair,proto3,oneof" json:"lang_pair,omitempty"`
 	unknownFields              protoimpl.UnknownFields
 	sizeCache                  protoimpl.SizeCache
 }
@@ -557,13 +553,6 @@ func (x *ASTTranslateWorkflowSpec) GetEnableSourceLanguageDetect() bool {
 	return false
 }
 
-func (x *ASTTranslateWorkflowSpec) GetIsCustomSpeaker() bool {
-	if x != nil && x.IsCustomSpeaker != nil {
-		return *x.IsCustomSpeaker
-	}
-	return false
-}
-
 func (x *ASTTranslateWorkflowSpec) GetMode() ASTTranslateMode {
 	if x != nil && x.Mode != nil {
 		return *x.Mode
@@ -578,30 +567,9 @@ func (x *ASTTranslateWorkflowSpec) GetResourceId() string {
 	return ""
 }
 
-func (x *ASTTranslateWorkflowSpec) GetSpeakerId() string {
-	if x != nil && x.SpeakerId != nil {
-		return *x.SpeakerId
-	}
-	return ""
-}
-
-func (x *ASTTranslateWorkflowSpec) GetSpeechRate() int64 {
-	if x != nil && x.SpeechRate != nil {
-		return *x.SpeechRate
-	}
-	return 0
-}
-
 func (x *ASTTranslateWorkflowSpec) GetTranslationModel() string {
 	if x != nil {
 		return x.TranslationModel
-	}
-	return ""
-}
-
-func (x *ASTTranslateWorkflowSpec) GetTtsResourceId() string {
-	if x != nil && x.TtsResourceId != nil {
-		return *x.TtsResourceId
 	}
 	return ""
 }
@@ -627,14 +595,10 @@ type ASTTranslateWorkspaceParameters struct {
 	E2E                        *bool                                    `protobuf:"varint,3,opt,name=e2e,proto3,oneof" json:"e2e,omitempty"`
 	EnableSourceLanguageDetect *bool                                    `protobuf:"varint,4,opt,name=enable_source_language_detect,json=enableSourceLanguageDetect,proto3,oneof" json:"enable_source_language_detect,omitempty"`
 	Input                      *WorkspaceInputMode                      `protobuf:"varint,5,opt,name=input,proto3,enum=gizclaw.rpc.v1.WorkspaceInputMode,oneof" json:"input,omitempty"`
-	IsCustomSpeaker            *bool                                    `protobuf:"varint,6,opt,name=is_custom_speaker,json=isCustomSpeaker,proto3,oneof" json:"is_custom_speaker,omitempty"`
-	LangPair                   *string                                  `protobuf:"bytes,7,opt,name=lang_pair,json=langPair,proto3,oneof" json:"lang_pair,omitempty"`
-	Mode                       *ASTTranslateMode                        `protobuf:"varint,8,opt,name=mode,proto3,enum=gizclaw.rpc.v1.ASTTranslateMode,oneof" json:"mode,omitempty"`
-	SpeakerId                  *string                                  `protobuf:"bytes,9,opt,name=speaker_id,json=speakerId,proto3,oneof" json:"speaker_id,omitempty"`
-	SpeechRate                 *int64                                   `protobuf:"varint,10,opt,name=speech_rate,json=speechRate,proto3,oneof" json:"speech_rate,omitempty"`
-	TranslationModel           *string                                  `protobuf:"bytes,11,opt,name=translation_model,json=translationModel,proto3,oneof" json:"translation_model,omitempty"`
-	TtsResourceId              *string                                  `protobuf:"bytes,12,opt,name=tts_resource_id,json=ttsResourceId,proto3,oneof" json:"tts_resource_id,omitempty"`
-	Voice                      *ASTTranslateVoiceParameters             `protobuf:"bytes,13,opt,name=voice,proto3,oneof" json:"voice,omitempty"`
+	LangPair                   *string                                  `protobuf:"bytes,6,opt,name=lang_pair,json=langPair,proto3,oneof" json:"lang_pair,omitempty"`
+	Mode                       *ASTTranslateMode                        `protobuf:"varint,7,opt,name=mode,proto3,enum=gizclaw.rpc.v1.ASTTranslateMode,oneof" json:"mode,omitempty"`
+	TranslationModel           *string                                  `protobuf:"bytes,8,opt,name=translation_model,json=translationModel,proto3,oneof" json:"translation_model,omitempty"`
+	Voice                      *ASTTranslateVoiceParameters             `protobuf:"bytes,9,opt,name=voice,proto3,oneof" json:"voice,omitempty"`
 	unknownFields              protoimpl.UnknownFields
 	sizeCache                  protoimpl.SizeCache
 }
@@ -704,13 +668,6 @@ func (x *ASTTranslateWorkspaceParameters) GetInput() WorkspaceInputMode {
 	return WorkspaceInputMode_WORKSPACE_INPUT_MODE_UNSPECIFIED
 }
 
-func (x *ASTTranslateWorkspaceParameters) GetIsCustomSpeaker() bool {
-	if x != nil && x.IsCustomSpeaker != nil {
-		return *x.IsCustomSpeaker
-	}
-	return false
-}
-
 func (x *ASTTranslateWorkspaceParameters) GetLangPair() string {
 	if x != nil && x.LangPair != nil {
 		return *x.LangPair
@@ -725,30 +682,9 @@ func (x *ASTTranslateWorkspaceParameters) GetMode() ASTTranslateMode {
 	return ASTTranslateMode_ASTTRANSLATE_MODE_UNSPECIFIED
 }
 
-func (x *ASTTranslateWorkspaceParameters) GetSpeakerId() string {
-	if x != nil && x.SpeakerId != nil {
-		return *x.SpeakerId
-	}
-	return ""
-}
-
-func (x *ASTTranslateWorkspaceParameters) GetSpeechRate() int64 {
-	if x != nil && x.SpeechRate != nil {
-		return *x.SpeechRate
-	}
-	return 0
-}
-
 func (x *ASTTranslateWorkspaceParameters) GetTranslationModel() string {
 	if x != nil && x.TranslationModel != nil {
 		return *x.TranslationModel
-	}
-	return ""
-}
-
-func (x *ASTTranslateWorkspaceParameters) GetTtsResourceId() string {
-	if x != nil && x.TtsResourceId != nil {
-		return *x.TtsResourceId
 	}
 	return ""
 }
@@ -2770,10 +2706,10 @@ func (x *PetWorkspaceParameters) GetVoice() *PetVoiceParameters {
 
 type Model struct {
 	state         protoimpl.MessageState    `protogen:"open.v1"`
-	Alias         string                    `protobuf:"bytes,13,opt,name=alias,proto3" json:"alias,omitempty"`
-	I18N          map[string]*AliasI18NText `protobuf:"bytes,14,rep,name=i18n,proto3" json:"i18n,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	Kind          ModelKind                 `protobuf:"varint,15,opt,name=kind,proto3,enum=gizclaw.rpc.v1.ModelKind" json:"kind,omitempty"`
-	Capabilities  *ModelCapabilities        `protobuf:"bytes,16,opt,name=capabilities,proto3,oneof" json:"capabilities,omitempty"`
+	Alias         string                    `protobuf:"bytes,1,opt,name=alias,proto3" json:"alias,omitempty"`
+	I18N          map[string]*AliasI18NText `protobuf:"bytes,2,rep,name=i18n,proto3" json:"i18n,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Kind          ModelKind                 `protobuf:"varint,3,opt,name=kind,proto3,enum=gizclaw.rpc.v1.ModelKind" json:"kind,omitempty"`
+	Capabilities  *ModelCapabilities        `protobuf:"bytes,4,opt,name=capabilities,proto3,oneof" json:"capabilities,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3230,8 +3166,8 @@ func (x *ModelThinkingCapability) GetSupported() bool {
 
 type Voice struct {
 	state         protoimpl.MessageState    `protogen:"open.v1"`
-	Alias         string                    `protobuf:"bytes,10,opt,name=alias,proto3" json:"alias,omitempty"`
-	I18N          map[string]*AliasI18NText `protobuf:"bytes,11,rep,name=i18n,proto3" json:"i18n,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Alias         string                    `protobuf:"bytes,1,opt,name=alias,proto3" json:"alias,omitempty"`
+	I18N          map[string]*AliasI18NText `protobuf:"bytes,2,rep,name=i18n,proto3" json:"i18n,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3514,11 +3450,11 @@ func (x *VoiceListResponse) GetRuntimeProfileRevision() string {
 
 type Workflow struct {
 	state             protoimpl.MessageState    `protogen:"open.v1"`
-	Alias             string                    `protobuf:"bytes,6,opt,name=alias,proto3" json:"alias,omitempty"`
-	I18N              map[string]*AliasI18NText `protobuf:"bytes,7,rep,name=i18n,proto3" json:"i18n,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	Collection        string                    `protobuf:"bytes,8,opt,name=collection,proto3" json:"collection,omitempty"`
-	Driver            WorkflowDriver            `protobuf:"varint,9,opt,name=driver,proto3,enum=gizclaw.rpc.v1.WorkflowDriver" json:"driver,omitempty"`
-	WorkspaceLangPair *string                   `protobuf:"bytes,10,opt,name=workspace_lang_pair,json=workspaceLangPair,proto3,oneof" json:"workspace_lang_pair,omitempty"`
+	Alias             string                    `protobuf:"bytes,1,opt,name=alias,proto3" json:"alias,omitempty"`
+	I18N              map[string]*AliasI18NText `protobuf:"bytes,2,rep,name=i18n,proto3" json:"i18n,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Collection        string                    `protobuf:"bytes,3,opt,name=collection,proto3" json:"collection,omitempty"`
+	Driver            WorkflowDriver            `protobuf:"varint,4,opt,name=driver,proto3,enum=gizclaw.rpc.v1.WorkflowDriver" json:"driver,omitempty"`
+	WorkspaceLangPair *string                   `protobuf:"bytes,5,opt,name=workspace_lang_pair,json=workspaceLangPair,proto3,oneof" json:"workspace_lang_pair,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -4373,67 +4309,44 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\x1bASTTranslateVoiceParameters\x12\x90\x01\n" +
 	"(asttranslate_internal_speaker_parameters\x18\x01 \x01(\v25.gizclaw.rpc.v1.ASTTranslateInternalSpeakerParametersH\x00R%asttranslateInternalSpeakerParameters\x12\x8a\x01\n" +
 	"&asttranslate_external_voice_parameters\x18\x02 \x01(\v23.gizclaw.rpc.v1.ASTTranslateExternalVoiceParametersH\x00R#asttranslateExternalVoiceParametersB\a\n" +
-	"\x05value\"\xc9\x05\n" +
+	"\x05value\"\xd8\x03\n" +
 	"\x18ASTTranslateWorkflowSpec\x12\x1d\n" +
 	"\adenoise\x18\x01 \x01(\bH\x00R\adenoise\x88\x01\x01\x12F\n" +
-	"\x1denable_source_language_detect\x18\x02 \x01(\bH\x01R\x1aenableSourceLanguageDetect\x88\x01\x01\x12/\n" +
-	"\x11is_custom_speaker\x18\x03 \x01(\bH\x02R\x0fisCustomSpeaker\x88\x01\x01\x129\n" +
-	"\x04mode\x18\x04 \x01(\x0e2 .gizclaw.rpc.v1.ASTTranslateModeH\x03R\x04mode\x88\x01\x01\x12$\n" +
-	"\vresource_id\x18\x05 \x01(\tH\x04R\n" +
-	"resourceId\x88\x01\x01\x12\"\n" +
-	"\n" +
-	"speaker_id\x18\x06 \x01(\tH\x05R\tspeakerId\x88\x01\x01\x12$\n" +
-	"\vspeech_rate\x18\a \x01(\x03H\x06R\n" +
-	"speechRate\x88\x01\x01\x12+\n" +
-	"\x11translation_model\x18\b \x01(\tR\x10translationModel\x12+\n" +
-	"\x0ftts_resource_id\x18\t \x01(\tH\aR\rttsResourceId\x88\x01\x01\x12F\n" +
-	"\x05voice\x18\n" +
-	" \x01(\v2+.gizclaw.rpc.v1.ASTTranslateVoiceParametersH\bR\x05voice\x88\x01\x01\x12 \n" +
-	"\tlang_pair\x18\v \x01(\tH\tR\blangPair\x88\x01\x01B\n" +
+	"\x1denable_source_language_detect\x18\x02 \x01(\bH\x01R\x1aenableSourceLanguageDetect\x88\x01\x01\x129\n" +
+	"\x04mode\x18\x03 \x01(\x0e2 .gizclaw.rpc.v1.ASTTranslateModeH\x02R\x04mode\x88\x01\x01\x12$\n" +
+	"\vresource_id\x18\x04 \x01(\tH\x03R\n" +
+	"resourceId\x88\x01\x01\x12+\n" +
+	"\x11translation_model\x18\x05 \x01(\tR\x10translationModel\x12F\n" +
+	"\x05voice\x18\x06 \x01(\v2+.gizclaw.rpc.v1.ASTTranslateVoiceParametersH\x04R\x05voice\x88\x01\x01\x12 \n" +
+	"\tlang_pair\x18\a \x01(\tH\x05R\blangPair\x88\x01\x01B\n" +
 	"\n" +
 	"\b_denoiseB \n" +
-	"\x1e_enable_source_language_detectB\x14\n" +
-	"\x12_is_custom_speakerB\a\n" +
+	"\x1e_enable_source_language_detectB\a\n" +
 	"\x05_modeB\x0e\n" +
-	"\f_resource_idB\r\n" +
-	"\v_speaker_idB\x0e\n" +
-	"\f_speech_rateB\x12\n" +
-	"\x10_tts_resource_idB\b\n" +
+	"\f_resource_idB\b\n" +
 	"\x06_voiceB\f\n" +
 	"\n" +
-	"_lang_pair\"\xf6\x06\n" +
+	"_lang_pair\"\x85\x05\n" +
 	"\x1fASTTranslateWorkspaceParameters\x12W\n" +
 	"\n" +
 	"agent_type\x18\x01 \x01(\x0e28.gizclaw.rpc.v1.ASTTranslateWorkspaceParametersAgentTypeR\tagentType\x12\x1d\n" +
 	"\adenoise\x18\x02 \x01(\bH\x00R\adenoise\x88\x01\x01\x12\x15\n" +
 	"\x03e2e\x18\x03 \x01(\bH\x01R\x03e2e\x88\x01\x01\x12F\n" +
 	"\x1denable_source_language_detect\x18\x04 \x01(\bH\x02R\x1aenableSourceLanguageDetect\x88\x01\x01\x12=\n" +
-	"\x05input\x18\x05 \x01(\x0e2\".gizclaw.rpc.v1.WorkspaceInputModeH\x03R\x05input\x88\x01\x01\x12/\n" +
-	"\x11is_custom_speaker\x18\x06 \x01(\bH\x04R\x0fisCustomSpeaker\x88\x01\x01\x12 \n" +
-	"\tlang_pair\x18\a \x01(\tH\x05R\blangPair\x88\x01\x01\x129\n" +
-	"\x04mode\x18\b \x01(\x0e2 .gizclaw.rpc.v1.ASTTranslateModeH\x06R\x04mode\x88\x01\x01\x12\"\n" +
-	"\n" +
-	"speaker_id\x18\t \x01(\tH\aR\tspeakerId\x88\x01\x01\x12$\n" +
-	"\vspeech_rate\x18\n" +
-	" \x01(\x03H\bR\n" +
-	"speechRate\x88\x01\x01\x120\n" +
-	"\x11translation_model\x18\v \x01(\tH\tR\x10translationModel\x88\x01\x01\x12+\n" +
-	"\x0ftts_resource_id\x18\f \x01(\tH\n" +
-	"R\rttsResourceId\x88\x01\x01\x12F\n" +
-	"\x05voice\x18\r \x01(\v2+.gizclaw.rpc.v1.ASTTranslateVoiceParametersH\vR\x05voice\x88\x01\x01B\n" +
+	"\x05input\x18\x05 \x01(\x0e2\".gizclaw.rpc.v1.WorkspaceInputModeH\x03R\x05input\x88\x01\x01\x12 \n" +
+	"\tlang_pair\x18\x06 \x01(\tH\x04R\blangPair\x88\x01\x01\x129\n" +
+	"\x04mode\x18\a \x01(\x0e2 .gizclaw.rpc.v1.ASTTranslateModeH\x05R\x04mode\x88\x01\x01\x120\n" +
+	"\x11translation_model\x18\b \x01(\tH\x06R\x10translationModel\x88\x01\x01\x12F\n" +
+	"\x05voice\x18\t \x01(\v2+.gizclaw.rpc.v1.ASTTranslateVoiceParametersH\aR\x05voice\x88\x01\x01B\n" +
 	"\n" +
 	"\b_denoiseB\x06\n" +
 	"\x04_e2eB \n" +
 	"\x1e_enable_source_language_detectB\b\n" +
-	"\x06_inputB\x14\n" +
-	"\x12_is_custom_speakerB\f\n" +
+	"\x06_inputB\f\n" +
 	"\n" +
 	"_lang_pairB\a\n" +
-	"\x05_modeB\r\n" +
-	"\v_speaker_idB\x0e\n" +
-	"\f_speech_rateB\x14\n" +
-	"\x12_translation_modelB\x12\n" +
-	"\x10_tts_resource_idB\b\n" +
+	"\x05_modeB\x14\n" +
+	"\x12_translation_modelB\b\n" +
 	"\x06_voice\"<\n" +
 	"\x1bChatRoomWorkflowHistorySpec\x12\x15\n" +
 	"\x03ttl\x18\x01 \x01(\tH\x00R\x03ttl\x88\x01\x01B\x06\n" +
@@ -4694,16 +4607,16 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\r_conversationB\b\n" +
 	"\x06_inputB\n" +
 	"\n" +
-	"\b_persona\"\xbc\x02\n" +
+	"\b_persona\"\xb6\x02\n" +
 	"\x05Model\x12\x14\n" +
-	"\x05alias\x18\r \x01(\tR\x05alias\x123\n" +
-	"\x04i18n\x18\x0e \x03(\v2\x1f.gizclaw.rpc.v1.Model.I18nEntryR\x04i18n\x12-\n" +
-	"\x04kind\x18\x0f \x01(\x0e2\x19.gizclaw.rpc.v1.ModelKindR\x04kind\x12J\n" +
-	"\fcapabilities\x18\x10 \x01(\v2!.gizclaw.rpc.v1.ModelCapabilitiesH\x00R\fcapabilities\x88\x01\x01\x1aV\n" +
+	"\x05alias\x18\x01 \x01(\tR\x05alias\x123\n" +
+	"\x04i18n\x18\x02 \x03(\v2\x1f.gizclaw.rpc.v1.Model.I18nEntryR\x04i18n\x12-\n" +
+	"\x04kind\x18\x03 \x01(\x0e2\x19.gizclaw.rpc.v1.ModelKindR\x04kind\x12J\n" +
+	"\fcapabilities\x18\x04 \x01(\v2!.gizclaw.rpc.v1.ModelCapabilitiesH\x00R\fcapabilities\x88\x01\x01\x1aV\n" +
 	"\tI18nEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x123\n" +
 	"\x05value\x18\x02 \x01(\v2\x1d.gizclaw.rpc.v1.AliasI18nTextR\x05value:\x028\x01B\x0f\n" +
-	"\r_capabilitiesJ\x04\b\x01\x10\r\"\xf0\x02\n" +
+	"\r_capabilities\"\xf0\x02\n" +
 	"\x11ModelCapabilities\x12$\n" +
 	"\vjson_output\x18\x01 \x01(\bH\x00R\n" +
 	"jsonOutput\x88\x01\x01\x12$\n" +
@@ -4749,15 +4662,13 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\tsupported\x18\x05 \x01(\bR\tsupportedB\x10\n" +
 	"\x0e_default_levelB\x0e\n" +
 	"\f_level_paramB\b\n" +
-	"\x06_param\"\xb0\x01\n" +
+	"\x06_param\"\xaa\x01\n" +
 	"\x05Voice\x12\x14\n" +
-	"\x05alias\x18\n" +
-	" \x01(\tR\x05alias\x123\n" +
-	"\x04i18n\x18\v \x03(\v2\x1f.gizclaw.rpc.v1.Voice.I18nEntryR\x04i18n\x1aV\n" +
+	"\x05alias\x18\x01 \x01(\tR\x05alias\x123\n" +
+	"\x04i18n\x18\x02 \x03(\v2\x1f.gizclaw.rpc.v1.Voice.I18nEntryR\x04i18n\x1aV\n" +
 	"\tI18nEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x123\n" +
-	"\x05value\x18\x02 \x01(\v2\x1d.gizclaw.rpc.v1.AliasI18nTextR\x05value:\x028\x01J\x04\b\x01\x10\n" +
-	"\"'\n" +
+	"\x05value\x18\x02 \x01(\v2\x1d.gizclaw.rpc.v1.AliasI18nTextR\x05value:\x028\x01\"'\n" +
 	"\x0fVoiceGetRequest\x12\x14\n" +
 	"\x05alias\x18\x01 \x01(\tR\x05alias\"\xab\x01\n" +
 	"\x10VoiceGetResponse\x12+\n" +
@@ -4776,26 +4687,25 @@ const file_payload_ai_proto_rawDesc = "" +
 	"nextCursor\x88\x01\x01\x120\n" +
 	"\x14runtime_profile_name\x18\x04 \x01(\tR\x12runtimeProfileName\x128\n" +
 	"\x18runtime_profile_revision\x18\x05 \x01(\tR\x16runtimeProfileRevisionB\x0e\n" +
-	"\f_next_cursor\"\xdb\x02\n" +
+	"\f_next_cursor\"\xd5\x02\n" +
 	"\bWorkflow\x12\x14\n" +
-	"\x05alias\x18\x06 \x01(\tR\x05alias\x126\n" +
-	"\x04i18n\x18\a \x03(\v2\".gizclaw.rpc.v1.Workflow.I18nEntryR\x04i18n\x12\x1e\n" +
+	"\x05alias\x18\x01 \x01(\tR\x05alias\x126\n" +
+	"\x04i18n\x18\x02 \x03(\v2\".gizclaw.rpc.v1.Workflow.I18nEntryR\x04i18n\x12\x1e\n" +
 	"\n" +
-	"collection\x18\b \x01(\tR\n" +
+	"collection\x18\x03 \x01(\tR\n" +
 	"collection\x126\n" +
-	"\x06driver\x18\t \x01(\x0e2\x1e.gizclaw.rpc.v1.WorkflowDriverR\x06driver\x123\n" +
-	"\x13workspace_lang_pair\x18\n" +
-	" \x01(\tH\x00R\x11workspaceLangPair\x88\x01\x01\x1aV\n" +
+	"\x06driver\x18\x04 \x01(\x0e2\x1e.gizclaw.rpc.v1.WorkflowDriverR\x06driver\x123\n" +
+	"\x13workspace_lang_pair\x18\x05 \x01(\tH\x00R\x11workspaceLangPair\x88\x01\x01\x1aV\n" +
 	"\tI18nEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x123\n" +
 	"\x05value\x18\x02 \x01(\v2\x1d.gizclaw.rpc.v1.AliasI18nTextR\x05value:\x028\x01B\x16\n" +
-	"\x14_workspace_lang_pairJ\x04\b\x01\x10\x06\"6\n" +
+	"\x14_workspace_lang_pair\"*\n" +
 	"\x12WorkflowGetRequest\x12\x14\n" +
-	"\x05alias\x18\x01 \x01(\tR\x05aliasJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04\"\xb1\x01\n" +
+	"\x05alias\x18\x01 \x01(\tR\x05alias\"\xb1\x01\n" +
 	"\x13WorkflowGetResponse\x12.\n" +
 	"\x05value\x18\x01 \x01(\v2\x18.gizclaw.rpc.v1.WorkflowR\x05value\x120\n" +
 	"\x14runtime_profile_name\x18\x02 \x01(\tR\x12runtimeProfileName\x128\n" +
-	"\x18runtime_profile_revision\x18\x03 \x01(\tR\x16runtimeProfileRevision\"\x88\x01\n" +
+	"\x18runtime_profile_revision\x18\x03 \x01(\tR\x16runtimeProfileRevision\"\x82\x01\n" +
 	"\x13WorkflowListRequest\x12\x1b\n" +
 	"\x06cursor\x18\x01 \x01(\tH\x00R\x06cursor\x88\x01\x01\x12\x19\n" +
 	"\x05limit\x18\x02 \x01(\x03H\x01R\x05limit\x88\x01\x01\x12\x1e\n" +
@@ -4803,7 +4713,7 @@ const file_payload_ai_proto_rawDesc = "" +
 	"collection\x18\x03 \x01(\tR\n" +
 	"collectionB\t\n" +
 	"\a_cursorB\b\n" +
-	"\x06_limitJ\x04\b\x04\x10\x05\"\x83\x02\n" +
+	"\x06_limit\"\x83\x02\n" +
 	"\x14WorkflowListResponse\x12\x19\n" +
 	"\bhas_next\x18\x01 \x01(\bR\ahasNext\x12.\n" +
 	"\x05items\x18\x02 \x03(\v2\x18.gizclaw.rpc.v1.WorkflowR\x05items\x12$\n" +

@@ -254,7 +254,7 @@ extern "C" {
 #define gizclaw_rpc_v1_PingRequest_client_send_time_tag 1
 #define gizclaw_rpc_v1_PingResponse_server_time_tag 1
 #define gizclaw_rpc_v1_ServerRegisterRequest_token_tag 1
-#define gizclaw_rpc_v1_ServerRegisterResponse_runtime_profile_name_tag 2
+#define gizclaw_rpc_v1_ServerRegisterResponse_runtime_profile_name_tag 1
 #define gizclaw_rpc_v1_Runtime_last_addr_tag     1
 #define gizclaw_rpc_v1_Runtime_last_seen_at_tag  2
 #define gizclaw_rpc_v1_Runtime_online_tag        3
@@ -376,7 +376,7 @@ X(a, STATIC,   SINGULAR, STRING,   token,             1)
 #define gizclaw_rpc_v1_ServerRegisterRequest_DEFAULT NULL
 
 #define gizclaw_rpc_v1_ServerRegisterResponse_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, STRING,   runtime_profile_name,   2)
+X(a, STATIC,   SINGULAR, STRING,   runtime_profile_name,   1)
 #define gizclaw_rpc_v1_ServerRegisterResponse_CALLBACK NULL
 #define gizclaw_rpc_v1_ServerRegisterResponse_DEFAULT NULL
 

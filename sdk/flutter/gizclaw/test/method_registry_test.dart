@@ -8,7 +8,7 @@ void main() {
     expect(rpcMethodByName('server.workspace.get').id, 26);
     expect(rpcMethodByName('server.run.say').id, 21);
     expect(rpcMethodByName('all.ping').id, 1);
-    expect(rpcMethodByName('server.route.resolve').id, 103);
+    expect(rpcMethodByName('server.route.resolve').id, 87);
   });
 
   test('encodes and decodes typed payloads by method metadata', () {

@@ -1794,8 +1794,8 @@ func (x *ServerReloadRunWorkspaceResponse) GetValue() *PeerRunWorkspaceState {
 
 type ServerRunSayRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Text          string                 `protobuf:"bytes,3,opt,name=text,proto3" json:"text,omitempty"`
-	VoiceAlias    string                 `protobuf:"bytes,4,opt,name=voice_alias,json=voiceAlias,proto3" json:"voice_alias,omitempty"`
+	Text          string                 `protobuf:"bytes,1,opt,name=text,proto3" json:"text,omitempty"`
+	VoiceAlias    string                 `protobuf:"bytes,2,opt,name=voice_alias,json=voiceAlias,proto3" json:"voice_alias,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2244,7 +2244,7 @@ type Workspace struct {
 	System         bool                   `protobuf:"varint,8,opt,name=system,proto3" json:"system,omitempty"`
 	Icon           *Icon                  `protobuf:"bytes,9,opt,name=icon,proto3,oneof" json:"icon,omitempty"`
 	OwnerPublicKey *string                `protobuf:"bytes,10,opt,name=owner_public_key,json=ownerPublicKey,proto3,oneof" json:"owner_public_key,omitempty"`
-	Available      bool                   `protobuf:"varint,12,opt,name=available,proto3" json:"available,omitempty"`
+	Available      bool                   `protobuf:"varint,11,opt,name=available,proto3" json:"available,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -2358,11 +2358,11 @@ func (x *Workspace) GetAvailable() bool {
 
 type WorkspaceCreateBody struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
-	Parameters    *WorkspaceParameters   `protobuf:"bytes,4,opt,name=parameters,proto3,oneof" json:"parameters,omitempty"`
-	WorkflowAlias string                 `protobuf:"bytes,6,opt,name=workflow_alias,json=workflowAlias,proto3" json:"workflow_alias,omitempty"`
-	Toolkit       *ToolkitPolicy         `protobuf:"bytes,7,opt,name=toolkit,proto3,oneof" json:"toolkit,omitempty"`
-	Collection    string                 `protobuf:"bytes,12,opt,name=collection,proto3" json:"collection,omitempty"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Parameters    *WorkspaceParameters   `protobuf:"bytes,2,opt,name=parameters,proto3,oneof" json:"parameters,omitempty"`
+	WorkflowAlias string                 `protobuf:"bytes,3,opt,name=workflow_alias,json=workflowAlias,proto3" json:"workflow_alias,omitempty"`
+	Toolkit       *ToolkitPolicy         `protobuf:"bytes,4,opt,name=toolkit,proto3,oneof" json:"toolkit,omitempty"`
+	Collection    string                 `protobuf:"bytes,5,opt,name=collection,proto3" json:"collection,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3749,11 +3749,11 @@ const file_payload_workspace_proto_rawDesc = "" +
 	"\x05value\x18\x01 \x01(\v2\x1d.gizclaw.rpc.v1.PeerRunStatusR\x05value\"!\n" +
 	"\x1fServerReloadRunWorkspaceRequest\"_\n" +
 	" ServerReloadRunWorkspaceResponse\x12;\n" +
-	"\x05value\x18\x01 \x01(\v2%.gizclaw.rpc.v1.PeerRunWorkspaceStateR\x05value\"V\n" +
+	"\x05value\x18\x01 \x01(\v2%.gizclaw.rpc.v1.PeerRunWorkspaceStateR\x05value\"J\n" +
 	"\x13ServerRunSayRequest\x12\x12\n" +
-	"\x04text\x18\x03 \x01(\tR\x04text\x12\x1f\n" +
-	"\vvoice_alias\x18\x04 \x01(\tR\n" +
-	"voiceAliasJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03\"2\n" +
+	"\x04text\x18\x01 \x01(\tR\x04text\x12\x1f\n" +
+	"\vvoice_alias\x18\x02 \x01(\tR\n" +
+	"voiceAlias\"2\n" +
 	"\x14ServerRunSayResponse\x12\x1a\n" +
 	"\baccepted\x18\x01 \x01(\bR\baccepted\"]\n" +
 	"\x1fServerRunWorkspaceRecallRequest\x12:\n" +
@@ -3770,7 +3770,7 @@ const file_payload_workspace_proto_rawDesc = "" +
 	"\x05value\x18\x01 \x01(\v2%.gizclaw.rpc.v1.PeerRunWorkspaceStateR\x05value\"\x16\n" +
 	"\x14ServerStopRunRequest\"L\n" +
 	"\x15ServerStopRunResponse\x123\n" +
-	"\x05value\x18\x01 \x01(\v2\x1d.gizclaw.rpc.v1.PeerRunStatusR\x05value\"\x85\x04\n" +
+	"\x05value\x18\x01 \x01(\v2\x1d.gizclaw.rpc.v1.PeerRunStatusR\x05value\"\xff\x03\n" +
 	"\tWorkspace\x12\x1d\n" +
 	"\n" +
 	"created_at\x18\x01 \x01(\tR\tcreatedAt\x12$\n" +
@@ -3787,25 +3787,25 @@ const file_payload_workspace_proto_rawDesc = "" +
 	"\x04icon\x18\t \x01(\v2\x14.gizclaw.rpc.v1.IconH\x02R\x04icon\x88\x01\x01\x12-\n" +
 	"\x10owner_public_key\x18\n" +
 	" \x01(\tH\x03R\x0eownerPublicKey\x88\x01\x01\x12\x1c\n" +
-	"\tavailable\x18\f \x01(\bR\tavailableB\r\n" +
+	"\tavailable\x18\v \x01(\bR\tavailableB\r\n" +
 	"\v_parametersB\n" +
 	"\n" +
 	"\b_toolkitB\a\n" +
 	"\x05_iconB\x13\n" +
-	"\x11_owner_public_keyJ\x04\b\v\x10\f\"\x99\x02\n" +
+	"\x11_owner_public_key\"\x93\x02\n" +
 	"\x13WorkspaceCreateBody\x12\x12\n" +
-	"\x04name\x18\x03 \x01(\tR\x04name\x12H\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12H\n" +
 	"\n" +
-	"parameters\x18\x04 \x01(\v2#.gizclaw.rpc.v1.WorkspaceParametersH\x00R\n" +
+	"parameters\x18\x02 \x01(\v2#.gizclaw.rpc.v1.WorkspaceParametersH\x00R\n" +
 	"parameters\x88\x01\x01\x12%\n" +
-	"\x0eworkflow_alias\x18\x06 \x01(\tR\rworkflowAlias\x12<\n" +
-	"\atoolkit\x18\a \x01(\v2\x1d.gizclaw.rpc.v1.ToolkitPolicyH\x01R\atoolkit\x88\x01\x01\x12\x1e\n" +
+	"\x0eworkflow_alias\x18\x03 \x01(\tR\rworkflowAlias\x12<\n" +
+	"\atoolkit\x18\x04 \x01(\v2\x1d.gizclaw.rpc.v1.ToolkitPolicyH\x01R\atoolkit\x88\x01\x01\x12\x1e\n" +
 	"\n" +
-	"collection\x18\f \x01(\tR\n" +
+	"collection\x18\x05 \x01(\tR\n" +
 	"collectionB\r\n" +
 	"\v_parametersB\n" +
 	"\n" +
-	"\b_toolkitJ\x04\b\v\x10\f\"\xb5\x01\n" +
+	"\b_toolkit\"\xb5\x01\n" +
 	"\x10WorkspacePutBody\x12H\n" +
 	"\n" +
 	"parameters\x18\x04 \x01(\v2#.gizclaw.rpc.v1.WorkspaceParametersH\x00R\n" +

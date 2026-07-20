@@ -665,9 +665,9 @@ extern "C" {
 #define gizclaw_rpc_v1_GameResultListResponse_has_next_tag 1
 #define gizclaw_rpc_v1_GameResultListResponse_items_tag 2
 #define gizclaw_rpc_v1_GameResultListResponse_next_cursor_tag 3
-#define gizclaw_rpc_v1_GameRewardSpec_badge_exp_delta_tag 2
-#define gizclaw_rpc_v1_GameRewardSpec_pet_exp_delta_tag 4
-#define gizclaw_rpc_v1_GameRewardSpec_points_delta_tag 5
+#define gizclaw_rpc_v1_GameRewardSpec_badge_exp_delta_tag 1
+#define gizclaw_rpc_v1_GameRewardSpec_pet_exp_delta_tag 2
+#define gizclaw_rpc_v1_GameRewardSpec_points_delta_tag 3
 #define gizclaw_rpc_v1_GameRewardSpec_BadgeExpDeltaEntry_key_tag 1
 #define gizclaw_rpc_v1_GameRewardSpec_BadgeExpDeltaEntry_value_tag 2
 #define gizclaw_rpc_v1_GameplayGetRequest_id_tag 1
@@ -749,18 +749,18 @@ extern "C" {
 #define gizclaw_rpc_v1_PointsTransactionListResponse_has_next_tag 1
 #define gizclaw_rpc_v1_PointsTransactionListResponse_items_tag 2
 #define gizclaw_rpc_v1_PointsTransactionListResponse_next_cursor_tag 3
-#define gizclaw_rpc_v1_RewardGrant_badge_exp_delta_tag 2
-#define gizclaw_rpc_v1_RewardGrant_created_at_tag 3
-#define gizclaw_rpc_v1_RewardGrant_game_result_id_tag 4
-#define gizclaw_rpc_v1_RewardGrant_id_tag        5
-#define gizclaw_rpc_v1_RewardGrant_owner_public_key_tag 7
-#define gizclaw_rpc_v1_RewardGrant_pet_exp_delta_tag 8
-#define gizclaw_rpc_v1_RewardGrant_pet_id_tag    9
-#define gizclaw_rpc_v1_RewardGrant_points_delta_tag 10
-#define gizclaw_rpc_v1_RewardGrant_reason_tag    11
-#define gizclaw_rpc_v1_RewardGrant_runtime_profile_name_tag 12
-#define gizclaw_rpc_v1_RewardGrant_source_id_tag 13
-#define gizclaw_rpc_v1_RewardGrant_source_type_tag 14
+#define gizclaw_rpc_v1_RewardGrant_badge_exp_delta_tag 1
+#define gizclaw_rpc_v1_RewardGrant_created_at_tag 2
+#define gizclaw_rpc_v1_RewardGrant_game_result_id_tag 3
+#define gizclaw_rpc_v1_RewardGrant_id_tag        4
+#define gizclaw_rpc_v1_RewardGrant_owner_public_key_tag 5
+#define gizclaw_rpc_v1_RewardGrant_pet_exp_delta_tag 6
+#define gizclaw_rpc_v1_RewardGrant_pet_id_tag    7
+#define gizclaw_rpc_v1_RewardGrant_points_delta_tag 8
+#define gizclaw_rpc_v1_RewardGrant_reason_tag    9
+#define gizclaw_rpc_v1_RewardGrant_runtime_profile_name_tag 10
+#define gizclaw_rpc_v1_RewardGrant_source_id_tag 11
+#define gizclaw_rpc_v1_RewardGrant_source_type_tag 12
 #define gizclaw_rpc_v1_RewardGrant_BadgeExpDeltaEntry_key_tag 1
 #define gizclaw_rpc_v1_RewardGrant_BadgeExpDeltaEntry_value_tag 2
 #define gizclaw_rpc_v1_RewardGrantListResponse_has_next_tag 1
@@ -805,17 +805,17 @@ extern "C" {
 #define gizclaw_rpc_v1_PetLife_ValueEntry_key_tag 1
 #define gizclaw_rpc_v1_PetLife_ValueEntry_value_tag 2
 #define gizclaw_rpc_v1_PetProgression_value_tag  1
-#define gizclaw_rpc_v1_Pet_created_at_tag        2
-#define gizclaw_rpc_v1_Pet_display_name_tag      3
-#define gizclaw_rpc_v1_Pet_id_tag                5
-#define gizclaw_rpc_v1_Pet_last_active_at_tag    6
-#define gizclaw_rpc_v1_Pet_life_tag              8
-#define gizclaw_rpc_v1_Pet_owner_public_key_tag  9
-#define gizclaw_rpc_v1_Pet_petdef_id_tag         10
-#define gizclaw_rpc_v1_Pet_runtime_profile_name_tag 11
-#define gizclaw_rpc_v1_Pet_updated_at_tag        12
-#define gizclaw_rpc_v1_Pet_workspace_name_tag    14
-#define gizclaw_rpc_v1_Pet_progression_tag       15
+#define gizclaw_rpc_v1_Pet_created_at_tag        1
+#define gizclaw_rpc_v1_Pet_display_name_tag      2
+#define gizclaw_rpc_v1_Pet_id_tag                3
+#define gizclaw_rpc_v1_Pet_last_active_at_tag    4
+#define gizclaw_rpc_v1_Pet_life_tag              5
+#define gizclaw_rpc_v1_Pet_owner_public_key_tag  6
+#define gizclaw_rpc_v1_Pet_petdef_id_tag         7
+#define gizclaw_rpc_v1_Pet_runtime_profile_name_tag 8
+#define gizclaw_rpc_v1_Pet_updated_at_tag        9
+#define gizclaw_rpc_v1_Pet_workspace_name_tag    10
+#define gizclaw_rpc_v1_Pet_progression_tag       11
 #define gizclaw_rpc_v1_PetAdoptResponse_pet_tag  1
 #define gizclaw_rpc_v1_PetAdoptResponse_points_tag 2
 #define gizclaw_rpc_v1_PetAdoptResponse_transaction_tag 3
@@ -895,9 +895,9 @@ X(a, CALLBACK, OPTIONAL, STRING,   next_cursor,       3)
 #define gizclaw_rpc_v1_GameResultListResponse_items_MSGTYPE gizclaw_rpc_v1_GameResult
 
 #define gizclaw_rpc_v1_GameRewardSpec_FIELDLIST(X, a) \
-X(a, CALLBACK, REPEATED, MESSAGE,  badge_exp_delta,   2) \
-X(a, STATIC,   OPTIONAL, INT64,    pet_exp_delta,     4) \
-X(a, STATIC,   OPTIONAL, INT64,    points_delta,      5)
+X(a, CALLBACK, REPEATED, MESSAGE,  badge_exp_delta,   1) \
+X(a, STATIC,   OPTIONAL, INT64,    pet_exp_delta,     2) \
+X(a, STATIC,   OPTIONAL, INT64,    points_delta,      3)
 #define gizclaw_rpc_v1_GameRewardSpec_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_GameRewardSpec_DEFAULT NULL
 #define gizclaw_rpc_v1_GameRewardSpec_badge_exp_delta_MSGTYPE gizclaw_rpc_v1_GameRewardSpec_BadgeExpDeltaEntry
@@ -926,17 +926,17 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  fields,            1)
 #define gizclaw_rpc_v1_GameplayMetadata_fields_MSGTYPE google_protobuf_Struct
 
 #define gizclaw_rpc_v1_Pet_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   created_at,        2) \
-X(a, CALLBACK, SINGULAR, STRING,   display_name,      3) \
-X(a, CALLBACK, SINGULAR, STRING,   id,                5) \
-X(a, CALLBACK, SINGULAR, STRING,   last_active_at,    6) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  life,              8) \
-X(a, CALLBACK, SINGULAR, STRING,   owner_public_key,   9) \
-X(a, CALLBACK, SINGULAR, STRING,   petdef_id,        10) \
-X(a, CALLBACK, SINGULAR, STRING,   runtime_profile_name,  11) \
-X(a, CALLBACK, SINGULAR, STRING,   updated_at,       12) \
-X(a, CALLBACK, SINGULAR, STRING,   workspace_name,   14) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  progression,      15)
+X(a, CALLBACK, SINGULAR, STRING,   created_at,        1) \
+X(a, CALLBACK, SINGULAR, STRING,   display_name,      2) \
+X(a, CALLBACK, SINGULAR, STRING,   id,                3) \
+X(a, CALLBACK, SINGULAR, STRING,   last_active_at,    4) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  life,              5) \
+X(a, CALLBACK, SINGULAR, STRING,   owner_public_key,   6) \
+X(a, CALLBACK, SINGULAR, STRING,   petdef_id,         7) \
+X(a, CALLBACK, SINGULAR, STRING,   runtime_profile_name,   8) \
+X(a, CALLBACK, SINGULAR, STRING,   updated_at,        9) \
+X(a, CALLBACK, SINGULAR, STRING,   workspace_name,   10) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  progression,      11)
 #define gizclaw_rpc_v1_Pet_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_Pet_DEFAULT NULL
 #define gizclaw_rpc_v1_Pet_life_MSGTYPE gizclaw_rpc_v1_PetLife
@@ -1134,18 +1134,18 @@ X(a, CALLBACK, OPTIONAL, STRING,   next_cursor,       3)
 #define gizclaw_rpc_v1_PointsTransactionListResponse_items_MSGTYPE gizclaw_rpc_v1_PointsTransaction
 
 #define gizclaw_rpc_v1_RewardGrant_FIELDLIST(X, a) \
-X(a, CALLBACK, REPEATED, MESSAGE,  badge_exp_delta,   2) \
-X(a, CALLBACK, SINGULAR, STRING,   created_at,        3) \
-X(a, CALLBACK, OPTIONAL, STRING,   game_result_id,    4) \
-X(a, CALLBACK, SINGULAR, STRING,   id,                5) \
-X(a, CALLBACK, SINGULAR, STRING,   owner_public_key,   7) \
-X(a, STATIC,   SINGULAR, INT64,    pet_exp_delta,     8) \
-X(a, CALLBACK, OPTIONAL, STRING,   pet_id,            9) \
-X(a, STATIC,   SINGULAR, INT64,    points_delta,     10) \
-X(a, CALLBACK, OPTIONAL, STRING,   reason,           11) \
-X(a, CALLBACK, SINGULAR, STRING,   runtime_profile_name,  12) \
-X(a, CALLBACK, SINGULAR, STRING,   source_id,        13) \
-X(a, CALLBACK, SINGULAR, STRING,   source_type,      14)
+X(a, CALLBACK, REPEATED, MESSAGE,  badge_exp_delta,   1) \
+X(a, CALLBACK, SINGULAR, STRING,   created_at,        2) \
+X(a, CALLBACK, OPTIONAL, STRING,   game_result_id,    3) \
+X(a, CALLBACK, SINGULAR, STRING,   id,                4) \
+X(a, CALLBACK, SINGULAR, STRING,   owner_public_key,   5) \
+X(a, STATIC,   SINGULAR, INT64,    pet_exp_delta,     6) \
+X(a, CALLBACK, OPTIONAL, STRING,   pet_id,            7) \
+X(a, STATIC,   SINGULAR, INT64,    points_delta,      8) \
+X(a, CALLBACK, OPTIONAL, STRING,   reason,            9) \
+X(a, CALLBACK, SINGULAR, STRING,   runtime_profile_name,  10) \
+X(a, CALLBACK, SINGULAR, STRING,   source_id,        11) \
+X(a, CALLBACK, SINGULAR, STRING,   source_type,      12)
 #define gizclaw_rpc_v1_RewardGrant_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_RewardGrant_DEFAULT NULL
 #define gizclaw_rpc_v1_RewardGrant_badge_exp_delta_MSGTYPE gizclaw_rpc_v1_RewardGrant_BadgeExpDeltaEntry

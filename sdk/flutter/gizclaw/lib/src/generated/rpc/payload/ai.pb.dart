@@ -642,13 +642,9 @@ class ASTTranslateWorkflowSpec extends $pb.GeneratedMessage {
   factory ASTTranslateWorkflowSpec({
     $core.bool? denoise,
     $core.bool? enableSourceLanguageDetect,
-    $core.bool? isCustomSpeaker,
     $1.ASTTranslateMode? mode,
     $core.String? resourceId,
-    $core.String? speakerId,
-    $fixnum.Int64? speechRate,
     $core.String? translationModel,
-    $core.String? ttsResourceId,
     ASTTranslateVoiceParameters? voice,
     $core.String? langPair,
   }) {
@@ -656,13 +652,9 @@ class ASTTranslateWorkflowSpec extends $pb.GeneratedMessage {
     if (denoise != null) result.denoise = denoise;
     if (enableSourceLanguageDetect != null)
       result.enableSourceLanguageDetect = enableSourceLanguageDetect;
-    if (isCustomSpeaker != null) result.isCustomSpeaker = isCustomSpeaker;
     if (mode != null) result.mode = mode;
     if (resourceId != null) result.resourceId = resourceId;
-    if (speakerId != null) result.speakerId = speakerId;
-    if (speechRate != null) result.speechRate = speechRate;
     if (translationModel != null) result.translationModel = translationModel;
-    if (ttsResourceId != null) result.ttsResourceId = ttsResourceId;
     if (voice != null) result.voice = voice;
     if (langPair != null) result.langPair = langPair;
     return result;
@@ -683,17 +675,13 @@ class ASTTranslateWorkflowSpec extends $pb.GeneratedMessage {
       createEmptyInstance: create)
     ..aOB(1, _omitFieldNames ? '' : 'denoise')
     ..aOB(2, _omitFieldNames ? '' : 'enableSourceLanguageDetect')
-    ..aOB(3, _omitFieldNames ? '' : 'isCustomSpeaker')
-    ..aE<$1.ASTTranslateMode>(4, _omitFieldNames ? '' : 'mode',
+    ..aE<$1.ASTTranslateMode>(3, _omitFieldNames ? '' : 'mode',
         enumValues: $1.ASTTranslateMode.values)
-    ..aOS(5, _omitFieldNames ? '' : 'resourceId')
-    ..aOS(6, _omitFieldNames ? '' : 'speakerId')
-    ..aInt64(7, _omitFieldNames ? '' : 'speechRate')
-    ..aOS(8, _omitFieldNames ? '' : 'translationModel')
-    ..aOS(9, _omitFieldNames ? '' : 'ttsResourceId')
-    ..aOM<ASTTranslateVoiceParameters>(10, _omitFieldNames ? '' : 'voice',
+    ..aOS(4, _omitFieldNames ? '' : 'resourceId')
+    ..aOS(5, _omitFieldNames ? '' : 'translationModel')
+    ..aOM<ASTTranslateVoiceParameters>(6, _omitFieldNames ? '' : 'voice',
         subBuilder: ASTTranslateVoiceParameters.create)
-    ..aOS(11, _omitFieldNames ? '' : 'langPair')
+    ..aOS(7, _omitFieldNames ? '' : 'langPair')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -735,87 +723,51 @@ class ASTTranslateWorkflowSpec extends $pb.GeneratedMessage {
   void clearEnableSourceLanguageDetect() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  $core.bool get isCustomSpeaker => $_getBF(2);
+  $1.ASTTranslateMode get mode => $_getN(2);
   @$pb.TagNumber(3)
-  set isCustomSpeaker($core.bool value) => $_setBool(2, value);
+  set mode($1.ASTTranslateMode value) => $_setField(3, value);
   @$pb.TagNumber(3)
-  $core.bool hasIsCustomSpeaker() => $_has(2);
+  $core.bool hasMode() => $_has(2);
   @$pb.TagNumber(3)
-  void clearIsCustomSpeaker() => $_clearField(3);
+  void clearMode() => $_clearField(3);
 
   @$pb.TagNumber(4)
-  $1.ASTTranslateMode get mode => $_getN(3);
+  $core.String get resourceId => $_getSZ(3);
   @$pb.TagNumber(4)
-  set mode($1.ASTTranslateMode value) => $_setField(4, value);
+  set resourceId($core.String value) => $_setString(3, value);
   @$pb.TagNumber(4)
-  $core.bool hasMode() => $_has(3);
+  $core.bool hasResourceId() => $_has(3);
   @$pb.TagNumber(4)
-  void clearMode() => $_clearField(4);
+  void clearResourceId() => $_clearField(4);
 
   @$pb.TagNumber(5)
-  $core.String get resourceId => $_getSZ(4);
+  $core.String get translationModel => $_getSZ(4);
   @$pb.TagNumber(5)
-  set resourceId($core.String value) => $_setString(4, value);
+  set translationModel($core.String value) => $_setString(4, value);
   @$pb.TagNumber(5)
-  $core.bool hasResourceId() => $_has(4);
+  $core.bool hasTranslationModel() => $_has(4);
   @$pb.TagNumber(5)
-  void clearResourceId() => $_clearField(5);
+  void clearTranslationModel() => $_clearField(5);
 
   @$pb.TagNumber(6)
-  $core.String get speakerId => $_getSZ(5);
+  ASTTranslateVoiceParameters get voice => $_getN(5);
   @$pb.TagNumber(6)
-  set speakerId($core.String value) => $_setString(5, value);
+  set voice(ASTTranslateVoiceParameters value) => $_setField(6, value);
   @$pb.TagNumber(6)
-  $core.bool hasSpeakerId() => $_has(5);
+  $core.bool hasVoice() => $_has(5);
   @$pb.TagNumber(6)
-  void clearSpeakerId() => $_clearField(6);
+  void clearVoice() => $_clearField(6);
+  @$pb.TagNumber(6)
+  ASTTranslateVoiceParameters ensureVoice() => $_ensure(5);
 
   @$pb.TagNumber(7)
-  $fixnum.Int64 get speechRate => $_getI64(6);
+  $core.String get langPair => $_getSZ(6);
   @$pb.TagNumber(7)
-  set speechRate($fixnum.Int64 value) => $_setInt64(6, value);
+  set langPair($core.String value) => $_setString(6, value);
   @$pb.TagNumber(7)
-  $core.bool hasSpeechRate() => $_has(6);
+  $core.bool hasLangPair() => $_has(6);
   @$pb.TagNumber(7)
-  void clearSpeechRate() => $_clearField(7);
-
-  @$pb.TagNumber(8)
-  $core.String get translationModel => $_getSZ(7);
-  @$pb.TagNumber(8)
-  set translationModel($core.String value) => $_setString(7, value);
-  @$pb.TagNumber(8)
-  $core.bool hasTranslationModel() => $_has(7);
-  @$pb.TagNumber(8)
-  void clearTranslationModel() => $_clearField(8);
-
-  @$pb.TagNumber(9)
-  $core.String get ttsResourceId => $_getSZ(8);
-  @$pb.TagNumber(9)
-  set ttsResourceId($core.String value) => $_setString(8, value);
-  @$pb.TagNumber(9)
-  $core.bool hasTtsResourceId() => $_has(8);
-  @$pb.TagNumber(9)
-  void clearTtsResourceId() => $_clearField(9);
-
-  @$pb.TagNumber(10)
-  ASTTranslateVoiceParameters get voice => $_getN(9);
-  @$pb.TagNumber(10)
-  set voice(ASTTranslateVoiceParameters value) => $_setField(10, value);
-  @$pb.TagNumber(10)
-  $core.bool hasVoice() => $_has(9);
-  @$pb.TagNumber(10)
-  void clearVoice() => $_clearField(10);
-  @$pb.TagNumber(10)
-  ASTTranslateVoiceParameters ensureVoice() => $_ensure(9);
-
-  @$pb.TagNumber(11)
-  $core.String get langPair => $_getSZ(10);
-  @$pb.TagNumber(11)
-  set langPair($core.String value) => $_setString(10, value);
-  @$pb.TagNumber(11)
-  $core.bool hasLangPair() => $_has(10);
-  @$pb.TagNumber(11)
-  void clearLangPair() => $_clearField(11);
+  void clearLangPair() => $_clearField(7);
 }
 
 class ASTTranslateWorkspaceParameters extends $pb.GeneratedMessage {
@@ -825,13 +777,9 @@ class ASTTranslateWorkspaceParameters extends $pb.GeneratedMessage {
     $core.bool? e2e,
     $core.bool? enableSourceLanguageDetect,
     $1.WorkspaceInputMode? input,
-    $core.bool? isCustomSpeaker,
     $core.String? langPair,
     $1.ASTTranslateMode? mode,
-    $core.String? speakerId,
-    $fixnum.Int64? speechRate,
     $core.String? translationModel,
-    $core.String? ttsResourceId,
     ASTTranslateVoiceParameters? voice,
   }) {
     final result = create();
@@ -841,13 +789,9 @@ class ASTTranslateWorkspaceParameters extends $pb.GeneratedMessage {
     if (enableSourceLanguageDetect != null)
       result.enableSourceLanguageDetect = enableSourceLanguageDetect;
     if (input != null) result.input = input;
-    if (isCustomSpeaker != null) result.isCustomSpeaker = isCustomSpeaker;
     if (langPair != null) result.langPair = langPair;
     if (mode != null) result.mode = mode;
-    if (speakerId != null) result.speakerId = speakerId;
-    if (speechRate != null) result.speechRate = speechRate;
     if (translationModel != null) result.translationModel = translationModel;
-    if (ttsResourceId != null) result.ttsResourceId = ttsResourceId;
     if (voice != null) result.voice = voice;
     return result;
   }
@@ -873,15 +817,11 @@ class ASTTranslateWorkspaceParameters extends $pb.GeneratedMessage {
     ..aOB(4, _omitFieldNames ? '' : 'enableSourceLanguageDetect')
     ..aE<$1.WorkspaceInputMode>(5, _omitFieldNames ? '' : 'input',
         enumValues: $1.WorkspaceInputMode.values)
-    ..aOB(6, _omitFieldNames ? '' : 'isCustomSpeaker')
-    ..aOS(7, _omitFieldNames ? '' : 'langPair')
-    ..aE<$1.ASTTranslateMode>(8, _omitFieldNames ? '' : 'mode',
+    ..aOS(6, _omitFieldNames ? '' : 'langPair')
+    ..aE<$1.ASTTranslateMode>(7, _omitFieldNames ? '' : 'mode',
         enumValues: $1.ASTTranslateMode.values)
-    ..aOS(9, _omitFieldNames ? '' : 'speakerId')
-    ..aInt64(10, _omitFieldNames ? '' : 'speechRate')
-    ..aOS(11, _omitFieldNames ? '' : 'translationModel')
-    ..aOS(12, _omitFieldNames ? '' : 'ttsResourceId')
-    ..aOM<ASTTranslateVoiceParameters>(13, _omitFieldNames ? '' : 'voice',
+    ..aOS(8, _omitFieldNames ? '' : 'translationModel')
+    ..aOM<ASTTranslateVoiceParameters>(9, _omitFieldNames ? '' : 'voice',
         subBuilder: ASTTranslateVoiceParameters.create)
     ..hasRequiredFields = false;
 
@@ -955,78 +895,42 @@ class ASTTranslateWorkspaceParameters extends $pb.GeneratedMessage {
   void clearInput() => $_clearField(5);
 
   @$pb.TagNumber(6)
-  $core.bool get isCustomSpeaker => $_getBF(5);
+  $core.String get langPair => $_getSZ(5);
   @$pb.TagNumber(6)
-  set isCustomSpeaker($core.bool value) => $_setBool(5, value);
+  set langPair($core.String value) => $_setString(5, value);
   @$pb.TagNumber(6)
-  $core.bool hasIsCustomSpeaker() => $_has(5);
+  $core.bool hasLangPair() => $_has(5);
   @$pb.TagNumber(6)
-  void clearIsCustomSpeaker() => $_clearField(6);
+  void clearLangPair() => $_clearField(6);
 
   @$pb.TagNumber(7)
-  $core.String get langPair => $_getSZ(6);
+  $1.ASTTranslateMode get mode => $_getN(6);
   @$pb.TagNumber(7)
-  set langPair($core.String value) => $_setString(6, value);
+  set mode($1.ASTTranslateMode value) => $_setField(7, value);
   @$pb.TagNumber(7)
-  $core.bool hasLangPair() => $_has(6);
+  $core.bool hasMode() => $_has(6);
   @$pb.TagNumber(7)
-  void clearLangPair() => $_clearField(7);
+  void clearMode() => $_clearField(7);
 
   @$pb.TagNumber(8)
-  $1.ASTTranslateMode get mode => $_getN(7);
+  $core.String get translationModel => $_getSZ(7);
   @$pb.TagNumber(8)
-  set mode($1.ASTTranslateMode value) => $_setField(8, value);
+  set translationModel($core.String value) => $_setString(7, value);
   @$pb.TagNumber(8)
-  $core.bool hasMode() => $_has(7);
+  $core.bool hasTranslationModel() => $_has(7);
   @$pb.TagNumber(8)
-  void clearMode() => $_clearField(8);
+  void clearTranslationModel() => $_clearField(8);
 
   @$pb.TagNumber(9)
-  $core.String get speakerId => $_getSZ(8);
+  ASTTranslateVoiceParameters get voice => $_getN(8);
   @$pb.TagNumber(9)
-  set speakerId($core.String value) => $_setString(8, value);
+  set voice(ASTTranslateVoiceParameters value) => $_setField(9, value);
   @$pb.TagNumber(9)
-  $core.bool hasSpeakerId() => $_has(8);
+  $core.bool hasVoice() => $_has(8);
   @$pb.TagNumber(9)
-  void clearSpeakerId() => $_clearField(9);
-
-  @$pb.TagNumber(10)
-  $fixnum.Int64 get speechRate => $_getI64(9);
-  @$pb.TagNumber(10)
-  set speechRate($fixnum.Int64 value) => $_setInt64(9, value);
-  @$pb.TagNumber(10)
-  $core.bool hasSpeechRate() => $_has(9);
-  @$pb.TagNumber(10)
-  void clearSpeechRate() => $_clearField(10);
-
-  @$pb.TagNumber(11)
-  $core.String get translationModel => $_getSZ(10);
-  @$pb.TagNumber(11)
-  set translationModel($core.String value) => $_setString(10, value);
-  @$pb.TagNumber(11)
-  $core.bool hasTranslationModel() => $_has(10);
-  @$pb.TagNumber(11)
-  void clearTranslationModel() => $_clearField(11);
-
-  @$pb.TagNumber(12)
-  $core.String get ttsResourceId => $_getSZ(11);
-  @$pb.TagNumber(12)
-  set ttsResourceId($core.String value) => $_setString(11, value);
-  @$pb.TagNumber(12)
-  $core.bool hasTtsResourceId() => $_has(11);
-  @$pb.TagNumber(12)
-  void clearTtsResourceId() => $_clearField(12);
-
-  @$pb.TagNumber(13)
-  ASTTranslateVoiceParameters get voice => $_getN(12);
-  @$pb.TagNumber(13)
-  set voice(ASTTranslateVoiceParameters value) => $_setField(13, value);
-  @$pb.TagNumber(13)
-  $core.bool hasVoice() => $_has(12);
-  @$pb.TagNumber(13)
-  void clearVoice() => $_clearField(13);
-  @$pb.TagNumber(13)
-  ASTTranslateVoiceParameters ensureVoice() => $_ensure(12);
+  void clearVoice() => $_clearField(9);
+  @$pb.TagNumber(9)
+  ASTTranslateVoiceParameters ensureVoice() => $_ensure(8);
 }
 
 class ChatRoomWorkflowHistorySpec extends $pb.GeneratedMessage {
@@ -3841,17 +3745,17 @@ class Model extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'Model',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOS(13, _omitFieldNames ? '' : 'alias')
-    ..m<$core.String, AliasI18nText>(14, _omitFieldNames ? '' : 'i18n',
+    ..aOS(1, _omitFieldNames ? '' : 'alias')
+    ..m<$core.String, AliasI18nText>(2, _omitFieldNames ? '' : 'i18n',
         entryClassName: 'Model.I18nEntry',
         keyFieldType: $pb.PbFieldType.OS,
         valueFieldType: $pb.PbFieldType.OM,
         valueCreator: AliasI18nText.create,
         valueDefaultOrMaker: AliasI18nText.getDefault,
         packageName: const $pb.PackageName('gizclaw.rpc.v1'))
-    ..aE<$1.ModelKind>(15, _omitFieldNames ? '' : 'kind',
+    ..aE<$1.ModelKind>(3, _omitFieldNames ? '' : 'kind',
         enumValues: $1.ModelKind.values)
-    ..aOM<ModelCapabilities>(16, _omitFieldNames ? '' : 'capabilities',
+    ..aOM<ModelCapabilities>(4, _omitFieldNames ? '' : 'capabilities',
         subBuilder: ModelCapabilities.create)
     ..hasRequiredFields = false;
 
@@ -3873,36 +3777,36 @@ class Model extends $pb.GeneratedMessage {
       _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Model>(create);
   static Model? _defaultInstance;
 
-  @$pb.TagNumber(13)
+  @$pb.TagNumber(1)
   $core.String get alias => $_getSZ(0);
-  @$pb.TagNumber(13)
+  @$pb.TagNumber(1)
   set alias($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(13)
+  @$pb.TagNumber(1)
   $core.bool hasAlias() => $_has(0);
-  @$pb.TagNumber(13)
-  void clearAlias() => $_clearField(13);
+  @$pb.TagNumber(1)
+  void clearAlias() => $_clearField(1);
 
-  @$pb.TagNumber(14)
+  @$pb.TagNumber(2)
   $pb.PbMap<$core.String, AliasI18nText> get i18n => $_getMap(1);
 
-  @$pb.TagNumber(15)
+  @$pb.TagNumber(3)
   $1.ModelKind get kind => $_getN(2);
-  @$pb.TagNumber(15)
-  set kind($1.ModelKind value) => $_setField(15, value);
-  @$pb.TagNumber(15)
+  @$pb.TagNumber(3)
+  set kind($1.ModelKind value) => $_setField(3, value);
+  @$pb.TagNumber(3)
   $core.bool hasKind() => $_has(2);
-  @$pb.TagNumber(15)
-  void clearKind() => $_clearField(15);
+  @$pb.TagNumber(3)
+  void clearKind() => $_clearField(3);
 
-  @$pb.TagNumber(16)
+  @$pb.TagNumber(4)
   ModelCapabilities get capabilities => $_getN(3);
-  @$pb.TagNumber(16)
-  set capabilities(ModelCapabilities value) => $_setField(16, value);
-  @$pb.TagNumber(16)
+  @$pb.TagNumber(4)
+  set capabilities(ModelCapabilities value) => $_setField(4, value);
+  @$pb.TagNumber(4)
   $core.bool hasCapabilities() => $_has(3);
-  @$pb.TagNumber(16)
-  void clearCapabilities() => $_clearField(16);
-  @$pb.TagNumber(16)
+  @$pb.TagNumber(4)
+  void clearCapabilities() => $_clearField(4);
+  @$pb.TagNumber(4)
   ModelCapabilities ensureCapabilities() => $_ensure(3);
 }
 
@@ -4444,8 +4348,8 @@ class Voice extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'Voice',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOS(10, _omitFieldNames ? '' : 'alias')
-    ..m<$core.String, AliasI18nText>(11, _omitFieldNames ? '' : 'i18n',
+    ..aOS(1, _omitFieldNames ? '' : 'alias')
+    ..m<$core.String, AliasI18nText>(2, _omitFieldNames ? '' : 'i18n',
         entryClassName: 'Voice.I18nEntry',
         keyFieldType: $pb.PbFieldType.OS,
         valueFieldType: $pb.PbFieldType.OM,
@@ -4472,16 +4376,16 @@ class Voice extends $pb.GeneratedMessage {
       _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Voice>(create);
   static Voice? _defaultInstance;
 
-  @$pb.TagNumber(10)
+  @$pb.TagNumber(1)
   $core.String get alias => $_getSZ(0);
-  @$pb.TagNumber(10)
+  @$pb.TagNumber(1)
   set alias($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(10)
+  @$pb.TagNumber(1)
   $core.bool hasAlias() => $_has(0);
-  @$pb.TagNumber(10)
-  void clearAlias() => $_clearField(10);
+  @$pb.TagNumber(1)
+  void clearAlias() => $_clearField(1);
 
-  @$pb.TagNumber(11)
+  @$pb.TagNumber(2)
   $pb.PbMap<$core.String, AliasI18nText> get i18n => $_getMap(1);
 }
 
@@ -4815,18 +4719,18 @@ class Workflow extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'Workflow',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOS(6, _omitFieldNames ? '' : 'alias')
-    ..m<$core.String, AliasI18nText>(7, _omitFieldNames ? '' : 'i18n',
+    ..aOS(1, _omitFieldNames ? '' : 'alias')
+    ..m<$core.String, AliasI18nText>(2, _omitFieldNames ? '' : 'i18n',
         entryClassName: 'Workflow.I18nEntry',
         keyFieldType: $pb.PbFieldType.OS,
         valueFieldType: $pb.PbFieldType.OM,
         valueCreator: AliasI18nText.create,
         valueDefaultOrMaker: AliasI18nText.getDefault,
         packageName: const $pb.PackageName('gizclaw.rpc.v1'))
-    ..aOS(8, _omitFieldNames ? '' : 'collection')
-    ..aE<$1.WorkflowDriver>(9, _omitFieldNames ? '' : 'driver',
+    ..aOS(3, _omitFieldNames ? '' : 'collection')
+    ..aE<$1.WorkflowDriver>(4, _omitFieldNames ? '' : 'driver',
         enumValues: $1.WorkflowDriver.values)
-    ..aOS(10, _omitFieldNames ? '' : 'workspaceLangPair')
+    ..aOS(5, _omitFieldNames ? '' : 'workspaceLangPair')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -4847,44 +4751,44 @@ class Workflow extends $pb.GeneratedMessage {
       _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Workflow>(create);
   static Workflow? _defaultInstance;
 
-  @$pb.TagNumber(6)
+  @$pb.TagNumber(1)
   $core.String get alias => $_getSZ(0);
-  @$pb.TagNumber(6)
+  @$pb.TagNumber(1)
   set alias($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(6)
+  @$pb.TagNumber(1)
   $core.bool hasAlias() => $_has(0);
-  @$pb.TagNumber(6)
-  void clearAlias() => $_clearField(6);
+  @$pb.TagNumber(1)
+  void clearAlias() => $_clearField(1);
 
-  @$pb.TagNumber(7)
+  @$pb.TagNumber(2)
   $pb.PbMap<$core.String, AliasI18nText> get i18n => $_getMap(1);
 
-  @$pb.TagNumber(8)
+  @$pb.TagNumber(3)
   $core.String get collection => $_getSZ(2);
-  @$pb.TagNumber(8)
+  @$pb.TagNumber(3)
   set collection($core.String value) => $_setString(2, value);
-  @$pb.TagNumber(8)
+  @$pb.TagNumber(3)
   $core.bool hasCollection() => $_has(2);
-  @$pb.TagNumber(8)
-  void clearCollection() => $_clearField(8);
+  @$pb.TagNumber(3)
+  void clearCollection() => $_clearField(3);
 
-  @$pb.TagNumber(9)
+  @$pb.TagNumber(4)
   $1.WorkflowDriver get driver => $_getN(3);
-  @$pb.TagNumber(9)
-  set driver($1.WorkflowDriver value) => $_setField(9, value);
-  @$pb.TagNumber(9)
+  @$pb.TagNumber(4)
+  set driver($1.WorkflowDriver value) => $_setField(4, value);
+  @$pb.TagNumber(4)
   $core.bool hasDriver() => $_has(3);
-  @$pb.TagNumber(9)
-  void clearDriver() => $_clearField(9);
+  @$pb.TagNumber(4)
+  void clearDriver() => $_clearField(4);
 
-  @$pb.TagNumber(10)
+  @$pb.TagNumber(5)
   $core.String get workspaceLangPair => $_getSZ(4);
-  @$pb.TagNumber(10)
+  @$pb.TagNumber(5)
   set workspaceLangPair($core.String value) => $_setString(4, value);
-  @$pb.TagNumber(10)
+  @$pb.TagNumber(5)
   $core.bool hasWorkspaceLangPair() => $_has(4);
-  @$pb.TagNumber(10)
-  void clearWorkspaceLangPair() => $_clearField(10);
+  @$pb.TagNumber(5)
+  void clearWorkspaceLangPair() => $_clearField(5);
 }
 
 class WorkflowGetRequest extends $pb.GeneratedMessage {

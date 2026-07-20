@@ -57,15 +57,11 @@ message ASTTranslateVoiceParameters {
 message ASTTranslateWorkflowSpec {
   optional bool denoise = 1;
   optional bool enable_source_language_detect = 2;
-  optional bool is_custom_speaker = 3;
-  optional ASTTranslateMode mode = 4;
-  optional string resource_id = 5;
-  optional string speaker_id = 6;
-  optional int64 speech_rate = 7;
-  string translation_model = 8;
-  optional string tts_resource_id = 9;
-  optional ASTTranslateVoiceParameters voice = 10;
-  optional string lang_pair = 11;
+  optional ASTTranslateMode mode = 3;
+  optional string resource_id = 4;
+  string translation_model = 5;
+  optional ASTTranslateVoiceParameters voice = 6;
+  optional string lang_pair = 7;
 }
 
 message ASTTranslateWorkspaceParameters {
@@ -74,14 +70,10 @@ message ASTTranslateWorkspaceParameters {
   optional bool e2e = 3;
   optional bool enable_source_language_detect = 4;
   optional WorkspaceInputMode input = 5;
-  optional bool is_custom_speaker = 6;
-  optional string lang_pair = 7;
-  optional ASTTranslateMode mode = 8;
-  optional string speaker_id = 9;
-  optional int64 speech_rate = 10;
-  optional string translation_model = 11;
-  optional string tts_resource_id = 12;
-  optional ASTTranslateVoiceParameters voice = 13;
+  optional string lang_pair = 6;
+  optional ASTTranslateMode mode = 7;
+  optional string translation_model = 8;
+  optional ASTTranslateVoiceParameters voice = 9;
 }
 
 message ChatRoomWorkflowHistorySpec {
@@ -288,11 +280,10 @@ message PetWorkspaceParameters {
 }
 
 message Model {
-  reserved 1 to 12;
-  string alias = 13;
-  map<string, AliasI18nText> i18n = 14;
-  ModelKind kind = 15;
-  optional ModelCapabilities capabilities = 16;
+  string alias = 1;
+  map<string, AliasI18nText> i18n = 2;
+  ModelKind kind = 3;
+  optional ModelCapabilities capabilities = 4;
 }
 
 message ModelCapabilities {
@@ -336,9 +327,8 @@ message ModelThinkingCapability {
 }
 
 message Voice {
-  reserved 1 to 9;
-  string alias = 10;
-  map<string, AliasI18nText> i18n = 11;
+  string alias = 1;
+  map<string, AliasI18nText> i18n = 2;
 }
 
 message VoiceGetRequest {
@@ -365,17 +355,15 @@ message VoiceListResponse {
 }
 
 message Workflow {
-  reserved 1 to 5;
-  string alias = 6;
-  map<string, AliasI18nText> i18n = 7;
-  string collection = 8;
-  WorkflowDriver driver = 9;
-  optional string workspace_lang_pair = 10;
+  string alias = 1;
+  map<string, AliasI18nText> i18n = 2;
+  string collection = 3;
+  WorkflowDriver driver = 4;
+  optional string workspace_lang_pair = 5;
 }
 
 message WorkflowGetRequest {
   string alias = 1;
-  reserved 2, 3;
 }
 
 message WorkflowGetResponse {
@@ -388,7 +376,6 @@ message WorkflowListRequest {
   optional string cursor = 1;
   optional int64 limit = 2;
   string collection = 3;
-  reserved 4;
 }
 
 message WorkflowListResponse {

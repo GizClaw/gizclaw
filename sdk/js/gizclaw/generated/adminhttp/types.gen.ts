@@ -1936,13 +1936,6 @@ export type AstTranslateWorkflowSpec = {
     lang_pair?: string;
     mode?: AstTranslateMode;
     voice?: AstTranslateVoiceParameters;
-    /**
-     * Deprecated compatibility field. Prefer voice.speaker_id.
-     */
-    speaker_id?: string;
-    is_custom_speaker?: boolean;
-    tts_resource_id?: string;
-    speech_rate?: number;
     enable_source_language_detect?: boolean;
     denoise?: boolean;
     resource_id?: string;
@@ -2161,13 +2154,6 @@ export type AstTranslateWorkspaceParameters = {
      */
     lang_pair?: string;
     voice?: WorkspaceParametersAstTranslateVoiceParameters;
-    /**
-     * Deprecated compatibility field. Prefer voice.speaker_id.
-     */
-    speaker_id?: string;
-    is_custom_speaker?: boolean;
-    tts_resource_id?: string;
-    speech_rate?: number;
     enable_source_language_detect?: boolean;
     denoise?: boolean;
     /**

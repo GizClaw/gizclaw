@@ -895,10 +895,10 @@ int main(void) {
   if (expect(method_id == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING, "request method id value") != 0) {
     return 1;
   }
-  if (expect(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD == 105, "pet pixa method id value") != 0) {
+  if (expect(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD == 89, "pet pixa method id value") != 0) {
     return 1;
   }
-  if (expect(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD == 79, "badge pixa method id value") != 0) {
+  if (expect(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD == 66, "badge pixa method id value") != 0) {
     return 1;
   }
 

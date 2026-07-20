@@ -186,9 +186,8 @@ message ServerReloadRunWorkspaceResponse {
 }
 
 message ServerRunSayRequest {
-  reserved 1, 2;
-  string text = 3;
-  string voice_alias = 4;
+  string text = 1;
+  string voice_alias = 2;
 }
 
 message ServerRunSayResponse {
@@ -237,17 +236,15 @@ message Workspace {
   bool system = 8;
   optional Icon icon = 9;
   optional string owner_public_key = 10;
-  reserved 11;
-  bool available = 12;
+  bool available = 11;
 }
 
 message WorkspaceCreateBody {
-  string name = 3;
-  optional WorkspaceParameters parameters = 4;
-  string workflow_alias = 6;
-  optional ToolkitPolicy toolkit = 7;
-  reserved 11;
-  string collection = 12;
+  string name = 1;
+  optional WorkspaceParameters parameters = 2;
+  string workflow_alias = 3;
+  optional ToolkitPolicy toolkit = 4;
+  string collection = 5;
 }
 
 message WorkspacePutBody {

@@ -630,8 +630,8 @@ extern "C" {
 #define gizclaw_rpc_v1_ServerPlayRunWorkspaceHistoryResponse_value_tag 1
 #define gizclaw_rpc_v1_ServerReloadRunResponse_value_tag 1
 #define gizclaw_rpc_v1_ServerReloadRunWorkspaceResponse_value_tag 1
-#define gizclaw_rpc_v1_ServerRunSayRequest_text_tag 3
-#define gizclaw_rpc_v1_ServerRunSayRequest_voice_alias_tag 4
+#define gizclaw_rpc_v1_ServerRunSayRequest_text_tag 1
+#define gizclaw_rpc_v1_ServerRunSayRequest_voice_alias_tag 2
 #define gizclaw_rpc_v1_ServerRunSayResponse_accepted_tag 1
 #define gizclaw_rpc_v1_ServerRunWorkspaceRecallRequest_value_tag 1
 #define gizclaw_rpc_v1_ServerRunWorkspaceRecallResponse_value_tag 1
@@ -685,12 +685,12 @@ extern "C" {
 #define gizclaw_rpc_v1_Workspace_system_tag      8
 #define gizclaw_rpc_v1_Workspace_icon_tag        9
 #define gizclaw_rpc_v1_Workspace_owner_public_key_tag 10
-#define gizclaw_rpc_v1_Workspace_available_tag   12
-#define gizclaw_rpc_v1_WorkspaceCreateBody_name_tag 3
-#define gizclaw_rpc_v1_WorkspaceCreateBody_parameters_tag 4
-#define gizclaw_rpc_v1_WorkspaceCreateBody_workflow_alias_tag 6
-#define gizclaw_rpc_v1_WorkspaceCreateBody_toolkit_tag 7
-#define gizclaw_rpc_v1_WorkspaceCreateBody_collection_tag 12
+#define gizclaw_rpc_v1_Workspace_available_tag   11
+#define gizclaw_rpc_v1_WorkspaceCreateBody_name_tag 1
+#define gizclaw_rpc_v1_WorkspaceCreateBody_parameters_tag 2
+#define gizclaw_rpc_v1_WorkspaceCreateBody_workflow_alias_tag 3
+#define gizclaw_rpc_v1_WorkspaceCreateBody_toolkit_tag 4
+#define gizclaw_rpc_v1_WorkspaceCreateBody_collection_tag 5
 #define gizclaw_rpc_v1_WorkspacePutBody_parameters_tag 4
 #define gizclaw_rpc_v1_WorkspacePutBody_toolkit_tag 7
 #define gizclaw_rpc_v1_WorkspaceCreateRequest_value_tag 1
@@ -936,8 +936,8 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
 #define gizclaw_rpc_v1_ServerReloadRunWorkspaceResponse_value_MSGTYPE gizclaw_rpc_v1_PeerRunWorkspaceState
 
 #define gizclaw_rpc_v1_ServerRunSayRequest_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   text,              3) \
-X(a, CALLBACK, SINGULAR, STRING,   voice_alias,       4)
+X(a, CALLBACK, SINGULAR, STRING,   text,              1) \
+X(a, CALLBACK, SINGULAR, STRING,   voice_alias,       2)
 #define gizclaw_rpc_v1_ServerRunSayRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_ServerRunSayRequest_DEFAULT NULL
 
@@ -1004,7 +1004,7 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  toolkit,           7) \
 X(a, STATIC,   SINGULAR, BOOL,     system,            8) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  icon,              9) \
 X(a, STATIC,   OPTIONAL, STRING,   owner_public_key,  10) \
-X(a, STATIC,   SINGULAR, BOOL,     available,        12)
+X(a, STATIC,   SINGULAR, BOOL,     available,        11)
 #define gizclaw_rpc_v1_Workspace_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_Workspace_DEFAULT NULL
 #define gizclaw_rpc_v1_Workspace_parameters_MSGTYPE gizclaw_rpc_v1_WorkspaceParameters
@@ -1012,11 +1012,11 @@ X(a, STATIC,   SINGULAR, BOOL,     available,        12)
 #define gizclaw_rpc_v1_Workspace_icon_MSGTYPE gizclaw_rpc_v1_Icon
 
 #define gizclaw_rpc_v1_WorkspaceCreateBody_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   name,              3) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  parameters,        4) \
-X(a, CALLBACK, SINGULAR, STRING,   workflow_alias,    6) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  toolkit,           7) \
-X(a, CALLBACK, SINGULAR, STRING,   collection,       12)
+X(a, CALLBACK, SINGULAR, STRING,   name,              1) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  parameters,        2) \
+X(a, CALLBACK, SINGULAR, STRING,   workflow_alias,    3) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  toolkit,           4) \
+X(a, CALLBACK, SINGULAR, STRING,   collection,        5)
 #define gizclaw_rpc_v1_WorkspaceCreateBody_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_WorkspaceCreateBody_DEFAULT NULL
 #define gizclaw_rpc_v1_WorkspaceCreateBody_parameters_MSGTYPE gizclaw_rpc_v1_WorkspaceParameters

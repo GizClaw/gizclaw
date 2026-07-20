@@ -976,19 +976,15 @@ final $typed_data.Uint8List serverReloadRunWorkspaceResponseDescriptor =
 const ServerRunSayRequest$json = {
   '1': 'ServerRunSayRequest',
   '2': [
-    {'1': 'text', '3': 3, '4': 1, '5': 9, '10': 'text'},
-    {'1': 'voice_alias', '3': 4, '4': 1, '5': 9, '10': 'voiceAlias'},
-  ],
-  '9': [
-    {'1': 1, '2': 2},
-    {'1': 2, '2': 3},
+    {'1': 'text', '3': 1, '4': 1, '5': 9, '10': 'text'},
+    {'1': 'voice_alias', '3': 2, '4': 1, '5': 9, '10': 'voiceAlias'},
   ],
 };
 
 /// Descriptor for `ServerRunSayRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List serverRunSayRequestDescriptor = $convert.base64Decode(
-    'ChNTZXJ2ZXJSdW5TYXlSZXF1ZXN0EhIKBHRleHQYAyABKAlSBHRleHQSHwoLdm9pY2VfYWxpYX'
-    'MYBCABKAlSCnZvaWNlQWxpYXNKBAgBEAJKBAgCEAM=');
+    'ChNTZXJ2ZXJSdW5TYXlSZXF1ZXN0EhIKBHRleHQYASABKAlSBHRleHQSHwoLdm9pY2VfYWxpYX'
+    'MYAiABKAlSCnZvaWNlQWxpYXM=');
 
 @$core.Deprecated('Use serverRunSayResponseDescriptor instead')
 const ServerRunSayResponse$json = {
@@ -1207,16 +1203,13 @@ const Workspace$json = {
       '10': 'ownerPublicKey',
       '17': true
     },
-    {'1': 'available', '3': 12, '4': 1, '5': 8, '10': 'available'},
+    {'1': 'available', '3': 11, '4': 1, '5': 8, '10': 'available'},
   ],
   '8': [
     {'1': '_parameters'},
     {'1': '_toolkit'},
     {'1': '_icon'},
     {'1': '_owner_public_key'},
-  ],
-  '9': [
-    {'1': 11, '2': 12},
   ],
 };
 
@@ -1229,18 +1222,18 @@ final $typed_data.Uint8List workspaceDescriptor = $convert.base64Decode(
     'cxgGIAEoCVINd29ya2Zsb3dBbGlhcxI8Cgd0b29sa2l0GAcgASgLMh0uZ2l6Y2xhdy5ycGMudj'
     'EuVG9vbGtpdFBvbGljeUgBUgd0b29sa2l0iAEBEhYKBnN5c3RlbRgIIAEoCFIGc3lzdGVtEi0K'
     'BGljb24YCSABKAsyFC5naXpjbGF3LnJwYy52MS5JY29uSAJSBGljb26IAQESLQoQb3duZXJfcH'
-    'VibGljX2tleRgKIAEoCUgDUg5vd25lclB1YmxpY0tleYgBARIcCglhdmFpbGFibGUYDCABKAhS'
+    'VibGljX2tleRgKIAEoCUgDUg5vd25lclB1YmxpY0tleYgBARIcCglhdmFpbGFibGUYCyABKAhS'
     'CWF2YWlsYWJsZUINCgtfcGFyYW1ldGVyc0IKCghfdG9vbGtpdEIHCgVfaWNvbkITChFfb3duZX'
-    'JfcHVibGljX2tleUoECAsQDA==');
+    'JfcHVibGljX2tleQ==');
 
 @$core.Deprecated('Use workspaceCreateBodyDescriptor instead')
 const WorkspaceCreateBody$json = {
   '1': 'WorkspaceCreateBody',
   '2': [
-    {'1': 'name', '3': 3, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
     {
       '1': 'parameters',
-      '3': 4,
+      '3': 2,
       '4': 1,
       '5': 11,
       '6': '.gizclaw.rpc.v1.WorkspaceParameters',
@@ -1248,10 +1241,10 @@ const WorkspaceCreateBody$json = {
       '10': 'parameters',
       '17': true
     },
-    {'1': 'workflow_alias', '3': 6, '4': 1, '5': 9, '10': 'workflowAlias'},
+    {'1': 'workflow_alias', '3': 3, '4': 1, '5': 9, '10': 'workflowAlias'},
     {
       '1': 'toolkit',
-      '3': 7,
+      '3': 4,
       '4': 1,
       '5': 11,
       '6': '.gizclaw.rpc.v1.ToolkitPolicy',
@@ -1259,25 +1252,21 @@ const WorkspaceCreateBody$json = {
       '10': 'toolkit',
       '17': true
     },
-    {'1': 'collection', '3': 12, '4': 1, '5': 9, '10': 'collection'},
+    {'1': 'collection', '3': 5, '4': 1, '5': 9, '10': 'collection'},
   ],
   '8': [
     {'1': '_parameters'},
     {'1': '_toolkit'},
   ],
-  '9': [
-    {'1': 11, '2': 12},
-  ],
 };
 
 /// Descriptor for `WorkspaceCreateBody`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List workspaceCreateBodyDescriptor = $convert.base64Decode(
-    'ChNXb3Jrc3BhY2VDcmVhdGVCb2R5EhIKBG5hbWUYAyABKAlSBG5hbWUSSAoKcGFyYW1ldGVycx'
-    'gEIAEoCzIjLmdpemNsYXcucnBjLnYxLldvcmtzcGFjZVBhcmFtZXRlcnNIAFIKcGFyYW1ldGVy'
-    'c4gBARIlCg53b3JrZmxvd19hbGlhcxgGIAEoCVINd29ya2Zsb3dBbGlhcxI8Cgd0b29sa2l0GA'
-    'cgASgLMh0uZ2l6Y2xhdy5ycGMudjEuVG9vbGtpdFBvbGljeUgBUgd0b29sa2l0iAEBEh4KCmNv'
-    'bGxlY3Rpb24YDCABKAlSCmNvbGxlY3Rpb25CDQoLX3BhcmFtZXRlcnNCCgoIX3Rvb2xraXRKBA'
-    'gLEAw=');
+    'ChNXb3Jrc3BhY2VDcmVhdGVCb2R5EhIKBG5hbWUYASABKAlSBG5hbWUSSAoKcGFyYW1ldGVycx'
+    'gCIAEoCzIjLmdpemNsYXcucnBjLnYxLldvcmtzcGFjZVBhcmFtZXRlcnNIAFIKcGFyYW1ldGVy'
+    'c4gBARIlCg53b3JrZmxvd19hbGlhcxgDIAEoCVINd29ya2Zsb3dBbGlhcxI8Cgd0b29sa2l0GA'
+    'QgASgLMh0uZ2l6Y2xhdy5ycGMudjEuVG9vbGtpdFBvbGljeUgBUgd0b29sa2l0iAEBEh4KCmNv'
+    'bGxlY3Rpb24YBSABKAlSCmNvbGxlY3Rpb25CDQoLX3BhcmFtZXRlcnNCCgoIX3Rvb2xraXQ=');
 
 @$core.Deprecated('Use workspacePutBodyDescriptor instead')
 const WorkspacePutBody$json = {

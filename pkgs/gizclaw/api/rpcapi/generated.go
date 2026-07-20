@@ -994,19 +994,16 @@ type ASTTranslateVoiceParameters struct {
 
 // ASTTranslateWorkflowSpec defines model for ASTTranslateWorkflowSpec.
 type ASTTranslateWorkflowSpec struct {
-	Denoise                    *bool             `json:"denoise,omitempty"`
-	EnableSourceLanguageDetect *bool             `json:"enable_source_language_detect,omitempty"`
-	IsCustomSpeaker            *bool             `json:"is_custom_speaker,omitempty"`
-	Mode                       *ASTTranslateMode `json:"mode,omitempty"`
-	ResourceId                 *string           `json:"resource_id,omitempty"`
+	Denoise                    *bool `json:"denoise,omitempty"`
+	EnableSourceLanguageDetect *bool `json:"enable_source_language_detect,omitempty"`
 
-	// SpeakerId Deprecated compatibility field. Prefer voice.speaker_id.
-	SpeakerId  *string `json:"speaker_id,omitempty"`
-	SpeechRate *int    `json:"speech_rate,omitempty"`
+	// LangPair Default Workspace language pair projected to clients, for example zh/ja or auto.
+	LangPair   *string           `json:"lang_pair,omitempty"`
+	Mode       *ASTTranslateMode `json:"mode,omitempty"`
+	ResourceId *string           `json:"resource_id,omitempty"`
 
-	// TranslationModel GizClaw model resource used to resolve the Volc tenant credential for AST translate.
+	// TranslationModel RuntimeProfile translation Model alias resolved when the Workspace reloads.
 	TranslationModel string                       `json:"translation_model"`
-	TtsResourceId    *string                      `json:"tts_resource_id,omitempty"`
 	Voice            *ASTTranslateVoiceParameters `json:"voice,omitempty"`
 }
 
@@ -1019,17 +1016,12 @@ type ASTTranslateWorkspaceParameters struct {
 	E2e                        *bool               `json:"e2e,omitempty"`
 	EnableSourceLanguageDetect *bool               `json:"enable_source_language_detect,omitempty"`
 	Input                      *WorkspaceInputMode `json:"input,omitempty"`
-	IsCustomSpeaker            *bool               `json:"is_custom_speaker,omitempty"`
 
 	// LangPair AST language pair, for example zh/en or en/zh. Use auto for automatic Chinese/English mode.
 	LangPair *string           `json:"lang_pair,omitempty"`
 	Mode     *ASTTranslateMode `json:"mode,omitempty"`
 
-	// SpeakerId Deprecated compatibility field. Prefer voice.speaker_id.
-	SpeakerId        *string                      `json:"speaker_id,omitempty"`
-	SpeechRate       *int                         `json:"speech_rate,omitempty"`
 	TranslationModel *string                      `json:"translation_model,omitempty"`
-	TtsResourceId    *string                      `json:"tts_resource_id,omitempty"`
 	Voice            *ASTTranslateVoiceParameters `json:"voice,omitempty"`
 }
 
