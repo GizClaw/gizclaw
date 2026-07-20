@@ -11,13 +11,13 @@ require (
 	github.com/GizClaw/flowcraft/sdkx v0.4.10
 	github.com/GizClaw/minimax-go v0.0.0-20260625231851-7a1c8a1f2111
 	github.com/coder/websocket v1.8.15
-	github.com/dgraph-io/badger/v4 v4.9.1
-	github.com/felixge/httpsnoop v1.0.4
+	github.com/dgraph-io/badger/v4 v4.9.4
+	github.com/felixge/httpsnoop v1.1.0
 	github.com/goccy/go-yaml v1.19.2
 	github.com/gofiber/fiber/v2 v2.52.14
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/snappy v1.0.0
-	github.com/google/jsonschema-go v0.4.2
+	github.com/google/jsonschema-go v0.4.3
 	github.com/googleapis/gax-go/v2 v2.22.0
 	github.com/hajimehoshi/go-mp3 v0.3.4
 	github.com/jmoiron/sqlx v1.4.0
@@ -38,14 +38,14 @@ require (
 	github.com/tphakala/go-audio-resampling v0.0.0-20251123212058-a9dde25e8eea
 	github.com/valyala/fasthttp v1.51.0
 	github.com/volcengine/volc-sdk-golang v1.0.246
-	github.com/volcengine/volcengine-go-sdk v1.2.14
+	github.com/volcengine/volcengine-go-sdk v1.2.43
 	golang.org/x/crypto v0.53.0
 	golang.org/x/sync v0.21.0
 	gonum.org/v1/gonum v0.17.0
 	google.golang.org/genai v1.42.0
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/yaml.v3 v3.0.1
-	modernc.org/sqlite v1.50.1
+	modernc.org/sqlite v1.54.0
 )
 
 require (
@@ -186,19 +186,19 @@ require (
 	go.opentelemetry.io/proto/otlp v1.10.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/exp v0.0.0-20260218203240-3dfff04db8fa // indirect
-	golang.org/x/mod v0.36.0 // indirect
+	golang.org/x/mod v0.37.0 // indirect
 	golang.org/x/net v0.56.0 // indirect
 	golang.org/x/sys v0.46.0 // indirect
 	golang.org/x/text v0.38.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
-	golang.org/x/tools v0.45.0 // indirect
+	golang.org/x/tools v0.47.0 // indirect
 	google.golang.org/api v0.278.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260615183401-62b3387ff324 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260610212136-7ab31c22f7ad // indirect
 	google.golang.org/grpc v1.81.1 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	modernc.org/libc v1.72.3 // indirect
+	modernc.org/libc v1.74.1 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
 )
