@@ -406,6 +406,7 @@ class GizClawConnectionController extends ChangeNotifier {
       );
       rethrow;
     }
+    await _prepareAudioOutput();
   }
 
   void _setMicrophoneStatus(MicrophoneStatus status) {
@@ -576,10 +577,8 @@ Future<void> _prepareAudioPlayback(
 }
 
 Future<void> _defaultPrepareAudioOutput() async {
-  if (Platform.isAndroid) {
+  if (Platform.isAndroid || Platform.isIOS) {
     await rtc.Helper.setSpeakerphoneOnButPreferBluetooth();
-  } else if (Platform.isIOS) {
-    await _applyAppleAudioSessionConfiguration();
   }
 }
 

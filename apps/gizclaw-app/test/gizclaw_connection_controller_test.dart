@@ -84,6 +84,7 @@ void main() {
       rtc.MediaStream? offeredStream;
       bool? enabledWhenOffered;
       final sendingStates = <bool>[];
+      final routeTrackStates = <bool>[];
       final controller = _controller(
         acquire: () async => stream,
         configureMicrophoneSending: (_, _) async => (active) async {
@@ -103,6 +104,9 @@ void main() {
                   .enabled;
               return _FakePeerConnection();
             },
+        prepareAudioOutput: () async {
+          routeTrackStates.add(track.enabled);
+        },
       );
       addTearDown(controller.close);
       final statuses = <MicrophoneStatus>[];
@@ -114,6 +118,7 @@ void main() {
       expect(enabledWhenOffered, isFalse);
       expect(track.enabled, isFalse);
       expect(sendingStates, [false]);
+      expect(routeTrackStates, [false]);
       expect(controller.microphoneTrack, same(track));
       expect(controller.microphoneStatus, const MicrophoneStatus.ready());
       expect(statuses, [
@@ -126,6 +131,7 @@ void main() {
       await controller.setMicrophoneSending(false);
       expect(track.enabled, isFalse);
       expect(sendingStates, [false, true, false]);
+      expect(routeTrackStates, [false, true, false]);
     },
   );
 
