@@ -168,6 +168,22 @@ test("parseRPCResponse decodes framed protobuf responses", () => {
   assert.deepEqual(response, { id: "req-low", result: { server_time: 77 }, v: 1 });
 });
 
+test("RPC payload codec preserves optional registration firmware release line", () => {
+  const payload = encodeRPCResponsePayload("server.register", {
+    runtime_profile_name: "h106-production",
+    firmware_id: "h106",
+  });
+
+  const decoded = decodeRPCResponsePayload("server.register", payload) as {
+    runtime_profile_name?: string;
+    firmware_id?: string;
+  };
+  assert.deepEqual(decoded, {
+    runtime_profile_name: "h106-production",
+    firmware_id: "h106",
+  });
+});
+
 test("RPC payload codec selects workspace oneofs from discriminators", () => {
   const payload = encodeRPCRequestPayload("server.workspace.create", {
     created_at: "now",

@@ -1000,6 +1000,7 @@ export type ServerRegisterRequest = {
 };
 export type ServerRegisterResponse = {
   "runtime_profile_name": string;
+  "firmware_id"?: string;
 };
 export type ServerReloadRunRequest = Record<string, never>;
 export type ServerReloadRunResponse = PeerRunStatus;
@@ -5795,6 +5796,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "runtime_profile_name",
         "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "firmware_id",
+        "number": 2,
+        "optional": true,
         "type": "string"
       }
     ]

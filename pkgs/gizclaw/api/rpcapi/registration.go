@@ -8,6 +8,7 @@ type ServerRegisterRequest struct {
 
 type ServerRegisterResponse struct {
 	RuntimeProfileName string
+	FirmwareID         *string
 }
 
 func (t RPCPayload) AsServerRegisterRequest() (ServerRegisterRequest, error) {
@@ -27,13 +28,19 @@ func (t RPCPayload) AsServerRegisterResponse() (ServerRegisterResponse, error) {
 	if err := t.decode("ServerRegisterResponse", &value); err != nil {
 		return ServerRegisterResponse{}, err
 	}
-	return ServerRegisterResponse{
+	response := ServerRegisterResponse{
 		RuntimeProfileName: value.GetRuntimeProfileName(),
-	}, nil
+	}
+	if value.FirmwareId != nil {
+		firmwareID := value.GetFirmwareId()
+		response.FirmwareID = &firmwareID
+	}
+	return response, nil
 }
 
 func (t *RPCPayload) FromServerRegisterResponse(value ServerRegisterResponse) error {
 	return t.encode("ServerRegisterResponse", &rpcpb.ServerRegisterResponse{
 		RuntimeProfileName: value.RuntimeProfileName,
+		FirmwareId:         value.FirmwareID,
 	})
 }

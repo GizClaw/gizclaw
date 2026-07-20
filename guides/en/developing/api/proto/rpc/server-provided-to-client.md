@@ -12,7 +12,7 @@ These methods are implemented by Server and called by a Client/Device through it
 | `server.workflow.*` | RuntimeProfile Workflow alias list/get; list requires Collection |
 | `server.model.*`, `server.voice.*`, `server.tool.*` | Safe RuntimeProfile alias list/get |
 | `server.speech.*` | Standalone streaming transcription and synthesis |
-| `server.register` | Select the connection RuntimeProfile using a RegistrationToken |
+| `server.register` | Select the required RuntimeProfile and persist/return the RegistrationToken's optional Firmware release-line ID; channel selection remains device-owned |
 | `runtime.adopt`, `server.pet.*`, `server.badge.*`, `server.points.*` | Gameplay and Peer-owned Pet state |
 | `server.friend.*`, `server.friend_group.*`, `server.contact.*` | Social state |
 | `server.firmware.*` | Compatibility surface only; Admin manages Firmware |

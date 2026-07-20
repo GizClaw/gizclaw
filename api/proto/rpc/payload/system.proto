@@ -85,6 +85,7 @@ message ServerRegisterRequest {
 
 message ServerRegisterResponse {
   string runtime_profile_name = 1;
+  optional string firmware_id = 2;
 }
 message Runtime {
   optional string last_addr = 1;

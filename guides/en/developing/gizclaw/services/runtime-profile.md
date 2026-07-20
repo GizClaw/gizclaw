@@ -61,7 +61,7 @@ The normalized spec has an opaque deterministic revision. Catalog list/get respo
 
 ## RegistrationToken
 
-An administrator creates a `RegistrationToken` that names one RuntimeProfile. The raw token is returned only on creation and the Server stores its SHA-256 hash. `server.register` associates the connection with that RuntimeProfile name. Updating or switching the profile changes the environment used by later operations; it does not rewrite Workspace context or persisted aliases.
+An administrator creates a `RegistrationToken` with one required RuntimeProfile name and, optionally, one Firmware release-line ID. The raw token is returned only on creation and the Server stores its SHA-256 hash. `server.register` associates the connection with the RuntimeProfile, persists the optional Firmware ID on the Peer, and returns both selections. Neither RegistrationToken nor Peer stores a Firmware channel: stable, beta, develop, or pending selection remains device-owned. Updating or switching the profile changes the environment used by later operations; it does not rewrite Workspace context or persisted aliases.
 
 Public HTTP login may submit the same token through `X-Registration-Token`. Registration success and failure are logged without storing raw tokens in business data.
 
@@ -74,4 +74,4 @@ Public HTTP login may submit the same token through `X-Registration-Token`. Regi
 - A removed Workflow alias does not hide or delete its Workspace. List/get still return it, while reload/run fails with not found until the alias is restored.
 - Pet instances remain Peer/domain state. Adoption and all reward values come from `gameplay`; Server config contains only operational settings.
 
-Firmware remains an independent Admin resource and is not part of the RuntimeProfile projection. Credentials and ProviderTenants remain Server-only dependencies of canonical Model and Voice resources.
+Firmware remains an independent Admin resource and is not part of the RuntimeProfile projection. A RegistrationToken may bind its release-line ID independently of the RuntimeProfile, without binding a channel. Credentials and ProviderTenants remain Server-only dependencies of canonical Model and Voice resources.

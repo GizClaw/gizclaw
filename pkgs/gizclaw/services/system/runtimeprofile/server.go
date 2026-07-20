@@ -64,6 +64,7 @@ var _ AdminService = (*Server)(nil)
 type Registration struct {
 	TokenName      string
 	RuntimeProfile apitypes.RuntimeProfile
+	FirmwareID     *string
 }
 
 // ResolveProfile returns the current persisted revision for a profile name.
@@ -102,7 +103,7 @@ func (s *Server) ResolveRegistration(ctx context.Context, rawToken string) (Regi
 	if err != nil {
 		return Registration{}, err
 	}
-	return Registration{TokenName: record.Name, RuntimeProfile: profile}, nil
+	return Registration{TokenName: record.Name, RuntimeProfile: profile, FirmwareID: cloneString(record.FirmwareId)}, nil
 }
 
 func (s *Server) ListRuntimeProfiles(ctx context.Context, request adminhttp.ListRuntimeProfilesRequestObject) (adminhttp.ListRuntimeProfilesResponseObject, error) {
@@ -254,6 +255,25 @@ func (s *Server) CreateRegistrationToken(ctx context.Context, request adminhttp.
 	if profileName == "" {
 		return adminhttp.CreateRegistrationToken400JSONResponse(invalid("runtime_profile_name is required")), nil
 	}
+	var firmwareID *string
+	if in.FirmwareId != nil {
+		value := strings.TrimSpace(*in.FirmwareId)
+		if value == "" {
+			return adminhttp.CreateRegistrationToken400JSONResponse(invalid("firmware_id must not be empty")), nil
+		}
+		if s.ResolveResource == nil {
+			return adminhttp.CreateRegistrationToken500JSONResponse(internalError(errors.New("resource resolver not configured"))), nil
+		}
+		resource, err := s.ResolveResource(ctx, apitypes.ResourceKindFirmware, value)
+		if err != nil {
+			return adminhttp.CreateRegistrationToken400JSONResponse(invalid("firmware_id does not exist")), nil
+		}
+		discriminator, err := resource.Discriminator()
+		if err != nil || (discriminator != string(apitypes.ResourceKindFirmware) && discriminator != string(apitypes.ResourceKindFirmware)+"Resource") {
+			return adminhttp.CreateRegistrationToken400JSONResponse(invalid("firmware_id does not reference a Firmware")), nil
+		}
+		firmwareID = &value
+	}
 	s.mutationMu.Lock()
 	defer s.mutationMu.Unlock()
 	if _, err := getTokenRecord(ctx, store, name); err == nil {
@@ -273,7 +293,7 @@ func (s *Server) CreateRegistrationToken(ctx context.Context, request adminhttp.
 	}
 	digest := tokenDigest(raw)
 	createdAt := s.now()
-	record := tokenRecord{RegistrationToken: apitypes.RegistrationToken{Name: name, RuntimeProfileName: profileName, CreatedAt: createdAt}, TokenHash: digest}
+	record := tokenRecord{RegistrationToken: apitypes.RegistrationToken{Name: name, RuntimeProfileName: profileName, FirmwareId: cloneString(firmwareID), CreatedAt: createdAt}, TokenHash: digest}
 	encoded, err := json.Marshal(record)
 	if err != nil {
 		return adminhttp.CreateRegistrationToken500JSONResponse(internalError(err)), nil
@@ -281,7 +301,15 @@ func (s *Server) CreateRegistrationToken(ctx context.Context, request adminhttp.
 	if err := store.BatchSet(ctx, []kv.Entry{{Key: tokenKey(name), Value: encoded}, {Key: tokenHashKey(digest), Value: []byte(name)}}); err != nil {
 		return adminhttp.CreateRegistrationToken500JSONResponse(internalError(err)), nil
 	}
-	return adminhttp.CreateRegistrationToken200JSONResponse(apitypes.RegistrationTokenCreateResult{Name: name, RuntimeProfileName: profileName, CreatedAt: createdAt, Token: raw}), nil
+	return adminhttp.CreateRegistrationToken200JSONResponse(apitypes.RegistrationTokenCreateResult{Name: name, RuntimeProfileName: profileName, FirmwareId: cloneString(firmwareID), CreatedAt: createdAt, Token: raw}), nil
+}
+
+func cloneString(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	cloned := *value
+	return &cloned
 }
 
 func (s *Server) GetRegistrationToken(ctx context.Context, request adminhttp.GetRegistrationTokenRequestObject) (adminhttp.GetRegistrationTokenResponseObject, error) {

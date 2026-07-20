@@ -130,6 +130,74 @@ func TestRegistrationTokenAcceptsScopedAppName(t *testing.T) {
 	}
 }
 
+func TestRegistrationTokenBindsOptionalFirmwareReleaseLine(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	s := &Server{
+		Store:  kv.NewMemory(nil),
+		Random: strings.NewReader(strings.Repeat("f", tokenBytes)),
+		ResolveResource: func(_ context.Context, kind apitypes.ResourceKind, name string) (apitypes.Resource, error) {
+			if kind != apitypes.ResourceKindFirmware || name != "h106" {
+				return apitypes.Resource{}, kv.ErrNotFound
+			}
+			var resource apitypes.Resource
+			err := resource.FromFirmwareResource(apitypes.FirmwareResource{
+				ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
+				Kind:       apitypes.FirmwareResourceKindFirmware,
+				Metadata:   apitypes.ResourceMetadata{Name: name},
+			})
+			return resource, err
+		},
+	}
+	createProfile(t, s, "h106-production", nil)
+	firmwareID := " h106 "
+	response, err := s.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
+		Name: "h106-token", RuntimeProfileName: "h106-production", FirmwareId: &firmwareID,
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, ok := response.(adminhttp.CreateRegistrationToken200JSONResponse)
+	if !ok || created.FirmwareId == nil || *created.FirmwareId != "h106" {
+		t.Fatalf("CreateRegistrationToken() = %#v, want h106 firmware binding", response)
+	}
+	listed, err := s.GetRegistrationToken(ctx, adminhttp.GetRegistrationTokenRequestObject{Name: "h106-token"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored, ok := listed.(adminhttp.GetRegistrationToken200JSONResponse)
+	if !ok || stored.FirmwareId == nil || *stored.FirmwareId != "h106" {
+		t.Fatalf("GetRegistrationToken() = %#v, want h106 firmware binding", listed)
+	}
+	registration, err := s.ResolveRegistration(ctx, created.Token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if registration.FirmwareID == nil || *registration.FirmwareID != "h106" {
+		t.Fatalf("ResolveRegistration() = %#v, want h106 firmware binding", registration)
+	}
+
+	for _, test := range []struct {
+		name       string
+		firmwareID string
+	}{
+		{name: "empty-firmware", firmwareID: " "},
+		{name: "missing-firmware", firmwareID: "missing"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			response, err := s.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
+				Name: test.name, RuntimeProfileName: "h106-production", FirmwareId: &test.firmwareID,
+			}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, ok := response.(adminhttp.CreateRegistrationToken400JSONResponse); !ok {
+				t.Fatalf("CreateRegistrationToken() = %#v, want 400", response)
+			}
+		})
+	}
+}
+
 func TestConcurrentRegistrationTokenCreateKeepsNameAndHashIndexesConsistent(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

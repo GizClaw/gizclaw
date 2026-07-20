@@ -12,7 +12,7 @@
 | `server.workflow.*` | RuntimeProfile Workflow alias list/get；list 必须传 Collection |
 | `server.model.*`、`server.voice.*`、`server.tool.*` | 安全 RuntimeProfile alias list/get |
 | `server.speech.*` | 独立流式 transcription 与 synthesis |
-| `server.register` | 使用 RegistrationToken 选择连接的 RuntimeProfile |
+| `server.register` | 选择 RegistrationToken 必填的 RuntimeProfile，并持久化、返回可选 Firmware release-line ID；channel 仍由设备选择 |
 | `runtime.adopt`、`server.pet.*`、`server.badge.*`、`server.points.*` | Gameplay 与 Peer-owned Pet 状态 |
 | `server.friend.*`、`server.friend_group.*`、`server.contact.*` | Social 状态 |
 | `server.firmware.*` | 只保留兼容 surface；Firmware 由 Admin 管理 |

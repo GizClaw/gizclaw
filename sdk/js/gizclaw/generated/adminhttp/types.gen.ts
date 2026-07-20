@@ -326,6 +326,10 @@ export type RegistrationTokenList = {
 export type RegistrationTokenUpsert = {
     name: string;
     runtime_profile_name: string;
+    /**
+     * Optional Server-assigned Firmware release-line ID. The device selects its own channel.
+     */
+    firmware_id?: string;
 };
 
 export type BadgeDefResource = {
@@ -505,6 +509,10 @@ export type RegistrationTokenResource = {
     metadata: ResourceMetadata;
     spec: {
         runtime_profile_name: string;
+        /**
+         * Optional Server-assigned Firmware release-line ID. The device selects its own channel.
+         */
+        firmware_id?: string;
     };
 };
 
@@ -1358,6 +1366,10 @@ export type Peer = {
     status: PeerRegistrationStatus;
     device: DeviceInfo;
     auto_registered?: boolean;
+    /**
+     * Optional Server-assigned Firmware release-line ID. Channel selection remains device-owned.
+     */
+    firmware_id?: string;
     created_at: string;
     updated_at: string;
     approved_at?: string;
@@ -1457,6 +1469,10 @@ export type Registration = {
     role: PeerRole;
     status: PeerRegistrationStatus;
     auto_registered?: boolean;
+    /**
+     * Optional Server-assigned Firmware release-line ID. Channel selection remains device-owned.
+     */
+    firmware_id?: string;
     device?: DeviceInfo;
     created_at: string;
     updated_at: string;
@@ -1466,6 +1482,10 @@ export type Registration = {
 export type RegistrationToken = {
     name: string;
     runtime_profile_name: string;
+    /**
+     * Optional Server-assigned Firmware release-line ID. The device selects its own channel.
+     */
+    firmware_id?: string;
     created_at: string;
 };
 
@@ -2302,6 +2322,10 @@ export type RegistrationTokenResourceWritable = {
     metadata: ResourceMetadata;
     spec: {
         runtime_profile_name: string;
+        /**
+         * Optional Server-assigned Firmware release-line ID. The device selects its own channel.
+         */
+        firmware_id?: string;
     };
     /**
      * Present only in a successful create/apply response.

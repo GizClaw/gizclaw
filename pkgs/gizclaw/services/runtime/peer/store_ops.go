@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -14,6 +15,26 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
+
+// BindFirmware persists the Server-assigned Firmware release line for a Peer.
+// Firmware channel selection remains device-owned and is not stored here.
+func (s *Server) BindFirmware(ctx context.Context, publicKey giznet.PublicKey, firmwareID string) (apitypes.Peer, error) {
+	firmwareID = strings.TrimSpace(firmwareID)
+	if publicKey.IsZero() {
+		return apitypes.Peer{}, fmt.Errorf("peer: empty public key")
+	}
+	if firmwareID == "" {
+		return apitypes.Peer{}, fmt.Errorf("peer: empty firmware id")
+	}
+	unlock := s.IconLocks.LockRecord(publicKey.String())
+	defer unlock()
+	peer, err := s.get(ctx, publicKey)
+	if err != nil {
+		return apitypes.Peer{}, err
+	}
+	peer.FirmwareId = &firmwareID
+	return s.putRecord(ctx, peer)
+}
 
 // EnsureConnectedPeer creates a default active peer record for a connected peer
 // when the peer has not been registered yet. Existing records are preserved.

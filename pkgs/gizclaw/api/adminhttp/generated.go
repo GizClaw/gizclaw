@@ -609,8 +609,10 @@ type RegistrationTokenList struct {
 
 // RegistrationTokenUpsert defines model for RegistrationTokenUpsert.
 type RegistrationTokenUpsert struct {
-	Name               string `json:"name"`
-	RuntimeProfileName string `json:"runtime_profile_name"`
+	// FirmwareId Optional Server-assigned Firmware release-line ID. The device selects its own channel.
+	FirmwareId         *string `json:"firmware_id,omitempty"`
+	Name               string  `json:"name"`
+	RuntimeProfileName string  `json:"runtime_profile_name"`
 }
 
 // RuntimeProfileList defines model for RuntimeProfileList.

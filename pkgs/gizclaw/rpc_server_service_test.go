@@ -526,6 +526,10 @@ type fakeRPCPeerService struct {
 	putInfoStarted     chan struct{}
 }
 
+func (s *fakeRPCPeerService) BindFirmware(context.Context, giznet.PublicKey, string) (apitypes.Peer, error) {
+	return apitypes.Peer{}, nil
+}
+
 type fakeRPCRunWorkspaceResources struct {
 	canonicalName string
 	rpcErr        *rpcapi.RPCError

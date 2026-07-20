@@ -2401,14 +2401,17 @@ type OpenAITenantVoiceProviderData struct {
 
 // Peer defines model for Peer.
 type Peer struct {
-	ApprovedAt     *time.Time             `json:"approved_at,omitempty"`
-	AutoRegistered *bool                  `json:"auto_registered,omitempty"`
-	CreatedAt      time.Time              `json:"created_at"`
-	Device         DeviceInfo             `json:"device"`
-	PublicKey      string                 `json:"public_key"`
-	Role           PeerRole               `json:"role"`
-	Status         PeerRegistrationStatus `json:"status"`
-	UpdatedAt      time.Time              `json:"updated_at"`
+	ApprovedAt     *time.Time `json:"approved_at,omitempty"`
+	AutoRegistered *bool      `json:"auto_registered,omitempty"`
+	CreatedAt      time.Time  `json:"created_at"`
+	Device         DeviceInfo `json:"device"`
+
+	// FirmwareId Optional Server-assigned Firmware release-line ID. Channel selection remains device-owned.
+	FirmwareId *string                `json:"firmware_id,omitempty"`
+	PublicKey  string                 `json:"public_key"`
+	Role       PeerRole               `json:"role"`
+	Status     PeerRegistrationStatus `json:"status"`
+	UpdatedAt  time.Time              `json:"updated_at"`
 }
 
 // PeerAssignment defines model for PeerAssignment.
@@ -2980,28 +2983,37 @@ type PointsTransactionListResponse struct {
 
 // Registration defines model for Registration.
 type Registration struct {
-	ApprovedAt     *time.Time             `json:"approved_at,omitempty"`
-	AutoRegistered *bool                  `json:"auto_registered,omitempty"`
-	CreatedAt      time.Time              `json:"created_at"`
-	Device         *DeviceInfo            `json:"device,omitempty"`
-	PublicKey      string                 `json:"public_key"`
-	Role           PeerRole               `json:"role"`
-	Status         PeerRegistrationStatus `json:"status"`
-	UpdatedAt      time.Time              `json:"updated_at"`
+	ApprovedAt     *time.Time  `json:"approved_at,omitempty"`
+	AutoRegistered *bool       `json:"auto_registered,omitempty"`
+	CreatedAt      time.Time   `json:"created_at"`
+	Device         *DeviceInfo `json:"device,omitempty"`
+
+	// FirmwareId Optional Server-assigned Firmware release-line ID. Channel selection remains device-owned.
+	FirmwareId *string                `json:"firmware_id,omitempty"`
+	PublicKey  string                 `json:"public_key"`
+	Role       PeerRole               `json:"role"`
+	Status     PeerRegistrationStatus `json:"status"`
+	UpdatedAt  time.Time              `json:"updated_at"`
 }
 
 // RegistrationToken defines model for RegistrationToken.
 type RegistrationToken struct {
-	CreatedAt          time.Time `json:"created_at"`
-	Name               string    `json:"name"`
-	RuntimeProfileName string    `json:"runtime_profile_name"`
+	CreatedAt time.Time `json:"created_at"`
+
+	// FirmwareId Optional Server-assigned Firmware release-line ID. The device selects its own channel.
+	FirmwareId         *string `json:"firmware_id,omitempty"`
+	Name               string  `json:"name"`
+	RuntimeProfileName string  `json:"runtime_profile_name"`
 }
 
 // RegistrationTokenCreateResult defines model for RegistrationTokenCreateResult.
 type RegistrationTokenCreateResult struct {
-	CreatedAt          time.Time `json:"created_at"`
-	Name               string    `json:"name"`
-	RuntimeProfileName string    `json:"runtime_profile_name"`
+	CreatedAt time.Time `json:"created_at"`
+
+	// FirmwareId Optional Server-assigned Firmware release-line ID. The device selects its own channel.
+	FirmwareId         *string `json:"firmware_id,omitempty"`
+	Name               string  `json:"name"`
+	RuntimeProfileName string  `json:"runtime_profile_name"`
 
 	// Token Raw registration token returned exactly once.
 	Token string `json:"token"`
@@ -3014,7 +3026,9 @@ type RegistrationTokenResource struct {
 	Kind       RegistrationTokenResourceKind `json:"kind"`
 	Metadata   ResourceMetadata              `json:"metadata"`
 	Spec       struct {
-		RuntimeProfileName string `json:"runtime_profile_name"`
+		// FirmwareId Optional Server-assigned Firmware release-line ID. The device selects its own channel.
+		FirmwareId         *string `json:"firmware_id,omitempty"`
+		RuntimeProfileName string  `json:"runtime_profile_name"`
 	} `json:"spec"`
 
 	// Token Present only in a successful create/apply response.

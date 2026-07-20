@@ -23,6 +23,7 @@ type rpcPeerService interface {
 	GetSelfInfo(context.Context, giznet.PublicKey) (apitypes.DeviceInfo, error)
 	PutSelfInfo(context.Context, giznet.PublicKey, apitypes.DeviceInfo) (apitypes.DeviceInfo, error)
 	GetSelfRuntime(context.Context, giznet.PublicKey) apitypes.Runtime
+	BindFirmware(context.Context, giznet.PublicKey, string) (apitypes.Peer, error)
 }
 
 type rpcPeerRunService interface {
@@ -179,11 +180,20 @@ func (s *rpcServer) handleRegister(ctx context.Context, req *rpcapi.RPCRequest) 
 		}
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "registration failed"}.RPCResponse(), nil
 	}
+	if registration.FirmwareID != nil {
+		if s.peer == nil {
+			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "peer service not configured"}.RPCResponse(), nil
+		}
+		if _, err := s.peer.BindFirmware(ctx, s.callerPublicKey, *registration.FirmwareID); err != nil {
+			slog.WarnContext(ctx, "device firmware binding failed", "peer_public_key", s.callerPublicKey.String(), "source", s.registrationSource, "error", err)
+			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "registration failed"}.RPCResponse(), nil
+		}
+	}
 	if s.onRegistration != nil {
 		s.onRegistration(registration)
 	}
 	slog.InfoContext(ctx, "device registration accepted", "peer_public_key", s.callerPublicKey.String(), "source", s.registrationSource, "registration_token", registration.TokenName, "runtime_profile", registration.RuntimeProfile.Name)
-	response := rpcapi.ServerRegisterResponse{RuntimeProfileName: registration.RuntimeProfile.Name}
+	response := rpcapi.ServerRegisterResponse{RuntimeProfileName: registration.RuntimeProfile.Name, FirmwareID: registration.FirmwareID}
 	return newRPCResultResponse(req.Id, response, (*rpcapi.RPCPayload).FromServerRegisterResponse)
 }
 
