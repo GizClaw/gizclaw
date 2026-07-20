@@ -4,10 +4,8 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
-	"net/url"
-	"path/filepath"
+	"os/exec"
 	goruntime "runtime"
-	"strings"
 	"sync"
 	"time"
 
@@ -318,24 +316,25 @@ func (a *App) RevealPod(id string) error {
 		return err
 	}
 	if ctx := a.runtimeContext(); ctx != nil {
-		runtime.BrowserOpenURL(ctx, fileURL(path))
+		return revealPath(path)
 	}
 	return nil
 }
 
-func fileURL(path string) string {
-	return fileURLForOS(path, goruntime.GOOS)
+func revealPath(path string) error {
+	name, args := revealCommandForOS(path, goruntime.GOOS)
+	return exec.Command(name, args...).Start()
 }
 
-func fileURLForOS(path, goos string) string {
-	normalized := filepath.ToSlash(path)
-	if goos == "windows" {
-		normalized = strings.ReplaceAll(path, `\`, "/")
-		if !strings.HasPrefix(normalized, "/") {
-			normalized = "/" + normalized
-		}
+func revealCommandForOS(path, goos string) (string, []string) {
+	switch goos {
+	case "darwin":
+		return "open", []string{path}
+	case "windows":
+		return "explorer", []string{path}
+	default:
+		return "xdg-open", []string{path}
 	}
-	return (&url.URL{Scheme: "file", Path: normalized}).String()
 }
 
 func (a *App) StartLocalServer(id string) (bridge.PodSummary, error) {

@@ -344,9 +344,25 @@ func TestBootstrapEnvironmentFacadeReturnsEditableDotenvContent(t *testing.T) {
 	}
 }
 
-func TestFileURLForWindowsPath(t *testing.T) {
-	if got := fileURLForOS(`C:\Users\gizclaw\pod`, "windows"); got != "file:///C:/Users/gizclaw/pod" {
-		t.Fatalf("fileURLForOS() = %q", got)
+func TestRevealCommandForOS(t *testing.T) {
+	tests := []struct {
+		goos string
+		name string
+	}{
+		{goos: "darwin", name: "open"},
+		{goos: "windows", name: "explorer"},
+		{goos: "linux", name: "xdg-open"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.goos, func(t *testing.T) {
+			name, args := revealCommandForOS(`C:\Users\gizclaw\pod`, tt.goos)
+			if name != tt.name {
+				t.Fatalf("revealCommandForOS() name = %q", name)
+			}
+			if len(args) != 1 || args[0] != `C:\Users\gizclaw\pod` {
+				t.Fatalf("revealCommandForOS() args = %#v", args)
+			}
+		})
 	}
 }
 
