@@ -9,7 +9,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@assistant-ui/react": "^0.14.24",
+    "@assistant-ui/react": "^0.14.27",
     "@fontsource-variable/space-grotesk": "^5.3.0",
     "@gizclaw/gizclaw": "*",
     "@gizclaw/pixa": "*",
