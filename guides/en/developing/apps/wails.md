@@ -45,12 +45,14 @@ remote Pods.
 
 Completed local Pods do not replay the full bootstrap catalog during start,
 restart, or Desktop upgrade. A legacy local Pod performs one targeted migration
-after its Server is ready: Desktop applies only `RuntimeProfile/default`, creates
-a fresh `RegistrationToken/app:com.gizclaw.opensource`, retires
+after its Server is ready: Desktop reapplies only the bundled Workflows referenced
+by `RuntimeProfile/default`, applies that Profile, creates a fresh
+`RegistrationToken/app:com.gizclaw.opensource`, retires
 `RegistrationToken/desktop-local`, and records the local catalog version in
 `pod.json`. A recovered legacy process is restarted with the current companion
 before migration, and the default profile preserves legacy translation aliases
-for existing Workspaces. Other resources, including user edits, remain unchanged.
+for existing Workspaces. Unreferenced Workflows and other resources, including
+user edits, remain unchanged.
 Desktop suppresses QR handoff until this migration completes; opening local Play
 starts the current companion and migrates before handing off the new token.
 

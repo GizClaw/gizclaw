@@ -35,9 +35,10 @@ type Bootstrapper struct {
 	RunOutput  func(context.Context, string, []string, []string) ([]byte, error)
 }
 
-// MigrateRuntimeContract installs only the fixed App registration contract for
-// a completed legacy Pod. It deliberately does not reapply the rest of the
-// bootstrap catalog because those resources may have been edited by the user.
+// MigrateRuntimeContract installs the fixed App runtime contract for a
+// completed legacy Pod. It reapplies only the bundled Workflows referenced by
+// RuntimeProfile/default before applying that Profile; unrelated resources and
+// Workflows remain untouched.
 func (b *Bootstrapper) MigrateRuntimeContract(ctx context.Context, podDir string) error {
 	if b == nil || b.Catalog == nil || b.Executable == nil {
 		return fmt.Errorf("local server bootstrap: bootstrapper is not configured")
@@ -53,6 +54,10 @@ func (b *Bootstrapper) MigrateRuntimeContract(ctx context.Context, podDir string
 	if profile == nil {
 		return fmt.Errorf("local server bootstrap: RuntimeProfile/%s is missing from the catalog", defaultRuntimeProfileName)
 	}
+	contractEntries, err := b.runtimeContractEntries(*profile)
+	if err != nil {
+		return err
+	}
 	executable, err := b.Executable()
 	if err != nil {
 		return err
@@ -62,16 +67,18 @@ func (b *Bootstrapper) MigrateRuntimeContract(ctx context.Context, podDir string
 		return err
 	}
 	defer os.RemoveAll(tempDir)
-	file, err := b.extract(tempDir, profile.Path)
-	if err != nil {
-		return err
-	}
 	run := b.Run
 	if run == nil {
 		run = runBootstrapCommand
 	}
-	if err := runBootstrapOperation(ctx, run, executable, []string{"admin", "apply", "--context", "local", "-f", file}, environment); err != nil {
-		return fmt.Errorf("local server bootstrap: migrate RuntimeProfile/%s: %w", defaultRuntimeProfileName, err)
+	for _, entry := range contractEntries {
+		file, err := b.extract(tempDir, entry.Path)
+		if err != nil {
+			return err
+		}
+		if err := runBootstrapOperation(ctx, run, executable, []string{"admin", "apply", "--context", "local", "-f", file}, environment); err != nil {
+			return fmt.Errorf("local server bootstrap: migrate %s/%s: %w", entry.Kind, entry.Name, err)
+		}
 	}
 	// Retrying a partially completed migration must produce a raw token that
 	// matches the private handoff file written below.
@@ -83,6 +90,50 @@ func (b *Bootstrapper) MigrateRuntimeContract(ctx context.Context, podDir string
 		return fmt.Errorf("local server bootstrap: retire RegistrationToken/%s: %w", legacyRegistrationTokenName, err)
 	}
 	return nil
+}
+
+func (b *Bootstrapper) runtimeContractEntries(profile ResourceEntry) ([]ResourceEntry, error) {
+	data, err := fs.ReadFile(b.Catalog.FS, profile.Path)
+	if err != nil {
+		return nil, fmt.Errorf("local server bootstrap: read %s: %w", profile.Path, err)
+	}
+	var document struct {
+		Spec struct {
+			Workflows struct {
+				Collections map[string]map[string]struct {
+					ResourceID string `yaml:"resource_id"`
+				} `yaml:"collections"`
+			} `yaml:"workflows"`
+		} `yaml:"spec"`
+	}
+	if err := yaml.Unmarshal(data, &document); err != nil {
+		return nil, fmt.Errorf("local server bootstrap: parse %s: %w", profile.Path, err)
+	}
+	referenced := make(map[string]bool)
+	for _, bindings := range document.Spec.Workflows.Collections {
+		for _, binding := range bindings {
+			name := strings.TrimSpace(binding.ResourceID)
+			if name != "" {
+				referenced[name] = true
+			}
+		}
+	}
+	entries := make([]ResourceEntry, 0, len(referenced)+1)
+	for _, entry := range b.Catalog.Resources {
+		if entry.Kind == "Workflow" && referenced[entry.Name] {
+			entries = append(entries, entry)
+			delete(referenced, entry.Name)
+		}
+	}
+	if len(referenced) != 0 {
+		missing := make([]string, 0, len(referenced))
+		for name := range referenced {
+			missing = append(missing, name)
+		}
+		sort.Strings(missing)
+		return nil, fmt.Errorf("local server bootstrap: RuntimeProfile/%s references Workflows missing from the catalog: %s", profile.Name, strings.Join(missing, ", "))
+	}
+	return append(entries, profile), nil
 }
 
 func prepareAdminWorkspace(podDir string) (string, []string, error) {
