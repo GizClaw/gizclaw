@@ -42,7 +42,7 @@ scanning client generates its own identity and stores the credential securely.
 A new local Pod is returned as soon as its manifest and projections are
 persisted. The response carries an `initializing` state while a cancellable
 background task starts the Server, applies the embedded deploy-derived catalog,
-syncs Volc voices, uploads all Workflow and PetDef assets, and creates the
+syncs MiniMax and Volc voices, uploads all Workflow and PetDef assets, and creates the
 fixed `RegistrationToken/app:com.gizclaw.opensource`, which selects only
 `RuntimeProfile/default`. The embedded declarative catalog contains 43 resources
 and no Firmware or Workspace. A successful task clears the state; a failed task

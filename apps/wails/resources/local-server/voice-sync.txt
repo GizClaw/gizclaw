@@ -1,2 +1,3 @@
 # provider tenant
+minimax minimax-cn
 volc volc-main

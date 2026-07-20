@@ -31,7 +31,7 @@ and exactly one `RuntimeProfile/default`, plus the PetDef assets required by a n
 contains no Firmware or Workspace because Firmware is not part of registration and
 Workspaces remain client-created resources.
 
-After applying the catalog, synchronizing dynamic Volc Voices, and uploading owner-managed assets,
+After applying the catalog, synchronizing dynamic MiniMax and Volc Voices, and uploading owner-managed assets,
 Desktop creates `RegistrationToken/app:com.gizclaw.opensource`, mapped only to
 `RuntimeProfile/default`. Its raw value
 is written only to the Pod's private workspace with mode `0600`. When local Play opens, the bridge

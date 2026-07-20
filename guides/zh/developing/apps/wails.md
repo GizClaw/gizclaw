@@ -50,7 +50,7 @@ Pod 创建保持禁用。
 
 本地 `CreatePod` 在保留目录前完成环境 preflight，同步生成 manifest 和投影并写入
 `.initializing` 状态后立即返回。可取消的后台任务随后启动 companion、等待 Admin
-readiness、按顺序 apply 内嵌资源、同步 Volc Voice，并通过 owner API 上传 PetDef assets。
+readiness、按顺序 apply 内嵌资源、同步 MiniMax 与 Volc Voice，并通过 owner API 上传 PetDef assets。
 最后创建只映射到 `RuntimeProfile/default` 的
 `RegistrationToken/app:com.gizclaw.opensource`，
 将 raw token 以 `0600` 仅写入 Pod 的私有 workspace。Bridge 在初始化期间拒绝 update、start、stop、

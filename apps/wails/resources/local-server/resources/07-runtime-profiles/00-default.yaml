@@ -139,6 +139,16 @@ spec:
         i18n:
           en: {display_name: Sun Wukong}
           zh-CN: {display_name: 孙悟空}
+      tang-sanzang:
+        resource_id: volc-tenant:volc-main:zh_male_tangseng_mars_bigtts
+        i18n:
+          en: {display_name: Tang Sanzang}
+          zh-CN: {display_name: 唐僧}
+      zhu-bajie:
+        resource_id: volc-tenant:volc-main:zh_male_zhubajie_mars_bigtts
+        i18n:
+          en: {display_name: Zhu Bajie}
+          zh-CN: {display_name: 猪八戒}
     pet_defs:
       bsod: {resource_id: petdef-bsod, i18n: {en: {display_name: BSOD}, zh-CN: {display_name: 蓝屏}}}
       codex: {resource_id: petdef-codex, i18n: {en: {display_name: Codex}, zh-CN: {display_name: Codex}}}

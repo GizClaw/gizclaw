@@ -24,8 +24,11 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 	if len(catalog.Resources) != 43 {
 		t.Fatalf("resources = %d, want 43", len(catalog.Resources))
 	}
-	if len(catalog.PetDefPIXAs) != 9 || len(catalog.VoiceSyncs) != 1 {
+	if len(catalog.PetDefPIXAs) != 9 || len(catalog.VoiceSyncs) != 2 {
 		t.Fatalf("assets = pets:%d voice-sync:%d", len(catalog.PetDefPIXAs), len(catalog.VoiceSyncs))
+	}
+	if got := catalog.VoiceSyncs; got[0] != (localserver.VoiceSync{Provider: "minimax", Tenant: "minimax-cn"}) || got[1] != (localserver.VoiceSync{Provider: "volc", Tenant: "volc-main"}) {
+		t.Fatalf("voice syncs = %#v", got)
 	}
 	if len(catalog.Requirements) != 11 {
 		t.Fatalf("environment requirements = %d, want 11", len(catalog.Requirements))
@@ -72,6 +75,11 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 					ResourceID string `yaml:"resource_id"`
 				} `yaml:"collections"`
 			} `yaml:"workflows"`
+			Resources struct {
+				Voices map[string]struct {
+					ResourceID string `yaml:"resource_id"`
+				} `yaml:"voices"`
+			} `yaml:"resources"`
 		} `yaml:"spec"`
 	}
 	if err := yaml.Unmarshal(profile, &parsed); err != nil {
@@ -95,6 +103,16 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 	}
 	if !maps.Equal(gotWorkflows, wantWorkflows) {
 		t.Fatalf("RuntimeProfile/default Workflows = %#v, want %#v", gotWorkflows, wantWorkflows)
+	}
+	wantCharacterVoices := map[string]string{
+		"sun-wukong":   "volc-tenant:volc-main:zh_male_sunwukong_mars_bigtts",
+		"tang-sanzang": "volc-tenant:volc-main:zh_male_tangseng_mars_bigtts",
+		"zhu-bajie":    "volc-tenant:volc-main:zh_male_zhubajie_mars_bigtts",
+	}
+	for alias, want := range wantCharacterVoices {
+		if got := parsed.Spec.Resources.Voices[alias].ResourceID; got != want {
+			t.Fatalf("RuntimeProfile/default Voice %s = %q, want %q", alias, got, want)
+		}
 	}
 	for _, requirement := range catalog.Requirements {
 		if requirement.Name == "input" {
