@@ -758,6 +758,12 @@ test("createPeerRPCClient calls generated typed RPC methods", async () => {
     callBinary: async () => {
       throw new Error("unexpected binary call");
     },
+    transcribeSpeech: async () => {
+      throw new Error("unexpected transcription call");
+    },
+    synthesizeSpeech: async () => {
+      throw new Error("unexpected synthesis call");
+    },
   } as unknown as WebRTCRPCClient;
   const rpc = createPeerRPCClient(client);
 
@@ -772,6 +778,18 @@ test("createPeerRPCClient calls generated typed RPC methods", async () => {
     { method: "server.firmware.files.download", params: { channel: "stable", firmware_id: "devkit", path: "firmware.bin" } },
     { method: "server.friend_group.messages.send", params: { friend_group_id: "group-a", text: "hello" } },
   ]);
+});
+
+test("createPeerRPCClient rejects legacy callers without speech methods", () => {
+  const legacyCaller = {
+    call: async () => ({}),
+    callBinary: async () => ({ body: new Uint8Array(), result: {} }),
+  };
+
+  assert.throws(
+    () => createPeerRPCClient(legacyCaller as never),
+    /must implement call, callBinary, transcribeSpeech, and synthesizeSpeech/,
+  );
 });
 
 test("createEdgeRPCClient uses the edge RPC service channel", async () => {

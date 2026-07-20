@@ -22,7 +22,7 @@ func TestClientSpeechUsesSpeechSpecificStreamDeadlines(t *testing.T) {
 		call    func(*Client) error
 	}{
 		{
-			name: "transcription", timeout: defaultSpeechTranscriptionStreamTimeout,
+			name: "transcription", timeout: 80 * time.Second,
 			call: func(client *Client) error {
 				_, err := client.TranscribeSpeech(context.Background(), "deadline", rpcapi.SpeechTranscribeRequest{
 					ModelAlias: "asr", ContentType: "audio/L16;rate=16000;channels=1",
@@ -31,7 +31,7 @@ func TestClientSpeechUsesSpeechSpecificStreamDeadlines(t *testing.T) {
 			},
 		},
 		{
-			name: "synthesis", timeout: defaultSpeechSynthesisStreamTimeout,
+			name: "synthesis", timeout: 125 * time.Second,
 			call: func(client *Client) error {
 				_, err := client.SynthesizeSpeech(context.Background(), "deadline", rpcapi.SpeechSynthesizeRequest{
 					VoiceAlias: "voice", Text: "hello",

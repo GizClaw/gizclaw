@@ -24,11 +24,17 @@ test("snapshot keeps workspaces and workflows when a fixed collection is absent"
       if (params.cursor == null) {
         return {
           has_next: true,
-          items: [{ alias: "assistant-first" }],
+          items: [{ alias: "assistant-first", driver: "flowcraft", i18n: { en: { display_name: "First assistant" } } }],
           next_cursor: "assistant-next",
+          runtime_profile_name: "default",
+          runtime_profile_revision: "revision-a",
         };
       }
-      return { items: [{ alias: "assistant-second" }] };
+      return {
+        items: [{ alias: "assistant-second", driver: "flowcraft", i18n: { en: { display_name: "Second assistant" } } }],
+        runtime_profile_name: "default",
+        runtime_profile_revision: "revision-a",
+      };
     },
   } as unknown as PeerRPCClient;
 
@@ -40,6 +46,14 @@ test("snapshot keeps workspaces and workflows when a fixed collection is absent"
     snapshot.workspaces.map((workspace) => (workspace.raw as { alias: string }).alias),
     ["assistant-first", "assistant-second"],
   );
+  assert.deepEqual(snapshot.runtimeProfiles?.workspaces, {
+    runtime_profile_name: "default",
+    runtime_profile_revision: "revision-a",
+  });
+  assert.deepEqual(snapshot.workflows.map(({ alias, driver, id, title }) => ({ alias, driver, id, title })), [
+    { alias: "assistant-first", driver: "flowcraft", id: "assistant-first", title: "First assistant" },
+    { alias: "assistant-second", driver: "flowcraft", id: "assistant-second", title: "Second assistant" },
+  ]);
   assert.deepEqual(
     snapshot.workflows.map((workflow) => (workflow.raw as { alias: string }).alias),
     ["assistant-first", "assistant-second"],
@@ -52,4 +66,23 @@ test("snapshot keeps workspaces and workflows when a fixed collection is absent"
     workflowCalls.filter((call) => call.collection === "assistants").map((call) => call.cursor ?? ""),
     ["", "assistant-next"],
   );
+});
+
+test("snapshot rejects mixed runtime profile revisions across collections", async () => {
+  const rpc = {
+    call: async (method: string, params: Record<string, unknown>) => {
+      if (method !== "server.workspace.list" && method !== "server.workflow.list") return { items: [] };
+      return {
+        items: [{ alias: `${String(params.collection)}-item` }],
+        runtime_profile_name: "default",
+        runtime_profile_revision: params.collection === "assistants" ? "revision-a" : "revision-b",
+      };
+    },
+  } as unknown as PeerRPCClient;
+
+  const snapshot = await createRPCPlayDataClient(rpc).loadSnapshot();
+
+  assert.deepEqual(snapshot.workspaces, []);
+  assert.deepEqual(snapshot.workflows, []);
+  assert.equal(snapshot.warnings.filter((warning) => warning.includes("runtime profile changed")).length, 2);
 });

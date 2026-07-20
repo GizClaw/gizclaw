@@ -60,6 +60,9 @@ export class PeerRPCClient {
   private readonly client: PeerRPCCaller;
 
   constructor(pc: WebRTCRPCDataChannelFactory | PeerRPCCaller, options: PeerRPCClientOptions = {}) {
+    if (looksLikeRPCCaller(pc) && !isPeerRPCCaller(pc)) {
+      throw new TypeError("Peer RPC caller must implement call, callBinary, transcribeSpeech, and synthesizeSpeech.");
+    }
     this.client =
       isPeerRPCCaller(pc)
         ? pc
@@ -146,6 +149,12 @@ export function createEdgeRPCClient(
 }
 
 function isPeerRPCCaller(value: WebRTCRPCDataChannelFactory | PeerRPCCaller): value is PeerRPCCaller {
+  return looksLikeRPCCaller(value) &&
+    "transcribeSpeech" in value && typeof value.transcribeSpeech === "function" &&
+    "synthesizeSpeech" in value && typeof value.synthesizeSpeech === "function";
+}
+
+function looksLikeRPCCaller(value: WebRTCRPCDataChannelFactory | PeerRPCCaller): boolean {
   return "call" in value && typeof value.call === "function" && "callBinary" in value && typeof value.callBinary === "function";
 }
 

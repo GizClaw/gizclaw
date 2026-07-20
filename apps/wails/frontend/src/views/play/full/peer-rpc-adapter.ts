@@ -126,7 +126,8 @@ async function snapshotResult<T = any>(key: string): Promise<ApiResult<T>> {
   }
   try {
     const snapshot = await currentDataClient.loadSnapshot();
-    return { data: { items: snapshot[key] ?? [] } as T };
+    const runtimeProfile = snapshot.runtimeProfiles?.[key as keyof NonNullable<typeof snapshot.runtimeProfiles>];
+    return { data: { items: snapshot[key] ?? [], ...(runtimeProfile ?? {}) } as T };
   } catch (error) {
     return { error };
   }

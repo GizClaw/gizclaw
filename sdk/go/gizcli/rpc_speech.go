@@ -16,8 +16,9 @@ type SpeechSynthesisResult struct {
 }
 
 const (
-	defaultSpeechTranscriptionStreamTimeout = 75 * time.Second
-	defaultSpeechSynthesisStreamTimeout     = 120 * time.Second
+	speechStreamDeadlineGrace               = 5 * time.Second
+	defaultSpeechTranscriptionStreamTimeout = 75*time.Second + speechStreamDeadlineGrace
+	defaultSpeechSynthesisStreamTimeout     = 120*time.Second + speechStreamDeadlineGrace
 )
 
 func (c *Client) TranscribeSpeech(ctx context.Context, id string, request rpcapi.SpeechTranscribeRequest, audio io.Reader) (*rpcapi.SpeechTranscribeResponse, error) {
