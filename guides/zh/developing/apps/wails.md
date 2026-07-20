@@ -29,7 +29,8 @@ Desktop App 不复制 `pkgs/gizclaw` 的服务端业务。`api/http/desktop.json
 `resources/local-server` 是新建本地 Server 的版本化只读 bootstrap 数据源。资源
 内容来自 deploy，随 Desktop binary 使用 `go:embed` 编译，不在运行时访问 deploy、
 Flowcraft、测试 fixture、网络 catalog 或 AI 服务。Catalog 包含 Credential、Tenant、
-Model、Workflow、PetDef、Firmware、RuntimeProfile 与 PetDef PIXA 映射；不包含
+Model、Workflow、PetDef、唯一的 `RuntimeProfile/default` 与 PetDef PIXA 映射，共 43 个
+声明式资源；不包含 Firmware 或
 Workspace，Workspace 仍由客户端创建。Workflow 的名称和图标由客户端按 RuntimeProfile
 alias 本地映射，不作为 bootstrap asset。
 
@@ -50,19 +51,28 @@ Pod 创建保持禁用。
 本地 `CreatePod` 在保留目录前完成环境 preflight，同步生成 manifest 和投影并写入
 `.initializing` 状态后立即返回。可取消的后台任务随后启动 companion、等待 Admin
 readiness、按顺序 apply 内嵌资源、同步 Volc Voice，并通过 owner API 上传 PetDef assets。
-最后创建映射到内嵌 Firmware 与 RuntimeProfile 的 RegistrationToken，
+最后创建只映射到 `RuntimeProfile/default` 的
+`RegistrationToken/app:com.gizclaw.opensource`，
 将 raw token 以 `0600` 仅写入 Pod 的私有 workspace。Bridge 在初始化期间拒绝 update、start、stop、
 restart、Admin 和 Play 操作；delete 会先取消并等待后台任务。
 
 `.initializing` 是 `0600` 的持久化 JSON 状态：`initializing` 会出现在 Pod 列表和
 详情中，成功后删除；失败时停止进程并原子改写为带脱敏错误的 `failed`，由用户查看
 目录或删除。启动 Desktop 时只清理被退出或崩溃中断的 `initializing` 目录，保留
-`failed` Pod。状态清除后的 Pod 不会在普通 start、restart 或 Desktop upgrade 时
-重新 apply。
+`failed` Pod。状态清除后的 Pod 不会在普通 start、restart 或 Desktop upgrade 时重放
+完整 catalog。旧版 local Pod 在 Server ready 后只执行一次 runtime contract 迁移：apply
+`RuntimeProfile/default`、创建新的
+`RegistrationToken/app:com.gizclaw.opensource`、删除旧
+`RegistrationToken/desktop-local`，并把 catalog version 记录到 `pod.json`。若恢复到
+旧版遗留进程，Desktop 会先用当前 companion 重启；default profile 同时保留已有
+Workspace 所需的旧翻译 alias。其他可能已被用户修改的资源保持不变。
+迁移完成前 Desktop 不展示旧 token 的二维码；打开本地 Play 会先启动当前 companion
+并完成迁移，再交付新 token。
 
 本地 Play 打开时，Bridge 通过每次 launch 独立保护的 Browser Runtime handoff 传递 raw RegistrationToken；
 Play 在同一条持久 WebRTC 连接上先调用 `server.register`，再加载 RuntimeProfile 资源。
-RegistrationToken 不进入 URL、`pod.json`、Web Storage 或日志。远程 Pod 不由 Desktop
+本地 Pod 分享二维码通过既有 `registration_token` 字段携带 raw token，GizClaw App 扫码后
+即可完成注册。RegistrationToken 不进入 URL、`pod.json`、Web Storage 或日志。远程 Pod 不由 Desktop
 生成 RegistrationToken。
 
 每个运行中的本地 Server 在自己的 `workspace/server.pid` 保存 PID，文件以 `0600`

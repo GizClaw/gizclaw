@@ -192,7 +192,6 @@ func TestServerLoginStoresRegistrationSnapshot(t *testing.T) {
 		}
 		return runtimeprofile.Registration{
 			TokenName:      "app-token",
-			FirmwareName:   "app-firmware",
 			RuntimeProfile: apitypes.RuntimeProfile{Name: "app-profile"},
 		}, nil
 	}

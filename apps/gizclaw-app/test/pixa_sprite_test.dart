@@ -61,9 +61,6 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(
-      find.byIcon(GizIcons.exclamationmark_triangle),
-      findsOneWidget,
-    );
+    expect(find.byIcon(GizIcons.exclamationmark_triangle), findsOneWidget);
   });
 }

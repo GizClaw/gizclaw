@@ -86,7 +86,6 @@ func TestManagerPeerRegistrationFollowsActiveConnection(t *testing.T) {
 	oldConn := &testGiznetConn{}
 	newConn := &testGiznetConn{}
 	oldRegistration := runtimeprofile.Registration{
-		FirmwareName: "firmware-old",
 		RuntimeProfile: apitypes.RuntimeProfile{
 			Name: "profile-old",
 		},
@@ -100,9 +99,6 @@ func TestManagerPeerRegistrationFollowsActiveConnection(t *testing.T) {
 	if profile := resources.RuntimeProfile(); profile == nil || profile.Name != "profile-old" {
 		t.Fatalf("active RuntimeProfile = %#v", profile)
 	}
-	if firmware := resources.FirmwareName(); firmware != "firmware-old" {
-		t.Fatalf("active firmware = %q", firmware)
-	}
 
 	manager.SetPeerUp(key, newConn)
 	if _, ok := manager.PeerRegistration(key); ok {
@@ -112,7 +108,6 @@ func TestManagerPeerRegistrationFollowsActiveConnection(t *testing.T) {
 		t.Fatal("SetPeerRegistration() accepted stale connection")
 	}
 	newRegistration := runtimeprofile.Registration{
-		FirmwareName: "firmware-new",
 		RuntimeProfile: apitypes.RuntimeProfile{
 			Name: "profile-new",
 		},
@@ -135,7 +130,6 @@ func TestPeerResourcesForHTTPSessionDoesNotInheritActiveConnectionRegistration(t
 	key := giznet.PublicKey{1}
 	conn := &testGiznetConn{}
 	activeRegistration := runtimeprofile.Registration{
-		FirmwareName: "firmware-connection",
 		RuntimeProfile: apitypes.RuntimeProfile{
 			Name: "profile-connection",
 		},
@@ -150,12 +144,8 @@ func TestPeerResourcesForHTTPSessionDoesNotInheritActiveConnectionRegistration(t
 	if profile := unregistered.RuntimeProfile(); profile != nil {
 		t.Fatalf("unregistered HTTP session inherited RuntimeProfile = %#v", profile)
 	}
-	if firmware := unregistered.FirmwareName(); firmware != "" {
-		t.Fatalf("unregistered HTTP session inherited firmware = %q", firmware)
-	}
 
 	sessionRegistration := runtimeprofile.Registration{
-		FirmwareName: "firmware-session",
 		RuntimeProfile: apitypes.RuntimeProfile{
 			Name: "profile-session",
 		},
@@ -163,9 +153,6 @@ func TestPeerResourcesForHTTPSessionDoesNotInheritActiveConnectionRegistration(t
 	registered := service.peerResourcesForHTTPSession(key, &sessionRegistration)
 	if profile := registered.RuntimeProfile(); profile == nil || profile.Name != "profile-session" {
 		t.Fatalf("registered HTTP RuntimeProfile = %#v", profile)
-	}
-	if firmware := registered.FirmwareName(); firmware != "firmware-session" {
-		t.Fatalf("registered HTTP firmware = %q", firmware)
 	}
 }
 

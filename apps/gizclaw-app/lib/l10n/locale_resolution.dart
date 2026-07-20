@@ -28,6 +28,3 @@ Locale resolveSystemLocale(List<Locale> platformLocales) {
   }
   return appEnglishLocale;
 }
-
-String appLocaleTag(Locale locale) =>
-    locale.languageCode == 'zh' ? 'zh-CN' : 'en';

@@ -9,29 +9,28 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 )
 
-func TestServerFirmwareRPC(t *testing.T) {
+func TestRegistrationDoesNotProjectFirmwareRPC(t *testing.T) {
 	env := newServerResourceHarness(t)
 
 	list, err := env.peer.ListFirmwares(env.ctx, "firmware.list.shared", rpcapi.FirmwareListRequest{})
 	if err != nil {
 		t.Fatalf("firmware.list shared: %v", err)
 	}
-	if len(list.Items) == 0 {
-		t.Fatalf("firmware.list returned no items")
+	if len(list.Items) != 0 {
+		t.Fatalf("firmware.list registered items = %#v", list.Items)
 	}
 
-	got, err := env.peer.GetFirmware(env.ctx, "firmware.get.shared", rpcapi.FirmwareGetRequest{FirmwareId: sharedFirmware})
-	if err != nil {
-		t.Fatalf("firmware.get shared: %v", err)
+	if _, err := env.peer.GetFirmware(env.ctx, "firmware.get.shared", rpcapi.FirmwareGetRequest{FirmwareId: sharedFirmware}); err == nil {
+		t.Fatal("firmware.get registered error = nil")
 	}
-	if got.Name != sharedFirmware {
-		t.Fatalf("firmware.get name = %q", got.Name)
+	var registeredOut bytes.Buffer
+	if _, err := env.peer.DownloadFirmware(env.ctx, "firmware.files.download.shared", rpcapi.FirmwareFilesDownloadRequest{
+		FirmwareId: sharedFirmware,
+		Channel:    rpcapi.FirmwareChannelNameStable,
+		Path:       "firmware/main.bin",
+	}, &registeredOut); err == nil {
+		t.Fatal("firmware.files.download registered error = nil")
 	}
-	if got.Slots.Stable.Artifact == nil || got.Slots.Stable.Artifact.TarPath == "" {
-		t.Fatalf("firmware stable artifact = %#v", got.Slots.Stable.Artifact)
-	}
-
-	assertFirmwareBundleRPCDownloads(t, env.ctx, env.peer, "firmware.files.download.shared", sharedFirmware)
 
 	denied := env.h.ConnectClientFromContext("peer-denied")
 	defer denied.Close()
@@ -53,13 +52,4 @@ func TestServerFirmwareRPC(t *testing.T) {
 	}, &deniedOut); err == nil {
 		t.Fatalf("firmware.files.download denied error = %v", err)
 	}
-}
-
-func hasFirmware(items []rpcapi.Firmware, name string) bool {
-	for _, item := range items {
-		if item.Name == name {
-			return true
-		}
-	}
-	return false
 }
