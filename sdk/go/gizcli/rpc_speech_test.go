@@ -12,7 +12,96 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
+
+func TestClientSpeechUsesSpeechSpecificStreamDeadlines(t *testing.T) {
+	tests := []struct {
+		name    string
+		timeout time.Duration
+		call    func(*Client) error
+	}{
+		{
+			name: "transcription", timeout: defaultSpeechTranscriptionStreamTimeout,
+			call: func(client *Client) error {
+				_, err := client.TranscribeSpeech(context.Background(), "deadline", rpcapi.SpeechTranscribeRequest{
+					ModelAlias: "asr", ContentType: "audio/L16;rate=16000;channels=1",
+				}, bytes.NewReader([]byte{1}))
+				return err
+			},
+		},
+		{
+			name: "synthesis", timeout: defaultSpeechSynthesisStreamTimeout,
+			call: func(client *Client) error {
+				_, err := client.SynthesizeSpeech(context.Background(), "deadline", rpcapi.SpeechSynthesizeRequest{
+					VoiceAlias: "voice", Text: "hello",
+				}, io.Discard)
+				return err
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			stream := &deadlineRecordingConn{}
+			peer := &speechDeadlinePeerConn{stream: stream}
+			client := &Client{conn: peer}
+			start := time.Now()
+			if err := test.call(client); err == nil {
+				t.Fatal("speech call error = nil, want test stream failure")
+			}
+			deadline, ok := stream.firstNonZeroDeadline()
+			if !ok {
+				t.Fatal("speech stream did not receive a deadline")
+			}
+			if got := deadline.Sub(start); got < test.timeout-time.Second || got > test.timeout+time.Second {
+				t.Fatalf("speech stream deadline = %s, want %s", got, test.timeout)
+			}
+		})
+	}
+}
+
+type speechDeadlinePeerConn struct {
+	stream net.Conn
+}
+
+func (c *speechDeadlinePeerConn) Dial(uint64) (net.Conn, error)             { return c.stream, nil }
+func (*speechDeadlinePeerConn) ListenService(uint64) giznet.ServiceListener { return nil }
+func (*speechDeadlinePeerConn) CloseService(uint64) error                   { return nil }
+func (*speechDeadlinePeerConn) Read([]byte) (byte, int, error)              { return 0, 0, net.ErrClosed }
+func (*speechDeadlinePeerConn) Write(byte, []byte) (int, error)             { return 0, net.ErrClosed }
+func (*speechDeadlinePeerConn) PublicKey() giznet.PublicKey                 { return giznet.PublicKey{} }
+func (*speechDeadlinePeerConn) PeerInfo() *giznet.PeerInfo                  { return nil }
+func (*speechDeadlinePeerConn) Close() error                                { return nil }
+
+type deadlineRecordingConn struct {
+	mu        sync.Mutex
+	deadlines []time.Time
+}
+
+func (*deadlineRecordingConn) Read([]byte) (int, error)         { return 0, net.ErrClosed }
+func (*deadlineRecordingConn) Write([]byte) (int, error)        { return 0, net.ErrClosed }
+func (*deadlineRecordingConn) Close() error                     { return nil }
+func (*deadlineRecordingConn) LocalAddr() net.Addr              { return nil }
+func (*deadlineRecordingConn) RemoteAddr() net.Addr             { return nil }
+func (*deadlineRecordingConn) SetReadDeadline(time.Time) error  { return nil }
+func (*deadlineRecordingConn) SetWriteDeadline(time.Time) error { return nil }
+func (c *deadlineRecordingConn) SetDeadline(deadline time.Time) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.deadlines = append(c.deadlines, deadline)
+	return nil
+}
+
+func (c *deadlineRecordingConn) firstNonZeroDeadline() (time.Time, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for _, deadline := range c.deadlines {
+		if !deadline.IsZero() {
+			return deadline, true
+		}
+	}
+	return time.Time{}, false
+}
 
 func TestTranscribeSpeechStreamsReaderBeforeEOF(t *testing.T) {
 	serverSide, clientSide := net.Pipe()

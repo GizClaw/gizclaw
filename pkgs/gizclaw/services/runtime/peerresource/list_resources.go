@@ -50,9 +50,19 @@ func (s *Server) ListVoices(ctx context.Context, request adminhttp.ListVoicesReq
 	if s.Voices == nil {
 		return adminhttp.ListVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "voice service not configured")), nil
 	}
-	items := make([]apitypes.Voice, 0, len(s.profileNames(profileVoices)))
-	for _, id := range s.profileNames(profileVoices) {
-		response, err := s.Voices.GetVoice(ctx, adminhttp.GetVoiceRequestObject{Id: id})
+	profile := s.currentRuntimeProfile()
+	if profile == nil {
+		return adminhttp.ListVoices200JSONResponse(adminhttp.VoiceList{Items: []apitypes.Voice{}}), nil
+	}
+	bindings := bindingMap(profile.Spec.Resources.Voices)
+	aliases := sortedBindingAliases(bindings)
+	items := make([]apitypes.Voice, 0, len(aliases))
+	for _, alias := range aliases {
+		resourceID := strings.TrimSpace(bindings[alias].ResourceId)
+		if resourceID == "" {
+			continue
+		}
+		response, err := s.Voices.GetVoice(ctx, adminhttp.GetVoiceRequestObject{Id: resourceID})
 		if err != nil {
 			return nil, err
 		}
@@ -69,6 +79,7 @@ func (s *Server) ListVoices(ctx context.Context, request adminhttp.ListVoicesReq
 		if !voiceMatchesListParams(item, request.Params) {
 			continue
 		}
+		item.Id = alias
 		items = append(items, item)
 	}
 	requested := 50
@@ -109,9 +120,19 @@ func (s *Server) GetVoice(ctx context.Context, request adminhttp.GetVoiceRequest
 	if s.Voices == nil {
 		return adminhttp.GetVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "voice service not configured")), nil
 	}
-	id := string(request.Id)
-	if !s.profileAllows(profileVoices, id) {
+	alias := strings.TrimSpace(string(request.Id))
+	resourceID, ok := s.ResolveVoiceAlias(alias)
+	if !ok {
 		return adminhttp.GetVoice404JSONResponse(apitypes.NewErrorResponse("VOICE_NOT_FOUND", http.StatusText(http.StatusNotFound))), nil
 	}
-	return s.Voices.GetVoice(ctx, request)
+	response, err := s.Voices.GetVoice(ctx, adminhttp.GetVoiceRequestObject{Id: resourceID})
+	if err != nil {
+		return nil, err
+	}
+	item, rpcResponse, decodeErr := adminResult[apitypes.Voice](response.VisitGetVoiceResponse)
+	if decodeErr != nil || rpcResponse != nil {
+		return response, nil
+	}
+	item.Id = alias
+	return adminhttp.GetVoice200JSONResponse(item), nil
 }

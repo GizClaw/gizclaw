@@ -398,7 +398,11 @@ func callClientRPC[T any](c *Client, call func(*rpcClient, net.Conn) (*T, error)
 }
 
 func callClientServiceRPC[T any](c *Client, service uint64, call func(*rpcClient, net.Conn) (*T, error)) (*T, error) {
-	stream, err := c.rpcConnForService(service)
+	return callClientServiceRPCWithTimeout(c, service, defaultRPCStreamTimeout, call)
+}
+
+func callClientServiceRPCWithTimeout[T any](c *Client, service uint64, timeout time.Duration, call func(*rpcClient, net.Conn) (*T, error)) (*T, error) {
+	stream, err := c.rpcConnForServiceWithTimeout(service, timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -411,6 +415,10 @@ func (c *Client) rpcConn() (net.Conn, error) {
 }
 
 func (c *Client) rpcConnForService(service uint64) (net.Conn, error) {
+	return c.rpcConnForServiceWithTimeout(service, defaultRPCStreamTimeout)
+}
+
+func (c *Client) rpcConnForServiceWithTimeout(service uint64, timeout time.Duration) (net.Conn, error) {
 	conn := c.PeerConn()
 	if conn == nil {
 		return nil, fmt.Errorf("gizclaw: client is not connected")
@@ -419,7 +427,7 @@ func (c *Client) rpcConnForService(service uint64) (net.Conn, error) {
 	if err != nil {
 		return nil, fmt.Errorf("gizclaw: dial rpc stream: %w", err)
 	}
-	if err := stream.SetDeadline(time.Now().Add(defaultRPCStreamTimeout)); err != nil {
+	if err := stream.SetDeadline(time.Now().Add(timeout)); err != nil {
 		_ = stream.Close()
 		return nil, fmt.Errorf("gizclaw: set rpc stream deadline: %w", err)
 	}

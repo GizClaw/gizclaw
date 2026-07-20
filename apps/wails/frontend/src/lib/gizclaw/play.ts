@@ -132,6 +132,7 @@ export function createRPCPlayDataClient(rpc: PeerRPCClient): PlayDataClient {
           items: (await Promise.all(collections.map((collection) => collectCollectionPages(
             (params) => rpc.call(RPC_METHODS["server.workspace.list"], params),
             collection,
+            true,
           )))).flat(),
         })),
         captureCall(RPC_METHODS["server.workflow.list"], async () => ({

@@ -1445,14 +1445,9 @@ WorkspaceParameters newWorkspaceParametersForDriver(
     asttranslateWorkspaceParameters: ASTTranslateWorkspaceParameters(
       agentType: ASTTranslateWorkspaceParametersAgentType
           .ASTTRANSLATE_WORKSPACE_PARAMETERS_AGENT_TYPE_AST_TRANSLATE,
-      enableSourceLanguageDetect: true,
+      enableSourceLanguageDetect: _translationLangPair(workflowAlias) == 'auto',
       input: WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK,
-      langPair: switch (workflowAlias.trim()) {
-        'translate-zh-ja' => 'zh/ja',
-        'translate-zh-ko' => 'zh/ko',
-        'translate-zh-es' => 'zh/es',
-        _ => 'auto',
-      },
+      langPair: _translationLangPair(workflowAlias),
       mode: ASTTranslateMode.ASTTRANSLATE_MODE_S2S,
     ),
   ),
@@ -1460,6 +1455,14 @@ WorkspaceParameters newWorkspaceParametersForDriver(
     'Creating ${driver.label} workspaces is not supported',
   ),
 };
+
+String _translationLangPair(String workflowAlias) =>
+    switch (workflowAlias.trim()) {
+      'translate-zh-ja' => 'zh/ja',
+      'translate-zh-ko' => 'zh/ko',
+      'translate-zh-es' => 'zh/es',
+      _ => 'auto',
+    };
 
 @visibleForTesting
 Workspace? workspaceWithDefaultInputParameters(

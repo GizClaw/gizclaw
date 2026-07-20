@@ -15,14 +15,19 @@ type SpeechSynthesisResult struct {
 	Bytes    int64
 }
 
+const (
+	defaultSpeechTranscriptionStreamTimeout = 75 * time.Second
+	defaultSpeechSynthesisStreamTimeout     = 120 * time.Second
+)
+
 func (c *Client) TranscribeSpeech(ctx context.Context, id string, request rpcapi.SpeechTranscribeRequest, audio io.Reader) (*rpcapi.SpeechTranscribeResponse, error) {
-	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.SpeechTranscribeResponse, error) {
+	return callClientServiceRPCWithTimeout(c, ServicePeerRPC, defaultSpeechTranscriptionStreamTimeout, func(client *rpcClient, conn net.Conn) (*rpcapi.SpeechTranscribeResponse, error) {
 		return client.TranscribeSpeech(ctx, conn, id, request, audio)
 	})
 }
 
 func (c *Client) SynthesizeSpeech(ctx context.Context, id string, request rpcapi.SpeechSynthesizeRequest, out io.Writer) (*SpeechSynthesisResult, error) {
-	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*SpeechSynthesisResult, error) {
+	return callClientServiceRPCWithTimeout(c, ServicePeerRPC, defaultSpeechSynthesisStreamTimeout, func(client *rpcClient, conn net.Conn) (*SpeechSynthesisResult, error) {
 		result, err := client.SynthesizeSpeech(ctx, conn, id, request, out)
 		return &result, err
 	})

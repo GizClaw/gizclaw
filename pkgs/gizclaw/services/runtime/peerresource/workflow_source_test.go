@@ -166,6 +166,66 @@ func TestListModelsProjectsRuntimeAliases(t *testing.T) {
 	}
 }
 
+func TestListVoicesProjectsRuntimeAliases(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	store := kv.NewMemory(nil)
+	t.Cleanup(func() { _ = store.Close() })
+	voices := &voice.Server{Store: store}
+	canonical := adminhttp.VoiceUpsert{
+		Id: "openai-tenant:primary:canonical-voice", Source: apitypes.VoiceSourceManual,
+		Provider: apitypes.VoiceProvider{Kind: apitypes.VoiceProviderKindOpenaiTenant, Name: "primary"},
+	}
+	response, err := voices.CreateVoice(ctx, adminhttp.CreateVoiceRequestObject{Body: &canonical})
+	if err != nil {
+		t.Fatalf("CreateVoice() error = %v", err)
+	}
+	if _, ok := response.(adminhttp.CreateVoice200JSONResponse); !ok {
+		t.Fatalf("CreateVoice() response = %#v", response)
+	}
+	bindings := map[string]apitypes.RuntimeProfileBinding{
+		"assistant-voice": collectionTestBinding(string(canonical.Id), "Assistant Voice"),
+		"narrator-voice":  collectionTestBinding(string(canonical.Id), "Narrator Voice"),
+		"missing-voice":   collectionTestBinding("openai-tenant:primary:deleted", "Missing Voice"),
+	}
+	profile := apitypes.RuntimeProfile{
+		Name: "default", Revision: "r1",
+		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{Voices: &bindings}},
+	}
+	server := &Server{Voices: voices, RuntimeProfile: func() *apitypes.RuntimeProfile { return &profile }}
+
+	listed, err := server.ListVoices(ctx, adminhttp.ListVoicesRequestObject{})
+	if err != nil {
+		t.Fatalf("ListVoices() error = %v", err)
+	}
+	list, ok := listed.(adminhttp.ListVoices200JSONResponse)
+	if !ok {
+		t.Fatalf("ListVoices() response = %#v", listed)
+	}
+	ids := make([]string, len(list.Items))
+	for i, item := range list.Items {
+		ids[i] = string(item.Id)
+	}
+	if want := []string{"assistant-voice", "narrator-voice"}; !reflect.DeepEqual(ids, want) {
+		t.Fatalf("ListVoices() ids = %#v, want aliases %#v", ids, want)
+	}
+	gotResponse, err := server.GetVoice(ctx, adminhttp.GetVoiceRequestObject{Id: "narrator-voice"})
+	if err != nil {
+		t.Fatalf("GetVoice(alias) error = %v", err)
+	}
+	got, ok := gotResponse.(adminhttp.GetVoice200JSONResponse)
+	if !ok || got.Id != "narrator-voice" {
+		t.Fatalf("GetVoice(alias) = %#v", gotResponse)
+	}
+	canonicalResponse, err := server.GetVoice(ctx, adminhttp.GetVoiceRequestObject{Id: canonical.Id})
+	if err != nil {
+		t.Fatalf("GetVoice(canonical) error = %v", err)
+	}
+	if _, ok := canonicalResponse.(adminhttp.GetVoice404JSONResponse); !ok {
+		t.Fatalf("GetVoice(canonical) = %#v, want 404", canonicalResponse)
+	}
+}
+
 func assertAliasNotFound(t *testing.T, response *rpcapi.RPCResponse, message, canonicalID string) {
 	t.Helper()
 	if response == nil || response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeNotFound {

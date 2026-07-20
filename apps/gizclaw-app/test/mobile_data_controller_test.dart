@@ -211,6 +211,13 @@ void main() {
           request.parameters.asttranslateWorkspaceParameters.langPair,
           entry.value,
         );
+        expect(
+          request
+              .parameters
+              .asttranslateWorkspaceParameters
+              .enableSourceLanguageDetect,
+          entry.value == 'auto',
+        );
       }
     },
   );
@@ -790,7 +797,7 @@ void main() {
 
     expect(repaired, isNotNull);
     final parameters = repaired!.parameters.asttranslateWorkspaceParameters;
-    expect(parameters.enableSourceLanguageDetect, isTrue);
+    expect(parameters.enableSourceLanguageDetect, isFalse);
     expect(parameters.langPair, 'zh/ja');
     expect(parameters.mode, ASTTranslateMode.ASTTRANSLATE_MODE_S2S);
   });

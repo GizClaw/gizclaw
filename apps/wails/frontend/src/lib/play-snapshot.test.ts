@@ -5,16 +5,18 @@ import type { PeerRPCClient } from "@gizclaw/gizclaw/rpc";
 
 import { createRPCPlayDataClient } from "./gizclaw/play.ts";
 
-test("snapshot keeps workflows when a fixed collection is absent", async () => {
+test("snapshot keeps workspaces and workflows when a fixed collection is absent", async () => {
+  const workspaceCalls: Array<Record<string, unknown>> = [];
   const workflowCalls: Array<Record<string, unknown>> = [];
   const rpc = {
     call: async (method: string, params: Record<string, unknown>) => {
-      if (method !== "server.workflow.list") {
+      if (method !== "server.workspace.list" && method !== "server.workflow.list") {
         return { items: [] };
       }
-      workflowCalls.push(params);
+      const calls = method === "server.workspace.list" ? workspaceCalls : workflowCalls;
+      calls.push(params);
       if (params.collection === "role-play") {
-        throw Object.assign(new Error("workflow collection not found"), { code: 404 });
+        throw Object.assign(new Error(`${method} collection not found`), { code: 404 });
       }
       if (params.collection !== "assistants") {
         return { items: [] };
@@ -32,10 +34,19 @@ test("snapshot keeps workflows when a fixed collection is absent", async () => {
 
   const snapshot = await createRPCPlayDataClient(rpc).loadSnapshot();
 
+  assert.equal(snapshot.warnings.some((warning) => warning.startsWith("server.workspace.list:")), false);
   assert.equal(snapshot.warnings.some((warning) => warning.startsWith("server.workflow.list:")), false);
+  assert.deepEqual(
+    snapshot.workspaces.map((workspace) => (workspace.raw as { alias: string }).alias),
+    ["assistant-first", "assistant-second"],
+  );
   assert.deepEqual(
     snapshot.workflows.map((workflow) => (workflow.raw as { alias: string }).alias),
     ["assistant-first", "assistant-second"],
+  );
+  assert.deepEqual(
+    workspaceCalls.filter((call) => call.collection === "assistants").map((call) => call.cursor ?? ""),
+    ["", "assistant-next"],
   );
   assert.deepEqual(
     workflowCalls.filter((call) => call.collection === "assistants").map((call) => call.cursor ?? ""),
