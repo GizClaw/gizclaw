@@ -23,7 +23,7 @@ require (
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/kaptinlin/jsonrepair v0.2.6
 	github.com/kardianos/service v1.2.4
-	github.com/lib/pq v1.12.0
+	github.com/lib/pq v1.12.3
 	github.com/oapi-codegen/runtime v1.3.1
 	github.com/openai/openai-go v1.12.0
 	github.com/pion/datachannel v1.6.0
