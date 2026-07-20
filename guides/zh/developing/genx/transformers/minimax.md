@@ -1,13 +1,14 @@
 # MiniMax Adapter
 
-MiniMax Adapter 通过 `MinimaxTTS` 将 MiniMax streaming speech API 适配为 GenX TTS Transformer。
+`minimaxtts` package 将 MiniMax 语音合成适配为 GenX Transformer。
 
-## 核心结构与主函数
+```go
+transformer, err := minimaxtts.New(minimaxtts.Config{
+    Client:  client,
+    VoiceID: "female-shaonv",
+})
+```
 
-| 符号 | 作用 |
-| --- | --- |
-| [`MinimaxTTS`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx/transformers#MinimaxTTS) | 保存 client、model、voice 和 audio generation parameters。 |
-| [`NewMinimaxTTS`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx/transformers#NewMinimaxTTS) | 创建指定 voice 的 MiniMax TTS Transformer。 |
-| `MinimaxTTS.Transform` | 消费 text Stream，并把 provider streaming audio 转换为输出 Stream。 |
+`Config` 保存不可变的 client、model、voice、speed、volume、pitch、emotion、format、sample rate 和 bitrate。`New` 校验 client 与 voice，但不建立连接。每次 `Transform` 独占 Stream lifecycle 和 provider request state，因此同一个已配置 Transformer 支持并发调用。
 
-MiniMax-specific model、emotion、pitch、speed、volume 与 audio settings 由 Adapter options 表达，不进入通用 `genx.Transformer` interface。
+MiniMax TTS 是非 agent 的 Stream-to-Stream Transformer，不提供 Toolkit 配置入口。

@@ -1,4 +1,4 @@
-package dashscoperealtime
+package doubaoasr
 
 import "github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/internal/streamkit"
 

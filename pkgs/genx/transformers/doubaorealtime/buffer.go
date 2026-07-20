@@ -2,15 +2,15 @@ package doubaorealtime
 
 import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
-	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/agentkit"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/internal/streamkit"
 )
 
 type bufferStream struct {
-	*agentkit.Output
+	*streamkit.Output
 }
 
 func newBufferStream(size int) *bufferStream {
-	return &bufferStream{Output: agentkit.NewOutput(agentkit.OutputConfig{InitialCapacity: size})}
+	return &bufferStream{Output: streamkit.NewOutput(streamkit.OutputConfig{InitialCapacity: size})}
 }
 
 func (s *bufferStream) setOutputObserver(observe func(*genx.MessageChunk)) {

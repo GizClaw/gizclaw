@@ -10,7 +10,7 @@ require (
 	github.com/GizClaw/flowcraft/memory v0.1.7
 	github.com/GizClaw/flowcraft/sdk v0.4.8
 	github.com/GizClaw/flowcraft/sdkx v0.4.10
-	github.com/GizClaw/minimax-go v0.0.0-20260512045057-389426641c63
+	github.com/GizClaw/minimax-go v0.0.0-20260625231851-7a1c8a1f2111
 	github.com/dgraph-io/badger/v4 v4.9.1
 	github.com/felixge/httpsnoop v1.0.4
 	github.com/goccy/go-yaml v1.19.2
@@ -84,7 +84,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/chewxy/math32 v1.10.1 // indirect
 	github.com/coder/hnsw v0.6.1 // indirect
-	github.com/coder/websocket v1.8.14 // indirect
+	github.com/coder/websocket v1.8.15 // indirect
 	github.com/dgraph-io/ristretto/v2 v2.2.0 // indirect
 	github.com/dlclark/regexp2 v1.11.4 // indirect
 	github.com/dop251/goja v0.0.0-20260219130522-0ba9a5494a59 // indirect

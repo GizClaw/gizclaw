@@ -17,8 +17,8 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
-	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/openaihttp"
@@ -614,7 +614,7 @@ func writeChatCompletionSSE(w io.Writer, stream genx.Stream, model string, now t
 }
 
 func writeSpeechSSE(w io.Writer, stream genx.Stream, contentType string) error {
-	var normalizer *transformers.TTSAudioNormalizer
+	var normalizer *codecconv.TTSAudioNormalizer
 	for {
 		chunk, err := stream.Next()
 		if err != nil {
@@ -631,7 +631,7 @@ func writeSpeechSSE(w io.Writer, stream genx.Stream, contentType string) error {
 			continue
 		}
 		if normalizer == nil {
-			normalizer = transformers.NewTTSAudioNormalizer(blobContentType(blob, contentType))
+			normalizer = codecconv.NewTTSAudioNormalizer(blobContentType(blob, contentType))
 		}
 		if err := writeSpeechAudioDelta(w, normalizer.Write(blob.Data)); err != nil {
 			return err
@@ -748,7 +748,7 @@ func readBlobStreamWithMIME(stream genx.Stream, contentType string) ([]byte, str
 	if contentType == "" {
 		contentType = "application/octet-stream"
 	}
-	var normalizer *transformers.TTSAudioNormalizer
+	var normalizer *codecconv.TTSAudioNormalizer
 	for {
 		chunk, err := stream.Next()
 		if err != nil {
@@ -768,7 +768,7 @@ func readBlobStreamWithMIME(stream genx.Stream, contentType string) ([]byte, str
 				contentType = strings.TrimSpace(blob.MIMEType)
 			}
 			if normalizer == nil {
-				normalizer = transformers.NewTTSAudioNormalizer(contentType)
+				normalizer = codecconv.NewTTSAudioNormalizer(contentType)
 			}
 			out.Write(normalizer.Write(blob.Data))
 		}

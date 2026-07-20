@@ -11,20 +11,25 @@
 | [Doubao Speech](./doubao) | ASR、TTS、Realtime、Realtime Duplex 与 speech translation。 |
 | [DashScope](./dashscope) | Realtime multimodal conversation。 |
 | [MiniMax](./minimax) | Streaming TTS。 |
-| [Stream Processing](./stream-processing) | Provider-neutral 的 mux、TTS normalization、文本分段和 stream wrapper。 |
+| [Stream Processing](./stream-processing) | Provider-neutral 的 mux、Stream lifecycle、TTS normalization 和文本分段。 |
 
-Agent-capable adapter 使用独立 package 暴露 typed Config：
+Provider 实现与共享的内部 Stream lifecycle 使用独立 package：
 
 ```text
 pkgs/genx/transformers/
-├── agentkit/
+├── internal/streamkit/
+├── doubaoasr/
+├── doubaotts/
+├── minimaxtts/
 ├── doubaoast/
 ├── doubaorealtime/
 ├── doubaorealtimeduplex/
 └── dashscoperealtime/
 ```
 
-每个 provider package 都提供 `New(Config) (*Transformer, error)`，constructor 只解析不可变配置，不建立连接。每次 `Transform(ctx, input)` 单独建立并管理 provider session。Agent-capable adapter 不再通过 flat `transformers.New*` constructor 暴露；调用方必须直接导入对应的 provider package。
+每个 provider package 都提供 typed constructor，例如 `doubaoasr.New`、`doubaotts.NewSeedV2` 和 `minimaxtts.New`。Constructor 只解析不可变配置，不建立连接；每次 `Transform(ctx, input)` 单独建立并管理 provider session。Provider adapter 不再通过 flat `transformers.New*` constructor 暴露。
+
+ASR、TTS、AST 和 Doubao Realtime Dialogue 都只是 Stream-to-Stream Transformer，不属于 agent-capable runtime。当前 provider 协议能够支持 Toolkit continuation 的 package 是 Doubao Realtime Duplex 与 DashScope Realtime。StreamKit 与该分类无关，也不拥有 Tool 或 Toolkit。
 
 ```mermaid
 flowchart LR

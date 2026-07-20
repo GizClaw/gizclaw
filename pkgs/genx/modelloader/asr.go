@@ -2,11 +2,11 @@ package modelloader
 
 import (
 	"fmt"
-	"slices"
 	"strings"
 
 	"github.com/GizClaw/doubao-speech-go"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/doubaoasr"
 )
 
 func registerASRBySchema(cfg ConfigFile) ([]string, error) {
@@ -33,11 +33,10 @@ func registerDoubaoASR(cfg ConfigFile) ([]string, error) {
 		return nil, fmt.Errorf("api_key is required for doubao ASR")
 	}
 
-	// Extract default params
-	var opts []transformers.DoubaoASRSAUCOption
+	config := doubaoasr.Config{}
 	if cfg.DefaultParams != nil {
 		if language, ok := cfg.DefaultParams["language"].(string); ok {
-			opts = append(opts, transformers.WithDoubaoASRSAUCLanguage(language))
+			config.Language = language
 		}
 	}
 
@@ -59,8 +58,13 @@ func registerDoubaoASR(cfg ConfigFile) ([]string, error) {
 			doubaospeech.WithAPIKey(cfg.APIKey),
 			doubaospeech.WithResourceID(resourceID),
 		)
-		modelOpts := append(slices.Clone(opts), transformers.WithDoubaoASRSAUCResourceID(resourceID))
-		asr := transformers.NewDoubaoASRSAUC(client, modelOpts...)
+		modelConfig := config
+		modelConfig.Client = client
+		modelConfig.ResourceID = resourceID
+		asr, err := doubaoasr.New(modelConfig)
+		if err != nil {
+			return nil, fmt.Errorf("create transformer %q: %w", m.Name, err)
+		}
 		if err := transformers.Handle(m.Name, asr); err != nil {
 			return nil, fmt.Errorf("register transformer %q: %w", m.Name, err)
 		}

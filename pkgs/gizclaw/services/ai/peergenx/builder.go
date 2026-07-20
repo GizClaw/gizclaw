@@ -14,9 +14,11 @@ import (
 	"google.golang.org/genai"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
-	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/doubaoasr"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/doubaoast"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/doubaorealtime"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/doubaotts"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/minimaxtts"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
@@ -239,34 +241,34 @@ func (b DefaultBuilder) buildVolcASR(cfg TransformerConfig) (genx.Transformer, e
 	}
 	clientOpts = append(clientOpts, doubaospeech.WithAPIKey(apiKey))
 	data := mergeParams(nil, cfg.Params)
-	opts := []transformers.DoubaoASRSAUCOption{}
-	opts = append(opts, transformers.WithDoubaoASRSAUCResourceID(resourceID))
+	transformerConfig := doubaoasr.Config{ResourceID: resourceID}
 	if value := mapString(data, "format", "audio_format"); value != "" {
-		opts = append(opts, transformers.WithDoubaoASRSAUCFormat(value))
+		transformerConfig.Format = value
 	}
 	if value, ok := mapInt(data, "sample_rate", "sampleRate", "rate"); ok {
-		opts = append(opts, transformers.WithDoubaoASRSAUCSampleRate(value))
+		transformerConfig.SampleRate = value
 	}
 	if value, ok := mapInt(data, "channels", "channel"); ok {
-		opts = append(opts, transformers.WithDoubaoASRSAUCChannels(value))
+		transformerConfig.Channels = value
 	}
 	if value, ok := mapInt(data, "bits"); ok {
-		opts = append(opts, transformers.WithDoubaoASRSAUCBits(value))
+		transformerConfig.Bits = value
 	}
 	if value := mapString(data, "language", "lang"); value != "" {
-		opts = append(opts, transformers.WithDoubaoASRSAUCLanguage(value))
+		transformerConfig.Language = value
 	}
 	if value := mapString(data, "result_type", "resultType"); value != "" {
-		opts = append(opts, transformers.WithDoubaoASRSAUCResultType(value))
+		transformerConfig.ResultType = value
 	}
 	if value, ok := mapBool(data, "emit_interim", "emitInterim", "interim"); ok {
-		opts = append(opts, transformers.WithDoubaoASRSAUCEmitInterim(value))
+		transformerConfig.EmitInterim = value
 	}
 	if value, ok := mapBool(data, "realtime_pacing", "realtimePacing"); ok {
-		opts = append(opts, transformers.WithDoubaoASRSAUCRealtimePacing(value))
+		transformerConfig.RealtimePacing = &value
 	}
 	client := doubaospeech.NewClient(appID, clientOpts...)
-	return transformers.NewDoubaoASRSAUC(client, opts...), nil
+	transformerConfig.Client = client
+	return doubaoasr.New(transformerConfig)
 }
 
 func (b DefaultBuilder) buildVolcRealtime(cfg TransformerConfig) (genx.Transformer, error) {
@@ -702,15 +704,17 @@ func (b DefaultBuilder) buildVolcTTS(cfg TransformerConfig) (genx.Transformer, e
 	if voiceID == "" {
 		return nil, fmt.Errorf("%w: voice %q missing voice_id", ErrInvalid, cfg.Voice.Id)
 	}
-	opts := []transformers.DoubaoTTSSeedV2Option{
-		transformers.WithDoubaoTTSSeedV2Format(defaultVolcTTSAudioFormat),
-		transformers.WithDoubaoTTSSeedV2SampleRate(defaultTTSAudioSampleRate),
+	transformerConfig := doubaotts.SeedV2Config{
+		Speaker:    voiceID,
+		Format:     defaultVolcTTSAudioFormat,
+		SampleRate: defaultTTSAudioSampleRate,
 	}
 	if value := firstString(providerData.ResourceId); value != "" {
-		opts = append(opts, transformers.WithDoubaoTTSSeedV2ResourceID(value))
+		transformerConfig.ResourceID = value
 	}
 	client := doubaospeech.NewClient(appID, doubaospeech.WithAPIKey(apiKey))
-	return transformers.NewDoubaoTTSSeedV2(client, voiceID, opts...), nil
+	transformerConfig.Client = client
+	return doubaotts.NewSeedV2(transformerConfig)
 }
 
 func (b DefaultBuilder) buildMiniMaxTTS(cfg TransformerConfig) (genx.Transformer, error) {
@@ -744,20 +748,22 @@ func (b DefaultBuilder) buildMiniMaxTTS(cfg TransformerConfig) (genx.Transformer
 	if err != nil {
 		return nil, err
 	}
-	opts := []transformers.MinimaxTTSOption{
-		transformers.WithMinimaxTTSFormat(defaultMiniMaxTTSAudioFormat),
-		transformers.WithMinimaxTTSSampleRate(defaultTTSAudioSampleRate),
+	transformerConfig := minimaxtts.Config{
+		Client:     client,
+		VoiceID:    voiceID,
+		Format:     defaultMiniMaxTTSAudioFormat,
+		SampleRate: defaultTTSAudioSampleRate,
 	}
 	if model := firstString(providerData.Model); model != "" {
-		opts = append(opts, transformers.WithMinimaxTTSModel(model))
+		transformerConfig.Model = model
 	}
 	if format := firstString(providerData.Format); format != "" {
-		opts = append(opts, transformers.WithMinimaxTTSFormat(format))
+		transformerConfig.Format = format
 	}
 	if providerData.SampleRate != nil {
-		opts = append(opts, transformers.WithMinimaxTTSSampleRate(*providerData.SampleRate))
+		transformerConfig.SampleRate = *providerData.SampleRate
 	}
-	return transformers.NewMinimaxTTS(client, voiceID, opts...), nil
+	return minimaxtts.New(transformerConfig)
 }
 
 func firstString(values ...any) string {

@@ -2,15 +2,26 @@
 
 Doubao Speech Adapter adapts Doubao speech protocol to `genx.Transformer`, covering one-way recognition, speech generation, real-time dialogue, duplex real-time dialogue and voice translation.
 
-Agent-capable adapters use `doubaoast.New`, `doubaorealtime.New`, and `doubaorealtimeduplex.New` with their package-specific typed Config. Constructors do not open provider sessions; each concurrent `Transform` call owns its session and runtime state.
+Each adapter uses a package-owned typed constructor:
+
+```go
+doubaoasr.New(doubaoasr.Config{Client: client})
+doubaotts.NewSeedV2(doubaotts.SeedV2Config{Client: client, Speaker: speaker})
+doubaotts.NewICLV2(doubaotts.ICLV2Config{Client: client, Speaker: speaker})
+doubaoast.New(doubaoast.Config{Client: client})
+doubaorealtime.New(doubaorealtime.Config{Client: client})
+doubaorealtimeduplex.New(doubaorealtimeduplex.Config{Client: client})
+```
+
+Constructors do not open provider sessions; each concurrent `Transform` call owns its session and runtime state. ASR, TTS, AST, and Realtime Dialogue do not accept Toolkit configuration. Realtime Duplex is agent-capable because its provider protocol supports function-call output continuation.
 
 ## Abilities
 
 | Transformer | Input and Output |
 | --- | --- |
-| [`DoubaoASRSAUC`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx/transformers#DoubaoASRSAUC) | Audio Stream → transcription Stream. |
-| [`DoubaoTTSSeedV2`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx/transformers#DoubaoTTSSeedV2) | Text Stream → generated audio Stream. |
-| [`DoubaoTTSICLV2`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx/transformers#DoubaoTTSICLV2) | Text Stream → ICL voice audio Stream. |
+| `doubaoasr.Transformer` | Audio Stream → transcription Stream. |
+| `doubaotts.SeedV2` | Text Stream → generated audio Stream. |
+| `doubaotts.ICLV2` | Text Stream → ICL voice audio Stream. |
 | `doubaorealtime.Transformer` | Adapts the Doubao Realtime Dialogue API (`volc.speech.dialog`), explicitly handles ASR, Chat, and TTS events, and supports Push-to-Talk, continuous voice, and text input. |
 | `doubaorealtimeduplex.Transformer` | Adapts the independent Realtime Duplex API, which handles continuous duplex audio and its transcription, response text/audio, function call, and response cancellation events. |
 | `doubaoast.Transformer` | Speech input → translated text/audio Stream. |

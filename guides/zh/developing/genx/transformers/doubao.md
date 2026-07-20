@@ -2,23 +2,26 @@
 
 Doubao Speech Adapter 将豆包语音协议适配为 `genx.Transformer`，覆盖单向识别、语音生成、实时对话、双工实时对话和语音翻译。
 
-Agent-capable adapters 的公共构造入口分别是：
+各 Adapter 使用 package-owned typed constructor：
 
 ```go
+doubaoasr.New(doubaoasr.Config{Client: client})
+doubaotts.NewSeedV2(doubaotts.SeedV2Config{Client: client, Speaker: speaker})
+doubaotts.NewICLV2(doubaotts.ICLV2Config{Client: client, Speaker: speaker})
 doubaoast.New(doubaoast.Config{Client: client})
 doubaorealtime.New(doubaorealtime.Config{Client: client})
 doubaorealtimeduplex.New(doubaorealtimeduplex.Config{Client: client})
 ```
 
-每个 constructor 返回实现 `genx.Transformer` 的具体 `*Transformer`，不接收 Workspace 或 Workflow。Config 只包含已解析的 provider client 和不可变 session option；每次 `Transform` 使用独立 session/WebSocket。Realtime Duplex 的 Config 在本层不包含 Tool 或 Toolkit。
+每个 constructor 返回实现 `genx.Transformer` 的具体类型，不接收 Workspace 或 Workflow。Config 只包含已解析的 provider client 和不可变 session option；每次 `Transform` 使用独立 session/WebSocket。ASR、TTS、AST 和 Realtime Dialogue 都不接收 Toolkit 配置；Realtime Duplex 的 provider protocol 支持 function-call output continuation，因此属于 agent-capable runtime。
 
 ## 能力
 
 | Transformer | 输入与输出 |
 | --- | --- |
-| [`DoubaoASRSAUC`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx/transformers#DoubaoASRSAUC) | Audio Stream → transcription Stream。 |
-| [`DoubaoTTSSeedV2`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx/transformers#DoubaoTTSSeedV2) | Text Stream → generated audio Stream。 |
-| [`DoubaoTTSICLV2`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx/transformers#DoubaoTTSICLV2) | Text Stream → ICL voice audio Stream。 |
+| `doubaoasr.Transformer` | Audio Stream → transcription Stream。 |
+| `doubaotts.SeedV2` | Text Stream → generated audio Stream。 |
+| `doubaotts.ICLV2` | Text Stream → ICL voice audio Stream。 |
 | `doubaorealtime.Transformer` | 适配豆包 Realtime Dialogue API（`volc.speech.dialog`），显式处理 ASR、Chat、TTS 事件，并支持 Push-to-Talk、连续语音和文本输入。 |
 | `doubaorealtimeduplex.Transformer` | 适配独立的 Realtime Duplex API，只处理连续双工音频；使用 transcription、response text/audio、function call 和 response cancel 事件。 |
 | `doubaoast.Transformer` | Speech input → translated text/audio Stream。 |

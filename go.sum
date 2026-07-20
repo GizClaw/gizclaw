@@ -66,8 +66,8 @@ github.com/GizClaw/flowcraft/sdk v0.4.8 h1:fgbgMfZW8U3qAhzIjU+lFFRpoR0GcrF4MB0Oo
 github.com/GizClaw/flowcraft/sdk v0.4.8/go.mod h1:CtWO/keRfKzfyTuKD3axf6QSpDB/vEqbBIRgvK9qpKw=
 github.com/GizClaw/flowcraft/sdkx v0.4.10 h1:YKjuRxE9iN2R2baOckfbH0f87d0P0QkltipJZvXqNxk=
 github.com/GizClaw/flowcraft/sdkx v0.4.10/go.mod h1:1a2Rw1uxXqTCypP+j0zHfszwtOhlsiXwgQSM4k4LMrw=
-github.com/GizClaw/minimax-go v0.0.0-20260512045057-389426641c63 h1:Lr/jOGOiIdzNt0Pwcwzeo3DtaR9TTRVFzNBbBlHsmGI=
-github.com/GizClaw/minimax-go v0.0.0-20260512045057-389426641c63/go.mod h1:xwVfHcqJOz3eadZAwBmT7HmYJNtL+R+aMF23wwZbdXc=
+github.com/GizClaw/minimax-go v0.0.0-20260625231851-7a1c8a1f2111 h1:YDuhGJfgRzbBCsN5YHS99K4v1GVsUk05DeK/11r6fug=
+github.com/GizClaw/minimax-go v0.0.0-20260625231851-7a1c8a1f2111/go.mod h1:GYb/V+peMdzoU+4tCfiWnL3Efls+wDgA0rirlPhOFL8=
 github.com/HdrHistogram/hdrhistogram-go v1.1.0/go.mod h1:yDgFjdqOqDEKOvasDdhWNXYg9BVp4O+o5f6V/ehm6Oo=
 github.com/HdrHistogram/hdrhistogram-go v1.1.2/go.mod h1:yDgFjdqOqDEKOvasDdhWNXYg9BVp4O+o5f6V/ehm6Oo=
 github.com/Knetic/govaluate v3.0.1-0.20171022003610-9aa49832a739+incompatible/go.mod h1:r7JcOSlj0wfOMncg0iLm8Leh48TZaKVeNIfJntJ2wa0=
@@ -179,8 +179,8 @@ github.com/cncf/udpa/go v0.0.0-20201120205902-5459f2c99403/go.mod h1:WmhPx2Nbnht
 github.com/cncf/xds/go v0.0.0-20210312221358-fbca930ec8ed/go.mod h1:eXthEFrGJvWHgFFCl3hGmgk+/aYT6PnTQLykKQRLhEs=
 github.com/coder/hnsw v0.6.1 h1:Dv76pjiFkgMYFqnTCOehJXd06irm2PRwcP/jMMPCyO0=
 github.com/coder/hnsw v0.6.1/go.mod h1:wvRc/vZNkK50HFcagwnc/ep/u29Mg2uLlPmc8SD7eEQ=
-github.com/coder/websocket v1.8.14 h1:9L0p0iKiNOibykf283eHkKUHHrpG7f65OE3BhhO7v9g=
-github.com/coder/websocket v1.8.14/go.mod h1:NX3SzP+inril6yawo5CQXx8+fk145lPDC6pumgx0mVg=
+github.com/coder/websocket v1.8.15 h1:6B2JPeOGlpff2Uz6vOEH1Vzpi0iUz20A+lPVhPHtNUA=
+github.com/coder/websocket v1.8.15/go.mod h1:NX3SzP+inril6yawo5CQXx8+fk145lPDC6pumgx0mVg=
 github.com/coreos/go-semver v0.3.0/go.mod h1:nnelYz7RCh+5ahJtPPxZlU+153eP4D4r3EedlOD2RNk=
 github.com/coreos/go-systemd/v22 v22.3.2/go.mod h1:Y58oyj3AT4RCenI/lSvhwexgC+NSVTIJ3seZv2GcEnc=
 github.com/cpuguy83/go-md2man/v2 v2.0.0-20190314233015-f79a8a8ca69d/go.mod h1:maD7wRr/U5Z6m/iR4s+kqSMx2CaBsrgA7czyZG/E6dU=
