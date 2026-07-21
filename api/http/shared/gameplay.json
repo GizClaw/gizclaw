@@ -12,62 +12,52 @@
         "type": "object",
         "additionalProperties": true
       },
-      "PetAttrValueSpec": {
-        "type": "object",
-        "required": [
-          "initial"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "initial": {
-            "type": "integer",
-            "format": "int64"
-          }
-        }
+      "PetBehavior": {
+        "type": "string",
+        "enum": [
+          "feed",
+          "bathe",
+          "play",
+          "heal"
+        ]
       },
-      "PetAttrGroupSpec": {
-        "type": "object",
-        "additionalProperties": {
-          "$ref": "#/components/schemas/PetAttrValueSpec"
-        }
+      "PetLifecycle": {
+        "type": "string",
+        "enum": [
+          "alive",
+          "dead"
+        ]
       },
-      "PetDefAttrSpec": {
+      "PetStats": {
         "type": "object",
         "required": [
           "life",
-          "progression"
+          "health",
+          "satiety",
+          "hygiene",
+          "mood",
+          "energy"
         ],
         "additionalProperties": false,
         "properties": {
-          "life": {
-            "$ref": "#/components/schemas/PetAttrGroupSpec"
-          },
-          "progression": {
-            "$ref": "#/components/schemas/PetAttrGroupSpec"
-          }
-        }
-      },
-      "PetLife": {
-        "type": "object",
-        "additionalProperties": {
-          "type": "integer",
-          "format": "int64"
+          "life": { "type": "number", "format": "double", "minimum": 0, "maximum": 100 },
+          "health": { "type": "number", "format": "double", "minimum": 0, "maximum": 100 },
+          "satiety": { "type": "number", "format": "double", "minimum": 0, "maximum": 100 },
+          "hygiene": { "type": "number", "format": "double", "minimum": 0, "maximum": 100 },
+          "mood": { "type": "number", "format": "double", "minimum": 0, "maximum": 100 },
+          "energy": { "type": "number", "format": "double", "minimum": 0, "maximum": 100 }
         }
       },
       "PetProgression": {
         "type": "object",
-        "additionalProperties": {
-          "type": "integer",
-          "format": "int64"
-        }
-      },
-      "PetAttrDelta": {
-        "type": "object",
+        "required": [
+          "experience",
+          "level"
+        ],
         "additionalProperties": false,
         "properties": {
-          "life": {
-            "$ref": "#/components/schemas/PetLife"
-          }
+          "experience": { "type": "integer", "format": "int64", "minimum": 0 },
+          "level": { "type": "integer", "format": "int64", "minimum": 1 }
         }
       },
       "PetDefCharacterSpec": {
@@ -94,57 +84,47 @@
           }
         }
       },
-      "PetDefActionEffectSpec": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "attr_delta": {
-            "$ref": "#/components/schemas/PetAttrDelta"
-          },
-          "pet_exp_delta": {
-            "type": "integer",
-            "format": "int64",
-            "default": 0
-          }
-        }
-      },
-      "PetDefActionSpec": {
+      "PetDefBehaviorBindingsSpec": {
         "type": "object",
         "required": [
-          "id",
-          "cost"
+          "feed",
+          "bathe",
+          "play",
+          "heal"
         ],
         "additionalProperties": false,
         "properties": {
-          "id": {
-            "type": "string"
-          },
-          "cost": {
-            "type": "integer",
-            "format": "int64",
-            "default": 0
-          },
-          "visual_clip_id": {
-            "type": "string"
-          },
-          "effect": {
-            "$ref": "#/components/schemas/PetDefActionEffectSpec"
-          }
+          "feed": { "type": "string", "minLength": 1 },
+          "bathe": { "type": "string", "minLength": 1 },
+          "play": { "type": "string", "minLength": 1 },
+          "heal": { "type": "string", "minLength": 1 }
         }
       },
-      "PetDefDriveSpec": {
+      "PetDefStateBindingsSpec": {
         "type": "object",
         "required": [
-          "actions"
+          "idle",
+          "sick",
+          "dead"
         ],
         "additionalProperties": false,
         "properties": {
-          "actions": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PetDefActionSpec"
-            }
-          }
+          "idle": { "type": "string", "minLength": 1 },
+          "sick": { "type": "string", "minLength": 1 },
+          "dead": { "type": "string", "minLength": 1 },
+          "sleep": { "type": "string", "minLength": 1 }
+        }
+      },
+      "PetDefVisualBindingsSpec": {
+        "type": "object",
+        "required": [
+          "behaviors",
+          "states"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "behaviors": { "$ref": "#/components/schemas/PetDefBehaviorBindingsSpec" },
+          "states": { "$ref": "#/components/schemas/PetDefStateBindingsSpec" }
         }
       },
       "PetDefVisualRefSpec": {
@@ -197,9 +177,6 @@
         "additionalProperties": false,
         "properties": {
           "id": {
-            "type": "string"
-          },
-          "action_id": {
             "type": "string"
           },
           "pixa_clip_name": {
@@ -268,7 +245,8 @@
         "type": "object",
         "required": [
           "refs",
-          "pixa"
+          "pixa",
+          "bindings"
         ],
         "additionalProperties": false,
         "properties": {
@@ -277,48 +255,9 @@
           },
           "pixa": {
             "$ref": "#/components/schemas/PetDefPixaSpec"
-          }
-        }
-      },
-      "PetDefI18nDisplayText": {
-        "type": "object",
-        "required": [
-          "display_name"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "display_name": {
-            "type": "string"
-          }
-        }
-      },
-      "PetDefI18nAttrGroup": {
-        "type": "object",
-        "additionalProperties": {
-          "$ref": "#/components/schemas/PetDefI18nDisplayText"
-        }
-      },
-      "PetDefI18nAttrSpec": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "life": {
-            "$ref": "#/components/schemas/PetDefI18nAttrGroup"
           },
-          "progression": {
-            "$ref": "#/components/schemas/PetDefI18nAttrGroup"
-          }
-        }
-      },
-      "PetDefI18nDriveSpec": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "actions": {
-            "type": "object",
-            "additionalProperties": {
-              "$ref": "#/components/schemas/PetDefI18nDisplayText"
-            }
+          "bindings": {
+            "$ref": "#/components/schemas/PetDefVisualBindingsSpec"
           }
         }
       },
@@ -331,12 +270,6 @@
           },
           "description": {
             "type": "string"
-          },
-          "attr": {
-            "$ref": "#/components/schemas/PetDefI18nAttrSpec"
-          },
-          "drive": {
-            "$ref": "#/components/schemas/PetDefI18nDriveSpec"
           }
         }
       },
@@ -356,49 +289,45 @@
       },
       "GameRewardSpec": {
         "type": "object",
+        "required": [
+          "pet_exp_delta",
+          "badge_exp_delta",
+          "reason"
+        ],
         "additionalProperties": false,
         "properties": {
-          "points_delta": {
-            "type": "integer",
-            "format": "int64",
-            "default": 0
-          },
           "pet_exp_delta": {
             "type": "integer",
             "format": "int64",
-            "default": 0
+            "minimum": 0
           },
           "badge_exp_delta": {
             "type": "object",
             "additionalProperties": {
               "type": "integer",
-              "format": "int64"
+              "format": "int64",
+              "minimum": 0
             }
+          },
+          "reason": {
+            "type": "string"
           }
         }
       },
       "PetDefSpec": {
         "type": "object",
         "required": [
-          "attr",
           "character",
           "voice",
-          "drive",
           "visual"
         ],
         "additionalProperties": false,
         "properties": {
-          "attr": {
-            "$ref": "#/components/schemas/PetDefAttrSpec"
-          },
           "character": {
             "$ref": "#/components/schemas/PetDefCharacterSpec"
           },
           "voice": {
             "$ref": "#/components/schemas/PetDefVoiceSpec"
-          },
-          "drive": {
-            "$ref": "#/components/schemas/PetDefDriveSpec"
           },
           "visual": {
             "$ref": "#/components/schemas/PetDefVisualSpec"
@@ -562,8 +491,10 @@
           "petdef_id",
           "display_name",
           "workspace_name",
-          "life",
+          "stats",
           "progression",
+          "lifecycle",
+          "state_settled_at",
           "last_active_at",
           "created_at",
           "updated_at"
@@ -585,11 +516,22 @@
           "workspace_name": {
             "type": "string"
           },
-          "life": {
-            "$ref": "#/components/schemas/PetLife"
+          "stats": {
+            "$ref": "#/components/schemas/PetStats"
           },
           "progression": {
             "$ref": "#/components/schemas/PetProgression"
+          },
+          "lifecycle": {
+            "$ref": "#/components/schemas/PetLifecycle"
+          },
+          "died_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "state_settled_at": {
+            "type": "string",
+            "format": "date-time"
           },
           "last_active_at": {
             "type": "string",
@@ -1108,11 +1050,14 @@
           "pet_id": {
             "type": "string"
           },
-          "action": {
-            "type": "string"
+          "behavior": {
+            "$ref": "#/components/schemas/PetBehavior"
           },
           "game_result": {
             "$ref": "#/components/schemas/PetDriveGameResultInput"
+          },
+          "idempotency_key": {
+            "type": "string"
           }
         }
       },

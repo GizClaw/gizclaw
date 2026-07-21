@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/url"
 	"regexp"
 	"strings"
@@ -459,6 +460,9 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedName string) (a
 		return apitypes.RuntimeProfile{}, errors.New("gameplay.points.initial_balance must not be negative")
 	}
 	if spec.Gameplay != nil && spec.Gameplay.Adoption != nil && spec.Gameplay.Adoption.Pool != nil {
+		if len(*spec.Gameplay.Adoption.Pool) > 0 && spec.Gameplay.Pet == nil {
+			return apitypes.RuntimeProfile{}, errors.New("gameplay.pet is required when gameplay.adoption.pool is configured")
+		}
 		for i := range *spec.Gameplay.Adoption.Pool {
 			entry := &(*spec.Gameplay.Adoption.Pool)[i]
 			entry.PetDef = strings.TrimSpace(entry.PetDef)
@@ -477,30 +481,8 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedName string) (a
 			}
 		}
 	}
-	if spec.Gameplay != nil && spec.Gameplay.Rewards != nil {
-		if err := normalizeRewardAliases(spec.Gameplay.Rewards.Default); err != nil {
-			return apitypes.RuntimeProfile{}, fmt.Errorf("gameplay.rewards.default: %w", err)
-		}
-		if spec.Gameplay.Rewards.Games != nil {
-			normalized, err := normalizeGameRewards(*spec.Gameplay.Rewards.Games)
-			if err != nil {
-				return apitypes.RuntimeProfile{}, fmt.Errorf("gameplay.rewards.games: %w", err)
-			}
-			*spec.Gameplay.Rewards.Games = normalized
-			for alias := range normalized {
-				if _, ok := bindingByAlias(spec.Resources.GameDefs, alias); !ok {
-					return apitypes.RuntimeProfile{}, fmt.Errorf("gameplay.rewards.games.%s is not declared in resources.game_defs", alias)
-				}
-			}
-		}
-		if spec.Gameplay.Rewards.PetActions != nil {
-			normalized, err := normalizeGameRewards(*spec.Gameplay.Rewards.PetActions)
-			if err != nil {
-				return apitypes.RuntimeProfile{}, fmt.Errorf("gameplay.rewards.pet_actions: %w", err)
-			}
-			*spec.Gameplay.Rewards.PetActions = normalized
-		}
-		if err := validateRewardBadgeAliases(spec.Gameplay.Rewards, spec.Resources.BadgeDefs); err != nil {
+	if spec.Gameplay != nil && spec.Gameplay.Pet != nil {
+		if err := normalizePetGameplay(spec.Gameplay.Pet, spec.Resources); err != nil {
 			return apitypes.RuntimeProfile{}, err
 		}
 	}
@@ -525,41 +507,6 @@ func bindingByAlias(values *map[string]apitypes.RuntimeProfileBinding, alias str
 	}
 	binding, ok := (*values)[alias]
 	return binding, ok
-}
-
-func validateRewardBadgeAliases(rewards *apitypes.RuntimeProfileDriveSpec, badges *map[string]apitypes.RuntimeProfileBinding) error {
-	if rewards == nil {
-		return nil
-	}
-	validate := func(path string, reward *apitypes.RuntimeProfileRewardSpec) error {
-		if reward == nil || reward.BadgeExpDelta == nil {
-			return nil
-		}
-		for alias := range *reward.BadgeExpDelta {
-			if _, ok := bindingByAlias(badges, alias); !ok {
-				return fmt.Errorf("%s.badge_exp_delta.%s is not declared in resources.badge_defs", path, alias)
-			}
-		}
-		return nil
-	}
-	if err := validate("gameplay.rewards.default", rewards.Default); err != nil {
-		return err
-	}
-	if rewards.Games != nil {
-		for alias, reward := range *rewards.Games {
-			if err := validate("gameplay.rewards.games."+alias, &reward); err != nil {
-				return err
-			}
-		}
-	}
-	if rewards.PetActions != nil {
-		for action, reward := range *rewards.PetActions {
-			if err := validate("gameplay.rewards.pet_actions."+action, &reward); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }
 
 func (s *Server) validateResources(ctx context.Context, spec apitypes.RuntimeProfileSpec) error {
@@ -635,7 +582,6 @@ func (s *Server) validateResources(ctx context.Context, spec apitypes.RuntimePro
 			}
 		}
 	}
-	petActions := make(map[string]struct{})
 	if spec.Resources.PetDefs != nil {
 		for alias, binding := range *spec.Resources.PetDefs {
 			resource, err := resolve("resources.pet_defs."+alias, apitypes.ResourceKindPetDef, binding)
@@ -646,21 +592,27 @@ func (s *Server) validateResources(ctx context.Context, spec apitypes.RuntimePro
 			if err != nil {
 				return fmt.Errorf("resources.pet_defs.%s.resource_id %q returned an invalid PetDef: %w", alias, binding.ResourceId, err)
 			}
-			for _, action := range petDef.Spec.Drive.Actions {
-				petActions[action.Id] = struct{}{}
-			}
-		}
-	}
-	if spec.Gameplay != nil && spec.Gameplay.Rewards != nil && spec.Gameplay.Rewards.PetActions != nil {
-		for action := range *spec.Gameplay.Rewards.PetActions {
-			if _, ok := petActions[action]; !ok {
-				return fmt.Errorf("gameplay.rewards.pet_actions.%s is not declared by a RuntimeProfile PetDef", action)
-			}
+			_ = petDef
 		}
 	}
 	for _, workflow := range workflows {
 		if err := validateWorkflowRuntimeAliases(workflow.path, workflow.resource.Spec, models, spec.Resources.Voices); err != nil {
 			return err
+		}
+	}
+	if spec.Gameplay != nil && spec.Gameplay.Pet != nil {
+		if err := validatePetRewardModels(*spec.Gameplay.Pet, models); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validatePetRewardModels(pet apitypes.RuntimeProfilePetGameplaySpec, models map[string]apitypes.ModelResource) error {
+	for alias, game := range pet.Games {
+		model := models[game.Reward.Model]
+		if model.Spec.Kind != apitypes.ModelKindLlm {
+			return fmt.Errorf("gameplay.pet.games.%s.reward.model alias %q has kind %q, want %q", alias, game.Reward.Model, model.Spec.Kind, apitypes.ModelKindLlm)
 		}
 	}
 	return nil
@@ -843,40 +795,75 @@ func setProfileRevision(item *apitypes.RuntimeProfile) error {
 	return nil
 }
 
-func normalizeGameRewards(values map[string]apitypes.RuntimeProfileRewardSpec) (map[string]apitypes.RuntimeProfileRewardSpec, error) {
-	out := make(map[string]apitypes.RuntimeProfileRewardSpec, len(values))
-	for alias, reward := range values {
+func normalizePetGameplay(pet *apitypes.RuntimeProfilePetGameplaySpec, resources apitypes.RuntimeProfileResources) error {
+	if pet.Experience.EnergyPerPetExp <= 0 {
+		return errors.New("gameplay.pet.experience.energy_per_pet_exp must be positive")
+	}
+	if pet.Experience.Leveling.BaseExp <= 0 || pet.Experience.Leveling.LogScale < 0 || pet.Experience.Leveling.LogScale > 100 {
+		return errors.New("gameplay.pet.experience.leveling requires positive base_exp and log_scale in 0..100")
+	}
+	weights := pet.Time.LifeDecay.ContributingWeights
+	if weights.Health < 0 || weights.Satiety < 0 || weights.Hygiene < 0 || weights.Mood < 0 {
+		return errors.New("gameplay.pet.time.life_decay.contributing_weights values must not be negative")
+	}
+	weightSum := weights.Health + weights.Satiety + weights.Hygiene + weights.Mood
+	if math.Abs(weightSum-1) > 1e-9 {
+		return fmt.Errorf("gameplay.pet.time.life_decay.contributing_weights must sum to 1, got %g", weightSum)
+	}
+	if pet.Time.LifeDecay.Exponent <= 1 || pet.Time.LifeDecay.MaxLossPerHour < 0 || pet.Time.EnergyRecoveryPerHour < 0 {
+		return errors.New("gameplay.pet.time requires exponent greater than 1 and non-negative recovery/loss rates")
+	}
+	decay := pet.Time.CareDecayPerHour
+	if decay.Health < 0 || decay.Satiety < 0 || decay.Hygiene < 0 || decay.Mood < 0 {
+		return errors.New("gameplay.pet.time.care_decay_per_hour values must not be negative")
+	}
+	actions := map[string]apitypes.RuntimeProfilePetActionSpec{
+		"feed":  pet.Actions.Feed,
+		"bathe": pet.Actions.Bathe,
+		"play":  pet.Actions.Play,
+		"heal":  pet.Actions.Heal,
+	}
+	for name, action := range actions {
+		if action.EnergyCost <= 0 || action.EnergyCost > 100 || action.StatDelta <= 0 || action.StatDelta > 100 {
+			return fmt.Errorf("gameplay.pet.actions.%s requires energy_cost and stat_delta in 1..100", name)
+		}
+		if action.EnergyCost%pet.Experience.EnergyPerPetExp != 0 {
+			return fmt.Errorf("gameplay.pet.actions.%s.energy_cost must be divisible by energy_per_pet_exp", name)
+		}
+	}
+	normalized := make(map[string]apitypes.RuntimeProfileGameSpec, len(pet.Games))
+	gameDefAliases := make(map[string]string, len(pet.Games))
+	for alias, game := range pet.Games {
 		alias = strings.TrimSpace(alias)
 		if alias == "" {
-			return nil, errors.New("game definition alias must not be empty")
+			return errors.New("game definition alias must not be empty")
 		}
-		if _, exists := out[alias]; exists {
-			return nil, fmt.Errorf("duplicate game definition alias %q", alias)
+		if _, exists := normalized[alias]; exists {
+			return fmt.Errorf("duplicate game definition alias %q", alias)
 		}
-		if err := normalizeRewardAliases(&reward); err != nil {
-			return nil, fmt.Errorf("%s: %w", alias, err)
+		gameDef, ok := bindingByAlias(resources.GameDefs, alias)
+		if !ok {
+			return fmt.Errorf("gameplay.pet.games.%s is not declared in resources.game_defs", alias)
 		}
-		out[alias] = reward
+		gameDefID := strings.TrimSpace(gameDef.ResourceId)
+		if previous, duplicate := gameDefAliases[gameDefID]; duplicate {
+			return fmt.Errorf("gameplay.pet.games.%s and gameplay.pet.games.%s resolve to the same GameDef %q", previous, alias, gameDefID)
+		}
+		gameDefAliases[gameDefID] = alias
+		game.Reward.Model = strings.TrimSpace(game.Reward.Model)
+		game.Reward.Prompt = strings.TrimSpace(game.Reward.Prompt)
+		if _, ok := bindingByAlias(resources.Models, game.Reward.Model); !ok {
+			return fmt.Errorf("gameplay.pet.games.%s.reward.model %q is not declared in resources.models", alias, game.Reward.Model)
+		}
+		if game.EnergyCost <= 0 || game.EnergyCost > 100 || game.PointsCost < 0 {
+			return fmt.Errorf("gameplay.pet.games.%s requires energy_cost in 1..100 and non-negative points_cost", alias)
+		}
+		if game.Reward.Prompt == "" || game.Reward.PetExpMax < 0 || game.Reward.BadgeExpMaxPerBadge < 0 {
+			return fmt.Errorf("gameplay.pet.games.%s.reward requires a prompt and non-negative maxima", alias)
+		}
+		normalized[alias] = game
 	}
-	return out, nil
-}
-
-func normalizeRewardAliases(reward *apitypes.RuntimeProfileRewardSpec) error {
-	if reward == nil || reward.BadgeExpDelta == nil {
-		return nil
-	}
-	out := make(map[string]int64, len(*reward.BadgeExpDelta))
-	for alias, delta := range *reward.BadgeExpDelta {
-		alias = strings.TrimSpace(alias)
-		if alias == "" {
-			return errors.New("badge definition alias must not be empty")
-		}
-		if _, exists := out[alias]; exists {
-			return fmt.Errorf("duplicate badge definition alias %q", alias)
-		}
-		out[alias] = delta
-	}
-	*reward.BadgeExpDelta = out
+	pet.Games = normalized
 	return nil
 }
 

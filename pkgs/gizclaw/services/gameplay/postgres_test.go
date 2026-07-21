@@ -32,6 +32,9 @@ func TestPostgresGameplayContract(t *testing.T) {
 		NewID:      sequentialIDs("pet-postgres", "adopt-txn", "game-result", "reward-grant", "drive-txn", "reward-txn"),
 		PickWeight: func(int64) int64 { return 0 },
 	}
+	ctx = WithRewardEvaluator(ctx, rewardEvaluatorFunc(func(context.Context, RewardEvaluationRequest) (apitypes.GameRewardSpec, error) {
+		return apitypes.GameRewardSpec{PetExpDelta: 5, BadgeExpDelta: map[string]int64{"basic": 5}, Reason: "completed"}, nil
+	}))
 	if err := runtime.Migration(ctx); err != nil {
 		t.Fatalf("Migration() error = %v", err)
 	}
@@ -57,17 +60,17 @@ func TestPostgresGameplayContract(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DrivePet() error = %v", err)
 	}
-	if drive.GameResult == nil || len(drive.RewardGrants) != 1 || drive.Points.Balance != 65 {
+	if drive.GameResult == nil || len(drive.RewardGrants) != 1 || drive.Points.Balance != 25 {
 		t.Fatalf("DrivePet() = %#v", drive)
 	}
-	if _, err := runtime.DrivePet(ctx, "peer-postgres", apitypes.PetDriveRequest{
+	if duplicate, err := runtime.DrivePet(ctx, "peer-postgres", apitypes.PetDriveRequest{
 		PetId: adopted.Pet.Id,
 		GameResult: &apitypes.PetDriveGameResultInput{
 			GameDefId:      "game-basic",
 			IdempotencyKey: &idempotencyKey,
 		},
-	}); err == nil {
-		t.Fatal("DrivePet() duplicate idempotency key error = nil")
+	}); err != nil || duplicate.GameResult == nil || duplicate.GameResult.Id != drive.GameResult.Id {
+		t.Fatalf("DrivePet() duplicate = %#v, %v", duplicate, err)
 	}
 	results, err := runtime.ListGameResults(ctx, "peer-postgres", apitypes.GameplayListRequest{})
 	if err != nil {
@@ -80,15 +83,15 @@ func TestPostgresGameplayContract(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetPoints() error = %v", err)
 	}
-	if points.Balance != 65 {
-		t.Fatalf("GetPoints() balance = %d, want 65", points.Balance)
+	if points.Balance != 25 {
+		t.Fatalf("GetPoints() balance = %d, want 25", points.Balance)
 	}
 	pet, err := runtime.GetPet(ctx, "peer-postgres", adopted.Pet.Id)
 	if err != nil || pet.Id != adopted.Pet.Id {
 		t.Fatalf("GetPet() = %#v, %v", pet, err)
 	}
 	badge, err := runtime.GetBadge(ctx, "peer-postgres", "badge-basic")
-	if err != nil || !badge.Active {
+	if err != nil || badge.Exp != 5 {
 		t.Fatalf("GetBadge() = %#v, %v", badge, err)
 	}
 	badges, err := runtime.ListBadges(ctx, "peer-postgres", apitypes.GameplayListRequest{})
@@ -151,10 +154,6 @@ func TestPostgresGameplayConcurrentMigration(t *testing.T) {
 	if err := runtime.Migration(ctx); err != nil {
 		t.Fatalf("initial Migration() error = %v", err)
 	}
-	if _, err := db.ExecContext(ctx, `ALTER TABLE gameplay_points_transactions DROP COLUMN source_type, DROP COLUMN source_id`); err != nil {
-		t.Fatalf("prepare legacy schema: %v", err)
-	}
-
 	const workers = 8
 	start := make(chan struct{})
 	errs := make(chan error, workers)
@@ -181,7 +180,7 @@ func TestPostgresGameplayConcurrentMigration(t *testing.T) {
 			t.Fatalf("inspect %s: %v", column, err)
 		}
 		if !exists {
-			t.Fatalf("concurrent Migration() did not add %s", column)
+			t.Fatalf("concurrent Migration() lost %s", column)
 		}
 	}
 }

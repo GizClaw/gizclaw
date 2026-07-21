@@ -96,7 +96,7 @@ func LoadCatalog(source fs.FS) (*Catalog, error) {
 			return fmt.Errorf("local server catalog: %s must not bundle client-created Workspace data", name)
 		}
 		if header.Kind == "PetDef" {
-			if err := validateCatalogI18n(name, header.Kind, header.I18n, header.Spec); err != nil {
+			if err := validateCatalogI18n(name, header.Kind, header.I18n); err != nil {
 				return err
 			}
 		}
@@ -206,7 +206,7 @@ func rejectUndeclaredAssets(source fs.FS, declared map[string]string) error {
 	})
 }
 
-func validateCatalogI18n(name, kind string, catalog, spec map[string]any) error {
+func validateCatalogI18n(name, kind string, catalog map[string]any) error {
 	defaultLocale, _ := catalog["default_locale"].(string)
 	if defaultLocale != "en" {
 		return fmt.Errorf("local server catalog: %s %s i18n.default_locale must be en", name, kind)
@@ -222,39 +222,6 @@ func validateCatalogI18n(name, kind string, catalog, spec map[string]any) error 
 		}
 		if !nonEmptyString(item[nameField]) || !nonEmptyString(item["description"]) {
 			return fmt.Errorf("local server catalog: %s %s i18n.%s is incomplete", name, kind, locale)
-		}
-		if kind == "PetDef" {
-			if err := validatePetDefLocale(name, locale, item, spec); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func validatePetDefLocale(name, locale string, catalog, spec map[string]any) error {
-	attributes, _ := stringMap(spec["attr"])
-	localizedAttributes, _ := stringMap(catalog["attr"])
-	for _, group := range []string{"life", "progression"} {
-		declared, _ := stringMap(attributes[group])
-		localized, _ := stringMap(localizedAttributes[group])
-		for key := range declared {
-			entry, _ := stringMap(localized[key])
-			if !nonEmptyString(entry["display_name"]) {
-				return fmt.Errorf("local server catalog: %s PetDef i18n.%s.attr.%s.%s is incomplete", name, locale, group, key)
-			}
-		}
-	}
-	drive, _ := stringMap(spec["drive"])
-	actions, _ := drive["actions"].([]any)
-	localizedDrive, _ := stringMap(catalog["drive"])
-	localizedActions, _ := stringMap(localizedDrive["actions"])
-	for _, value := range actions {
-		action, _ := stringMap(value)
-		id, _ := action["id"].(string)
-		entry, _ := stringMap(localizedActions[id])
-		if strings.TrimSpace(id) == "" || !nonEmptyString(entry["display_name"]) {
-			return fmt.Errorf("local server catalog: %s PetDef i18n.%s.drive.actions.%s is incomplete", name, locale, id)
 		}
 	}
 	return nil

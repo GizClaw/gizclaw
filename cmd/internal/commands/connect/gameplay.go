@@ -204,7 +204,7 @@ func newPetDeleteCmd() *cobra.Command {
 
 func newPetDriveCmd() *cobra.Command {
 	var opts connectRPCOptions
-	var action string
+	var behavior string
 	var game string
 	var score int64
 	var maxScore int64
@@ -219,8 +219,22 @@ func newPetDriveCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
-				req := rpcapi.ServerPetDriveRequest{PetId: args[0], Action: optionalString(action)}
+				req := rpcapi.ServerPetDriveRequest{PetId: args[0]}
+				behaviorName := strings.TrimSpace(behavior)
+				if behaviorName != "" {
+					value := rpcapi.PetBehavior(behaviorName)
+					switch value {
+					case rpcapi.PetBehaviorFeed, rpcapi.PetBehaviorBathe, rpcapi.PetBehaviorPlay, rpcapi.PetBehaviorHeal:
+					default:
+						return nil, fmt.Errorf("unsupported --behavior %q", behaviorName)
+					}
+					req.Behavior = &value
+					req.IdempotencyKey = optionalString(idempotencyKey)
+				}
 				if strings.TrimSpace(game) != "" {
+					if req.Behavior != nil {
+						return nil, fmt.Errorf("exactly one of --behavior or --game is required")
+					}
 					var occurredAtValue *time.Time
 					if strings.TrimSpace(occurredAt) != "" {
 						parsed, err := time.Parse(time.RFC3339Nano, occurredAt)
@@ -240,12 +254,15 @@ func newPetDriveCmd() *cobra.Command {
 						OccurredAt:     occurredAtValue,
 					}
 				}
+				if req.Behavior == nil && req.GameResult == nil {
+					return nil, fmt.Errorf("exactly one of --behavior or --game is required")
+				}
 				return c.DrivePet(ctx, "server.pet.drive", req)
 			})
 		},
 	}
 	opts.addFlags(cmd)
-	cmd.Flags().StringVar(&action, "action", "", "drive action")
+	cmd.Flags().StringVar(&behavior, "behavior", "", "fixed pet behavior: feed, bathe, play, or heal")
 	cmd.Flags().StringVar(&game, "game", "", "game definition id")
 	cmd.Flags().Int64Var(&score, "score", 0, "game score")
 	cmd.Flags().Int64Var(&maxScore, "max-score", 0, "game max score")

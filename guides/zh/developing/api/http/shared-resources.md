@@ -65,7 +65,7 @@ Display 的共同命名是一项结构约定，不代表公共领域模型。不
 
 `category`、关联 ID、workflow reference、provider kind 等机器可读字段属于核心数据。本地化名称、说明、icon 和 cover 的位置由 owner schema 决定。客户端在展示数据缺失时可以回退到稳定 ID，但 Server 不应把 fallback 文本持久化为核心数据。
 
-“视觉内容”不自动等于 `display`。如果 asset、clip、animation graph 或 action-to-clip mapping 被设备、runtime 或领域逻辑直接消费，它就是 Resource 的核心内容或关联数据。例如 PetDef 的 PIXA、canvas、clips、visual refs 和 `visual_clip_id` 属于 PetDef spec；`display` 只保存管理界面或用户阅读所需的展示 metadata 与本地化文本。
+“视觉内容”不自动等于 `display`。如果 asset、clip、animation graph 或 behavior/state-to-clip mapping 被设备、runtime 或领域逻辑直接消费，它就是 Resource 的核心内容或关联数据。例如 PetDef 的 PIXA、canvas、clips、visual refs 和 `visual.bindings` 属于 PetDef spec；`i18n` 只保存管理界面或用户阅读所需的本地化文本。
 
 新 Spec 如果只被一个 Resource 使用，应与该 Resource 定义在同一文件。对于已经位于 `shared/` 的 Spec，必须先核对所有实际 consumers 和兼容性影响，再决定是否迁移；不能只根据名称推断所有权，也不能再建立一份平行 schema。
 

@@ -576,15 +576,6 @@ func (c *Catalog) buildPetDefWithValidator(id string, spec apitypes.PetDefSpec, 
 }
 
 func validatePetDef(spec apitypes.PetDefSpec, i18n apitypes.PetDefI18nSpec) error {
-	if err := validatePetAttrGroup("attr.life", spec.Attr.Life); err != nil {
-		return err
-	}
-	if err := validatePetAttrGroup("attr.progression", spec.Attr.Progression); err != nil {
-		return err
-	}
-	if _, ok := spec.Attr.Progression["xp"]; !ok {
-		return errors.New("attr.progression.xp is required")
-	}
 	if strings.TrimSpace(spec.Character.Prompt) == "" {
 		return errors.New("character.prompt is required")
 	}
@@ -594,30 +585,11 @@ func validatePetDef(spec apitypes.PetDefSpec, i18n apitypes.PetDefI18nSpec) erro
 	if err := validatePetDefVisual(spec.Visual); err != nil {
 		return err
 	}
-	if err := validatePetDefDrive(spec.Drive, spec.Visual.Pixa.Metadata.Clips, spec.Attr); err != nil {
+	if err := validatePetDefBindings(spec.Visual); err != nil {
 		return err
 	}
 	if err := validatePetDefI18n(spec, i18n); err != nil {
 		return err
-	}
-	return nil
-}
-
-func validatePetAttrGroup(path string, group apitypes.PetAttrGroupSpec) error {
-	if len(group) == 0 {
-		return fmt.Errorf("%s must define at least one attribute", path)
-	}
-	for id := range group {
-		if id == "" {
-			return fmt.Errorf("%s contains an empty attribute id", path)
-		}
-		if strings.TrimSpace(id) != id {
-			return fmt.Errorf("%s.%s must not contain leading or trailing whitespace", path, id)
-		}
-		switch id {
-		case "initial", "display_name", "description", petProgressionStorageMarker:
-			return fmt.Errorf("%s.%s uses a reserved attribute id", path, id)
-		}
 	}
 	return nil
 }
@@ -673,75 +645,36 @@ func validatePetDefVisual(visual apitypes.PetDefVisualSpec) error {
 	return nil
 }
 
-func validatePetDefDrive(drive apitypes.PetDefDriveSpec, clips []apitypes.PetDefPixaClipMetadata, attr apitypes.PetDefAttrSpec) error {
-	if len(drive.Actions) == 0 {
-		return errors.New("drive.actions is required")
-	}
+func validatePetDefBindings(visual apitypes.PetDefVisualSpec) error {
 	clipIDs := map[string]struct{}{}
-	for _, clip := range clips {
+	for _, clip := range visual.Pixa.Metadata.Clips {
 		clipIDs[clip.Id] = struct{}{}
 	}
-	seen := map[string]struct{}{}
-	for i, action := range drive.Actions {
-		id := strings.TrimSpace(action.Id)
-		if id == "" {
-			return fmt.Errorf("drive.actions[%d].id is required", i)
-		}
-		if id != action.Id {
-			return fmt.Errorf("drive.actions[%d].id must not contain leading or trailing whitespace", i)
-		}
-		if _, ok := seen[id]; ok {
-			return fmt.Errorf("drive.actions[%d].id %q is duplicated", i, id)
-		}
-		seen[id] = struct{}{}
-		if action.Cost < 0 {
-			return fmt.Errorf("drive.actions[%d].cost must be non-negative", i)
-		}
-		if action.VisualClipId != nil {
-			clipID := strings.TrimSpace(*action.VisualClipId)
-			if clipID == "" {
-				return fmt.Errorf("drive.actions[%d].visual_clip_id must not be empty", i)
-			}
-			if clipID != *action.VisualClipId {
-				return fmt.Errorf("drive.actions[%d].visual_clip_id must not contain leading or trailing whitespace", i)
-			}
-			if _, ok := clipIDs[clipID]; !ok {
-				return fmt.Errorf("drive.actions[%d].visual_clip_id %q is not in visual.pixa.metadata.clips", i, clipID)
-			}
-		}
-		if action.Effect != nil && action.Effect.AttrDelta != nil && action.Effect.AttrDelta.Life != nil {
-			for attrID := range *action.Effect.AttrDelta.Life {
-				if strings.TrimSpace(attrID) == "" {
-					return fmt.Errorf("drive.actions[%d].effect.attr_delta.life contains an empty attribute id", i)
-				}
-				if strings.TrimSpace(attrID) != attrID {
-					return fmt.Errorf("drive.actions[%d].effect.attr_delta.life.%s must not contain leading or trailing whitespace", i, attrID)
-				}
-				if _, ok := attr.Life[attrID]; !ok {
-					return fmt.Errorf("drive.actions[%d].effect.attr_delta.life.%s does not match a PetDef life attribute", i, attrID)
-				}
-			}
-		}
+	bindings := map[string]string{
+		"visual.bindings.behaviors.feed":  visual.Bindings.Behaviors.Feed,
+		"visual.bindings.behaviors.bathe": visual.Bindings.Behaviors.Bathe,
+		"visual.bindings.behaviors.play":  visual.Bindings.Behaviors.Play,
+		"visual.bindings.behaviors.heal":  visual.Bindings.Behaviors.Heal,
+		"visual.bindings.states.idle":     visual.Bindings.States.Idle,
+		"visual.bindings.states.sick":     visual.Bindings.States.Sick,
+		"visual.bindings.states.dead":     visual.Bindings.States.Dead,
 	}
-	for i, clip := range clips {
-		if clip.ActionId == nil {
-			continue
+	if visual.Bindings.States.Sleep != nil {
+		bindings["visual.bindings.states.sleep"] = *visual.Bindings.States.Sleep
+	}
+	for path, value := range bindings {
+		clipID := strings.TrimSpace(value)
+		if clipID == "" || clipID != value {
+			return fmt.Errorf("%s must be a non-empty clip id without surrounding whitespace", path)
 		}
-		actionID := strings.TrimSpace(*clip.ActionId)
-		if actionID == "" {
-			return fmt.Errorf("visual.pixa.metadata.clips[%d].action_id must not be empty", i)
-		}
-		if actionID != *clip.ActionId {
-			return fmt.Errorf("visual.pixa.metadata.clips[%d].action_id must not contain leading or trailing whitespace", i)
-		}
-		if _, ok := seen[actionID]; !ok {
-			return fmt.Errorf("visual.pixa.metadata.clips[%d].action_id %q is not in drive.actions", i, actionID)
+		if _, ok := clipIDs[clipID]; !ok {
+			return fmt.Errorf("%s %q is not in visual.pixa.metadata.clips", path, clipID)
 		}
 	}
 	return nil
 }
 
-func validatePetDefI18n(spec apitypes.PetDefSpec, i18n apitypes.PetDefI18nSpec) error {
+func validatePetDefI18n(_ apitypes.PetDefSpec, i18n apitypes.PetDefI18nSpec) error {
 	if strings.TrimSpace(i18n.DefaultLocale) == "" && len(i18n.AdditionalProperties) == 0 {
 		return nil
 	}
@@ -755,7 +688,7 @@ func validatePetDefI18n(spec apitypes.PetDefSpec, i18n apitypes.PetDefI18nSpec) 
 	if _, ok := locales[i18n.DefaultLocale]; !ok {
 		return fmt.Errorf("i18n.%s is required", i18n.DefaultLocale)
 	}
-	for localeName, locale := range locales {
+	for localeName := range locales {
 		if strings.TrimSpace(localeName) == "" {
 			return errors.New("i18n contains an empty locale")
 		}
@@ -764,44 +697,6 @@ func validatePetDefI18n(spec apitypes.PetDefSpec, i18n apitypes.PetDefI18nSpec) 
 		}
 		if strings.TrimSpace(localeName) != localeName {
 			return fmt.Errorf("i18n.%s must not contain leading or trailing whitespace", localeName)
-		}
-		if locale.Attr != nil {
-			if err := validateI18nAttrGroup("i18n."+localeName+".attr.life", locale.Attr.Life, spec.Attr.Life); err != nil {
-				return err
-			}
-			if err := validateI18nAttrGroup("i18n."+localeName+".attr.progression", locale.Attr.Progression, spec.Attr.Progression); err != nil {
-				return err
-			}
-		}
-		if locale.Drive != nil && locale.Drive.Actions != nil {
-			actionIDs := map[string]struct{}{}
-			for _, action := range spec.Drive.Actions {
-				actionIDs[action.Id] = struct{}{}
-			}
-			for actionID := range *locale.Drive.Actions {
-				text := (*locale.Drive.Actions)[actionID]
-				if _, ok := actionIDs[actionID]; !ok {
-					return fmt.Errorf("i18n.%s.drive.actions.%s does not match a drive action", localeName, actionID)
-				}
-				if strings.TrimSpace(text.DisplayName) == "" {
-					return fmt.Errorf("i18n.%s.drive.actions.%s.display_name is required", localeName, actionID)
-				}
-			}
-		}
-	}
-	return nil
-}
-
-func validateI18nAttrGroup(path string, values *apitypes.PetDefI18nAttrGroup, defs apitypes.PetAttrGroupSpec) error {
-	if values == nil {
-		return nil
-	}
-	for attrID, text := range *values {
-		if _, ok := defs[attrID]; !ok {
-			return fmt.Errorf("%s.%s does not match a PetDef attribute", path, attrID)
-		}
-		if strings.TrimSpace(text.DisplayName) == "" {
-			return fmt.Errorf("%s.%s.display_name is required", path, attrID)
 		}
 	}
 	return nil

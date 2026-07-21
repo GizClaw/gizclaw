@@ -44,7 +44,9 @@ export type PeerRole = "" | "admin" | "client" | "edge-node" | "server" | "unspe
 export type PeerRunHistoryEntryType = "" | "agent" | "gear" | "unspecified" | number;
 export type PeerRunHistoryListRequestOrder = "" | "asc" | "desc" | "unspecified" | number;
 export type PeerRunStatusState = "" | "error" | "running" | "starting" | "stopped" | "stopping" | "unspecified" | number;
+export type PetBehavior = "" | "bathe" | "feed" | "heal" | "play" | "unspecified" | number;
 export type PetConversationParametersInitiative = "" | "agent" | "peer" | "unspecified" | number;
+export type PetLifecycle = "" | "alive" | "dead" | "unspecified" | number;
 export type PetWorkspaceParametersAgentType = "" | "pet" | "unspecified" | number;
 export type VolcTenantModelProviderDataApiMode = "" | "asr" | "realtime" | "tts" | "unspecified" | number;
 export type WorkflowDriver = "" | "ast-translate" | "chatroom" | "doubao-realtime" | "flowcraft" | "pet" | "unspecified" | number;
@@ -565,8 +567,8 @@ export type GameResultListResponse = {
 };
 export type GameRewardSpec = {
   "badge_exp_delta": Record<string, number>;
-  "pet_exp_delta"?: number;
-  "points_delta"?: number;
+  "pet_exp_delta": number;
+  "reason": string;
 };
 export type GameplayGetRequest = {
   "id": string;
@@ -747,44 +749,27 @@ export type PeerStatus = {
   "volume"?: number;
 };
 export type Pet = {
-  "created_at": string;
-  "display_name": string;
   "id": string;
-  "last_active_at": string;
-  "life": PetLife;
   "owner_public_key": string;
-  "petdef_id": string;
   "runtime_profile_name": string;
-  "updated_at": string;
+  "petdef_id": string;
+  "display_name": string;
   "workspace_name": string;
+  "stats": PetStats;
   "progression": PetProgression;
-};
-export type PetAction = {
-  "id": string;
-  "cost": number;
-  "effect"?: PetActionEffectSpec;
-  "visual_clip_id"?: string;
-  "pixa_clip_name"?: string;
-};
-export type PetActionEffectSpec = {
-  "attr_delta_life"?: PetLife;
-  "pet_exp_delta"?: number;
-};
-export type PetActionI18nText = {
-  "name": string;
+  "lifecycle": PetLifecycle;
+  "died_at"?: string;
+  "state_settled_at": string;
+  "last_active_at": string;
+  "created_at": string;
+  "updated_at": string;
 };
 export type PetActions = {
   "pet_id": string;
   "petdef_id": string;
-  "default_locale": string;
-  "actions": PetAction[];
-  "i18n": PetActionsI18n;
+  "bindings": PetVisualBindings;
   "petdef_updated_at": string;
   "clip_names": Record<string, string>;
-};
-export type PetActionsI18n = Record<string, PetActionsI18nCatalog>;
-export type PetActionsI18nCatalog = {
-  "actions": Record<string, PetActionI18nText>;
 };
 export type PetAdoptRequest = {
   "display_name"?: string;
@@ -812,9 +797,10 @@ export type PetDriveGameResultInput = {
   "score"?: number;
 };
 export type PetDriveRequest = {
-  "action"?: string;
+  "behavior"?: PetBehavior;
   "game_result"?: PetDriveGameResultInput;
   "pet_id": string;
+  "idempotency_key"?: string;
 };
 export type PetDriveResponse = {
   "badges": Badge[];
@@ -827,7 +813,6 @@ export type PetDriveResponse = {
 export type PetGetRequest = {
   "id": string;
 };
-export type PetLife = Record<string, number>;
 export type PetListResponse = {
   "has_next": boolean;
   "items": Pet[];
@@ -845,10 +830,31 @@ export type PetPixaDownloadResponse = {
   "pixa_path"?: string;
   "size_bytes": number;
 };
-export type PetProgression = Record<string, number>;
+export type PetProgression = {
+  "experience": number;
+  "level": number;
+};
 export type PetPutRequest = {
   "display_name": string;
   "id": string;
+};
+export type PetStats = {
+  "life": number;
+  "health": number;
+  "satiety": number;
+  "hygiene": number;
+  "mood": number;
+  "energy": number;
+};
+export type PetVisualBindings = {
+  "feed": string;
+  "bathe": string;
+  "play": string;
+  "heal": string;
+  "idle": string;
+  "sick": string;
+  "dead": string;
+  "sleep"?: string;
 };
 export type PetVoiceParameters = {
   "prompt"?: string;
@@ -3746,14 +3752,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "pet_exp_delta",
         "number": 2,
-        "optional": true,
         "type": "int64"
       },
       {
-        "name": "points_delta",
+        "name": "reason",
         "number": 3,
-        "optional": true,
-        "type": "int64"
+        "type": "string"
       }
     ]
   },
@@ -4518,115 +4522,74 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "Pet": {
     "fields": [
       {
-        "name": "created_at",
+        "name": "id",
         "number": 1,
         "type": "string"
       },
       {
-        "name": "display_name",
-        "number": 2,
-        "type": "string"
-      },
-      {
-        "name": "id",
-        "number": 3,
-        "type": "string"
-      },
-      {
-        "name": "last_active_at",
-        "number": 4,
-        "type": "string"
-      },
-      {
-        "name": "life",
-        "number": 5,
-        "type": "PetLife"
-      },
-      {
         "name": "owner_public_key",
-        "number": 6,
-        "type": "string"
-      },
-      {
-        "name": "petdef_id",
-        "number": 7,
+        "number": 2,
         "type": "string"
       },
       {
         "name": "runtime_profile_name",
-        "number": 8,
+        "number": 3,
         "type": "string"
       },
       {
-        "name": "updated_at",
-        "number": 9,
+        "name": "petdef_id",
+        "number": 4,
+        "type": "string"
+      },
+      {
+        "name": "display_name",
+        "number": 5,
         "type": "string"
       },
       {
         "name": "workspace_name",
-        "number": 10,
+        "number": 6,
         "type": "string"
+      },
+      {
+        "name": "stats",
+        "number": 7,
+        "type": "PetStats"
       },
       {
         "name": "progression",
-        "number": 11,
+        "number": 8,
         "type": "PetProgression"
-      }
-    ]
-  },
-  "PetAction": {
-    "fields": [
-      {
-        "name": "id",
-        "number": 1,
-        "type": "string"
       },
       {
-        "name": "cost",
-        "number": 2,
-        "type": "int64"
+        "name": "lifecycle",
+        "number": 9,
+        "type": "PetLifecycle"
       },
       {
-        "name": "effect",
-        "number": 3,
-        "optional": true,
-        "type": "PetActionEffectSpec"
-      },
-      {
-        "name": "visual_clip_id",
-        "number": 4,
+        "name": "died_at",
+        "number": 10,
         "optional": true,
         "type": "string"
       },
       {
-        "name": "pixa_clip_name",
-        "number": 5,
-        "optional": true,
+        "name": "state_settled_at",
+        "number": 11,
         "type": "string"
-      }
-    ]
-  },
-  "PetActionEffectSpec": {
-    "fields": [
-      {
-        "name": "attr_delta_life",
-        "number": 1,
-        "optional": true,
-        "type": "PetLife"
       },
       {
-        "name": "pet_exp_delta",
-        "number": 2,
-        "optional": true,
-        "type": "int64"
-      }
-    ]
-  },
-  "PetActionI18nText": {
-    "fields": [
+        "name": "last_active_at",
+        "number": 12,
+        "type": "string"
+      },
       {
-        "name": "name",
-        "number": 1,
+        "name": "created_at",
+        "number": 13,
+        "type": "string"
+      },
+      {
+        "name": "updated_at",
+        "number": 14,
         "type": "string"
       }
     ]
@@ -4644,50 +4607,19 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       },
       {
-        "name": "default_locale",
+        "name": "bindings",
         "number": 3,
-        "type": "string"
-      },
-      {
-        "name": "actions",
-        "number": 4,
-        "repeated": true,
-        "type": "PetAction"
-      },
-      {
-        "name": "i18n",
-        "number": 5,
-        "type": "PetActionsI18n"
+        "type": "PetVisualBindings"
       },
       {
         "name": "petdef_updated_at",
-        "number": 6,
+        "number": 4,
         "type": "string"
       },
       {
         "mapValue": "string",
         "name": "clip_names",
-        "number": 7,
-        "type": "map"
-      }
-    ]
-  },
-  "PetActionsI18n": {
-    "fields": [
-      {
-        "mapValue": "PetActionsI18nCatalog",
-        "name": "value",
-        "number": 1,
-        "type": "map"
-      }
-    ]
-  },
-  "PetActionsI18nCatalog": {
-    "fields": [
-      {
-        "mapValue": "PetActionI18nText",
-        "name": "actions",
-        "number": 1,
+        "number": 5,
         "type": "map"
       }
     ]
@@ -4800,10 +4732,10 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "PetDriveRequest": {
     "fields": [
       {
-        "name": "action",
+        "name": "behavior",
         "number": 1,
         "optional": true,
-        "type": "string"
+        "type": "PetBehavior"
       },
       {
         "name": "game_result",
@@ -4814,6 +4746,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "pet_id",
         "number": 3,
+        "type": "string"
+      },
+      {
+        "name": "idempotency_key",
+        "number": 4,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -4862,16 +4800,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "id",
         "number": 1,
         "type": "string"
-      }
-    ]
-  },
-  "PetLife": {
-    "fields": [
-      {
-        "mapValue": "int64",
-        "name": "value",
-        "number": 1,
-        "type": "map"
       }
     ]
   },
@@ -4943,10 +4871,14 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "PetProgression": {
     "fields": [
       {
-        "mapValue": "int64",
-        "name": "value",
+        "name": "experience",
         "number": 1,
-        "type": "map"
+        "type": "int64"
+      },
+      {
+        "name": "level",
+        "number": 2,
+        "type": "int64"
       }
     ]
   },
@@ -4960,6 +4892,85 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "id",
         "number": 2,
+        "type": "string"
+      }
+    ]
+  },
+  "PetStats": {
+    "fields": [
+      {
+        "name": "life",
+        "number": 1,
+        "type": "double"
+      },
+      {
+        "name": "health",
+        "number": 2,
+        "type": "double"
+      },
+      {
+        "name": "satiety",
+        "number": 3,
+        "type": "double"
+      },
+      {
+        "name": "hygiene",
+        "number": 4,
+        "type": "double"
+      },
+      {
+        "name": "mood",
+        "number": 5,
+        "type": "double"
+      },
+      {
+        "name": "energy",
+        "number": 6,
+        "type": "double"
+      }
+    ]
+  },
+  "PetVisualBindings": {
+    "fields": [
+      {
+        "name": "feed",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "bathe",
+        "number": 2,
+        "type": "string"
+      },
+      {
+        "name": "play",
+        "number": 3,
+        "type": "string"
+      },
+      {
+        "name": "heal",
+        "number": 4,
+        "type": "string"
+      },
+      {
+        "name": "idle",
+        "number": 5,
+        "type": "string"
+      },
+      {
+        "name": "sick",
+        "number": 6,
+        "type": "string"
+      },
+      {
+        "name": "dead",
+        "number": 7,
+        "type": "string"
+      },
+      {
+        "name": "sleep",
+        "number": 8,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -7069,6 +7080,22 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "5": "error"
     }
   },
+  "PetBehavior": {
+    "byName": {
+      "bathe": 2,
+      "feed": 1,
+      "heal": 4,
+      "play": 3,
+      "unspecified": 0
+    },
+    "byNumber": {
+      "0": "",
+      "1": "feed",
+      "2": "bathe",
+      "3": "play",
+      "4": "heal"
+    }
+  },
   "PetConversationParametersInitiative": {
     "byName": {
       "agent": 2,
@@ -7079,6 +7106,18 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "0": "",
       "1": "peer",
       "2": "agent"
+    }
+  },
+  "PetLifecycle": {
+    "byName": {
+      "alive": 1,
+      "dead": 2,
+      "unspecified": 0
+    },
+    "byNumber": {
+      "0": "",
+      "1": "alive",
+      "2": "dead"
     }
   },
   "PetWorkspaceParametersAgentType": {

@@ -26,14 +26,13 @@ func TestTurnInputsComposeWorkspacePromptsAndDefinedAttributes(t *testing.T) {
 	inputs := turnInputs(
 		apitypes.Pet{
 			DisplayName: "小火花",
-			Life:        apitypes.PetLife{"hunger": 12, "clean": 80, "unknown": 999},
-			Progression: apitypes.PetProgression{"xp": 7},
+			Stats: apitypes.PetStats{
+				Life: 99, Health: 80, Satiety: 12, Hygiene: 70, Mood: 60, Energy: 50,
+			},
+			Progression: apitypes.PetProgression{Experience: 7, Level: 1},
+			Lifecycle:   apitypes.PetLifecycleAlive,
 		},
 		apitypes.PetDef{Spec: apitypes.PetDefSpec{
-			Attr: apitypes.PetDefAttrSpec{
-				Life:        apitypes.PetAttrGroupSpec{"hunger": {}, "clean": {}},
-				Progression: apitypes.PetAttrGroupSpec{"xp": {}},
-			},
 			Character: apitypes.PetDefCharacterSpec{Prompt: "PetDef character"},
 			Voice:     apitypes.PetDefVoiceSpec{Prompt: "PetDef voice"},
 		}},
@@ -48,11 +47,8 @@ func TestTurnInputsComposeWorkspacePromptsAndDefinedAttributes(t *testing.T) {
 	if got := inputs["tmp_pet_voice_prompt"]; got != "PetDef voice\n\nWorkspace speaking style" {
 		t.Fatalf("voice prompt = %q", got)
 	}
-	if got := inputs["tmp_pet_attribute_prompt"]; got != "当前名字：小火花\n当前生活属性：clean=80，hunger=12\n当前成长属性：xp=7" {
+	if got := inputs["tmp_pet_attribute_prompt"]; got != "当前名字：小火花\n当前生活属性：life=99.00，health=80.00，satiety=12.00，hygiene=70.00，mood=60.00，energy=50.00\n当前成长属性：experience=7，level=1\n当前生命周期：alive" {
 		t.Fatalf("attribute prompt = %q", got)
-	}
-	if strings.Contains(inputs["tmp_pet_attribute_prompt"].(string), "unknown") {
-		t.Fatalf("attribute prompt leaked undefined attribute: %q", inputs["tmp_pet_attribute_prompt"])
 	}
 }
 

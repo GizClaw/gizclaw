@@ -10,37 +10,17 @@ spec:
     metadata:
       name: petdef-starter
     spec:
-      attr:
-        life:
-          hunger:
-            initial: 100
-          clean:
-            initial: 100
-        progression:
-          xp:
-            initial: 0
       character:
         prompt: Starter gameplay test pet with a clear friendly pixel-sprite silhouette.
       voice:
-        voice_id: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
         prompt: Short warm replies with curious, friendly energy.
-      drive:
-        actions:
-        - id: idle
-          cost: 0
-          visual_clip_id: idle
-        - id: bath
-          cost: 5
-          visual_clip_id: bath
-          effect:
-            attr_delta:
-              life:
-                clean: 10
-            pet_exp_delta: 80
       visual:
         refs:
           images: []
           videos: []
+        bindings:
+          behaviors: {feed: idle, bathe: bath, play: idle, heal: idle}
+          states: {idle: idle, sick: idle, dead: idle}
         pixa:
           asset_ref: asset://pets/starter/pet.pixa
           metadata:
@@ -50,31 +30,14 @@ spec:
               height: 60
             clips:
             - id: idle
-              action_id: idle
               pixa_clip_name: idle
             - id: bath
-              action_id: bath
               pixa_clip_name: bath
     i18n:
       default_locale: en
       en:
         display_name: Starter Pet
         description: Starter pet for gameplay e2e coverage.
-        attr:
-          life:
-            hunger:
-              display_name: Hunger
-            clean:
-              display_name: Clean
-          progression:
-            xp:
-              display_name: XP
-        drive:
-          actions:
-            idle:
-              display_name: Idle
-            bath:
-              display_name: Bath
   - apiVersion: gizclaw.admin/v1alpha1
     kind: BadgeDef
     metadata:
@@ -97,31 +60,53 @@ spec:
     metadata:
       name: default-gameplay
     spec:
+      workflows:
+        collections: {}
       resources:
         models:
-          pet-chat: pet-flowcraft-workflow-chat
-          pet-extract: pet-flowcraft-workflow-extract
-          pet-asr: pet-flowcraft-workflow-asr
+          pet-chat: {resource_id: pet-flowcraft-workflow-chat, i18n: {en: {display_name: Pet chat}, zh-CN: {display_name: 宠物对话}}}
+          pet-extract: {resource_id: pet-flowcraft-workflow-extract, i18n: {en: {display_name: Pet extraction}, zh-CN: {display_name: 宠物提取}}}
+          pet-asr: {resource_id: pet-flowcraft-workflow-asr, i18n: {en: {display_name: Pet ASR}, zh-CN: {display_name: 宠物语音识别}}}
         voices:
-          pet: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
+          pet: {resource_id: "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts", i18n: {en: {display_name: Pet voice}, zh-CN: {display_name: 宠物音色}}}
         pet_defs:
-          starter: petdef-starter
+          starter: {resource_id: petdef-starter, i18n: {en: {display_name: Starter Pet}, zh-CN: {display_name: 初始宠物}}}
         badge_defs:
-          starter: badge-starter
+          starter: {resource_id: badge-starter, i18n: {en: {display_name: Starter Badge}, zh-CN: {display_name: 初始徽章}}}
         game_defs:
-          starter: game-starter
+          starter: {resource_id: game-starter, i18n: {en: {display_name: Starter Game}, zh-CN: {display_name: 初始游戏}}}
       gameplay:
         points:
           initial_balance: 100
-        pet_pool:
-        - pet_def: starter
-          weight: 100
-          rarity: common
-          adoption_cost: 10
-        drive:
-          game_rewards:
+        adoption:
+          pool:
+          - pet_def: starter
+            voice: pet
+            weight: 100
+            rarity: common
+            adoption_cost: 10
+        pet:
+          time:
+            care_decay_per_hour: {health: 0.5, satiety: 1.3888888889, hygiene: 0.7, mood: 1}
+            energy_recovery_per_hour: 10
+            life_decay:
+              max_loss_per_hour: 4
+              exponent: 2
+              contributing_weights: {health: 0.25, satiety: 0.25, hygiene: 0.25, mood: 0.25}
+          experience:
+            energy_per_pet_exp: 5
+            leveling: {base_exp: 30, log_scale: 10}
+          actions:
+            feed: {energy_cost: 10, stat_delta: 10}
+            bathe: {energy_cost: 10, stat_delta: 10}
+            play: {energy_cost: 10, stat_delta: 10}
+            heal: {energy_cost: 10, stat_delta: 10}
+          games:
             starter:
-              points_delta: 20
-              pet_exp_delta: 25
-              badge_exp_delta:
-                starter: 100
+              energy_cost: 10
+              points_cost: 10
+              reward:
+                model: pet-chat
+                pet_exp_max: 25
+                badge_exp_max_per_badge: 100
+                prompt: Evaluate the validated starter game result and award only demonstrated progress.

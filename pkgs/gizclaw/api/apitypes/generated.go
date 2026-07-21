@@ -865,6 +865,30 @@ func (e PeerTelemetryOrder) Valid() bool {
 	}
 }
 
+// Defines values for PetBehavior.
+const (
+	PetBehaviorBathe PetBehavior = "bathe"
+	PetBehaviorFeed  PetBehavior = "feed"
+	PetBehaviorHeal  PetBehavior = "heal"
+	PetBehaviorPlay  PetBehavior = "play"
+)
+
+// Valid indicates whether the value is a known member of the PetBehavior enum.
+func (e PetBehavior) Valid() bool {
+	switch e {
+	case PetBehaviorBathe:
+		return true
+	case PetBehaviorFeed:
+		return true
+	case PetBehaviorHeal:
+		return true
+	case PetBehaviorPlay:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PetConversationParametersInitiative.
 const (
 	PetConversationParametersInitiativeAgent PetConversationParametersInitiative = "agent"
@@ -892,6 +916,24 @@ const (
 func (e PetDefResourceKind) Valid() bool {
 	switch e {
 	case PetDefResourceKindPetDef:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PetLifecycle.
+const (
+	PetLifecycleAlive PetLifecycle = "alive"
+	PetLifecycleDead  PetLifecycle = "dead"
+)
+
+// Valid indicates whether the value is a known member of the PetLifecycle enum.
+func (e PetLifecycle) Valid() bool {
+	switch e {
+	case PetLifecycleAlive:
+		return true
+	case PetLifecycleDead:
 		return true
 	default:
 		return false
@@ -2092,9 +2134,9 @@ type GameResultListResponse struct {
 
 // GameRewardSpec defines model for GameRewardSpec.
 type GameRewardSpec struct {
-	BadgeExpDelta *map[string]int64 `json:"badge_exp_delta,omitempty"`
-	PetExpDelta   *int64            `json:"pet_exp_delta,omitempty"`
-	PointsDelta   *int64            `json:"points_delta,omitempty"`
+	BadgeExpDelta map[string]int64 `json:"badge_exp_delta"`
+	PetExpDelta   int64            `json:"pet_exp_delta"`
+	Reason        string           `json:"reason"`
 }
 
 // GameplayGetRequest defines model for GameplayGetRequest.
@@ -2667,14 +2709,17 @@ type PeerTelemetryValue struct {
 // Pet defines model for Pet.
 type Pet struct {
 	CreatedAt          time.Time      `json:"created_at"`
+	DiedAt             *time.Time     `json:"died_at,omitempty"`
 	DisplayName        string         `json:"display_name"`
 	Id                 string         `json:"id"`
 	LastActiveAt       time.Time      `json:"last_active_at"`
-	Life               PetLife        `json:"life"`
+	Lifecycle          PetLifecycle   `json:"lifecycle"`
 	OwnerPublicKey     string         `json:"owner_public_key"`
 	PetdefId           string         `json:"petdef_id"`
 	Progression        PetProgression `json:"progression"`
 	RuntimeProfileName string         `json:"runtime_profile_name"`
+	StateSettledAt     time.Time      `json:"state_settled_at"`
+	Stats              PetStats       `json:"stats"`
 	UpdatedAt          time.Time      `json:"updated_at"`
 	WorkspaceName      string         `json:"workspace_name"`
 }
@@ -2691,18 +2736,8 @@ type PetAdoptResponse struct {
 	Transaction PointsTransaction `json:"transaction"`
 }
 
-// PetAttrDelta defines model for PetAttrDelta.
-type PetAttrDelta struct {
-	Life *PetLife `json:"life,omitempty"`
-}
-
-// PetAttrGroupSpec defines model for PetAttrGroupSpec.
-type PetAttrGroupSpec map[string]PetAttrValueSpec
-
-// PetAttrValueSpec defines model for PetAttrValueSpec.
-type PetAttrValueSpec struct {
-	Initial int64 `json:"initial"`
-}
+// PetBehavior defines model for PetBehavior.
+type PetBehavior string
 
 // PetConversationParameters defines model for PetConversationParameters.
 type PetConversationParameters struct {
@@ -2723,24 +2758,12 @@ type PetDef struct {
 	UpdatedAt time.Time      `json:"updated_at"`
 }
 
-// PetDefActionEffectSpec defines model for PetDefActionEffectSpec.
-type PetDefActionEffectSpec struct {
-	AttrDelta   *PetAttrDelta `json:"attr_delta,omitempty"`
-	PetExpDelta *int64        `json:"pet_exp_delta,omitempty"`
-}
-
-// PetDefActionSpec defines model for PetDefActionSpec.
-type PetDefActionSpec struct {
-	Cost         int64                   `json:"cost"`
-	Effect       *PetDefActionEffectSpec `json:"effect,omitempty"`
-	Id           string                  `json:"id"`
-	VisualClipId *string                 `json:"visual_clip_id,omitempty"`
-}
-
-// PetDefAttrSpec defines model for PetDefAttrSpec.
-type PetDefAttrSpec struct {
-	Life        PetAttrGroupSpec `json:"life"`
-	Progression PetAttrGroupSpec `json:"progression"`
+// PetDefBehaviorBindingsSpec defines model for PetDefBehaviorBindingsSpec.
+type PetDefBehaviorBindingsSpec struct {
+	Bathe string `json:"bathe"`
+	Feed  string `json:"feed"`
+	Heal  string `json:"heal"`
+	Play  string `json:"play"`
 }
 
 // PetDefCharacterSpec defines model for PetDefCharacterSpec.
@@ -2748,36 +2771,10 @@ type PetDefCharacterSpec struct {
 	Prompt string `json:"prompt"`
 }
 
-// PetDefDriveSpec defines model for PetDefDriveSpec.
-type PetDefDriveSpec struct {
-	Actions []PetDefActionSpec `json:"actions"`
-}
-
-// PetDefI18nAttrGroup defines model for PetDefI18nAttrGroup.
-type PetDefI18nAttrGroup map[string]PetDefI18nDisplayText
-
-// PetDefI18nAttrSpec defines model for PetDefI18nAttrSpec.
-type PetDefI18nAttrSpec struct {
-	Life        *PetDefI18nAttrGroup `json:"life,omitempty"`
-	Progression *PetDefI18nAttrGroup `json:"progression,omitempty"`
-}
-
 // PetDefI18nCatalog defines model for PetDefI18nCatalog.
 type PetDefI18nCatalog struct {
-	Attr        *PetDefI18nAttrSpec  `json:"attr,omitempty"`
-	Description *string              `json:"description,omitempty"`
-	DisplayName *string              `json:"display_name,omitempty"`
-	Drive       *PetDefI18nDriveSpec `json:"drive,omitempty"`
-}
-
-// PetDefI18nDisplayText defines model for PetDefI18nDisplayText.
-type PetDefI18nDisplayText struct {
-	DisplayName string `json:"display_name"`
-}
-
-// PetDefI18nDriveSpec defines model for PetDefI18nDriveSpec.
-type PetDefI18nDriveSpec struct {
-	Actions *map[string]PetDefI18nDisplayText `json:"actions,omitempty"`
+	Description *string `json:"description,omitempty"`
+	DisplayName *string `json:"display_name,omitempty"`
 }
 
 // PetDefI18nSpec defines model for PetDefI18nSpec.
@@ -2794,9 +2791,8 @@ type PetDefPixaCanvasMetadata struct {
 
 // PetDefPixaClipMetadata defines model for PetDefPixaClipMetadata.
 type PetDefPixaClipMetadata struct {
-	ActionId     *string `json:"action_id,omitempty"`
-	Id           string  `json:"id"`
-	PixaClipName string  `json:"pixa_clip_name"`
+	Id           string `json:"id"`
+	PixaClipName string `json:"pixa_clip_name"`
 }
 
 // PetDefPixaMetadata defines model for PetDefPixaMetadata.
@@ -2827,11 +2823,23 @@ type PetDefResourceKind string
 
 // PetDefSpec defines model for PetDefSpec.
 type PetDefSpec struct {
-	Attr      PetDefAttrSpec      `json:"attr"`
 	Character PetDefCharacterSpec `json:"character"`
-	Drive     PetDefDriveSpec     `json:"drive"`
 	Visual    PetDefVisualSpec    `json:"visual"`
 	Voice     PetDefVoiceSpec     `json:"voice"`
+}
+
+// PetDefStateBindingsSpec defines model for PetDefStateBindingsSpec.
+type PetDefStateBindingsSpec struct {
+	Dead  string  `json:"dead"`
+	Idle  string  `json:"idle"`
+	Sick  string  `json:"sick"`
+	Sleep *string `json:"sleep,omitempty"`
+}
+
+// PetDefVisualBindingsSpec defines model for PetDefVisualBindingsSpec.
+type PetDefVisualBindingsSpec struct {
+	Behaviors PetDefBehaviorBindingsSpec `json:"behaviors"`
+	States    PetDefStateBindingsSpec    `json:"states"`
 }
 
 // PetDefVisualRefSpec defines model for PetDefVisualRefSpec.
@@ -2850,8 +2858,9 @@ type PetDefVisualRefsSpec struct {
 
 // PetDefVisualSpec defines model for PetDefVisualSpec.
 type PetDefVisualSpec struct {
-	Pixa PetDefPixaSpec       `json:"pixa"`
-	Refs PetDefVisualRefsSpec `json:"refs"`
+	Bindings PetDefVisualBindingsSpec `json:"bindings"`
+	Pixa     PetDefPixaSpec           `json:"pixa"`
+	Refs     PetDefVisualRefsSpec     `json:"refs"`
 }
 
 // PetDefVoiceSpec defines model for PetDefVoiceSpec.
@@ -2879,9 +2888,10 @@ type PetDriveGameResultInput struct {
 
 // PetDriveRequest defines model for PetDriveRequest.
 type PetDriveRequest struct {
-	Action     *string                  `json:"action,omitempty"`
-	GameResult *PetDriveGameResultInput `json:"game_result,omitempty"`
-	PetId      string                   `json:"pet_id"`
+	Behavior       *PetBehavior             `json:"behavior,omitempty"`
+	GameResult     *PetDriveGameResultInput `json:"game_result,omitempty"`
+	IdempotencyKey *string                  `json:"idempotency_key,omitempty"`
+	PetId          string                   `json:"pet_id"`
 }
 
 // PetDriveResponse defines model for PetDriveResponse.
@@ -2899,8 +2909,8 @@ type PetGetRequest struct {
 	Id string `json:"id"`
 }
 
-// PetLife defines model for PetLife.
-type PetLife map[string]int64
+// PetLifecycle defines model for PetLifecycle.
+type PetLifecycle string
 
 // PetListResponse defines model for PetListResponse.
 type PetListResponse struct {
@@ -2916,12 +2926,25 @@ type PetPersonaParameters struct {
 }
 
 // PetProgression defines model for PetProgression.
-type PetProgression map[string]int64
+type PetProgression struct {
+	Experience int64 `json:"experience"`
+	Level      int64 `json:"level"`
+}
 
 // PetPutRequest defines model for PetPutRequest.
 type PetPutRequest struct {
 	DisplayName string `json:"display_name"`
 	Id          string `json:"id"`
+}
+
+// PetStats defines model for PetStats.
+type PetStats struct {
+	Energy  float64 `json:"energy"`
+	Health  float64 `json:"health"`
+	Hygiene float64 `json:"hygiene"`
+	Life    float64 `json:"life"`
+	Mood    float64 `json:"mood"`
+	Satiety float64 `json:"satiety"`
 }
 
 // PetVoiceParameters defines model for PetVoiceParameters.
@@ -3134,24 +3157,89 @@ type RuntimeProfileBinding struct {
 	ResourceId string                            `json:"resource_id"`
 }
 
-// RuntimeProfileDriveSpec defines model for RuntimeProfileDriveSpec.
-type RuntimeProfileDriveSpec struct {
-	Default    *RuntimeProfileRewardSpec            `json:"default,omitempty"`
-	Games      *map[string]RuntimeProfileRewardSpec `json:"games,omitempty"`
-	PetActions *map[string]RuntimeProfileRewardSpec `json:"pet_actions,omitempty"`
+// RuntimeProfileCareDecaySpec defines model for RuntimeProfileCareDecaySpec.
+type RuntimeProfileCareDecaySpec struct {
+	Health  float64 `json:"health"`
+	Hygiene float64 `json:"hygiene"`
+	Mood    float64 `json:"mood"`
+	Satiety float64 `json:"satiety"`
+}
+
+// RuntimeProfileGameRewardSpec defines model for RuntimeProfileGameRewardSpec.
+type RuntimeProfileGameRewardSpec struct {
+	BadgeExpMaxPerBadge int64  `json:"badge_exp_max_per_badge"`
+	Model               string `json:"model"`
+	PetExpMax           int64  `json:"pet_exp_max"`
+	Prompt              string `json:"prompt"`
+}
+
+// RuntimeProfileGameSpec defines model for RuntimeProfileGameSpec.
+type RuntimeProfileGameSpec struct {
+	EnergyCost int64                        `json:"energy_cost"`
+	PointsCost int64                        `json:"points_cost"`
+	Reward     RuntimeProfileGameRewardSpec `json:"reward"`
 }
 
 // RuntimeProfileGameplaySpec defines model for RuntimeProfileGameplaySpec.
 type RuntimeProfileGameplaySpec struct {
-	Adoption *RuntimeProfileAdoptionSpec `json:"adoption,omitempty"`
-	Points   *RuntimeProfilePointsSpec   `json:"points,omitempty"`
-	Rewards  *RuntimeProfileDriveSpec    `json:"rewards,omitempty"`
+	Adoption *RuntimeProfileAdoptionSpec    `json:"adoption,omitempty"`
+	Pet      *RuntimeProfilePetGameplaySpec `json:"pet,omitempty"`
+	Points   *RuntimeProfilePointsSpec      `json:"points,omitempty"`
 }
 
 // RuntimeProfileI18nText defines model for RuntimeProfileI18nText.
 type RuntimeProfileI18nText struct {
 	Description *string `json:"description,omitempty"`
 	DisplayName string  `json:"display_name"`
+}
+
+// RuntimeProfileLevelingSpec defines model for RuntimeProfileLevelingSpec.
+type RuntimeProfileLevelingSpec struct {
+	BaseExp  int64   `json:"base_exp"`
+	LogScale float64 `json:"log_scale"`
+}
+
+// RuntimeProfileLifeDecaySpec defines model for RuntimeProfileLifeDecaySpec.
+type RuntimeProfileLifeDecaySpec struct {
+	ContributingWeights RuntimeProfileLifeWeightsSpec `json:"contributing_weights"`
+	Exponent            float64                       `json:"exponent"`
+	MaxLossPerHour      float64                       `json:"max_loss_per_hour"`
+}
+
+// RuntimeProfileLifeWeightsSpec defines model for RuntimeProfileLifeWeightsSpec.
+type RuntimeProfileLifeWeightsSpec struct {
+	Health  float64 `json:"health"`
+	Hygiene float64 `json:"hygiene"`
+	Mood    float64 `json:"mood"`
+	Satiety float64 `json:"satiety"`
+}
+
+// RuntimeProfilePetActionSpec defines model for RuntimeProfilePetActionSpec.
+type RuntimeProfilePetActionSpec struct {
+	EnergyCost int64   `json:"energy_cost"`
+	StatDelta  float64 `json:"stat_delta"`
+}
+
+// RuntimeProfilePetActionsSpec defines model for RuntimeProfilePetActionsSpec.
+type RuntimeProfilePetActionsSpec struct {
+	Bathe RuntimeProfilePetActionSpec `json:"bathe"`
+	Feed  RuntimeProfilePetActionSpec `json:"feed"`
+	Heal  RuntimeProfilePetActionSpec `json:"heal"`
+	Play  RuntimeProfilePetActionSpec `json:"play"`
+}
+
+// RuntimeProfilePetExperienceSpec defines model for RuntimeProfilePetExperienceSpec.
+type RuntimeProfilePetExperienceSpec struct {
+	EnergyPerPetExp int64                      `json:"energy_per_pet_exp"`
+	Leveling        RuntimeProfileLevelingSpec `json:"leveling"`
+}
+
+// RuntimeProfilePetGameplaySpec defines model for RuntimeProfilePetGameplaySpec.
+type RuntimeProfilePetGameplaySpec struct {
+	Actions    RuntimeProfilePetActionsSpec      `json:"actions"`
+	Experience RuntimeProfilePetExperienceSpec   `json:"experience"`
+	Games      map[string]RuntimeProfileGameSpec `json:"games"`
+	Time       RuntimeProfilePetTimeSpec         `json:"time"`
 }
 
 // RuntimeProfilePetPoolEntry defines model for RuntimeProfilePetPoolEntry.
@@ -3161,6 +3249,13 @@ type RuntimeProfilePetPoolEntry struct {
 	Rarity       *string `json:"rarity,omitempty"`
 	Voice        string  `json:"voice"`
 	Weight       int64   `json:"weight"`
+}
+
+// RuntimeProfilePetTimeSpec defines model for RuntimeProfilePetTimeSpec.
+type RuntimeProfilePetTimeSpec struct {
+	CareDecayPerHour      RuntimeProfileCareDecaySpec `json:"care_decay_per_hour"`
+	EnergyRecoveryPerHour float64                     `json:"energy_recovery_per_hour"`
+	LifeDecay             RuntimeProfileLifeDecaySpec `json:"life_decay"`
 }
 
 // RuntimeProfilePointsSpec defines model for RuntimeProfilePointsSpec.
@@ -3188,13 +3283,6 @@ type RuntimeProfileResources struct {
 	PetDefs   *map[string]RuntimeProfileBinding `json:"pet_defs,omitempty"`
 	Tools     *map[string]RuntimeProfileBinding `json:"tools,omitempty"`
 	Voices    *map[string]RuntimeProfileBinding `json:"voices,omitempty"`
-}
-
-// RuntimeProfileRewardSpec defines model for RuntimeProfileRewardSpec.
-type RuntimeProfileRewardSpec struct {
-	BadgeExpDelta *map[string]int64 `json:"badge_exp_delta,omitempty"`
-	PetExpDelta   *int64            `json:"pet_exp_delta,omitempty"`
-	PointsDelta   *int64            `json:"points_delta,omitempty"`
 }
 
 // RuntimeProfileSpec defines model for RuntimeProfileSpec.

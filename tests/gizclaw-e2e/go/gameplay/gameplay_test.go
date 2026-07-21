@@ -31,18 +31,32 @@ func TestGameplayAdoptDriveAndPetWorkspace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("workspace.get pet workspace: %v", err)
 	}
-	if workspace.Name != adopted.Pet.WorkspaceName || workspace.WorkflowName != "pet-care" {
+	if workspace.Value.Name != adopted.Pet.WorkspaceName || workspace.Value.WorkflowAlias != "pet-care" {
 		t.Fatalf("pet workspace = %#v", workspace)
 	}
-	if workspace.Parameters == nil {
+	if workspace.Value.Parameters == nil {
 		t.Fatalf("pet workspace parameters = nil")
 	}
-	petParameters, err := workspace.Parameters.AsPetWorkspaceParameters()
+	petParameters, err := workspace.Value.Parameters.AsPetWorkspaceParameters()
 	if err != nil {
 		t.Fatalf("pet workspace parameters: %v", err)
 	}
-	if petParameters.AgentType != rpcapi.PetWorkspaceParametersAgentTypePet || petParameters.Voice.VoiceId != "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts" {
+	if petParameters.AgentType != rpcapi.PetWorkspaceParametersAgentTypePet || petParameters.Voice.VoiceId != "pet" {
 		t.Fatalf("pet workspace parameters = %#v", petParameters)
+	}
+	behavior := rpcapi.PetBehaviorBathe
+	careKey := "gameplay-care-1"
+	care, err := env.peer.DrivePet(env.ctx, "gameplay.pet.drive.care", rpcapi.ServerPetDriveRequest{
+		PetId: adopted.Pet.Id, Behavior: &behavior, IdempotencyKey: &careKey,
+	})
+	if err != nil {
+		t.Fatalf("pet.drive care: %v", err)
+	}
+	if care.Pet.Stats.Hygiene != 100 || care.Pet.Stats.Energy != 90 || care.Pet.Progression.Experience != 2 {
+		t.Fatalf("pet.drive care Pet = %#v", care.Pet)
+	}
+	if care.Points.Balance != 90 || len(care.Transactions) != 0 || len(care.RewardGrants) != 1 {
+		t.Fatalf("pet.drive care response = %#v", care)
 	}
 
 	score := int64(42)
@@ -51,8 +65,7 @@ func TestGameplayAdoptDriveAndPetWorkspace(t *testing.T) {
 	difficulty := "normal"
 	idempotencyKey := "gameplay-result-1"
 	drive, err := env.peer.DrivePet(env.ctx, "gameplay.pet.drive", rpcapi.ServerPetDriveRequest{
-		PetId:  adopted.Pet.Id,
-		Action: testStringPtr("bath"),
+		PetId: adopted.Pet.Id,
 		GameResult: &rpcapi.PetDriveGameResultInput{
 			GameDefId:      "game-starter",
 			Score:          &score,
@@ -66,10 +79,10 @@ func TestGameplayAdoptDriveAndPetWorkspace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("pet.drive: %v", err)
 	}
-	if drive.Pet.Progression["xp"] != 105 {
+	if drive.Pet.Progression.Experience < 2 || drive.Pet.Progression.Experience > 27 || drive.Pet.Stats.Energy != 80 {
 		t.Fatalf("pet.drive pet = %#v reward_grants = %#v", drive.Pet, drive.RewardGrants)
 	}
-	if drive.Points.Balance != 105 {
+	if drive.Points.Balance != 80 {
 		t.Fatalf("pet.drive points = %#v", drive.Points)
 	}
 	if drive.GameResult == nil || drive.GameResult.GameDefId != "game-starter" || drive.GameResult.Score == nil || *drive.GameResult.Score != score {
@@ -78,23 +91,21 @@ func TestGameplayAdoptDriveAndPetWorkspace(t *testing.T) {
 	if drive.GameResult.MaxScore == nil || *drive.GameResult.MaxScore != maxScore || drive.GameResult.DurationMs == nil || *drive.GameResult.DurationMs != durationMs || drive.GameResult.IdempotencyKey == nil || *drive.GameResult.IdempotencyKey != idempotencyKey {
 		t.Fatalf("pet.drive game result details = %#v", drive.GameResult)
 	}
-	if len(drive.Badges) != 1 || drive.Badges[0].BadgeDefId != "badge-starter" || !drive.Badges[0].Active || drive.Badges[0].Level != 1 {
-		t.Fatalf("pet.drive badges = %#v", drive.Badges)
-	}
-	if len(drive.RewardGrants) != 1 || drive.RewardGrants[0].PointsDelta != 20 || drive.RewardGrants[0].PetExpDelta != 105 {
+	if len(drive.RewardGrants) != 1 || drive.RewardGrants[0].PointsDelta != 0 || drive.RewardGrants[0].PetExpDelta < 0 || drive.RewardGrants[0].PetExpDelta > 25 {
 		t.Fatalf("pet.drive reward grants = %#v", drive.RewardGrants)
 	}
-	if len(drive.Transactions) != 2 || drive.Transactions[0].Delta != -5 || drive.Transactions[1].Delta != 20 {
+	if len(drive.Transactions) != 1 || drive.Transactions[0].Delta != -10 {
 		t.Fatalf("pet.drive transactions = %#v", drive.Transactions)
 	}
-	if _, err := env.peer.DrivePet(env.ctx, "gameplay.pet.drive.duplicate", rpcapi.ServerPetDriveRequest{
+	duplicate, err := env.peer.DrivePet(env.ctx, "gameplay.pet.drive.duplicate", rpcapi.ServerPetDriveRequest{
 		PetId: adopted.Pet.Id,
 		GameResult: &rpcapi.PetDriveGameResultInput{
 			GameDefId:      "game-starter",
 			IdempotencyKey: &idempotencyKey,
 		},
-	}); err == nil {
-		t.Fatal("duplicate game result idempotency key should fail")
+	})
+	if err != nil || duplicate.GameResult == nil || duplicate.GameResult.Id != drive.GameResult.Id || duplicate.Points.Balance != drive.Points.Balance {
+		t.Fatalf("duplicate game result = %#v, %v", duplicate, err)
 	}
 
 	pets, err := env.peer.ListPets(env.ctx, "gameplay.pet.list", rpcapi.ServerPetListRequest{})
@@ -142,10 +153,10 @@ func TestGameplayPetWorkspaceAudioHistory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get pet audio workspace: %v", err)
 	}
-	if workspace.Parameters == nil {
+	if workspace.Value.Parameters == nil {
 		t.Fatal("pet audio workspace parameters are missing")
 	}
-	petParameters, err := workspace.Parameters.AsPetWorkspaceParameters()
+	petParameters, err := workspace.Value.Parameters.AsPetWorkspaceParameters()
 	if err != nil {
 		t.Fatalf("decode pet audio workspace parameters: %v", err)
 	}

@@ -63,7 +63,7 @@ Use the following rules when determining field ownership:
 
 Machine-readable fields such as `category`, association ID, workflow reference, provider kind, etc. belong to core data. The localized name and description belong to owner `display` or `i18n`; icon and cover belong to Display. The client can fall back to a stable ID when display data is missing, but the server should not persist the fallback text as core data.
 
-"Visual content" does not automatically equal `display`. If the asset, clip, animation graph or action-to-clip mapping is consumed directly by the device, runtime or domain logic, it is the core content or associated data of the Resource. For example, PetDef's PIXA, canvas, clips, visual refs and `visual_clip_id` belong to the PetDef spec; `display` only saves the display metadata and localized text required for the management interface or user reading.
+"Visual content" does not automatically equal `display`. If an asset, clip, animation graph, or behavior/state-to-clip mapping is consumed directly by the device, runtime, or domain logic, it is core Resource content or associated data. For example, PetDef's PIXA, canvas, clips, visual refs, and `visual.bindings` belong to the PetDef spec; `i18n` stores only localized text for management interfaces or readers.
 
 A new Spec used by only one Resource should be defined in the same file as that Resource. For a Spec that already lives under `shared/`, inspect every actual consumer and compatibility impact before moving it. Do not infer ownership from its name alone or create a parallel schema.
 

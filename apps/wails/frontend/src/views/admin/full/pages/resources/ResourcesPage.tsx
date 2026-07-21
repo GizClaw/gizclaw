@@ -647,6 +647,36 @@ function resourceSpecTemplate(kind: ResourceKind): unknown {
               },
             ],
           },
+          pet: {
+            time: {
+              care_decay_per_hour: { health: 0.5, satiety: 1.3888888889, hygiene: 0.7, mood: 1 },
+              energy_recovery_per_hour: 10,
+              life_decay: {
+                max_loss_per_hour: 4,
+                exponent: 2,
+                contributing_weights: { health: 0.25, satiety: 0.25, hygiene: 0.25, mood: 0.25 },
+              },
+            },
+            experience: { energy_per_pet_exp: 5, leveling: { base_exp: 30, log_scale: 10 } },
+            actions: {
+              feed: { energy_cost: 10, stat_delta: 10 },
+              bathe: { energy_cost: 10, stat_delta: 10 },
+              play: { energy_cost: 10, stat_delta: 10 },
+              heal: { energy_cost: 10, stat_delta: 10 },
+            },
+            games: {
+              "starter-game": {
+                energy_cost: 10,
+                points_cost: 10,
+                reward: {
+                  model: "chat",
+                  pet_exp_max: 10,
+                  badge_exp_max_per_badge: 5,
+                  prompt: "Evaluate the validated game result and award only demonstrated progress.",
+                },
+              },
+            },
+          },
         },
       };
     case "RegistrationToken":
@@ -655,51 +685,31 @@ function resourceSpecTemplate(kind: ResourceKind): unknown {
       };
     case "PetDef":
       return {
-        default_locale: "en",
-        attr: {
-          life: { hunger: { initial: 100 }, clean: { initial: 100 } },
-          progression: { xp: { initial: 0 } },
-        },
         character: { prompt: "Small friendly pixel pet." },
         voice: { prompt: "Soft and curious." },
-        drive: {
-          actions: [
-            {
-              id: "idle",
-              cost: 0,
-              visual_clip_id: "idle",
-            },
-            {
-              id: "bath",
-              cost: 5,
-              visual_clip_id: "bath",
-              effect: { attr_delta: { life: { clean: 10 } }, pet_exp_delta: 10 },
-            },
-          ],
-        },
         visual: {
           refs: { images: [], videos: [] },
+          bindings: {
+            behaviors: { feed: "idle", bathe: "bath", play: "idle", heal: "idle" },
+            states: { idle: "idle", sick: "idle", dead: "idle" },
+          },
           pixa: {
             asset_ref: "asset://pets/starter/pet.pixa",
             metadata: {
               version: "1",
               canvas: { width: 60, height: 60 },
               clips: [
-                { id: "idle", action_id: "idle", pixa_clip_name: "idle" },
-                { id: "bath", action_id: "bath", pixa_clip_name: "bath" },
+                { id: "idle", pixa_clip_name: "idle" },
+                { id: "bath", pixa_clip_name: "bath" },
               ],
             },
           },
         },
         i18n: {
+          default_locale: "en",
           en: {
             display_name: "Starter Pet",
             description: "Starter pet for gameplay resource editing.",
-            attr: {
-              life: { hunger: { display_name: "Hunger" }, clean: { display_name: "Clean" } },
-              progression: { xp: { display_name: "XP" } },
-            },
-            drive: { actions: { idle: { display_name: "Idle" }, bath: { display_name: "Bath" } } },
           },
         },
       };

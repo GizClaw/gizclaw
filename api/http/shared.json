@@ -464,11 +464,14 @@
       "RuntimeProfilePetPoolEntry": {
         "$ref": "./shared/runtime_profile_spec.json#/components/schemas/RuntimeProfilePetPoolEntry"
       },
-      "RuntimeProfileRewardSpec": {
-        "$ref": "./shared/runtime_profile_spec.json#/components/schemas/RuntimeProfileRewardSpec"
+      "RuntimeProfilePetGameplaySpec": {
+        "$ref": "./shared/runtime_profile_spec.json#/components/schemas/RuntimeProfilePetGameplaySpec"
       },
-      "RuntimeProfileDriveSpec": {
-        "$ref": "./shared/runtime_profile_spec.json#/components/schemas/RuntimeProfileDriveSpec"
+      "RuntimeProfilePetActionSpec": {
+        "$ref": "./shared/runtime_profile_spec.json#/components/schemas/RuntimeProfilePetActionSpec"
+      },
+      "RuntimeProfileGameSpec": {
+        "$ref": "./shared/runtime_profile_spec.json#/components/schemas/RuntimeProfileGameSpec"
       },
       "RegistrationToken": {
         "$ref": "./shared/registration_token.json#/components/schemas/RegistrationToken"
@@ -569,23 +572,17 @@
       "GameDefResource": {
         "$ref": "./resources/game_def.json#/components/schemas/GameDefResource"
       },
-      "PetAttrValueSpec": {
-        "$ref": "./shared/gameplay.json#/components/schemas/PetAttrValueSpec"
+      "PetBehavior": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PetBehavior"
       },
-      "PetAttrGroupSpec": {
-        "$ref": "./shared/gameplay.json#/components/schemas/PetAttrGroupSpec"
+      "PetLifecycle": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PetLifecycle"
       },
-      "PetDefAttrSpec": {
-        "$ref": "./shared/gameplay.json#/components/schemas/PetDefAttrSpec"
-      },
-      "PetLife": {
-        "$ref": "./shared/gameplay.json#/components/schemas/PetLife"
+      "PetStats": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PetStats"
       },
       "PetProgression": {
         "$ref": "./shared/gameplay.json#/components/schemas/PetProgression"
-      },
-      "PetAttrDelta": {
-        "$ref": "./shared/gameplay.json#/components/schemas/PetAttrDelta"
       },
       "PetDefCharacterSpec": {
         "$ref": "./shared/gameplay.json#/components/schemas/PetDefCharacterSpec"
@@ -593,14 +590,14 @@
       "PetDefVoiceSpec": {
         "$ref": "./shared/gameplay.json#/components/schemas/PetDefVoiceSpec"
       },
-      "PetDefActionEffectSpec": {
-        "$ref": "./shared/gameplay.json#/components/schemas/PetDefActionEffectSpec"
+      "PetDefBehaviorBindingsSpec": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PetDefBehaviorBindingsSpec"
       },
-      "PetDefActionSpec": {
-        "$ref": "./shared/gameplay.json#/components/schemas/PetDefActionSpec"
+      "PetDefStateBindingsSpec": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PetDefStateBindingsSpec"
       },
-      "PetDefDriveSpec": {
-        "$ref": "./shared/gameplay.json#/components/schemas/PetDefDriveSpec"
+      "PetDefVisualBindingsSpec": {
+        "$ref": "./shared/gameplay.json#/components/schemas/PetDefVisualBindingsSpec"
       },
       "PetDefVisualRefSpec": {
         "$ref": "./shared/gameplay.json#/components/schemas/PetDefVisualRefSpec"
@@ -622,18 +619,6 @@
       },
       "PetDefVisualSpec": {
         "$ref": "./shared/gameplay.json#/components/schemas/PetDefVisualSpec"
-      },
-      "PetDefI18nDisplayText": {
-        "$ref": "./shared/gameplay.json#/components/schemas/PetDefI18nDisplayText"
-      },
-      "PetDefI18nAttrGroup": {
-        "$ref": "./shared/gameplay.json#/components/schemas/PetDefI18nAttrGroup"
-      },
-      "PetDefI18nAttrSpec": {
-        "$ref": "./shared/gameplay.json#/components/schemas/PetDefI18nAttrSpec"
-      },
-      "PetDefI18nDriveSpec": {
-        "$ref": "./shared/gameplay.json#/components/schemas/PetDefI18nDriveSpec"
       },
       "PetDefI18nCatalog": {
         "$ref": "./shared/gameplay.json#/components/schemas/PetDefI18nCatalog"

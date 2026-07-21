@@ -433,11 +433,17 @@ class _PetDetailPageState extends State<PetDetailPage> {
     if (mounted) setState(() {});
   }
 
-  Future<void> _drive(PetAction action) async {
+  Future<void> _drive(_PetMenuAction action) async {
     final client = _client;
     final pet = _pet;
-    if (client == null || pet == null || _drivingAction != null) return;
-    final actionClip = _clipForAction(_presentation, action.id);
+    final behavior = action.behavior;
+    if (client == null ||
+        pet == null ||
+        behavior == null ||
+        _drivingAction != null) {
+      return;
+    }
+    final actionClip = action.clipName;
     final duration = _clipDuration(_pixa, actionClip);
     setState(() {
       _drivingAction = action.id;
@@ -448,7 +454,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
       final animation = Future<void>.delayed(duration);
       final response = await MobileDataScope.watch(
         context,
-      ).runRpc((client) => client.drivePet(pet.id, action: action.id));
+      ).runRpc((client) => client.drivePet(pet.id, behavior: behavior));
       if (!mounted) return;
       setState(() => _pet = response.value.pet);
       await animation;
@@ -468,9 +474,8 @@ class _PetDetailPageState extends State<PetDetailPage> {
   }
 
   Future<void> _activateMenuAction(_PetMenuAction action) async {
-    final driveAction = action.driveAction;
-    if (driveAction != null) {
-      await _drive(driveAction);
+    if (action.behavior != null) {
+      await _drive(action);
       return;
     }
     if (_drivingAction != null) return;
@@ -514,14 +519,10 @@ class _PetDetailPageState extends State<PetDetailPage> {
       );
     }
 
-    final catalog = _catalogFor(context, _presentation);
-    final metrics = _petMetrics(pet, catalog).take(4).toList();
-    final progression = pet.progression.value.entries.isEmpty
-        ? pet.runtimeProfileName
-        : pet.progression.value.entries
-              .map((entry) => '${_title(entry.key)} ${entry.value}')
-              .join('  |  ');
-    final actions = _petMenuActions(_presentation);
+    final metrics = _petMetrics(pet).take(6).toList();
+    final progression =
+        'Level ${pet.progression.level}  |  EXP ${pet.progression.experience}';
+    final actions = _petMenuActions(_presentation, pet);
     final chat = _chat;
     final messages = chat?.messages ?? const <WorkspaceChatMessage>[];
     final currentChatError = chat?.lastError;
@@ -594,7 +595,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
                     child: _PetStatusNameplate(
                       metrics: metrics,
                       progression: progression,
-                      title: _petName(pet, catalog),
+                      title: _petName(pet),
                       visible: _statusVisible,
                     ),
                   ),
@@ -619,7 +620,6 @@ class _PetDetailPageState extends State<PetDetailPage> {
             child: _PetActionFab(
               key: _actionFabKey,
               actions: actions,
-              catalog: catalog,
               activeAction: _drivingAction,
               onAction: _activateMenuAction,
               onExpand: () {
@@ -957,7 +957,6 @@ class _PetCoverCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final catalog = _catalogFor(context, visual?.presentation);
     final cardRadius = compact ? GizCorners.card : GizCorners.hero;
     final accent = _petCoverAccent(pet.id);
     return GizPressable(
@@ -1090,7 +1089,7 @@ class _PetCoverCard extends StatelessWidget {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                _petName(pet, catalog),
+                                _petName(pet),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: GizText.sectionTitle.copyWith(
@@ -1705,12 +1704,12 @@ class _PetMenuAction {
   const _PetMenuAction({
     required this.id,
     required this.clipName,
-    this.driveAction,
+    this.behavior,
   });
 
   final String id;
   final String? clipName;
-  final PetAction? driveAction;
+  final PetBehavior? behavior;
 }
 
 const _petActionAnchor = 160.0;
@@ -1723,14 +1722,12 @@ class _PetActionFab extends StatefulWidget {
   const _PetActionFab({
     super.key,
     required this.actions,
-    required this.catalog,
     required this.activeAction,
     required this.onAction,
     required this.onExpand,
   });
 
   final List<_PetMenuAction> actions;
-  final PetActionsI18nCatalog? catalog;
   final String? activeAction;
   final ValueChanged<_PetMenuAction> onAction;
   final VoidCallback onExpand;
@@ -1940,7 +1937,7 @@ class _PetActionFabState extends State<_PetActionFab>
                     vertical: 8,
                   ),
                   child: Text(
-                    _actionName(widget.catalog, action.id),
+                    _actionName(action.id),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GizText.label.copyWith(color: GizColors.surface),
@@ -2263,29 +2260,19 @@ class _PetMetric {
   final int value;
 }
 
-List<_PetMetric> _petMetrics(Pet pet, PetActionsI18nCatalog? catalog) {
+List<_PetMetric> _petMetrics(Pet pet) {
+  final stats = pet.stats;
   return [
-    for (final entry in pet.life.value.entries)
-      _PetMetric(_title(entry.key), entry.value.toInt()),
-    for (final entry in pet.progression.value.entries)
-      _PetMetric(_title(entry.key), entry.value.toInt()),
+    _PetMetric('Life', stats.life.round()),
+    _PetMetric('Health', stats.health.round()),
+    _PetMetric('Satiety', stats.satiety.round()),
+    _PetMetric('Hygiene', stats.hygiene.round()),
+    _PetMetric('Mood', stats.mood.round()),
+    _PetMetric('Energy', stats.energy.round()),
   ];
 }
 
-PetActionsI18nCatalog? _catalogFor(
-  BuildContext context,
-  PetActions? presentation,
-) {
-  if (presentation == null || presentation.i18n.value.isEmpty) return null;
-  final catalogs = presentation.i18n.value;
-  final locale = Localizations.localeOf(context);
-  return catalogs[locale.toLanguageTag()] ??
-      catalogs[locale.languageCode] ??
-      catalogs[presentation.defaultLocale] ??
-      catalogs.values.first;
-}
-
-String _petName(Pet pet, PetActionsI18nCatalog? catalog) {
+String _petName(Pet pet) {
   if (pet.displayName.trim().isNotEmpty) return pet.displayName;
   return 'Unnamed pet';
 }
@@ -2299,63 +2286,63 @@ String _petStateLabel(PetActions? presentation, Pet pet, PixaAsset? pixa) {
 }
 
 String _petProgressionLabel(Pet pet) {
-  if (pet.progression.value.isEmpty) return pet.runtimeProfileName;
-  final entry = pet.progression.value.entries.first;
-  return '${entry.key.toUpperCase()} ${entry.value}';
+  return 'LV ${pet.progression.level}  EXP ${pet.progression.experience}';
 }
 
-String _actionName(PetActionsI18nCatalog? catalog, String id) =>
-    catalog?.actions[id]?.name ?? _title(id);
+String _actionName(String id) => _title(id);
 
-List<_PetMenuAction> _petMenuActions(PetActions? presentation) {
-  if (presentation == null) return const [];
-  final actions = <_PetMenuAction>[];
-  for (final action in presentation.actions) {
-    if (action.id.toLowerCase() == 'idle') continue;
-    final clipName = _clipForAction(presentation, action.id);
-    actions.add(
-      _PetMenuAction(id: action.id, clipName: clipName, driveAction: action),
-    );
+List<_PetMenuAction> _petMenuActions(PetActions? presentation, Pet pet) {
+  if (presentation == null ||
+      pet.lifecycle == PetLifecycle.PET_LIFECYCLE_DEAD) {
+    return const [];
   }
-  return actions;
+  final bindings = presentation.bindings;
+  return [
+    _PetMenuAction(
+      id: 'feed',
+      clipName: _clipForBinding(presentation, bindings.feed),
+      behavior: PetBehavior.PET_BEHAVIOR_FEED,
+    ),
+    _PetMenuAction(
+      id: 'bathe',
+      clipName: _clipForBinding(presentation, bindings.bathe),
+      behavior: PetBehavior.PET_BEHAVIOR_BATHE,
+    ),
+    _PetMenuAction(
+      id: 'play',
+      clipName: _clipForBinding(presentation, bindings.play),
+      behavior: PetBehavior.PET_BEHAVIOR_PLAY,
+    ),
+    _PetMenuAction(
+      id: 'heal',
+      clipName: _clipForBinding(presentation, bindings.heal),
+      behavior: PetBehavior.PET_BEHAVIOR_HEAL,
+    ),
+  ];
 }
 
 String? _defaultClip(PetActions? presentation, [Pet? pet, PixaAsset? pixa]) {
   final stateClip = _petStateClip(presentation, pixa, pet);
   if (stateClip != null) return stateClip;
   if (presentation == null) return _idlePixaClip(pixa) ?? 'idle';
-  for (final action in presentation.actions) {
-    if (action.id.toLowerCase() == 'idle') {
-      return action.pixaClipName.isNotEmpty
-          ? action.pixaClipName
-          : action.visualClipId.isNotEmpty
-          ? action.visualClipId
-          : action.id;
-    }
-  }
-  return presentation.actions.isEmpty
-      ? _idlePixaClip(pixa) ?? 'idle'
-      : _clipForAction(presentation, presentation.actions.first.id);
+  return _clipForBinding(presentation, presentation.bindings.idle) ??
+      _idlePixaClip(pixa) ??
+      'idle';
 }
 
 String? _petStateClip(PetActions? presentation, PixaAsset? pixa, Pet? pet) {
-  if (presentation == null || pixa == null || pet == null) return null;
-  final life = pet.life.value;
-  final candidates = <String>[
-    if ((life['hp']?.toInt() ?? 100) <= 0) 'dead',
-    if ((life['hp']?.toInt() ?? 100) <= 20) 'dying',
-    if ((life['cleanliness']?.toInt() ?? 100) <= 30) 'dirty',
-    if ((life['wellness']?.toInt() ?? 100) <= 30) 'sick',
-    if ((life['energy']?.toInt() ?? 100) <= 30) 'hungry',
-  ];
-  for (final candidate in candidates) {
-    final clipName = presentation.clipNames[candidate];
-    if (clipName == null || clipName.isEmpty) continue;
-    for (final clip in pixa.clips) {
-      if (clip.name == clipName) return clip.name;
-    }
+  if (presentation == null || pet == null) return null;
+  final bindings = presentation.bindings;
+  if (pet.lifecycle == PetLifecycle.PET_LIFECYCLE_DEAD || pet.stats.life <= 0) {
+    return _clipForBinding(presentation, bindings.dead);
   }
-  return null;
+  if (pet.stats.health <= 30 ||
+      pet.stats.satiety <= 30 ||
+      pet.stats.hygiene <= 30 ||
+      pet.stats.mood <= 30) {
+    return _clipForBinding(presentation, bindings.sick);
+  }
+  return _clipForBinding(presentation, bindings.idle);
 }
 
 String? _idlePixaClip(PixaAsset? pixa) {
@@ -2366,18 +2353,10 @@ String? _idlePixaClip(PixaAsset? pixa) {
   return pixa.clips.isEmpty ? null : pixa.clips.first.name;
 }
 
-String? _clipForAction(PetActions? presentation, String actionId) {
-  if (presentation == null) return null;
-  for (final action in presentation.actions) {
-    if (action.id == actionId) {
-      return action.pixaClipName.isNotEmpty
-          ? action.pixaClipName
-          : action.visualClipId.isNotEmpty
-          ? action.visualClipId
-          : action.id;
-    }
-  }
-  return null;
+String? _clipForBinding(PetActions presentation, String clipId) {
+  if (clipId.isEmpty) return null;
+  final clipName = presentation.clipNames[clipId];
+  return clipName == null || clipName.isEmpty ? clipId : clipName;
 }
 
 Duration _clipDuration(PixaAsset? asset, String? clipName) {

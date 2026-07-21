@@ -60,13 +60,18 @@ void main() {
     );
     expect((await adoptFuture).value.pet.id, 'pet-b');
 
-    final driveFuture = client.drivePet('pet-b', action: 'bath');
+    final driveFuture = client.drivePet(
+      'pet-b',
+      behavior: PetBehavior.PET_BEHAVIOR_BATHE,
+      idempotencyKey: 'care-1',
+    );
     final driveRequest = await _request(factory, 3);
     final drivePayload =
         decodeRpcRequestPayload('server.pet.drive', driveRequest.payload)
             as ServerPetDriveRequest;
     expect(drivePayload.value.petId, 'pet-b');
-    expect(drivePayload.value.action, 'bath');
+    expect(drivePayload.value.behavior, PetBehavior.PET_BEHAVIOR_BATHE);
+    expect(drivePayload.value.idempotencyKey, 'care-1');
     _respond(
       factory.channels[3],
       driveRequest.id,
@@ -76,6 +81,27 @@ void main() {
       ),
     );
     expect((await driveFuture).value.pet.id, 'pet-b');
+
+    final gameFuture = client.drivePetGame(
+      'pet-b',
+      gameResult: PetDriveGameResultInput(gameDefId: 'puzzle'),
+      idempotencyKey: 'game-1',
+    );
+    final gameRequest = await _request(factory, 4);
+    final gamePayload =
+        decodeRpcRequestPayload('server.pet.drive', gameRequest.payload)
+            as ServerPetDriveRequest;
+    expect(gamePayload.value.idempotencyKey, isEmpty);
+    expect(gamePayload.value.gameResult.idempotencyKey, 'game-1');
+    _respond(
+      factory.channels[4],
+      gameRequest.id,
+      'server.pet.drive',
+      ServerPetDriveResponse(
+        value: PetDriveResponse(pet: Pet(id: 'pet-b')),
+      ),
+    );
+    expect((await gameFuture).value.pet.id, 'pet-b');
   });
 }
 

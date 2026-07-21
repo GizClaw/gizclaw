@@ -445,6 +445,91 @@ func TestRuntimeProfileRejectsInvalidGameplayReferences(t *testing.T) {
 	}
 }
 
+func TestRuntimeProfileRequiresPetPolicyForAdoption(t *testing.T) {
+	t.Parallel()
+	pool := []apitypes.RuntimeProfilePetPoolEntry{{PetDef: "pet", Voice: "voice", Weight: 1}}
+	_, err := normalizeProfile(adminhttp.RuntimeProfileUpsert{
+		Name: "test-profile",
+		Spec: apitypes.RuntimeProfileSpec{
+			Workflows: apitypes.RuntimeProfileWorkflows{Collections: apitypes.RuntimeProfileWorkflowCollections{}},
+			Gameplay:  &apitypes.RuntimeProfileGameplaySpec{Adoption: &apitypes.RuntimeProfileAdoptionSpec{Pool: &pool}},
+		},
+	}, "")
+	if err == nil || !strings.Contains(err.Error(), "gameplay.pet is required") {
+		t.Fatalf("normalizeProfile() error = %v, want missing Pet policy rejection", err)
+	}
+}
+
+func TestPetGameplayRejectsNegativeLifeDecayWeight(t *testing.T) {
+	t.Parallel()
+	pet := validPetGameplaySpecForTest()
+	pet.Time.LifeDecay.ContributingWeights = apitypes.RuntimeProfileLifeWeightsSpec{
+		Health: -0.1, Satiety: 0.4, Hygiene: 0.4, Mood: 0.3,
+	}
+	if err := normalizePetGameplay(&pet, apitypes.RuntimeProfileResources{}); err == nil || !strings.Contains(err.Error(), "must not be negative") {
+		t.Fatalf("normalizePetGameplay() error = %v, want negative-weight rejection", err)
+	}
+}
+
+func TestPetGameplayRewardModelMustBeLLM(t *testing.T) {
+	t.Parallel()
+	pet := validPetGameplaySpecForTest()
+	pet.Games = map[string]apitypes.RuntimeProfileGameSpec{
+		"puzzle": {Reward: apitypes.RuntimeProfileGameRewardSpec{Model: "reward"}},
+	}
+	models := map[string]apitypes.ModelResource{
+		"reward": {Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindEmbedding}},
+	}
+	if err := validatePetRewardModels(pet, models); err == nil || !strings.Contains(err.Error(), "want \"llm\"") {
+		t.Fatalf("validatePetRewardModels() error = %v, want LLM-kind rejection", err)
+	}
+}
+
+func TestPetGameplayRejectsDuplicateGameDefResources(t *testing.T) {
+	t.Parallel()
+	pet := validPetGameplaySpecForTest()
+	game := apitypes.RuntimeProfileGameSpec{
+		EnergyCost: 10,
+		Reward:     apitypes.RuntimeProfileGameRewardSpec{Model: "reward", Prompt: "Evaluate."},
+	}
+	pet.Games = map[string]apitypes.RuntimeProfileGameSpec{"puzzle-a": game, "puzzle-b": game}
+	gameDefs := map[string]apitypes.RuntimeProfileBinding{
+		"puzzle-a": runtimeProfileTestBinding("game-puzzle"),
+		"puzzle-b": runtimeProfileTestBinding("game-puzzle"),
+	}
+	models := map[string]apitypes.RuntimeProfileBinding{"reward": runtimeProfileTestBinding("model-reward")}
+	resources := apitypes.RuntimeProfileResources{GameDefs: &gameDefs, Models: &models}
+	if err := normalizePetGameplay(&pet, resources); err == nil || !strings.Contains(err.Error(), "same GameDef") {
+		t.Fatalf("normalizePetGameplay() error = %v, want duplicate GameDef rejection", err)
+	}
+}
+
+func TestPetGameplayRejectsUnboundedLogScale(t *testing.T) {
+	t.Parallel()
+	pet := validPetGameplaySpecForTest()
+	pet.Experience.Leveling.LogScale = 101
+	if err := normalizePetGameplay(&pet, apitypes.RuntimeProfileResources{}); err == nil || !strings.Contains(err.Error(), "0..100") {
+		t.Fatalf("normalizePetGameplay() error = %v, want log-scale bound", err)
+	}
+}
+
+func validPetGameplaySpecForTest() apitypes.RuntimeProfilePetGameplaySpec {
+	action := apitypes.RuntimeProfilePetActionSpec{EnergyCost: 10, StatDelta: 10}
+	return apitypes.RuntimeProfilePetGameplaySpec{
+		Time: apitypes.RuntimeProfilePetTimeSpec{
+			LifeDecay: apitypes.RuntimeProfileLifeDecaySpec{
+				ContributingWeights: apitypes.RuntimeProfileLifeWeightsSpec{Health: 0.4, Satiety: 0.25, Hygiene: 0.2, Mood: 0.15},
+				Exponent:            2,
+			},
+		},
+		Experience: apitypes.RuntimeProfilePetExperienceSpec{
+			EnergyPerPetExp: 5,
+			Leveling:        apitypes.RuntimeProfileLevelingSpec{BaseExp: 30, LogScale: 10},
+		},
+		Actions: apitypes.RuntimeProfilePetActionsSpec{Feed: action, Bathe: action, Play: action, Heal: action},
+	}
+}
+
 func TestRuntimeProfileAcceptsDefaultName(t *testing.T) {
 	t.Parallel()
 	s := &Server{Store: kv.NewMemory(nil)}

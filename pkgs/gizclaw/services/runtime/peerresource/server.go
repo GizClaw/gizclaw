@@ -32,19 +32,20 @@ import (
 )
 
 type Server struct {
-	Caller         giznet.PublicKey
-	Peers          peerFirmwareBindingService
-	Firmwares      firmwarePeerService
-	Workspaces     workspace.WorkspaceAdminService
-	Workflows      workflow.WorkflowAdminService
-	Models         model.ModelAdminService
-	Voices         voice.VoiceAdminService
-	Contacts       *contact.Server
-	Friends        *friend.Server
-	FriendGroups   *friendgroup.Server
-	Gameplay       *gameplay.Runtime
-	Tools          *toolkit.Server
-	RuntimeProfile func() *apitypes.RuntimeProfile
+	Caller          giznet.PublicKey
+	Peers           peerFirmwareBindingService
+	Firmwares       firmwarePeerService
+	Workspaces      workspace.WorkspaceAdminService
+	Workflows       workflow.WorkflowAdminService
+	Models          model.ModelAdminService
+	Voices          voice.VoiceAdminService
+	Contacts        *contact.Server
+	Friends         *friend.Server
+	FriendGroups    *friendgroup.Server
+	Gameplay        *gameplay.Runtime
+	RewardEvaluator gameplay.RewardEvaluator
+	Tools           *toolkit.Server
+	RuntimeProfile  func() *apitypes.RuntimeProfile
 }
 
 type WorkspaceHistoryService interface {
@@ -1277,14 +1278,20 @@ func apiPetDriveResponseToRPC(in apitypes.PetDriveResponse) (rpcapi.PetDriveResp
 
 func apiPetToRPC(in apitypes.Pet) rpcapi.Pet {
 	return rpcapi.Pet{
-		CreatedAt:          in.CreatedAt,
-		DisplayName:        in.DisplayName,
-		Id:                 in.Id,
-		LastActiveAt:       in.LastActiveAt,
-		Life:               rpcapi.PetLife(in.Life),
+		CreatedAt:    in.CreatedAt,
+		DisplayName:  in.DisplayName,
+		Id:           in.Id,
+		LastActiveAt: in.LastActiveAt,
+		Stats: rpcapi.PetStats{
+			Life: in.Stats.Life, Health: in.Stats.Health, Satiety: in.Stats.Satiety,
+			Hygiene: in.Stats.Hygiene, Mood: in.Stats.Mood, Energy: in.Stats.Energy,
+		},
 		OwnerPublicKey:     in.OwnerPublicKey,
 		PetdefId:           in.PetdefId,
-		Progression:        rpcapi.PetProgression(in.Progression),
+		Progression:        rpcapi.PetProgression{Experience: in.Progression.Experience, Level: in.Progression.Level},
+		Lifecycle:          rpcapi.PetLifecycle(in.Lifecycle),
+		DiedAt:             in.DiedAt,
+		StateSettledAt:     in.StateSettledAt,
 		RuntimeProfileName: in.RuntimeProfileName,
 		UpdatedAt:          in.UpdatedAt,
 		WorkspaceName:      in.WorkspaceName,
@@ -1293,14 +1300,20 @@ func apiPetToRPC(in apitypes.Pet) rpcapi.Pet {
 
 func rpcPetToAPI(in rpcapi.Pet) apitypes.Pet {
 	return apitypes.Pet{
-		CreatedAt:          in.CreatedAt,
-		DisplayName:        in.DisplayName,
-		Id:                 in.Id,
-		LastActiveAt:       in.LastActiveAt,
-		Life:               apitypes.PetLife(in.Life),
+		CreatedAt:    in.CreatedAt,
+		DisplayName:  in.DisplayName,
+		Id:           in.Id,
+		LastActiveAt: in.LastActiveAt,
+		Stats: apitypes.PetStats{
+			Life: in.Stats.Life, Health: in.Stats.Health, Satiety: in.Stats.Satiety,
+			Hygiene: in.Stats.Hygiene, Mood: in.Stats.Mood, Energy: in.Stats.Energy,
+		},
 		OwnerPublicKey:     in.OwnerPublicKey,
 		PetdefId:           in.PetdefId,
-		Progression:        apitypes.PetProgression(in.Progression),
+		Progression:        apitypes.PetProgression{Experience: in.Progression.Experience, Level: in.Progression.Level},
+		Lifecycle:          apitypes.PetLifecycle(in.Lifecycle),
+		DiedAt:             in.DiedAt,
+		StateSettledAt:     in.StateSettledAt,
 		RuntimeProfileName: in.RuntimeProfileName,
 		UpdatedAt:          in.UpdatedAt,
 		WorkspaceName:      in.WorkspaceName,

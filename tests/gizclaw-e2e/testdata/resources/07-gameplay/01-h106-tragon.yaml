@@ -10,60 +10,17 @@ spec:
     metadata:
       name: petdef-tragon
     spec:
-      workflow_name: pet-care
-      attr:
-        life:
-          hp:
-            initial: 100
-          wellness:
-            initial: 100
-          energy:
-            initial: 100
-          cleanliness:
-            initial: 100
-        progression:
-          xp:
-            initial: 0
       character:
         prompt: Compact blue pixel dragon with a rounded head, small horns, tiny wings, short legs, and playful brave behavior.
       voice:
-        voice_id: volc-tenant:volc-main:zh_male_sunwukong_mars_bigtts
         prompt: Bright, curious, short spoken replies with childlike confidence.
-      drive:
-        actions:
-        - id: idle
-          cost: 0
-          visual_clip_id: idle
-        - id: feed
-          cost: 6
-          visual_clip_id: feed
-          effect:
-            attr_delta:
-              life:
-                wellness: 8
-                energy: 4
-            pet_exp_delta: 8
-        - id: bath
-          cost: 5
-          visual_clip_id: bath
-          effect:
-            attr_delta:
-              life:
-                cleanliness: 15
-            pet_exp_delta: 6
-        - id: heal
-          cost: 8
-          visual_clip_id: heal
-          effect:
-            attr_delta:
-              life:
-                hp: 15
-                wellness: 8
-            pet_exp_delta: 8
       visual:
         refs:
           images: []
           videos: []
+        bindings:
+          behaviors: {feed: feed, bathe: bath, play: idle, heal: heal}
+          states: {idle: idle, sick: sick, dead: dead}
         pixa:
           asset_ref: asset://h106/tiga/pets/tragon/tragon.pixa
           metadata:
@@ -73,16 +30,12 @@ spec:
               height: 60
             clips:
             - id: idle
-              action_id: idle
               pixa_clip_name: idle
             - id: feed
-              action_id: feed
               pixa_clip_name: feed
             - id: bath
-              action_id: bath
               pixa_clip_name: bath
             - id: heal
-              action_id: heal
               pixa_clip_name: heal
             - id: hungry
               pixa_clip_name: hungry
@@ -103,74 +56,49 @@ spec:
       en:
         display_name: Tragon
         description: A brave little dragon from H106 who perks up when you feed, bathe, or heal it.
-        attr:
-          life:
-            hp:
-              display_name: HP
-            wellness:
-              display_name: Wellness
-            energy:
-              display_name: Energy
-            cleanliness:
-              display_name: Cleanliness
-          progression:
-            xp:
-              display_name: EXP
-        drive:
-          actions:
-            idle:
-              display_name: Idle
-            feed:
-              display_name: Feed
-            bath:
-              display_name: Bath
-            heal:
-              display_name: Heal
       zh-CN:
         display_name: 小蓝龙
         description: 来自 H106 的勇敢小龙，喜欢吃饭、洗澡和被照顾。
-        attr:
-          life:
-            hp:
-              display_name: 生命
-            wellness:
-              display_name: 状态
-            energy:
-              display_name: 精力
-            cleanliness:
-              display_name: 清洁
-          progression:
-            xp:
-              display_name: 经验
-        drive:
-          actions:
-            idle:
-              display_name: 陪伴
-            feed:
-              display_name: 喂食
-            bath:
-              display_name: 洗澡
-            heal:
-              display_name: 治疗
   - apiVersion: gizclaw.admin/v1alpha1
     kind: RuntimeProfile
     metadata:
       name: h106-tragon
     spec:
+      workflows:
+        collections: {}
       resources:
         models:
-          pet-chat: pet-flowcraft-workflow-chat
-          pet-extract: pet-flowcraft-workflow-extract
-          pet-asr: pet-flowcraft-workflow-asr
+          pet-chat: {resource_id: pet-flowcraft-workflow-chat, i18n: {en: {display_name: Pet chat}, zh-CN: {display_name: 宠物对话}}}
+          pet-extract: {resource_id: pet-flowcraft-workflow-extract, i18n: {en: {display_name: Pet extraction}, zh-CN: {display_name: 宠物提取}}}
+          pet-asr: {resource_id: pet-flowcraft-workflow-asr, i18n: {en: {display_name: Pet ASR}, zh-CN: {display_name: 宠物语音识别}}}
         voices:
-          tragon: volc-tenant:volc-main:zh_male_sunwukong_mars_bigtts
+          tragon: {resource_id: "volc-tenant:volc-main:zh_male_sunwukong_mars_bigtts", i18n: {en: {display_name: Tragon voice}, zh-CN: {display_name: 小蓝龙音色}}}
         pet_defs:
-          tragon: petdef-tragon
+          tragon: {resource_id: petdef-tragon, i18n: {en: {display_name: Tragon}, zh-CN: {display_name: 小蓝龙}}}
       gameplay:
         points:
           initial_balance: 100
-        pet_pool:
-        - pet_def: tragon
-          weight: 100
-          rarity: rare
-          adoption_cost: 10
+        adoption:
+          pool:
+          - pet_def: tragon
+            voice: tragon
+            weight: 100
+            rarity: rare
+            adoption_cost: 10
+        pet:
+          time:
+            care_decay_per_hour: {health: 0.5, satiety: 1.3888888889, hygiene: 0.7, mood: 1}
+            energy_recovery_per_hour: 10
+            life_decay:
+              max_loss_per_hour: 4
+              exponent: 2
+              contributing_weights: {health: 0.25, satiety: 0.25, hygiene: 0.25, mood: 0.25}
+          experience:
+            energy_per_pet_exp: 5
+            leveling: {base_exp: 30, log_scale: 10}
+          actions:
+            feed: {energy_cost: 10, stat_delta: 10}
+            bathe: {energy_cost: 10, stat_delta: 10}
+            play: {energy_cost: 10, stat_delta: 10}
+            heal: {energy_cost: 10, stat_delta: 10}
+          games: {}

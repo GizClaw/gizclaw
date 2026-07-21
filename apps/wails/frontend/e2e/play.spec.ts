@@ -62,12 +62,17 @@ test.beforeEach(async ({ page }) => {
       ],
       pets: [
         {
+          created_at: "2026-07-01T00:00:00Z",
           display_name: "Starter Pet",
           id: "pet-main",
-          life: { clean: 80, hunger: 90 },
+          last_active_at: "2026-07-01T00:00:00Z",
+          lifecycle: "alive",
           petdef_id: "petdef-basic",
-          progression: { xp: 90 },
+          progression: { experience: 90, level: 3 },
           runtime_profile_name: "default-gameplay",
+          state_settled_at: "2026-07-01T00:00:00Z",
+          stats: { life: 100, health: 100, satiety: 90, hygiene: 80, mood: 100, energy: 100 },
+          updated_at: "2026-07-01T00:00:00Z",
           workspace_name: "pet-pet-main",
         },
       ],
@@ -106,12 +111,17 @@ test.beforeEach(async ({ page }) => {
         const displayName = String(req.display_name ?? "Adopted Pet");
         const id = `pet-${snapshot.pets.length + 1}`;
         const pet = {
+          created_at: "2026-07-01T00:00:02Z",
           display_name: displayName,
           id,
-          life: { clean: 100, hunger: 100 },
+          last_active_at: "2026-07-01T00:00:02Z",
+          lifecycle: "alive",
           petdef_id: "petdef-basic",
-          progression: { xp: 0 },
+          progression: { experience: 0, level: 1 },
           runtime_profile_name: "default-gameplay",
+          state_settled_at: "2026-07-01T00:00:02Z",
+          stats: { life: 100, health: 100, satiety: 100, hygiene: 100, mood: 100, energy: 100 },
+          updated_at: "2026-07-01T00:00:02Z",
           workspace_name: `pet-${id}`,
         };
         snapshot.pets.push(pet);
@@ -139,20 +149,20 @@ test.beforeEach(async ({ page }) => {
         if (pet == null) {
           throw new Error("pet not found");
         }
-        pet.progression.xp += 20;
-        pet.life.clean = Math.min(100, pet.life.clean + 10);
-        snapshot.points.balance += 5;
-        snapshot.pointsTransactions.push({
-          balance_after: snapshot.points.balance,
-          created_at: "2026-07-01T00:00:03Z",
-          delta: 5,
-          id: "txn-drive-1",
-          reason: String(req.action ?? "drive"),
-          source_id: String(req.pet_id),
-          source_type: "pet_drive",
-        });
         let gameResult = null;
         if (req.game_result != null) {
+          pet.progression.experience += 20;
+          pet.stats.energy -= 10;
+          snapshot.points.balance -= 10;
+          snapshot.pointsTransactions.push({
+            balance_after: snapshot.points.balance,
+            created_at: "2026-07-01T00:00:03Z",
+            delta: -10,
+            id: "txn-drive-1",
+            reason: "game.play",
+            source_id: "game-result-1",
+            source_type: "game_result",
+          });
           gameResult = {
             duration_ms: req.game_result.duration_ms,
             game_def_id: req.game_result.game_def_id,
@@ -165,20 +175,36 @@ test.beforeEach(async ({ page }) => {
             score: req.game_result.score,
           };
           snapshot.gameResults.push(gameResult);
+        } else {
+          pet.progression.experience += 2;
+          pet.stats.energy -= 10;
+          if (req.behavior === "feed") pet.stats.satiety = Math.min(100, pet.stats.satiety + 10);
+          if (req.behavior === "bathe") pet.stats.hygiene = Math.min(100, pet.stats.hygiene + 10);
+          if (req.behavior === "play") pet.stats.mood = Math.min(100, pet.stats.mood + 10);
+          if (req.behavior === "heal") pet.stats.health = Math.min(100, pet.stats.health + 10);
         }
         snapshot.grants.push({
           created_at: "2026-07-01T00:00:03Z",
-          id: "reward-grant-1",
+          id: `reward-grant-${snapshot.grants.length + 1}`,
           pet_exp_delta: 20,
           pet_id: req.pet_id,
-          points_delta: 5,
-          reason: String(req.action ?? "drive"),
+          points_delta: 0,
+          reason: String(req.behavior ?? "game reward"),
           source_id: gameResult?.id ?? String(req.pet_id),
-          source_type: gameResult == null ? "pet_drive" : "game_result",
+          source_type: gameResult == null ? "pet_behavior" : "game_result",
         });
-        actions.push(`drive:${req.pet_id}:${req.action ?? ""}`);
+        actions.push(
+          `drive:${req.pet_id}:${req.behavior ?? ""}:${req.idempotency_key ?? req.game_result?.idempotency_key ?? ""}`,
+        );
         window.__GIZCLAW_DESKTOP_TEST_PLAY_ACTIONS__ = actions;
-        return { game_result: gameResult, pet, rewards: snapshot.grants.slice(-1) };
+        return {
+          badges: [],
+          game_result: gameResult,
+          pet,
+          points: snapshot.points,
+          reward_grants: snapshot.grants.slice(-1),
+          transactions: req.game_result == null ? [] : snapshot.pointsTransactions.slice(-1),
+        };
       },
       async getBadge(req) {
         return findByID(snapshot.badges, req.id);
@@ -195,19 +221,8 @@ test.beforeEach(async ({ page }) => {
           throw new Error("pet not found");
         }
         return {
-          default_locale: "en",
-          actions: [
-            { cost: 0, id: "idle", pixa_clip_name: "idle", visual_clip_id: "idle" },
-            { cost: 5, id: "bath", pixa_clip_name: "bath", visual_clip_id: "bath" },
-          ],
-          i18n: {
-            en: {
-              actions: {
-                idle: { name: "Idle" },
-                bath: { name: "Bath" },
-              },
-            },
-          },
+          bindings: { feed: "idle", bathe: "bath", play: "idle", heal: "idle", idle: "idle", sick: "idle", dead: "idle" },
+          clip_names: { idle: "idle", bath: "bath" },
           pet_id: pet.id,
           petdef_id: pet.petdef_id,
           petdef_updated_at: "2026-07-01T00:00:00Z",
@@ -364,7 +379,13 @@ test("play gameplay panel adopts and drives pets through peer RPC", async ({ pag
   await expect(page.getByText("Test Pet")).toBeVisible();
   await expect.poll(() => page.evaluate(() => window.__GIZCLAW_DESKTOP_TEST_PLAY_ACTIONS__ ?? [])).toContain("adopt:Test Pet");
 
-  await page.getByPlaceholder("Action").fill("bath");
+  await page.getByPlaceholder("Behavior (feed/bathe/play/heal)").fill("bathe");
+  await page.getByPlaceholder("Idempotency key").fill("ui-e2e-care-1");
+  await page.getByRole("button", { name: "Drive" }).click();
+  await expect.poll(() => page.evaluate(() => window.__GIZCLAW_DESKTOP_TEST_PLAY_ACTIONS__ ?? [])).toContain(
+    "drive:pet-main:bathe:ui-e2e-care-1",
+  );
+
   await page.getByPlaceholder("Game ID").fill("game-basic");
   await page.getByPlaceholder("Score", { exact: true }).fill("42");
   await page.getByPlaceholder("Max score").fill("100");
@@ -377,7 +398,9 @@ test("play gameplay panel adopts and drives pets through peer RPC", async ({ pag
   await expect(page.getByText("ui-e2e-result-1")).toBeVisible();
   await expect(page.getByText("game-result-1").first()).toBeVisible();
   await expect(page.getByText("game_result").first()).toBeVisible();
-  await expect.poll(() => page.evaluate(() => window.__GIZCLAW_DESKTOP_TEST_PLAY_ACTIONS__ ?? [])).toContain("drive:pet-main:bath");
+  await expect.poll(() => page.evaluate(() => window.__GIZCLAW_DESKTOP_TEST_PLAY_ACTIONS__ ?? [])).toContain(
+    "drive:pet-main::ui-e2e-result-1",
+  );
 });
 
 declare global {

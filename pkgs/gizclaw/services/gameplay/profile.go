@@ -25,11 +25,18 @@ type ProfileRules struct {
 }
 
 type ProfileRulesSpec struct {
-	BadgeDefIds []string
-	Drive       *apitypes.RuntimeProfileDriveSpec
-	GameDefIds  []string
-	PetPool     []ProfilePetPoolEntry
-	Points      *apitypes.RuntimeProfilePointsSpec
+	Actions    map[apitypes.PetBehavior]apitypes.RuntimeProfilePetActionSpec
+	BadgeDefs  map[string]string
+	Experience apitypes.RuntimeProfilePetExperienceSpec
+	Games      map[string]ProfileGameRule
+	PetPool    []ProfilePetPoolEntry
+	Points     *apitypes.RuntimeProfilePointsSpec
+	Time       apitypes.RuntimeProfilePetTimeSpec
+}
+
+type ProfileGameRule struct {
+	GameDefID string
+	Policy    apitypes.RuntimeProfileGameSpec
 }
 
 type ProfilePetPoolEntry struct {
@@ -41,18 +48,13 @@ type ProfilePetPoolEntry struct {
 }
 
 func profileRulesFromContext(ctx context.Context, requestedName string) (ProfileRules, error) {
-	profile, ok := runtimeProfileFromContext(ctx)
-	if !ok || strings.TrimSpace(profile.Name) == "" {
-		return ProfileRules{}, errors.New("gameplay: RuntimeProfile is required")
+	profile, gameplay, err := gameplayProfileFromContext(ctx, requestedName)
+	if err != nil {
+		return ProfileRules{}, err
 	}
-	requestedName = strings.TrimSpace(requestedName)
-	if requestedName != "" && requestedName != profile.Name {
-		return ProfileRules{}, errors.New("gameplay: resource belongs to a different RuntimeProfile")
+	if gameplay.Pet == nil {
+		return ProfileRules{}, errors.New("gameplay: active RuntimeProfile has no pet gameplay configuration")
 	}
-	if profile.Spec.Gameplay == nil {
-		return ProfileRules{}, errors.New("gameplay: active RuntimeProfile has no gameplay configuration")
-	}
-	gameplay := profile.Spec.Gameplay
 	pool := []ProfilePetPoolEntry{}
 	if gameplay.Adoption != nil && gameplay.Adoption.Pool != nil {
 		for _, entry := range *gameplay.Adoption.Pool {
@@ -72,16 +74,58 @@ func profileRulesFromContext(ctx context.Context, requestedName string) (Profile
 			})
 		}
 	}
+	pet := gameplay.Pet
+	games := make(map[string]ProfileGameRule, len(pet.Games))
+	for alias, policy := range pet.Games {
+		gameDefID, exists := resourceAlias(profile.Spec.Resources.GameDefs, alias)
+		if !exists {
+			continue
+		}
+		if _, duplicate := games[gameDefID]; duplicate {
+			return ProfileRules{}, errors.New("gameplay: multiple game aliases resolve to the same GameDef")
+		}
+		games[gameDefID] = ProfileGameRule{GameDefID: gameDefID, Policy: policy}
+	}
 	return ProfileRules{
 		Name: profile.Name,
 		Spec: ProfileRulesSpec{
-			BadgeDefIds: resourceValues(profile.Spec.Resources.BadgeDefs),
-			Drive:       resolveDrive(gameplay.Rewards, profile.Spec.Resources.GameDefs, profile.Spec.Resources.BadgeDefs),
-			GameDefIds:  resourceValues(profile.Spec.Resources.GameDefs),
-			PetPool:     pool,
-			Points:      gameplay.Points,
+			Actions: map[apitypes.PetBehavior]apitypes.RuntimeProfilePetActionSpec{
+				apitypes.PetBehaviorFeed:  pet.Actions.Feed,
+				apitypes.PetBehaviorBathe: pet.Actions.Bathe,
+				apitypes.PetBehaviorPlay:  pet.Actions.Play,
+				apitypes.PetBehaviorHeal:  pet.Actions.Heal,
+			},
+			BadgeDefs:  resourceAliasMap(profile.Spec.Resources.BadgeDefs),
+			Experience: pet.Experience,
+			Games:      games,
+			PetPool:    pool,
+			Points:     gameplay.Points,
+			Time:       pet.Time,
 		},
 	}, nil
+}
+
+func pointsRulesFromContext(ctx context.Context, requestedName string) (ProfileRules, error) {
+	profile, gameplay, err := gameplayProfileFromContext(ctx, requestedName)
+	if err != nil {
+		return ProfileRules{}, err
+	}
+	return ProfileRules{Name: profile.Name, Spec: ProfileRulesSpec{Points: gameplay.Points}}, nil
+}
+
+func gameplayProfileFromContext(ctx context.Context, requestedName string) (apitypes.RuntimeProfile, *apitypes.RuntimeProfileGameplaySpec, error) {
+	profile, ok := runtimeProfileFromContext(ctx)
+	if !ok || strings.TrimSpace(profile.Name) == "" {
+		return apitypes.RuntimeProfile{}, nil, errors.New("gameplay: RuntimeProfile is required")
+	}
+	requestedName = strings.TrimSpace(requestedName)
+	if requestedName != "" && requestedName != profile.Name {
+		return apitypes.RuntimeProfile{}, nil, errors.New("gameplay: resource belongs to a different RuntimeProfile")
+	}
+	if profile.Spec.Gameplay == nil {
+		return apitypes.RuntimeProfile{}, nil, errors.New("gameplay: active RuntimeProfile has no gameplay configuration")
+	}
+	return profile, profile.Spec.Gameplay, nil
 }
 
 func resourceAlias(resources *map[string]apitypes.RuntimeProfileBinding, alias string) (string, bool) {
@@ -93,94 +137,41 @@ func resourceAlias(resources *map[string]apitypes.RuntimeProfileBinding, alias s
 	return value, ok && value != ""
 }
 
-func resourceValues(resources *map[string]apitypes.RuntimeProfileBinding) []string {
+func resourceAliasMap(resources *map[string]apitypes.RuntimeProfileBinding) map[string]string {
 	if resources == nil {
-		return nil
+		return map[string]string{}
 	}
 	aliases := make([]string, 0, len(*resources))
 	for alias := range *resources {
 		aliases = append(aliases, alias)
 	}
 	sort.Strings(aliases)
-	seen := make(map[string]struct{}, len(aliases))
-	out := make([]string, 0, len(aliases))
+	out := make(map[string]string, len(aliases))
 	for _, alias := range aliases {
-		value := strings.TrimSpace((*resources)[alias].ResourceId)
-		if value == "" {
-			continue
+		if value, ok := resourceAlias(resources, alias); ok {
+			out[alias] = value
 		}
+	}
+	return out
+}
+
+func resourceValues(resources *map[string]apitypes.RuntimeProfileBinding) []string {
+	aliases := resourceAliasMap(resources)
+	keys := make([]string, 0, len(aliases))
+	for alias := range aliases {
+		keys = append(keys, alias)
+	}
+	sort.Strings(keys)
+	seen := make(map[string]struct{}, len(keys))
+	out := make([]string, 0, len(keys))
+	for _, alias := range keys {
+		value := aliases[alias]
 		if _, exists := seen[value]; exists {
 			continue
 		}
 		seen[value] = struct{}{}
 		out = append(out, value)
 	}
-	return out
-}
-
-func resolveDrive(in *apitypes.RuntimeProfileDriveSpec, gameDefs, badgeDefs *map[string]apitypes.RuntimeProfileBinding) *apitypes.RuntimeProfileDriveSpec {
-	if in == nil {
-		return nil
-	}
-	out := &apitypes.RuntimeProfileDriveSpec{}
-	if in.Default != nil {
-		reward := resolveReward(*in.Default, badgeDefs)
-		out.Default = &reward
-	}
-	if in.Games != nil {
-		aliases := make([]string, 0, len(*in.Games))
-		for alias := range *in.Games {
-			aliases = append(aliases, alias)
-		}
-		sort.Strings(aliases)
-		resolved := make(map[string]apitypes.RuntimeProfileRewardSpec, len(aliases))
-		for _, alias := range aliases {
-			gameDefID, exists := resourceAlias(gameDefs, alias)
-			if !exists {
-				continue
-			}
-			if _, exists := resolved[gameDefID]; exists {
-				continue
-			}
-			resolved[gameDefID] = resolveReward((*in.Games)[alias], badgeDefs)
-		}
-		out.Games = &resolved
-	}
-	if in.PetActions != nil {
-		resolved := make(map[string]apitypes.RuntimeProfileRewardSpec, len(*in.PetActions))
-		for action, reward := range *in.PetActions {
-			resolved[action] = resolveReward(reward, badgeDefs)
-		}
-		out.PetActions = &resolved
-	}
-	return out
-}
-
-func resolveReward(in apitypes.RuntimeProfileRewardSpec, badgeDefs *map[string]apitypes.RuntimeProfileBinding) apitypes.RuntimeProfileRewardSpec {
-	out := apitypes.RuntimeProfileRewardSpec{
-		PetExpDelta: in.PetExpDelta,
-		PointsDelta: in.PointsDelta,
-	}
-	if in.BadgeExpDelta == nil {
-		return out
-	}
-	aliases := make([]string, 0, len(*in.BadgeExpDelta))
-	for alias := range *in.BadgeExpDelta {
-		aliases = append(aliases, alias)
-	}
-	sort.Strings(aliases)
-	resolved := make(map[string]int64, len(aliases))
-	for _, alias := range aliases {
-		badgeDefID, exists := resourceAlias(badgeDefs, alias)
-		if !exists {
-			continue
-		}
-		if _, exists := resolved[badgeDefID]; exists {
-			continue
-		}
-		resolved[badgeDefID] = (*in.BadgeExpDelta)[alias]
-	}
-	out.BadgeExpDelta = &resolved
 	return out
 }
 

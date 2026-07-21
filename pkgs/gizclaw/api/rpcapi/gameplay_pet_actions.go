@@ -13,36 +13,22 @@ type PetPixaDownloadResponse struct {
 	SizeBytes int64   `json:"size_bytes"`
 }
 
-type PetActionEffectSpec struct {
-	AttrDeltaLife *PetLife `json:"attr_delta_life,omitempty"`
-	PetExpDelta   *int64   `json:"pet_exp_delta,omitempty"`
+type PetVisualBindings struct {
+	Feed  string  `json:"feed"`
+	Bathe string  `json:"bathe"`
+	Play  string  `json:"play"`
+	Heal  string  `json:"heal"`
+	Idle  string  `json:"idle"`
+	Sick  string  `json:"sick"`
+	Dead  string  `json:"dead"`
+	Sleep *string `json:"sleep,omitempty"`
 }
-
-type PetAction struct {
-	Id           string               `json:"id"`
-	Cost         int64                `json:"cost"`
-	Effect       *PetActionEffectSpec `json:"effect,omitempty"`
-	VisualClipId *string              `json:"visual_clip_id,omitempty"`
-	PixaClipName *string              `json:"pixa_clip_name,omitempty"`
-}
-
-type PetActionI18nText struct {
-	Name string `json:"name"`
-}
-
-type PetActionsI18nCatalog struct {
-	Actions map[string]PetActionI18nText `json:"actions"`
-}
-
-type PetActionsI18n map[string]PetActionsI18nCatalog
 
 type PetActions struct {
 	PetId           string            `json:"pet_id"`
 	PetdefId        string            `json:"petdef_id"`
-	DefaultLocale   string            `json:"default_locale"`
-	Actions         []PetAction       `json:"actions"`
+	Bindings        PetVisualBindings `json:"bindings"`
 	ClipNames       map[string]string `json:"clip_names"`
-	I18n            PetActionsI18n    `json:"i18n"`
 	PetdefUpdatedAt string            `json:"petdef_updated_at"`
 }
 
