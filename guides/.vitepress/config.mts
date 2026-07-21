@@ -352,6 +352,8 @@ export default withMermaid(
             items: [
               { text: "总览", link: "/references/" },
               { text: "RPC Methods", link: "/references/rpc" },
+              { text: "Events", link: "/references/events" },
+              { text: "Streams", link: "/references/streams" },
             ],
           },
         ],

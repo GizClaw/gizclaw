@@ -2,13 +2,7 @@
 
 This set of capabilities is implemented by Server and is only provided to connections with Edge-node role. Edge-node uses it to query Peer assignments and resolve upstream routes, without exposing control plane capabilities to ordinary clients.
 
-## Methods
-
-| Method | Function |
-| --- | --- |
-| `server.peer.lookup` | Query the current assignment of the specified Peer |
-| `server.peer.assign` | Create or update assignment for the specified Peer and perform version conflict check |
-| `server.route.resolve` | Resolve available route/assignment for the target Peer |
+The [RPC API Reference](/references/rpc#edge-rpc) is the single list of exact method IDs, names, and purposes. This page only explains the Edge-node role, call flow, and authorization boundary.
 
 ## Calling relationship
 

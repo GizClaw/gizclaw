@@ -2,6 +2,8 @@
 
 Peer RPC 是 Giznet Peer connection 上的请求、响应和 stream contract。它使用 Protobuf 定义 wire messages，不通过 OpenAPI 或 JSON Schema 生成。
 
+完整 method ID、method name 与用途见 [RPC API Reference](/references/rpc)；service ID、RPC frame 和 binary stream 见 [Streams Reference](/references/streams#rpc-streams)。本页只定义 Schema ownership、生成边界和 method 设计规则。
+
 ## Schema 分工
 
 ```text

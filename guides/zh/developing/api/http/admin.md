@@ -5,6 +5,8 @@ Admin API 面向获得管理权限的 operator、CLI 和管理 UI。它负责声
 Source：`api/http/admin.json`
 Go 生成输出：`pkgs/gizclaw/api/adminhttp`
 
+准确的 endpoint、参数、request 和 response 见 [Admin API Reference](/api/)。本页只说明 surface ownership 与 Schema 依赖。
+
 ## Surface 分组
 
 | 分组 | 主要职责 |

@@ -11,31 +11,9 @@
 
 Universal WebRTC, packet transport and service stream belong to `pkgs/giznet`; universal audio codec belongs to `pkgs/audio`; persistent runtime state belongs to `services/runtime`.
 
-## Transport topology inside one Peer connection
+## Transport contract
 
-A Giznet WebRTC connection does not carry one fixed "data stream." It carries bidirectional media, one long-lived packet DataChannel, an optional long-lived Agent Event Stream, and request-scoped service DataChannels created dynamically.
-
-```mermaid
-flowchart LR
-    Client["Client / Device"] -- "uplink Opus RTP track" --> Server["GizClaw Peer"]
-    Server -- "downlink Opus RTP track" --> Client
-    Client <-->|"long-lived packet DataChannel"| Server
-    Client <-->|"long-lived Agent Event Stream 0x20"| Server
-    Client <-->|"N dynamic RPC / HTTP service DataChannels"| Server
-```
-
-| Payload | Direction | Lifetime and count | WebRTC carrier | Semantics |
-| --- | --- | --- | --- | --- |
-| Uplink Opus media | Client / Device → Server | One connection-scoped RTP track | WebRTC audio RTP | Realtime microphone audio. |
-| Downlink Opus media | Server → Client / Device | One connection-scoped RTP track | WebRTC audio RTP | Agent playback audio after `MixerOutput` mixing. |
-| Direct packet | Bidirectional | One long-lived connection-scoped channel | Unordered, `maxRetransmits=0` DataChannel | A one-byte protocol identifies each packet. Telemetry `0x40` is a high-frequency Client → Server event, not a service stream. The Giznet API exposes Opus as `ProtocolOpusPacket`, but the WebRTC implementation carries it on the RTP tracks above rather than writing it to the packet DataChannel. |
-| Agent Event Stream `0x20` | Bidirectional | Opened by the Client and normally kept alive; accepted by the Server and subscribed to the broker | Reliable, ordered service DataChannel | Uplink BOS, EOS, text, and related events enter Agent input. Downlink BOS, EOS, text, and workspace-history updates are broadcast from Agent output. It does not carry realtime Opus payloads. |
-| Peer / Edge RPC | Bidirectional | One new stream per round trip, closed on completion or failure; N may exist concurrently | Reliable, ordered service DataChannel | `ServicePeerRPC 0x00` or `ServiceEdgeRPC 0x31`. Unary and server-streaming RPC use RPC frames in the same request-scoped channel; RPC EOS is not an Agent Event Stream `type=eos`. The Server may also open reverse Peer RPC streams to call Client providers. |
-| HTTP service | Requester ↔ provider | One dynamically opened service stream per HTTP round trip | Reliable, ordered service DataChannel | Peer HTTP `0x01`, OpenAI-compatible `0x02`, Admin HTTP `0x10`, or Edge HTTP `0x30`. |
-
-Consequently, there is no constant answer to "how many streams are active." A typical connected session with an open Agent Event Stream and no active RPC or HTTP request has two directional audio RTP tracks, one packet DataChannel, and one Event Stream DataChannel on the wire. Every concurrent RPC or HTTP round trip adds one temporary service DataChannel.
-
-BOS and EOS in the Agent Event Stream are business boundaries scoped by `stream_id`. Closing one business stream does not close the Event Stream DataChannel or the Peer connection. A DataChannel EOF, by contrast, terminates that transport stream.
+The [Streams Reference](/references/streams) owns the direction, reliability, service IDs, framing, and lifecycle of audio, direct packets, the Agent Event Stream, and RPC/HTTP service streams. The [Events Reference](/references/events) owns event wire types and fields. This page only explains how `PeerConn` implements those contracts and does not duplicate their protocol tables.
 
 ## Service stream write flow control
 

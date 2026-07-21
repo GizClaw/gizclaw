@@ -2,13 +2,7 @@
 
 This set of capabilities is implemented by Client/Device and called by Server on Peer connection. Server uses it to read the device's own information or request the device to perform local capabilities.
 
-## Methods
-
-| Method | Function |
-| --- | --- |
-| `client.info.get` | Read Client current device information |
-| `client.identifiers.get` | Read Client hardware/device identifiers |
-| `client.tool.invoke` | Request Client to execute its locally provided Tool |
+The [RPC API Reference](/references/rpc) is the single list of exact method IDs, names, and purposes. This page only explains the `client.*` provider direction and ownership.
 
 ## Calling relationship
 

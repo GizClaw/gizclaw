@@ -5,6 +5,8 @@ The Admin API targets operators, CLI, and admin UI with administrative privilege
 Source:`api/http/admin.json`
 Go generated output: `pkgs/gizclaw/api/adminhttp`
 
+See the [Admin API Reference](/api/) for exact endpoints, parameters, requests, and responses. This page only explains surface ownership and Schema dependencies.
+
 ## Surface grouping
 
 | Grouping | Main Responsibilities |

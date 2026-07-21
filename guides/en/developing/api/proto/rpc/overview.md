@@ -2,6 +2,8 @@
 
 Peer RPC is the request, response, and stream contract on the Giznet Peer connection. It uses Protobuf to define wire messages and is not generated via OpenAPI or JSON Schema.
 
+See the [RPC API Reference](/references/rpc) for the complete method IDs, names, and purposes. See the [Streams Reference](/references/streams#rpc-streams) for service IDs, RPC frames, and binary streams. This page owns Schema boundaries, generation relationships, and method design rules only.
+
 ## Schema division of labor
 
 ```text

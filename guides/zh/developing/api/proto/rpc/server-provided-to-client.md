@@ -2,22 +2,7 @@
 
 这一组方法由 Server 实现，由 Client/Device 通过 Peer connection 调用。
 
-## Method groups
-
-| Prefix | 主要能力 |
-| --- | --- |
-| `server.info.*`、`server.runtime.*`、`server.status.*` | Peer information 与 runtime status |
-| `server.run.*` | Workspace selection、history、memory、speech output、reload 与 stop |
-| `server.workspace.*` | Peer-owned Workspace CRUD 与 history；list 必须传 Collection |
-| `server.workflow.*` | RuntimeProfile Workflow alias list/get；list 必须传 Collection |
-| `server.model.*`、`server.voice.*`、`server.tool.*` | 安全 RuntimeProfile alias list/get |
-| `server.speech.*` | 独立流式 transcription 与 synthesis |
-| `server.register` | 选择 RegistrationToken 必填的 RuntimeProfile，并持久化、返回可选 Firmware release-line ID；channel 仍由设备选择 |
-| `runtime.adopt`、`server.pet.*`、`server.badge.*`、`server.points.*` | Gameplay 与 Peer-owned Pet 状态 |
-| `server.friend.*`、`server.friend_group.*`、`server.contact.*` | Social 状态 |
-| `server.firmware.*` | 查询 Peer 当前绑定的 Firmware，并按设备指定 channel 下载文件；不提供 list |
-
-`server.peer.lookup`、`server.peer.assign` 和 `server.route.resolve` 只属于 Edge-node RPC。
+准确的 method ID、名称、分组与用途由 [RPC API Reference](/references/rpc) 统一维护。本页只说明 Server-provided RPC 的 resource projection、调用关系与实现 ownership。Edge-node 专属方法的授权边界见 [Server Provided to Edge-node](./server-provided-to-edge-node)。
 
 ## RuntimeProfile resource projection
 

@@ -6,13 +6,9 @@
 | --- | --- |
 | `peer_stream_event.go` | Maintain the Peer event subscriber/broadcast broker; convert bidirectionally between `PeerStreamEvent` and GenX message chunks; process text, control, and blob/audio events; broadcast Agent output events and push received events back to the Agent input source. |
 
-This prefix holds the product mapping for the GizClaw Peer event stream. The underlying stream transport belongs to `pkgs/giznet`; domain state changes are still owned by the service that generated the event. See [Connection](./conn#transport-topology-inside-one-peer-connection) for the relationship among media, packet, Event Stream, and dynamic service streams in a complete Peer connection.
+This prefix owns the product mapping between the GizClaw Peer event stream and GenX chunks. The underlying stream transport belongs to `pkgs/giznet`; domain state changes remain owned by the service that generated each event.
 
-`EventStreamAgent 0x20` is a reliable bidirectional service stream opened by the Client and accepted by the Server:
-
-- Uplink events are sent from the Client to the Server, converted into GenX chunks, and pushed into the Agent input source.
-- Downlink events originate as Agent output chunks; the Server converts them into `PeerStreamEvent` values and broadcasts them to current subscribers.
-- BOS and EOS delimit one `stream_id`; they do not terminate the Event Stream DataChannel itself. Realtime Opus payloads use WebRTC media tracks, while the Event Stream carries the corresponding control and product events.
+See the [Events Reference](/references/events) for event types, fields, directions, and BOS/EOS boundaries. See the [Streams Reference](/references/streams) for the relationship among the Event Stream, media, direct packets, and RPC streams. This page records implementation responsibilities only.
 
 ## Core structure and main function
 
