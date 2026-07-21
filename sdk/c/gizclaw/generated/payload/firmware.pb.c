@@ -27,12 +27,6 @@ PB_BIND(gizclaw_rpc_v1_FirmwareGetRequest, gizclaw_rpc_v1_FirmwareGetRequest, AU
 PB_BIND(gizclaw_rpc_v1_FirmwareGetResponse, gizclaw_rpc_v1_FirmwareGetResponse, 2)
 
 
-PB_BIND(gizclaw_rpc_v1_FirmwareListRequest, gizclaw_rpc_v1_FirmwareListRequest, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_FirmwareListResponse, gizclaw_rpc_v1_FirmwareListResponse, AUTO)
-
-
 PB_BIND(gizclaw_rpc_v1_FirmwareSlot, gizclaw_rpc_v1_FirmwareSlot, AUTO)
 
 

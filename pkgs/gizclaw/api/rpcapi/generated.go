@@ -522,7 +522,6 @@ const (
 	RPCMethodServerContactPut                   RPCMethod = "server.contact.put"
 	RPCMethodServerFirmwareFilesDownload        RPCMethod = "server.firmware.files.download"
 	RPCMethodServerFirmwareGet                  RPCMethod = "server.firmware.get"
-	RPCMethodServerFirmwareList                 RPCMethod = "server.firmware.list"
 	RPCMethodServerFriendAdd                    RPCMethod = "server.friend.add"
 	RPCMethodServerFriendDelete                 RPCMethod = "server.friend.delete"
 	RPCMethodServerFriendInfoGet                RPCMethod = "server.friend.info.get"
@@ -633,8 +632,6 @@ func (e RPCMethod) Valid() bool {
 	case RPCMethodServerFirmwareFilesDownload:
 		return true
 	case RPCMethodServerFirmwareGet:
-		return true
-	case RPCMethodServerFirmwareList:
 		return true
 	case RPCMethodServerFriendAdd:
 		return true
@@ -1579,9 +1576,8 @@ type FirmwareChannelName string
 
 // FirmwareFilesDownloadRequest defines model for FirmwareFilesDownloadRequest.
 type FirmwareFilesDownloadRequest struct {
-	Channel    FirmwareChannelName `json:"channel"`
-	FirmwareId string              `json:"firmware_id"`
-	Path       string              `json:"path"`
+	Channel FirmwareChannelName `json:"channel"`
+	Path    string              `json:"path"`
 }
 
 // FirmwareFilesDownloadResponse defines model for FirmwareFilesDownloadResponse.
@@ -1594,25 +1590,10 @@ type FirmwareFilesDownloadResponse struct {
 }
 
 // FirmwareGetRequest defines model for FirmwareGetRequest.
-type FirmwareGetRequest struct {
-	FirmwareId string `json:"firmware_id"`
-}
+type FirmwareGetRequest struct{}
 
 // FirmwareGetResponse defines model for FirmwareGetResponse.
 type FirmwareGetResponse = Firmware
-
-// FirmwareListRequest defines model for FirmwareListRequest.
-type FirmwareListRequest struct {
-	Cursor *string `json:"cursor,omitempty"`
-	Limit  *int    `json:"limit,omitempty"`
-}
-
-// FirmwareListResponse defines model for FirmwareListResponse.
-type FirmwareListResponse struct {
-	HasNext    bool       `json:"has_next"`
-	Items      []Firmware `json:"items"`
-	NextCursor *string    `json:"next_cursor,omitempty"`
-}
 
 // FirmwareSlot defines model for FirmwareSlot.
 type FirmwareSlot struct {
@@ -3776,23 +3757,6 @@ func (t *RPCPayload) MergeServerRunSayRequest(v ServerRunSayRequest) error {
 	return t.merge("ServerRunSayRequest", v)
 }
 
-// AsFirmwareListRequest decodes the RPCPayload as a FirmwareListRequest
-func (t RPCPayload) AsFirmwareListRequest() (FirmwareListRequest, error) {
-	var body FirmwareListRequest
-	err := t.decode("FirmwareListRequest", &body)
-	return body, err
-}
-
-// FromFirmwareListRequest overwrites any protobuf payload as the provided FirmwareListRequest
-func (t *RPCPayload) FromFirmwareListRequest(v FirmwareListRequest) error {
-	return t.encode("FirmwareListRequest", v)
-}
-
-// MergeFirmwareListRequest performs a merge with any protobuf payload, using the provided FirmwareListRequest
-func (t *RPCPayload) MergeFirmwareListRequest(v FirmwareListRequest) error {
-	return t.merge("FirmwareListRequest", v)
-}
-
 // AsFirmwareGetRequest decodes the RPCPayload as a FirmwareGetRequest
 func (t RPCPayload) AsFirmwareGetRequest() (FirmwareGetRequest, error) {
 	var body FirmwareGetRequest
@@ -5287,23 +5251,6 @@ func (t *RPCPayload) FromServerRunSayResponse(v ServerRunSayResponse) error {
 // MergeServerRunSayResponse performs a merge with any protobuf payload, using the provided ServerRunSayResponse
 func (t *RPCPayload) MergeServerRunSayResponse(v ServerRunSayResponse) error {
 	return t.merge("ServerRunSayResponse", v)
-}
-
-// AsFirmwareListResponse decodes the RPCPayload as a FirmwareListResponse
-func (t RPCPayload) AsFirmwareListResponse() (FirmwareListResponse, error) {
-	var body FirmwareListResponse
-	err := t.decode("FirmwareListResponse", &body)
-	return body, err
-}
-
-// FromFirmwareListResponse overwrites any protobuf payload as the provided FirmwareListResponse
-func (t *RPCPayload) FromFirmwareListResponse(v FirmwareListResponse) error {
-	return t.encode("FirmwareListResponse", v)
-}
-
-// MergeFirmwareListResponse performs a merge with any protobuf payload, using the provided FirmwareListResponse
-func (t *RPCPayload) MergeFirmwareListResponse(v FirmwareListResponse) error {
-	return t.merge("FirmwareListResponse", v)
 }
 
 // AsFirmwareGetResponse decodes the RPCPayload as a FirmwareGetResponse

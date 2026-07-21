@@ -895,10 +895,10 @@ int main(void) {
   if (expect(method_id == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING, "request method id value") != 0) {
     return 1;
   }
-  if (expect(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD == 89, "pet pixa method id value") != 0) {
+  if (expect(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD == 88, "pet pixa method id value") != 0) {
     return 1;
   }
-  if (expect(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD == 66, "badge pixa method id value") != 0) {
+  if (expect(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD == 65, "badge pixa method id value") != 0) {
     return 1;
   }
 
@@ -975,19 +975,19 @@ int main(void) {
     gzc_buf_free(&list_payload, platform);
     return 1;
   }
-  size_t firmware_items = 0;
-  gizclaw_rpc_v1_FirmwareListResponse firmware_list = gizclaw_rpc_v1_FirmwareListResponse_init_zero;
-  firmware_list.items.funcs.decode = count_repeated_message;
-  firmware_list.items.arg = &firmware_items;
+  size_t model_items = 0;
+  gizclaw_rpc_v1_ModelListResponse model_list = gizclaw_rpc_v1_ModelListResponse_init_zero;
+  model_list.items.funcs.decode = count_repeated_message;
+  model_list.items.arg = &model_items;
   rc = decode_test_pb_message(
       gzc_str_from_parts((const char *)list_payload.data, list_payload.len),
-      gizclaw_rpc_v1_FirmwareListResponse_fields,
-      &firmware_list);
+      gizclaw_rpc_v1_ModelListResponse_fields,
+      &model_list);
   if (expect(rc == GZC_OK, "decode repeated list payload") != 0) {
     gzc_buf_free(&list_payload, platform);
     return 1;
   }
-  if (expect(firmware_items == 2, "repeated payload decodes all entries") != 0) {
+  if (expect(model_items == 2, "repeated payload decodes all entries") != 0) {
     gzc_buf_free(&list_payload, platform);
     return 1;
   }

@@ -13,26 +13,19 @@ import (
 	clitest "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cmd"
 )
 
-func TestRegistrationDoesNotProjectFirmware(t *testing.T) {
+func TestRegistrationBindsFirmware(t *testing.T) {
 	h := clitest.NewSetupHarness(t, "304-firmware-shared-download")
 	h.InstallFixedAdminContext("admin-a").MustSucceed(t)
 	h.CreateContext("device-a").MustSucceed(t)
 	h.RegisterContext("device-a", "--sn", "shared-firmware-device").MustSucceed(t)
 	token := createRuntimeProfileRegistrationToken(t, h)
 
-	list := h.RunCLI("connect", "firmware", "list", "--context", "device-a", "--registration-token", token)
-	list.MustSucceed(t)
-	assertOutputContains(t, list.Stdout, `"items":[]`, `"has_next":false`)
+	getMain := h.RunCLI("connect", "firmware", "get", "--context", "device-a", "--registration-token", token)
+	getMain.MustSucceed(t)
+	assertOutputContains(t, getMain.Stdout, `"name":"devkit-firmware-main"`)
 
-	getMain := h.RunCLI("connect", "firmware", "get", "--firmware-id", "devkit-firmware-main", "--context", "device-a", "--registration-token", token)
-	if getMain.Err == nil {
-		t.Fatalf("registration unexpectedly projected Firmware:\n%s", getMain.Stdout)
-	}
-
-	download := h.RunCLI("connect", "firmware", "download", "--firmware-id", "devkit-firmware-main", "--channel", "stable", "--path", "MANIFEST.txt", "--output", h.SandboxDir+"/MANIFEST.txt", "--context", "device-a", "--registration-token", token)
-	if download.Err == nil {
-		t.Fatalf("registration unexpectedly allowed Firmware download:\n%s", download.Stdout)
-	}
+	download := h.RunCLI("connect", "firmware", "download", "--channel", "stable", "--path", "MANIFEST.txt", "--output", h.SandboxDir+"/MANIFEST.txt", "--context", "device-a", "--registration-token", token)
+	download.MustSucceed(t)
 }
 
 func createRuntimeProfileRegistrationToken(t *testing.T, h *clitest.Harness) string {
@@ -58,8 +51,9 @@ func createRuntimeProfileRegistrationToken(t *testing.T, h *clitest.Harness) str
 	}
 	tokenName := "e2e-firmware-main-token"
 	_, _ = api.DeleteRegistrationTokenWithResponse(ctx, tokenName)
+	firmwareID := "devkit-firmware-main"
 	tokenResp, err := api.CreateRegistrationTokenWithResponse(ctx, adminhttp.RegistrationTokenUpsert{
-		Name: tokenName, RuntimeProfileName: profileName,
+		Name: tokenName, RuntimeProfileName: profileName, FirmwareId: &firmwareID,
 	})
 	if err != nil {
 		t.Fatalf("create RegistrationToken: %v", err)

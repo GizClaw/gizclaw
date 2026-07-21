@@ -37,8 +37,7 @@ message FirmwareArtifactEntry {
 
 message FirmwareFilesDownloadRequest {
   FirmwareChannelName channel = 1;
-  string firmware_id = 2;
-  string path = 3;
+  string path = 2;
 }
 
 message FirmwareFilesDownloadResponse {
@@ -50,22 +49,10 @@ message FirmwareFilesDownloadResponse {
 }
 
 message FirmwareGetRequest {
-  string firmware_id = 1;
 }
 
 message FirmwareGetResponse {
   Firmware value = 1;
-}
-
-message FirmwareListRequest {
-  optional string cursor = 1;
-  optional int64 limit = 2;
-}
-
-message FirmwareListResponse {
-  bool has_next = 1;
-  repeated Firmware items = 2;
-  optional string next_cursor = 3;
 }
 
 message FirmwareSlot {

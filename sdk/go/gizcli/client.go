@@ -318,15 +318,9 @@ func (c *Client) ServerRunSay(ctx context.Context, id string, request rpcapi.Ser
 	})
 }
 
-func (c *Client) ListFirmwares(ctx context.Context, id string, request rpcapi.FirmwareListRequest) (*rpcapi.FirmwareListResponse, error) {
-	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FirmwareListResponse, error) {
-		return client.ListFirmwares(ctx, conn, id, request)
-	})
-}
-
-func (c *Client) GetFirmware(ctx context.Context, id string, request rpcapi.FirmwareGetRequest) (*rpcapi.FirmwareGetResponse, error) {
+func (c *Client) GetFirmware(ctx context.Context, id string) (*rpcapi.FirmwareGetResponse, error) {
 	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FirmwareGetResponse, error) {
-		return client.GetFirmware(ctx, conn, id, request)
+		return client.GetFirmware(ctx, conn, id)
 	})
 }
 

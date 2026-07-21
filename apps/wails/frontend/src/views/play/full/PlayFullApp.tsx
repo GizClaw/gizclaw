@@ -58,7 +58,7 @@ import {
   listPeerBadges,
   listClientVoices,
   listPeerContacts,
-  listPeerFirmwares,
+  getPeerBoundFirmwarePage,
   listPeerFriendGroupMembers,
   listPeerFriendGroups,
   listPeerFriends,
@@ -4632,8 +4632,8 @@ function listWorkspacesPage(cursor: string): Promise<PageResponse<Workspace>> {
   return expectData(listPeerWorkspaces({ query: pageQuery(cursor) }));
 }
 
-function listFirmwaresPage(cursor: string): Promise<PageResponse<Firmware>> {
-  return expectData(listPeerFirmwares({ query: pageQuery(cursor) })) as Promise<PageResponse<Firmware>>;
+function listFirmwaresPage(_cursor: string): Promise<PageResponse<Firmware>> {
+  return expectData(getPeerBoundFirmwarePage());
 }
 
 function listGameplayPage<T>(list: (options?: { query?: { cursor?: string; limit: number } }) => Promise<{ data?: unknown; error?: unknown }>, cursor: string): Promise<PageResponse<T>> {

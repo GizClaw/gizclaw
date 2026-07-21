@@ -125,8 +125,7 @@ const FirmwareFilesDownloadRequest$json = {
       '6': '.gizclaw.rpc.v1.FirmwareChannelName',
       '10': 'channel'
     },
-    {'1': 'firmware_id', '3': 2, '4': 1, '5': 9, '10': 'firmwareId'},
-    {'1': 'path', '3': 3, '4': 1, '5': 9, '10': 'path'},
+    {'1': 'path', '3': 2, '4': 1, '5': 9, '10': 'path'},
   ],
 };
 
@@ -134,8 +133,8 @@ const FirmwareFilesDownloadRequest$json = {
 final $typed_data.Uint8List firmwareFilesDownloadRequestDescriptor =
     $convert.base64Decode(
         'ChxGaXJtd2FyZUZpbGVzRG93bmxvYWRSZXF1ZXN0Ej0KB2NoYW5uZWwYASABKA4yIy5naXpjbG'
-        'F3LnJwYy52MS5GaXJtd2FyZUNoYW5uZWxOYW1lUgdjaGFubmVsEh8KC2Zpcm13YXJlX2lkGAIg'
-        'ASgJUgpmaXJtd2FyZUlkEhIKBHBhdGgYAyABKAlSBHBhdGg=');
+        'F3LnJwYy52MS5GaXJtd2FyZUNoYW5uZWxOYW1lUgdjaGFubmVsEhIKBHBhdGgYAiABKAlSBHBh'
+        'dGg=');
 
 @$core.Deprecated('Use firmwareFilesDownloadResponseDescriptor instead')
 const FirmwareFilesDownloadResponse$json = {
@@ -181,14 +180,11 @@ final $typed_data.Uint8List firmwareFilesDownloadResponseDescriptor = $convert.b
 @$core.Deprecated('Use firmwareGetRequestDescriptor instead')
 const FirmwareGetRequest$json = {
   '1': 'FirmwareGetRequest',
-  '2': [
-    {'1': 'firmware_id', '3': 1, '4': 1, '5': 9, '10': 'firmwareId'},
-  ],
 };
 
 /// Descriptor for `FirmwareGetRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List firmwareGetRequestDescriptor = $convert.base64Decode(
-    'ChJGaXJtd2FyZUdldFJlcXVlc3QSHwoLZmlybXdhcmVfaWQYASABKAlSCmZpcm13YXJlSWQ=');
+final $typed_data.Uint8List firmwareGetRequestDescriptor =
+    $convert.base64Decode('ChJGaXJtd2FyZUdldFJlcXVlc3Q=');
 
 @$core.Deprecated('Use firmwareGetResponseDescriptor instead')
 const FirmwareGetResponse$json = {
@@ -209,58 +205,6 @@ const FirmwareGetResponse$json = {
 final $typed_data.Uint8List firmwareGetResponseDescriptor = $convert.base64Decode(
     'ChNGaXJtd2FyZUdldFJlc3BvbnNlEi4KBXZhbHVlGAEgASgLMhguZ2l6Y2xhdy5ycGMudjEuRm'
     'lybXdhcmVSBXZhbHVl');
-
-@$core.Deprecated('Use firmwareListRequestDescriptor instead')
-const FirmwareListRequest$json = {
-  '1': 'FirmwareListRequest',
-  '2': [
-    {'1': 'cursor', '3': 1, '4': 1, '5': 9, '9': 0, '10': 'cursor', '17': true},
-    {'1': 'limit', '3': 2, '4': 1, '5': 3, '9': 1, '10': 'limit', '17': true},
-  ],
-  '8': [
-    {'1': '_cursor'},
-    {'1': '_limit'},
-  ],
-};
-
-/// Descriptor for `FirmwareListRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List firmwareListRequestDescriptor = $convert.base64Decode(
-    'ChNGaXJtd2FyZUxpc3RSZXF1ZXN0EhsKBmN1cnNvchgBIAEoCUgAUgZjdXJzb3KIAQESGQoFbG'
-    'ltaXQYAiABKANIAVIFbGltaXSIAQFCCQoHX2N1cnNvckIICgZfbGltaXQ=');
-
-@$core.Deprecated('Use firmwareListResponseDescriptor instead')
-const FirmwareListResponse$json = {
-  '1': 'FirmwareListResponse',
-  '2': [
-    {'1': 'has_next', '3': 1, '4': 1, '5': 8, '10': 'hasNext'},
-    {
-      '1': 'items',
-      '3': 2,
-      '4': 3,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.Firmware',
-      '10': 'items'
-    },
-    {
-      '1': 'next_cursor',
-      '3': 3,
-      '4': 1,
-      '5': 9,
-      '9': 0,
-      '10': 'nextCursor',
-      '17': true
-    },
-  ],
-  '8': [
-    {'1': '_next_cursor'},
-  ],
-};
-
-/// Descriptor for `FirmwareListResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List firmwareListResponseDescriptor = $convert.base64Decode(
-    'ChRGaXJtd2FyZUxpc3RSZXNwb25zZRIZCghoYXNfbmV4dBgBIAEoCFIHaGFzTmV4dBIuCgVpdG'
-    'VtcxgCIAMoCzIYLmdpemNsYXcucnBjLnYxLkZpcm13YXJlUgVpdGVtcxIkCgtuZXh0X2N1cnNv'
-    'chgDIAEoCUgAUgpuZXh0Q3Vyc29yiAEBQg4KDF9uZXh0X2N1cnNvcg==');
 
 @$core.Deprecated('Use firmwareSlotDescriptor instead')
 const FirmwareSlot$json = {

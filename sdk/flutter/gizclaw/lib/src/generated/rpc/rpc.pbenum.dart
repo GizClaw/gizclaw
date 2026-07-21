@@ -103,181 +103,179 @@ class RpcMethod extends $pb.ProtobufEnum {
       RpcMethod._(20, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_RUN_STOP');
   static const RpcMethod RPC_METHOD_SERVER_RUN_SAY =
       RpcMethod._(21, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_RUN_SAY');
-  static const RpcMethod RPC_METHOD_SERVER_FIRMWARE_LIST =
-      RpcMethod._(22, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FIRMWARE_LIST');
   static const RpcMethod RPC_METHOD_SERVER_FIRMWARE_GET =
-      RpcMethod._(23, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FIRMWARE_GET');
+      RpcMethod._(22, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FIRMWARE_GET');
   static const RpcMethod RPC_METHOD_SERVER_FIRMWARE_FILES_DOWNLOAD = RpcMethod
-      ._(24, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FIRMWARE_FILES_DOWNLOAD');
+      ._(23, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FIRMWARE_FILES_DOWNLOAD');
   static const RpcMethod RPC_METHOD_SERVER_WORKSPACE_LIST =
-      RpcMethod._(25, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKSPACE_LIST');
+      RpcMethod._(24, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKSPACE_LIST');
   static const RpcMethod RPC_METHOD_SERVER_WORKSPACE_GET =
-      RpcMethod._(26, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKSPACE_GET');
+      RpcMethod._(25, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKSPACE_GET');
   static const RpcMethod RPC_METHOD_SERVER_WORKSPACE_CREATE = RpcMethod._(
-      27, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKSPACE_CREATE');
+      26, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKSPACE_CREATE');
   static const RpcMethod RPC_METHOD_SERVER_WORKSPACE_PUT =
-      RpcMethod._(28, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKSPACE_PUT');
+      RpcMethod._(27, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKSPACE_PUT');
   static const RpcMethod RPC_METHOD_SERVER_WORKSPACE_DELETE = RpcMethod._(
-      29, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKSPACE_DELETE');
+      28, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKSPACE_DELETE');
   static const RpcMethod RPC_METHOD_SERVER_WORKSPACE_HISTORY_LIST = RpcMethod._(
-      30, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKSPACE_HISTORY_LIST');
+      29, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKSPACE_HISTORY_LIST');
   static const RpcMethod RPC_METHOD_SERVER_WORKSPACE_HISTORY_GET = RpcMethod._(
-      31, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKSPACE_HISTORY_GET');
+      30, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKSPACE_HISTORY_GET');
   static const RpcMethod RPC_METHOD_SERVER_WORKSPACE_HISTORY_AUDIO_GET =
       RpcMethod._(
-          32,
+          31,
           _omitEnumNames
               ? ''
               : 'RPC_METHOD_SERVER_WORKSPACE_HISTORY_AUDIO_GET');
   static const RpcMethod RPC_METHOD_SERVER_WORKFLOW_LIST =
-      RpcMethod._(33, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKFLOW_LIST');
+      RpcMethod._(32, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKFLOW_LIST');
   static const RpcMethod RPC_METHOD_SERVER_WORKFLOW_GET =
-      RpcMethod._(34, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKFLOW_GET');
+      RpcMethod._(33, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKFLOW_GET');
   static const RpcMethod RPC_METHOD_SERVER_MODEL_LIST =
-      RpcMethod._(35, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_MODEL_LIST');
+      RpcMethod._(34, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_MODEL_LIST');
   static const RpcMethod RPC_METHOD_SERVER_MODEL_GET =
-      RpcMethod._(36, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_MODEL_GET');
+      RpcMethod._(35, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_MODEL_GET');
   static const RpcMethod RPC_METHOD_SERVER_VOICE_LIST =
-      RpcMethod._(37, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_VOICE_LIST');
+      RpcMethod._(36, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_VOICE_LIST');
   static const RpcMethod RPC_METHOD_SERVER_VOICE_GET =
-      RpcMethod._(38, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_VOICE_GET');
+      RpcMethod._(37, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_VOICE_GET');
   static const RpcMethod RPC_METHOD_SERVER_CONTACT_LIST =
-      RpcMethod._(39, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_CONTACT_LIST');
+      RpcMethod._(38, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_CONTACT_LIST');
   static const RpcMethod RPC_METHOD_SERVER_CONTACT_GET =
-      RpcMethod._(40, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_CONTACT_GET');
+      RpcMethod._(39, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_CONTACT_GET');
   static const RpcMethod RPC_METHOD_SERVER_CONTACT_CREATE =
-      RpcMethod._(41, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_CONTACT_CREATE');
+      RpcMethod._(40, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_CONTACT_CREATE');
   static const RpcMethod RPC_METHOD_SERVER_CONTACT_PUT =
-      RpcMethod._(42, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_CONTACT_PUT');
+      RpcMethod._(41, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_CONTACT_PUT');
   static const RpcMethod RPC_METHOD_SERVER_CONTACT_DELETE =
-      RpcMethod._(43, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_CONTACT_DELETE');
+      RpcMethod._(42, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_CONTACT_DELETE');
   static const RpcMethod RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_GET = RpcMethod
-      ._(44, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_GET');
+      ._(43, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_GET');
   static const RpcMethod RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_CREATE =
-      RpcMethod._(45,
+      RpcMethod._(44,
           _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_CREATE');
   static const RpcMethod RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_CLEAR =
-      RpcMethod._(46,
+      RpcMethod._(45,
           _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_CLEAR');
   static const RpcMethod RPC_METHOD_SERVER_FRIEND_ADD =
-      RpcMethod._(47, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_ADD');
+      RpcMethod._(46, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_ADD');
   static const RpcMethod RPC_METHOD_SERVER_FRIEND_LIST =
-      RpcMethod._(48, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_LIST');
+      RpcMethod._(47, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_LIST');
   static const RpcMethod RPC_METHOD_SERVER_FRIEND_DELETE =
-      RpcMethod._(49, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_DELETE');
+      RpcMethod._(48, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_DELETE');
   static const RpcMethod RPC_METHOD_SERVER_FRIEND_GROUP_LIST = RpcMethod._(
-      50, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_GROUP_LIST');
+      49, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_GROUP_LIST');
   static const RpcMethod RPC_METHOD_SERVER_FRIEND_GROUP_GET = RpcMethod._(
-      51, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_GROUP_GET');
+      50, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_GROUP_GET');
   static const RpcMethod RPC_METHOD_SERVER_FRIEND_GROUP_CREATE = RpcMethod._(
-      52, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_GROUP_CREATE');
+      51, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_GROUP_CREATE');
   static const RpcMethod RPC_METHOD_SERVER_FRIEND_GROUP_PUT = RpcMethod._(
-      53, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_GROUP_PUT');
+      52, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_GROUP_PUT');
   static const RpcMethod RPC_METHOD_SERVER_FRIEND_GROUP_DELETE = RpcMethod._(
-      54, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_GROUP_DELETE');
+      53, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_GROUP_DELETE');
   static const RpcMethod RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_GET =
       RpcMethod._(
-          55,
+          54,
           _omitEnumNames
               ? ''
               : 'RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_GET');
   static const RpcMethod RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_CREATE =
       RpcMethod._(
-          56,
+          55,
           _omitEnumNames
               ? ''
               : 'RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_CREATE');
   static const RpcMethod RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_CLEAR =
       RpcMethod._(
-          57,
+          56,
           _omitEnumNames
               ? ''
               : 'RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_CLEAR');
   static const RpcMethod RPC_METHOD_SERVER_FRIEND_GROUP_JOIN = RpcMethod._(
-      58, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_GROUP_JOIN');
+      57, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_GROUP_JOIN');
   static const RpcMethod RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_LIST =
-      RpcMethod._(59,
+      RpcMethod._(58,
           _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_LIST');
   static const RpcMethod RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_ADD =
-      RpcMethod._(60,
+      RpcMethod._(59,
           _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_ADD');
   static const RpcMethod RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_PUT =
-      RpcMethod._(61,
+      RpcMethod._(60,
           _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_PUT');
   static const RpcMethod RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_DELETE =
       RpcMethod._(
-          62,
+          61,
           _omitEnumNames
               ? ''
               : 'RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_DELETE');
   static const RpcMethod RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST =
-      RpcMethod._(63,
+      RpcMethod._(62,
           _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST');
   static const RpcMethod RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET =
-      RpcMethod._(64,
+      RpcMethod._(63,
           _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET');
   static const RpcMethod RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND =
-      RpcMethod._(65,
+      RpcMethod._(64,
           _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_SEND');
   static const RpcMethod RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD = RpcMethod
-      ._(66, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD');
+      ._(65, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD');
   static const RpcMethod RPC_METHOD_SERVER_PET_LIST =
-      RpcMethod._(67, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_PET_LIST');
+      RpcMethod._(66, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_PET_LIST');
   static const RpcMethod RPC_METHOD_SERVER_PET_GET =
-      RpcMethod._(68, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_PET_GET');
+      RpcMethod._(67, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_PET_GET');
   static const RpcMethod RPC_METHOD_RUNTIME_ADOPT =
-      RpcMethod._(69, _omitEnumNames ? '' : 'RPC_METHOD_RUNTIME_ADOPT');
+      RpcMethod._(68, _omitEnumNames ? '' : 'RPC_METHOD_RUNTIME_ADOPT');
   static const RpcMethod RPC_METHOD_SERVER_PET_PUT =
-      RpcMethod._(70, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_PET_PUT');
+      RpcMethod._(69, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_PET_PUT');
   static const RpcMethod RPC_METHOD_SERVER_PET_DELETE =
-      RpcMethod._(71, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_PET_DELETE');
+      RpcMethod._(70, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_PET_DELETE');
   static const RpcMethod RPC_METHOD_SERVER_PET_DRIVE =
-      RpcMethod._(72, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_PET_DRIVE');
+      RpcMethod._(71, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_PET_DRIVE');
   static const RpcMethod RPC_METHOD_SERVER_POINTS_GET =
-      RpcMethod._(73, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_POINTS_GET');
+      RpcMethod._(72, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_POINTS_GET');
   static const RpcMethod RPC_METHOD_SERVER_POINTS_TRANSACTIONS_LIST =
-      RpcMethod._(74,
+      RpcMethod._(73,
           _omitEnumNames ? '' : 'RPC_METHOD_SERVER_POINTS_TRANSACTIONS_LIST');
   static const RpcMethod RPC_METHOD_SERVER_POINTS_TRANSACTIONS_GET = RpcMethod
-      ._(75, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_POINTS_TRANSACTIONS_GET');
+      ._(74, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_POINTS_TRANSACTIONS_GET');
   static const RpcMethod RPC_METHOD_SERVER_BADGE_LIST =
-      RpcMethod._(76, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_BADGE_LIST');
+      RpcMethod._(75, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_BADGE_LIST');
   static const RpcMethod RPC_METHOD_SERVER_BADGE_GET =
-      RpcMethod._(77, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_BADGE_GET');
+      RpcMethod._(76, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_BADGE_GET');
   static const RpcMethod RPC_METHOD_SERVER_GAME_RESULT_LIST = RpcMethod._(
-      78, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_GAME_RESULT_LIST');
+      77, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_GAME_RESULT_LIST');
   static const RpcMethod RPC_METHOD_SERVER_GAME_RESULT_GET = RpcMethod._(
-      79, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_GAME_RESULT_GET');
+      78, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_GAME_RESULT_GET');
   static const RpcMethod RPC_METHOD_SERVER_REWARD_GRANT_LIST = RpcMethod._(
-      80, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_REWARD_GRANT_LIST');
+      79, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_REWARD_GRANT_LIST');
   static const RpcMethod RPC_METHOD_SERVER_REWARD_GRANT_GET = RpcMethod._(
-      81, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_REWARD_GRANT_GET');
+      80, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_REWARD_GRANT_GET');
   static const RpcMethod RPC_METHOD_SERVER_TOOL_LIST =
-      RpcMethod._(82, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_TOOL_LIST');
+      RpcMethod._(81, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_TOOL_LIST');
   static const RpcMethod RPC_METHOD_SERVER_TOOL_GET =
-      RpcMethod._(83, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_TOOL_GET');
+      RpcMethod._(82, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_TOOL_GET');
   static const RpcMethod RPC_METHOD_CLIENT_TOOL_INVOKE =
-      RpcMethod._(84, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_TOOL_INVOKE');
+      RpcMethod._(83, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_TOOL_INVOKE');
   static const RpcMethod RPC_METHOD_SERVER_PEER_LOOKUP =
-      RpcMethod._(85, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_PEER_LOOKUP');
+      RpcMethod._(84, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_PEER_LOOKUP');
   static const RpcMethod RPC_METHOD_SERVER_PEER_ASSIGN =
-      RpcMethod._(86, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_PEER_ASSIGN');
+      RpcMethod._(85, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_PEER_ASSIGN');
   static const RpcMethod RPC_METHOD_SERVER_ROUTE_RESOLVE =
-      RpcMethod._(87, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_ROUTE_RESOLVE');
+      RpcMethod._(86, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_ROUTE_RESOLVE');
   static const RpcMethod RPC_METHOD_SERVER_PET_ACTIONS_GET = RpcMethod._(
-      88, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_PET_ACTIONS_GET');
+      87, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_PET_ACTIONS_GET');
   static const RpcMethod RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD = RpcMethod._(
-      89, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD');
+      88, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD');
   static const RpcMethod RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD = RpcMethod
-      ._(90, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD');
+      ._(89, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD');
   static const RpcMethod RPC_METHOD_SERVER_FRIEND_INFO_GET = RpcMethod._(
-      91, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_INFO_GET');
+      90, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_INFO_GET');
   static const RpcMethod RPC_METHOD_SERVER_REGISTER =
-      RpcMethod._(92, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_REGISTER');
+      RpcMethod._(91, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_REGISTER');
   static const RpcMethod RPC_METHOD_SERVER_SPEECH_TRANSCRIBE = RpcMethod._(
-      93, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_SPEECH_TRANSCRIBE');
+      92, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_SPEECH_TRANSCRIBE');
   static const RpcMethod RPC_METHOD_SERVER_SPEECH_SYNTHESIZE = RpcMethod._(
-      94, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_SPEECH_SYNTHESIZE');
+      93, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_SPEECH_SYNTHESIZE');
 
   static const $core.List<RpcMethod> values = <RpcMethod>[
     RPC_METHOD_UNSPECIFIED,
@@ -302,7 +300,6 @@ class RpcMethod extends $pb.ProtobufEnum {
     RPC_METHOD_SERVER_RUN_STATUS,
     RPC_METHOD_SERVER_RUN_STOP,
     RPC_METHOD_SERVER_RUN_SAY,
-    RPC_METHOD_SERVER_FIRMWARE_LIST,
     RPC_METHOD_SERVER_FIRMWARE_GET,
     RPC_METHOD_SERVER_FIRMWARE_FILES_DOWNLOAD,
     RPC_METHOD_SERVER_WORKSPACE_LIST,
@@ -378,7 +375,7 @@ class RpcMethod extends $pb.ProtobufEnum {
   ];
 
   static final $core.List<RpcMethod?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 94);
+      $pb.ProtobufEnum.$_initByValueList(values, 93);
   static RpcMethod? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

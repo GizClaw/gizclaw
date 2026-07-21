@@ -281,6 +281,8 @@ func (h *PeerConn) peerResources() *peerresource.Server {
 	manager := h.Service.manager
 	return &peerresource.Server{
 		Caller:         h.Conn.PublicKey(),
+		Peers:          manager.Peers,
+		Firmwares:      manager.Firmwares,
 		Workspaces:     manager.Workspaces,
 		Workflows:      manager.Workflows,
 		Models:         manager.Models,

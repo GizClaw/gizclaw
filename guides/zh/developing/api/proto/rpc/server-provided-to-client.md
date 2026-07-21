@@ -15,7 +15,7 @@
 | `server.register` | 选择 RegistrationToken 必填的 RuntimeProfile，并持久化、返回可选 Firmware release-line ID；channel 仍由设备选择 |
 | `runtime.adopt`、`server.pet.*`、`server.badge.*`、`server.points.*` | Gameplay 与 Peer-owned Pet 状态 |
 | `server.friend.*`、`server.friend_group.*`、`server.contact.*` | Social 状态 |
-| `server.firmware.*` | 只保留兼容 surface；Firmware 由 Admin 管理 |
+| `server.firmware.*` | 查询 Peer 当前绑定的 Firmware，并按设备指定 channel 下载文件；不提供 list |
 
 `server.peer.lookup`、`server.peer.assign` 和 `server.route.resolve` 只属于 Edge-node RPC。
 

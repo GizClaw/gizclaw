@@ -15,7 +15,7 @@ These methods are implemented by Server and called by a Client/Device through it
 | `server.register` | Select the required RuntimeProfile and persist/return the RegistrationToken's optional Firmware release-line ID; channel selection remains device-owned |
 | `runtime.adopt`, `server.pet.*`, `server.badge.*`, `server.points.*` | Gameplay and Peer-owned Pet state |
 | `server.friend.*`, `server.friend_group.*`, `server.contact.*` | Social state |
-| `server.firmware.*` | Compatibility surface only; Admin manages Firmware |
+| `server.firmware.*` | Get the Peer's bound Firmware and download a file from a device-selected channel; no list method |
 
 `server.peer.lookup`, `server.peer.assign`, and `server.route.resolve` belong only to Edge-node RPC.
 

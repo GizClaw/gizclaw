@@ -3,12 +3,13 @@ import 'package:test/test.dart';
 
 void main() {
   test('contains canonical workflow and workspace RPC method IDs', () {
-    expect(rpcMethodByName('server.workflow.list').id, 33);
-    expect(rpcMethodByName('server.workspace.list').id, 25);
-    expect(rpcMethodByName('server.workspace.get').id, 26);
+    expect(rpcMethodByName('server.firmware.get').id, 22);
+    expect(rpcMethodByName('server.workflow.list').id, 32);
+    expect(rpcMethodByName('server.workspace.list').id, 24);
+    expect(rpcMethodByName('server.workspace.get').id, 25);
     expect(rpcMethodByName('server.run.say').id, 21);
     expect(rpcMethodByName('all.ping').id, 1);
-    expect(rpcMethodByName('server.route.resolve').id, 87);
+    expect(rpcMethodByName('server.route.resolve').id, 86);
   });
 
   test('encodes and decodes typed payloads by method metadata', () {

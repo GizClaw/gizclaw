@@ -142,11 +142,8 @@ func TestRPCResourceClientWrappers(t *testing.T) {
 	})
 
 	t.Run("firmware", func(t *testing.T) {
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFirmwareList, rpcapi.FirmwareListResponse{}, (*rpcapi.RPCPayload).FromFirmwareListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FirmwareListResponse, error) {
-			return client.ListFirmwares(ctx, conn, "firmware-list", rpcapi.FirmwareListRequest{})
-		})
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFirmwareGet, rpcapi.FirmwareGetResponse{}, (*rpcapi.RPCPayload).FromFirmwareGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FirmwareGetResponse, error) {
-			return client.GetFirmware(ctx, conn, "firmware-get", rpcapi.FirmwareGetRequest{FirmwareId: "devkit"})
+			return client.GetFirmware(ctx, conn, "firmware-get")
 		})
 		runFirmwareDownloadWrapperTest(t, client)
 	})
@@ -154,6 +151,39 @@ func TestRPCResourceClientWrappers(t *testing.T) {
 	t.Run("gameplay pixa", func(t *testing.T) {
 		runBadgeDefPixaDownloadWrapperTest(t, client)
 	})
+}
+
+func TestRPCRegisterPreservesFirmwareID(t *testing.T) {
+	client := &rpcClient{}
+	serverSide, clientSide := net.Pipe()
+	defer serverSide.Close()
+	defer clientSide.Close()
+
+	firmwareID := "h106"
+	serverErrCh := make(chan error, 1)
+	go func() {
+		req, err := readRPCRequestWithEOS(serverSide)
+		if err != nil {
+			serverErrCh <- err
+			return
+		}
+		serverErrCh <- writeRPCResponseWithEOS(serverSide, req.Method, resourceResponse(
+			req.Id,
+			rpcapi.ServerRegisterResponse{RuntimeProfileName: "profile-a", FirmwareID: &firmwareID},
+			(*rpcapi.RPCPayload).FromServerRegisterResponse,
+		))
+	}()
+
+	response, err := client.Register(context.Background(), clientSide, "register", "token")
+	if err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+	if response.RuntimeProfileName != "profile-a" || response.FirmwareId == nil || *response.FirmwareId != firmwareID {
+		t.Fatalf("Register() response = %#v", response)
+	}
+	if err := <-serverErrCh; err != nil {
+		t.Fatalf("register server error = %v", err)
+	}
 }
 
 func runWorkflowGetWrapperTest(t *testing.T, client *rpcClient) {
@@ -281,9 +311,8 @@ func runFirmwareDownloadWrapperTest(t *testing.T, client *rpcClient) {
 
 	var out bytes.Buffer
 	result, err := client.DownloadFirmware(context.Background(), clientSide, "firmware-download", rpcapi.FirmwareFilesDownloadRequest{
-		FirmwareId: "devkit",
-		Channel:    rpcapi.FirmwareChannelNameStable,
-		Path:       "firmware.bin",
+		Channel: rpcapi.FirmwareChannelNameStable,
+		Path:    "firmware.bin",
 	}, &out)
 	if err != nil {
 		t.Fatalf("firmware download call error = %v", err)

@@ -389,7 +389,6 @@ test("RPC payload codec rejects unknown enum strings", () => {
   assert.throws(
     () => encodeRPCRequestPayload("server.firmware.files.download", {
       channel: "stabel",
-      firmware_id: "devkit",
       path: "firmware.bin",
     }),
     /unknown protobuf enum value for FirmwareChannelName: stabel/,
@@ -813,13 +812,13 @@ test("createPeerRPCClient calls generated typed RPC methods", async () => {
 
   await rpc.call("server.run.workspace.set", { workspace_name: "main" });
   await rpc.call("server.run.workspace.history.play", { history_id: "h1" });
-  await rpc.call("server.firmware.files.download", { channel: "stable", firmware_id: "devkit", path: "firmware.bin" });
+  await rpc.call("server.firmware.files.download", { channel: "stable", path: "firmware.bin" });
   await rpc.call("server.friend_group.messages.send", { friend_group_id: "group-a", text: "hello" });
 
   assert.deepEqual(calls, [
     { method: "server.run.workspace.set", params: { workspace_name: "main" } },
     { method: "server.run.workspace.history.play", params: { history_id: "h1" } },
-    { method: "server.firmware.files.download", params: { channel: "stable", firmware_id: "devkit", path: "firmware.bin" } },
+    { method: "server.firmware.files.download", params: { channel: "stable", path: "firmware.bin" } },
     { method: "server.friend_group.messages.send", params: { friend_group_id: "group-a", text: "hello" } },
   ]);
 });

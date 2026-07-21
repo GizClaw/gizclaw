@@ -19,9 +19,6 @@ export type Firmware = Omit<RPCPayload.Firmware, "slots"> & {
   "slots": FirmwareSlots;
 };
 export type FirmwareGetResponse = Firmware;
-export type FirmwareListResponse = Omit<RPCPayload.FirmwareListResponse, "items"> & {
-  "items": Firmware[];
-};
 export type PeerRunRecallHit = Omit<RPCPayload.PeerRunRecallHit, "metadata"> & {
   "metadata"?: Record<string, unknown>;
 };
@@ -38,9 +35,6 @@ export type RPCMethodName = GeneratedRPCMethodName;
 export type RPCMethodMap = Override<GeneratedRPCMethodMap, {
   "server.firmware.get": Override<GeneratedRPCMethodMap["server.firmware.get"], {
     response: FirmwareGetResponse;
-  }>;
-  "server.firmware.list": Override<GeneratedRPCMethodMap["server.firmware.list"], {
-    response: FirmwareListResponse;
   }>;
   "server.run.workspace.recall": Override<GeneratedRPCMethodMap["server.run.workspace.recall"], {
     request: ServerRunWorkspaceRecallRequest;

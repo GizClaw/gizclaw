@@ -314,7 +314,16 @@ export const getPeerWorkspaceHistoryAudio = async (options: RequestOptions): Pro
   };
 };
 
-export const listPeerFirmwares = (options?: RequestOptions) => currentDataClient ? snapshotResult("firmwares") : callRPC(RPC_METHODS["server.firmware.list"], options);
+export const getPeerBoundFirmwarePage = async (): Promise<ApiResult<{ has_next: boolean; items: RPCFirmware[] }>> => {
+  if (currentDataClient != null) {
+    return snapshotResult("firmwares") as Promise<ApiResult<{ has_next: boolean; items: RPCFirmware[] }>>;
+  }
+  const result: ApiResult<RPCFirmware> = await callRPC(RPC_METHODS["server.firmware.get"]);
+  if (result.error != null) {
+    return { error: result.error };
+  }
+  return { data: { has_next: false, items: result.data == null ? [] : [result.data] } };
+};
 const playCollections = ["assistants", "translates", "raids", "story-teller", "role-play"] as const;
 
 type RuntimeCollectionPage<T> = {

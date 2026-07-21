@@ -33,6 +33,8 @@ import (
 
 type Server struct {
 	Caller         giznet.PublicKey
+	Peers          peerFirmwareBindingService
+	Firmwares      firmwarePeerService
 	Workspaces     workspace.WorkspaceAdminService
 	Workflows      workflow.WorkflowAdminService
 	Models         model.ModelAdminService
@@ -53,8 +55,7 @@ type WorkspaceHistoryService interface {
 
 func IsMethod(method rpcapi.RPCMethod) bool {
 	switch method {
-	case rpcapi.RPCMethodServerFirmwareList,
-		rpcapi.RPCMethodServerFirmwareGet,
+	case rpcapi.RPCMethodServerFirmwareGet,
 		rpcapi.RPCMethodServerFirmwareFilesDownload,
 		rpcapi.RPCMethodServerWorkspaceList,
 		rpcapi.RPCMethodServerWorkspaceGet,
@@ -129,8 +130,6 @@ func (s *Server) Dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.
 		return nil, false, nil
 	}
 	switch req.Method {
-	case rpcapi.RPCMethodServerFirmwareList:
-		return s.handleFirmwareList(ctx, req), true, nil
 	case rpcapi.RPCMethodServerFirmwareGet:
 		return s.handleFirmwareGet(ctx, req), true, nil
 	case rpcapi.RPCMethodServerFirmwareFilesDownload:

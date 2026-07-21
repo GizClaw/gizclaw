@@ -95,6 +95,8 @@ func (s *PeerService) peerResourcesWithRegistration(publicKey giznet.PublicKey, 
 	}
 	return &peerresource.Server{
 		Caller:       publicKey,
+		Peers:        manager.Peers,
+		Firmwares:    manager.Firmwares,
 		Workspaces:   manager.Workspaces,
 		Workflows:    manager.Workflows,
 		Models:       manager.Models,

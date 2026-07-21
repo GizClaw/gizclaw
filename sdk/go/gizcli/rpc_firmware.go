@@ -14,12 +14,8 @@ type FirmwareDownloadResult struct {
 	Bytes    int64
 }
 
-func (c *rpcClient) ListFirmwares(ctx context.Context, conn net.Conn, id string, request rpcapi.FirmwareListRequest) (*rpcapi.FirmwareListResponse, error) {
-	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerFirmwareList, request, (*rpcapi.RPCPayload).FromFirmwareListRequest, rpcapi.RPCPayload.AsFirmwareListResponse, "firmware list")
-}
-
-func (c *rpcClient) GetFirmware(ctx context.Context, conn net.Conn, id string, request rpcapi.FirmwareGetRequest) (*rpcapi.FirmwareGetResponse, error) {
-	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerFirmwareGet, request, (*rpcapi.RPCPayload).FromFirmwareGetRequest, rpcapi.RPCPayload.AsFirmwareGetResponse, "firmware get")
+func (c *rpcClient) GetFirmware(ctx context.Context, conn net.Conn, id string) (*rpcapi.FirmwareGetResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerFirmwareGet, rpcapi.FirmwareGetRequest{}, (*rpcapi.RPCPayload).FromFirmwareGetRequest, rpcapi.RPCPayload.AsFirmwareGetResponse, "firmware get")
 }
 
 func (c *rpcClient) DownloadFirmware(ctx context.Context, conn net.Conn, id string, request rpcapi.FirmwareFilesDownloadRequest, out io.Writer) (FirmwareDownloadResult, error) {

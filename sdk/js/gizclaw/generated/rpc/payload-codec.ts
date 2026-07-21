@@ -327,7 +327,6 @@ export type FirmwareArtifactEntry = {
 };
 export type FirmwareFilesDownloadRequest = {
   "channel": FirmwareChannelName;
-  "firmware_id": string;
   "path": string;
 };
 export type FirmwareFilesDownloadResponse = {
@@ -337,19 +336,8 @@ export type FirmwareFilesDownloadResponse = {
   "firmware_id": string;
   "path": string;
 };
-export type FirmwareGetRequest = {
-  "firmware_id": string;
-};
+export type FirmwareGetRequest = Record<string, never>;
 export type FirmwareGetResponse = Firmware;
-export type FirmwareListRequest = {
-  "cursor"?: string;
-  "limit"?: number;
-};
-export type FirmwareListResponse = {
-  "has_next": boolean;
-  "items": Firmware[];
-  "next_cursor"?: string;
-};
 export type FirmwareSlot = {
   "artifact"?: FirmwareArtifact;
   "description"?: string;
@@ -1251,7 +1239,6 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.contact.put": "ContactPutRequest",
   "server.firmware.files.download": "FirmwareFilesDownloadRequest",
   "server.firmware.get": "FirmwareGetRequest",
-  "server.firmware.list": "FirmwareListRequest",
   "server.friend_group.create": "FriendGroupCreateRequest",
   "server.friend_group.delete": "FriendGroupDeleteRequest",
   "server.friend_group.get": "FriendGroupGetRequest",
@@ -1347,7 +1334,6 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.contact.put": "ContactPutResponse",
   "server.firmware.files.download": "FirmwareFilesDownloadResponse",
   "server.firmware.get": "FirmwareGetResponse",
-  "server.firmware.list": "FirmwareListResponse",
   "server.friend_group.create": "FriendGroupCreateResponse",
   "server.friend_group.delete": "FriendGroupDeleteResponse",
   "server.friend_group.get": "FriendGroupGetResponse",
@@ -2686,13 +2672,8 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "FirmwareChannelName"
       },
       {
-        "name": "firmware_id",
-        "number": 2,
-        "type": "string"
-      },
-      {
         "name": "path",
-        "number": 3,
+        "number": 2,
         "type": "string"
       }
     ]
@@ -2727,13 +2708,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
     ]
   },
   "FirmwareGetRequest": {
-    "fields": [
-      {
-        "name": "firmware_id",
-        "number": 1,
-        "type": "string"
-      }
-    ]
+    "fields": []
   },
   "FirmwareGetResponse": {
     "fields": [
@@ -2741,43 +2716,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "value",
         "number": 1,
         "type": "Firmware"
-      }
-    ]
-  },
-  "FirmwareListRequest": {
-    "fields": [
-      {
-        "name": "cursor",
-        "number": 1,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "limit",
-        "number": 2,
-        "optional": true,
-        "type": "int64"
-      }
-    ]
-  },
-  "FirmwareListResponse": {
-    "fields": [
-      {
-        "name": "has_next",
-        "number": 1,
-        "type": "bool"
-      },
-      {
-        "name": "items",
-        "number": 2,
-        "repeated": true,
-        "type": "Firmware"
-      },
-      {
-        "name": "next_cursor",
-        "number": 3,
-        "optional": true,
-        "type": "string"
       }
     ]
   },

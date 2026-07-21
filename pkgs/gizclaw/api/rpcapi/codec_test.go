@@ -455,17 +455,14 @@ func TestPayloadCodecMapsGoDTOsDirectlyToProtobuf(t *testing.T) {
 }
 
 func TestPayloadCodecMapsProtobufDirectlyToGoDTOs(t *testing.T) {
-	firmwareData, err := proto.Marshal(&rpcpb.FirmwareListResponse{})
+	firmwareData, err := proto.Marshal(&rpcpb.FirmwareGetRequest{})
 	if err != nil {
-		t.Fatalf("marshal firmware list payload error = %v", err)
+		t.Fatalf("marshal firmware get payload error = %v", err)
 	}
-	firmwarePayload := newRPCPayload("FirmwareListResponse", firmwareData, true)
-	firmware, err := firmwarePayload.AsFirmwareListResponse()
+	firmwarePayload := newRPCPayload("FirmwareGetRequest", firmwareData, true)
+	_, err = firmwarePayload.AsFirmwareGetRequest()
 	if err != nil {
-		t.Fatalf("AsFirmwareListResponse() error = %v", err)
-	}
-	if firmware.HasNext || len(firmware.Items) != 0 {
-		t.Fatalf("firmware list = %+v", firmware)
+		t.Fatalf("AsFirmwareGetRequest() error = %v", err)
 	}
 
 	schemaData, err := proto.Marshal(&rpcpb.DoubaoRealtimeJSONSchema{

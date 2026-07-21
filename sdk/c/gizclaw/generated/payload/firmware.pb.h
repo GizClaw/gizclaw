@@ -32,7 +32,6 @@ typedef struct _gizclaw_rpc_v1_FirmwareArtifactEntry {
 
 typedef struct _gizclaw_rpc_v1_FirmwareFilesDownloadRequest {
     gizclaw_rpc_v1_FirmwareChannelName channel;
-    pb_callback_t firmware_id;
     pb_callback_t path;
 } gizclaw_rpc_v1_FirmwareFilesDownloadRequest;
 
@@ -47,20 +46,8 @@ typedef struct _gizclaw_rpc_v1_FirmwareFilesDownloadResponse {
 } gizclaw_rpc_v1_FirmwareFilesDownloadResponse;
 
 typedef struct _gizclaw_rpc_v1_FirmwareGetRequest {
-    pb_callback_t firmware_id;
+    char dummy_field;
 } gizclaw_rpc_v1_FirmwareGetRequest;
-
-typedef struct _gizclaw_rpc_v1_FirmwareListRequest {
-    pb_callback_t cursor;
-    bool has_limit;
-    int64_t limit;
-} gizclaw_rpc_v1_FirmwareListRequest;
-
-typedef struct _gizclaw_rpc_v1_FirmwareListResponse {
-    bool has_next;
-    pb_callback_t items;
-    pb_callback_t next_cursor;
-} gizclaw_rpc_v1_FirmwareListResponse;
 
 typedef struct _gizclaw_rpc_v1_FirmwareSlot {
     bool has_artifact;
@@ -102,23 +89,19 @@ extern "C" {
 #define gizclaw_rpc_v1_Firmware_init_default     {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_FirmwareSlots_init_default, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_FirmwareArtifact_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, 0, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_FirmwareArtifactEntry_init_default {{{NULL}, NULL}, {{NULL}, NULL}, 0, {{NULL}, NULL}, 0, _gizclaw_rpc_v1_FirmwareArtifactEntryType_MIN}
-#define gizclaw_rpc_v1_FirmwareFilesDownloadRequest_init_default {_gizclaw_rpc_v1_FirmwareChannelName_MIN, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_FirmwareFilesDownloadRequest_init_default {_gizclaw_rpc_v1_FirmwareChannelName_MIN, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_FirmwareFilesDownloadResponse_init_default {false, gizclaw_rpc_v1_FirmwareArtifact_init_default, _gizclaw_rpc_v1_FirmwareChannelName_MIN, false, gizclaw_rpc_v1_FirmwareArtifactEntry_init_default, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_FirmwareGetRequest_init_default {{{NULL}, NULL}}
+#define gizclaw_rpc_v1_FirmwareGetRequest_init_default {0}
 #define gizclaw_rpc_v1_FirmwareGetResponse_init_default {false, gizclaw_rpc_v1_Firmware_init_default}
-#define gizclaw_rpc_v1_FirmwareListRequest_init_default {{{NULL}, NULL}, false, 0}
-#define gizclaw_rpc_v1_FirmwareListResponse_init_default {0, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_FirmwareSlot_init_default {false, gizclaw_rpc_v1_FirmwareArtifact_init_default, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_FirmwareSlots_init_default {false, gizclaw_rpc_v1_FirmwareSlot_init_default, false, gizclaw_rpc_v1_FirmwareSlot_init_default, false, gizclaw_rpc_v1_FirmwareSlot_init_default, false, gizclaw_rpc_v1_FirmwareSlot_init_default}
 #define gizclaw_rpc_v1_Firmware_init_zero        {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_FirmwareSlots_init_zero, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_FirmwareArtifact_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, 0, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_FirmwareArtifactEntry_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, 0, {{NULL}, NULL}, 0, _gizclaw_rpc_v1_FirmwareArtifactEntryType_MIN}
-#define gizclaw_rpc_v1_FirmwareFilesDownloadRequest_init_zero {_gizclaw_rpc_v1_FirmwareChannelName_MIN, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_FirmwareFilesDownloadRequest_init_zero {_gizclaw_rpc_v1_FirmwareChannelName_MIN, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_FirmwareFilesDownloadResponse_init_zero {false, gizclaw_rpc_v1_FirmwareArtifact_init_zero, _gizclaw_rpc_v1_FirmwareChannelName_MIN, false, gizclaw_rpc_v1_FirmwareArtifactEntry_init_zero, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_FirmwareGetRequest_init_zero {{{NULL}, NULL}}
+#define gizclaw_rpc_v1_FirmwareGetRequest_init_zero {0}
 #define gizclaw_rpc_v1_FirmwareGetResponse_init_zero {false, gizclaw_rpc_v1_Firmware_init_zero}
-#define gizclaw_rpc_v1_FirmwareListRequest_init_zero {{{NULL}, NULL}, false, 0}
-#define gizclaw_rpc_v1_FirmwareListResponse_init_zero {0, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_FirmwareSlot_init_zero    {false, gizclaw_rpc_v1_FirmwareArtifact_init_zero, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_FirmwareSlots_init_zero   {false, gizclaw_rpc_v1_FirmwareSlot_init_zero, false, gizclaw_rpc_v1_FirmwareSlot_init_zero, false, gizclaw_rpc_v1_FirmwareSlot_init_zero, false, gizclaw_rpc_v1_FirmwareSlot_init_zero}
 
@@ -137,19 +120,12 @@ extern "C" {
 #define gizclaw_rpc_v1_FirmwareArtifactEntry_size_tag 5
 #define gizclaw_rpc_v1_FirmwareArtifactEntry_type_tag 6
 #define gizclaw_rpc_v1_FirmwareFilesDownloadRequest_channel_tag 1
-#define gizclaw_rpc_v1_FirmwareFilesDownloadRequest_firmware_id_tag 2
-#define gizclaw_rpc_v1_FirmwareFilesDownloadRequest_path_tag 3
+#define gizclaw_rpc_v1_FirmwareFilesDownloadRequest_path_tag 2
 #define gizclaw_rpc_v1_FirmwareFilesDownloadResponse_artifact_tag 1
 #define gizclaw_rpc_v1_FirmwareFilesDownloadResponse_channel_tag 2
 #define gizclaw_rpc_v1_FirmwareFilesDownloadResponse_file_tag 3
 #define gizclaw_rpc_v1_FirmwareFilesDownloadResponse_firmware_id_tag 4
 #define gizclaw_rpc_v1_FirmwareFilesDownloadResponse_path_tag 5
-#define gizclaw_rpc_v1_FirmwareGetRequest_firmware_id_tag 1
-#define gizclaw_rpc_v1_FirmwareListRequest_cursor_tag 1
-#define gizclaw_rpc_v1_FirmwareListRequest_limit_tag 2
-#define gizclaw_rpc_v1_FirmwareListResponse_has_next_tag 1
-#define gizclaw_rpc_v1_FirmwareListResponse_items_tag 2
-#define gizclaw_rpc_v1_FirmwareListResponse_next_cursor_tag 3
 #define gizclaw_rpc_v1_FirmwareSlot_artifact_tag 1
 #define gizclaw_rpc_v1_FirmwareSlot_description_tag 2
 #define gizclaw_rpc_v1_FirmwareSlots_beta_tag    1
@@ -197,8 +173,7 @@ X(a, STATIC,   SINGULAR, UENUM,    type,              6)
 
 #define gizclaw_rpc_v1_FirmwareFilesDownloadRequest_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, UENUM,    channel,           1) \
-X(a, CALLBACK, SINGULAR, STRING,   firmware_id,       2) \
-X(a, CALLBACK, SINGULAR, STRING,   path,              3)
+X(a, CALLBACK, SINGULAR, STRING,   path,              2)
 #define gizclaw_rpc_v1_FirmwareFilesDownloadRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_FirmwareFilesDownloadRequest_DEFAULT NULL
 
@@ -214,8 +189,8 @@ X(a, CALLBACK, SINGULAR, STRING,   path,              5)
 #define gizclaw_rpc_v1_FirmwareFilesDownloadResponse_file_MSGTYPE gizclaw_rpc_v1_FirmwareArtifactEntry
 
 #define gizclaw_rpc_v1_FirmwareGetRequest_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   firmware_id,       1)
-#define gizclaw_rpc_v1_FirmwareGetRequest_CALLBACK pb_default_field_callback
+
+#define gizclaw_rpc_v1_FirmwareGetRequest_CALLBACK NULL
 #define gizclaw_rpc_v1_FirmwareGetRequest_DEFAULT NULL
 
 #define gizclaw_rpc_v1_FirmwareGetResponse_FIELDLIST(X, a) \
@@ -223,20 +198,6 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
 #define gizclaw_rpc_v1_FirmwareGetResponse_CALLBACK NULL
 #define gizclaw_rpc_v1_FirmwareGetResponse_DEFAULT NULL
 #define gizclaw_rpc_v1_FirmwareGetResponse_value_MSGTYPE gizclaw_rpc_v1_Firmware
-
-#define gizclaw_rpc_v1_FirmwareListRequest_FIELDLIST(X, a) \
-X(a, CALLBACK, OPTIONAL, STRING,   cursor,            1) \
-X(a, STATIC,   OPTIONAL, INT64,    limit,             2)
-#define gizclaw_rpc_v1_FirmwareListRequest_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_FirmwareListRequest_DEFAULT NULL
-
-#define gizclaw_rpc_v1_FirmwareListResponse_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, BOOL,     has_next,          1) \
-X(a, CALLBACK, REPEATED, MESSAGE,  items,             2) \
-X(a, CALLBACK, OPTIONAL, STRING,   next_cursor,       3)
-#define gizclaw_rpc_v1_FirmwareListResponse_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_FirmwareListResponse_DEFAULT NULL
-#define gizclaw_rpc_v1_FirmwareListResponse_items_MSGTYPE gizclaw_rpc_v1_Firmware
 
 #define gizclaw_rpc_v1_FirmwareSlot_FIELDLIST(X, a) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  artifact,          1) \
@@ -264,8 +225,6 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_FirmwareFilesDownloadRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_FirmwareFilesDownloadResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_FirmwareGetRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_FirmwareGetResponse_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_FirmwareListRequest_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_FirmwareListResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_FirmwareSlot_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_FirmwareSlots_msg;
 
@@ -277,8 +236,6 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_FirmwareSlots_msg;
 #define gizclaw_rpc_v1_FirmwareFilesDownloadResponse_fields &gizclaw_rpc_v1_FirmwareFilesDownloadResponse_msg
 #define gizclaw_rpc_v1_FirmwareGetRequest_fields &gizclaw_rpc_v1_FirmwareGetRequest_msg
 #define gizclaw_rpc_v1_FirmwareGetResponse_fields &gizclaw_rpc_v1_FirmwareGetResponse_msg
-#define gizclaw_rpc_v1_FirmwareListRequest_fields &gizclaw_rpc_v1_FirmwareListRequest_msg
-#define gizclaw_rpc_v1_FirmwareListResponse_fields &gizclaw_rpc_v1_FirmwareListResponse_msg
 #define gizclaw_rpc_v1_FirmwareSlot_fields &gizclaw_rpc_v1_FirmwareSlot_msg
 #define gizclaw_rpc_v1_FirmwareSlots_fields &gizclaw_rpc_v1_FirmwareSlots_msg
 
@@ -288,12 +245,10 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_FirmwareSlots_msg;
 /* gizclaw_rpc_v1_FirmwareArtifactEntry_size depends on runtime parameters */
 /* gizclaw_rpc_v1_FirmwareFilesDownloadRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_FirmwareFilesDownloadResponse_size depends on runtime parameters */
-/* gizclaw_rpc_v1_FirmwareGetRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_FirmwareGetResponse_size depends on runtime parameters */
-/* gizclaw_rpc_v1_FirmwareListRequest_size depends on runtime parameters */
-/* gizclaw_rpc_v1_FirmwareListResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_FirmwareSlot_size depends on runtime parameters */
 /* gizclaw_rpc_v1_FirmwareSlots_size depends on runtime parameters */
+#define gizclaw_rpc_v1_FirmwareGetRequest_size   0
 
 #ifdef __cplusplus
 } /* extern "C" */

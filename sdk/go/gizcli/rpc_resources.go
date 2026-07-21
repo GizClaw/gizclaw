@@ -20,6 +20,7 @@ func (c *rpcClient) Register(ctx context.Context, conn net.Conn, id, token strin
 	}
 	return &rpcpb.ServerRegisterResponse{
 		RuntimeProfileName: result.RuntimeProfileName,
+		FirmwareId:         result.FirmwareID,
 	}, nil
 }
 

@@ -368,12 +368,10 @@ class FirmwareArtifactEntry extends $pb.GeneratedMessage {
 class FirmwareFilesDownloadRequest extends $pb.GeneratedMessage {
   factory FirmwareFilesDownloadRequest({
     $0.FirmwareChannelName? channel,
-    $core.String? firmwareId,
     $core.String? path,
   }) {
     final result = create();
     if (channel != null) result.channel = channel;
-    if (firmwareId != null) result.firmwareId = firmwareId;
     if (path != null) result.path = path;
     return result;
   }
@@ -393,8 +391,7 @@ class FirmwareFilesDownloadRequest extends $pb.GeneratedMessage {
       createEmptyInstance: create)
     ..aE<$0.FirmwareChannelName>(1, _omitFieldNames ? '' : 'channel',
         enumValues: $0.FirmwareChannelName.values)
-    ..aOS(2, _omitFieldNames ? '' : 'firmwareId')
-    ..aOS(3, _omitFieldNames ? '' : 'path')
+    ..aOS(2, _omitFieldNames ? '' : 'path')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -429,22 +426,13 @@ class FirmwareFilesDownloadRequest extends $pb.GeneratedMessage {
   void clearChannel() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $core.String get firmwareId => $_getSZ(1);
+  $core.String get path => $_getSZ(1);
   @$pb.TagNumber(2)
-  set firmwareId($core.String value) => $_setString(1, value);
+  set path($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
-  $core.bool hasFirmwareId() => $_has(1);
+  $core.bool hasPath() => $_has(1);
   @$pb.TagNumber(2)
-  void clearFirmwareId() => $_clearField(2);
-
-  @$pb.TagNumber(3)
-  $core.String get path => $_getSZ(2);
-  @$pb.TagNumber(3)
-  set path($core.String value) => $_setString(2, value);
-  @$pb.TagNumber(3)
-  $core.bool hasPath() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearPath() => $_clearField(3);
+  void clearPath() => $_clearField(2);
 }
 
 class FirmwareFilesDownloadResponse extends $pb.GeneratedMessage {
@@ -560,13 +548,7 @@ class FirmwareFilesDownloadResponse extends $pb.GeneratedMessage {
 }
 
 class FirmwareGetRequest extends $pb.GeneratedMessage {
-  factory FirmwareGetRequest({
-    $core.String? firmwareId,
-  }) {
-    final result = create();
-    if (firmwareId != null) result.firmwareId = firmwareId;
-    return result;
-  }
+  factory FirmwareGetRequest() => create();
 
   FirmwareGetRequest._();
 
@@ -581,7 +563,6 @@ class FirmwareGetRequest extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'FirmwareGetRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'firmwareId')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -602,15 +583,6 @@ class FirmwareGetRequest extends $pb.GeneratedMessage {
   static FirmwareGetRequest getDefault() => _defaultInstance ??=
       $pb.GeneratedMessage.$_defaultFor<FirmwareGetRequest>(create);
   static FirmwareGetRequest? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.String get firmwareId => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set firmwareId($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasFirmwareId() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearFirmwareId() => $_clearField(1);
 }
 
 class FirmwareGetResponse extends $pb.GeneratedMessage {
@@ -668,145 +640,6 @@ class FirmwareGetResponse extends $pb.GeneratedMessage {
   void clearValue() => $_clearField(1);
   @$pb.TagNumber(1)
   Firmware ensureValue() => $_ensure(0);
-}
-
-class FirmwareListRequest extends $pb.GeneratedMessage {
-  factory FirmwareListRequest({
-    $core.String? cursor,
-    $fixnum.Int64? limit,
-  }) {
-    final result = create();
-    if (cursor != null) result.cursor = cursor;
-    if (limit != null) result.limit = limit;
-    return result;
-  }
-
-  FirmwareListRequest._();
-
-  factory FirmwareListRequest.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory FirmwareListRequest.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'FirmwareListRequest',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'cursor')
-    ..aInt64(2, _omitFieldNames ? '' : 'limit')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  FirmwareListRequest clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  FirmwareListRequest copyWith(void Function(FirmwareListRequest) updates) =>
-      super.copyWith((message) => updates(message as FirmwareListRequest))
-          as FirmwareListRequest;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static FirmwareListRequest create() => FirmwareListRequest._();
-  @$core.override
-  FirmwareListRequest createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static FirmwareListRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<FirmwareListRequest>(create);
-  static FirmwareListRequest? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.String get cursor => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set cursor($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasCursor() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearCursor() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $fixnum.Int64 get limit => $_getI64(1);
-  @$pb.TagNumber(2)
-  set limit($fixnum.Int64 value) => $_setInt64(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasLimit() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearLimit() => $_clearField(2);
-}
-
-class FirmwareListResponse extends $pb.GeneratedMessage {
-  factory FirmwareListResponse({
-    $core.bool? hasNext,
-    $core.Iterable<Firmware>? items,
-    $core.String? nextCursor,
-  }) {
-    final result = create();
-    if (hasNext != null) result.hasNext = hasNext;
-    if (items != null) result.items.addAll(items);
-    if (nextCursor != null) result.nextCursor = nextCursor;
-    return result;
-  }
-
-  FirmwareListResponse._();
-
-  factory FirmwareListResponse.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory FirmwareListResponse.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'FirmwareListResponse',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aOB(1, _omitFieldNames ? '' : 'hasNext')
-    ..pPM<Firmware>(2, _omitFieldNames ? '' : 'items',
-        subBuilder: Firmware.create)
-    ..aOS(3, _omitFieldNames ? '' : 'nextCursor')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  FirmwareListResponse clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  FirmwareListResponse copyWith(void Function(FirmwareListResponse) updates) =>
-      super.copyWith((message) => updates(message as FirmwareListResponse))
-          as FirmwareListResponse;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static FirmwareListResponse create() => FirmwareListResponse._();
-  @$core.override
-  FirmwareListResponse createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static FirmwareListResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<FirmwareListResponse>(create);
-  static FirmwareListResponse? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.bool get hasNext => $_getBF(0);
-  @$pb.TagNumber(1)
-  set hasNext($core.bool value) => $_setBool(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasHasNext() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearHasNext() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $pb.PbList<Firmware> get items => $_getList(1);
-
-  @$pb.TagNumber(3)
-  $core.String get nextCursor => $_getSZ(2);
-  @$pb.TagNumber(3)
-  set nextCursor($core.String value) => $_setString(2, value);
-  @$pb.TagNumber(3)
-  $core.bool hasNextCursor() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearNextCursor() => $_clearField(3);
 }
 
 class FirmwareSlot extends $pb.GeneratedMessage {

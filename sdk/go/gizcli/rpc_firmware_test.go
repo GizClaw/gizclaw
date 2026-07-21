@@ -22,17 +22,13 @@ func TestDownloadFirmwareRejectsNilOutput(t *testing.T) {
 
 func TestClientFirmwareMethodsRequireConnection(t *testing.T) {
 	client := &Client{}
-	if _, err := client.ListFirmwares(context.Background(), "firmware-list", rpcapi.FirmwareListRequest{}); err == nil || !strings.Contains(err.Error(), "client is not connected") {
-		t.Fatalf("ListFirmwares disconnected err = %v", err)
-	}
-	if _, err := client.GetFirmware(context.Background(), "firmware-get", rpcapi.FirmwareGetRequest{FirmwareId: "devkit"}); err == nil || !strings.Contains(err.Error(), "client is not connected") {
+	if _, err := client.GetFirmware(context.Background(), "firmware-get"); err == nil || !strings.Contains(err.Error(), "client is not connected") {
 		t.Fatalf("GetFirmware disconnected err = %v", err)
 	}
 	var out bytes.Buffer
 	if _, err := client.DownloadFirmware(context.Background(), "firmware-download", rpcapi.FirmwareFilesDownloadRequest{
-		FirmwareId: "devkit",
-		Channel:    rpcapi.FirmwareChannelNameStable,
-		Path:       "firmware.bin",
+		Channel: rpcapi.FirmwareChannelNameStable,
+		Path:    "firmware.bin",
 	}, &out); err == nil || !strings.Contains(err.Error(), "client is not connected") {
 		t.Fatalf("DownloadFirmware disconnected err = %v", err)
 	}
@@ -45,12 +41,8 @@ func TestClientFirmwareMethodsUseRPCConnection(t *testing.T) {
 	listener := serverConn.ListenService(ServicePeerRPC)
 	defer listener.Close()
 
-	serverErrCh := make(chan error, 3)
+	serverErrCh := make(chan error, 2)
 	go func() {
-		serveFirmwareRPCResponse(t, listener, rpcapi.RPCMethodServerFirmwareList, rpcapi.FirmwareListResponse{
-			Items:   []rpcapi.Firmware{{Name: "devkit"}},
-			HasNext: false,
-		}, (*rpcapi.RPCPayload).FromFirmwareListResponse, nil, serverErrCh)
 		serveFirmwareRPCResponse(t, listener, rpcapi.RPCMethodServerFirmwareGet, rpcapi.FirmwareGetResponse{Name: "devkit"}, (*rpcapi.RPCPayload).FromFirmwareGetResponse, nil, serverErrCh)
 		serveFirmwareRPCResponse(t, listener, rpcapi.RPCMethodServerFirmwareFilesDownload, rpcapi.FirmwareFilesDownloadResponse{
 			FirmwareId: "devkit",
@@ -60,15 +52,8 @@ func TestClientFirmwareMethodsUseRPCConnection(t *testing.T) {
 			File:       rpcapi.FirmwareArtifactEntry{Path: "firmware.bin", Type: rpcapi.FirmwareArtifactEntryTypeFile, Size: int64(len("firmware-payload"))},
 		}, (*rpcapi.RPCPayload).FromFirmwareFilesDownloadResponse, []byte("firmware-payload"), serverErrCh)
 	}()
-	list, err := client.ListFirmwares(context.Background(), "firmware-list", rpcapi.FirmwareListRequest{})
-	if err != nil {
-		t.Fatalf("ListFirmwares error = %v", err)
-	}
-	if len(list.Items) != 1 || list.Items[0].Name != "devkit" {
-		t.Fatalf("ListFirmwares = %#v", list)
-	}
 
-	got, err := client.GetFirmware(context.Background(), "firmware-get", rpcapi.FirmwareGetRequest{FirmwareId: "devkit"})
+	got, err := client.GetFirmware(context.Background(), "firmware-get")
 	if err != nil {
 		t.Fatalf("GetFirmware error = %v", err)
 	}
@@ -79,9 +64,8 @@ func TestClientFirmwareMethodsUseRPCConnection(t *testing.T) {
 	payload := []byte("firmware-payload")
 	var out bytes.Buffer
 	download, err := client.DownloadFirmware(context.Background(), "firmware-download", rpcapi.FirmwareFilesDownloadRequest{
-		FirmwareId: "devkit",
-		Channel:    rpcapi.FirmwareChannelNameStable,
-		Path:       "firmware.bin",
+		Channel: rpcapi.FirmwareChannelNameStable,
+		Path:    "firmware.bin",
 	}, &out)
 	if err != nil {
 		t.Fatalf("DownloadFirmware error = %v", err)
@@ -90,7 +74,7 @@ func TestClientFirmwareMethodsUseRPCConnection(t *testing.T) {
 		t.Fatalf("DownloadFirmware = %#v payload=%q", download, out.String())
 	}
 
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 2; i++ {
 		if err := <-serverErrCh; err != nil {
 			t.Fatalf("server error = %v", err)
 		}
@@ -120,9 +104,8 @@ func TestDownloadFirmwareReturnsRPCError(t *testing.T) {
 	client := &rpcClient{}
 	var out bytes.Buffer
 	_, err := client.DownloadFirmware(context.Background(), clientSide, "firmware-download", rpcapi.FirmwareFilesDownloadRequest{
-		FirmwareId: "devkit",
-		Channel:    rpcapi.FirmwareChannelNameStable,
-		Path:       "firmware.bin",
+		Channel: rpcapi.FirmwareChannelNameStable,
+		Path:    "firmware.bin",
 	}, &out)
 	if err == nil || !strings.Contains(err.Error(), "firmware artifact not found") {
 		t.Fatalf("DownloadFirmware RPC error = %v", err)
@@ -186,9 +169,8 @@ func TestDownloadFirmwareReadsContinuationMetadata(t *testing.T) {
 	client := &rpcClient{}
 	var out bytes.Buffer
 	download, err := client.DownloadFirmware(context.Background(), clientSide, "firmware-download", rpcapi.FirmwareFilesDownloadRequest{
-		FirmwareId: "devkit",
-		Channel:    rpcapi.FirmwareChannelNameStable,
-		Path:       "firmware.bin",
+		Channel: rpcapi.FirmwareChannelNameStable,
+		Path:    "firmware.bin",
 	}, &out)
 	if err != nil {
 		t.Fatalf("DownloadFirmware continuation metadata error = %v", err)

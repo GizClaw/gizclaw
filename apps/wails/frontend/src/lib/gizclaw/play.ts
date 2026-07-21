@@ -143,7 +143,7 @@ export function createRPCPlayDataClient(rpc: PeerRPCClient): PlayDataClient {
         captureCall(RPC_METHODS["server.contact.list"], () => rpc.call(RPC_METHODS["server.contact.list"], {})),
         captureCall(RPC_METHODS["server.friend.list"], () => rpc.call(RPC_METHODS["server.friend.list"], {})),
         captureCall(RPC_METHODS["server.friend_group.list"], () => rpc.call(RPC_METHODS["server.friend_group.list"], {})),
-        captureCall(RPC_METHODS["server.firmware.list"], () => rpc.call(RPC_METHODS["server.firmware.list"], {})),
+        captureCall(RPC_METHODS["server.firmware.get"], () => rpc.call(RPC_METHODS["server.firmware.get"], {})),
         captureCall(RPC_METHODS["server.workspace.list"], async () => ({
           ...(await collectCollections(await Promise.all(collections.map((collection) => collectCollectionPages(
             (params) => rpc.call(RPC_METHODS["server.workspace.list"], params),
@@ -164,7 +164,7 @@ export function createRPCPlayDataClient(rpc: PeerRPCClient): PlayDataClient {
       return {
         contacts: listItems(contacts.value).map((item) => itemToResourceRow(item, "contact")),
         credentials: [],
-        firmwares: listItems(firmwares.value).map((item) => itemToResourceRow(item, "firmware")),
+        firmwares: firmwares.value == null ? [] : [itemToResourceRow(firmwares.value, "firmware")],
         friendGroups: listItems(friendGroups.value).map((item) => itemToResourceRow(item, "friend-group")),
         friends: listItems(friends.value).map((item) => itemToResourceRow(item, "friend")),
         history: listItems(history.value).map(itemToHistoryRow),

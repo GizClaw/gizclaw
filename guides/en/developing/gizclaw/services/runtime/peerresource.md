@@ -15,4 +15,6 @@ Workflow list requires an explicit Collection and preserves the dynamic membersh
 
 Peer resource create/put/delete exists only for Workspace state. Admin owns canonical Workflow, Model, Credential, and Tool mutation. Workspace create validates `collection` plus `workflow_alias`, stores Collection as an internal label, and list performs exact Collection filtering. Generic labels remain an Admin/storage detail and are not exposed in the Peer DTO.
 
+Firmware is not part of the RuntimeProfile alias catalog. A RegistrationToken may bind one Firmware release line to a Peer; `server.firmware.get` and download both resolve that caller binding, while the device selects a channel only in each download request. Peer RPC does not expose a Firmware list.
+
 Catalog resolution takes a fresh profile snapshot for each operation. A dangling alias is unavailable without exposing its canonical target. Removing a Workflow alias does not remove or hide existing Workspace state; execution returns not found until a compatible alias is available again.

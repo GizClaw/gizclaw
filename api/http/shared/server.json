@@ -160,52 +160,10 @@
           "pending"
         ]
       },
-      "FirmwareListRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "cursor": {
-            "type": "string"
-          },
-          "limit": {
-            "type": "integer",
-            "minimum": 1
-          }
-        }
-      },
-      "FirmwareListResponse": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "../shared/firmware.json#/components/schemas/Firmware"
-            }
-          },
-          "has_next": {
-            "type": "boolean"
-          },
-          "next_cursor": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "items",
-          "has_next"
-        ]
-      },
       "FirmwareGetRequest": {
         "type": "object",
-        "required": [
-          "firmware_id"
-        ],
         "additionalProperties": false,
-        "properties": {
-          "firmware_id": {
-            "type": "string"
-          }
-        }
+        "properties": {}
       },
       "FirmwareGetResponse": {
         "$ref": "../shared/firmware.json#/components/schemas/Firmware"
@@ -1560,15 +1518,11 @@
       "FirmwareFilesDownloadRequest": {
         "type": "object",
         "required": [
-          "firmware_id",
           "channel",
           "path"
         ],
         "additionalProperties": false,
         "properties": {
-          "firmware_id": {
-            "type": "string"
-          },
           "channel": {
             "$ref": "#/components/schemas/FirmwareChannelName"
           },
