@@ -10,6 +10,14 @@ Pet adoption resolves rules from the current connection's RuntimeProfile snapsho
 
 A profile with no valid PetDef cannot adopt a Pet, and a GameDef not allowed by the current profile cannot submit a game result. Invalid aliases and reward references fail RuntimeProfile validation. Deleting a definition or RuntimeProfile does not cascade into existing Gameplay history.
 
+## Pet identity and adoption retries
+
+`runtime.adopt` accepts an optional caller-provided `id`. The ID is a durable Pet resource identity, not a separate operation-level idempotency key. A device that needs retry-safe adoption generates and persists a valid GizClaw custom ID before the first request, then reuses it after a timeout, disconnect, or other uncertain response.
+
+Pet IDs are scoped by the authenticated Peer. The first successful adoption of `(peer, id)` creates one Pet, one system Workspace, one adoption transaction, and one points charge. Repeating that adoption under the same active RuntimeProfile returns the existing Pet, the current Points account, and the original adoption transaction without selecting another PetDef or writing again. A different `display_name` on the retry does not rename the Pet; callers use `server.pet.put` for that operation.
+
+Different Peers may use the same textual Pet ID. Their globally named internal Workspaces remain distinct, and every Pet RPC resolves both the authenticated Peer and Pet ID. One Peer cannot address another Peer's Pet. The same Peer cannot reuse an ID across RuntimeProfiles or after deleting the Pet because retained adoption history continues to reserve it. Omitting `id` preserves Server-generated IDs and treats each successful call as a new adoption.
+
 ## Fixed Pet contract
 
 Every Pet has the same `life`, `health`, `satiety`, `hygiene`, `mood`, and `energy` stats in the fixed 0..100 range. Adoption initializes every stat to 100 and progression to `experience = 0`, `level = 1`. The behavior contract is fixed to `feed`, `bathe`, `play`, and `heal`, which raise satiety, hygiene, mood, and health respectively. PetDef does not define stat or behavior semantics. Its `visual.bindings.behaviors` and `visual.bindings.states` bind the fixed contract to that PetDef's PIXA clips. `idle`, `sick`, `dead`, and optional `sleep` are state visuals, not Drive behaviors.

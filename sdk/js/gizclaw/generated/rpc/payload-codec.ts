@@ -773,6 +773,7 @@ export type PetActions = {
 };
 export type PetAdoptRequest = {
   "display_name"?: string;
+  "id"?: string;
 };
 export type PetAdoptResponse = {
   "pet": Pet;
@@ -4629,6 +4630,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "display_name",
         "number": 1,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "id",
+        "number": 2,
         "optional": true,
         "type": "string"
       }

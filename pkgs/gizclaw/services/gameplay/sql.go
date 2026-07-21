@@ -72,6 +72,10 @@ func scanPet(row rowScanner) (apitypes.Pet, error) {
 	return pet, nil
 }
 
+func findPetByOwnerID(ctx context.Context, db queryRebinder, owner, id string) (apitypes.Pet, error) {
+	return scanPet(db.QueryRowContext(ctx, db.Rebind(petSelectSQL()+` WHERE owner_public_key = ? AND id = ?`), strings.TrimSpace(owner), strings.TrimSpace(id)))
+}
+
 func insertPet(ctx context.Context, tx *sqlx.Tx, pet apitypes.Pet) error {
 	statsJSON, err := marshalJSON(pet.Stats)
 	if err != nil {
@@ -143,6 +147,10 @@ func scanPointsAccount(row rowScanner) (apitypes.PointsAccount, error) {
 	return account, nil
 }
 
+func findPointsAccount(ctx context.Context, db queryRebinder, owner, runtimeProfileName string) (apitypes.PointsAccount, error) {
+	return scanPointsAccount(db.QueryRowContext(ctx, db.Rebind(pointsAccountSelectSQL()+` WHERE owner_public_key = ? AND runtime_profile_name = ?`), strings.TrimSpace(owner), strings.TrimSpace(runtimeProfileName)))
+}
+
 func insertPointsAccount(ctx context.Context, tx *sqlx.Tx, account apitypes.PointsAccount) error {
 	_, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_points_accounts (owner_public_key, runtime_profile_name, balance, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`),
 		account.OwnerPublicKey, account.RuntimeProfileName, account.Balance, formatTime(account.CreatedAt), formatTime(account.UpdatedAt))
@@ -172,6 +180,10 @@ func insertPointsTransaction(ctx context.Context, tx *sqlx.Tx, item apitypes.Poi
 	_, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_points_transactions (owner_public_key, id, runtime_profile_name, pet_id, game_result_id, reward_grant_id, delta, balance_after, reason, source_type, source_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
 		item.OwnerPublicKey, item.Id, item.RuntimeProfileName, nullableString(item.PetId), nullableString(item.GameResultId), nullableString(item.RewardGrantId), item.Delta, item.BalanceAfter, item.Reason, item.SourceType, item.SourceId, formatTime(item.CreatedAt))
 	return err
+}
+
+func findPetAdoptionTransaction(ctx context.Context, db queryRebinder, owner, petID string) (apitypes.PointsTransaction, error) {
+	return scanPointsTransaction(db.QueryRowContext(ctx, db.Rebind(pointsTransactionSelectSQL()+` WHERE owner_public_key = ? AND source_type = 'pet' AND source_id = ? AND reason = 'pet.adopt'`), strings.TrimSpace(owner), strings.TrimSpace(petID)))
 }
 
 func badgeSelectSQL() string {

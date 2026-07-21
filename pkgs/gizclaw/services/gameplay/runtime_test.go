@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -71,6 +72,204 @@ func TestRuntimeAdoptDoesNotDeleteExistingSystemWorkspaceOnIDCollision(t *testin
 	}
 	if len(workspaces.deleted) != 0 {
 		t.Fatalf("deleted workspaces = %#v, want existing workspace preserved", workspaces.deleted)
+	}
+}
+
+func TestRuntimeAdoptWithCallerIDIsIdempotent(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 7, 22, 9, 0, 0, 0, time.UTC)
+	catalog := testCatalog(t, now)
+	profile := seedGameplayCatalog(t, ctx, catalog)
+	ctx = WithRuntimeProfile(ctx, profile)
+	workspaces := &recordingWorkspaceService{}
+	pickCount := 0
+	runtime := &Runtime{
+		DB:         testDB(t),
+		Catalog:    catalog,
+		Workflows:  petWorkflowService{},
+		Workspaces: workspaces,
+		Now:        func() time.Time { return now },
+		NewID:      sequentialIDs("adopt-txn"),
+		PickWeight: func(int64) int64 {
+			pickCount++
+			return 0
+		},
+	}
+	petID := "device-pet-01"
+	displayName := "Miso"
+	first, err := runtime.AdoptPet(ctx, "peer-a", apitypes.PetAdoptRequest{Id: &petID, DisplayName: &displayName})
+	if err != nil {
+		t.Fatalf("AdoptPet(first) error = %v", err)
+	}
+	if first.Pet.Id != petID || first.Pet.WorkspaceName != petWorkspaceName("peer-a", petID) || first.Transaction.Id != "adopt-txn" {
+		t.Fatalf("AdoptPet(first) = %#v", first)
+	}
+	if _, err := runtime.DB.Exec(`UPDATE gameplay_points_accounts SET balance = 0 WHERE owner_public_key = ?`, "peer-a"); err != nil {
+		t.Fatalf("set current Points balance: %v", err)
+	}
+	changedName := "Changed"
+	retry, err := runtime.AdoptPet(ctx, "peer-a", apitypes.PetAdoptRequest{Id: &petID, DisplayName: &changedName})
+	if err != nil {
+		t.Fatalf("AdoptPet(retry) error = %v", err)
+	}
+	if retry.Pet.Id != first.Pet.Id || retry.Pet.WorkspaceName != first.Pet.WorkspaceName || retry.Transaction.Id != first.Transaction.Id {
+		t.Fatalf("AdoptPet(retry) = %#v, want %#v", retry, first)
+	}
+	if retry.Points.Balance != 0 || retry.Transaction.BalanceAfter != first.Transaction.BalanceAfter {
+		t.Fatalf("AdoptPet(retry) Points = %#v, transaction = %#v; want current balance and original transaction", retry.Points, retry.Transaction)
+	}
+	if retry.Pet.DisplayName != displayName || pickCount != 1 || len(workspaces.created) != 1 {
+		t.Fatalf("retry mutated adoption: name=%q picks=%d workspaces=%d", retry.Pet.DisplayName, pickCount, len(workspaces.created))
+	}
+	var pets, transactions int
+	if err := runtime.DB.QueryRow(`SELECT count(*) FROM gameplay_pets WHERE owner_public_key = ? AND id = ?`, "peer-a", petID).Scan(&pets); err != nil {
+		t.Fatalf("count Pets: %v", err)
+	}
+	if err := runtime.DB.QueryRow(`SELECT count(*) FROM gameplay_points_transactions WHERE owner_public_key = ? AND source_type = 'pet' AND source_id = ? AND reason = 'pet.adopt'`, "peer-a", petID).Scan(&transactions); err != nil {
+		t.Fatalf("count adoption transactions: %v", err)
+	}
+	if pets != 1 || transactions != 1 {
+		t.Fatalf("persisted Pets=%d transactions=%d, want 1 and 1", pets, transactions)
+	}
+}
+
+func TestRuntimeAdoptCallerIDScopesIdentityToPeer(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 7, 22, 9, 30, 0, 0, time.UTC)
+	catalog := testCatalog(t, now)
+	profile := seedGameplayCatalog(t, ctx, catalog)
+	ctx = WithRuntimeProfile(ctx, profile)
+	workspaces := &recordingWorkspaceService{}
+	runtime := &Runtime{
+		DB:         testDB(t),
+		Catalog:    catalog,
+		Workflows:  petWorkflowService{},
+		Workspaces: workspaces,
+		Now:        func() time.Time { return now },
+		NewID:      sequentialIDs("txn-a", "txn-b", "txn-c"),
+		PickWeight: func(int64) int64 { return 0 },
+	}
+	petID := "shared-pet-01"
+	first, err := runtime.AdoptPet(ctx, "peer-a", apitypes.PetAdoptRequest{Id: &petID})
+	if err != nil {
+		t.Fatalf("AdoptPet(peer-a) error = %v", err)
+	}
+	second, err := runtime.AdoptPet(ctx, "peer-b", apitypes.PetAdoptRequest{Id: &petID})
+	if err != nil {
+		t.Fatalf("AdoptPet(peer-b) error = %v", err)
+	}
+	if first.Pet.Id != second.Pet.Id || first.Pet.OwnerPublicKey == second.Pet.OwnerPublicKey || first.Pet.WorkspaceName == second.Pet.WorkspaceName {
+		t.Fatalf("peer-scoped Pets = %#v and %#v", first.Pet, second.Pet)
+	}
+	got, err := runtime.GetPet(ctx, "peer-a", second.Pet.Id)
+	if err != nil {
+		t.Fatalf("GetPet(peer-a own textual ID) error = %v", err)
+	}
+	if got.OwnerPublicKey != "peer-a" || got.WorkspaceName != first.Pet.WorkspaceName {
+		t.Fatalf("GetPet(peer-a own textual ID) = %#v, want peer-a Pet", got)
+	}
+	secondPetID := "shared-pet-02"
+	third, err := runtime.AdoptPet(ctx, "peer-a", apitypes.PetAdoptRequest{Id: &secondPetID})
+	if err != nil {
+		t.Fatalf("AdoptPet(peer-a second ID) error = %v", err)
+	}
+	if third.Pet.Id != secondPetID || third.Pet.OwnerPublicKey != "peer-a" || third.Pet.WorkspaceName == first.Pet.WorkspaceName {
+		t.Fatalf("AdoptPet(peer-a second ID) = %#v", third.Pet)
+	}
+	if len(workspaces.created) != 3 {
+		t.Fatalf("created workspaces = %d, want 3", len(workspaces.created))
+	}
+}
+
+func TestRuntimeAdoptCallerIDRejectsInvalidProfileAndDeletedReuse(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 7, 22, 10, 0, 0, 0, time.UTC)
+	catalog := testCatalog(t, now)
+	profile := seedGameplayCatalog(t, ctx, catalog)
+	workspaces := &recordingWorkspaceService{}
+	runtime := &Runtime{
+		DB:         testDB(t),
+		Catalog:    catalog,
+		Workflows:  petWorkflowService{},
+		Workspaces: workspaces,
+		Now:        func() time.Time { return now },
+		NewID:      sequentialIDs("adopt-txn"),
+		PickWeight: func(int64) int64 { return 0 },
+	}
+	invalidID := "short"
+	if _, err := runtime.AdoptPet(WithRuntimeProfile(ctx, profile), "peer-a", apitypes.PetAdoptRequest{Id: &invalidID}); err == nil {
+		t.Fatal("AdoptPet(invalid ID) error = nil")
+	}
+	if len(workspaces.created) != 0 {
+		t.Fatalf("invalid ID created %d workspaces", len(workspaces.created))
+	}
+	petID := "device-pet-02"
+	profileCtx := WithRuntimeProfile(ctx, profile)
+	if _, err := runtime.AdoptPet(profileCtx, "peer-a", apitypes.PetAdoptRequest{Id: &petID}); err != nil {
+		t.Fatalf("AdoptPet() error = %v", err)
+	}
+	otherProfile := profile
+	otherProfile.Name = "other"
+	if _, err := runtime.AdoptPet(WithRuntimeProfile(ctx, otherProfile), "peer-a", apitypes.PetAdoptRequest{Id: &petID}); !errors.Is(err, ErrPetIDConflict) {
+		t.Fatalf("AdoptPet(cross-profile) error = %v, want conflict", err)
+	}
+	if _, err := runtime.DeletePet(profileCtx, "peer-a", petID); err != nil {
+		t.Fatalf("DeletePet() error = %v", err)
+	}
+	if _, err := runtime.AdoptPet(profileCtx, "peer-a", apitypes.PetAdoptRequest{Id: &petID}); !errors.Is(err, ErrPetIDConflict) {
+		t.Fatalf("AdoptPet(deleted ID) error = %v, want conflict", err)
+	}
+}
+
+func TestRuntimeAdoptCallerIDSerializesConcurrentRetries(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 7, 22, 10, 30, 0, 0, time.UTC)
+	catalog := testCatalog(t, now)
+	profile := seedGameplayCatalog(t, ctx, catalog)
+	ctx = WithRuntimeProfile(ctx, profile)
+	workspaces := &recordingWorkspaceService{}
+	runtime := &Runtime{
+		DB:         testDB(t),
+		Catalog:    catalog,
+		Workflows:  petWorkflowService{},
+		Workspaces: workspaces,
+		Now:        func() time.Time { return now },
+		NewID:      sequentialIDs("adopt-txn"),
+		PickWeight: func(int64) int64 { return 0 },
+	}
+	if err := runtime.Migration(ctx); err != nil {
+		t.Fatalf("Migration() error = %v", err)
+	}
+	petID := "device-pet-03"
+	const workers = 8
+	start := make(chan struct{})
+	responses := make(chan apitypes.PetAdoptResponse, workers)
+	errs := make(chan error, workers)
+	var wg sync.WaitGroup
+	for range workers {
+		wg.Go(func() {
+			<-start
+			response, err := runtime.AdoptPet(ctx, "peer-a", apitypes.PetAdoptRequest{Id: &petID})
+			responses <- response
+			errs <- err
+		})
+	}
+	close(start)
+	wg.Wait()
+	close(responses)
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("AdoptPet(concurrent) error = %v", err)
+		}
+	}
+	for response := range responses {
+		if response.Pet.Id != petID || response.Transaction.Id != "adopt-txn" {
+			t.Fatalf("AdoptPet(concurrent) = %#v", response)
+		}
+	}
+	if len(workspaces.created) != 1 {
+		t.Fatalf("created workspaces = %d, want 1", len(workspaces.created))
 	}
 }
 
@@ -260,6 +459,7 @@ func testDB(t *testing.T) *sqlx.DB {
 	if err != nil {
 		t.Fatalf("sql.Open() error = %v", err)
 	}
+	db.SetMaxOpenConns(1)
 	t.Cleanup(func() { _ = db.Close() })
 	return db
 }
@@ -277,12 +477,15 @@ func sequentialIDs(ids ...string) func() string {
 }
 
 type recordingWorkspaceService struct {
+	mu        sync.Mutex
 	created   []adminhttp.WorkspaceUpsert
 	deleted   []string
 	deleteErr error
 }
 
 func (s *recordingWorkspaceService) CreateSystemWorkspace(_ context.Context, body adminhttp.WorkspaceUpsert) (apitypes.Workspace, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	for _, existing := range s.created {
 		if existing.Name == body.Name {
 			system := true
@@ -295,6 +498,8 @@ func (s *recordingWorkspaceService) CreateSystemWorkspace(_ context.Context, bod
 }
 
 func (s *recordingWorkspaceService) DeleteSystemWorkspace(_ context.Context, name string) (apitypes.Workspace, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.deleteErr != nil {
 		return apitypes.Workspace{}, s.deleteErr
 	}

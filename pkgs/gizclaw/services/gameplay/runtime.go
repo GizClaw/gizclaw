@@ -3,6 +3,7 @@ package gameplay
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
@@ -25,7 +27,11 @@ const defaultPetWorkflowName = "pet-care"
 
 var (
 	// ErrPetDead is returned when a Drive targets a terminal Pet.
-	ErrPetDead               = errors.New("gameplay: pet is dead")
+	ErrPetDead = errors.New("gameplay: pet is dead")
+	// ErrPetIDConflict is returned when a caller-assigned Pet ID is reserved by another adoption context or retained history.
+	ErrPetIDConflict = errors.New("gameplay: pet id is already reserved")
+	// ErrInvalidPetID is returned when a caller-assigned Pet ID is not canonical.
+	ErrInvalidPetID          = errors.New("gameplay: invalid pet id")
 	errPetWorkspaceNotFound  = errors.New("gameplay: pet workspace binding not found")
 	errPetWorkspaceAmbiguous = errors.New("gameplay: pet workspace binding is ambiguous")
 )
@@ -39,6 +45,7 @@ type Runtime struct {
 	NewID       func() string
 	PickWeight  func(total int64) int64
 	DecayPeriod time.Duration
+	adoptMu     [64]sync.Mutex
 	driveMu     [64]sync.Mutex
 }
 
@@ -158,6 +165,9 @@ func (r *Runtime) Migration(ctx context.Context) error {
 	if _, err := db.ExecContext(ctx, `CREATE UNIQUE INDEX IF NOT EXISTS gameplay_reward_grants_source_idx ON gameplay_reward_grants(owner_public_key, runtime_profile_name, source_type, source_id) WHERE source_id <> ''`); err != nil {
 		return err
 	}
+	if _, err := db.ExecContext(ctx, `CREATE UNIQUE INDEX IF NOT EXISTS gameplay_points_transactions_pet_adoption_idx ON gameplay_points_transactions(owner_public_key, source_id) WHERE source_type = 'pet' AND reason = 'pet.adopt'`); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -168,10 +178,37 @@ func (r *Runtime) AdoptPet(ctx context.Context, owner string, req apitypes.PetAd
 	if err := r.Migration(ctx); err != nil {
 		return apitypes.PetAdoptResponse{}, err
 	}
-	ruleset, err := r.resolveProfileRules(ctx, "")
+	if req.Id == nil {
+		ruleset, err := r.resolveProfileRules(ctx, "")
+		if err != nil {
+			return apitypes.PetAdoptResponse{}, err
+		}
+		petID := r.newID()
+		return r.createPetAdoption(ctx, owner, req, ruleset, petID, "pet-"+petID)
+	}
+
+	petID := *req.Id
+	if err := customid.ValidateField("id", petID); err != nil {
+		return apitypes.PetAdoptResponse{}, fmt.Errorf("%w: %w", ErrInvalidPetID, err)
+	}
+	profileRules, err := pointsRulesFromContext(ctx, "")
 	if err != nil {
 		return apitypes.PetAdoptResponse{}, err
 	}
+	mu := r.adoptionMutex(owner + "\x00" + petID)
+	mu.Lock()
+	defer mu.Unlock()
+	if response, found, err := r.completedAdoptionResponse(ctx, owner, profileRules.Name, petID); found || err != nil {
+		return response, err
+	}
+	ruleset, err := r.resolveProfileRules(ctx, profileRules.Name)
+	if err != nil {
+		return apitypes.PetAdoptResponse{}, err
+	}
+	return r.createPetAdoption(ctx, owner, req, ruleset, petID, petWorkspaceName(owner, petID))
+}
+
+func (r *Runtime) createPetAdoption(ctx context.Context, owner string, req apitypes.PetAdoptRequest, ruleset ProfileRules, petID, workspaceName string) (apitypes.PetAdoptResponse, error) {
 	poolEntry, err := r.pickPetDef(ruleset.Spec.PetPool)
 	if err != nil {
 		return apitypes.PetAdoptResponse{}, err
@@ -181,8 +218,6 @@ func (r *Runtime) AdoptPet(ctx context.Context, owner string, req apitypes.PetAd
 		return apitypes.PetAdoptResponse{}, err
 	}
 	workflowName := defaultPetWorkflowName
-	petID := r.newID()
-	workspaceName := "pet-" + petID
 	displayName := strings.TrimSpace(valueOrZero(req.DisplayName))
 	if displayName == "" {
 		displayName = petDefDisplayName(petDef)
@@ -238,6 +273,46 @@ func (r *Runtime) AdoptPet(ctx context.Context, owner string, req apitypes.PetAd
 	}
 	created = true
 	return apitypes.PetAdoptResponse{Pet: pet, Points: account, Transaction: txn}, nil
+}
+
+func (r *Runtime) completedAdoptionResponse(ctx context.Context, owner, runtimeProfileName, petID string) (apitypes.PetAdoptResponse, bool, error) {
+	db, err := r.db()
+	if err != nil {
+		return apitypes.PetAdoptResponse{}, false, err
+	}
+	pet, petErr := findPetByOwnerID(ctx, db, owner, petID)
+	txn, txnErr := findPetAdoptionTransaction(ctx, db, owner, petID)
+	if errors.Is(petErr, sql.ErrNoRows) {
+		if txnErr == nil {
+			return apitypes.PetAdoptResponse{}, true, fmt.Errorf("%w: %q belonged to a deleted Pet", ErrPetIDConflict, petID)
+		}
+		if errors.Is(txnErr, sql.ErrNoRows) {
+			return apitypes.PetAdoptResponse{}, false, nil
+		}
+		return apitypes.PetAdoptResponse{}, false, txnErr
+	}
+	if petErr != nil {
+		return apitypes.PetAdoptResponse{}, false, petErr
+	}
+	if pet.RuntimeProfileName != runtimeProfileName {
+		return apitypes.PetAdoptResponse{}, true, fmt.Errorf("%w: %q belongs to RuntimeProfile %q", ErrPetIDConflict, petID, pet.RuntimeProfileName)
+	}
+	if txnErr != nil {
+		return apitypes.PetAdoptResponse{}, true, fmt.Errorf("load adoption transaction for Pet %q: %w", petID, txnErr)
+	}
+	if txn.RuntimeProfileName != runtimeProfileName {
+		return apitypes.PetAdoptResponse{}, true, fmt.Errorf("adoption transaction for Pet %q belongs to RuntimeProfile %q", petID, txn.RuntimeProfileName)
+	}
+	account, err := findPointsAccount(ctx, db, owner, runtimeProfileName)
+	if err != nil {
+		return apitypes.PetAdoptResponse{}, true, fmt.Errorf("load points account for Pet %q: %w", petID, err)
+	}
+	return apitypes.PetAdoptResponse{Pet: pet, Points: account, Transaction: txn}, true, nil
+}
+
+func petWorkspaceName(owner, petID string) string {
+	digest := sha256.Sum256([]byte(owner + "\x00" + petID))
+	return fmt.Sprintf("pet-%x", digest[:20])
 }
 
 func (r *Runtime) ListPets(ctx context.Context, owner string, req apitypes.GameplayListRequest) (apitypes.PetListResponse, error) {
@@ -1294,6 +1369,12 @@ func (r *Runtime) driveMutex(key string) *sync.Mutex {
 	hash := fnv.New32a()
 	_, _ = hash.Write([]byte(key))
 	return &r.driveMu[hash.Sum32()%uint32(len(r.driveMu))]
+}
+
+func (r *Runtime) adoptionMutex(key string) *sync.Mutex {
+	hash := fnv.New32a()
+	_, _ = hash.Write([]byte(key))
+	return &r.adoptMu[hash.Sum32()%uint32(len(r.adoptMu))]
 }
 
 func sqlColumnExists(ctx context.Context, db *sqlx.DB, table, column string) (bool, error) {

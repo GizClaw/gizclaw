@@ -10,6 +10,14 @@ Gameplay 拥有 PetDef、BadgeDef、GameDef、Pet、points account、transaction
 
 没有有效 PetDef 的 profile 不能领养 Pet；未在当前 profile 中允许的 GameDef 不能提交 game result。非法 alias 和 reward reference 会使 RuntimeProfile validation 失败。删除定义或 RuntimeProfile 不级联删除已有 Gameplay 历史。
 
+## Pet 身份与领养重试
+
+`runtime.adopt` 接受可选的调用方 `id`。这个 ID 是长期存在的 Pet resource identity，不是独立的 operation-level idempotency key。需要安全重试领养的设备在第一次请求前生成并持久化一个有效的 GizClaw custom ID；发生 timeout、断线或无法确认响应结果时，继续使用同一个 ID。
+
+Pet ID 由已认证 Peer 限定 scope。第一次成功创建 `(peer, id)` 时只产生一个 Pet、一个 system Workspace、一条 adoption transaction 和一次 points 扣减；同一 active RuntimeProfile 下的重复领养返回已有 Pet、当前 Points account 和原始 adoption transaction，不重新选择 PetDef 或产生写入。重试携带不同 `display_name` 也不会重命名已有 Pet；重命名使用 `server.pet.put`。
+
+不同 Peer 可以使用相同文本 Pet ID，其全局命名的内部 Workspace 仍彼此独立；所有 Pet RPC 都同时根据 authenticated Peer 和 Pet ID 解析资源，因此一个 Peer 不能访问另一个 Peer 的 Pet。同一 Peer 不能跨 RuntimeProfile 复用 ID，也不能在删除 Pet 后复用 ID，因为保留的 adoption history 会继续占用该 ID。不传 `id` 时保持 Server 生成 ID 的行为，每次成功调用仍表示一次新的领养。
+
 ## 固定 Pet 契约
 
 所有 Pet 都拥有同一组 `life`、`health`、`satiety`、`hygiene`、`mood`、`energy` 数值，范围固定为 0..100，领养时全部为 100；成长状态固定为 `experience = 0`、`level = 1`。行为 contract 固定为 `feed`、`bathe`、`play`、`heal`，分别增加 satiety、hygiene、mood、health。PetDef 不定义数值和行为语义，只通过 `visual.bindings.behaviors` 和 `visual.bindings.states` 把固定 contract 绑定到自身 PIXA clip；`idle`、`sick`、`dead` 与可选 `sleep` 是状态动画，不是 Drive 行为。

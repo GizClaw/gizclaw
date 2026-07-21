@@ -117,7 +117,7 @@ Workflow、Model 与 Voice 由当前 RuntimeProfile 投影为安全 alias catalo
 | 65 | `server.badge_def.pixa.download` | 返回 Badge Definition 的 PIXA metadata，并通过 binary frames 传输素材 bytes。 |
 | 66 | `server.pet.list` | 分页列出当前 Peer 的 Pet。 |
 | 67 | `server.pet.get` | 按 ID 读取当前 Peer 的 Pet。 |
-| 68 | `runtime.adopt` | 按当前 connection 的 RuntimeProfile 领养 Pet，并返回初始 Points 和 transaction。 |
+| 68 | `runtime.adopt` | 按当前 connection 的 RuntimeProfile 领养 Pet；可提供 peer-scoped Pet ID，使重复请求返回已有 Pet 和原始 transaction 而不重复扣费。 |
 | 69 | `server.pet.put` | 修改当前 Peer 的 Pet display name。 |
 | 70 | `server.pet.delete` | 永久删除当前 Peer 的 Pet；这不是 Pet 死亡状态转换。 |
 | 71 | `server.pet.drive` | 对 Pet 执行 action 或提交 game result，并原子返回 Pet、Points、Badge 与 reward 变化。 |

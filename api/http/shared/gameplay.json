@@ -937,6 +937,12 @@
         "properties": {
           "display_name": {
             "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 48,
+            "pattern": "^[a-z][a-z0-9._-]{6,46}[a-z0-9]$"
           }
         }
       },
