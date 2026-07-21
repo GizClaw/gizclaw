@@ -64,7 +64,7 @@ The need to generate Go or JavaScript symbols does not constitute a reason for S
 | Gameplay | `gameplay.json` | Gameplay metadata and shared rule values |
 | Firmware | `firmware*.json` | Firmware, slot, artifact, spec, and selection values |
 | Credential | `credential*.json` | Credential body, spec, and values shared across Resources and APIs |
-| Model | `model*.json` | Model kind, capabilities, provider, source, spec, and provider data |
+| Model | `model*.json` | Model kind, provider, source, spec, and provider-specific typed data |
 | Voice | `voice*.json` | Voice provider, source, spec, and provider data |
 | Tool | `tool*.json`, `toolkit_policy.json` | Tool executor, trigger, source, spec, policy, and JSON schema values |
 | Workflow and Workspace | `workflow*.json`, `workspace*.json` | Workflow identity, owner, driver, variants, and Workspace source-qualified values |

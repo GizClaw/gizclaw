@@ -180,6 +180,18 @@ func (m *Manager) Get(ctx context.Context, kind apitypes.ResourceKind, name stri
 			return apitypes.Resource{}, notFound(kind, name)
 		}
 		return resourceFromDashScopeTenant(item)
+	case apitypes.ResourceKindDeepSeekTenant:
+		if m.services.ProviderTenants == nil {
+			return apitypes.Resource{}, missingService("provider tenants")
+		}
+		item, exists, err := m.getDeepSeekTenant(ctx, string(pathParam(name)))
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromDeepSeekTenant(item)
 	case apitypes.ResourceKindMiniMaxTenant:
 		if m.services.ProviderTenants == nil {
 			return apitypes.Resource{}, missingService("provider tenants")
@@ -407,6 +419,21 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 			return apitypes.Resource{}, err
 		}
 		return m.Get(ctx, apitypes.ResourceKindDashScopeTenant, item.Metadata.Name)
+	case string(apitypes.ResourceKindDeepSeekTenant), "DeepSeekTenantResource":
+		if m.services.ProviderTenants == nil {
+			return apitypes.Resource{}, missingService("provider tenants")
+		}
+		item, err := resource.AsDeepSeekTenantResource()
+		if err != nil {
+			return apitypes.Resource{}, applyError(400, "INVALID_DEEPSEEK_TENANT_RESOURCE", err.Error())
+		}
+		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+			return apitypes.Resource{}, err
+		}
+		if err := m.putDeepSeekTenant(ctx, string(pathParam(item.Metadata.Name)), deepSeekTenantUpsert(item)); err != nil {
+			return apitypes.Resource{}, err
+		}
+		return m.Get(ctx, apitypes.ResourceKindDeepSeekTenant, item.Metadata.Name)
 	case string(apitypes.ResourceKindMiniMaxTenant), "MiniMaxTenantResource":
 		if m.services.ProviderTenants == nil {
 			return apitypes.Resource{}, missingService("provider tenants")
@@ -786,6 +813,18 @@ func (m *Manager) Delete(ctx context.Context, kind apitypes.ResourceKind, name s
 			return apitypes.Resource{}, notFound(kind, name)
 		}
 		return resourceFromDashScopeTenant(item)
+	case apitypes.ResourceKindDeepSeekTenant:
+		if m.services.ProviderTenants == nil {
+			return apitypes.Resource{}, missingService("provider tenants")
+		}
+		item, exists, err := m.deleteDeepSeekTenant(ctx, string(pathParam(name)))
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromDeepSeekTenant(item)
 	case apitypes.ResourceKindMiniMaxTenant:
 		if m.services.ProviderTenants == nil {
 			return apitypes.Resource{}, missingService("provider tenants")
@@ -972,6 +1011,8 @@ func (m *Manager) Apply(ctx context.Context, resource apitypes.Resource) (apityp
 		return m.applyRegistrationToken(ctx, resource)
 	case string(apitypes.ResourceKindDashScopeTenant), "DashScopeTenantResource":
 		return m.applyDashScopeTenant(ctx, resource)
+	case string(apitypes.ResourceKindDeepSeekTenant), "DeepSeekTenantResource":
+		return m.applyDeepSeekTenant(ctx, resource)
 	case string(apitypes.ResourceKindMiniMaxTenant), "MiniMaxTenantResource":
 		return m.applyMiniMaxTenant(ctx, resource)
 	case string(apitypes.ResourceKindGeminiTenant), "GeminiTenantResource":

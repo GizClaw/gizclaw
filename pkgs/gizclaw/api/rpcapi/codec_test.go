@@ -85,6 +85,55 @@ func TestFrameRequestResponseRoundTrip(t *testing.T) {
 	}
 }
 
+func TestModelProviderDataOneofRoundTripAndRejectsMultipleValues(t *testing.T) {
+	deepSeek := &DeepSeekTenantModelProviderData{
+		ApiMode:       DeepSeekTenantModelProviderDataApiModeChatCompletions,
+		UpstreamModel: "deepseek-chat",
+	}
+	response := ModelGetResponse{Value: Model{
+		Alias:          "chat",
+		Kind:           ModelKindLlm,
+		ProviderKind:   ModelProviderKindDeepseekTenant,
+		DeepSeekTenant: deepSeek,
+	}}
+	var payload RPCPayload
+	if err := payload.FromModelGetResponse(response); err != nil {
+		t.Fatalf("FromModelGetResponse() error = %v", err)
+	}
+	decoded, err := payload.AsModelGetResponse()
+	if err != nil {
+		t.Fatalf("AsModelGetResponse() error = %v", err)
+	}
+	if decoded.Value.ProviderKind != ModelProviderKindDeepseekTenant || decoded.Value.DeepSeekTenant == nil || decoded.Value.DeepSeekTenant.UpstreamModel != "deepseek-chat" || decoded.Value.OpenAITenant != nil {
+		t.Fatalf("AsModelGetResponse() = %#v", decoded)
+	}
+	dashScopeMode := DashScopeTenantModelProviderDataApiModeChatCompletions
+	dashScopeResponse := ModelGetResponse{Value: Model{
+		Alias:        "qwen",
+		Kind:         ModelKindLlm,
+		ProviderKind: ModelProviderKindDashscopeTenant,
+		DashScopeTenant: &DashScopeTenantModelProviderData{
+			ApiMode:       &dashScopeMode,
+			UpstreamModel: stringPtr("qwen-plus"),
+		},
+	}}
+	if err := payload.FromModelGetResponse(dashScopeResponse); err != nil {
+		t.Fatalf("FromModelGetResponse(DashScope) error = %v", err)
+	}
+	dashScopeDecoded, err := payload.AsModelGetResponse()
+	if err != nil {
+		t.Fatalf("AsModelGetResponse(DashScope) error = %v", err)
+	}
+	if dashScopeDecoded.Value.DashScopeTenant == nil || dashScopeDecoded.Value.DashScopeTenant.ApiMode == nil || *dashScopeDecoded.Value.DashScopeTenant.ApiMode != dashScopeMode {
+		t.Fatalf("AsModelGetResponse(DashScope) lost api_mode: %#v", dashScopeDecoded)
+	}
+
+	response.Value.OpenAITenant = &OpenAITenantModelProviderData{UpstreamModel: stringPtr("gpt-test")}
+	if err := payload.FromModelGetResponse(response); err == nil {
+		t.Fatal("FromModelGetResponse() accepted multiple provider_data oneof values")
+	}
+}
+
 func TestEncodeRPCResponseRejectsResultWithoutMethod(t *testing.T) {
 	var result RPCPayload
 	if err := result.FromPingResponse(PingResponse{ServerTime: 456}); err != nil {

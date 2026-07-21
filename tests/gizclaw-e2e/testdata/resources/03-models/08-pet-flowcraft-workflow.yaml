@@ -17,23 +17,16 @@ spec:
         name: volc-ark
       name: Pet Flowcraft Workflow Chat
       description: Operational chat model used by the built-in Pet Flowcraft workflow
-      capabilities:
-        json_output: true
-        system_role: true
-        temperature: true
-        text_only: true
-        tool_calls: true
-        thinking:
-          supported: true
-          param: thinking.type
-          default_level: disabled
       provider_data:
+        api_mode: chat_completions
         upstream_model: doubao-seed-2-0-lite-260215
         support_json_output: true
         support_text_only: true
         support_tool_calls: true
+        support_temperature: true
         support_thinking: true
         thinking_param: thinking.type
+        thinking_levels: [enabled, disabled, auto]
         default_thinking_level: disabled
         use_system_role: true
   - apiVersion: gizclaw.admin/v1alpha1
@@ -48,21 +41,16 @@ spec:
         name: volc-ark
       name: Pet Flowcraft Workflow Extract
       description: Operational extraction model used by the built-in Pet Flowcraft workflow
-      capabilities:
-        json_output: true
-        system_role: true
-        temperature: true
-        text_only: true
-        thinking:
-          supported: true
-          param: thinking.type
-          default_level: disabled
       provider_data:
+        api_mode: chat_completions
         upstream_model: doubao-seed-2-0-lite-260215
         support_json_output: true
         support_text_only: true
+        support_tool_calls: false
+        support_temperature: true
         support_thinking: true
         thinking_param: thinking.type
+        thinking_levels: [enabled, disabled, auto]
         default_thinking_level: disabled
         use_system_role: true
   - apiVersion: gizclaw.admin/v1alpha1
@@ -78,4 +66,5 @@ spec:
       name: Pet Flowcraft Workflow ASR
       description: Operational speech recognition model used by the built-in Pet Flowcraft workflow
       provider_data:
+        api_mode: asr
         resource_id: volc.bigasr.sauc.duration

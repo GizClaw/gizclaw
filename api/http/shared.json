@@ -176,11 +176,11 @@
       "OpenAITenantModelProviderData": {
         "$ref": "./shared/model_provider_data.json#/components/schemas/OpenAITenantModelProviderData"
       },
-      "ModelCapabilities": {
-        "$ref": "./shared/model_capabilities.json#/components/schemas/ModelCapabilities"
+      "MiniMaxTenantModelProviderData": {
+        "$ref": "./shared/model_provider_data.json#/components/schemas/MiniMaxTenantModelProviderData"
       },
-      "ModelThinkingCapability": {
-        "$ref": "./shared/model_capabilities.json#/components/schemas/ModelThinkingCapability"
+      "DeepSeekTenantModelProviderData": {
+        "$ref": "./shared/model_provider_data.json#/components/schemas/DeepSeekTenantModelProviderData"
       },
       "DashScopeTenant": {
         "$ref": "./shared/dashscope_tenant.json#/components/schemas/DashScopeTenant"
@@ -202,6 +202,9 @@
       },
       "MiniMaxTenant": {
         "$ref": "./shared/minimax_tenant.json#/components/schemas/MiniMaxTenant"
+      },
+      "DeepSeekTenant": {
+        "$ref": "./shared/deepseek_tenant.json#/components/schemas/DeepSeekTenant"
       },
       "VolcTenant": {
         "$ref": "./shared/volc_tenant.json#/components/schemas/VolcTenant"
@@ -269,6 +272,9 @@
       "MiniMaxTenantResource": {
         "$ref": "./resources/minimax_tenant.json#/components/schemas/MiniMaxTenantResource"
       },
+      "DeepSeekTenantResource": {
+        "$ref": "./resources/deepseek_tenant.json#/components/schemas/DeepSeekTenantResource"
+      },
       "DashScopeTenantResource": {
         "$ref": "./resources/dashscope_tenant.json#/components/schemas/DashScopeTenantResource"
       },
@@ -304,6 +310,9 @@
       },
       "MiniMaxTenantSpec": {
         "$ref": "./shared/minimax_tenant_spec.json#/components/schemas/MiniMaxTenantSpec"
+      },
+      "DeepSeekTenantSpec": {
+        "$ref": "./shared/deepseek_tenant_spec.json#/components/schemas/DeepSeekTenantSpec"
       },
       "DashScopeTenantSpec": {
         "$ref": "./shared/dashscope_tenant_spec.json#/components/schemas/DashScopeTenantSpec"

@@ -3179,6 +3179,118 @@
         }
       }
     },
+    "/deepseek-tenants": {
+      "get": {
+        "operationId": "listDeepSeekTenants",
+        "summary": "List all DeepSeek tenants",
+        "tags": [
+          "DeepSeekTenants"
+        ],
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque cursor returned by the previous list response",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "DeepSeek tenant list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeepSeekTenantList"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createDeepSeekTenant",
+        "summary": "Create a DeepSeek tenant",
+        "tags": [
+          "DeepSeekTenants"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeepSeekTenantUpsert"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Created DeepSeek tenant",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/DeepSeekTenant"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid DeepSeek tenant payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "DeepSeek tenant already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/gemini-tenants": {
       "get": {
         "operationId": "listGeminiTenants",
@@ -3594,6 +3706,168 @@
           },
           "404": {
             "description": "DashScope tenant not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/deepseek-tenants/{name}": {
+      "get": {
+        "operationId": "getDeepSeekTenant",
+        "summary": "Get a DeepSeek tenant",
+        "tags": [
+          "DeepSeekTenants"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "description": "DeepSeek tenant name",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "DeepSeek tenant",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/DeepSeekTenant"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "DeepSeek tenant not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "putDeepSeekTenant",
+        "summary": "Create or update a DeepSeek tenant",
+        "tags": [
+          "DeepSeekTenants"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "description": "DeepSeek tenant name",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeepSeekTenantUpsert"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Stored DeepSeek tenant",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/DeepSeekTenant"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid DeepSeek tenant payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteDeepSeekTenant",
+        "summary": "Delete a DeepSeek tenant",
+        "tags": [
+          "DeepSeekTenants"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "description": "DeepSeek tenant name",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted DeepSeek tenant",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/DeepSeekTenant"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "DeepSeek tenant not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -10249,7 +10523,8 @@
           "id",
           "kind",
           "source",
-          "provider"
+          "provider",
+          "provider_data"
         ],
         "properties": {
           "id": {
@@ -10270,9 +10545,6 @@
           "description": {
             "type": "string"
           },
-          "capabilities": {
-            "$ref": "./shared.json#/components/schemas/ModelCapabilities"
-          },
           "provider_data": {
             "$ref": "./shared.json#/components/schemas/ModelProviderData",
             "description": "Provider-specific model runtime configuration.",
@@ -10288,8 +10560,6 @@
         "type": "object",
         "required": [
           "name",
-          "app_id",
-          "group_id",
           "credential_name"
         ],
         "properties": {
@@ -10693,6 +10963,52 @@
             "type": "array",
             "items": {
               "$ref": "./shared.json#/components/schemas/OpenAITenant"
+            }
+          }
+        }
+      },
+      "DeepSeekTenantUpsert": {
+        "type": "object",
+        "required": [
+          "name",
+          "credential_name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "credential_name": {
+            "type": "string"
+          },
+          "base_url": {
+            "type": "string",
+            "format": "uri",
+            "example": "https://api.deepseek.com"
+          },
+          "description": {
+            "type": "string",
+            "example": "DeepSeek tenant"
+          }
+        }
+      },
+      "DeepSeekTenantList": {
+        "type": "object",
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string",
+            "nullable": true
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "./shared.json#/components/schemas/DeepSeekTenant"
             }
           }
         }

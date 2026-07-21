@@ -294,6 +294,11 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 		if gizServer.MiniMaxTenantStore, err = ss.KV(defaultMiniMaxTenantsStore); err != nil {
 			return nil, fmt.Errorf("server: minimax tenants store: %w", err)
 		}
+		if storeExists(cfg, defaultDeepSeekTenantsStore) {
+			if gizServer.DeepSeekTenantStore, err = ss.KV(defaultDeepSeekTenantsStore); err != nil {
+				return nil, fmt.Errorf("server: deepseek tenants store: %w", err)
+			}
+		}
 		if gizServer.VoiceStore, err = ss.KV(defaultVoicesStore); err != nil {
 			return nil, fmt.Errorf("server: voices store: %w", err)
 		}

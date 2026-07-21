@@ -119,6 +119,21 @@ func TestListModelsProjectsRuntimeAliases(t *testing.T) {
 		Id: "tenant-model-canonical", Kind: apitypes.ModelKindLlm, Source: apitypes.ModelSourceManual,
 		Provider: apitypes.ModelProvider{Kind: apitypes.ModelProviderKindOpenaiTenant, Name: "primary"},
 	}
+	var providerData apitypes.ModelProviderData
+	upstreamModel := "tenant-model-upstream"
+	falseValue := false
+	if err := providerData.FromOpenAITenantModelProviderData(apitypes.OpenAITenantModelProviderData{
+		UpstreamModel:      &upstreamModel,
+		SupportJsonOutput:  &falseValue,
+		SupportToolCalls:   &falseValue,
+		SupportTextOnly:    &falseValue,
+		UseSystemRole:      &falseValue,
+		SupportTemperature: &falseValue,
+		SupportThinking:    &falseValue,
+	}); err != nil {
+		t.Fatalf("FromOpenAITenantModelProviderData() error = %v", err)
+	}
+	canonical.ProviderData = providerData
 	response, err := models.CreateModel(ctx, adminhttp.CreateModelRequestObject{Body: &canonical})
 	if err != nil {
 		t.Fatalf("CreateModel() error = %v", err)

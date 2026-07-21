@@ -16,6 +16,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-000
         use_system_role: true
       source: manual
@@ -31,6 +35,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-001
         use_system_role: true
       source: manual
@@ -46,6 +54,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-002
         use_system_role: true
       source: manual
@@ -61,6 +73,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-003
         use_system_role: true
       source: manual
@@ -76,6 +92,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-004
         use_system_role: true
       source: manual
@@ -91,6 +111,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-005
         use_system_role: true
       source: manual
@@ -106,6 +130,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-006
         use_system_role: true
       source: manual
@@ -121,6 +149,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-007
         use_system_role: true
       source: manual
@@ -136,6 +168,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-008
         use_system_role: true
       source: manual
@@ -151,6 +187,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-009
         use_system_role: true
       source: manual
@@ -166,6 +206,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-010
         use_system_role: true
       source: manual
@@ -181,6 +225,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-011
         use_system_role: true
       source: manual
@@ -196,6 +244,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-012
         use_system_role: true
       source: manual
@@ -211,6 +263,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-013
         use_system_role: true
       source: manual
@@ -226,6 +282,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-014
         use_system_role: true
       source: manual
@@ -241,6 +301,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-015
         use_system_role: true
       source: manual
@@ -256,6 +320,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-016
         use_system_role: true
       source: manual
@@ -271,6 +339,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-017
         use_system_role: true
       source: manual
@@ -286,6 +358,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-018
         use_system_role: true
       source: manual
@@ -301,6 +377,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-019
         use_system_role: true
       source: manual
@@ -316,6 +396,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-020
         use_system_role: true
       source: manual
@@ -331,6 +415,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-021
         use_system_role: true
       source: manual
@@ -346,6 +434,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-022
         use_system_role: true
       source: manual
@@ -361,6 +453,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-023
         use_system_role: true
       source: manual
@@ -376,6 +472,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-024
         use_system_role: true
       source: manual
@@ -391,6 +491,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-025
         use_system_role: true
       source: manual
@@ -406,6 +510,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-026
         use_system_role: true
       source: manual
@@ -421,6 +529,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-027
         use_system_role: true
       source: manual
@@ -436,6 +548,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-028
         use_system_role: true
       source: manual
@@ -451,6 +567,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-029
         use_system_role: true
       source: manual
@@ -466,6 +586,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-030
         use_system_role: true
       source: manual
@@ -481,6 +605,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-031
         use_system_role: true
       source: manual
@@ -496,6 +624,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-032
         use_system_role: true
       source: manual
@@ -511,6 +643,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-033
         use_system_role: true
       source: manual
@@ -526,6 +662,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-034
         use_system_role: true
       source: manual
@@ -541,6 +681,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-035
         use_system_role: true
       source: manual
@@ -556,6 +700,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-036
         use_system_role: true
       source: manual
@@ -571,6 +719,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-037
         use_system_role: true
       source: manual
@@ -586,6 +738,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-038
         use_system_role: true
       source: manual
@@ -601,6 +757,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-039
         use_system_role: true
       source: manual
@@ -616,6 +776,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-040
         use_system_role: true
       source: manual
@@ -631,6 +795,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-041
         use_system_role: true
       source: manual
@@ -646,6 +814,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-042
         use_system_role: true
       source: manual
@@ -661,6 +833,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-043
         use_system_role: true
       source: manual
@@ -676,6 +852,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-044
         use_system_role: true
       source: manual
@@ -691,6 +871,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-045
         use_system_role: true
       source: manual
@@ -706,6 +890,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-046
         use_system_role: true
       source: manual
@@ -721,6 +909,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-047
         use_system_role: true
       source: manual
@@ -736,6 +928,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-048
         use_system_role: true
       source: manual
@@ -751,6 +947,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-049
         use_system_role: true
       source: manual
@@ -766,6 +966,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-050
         use_system_role: true
       source: manual
@@ -781,6 +985,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-051
         use_system_role: true
       source: manual
@@ -796,6 +1004,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-052
         use_system_role: true
       source: manual
@@ -811,6 +1023,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-053
         use_system_role: true
       source: manual
@@ -826,6 +1042,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-054
         use_system_role: true
       source: manual
@@ -841,6 +1061,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-055
         use_system_role: true
       source: manual
@@ -856,6 +1080,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-056
         use_system_role: true
       source: manual
@@ -871,6 +1099,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-057
         use_system_role: true
       source: manual
@@ -886,6 +1118,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-058
         use_system_role: true
       source: manual
@@ -901,6 +1137,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-059
         use_system_role: true
       source: manual
@@ -916,6 +1156,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-060
         use_system_role: true
       source: manual
@@ -931,6 +1175,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-061
         use_system_role: true
       source: manual
@@ -946,6 +1194,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-062
         use_system_role: true
       source: manual
@@ -961,6 +1213,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-063
         use_system_role: true
       source: manual
@@ -976,6 +1232,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-064
         use_system_role: true
       source: manual
@@ -991,6 +1251,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-065
         use_system_role: true
       source: manual
@@ -1006,6 +1270,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-066
         use_system_role: true
       source: manual
@@ -1021,6 +1289,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-067
         use_system_role: true
       source: manual
@@ -1036,6 +1308,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-068
         use_system_role: true
       source: manual
@@ -1051,6 +1327,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-069
         use_system_role: true
       source: manual
@@ -1066,6 +1346,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-070
         use_system_role: true
       source: manual
@@ -1081,6 +1365,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-071
         use_system_role: true
       source: manual
@@ -1096,6 +1384,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-072
         use_system_role: true
       source: manual
@@ -1111,6 +1403,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-073
         use_system_role: true
       source: manual
@@ -1126,6 +1422,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-074
         use_system_role: true
       source: manual
@@ -1141,6 +1441,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-075
         use_system_role: true
       source: manual
@@ -1156,6 +1460,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-076
         use_system_role: true
       source: manual
@@ -1171,6 +1479,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-077
         use_system_role: true
       source: manual
@@ -1186,6 +1498,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-078
         use_system_role: true
       source: manual
@@ -1201,6 +1517,10 @@ spec:
         name: fake-openai
       provider_data:
         support_json_output: true
+        support_tool_calls: false
+        support_text_only: true
+        support_temperature: false
+        support_thinking: false
         upstream_model: fake-gpt-079
         use_system_role: true
       source: manual

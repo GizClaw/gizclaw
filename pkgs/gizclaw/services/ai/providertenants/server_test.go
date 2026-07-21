@@ -63,7 +63,7 @@ func TestServerMiniMaxTenantsCRUD(t *testing.T) {
 	if !ok {
 		t.Fatalf("GetMiniMaxTenant() response = %#v", getResp)
 	}
-	if got.AppId != "app-1" || got.GroupId != "group-1" {
+	if ptrString(got.AppId) != "app-1" || ptrString(got.GroupId) != "group-1" {
 		t.Fatalf("GetMiniMaxTenant() tenant = %#v", got)
 	}
 
@@ -88,7 +88,7 @@ func TestServerMiniMaxTenantsCRUD(t *testing.T) {
 	if updated.CreatedAt != created.CreatedAt {
 		t.Fatalf("PutMiniMaxTenant() created_at = %v, want %v", updated.CreatedAt, created.CreatedAt)
 	}
-	if updated.AppId != "app-2" || updated.GroupId != "group-2" {
+	if ptrString(updated.AppId) != "app-2" || ptrString(updated.GroupId) != "group-2" {
 		t.Fatalf("PutMiniMaxTenant() tenant = %#v", updated)
 	}
 
@@ -168,9 +168,9 @@ func TestServerMiniMaxTenantsPaginationAndValidation(t *testing.T) {
 	})
 
 	for _, body := range []adminhttp.MiniMaxTenantUpsert{
-		{Name: "alpha", AppId: "app-a", GroupId: "group-a", CredentialName: "cred-main"},
-		{Name: "beta", AppId: "app-b", GroupId: "group-b", CredentialName: "cred-main"},
-		{Name: "gamma", AppId: "app-c", GroupId: "group-c", CredentialName: "cred-main"},
+		{Name: "alpha", AppId: stringPtr("app-a"), GroupId: stringPtr("group-a"), CredentialName: "cred-main"},
+		{Name: "beta", AppId: stringPtr("app-b"), GroupId: stringPtr("group-b"), CredentialName: "cred-main"},
+		{Name: "gamma", AppId: stringPtr("app-c"), GroupId: stringPtr("group-c"), CredentialName: "cred-main"},
 	} {
 		if _, err := srv.CreateMiniMaxTenant(ctx, adminhttp.CreateMiniMaxTenantRequestObject{Body: &body}); err != nil {
 			t.Fatalf("CreateMiniMaxTenant(%q) error = %v", body.Name, err)
@@ -212,7 +212,7 @@ func TestServerMiniMaxTenantsPaginationAndValidation(t *testing.T) {
 
 	invalidBody := adminhttp.MiniMaxTenantUpsert{
 		Name:           "missing-cred",
-		GroupId:        "group-x",
+		GroupId:        stringPtr("group-x"),
 		CredentialName: "not-found",
 	}
 	invalidResp, err := srv.CreateMiniMaxTenant(ctx, adminhttp.CreateMiniMaxTenantRequestObject{Body: &invalidBody})
@@ -263,7 +263,7 @@ func TestServerMiniMaxCredentialValidation(t *testing.T) {
 	ctx := context.Background()
 	tenant := apitypes.MiniMaxTenant{
 		CredentialName: "cred-main",
-		GroupId:        "group-1",
+		GroupId:        stringPtr("group-1"),
 		Name:           "tenant-a",
 	}
 

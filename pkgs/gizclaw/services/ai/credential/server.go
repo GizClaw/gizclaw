@@ -365,6 +365,15 @@ func validateCredentialBody(provider string, body apitypes.CredentialBody) error
 			return errors.New("body must include at least one non-empty credential field")
 		}
 		return nil
+	case "deepseek":
+		var typed apitypes.DeepSeekCredentialBody
+		if err := decodeCredentialBody(body, &typed); err != nil {
+			return err
+		}
+		if strings.TrimSpace(typed.ApiKey) == "" {
+			return errors.New("body.api_key is required")
+		}
+		return nil
 	case "minimax":
 		var typed apitypes.MiniMaxCredentialBody
 		if err := decodeCredentialBody(body, &typed); err != nil {

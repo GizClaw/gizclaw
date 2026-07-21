@@ -11,8 +11,6 @@
       "MiniMaxTenantSpec": {
         "type": "object",
         "required": [
-          "app_id",
-          "group_id",
           "credential_name"
         ],
         "properties": {

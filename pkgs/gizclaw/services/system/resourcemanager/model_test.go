@@ -20,6 +20,7 @@ func TestApplyModelCreatesUpdatesAndSkipsUnchanged(t *testing.T) {
 		"spec": {
 			"kind": "llm",
 			"provider": {"kind": "openai-tenant", "name": "dashscope"},
+			"provider_data": {"upstream_model": "qwen-flash", "support_json_output": false, "support_tool_calls": false, "support_text_only": false, "use_system_role": false, "support_temperature": false, "support_thinking": false},
 			"source": "manual",
 			"name": "Qwen Flash"
 		}
@@ -47,6 +48,7 @@ func TestApplyModelCreatesUpdatesAndSkipsUnchanged(t *testing.T) {
 		"spec": {
 			"kind": "llm",
 			"provider": {"kind": "openai-tenant", "name": "dashscope"},
+			"provider_data": {"upstream_model": "qwen-flash", "support_json_output": false, "support_tool_calls": false, "support_text_only": false, "use_system_role": false, "support_temperature": false, "support_thinking": false},
 			"source": "manual",
 			"name": "Qwen Flash",
 			"description": "fast model"
@@ -68,10 +70,10 @@ func TestPutGetDeleteModelResource(t *testing.T) {
 		"kind": "Model",
 		"metadata": {"name": "speech"},
 		"spec": {
-			"kind": "tts",
+			"kind": "llm",
 			"provider": {"kind": "openai-tenant", "name": "openai"},
 			"source": "manual",
-			"provider_data": {"openai-tenant":{"upstream_model":"gpt-4o-mini-tts"}}
+			"provider_data": {"upstream_model":"gpt-4o-mini-tts", "support_json_output": false, "support_tool_calls": false, "support_text_only": false, "use_system_role": false, "support_temperature": false, "support_thinking": false}
 		}
 	}`)
 
@@ -147,8 +149,32 @@ func newModelManager() *Manager {
 type errorModelService struct {
 	putStatus          int
 	dashScopePutStatus int
+	deepSeekPutStatus  int
 	geminiPutStatus    int
 	openAIPutStatus    int
+}
+
+func (e errorModelService) CreateDeepSeekTenant(context.Context, adminhttp.CreateDeepSeekTenantRequestObject) (adminhttp.CreateDeepSeekTenantResponseObject, error) {
+	return adminhttp.CreateDeepSeekTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed")), nil
+}
+
+func (e errorModelService) ListDeepSeekTenants(context.Context, adminhttp.ListDeepSeekTenantsRequestObject) (adminhttp.ListDeepSeekTenantsResponseObject, error) {
+	return adminhttp.ListDeepSeekTenants500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed")), nil
+}
+
+func (e errorModelService) DeleteDeepSeekTenant(context.Context, adminhttp.DeleteDeepSeekTenantRequestObject) (adminhttp.DeleteDeepSeekTenantResponseObject, error) {
+	return adminhttp.DeleteDeepSeekTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed")), nil
+}
+
+func (e errorModelService) GetDeepSeekTenant(context.Context, adminhttp.GetDeepSeekTenantRequestObject) (adminhttp.GetDeepSeekTenantResponseObject, error) {
+	return adminhttp.GetDeepSeekTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed")), nil
+}
+
+func (e errorModelService) PutDeepSeekTenant(context.Context, adminhttp.PutDeepSeekTenantRequestObject) (adminhttp.PutDeepSeekTenantResponseObject, error) {
+	if e.deepSeekPutStatus == 400 {
+		return adminhttp.PutDeepSeekTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_DEEPSEEK_TENANT", "invalid")), nil
+	}
+	return adminhttp.PutDeepSeekTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed")), nil
 }
 
 func (e errorModelService) CreateModel(context.Context, adminhttp.CreateModelRequestObject) (adminhttp.CreateModelResponseObject, error) {

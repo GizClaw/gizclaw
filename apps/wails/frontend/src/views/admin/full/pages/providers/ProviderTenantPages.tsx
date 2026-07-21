@@ -8,13 +8,16 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 
 import {
   getDashScopeTenant,
+  getDeepSeekTenant,
   getGeminiTenant,
   getOpenAiTenant,
   getResource,
   listDashScopeTenants,
+  listDeepSeekTenants,
   listGeminiTenants,
   listOpenAiTenants,
   type DashScopeTenant,
+  type DeepSeekTenant,
   type GeminiTenant,
   type OpenAiTenant,
   type Resource,
@@ -35,7 +38,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDashboardCursorPage as useCursorListPage } from "@/dashboard";
 import { formatDate, formatValue } from "../../lib/format";
 
-type ProviderTenant = OpenAiTenant | GeminiTenant | DashScopeTenant;
+type ProviderTenant = OpenAiTenant | GeminiTenant | DashScopeTenant | DeepSeekTenant;
 
 type ProviderTenantConfig<T extends ProviderTenant> = {
   detailFields(tenant: T): Array<[string, string | undefined]>;
@@ -122,6 +125,28 @@ const dashScopeConfig: ProviderTenantConfig<DashScopeTenant> = {
   title: "DashScope Tenants",
 };
 
+const deepSeekConfig: ProviderTenantConfig<DeepSeekTenant> = {
+  detailFields: (tenant) => [
+    ["Name", tenant.name],
+    ["Credential", tenant.credential_name],
+    ["Base URL", tenant.base_url],
+    ["Description", tenant.description],
+    ["Created", tenant.created_at],
+    ["Updated", tenant.updated_at],
+  ],
+  emptyTitle: "No DeepSeek tenants",
+  eyebrow: "Providers",
+  get: async (name) => expectData(getDeepSeekTenant({ path: { name } })),
+  kindBadge: "DeepSeek",
+  list: async (query) => expectData(listDeepSeekTenants({ query })),
+  listDescription: "DeepSeek tenant records that bind credentials to DeepSeek endpoints.",
+  name: "DeepSeek Tenant",
+  resourceKind: "DeepSeekTenant",
+  routeBase: "/providers/deepseek-tenants",
+  summaryDescription: "DeepSeek endpoint and credential binding.",
+  title: "DeepSeek Tenants",
+};
+
 export function OpenAITenantsListPage(): JSX.Element {
   return <ProviderTenantsListPage config={openAIConfig} />;
 }
@@ -144,6 +169,14 @@ export function DashScopeTenantsListPage(): JSX.Element {
 
 export function DashScopeTenantDetailPage(): JSX.Element {
   return <ProviderTenantDetailPage config={dashScopeConfig} />;
+}
+
+export function DeepSeekTenantsListPage(): JSX.Element {
+  return <ProviderTenantsListPage config={deepSeekConfig} />;
+}
+
+export function DeepSeekTenantDetailPage(): JSX.Element {
+  return <ProviderTenantDetailPage config={deepSeekConfig} />;
 }
 
 function ProviderTenantsListPage<T extends ProviderTenant>({ config }: { config: ProviderTenantConfig<T> }): JSX.Element {
@@ -392,6 +425,8 @@ function cliTenantCommand(kind: ResourceKind): string {
       return "gemini-tenants";
     case "DashScopeTenant":
       return "dashscope-tenants";
+    case "DeepSeekTenant":
+      return "deepseek-tenants";
     default:
       return "show";
   }

@@ -112,6 +112,7 @@ const (
 	defaultRuntimeProfilesStore          = "runtime-profiles"
 	defaultAgentHostStore                = "agenthost"
 	defaultMiniMaxTenantsStore           = "minimax-tenants"
+	defaultDeepSeekTenantsStore          = "deepseek-tenants"
 	defaultVoicesStore                   = "voices"
 	defaultWorkspacesStore               = "workspaces"
 	defaultWorkflowsStore                = "workflows"

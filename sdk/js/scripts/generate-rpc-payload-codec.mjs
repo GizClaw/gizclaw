@@ -115,9 +115,16 @@ function encodeMessage(type: string, value: unknown, parent: Record<string, unkn
     return writer.finish();
   }
   const object = messageObjectForEncode(type, value);
+  let encodedOneof = false;
   for (const field of fields) {
     if (field.oneof) {
-      continue;
+      if (!Object.prototype.hasOwnProperty.call(object, field.name) || object[field.name] == null) {
+        continue;
+      }
+      if (encodedOneof) {
+        throw new Error(\`protobuf message \${type} has multiple oneof values\`);
+      }
+      encodedOneof = true;
     }
     if (!Object.prototype.hasOwnProperty.call(object, field.name)) {
       continue;
@@ -945,7 +952,7 @@ function parsePayloadProto(proto) {
     if (currentMessage == null) {
       continue;
     }
-    if (/^\s*oneof\s+value\s*\{/.test(line)) {
+    if (/^\s*oneof\s+\w+\s*\{/.test(line)) {
       inOneof = true;
       continue;
     }
@@ -1032,9 +1039,6 @@ function messageTypeExpression(name, parsed) {
   }
   const lines = ["{"];
   for (const field of desc.fields) {
-    if (field.oneof === true) {
-      continue;
-    }
     const optional = tsFieldOptional(field, parsed) ? "?" : "";
     lines.push(`  ${JSON.stringify(field.name)}${optional}: ${tsFieldType(field, parsed)};`);
   }
@@ -1126,6 +1130,7 @@ function enumJSONValue(name) {
     "AST_TRANSLATE": "ast-translate",
     "DASH_SCOPE_TENANT": "dashscope-tenant",
     "DASHSCOPE_TENANT": "dashscope-tenant",
+    "DEEPSEEK_TENANT": "deepseek-tenant",
     "DOUBAO_REALTIME": "doubao-realtime",
     "EDGE_NODE": "edge-node",
     "GEMINI_TENANT": "gemini-tenant",

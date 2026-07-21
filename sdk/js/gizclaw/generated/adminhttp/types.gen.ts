@@ -62,14 +62,13 @@ export type ModelUpsert = {
     provider: ModelProvider;
     name?: string;
     description?: string;
-    capabilities?: ModelCapabilities;
-    provider_data?: ModelProviderData;
+    provider_data: ModelProviderData;
 };
 
 export type MiniMaxTenantUpsert = {
     name: string;
-    app_id: string;
-    group_id: string;
+    app_id?: string;
+    group_id?: string;
     credential_name: string;
     base_url?: string;
     description?: string;
@@ -181,6 +180,19 @@ export type OpenAiTenantList = {
     has_next: boolean;
     next_cursor?: string | null;
     items: Array<OpenAiTenant>;
+};
+
+export type DeepSeekTenantUpsert = {
+    name: string;
+    credential_name: string;
+    base_url?: string;
+    description?: string;
+};
+
+export type DeepSeekTenantList = {
+    has_next: boolean;
+    next_cursor?: string | null;
+    items: Array<DeepSeekTenant>;
 };
 
 export type DashScopeTenantUpsert = {
@@ -376,6 +388,13 @@ export type DashScopeTenantResource = {
     spec: DashScopeTenantSpec;
 };
 
+export type DeepSeekTenantResource = {
+    apiVersion: ResourceApiVersion;
+    kind: 'DeepSeekTenant';
+    metadata: ResourceMetadata;
+    spec: DeepSeekTenantSpec;
+};
+
 export type FirmwareResource = {
     apiVersion: ResourceApiVersion;
     kind: 'Firmware';
@@ -553,6 +572,8 @@ export type Resource = ({
 } & ModelResource) | ({
     kind: 'DashScopeTenantResource';
 } & DashScopeTenantResource) | ({
+    kind: 'DeepSeekTenantResource';
+} & DeepSeekTenantResource) | ({
     kind: 'GeminiTenantResource';
 } & GeminiTenantResource) | ({
     kind: 'MiniMaxTenantResource';
@@ -590,7 +611,7 @@ export type ResourceApiVersion = 'gizclaw.admin/v1alpha1';
 /**
  * Declarative GizClaw resource kind.
  */
-export type ResourceKind = 'Credential' | 'Firmware' | 'Contact' | 'Friend' | 'FriendGroup' | 'FriendGroupInviteToken' | 'FriendGroupMember' | 'Model' | 'DashScopeTenant' | 'GeminiTenant' | 'MiniMaxTenant' | 'OpenAITenant' | 'VolcTenant' | 'Voice' | 'Tool' | 'Workflow' | 'Workspace' | 'PetDef' | 'BadgeDef' | 'GameDef' | 'RuntimeProfile' | 'RegistrationToken' | 'ResourceList';
+export type ResourceKind = 'Credential' | 'Firmware' | 'Contact' | 'Friend' | 'FriendGroup' | 'FriendGroupInviteToken' | 'FriendGroupMember' | 'Model' | 'DashScopeTenant' | 'DeepSeekTenant' | 'GeminiTenant' | 'MiniMaxTenant' | 'OpenAITenant' | 'VolcTenant' | 'Voice' | 'Tool' | 'Workflow' | 'Workspace' | 'PetDef' | 'BadgeDef' | 'GameDef' | 'RuntimeProfile' | 'RegistrationToken' | 'ResourceList';
 
 export type ResourceMetadata = {
     /**
@@ -684,12 +705,16 @@ export type Credential = {
 /**
  * Provider-specific credential payload. The shape is selected by Credential.provider.
  */
-export type CredentialBody = OpenAiCredentialBody | GeminiCredentialBody | DashScopeCredentialBody | MiniMaxCredentialBody | VolcCredentialBody;
+export type CredentialBody = OpenAiCredentialBody | GeminiCredentialBody | DashScopeCredentialBody | DeepSeekCredentialBody | MiniMaxCredentialBody | VolcCredentialBody;
 
 export type DashScopeCredentialBody = {
     api_key?: string;
     token?: string;
     base_url?: string;
+};
+
+export type DeepSeekCredentialBody = {
+    api_key: string;
 };
 
 export type GeminiCredentialBody = {
@@ -739,6 +764,21 @@ export type DashScopeTenant = {
 };
 
 export type DashScopeTenantSpec = {
+    credential_name: string;
+    base_url?: string;
+    description?: string;
+};
+
+export type DeepSeekTenant = {
+    name: string;
+    credential_name: string;
+    base_url?: string;
+    description?: string;
+    created_at: string;
+    updated_at: string;
+};
+
+export type DeepSeekTenantSpec = {
     credential_name: string;
     base_url?: string;
     description?: string;
@@ -1177,8 +1217,8 @@ export type Icon = {
 
 export type MiniMaxTenant = {
     name: string;
-    app_id: string;
-    group_id: string;
+    app_id?: string;
+    group_id?: string;
     credential_name: string;
     base_url?: string;
     description?: string;
@@ -1188,8 +1228,8 @@ export type MiniMaxTenant = {
 };
 
 export type MiniMaxTenantSpec = {
-    app_id: string;
-    group_id: string;
+    app_id?: string;
+    group_id?: string;
     credential_name: string;
     base_url?: string;
     description?: string;
@@ -1202,34 +1242,10 @@ export type Model = {
     provider: ModelProvider;
     name?: string;
     description?: string;
-    capabilities?: ModelCapabilities;
-    provider_data?: ModelProviderData;
+    provider_data: ModelProviderData;
     synced_at?: string;
     created_at: string;
     updated_at: string;
-};
-
-export type ModelCapabilities = {
-    json_output?: boolean;
-    tool_calls?: boolean;
-    text_only?: boolean;
-    system_role?: boolean;
-    temperature?: boolean;
-    thinking?: ModelThinkingCapability;
-};
-
-export type ModelThinkingCapability = {
-    supported: boolean;
-    /**
-     * Provider request parameter mapping, such as reasoning_effort, thinking.type, or enable_thinking.
-     */
-    param?: string;
-    /**
-     * Optional provider request parameter used for the selected thinking level or budget.
-     */
-    level_param?: string;
-    levels?: Array<string>;
-    default_level?: string;
 };
 
 /**
@@ -1245,16 +1261,66 @@ export type ModelProvider = {
 export type DashScopeTenantModelProviderData = {
     upstream_model?: string;
     api_mode?: 'chat_completions' | 'realtime';
+    support_json_output?: boolean;
+    support_tool_calls?: boolean;
+    support_text_only?: boolean;
+    use_system_role?: boolean;
+    support_temperature?: boolean;
+    support_thinking?: boolean;
+    thinking_param?: string;
+    thinking_level_param?: string;
+    thinking_levels?: Array<string>;
+    default_thinking_level?: string;
+};
+
+export type DeepSeekTenantModelProviderData = {
+    upstream_model: string;
+    api_mode: 'chat_completions';
+    support_json_output?: boolean;
+    support_tool_calls?: boolean;
+    support_text_only?: boolean;
+    use_system_role?: boolean;
+    support_temperature?: boolean;
+    support_thinking?: boolean;
+    thinking_param?: string;
+    thinking_level_param?: string;
+    thinking_levels?: Array<string>;
+    default_thinking_level?: string;
 };
 
 export type GeminiTenantModelProviderData = {
     upstream_model?: string;
+    support_json_output?: boolean;
+    support_tool_calls?: boolean;
+    support_text_only?: boolean;
+    use_system_role?: boolean;
+    support_temperature?: boolean;
+    support_thinking?: boolean;
+    thinking_param?: string;
+    thinking_level_param?: string;
+    thinking_levels?: Array<string>;
+    default_thinking_level?: string;
+};
+
+export type MiniMaxTenantModelProviderData = {
+    upstream_model: string;
+    api_mode: 'chat_completions';
+    support_json_output?: boolean;
+    support_tool_calls?: boolean;
+    support_text_only?: boolean;
+    use_system_role?: boolean;
+    support_temperature?: boolean;
+    support_thinking?: boolean;
+    thinking_param?: string;
+    thinking_level_param?: string;
+    thinking_levels?: Array<string>;
+    default_thinking_level?: string;
 };
 
 /**
- * Provider-specific model runtime configuration. The shape is selected by Model.provider.kind.
+ * Provider-specific model runtime configuration selected by Model.provider.kind.
  */
-export type ModelProviderData = GeminiTenantModelProviderData | DashScopeTenantModelProviderData | OpenAiTenantModelProviderData | VolcTenantModelProviderData;
+export type ModelProviderData = GeminiTenantModelProviderData | DashScopeTenantModelProviderData | DeepSeekTenantModelProviderData | OpenAiTenantModelProviderData | MiniMaxTenantModelProviderData | VolcTenantModelProviderData;
 
 export type OpenAiTenantModelProviderData = {
     upstream_model?: string;
@@ -1262,6 +1328,7 @@ export type OpenAiTenantModelProviderData = {
     support_tool_calls?: boolean;
     support_text_only?: boolean;
     use_system_role?: boolean;
+    support_temperature?: boolean;
     support_thinking?: boolean;
     thinking_param?: string;
     thinking_level_param?: string;
@@ -1271,12 +1338,13 @@ export type OpenAiTenantModelProviderData = {
 
 export type VolcTenantModelProviderData = {
     upstream_model?: string;
-    api_mode?: 'asr' | 'tts' | 'realtime';
+    api_mode?: 'asr' | 'tts' | 'realtime' | 'translation' | 'chat_completions' | 'embedding';
     resource_id?: string;
     support_json_output?: boolean;
     support_tool_calls?: boolean;
     support_text_only?: boolean;
     use_system_role?: boolean;
+    support_temperature?: boolean;
     support_thinking?: boolean;
     thinking_param?: string;
     thinking_level_param?: string;
@@ -1287,7 +1355,7 @@ export type VolcTenantModelProviderData = {
 /**
  * Provider resource kind usable by model runtime.
  */
-export type ModelProviderKind = 'gemini-tenant' | 'dashscope-tenant' | 'openai-tenant' | 'volc-tenant';
+export type ModelProviderKind = 'gemini-tenant' | 'dashscope-tenant' | 'deepseek-tenant' | 'openai-tenant' | 'minimax-tenant' | 'volc-tenant';
 
 /**
  * How the model entered the global catalog
@@ -1300,8 +1368,7 @@ export type ModelSpec = {
     provider: ModelProvider;
     name?: string;
     description?: string;
-    capabilities?: ModelCapabilities;
-    provider_data?: ModelProviderData;
+    provider_data: ModelProviderData;
 };
 
 export type OpenAiTenant = {
@@ -2391,6 +2458,8 @@ export type ResourceWritable = ({
 } & ModelResource) | ({
     kind: 'DashScopeTenantResource';
 } & DashScopeTenantResource) | ({
+    kind: 'DeepSeekTenantResource';
+} & DeepSeekTenantResource) | ({
     kind: 'GeminiTenantResource';
 } & GeminiTenantResource) | ({
     kind: 'MiniMaxTenantResource';
@@ -4282,6 +4351,73 @@ export type CreateDashScopeTenantResponses = {
 
 export type CreateDashScopeTenantResponse = CreateDashScopeTenantResponses[keyof CreateDashScopeTenantResponses];
 
+export type ListDeepSeekTenantsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Opaque cursor returned by the previous list response
+         */
+        cursor?: string;
+        /**
+         * Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
+         */
+        limit?: number;
+    };
+    url: '/deepseek-tenants';
+};
+
+export type ListDeepSeekTenantsErrors = {
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type ListDeepSeekTenantsError = ListDeepSeekTenantsErrors[keyof ListDeepSeekTenantsErrors];
+
+export type ListDeepSeekTenantsResponses = {
+    /**
+     * DeepSeek tenant list
+     */
+    200: DeepSeekTenantList;
+};
+
+export type ListDeepSeekTenantsResponse = ListDeepSeekTenantsResponses[keyof ListDeepSeekTenantsResponses];
+
+export type CreateDeepSeekTenantData = {
+    body: DeepSeekTenantUpsert;
+    path?: never;
+    query?: never;
+    url: '/deepseek-tenants';
+};
+
+export type CreateDeepSeekTenantErrors = {
+    /**
+     * Invalid DeepSeek tenant payload
+     */
+    400: ErrorResponse;
+    /**
+     * DeepSeek tenant already exists
+     */
+    409: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type CreateDeepSeekTenantError = CreateDeepSeekTenantErrors[keyof CreateDeepSeekTenantErrors];
+
+export type CreateDeepSeekTenantResponses = {
+    /**
+     * Created DeepSeek tenant
+     */
+    200: DeepSeekTenant;
+};
+
+export type CreateDeepSeekTenantResponse = CreateDeepSeekTenantResponses[keyof CreateDeepSeekTenantResponses];
+
 export type ListGeminiTenantsData = {
     body?: never;
     path?: never;
@@ -4552,6 +4688,108 @@ export type PutDashScopeTenantResponses = {
 };
 
 export type PutDashScopeTenantResponse = PutDashScopeTenantResponses[keyof PutDashScopeTenantResponses];
+
+export type DeleteDeepSeekTenantData = {
+    body?: never;
+    path: {
+        /**
+         * DeepSeek tenant name
+         */
+        name: string;
+    };
+    query?: never;
+    url: '/deepseek-tenants/{name}';
+};
+
+export type DeleteDeepSeekTenantErrors = {
+    /**
+     * DeepSeek tenant not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type DeleteDeepSeekTenantError = DeleteDeepSeekTenantErrors[keyof DeleteDeepSeekTenantErrors];
+
+export type DeleteDeepSeekTenantResponses = {
+    /**
+     * Deleted DeepSeek tenant
+     */
+    200: DeepSeekTenant;
+};
+
+export type DeleteDeepSeekTenantResponse = DeleteDeepSeekTenantResponses[keyof DeleteDeepSeekTenantResponses];
+
+export type GetDeepSeekTenantData = {
+    body?: never;
+    path: {
+        /**
+         * DeepSeek tenant name
+         */
+        name: string;
+    };
+    query?: never;
+    url: '/deepseek-tenants/{name}';
+};
+
+export type GetDeepSeekTenantErrors = {
+    /**
+     * DeepSeek tenant not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type GetDeepSeekTenantError = GetDeepSeekTenantErrors[keyof GetDeepSeekTenantErrors];
+
+export type GetDeepSeekTenantResponses = {
+    /**
+     * DeepSeek tenant
+     */
+    200: DeepSeekTenant;
+};
+
+export type GetDeepSeekTenantResponse = GetDeepSeekTenantResponses[keyof GetDeepSeekTenantResponses];
+
+export type PutDeepSeekTenantData = {
+    body: DeepSeekTenantUpsert;
+    path: {
+        /**
+         * DeepSeek tenant name
+         */
+        name: string;
+    };
+    query?: never;
+    url: '/deepseek-tenants/{name}';
+};
+
+export type PutDeepSeekTenantErrors = {
+    /**
+     * Invalid DeepSeek tenant payload
+     */
+    400: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type PutDeepSeekTenantError = PutDeepSeekTenantErrors[keyof PutDeepSeekTenantErrors];
+
+export type PutDeepSeekTenantResponses = {
+    /**
+     * Stored DeepSeek tenant
+     */
+    200: DeepSeekTenant;
+};
+
+export type PutDeepSeekTenantResponse = PutDeepSeekTenantResponses[keyof PutDeepSeekTenantResponses];
 
 export type ListOpenAiTenantsData = {
     body?: never;

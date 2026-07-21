@@ -41,6 +41,7 @@ const resourceKinds: ResourceKind[] = [
   "GameDef",
   "Model",
   "DashScopeTenant",
+  "DeepSeekTenant",
   "GeminiTenant",
   "MiniMaxTenant",
   "OpenAITenant",

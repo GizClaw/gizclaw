@@ -13,7 +13,8 @@
         "required": [
           "kind",
           "source",
-          "provider"
+          "provider",
+          "provider_data"
         ],
         "properties": {
           "kind": {
@@ -32,9 +33,6 @@
           "description": {
             "type": "string",
             "example": "OpenAI-compatible chat model"
-          },
-          "capabilities": {
-            "$ref": "./model_capabilities.json#/components/schemas/ModelCapabilities"
           },
           "provider_data": {
             "$ref": "./model_provider_data.json#/components/schemas/ModelProviderData",

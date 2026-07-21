@@ -228,11 +228,14 @@ var rpcPayloadUnionValueTypes = map[protoreflect.Name]reflect.Type{
 	"OpenAICredentialBody":                  reflect.TypeOf(OpenAICredentialBody{}),
 	"GeminiCredentialBody":                  reflect.TypeOf(GeminiCredentialBody{}),
 	"DashScopeCredentialBody":               reflect.TypeOf(DashScopeCredentialBody{}),
+	"DeepSeekCredentialBody":                reflect.TypeOf(DeepSeekCredentialBody{}),
 	"MiniMaxCredentialBody":                 reflect.TypeOf(MiniMaxCredentialBody{}),
 	"VolcCredentialBody":                    reflect.TypeOf(VolcCredentialBody{}),
 	"GeminiTenantModelProviderData":         reflect.TypeOf(GeminiTenantModelProviderData{}),
 	"DashScopeTenantModelProviderData":      reflect.TypeOf(DashScopeTenantModelProviderData{}),
+	"DeepSeekTenantModelProviderData":       reflect.TypeOf(DeepSeekTenantModelProviderData{}),
 	"OpenAITenantModelProviderData":         reflect.TypeOf(OpenAITenantModelProviderData{}),
+	"MiniMaxTenantModelProviderData":        reflect.TypeOf(MiniMaxTenantModelProviderData{}),
 	"VolcTenantModelProviderData":           reflect.TypeOf(VolcTenantModelProviderData{}),
 	"GeminiTenantVoiceProviderData":         reflect.TypeOf(GeminiTenantVoiceProviderData{}),
 	"DashScopeTenantVoiceProviderData":      reflect.TypeOf(DashScopeTenantVoiceProviderData{}),
@@ -287,6 +290,9 @@ func fillProtoMessageFromGo(msg protoreflect.Message, value reflect.Value, paren
 	if value.Kind() != reflect.Struct {
 		return fmt.Errorf("expected struct for %s, got %s", desc.FullName(), value.Kind())
 	}
+	if err := validateGoOneofFields(desc, value); err != nil {
+		return err
+	}
 	fields := desc.Fields()
 	valueType := value.Type()
 	for i := 0; i < value.NumField(); i++ {
@@ -311,6 +317,27 @@ func fillProtoMessageFromGo(msg protoreflect.Message, value reflect.Value, paren
 		}
 		if err := setProtoFieldFromGo(msg, fd, fieldValue, value); err != nil {
 			return fmt.Errorf("%s: %w", name, err)
+		}
+	}
+	return nil
+}
+
+func validateGoOneofFields(desc protoreflect.MessageDescriptor, value reflect.Value) error {
+	for i := 0; i < desc.Oneofs().Len(); i++ {
+		oneof := desc.Oneofs().Get(i)
+		var selected []string
+		for j := 0; j < oneof.Fields().Len(); j++ {
+			field := oneof.Fields().Get(j)
+			candidate := goFieldByJSONName(value, field.JSONName())
+			if !candidate.IsValid() {
+				candidate = goFieldByJSONName(value, string(field.Name()))
+			}
+			if candidate.IsValid() && !goValueAbsent(candidate) {
+				selected = append(selected, field.JSONName())
+			}
+		}
+		if len(selected) > 1 {
+			return fmt.Errorf("oneof %s has multiple values: %s", oneof.FullName(), strings.Join(selected, ", "))
 		}
 	}
 	return nil
@@ -1129,6 +1156,8 @@ func oneofDiscriminatorFieldName(desc protoreflect.Name, discriminator string) s
 			return "gemini_credential_body"
 		case "dashscope":
 			return "dash_scope_credential_body"
+		case "deepseek":
+			return "deep_seek_credential_body"
 		case "minimax":
 			return "mini_max_credential_body"
 		case "volc":
@@ -1140,8 +1169,12 @@ func oneofDiscriminatorFieldName(desc protoreflect.Name, discriminator string) s
 			return "gemini_tenant_model_provider_data"
 		case "dashscope-tenant":
 			return "dash_scope_tenant_model_provider_data"
+		case "deepseek-tenant":
+			return "deep_seek_tenant_model_provider_data"
 		case "openai-tenant":
 			return "open_aitenant_model_provider_data"
+		case "minimax-tenant":
+			return "mini_max_tenant_model_provider_data"
 		case "volc-tenant":
 			return "volc_tenant_model_provider_data"
 		}
@@ -1399,6 +1432,7 @@ var enumJSONValueOverrides = map[string]string{
 	"AST_TRANSLATE":     "ast-translate",
 	"DASHSCOPE_TENANT":  "dashscope-tenant",
 	"DASH_SCOPE_TENANT": "dashscope-tenant",
+	"DEEPSEEK_TENANT":   "deepseek-tenant",
 	"DOUBAO_REALTIME":   "doubao-realtime",
 	"EDGE_NODE":         "edge-node",
 	"GEMINI_TENANT":     "gemini-tenant",

@@ -91,8 +91,8 @@ export function MiniMaxTenantDetailPage(): JSX.Element {
         putMiniMaxTenant({
           body: {
             name: tenant.name,
-            app_id: form.appID.trim(),
-            group_id: form.groupID.trim(),
+            app_id: optionalString(form.appID),
+            group_id: optionalString(form.groupID),
             credential_name: form.credentialName.trim(),
             base_url: optionalString(form.baseURL),
             description: optionalString(form.description),
@@ -292,11 +292,11 @@ function emptyForm(): MiniMaxTenantForm {
 
 function formFromTenant(tenant: MiniMaxTenant): MiniMaxTenantForm {
   return {
-    appID: tenant.app_id,
+    appID: tenant.app_id ?? "",
     baseURL: tenant.base_url ?? "",
     credentialName: tenant.credential_name,
     description: tenant.description ?? "",
-    groupID: tenant.group_id,
+    groupID: tenant.group_id ?? "",
   };
 }
 

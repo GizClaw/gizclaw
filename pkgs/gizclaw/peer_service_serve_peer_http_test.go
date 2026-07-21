@@ -549,6 +549,7 @@ func TestPeerServiceEdgeOpenAIRequiresActiveClientPeer(t *testing.T) {
 			Kind: "openai-tenant",
 			Name: "global",
 		},
+		ProviderData: mustOpenAIModelProviderData(t, "profile-model-upstream"),
 	}})
 	if err != nil {
 		t.Fatalf("CreateModel error = %v", err)

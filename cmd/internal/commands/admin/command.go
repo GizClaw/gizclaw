@@ -3,6 +3,7 @@ package admincmd
 import (
 	credentialscmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/admin/credentials"
 	dashscopetenantscmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/admin/dashscopetenants"
+	deepseektenantscmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/admin/deepseektenants"
 	firmwarescmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/admin/firmwares"
 	geminitenantscmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/admin/geminitenants"
 	minimaxtenantscmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/admin/minimaxtenants"
@@ -42,6 +43,7 @@ func NewCmd() *cobra.Command {
 		openaitenantscmd.NewCmd(),
 		geminitenantscmd.NewCmd(),
 		dashscopetenantscmd.NewCmd(),
+		deepseektenantscmd.NewCmd(),
 		minimaxtenantscmd.NewCmd(),
 		volctenantscmd.NewCmd(),
 		modelscmd.NewCmd(),

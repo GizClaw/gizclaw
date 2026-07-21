@@ -41,6 +41,7 @@ type CredentialGetter interface {
 }
 
 type ProviderTenantGetter interface {
+	GetDeepSeekTenant(context.Context, adminhttp.GetDeepSeekTenantRequestObject) (adminhttp.GetDeepSeekTenantResponseObject, error)
 	GetOpenAITenant(context.Context, adminhttp.GetOpenAITenantRequestObject) (adminhttp.GetOpenAITenantResponseObject, error)
 	GetGeminiTenant(context.Context, adminhttp.GetGeminiTenantRequestObject) (adminhttp.GetGeminiTenantResponseObject, error)
 	GetDashScopeTenant(context.Context, adminhttp.GetDashScopeTenantRequestObject) (adminhttp.GetDashScopeTenantResponseObject, error)
@@ -158,7 +159,7 @@ func modelContextForGenerator(cfg GeneratorConfig, mctx genx.ModelContext) genx.
 	}
 	params := *mctx.Params()
 	params.ExtraFields = maps.Clone(params.ExtraFields)
-	thinkingFields := modelThinkingExtraFields(cfg.Model.Capabilities, params.Thinking)
+	thinkingFields := modelThinkingExtraFields(modelThinkingConfigFor(cfg.Model), params.Thinking)
 	if len(thinkingFields) > 0 {
 		if params.ExtraFields == nil {
 			params.ExtraFields = map[string]any{}
@@ -169,27 +170,58 @@ func modelContextForGenerator(cfg GeneratorConfig, mctx genx.ModelContext) genx.
 	return generatorModelContext{ModelContext: mctx, params: &params}
 }
 
-func modelThinkingExtraFields(caps *apitypes.ModelCapabilities, request *genx.ThinkingParams) map[string]any {
-	if caps == nil || caps.Thinking == nil || !caps.Thinking.Supported || request == nil {
+type modelThinkingConfig struct {
+	supported    bool
+	param        *string
+	levelParam   *string
+	defaultLevel *string
+}
+
+func modelThinkingConfigFor(model apitypes.Model) modelThinkingConfig {
+	switch model.Provider.Kind {
+	case apitypes.ModelProviderKindOpenaiTenant:
+		value, _ := model.ProviderData.AsOpenAITenantModelProviderData()
+		return modelThinkingConfig{boolValue(value.SupportThinking), value.ThinkingParam, value.ThinkingLevelParam, value.DefaultThinkingLevel}
+	case apitypes.ModelProviderKindGeminiTenant:
+		value, _ := model.ProviderData.AsGeminiTenantModelProviderData()
+		return modelThinkingConfig{boolValue(value.SupportThinking), value.ThinkingParam, value.ThinkingLevelParam, value.DefaultThinkingLevel}
+	case apitypes.ModelProviderKindDashscopeTenant:
+		value, _ := model.ProviderData.AsDashScopeTenantModelProviderData()
+		return modelThinkingConfig{boolValue(value.SupportThinking), value.ThinkingParam, value.ThinkingLevelParam, value.DefaultThinkingLevel}
+	case apitypes.ModelProviderKindVolcTenant:
+		value, _ := model.ProviderData.AsVolcTenantModelProviderData()
+		return modelThinkingConfig{boolValue(value.SupportThinking), value.ThinkingParam, value.ThinkingLevelParam, value.DefaultThinkingLevel}
+	case apitypes.ModelProviderKindDeepseekTenant:
+		value, _ := model.ProviderData.AsDeepSeekTenantModelProviderData()
+		return modelThinkingConfig{boolValue(value.SupportThinking), value.ThinkingParam, value.ThinkingLevelParam, value.DefaultThinkingLevel}
+	case apitypes.ModelProviderKindMinimaxTenant:
+		value, _ := model.ProviderData.AsMiniMaxTenantModelProviderData()
+		return modelThinkingConfig{boolValue(value.SupportThinking), value.ThinkingParam, value.ThinkingLevelParam, value.DefaultThinkingLevel}
+	default:
+		return modelThinkingConfig{}
+	}
+}
+
+func modelThinkingExtraFields(config modelThinkingConfig, request *genx.ThinkingParams) map[string]any {
+	if !config.supported || request == nil {
 		return nil
 	}
-	capability := caps.Thinking
 	level := strings.TrimSpace(request.Level)
 	out := map[string]any{}
 	if level != "" {
-		param := firstString(capability.LevelParam, capability.Param)
+		param := firstString(config.levelParam, config.param)
 		if !strings.EqualFold(param, "reasoning_effort") || !isDisabledThinkingLevel(level) {
 			setNestedExtraField(out, param, openAIThinkingValue(param, level))
 		}
 	}
-	if request.Enabled == nil || (level != "" && capability.LevelParam == nil) {
+	if request.Enabled == nil || (level != "" && config.levelParam == nil) {
 		return out
 	}
-	param := firstString(capability.Param)
+	param := firstString(config.param)
 	switch {
 	case strings.EqualFold(param, "reasoning_effort"):
 		if *request.Enabled {
-			defaultLevel := firstString(capability.DefaultLevel)
+			defaultLevel := firstString(config.defaultLevel)
 			if defaultLevel != "" && !isDisabledThinkingLevel(defaultLevel) {
 				setNestedExtraField(out, param, defaultLevel)
 			}

@@ -64,7 +64,7 @@ Schema 只有满足以下至少一个条件才能进入 `shared/`：
 | Gameplay | `gameplay.json` | Gameplay metadata 与共同规则 values |
 | Firmware | `firmware*.json` | Firmware、slot、artifact、spec 与 selection values |
 | Credential | `credential*.json` | Credential body、spec 与跨 Resource/API 使用的 values |
-| Model | `model*.json` | Model kind、capabilities、provider、source、spec 与 provider data |
+| Model | `model*.json` | Model kind、provider、source、spec 与按 provider kind 区分的强类型 provider data |
 | Voice | `voice*.json` | Voice provider、source、spec 与 provider data |
 | Tool | `tool*.json`、`toolkit_policy.json` | Tool executor、trigger、source、spec、policy 与 JSON schema values |
 | Workflow 与 Workspace | `workflow*.json`、`workspace*.json` | Workflow identity、owner、driver、variants 与带 source 的 Workspace values |

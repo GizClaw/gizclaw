@@ -60,6 +60,7 @@ type Server struct {
 	AgentHostStore               objectstore.ObjectStore
 	MiniMaxCredentialStore       kv.Store
 	MiniMaxTenantStore           kv.Store
+	DeepSeekTenantStore          kv.Store
 	VolcTenantStore              kv.Store
 	ModelStore                   kv.Store
 	VoiceStore                   kv.Store
@@ -320,6 +321,7 @@ func (s *Server) usesLegacySharedStore() bool {
 		s.FirmwareStore == nil &&
 		s.AgentHostStore == nil &&
 		s.MiniMaxTenantStore == nil &&
+		s.DeepSeekTenantStore == nil &&
 		s.VolcTenantStore == nil &&
 		s.ModelStore == nil &&
 		s.VoiceStore == nil &&
@@ -367,6 +369,7 @@ func (s *Server) init() error {
 	runtimeProfileStore := moduleStore(s.RuntimeProfileStore, s.PeerStore, "runtime-profiles")
 	miniMaxCredentialStore := moduleStore(s.MiniMaxCredentialStore, credentialStore, "")
 	miniMaxTenantStore := moduleStore(s.MiniMaxTenantStore, s.PeerStore, "minimax-tenants")
+	deepSeekTenantStore := moduleStore(s.DeepSeekTenantStore, s.PeerStore, "deepseek-tenants")
 	volcTenantStore := moduleStore(s.VolcTenantStore, miniMaxTenantStore, "volc-tenants")
 	modelStore := moduleStore(s.ModelStore, s.PeerStore, "models")
 	voiceStore := moduleStore(s.VoiceStore, s.PeerStore, "voices")
@@ -450,11 +453,12 @@ func (s *Server) init() error {
 		MessageMaxAudioBytes: s.FriendGroupMessageMaxBytes,
 	}
 	providerTenantsServer := &providertenants.Server{
-		ModelStore:      modelStore,
-		TenantStore:     miniMaxTenantStore,
-		VolcTenantStore: volcTenantStore,
-		VoiceStore:      voiceStore,
-		CredentialStore: miniMaxCredentialStore,
+		ModelStore:          modelStore,
+		TenantStore:         miniMaxTenantStore,
+		DeepSeekTenantStore: deepSeekTenantStore,
+		VolcTenantStore:     volcTenantStore,
+		VoiceStore:          voiceStore,
+		CredentialStore:     miniMaxCredentialStore,
 	}
 	gameplayCatalog := &gameplay.Catalog{
 		PetDefs:   petDefStore,

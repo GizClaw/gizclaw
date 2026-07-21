@@ -251,6 +251,54 @@ test("RPC payload codec round-trips system workspace classification", () => {
   assert.equal(decoded.runtime_profile_name, "default");
 });
 
+test("RPC payload codec enforces typed model provider-data oneof", () => {
+  const response = {
+    runtime_profile_name: "default",
+    runtime_profile_revision: "revision-1",
+    value: {
+      alias: "chat",
+      deepseek_tenant: {
+        api_mode: "chat_completions",
+        thinking_levels: [],
+        upstream_model: "deepseek-chat",
+      },
+      i18n: {},
+      kind: "llm",
+      provider_kind: "deepseek-tenant",
+    },
+  };
+  const payload = encodeRPCResponsePayload("server.model.get", response);
+  assert.deepEqual(decodeRPCResponsePayload("server.model.get", payload), response);
+
+  const dashScopeResponse = {
+    ...response,
+    value: {
+      alias: "qwen",
+      dashscope_tenant: {
+        api_mode: "chat_completions",
+        thinking_levels: [],
+        upstream_model: "qwen-plus",
+      },
+      i18n: {},
+      kind: "llm",
+      provider_kind: "dashscope-tenant",
+    },
+  };
+  const dashScopePayload = encodeRPCResponsePayload("server.model.get", dashScopeResponse);
+  assert.deepEqual(decodeRPCResponsePayload("server.model.get", dashScopePayload), dashScopeResponse);
+
+  assert.throws(
+    () => encodeRPCResponsePayload("server.model.get", {
+      ...response,
+      value: {
+        ...response.value,
+        openai_tenant: { thinking_levels: [], upstream_model: "gpt-test" },
+      },
+    }),
+    /protobuf message Model has multiple oneof values/,
+  );
+});
+
 test("RPC payload codec rejects ambiguous numeric workspace discriminators", () => {
   assert.throws(
     () => encodeRPCRequestPayload("server.workspace.create", {

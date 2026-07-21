@@ -3123,14 +3123,14 @@ function ChatTester({ models, onOpenChange, open }: { models: Model[]; onOpenCha
   const chatModels = useMemo(() => models.filter((model) => model.kind === "llm"), [models]);
   const selectedModelSpec = useMemo(() => chatModels.find((model) => model.alias === selectedModel), [chatModels, selectedModel]);
   const playableVoices = useMemo(() => voices.filter(isPlayableVoice), [voices]);
-  const thinkingCapability = selectedModelSpec?.capabilities?.thinking;
-  const thinkingLevels = useMemo(() => thinkingCapability?.levels ?? [], [thinkingCapability]);
-  const supportsThinking = thinkingCapability?.supported === true;
+  const providerData = selectedModelSpec == null ? undefined : runtimeModelProviderData(selectedModelSpec);
+  const thinkingLevels = useMemo(() => providerData?.thinking_levels ?? [], [providerData]);
+  const supportsThinking = providerData?.support_thinking === true;
   const supportsThinkingToggle =
-    thinkingCapability?.param === "enable_thinking" ||
-    thinkingCapability?.param === "thinking.type" ||
+    providerData?.thinking_param === "enable_thinking" ||
+    providerData?.thinking_param === "thinking.type" ||
     thinkingLevels.some(isDisabledThinkingLevel);
-  const supportsTemperature = selectedModelSpec?.capabilities?.temperature !== false;
+  const supportsTemperature = providerData?.support_temperature === true;
 
   const reportChatError = useCallback((message: string) => {
     setChatError(message);
@@ -3199,7 +3199,7 @@ function ChatTester({ models, onOpenChange, open }: { models: Model[]; onOpenCha
       setThinkingLevel("");
       return;
     }
-    const defaultLevel = selectedModelSpec?.capabilities?.thinking?.default_level ?? thinkingLevels[0] ?? "";
+    const defaultLevel = providerData?.default_thinking_level ?? thinkingLevels[0] ?? "";
     setThinkingLevel((current) => (current !== "" && thinkingLevels.includes(current) ? current : defaultLevel));
     setThinkingEnabled(defaultLevel === "" || !isDisabledThinkingLevel(defaultLevel));
   }, [selectedModelSpec, supportsThinking, thinkingLevels]);
@@ -4448,8 +4448,8 @@ function ModelsPanel({ initialModels }: { initialModels: Model[] }): JSX.Element
 				  <TableRow key={model.alias}>
 					<TableCell className="font-mono text-xs font-medium">{model.alias}</TableCell>
 					<TableCell>{model.kind ?? "-"}</TableCell>
-					<TableCell>-</TableCell>
-					<TableCell>{model.capabilities?.thinking?.supported === true ? <Badge variant="outline">{model.capabilities.thinking.param || "on"}</Badge> : "-"}</TableCell>
+					<TableCell>{model.provider_kind || "-"}</TableCell>
+					<TableCell>{runtimeModelProviderData(model)?.support_thinking === true ? <Badge variant="outline">{runtimeModelProviderData(model)?.thinking_param || "on"}</Badge> : "-"}</TableCell>
 					<TableCell>RuntimeProfile</TableCell>
 					<TableCell className="text-muted-foreground">-</TableCell>
                     </TableRow>
@@ -4461,6 +4461,25 @@ function ModelsPanel({ initialModels }: { initialModels: Model[] }): JSX.Element
       </Card>
     </div>
   );
+}
+
+function runtimeModelProviderData(model: Model) {
+  switch (model.provider_kind) {
+    case "openai-tenant":
+      return model.openai_tenant;
+    case "gemini-tenant":
+      return model.gemini_tenant;
+    case "dashscope-tenant":
+      return model.dashscope_tenant;
+    case "volc-tenant":
+      return model.volc_tenant;
+    case "minimax-tenant":
+      return model.minimax_tenant;
+    case "deepseek-tenant":
+      return model.deepseek_tenant;
+    default:
+      return undefined;
+  }
 }
 
 function VoicesPanel(): JSX.Element {

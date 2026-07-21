@@ -11,7 +11,6 @@ spec:
     name: qwen-dashscope-main
   name: Qwen 3.7 Text Embedding
   description: Qwen text embedding model through DashScope
-  capabilities:
-    text_only: true
   provider_data:
     upstream_model: qwen3.7-text-embedding
+    support_text_only: true

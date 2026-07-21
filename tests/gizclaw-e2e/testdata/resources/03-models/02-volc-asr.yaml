@@ -12,4 +12,5 @@ spec:
   name: Volc BigASR SAUC
   description: Volc BigASR SAUC model
   provider_data:
+    api_mode: asr
     resource_id: volc.bigasr.sauc.duration

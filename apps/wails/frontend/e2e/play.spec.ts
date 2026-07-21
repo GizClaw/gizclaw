@@ -37,25 +37,25 @@ test.beforeEach(async ({ page }) => {
       models: [
         {
           alias: "asr",
-          capabilities: { text_only: false },
           kind: "asr",
+          provider_kind: "volc-tenant",
+          volc_tenant: { api_mode: "asr", support_text_only: false },
         },
         {
           alias: "chat",
-          capabilities: {
-            temperature: true,
-            thinking: {
-              default_level: "disabled",
-              levels: ["enabled", "disabled", "auto"],
-              param: "thinking.type",
-              supported: true,
-            },
-          },
           created_at: "2026-07-01T00:00:00Z",
           id: "fake-openai-chat-000",
           kind: "llm",
           name: "Fake OpenAI Chat",
+          openai_tenant: {
+            default_thinking_level: "disabled",
+            support_temperature: true,
+            support_thinking: true,
+            thinking_levels: ["enabled", "disabled", "auto"],
+            thinking_param: "thinking.type",
+          },
           provider: { kind: "openai-tenant", name: "fake-openai" },
+          provider_kind: "openai-tenant",
           source: "manual",
           updated_at: "2026-07-01T00:00:00Z",
         },

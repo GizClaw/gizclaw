@@ -11,4 +11,5 @@ spec:
     name: volc-main
   name: Volc BigTTS
   description: Volc BigTTS model
-  provider_data: {}
+  provider_data:
+    api_mode: tts
