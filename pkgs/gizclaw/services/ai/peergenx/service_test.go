@@ -420,7 +420,11 @@ func TestModelContextForGeneratorMapsThinkingWithoutMutatingInput(t *testing.T) 
 		}),
 	}}
 
-	mapped := modelContextForGenerator(cfg, mctx).Params()
+	mappedContext, err := modelContextForGenerator(cfg, mctx)
+	if err != nil {
+		t.Fatalf("modelContextForGenerator() error = %v", err)
+	}
+	mapped := mappedContext.Params()
 	thinking, ok := mapped.ExtraFields["thinking"].(map[string]any)
 	if !ok || thinking["type"] != "disabled" || mapped.ExtraFields["request_id"] != "test" {
 		t.Fatalf("mapped params = %#v", mapped)
@@ -430,6 +434,16 @@ func TestModelContextForGeneratorMapsThinkingWithoutMutatingInput(t *testing.T) 
 	}
 	if originalParams.Thinking == nil || originalParams.ExtraFields["thinking"] != nil {
 		t.Fatalf("input params mutated = %#v", originalParams)
+	}
+}
+
+func TestModelContextForGeneratorRejectsMalformedProviderData(t *testing.T) {
+	mctx := (&genx.ModelContextBuilder{Params: &genx.ModelParams{Thinking: &genx.ThinkingParams{Level: "medium"}}}).Build()
+	_, err := modelContextForGenerator(GeneratorConfig{Model: apitypes.Model{
+		Provider: apitypes.ModelProvider{Kind: apitypes.ModelProviderKindOpenaiTenant, Name: "main"},
+	}}, mctx)
+	if !errors.Is(err, ErrInvalid) {
+		t.Fatalf("modelContextForGenerator() error = %v, want ErrInvalid", err)
 	}
 }
 

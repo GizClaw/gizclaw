@@ -247,7 +247,11 @@ func normalizeModelUpsert(in adminhttp.ModelUpsert, expectedID string) (apitypes
 			model.Description = &description
 		}
 	}
-	model.ProviderData = cloneModelProviderData(in.ProviderData)
+	providerData, err := cloneModelProviderData(in.ProviderData)
+	if err != nil {
+		return apitypes.Model{}, fmt.Errorf("clone provider_data: %w", err)
+	}
+	model.ProviderData = providerData
 	if err := validateModelProviderData(model.Kind, model.Provider.Kind, model.ProviderData); err != nil {
 		return apitypes.Model{}, err
 	}
@@ -655,16 +659,16 @@ func unescapeStoreSegment(value string) string {
 	return decoded
 }
 
-func cloneModelProviderData(in apitypes.ModelProviderData) apitypes.ModelProviderData {
+func cloneModelProviderData(in apitypes.ModelProviderData) (apitypes.ModelProviderData, error) {
 	data, err := json.Marshal(in)
 	if err != nil {
-		return apitypes.ModelProviderData{}
+		return apitypes.ModelProviderData{}, err
 	}
 	var out apitypes.ModelProviderData
 	if err := json.Unmarshal(data, &out); err != nil {
-		return apitypes.ModelProviderData{}
+		return apitypes.ModelProviderData{}, err
 	}
-	return out
+	return out, nil
 }
 
 func cloneTime(in *time.Time) *time.Time {

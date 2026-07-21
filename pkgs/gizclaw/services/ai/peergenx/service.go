@@ -3,6 +3,7 @@ package peergenx
 import (
 	"context"
 	"errors"
+	"fmt"
 	"maps"
 	"strings"
 
@@ -106,7 +107,11 @@ func (g *Generator) GenerateStream(ctx context.Context, pattern string, mctx gen
 	if err != nil {
 		return nil, err
 	}
-	return impl.GenerateStream(ctx, pattern, modelContextForGenerator(cfg, mctx))
+	mctx, err = modelContextForGenerator(cfg, mctx)
+	if err != nil {
+		return nil, err
+	}
+	return impl.GenerateStream(ctx, pattern, mctx)
 }
 
 func (g *Generator) Invoke(ctx context.Context, pattern string, mctx genx.ModelContext, tool *genx.FuncTool) (genx.Usage, *genx.FuncCall, error) {
@@ -121,7 +126,11 @@ func (g *Generator) Invoke(ctx context.Context, pattern string, mctx genx.ModelC
 	if err != nil {
 		return genx.Usage{}, nil, err
 	}
-	return impl.Invoke(ctx, pattern, modelContextForGenerator(cfg, mctx), tool)
+	mctx, err = modelContextForGenerator(cfg, mctx)
+	if err != nil {
+		return genx.Usage{}, nil, err
+	}
+	return impl.Invoke(ctx, pattern, mctx, tool)
 }
 
 func (t *Transformer) Transform(ctx context.Context, pattern string, input genx.Stream) (genx.Stream, error) {
@@ -153,13 +162,17 @@ type generatorModelContext struct {
 
 func (m generatorModelContext) Params() *genx.ModelParams { return m.params }
 
-func modelContextForGenerator(cfg GeneratorConfig, mctx genx.ModelContext) genx.ModelContext {
+func modelContextForGenerator(cfg GeneratorConfig, mctx genx.ModelContext) (genx.ModelContext, error) {
 	if mctx == nil || mctx.Params() == nil || mctx.Params().Thinking == nil {
-		return mctx
+		return mctx, nil
+	}
+	thinkingConfig, err := modelThinkingConfigFor(cfg.Model)
+	if err != nil {
+		return nil, err
 	}
 	params := *mctx.Params()
 	params.ExtraFields = maps.Clone(params.ExtraFields)
-	thinkingFields := modelThinkingExtraFields(modelThinkingConfigFor(cfg.Model), params.Thinking)
+	thinkingFields := modelThinkingExtraFields(thinkingConfig, params.Thinking)
 	if len(thinkingFields) > 0 {
 		if params.ExtraFields == nil {
 			params.ExtraFields = map[string]any{}
@@ -167,7 +180,7 @@ func modelContextForGenerator(cfg GeneratorConfig, mctx genx.ModelContext) genx.
 		maps.Copy(params.ExtraFields, thinkingFields)
 	}
 	params.Thinking = nil
-	return generatorModelContext{ModelContext: mctx, params: &params}
+	return generatorModelContext{ModelContext: mctx, params: &params}, nil
 }
 
 type modelThinkingConfig struct {
@@ -177,28 +190,46 @@ type modelThinkingConfig struct {
 	defaultLevel *string
 }
 
-func modelThinkingConfigFor(model apitypes.Model) modelThinkingConfig {
+func modelThinkingConfigFor(model apitypes.Model) (modelThinkingConfig, error) {
 	switch model.Provider.Kind {
 	case apitypes.ModelProviderKindOpenaiTenant:
-		value, _ := model.ProviderData.AsOpenAITenantModelProviderData()
-		return modelThinkingConfig{boolValue(value.SupportThinking), value.ThinkingParam, value.ThinkingLevelParam, value.DefaultThinkingLevel}
+		value, err := model.ProviderData.AsOpenAITenantModelProviderData()
+		if err != nil {
+			return modelThinkingConfig{}, fmt.Errorf("%w: decode openai model provider_data: %w", ErrInvalid, err)
+		}
+		return modelThinkingConfig{boolValue(value.SupportThinking), value.ThinkingParam, value.ThinkingLevelParam, value.DefaultThinkingLevel}, nil
 	case apitypes.ModelProviderKindGeminiTenant:
-		value, _ := model.ProviderData.AsGeminiTenantModelProviderData()
-		return modelThinkingConfig{boolValue(value.SupportThinking), value.ThinkingParam, value.ThinkingLevelParam, value.DefaultThinkingLevel}
+		value, err := model.ProviderData.AsGeminiTenantModelProviderData()
+		if err != nil {
+			return modelThinkingConfig{}, fmt.Errorf("%w: decode gemini model provider_data: %w", ErrInvalid, err)
+		}
+		return modelThinkingConfig{boolValue(value.SupportThinking), value.ThinkingParam, value.ThinkingLevelParam, value.DefaultThinkingLevel}, nil
 	case apitypes.ModelProviderKindDashscopeTenant:
-		value, _ := model.ProviderData.AsDashScopeTenantModelProviderData()
-		return modelThinkingConfig{boolValue(value.SupportThinking), value.ThinkingParam, value.ThinkingLevelParam, value.DefaultThinkingLevel}
+		value, err := model.ProviderData.AsDashScopeTenantModelProviderData()
+		if err != nil {
+			return modelThinkingConfig{}, fmt.Errorf("%w: decode dashscope model provider_data: %w", ErrInvalid, err)
+		}
+		return modelThinkingConfig{boolValue(value.SupportThinking), value.ThinkingParam, value.ThinkingLevelParam, value.DefaultThinkingLevel}, nil
 	case apitypes.ModelProviderKindVolcTenant:
-		value, _ := model.ProviderData.AsVolcTenantModelProviderData()
-		return modelThinkingConfig{boolValue(value.SupportThinking), value.ThinkingParam, value.ThinkingLevelParam, value.DefaultThinkingLevel}
+		value, err := model.ProviderData.AsVolcTenantModelProviderData()
+		if err != nil {
+			return modelThinkingConfig{}, fmt.Errorf("%w: decode volc model provider_data: %w", ErrInvalid, err)
+		}
+		return modelThinkingConfig{boolValue(value.SupportThinking), value.ThinkingParam, value.ThinkingLevelParam, value.DefaultThinkingLevel}, nil
 	case apitypes.ModelProviderKindDeepseekTenant:
-		value, _ := model.ProviderData.AsDeepSeekTenantModelProviderData()
-		return modelThinkingConfig{boolValue(value.SupportThinking), value.ThinkingParam, value.ThinkingLevelParam, value.DefaultThinkingLevel}
+		value, err := model.ProviderData.AsDeepSeekTenantModelProviderData()
+		if err != nil {
+			return modelThinkingConfig{}, fmt.Errorf("%w: decode deepseek model provider_data: %w", ErrInvalid, err)
+		}
+		return modelThinkingConfig{boolValue(value.SupportThinking), value.ThinkingParam, value.ThinkingLevelParam, value.DefaultThinkingLevel}, nil
 	case apitypes.ModelProviderKindMinimaxTenant:
-		value, _ := model.ProviderData.AsMiniMaxTenantModelProviderData()
-		return modelThinkingConfig{boolValue(value.SupportThinking), value.ThinkingParam, value.ThinkingLevelParam, value.DefaultThinkingLevel}
+		value, err := model.ProviderData.AsMiniMaxTenantModelProviderData()
+		if err != nil {
+			return modelThinkingConfig{}, fmt.Errorf("%w: decode minimax model provider_data: %w", ErrInvalid, err)
+		}
+		return modelThinkingConfig{boolValue(value.SupportThinking), value.ThinkingParam, value.ThinkingLevelParam, value.DefaultThinkingLevel}, nil
 	default:
-		return modelThinkingConfig{}
+		return modelThinkingConfig{}, fmt.Errorf("%w: unsupported model provider kind %q", ErrInvalid, model.Provider.Kind)
 	}
 }
 
