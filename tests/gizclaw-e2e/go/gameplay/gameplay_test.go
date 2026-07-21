@@ -44,6 +44,26 @@ func TestGameplayAdoptDriveAndPetWorkspace(t *testing.T) {
 	if petParameters.AgentType != rpcapi.PetWorkspaceParametersAgentTypePet || petParameters.Voice.VoiceId != "pet" {
 		t.Fatalf("pet workspace parameters = %#v", petParameters)
 	}
+	tickKey := "gameplay-empty-tick-1"
+	tick, err := env.peer.DrivePet(env.ctx, "gameplay.pet.drive.empty", rpcapi.ServerPetDriveRequest{
+		PetId: adopted.Pet.Id, IdempotencyKey: &tickKey,
+	})
+	if err != nil {
+		t.Fatalf("pet.drive empty: %v", err)
+	}
+	if tick.GameResult != nil || len(tick.Badges) != 0 || len(tick.Transactions) != 0 || len(tick.RewardGrants) != 0 {
+		t.Fatalf("pet.drive empty response = %#v", tick)
+	}
+	storedTick, err := env.peer.GetPet(env.ctx, "gameplay.pet.get.after-empty", rpcapi.ServerPetGetRequest{Id: adopted.Pet.Id})
+	if err != nil || storedTick.StateSettledAt != tick.Pet.StateSettledAt || storedTick.LastActiveAt != adopted.Pet.LastActiveAt {
+		t.Fatalf("pet.get after empty = %#v, %v", storedTick, err)
+	}
+	tickReplay, err := env.peer.DrivePet(env.ctx, "gameplay.pet.drive.empty.replay", rpcapi.ServerPetDriveRequest{
+		PetId: adopted.Pet.Id, IdempotencyKey: &tickKey,
+	})
+	if err != nil || tickReplay.Pet.StateSettledAt != tick.Pet.StateSettledAt {
+		t.Fatalf("pet.drive empty replay = %#v, %v", tickReplay, err)
+	}
 	behavior := rpcapi.PetBehaviorBathe
 	careKey := "gameplay-care-1"
 	care, err := env.peer.DrivePet(env.ctx, "gameplay.pet.drive.care", rpcapi.ServerPetDriveRequest{

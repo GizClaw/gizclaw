@@ -17,6 +17,19 @@ type rowScanner interface {
 	Scan(dest ...any) error
 }
 
+type queryRebinder interface {
+	Rebind(string) string
+	QueryRowContext(context.Context, string, ...any) *sql.Row
+}
+
+type petDriveTick struct {
+	OwnerPublicKey     string
+	RuntimeProfileName string
+	IdempotencyKey     string
+	PetID              string
+	CreatedAt          time.Time
+}
+
 func petSelectSQL() string {
 	return `SELECT owner_public_key, id, runtime_profile_name, petdef_id, display_name, workspace_name, stats_json, progression_json, lifecycle, died_at, state_settled_at, last_active_at, created_at, updated_at FROM gameplay_pets`
 }
@@ -85,6 +98,34 @@ func updatePet(ctx context.Context, tx *sqlx.Tx, pet apitypes.Pet) error {
 	_, err = tx.ExecContext(ctx, tx.Rebind(`UPDATE gameplay_pets SET display_name = ?, stats_json = ?, progression_json = ?, lifecycle = ?, died_at = ?, state_settled_at = ?, last_active_at = ?, updated_at = ? WHERE owner_public_key = ? AND id = ?`),
 		pet.DisplayName, statsJSON, progressionJSON, pet.Lifecycle, nullableTime(pet.DiedAt), formatTime(pet.StateSettledAt), formatTime(pet.LastActiveAt), formatTime(pet.UpdatedAt), pet.OwnerPublicKey, pet.Id)
 	return err
+}
+
+func petDriveTickSelectSQL() string {
+	return `SELECT owner_public_key, runtime_profile_name, idempotency_key, pet_id, created_at FROM gameplay_pet_drive_ticks`
+}
+
+func scanPetDriveTick(row rowScanner) (petDriveTick, error) {
+	var tick petDriveTick
+	var createdAt string
+	if err := row.Scan(&tick.OwnerPublicKey, &tick.RuntimeProfileName, &tick.IdempotencyKey, &tick.PetID, &createdAt); err != nil {
+		return petDriveTick{}, err
+	}
+	tick.CreatedAt = parseTime(createdAt)
+	return tick, nil
+}
+
+func findPetDriveTick(ctx context.Context, db queryRebinder, owner, runtimeProfileName, key string) (petDriveTick, error) {
+	return scanPetDriveTick(db.QueryRowContext(ctx, db.Rebind(petDriveTickSelectSQL()+` WHERE owner_public_key = ? AND runtime_profile_name = ? AND idempotency_key = ?`), owner, runtimeProfileName, strings.TrimSpace(key)))
+}
+
+func insertPetDriveTick(ctx context.Context, tx *sqlx.Tx, tick petDriveTick) (bool, error) {
+	result, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_pet_drive_ticks (owner_public_key, runtime_profile_name, idempotency_key, pet_id, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(owner_public_key, runtime_profile_name, idempotency_key) DO NOTHING`),
+		tick.OwnerPublicKey, tick.RuntimeProfileName, strings.TrimSpace(tick.IdempotencyKey), tick.PetID, formatTime(tick.CreatedAt))
+	if err != nil {
+		return false, err
+	}
+	rows, err := result.RowsAffected()
+	return rows == 1, err
 }
 
 func pointsAccountSelectSQL() string {
