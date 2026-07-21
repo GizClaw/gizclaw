@@ -10,6 +10,7 @@ type FieldDesc = {
   optionalRepeated?: boolean;
   mapValue?: string;
   oneof?: boolean;
+  oneofGroup?: string;
   optional?: boolean;
 };
 
@@ -1560,12 +1561,14 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "asttranslate_internal_speaker_parameters",
         "number": 1,
         "oneof": true,
+        "oneofGroup": "value",
         "type": "ASTTranslateInternalSpeakerParameters"
       },
       {
         "name": "asttranslate_external_voice_parameters",
         "number": 2,
         "oneof": true,
+        "oneofGroup": "value",
         "type": "ASTTranslateExternalVoiceParameters"
       }
     ]
@@ -4195,36 +4198,42 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "openai_tenant",
         "number": 5,
         "oneof": true,
+        "oneofGroup": "provider_data",
         "type": "OpenAITenantModelProviderData"
       },
       {
         "name": "gemini_tenant",
         "number": 6,
         "oneof": true,
+        "oneofGroup": "provider_data",
         "type": "GeminiTenantModelProviderData"
       },
       {
         "name": "dashscope_tenant",
         "number": 7,
         "oneof": true,
+        "oneofGroup": "provider_data",
         "type": "DashScopeTenantModelProviderData"
       },
       {
         "name": "volc_tenant",
         "number": 8,
         "oneof": true,
+        "oneofGroup": "provider_data",
         "type": "VolcTenantModelProviderData"
       },
       {
         "name": "minimax_tenant",
         "number": 9,
         "oneof": true,
+        "oneofGroup": "provider_data",
         "type": "MiniMaxTenantModelProviderData"
       },
       {
         "name": "deepseek_tenant",
         "number": 10,
         "oneof": true,
+        "oneofGroup": "provider_data",
         "type": "DeepSeekTenantModelProviderData"
       }
     ]
@@ -7210,30 +7219,35 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "flowcraft_workspace_parameters",
         "number": 1,
         "oneof": true,
+        "oneofGroup": "value",
         "type": "FlowcraftWorkspaceParameters"
       },
       {
         "name": "doubao_realtime_workspace_parameters",
         "number": 2,
         "oneof": true,
+        "oneofGroup": "value",
         "type": "DoubaoRealtimeWorkspaceParameters"
       },
       {
         "name": "asttranslate_workspace_parameters",
         "number": 3,
         "oneof": true,
+        "oneofGroup": "value",
         "type": "ASTTranslateWorkspaceParameters"
       },
       {
         "name": "chat_room_workspace_parameters",
         "number": 4,
         "oneof": true,
+        "oneofGroup": "value",
         "type": "ChatRoomWorkspaceParameters"
       },
       {
         "name": "pet_workspace_parameters",
         "number": 5,
         "oneof": true,
+        "oneofGroup": "value",
         "type": "PetWorkspaceParameters"
       }
     ]
@@ -7742,16 +7756,17 @@ function encodeMessage(type: string, value: unknown, parent: Record<string, unkn
     return writer.finish();
   }
   const object = messageObjectForEncode(type, value);
-  let encodedOneof = false;
+  const encodedOneofs = new Set<string>();
   for (const field of fields) {
     if (field.oneof) {
       if (!Object.prototype.hasOwnProperty.call(object, field.name) || object[field.name] == null) {
         continue;
       }
-      if (encodedOneof) {
+      const oneofGroup = field.oneofGroup ?? "";
+      if (encodedOneofs.has(oneofGroup)) {
         throw new Error(`protobuf message ${type} has multiple oneof values`);
       }
-      encodedOneof = true;
+      encodedOneofs.add(oneofGroup);
     }
     if (!Object.prototype.hasOwnProperty.call(object, field.name)) {
       continue;
@@ -7953,7 +7968,8 @@ function singleValueField(desc: MessageDesc): FieldDesc | undefined {
 }
 
 function isOneofValueWrapper(desc: MessageDesc): boolean {
-  return desc.fields.length > 0 && desc.fields.every((field) => field.oneof === true);
+  const group = desc.fields[0]?.oneofGroup;
+  return group != null && desc.fields.every((field) => field.oneofGroup === group);
 }
 
 function withMessageDefaults(desc: MessageDesc, values: Record<string, unknown>): Record<string, unknown> {

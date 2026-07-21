@@ -45,6 +45,7 @@ type FieldDesc = {
   optionalRepeated?: boolean;
   mapValue?: string;
   oneof?: boolean;
+  oneofGroup?: string;
   optional?: boolean;
 };
 
@@ -115,16 +116,17 @@ function encodeMessage(type: string, value: unknown, parent: Record<string, unkn
     return writer.finish();
   }
   const object = messageObjectForEncode(type, value);
-  let encodedOneof = false;
+  const encodedOneofs = new Set<string>();
   for (const field of fields) {
     if (field.oneof) {
       if (!Object.prototype.hasOwnProperty.call(object, field.name) || object[field.name] == null) {
         continue;
       }
-      if (encodedOneof) {
+      const oneofGroup = field.oneofGroup ?? "";
+      if (encodedOneofs.has(oneofGroup)) {
         throw new Error(\`protobuf message \${type} has multiple oneof values\`);
       }
-      encodedOneof = true;
+      encodedOneofs.add(oneofGroup);
     }
     if (!Object.prototype.hasOwnProperty.call(object, field.name)) {
       continue;
@@ -326,7 +328,8 @@ function singleValueField(desc: MessageDesc): FieldDesc | undefined {
 }
 
 function isOneofValueWrapper(desc: MessageDesc): boolean {
-  return desc.fields.length > 0 && desc.fields.every((field) => field.oneof === true);
+  const group = desc.fields[0]?.oneofGroup;
+  return group != null && desc.fields.every((field) => field.oneofGroup === group);
 }
 
 function withMessageDefaults(desc: MessageDesc, values: Record<string, unknown>): Record<string, unknown> {
@@ -923,7 +926,7 @@ function parsePayloadProto(proto) {
   const enums = {};
   let currentMessage = null;
   let currentEnum = null;
-  let inOneof = false;
+  let currentOneof = null;
 
   for (const line of lines) {
     const enumStart = /^\s*enum\s+(\w+)\s*\{/.exec(line);
@@ -952,20 +955,21 @@ function parsePayloadProto(proto) {
     if (currentMessage == null) {
       continue;
     }
-    if (/^\s*oneof\s+\w+\s*\{/.test(line)) {
-      inOneof = true;
+    const oneofStart = /^\s*oneof\s+(\w+)\s*\{/.exec(line);
+    if (oneofStart != null) {
+      currentOneof = oneofStart[1];
       continue;
     }
     if (/^\s*\}/.test(line)) {
-      if (inOneof) {
-        inOneof = false;
+      if (currentOneof != null) {
+        currentOneof = null;
         continue;
       }
       messages[currentMessage.name] = { fields: currentMessage.fields };
       currentMessage = null;
       continue;
     }
-    const field = parseField(line, inOneof, currentMessage.name);
+    const field = parseField(line, currentOneof, currentMessage.name);
     if (field != null) {
       currentMessage.fields.push(field);
     }
@@ -973,7 +977,7 @@ function parsePayloadProto(proto) {
   return { messages, enums };
 }
 
-function parseField(line, oneof, messageName) {
+function parseField(line, oneofGroup, messageName) {
   const map = /^\s*map<\s*string\s*,\s*([\w.]+)\s*>\s+(\w+)\s*=\s*(\d+)\s*(?:\[([^\]]*)\])?\s*;/.exec(line);
   if (map != null) {
     const name = fieldJSONName(map[2], map[4]);
@@ -983,7 +987,7 @@ function parseField(line, oneof, messageName) {
       type: "map",
       mapValue: map[1],
       ...(OPTIONAL_MAP_FIELDS.has(`${messageName}.${name}`) ? { optional: true } : {}),
-      ...(oneof ? { oneof: true } : {}),
+      ...(oneofGroup != null ? { oneof: true, oneofGroup } : {}),
     };
   }
   const match = /^\s*(optional\s+|repeated\s+)?([\w.]+)\s+(\w+)\s*=\s*(\d+)\s*(?:\[([^\]]*)\])?\s*;/.exec(line);
@@ -999,7 +1003,7 @@ function parseField(line, oneof, messageName) {
     ...(repeated ? { repeated: true } : {}),
     ...(repeated && OPTIONAL_REPEATED_FIELDS.has(`${messageName}.${name}`) ? { optionalRepeated: true } : {}),
     ...(match[1]?.trim() === "optional" ? { optional: true } : {}),
-    ...(oneof ? { oneof: true } : {}),
+    ...(oneofGroup != null ? { oneof: true, oneofGroup } : {}),
   };
 }
 
@@ -1031,7 +1035,7 @@ function messageTypeExpression(name, parsed) {
   if (single != null) {
     return tsFieldType(single, parsed);
   }
-  if (desc.fields.length > 0 && desc.fields.every((field) => field.oneof === true)) {
+  if (hasSingleOneofGroup(desc)) {
     return desc.fields.map((field) => tsFieldType(field, parsed)).join(" | ") || "Record<string, never>";
   }
   if (desc.fields.length === 0) {
@@ -1044,6 +1048,11 @@ function messageTypeExpression(name, parsed) {
   }
   lines.push("}");
   return lines.join("\n");
+}
+
+function hasSingleOneofGroup(desc) {
+  const group = desc.fields[0]?.oneofGroup;
+  return group != null && desc.fields.every((field) => field.oneofGroup === group);
 }
 
 function singleValueTypeField(desc) {
