@@ -15,6 +15,7 @@ import (
 	flowmodel "github.com/GizClaw/flowcraft/sdk/model"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
@@ -545,10 +546,64 @@ func TestControlOnlyBOSDiscardsUnfinishedInputText(t *testing.T) {
 	}
 }
 
+func TestTextBearingBOSDiscardsUnfinishedInputText(t *testing.T) {
+	t.Parallel()
+	generator := &echoGenerator{}
+	agent, err := New(testConfig(generator))
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	input := newInputBuilder()
+	if err := input.Add(
+		genx.NewBeginOfStream("stale"),
+		&genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text("stale text"), Ctrl: &genx.StreamCtrl{StreamID: "stale"}},
+		&genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text("fresh text"), Ctrl: &genx.StreamCtrl{StreamID: "replacement", BeginOfStream: true}},
+		&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "replacement", EndOfStream: true}},
+	); err != nil {
+		t.Fatalf("build replacement input: %v", err)
+	}
+	_ = input.Done(genx.Usage{})
+	output, err := agent.Transform(context.Background(), input.Stream())
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	if got := joinedText(drain(t, output)); got != "reply: fresh text" {
+		t.Fatalf("output = %q", got)
+	}
+	if patterns := generator.patterns(); len(patterns) != 1 {
+		t.Fatalf("model calls = %d, want 1", len(patterns))
+	}
+}
+
+func TestOrphanControlBOSIsDroppedAtInputEOF(t *testing.T) {
+	t.Parallel()
+	agent, err := New(testConfig(&echoGenerator{}))
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	input := newInputBuilder()
+	if err := input.Add(genx.NewBeginOfStream("orphan")); err != nil {
+		t.Fatalf("add BOS: %v", err)
+	}
+	_ = input.Done(genx.Usage{})
+	output, err := agent.Transform(context.Background(), input.Stream())
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	if chunks := drain(t, output); len(chunks) != 0 {
+		t.Fatalf("orphan BOS produced %d output chunks", len(chunks))
+	}
+}
+
 func TestEarlyInterruptionDoesNotPersistEmptyAssistant(t *testing.T) {
 	t.Parallel()
 	generator := &silentInterruptGenerator{started: make(chan struct{})}
-	agent, err := New(testConfig(generator))
+	memoryStore := &waitingMemoryStore{}
+	config := testConfig(generator)
+	config.Memory = memoryStore
+	config.MemoryScope = "runtime/user/agent"
+	config.ObserveEnabled = true
+	agent, err := New(config)
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
@@ -579,6 +634,57 @@ func TestEarlyInterruptionDoesNotPersistEmptyAssistant(t *testing.T) {
 	}
 	if len(history) != 2 || history[0].Content() != "second" || history[1].Content() != "reply: second" {
 		t.Fatalf("History = %#v", history)
+	}
+	memoryStore.mu.Lock()
+	observations := append([]memory.Observation(nil), memoryStore.observations...)
+	memoryStore.mu.Unlock()
+	if len(observations) != 1 || len(observations[0].Turns) != 2 || observations[0].Turns[0].Text != "second" {
+		t.Fatalf("Memory observations = %#v", observations)
+	}
+}
+
+func TestInterruptedTurnReportsFinalizeFailure(t *testing.T) {
+	t.Parallel()
+	generator := &interruptGenerator{started: make(chan struct{})}
+	config := testConfig(generator)
+	config.History = &failingHistoryStore{}
+	agent, err := New(config)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	input := newInputBuilder()
+	if err := addTextTurn(input, "first"); err != nil {
+		t.Fatalf("add first turn: %v", err)
+	}
+	output, err := agent.Transform(context.Background(), input.Stream())
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	var responseID string
+	for {
+		chunk, nextErr := output.Next()
+		if nextErr != nil {
+			t.Fatalf("read first prefix: %v", nextErr)
+		}
+		if chunk.Ctrl != nil {
+			responseID = chunk.Ctrl.StreamID
+		}
+		if text, ok := chunk.Part.(genx.Text); ok && text == "partial" {
+			break
+		}
+	}
+	if err := input.Add(genx.NewBeginOfStream("replacement")); err != nil {
+		t.Fatalf("add replacement BOS: %v", err)
+	}
+	_ = input.Done(genx.Usage{})
+	var reported bool
+	for _, chunk := range drain(t, output) {
+		if chunk.Ctrl != nil && chunk.Ctrl.StreamID == responseID && chunk.IsEndOfStream() {
+			reported = strings.Contains(chunk.Ctrl.Error, "history failed")
+		}
+	}
+	if !reported {
+		t.Fatal("interrupted EOS did not report History failure")
 	}
 }
 
@@ -837,6 +943,22 @@ type waitingMemoryStore struct {
 	release      chan struct{}
 	once         sync.Once
 }
+
+type failingHistoryStore struct{}
+
+func (*failingHistoryStore) Append(context.Context, []logstore.Record) ([]logstore.RecordKey, error) {
+	return nil, errors.New("history failed")
+}
+
+func (*failingHistoryStore) Query(context.Context, logstore.Query) (logstore.Page, error) {
+	return logstore.Page{}, nil
+}
+
+func (*failingHistoryStore) Replace(context.Context, logstore.Record) error { return nil }
+
+func (*failingHistoryStore) Delete(context.Context, logstore.RecordKey) error { return nil }
+
+func (*failingHistoryStore) Close() error { return nil }
 
 func (s *waitingMemoryStore) Observe(_ context.Context, observation memory.Observation) (memory.ObserveResult, error) {
 	s.mu.Lock()

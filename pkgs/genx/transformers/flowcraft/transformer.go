@@ -164,6 +164,10 @@ func (s *session) run() {
 			}
 			if _, ok := chunk.Part.(genx.Text); ok {
 				s.interruptActive()
+				text.Reset()
+				inText = false
+				activeInputID = ""
+				pendingBOS = nil
 			}
 		}
 		if chunk.IsEndOfStream() && chunk.Part == nil && inText {
@@ -251,11 +255,6 @@ func (s *session) run() {
 		s.turns.Wait()
 		_ = s.invocation.Output().CloseWithError(inputFailure)
 		return
-	}
-	for _, begin := range pendingBOS {
-		if err := s.invocation.Output().Push(begin.chunk); err != nil {
-			break
-		}
 	}
 	s.turns.Wait()
 	_ = s.invocation.Close()
@@ -432,11 +431,16 @@ func (r *turnRun) execute() {
 	interrupted := r.interrupted
 	r.mu.Unlock()
 	finalizeCtx := r.session.invocation.Context()
-	if err := r.finalize(finalizeCtx, delivered, interrupted, finalBoard); runErr == nil && err != nil {
-		runErr = err
+	finalizeErr := r.finalize(finalizeCtx, delivered, interrupted, finalBoard)
+	if runErr == nil && finalizeErr != nil {
+		runErr = finalizeErr
 	}
 	if interrupted {
-		_ = r.session.invocation.Interrupt(r.response, "interrupted")
+		errorText := "interrupted"
+		if finalizeErr != nil {
+			errorText = fmt.Sprintf("interrupted: %v", finalizeErr)
+		}
+		_ = r.session.invocation.Interrupt(r.response, errorText)
 	} else {
 		errorText := ""
 		if runErr != nil {
@@ -528,6 +532,9 @@ func (r *turnRun) finalize(ctx context.Context, delivered string, interrupted bo
 	config := r.session.transformer.config
 	if err := saveBoardState(ctx, config.State, r.session.contextID, finalBoard); err != nil {
 		return err
+	}
+	if interrupted && delivered == "" {
+		return nil
 	}
 	if !config.ObserveEnabled {
 		return nil
