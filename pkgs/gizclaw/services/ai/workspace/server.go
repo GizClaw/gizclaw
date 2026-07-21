@@ -235,8 +235,6 @@ func (s *Server) CreateSystemWorkspace(ctx context.Context, body adminhttp.Works
 	if err := s.validateReferences(ctx, workflowStore, normalized); err != nil {
 		return apitypes.Workspace{}, false, err
 	}
-	unlock := s.IconLocks.LockOwner(string(normalized.Name))
-	defer unlock()
 	existing, err := getWorkspace(ctx, store, string(normalized.Name))
 	if err == nil {
 		if !workspaceIsSystem(existing) {

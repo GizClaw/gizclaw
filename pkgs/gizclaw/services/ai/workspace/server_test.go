@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -191,52 +190,6 @@ func TestServerSystemWorkspaceLifecycle(t *testing.T) {
 	}
 	if len(runtime.deleted) != 2 || runtime.deleted[1] != "friend-chat" {
 		t.Fatalf("runtime deleted after missing system delete = %#v", runtime.deleted)
-	}
-}
-
-func TestServerCreateSystemWorkspaceConcurrent(t *testing.T) {
-	t.Parallel()
-
-	srv := newTestServer(t)
-	ctx := context.Background()
-	seedWorkflow(t, srv, "chatroom")
-	srv.Store = delayedMissingStore{Store: srv.Store, delay: 20 * time.Millisecond}
-	body := adminhttp.WorkspaceUpsert{Name: "friend-chat-concurrent", WorkflowName: "chatroom"}
-
-	const workers = 8
-	start := make(chan struct{})
-	created := make(chan bool, workers)
-	errs := make(chan error, workers)
-	var wg sync.WaitGroup
-	for range workers {
-		wg.Go(func() {
-			<-start
-			workspace, wasCreated, err := srv.CreateSystemWorkspace(ctx, body)
-			if err == nil && workspace.Name != body.Name {
-				err = fmt.Errorf("workspace name = %q, want %q", workspace.Name, body.Name)
-			}
-			created <- wasCreated
-			errs <- err
-		})
-	}
-	close(start)
-	wg.Wait()
-	close(created)
-	close(errs)
-
-	for err := range errs {
-		if err != nil {
-			t.Fatalf("CreateSystemWorkspace(concurrent) error = %v", err)
-		}
-	}
-	createdCount := 0
-	for wasCreated := range created {
-		if wasCreated {
-			createdCount++
-		}
-	}
-	if createdCount != 1 {
-		t.Fatalf("CreateSystemWorkspace(concurrent) created count = %d, want 1", createdCount)
 	}
 }
 
@@ -982,19 +935,6 @@ func mustWorkspaceUpsert(t *testing.T, raw string) adminhttp.WorkspaceUpsert {
 type recordingRuntimeStore struct {
 	prepared []string
 	deleted  []string
-}
-
-type delayedMissingStore struct {
-	kv.Store
-	delay time.Duration
-}
-
-func (s delayedMissingStore) Get(ctx context.Context, key kv.Key) ([]byte, error) {
-	value, err := s.Store.Get(ctx, key)
-	if errors.Is(err, kv.ErrNotFound) {
-		time.Sleep(s.delay)
-	}
-	return value, err
 }
 
 func (s *recordingRuntimeStore) PrepareWorkspace(_ context.Context, workspace string) (Runtime, error) {

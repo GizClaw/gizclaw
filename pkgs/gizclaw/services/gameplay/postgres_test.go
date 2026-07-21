@@ -204,19 +204,29 @@ func TestPostgresCallerAssignedAdoptionIsConcurrent(t *testing.T) {
 	now := time.Date(2026, 7, 22, 11, 0, 0, 0, time.UTC)
 	catalog := testCatalog(t, now)
 	profile := seedGameplayCatalog(t, ctx, catalog)
+	voices := *profile.Spec.Resources.Voices
+	voices["pet-voice-alt"] = gameplayTestBinding("voice-alt")
+	pool := *profile.Spec.Gameplay.Adoption.Pool
+	alternate := pool[0]
+	alternate.Voice = "pet-voice-alt"
+	pool = append(pool, alternate)
+	profile.Spec.Gameplay.Adoption.Pool = &pool
 	ctx = WithRuntimeProfile(ctx, profile)
 	workspaces := &recordingWorkspaceService{}
-	newRuntime := func() *Runtime {
+	newRuntime := func(pickWeight func(int64) int64) *Runtime {
 		return &Runtime{
 			DB:         db,
 			Catalog:    catalog,
 			Workflows:  petWorkflowService{},
 			Workspaces: workspaces,
 			Now:        func() time.Time { return now },
-			PickWeight: func(int64) int64 { return 0 },
+			PickWeight: pickWeight,
 		}
 	}
-	runtimes := []*Runtime{newRuntime(), newRuntime()}
+	runtimes := []*Runtime{
+		newRuntime(func(int64) int64 { return 0 }),
+		newRuntime(func(total int64) int64 { return total - 1 }),
+	}
 	if err := runtimes[0].Migration(ctx); err != nil {
 		t.Fatalf("Migration() error = %v", err)
 	}
@@ -268,6 +278,17 @@ func TestPostgresCallerAssignedAdoptionIsConcurrent(t *testing.T) {
 	if len(workspaces.created) != 1 || len(workspaces.deleted) != 0 {
 		t.Fatalf("workspace mutations: created=%d deleted=%d, want 1 and 0", len(workspaces.created), len(workspaces.deleted))
 	}
+	var reservedVoice string
+	if err := db.QueryRowContext(ctx, `SELECT voice_alias FROM gameplay_pet_adoption_reservations WHERE owner_public_key = $1 AND pet_id = $2`, "peer-postgres", petID).Scan(&reservedVoice); err != nil {
+		t.Fatalf("load adoption reservation voice: %v", err)
+	}
+	parameters, err := workspaces.created[0].Parameters.AsPetWorkspaceParameters()
+	if err != nil {
+		t.Fatalf("decode winning Pet Workspace parameters: %v", err)
+	}
+	if parameters.Voice.VoiceId != reservedVoice {
+		t.Fatalf("winning Pet Workspace voice = %q, want reserved voice %q", parameters.Voice.VoiceId, reservedVoice)
+	}
 }
 
 func openGameplayPostgresTestDB(t *testing.T) *sqlx.DB {
@@ -292,6 +313,7 @@ func dropGameplayPostgresTables(t *testing.T, ctx context.Context, db *sqlx.DB) 
 	t.Helper()
 	for _, table := range []string{
 		"gameplay_pet_drive_ticks",
+		"gameplay_pet_adoption_reservations",
 		"gameplay_reward_grants",
 		"gameplay_game_results",
 		"gameplay_badges",

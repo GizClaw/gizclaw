@@ -181,7 +181,7 @@ func TestRuntimeAdoptCallerIDScopesIdentityToPeer(t *testing.T) {
 	}
 }
 
-func TestRuntimeAdoptCallerIDCleanupUsesFreshContext(t *testing.T) {
+func TestRuntimeAdoptCallerIDRetryReusesReservationAfterFailure(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 7, 22, 9, 45, 0, 0, time.UTC)
 	catalog := testCatalog(t, now)
@@ -190,6 +190,7 @@ func TestRuntimeAdoptCallerIDCleanupUsesFreshContext(t *testing.T) {
 	profile.Spec.Gameplay.Points.InitialBalance = &initialBalance
 	ctx = WithRuntimeProfile(ctx, profile)
 	workspaces := &recordingWorkspaceService{}
+	pickCount := 0
 	runtime := &Runtime{
 		DB:         testDB(t),
 		Catalog:    catalog,
@@ -197,17 +198,25 @@ func TestRuntimeAdoptCallerIDCleanupUsesFreshContext(t *testing.T) {
 		Workspaces: workspaces,
 		Now:        func() time.Time { return now },
 		NewID:      sequentialIDs("adopt-txn"),
-		PickWeight: func(int64) int64 { return 0 },
+		PickWeight: func(int64) int64 {
+			pickCount++
+			return 0
+		},
 	}
 	petID := "device-pet-cleanup"
 	if _, err := runtime.AdoptPet(ctx, "peer-a", apitypes.PetAdoptRequest{Id: &petID}); err == nil {
 		t.Fatal("AdoptPet(insufficient Points) error = nil")
 	}
-	if len(workspaces.deleted) != 1 || workspaces.deleted[0] != petWorkspaceName("peer-a", petID) {
-		t.Fatalf("deleted workspaces = %#v, want failed adoption Workspace", workspaces.deleted)
+	if len(workspaces.created) != 1 || len(workspaces.deleted) != 0 {
+		t.Fatalf("workspace mutations after failed adoption: created=%d deleted=%d, want 1 and 0", len(workspaces.created), len(workspaces.deleted))
 	}
-	if workspaces.deleteContextErr != nil {
-		t.Fatalf("DeleteSystemWorkspace() context error = %v, want active cleanup context", workspaces.deleteContextErr)
+	initialBalance = 50
+	response, err := runtime.AdoptPet(ctx, "peer-a", apitypes.PetAdoptRequest{Id: &petID})
+	if err != nil {
+		t.Fatalf("AdoptPet(retry) error = %v", err)
+	}
+	if response.Pet.Id != petID || response.Points.Balance != 35 || pickCount != 1 {
+		t.Fatalf("AdoptPet(retry) = %#v, picks=%d; want reserved selection and one pool pick", response, pickCount)
 	}
 }
 
@@ -378,12 +387,12 @@ func TestRuntimeAdoptCallerIDConvergesAcrossRuntimeInstances(t *testing.T) {
 	if err != nil {
 		t.Fatalf("decode winning Pet Workspace parameters: %v", err)
 	}
-	wantVoice := "pet-voice"
-	if transactionID == "txn-runtime-b" {
-		wantVoice = "pet-voice-alt"
+	var reservedVoice string
+	if err := db.QueryRow(`SELECT voice_alias FROM gameplay_pet_adoption_reservations WHERE owner_public_key = ? AND pet_id = ?`, "peer-a", petID).Scan(&reservedVoice); err != nil {
+		t.Fatalf("load adoption reservation voice: %v", err)
 	}
-	if parameters.Voice.VoiceId != wantVoice {
-		t.Fatalf("winning Pet Workspace voice = %q, want %q for transaction %q", parameters.Voice.VoiceId, wantVoice, transactionID)
+	if parameters.Voice.VoiceId != reservedVoice {
+		t.Fatalf("winning Pet Workspace voice = %q, want reserved voice %q", parameters.Voice.VoiceId, reservedVoice)
 	}
 }
 
@@ -591,11 +600,10 @@ func sequentialIDs(ids ...string) func() string {
 }
 
 type recordingWorkspaceService struct {
-	mu               sync.Mutex
-	created          []adminhttp.WorkspaceUpsert
-	deleted          []string
-	deleteErr        error
-	deleteContextErr error
+	mu        sync.Mutex
+	created   []adminhttp.WorkspaceUpsert
+	deleted   []string
+	deleteErr error
 }
 
 func (s *recordingWorkspaceService) CreateSystemWorkspace(_ context.Context, body adminhttp.WorkspaceUpsert) (apitypes.Workspace, bool, error) {
@@ -612,10 +620,9 @@ func (s *recordingWorkspaceService) CreateSystemWorkspace(_ context.Context, bod
 	return apitypes.Workspace{Name: body.Name, WorkflowName: body.WorkflowName, Parameters: body.Parameters, System: &system}, true, nil
 }
 
-func (s *recordingWorkspaceService) DeleteSystemWorkspace(ctx context.Context, name string) (apitypes.Workspace, error) {
+func (s *recordingWorkspaceService) DeleteSystemWorkspace(_ context.Context, name string) (apitypes.Workspace, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.deleteContextErr = ctx.Err()
 	if s.deleteErr != nil {
 		return apitypes.Workspace{}, s.deleteErr
 	}

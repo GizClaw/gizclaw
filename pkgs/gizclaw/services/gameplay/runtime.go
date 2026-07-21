@@ -79,6 +79,19 @@ func (r *Runtime) Migration(ctx context.Context) error {
 			updated_at TEXT NOT NULL,
 			PRIMARY KEY(owner_public_key, id)
 		)`,
+		`CREATE TABLE IF NOT EXISTS gameplay_pet_adoption_reservations (
+			owner_public_key TEXT NOT NULL,
+			pet_id TEXT NOT NULL,
+			runtime_profile_name TEXT NOT NULL,
+			petdef_id TEXT NOT NULL,
+			display_name TEXT NOT NULL,
+			workspace_name TEXT NOT NULL,
+			workflow_name TEXT NOT NULL,
+			voice_alias TEXT NOT NULL,
+			adoption_cost INTEGER NOT NULL,
+			created_at TEXT NOT NULL,
+			PRIMARY KEY(owner_public_key, pet_id)
+		)`,
 		`CREATE TABLE IF NOT EXISTS gameplay_pet_drive_ticks (
 			owner_public_key TEXT NOT NULL,
 			runtime_profile_name TEXT NOT NULL,
@@ -209,8 +222,14 @@ func (r *Runtime) AdoptPet(ctx context.Context, owner string, req apitypes.PetAd
 	if err != nil {
 		return apitypes.PetAdoptResponse{}, err
 	}
-	workspaceName := petWorkspaceName(owner, petID)
-	response, workspaceCreated, createErr := r.createPetAdoption(ctx, owner, req, ruleset, petID, workspaceName, true)
+	reservation, err := r.reservePetAdoption(ctx, owner, req, ruleset, petID)
+	if err != nil {
+		return apitypes.PetAdoptResponse{}, err
+	}
+	if reservation.RuntimeProfileName != ruleset.Name {
+		return apitypes.PetAdoptResponse{}, fmt.Errorf("%w: %q belongs to RuntimeProfile %q", ErrPetIDConflict, petID, reservation.RuntimeProfileName)
+	}
+	response, createErr := r.createReservedPetAdoption(ctx, reservation, ruleset)
 	if createErr == nil {
 		return response, nil
 	}
@@ -220,15 +239,73 @@ func (r *Runtime) AdoptPet(ctx context.Context, owner string, req apitypes.PetAd
 	if found {
 		return response, recoveryErr
 	}
-	if workspaceCreated && r.Workspaces != nil {
-		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
-		defer cleanupCancel()
-		_, _ = r.Workspaces.DeleteSystemWorkspace(cleanupCtx, workspaceName)
-	}
 	if recoveryErr != nil {
 		return apitypes.PetAdoptResponse{}, recoveryErr
 	}
 	return apitypes.PetAdoptResponse{}, createErr
+}
+
+func (r *Runtime) reservePetAdoption(ctx context.Context, owner string, req apitypes.PetAdoptRequest, ruleset ProfileRules, petID string) (petAdoptionReservation, error) {
+	db, err := r.db()
+	if err != nil {
+		return petAdoptionReservation{}, err
+	}
+	reserved, err := findPetAdoptionReservation(ctx, db, owner, petID)
+	if err == nil {
+		return reserved, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return petAdoptionReservation{}, err
+	}
+	poolEntry, err := r.pickPetDef(ruleset.Spec.PetPool)
+	if err != nil {
+		return petAdoptionReservation{}, err
+	}
+	petDef, err := r.Catalog.GetPetDefByID(ctx, poolEntry.PetDefID)
+	if err != nil {
+		return petAdoptionReservation{}, err
+	}
+	displayName := strings.TrimSpace(valueOrZero(req.DisplayName))
+	if displayName == "" {
+		displayName = petDefDisplayName(petDef)
+	}
+	reservation := petAdoptionReservation{
+		OwnerPublicKey: owner, PetID: petID, RuntimeProfileName: ruleset.Name,
+		PetDefID: petDef.Id, DisplayName: displayName, WorkspaceName: petWorkspaceName(owner, petID),
+		WorkflowName: defaultPetWorkflowName, VoiceAlias: poolEntry.VoiceAlias,
+		AdoptionCost: int64Value(poolEntry.AdoptionCost), CreatedAt: r.now(),
+	}
+	tx, err := db.BeginTxx(ctx, nil)
+	if err != nil {
+		return petAdoptionReservation{}, err
+	}
+	defer tx.Rollback()
+	if err := insertPetAdoptionReservation(ctx, tx, reservation); err != nil {
+		return petAdoptionReservation{}, err
+	}
+	reserved, err = findPetAdoptionReservation(ctx, tx, owner, petID)
+	if err != nil {
+		return petAdoptionReservation{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return petAdoptionReservation{}, err
+	}
+	return reserved, nil
+}
+
+func (r *Runtime) createReservedPetAdoption(ctx context.Context, reservation petAdoptionReservation, ruleset ProfileRules) (apitypes.PetAdoptResponse, error) {
+	if _, err := r.createPetWorkspace(ctx, reservation.WorkspaceName, reservation.WorkflowName, reservation.VoiceAlias); err != nil {
+		return apitypes.PetAdoptResponse{}, err
+	}
+	now := r.now()
+	pet := apitypes.Pet{
+		Id: reservation.PetID, OwnerPublicKey: reservation.OwnerPublicKey,
+		RuntimeProfileName: reservation.RuntimeProfileName, PetdefId: reservation.PetDefID,
+		DisplayName: reservation.DisplayName, WorkspaceName: reservation.WorkspaceName,
+		Stats: initialPetStats(), Progression: initialPetProgression(), Lifecycle: apitypes.PetLifecycleAlive,
+		StateSettledAt: now, LastActiveAt: now, CreatedAt: now, UpdatedAt: now,
+	}
+	return r.commitPetAdoption(ctx, pet, ruleset, reservation.AdoptionCost)
 }
 
 func (r *Runtime) createPetAdoption(ctx context.Context, owner string, req apitypes.PetAdoptRequest, ruleset ProfileRules, petID, workspaceName string, acceptExistingWorkspace bool) (apitypes.PetAdoptResponse, bool, error) {
@@ -268,31 +345,35 @@ func (r *Runtime) createPetAdoption(ctx context.Context, owner string, req apity
 		CreatedAt:          now,
 		UpdatedAt:          now,
 	}
+	response, err := r.commitPetAdoption(ctx, pet, ruleset, int64Value(poolEntry.AdoptionCost))
+	return response, workspaceCreated, err
+}
+
+func (r *Runtime) commitPetAdoption(ctx context.Context, pet apitypes.Pet, ruleset ProfileRules, adoptionCost int64) (apitypes.PetAdoptResponse, error) {
 	db, err := r.db()
 	if err != nil {
-		return apitypes.PetAdoptResponse{}, workspaceCreated, err
+		return apitypes.PetAdoptResponse{}, err
 	}
 	tx, err := db.BeginTxx(ctx, nil)
 	if err != nil {
-		return apitypes.PetAdoptResponse{}, workspaceCreated, err
+		return apitypes.PetAdoptResponse{}, err
 	}
 	defer tx.Rollback()
-	account, err := r.ensureAccountTx(ctx, tx, owner, ruleset)
+	account, err := r.ensureAccountTx(ctx, tx, pet.OwnerPublicKey, ruleset)
 	if err != nil {
-		return apitypes.PetAdoptResponse{}, workspaceCreated, err
+		return apitypes.PetAdoptResponse{}, err
 	}
-	cost := int64Value(poolEntry.AdoptionCost)
-	txn, err := r.recordPointsTx(ctx, tx, &account, -cost, ruleset.Name, pet.Id, "", "", "pet.adopt", "pet", pet.Id, true)
+	txn, err := r.recordPointsTx(ctx, tx, &account, -adoptionCost, ruleset.Name, pet.Id, "", "", "pet.adopt", "pet", pet.Id, true)
 	if err != nil {
-		return apitypes.PetAdoptResponse{}, workspaceCreated, err
+		return apitypes.PetAdoptResponse{}, err
 	}
 	if err := insertPet(ctx, tx, pet); err != nil {
-		return apitypes.PetAdoptResponse{}, workspaceCreated, err
+		return apitypes.PetAdoptResponse{}, err
 	}
 	if err := tx.Commit(); err != nil {
-		return apitypes.PetAdoptResponse{}, workspaceCreated, err
+		return apitypes.PetAdoptResponse{}, err
 	}
-	return apitypes.PetAdoptResponse{Pet: pet, Points: account, Transaction: txn}, workspaceCreated, nil
+	return apitypes.PetAdoptResponse{Pet: pet, Points: account, Transaction: txn}, nil
 }
 
 func (r *Runtime) awaitCompletedAdoptionResponse(ctx context.Context, owner, runtimeProfileName, petID string) (apitypes.PetAdoptResponse, bool, error) {
