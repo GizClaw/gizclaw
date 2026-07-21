@@ -81,9 +81,6 @@ func (s *Server) ListVoices(ctx context.Context, request adminhttp.ListVoicesReq
 		if rpcResponse != nil {
 			return adminhttp.ListVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", rpcResponse.Error.Message)), nil
 		}
-		if !voiceMatchesListParams(item, request.Params) {
-			continue
-		}
 		item.Id = alias
 		items = append(items, item)
 	}
@@ -97,28 +94,6 @@ func (s *Server) ListVoices(ctx context.Context, request adminhttp.ListVoicesReq
 		HasNext:    hasNext,
 		NextCursor: nextCursor,
 	}), nil
-}
-
-func voiceMatchesListParams(item apitypes.Voice, params adminhttp.ListVoicesParams) bool {
-	if params.Source != nil {
-		source := strings.TrimSpace(string(*params.Source))
-		if source != "" && string(item.Source) != source {
-			return false
-		}
-	}
-	if params.ProviderKind != nil {
-		kind := strings.TrimSpace(string(*params.ProviderKind))
-		if kind != "" && string(item.Provider.Kind) != kind {
-			return false
-		}
-	}
-	if params.ProviderName != nil {
-		name := strings.TrimSpace(*params.ProviderName)
-		if name != "" && item.Provider.Name != name {
-			return false
-		}
-	}
-	return true
 }
 
 func (s *Server) GetVoice(ctx context.Context, request adminhttp.GetVoiceRequestObject) (adminhttp.GetVoiceResponseObject, error) {

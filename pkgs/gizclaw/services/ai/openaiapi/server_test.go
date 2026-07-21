@@ -95,12 +95,20 @@ func TestListModelsPaginationAndErrors(t *testing.T) {
 	}
 }
 
-func TestListVoicesReturnsPeerFilteredVoiceList(t *testing.T) {
-	want := adminhttp.ListVoicesParams{ProviderName: stringPtr("volc-main")}
+func TestListVoicesReturnsRuntimeProfileVoiceList(t *testing.T) {
+	cursor := "voice-before"
+	limit := int32(10)
+	want := VoiceListParams{Cursor: &cursor, Limit: &limit}
 	srv := &Server{
 		Voices: voiceListerFunc(func(_ context.Context, req adminhttp.ListVoicesRequestObject) (adminhttp.ListVoicesResponseObject, error) {
-			if req.Params.ProviderName == nil || *req.Params.ProviderName != *want.ProviderName {
-				t.Fatalf("provider name = %#v, want %q", req.Params.ProviderName, *want.ProviderName)
+			if req.Params.Cursor == nil || *req.Params.Cursor != cursor {
+				t.Fatalf("cursor = %#v, want %q", req.Params.Cursor, cursor)
+			}
+			if req.Params.Limit == nil || *req.Params.Limit != limit {
+				t.Fatalf("limit = %#v, want %d", req.Params.Limit, limit)
+			}
+			if req.Params.Source != nil || req.Params.ProviderKind != nil || req.Params.ProviderName != nil {
+				t.Fatalf("unexpected admin voice filters = %#v", req.Params)
 			}
 			return adminhttp.ListVoices200JSONResponse(adminhttp.VoiceList{
 				Items: []apitypes.Voice{{Id: "voice-a", Name: stringPtr("Voice A")}},
@@ -116,13 +124,13 @@ func TestListVoicesReturnsPeerFilteredVoiceList(t *testing.T) {
 		t.Fatalf("ListVoices() items = %#v", list.Items)
 	}
 
-	if _, err := (&Server{}).ListVoices(context.Background(), adminhttp.ListVoicesParams{}); err == nil {
+	if _, err := (&Server{}).ListVoices(context.Background(), VoiceListParams{}); err == nil {
 		t.Fatal("ListVoices() without service succeeded")
 	}
 	bad := &Server{Voices: voiceListerFunc(func(context.Context, adminhttp.ListVoicesRequestObject) (adminhttp.ListVoicesResponseObject, error) {
 		return adminhttp.ListVoices500JSONResponse(apitypes.NewErrorResponse("ERR", "bad")), nil
 	})}
-	if _, err := bad.ListVoices(context.Background(), adminhttp.ListVoicesParams{}); err == nil {
+	if _, err := bad.ListVoices(context.Background(), VoiceListParams{}); err == nil {
 		t.Fatal("ListVoices() with non-list response succeeded")
 	}
 }

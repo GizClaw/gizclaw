@@ -33,6 +33,13 @@ type VoiceLister interface {
 	ListVoices(context.Context, adminhttp.ListVoicesRequestObject) (adminhttp.ListVoicesResponseObject, error)
 }
 
+// VoiceListParams contains the pagination accepted by the RuntimeProfile-scoped
+// OpenAI-compatible voice catalog.
+type VoiceListParams struct {
+	Cursor *string
+	Limit  *int32
+}
+
 type Server struct {
 	Caller      giznet.PublicKey
 	Models      ModelLister
@@ -76,11 +83,14 @@ func (s *Server) ListModels(ctx context.Context, _ openaihttp.ListModelsRequestO
 	return openaihttp.ListModels200JSONResponse{Object: "list", Data: out}, nil
 }
 
-func (s *Server) ListVoices(ctx context.Context, params adminhttp.ListVoicesParams) (adminhttp.VoiceList, error) {
+func (s *Server) ListVoices(ctx context.Context, params VoiceListParams) (adminhttp.VoiceList, error) {
 	if s == nil || s.Voices == nil {
 		return adminhttp.VoiceList{}, errors.New("openaiapi: voice service is not configured")
 	}
-	resp, err := s.Voices.ListVoices(ctx, adminhttp.ListVoicesRequestObject{Params: params})
+	resp, err := s.Voices.ListVoices(ctx, adminhttp.ListVoicesRequestObject{Params: adminhttp.ListVoicesParams{
+		Cursor: params.Cursor,
+		Limit:  params.Limit,
+	}})
 	if err != nil {
 		return adminhttp.VoiceList{}, err
 	}
