@@ -11,8 +11,15 @@ import (
 func TestInvocationLocalHistoryUsesWindow(t *testing.T) {
 	t.Parallel()
 	history := &conversationHistory{}
+	messages := make([]flowmodel.Message, 0, historyWindow+10)
 	for index := range historyWindow + 10 {
-		history.live = append(history.live, flowmodel.NewTextMessage(flowmodel.RoleUser, fmt.Sprintf("message-%d", index)))
+		messages = append(messages, flowmodel.NewTextMessage(flowmodel.RoleUser, fmt.Sprintf("message-%d", index)))
+	}
+	if err := history.append(context.Background(), messages, false); err != nil {
+		t.Fatalf("append() error = %v", err)
+	}
+	if len(history.live) != historyWindow {
+		t.Fatalf("retained History = %d messages, want %d", len(history.live), historyWindow)
 	}
 	messages, err := history.load(context.Background())
 	if err != nil {

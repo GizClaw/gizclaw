@@ -155,6 +155,10 @@ func (s *session) run() {
 			// for the first text delta. MIME-bearing non-text BOS remains bypass.
 			if chunk.Part == nil {
 				s.interruptActive()
+				text.Reset()
+				inText = false
+				activeInputID = ""
+				pendingBOS = nil
 				storePendingBegin(&pendingBOS, chunk.Clone())
 				continue
 			}
@@ -511,8 +515,11 @@ func (r *turnRun) waitUntilDelivered() {
 }
 
 func (r *turnRun) finalize(ctx context.Context, delivered string, interrupted bool, finalBoard *engine.Board) error {
-	messages := []flowmodel.Message{flowmodel.NewTextMessage(flowmodel.RoleUser, r.user)}
-	if delivered != "" || interrupted {
+	var messages []flowmodel.Message
+	if !interrupted || delivered != "" {
+		messages = append(messages, flowmodel.NewTextMessage(flowmodel.RoleUser, r.user))
+	}
+	if delivered != "" {
 		messages = append(messages, flowmodel.NewTextMessage(flowmodel.RoleAssistant, delivered))
 	}
 	if err := r.session.history.append(ctx, messages, interrupted); err != nil {

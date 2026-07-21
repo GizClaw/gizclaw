@@ -220,6 +220,7 @@ func (i *Invocation) Cancel(cause error) error {
 	}
 	i.closed = true
 	i.cancel()
+	i.output.AbandonDeferredObservations()
 	discarded := i.output.discardChunks(func(*genx.MessageChunk) bool { return true })
 	errorText := "cancelled"
 	if cause != nil {

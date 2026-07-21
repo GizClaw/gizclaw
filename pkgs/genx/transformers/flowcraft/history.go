@@ -97,6 +97,9 @@ func (h *conversationHistory) append(ctx context.Context, messages []flowmodel.M
 	if h.store == nil {
 		h.mu.Lock()
 		h.live = append(h.live, owned...)
+		if len(h.live) > historyWindow {
+			h.live = append([]flowmodel.Message(nil), h.live[len(h.live)-historyWindow:]...)
+		}
 		h.mu.Unlock()
 		return nil
 	}

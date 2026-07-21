@@ -42,7 +42,7 @@ Each `Transform(ctx, input)` creates an internal ContextID. It correlates ordere
 
 Text input starts at BOS and is accumulated until the matching text EOS before the Graph runs. Each completed text turn produces a fresh output StreamID, BOS, streaming text, and EOS. Non-text content bypasses Flowcraft unchanged on its original route.
 
-A new text BOS cancels an unfinished prior turn, removes its unpulled output, and emits an EOS with an `interrupted` error after that turn reaches its persistence boundary. Because a control-only BOS has no MIME declaration, Flowcraft treats it eagerly as the next text turn; a non-text route that must not interrupt uses a MIME-bearing BOS. History and Memory contain only assistant text that crossed the final delivery observation boundary; a discarded or not-yet-delivered suffix is not recorded. An interrupted assistant History message carries an interruption data marker.
+A new text BOS cancels an unfinished prior turn, discards its unfinished input and unpulled output, and emits an EOS with an `interrupted` error after that turn reaches its persistence boundary. Because a control-only BOS has no MIME declaration, Flowcraft treats it eagerly as the next text turn; a non-text route that must not interrupt uses a MIME-bearing BOS. History and Memory contain only assistant text that crossed the final delivery observation boundary; a discarded or not-yet-delivered suffix is not recorded. An interrupted user/assistant History pair is stored only when at least one assistant text delta was delivered, and its assistant message carries an interruption data marker; marker-only empty assistant messages are not stored.
 
 ## Store boundaries
 

@@ -343,8 +343,7 @@ func TestTransformPreservesInterleavedNonTextBoundaries(t *testing.T) {
 	if err := input.Add(
 		genx.NewBeginOfStream(textID),
 		&genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: textID}},
-		genx.NewBeginOfStream(audioID),
-		&genx.MessageChunk{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/ogg", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: audioID}},
+		&genx.MessageChunk{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/ogg", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: audioID, BeginOfStream: true}},
 		&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: audioID, EndOfStream: true}},
 		&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: textID, EndOfStream: true}},
 	); err != nil {
@@ -512,6 +511,74 @@ func TestControlOnlyBOSInterruptsBeforeFirstTextDelta(t *testing.T) {
 	_ = input.Done(genx.Usage{})
 	if got := joinedText(drain(t, output)); got != "reply: second" {
 		t.Fatalf("replacement output = %q", got)
+	}
+}
+
+func TestControlOnlyBOSDiscardsUnfinishedInputText(t *testing.T) {
+	t.Parallel()
+	generator := &echoGenerator{}
+	agent, err := New(testConfig(generator))
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	input := newInputBuilder()
+	if err := input.Add(
+		genx.NewBeginOfStream("stale"),
+		&genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text("stale text"), Ctrl: &genx.StreamCtrl{StreamID: "stale"}},
+		genx.NewBeginOfStream("replacement"),
+		&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "stale", EndOfStream: true}},
+		&genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text("fresh text"), Ctrl: &genx.StreamCtrl{StreamID: "replacement"}},
+		&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "replacement", EndOfStream: true}},
+	); err != nil {
+		t.Fatalf("build replacement input: %v", err)
+	}
+	_ = input.Done(genx.Usage{})
+	output, err := agent.Transform(context.Background(), input.Stream())
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	if got := joinedText(drain(t, output)); got != "reply: fresh text" {
+		t.Fatalf("output = %q", got)
+	}
+	if patterns := generator.patterns(); len(patterns) != 1 {
+		t.Fatalf("model calls = %d, want 1", len(patterns))
+	}
+}
+
+func TestEarlyInterruptionDoesNotPersistEmptyAssistant(t *testing.T) {
+	t.Parallel()
+	generator := &silentInterruptGenerator{started: make(chan struct{})}
+	agent, err := New(testConfig(generator))
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	input := newInputBuilder()
+	if err := addTextTurn(input, "first"); err != nil {
+		t.Fatalf("add first turn: %v", err)
+	}
+	output, err := agent.Transform(context.Background(), input.Stream())
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	select {
+	case <-generator.started:
+	case <-time.After(time.Second):
+		t.Fatal("first model call did not start")
+	}
+	if err := addTextTurn(input, "second"); err != nil {
+		t.Fatalf("add replacement turn: %v", err)
+	}
+	_ = input.Done(genx.Usage{})
+	if got := joinedText(drain(t, output)); got != "reply: second" {
+		t.Fatalf("replacement output = %q", got)
+	}
+	stream := output.(*sessionStream)
+	history, err := stream.session.history.load(context.Background())
+	if err != nil {
+		t.Fatalf("load History: %v", err)
+	}
+	if len(history) != 2 || history[0].Content() != "second" || history[1].Content() != "reply: second" {
+		t.Fatalf("History = %#v", history)
 	}
 }
 
@@ -758,6 +825,11 @@ type interruptGenerator struct {
 	once    sync.Once
 }
 
+type silentInterruptGenerator struct {
+	started chan struct{}
+	once    sync.Once
+}
+
 type waitingMemoryStore struct {
 	mu           sync.Mutex
 	observations []memory.Observation
@@ -812,6 +884,19 @@ func (g *interruptGenerator) GenerateStream(ctx context.Context, _ string, model
 }
 
 func (*interruptGenerator) Invoke(context.Context, string, genx.ModelContext, *genx.FuncTool) (genx.Usage, *genx.FuncCall, error) {
+	return genx.Usage{}, nil, errors.New("not supported")
+}
+
+func (g *silentInterruptGenerator) GenerateStream(ctx context.Context, _ string, modelContext genx.ModelContext) (genx.Stream, error) {
+	if lastUserText(modelContext) != "first" {
+		return responseStream(modelContext, "reply: "+lastUserText(modelContext)), nil
+	}
+	g.once.Do(func() { close(g.started) })
+	<-ctx.Done()
+	return nil, context.Cause(ctx)
+}
+
+func (*silentInterruptGenerator) Invoke(context.Context, string, genx.ModelContext, *genx.FuncTool) (genx.Usage, *genx.FuncCall, error) {
 	return genx.Usage{}, nil, errors.New("not supported")
 }
 

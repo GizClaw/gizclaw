@@ -1,6 +1,7 @@
 package streamkit
 
 import (
+	"context"
 	"errors"
 	"io"
 	"sync"
@@ -208,6 +209,33 @@ func TestOutputWaitForObserversCoversDeferredDelivery(t *testing.T) {
 	case <-waitDone:
 	case <-time.After(time.Second):
 		t.Fatal("WaitForObservers did not return after deferred observation")
+	}
+}
+
+func TestOutputAbandonsDeferredObservationOnErrorClose(t *testing.T) {
+	output := NewOutput(OutputConfig{Observe: func(*genx.MessageChunk) {}})
+	output.DeferOutputObservation()
+	if err := output.Push(&genx.MessageChunk{Part: genx.Text("claimed")}); err != nil {
+		t.Fatalf("Push() error = %v", err)
+	}
+	if _, err := output.Next(); err != nil {
+		t.Fatalf("Next() error = %v", err)
+	}
+	waitDone := make(chan struct{})
+	go func() {
+		output.WaitForObservers()
+		close(waitDone)
+	}()
+	select {
+	case <-waitDone:
+		t.Fatal("WaitForObservers returned before cancellation")
+	case <-time.After(20 * time.Millisecond):
+	}
+	_ = output.CloseWithError(context.Canceled)
+	select {
+	case <-waitDone:
+	case <-time.After(time.Second):
+		t.Fatal("WaitForObservers remained blocked after cancellation")
 	}
 }
 

@@ -200,7 +200,28 @@ func (o *Output) closeWithErrorLocked(err error) {
 	clear(o.queue)
 	o.queue = nil
 	o.queuedBytes = 0
+	o.abandonDeferredObservationsLocked()
 	o.signalDoneLocked()
+	o.cond.Broadcast()
+}
+
+// AbandonDeferredObservations releases delivery acknowledgements that can no
+// longer arrive because their final consumer has been cancelled.
+func (o *Output) AbandonDeferredObservations() {
+	if o == nil {
+		return
+	}
+	o.mu.Lock()
+	o.abandonDeferredObservationsLocked()
+	o.mu.Unlock()
+}
+
+func (o *Output) abandonDeferredObservationsLocked() {
+	if o.deferredObservers == 0 {
+		return
+	}
+	o.observers -= o.deferredObservers
+	o.deferredObservers = 0
 	o.cond.Broadcast()
 }
 
