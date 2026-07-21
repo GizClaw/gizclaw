@@ -181,6 +181,36 @@ func TestRuntimeAdoptCallerIDScopesIdentityToPeer(t *testing.T) {
 	}
 }
 
+func TestRuntimeAdoptCallerIDCleanupUsesFreshContext(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 7, 22, 9, 45, 0, 0, time.UTC)
+	catalog := testCatalog(t, now)
+	profile := seedGameplayCatalog(t, ctx, catalog)
+	initialBalance := int64(0)
+	profile.Spec.Gameplay.Points.InitialBalance = &initialBalance
+	ctx = WithRuntimeProfile(ctx, profile)
+	workspaces := &recordingWorkspaceService{}
+	runtime := &Runtime{
+		DB:         testDB(t),
+		Catalog:    catalog,
+		Workflows:  petWorkflowService{},
+		Workspaces: workspaces,
+		Now:        func() time.Time { return now },
+		NewID:      sequentialIDs("adopt-txn"),
+		PickWeight: func(int64) int64 { return 0 },
+	}
+	petID := "device-pet-cleanup"
+	if _, err := runtime.AdoptPet(ctx, "peer-a", apitypes.PetAdoptRequest{Id: &petID}); err == nil {
+		t.Fatal("AdoptPet(insufficient Points) error = nil")
+	}
+	if len(workspaces.deleted) != 1 || workspaces.deleted[0] != petWorkspaceName("peer-a", petID) {
+		t.Fatalf("deleted workspaces = %#v, want failed adoption Workspace", workspaces.deleted)
+	}
+	if workspaces.deleteContextErr != nil {
+		t.Fatalf("DeleteSystemWorkspace() context error = %v, want active cleanup context", workspaces.deleteContextErr)
+	}
+}
+
 func TestRuntimeAdoptCallerIDRejectsInvalidProfileAndDeletedReuse(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 7, 22, 10, 0, 0, 0, time.UTC)
@@ -561,10 +591,11 @@ func sequentialIDs(ids ...string) func() string {
 }
 
 type recordingWorkspaceService struct {
-	mu        sync.Mutex
-	created   []adminhttp.WorkspaceUpsert
-	deleted   []string
-	deleteErr error
+	mu               sync.Mutex
+	created          []adminhttp.WorkspaceUpsert
+	deleted          []string
+	deleteErr        error
+	deleteContextErr error
 }
 
 func (s *recordingWorkspaceService) CreateSystemWorkspace(_ context.Context, body adminhttp.WorkspaceUpsert) (apitypes.Workspace, bool, error) {
@@ -581,9 +612,10 @@ func (s *recordingWorkspaceService) CreateSystemWorkspace(_ context.Context, bod
 	return apitypes.Workspace{Name: body.Name, WorkflowName: body.WorkflowName, Parameters: body.Parameters, System: &system}, true, nil
 }
 
-func (s *recordingWorkspaceService) DeleteSystemWorkspace(_ context.Context, name string) (apitypes.Workspace, error) {
+func (s *recordingWorkspaceService) DeleteSystemWorkspace(ctx context.Context, name string) (apitypes.Workspace, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.deleteContextErr = ctx.Err()
 	if s.deleteErr != nil {
 		return apitypes.Workspace{}, s.deleteErr
 	}

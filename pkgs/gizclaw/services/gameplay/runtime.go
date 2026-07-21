@@ -215,12 +215,15 @@ func (r *Runtime) AdoptPet(ctx context.Context, owner string, req apitypes.PetAd
 		return response, nil
 	}
 	recoveryCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
-	defer cancel()
-	if response, found, err := r.awaitCompletedAdoptionResponse(recoveryCtx, owner, profileRules.Name, petID); found || err != nil {
-		return response, err
+	response, found, recoveryErr := r.awaitCompletedAdoptionResponse(recoveryCtx, owner, profileRules.Name, petID)
+	cancel()
+	if found || recoveryErr != nil {
+		return response, recoveryErr
 	}
 	if workspaceCreated && r.Workspaces != nil {
-		_, _ = r.Workspaces.DeleteSystemWorkspace(recoveryCtx, workspaceName)
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
+		defer cleanupCancel()
+		_, _ = r.Workspaces.DeleteSystemWorkspace(cleanupCtx, workspaceName)
 	}
 	return apitypes.PetAdoptResponse{}, createErr
 }
