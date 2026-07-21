@@ -15,8 +15,8 @@ func TestModelRPCProjectionUsesExactlyTheSelectedProviderData(t *testing.T) {
 		kind apitypes.ModelProviderKind
 		data apitypes.ModelProviderData
 	}{
-		{kind: apitypes.ModelProviderKindOpenaiTenant, data: testModelProviderData(t, apitypes.OpenAITenantModelProviderData{UpstreamModel: &upstream})},
-		{kind: apitypes.ModelProviderKindGeminiTenant, data: testModelProviderData(t, apitypes.GeminiTenantModelProviderData{UpstreamModel: &upstream})},
+		{kind: apitypes.ModelProviderKindOpenaiTenant, data: testModelProviderData(t, apitypes.OpenAITenantModelProviderData{UpstreamModel: upstream})},
+		{kind: apitypes.ModelProviderKindGeminiTenant, data: testModelProviderData(t, apitypes.GeminiTenantModelProviderData{UpstreamModel: upstream})},
 		{kind: apitypes.ModelProviderKindDashscopeTenant, data: testModelProviderData(t, apitypes.DashScopeTenantModelProviderData{ApiMode: &dashScopeMode, UpstreamModel: &upstream})},
 		{kind: apitypes.ModelProviderKindVolcTenant, data: testModelProviderData(t, apitypes.VolcTenantModelProviderData{ApiMode: &volcMode, UpstreamModel: &upstream})},
 		{kind: apitypes.ModelProviderKindMinimaxTenant, data: testModelProviderData(t, apitypes.MiniMaxTenantModelProviderData{ApiMode: apitypes.MiniMaxTenantModelProviderDataApiModeChatCompletions, UpstreamModel: upstream})},

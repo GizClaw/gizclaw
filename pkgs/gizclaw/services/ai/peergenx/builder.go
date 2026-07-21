@@ -973,6 +973,7 @@ func openAIProviderDataFromVolc(data apitypes.VolcTenantModelProviderData) apity
 		ThinkingLevelParam:   data.ThinkingLevelParam,
 		ThinkingLevels:       data.ThinkingLevels,
 		ThinkingParam:        data.ThinkingParam,
+		UpstreamModel:        firstString(data.UpstreamModel),
 		UseSystemRole:        data.UseSystemRole,
 	}
 }
@@ -988,6 +989,7 @@ func openAIProviderDataFromDeepSeek(data apitypes.DeepSeekTenantModelProviderDat
 		ThinkingLevelParam:   data.ThinkingLevelParam,
 		ThinkingLevels:       data.ThinkingLevels,
 		ThinkingParam:        data.ThinkingParam,
+		UpstreamModel:        data.UpstreamModel,
 		UseSystemRole:        data.UseSystemRole,
 	}
 }
@@ -1003,6 +1005,7 @@ func openAIProviderDataFromMiniMax(data apitypes.MiniMaxTenantModelProviderData)
 		ThinkingLevelParam:   data.ThinkingLevelParam,
 		ThinkingLevels:       data.ThinkingLevels,
 		ThinkingParam:        data.ThinkingParam,
+		UpstreamModel:        data.UpstreamModel,
 		UseSystemRole:        data.UseSystemRole,
 	}
 }

@@ -3086,7 +3086,7 @@ func (f fakeModels) model(id string) apitypes.Model {
 		}
 	default:
 		if err := providerData.FromOpenAITenantModelProviderData(apitypes.OpenAITenantModelProviderData{
-			UpstreamModel:        ptrString("gpt-test"),
+			UpstreamModel:        "gpt-test",
 			ThinkingParam:        ptrString("thinking.type"),
 			DefaultThinkingLevel: ptrString("disabled"),
 		}); err != nil {

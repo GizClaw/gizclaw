@@ -274,7 +274,7 @@ func validateModelProviderData(modelKind apitypes.ModelKind, providerKind apityp
 				return err
 			}
 		}
-		upstream = stringValue(value.UpstreamModel)
+		upstream = strings.TrimSpace(value.UpstreamModel)
 	case apitypes.ModelProviderKindGeminiTenant:
 		if modelKind != apitypes.ModelKindLlm {
 			return fmt.Errorf("provider %q does not support model kind %q", providerKind, modelKind)
@@ -286,7 +286,7 @@ func validateModelProviderData(modelKind apitypes.ModelKind, providerKind apityp
 		if err := validateLLMThinking(providerKind, value.SupportThinking, value.ThinkingParam, value.ThinkingLevelParam, value.ThinkingLevels, value.DefaultThinkingLevel); err != nil {
 			return err
 		}
-		upstream = stringValue(value.UpstreamModel)
+		upstream = strings.TrimSpace(value.UpstreamModel)
 	case apitypes.ModelProviderKindDashscopeTenant:
 		if modelKind != apitypes.ModelKindLlm && modelKind != apitypes.ModelKindEmbedding && modelKind != apitypes.ModelKindRealtime {
 			return fmt.Errorf("provider %q does not support model kind %q", providerKind, modelKind)

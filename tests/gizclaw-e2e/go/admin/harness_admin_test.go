@@ -188,7 +188,7 @@ func openAIModelProviderData(t *testing.T, upstream string) *apitypes.ModelProvi
 	t.Helper()
 	var body apitypes.ModelProviderData
 	if err := body.FromOpenAITenantModelProviderData(apitypes.OpenAITenantModelProviderData{
-		UpstreamModel:     ptr(upstream),
+		UpstreamModel:     upstream,
 		UseSystemRole:     ptr(true),
 		SupportJsonOutput: ptr(true),
 	}); err != nil {

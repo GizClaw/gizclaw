@@ -1289,7 +1289,7 @@ export type DeepSeekTenantModelProviderData = {
 };
 
 export type GeminiTenantModelProviderData = {
-    upstream_model?: string;
+    upstream_model: string;
     support_json_output?: boolean;
     support_tool_calls?: boolean;
     support_text_only?: boolean;
@@ -1323,7 +1323,7 @@ export type MiniMaxTenantModelProviderData = {
 export type ModelProviderData = GeminiTenantModelProviderData | DashScopeTenantModelProviderData | DeepSeekTenantModelProviderData | OpenAiTenantModelProviderData | MiniMaxTenantModelProviderData | VolcTenantModelProviderData;
 
 export type OpenAiTenantModelProviderData = {
-    upstream_model?: string;
+    upstream_model: string;
     support_json_output?: boolean;
     support_tool_calls?: boolean;
     support_text_only?: boolean;

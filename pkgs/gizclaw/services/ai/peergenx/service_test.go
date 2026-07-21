@@ -170,7 +170,7 @@ func TestDefaultBuilderBuildsOpenAIGenerator(t *testing.T) {
 			Id:   "chat",
 			Kind: apitypes.ModelKindLlm,
 			ProviderData: mustOpenAIModelProviderData(t, apitypes.OpenAITenantModelProviderData{
-				UpstreamModel:        &upstream,
+				UpstreamModel:        upstream,
 				SupportJsonOutput:    &trueValue,
 				SupportToolCalls:     &trueValue,
 				SupportTextOnly:      &trueValue,
@@ -437,6 +437,7 @@ func TestModelContextForGeneratorMapsThinkingWithoutMutatingInput(t *testing.T) 
 	cfg := GeneratorConfig{Model: apitypes.Model{
 		Provider: apitypes.ModelProvider{Kind: apitypes.ModelProviderKindOpenaiTenant, Name: "main"},
 		ProviderData: mustOpenAIModelProviderData(t, apitypes.OpenAITenantModelProviderData{
+			UpstreamModel:   "gpt-test",
 			SupportThinking: boolPtr(true),
 			ThinkingParam:   stringPtr("thinking.type"),
 		}),
@@ -906,7 +907,7 @@ func TestDefaultBuilderBuildsGeminiGenerator(t *testing.T) {
 			Id:   "gemini",
 			Kind: apitypes.ModelKindLlm,
 			ProviderData: mustGeminiModelProviderData(t, apitypes.GeminiTenantModelProviderData{
-				UpstreamModel: &upstream,
+				UpstreamModel: upstream,
 			}),
 		},
 		Tenant: Tenant{

@@ -284,7 +284,7 @@ func mustOpenAIProviderData(t *testing.T, upstreamModel string) apitypes.ModelPr
 	falseValue := false
 	var data apitypes.ModelProviderData
 	if err := data.FromOpenAITenantModelProviderData(apitypes.OpenAITenantModelProviderData{
-		UpstreamModel:      &upstreamModel,
+		UpstreamModel:      upstreamModel,
 		SupportJsonOutput:  &falseValue,
 		SupportToolCalls:   &falseValue,
 		SupportTextOnly:    &falseValue,

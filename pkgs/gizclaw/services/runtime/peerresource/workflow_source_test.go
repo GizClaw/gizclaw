@@ -123,7 +123,7 @@ func TestListModelsProjectsRuntimeAliases(t *testing.T) {
 	upstreamModel := "tenant-model-upstream"
 	falseValue := false
 	if err := providerData.FromOpenAITenantModelProviderData(apitypes.OpenAITenantModelProviderData{
-		UpstreamModel:      &upstreamModel,
+		UpstreamModel:      upstreamModel,
 		SupportJsonOutput:  &falseValue,
 		SupportToolCalls:   &falseValue,
 		SupportTextOnly:    &falseValue,

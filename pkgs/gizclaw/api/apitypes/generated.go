@@ -2309,7 +2309,7 @@ type GeminiTenantModelProviderData struct {
 	ThinkingLevelParam   *string   `json:"thinking_level_param,omitempty"`
 	ThinkingLevels       *[]string `json:"thinking_levels,omitempty"`
 	ThinkingParam        *string   `json:"thinking_param,omitempty"`
-	UpstreamModel        *string   `json:"upstream_model,omitempty"`
+	UpstreamModel        string    `json:"upstream_model"`
 	UseSystemRole        *bool     `json:"use_system_role,omitempty"`
 }
 
@@ -2538,7 +2538,7 @@ type OpenAITenantModelProviderData struct {
 	ThinkingLevelParam   *string   `json:"thinking_level_param,omitempty"`
 	ThinkingLevels       *[]string `json:"thinking_levels,omitempty"`
 	ThinkingParam        *string   `json:"thinking_param,omitempty"`
-	UpstreamModel        *string   `json:"upstream_model,omitempty"`
+	UpstreamModel        string    `json:"upstream_model"`
 	UseSystemRole        *bool     `json:"use_system_role,omitempty"`
 }
 

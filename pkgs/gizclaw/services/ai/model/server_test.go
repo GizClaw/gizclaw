@@ -263,7 +263,7 @@ func TestServerValidatesProviderKindAgainstProviderData(t *testing.T) {
 	falseValue := false
 	valid := []adminhttp.ModelUpsert{
 		modelUpsert("openai-chat", string(apitypes.ModelProviderKindOpenaiTenant), "openai-main"),
-		modelUpsertWithProviderData("gemini-chat", apitypes.ModelProviderKindGeminiTenant, modelProviderData(t, apitypes.GeminiTenantModelProviderData{UpstreamModel: stringPtr("gemini-pro"), SupportJsonOutput: &falseValue, SupportToolCalls: &falseValue, SupportTextOnly: &falseValue, UseSystemRole: &falseValue, SupportTemperature: &falseValue, SupportThinking: &falseValue})),
+		modelUpsertWithProviderData("gemini-chat", apitypes.ModelProviderKindGeminiTenant, modelProviderData(t, apitypes.GeminiTenantModelProviderData{UpstreamModel: "gemini-pro", SupportJsonOutput: &falseValue, SupportToolCalls: &falseValue, SupportTextOnly: &falseValue, UseSystemRole: &falseValue, SupportTemperature: &falseValue, SupportThinking: &falseValue})),
 		modelUpsertWithProviderData("qwen-chat", apitypes.ModelProviderKindDashscopeTenant, modelProviderData(t, apitypes.DashScopeTenantModelProviderData{ApiMode: &dashScopeMode, UpstreamModel: stringPtr("qwen-max"), SupportJsonOutput: &falseValue, SupportToolCalls: &falseValue, SupportTextOnly: &falseValue, UseSystemRole: &falseValue, SupportTemperature: &falseValue, SupportThinking: &falseValue})),
 		modelUpsertWithProviderData("volc-chat", apitypes.ModelProviderKindVolcTenant, modelProviderData(t, apitypes.VolcTenantModelProviderData{ApiMode: &volcMode, UpstreamModel: stringPtr("doubao-pro"), SupportJsonOutput: &falseValue, SupportToolCalls: &falseValue, SupportTextOnly: &falseValue, UseSystemRole: &falseValue, SupportTemperature: &falseValue, SupportThinking: &falseValue})),
 		modelUpsertWithProviderData("minimax-m2", apitypes.ModelProviderKindMinimaxTenant, miniMaxProviderData("MiniMax-M2")),
@@ -300,7 +300,7 @@ func TestServerValidatesProviderKindAgainstProviderData(t *testing.T) {
 	wrongModelKind.Id = "deepseek-embedding"
 	wrongModelKind.Kind = apitypes.ModelKindEmbedding
 	defaultBehavior := modelUpsert("default-behavior", string(apitypes.ModelProviderKindOpenaiTenant), "openai-main")
-	if err := defaultBehavior.ProviderData.FromOpenAITenantModelProviderData(apitypes.OpenAITenantModelProviderData{UpstreamModel: stringPtr("gpt-test")}); err != nil {
+	if err := defaultBehavior.ProviderData.FromOpenAITenantModelProviderData(apitypes.OpenAITenantModelProviderData{UpstreamModel: "gpt-test"}); err != nil {
 		t.Fatalf("FromOpenAITenantModelProviderData() error = %v", err)
 	}
 	resp, err := srv.CreateModel(ctx, adminhttp.CreateModelRequestObject{Body: &defaultBehavior})
@@ -529,7 +529,7 @@ func modelUpsert(id string, providerKind, providerName string) adminhttp.ModelUp
 func openAIProviderData(upstreamModel string) apitypes.ModelProviderData {
 	out := apitypes.ModelProviderData{}
 	falseValue := false
-	if err := out.FromOpenAITenantModelProviderData(apitypes.OpenAITenantModelProviderData{UpstreamModel: &upstreamModel, SupportJsonOutput: &falseValue, SupportToolCalls: &falseValue, SupportTextOnly: &falseValue, UseSystemRole: &falseValue, SupportTemperature: &falseValue, SupportThinking: &falseValue}); err != nil {
+	if err := out.FromOpenAITenantModelProviderData(apitypes.OpenAITenantModelProviderData{UpstreamModel: upstreamModel, SupportJsonOutput: &falseValue, SupportToolCalls: &falseValue, SupportTextOnly: &falseValue, UseSystemRole: &falseValue, SupportTemperature: &falseValue, SupportThinking: &falseValue}); err != nil {
 		panic(err)
 	}
 	return out

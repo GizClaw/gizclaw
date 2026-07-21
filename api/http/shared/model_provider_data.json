@@ -59,8 +59,9 @@
       "GeminiTenantModelProviderData": {
         "type": "object",
         "additionalProperties": false,
+        "required": ["upstream_model"],
         "properties": {
-          "upstream_model": { "type": "string" },
+          "upstream_model": { "type": "string", "minLength": 1 },
           "support_json_output": { "type": "boolean" },
           "support_tool_calls": { "type": "boolean" },
           "support_text_only": { "type": "boolean" },
@@ -95,8 +96,9 @@
       "OpenAITenantModelProviderData": {
         "type": "object",
         "additionalProperties": false,
+        "required": ["upstream_model"],
         "properties": {
-          "upstream_model": { "type": "string" },
+          "upstream_model": { "type": "string", "minLength": 1 },
           "support_json_output": { "type": "boolean" },
           "support_tool_calls": { "type": "boolean" },
           "support_text_only": { "type": "boolean" },
