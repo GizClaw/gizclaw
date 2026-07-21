@@ -217,13 +217,16 @@ func (r *Runtime) AdoptPet(ctx context.Context, owner string, req apitypes.PetAd
 	recoveryCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
 	response, found, recoveryErr := r.awaitCompletedAdoptionResponse(recoveryCtx, owner, profileRules.Name, petID)
 	cancel()
-	if found || recoveryErr != nil {
+	if found {
 		return response, recoveryErr
 	}
 	if workspaceCreated && r.Workspaces != nil {
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
 		defer cleanupCancel()
 		_, _ = r.Workspaces.DeleteSystemWorkspace(cleanupCtx, workspaceName)
+	}
+	if recoveryErr != nil {
+		return apitypes.PetAdoptResponse{}, recoveryErr
 	}
 	return apitypes.PetAdoptResponse{}, createErr
 }
@@ -295,6 +298,9 @@ func (r *Runtime) createPetAdoption(ctx context.Context, owner string, req apity
 func (r *Runtime) awaitCompletedAdoptionResponse(ctx context.Context, owner, runtimeProfileName, petID string) (apitypes.PetAdoptResponse, bool, error) {
 	for {
 		response, found, err := r.completedAdoptionResponse(ctx, owner, runtimeProfileName, petID)
+		if err != nil && ctx.Err() != nil {
+			return apitypes.PetAdoptResponse{}, false, nil
+		}
 		if found || err != nil {
 			return response, found, err
 		}
