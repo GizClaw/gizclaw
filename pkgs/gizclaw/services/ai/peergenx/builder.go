@@ -966,6 +966,7 @@ func openAIProviderDataFromVolc(data apitypes.VolcTenantModelProviderData) apity
 	return apitypes.OpenAITenantModelProviderData{
 		DefaultThinkingLevel: data.DefaultThinkingLevel,
 		SupportJsonOutput:    data.SupportJsonOutput,
+		SupportTemperature:   data.SupportTemperature,
 		SupportTextOnly:      data.SupportTextOnly,
 		SupportThinking:      data.SupportThinking,
 		SupportToolCalls:     data.SupportToolCalls,

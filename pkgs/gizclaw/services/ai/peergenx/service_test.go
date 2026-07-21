@@ -366,6 +366,14 @@ func TestDefaultBuilderBuildsVolcArkGenerator(t *testing.T) {
 	}
 }
 
+func TestOpenAIProviderDataFromVolcPreservesSupportTemperature(t *testing.T) {
+	supported := true
+	got := openAIProviderDataFromVolc(apitypes.VolcTenantModelProviderData{SupportTemperature: &supported})
+	if got.SupportTemperature == nil || !*got.SupportTemperature {
+		t.Fatalf("SupportTemperature = %v, want true", got.SupportTemperature)
+	}
+}
+
 func TestModelThinkingExtraFieldsUsesProviderDataParameter(t *testing.T) {
 	disabled := false
 	tests := []struct {
