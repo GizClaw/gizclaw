@@ -1338,7 +1338,7 @@ export type OpenAiTenantModelProviderData = {
 
 export type VolcTenantModelProviderData = {
     upstream_model?: string;
-    api_mode?: 'asr' | 'tts' | 'realtime' | 'translation' | 'chat_completions' | 'embedding';
+    api_mode: 'asr' | 'tts' | 'realtime' | 'translation' | 'chat_completions' | 'embedding';
     resource_id?: string;
     support_json_output?: boolean;
     support_tool_calls?: boolean;

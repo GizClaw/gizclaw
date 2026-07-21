@@ -348,14 +348,14 @@ func validateModelProviderData(modelKind apitypes.ModelKind, providerKind apityp
 		if err := decodeStrictModelProviderData(data, &value); err != nil {
 			return fmt.Errorf("provider_data for %s: %w", providerKind, err)
 		}
-		if value.ApiMode != nil && !value.ApiMode.Valid() {
-			return fmt.Errorf("provider_data for %s has unsupported api_mode %q", providerKind, *value.ApiMode)
+		if !value.ApiMode.Valid() {
+			return fmt.Errorf("provider_data for %s has unsupported api_mode %q", providerKind, value.ApiMode)
 		}
 		expectedMode, ok := volcAPIModeForModelKind(modelKind)
 		if !ok {
 			return fmt.Errorf("provider %q does not support model kind %q", providerKind, modelKind)
 		}
-		if value.ApiMode == nil || *value.ApiMode != expectedMode {
+		if value.ApiMode != expectedMode {
 			return fmt.Errorf("provider_data for %s/%s requires api_mode %q", providerKind, modelKind, expectedMode)
 		}
 		if modelKind == apitypes.ModelKindLlm {

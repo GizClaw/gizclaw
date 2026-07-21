@@ -3666,19 +3666,19 @@ type VolcTenant struct {
 
 // VolcTenantModelProviderData defines model for VolcTenantModelProviderData.
 type VolcTenantModelProviderData struct {
-	ApiMode              *VolcTenantModelProviderDataApiMode `json:"api_mode,omitempty"`
-	DefaultThinkingLevel *string                             `json:"default_thinking_level,omitempty"`
-	ResourceId           *string                             `json:"resource_id,omitempty"`
-	SupportJsonOutput    *bool                               `json:"support_json_output,omitempty"`
-	SupportTemperature   *bool                               `json:"support_temperature,omitempty"`
-	SupportTextOnly      *bool                               `json:"support_text_only,omitempty"`
-	SupportThinking      *bool                               `json:"support_thinking,omitempty"`
-	SupportToolCalls     *bool                               `json:"support_tool_calls,omitempty"`
-	ThinkingLevelParam   *string                             `json:"thinking_level_param,omitempty"`
-	ThinkingLevels       *[]string                           `json:"thinking_levels,omitempty"`
-	ThinkingParam        *string                             `json:"thinking_param,omitempty"`
-	UpstreamModel        *string                             `json:"upstream_model,omitempty"`
-	UseSystemRole        *bool                               `json:"use_system_role,omitempty"`
+	ApiMode              VolcTenantModelProviderDataApiMode `json:"api_mode"`
+	DefaultThinkingLevel *string                            `json:"default_thinking_level,omitempty"`
+	ResourceId           *string                            `json:"resource_id,omitempty"`
+	SupportJsonOutput    *bool                              `json:"support_json_output,omitempty"`
+	SupportTemperature   *bool                              `json:"support_temperature,omitempty"`
+	SupportTextOnly      *bool                              `json:"support_text_only,omitempty"`
+	SupportThinking      *bool                              `json:"support_thinking,omitempty"`
+	SupportToolCalls     *bool                              `json:"support_tool_calls,omitempty"`
+	ThinkingLevelParam   *string                            `json:"thinking_level_param,omitempty"`
+	ThinkingLevels       *[]string                          `json:"thinking_levels,omitempty"`
+	ThinkingParam        *string                            `json:"thinking_param,omitempty"`
+	UpstreamModel        *string                            `json:"upstream_model,omitempty"`
+	UseSystemRole        *bool                              `json:"use_system_role,omitempty"`
 }
 
 // VolcTenantModelProviderDataApiMode defines model for VolcTenantModelProviderData.ApiMode.

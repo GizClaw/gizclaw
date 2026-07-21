@@ -114,6 +114,7 @@
       "VolcTenantModelProviderData": {
         "type": "object",
         "additionalProperties": false,
+        "required": ["api_mode"],
         "properties": {
           "upstream_model": { "type": "string" },
           "api_mode": { "type": "string", "enum": ["asr", "tts", "realtime", "translation", "chat_completions", "embedding"] },

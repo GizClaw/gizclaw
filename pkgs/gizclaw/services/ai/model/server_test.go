@@ -265,7 +265,7 @@ func TestServerValidatesProviderKindAgainstProviderData(t *testing.T) {
 		modelUpsert("openai-chat", string(apitypes.ModelProviderKindOpenaiTenant), "openai-main"),
 		modelUpsertWithProviderData("gemini-chat", apitypes.ModelProviderKindGeminiTenant, modelProviderData(t, apitypes.GeminiTenantModelProviderData{UpstreamModel: "gemini-pro", SupportJsonOutput: &falseValue, SupportToolCalls: &falseValue, SupportTextOnly: &falseValue, UseSystemRole: &falseValue, SupportTemperature: &falseValue, SupportThinking: &falseValue})),
 		modelUpsertWithProviderData("qwen-chat", apitypes.ModelProviderKindDashscopeTenant, modelProviderData(t, apitypes.DashScopeTenantModelProviderData{ApiMode: &dashScopeMode, UpstreamModel: stringPtr("qwen-max"), SupportJsonOutput: &falseValue, SupportToolCalls: &falseValue, SupportTextOnly: &falseValue, UseSystemRole: &falseValue, SupportTemperature: &falseValue, SupportThinking: &falseValue})),
-		modelUpsertWithProviderData("volc-chat", apitypes.ModelProviderKindVolcTenant, modelProviderData(t, apitypes.VolcTenantModelProviderData{ApiMode: &volcMode, UpstreamModel: stringPtr("doubao-pro"), SupportJsonOutput: &falseValue, SupportToolCalls: &falseValue, SupportTextOnly: &falseValue, UseSystemRole: &falseValue, SupportTemperature: &falseValue, SupportThinking: &falseValue})),
+		modelUpsertWithProviderData("volc-chat", apitypes.ModelProviderKindVolcTenant, modelProviderData(t, apitypes.VolcTenantModelProviderData{ApiMode: volcMode, UpstreamModel: stringPtr("doubao-pro"), SupportJsonOutput: &falseValue, SupportToolCalls: &falseValue, SupportTextOnly: &falseValue, UseSystemRole: &falseValue, SupportTemperature: &falseValue, SupportThinking: &falseValue})),
 		modelUpsertWithProviderData("minimax-m2", apitypes.ModelProviderKindMinimaxTenant, miniMaxProviderData("MiniMax-M2")),
 		modelUpsertWithProviderData("deepseek-chat", apitypes.ModelProviderKindDeepseekTenant, deepSeekProviderData("deepseek-chat")),
 	}
@@ -418,7 +418,7 @@ func TestVolcProviderDataRequiresTheAPIModeForEachModelRole(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(string(tt.kind), func(t *testing.T) {
 			data := apitypes.ModelProviderData{}
-			value := apitypes.VolcTenantModelProviderData{ApiMode: &tt.mode}
+			value := apitypes.VolcTenantModelProviderData{ApiMode: tt.mode}
 			if tt.kind == apitypes.ModelKindLlm {
 				falseValue := false
 				value.SupportJsonOutput = &falseValue
@@ -442,7 +442,7 @@ func TestVolcProviderDataRequiresTheAPIModeForEachModelRole(t *testing.T) {
 			if wrongMode == tt.mode {
 				wrongMode = apitypes.VolcTenantModelProviderDataApiModeAsr
 			}
-			value.ApiMode = &wrongMode
+			value.ApiMode = wrongMode
 			if err := data.FromVolcTenantModelProviderData(value); err != nil {
 				t.Fatalf("FromVolcTenantModelProviderData(wrong mode) error = %v", err)
 			}
