@@ -20,5 +20,6 @@ spec:
     support_temperature: true
     support_thinking: true
     thinking_param: thinking.type
+    thinking_levels: [enabled, disabled, auto]
     default_thinking_level: disabled
     use_system_role: true
