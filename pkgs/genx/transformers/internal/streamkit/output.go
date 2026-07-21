@@ -42,6 +42,7 @@ type Output struct {
 	observationDeferred bool
 	observe             func(*genx.MessageChunk)
 	observers           int
+	deferredObservers   int
 }
 
 var _ genx.Stream = (*Output)(nil)
@@ -85,9 +86,13 @@ func (o *Output) Next() (*genx.MessageChunk, error) {
 	o.queuedBytes -= entry.bytes
 	deferred := o.observationDeferred
 	observe := o.observe
-	observing := entry.chunk != nil && !deferred && observe != nil
-	if observing {
+	tracked := entry.chunk != nil && observe != nil
+	observing := tracked && !deferred
+	if tracked {
 		o.observers++
+		if deferred {
+			o.deferredObservers++
+		}
 	}
 	o.mu.Unlock()
 	if observing {
@@ -232,7 +237,15 @@ func (o *Output) ObserveOutput(chunk *genx.MessageChunk) {
 	}
 	o.mu.Lock()
 	observe := o.observe
+	tracked := o.observationDeferred && o.deferredObservers > 0
+	if tracked {
+		o.deferredObservers--
+	}
 	o.mu.Unlock()
+	if !tracked {
+		return
+	}
+	defer o.finishObservation()
 	if observe != nil {
 		observe(chunk)
 	}
@@ -249,9 +262,10 @@ func (o *Output) SetOutputObserver(observe func(*genx.MessageChunk)) {
 }
 
 // WaitForObservers waits until every chunk already dequeued by Next has
-// completed its pull-visible observation callback. Producers use this after a
-// response discard when persistence must include a chunk that Next has already
-// claimed but whose observer has not returned yet.
+// completed its pull-visible observation callback, including observations
+// deferred to a later delivery boundary. Producers use this after a response
+// discard when persistence must include a chunk that Next has already claimed
+// but whose observer has not returned yet.
 func (o *Output) WaitForObservers() {
 	if o == nil {
 		return

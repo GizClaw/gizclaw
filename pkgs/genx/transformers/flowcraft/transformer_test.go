@@ -300,6 +300,37 @@ func TestTransformBypassesNonTextStream(t *testing.T) {
 	}
 }
 
+func TestTransformRestoresBypassStreamIDFromBOS(t *testing.T) {
+	t.Parallel()
+	agent, err := New(testConfig(&echoGenerator{}))
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	input := newInputBuilder()
+	streamID := "implicit-audio-route"
+	if err := input.Add(
+		genx.NewBeginOfStream(streamID),
+		&genx.MessageChunk{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/ogg", Data: []byte{1}}},
+		genx.NewEndOfStream("audio/ogg"),
+	); err != nil {
+		t.Fatalf("build audio input: %v", err)
+	}
+	_ = input.Done(genx.Usage{})
+	output, err := agent.Transform(context.Background(), input.Stream())
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	chunks := drain(t, output)
+	if len(chunks) != 3 {
+		t.Fatalf("bypass chunks = %d, want 3", len(chunks))
+	}
+	for _, chunk := range chunks {
+		if chunk.Ctrl == nil || chunk.Ctrl.StreamID != streamID {
+			t.Fatalf("bypass route = %#v, want %q", chunk.Ctrl, streamID)
+		}
+	}
+}
+
 func TestTransformPreservesInterleavedNonTextBoundaries(t *testing.T) {
 	t.Parallel()
 	agent, err := New(testConfig(&echoGenerator{}))
@@ -369,7 +400,7 @@ func TestTransformPropagatesErroredTextEOS(t *testing.T) {
 	}
 }
 
-func TestNonTextBOSDoesNotInterruptActiveTextTurn(t *testing.T) {
+func TestMIMEBearingNonTextBOSDoesNotInterruptActiveTextTurn(t *testing.T) {
 	t.Parallel()
 	generator := &interruptGenerator{started: make(chan struct{})}
 	agent, err := New(testConfig(generator))
@@ -399,13 +430,12 @@ func TestNonTextBOSDoesNotInterruptActiveTextTurn(t *testing.T) {
 	}
 	audioID := "audio-during-run"
 	if err := input.Add(
-		genx.NewBeginOfStream(audioID),
-		&genx.MessageChunk{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/ogg", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: audioID}},
+		&genx.MessageChunk{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/ogg", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: audioID, BeginOfStream: true}},
 		&genx.MessageChunk{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/ogg"}, Ctrl: &genx.StreamCtrl{StreamID: audioID, EndOfStream: true}},
 	); err != nil {
 		t.Fatalf("add audio route: %v", err)
 	}
-	for range 3 {
+	for range 2 {
 		chunk, nextErr := output.Next()
 		if nextErr != nil {
 			t.Fatalf("read audio bypass: %v", nextErr)
@@ -426,6 +456,86 @@ func TestNonTextBOSDoesNotInterruptActiveTextTurn(t *testing.T) {
 	remaining := drain(t, output)
 	if got := joinedText(remaining); !strings.Contains(got, "reply: second") {
 		t.Fatalf("replacement output = %q", got)
+	}
+}
+
+func TestControlOnlyBOSInterruptsBeforeFirstTextDelta(t *testing.T) {
+	t.Parallel()
+	generator := &interruptGenerator{started: make(chan struct{})}
+	agent, err := New(testConfig(generator))
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	input := newInputBuilder()
+	if err := addTextTurn(input, "first"); err != nil {
+		t.Fatalf("add first turn: %v", err)
+	}
+	output, err := agent.Transform(context.Background(), input.Stream())
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	var firstID string
+	for {
+		chunk, nextErr := output.Next()
+		if nextErr != nil {
+			t.Fatalf("read first prefix: %v", nextErr)
+		}
+		if chunk.Ctrl != nil {
+			firstID = chunk.Ctrl.StreamID
+		}
+		if text, ok := chunk.Part.(genx.Text); ok && text == "partial" {
+			break
+		}
+	}
+	replacementID := "replacement"
+	if err := input.Add(genx.NewBeginOfStream(replacementID)); err != nil {
+		t.Fatalf("add replacement BOS: %v", err)
+	}
+	for {
+		chunk, nextErr := output.Next()
+		if nextErr != nil {
+			t.Fatalf("wait for interruption: %v", nextErr)
+		}
+		if chunk.Ctrl != nil && chunk.Ctrl.StreamID == firstID && chunk.IsEndOfStream() {
+			if chunk.Ctrl.Error != "interrupted" {
+				t.Fatalf("interruption error = %q", chunk.Ctrl.Error)
+			}
+			break
+		}
+	}
+	if err := input.Add(
+		&genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text("second"), Ctrl: &genx.StreamCtrl{StreamID: replacementID}},
+		&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: replacementID, EndOfStream: true}},
+	); err != nil {
+		t.Fatalf("finish replacement turn: %v", err)
+	}
+	_ = input.Done(genx.Usage{})
+	if got := joinedText(drain(t, output)); got != "reply: second" {
+		t.Fatalf("replacement output = %q", got)
+	}
+}
+
+func TestTransformCancellationClosesIdleInput(t *testing.T) {
+	t.Parallel()
+	agent, err := New(testConfig(&echoGenerator{}))
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	input := genx.NewRealtimeStream(genx.WithRealtimeStreamDelay(0))
+	output, err := agent.Transform(ctx, input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	stream := output.(*sessionStream)
+	cancel()
+	select {
+	case <-stream.session.done:
+	case <-time.After(time.Second):
+		t.Fatal("input pump remained blocked after Transform cancellation")
+	}
+	if err := input.Push(context.Background(), &genx.MessageChunk{}); !errors.Is(err, io.ErrClosedPipe) {
+		t.Fatalf("Push() after cancellation = %v, want closed pipe", err)
 	}
 }
 

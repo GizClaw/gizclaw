@@ -183,6 +183,34 @@ func TestOutputDeferredObservationAndErrorClose(t *testing.T) {
 	}
 }
 
+func TestOutputWaitForObserversCoversDeferredDelivery(t *testing.T) {
+	output := NewOutput(OutputConfig{Observe: func(*genx.MessageChunk) {}})
+	output.DeferOutputObservation()
+	chunk := &genx.MessageChunk{Part: genx.Text("delivered")}
+	if err := output.Push(chunk); err != nil {
+		t.Fatalf("Push() error = %v", err)
+	}
+	if _, err := output.Next(); err != nil {
+		t.Fatalf("Next() error = %v", err)
+	}
+	waitDone := make(chan struct{})
+	go func() {
+		output.WaitForObservers()
+		close(waitDone)
+	}()
+	select {
+	case <-waitDone:
+		t.Fatal("WaitForObservers returned before deferred observation")
+	case <-time.After(20 * time.Millisecond):
+	}
+	output.ObserveOutput(chunk)
+	select {
+	case <-waitDone:
+	case <-time.After(time.Second):
+		t.Fatal("WaitForObservers did not return after deferred observation")
+	}
+}
+
 func TestOutputCloseRejectsNewChunksAfterDraining(t *testing.T) {
 	output := NewOutput(OutputConfig{})
 	if err := output.Close(); err != nil {

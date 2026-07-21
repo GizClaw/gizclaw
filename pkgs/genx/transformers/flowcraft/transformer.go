@@ -53,6 +53,7 @@ func (t *Agent) Transform(ctx context.Context, input genx.Stream) (genx.Stream, 
 		ctx = context.Background()
 	}
 	s := newSession(ctx, t, input)
+	go s.closeInputOnCancellation()
 	go s.run()
 	return &sessionStream{Output: s.invocation.Output(), session: s}, nil
 }
@@ -68,8 +69,9 @@ type session struct {
 	runs   map[string]*turnRun
 	active *turnRun
 
-	turns sync.WaitGroup
-	done  chan struct{}
+	turns     sync.WaitGroup
+	done      chan struct{}
+	inputOnce sync.Once
 }
 
 func newSession(ctx context.Context, transformer *Agent, input genx.Stream) *session {
@@ -105,13 +107,32 @@ func (s *session) interruptActive() {
 	}
 }
 
+func (s *session) closeInput(err error) {
+	s.inputOnce.Do(func() {
+		if err == nil {
+			_ = s.input.Close()
+			return
+		}
+		_ = s.input.CloseWithError(err)
+	})
+}
+
+func (s *session) closeInputOnCancellation() {
+	select {
+	case <-s.invocation.Context().Done():
+		s.closeInput(context.Cause(s.invocation.Context()))
+	case <-s.done:
+	}
+}
+
 func (s *session) run() {
 	defer close(s.done)
-	defer s.input.Close()
+	defer s.closeInput(nil)
 	var text strings.Builder
 	var pendingBOS []pendingBegin
 	inText := false
 	activeInputID := ""
+	activeBypassID := ""
 	var inputFailure error
 	var previous <-chan struct{}
 	for {
@@ -129,9 +150,16 @@ func (s *session) run() {
 			continue
 		}
 		if chunk.IsBeginOfStream() {
-			storePendingBegin(&pendingBOS, chunk.Clone())
+			// A control-only BOS does not declare a MIME channel. Treat it as the
+			// next text turn eagerly so stale output cannot escape while waiting
+			// for the first text delta. MIME-bearing non-text BOS remains bypass.
 			if chunk.Part == nil {
+				s.interruptActive()
+				storePendingBegin(&pendingBOS, chunk.Clone())
 				continue
+			}
+			if _, ok := chunk.Part.(genx.Text); ok {
+				s.interruptActive()
 			}
 		}
 		if chunk.IsEndOfStream() && chunk.Part == nil && inText {
@@ -181,13 +209,37 @@ func (s *session) run() {
 			}
 			continue
 		}
-		if begin := takePendingBegin(&pendingBOS, messageStreamID(chunk)); begin != nil {
+		streamID := messageStreamID(chunk)
+		lookupID := streamID
+		if lookupID == "" {
+			lookupID = activeBypassID
+		}
+		if begin := takePendingBegin(&pendingBOS, lookupID); begin != nil {
+			if streamID == "" {
+				streamID = messageStreamID(begin)
+			}
 			if err := s.invocation.Output().Push(begin); err != nil {
 				break
 			}
 		}
-		if err := s.invocation.Output().Push(chunk.Clone()); err != nil {
+		copyChunk := chunk.Clone()
+		if streamID == "" {
+			streamID = activeBypassID
+		}
+		if streamID != "" {
+			if copyChunk.Ctrl == nil {
+				copyChunk.Ctrl = &genx.StreamCtrl{}
+			}
+			if strings.TrimSpace(copyChunk.Ctrl.StreamID) == "" {
+				copyChunk.Ctrl.StreamID = streamID
+			}
+			activeBypassID = streamID
+		}
+		if err := s.invocation.Output().Push(copyChunk); err != nil {
 			break
+		}
+		if copyChunk.IsEndOfStream() && streamID == activeBypassID {
+			activeBypassID = ""
 		}
 	}
 	if inputFailure != nil {
@@ -543,10 +595,8 @@ func (s *sessionStream) CloseWithError(err error) error {
 }
 
 func (s *sessionStream) inputClose(err error) error {
-	if err == nil {
-		return s.session.input.Close()
-	}
-	return s.session.input.CloseWithError(err)
+	s.session.closeInput(err)
+	return nil
 }
 
 func isStreamEnd(err error) bool {
