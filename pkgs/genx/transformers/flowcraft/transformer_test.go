@@ -451,8 +451,6 @@ func TestObserveWaitOrdersTurnsWithoutBlockingInputPump(t *testing.T) {
 	}
 	input := newInputBuilder()
 	_ = addTextTurn(input, "first")
-	_ = addTextTurn(input, "second")
-	_ = input.Done(genx.Usage{})
 	output, err := transformer.Transform(context.Background(), input.Stream())
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
@@ -465,6 +463,12 @@ func TestObserveWaitOrdersTurnsWithoutBlockingInputPump(t *testing.T) {
 		if text, ok := chunk.Part.(genx.Text); ok && text == "reply: first" {
 			break
 		}
+	}
+	if err := addTextTurn(input, "second"); err != nil {
+		t.Fatalf("add second turn: %v", err)
+	}
+	if err := input.Done(genx.Usage{}); err != nil {
+		t.Fatalf("finish input: %v", err)
 	}
 	next := make(chan error, 1)
 	go func() {

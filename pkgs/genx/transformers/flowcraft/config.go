@@ -134,9 +134,11 @@ func normalizeConfig(source Config) (Config, error) {
 	if err != nil {
 		return Config{}, fmt.Errorf("flowcraft: clone Graph: %w", err)
 	}
-	if err := json.Unmarshal(data, &config.Graph); err != nil {
+	var ownedGraph flowgraph.GraphDefinition
+	if err := json.Unmarshal(data, &ownedGraph); err != nil {
 		return Config{}, fmt.Errorf("flowcraft: clone Graph: %w", err)
 	}
+	config.Graph = ownedGraph
 	nodes := make(map[string]struct{}, len(config.Graph.Nodes))
 	for _, node := range config.Graph.Nodes {
 		nodes[node.ID] = struct{}{}
