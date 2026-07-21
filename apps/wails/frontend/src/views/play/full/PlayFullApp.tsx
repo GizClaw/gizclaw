@@ -133,6 +133,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/components/ui/utils";
 import { DashboardEmptyState, DashboardPager, DashboardShell, DashboardTable, DashboardTableCard, type DashboardNavItem } from "@/dashboard";
 import { getPlayOpenAIClient, readPlaySpeechAudioBlob } from "../../../lib/gizclaw/openai";
+import { hasThinkingToggle, isDisabledThinkingLevel } from "../../../lib/play-thinking";
 
 type Section = "overview" | "contacts" | "friends" | "friendGroups" | "gameplay" | "workspaces" | "workflows" | "models" | "firmwares" | "voices";
 type TopDrawer = "workspace" | "social-chat" | "test-chat" | null;
@@ -3126,10 +3127,7 @@ function ChatTester({ models, onOpenChange, open }: { models: Model[]; onOpenCha
   const providerData = selectedModelSpec == null ? undefined : runtimeModelProviderData(selectedModelSpec);
   const thinkingLevels = useMemo(() => providerData?.thinking_levels ?? [], [providerData]);
   const supportsThinking = providerData?.support_thinking === true;
-  const supportsThinkingToggle =
-    providerData?.thinking_param === "enable_thinking" ||
-    providerData?.thinking_param === "thinking.type" ||
-    thinkingLevels.some(isDisabledThinkingLevel);
+  const supportsThinkingToggle = hasThinkingToggle(providerData);
   const supportsTemperature = providerData?.support_temperature === true;
 
   const reportChatError = useCallback((message: string) => {
@@ -5008,10 +5006,6 @@ function workspaceFeatureMessage(err: unknown): string {
 
 function pageQuery(cursor: string): { cursor?: string; limit: number } {
   return cursor === "" ? { limit: 50 } : { cursor, limit: 50 };
-}
-
-function isDisabledThinkingLevel(level: string): boolean {
-  return ["disabled", "disable", "off", "false", "0", "none", "no"].includes(level.trim().toLowerCase());
 }
 
 function sectionTitle(section: Section): string {
