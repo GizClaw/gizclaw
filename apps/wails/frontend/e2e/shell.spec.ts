@@ -818,6 +818,12 @@ test("launcher uses rounded transparent framing and ambient card depth", async (
     "data-slot",
     "desktop-dialog-content",
   );
+  const dialogOverlay = page.locator('[data-slot="desktop-dialog-overlay"]');
+  await expect(dialogOverlay).toBeVisible();
+  const overlayRadius = await dialogOverlay.evaluate((element) =>
+    Number.parseFloat(getComputedStyle(element).borderTopLeftRadius),
+  );
+  expect(overlayRadius).toBeGreaterThanOrEqual(18);
   await expect(mobileDialog.locator(".qr-code")).toHaveAttribute(
     "data-qr-payload",
     /iOS \/ TestFlight/,
