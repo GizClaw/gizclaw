@@ -33,8 +33,11 @@ func TestGameplayAdoptDriveAndPetWorkspace(t *testing.T) {
 		DisplayName: testStringPtr("Ignored Replay Name"),
 		Id:          &petID,
 	})
-	if err != nil || replayed.Pet.Id != adopted.Pet.Id || replayed.Pet.DisplayName != adopted.Pet.DisplayName || replayed.Transaction.Id != adopted.Transaction.Id || replayed.Points.Balance != adopted.Points.Balance {
-		t.Fatalf("pet.adopt replay = %#v, %v", replayed, err)
+	if err != nil {
+		t.Fatalf("pet.adopt replay: %v", err)
+	}
+	if replayed.Pet.Id != adopted.Pet.Id || replayed.Pet.DisplayName != adopted.Pet.DisplayName || replayed.Transaction.Id != adopted.Transaction.Id || replayed.Points.Balance != adopted.Points.Balance {
+		t.Fatalf("pet.adopt replay = %#v, want Pet ID %q, display name %q, transaction ID %q, and Points balance %d", replayed, adopted.Pet.Id, adopted.Pet.DisplayName, adopted.Transaction.Id, adopted.Points.Balance)
 	}
 	workspace, err := env.peer.GetWorkspace(env.ctx, "gameplay.pet.workspace.get", rpcapi.WorkspaceGetRequest{Name: adopted.Pet.WorkspaceName})
 	if err != nil {

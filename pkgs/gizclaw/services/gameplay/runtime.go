@@ -290,23 +290,19 @@ func (r *Runtime) createPetAdoption(ctx context.Context, owner string, req apity
 }
 
 func (r *Runtime) awaitCompletedAdoptionResponse(ctx context.Context, owner, runtimeProfileName, petID string) (apitypes.PetAdoptResponse, bool, error) {
-	for attempt := range 10 {
+	for {
 		response, found, err := r.completedAdoptionResponse(ctx, owner, runtimeProfileName, petID)
 		if found || err != nil {
 			return response, found, err
 		}
-		if attempt == 9 {
-			break
-		}
-		timer := time.NewTimer(10 * time.Millisecond)
+		timer := time.NewTimer(20 * time.Millisecond)
 		select {
 		case <-ctx.Done():
 			timer.Stop()
-			return apitypes.PetAdoptResponse{}, false, ctx.Err()
+			return apitypes.PetAdoptResponse{}, false, nil
 		case <-timer.C:
 		}
 	}
-	return apitypes.PetAdoptResponse{}, false, nil
 }
 
 func (r *Runtime) completedAdoptionResponse(ctx context.Context, owner, runtimeProfileName, petID string) (apitypes.PetAdoptResponse, bool, error) {
@@ -1246,11 +1242,33 @@ func (r *Runtime) createPetWorkspace(ctx context.Context, name, workflowName, vo
 		return false, err
 	}
 	body := adminhttp.WorkspaceUpsert{Name: name, WorkflowName: workflowName, Parameters: &parameters}
-	_, created, err := r.Workspaces.CreateSystemWorkspace(ctx, body)
+	workspace, created, err := r.Workspaces.CreateSystemWorkspace(ctx, body)
 	if err != nil {
 		return false, err
 	}
+	if !created {
+		if err := validateExistingPetWorkspace(workspace, workflowName, input, voiceAlias); err != nil {
+			return false, fmt.Errorf("create pet workspace %q: %w", name, err)
+		}
+	}
 	return created, nil
+}
+
+func validateExistingPetWorkspace(workspace apitypes.Workspace, workflowName string, input apitypes.WorkspaceInputMode, voiceAlias string) error {
+	if workspace.WorkflowName != workflowName {
+		return fmt.Errorf("existing system Workspace uses workflow %q, want %q", workspace.WorkflowName, workflowName)
+	}
+	if workspace.Parameters == nil {
+		return errors.New("existing system Workspace has no Pet parameters")
+	}
+	parameters, err := workspace.Parameters.AsPetWorkspaceParameters()
+	if err != nil {
+		return fmt.Errorf("decode existing system Workspace Pet parameters: %w", err)
+	}
+	if parameters.AgentType != apitypes.PetWorkspaceParametersAgentTypePet || parameters.Input == nil || *parameters.Input != input || parameters.Voice.VoiceId != voiceAlias {
+		return errors.New("existing system Workspace parameters do not match the adoption selection")
+	}
+	return nil
 }
 
 func (r *Runtime) validatePetWorkflow(ctx context.Context, name string) error {

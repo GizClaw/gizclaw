@@ -278,10 +278,17 @@ func TestRuntimeAdoptCallerIDConvergesAcrossRuntimeInstances(t *testing.T) {
 	now := time.Date(2026, 7, 22, 10, 45, 0, 0, time.UTC)
 	catalog := testCatalog(t, now)
 	profile := seedGameplayCatalog(t, ctx, catalog)
+	voices := *profile.Spec.Resources.Voices
+	voices["pet-voice-alt"] = gameplayTestBinding("voice-alt")
+	pool := *profile.Spec.Gameplay.Adoption.Pool
+	alternate := pool[0]
+	alternate.Voice = "pet-voice-alt"
+	pool = append(pool, alternate)
+	profile.Spec.Gameplay.Adoption.Pool = &pool
 	ctx = WithRuntimeProfile(ctx, profile)
 	db := testDB(t)
 	workspaces := &recordingWorkspaceService{}
-	newRuntime := func(transactionID string) *Runtime {
+	newRuntime := func(transactionID string, pickWeight func(int64) int64) *Runtime {
 		return &Runtime{
 			DB:         db,
 			Catalog:    catalog,
@@ -289,10 +296,13 @@ func TestRuntimeAdoptCallerIDConvergesAcrossRuntimeInstances(t *testing.T) {
 			Workspaces: workspaces,
 			Now:        func() time.Time { return now },
 			NewID:      sequentialIDs(transactionID),
-			PickWeight: func(int64) int64 { return 0 },
+			PickWeight: pickWeight,
 		}
 	}
-	runtimes := []*Runtime{newRuntime("txn-runtime-a"), newRuntime("txn-runtime-b")}
+	runtimes := []*Runtime{
+		newRuntime("txn-runtime-a", func(int64) int64 { return 0 }),
+		newRuntime("txn-runtime-b", func(total int64) int64 { return total - 1 }),
+	}
 	if err := runtimes[0].Migration(ctx); err != nil {
 		t.Fatalf("Migration() error = %v", err)
 	}
@@ -333,6 +343,17 @@ func TestRuntimeAdoptCallerIDConvergesAcrossRuntimeInstances(t *testing.T) {
 	}
 	if len(workspaces.created) != 1 || len(workspaces.deleted) != 0 {
 		t.Fatalf("workspace mutations: created=%d deleted=%d, want 1 and 0", len(workspaces.created), len(workspaces.deleted))
+	}
+	parameters, err := workspaces.created[0].Parameters.AsPetWorkspaceParameters()
+	if err != nil {
+		t.Fatalf("decode winning Pet Workspace parameters: %v", err)
+	}
+	wantVoice := "pet-voice"
+	if transactionID == "txn-runtime-b" {
+		wantVoice = "pet-voice-alt"
+	}
+	if parameters.Voice.VoiceId != wantVoice {
+		t.Fatalf("winning Pet Workspace voice = %q, want %q for transaction %q", parameters.Voice.VoiceId, wantVoice, transactionID)
 	}
 }
 
@@ -552,7 +573,7 @@ func (s *recordingWorkspaceService) CreateSystemWorkspace(_ context.Context, bod
 	for _, existing := range s.created {
 		if existing.Name == body.Name {
 			system := true
-			return apitypes.Workspace{Name: body.Name, WorkflowName: body.WorkflowName, Parameters: body.Parameters, System: &system}, false, nil
+			return apitypes.Workspace{Name: existing.Name, WorkflowName: existing.WorkflowName, Parameters: existing.Parameters, System: &system}, false, nil
 		}
 	}
 	s.created = append(s.created, body)
