@@ -133,7 +133,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/components/ui/utils";
 import { DashboardEmptyState, DashboardPager, DashboardShell, DashboardTable, DashboardTableCard, type DashboardNavItem } from "@/dashboard";
 import { getPlayOpenAIClient, readPlaySpeechAudioBlob } from "../../../lib/gizclaw/openai";
-import { hasThinkingToggle, isDisabledThinkingLevel } from "../../../lib/play-thinking";
+import { hasThinkingToggle, isDisabledThinkingLevel, thinkingParameter } from "../../../lib/play-thinking";
 
 type Section = "overview" | "contacts" | "friends" | "friendGroups" | "gameplay" | "workspaces" | "workflows" | "models" | "firmwares" | "voices";
 type TopDrawer = "workspace" | "social-chat" | "test-chat" | null;
@@ -4442,16 +4442,20 @@ function ModelsPanel({ initialModels }: { initialModels: Model[] }): JSX.Element
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {models.map((model) => (
-				  <TableRow key={model.alias}>
-					<TableCell className="font-mono text-xs font-medium">{model.alias}</TableCell>
-					<TableCell>{model.kind ?? "-"}</TableCell>
-					<TableCell>{model.provider_kind || "-"}</TableCell>
-					<TableCell>{runtimeModelProviderData(model)?.support_thinking === true ? <Badge variant="outline">{runtimeModelProviderData(model)?.thinking_param || "on"}</Badge> : "-"}</TableCell>
-					<TableCell>RuntimeProfile</TableCell>
-					<TableCell className="text-muted-foreground">-</TableCell>
-                    </TableRow>
-                  ))}
+                  {models.map((model) => {
+                    const providerData = runtimeModelProviderData(model);
+                    const thinkingParam = thinkingParameter(providerData);
+                    return (
+                      <TableRow key={model.alias}>
+                        <TableCell className="font-mono text-xs font-medium">{model.alias}</TableCell>
+                        <TableCell>{model.kind ?? "-"}</TableCell>
+                        <TableCell>{model.provider_kind || "-"}</TableCell>
+                        <TableCell>{providerData?.support_thinking === true ? <Badge variant="outline">{thinkingParam || "on"}</Badge> : "-"}</TableCell>
+                        <TableCell>RuntimeProfile</TableCell>
+                        <TableCell className="text-muted-foreground">-</TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </DashboardTable>
           )}

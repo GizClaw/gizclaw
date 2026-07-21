@@ -114,6 +114,8 @@ export function ModelDetailPage(): JSX.Element {
               />
               <DetailBlock
                 items={[
+                  ["API mode", "api_mode" in model.provider_data ? model.provider_data.api_mode : undefined],
+                  ["Resource ID", "resource_id" in model.provider_data ? model.provider_data.resource_id : undefined],
                   ["Upstream model", model.provider_data.upstream_model],
                   ["JSON output", boolText(model.provider_data.support_json_output)],
                   ["Tool calls", boolText(model.provider_data.support_tool_calls)],
