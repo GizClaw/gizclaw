@@ -359,7 +359,10 @@ func (r *turnRun) runGraph() (*flowagent.Result, error) {
 	for _, nodeID := range config.PublishNodes {
 		publish[nodeID] = struct{}{}
 	}
-	host := &runHost{publish: publish, emit: r.emit, buffers: make(map[string][]bufferedDelta)}
+	host := &runHost{
+		publish: publish, emit: r.emit,
+		buffers: make(map[string][]bufferedDelta), terminal: make(map[string]struct{}),
+	}
 	seed := flowagent.BoardSeederFunc(func(ctx context.Context, _ flowagent.RunInfo, req *flowagent.Request) (*engine.Board, error) {
 		board := engine.NewBoard()
 		state, err := loadBoardState(ctx, config.State, r.session.contextID)
@@ -392,9 +395,6 @@ func (r *turnRun) runGraph() (*flowagent.Result, error) {
 		ContextID: r.session.contextID, RunID: r.response.StreamID(),
 		Message: flowmodel.NewTextMessage(flowmodel.RoleUser, r.user),
 	}, flowagent.WithEngineHost(host), flowagent.WithBoardSeed(seed))
-	if err == nil && result != nil && result.Err == nil && host.tokenCount() == 0 && result.Text() != "" {
-		err = r.emit("", result.Text())
-	}
 	return result, err
 }
 

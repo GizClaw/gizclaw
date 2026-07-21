@@ -53,9 +53,10 @@ type runHost struct {
 	publish map[string]struct{}
 	emit    func(string, string) error
 
-	mu      sync.Mutex
-	tokens  int
-	buffers map[string][]bufferedDelta
+	mu       sync.Mutex
+	tokens   int
+	buffers  map[string][]bufferedDelta
+	terminal map[string]struct{}
 }
 
 func (h *runHost) Publish(_ context.Context, envelope event.Envelope) error {
@@ -70,20 +71,29 @@ func (h *runHost) Publish(_ context.Context, envelope event.Envelope) error {
 	defer h.mu.Unlock()
 	if delta.Speculative && delta.ForkID != "" && delta.BranchID != "" {
 		key := delta.ForkID + "\x00" + delta.BranchID
+		if _, done := h.terminal[key]; done {
+			return nil
+		}
 		h.buffers[key] = append(h.buffers[key], bufferedDelta{nodeID: envelope.NodeID(), delta: delta})
 		return nil
 	}
 	switch delta.Type {
 	case engine.StreamDeltaParallelBranchAccept:
 		key := delta.ForkID + "\x00" + delta.BranchID
+		if _, done := h.terminal[key]; done {
+			return nil
+		}
 		for _, buffered := range h.buffers[key] {
 			if err := h.emitLocked(buffered.nodeID, buffered.delta); err != nil {
 				return err
 			}
 		}
 		delete(h.buffers, key)
+		h.terminal[key] = struct{}{}
 	case engine.StreamDeltaParallelBranchCancel:
-		delete(h.buffers, delta.ForkID+"\x00"+delta.BranchID)
+		key := delta.ForkID + "\x00" + delta.BranchID
+		delete(h.buffers, key)
+		h.terminal[key] = struct{}{}
 	default:
 		return h.emitLocked(envelope.NodeID(), delta)
 	}

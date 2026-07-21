@@ -17,7 +17,7 @@ func TestRunHostPublishesOnlyAcceptedCandidateFromAllowedNode(t *testing.T) {
 			emitted = append(emitted, content)
 			return nil
 		},
-		buffers: make(map[string][]bufferedDelta),
+		buffers: make(map[string][]bufferedDelta), terminal: make(map[string]struct{}),
 	}
 	emit := func(nodeID string, delta engine.StreamDeltaPayload) {
 		t.Helper()
@@ -47,11 +47,22 @@ func TestRunHostPublishesOnlyAcceptedCandidateFromAllowedNode(t *testing.T) {
 	emit("answer", engine.StreamDeltaPayload{
 		Type: engine.StreamDeltaParallelBranchAccept, ForkID: "fork", BranchID: "one",
 	})
+	emit("answer", engine.StreamDeltaPayload{
+		Type: engine.StreamDeltaToken, Content: "late-accepted", Speculative: true,
+		ForkID: "fork", BranchID: "one",
+	})
+	emit("answer", engine.StreamDeltaPayload{
+		Type: engine.StreamDeltaToken, Content: "late-cancelled", Speculative: true,
+		ForkID: "fork", BranchID: "two",
+	})
 
 	if !slices.Equal(emitted, []string{"accepted"}) {
 		t.Fatalf("emitted = %v, want only accepted published candidate", emitted)
 	}
 	if host.tokenCount() != 1 {
 		t.Fatalf("tokenCount() = %d, want 1", host.tokenCount())
+	}
+	if len(host.buffers) != 0 {
+		t.Fatalf("late terminal events recreated buffers: %#v", host.buffers)
 	}
 }
