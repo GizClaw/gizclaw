@@ -11,3 +11,57 @@
   max-width: 100%;
   height: auto;
 }
+
+.gizclaw-api-reference {
+  margin: 24px 0 0;
+  overflow: hidden;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 12px;
+  background: var(--vp-c-bg);
+}
+
+.gizclaw-api-reference--standalone {
+  margin: 0;
+  min-height: calc(100vh - var(--vp-nav-height));
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  --scalar-custom-header-height: var(--vp-nav-height);
+}
+
+.gizclaw-api-reference:not(.gizclaw-api-reference--standalone) .scalar-app,
+.gizclaw-api-reference:not(.gizclaw-api-reference--standalone) .scalar-app .light-mode,
+.gizclaw-api-reference:not(.gizclaw-api-reference--standalone) .scalar-app .dark-mode {
+  --scalar-font: var(--vp-font-family-base) !important;
+  --scalar-font-code: var(--vp-font-family-mono) !important;
+  --scalar-background-1: var(--vp-c-bg) !important;
+  --scalar-background-2: var(--vp-c-bg-soft) !important;
+  --scalar-background-3: var(--vp-c-bg-alt) !important;
+  --scalar-background-accent: var(--vp-c-brand-soft) !important;
+  --scalar-color-1: var(--vp-c-text-1) !important;
+  --scalar-color-2: var(--vp-c-text-2) !important;
+  --scalar-color-3: var(--vp-c-text-3) !important;
+  --scalar-color-accent: var(--vp-c-brand-1) !important;
+  --scalar-border-color: var(--vp-c-divider) !important;
+  --scalar-link-color: var(--vp-c-brand-1) !important;
+  --scalar-link-color-hover: var(--vp-c-brand-2) !important;
+  --scalar-radius: 6px !important;
+}
+
+.gizclaw-api-reference .scalar-app {
+  min-height: 320px;
+}
+
+.gizclaw-api-reference--standalone .scalar-app {
+  min-height: calc(100vh - var(--vp-nav-height));
+}
+
+/* The API client is disabled, but Scalar still mounts its high-z-index shell. */
+.gizclaw-api-reference .scalar-app.z-overlay {
+  display: none;
+}
+
+.gizclaw-api-reference-loading {
+  padding: 32px;
+  color: var(--vp-c-text-2);
+}

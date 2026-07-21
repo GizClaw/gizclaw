@@ -4,6 +4,7 @@ This section is intended for GizClaw users and SDK users and explains how to con
 
 ## Entry points
 
+- [API](./api): choose and call the Admin API and Peer RPC
 - [CLI](./cli)
 - [Wails App](./wails-app)
 - [Flutter App](./flutter-app)

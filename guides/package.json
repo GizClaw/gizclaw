@@ -2,13 +2,15 @@
   "name": "@gizclaw/guides",
   "private": true,
   "scripts": {
-    "dev": "vitepress dev .",
-    "build": "vitepress build .",
-    "build:site": "npm run check:locales && vitepress build .",
+    "dev": "npm run generate:api-reference && vitepress dev .",
+    "build": "npm run generate:api-reference && vitepress build .",
+    "build:site": "npm run check:locales && npm run build",
     "check:locales": "node scripts/check-locale-parity.mjs",
+    "generate:api-reference": "node scripts/generate-api-reference.mjs",
     "preview": "vitepress preview ."
   },
   "devDependencies": {
+    "@scalar/api-reference": "^1.63.0",
     "@types/node": "^24.0.0",
     "debug": "^4.4.3",
     "mermaid": "^11.16.0",

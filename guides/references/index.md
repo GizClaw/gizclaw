@@ -1,14 +1,15 @@
 # Reference
 
-这里汇总 GizClaw 的 API、Schema 与 SDK Reference。VitePress 不生成或承载 Flutter Dartdoc 和 TypeScript TypeDoc；开发者需要时直接使用对应工具在本地查看。
+这里汇总 GizClaw 的 Schema、RPC 与 SDK Reference。HTTP/OpenAPI 使用独立的 API Portal；VitePress 不生成或承载 Flutter Dartdoc 和 TypeScript TypeDoc。
+
+## API Reference
+
+- [Admin API](/api/)：使用 Scalar 浏览 Admin、Peer HTTP、Desktop Pod 与 OpenAI-compatible API。
+- [RPC API Reference](./rpc)：全部 RPC method ID、method name 与用途。
 
 ## SDK Reference
 
 - [Go SDK Reference](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/sdk/go/gizcli)
-
-## API Reference
-
-- [GizClaw API Reference](./api/)
 
 ## Flutter SDK 本地查看
 

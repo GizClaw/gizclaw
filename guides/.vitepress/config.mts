@@ -293,6 +293,7 @@ export default withMermaid(
             { text: "Coding Conventions", link: "/en/coding-styles/" },
             { text: "Usage", link: "/en/using/" },
             { text: "Reference", link: "/references/" },
+            { text: "Admin API", link: "/api/" },
           ],
           outline: { label: "On this page", level: [2, 4] },
           docFooter: { prev: "Previous page", next: "Next page" },
@@ -322,7 +323,7 @@ export default withMermaid(
       // VitePress 2.0.0-alpha.18 passes hash.value as the second argument.
       i18nRouting: ({ page }, hash: string, targetLocale) => {
         const relativePath = page.value.relativePath;
-        if (relativePath.startsWith("references/")) {
+        if (relativePath.startsWith("references/") || relativePath.startsWith("api/")) {
           const referencePath = relativePath
             .replace(/(^|\/)index\.md$/, "$1")
             .replace(/\.md$/, "");
@@ -342,8 +343,18 @@ export default withMermaid(
         { text: "编码规范", link: "/zh/coding-styles/" },
         { text: "使用说明", link: "/zh/using/" },
         { text: "Reference", link: "/references/" },
+        { text: "Admin API", link: "/api/" },
       ],
       sidebar: {
+        "/references/": [
+          {
+            text: "Reference",
+            items: [
+              { text: "总览", link: "/references/" },
+              { text: "RPC Methods", link: "/references/rpc" },
+            ],
+          },
+        ],
         "/zh/developing/": zhDevelopingSidebar,
         "/en/developing/": enDevelopingSidebar,
         "/zh/reviewing/": [
@@ -405,6 +416,7 @@ export default withMermaid(
             text: "使用说明",
             items: [
               { text: "总览", link: "/zh/using/" },
+              { text: "API", link: "/zh/using/api" },
               { text: "CLI", link: "/zh/using/cli" },
               { text: "Wails App", link: "/zh/using/wails-app" },
               { text: "Flutter App", link: "/zh/using/flutter-app" },
@@ -425,6 +437,7 @@ export default withMermaid(
             text: "Usage Guide",
             items: [
               { text: "Overview", link: "/en/using/" },
+              { text: "API", link: "/en/using/api" },
               { text: "CLI", link: "/en/using/cli" },
               { text: "Wails App", link: "/en/using/wails-app" },
               { text: "Flutter App", link: "/en/using/flutter-app" },
