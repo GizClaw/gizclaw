@@ -72,6 +72,14 @@ func (r *Runtime) Migration(ctx context.Context) error {
 			updated_at TEXT NOT NULL,
 			PRIMARY KEY(owner_public_key, id)
 		)`,
+		`CREATE TABLE IF NOT EXISTS gameplay_pet_drive_ticks (
+			owner_public_key TEXT NOT NULL,
+			runtime_profile_name TEXT NOT NULL,
+			idempotency_key TEXT NOT NULL,
+			pet_id TEXT NOT NULL,
+			created_at TEXT NOT NULL,
+			PRIMARY KEY(owner_public_key, runtime_profile_name, idempotency_key)
+		)`,
 		`CREATE TABLE IF NOT EXISTS gameplay_points_accounts (
 			owner_public_key TEXT NOT NULL,
 			runtime_profile_name TEXT NOT NULL,
@@ -419,13 +427,24 @@ func (r *Runtime) DrivePet(ctx context.Context, owner string, req apitypes.PetDr
 	if err != nil {
 		return apitypes.PetDriveResponse{}, err
 	}
-	if pet.Lifecycle == apitypes.PetLifecycleDead {
-		return apitypes.PetDriveResponse{}, ErrPetDead
-	}
 	hasBehavior := req.Behavior != nil
 	hasGame := req.GameResult != nil
-	if hasBehavior == hasGame {
+	if hasBehavior && hasGame {
 		return apitypes.PetDriveResponse{}, errors.New("gameplay: exactly one behavior or game_result is required")
+	}
+	if !hasBehavior && !hasGame {
+		key := strings.TrimSpace(valueOrZero(req.IdempotencyKey))
+		if key != "" {
+			if response, found, err := r.completedEmptyDriveResponse(ctx, owner, ruleset.Name, key, pet); err != nil {
+				return apitypes.PetDriveResponse{}, err
+			} else if found {
+				return response, nil
+			}
+		}
+		return r.commitEmptyDrive(ctx, owner, req.PetId, key, ruleset)
+	}
+	if pet.Lifecycle == apitypes.PetLifecycleDead {
+		return apitypes.PetDriveResponse{}, ErrPetDead
 	}
 	var behavior apitypes.PetBehavior
 	var actionPolicy apitypes.RuntimeProfilePetActionSpec
@@ -493,6 +512,65 @@ func (r *Runtime) DrivePet(ctx context.Context, owner string, req apitypes.PetDr
 		}
 	}
 	return r.commitDrive(ctx, owner, req, ruleset, behavior, actionPolicy, gameRule, evaluated)
+}
+
+func (r *Runtime) commitEmptyDrive(ctx context.Context, owner, petID, key string, ruleset ProfileRules) (apitypes.PetDriveResponse, error) {
+	db, err := r.db()
+	if err != nil {
+		return apitypes.PetDriveResponse{}, err
+	}
+	tx, err := db.BeginTxx(ctx, nil)
+	if err != nil {
+		return apitypes.PetDriveResponse{}, err
+	}
+	defer tx.Rollback()
+	now := r.now()
+	replay := false
+	if key != "" {
+		inserted, err := insertPetDriveTick(ctx, tx, petDriveTick{
+			OwnerPublicKey: owner, RuntimeProfileName: ruleset.Name,
+			IdempotencyKey: key, PetID: petID, CreatedAt: now,
+		})
+		if err != nil {
+			return apitypes.PetDriveResponse{}, err
+		}
+		if !inserted {
+			completed, err := findPetDriveTick(ctx, tx, owner, ruleset.Name, key)
+			if err != nil {
+				return apitypes.PetDriveResponse{}, err
+			}
+			if completed.PetID != petID {
+				return apitypes.PetDriveResponse{}, errors.New("gameplay: idempotency key belongs to another pet")
+			}
+			replay = true
+		}
+	}
+	pet, err := scanPet(tx.QueryRowContext(ctx, tx.Rebind(petSelectSQL()+` WHERE owner_public_key = ? AND id = ?`), owner, petID))
+	if err != nil {
+		return apitypes.PetDriveResponse{}, err
+	}
+	account, err := r.ensureAccountTx(ctx, tx, owner, ruleset)
+	if err != nil {
+		return apitypes.PetDriveResponse{}, err
+	}
+	if replay {
+		return emptyDriveResponse(pet, account), nil
+	}
+	if pet.Lifecycle != apitypes.PetLifecycleDead {
+		settlePetTime(&pet, now, ruleset.Spec.Time)
+		pet.UpdatedAt = now
+		if pet.Stats.Life == 0 {
+			pet.Lifecycle = apitypes.PetLifecycleDead
+			pet.DiedAt = &now
+		}
+		if err := updatePet(ctx, tx, pet); err != nil {
+			return apitypes.PetDriveResponse{}, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return apitypes.PetDriveResponse{}, err
+	}
+	return emptyDriveResponse(pet, account), nil
 }
 
 func (r *Runtime) commitDrive(
@@ -731,6 +809,28 @@ func (r *Runtime) completedGameResponse(ctx context.Context, owner, profile, key
 	}
 	response, err := r.completedDriveResponse(ctx, owner, profile, result.PetId, &result, "game_result", result.Id)
 	return response, true, err
+}
+
+func (r *Runtime) completedEmptyDriveResponse(ctx context.Context, owner, profile, key string, pet apitypes.Pet) (apitypes.PetDriveResponse, bool, error) {
+	db, err := r.db()
+	if err != nil {
+		return apitypes.PetDriveResponse{}, false, err
+	}
+	tick, err := findPetDriveTick(ctx, db, owner, profile, key)
+	if errors.Is(err, sql.ErrNoRows) {
+		return apitypes.PetDriveResponse{}, false, nil
+	}
+	if err != nil {
+		return apitypes.PetDriveResponse{}, false, err
+	}
+	if tick.PetID != pet.Id {
+		return apitypes.PetDriveResponse{}, false, errors.New("gameplay: idempotency key belongs to another pet")
+	}
+	account, err := r.readPointsAccount(ctx, owner, profile)
+	if err != nil {
+		return apitypes.PetDriveResponse{}, false, err
+	}
+	return emptyDriveResponse(pet, account), true, nil
 }
 
 func (r *Runtime) completedBehaviorResponse(ctx context.Context, owner, profile, key string, pet apitypes.Pet, behavior apitypes.PetBehavior) (apitypes.PetDriveResponse, bool, error) {

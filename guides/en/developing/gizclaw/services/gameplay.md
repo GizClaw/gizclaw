@@ -28,7 +28,11 @@ $$
 \Delta life=L_{max}\int_0^T D(t)^p\,dt
 $$
 
-where weights sum to 1 and $p>1$. Full care stats produce zero deficit and therefore no life loss; lower care stats accelerate life loss. The Server evaluates the piecewise analytic integral, so settlement depends on initial state and elapsed time rather than request frequency. When life reaches zero, the Pet atomically enters `dead` with an immutable `died_at`; a dead Pet cannot Drive again.
+where weights sum to 1 and $p>1$. Full care stats produce zero deficit and therefore no life loss; lower care stats accelerate life loss. The Server evaluates the piecewise analytic integral, so settlement depends on initial state and elapsed time rather than request frequency.
+
+`server.pet.drive` accepts an empty Drive containing only `pet_id` as a Server-authoritative time tick. It settles the elapsed interval from `state_settled_at`, persists care decay, energy recovery, life loss, and the new checkpoint, and returns the updated Pet without creating a behavior, game result, cost, or reward. Successive new ticks compose to the same state as one tick over the same total interval. When the optional request-level idempotency key is present, retrying that same empty Drive does not settle time again; a new key or no key starts a new tick.
+
+When life reaches zero, the Pet atomically enters `dead` with an immutable `died_at`. Behavior and game-result Drives cannot target a dead Pet; an empty Drive returns its unchanged terminal snapshot.
 
 EXP required for the next level is `ceil(base_exp + log_scale * ln(current_level))`, with `log_scale` bounded to `0..100` so level calculation remains bounded. Cumulative EXP is not consumed by leveling. Initial points, adoption weights/costs, and every Pet policy value come only from RuntimeProfile; Server config has no fallback.
 

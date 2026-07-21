@@ -29,6 +29,203 @@ func TestPetTimeSettlementIsFrequencyIndependent(t *testing.T) {
 	}
 }
 
+func TestEmptyPetDriveSettlesAndPersistsTime(t *testing.T) {
+	ctx, runtime, now := newPetRuntime(t)
+	adopted, err := runtime.AdoptPet(ctx, "peer-empty-drive", apitypes.PetAdoptRequest{})
+	if err != nil {
+		t.Fatalf("AdoptPet() error = %v", err)
+	}
+	pet := adopted.Pet
+	pet.Stats.Health = 70
+	pet.Stats.Satiety = 40
+	pet.Stats.Hygiene = 50
+	pet.Stats.Mood = 60
+	pet.Stats.Energy = 20
+	updatePetForTest(t, runtime, pet)
+
+	*now = now.Add(2 * time.Hour)
+	want := pet
+	settlePetTime(&want, *now, testPetGameplaySpec().Time)
+	want.UpdatedAt = *now
+	response, err := runtime.DrivePet(ctx, "peer-empty-drive", apitypes.PetDriveRequest{PetId: pet.Id})
+	if err != nil {
+		t.Fatalf("DrivePet(empty) error = %v", err)
+	}
+	assertPetStatsClose(t, response.Pet.Stats, want.Stats)
+	if response.Pet.StateSettledAt != *now || response.Pet.UpdatedAt != *now || response.Pet.LastActiveAt != pet.LastActiveAt {
+		t.Fatalf("DrivePet(empty) timestamps = settled %s updated %s active %s", response.Pet.StateSettledAt, response.Pet.UpdatedAt, response.Pet.LastActiveAt)
+	}
+	if response.GameResult != nil || len(response.Badges) != 0 || len(response.RewardGrants) != 0 || len(response.Transactions) != 0 {
+		t.Fatalf("DrivePet(empty) side effects = %#v", response)
+	}
+	stored, err := runtime.GetPet(ctx, "peer-empty-drive", pet.Id)
+	if err != nil {
+		t.Fatalf("GetPet() error = %v", err)
+	}
+	assertPetStatsClose(t, stored.Stats, want.Stats)
+	if stored.StateSettledAt != response.Pet.StateSettledAt || stored.LastActiveAt != pet.LastActiveAt {
+		t.Fatalf("stored Pet = %#v, want settled response with unchanged activity", stored)
+	}
+	results, err := runtime.ListGameResults(ctx, "peer-empty-drive", apitypes.GameplayListRequest{})
+	if err != nil || len(results.Items) != 0 {
+		t.Fatalf("game results after empty Drive = %#v, %v", results, err)
+	}
+	grants, err := runtime.ListRewardGrants(ctx, "peer-empty-drive", apitypes.GameplayListRequest{})
+	if err != nil || len(grants.Items) != 0 {
+		t.Fatalf("reward grants after empty Drive = %#v, %v", grants, err)
+	}
+	transactions, err := runtime.ListPointsTransactions(ctx, "peer-empty-drive", apitypes.GameplayListRequest{})
+	if err != nil || len(transactions.Items) != 1 || transactions.Items[0].Reason != "pet.adopt" {
+		t.Fatalf("points transactions after empty Drive = %#v, %v", transactions, err)
+	}
+}
+
+func TestEmptyPetDriveTimeSettlementIsFrequencyIndependent(t *testing.T) {
+	ctx, runtime, now := newPetRuntime(t)
+	first, err := runtime.AdoptPet(ctx, "peer-empty-frequency", apitypes.PetAdoptRequest{})
+	if err != nil {
+		t.Fatalf("AdoptPet(first) error = %v", err)
+	}
+	second, err := runtime.AdoptPet(ctx, "peer-empty-frequency", apitypes.PetAdoptRequest{})
+	if err != nil {
+		t.Fatalf("AdoptPet(second) error = %v", err)
+	}
+	for _, pet := range []apitypes.Pet{first.Pet, second.Pet} {
+		pet.Stats.Health = 70
+		pet.Stats.Satiety = 40
+		pet.Stats.Hygiene = 50
+		pet.Stats.Mood = 60
+		pet.Stats.Energy = 20
+		updatePetForTest(t, runtime, pet)
+	}
+
+	*now = now.Add(time.Hour)
+	if _, err := runtime.DrivePet(ctx, "peer-empty-frequency", apitypes.PetDriveRequest{PetId: first.Pet.Id}); err != nil {
+		t.Fatalf("DrivePet(first interval) error = %v", err)
+	}
+	*now = now.Add(2 * time.Hour)
+	split, err := runtime.DrivePet(ctx, "peer-empty-frequency", apitypes.PetDriveRequest{PetId: first.Pet.Id})
+	if err != nil {
+		t.Fatalf("DrivePet(second interval) error = %v", err)
+	}
+	oneShot, err := runtime.DrivePet(ctx, "peer-empty-frequency", apitypes.PetDriveRequest{PetId: second.Pet.Id})
+	if err != nil {
+		t.Fatalf("DrivePet(one interval) error = %v", err)
+	}
+	assertPetStatsClose(t, split.Pet.Stats, oneShot.Pet.Stats)
+}
+
+func TestEmptyPetDriveIdempotencyKeyPreventsRepeatedTick(t *testing.T) {
+	ctx, runtime, now := newPetRuntime(t)
+	first, err := runtime.AdoptPet(ctx, "peer-empty-key", apitypes.PetAdoptRequest{})
+	if err != nil {
+		t.Fatalf("AdoptPet(first) error = %v", err)
+	}
+	second, err := runtime.AdoptPet(ctx, "peer-empty-key", apitypes.PetAdoptRequest{})
+	if err != nil {
+		t.Fatalf("AdoptPet(second) error = %v", err)
+	}
+	key := "empty-tick"
+	*now = now.Add(time.Hour)
+	initial, err := runtime.DrivePet(ctx, "peer-empty-key", apitypes.PetDriveRequest{PetId: first.Pet.Id, IdempotencyKey: &key})
+	if err != nil {
+		t.Fatalf("DrivePet(first) error = %v", err)
+	}
+	*now = now.Add(2 * time.Hour)
+	replay, err := runtime.DrivePet(ctx, "peer-empty-key", apitypes.PetDriveRequest{PetId: first.Pet.Id, IdempotencyKey: &key})
+	if err != nil {
+		t.Fatalf("DrivePet(replay) error = %v", err)
+	}
+	if replay.Pet.StateSettledAt != initial.Pet.StateSettledAt || replay.Pet.UpdatedAt != initial.Pet.UpdatedAt {
+		t.Fatalf("DrivePet(replay) advanced Pet = %#v, want settled_at %s", replay.Pet, initial.Pet.StateSettledAt)
+	}
+	if _, err := runtime.DrivePet(ctx, "peer-empty-key", apitypes.PetDriveRequest{PetId: second.Pet.Id, IdempotencyKey: &key}); err == nil || !strings.Contains(err.Error(), "another pet") {
+		t.Fatalf("DrivePet(cross-Pet key) error = %v, want conflict", err)
+	}
+	failedKey := "failed-empty-tick"
+	if _, err := runtime.DrivePet(ctx, "peer-empty-key", apitypes.PetDriveRequest{PetId: "missing", IdempotencyKey: &failedKey}); err == nil {
+		t.Fatal("DrivePet(missing Pet) error = nil")
+	}
+	if _, err := runtime.DrivePet(ctx, "peer-empty-key", apitypes.PetDriveRequest{PetId: second.Pet.Id, IdempotencyKey: &failedKey}); err != nil {
+		t.Fatalf("DrivePet(key after failure) error = %v", err)
+	}
+	restarted := &Runtime{
+		DB: runtime.DB, Catalog: runtime.Catalog, Workflows: runtime.Workflows, Workspaces: runtime.Workspaces,
+		Now: runtime.Now, NewID: runtime.NewID, PickWeight: runtime.PickWeight,
+	}
+	if afterRestart, err := restarted.DrivePet(ctx, "peer-empty-key", apitypes.PetDriveRequest{PetId: first.Pet.Id, IdempotencyKey: &key}); err != nil || afterRestart.Pet.StateSettledAt != initial.Pet.StateSettledAt {
+		t.Fatalf("DrivePet(replay after restart) = %#v, %v", afterRestart, err)
+	}
+	nextKey := "empty-tick-next"
+	next, err := restarted.DrivePet(ctx, "peer-empty-key", apitypes.PetDriveRequest{PetId: first.Pet.Id, IdempotencyKey: &nextKey})
+	if err != nil {
+		t.Fatalf("DrivePet(next) error = %v", err)
+	}
+	if next.Pet.StateSettledAt != *now {
+		t.Fatalf("DrivePet(next) settled_at = %s, want %s", next.Pet.StateSettledAt, *now)
+	}
+}
+
+func TestEmptyPetDriveFailureDoesNotConsumeIdempotencyKey(t *testing.T) {
+	ctx, runtime, now := newPetRuntime(t)
+	adopted, err := runtime.AdoptPet(ctx, "peer-empty-failure", apitypes.PetAdoptRequest{})
+	if err != nil {
+		t.Fatalf("AdoptPet() error = %v", err)
+	}
+	const trigger = `CREATE TRIGGER fail_empty_pet_drive
+		BEFORE UPDATE ON gameplay_pets
+		BEGIN
+			SELECT RAISE(ABORT, 'forced empty Drive failure');
+		END`
+	if _, err := runtime.DB.ExecContext(ctx, trigger); err != nil {
+		t.Fatalf("create failure trigger: %v", err)
+	}
+	t.Cleanup(func() {
+		_, _ = runtime.DB.ExecContext(context.Background(), "DROP TRIGGER IF EXISTS fail_empty_pet_drive")
+	})
+
+	key := "retry-after-rollback"
+	*now = now.Add(time.Hour)
+	request := apitypes.PetDriveRequest{PetId: adopted.Pet.Id, IdempotencyKey: &key}
+	if _, err := runtime.DrivePet(ctx, "peer-empty-failure", request); err == nil {
+		t.Fatal("DrivePet(forced failure) error = nil")
+	}
+	var ticks int
+	if err := runtime.DB.GetContext(ctx, &ticks, `SELECT COUNT(*) FROM gameplay_pet_drive_ticks WHERE idempotency_key = ?`, key); err != nil {
+		t.Fatalf("count rolled-back tick: %v", err)
+	}
+	if ticks != 0 {
+		t.Fatalf("ticks after failed Drive = %d, want 0", ticks)
+	}
+	if _, err := runtime.DB.ExecContext(ctx, "DROP TRIGGER fail_empty_pet_drive"); err != nil {
+		t.Fatalf("drop failure trigger: %v", err)
+	}
+
+	response, err := runtime.DrivePet(ctx, "peer-empty-failure", request)
+	if err != nil {
+		t.Fatalf("DrivePet(retry) error = %v", err)
+	}
+	if response.Pet.StateSettledAt != *now {
+		t.Fatalf("DrivePet(retry) settled_at = %s, want %s", response.Pet.StateSettledAt, *now)
+	}
+}
+
+func TestPetDriveRejectsBehaviorAndGameResultTogether(t *testing.T) {
+	ctx, runtime, _ := newPetRuntime(t)
+	adopted, err := runtime.AdoptPet(ctx, "peer-invalid-drive", apitypes.PetAdoptRequest{})
+	if err != nil {
+		t.Fatalf("AdoptPet() error = %v", err)
+	}
+	behavior := apitypes.PetBehaviorFeed
+	_, err = runtime.DrivePet(ctx, "peer-invalid-drive", apitypes.PetDriveRequest{
+		PetId: adopted.Pet.Id, Behavior: &behavior,
+		GameResult: &apitypes.PetDriveGameResultInput{GameDefId: "game-basic"},
+	})
+	if err == nil || !strings.Contains(err.Error(), "exactly one behavior or game_result") {
+		t.Fatalf("DrivePet(behavior and game) error = %v", err)
+	}
+}
+
 func TestPetCareBehaviorUsesDeltaCapEnergyAndExperience(t *testing.T) {
 	ctx, runtime, _ := newPetRuntime(t)
 	adopted, err := runtime.AdoptPet(ctx, "peer-care", apitypes.PetAdoptRequest{})
@@ -162,6 +359,13 @@ func TestGameRewardFailureIsAtomicAndDeathIsTerminal(t *testing.T) {
 	}
 	diedAt := *dead.Pet.DiedAt
 	*now = now.Add(24 * time.Hour)
+	terminalTick, err := runtime.DrivePet(ctx, "peer-atomic", apitypes.PetDriveRequest{PetId: stored.Id})
+	if err != nil {
+		t.Fatalf("DrivePet(empty dead) error = %v", err)
+	}
+	if terminalTick.Pet.DiedAt == nil || !terminalTick.Pet.DiedAt.Equal(diedAt) || terminalTick.Pet.StateSettledAt != dead.Pet.StateSettledAt || terminalTick.Pet.UpdatedAt != dead.Pet.UpdatedAt {
+		t.Fatalf("DrivePet(empty dead) = %#v, want unchanged terminal Pet", terminalTick.Pet)
+	}
 	if _, err := runtime.DrivePet(ctx, "peer-atomic", apitypes.PetDriveRequest{PetId: stored.Id, Behavior: &behavior}); !errors.Is(err, ErrPetDead) {
 		t.Fatalf("DrivePet(dead) error = %v", err)
 	}

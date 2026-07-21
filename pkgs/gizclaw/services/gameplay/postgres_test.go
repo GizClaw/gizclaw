@@ -49,6 +49,17 @@ func TestPostgresGameplayContract(t *testing.T) {
 	if adopted.Pet.Id != "pet-postgres" || adopted.Points.Balance != 35 {
 		t.Fatalf("AdoptPet() = %#v", adopted)
 	}
+	tickKey := "postgres-empty-tick"
+	now = now.Add(time.Hour)
+	tick, err := runtime.DrivePet(ctx, "peer-postgres", apitypes.PetDriveRequest{PetId: adopted.Pet.Id, IdempotencyKey: &tickKey})
+	if err != nil {
+		t.Fatalf("DrivePet(empty) error = %v", err)
+	}
+	now = now.Add(2 * time.Hour)
+	tickReplay, err := runtime.DrivePet(ctx, "peer-postgres", apitypes.PetDriveRequest{PetId: adopted.Pet.Id, IdempotencyKey: &tickKey})
+	if err != nil || tickReplay.Pet.StateSettledAt != tick.Pet.StateSettledAt {
+		t.Fatalf("DrivePet(empty replay) = %#v, %v", tickReplay, err)
+	}
 	idempotencyKey := "postgres-result-key"
 	drive, err := runtime.DrivePet(ctx, "peer-postgres", apitypes.PetDriveRequest{
 		PetId: adopted.Pet.Id,
@@ -206,6 +217,7 @@ func openGameplayPostgresTestDB(t *testing.T) *sqlx.DB {
 func dropGameplayPostgresTables(t *testing.T, ctx context.Context, db *sqlx.DB) {
 	t.Helper()
 	for _, table := range []string{
+		"gameplay_pet_drive_ticks",
 		"gameplay_reward_grants",
 		"gameplay_game_results",
 		"gameplay_badges",
