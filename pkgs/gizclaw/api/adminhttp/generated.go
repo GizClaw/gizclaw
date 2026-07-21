@@ -554,7 +554,7 @@ type ModelUpsert struct {
 	Name     *string                    `json:"name,omitempty"`
 	Provider externalRef0.ModelProvider `json:"provider"`
 
-	// ProviderData Provider-specific model runtime configuration selected by Model.provider.kind.
+	// ProviderData Provider-specific model runtime configuration selected by Model.provider.kind. Optional behavior flags default to false.
 	ProviderData externalRef0.ModelProviderData `json:"provider_data"`
 
 	// Source How the model entered the global catalog

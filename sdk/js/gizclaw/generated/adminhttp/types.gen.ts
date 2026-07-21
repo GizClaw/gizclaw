@@ -1318,7 +1318,7 @@ export type MiniMaxTenantModelProviderData = {
 };
 
 /**
- * Provider-specific model runtime configuration selected by Model.provider.kind.
+ * Provider-specific model runtime configuration selected by Model.provider.kind. Optional behavior flags default to false.
  */
 export type ModelProviderData = GeminiTenantModelProviderData | DashScopeTenantModelProviderData | DeepSeekTenantModelProviderData | OpenAiTenantModelProviderData | MiniMaxTenantModelProviderData | VolcTenantModelProviderData;
 

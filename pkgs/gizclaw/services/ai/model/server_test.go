@@ -299,12 +299,19 @@ func TestServerValidatesProviderKindAgainstProviderData(t *testing.T) {
 	wrongModelKind := deepSeek
 	wrongModelKind.Id = "deepseek-embedding"
 	wrongModelKind.Kind = apitypes.ModelKindEmbedding
-	missingBehavior := modelUpsert("missing-behavior", string(apitypes.ModelProviderKindOpenaiTenant), "openai-main")
-	if err := missingBehavior.ProviderData.FromOpenAITenantModelProviderData(apitypes.OpenAITenantModelProviderData{UpstreamModel: stringPtr("gpt-test")}); err != nil {
+	defaultBehavior := modelUpsert("default-behavior", string(apitypes.ModelProviderKindOpenaiTenant), "openai-main")
+	if err := defaultBehavior.ProviderData.FromOpenAITenantModelProviderData(apitypes.OpenAITenantModelProviderData{UpstreamModel: stringPtr("gpt-test")}); err != nil {
 		t.Fatalf("FromOpenAITenantModelProviderData() error = %v", err)
 	}
+	resp, err := srv.CreateModel(ctx, adminhttp.CreateModelRequestObject{Body: &defaultBehavior})
+	if err != nil {
+		t.Fatalf("CreateModel(default-behavior) error = %v", err)
+	}
+	if _, ok := resp.(adminhttp.CreateModel200JSONResponse); !ok {
+		t.Fatalf("CreateModel(default-behavior) response = %#v, want 200", resp)
+	}
 
-	for _, body := range []adminhttp.ModelUpsert{wrongKind, unknownField, wrongModelKind, missingBehavior} {
+	for _, body := range []adminhttp.ModelUpsert{wrongKind, unknownField, wrongModelKind} {
 		resp, err := srv.CreateModel(ctx, adminhttp.CreateModelRequestObject{Body: &body})
 		if err != nil {
 			t.Fatalf("CreateModel(%s) error = %v", body.Id, err)
@@ -373,16 +380,16 @@ func TestModelProviderKindAndDataSchemasStayExhaustive(t *testing.T) {
 		Components struct {
 			Schemas struct {
 				ModelProviderData struct {
-					OneOf []struct {
+					AnyOf []struct {
 						Ref string `json:"$ref"`
-					} `json:"oneOf"`
+					} `json:"anyOf"`
 				} `json:"ModelProviderData"`
 			} `json:"schemas"`
 		} `json:"components"`
 	}
 	readModelSchema(t, "api/http/shared/model_provider_data.json", &dataSchema)
 	variants := map[string]bool{}
-	for _, item := range dataSchema.Components.Schemas.ModelProviderData.OneOf {
+	for _, item := range dataSchema.Components.Schemas.ModelProviderData.AnyOf {
 		variants[item.Ref[strings.LastIndex(item.Ref, "/")+1:]] = true
 	}
 	if len(variants) != len(expected) {

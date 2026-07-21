@@ -510,7 +510,6 @@ typedef struct _gizclaw_rpc_v1_Model {
     pb_callback_t alias;
     pb_callback_t i18n;
     gizclaw_rpc_v1_ModelKind kind;
-    gizclaw_rpc_v1_ModelProviderKind provider_kind;
     pb_size_t which_provider_data;
     union {
         gizclaw_rpc_v1_OpenAITenantModelProviderData openai_tenant;
@@ -520,6 +519,7 @@ typedef struct _gizclaw_rpc_v1_Model {
         gizclaw_rpc_v1_MiniMaxTenantModelProviderData minimax_tenant;
         gizclaw_rpc_v1_DeepSeekTenantModelProviderData deepseek_tenant;
     } provider_data;
+    gizclaw_rpc_v1_ModelProviderKind provider_kind;
 } gizclaw_rpc_v1_Model;
 
 typedef struct _gizclaw_rpc_v1_ModelGetRequest {
@@ -840,7 +840,7 @@ extern "C" {
 #define gizclaw_rpc_v1_PetVoiceParameters_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PetWorkflowSpec_init_default {0}
 #define gizclaw_rpc_v1_PetWorkspaceParameters_init_default {_gizclaw_rpc_v1_PetWorkspaceParametersAgentType_MIN, false, gizclaw_rpc_v1_PetConversationParameters_init_default, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, gizclaw_rpc_v1_PetPersonaParameters_init_default, false, gizclaw_rpc_v1_PetVoiceParameters_init_default}
-#define gizclaw_rpc_v1_Model_init_default        {{{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_ModelKind_MIN, _gizclaw_rpc_v1_ModelProviderKind_MIN, 0, {gizclaw_rpc_v1_OpenAITenantModelProviderData_init_default}}
+#define gizclaw_rpc_v1_Model_init_default        {{{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_ModelKind_MIN, 0, {gizclaw_rpc_v1_OpenAITenantModelProviderData_init_default}, _gizclaw_rpc_v1_ModelProviderKind_MIN}
 #define gizclaw_rpc_v1_Model_I18nEntry_init_default {{{NULL}, NULL}, false, gizclaw_rpc_v1_AliasI18nText_init_default}
 #define gizclaw_rpc_v1_OpenAITenantModelProviderData_init_default {{{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_GeminiTenantModelProviderData_init_default {{{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
@@ -918,7 +918,7 @@ extern "C" {
 #define gizclaw_rpc_v1_PetVoiceParameters_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PetWorkflowSpec_init_zero {0}
 #define gizclaw_rpc_v1_PetWorkspaceParameters_init_zero {_gizclaw_rpc_v1_PetWorkspaceParametersAgentType_MIN, false, gizclaw_rpc_v1_PetConversationParameters_init_zero, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, gizclaw_rpc_v1_PetPersonaParameters_init_zero, false, gizclaw_rpc_v1_PetVoiceParameters_init_zero}
-#define gizclaw_rpc_v1_Model_init_zero           {{{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_ModelKind_MIN, _gizclaw_rpc_v1_ModelProviderKind_MIN, 0, {gizclaw_rpc_v1_OpenAITenantModelProviderData_init_zero}}
+#define gizclaw_rpc_v1_Model_init_zero           {{{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_ModelKind_MIN, 0, {gizclaw_rpc_v1_OpenAITenantModelProviderData_init_zero}, _gizclaw_rpc_v1_ModelProviderKind_MIN}
 #define gizclaw_rpc_v1_Model_I18nEntry_init_zero {{{NULL}, NULL}, false, gizclaw_rpc_v1_AliasI18nText_init_zero}
 #define gizclaw_rpc_v1_OpenAITenantModelProviderData_init_zero {{{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_GeminiTenantModelProviderData_init_zero {{{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
@@ -1176,13 +1176,13 @@ extern "C" {
 #define gizclaw_rpc_v1_Model_alias_tag           1
 #define gizclaw_rpc_v1_Model_i18n_tag            2
 #define gizclaw_rpc_v1_Model_kind_tag            3
-#define gizclaw_rpc_v1_Model_provider_kind_tag   4
 #define gizclaw_rpc_v1_Model_openai_tenant_tag   5
 #define gizclaw_rpc_v1_Model_gemini_tenant_tag   6
 #define gizclaw_rpc_v1_Model_dashscope_tenant_tag 7
 #define gizclaw_rpc_v1_Model_volc_tenant_tag     8
 #define gizclaw_rpc_v1_Model_minimax_tenant_tag  9
 #define gizclaw_rpc_v1_Model_deepseek_tenant_tag 10
+#define gizclaw_rpc_v1_Model_provider_kind_tag   11
 #define gizclaw_rpc_v1_ModelGetRequest_alias_tag 1
 #define gizclaw_rpc_v1_ModelGetResponse_value_tag 1
 #define gizclaw_rpc_v1_ModelGetResponse_runtime_profile_name_tag 2
@@ -1619,13 +1619,13 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  voice,             5)
 X(a, CALLBACK, SINGULAR, STRING,   alias,             1) \
 X(a, CALLBACK, REPEATED, MESSAGE,  i18n,              2) \
 X(a, STATIC,   SINGULAR, UENUM,    kind,              3) \
-X(a, STATIC,   SINGULAR, UENUM,    provider_kind,     4) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (provider_data,openai_tenant,provider_data.openai_tenant),   5) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (provider_data,gemini_tenant,provider_data.gemini_tenant),   6) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (provider_data,dashscope_tenant,provider_data.dashscope_tenant),   7) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (provider_data,volc_tenant,provider_data.volc_tenant),   8) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (provider_data,minimax_tenant,provider_data.minimax_tenant),   9) \
-X(a, STATIC,   ONEOF,    MESSAGE,  (provider_data,deepseek_tenant,provider_data.deepseek_tenant),  10)
+X(a, STATIC,   ONEOF,    MESSAGE,  (provider_data,deepseek_tenant,provider_data.deepseek_tenant),  10) \
+X(a, STATIC,   SINGULAR, UENUM,    provider_kind,    11)
 #define gizclaw_rpc_v1_Model_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_Model_DEFAULT NULL
 #define gizclaw_rpc_v1_Model_i18n_MSGTYPE gizclaw_rpc_v1_Model_I18nEntry

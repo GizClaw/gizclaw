@@ -134,6 +134,21 @@ func TestModelProviderDataOneofRoundTripAndRejectsMultipleValues(t *testing.T) {
 	}
 }
 
+func TestModelRetiredCapabilitiesTagRemainsReserved(t *testing.T) {
+	descriptor := (&rpcpb.Model{}).ProtoReflect().Descriptor()
+	providerKind := descriptor.Fields().ByName("provider_kind")
+	if providerKind == nil || providerKind.Number() != 11 {
+		t.Fatalf("Model.provider_kind field = %v, want tag 11", providerKind)
+	}
+	for i := 0; i < descriptor.ReservedRanges().Len(); i++ {
+		reserved := descriptor.ReservedRanges().Get(i)
+		if reserved[0] <= 4 && 4 < reserved[1] {
+			return
+		}
+	}
+	t.Fatal("Model tag 4 is not reserved after removing capabilities")
+}
+
 func TestEncodeRPCResponseRejectsResultWithoutMethod(t *testing.T) {
 	var result RPCPayload
 	if err := result.FromPingResponse(PingResponse{ServerTime: 456}); err != nil {

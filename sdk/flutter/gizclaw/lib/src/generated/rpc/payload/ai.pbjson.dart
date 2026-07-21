@@ -1956,14 +1956,6 @@ const Model$json = {
       '10': 'kind'
     },
     {
-      '1': 'provider_kind',
-      '3': 4,
-      '4': 1,
-      '5': 14,
-      '6': '.gizclaw.rpc.v1.ModelProviderKind',
-      '10': 'providerKind'
-    },
-    {
       '1': 'openai_tenant',
       '3': 5,
       '4': 1,
@@ -2017,10 +2009,21 @@ const Model$json = {
       '9': 0,
       '10': 'deepseekTenant'
     },
+    {
+      '1': 'provider_kind',
+      '3': 11,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.ModelProviderKind',
+      '10': 'providerKind'
+    },
   ],
   '3': [Model_I18nEntry$json],
   '8': [
     {'1': 'provider_data'},
+  ],
+  '9': [
+    {'1': 4, '2': 5},
   ],
 };
 
@@ -2045,20 +2048,20 @@ const Model_I18nEntry$json = {
 final $typed_data.Uint8List modelDescriptor = $convert.base64Decode(
     'CgVNb2RlbBIUCgVhbGlhcxgBIAEoCVIFYWxpYXMSMwoEaTE4bhgCIAMoCzIfLmdpemNsYXcucn'
     'BjLnYxLk1vZGVsLkkxOG5FbnRyeVIEaTE4bhItCgRraW5kGAMgASgOMhkuZ2l6Y2xhdy5ycGMu'
-    'djEuTW9kZWxLaW5kUgRraW5kEkYKDXByb3ZpZGVyX2tpbmQYBCABKA4yIS5naXpjbGF3LnJwYy'
-    '52MS5Nb2RlbFByb3ZpZGVyS2luZFIMcHJvdmlkZXJLaW5kElQKDW9wZW5haV90ZW5hbnQYBSAB'
-    'KAsyLS5naXpjbGF3LnJwYy52MS5PcGVuQUlUZW5hbnRNb2RlbFByb3ZpZGVyRGF0YUgAUgxvcG'
-    'VuYWlUZW5hbnQSVAoNZ2VtaW5pX3RlbmFudBgGIAEoCzItLmdpemNsYXcucnBjLnYxLkdlbWlu'
-    'aVRlbmFudE1vZGVsUHJvdmlkZXJEYXRhSABSDGdlbWluaVRlbmFudBJdChBkYXNoc2NvcGVfdG'
-    'VuYW50GAcgASgLMjAuZ2l6Y2xhdy5ycGMudjEuRGFzaFNjb3BlVGVuYW50TW9kZWxQcm92aWRl'
-    'ckRhdGFIAFIPZGFzaHNjb3BlVGVuYW50Ek4KC3ZvbGNfdGVuYW50GAggASgLMisuZ2l6Y2xhdy'
-    '5ycGMudjEuVm9sY1RlbmFudE1vZGVsUHJvdmlkZXJEYXRhSABSCnZvbGNUZW5hbnQSVwoObWlu'
-    'aW1heF90ZW5hbnQYCSABKAsyLi5naXpjbGF3LnJwYy52MS5NaW5pTWF4VGVuYW50TW9kZWxQcm'
-    '92aWRlckRhdGFIAFINbWluaW1heFRlbmFudBJaCg9kZWVwc2Vla190ZW5hbnQYCiABKAsyLy5n'
-    'aXpjbGF3LnJwYy52MS5EZWVwU2Vla1RlbmFudE1vZGVsUHJvdmlkZXJEYXRhSABSDmRlZXBzZW'
-    'VrVGVuYW50GlYKCUkxOG5FbnRyeRIQCgNrZXkYASABKAlSA2tleRIzCgV2YWx1ZRgCIAEoCzId'
+    'djEuTW9kZWxLaW5kUgRraW5kElQKDW9wZW5haV90ZW5hbnQYBSABKAsyLS5naXpjbGF3LnJwYy'
+    '52MS5PcGVuQUlUZW5hbnRNb2RlbFByb3ZpZGVyRGF0YUgAUgxvcGVuYWlUZW5hbnQSVAoNZ2Vt'
+    'aW5pX3RlbmFudBgGIAEoCzItLmdpemNsYXcucnBjLnYxLkdlbWluaVRlbmFudE1vZGVsUHJvdm'
+    'lkZXJEYXRhSABSDGdlbWluaVRlbmFudBJdChBkYXNoc2NvcGVfdGVuYW50GAcgASgLMjAuZ2l6'
+    'Y2xhdy5ycGMudjEuRGFzaFNjb3BlVGVuYW50TW9kZWxQcm92aWRlckRhdGFIAFIPZGFzaHNjb3'
+    'BlVGVuYW50Ek4KC3ZvbGNfdGVuYW50GAggASgLMisuZ2l6Y2xhdy5ycGMudjEuVm9sY1RlbmFu'
+    'dE1vZGVsUHJvdmlkZXJEYXRhSABSCnZvbGNUZW5hbnQSVwoObWluaW1heF90ZW5hbnQYCSABKA'
+    'syLi5naXpjbGF3LnJwYy52MS5NaW5pTWF4VGVuYW50TW9kZWxQcm92aWRlckRhdGFIAFINbWlu'
+    'aW1heFRlbmFudBJaCg9kZWVwc2Vla190ZW5hbnQYCiABKAsyLy5naXpjbGF3LnJwYy52MS5EZW'
+    'VwU2Vla1RlbmFudE1vZGVsUHJvdmlkZXJEYXRhSABSDmRlZXBzZWVrVGVuYW50EkYKDXByb3Zp'
+    'ZGVyX2tpbmQYCyABKA4yIS5naXpjbGF3LnJwYy52MS5Nb2RlbFByb3ZpZGVyS2luZFIMcHJvdm'
+    'lkZXJLaW5kGlYKCUkxOG5FbnRyeRIQCgNrZXkYASABKAlSA2tleRIzCgV2YWx1ZRgCIAEoCzId'
     'LmdpemNsYXcucnBjLnYxLkFsaWFzSTE4blRleHRSBXZhbHVlOgI4AUIPCg1wcm92aWRlcl9kYX'
-    'Rh');
+    'RhSgQIBBAF');
 
 @$core.Deprecated('Use openAITenantModelProviderDataDescriptor instead')
 const OpenAITenantModelProviderData$json = {
@@ -2330,90 +2333,100 @@ const DashScopeTenantModelProviderData$json = {
       '17': true
     },
     {
-      '1': 'support_json_output',
+      '1': 'api_mode',
       '3': 2,
       '4': 1,
-      '5': 8,
+      '5': 9,
       '9': 1,
+      '10': 'apiMode',
+      '17': true
+    },
+    {
+      '1': 'support_json_output',
+      '3': 3,
+      '4': 1,
+      '5': 8,
+      '9': 2,
       '10': 'supportJsonOutput',
       '17': true
     },
     {
       '1': 'support_tool_calls',
-      '3': 3,
+      '3': 4,
       '4': 1,
       '5': 8,
-      '9': 2,
+      '9': 3,
       '10': 'supportToolCalls',
       '17': true
     },
     {
       '1': 'support_text_only',
-      '3': 4,
+      '3': 5,
       '4': 1,
       '5': 8,
-      '9': 3,
+      '9': 4,
       '10': 'supportTextOnly',
       '17': true
     },
     {
       '1': 'support_temperature',
-      '3': 5,
+      '3': 6,
       '4': 1,
       '5': 8,
-      '9': 4,
+      '9': 5,
       '10': 'supportTemperature',
       '17': true
     },
     {
       '1': 'support_thinking',
-      '3': 6,
+      '3': 7,
       '4': 1,
       '5': 8,
-      '9': 5,
+      '9': 6,
       '10': 'supportThinking',
       '17': true
     },
     {
       '1': 'use_system_role',
-      '3': 7,
+      '3': 8,
       '4': 1,
       '5': 8,
-      '9': 6,
+      '9': 7,
       '10': 'useSystemRole',
       '17': true
     },
     {
       '1': 'thinking_param',
-      '3': 8,
+      '3': 9,
       '4': 1,
       '5': 9,
-      '9': 7,
+      '9': 8,
       '10': 'thinkingParam',
       '17': true
     },
     {
       '1': 'thinking_level_param',
-      '3': 9,
-      '4': 1,
-      '5': 9,
-      '9': 8,
-      '10': 'thinkingLevelParam',
-      '17': true
-    },
-    {'1': 'thinking_levels', '3': 10, '4': 3, '5': 9, '10': 'thinkingLevels'},
-    {
-      '1': 'default_thinking_level',
-      '3': 11,
+      '3': 10,
       '4': 1,
       '5': 9,
       '9': 9,
+      '10': 'thinkingLevelParam',
+      '17': true
+    },
+    {'1': 'thinking_levels', '3': 11, '4': 3, '5': 9, '10': 'thinkingLevels'},
+    {
+      '1': 'default_thinking_level',
+      '3': 12,
+      '4': 1,
+      '5': 9,
+      '9': 10,
       '10': 'defaultThinkingLevel',
       '17': true
     },
   ],
   '8': [
     {'1': '_upstream_model'},
+    {'1': '_api_mode'},
     {'1': '_support_json_output'},
     {'1': '_support_tool_calls'},
     {'1': '_support_text_only'},
@@ -2429,20 +2442,21 @@ const DashScopeTenantModelProviderData$json = {
 /// Descriptor for `DashScopeTenantModelProviderData`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List dashScopeTenantModelProviderDataDescriptor = $convert.base64Decode(
     'CiBEYXNoU2NvcGVUZW5hbnRNb2RlbFByb3ZpZGVyRGF0YRIqCg51cHN0cmVhbV9tb2RlbBgBIA'
-    'EoCUgAUg11cHN0cmVhbU1vZGVsiAEBEjMKE3N1cHBvcnRfanNvbl9vdXRwdXQYAiABKAhIAVIR'
-    'c3VwcG9ydEpzb25PdXRwdXSIAQESMQoSc3VwcG9ydF90b29sX2NhbGxzGAMgASgISAJSEHN1cH'
-    'BvcnRUb29sQ2FsbHOIAQESLwoRc3VwcG9ydF90ZXh0X29ubHkYBCABKAhIA1IPc3VwcG9ydFRl'
-    'eHRPbmx5iAEBEjQKE3N1cHBvcnRfdGVtcGVyYXR1cmUYBSABKAhIBFISc3VwcG9ydFRlbXBlcm'
-    'F0dXJliAEBEi4KEHN1cHBvcnRfdGhpbmtpbmcYBiABKAhIBVIPc3VwcG9ydFRoaW5raW5niAEB'
-    'EisKD3VzZV9zeXN0ZW1fcm9sZRgHIAEoCEgGUg11c2VTeXN0ZW1Sb2xliAEBEioKDnRoaW5raW'
-    '5nX3BhcmFtGAggASgJSAdSDXRoaW5raW5nUGFyYW2IAQESNQoUdGhpbmtpbmdfbGV2ZWxfcGFy'
-    'YW0YCSABKAlICFISdGhpbmtpbmdMZXZlbFBhcmFtiAEBEicKD3RoaW5raW5nX2xldmVscxgKIA'
-    'MoCVIOdGhpbmtpbmdMZXZlbHMSOQoWZGVmYXVsdF90aGlua2luZ19sZXZlbBgLIAEoCUgJUhRk'
-    'ZWZhdWx0VGhpbmtpbmdMZXZlbIgBAUIRCg9fdXBzdHJlYW1fbW9kZWxCFgoUX3N1cHBvcnRfan'
-    'Nvbl9vdXRwdXRCFQoTX3N1cHBvcnRfdG9vbF9jYWxsc0IUChJfc3VwcG9ydF90ZXh0X29ubHlC'
-    'FgoUX3N1cHBvcnRfdGVtcGVyYXR1cmVCEwoRX3N1cHBvcnRfdGhpbmtpbmdCEgoQX3VzZV9zeX'
-    'N0ZW1fcm9sZUIRCg9fdGhpbmtpbmdfcGFyYW1CFwoVX3RoaW5raW5nX2xldmVsX3BhcmFtQhkK'
-    'F19kZWZhdWx0X3RoaW5raW5nX2xldmVs');
+    'EoCUgAUg11cHN0cmVhbU1vZGVsiAEBEh4KCGFwaV9tb2RlGAIgASgJSAFSB2FwaU1vZGWIAQES'
+    'MwoTc3VwcG9ydF9qc29uX291dHB1dBgDIAEoCEgCUhFzdXBwb3J0SnNvbk91dHB1dIgBARIxCh'
+    'JzdXBwb3J0X3Rvb2xfY2FsbHMYBCABKAhIA1IQc3VwcG9ydFRvb2xDYWxsc4gBARIvChFzdXBw'
+    'b3J0X3RleHRfb25seRgFIAEoCEgEUg9zdXBwb3J0VGV4dE9ubHmIAQESNAoTc3VwcG9ydF90ZW'
+    '1wZXJhdHVyZRgGIAEoCEgFUhJzdXBwb3J0VGVtcGVyYXR1cmWIAQESLgoQc3VwcG9ydF90aGlu'
+    'a2luZxgHIAEoCEgGUg9zdXBwb3J0VGhpbmtpbmeIAQESKwoPdXNlX3N5c3RlbV9yb2xlGAggAS'
+    'gISAdSDXVzZVN5c3RlbVJvbGWIAQESKgoOdGhpbmtpbmdfcGFyYW0YCSABKAlICFINdGhpbmtp'
+    'bmdQYXJhbYgBARI1ChR0aGlua2luZ19sZXZlbF9wYXJhbRgKIAEoCUgJUhJ0aGlua2luZ0xldm'
+    'VsUGFyYW2IAQESJwoPdGhpbmtpbmdfbGV2ZWxzGAsgAygJUg50aGlua2luZ0xldmVscxI5ChZk'
+    'ZWZhdWx0X3RoaW5raW5nX2xldmVsGAwgASgJSApSFGRlZmF1bHRUaGlua2luZ0xldmVsiAEBQh'
+    'EKD191cHN0cmVhbV9tb2RlbEILCglfYXBpX21vZGVCFgoUX3N1cHBvcnRfanNvbl9vdXRwdXRC'
+    'FQoTX3N1cHBvcnRfdG9vbF9jYWxsc0IUChJfc3VwcG9ydF90ZXh0X29ubHlCFgoUX3N1cHBvcn'
+    'RfdGVtcGVyYXR1cmVCEwoRX3N1cHBvcnRfdGhpbmtpbmdCEgoQX3VzZV9zeXN0ZW1fcm9sZUIR'
+    'Cg9fdGhpbmtpbmdfcGFyYW1CFwoVX3RoaW5raW5nX2xldmVsX3BhcmFtQhkKF19kZWZhdWx0X3'
+    'RoaW5raW5nX2xldmVs');
 
 @$core.Deprecated('Use volcTenantModelProviderDataDescriptor instead')
 const VolcTenantModelProviderData$json = {

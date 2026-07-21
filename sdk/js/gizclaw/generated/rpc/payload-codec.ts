@@ -650,13 +650,13 @@ export type Model = {
   "alias": string;
   "i18n": Record<string, AliasI18nText>;
   "kind": ModelKind;
-  "provider_kind": ModelProviderKind;
   "openai_tenant"?: OpenAITenantModelProviderData;
   "gemini_tenant"?: GeminiTenantModelProviderData;
   "dashscope_tenant"?: DashScopeTenantModelProviderData;
   "volc_tenant"?: VolcTenantModelProviderData;
   "minimax_tenant"?: MiniMaxTenantModelProviderData;
   "deepseek_tenant"?: DeepSeekTenantModelProviderData;
+  "provider_kind": ModelProviderKind;
 };
 export type ModelGetRequest = {
   "alias": string;
@@ -4190,11 +4190,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "ModelKind"
       },
       {
-        "name": "provider_kind",
-        "number": 4,
-        "type": "ModelProviderKind"
-      },
-      {
         "name": "openai_tenant",
         "number": 5,
         "oneof": true,
@@ -4235,6 +4230,11 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "oneof": true,
         "oneofGroup": "provider_data",
         "type": "DeepSeekTenantModelProviderData"
+      },
+      {
+        "name": "provider_kind",
+        "number": 11,
+        "type": "ModelProviderKind"
       }
     ]
   },

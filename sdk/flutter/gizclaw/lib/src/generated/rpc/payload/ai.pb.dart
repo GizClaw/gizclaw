@@ -3735,25 +3735,25 @@ class Model extends $pb.GeneratedMessage {
     $core.String? alias,
     $core.Iterable<$core.MapEntry<$core.String, AliasI18nText>>? i18n,
     $1.ModelKind? kind,
-    ModelProviderKind? providerKind,
     OpenAITenantModelProviderData? openaiTenant,
     GeminiTenantModelProviderData? geminiTenant,
     DashScopeTenantModelProviderData? dashscopeTenant,
     VolcTenantModelProviderData? volcTenant,
     MiniMaxTenantModelProviderData? minimaxTenant,
     DeepSeekTenantModelProviderData? deepseekTenant,
+    ModelProviderKind? providerKind,
   }) {
     final result = create();
     if (alias != null) result.alias = alias;
     if (i18n != null) result.i18n.addEntries(i18n);
     if (kind != null) result.kind = kind;
-    if (providerKind != null) result.providerKind = providerKind;
     if (openaiTenant != null) result.openaiTenant = openaiTenant;
     if (geminiTenant != null) result.geminiTenant = geminiTenant;
     if (dashscopeTenant != null) result.dashscopeTenant = dashscopeTenant;
     if (volcTenant != null) result.volcTenant = volcTenant;
     if (minimaxTenant != null) result.minimaxTenant = minimaxTenant;
     if (deepseekTenant != null) result.deepseekTenant = deepseekTenant;
+    if (providerKind != null) result.providerKind = providerKind;
     return result;
   }
 
@@ -3791,8 +3791,6 @@ class Model extends $pb.GeneratedMessage {
         packageName: const $pb.PackageName('gizclaw.rpc.v1'))
     ..aE<$1.ModelKind>(3, _omitFieldNames ? '' : 'kind',
         enumValues: $1.ModelKind.values)
-    ..aE<ModelProviderKind>(4, _omitFieldNames ? '' : 'providerKind',
-        enumValues: ModelProviderKind.values)
     ..aOM<OpenAITenantModelProviderData>(
         5, _omitFieldNames ? '' : 'openaiTenant',
         subBuilder: OpenAITenantModelProviderData.create)
@@ -3810,6 +3808,8 @@ class Model extends $pb.GeneratedMessage {
     ..aOM<DeepSeekTenantModelProviderData>(
         10, _omitFieldNames ? '' : 'deepseekTenant',
         subBuilder: DeepSeekTenantModelProviderData.create)
+    ..aE<ModelProviderKind>(11, _omitFieldNames ? '' : 'providerKind',
+        enumValues: ModelProviderKind.values)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3867,83 +3867,83 @@ class Model extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearKind() => $_clearField(3);
 
-  @$pb.TagNumber(4)
-  ModelProviderKind get providerKind => $_getN(3);
-  @$pb.TagNumber(4)
-  set providerKind(ModelProviderKind value) => $_setField(4, value);
-  @$pb.TagNumber(4)
-  $core.bool hasProviderKind() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearProviderKind() => $_clearField(4);
-
   @$pb.TagNumber(5)
-  OpenAITenantModelProviderData get openaiTenant => $_getN(4);
+  OpenAITenantModelProviderData get openaiTenant => $_getN(3);
   @$pb.TagNumber(5)
   set openaiTenant(OpenAITenantModelProviderData value) => $_setField(5, value);
   @$pb.TagNumber(5)
-  $core.bool hasOpenaiTenant() => $_has(4);
+  $core.bool hasOpenaiTenant() => $_has(3);
   @$pb.TagNumber(5)
   void clearOpenaiTenant() => $_clearField(5);
   @$pb.TagNumber(5)
-  OpenAITenantModelProviderData ensureOpenaiTenant() => $_ensure(4);
+  OpenAITenantModelProviderData ensureOpenaiTenant() => $_ensure(3);
 
   @$pb.TagNumber(6)
-  GeminiTenantModelProviderData get geminiTenant => $_getN(5);
+  GeminiTenantModelProviderData get geminiTenant => $_getN(4);
   @$pb.TagNumber(6)
   set geminiTenant(GeminiTenantModelProviderData value) => $_setField(6, value);
   @$pb.TagNumber(6)
-  $core.bool hasGeminiTenant() => $_has(5);
+  $core.bool hasGeminiTenant() => $_has(4);
   @$pb.TagNumber(6)
   void clearGeminiTenant() => $_clearField(6);
   @$pb.TagNumber(6)
-  GeminiTenantModelProviderData ensureGeminiTenant() => $_ensure(5);
+  GeminiTenantModelProviderData ensureGeminiTenant() => $_ensure(4);
 
   @$pb.TagNumber(7)
-  DashScopeTenantModelProviderData get dashscopeTenant => $_getN(6);
+  DashScopeTenantModelProviderData get dashscopeTenant => $_getN(5);
   @$pb.TagNumber(7)
   set dashscopeTenant(DashScopeTenantModelProviderData value) =>
       $_setField(7, value);
   @$pb.TagNumber(7)
-  $core.bool hasDashscopeTenant() => $_has(6);
+  $core.bool hasDashscopeTenant() => $_has(5);
   @$pb.TagNumber(7)
   void clearDashscopeTenant() => $_clearField(7);
   @$pb.TagNumber(7)
-  DashScopeTenantModelProviderData ensureDashscopeTenant() => $_ensure(6);
+  DashScopeTenantModelProviderData ensureDashscopeTenant() => $_ensure(5);
 
   @$pb.TagNumber(8)
-  VolcTenantModelProviderData get volcTenant => $_getN(7);
+  VolcTenantModelProviderData get volcTenant => $_getN(6);
   @$pb.TagNumber(8)
   set volcTenant(VolcTenantModelProviderData value) => $_setField(8, value);
   @$pb.TagNumber(8)
-  $core.bool hasVolcTenant() => $_has(7);
+  $core.bool hasVolcTenant() => $_has(6);
   @$pb.TagNumber(8)
   void clearVolcTenant() => $_clearField(8);
   @$pb.TagNumber(8)
-  VolcTenantModelProviderData ensureVolcTenant() => $_ensure(7);
+  VolcTenantModelProviderData ensureVolcTenant() => $_ensure(6);
 
   @$pb.TagNumber(9)
-  MiniMaxTenantModelProviderData get minimaxTenant => $_getN(8);
+  MiniMaxTenantModelProviderData get minimaxTenant => $_getN(7);
   @$pb.TagNumber(9)
   set minimaxTenant(MiniMaxTenantModelProviderData value) =>
       $_setField(9, value);
   @$pb.TagNumber(9)
-  $core.bool hasMinimaxTenant() => $_has(8);
+  $core.bool hasMinimaxTenant() => $_has(7);
   @$pb.TagNumber(9)
   void clearMinimaxTenant() => $_clearField(9);
   @$pb.TagNumber(9)
-  MiniMaxTenantModelProviderData ensureMinimaxTenant() => $_ensure(8);
+  MiniMaxTenantModelProviderData ensureMinimaxTenant() => $_ensure(7);
 
   @$pb.TagNumber(10)
-  DeepSeekTenantModelProviderData get deepseekTenant => $_getN(9);
+  DeepSeekTenantModelProviderData get deepseekTenant => $_getN(8);
   @$pb.TagNumber(10)
   set deepseekTenant(DeepSeekTenantModelProviderData value) =>
       $_setField(10, value);
   @$pb.TagNumber(10)
-  $core.bool hasDeepseekTenant() => $_has(9);
+  $core.bool hasDeepseekTenant() => $_has(8);
   @$pb.TagNumber(10)
   void clearDeepseekTenant() => $_clearField(10);
   @$pb.TagNumber(10)
-  DeepSeekTenantModelProviderData ensureDeepseekTenant() => $_ensure(9);
+  DeepSeekTenantModelProviderData ensureDeepseekTenant() => $_ensure(8);
+
+  @$pb.TagNumber(11)
+  ModelProviderKind get providerKind => $_getN(9);
+  @$pb.TagNumber(11)
+  set providerKind(ModelProviderKind value) => $_setField(11, value);
+  @$pb.TagNumber(11)
+  $core.bool hasProviderKind() => $_has(9);
+  @$pb.TagNumber(11)
+  void clearProviderKind() => $_clearField(11);
 }
 
 class OpenAITenantModelProviderData extends $pb.GeneratedMessage {
@@ -4297,6 +4297,7 @@ class GeminiTenantModelProviderData extends $pb.GeneratedMessage {
 class DashScopeTenantModelProviderData extends $pb.GeneratedMessage {
   factory DashScopeTenantModelProviderData({
     $core.String? upstreamModel,
+    $core.String? apiMode,
     $core.bool? supportJsonOutput,
     $core.bool? supportToolCalls,
     $core.bool? supportTextOnly,
@@ -4310,6 +4311,7 @@ class DashScopeTenantModelProviderData extends $pb.GeneratedMessage {
   }) {
     final result = create();
     if (upstreamModel != null) result.upstreamModel = upstreamModel;
+    if (apiMode != null) result.apiMode = apiMode;
     if (supportJsonOutput != null) result.supportJsonOutput = supportJsonOutput;
     if (supportToolCalls != null) result.supportToolCalls = supportToolCalls;
     if (supportTextOnly != null) result.supportTextOnly = supportTextOnly;
@@ -4341,16 +4343,17 @@ class DashScopeTenantModelProviderData extends $pb.GeneratedMessage {
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'upstreamModel')
-    ..aOB(2, _omitFieldNames ? '' : 'supportJsonOutput')
-    ..aOB(3, _omitFieldNames ? '' : 'supportToolCalls')
-    ..aOB(4, _omitFieldNames ? '' : 'supportTextOnly')
-    ..aOB(5, _omitFieldNames ? '' : 'supportTemperature')
-    ..aOB(6, _omitFieldNames ? '' : 'supportThinking')
-    ..aOB(7, _omitFieldNames ? '' : 'useSystemRole')
-    ..aOS(8, _omitFieldNames ? '' : 'thinkingParam')
-    ..aOS(9, _omitFieldNames ? '' : 'thinkingLevelParam')
-    ..pPS(10, _omitFieldNames ? '' : 'thinkingLevels')
-    ..aOS(11, _omitFieldNames ? '' : 'defaultThinkingLevel')
+    ..aOS(2, _omitFieldNames ? '' : 'apiMode')
+    ..aOB(3, _omitFieldNames ? '' : 'supportJsonOutput')
+    ..aOB(4, _omitFieldNames ? '' : 'supportToolCalls')
+    ..aOB(5, _omitFieldNames ? '' : 'supportTextOnly')
+    ..aOB(6, _omitFieldNames ? '' : 'supportTemperature')
+    ..aOB(7, _omitFieldNames ? '' : 'supportThinking')
+    ..aOB(8, _omitFieldNames ? '' : 'useSystemRole')
+    ..aOS(9, _omitFieldNames ? '' : 'thinkingParam')
+    ..aOS(10, _omitFieldNames ? '' : 'thinkingLevelParam')
+    ..pPS(11, _omitFieldNames ? '' : 'thinkingLevels')
+    ..aOS(12, _omitFieldNames ? '' : 'defaultThinkingLevel')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -4386,88 +4389,97 @@ class DashScopeTenantModelProviderData extends $pb.GeneratedMessage {
   void clearUpstreamModel() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $core.bool get supportJsonOutput => $_getBF(1);
+  $core.String get apiMode => $_getSZ(1);
   @$pb.TagNumber(2)
-  set supportJsonOutput($core.bool value) => $_setBool(1, value);
+  set apiMode($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
-  $core.bool hasSupportJsonOutput() => $_has(1);
+  $core.bool hasApiMode() => $_has(1);
   @$pb.TagNumber(2)
-  void clearSupportJsonOutput() => $_clearField(2);
+  void clearApiMode() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  $core.bool get supportToolCalls => $_getBF(2);
+  $core.bool get supportJsonOutput => $_getBF(2);
   @$pb.TagNumber(3)
-  set supportToolCalls($core.bool value) => $_setBool(2, value);
+  set supportJsonOutput($core.bool value) => $_setBool(2, value);
   @$pb.TagNumber(3)
-  $core.bool hasSupportToolCalls() => $_has(2);
+  $core.bool hasSupportJsonOutput() => $_has(2);
   @$pb.TagNumber(3)
-  void clearSupportToolCalls() => $_clearField(3);
+  void clearSupportJsonOutput() => $_clearField(3);
 
   @$pb.TagNumber(4)
-  $core.bool get supportTextOnly => $_getBF(3);
+  $core.bool get supportToolCalls => $_getBF(3);
   @$pb.TagNumber(4)
-  set supportTextOnly($core.bool value) => $_setBool(3, value);
+  set supportToolCalls($core.bool value) => $_setBool(3, value);
   @$pb.TagNumber(4)
-  $core.bool hasSupportTextOnly() => $_has(3);
+  $core.bool hasSupportToolCalls() => $_has(3);
   @$pb.TagNumber(4)
-  void clearSupportTextOnly() => $_clearField(4);
+  void clearSupportToolCalls() => $_clearField(4);
 
   @$pb.TagNumber(5)
-  $core.bool get supportTemperature => $_getBF(4);
+  $core.bool get supportTextOnly => $_getBF(4);
   @$pb.TagNumber(5)
-  set supportTemperature($core.bool value) => $_setBool(4, value);
+  set supportTextOnly($core.bool value) => $_setBool(4, value);
   @$pb.TagNumber(5)
-  $core.bool hasSupportTemperature() => $_has(4);
+  $core.bool hasSupportTextOnly() => $_has(4);
   @$pb.TagNumber(5)
-  void clearSupportTemperature() => $_clearField(5);
+  void clearSupportTextOnly() => $_clearField(5);
 
   @$pb.TagNumber(6)
-  $core.bool get supportThinking => $_getBF(5);
+  $core.bool get supportTemperature => $_getBF(5);
   @$pb.TagNumber(6)
-  set supportThinking($core.bool value) => $_setBool(5, value);
+  set supportTemperature($core.bool value) => $_setBool(5, value);
   @$pb.TagNumber(6)
-  $core.bool hasSupportThinking() => $_has(5);
+  $core.bool hasSupportTemperature() => $_has(5);
   @$pb.TagNumber(6)
-  void clearSupportThinking() => $_clearField(6);
+  void clearSupportTemperature() => $_clearField(6);
 
   @$pb.TagNumber(7)
-  $core.bool get useSystemRole => $_getBF(6);
+  $core.bool get supportThinking => $_getBF(6);
   @$pb.TagNumber(7)
-  set useSystemRole($core.bool value) => $_setBool(6, value);
+  set supportThinking($core.bool value) => $_setBool(6, value);
   @$pb.TagNumber(7)
-  $core.bool hasUseSystemRole() => $_has(6);
+  $core.bool hasSupportThinking() => $_has(6);
   @$pb.TagNumber(7)
-  void clearUseSystemRole() => $_clearField(7);
+  void clearSupportThinking() => $_clearField(7);
 
   @$pb.TagNumber(8)
-  $core.String get thinkingParam => $_getSZ(7);
+  $core.bool get useSystemRole => $_getBF(7);
   @$pb.TagNumber(8)
-  set thinkingParam($core.String value) => $_setString(7, value);
+  set useSystemRole($core.bool value) => $_setBool(7, value);
   @$pb.TagNumber(8)
-  $core.bool hasThinkingParam() => $_has(7);
+  $core.bool hasUseSystemRole() => $_has(7);
   @$pb.TagNumber(8)
-  void clearThinkingParam() => $_clearField(8);
+  void clearUseSystemRole() => $_clearField(8);
 
   @$pb.TagNumber(9)
-  $core.String get thinkingLevelParam => $_getSZ(8);
+  $core.String get thinkingParam => $_getSZ(8);
   @$pb.TagNumber(9)
-  set thinkingLevelParam($core.String value) => $_setString(8, value);
+  set thinkingParam($core.String value) => $_setString(8, value);
   @$pb.TagNumber(9)
-  $core.bool hasThinkingLevelParam() => $_has(8);
+  $core.bool hasThinkingParam() => $_has(8);
   @$pb.TagNumber(9)
-  void clearThinkingLevelParam() => $_clearField(9);
+  void clearThinkingParam() => $_clearField(9);
 
   @$pb.TagNumber(10)
-  $pb.PbList<$core.String> get thinkingLevels => $_getList(9);
+  $core.String get thinkingLevelParam => $_getSZ(9);
+  @$pb.TagNumber(10)
+  set thinkingLevelParam($core.String value) => $_setString(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasThinkingLevelParam() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearThinkingLevelParam() => $_clearField(10);
 
   @$pb.TagNumber(11)
-  $core.String get defaultThinkingLevel => $_getSZ(10);
-  @$pb.TagNumber(11)
-  set defaultThinkingLevel($core.String value) => $_setString(10, value);
-  @$pb.TagNumber(11)
-  $core.bool hasDefaultThinkingLevel() => $_has(10);
-  @$pb.TagNumber(11)
-  void clearDefaultThinkingLevel() => $_clearField(11);
+  $pb.PbList<$core.String> get thinkingLevels => $_getList(10);
+
+  @$pb.TagNumber(12)
+  $core.String get defaultThinkingLevel => $_getSZ(11);
+  @$pb.TagNumber(12)
+  set defaultThinkingLevel($core.String value) => $_setString(11, value);
+  @$pb.TagNumber(12)
+  $core.bool hasDefaultThinkingLevel() => $_has(11);
+  @$pb.TagNumber(12)
+  void clearDefaultThinkingLevel() => $_clearField(12);
 }
 
 class VolcTenantModelProviderData extends $pb.GeneratedMessage {

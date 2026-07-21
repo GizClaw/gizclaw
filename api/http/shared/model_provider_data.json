@@ -9,8 +9,8 @@
   "components": {
     "schemas": {
       "ModelProviderData": {
-        "description": "Provider-specific model runtime configuration selected by Model.provider.kind.",
-        "oneOf": [
+        "description": "Provider-specific model runtime configuration selected by Model.provider.kind. Optional behavior flags default to false.",
+        "anyOf": [
           { "$ref": "#/components/schemas/GeminiTenantModelProviderData" },
           { "$ref": "#/components/schemas/DashScopeTenantModelProviderData" },
           { "$ref": "#/components/schemas/DeepSeekTenantModelProviderData" },

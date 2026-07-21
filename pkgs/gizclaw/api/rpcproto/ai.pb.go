@@ -2766,11 +2766,10 @@ func (x *PetWorkspaceParameters) GetVoice() *PetVoiceParameters {
 }
 
 type Model struct {
-	state        protoimpl.MessageState    `protogen:"open.v1"`
-	Alias        string                    `protobuf:"bytes,1,opt,name=alias,proto3" json:"alias,omitempty"`
-	I18N         map[string]*AliasI18NText `protobuf:"bytes,2,rep,name=i18n,proto3" json:"i18n,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	Kind         ModelKind                 `protobuf:"varint,3,opt,name=kind,proto3,enum=gizclaw.rpc.v1.ModelKind" json:"kind,omitempty"`
-	ProviderKind ModelProviderKind         `protobuf:"varint,4,opt,name=provider_kind,json=providerKind,proto3,enum=gizclaw.rpc.v1.ModelProviderKind" json:"provider_kind,omitempty"`
+	state protoimpl.MessageState    `protogen:"open.v1"`
+	Alias string                    `protobuf:"bytes,1,opt,name=alias,proto3" json:"alias,omitempty"`
+	I18N  map[string]*AliasI18NText `protobuf:"bytes,2,rep,name=i18n,proto3" json:"i18n,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Kind  ModelKind                 `protobuf:"varint,3,opt,name=kind,proto3,enum=gizclaw.rpc.v1.ModelKind" json:"kind,omitempty"`
 	// Types that are valid to be assigned to ProviderData:
 	//
 	//	*Model_OpenaiTenant
@@ -2780,6 +2779,7 @@ type Model struct {
 	//	*Model_MinimaxTenant
 	//	*Model_DeepseekTenant
 	ProviderData  isModel_ProviderData `protobuf_oneof:"provider_data"`
+	ProviderKind  ModelProviderKind    `protobuf:"varint,11,opt,name=provider_kind,json=providerKind,proto3,enum=gizclaw.rpc.v1.ModelProviderKind" json:"provider_kind,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2833,13 +2833,6 @@ func (x *Model) GetKind() ModelKind {
 		return x.Kind
 	}
 	return ModelKind_MODEL_KIND_UNSPECIFIED
-}
-
-func (x *Model) GetProviderKind() ModelProviderKind {
-	if x != nil {
-		return x.ProviderKind
-	}
-	return ModelProviderKind_MODEL_PROVIDER_KIND_UNSPECIFIED
 }
 
 func (x *Model) GetProviderData() isModel_ProviderData {
@@ -2901,6 +2894,13 @@ func (x *Model) GetDeepseekTenant() *DeepSeekTenantModelProviderData {
 		}
 	}
 	return nil
+}
+
+func (x *Model) GetProviderKind() ModelProviderKind {
+	if x != nil {
+		return x.ProviderKind
+	}
+	return ModelProviderKind_MODEL_PROVIDER_KIND_UNSPECIFIED
 }
 
 type isModel_ProviderData interface {
@@ -5402,12 +5402,11 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\r_conversationB\b\n" +
 	"\x06_inputB\n" +
 	"\n" +
-	"\b_persona\"\xc2\x06\n" +
+	"\b_persona\"\xc8\x06\n" +
 	"\x05Model\x12\x14\n" +
 	"\x05alias\x18\x01 \x01(\tR\x05alias\x123\n" +
 	"\x04i18n\x18\x02 \x03(\v2\x1f.gizclaw.rpc.v1.Model.I18nEntryR\x04i18n\x12-\n" +
-	"\x04kind\x18\x03 \x01(\x0e2\x19.gizclaw.rpc.v1.ModelKindR\x04kind\x12F\n" +
-	"\rprovider_kind\x18\x04 \x01(\x0e2!.gizclaw.rpc.v1.ModelProviderKindR\fproviderKind\x12T\n" +
+	"\x04kind\x18\x03 \x01(\x0e2\x19.gizclaw.rpc.v1.ModelKindR\x04kind\x12T\n" +
 	"\ropenai_tenant\x18\x05 \x01(\v2-.gizclaw.rpc.v1.OpenAITenantModelProviderDataH\x00R\fopenaiTenant\x12T\n" +
 	"\rgemini_tenant\x18\x06 \x01(\v2-.gizclaw.rpc.v1.GeminiTenantModelProviderDataH\x00R\fgeminiTenant\x12]\n" +
 	"\x10dashscope_tenant\x18\a \x01(\v20.gizclaw.rpc.v1.DashScopeTenantModelProviderDataH\x00R\x0fdashscopeTenant\x12N\n" +
@@ -5415,11 +5414,12 @@ const file_payload_ai_proto_rawDesc = "" +
 	"volcTenant\x12W\n" +
 	"\x0eminimax_tenant\x18\t \x01(\v2..gizclaw.rpc.v1.MiniMaxTenantModelProviderDataH\x00R\rminimaxTenant\x12Z\n" +
 	"\x0fdeepseek_tenant\x18\n" +
-	" \x01(\v2/.gizclaw.rpc.v1.DeepSeekTenantModelProviderDataH\x00R\x0edeepseekTenant\x1aV\n" +
+	" \x01(\v2/.gizclaw.rpc.v1.DeepSeekTenantModelProviderDataH\x00R\x0edeepseekTenant\x12F\n" +
+	"\rprovider_kind\x18\v \x01(\x0e2!.gizclaw.rpc.v1.ModelProviderKindR\fproviderKind\x1aV\n" +
 	"\tI18nEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x123\n" +
 	"\x05value\x18\x02 \x01(\v2\x1d.gizclaw.rpc.v1.AliasI18nTextR\x05value:\x028\x01B\x0f\n" +
-	"\rprovider_data\"\x9e\x06\n" +
+	"\rprovider_dataJ\x04\b\x04\x10\x05\"\x9e\x06\n" +
 	"\x1dOpenAITenantModelProviderData\x12*\n" +
 	"\x0eupstream_model\x18\x01 \x01(\tH\x00R\rupstreamModel\x88\x01\x01\x123\n" +
 	"\x13support_json_output\x18\x02 \x01(\bH\x01R\x11supportJsonOutput\x88\x01\x01\x121\n" +
@@ -5865,13 +5865,13 @@ var file_payload_ai_proto_depIdxs = []int32{
 	40, // 55: gizclaw.rpc.v1.PetWorkspaceParameters.voice:type_name -> gizclaw.rpc.v1.PetVoiceParameters
 	75, // 56: gizclaw.rpc.v1.Model.i18n:type_name -> gizclaw.rpc.v1.Model.I18nEntry
 	94, // 57: gizclaw.rpc.v1.Model.kind:type_name -> gizclaw.rpc.v1.ModelKind
-	0,  // 58: gizclaw.rpc.v1.Model.provider_kind:type_name -> gizclaw.rpc.v1.ModelProviderKind
-	44, // 59: gizclaw.rpc.v1.Model.openai_tenant:type_name -> gizclaw.rpc.v1.OpenAITenantModelProviderData
-	45, // 60: gizclaw.rpc.v1.Model.gemini_tenant:type_name -> gizclaw.rpc.v1.GeminiTenantModelProviderData
-	46, // 61: gizclaw.rpc.v1.Model.dashscope_tenant:type_name -> gizclaw.rpc.v1.DashScopeTenantModelProviderData
-	47, // 62: gizclaw.rpc.v1.Model.volc_tenant:type_name -> gizclaw.rpc.v1.VolcTenantModelProviderData
-	48, // 63: gizclaw.rpc.v1.Model.minimax_tenant:type_name -> gizclaw.rpc.v1.MiniMaxTenantModelProviderData
-	49, // 64: gizclaw.rpc.v1.Model.deepseek_tenant:type_name -> gizclaw.rpc.v1.DeepSeekTenantModelProviderData
+	44, // 58: gizclaw.rpc.v1.Model.openai_tenant:type_name -> gizclaw.rpc.v1.OpenAITenantModelProviderData
+	45, // 59: gizclaw.rpc.v1.Model.gemini_tenant:type_name -> gizclaw.rpc.v1.GeminiTenantModelProviderData
+	46, // 60: gizclaw.rpc.v1.Model.dashscope_tenant:type_name -> gizclaw.rpc.v1.DashScopeTenantModelProviderData
+	47, // 61: gizclaw.rpc.v1.Model.volc_tenant:type_name -> gizclaw.rpc.v1.VolcTenantModelProviderData
+	48, // 62: gizclaw.rpc.v1.Model.minimax_tenant:type_name -> gizclaw.rpc.v1.MiniMaxTenantModelProviderData
+	49, // 63: gizclaw.rpc.v1.Model.deepseek_tenant:type_name -> gizclaw.rpc.v1.DeepSeekTenantModelProviderData
+	0,  // 64: gizclaw.rpc.v1.Model.provider_kind:type_name -> gizclaw.rpc.v1.ModelProviderKind
 	43, // 65: gizclaw.rpc.v1.ModelGetResponse.value:type_name -> gizclaw.rpc.v1.Model
 	43, // 66: gizclaw.rpc.v1.ModelListResponse.items:type_name -> gizclaw.rpc.v1.Model
 	76, // 67: gizclaw.rpc.v1.Voice.i18n:type_name -> gizclaw.rpc.v1.Voice.I18nEntry

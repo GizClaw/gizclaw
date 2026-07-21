@@ -2439,7 +2439,7 @@ type Model struct {
 	Name     *string       `json:"name,omitempty"`
 	Provider ModelProvider `json:"provider"`
 
-	// ProviderData Provider-specific model runtime configuration selected by Model.provider.kind.
+	// ProviderData Provider-specific model runtime configuration selected by Model.provider.kind. Optional behavior flags default to false.
 	ProviderData ModelProviderData `json:"provider_data"`
 
 	// Source How the model entered the global catalog
@@ -2458,7 +2458,7 @@ type ModelProvider struct {
 	Name string            `json:"name"`
 }
 
-// ModelProviderData Provider-specific model runtime configuration selected by Model.provider.kind.
+// ModelProviderData Provider-specific model runtime configuration selected by Model.provider.kind. Optional behavior flags default to false.
 type ModelProviderData struct {
 	union json.RawMessage
 }
@@ -2490,7 +2490,7 @@ type ModelSpec struct {
 	Name     *string       `json:"name,omitempty"`
 	Provider ModelProvider `json:"provider"`
 
-	// ProviderData Provider-specific model runtime configuration selected by Model.provider.kind.
+	// ProviderData Provider-specific model runtime configuration selected by Model.provider.kind. Optional behavior flags default to false.
 	ProviderData ModelProviderData `json:"provider_data"`
 
 	// Source How the model entered the global catalog

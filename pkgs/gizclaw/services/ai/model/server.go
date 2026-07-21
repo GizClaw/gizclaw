@@ -270,7 +270,7 @@ func validateModelProviderData(modelKind apitypes.ModelKind, providerKind apityp
 			return fmt.Errorf("provider_data for %s: %w", providerKind, err)
 		}
 		if modelKind == apitypes.ModelKindLlm {
-			if err := validateLLMBehavior(providerKind, value.SupportJsonOutput, value.SupportToolCalls, value.SupportTextOnly, value.UseSystemRole, value.SupportTemperature, value.SupportThinking, value.ThinkingParam, value.ThinkingLevelParam, value.ThinkingLevels, value.DefaultThinkingLevel); err != nil {
+			if err := validateLLMThinking(providerKind, value.SupportThinking, value.ThinkingParam, value.ThinkingLevelParam, value.ThinkingLevels, value.DefaultThinkingLevel); err != nil {
 				return err
 			}
 		}
@@ -283,7 +283,7 @@ func validateModelProviderData(modelKind apitypes.ModelKind, providerKind apityp
 		if err := decodeStrictModelProviderData(data, &value); err != nil {
 			return fmt.Errorf("provider_data for %s: %w", providerKind, err)
 		}
-		if err := validateLLMBehavior(providerKind, value.SupportJsonOutput, value.SupportToolCalls, value.SupportTextOnly, value.UseSystemRole, value.SupportTemperature, value.SupportThinking, value.ThinkingParam, value.ThinkingLevelParam, value.ThinkingLevels, value.DefaultThinkingLevel); err != nil {
+		if err := validateLLMThinking(providerKind, value.SupportThinking, value.ThinkingParam, value.ThinkingLevelParam, value.ThinkingLevels, value.DefaultThinkingLevel); err != nil {
 			return err
 		}
 		upstream = stringValue(value.UpstreamModel)
@@ -308,7 +308,7 @@ func validateModelProviderData(modelKind apitypes.ModelKind, providerKind apityp
 			return fmt.Errorf("provider_data for %s/%s does not support api_mode %q", providerKind, modelKind, *value.ApiMode)
 		}
 		if modelKind == apitypes.ModelKindLlm {
-			if err := validateLLMBehavior(providerKind, value.SupportJsonOutput, value.SupportToolCalls, value.SupportTextOnly, value.UseSystemRole, value.SupportTemperature, value.SupportThinking, value.ThinkingParam, value.ThinkingLevelParam, value.ThinkingLevels, value.DefaultThinkingLevel); err != nil {
+			if err := validateLLMThinking(providerKind, value.SupportThinking, value.ThinkingParam, value.ThinkingLevelParam, value.ThinkingLevels, value.DefaultThinkingLevel); err != nil {
 				return err
 			}
 		}
@@ -324,7 +324,7 @@ func validateModelProviderData(modelKind apitypes.ModelKind, providerKind apityp
 		if !value.ApiMode.Valid() {
 			return fmt.Errorf("provider_data for %s has unsupported api_mode %q", providerKind, value.ApiMode)
 		}
-		if err := validateLLMBehavior(providerKind, value.SupportJsonOutput, value.SupportToolCalls, value.SupportTextOnly, value.UseSystemRole, value.SupportTemperature, value.SupportThinking, value.ThinkingParam, value.ThinkingLevelParam, value.ThinkingLevels, value.DefaultThinkingLevel); err != nil {
+		if err := validateLLMThinking(providerKind, value.SupportThinking, value.ThinkingParam, value.ThinkingLevelParam, value.ThinkingLevels, value.DefaultThinkingLevel); err != nil {
 			return err
 		}
 		upstream = strings.TrimSpace(value.UpstreamModel)
@@ -339,7 +339,7 @@ func validateModelProviderData(modelKind apitypes.ModelKind, providerKind apityp
 		if !value.ApiMode.Valid() {
 			return fmt.Errorf("provider_data for %s has unsupported api_mode %q", providerKind, value.ApiMode)
 		}
-		if err := validateLLMBehavior(providerKind, value.SupportJsonOutput, value.SupportToolCalls, value.SupportTextOnly, value.UseSystemRole, value.SupportTemperature, value.SupportThinking, value.ThinkingParam, value.ThinkingLevelParam, value.ThinkingLevels, value.DefaultThinkingLevel); err != nil {
+		if err := validateLLMThinking(providerKind, value.SupportThinking, value.ThinkingParam, value.ThinkingLevelParam, value.ThinkingLevels, value.DefaultThinkingLevel); err != nil {
 			return err
 		}
 		upstream = strings.TrimSpace(value.UpstreamModel)
@@ -359,7 +359,7 @@ func validateModelProviderData(modelKind apitypes.ModelKind, providerKind apityp
 			return fmt.Errorf("provider_data for %s/%s requires api_mode %q", providerKind, modelKind, expectedMode)
 		}
 		if modelKind == apitypes.ModelKindLlm {
-			if err := validateLLMBehavior(providerKind, value.SupportJsonOutput, value.SupportToolCalls, value.SupportTextOnly, value.UseSystemRole, value.SupportTemperature, value.SupportThinking, value.ThinkingParam, value.ThinkingLevelParam, value.ThinkingLevels, value.DefaultThinkingLevel); err != nil {
+			if err := validateLLMThinking(providerKind, value.SupportThinking, value.ThinkingParam, value.ThinkingLevelParam, value.ThinkingLevels, value.DefaultThinkingLevel); err != nil {
 				return err
 			}
 		}
@@ -373,30 +373,14 @@ func validateModelProviderData(modelKind apitypes.ModelKind, providerKind apityp
 	return nil
 }
 
-func validateLLMBehavior(
+func validateLLMThinking(
 	providerKind apitypes.ModelProviderKind,
-	supportJSONOutput, supportToolCalls, supportTextOnly, useSystemRole, supportTemperature, supportThinking *bool,
+	supportThinking *bool,
 	thinkingParam, thinkingLevelParam *string,
 	thinkingLevels *[]string,
 	defaultThinkingLevel *string,
 ) error {
-	required := []struct {
-		name  string
-		value *bool
-	}{
-		{name: "support_json_output", value: supportJSONOutput},
-		{name: "support_tool_calls", value: supportToolCalls},
-		{name: "support_text_only", value: supportTextOnly},
-		{name: "use_system_role", value: useSystemRole},
-		{name: "support_temperature", value: supportTemperature},
-		{name: "support_thinking", value: supportThinking},
-	}
-	for _, field := range required {
-		if field.value == nil {
-			return fmt.Errorf("provider_data for %s/llm requires explicit %s", providerKind, field.name)
-		}
-	}
-	if !*supportThinking {
+	if supportThinking == nil || !*supportThinking {
 		return nil
 	}
 	if stringValue(thinkingParam) == "" && stringValue(thinkingLevelParam) == "" {

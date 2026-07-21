@@ -283,7 +283,7 @@ message Model {
   string alias = 1;
   map<string, AliasI18nText> i18n = 2;
   ModelKind kind = 3;
-  ModelProviderKind provider_kind = 4;
+  reserved 4;
   oneof provider_data {
     OpenAITenantModelProviderData openai_tenant = 5;
     GeminiTenantModelProviderData gemini_tenant = 6;
@@ -292,6 +292,7 @@ message Model {
     MiniMaxTenantModelProviderData minimax_tenant = 9;
     DeepSeekTenantModelProviderData deepseek_tenant = 10;
   }
+  ModelProviderKind provider_kind = 11;
 }
 
 enum ModelProviderKind {
