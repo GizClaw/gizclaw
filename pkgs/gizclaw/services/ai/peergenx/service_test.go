@@ -250,6 +250,83 @@ func TestDefaultBuilderBuildsVolcArkGenerator(t *testing.T) {
 	}
 }
 
+func TestModelThinkingExtraFieldsUsesCapabilityParameter(t *testing.T) {
+	disabled := false
+	tests := []struct {
+		name    string
+		caps    *apitypes.ModelThinkingCapability
+		request *genx.ThinkingParams
+		want    map[string]any
+	}{
+		{
+			name: "volc nested thinking",
+			caps: &apitypes.ModelThinkingCapability{
+				Supported: true,
+				Param:     stringPtr("thinking.type"),
+			},
+			request: &genx.ThinkingParams{Enabled: &disabled, Level: "disabled"},
+			want:    map[string]any{"thinking": map[string]any{"type": "disabled"}},
+		},
+		{
+			name: "separate enable and reasoning fields",
+			caps: &apitypes.ModelThinkingCapability{
+				Supported:  true,
+				Param:      stringPtr("enable_thinking"),
+				LevelParam: stringPtr("reasoning_effort"),
+			},
+			request: &genx.ThinkingParams{Enabled: &disabled, Level: "medium"},
+			want: map[string]any{
+				"enable_thinking":  false,
+				"reasoning_effort": "medium",
+			},
+		},
+		{
+			name: "disabled is not a reasoning effort",
+			caps: &apitypes.ModelThinkingCapability{
+				Supported: true,
+				Param:     stringPtr("reasoning_effort"),
+			},
+			request: &genx.ThinkingParams{Enabled: &disabled, Level: "disabled"},
+			want:    map[string]any{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			caps := &apitypes.ModelCapabilities{Thinking: tt.caps}
+			if got := modelThinkingExtraFields(caps, tt.request); !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("modelThinkingExtraFields() = %#v, want %#v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestModelContextForGeneratorMapsThinkingWithoutMutatingInput(t *testing.T) {
+	disabled := false
+	originalParams := &genx.ModelParams{
+		ExtraFields: map[string]any{"request_id": "test"},
+		Thinking:    &genx.ThinkingParams{Enabled: &disabled, Level: "disabled"},
+	}
+	mctx := (&genx.ModelContextBuilder{Params: originalParams}).Build()
+	cfg := GeneratorConfig{Model: apitypes.Model{Capabilities: &apitypes.ModelCapabilities{
+		Thinking: &apitypes.ModelThinkingCapability{
+			Supported: true,
+			Param:     stringPtr("thinking.type"),
+		},
+	}}}
+
+	mapped := modelContextForGenerator(cfg, mctx).Params()
+	thinking, ok := mapped.ExtraFields["thinking"].(map[string]any)
+	if !ok || thinking["type"] != "disabled" || mapped.ExtraFields["request_id"] != "test" {
+		t.Fatalf("mapped params = %#v", mapped)
+	}
+	if mapped.Thinking != nil {
+		t.Fatalf("mapped semantic thinking = %#v, want nil", mapped.Thinking)
+	}
+	if originalParams.Thinking == nil || originalParams.ExtraFields["thinking"] != nil {
+		t.Fatalf("input params mutated = %#v", originalParams)
+	}
+}
+
 func TestDefaultBuilderRejectsWrongVolcServiceKey(t *testing.T) {
 	_, err := (DefaultBuilder{}).BuildGenerator(context.Background(), GeneratorConfig{
 		Model: apitypes.Model{Id: "chat", Kind: apitypes.ModelKindLlm},

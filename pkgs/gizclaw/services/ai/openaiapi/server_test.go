@@ -192,7 +192,7 @@ func TestCreateChatCompletionNonStreamConvertsOpenAIRequest(t *testing.T) {
 			if pattern != "model/chat" {
 				t.Fatalf("pattern = %q", pattern)
 			}
-			if params := mctx.Params(); params == nil || params.Temperature != 0.3 || params.ExtraFields["reasoning_effort"] != "medium" {
+			if params := mctx.Params(); params == nil || params.Temperature != 0.3 || params.Thinking == nil || params.Thinking.Level != "medium" {
 				t.Fatalf("params = %#v", params)
 			}
 			var prompts, users, models int

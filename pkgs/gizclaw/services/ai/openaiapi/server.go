@@ -308,7 +308,7 @@ func buildModelContext(body *openaihttp.CreateChatCompletionRequest) (genx.Model
 		if b.Params == nil {
 			b.Params = &genx.ModelParams{}
 		}
-		b.Params.ExtraFields = thinkingExtraFields(body.Thinking)
+		b.Params.Thinking = thinkingParams(body.Thinking)
 	}
 	for _, msg := range body.Messages {
 		role, _ := msg["role"].(string)
@@ -340,15 +340,15 @@ func buildModelContext(body *openaihttp.CreateChatCompletionRequest) (genx.Model
 	return b.Build(), nil
 }
 
-func thinkingExtraFields(options *openaihttp.ThinkingOptions) map[string]any {
-	out := map[string]any{}
-	if options.Enabled != nil {
-		out["enable_thinking"] = *options.Enabled
+func thinkingParams(options *openaihttp.ThinkingOptions) *genx.ThinkingParams {
+	if options == nil {
+		return nil
 	}
-	if options.Level != nil && strings.TrimSpace(*options.Level) != "" {
-		out["reasoning_effort"] = strings.TrimSpace(*options.Level)
+	out := &genx.ThinkingParams{Enabled: options.Enabled}
+	if options.Level != nil {
+		out.Level = strings.TrimSpace(*options.Level)
 	}
-	if len(out) == 0 {
+	if out.Enabled == nil && out.Level == "" {
 		return nil
 	}
 	return out

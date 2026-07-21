@@ -166,7 +166,7 @@ type ChatSession = {
 };
 
 type ChatThinkingOptions = {
-  enabled: boolean;
+  enabled?: boolean;
   level?: string;
 };
 
@@ -3114,10 +3114,15 @@ function ChatTester({ models, onOpenChange, open }: { models: Model[]; onOpenCha
   const [thinkingLevel, setThinkingLevel] = useState("");
   const [chatError, setChatError] = useState("");
   const [resetToken, setResetToken] = useState(0);
-	const selectedModelSpec = useMemo(() => models.find((model) => model.alias === selectedModel), [models, selectedModel]);
+  const selectedModelSpec = useMemo(() => models.find((model) => model.alias === selectedModel), [models, selectedModel]);
   const playableVoices = useMemo(() => voices.filter(isPlayableVoice), [voices]);
-  const thinkingLevels = useMemo(() => selectedModelSpec?.capabilities?.thinking?.levels ?? [], [selectedModelSpec]);
-  const supportsThinking = selectedModelSpec?.capabilities?.thinking?.supported === true;
+  const thinkingCapability = selectedModelSpec?.capabilities?.thinking;
+  const thinkingLevels = useMemo(() => thinkingCapability?.levels ?? [], [thinkingCapability]);
+  const supportsThinking = thinkingCapability?.supported === true;
+  const supportsThinkingToggle =
+    thinkingCapability?.param === "enable_thinking" ||
+    thinkingCapability?.param === "thinking.type" ||
+    thinkingLevels.some(isDisabledThinkingLevel);
   const supportsTemperature = selectedModelSpec?.capabilities?.temperature !== false;
 
   const reportChatError = useCallback((message: string) => {
@@ -3185,7 +3190,23 @@ function ChatTester({ models, onOpenChange, open }: { models: Model[]; onOpenCha
     }
     const defaultLevel = selectedModelSpec?.capabilities?.thinking?.default_level ?? thinkingLevels[0] ?? "";
     setThinkingLevel((current) => (current !== "" && thinkingLevels.includes(current) ? current : defaultLevel));
+    setThinkingEnabled(defaultLevel === "" || !isDisabledThinkingLevel(defaultLevel));
   }, [selectedModelSpec, supportsThinking, thinkingLevels]);
+
+  const changeThinkingEnabled = useCallback(
+    (checked: boolean) => {
+      setThinkingEnabled(checked);
+      setThinkingLevel((current) => {
+        if (checked) {
+          return isDisabledThinkingLevel(current)
+            ? (thinkingLevels.find((level) => !isDisabledThinkingLevel(level)) ?? "enabled")
+            : current;
+        }
+        return thinkingLevels.find(isDisabledThinkingLevel) ?? "disabled";
+      });
+    },
+    [thinkingLevels],
+  );
 
   const activeSession = sessions.find((session) => session.id === activeSessionID) ?? sessions[0];
 
@@ -3268,7 +3289,7 @@ function ChatTester({ models, onOpenChange, open }: { models: Model[]; onOpenCha
               </div>
               {supportsThinking ? (
                 <div className="grid gap-3 md:col-span-2 md:grid-cols-[160px_minmax(0,1fr)]">
-                  <Toggle label="Think" checked={thinkingEnabled} onChange={setThinkingEnabled} />
+                  {supportsThinkingToggle ? <Toggle label="Think" checked={thinkingEnabled} onChange={changeThinkingEnabled} /> : <div />}
                   {thinkingLevels.length > 0 ? (
                     <SelectField label="Think Level" value={thinkingLevel} onChange={setThinkingLevel} options={thinkingLevels} />
                   ) : (
@@ -3296,7 +3317,14 @@ function ChatTester({ models, onOpenChange, open }: { models: Model[]; onOpenCha
                 sessionID={activeSession.id}
                 setSessionTitle={setSessionTitle}
                 systemPrompt={systemPrompt}
-                thinking={supportsThinking ? { enabled: thinkingEnabled, level: thinkingLevel === "" ? undefined : thinkingLevel } : undefined}
+                thinking={
+                  supportsThinking
+                    ? {
+                        ...(supportsThinkingToggle ? { enabled: thinkingEnabled } : {}),
+                        ...(thinkingLevel === "" ? {} : { level: thinkingLevel }),
+                      }
+                    : undefined
+                }
                 temperature={supportsTemperature ? Number.parseFloat(temperature) : undefined}
                 touchSession={touchSession}
                 voice={selectedVoice}
@@ -4950,6 +4978,10 @@ function workspaceFeatureMessage(err: unknown): string {
 
 function pageQuery(cursor: string): { cursor?: string; limit: number } {
   return cursor === "" ? { limit: 50 } : { cursor, limit: 50 };
+}
+
+function isDisabledThinkingLevel(level: string): boolean {
+  return ["disabled", "disable", "off", "false", "0", "none", "no"].includes(level.trim().toLowerCase());
 }
 
 function sectionTitle(section: Section): string {

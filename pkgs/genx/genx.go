@@ -33,14 +33,23 @@ type Stream interface {
 }
 
 type ModelParams struct {
-	MaxTokens        int            `json:"max_tokens,omitzero"`
-	FrequencyPenalty float32        `json:"frequency_penalty,omitzero"`
-	N                int            `json:"n,omitzero"`
-	Temperature      float32        `json:"temperature,omitzero"`
-	TopP             float32        `json:"top_p,omitzero"`
-	PresencePenalty  float32        `json:"presence_penalty,omitzero"`
-	TopK             float32        `json:"top_k,omitzero"`
-	ExtraFields      map[string]any `json:"extra_fields,omitzero"`
+	MaxTokens        int             `json:"max_tokens,omitzero"`
+	FrequencyPenalty float32         `json:"frequency_penalty,omitzero"`
+	N                int             `json:"n,omitzero"`
+	Temperature      float32         `json:"temperature,omitzero"`
+	TopP             float32         `json:"top_p,omitzero"`
+	PresencePenalty  float32         `json:"presence_penalty,omitzero"`
+	TopK             float32         `json:"top_k,omitzero"`
+	Thinking         *ThinkingParams `json:"thinking,omitzero"`
+	ExtraFields      map[string]any  `json:"extra_fields,omitzero"`
+}
+
+// ThinkingParams contains provider-neutral thinking controls for one model
+// invocation. The model loader maps them to the selected model's provider
+// parameter before the provider adapter serializes the request.
+type ThinkingParams struct {
+	Enabled *bool  `json:"enabled,omitzero"`
+	Level   string `json:"level,omitzero"`
 }
 
 type Prompt struct {

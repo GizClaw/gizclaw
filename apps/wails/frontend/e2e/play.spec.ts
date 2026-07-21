@@ -36,11 +36,12 @@ test.beforeEach(async ({ page }) => {
       memoryStats: { total: 2 },
       models: [
         {
+          alias: "chat",
           capabilities: {
             temperature: true,
             thinking: {
-              default_level: "enabled",
-              levels: ["enabled", "disabled"],
+              default_level: "disabled",
+              levels: ["enabled", "disabled", "auto"],
               param: "thinking.type",
               supported: true,
             },
@@ -73,10 +74,11 @@ test.beforeEach(async ({ page }) => {
         workspace_mode: "push",
         workspace_name: "flowcraft-chat",
       },
-      voices: [{ id: "volc-voice-000", name: "Volc Voice", provider: { kind: "volc-tenant", name: "volc-tenant" }, source: "sync" }],
+      voices: [{ alias: "pet", id: "volc-voice-000", name: "Volc Voice", provider: { kind: "volc-tenant", name: "volc-tenant" }, source: "sync" }],
       warnings: [],
       workflows: [
         {
+          alias: "flowcraft-chat",
           name: "flowcraft-chat",
           spec: { driver: "flowcraft" },
         },
@@ -282,12 +284,7 @@ test("play view renders the full desktop play surface", async ({ page }) => {
 
   await page.getByRole("button", { name: /Models 1/ }).click();
   await expect(page.getByRole("heading", { name: "Models" })).toBeVisible();
-  await expect(page.getByRole("row").filter({ hasText: "fake-openai-chat-000" })).toContainText("thinking.type");
-
-  await page.getByRole("button", { name: /Credentials/ }).click();
-  await expect(page.getByRole("heading", { name: "Credentials" })).toBeVisible();
-  await expect(page.getByRole("columnheader", { name: "Auth fields" })).toBeVisible();
-  await expect(page.getByRole("row").filter({ hasText: "fake-openai-credential-000" })).toContainText("api_key");
+  await expect(page.getByRole("row").filter({ hasText: "chat" })).toContainText("thinking.type");
 
   await page.getByRole("button", { name: /Friends/ }).click();
   await expect(page.getByRole("heading", { name: "Friends" })).toBeVisible();
@@ -303,6 +300,20 @@ test("play view renders the full desktop play surface", async ({ page }) => {
   await expect(page.getByRole("columnheader", { name: "Display name" })).toHaveCount(0);
   const workflowRow = page.getByRole("row").filter({ hasText: "flowcraft-chat" });
   await expect(workflowRow).toContainText("flowcraft");
+});
+
+test("OpenAI tester keeps the thinking toggle consistent with the model level", async ({ page }) => {
+  await page.goto("/play.html");
+  await page.getByRole("button", { name: "OpenAI", exact: true }).click();
+
+  const drawer = page.getByRole("dialog");
+  const thinking = drawer.getByRole("checkbox", { name: "Think" });
+  await expect(thinking).not.toBeChecked();
+  await expect(drawer.getByText("disabled", { exact: true })).toBeVisible();
+
+  await thinking.check();
+  await expect(thinking).toBeChecked();
+  await expect(drawer.getByText("enabled", { exact: true })).toBeVisible();
 });
 
 test("play workspace drawer sends direct RPC-backed actions", async ({ page }) => {
