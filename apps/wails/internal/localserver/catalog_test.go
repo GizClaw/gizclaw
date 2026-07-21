@@ -102,7 +102,7 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 		"translate-zh-ko":      "ast-translate-zh-ko",
 		"translate-zh-es":      "ast-translate-zh-es",
 		"doubao-realtime":      "doubao-realtime-conversation",
-		"chat":                 "flowcraft-chat-assistant",
+		"general-assistant":    "flowcraft-chat-assistant",
 		"journey":              "flowcraft-journey-guide",
 		"murder-mystery":       "flowcraft-murder-mystery",
 	}
@@ -132,7 +132,7 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 	}
 	wantVoices := map[string]string{
 		"doubao-assistant":  "volc-tenant:volc-main:zh_female_vv_jupiter_bigtts",
-		"general-assistant": "volc-tenant:volc-main:zh_female_qingxinnvsheng_mars_bigtts",
+		"assistant-voice":   "volc-tenant:volc-main:zh_female_qingxinnvsheng_mars_bigtts",
 		"cute-pet":          "volc-tenant:volc-main:zh_male_naiqimengwa_mars_bigtts",
 		"translator":        "volc-tenant:volc-main:zh_female_sophie_conversation_wvae_bigtts",
 		"narrator":          "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",

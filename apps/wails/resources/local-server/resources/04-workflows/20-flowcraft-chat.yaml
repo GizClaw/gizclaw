@@ -108,6 +108,6 @@ spec:
       state_root: state
     voice_adapter:
       asr_model: asr
-      default_voice: general-assistant
+      default_voice: assistant-voice
       node_voices:
-        answer: general-assistant
+        answer: assistant-voice

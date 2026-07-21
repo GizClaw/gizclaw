@@ -12,7 +12,7 @@ spec:
           i18n:
             en: {display_name: Doubao Assistant}
             zh-CN: {display_name: 豆包助手}
-        chat:
+        general-assistant:
           resource_id: flowcraft-chat-assistant
           i18n:
             en: {display_name: Chat Assistant}
@@ -89,7 +89,7 @@ spec:
         i18n:
           en: {display_name: Doubao Assistant}
           zh-CN: {display_name: 豆包助手}
-      general-assistant:
+      assistant-voice:
         resource_id: volc-tenant:volc-main:zh_female_qingxinnvsheng_mars_bigtts
         i18n:
           en: {display_name: General Assistant}
