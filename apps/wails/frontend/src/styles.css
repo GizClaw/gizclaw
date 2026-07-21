@@ -974,6 +974,9 @@ select:focus-visible {
   transform: translateY(-1px);
   filter: brightness(1.08);
 }
+.local-status-progress {
+  animation: spin 0.8s linear infinite;
+}
 .local-admin-icon {
   color: #9ea8f8;
   background: rgba(116, 126, 255, 0.1);
