@@ -314,8 +314,17 @@ func (r *Runtime) completedAdoptionResponse(ctx context.Context, owner, runtimeP
 	if err != nil {
 		return apitypes.PetAdoptResponse{}, false, err
 	}
-	pet, petErr := findPetByOwnerID(ctx, db, owner, petID)
-	txn, txnErr := findPetAdoptionTransaction(ctx, db, owner, petID)
+	txOptions := &sql.TxOptions{ReadOnly: true}
+	if db.DriverName() == "postgres" {
+		txOptions.Isolation = sql.LevelRepeatableRead
+	}
+	readTx, err := db.BeginTxx(ctx, txOptions)
+	if err != nil {
+		return apitypes.PetAdoptResponse{}, false, err
+	}
+	defer readTx.Rollback()
+	pet, petErr := findPetByOwnerID(ctx, readTx, owner, petID)
+	txn, txnErr := findPetAdoptionTransaction(ctx, readTx, owner, petID)
 	if errors.Is(petErr, sql.ErrNoRows) {
 		if txnErr == nil {
 			return apitypes.PetAdoptResponse{}, true, fmt.Errorf("%w: %q belonged to a deleted Pet", ErrPetIDConflict, petID)
@@ -337,7 +346,7 @@ func (r *Runtime) completedAdoptionResponse(ctx context.Context, owner, runtimeP
 	if txn.RuntimeProfileName != runtimeProfileName {
 		return apitypes.PetAdoptResponse{}, true, fmt.Errorf("adoption transaction for Pet %q belongs to RuntimeProfile %q", petID, txn.RuntimeProfileName)
 	}
-	account, err := findPointsAccount(ctx, db, owner, runtimeProfileName)
+	account, err := findPointsAccount(ctx, readTx, owner, runtimeProfileName)
 	if err != nil {
 		return apitypes.PetAdoptResponse{}, true, fmt.Errorf("load points account for Pet %q: %w", petID, err)
 	}
