@@ -61,8 +61,8 @@ message GameResultListResponse {
 
 message GameRewardSpec {
   map<string, int64> badge_exp_delta = 1;
-  optional int64 pet_exp_delta = 2;
-  optional int64 points_delta = 3;
+  int64 pet_exp_delta = 2;
+  string reason = 3;
 }
 
 message GameplayGetRequest {
@@ -78,18 +78,49 @@ message GameplayMetadata {
   google.protobuf.Struct fields = 1;
 }
 
+enum PetBehavior {
+  PET_BEHAVIOR_UNSPECIFIED = 0;
+  PET_BEHAVIOR_FEED = 1;
+  PET_BEHAVIOR_BATHE = 2;
+  PET_BEHAVIOR_PLAY = 3;
+  PET_BEHAVIOR_HEAL = 4;
+}
+
+enum PetLifecycle {
+  PET_LIFECYCLE_UNSPECIFIED = 0;
+  PET_LIFECYCLE_ALIVE = 1;
+  PET_LIFECYCLE_DEAD = 2;
+}
+
+message PetStats {
+  double life = 1;
+  double health = 2;
+  double satiety = 3;
+  double hygiene = 4;
+  double mood = 5;
+  double energy = 6;
+}
+
+message PetProgression {
+  int64 experience = 1;
+  int64 level = 2;
+}
+
 message Pet {
-  string created_at = 1;
-  string display_name = 2;
-  string id = 3;
-  string last_active_at = 4;
-  PetLife life = 5;
-  string owner_public_key = 6;
-  string petdef_id = 7;
-  string runtime_profile_name = 8;
-  string updated_at = 9;
-  string workspace_name = 10;
-  PetProgression progression = 11;
+  string id = 1;
+  string owner_public_key = 2;
+  string runtime_profile_name = 3;
+  string petdef_id = 4;
+  string display_name = 5;
+  string workspace_name = 6;
+  PetStats stats = 7;
+  PetProgression progression = 8;
+  PetLifecycle lifecycle = 9;
+  optional string died_at = 10;
+  string state_settled_at = 11;
+  string last_active_at = 12;
+  string created_at = 13;
+  string updated_at = 14;
 }
 
 message PetAdoptRequest {
@@ -113,39 +144,23 @@ message PetPixaDownloadResponse {
   int64 size_bytes = 4;
 }
 
-message PetActionEffectSpec {
-  optional PetLife attr_delta_life = 1;
-  optional int64 pet_exp_delta = 2;
-}
-
-message PetAction {
-  string id = 1;
-  int64 cost = 2;
-  optional PetActionEffectSpec effect = 3;
-  optional string visual_clip_id = 4;
-  optional string pixa_clip_name = 5;
-}
-
-message PetActionI18nText {
-  string name = 1;
-}
-
-message PetActionsI18nCatalog {
-  map<string, PetActionI18nText> actions = 1;
-}
-
-message PetActionsI18n {
-  map<string, PetActionsI18nCatalog> value = 1;
+message PetVisualBindings {
+  string feed = 1;
+  string bathe = 2;
+  string play = 3;
+  string heal = 4;
+  string idle = 5;
+  string sick = 6;
+  string dead = 7;
+  optional string sleep = 8;
 }
 
 message PetActions {
   string pet_id = 1;
   string petdef_id = 2;
-  string default_locale = 3;
-  repeated PetAction actions = 4;
-  PetActionsI18n i18n = 5;
-  string petdef_updated_at = 6;
-  map<string, string> clip_names = 7;
+  PetVisualBindings bindings = 3;
+  string petdef_updated_at = 4;
+  map<string, string> clip_names = 5;
 }
 
 message PetDeleteRequest {
@@ -165,9 +180,10 @@ message PetDriveGameResultInput {
 }
 
 message PetDriveRequest {
-  optional string action = 1;
+  optional PetBehavior behavior = 1;
   optional PetDriveGameResultInput game_result = 2;
   string pet_id = 3;
+  optional string idempotency_key = 4;
 }
 
 message PetDriveResponse {
@@ -377,12 +393,4 @@ message ServerRewardGrantListRequest {
 
 message ServerRewardGrantListResponse {
   RewardGrantListResponse value = 1;
-}
-
-message PetLife {
-  map<string, int64> value = 1;
-}
-
-message PetProgression {
-  map<string, int64> value = 1;
 }

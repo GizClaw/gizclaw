@@ -64,10 +64,10 @@ func TestAdminServiceDeletePeerPetUsesGameplayLifecycle(t *testing.T) {
 	now := time.Date(2026, 7, 16, 12, 0, 0, 0, time.UTC).Format(time.RFC3339Nano)
 	if _, err := db.ExecContext(ctx, `INSERT INTO gameplay_pets (
 		owner_public_key, id, runtime_profile_name, petdef_id, display_name, workspace_name,
-		workflow_name, life_json, ability_json, exp, level, last_active_at, created_at, updated_at
+		stats_json, progression_json, lifecycle, died_at, state_settled_at, last_active_at, created_at, updated_at
 	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		"peer-a", "pet-a", "default", "petdef-a", "Pet A", "pet-pet-a",
-		"pet-care", `{}`, `{}`, 0, 1, now, now, now,
+		`{"life":100,"health":100,"satiety":100,"hygiene":100,"mood":100,"energy":100}`, `{"experience":0,"level":1}`, "alive", nil, now, now, now, now,
 	); err != nil {
 		t.Fatalf("insert pet: %v", err)
 	}

@@ -15,6 +15,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
@@ -279,7 +280,7 @@ func (h *PeerConn) peerResources() *peerresource.Server {
 		return nil
 	}
 	manager := h.Service.manager
-	return &peerresource.Server{
+	resources := &peerresource.Server{
 		Caller:         h.Conn.PublicKey(),
 		Peers:          manager.Peers,
 		Firmwares:      manager.Firmwares,
@@ -294,6 +295,10 @@ func (h *PeerConn) peerResources() *peerresource.Server {
 		Tools:          manager.Tools,
 		RuntimeProfile: h.currentRuntimeProfile,
 	}
+	if h.serverGenX != nil {
+		resources.RewardEvaluator = gameplay.GenXRewardEvaluator{Generator: h.serverGenX.Generator()}
+	}
+	return resources
 }
 
 func (h *PeerConn) currentRuntimeProfile() *apitypes.RuntimeProfile {

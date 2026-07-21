@@ -6,8 +6,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"math/big"
+	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
@@ -21,6 +24,8 @@ import (
 const defaultPetWorkflowName = "pet-care"
 
 var (
+	// ErrPetDead is returned when a Drive targets a terminal Pet.
+	ErrPetDead               = errors.New("gameplay: pet is dead")
 	errPetWorkspaceNotFound  = errors.New("gameplay: pet workspace binding not found")
 	errPetWorkspaceAmbiguous = errors.New("gameplay: pet workspace binding is ambiguous")
 )
@@ -34,6 +39,7 @@ type Runtime struct {
 	NewID       func() string
 	PickWeight  func(total int64) int64
 	DecayPeriod time.Duration
+	driveMu     [64]sync.Mutex
 }
 
 type WorkflowService interface {
@@ -56,11 +62,11 @@ func (r *Runtime) Migration(ctx context.Context) error {
 			petdef_id TEXT NOT NULL,
 			display_name TEXT NOT NULL,
 			workspace_name TEXT NOT NULL,
-			workflow_name TEXT,
-			life_json TEXT NOT NULL,
-			ability_json TEXT NOT NULL,
-			exp INTEGER NOT NULL,
-			level INTEGER NOT NULL,
+			stats_json TEXT NOT NULL,
+			progression_json TEXT NOT NULL,
+			lifecycle TEXT NOT NULL,
+			died_at TEXT,
+			state_settled_at TEXT NOT NULL,
 			last_active_at TEXT NOT NULL,
 			created_at TEXT NOT NULL,
 			updated_at TEXT NOT NULL,
@@ -127,8 +133,6 @@ func (r *Runtime) Migration(ctx context.Context) error {
 			points_delta INTEGER NOT NULL,
 			pet_exp_delta INTEGER NOT NULL,
 			badge_exp_delta_json TEXT NOT NULL,
-			life_delta_json TEXT NOT NULL DEFAULT '{}',
-			ability_delta_json TEXT NOT NULL DEFAULT '{}',
 			source_type TEXT NOT NULL DEFAULT '',
 			source_id TEXT NOT NULL DEFAULT '',
 			reason TEXT,
@@ -140,45 +144,10 @@ func (r *Runtime) Migration(ctx context.Context) error {
 			return err
 		}
 	}
-	for _, migration := range []struct {
-		table      string
-		column     string
-		definition string
-	}{
-		{"gameplay_points_transactions", "source_type", "TEXT NOT NULL DEFAULT ''"},
-		{"gameplay_points_transactions", "source_id", "TEXT NOT NULL DEFAULT ''"},
-		{"gameplay_game_results", "max_score", "INTEGER"},
-		{"gameplay_game_results", "difficulty", "TEXT"},
-		{"gameplay_game_results", "duration_ms", "INTEGER"},
-		{"gameplay_game_results", "idempotency_key", "TEXT"},
-		{"gameplay_game_results", "occurred_at", "TEXT NOT NULL DEFAULT ''"},
-		{"gameplay_reward_grants", "life_delta_json", "TEXT NOT NULL DEFAULT '{}'"},
-		{"gameplay_reward_grants", "ability_delta_json", "TEXT NOT NULL DEFAULT '{}'"},
-		{"gameplay_reward_grants", "source_type", "TEXT NOT NULL DEFAULT ''"},
-		{"gameplay_reward_grants", "source_id", "TEXT NOT NULL DEFAULT ''"},
-	} {
-		exists, err := sqlColumnExists(ctx, db, migration.table, migration.column)
-		if err != nil {
-			return err
-		}
-		if exists {
-			continue
-		}
-		stmt := fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", migration.table, migration.column, migration.definition)
-		if _, err := db.ExecContext(ctx, stmt); err != nil {
-			// Another instance may have added the column after our catalog check.
-			// Re-read schema state instead of matching driver-specific error text.
-			exists, inspectErr := sqlColumnExists(ctx, db, migration.table, migration.column)
-			if inspectErr != nil {
-				return errors.Join(err, inspectErr)
-			}
-			if exists {
-				continue
-			}
-			return err
-		}
-	}
 	if _, err := db.ExecContext(ctx, `CREATE UNIQUE INDEX IF NOT EXISTS gameplay_game_results_idempotency_idx ON gameplay_game_results(owner_public_key, runtime_profile_name, idempotency_key) WHERE idempotency_key IS NOT NULL AND idempotency_key <> ''`); err != nil {
+		return err
+	}
+	if _, err := db.ExecContext(ctx, `CREATE UNIQUE INDEX IF NOT EXISTS gameplay_reward_grants_source_idx ON gameplay_reward_grants(owner_public_key, runtime_profile_name, source_type, source_id) WHERE source_id <> ''`); err != nil {
 		return err
 	}
 	return nil
@@ -227,8 +196,10 @@ func (r *Runtime) AdoptPet(ctx context.Context, owner string, req apitypes.PetAd
 		PetdefId:           petDef.Id,
 		DisplayName:        displayName,
 		WorkspaceName:      workspaceName,
-		Life:               initPetLife(petDef.Spec.Attr.Life),
-		Progression:        initPetProgression(petDef.Spec.Attr.Progression),
+		Stats:              initialPetStats(),
+		Progression:        initialPetProgression(),
+		Lifecycle:          apitypes.PetLifecycleAlive,
+		StateSettledAt:     now,
 		LastActiveAt:       now,
 		CreatedAt:          now,
 		UpdatedAt:          now,
@@ -437,6 +408,9 @@ func (r *Runtime) DrivePet(ctx context.Context, owner string, req apitypes.PetDr
 	if err := r.Migration(ctx); err != nil {
 		return apitypes.PetDriveResponse{}, err
 	}
+	mu := r.driveMutex(owner + "\x00" + req.PetId)
+	mu.Lock()
+	defer mu.Unlock()
 	pet, err := r.GetPet(ctx, owner, req.PetId)
 	if err != nil {
 		return apitypes.PetDriveResponse{}, err
@@ -445,10 +419,92 @@ func (r *Runtime) DrivePet(ctx context.Context, owner string, req apitypes.PetDr
 	if err != nil {
 		return apitypes.PetDriveResponse{}, err
 	}
-	petDef, err := r.Catalog.GetPetDefByID(ctx, pet.PetdefId)
-	if err != nil {
-		return apitypes.PetDriveResponse{}, err
+	if pet.Lifecycle == apitypes.PetLifecycleDead {
+		return apitypes.PetDriveResponse{}, ErrPetDead
 	}
+	hasBehavior := req.Behavior != nil
+	hasGame := req.GameResult != nil
+	if hasBehavior == hasGame {
+		return apitypes.PetDriveResponse{}, errors.New("gameplay: exactly one behavior or game_result is required")
+	}
+	var behavior apitypes.PetBehavior
+	var actionPolicy apitypes.RuntimeProfilePetActionSpec
+	if hasBehavior {
+		behavior = *req.Behavior
+		var exists bool
+		actionPolicy, exists = ruleset.Spec.Actions[behavior]
+		if !exists || !behavior.Valid() {
+			return apitypes.PetDriveResponse{}, fmt.Errorf("gameplay: unsupported pet behavior %q", behavior)
+		}
+	}
+	var gameRule ProfileGameRule
+	if hasGame {
+		gameDefID := strings.TrimSpace(req.GameResult.GameDefId)
+		var configured bool
+		gameRule, configured = ruleset.Spec.Games[gameDefID]
+		if !configured {
+			return r.ignoredGameResponse(ctx, owner, pet)
+		}
+		if err := r.validateConfiguredGame(ctx, gameRule); err != nil {
+			return apitypes.PetDriveResponse{}, err
+		}
+		if key := strings.TrimSpace(valueOrZero(req.GameResult.IdempotencyKey)); key != "" {
+			if response, found, err := r.completedGameResponse(ctx, owner, ruleset.Name, key, pet.Id, gameRule.GameDefID); err != nil {
+				return apitypes.PetDriveResponse{}, err
+			} else if found {
+				return response, nil
+			}
+		}
+	}
+	if hasBehavior {
+		if key := strings.TrimSpace(valueOrZero(req.IdempotencyKey)); key != "" {
+			if response, found, err := r.completedBehaviorResponse(ctx, owner, ruleset.Name, key, pet); err != nil {
+				return apitypes.PetDriveResponse{}, err
+			} else if found {
+				return response, nil
+			}
+		}
+	}
+
+	var evaluated apitypes.GameRewardSpec
+	if hasGame {
+		account, err := r.readPointsAccount(ctx, owner, ruleset.Name)
+		if err != nil {
+			return apitypes.PetDriveResponse{}, err
+		}
+		preview := pet
+		settlePetTime(&preview, r.now(), ruleset.Spec.Time)
+		if preview.Stats.Life > 0 && preview.Stats.Energy >= float64(gameRule.Policy.EnergyCost) && account.Balance >= gameRule.Policy.PointsCost {
+			evaluator := rewardEvaluatorFromContext(ctx)
+			if evaluator == nil {
+				return apitypes.PetDriveResponse{}, errors.New("gameplay: reward evaluator is not configured")
+			}
+			request, err := r.rewardEvaluationRequest(ctx, gameRule, req.GameResult, owner, pet, ruleset)
+			if err != nil {
+				return apitypes.PetDriveResponse{}, err
+			}
+			evaluated, err = evaluator.Evaluate(ctx, request)
+			if err != nil {
+				return apitypes.PetDriveResponse{}, err
+			}
+			if err := validateGameReward(evaluated, gameRule, ruleset.Spec.BadgeDefs); err != nil {
+				return apitypes.PetDriveResponse{}, err
+			}
+		}
+	}
+	return r.commitDrive(ctx, owner, req, ruleset, behavior, actionPolicy, gameRule, evaluated)
+}
+
+func (r *Runtime) commitDrive(
+	ctx context.Context,
+	owner string,
+	req apitypes.PetDriveRequest,
+	ruleset ProfileRules,
+	behavior apitypes.PetBehavior,
+	actionPolicy apitypes.RuntimeProfilePetActionSpec,
+	gameRule ProfileGameRule,
+	evaluated apitypes.GameRewardSpec,
+) (apitypes.PetDriveResponse, error) {
 	db, err := r.db()
 	if err != nil {
 		return apitypes.PetDriveResponse{}, err
@@ -458,119 +514,120 @@ func (r *Runtime) DrivePet(ctx context.Context, owner string, req apitypes.PetDr
 		return apitypes.PetDriveResponse{}, err
 	}
 	defer tx.Rollback()
+	pet, err := scanPet(tx.QueryRowContext(ctx, tx.Rebind(petSelectSQL()+` WHERE owner_public_key = ? AND id = ?`), owner, req.PetId))
+	if err != nil {
+		return apitypes.PetDriveResponse{}, err
+	}
+	if pet.Lifecycle == apitypes.PetLifecycleDead {
+		return apitypes.PetDriveResponse{}, ErrPetDead
+	}
 	account, err := r.ensureAccountTx(ctx, tx, owner, ruleset)
 	if err != nil {
 		return apitypes.PetDriveResponse{}, err
 	}
 	now := r.now()
-	var transactions []apitypes.PointsTransaction
-	var badges []apitypes.Badge
-	var grants []apitypes.RewardGrant
-	action := strings.TrimSpace(valueOrZero(req.Action))
-	var actionSpec apitypes.PetDefActionSpec
-	hasAction := false
-	if action != "" {
-		var ok bool
-		actionSpec, ok = petDefAction(petDef, action)
-		if !ok {
-			return apitypes.PetDriveResponse{}, fmt.Errorf("pet action %q is not defined by petdef %q", action, petDef.Id)
-		}
-		hasAction = true
-		if actionSpec.Cost > 0 {
-			txn, err := r.applyPointsTx(ctx, tx, &account, -actionSpec.Cost, ruleset.Name, pet.Id, "", "", "pet.drive."+action, "pet_action", action)
-			if err != nil {
-				return apitypes.PetDriveResponse{}, err
-			}
-			transactions = append(transactions, txn)
-		}
-	}
-	var result *apitypes.GameResult
-	reward := mergeRewards(defaultReward(ruleset), petActionReward(ruleset, action))
-	reward = mergeRewards(reward, actionEffectReward(actionSpec))
-	if req.GameResult != nil {
-		if err := r.validateGameResult(ctx, ruleset, req.GameResult.GameDefId); err != nil {
+	settlePetTime(&pet, now, ruleset.Spec.Time)
+	pet.UpdatedAt = now
+	if pet.Stats.Life == 0 {
+		pet.Lifecycle = apitypes.PetLifecycleDead
+		pet.DiedAt = &now
+		if err := updatePet(ctx, tx, pet); err != nil {
 			return apitypes.PetDriveResponse{}, err
 		}
-		if key := strings.TrimSpace(valueOrZero(req.GameResult.IdempotencyKey)); key != "" {
-			if _, err := findGameResultByIdempotencyKey(ctx, tx, owner, ruleset.Name, key); err == nil {
-				return apitypes.PetDriveResponse{}, fmt.Errorf("game result idempotency_key %q was already recorded", key)
-			} else if !errors.Is(err, sql.ErrNoRows) {
-				return apitypes.PetDriveResponse{}, err
-			}
+		if err := tx.Commit(); err != nil {
+			return apitypes.PetDriveResponse{}, err
 		}
+		return emptyDriveResponse(pet, account), nil
+	}
+
+	energyCost := actionPolicy.EnergyCost
+	pointsCost := int64(0)
+	if req.GameResult != nil {
+		energyCost = gameRule.Policy.EnergyCost
+		pointsCost = gameRule.Policy.PointsCost
+	}
+	if pet.Stats.Energy < float64(energyCost) || account.Balance < pointsCost {
+		if err := updatePet(ctx, tx, pet); err != nil {
+			return apitypes.PetDriveResponse{}, err
+		}
+		if err := tx.Commit(); err != nil {
+			return apitypes.PetDriveResponse{}, err
+		}
+		if pet.Stats.Energy < float64(energyCost) {
+			return apitypes.PetDriveResponse{}, errors.New("gameplay: insufficient energy")
+		}
+		return apitypes.PetDriveResponse{}, errors.New("gameplay: insufficient points")
+	}
+
+	pet.Stats.Energy = clampPetStat(pet.Stats.Energy - float64(energyCost))
+	transactions := []apitypes.PointsTransaction{}
+	badges := []apitypes.Badge{}
+	grants := []apitypes.RewardGrant{}
+	var result *apitypes.GameResult
+	var grant apitypes.RewardGrant
+	if req.GameResult != nil {
 		occurredAt := now
 		if req.GameResult.OccurredAt != nil {
 			occurredAt = req.GameResult.OccurredAt.UTC()
 		}
 		gameResult := apitypes.GameResult{
-			Id:                 r.newID(),
-			OwnerPublicKey:     owner,
-			RuntimeProfileName: ruleset.Name,
-			PetId:              pet.Id,
-			GameDefId:          req.GameResult.GameDefId,
-			Score:              req.GameResult.Score,
-			MaxScore:           req.GameResult.MaxScore,
-			Difficulty:         req.GameResult.Difficulty,
-			Outcome:            req.GameResult.Outcome,
-			DurationMs:         req.GameResult.DurationMs,
-			IdempotencyKey:     req.GameResult.IdempotencyKey,
-			Payload:            req.GameResult.Payload,
-			OccurredAt:         occurredAt,
-			CreatedAt:          now,
+			Id: r.newID(), OwnerPublicKey: owner, RuntimeProfileName: ruleset.Name,
+			PetId: pet.Id, GameDefId: gameRule.GameDefID, Score: req.GameResult.Score,
+			MaxScore: req.GameResult.MaxScore, Difficulty: req.GameResult.Difficulty,
+			Outcome: req.GameResult.Outcome, DurationMs: req.GameResult.DurationMs,
+			IdempotencyKey: req.GameResult.IdempotencyKey, Payload: req.GameResult.Payload,
+			OccurredAt: occurredAt, CreatedAt: now,
 		}
 		if err := insertGameResult(ctx, tx, gameResult); err != nil {
 			return apitypes.PetDriveResponse{}, err
 		}
 		result = &gameResult
-		reward = mergeRewards(reward, gameReward(ruleset, req.GameResult.GameDefId))
+		if pointsCost > 0 {
+			transaction, err := r.applyPointsTx(ctx, tx, &account, -pointsCost, ruleset.Name, pet.Id, gameResult.Id, "", "game.play", "game_result", gameResult.Id)
+			if err != nil {
+				return apitypes.PetDriveResponse{}, err
+			}
+			transactions = append(transactions, transaction)
+		}
+		badgeDelta := make(map[string]int64, len(evaluated.BadgeExpDelta))
+		for alias, delta := range evaluated.BadgeExpDelta {
+			badgeDelta[ruleset.Spec.BadgeDefs[alias]] = delta
+		}
+		grant = apitypes.RewardGrant{
+			Id: r.newID(), OwnerPublicKey: owner, RuntimeProfileName: ruleset.Name,
+			PetId: &pet.Id, GameResultId: &gameResult.Id, PetExpDelta: evaluated.PetExpDelta,
+			BadgeExpDelta: badgeDelta, SourceType: "game_result", SourceId: gameResult.Id,
+			Reason: stringPtr(strings.TrimSpace(evaluated.Reason)), CreatedAt: now,
+		}
+	} else {
+		applyCareBehavior(&pet, behavior, actionPolicy.StatDelta)
+		expDelta := energyCost / ruleset.Spec.Experience.EnergyPerPetExp
+		sourceID := strings.TrimSpace(valueOrZero(req.IdempotencyKey))
+		grantID := r.newID()
+		if sourceID == "" {
+			sourceID = grantID
+		}
+		grant = apitypes.RewardGrant{
+			Id: grantID, OwnerPublicKey: owner, RuntimeProfileName: ruleset.Name,
+			PetId: &pet.Id, PetExpDelta: expDelta, BadgeExpDelta: map[string]int64{},
+			SourceType: "pet_behavior", SourceId: sourceID,
+			Reason: stringPtr("behavior." + string(behavior)), CreatedAt: now,
+		}
 	}
-	if !rewardEmpty(reward) {
-		sourceType, sourceID := rewardSource(action, result, pet.Id)
-		grant := apitypes.RewardGrant{
-			Id:                 r.newID(),
-			OwnerPublicKey:     owner,
-			RuntimeProfileName: ruleset.Name,
-			PetId:              &pet.Id,
-			PointsDelta:        int64Value(reward.PointsDelta),
-			PetExpDelta:        int64Value(reward.PetExpDelta),
-			BadgeExpDelta:      mapValue(reward.BadgeExpDelta),
-			SourceType:         sourceType,
-			SourceId:           sourceID,
-			Reason:             stringPtr(rewardReason(action, result)),
-			CreatedAt:          now,
-		}
-		if result != nil {
-			grant.GameResultId = &result.Id
-		}
-		applyPetExp(&pet, grant.PetExpDelta)
-		if err := insertRewardGrant(ctx, tx, grant); err != nil {
+	applyPetExp(&pet, grant.PetExpDelta, ruleset.Spec.Experience.Leveling)
+	if err := insertRewardGrant(ctx, tx, grant); err != nil {
+		return apitypes.PetDriveResponse{}, err
+	}
+	grants = append(grants, grant)
+	for badgeDefID, delta := range grant.BadgeExpDelta {
+		badge, err := r.applyBadgeExp(ctx, tx, owner, badgeDefID, delta, now)
+		if err != nil {
 			return apitypes.PetDriveResponse{}, err
 		}
-		grants = append(grants, grant)
-		if grant.PointsDelta != 0 {
-			gameResultID := ""
-			if result != nil {
-				gameResultID = result.Id
-			}
-			txn, err := r.applyPointsTx(ctx, tx, &account, grant.PointsDelta, ruleset.Name, pet.Id, gameResultID, grant.Id, "reward.grant", "reward_grant", grant.Id)
-			if err != nil {
-				return apitypes.PetDriveResponse{}, err
-			}
-			transactions = append(transactions, txn)
-		}
-		for badgeID, delta := range grant.BadgeExpDelta {
-			badge, err := r.applyBadgeExp(ctx, tx, owner, strings.TrimSpace(badgeID), delta, now)
-			if err != nil {
-				return apitypes.PetDriveResponse{}, err
-			}
-			badges = append(badges, badge)
-		}
+		badges = append(badges, badge)
 	}
-	if hasAction {
-		applyActionEffect(&pet, actionSpec)
-	}
-	pet.UpdatedAt = now
 	pet.LastActiveAt = now
+	pet.UpdatedAt = now
 	if err := updatePet(ctx, tx, pet); err != nil {
 		return apitypes.PetDriveResponse{}, err
 	}
@@ -578,6 +635,181 @@ func (r *Runtime) DrivePet(ctx context.Context, owner string, req apitypes.PetDr
 		return apitypes.PetDriveResponse{}, err
 	}
 	return apitypes.PetDriveResponse{Pet: pet, Points: account, GameResult: result, Badges: badges, RewardGrants: grants, Transactions: transactions}, nil
+}
+
+func emptyDriveResponse(pet apitypes.Pet, account apitypes.PointsAccount) apitypes.PetDriveResponse {
+	return apitypes.PetDriveResponse{
+		Pet: pet, Points: account, Badges: []apitypes.Badge{},
+		RewardGrants: []apitypes.RewardGrant{}, Transactions: []apitypes.PointsTransaction{},
+	}
+}
+
+func (r *Runtime) ignoredGameResponse(ctx context.Context, owner string, pet apitypes.Pet) (apitypes.PetDriveResponse, error) {
+	account, err := r.readPointsAccount(ctx, owner, pet.RuntimeProfileName)
+	if err != nil {
+		return apitypes.PetDriveResponse{}, err
+	}
+	return emptyDriveResponse(pet, account), nil
+}
+
+func (r *Runtime) readPointsAccount(ctx context.Context, owner, profile string) (apitypes.PointsAccount, error) {
+	db, err := r.db()
+	if err != nil {
+		return apitypes.PointsAccount{}, err
+	}
+	return scanPointsAccount(db.QueryRowContext(ctx, db.Rebind(pointsAccountSelectSQL()+` WHERE owner_public_key = ? AND runtime_profile_name = ?`), owner, profile))
+}
+
+func (r *Runtime) validateConfiguredGame(ctx context.Context, rule ProfileGameRule) error {
+	if strings.TrimSpace(rule.GameDefID) == "" {
+		return errors.New("gameplay: game_def_id is required")
+	}
+	_, err := r.Catalog.GetGameDefByID(ctx, rule.GameDefID)
+	return err
+}
+
+func (r *Runtime) rewardEvaluationRequest(ctx context.Context, rule ProfileGameRule, input *apitypes.PetDriveGameResultInput, owner string, pet apitypes.Pet, ruleset ProfileRules) (RewardEvaluationRequest, error) {
+	gameDef, err := r.Catalog.GetGameDefByID(ctx, rule.GameDefID)
+	if err != nil {
+		return RewardEvaluationRequest{}, err
+	}
+	badges := make([]BadgeRewardCriterion, 0, len(ruleset.Spec.BadgeDefs))
+	aliases := make([]string, 0, len(ruleset.Spec.BadgeDefs))
+	for alias := range ruleset.Spec.BadgeDefs {
+		aliases = append(aliases, alias)
+	}
+	sort.Strings(aliases)
+	for _, alias := range aliases {
+		badgeDef, err := r.Catalog.GetBadgeDefByID(ctx, ruleset.Spec.BadgeDefs[alias])
+		if err != nil {
+			return RewardEvaluationRequest{}, err
+		}
+		criterion := BadgeRewardCriterion{Alias: alias, DisplayName: badgeDef.Spec.DisplayName, Metadata: badgeDef.Spec.Metadata}
+		if badgeDef.Spec.Description != nil {
+			criterion.Description = *badgeDef.Spec.Description
+		}
+		if badgeDef.Spec.Tags != nil {
+			criterion.Tags = append([]string(nil), (*badgeDef.Spec.Tags)...)
+		}
+		badges = append(badges, criterion)
+	}
+	now := r.now()
+	occurredAt := now
+	if input.OccurredAt != nil {
+		occurredAt = input.OccurredAt.UTC()
+	}
+	result := apitypes.GameResult{
+		OwnerPublicKey: owner, RuntimeProfileName: ruleset.Name, PetId: pet.Id,
+		GameDefId: rule.GameDefID, Score: input.Score, MaxScore: input.MaxScore,
+		Difficulty: input.Difficulty, Outcome: input.Outcome, DurationMs: input.DurationMs,
+		IdempotencyKey: input.IdempotencyKey, Payload: input.Payload, OccurredAt: occurredAt,
+	}
+	return RewardEvaluationRequest{
+		ModelAlias: rule.Policy.Reward.Model, Prompt: rule.Policy.Reward.Prompt,
+		GameDef: gameDef, GameResult: result, Badges: badges, PetExpMax: rule.Policy.Reward.PetExpMax,
+		BadgeExpMaxPerBadge: rule.Policy.Reward.BadgeExpMaxPerBadge,
+	}, nil
+}
+
+func (r *Runtime) completedGameResponse(ctx context.Context, owner, profile, key, petID, gameDefID string) (apitypes.PetDriveResponse, bool, error) {
+	db, err := r.db()
+	if err != nil {
+		return apitypes.PetDriveResponse{}, false, err
+	}
+	result, err := scanGameResult(db.QueryRowContext(ctx, db.Rebind(gameResultSelectSQL()+` WHERE owner_public_key = ? AND runtime_profile_name = ? AND idempotency_key = ?`), owner, profile, strings.TrimSpace(key)))
+	if errors.Is(err, sql.ErrNoRows) {
+		return apitypes.PetDriveResponse{}, false, nil
+	}
+	if err != nil {
+		return apitypes.PetDriveResponse{}, false, err
+	}
+	if result.PetId != petID || result.GameDefId != gameDefID {
+		return apitypes.PetDriveResponse{}, false, errors.New("gameplay: idempotency key belongs to another game Drive")
+	}
+	response, err := r.completedDriveResponse(ctx, owner, profile, result.PetId, &result, "game_result", result.Id)
+	return response, true, err
+}
+
+func (r *Runtime) completedBehaviorResponse(ctx context.Context, owner, profile, key string, pet apitypes.Pet) (apitypes.PetDriveResponse, bool, error) {
+	db, err := r.db()
+	if err != nil {
+		return apitypes.PetDriveResponse{}, false, err
+	}
+	grant, err := scanRewardGrant(db.QueryRowContext(ctx, db.Rebind(rewardGrantSelectSQL()+` WHERE owner_public_key = ? AND runtime_profile_name = ? AND source_type = 'pet_behavior' AND source_id = ?`), owner, profile, strings.TrimSpace(key)))
+	if errors.Is(err, sql.ErrNoRows) {
+		return apitypes.PetDriveResponse{}, false, nil
+	}
+	if err != nil {
+		return apitypes.PetDriveResponse{}, false, err
+	}
+	if grant.PetId == nil || *grant.PetId != pet.Id {
+		return apitypes.PetDriveResponse{}, false, errors.New("gameplay: idempotency key belongs to another pet")
+	}
+	response, err := r.completedDriveResponse(ctx, owner, profile, pet.Id, nil, "pet_behavior", strings.TrimSpace(key))
+	return response, true, err
+}
+
+func (r *Runtime) completedDriveResponse(ctx context.Context, owner, profile, petID string, result *apitypes.GameResult, sourceType, sourceID string) (apitypes.PetDriveResponse, error) {
+	pet, err := r.GetPet(ctx, owner, petID)
+	if err != nil {
+		return apitypes.PetDriveResponse{}, err
+	}
+	account, err := r.readPointsAccount(ctx, owner, profile)
+	if err != nil {
+		return apitypes.PetDriveResponse{}, err
+	}
+	db, err := r.db()
+	if err != nil {
+		return apitypes.PetDriveResponse{}, err
+	}
+	grant, err := scanRewardGrant(db.QueryRowContext(ctx, db.Rebind(rewardGrantSelectSQL()+` WHERE owner_public_key = ? AND runtime_profile_name = ? AND source_type = ? AND source_id = ?`), owner, profile, sourceType, sourceID))
+	if err != nil {
+		return apitypes.PetDriveResponse{}, err
+	}
+	badges := make([]apitypes.Badge, 0, len(grant.BadgeExpDelta))
+	badgeIDs := make([]string, 0, len(grant.BadgeExpDelta))
+	for badgeID := range grant.BadgeExpDelta {
+		badgeIDs = append(badgeIDs, badgeID)
+	}
+	sort.Strings(badgeIDs)
+	for _, badgeID := range badgeIDs {
+		badge, err := scanBadge(db.QueryRowContext(ctx, db.Rebind(badgeSelectSQL()+` WHERE owner_public_key = ? AND id = ?`), owner, badgeID))
+		if err != nil {
+			return apitypes.PetDriveResponse{}, err
+		}
+		badges = append(badges, badge)
+	}
+	transactions, err := listDriveTransactions(ctx, db, owner, result, grant.Id)
+	if err != nil {
+		return apitypes.PetDriveResponse{}, err
+	}
+	return apitypes.PetDriveResponse{
+		Pet: pet, Points: account, GameResult: result, Badges: badges,
+		RewardGrants: []apitypes.RewardGrant{grant}, Transactions: transactions,
+	}, nil
+}
+
+func listDriveTransactions(ctx context.Context, db *sqlx.DB, owner string, result *apitypes.GameResult, grantID string) ([]apitypes.PointsTransaction, error) {
+	query := pointsTransactionSelectSQL() + ` WHERE owner_public_key = ? AND reward_grant_id = ?`
+	args := []any{owner, grantID}
+	if result != nil {
+		query = pointsTransactionSelectSQL() + ` WHERE owner_public_key = ? AND game_result_id = ?`
+		args = []any{owner, result.Id}
+	}
+	rows, err := db.QueryContext(ctx, db.Rebind(query+` ORDER BY id`), args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []apitypes.PointsTransaction{}
+	for rows.Next() {
+		item, err := scanPointsTransaction(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, item)
+	}
+	return out, rows.Err()
 }
 
 func (r *Runtime) GetPoints(ctx context.Context, owner, runtimeProfileName string) (apitypes.PointsAccount, error) {
@@ -700,85 +932,30 @@ func (r *Runtime) resolveProfileRules(ctx context.Context, name string) (Profile
 	}
 	rules.Spec.PetPool = petPool
 
-	gameDefIDs := make([]string, 0, len(rules.Spec.GameDefIds))
-	existingGameDefs := make(map[string]struct{}, len(rules.Spec.GameDefIds))
-	for _, id := range rules.Spec.GameDefIds {
+	games := make(map[string]ProfileGameRule, len(rules.Spec.Games))
+	for id, rule := range rules.Spec.Games {
 		if _, err := r.Catalog.GetGameDefByID(ctx, id); err != nil {
 			if errors.Is(err, kv.ErrNotFound) {
 				continue
 			}
 			return ProfileRules{}, err
 		}
-		gameDefIDs = append(gameDefIDs, id)
-		existingGameDefs[id] = struct{}{}
+		games[id] = rule
 	}
-	rules.Spec.GameDefIds = gameDefIDs
+	rules.Spec.Games = games
 
-	badgeDefIDs := make([]string, 0, len(rules.Spec.BadgeDefIds))
-	existingBadgeDefs := make(map[string]struct{}, len(rules.Spec.BadgeDefIds))
-	for _, id := range rules.Spec.BadgeDefIds {
+	badgeDefs := make(map[string]string, len(rules.Spec.BadgeDefs))
+	for alias, id := range rules.Spec.BadgeDefs {
 		if _, err := r.Catalog.GetBadgeDefByID(ctx, id); err != nil {
 			if errors.Is(err, kv.ErrNotFound) {
 				continue
 			}
 			return ProfileRules{}, err
 		}
-		badgeDefIDs = append(badgeDefIDs, id)
-		existingBadgeDefs[id] = struct{}{}
+		badgeDefs[alias] = id
 	}
-	rules.Spec.BadgeDefIds = badgeDefIDs
-	rules.Spec.Drive = filterResolvedDrive(rules.Spec.Drive, existingGameDefs, existingBadgeDefs)
+	rules.Spec.BadgeDefs = badgeDefs
 	return rules, nil
-}
-
-func filterResolvedDrive(
-	drive *apitypes.RuntimeProfileDriveSpec,
-	existingGameDefs map[string]struct{},
-	existingBadgeDefs map[string]struct{},
-) *apitypes.RuntimeProfileDriveSpec {
-	if drive == nil {
-		return nil
-	}
-	out := &apitypes.RuntimeProfileDriveSpec{}
-	if drive.Default != nil {
-		reward := filterResolvedReward(*drive.Default, existingBadgeDefs)
-		out.Default = &reward
-	}
-	if drive.Games != nil {
-		rewards := make(map[string]apitypes.RuntimeProfileRewardSpec, len(*drive.Games))
-		for gameDefID, reward := range *drive.Games {
-			if _, ok := existingGameDefs[gameDefID]; !ok {
-				continue
-			}
-			rewards[gameDefID] = filterResolvedReward(reward, existingBadgeDefs)
-		}
-		out.Games = &rewards
-	}
-	if drive.PetActions != nil {
-		rewards := make(map[string]apitypes.RuntimeProfileRewardSpec, len(*drive.PetActions))
-		for action, reward := range *drive.PetActions {
-			rewards[action] = filterResolvedReward(reward, existingBadgeDefs)
-		}
-		out.PetActions = &rewards
-	}
-	return out
-}
-
-func filterResolvedReward(
-	reward apitypes.RuntimeProfileRewardSpec,
-	existingBadgeDefs map[string]struct{},
-) apitypes.RuntimeProfileRewardSpec {
-	if reward.BadgeExpDelta == nil {
-		return reward
-	}
-	filtered := make(map[string]int64, len(*reward.BadgeExpDelta))
-	for badgeDefID, delta := range *reward.BadgeExpDelta {
-		if _, ok := existingBadgeDefs[badgeDefID]; ok {
-			filtered[badgeDefID] = delta
-		}
-	}
-	reward.BadgeExpDelta = &filtered
-	return reward
 }
 
 func (r *Runtime) pickPetDef(pool []ProfilePetPoolEntry) (ProfilePetPoolEntry, error) {
@@ -956,25 +1133,6 @@ func (r *Runtime) applyBadgeExp(ctx context.Context, tx *sqlx.Tx, owner, badgeDe
 	return badge, upsertBadge(ctx, tx, badge)
 }
 
-func (r *Runtime) validateGameResult(ctx context.Context, ruleset ProfileRules, gameDefID string) error {
-	gameDefID = strings.TrimSpace(gameDefID)
-	if gameDefID == "" {
-		return errors.New("game_def_id is required")
-	}
-	found := false
-	for _, id := range ruleset.Spec.GameDefIds {
-		if id == gameDefID {
-			found = true
-			break
-		}
-	}
-	if !found {
-		return fmt.Errorf("game def %q is not in RuntimeProfile %q", gameDefID, ruleset.Name)
-	}
-	_, err := r.Catalog.GetGameDefByID(ctx, gameDefID)
-	return err
-}
-
 func (r *Runtime) db() (*sqlx.DB, error) {
 	if r == nil || r.DB == nil {
 		return nil, errors.New("gameplay: sql db is not configured")
@@ -1015,13 +1173,6 @@ func requireOwner(owner string) error {
 	return nil
 }
 
-func petLevel(exp int64) int64 {
-	if exp < 0 {
-		exp = 0
-	}
-	return exp/100 + 1
-}
-
 func validateSQLDialect(driverName string) error {
 	switch driverName {
 	case "sqlite", "postgres":
@@ -1029,6 +1180,12 @@ func validateSQLDialect(driverName string) error {
 	default:
 		return fmt.Errorf("gameplay: unsupported sql dialect %q", driverName)
 	}
+}
+
+func (r *Runtime) driveMutex(key string) *sync.Mutex {
+	hash := fnv.New32a()
+	_, _ = hash.Write([]byte(key))
+	return &r.driveMu[hash.Sum32()%uint32(len(r.driveMu))]
 }
 
 func sqlColumnExists(ctx context.Context, db *sqlx.DB, table, column string) (bool, error) {

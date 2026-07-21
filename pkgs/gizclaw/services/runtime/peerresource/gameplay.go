@@ -2,7 +2,9 @@ package peerresource
 
 import (
 	"context"
+	"errors"
 	"io"
+	"net/http"
 	"strings"
 	"time"
 
@@ -189,59 +191,17 @@ func (s *Server) handlePetActionsGet(ctx context.Context, req *rpcapi.RPCRequest
 func petActions(pet apitypes.Pet, petDef apitypes.PetDef) rpcapi.PetActions {
 	spec := petDef.Spec
 	return rpcapi.PetActions{
-		PetId:           pet.Id,
-		PetdefId:        petDef.Id,
-		DefaultLocale:   petDef.I18n.DefaultLocale,
-		Actions:         petActionsList(spec.Drive, spec.Visual.Pixa.Metadata),
+		PetId:    pet.Id,
+		PetdefId: petDef.Id,
+		Bindings: rpcapi.PetVisualBindings{
+			Feed: spec.Visual.Bindings.Behaviors.Feed, Bathe: spec.Visual.Bindings.Behaviors.Bathe,
+			Play: spec.Visual.Bindings.Behaviors.Play, Heal: spec.Visual.Bindings.Behaviors.Heal,
+			Idle: spec.Visual.Bindings.States.Idle, Sick: spec.Visual.Bindings.States.Sick,
+			Dead: spec.Visual.Bindings.States.Dead, Sleep: spec.Visual.Bindings.States.Sleep,
+		},
 		ClipNames:       petClipNames(spec.Visual.Pixa.Metadata),
-		I18n:            petActionsI18n(petDef.I18n),
 		PetdefUpdatedAt: petDef.UpdatedAt.Format(time.RFC3339Nano),
 	}
-}
-
-func petActionsList(drive apitypes.PetDefDriveSpec, pixa apitypes.PetDefPixaMetadata) []rpcapi.PetAction {
-	clipsByID := map[string]string{}
-	clipsByAction := map[string]string{}
-	for _, clip := range pixa.Clips {
-		if strings.TrimSpace(clip.Id) != "" {
-			clipsByID[clip.Id] = clip.PixaClipName
-		}
-		if clip.ActionId != nil && strings.TrimSpace(*clip.ActionId) != "" {
-			clipsByAction[*clip.ActionId] = clip.PixaClipName
-		}
-	}
-
-	actions := make([]rpcapi.PetAction, 0, len(drive.Actions))
-	for _, action := range drive.Actions {
-		item := rpcapi.PetAction{
-			Id:           action.Id,
-			Cost:         action.Cost,
-			VisualClipId: action.VisualClipId,
-		}
-		if item.VisualClipId != nil {
-			if clipName, ok := clipsByID[*item.VisualClipId]; ok {
-				item.PixaClipName = &clipName
-			}
-		}
-		if item.PixaClipName == nil {
-			if clipName, ok := clipsByID[action.Id]; ok {
-				item.PixaClipName = &clipName
-			}
-		}
-		if item.PixaClipName == nil {
-			if clipName, ok := clipsByAction[action.Id]; ok {
-				item.PixaClipName = &clipName
-			}
-		}
-		if action.Effect != nil {
-			item.Effect = &rpcapi.PetActionEffectSpec{PetExpDelta: action.Effect.PetExpDelta}
-			if action.Effect.AttrDelta != nil {
-				item.Effect.AttrDeltaLife = petLifePtr(action.Effect.AttrDelta.Life)
-			}
-		}
-		actions = append(actions, item)
-	}
-	return actions
 }
 
 func petClipNames(pixa apitypes.PetDefPixaMetadata) map[string]string {
@@ -250,37 +210,6 @@ func petClipNames(pixa apitypes.PetDefPixaMetadata) map[string]string {
 		if id := strings.TrimSpace(clip.Id); id != "" {
 			out[id] = clip.PixaClipName
 		}
-	}
-	return out
-}
-
-func petLifePtr(in *apitypes.PetLife) *rpcapi.PetLife {
-	if in == nil {
-		return nil
-	}
-	out := make(rpcapi.PetLife, len(*in))
-	for key, value := range *in {
-		out[key] = value
-	}
-	return &out
-}
-
-func petActionsI18n(in apitypes.PetDefI18nSpec) rpcapi.PetActionsI18n {
-	out := make(rpcapi.PetActionsI18n, len(in.AdditionalProperties))
-	for locale, catalog := range in.AdditionalProperties {
-		item := rpcapi.PetActionsI18nCatalog{}
-		if catalog.Drive != nil && catalog.Drive.Actions != nil {
-			item.Actions = petActionsI18nDisplayMap(*catalog.Drive.Actions)
-		}
-		out[locale] = item
-	}
-	return out
-}
-
-func petActionsI18nDisplayMap(in map[string]apitypes.PetDefI18nDisplayText) map[string]rpcapi.PetActionI18nText {
-	out := make(map[string]rpcapi.PetActionI18nText, len(in))
-	for key, value := range in {
-		out[key] = rpcapi.PetActionI18nText{Name: value.DisplayName}
 	}
 	return out
 }
@@ -370,11 +299,21 @@ func (s *Server) handlePetDrive(ctx context.Context, req *rpcapi.RPCRequest) *rp
 	if failure != nil {
 		return failure
 	}
+	if s.RewardEvaluator != nil {
+		profileCtx = gameplay.WithRewardEvaluator(profileCtx, s.RewardEvaluator)
+	}
 	resp, err := runtime.DrivePet(profileCtx, s.Caller.String(), apiParams)
 	if err != nil {
-		return businessError(req.Id, err)
+		return gameplayBusinessError(req.Id, err)
 	}
 	return resultResponse(req.Id, resp, (*rpcapi.RPCPayload).FromServerPetDriveResponse)
+}
+
+func gameplayBusinessError(id string, err error) *rpcapi.RPCResponse {
+	if errors.Is(err, gameplay.ErrPetDead) {
+		return statusError(id, http.StatusConflict, "pet is dead")
+	}
+	return businessError(id, err)
 }
 
 func (s *Server) handlePointsGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {

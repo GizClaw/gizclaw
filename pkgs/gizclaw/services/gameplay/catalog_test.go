@@ -82,38 +82,17 @@ func readAllBytes(t *testing.T, reader io.Reader) []byte {
 
 func testPetDefSpec(displayName string) apitypes.PetDefSpec {
 	return apitypes.PetDefSpec{
-		Attr: apitypes.PetDefAttrSpec{
-			Life: apitypes.PetAttrGroupSpec{
-				"hunger": {Initial: 100},
-				"clean":  {Initial: 100},
-			},
-			Progression: apitypes.PetAttrGroupSpec{
-				"xp": {Initial: 0},
-			},
-		},
 		Character: apitypes.PetDefCharacterSpec{
 			Prompt: "Small friendly pixel pet.",
 		},
 		Voice: apitypes.PetDefVoiceSpec{
 			Prompt: "Soft and curious.",
 		},
-		Drive: apitypes.PetDefDriveSpec{Actions: []apitypes.PetDefActionSpec{
-			{
-				Id:           "idle",
-				Cost:         0,
-				VisualClipId: stringPtr("idle"),
-			},
-			{
-				Id:           "bath",
-				Cost:         10,
-				VisualClipId: stringPtr("bath"),
-				Effect: &apitypes.PetDefActionEffectSpec{
-					AttrDelta:   &apitypes.PetAttrDelta{Life: &apitypes.PetLife{"clean": 10}},
-					PetExpDelta: int64Ptr(90),
-				},
-			},
-		}},
 		Visual: apitypes.PetDefVisualSpec{
+			Bindings: apitypes.PetDefVisualBindingsSpec{
+				Behaviors: apitypes.PetDefBehaviorBindingsSpec{Feed: "idle", Bathe: "bath", Play: "idle", Heal: "idle"},
+				States:    apitypes.PetDefStateBindingsSpec{Idle: "idle", Sick: "idle", Dead: "idle"},
+			},
 			Refs: apitypes.PetDefVisualRefsSpec{},
 			Pixa: apitypes.PetDefPixaSpec{
 				AssetRef: "asset://pets/test/pet.pixa",
@@ -121,8 +100,8 @@ func testPetDefSpec(displayName string) apitypes.PetDefSpec {
 					Version: "1",
 					Canvas:  apitypes.PetDefPixaCanvasMetadata{Width: 16, Height: 16},
 					Clips: []apitypes.PetDefPixaClipMetadata{
-						{Id: "idle", ActionId: stringPtr("idle"), PixaClipName: "default"},
-						{Id: "bath", ActionId: stringPtr("bath"), PixaClipName: "bath"},
+						{Id: "idle", PixaClipName: "default"},
+						{Id: "bath", PixaClipName: "bath"},
 					},
 				},
 			},
@@ -163,23 +142,21 @@ func seedGameplayCatalog(t *testing.T, ctx context.Context, catalog *Catalog) ap
 		t.Fatalf("CreateGameDef() error = %v", err)
 	}
 	requireResponse[adminhttp.CreateGameDef200JSONResponse](t, gameResp)
-	initialBalance, adoptionCost, points, gameExp := int64(50), int64(15), int64(30), int64(20)
-	badgeDelta := map[string]int64{"basic": 100}
+	initialBalance, adoptionCost := int64(50), int64(15)
 	petDefs := map[string]apitypes.RuntimeProfileBinding{"basic": gameplayTestBinding("petdef-basic")}
 	voices := map[string]apitypes.RuntimeProfileBinding{"pet-voice": gameplayTestBinding("voice-basic")}
+	models := map[string]apitypes.RuntimeProfileBinding{"reward": gameplayTestBinding("model-reward")}
 	gameDefs := map[string]apitypes.RuntimeProfileBinding{"basic": gameplayTestBinding("game-basic")}
 	badgeDefs := map[string]apitypes.RuntimeProfileBinding{"basic": gameplayTestBinding("badge-basic")}
 	pool := []apitypes.RuntimeProfilePetPoolEntry{{PetDef: "basic", Voice: "pet-voice", Weight: 10, AdoptionCost: &adoptionCost}}
 	return apitypes.RuntimeProfile{
 		Name: "default",
 		Spec: apitypes.RuntimeProfileSpec{
-			Resources: apitypes.RuntimeProfileResources{PetDefs: &petDefs, Voices: &voices, GameDefs: &gameDefs, BadgeDefs: &badgeDefs},
+			Resources: apitypes.RuntimeProfileResources{Models: &models, PetDefs: &petDefs, Voices: &voices, GameDefs: &gameDefs, BadgeDefs: &badgeDefs},
 			Gameplay: &apitypes.RuntimeProfileGameplaySpec{
 				Points:   &apitypes.RuntimeProfilePointsSpec{InitialBalance: &initialBalance},
 				Adoption: &apitypes.RuntimeProfileAdoptionSpec{Pool: &pool},
-				Rewards: &apitypes.RuntimeProfileDriveSpec{Games: &map[string]apitypes.RuntimeProfileRewardSpec{
-					"basic": {PointsDelta: &points, PetExpDelta: &gameExp, BadgeExpDelta: &badgeDelta},
-				}},
+				Pet:      testPetGameplaySpec(),
 			},
 		},
 	}
@@ -191,6 +168,41 @@ func gameplayTestBinding(resourceID string) apitypes.RuntimeProfileBinding {
 	}}
 }
 
+func testPetGameplaySpec() *apitypes.RuntimeProfilePetGameplaySpec {
+	return &apitypes.RuntimeProfilePetGameplaySpec{
+		Time: apitypes.RuntimeProfilePetTimeSpec{
+			CareDecayPerHour:      apitypes.RuntimeProfileCareDecaySpec{Satiety: 1.25, Hygiene: 0.75, Mood: 0.4},
+			EnergyRecoveryPerHour: 10,
+			LifeDecay: apitypes.RuntimeProfileLifeDecaySpec{
+				ContributingWeights: apitypes.RuntimeProfileLifeWeightsSpec{Health: 0.4, Satiety: 0.25, Hygiene: 0.2, Mood: 0.15},
+				MaxLossPerHour:      4, Exponent: 2,
+			},
+		},
+		Experience: apitypes.RuntimeProfilePetExperienceSpec{
+			EnergyPerPetExp: 5,
+			Leveling:        apitypes.RuntimeProfileLevelingSpec{BaseExp: 30, LogScale: 10},
+		},
+		Actions: apitypes.RuntimeProfilePetActionsSpec{
+			Feed:  apitypes.RuntimeProfilePetActionSpec{EnergyCost: 10, StatDelta: 10},
+			Bathe: apitypes.RuntimeProfilePetActionSpec{EnergyCost: 10, StatDelta: 10},
+			Play:  apitypes.RuntimeProfilePetActionSpec{EnergyCost: 10, StatDelta: 10},
+			Heal:  apitypes.RuntimeProfilePetActionSpec{EnergyCost: 10, StatDelta: 10},
+		},
+		Games: map[string]apitypes.RuntimeProfileGameSpec{
+			"basic": {
+				EnergyCost: 10, PointsCost: 10,
+				Reward: apitypes.RuntimeProfileGameRewardSpec{Model: "reward", PetExpMax: 10, BadgeExpMaxPerBadge: 5, Prompt: "Evaluate the validated game result."},
+			},
+		},
+	}
+}
+
+type rewardEvaluatorFunc func(context.Context, RewardEvaluationRequest) (apitypes.GameRewardSpec, error)
+
+func (fn rewardEvaluatorFunc) Evaluate(ctx context.Context, request RewardEvaluationRequest) (apitypes.GameRewardSpec, error) {
+	return fn(ctx, request)
+}
+
 func testPetDefI18n(displayName string) apitypes.PetDefI18nSpec {
 	description := "Test pet."
 	return apitypes.PetDefI18nSpec{
@@ -199,17 +211,6 @@ func testPetDefI18n(displayName string) apitypes.PetDefI18nSpec {
 			"en": {
 				DisplayName: &displayName,
 				Description: &description,
-				Attr: &apitypes.PetDefI18nAttrSpec{
-					Life: &apitypes.PetDefI18nAttrGroup{
-						"hunger": {DisplayName: "Hunger"},
-						"clean":  {DisplayName: "Clean"},
-					},
-					Progression: &apitypes.PetDefI18nAttrGroup{"xp": {DisplayName: "XP"}},
-				},
-				Drive: &apitypes.PetDefI18nDriveSpec{Actions: &map[string]apitypes.PetDefI18nDisplayText{
-					"idle": {DisplayName: "Idle"},
-					"bath": {DisplayName: "Bath"},
-				}},
 			},
 		},
 	}

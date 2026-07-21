@@ -380,7 +380,7 @@ function GameplayPanel(): JSX.Element {
   const [points, setPoints] = useState<PointsAccountObject | null>(null);
   const [selectedPetID, setSelectedPetID] = useState("");
   const [adoptName, setAdoptName] = useState("");
-  const [driveAction, setDriveAction] = useState("");
+  const [driveBehavior, setDriveBehavior] = useState("");
   const [driveGameID, setDriveGameID] = useState("");
   const [driveScore, setDriveScore] = useState("");
   const [driveMaxScore, setDriveMaxScore] = useState("");
@@ -439,7 +439,7 @@ function GameplayPanel(): JSX.Element {
     try {
       const body: Record<string, unknown> = {
         pet_id: selectedPetID.trim(),
-        ...(driveAction.trim() !== "" ? { action: driveAction.trim() } : {}),
+        ...(driveBehavior.trim() !== "" ? { behavior: driveBehavior.trim() } : {}),
       };
       if (driveGameID.trim() !== "") {
         body.game_result = {
@@ -454,7 +454,7 @@ function GameplayPanel(): JSX.Element {
       }
       await expectData(drivePeerPet({ body }));
       const petID = selectedPetID.trim();
-      const actionID = driveAction.trim();
+      const actionID = driveBehavior.trim();
       const presentation = await getPeerPetActions({ body: { id: petID } });
       const clipName = presentation.data == null ? actionID || "idle" : petActionPixaClipName(presentation.data as PetActionsObject, actionID);
       setPetClipByID((current) => ({ ...current, [petID]: clipName }));
@@ -559,7 +559,7 @@ function GameplayPanel(): JSX.Element {
               ))}
             </SelectContent>
           </Select>
-          <Input onChange={(event) => setDriveAction(event.target.value)} placeholder="Action" value={driveAction} />
+          <Input onChange={(event) => setDriveBehavior(event.target.value)} placeholder="Behavior (feed/bathe/play/heal)" value={driveBehavior} />
           <Input onChange={(event) => setDriveGameID(event.target.value)} placeholder="Game ID" value={driveGameID} />
           <Input onChange={(event) => setDriveScore(event.target.value)} placeholder="Score" type="number" value={driveScore} />
           <Input onChange={(event) => setDriveMaxScore(event.target.value)} placeholder="Max score" type="number" value={driveMaxScore} />
@@ -606,7 +606,7 @@ function GameplayPetTable({ busy, onDelete, onRename, pager, petClipByID }: { bu
                 <TableHead>PetDef</TableHead>
                 <TableHead>XP</TableHead>
                 <TableHead>Progression</TableHead>
-                <TableHead>Life</TableHead>
+                <TableHead>Stats</TableHead>
                 <TableHead>Workspace</TableHead>
                 <TableHead className="w-36 text-right">Actions</TableHead>
               </TableRow>
@@ -626,7 +626,7 @@ function GameplayPetTable({ busy, onDelete, onRename, pager, petClipByID }: { bu
                   <TableCell className="font-mono text-xs">{pet.petdef_id}</TableCell>
                   <TableCell>{petXP(pet)}</TableCell>
                   <TableCell className="max-w-52 truncate font-mono text-xs" title={jsonSummary(pet.progression)}>{jsonSummary(pet.progression)}</TableCell>
-                  <TableCell className="max-w-52 truncate font-mono text-xs" title={jsonSummary(pet.life)}>{jsonSummary(pet.life)}</TableCell>
+                  <TableCell className="max-w-52 truncate font-mono text-xs" title={jsonSummary(pet.stats)}>{jsonSummary(pet.stats)}</TableCell>
                   <TableCell className="max-w-52 truncate font-mono text-xs" title={pet.workspace_name}>{pet.workspace_name}</TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-2">
@@ -649,11 +649,11 @@ function GameplayPetTable({ busy, onDelete, onRename, pager, petClipByID }: { bu
 }
 
 function petActionPixaClipName(actions: PetActionsObject, actionID: string): string {
-  if (actionID === "") {
-    return actions.actions.find((candidate) => candidate.id === "idle")?.pixa_clip_name ?? "idle";
+  const binding = actionID === "" ? actions.bindings.idle : actions.bindings[actionID as keyof typeof actions.bindings];
+  if (typeof binding !== "string" || binding === "") {
+    return actionID || "idle";
   }
-  const action = actions.actions.find((candidate) => candidate.id === actionID);
-  return action?.pixa_clip_name ?? action?.visual_clip_id ?? (actionID || "idle");
+  return actions.clip_names[binding] ?? binding;
 }
 
 function GameplayBadgeTable({ pager }: { pager: ReturnType<typeof usePagedList<BadgeObject>> }): JSX.Element {
@@ -5029,12 +5029,7 @@ function jsonSummary(value: unknown): string {
 }
 
 function petXP(pet: PetObject): string {
-  const progression = pet.progression;
-  if (typeof progression !== "object" || progression == null || Array.isArray(progression)) {
-    return "0";
-  }
-  const xp = (progression as Record<string, unknown>).xp;
-  return typeof xp === "number" ? String(xp) : "0";
+  return String(pet.progression.experience);
 }
 
 function gameplayCell(value: unknown): string {

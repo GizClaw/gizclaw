@@ -39,15 +39,11 @@ func TestResolveProfileRulesUsesLocalAliasesAndSkipsMissingResources(t *testing.
 		{PetDef: "tragon", Voice: "pet-voice", Weight: 100, AdoptionCost: &adoptionCost},
 		{PetDef: "missing", Voice: "pet-voice", Weight: 1},
 	}}
-	badgeDelta := map[string]int64{"dinodive-master": 100, "missing": 200}
-	missingBadgeDelta := map[string]int64{"missing": 300}
-	profile.Spec.Gameplay.Rewards = &apitypes.RuntimeProfileDriveSpec{
-		Default: &apitypes.RuntimeProfileRewardSpec{BadgeExpDelta: &badgeDelta},
-		Games: &map[string]apitypes.RuntimeProfileRewardSpec{
-			"dinodive": {BadgeExpDelta: &badgeDelta},
-			"missing":  {BadgeExpDelta: &missingBadgeDelta},
-		},
+	gamePolicy := apitypes.RuntimeProfileGameSpec{
+		EnergyCost: 10, PointsCost: 10,
+		Reward: apitypes.RuntimeProfileGameRewardSpec{Model: "reward", PetExpMax: 10, BadgeExpMaxPerBadge: 5, Prompt: "Evaluate."},
 	}
+	profile.Spec.Gameplay.Pet.Games = map[string]apitypes.RuntimeProfileGameSpec{"dinodive": gamePolicy, "missing": gamePolicy}
 
 	runtime := &Runtime{Catalog: catalog}
 	rules, err := runtime.resolveProfileRules(WithRuntimeProfile(ctx, profile), "default")
@@ -59,41 +55,28 @@ func TestResolveProfileRulesUsesLocalAliasesAndSkipsMissingResources(t *testing.
 	}}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("PetPool = %#v, want %#v", got, want)
 	}
-	if got, want := rules.Spec.GameDefIds, []string{"game-basic"}; !reflect.DeepEqual(got, want) {
-		t.Fatalf("GameDefIds = %#v, want %#v", got, want)
+	if got, want := rules.Spec.Games, map[string]ProfileGameRule{"game-basic": {GameDefID: "game-basic", Policy: gamePolicy}}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("Games = %#v, want %#v", got, want)
 	}
-	if got, want := rules.Spec.BadgeDefIds, []string{"badge-basic"}; !reflect.DeepEqual(got, want) {
-		t.Fatalf("BadgeDefIds = %#v, want %#v", got, want)
-	}
-	if rules.Spec.Drive == nil || rules.Spec.Drive.Games == nil {
-		t.Fatalf("Drive = %#v, want resolved rewards", rules.Spec.Drive)
-	}
-	wantRewards := map[string]apitypes.RuntimeProfileRewardSpec{
-		"game-basic": {BadgeExpDelta: &map[string]int64{"badge-basic": 100}},
-	}
-	if got := *rules.Spec.Drive.Games; !reflect.DeepEqual(got, wantRewards) {
-		t.Fatalf("GameRewards = %#v, want %#v", got, wantRewards)
-	}
-	wantDefault := map[string]int64{"badge-basic": 100}
-	if rules.Spec.Drive.Default == nil || rules.Spec.Drive.Default.BadgeExpDelta == nil ||
-		!reflect.DeepEqual(*rules.Spec.Drive.Default.BadgeExpDelta, wantDefault) {
-		t.Fatalf("DefaultReward = %#v, want badge aliases resolved and missing refs skipped", rules.Spec.Drive.Default)
+	if got, want := rules.Spec.BadgeDefs, map[string]string{"dinodive-master": "badge-basic"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("BadgeDefs = %#v, want %#v", got, want)
 	}
 }
 
-func TestValidateGameResultTreatsEmptyProfileMapAsAllowNone(t *testing.T) {
+func TestResolveProfileRulesTreatsEmptyProfileMapAsAllowNone(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	catalog := testCatalog(t, time.Date(2026, 7, 18, 12, 0, 0, 0, time.UTC))
 	profile := seedGameplayCatalog(t, ctx, catalog)
 	empty := map[string]apitypes.RuntimeProfileBinding{}
 	profile.Spec.Resources.GameDefs = &empty
+	profile.Spec.Gameplay.Pet.Games = map[string]apitypes.RuntimeProfileGameSpec{}
 	runtime := &Runtime{Catalog: catalog}
 	rules, err := runtime.resolveProfileRules(WithRuntimeProfile(ctx, profile), "default")
 	if err != nil {
 		t.Fatalf("resolveProfileRules() error = %v", err)
 	}
-	if err := runtime.validateGameResult(ctx, rules, "game-basic"); err == nil {
-		t.Fatal("validateGameResult() allowed a GameDef absent from RuntimeProfile")
+	if len(rules.Spec.Games) != 0 {
+		t.Fatalf("Games = %#v, want none", rules.Spec.Games)
 	}
 }

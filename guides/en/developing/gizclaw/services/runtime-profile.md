@@ -64,8 +64,23 @@ spec:
     adoption:
       pool:
         - {pet_def: codex, voice: cute-pet, weight: 100, rarity: common, adoption_cost: 10}
-    rewards:
-      default: {points_delta: 5, pet_exp_delta: 3}
+    pet:
+      time:
+        care_decay_per_hour: {health: 0.5, satiety: 1.3888888889, hygiene: 0.7, mood: 1}
+        energy_recovery_per_hour: 10
+        life_decay:
+          max_loss_per_hour: 4
+          exponent: 2
+          contributing_weights: {health: 0.25, satiety: 0.25, hygiene: 0.25, mood: 0.25}
+      experience:
+        energy_per_pet_exp: 5
+        leveling: {base_exp: 30, log_scale: 10}
+      actions:
+        feed: {energy_cost: 10, stat_delta: 10}
+        bathe: {energy_cost: 10, stat_delta: 10}
+        play: {energy_cost: 10, stat_delta: 10}
+        heal: {energy_cost: 10, stat_delta: 10}
+      games: {}
 ```
 
 Workflow aliases live under `workflows.collections.<collection>.<alias>`. Alias IDs are globally unique across Collections, while the client owns its fixed Collection navigation, ordering, icons, and Collection translations. RuntimeProfile supplies dynamic Workflow membership and alias-level `en` and `zh-CN` display text; it has no top-level locale or Collection presentation section.
@@ -73,6 +88,8 @@ Workflow aliases live under `workflows.collections.<collection>.<alias>`. Alias 
 The maps under `resources` bind environment aliases to canonical Admin resource IDs. Model aliases name semantic roles such as `chat`, `extraction`, `embedding`, `asr`, `realtime`, and `translation`; they do not contain provider or canonical Model names. Model and Voice aliases are independent environment variables, not Workflow members. Workflow specs and Workspace parameters store symbolic aliases, so each Workspace reload resolves the latest active binding. The same binary can therefore use production or debug RuntimeProfiles without rebuilding.
 
 Every `gameplay.adoption.pool` entry references both a `pet_defs` alias and a `voices` alias. PetDef stores the Pet character/speaking style, PIXA metadata, and fixed behavior-to-animation bindings, but no Voice ID or Voice alias. On adoption, the Server writes the pool entry's Voice alias into the system Workspace; rebinding that alias later changes the canonical voice without editing PetDef.
+
+`gameplay.pet` completely configures fixed-Pet time decay, passive energy recovery, leveling, and all four standard behaviors. `games` has no default. Each key must also exist in `resources.game_defs` and independently configures energy/points cost plus reward model, prompt, and maxima. Driving an unconfigured GameDef is a no-write no-op.
 
 The normalized spec has an opaque deterministic revision. Catalog list/get responses include the RuntimeProfile name and revision. Pagination cursors are revision-bound. Each list, get, Workspace reload, and standalone Speech call obtains one current profile snapshot; a concurrent update affects the next operation.
 

@@ -39,7 +39,13 @@ PB_BIND(gizclaw_rpc_v1_GameplayListRequest, gizclaw_rpc_v1_GameplayListRequest, 
 PB_BIND(gizclaw_rpc_v1_GameplayMetadata, gizclaw_rpc_v1_GameplayMetadata, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_Pet, gizclaw_rpc_v1_Pet, AUTO)
+PB_BIND(gizclaw_rpc_v1_PetStats, gizclaw_rpc_v1_PetStats, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_PetProgression, gizclaw_rpc_v1_PetProgression, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_Pet, gizclaw_rpc_v1_Pet, 2)
 
 
 PB_BIND(gizclaw_rpc_v1_PetAdoptRequest, gizclaw_rpc_v1_PetAdoptRequest, AUTO)
@@ -54,25 +60,7 @@ PB_BIND(gizclaw_rpc_v1_PetPixaDownloadRequest, gizclaw_rpc_v1_PetPixaDownloadReq
 PB_BIND(gizclaw_rpc_v1_PetPixaDownloadResponse, gizclaw_rpc_v1_PetPixaDownloadResponse, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_PetActionEffectSpec, gizclaw_rpc_v1_PetActionEffectSpec, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_PetAction, gizclaw_rpc_v1_PetAction, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_PetActionI18nText, gizclaw_rpc_v1_PetActionI18nText, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_PetActionsI18nCatalog, gizclaw_rpc_v1_PetActionsI18nCatalog, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_PetActionsI18nCatalog_ActionsEntry, gizclaw_rpc_v1_PetActionsI18nCatalog_ActionsEntry, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_PetActionsI18n, gizclaw_rpc_v1_PetActionsI18n, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_PetActionsI18n_ValueEntry, gizclaw_rpc_v1_PetActionsI18n_ValueEntry, AUTO)
+PB_BIND(gizclaw_rpc_v1_PetVisualBindings, gizclaw_rpc_v1_PetVisualBindings, AUTO)
 
 
 PB_BIND(gizclaw_rpc_v1_PetActions, gizclaw_rpc_v1_PetActions, AUTO)
@@ -87,7 +75,7 @@ PB_BIND(gizclaw_rpc_v1_PetDeleteRequest, gizclaw_rpc_v1_PetDeleteRequest, AUTO)
 PB_BIND(gizclaw_rpc_v1_PetDriveGameResultInput, gizclaw_rpc_v1_PetDriveGameResultInput, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_PetDriveRequest, gizclaw_rpc_v1_PetDriveRequest, AUTO)
+PB_BIND(gizclaw_rpc_v1_PetDriveRequest, gizclaw_rpc_v1_PetDriveRequest, 2)
 
 
 PB_BIND(gizclaw_rpc_v1_PetDriveResponse, gizclaw_rpc_v1_PetDriveResponse, 2)
@@ -153,7 +141,7 @@ PB_BIND(gizclaw_rpc_v1_RuntimeAdoptResponse, gizclaw_rpc_v1_RuntimeAdoptResponse
 PB_BIND(gizclaw_rpc_v1_ServerPetDeleteRequest, gizclaw_rpc_v1_ServerPetDeleteRequest, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_ServerPetDeleteResponse, gizclaw_rpc_v1_ServerPetDeleteResponse, AUTO)
+PB_BIND(gizclaw_rpc_v1_ServerPetDeleteResponse, gizclaw_rpc_v1_ServerPetDeleteResponse, 2)
 
 
 PB_BIND(gizclaw_rpc_v1_ServerPetDriveRequest, gizclaw_rpc_v1_ServerPetDriveRequest, 2)
@@ -165,7 +153,7 @@ PB_BIND(gizclaw_rpc_v1_ServerPetDriveResponse, gizclaw_rpc_v1_ServerPetDriveResp
 PB_BIND(gizclaw_rpc_v1_ServerPetGetRequest, gizclaw_rpc_v1_ServerPetGetRequest, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_ServerPetGetResponse, gizclaw_rpc_v1_ServerPetGetResponse, AUTO)
+PB_BIND(gizclaw_rpc_v1_ServerPetGetResponse, gizclaw_rpc_v1_ServerPetGetResponse, 2)
 
 
 PB_BIND(gizclaw_rpc_v1_ServerPetPixaDownloadRequest, gizclaw_rpc_v1_ServerPetPixaDownloadRequest, AUTO)
@@ -189,7 +177,7 @@ PB_BIND(gizclaw_rpc_v1_ServerPetListResponse, gizclaw_rpc_v1_ServerPetListRespon
 PB_BIND(gizclaw_rpc_v1_ServerPetPutRequest, gizclaw_rpc_v1_ServerPetPutRequest, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_ServerPetPutResponse, gizclaw_rpc_v1_ServerPetPutResponse, AUTO)
+PB_BIND(gizclaw_rpc_v1_ServerPetPutResponse, gizclaw_rpc_v1_ServerPetPutResponse, 2)
 
 
 PB_BIND(gizclaw_rpc_v1_ServerPointsGetRequest, gizclaw_rpc_v1_ServerPointsGetRequest, AUTO)
@@ -222,16 +210,16 @@ PB_BIND(gizclaw_rpc_v1_ServerRewardGrantListRequest, gizclaw_rpc_v1_ServerReward
 PB_BIND(gizclaw_rpc_v1_ServerRewardGrantListResponse, gizclaw_rpc_v1_ServerRewardGrantListResponse, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_PetLife, gizclaw_rpc_v1_PetLife, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_PetLife_ValueEntry, gizclaw_rpc_v1_PetLife_ValueEntry, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_PetProgression, gizclaw_rpc_v1_PetProgression, AUTO)
 
-
-PB_BIND(gizclaw_rpc_v1_PetProgression_ValueEntry, gizclaw_rpc_v1_PetProgression_ValueEntry, AUTO)
-
-
+#ifndef PB_CONVERT_DOUBLE_FLOAT
+/* On some platforms (such as AVR), double is really float.
+ * To be able to encode/decode double on these platforms, you need.
+ * to define PB_CONVERT_DOUBLE_FLOAT in pb.h or compiler command line.
+ */
+PB_STATIC_ASSERT(sizeof(double) == 8, DOUBLE_MUST_BE_8_BYTES)
+#endif
 

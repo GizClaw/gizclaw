@@ -963,24 +963,15 @@ export type Pet = {
     petdef_id: string;
     display_name: string;
     workspace_name: string;
-    life: PetLife;
+    stats: PetStats;
     progression: PetProgression;
+    lifecycle: PetLifecycle;
+    died_at?: string;
+    state_settled_at: string;
     last_active_at: string;
     created_at: string;
     updated_at: string;
     runtime_profile_name: string;
-};
-
-export type PetAttrDelta = {
-    life?: PetLife;
-};
-
-export type PetAttrGroupSpec = {
-    [key: string]: PetAttrValueSpec;
-};
-
-export type PetAttrValueSpec = {
-    initial: number;
 };
 
 export type PetDef = {
@@ -992,55 +983,20 @@ export type PetDef = {
     i18n: PetDefI18nSpec;
 };
 
-export type PetDefActionEffectSpec = {
-    attr_delta?: PetAttrDelta;
-    pet_exp_delta?: number;
-};
-
-export type PetDefActionSpec = {
-    id: string;
-    cost: number;
-    visual_clip_id?: string;
-    effect?: PetDefActionEffectSpec;
-};
-
-export type PetDefAttrSpec = {
-    life: PetAttrGroupSpec;
-    progression: PetAttrGroupSpec;
+export type PetDefBehaviorBindingsSpec = {
+    feed: string;
+    bathe: string;
+    play: string;
+    heal: string;
 };
 
 export type PetDefCharacterSpec = {
     prompt: string;
 };
 
-export type PetDefDriveSpec = {
-    actions: Array<PetDefActionSpec>;
-};
-
-export type PetDefI18nAttrGroup = {
-    [key: string]: PetDefI18nDisplayText;
-};
-
-export type PetDefI18nAttrSpec = {
-    life?: PetDefI18nAttrGroup;
-    progression?: PetDefI18nAttrGroup;
-};
-
 export type PetDefI18nCatalog = {
     display_name?: string;
     description?: string;
-    attr?: PetDefI18nAttrSpec;
-    drive?: PetDefI18nDriveSpec;
-};
-
-export type PetDefI18nDisplayText = {
-    display_name: string;
-};
-
-export type PetDefI18nDriveSpec = {
-    actions?: {
-        [key: string]: PetDefI18nDisplayText;
-    };
 };
 
 export type PetDefI18nSpec = {
@@ -1055,7 +1011,6 @@ export type PetDefPixaCanvasMetadata = {
 
 export type PetDefPixaClipMetadata = {
     id: string;
-    action_id?: string;
     pixa_clip_name: string;
 };
 
@@ -1071,11 +1026,21 @@ export type PetDefPixaSpec = {
 };
 
 export type PetDefSpec = {
-    attr: PetDefAttrSpec;
     character: PetDefCharacterSpec;
     voice: PetDefVoiceSpec;
-    drive: PetDefDriveSpec;
     visual: PetDefVisualSpec;
+};
+
+export type PetDefStateBindingsSpec = {
+    idle: string;
+    sick: string;
+    dead: string;
+    sleep?: string;
+};
+
+export type PetDefVisualBindingsSpec = {
+    behaviors: PetDefBehaviorBindingsSpec;
+    states: PetDefStateBindingsSpec;
 };
 
 export type PetDefVisualRefSpec = {
@@ -1093,15 +1058,14 @@ export type PetDefVisualRefsSpec = {
 export type PetDefVisualSpec = {
     refs: PetDefVisualRefsSpec;
     pixa: PetDefPixaSpec;
+    bindings: PetDefVisualBindingsSpec;
 };
 
 export type PetDefVoiceSpec = {
     prompt: string;
 };
 
-export type PetLife = {
-    [key: string]: number;
-};
+export type PetLifecycle = 'alive' | 'dead';
 
 export type PetListResponse = {
     items: Array<Pet>;
@@ -1110,7 +1074,17 @@ export type PetListResponse = {
 };
 
 export type PetProgression = {
-    [key: string]: number;
+    experience: number;
+    level: number;
+};
+
+export type PetStats = {
+    life: number;
+    health: number;
+    satiety: number;
+    hygiene: number;
+    mood: number;
+    energy: number;
 };
 
 export type PointsAccount = {
@@ -1525,25 +1499,79 @@ export type RuntimeProfileBinding = {
     };
 };
 
-export type RuntimeProfileDriveSpec = {
-    default?: RuntimeProfileRewardSpec;
-    games?: {
-        [key: string]: RuntimeProfileRewardSpec;
-    };
-    pet_actions?: {
-        [key: string]: RuntimeProfileRewardSpec;
-    };
+export type RuntimeProfileCareDecaySpec = {
+    health: number;
+    satiety: number;
+    hygiene: number;
+    mood: number;
+};
+
+export type RuntimeProfileGameRewardSpec = {
+    model: string;
+    pet_exp_max: number;
+    badge_exp_max_per_badge: number;
+    prompt: string;
+};
+
+export type RuntimeProfileGameSpec = {
+    energy_cost: number;
+    points_cost: number;
+    reward: RuntimeProfileGameRewardSpec;
 };
 
 export type RuntimeProfileGameplaySpec = {
     points?: RuntimeProfilePointsSpec;
     adoption?: RuntimeProfileAdoptionSpec;
-    rewards?: RuntimeProfileDriveSpec;
+    pet?: RuntimeProfilePetGameplaySpec;
 };
 
 export type RuntimeProfileI18nText = {
     display_name: string;
     description?: string;
+};
+
+export type RuntimeProfileLevelingSpec = {
+    base_exp: number;
+    log_scale: number;
+};
+
+export type RuntimeProfileLifeDecaySpec = {
+    contributing_weights: RuntimeProfileLifeWeightsSpec;
+    max_loss_per_hour: number;
+    exponent: number;
+};
+
+export type RuntimeProfileLifeWeightsSpec = {
+    health: number;
+    satiety: number;
+    hygiene: number;
+    mood: number;
+};
+
+export type RuntimeProfilePetActionSpec = {
+    energy_cost: number;
+    stat_delta: number;
+};
+
+export type RuntimeProfilePetActionsSpec = {
+    feed: RuntimeProfilePetActionSpec;
+    bathe: RuntimeProfilePetActionSpec;
+    play: RuntimeProfilePetActionSpec;
+    heal: RuntimeProfilePetActionSpec;
+};
+
+export type RuntimeProfilePetExperienceSpec = {
+    energy_per_pet_exp: number;
+    leveling: RuntimeProfileLevelingSpec;
+};
+
+export type RuntimeProfilePetGameplaySpec = {
+    time: RuntimeProfilePetTimeSpec;
+    experience: RuntimeProfilePetExperienceSpec;
+    actions: RuntimeProfilePetActionsSpec;
+    games: {
+        [key: string]: RuntimeProfileGameSpec;
+    };
 };
 
 export type RuntimeProfilePetPoolEntry = {
@@ -1552,6 +1580,12 @@ export type RuntimeProfilePetPoolEntry = {
     weight: number;
     rarity?: string;
     adoption_cost?: number;
+};
+
+export type RuntimeProfilePetTimeSpec = {
+    care_decay_per_hour: RuntimeProfileCareDecaySpec;
+    energy_recovery_per_hour: number;
+    life_decay: RuntimeProfileLifeDecaySpec;
 };
 
 export type RuntimeProfilePointsSpec = {
@@ -1576,14 +1610,6 @@ export type RuntimeProfileResources = {
     };
     badge_defs?: {
         [key: string]: RuntimeProfileBinding;
-    };
-};
-
-export type RuntimeProfileRewardSpec = {
-    points_delta?: number;
-    pet_exp_delta?: number;
-    badge_exp_delta?: {
-        [key: string]: number;
     };
 };
 

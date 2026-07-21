@@ -110,30 +110,118 @@
           }
         }
       },
-      "RuntimeProfileRewardSpec": {
+      "RuntimeProfileCareDecaySpec": {
         "type": "object",
+        "required": ["health", "satiety", "hygiene", "mood"],
         "additionalProperties": false,
         "properties": {
-          "points_delta": { "type": "integer", "format": "int64", "default": 0 },
-          "pet_exp_delta": { "type": "integer", "format": "int64", "default": 0 },
-          "badge_exp_delta": {
-            "type": "object",
-            "additionalProperties": { "type": "integer", "format": "int64" }
-          }
+          "health": { "type": "number", "format": "double", "minimum": 0 },
+          "satiety": { "type": "number", "format": "double", "minimum": 0 },
+          "hygiene": { "type": "number", "format": "double", "minimum": 0 },
+          "mood": { "type": "number", "format": "double", "minimum": 0 }
         }
       },
-      "RuntimeProfileDriveSpec": {
+      "RuntimeProfileLifeWeightsSpec": {
         "type": "object",
+        "required": ["health", "satiety", "hygiene", "mood"],
         "additionalProperties": false,
         "properties": {
-          "default": { "$ref": "#/components/schemas/RuntimeProfileRewardSpec" },
+          "health": { "type": "number", "format": "double", "minimum": 0, "maximum": 1 },
+          "satiety": { "type": "number", "format": "double", "minimum": 0, "maximum": 1 },
+          "hygiene": { "type": "number", "format": "double", "minimum": 0, "maximum": 1 },
+          "mood": { "type": "number", "format": "double", "minimum": 0, "maximum": 1 }
+        }
+      },
+      "RuntimeProfileLifeDecaySpec": {
+        "type": "object",
+        "required": ["contributing_weights", "max_loss_per_hour", "exponent"],
+        "additionalProperties": false,
+        "properties": {
+          "contributing_weights": { "$ref": "#/components/schemas/RuntimeProfileLifeWeightsSpec" },
+          "max_loss_per_hour": { "type": "number", "format": "double", "minimum": 0 },
+          "exponent": { "type": "number", "format": "double", "exclusiveMinimum": true, "minimum": 1 }
+        }
+      },
+      "RuntimeProfilePetTimeSpec": {
+        "type": "object",
+        "required": ["care_decay_per_hour", "energy_recovery_per_hour", "life_decay"],
+        "additionalProperties": false,
+        "properties": {
+          "care_decay_per_hour": { "$ref": "#/components/schemas/RuntimeProfileCareDecaySpec" },
+          "energy_recovery_per_hour": { "type": "number", "format": "double", "minimum": 0 },
+          "life_decay": { "$ref": "#/components/schemas/RuntimeProfileLifeDecaySpec" }
+        }
+      },
+      "RuntimeProfileLevelingSpec": {
+        "type": "object",
+        "required": ["base_exp", "log_scale"],
+        "additionalProperties": false,
+        "properties": {
+          "base_exp": { "type": "integer", "format": "int64", "minimum": 1 },
+          "log_scale": { "type": "number", "format": "double", "minimum": 0 }
+        }
+      },
+      "RuntimeProfilePetExperienceSpec": {
+        "type": "object",
+        "required": ["energy_per_pet_exp", "leveling"],
+        "additionalProperties": false,
+        "properties": {
+          "energy_per_pet_exp": { "type": "integer", "format": "int64", "minimum": 1 },
+          "leveling": { "$ref": "#/components/schemas/RuntimeProfileLevelingSpec" }
+        }
+      },
+      "RuntimeProfilePetActionSpec": {
+        "type": "object",
+        "required": ["energy_cost", "stat_delta"],
+        "additionalProperties": false,
+        "properties": {
+          "energy_cost": { "type": "integer", "format": "int64", "minimum": 1, "maximum": 100 },
+          "stat_delta": { "type": "number", "format": "double", "exclusiveMinimum": true, "minimum": 0, "maximum": 100 }
+        }
+      },
+      "RuntimeProfilePetActionsSpec": {
+        "type": "object",
+        "required": ["feed", "bathe", "play", "heal"],
+        "additionalProperties": false,
+        "properties": {
+          "feed": { "$ref": "#/components/schemas/RuntimeProfilePetActionSpec" },
+          "bathe": { "$ref": "#/components/schemas/RuntimeProfilePetActionSpec" },
+          "play": { "$ref": "#/components/schemas/RuntimeProfilePetActionSpec" },
+          "heal": { "$ref": "#/components/schemas/RuntimeProfilePetActionSpec" }
+        }
+      },
+      "RuntimeProfileGameRewardSpec": {
+        "type": "object",
+        "required": ["model", "pet_exp_max", "badge_exp_max_per_badge", "prompt"],
+        "additionalProperties": false,
+        "properties": {
+          "model": { "type": "string", "minLength": 1 },
+          "pet_exp_max": { "type": "integer", "format": "int64", "minimum": 0 },
+          "badge_exp_max_per_badge": { "type": "integer", "format": "int64", "minimum": 0 },
+          "prompt": { "type": "string", "minLength": 1 }
+        }
+      },
+      "RuntimeProfileGameSpec": {
+        "type": "object",
+        "required": ["energy_cost", "points_cost", "reward"],
+        "additionalProperties": false,
+        "properties": {
+          "energy_cost": { "type": "integer", "format": "int64", "minimum": 1, "maximum": 100 },
+          "points_cost": { "type": "integer", "format": "int64", "minimum": 0 },
+          "reward": { "$ref": "#/components/schemas/RuntimeProfileGameRewardSpec" }
+        }
+      },
+      "RuntimeProfilePetGameplaySpec": {
+        "type": "object",
+        "required": ["time", "experience", "actions", "games"],
+        "additionalProperties": false,
+        "properties": {
+          "time": { "$ref": "#/components/schemas/RuntimeProfilePetTimeSpec" },
+          "experience": { "$ref": "#/components/schemas/RuntimeProfilePetExperienceSpec" },
+          "actions": { "$ref": "#/components/schemas/RuntimeProfilePetActionsSpec" },
           "games": {
             "type": "object",
-            "additionalProperties": { "$ref": "#/components/schemas/RuntimeProfileRewardSpec" }
-          },
-          "pet_actions": {
-            "type": "object",
-            "additionalProperties": { "$ref": "#/components/schemas/RuntimeProfileRewardSpec" }
+            "additionalProperties": { "$ref": "#/components/schemas/RuntimeProfileGameSpec" }
           }
         }
       },
@@ -143,7 +231,7 @@
         "properties": {
           "points": { "$ref": "#/components/schemas/RuntimeProfilePointsSpec" },
           "adoption": { "$ref": "#/components/schemas/RuntimeProfileAdoptionSpec" },
-          "rewards": { "$ref": "#/components/schemas/RuntimeProfileDriveSpec" }
+          "pet": { "$ref": "#/components/schemas/RuntimeProfilePetGameplaySpec" }
         }
       },
       "RuntimeProfileSpec": {

@@ -445,6 +445,21 @@ func TestRuntimeProfileRejectsInvalidGameplayReferences(t *testing.T) {
 	}
 }
 
+func TestRuntimeProfileRequiresPetPolicyForAdoption(t *testing.T) {
+	t.Parallel()
+	pool := []apitypes.RuntimeProfilePetPoolEntry{{PetDef: "pet", Voice: "voice", Weight: 1}}
+	_, err := normalizeProfile(adminhttp.RuntimeProfileUpsert{
+		Name: "test-profile",
+		Spec: apitypes.RuntimeProfileSpec{
+			Workflows: apitypes.RuntimeProfileWorkflows{Collections: apitypes.RuntimeProfileWorkflowCollections{}},
+			Gameplay:  &apitypes.RuntimeProfileGameplaySpec{Adoption: &apitypes.RuntimeProfileAdoptionSpec{Pool: &pool}},
+		},
+	}, "")
+	if err == nil || !strings.Contains(err.Error(), "gameplay.pet is required") {
+		t.Fatalf("normalizeProfile() error = %v, want missing Pet policy rejection", err)
+	}
+}
+
 func TestRuntimeProfileAcceptsDefaultName(t *testing.T) {
 	t.Parallel()
 	s := &Server{Store: kv.NewMemory(nil)}

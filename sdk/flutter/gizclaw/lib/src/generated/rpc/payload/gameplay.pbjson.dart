@@ -15,6 +15,39 @@ import 'dart:convert' as $convert;
 import 'dart:core' as $core;
 import 'dart:typed_data' as $typed_data;
 
+@$core.Deprecated('Use petBehaviorDescriptor instead')
+const PetBehavior$json = {
+  '1': 'PetBehavior',
+  '2': [
+    {'1': 'PET_BEHAVIOR_UNSPECIFIED', '2': 0},
+    {'1': 'PET_BEHAVIOR_FEED', '2': 1},
+    {'1': 'PET_BEHAVIOR_BATHE', '2': 2},
+    {'1': 'PET_BEHAVIOR_PLAY', '2': 3},
+    {'1': 'PET_BEHAVIOR_HEAL', '2': 4},
+  ],
+};
+
+/// Descriptor for `PetBehavior`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List petBehaviorDescriptor = $convert.base64Decode(
+    'CgtQZXRCZWhhdmlvchIcChhQRVRfQkVIQVZJT1JfVU5TUEVDSUZJRUQQABIVChFQRVRfQkVIQV'
+    'ZJT1JfRkVFRBABEhYKElBFVF9CRUhBVklPUl9CQVRIRRACEhUKEVBFVF9CRUhBVklPUl9QTEFZ'
+    'EAMSFQoRUEVUX0JFSEFWSU9SX0hFQUwQBA==');
+
+@$core.Deprecated('Use petLifecycleDescriptor instead')
+const PetLifecycle$json = {
+  '1': 'PetLifecycle',
+  '2': [
+    {'1': 'PET_LIFECYCLE_UNSPECIFIED', '2': 0},
+    {'1': 'PET_LIFECYCLE_ALIVE', '2': 1},
+    {'1': 'PET_LIFECYCLE_DEAD', '2': 2},
+  ],
+};
+
+/// Descriptor for `PetLifecycle`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List petLifecycleDescriptor = $convert.base64Decode(
+    'CgxQZXRMaWZlY3ljbGUSHQoZUEVUX0xJRkVDWUNMRV9VTlNQRUNJRklFRBAAEhcKE1BFVF9MSU'
+    'ZFQ1lDTEVfQUxJVkUQARIWChJQRVRfTElGRUNZQ0xFX0RFQUQQAg==');
+
 @$core.Deprecated('Use badgeDescriptor instead')
 const Badge$json = {
   '1': 'Badge',
@@ -260,30 +293,10 @@ const GameRewardSpec$json = {
       '6': '.gizclaw.rpc.v1.GameRewardSpec.BadgeExpDeltaEntry',
       '10': 'badgeExpDelta'
     },
-    {
-      '1': 'pet_exp_delta',
-      '3': 2,
-      '4': 1,
-      '5': 3,
-      '9': 0,
-      '10': 'petExpDelta',
-      '17': true
-    },
-    {
-      '1': 'points_delta',
-      '3': 3,
-      '4': 1,
-      '5': 3,
-      '9': 1,
-      '10': 'pointsDelta',
-      '17': true
-    },
+    {'1': 'pet_exp_delta', '3': 2, '4': 1, '5': 3, '10': 'petExpDelta'},
+    {'1': 'reason', '3': 3, '4': 1, '5': 9, '10': 'reason'},
   ],
   '3': [GameRewardSpec_BadgeExpDeltaEntry$json],
-  '8': [
-    {'1': '_pet_exp_delta'},
-    {'1': '_points_delta'},
-  ],
 };
 
 @$core.Deprecated('Use gameRewardSpecDescriptor instead')
@@ -299,11 +312,10 @@ const GameRewardSpec_BadgeExpDeltaEntry$json = {
 /// Descriptor for `GameRewardSpec`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List gameRewardSpecDescriptor = $convert.base64Decode(
     'Cg5HYW1lUmV3YXJkU3BlYxJZCg9iYWRnZV9leHBfZGVsdGEYASADKAsyMS5naXpjbGF3LnJwYy'
-    '52MS5HYW1lUmV3YXJkU3BlYy5CYWRnZUV4cERlbHRhRW50cnlSDWJhZGdlRXhwRGVsdGESJwoN'
-    'cGV0X2V4cF9kZWx0YRgCIAEoA0gAUgtwZXRFeHBEZWx0YYgBARImCgxwb2ludHNfZGVsdGEYAy'
-    'ABKANIAVILcG9pbnRzRGVsdGGIAQEaQAoSQmFkZ2VFeHBEZWx0YUVudHJ5EhAKA2tleRgBIAEo'
-    'CVIDa2V5EhQKBXZhbHVlGAIgASgDUgV2YWx1ZToCOAFCEAoOX3BldF9leHBfZGVsdGFCDwoNX3'
-    'BvaW50c19kZWx0YQ==');
+    '52MS5HYW1lUmV3YXJkU3BlYy5CYWRnZUV4cERlbHRhRW50cnlSDWJhZGdlRXhwRGVsdGESIgoN'
+    'cGV0X2V4cF9kZWx0YRgCIAEoA1ILcGV0RXhwRGVsdGESFgoGcmVhc29uGAMgASgJUgZyZWFzb2'
+    '4aQAoSQmFkZ2VFeHBEZWx0YUVudHJ5EhAKA2tleRgBIAEoCVIDa2V5EhQKBXZhbHVlGAIgASgD'
+    'UgV2YWx1ZToCOAE=');
 
 @$core.Deprecated('Use gameplayGetRequestDescriptor instead')
 const GameplayGetRequest$json = {
@@ -355,54 +367,111 @@ final $typed_data.Uint8List gameplayMetadataDescriptor = $convert.base64Decode(
     'ChBHYW1lcGxheU1ldGFkYXRhEi8KBmZpZWxkcxgBIAEoCzIXLmdvb2dsZS5wcm90b2J1Zi5TdH'
     'J1Y3RSBmZpZWxkcw==');
 
+@$core.Deprecated('Use petStatsDescriptor instead')
+const PetStats$json = {
+  '1': 'PetStats',
+  '2': [
+    {'1': 'life', '3': 1, '4': 1, '5': 1, '10': 'life'},
+    {'1': 'health', '3': 2, '4': 1, '5': 1, '10': 'health'},
+    {'1': 'satiety', '3': 3, '4': 1, '5': 1, '10': 'satiety'},
+    {'1': 'hygiene', '3': 4, '4': 1, '5': 1, '10': 'hygiene'},
+    {'1': 'mood', '3': 5, '4': 1, '5': 1, '10': 'mood'},
+    {'1': 'energy', '3': 6, '4': 1, '5': 1, '10': 'energy'},
+  ],
+};
+
+/// Descriptor for `PetStats`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List petStatsDescriptor = $convert.base64Decode(
+    'CghQZXRTdGF0cxISCgRsaWZlGAEgASgBUgRsaWZlEhYKBmhlYWx0aBgCIAEoAVIGaGVhbHRoEh'
+    'gKB3NhdGlldHkYAyABKAFSB3NhdGlldHkSGAoHaHlnaWVuZRgEIAEoAVIHaHlnaWVuZRISCgRt'
+    'b29kGAUgASgBUgRtb29kEhYKBmVuZXJneRgGIAEoAVIGZW5lcmd5');
+
+@$core.Deprecated('Use petProgressionDescriptor instead')
+const PetProgression$json = {
+  '1': 'PetProgression',
+  '2': [
+    {'1': 'experience', '3': 1, '4': 1, '5': 3, '10': 'experience'},
+    {'1': 'level', '3': 2, '4': 1, '5': 3, '10': 'level'},
+  ],
+};
+
+/// Descriptor for `PetProgression`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List petProgressionDescriptor = $convert.base64Decode(
+    'Cg5QZXRQcm9ncmVzc2lvbhIeCgpleHBlcmllbmNlGAEgASgDUgpleHBlcmllbmNlEhQKBWxldm'
+    'VsGAIgASgDUgVsZXZlbA==');
+
 @$core.Deprecated('Use petDescriptor instead')
 const Pet$json = {
   '1': 'Pet',
   '2': [
-    {'1': 'created_at', '3': 1, '4': 1, '5': 9, '10': 'createdAt'},
-    {'1': 'display_name', '3': 2, '4': 1, '5': 9, '10': 'displayName'},
-    {'1': 'id', '3': 3, '4': 1, '5': 9, '10': 'id'},
-    {'1': 'last_active_at', '3': 4, '4': 1, '5': 9, '10': 'lastActiveAt'},
-    {
-      '1': 'life',
-      '3': 5,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.PetLife',
-      '10': 'life'
-    },
-    {'1': 'owner_public_key', '3': 6, '4': 1, '5': 9, '10': 'ownerPublicKey'},
-    {'1': 'petdef_id', '3': 7, '4': 1, '5': 9, '10': 'petdefId'},
+    {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
+    {'1': 'owner_public_key', '3': 2, '4': 1, '5': 9, '10': 'ownerPublicKey'},
     {
       '1': 'runtime_profile_name',
-      '3': 8,
+      '3': 3,
       '4': 1,
       '5': 9,
       '10': 'runtimeProfileName'
     },
-    {'1': 'updated_at', '3': 9, '4': 1, '5': 9, '10': 'updatedAt'},
-    {'1': 'workspace_name', '3': 10, '4': 1, '5': 9, '10': 'workspaceName'},
+    {'1': 'petdef_id', '3': 4, '4': 1, '5': 9, '10': 'petdefId'},
+    {'1': 'display_name', '3': 5, '4': 1, '5': 9, '10': 'displayName'},
+    {'1': 'workspace_name', '3': 6, '4': 1, '5': 9, '10': 'workspaceName'},
+    {
+      '1': 'stats',
+      '3': 7,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.PetStats',
+      '10': 'stats'
+    },
     {
       '1': 'progression',
-      '3': 11,
+      '3': 8,
       '4': 1,
       '5': 11,
       '6': '.gizclaw.rpc.v1.PetProgression',
       '10': 'progression'
     },
+    {
+      '1': 'lifecycle',
+      '3': 9,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.PetLifecycle',
+      '10': 'lifecycle'
+    },
+    {
+      '1': 'died_at',
+      '3': 10,
+      '4': 1,
+      '5': 9,
+      '9': 0,
+      '10': 'diedAt',
+      '17': true
+    },
+    {'1': 'state_settled_at', '3': 11, '4': 1, '5': 9, '10': 'stateSettledAt'},
+    {'1': 'last_active_at', '3': 12, '4': 1, '5': 9, '10': 'lastActiveAt'},
+    {'1': 'created_at', '3': 13, '4': 1, '5': 9, '10': 'createdAt'},
+    {'1': 'updated_at', '3': 14, '4': 1, '5': 9, '10': 'updatedAt'},
+  ],
+  '8': [
+    {'1': '_died_at'},
   ],
 };
 
 /// Descriptor for `Pet`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List petDescriptor = $convert.base64Decode(
-    'CgNQZXQSHQoKY3JlYXRlZF9hdBgBIAEoCVIJY3JlYXRlZEF0EiEKDGRpc3BsYXlfbmFtZRgCIA'
-    'EoCVILZGlzcGxheU5hbWUSDgoCaWQYAyABKAlSAmlkEiQKDmxhc3RfYWN0aXZlX2F0GAQgASgJ'
-    'UgxsYXN0QWN0aXZlQXQSKwoEbGlmZRgFIAEoCzIXLmdpemNsYXcucnBjLnYxLlBldExpZmVSBG'
-    'xpZmUSKAoQb3duZXJfcHVibGljX2tleRgGIAEoCVIOb3duZXJQdWJsaWNLZXkSGwoJcGV0ZGVm'
-    'X2lkGAcgASgJUghwZXRkZWZJZBIwChRydW50aW1lX3Byb2ZpbGVfbmFtZRgIIAEoCVIScnVudG'
-    'ltZVByb2ZpbGVOYW1lEh0KCnVwZGF0ZWRfYXQYCSABKAlSCXVwZGF0ZWRBdBIlCg53b3Jrc3Bh'
-    'Y2VfbmFtZRgKIAEoCVINd29ya3NwYWNlTmFtZRJACgtwcm9ncmVzc2lvbhgLIAEoCzIeLmdpem'
-    'NsYXcucnBjLnYxLlBldFByb2dyZXNzaW9uUgtwcm9ncmVzc2lvbg==');
+    'CgNQZXQSDgoCaWQYASABKAlSAmlkEigKEG93bmVyX3B1YmxpY19rZXkYAiABKAlSDm93bmVyUH'
+    'VibGljS2V5EjAKFHJ1bnRpbWVfcHJvZmlsZV9uYW1lGAMgASgJUhJydW50aW1lUHJvZmlsZU5h'
+    'bWUSGwoJcGV0ZGVmX2lkGAQgASgJUghwZXRkZWZJZBIhCgxkaXNwbGF5X25hbWUYBSABKAlSC2'
+    'Rpc3BsYXlOYW1lEiUKDndvcmtzcGFjZV9uYW1lGAYgASgJUg13b3Jrc3BhY2VOYW1lEi4KBXN0'
+    'YXRzGAcgASgLMhguZ2l6Y2xhdy5ycGMudjEuUGV0U3RhdHNSBXN0YXRzEkAKC3Byb2dyZXNzaW'
+    '9uGAggASgLMh4uZ2l6Y2xhdy5ycGMudjEuUGV0UHJvZ3Jlc3Npb25SC3Byb2dyZXNzaW9uEjoK'
+    'CWxpZmVjeWNsZRgJIAEoDjIcLmdpemNsYXcucnBjLnYxLlBldExpZmVjeWNsZVIJbGlmZWN5Y2'
+    'xlEhwKB2RpZWRfYXQYCiABKAlIAFIGZGllZEF0iAEBEigKEHN0YXRlX3NldHRsZWRfYXQYCyAB'
+    'KAlSDnN0YXRlU2V0dGxlZEF0EiQKDmxhc3RfYWN0aXZlX2F0GAwgASgJUgxsYXN0QWN0aXZlQX'
+    'QSHQoKY3JlYXRlZF9hdBgNIAEoCVIJY3JlYXRlZEF0Eh0KCnVwZGF0ZWRfYXQYDiABKAlSCXVw'
+    'ZGF0ZWRBdEIKCghfZGllZF9hdA==');
 
 @$core.Deprecated('Use petAdoptRequestDescriptor instead')
 const PetAdoptRequest$json = {
@@ -507,184 +576,30 @@ final $typed_data.Uint8List petPixaDownloadResponseDescriptor = $convert.base64D
     'RlZl9pZBgCIAEoCVIIcGV0ZGVmSWQSIAoJcGl4YV9wYXRoGAMgASgJSABSCHBpeGFQYXRoiAEB'
     'Eh0KCnNpemVfYnl0ZXMYBCABKANSCXNpemVCeXRlc0IMCgpfcGl4YV9wYXRo');
 
-@$core.Deprecated('Use petActionEffectSpecDescriptor instead')
-const PetActionEffectSpec$json = {
-  '1': 'PetActionEffectSpec',
+@$core.Deprecated('Use petVisualBindingsDescriptor instead')
+const PetVisualBindings$json = {
+  '1': 'PetVisualBindings',
   '2': [
-    {
-      '1': 'attr_delta_life',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.PetLife',
-      '9': 0,
-      '10': 'attrDeltaLife',
-      '17': true
-    },
-    {
-      '1': 'pet_exp_delta',
-      '3': 2,
-      '4': 1,
-      '5': 3,
-      '9': 1,
-      '10': 'petExpDelta',
-      '17': true
-    },
+    {'1': 'feed', '3': 1, '4': 1, '5': 9, '10': 'feed'},
+    {'1': 'bathe', '3': 2, '4': 1, '5': 9, '10': 'bathe'},
+    {'1': 'play', '3': 3, '4': 1, '5': 9, '10': 'play'},
+    {'1': 'heal', '3': 4, '4': 1, '5': 9, '10': 'heal'},
+    {'1': 'idle', '3': 5, '4': 1, '5': 9, '10': 'idle'},
+    {'1': 'sick', '3': 6, '4': 1, '5': 9, '10': 'sick'},
+    {'1': 'dead', '3': 7, '4': 1, '5': 9, '10': 'dead'},
+    {'1': 'sleep', '3': 8, '4': 1, '5': 9, '9': 0, '10': 'sleep', '17': true},
   ],
   '8': [
-    {'1': '_attr_delta_life'},
-    {'1': '_pet_exp_delta'},
+    {'1': '_sleep'},
   ],
 };
 
-/// Descriptor for `PetActionEffectSpec`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List petActionEffectSpecDescriptor = $convert.base64Decode(
-    'ChNQZXRBY3Rpb25FZmZlY3RTcGVjEkQKD2F0dHJfZGVsdGFfbGlmZRgBIAEoCzIXLmdpemNsYX'
-    'cucnBjLnYxLlBldExpZmVIAFINYXR0ckRlbHRhTGlmZYgBARInCg1wZXRfZXhwX2RlbHRhGAIg'
-    'ASgDSAFSC3BldEV4cERlbHRhiAEBQhIKEF9hdHRyX2RlbHRhX2xpZmVCEAoOX3BldF9leHBfZG'
-    'VsdGE=');
-
-@$core.Deprecated('Use petActionDescriptor instead')
-const PetAction$json = {
-  '1': 'PetAction',
-  '2': [
-    {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
-    {'1': 'cost', '3': 2, '4': 1, '5': 3, '10': 'cost'},
-    {
-      '1': 'effect',
-      '3': 3,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.PetActionEffectSpec',
-      '9': 0,
-      '10': 'effect',
-      '17': true
-    },
-    {
-      '1': 'visual_clip_id',
-      '3': 4,
-      '4': 1,
-      '5': 9,
-      '9': 1,
-      '10': 'visualClipId',
-      '17': true
-    },
-    {
-      '1': 'pixa_clip_name',
-      '3': 5,
-      '4': 1,
-      '5': 9,
-      '9': 2,
-      '10': 'pixaClipName',
-      '17': true
-    },
-  ],
-  '8': [
-    {'1': '_effect'},
-    {'1': '_visual_clip_id'},
-    {'1': '_pixa_clip_name'},
-  ],
-};
-
-/// Descriptor for `PetAction`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List petActionDescriptor = $convert.base64Decode(
-    'CglQZXRBY3Rpb24SDgoCaWQYASABKAlSAmlkEhIKBGNvc3QYAiABKANSBGNvc3QSQAoGZWZmZW'
-    'N0GAMgASgLMiMuZ2l6Y2xhdy5ycGMudjEuUGV0QWN0aW9uRWZmZWN0U3BlY0gAUgZlZmZlY3SI'
-    'AQESKQoOdmlzdWFsX2NsaXBfaWQYBCABKAlIAVIMdmlzdWFsQ2xpcElkiAEBEikKDnBpeGFfY2'
-    'xpcF9uYW1lGAUgASgJSAJSDHBpeGFDbGlwTmFtZYgBAUIJCgdfZWZmZWN0QhEKD192aXN1YWxf'
-    'Y2xpcF9pZEIRCg9fcGl4YV9jbGlwX25hbWU=');
-
-@$core.Deprecated('Use petActionI18nTextDescriptor instead')
-const PetActionI18nText$json = {
-  '1': 'PetActionI18nText',
-  '2': [
-    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
-  ],
-};
-
-/// Descriptor for `PetActionI18nText`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List petActionI18nTextDescriptor = $convert
-    .base64Decode('ChFQZXRBY3Rpb25JMThuVGV4dBISCgRuYW1lGAEgASgJUgRuYW1l');
-
-@$core.Deprecated('Use petActionsI18nCatalogDescriptor instead')
-const PetActionsI18nCatalog$json = {
-  '1': 'PetActionsI18nCatalog',
-  '2': [
-    {
-      '1': 'actions',
-      '3': 1,
-      '4': 3,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.PetActionsI18nCatalog.ActionsEntry',
-      '10': 'actions'
-    },
-  ],
-  '3': [PetActionsI18nCatalog_ActionsEntry$json],
-};
-
-@$core.Deprecated('Use petActionsI18nCatalogDescriptor instead')
-const PetActionsI18nCatalog_ActionsEntry$json = {
-  '1': 'ActionsEntry',
-  '2': [
-    {'1': 'key', '3': 1, '4': 1, '5': 9, '10': 'key'},
-    {
-      '1': 'value',
-      '3': 2,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.PetActionI18nText',
-      '10': 'value'
-    },
-  ],
-  '7': {'7': true},
-};
-
-/// Descriptor for `PetActionsI18nCatalog`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List petActionsI18nCatalogDescriptor = $convert.base64Decode(
-    'ChVQZXRBY3Rpb25zSTE4bkNhdGFsb2cSTAoHYWN0aW9ucxgBIAMoCzIyLmdpemNsYXcucnBjLn'
-    'YxLlBldEFjdGlvbnNJMThuQ2F0YWxvZy5BY3Rpb25zRW50cnlSB2FjdGlvbnMaXQoMQWN0aW9u'
-    'c0VudHJ5EhAKA2tleRgBIAEoCVIDa2V5EjcKBXZhbHVlGAIgASgLMiEuZ2l6Y2xhdy5ycGMudj'
-    'EuUGV0QWN0aW9uSTE4blRleHRSBXZhbHVlOgI4AQ==');
-
-@$core.Deprecated('Use petActionsI18nDescriptor instead')
-const PetActionsI18n$json = {
-  '1': 'PetActionsI18n',
-  '2': [
-    {
-      '1': 'value',
-      '3': 1,
-      '4': 3,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.PetActionsI18n.ValueEntry',
-      '10': 'value'
-    },
-  ],
-  '3': [PetActionsI18n_ValueEntry$json],
-};
-
-@$core.Deprecated('Use petActionsI18nDescriptor instead')
-const PetActionsI18n_ValueEntry$json = {
-  '1': 'ValueEntry',
-  '2': [
-    {'1': 'key', '3': 1, '4': 1, '5': 9, '10': 'key'},
-    {
-      '1': 'value',
-      '3': 2,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.PetActionsI18nCatalog',
-      '10': 'value'
-    },
-  ],
-  '7': {'7': true},
-};
-
-/// Descriptor for `PetActionsI18n`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List petActionsI18nDescriptor = $convert.base64Decode(
-    'Cg5QZXRBY3Rpb25zSTE4bhI/CgV2YWx1ZRgBIAMoCzIpLmdpemNsYXcucnBjLnYxLlBldEFjdG'
-    'lvbnNJMThuLlZhbHVlRW50cnlSBXZhbHVlGl8KClZhbHVlRW50cnkSEAoDa2V5GAEgASgJUgNr'
-    'ZXkSOwoFdmFsdWUYAiABKAsyJS5naXpjbGF3LnJwYy52MS5QZXRBY3Rpb25zSTE4bkNhdGFsb2'
-    'dSBXZhbHVlOgI4AQ==');
+/// Descriptor for `PetVisualBindings`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List petVisualBindingsDescriptor = $convert.base64Decode(
+    'ChFQZXRWaXN1YWxCaW5kaW5ncxISCgRmZWVkGAEgASgJUgRmZWVkEhQKBWJhdGhlGAIgASgJUg'
+    'ViYXRoZRISCgRwbGF5GAMgASgJUgRwbGF5EhIKBGhlYWwYBCABKAlSBGhlYWwSEgoEaWRsZRgF'
+    'IAEoCVIEaWRsZRISCgRzaWNrGAYgASgJUgRzaWNrEhIKBGRlYWQYByABKAlSBGRlYWQSGQoFc2'
+    'xlZXAYCCABKAlIAFIFc2xlZXCIAQFCCAoGX3NsZWVw');
 
 @$core.Deprecated('Use petActionsDescriptor instead')
 const PetActions$json = {
@@ -692,27 +607,18 @@ const PetActions$json = {
   '2': [
     {'1': 'pet_id', '3': 1, '4': 1, '5': 9, '10': 'petId'},
     {'1': 'petdef_id', '3': 2, '4': 1, '5': 9, '10': 'petdefId'},
-    {'1': 'default_locale', '3': 3, '4': 1, '5': 9, '10': 'defaultLocale'},
     {
-      '1': 'actions',
-      '3': 4,
-      '4': 3,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.PetAction',
-      '10': 'actions'
-    },
-    {
-      '1': 'i18n',
-      '3': 5,
+      '1': 'bindings',
+      '3': 3,
       '4': 1,
       '5': 11,
-      '6': '.gizclaw.rpc.v1.PetActionsI18n',
-      '10': 'i18n'
+      '6': '.gizclaw.rpc.v1.PetVisualBindings',
+      '10': 'bindings'
     },
-    {'1': 'petdef_updated_at', '3': 6, '4': 1, '5': 9, '10': 'petdefUpdatedAt'},
+    {'1': 'petdef_updated_at', '3': 4, '4': 1, '5': 9, '10': 'petdefUpdatedAt'},
     {
       '1': 'clip_names',
-      '3': 7,
+      '3': 5,
       '4': 3,
       '5': 11,
       '6': '.gizclaw.rpc.v1.PetActions.ClipNamesEntry',
@@ -735,13 +641,11 @@ const PetActions_ClipNamesEntry$json = {
 /// Descriptor for `PetActions`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List petActionsDescriptor = $convert.base64Decode(
     'CgpQZXRBY3Rpb25zEhUKBnBldF9pZBgBIAEoCVIFcGV0SWQSGwoJcGV0ZGVmX2lkGAIgASgJUg'
-    'hwZXRkZWZJZBIlCg5kZWZhdWx0X2xvY2FsZRgDIAEoCVINZGVmYXVsdExvY2FsZRIzCgdhY3Rp'
-    'b25zGAQgAygLMhkuZ2l6Y2xhdy5ycGMudjEuUGV0QWN0aW9uUgdhY3Rpb25zEjIKBGkxOG4YBS'
-    'ABKAsyHi5naXpjbGF3LnJwYy52MS5QZXRBY3Rpb25zSTE4blIEaTE4bhIqChFwZXRkZWZfdXBk'
-    'YXRlZF9hdBgGIAEoCVIPcGV0ZGVmVXBkYXRlZEF0EkgKCmNsaXBfbmFtZXMYByADKAsyKS5naX'
-    'pjbGF3LnJwYy52MS5QZXRBY3Rpb25zLkNsaXBOYW1lc0VudHJ5UgljbGlwTmFtZXMaPAoOQ2xp'
-    'cE5hbWVzRW50cnkSEAoDa2V5GAEgASgJUgNrZXkSFAoFdmFsdWUYAiABKAlSBXZhbHVlOgI4AQ'
-    '==');
+    'hwZXRkZWZJZBI9CghiaW5kaW5ncxgDIAEoCzIhLmdpemNsYXcucnBjLnYxLlBldFZpc3VhbEJp'
+    'bmRpbmdzUghiaW5kaW5ncxIqChFwZXRkZWZfdXBkYXRlZF9hdBgEIAEoCVIPcGV0ZGVmVXBkYX'
+    'RlZEF0EkgKCmNsaXBfbmFtZXMYBSADKAsyKS5naXpjbGF3LnJwYy52MS5QZXRBY3Rpb25zLkNs'
+    'aXBOYW1lc0VudHJ5UgljbGlwTmFtZXMaPAoOQ2xpcE5hbWVzRW50cnkSEAoDa2V5GAEgASgJUg'
+    'NrZXkSFAoFdmFsdWUYAiABKAlSBXZhbHVlOgI4AQ==');
 
 @$core.Deprecated('Use petDeleteRequestDescriptor instead')
 const PetDeleteRequest$json = {
@@ -854,7 +758,16 @@ final $typed_data.Uint8List petDriveGameResultInputDescriptor = $convert.base64D
 const PetDriveRequest$json = {
   '1': 'PetDriveRequest',
   '2': [
-    {'1': 'action', '3': 1, '4': 1, '5': 9, '9': 0, '10': 'action', '17': true},
+    {
+      '1': 'behavior',
+      '3': 1,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.PetBehavior',
+      '9': 0,
+      '10': 'behavior',
+      '17': true
+    },
     {
       '1': 'game_result',
       '3': 2,
@@ -866,19 +779,30 @@ const PetDriveRequest$json = {
       '17': true
     },
     {'1': 'pet_id', '3': 3, '4': 1, '5': 9, '10': 'petId'},
+    {
+      '1': 'idempotency_key',
+      '3': 4,
+      '4': 1,
+      '5': 9,
+      '9': 2,
+      '10': 'idempotencyKey',
+      '17': true
+    },
   ],
   '8': [
-    {'1': '_action'},
+    {'1': '_behavior'},
     {'1': '_game_result'},
+    {'1': '_idempotency_key'},
   ],
 };
 
 /// Descriptor for `PetDriveRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List petDriveRequestDescriptor = $convert.base64Decode(
-    'Cg9QZXREcml2ZVJlcXVlc3QSGwoGYWN0aW9uGAEgASgJSABSBmFjdGlvbogBARJNCgtnYW1lX3'
-    'Jlc3VsdBgCIAEoCzInLmdpemNsYXcucnBjLnYxLlBldERyaXZlR2FtZVJlc3VsdElucHV0SAFS'
-    'CmdhbWVSZXN1bHSIAQESFQoGcGV0X2lkGAMgASgJUgVwZXRJZEIJCgdfYWN0aW9uQg4KDF9nYW'
-    '1lX3Jlc3VsdA==');
+    'Cg9QZXREcml2ZVJlcXVlc3QSPAoIYmVoYXZpb3IYASABKA4yGy5naXpjbGF3LnJwYy52MS5QZX'
+    'RCZWhhdmlvckgAUghiZWhhdmlvcogBARJNCgtnYW1lX3Jlc3VsdBgCIAEoCzInLmdpemNsYXcu'
+    'cnBjLnYxLlBldERyaXZlR2FtZVJlc3VsdElucHV0SAFSCmdhbWVSZXN1bHSIAQESFQoGcGV0X2'
+    'lkGAMgASgJUgVwZXRJZBIsCg9pZGVtcG90ZW5jeV9rZXkYBCABKAlIAlIOaWRlbXBvdGVuY3lL'
+    'ZXmIAQFCCwoJX2JlaGF2aW9yQg4KDF9nYW1lX3Jlc3VsdEISChBfaWRlbXBvdGVuY3lfa2V5');
 
 @$core.Deprecated('Use petDriveResponseDescriptor instead')
 const PetDriveResponse$json = {
@@ -1923,67 +1847,3 @@ final $typed_data.Uint8List serverRewardGrantListResponseDescriptor =
     $convert.base64Decode(
         'Ch1TZXJ2ZXJSZXdhcmRHcmFudExpc3RSZXNwb25zZRI9CgV2YWx1ZRgBIAEoCzInLmdpemNsYX'
         'cucnBjLnYxLlJld2FyZEdyYW50TGlzdFJlc3BvbnNlUgV2YWx1ZQ==');
-
-@$core.Deprecated('Use petLifeDescriptor instead')
-const PetLife$json = {
-  '1': 'PetLife',
-  '2': [
-    {
-      '1': 'value',
-      '3': 1,
-      '4': 3,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.PetLife.ValueEntry',
-      '10': 'value'
-    },
-  ],
-  '3': [PetLife_ValueEntry$json],
-};
-
-@$core.Deprecated('Use petLifeDescriptor instead')
-const PetLife_ValueEntry$json = {
-  '1': 'ValueEntry',
-  '2': [
-    {'1': 'key', '3': 1, '4': 1, '5': 9, '10': 'key'},
-    {'1': 'value', '3': 2, '4': 1, '5': 3, '10': 'value'},
-  ],
-  '7': {'7': true},
-};
-
-/// Descriptor for `PetLife`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List petLifeDescriptor = $convert.base64Decode(
-    'CgdQZXRMaWZlEjgKBXZhbHVlGAEgAygLMiIuZ2l6Y2xhdy5ycGMudjEuUGV0TGlmZS5WYWx1ZU'
-    'VudHJ5UgV2YWx1ZRo4CgpWYWx1ZUVudHJ5EhAKA2tleRgBIAEoCVIDa2V5EhQKBXZhbHVlGAIg'
-    'ASgDUgV2YWx1ZToCOAE=');
-
-@$core.Deprecated('Use petProgressionDescriptor instead')
-const PetProgression$json = {
-  '1': 'PetProgression',
-  '2': [
-    {
-      '1': 'value',
-      '3': 1,
-      '4': 3,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.PetProgression.ValueEntry',
-      '10': 'value'
-    },
-  ],
-  '3': [PetProgression_ValueEntry$json],
-};
-
-@$core.Deprecated('Use petProgressionDescriptor instead')
-const PetProgression_ValueEntry$json = {
-  '1': 'ValueEntry',
-  '2': [
-    {'1': 'key', '3': 1, '4': 1, '5': 9, '10': 'key'},
-    {'1': 'value', '3': 2, '4': 1, '5': 3, '10': 'value'},
-  ],
-  '7': {'7': true},
-};
-
-/// Descriptor for `PetProgression`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List petProgressionDescriptor = $convert.base64Decode(
-    'Cg5QZXRQcm9ncmVzc2lvbhI/CgV2YWx1ZRgBIAMoCzIpLmdpemNsYXcucnBjLnYxLlBldFByb2'
-    'dyZXNzaW9uLlZhbHVlRW50cnlSBXZhbHVlGjgKClZhbHVlRW50cnkSEAoDa2V5GAEgASgJUgNr'
-    'ZXkSFAoFdmFsdWUYAiABKANSBXZhbHVlOgI4AQ==');

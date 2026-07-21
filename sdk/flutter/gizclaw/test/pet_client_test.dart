@@ -60,13 +60,18 @@ void main() {
     );
     expect((await adoptFuture).value.pet.id, 'pet-b');
 
-    final driveFuture = client.drivePet('pet-b', action: 'bath');
+    final driveFuture = client.drivePet(
+      'pet-b',
+      behavior: PetBehavior.PET_BEHAVIOR_BATHE,
+      idempotencyKey: 'care-1',
+    );
     final driveRequest = await _request(factory, 3);
     final drivePayload =
         decodeRpcRequestPayload('server.pet.drive', driveRequest.payload)
             as ServerPetDriveRequest;
     expect(drivePayload.value.petId, 'pet-b');
-    expect(drivePayload.value.action, 'bath');
+    expect(drivePayload.value.behavior, PetBehavior.PET_BEHAVIOR_BATHE);
+    expect(drivePayload.value.idempotencyKey, 'care-1');
     _respond(
       factory.channels[3],
       driveRequest.id,

@@ -327,13 +327,31 @@ class GizClawClient {
 
   Future<payload.ServerPetDriveResponse> drivePet(
     String petId, {
-    required String action,
+    required payload.PetBehavior behavior,
+    String? idempotencyKey,
   }) {
+    final value = payload.PetDriveRequest(petId: petId, behavior: behavior);
+    if (idempotencyKey != null && idempotencyKey.isNotEmpty) {
+      value.idempotencyKey = idempotencyKey;
+    }
     return rpc.call<payload.ServerPetDriveResponse>(
       'server.pet.drive',
-      payload.ServerPetDriveRequest(
-        value: payload.PetDriveRequest(petId: petId, action: action),
-      ),
+      payload.ServerPetDriveRequest(value: value),
+    );
+  }
+
+  Future<payload.ServerPetDriveResponse> drivePetGame(
+    String petId, {
+    required payload.PetDriveGameResultInput gameResult,
+    String? idempotencyKey,
+  }) {
+    final value = payload.PetDriveRequest(petId: petId, gameResult: gameResult);
+    if (idempotencyKey != null && idempotencyKey.isNotEmpty) {
+      value.idempotencyKey = idempotencyKey;
+    }
+    return rpc.call<payload.ServerPetDriveResponse>(
+      'server.pet.drive',
+      payload.ServerPetDriveRequest(value: value),
     );
   }
 

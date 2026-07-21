@@ -17,64 +17,73 @@ type rowScanner interface {
 	Scan(dest ...any) error
 }
 
-const petProgressionStorageMarker = "__gizclaw_progression_v1"
-
 func petSelectSQL() string {
-	return `SELECT owner_public_key, id, runtime_profile_name, petdef_id, display_name, workspace_name, workflow_name, life_json, ability_json, exp, level, last_active_at, created_at, updated_at FROM gameplay_pets`
+	return `SELECT owner_public_key, id, runtime_profile_name, petdef_id, display_name, workspace_name, stats_json, progression_json, lifecycle, died_at, state_settled_at, last_active_at, created_at, updated_at FROM gameplay_pets`
 }
 
 func scanPet(row rowScanner) (apitypes.Pet, error) {
 	var pet apitypes.Pet
-	var workflowName sql.NullString
-	var lifeJSON, abilityJSON string
-	var legacyExp, legacyLevel int64
-	var lastActiveAt, createdAt, updatedAt string
-	err := row.Scan(&pet.OwnerPublicKey, &pet.Id, &pet.RuntimeProfileName, &pet.PetdefId, &pet.DisplayName, &pet.WorkspaceName, &workflowName, &lifeJSON, &abilityJSON, &legacyExp, &legacyLevel, &lastActiveAt, &createdAt, &updatedAt)
+	var statsJSON, progressionJSON string
+	var diedAt sql.NullString
+	var stateSettledAt, lastActiveAt, createdAt, updatedAt string
+	err := row.Scan(&pet.OwnerPublicKey, &pet.Id, &pet.RuntimeProfileName, &pet.PetdefId, &pet.DisplayName, &pet.WorkspaceName, &statsJSON, &progressionJSON, &pet.Lifecycle, &diedAt, &stateSettledAt, &lastActiveAt, &createdAt, &updatedAt)
 	if err != nil {
 		return apitypes.Pet{}, err
 	}
-	_ = workflowName
-	if err := unmarshalJSON(lifeJSON, &pet.Life); err != nil {
+	if err := unmarshalJSON(statsJSON, &pet.Stats); err != nil {
 		return apitypes.Pet{}, err
 	}
-	var storedProgression apitypes.PetProgression
-	if err := unmarshalJSON(abilityJSON, &storedProgression); err != nil {
+	if err := unmarshalJSON(progressionJSON, &pet.Progression); err != nil {
 		return apitypes.Pet{}, err
 	}
-	pet.Progression = scanStoredPetProgression(storedProgression, legacyExp)
+	if diedAt.Valid {
+		value := parseTime(diedAt.String)
+		pet.DiedAt = &value
+	}
+	pet.StateSettledAt = parseTime(stateSettledAt)
 	pet.LastActiveAt = parseTime(lastActiveAt)
 	pet.CreatedAt = parseTime(createdAt)
 	pet.UpdatedAt = parseTime(updatedAt)
+	switch pet.Lifecycle {
+	case apitypes.PetLifecycleAlive:
+		if pet.DiedAt != nil {
+			return apitypes.Pet{}, errors.New("gameplay: alive pet has died_at")
+		}
+	case apitypes.PetLifecycleDead:
+		if pet.DiedAt == nil || pet.Stats.Life != 0 {
+			return apitypes.Pet{}, errors.New("gameplay: dead pet requires died_at and zero life")
+		}
+	default:
+		return apitypes.Pet{}, fmt.Errorf("gameplay: invalid pet lifecycle %q", pet.Lifecycle)
+	}
 	return pet, nil
 }
 
 func insertPet(ctx context.Context, tx *sqlx.Tx, pet apitypes.Pet) error {
-	lifeJSON, err := marshalJSON(pet.Life)
+	statsJSON, err := marshalJSON(pet.Stats)
 	if err != nil {
 		return err
 	}
-	progressionJSON, err := marshalStoredPetProgression(pet.Progression)
+	progressionJSON, err := marshalJSON(pet.Progression)
 	if err != nil {
 		return err
 	}
-	exp := petProgressionExp(pet)
-	_, err = tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_pets (owner_public_key, id, runtime_profile_name, petdef_id, display_name, workspace_name, workflow_name, life_json, ability_json, exp, level, last_active_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
-		pet.OwnerPublicKey, pet.Id, pet.RuntimeProfileName, pet.PetdefId, pet.DisplayName, pet.WorkspaceName, defaultPetWorkflowName, lifeJSON, progressionJSON, exp, petLevel(exp), formatTime(pet.LastActiveAt), formatTime(pet.CreatedAt), formatTime(pet.UpdatedAt))
+	_, err = tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_pets (owner_public_key, id, runtime_profile_name, petdef_id, display_name, workspace_name, stats_json, progression_json, lifecycle, died_at, state_settled_at, last_active_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
+		pet.OwnerPublicKey, pet.Id, pet.RuntimeProfileName, pet.PetdefId, pet.DisplayName, pet.WorkspaceName, statsJSON, progressionJSON, pet.Lifecycle, nullableTime(pet.DiedAt), formatTime(pet.StateSettledAt), formatTime(pet.LastActiveAt), formatTime(pet.CreatedAt), formatTime(pet.UpdatedAt))
 	return err
 }
 
 func updatePet(ctx context.Context, tx *sqlx.Tx, pet apitypes.Pet) error {
-	lifeJSON, err := marshalJSON(pet.Life)
+	statsJSON, err := marshalJSON(pet.Stats)
 	if err != nil {
 		return err
 	}
-	progressionJSON, err := marshalStoredPetProgression(pet.Progression)
+	progressionJSON, err := marshalJSON(pet.Progression)
 	if err != nil {
 		return err
 	}
-	exp := petProgressionExp(pet)
-	_, err = tx.ExecContext(ctx, tx.Rebind(`UPDATE gameplay_pets SET display_name = ?, life_json = ?, ability_json = ?, exp = ?, level = ?, last_active_at = ?, updated_at = ? WHERE owner_public_key = ? AND id = ?`),
-		pet.DisplayName, lifeJSON, progressionJSON, exp, petLevel(exp), formatTime(pet.LastActiveAt), formatTime(pet.UpdatedAt), pet.OwnerPublicKey, pet.Id)
+	_, err = tx.ExecContext(ctx, tx.Rebind(`UPDATE gameplay_pets SET display_name = ?, stats_json = ?, progression_json = ?, lifecycle = ?, died_at = ?, state_settled_at = ?, last_active_at = ?, updated_at = ? WHERE owner_public_key = ? AND id = ?`),
+		pet.DisplayName, statsJSON, progressionJSON, pet.Lifecycle, nullableTime(pet.DiedAt), formatTime(pet.StateSettledAt), formatTime(pet.LastActiveAt), formatTime(pet.UpdatedAt), pet.OwnerPublicKey, pet.Id)
 	return err
 }
 
@@ -206,15 +215,15 @@ func findGameResultByIdempotencyKey(ctx context.Context, tx *sqlx.Tx, owner, run
 }
 
 func rewardGrantSelectSQL() string {
-	return `SELECT owner_public_key, id, runtime_profile_name, pet_id, game_result_id, points_delta, pet_exp_delta, badge_exp_delta_json, life_delta_json, ability_delta_json, source_type, source_id, reason, created_at FROM gameplay_reward_grants`
+	return `SELECT owner_public_key, id, runtime_profile_name, pet_id, game_result_id, points_delta, pet_exp_delta, badge_exp_delta_json, source_type, source_id, reason, created_at FROM gameplay_reward_grants`
 }
 
 func scanRewardGrant(row rowScanner) (apitypes.RewardGrant, error) {
 	var item apitypes.RewardGrant
 	var petID, gameResultID, reason sql.NullString
-	var badgeExpJSON, lifeDeltaJSON, abilityDeltaJSON string
+	var badgeExpJSON string
 	var createdAt string
-	if err := row.Scan(&item.OwnerPublicKey, &item.Id, &item.RuntimeProfileName, &petID, &gameResultID, &item.PointsDelta, &item.PetExpDelta, &badgeExpJSON, &lifeDeltaJSON, &abilityDeltaJSON, &item.SourceType, &item.SourceId, &reason, &createdAt); err != nil {
+	if err := row.Scan(&item.OwnerPublicKey, &item.Id, &item.RuntimeProfileName, &petID, &gameResultID, &item.PointsDelta, &item.PetExpDelta, &badgeExpJSON, &item.SourceType, &item.SourceId, &reason, &createdAt); err != nil {
 		return apitypes.RewardGrant{}, err
 	}
 	item.PetId = nullStringPtr(petID)
@@ -222,12 +231,6 @@ func scanRewardGrant(row rowScanner) (apitypes.RewardGrant, error) {
 	item.Reason = nullStringPtr(reason)
 	if err := unmarshalJSON(badgeExpJSON, &item.BadgeExpDelta); err != nil {
 		return apitypes.RewardGrant{}, err
-	}
-	for _, legacyDeltaJSON := range []string{lifeDeltaJSON, abilityDeltaJSON} {
-		var ignored map[string]int64
-		if err := unmarshalJSON(legacyDeltaJSON, &ignored); err != nil {
-			return apitypes.RewardGrant{}, err
-		}
 	}
 	item.CreatedAt = parseTime(createdAt)
 	return item, nil
@@ -238,16 +241,8 @@ func insertRewardGrant(ctx context.Context, tx *sqlx.Tx, item apitypes.RewardGra
 	if err != nil {
 		return err
 	}
-	lifeDeltaJSON, err := marshalJSON(map[string]int64{})
-	if err != nil {
-		return err
-	}
-	abilityDeltaJSON, err := marshalJSON(map[string]int64{})
-	if err != nil {
-		return err
-	}
-	_, err = tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_reward_grants (owner_public_key, id, runtime_profile_name, pet_id, game_result_id, points_delta, pet_exp_delta, badge_exp_delta_json, life_delta_json, ability_delta_json, source_type, source_id, reason, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
-		item.OwnerPublicKey, item.Id, item.RuntimeProfileName, nullableString(item.PetId), nullableString(item.GameResultId), item.PointsDelta, item.PetExpDelta, badgeExpJSON, lifeDeltaJSON, abilityDeltaJSON, item.SourceType, item.SourceId, nullableString(item.Reason), formatTime(item.CreatedAt))
+	_, err = tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_reward_grants (owner_public_key, id, runtime_profile_name, pet_id, game_result_id, points_delta, pet_exp_delta, badge_exp_delta_json, source_type, source_id, reason, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
+		item.OwnerPublicKey, item.Id, item.RuntimeProfileName, nullableString(item.PetId), nullableString(item.GameResultId), item.PointsDelta, item.PetExpDelta, badgeExpJSON, item.SourceType, item.SourceId, nullableString(item.Reason), formatTime(item.CreatedAt))
 	return err
 }
 
@@ -346,37 +341,6 @@ func unmarshalJSON(data string, out any) error {
 	return json.Unmarshal([]byte(data), out)
 }
 
-func scanStoredPetProgression(stored apitypes.PetProgression, legacyExp int64) apitypes.PetProgression {
-	out := apitypes.PetProgression{}
-	if stored[petProgressionStorageMarker] == 1 {
-		for key, value := range stored {
-			if key == petProgressionStorageMarker {
-				continue
-			}
-			out[key] = value
-		}
-		if _, ok := out["xp"]; !ok && legacyExp != 0 {
-			out["xp"] = legacyExp
-		}
-		return out
-	}
-	if legacyExp != 0 {
-		out["xp"] = legacyExp
-	}
-	return out
-}
-
-func marshalStoredPetProgression(progression apitypes.PetProgression) (string, error) {
-	stored := apitypes.PetProgression{petProgressionStorageMarker: 1}
-	for key, value := range progression {
-		if key == petProgressionStorageMarker {
-			continue
-		}
-		stored[key] = value
-	}
-	return marshalJSON(stored)
-}
-
 func formatTime(t time.Time) string {
 	return t.UTC().Format(time.RFC3339Nano)
 }
@@ -391,6 +355,13 @@ func nullableString(v *string) sql.NullString {
 		return sql.NullString{}
 	}
 	return sql.NullString{String: *v, Valid: true}
+}
+
+func nullableTime(v *time.Time) sql.NullString {
+	if v == nil || v.IsZero() {
+		return sql.NullString{}
+	}
+	return sql.NullString{String: formatTime(*v), Valid: true}
 }
 
 func nullStringPtr(v sql.NullString) *string {

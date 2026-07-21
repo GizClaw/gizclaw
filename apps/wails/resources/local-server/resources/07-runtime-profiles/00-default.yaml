@@ -163,7 +163,30 @@ spec:
         - {pet_def: rocky, voice: cute-pet, weight: 100, rarity: common, adoption_cost: 10}
         - {pet_def: seedy, voice: cute-pet, weight: 100, rarity: common, adoption_cost: 10}
         - {pet_def: stacky, voice: cute-pet, weight: 100, rarity: common, adoption_cost: 10}
-    rewards:
-      default:
-        points_delta: 5
-        pet_exp_delta: 3
+    pet:
+      time:
+        care_decay_per_hour:
+          health: 0.5
+          satiety: 1.3888888889
+          hygiene: 0.7
+          mood: 1.0
+        energy_recovery_per_hour: 10
+        life_decay:
+          max_loss_per_hour: 4
+          exponent: 2
+          contributing_weights:
+            health: 0.25
+            satiety: 0.25
+            hygiene: 0.25
+            mood: 0.25
+      experience:
+        energy_per_pet_exp: 5
+        leveling:
+          base_exp: 30
+          log_scale: 10
+      actions:
+        feed: {energy_cost: 10, stat_delta: 10}
+        bathe: {energy_cost: 10, stat_delta: 10}
+        play: {energy_cost: 10, stat_delta: 10}
+        heal: {energy_cost: 10, stat_delta: 10}
+      games: {}
