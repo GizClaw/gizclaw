@@ -73,7 +73,7 @@ func scanPet(row rowScanner) (apitypes.Pet, error) {
 }
 
 func findPetByOwnerID(ctx context.Context, db queryRebinder, owner, id string) (apitypes.Pet, error) {
-	return scanPet(db.QueryRowContext(ctx, db.Rebind(petSelectSQL()+` WHERE owner_public_key = ? AND id = ?`), strings.TrimSpace(owner), strings.TrimSpace(id)))
+	return scanPet(db.QueryRowContext(ctx, db.Rebind(petSelectSQL()+` WHERE owner_public_key = ? AND id = ?`), owner, id))
 }
 
 func insertPet(ctx context.Context, tx *sqlx.Tx, pet apitypes.Pet) error {
@@ -148,7 +148,7 @@ func scanPointsAccount(row rowScanner) (apitypes.PointsAccount, error) {
 }
 
 func findPointsAccount(ctx context.Context, db queryRebinder, owner, runtimeProfileName string) (apitypes.PointsAccount, error) {
-	return scanPointsAccount(db.QueryRowContext(ctx, db.Rebind(pointsAccountSelectSQL()+` WHERE owner_public_key = ? AND runtime_profile_name = ?`), strings.TrimSpace(owner), strings.TrimSpace(runtimeProfileName)))
+	return scanPointsAccount(db.QueryRowContext(ctx, db.Rebind(pointsAccountSelectSQL()+` WHERE owner_public_key = ? AND runtime_profile_name = ?`), owner, runtimeProfileName))
 }
 
 func insertPointsAccount(ctx context.Context, tx *sqlx.Tx, account apitypes.PointsAccount) error {
@@ -183,7 +183,7 @@ func insertPointsTransaction(ctx context.Context, tx *sqlx.Tx, item apitypes.Poi
 }
 
 func findPetAdoptionTransaction(ctx context.Context, db queryRebinder, owner, petID string) (apitypes.PointsTransaction, error) {
-	return scanPointsTransaction(db.QueryRowContext(ctx, db.Rebind(pointsTransactionSelectSQL()+` WHERE owner_public_key = ? AND source_type = 'pet' AND source_id = ? AND reason = 'pet.adopt'`), strings.TrimSpace(owner), strings.TrimSpace(petID)))
+	return scanPointsTransaction(db.QueryRowContext(ctx, db.Rebind(pointsTransactionSelectSQL()+` WHERE owner_public_key = ? AND source_type = 'pet' AND source_id = ? AND reason = 'pet.adopt'`), owner, petID))
 }
 
 func badgeSelectSQL() string {
