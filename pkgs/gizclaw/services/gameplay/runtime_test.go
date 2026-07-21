@@ -207,16 +207,21 @@ func TestRuntimeAdoptCallerIDRetryReusesReservationAfterFailure(t *testing.T) {
 	if _, err := runtime.AdoptPet(ctx, "peer-a", apitypes.PetAdoptRequest{Id: &petID}); err == nil {
 		t.Fatal("AdoptPet(insufficient Points) error = nil")
 	}
-	if len(workspaces.created) != 1 || len(workspaces.deleted) != 0 {
-		t.Fatalf("workspace mutations after failed adoption: created=%d deleted=%d, want 1 and 0", len(workspaces.created), len(workspaces.deleted))
+	if len(workspaces.created) != 0 || len(workspaces.deleted) != 0 {
+		t.Fatalf("workspace mutations after unaffordable adoption: created=%d deleted=%d, want 0 and 0", len(workspaces.created), len(workspaces.deleted))
 	}
-	initialBalance = 50
+	if _, err := runtime.DB.Exec(`UPDATE gameplay_points_accounts SET balance = 50 WHERE owner_public_key = ? AND runtime_profile_name = ?`, "peer-a", profile.Name); err != nil {
+		t.Fatalf("fund reserved adoption account: %v", err)
+	}
 	response, err := runtime.AdoptPet(ctx, "peer-a", apitypes.PetAdoptRequest{Id: &petID})
 	if err != nil {
 		t.Fatalf("AdoptPet(retry) error = %v", err)
 	}
 	if response.Pet.Id != petID || response.Points.Balance != 35 || pickCount != 1 {
 		t.Fatalf("AdoptPet(retry) = %#v, picks=%d; want reserved selection and one pool pick", response, pickCount)
+	}
+	if len(workspaces.created) != 1 {
+		t.Fatalf("created workspaces after funded retry = %d, want 1", len(workspaces.created))
 	}
 }
 
