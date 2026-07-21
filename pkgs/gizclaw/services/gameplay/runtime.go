@@ -184,7 +184,11 @@ func (r *Runtime) AdoptPet(ctx context.Context, owner string, req apitypes.PetAd
 			return apitypes.PetAdoptResponse{}, err
 		}
 		petID := r.newID()
-		return r.createPetAdoption(ctx, owner, req, ruleset, petID, "pet-"+petID)
+		response, workspaceCreated, err := r.createPetAdoption(ctx, owner, req, ruleset, petID, "pet-"+petID, false)
+		if err != nil && workspaceCreated && r.Workspaces != nil {
+			_, _ = r.Workspaces.DeleteSystemWorkspace(context.WithoutCancel(ctx), "pet-"+petID)
+		}
+		return response, err
 	}
 
 	petID := *req.Id
@@ -205,32 +209,43 @@ func (r *Runtime) AdoptPet(ctx context.Context, owner string, req apitypes.PetAd
 	if err != nil {
 		return apitypes.PetAdoptResponse{}, err
 	}
-	return r.createPetAdoption(ctx, owner, req, ruleset, petID, petWorkspaceName(owner, petID))
+	workspaceName := petWorkspaceName(owner, petID)
+	response, workspaceCreated, createErr := r.createPetAdoption(ctx, owner, req, ruleset, petID, workspaceName, true)
+	if createErr == nil {
+		return response, nil
+	}
+	recoveryCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
+	defer cancel()
+	if response, found, err := r.awaitCompletedAdoptionResponse(recoveryCtx, owner, profileRules.Name, petID); found || err != nil {
+		return response, err
+	}
+	if workspaceCreated && r.Workspaces != nil {
+		_, _ = r.Workspaces.DeleteSystemWorkspace(recoveryCtx, workspaceName)
+	}
+	return apitypes.PetAdoptResponse{}, createErr
 }
 
-func (r *Runtime) createPetAdoption(ctx context.Context, owner string, req apitypes.PetAdoptRequest, ruleset ProfileRules, petID, workspaceName string) (apitypes.PetAdoptResponse, error) {
+func (r *Runtime) createPetAdoption(ctx context.Context, owner string, req apitypes.PetAdoptRequest, ruleset ProfileRules, petID, workspaceName string, acceptExistingWorkspace bool) (apitypes.PetAdoptResponse, bool, error) {
 	poolEntry, err := r.pickPetDef(ruleset.Spec.PetPool)
 	if err != nil {
-		return apitypes.PetAdoptResponse{}, err
+		return apitypes.PetAdoptResponse{}, false, err
 	}
 	petDef, err := r.Catalog.GetPetDefByID(ctx, poolEntry.PetDefID)
 	if err != nil {
-		return apitypes.PetAdoptResponse{}, err
+		return apitypes.PetAdoptResponse{}, false, err
 	}
 	workflowName := defaultPetWorkflowName
 	displayName := strings.TrimSpace(valueOrZero(req.DisplayName))
 	if displayName == "" {
 		displayName = petDefDisplayName(petDef)
 	}
-	if err := r.createPetWorkspace(ctx, workspaceName, workflowName, poolEntry.VoiceAlias); err != nil {
-		return apitypes.PetAdoptResponse{}, err
+	workspaceCreated, err := r.createPetWorkspace(ctx, workspaceName, workflowName, poolEntry.VoiceAlias)
+	if err != nil {
+		return apitypes.PetAdoptResponse{}, false, err
 	}
-	created := false
-	defer func() {
-		if !created && r.Workspaces != nil {
-			_, _ = r.Workspaces.DeleteSystemWorkspace(context.WithoutCancel(ctx), workspaceName)
-		}
-	}()
+	if !workspaceCreated && !acceptExistingWorkspace {
+		return apitypes.PetAdoptResponse{}, false, fmt.Errorf("create pet workspace %q: workspace already exists", workspaceName)
+	}
 	now := r.now()
 	pet := apitypes.Pet{
 		Id:                 petID,
@@ -249,30 +264,49 @@ func (r *Runtime) createPetAdoption(ctx context.Context, owner string, req apity
 	}
 	db, err := r.db()
 	if err != nil {
-		return apitypes.PetAdoptResponse{}, err
+		return apitypes.PetAdoptResponse{}, workspaceCreated, err
 	}
 	tx, err := db.BeginTxx(ctx, nil)
 	if err != nil {
-		return apitypes.PetAdoptResponse{}, err
+		return apitypes.PetAdoptResponse{}, workspaceCreated, err
 	}
 	defer tx.Rollback()
 	account, err := r.ensureAccountTx(ctx, tx, owner, ruleset)
 	if err != nil {
-		return apitypes.PetAdoptResponse{}, err
+		return apitypes.PetAdoptResponse{}, workspaceCreated, err
 	}
 	cost := int64Value(poolEntry.AdoptionCost)
 	txn, err := r.recordPointsTx(ctx, tx, &account, -cost, ruleset.Name, pet.Id, "", "", "pet.adopt", "pet", pet.Id, true)
 	if err != nil {
-		return apitypes.PetAdoptResponse{}, err
+		return apitypes.PetAdoptResponse{}, workspaceCreated, err
 	}
 	if err := insertPet(ctx, tx, pet); err != nil {
-		return apitypes.PetAdoptResponse{}, err
+		return apitypes.PetAdoptResponse{}, workspaceCreated, err
 	}
 	if err := tx.Commit(); err != nil {
-		return apitypes.PetAdoptResponse{}, err
+		return apitypes.PetAdoptResponse{}, workspaceCreated, err
 	}
-	created = true
-	return apitypes.PetAdoptResponse{Pet: pet, Points: account, Transaction: txn}, nil
+	return apitypes.PetAdoptResponse{Pet: pet, Points: account, Transaction: txn}, workspaceCreated, nil
+}
+
+func (r *Runtime) awaitCompletedAdoptionResponse(ctx context.Context, owner, runtimeProfileName, petID string) (apitypes.PetAdoptResponse, bool, error) {
+	for attempt := range 10 {
+		response, found, err := r.completedAdoptionResponse(ctx, owner, runtimeProfileName, petID)
+		if found || err != nil {
+			return response, found, err
+		}
+		if attempt == 9 {
+			break
+		}
+		timer := time.NewTimer(10 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return apitypes.PetAdoptResponse{}, false, ctx.Err()
+		case <-timer.C:
+		}
+	}
+	return apitypes.PetAdoptResponse{}, false, nil
 }
 
 func (r *Runtime) completedAdoptionResponse(ctx context.Context, owner, runtimeProfileName, petID string) (apitypes.PetAdoptResponse, bool, error) {
@@ -1180,16 +1214,16 @@ func (r *Runtime) pickWeight(total int64) int64 {
 	return n.Int64()
 }
 
-func (r *Runtime) createPetWorkspace(ctx context.Context, name, workflowName, voiceAlias string) error {
+func (r *Runtime) createPetWorkspace(ctx context.Context, name, workflowName, voiceAlias string) (bool, error) {
 	if r == nil || r.Workspaces == nil {
-		return errors.New("gameplay: workspace service is not configured")
+		return false, errors.New("gameplay: workspace service is not configured")
 	}
 	if err := r.validatePetWorkflow(ctx, workflowName); err != nil {
-		return err
+		return false, err
 	}
 	voiceAlias = strings.TrimSpace(voiceAlias)
 	if voiceAlias == "" {
-		return errors.New("gameplay: pet voice alias is required")
+		return false, errors.New("gameplay: pet voice alias is required")
 	}
 	input := apitypes.WorkspaceInputModePushToTalk
 	var parameters apitypes.WorkspaceParameters
@@ -1200,17 +1234,14 @@ func (r *Runtime) createPetWorkspace(ctx context.Context, name, workflowName, vo
 			VoiceId: voiceAlias,
 		},
 	}); err != nil {
-		return err
+		return false, err
 	}
 	body := adminhttp.WorkspaceUpsert{Name: name, WorkflowName: workflowName, Parameters: &parameters}
 	_, created, err := r.Workspaces.CreateSystemWorkspace(ctx, body)
 	if err != nil {
-		return err
+		return false, err
 	}
-	if !created {
-		return fmt.Errorf("create pet workspace %q: workspace already exists", name)
-	}
-	return nil
+	return created, nil
 }
 
 func (r *Runtime) validatePetWorkflow(ctx context.Context, name string) error {

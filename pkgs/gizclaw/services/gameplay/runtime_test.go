@@ -273,6 +273,69 @@ func TestRuntimeAdoptCallerIDSerializesConcurrentRetries(t *testing.T) {
 	}
 }
 
+func TestRuntimeAdoptCallerIDConvergesAcrossRuntimeInstances(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 7, 22, 10, 45, 0, 0, time.UTC)
+	catalog := testCatalog(t, now)
+	profile := seedGameplayCatalog(t, ctx, catalog)
+	ctx = WithRuntimeProfile(ctx, profile)
+	db := testDB(t)
+	workspaces := &recordingWorkspaceService{}
+	newRuntime := func(transactionID string) *Runtime {
+		return &Runtime{
+			DB:         db,
+			Catalog:    catalog,
+			Workflows:  petWorkflowService{},
+			Workspaces: workspaces,
+			Now:        func() time.Time { return now },
+			NewID:      sequentialIDs(transactionID),
+			PickWeight: func(int64) int64 { return 0 },
+		}
+	}
+	runtimes := []*Runtime{newRuntime("txn-runtime-a"), newRuntime("txn-runtime-b")}
+	if err := runtimes[0].Migration(ctx); err != nil {
+		t.Fatalf("Migration() error = %v", err)
+	}
+	petID := "device-pet-04"
+	const workers = 8
+	start := make(chan struct{})
+	responses := make(chan apitypes.PetAdoptResponse, workers)
+	errs := make(chan error, workers)
+	var wg sync.WaitGroup
+	for i := range workers {
+		runtime := runtimes[i%len(runtimes)]
+		wg.Go(func() {
+			<-start
+			response, err := runtime.AdoptPet(ctx, "peer-a", apitypes.PetAdoptRequest{Id: &petID})
+			responses <- response
+			errs <- err
+		})
+	}
+	close(start)
+	wg.Wait()
+	close(responses)
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("AdoptPet(cross-runtime) error = %v", err)
+		}
+	}
+	var transactionID string
+	for response := range responses {
+		if response.Pet.Id != petID {
+			t.Fatalf("AdoptPet(cross-runtime) = %#v", response)
+		}
+		if transactionID == "" {
+			transactionID = response.Transaction.Id
+		} else if response.Transaction.Id != transactionID {
+			t.Fatalf("transaction ID = %q, want %q", response.Transaction.Id, transactionID)
+		}
+	}
+	if len(workspaces.created) != 1 || len(workspaces.deleted) != 0 {
+		t.Fatalf("workspace mutations: created=%d deleted=%d, want 1 and 0", len(workspaces.created), len(workspaces.deleted))
+	}
+}
+
 func TestRuntimeProfileScopesGameplayLists(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 7, 19, 6, 0, 0, 0, time.UTC)

@@ -205,15 +205,19 @@ func TestPostgresCallerAssignedAdoptionIsConcurrent(t *testing.T) {
 	catalog := testCatalog(t, now)
 	profile := seedGameplayCatalog(t, ctx, catalog)
 	ctx = WithRuntimeProfile(ctx, profile)
-	runtime := &Runtime{
-		DB:         db,
-		Catalog:    catalog,
-		Workflows:  petWorkflowService{},
-		Workspaces: &recordingWorkspaceService{},
-		Now:        func() time.Time { return now },
-		PickWeight: func(int64) int64 { return 0 },
+	workspaces := &recordingWorkspaceService{}
+	newRuntime := func() *Runtime {
+		return &Runtime{
+			DB:         db,
+			Catalog:    catalog,
+			Workflows:  petWorkflowService{},
+			Workspaces: workspaces,
+			Now:        func() time.Time { return now },
+			PickWeight: func(int64) int64 { return 0 },
+		}
 	}
-	if err := runtime.Migration(ctx); err != nil {
+	runtimes := []*Runtime{newRuntime(), newRuntime()}
+	if err := runtimes[0].Migration(ctx); err != nil {
 		t.Fatalf("Migration() error = %v", err)
 	}
 	petID := "postgres-pet-01"
@@ -222,7 +226,8 @@ func TestPostgresCallerAssignedAdoptionIsConcurrent(t *testing.T) {
 	responses := make(chan apitypes.PetAdoptResponse, workers)
 	errs := make(chan error, workers)
 	var wg sync.WaitGroup
-	for range workers {
+	for i := range workers {
+		runtime := runtimes[i%len(runtimes)]
 		wg.Go(func() {
 			<-start
 			response, err := runtime.AdoptPet(ctx, "peer-postgres", apitypes.PetAdoptRequest{Id: &petID})
@@ -259,6 +264,9 @@ func TestPostgresCallerAssignedAdoptionIsConcurrent(t *testing.T) {
 	}
 	if pets != 1 || transactions != 1 {
 		t.Fatalf("persisted Pets=%d transactions=%d, want 1 and 1", pets, transactions)
+	}
+	if len(workspaces.created) != 1 || len(workspaces.deleted) != 0 {
+		t.Fatalf("workspace mutations: created=%d deleted=%d, want 1 and 0", len(workspaces.created), len(workspaces.deleted))
 	}
 }
 
