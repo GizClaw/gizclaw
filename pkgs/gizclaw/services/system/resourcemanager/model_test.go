@@ -68,12 +68,12 @@ func TestPutGetDeleteModelResource(t *testing.T) {
 	resource := mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Model",
-		"metadata": {"name": "speech"},
+		"metadata": {"name": "chat"},
 		"spec": {
 			"kind": "llm",
 			"provider": {"kind": "openai-tenant", "name": "openai"},
 			"source": "manual",
-			"provider_data": {"upstream_model":"gpt-4o-mini-tts", "support_json_output": false, "support_tool_calls": false, "support_text_only": false, "use_system_role": false, "support_temperature": false, "support_thinking": false}
+			"provider_data": {"upstream_model":"gpt-4o-mini", "support_json_output": false, "support_tool_calls": false, "support_text_only": false, "use_system_role": false, "support_temperature": false, "support_thinking": false}
 		}
 	}`)
 
@@ -89,7 +89,7 @@ func TestPutGetDeleteModelResource(t *testing.T) {
 		t.Fatalf("Put(Model) provider.kind = %s", model.Spec.Provider.Kind)
 	}
 
-	got, err := manager.Get(context.Background(), apitypes.ResourceKindModel, "speech")
+	got, err := manager.Get(context.Background(), apitypes.ResourceKindModel, "chat")
 	if err != nil {
 		t.Fatalf("Get(Model) error = %v", err)
 	}
@@ -97,11 +97,11 @@ func TestPutGetDeleteModelResource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsModelResource(Get) error = %v", err)
 	}
-	if gotModel.Metadata.Name != "speech" {
+	if gotModel.Metadata.Name != "chat" {
 		t.Fatalf("Get(Model) metadata.name = %s", gotModel.Metadata.Name)
 	}
 
-	deleted, err := manager.Delete(context.Background(), apitypes.ResourceKindModel, "speech")
+	deleted, err := manager.Delete(context.Background(), apitypes.ResourceKindModel, "chat")
 	if err != nil {
 		t.Fatalf("Delete(Model) error = %v", err)
 	}
@@ -109,10 +109,10 @@ func TestPutGetDeleteModelResource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsModelResource(Delete) error = %v", err)
 	}
-	if deletedModel.Metadata.Name != "speech" {
+	if deletedModel.Metadata.Name != "chat" {
 		t.Fatalf("Delete(Model) metadata.name = %s", deletedModel.Metadata.Name)
 	}
-	_, err = manager.Get(context.Background(), apitypes.ResourceKindModel, "speech")
+	_, err = manager.Get(context.Background(), apitypes.ResourceKindModel, "chat")
 	assertResourceError(t, err, 404, "RESOURCE_NOT_FOUND")
 }
 
