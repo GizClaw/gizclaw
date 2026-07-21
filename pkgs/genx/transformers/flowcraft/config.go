@@ -239,6 +239,9 @@ func cloneConfigValue(source any) (any, error) {
 func cloneConfigReflect(source reflect.Value) (reflect.Value, error) {
 	switch source.Kind() {
 	case reflect.Interface:
+		if source.IsNil() {
+			return reflect.Zero(source.Type()), nil
+		}
 		cloned, err := cloneConfigReflect(source.Elem())
 		if err != nil {
 			return reflect.Value{}, err

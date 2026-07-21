@@ -130,9 +130,10 @@ func TestTransformAcceptsMatchingControlEOS(t *testing.T) {
 	}
 }
 
-func TestTransformRejectsMismatchedTextEOS(t *testing.T) {
+func TestTransformBypassesUnrelatedControlEOSDuringTextInput(t *testing.T) {
 	t.Parallel()
-	transformer, err := New(testConfig(&echoGenerator{}))
+	generator := &echoGenerator{}
+	transformer, err := New(testConfig(generator))
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
@@ -149,8 +150,12 @@ func TestTransformRejectsMismatchedTextEOS(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
-	if _, err := output.Next(); err == nil || !strings.Contains(err.Error(), "does not match") {
-		t.Fatalf("Next() error = %v, want StreamID mismatch", err)
+	chunks := drain(t, output)
+	if len(chunks) != 1 || chunks[0].Ctrl == nil || chunks[0].Ctrl.StreamID != "two" || !chunks[0].IsEndOfStream() {
+		t.Fatalf("bypass chunks = %#v", chunks)
+	}
+	if len(generator.patterns()) != 0 {
+		t.Fatal("unclosed text route invoked a model")
 	}
 }
 
@@ -295,6 +300,75 @@ func TestTransformBypassesNonTextStream(t *testing.T) {
 	}
 }
 
+func TestTransformPreservesInterleavedNonTextBoundaries(t *testing.T) {
+	t.Parallel()
+	agent, err := New(testConfig(&echoGenerator{}))
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	input := newInputBuilder()
+	textID := "text-input"
+	audioID := "audio-input"
+	if err := input.Add(
+		genx.NewBeginOfStream(textID),
+		&genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: textID}},
+		genx.NewBeginOfStream(audioID),
+		&genx.MessageChunk{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/ogg", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: audioID}},
+		&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: audioID, EndOfStream: true}},
+		&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: textID, EndOfStream: true}},
+	); err != nil {
+		t.Fatalf("build interleaved input: %v", err)
+	}
+	_ = input.Done(genx.Usage{})
+	output, err := agent.Transform(context.Background(), input.Stream())
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	chunks := drain(t, output)
+	var audioBOS, audioData, audioEOS bool
+	for _, chunk := range chunks {
+		if chunk.Ctrl == nil || chunk.Ctrl.StreamID != audioID {
+			continue
+		}
+		audioBOS = audioBOS || chunk.IsBeginOfStream()
+		audioEOS = audioEOS || chunk.IsEndOfStream()
+		if _, ok := chunk.Part.(*genx.Blob); ok {
+			audioData = true
+		}
+	}
+	if !audioBOS || !audioData || !audioEOS {
+		t.Fatalf("audio lifecycle: BOS=%v data=%v EOS=%v", audioBOS, audioData, audioEOS)
+	}
+	if got := joinedText(chunks); got != "reply: hello" {
+		t.Fatalf("assistant output = %q", got)
+	}
+}
+
+func TestTransformPropagatesErroredTextEOS(t *testing.T) {
+	t.Parallel()
+	agent, err := New(testConfig(&echoGenerator{}))
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	input := newInputBuilder()
+	streamID := "failed-input"
+	if err := input.Add(
+		genx.NewBeginOfStream(streamID),
+		&genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text("partial"), Ctrl: &genx.StreamCtrl{StreamID: streamID}},
+		&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: streamID, EndOfStream: true, Error: "asr failed"}},
+	); err != nil {
+		t.Fatalf("build failed input: %v", err)
+	}
+	_ = input.Done(genx.Usage{})
+	output, err := agent.Transform(context.Background(), input.Stream())
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	if _, err := output.Next(); err == nil || !strings.Contains(err.Error(), "asr failed") {
+		t.Fatalf("Next() error = %v, want upstream error", err)
+	}
+}
+
 func TestNonTextBOSDoesNotInterruptActiveTextTurn(t *testing.T) {
 	t.Parallel()
 	generator := &interruptGenerator{started: make(chan struct{})}
@@ -433,6 +507,20 @@ func TestDefaultRecallRendererPreservesMatchOrder(t *testing.T) {
 	}
 	if result != "Relevant memory:\n- first\n- second" {
 		t.Fatalf("DefaultRecallRenderer() = %q", result)
+	}
+}
+
+func TestNewClonesNilRecallFilterValues(t *testing.T) {
+	t.Parallel()
+	config := testConfig(&echoGenerator{})
+	config.Memory = &waitingMemoryStore{}
+	config.MemoryScope = "runtime/user/agent"
+	config.RecallProfiles = []MemoryRecallProfile{{
+		BoardVariable: "memory", Limit: 1,
+		Filters: []memory.Filter{{Field: "kind", Operator: memory.FilterIn, Value: []any{nil}}},
+	}}
+	if _, err := New(config); err != nil {
+		t.Fatalf("New() error = %v", err)
 	}
 }
 

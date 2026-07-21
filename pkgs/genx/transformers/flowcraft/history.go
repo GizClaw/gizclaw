@@ -35,7 +35,11 @@ func (h *conversationHistory) load(ctx context.Context) ([]flowmodel.Message, er
 	if h.store == nil {
 		h.mu.Lock()
 		defer h.mu.Unlock()
-		return flowmodel.CloneMessages(h.live), nil
+		live := h.live
+		if len(live) > historyWindow {
+			live = live[len(live)-historyWindow:]
+		}
+		return flowmodel.CloneMessages(live), nil
 	}
 	page, err := h.store.Query(ctx, logstore.Query{
 		Streams: []string{historyStream}, Kinds: []string{historyKind},

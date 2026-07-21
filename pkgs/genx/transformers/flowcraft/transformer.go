@@ -109,7 +109,7 @@ func (s *session) run() {
 	defer close(s.done)
 	defer s.input.Close()
 	var text strings.Builder
-	var pendingBOS *genx.MessageChunk
+	var pendingBOS []pendingBegin
 	inText := false
 	activeInputID := ""
 	var inputFailure error
@@ -129,32 +129,33 @@ func (s *session) run() {
 			continue
 		}
 		if chunk.IsBeginOfStream() {
-			pendingBOS = chunk.Clone()
+			storePendingBegin(&pendingBOS, chunk.Clone())
 			if chunk.Part == nil {
 				continue
 			}
 		}
 		if chunk.IsEndOfStream() && chunk.Part == nil && inText {
-			if streamID := messageStreamID(chunk); streamID != "" && activeInputID != "" && streamID != activeInputID {
-				inputFailure = fmt.Errorf("flowcraft: text EOS StreamID %q does not match active StreamID %q", streamID, activeInputID)
-				break
+			streamID := messageStreamID(chunk)
+			if streamID == "" || activeInputID == "" || streamID == activeInputID {
+				if chunk.Ctrl != nil && chunk.Ctrl.Error != "" {
+					inputFailure = fmt.Errorf("flowcraft: input text stream failed: %s", chunk.Ctrl.Error)
+					break
+				}
+				if strings.TrimSpace(text.String()) != "" {
+					previous = s.startTurn(text.String(), previous)
+				}
+				text.Reset()
+				inText = false
+				activeInputID = ""
+				continue
 			}
-			if strings.TrimSpace(text.String()) != "" {
-				previous = s.startTurn(text.String(), previous)
-			}
-			text.Reset()
-			inText = false
-			activeInputID = ""
-			pendingBOS = nil
-			continue
 		}
 		if part, ok := chunk.Part.(genx.Text); ok {
-			if pendingBOS != nil {
+			if begin := takePendingBegin(&pendingBOS, messageStreamID(chunk)); begin != nil {
 				s.interruptActive()
 				text.Reset()
 				inText = false
-				activeInputID = messageStreamID(pendingBOS)
-				pendingBOS = nil
+				activeInputID = messageStreamID(begin)
 			}
 			streamID := messageStreamID(chunk)
 			if !inText && activeInputID == "" {
@@ -167,6 +168,10 @@ func (s *session) run() {
 			inText = true
 			text.WriteString(string(part))
 			if chunk.IsEndOfStream() {
+				if chunk.Ctrl != nil && chunk.Ctrl.Error != "" {
+					inputFailure = fmt.Errorf("flowcraft: input text stream failed: %s", chunk.Ctrl.Error)
+					break
+				}
 				if strings.TrimSpace(text.String()) != "" {
 					previous = s.startTurn(text.String(), previous)
 				}
@@ -176,19 +181,13 @@ func (s *session) run() {
 			}
 			continue
 		}
-		if pendingBOS != nil {
-			if err := s.invocation.Output().Push(pendingBOS); err != nil {
+		if begin := takePendingBegin(&pendingBOS, messageStreamID(chunk)); begin != nil {
+			if err := s.invocation.Output().Push(begin); err != nil {
 				break
 			}
-			pendingBOS = nil
 		}
-		if chunk.Part != nil || !inText {
-			if err := s.invocation.Output().Push(chunk.Clone()); err != nil {
-				break
-			}
-			if chunk.IsEndOfStream() && !inText {
-				activeInputID = ""
-			}
+		if err := s.invocation.Output().Push(chunk.Clone()); err != nil {
+			break
 		}
 	}
 	if inputFailure != nil {
@@ -197,8 +196,53 @@ func (s *session) run() {
 		_ = s.invocation.Output().CloseWithError(inputFailure)
 		return
 	}
+	for _, begin := range pendingBOS {
+		if err := s.invocation.Output().Push(begin.chunk); err != nil {
+			break
+		}
+	}
 	s.turns.Wait()
 	_ = s.invocation.Close()
+}
+
+type pendingBegin struct {
+	streamID string
+	chunk    *genx.MessageChunk
+}
+
+func storePendingBegin(pending *[]pendingBegin, chunk *genx.MessageChunk) {
+	streamID := messageStreamID(chunk)
+	if streamID != "" {
+		for index := range *pending {
+			if (*pending)[index].streamID == streamID {
+				(*pending)[index].chunk = chunk
+				return
+			}
+		}
+	}
+	*pending = append(*pending, pendingBegin{streamID: streamID, chunk: chunk})
+}
+
+func takePendingBegin(pending *[]pendingBegin, streamID string) *genx.MessageChunk {
+	if len(*pending) == 0 {
+		return nil
+	}
+	index := 0
+	if streamID != "" {
+		index = -1
+		for candidate := range *pending {
+			if (*pending)[candidate].streamID == streamID {
+				index = candidate
+				break
+			}
+		}
+		if index < 0 {
+			return nil
+		}
+	}
+	chunk := (*pending)[index].chunk
+	*pending = append((*pending)[:index], (*pending)[index+1:]...)
+	return chunk
 }
 
 func (s *session) startTurn(user string, previous <-chan struct{}) <-chan struct{} {

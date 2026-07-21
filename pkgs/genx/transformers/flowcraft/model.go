@@ -131,15 +131,21 @@ func cloneAnyMap(source map[string]any) map[string]any {
 }
 
 type genXStream struct {
-	stream  genx.Stream
-	current flowmodel.StreamChunk
-	content strings.Builder
-	err     error
-	usage   flowmodel.Usage
+	stream     genx.Stream
+	current    flowmodel.StreamChunk
+	content    strings.Builder
+	err        error
+	pendingErr error
+	usage      flowmodel.Usage
 }
 
 func (s *genXStream) Next() bool {
 	if s.err != nil || s.stream == nil {
+		return false
+	}
+	if s.pendingErr != nil {
+		s.err = s.pendingErr
+		s.pendingErr = nil
 		return false
 	}
 	for {
@@ -158,11 +164,10 @@ func (s *genXStream) Next() bool {
 		if chunk == nil {
 			continue
 		}
-		if chunk.IsEndOfStream() {
-			if chunk.Ctrl != nil && chunk.Ctrl.Error != "" {
-				s.err = errors.New(chunk.Ctrl.Error)
-			}
-			continue
+		endOfStream := chunk.IsEndOfStream()
+		var terminalErr error
+		if endOfStream && chunk.Ctrl != nil && chunk.Ctrl.Error != "" {
+			terminalErr = errors.New(chunk.Ctrl.Error)
 		}
 		if chunk.ToolCall != nil {
 			s.err = fmt.Errorf("flowcraft: tool calls are outside this Transformer")
@@ -174,10 +179,15 @@ func (s *genXStream) Next() bool {
 			return false
 		}
 		if !ok || text == "" {
+			if terminalErr != nil {
+				s.err = terminalErr
+				return false
+			}
 			continue
 		}
 		s.current = flowmodel.StreamChunk{Role: flowmodel.RoleAssistant, Content: string(text)}
 		s.content.WriteString(string(text))
+		s.pendingErr = terminalErr
 		return true
 	}
 }
