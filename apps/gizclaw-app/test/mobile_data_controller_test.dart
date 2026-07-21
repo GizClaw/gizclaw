@@ -177,7 +177,7 @@ void main() {
           .parameters
           .flowcraftWorkspaceParameters
           .generateModel,
-      'generate-model',
+      'chat',
     );
     expect(
       client
@@ -186,7 +186,7 @@ void main() {
           .parameters
           .flowcraftWorkspaceParameters
           .extractModel,
-      'extract-model',
+      'extraction',
     );
     expect(
       client.requests.single.parameters.flowcraftWorkspaceParameters
@@ -760,20 +760,20 @@ void main() {
     final defaults = newWorkspaceParametersForDriver(
       WorkflowDriverKind.flowcraft,
     ).flowcraftWorkspaceParameters;
-    expect(defaults.generateModel, 'generate-model');
-    expect(defaults.extractModel, 'extract-model');
+    expect(defaults.generateModel, 'chat');
+    expect(defaults.extractModel, 'extraction');
     expect(defaults.hasEmbeddingModel(), isFalse);
 
     final parameters = newWorkspaceParametersForDriver(
       WorkflowDriverKind.flowcraft,
       generateModel: 'chat-model',
       extractModel: 'memory-model',
-      embeddingModel: 'embedding-model',
+      embeddingModel: 'embedding',
     );
     final flowcraft = parameters.flowcraftWorkspaceParameters;
     expect(flowcraft.generateModel, 'chat-model');
     expect(flowcraft.extractModel, 'memory-model');
-    expect(flowcraft.embeddingModel, 'embedding-model');
+    expect(flowcraft.embeddingModel, 'embedding');
     expect(
       flowcraft.input,
       WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK,

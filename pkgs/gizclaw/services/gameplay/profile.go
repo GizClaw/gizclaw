@@ -36,6 +36,7 @@ type ProfilePetPoolEntry struct {
 	AdoptionCost *int64
 	PetDefID     string
 	Rarity       *string
+	VoiceAlias   string
 	Weight       int64
 }
 
@@ -59,10 +60,14 @@ func profileRulesFromContext(ctx context.Context, requestedName string) (Profile
 			if !exists {
 				continue
 			}
+			if _, exists := resourceAlias(profile.Spec.Resources.Voices, entry.Voice); !exists {
+				continue
+			}
 			pool = append(pool, ProfilePetPoolEntry{
 				AdoptionCost: entry.AdoptionCost,
 				PetDefID:     petDefID,
 				Rarity:       entry.Rarity,
+				VoiceAlias:   entry.Voice,
 				Weight:       entry.Weight,
 			})
 		}

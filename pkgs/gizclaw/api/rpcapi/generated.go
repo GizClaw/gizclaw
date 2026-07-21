@@ -2505,8 +2505,7 @@ type PetDefVisualSpec struct {
 
 // PetDefVoiceSpec defines model for PetDefVoiceSpec.
 type PetDefVoiceSpec struct {
-	Prompt  string `json:"prompt"`
-	VoiceId string `json:"voice_id"`
+	Prompt string `json:"prompt"`
 }
 
 // PetDeleteRequest defines model for PetDeleteRequest.

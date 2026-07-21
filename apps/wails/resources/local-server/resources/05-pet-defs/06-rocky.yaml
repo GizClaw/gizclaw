@@ -14,7 +14,6 @@ spec:
   character:
     prompt: A small friendly creature formed from a rugged gray-brown rock, with rosy cheeks and a steady resilient personality.
   voice:
-    voice_id: cute-pet
     prompt: Grounded, reassuring, concise replies with patient confidence.
   drive:
     actions:

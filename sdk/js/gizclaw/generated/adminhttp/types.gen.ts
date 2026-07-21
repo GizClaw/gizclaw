@@ -1096,7 +1096,6 @@ export type PetDefVisualSpec = {
 };
 
 export type PetDefVoiceSpec = {
-    voice_id: string;
     prompt: string;
 };
 
@@ -1549,6 +1548,7 @@ export type RuntimeProfileI18nText = {
 
 export type RuntimeProfilePetPoolEntry = {
     pet_def: string;
+    voice: string;
     weight: number;
     rarity?: string;
     adoption_cost?: number;

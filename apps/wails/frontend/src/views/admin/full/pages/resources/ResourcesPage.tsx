@@ -587,13 +587,25 @@ function resourceSpecTemplate(kind: ResourceKind): unknown {
         resources: {
           workflows: { chat: "general-chat" },
           models: { primary: "model-default" },
-          voices: { assistant: "voice-default" },
+          voices: { "pet-voice": "voice-default" },
           tools: { weather: "weather-v2" },
           pet_defs: { tragon: "petdef-tragon" },
           game_defs: { dinodive: "game-dinodive" },
           badge_defs: { "dinodive-master": "badge-dinodive-master" },
         },
-        gameplay: { points: { initial_balance: 100 }, pet_pool: [{ pet_def: "tragon", weight: 100, adoption_cost: 10 }] },
+        gameplay: {
+          points: { initial_balance: 100 },
+          adoption: {
+            pool: [
+              {
+                pet_def: "tragon",
+                voice: "pet-voice",
+                weight: 100,
+                adoption_cost: 10,
+              },
+            ],
+          },
+        },
       };
     case "RegistrationToken":
       return {
@@ -607,7 +619,7 @@ function resourceSpecTemplate(kind: ResourceKind): unknown {
           progression: { xp: { initial: 0 } },
         },
         character: { prompt: "Small friendly pixel pet." },
-        voice: { voice_id: "gizclaw-soft", prompt: "Soft and curious." },
+        voice: { prompt: "Soft and curious." },
         drive: {
           actions: [
             {

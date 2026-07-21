@@ -2856,8 +2856,7 @@ type PetDefVisualSpec struct {
 
 // PetDefVoiceSpec defines model for PetDefVoiceSpec.
 type PetDefVoiceSpec struct {
-	Prompt  string `json:"prompt"`
-	VoiceId string `json:"voice_id"`
+	Prompt string `json:"prompt"`
 }
 
 // PetDeleteRequest defines model for PetDeleteRequest.
@@ -3160,6 +3159,7 @@ type RuntimeProfilePetPoolEntry struct {
 	AdoptionCost *int64  `json:"adoption_cost,omitempty"`
 	PetDef       string  `json:"pet_def"`
 	Rarity       *string `json:"rarity,omitempty"`
+	Voice        string  `json:"voice"`
 	Weight       int64   `json:"weight"`
 }
 

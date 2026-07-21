@@ -480,13 +480,13 @@ spec:
         save_conversation: true
         tier: general
     settings:
-      generate_model: generate-model
+      generate_model: chat
     workspace:
       history_root: history
       memory_root: memory
       state_root: state
     voice_adapter:
-      asr_model: asr-model
+      asr_model: asr
       default_voice: game-master
       node_voices:
         call_case_solved: police-officer

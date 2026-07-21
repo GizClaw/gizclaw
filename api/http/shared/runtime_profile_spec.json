@@ -90,10 +90,11 @@
       },
       "RuntimeProfilePetPoolEntry": {
         "type": "object",
-        "required": ["pet_def", "weight"],
+        "required": ["pet_def", "voice", "weight"],
         "additionalProperties": false,
         "properties": {
           "pet_def": { "type": "string" },
+          "voice": { "type": "string" },
           "weight": { "type": "integer", "format": "int64", "minimum": 1 },
           "rarity": { "type": "string" },
           "adoption_cost": { "type": "integer", "format": "int64", "default": 0 }

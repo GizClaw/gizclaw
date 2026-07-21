@@ -210,7 +210,7 @@ func (r *Runtime) AdoptPet(ctx context.Context, owner string, req apitypes.PetAd
 	if displayName == "" {
 		displayName = petDefDisplayName(petDef)
 	}
-	if err := r.createPetWorkspace(ctx, workspaceName, workflowName, petDef); err != nil {
+	if err := r.createPetWorkspace(ctx, workspaceName, workflowName, poolEntry.VoiceAlias); err != nil {
 		return apitypes.PetAdoptResponse{}, err
 	}
 	created := false
@@ -395,31 +395,36 @@ func (r *Runtime) DeletePet(ctx context.Context, owner, id string) (apitypes.Pet
 	if r.Workspaces == nil {
 		return apitypes.Pet{}, fmt.Errorf("delete pet %q: workspace service is not configured", pet.Id)
 	}
-	if _, err := r.Workspaces.DeleteSystemWorkspace(cleanupCtx, pet.WorkspaceName); err != nil {
+	deletedWorkspace, err := r.Workspaces.DeleteSystemWorkspace(cleanupCtx, pet.WorkspaceName)
+	if err != nil {
 		return apitypes.Pet{}, fmt.Errorf("delete pet %q workspace: %v", pet.Id, err)
 	}
 	db, err := r.db()
 	if err != nil {
-		return apitypes.Pet{}, r.restorePetAfterDeleteFailure(cleanupCtx, pet, owner, err)
+		return apitypes.Pet{}, r.restorePetAfterDeleteFailure(cleanupCtx, pet, deletedWorkspace, err)
 	}
 	if _, err := db.ExecContext(ctx, db.Rebind(`DELETE FROM gameplay_pets WHERE owner_public_key = ? AND id = ? AND runtime_profile_name = ?`), owner, pet.Id, pet.RuntimeProfileName); err != nil {
-		return apitypes.Pet{}, r.restorePetAfterDeleteFailure(cleanupCtx, pet, owner, err)
+		return apitypes.Pet{}, r.restorePetAfterDeleteFailure(cleanupCtx, pet, deletedWorkspace, err)
 	}
 	return pet, nil
 }
 
-func (r *Runtime) restorePetAfterDeleteFailure(ctx context.Context, pet apitypes.Pet, owner string, cause error) error {
+func (r *Runtime) restorePetAfterDeleteFailure(ctx context.Context, pet apitypes.Pet, workspace apitypes.Workspace, cause error) error {
 	var rollbackErrs []error
-	if r.Catalog == nil {
-		rollbackErrs = append(rollbackErrs, errors.New("restore workspace: catalog service is not configured"))
+	if r.Workspaces == nil {
+		rollbackErrs = append(rollbackErrs, errors.New("restore workspace: workspace service is not configured"))
 	} else {
-		petDef, err := r.Catalog.GetPetDefByID(ctx, pet.PetdefId)
-		if err != nil {
-			rollbackErrs = append(rollbackErrs, fmt.Errorf("load PetDef: %w", err))
-		} else {
-			if err := r.createPetWorkspace(ctx, pet.WorkspaceName, defaultPetWorkflowName, petDef); err != nil {
-				rollbackErrs = append(rollbackErrs, fmt.Errorf("restore workspace: %w", err))
-			}
+		body := adminhttp.WorkspaceUpsert{
+			Labels:       workspace.Labels,
+			Name:         workspace.Name,
+			Parameters:   workspace.Parameters,
+			Toolkit:      workspace.Toolkit,
+			WorkflowName: workspace.WorkflowName,
+		}
+		if _, created, err := r.Workspaces.CreateSystemWorkspace(ctx, body); err != nil {
+			rollbackErrs = append(rollbackErrs, fmt.Errorf("restore workspace: %w", err))
+		} else if !created {
+			rollbackErrs = append(rollbackErrs, errors.New("restore workspace: workspace already exists"))
 		}
 	}
 	if rollbackErr := errors.Join(rollbackErrs...); rollbackErr != nil {
@@ -815,12 +820,16 @@ func (r *Runtime) pickWeight(total int64) int64 {
 	return n.Int64()
 }
 
-func (r *Runtime) createPetWorkspace(ctx context.Context, name, workflowName string, petDef apitypes.PetDef) error {
+func (r *Runtime) createPetWorkspace(ctx context.Context, name, workflowName, voiceAlias string) error {
 	if r == nil || r.Workspaces == nil {
 		return errors.New("gameplay: workspace service is not configured")
 	}
 	if err := r.validatePetWorkflow(ctx, workflowName); err != nil {
 		return err
+	}
+	voiceAlias = strings.TrimSpace(voiceAlias)
+	if voiceAlias == "" {
+		return errors.New("gameplay: pet voice alias is required")
 	}
 	input := apitypes.WorkspaceInputModePushToTalk
 	var parameters apitypes.WorkspaceParameters
@@ -828,7 +837,7 @@ func (r *Runtime) createPetWorkspace(ctx context.Context, name, workflowName str
 		AgentType: apitypes.PetWorkspaceParametersAgentTypePet,
 		Input:     &input,
 		Voice: apitypes.PetVoiceParameters{
-			VoiceId: petDef.Spec.Voice.VoiceId,
+			VoiceId: voiceAlias,
 		},
 	}); err != nil {
 		return err

@@ -4,9 +4,9 @@
 
 ## Ownership
 
-Gameplay 拥有 PetDef、BadgeDef、GameDef、Pet、points account、transaction、reward grant、badge progression 和 game result。RuntimeProfile 的 `resources.pet_defs`、`resources.game_defs` 和 `resources.badge_defs` map 提供 profile-local alias；`gameplay.adoption.pool` 与 `gameplay.rewards` 通过 alias 引用这些定义。
+Gameplay 拥有 PetDef、BadgeDef、GameDef、Pet、points account、transaction、reward grant、badge progression 和 game result。RuntimeProfile 的 `resources.pet_defs`、`resources.voices`、`resources.game_defs` 和 `resources.badge_defs` map 提供 profile-local alias；`gameplay.adoption.pool` 同时引用 PetDef 与 Voice alias，`gameplay.rewards` 通过 alias 引用其余定义。
 
-领养 Pet 时，服务从当前 connection 的 RuntimeProfile snapshot 解析规则，并把 RuntimeProfile 名写入 Pet 和相关状态。Pet 创建的 system Workspace 使用内置 `pet-care` Workflow；`pet-care` 不需要出现在 RuntimeProfile 的 `workflows` map 中。
+领养 Pet 时，服务从当前 connection 的 RuntimeProfile snapshot 解析规则，把池条目的 Voice alias 保存到 system Workspace，并把 RuntimeProfile 名写入 Pet 和相关状态。PetDef 不保存 Voice ID/alias；它保留角色/说话风格、PIXA 和行为到动画的绑定。Pet 创建的 system Workspace 使用内置 `pet-care` Workflow；`pet-care` 不需要出现在 RuntimeProfile 的 `workflows` map 中。
 
 没有有效 PetDef 的 profile 不能领养 Pet；未在当前 profile 中允许的 GameDef 不能提交 game result。非法 alias 和 reward reference 会使 RuntimeProfile validation 失败。删除定义或 RuntimeProfile 不级联删除已有 Gameplay 历史。
 

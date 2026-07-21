@@ -5,7 +5,7 @@ metadata: {name: ast-translate-zh-en-auto}
 spec:
   driver: ast-translate
   ast_translate:
-    translation_model: translation-model
+    translation_model: translation
     lang_pair: auto
     mode: s2s
     voice: {tts_voice: translator}

@@ -53,47 +53,32 @@ spec:
       role-play: {}
   resources:
     models:
-      asr-model:
+      asr:
         resource_id: volc-bigasr-sauc
         i18n:
           en: {display_name: Speech Recognition}
           zh-CN: {display_name: 语音识别}
-      realtime-model:
+      realtime:
         resource_id: doubao-realtime-dialog
         i18n:
           en: {display_name: Realtime Conversation}
           zh-CN: {display_name: 实时对话}
-      translation-model:
+      translation:
         resource_id: volc-ast-translate
         i18n:
           en: {display_name: Translation Model}
           zh-CN: {display_name: 翻译模型}
-      generate-model:
+      chat:
         resource_id: doubao-seed-2-0-lite
         i18n:
-          en: {display_name: Generate Model}
-          zh-CN: {display_name: 生成模型}
-      extract-model:
+          en: {display_name: Chat}
+          zh-CN: {display_name: 对话}
+      extraction:
         resource_id: deepseek-v4-flash
         i18n:
-          en: {display_name: Extract Model}
-          zh-CN: {display_name: 提取模型}
-      deepseek-pro:
-        resource_id: deepseek-v4-pro
-        i18n:
-          en: {display_name: DeepSeek Pro}
-          zh-CN: {display_name: DeepSeek 专业}
-      minimax:
-        resource_id: minimax-cn-m3
-        i18n:
-          en: {display_name: MiniMax M3}
-          zh-CN: {display_name: MiniMax M3}
-      vision-embedding:
-        resource_id: doubao-embedding-vision
-        i18n:
-          en: {display_name: Vision Embedding}
-          zh-CN: {display_name: 视觉向量}
-      embedding-model:
+          en: {display_name: Extraction}
+          zh-CN: {display_name: 信息提取}
+      embedding:
         resource_id: qwen3.7-text-embedding
         i18n:
           en: {display_name: Text Embedding}
@@ -169,15 +154,15 @@ spec:
       initial_balance: 100
     adoption:
       pool:
-        - {pet_def: bsod, weight: 100, rarity: common, adoption_cost: 10}
-        - {pet_def: codex, weight: 100, rarity: common, adoption_cost: 10}
-        - {pet_def: dewey, weight: 100, rarity: common, adoption_cost: 10}
-        - {pet_def: fireball, weight: 100, rarity: common, adoption_cost: 10}
-        - {pet_def: hoots, weight: 100, rarity: common, adoption_cost: 10}
-        - {pet_def: null-signal, weight: 100, rarity: common, adoption_cost: 10}
-        - {pet_def: rocky, weight: 100, rarity: common, adoption_cost: 10}
-        - {pet_def: seedy, weight: 100, rarity: common, adoption_cost: 10}
-        - {pet_def: stacky, weight: 100, rarity: common, adoption_cost: 10}
+        - {pet_def: bsod, voice: cute-pet, weight: 100, rarity: common, adoption_cost: 10}
+        - {pet_def: codex, voice: cute-pet, weight: 100, rarity: common, adoption_cost: 10}
+        - {pet_def: dewey, voice: cute-pet, weight: 100, rarity: common, adoption_cost: 10}
+        - {pet_def: fireball, voice: cute-pet, weight: 100, rarity: common, adoption_cost: 10}
+        - {pet_def: hoots, voice: cute-pet, weight: 100, rarity: common, adoption_cost: 10}
+        - {pet_def: null-signal, voice: cute-pet, weight: 100, rarity: common, adoption_cost: 10}
+        - {pet_def: rocky, voice: cute-pet, weight: 100, rarity: common, adoption_cost: 10}
+        - {pet_def: seedy, voice: cute-pet, weight: 100, rarity: common, adoption_cost: 10}
+        - {pet_def: stacky, voice: cute-pet, weight: 100, rarity: common, adoption_cost: 10}
     rewards:
       default:
         points_delta: 5

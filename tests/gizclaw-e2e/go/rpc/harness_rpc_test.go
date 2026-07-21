@@ -148,9 +148,9 @@ func sharedRuntimeProfileSpec() apitypes.RuntimeProfileSpec {
 		},
 	}
 	models := map[string]apitypes.RuntimeProfileBinding{
-		"generate-model": e2eRuntimeBinding(sharedModel),
-		"reward-claim":   e2eRuntimeBinding("reward-claim"),
-		"pet-action":     e2eRuntimeBinding("pet-action"),
+		"chat":         e2eRuntimeBinding(sharedModel),
+		"reward-claim": e2eRuntimeBinding("reward-claim"),
+		"pet-action":   e2eRuntimeBinding("pet-action"),
 	}
 	return apitypes.RuntimeProfileSpec{
 		Workflows: apitypes.RuntimeProfileWorkflows{Collections: workflows},
@@ -319,7 +319,7 @@ func adminWorkflow(name, description string) apitypes.Workflow {
 
 func rpcFlowcraftWorkspaceParameters(t *testing.T, input rpcapi.WorkspaceInputMode) *rpcapi.WorkspaceParameters {
 	t.Helper()
-	generateModel := "generate-model"
+	generateModel := "chat"
 	var params rpcapi.WorkspaceParameters
 	if err := params.FromFlowcraftWorkspaceParameters(rpcapi.FlowcraftWorkspaceParameters{
 		AgentType:     rpcapi.FlowcraftWorkspaceParametersAgentTypeFlowcraft,

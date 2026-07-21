@@ -53,7 +53,7 @@ func TestSharedSetupRPCResourcesPagination(t *testing.T) {
 	requireName(t, workflowNames, "chatroom")
 
 	modelIDs := collectModelIDs(t, env.ctx, env.peer, 25)
-	requireName(t, modelIDs, "generate-model")
+	requireName(t, modelIDs, "chat")
 }
 
 func TestSharedSetupRPCSocialFixtures(t *testing.T) {

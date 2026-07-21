@@ -462,14 +462,18 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedName string) (a
 		for i := range *spec.Gameplay.Adoption.Pool {
 			entry := &(*spec.Gameplay.Adoption.Pool)[i]
 			entry.PetDef = strings.TrimSpace(entry.PetDef)
-			if entry.PetDef == "" || entry.Weight <= 0 {
-				return apitypes.RuntimeProfile{}, fmt.Errorf("gameplay.adoption.pool[%d] requires pet_def and positive weight", i)
+			entry.Voice = strings.TrimSpace(entry.Voice)
+			if entry.PetDef == "" || entry.Voice == "" || entry.Weight <= 0 {
+				return apitypes.RuntimeProfile{}, fmt.Errorf("gameplay.adoption.pool[%d] requires pet_def, voice, and positive weight", i)
 			}
 			if entry.AdoptionCost != nil && *entry.AdoptionCost < 0 {
 				return apitypes.RuntimeProfile{}, fmt.Errorf("gameplay.adoption.pool[%d].adoption_cost must not be negative", i)
 			}
 			if _, ok := bindingByAlias(spec.Resources.PetDefs, entry.PetDef); !ok {
 				return apitypes.RuntimeProfile{}, fmt.Errorf("gameplay.adoption.pool[%d].pet_def %q is not declared in resources.pet_defs", i, entry.PetDef)
+			}
+			if _, ok := bindingByAlias(spec.Resources.Voices, entry.Voice); !ok {
+				return apitypes.RuntimeProfile{}, fmt.Errorf("gameplay.adoption.pool[%d].voice %q is not declared in resources.voices", i, entry.Voice)
 			}
 		}
 	}

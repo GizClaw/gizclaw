@@ -76,10 +76,21 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 				} `yaml:"collections"`
 			} `yaml:"workflows"`
 			Resources struct {
+				Models map[string]struct {
+					ResourceID string `yaml:"resource_id"`
+				} `yaml:"models"`
 				Voices map[string]struct {
 					ResourceID string `yaml:"resource_id"`
 				} `yaml:"voices"`
 			} `yaml:"resources"`
+			Gameplay struct {
+				Adoption struct {
+					Pool []struct {
+						PetDef string `yaml:"pet_def"`
+						Voice  string `yaml:"voice"`
+					} `yaml:"pool"`
+				} `yaml:"adoption"`
+			} `yaml:"gameplay"`
 		} `yaml:"spec"`
 	}
 	if err := yaml.Unmarshal(profile, &parsed); err != nil {
@@ -103,6 +114,21 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 	}
 	if !maps.Equal(gotWorkflows, wantWorkflows) {
 		t.Fatalf("RuntimeProfile/default Workflows = %#v, want %#v", gotWorkflows, wantWorkflows)
+	}
+	wantModels := map[string]string{
+		"asr":         "volc-bigasr-sauc",
+		"realtime":    "doubao-realtime-dialog",
+		"translation": "volc-ast-translate",
+		"chat":        "doubao-seed-2-0-lite",
+		"extraction":  "deepseek-v4-flash",
+		"embedding":   "qwen3.7-text-embedding",
+	}
+	gotModels := make(map[string]string, len(parsed.Spec.Resources.Models))
+	for alias, binding := range parsed.Spec.Resources.Models {
+		gotModels[alias] = binding.ResourceID
+	}
+	if !maps.Equal(gotModels, wantModels) {
+		t.Fatalf("RuntimeProfile/default Models = %#v, want semantic role aliases %#v", gotModels, wantModels)
 	}
 	wantVoices := map[string]string{
 		"doubao-assistant":  "volc-tenant:volc-main:zh_female_vv_jupiter_bigtts",
@@ -131,6 +157,15 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 	if len(resourceIDs) != len(gotVoices) {
 		t.Fatalf("RuntimeProfile/default Voices reuse resource IDs: %#v", gotVoices)
 	}
+	if got := parsed.Spec.Gameplay.Adoption.Pool; len(got) != 9 {
+		t.Fatalf("RuntimeProfile/default adoption pool entries = %d, want 9", len(got))
+	} else {
+		for _, entry := range got {
+			if strings.TrimSpace(entry.PetDef) == "" || entry.Voice != "cute-pet" {
+				t.Fatalf("RuntimeProfile/default adoption entry = %#v, want PetDef plus cute-pet voice alias", entry)
+			}
+		}
+	}
 	for _, resource := range catalog.Resources {
 		if resource.Kind != "PetDef" {
 			continue
@@ -141,16 +176,18 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 		}
 		var petDef struct {
 			Spec struct {
-				Voice struct {
-					VoiceID string `yaml:"voice_id"`
-				} `yaml:"voice"`
+				Voice map[string]any `yaml:"voice"`
 			} `yaml:"spec"`
 		}
 		if err := yaml.Unmarshal(data, &petDef); err != nil {
 			t.Fatal(err)
 		}
-		if petDef.Spec.Voice.VoiceID != "cute-pet" {
-			t.Fatalf("%s voice_id = %q, want cute-pet", resource.Name, petDef.Spec.Voice.VoiceID)
+		if _, exists := petDef.Spec.Voice["voice_id"]; exists {
+			t.Fatalf("%s stores voice_id in PetDef instead of RuntimeProfile adoption policy", resource.Name)
+		}
+		prompt, _ := petDef.Spec.Voice["prompt"].(string)
+		if strings.TrimSpace(prompt) == "" {
+			t.Fatalf("%s voice prompt is empty", resource.Name)
 		}
 	}
 	for _, requirement := range catalog.Requirements {

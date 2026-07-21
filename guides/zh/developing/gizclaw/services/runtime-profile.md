@@ -26,17 +26,32 @@ spec:
             zh-CN: {display_name: 旅途向导}
   resources:
     models:
+      chat:
+        resource_id: doubao-seed-2-0-lite
+        i18n:
+          en: {display_name: Chat}
+          zh-CN: {display_name: 对话}
+      extraction:
+        resource_id: deepseek-v4-flash
+        i18n:
+          en: {display_name: Extraction}
+          zh-CN: {display_name: 信息提取}
+      embedding:
+        resource_id: qwen3.7-text-embedding
+        i18n:
+          en: {display_name: Embedding}
+          zh-CN: {display_name: 文本向量}
       asr:
         resource_id: volc-bigasr-sauc
         i18n:
           en: {display_name: Speech Recognition}
           zh-CN: {display_name: 语音识别}
     voices:
-      assistant:
-        resource_id: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
+      cute-pet:
+        resource_id: volc-tenant:volc-main:zh_male_naiqimengwa_mars_bigtts
         i18n:
-          en: {display_name: Assistant}
-          zh-CN: {display_name: 助手}
+          en: {display_name: Cute Pet}
+          zh-CN: {display_name: 奶气萌宠}
     pet_defs:
       codex:
         resource_id: petdef-codex
@@ -48,14 +63,16 @@ spec:
       initial_balance: 100
     adoption:
       pool:
-        - {pet_def: codex, weight: 100, rarity: common, adoption_cost: 10}
+        - {pet_def: codex, voice: cute-pet, weight: 100, rarity: common, adoption_cost: 10}
     rewards:
       default: {points_delta: 5, pet_exp_delta: 3}
 ```
 
 Workflow alias 位于 `workflows.collections.<collection>.<alias>`。Alias ID 在所有 Collection 之间全局唯一；客户端拥有固定的 Collection 菜单、顺序、图标与 Collection 翻译。RuntimeProfile 只提供动态 Workflow 成员，以及 alias 自己的 `en`、`zh-CN` 显示文本，不包含顶层 locale 或 Collection 展示配置。
 
-`resources` 下的 map 把环境 alias 绑定到管理员创建的真实资源 ID。Model 和 Voice alias 是互相独立的环境变量，不属于 Workflow Collection。Workflow spec 和 Workspace 参数保存符号 alias；每次 Workspace reload 都从当前 RuntimeProfile 重新解析。因此同一个 App 或固件可以切换生产、调试 RuntimeProfile，而无需重新构建。
+`resources` 下的 map 把环境 alias 绑定到管理员创建的真实资源 ID。Model alias 表示 `chat`、`extraction`、`embedding`、`asr`、`realtime`、`translation` 这类稳定用途，不包含 provider 或真实 Model 名。Model 和 Voice alias 是互相独立的环境变量，不属于 Workflow Collection。Workflow spec 和 Workspace 参数保存符号 alias；每次 Workspace reload 都从当前 RuntimeProfile 重新解析。因此同一个 App 或固件可以切换生产、调试 RuntimeProfile，而无需重新构建。
+
+每个 `gameplay.adoption.pool` 条目必须同时引用一个 `pet_defs` alias 和一个 `voices` alias。PetDef 只保存宠物角色/说话风格、PIXA 元数据和固定行为到动画 clip 的绑定，不保存 Voice ID 或 Voice alias。领养时 Server 把池条目的 Voice alias 写入 system Workspace；以后重新绑定同名 alias 即可替换真实音色，无需修改 PetDef。
 
 规范化后的 spec 有确定性的 opaque revision。Catalog list/get 响应携带 RuntimeProfile name 与 revision，分页 cursor 与 revision 绑定。每次 list、get、Workspace reload 和 standalone Speech 调用使用一个一致快照；并发更新从下一次操作开始生效。
 

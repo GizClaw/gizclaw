@@ -99,7 +99,7 @@ func TestServerResourceUnavailableWithoutProfileOrOwnership(t *testing.T) {
 	if _, err := denied.GetWorkspace(env.ctx, "workspace.get.denied", rpcapi.WorkspaceGetRequest{Name: sharedWorkspace}); err == nil {
 		t.Fatalf("denied peer workspace.get error = %v", err)
 	}
-	if _, err := denied.GetModel(env.ctx, "model.get.denied", rpcapi.ModelGetRequest{Alias: "generate-model"}); err == nil {
+	if _, err := denied.GetModel(env.ctx, "model.get.denied", rpcapi.ModelGetRequest{Alias: "chat"}); err == nil {
 		t.Fatalf("denied peer model.get error = %v", err)
 	}
 	assertDeniedListsAreEmpty(t, env.ctx, denied)

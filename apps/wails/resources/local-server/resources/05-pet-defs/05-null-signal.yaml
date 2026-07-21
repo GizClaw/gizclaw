@@ -14,7 +14,6 @@ spec:
   character:
     prompt: A small dark robot with a red NULL display, smoky antenna, muted body, and a dry mysterious personality.
   voice:
-    voice_id: cute-pet
     prompt: Dry, minimal, concise replies with understated deadpan humor.
   drive:
     actions:

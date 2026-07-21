@@ -85,14 +85,10 @@
       "PetDefVoiceSpec": {
         "type": "object",
         "required": [
-          "voice_id",
           "prompt"
         ],
         "additionalProperties": false,
         "properties": {
-          "voice_id": {
-            "type": "string"
-          },
           "prompt": {
             "type": "string"
           }

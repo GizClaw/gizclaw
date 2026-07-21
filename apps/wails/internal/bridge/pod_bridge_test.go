@@ -919,9 +919,9 @@ func TestRecoveringRunningLegacyLocalPodMigratesRuntimeContract(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	legacyConfig = bytes.ReplaceAll(legacyConfig, []byte("generate_model: minimax"), []byte("generate_model: minimax-default"))
-	legacyConfig = bytes.ReplaceAll(legacyConfig, []byte("extract_model: extract-model"), []byte("extract_model: minimax-extract"))
-	legacyConfig = bytes.ReplaceAll(legacyConfig, []byte("asr_model: asr-model"), []byte("asr_model: volc-bigasr-sauc"))
+	legacyConfig = bytes.ReplaceAll(legacyConfig, []byte("generate_model: chat"), []byte("generate_model: minimax-default"))
+	legacyConfig = bytes.ReplaceAll(legacyConfig, []byte("extract_model: extraction"), []byte("extract_model: minimax-extract"))
+	legacyConfig = bytes.ReplaceAll(legacyConfig, []byte("asr_model: asr"), []byte("asr_model: volc-bigasr-sauc"))
 	if err := os.WriteFile(configPath, legacyConfig, 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -949,7 +949,7 @@ func TestRecoveringRunningLegacyLocalPodMigratesRuntimeContract(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"generate_model: minimax", "extract_model: extract-model", "asr_model: asr-model"} {
+	for _, want := range []string{"generate_model: chat", "extract_model: extraction", "asr_model: asr"} {
 		if !bytes.Contains(upgradedConfig, []byte(want)) {
 			t.Fatalf("upgraded workspace config omits %q:\n%s", want, upgradedConfig)
 		}

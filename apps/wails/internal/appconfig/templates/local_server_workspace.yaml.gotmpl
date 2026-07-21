@@ -8,9 +8,9 @@ admin-public-key: {{ quote .AdminPublicKey }}
 {{ end }}
 system_tasks:
   pet_flowcraft_workflow:
-    generate_model: minimax
-    extract_model: extract-model
-    asr_model: asr-model
+    generate_model: chat
+    extract_model: extraction
+    asr_model: asr
 system_log:
   level: info
   sinks:

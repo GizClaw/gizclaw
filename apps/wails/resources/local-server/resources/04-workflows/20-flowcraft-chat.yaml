@@ -100,14 +100,14 @@ spec:
         save_conversation: true
         tier: general
     settings:
-      extract_model: extract-model
-      generate_model: generate-model
+      extract_model: extraction
+      generate_model: chat
     workspace:
       history_root: history
       memory_root: memory
       state_root: state
     voice_adapter:
-      asr_model: asr-model
+      asr_model: asr
       default_voice: general-assistant
       node_voices:
         answer: general-assistant

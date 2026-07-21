@@ -427,13 +427,13 @@ func TestRuntimeProfileRejectsWorkflowCollectionsDuplicatedAfterNormalization(t 
 func TestRuntimeProfileRejectsInvalidGameplayReferences(t *testing.T) {
 	t.Parallel()
 	s := &Server{Store: kv.NewMemory(nil)}
-	negative := int64(-1)
-	pool := []apitypes.RuntimeProfilePetPoolEntry{{PetDef: "missing", Weight: 1, AdoptionCost: &negative}}
+	petDefs := map[string]apitypes.RuntimeProfileBinding{"pet": runtimeProfileTestBinding("petdef-basic")}
+	pool := []apitypes.RuntimeProfilePetPoolEntry{{PetDef: "pet", Voice: "missing", Weight: 1}}
 	response, err := s.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
 		Name: "test-profile",
 		Spec: apitypes.RuntimeProfileSpec{
 			Workflows: apitypes.RuntimeProfileWorkflows{Collections: apitypes.RuntimeProfileWorkflowCollections{}},
-			Resources: apitypes.RuntimeProfileResources{},
+			Resources: apitypes.RuntimeProfileResources{PetDefs: &petDefs},
 			Gameplay:  &apitypes.RuntimeProfileGameplaySpec{Adoption: &apitypes.RuntimeProfileAdoptionSpec{Pool: &pool}},
 		},
 	}})
@@ -441,7 +441,7 @@ func TestRuntimeProfileRejectsInvalidGameplayReferences(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, ok := response.(adminhttp.CreateRuntimeProfile400JSONResponse); !ok {
-		t.Fatalf("response = %#v, want invalid gameplay rejection", response)
+		t.Fatalf("response = %#v, want undeclared adoption voice rejection", response)
 	}
 }
 

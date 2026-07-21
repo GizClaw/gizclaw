@@ -19,6 +19,9 @@ func TestResolveProfileRulesUsesLocalAliasesAndSkipsMissingResources(t *testing.
 		"tragon":  gameplayTestBinding("petdef-basic"),
 		"missing": gameplayTestBinding("petdef-missing"),
 	}
+	voices := map[string]apitypes.RuntimeProfileBinding{
+		"pet-voice": gameplayTestBinding("voice-basic"),
+	}
 	gameDefs := map[string]apitypes.RuntimeProfileBinding{
 		"dinodive": gameplayTestBinding("game-basic"),
 		"missing":  gameplayTestBinding("game-missing"),
@@ -29,11 +32,12 @@ func TestResolveProfileRulesUsesLocalAliasesAndSkipsMissingResources(t *testing.
 	}
 	adoptionCost := int64(10)
 	profile.Spec.Resources.PetDefs = &petDefs
+	profile.Spec.Resources.Voices = &voices
 	profile.Spec.Resources.GameDefs = &gameDefs
 	profile.Spec.Resources.BadgeDefs = &badgeDefs
 	profile.Spec.Gameplay.Adoption = &apitypes.RuntimeProfileAdoptionSpec{Pool: &[]apitypes.RuntimeProfilePetPoolEntry{
-		{PetDef: "tragon", Weight: 100, AdoptionCost: &adoptionCost},
-		{PetDef: "missing", Weight: 1},
+		{PetDef: "tragon", Voice: "pet-voice", Weight: 100, AdoptionCost: &adoptionCost},
+		{PetDef: "missing", Voice: "pet-voice", Weight: 1},
 	}}
 	badgeDelta := map[string]int64{"dinodive-master": 100, "missing": 200}
 	missingBadgeDelta := map[string]int64{"missing": 300}
@@ -51,7 +55,7 @@ func TestResolveProfileRulesUsesLocalAliasesAndSkipsMissingResources(t *testing.
 		t.Fatalf("resolveProfileRules() error = %v", err)
 	}
 	if got, want := rules.Spec.PetPool, []ProfilePetPoolEntry{{
-		PetDefID: "petdef-basic", Weight: 100, AdoptionCost: &adoptionCost,
+		PetDefID: "petdef-basic", VoiceAlias: "pet-voice", Weight: 100, AdoptionCost: &adoptionCost,
 	}}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("PetPool = %#v, want %#v", got, want)
 	}

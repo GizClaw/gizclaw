@@ -26,17 +26,32 @@ spec:
             zh-CN: {display_name: 旅途向导}
   resources:
     models:
+      chat:
+        resource_id: doubao-seed-2-0-lite
+        i18n:
+          en: {display_name: Chat}
+          zh-CN: {display_name: 对话}
+      extraction:
+        resource_id: deepseek-v4-flash
+        i18n:
+          en: {display_name: Extraction}
+          zh-CN: {display_name: 信息提取}
+      embedding:
+        resource_id: qwen3.7-text-embedding
+        i18n:
+          en: {display_name: Embedding}
+          zh-CN: {display_name: 文本向量}
       asr:
         resource_id: volc-bigasr-sauc
         i18n:
           en: {display_name: Speech Recognition}
           zh-CN: {display_name: 语音识别}
     voices:
-      assistant:
-        resource_id: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
+      cute-pet:
+        resource_id: volc-tenant:volc-main:zh_male_naiqimengwa_mars_bigtts
         i18n:
-          en: {display_name: Assistant}
-          zh-CN: {display_name: 助手}
+          en: {display_name: Cute Pet}
+          zh-CN: {display_name: 奶气萌宠}
     pet_defs:
       codex:
         resource_id: petdef-codex
@@ -48,14 +63,16 @@ spec:
       initial_balance: 100
     adoption:
       pool:
-        - {pet_def: codex, weight: 100, rarity: common, adoption_cost: 10}
+        - {pet_def: codex, voice: cute-pet, weight: 100, rarity: common, adoption_cost: 10}
     rewards:
       default: {points_delta: 5, pet_exp_delta: 3}
 ```
 
 Workflow aliases live under `workflows.collections.<collection>.<alias>`. Alias IDs are globally unique across Collections, while the client owns its fixed Collection navigation, ordering, icons, and Collection translations. RuntimeProfile supplies dynamic Workflow membership and alias-level `en` and `zh-CN` display text; it has no top-level locale or Collection presentation section.
 
-The maps under `resources` bind environment aliases to canonical Admin resource IDs. Model and Voice aliases are independent environment variables, not Workflow members. Workflow specs and Workspace parameters store symbolic aliases, so each Workspace reload resolves the latest active binding. The same binary can therefore use production or debug RuntimeProfiles without rebuilding.
+The maps under `resources` bind environment aliases to canonical Admin resource IDs. Model aliases name semantic roles such as `chat`, `extraction`, `embedding`, `asr`, `realtime`, and `translation`; they do not contain provider or canonical Model names. Model and Voice aliases are independent environment variables, not Workflow members. Workflow specs and Workspace parameters store symbolic aliases, so each Workspace reload resolves the latest active binding. The same binary can therefore use production or debug RuntimeProfiles without rebuilding.
+
+Every `gameplay.adoption.pool` entry references both a `pet_defs` alias and a `voices` alias. PetDef stores the Pet character/speaking style, PIXA metadata, and fixed behavior-to-animation bindings, but no Voice ID or Voice alias. On adoption, the Server writes the pool entry's Voice alias into the system Workspace; rebinding that alias later changes the canonical voice without editing PetDef.
 
 The normalized spec has an opaque deterministic revision. Catalog list/get responses include the RuntimeProfile name and revision. Pagination cursors are revision-bound. Each list, get, Workspace reload, and standalone Speech call obtains one current profile snapshot; a concurrent update affects the next operation.
 

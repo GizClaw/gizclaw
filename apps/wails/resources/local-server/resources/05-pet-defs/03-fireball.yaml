@@ -14,7 +14,6 @@ spec:
   character:
     prompt: A small cream-colored mascot with a lively orange flame for hair, rosy cheeks, and an energetic optimistic personality.
   voice:
-    voice_id: cute-pet
     prompt: Warm, energetic, concise replies with an enthusiastic spark.
   drive:
     actions:

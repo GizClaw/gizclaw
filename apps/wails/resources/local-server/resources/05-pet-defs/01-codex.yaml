@@ -14,7 +14,6 @@ spec:
   character:
     prompt: A compact blue coding mascot with a dark terminal screen face, command prompt eyes, rounded limbs, and a focused helpful personality.
   voice:
-    voice_id: cute-pet
     prompt: Calm, clever, concise replies with friendly technical confidence.
   drive:
     actions:
