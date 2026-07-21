@@ -100,7 +100,7 @@ spec:
           zh-CN: {display_name: 文本向量}
     voices:
       doubao-assistant:
-        resource_id: volc-tenant:volc-main:zh_female_vv_mars_bigtts
+        resource_id: volc-tenant:volc-main:zh_female_vv_jupiter_bigtts
         i18n:
           en: {display_name: Doubao Assistant}
           zh-CN: {display_name: 豆包助手}

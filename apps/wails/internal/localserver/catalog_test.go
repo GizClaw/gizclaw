@@ -21,8 +21,8 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(catalog.Resources) != 43 {
-		t.Fatalf("resources = %d, want 43", len(catalog.Resources))
+	if len(catalog.Resources) != 44 {
+		t.Fatalf("resources = %d, want 44", len(catalog.Resources))
 	}
 	if len(catalog.PetDefPIXAs) != 9 || len(catalog.VoiceSyncs) != 2 {
 		t.Fatalf("assets = pets:%d voice-sync:%d", len(catalog.PetDefPIXAs), len(catalog.VoiceSyncs))
@@ -105,7 +105,7 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 		t.Fatalf("RuntimeProfile/default Workflows = %#v, want %#v", gotWorkflows, wantWorkflows)
 	}
 	wantVoices := map[string]string{
-		"doubao-assistant":  "volc-tenant:volc-main:zh_female_vv_mars_bigtts",
+		"doubao-assistant":  "volc-tenant:volc-main:zh_female_vv_jupiter_bigtts",
 		"general-assistant": "volc-tenant:volc-main:zh_female_qingxinnvsheng_mars_bigtts",
 		"translator":        "volc-tenant:volc-main:zh_female_sophie_conversation_wvae_bigtts",
 		"narrator":          "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
