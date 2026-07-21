@@ -289,7 +289,7 @@ func TestDefaultBuilderPreservesDeepSeekEndpointCredentialAndModel(t *testing.T)
 	defer server.Close()
 
 	trueValue := true
-	baseURL := server.URL + "/gateway/v1"
+	baseURL := server.URL + "/gateway"
 	generator, err := (DefaultBuilder{}).BuildGenerator(context.Background(), GeneratorConfig{
 		Model: apitypes.Model{
 			Id:   "deepseek",
@@ -318,6 +318,20 @@ func TestDefaultBuilderPreservesDeepSeekEndpointCredentialAndModel(t *testing.T)
 	}
 	if call == nil || call.Name != "answer" || call.Arguments != `{"ok":true}` {
 		t.Fatalf("Invoke() call = %#v", call)
+	}
+}
+
+func TestOpenAICompatibleV1BaseURL(t *testing.T) {
+	tests := map[string]string{
+		"https://api.deepseek.com":          "https://api.deepseek.com/v1",
+		"https://api.minimax.io/":           "https://api.minimax.io/v1",
+		"https://proxy.example/gateway":     "https://proxy.example/gateway/v1",
+		"https://proxy.example/gateway/v1/": "https://proxy.example/gateway/v1",
+	}
+	for input, want := range tests {
+		if got := openAICompatibleV1BaseURL(input); got != want {
+			t.Errorf("openAICompatibleV1BaseURL(%q) = %q, want %q", input, got, want)
+		}
 	}
 }
 

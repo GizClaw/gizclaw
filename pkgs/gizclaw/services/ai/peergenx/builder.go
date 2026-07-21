@@ -70,7 +70,7 @@ func (b DefaultBuilder) buildDeepSeekGenerator(cfg GeneratorConfig) (genx.Genera
 	}
 	return b.buildOpenAICompatibleGenerator(
 		apiKey,
-		firstString(cfg.Tenant.DeepSeek.BaseUrl, defaultDeepSeekBaseURL),
+		openAICompatibleV1BaseURL(firstString(cfg.Tenant.DeepSeek.BaseUrl, defaultDeepSeekBaseURL)),
 		providerData.UpstreamModel,
 		openAIProviderDataFromDeepSeek(providerData),
 		cfg,
@@ -95,7 +95,7 @@ func (b DefaultBuilder) buildMiniMaxGenerator(cfg GeneratorConfig) (genx.Generat
 	}
 	return b.buildOpenAICompatibleGenerator(
 		apiKey,
-		miniMaxChatBaseURL(firstString(cfg.Tenant.MiniMax.BaseUrl, body.BaseUrl, defaultMiniMaxBaseURL)),
+		openAICompatibleV1BaseURL(firstString(cfg.Tenant.MiniMax.BaseUrl, body.BaseUrl, defaultMiniMaxBaseURL)),
 		providerData.UpstreamModel,
 		openAIProviderDataFromMiniMax(providerData),
 		cfg,
@@ -123,7 +123,7 @@ func (b DefaultBuilder) buildOpenAICompatibleGenerator(apiKey, baseURL, modelNam
 	}, nil
 }
 
-func miniMaxChatBaseURL(baseURL string) string {
+func openAICompatibleV1BaseURL(baseURL string) string {
 	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
 	if strings.HasSuffix(baseURL, "/v1") {
 		return baseURL
