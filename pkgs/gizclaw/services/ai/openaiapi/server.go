@@ -405,15 +405,30 @@ func parseInputAudio(value any) (*genx.Blob, error) {
 }
 
 func speechPattern(body *openaihttp.CreateSpeechRequest) (string, error) {
+	format := speechTransformerFormat(body)
 	voice := strings.TrimSpace(body.Voice)
 	if voice != "" {
-		return "voice/" + voice, nil
+		return "voice/" + voice + "?format=" + format, nil
 	}
 	model := strings.TrimSpace(body.Model)
 	if model == "" {
 		return "", errors.New("openaiapi: model or voice is required")
 	}
-	return "model/" + model, nil
+	return "model/" + model + "?format=" + format, nil
+}
+
+func speechTransformerFormat(body *openaihttp.CreateSpeechRequest) string {
+	if body == nil || body.ResponseFormat == nil {
+		return "mp3"
+	}
+	switch format := strings.ToLower(strings.TrimSpace(*body.ResponseFormat)); format {
+	case "opus":
+		return "ogg_opus"
+	case "aac", "flac", "mp3", "pcm", "wav":
+		return format
+	default:
+		return "mp3"
+	}
 }
 
 type transcriptionForm struct {

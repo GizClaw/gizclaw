@@ -3718,7 +3718,7 @@ async function fetchSpeechAudioBlob({ input, signal, voice }: { input: string; s
         {
           input,
           model: "tts",
-          response_format: "opus",
+          response_format: "mp3",
           stream_format: "sse",
           voice,
         },
@@ -3728,7 +3728,7 @@ async function fetchSpeechAudioBlob({ input, signal, voice }: { input: string; s
       );
       if (response.ok) {
         toast.info("Speech stream response received");
-        return readPlaySpeechAudioBlob(response, "audio/ogg");
+        return readPlaySpeechAudioBlob(response, "audio/mpeg");
       }
       const message = await responseErrorMessage(response);
       if (attempt === 0 && isTransientSpeechProxyError(message)) {

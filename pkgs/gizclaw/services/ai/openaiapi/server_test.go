@@ -292,7 +292,7 @@ func TestCreateChatCompletionValidationErrors(t *testing.T) {
 func TestCreateSpeechUsesVoiceTransformer(t *testing.T) {
 	srv := &Server{
 		Transformer: transformerFunc(func(_ context.Context, pattern string, input genx.Stream) (genx.Stream, error) {
-			if pattern != "voice/cancan" {
+			if pattern != "voice/cancan?format=mp3" {
 				t.Fatalf("pattern = %q", pattern)
 			}
 			text, err := readTextStream(input)
@@ -357,22 +357,26 @@ func TestCreateSpeechNormalizesUsingBlobMIME(t *testing.T) {
 
 func TestSpeechContentTypeMapsResponseFormats(t *testing.T) {
 	tests := []struct {
-		format *string
-		want   string
+		format          *string
+		wantContentType string
+		wantTransformer string
 	}{
-		{nil, "audio/mpeg"},
-		{stringPtr("opus"), "audio/ogg"},
-		{stringPtr("aac"), "audio/aac"},
-		{stringPtr("flac"), "audio/flac"},
-		{stringPtr("wav"), "audio/wav"},
-		{stringPtr("pcm"), "audio/pcm"},
-		{stringPtr("mp3"), "audio/mpeg"},
-		{stringPtr("bad"), "audio/mpeg"},
+		{nil, "audio/mpeg", "mp3"},
+		{new("opus"), "audio/ogg", "ogg_opus"},
+		{new("aac"), "audio/aac", "aac"},
+		{new("flac"), "audio/flac", "flac"},
+		{new("wav"), "audio/wav", "wav"},
+		{new("pcm"), "audio/pcm", "pcm"},
+		{new("mp3"), "audio/mpeg", "mp3"},
+		{new("bad"), "audio/mpeg", "mp3"},
 	}
 	for _, tt := range tests {
 		body := &openaihttp.CreateSpeechRequest{ResponseFormat: tt.format}
-		if got := speechContentType(body); got != tt.want {
-			t.Fatalf("speechContentType(%v) = %q, want %q", tt.format, got, tt.want)
+		if got := speechContentType(body); got != tt.wantContentType {
+			t.Fatalf("speechContentType(%v) = %q, want %q", tt.format, got, tt.wantContentType)
+		}
+		if got := speechTransformerFormat(body); got != tt.wantTransformer {
+			t.Fatalf("speechTransformerFormat(%v) = %q, want %q", tt.format, got, tt.wantTransformer)
 		}
 	}
 }
@@ -382,7 +386,7 @@ func TestCreateSpeechStreamsAndValidates(t *testing.T) {
 	streamFormat := openaihttp.Sse
 	srv := &Server{
 		Transformer: transformerFunc(func(_ context.Context, pattern string, input genx.Stream) (genx.Stream, error) {
-			if pattern != "model/tts" {
+			if pattern != "model/tts?format=mp3" {
 				t.Fatalf("pattern = %q", pattern)
 			}
 			if text, err := readTextStream(input); err != nil || text != "hello" {
