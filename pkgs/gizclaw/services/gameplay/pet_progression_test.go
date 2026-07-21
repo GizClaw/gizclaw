@@ -185,6 +185,32 @@ func TestGameIdempotencyKeyCannotCrossPets(t *testing.T) {
 	}
 }
 
+func TestGameRewardDropsZeroBadgeDeltaBeforeIdempotentReplay(t *testing.T) {
+	ctx, runtime, _ := newPetRuntime(t)
+	adopted, err := runtime.AdoptPet(ctx, "peer-zero-badge", apitypes.PetAdoptRequest{})
+	if err != nil {
+		t.Fatalf("AdoptPet() error = %v", err)
+	}
+	ctx = WithRewardEvaluator(ctx, rewardEvaluatorFunc(func(context.Context, RewardEvaluationRequest) (apitypes.GameRewardSpec, error) {
+		return apitypes.GameRewardSpec{BadgeExpDelta: map[string]int64{"basic": 0}, Reason: "no badge progress"}, nil
+	}))
+	key := "zero-badge-result"
+	request := apitypes.PetDriveRequest{PetId: adopted.Pet.Id, GameResult: &apitypes.PetDriveGameResultInput{
+		GameDefId: "game-basic", IdempotencyKey: &key,
+	}}
+	first, err := runtime.DrivePet(ctx, "peer-zero-badge", request)
+	if err != nil {
+		t.Fatalf("DrivePet(first) error = %v", err)
+	}
+	second, err := runtime.DrivePet(ctx, "peer-zero-badge", request)
+	if err != nil {
+		t.Fatalf("DrivePet(replay) error = %v", err)
+	}
+	if len(first.Badges) != 0 || len(second.Badges) != 0 || len(first.RewardGrants) != 1 || len(first.RewardGrants[0].BadgeExpDelta) != 0 {
+		t.Fatalf("zero-delta responses = first %#v, replay %#v", first, second)
+	}
+}
+
 func TestRewardEvaluationIncludesConfiguredGameDefinition(t *testing.T) {
 	ctx, runtime, _ := newPetRuntime(t)
 	adopted, err := runtime.AdoptPet(ctx, "peer-reward-context", apitypes.PetAdoptRequest{})

@@ -591,6 +591,9 @@ func (r *Runtime) commitDrive(
 		}
 		badgeDelta := make(map[string]int64, len(evaluated.BadgeExpDelta))
 		for alias, delta := range evaluated.BadgeExpDelta {
+			if delta == 0 {
+				continue
+			}
 			badgeDelta[ruleset.Spec.BadgeDefs[alias]] = delta
 		}
 		grant = apitypes.RewardGrant{

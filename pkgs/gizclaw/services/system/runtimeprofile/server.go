@@ -600,6 +600,21 @@ func (s *Server) validateResources(ctx context.Context, spec apitypes.RuntimePro
 			return err
 		}
 	}
+	if spec.Gameplay != nil && spec.Gameplay.Pet != nil {
+		if err := validatePetRewardModels(*spec.Gameplay.Pet, models); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validatePetRewardModels(pet apitypes.RuntimeProfilePetGameplaySpec, models map[string]apitypes.ModelResource) error {
+	for alias, game := range pet.Games {
+		model := models[game.Reward.Model]
+		if model.Spec.Kind != apitypes.ModelKindLlm {
+			return fmt.Errorf("gameplay.pet.games.%s.reward.model alias %q has kind %q, want %q", alias, game.Reward.Model, model.Spec.Kind, apitypes.ModelKindLlm)
+		}
+	}
 	return nil
 }
 
@@ -788,6 +803,9 @@ func normalizePetGameplay(pet *apitypes.RuntimeProfilePetGameplaySpec, resources
 		return errors.New("gameplay.pet.experience.leveling requires positive base_exp and non-negative log_scale")
 	}
 	weights := pet.Time.LifeDecay.ContributingWeights
+	if weights.Health < 0 || weights.Satiety < 0 || weights.Hygiene < 0 || weights.Mood < 0 {
+		return errors.New("gameplay.pet.time.life_decay.contributing_weights values must not be negative")
+	}
 	weightSum := weights.Health + weights.Satiety + weights.Hygiene + weights.Mood
 	if math.Abs(weightSum-1) > 1e-9 {
 		return fmt.Errorf("gameplay.pet.time.life_decay.contributing_weights must sum to 1, got %g", weightSum)

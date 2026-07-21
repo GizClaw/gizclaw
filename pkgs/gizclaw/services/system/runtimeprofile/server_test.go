@@ -460,6 +460,48 @@ func TestRuntimeProfileRequiresPetPolicyForAdoption(t *testing.T) {
 	}
 }
 
+func TestPetGameplayRejectsNegativeLifeDecayWeight(t *testing.T) {
+	t.Parallel()
+	pet := validPetGameplaySpecForTest()
+	pet.Time.LifeDecay.ContributingWeights = apitypes.RuntimeProfileLifeWeightsSpec{
+		Health: -0.1, Satiety: 0.4, Hygiene: 0.4, Mood: 0.3,
+	}
+	if err := normalizePetGameplay(&pet, apitypes.RuntimeProfileResources{}); err == nil || !strings.Contains(err.Error(), "must not be negative") {
+		t.Fatalf("normalizePetGameplay() error = %v, want negative-weight rejection", err)
+	}
+}
+
+func TestPetGameplayRewardModelMustBeLLM(t *testing.T) {
+	t.Parallel()
+	pet := validPetGameplaySpecForTest()
+	pet.Games = map[string]apitypes.RuntimeProfileGameSpec{
+		"puzzle": {Reward: apitypes.RuntimeProfileGameRewardSpec{Model: "reward"}},
+	}
+	models := map[string]apitypes.ModelResource{
+		"reward": {Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindEmbedding}},
+	}
+	if err := validatePetRewardModels(pet, models); err == nil || !strings.Contains(err.Error(), "want \"llm\"") {
+		t.Fatalf("validatePetRewardModels() error = %v, want LLM-kind rejection", err)
+	}
+}
+
+func validPetGameplaySpecForTest() apitypes.RuntimeProfilePetGameplaySpec {
+	action := apitypes.RuntimeProfilePetActionSpec{EnergyCost: 10, StatDelta: 10}
+	return apitypes.RuntimeProfilePetGameplaySpec{
+		Time: apitypes.RuntimeProfilePetTimeSpec{
+			LifeDecay: apitypes.RuntimeProfileLifeDecaySpec{
+				ContributingWeights: apitypes.RuntimeProfileLifeWeightsSpec{Health: 0.4, Satiety: 0.25, Hygiene: 0.2, Mood: 0.15},
+				Exponent:            2,
+			},
+		},
+		Experience: apitypes.RuntimeProfilePetExperienceSpec{
+			EnergyPerPetExp: 5,
+			Leveling:        apitypes.RuntimeProfileLevelingSpec{BaseExp: 30, LogScale: 10},
+		},
+		Actions: apitypes.RuntimeProfilePetActionsSpec{Feed: action, Bathe: action, Play: action, Heal: action},
+	}
+}
+
 func TestRuntimeProfileAcceptsDefaultName(t *testing.T) {
 	t.Parallel()
 	s := &Server{Store: kv.NewMemory(nil)}

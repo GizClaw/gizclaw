@@ -347,7 +347,7 @@ class GizClawClient {
   }) {
     final value = payload.PetDriveRequest(petId: petId, gameResult: gameResult);
     if (idempotencyKey != null && idempotencyKey.isNotEmpty) {
-      value.idempotencyKey = idempotencyKey;
+      gameResult.idempotencyKey = idempotencyKey;
     }
     return rpc.call<payload.ServerPetDriveResponse>(
       'server.pet.drive',

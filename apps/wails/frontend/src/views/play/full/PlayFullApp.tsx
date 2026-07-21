@@ -451,6 +451,8 @@ function GameplayPanel(): JSX.Element {
           ...(driveDurationMs.trim() !== "" ? { duration_ms: Number(driveDurationMs) } : {}),
           ...(driveIdempotencyKey.trim() !== "" ? { idempotency_key: driveIdempotencyKey.trim() } : {}),
         };
+      } else if (driveIdempotencyKey.trim() !== "") {
+        body.idempotency_key = driveIdempotencyKey.trim();
       }
       await expectData(drivePeerPet({ body }));
       const petID = selectedPetID.trim();

@@ -193,7 +193,9 @@ test.beforeEach(async ({ page }) => {
           source_id: gameResult?.id ?? String(req.pet_id),
           source_type: gameResult == null ? "pet_behavior" : "game_result",
         });
-        actions.push(`drive:${req.pet_id}:${req.behavior ?? ""}`);
+        actions.push(
+          `drive:${req.pet_id}:${req.behavior ?? ""}:${req.idempotency_key ?? req.game_result?.idempotency_key ?? ""}`,
+        );
         window.__GIZCLAW_DESKTOP_TEST_PLAY_ACTIONS__ = actions;
         return {
           badges: [],
@@ -378,8 +380,11 @@ test("play gameplay panel adopts and drives pets through peer RPC", async ({ pag
   await expect.poll(() => page.evaluate(() => window.__GIZCLAW_DESKTOP_TEST_PLAY_ACTIONS__ ?? [])).toContain("adopt:Test Pet");
 
   await page.getByPlaceholder("Behavior (feed/bathe/play/heal)").fill("bathe");
+  await page.getByPlaceholder("Idempotency key").fill("ui-e2e-care-1");
   await page.getByRole("button", { name: "Drive" }).click();
-  await expect.poll(() => page.evaluate(() => window.__GIZCLAW_DESKTOP_TEST_PLAY_ACTIONS__ ?? [])).toContain("drive:pet-main:bathe");
+  await expect.poll(() => page.evaluate(() => window.__GIZCLAW_DESKTOP_TEST_PLAY_ACTIONS__ ?? [])).toContain(
+    "drive:pet-main:bathe:ui-e2e-care-1",
+  );
 
   await page.getByPlaceholder("Behavior (feed/bathe/play/heal)").fill("");
   await page.getByPlaceholder("Game ID").fill("game-basic");
@@ -394,7 +399,9 @@ test("play gameplay panel adopts and drives pets through peer RPC", async ({ pag
   await expect(page.getByText("ui-e2e-result-1")).toBeVisible();
   await expect(page.getByText("game-result-1").first()).toBeVisible();
   await expect(page.getByText("game_result").first()).toBeVisible();
-  await expect.poll(() => page.evaluate(() => window.__GIZCLAW_DESKTOP_TEST_PLAY_ACTIONS__ ?? [])).toContain("drive:pet-main:");
+  await expect.poll(() => page.evaluate(() => window.__GIZCLAW_DESKTOP_TEST_PLAY_ACTIONS__ ?? [])).toContain(
+    "drive:pet-main::ui-e2e-result-1",
+  );
 });
 
 declare global {
