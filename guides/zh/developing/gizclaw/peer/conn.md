@@ -11,6 +11,32 @@
 
 通用 WebRTC、packet transport 和 service stream 属于 `pkgs/giznet`；通用 audio codec 属于 `pkgs/audio`；可持久化 runtime 状态属于 `services/runtime`。
 
+## 一条 Peer connection 内的传输拓扑
+
+当前 Giznet WebRTC connection 不是固定只有一条“数据流”。它同时承载双向 media、一条长期 packet DataChannel、可选的长期 Agent Event Stream，以及按请求动态创建的 service DataChannel。
+
+```mermaid
+flowchart LR
+    Client["Client / Device"] -- "Opus RTP 上行 track" --> Server["GizClaw Peer"]
+    Server -- "Opus RTP 下行 track" --> Client
+    Client <-->|"长期 packet DataChannel"| Server
+    Client <-->|"长期 Agent Event Stream 0x20"| Server
+    Client <-->|"N 条动态 RPC / HTTP service DataChannel"| Server
+```
+
+| 载荷 | 方向 | 生命周期与数量 | WebRTC 承载 | 语义 |
+| --- | --- | --- | --- | --- |
+| Opus media 上行 | Client / Device → Server | connection 级别的一条 RTP track | WebRTC audio RTP | 麦克风实时音频。 |
+| Opus media 下行 | Server → Client / Device | connection 级别的一条 RTP track | WebRTC audio RTP | `MixerOutput` 混音后的 Agent 播放音频。 |
+| Direct packet | 双向 | connection 级别的一条长期 channel | unordered、`maxRetransmits=0` DataChannel | 使用单字节 protocol 区分 packet。Telemetry `0x40` 是 Client → Server 的高频事件，不是 service stream。Giznet API 把 Opus 暴露为 `ProtocolOpusPacket`，但 WebRTC 实现在 wire 上使用上述 RTP track，不把 Opus 写入 packet DataChannel。 |
+| Agent Event Stream `0x20` | 双向 | Client 发起并通常长期保持；Server 接受并订阅 broker | reliable、ordered service DataChannel | 上行把 BOS、EOS、text 等 event 推入 Agent input；下行广播 Agent output 的 BOS、EOS、text 和 workspace history update。它不承载实时 Opus payload。 |
+| Peer / Edge RPC | 双向 | 每次 round trip 新建一条，完成或失败后关闭；可并发存在 N 条 | reliable、ordered service DataChannel | `ServicePeerRPC 0x00` 或 `ServiceEdgeRPC 0x31`。Unary 和 server-streaming RPC 都在这条 request-scoped channel 内使用 RPC frame；RPC EOS 不是 Agent Event Stream 中的 `type=eos`。Server 也可反向打开 Peer RPC 调用 Client provider。 |
+| HTTP service | 请求方 ↔ 提供方 | 每次 HTTP round trip 动态打开 service stream | reliable、ordered service DataChannel | Peer HTTP `0x01`、OpenAI-compatible `0x02`、Admin HTTP `0x10` 或 Edge HTTP `0x30`。 |
+
+因此“当前有几条 stream”没有一个恒定数字。在一个已连接且已打开 Agent Event Stream、暂无 RPC/HTTP 请求的常见会话中，wire 上有两个方向的 audio RTP track、一条 packet DataChannel 和一条 Event Stream DataChannel。每个并发 RPC 或 HTTP round trip 再增加一条临时 service DataChannel。
+
+Agent Event Stream 中的 BOS/EOS 是按 `stream_id` 划分的业务边界；关闭某个业务 stream 不会关闭 Event Stream DataChannel 或 Peer connection。DataChannel EOF 才表示该 transport stream 已终止。
+
 ## 核心结构与主函数
 
 | 符号 | 作用 |

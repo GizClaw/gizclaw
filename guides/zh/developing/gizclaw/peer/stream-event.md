@@ -6,7 +6,13 @@
 | --- | --- |
 | `peer_stream_event.go` | 维护 Peer event subscriber/broadcast broker；在 `PeerStreamEvent` 与 GenX message chunk 之间双向转换；处理 text、control、blob/audio 事件；广播 Agent output event，并把收到的事件推回 Agent input source。 |
 
-这个前缀拥有 GizClaw Peer event stream 的产品映射。底层 stream transport 属于 `pkgs/giznet`；领域状态变化仍由产生事件的 service 拥有。
+这个前缀拥有 GizClaw Peer event stream 的产品映射。底层 stream transport 属于 `pkgs/giznet`；领域状态变化仍由产生事件的 service 拥有。完整 Peer connection 中的 media、packet、Event Stream 和动态 service stream 关系见 [Connection](./conn#一条-peer-connection-内的传输拓扑)。
+
+`EventStreamAgent 0x20` 是 Client 主动打开、Server 接受的可靠双向 service stream：
+
+- 上行事件由 Client 发给 Server，转换为 GenX chunk 后推入 Agent input source。
+- 下行事件来自 Agent output chunk，Server 将其转换为 `PeerStreamEvent` 并广播给当前 subscribers。
+- BOS/EOS 是某个 `stream_id` 的业务边界，不表示 Event Stream DataChannel 本身结束。实时 Opus payload 通过 WebRTC media track 传输，Event Stream 只传输对应的 control 和产品事件。
 
 ## 核心结构与主函数
 
