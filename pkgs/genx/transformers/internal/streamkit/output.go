@@ -41,6 +41,7 @@ type Output struct {
 
 	observationDeferred bool
 	observe             func(*genx.MessageChunk)
+	observers           int
 }
 
 var _ genx.Stream = (*Output)(nil)
@@ -84,11 +85,25 @@ func (o *Output) Next() (*genx.MessageChunk, error) {
 	o.queuedBytes -= entry.bytes
 	deferred := o.observationDeferred
 	observe := o.observe
+	observing := entry.chunk != nil && !deferred && observe != nil
+	if observing {
+		o.observers++
+	}
 	o.mu.Unlock()
-	if entry.chunk != nil && !deferred && observe != nil {
-		observe(entry.chunk)
+	if observing {
+		func() {
+			defer o.finishObservation()
+			observe(entry.chunk)
+		}()
 	}
 	return entry.chunk, nil
+}
+
+func (o *Output) finishObservation() {
+	o.mu.Lock()
+	o.observers--
+	o.cond.Broadcast()
+	o.mu.Unlock()
 }
 
 // Push appends a chunk without waiting for a downstream pull.
@@ -230,6 +245,21 @@ func (o *Output) SetOutputObserver(observe func(*genx.MessageChunk)) {
 	}
 	o.mu.Lock()
 	o.observe = observe
+	o.mu.Unlock()
+}
+
+// WaitForObservers waits until every chunk already dequeued by Next has
+// completed its pull-visible observation callback. Producers use this after a
+// response discard when persistence must include a chunk that Next has already
+// claimed but whose observer has not returned yet.
+func (o *Output) WaitForObservers() {
+	if o == nil {
+		return
+	}
+	o.mu.Lock()
+	for o.observers != 0 {
+		o.cond.Wait()
+	}
 	o.mu.Unlock()
 }
 

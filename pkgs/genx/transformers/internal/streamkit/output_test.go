@@ -86,6 +86,43 @@ func TestOutputDiscardAndPullObservation(t *testing.T) {
 	}
 }
 
+func TestOutputWaitForObserversCoversDequeuedChunk(t *testing.T) {
+	started := make(chan struct{})
+	release := make(chan struct{})
+	output := NewOutput(OutputConfig{Observe: func(*genx.MessageChunk) {
+		close(started)
+		<-release
+	}})
+	if err := output.Push(&genx.MessageChunk{Part: genx.Text("claimed")}); err != nil {
+		t.Fatalf("Push() error = %v", err)
+	}
+	nextDone := make(chan error, 1)
+	go func() {
+		_, err := output.Next()
+		nextDone <- err
+	}()
+	<-started
+	waitDone := make(chan struct{})
+	go func() {
+		output.WaitForObservers()
+		close(waitDone)
+	}()
+	select {
+	case <-waitDone:
+		t.Fatal("WaitForObservers returned before callback completed")
+	case <-time.After(20 * time.Millisecond):
+	}
+	close(release)
+	if err := <-nextDone; err != nil {
+		t.Fatalf("Next() error = %v", err)
+	}
+	select {
+	case <-waitDone:
+	case <-time.After(time.Second):
+		t.Fatal("WaitForObservers did not return")
+	}
+}
+
 func TestOutputConcurrentInvocationsAreIndependent(t *testing.T) {
 	outputs := []*Output{NewOutput(OutputConfig{}), NewOutput(OutputConfig{})}
 	var wg sync.WaitGroup

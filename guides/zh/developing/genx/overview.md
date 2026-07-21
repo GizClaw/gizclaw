@@ -158,4 +158,4 @@ flowchart LR
 - 通用 message、stream、model、tool contract 放在 `pkgs/genx` 根包。
 - 可按名称选择的能力通过对应子包的 mux 注册，不由产品服务维护第二套路由表。
 - Provider SDK adapter 放在拥有该具体能力的 package；provider credential 和产品 model resource 仍属于 `pkgs/gizclaw/services/ai`。
-- Agent memory、workspace、运行中的 Agent lifecycle 和产品 HTTP/RPC 不属于 `genx`。
+- 产品 Agent instance、workspace、HTTP/RPC 与 credential ownership 不属于 `genx`。可复用的 Graph Transformer 可以接收通用 Store interface，但不能反向依赖 GizClaw 产品 runtime。

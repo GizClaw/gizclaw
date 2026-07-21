@@ -150,4 +150,4 @@ flowchart LR
 - Common message, stream, model, and tool contracts are placed in the `pkgs/genx` root package.
 - Capabilities that can be selected by name are registered through the mux of the corresponding sub-package, and the second set of routing tables is not maintained by the product service.
 - Provider SDK adapter is placed in the package with this specific capability; provider credential and product model resource still belong to `pkgs/gizclaw/services/ai`.
-- Agent memory, workspace, running Agent lifecycle and product HTTP/RPC do not belong to `genx`.
+- Product Agent instances, workspaces, HTTP/RPC, and credential ownership do not belong to `genx`. A reusable Graph Transformer may accept generic Store interfaces, but it must not depend back on the GizClaw product runtime.
