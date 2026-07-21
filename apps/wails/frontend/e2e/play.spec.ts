@@ -386,7 +386,6 @@ test("play gameplay panel adopts and drives pets through peer RPC", async ({ pag
     "drive:pet-main:bathe:ui-e2e-care-1",
   );
 
-  await page.getByPlaceholder("Behavior (feed/bathe/play/heal)").fill("");
   await page.getByPlaceholder("Game ID").fill("game-basic");
   await page.getByPlaceholder("Score", { exact: true }).fill("42");
   await page.getByPlaceholder("Max score").fill("100");

@@ -61,6 +61,19 @@ func TestPetCareBehaviorUsesDeltaCapEnergyAndExperience(t *testing.T) {
 	if len(duplicate.RewardGrants) != 1 || duplicate.RewardGrants[0].Id != response.RewardGrants[0].Id {
 		t.Fatalf("duplicate reward = %#v, want original grant", duplicate.RewardGrants)
 	}
+	heal := apitypes.PetBehaviorHeal
+	if _, err := runtime.DrivePet(ctx, "peer-care", apitypes.PetDriveRequest{
+		PetId: adopted.Pet.Id, Behavior: &heal, IdempotencyKey: &key,
+	}); err == nil || !strings.Contains(err.Error(), "another behavior") {
+		t.Fatalf("DrivePet(reused behavior key) error = %v, want behavior mismatch", err)
+	}
+}
+
+func TestPetLevelIsBoundedForMaximumExperience(t *testing.T) {
+	leveling := apitypes.RuntimeProfileLevelingSpec{BaseExp: 1, LogScale: 0}
+	if got := petLevel(math.MaxInt64, leveling); got != math.MaxInt64 {
+		t.Fatalf("petLevel(MaxInt64) = %d, want saturated MaxInt64", got)
+	}
 }
 
 func TestUnconfiguredGameIsExactNoOp(t *testing.T) {

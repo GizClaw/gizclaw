@@ -458,7 +458,7 @@ func (r *Runtime) DrivePet(ctx context.Context, owner string, req apitypes.PetDr
 	}
 	if hasBehavior {
 		if key := strings.TrimSpace(valueOrZero(req.IdempotencyKey)); key != "" {
-			if response, found, err := r.completedBehaviorResponse(ctx, owner, ruleset.Name, key, pet); err != nil {
+			if response, found, err := r.completedBehaviorResponse(ctx, owner, ruleset.Name, key, pet, behavior); err != nil {
 				return apitypes.PetDriveResponse{}, err
 			} else if found {
 				return response, nil
@@ -733,7 +733,7 @@ func (r *Runtime) completedGameResponse(ctx context.Context, owner, profile, key
 	return response, true, err
 }
 
-func (r *Runtime) completedBehaviorResponse(ctx context.Context, owner, profile, key string, pet apitypes.Pet) (apitypes.PetDriveResponse, bool, error) {
+func (r *Runtime) completedBehaviorResponse(ctx context.Context, owner, profile, key string, pet apitypes.Pet, behavior apitypes.PetBehavior) (apitypes.PetDriveResponse, bool, error) {
 	db, err := r.db()
 	if err != nil {
 		return apitypes.PetDriveResponse{}, false, err
@@ -747,6 +747,9 @@ func (r *Runtime) completedBehaviorResponse(ctx context.Context, owner, profile,
 	}
 	if grant.PetId == nil || *grant.PetId != pet.Id {
 		return apitypes.PetDriveResponse{}, false, errors.New("gameplay: idempotency key belongs to another pet")
+	}
+	if grant.Reason == nil || *grant.Reason != "behavior."+string(behavior) {
+		return apitypes.PetDriveResponse{}, false, errors.New("gameplay: idempotency key belongs to another behavior")
 	}
 	response, err := r.completedDriveResponse(ctx, owner, profile, pet.Id, nil, "pet_behavior", strings.TrimSpace(key))
 	return response, true, err
@@ -826,7 +829,7 @@ func (r *Runtime) GetPoints(ctx context.Context, owner, runtimeProfileName strin
 		}
 		return scanPointsAccount(db.QueryRowContext(ctx, db.Rebind(pointsAccountSelectSQL()+` WHERE owner_public_key = ? ORDER BY runtime_profile_name LIMIT 1`), strings.TrimSpace(owner)))
 	}
-	ruleset, err := r.resolveProfileRules(ctx, runtimeProfileName)
+	ruleset, err := pointsRulesFromContext(ctx, runtimeProfileName)
 	if err != nil {
 		return apitypes.PointsAccount{}, err
 	}

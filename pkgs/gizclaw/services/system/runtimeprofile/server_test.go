@@ -485,6 +485,34 @@ func TestPetGameplayRewardModelMustBeLLM(t *testing.T) {
 	}
 }
 
+func TestPetGameplayRejectsDuplicateGameDefResources(t *testing.T) {
+	t.Parallel()
+	pet := validPetGameplaySpecForTest()
+	game := apitypes.RuntimeProfileGameSpec{
+		EnergyCost: 10,
+		Reward:     apitypes.RuntimeProfileGameRewardSpec{Model: "reward", Prompt: "Evaluate."},
+	}
+	pet.Games = map[string]apitypes.RuntimeProfileGameSpec{"puzzle-a": game, "puzzle-b": game}
+	gameDefs := map[string]apitypes.RuntimeProfileBinding{
+		"puzzle-a": runtimeProfileTestBinding("game-puzzle"),
+		"puzzle-b": runtimeProfileTestBinding("game-puzzle"),
+	}
+	models := map[string]apitypes.RuntimeProfileBinding{"reward": runtimeProfileTestBinding("model-reward")}
+	resources := apitypes.RuntimeProfileResources{GameDefs: &gameDefs, Models: &models}
+	if err := normalizePetGameplay(&pet, resources); err == nil || !strings.Contains(err.Error(), "same GameDef") {
+		t.Fatalf("normalizePetGameplay() error = %v, want duplicate GameDef rejection", err)
+	}
+}
+
+func TestPetGameplayRejectsUnboundedLogScale(t *testing.T) {
+	t.Parallel()
+	pet := validPetGameplaySpecForTest()
+	pet.Experience.Leveling.LogScale = 101
+	if err := normalizePetGameplay(&pet, apitypes.RuntimeProfileResources{}); err == nil || !strings.Contains(err.Error(), "0..100") {
+		t.Fatalf("normalizePetGameplay() error = %v, want log-scale bound", err)
+	}
+}
+
 func validPetGameplaySpecForTest() apitypes.RuntimeProfilePetGameplaySpec {
 	action := apitypes.RuntimeProfilePetActionSpec{EnergyCost: 10, StatDelta: 10}
 	return apitypes.RuntimeProfilePetGameplaySpec{

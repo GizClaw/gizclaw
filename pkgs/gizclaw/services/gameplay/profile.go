@@ -48,18 +48,13 @@ type ProfilePetPoolEntry struct {
 }
 
 func profileRulesFromContext(ctx context.Context, requestedName string) (ProfileRules, error) {
-	profile, ok := runtimeProfileFromContext(ctx)
-	if !ok || strings.TrimSpace(profile.Name) == "" {
-		return ProfileRules{}, errors.New("gameplay: RuntimeProfile is required")
+	profile, gameplay, err := gameplayProfileFromContext(ctx, requestedName)
+	if err != nil {
+		return ProfileRules{}, err
 	}
-	requestedName = strings.TrimSpace(requestedName)
-	if requestedName != "" && requestedName != profile.Name {
-		return ProfileRules{}, errors.New("gameplay: resource belongs to a different RuntimeProfile")
-	}
-	if profile.Spec.Gameplay == nil || profile.Spec.Gameplay.Pet == nil {
+	if gameplay.Pet == nil {
 		return ProfileRules{}, errors.New("gameplay: active RuntimeProfile has no pet gameplay configuration")
 	}
-	gameplay := profile.Spec.Gameplay
 	pool := []ProfilePetPoolEntry{}
 	if gameplay.Adoption != nil && gameplay.Adoption.Pool != nil {
 		for _, entry := range *gameplay.Adoption.Pool {
@@ -86,6 +81,9 @@ func profileRulesFromContext(ctx context.Context, requestedName string) (Profile
 		if !exists {
 			continue
 		}
+		if _, duplicate := games[gameDefID]; duplicate {
+			return ProfileRules{}, errors.New("gameplay: multiple game aliases resolve to the same GameDef")
+		}
 		games[gameDefID] = ProfileGameRule{GameDefID: gameDefID, Policy: policy}
 	}
 	return ProfileRules{
@@ -105,6 +103,29 @@ func profileRulesFromContext(ctx context.Context, requestedName string) (Profile
 			Time:       pet.Time,
 		},
 	}, nil
+}
+
+func pointsRulesFromContext(ctx context.Context, requestedName string) (ProfileRules, error) {
+	profile, gameplay, err := gameplayProfileFromContext(ctx, requestedName)
+	if err != nil {
+		return ProfileRules{}, err
+	}
+	return ProfileRules{Name: profile.Name, Spec: ProfileRulesSpec{Points: gameplay.Points}}, nil
+}
+
+func gameplayProfileFromContext(ctx context.Context, requestedName string) (apitypes.RuntimeProfile, *apitypes.RuntimeProfileGameplaySpec, error) {
+	profile, ok := runtimeProfileFromContext(ctx)
+	if !ok || strings.TrimSpace(profile.Name) == "" {
+		return apitypes.RuntimeProfile{}, nil, errors.New("gameplay: RuntimeProfile is required")
+	}
+	requestedName = strings.TrimSpace(requestedName)
+	if requestedName != "" && requestedName != profile.Name {
+		return apitypes.RuntimeProfile{}, nil, errors.New("gameplay: resource belongs to a different RuntimeProfile")
+	}
+	if profile.Spec.Gameplay == nil {
+		return apitypes.RuntimeProfile{}, nil, errors.New("gameplay: active RuntimeProfile has no gameplay configuration")
+	}
+	return profile, profile.Spec.Gameplay, nil
 }
 
 func resourceAlias(resources *map[string]apitypes.RuntimeProfileBinding, alias string) (string, bool) {

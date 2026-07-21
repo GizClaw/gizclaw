@@ -14,6 +14,24 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+func TestGetPointsAllowsProfileWithoutPetGameplay(t *testing.T) {
+	initialBalance := int64(25)
+	profile := apitypes.RuntimeProfile{
+		Name: "points-only",
+		Spec: apitypes.RuntimeProfileSpec{Gameplay: &apitypes.RuntimeProfileGameplaySpec{
+			Points: &apitypes.RuntimeProfilePointsSpec{InitialBalance: &initialBalance},
+		}},
+	}
+	runtime := &Runtime{DB: testDB(t)}
+	account, err := runtime.GetPoints(WithRuntimeProfile(context.Background(), profile), "peer-points", profile.Name)
+	if err != nil {
+		t.Fatalf("GetPoints() error = %v", err)
+	}
+	if account.Balance != initialBalance || account.RuntimeProfileName != profile.Name {
+		t.Fatalf("GetPoints() = %#v, want points-only profile account", account)
+	}
+}
+
 func TestRuntimeAdoptDoesNotDeleteExistingSystemWorkspaceOnIDCollision(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 7, 5, 10, 0, 0, 0, time.UTC)

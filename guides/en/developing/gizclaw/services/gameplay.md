@@ -30,7 +30,7 @@ $$
 
 where weights sum to 1 and $p>1$. Full care stats produce zero deficit and therefore no life loss; lower care stats accelerate life loss. The Server evaluates the piecewise analytic integral, so settlement depends on initial state and elapsed time rather than request frequency. When life reaches zero, the Pet atomically enters `dead` with an immutable `died_at`; a dead Pet cannot Drive again.
 
-EXP required for the next level is `ceil(base_exp + log_scale * ln(current_level))`. Cumulative EXP is not consumed by leveling. Initial points, adoption weights/costs, and every Pet policy value come only from RuntimeProfile; Server config has no fallback.
+EXP required for the next level is `ceil(base_exp + log_scale * ln(current_level))`, with `log_scale` bounded to `0..100` so level calculation remains bounded. Cumulative EXP is not consumed by leveling. Initial points, adoption weights/costs, and every Pet policy value come only from RuntimeProfile; Server config has no fallback.
 
 Every game must be configured explicitly in both `resources.game_defs` and `gameplay.pet.games`; there is no default. Submitting an unconfigured game is an exact no-op: no time settlement, points/energy deduction, game result, reward-model call, EXP, or badge. A configured game validates resources before invoking the current connection's authorized model. The model can grant only Pet EXP and eligible badge EXP within configured maxima. Model failure or invalid output produces no gameplay write. An idempotency key prevents a successful result from charging, evaluating, or rewarding twice.
 

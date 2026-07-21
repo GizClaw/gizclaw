@@ -158,7 +158,7 @@
         "additionalProperties": false,
         "properties": {
           "base_exp": { "type": "integer", "format": "int64", "minimum": 1 },
-          "log_scale": { "type": "number", "format": "double", "minimum": 0 }
+          "log_scale": { "type": "number", "format": "double", "minimum": 0, "maximum": 100 }
         }
       },
       "RuntimeProfilePetExperienceSpec": {

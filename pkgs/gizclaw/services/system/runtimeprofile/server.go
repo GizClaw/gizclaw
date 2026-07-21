@@ -799,8 +799,8 @@ func normalizePetGameplay(pet *apitypes.RuntimeProfilePetGameplaySpec, resources
 	if pet.Experience.EnergyPerPetExp <= 0 {
 		return errors.New("gameplay.pet.experience.energy_per_pet_exp must be positive")
 	}
-	if pet.Experience.Leveling.BaseExp <= 0 || pet.Experience.Leveling.LogScale < 0 {
-		return errors.New("gameplay.pet.experience.leveling requires positive base_exp and non-negative log_scale")
+	if pet.Experience.Leveling.BaseExp <= 0 || pet.Experience.Leveling.LogScale < 0 || pet.Experience.Leveling.LogScale > 100 {
+		return errors.New("gameplay.pet.experience.leveling requires positive base_exp and log_scale in 0..100")
 	}
 	weights := pet.Time.LifeDecay.ContributingWeights
 	if weights.Health < 0 || weights.Satiety < 0 || weights.Hygiene < 0 || weights.Mood < 0 {
@@ -832,6 +832,7 @@ func normalizePetGameplay(pet *apitypes.RuntimeProfilePetGameplaySpec, resources
 		}
 	}
 	normalized := make(map[string]apitypes.RuntimeProfileGameSpec, len(pet.Games))
+	gameDefAliases := make(map[string]string, len(pet.Games))
 	for alias, game := range pet.Games {
 		alias = strings.TrimSpace(alias)
 		if alias == "" {
@@ -840,9 +841,15 @@ func normalizePetGameplay(pet *apitypes.RuntimeProfilePetGameplaySpec, resources
 		if _, exists := normalized[alias]; exists {
 			return fmt.Errorf("duplicate game definition alias %q", alias)
 		}
-		if _, ok := bindingByAlias(resources.GameDefs, alias); !ok {
+		gameDef, ok := bindingByAlias(resources.GameDefs, alias)
+		if !ok {
 			return fmt.Errorf("gameplay.pet.games.%s is not declared in resources.game_defs", alias)
 		}
+		gameDefID := strings.TrimSpace(gameDef.ResourceId)
+		if previous, duplicate := gameDefAliases[gameDefID]; duplicate {
+			return fmt.Errorf("gameplay.pet.games.%s and gameplay.pet.games.%s resolve to the same GameDef %q", previous, alias, gameDefID)
+		}
+		gameDefAliases[gameDefID] = alias
 		game.Reward.Model = strings.TrimSpace(game.Reward.Model)
 		game.Reward.Prompt = strings.TrimSpace(game.Reward.Prompt)
 		if _, ok := bindingByAlias(resources.Models, game.Reward.Model); !ok {

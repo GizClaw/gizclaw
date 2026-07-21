@@ -30,7 +30,7 @@ $$
 
 其中权重和为 1，$p>1$。满状态时缺口为 0，因此 life 不减少；照料数值越低，life 衰减越快。Server 使用分段解析积分，使结果只取决于起始状态和经过时间，不取决于请求频率。life 到 0 时，Pet 原子进入 `dead`，写入不可变 `died_at`；dead Pet 不能再 Drive。
 
-升级到下一级所需 EXP 为 `ceil(base_exp + log_scale * ln(current_level))`，累计 EXP 不会被升级消耗。初始 points、领养 weight/cost 和全部 Pet policy 只来自 RuntimeProfile，Server config 没有 fallback。
+升级到下一级所需 EXP 为 `ceil(base_exp + log_scale * ln(current_level))`；`log_scale` 限定为 `0..100`，以保证等级计算工作量有界。累计 EXP 不会被升级消耗。初始 points、领养 weight/cost 和全部 Pet policy 只来自 RuntimeProfile，Server config 没有 fallback。
 
 每个游戏必须在 `resources.game_defs` 和 `gameplay.pet.games` 中显式配置，不存在 default。未配置游戏的提交是精确 no-op：不结算时间、不扣 points/energy、不写 game result、不调用奖励模型、不增加 EXP/badge。已配置游戏先验证资源，再调用当前连接允许的模型；模型只能在配置上限内发放 Pet EXP 和 eligible badge EXP，失败或非法输出不会产生任何 gameplay 写入。idempotency key 保证成功结果不会重复扣费、调用模型或发奖。
 

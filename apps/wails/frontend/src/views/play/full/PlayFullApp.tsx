@@ -439,7 +439,6 @@ function GameplayPanel(): JSX.Element {
     try {
       const body: Record<string, unknown> = {
         pet_id: selectedPetID.trim(),
-        ...(driveBehavior.trim() !== "" ? { behavior: driveBehavior.trim() } : {}),
       };
       if (driveGameID.trim() !== "") {
         body.game_result = {
@@ -452,11 +451,16 @@ function GameplayPanel(): JSX.Element {
           ...(driveIdempotencyKey.trim() !== "" ? { idempotency_key: driveIdempotencyKey.trim() } : {}),
         };
       } else if (driveIdempotencyKey.trim() !== "") {
+        if (driveBehavior.trim() !== "") {
+          body.behavior = driveBehavior.trim();
+        }
         body.idempotency_key = driveIdempotencyKey.trim();
+      } else if (driveBehavior.trim() !== "") {
+        body.behavior = driveBehavior.trim();
       }
       await expectData(drivePeerPet({ body }));
       const petID = selectedPetID.trim();
-      const actionID = driveBehavior.trim();
+      const actionID = driveGameID.trim() === "" ? driveBehavior.trim() : "";
       const presentation = await getPeerPetActions({ body: { id: petID } });
       const clipName = presentation.data == null ? actionID || "idle" : petActionPixaClipName(presentation.data as PetActionsObject, actionID);
       setPetClipByID((current) => ({ ...current, [petID]: clipName }));

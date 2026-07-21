@@ -41,24 +41,58 @@ func applyPetExp(pet *apitypes.Pet, delta int64, leveling apitypes.RuntimeProfil
 	if pet == nil || delta <= 0 {
 		return
 	}
-	pet.Progression.Experience += delta
+	if delta > math.MaxInt64-pet.Progression.Experience {
+		pet.Progression.Experience = math.MaxInt64
+	} else {
+		pet.Progression.Experience += delta
+	}
 	pet.Progression.Level = petLevel(pet.Progression.Experience, leveling)
 }
 
 func petLevel(experience int64, leveling apitypes.RuntimeProfileLevelingSpec) int64 {
-	if experience < 0 {
-		experience = 0
+	if experience <= 0 || leveling.BaseExp <= 0 {
+		return 1
 	}
-	level := int64(1)
-	remaining := experience
-	for {
-		required := int64(math.Ceil(float64(leveling.BaseExp) + leveling.LogScale*math.Log(float64(level))))
-		if required < 1 || remaining < required {
-			return level
+	maxCompleted := experience / leveling.BaseExp
+	spent := int64(0)
+	for level := int64(1); level <= maxCompleted; {
+		required := petLevelRequirement(level, leveling)
+		last := lastLevelWithRequirement(level, maxCompleted, required, leveling)
+		count := last - level + 1
+		affordable := (experience - spent) / required
+		if affordable < count {
+			return level + affordable
 		}
-		remaining -= required
-		level++
+		spent += count * required
+		if last == math.MaxInt64 {
+			return math.MaxInt64
+		}
+		level = last + 1
 	}
+	return maxCompleted + 1
+}
+
+func petLevelRequirement(level int64, leveling apitypes.RuntimeProfileLevelingSpec) int64 {
+	required := math.Ceil(float64(leveling.BaseExp) + leveling.LogScale*math.Log(float64(level)))
+	if required >= math.MaxInt64 {
+		return math.MaxInt64
+	}
+	if required < 1 {
+		return 1
+	}
+	return int64(required)
+}
+
+func lastLevelWithRequirement(first, last, required int64, leveling apitypes.RuntimeProfileLevelingSpec) int64 {
+	for first < last {
+		middle := first + (last-first+1)/2
+		if petLevelRequirement(middle, leveling) <= required {
+			first = middle
+		} else {
+			last = middle - 1
+		}
+	}
+	return first
 }
 
 func settlePetTime(pet *apitypes.Pet, now time.Time, policy apitypes.RuntimeProfilePetTimeSpec) {
