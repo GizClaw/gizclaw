@@ -24,7 +24,6 @@ const (
 	PodInitializationMarker = ".initializing"
 	PodVersion              = 1
 	LocalCatalogVersion     = 3
-	DefaultPort             = 9820
 )
 
 var (

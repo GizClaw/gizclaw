@@ -320,6 +320,9 @@ func TestLocalPodCreationAssignsDistinctStablePorts(t *testing.T) {
 	if first.Local == nil || second.Local == nil || first.Local.Port == second.Local.Port || first.Local.Port == 0 || second.Local.Port == 0 {
 		t.Fatalf("assigned ports = %+v / %+v", first.Local, second.Local)
 	}
+	if first.Local.Port == 9820 || second.Local.Port == 9820 {
+		t.Fatalf("default local ports must be dynamically assigned, got %d / %d", first.Local.Port, second.Local.Port)
+	}
 	if len(first.Local.LANAddresses) != 0 && first.Local.LANAddresses[0] != appconfig.PreferredLANEndpoint(first.Local.Port) {
 		t.Fatalf("shared LAN address = %q, workspace endpoint = %q", first.Local.LANAddresses[0], appconfig.PreferredLANEndpoint(first.Local.Port))
 	}

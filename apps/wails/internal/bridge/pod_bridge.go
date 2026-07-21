@@ -376,13 +376,8 @@ func (b *PodBridge) CreatePod(_ context.Context, input PodInput) (PodSummary, er
 		if usedErr != nil {
 			return PodSummary{}, usedErr
 		}
-		switch pod.LocalServer.Port {
-		case 0, appconfig.DefaultPort:
-			preferred := appconfig.DefaultPort
-			if usedPorts[preferred] {
-				preferred = 0
-			}
-			pod.LocalServer.Port, err = appconfig.FindAvailablePort(preferred)
+		if pod.LocalServer.Port == 0 {
+			pod.LocalServer.Port, err = appconfig.FindAvailablePort(0)
 			if err != nil {
 				return PodSummary{}, err
 			}
@@ -392,7 +387,7 @@ func (b *PodBridge) CreatePod(_ context.Context, input PodInput) (PodSummary, er
 					return PodSummary{}, err
 				}
 			}
-		default:
+		} else {
 			if usedPorts[pod.LocalServer.Port] {
 				return PodSummary{}, fmt.Errorf("desktop bridge: local server port %d is already assigned to another Pod", pod.LocalServer.Port)
 			}
