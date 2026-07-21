@@ -24,6 +24,9 @@ func TestPetTimeSettlementIsFrequencyIndependent(t *testing.T) {
 	}
 
 	assertPetStatsClose(t, hourly.Stats, oneShot.Stats)
+	if hourly.StateSettledAt != oneShot.StateSettledAt {
+		t.Fatalf("settled_at = hourly %s, one-shot %s", hourly.StateSettledAt, oneShot.StateSettledAt)
+	}
 	if oneShot.Stats.Energy != petStatMaximum {
 		t.Fatalf("passive energy = %g, want 100", oneShot.Stats.Energy)
 	}
@@ -111,6 +114,49 @@ func TestEmptyPetDriveTimeSettlementIsFrequencyIndependent(t *testing.T) {
 	oneShot, err := runtime.DrivePet(ctx, "peer-empty-frequency", apitypes.PetDriveRequest{PetId: second.Pet.Id})
 	if err != nil {
 		t.Fatalf("DrivePet(one interval) error = %v", err)
+	}
+	assertPetStatsClose(t, split.Pet.Stats, oneShot.Pet.Stats)
+}
+
+func TestEmptyPetDriveDeathSettlementIsFrequencyIndependent(t *testing.T) {
+	ctx, runtime, now := newPetRuntime(t)
+	start := *now
+	first, err := runtime.AdoptPet(ctx, "peer-empty-death", apitypes.PetAdoptRequest{})
+	if err != nil {
+		t.Fatalf("AdoptPet(first) error = %v", err)
+	}
+	second, err := runtime.AdoptPet(ctx, "peer-empty-death", apitypes.PetAdoptRequest{})
+	if err != nil {
+		t.Fatalf("AdoptPet(second) error = %v", err)
+	}
+	for _, pet := range []apitypes.Pet{first.Pet, second.Pet} {
+		pet.Stats = apitypes.PetStats{Life: 5}
+		updatePetForTest(t, runtime, pet)
+	}
+
+	*now = start.Add(time.Hour)
+	if _, err := runtime.DrivePet(ctx, "peer-empty-death", apitypes.PetDriveRequest{PetId: first.Pet.Id}); err != nil {
+		t.Fatalf("DrivePet(first interval) error = %v", err)
+	}
+	*now = start.Add(3 * time.Hour)
+	split, err := runtime.DrivePet(ctx, "peer-empty-death", apitypes.PetDriveRequest{PetId: first.Pet.Id})
+	if err != nil {
+		t.Fatalf("DrivePet(second interval) error = %v", err)
+	}
+	oneShot, err := runtime.DrivePet(ctx, "peer-empty-death", apitypes.PetDriveRequest{PetId: second.Pet.Id})
+	if err != nil {
+		t.Fatalf("DrivePet(one interval) error = %v", err)
+	}
+
+	wantDeath := start.Add(75 * time.Minute)
+	if split.Pet.Lifecycle != apitypes.PetLifecycleDead || oneShot.Pet.Lifecycle != apitypes.PetLifecycleDead {
+		t.Fatalf("death lifecycle = split %q, one-shot %q", split.Pet.Lifecycle, oneShot.Pet.Lifecycle)
+	}
+	if split.Pet.DiedAt == nil || oneShot.Pet.DiedAt == nil || *split.Pet.DiedAt != wantDeath || *oneShot.Pet.DiedAt != wantDeath {
+		t.Fatalf("died_at = split %v, one-shot %v, want %s", split.Pet.DiedAt, oneShot.Pet.DiedAt, wantDeath)
+	}
+	if split.Pet.StateSettledAt != oneShot.Pet.StateSettledAt || split.Pet.UpdatedAt != oneShot.Pet.UpdatedAt {
+		t.Fatalf("terminal timestamps = split %#v, one-shot %#v", split.Pet, oneShot.Pet)
 	}
 	assertPetStatsClose(t, split.Pet.Stats, oneShot.Pet.Stats)
 }

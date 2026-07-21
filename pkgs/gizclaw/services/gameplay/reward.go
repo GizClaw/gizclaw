@@ -96,17 +96,43 @@ func lastLevelWithRequirement(first, last, required int64, leveling apitypes.Run
 }
 
 func settlePetTime(pet *apitypes.Pet, now time.Time, policy apitypes.RuntimeProfilePetTimeSpec) {
-	if pet == nil || !now.After(pet.StateSettledAt) {
+	if pet == nil || pet.Stats.Life <= 0 || !now.After(pet.StateSettledAt) {
 		return
 	}
-	hours := now.Sub(pet.StateSettledAt).Hours()
-	pet.Stats.Life = clampPetStat(pet.Stats.Life - integratedLifeLoss(pet.Stats, hours, policy))
-	pet.Stats.Health = decayedStat(pet.Stats.Health, policy.CareDecayPerHour.Health, hours)
-	pet.Stats.Satiety = decayedStat(pet.Stats.Satiety, policy.CareDecayPerHour.Satiety, hours)
-	pet.Stats.Hygiene = decayedStat(pet.Stats.Hygiene, policy.CareDecayPerHour.Hygiene, hours)
-	pet.Stats.Mood = decayedStat(pet.Stats.Mood, policy.CareDecayPerHour.Mood, hours)
-	pet.Stats.Energy = clampPetStat(pet.Stats.Energy + policy.EnergyRecoveryPerHour*hours)
+	start := pet.StateSettledAt
+	hours := now.Sub(start).Hours()
+	settledHours := hours
+	died := false
+	lifeLoss := integratedLifeLoss(pet.Stats, hours, policy)
+	if lifeLoss >= pet.Stats.Life {
+		settledHours = hoursUntilLifeLoss(pet.Stats, pet.Stats.Life, hours, policy)
+		died = true
+	}
+	pet.Stats.Life = clampPetStat(pet.Stats.Life - lifeLoss)
+	if died {
+		pet.Stats.Life = 0
+		nanoseconds := math.Round(settledHours * float64(time.Hour))
+		now = start.Add(time.Duration(nanoseconds))
+	}
+	pet.Stats.Health = decayedStat(pet.Stats.Health, policy.CareDecayPerHour.Health, settledHours)
+	pet.Stats.Satiety = decayedStat(pet.Stats.Satiety, policy.CareDecayPerHour.Satiety, settledHours)
+	pet.Stats.Hygiene = decayedStat(pet.Stats.Hygiene, policy.CareDecayPerHour.Hygiene, settledHours)
+	pet.Stats.Mood = decayedStat(pet.Stats.Mood, policy.CareDecayPerHour.Mood, settledHours)
+	pet.Stats.Energy = clampPetStat(pet.Stats.Energy + policy.EnergyRecoveryPerHour*settledHours)
 	pet.StateSettledAt = now
+}
+
+func hoursUntilLifeLoss(stats apitypes.PetStats, target, maximum float64, policy apitypes.RuntimeProfilePetTimeSpec) float64 {
+	lower, upper := 0.0, maximum
+	for range 80 {
+		middle := lower + (upper-lower)/2
+		if integratedLifeLoss(stats, middle, policy) >= target {
+			upper = middle
+		} else {
+			lower = middle
+		}
+	}
+	return upper
 }
 
 type careTrajectory struct {

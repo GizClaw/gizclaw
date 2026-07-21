@@ -32,7 +32,7 @@ $$
 
 `server.pet.drive` 接受只包含 `pet_id` 的空 Drive，作为由 Server 权威时间驱动的一次 tick。它从 `state_settled_at` 结算经过区间，持久化照料数值衰减、energy 恢复、life 损失和新 checkpoint，并返回更新后的 Pet；它不创建 behavior、game result、cost 或 reward。多个新的连续 tick 与对相同总时长执行一次 tick 得到一致状态。请求携带可选的顶层 idempotency key 时，使用同一 key 重试空 Drive 不会再次结算时间；新 key 或不带 key 表示新的 tick。
 
-life 到 0 时，Pet 原子进入 `dead` 并写入不可变 `died_at`。behavior 和 game-result Drive 不能再作用于 dead Pet；空 Drive 返回其不再变化的终态快照。
+life 到 0 时，Pet 在公式计算出的死亡 checkpoint 原子进入 `dead` 并写入不可变 `died_at`，因此终态也不依赖 tick 频率。behavior 和 game-result Drive 不能再作用于 dead Pet；空 Drive 返回其不再变化的终态快照。
 
 升级到下一级所需 EXP 为 `ceil(base_exp + log_scale * ln(current_level))`；`log_scale` 限定为 `0..100`，以保证等级计算工作量有界。累计 EXP 不会被升级消耗。初始 points、领养 weight/cost 和全部 Pet policy 只来自 RuntimeProfile，Server config 没有 fallback。
 

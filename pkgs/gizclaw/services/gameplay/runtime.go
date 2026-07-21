@@ -558,10 +558,11 @@ func (r *Runtime) commitEmptyDrive(ctx context.Context, owner, petID, key string
 	}
 	if pet.Lifecycle != apitypes.PetLifecycleDead {
 		settlePetTime(&pet, now, ruleset.Spec.Time)
-		pet.UpdatedAt = now
+		pet.UpdatedAt = pet.StateSettledAt
 		if pet.Stats.Life == 0 {
 			pet.Lifecycle = apitypes.PetLifecycleDead
-			pet.DiedAt = &now
+			diedAt := pet.StateSettledAt
+			pet.DiedAt = &diedAt
 		}
 		if err := updatePet(ctx, tx, pet); err != nil {
 			return apitypes.PetDriveResponse{}, err
@@ -605,10 +606,11 @@ func (r *Runtime) commitDrive(
 	}
 	now := r.now()
 	settlePetTime(&pet, now, ruleset.Spec.Time)
-	pet.UpdatedAt = now
+	pet.UpdatedAt = pet.StateSettledAt
 	if pet.Stats.Life == 0 {
 		pet.Lifecycle = apitypes.PetLifecycleDead
-		pet.DiedAt = &now
+		diedAt := pet.StateSettledAt
+		pet.DiedAt = &diedAt
 		if err := updatePet(ctx, tx, pet); err != nil {
 			return apitypes.PetDriveResponse{}, err
 		}
