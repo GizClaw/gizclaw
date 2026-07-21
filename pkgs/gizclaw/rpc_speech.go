@@ -330,7 +330,14 @@ func (s *rpcServer) handleSpeechSynthesize(ctx context.Context, stream *rpcStrea
 		if int64(written) > limits.SynthesisMaxOutputBytes {
 			return fmt.Errorf("synthesized audio exceeds %d bytes", limits.SynthesisMaxOutputBytes)
 		}
-		return callStream.WriteFrame(rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: blob.Data})
+		for data := blob.Data; len(data) > 0; {
+			n := min(len(data), rpcapi.MaxFrameSize)
+			if err := callStream.WriteFrame(rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: data[:n]}); err != nil {
+				return err
+			}
+			data = data[n:]
+		}
+		return nil
 	}
 	if err := writeChunk(first); err != nil {
 		return err

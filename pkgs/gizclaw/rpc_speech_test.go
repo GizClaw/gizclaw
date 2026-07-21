@@ -372,6 +372,46 @@ func TestRPCSpeechSynthesizeStreamsAudioBeforeEOS(t *testing.T) {
 	readSpeechEOS(t, stream)
 }
 
+func TestRPCSpeechSynthesizeSplitsOversizedProviderChunk(t *testing.T) {
+	audio := bytes.Repeat([]byte{0x5a}, rpcapi.MaxFrameSize+17)
+	service := speechServiceFuncs{
+		synthesize: func(context.Context, string, string, []string) (peergenx.SpeechSynthesis, error) {
+			return peergenx.SpeechSynthesis{
+				Stream:      &sliceSpeechStream{chunks: [][]byte{audio}},
+				ContentType: "audio/ogg",
+			}, nil
+		},
+	}
+	client, serverDone := startSpeechRPCServer(t, service, SpeechLimits{SynthesisMaxOutputBytes: int64(len(audio))})
+	defer finishSpeechRPCServer(t, client, serverDone)
+
+	stream := newSpeechClientStream(t, client)
+	defer stream.Close()
+	writeSpeechRequest(t, stream, "large-chunk", rpcapi.RPCMethodServerSpeechSynthesize,
+		rpcapi.SpeechSynthesizeRequest{VoiceAlias: "narrator", Text: "hello", AcceptedContentTypes: []string{"audio/ogg"}},
+		(*rpcapi.RPCPayload).FromSpeechSynthesizeRequest)
+	if err := stream.WriteEOS(); err != nil {
+		t.Fatalf("WriteEOS() error = %v", err)
+	}
+	response, err := stream.ReadResponseForMethod(rpcapi.RPCMethodServerSpeechSynthesize)
+	if err != nil || response.Error != nil {
+		t.Fatalf("metadata response = (%+v, %v)", response, err)
+	}
+
+	first, err := stream.ReadFrame()
+	if err != nil || first.Type != rpcapi.FrameTypeBinary || len(first.Payload) != rpcapi.MaxFrameSize {
+		t.Fatalf("first audio frame = (type=%v, bytes=%d, err=%v)", first.Type, len(first.Payload), err)
+	}
+	second, err := stream.ReadFrame()
+	if err != nil || second.Type != rpcapi.FrameTypeBinary || len(second.Payload) != 17 {
+		t.Fatalf("second audio frame = (type=%v, bytes=%d, err=%v)", second.Type, len(second.Payload), err)
+	}
+	if got := append(append([]byte(nil), first.Payload...), second.Payload...); !bytes.Equal(got, audio) {
+		t.Fatal("reassembled audio differs from provider output")
+	}
+	readSpeechEOS(t, stream)
+}
+
 func TestRPCSpeechSynthesizeTimeoutInterruptsMissingEOS(t *testing.T) {
 	service := speechServiceFuncs{
 		synthesize: func(context.Context, string, string, []string) (peergenx.SpeechSynthesis, error) {
