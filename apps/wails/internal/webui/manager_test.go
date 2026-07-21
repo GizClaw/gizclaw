@@ -48,6 +48,9 @@ func TestLaunchURLReusesPortAndRetainsPerLaunchRuntimeTokens(t *testing.T) {
 	if string(asset) != "play" {
 		t.Fatalf("Play asset = %q", asset)
 	}
+	if csp := assetResponse.Header.Get("Content-Security-Policy"); !strings.Contains(csp, "media-src 'self' blob:") {
+		t.Fatalf("Content-Security-Policy = %q, want blob media source", csp)
+	}
 	blocked, err := http.Get("http://" + firstURL.Host + "/play.html")
 	if err != nil {
 		t.Fatal(err)
