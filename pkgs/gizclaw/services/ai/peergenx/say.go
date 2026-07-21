@@ -9,10 +9,8 @@ import (
 )
 
 type SayRequest struct {
-	Text           string
-	VoiceID        string
-	ModelID        string
-	CredentialName string
+	Text       string
+	VoiceAlias string
 }
 
 type SayResponse struct {
@@ -29,9 +27,6 @@ func (s *Service) Say(ctx context.Context, request SayRequest) (SayResponse, err
 	text := strings.TrimSpace(request.Text)
 	if text == "" {
 		return SayResponse{}, fmt.Errorf("%w: text is required", ErrInvalid)
-	}
-	if strings.TrimSpace(request.CredentialName) != "" {
-		return SayResponse{}, fmt.Errorf("%w: credential override is not supported", ErrUnsupported)
 	}
 	pattern, err := request.transformerPattern()
 	if err != nil {
@@ -51,13 +46,10 @@ func (s *Service) Say(ctx context.Context, request SayRequest) (SayResponse, err
 }
 
 func (r SayRequest) transformerPattern() (string, error) {
-	if voiceID := strings.TrimSpace(r.VoiceID); voiceID != "" {
-		return "voice/" + voiceID, nil
+	if voiceAlias := strings.TrimSpace(r.VoiceAlias); voiceAlias != "" {
+		return "voice/" + voiceAlias, nil
 	}
-	if modelID := strings.TrimSpace(r.ModelID); modelID != "" {
-		return "", fmt.Errorf("%w: model_id %q is not supported for audio say", ErrUnsupported, modelID)
-	}
-	return "", fmt.Errorf("%w: voice_id is required", ErrInvalid)
+	return "", fmt.Errorf("%w: voice_alias is required", ErrInvalid)
 }
 
 func newTextStream(text string) genx.Stream {

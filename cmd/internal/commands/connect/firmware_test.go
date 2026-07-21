@@ -17,24 +17,9 @@ func TestFirmwareHelp(t *testing.T) {
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"list", "get", "download"} {
+	for _, want := range []string{"get", "download"} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("firmware help missing %q: %s", want, out.String())
-		}
-	}
-}
-
-func TestFirmwareListHelp(t *testing.T) {
-	cmd := NewCmd()
-	var out bytes.Buffer
-	cmd.SetOut(&out)
-	cmd.SetArgs([]string{"firmware", "list", "--help"})
-	if err := cmd.Execute(); err != nil {
-		t.Fatal(err)
-	}
-	for _, want := range []string{"--context", "--cursor", "--limit", "--timeout"} {
-		if !strings.Contains(out.String(), want) {
-			t.Fatalf("firmware list help missing %q: %s", want, out.String())
 		}
 	}
 }
@@ -47,7 +32,7 @@ func TestFirmwareGetHelp(t *testing.T) {
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"--firmware-id", "--context", "--timeout"} {
+	for _, want := range []string{"--context", "--timeout"} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("firmware get help missing %q: %s", want, out.String())
 		}
@@ -62,7 +47,7 @@ func TestFirmwareDownloadHelp(t *testing.T) {
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"--firmware-id", "--channel", "--path", "--output", "--context", "--timeout"} {
+	for _, want := range []string{"--channel", "--path", "--output", "--context", "--timeout"} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("firmware download help missing %q: %s", want, out.String())
 		}
@@ -80,15 +65,6 @@ func TestFirmwareChannelFlag(t *testing.T) {
 	}
 }
 
-func TestFirmwareGetRejectsEmptyFirmwareID(t *testing.T) {
-	cmd := NewCmd()
-	cmd.SetArgs([]string{"firmware", "get", "--firmware-id", "   "})
-	err := cmd.Execute()
-	if err == nil || !strings.Contains(err.Error(), "firmware-id must not be empty") {
-		t.Fatalf("firmware get empty id err = %v", err)
-	}
-}
-
 func TestFirmwareDownloadRejectsInvalidInput(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -97,17 +73,17 @@ func TestFirmwareDownloadRejectsInvalidInput(t *testing.T) {
 	}{
 		{
 			name: "bad channel",
-			args: []string{"firmware", "download", "--firmware-id", "devkit", "--channel", "rollback", "--path", "firmware.bin", "--output", "app.bin"},
+			args: []string{"firmware", "download", "--channel", "rollback", "--path", "firmware.bin", "--output", "app.bin"},
 			want: "channel must be one of stable, beta, develop, pending",
 		},
 		{
 			name: "stdout output",
-			args: []string{"firmware", "download", "--firmware-id", "devkit", "--channel", "stable", "--path", "firmware.bin", "--output", "-"},
+			args: []string{"firmware", "download", "--channel", "stable", "--path", "firmware.bin", "--output", "-"},
 			want: "output must be a file path",
 		},
 		{
 			name: "missing path",
-			args: []string{"firmware", "download", "--firmware-id", "devkit", "--channel", "stable", "--output", "app.bin"},
+			args: []string{"firmware", "download", "--channel", "stable", "--output", "app.bin"},
 			want: "path must not be empty",
 		},
 	} {
@@ -139,9 +115,8 @@ func TestFirmwareCommandsPropagateConnectError(t *testing.T) {
 		{name: "ping", args: []string{"ping"}},
 		{name: "server-info", args: []string{"server-info"}},
 		{name: "test-speed", args: []string{"test-speed"}},
-		{name: "list", args: []string{"firmware", "list"}},
-		{name: "get", args: []string{"firmware", "get", "--firmware-id", "devkit"}},
-		{name: "download", args: []string{"firmware", "download", "--firmware-id", "devkit", "--channel", "stable", "--path", "firmware.bin", "--output", "app.bin"}},
+		{name: "get", args: []string{"firmware", "get"}},
+		{name: "download", args: []string{"firmware", "download", "--channel", "stable", "--path", "firmware.bin", "--output", "app.bin"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			cmd := NewCmd()

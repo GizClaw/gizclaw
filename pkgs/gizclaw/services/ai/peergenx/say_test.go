@@ -23,7 +23,7 @@ func TestSayUsesVoiceTransformerAndConsumesOutput(t *testing.T) {
 		AudioOutput:     output,
 	})
 
-	resp, err := svc.Say(ctx, SayRequest{Text: " hello ", VoiceID: "cancan"})
+	resp, err := svc.Say(ctx, SayRequest{Text: " hello ", VoiceAlias: "cancan"})
 	if err != nil {
 		t.Fatalf("Say() error = %v", err)
 	}
@@ -52,10 +52,8 @@ func TestSayValidatesRequest(t *testing.T) {
 		req  SayRequest
 		want error
 	}{
-		{name: "text", req: SayRequest{VoiceID: "v"}, want: ErrInvalid},
+		{name: "text", req: SayRequest{VoiceAlias: "v"}, want: ErrInvalid},
 		{name: "target", req: SayRequest{Text: "hello"}, want: ErrInvalid},
-		{name: "model", req: SayRequest{Text: "hello", ModelID: "tts"}, want: ErrUnsupported},
-		{name: "credential override", req: SayRequest{Text: "hello", VoiceID: "v", CredentialName: "key"}, want: ErrUnsupported},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := svc.Say(context.Background(), tc.req)

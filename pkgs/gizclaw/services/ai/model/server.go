@@ -11,7 +11,6 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
@@ -19,7 +18,6 @@ var (
 	modelsRoot           = kv.Key{"by-id"}
 	modelsBySourceRoot   = kv.Key{"by-source"}
 	modelsByProviderRoot = kv.Key{"by-provider"}
-	modelsByOwnerRoot    = kv.Key{"by-owner"}
 )
 
 const (
@@ -62,9 +60,6 @@ func (s *Server) CreateModel(ctx context.Context, request adminhttp.CreateModelR
 	now := s.now()
 	model.CreatedAt = now
 	model.UpdatedAt = now
-	if owner, ok := ownership.FromContext(ctx); ok {
-		model.OwnerPublicKey = &owner
-	}
 	if err := writeModel(ctx, store, model, nil); err != nil {
 		return adminhttp.CreateModel500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -105,39 +100,6 @@ func (s *Server) ListModels(ctx context.Context, request adminhttp.ListModelsReq
 		Items:      items,
 		NextCursor: nextCursor,
 	}), nil
-}
-
-// ListModelsByOwner reads the immutable owner index used by Peer resource
-// aggregation. It is intentionally separate from the Admin list surface.
-func (s *Server) ListModelsByOwner(ctx context.Context, owner string) ([]apitypes.Model, error) {
-	store, err := s.store()
-	if err != nil {
-		return nil, err
-	}
-	owner = strings.TrimSpace(owner)
-	if owner == "" {
-		return []apitypes.Model{}, nil
-	}
-	prefix := modelByOwnerPrefix(owner)
-	items := make([]apitypes.Model, 0)
-	for entry, err := range store.List(ctx, prefix) {
-		if err != nil {
-			return nil, fmt.Errorf("models: list owner %s: %w", owner, err)
-		}
-		if len(entry.Key) == 0 {
-			continue
-		}
-		id := unescapeStoreSegment(entry.Key[len(entry.Key)-1])
-		item, err := getModel(ctx, store, id)
-		if errors.Is(err, kv.ErrNotFound) {
-			continue
-		}
-		if err != nil {
-			return nil, err
-		}
-		items = append(items, item)
-	}
-	return items, nil
 }
 
 func (s *Server) DeleteModel(ctx context.Context, request adminhttp.DeleteModelRequestObject) (adminhttp.DeleteModelResponseObject, error) {
@@ -211,14 +173,8 @@ func (s *Server) PutModel(ctx context.Context, request adminhttp.PutModelRequest
 		}
 		model.CreatedAt = previous.CreatedAt
 		model.SyncedAt = cloneTime(previous.SyncedAt)
-		model.OwnerPublicKey = cloneOwner(previous.OwnerPublicKey)
 		previousCopy := previous
 		previousPtr = &previousCopy
-	}
-	if err != nil {
-		if owner, ok := ownership.FromContext(ctx); ok {
-			model.OwnerPublicKey = &owner
-		}
 	}
 	if err := writeModel(ctx, store, model, previousPtr); err != nil {
 		return adminhttp.PutModel500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
@@ -398,9 +354,6 @@ func writeModel(ctx context.Context, store kv.Store, model apitypes.Model, previ
 		{Key: modelBySourceKey(string(model.Source), string(model.Id)), Value: []byte{}},
 		{Key: modelByProviderKey(string(model.Provider.Kind), string(model.Provider.Name), string(model.Id)), Value: []byte{}},
 	}
-	if model.OwnerPublicKey != nil {
-		entries = append(entries, kv.Entry{Key: modelByOwnerKey(*model.OwnerPublicKey, string(model.Id)), Value: []byte{}})
-	}
 	if err := store.BatchSet(ctx, entries); err != nil {
 		return fmt.Errorf("models: write model %s: %w", model.Id, err)
 	}
@@ -415,9 +368,6 @@ func staleModelIndexKeys(previous, next apitypes.Model) []kv.Key {
 	if previous.Provider.Kind != next.Provider.Kind || previous.Provider.Name != next.Provider.Name {
 		keys = append(keys, modelByProviderKey(string(previous.Provider.Kind), string(previous.Provider.Name), string(previous.Id)))
 	}
-	if !sameOwner(previous.OwnerPublicKey, next.OwnerPublicKey) && previous.OwnerPublicKey != nil {
-		keys = append(keys, modelByOwnerKey(*previous.OwnerPublicKey, string(previous.Id)))
-	}
 	return keys
 }
 
@@ -426,9 +376,6 @@ func deleteModel(ctx context.Context, store kv.Store, model apitypes.Model) erro
 		modelKey(string(model.Id)),
 		modelBySourceKey(string(model.Source), string(model.Id)),
 		modelByProviderKey(string(model.Provider.Kind), string(model.Provider.Name), string(model.Id)),
-	}
-	if model.OwnerPublicKey != nil {
-		keys = append(keys, modelByOwnerKey(*model.OwnerPublicKey, string(model.Id)))
 	}
 	if err := store.BatchDelete(ctx, keys); err != nil {
 		return fmt.Errorf("models: delete model %s: %w", model.Id, err)
@@ -481,26 +428,6 @@ func modelByProviderPrefix(kind, name string) kv.Key {
 
 func modelByProviderKey(kind, name, id string) kv.Key {
 	return append(modelByProviderPrefix(kind, name), escapeStoreSegment(id))
-}
-
-func modelByOwnerKey(owner, id string) kv.Key {
-	return append(modelByOwnerPrefix(owner), escapeStoreSegment(id))
-}
-
-func modelByOwnerPrefix(owner string) kv.Key {
-	return append(append(kv.Key{}, modelsByOwnerRoot...), escapeStoreSegment(owner))
-}
-
-func sameOwner(left, right *string) bool {
-	return (left == nil && right == nil) || (left != nil && right != nil && *left == *right)
-}
-
-func cloneOwner(owner *string) *string {
-	if owner == nil {
-		return nil
-	}
-	value := *owner
-	return &value
 }
 
 func normalizeListParams(cursor *string, limit *int32) (string, int) {

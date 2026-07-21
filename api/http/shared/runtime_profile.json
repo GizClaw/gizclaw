@@ -10,10 +10,14 @@
     "schemas": {
       "RuntimeProfile": {
         "type": "object",
-        "required": ["name", "spec", "created_at", "updated_at"],
+        "required": ["name", "revision", "spec", "created_at", "updated_at"],
         "additionalProperties": false,
         "properties": {
           "name": { "type": "string" },
+          "revision": {
+            "type": "string",
+            "description": "Deterministic opaque revision of the normalized RuntimeProfile spec."
+          },
           "spec": {
             "$ref": "./runtime_profile_spec.json#/components/schemas/RuntimeProfileSpec"
           },

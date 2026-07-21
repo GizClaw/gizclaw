@@ -41,7 +41,6 @@ func TestFactoryMergesWorkflowAndWorkspaceParams(t *testing.T) {
 				Driver: apitypes.WorkflowDriverAstTranslate,
 				AstTranslate: &apitypes.ASTTranslateWorkflowSpec{
 					TranslationModel: "ast-model",
-					SpeakerId:        stringPtr("workflow-speaker"),
 				},
 			},
 		},
@@ -93,7 +92,6 @@ func TestResolveConfigExternalVoiceForcesS2TAndSourceLanguage(t *testing.T) {
 				AstTranslate: &apitypes.ASTTranslateWorkflowSpec{
 					TranslationModel: "ast-model",
 					Mode:             astModePtr(apitypes.ASTTranslateModeS2s),
-					SpeakerId:        stringPtr("speaker-a"),
 				},
 			},
 		},
@@ -605,12 +603,9 @@ func TestMergeWorkspaceParamsInternalSpeaker(t *testing.T) {
 		t.Fatalf("FromASTTranslateInternalSpeakerParameters() error = %v", err)
 	}
 	params := mergeWorkspaceParams(nil, apitypes.ASTTranslateWorkspaceParameters{
-		LangPair:      stringPtr(" en / jp "),
-		Voice:         &voice,
-		Denoise:       &customSpeaker,
-		SpeechRate:    &speechRate,
-		SpeakerId:     stringPtr("speaker-b"),
-		TtsResourceId: stringPtr("tts-resource-b"),
+		LangPair: stringPtr(" en / jp "),
+		Voice:    &voice,
+		Denoise:  &customSpeaker,
 	})
 	if err := normalizeLanguagePair(params, true); err != nil {
 		t.Fatalf("normalizeLanguagePair() error = %v", err)
@@ -618,9 +613,9 @@ func TestMergeWorkspaceParamsInternalSpeaker(t *testing.T) {
 	for _, want := range []string{
 		"source_language=en",
 		"target_language=ja",
-		"speaker_id=speaker-b",
+		"speaker_id=speaker-a",
 		"is_custom_speaker=true",
-		"tts_resource_id=tts-resource-b",
+		"tts_resource_id=tts-resource",
 		"speech_rate=15",
 		"denoise=true",
 	} {

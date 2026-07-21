@@ -25,3 +25,5 @@ Server methods 覆盖 Peer info、runtime status、run Agent、run workspace、h
 | `handleServerRunSay` | 向当前 run 提交 say input。 |
 | `runWorkspaceState` | 聚合 Agent selection 与 run status 为 workspace state。 |
 | `isPlannedServerMethod` / `rpcNotImplemented` | 识别已规划但尚未实现的 method，并生成统一响应。 |
+
+`server.run.say` 只接收 `text` 与 RuntimeProfile `voice_alias`，不接受真实 Voice、Model 或 Credential 标识符。

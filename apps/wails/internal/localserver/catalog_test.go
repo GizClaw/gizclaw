@@ -21,11 +21,14 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(catalog.Resources) != 43 {
-		t.Fatalf("resources = %d, want 43", len(catalog.Resources))
+	if len(catalog.Resources) != 44 {
+		t.Fatalf("resources = %d, want 44", len(catalog.Resources))
 	}
-	if len(catalog.PetDefPIXAs) != 9 || len(catalog.VoiceSyncs) != 1 {
+	if len(catalog.PetDefPIXAs) != 9 || len(catalog.VoiceSyncs) != 2 {
 		t.Fatalf("assets = pets:%d voice-sync:%d", len(catalog.PetDefPIXAs), len(catalog.VoiceSyncs))
+	}
+	if got := catalog.VoiceSyncs; got[0] != (localserver.VoiceSync{Provider: "minimax", Tenant: "minimax-cn"}) || got[1] != (localserver.VoiceSync{Provider: "volc", Tenant: "volc-main"}) {
+		t.Fatalf("voice syncs = %#v", got)
 	}
 	if len(catalog.Requirements) != 11 {
 		t.Fatalf("environment requirements = %d, want 11", len(catalog.Requirements))
@@ -47,7 +50,7 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 	for kind, want := range map[string]int{
 		"Credential": 7, "VolcTenant": 2, "MiniMaxTenant": 1,
 		"OpenAITenant": 2, "DashScopeTenant": 1, "Model": 10,
-		"Workflow": 10, "PetDef": 9, "RuntimeProfile": 1,
+		"Workflow": 10, "Voice": 1, "PetDef": 9, "RuntimeProfile": 1,
 	} {
 		if kinds[kind] != want {
 			t.Fatalf("%s resources = %d, want %d", kind, kinds[kind], want)
@@ -67,31 +70,125 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 	}
 	var parsed struct {
 		Spec struct {
+			Workflows struct {
+				Collections map[string]map[string]struct {
+					ResourceID string `yaml:"resource_id"`
+				} `yaml:"collections"`
+			} `yaml:"workflows"`
 			Resources struct {
-				Workflows map[string]string `yaml:"workflows"`
+				Models map[string]struct {
+					ResourceID string `yaml:"resource_id"`
+				} `yaml:"models"`
+				Voices map[string]struct {
+					ResourceID string `yaml:"resource_id"`
+				} `yaml:"voices"`
 			} `yaml:"resources"`
+			Gameplay struct {
+				Adoption struct {
+					Pool []struct {
+						PetDef string `yaml:"pet_def"`
+						Voice  string `yaml:"voice"`
+					} `yaml:"pool"`
+				} `yaml:"adoption"`
+			} `yaml:"gameplay"`
 		} `yaml:"spec"`
 	}
 	if err := yaml.Unmarshal(profile, &parsed); err != nil {
 		t.Fatal(err)
 	}
 	wantWorkflows := map[string]string{
-		"translate-zh-en-auto":     "ast-translate-zh-en-auto",
-		"translate-zh-ja":          "ast-translate-zh-ja",
-		"translate-zh-ko":          "ast-translate-zh-ko",
-		"translate-zh-es":          "ast-translate-zh-es",
-		"ast-translate-zh-en-auto": "ast-translate-zh-en-auto",
-		"ast-translate-zh-ja":      "ast-translate-zh-ja",
-		"ast-translate-zh-ko":      "ast-translate-zh-ko",
-		"ast-translate-zh-es":      "ast-translate-zh-es",
-		"doubao-realtime":          "doubao-realtime-conversation",
-		"chat":                     "flowcraft-chat-assistant",
-		"journey":                  "flowcraft-journey-guide",
-		"murder-mystery":           "flowcraft-murder-mystery",
-		"chatroom":                 "chatroom",
+		"translate-zh-en-auto": "ast-translate-zh-en-auto",
+		"translate-zh-ja":      "ast-translate-zh-ja",
+		"translate-zh-ko":      "ast-translate-zh-ko",
+		"translate-zh-es":      "ast-translate-zh-es",
+		"doubao-realtime":      "doubao-realtime-conversation",
+		"general-assistant":    "flowcraft-chat-assistant",
+		"journey":              "flowcraft-journey-guide",
+		"murder-mystery":       "flowcraft-murder-mystery",
 	}
-	if !maps.Equal(parsed.Spec.Resources.Workflows, wantWorkflows) {
-		t.Fatalf("RuntimeProfile/default Workflows = %#v, want %#v", parsed.Spec.Resources.Workflows, wantWorkflows)
+	gotWorkflows := map[string]string{}
+	for _, workflows := range parsed.Spec.Workflows.Collections {
+		for alias, binding := range workflows {
+			gotWorkflows[alias] = binding.ResourceID
+		}
+	}
+	if !maps.Equal(gotWorkflows, wantWorkflows) {
+		t.Fatalf("RuntimeProfile/default Workflows = %#v, want %#v", gotWorkflows, wantWorkflows)
+	}
+	wantModels := map[string]string{
+		"asr":         "volc-bigasr-sauc",
+		"realtime":    "doubao-realtime-dialog",
+		"translation": "volc-ast-translate",
+		"chat":        "doubao-seed-2-0-lite",
+		"extraction":  "deepseek-v4-flash",
+		"embedding":   "qwen3.7-text-embedding",
+	}
+	gotModels := make(map[string]string, len(parsed.Spec.Resources.Models))
+	for alias, binding := range parsed.Spec.Resources.Models {
+		gotModels[alias] = binding.ResourceID
+	}
+	if !maps.Equal(gotModels, wantModels) {
+		t.Fatalf("RuntimeProfile/default Models = %#v, want semantic role aliases %#v", gotModels, wantModels)
+	}
+	wantVoices := map[string]string{
+		"doubao-assistant":  "volc-tenant:volc-main:zh_female_vv_jupiter_bigtts",
+		"assistant-voice":   "volc-tenant:volc-main:zh_female_qingxinnvsheng_mars_bigtts",
+		"cute-pet":          "volc-tenant:volc-main:zh_male_naiqimengwa_mars_bigtts",
+		"translator":        "volc-tenant:volc-main:zh_female_sophie_conversation_wvae_bigtts",
+		"narrator":          "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+		"game-master":       "volc-tenant:volc-main:zh_male_changtianyi_mars_bigtts",
+		"detective":         "volc-tenant:volc-main:ICL_zh_male_lengjungaozhi_tob",
+		"police-officer":    "volc-tenant:volc-main:ICL_zh_male_zhengzhiqingnian_tob",
+		"sun-wukong":        "volc-tenant:volc-main:zh_male_sunwukong_mars_bigtts",
+		"tang-sanzang":      "volc-tenant:volc-main:zh_male_tangseng_mars_bigtts",
+		"zhu-bajie":         "volc-tenant:volc-main:zh_male_zhubajie_mars_bigtts",
+	}
+	gotVoices := make(map[string]string, len(parsed.Spec.Resources.Voices))
+	for alias, binding := range parsed.Spec.Resources.Voices {
+		gotVoices[alias] = binding.ResourceID
+	}
+	if !maps.Equal(gotVoices, wantVoices) {
+		t.Fatalf("RuntimeProfile/default Voices = %#v, want %#v", gotVoices, wantVoices)
+	}
+	resourceIDs := map[string]struct{}{}
+	for _, resourceID := range gotVoices {
+		resourceIDs[resourceID] = struct{}{}
+	}
+	if len(resourceIDs) != len(gotVoices) {
+		t.Fatalf("RuntimeProfile/default Voices reuse resource IDs: %#v", gotVoices)
+	}
+	if got := parsed.Spec.Gameplay.Adoption.Pool; len(got) != 9 {
+		t.Fatalf("RuntimeProfile/default adoption pool entries = %d, want 9", len(got))
+	} else {
+		for _, entry := range got {
+			if strings.TrimSpace(entry.PetDef) == "" || entry.Voice != "cute-pet" {
+				t.Fatalf("RuntimeProfile/default adoption entry = %#v, want PetDef plus cute-pet voice alias", entry)
+			}
+		}
+	}
+	for _, resource := range catalog.Resources {
+		if resource.Kind != "PetDef" {
+			continue
+		}
+		data, err := fs.ReadFile(catalog.FS, resource.Path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var petDef struct {
+			Spec struct {
+				Voice map[string]any `yaml:"voice"`
+			} `yaml:"spec"`
+		}
+		if err := yaml.Unmarshal(data, &petDef); err != nil {
+			t.Fatal(err)
+		}
+		if _, exists := petDef.Spec.Voice["voice_id"]; exists {
+			t.Fatalf("%s stores voice_id in PetDef instead of RuntimeProfile adoption policy", resource.Name)
+		}
+		prompt, _ := petDef.Spec.Voice["prompt"].(string)
+		if strings.TrimSpace(prompt) == "" {
+			t.Fatalf("%s voice prompt is empty", resource.Name)
+		}
 	}
 	for _, requirement := range catalog.Requirements {
 		if requirement.Name == "input" {

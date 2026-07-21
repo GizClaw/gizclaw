@@ -320,6 +320,9 @@ func TestLocalPodCreationAssignsDistinctStablePorts(t *testing.T) {
 	if first.Local == nil || second.Local == nil || first.Local.Port == second.Local.Port || first.Local.Port == 0 || second.Local.Port == 0 {
 		t.Fatalf("assigned ports = %+v / %+v", first.Local, second.Local)
 	}
+	if first.Local.Port == 9820 || second.Local.Port == 9820 {
+		t.Fatalf("default local ports must be dynamically assigned, got %d / %d", first.Local.Port, second.Local.Port)
+	}
 	if len(first.Local.LANAddresses) != 0 && first.Local.LANAddresses[0] != appconfig.PreferredLANEndpoint(first.Local.Port) {
 		t.Fatalf("shared LAN address = %q, workspace endpoint = %q", first.Local.LANAddresses[0], appconfig.PreferredLANEndpoint(first.Local.Port))
 	}
@@ -914,6 +917,17 @@ func TestRecoveringRunningLegacyLocalPodMigratesRuntimeContract(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	configPath := filepath.Join(workspace, "config.yaml")
+	legacyConfig, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacyConfig = bytes.ReplaceAll(legacyConfig, []byte("generate_model: chat"), []byte("generate_model: minimax-default"))
+	legacyConfig = bytes.ReplaceAll(legacyConfig, []byte("extract_model: extraction"), []byte("extract_model: minimax-extract"))
+	legacyConfig = bytes.ReplaceAll(legacyConfig, []byte("asr_model: asr"), []byte("asr_model: volc-bigasr-sauc"))
+	if err := os.WriteFile(configPath, legacyConfig, 0o600); err != nil {
+		t.Fatal(err)
+	}
 	bootstrapper := &fakeLocalPodBootstrapper{}
 	b := &PodBridge{
 		Paths:          paths,
@@ -933,6 +947,20 @@ func TestRecoveringRunningLegacyLocalPodMigratesRuntimeContract(t *testing.T) {
 	}
 	if currentPID := local.Status(pod.ID).PID; currentPID == 0 || currentPID == initial.PID {
 		t.Fatalf("recovered legacy local Pod PID = %d, legacy PID = %d", currentPID, initial.PID)
+	}
+	upgradedConfig, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"generate_model: chat", "extract_model: extraction", "asr_model: asr"} {
+		if !bytes.Contains(upgradedConfig, []byte(want)) {
+			t.Fatalf("upgraded workspace config omits %q:\n%s", want, upgradedConfig)
+		}
+	}
+	for _, legacy := range []string{"minimax-default", "minimax-extract", "volc-bigasr-sauc"} {
+		if bytes.Contains(upgradedConfig, []byte(legacy)) {
+			t.Fatalf("upgraded workspace config retains %q:\n%s", legacy, upgradedConfig)
+		}
 	}
 	loaded, err := store.Load(pod.ID)
 	if err != nil {

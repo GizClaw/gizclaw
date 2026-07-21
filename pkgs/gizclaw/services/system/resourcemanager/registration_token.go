@@ -20,7 +20,7 @@ func (m *Manager) applyRegistrationToken(ctx context.Context, resource apitypes.
 		return apitypes.ApplyResult{}, err
 	}
 	if exists {
-		if previous.RuntimeProfileName != item.Spec.RuntimeProfileName {
+		if !registrationTokenMappingMatches(previous, item.Spec.RuntimeProfileName, item.Spec.FirmwareId) {
 			return apitypes.ApplyResult{}, applyError(409, "REGISTRATION_TOKEN_IMMUTABLE", "RegistrationToken mappings are immutable")
 		}
 		return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindRegistrationToken, item.Metadata.Name), nil
@@ -60,19 +60,28 @@ func (m *Manager) putRegistrationToken(ctx context.Context, item apitypes.Regist
 		return apitypes.Resource{}, err
 	}
 	if exists {
-		if previous.RuntimeProfileName != item.Spec.RuntimeProfileName {
+		if !registrationTokenMappingMatches(previous, item.Spec.RuntimeProfileName, item.Spec.FirmwareId) {
 			return apitypes.Resource{}, applyError(409, "REGISTRATION_TOKEN_IMMUTABLE", "RegistrationToken mappings are immutable")
 		}
 		return resourceFromRegistrationToken(previous, nil)
 	}
-	body := adminhttp.RegistrationTokenUpsert{Name: item.Metadata.Name, RuntimeProfileName: item.Spec.RuntimeProfileName}
+	body := adminhttp.RegistrationTokenUpsert{
+		Name:               item.Metadata.Name,
+		RuntimeProfileName: item.Spec.RuntimeProfileName,
+		FirmwareId:         item.Spec.FirmwareId,
+	}
 	response, err := m.services.RuntimeProfiles.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{Body: &body})
 	if err != nil {
 		return apitypes.Resource{}, err
 	}
 	switch response := response.(type) {
 	case adminhttp.CreateRegistrationToken200JSONResponse:
-		stored := apitypes.RegistrationToken{Name: response.Name, RuntimeProfileName: response.RuntimeProfileName, CreatedAt: response.CreatedAt}
+		stored := apitypes.RegistrationToken{
+			Name:               response.Name,
+			RuntimeProfileName: response.RuntimeProfileName,
+			FirmwareId:         response.FirmwareId,
+			CreatedAt:          response.CreatedAt,
+		}
 		token := response.Token
 		return resourceFromRegistrationToken(stored, &token)
 	case adminhttp.CreateRegistrationToken400JSONResponse:
@@ -114,5 +123,16 @@ func resourceFromRegistrationToken(item apitypes.RegistrationToken, token *strin
 		Token:      token,
 	}
 	resource.Spec.RuntimeProfileName = item.RuntimeProfileName
+	resource.Spec.FirmwareId = item.FirmwareId
 	return marshalResource(resource)
+}
+
+func registrationTokenMappingMatches(item apitypes.RegistrationToken, runtimeProfileName string, firmwareID *string) bool {
+	if item.RuntimeProfileName != runtimeProfileName {
+		return false
+	}
+	if item.FirmwareId == nil || firmwareID == nil {
+		return item.FirmwareId == nil && firmwareID == nil
+	}
+	return *item.FirmwareId == *firmwareID
 }

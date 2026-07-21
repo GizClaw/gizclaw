@@ -7,7 +7,6 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/openaihttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/observability"
@@ -95,10 +94,11 @@ func (s *PeerService) peerResourcesWithRegistration(publicKey giznet.PublicKey, 
 	}
 	return &peerresource.Server{
 		Caller:       publicKey,
+		Peers:        manager.Peers,
+		Firmwares:    manager.Firmwares,
 		Workspaces:   manager.Workspaces,
 		Workflows:    manager.Workflows,
 		Models:       manager.Models,
-		Credentials:  manager.Credentials,
 		Voices:       manager.Voices,
 		Contacts:     manager.Contacts,
 		Friends:      manager.Friends,
@@ -110,7 +110,13 @@ func (s *PeerService) peerResourcesWithRegistration(publicKey giznet.PublicKey, 
 			if !ok {
 				return nil
 			}
-			profile := registration.RuntimeProfile
+			if manager.RuntimeProfiles == nil {
+				return nil
+			}
+			profile, err := manager.RuntimeProfiles.ResolveProfile(context.Background(), registration.RuntimeProfile.Name)
+			if err != nil {
+				return nil
+			}
 			return &profile
 		},
 	}
@@ -129,18 +135,7 @@ func newOpenAIHTTPHandler(svc *openaiapi.Server) http.Handler {
 		BaseURL: "/v1",
 	})
 	app.Get("/v1/voices", func(c *fiber.Ctx) error {
-		params := adminhttp.ListVoicesParams{}
-		if source := c.Query("source"); source != "" {
-			value := adminhttp.VoiceSource(source)
-			params.Source = &value
-		}
-		if providerKind := c.Query("providerKind", c.Query("provider_kind")); providerKind != "" {
-			value := adminhttp.VoiceProviderKind(providerKind)
-			params.ProviderKind = &value
-		}
-		if providerName := c.Query("providerName", c.Query("provider_name")); providerName != "" {
-			params.ProviderName = &providerName
-		}
+		params := openaiapi.VoiceListParams{}
 		if cursor := c.Query("cursor"); cursor != "" {
 			params.Cursor = &cursor
 		}

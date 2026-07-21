@@ -40,6 +40,7 @@ class MobileWorkspaceDestination {
   const MobileWorkspaceDestination({
     required this.surface,
     required this.workspaceName,
+    this.collection,
     this.resourceId,
   }) : assert(
          surface != MobileWorkspaceSurface.pet || resourceId != null,
@@ -47,6 +48,7 @@ class MobileWorkspaceDestination {
        );
 
   final String? resourceId;
+  final String? collection;
   final MobileWorkspaceSurface surface;
   final String workspaceName;
 
@@ -57,7 +59,7 @@ class MobileWorkspaceDestination {
       '/groups/${Uri.encodeComponent(workspaceName)}',
     MobileWorkspaceSurface.pet => '/pets/${Uri.encodeComponent(resourceId!)}',
     MobileWorkspaceSurface.raid =>
-      '/workspaces/${Uri.encodeComponent(workspaceName)}',
+      '/collections/${collection == null || collection!.isEmpty ? 'assistants' : collection}/${Uri.encodeComponent(workspaceName)}',
   };
 }
 
@@ -94,12 +96,13 @@ class MobileDataController extends ChangeNotifier {
     repository = dataRepository ?? MobileDataRepository(this.database);
     _observedMicrophoneStatus = connection.microphoneStatus;
     connection.addListener(_handleConnectionChanged);
-    workflows = appWorkflowCards(_effectiveLocale);
+    workflows = const [];
   }
 
   factory MobileDataController.demo({AppDatabase? database}) {
     final controller = _DemoMobileDataController(database: database);
-    controller.workflows = appWorkflowCards(controller._effectiveLocale);
+    controller._workflowResources = demoWorkflows;
+    controller._rebuildWorkflowCards();
     controller.workspaces = workflowWorkspaces;
     controller.chatroomWorkspaces = chatroomWorkspaceMetadata;
     return controller;
@@ -120,6 +123,9 @@ class MobileDataController extends ChangeNotifier {
   StreamSubscription<List<ChatroomWorkspaceMetadata>>?
   _friendGroupChatSubscription;
   List<WorkflowCard> workflows = const [];
+  List<Workflow> _workflowResources = const [];
+  String runtimeProfileName = '';
+  String runtimeProfileRevision = '';
   List<WorkspaceCard> workspaces = const [];
   List<ChatroomWorkspaceMetadata> chatroomWorkspaces = const [];
   List<ChatroomWorkspaceMetadata> _friendChats = const [];
@@ -311,7 +317,7 @@ class MobileDataController extends ChangeNotifier {
         : appEnglishLocale;
     if (_effectiveLocale == normalized) return;
     _effectiveLocale = normalized;
-    workflows = appWorkflowCards(_effectiveLocale);
+    _rebuildWorkflowCards();
     notifyListeners();
   }
 
@@ -496,7 +502,10 @@ class MobileDataController extends ChangeNotifier {
     activeServerId = null;
     peerName = '';
     peerEmoji = '';
-    workflows = appWorkflowCards(_effectiveLocale);
+    workflows = const [];
+    _workflowResources = const [];
+    runtimeProfileName = '';
+    runtimeProfileRevision = '';
     workspaces = const [];
     chatroomWorkspaces = const [];
     _friendChats = const [];
@@ -583,6 +592,17 @@ class MobileDataController extends ChangeNotifier {
         final serverId = _pendingRefreshServerId!;
         lastError = null;
         try {
+          Object? workflowCatalogError;
+          try {
+            await _refreshWorkflowCatalog(
+              client,
+              isCurrent: () =>
+                  connection.profile.endpoint == endpoint &&
+                  identical(connection.client, client),
+            );
+          } catch (error) {
+            workflowCatalogError = error;
+          }
           final warnings = await repository.refresh(
             client: client,
             endpoint: endpoint,
@@ -598,9 +618,15 @@ class MobileDataController extends ChangeNotifier {
           await _syncRunWorkspace(client);
           await _refreshPeerProfile(client);
           connectionState = MobileConnectionState.connected;
-          if (warnings.isNotEmpty) {
-            lastError = warnings.first;
+          if (workflowCatalogError != null || warnings.isNotEmpty) {
+            lastError = workflowCatalogError ?? warnings.first;
             assert(() {
+              if (workflowCatalogError != null) {
+                debugPrint(
+                  'GizClaw workflow catalog refresh failed: '
+                  '$workflowCatalogError',
+                );
+              }
               for (final warning in warnings) {
                 debugPrint('GizClaw partial refresh: $warning');
               }
@@ -644,6 +670,72 @@ class MobileDataController extends ChangeNotifier {
       retryOnTransportError: retryOnTransportError,
     );
   }
+
+  Future<void> _refreshWorkflowCatalog(
+    GizClawClient client, {
+    required bool Function() isCurrent,
+  }) async {
+    final loaded = <Workflow>[];
+    final aliases = <String>{};
+    String? profileName;
+    String? profileRevision;
+    for (final collection in appWorkflowCollections) {
+      final collectionItems = <Workflow>[];
+      String? cursor;
+      do {
+        final WorkflowListResponse response;
+        try {
+          response = await client.listWorkflows(
+            collection: collection.id,
+            cursor: cursor,
+            limit: 200,
+          );
+        } on RpcError catch (error) {
+          if (error.code == 404 && cursor == null) break;
+          rethrow;
+        }
+        profileName ??= response.runtimeProfileName;
+        profileRevision ??= response.runtimeProfileRevision;
+        if (response.runtimeProfileName != profileName ||
+            response.runtimeProfileRevision != profileRevision) {
+          throw StateError('Runtime profile changed while loading workflows');
+        }
+        for (final workflow in response.items) {
+          if (workflow.collection != collection.id) {
+            throw StateError(
+              'Workflow ${workflow.alias} belongs to ${workflow.collection}',
+            );
+          }
+          if (!aliases.add(workflow.alias)) {
+            throw StateError('Duplicate workflow alias ${workflow.alias}');
+          }
+          collectionItems.add(workflow.deepCopy());
+        }
+        cursor = response.hasNext && response.hasNextCursor()
+            ? response.nextCursor
+            : null;
+      } while (cursor != null && cursor.isNotEmpty);
+      loaded.addAll(collectionItems);
+    }
+    if (!isCurrent()) return;
+    _workflowResources = List.unmodifiable(loaded);
+    runtimeProfileName = profileName ?? '';
+    runtimeProfileRevision = profileRevision ?? '';
+    _rebuildWorkflowCards();
+  }
+
+  void _rebuildWorkflowCards() {
+    workflows = List.unmodifiable(
+      _workflowResources.map(
+        (workflow) => appWorkflowCard(workflow, _effectiveLocale),
+      ),
+    );
+  }
+
+  List<WorkflowCard> workflowsForCollection(String collection) =>
+      List.unmodifiable(
+        workflows.where((workflow) => workflow.collection == collection),
+      );
 
   Future<void> updatePeerProfile({
     required String name,
@@ -827,55 +919,33 @@ class MobileDataController extends ChangeNotifier {
   }
 
   Future<Workspace> createWorkspace({
-    required String workflowName,
-    required String name,
-    String? generateModel,
-    String? extractModel,
-    String? embeddingModel,
+    required String collection,
+    required String workflowAlias,
   }) async {
-    final normalizedWorkflow = workflowName.trim();
-    final normalizedName = name.trim();
-    if (normalizedWorkflow.isEmpty) {
-      throw ArgumentError.value(workflowName, 'workflowName', 'is required');
+    final normalizedCollection = collection.trim();
+    final normalizedAlias = workflowAlias.trim();
+    final selected = workflows.firstWhere(
+      (workflow) =>
+          workflow.collection == normalizedCollection &&
+          workflow.name == normalizedAlias,
+      orElse: () => throw StateError(
+        'Workflow $normalizedAlias is not available in $normalizedCollection',
+      ),
+    );
+    if (selected.driver == WorkflowDriverKind.unsupported ||
+        selected.driver == WorkflowDriverKind.chatroom) {
+      throw StateError('Workflow $normalizedAlias is not supported');
     }
-    if (normalizedName.isEmpty) {
-      throw ArgumentError.value(name, 'name', 'is required');
-    }
-    if (normalizedName.length > 80) {
-      throw ArgumentError.value(name, 'name', 'must be at most 80 characters');
-    }
-    final definition = appWorkflowDefinition(normalizedWorkflow);
-    if (definition == null ||
-        !definition.selectable ||
-        isLegacyAppWorkflowAlias(normalizedWorkflow)) {
-      throw StateError('Workflow $normalizedWorkflow is not supported');
-    }
-    final normalizedGenerateModel = generateModel?.trim() ?? '';
-    final normalizedExtractModel = extractModel?.trim() ?? '';
-    final normalizedEmbeddingModel = embeddingModel?.trim() ?? '';
-    if (definition.driver == WorkflowDriverKind.flowcraft) {
-      final requirements = definition.flowcraftRequirements!;
-      if (requirements.generateModel && normalizedGenerateModel.isEmpty) {
-        throw StateError('Choose a generation model');
-      }
-      if (requirements.extractModel && normalizedExtractModel.isEmpty) {
-        throw StateError('Choose an extraction model');
-      }
-      if (requirements.embeddingModel && normalizedEmbeddingModel.isEmpty) {
-        throw StateError('Choose an embedding model');
-      }
-    }
-    final workspaceName = _newWorkspaceName(normalizedName);
+    final workspaceName = _newWorkspaceName(normalizedAlias);
     final response = await runRpc(
       (client) => client.createWorkspace(
-        WorkspaceUpsert(
+        WorkspaceCreateBody(
           name: workspaceName,
-          workflowName: normalizedWorkflow,
-          workflowSource: ResourceSource.RESOURCE_SOURCE_RUNTIME,
-          parameters: definition.workspaceParameters(
-            generateModel: normalizedGenerateModel,
-            extractModel: normalizedExtractModel,
-            embeddingModel: normalizedEmbeddingModel,
+          collection: normalizedCollection,
+          workflowAlias: normalizedAlias,
+          parameters: newWorkspaceParametersForDriver(
+            selected.driver,
+            langPair: selected.workspaceLangPair,
           ),
         ),
       ),
@@ -884,56 +954,17 @@ class MobileDataController extends ChangeNotifier {
     return response.value;
   }
 
-  Future<List<Model>> listGeneratorModels() async {
-    final models = <Model>[];
-    String? cursor;
-    do {
-      final response = await runRpc(
-        (client) => client.listModels(cursor: cursor, limit: 200),
-      );
-      models.addAll(
-        response.items.where((model) => model.kind == ModelKind.MODEL_KIND_LLM),
-      );
-      cursor = response.hasNext && response.hasNextCursor()
-          ? response.nextCursor
-          : null;
-    } while (cursor != null && cursor.isNotEmpty);
-    models.sort((left, right) => left.id.compareTo(right.id));
-    return List.unmodifiable(models);
-  }
-
-  Future<FlowcraftModelRequirements> flowcraftModelRequirements(
-    String workflowName,
-  ) async {
-    final definition = appWorkflowDefinition(workflowName.trim());
-    final requirements = definition?.flowcraftRequirements;
-    if (definition?.driver != WorkflowDriverKind.flowcraft ||
-        requirements == null) {
-      throw StateError(
-        'Workflow $workflowName is not a fixed FlowCraft workflow',
-      );
-    }
-    return requirements;
-  }
-
   bool _isCurrentStart(int generation, String endpoint) {
     return !_closing &&
         generation == _startGeneration &&
         endpoint == connection.profile.endpoint;
   }
 
-  WorkflowCard workflow(
-    String name, {
-    ResourceSource source = ResourceSource.RESOURCE_SOURCE_RUNTIME,
-  }) {
+  WorkflowCard workflow(String name, {String collection = ''}) {
     for (final item in workflows) {
-      if (item.name == name && item.source == source) return item;
+      if (item.name == name) return item;
     }
-    if (source == ResourceSource.RESOURCE_SOURCE_RUNTIME) {
-      final compatibility = appWorkflowCard(name, _effectiveLocale);
-      if (compatibility != null) return compatibility;
-    }
-    return WorkflowCard.unknown(name, source: source);
+    return WorkflowCard.unknown(name, collection: collection);
   }
 
   WorkspaceCard workspace(String name) {
@@ -941,7 +972,8 @@ class MobileDataController extends ChangeNotifier {
       (item) => item.name == name,
       orElse: () => WorkspaceCard(
         name: name,
-        workflowName: '',
+        workflowAlias: '',
+        collection: '',
         lastActive: 'Unavailable',
       ),
     );
@@ -987,6 +1019,7 @@ class MobileDataController extends ChangeNotifier {
     return MobileWorkspaceDestination(
       surface: MobileWorkspaceSurface.raid,
       workspaceName: workspaceName,
+      collection: workspace(workspaceName).collection,
     );
   }
 
@@ -1181,7 +1214,7 @@ class MobileDataController extends ChangeNotifier {
     if (updated == null) return false;
     await client.putWorkspace(
       resolvedWorkspaceName,
-      workspaceUpsertFromWorkspace(updated),
+      workspacePutBodyFromWorkspace(updated),
     );
     await _loadActiveWorkspaceDocument(
       client,
@@ -1191,11 +1224,16 @@ class MobileDataController extends ChangeNotifier {
   }
 
   Future<WorkflowDriverKind> _driverForWorkspace(Workspace workspace) async {
-    final source = workspace.hasWorkflowSource()
-        ? workspace.workflowSource
-        : ResourceSource.RESOURCE_SOURCE_OWNED;
-    final cached = workflow(workspace.workflowName, source: source).driver;
-    return cached;
+    final cached = workflow(workspace.workflowAlias).driver;
+    if (cached != WorkflowDriverKind.unsupported) return cached;
+    final client = connection.client;
+    if (client == null || workspace.workflowAlias.isEmpty) return cached;
+    try {
+      final response = await client.getWorkflow(workspace.workflowAlias);
+      return appWorkflowCard(response.value, _effectiveLocale).driver;
+    } catch (_) {
+      return cached;
+    }
   }
 
   Future<WorkspaceChatController> _installActiveWorkspaceChat(
@@ -1254,7 +1292,7 @@ class MobileDataController extends ChangeNotifier {
     _setWorkspaceInputMode(updated, mode);
     await client.putWorkspace(
       workspaceName,
-      workspaceUpsertFromWorkspace(updated),
+      workspacePutBodyFromWorkspace(updated),
     );
     await _loadActiveWorkspaceDocument(client);
     if (_workspaceInputMode(activeWorkspaceDocument) != mode) {
@@ -1375,8 +1413,9 @@ String _newWorkspaceName(String workflowName) {
 @visibleForTesting
 WorkspaceParameters newWorkspaceParametersForDriver(
   WorkflowDriverKind driver, {
-  String? generateModel,
-  String? extractModel,
+  String? langPair,
+  String? generateModel = 'chat',
+  String? extractModel = 'extraction',
   String? embeddingModel,
 }) => switch (driver) {
   WorkflowDriverKind.flowcraft => WorkspaceParameters(
@@ -1406,9 +1445,9 @@ WorkspaceParameters newWorkspaceParametersForDriver(
     asttranslateWorkspaceParameters: ASTTranslateWorkspaceParameters(
       agentType: ASTTranslateWorkspaceParametersAgentType
           .ASTTRANSLATE_WORKSPACE_PARAMETERS_AGENT_TYPE_AST_TRANSLATE,
-      enableSourceLanguageDetect: true,
+      enableSourceLanguageDetect: _workspaceLangPair(langPair) == 'auto',
       input: WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK,
-      langPair: 'auto',
+      langPair: _workspaceLangPair(langPair),
       mode: ASTTranslateMode.ASTTRANSLATE_MODE_S2S,
     ),
   ),
@@ -1416,6 +1455,11 @@ WorkspaceParameters newWorkspaceParametersForDriver(
     'Creating ${driver.label} workspaces is not supported',
   ),
 };
+
+String _workspaceLangPair(String? value) {
+  final normalized = value?.trim() ?? '';
+  return normalized.isEmpty ? 'auto' : normalized;
+}
 
 @visibleForTesting
 Workspace? workspaceWithDefaultInputParameters(
@@ -1428,11 +1472,8 @@ Workspace? workspaceWithDefaultInputParameters(
       driver != WorkflowDriverKind.astTranslate) {
     return null;
   }
-  final definition = appWorkflowDefinition(workspace.workflowName);
-  final parameters = definition != null && definition.driver == driver
-      ? definition.workspaceParameters()
-      : newWorkspaceParametersForDriver(driver);
-  return workspace.deepCopy()..parameters = parameters;
+  return workspace.deepCopy()
+    ..parameters = newWorkspaceParametersForDriver(driver);
 }
 
 bool _runWorkspaceNeedsReload(PeerRunWorkspaceState state) {

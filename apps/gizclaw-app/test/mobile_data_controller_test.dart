@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:drift/native.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gizclaw/gizclaw.dart';
 import 'package:gizclaw_app/connection/gizclaw_connection_controller.dart';
@@ -13,7 +13,6 @@ import 'package:gizclaw_app/data/workspace_chat_controller.dart';
 import 'package:gizclaw_app/identity/app_identity_store.dart';
 import 'package:gizclaw_app/l10n/locale_resolution.dart';
 import 'package:gizclaw_app/prototype/prototype_models.dart';
-import 'package:gizclaw_app/workflows/app_workflow_catalog.dart';
 
 void main() {
   test('classifies only iOS LAN failures as local-network recovery', () {
@@ -64,7 +63,7 @@ void main() {
     await firstClose;
   });
 
-  test('projects a legacy translation alias through its fixed App card', () {
+  test('marks an alias absent from the runtime catalog unavailable', () {
     final controller = MobileDataController.demo(
       database: AppDatabase.forTesting(NativeDatabase.memory()),
     );
@@ -73,7 +72,7 @@ void main() {
     final workflow = controller.workflow('ast-translate-zh-ja');
 
     expect(workflow.name, 'ast-translate-zh-ja');
-    expect(workflow.driver, WorkflowDriverKind.astTranslate);
+    expect(workflow.driver, WorkflowDriverKind.unsupported);
     expect(workflow.title, isNotEmpty);
   });
 
@@ -141,37 +140,138 @@ void main() {
     },
   );
 
-  test('creates every selectable fixed alias as a runtime workspace', () async {
+  test('creates a workspace from a dynamic collection alias', () async {
     final client = _WorkspaceCreateClient();
     final controller = _WorkspaceCreateTestController(client)
-      ..connectionState = MobileConnectionState.connected;
+      ..connectionState = MobileConnectionState.connected
+      ..workflows = const [
+        WorkflowCard(
+          name: 'journey',
+          title: 'Journey',
+          subtitle: '',
+          driverLabel: 'Flowcraft',
+          collection: 'raids',
+          bannerColor: Color(0xff000000),
+          icon: IconData(0),
+          driver: WorkflowDriverKind.flowcraft,
+        ),
+      ];
     addTearDown(controller.close);
 
-    for (final definition in appWorkflowDefinitions.where(
-      (definition) => definition.selectable,
-    )) {
-      await controller.createWorkspace(
-        workflowName: definition.alias,
-        name: definition.alias,
-        generateModel: 'generate-model',
-        extractModel: 'extract-model',
-        embeddingModel: 'embedding-model',
-      );
-    }
+    await controller.createWorkspace(
+      collection: 'raids',
+      workflowAlias: 'journey',
+    );
 
+    expect(client.requests.single.workflowAlias, 'journey');
+    expect(client.requests.single.collection, 'raids');
+    expect(client.requests.single.hasParameters(), isTrue);
     expect(
-      client.requests.map((request) => request.workflowName),
-      appWorkflowDefinitions
-          .where((definition) => definition.selectable)
-          .map((definition) => definition.alias),
+      client.requests.single.parameters.flowcraftWorkspaceParameters.input,
+      WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK,
     );
     expect(
-      client.requests.every(
-        (request) =>
-            request.workflowSource == ResourceSource.RESOURCE_SOURCE_RUNTIME,
-      ),
-      isTrue,
+      client
+          .requests
+          .single
+          .parameters
+          .flowcraftWorkspaceParameters
+          .generateModel,
+      'chat',
     );
+    expect(
+      client
+          .requests
+          .single
+          .parameters
+          .flowcraftWorkspaceParameters
+          .extractModel,
+      'extraction',
+    );
+    expect(
+      client.requests.single.parameters.flowcraftWorkspaceParameters
+          .hasEmbeddingModel(),
+      isFalse,
+    );
+  });
+
+  test(
+    'creates translation workspaces with the selected language pair',
+    () async {
+      final client = _WorkspaceCreateClient();
+      final aliases = <String, String>{
+        'translate-zh-en-auto': 'auto',
+        'japanese': 'zh/ja',
+        'translate-zh-ko': 'zh/ko',
+        'translate-zh-es': 'zh/es',
+      };
+      final controller = _WorkspaceCreateTestController(client)
+        ..connectionState = MobileConnectionState.connected
+        ..workflows = aliases.keys
+            .map(
+              (alias) => WorkflowCard(
+                name: alias,
+                title: alias,
+                subtitle: '',
+                driverLabel: 'AST Translate',
+                collection: 'translates',
+                bannerColor: const Color(0xff000000),
+                icon: const IconData(0),
+                driver: WorkflowDriverKind.astTranslate,
+                workspaceLangPair: aliases[alias],
+              ),
+            )
+            .toList(growable: false);
+      addTearDown(controller.close);
+
+      for (final entry in aliases.entries) {
+        await controller.createWorkspace(
+          collection: 'translates',
+          workflowAlias: entry.key,
+        );
+        final request = client.requests.last;
+        expect(request.workflowAlias, entry.key);
+        expect(
+          request.parameters.asttranslateWorkspaceParameters.langPair,
+          entry.value,
+        );
+        expect(
+          request
+              .parameters
+              .asttranslateWorkspaceParameters
+              .enableSourceLanguageDetect,
+          entry.value == 'auto',
+        );
+      }
+    },
+  );
+
+  test('treats a missing workflow collection as empty', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    final client = _PartialWorkflowCatalogClient();
+    final connection = _RefreshTestConnection(
+      profile: _profile('gizclaw.local:9820'),
+      client: client,
+      serverId: 'server-a',
+    );
+    final controller = MobileDataController(
+      database: database,
+      connectionController: connection,
+      dataRepository: _ReconnectRepository(database),
+    )..connectionState = MobileConnectionState.connected;
+    addTearDown(controller.close);
+
+    await controller.refresh(client: client, serverId: 'server-a');
+
+    expect(client.collections, [
+      'assistants',
+      'translates',
+      'raids',
+      'story-teller',
+      'role-play',
+    ]);
+    expect(controller.workflows.map((workflow) => workflow.name), ['chat']);
+    expect(controller.lastError, isNull);
   });
 
   test('waits for an in-flight refresh before closing resources', () async {
@@ -568,6 +668,9 @@ void main() {
       client: newClient,
       serverId: 'new-server',
     );
+    while (repository.endpoints.isEmpty) {
+      await Future<void>.delayed(Duration.zero);
+    }
     repository.firstRefresh.completeError(StateError('old refresh failed'));
 
     await Future.wait([oldRefresh, newRefresh]);
@@ -653,17 +756,24 @@ void main() {
     expect(doubao.input, WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK);
   });
 
-  test('includes concrete FlowCraft model parameters', () {
+  test('includes RuntimeProfile FlowCraft model aliases by default', () {
+    final defaults = newWorkspaceParametersForDriver(
+      WorkflowDriverKind.flowcraft,
+    ).flowcraftWorkspaceParameters;
+    expect(defaults.generateModel, 'chat');
+    expect(defaults.extractModel, 'extraction');
+    expect(defaults.hasEmbeddingModel(), isFalse);
+
     final parameters = newWorkspaceParametersForDriver(
       WorkflowDriverKind.flowcraft,
       generateModel: 'chat-model',
       extractModel: 'memory-model',
-      embeddingModel: 'embedding-model',
+      embeddingModel: 'embedding',
     );
     final flowcraft = parameters.flowcraftWorkspaceParameters;
     expect(flowcraft.generateModel, 'chat-model');
     expect(flowcraft.extractModel, 'memory-model');
-    expect(flowcraft.embeddingModel, 'embedding-model');
+    expect(flowcraft.embeddingModel, 'embedding');
     expect(
       flowcraft.input,
       WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK,
@@ -684,7 +794,7 @@ void main() {
   test('repairs an empty parameter envelope for mode switching', () {
     final workspace = Workspace(
       name: 'translator',
-      workflowName: 'volc-ast-translate',
+      workflowAlias: 'volc-ast-translate',
       parameters: WorkspaceParameters(),
     );
 
@@ -704,11 +814,10 @@ void main() {
     );
   });
 
-  test('repairs translation parameters from the fixed workflow alias', () {
+  test('repairs missing translation parameters with the safe auto default', () {
     final workspace = Workspace(
       name: 'japanese-translator',
-      workflowName: 'translate-zh-ja',
-      workflowSource: ResourceSource.RESOURCE_SOURCE_RUNTIME,
+      workflowAlias: 'translate-zh-ja',
       parameters: WorkspaceParameters(),
     );
 
@@ -719,8 +828,8 @@ void main() {
 
     expect(repaired, isNotNull);
     final parameters = repaired!.parameters.asttranslateWorkspaceParameters;
-    expect(parameters.enableSourceLanguageDetect, isFalse);
-    expect(parameters.langPair, 'zh/ja');
+    expect(parameters.enableSourceLanguageDetect, isTrue);
+    expect(parameters.langPair, 'auto');
     expect(parameters.mode, ASTTranslateMode.ASTTRANSLATE_MODE_S2S);
   });
 
@@ -798,7 +907,8 @@ void main() {
             ..workspaces = const [
               WorkspaceCard(
                 name: 'workspace-a',
-                workflowName: 'chat',
+                workflowAlias: 'chat',
+                collection: 'raids',
                 lastActive: '',
               ),
             ];
@@ -1405,25 +1515,66 @@ class _RunWorkspaceClient extends GizClawClient {
   _RunWorkspaceClient() : super(_NeverDataChannelFactory());
 
   @override
+  Future<WorkflowListResponse> listWorkflows({
+    required String collection,
+    String? cursor,
+    int? limit,
+  }) async => WorkflowListResponse(
+    runtimeProfileName: 'test',
+    runtimeProfileRevision: 'revision-1',
+  );
+
+  @override
   Future<ServerGetRunWorkspaceResponse> getRunWorkspace() async {
     return ServerGetRunWorkspaceResponse(value: PeerRunWorkspaceState());
   }
 }
 
+class _PartialWorkflowCatalogClient extends _RunWorkspaceClient {
+  final collections = <String>[];
+
+  @override
+  Future<WorkflowListResponse> listWorkflows({
+    required String collection,
+    String? cursor,
+    int? limit,
+  }) async {
+    collections.add(collection);
+    if (collection == 'translates') {
+      throw RpcError(404, 'workflow collection not found');
+    }
+    return WorkflowListResponse(
+      items: collection == 'assistants'
+          ? [
+              Workflow(
+                alias: 'chat',
+                collection: 'assistants',
+                driver: WorkflowDriver.WORKFLOW_DRIVER_FLOWCRAFT,
+                i18n: {
+                  'en': AliasI18nText(displayName: 'Chat'),
+                  'zh-CN': AliasI18nText(displayName: '聊天'),
+                }.entries,
+              ),
+            ]
+          : const [],
+      runtimeProfileName: 'default',
+      runtimeProfileRevision: 'revision-1',
+    );
+  }
+}
+
 class _WorkspaceCreateClient extends _RunWorkspaceClient {
-  final requests = <WorkspaceUpsert>[];
+  final requests = <WorkspaceCreateBody>[];
 
   @override
   Future<WorkspaceCreateResponse> createWorkspace(
-    WorkspaceUpsert workspace,
+    WorkspaceCreateBody workspace,
   ) async {
-    requests.add(WorkspaceUpsert.fromBuffer(workspace.writeToBuffer()));
+    requests.add(WorkspaceCreateBody.fromBuffer(workspace.writeToBuffer()));
     return WorkspaceCreateResponse(
       value: Workspace(
         name: workspace.name,
-        workflowName: workspace.workflowName,
-        workflowSource: workspace.workflowSource,
-        parameters: workspace.parameters,
+        workflowAlias: workspace.workflowAlias,
       ),
     );
   }
@@ -1455,14 +1606,12 @@ class _WorkspaceActivationClient extends _RunWorkspaceClient {
   final workspaces = <String, Workspace>{
     'workspace-old': Workspace(
       name: 'workspace-old',
-      workflowName: 'chat',
-      workflowSource: ResourceSource.RESOURCE_SOURCE_RUNTIME,
+      workflowAlias: 'chat',
       parameters: newWorkspaceParametersForDriver(WorkflowDriverKind.flowcraft),
     ),
     'workspace-new': Workspace(
       name: 'workspace-new',
-      workflowName: 'chat',
-      workflowSource: ResourceSource.RESOURCE_SOURCE_RUNTIME,
+      workflowAlias: 'chat',
       parameters: WorkspaceParameters(),
     ),
   };
@@ -1487,14 +1636,27 @@ class _WorkspaceActivationClient extends _RunWorkspaceClient {
 
   @override
   Future<WorkspaceListResponse> listWorkspaces({
+    required String collection,
     String? cursor,
     int? limit,
     String? prefix,
   }) async {
+    if (collection != 'raids') return WorkspaceListResponse();
     workspaceListCalls += 1;
     final error = workspaceListError;
     if (error != null) throw error;
     return WorkspaceListResponse(items: workspaceSnapshot ?? workspaces.values);
+  }
+
+  @override
+  Future<WorkflowGetResponse> getWorkflow(String alias) async {
+    return WorkflowGetResponse(
+      value: Workflow(
+        alias: alias,
+        collection: 'raids',
+        driver: WorkflowDriver.WORKFLOW_DRIVER_FLOWCRAFT,
+      ),
+    );
   }
 
   @override
@@ -1505,10 +1667,16 @@ class _WorkspaceActivationClient extends _RunWorkspaceClient {
   @override
   Future<WorkspacePutResponse> putWorkspace(
     String name,
-    WorkspaceUpsert workspace,
+    WorkspacePutBody workspace,
   ) async {
     putWorkspaceNames.add(name);
-    final stored = Workspace.fromBuffer(workspace.writeToBuffer());
+    final stored = workspaces[name]!.deepCopy();
+    if (workspace.hasParameters()) {
+      stored.parameters = workspace.parameters.deepCopy();
+    }
+    if (workspace.hasToolkit()) {
+      stored.toolkit = workspace.toolkit.deepCopy();
+    }
     workspaces[name] = stored;
     return WorkspacePutResponse(value: stored);
   }

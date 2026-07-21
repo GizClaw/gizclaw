@@ -181,6 +181,7 @@ func (h *PeerConn) initRPC() {
 		h.rpc.peerRun = h.Service.manager.PeerRun
 		h.rpc.peerRunRuntime = h.agentHost
 		h.rpc.serverGenX = h.serverGenX
+		h.rpc.speechLimits = h.Service.manager.SpeechLimits
 		h.rpc.serverResources = h.peerResources()
 		h.rpc.registrations = h.Service.manager.RuntimeProfiles
 		h.rpc.onRegistration = func(registration runtimeprofile.Registration) {
@@ -228,17 +229,10 @@ func (h *PeerConn) initAgentHost() {
 	h.events = newPeerStreamEventBroker()
 	host := newPeerAgentHost(manager.AgentHost, h.serverGenX, manager.Gameplay, manager.PetWorkflow, manager.FlowcraftHistory)
 	h.agentHost = &agenthost.Service{
-		Host:      host,
-		PeerRun:   manager.PeerRun,
-		PublicKey: h.Conn.PublicKey(),
-		RuntimeProfile: func() *apitypes.RuntimeProfile {
-			registration := h.registration.Load()
-			if registration == nil {
-				return nil
-			}
-			profile := registration.RuntimeProfile
-			return &profile
-		},
+		Host:           host,
+		PeerRun:        manager.PeerRun,
+		PublicKey:      h.Conn.PublicKey(),
+		RuntimeProfile: h.currentRuntimeProfile,
 		ValidateWorkspaceSelection: func(ctx context.Context, name string) (string, error) {
 			canonicalName, rpcErr := resources.ValidateRunWorkspaceSelection(ctx, name)
 			if rpcErr != nil {
@@ -286,26 +280,35 @@ func (h *PeerConn) peerResources() *peerresource.Server {
 	}
 	manager := h.Service.manager
 	return &peerresource.Server{
-		Caller:       h.Conn.PublicKey(),
-		Workspaces:   manager.Workspaces,
-		Workflows:    manager.Workflows,
-		Models:       manager.Models,
-		Credentials:  manager.Credentials,
-		Voices:       manager.Voices,
-		Contacts:     manager.Contacts,
-		Friends:      manager.Friends,
-		FriendGroups: manager.FriendGroups,
-		Gameplay:     manager.Gameplay,
-		Tools:        manager.Tools,
-		RuntimeProfile: func() *apitypes.RuntimeProfile {
-			registration := h.registration.Load()
-			if registration == nil {
-				return nil
-			}
-			profile := registration.RuntimeProfile
-			return &profile
-		},
+		Caller:         h.Conn.PublicKey(),
+		Peers:          manager.Peers,
+		Firmwares:      manager.Firmwares,
+		Workspaces:     manager.Workspaces,
+		Workflows:      manager.Workflows,
+		Models:         manager.Models,
+		Voices:         manager.Voices,
+		Contacts:       manager.Contacts,
+		Friends:        manager.Friends,
+		FriendGroups:   manager.FriendGroups,
+		Gameplay:       manager.Gameplay,
+		Tools:          manager.Tools,
+		RuntimeProfile: h.currentRuntimeProfile,
 	}
+}
+
+func (h *PeerConn) currentRuntimeProfile() *apitypes.RuntimeProfile {
+	if h == nil || h.Service == nil || h.Service.manager == nil || h.Service.manager.RuntimeProfiles == nil {
+		return nil
+	}
+	registration := h.registration.Load()
+	if registration == nil {
+		return nil
+	}
+	profile, err := h.Service.manager.RuntimeProfiles.ResolveProfile(context.Background(), registration.RuntimeProfile.Name)
+	if err != nil {
+		return nil
+	}
+	return &profile
 }
 
 func (h *PeerConn) audioMixer() (*pcm.Mixer, error) {

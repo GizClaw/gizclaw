@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:gizclaw/gizclaw.dart';
 
 import '../../prototype/prototype_models.dart';
+import '../../workflows/app_workflow_catalog.dart';
 import '../database/app_database.dart';
 
 class MobileDataRefreshWarning {
@@ -44,9 +45,18 @@ class MobileDataRepository {
     return (await query.getSingleOrNull())?.id;
   }
 
-  Stream<List<WorkspaceCard>> watchWorkspaces(String serverId) {
+  Stream<List<WorkspaceCard>> watchWorkspaces(
+    String serverId, {
+    String? collection,
+  }) {
     final query = database.select(database.workspaceEntries)
-      ..where((row) => row.serverId.equals(serverId))
+      ..where(
+        (row) =>
+            row.serverId.equals(serverId) &
+            (collection == null
+                ? const Constant(true)
+                : row.collection.equals(collection)),
+      )
       ..orderBy([
         (row) => OrderingTerm.desc(row.lastActiveAt),
         (row) => OrderingTerm.asc(row.name),
@@ -194,7 +204,7 @@ class MobileDataRepository {
     final workspaces = await _allWorkspaces(client);
     if (!isCurrent()) return WorkspaceSnapshotResult.notApplied;
     final refreshedAt = DateTime.now().toUtc();
-    final workspaceNames = workspaces.map((item) => item.name).toSet();
+    final workspaceNames = workspaces.map((item) => item.value.name).toSet();
 
     try {
       await database.transaction(() async {
@@ -208,11 +218,13 @@ class MobileDataRepository {
         await database.batch((batch) {
           batch.insertAllOnConflictUpdate(
             database.workspaceEntries,
-            workspaces.map((workspace) {
+            workspaces.map((item) {
+              final workspace = item.value;
               return WorkspaceEntriesCompanion.insert(
                 serverId: serverId,
                 name: workspace.name,
-                workflowName: workspace.workflowName,
+                workflowAlias: workspace.workflowAlias,
+                collection: Value(item.collection),
                 createdAt: Value(_dateTimeOrNull(workspace.createdAt)),
                 lastActiveAt: Value(_dateTimeOrNull(workspace.lastActiveAt)),
                 updatedAt: Value(_dateTimeOrNull(workspace.updatedAt)),
@@ -344,14 +356,40 @@ void _requireCurrent(bool Function() isCurrent) {
   if (!isCurrent()) throw const _StaleRefresh();
 }
 
-Future<List<Workspace>> _allWorkspaces(GizClawClient client) async {
-  final items = <Workspace>[];
-  String? cursor;
-  do {
-    final response = await client.listWorkspaces(cursor: cursor, limit: 100);
-    items.addAll(response.items);
-    cursor = response.hasNext ? response.nextCursor : null;
-  } while (cursor != null && cursor.isNotEmpty);
+Future<List<({String collection, Workspace value})>> _allWorkspaces(
+  GizClawClient client,
+) async {
+  final items = <({String collection, Workspace value})>[];
+  String? profileName;
+  String? profileRevision;
+  for (final collection in appWorkflowCollections) {
+    String? cursor;
+    do {
+      late final WorkspaceListResponse response;
+      try {
+        response = await client.listWorkspaces(
+          collection: collection.id,
+          cursor: cursor,
+          limit: 100,
+        );
+      } on RpcError catch (error) {
+        if (error.code == 404 && cursor == null) break;
+        rethrow;
+      }
+      profileName ??= response.runtimeProfileName;
+      profileRevision ??= response.runtimeProfileRevision;
+      if (response.runtimeProfileName != profileName ||
+          response.runtimeProfileRevision != profileRevision) {
+        throw StateError('Runtime profile changed while loading workspaces');
+      }
+      items.addAll(
+        response.items.map(
+          (workspace) => (collection: collection.id, value: workspace),
+        ),
+      );
+      cursor = response.hasNext ? response.nextCursor : null;
+    } while (cursor != null && cursor.isNotEmpty);
+  }
   return items;
 }
 
@@ -414,10 +452,8 @@ WorkspaceCard _workspaceCardFromRow(WorkspaceEntry row) {
   return WorkspaceCard(
     chatroomKind: _chatroomKind(workspace),
     name: row.name,
-    workflowName: row.workflowName,
-    workflowSource: workspace.hasWorkflowSource()
-        ? workspace.workflowSource
-        : ResourceSource.RESOURCE_SOURCE_OWNED,
+    workflowAlias: row.workflowAlias,
+    collection: row.collection,
     lastActive: _relativeTime(
       row.lastActiveAt ?? row.updatedAt ?? row.createdAt,
     ),

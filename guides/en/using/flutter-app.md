@@ -2,12 +2,11 @@
 
 This page explains installation, permissions, connected devices, and common operations of the GizClaw Flutter App.
 
-The App ships a fixed catalog that matches `RuntimeProfile/default`: `doubao-realtime`, four
-`translate-*` aliases, `chat`, `journey`, `murder-mystery`, and the internal `chatroom` alias. It does
-not call `server.workflow.list` to discover product capabilities. One Workspaces destination lists all
-Workspace rows; its single `+` action offers the eight selectable aliases with App-owned ordering,
-i18n, icons, and typed creation parameters. Workspace creation uses `source=runtime` and the selected
-alias.
+The App owns the fixed `assistants`, `translates`, `raids`, `story-teller`, and `role-play`
+navigation Collections. It calls `server.workflow.list` with one required Collection at a time and
+renders the compatible dynamic Workflow aliases supplied by the active RuntimeProfile. Selecting a
+Workflow creates a Workspace with that `collection` and `workflow_alias`, then enters it directly;
+the App does not ask the user to select a concrete Model or Voice.
 
 Scanning a Desktop local Pod QR stores its raw registration credential in per-Server secure storage
 and registers the connection into `RuntimeProfile/default`. The App uses the fixed application token

@@ -12,6 +12,37 @@
 #endif
 
 /* Struct definitions */
+typedef struct _gizclaw_rpc_v1_AliasI18nText {
+    pb_callback_t display_name;
+    pb_callback_t description;
+} gizclaw_rpc_v1_AliasI18nText;
+
+typedef struct _gizclaw_rpc_v1_SpeechTranscribeRequest {
+    char model_alias[64];
+    char content_type[129];
+    bool has_language;
+    char language[33];
+} gizclaw_rpc_v1_SpeechTranscribeRequest;
+
+typedef struct _gizclaw_rpc_v1_SpeechTranscribeResponse {
+    char transcript[8193];
+} gizclaw_rpc_v1_SpeechTranscribeResponse;
+
+typedef struct _gizclaw_rpc_v1_SpeechSynthesizeRequest {
+    char voice_alias[64];
+    char text[4097];
+    pb_size_t accepted_content_types_count;
+    char accepted_content_types[8][129];
+} gizclaw_rpc_v1_SpeechSynthesizeRequest;
+
+typedef struct _gizclaw_rpc_v1_SpeechSynthesizeResponse {
+    char content_type[129];
+    bool has_sample_rate_hz;
+    int32_t sample_rate_hz;
+    bool has_channels;
+    int32_t channels;
+} gizclaw_rpc_v1_SpeechSynthesizeResponse;
+
 typedef struct _gizclaw_rpc_v1_ASTTranslateExternalVoiceParameters {
     pb_callback_t tts_voice;
 } gizclaw_rpc_v1_ASTTranslateExternalVoiceParameters;
@@ -38,18 +69,13 @@ typedef struct _gizclaw_rpc_v1_ASTTranslateWorkflowSpec {
     bool denoise;
     bool has_enable_source_language_detect;
     bool enable_source_language_detect;
-    bool has_is_custom_speaker;
-    bool is_custom_speaker;
     bool has_mode;
     gizclaw_rpc_v1_ASTTranslateMode mode;
     pb_callback_t resource_id;
-    pb_callback_t speaker_id;
-    bool has_speech_rate;
-    int64_t speech_rate;
     pb_callback_t translation_model;
-    pb_callback_t tts_resource_id;
     bool has_voice;
     gizclaw_rpc_v1_ASTTranslateVoiceParameters voice;
+    pb_callback_t lang_pair;
 } gizclaw_rpc_v1_ASTTranslateWorkflowSpec;
 
 typedef struct _gizclaw_rpc_v1_ASTTranslateWorkspaceParameters {
@@ -62,16 +88,10 @@ typedef struct _gizclaw_rpc_v1_ASTTranslateWorkspaceParameters {
     bool enable_source_language_detect;
     bool has_input;
     gizclaw_rpc_v1_WorkspaceInputMode input;
-    bool has_is_custom_speaker;
-    bool is_custom_speaker;
     pb_callback_t lang_pair;
     bool has_mode;
     gizclaw_rpc_v1_ASTTranslateMode mode;
-    pb_callback_t speaker_id;
-    bool has_speech_rate;
-    int64_t speech_rate;
     pb_callback_t translation_model;
-    pb_callback_t tts_resource_id;
     bool has_voice;
     gizclaw_rpc_v1_ASTTranslateVoiceParameters voice;
 } gizclaw_rpc_v1_ASTTranslateWorkspaceParameters;
@@ -114,44 +134,6 @@ typedef struct _gizclaw_rpc_v1_ChatRoomWorkspaceParameters {
     bool has_transcript;
     gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters transcript;
 } gizclaw_rpc_v1_ChatRoomWorkspaceParameters;
-
-typedef struct _gizclaw_rpc_v1_CredentialDeleteRequest {
-    pb_callback_t name;
-} gizclaw_rpc_v1_CredentialDeleteRequest;
-
-typedef struct _gizclaw_rpc_v1_CredentialGetRequest {
-    pb_callback_t name;
-} gizclaw_rpc_v1_CredentialGetRequest;
-
-typedef struct _gizclaw_rpc_v1_CredentialListRequest {
-    pb_callback_t cursor;
-    bool has_limit;
-    int64_t limit;
-} gizclaw_rpc_v1_CredentialListRequest;
-
-typedef struct _gizclaw_rpc_v1_CredentialListResponse {
-    bool has_next;
-    pb_callback_t items;
-    pb_callback_t next_cursor;
-} gizclaw_rpc_v1_CredentialListResponse;
-
-typedef struct _gizclaw_rpc_v1_DashScopeCredentialBody {
-    pb_callback_t api_key;
-    pb_callback_t base_url;
-    pb_callback_t token;
-} gizclaw_rpc_v1_DashScopeCredentialBody;
-
-typedef struct _gizclaw_rpc_v1_DashScopeTenantModelProviderData {
-    bool has_api_mode;
-    gizclaw_rpc_v1_DashScopeTenantModelProviderDataApiMode api_mode;
-    pb_callback_t upstream_model;
-} gizclaw_rpc_v1_DashScopeTenantModelProviderData;
-
-typedef struct _gizclaw_rpc_v1_DashScopeTenantVoiceProviderData {
-    bool has_raw;
-    google_protobuf_Struct raw;
-    pb_callback_t voice_id;
-} gizclaw_rpc_v1_DashScopeTenantVoiceProviderData;
 
 typedef struct _gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata {
     pb_callback_t content_producer;
@@ -382,47 +364,14 @@ typedef struct _gizclaw_rpc_v1_PetWorkspaceParameters {
     gizclaw_rpc_v1_PetVoiceParameters voice;
 } gizclaw_rpc_v1_PetWorkspaceParameters;
 
-typedef struct _gizclaw_rpc_v1_GeminiCredentialBody {
-    pb_callback_t api_key;
-    pb_callback_t base_url;
-    pb_callback_t token;
-} gizclaw_rpc_v1_GeminiCredentialBody;
-
-typedef struct _gizclaw_rpc_v1_GeminiTenantModelProviderData {
-    pb_callback_t upstream_model;
-} gizclaw_rpc_v1_GeminiTenantModelProviderData;
-
-typedef struct _gizclaw_rpc_v1_GeminiTenantVoiceProviderData {
-    bool has_raw;
-    google_protobuf_Struct raw;
-    pb_callback_t voice_id;
-} gizclaw_rpc_v1_GeminiTenantVoiceProviderData;
-
-typedef struct _gizclaw_rpc_v1_MiniMaxCredentialBody {
-    pb_callback_t api_key;
-    pb_callback_t base_url;
-    pb_callback_t minimax_voice_base_url;
-    pb_callback_t token;
-    pb_callback_t voice_base_url;
-} gizclaw_rpc_v1_MiniMaxCredentialBody;
-
-typedef struct _gizclaw_rpc_v1_MiniMaxTenantVoiceProviderData {
-    pb_callback_t format;
-    pb_callback_t model;
-    bool has_raw;
-    google_protobuf_Struct raw;
-    bool has_sample_rate;
-    int64_t sample_rate;
-    pb_callback_t voice_id;
-    pb_callback_t voice_type;
-} gizclaw_rpc_v1_MiniMaxTenantVoiceProviderData;
-
-typedef struct _gizclaw_rpc_v1_ModelDeleteRequest {
-    pb_callback_t id;
-} gizclaw_rpc_v1_ModelDeleteRequest;
+typedef struct _gizclaw_rpc_v1_Model_I18nEntry {
+    pb_callback_t key;
+    bool has_value;
+    gizclaw_rpc_v1_AliasI18nText value;
+} gizclaw_rpc_v1_Model_I18nEntry;
 
 typedef struct _gizclaw_rpc_v1_ModelGetRequest {
-    pb_callback_t id;
+    pb_callback_t alias;
 } gizclaw_rpc_v1_ModelGetRequest;
 
 typedef struct _gizclaw_rpc_v1_ModelListRequest {
@@ -435,12 +384,9 @@ typedef struct _gizclaw_rpc_v1_ModelListResponse {
     bool has_next;
     pb_callback_t items;
     pb_callback_t next_cursor;
+    pb_callback_t runtime_profile_name;
+    pb_callback_t runtime_profile_revision;
 } gizclaw_rpc_v1_ModelListResponse;
-
-typedef struct _gizclaw_rpc_v1_ModelProvider {
-    gizclaw_rpc_v1_ModelProviderKind kind;
-    pb_callback_t name;
-} gizclaw_rpc_v1_ModelProvider;
 
 typedef struct _gizclaw_rpc_v1_ModelThinkingCapability {
     pb_callback_t default_level;
@@ -465,41 +411,42 @@ typedef struct _gizclaw_rpc_v1_ModelCapabilities {
     bool tool_calls;
 } gizclaw_rpc_v1_ModelCapabilities;
 
-typedef struct _gizclaw_rpc_v1_OpenAICredentialBody {
-    pb_callback_t api_key;
-    pb_callback_t base_url;
-    pb_callback_t organization;
-    pb_callback_t project;
-    pb_callback_t token;
-} gizclaw_rpc_v1_OpenAICredentialBody;
+typedef struct _gizclaw_rpc_v1_Model {
+    pb_callback_t alias;
+    pb_callback_t i18n;
+    gizclaw_rpc_v1_ModelKind kind;
+    bool has_capabilities;
+    gizclaw_rpc_v1_ModelCapabilities capabilities;
+} gizclaw_rpc_v1_Model;
 
-typedef struct _gizclaw_rpc_v1_OpenAITenantModelProviderData {
-    pb_callback_t default_thinking_level;
-    bool has_support_json_output;
-    bool support_json_output;
-    bool has_support_text_only;
-    bool support_text_only;
-    bool has_support_thinking;
-    bool support_thinking;
-    bool has_support_tool_calls;
-    bool support_tool_calls;
-    pb_callback_t thinking_level_param;
-    pb_callback_t thinking_levels;
-    pb_callback_t thinking_param;
-    pb_callback_t upstream_model;
-    bool has_use_system_role;
-    bool use_system_role;
-} gizclaw_rpc_v1_OpenAITenantModelProviderData;
+typedef struct _gizclaw_rpc_v1_ModelGetResponse {
+    bool has_value;
+    gizclaw_rpc_v1_Model value;
+    pb_callback_t runtime_profile_name;
+    pb_callback_t runtime_profile_revision;
+} gizclaw_rpc_v1_ModelGetResponse;
 
-typedef struct _gizclaw_rpc_v1_OpenAITenantVoiceProviderData {
-    bool has_raw;
-    google_protobuf_Struct raw;
-    pb_callback_t voice_id;
-} gizclaw_rpc_v1_OpenAITenantVoiceProviderData;
+typedef struct _gizclaw_rpc_v1_Voice {
+    pb_callback_t alias;
+    pb_callback_t i18n;
+} gizclaw_rpc_v1_Voice;
+
+typedef struct _gizclaw_rpc_v1_Voice_I18nEntry {
+    pb_callback_t key;
+    bool has_value;
+    gizclaw_rpc_v1_AliasI18nText value;
+} gizclaw_rpc_v1_Voice_I18nEntry;
 
 typedef struct _gizclaw_rpc_v1_VoiceGetRequest {
-    pb_callback_t id;
+    pb_callback_t alias;
 } gizclaw_rpc_v1_VoiceGetRequest;
+
+typedef struct _gizclaw_rpc_v1_VoiceGetResponse {
+    bool has_value;
+    gizclaw_rpc_v1_Voice value;
+    pb_callback_t runtime_profile_name;
+    pb_callback_t runtime_profile_revision;
+} gizclaw_rpc_v1_VoiceGetResponse;
 
 typedef struct _gizclaw_rpc_v1_VoiceListRequest {
     pb_callback_t cursor;
@@ -511,217 +458,48 @@ typedef struct _gizclaw_rpc_v1_VoiceListResponse {
     bool has_next;
     pb_callback_t items;
     pb_callback_t next_cursor;
+    pb_callback_t runtime_profile_name;
+    pb_callback_t runtime_profile_revision;
 } gizclaw_rpc_v1_VoiceListResponse;
 
-typedef struct _gizclaw_rpc_v1_VoiceProvider {
-    gizclaw_rpc_v1_VoiceProviderKind kind;
-    pb_callback_t name;
-} gizclaw_rpc_v1_VoiceProvider;
+typedef struct _gizclaw_rpc_v1_Workflow {
+    pb_callback_t alias;
+    pb_callback_t i18n;
+    pb_callback_t collection;
+    gizclaw_rpc_v1_WorkflowDriver driver;
+    pb_callback_t workspace_lang_pair;
+} gizclaw_rpc_v1_Workflow;
 
-typedef struct _gizclaw_rpc_v1_VolcCredentialBody {
-    pb_callback_t speech_api_key;
-    pb_callback_t speech_app_id;
-    pb_callback_t openapi_access_key;
-    pb_callback_t openapi_access_key_id;
-    pb_callback_t search_api_key;
-    pb_callback_t ark_api_key;
-} gizclaw_rpc_v1_VolcCredentialBody;
-
-typedef struct _gizclaw_rpc_v1_CredentialBody {
-    pb_size_t which_value;
-    union {
-        gizclaw_rpc_v1_OpenAICredentialBody open_aicredential_body;
-        gizclaw_rpc_v1_GeminiCredentialBody gemini_credential_body;
-        gizclaw_rpc_v1_DashScopeCredentialBody dash_scope_credential_body;
-        gizclaw_rpc_v1_MiniMaxCredentialBody mini_max_credential_body;
-        gizclaw_rpc_v1_VolcCredentialBody volc_credential_body;
-    } value;
-} gizclaw_rpc_v1_CredentialBody;
-
-typedef struct _gizclaw_rpc_v1_Credential {
-    bool has_body;
-    gizclaw_rpc_v1_CredentialBody body;
-    pb_callback_t created_at;
-    pb_callback_t description;
-    pb_callback_t name;
-    pb_callback_t provider;
-    pb_callback_t updated_at;
-    bool has_owner_public_key;
-    char owner_public_key[65];
-} gizclaw_rpc_v1_Credential;
-
-typedef struct _gizclaw_rpc_v1_CredentialCreateRequest {
+typedef struct _gizclaw_rpc_v1_Workflow_I18nEntry {
+    pb_callback_t key;
     bool has_value;
-    gizclaw_rpc_v1_Credential value;
-} gizclaw_rpc_v1_CredentialCreateRequest;
-
-typedef struct _gizclaw_rpc_v1_CredentialCreateResponse {
-    bool has_value;
-    gizclaw_rpc_v1_Credential value;
-} gizclaw_rpc_v1_CredentialCreateResponse;
-
-typedef struct _gizclaw_rpc_v1_CredentialDeleteResponse {
-    bool has_value;
-    gizclaw_rpc_v1_Credential value;
-} gizclaw_rpc_v1_CredentialDeleteResponse;
-
-typedef struct _gizclaw_rpc_v1_CredentialGetResponse {
-    bool has_value;
-    gizclaw_rpc_v1_Credential value;
-} gizclaw_rpc_v1_CredentialGetResponse;
-
-typedef struct _gizclaw_rpc_v1_CredentialPutRequest {
-    bool has_body;
-    gizclaw_rpc_v1_Credential body;
-    pb_callback_t name;
-} gizclaw_rpc_v1_CredentialPutRequest;
-
-typedef struct _gizclaw_rpc_v1_CredentialPutResponse {
-    bool has_value;
-    gizclaw_rpc_v1_Credential value;
-} gizclaw_rpc_v1_CredentialPutResponse;
-
-typedef struct _gizclaw_rpc_v1_VolcTenantModelProviderData {
-    bool has_api_mode;
-    gizclaw_rpc_v1_VolcTenantModelProviderDataApiMode api_mode;
-    pb_callback_t default_thinking_level;
-    pb_callback_t resource_id;
-    bool has_support_json_output;
-    bool support_json_output;
-    bool has_support_text_only;
-    bool support_text_only;
-    bool has_support_thinking;
-    bool support_thinking;
-    bool has_support_tool_calls;
-    bool support_tool_calls;
-    pb_callback_t thinking_level_param;
-    pb_callback_t thinking_levels;
-    pb_callback_t thinking_param;
-    pb_callback_t upstream_model;
-    bool has_use_system_role;
-    bool use_system_role;
-} gizclaw_rpc_v1_VolcTenantModelProviderData;
-
-typedef struct _gizclaw_rpc_v1_ModelProviderData {
-    pb_size_t which_value;
-    union {
-        gizclaw_rpc_v1_GeminiTenantModelProviderData gemini_tenant_model_provider_data;
-        gizclaw_rpc_v1_DashScopeTenantModelProviderData dash_scope_tenant_model_provider_data;
-        gizclaw_rpc_v1_OpenAITenantModelProviderData open_aitenant_model_provider_data;
-        gizclaw_rpc_v1_VolcTenantModelProviderData volc_tenant_model_provider_data;
-    } value;
-} gizclaw_rpc_v1_ModelProviderData;
-
-typedef struct _gizclaw_rpc_v1_Model {
-    bool has_capabilities;
-    gizclaw_rpc_v1_ModelCapabilities capabilities;
-    pb_callback_t created_at;
-    pb_callback_t description;
-    pb_callback_t id;
-    gizclaw_rpc_v1_ModelKind kind;
-    pb_callback_t name;
-    bool has_provider;
-    gizclaw_rpc_v1_ModelProvider provider;
-    bool has_provider_data;
-    gizclaw_rpc_v1_ModelProviderData provider_data;
-    gizclaw_rpc_v1_ModelSource source;
-    pb_callback_t synced_at;
-    pb_callback_t updated_at;
-    bool has_owner_public_key;
-    char owner_public_key[65];
-} gizclaw_rpc_v1_Model;
-
-typedef struct _gizclaw_rpc_v1_ModelCreateRequest {
-    bool has_value;
-    gizclaw_rpc_v1_Model value;
-} gizclaw_rpc_v1_ModelCreateRequest;
-
-typedef struct _gizclaw_rpc_v1_ModelCreateResponse {
-    bool has_value;
-    gizclaw_rpc_v1_Model value;
-} gizclaw_rpc_v1_ModelCreateResponse;
-
-typedef struct _gizclaw_rpc_v1_ModelDeleteResponse {
-    bool has_value;
-    gizclaw_rpc_v1_Model value;
-} gizclaw_rpc_v1_ModelDeleteResponse;
-
-typedef struct _gizclaw_rpc_v1_ModelGetResponse {
-    bool has_value;
-    gizclaw_rpc_v1_Model value;
-} gizclaw_rpc_v1_ModelGetResponse;
-
-typedef struct _gizclaw_rpc_v1_ModelPutRequest {
-    bool has_body;
-    gizclaw_rpc_v1_Model body;
-    pb_callback_t id;
-} gizclaw_rpc_v1_ModelPutRequest;
-
-typedef struct _gizclaw_rpc_v1_ModelPutResponse {
-    bool has_value;
-    gizclaw_rpc_v1_Model value;
-} gizclaw_rpc_v1_ModelPutResponse;
-
-typedef struct _gizclaw_rpc_v1_VolcTenantVoiceProviderData {
-    bool has_raw;
-    google_protobuf_Struct raw;
-    pb_callback_t resource_id;
-    pb_callback_t state;
-    pb_callback_t status;
-    pb_callback_t voice_id;
-} gizclaw_rpc_v1_VolcTenantVoiceProviderData;
-
-typedef struct _gizclaw_rpc_v1_VoiceProviderData {
-    pb_size_t which_value;
-    union {
-        gizclaw_rpc_v1_GeminiTenantVoiceProviderData gemini_tenant_voice_provider_data;
-        gizclaw_rpc_v1_DashScopeTenantVoiceProviderData dash_scope_tenant_voice_provider_data;
-        gizclaw_rpc_v1_OpenAITenantVoiceProviderData open_aitenant_voice_provider_data;
-        gizclaw_rpc_v1_MiniMaxTenantVoiceProviderData mini_max_tenant_voice_provider_data;
-        gizclaw_rpc_v1_VolcTenantVoiceProviderData volc_tenant_voice_provider_data;
-    } value;
-} gizclaw_rpc_v1_VoiceProviderData;
-
-typedef struct _gizclaw_rpc_v1_Voice {
-    pb_callback_t created_at;
-    pb_callback_t description;
-    pb_callback_t id;
-    pb_callback_t name;
-    bool has_provider;
-    gizclaw_rpc_v1_VoiceProvider provider;
-    bool has_provider_data;
-    gizclaw_rpc_v1_VoiceProviderData provider_data;
-    gizclaw_rpc_v1_VoiceSource source;
-    pb_callback_t synced_at;
-    pb_callback_t updated_at;
-} gizclaw_rpc_v1_Voice;
-
-typedef struct _gizclaw_rpc_v1_VoiceGetResponse {
-    bool has_value;
-    gizclaw_rpc_v1_Voice value;
-} gizclaw_rpc_v1_VoiceGetResponse;
-
-typedef struct _gizclaw_rpc_v1_WorkflowDeleteRequest {
-    pb_callback_t name;
-    gizclaw_rpc_v1_ResourceSource source;
-} gizclaw_rpc_v1_WorkflowDeleteRequest;
+    gizclaw_rpc_v1_AliasI18nText value;
+} gizclaw_rpc_v1_Workflow_I18nEntry;
 
 typedef struct _gizclaw_rpc_v1_WorkflowGetRequest {
-    pb_callback_t name;
-    gizclaw_rpc_v1_ResourceSource source;
+    pb_callback_t alias;
 } gizclaw_rpc_v1_WorkflowGetRequest;
+
+typedef struct _gizclaw_rpc_v1_WorkflowGetResponse {
+    bool has_value;
+    gizclaw_rpc_v1_Workflow value;
+    pb_callback_t runtime_profile_name;
+    pb_callback_t runtime_profile_revision;
+} gizclaw_rpc_v1_WorkflowGetResponse;
 
 typedef struct _gizclaw_rpc_v1_WorkflowListRequest {
     pb_callback_t cursor;
     bool has_limit;
     int64_t limit;
-    gizclaw_rpc_v1_ResourceSource source;
+    pb_callback_t collection;
 } gizclaw_rpc_v1_WorkflowListRequest;
 
 typedef struct _gizclaw_rpc_v1_WorkflowListResponse {
     bool has_next;
     pb_callback_t items;
     pb_callback_t next_cursor;
+    pb_callback_t runtime_profile_name;
+    pb_callback_t runtime_profile_revision;
 } gizclaw_rpc_v1_WorkflowListResponse;
 
 typedef struct _gizclaw_rpc_v1_ToolkitPolicyToolIds {
@@ -733,116 +511,20 @@ typedef struct _gizclaw_rpc_v1_ToolkitPolicy {
     gizclaw_rpc_v1_ToolkitPolicyToolIds tool_ids;
 } gizclaw_rpc_v1_ToolkitPolicy;
 
-typedef struct _gizclaw_rpc_v1_WorkflowSpec {
-    bool has_ast_translate;
-    gizclaw_rpc_v1_ASTTranslateWorkflowSpec ast_translate;
-    bool has_chatroom;
-    gizclaw_rpc_v1_ChatRoomWorkflowSpec chatroom;
-    bool has_doubao_realtime;
-    gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec doubao_realtime;
-    gizclaw_rpc_v1_WorkflowDriver driver;
-    bool has_flowcraft;
-    gizclaw_rpc_v1_FlowcraftWorkflowSpec flowcraft;
-    bool has_toolkit;
-    gizclaw_rpc_v1_ToolkitPolicy toolkit;
-    bool has_pet;
-    gizclaw_rpc_v1_PetWorkflowSpec pet;
-} gizclaw_rpc_v1_WorkflowSpec;
-
-typedef struct _gizclaw_rpc_v1_Workflow {
-    pb_callback_t name;
-    bool has_spec;
-    gizclaw_rpc_v1_WorkflowSpec spec;
-    bool has_owner_public_key;
-    char owner_public_key[65];
-} gizclaw_rpc_v1_Workflow;
-
-typedef struct _gizclaw_rpc_v1_WorkflowUpsert {
-    pb_callback_t name;
-    bool has_spec;
-    gizclaw_rpc_v1_WorkflowSpec spec;
-} gizclaw_rpc_v1_WorkflowUpsert;
-
-typedef struct _gizclaw_rpc_v1_WorkflowCreateRequest {
-    gizclaw_rpc_v1_ResourceSource source;
-    bool has_body;
-    gizclaw_rpc_v1_WorkflowUpsert body;
-} gizclaw_rpc_v1_WorkflowCreateRequest;
-
-typedef struct _gizclaw_rpc_v1_WorkflowCreateResponse {
-    bool has_value;
-    gizclaw_rpc_v1_Workflow value;
-} gizclaw_rpc_v1_WorkflowCreateResponse;
-
-typedef struct _gizclaw_rpc_v1_WorkflowDeleteResponse {
-    bool has_value;
-    gizclaw_rpc_v1_Workflow value;
-} gizclaw_rpc_v1_WorkflowDeleteResponse;
-
-typedef struct _gizclaw_rpc_v1_WorkflowGetResponse {
-    bool has_value;
-    gizclaw_rpc_v1_Workflow value;
-} gizclaw_rpc_v1_WorkflowGetResponse;
-
-typedef struct _gizclaw_rpc_v1_WorkflowPutRequest {
-    pb_callback_t name;
-    bool has_body;
-    gizclaw_rpc_v1_WorkflowUpsert body;
-    gizclaw_rpc_v1_ResourceSource source;
-} gizclaw_rpc_v1_WorkflowPutRequest;
-
-typedef struct _gizclaw_rpc_v1_WorkflowPutResponse {
-    bool has_value;
-    gizclaw_rpc_v1_Workflow value;
-} gizclaw_rpc_v1_WorkflowPutResponse;
-
-typedef struct _gizclaw_rpc_v1_ToolExecutor {
-    gizclaw_rpc_v1_ToolExecutorKind kind;
-    pb_callback_t name;
-    pb_callback_t method;
-    pb_callback_t peer_id;
-    bool has_config;
-    google_protobuf_Struct config;
-} gizclaw_rpc_v1_ToolExecutor;
-
-typedef struct _gizclaw_rpc_v1_ToolTriggerExample {
-    pb_callback_t input;
-    bool has_args;
-    google_protobuf_Struct args;
-    pb_callback_t output;
-} gizclaw_rpc_v1_ToolTriggerExample;
-
-typedef struct _gizclaw_rpc_v1_ToolTrigger {
-    pb_callback_t name;
-    pb_callback_t description;
-    pb_callback_t patterns;
-    pb_callback_t examples;
-    bool has_metadata;
-    google_protobuf_Struct metadata;
-} gizclaw_rpc_v1_ToolTrigger;
-
 typedef struct _gizclaw_rpc_v1_Tool {
-    pb_callback_t id;
-    pb_callback_t name;
-    pb_callback_t description;
-    gizclaw_rpc_v1_ToolSource source;
-    bool has_enabled;
-    bool enabled;
-    pb_callback_t owner_peer;
-    pb_callback_t version;
+    pb_callback_t alias;
+    pb_callback_t i18n;
     bool has_input_schema;
     google_protobuf_Struct input_schema;
     bool has_output_schema;
     google_protobuf_Struct output_schema;
-    pb_callback_t triggers;
-    bool has_executor;
-    gizclaw_rpc_v1_ToolExecutor executor;
-    bool has_metadata;
-    google_protobuf_Struct metadata;
-    pb_callback_t created_at;
-    pb_callback_t updated_at;
-    pb_callback_t owner_public_key;
 } gizclaw_rpc_v1_Tool;
+
+typedef struct _gizclaw_rpc_v1_Tool_I18nEntry {
+    pb_callback_t key;
+    bool has_value;
+    gizclaw_rpc_v1_AliasI18nText value;
+} gizclaw_rpc_v1_Tool_I18nEntry;
 
 typedef struct _gizclaw_rpc_v1_ToolListRequest {
     pb_callback_t cursor;
@@ -854,46 +536,20 @@ typedef struct _gizclaw_rpc_v1_ToolListResponse {
     pb_callback_t items;
     bool has_next;
     pb_callback_t next_cursor;
+    pb_callback_t runtime_profile_name;
+    pb_callback_t runtime_profile_revision;
 } gizclaw_rpc_v1_ToolListResponse;
 
 typedef struct _gizclaw_rpc_v1_ToolGetRequest {
-    pb_callback_t id;
+    pb_callback_t alias;
 } gizclaw_rpc_v1_ToolGetRequest;
 
 typedef struct _gizclaw_rpc_v1_ToolGetResponse {
     bool has_value;
     gizclaw_rpc_v1_Tool value;
+    pb_callback_t runtime_profile_name;
+    pb_callback_t runtime_profile_revision;
 } gizclaw_rpc_v1_ToolGetResponse;
-
-typedef struct _gizclaw_rpc_v1_ToolCreateRequest {
-    bool has_value;
-    gizclaw_rpc_v1_Tool value;
-} gizclaw_rpc_v1_ToolCreateRequest;
-
-typedef struct _gizclaw_rpc_v1_ToolCreateResponse {
-    bool has_value;
-    gizclaw_rpc_v1_Tool value;
-} gizclaw_rpc_v1_ToolCreateResponse;
-
-typedef struct _gizclaw_rpc_v1_ToolPutRequest {
-    pb_callback_t id;
-    bool has_body;
-    gizclaw_rpc_v1_Tool body;
-} gizclaw_rpc_v1_ToolPutRequest;
-
-typedef struct _gizclaw_rpc_v1_ToolPutResponse {
-    bool has_value;
-    gizclaw_rpc_v1_Tool value;
-} gizclaw_rpc_v1_ToolPutResponse;
-
-typedef struct _gizclaw_rpc_v1_ToolDeleteRequest {
-    pb_callback_t id;
-} gizclaw_rpc_v1_ToolDeleteRequest;
-
-typedef struct _gizclaw_rpc_v1_ToolDeleteResponse {
-    bool has_value;
-    gizclaw_rpc_v1_Tool value;
-} gizclaw_rpc_v1_ToolDeleteResponse;
 
 typedef struct _gizclaw_rpc_v1_ToolInvokeRequest {
     pb_callback_t call_id;
@@ -913,32 +569,22 @@ extern "C" {
 #endif
 
 /* Initializer values for message structs */
+#define gizclaw_rpc_v1_AliasI18nText_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_SpeechTranscribeRequest_init_default {"", "", false, ""}
+#define gizclaw_rpc_v1_SpeechTranscribeResponse_init_default {""}
+#define gizclaw_rpc_v1_SpeechSynthesizeRequest_init_default {"", "", 0, {"", "", "", "", "", "", "", ""}}
+#define gizclaw_rpc_v1_SpeechSynthesizeResponse_init_default {"", false, 0, false, 0}
 #define gizclaw_rpc_v1_ASTTranslateExternalVoiceParameters_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ASTTranslateInternalSpeakerParameters_init_default {false, 0, {{NULL}, NULL}, false, 0, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ASTTranslateVoiceParameters_init_default {0, {gizclaw_rpc_v1_ASTTranslateInternalSpeakerParameters_init_default}}
-#define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_init_default {false, 0, false, 0, false, 0, false, _gizclaw_rpc_v1_ASTTranslateMode_MIN, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_ASTTranslateVoiceParameters_init_default}
-#define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_init_default {_gizclaw_rpc_v1_ASTTranslateWorkspaceParametersAgentType_MIN, false, 0, false, 0, false, 0, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, 0, {{NULL}, NULL}, false, _gizclaw_rpc_v1_ASTTranslateMode_MIN, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_ASTTranslateVoiceParameters_init_default}
+#define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_init_default {false, 0, false, 0, false, _gizclaw_rpc_v1_ASTTranslateMode_MIN, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_ASTTranslateVoiceParameters_init_default, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_init_default {_gizclaw_rpc_v1_ASTTranslateWorkspaceParametersAgentType_MIN, false, 0, false, 0, false, 0, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, {{NULL}, NULL}, false, _gizclaw_rpc_v1_ASTTranslateMode_MIN, {{NULL}, NULL}, false, gizclaw_rpc_v1_ASTTranslateVoiceParameters_init_default}
 #define gizclaw_rpc_v1_ChatRoomWorkflowHistorySpec_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ChatRoomWorkflowSpec_init_default {false, gizclaw_rpc_v1_ChatRoomWorkflowHistorySpec_init_default, false, gizclaw_rpc_v1_ChatRoomWorkflowTranscriptSpec_init_default}
 #define gizclaw_rpc_v1_ChatRoomWorkflowTranscriptSpec_init_default {{{NULL}, NULL}, false, 0}
 #define gizclaw_rpc_v1_ChatRoomWorkspaceHistoryParameters_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ChatRoomWorkspaceParameters_init_default {_gizclaw_rpc_v1_ChatRoomWorkspaceParametersAgentType_MIN, false, gizclaw_rpc_v1_ChatRoomWorkspaceHistoryParameters_init_default, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, _gizclaw_rpc_v1_ChatRoomMode_MIN, false, gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters_init_default}
 #define gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters_init_default {{{NULL}, NULL}, false, 0}
-#define gizclaw_rpc_v1_Credential_init_default   {false, gizclaw_rpc_v1_CredentialBody_init_default, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, ""}
-#define gizclaw_rpc_v1_CredentialBody_init_default {0, {gizclaw_rpc_v1_OpenAICredentialBody_init_default}}
-#define gizclaw_rpc_v1_CredentialCreateRequest_init_default {false, gizclaw_rpc_v1_Credential_init_default}
-#define gizclaw_rpc_v1_CredentialCreateResponse_init_default {false, gizclaw_rpc_v1_Credential_init_default}
-#define gizclaw_rpc_v1_CredentialDeleteRequest_init_default {{{NULL}, NULL}}
-#define gizclaw_rpc_v1_CredentialDeleteResponse_init_default {false, gizclaw_rpc_v1_Credential_init_default}
-#define gizclaw_rpc_v1_CredentialGetRequest_init_default {{{NULL}, NULL}}
-#define gizclaw_rpc_v1_CredentialGetResponse_init_default {false, gizclaw_rpc_v1_Credential_init_default}
-#define gizclaw_rpc_v1_CredentialListRequest_init_default {{{NULL}, NULL}, false, 0}
-#define gizclaw_rpc_v1_CredentialListResponse_init_default {0, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_CredentialPutRequest_init_default {false, gizclaw_rpc_v1_Credential_init_default, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_CredentialPutResponse_init_default {false, gizclaw_rpc_v1_Credential_init_default}
-#define gizclaw_rpc_v1_DashScopeCredentialBody_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_DashScopeTenantModelProviderData_init_default {false, _gizclaw_rpc_v1_DashScopeTenantModelProviderDataApiMode_MIN, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_DashScopeTenantVoiceProviderData_init_default {false, google_protobuf_Struct_init_default, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata_init_default {{{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_DoubaoRealtimeASRContext_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_DoubaoRealtimeASRContext_CorrectWordsEntry_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
@@ -967,96 +613,52 @@ extern "C" {
 #define gizclaw_rpc_v1_PetVoiceParameters_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PetWorkflowSpec_init_default {0}
 #define gizclaw_rpc_v1_PetWorkspaceParameters_init_default {_gizclaw_rpc_v1_PetWorkspaceParametersAgentType_MIN, false, gizclaw_rpc_v1_PetConversationParameters_init_default, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, gizclaw_rpc_v1_PetPersonaParameters_init_default, false, gizclaw_rpc_v1_PetVoiceParameters_init_default}
-#define gizclaw_rpc_v1_GeminiCredentialBody_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_GeminiTenantModelProviderData_init_default {{{NULL}, NULL}}
-#define gizclaw_rpc_v1_GeminiTenantVoiceProviderData_init_default {false, google_protobuf_Struct_init_default, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_MiniMaxCredentialBody_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_MiniMaxTenantVoiceProviderData_init_default {{{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_default, false, 0, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_Model_init_default        {false, gizclaw_rpc_v1_ModelCapabilities_init_default, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_ModelKind_MIN, {{NULL}, NULL}, false, gizclaw_rpc_v1_ModelProvider_init_default, false, gizclaw_rpc_v1_ModelProviderData_init_default, _gizclaw_rpc_v1_ModelSource_MIN, {{NULL}, NULL}, {{NULL}, NULL}, false, ""}
+#define gizclaw_rpc_v1_Model_init_default        {{{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_ModelKind_MIN, false, gizclaw_rpc_v1_ModelCapabilities_init_default}
+#define gizclaw_rpc_v1_Model_I18nEntry_init_default {{{NULL}, NULL}, false, gizclaw_rpc_v1_AliasI18nText_init_default}
 #define gizclaw_rpc_v1_ModelCapabilities_init_default {false, 0, false, 0, false, 0, false, 0, false, gizclaw_rpc_v1_ModelThinkingCapability_init_default, false, 0}
-#define gizclaw_rpc_v1_ModelCreateRequest_init_default {false, gizclaw_rpc_v1_Model_init_default}
-#define gizclaw_rpc_v1_ModelCreateResponse_init_default {false, gizclaw_rpc_v1_Model_init_default}
-#define gizclaw_rpc_v1_ModelDeleteRequest_init_default {{{NULL}, NULL}}
-#define gizclaw_rpc_v1_ModelDeleteResponse_init_default {false, gizclaw_rpc_v1_Model_init_default}
 #define gizclaw_rpc_v1_ModelGetRequest_init_default {{{NULL}, NULL}}
-#define gizclaw_rpc_v1_ModelGetResponse_init_default {false, gizclaw_rpc_v1_Model_init_default}
+#define gizclaw_rpc_v1_ModelGetResponse_init_default {false, gizclaw_rpc_v1_Model_init_default, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ModelListRequest_init_default {{{NULL}, NULL}, false, 0}
-#define gizclaw_rpc_v1_ModelListResponse_init_default {0, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_ModelProvider_init_default {_gizclaw_rpc_v1_ModelProviderKind_MIN, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_ModelProviderData_init_default {0, {gizclaw_rpc_v1_GeminiTenantModelProviderData_init_default}}
-#define gizclaw_rpc_v1_ModelPutRequest_init_default {false, gizclaw_rpc_v1_Model_init_default, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_ModelPutResponse_init_default {false, gizclaw_rpc_v1_Model_init_default}
+#define gizclaw_rpc_v1_ModelListResponse_init_default {0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ModelThinkingCapability_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, 0}
-#define gizclaw_rpc_v1_OpenAICredentialBody_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_OpenAITenantModelProviderData_init_default {{{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0}
-#define gizclaw_rpc_v1_OpenAITenantVoiceProviderData_init_default {false, google_protobuf_Struct_init_default, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_Voice_init_default        {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_VoiceProvider_init_default, false, gizclaw_rpc_v1_VoiceProviderData_init_default, _gizclaw_rpc_v1_VoiceSource_MIN, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_Voice_init_default        {{{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_Voice_I18nEntry_init_default {{{NULL}, NULL}, false, gizclaw_rpc_v1_AliasI18nText_init_default}
 #define gizclaw_rpc_v1_VoiceGetRequest_init_default {{{NULL}, NULL}}
-#define gizclaw_rpc_v1_VoiceGetResponse_init_default {false, gizclaw_rpc_v1_Voice_init_default}
+#define gizclaw_rpc_v1_VoiceGetResponse_init_default {false, gizclaw_rpc_v1_Voice_init_default, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_VoiceListRequest_init_default {{{NULL}, NULL}, false, 0}
-#define gizclaw_rpc_v1_VoiceListResponse_init_default {0, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_VoiceProvider_init_default {_gizclaw_rpc_v1_VoiceProviderKind_MIN, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_VoiceProviderData_init_default {0, {gizclaw_rpc_v1_GeminiTenantVoiceProviderData_init_default}}
-#define gizclaw_rpc_v1_VolcCredentialBody_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_VolcTenantModelProviderData_init_default {false, _gizclaw_rpc_v1_VolcTenantModelProviderDataApiMode_MIN, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0}
-#define gizclaw_rpc_v1_VolcTenantVoiceProviderData_init_default {false, google_protobuf_Struct_init_default, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_Workflow_init_default     {{{NULL}, NULL}, false, gizclaw_rpc_v1_WorkflowSpec_init_default, false, ""}
-#define gizclaw_rpc_v1_WorkflowUpsert_init_default {{{NULL}, NULL}, false, gizclaw_rpc_v1_WorkflowSpec_init_default}
-#define gizclaw_rpc_v1_WorkflowCreateRequest_init_default {_gizclaw_rpc_v1_ResourceSource_MIN, false, gizclaw_rpc_v1_WorkflowUpsert_init_default}
-#define gizclaw_rpc_v1_WorkflowCreateResponse_init_default {false, gizclaw_rpc_v1_Workflow_init_default}
-#define gizclaw_rpc_v1_WorkflowDeleteRequest_init_default {{{NULL}, NULL}, _gizclaw_rpc_v1_ResourceSource_MIN}
-#define gizclaw_rpc_v1_WorkflowDeleteResponse_init_default {false, gizclaw_rpc_v1_Workflow_init_default}
-#define gizclaw_rpc_v1_WorkflowGetRequest_init_default {{{NULL}, NULL}, _gizclaw_rpc_v1_ResourceSource_MIN}
-#define gizclaw_rpc_v1_WorkflowGetResponse_init_default {false, gizclaw_rpc_v1_Workflow_init_default}
-#define gizclaw_rpc_v1_WorkflowListRequest_init_default {{{NULL}, NULL}, false, 0, _gizclaw_rpc_v1_ResourceSource_MIN}
-#define gizclaw_rpc_v1_WorkflowListResponse_init_default {0, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_WorkflowPutRequest_init_default {{{NULL}, NULL}, false, gizclaw_rpc_v1_WorkflowUpsert_init_default, _gizclaw_rpc_v1_ResourceSource_MIN}
-#define gizclaw_rpc_v1_WorkflowPutResponse_init_default {false, gizclaw_rpc_v1_Workflow_init_default}
+#define gizclaw_rpc_v1_VoiceListResponse_init_default {0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_Workflow_init_default     {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_WorkflowDriver_MIN, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_Workflow_I18nEntry_init_default {{{NULL}, NULL}, false, gizclaw_rpc_v1_AliasI18nText_init_default}
+#define gizclaw_rpc_v1_WorkflowGetRequest_init_default {{{NULL}, NULL}}
+#define gizclaw_rpc_v1_WorkflowGetResponse_init_default {false, gizclaw_rpc_v1_Workflow_init_default, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_WorkflowListRequest_init_default {{{NULL}, NULL}, false, 0, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_WorkflowListResponse_init_default {0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolkitPolicyToolIds_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolkitPolicy_init_default {false, gizclaw_rpc_v1_ToolkitPolicyToolIds_init_default}
-#define gizclaw_rpc_v1_WorkflowSpec_init_default {false, gizclaw_rpc_v1_ASTTranslateWorkflowSpec_init_default, false, gizclaw_rpc_v1_ChatRoomWorkflowSpec_init_default, false, gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_init_default, _gizclaw_rpc_v1_WorkflowDriver_MIN, false, gizclaw_rpc_v1_FlowcraftWorkflowSpec_init_default, false, gizclaw_rpc_v1_ToolkitPolicy_init_default, false, gizclaw_rpc_v1_PetWorkflowSpec_init_default}
-#define gizclaw_rpc_v1_ToolExecutor_init_default {_gizclaw_rpc_v1_ToolExecutorKind_MIN, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_default}
-#define gizclaw_rpc_v1_ToolTriggerExample_init_default {{{NULL}, NULL}, false, google_protobuf_Struct_init_default, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_ToolTrigger_init_default  {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_default}
-#define gizclaw_rpc_v1_Tool_init_default         {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_ToolSource_MIN, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_default, false, google_protobuf_Struct_init_default, {{NULL}, NULL}, false, gizclaw_rpc_v1_ToolExecutor_init_default, false, google_protobuf_Struct_init_default, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_Tool_init_default         {{{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_default, false, google_protobuf_Struct_init_default}
+#define gizclaw_rpc_v1_Tool_I18nEntry_init_default {{{NULL}, NULL}, false, gizclaw_rpc_v1_AliasI18nText_init_default}
 #define gizclaw_rpc_v1_ToolListRequest_init_default {{{NULL}, NULL}, false, 0}
-#define gizclaw_rpc_v1_ToolListResponse_init_default {{{NULL}, NULL}, 0, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_ToolListResponse_init_default {{{NULL}, NULL}, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolGetRequest_init_default {{{NULL}, NULL}}
-#define gizclaw_rpc_v1_ToolGetResponse_init_default {false, gizclaw_rpc_v1_Tool_init_default}
-#define gizclaw_rpc_v1_ToolCreateRequest_init_default {false, gizclaw_rpc_v1_Tool_init_default}
-#define gizclaw_rpc_v1_ToolCreateResponse_init_default {false, gizclaw_rpc_v1_Tool_init_default}
-#define gizclaw_rpc_v1_ToolPutRequest_init_default {{{NULL}, NULL}, false, gizclaw_rpc_v1_Tool_init_default}
-#define gizclaw_rpc_v1_ToolPutResponse_init_default {false, gizclaw_rpc_v1_Tool_init_default}
-#define gizclaw_rpc_v1_ToolDeleteRequest_init_default {{{NULL}, NULL}}
-#define gizclaw_rpc_v1_ToolDeleteResponse_init_default {false, gizclaw_rpc_v1_Tool_init_default}
+#define gizclaw_rpc_v1_ToolGetResponse_init_default {false, gizclaw_rpc_v1_Tool_init_default, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolInvokeRequest_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_default}
 #define gizclaw_rpc_v1_ToolInvokeResponse_init_default {{{NULL}, NULL}}
+#define gizclaw_rpc_v1_AliasI18nText_init_zero   {{{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_SpeechTranscribeRequest_init_zero {"", "", false, ""}
+#define gizclaw_rpc_v1_SpeechTranscribeResponse_init_zero {""}
+#define gizclaw_rpc_v1_SpeechSynthesizeRequest_init_zero {"", "", 0, {"", "", "", "", "", "", "", ""}}
+#define gizclaw_rpc_v1_SpeechSynthesizeResponse_init_zero {"", false, 0, false, 0}
 #define gizclaw_rpc_v1_ASTTranslateExternalVoiceParameters_init_zero {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ASTTranslateInternalSpeakerParameters_init_zero {false, 0, {{NULL}, NULL}, false, 0, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ASTTranslateVoiceParameters_init_zero {0, {gizclaw_rpc_v1_ASTTranslateInternalSpeakerParameters_init_zero}}
-#define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_init_zero {false, 0, false, 0, false, 0, false, _gizclaw_rpc_v1_ASTTranslateMode_MIN, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_ASTTranslateVoiceParameters_init_zero}
-#define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_init_zero {_gizclaw_rpc_v1_ASTTranslateWorkspaceParametersAgentType_MIN, false, 0, false, 0, false, 0, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, 0, {{NULL}, NULL}, false, _gizclaw_rpc_v1_ASTTranslateMode_MIN, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_ASTTranslateVoiceParameters_init_zero}
+#define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_init_zero {false, 0, false, 0, false, _gizclaw_rpc_v1_ASTTranslateMode_MIN, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_ASTTranslateVoiceParameters_init_zero, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_init_zero {_gizclaw_rpc_v1_ASTTranslateWorkspaceParametersAgentType_MIN, false, 0, false, 0, false, 0, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, {{NULL}, NULL}, false, _gizclaw_rpc_v1_ASTTranslateMode_MIN, {{NULL}, NULL}, false, gizclaw_rpc_v1_ASTTranslateVoiceParameters_init_zero}
 #define gizclaw_rpc_v1_ChatRoomWorkflowHistorySpec_init_zero {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ChatRoomWorkflowSpec_init_zero {false, gizclaw_rpc_v1_ChatRoomWorkflowHistorySpec_init_zero, false, gizclaw_rpc_v1_ChatRoomWorkflowTranscriptSpec_init_zero}
 #define gizclaw_rpc_v1_ChatRoomWorkflowTranscriptSpec_init_zero {{{NULL}, NULL}, false, 0}
 #define gizclaw_rpc_v1_ChatRoomWorkspaceHistoryParameters_init_zero {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ChatRoomWorkspaceParameters_init_zero {_gizclaw_rpc_v1_ChatRoomWorkspaceParametersAgentType_MIN, false, gizclaw_rpc_v1_ChatRoomWorkspaceHistoryParameters_init_zero, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, _gizclaw_rpc_v1_ChatRoomMode_MIN, false, gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters_init_zero}
 #define gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters_init_zero {{{NULL}, NULL}, false, 0}
-#define gizclaw_rpc_v1_Credential_init_zero      {false, gizclaw_rpc_v1_CredentialBody_init_zero, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, ""}
-#define gizclaw_rpc_v1_CredentialBody_init_zero  {0, {gizclaw_rpc_v1_OpenAICredentialBody_init_zero}}
-#define gizclaw_rpc_v1_CredentialCreateRequest_init_zero {false, gizclaw_rpc_v1_Credential_init_zero}
-#define gizclaw_rpc_v1_CredentialCreateResponse_init_zero {false, gizclaw_rpc_v1_Credential_init_zero}
-#define gizclaw_rpc_v1_CredentialDeleteRequest_init_zero {{{NULL}, NULL}}
-#define gizclaw_rpc_v1_CredentialDeleteResponse_init_zero {false, gizclaw_rpc_v1_Credential_init_zero}
-#define gizclaw_rpc_v1_CredentialGetRequest_init_zero {{{NULL}, NULL}}
-#define gizclaw_rpc_v1_CredentialGetResponse_init_zero {false, gizclaw_rpc_v1_Credential_init_zero}
-#define gizclaw_rpc_v1_CredentialListRequest_init_zero {{{NULL}, NULL}, false, 0}
-#define gizclaw_rpc_v1_CredentialListResponse_init_zero {0, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_CredentialPutRequest_init_zero {false, gizclaw_rpc_v1_Credential_init_zero, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_CredentialPutResponse_init_zero {false, gizclaw_rpc_v1_Credential_init_zero}
-#define gizclaw_rpc_v1_DashScopeCredentialBody_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_DashScopeTenantModelProviderData_init_zero {false, _gizclaw_rpc_v1_DashScopeTenantModelProviderDataApiMode_MIN, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_DashScopeTenantVoiceProviderData_init_zero {false, google_protobuf_Struct_init_zero, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_DoubaoRealtimeASRContext_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_DoubaoRealtimeASRContext_CorrectWordsEntry_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
@@ -1085,72 +687,50 @@ extern "C" {
 #define gizclaw_rpc_v1_PetVoiceParameters_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PetWorkflowSpec_init_zero {0}
 #define gizclaw_rpc_v1_PetWorkspaceParameters_init_zero {_gizclaw_rpc_v1_PetWorkspaceParametersAgentType_MIN, false, gizclaw_rpc_v1_PetConversationParameters_init_zero, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, gizclaw_rpc_v1_PetPersonaParameters_init_zero, false, gizclaw_rpc_v1_PetVoiceParameters_init_zero}
-#define gizclaw_rpc_v1_GeminiCredentialBody_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_GeminiTenantModelProviderData_init_zero {{{NULL}, NULL}}
-#define gizclaw_rpc_v1_GeminiTenantVoiceProviderData_init_zero {false, google_protobuf_Struct_init_zero, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_MiniMaxCredentialBody_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_MiniMaxTenantVoiceProviderData_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_zero, false, 0, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_Model_init_zero           {false, gizclaw_rpc_v1_ModelCapabilities_init_zero, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_ModelKind_MIN, {{NULL}, NULL}, false, gizclaw_rpc_v1_ModelProvider_init_zero, false, gizclaw_rpc_v1_ModelProviderData_init_zero, _gizclaw_rpc_v1_ModelSource_MIN, {{NULL}, NULL}, {{NULL}, NULL}, false, ""}
+#define gizclaw_rpc_v1_Model_init_zero           {{{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_ModelKind_MIN, false, gizclaw_rpc_v1_ModelCapabilities_init_zero}
+#define gizclaw_rpc_v1_Model_I18nEntry_init_zero {{{NULL}, NULL}, false, gizclaw_rpc_v1_AliasI18nText_init_zero}
 #define gizclaw_rpc_v1_ModelCapabilities_init_zero {false, 0, false, 0, false, 0, false, 0, false, gizclaw_rpc_v1_ModelThinkingCapability_init_zero, false, 0}
-#define gizclaw_rpc_v1_ModelCreateRequest_init_zero {false, gizclaw_rpc_v1_Model_init_zero}
-#define gizclaw_rpc_v1_ModelCreateResponse_init_zero {false, gizclaw_rpc_v1_Model_init_zero}
-#define gizclaw_rpc_v1_ModelDeleteRequest_init_zero {{{NULL}, NULL}}
-#define gizclaw_rpc_v1_ModelDeleteResponse_init_zero {false, gizclaw_rpc_v1_Model_init_zero}
 #define gizclaw_rpc_v1_ModelGetRequest_init_zero {{{NULL}, NULL}}
-#define gizclaw_rpc_v1_ModelGetResponse_init_zero {false, gizclaw_rpc_v1_Model_init_zero}
+#define gizclaw_rpc_v1_ModelGetResponse_init_zero {false, gizclaw_rpc_v1_Model_init_zero, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ModelListRequest_init_zero {{{NULL}, NULL}, false, 0}
-#define gizclaw_rpc_v1_ModelListResponse_init_zero {0, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_ModelProvider_init_zero   {_gizclaw_rpc_v1_ModelProviderKind_MIN, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_ModelProviderData_init_zero {0, {gizclaw_rpc_v1_GeminiTenantModelProviderData_init_zero}}
-#define gizclaw_rpc_v1_ModelPutRequest_init_zero {false, gizclaw_rpc_v1_Model_init_zero, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_ModelPutResponse_init_zero {false, gizclaw_rpc_v1_Model_init_zero}
+#define gizclaw_rpc_v1_ModelListResponse_init_zero {0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ModelThinkingCapability_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, 0}
-#define gizclaw_rpc_v1_OpenAICredentialBody_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_OpenAITenantModelProviderData_init_zero {{{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0}
-#define gizclaw_rpc_v1_OpenAITenantVoiceProviderData_init_zero {false, google_protobuf_Struct_init_zero, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_Voice_init_zero           {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_VoiceProvider_init_zero, false, gizclaw_rpc_v1_VoiceProviderData_init_zero, _gizclaw_rpc_v1_VoiceSource_MIN, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_Voice_init_zero           {{{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_Voice_I18nEntry_init_zero {{{NULL}, NULL}, false, gizclaw_rpc_v1_AliasI18nText_init_zero}
 #define gizclaw_rpc_v1_VoiceGetRequest_init_zero {{{NULL}, NULL}}
-#define gizclaw_rpc_v1_VoiceGetResponse_init_zero {false, gizclaw_rpc_v1_Voice_init_zero}
+#define gizclaw_rpc_v1_VoiceGetResponse_init_zero {false, gizclaw_rpc_v1_Voice_init_zero, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_VoiceListRequest_init_zero {{{NULL}, NULL}, false, 0}
-#define gizclaw_rpc_v1_VoiceListResponse_init_zero {0, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_VoiceProvider_init_zero   {_gizclaw_rpc_v1_VoiceProviderKind_MIN, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_VoiceProviderData_init_zero {0, {gizclaw_rpc_v1_GeminiTenantVoiceProviderData_init_zero}}
-#define gizclaw_rpc_v1_VolcCredentialBody_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_VolcTenantModelProviderData_init_zero {false, _gizclaw_rpc_v1_VolcTenantModelProviderDataApiMode_MIN, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0}
-#define gizclaw_rpc_v1_VolcTenantVoiceProviderData_init_zero {false, google_protobuf_Struct_init_zero, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_Workflow_init_zero        {{{NULL}, NULL}, false, gizclaw_rpc_v1_WorkflowSpec_init_zero, false, ""}
-#define gizclaw_rpc_v1_WorkflowUpsert_init_zero  {{{NULL}, NULL}, false, gizclaw_rpc_v1_WorkflowSpec_init_zero}
-#define gizclaw_rpc_v1_WorkflowCreateRequest_init_zero {_gizclaw_rpc_v1_ResourceSource_MIN, false, gizclaw_rpc_v1_WorkflowUpsert_init_zero}
-#define gizclaw_rpc_v1_WorkflowCreateResponse_init_zero {false, gizclaw_rpc_v1_Workflow_init_zero}
-#define gizclaw_rpc_v1_WorkflowDeleteRequest_init_zero {{{NULL}, NULL}, _gizclaw_rpc_v1_ResourceSource_MIN}
-#define gizclaw_rpc_v1_WorkflowDeleteResponse_init_zero {false, gizclaw_rpc_v1_Workflow_init_zero}
-#define gizclaw_rpc_v1_WorkflowGetRequest_init_zero {{{NULL}, NULL}, _gizclaw_rpc_v1_ResourceSource_MIN}
-#define gizclaw_rpc_v1_WorkflowGetResponse_init_zero {false, gizclaw_rpc_v1_Workflow_init_zero}
-#define gizclaw_rpc_v1_WorkflowListRequest_init_zero {{{NULL}, NULL}, false, 0, _gizclaw_rpc_v1_ResourceSource_MIN}
-#define gizclaw_rpc_v1_WorkflowListResponse_init_zero {0, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_WorkflowPutRequest_init_zero {{{NULL}, NULL}, false, gizclaw_rpc_v1_WorkflowUpsert_init_zero, _gizclaw_rpc_v1_ResourceSource_MIN}
-#define gizclaw_rpc_v1_WorkflowPutResponse_init_zero {false, gizclaw_rpc_v1_Workflow_init_zero}
+#define gizclaw_rpc_v1_VoiceListResponse_init_zero {0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_Workflow_init_zero        {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_WorkflowDriver_MIN, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_Workflow_I18nEntry_init_zero {{{NULL}, NULL}, false, gizclaw_rpc_v1_AliasI18nText_init_zero}
+#define gizclaw_rpc_v1_WorkflowGetRequest_init_zero {{{NULL}, NULL}}
+#define gizclaw_rpc_v1_WorkflowGetResponse_init_zero {false, gizclaw_rpc_v1_Workflow_init_zero, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_WorkflowListRequest_init_zero {{{NULL}, NULL}, false, 0, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_WorkflowListResponse_init_zero {0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolkitPolicyToolIds_init_zero {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolkitPolicy_init_zero   {false, gizclaw_rpc_v1_ToolkitPolicyToolIds_init_zero}
-#define gizclaw_rpc_v1_WorkflowSpec_init_zero    {false, gizclaw_rpc_v1_ASTTranslateWorkflowSpec_init_zero, false, gizclaw_rpc_v1_ChatRoomWorkflowSpec_init_zero, false, gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_init_zero, _gizclaw_rpc_v1_WorkflowDriver_MIN, false, gizclaw_rpc_v1_FlowcraftWorkflowSpec_init_zero, false, gizclaw_rpc_v1_ToolkitPolicy_init_zero, false, gizclaw_rpc_v1_PetWorkflowSpec_init_zero}
-#define gizclaw_rpc_v1_ToolExecutor_init_zero    {_gizclaw_rpc_v1_ToolExecutorKind_MIN, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_zero}
-#define gizclaw_rpc_v1_ToolTriggerExample_init_zero {{{NULL}, NULL}, false, google_protobuf_Struct_init_zero, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_ToolTrigger_init_zero     {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_zero}
-#define gizclaw_rpc_v1_Tool_init_zero            {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_ToolSource_MIN, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_zero, false, google_protobuf_Struct_init_zero, {{NULL}, NULL}, false, gizclaw_rpc_v1_ToolExecutor_init_zero, false, google_protobuf_Struct_init_zero, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_Tool_init_zero            {{{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_zero, false, google_protobuf_Struct_init_zero}
+#define gizclaw_rpc_v1_Tool_I18nEntry_init_zero  {{{NULL}, NULL}, false, gizclaw_rpc_v1_AliasI18nText_init_zero}
 #define gizclaw_rpc_v1_ToolListRequest_init_zero {{{NULL}, NULL}, false, 0}
-#define gizclaw_rpc_v1_ToolListResponse_init_zero {{{NULL}, NULL}, 0, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_ToolListResponse_init_zero {{{NULL}, NULL}, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolGetRequest_init_zero  {{{NULL}, NULL}}
-#define gizclaw_rpc_v1_ToolGetResponse_init_zero {false, gizclaw_rpc_v1_Tool_init_zero}
-#define gizclaw_rpc_v1_ToolCreateRequest_init_zero {false, gizclaw_rpc_v1_Tool_init_zero}
-#define gizclaw_rpc_v1_ToolCreateResponse_init_zero {false, gizclaw_rpc_v1_Tool_init_zero}
-#define gizclaw_rpc_v1_ToolPutRequest_init_zero  {{{NULL}, NULL}, false, gizclaw_rpc_v1_Tool_init_zero}
-#define gizclaw_rpc_v1_ToolPutResponse_init_zero {false, gizclaw_rpc_v1_Tool_init_zero}
-#define gizclaw_rpc_v1_ToolDeleteRequest_init_zero {{{NULL}, NULL}}
-#define gizclaw_rpc_v1_ToolDeleteResponse_init_zero {false, gizclaw_rpc_v1_Tool_init_zero}
+#define gizclaw_rpc_v1_ToolGetResponse_init_zero {false, gizclaw_rpc_v1_Tool_init_zero, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolInvokeRequest_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_zero}
 #define gizclaw_rpc_v1_ToolInvokeResponse_init_zero {{{NULL}, NULL}}
 
 /* Field tags (for use in manual encoding/decoding) */
+#define gizclaw_rpc_v1_AliasI18nText_display_name_tag 1
+#define gizclaw_rpc_v1_AliasI18nText_description_tag 2
+#define gizclaw_rpc_v1_SpeechTranscribeRequest_model_alias_tag 1
+#define gizclaw_rpc_v1_SpeechTranscribeRequest_content_type_tag 2
+#define gizclaw_rpc_v1_SpeechTranscribeRequest_language_tag 3
+#define gizclaw_rpc_v1_SpeechTranscribeResponse_transcript_tag 1
+#define gizclaw_rpc_v1_SpeechSynthesizeRequest_voice_alias_tag 1
+#define gizclaw_rpc_v1_SpeechSynthesizeRequest_text_tag 2
+#define gizclaw_rpc_v1_SpeechSynthesizeRequest_accepted_content_types_tag 3
+#define gizclaw_rpc_v1_SpeechSynthesizeResponse_content_type_tag 1
+#define gizclaw_rpc_v1_SpeechSynthesizeResponse_sample_rate_hz_tag 2
+#define gizclaw_rpc_v1_SpeechSynthesizeResponse_channels_tag 3
 #define gizclaw_rpc_v1_ASTTranslateExternalVoiceParameters_tts_voice_tag 1
 #define gizclaw_rpc_v1_ASTTranslateInternalSpeakerParameters_is_custom_speaker_tag 1
 #define gizclaw_rpc_v1_ASTTranslateInternalSpeakerParameters_speaker_id_tag 2
@@ -1160,27 +740,20 @@ extern "C" {
 #define gizclaw_rpc_v1_ASTTranslateVoiceParameters_asttranslate_external_voice_parameters_tag 2
 #define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_denoise_tag 1
 #define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_enable_source_language_detect_tag 2
-#define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_is_custom_speaker_tag 3
-#define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_mode_tag 4
-#define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_resource_id_tag 5
-#define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_speaker_id_tag 6
-#define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_speech_rate_tag 7
-#define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_translation_model_tag 8
-#define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_tts_resource_id_tag 9
-#define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_voice_tag 10
+#define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_mode_tag 3
+#define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_resource_id_tag 4
+#define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_translation_model_tag 5
+#define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_voice_tag 6
+#define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_lang_pair_tag 7
 #define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_agent_type_tag 1
 #define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_denoise_tag 2
 #define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_e2e_tag 3
 #define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_enable_source_language_detect_tag 4
 #define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_input_tag 5
-#define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_is_custom_speaker_tag 6
-#define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_lang_pair_tag 7
-#define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_mode_tag 8
-#define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_speaker_id_tag 9
-#define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_speech_rate_tag 10
-#define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_translation_model_tag 11
-#define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_tts_resource_id_tag 12
-#define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_voice_tag 13
+#define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_lang_pair_tag 6
+#define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_mode_tag 7
+#define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_translation_model_tag 8
+#define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_voice_tag 9
 #define gizclaw_rpc_v1_ChatRoomWorkflowHistorySpec_ttl_tag 1
 #define gizclaw_rpc_v1_ChatRoomWorkflowTranscriptSpec_asr_model_tag 1
 #define gizclaw_rpc_v1_ChatRoomWorkflowTranscriptSpec_enabled_tag 2
@@ -1194,20 +767,6 @@ extern "C" {
 #define gizclaw_rpc_v1_ChatRoomWorkspaceParameters_input_tag 3
 #define gizclaw_rpc_v1_ChatRoomWorkspaceParameters_mode_tag 4
 #define gizclaw_rpc_v1_ChatRoomWorkspaceParameters_transcript_tag 5
-#define gizclaw_rpc_v1_CredentialDeleteRequest_name_tag 1
-#define gizclaw_rpc_v1_CredentialGetRequest_name_tag 1
-#define gizclaw_rpc_v1_CredentialListRequest_cursor_tag 1
-#define gizclaw_rpc_v1_CredentialListRequest_limit_tag 2
-#define gizclaw_rpc_v1_CredentialListResponse_has_next_tag 1
-#define gizclaw_rpc_v1_CredentialListResponse_items_tag 2
-#define gizclaw_rpc_v1_CredentialListResponse_next_cursor_tag 3
-#define gizclaw_rpc_v1_DashScopeCredentialBody_api_key_tag 1
-#define gizclaw_rpc_v1_DashScopeCredentialBody_base_url_tag 2
-#define gizclaw_rpc_v1_DashScopeCredentialBody_token_tag 3
-#define gizclaw_rpc_v1_DashScopeTenantModelProviderData_api_mode_tag 1
-#define gizclaw_rpc_v1_DashScopeTenantModelProviderData_upstream_model_tag 2
-#define gizclaw_rpc_v1_DashScopeTenantVoiceProviderData_raw_tag 1
-#define gizclaw_rpc_v1_DashScopeTenantVoiceProviderData_voice_id_tag 2
 #define gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata_content_producer_tag 1
 #define gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata_content_propagator_tag 2
 #define gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata_enable_tag 3
@@ -1306,32 +865,16 @@ extern "C" {
 #define gizclaw_rpc_v1_PetWorkspaceParameters_input_tag 3
 #define gizclaw_rpc_v1_PetWorkspaceParameters_persona_tag 4
 #define gizclaw_rpc_v1_PetWorkspaceParameters_voice_tag 5
-#define gizclaw_rpc_v1_GeminiCredentialBody_api_key_tag 1
-#define gizclaw_rpc_v1_GeminiCredentialBody_base_url_tag 2
-#define gizclaw_rpc_v1_GeminiCredentialBody_token_tag 3
-#define gizclaw_rpc_v1_GeminiTenantModelProviderData_upstream_model_tag 1
-#define gizclaw_rpc_v1_GeminiTenantVoiceProviderData_raw_tag 1
-#define gizclaw_rpc_v1_GeminiTenantVoiceProviderData_voice_id_tag 2
-#define gizclaw_rpc_v1_MiniMaxCredentialBody_api_key_tag 1
-#define gizclaw_rpc_v1_MiniMaxCredentialBody_base_url_tag 2
-#define gizclaw_rpc_v1_MiniMaxCredentialBody_minimax_voice_base_url_tag 3
-#define gizclaw_rpc_v1_MiniMaxCredentialBody_token_tag 4
-#define gizclaw_rpc_v1_MiniMaxCredentialBody_voice_base_url_tag 5
-#define gizclaw_rpc_v1_MiniMaxTenantVoiceProviderData_format_tag 1
-#define gizclaw_rpc_v1_MiniMaxTenantVoiceProviderData_model_tag 2
-#define gizclaw_rpc_v1_MiniMaxTenantVoiceProviderData_raw_tag 3
-#define gizclaw_rpc_v1_MiniMaxTenantVoiceProviderData_sample_rate_tag 4
-#define gizclaw_rpc_v1_MiniMaxTenantVoiceProviderData_voice_id_tag 5
-#define gizclaw_rpc_v1_MiniMaxTenantVoiceProviderData_voice_type_tag 6
-#define gizclaw_rpc_v1_ModelDeleteRequest_id_tag 1
-#define gizclaw_rpc_v1_ModelGetRequest_id_tag    1
+#define gizclaw_rpc_v1_Model_I18nEntry_key_tag   1
+#define gizclaw_rpc_v1_Model_I18nEntry_value_tag 2
+#define gizclaw_rpc_v1_ModelGetRequest_alias_tag 1
 #define gizclaw_rpc_v1_ModelListRequest_cursor_tag 1
 #define gizclaw_rpc_v1_ModelListRequest_limit_tag 2
 #define gizclaw_rpc_v1_ModelListResponse_has_next_tag 1
 #define gizclaw_rpc_v1_ModelListResponse_items_tag 2
 #define gizclaw_rpc_v1_ModelListResponse_next_cursor_tag 3
-#define gizclaw_rpc_v1_ModelProvider_kind_tag    1
-#define gizclaw_rpc_v1_ModelProvider_name_tag    2
+#define gizclaw_rpc_v1_ModelListResponse_runtime_profile_name_tag 4
+#define gizclaw_rpc_v1_ModelListResponse_runtime_profile_revision_tag 5
 #define gizclaw_rpc_v1_ModelThinkingCapability_default_level_tag 1
 #define gizclaw_rpc_v1_ModelThinkingCapability_level_param_tag 2
 #define gizclaw_rpc_v1_ModelThinkingCapability_levels_tag 3
@@ -1343,186 +886,66 @@ extern "C" {
 #define gizclaw_rpc_v1_ModelCapabilities_text_only_tag 4
 #define gizclaw_rpc_v1_ModelCapabilities_thinking_tag 5
 #define gizclaw_rpc_v1_ModelCapabilities_tool_calls_tag 6
-#define gizclaw_rpc_v1_OpenAICredentialBody_api_key_tag 1
-#define gizclaw_rpc_v1_OpenAICredentialBody_base_url_tag 2
-#define gizclaw_rpc_v1_OpenAICredentialBody_organization_tag 3
-#define gizclaw_rpc_v1_OpenAICredentialBody_project_tag 4
-#define gizclaw_rpc_v1_OpenAICredentialBody_token_tag 5
-#define gizclaw_rpc_v1_OpenAITenantModelProviderData_default_thinking_level_tag 1
-#define gizclaw_rpc_v1_OpenAITenantModelProviderData_support_json_output_tag 2
-#define gizclaw_rpc_v1_OpenAITenantModelProviderData_support_text_only_tag 3
-#define gizclaw_rpc_v1_OpenAITenantModelProviderData_support_thinking_tag 4
-#define gizclaw_rpc_v1_OpenAITenantModelProviderData_support_tool_calls_tag 5
-#define gizclaw_rpc_v1_OpenAITenantModelProviderData_thinking_level_param_tag 6
-#define gizclaw_rpc_v1_OpenAITenantModelProviderData_thinking_levels_tag 7
-#define gizclaw_rpc_v1_OpenAITenantModelProviderData_thinking_param_tag 8
-#define gizclaw_rpc_v1_OpenAITenantModelProviderData_upstream_model_tag 9
-#define gizclaw_rpc_v1_OpenAITenantModelProviderData_use_system_role_tag 10
-#define gizclaw_rpc_v1_OpenAITenantVoiceProviderData_raw_tag 1
-#define gizclaw_rpc_v1_OpenAITenantVoiceProviderData_voice_id_tag 2
-#define gizclaw_rpc_v1_VoiceGetRequest_id_tag    1
+#define gizclaw_rpc_v1_Model_alias_tag           1
+#define gizclaw_rpc_v1_Model_i18n_tag            2
+#define gizclaw_rpc_v1_Model_kind_tag            3
+#define gizclaw_rpc_v1_Model_capabilities_tag    4
+#define gizclaw_rpc_v1_ModelGetResponse_value_tag 1
+#define gizclaw_rpc_v1_ModelGetResponse_runtime_profile_name_tag 2
+#define gizclaw_rpc_v1_ModelGetResponse_runtime_profile_revision_tag 3
+#define gizclaw_rpc_v1_Voice_alias_tag           1
+#define gizclaw_rpc_v1_Voice_i18n_tag            2
+#define gizclaw_rpc_v1_Voice_I18nEntry_key_tag   1
+#define gizclaw_rpc_v1_Voice_I18nEntry_value_tag 2
+#define gizclaw_rpc_v1_VoiceGetRequest_alias_tag 1
+#define gizclaw_rpc_v1_VoiceGetResponse_value_tag 1
+#define gizclaw_rpc_v1_VoiceGetResponse_runtime_profile_name_tag 2
+#define gizclaw_rpc_v1_VoiceGetResponse_runtime_profile_revision_tag 3
 #define gizclaw_rpc_v1_VoiceListRequest_cursor_tag 1
 #define gizclaw_rpc_v1_VoiceListRequest_limit_tag 2
 #define gizclaw_rpc_v1_VoiceListResponse_has_next_tag 1
 #define gizclaw_rpc_v1_VoiceListResponse_items_tag 2
 #define gizclaw_rpc_v1_VoiceListResponse_next_cursor_tag 3
-#define gizclaw_rpc_v1_VoiceProvider_kind_tag    1
-#define gizclaw_rpc_v1_VoiceProvider_name_tag    2
-#define gizclaw_rpc_v1_VolcCredentialBody_speech_api_key_tag 1
-#define gizclaw_rpc_v1_VolcCredentialBody_speech_app_id_tag 2
-#define gizclaw_rpc_v1_VolcCredentialBody_openapi_access_key_tag 3
-#define gizclaw_rpc_v1_VolcCredentialBody_openapi_access_key_id_tag 4
-#define gizclaw_rpc_v1_VolcCredentialBody_search_api_key_tag 5
-#define gizclaw_rpc_v1_VolcCredentialBody_ark_api_key_tag 6
-#define gizclaw_rpc_v1_CredentialBody_open_aicredential_body_tag 1
-#define gizclaw_rpc_v1_CredentialBody_gemini_credential_body_tag 2
-#define gizclaw_rpc_v1_CredentialBody_dash_scope_credential_body_tag 3
-#define gizclaw_rpc_v1_CredentialBody_mini_max_credential_body_tag 4
-#define gizclaw_rpc_v1_CredentialBody_volc_credential_body_tag 5
-#define gizclaw_rpc_v1_Credential_body_tag       1
-#define gizclaw_rpc_v1_Credential_created_at_tag 2
-#define gizclaw_rpc_v1_Credential_description_tag 3
-#define gizclaw_rpc_v1_Credential_name_tag       4
-#define gizclaw_rpc_v1_Credential_provider_tag   5
-#define gizclaw_rpc_v1_Credential_updated_at_tag 6
-#define gizclaw_rpc_v1_Credential_owner_public_key_tag 7
-#define gizclaw_rpc_v1_CredentialCreateRequest_value_tag 1
-#define gizclaw_rpc_v1_CredentialCreateResponse_value_tag 1
-#define gizclaw_rpc_v1_CredentialDeleteResponse_value_tag 1
-#define gizclaw_rpc_v1_CredentialGetResponse_value_tag 1
-#define gizclaw_rpc_v1_CredentialPutRequest_body_tag 1
-#define gizclaw_rpc_v1_CredentialPutRequest_name_tag 2
-#define gizclaw_rpc_v1_CredentialPutResponse_value_tag 1
-#define gizclaw_rpc_v1_VolcTenantModelProviderData_api_mode_tag 1
-#define gizclaw_rpc_v1_VolcTenantModelProviderData_default_thinking_level_tag 2
-#define gizclaw_rpc_v1_VolcTenantModelProviderData_resource_id_tag 3
-#define gizclaw_rpc_v1_VolcTenantModelProviderData_support_json_output_tag 4
-#define gizclaw_rpc_v1_VolcTenantModelProviderData_support_text_only_tag 5
-#define gizclaw_rpc_v1_VolcTenantModelProviderData_support_thinking_tag 6
-#define gizclaw_rpc_v1_VolcTenantModelProviderData_support_tool_calls_tag 7
-#define gizclaw_rpc_v1_VolcTenantModelProviderData_thinking_level_param_tag 8
-#define gizclaw_rpc_v1_VolcTenantModelProviderData_thinking_levels_tag 9
-#define gizclaw_rpc_v1_VolcTenantModelProviderData_thinking_param_tag 10
-#define gizclaw_rpc_v1_VolcTenantModelProviderData_upstream_model_tag 11
-#define gizclaw_rpc_v1_VolcTenantModelProviderData_use_system_role_tag 12
-#define gizclaw_rpc_v1_ModelProviderData_gemini_tenant_model_provider_data_tag 1
-#define gizclaw_rpc_v1_ModelProviderData_dash_scope_tenant_model_provider_data_tag 2
-#define gizclaw_rpc_v1_ModelProviderData_open_aitenant_model_provider_data_tag 3
-#define gizclaw_rpc_v1_ModelProviderData_volc_tenant_model_provider_data_tag 4
-#define gizclaw_rpc_v1_Model_capabilities_tag    1
-#define gizclaw_rpc_v1_Model_created_at_tag      2
-#define gizclaw_rpc_v1_Model_description_tag     3
-#define gizclaw_rpc_v1_Model_id_tag              4
-#define gizclaw_rpc_v1_Model_kind_tag            5
-#define gizclaw_rpc_v1_Model_name_tag            6
-#define gizclaw_rpc_v1_Model_provider_tag        7
-#define gizclaw_rpc_v1_Model_provider_data_tag   8
-#define gizclaw_rpc_v1_Model_source_tag          9
-#define gizclaw_rpc_v1_Model_synced_at_tag       10
-#define gizclaw_rpc_v1_Model_updated_at_tag      11
-#define gizclaw_rpc_v1_Model_owner_public_key_tag 12
-#define gizclaw_rpc_v1_ModelCreateRequest_value_tag 1
-#define gizclaw_rpc_v1_ModelCreateResponse_value_tag 1
-#define gizclaw_rpc_v1_ModelDeleteResponse_value_tag 1
-#define gizclaw_rpc_v1_ModelGetResponse_value_tag 1
-#define gizclaw_rpc_v1_ModelPutRequest_body_tag  1
-#define gizclaw_rpc_v1_ModelPutRequest_id_tag    2
-#define gizclaw_rpc_v1_ModelPutResponse_value_tag 1
-#define gizclaw_rpc_v1_VolcTenantVoiceProviderData_raw_tag 1
-#define gizclaw_rpc_v1_VolcTenantVoiceProviderData_resource_id_tag 2
-#define gizclaw_rpc_v1_VolcTenantVoiceProviderData_state_tag 3
-#define gizclaw_rpc_v1_VolcTenantVoiceProviderData_status_tag 4
-#define gizclaw_rpc_v1_VolcTenantVoiceProviderData_voice_id_tag 5
-#define gizclaw_rpc_v1_VoiceProviderData_gemini_tenant_voice_provider_data_tag 1
-#define gizclaw_rpc_v1_VoiceProviderData_dash_scope_tenant_voice_provider_data_tag 2
-#define gizclaw_rpc_v1_VoiceProviderData_open_aitenant_voice_provider_data_tag 3
-#define gizclaw_rpc_v1_VoiceProviderData_mini_max_tenant_voice_provider_data_tag 4
-#define gizclaw_rpc_v1_VoiceProviderData_volc_tenant_voice_provider_data_tag 5
-#define gizclaw_rpc_v1_Voice_created_at_tag      1
-#define gizclaw_rpc_v1_Voice_description_tag     2
-#define gizclaw_rpc_v1_Voice_id_tag              3
-#define gizclaw_rpc_v1_Voice_name_tag            4
-#define gizclaw_rpc_v1_Voice_provider_tag        5
-#define gizclaw_rpc_v1_Voice_provider_data_tag   6
-#define gizclaw_rpc_v1_Voice_source_tag          7
-#define gizclaw_rpc_v1_Voice_synced_at_tag       8
-#define gizclaw_rpc_v1_Voice_updated_at_tag      9
-#define gizclaw_rpc_v1_VoiceGetResponse_value_tag 1
-#define gizclaw_rpc_v1_WorkflowDeleteRequest_name_tag 1
-#define gizclaw_rpc_v1_WorkflowDeleteRequest_source_tag 2
-#define gizclaw_rpc_v1_WorkflowGetRequest_name_tag 1
-#define gizclaw_rpc_v1_WorkflowGetRequest_source_tag 3
+#define gizclaw_rpc_v1_VoiceListResponse_runtime_profile_name_tag 4
+#define gizclaw_rpc_v1_VoiceListResponse_runtime_profile_revision_tag 5
+#define gizclaw_rpc_v1_Workflow_alias_tag        1
+#define gizclaw_rpc_v1_Workflow_i18n_tag         2
+#define gizclaw_rpc_v1_Workflow_collection_tag   3
+#define gizclaw_rpc_v1_Workflow_driver_tag       4
+#define gizclaw_rpc_v1_Workflow_workspace_lang_pair_tag 5
+#define gizclaw_rpc_v1_Workflow_I18nEntry_key_tag 1
+#define gizclaw_rpc_v1_Workflow_I18nEntry_value_tag 2
+#define gizclaw_rpc_v1_WorkflowGetRequest_alias_tag 1
+#define gizclaw_rpc_v1_WorkflowGetResponse_value_tag 1
+#define gizclaw_rpc_v1_WorkflowGetResponse_runtime_profile_name_tag 2
+#define gizclaw_rpc_v1_WorkflowGetResponse_runtime_profile_revision_tag 3
 #define gizclaw_rpc_v1_WorkflowListRequest_cursor_tag 1
 #define gizclaw_rpc_v1_WorkflowListRequest_limit_tag 2
-#define gizclaw_rpc_v1_WorkflowListRequest_source_tag 4
+#define gizclaw_rpc_v1_WorkflowListRequest_collection_tag 3
 #define gizclaw_rpc_v1_WorkflowListResponse_has_next_tag 1
 #define gizclaw_rpc_v1_WorkflowListResponse_items_tag 2
 #define gizclaw_rpc_v1_WorkflowListResponse_next_cursor_tag 3
+#define gizclaw_rpc_v1_WorkflowListResponse_runtime_profile_name_tag 4
+#define gizclaw_rpc_v1_WorkflowListResponse_runtime_profile_revision_tag 5
 #define gizclaw_rpc_v1_ToolkitPolicyToolIds_value_tag 1
 #define gizclaw_rpc_v1_ToolkitPolicy_tool_ids_tag 1
-#define gizclaw_rpc_v1_WorkflowSpec_ast_translate_tag 1
-#define gizclaw_rpc_v1_WorkflowSpec_chatroom_tag 2
-#define gizclaw_rpc_v1_WorkflowSpec_doubao_realtime_tag 3
-#define gizclaw_rpc_v1_WorkflowSpec_driver_tag   4
-#define gizclaw_rpc_v1_WorkflowSpec_flowcraft_tag 5
-#define gizclaw_rpc_v1_WorkflowSpec_toolkit_tag  6
-#define gizclaw_rpc_v1_WorkflowSpec_pet_tag      7
-#define gizclaw_rpc_v1_Workflow_name_tag         1
-#define gizclaw_rpc_v1_Workflow_spec_tag         2
-#define gizclaw_rpc_v1_Workflow_owner_public_key_tag 5
-#define gizclaw_rpc_v1_WorkflowUpsert_name_tag   1
-#define gizclaw_rpc_v1_WorkflowUpsert_spec_tag   2
-#define gizclaw_rpc_v1_WorkflowCreateRequest_source_tag 1
-#define gizclaw_rpc_v1_WorkflowCreateRequest_body_tag 2
-#define gizclaw_rpc_v1_WorkflowCreateResponse_value_tag 1
-#define gizclaw_rpc_v1_WorkflowDeleteResponse_value_tag 1
-#define gizclaw_rpc_v1_WorkflowGetResponse_value_tag 1
-#define gizclaw_rpc_v1_WorkflowPutRequest_name_tag 1
-#define gizclaw_rpc_v1_WorkflowPutRequest_body_tag 2
-#define gizclaw_rpc_v1_WorkflowPutRequest_source_tag 3
-#define gizclaw_rpc_v1_WorkflowPutResponse_value_tag 1
-#define gizclaw_rpc_v1_ToolExecutor_kind_tag     1
-#define gizclaw_rpc_v1_ToolExecutor_name_tag     2
-#define gizclaw_rpc_v1_ToolExecutor_method_tag   3
-#define gizclaw_rpc_v1_ToolExecutor_peer_id_tag  4
-#define gizclaw_rpc_v1_ToolExecutor_config_tag   5
-#define gizclaw_rpc_v1_ToolTriggerExample_input_tag 1
-#define gizclaw_rpc_v1_ToolTriggerExample_args_tag 2
-#define gizclaw_rpc_v1_ToolTriggerExample_output_tag 3
-#define gizclaw_rpc_v1_ToolTrigger_name_tag      1
-#define gizclaw_rpc_v1_ToolTrigger_description_tag 2
-#define gizclaw_rpc_v1_ToolTrigger_patterns_tag  3
-#define gizclaw_rpc_v1_ToolTrigger_examples_tag  4
-#define gizclaw_rpc_v1_ToolTrigger_metadata_tag  5
-#define gizclaw_rpc_v1_Tool_id_tag               1
-#define gizclaw_rpc_v1_Tool_name_tag             2
-#define gizclaw_rpc_v1_Tool_description_tag      3
-#define gizclaw_rpc_v1_Tool_source_tag           4
-#define gizclaw_rpc_v1_Tool_enabled_tag          5
-#define gizclaw_rpc_v1_Tool_owner_peer_tag       6
-#define gizclaw_rpc_v1_Tool_version_tag          7
-#define gizclaw_rpc_v1_Tool_input_schema_tag     8
-#define gizclaw_rpc_v1_Tool_output_schema_tag    9
-#define gizclaw_rpc_v1_Tool_triggers_tag         10
-#define gizclaw_rpc_v1_Tool_executor_tag         11
-#define gizclaw_rpc_v1_Tool_metadata_tag         12
-#define gizclaw_rpc_v1_Tool_created_at_tag       13
-#define gizclaw_rpc_v1_Tool_updated_at_tag       14
-#define gizclaw_rpc_v1_Tool_owner_public_key_tag 15
+#define gizclaw_rpc_v1_Tool_alias_tag            1
+#define gizclaw_rpc_v1_Tool_i18n_tag             2
+#define gizclaw_rpc_v1_Tool_input_schema_tag     3
+#define gizclaw_rpc_v1_Tool_output_schema_tag    4
+#define gizclaw_rpc_v1_Tool_I18nEntry_key_tag    1
+#define gizclaw_rpc_v1_Tool_I18nEntry_value_tag  2
 #define gizclaw_rpc_v1_ToolListRequest_cursor_tag 1
 #define gizclaw_rpc_v1_ToolListRequest_limit_tag 2
 #define gizclaw_rpc_v1_ToolListResponse_items_tag 1
 #define gizclaw_rpc_v1_ToolListResponse_has_next_tag 2
 #define gizclaw_rpc_v1_ToolListResponse_next_cursor_tag 3
-#define gizclaw_rpc_v1_ToolGetRequest_id_tag     1
+#define gizclaw_rpc_v1_ToolListResponse_runtime_profile_name_tag 4
+#define gizclaw_rpc_v1_ToolListResponse_runtime_profile_revision_tag 5
+#define gizclaw_rpc_v1_ToolGetRequest_alias_tag  1
 #define gizclaw_rpc_v1_ToolGetResponse_value_tag 1
-#define gizclaw_rpc_v1_ToolCreateRequest_value_tag 1
-#define gizclaw_rpc_v1_ToolCreateResponse_value_tag 1
-#define gizclaw_rpc_v1_ToolPutRequest_id_tag     1
-#define gizclaw_rpc_v1_ToolPutRequest_body_tag   2
-#define gizclaw_rpc_v1_ToolPutResponse_value_tag 1
-#define gizclaw_rpc_v1_ToolDeleteRequest_id_tag  1
-#define gizclaw_rpc_v1_ToolDeleteResponse_value_tag 1
+#define gizclaw_rpc_v1_ToolGetResponse_runtime_profile_name_tag 2
+#define gizclaw_rpc_v1_ToolGetResponse_runtime_profile_revision_tag 3
 #define gizclaw_rpc_v1_ToolInvokeRequest_call_id_tag 1
 #define gizclaw_rpc_v1_ToolInvokeRequest_tool_id_tag 2
 #define gizclaw_rpc_v1_ToolInvokeRequest_method_tag 3
@@ -1530,6 +953,38 @@ extern "C" {
 #define gizclaw_rpc_v1_ToolInvokeResponse_data_json_tag 1
 
 /* Struct field encoding specification for nanopb */
+#define gizclaw_rpc_v1_AliasI18nText_FIELDLIST(X, a) \
+X(a, CALLBACK, SINGULAR, STRING,   display_name,      1) \
+X(a, CALLBACK, OPTIONAL, STRING,   description,       2)
+#define gizclaw_rpc_v1_AliasI18nText_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_AliasI18nText_DEFAULT NULL
+
+#define gizclaw_rpc_v1_SpeechTranscribeRequest_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, STRING,   model_alias,       1) \
+X(a, STATIC,   SINGULAR, STRING,   content_type,      2) \
+X(a, STATIC,   OPTIONAL, STRING,   language,          3)
+#define gizclaw_rpc_v1_SpeechTranscribeRequest_CALLBACK NULL
+#define gizclaw_rpc_v1_SpeechTranscribeRequest_DEFAULT NULL
+
+#define gizclaw_rpc_v1_SpeechTranscribeResponse_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, STRING,   transcript,        1)
+#define gizclaw_rpc_v1_SpeechTranscribeResponse_CALLBACK NULL
+#define gizclaw_rpc_v1_SpeechTranscribeResponse_DEFAULT NULL
+
+#define gizclaw_rpc_v1_SpeechSynthesizeRequest_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, STRING,   voice_alias,       1) \
+X(a, STATIC,   SINGULAR, STRING,   text,              2) \
+X(a, STATIC,   REPEATED, STRING,   accepted_content_types,   3)
+#define gizclaw_rpc_v1_SpeechSynthesizeRequest_CALLBACK NULL
+#define gizclaw_rpc_v1_SpeechSynthesizeRequest_DEFAULT NULL
+
+#define gizclaw_rpc_v1_SpeechSynthesizeResponse_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, STRING,   content_type,      1) \
+X(a, STATIC,   OPTIONAL, INT32,    sample_rate_hz,    2) \
+X(a, STATIC,   OPTIONAL, INT32,    channels,          3)
+#define gizclaw_rpc_v1_SpeechSynthesizeResponse_CALLBACK NULL
+#define gizclaw_rpc_v1_SpeechSynthesizeResponse_DEFAULT NULL
+
 #define gizclaw_rpc_v1_ASTTranslateExternalVoiceParameters_FIELDLIST(X, a) \
 X(a, CALLBACK, SINGULAR, STRING,   tts_voice,         1)
 #define gizclaw_rpc_v1_ASTTranslateExternalVoiceParameters_CALLBACK pb_default_field_callback
@@ -1554,14 +1009,11 @@ X(a, STATIC,   ONEOF,    MESSAGE,  (value,asttranslate_external_voice_parameters
 #define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_FIELDLIST(X, a) \
 X(a, STATIC,   OPTIONAL, BOOL,     denoise,           1) \
 X(a, STATIC,   OPTIONAL, BOOL,     enable_source_language_detect,   2) \
-X(a, STATIC,   OPTIONAL, BOOL,     is_custom_speaker,   3) \
-X(a, STATIC,   OPTIONAL, UENUM,    mode,              4) \
-X(a, CALLBACK, OPTIONAL, STRING,   resource_id,       5) \
-X(a, CALLBACK, OPTIONAL, STRING,   speaker_id,        6) \
-X(a, STATIC,   OPTIONAL, INT64,    speech_rate,       7) \
-X(a, CALLBACK, SINGULAR, STRING,   translation_model,   8) \
-X(a, CALLBACK, OPTIONAL, STRING,   tts_resource_id,   9) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  voice,            10)
+X(a, STATIC,   OPTIONAL, UENUM,    mode,              3) \
+X(a, CALLBACK, OPTIONAL, STRING,   resource_id,       4) \
+X(a, CALLBACK, SINGULAR, STRING,   translation_model,   5) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  voice,             6) \
+X(a, CALLBACK, OPTIONAL, STRING,   lang_pair,         7)
 #define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_DEFAULT NULL
 #define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_voice_MSGTYPE gizclaw_rpc_v1_ASTTranslateVoiceParameters
@@ -1572,14 +1024,10 @@ X(a, STATIC,   OPTIONAL, BOOL,     denoise,           2) \
 X(a, STATIC,   OPTIONAL, BOOL,     e2e,               3) \
 X(a, STATIC,   OPTIONAL, BOOL,     enable_source_language_detect,   4) \
 X(a, STATIC,   OPTIONAL, UENUM,    input,             5) \
-X(a, STATIC,   OPTIONAL, BOOL,     is_custom_speaker,   6) \
-X(a, CALLBACK, OPTIONAL, STRING,   lang_pair,         7) \
-X(a, STATIC,   OPTIONAL, UENUM,    mode,              8) \
-X(a, CALLBACK, OPTIONAL, STRING,   speaker_id,        9) \
-X(a, STATIC,   OPTIONAL, INT64,    speech_rate,      10) \
-X(a, CALLBACK, OPTIONAL, STRING,   translation_model,  11) \
-X(a, CALLBACK, OPTIONAL, STRING,   tts_resource_id,  12) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  voice,            13)
+X(a, CALLBACK, OPTIONAL, STRING,   lang_pair,         6) \
+X(a, STATIC,   OPTIONAL, UENUM,    mode,              7) \
+X(a, CALLBACK, OPTIONAL, STRING,   translation_model,   8) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  voice,             9)
 #define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_DEFAULT NULL
 #define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_voice_MSGTYPE gizclaw_rpc_v1_ASTTranslateVoiceParameters
@@ -1624,113 +1072,6 @@ X(a, CALLBACK, OPTIONAL, STRING,   asr_model,         1) \
 X(a, STATIC,   OPTIONAL, BOOL,     enabled,           2)
 #define gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters_DEFAULT NULL
-
-#define gizclaw_rpc_v1_Credential_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  body,              1) \
-X(a, CALLBACK, SINGULAR, STRING,   created_at,        2) \
-X(a, CALLBACK, OPTIONAL, STRING,   description,       3) \
-X(a, CALLBACK, SINGULAR, STRING,   name,              4) \
-X(a, CALLBACK, SINGULAR, STRING,   provider,          5) \
-X(a, CALLBACK, SINGULAR, STRING,   updated_at,        6) \
-X(a, STATIC,   OPTIONAL, STRING,   owner_public_key,   7)
-#define gizclaw_rpc_v1_Credential_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_Credential_DEFAULT NULL
-#define gizclaw_rpc_v1_Credential_body_MSGTYPE gizclaw_rpc_v1_CredentialBody
-
-#define gizclaw_rpc_v1_CredentialBody_FIELDLIST(X, a) \
-X(a, STATIC,   ONEOF,    MESSAGE,  (value,open_aicredential_body,value.open_aicredential_body),   1) \
-X(a, STATIC,   ONEOF,    MESSAGE,  (value,gemini_credential_body,value.gemini_credential_body),   2) \
-X(a, STATIC,   ONEOF,    MESSAGE,  (value,dash_scope_credential_body,value.dash_scope_credential_body),   3) \
-X(a, STATIC,   ONEOF,    MESSAGE,  (value,mini_max_credential_body,value.mini_max_credential_body),   4) \
-X(a, STATIC,   ONEOF,    MESSAGE,  (value,volc_credential_body,value.volc_credential_body),   5)
-#define gizclaw_rpc_v1_CredentialBody_CALLBACK NULL
-#define gizclaw_rpc_v1_CredentialBody_DEFAULT NULL
-#define gizclaw_rpc_v1_CredentialBody_value_open_aicredential_body_MSGTYPE gizclaw_rpc_v1_OpenAICredentialBody
-#define gizclaw_rpc_v1_CredentialBody_value_gemini_credential_body_MSGTYPE gizclaw_rpc_v1_GeminiCredentialBody
-#define gizclaw_rpc_v1_CredentialBody_value_dash_scope_credential_body_MSGTYPE gizclaw_rpc_v1_DashScopeCredentialBody
-#define gizclaw_rpc_v1_CredentialBody_value_mini_max_credential_body_MSGTYPE gizclaw_rpc_v1_MiniMaxCredentialBody
-#define gizclaw_rpc_v1_CredentialBody_value_volc_credential_body_MSGTYPE gizclaw_rpc_v1_VolcCredentialBody
-
-#define gizclaw_rpc_v1_CredentialCreateRequest_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
-#define gizclaw_rpc_v1_CredentialCreateRequest_CALLBACK NULL
-#define gizclaw_rpc_v1_CredentialCreateRequest_DEFAULT NULL
-#define gizclaw_rpc_v1_CredentialCreateRequest_value_MSGTYPE gizclaw_rpc_v1_Credential
-
-#define gizclaw_rpc_v1_CredentialCreateResponse_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
-#define gizclaw_rpc_v1_CredentialCreateResponse_CALLBACK NULL
-#define gizclaw_rpc_v1_CredentialCreateResponse_DEFAULT NULL
-#define gizclaw_rpc_v1_CredentialCreateResponse_value_MSGTYPE gizclaw_rpc_v1_Credential
-
-#define gizclaw_rpc_v1_CredentialDeleteRequest_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   name,              1)
-#define gizclaw_rpc_v1_CredentialDeleteRequest_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_CredentialDeleteRequest_DEFAULT NULL
-
-#define gizclaw_rpc_v1_CredentialDeleteResponse_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
-#define gizclaw_rpc_v1_CredentialDeleteResponse_CALLBACK NULL
-#define gizclaw_rpc_v1_CredentialDeleteResponse_DEFAULT NULL
-#define gizclaw_rpc_v1_CredentialDeleteResponse_value_MSGTYPE gizclaw_rpc_v1_Credential
-
-#define gizclaw_rpc_v1_CredentialGetRequest_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   name,              1)
-#define gizclaw_rpc_v1_CredentialGetRequest_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_CredentialGetRequest_DEFAULT NULL
-
-#define gizclaw_rpc_v1_CredentialGetResponse_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
-#define gizclaw_rpc_v1_CredentialGetResponse_CALLBACK NULL
-#define gizclaw_rpc_v1_CredentialGetResponse_DEFAULT NULL
-#define gizclaw_rpc_v1_CredentialGetResponse_value_MSGTYPE gizclaw_rpc_v1_Credential
-
-#define gizclaw_rpc_v1_CredentialListRequest_FIELDLIST(X, a) \
-X(a, CALLBACK, OPTIONAL, STRING,   cursor,            1) \
-X(a, STATIC,   OPTIONAL, INT64,    limit,             2)
-#define gizclaw_rpc_v1_CredentialListRequest_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_CredentialListRequest_DEFAULT NULL
-
-#define gizclaw_rpc_v1_CredentialListResponse_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, BOOL,     has_next,          1) \
-X(a, CALLBACK, REPEATED, MESSAGE,  items,             2) \
-X(a, CALLBACK, OPTIONAL, STRING,   next_cursor,       3)
-#define gizclaw_rpc_v1_CredentialListResponse_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_CredentialListResponse_DEFAULT NULL
-#define gizclaw_rpc_v1_CredentialListResponse_items_MSGTYPE gizclaw_rpc_v1_Credential
-
-#define gizclaw_rpc_v1_CredentialPutRequest_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  body,              1) \
-X(a, CALLBACK, SINGULAR, STRING,   name,              2)
-#define gizclaw_rpc_v1_CredentialPutRequest_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_CredentialPutRequest_DEFAULT NULL
-#define gizclaw_rpc_v1_CredentialPutRequest_body_MSGTYPE gizclaw_rpc_v1_Credential
-
-#define gizclaw_rpc_v1_CredentialPutResponse_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
-#define gizclaw_rpc_v1_CredentialPutResponse_CALLBACK NULL
-#define gizclaw_rpc_v1_CredentialPutResponse_DEFAULT NULL
-#define gizclaw_rpc_v1_CredentialPutResponse_value_MSGTYPE gizclaw_rpc_v1_Credential
-
-#define gizclaw_rpc_v1_DashScopeCredentialBody_FIELDLIST(X, a) \
-X(a, CALLBACK, OPTIONAL, STRING,   api_key,           1) \
-X(a, CALLBACK, OPTIONAL, STRING,   base_url,          2) \
-X(a, CALLBACK, OPTIONAL, STRING,   token,             3)
-#define gizclaw_rpc_v1_DashScopeCredentialBody_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_DashScopeCredentialBody_DEFAULT NULL
-
-#define gizclaw_rpc_v1_DashScopeTenantModelProviderData_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, UENUM,    api_mode,          1) \
-X(a, CALLBACK, OPTIONAL, STRING,   upstream_model,    2)
-#define gizclaw_rpc_v1_DashScopeTenantModelProviderData_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_DashScopeTenantModelProviderData_DEFAULT NULL
-
-#define gizclaw_rpc_v1_DashScopeTenantVoiceProviderData_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  raw,               1) \
-X(a, CALLBACK, OPTIONAL, STRING,   voice_id,          2)
-#define gizclaw_rpc_v1_DashScopeTenantVoiceProviderData_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_DashScopeTenantVoiceProviderData_DEFAULT NULL
-#define gizclaw_rpc_v1_DashScopeTenantVoiceProviderData_raw_MSGTYPE google_protobuf_Struct
 
 #define gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata_FIELDLIST(X, a) \
 X(a, CALLBACK, OPTIONAL, STRING,   content_producer,   1) \
@@ -1973,63 +1314,22 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  voice,             5)
 #define gizclaw_rpc_v1_PetWorkspaceParameters_persona_MSGTYPE gizclaw_rpc_v1_PetPersonaParameters
 #define gizclaw_rpc_v1_PetWorkspaceParameters_voice_MSGTYPE gizclaw_rpc_v1_PetVoiceParameters
 
-#define gizclaw_rpc_v1_GeminiCredentialBody_FIELDLIST(X, a) \
-X(a, CALLBACK, OPTIONAL, STRING,   api_key,           1) \
-X(a, CALLBACK, OPTIONAL, STRING,   base_url,          2) \
-X(a, CALLBACK, OPTIONAL, STRING,   token,             3)
-#define gizclaw_rpc_v1_GeminiCredentialBody_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_GeminiCredentialBody_DEFAULT NULL
-
-#define gizclaw_rpc_v1_GeminiTenantModelProviderData_FIELDLIST(X, a) \
-X(a, CALLBACK, OPTIONAL, STRING,   upstream_model,    1)
-#define gizclaw_rpc_v1_GeminiTenantModelProviderData_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_GeminiTenantModelProviderData_DEFAULT NULL
-
-#define gizclaw_rpc_v1_GeminiTenantVoiceProviderData_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  raw,               1) \
-X(a, CALLBACK, OPTIONAL, STRING,   voice_id,          2)
-#define gizclaw_rpc_v1_GeminiTenantVoiceProviderData_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_GeminiTenantVoiceProviderData_DEFAULT NULL
-#define gizclaw_rpc_v1_GeminiTenantVoiceProviderData_raw_MSGTYPE google_protobuf_Struct
-
-#define gizclaw_rpc_v1_MiniMaxCredentialBody_FIELDLIST(X, a) \
-X(a, CALLBACK, OPTIONAL, STRING,   api_key,           1) \
-X(a, CALLBACK, OPTIONAL, STRING,   base_url,          2) \
-X(a, CALLBACK, OPTIONAL, STRING,   minimax_voice_base_url,   3) \
-X(a, CALLBACK, OPTIONAL, STRING,   token,             4) \
-X(a, CALLBACK, OPTIONAL, STRING,   voice_base_url,    5)
-#define gizclaw_rpc_v1_MiniMaxCredentialBody_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_MiniMaxCredentialBody_DEFAULT NULL
-
-#define gizclaw_rpc_v1_MiniMaxTenantVoiceProviderData_FIELDLIST(X, a) \
-X(a, CALLBACK, OPTIONAL, STRING,   format,            1) \
-X(a, CALLBACK, OPTIONAL, STRING,   model,             2) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  raw,               3) \
-X(a, STATIC,   OPTIONAL, INT64,    sample_rate,       4) \
-X(a, CALLBACK, OPTIONAL, STRING,   voice_id,          5) \
-X(a, CALLBACK, OPTIONAL, STRING,   voice_type,        6)
-#define gizclaw_rpc_v1_MiniMaxTenantVoiceProviderData_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_MiniMaxTenantVoiceProviderData_DEFAULT NULL
-#define gizclaw_rpc_v1_MiniMaxTenantVoiceProviderData_raw_MSGTYPE google_protobuf_Struct
-
 #define gizclaw_rpc_v1_Model_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  capabilities,      1) \
-X(a, CALLBACK, SINGULAR, STRING,   created_at,        2) \
-X(a, CALLBACK, OPTIONAL, STRING,   description,       3) \
-X(a, CALLBACK, SINGULAR, STRING,   id,                4) \
-X(a, STATIC,   SINGULAR, UENUM,    kind,              5) \
-X(a, CALLBACK, OPTIONAL, STRING,   name,              6) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  provider,          7) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  provider_data,     8) \
-X(a, STATIC,   SINGULAR, UENUM,    source,            9) \
-X(a, CALLBACK, OPTIONAL, STRING,   synced_at,        10) \
-X(a, CALLBACK, SINGULAR, STRING,   updated_at,       11) \
-X(a, STATIC,   OPTIONAL, STRING,   owner_public_key,  12)
+X(a, CALLBACK, SINGULAR, STRING,   alias,             1) \
+X(a, CALLBACK, REPEATED, MESSAGE,  i18n,              2) \
+X(a, STATIC,   SINGULAR, UENUM,    kind,              3) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  capabilities,      4)
 #define gizclaw_rpc_v1_Model_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_Model_DEFAULT NULL
+#define gizclaw_rpc_v1_Model_i18n_MSGTYPE gizclaw_rpc_v1_Model_I18nEntry
 #define gizclaw_rpc_v1_Model_capabilities_MSGTYPE gizclaw_rpc_v1_ModelCapabilities
-#define gizclaw_rpc_v1_Model_provider_MSGTYPE gizclaw_rpc_v1_ModelProvider
-#define gizclaw_rpc_v1_Model_provider_data_MSGTYPE gizclaw_rpc_v1_ModelProviderData
+
+#define gizclaw_rpc_v1_Model_I18nEntry_FIELDLIST(X, a) \
+X(a, CALLBACK, SINGULAR, STRING,   key,               1) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  value,             2)
+#define gizclaw_rpc_v1_Model_I18nEntry_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_Model_I18nEntry_DEFAULT NULL
+#define gizclaw_rpc_v1_Model_I18nEntry_value_MSGTYPE gizclaw_rpc_v1_AliasI18nText
 
 #define gizclaw_rpc_v1_ModelCapabilities_FIELDLIST(X, a) \
 X(a, STATIC,   OPTIONAL, BOOL,     json_output,       1) \
@@ -2042,37 +1342,16 @@ X(a, STATIC,   OPTIONAL, BOOL,     tool_calls,        6)
 #define gizclaw_rpc_v1_ModelCapabilities_DEFAULT NULL
 #define gizclaw_rpc_v1_ModelCapabilities_thinking_MSGTYPE gizclaw_rpc_v1_ModelThinkingCapability
 
-#define gizclaw_rpc_v1_ModelCreateRequest_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
-#define gizclaw_rpc_v1_ModelCreateRequest_CALLBACK NULL
-#define gizclaw_rpc_v1_ModelCreateRequest_DEFAULT NULL
-#define gizclaw_rpc_v1_ModelCreateRequest_value_MSGTYPE gizclaw_rpc_v1_Model
-
-#define gizclaw_rpc_v1_ModelCreateResponse_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
-#define gizclaw_rpc_v1_ModelCreateResponse_CALLBACK NULL
-#define gizclaw_rpc_v1_ModelCreateResponse_DEFAULT NULL
-#define gizclaw_rpc_v1_ModelCreateResponse_value_MSGTYPE gizclaw_rpc_v1_Model
-
-#define gizclaw_rpc_v1_ModelDeleteRequest_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   id,                1)
-#define gizclaw_rpc_v1_ModelDeleteRequest_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_ModelDeleteRequest_DEFAULT NULL
-
-#define gizclaw_rpc_v1_ModelDeleteResponse_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
-#define gizclaw_rpc_v1_ModelDeleteResponse_CALLBACK NULL
-#define gizclaw_rpc_v1_ModelDeleteResponse_DEFAULT NULL
-#define gizclaw_rpc_v1_ModelDeleteResponse_value_MSGTYPE gizclaw_rpc_v1_Model
-
 #define gizclaw_rpc_v1_ModelGetRequest_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   id,                1)
+X(a, CALLBACK, SINGULAR, STRING,   alias,             1)
 #define gizclaw_rpc_v1_ModelGetRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_ModelGetRequest_DEFAULT NULL
 
 #define gizclaw_rpc_v1_ModelGetResponse_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
-#define gizclaw_rpc_v1_ModelGetResponse_CALLBACK NULL
+X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1) \
+X(a, CALLBACK, SINGULAR, STRING,   runtime_profile_name,   2) \
+X(a, CALLBACK, SINGULAR, STRING,   runtime_profile_revision,   3)
+#define gizclaw_rpc_v1_ModelGetResponse_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_ModelGetResponse_DEFAULT NULL
 #define gizclaw_rpc_v1_ModelGetResponse_value_MSGTYPE gizclaw_rpc_v1_Model
 
@@ -2085,41 +1364,12 @@ X(a, STATIC,   OPTIONAL, INT64,    limit,             2)
 #define gizclaw_rpc_v1_ModelListResponse_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, BOOL,     has_next,          1) \
 X(a, CALLBACK, REPEATED, MESSAGE,  items,             2) \
-X(a, CALLBACK, OPTIONAL, STRING,   next_cursor,       3)
+X(a, CALLBACK, OPTIONAL, STRING,   next_cursor,       3) \
+X(a, CALLBACK, SINGULAR, STRING,   runtime_profile_name,   4) \
+X(a, CALLBACK, SINGULAR, STRING,   runtime_profile_revision,   5)
 #define gizclaw_rpc_v1_ModelListResponse_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_ModelListResponse_DEFAULT NULL
 #define gizclaw_rpc_v1_ModelListResponse_items_MSGTYPE gizclaw_rpc_v1_Model
-
-#define gizclaw_rpc_v1_ModelProvider_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, UENUM,    kind,              1) \
-X(a, CALLBACK, SINGULAR, STRING,   name,              2)
-#define gizclaw_rpc_v1_ModelProvider_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_ModelProvider_DEFAULT NULL
-
-#define gizclaw_rpc_v1_ModelProviderData_FIELDLIST(X, a) \
-X(a, STATIC,   ONEOF,    MESSAGE,  (value,gemini_tenant_model_provider_data,value.gemini_tenant_model_provider_data),   1) \
-X(a, STATIC,   ONEOF,    MESSAGE,  (value,dash_scope_tenant_model_provider_data,value.dash_scope_tenant_model_provider_data),   2) \
-X(a, STATIC,   ONEOF,    MESSAGE,  (value,open_aitenant_model_provider_data,value.open_aitenant_model_provider_data),   3) \
-X(a, STATIC,   ONEOF,    MESSAGE,  (value,volc_tenant_model_provider_data,value.volc_tenant_model_provider_data),   4)
-#define gizclaw_rpc_v1_ModelProviderData_CALLBACK NULL
-#define gizclaw_rpc_v1_ModelProviderData_DEFAULT NULL
-#define gizclaw_rpc_v1_ModelProviderData_value_gemini_tenant_model_provider_data_MSGTYPE gizclaw_rpc_v1_GeminiTenantModelProviderData
-#define gizclaw_rpc_v1_ModelProviderData_value_dash_scope_tenant_model_provider_data_MSGTYPE gizclaw_rpc_v1_DashScopeTenantModelProviderData
-#define gizclaw_rpc_v1_ModelProviderData_value_open_aitenant_model_provider_data_MSGTYPE gizclaw_rpc_v1_OpenAITenantModelProviderData
-#define gizclaw_rpc_v1_ModelProviderData_value_volc_tenant_model_provider_data_MSGTYPE gizclaw_rpc_v1_VolcTenantModelProviderData
-
-#define gizclaw_rpc_v1_ModelPutRequest_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  body,              1) \
-X(a, CALLBACK, SINGULAR, STRING,   id,                2)
-#define gizclaw_rpc_v1_ModelPutRequest_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_ModelPutRequest_DEFAULT NULL
-#define gizclaw_rpc_v1_ModelPutRequest_body_MSGTYPE gizclaw_rpc_v1_Model
-
-#define gizclaw_rpc_v1_ModelPutResponse_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
-#define gizclaw_rpc_v1_ModelPutResponse_CALLBACK NULL
-#define gizclaw_rpc_v1_ModelPutResponse_DEFAULT NULL
-#define gizclaw_rpc_v1_ModelPutResponse_value_MSGTYPE gizclaw_rpc_v1_Model
 
 #define gizclaw_rpc_v1_ModelThinkingCapability_FIELDLIST(X, a) \
 X(a, CALLBACK, OPTIONAL, STRING,   default_level,     1) \
@@ -2130,59 +1380,30 @@ X(a, STATIC,   SINGULAR, BOOL,     supported,         5)
 #define gizclaw_rpc_v1_ModelThinkingCapability_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_ModelThinkingCapability_DEFAULT NULL
 
-#define gizclaw_rpc_v1_OpenAICredentialBody_FIELDLIST(X, a) \
-X(a, CALLBACK, OPTIONAL, STRING,   api_key,           1) \
-X(a, CALLBACK, OPTIONAL, STRING,   base_url,          2) \
-X(a, CALLBACK, OPTIONAL, STRING,   organization,      3) \
-X(a, CALLBACK, OPTIONAL, STRING,   project,           4) \
-X(a, CALLBACK, OPTIONAL, STRING,   token,             5)
-#define gizclaw_rpc_v1_OpenAICredentialBody_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_OpenAICredentialBody_DEFAULT NULL
-
-#define gizclaw_rpc_v1_OpenAITenantModelProviderData_FIELDLIST(X, a) \
-X(a, CALLBACK, OPTIONAL, STRING,   default_thinking_level,   1) \
-X(a, STATIC,   OPTIONAL, BOOL,     support_json_output,   2) \
-X(a, STATIC,   OPTIONAL, BOOL,     support_text_only,   3) \
-X(a, STATIC,   OPTIONAL, BOOL,     support_thinking,   4) \
-X(a, STATIC,   OPTIONAL, BOOL,     support_tool_calls,   5) \
-X(a, CALLBACK, OPTIONAL, STRING,   thinking_level_param,   6) \
-X(a, CALLBACK, REPEATED, STRING,   thinking_levels,   7) \
-X(a, CALLBACK, OPTIONAL, STRING,   thinking_param,    8) \
-X(a, CALLBACK, OPTIONAL, STRING,   upstream_model,    9) \
-X(a, STATIC,   OPTIONAL, BOOL,     use_system_role,  10)
-#define gizclaw_rpc_v1_OpenAITenantModelProviderData_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_OpenAITenantModelProviderData_DEFAULT NULL
-
-#define gizclaw_rpc_v1_OpenAITenantVoiceProviderData_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  raw,               1) \
-X(a, CALLBACK, OPTIONAL, STRING,   voice_id,          2)
-#define gizclaw_rpc_v1_OpenAITenantVoiceProviderData_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_OpenAITenantVoiceProviderData_DEFAULT NULL
-#define gizclaw_rpc_v1_OpenAITenantVoiceProviderData_raw_MSGTYPE google_protobuf_Struct
-
 #define gizclaw_rpc_v1_Voice_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   created_at,        1) \
-X(a, CALLBACK, OPTIONAL, STRING,   description,       2) \
-X(a, CALLBACK, SINGULAR, STRING,   id,                3) \
-X(a, CALLBACK, OPTIONAL, STRING,   name,              4) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  provider,          5) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  provider_data,     6) \
-X(a, STATIC,   SINGULAR, UENUM,    source,            7) \
-X(a, CALLBACK, OPTIONAL, STRING,   synced_at,         8) \
-X(a, CALLBACK, SINGULAR, STRING,   updated_at,        9)
+X(a, CALLBACK, SINGULAR, STRING,   alias,             1) \
+X(a, CALLBACK, REPEATED, MESSAGE,  i18n,              2)
 #define gizclaw_rpc_v1_Voice_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_Voice_DEFAULT NULL
-#define gizclaw_rpc_v1_Voice_provider_MSGTYPE gizclaw_rpc_v1_VoiceProvider
-#define gizclaw_rpc_v1_Voice_provider_data_MSGTYPE gizclaw_rpc_v1_VoiceProviderData
+#define gizclaw_rpc_v1_Voice_i18n_MSGTYPE gizclaw_rpc_v1_Voice_I18nEntry
+
+#define gizclaw_rpc_v1_Voice_I18nEntry_FIELDLIST(X, a) \
+X(a, CALLBACK, SINGULAR, STRING,   key,               1) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  value,             2)
+#define gizclaw_rpc_v1_Voice_I18nEntry_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_Voice_I18nEntry_DEFAULT NULL
+#define gizclaw_rpc_v1_Voice_I18nEntry_value_MSGTYPE gizclaw_rpc_v1_AliasI18nText
 
 #define gizclaw_rpc_v1_VoiceGetRequest_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   id,                1)
+X(a, CALLBACK, SINGULAR, STRING,   alias,             1)
 #define gizclaw_rpc_v1_VoiceGetRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_VoiceGetRequest_DEFAULT NULL
 
 #define gizclaw_rpc_v1_VoiceGetResponse_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
-#define gizclaw_rpc_v1_VoiceGetResponse_CALLBACK NULL
+X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1) \
+X(a, CALLBACK, SINGULAR, STRING,   runtime_profile_name,   2) \
+X(a, CALLBACK, SINGULAR, STRING,   runtime_profile_revision,   3)
+#define gizclaw_rpc_v1_VoiceGetResponse_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_VoiceGetResponse_DEFAULT NULL
 #define gizclaw_rpc_v1_VoiceGetResponse_value_MSGTYPE gizclaw_rpc_v1_Voice
 
@@ -2195,147 +1416,59 @@ X(a, STATIC,   OPTIONAL, INT64,    limit,             2)
 #define gizclaw_rpc_v1_VoiceListResponse_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, BOOL,     has_next,          1) \
 X(a, CALLBACK, REPEATED, MESSAGE,  items,             2) \
-X(a, CALLBACK, OPTIONAL, STRING,   next_cursor,       3)
+X(a, CALLBACK, OPTIONAL, STRING,   next_cursor,       3) \
+X(a, CALLBACK, SINGULAR, STRING,   runtime_profile_name,   4) \
+X(a, CALLBACK, SINGULAR, STRING,   runtime_profile_revision,   5)
 #define gizclaw_rpc_v1_VoiceListResponse_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_VoiceListResponse_DEFAULT NULL
 #define gizclaw_rpc_v1_VoiceListResponse_items_MSGTYPE gizclaw_rpc_v1_Voice
 
-#define gizclaw_rpc_v1_VoiceProvider_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, UENUM,    kind,              1) \
-X(a, CALLBACK, SINGULAR, STRING,   name,              2)
-#define gizclaw_rpc_v1_VoiceProvider_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_VoiceProvider_DEFAULT NULL
-
-#define gizclaw_rpc_v1_VoiceProviderData_FIELDLIST(X, a) \
-X(a, STATIC,   ONEOF,    MESSAGE,  (value,gemini_tenant_voice_provider_data,value.gemini_tenant_voice_provider_data),   1) \
-X(a, STATIC,   ONEOF,    MESSAGE,  (value,dash_scope_tenant_voice_provider_data,value.dash_scope_tenant_voice_provider_data),   2) \
-X(a, STATIC,   ONEOF,    MESSAGE,  (value,open_aitenant_voice_provider_data,value.open_aitenant_voice_provider_data),   3) \
-X(a, STATIC,   ONEOF,    MESSAGE,  (value,mini_max_tenant_voice_provider_data,value.mini_max_tenant_voice_provider_data),   4) \
-X(a, STATIC,   ONEOF,    MESSAGE,  (value,volc_tenant_voice_provider_data,value.volc_tenant_voice_provider_data),   5)
-#define gizclaw_rpc_v1_VoiceProviderData_CALLBACK NULL
-#define gizclaw_rpc_v1_VoiceProviderData_DEFAULT NULL
-#define gizclaw_rpc_v1_VoiceProviderData_value_gemini_tenant_voice_provider_data_MSGTYPE gizclaw_rpc_v1_GeminiTenantVoiceProviderData
-#define gizclaw_rpc_v1_VoiceProviderData_value_dash_scope_tenant_voice_provider_data_MSGTYPE gizclaw_rpc_v1_DashScopeTenantVoiceProviderData
-#define gizclaw_rpc_v1_VoiceProviderData_value_open_aitenant_voice_provider_data_MSGTYPE gizclaw_rpc_v1_OpenAITenantVoiceProviderData
-#define gizclaw_rpc_v1_VoiceProviderData_value_mini_max_tenant_voice_provider_data_MSGTYPE gizclaw_rpc_v1_MiniMaxTenantVoiceProviderData
-#define gizclaw_rpc_v1_VoiceProviderData_value_volc_tenant_voice_provider_data_MSGTYPE gizclaw_rpc_v1_VolcTenantVoiceProviderData
-
-#define gizclaw_rpc_v1_VolcCredentialBody_FIELDLIST(X, a) \
-X(a, CALLBACK, OPTIONAL, STRING,   speech_api_key,    1) \
-X(a, CALLBACK, OPTIONAL, STRING,   speech_app_id,     2) \
-X(a, CALLBACK, OPTIONAL, STRING,   openapi_access_key,   3) \
-X(a, CALLBACK, OPTIONAL, STRING,   openapi_access_key_id,   4) \
-X(a, CALLBACK, OPTIONAL, STRING,   search_api_key,    5) \
-X(a, CALLBACK, OPTIONAL, STRING,   ark_api_key,       6)
-#define gizclaw_rpc_v1_VolcCredentialBody_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_VolcCredentialBody_DEFAULT NULL
-
-#define gizclaw_rpc_v1_VolcTenantModelProviderData_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, UENUM,    api_mode,          1) \
-X(a, CALLBACK, OPTIONAL, STRING,   default_thinking_level,   2) \
-X(a, CALLBACK, OPTIONAL, STRING,   resource_id,       3) \
-X(a, STATIC,   OPTIONAL, BOOL,     support_json_output,   4) \
-X(a, STATIC,   OPTIONAL, BOOL,     support_text_only,   5) \
-X(a, STATIC,   OPTIONAL, BOOL,     support_thinking,   6) \
-X(a, STATIC,   OPTIONAL, BOOL,     support_tool_calls,   7) \
-X(a, CALLBACK, OPTIONAL, STRING,   thinking_level_param,   8) \
-X(a, CALLBACK, REPEATED, STRING,   thinking_levels,   9) \
-X(a, CALLBACK, OPTIONAL, STRING,   thinking_param,   10) \
-X(a, CALLBACK, OPTIONAL, STRING,   upstream_model,   11) \
-X(a, STATIC,   OPTIONAL, BOOL,     use_system_role,  12)
-#define gizclaw_rpc_v1_VolcTenantModelProviderData_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_VolcTenantModelProviderData_DEFAULT NULL
-
-#define gizclaw_rpc_v1_VolcTenantVoiceProviderData_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  raw,               1) \
-X(a, CALLBACK, OPTIONAL, STRING,   resource_id,       2) \
-X(a, CALLBACK, OPTIONAL, STRING,   state,             3) \
-X(a, CALLBACK, OPTIONAL, STRING,   status,            4) \
-X(a, CALLBACK, OPTIONAL, STRING,   voice_id,          5)
-#define gizclaw_rpc_v1_VolcTenantVoiceProviderData_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_VolcTenantVoiceProviderData_DEFAULT NULL
-#define gizclaw_rpc_v1_VolcTenantVoiceProviderData_raw_MSGTYPE google_protobuf_Struct
-
 #define gizclaw_rpc_v1_Workflow_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   name,              1) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  spec,              2) \
-X(a, STATIC,   OPTIONAL, STRING,   owner_public_key,   5)
+X(a, CALLBACK, SINGULAR, STRING,   alias,             1) \
+X(a, CALLBACK, REPEATED, MESSAGE,  i18n,              2) \
+X(a, CALLBACK, SINGULAR, STRING,   collection,        3) \
+X(a, STATIC,   SINGULAR, UENUM,    driver,            4) \
+X(a, CALLBACK, OPTIONAL, STRING,   workspace_lang_pair,   5)
 #define gizclaw_rpc_v1_Workflow_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_Workflow_DEFAULT NULL
-#define gizclaw_rpc_v1_Workflow_spec_MSGTYPE gizclaw_rpc_v1_WorkflowSpec
+#define gizclaw_rpc_v1_Workflow_i18n_MSGTYPE gizclaw_rpc_v1_Workflow_I18nEntry
 
-#define gizclaw_rpc_v1_WorkflowUpsert_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   name,              1) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  spec,              2)
-#define gizclaw_rpc_v1_WorkflowUpsert_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_WorkflowUpsert_DEFAULT NULL
-#define gizclaw_rpc_v1_WorkflowUpsert_spec_MSGTYPE gizclaw_rpc_v1_WorkflowSpec
-
-#define gizclaw_rpc_v1_WorkflowCreateRequest_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, UENUM,    source,            1) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  body,              2)
-#define gizclaw_rpc_v1_WorkflowCreateRequest_CALLBACK NULL
-#define gizclaw_rpc_v1_WorkflowCreateRequest_DEFAULT NULL
-#define gizclaw_rpc_v1_WorkflowCreateRequest_body_MSGTYPE gizclaw_rpc_v1_WorkflowUpsert
-
-#define gizclaw_rpc_v1_WorkflowCreateResponse_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
-#define gizclaw_rpc_v1_WorkflowCreateResponse_CALLBACK NULL
-#define gizclaw_rpc_v1_WorkflowCreateResponse_DEFAULT NULL
-#define gizclaw_rpc_v1_WorkflowCreateResponse_value_MSGTYPE gizclaw_rpc_v1_Workflow
-
-#define gizclaw_rpc_v1_WorkflowDeleteRequest_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   name,              1) \
-X(a, STATIC,   SINGULAR, UENUM,    source,            2)
-#define gizclaw_rpc_v1_WorkflowDeleteRequest_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_WorkflowDeleteRequest_DEFAULT NULL
-
-#define gizclaw_rpc_v1_WorkflowDeleteResponse_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
-#define gizclaw_rpc_v1_WorkflowDeleteResponse_CALLBACK NULL
-#define gizclaw_rpc_v1_WorkflowDeleteResponse_DEFAULT NULL
-#define gizclaw_rpc_v1_WorkflowDeleteResponse_value_MSGTYPE gizclaw_rpc_v1_Workflow
+#define gizclaw_rpc_v1_Workflow_I18nEntry_FIELDLIST(X, a) \
+X(a, CALLBACK, SINGULAR, STRING,   key,               1) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  value,             2)
+#define gizclaw_rpc_v1_Workflow_I18nEntry_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_Workflow_I18nEntry_DEFAULT NULL
+#define gizclaw_rpc_v1_Workflow_I18nEntry_value_MSGTYPE gizclaw_rpc_v1_AliasI18nText
 
 #define gizclaw_rpc_v1_WorkflowGetRequest_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   name,              1) \
-X(a, STATIC,   SINGULAR, UENUM,    source,            3)
+X(a, CALLBACK, SINGULAR, STRING,   alias,             1)
 #define gizclaw_rpc_v1_WorkflowGetRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_WorkflowGetRequest_DEFAULT NULL
 
 #define gizclaw_rpc_v1_WorkflowGetResponse_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
-#define gizclaw_rpc_v1_WorkflowGetResponse_CALLBACK NULL
+X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1) \
+X(a, CALLBACK, SINGULAR, STRING,   runtime_profile_name,   2) \
+X(a, CALLBACK, SINGULAR, STRING,   runtime_profile_revision,   3)
+#define gizclaw_rpc_v1_WorkflowGetResponse_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_WorkflowGetResponse_DEFAULT NULL
 #define gizclaw_rpc_v1_WorkflowGetResponse_value_MSGTYPE gizclaw_rpc_v1_Workflow
 
 #define gizclaw_rpc_v1_WorkflowListRequest_FIELDLIST(X, a) \
 X(a, CALLBACK, OPTIONAL, STRING,   cursor,            1) \
 X(a, STATIC,   OPTIONAL, INT64,    limit,             2) \
-X(a, STATIC,   SINGULAR, UENUM,    source,            4)
+X(a, CALLBACK, SINGULAR, STRING,   collection,        3)
 #define gizclaw_rpc_v1_WorkflowListRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_WorkflowListRequest_DEFAULT NULL
 
 #define gizclaw_rpc_v1_WorkflowListResponse_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, BOOL,     has_next,          1) \
 X(a, CALLBACK, REPEATED, MESSAGE,  items,             2) \
-X(a, CALLBACK, OPTIONAL, STRING,   next_cursor,       3)
+X(a, CALLBACK, OPTIONAL, STRING,   next_cursor,       3) \
+X(a, CALLBACK, SINGULAR, STRING,   runtime_profile_name,   4) \
+X(a, CALLBACK, SINGULAR, STRING,   runtime_profile_revision,   5)
 #define gizclaw_rpc_v1_WorkflowListResponse_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_WorkflowListResponse_DEFAULT NULL
 #define gizclaw_rpc_v1_WorkflowListResponse_items_MSGTYPE gizclaw_rpc_v1_Workflow
-
-#define gizclaw_rpc_v1_WorkflowPutRequest_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   name,              1) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  body,              2) \
-X(a, STATIC,   SINGULAR, UENUM,    source,            3)
-#define gizclaw_rpc_v1_WorkflowPutRequest_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_WorkflowPutRequest_DEFAULT NULL
-#define gizclaw_rpc_v1_WorkflowPutRequest_body_MSGTYPE gizclaw_rpc_v1_WorkflowUpsert
-
-#define gizclaw_rpc_v1_WorkflowPutResponse_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
-#define gizclaw_rpc_v1_WorkflowPutResponse_CALLBACK NULL
-#define gizclaw_rpc_v1_WorkflowPutResponse_DEFAULT NULL
-#define gizclaw_rpc_v1_WorkflowPutResponse_value_MSGTYPE gizclaw_rpc_v1_Workflow
 
 #define gizclaw_rpc_v1_ToolkitPolicyToolIds_FIELDLIST(X, a) \
 X(a, CALLBACK, REPEATED, STRING,   value,             1)
@@ -2348,75 +1481,23 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  tool_ids,          1)
 #define gizclaw_rpc_v1_ToolkitPolicy_DEFAULT NULL
 #define gizclaw_rpc_v1_ToolkitPolicy_tool_ids_MSGTYPE gizclaw_rpc_v1_ToolkitPolicyToolIds
 
-#define gizclaw_rpc_v1_WorkflowSpec_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  ast_translate,     1) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  chatroom,          2) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  doubao_realtime,   3) \
-X(a, STATIC,   SINGULAR, UENUM,    driver,            4) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  flowcraft,         5) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  toolkit,           6) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  pet,               7)
-#define gizclaw_rpc_v1_WorkflowSpec_CALLBACK NULL
-#define gizclaw_rpc_v1_WorkflowSpec_DEFAULT NULL
-#define gizclaw_rpc_v1_WorkflowSpec_ast_translate_MSGTYPE gizclaw_rpc_v1_ASTTranslateWorkflowSpec
-#define gizclaw_rpc_v1_WorkflowSpec_chatroom_MSGTYPE gizclaw_rpc_v1_ChatRoomWorkflowSpec
-#define gizclaw_rpc_v1_WorkflowSpec_doubao_realtime_MSGTYPE gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec
-#define gizclaw_rpc_v1_WorkflowSpec_flowcraft_MSGTYPE gizclaw_rpc_v1_FlowcraftWorkflowSpec
-#define gizclaw_rpc_v1_WorkflowSpec_toolkit_MSGTYPE gizclaw_rpc_v1_ToolkitPolicy
-#define gizclaw_rpc_v1_WorkflowSpec_pet_MSGTYPE gizclaw_rpc_v1_PetWorkflowSpec
-
-#define gizclaw_rpc_v1_ToolExecutor_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, UENUM,    kind,              1) \
-X(a, CALLBACK, OPTIONAL, STRING,   name,              2) \
-X(a, CALLBACK, OPTIONAL, STRING,   method,            3) \
-X(a, CALLBACK, OPTIONAL, STRING,   peer_id,           4) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  config,            5)
-#define gizclaw_rpc_v1_ToolExecutor_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_ToolExecutor_DEFAULT NULL
-#define gizclaw_rpc_v1_ToolExecutor_config_MSGTYPE google_protobuf_Struct
-
-#define gizclaw_rpc_v1_ToolTriggerExample_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   input,             1) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  args,              2) \
-X(a, CALLBACK, OPTIONAL, STRING,   output,            3)
-#define gizclaw_rpc_v1_ToolTriggerExample_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_ToolTriggerExample_DEFAULT NULL
-#define gizclaw_rpc_v1_ToolTriggerExample_args_MSGTYPE google_protobuf_Struct
-
-#define gizclaw_rpc_v1_ToolTrigger_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   name,              1) \
-X(a, CALLBACK, OPTIONAL, STRING,   description,       2) \
-X(a, CALLBACK, REPEATED, STRING,   patterns,          3) \
-X(a, CALLBACK, REPEATED, MESSAGE,  examples,          4) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  metadata,          5)
-#define gizclaw_rpc_v1_ToolTrigger_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_ToolTrigger_DEFAULT NULL
-#define gizclaw_rpc_v1_ToolTrigger_examples_MSGTYPE gizclaw_rpc_v1_ToolTriggerExample
-#define gizclaw_rpc_v1_ToolTrigger_metadata_MSGTYPE google_protobuf_Struct
-
 #define gizclaw_rpc_v1_Tool_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   id,                1) \
-X(a, CALLBACK, OPTIONAL, STRING,   name,              2) \
-X(a, CALLBACK, OPTIONAL, STRING,   description,       3) \
-X(a, STATIC,   SINGULAR, UENUM,    source,            4) \
-X(a, STATIC,   OPTIONAL, BOOL,     enabled,           5) \
-X(a, CALLBACK, OPTIONAL, STRING,   owner_peer,        6) \
-X(a, CALLBACK, OPTIONAL, STRING,   version,           7) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  input_schema,      8) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  output_schema,     9) \
-X(a, CALLBACK, REPEATED, MESSAGE,  triggers,         10) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  executor,         11) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  metadata,         12) \
-X(a, CALLBACK, SINGULAR, STRING,   created_at,       13) \
-X(a, CALLBACK, SINGULAR, STRING,   updated_at,       14) \
-X(a, CALLBACK, OPTIONAL, STRING,   owner_public_key,  15)
+X(a, CALLBACK, SINGULAR, STRING,   alias,             1) \
+X(a, CALLBACK, REPEATED, MESSAGE,  i18n,              2) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  input_schema,      3) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  output_schema,     4)
 #define gizclaw_rpc_v1_Tool_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_Tool_DEFAULT NULL
+#define gizclaw_rpc_v1_Tool_i18n_MSGTYPE gizclaw_rpc_v1_Tool_I18nEntry
 #define gizclaw_rpc_v1_Tool_input_schema_MSGTYPE google_protobuf_Struct
 #define gizclaw_rpc_v1_Tool_output_schema_MSGTYPE google_protobuf_Struct
-#define gizclaw_rpc_v1_Tool_triggers_MSGTYPE gizclaw_rpc_v1_ToolTrigger
-#define gizclaw_rpc_v1_Tool_executor_MSGTYPE gizclaw_rpc_v1_ToolExecutor
-#define gizclaw_rpc_v1_Tool_metadata_MSGTYPE google_protobuf_Struct
+
+#define gizclaw_rpc_v1_Tool_I18nEntry_FIELDLIST(X, a) \
+X(a, CALLBACK, SINGULAR, STRING,   key,               1) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  value,             2)
+#define gizclaw_rpc_v1_Tool_I18nEntry_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_Tool_I18nEntry_DEFAULT NULL
+#define gizclaw_rpc_v1_Tool_I18nEntry_value_MSGTYPE gizclaw_rpc_v1_AliasI18nText
 
 #define gizclaw_rpc_v1_ToolListRequest_FIELDLIST(X, a) \
 X(a, CALLBACK, OPTIONAL, STRING,   cursor,            1) \
@@ -2427,57 +1508,25 @@ X(a, STATIC,   OPTIONAL, INT64,    limit,             2)
 #define gizclaw_rpc_v1_ToolListResponse_FIELDLIST(X, a) \
 X(a, CALLBACK, REPEATED, MESSAGE,  items,             1) \
 X(a, STATIC,   SINGULAR, BOOL,     has_next,          2) \
-X(a, CALLBACK, OPTIONAL, STRING,   next_cursor,       3)
+X(a, CALLBACK, OPTIONAL, STRING,   next_cursor,       3) \
+X(a, CALLBACK, SINGULAR, STRING,   runtime_profile_name,   4) \
+X(a, CALLBACK, SINGULAR, STRING,   runtime_profile_revision,   5)
 #define gizclaw_rpc_v1_ToolListResponse_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_ToolListResponse_DEFAULT NULL
 #define gizclaw_rpc_v1_ToolListResponse_items_MSGTYPE gizclaw_rpc_v1_Tool
 
 #define gizclaw_rpc_v1_ToolGetRequest_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   id,                1)
+X(a, CALLBACK, SINGULAR, STRING,   alias,             1)
 #define gizclaw_rpc_v1_ToolGetRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_ToolGetRequest_DEFAULT NULL
 
 #define gizclaw_rpc_v1_ToolGetResponse_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
-#define gizclaw_rpc_v1_ToolGetResponse_CALLBACK NULL
+X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1) \
+X(a, CALLBACK, SINGULAR, STRING,   runtime_profile_name,   2) \
+X(a, CALLBACK, SINGULAR, STRING,   runtime_profile_revision,   3)
+#define gizclaw_rpc_v1_ToolGetResponse_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_ToolGetResponse_DEFAULT NULL
 #define gizclaw_rpc_v1_ToolGetResponse_value_MSGTYPE gizclaw_rpc_v1_Tool
-
-#define gizclaw_rpc_v1_ToolCreateRequest_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
-#define gizclaw_rpc_v1_ToolCreateRequest_CALLBACK NULL
-#define gizclaw_rpc_v1_ToolCreateRequest_DEFAULT NULL
-#define gizclaw_rpc_v1_ToolCreateRequest_value_MSGTYPE gizclaw_rpc_v1_Tool
-
-#define gizclaw_rpc_v1_ToolCreateResponse_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
-#define gizclaw_rpc_v1_ToolCreateResponse_CALLBACK NULL
-#define gizclaw_rpc_v1_ToolCreateResponse_DEFAULT NULL
-#define gizclaw_rpc_v1_ToolCreateResponse_value_MSGTYPE gizclaw_rpc_v1_Tool
-
-#define gizclaw_rpc_v1_ToolPutRequest_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   id,                1) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  body,              2)
-#define gizclaw_rpc_v1_ToolPutRequest_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_ToolPutRequest_DEFAULT NULL
-#define gizclaw_rpc_v1_ToolPutRequest_body_MSGTYPE gizclaw_rpc_v1_Tool
-
-#define gizclaw_rpc_v1_ToolPutResponse_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
-#define gizclaw_rpc_v1_ToolPutResponse_CALLBACK NULL
-#define gizclaw_rpc_v1_ToolPutResponse_DEFAULT NULL
-#define gizclaw_rpc_v1_ToolPutResponse_value_MSGTYPE gizclaw_rpc_v1_Tool
-
-#define gizclaw_rpc_v1_ToolDeleteRequest_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   id,                1)
-#define gizclaw_rpc_v1_ToolDeleteRequest_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_ToolDeleteRequest_DEFAULT NULL
-
-#define gizclaw_rpc_v1_ToolDeleteResponse_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
-#define gizclaw_rpc_v1_ToolDeleteResponse_CALLBACK NULL
-#define gizclaw_rpc_v1_ToolDeleteResponse_DEFAULT NULL
-#define gizclaw_rpc_v1_ToolDeleteResponse_value_MSGTYPE gizclaw_rpc_v1_Tool
 
 #define gizclaw_rpc_v1_ToolInvokeRequest_FIELDLIST(X, a) \
 X(a, CALLBACK, SINGULAR, STRING,   call_id,           1) \
@@ -2493,6 +1542,11 @@ X(a, CALLBACK, SINGULAR, STRING,   data_json,         1)
 #define gizclaw_rpc_v1_ToolInvokeResponse_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_ToolInvokeResponse_DEFAULT NULL
 
+extern const pb_msgdesc_t gizclaw_rpc_v1_AliasI18nText_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_SpeechTranscribeRequest_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_SpeechTranscribeResponse_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_SpeechSynthesizeRequest_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_SpeechSynthesizeResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ASTTranslateExternalVoiceParameters_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ASTTranslateInternalSpeakerParameters_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ASTTranslateVoiceParameters_msg;
@@ -2504,21 +1558,6 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ChatRoomWorkflowTranscriptSpec_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ChatRoomWorkspaceHistoryParameters_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ChatRoomWorkspaceParameters_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_Credential_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_CredentialBody_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_CredentialCreateRequest_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_CredentialCreateResponse_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_CredentialDeleteRequest_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_CredentialDeleteResponse_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_CredentialGetRequest_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_CredentialGetResponse_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_CredentialListRequest_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_CredentialListResponse_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_CredentialPutRequest_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_CredentialPutResponse_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_DashScopeCredentialBody_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_DashScopeTenantModelProviderData_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_DashScopeTenantVoiceProviderData_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_DoubaoRealtimeASRContext_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_DoubaoRealtimeASRContext_CorrectWordsEntry_msg;
@@ -2547,72 +1586,43 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_PetPersonaParameters_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_PetVoiceParameters_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_PetWorkflowSpec_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_PetWorkspaceParameters_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_GeminiCredentialBody_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_GeminiTenantModelProviderData_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_GeminiTenantVoiceProviderData_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_MiniMaxCredentialBody_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_MiniMaxTenantVoiceProviderData_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_Model_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_Model_I18nEntry_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ModelCapabilities_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_ModelCreateRequest_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_ModelCreateResponse_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_ModelDeleteRequest_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_ModelDeleteResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ModelGetRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ModelGetResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ModelListRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ModelListResponse_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_ModelProvider_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_ModelProviderData_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_ModelPutRequest_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_ModelPutResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ModelThinkingCapability_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_OpenAICredentialBody_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_OpenAITenantModelProviderData_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_OpenAITenantVoiceProviderData_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_Voice_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_Voice_I18nEntry_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_VoiceGetRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_VoiceGetResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_VoiceListRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_VoiceListResponse_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_VoiceProvider_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_VoiceProviderData_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_VolcCredentialBody_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_VolcTenantModelProviderData_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_VolcTenantVoiceProviderData_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_Workflow_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_WorkflowUpsert_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_WorkflowCreateRequest_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_WorkflowCreateResponse_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_WorkflowDeleteRequest_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_WorkflowDeleteResponse_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_Workflow_I18nEntry_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_WorkflowGetRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_WorkflowGetResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_WorkflowListRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_WorkflowListResponse_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_WorkflowPutRequest_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_WorkflowPutResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ToolkitPolicyToolIds_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ToolkitPolicy_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_WorkflowSpec_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_ToolExecutor_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_ToolTriggerExample_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_ToolTrigger_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_Tool_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_Tool_I18nEntry_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ToolListRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ToolListResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ToolGetRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ToolGetResponse_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_ToolCreateRequest_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_ToolCreateResponse_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_ToolPutRequest_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_ToolPutResponse_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_ToolDeleteRequest_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_ToolDeleteResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ToolInvokeRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ToolInvokeResponse_msg;
 
 /* Defines for backwards compatibility with code written before nanopb-0.4.0 */
+#define gizclaw_rpc_v1_AliasI18nText_fields &gizclaw_rpc_v1_AliasI18nText_msg
+#define gizclaw_rpc_v1_SpeechTranscribeRequest_fields &gizclaw_rpc_v1_SpeechTranscribeRequest_msg
+#define gizclaw_rpc_v1_SpeechTranscribeResponse_fields &gizclaw_rpc_v1_SpeechTranscribeResponse_msg
+#define gizclaw_rpc_v1_SpeechSynthesizeRequest_fields &gizclaw_rpc_v1_SpeechSynthesizeRequest_msg
+#define gizclaw_rpc_v1_SpeechSynthesizeResponse_fields &gizclaw_rpc_v1_SpeechSynthesizeResponse_msg
 #define gizclaw_rpc_v1_ASTTranslateExternalVoiceParameters_fields &gizclaw_rpc_v1_ASTTranslateExternalVoiceParameters_msg
 #define gizclaw_rpc_v1_ASTTranslateInternalSpeakerParameters_fields &gizclaw_rpc_v1_ASTTranslateInternalSpeakerParameters_msg
 #define gizclaw_rpc_v1_ASTTranslateVoiceParameters_fields &gizclaw_rpc_v1_ASTTranslateVoiceParameters_msg
@@ -2624,21 +1634,6 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ToolInvokeResponse_msg;
 #define gizclaw_rpc_v1_ChatRoomWorkspaceHistoryParameters_fields &gizclaw_rpc_v1_ChatRoomWorkspaceHistoryParameters_msg
 #define gizclaw_rpc_v1_ChatRoomWorkspaceParameters_fields &gizclaw_rpc_v1_ChatRoomWorkspaceParameters_msg
 #define gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters_fields &gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters_msg
-#define gizclaw_rpc_v1_Credential_fields &gizclaw_rpc_v1_Credential_msg
-#define gizclaw_rpc_v1_CredentialBody_fields &gizclaw_rpc_v1_CredentialBody_msg
-#define gizclaw_rpc_v1_CredentialCreateRequest_fields &gizclaw_rpc_v1_CredentialCreateRequest_msg
-#define gizclaw_rpc_v1_CredentialCreateResponse_fields &gizclaw_rpc_v1_CredentialCreateResponse_msg
-#define gizclaw_rpc_v1_CredentialDeleteRequest_fields &gizclaw_rpc_v1_CredentialDeleteRequest_msg
-#define gizclaw_rpc_v1_CredentialDeleteResponse_fields &gizclaw_rpc_v1_CredentialDeleteResponse_msg
-#define gizclaw_rpc_v1_CredentialGetRequest_fields &gizclaw_rpc_v1_CredentialGetRequest_msg
-#define gizclaw_rpc_v1_CredentialGetResponse_fields &gizclaw_rpc_v1_CredentialGetResponse_msg
-#define gizclaw_rpc_v1_CredentialListRequest_fields &gizclaw_rpc_v1_CredentialListRequest_msg
-#define gizclaw_rpc_v1_CredentialListResponse_fields &gizclaw_rpc_v1_CredentialListResponse_msg
-#define gizclaw_rpc_v1_CredentialPutRequest_fields &gizclaw_rpc_v1_CredentialPutRequest_msg
-#define gizclaw_rpc_v1_CredentialPutResponse_fields &gizclaw_rpc_v1_CredentialPutResponse_msg
-#define gizclaw_rpc_v1_DashScopeCredentialBody_fields &gizclaw_rpc_v1_DashScopeCredentialBody_msg
-#define gizclaw_rpc_v1_DashScopeTenantModelProviderData_fields &gizclaw_rpc_v1_DashScopeTenantModelProviderData_msg
-#define gizclaw_rpc_v1_DashScopeTenantVoiceProviderData_fields &gizclaw_rpc_v1_DashScopeTenantVoiceProviderData_msg
 #define gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata_fields &gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata_msg
 #define gizclaw_rpc_v1_DoubaoRealtimeASRContext_fields &gizclaw_rpc_v1_DoubaoRealtimeASRContext_msg
 #define gizclaw_rpc_v1_DoubaoRealtimeASRContext_CorrectWordsEntry_fields &gizclaw_rpc_v1_DoubaoRealtimeASRContext_CorrectWordsEntry_msg
@@ -2667,72 +1662,39 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ToolInvokeResponse_msg;
 #define gizclaw_rpc_v1_PetVoiceParameters_fields &gizclaw_rpc_v1_PetVoiceParameters_msg
 #define gizclaw_rpc_v1_PetWorkflowSpec_fields &gizclaw_rpc_v1_PetWorkflowSpec_msg
 #define gizclaw_rpc_v1_PetWorkspaceParameters_fields &gizclaw_rpc_v1_PetWorkspaceParameters_msg
-#define gizclaw_rpc_v1_GeminiCredentialBody_fields &gizclaw_rpc_v1_GeminiCredentialBody_msg
-#define gizclaw_rpc_v1_GeminiTenantModelProviderData_fields &gizclaw_rpc_v1_GeminiTenantModelProviderData_msg
-#define gizclaw_rpc_v1_GeminiTenantVoiceProviderData_fields &gizclaw_rpc_v1_GeminiTenantVoiceProviderData_msg
-#define gizclaw_rpc_v1_MiniMaxCredentialBody_fields &gizclaw_rpc_v1_MiniMaxCredentialBody_msg
-#define gizclaw_rpc_v1_MiniMaxTenantVoiceProviderData_fields &gizclaw_rpc_v1_MiniMaxTenantVoiceProviderData_msg
 #define gizclaw_rpc_v1_Model_fields &gizclaw_rpc_v1_Model_msg
+#define gizclaw_rpc_v1_Model_I18nEntry_fields &gizclaw_rpc_v1_Model_I18nEntry_msg
 #define gizclaw_rpc_v1_ModelCapabilities_fields &gizclaw_rpc_v1_ModelCapabilities_msg
-#define gizclaw_rpc_v1_ModelCreateRequest_fields &gizclaw_rpc_v1_ModelCreateRequest_msg
-#define gizclaw_rpc_v1_ModelCreateResponse_fields &gizclaw_rpc_v1_ModelCreateResponse_msg
-#define gizclaw_rpc_v1_ModelDeleteRequest_fields &gizclaw_rpc_v1_ModelDeleteRequest_msg
-#define gizclaw_rpc_v1_ModelDeleteResponse_fields &gizclaw_rpc_v1_ModelDeleteResponse_msg
 #define gizclaw_rpc_v1_ModelGetRequest_fields &gizclaw_rpc_v1_ModelGetRequest_msg
 #define gizclaw_rpc_v1_ModelGetResponse_fields &gizclaw_rpc_v1_ModelGetResponse_msg
 #define gizclaw_rpc_v1_ModelListRequest_fields &gizclaw_rpc_v1_ModelListRequest_msg
 #define gizclaw_rpc_v1_ModelListResponse_fields &gizclaw_rpc_v1_ModelListResponse_msg
-#define gizclaw_rpc_v1_ModelProvider_fields &gizclaw_rpc_v1_ModelProvider_msg
-#define gizclaw_rpc_v1_ModelProviderData_fields &gizclaw_rpc_v1_ModelProviderData_msg
-#define gizclaw_rpc_v1_ModelPutRequest_fields &gizclaw_rpc_v1_ModelPutRequest_msg
-#define gizclaw_rpc_v1_ModelPutResponse_fields &gizclaw_rpc_v1_ModelPutResponse_msg
 #define gizclaw_rpc_v1_ModelThinkingCapability_fields &gizclaw_rpc_v1_ModelThinkingCapability_msg
-#define gizclaw_rpc_v1_OpenAICredentialBody_fields &gizclaw_rpc_v1_OpenAICredentialBody_msg
-#define gizclaw_rpc_v1_OpenAITenantModelProviderData_fields &gizclaw_rpc_v1_OpenAITenantModelProviderData_msg
-#define gizclaw_rpc_v1_OpenAITenantVoiceProviderData_fields &gizclaw_rpc_v1_OpenAITenantVoiceProviderData_msg
 #define gizclaw_rpc_v1_Voice_fields &gizclaw_rpc_v1_Voice_msg
+#define gizclaw_rpc_v1_Voice_I18nEntry_fields &gizclaw_rpc_v1_Voice_I18nEntry_msg
 #define gizclaw_rpc_v1_VoiceGetRequest_fields &gizclaw_rpc_v1_VoiceGetRequest_msg
 #define gizclaw_rpc_v1_VoiceGetResponse_fields &gizclaw_rpc_v1_VoiceGetResponse_msg
 #define gizclaw_rpc_v1_VoiceListRequest_fields &gizclaw_rpc_v1_VoiceListRequest_msg
 #define gizclaw_rpc_v1_VoiceListResponse_fields &gizclaw_rpc_v1_VoiceListResponse_msg
-#define gizclaw_rpc_v1_VoiceProvider_fields &gizclaw_rpc_v1_VoiceProvider_msg
-#define gizclaw_rpc_v1_VoiceProviderData_fields &gizclaw_rpc_v1_VoiceProviderData_msg
-#define gizclaw_rpc_v1_VolcCredentialBody_fields &gizclaw_rpc_v1_VolcCredentialBody_msg
-#define gizclaw_rpc_v1_VolcTenantModelProviderData_fields &gizclaw_rpc_v1_VolcTenantModelProviderData_msg
-#define gizclaw_rpc_v1_VolcTenantVoiceProviderData_fields &gizclaw_rpc_v1_VolcTenantVoiceProviderData_msg
 #define gizclaw_rpc_v1_Workflow_fields &gizclaw_rpc_v1_Workflow_msg
-#define gizclaw_rpc_v1_WorkflowUpsert_fields &gizclaw_rpc_v1_WorkflowUpsert_msg
-#define gizclaw_rpc_v1_WorkflowCreateRequest_fields &gizclaw_rpc_v1_WorkflowCreateRequest_msg
-#define gizclaw_rpc_v1_WorkflowCreateResponse_fields &gizclaw_rpc_v1_WorkflowCreateResponse_msg
-#define gizclaw_rpc_v1_WorkflowDeleteRequest_fields &gizclaw_rpc_v1_WorkflowDeleteRequest_msg
-#define gizclaw_rpc_v1_WorkflowDeleteResponse_fields &gizclaw_rpc_v1_WorkflowDeleteResponse_msg
+#define gizclaw_rpc_v1_Workflow_I18nEntry_fields &gizclaw_rpc_v1_Workflow_I18nEntry_msg
 #define gizclaw_rpc_v1_WorkflowGetRequest_fields &gizclaw_rpc_v1_WorkflowGetRequest_msg
 #define gizclaw_rpc_v1_WorkflowGetResponse_fields &gizclaw_rpc_v1_WorkflowGetResponse_msg
 #define gizclaw_rpc_v1_WorkflowListRequest_fields &gizclaw_rpc_v1_WorkflowListRequest_msg
 #define gizclaw_rpc_v1_WorkflowListResponse_fields &gizclaw_rpc_v1_WorkflowListResponse_msg
-#define gizclaw_rpc_v1_WorkflowPutRequest_fields &gizclaw_rpc_v1_WorkflowPutRequest_msg
-#define gizclaw_rpc_v1_WorkflowPutResponse_fields &gizclaw_rpc_v1_WorkflowPutResponse_msg
 #define gizclaw_rpc_v1_ToolkitPolicyToolIds_fields &gizclaw_rpc_v1_ToolkitPolicyToolIds_msg
 #define gizclaw_rpc_v1_ToolkitPolicy_fields &gizclaw_rpc_v1_ToolkitPolicy_msg
-#define gizclaw_rpc_v1_WorkflowSpec_fields &gizclaw_rpc_v1_WorkflowSpec_msg
-#define gizclaw_rpc_v1_ToolExecutor_fields &gizclaw_rpc_v1_ToolExecutor_msg
-#define gizclaw_rpc_v1_ToolTriggerExample_fields &gizclaw_rpc_v1_ToolTriggerExample_msg
-#define gizclaw_rpc_v1_ToolTrigger_fields &gizclaw_rpc_v1_ToolTrigger_msg
 #define gizclaw_rpc_v1_Tool_fields &gizclaw_rpc_v1_Tool_msg
+#define gizclaw_rpc_v1_Tool_I18nEntry_fields &gizclaw_rpc_v1_Tool_I18nEntry_msg
 #define gizclaw_rpc_v1_ToolListRequest_fields &gizclaw_rpc_v1_ToolListRequest_msg
 #define gizclaw_rpc_v1_ToolListResponse_fields &gizclaw_rpc_v1_ToolListResponse_msg
 #define gizclaw_rpc_v1_ToolGetRequest_fields &gizclaw_rpc_v1_ToolGetRequest_msg
 #define gizclaw_rpc_v1_ToolGetResponse_fields &gizclaw_rpc_v1_ToolGetResponse_msg
-#define gizclaw_rpc_v1_ToolCreateRequest_fields &gizclaw_rpc_v1_ToolCreateRequest_msg
-#define gizclaw_rpc_v1_ToolCreateResponse_fields &gizclaw_rpc_v1_ToolCreateResponse_msg
-#define gizclaw_rpc_v1_ToolPutRequest_fields &gizclaw_rpc_v1_ToolPutRequest_msg
-#define gizclaw_rpc_v1_ToolPutResponse_fields &gizclaw_rpc_v1_ToolPutResponse_msg
-#define gizclaw_rpc_v1_ToolDeleteRequest_fields &gizclaw_rpc_v1_ToolDeleteRequest_msg
-#define gizclaw_rpc_v1_ToolDeleteResponse_fields &gizclaw_rpc_v1_ToolDeleteResponse_msg
 #define gizclaw_rpc_v1_ToolInvokeRequest_fields &gizclaw_rpc_v1_ToolInvokeRequest_msg
 #define gizclaw_rpc_v1_ToolInvokeResponse_fields &gizclaw_rpc_v1_ToolInvokeResponse_msg
 
 /* Maximum encoded size of messages (where known) */
+/* gizclaw_rpc_v1_AliasI18nText_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ASTTranslateExternalVoiceParameters_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ASTTranslateInternalSpeakerParameters_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ASTTranslateVoiceParameters_size depends on runtime parameters */
@@ -2744,21 +1706,6 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ToolInvokeResponse_msg;
 /* gizclaw_rpc_v1_ChatRoomWorkspaceHistoryParameters_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ChatRoomWorkspaceParameters_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters_size depends on runtime parameters */
-/* gizclaw_rpc_v1_Credential_size depends on runtime parameters */
-/* gizclaw_rpc_v1_CredentialBody_size depends on runtime parameters */
-/* gizclaw_rpc_v1_CredentialCreateRequest_size depends on runtime parameters */
-/* gizclaw_rpc_v1_CredentialCreateResponse_size depends on runtime parameters */
-/* gizclaw_rpc_v1_CredentialDeleteRequest_size depends on runtime parameters */
-/* gizclaw_rpc_v1_CredentialDeleteResponse_size depends on runtime parameters */
-/* gizclaw_rpc_v1_CredentialGetRequest_size depends on runtime parameters */
-/* gizclaw_rpc_v1_CredentialGetResponse_size depends on runtime parameters */
-/* gizclaw_rpc_v1_CredentialListRequest_size depends on runtime parameters */
-/* gizclaw_rpc_v1_CredentialListResponse_size depends on runtime parameters */
-/* gizclaw_rpc_v1_CredentialPutRequest_size depends on runtime parameters */
-/* gizclaw_rpc_v1_CredentialPutResponse_size depends on runtime parameters */
-/* gizclaw_rpc_v1_DashScopeCredentialBody_size depends on runtime parameters */
-/* gizclaw_rpc_v1_DashScopeTenantModelProviderData_size depends on runtime parameters */
-/* gizclaw_rpc_v1_DashScopeTenantVoiceProviderData_size depends on runtime parameters */
 /* gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata_size depends on runtime parameters */
 /* gizclaw_rpc_v1_DoubaoRealtimeASRContext_size depends on runtime parameters */
 /* gizclaw_rpc_v1_DoubaoRealtimeASRContext_CorrectWordsEntry_size depends on runtime parameters */
@@ -2781,76 +1728,46 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ToolInvokeResponse_msg;
 /* gizclaw_rpc_v1_PetPersonaParameters_size depends on runtime parameters */
 /* gizclaw_rpc_v1_PetVoiceParameters_size depends on runtime parameters */
 /* gizclaw_rpc_v1_PetWorkspaceParameters_size depends on runtime parameters */
-/* gizclaw_rpc_v1_GeminiCredentialBody_size depends on runtime parameters */
-/* gizclaw_rpc_v1_GeminiTenantModelProviderData_size depends on runtime parameters */
-/* gizclaw_rpc_v1_GeminiTenantVoiceProviderData_size depends on runtime parameters */
-/* gizclaw_rpc_v1_MiniMaxCredentialBody_size depends on runtime parameters */
-/* gizclaw_rpc_v1_MiniMaxTenantVoiceProviderData_size depends on runtime parameters */
 /* gizclaw_rpc_v1_Model_size depends on runtime parameters */
+/* gizclaw_rpc_v1_Model_I18nEntry_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ModelCapabilities_size depends on runtime parameters */
-/* gizclaw_rpc_v1_ModelCreateRequest_size depends on runtime parameters */
-/* gizclaw_rpc_v1_ModelCreateResponse_size depends on runtime parameters */
-/* gizclaw_rpc_v1_ModelDeleteRequest_size depends on runtime parameters */
-/* gizclaw_rpc_v1_ModelDeleteResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ModelGetRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ModelGetResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ModelListRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ModelListResponse_size depends on runtime parameters */
-/* gizclaw_rpc_v1_ModelProvider_size depends on runtime parameters */
-/* gizclaw_rpc_v1_ModelProviderData_size depends on runtime parameters */
-/* gizclaw_rpc_v1_ModelPutRequest_size depends on runtime parameters */
-/* gizclaw_rpc_v1_ModelPutResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ModelThinkingCapability_size depends on runtime parameters */
-/* gizclaw_rpc_v1_OpenAICredentialBody_size depends on runtime parameters */
-/* gizclaw_rpc_v1_OpenAITenantModelProviderData_size depends on runtime parameters */
-/* gizclaw_rpc_v1_OpenAITenantVoiceProviderData_size depends on runtime parameters */
 /* gizclaw_rpc_v1_Voice_size depends on runtime parameters */
+/* gizclaw_rpc_v1_Voice_I18nEntry_size depends on runtime parameters */
 /* gizclaw_rpc_v1_VoiceGetRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_VoiceGetResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_VoiceListRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_VoiceListResponse_size depends on runtime parameters */
-/* gizclaw_rpc_v1_VoiceProvider_size depends on runtime parameters */
-/* gizclaw_rpc_v1_VoiceProviderData_size depends on runtime parameters */
-/* gizclaw_rpc_v1_VolcCredentialBody_size depends on runtime parameters */
-/* gizclaw_rpc_v1_VolcTenantModelProviderData_size depends on runtime parameters */
-/* gizclaw_rpc_v1_VolcTenantVoiceProviderData_size depends on runtime parameters */
 /* gizclaw_rpc_v1_Workflow_size depends on runtime parameters */
-/* gizclaw_rpc_v1_WorkflowUpsert_size depends on runtime parameters */
-/* gizclaw_rpc_v1_WorkflowCreateRequest_size depends on runtime parameters */
-/* gizclaw_rpc_v1_WorkflowCreateResponse_size depends on runtime parameters */
-/* gizclaw_rpc_v1_WorkflowDeleteRequest_size depends on runtime parameters */
-/* gizclaw_rpc_v1_WorkflowDeleteResponse_size depends on runtime parameters */
+/* gizclaw_rpc_v1_Workflow_I18nEntry_size depends on runtime parameters */
 /* gizclaw_rpc_v1_WorkflowGetRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_WorkflowGetResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_WorkflowListRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_WorkflowListResponse_size depends on runtime parameters */
-/* gizclaw_rpc_v1_WorkflowPutRequest_size depends on runtime parameters */
-/* gizclaw_rpc_v1_WorkflowPutResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ToolkitPolicyToolIds_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ToolkitPolicy_size depends on runtime parameters */
-/* gizclaw_rpc_v1_WorkflowSpec_size depends on runtime parameters */
-/* gizclaw_rpc_v1_ToolExecutor_size depends on runtime parameters */
-/* gizclaw_rpc_v1_ToolTriggerExample_size depends on runtime parameters */
-/* gizclaw_rpc_v1_ToolTrigger_size depends on runtime parameters */
 /* gizclaw_rpc_v1_Tool_size depends on runtime parameters */
+/* gizclaw_rpc_v1_Tool_I18nEntry_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ToolListRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ToolListResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ToolGetRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ToolGetResponse_size depends on runtime parameters */
-/* gizclaw_rpc_v1_ToolCreateRequest_size depends on runtime parameters */
-/* gizclaw_rpc_v1_ToolCreateResponse_size depends on runtime parameters */
-/* gizclaw_rpc_v1_ToolPutRequest_size depends on runtime parameters */
-/* gizclaw_rpc_v1_ToolPutResponse_size depends on runtime parameters */
-/* gizclaw_rpc_v1_ToolDeleteRequest_size depends on runtime parameters */
-/* gizclaw_rpc_v1_ToolDeleteResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ToolInvokeRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ToolInvokeResponse_size depends on runtime parameters */
-#define GIZCLAW_RPC_V1_PAYLOAD_AI_PB_H_MAX_SIZE  gizclaw_rpc_v1_DoubaoRealtimeAudioInput_size
+#define GIZCLAW_RPC_V1_PAYLOAD_AI_PB_H_MAX_SIZE  gizclaw_rpc_v1_SpeechTranscribeResponse_size
 #define gizclaw_rpc_v1_DoubaoRealtimeAudioFormat_size 13
 #define gizclaw_rpc_v1_DoubaoRealtimeAudioInput_size 15
 #define gizclaw_rpc_v1_FlowcraftConversationParameters_size 4
 #define gizclaw_rpc_v1_PetConversationParameters_size 2
 #define gizclaw_rpc_v1_PetWorkflowSpec_size      0
+#define gizclaw_rpc_v1_SpeechSynthesizeRequest_size 5212
+#define gizclaw_rpc_v1_SpeechSynthesizeResponse_size 153
+#define gizclaw_rpc_v1_SpeechTranscribeRequest_size 230
+#define gizclaw_rpc_v1_SpeechTranscribeResponse_size 8195
 #if defined(google_protobuf_Struct_size)
 #define gizclaw_rpc_v1_FlowcraftWorkflowSpec_size (6 + google_protobuf_Struct_size)
 #endif

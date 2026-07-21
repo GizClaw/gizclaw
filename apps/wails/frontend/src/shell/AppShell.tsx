@@ -60,19 +60,26 @@ export function AppShell() {
     .join("\n");
 
   useEffect(() => {
+    const syncPods = (nextPods: PodSummary[]) => {
+      setPods(nextPods);
+      setSelected((current) => {
+        if (current == null) return null;
+        return nextPods.find((pod) => pod.id === current.id) ?? current;
+      });
+    };
     const refresh = () =>
       api
         .Bootstrap()
         .then(async (state) => {
           setLocale(state.locale);
-          setPods(state.pods);
+          syncPods(state.pods);
           setBootstrapEnvironment(state.bootstrap_environment);
           const checked = await Promise.all(
             state.pods.map((pod) =>
               api.RefreshPodHealth(pod.id).catch(() => pod),
             ),
           );
-          setPods(checked);
+          syncPods(checked);
         })
         .catch((reason) => setError(errorMessage(reason)))
         .finally(() => setLoading(false));
@@ -1008,6 +1015,26 @@ function LocalManageFace({
 }) {
   const t = useMessages();
   const local = pod.local!;
+  const changingRef = useRef(false);
+  const [changing, setChanging] = useState(false);
+  const running = local.process.state === "running";
+
+  async function toggleServer() {
+    if (changingRef.current) return;
+    changingRef.current = true;
+    setChanging(true);
+    try {
+      await run(() =>
+        running
+          ? api.StopLocalServer(pod.id)
+          : api.StartLocalServer(pod.id),
+      );
+    } finally {
+      changingRef.current = false;
+      setChanging(false);
+    }
+  }
+
   return (
     <div className="manage-face local-manage-face">
       <ManageListItem
@@ -1015,34 +1042,24 @@ function LocalManageFace({
         className="local-status-card"
         description={t("localServer")}
         icon={<Server size={22} />}
-        iconClassName={`local-status-icon ${local.process.state === "running" ? "running" : ""}`}
-        title={
-          local.process.state === "running" ? t("running") : t("stopped")
-        }
+        iconClassName={`local-status-icon ${running ? "running" : ""}`}
+        title={running ? t("running") : t("stopped")}
         trailing={
           <button
-            className={`local-status-action ${
-              local.process.state === "running"
-                ? "stop-action"
-                : "start-action"
-            }`}
-            onClick={() =>
-              void run(() =>
-                local.process.state === "running"
-                  ? api.StopLocalServer(pod.id)
-                  : api.StartLocalServer(pod.id),
-              )
-            }
+            aria-busy={changing}
+            className={`local-status-action ${running ? "stop-action" : "start-action"}`}
+            disabled={changing}
+            onClick={() => void toggleServer()}
             type="button"
           >
-            {local.process.state === "running" ? (
+            {changing ? (
+              <LoaderCircle className="local-status-progress" size={14} />
+            ) : running ? (
               <CircleStop size={14} />
             ) : (
               <Play size={14} />
             )}
-            <span>
-              {local.process.state === "running" ? t("stop") : t("start")}
-            </span>
+            <span>{running ? t("stop") : t("start")}</span>
           </button>
         }
       />

@@ -89,6 +89,7 @@ type Server struct {
 	FriendGroupMessageMaxTTL     time.Duration
 	FriendGroupMessageCleanup    time.Duration
 	FriendGroupMessageMaxBytes   int64
+	SpeechLimits                 SpeechLimits
 	BuildCommit                  string
 	PublicEndpoint               string
 	PublicICETCP                 bool
@@ -402,6 +403,7 @@ func (s *Server) init() error {
 	manager := NewManager(peersServer)
 	manager.PetWorkflow = s.PetWorkflow
 	manager.FlowcraftHistory = s.FlowcraftHistory
+	manager.SpeechLimits = s.SpeechLimits
 	manager.PeerRoutes = &peerroute.Server{
 		Store:           peerRouteStore,
 		Peers:           peersServer,
@@ -517,6 +519,7 @@ func (s *Server) init() error {
 		Tools:           toolServer,
 		RuntimeProfiles: runtimeProfileServer,
 	})
+	runtimeProfileServer.ResolveResource = resourceManager.Get
 
 	s.manager = manager
 	s.peerService = &PeerService{

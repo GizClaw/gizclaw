@@ -1,15 +1,21 @@
-# Firmware Download
+# Firmware RPC
 
 `Implementation file: rpc_firmware.go`
 
-Retains Firmware binary download streaming RPC parsing and framing compatibility. Firmware is no longer projected to peers by RegistrationToken or RuntimeProfile, so the current download returns not found and never opens an Admin Firmware artifact.
+A RegistrationToken may bind one Firmware release-line ID to a Peer. The channel is never stored on the token or Peer; the device still chooses `stable`, `beta`, `develop`, or `pending` for each download.
 
-Firmware catalog, authorization, and artifact ownership remain in `services/device/firmware` and are managed only through the Admin surface.
+Devices do not list or select Firmware:
+
+- `server.firmware.get` uses an empty request and returns metadata and slots for the caller Peer's bound Firmware.
+- `server.firmware.files.download` accepts only `channel` and `path`; the Server resolves the same Peer binding and streams that file.
+- A missing binding, missing bound Firmware, or missing artifact returns an explicit not-found error.
+
+Firmware catalog, release lines, and artifact ownership remain in `services/device/firmware` and are managed through the Admin surface.
 
 ## Core structure and main function
 
 | Symbol | Function |
 | --- | --- |
-| `rpcFirmwareDownloadService` | The minimum interface used by the Firmware download compatibility handler. |
-| `handleFirmwareBinDownload` | Validates the request and returns the peer-resource not-found error; metadata and binary frames are written only if a service returns a reader. |
+| `rpcFirmwareDownloadService` | The minimum interface used by the Firmware download handler. |
+| `handleFirmwareBinDownload` | Parses channel/path, writes metadata, then streams binary frames from the bound Firmware. |
 | `writeReaderBinaryFrames` | Split the reader content and write it into RPC binary frames. |

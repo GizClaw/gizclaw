@@ -13,14 +13,10 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
-var (
-	workflowsRoot        = kv.Key{"by-name"}
-	workflowsByOwnerRoot = kv.Key{"by-owner"}
-)
+var workflowsRoot = kv.Key{"by-name"}
 
 const (
 	defaultListLimit = 50
@@ -88,19 +84,7 @@ func (s *Server) CreateWorkflow(ctx context.Context, request adminhttp.CreateWor
 	} else if !errors.Is(err, kv.ErrNotFound) {
 		return adminhttp.CreateWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	doc.OwnerPublicKey = nil
-	if owner, ok := ownership.FromContext(ctx); ok {
-		doc.OwnerPublicKey = &owner
-	}
-	raw, err = json.Marshal(doc)
-	if err != nil {
-		return adminhttp.CreateWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
-	entries := []kv.Entry{{Key: key, Value: raw}}
-	if doc.OwnerPublicKey != nil {
-		entries = append(entries, kv.Entry{Key: workflowByOwnerKey(*doc.OwnerPublicKey, doc.Name), Value: []byte{}})
-	}
-	if err := s.Store.BatchSet(ctx, entries); err != nil {
+	if err := s.Store.Set(ctx, key, raw); err != nil {
 		return adminhttp.CreateWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	return adminhttp.CreateWorkflow200JSONResponse(doc), nil
@@ -126,48 +110,10 @@ func (s *Server) DeleteWorkflow(ctx context.Context, request adminhttp.DeleteWor
 	if err != nil {
 		return adminhttp.DeleteWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	keys := []kv.Key{key}
-	if doc.OwnerPublicKey != nil {
-		keys = append(keys, workflowByOwnerKey(*doc.OwnerPublicKey, doc.Name))
-	}
-	if err := s.Store.BatchDelete(ctx, keys); err != nil {
+	if err := s.Store.Delete(ctx, key); err != nil {
 		return adminhttp.DeleteWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	return adminhttp.DeleteWorkflow200JSONResponse(doc), nil
-}
-
-// ListWorkflowsByOwner reads the owner index used by the public RPC owned source.
-func (s *Server) ListWorkflowsByOwner(ctx context.Context, owner string) ([]apitypes.Workflow, error) {
-	if s == nil || s.Store == nil {
-		return nil, errors.New("workflow store not configured")
-	}
-	owner = strings.TrimSpace(owner)
-	if owner == "" {
-		return []apitypes.Workflow{}, nil
-	}
-	items := make([]apitypes.Workflow, 0)
-	for entry, err := range s.Store.List(ctx, workflowByOwnerPrefix(owner)) {
-		if err != nil {
-			return nil, fmt.Errorf("workflows: list owner %s: %w", owner, err)
-		}
-		if len(entry.Key) == 0 {
-			continue
-		}
-		name := unescapeStoreSegment(entry.Key[len(entry.Key)-1])
-		data, err := s.Store.Get(ctx, workflowKey(name))
-		if errors.Is(err, kv.ErrNotFound) {
-			continue
-		}
-		if err != nil {
-			return nil, err
-		}
-		item, err := decodeWorkflow(data)
-		if err != nil {
-			return nil, err
-		}
-		items = append(items, item)
-	}
-	return items, nil
 }
 
 func (s *Server) GetWorkflow(ctx context.Context, request adminhttp.GetWorkflowRequestObject) (adminhttp.GetWorkflowResponseObject, error) {
@@ -204,9 +150,8 @@ func (s *Server) PutWorkflow(ctx context.Context, request adminhttp.PutWorkflowR
 		return nil, fmt.Errorf("invalid params: %w", err)
 	}
 	previousData, getErr := s.Store.Get(ctx, workflowKey(name))
-	var previous apitypes.Workflow
 	if getErr == nil {
-		previous, err = decodeWorkflow(previousData)
+		_, err = decodeWorkflow(previousData)
 		if err != nil {
 			return adminhttp.PutWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 		}
@@ -218,21 +163,7 @@ func (s *Server) PutWorkflow(ctx context.Context, request adminhttp.PutWorkflowR
 	if err != nil {
 		return adminhttp.PutWorkflow400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKFLOW", err.Error())), nil
 	}
-	doc.OwnerPublicKey = nil
-	if getErr == nil {
-		doc.OwnerPublicKey = previous.OwnerPublicKey
-	} else if owner, ok := ownership.FromContext(ctx); ok {
-		doc.OwnerPublicKey = &owner
-	}
-	raw, err = json.Marshal(doc)
-	if err != nil {
-		return adminhttp.PutWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
-	entries := []kv.Entry{{Key: workflowKey(doc.Name), Value: raw}}
-	if doc.OwnerPublicKey != nil {
-		entries = append(entries, kv.Entry{Key: workflowByOwnerKey(*doc.OwnerPublicKey, doc.Name), Value: []byte{}})
-	}
-	if err := s.Store.BatchSet(ctx, entries); err != nil {
+	if err := s.Store.Set(ctx, workflowKey(doc.Name), raw); err != nil {
 		return adminhttp.PutWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	return adminhttp.PutWorkflow200JSONResponse(doc), nil
@@ -318,19 +249,6 @@ func decodeWorkflow(data []byte) (apitypes.Workflow, error) {
 
 func workflowKey(name string) kv.Key {
 	return append(append(kv.Key{}, workflowsRoot...), escapeStoreSegment(name))
-}
-
-func workflowByOwnerPrefix(owner string) kv.Key {
-	return append(append(kv.Key{}, workflowsByOwnerRoot...), escapeStoreSegment(owner))
-}
-
-func workflowByOwnerKey(owner, name string) kv.Key {
-	return append(workflowByOwnerPrefix(owner), escapeStoreSegment(name))
-}
-
-func unescapeStoreSegment(value string) string {
-	value = strings.ReplaceAll(value, "%3A", ":")
-	return strings.ReplaceAll(value, "%25", "%")
 }
 
 func escapeStoreSegment(value string) string {

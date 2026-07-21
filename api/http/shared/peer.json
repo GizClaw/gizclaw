@@ -34,6 +34,10 @@
           "auto_registered": {
             "type": "boolean"
           },
+          "firmware_id": {
+            "type": "string",
+            "description": "Optional Server-assigned Firmware release-line ID. Channel selection remains device-owned."
+          },
           "created_at": {
             "type": "string",
             "format": "date-time"

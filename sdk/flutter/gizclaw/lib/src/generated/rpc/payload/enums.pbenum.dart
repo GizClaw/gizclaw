@@ -36,28 +36,6 @@ class IconFormat extends $pb.ProtobufEnum {
   const IconFormat._(super.value, super.name);
 }
 
-class ResourceSource extends $pb.ProtobufEnum {
-  static const ResourceSource RESOURCE_SOURCE_UNSPECIFIED =
-      ResourceSource._(0, _omitEnumNames ? '' : 'RESOURCE_SOURCE_UNSPECIFIED');
-  static const ResourceSource RESOURCE_SOURCE_RUNTIME =
-      ResourceSource._(1, _omitEnumNames ? '' : 'RESOURCE_SOURCE_RUNTIME');
-  static const ResourceSource RESOURCE_SOURCE_OWNED =
-      ResourceSource._(2, _omitEnumNames ? '' : 'RESOURCE_SOURCE_OWNED');
-
-  static const $core.List<ResourceSource> values = <ResourceSource>[
-    RESOURCE_SOURCE_UNSPECIFIED,
-    RESOURCE_SOURCE_RUNTIME,
-    RESOURCE_SOURCE_OWNED,
-  ];
-
-  static final $core.List<ResourceSource?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 2);
-  static ResourceSource? valueOf($core.int value) =>
-      value < 0 || value >= _byValue.length ? null : _byValue[value];
-
-  const ResourceSource._(super.value, super.name);
-}
-
 class ASTTranslateMode extends $pb.ProtobufEnum {
   static const ASTTranslateMode ASTTRANSLATE_MODE_UNSPECIFIED =
       ASTTranslateMode._(
@@ -694,61 +672,6 @@ class ModelKind extends $pb.ProtobufEnum {
   const ModelKind._(super.value, super.name);
 }
 
-class ModelProviderKind extends $pb.ProtobufEnum {
-  static const ModelProviderKind MODEL_PROVIDER_KIND_UNSPECIFIED =
-      ModelProviderKind._(
-          0, _omitEnumNames ? '' : 'MODEL_PROVIDER_KIND_UNSPECIFIED');
-  static const ModelProviderKind MODEL_PROVIDER_KIND_GEMINI_TENANT =
-      ModelProviderKind._(
-          1, _omitEnumNames ? '' : 'MODEL_PROVIDER_KIND_GEMINI_TENANT');
-  static const ModelProviderKind MODEL_PROVIDER_KIND_DASHSCOPE_TENANT =
-      ModelProviderKind._(
-          2, _omitEnumNames ? '' : 'MODEL_PROVIDER_KIND_DASHSCOPE_TENANT');
-  static const ModelProviderKind MODEL_PROVIDER_KIND_OPENAI_TENANT =
-      ModelProviderKind._(
-          3, _omitEnumNames ? '' : 'MODEL_PROVIDER_KIND_OPENAI_TENANT');
-  static const ModelProviderKind MODEL_PROVIDER_KIND_VOLC_TENANT =
-      ModelProviderKind._(
-          4, _omitEnumNames ? '' : 'MODEL_PROVIDER_KIND_VOLC_TENANT');
-
-  static const $core.List<ModelProviderKind> values = <ModelProviderKind>[
-    MODEL_PROVIDER_KIND_UNSPECIFIED,
-    MODEL_PROVIDER_KIND_GEMINI_TENANT,
-    MODEL_PROVIDER_KIND_DASHSCOPE_TENANT,
-    MODEL_PROVIDER_KIND_OPENAI_TENANT,
-    MODEL_PROVIDER_KIND_VOLC_TENANT,
-  ];
-
-  static final $core.List<ModelProviderKind?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 4);
-  static ModelProviderKind? valueOf($core.int value) =>
-      value < 0 || value >= _byValue.length ? null : _byValue[value];
-
-  const ModelProviderKind._(super.value, super.name);
-}
-
-class ModelSource extends $pb.ProtobufEnum {
-  static const ModelSource MODEL_SOURCE_UNSPECIFIED =
-      ModelSource._(0, _omitEnumNames ? '' : 'MODEL_SOURCE_UNSPECIFIED');
-  static const ModelSource MODEL_SOURCE_SYNC =
-      ModelSource._(1, _omitEnumNames ? '' : 'MODEL_SOURCE_SYNC');
-  static const ModelSource MODEL_SOURCE_MANUAL =
-      ModelSource._(2, _omitEnumNames ? '' : 'MODEL_SOURCE_MANUAL');
-
-  static const $core.List<ModelSource> values = <ModelSource>[
-    MODEL_SOURCE_UNSPECIFIED,
-    MODEL_SOURCE_SYNC,
-    MODEL_SOURCE_MANUAL,
-  ];
-
-  static final $core.List<ModelSource?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 2);
-  static ModelSource? valueOf($core.int value) =>
-      value < 0 || value >= _byValue.length ? null : _byValue[value];
-
-  const ModelSource._(super.value, super.name);
-}
-
 class PeerRunHistoryEntryType extends $pb.ProtobufEnum {
   static const PeerRunHistoryEntryType PEER_RUN_HISTORY_ENTRY_TYPE_UNSPECIFIED =
       PeerRunHistoryEntryType._(
@@ -842,65 +765,6 @@ class PeerRunStatusState extends $pb.ProtobufEnum {
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 
   const PeerRunStatusState._(super.value, super.name);
-}
-
-class VoiceProviderKind extends $pb.ProtobufEnum {
-  static const VoiceProviderKind VOICE_PROVIDER_KIND_UNSPECIFIED =
-      VoiceProviderKind._(
-          0, _omitEnumNames ? '' : 'VOICE_PROVIDER_KIND_UNSPECIFIED');
-  static const VoiceProviderKind VOICE_PROVIDER_KIND_GEMINI_TENANT =
-      VoiceProviderKind._(
-          1, _omitEnumNames ? '' : 'VOICE_PROVIDER_KIND_GEMINI_TENANT');
-  static const VoiceProviderKind VOICE_PROVIDER_KIND_DASHSCOPE_TENANT =
-      VoiceProviderKind._(
-          2, _omitEnumNames ? '' : 'VOICE_PROVIDER_KIND_DASHSCOPE_TENANT');
-  static const VoiceProviderKind VOICE_PROVIDER_KIND_OPENAI_TENANT =
-      VoiceProviderKind._(
-          3, _omitEnumNames ? '' : 'VOICE_PROVIDER_KIND_OPENAI_TENANT');
-  static const VoiceProviderKind VOICE_PROVIDER_KIND_MINIMAX_TENANT =
-      VoiceProviderKind._(
-          4, _omitEnumNames ? '' : 'VOICE_PROVIDER_KIND_MINIMAX_TENANT');
-  static const VoiceProviderKind VOICE_PROVIDER_KIND_VOLC_TENANT =
-      VoiceProviderKind._(
-          5, _omitEnumNames ? '' : 'VOICE_PROVIDER_KIND_VOLC_TENANT');
-
-  static const $core.List<VoiceProviderKind> values = <VoiceProviderKind>[
-    VOICE_PROVIDER_KIND_UNSPECIFIED,
-    VOICE_PROVIDER_KIND_GEMINI_TENANT,
-    VOICE_PROVIDER_KIND_DASHSCOPE_TENANT,
-    VOICE_PROVIDER_KIND_OPENAI_TENANT,
-    VOICE_PROVIDER_KIND_MINIMAX_TENANT,
-    VOICE_PROVIDER_KIND_VOLC_TENANT,
-  ];
-
-  static final $core.List<VoiceProviderKind?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 5);
-  static VoiceProviderKind? valueOf($core.int value) =>
-      value < 0 || value >= _byValue.length ? null : _byValue[value];
-
-  const VoiceProviderKind._(super.value, super.name);
-}
-
-class VoiceSource extends $pb.ProtobufEnum {
-  static const VoiceSource VOICE_SOURCE_UNSPECIFIED =
-      VoiceSource._(0, _omitEnumNames ? '' : 'VOICE_SOURCE_UNSPECIFIED');
-  static const VoiceSource VOICE_SOURCE_SYNC =
-      VoiceSource._(1, _omitEnumNames ? '' : 'VOICE_SOURCE_SYNC');
-  static const VoiceSource VOICE_SOURCE_MANUAL =
-      VoiceSource._(2, _omitEnumNames ? '' : 'VOICE_SOURCE_MANUAL');
-
-  static const $core.List<VoiceSource> values = <VoiceSource>[
-    VOICE_SOURCE_UNSPECIFIED,
-    VOICE_SOURCE_SYNC,
-    VOICE_SOURCE_MANUAL,
-  ];
-
-  static final $core.List<VoiceSource?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 2);
-  static VoiceSource? valueOf($core.int value) =>
-      value < 0 || value >= _byValue.length ? null : _byValue[value];
-
-  const VoiceSource._(super.value, super.name);
 }
 
 class VolcTenantModelProviderDataApiMode extends $pb.ProtobufEnum {
@@ -1030,55 +894,6 @@ class WorkspaceInputMode extends $pb.ProtobufEnum {
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 
   const WorkspaceInputMode._(super.value, super.name);
-}
-
-class ToolSource extends $pb.ProtobufEnum {
-  static const ToolSource TOOL_SOURCE_UNSPECIFIED =
-      ToolSource._(0, _omitEnumNames ? '' : 'TOOL_SOURCE_UNSPECIFIED');
-  static const ToolSource TOOL_SOURCE_BUILTIN =
-      ToolSource._(1, _omitEnumNames ? '' : 'TOOL_SOURCE_BUILTIN');
-  static const ToolSource TOOL_SOURCE_DEVICE =
-      ToolSource._(2, _omitEnumNames ? '' : 'TOOL_SOURCE_DEVICE');
-  static const ToolSource TOOL_SOURCE_ADMIN =
-      ToolSource._(3, _omitEnumNames ? '' : 'TOOL_SOURCE_ADMIN');
-
-  static const $core.List<ToolSource> values = <ToolSource>[
-    TOOL_SOURCE_UNSPECIFIED,
-    TOOL_SOURCE_BUILTIN,
-    TOOL_SOURCE_DEVICE,
-    TOOL_SOURCE_ADMIN,
-  ];
-
-  static final $core.List<ToolSource?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 3);
-  static ToolSource? valueOf($core.int value) =>
-      value < 0 || value >= _byValue.length ? null : _byValue[value];
-
-  const ToolSource._(super.value, super.name);
-}
-
-class ToolExecutorKind extends $pb.ProtobufEnum {
-  static const ToolExecutorKind TOOL_EXECUTOR_KIND_UNSPECIFIED =
-      ToolExecutorKind._(
-          0, _omitEnumNames ? '' : 'TOOL_EXECUTOR_KIND_UNSPECIFIED');
-  static const ToolExecutorKind TOOL_EXECUTOR_KIND_BUILTIN =
-      ToolExecutorKind._(1, _omitEnumNames ? '' : 'TOOL_EXECUTOR_KIND_BUILTIN');
-  static const ToolExecutorKind TOOL_EXECUTOR_KIND_DEVICE_RPC =
-      ToolExecutorKind._(
-          2, _omitEnumNames ? '' : 'TOOL_EXECUTOR_KIND_DEVICE_RPC');
-
-  static const $core.List<ToolExecutorKind> values = <ToolExecutorKind>[
-    TOOL_EXECUTOR_KIND_UNSPECIFIED,
-    TOOL_EXECUTOR_KIND_BUILTIN,
-    TOOL_EXECUTOR_KIND_DEVICE_RPC,
-  ];
-
-  static final $core.List<ToolExecutorKind?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 2);
-  static ToolExecutorKind? valueOf($core.int value) =>
-      value < 0 || value >= _byValue.length ? null : _byValue[value];
-
-  const ToolExecutorKind._(super.value, super.name);
 }
 
 const $core.bool _omitEnumNames =

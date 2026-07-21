@@ -584,16 +584,70 @@ function resourceSpecTemplate(kind: ResourceKind): unknown {
       };
     case "RuntimeProfile":
       return {
-        resources: {
-          workflows: { chat: "general-chat" },
-          models: { primary: "model-default" },
-          voices: { assistant: "voice-default" },
-          tools: { weather: "weather-v2" },
-          pet_defs: { tragon: "petdef-tragon" },
-          game_defs: { dinodive: "game-dinodive" },
-          badge_defs: { "dinodive-master": "badge-dinodive-master" },
+        workflows: {
+          collections: {
+            assistants: {
+              "general-assistant": {
+                resource_id: "general-chat",
+                i18n: {
+                  en: { display_name: "General Assistant" },
+                  "zh-CN": { display_name: "通用助手" },
+                },
+              },
+            },
+          },
         },
-        gameplay: { points: { initial_balance: 100 }, pet_pool: [{ pet_def: "tragon", weight: 100, adoption_cost: 10 }] },
+        resources: {
+          models: {
+            chat: {
+              resource_id: "model-default",
+              i18n: { en: { display_name: "Chat" }, "zh-CN": { display_name: "对话" } },
+            },
+          },
+          voices: {
+            "pet-voice": {
+              resource_id: "voice-default",
+              i18n: { en: { display_name: "Pet Voice" }, "zh-CN": { display_name: "宠物音色" } },
+            },
+          },
+          tools: {
+            weather: {
+              resource_id: "weather-v2",
+              i18n: { en: { display_name: "Weather" }, "zh-CN": { display_name: "天气" } },
+            },
+          },
+          pet_defs: {
+            "starter-pet": {
+              resource_id: "petdef-starter",
+              i18n: { en: { display_name: "Starter Pet" }, "zh-CN": { display_name: "初始宠物" } },
+            },
+          },
+          game_defs: {
+            "starter-game": {
+              resource_id: "game-starter",
+              i18n: { en: { display_name: "Starter Game" }, "zh-CN": { display_name: "初始游戏" } },
+            },
+          },
+          badge_defs: {
+            "starter-badge": {
+              resource_id: "badge-starter",
+              i18n: { en: { display_name: "Starter Badge" }, "zh-CN": { display_name: "初始徽章" } },
+            },
+          },
+        },
+        gameplay: {
+          points: { initial_balance: 100 },
+          adoption: {
+            pool: [
+              {
+                pet_def: "starter-pet",
+                voice: "pet-voice",
+                weight: 100,
+                adoption_cost: 10,
+              },
+            ],
+          },
+        },
       };
     case "RegistrationToken":
       return {
@@ -607,7 +661,7 @@ function resourceSpecTemplate(kind: ResourceKind): unknown {
           progression: { xp: { initial: 0 } },
         },
         character: { prompt: "Small friendly pixel pet." },
-        voice: { voice_id: "gizclaw-soft", prompt: "Soft and curious." },
+        voice: { prompt: "Soft and curious." },
         drive: {
           actions: [
             {

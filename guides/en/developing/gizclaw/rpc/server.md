@@ -25,3 +25,5 @@ Server methods cover Peer info, runtime status, run Agent, run workspace, histor
 | `handleServerRunSay` | Submit say input to the current run. |
 | `runWorkspaceState` | Aggregate Agent selection and run status into workspace state. |
 | `isPlannedServerMethod` / `rpcNotImplemented` | Identify methods that have been planned but not yet implemented, and generate a unified response. |
+
+`server.run.say` accepts `text` and a RuntimeProfile `voice_alias`. It does not accept canonical Voice, Model, or Credential identifiers.

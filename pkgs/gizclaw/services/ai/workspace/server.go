@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -15,6 +17,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/iconasset"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
@@ -28,6 +31,9 @@ var (
 const (
 	defaultListLimit                   = 50
 	maxListLimit                       = 200
+	maxWorkspaceLabels                 = 32
+	maxWorkspaceLabelKeyBytes          = 63
+	maxWorkspaceLabelValueBytes        = 128
 	SystemWorkspaceDeleteForbiddenCode = "SYSTEM_WORKSPACE_DELETE_FORBIDDEN"
 )
 
@@ -45,6 +51,8 @@ type ModelService interface {
 }
 
 type runtimeWorkflowBindingsContextKey struct{}
+type runtimeModelBindingsContextKey struct{}
+type runtimeVoiceBindingsContextKey struct{}
 
 // WithRuntimeWorkflowBindings attaches the authenticated connection's current
 // RuntimeProfile Workflow alias snapshot to Workspace validation.
@@ -54,6 +62,26 @@ func WithRuntimeWorkflowBindings(ctx context.Context, bindings map[string]string
 		cloned[alias] = name
 	}
 	return context.WithValue(ctx, runtimeWorkflowBindingsContextKey{}, cloned)
+}
+
+// WithRuntimeModelBindings attaches the same RuntimeProfile snapshot's Model
+// alias bindings so Workspace overrides can be validated before persistence.
+func WithRuntimeModelBindings(ctx context.Context, bindings map[string]string) context.Context {
+	cloned := make(map[string]string, len(bindings))
+	for alias, name := range bindings {
+		cloned[alias] = name
+	}
+	return context.WithValue(ctx, runtimeModelBindingsContextKey{}, cloned)
+}
+
+// WithRuntimeVoiceBindings attaches the same RuntimeProfile snapshot's Voice
+// alias bindings so Workspace overrides can be validated before persistence.
+func WithRuntimeVoiceBindings(ctx context.Context, bindings map[string]string) context.Context {
+	cloned := make(map[string]string, len(bindings))
+	for alias, name := range bindings {
+		cloned[alias] = name
+	}
+	return context.WithValue(ctx, runtimeVoiceBindingsContextKey{}, cloned)
 }
 
 type WorkspaceAdminService interface {
@@ -96,7 +124,11 @@ func (s *Server) ListWorkspaces(ctx context.Context, request adminhttp.ListWorks
 		return adminhttp.ListWorkspaces500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	cursor, limit := normalizeListParams(request.Params.Cursor, request.Params.Limit)
-	items, hasNext, nextCursor, err := listWorkspacePage(ctx, store, workspacesRoot, cursor, limit)
+	selector, err := parseLabelSelector(request.Params.Label)
+	if err != nil {
+		return adminhttp.ListWorkspaces400JSONResponse(apitypes.NewErrorResponse("INVALID_PARAMS", err.Error())), nil
+	}
+	items, hasNext, nextCursor, err := listWorkspacePage(ctx, store, workspacesRoot, cursor, limit, selector)
 	if err != nil {
 		return adminhttp.ListWorkspaces500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -111,6 +143,12 @@ func (s *Server) ListWorkspaces(ctx context.Context, request adminhttp.ListWorks
 // System Workspaces are intentionally absent and are added through their
 // Friend, FriendGroup, and Pet domain relationships.
 func (s *Server) ListWorkspacesByOwner(ctx context.Context, owner string) ([]apitypes.Workspace, error) {
+	return s.ListWorkspacesByOwnerAndLabels(ctx, owner, nil)
+}
+
+// ListWorkspacesByOwnerAndLabels returns owner Workspaces whose stored labels
+// contain every exact key/value pair in selector.
+func (s *Server) ListWorkspacesByOwnerAndLabels(ctx context.Context, owner string, selector map[string]string) ([]apitypes.Workspace, error) {
 	store, err := s.store()
 	if err != nil {
 		return nil, err
@@ -135,6 +173,9 @@ func (s *Server) ListWorkspacesByOwner(ctx context.Context, owner string) ([]api
 		}
 		if err != nil {
 			return nil, err
+		}
+		if !workspaceMatchesLabels(item, selector) {
+			continue
 		}
 		items = append(items, item)
 	}
@@ -211,15 +252,15 @@ func (s *Server) CreateSystemWorkspace(ctx context.Context, body adminhttp.Works
 func (s *Server) createWorkspaceRecord(ctx context.Context, store kv.Store, normalized adminhttp.WorkspaceUpsert, system bool) (apitypes.Workspace, error) {
 	now := time.Now().UTC()
 	workspace := apitypes.Workspace{
-		CreatedAt:      now,
-		LastActiveAt:   now,
-		Name:           normalized.Name,
-		Parameters:     cloneParameters(normalized.Parameters),
-		System:         boolPointer(system),
-		Toolkit:        cloneToolkitPolicy(normalized.Toolkit),
-		UpdatedAt:      now,
-		WorkflowName:   normalized.WorkflowName,
-		WorkflowSource: workspaceSource(normalized.WorkflowSource),
+		CreatedAt:    now,
+		LastActiveAt: now,
+		Labels:       cloneLabelsOrEmpty(normalized.Labels),
+		Name:         normalized.Name,
+		Parameters:   cloneParameters(normalized.Parameters),
+		System:       boolPointer(system),
+		Toolkit:      cloneToolkitPolicy(normalized.Toolkit),
+		UpdatedAt:    now,
+		WorkflowName: normalized.WorkflowName,
 	}
 	if owner, ok := ownership.FromContext(ctx); ok && !system {
 		workspace.OwnerPublicKey = &owner
@@ -382,22 +423,25 @@ func (s *Server) PutWorkspace(ctx context.Context, request adminhttp.PutWorkspac
 	}
 	now := time.Now().UTC()
 	workspace := apitypes.Workspace{
-		CreatedAt:      now,
-		LastActiveAt:   now,
-		Name:           normalized.Name,
-		Parameters:     cloneParameters(normalized.Parameters),
-		System:         boolPointer(false),
-		Toolkit:        cloneToolkitPolicy(normalized.Toolkit),
-		UpdatedAt:      now,
-		WorkflowName:   normalized.WorkflowName,
-		WorkflowSource: workspaceSource(normalized.WorkflowSource),
-		Icon:           previous.Icon,
+		CreatedAt:    now,
+		LastActiveAt: now,
+		Labels:       cloneLabelsOrEmpty(normalized.Labels),
+		Name:         normalized.Name,
+		Parameters:   cloneParameters(normalized.Parameters),
+		System:       boolPointer(false),
+		Toolkit:      cloneToolkitPolicy(normalized.Toolkit),
+		UpdatedAt:    now,
+		WorkflowName: normalized.WorkflowName,
+		Icon:         previous.Icon,
 	}
 	if err == nil {
 		workspace.CreatedAt = previous.CreatedAt
 		workspace.LastActiveAt = previous.LastActiveAt
 		workspace.System = previous.System
 		workspace.OwnerPublicKey = cloneString(previous.OwnerPublicKey)
+		if normalized.Labels == nil {
+			workspace.Labels = cloneLabelsOrEmpty(previous.Labels)
+		}
 	}
 	if err != nil {
 		if owner, ok := ownership.FromContext(ctx); ok {
@@ -442,27 +486,47 @@ func getWorkspace(ctx context.Context, store kv.Store, name string) (apitypes.Wo
 	return normalizeWorkspaceTimestamps(workspace), nil
 }
 
-func listWorkspacePage(ctx context.Context, store kv.Store, prefix kv.Key, cursor string, limit int) ([]apitypes.Workspace, bool, *string, error) {
-	entries, err := kv.ListAfter(ctx, store, prefix, cursorAfterKey(prefix, cursor), limit+1)
-	if err != nil {
-		return nil, false, nil, err
-	}
-	pageEntries, hasNext, nextCursor := paginateEntries(entries, limit)
-	items := make([]apitypes.Workspace, 0, len(pageEntries))
-	for _, entry := range pageEntries {
+func listWorkspacePage(ctx context.Context, store kv.Store, prefix kv.Key, cursor string, limit int, selector map[string]string) ([]apitypes.Workspace, bool, *string, error) {
+	items := make([]apitypes.Workspace, 0, limit+1)
+	keys := make([]string, 0, limit+1)
+	for entry, err := range store.List(ctx, prefix) {
+		if err != nil {
+			return nil, false, nil, err
+		}
+		if len(entry.Key) == 0 {
+			continue
+		}
+		key := entry.Key[len(entry.Key)-1]
+		if cursor != "" && key <= cursor {
+			continue
+		}
 		var workspace apitypes.Workspace
 		if err := json.Unmarshal(entry.Value, &workspace); err != nil {
 			return nil, false, nil, fmt.Errorf("workspace: decode list %s: %w", entry.Key.String(), err)
 		}
-		items = append(items, normalizeWorkspaceTimestamps(workspace))
+		workspace = normalizeWorkspaceTimestamps(workspace)
+		if !workspaceMatchesLabels(workspace, selector) {
+			continue
+		}
+		items = append(items, workspace)
+		keys = append(keys, key)
+		if len(items) > limit {
+			break
+		}
 	}
-	return items, hasNext, nextCursor, nil
+	if len(items) <= limit {
+		return items, false, nil, nil
+	}
+	items = items[:limit]
+	nextCursor := keys[limit-1]
+	return items, true, &nextCursor, nil
 }
 
 func normalizeWorkspaceTimestamps(workspace apitypes.Workspace) apitypes.Workspace {
 	if workspace.System == nil {
 		workspace.System = boolPointer(false)
 	}
+	workspace.Labels = cloneLabelsOrEmpty(workspace.Labels)
 	if workspace.LastActiveAt.IsZero() {
 		workspace.LastActiveAt = workspace.CreatedAt
 	}
@@ -494,29 +558,123 @@ func normalizeWorkspaceUpsert(in adminhttp.WorkspaceUpsert, expectedName string)
 		}
 	}
 	workflowName := string(in.WorkflowName)
-	if in.WorkflowSource != nil && *in.WorkflowSource == adminhttp.Runtime {
-		workflowName = strings.TrimSpace(workflowName)
-		if workflowName == "" {
-			return adminhttp.WorkspaceUpsert{}, errors.New("workflow_name: runtime alias is required")
-		}
-	} else if err := customid.ValidateField("workflow_name", workflowName); err != nil {
+	if err := validateWorkspaceWorkflowName(workflowName); err != nil {
 		return adminhttp.WorkspaceUpsert{}, err
 	}
 	policy, err := toolkit.NormalizePolicy(in.Toolkit)
 	if err != nil {
 		return adminhttp.WorkspaceUpsert{}, err
 	}
+	labels, err := normalizeWorkspaceLabels(in.Labels)
+	if err != nil {
+		return adminhttp.WorkspaceUpsert{}, err
+	}
 	return adminhttp.WorkspaceUpsert{
-		Name:           string(name),
-		Parameters:     cloneParameters(in.Parameters),
-		Toolkit:        policy,
-		WorkflowName:   string(workflowName),
-		WorkflowSource: cloneAdminWorkspaceSource(in.WorkflowSource),
+		Labels:       labels,
+		Name:         string(name),
+		Parameters:   cloneParameters(in.Parameters),
+		Toolkit:      policy,
+		WorkflowName: string(workflowName),
 	}, nil
 }
 
+func validateWorkspaceWorkflowName(value string) error {
+	if err := customid.ValidateField("workflow_name", value); err == nil {
+		return nil
+	}
+	return runtimeprofile.ValidateAlias("workflow_name", value)
+}
+
+func normalizeWorkspaceLabels(labels *map[string]string) (*map[string]string, error) {
+	if labels == nil {
+		return nil, nil
+	}
+	if len(*labels) > maxWorkspaceLabels {
+		return nil, fmt.Errorf("labels: maximum is %d", maxWorkspaceLabels)
+	}
+	cloned := make(map[string]string, len(*labels))
+	for key, value := range *labels {
+		if err := validateWorkspaceLabel(key, value); err != nil {
+			return nil, err
+		}
+		cloned[key] = value
+	}
+	return &cloned, nil
+}
+
+func validateWorkspaceLabel(key, value string) error {
+	if len(key) == 0 || len(key) > maxWorkspaceLabelKeyBytes {
+		return fmt.Errorf("labels: key length must be 1-%d bytes", maxWorkspaceLabelKeyBytes)
+	}
+	if key[0] < 'a' || key[0] > 'z' {
+		return fmt.Errorf("labels: key %q must start with a lowercase ASCII letter", key)
+	}
+	for index := range len(key) {
+		character := key[index]
+		if (character >= 'a' && character <= 'z') || (character >= '0' && character <= '9') || character == '.' || character == '_' || character == '-' {
+			continue
+		}
+		return fmt.Errorf("labels: key %q contains an invalid character", key)
+	}
+	last := key[len(key)-1]
+	if !((last >= 'a' && last <= 'z') || (last >= '0' && last <= '9')) {
+		return fmt.Errorf("labels: key %q must end with a lowercase ASCII letter or digit", key)
+	}
+	if len(value) == 0 || len(value) > maxWorkspaceLabelValueBytes {
+		return fmt.Errorf("labels[%q]: value length must be 1-%d UTF-8 bytes", key, maxWorkspaceLabelValueBytes)
+	}
+	if !utf8.ValidString(value) {
+		return fmt.Errorf("labels[%q]: value must be valid UTF-8", key)
+	}
+	if strings.TrimSpace(value) != value {
+		return fmt.Errorf("labels[%q]: value must not have leading or trailing whitespace", key)
+	}
+	for _, character := range value {
+		if unicode.IsControl(character) {
+			return fmt.Errorf("labels[%q]: value must not contain control characters", key)
+		}
+	}
+	return nil
+}
+
+func parseLabelSelector(values *[]string) (map[string]string, error) {
+	if values == nil {
+		return nil, nil
+	}
+	selector := make(map[string]string, len(*values))
+	for _, expression := range *values {
+		key, value, ok := strings.Cut(expression, "=")
+		if !ok {
+			return nil, fmt.Errorf("label selector %q must use key=value", expression)
+		}
+		if err := validateWorkspaceLabel(key, value); err != nil {
+			return nil, err
+		}
+		if previous, exists := selector[key]; exists && previous != value {
+			return nil, fmt.Errorf("label selector %q has conflicting values", key)
+		}
+		selector[key] = value
+	}
+	return selector, nil
+}
+
+func workspaceMatchesLabels(workspace apitypes.Workspace, selector map[string]string) bool {
+	if len(selector) == 0 {
+		return true
+	}
+	if workspace.Labels == nil {
+		return false
+	}
+	for key, value := range selector {
+		if (*workspace.Labels)[key] != value {
+			return false
+		}
+	}
+	return true
+}
+
 func (s *Server) validateReferences(ctx context.Context, store kv.Store, workspace adminhttp.WorkspaceUpsert) error {
-	workflowName, err := resolveWorkflowReference(ctx, store, workspace)
+	workflowName, runtimeAlias, err := resolveWorkflowReference(ctx, workspace)
 	if err != nil {
 		return err
 	}
@@ -531,73 +689,126 @@ func (s *Server) validateReferences(ctx context.Context, store kv.Store, workspa
 	if err := json.Unmarshal(data, &workflow); err != nil {
 		return fmt.Errorf("decode workflow %q: %w", workflowName, err)
 	}
+	if workflow.Spec.Driver == apitypes.WorkflowDriverAstTranslate && runtimeAlias {
+		return s.validateASTTranslateOverrides(ctx, workspace.Parameters)
+	}
 	if workflow.Spec.Driver != apitypes.WorkflowDriverFlowcraft {
 		return nil
 	}
-	references, err := ResolveFlowcraftModelReferences(workflow, workspace.Parameters)
+	var references []FlowcraftModelReference
+	if runtimeAlias {
+		// Workflow defaults were already validated when this RuntimeProfile
+		// snapshot was applied. Only Workspace-level overrides are new input.
+		references, err = resolveFlowcraftModelOverrides(workspace.Parameters)
+	} else {
+		references, err = ResolveFlowcraftModelReferences(workflow, workspace.Parameters)
+	}
 	if err != nil {
 		return err
 	}
 	for _, reference := range references {
-		if err := s.validateGeneratorModel(ctx, reference.Role, reference.ModelID); err != nil {
+		modelID := reference.ModelID
+		visibleModelID := modelID
+		if runtimeAlias {
+			bindings, present := ctx.Value(runtimeModelBindingsContextKey{}).(map[string]string)
+			if !present {
+				return errors.New("runtime model bindings not configured")
+			}
+			modelID = strings.TrimSpace(bindings[reference.ModelID])
+			if modelID == "" {
+				return invalidWorkspaceReference("flowcraft parameter %q references missing runtime Model alias %q", reference.Role, reference.ModelID)
+			}
+		}
+		if err := s.validateFlowcraftModel(ctx, reference.Role, modelID, visibleModelID); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func resolveWorkflowReference(ctx context.Context, store kv.Store, workspace adminhttp.WorkspaceUpsert) (string, error) {
-	name := string(workspace.WorkflowName)
-	if workspace.WorkflowSource == nil {
-		return name, nil
+func (s *Server) validateASTTranslateOverrides(ctx context.Context, workspaceParameters *apitypes.WorkspaceParameters) error {
+	if workspaceParameters == nil {
+		return nil
 	}
-	switch *workspace.WorkflowSource {
-	case adminhttp.Runtime:
-		bindings, _ := ctx.Value(runtimeWorkflowBindingsContextKey{}).(map[string]string)
+	parameters, err := workspaceParameters.AsASTTranslateWorkspaceParameters()
+	if err != nil {
+		return invalidWorkspaceReference("ast-translate parameters are required: %v", err)
+	}
+	if parameters.TranslationModel != nil {
+		alias := strings.TrimSpace(*parameters.TranslationModel)
+		if alias != "" {
+			bindings, present := ctx.Value(runtimeModelBindingsContextKey{}).(map[string]string)
+			if !present {
+				return errors.New("runtime model bindings not configured")
+			}
+			modelID := strings.TrimSpace(bindings[alias])
+			if modelID == "" {
+				return invalidWorkspaceReference("ast-translate parameter %q references missing runtime Model alias %q", "translation_model", alias)
+			}
+			if err := s.validateModelKind(ctx, "ast-translate parameter", "translation_model", modelID, alias, apitypes.ModelKindTranslation); err != nil {
+				return err
+			}
+		}
+	}
+	if parameters.Voice == nil {
+		return nil
+	}
+	external, err := parameters.Voice.AsASTTranslateExternalVoiceParameters()
+	if err != nil {
+		return invalidWorkspaceReference("ast-translate voice parameters are invalid: %v", err)
+	}
+	alias := strings.TrimSpace(external.TtsVoice)
+	if alias == "" {
+		return nil
+	}
+	bindings, present := ctx.Value(runtimeVoiceBindingsContextKey{}).(map[string]string)
+	if !present {
+		return errors.New("runtime voice bindings not configured")
+	}
+	if strings.TrimSpace(bindings[alias]) == "" {
+		return invalidWorkspaceReference("ast-translate parameter %q references missing runtime Voice alias %q", "voice.tts_voice", alias)
+	}
+	return nil
+}
+
+func resolveWorkflowReference(ctx context.Context, workspace adminhttp.WorkspaceUpsert) (string, bool, error) {
+	name := string(workspace.WorkflowName)
+	if bindings, present := ctx.Value(runtimeWorkflowBindingsContextKey{}).(map[string]string); present {
 		resolved := strings.TrimSpace(bindings[name])
 		if resolved == "" {
-			return "", invalidWorkspaceReference("runtime workflow alias %q not found", name)
+			return "", false, invalidWorkspaceReference("runtime workflow alias %q not found", name)
 		}
-		return resolved, nil
-	case adminhttp.Owned:
-		owner, ok := ownership.FromContext(ctx)
-		if !ok {
-			return "", invalidWorkspaceReference("owned workflow source requires an authenticated owner")
-		}
-		data, err := store.Get(ctx, workflowReferenceKey(name))
-		if errors.Is(err, kv.ErrNotFound) {
-			return "", invalidWorkspaceReference("owned workflow %q not found", name)
-		}
-		if err != nil {
-			return "", err
-		}
-		var workflow apitypes.Workflow
-		if err := json.Unmarshal(data, &workflow); err != nil {
-			return "", fmt.Errorf("decode workflow %q: %w", name, err)
-		}
-		if workflow.OwnerPublicKey == nil || *workflow.OwnerPublicKey != owner {
-			return "", invalidWorkspaceReference("owned workflow %q not found", name)
-		}
-		return name, nil
-	default:
-		return "", invalidWorkspaceReference("unsupported workflow_source %q", *workspace.WorkflowSource)
+		return resolved, true, nil
 	}
+	return name, false, nil
 }
 
-func workspaceSource(source *adminhttp.WorkspaceUpsertWorkflowSource) *apitypes.WorkspaceWorkflowSource {
-	if source == nil {
-		return nil
+func resolveFlowcraftModelOverrides(workspaceParameters *apitypes.WorkspaceParameters) ([]FlowcraftModelReference, error) {
+	if workspaceParameters == nil {
+		return nil, nil
 	}
-	value := apitypes.WorkspaceWorkflowSource(*source)
-	return &value
-}
-
-func cloneAdminWorkspaceSource(source *adminhttp.WorkspaceUpsertWorkflowSource) *adminhttp.WorkspaceUpsertWorkflowSource {
-	if source == nil {
-		return nil
+	parameters, err := workspaceParameters.AsFlowcraftWorkspaceParameters()
+	if err != nil {
+		return nil, invalidWorkspaceReference("flowcraft parameters are required: %v", err)
 	}
-	value := *source
-	return &value
+	roles := []struct {
+		name  string
+		value *string
+	}{
+		{name: "generate_model", value: parameters.GenerateModel},
+		{name: "extract_model", value: parameters.ExtractModel},
+		{name: "embedding_model", value: parameters.EmbeddingModel},
+	}
+	references := make([]FlowcraftModelReference, 0, len(roles))
+	for _, role := range roles {
+		if role.value == nil {
+			continue
+		}
+		if modelAlias := strings.TrimSpace(*role.value); modelAlias != "" {
+			references = append(references, FlowcraftModelReference{Role: role.name, ModelID: modelAlias})
+		}
+	}
+	return references, nil
 }
 
 // FlowcraftModelReference is one effective Model selected for a FlowCraft role.
@@ -669,7 +880,15 @@ func resolveFlowcraftModel(name string, workspaceValue *string, settings map[str
 	return configured, true
 }
 
-func (s *Server) validateGeneratorModel(ctx context.Context, role, modelID string) error {
+func (s *Server) validateFlowcraftModel(ctx context.Context, role, modelID, visibleModelID string) error {
+	want := apitypes.ModelKindLlm
+	if role == "embedding_model" {
+		want = apitypes.ModelKindEmbedding
+	}
+	return s.validateModelKind(ctx, "flowcraft parameter", role, modelID, visibleModelID, want)
+}
+
+func (s *Server) validateModelKind(ctx context.Context, subject, role, modelID, visibleModelID string, want apitypes.ModelKind) error {
 	if s == nil || s.Models == nil {
 		return errors.New("model service not configured")
 	}
@@ -679,13 +898,13 @@ func (s *Server) validateGeneratorModel(ctx context.Context, role, modelID strin
 	}
 	model, ok := response.(adminhttp.GetModel200JSONResponse)
 	if _, missing := response.(adminhttp.GetModel404JSONResponse); missing {
-		return invalidWorkspaceReference("flowcraft parameter %q references missing Model %q", role, modelID)
+		return invalidWorkspaceReference("%s %q references missing Model %q", subject, role, visibleModelID)
 	}
 	if !ok {
-		return fmt.Errorf("validate flowcraft parameter %q Model %q: model service returned %T", role, modelID, response)
+		return fmt.Errorf("validate %s %q Model %q: model service returned %T", subject, role, visibleModelID, response)
 	}
-	if model.Kind != apitypes.ModelKindLlm {
-		return invalidWorkspaceReference("flowcraft parameter %q Model %q has kind %q, want %q", role, modelID, model.Kind, apitypes.ModelKindLlm)
+	if model.Kind != want {
+		return invalidWorkspaceReference("%s %q Model %q has kind %q, want %q", subject, role, visibleModelID, model.Kind, want)
 	}
 	return nil
 }
@@ -721,6 +940,17 @@ func cloneString(value *string) *string {
 	}
 	copy := *value
 	return &copy
+}
+
+func cloneLabelsOrEmpty(labels *map[string]string) *map[string]string {
+	cloned := make(map[string]string)
+	if labels != nil {
+		cloned = make(map[string]string, len(*labels))
+		for key, value := range *labels {
+			cloned[key] = value
+		}
+	}
+	return &cloned
 }
 
 func workflowReferenceKey(name string) kv.Key {

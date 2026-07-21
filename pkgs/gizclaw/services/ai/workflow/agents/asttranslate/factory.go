@@ -563,10 +563,6 @@ func workflowParams(ast apitypes.ASTTranslateWorkflowSpec) map[string]any {
 	if ast.Voice != nil {
 		mergeASTTranslateVoice(params, *ast.Voice)
 	}
-	setParam(params, "speaker_id", ast.SpeakerId)
-	setParam(params, "is_custom_speaker", ast.IsCustomSpeaker)
-	setParam(params, "tts_resource_id", ast.TtsResourceId)
-	setParam(params, "speech_rate", ast.SpeechRate)
 	setParam(params, "enable_source_language_detect", ast.EnableSourceLanguageDetect)
 	setParam(params, "denoise", ast.Denoise)
 	setParam(params, "resource_id", ast.ResourceId)
@@ -591,18 +587,6 @@ func mergeWorkspaceParams(params map[string]any, typed apitypes.ASTTranslateWork
 	}
 	if typed.Voice != nil {
 		mergeASTTranslateVoice(params, *typed.Voice)
-	}
-	if typed.SpeakerId != nil {
-		setParam(params, "speaker_id", *typed.SpeakerId)
-	}
-	if typed.IsCustomSpeaker != nil {
-		setParam(params, "is_custom_speaker", *typed.IsCustomSpeaker)
-	}
-	if typed.TtsResourceId != nil {
-		setParam(params, "tts_resource_id", *typed.TtsResourceId)
-	}
-	if typed.SpeechRate != nil {
-		setParam(params, "speech_rate", *typed.SpeechRate)
 	}
 	if typed.EnableSourceLanguageDetect != nil {
 		setParam(params, "enable_source_language_detect", *typed.EnableSourceLanguageDetect)

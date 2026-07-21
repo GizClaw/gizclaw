@@ -4,6 +4,8 @@ test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     (window as any).__GIZCLAW_WINDOW_ACTIONS__ = [];
     (window as any).__GIZCLAW_CREATE_CALLS__ = 0;
+    (window as any).__GIZCLAW_STOP_CALLS__ = 0;
+    (window as any).__GIZCLAW_STOP_DELAY__ = 0;
     window.runtime = {
       WindowHide() {
         (window as any).__GIZCLAW_WINDOW_ACTIONS__.push("hide");
@@ -119,6 +121,9 @@ test.beforeEach(async ({ page }) => {
         },
       },
     ];
+    (window as any).__GIZCLAW_SET_LOCAL_TOKEN__ = (token: string) => {
+      (pods[0] as any).registration_token = token;
+    };
     window.__GIZCLAW_DESKTOP_TEST_API__ = {
       async Bootstrap() {
         return {
@@ -126,7 +131,7 @@ test.beforeEach(async ({ page }) => {
             ? "zh-CN"
             : "en",
           bootstrap_environment: bootstrapEnvironment,
-          pods,
+          pods: structuredClone(pods),
         };
       },
       async GetBootstrapEnvironment() {
@@ -162,6 +167,7 @@ test.beforeEach(async ({ page }) => {
               valid: true,
               play_configured: true,
               play_public_key: "generated-local-play-public-key",
+              registration_token: "generated-local-registration-token",
               local: {
                 port: input.local_server.port || 9820,
                 lan_addresses: ["192.168.1.6:9820"],
@@ -205,7 +211,7 @@ test.beforeEach(async ({ page }) => {
         return structuredClone(pods.find((pod) => pod.id === id));
       },
       async ListPods() {
-        return pods;
+        return structuredClone(pods);
       },
       async OpenAdmin() {
         return "http://127.0.0.1:4101/?token=admin-token";
@@ -226,6 +232,11 @@ test.beforeEach(async ({ page }) => {
         return structuredClone(pod);
       },
       async StopLocalServer(id) {
+        (window as any).__GIZCLAW_STOP_CALLS__ += 1;
+        const delay = (window as any).__GIZCLAW_STOP_DELAY__ ?? 0;
+        if (delay > 0) {
+          await new Promise((resolve) => window.setTimeout(resolve, delay));
+        }
         const pod = pods.find((candidate) => candidate.id === id);
         (pod as any).local.process.state = "stopped";
         return structuredClone(pod);
@@ -525,6 +536,16 @@ test("local share stays simple and switches to focused controls", async ({
   expect(payload.searchParams.get("registration_token")).toBe(
     "local-registration-token",
   );
+  await page.evaluate(() => {
+    (window as any).__GIZCLAW_SET_LOCAL_TOKEN__("");
+    window.dispatchEvent(new Event("focus"));
+  });
+  await expect(qr).toContainText("Start the server to prepare sharing");
+  await page.evaluate(() => {
+    (window as any).__GIZCLAW_SET_LOCAL_TOKEN__("local-registration-token");
+    window.dispatchEvent(new Event("focus"));
+  });
+  await expect(qr.getByRole("img", { name: "Server QR code" })).toBeVisible();
   await expect(dialog).not.toContainText("100.100.100.100:9820");
   await expect(dialog).not.toContainText("fd1f:411f");
   await expect(dialog).not.toContainText("local-server-public-key");
@@ -579,12 +600,23 @@ test("local share stays simple and switches to focused controls", async ({
   expect(await sharedStyle(".local-admin-action")).toEqual(
     await sharedStyle(".local-status-card"),
   );
-  await expect(statusCard.getByRole("button", { name: "Stop" })).toBeVisible();
+  const stopButton = statusCard.getByRole("button", { name: "Stop" });
+  await expect(stopButton).toBeVisible();
   await expect(dialog.locator(".local-power-actions")).toHaveCount(0);
-  await statusCard.getByRole("button", { name: "Stop" }).click();
+  await page.evaluate(() => {
+    (window as any).__GIZCLAW_STOP_DELAY__ = 400;
+  });
+  await stopButton.evaluate((element: HTMLButtonElement) => {
+    element.click();
+    element.click();
+  });
+  await expect(stopButton).toBeDisabled();
   await expect(
     dialog.locator(".local-status-card").getByRole("button", { name: "Start" }),
   ).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__GIZCLAW_STOP_CALLS__))
+    .toBe(1);
   await expect(adminButton).toBeVisible();
   const deleteButton = dialog.getByRole("button", { name: "Delete Pod" });
   await expect(deleteButton).toBeVisible();
@@ -818,6 +850,12 @@ test("launcher uses rounded transparent framing and ambient card depth", async (
     "data-slot",
     "desktop-dialog-content",
   );
+  const dialogOverlay = page.locator('[data-slot="desktop-dialog-overlay"]');
+  await expect(dialogOverlay).toBeVisible();
+  const overlayRadius = await dialogOverlay.evaluate((element) =>
+    Number.parseFloat(getComputedStyle(element).borderTopLeftRadius),
+  );
+  expect(overlayRadius).toBeGreaterThanOrEqual(18);
   await expect(mobileDialog.locator(".qr-code")).toHaveAttribute(
     "data-qr-payload",
     /iOS \/ TestFlight/,

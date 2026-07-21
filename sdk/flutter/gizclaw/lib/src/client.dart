@@ -13,23 +13,17 @@ const int _maxIconDownloadBytes = 2 * 1024 * 1024;
 
 /// Copies caller-controlled fields from a Workspace response into its write
 /// payload without carrying output-only lifecycle metadata.
-payload.WorkspaceUpsert workspaceUpsertFromWorkspace(
+payload.WorkspacePutBody workspacePutBodyFromWorkspace(
   payload.Workspace workspace,
 ) {
-  final upsert = payload.WorkspaceUpsert(
-    name: workspace.name,
-    workflowName: workspace.workflowName,
-  );
+  final body = payload.WorkspacePutBody();
   if (workspace.hasParameters()) {
-    upsert.parameters = workspace.parameters.deepCopy();
+    body.parameters = workspace.parameters.deepCopy();
   }
   if (workspace.hasToolkit()) {
-    upsert.toolkit = workspace.toolkit.deepCopy();
+    body.toolkit = workspace.toolkit.deepCopy();
   }
-  if (workspace.hasWorkflowSource()) {
-    upsert.workflowSource = workspace.workflowSource;
-  }
-  return upsert;
+  return body;
 }
 
 class PixaDownloadResult<T> {
@@ -95,11 +89,11 @@ class GizClawClient {
   }
 
   Future<payload.WorkflowListResponse> listWorkflows({
-    required enums.ResourceSource source,
+    required String collection,
     String? cursor,
     int? limit,
   }) {
-    final request = payload.WorkflowListRequest(source: source);
+    final request = payload.WorkflowListRequest(collection: collection);
     if (cursor != null) {
       request.cursor = cursor;
     }
@@ -112,49 +106,10 @@ class GizClawClient {
     );
   }
 
-  Future<payload.WorkflowGetResponse> getWorkflow(
-    String name, {
-    required enums.ResourceSource source,
-  }) {
+  Future<payload.WorkflowGetResponse> getWorkflow(String alias) {
     return rpc.call<payload.WorkflowGetResponse>(
       'server.workflow.get',
-      payload.WorkflowGetRequest(name: name, source: source),
-    );
-  }
-
-  Future<payload.WorkflowCreateResponse> createWorkflow(
-    payload.WorkflowUpsert value,
-  ) {
-    return rpc.call<payload.WorkflowCreateResponse>(
-      'server.workflow.create',
-      payload.WorkflowCreateRequest(
-        source: enums.ResourceSource.RESOURCE_SOURCE_OWNED,
-        body: value,
-      ),
-    );
-  }
-
-  Future<payload.WorkflowPutResponse> putWorkflow(
-    String name,
-    payload.WorkflowUpsert value,
-  ) {
-    return rpc.call<payload.WorkflowPutResponse>(
-      'server.workflow.put',
-      payload.WorkflowPutRequest(
-        name: name,
-        source: enums.ResourceSource.RESOURCE_SOURCE_OWNED,
-        body: value,
-      ),
-    );
-  }
-
-  Future<payload.WorkflowDeleteResponse> deleteWorkflow(String name) {
-    return rpc.call<payload.WorkflowDeleteResponse>(
-      'server.workflow.delete',
-      payload.WorkflowDeleteRequest(
-        name: name,
-        source: enums.ResourceSource.RESOURCE_SOURCE_OWNED,
-      ),
+      payload.WorkflowGetRequest(alias: alias),
     );
   }
 
@@ -170,11 +125,12 @@ class GizClawClient {
   }
 
   Future<payload.WorkspaceListResponse> listWorkspaces({
+    required String collection,
     String? cursor,
     int? limit,
     String? prefix,
   }) {
-    final request = payload.WorkspaceListRequest();
+    final request = payload.WorkspaceListRequest(collection: collection);
     if (cursor != null) {
       request.cursor = cursor;
     }
@@ -270,7 +226,7 @@ class GizClawClient {
   }
 
   Future<payload.WorkspaceCreateResponse> createWorkspace(
-    payload.WorkspaceUpsert workspace,
+    payload.WorkspaceCreateBody workspace,
   ) {
     return rpc.call<payload.WorkspaceCreateResponse>(
       'server.workspace.create',
@@ -280,7 +236,7 @@ class GizClawClient {
 
   Future<payload.WorkspacePutResponse> putWorkspace(
     String name,
-    payload.WorkspaceUpsert workspace,
+    payload.WorkspacePutBody workspace,
   ) {
     return rpc.call<payload.WorkspacePutResponse>(
       'server.workspace.put',

@@ -20,9 +20,9 @@ func TestMaterializeLocalServerWorkspaceUsesEmbeddedTemplateAndPreservesIdentity
 	if first.Identity.PrivateKey.IsZero() || first.Listen != "0.0.0.0:19820" {
 		t.Fatalf("first workspace = %+v", first)
 	}
-	if first.SystemTasks.PetFlowcraftWorkflow.GenerateModel != "minimax-cn-m3" ||
-		first.SystemTasks.PetFlowcraftWorkflow.ExtractModel != "deepseek-v4-flash" ||
-		first.SystemTasks.PetFlowcraftWorkflow.ASRModel != "volc-bigasr-sauc" {
+	if first.SystemTasks.PetFlowcraftWorkflow.GenerateModel != "chat" ||
+		first.SystemTasks.PetFlowcraftWorkflow.ExtractModel != "extraction" ||
+		first.SystemTasks.PetFlowcraftWorkflow.ASRModel != "asr" {
 		t.Fatalf("pet Flowcraft system task = %+v", first.SystemTasks.PetFlowcraftWorkflow)
 	}
 

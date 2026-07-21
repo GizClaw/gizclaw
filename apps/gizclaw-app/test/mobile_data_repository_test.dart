@@ -16,12 +16,12 @@ void main() {
         workspaces: [
           Workspace(
             name: 'mobile-plan',
-            workflowName: 'build-helper',
+            workflowAlias: 'build-helper',
             lastActiveAt: '2026-07-12T00:00:00Z',
           ),
           Workspace(
             name: 'social-group-a',
-            workflowName: 'chatroom',
+            workflowAlias: 'chatroom',
             parameters: WorkspaceParameters(
               chatRoomWorkspaceParameters: ChatRoomWorkspaceParameters(
                 mode: ChatRoomMode.CHAT_ROOM_MODE_GROUP,
@@ -54,12 +54,12 @@ void main() {
       );
 
       final workspaces = await repository.watchWorkspaces('server-a').first;
-      expect(client.workflowSources, isEmpty);
+      expect(client.workflowCollections, isEmpty);
       final mobileWorkspace = workspaces.firstWhere(
         (workspace) => workspace.name == 'mobile-plan',
       );
       expect(mobileWorkspace.title, 'mobile-plan');
-      expect(mobileWorkspace.workflowName, 'build-helper');
+      expect(mobileWorkspace.workflowAlias, 'build-helper');
       expect(
         workspaces
             .firstWhere((workspace) => workspace.name == 'social-group-a')
@@ -74,7 +74,7 @@ void main() {
         (await repository.workspaceDocument(
           'server-a',
           'mobile-plan',
-        ))?.workflowName,
+        ))?.workflowAlias,
         'build-helper',
       );
       expect(await repository.workspaceDocument('server-a', 'missing'), isNull);
@@ -97,7 +97,7 @@ void main() {
     final repository = MobileDataRepository(database);
     final client = _FakeClient(
       workspaces: [
-        Workspace(name: 'temporary-room', workflowName: 'temporary'),
+        Workspace(name: 'temporary-room', workflowAlias: 'temporary'),
       ],
     );
     await repository.refresh(
@@ -118,12 +118,36 @@ void main() {
     expect(await repository.watchWorkspaces('server-a').first, isEmpty);
   });
 
+  test('rejects workspace snapshots spanning runtime revisions', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    final repository = MobileDataRepository(database);
+    final client = _FakeClient(
+      workspaces: const [],
+      workspaceProfileRevisions: const {
+        'assistants': 'revision-1',
+        'translates': 'revision-2',
+      },
+    );
+
+    await expectLater(
+      repository.refreshWorkspaceSnapshot(
+        client: client,
+        endpoint: 'local',
+        isCurrent: () => true,
+        serverId: 'server-a',
+      ),
+      throwsA(isA<StateError>()),
+    );
+    expect(await repository.watchWorkspaces('server-a').first, isEmpty);
+  });
+
   test('workspace failure preserves the previous projection', () async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(database.close);
     final repository = MobileDataRepository(database);
     final client = _FakeClient(
-      workspaces: [Workspace(name: 'cached', workflowName: 'flow-a')],
+      workspaces: [Workspace(name: 'cached', workflowAlias: 'flow-a')],
     );
     await repository.refreshWorkspaceSnapshot(
       client: client,
@@ -148,12 +172,34 @@ void main() {
     );
   });
 
+  test('treats an absent workspace collection as empty', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    final repository = MobileDataRepository(database);
+    final client = _FakeClient(
+      workspaces: [Workspace(name: 'visible', workflowAlias: 'flow-a')],
+      missingWorkspaceCollections: const {'role-play'},
+    );
+
+    await repository.refreshWorkspaceSnapshot(
+      client: client,
+      endpoint: 'local',
+      isCurrent: () => true,
+      serverId: 'server-a',
+    );
+
+    expect(
+      (await repository.watchWorkspaces('server-a').first).single.name,
+      'visible',
+    );
+  });
+
   test('workspace snapshot evidence belongs to the committing call', () async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(database.close);
     final repository = MobileDataRepository(database);
     final client = _FakeClient(
-      workspaces: [Workspace(name: 'visible', workflowName: 'flow-a')],
+      workspaces: [Workspace(name: 'visible', workflowAlias: 'flow-a')],
     );
 
     final applied = await repository.refreshWorkspaceSnapshot(
@@ -190,7 +236,7 @@ void main() {
       });
       final repository = MobileDataRepository(database);
       final client = _FakeClient(
-        workspaces: [Workspace(name: 'cached', workflowName: 'flow-a')],
+        workspaces: [Workspace(name: 'cached', workflowAlias: 'flow-a')],
       );
       await repository.refreshWorkspaceSnapshot(
         client: client,
@@ -224,7 +270,7 @@ void main() {
     addTearDown(database.close);
     final repository = MobileDataRepository(database);
     final client = _FakeClient(
-      workspaces: [Workspace(name: 'shared-name', workflowName: 'flow-a')],
+      workspaces: [Workspace(name: 'shared-name', workflowAlias: 'flow-a')],
     );
     for (final serverId in ['server-a', 'server-b']) {
       await repository.refreshWorkspaceSnapshot(
@@ -256,7 +302,7 @@ void main() {
     addTearDown(database.close);
     final repository = MobileDataRepository(database);
     final client = _FakeClient(
-      workspaces: [Workspace(name: 'visible', workflowName: 'flow-a')],
+      workspaces: [Workspace(name: 'visible', workflowAlias: 'flow-a')],
     );
     await repository.refreshWorkspaceSnapshot(
       client: client,
@@ -286,7 +332,7 @@ void main() {
       final repository = MobileDataRepository(database);
       final client = _FakeClient(
         workspaces: [
-          Workspace(name: 'old-workspace', workflowName: 'old-workflow'),
+          Workspace(name: 'old-workspace', workflowAlias: 'old-workflow'),
         ],
         friends: [
           FriendObject(
@@ -305,7 +351,7 @@ void main() {
 
       client.workspaces
         ..clear()
-        ..add(Workspace(name: 'new-workspace', workflowName: 'chat'));
+        ..add(Workspace(name: 'new-workspace', workflowAlias: 'chat'));
       client.failFriends = true;
       client.failFriendGroups = true;
 
@@ -335,34 +381,49 @@ class _FakeClient extends GizClawClient {
     required this.workspaces,
     this.friends = const [],
     this.friendGroups = const [],
+    this.workspaceProfileRevisions = const {},
+    this.missingWorkspaceCollections = const {},
   }) : super(_NeverDataChannelFactory());
 
   final List<FriendGroupObject> friendGroups;
   final List<FriendObject> friends;
   final List<Workspace> workspaces;
+  final Map<String, String> workspaceProfileRevisions;
+  final Set<String> missingWorkspaceCollections;
   bool failFriends = false;
   bool failFriendGroups = false;
   bool failWorkspaces = false;
-  final List<ResourceSource> workflowSources = [];
+  final List<String> workflowCollections = [];
 
   @override
   Future<WorkflowListResponse> listWorkflows({
-    required ResourceSource source,
+    required String collection,
     String? cursor,
     int? limit,
   }) async {
-    workflowSources.add(source);
-    return WorkflowListResponse();
+    workflowCollections.add(collection);
+    return WorkflowListResponse(
+      runtimeProfileName: 'default',
+      runtimeProfileRevision: 'test',
+    );
   }
 
   @override
   Future<WorkspaceListResponse> listWorkspaces({
+    required String collection,
     String? cursor,
     int? limit,
     String? prefix,
   }) async {
     if (failWorkspaces) throw StateError('workspace catalog unavailable');
-    return WorkspaceListResponse(items: workspaces);
+    if (missingWorkspaceCollections.contains(collection) && cursor == null) {
+      throw RpcError(404, 'workspace collection not found');
+    }
+    return WorkspaceListResponse(
+      items: collection == 'raids' ? workspaces : [],
+      runtimeProfileName: 'default',
+      runtimeProfileRevision: workspaceProfileRevisions[collection] ?? 'test',
+    );
   }
 
   @override

@@ -38,6 +38,16 @@ func TestRuntimeAdoptDoesNotDeleteExistingSystemWorkspaceOnIDCollision(t *testin
 	if _, err := runtime.AdoptPet(ctx, "peer-a", apitypes.PetAdoptRequest{}); err != nil {
 		t.Fatalf("first AdoptPet() error = %v", err)
 	}
+	if len(workspaces.created) != 1 || workspaces.created[0].Parameters == nil {
+		t.Fatalf("created workspaces = %#v, want one Pet Workspace with parameters", workspaces.created)
+	}
+	parameters, err := workspaces.created[0].Parameters.AsPetWorkspaceParameters()
+	if err != nil {
+		t.Fatalf("decode Pet Workspace parameters: %v", err)
+	}
+	if parameters.Voice.VoiceId != "pet-voice" {
+		t.Fatalf("Pet Workspace voice alias = %q, want pet-voice from RuntimeProfile adoption pool", parameters.Voice.VoiceId)
+	}
 	if _, err := runtime.AdoptPet(ctx, "peer-a", apitypes.PetAdoptRequest{}); err == nil {
 		t.Fatal("second AdoptPet() should fail")
 	}
@@ -267,6 +277,19 @@ func (s *recordingWorkspaceService) DeleteSystemWorkspace(_ context.Context, nam
 		return apitypes.Workspace{}, s.deleteErr
 	}
 	s.deleted = append(s.deleted, name)
+	for _, existing := range s.created {
+		if existing.Name == name {
+			system := true
+			return apitypes.Workspace{
+				Labels:       existing.Labels,
+				Name:         existing.Name,
+				Parameters:   existing.Parameters,
+				System:       &system,
+				Toolkit:      existing.Toolkit,
+				WorkflowName: existing.WorkflowName,
+			}, nil
+		}
+	}
 	return apitypes.Workspace{Name: name}, nil
 }
 

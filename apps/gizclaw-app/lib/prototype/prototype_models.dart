@@ -1,5 +1,4 @@
 import 'package:flutter/cupertino.dart';
-import 'package:gizclaw/gizclaw.dart';
 
 import '../giz_ui/giz_ui.dart';
 
@@ -29,54 +28,51 @@ class WorkflowCard {
     required this.title,
     required this.subtitle,
     required this.driverLabel,
-    required this.category,
+    required this.collection,
     required this.bannerColor,
     required this.icon,
     required this.driver,
-    this.source = ResourceSource.RESOURCE_SOURCE_RUNTIME,
     this.imagePath,
+    this.workspaceLangPair,
   });
 
   final String name;
   final String title;
   final String subtitle;
   final String driverLabel;
-  final String category;
+  final String collection;
   final Color bannerColor;
   final IconData icon;
   final WorkflowDriverKind driver;
-  final ResourceSource source;
   final String? imagePath;
+  final String? workspaceLangPair;
 
-  factory WorkflowCard.unknown(
-    String name, {
-    ResourceSource source = ResourceSource.RESOURCE_SOURCE_RUNTIME,
-  }) => WorkflowCard(
-    name: name,
-    title: name,
-    subtitle: 'Workflow is not supported by this app version.',
-    driverLabel: 'Unavailable',
-    category: 'Other',
-    bannerColor: GizColors.secondaryInk,
-    icon: GizIcons.question_circle,
-    driver: WorkflowDriverKind.unsupported,
-    source: source,
-  );
+  factory WorkflowCard.unknown(String name, {required String collection}) =>
+      WorkflowCard(
+        name: name,
+        title: name,
+        subtitle: 'Workflow is not supported by this app version.',
+        driverLabel: 'Unavailable',
+        collection: collection,
+        bannerColor: GizColors.secondaryInk,
+        icon: GizIcons.question_circle,
+        driver: WorkflowDriverKind.unsupported,
+      );
 }
 
 class WorkspaceCard {
   const WorkspaceCard({
     required this.name,
-    required this.workflowName,
+    required this.workflowAlias,
+    required this.collection,
     required this.lastActive,
-    this.workflowSource = ResourceSource.RESOURCE_SOURCE_RUNTIME,
     this.chatroomKind,
   });
 
   final ChatroomWorkspaceKind? chatroomKind;
+  final String collection;
   final String name;
-  final String workflowName;
-  final ResourceSource workflowSource;
+  final String workflowAlias;
   final String lastActive;
 
   String get title => name;

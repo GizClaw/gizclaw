@@ -17,7 +17,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/observability"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/credential"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/model"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/voice"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
@@ -34,10 +33,11 @@ import (
 
 type Server struct {
 	Caller         giznet.PublicKey
+	Peers          peerFirmwareBindingService
+	Firmwares      firmwarePeerService
 	Workspaces     workspace.WorkspaceAdminService
 	Workflows      workflow.WorkflowAdminService
 	Models         model.ModelAdminService
-	Credentials    credential.CredentialAdminService
 	Voices         voice.VoiceAdminService
 	Contacts       *contact.Server
 	Friends        *friend.Server
@@ -55,8 +55,7 @@ type WorkspaceHistoryService interface {
 
 func IsMethod(method rpcapi.RPCMethod) bool {
 	switch method {
-	case rpcapi.RPCMethodServerFirmwareList,
-		rpcapi.RPCMethodServerFirmwareGet,
+	case rpcapi.RPCMethodServerFirmwareGet,
 		rpcapi.RPCMethodServerFirmwareFilesDownload,
 		rpcapi.RPCMethodServerWorkspaceList,
 		rpcapi.RPCMethodServerWorkspaceGet,
@@ -68,21 +67,10 @@ func IsMethod(method rpcapi.RPCMethod) bool {
 		rpcapi.RPCMethodServerWorkspaceHistoryAudioGet,
 		rpcapi.RPCMethodServerWorkflowList,
 		rpcapi.RPCMethodServerWorkflowGet,
-		rpcapi.RPCMethodServerWorkflowCreate,
-		rpcapi.RPCMethodServerWorkflowPut,
-		rpcapi.RPCMethodServerWorkflowDelete,
 		rpcapi.RPCMethodServerModelList,
 		rpcapi.RPCMethodServerModelGet,
-		rpcapi.RPCMethodServerModelCreate,
-		rpcapi.RPCMethodServerModelPut,
-		rpcapi.RPCMethodServerModelDelete,
 		rpcapi.RPCMethodServerVoiceList,
 		rpcapi.RPCMethodServerVoiceGet,
-		rpcapi.RPCMethodServerCredentialList,
-		rpcapi.RPCMethodServerCredentialGet,
-		rpcapi.RPCMethodServerCredentialCreate,
-		rpcapi.RPCMethodServerCredentialPut,
-		rpcapi.RPCMethodServerCredentialDelete,
 		rpcapi.RPCMethodServerContactList,
 		rpcapi.RPCMethodServerContactGet,
 		rpcapi.RPCMethodServerContactCreate,
@@ -130,10 +118,7 @@ func IsMethod(method rpcapi.RPCMethod) bool {
 		rpcapi.RPCMethodServerRewardGrantList,
 		rpcapi.RPCMethodServerRewardGrantGet,
 		rpcapi.RPCMethodServerToolList,
-		rpcapi.RPCMethodServerToolGet,
-		rpcapi.RPCMethodServerToolCreate,
-		rpcapi.RPCMethodServerToolPut,
-		rpcapi.RPCMethodServerToolDelete:
+		rpcapi.RPCMethodServerToolGet:
 		return true
 	default:
 		return false
@@ -145,8 +130,6 @@ func (s *Server) Dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.
 		return nil, false, nil
 	}
 	switch req.Method {
-	case rpcapi.RPCMethodServerFirmwareList:
-		return s.handleFirmwareList(ctx, req), true, nil
 	case rpcapi.RPCMethodServerFirmwareGet:
 		return s.handleFirmwareGet(ctx, req), true, nil
 	case rpcapi.RPCMethodServerFirmwareFilesDownload:
@@ -171,36 +154,14 @@ func (s *Server) Dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.
 		return s.handleWorkflowList(ctx, req), true, nil
 	case rpcapi.RPCMethodServerWorkflowGet:
 		return s.handleWorkflowGet(ctx, req), true, nil
-	case rpcapi.RPCMethodServerWorkflowCreate:
-		return s.handleWorkflowCreate(ctx, req), true, nil
-	case rpcapi.RPCMethodServerWorkflowPut:
-		return s.handleWorkflowPut(ctx, req), true, nil
-	case rpcapi.RPCMethodServerWorkflowDelete:
-		return s.handleWorkflowDelete(ctx, req), true, nil
 	case rpcapi.RPCMethodServerModelList:
 		return s.handleModelList(ctx, req), true, nil
 	case rpcapi.RPCMethodServerModelGet:
 		return s.handleModelGet(ctx, req), true, nil
-	case rpcapi.RPCMethodServerModelCreate:
-		return s.handleModelCreate(ctx, req)
-	case rpcapi.RPCMethodServerModelPut:
-		return s.handleModelPut(ctx, req)
-	case rpcapi.RPCMethodServerModelDelete:
-		return s.handleModelDelete(ctx, req), true, nil
 	case rpcapi.RPCMethodServerVoiceList:
 		return s.handleVoiceList(ctx, req), true, nil
 	case rpcapi.RPCMethodServerVoiceGet:
 		return s.handleVoiceGet(ctx, req), true, nil
-	case rpcapi.RPCMethodServerCredentialList:
-		return s.handleCredentialList(ctx, req), true, nil
-	case rpcapi.RPCMethodServerCredentialGet:
-		return s.handleCredentialGet(ctx, req), true, nil
-	case rpcapi.RPCMethodServerCredentialCreate:
-		return s.handleCredentialCreate(ctx, req)
-	case rpcapi.RPCMethodServerCredentialPut:
-		return s.handleCredentialPut(ctx, req)
-	case rpcapi.RPCMethodServerCredentialDelete:
-		return s.handleCredentialDelete(ctx, req), true, nil
 	case rpcapi.RPCMethodServerContactList:
 		return s.handleContactList(ctx, req), true, nil
 	case rpcapi.RPCMethodServerContactGet:
@@ -297,12 +258,6 @@ func (s *Server) Dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.
 		return s.handleToolList(ctx, req), true, nil
 	case rpcapi.RPCMethodServerToolGet:
 		return s.handleToolGet(ctx, req), true, nil
-	case rpcapi.RPCMethodServerToolCreate:
-		return s.handleToolCreate(ctx, req), true, nil
-	case rpcapi.RPCMethodServerToolPut:
-		return s.handleToolPut(ctx, req), true, nil
-	case rpcapi.RPCMethodServerToolDelete:
-		return s.handleToolDelete(ctx, req), true, nil
 	default:
 		return nil, false, nil
 	}
@@ -312,40 +267,48 @@ func (s *Server) handleWorkspaceList(ctx context.Context, req *rpcapi.RPCRequest
 	if s.Workspaces == nil {
 		return internalError(req.Id, "workspace service not configured")
 	}
-	params, ok := decodeOptionalParams(req, rpcapi.RPCPayload.AsWorkspaceListRequest)
-	if !ok {
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsWorkspaceListRequest)
+	collection := strings.TrimSpace(params.Collection)
+	if !ok || collection == "" {
 		return invalidParams(req.Id)
 	}
-	if strings.TrimSpace(valueOrZero(params.Prefix)) != "" {
-		return s.handleWorkspaceListByPrefix(ctx, req.Id, params)
+	profile := s.currentRuntimeProfile()
+	if profile == nil {
+		return internalError(req.Id, "runtime profile not configured")
 	}
-	items, err := s.effectiveWorkspaces(ctx)
+	if _, exists := profile.Spec.Workflows.Collections[collection]; !exists {
+		return statusError(req.Id, http.StatusNotFound, "workflow collection not found")
+	}
+	items, err := s.effectiveWorkspacesByLabels(ctx, map[string]string{"collection": collection})
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
-	requested := valueOrZero(params.Limit)
-	page, hasNext, nextCursor := pageWorkspaces(items, params.Cursor, &requested)
-	return resultResponse(req.Id, adminhttp.WorkspaceList{Items: page, HasNext: hasNext, NextCursor: nextCursor}, (*rpcapi.RPCPayload).FromWorkspaceListResponse)
-}
-
-func (s *Server) handleWorkspaceListByPrefix(ctx context.Context, requestID string, params rpcapi.WorkspaceListRequest) *rpcapi.RPCResponse {
 	prefix := strings.TrimSpace(valueOrZero(params.Prefix))
-	items, err := s.effectiveWorkspaces(ctx)
-	if err != nil {
-		return internalError(requestID, err.Error())
-	}
-	filtered := make([]apitypes.Workspace, 0, len(items))
+	byName := make(map[string]apitypes.Workspace)
+	names := make([]string, 0, len(items))
 	for _, item := range items {
-		if strings.HasPrefix(item.Name, prefix) {
-			filtered = append(filtered, item)
+		if prefix != "" && !strings.HasPrefix(item.Name, prefix) {
+			continue
 		}
+		byName[item.Name] = item
+		names = append(names, item.Name)
 	}
-	requested := valueOrZero(params.Limit)
-	page, hasNext, nextCursor := pageWorkspaces(filtered, params.Cursor, &requested)
-	return resultResponse(requestID, adminhttp.WorkspaceList{
-		Items:      page,
-		HasNext:    hasNext,
-		NextCursor: nextCursor,
+	sort.Strings(names)
+	pageNames, hasNext, nextCursor, conflict := pageAliases(names, params.Cursor, params.Limit, profile.Revision)
+	if conflict {
+		return statusError(req.Id, http.StatusConflict, "runtime profile revision changed")
+	}
+	page := make([]rpcapi.Workspace, 0, len(pageNames))
+	for _, name := range pageNames {
+		projected, err := workspaceRPCProjection(byName[name], workspaceAvailable(profile, byName[name]))
+		if err != nil {
+			return internalError(req.Id, err.Error())
+		}
+		page = append(page, projected)
+	}
+	return resultResponse(req.Id, rpcapi.WorkspaceListResponse{
+		Items: page, HasNext: hasNext, NextCursor: nextCursor,
+		RuntimeProfileName: profile.Name, RuntimeProfileRevision: profile.Revision,
 	}, (*rpcapi.RPCPayload).FromWorkspaceListResponse)
 }
 
@@ -359,6 +322,55 @@ func (s *Server) getWorkspaceForList(ctx context.Context, requestID, name string
 		rpcResp = withRequestID(requestID, rpcResp)
 	}
 	return workspace, rpcResp, err
+}
+
+func workspaceRPCProjection(item apitypes.Workspace, available bool) (rpcapi.Workspace, error) {
+	out := rpcapi.Workspace{
+		CreatedAt: item.CreatedAt, LastActiveAt: item.LastActiveAt, Name: item.Name,
+		OwnerPublicKey: item.OwnerPublicKey, System: item.System != nil && *item.System,
+		UpdatedAt: item.UpdatedAt, WorkflowAlias: item.WorkflowName, Available: available,
+	}
+	if item.Parameters != nil {
+		parameters, err := convertType[rpcapi.WorkspaceParameters](*item.Parameters)
+		if err != nil {
+			return rpcapi.Workspace{}, err
+		}
+		out.Parameters = &parameters
+	}
+	if item.Toolkit != nil {
+		policy, err := convertType[rpcapi.ToolkitPolicy](*item.Toolkit)
+		if err != nil {
+			return rpcapi.Workspace{}, err
+		}
+		out.Toolkit = &policy
+	}
+	if item.Icon != nil {
+		icon, err := convertType[rpcapi.Icon](*item.Icon)
+		if err != nil {
+			return rpcapi.Workspace{}, err
+		}
+		out.Icon = &icon
+	}
+	return out, nil
+}
+
+func workspaceAvailable(profile *apitypes.RuntimeProfile, item apitypes.Workspace) bool {
+	if profile == nil {
+		return false
+	}
+	if item.System != nil && *item.System {
+		return true
+	}
+	if item.Labels == nil {
+		return false
+	}
+	collection := strings.TrimSpace((*item.Labels)["collection"])
+	bindings, ok := profile.Spec.Workflows.Collections[collection]
+	if !ok {
+		return false
+	}
+	_, ok = bindings[strings.TrimSpace(item.WorkflowName)]
+	return ok
 }
 
 // ValidateRunWorkspaceSelection resolves a workspace selection and verifies
@@ -392,6 +404,9 @@ func (s *Server) ValidateRunWorkspaceSelection(ctx context.Context, name string)
 	if !allowed {
 		return "", &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeForbidden, Message: "workspace is not accessible to the authenticated peer"}
 	}
+	if !workspaceAvailable(s.currentRuntimeProfile(), workspace) {
+		return "", &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: "workspace workflow is not available in the current runtime profile"}
+	}
 	return canonicalName, nil
 }
 
@@ -421,7 +436,17 @@ func (s *Server) handleWorkspaceGet(ctx context.Context, req *rpcapi.RPCRequest)
 	if !allowed {
 		return statusError(req.Id, http.StatusNotFound, "workspace not found")
 	}
-	return resultResponse(req.Id, item, (*rpcapi.RPCPayload).FromWorkspaceGetResponse)
+	profile := s.currentRuntimeProfile()
+	if profile == nil {
+		return internalError(req.Id, "runtime profile not configured")
+	}
+	projected, err := workspaceRPCProjection(item, workspaceAvailable(profile, item))
+	if err != nil {
+		return internalError(req.Id, err.Error())
+	}
+	return resultResponse(req.Id, rpcapi.WorkspaceGetResponse{
+		Value: projected, RuntimeProfileName: profile.Name, RuntimeProfileRevision: profile.Revision,
+	}, (*rpcapi.RPCPayload).FromWorkspaceGetResponse)
 }
 
 func (s *Server) handleWorkspaceCreate(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, bool, error) {
@@ -432,25 +457,53 @@ func (s *Server) handleWorkspaceCreate(ctx context.Context, req *rpcapi.RPCReque
 	if !ok {
 		return invalidParams(req.Id), true, nil
 	}
-	observability.Annotate(ctx, observability.AnnotationWorkspaceName, params.Name)
-	observability.Annotate(ctx, observability.AnnotationWorkflowName, params.WorkflowName)
-	workflowName, failure := s.resolveWorkspaceWorkflow(ctx, req.Id, params.WorkflowSource, params.WorkflowName)
-	if failure != nil {
-		return failure, true, nil
+	collection := strings.TrimSpace(params.Collection)
+	alias := strings.TrimSpace(params.WorkflowAlias)
+	profile := s.currentRuntimeProfile()
+	if profile == nil {
+		return internalError(req.Id, "runtime profile not configured"), true, nil
 	}
-	body, err := convertType[adminhttp.CreateWorkspaceJSONRequestBody](params)
+	bindings, exists := profile.Spec.Workflows.Collections[collection]
+	if collection == "" || alias == "" || !exists {
+		return invalidParams(req.Id), true, nil
+	}
+	_, exists = bindings[alias]
+	if !exists {
+		return statusError(req.Id, http.StatusNotFound, "workflow not found"), true, nil
+	}
+	observability.Annotate(ctx, observability.AnnotationWorkspaceName, params.Name)
+	observability.Annotate(ctx, observability.AnnotationWorkflowName, alias)
+	parameters, err := convertType[*apitypes.WorkspaceParameters](params.Parameters)
 	if err != nil {
 		return nil, true, err
 	}
-	if resp := s.authorizeWorkspaceModels(ctx, req.Id, workflowName, body.Parameters); resp != nil {
-		return resp, true, nil
+	toolkitPolicy, err := convertType[*apitypes.ToolkitPolicy](params.Toolkit)
+	if err != nil {
+		return nil, true, err
 	}
-	workspaceCtx := workspace.WithRuntimeWorkflowBindings(s.ownerContext(ctx), s.profileBindings(profileWorkflows))
+	labels := map[string]string{"collection": collection}
+	body := adminhttp.CreateWorkspaceJSONRequestBody{
+		Name: params.Name, WorkflowName: alias,
+		Parameters: parameters, Toolkit: toolkitPolicy, Labels: &labels,
+	}
+	workspaceCtx := workspace.WithRuntimeVoiceBindings(
+		workspace.WithRuntimeModelBindings(
+			workspace.WithRuntimeWorkflowBindings(s.ownerContext(ctx), profileBindingsFrom(profile, profileWorkflows)),
+			profileBindingsFrom(profile, profileModels),
+		),
+		profileBindingsFrom(profile, profileVoices),
+	)
 	adminResp, err := s.Workspaces.CreateWorkspace(workspaceCtx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
 	if err != nil {
 		return internalError(req.Id, err.Error()), true, nil
 	}
-	return workspaceAdminRPCResponse(ctx, req.Id, adminResp.VisitCreateWorkspaceResponse, (*rpcapi.RPCPayload).FromWorkspaceCreateResponse), true, nil
+	return workspaceAdminRPCResponse(ctx, req.Id, adminResp.VisitCreateWorkspaceResponse, func(payload *rpcapi.RPCPayload, item apitypes.Workspace) error {
+		projected, err := workspaceRPCProjection(item, true)
+		if err != nil {
+			return err
+		}
+		return payload.FromWorkspaceCreateResponse(projected)
+	}), true, nil
 }
 
 func (s *Server) handleWorkspacePut(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, bool, error) {
@@ -475,81 +528,46 @@ func (s *Server) handleWorkspacePut(ctx context.Context, req *rpcapi.RPCRequest)
 	if response := s.requireOwner(req.Id, current.OwnerPublicKey); response != nil {
 		return response, true, nil
 	}
-	workflowName, failure := s.resolveWorkspaceWorkflow(ctx, req.Id, params.Body.WorkflowSource, params.Body.WorkflowName)
-	if failure != nil {
-		return failure, true, nil
+	profile := s.currentRuntimeProfile()
+	if profile == nil {
+		return internalError(req.Id, "runtime profile not configured"), true, nil
 	}
-	body, err := convertType[adminhttp.PutWorkspaceJSONRequestBody](params.Body)
-	if err != nil {
-		return nil, true, err
+	body := adminhttp.PutWorkspaceJSONRequestBody{
+		Name: current.Name, WorkflowName: current.WorkflowName,
+		Parameters: current.Parameters, Toolkit: current.Toolkit,
 	}
-	if resp := s.authorizeWorkspaceModels(ctx, req.Id, workflowName, body.Parameters); resp != nil {
-		return resp, true, nil
+	if params.Body.Parameters != nil {
+		parameters, err := convertType[*apitypes.WorkspaceParameters](params.Body.Parameters)
+		if err != nil {
+			return nil, true, err
+		}
+		body.Parameters = parameters
 	}
-	workspaceCtx := workspace.WithRuntimeWorkflowBindings(s.ownerContext(ctx), s.profileBindings(profileWorkflows))
+	if params.Body.Toolkit != nil {
+		toolkitPolicy, err := convertType[*apitypes.ToolkitPolicy](params.Body.Toolkit)
+		if err != nil {
+			return nil, true, err
+		}
+		body.Toolkit = toolkitPolicy
+	}
+	workspaceCtx := workspace.WithRuntimeVoiceBindings(
+		workspace.WithRuntimeModelBindings(
+			workspace.WithRuntimeWorkflowBindings(s.ownerContext(ctx), profileBindingsFrom(profile, profileWorkflows)),
+			profileBindingsFrom(profile, profileModels),
+		),
+		profileBindingsFrom(profile, profileVoices),
+	)
 	adminResp, err := s.Workspaces.PutWorkspace(workspaceCtx, adminhttp.PutWorkspaceRequestObject{Name: params.Name, Body: &body})
 	if err != nil {
 		return internalError(req.Id, err.Error()), true, nil
 	}
-	return workspaceAdminRPCResponse(ctx, req.Id, adminResp.VisitPutWorkspaceResponse, (*rpcapi.RPCPayload).FromWorkspacePutResponse), true, nil
-}
-
-func (s *Server) resolveWorkspaceWorkflow(ctx context.Context, requestID string, source *rpcapi.ResourceSource, name string) (string, *rpcapi.RPCResponse) {
-	if source == nil || !source.Valid() {
-		return "", invalidParams(requestID)
-	}
-	if s.Workflows == nil {
-		return "", internalError(requestID, "workflow service not configured")
-	}
-	if *source == rpcapi.ResourceSourceRuntime {
-		resolved, ok := s.runtimeWorkflowName(name)
-		if !ok {
-			return "", statusError(requestID, http.StatusNotFound, "workflow not found")
+	return workspaceAdminRPCResponse(ctx, req.Id, adminResp.VisitPutWorkspaceResponse, func(payload *rpcapi.RPCPayload, item apitypes.Workspace) error {
+		projected, err := workspaceRPCProjection(item, workspaceAvailable(profile, item))
+		if err != nil {
+			return err
 		}
-		return resolved, nil
-	}
-	response, err := s.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Name: name})
-	if err != nil {
-		return "", internalError(requestID, err.Error())
-	}
-	item, rpcResponse, err := adminResult[apitypes.Workflow](response.VisitGetWorkflowResponse)
-	if err != nil {
-		return "", internalError(requestID, err.Error())
-	}
-	if rpcResponse != nil || !s.owns(item.OwnerPublicKey) {
-		return "", statusError(requestID, http.StatusNotFound, "workflow not found")
-	}
-	return name, nil
-}
-
-func (s *Server) authorizeWorkspaceModels(ctx context.Context, requestID, workflowName string, parameters *apitypes.WorkspaceParameters) *rpcapi.RPCResponse {
-	if s.Workflows == nil {
-		return internalError(requestID, "workflow service not configured")
-	}
-	response, err := s.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Name: workflowName})
-	if err != nil {
-		return internalError(requestID, err.Error())
-	}
-	workflowValue, rpcResponse, err := adminResult[apitypes.Workflow](response.VisitGetWorkflowResponse)
-	if err != nil {
-		return internalError(requestID, err.Error())
-	}
-	if rpcResponse != nil {
-		if rpcResponse.Error != nil && rpcResponse.Error.Code == rpcapi.RPCErrorCodeNotFound {
-			return nil
-		}
-		return withRequestID(requestID, rpcResponse)
-	}
-	references, err := workspace.ResolveFlowcraftModelReferences(workflowValue, parameters)
-	if err != nil {
-		return nil
-	}
-	for _, reference := range references {
-		if !s.canUseModel(ctx, reference.ModelID) {
-			return statusError(requestID, http.StatusForbidden, "model is not available to the authenticated peer")
-		}
-	}
-	return nil
+		return payload.FromWorkspacePutResponse(projected)
+	}), true, nil
 }
 
 func (s *Server) handleWorkspaceDelete(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -578,7 +596,13 @@ func (s *Server) handleWorkspaceDelete(ctx context.Context, req *rpcapi.RPCReque
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
-	return workspaceAdminRPCResponse(ctx, req.Id, adminResp.VisitDeleteWorkspaceResponse, (*rpcapi.RPCPayload).FromWorkspaceDeleteResponse)
+	return workspaceAdminRPCResponse(ctx, req.Id, adminResp.VisitDeleteWorkspaceResponse, func(payload *rpcapi.RPCPayload, item apitypes.Workspace) error {
+		projected, err := workspaceRPCProjection(item, workspaceAvailable(s.currentRuntimeProfile(), item))
+		if err != nil {
+			return err
+		}
+		return payload.FromWorkspaceDeleteResponse(projected)
+	})
 }
 
 func (s *Server) handleWorkspaceHistoryList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -736,39 +760,38 @@ func (s *Server) handleWorkflowList(ctx context.Context, req *rpcapi.RPCRequest)
 	if s.Workflows == nil {
 		return internalError(req.Id, "workflow service not configured")
 	}
-	params, ok := decodeOptionalParams(req, rpcapi.RPCPayload.AsWorkflowListRequest)
-	if !ok || !params.Source.Valid() {
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsWorkflowListRequest)
+	if !ok || strings.TrimSpace(params.Collection) == "" {
 		return invalidParams(req.Id)
 	}
-	items, err := s.listWorkflowsForSource(ctx, params.Source)
+	profile := s.currentRuntimeProfile()
+	if profile == nil {
+		return internalError(req.Id, "runtime profile not configured")
+	}
+	bindings, exists := profile.Spec.Workflows.Collections[strings.TrimSpace(params.Collection)]
+	if !exists {
+		return statusError(req.Id, http.StatusNotFound, "workflow collection not found")
+	}
+	aliases := sortedBindingAliases(bindings)
+	page, hasNext, nextCursor, conflict := pageAliases(aliases, params.Cursor, params.Limit, profile.Revision)
+	if conflict {
+		return statusError(req.Id, http.StatusConflict, "runtime profile revision changed")
+	}
+	items, err := s.listRuntimeWorkflows(ctx, params.Collection, bindings, page)
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
-	page, hasNext, nextCursor := pageWorkflows(items, params.Cursor, params.Limit)
-	return resultResponse(req.Id, rpcapi.WorkflowListResponse{Items: page, HasNext: hasNext, NextCursor: nextCursor}, (*rpcapi.RPCPayload).FromWorkflowListResponse)
+	return resultResponse(req.Id, rpcapi.WorkflowListResponse{
+		Items: items, HasNext: hasNext, NextCursor: nextCursor,
+		RuntimeProfileName: profile.Name, RuntimeProfileRevision: profile.Revision,
+	}, (*rpcapi.RPCPayload).FromWorkflowListResponse)
 }
 
-func (s *Server) listWorkflowsForSource(ctx context.Context, source rpcapi.ResourceSource) ([]rpcapi.Workflow, error) {
-	if source == rpcapi.ResourceSourceOwned {
-		owned, err := s.ownedWorkflows(ctx)
-		if err != nil {
-			return nil, err
-		}
-		sort.Slice(owned, func(i, j int) bool { return owned[i].Name < owned[j].Name })
-		items := make([]rpcapi.Workflow, 0, len(owned))
-		for _, item := range owned {
-			projected, err := workflowRPCProjection(item, item.Name, true)
-			if err != nil {
-				return nil, err
-			}
-			items = append(items, projected)
-		}
-		return items, nil
-	}
-	bindings := s.profileBindings(profileWorkflows)
-	items := make([]rpcapi.Workflow, 0, len(bindings))
-	for _, alias := range sortedWorkflowAliases(bindings) {
-		resp, err := s.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Name: bindings[alias]})
+func (s *Server) listRuntimeWorkflows(ctx context.Context, collection string, bindings map[string]apitypes.RuntimeProfileBinding, aliases []string) ([]rpcapi.Workflow, error) {
+	items := make([]rpcapi.Workflow, 0, len(aliases))
+	for _, alias := range aliases {
+		binding := bindings[alias]
+		resp, err := s.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Name: binding.ResourceId})
 		if err != nil {
 			return nil, err
 		}
@@ -782,11 +805,7 @@ func (s *Server) listWorkflowsForSource(ctx context.Context, source rpcapi.Resou
 		if rpcResp != nil {
 			return nil, fmt.Errorf("get runtime Workflow %q: %s", alias, rpcResp.Error.Message)
 		}
-		projected, err := workflowRPCProjection(item, alias, false)
-		if err != nil {
-			return nil, err
-		}
-		items = append(items, projected)
+		items = append(items, workflowRPCProjection(item, alias, collection, binding))
 	}
 	return items, nil
 }
@@ -796,18 +815,18 @@ func (s *Server) handleWorkflowGet(ctx context.Context, req *rpcapi.RPCRequest) 
 		return internalError(req.Id, "workflow service not configured")
 	}
 	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsWorkflowGetRequest)
-	if !ok || !params.Source.Valid() {
+	if !ok || strings.TrimSpace(params.Alias) == "" {
 		return invalidParams(req.Id)
 	}
-	storageName := params.Name
-	if params.Source == rpcapi.ResourceSourceRuntime {
-		var exists bool
-		storageName, exists = s.runtimeWorkflowName(params.Name)
-		if !exists {
-			return statusError(req.Id, http.StatusNotFound, "workflow not found")
-		}
+	profile := s.currentRuntimeProfile()
+	if profile == nil {
+		return internalError(req.Id, "runtime profile not configured")
 	}
-	adminResp, err := s.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Name: storageName})
+	collection, binding, exists := workflowBinding(profile, params.Alias)
+	if !exists {
+		return statusError(req.Id, http.StatusNotFound, "workflow not found")
+	}
+	adminResp, err := s.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Name: binding.ResourceId})
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
@@ -816,155 +835,26 @@ func (s *Server) handleWorkflowGet(ctx context.Context, req *rpcapi.RPCRequest) 
 		return internalError(req.Id, err.Error())
 	}
 	if rpcResp != nil {
+		if isNotFoundResponse(rpcResp) {
+			return statusError(req.Id, http.StatusNotFound, "workflow not found")
+		}
 		return withRequestID(req.Id, rpcResp)
 	}
-	if params.Source == rpcapi.ResourceSourceOwned && !s.owns(result.OwnerPublicKey) {
-		return statusError(req.Id, http.StatusNotFound, "workflow not found")
-	}
-	projected, err := workflowRPCProjection(result, params.Name, params.Source == rpcapi.ResourceSourceOwned)
-	if err != nil {
-		return internalError(req.Id, err.Error())
-	}
-	return resultResponse(req.Id, projected, (*rpcapi.RPCPayload).FromWorkflowGetResponse)
+	return resultResponse(req.Id, rpcapi.WorkflowGetResponse{
+		Value:              workflowRPCProjection(result, params.Alias, collection, binding),
+		RuntimeProfileName: profile.Name, RuntimeProfileRevision: profile.Revision,
+	}, (*rpcapi.RPCPayload).FromWorkflowGetResponse)
 }
 
-func (s *Server) handleWorkflowCreate(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	if s.Workflows == nil {
-		return internalError(req.Id, "workflow service not configured")
+func workflowRPCProjection(item apitypes.Workflow, alias, collection string, binding apitypes.RuntimeProfileBinding) rpcapi.Workflow {
+	result := rpcapi.Workflow{
+		Alias: alias, Collection: collection, I18n: bindingI18n(binding),
+		Driver: rpcapi.WorkflowDriver(item.Spec.Driver),
 	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsWorkflowCreateRequest)
-	if !ok || !params.Source.Valid() {
-		return invalidParams(req.Id)
+	if item.Spec.AstTranslate != nil {
+		result.WorkspaceLangPair = item.Spec.AstTranslate.LangPair
 	}
-	if params.Source != rpcapi.ResourceSourceOwned {
-		return statusError(req.Id, http.StatusForbidden, "runtime workflows are read-only")
-	}
-	body, err := convertType[apitypes.Workflow](params.Body)
-	if err != nil {
-		return invalidParams(req.Id)
-	}
-	response, err := s.Workflows.CreateWorkflow(s.ownerContext(ctx), adminhttp.CreateWorkflowRequestObject{Body: &body})
-	if err != nil {
-		return internalError(req.Id, err.Error())
-	}
-	item, rpcResp, err := adminResult[apitypes.Workflow](response.VisitCreateWorkflowResponse)
-	if err != nil {
-		return internalError(req.Id, err.Error())
-	}
-	if rpcResp != nil {
-		return withRequestID(req.Id, rpcResp)
-	}
-	projected, err := workflowRPCProjection(item, item.Name, true)
-	if err != nil {
-		return internalError(req.Id, err.Error())
-	}
-	return resultResponse(req.Id, projected, (*rpcapi.RPCPayload).FromWorkflowCreateResponse)
-}
-
-func (s *Server) handleWorkflowPut(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	if s.Workflows == nil {
-		return internalError(req.Id, "workflow service not configured")
-	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsWorkflowPutRequest)
-	if !ok || !params.Source.Valid() {
-		return invalidParams(req.Id)
-	}
-	if params.Source != rpcapi.ResourceSourceOwned {
-		return statusError(req.Id, http.StatusForbidden, "runtime workflows are read-only")
-	}
-	currentResp, err := s.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Name: params.Name})
-	if err != nil {
-		return internalError(req.Id, err.Error())
-	}
-	current, rpcResp, err := adminResult[apitypes.Workflow](currentResp.VisitGetWorkflowResponse)
-	if err != nil {
-		return internalError(req.Id, err.Error())
-	}
-	if rpcResp != nil {
-		return withRequestID(req.Id, rpcResp)
-	}
-	if response := s.requireOwner(req.Id, current.OwnerPublicKey); response != nil {
-		return response
-	}
-	body, err := convertType[apitypes.Workflow](params.Body)
-	if err != nil {
-		return invalidParams(req.Id)
-	}
-	response, err := s.Workflows.PutWorkflow(s.ownerContext(ctx), adminhttp.PutWorkflowRequestObject{Name: params.Name, Body: &body})
-	if err != nil {
-		return internalError(req.Id, err.Error())
-	}
-	item, rpcResp, err := adminResult[apitypes.Workflow](response.VisitPutWorkflowResponse)
-	if err != nil {
-		return internalError(req.Id, err.Error())
-	}
-	if rpcResp != nil {
-		return withRequestID(req.Id, rpcResp)
-	}
-	projected, err := workflowRPCProjection(item, item.Name, true)
-	if err != nil {
-		return internalError(req.Id, err.Error())
-	}
-	return resultResponse(req.Id, projected, (*rpcapi.RPCPayload).FromWorkflowPutResponse)
-}
-
-func (s *Server) handleWorkflowDelete(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	if s.Workflows == nil {
-		return internalError(req.Id, "workflow service not configured")
-	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsWorkflowDeleteRequest)
-	if !ok || !params.Source.Valid() {
-		return invalidParams(req.Id)
-	}
-	if params.Source != rpcapi.ResourceSourceOwned {
-		return statusError(req.Id, http.StatusForbidden, "runtime workflows are read-only")
-	}
-	currentResp, err := s.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Name: params.Name})
-	if err != nil {
-		return internalError(req.Id, err.Error())
-	}
-	current, rpcResp, err := adminResult[apitypes.Workflow](currentResp.VisitGetWorkflowResponse)
-	if err != nil {
-		return internalError(req.Id, err.Error())
-	}
-	if rpcResp != nil {
-		return withRequestID(req.Id, rpcResp)
-	}
-	if response := s.requireOwner(req.Id, current.OwnerPublicKey); response != nil {
-		return response
-	}
-	response, err := s.Workflows.DeleteWorkflow(ctx, adminhttp.DeleteWorkflowRequestObject{Name: params.Name})
-	if err != nil {
-		return internalError(req.Id, err.Error())
-	}
-	item, rpcResp, err := adminResult[apitypes.Workflow](response.VisitDeleteWorkflowResponse)
-	if err != nil {
-		return internalError(req.Id, err.Error())
-	}
-	if rpcResp != nil {
-		return withRequestID(req.Id, rpcResp)
-	}
-	projected, err := workflowRPCProjection(item, item.Name, true)
-	if err != nil {
-		return internalError(req.Id, err.Error())
-	}
-	return resultResponse(req.Id, projected, (*rpcapi.RPCPayload).FromWorkflowDeleteResponse)
-}
-
-func workflowRPCProjection(item apitypes.Workflow, id string, includeOwner bool) (rpcapi.Workflow, error) {
-	spec, err := convertType[rpcapi.WorkflowSpec](item.Spec)
-	if err != nil {
-		return rpcapi.Workflow{}, err
-	}
-	var owner *string
-	if includeOwner {
-		owner = item.OwnerPublicKey
-	}
-	return rpcapi.Workflow{
-		Name:           id,
-		OwnerPublicKey: owner,
-		Spec:           spec,
-	}, nil
+	return result
 }
 
 func (s *Server) handleModelList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -975,12 +865,36 @@ func (s *Server) handleModelList(ctx context.Context, req *rpcapi.RPCRequest) *r
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	items, err := s.effectiveModels(ctx)
-	if err != nil {
-		return internalError(req.Id, err.Error())
+	profile := s.currentRuntimeProfile()
+	if profile == nil {
+		return internalError(req.Id, "runtime profile not configured")
 	}
-	page, hasNext, nextCursor := pageModels(items, params.Cursor, params.Limit)
-	return resultResponse(req.Id, adminhttp.ModelList{Items: page, HasNext: hasNext, NextCursor: nextCursor}, (*rpcapi.RPCPayload).FromModelListResponse)
+	bindings := bindingMap(profile.Spec.Resources.Models)
+	aliases := sortedBindingAliases(bindings)
+	page, hasNext, nextCursor, conflict := pageAliases(aliases, params.Cursor, params.Limit, profile.Revision)
+	if conflict {
+		return statusError(req.Id, http.StatusConflict, "runtime profile revision changed")
+	}
+	items := make([]rpcapi.Model, 0, len(page))
+	for _, alias := range page {
+		binding := bindings[alias]
+		item, response := s.getModelValue(ctx, binding.ResourceId)
+		if response != nil {
+			if response.Error != nil && response.Error.Code == rpcapi.RPCErrorCodeNotFound {
+				continue
+			}
+			return withRequestID(req.Id, response)
+		}
+		projected, err := modelRPCProjection(alias, binding, item)
+		if err != nil {
+			return internalError(req.Id, err.Error())
+		}
+		items = append(items, projected)
+	}
+	return resultResponse(req.Id, rpcapi.ModelListResponse{
+		Items: items, HasNext: hasNext, NextCursor: nextCursor,
+		RuntimeProfileName: profile.Name, RuntimeProfileRevision: profile.Revision,
+	}, (*rpcapi.RPCPayload).FromModelListResponse)
 }
 
 func (s *Server) handleModelGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -988,101 +902,43 @@ func (s *Server) handleModelGet(ctx context.Context, req *rpcapi.RPCRequest) *rp
 		return internalError(req.Id, "model service not configured")
 	}
 	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsModelGetRequest)
-	if !ok {
+	if !ok || strings.TrimSpace(params.Alias) == "" {
 		return invalidParams(req.Id)
 	}
-	item, response := s.getModelValue(ctx, params.Id)
-	if response != nil {
-		return withRequestID(req.Id, response)
+	profile := s.currentRuntimeProfile()
+	if profile == nil {
+		return internalError(req.Id, "runtime profile not configured")
 	}
-	if !s.profileAllows(profileModels, params.Id) && !s.owns(item.OwnerPublicKey) {
+	binding, exists := bindingMap(profile.Spec.Resources.Models)[strings.TrimSpace(params.Alias)]
+	if !exists {
 		return statusError(req.Id, http.StatusNotFound, "model not found")
 	}
-	return resultResponse(req.Id, item, (*rpcapi.RPCPayload).FromModelGetResponse)
-}
-
-func (s *Server) handleModelCreate(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, bool, error) {
-	if s.Models == nil {
-		return internalError(req.Id, "model service not configured"), true, nil
-	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsModelCreateRequest)
-	if !ok {
-		return invalidParams(req.Id), true, nil
-	}
-	body, err := convertType[adminhttp.CreateModelJSONRequestBody](params)
-	if err != nil {
-		return nil, true, err
-	}
-	adminResp, err := s.Models.CreateModel(s.ownerContext(ctx), adminhttp.CreateModelRequestObject{Body: &body})
-	if err != nil {
-		return internalError(req.Id, err.Error()), true, nil
-	}
-	result, rpcResp, err := adminResult[apitypes.Model](adminResp.VisitCreateModelResponse)
-	if err != nil {
-		return internalError(req.Id, err.Error()), true, nil
-	}
-	if rpcResp != nil {
-		return withRequestID(req.Id, rpcResp), true, nil
-	}
-	return resultResponse(req.Id, result, (*rpcapi.RPCPayload).FromModelCreateResponse), true, nil
-}
-
-func (s *Server) handleModelPut(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, bool, error) {
-	if s.Models == nil {
-		return internalError(req.Id, "model service not configured"), true, nil
-	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsModelPutRequest)
-	if !ok {
-		return invalidParams(req.Id), true, nil
-	}
-	current, response := s.getModelValue(ctx, params.Id)
+	item, response := s.getModelValue(ctx, binding.ResourceId)
 	if response != nil {
-		return withRequestID(req.Id, response), true, nil
-	}
-	if response := s.requireOwner(req.Id, current.OwnerPublicKey); response != nil {
-		return response, true, nil
-	}
-	body, err := convertType[adminhttp.PutModelJSONRequestBody](params.Body)
-	if err != nil {
-		return nil, true, err
-	}
-	adminResp, err := s.Models.PutModel(s.ownerContext(ctx), adminhttp.PutModelRequestObject{Id: params.Id, Body: &body})
-	if err != nil {
-		return internalError(req.Id, err.Error()), true, nil
-	}
-	return adminRPCResponse(req.Id, adminResp.VisitPutModelResponse, (*rpcapi.RPCPayload).FromModelPutResponse), true, nil
-}
-
-func (s *Server) handleModelDelete(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	if s.Models == nil {
-		return internalError(req.Id, "model service not configured")
-	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsModelDeleteRequest)
-	if !ok {
-		return invalidParams(req.Id)
-	}
-	current, response := s.getModelValue(ctx, params.Id)
-	if response != nil {
+		if isNotFoundResponse(response) {
+			return statusError(req.Id, http.StatusNotFound, "model not found")
+		}
 		return withRequestID(req.Id, response)
 	}
-	if response := s.requireOwner(req.Id, current.OwnerPublicKey); response != nil {
-		return response
-	}
-	adminResp, err := s.Models.DeleteModel(s.ownerContext(ctx), adminhttp.DeleteModelRequestObject{Id: params.Id})
+	projected, err := modelRPCProjection(params.Alias, binding, item)
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
-	if _, notFound := adminResp.(adminhttp.DeleteModel404JSONResponse); notFound {
-		return adminRPCResponse(req.Id, adminResp.VisitDeleteModelResponse, (*rpcapi.RPCPayload).FromModelDeleteResponse)
+	return resultResponse(req.Id, rpcapi.ModelGetResponse{
+		Value: projected, RuntimeProfileName: profile.Name, RuntimeProfileRevision: profile.Revision,
+	}, (*rpcapi.RPCPayload).FromModelGetResponse)
+}
+
+func modelRPCProjection(alias string, binding apitypes.RuntimeProfileBinding, item apitypes.Model) (rpcapi.Model, error) {
+	out := rpcapi.Model{Alias: alias, I18n: bindingI18n(binding), Kind: rpcapi.ModelKind(item.Kind)}
+	if item.Capabilities != nil {
+		capabilities, err := convertType[rpcapi.ModelCapabilities](*item.Capabilities)
+		if err != nil {
+			return rpcapi.Model{}, err
+		}
+		out.Capabilities = &capabilities
 	}
-	result, rpcResp, err := adminResult[apitypes.Model](adminResp.VisitDeleteModelResponse)
-	if err != nil {
-		return internalError(req.Id, err.Error())
-	}
-	if rpcResp != nil {
-		return withRequestID(req.Id, rpcResp)
-	}
-	return resultResponse(req.Id, result, (*rpcapi.RPCPayload).FromModelDeleteResponse)
+	return out, nil
 }
 
 func (s *Server) handleVoiceList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -1093,20 +949,39 @@ func (s *Server) handleVoiceList(ctx context.Context, req *rpcapi.RPCRequest) *r
 	if !ok {
 		return invalidParams(req.Id)
 	}
-	resp, err := s.ListVoices(ctx, adminhttp.ListVoicesRequestObject{
-		Params: adminhttp.ListVoicesParams{Cursor: params.Cursor, Limit: int32Ptr(params.Limit)},
-	})
-	if err != nil {
-		return internalError(req.Id, err.Error())
+	profile := s.currentRuntimeProfile()
+	if profile == nil {
+		return internalError(req.Id, "runtime profile not configured")
 	}
-	list, rpcResp, err := adminResult[adminhttp.VoiceList](resp.VisitListVoicesResponse)
-	if err != nil {
-		return internalError(req.Id, err.Error())
+	bindings := bindingMap(profile.Spec.Resources.Voices)
+	aliases := sortedBindingAliases(bindings)
+	page, hasNext, nextCursor, conflict := pageAliases(aliases, params.Cursor, params.Limit, profile.Revision)
+	if conflict {
+		return statusError(req.Id, http.StatusConflict, "runtime profile revision changed")
 	}
-	if rpcResp != nil {
-		return withRequestID(req.Id, rpcResp)
+	items := make([]rpcapi.Voice, 0, len(page))
+	for _, alias := range page {
+		binding := bindings[alias]
+		resp, err := s.Voices.GetVoice(ctx, adminhttp.GetVoiceRequestObject{Id: binding.ResourceId})
+		if err != nil {
+			return internalError(req.Id, err.Error())
+		}
+		_, rpcResp, err := adminResult[apitypes.Voice](resp.VisitGetVoiceResponse)
+		if err != nil {
+			return internalError(req.Id, err.Error())
+		}
+		if isNotFoundResponse(rpcResp) {
+			continue
+		}
+		if rpcResp != nil {
+			return withRequestID(req.Id, rpcResp)
+		}
+		items = append(items, rpcapi.Voice{Alias: alias, I18n: bindingI18n(binding)})
 	}
-	return resultResponse(req.Id, list, (*rpcapi.RPCPayload).FromVoiceListResponse)
+	return resultResponse(req.Id, rpcapi.VoiceListResponse{
+		Items: items, HasNext: hasNext, NextCursor: nextCursor,
+		RuntimeProfileName: profile.Name, RuntimeProfileRevision: profile.Revision,
+	}, (*rpcapi.RPCPayload).FromVoiceListResponse)
 }
 
 func (s *Server) handleVoiceGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -1114,177 +989,35 @@ func (s *Server) handleVoiceGet(ctx context.Context, req *rpcapi.RPCRequest) *rp
 		return internalError(req.Id, "voice service not configured")
 	}
 	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsVoiceGetRequest)
-	if !ok {
+	if !ok || strings.TrimSpace(params.Alias) == "" {
 		return invalidParams(req.Id)
 	}
-	adminResp, err := s.GetVoice(ctx, adminhttp.GetVoiceRequestObject{Id: params.Id})
+	profile := s.currentRuntimeProfile()
+	if profile == nil {
+		return internalError(req.Id, "runtime profile not configured")
+	}
+	binding, exists := bindingMap(profile.Spec.Resources.Voices)[strings.TrimSpace(params.Alias)]
+	if !exists {
+		return statusError(req.Id, http.StatusNotFound, "voice not found")
+	}
+	adminResp, err := s.Voices.GetVoice(ctx, adminhttp.GetVoiceRequestObject{Id: binding.ResourceId})
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
-	return adminRPCResponse(req.Id, adminResp.VisitGetVoiceResponse, (*rpcapi.RPCPayload).FromVoiceGetResponse)
-}
-
-func (s *Server) handleCredentialList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	if s.Credentials == nil {
-		return internalError(req.Id, "credential service not configured")
-	}
-	params, ok := decodeOptionalParams(req, rpcapi.RPCPayload.AsCredentialListRequest)
-	if !ok {
-		return invalidParams(req.Id)
-	}
-	items, err := s.ownedCredentials(ctx)
-	if err != nil {
-		return internalError(req.Id, err.Error())
-	}
-	page, hasNext, nextCursor := pageCredentials(items, params.Cursor, params.Limit)
-	rpcList, err := apiCredentialListToRPC(adminhttp.CredentialList{Items: page, HasNext: hasNext, NextCursor: nextCursor})
-	if err != nil {
-		return internalError(req.Id, err.Error())
-	}
-	return resultResponse(req.Id, rpcList, (*rpcapi.RPCPayload).FromCredentialListResponse)
-}
-
-func (s *Server) handleCredentialGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	if s.Credentials == nil {
-		return internalError(req.Id, "credential service not configured")
-	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsCredentialGetRequest)
-	if !ok {
-		return invalidParams(req.Id)
-	}
-	adminResp, err := s.GetCredential(ctx, adminhttp.GetCredentialRequestObject{Name: params.Name})
-	if err != nil {
-		return internalError(req.Id, err.Error())
-	}
-	result, rpcResp, err := adminResult[apitypes.Credential](adminResp.VisitGetCredentialResponse)
+	_, rpcResp, err := adminResult[apitypes.Voice](adminResp.VisitGetVoiceResponse)
 	if err != nil {
 		return internalError(req.Id, err.Error())
 	}
 	if rpcResp != nil {
+		if isNotFoundResponse(rpcResp) {
+			return statusError(req.Id, http.StatusNotFound, "voice not found")
+		}
 		return withRequestID(req.Id, rpcResp)
 	}
-	converted, err := apiCredentialToRPC(result)
-	if err != nil {
-		return internalError(req.Id, err.Error())
-	}
-	return resultResponse(req.Id, converted, (*rpcapi.RPCPayload).FromCredentialGetResponse)
-}
-
-func (s *Server) handleCredentialCreate(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, bool, error) {
-	if s.Credentials == nil {
-		return internalError(req.Id, "credential service not configured"), true, nil
-	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsCredentialCreateRequest)
-	if !ok {
-		return invalidParams(req.Id), true, nil
-	}
-	body, err := rpcCredentialUpsertToAdmin(params)
-	if err != nil {
-		return nil, true, err
-	}
-	adminResp, err := s.Credentials.CreateCredential(s.ownerContext(ctx), adminhttp.CreateCredentialRequestObject{Body: &body})
-	if err != nil {
-		return internalError(req.Id, err.Error()), true, nil
-	}
-	result, rpcResp, err := adminResult[apitypes.Credential](adminResp.VisitCreateCredentialResponse)
-	if err != nil {
-		return internalError(req.Id, err.Error()), true, nil
-	}
-	if rpcResp != nil {
-		return withRequestID(req.Id, rpcResp), true, nil
-	}
-	converted, err := apiCredentialToRPC(result)
-	if err != nil {
-		return internalError(req.Id, err.Error()), true, nil
-	}
-	return resultResponse(req.Id, converted, (*rpcapi.RPCPayload).FromCredentialCreateResponse), true, nil
-}
-
-func (s *Server) handleCredentialPut(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, bool, error) {
-	if s.Credentials == nil {
-		return internalError(req.Id, "credential service not configured"), true, nil
-	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsCredentialPutRequest)
-	if !ok {
-		return invalidParams(req.Id), true, nil
-	}
-	currentResp, err := s.Credentials.GetCredential(ctx, adminhttp.GetCredentialRequestObject{Name: params.Name})
-	if err != nil {
-		return internalError(req.Id, err.Error()), true, nil
-	}
-	current, rpcResp, err := adminResult[apitypes.Credential](currentResp.VisitGetCredentialResponse)
-	if err != nil {
-		return internalError(req.Id, err.Error()), true, nil
-	}
-	if rpcResp != nil {
-		return withRequestID(req.Id, rpcResp), true, nil
-	}
-	if response := s.requireOwner(req.Id, current.OwnerPublicKey); response != nil {
-		return response, true, nil
-	}
-	body, err := rpcCredentialUpsertToAdmin(params.Body)
-	if err != nil {
-		return nil, true, err
-	}
-	adminResp, err := s.Credentials.PutCredential(s.ownerContext(ctx), adminhttp.PutCredentialRequestObject{Name: params.Name, Body: &body})
-	if err != nil {
-		return internalError(req.Id, err.Error()), true, nil
-	}
-	result, rpcResp, err := adminResult[apitypes.Credential](adminResp.VisitPutCredentialResponse)
-	if err != nil {
-		return internalError(req.Id, err.Error()), true, nil
-	}
-	if rpcResp != nil {
-		return withRequestID(req.Id, rpcResp), true, nil
-	}
-	converted, err := apiCredentialToRPC(result)
-	if err != nil {
-		return internalError(req.Id, err.Error()), true, nil
-	}
-	return resultResponse(req.Id, converted, (*rpcapi.RPCPayload).FromCredentialPutResponse), true, nil
-}
-
-func (s *Server) handleCredentialDelete(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	if s.Credentials == nil {
-		return internalError(req.Id, "credential service not configured")
-	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsCredentialDeleteRequest)
-	if !ok {
-		return invalidParams(req.Id)
-	}
-	currentResp, err := s.Credentials.GetCredential(ctx, adminhttp.GetCredentialRequestObject{Name: params.Name})
-	if err != nil {
-		return internalError(req.Id, err.Error())
-	}
-	current, rpcResp, err := adminResult[apitypes.Credential](currentResp.VisitGetCredentialResponse)
-	if err != nil {
-		return internalError(req.Id, err.Error())
-	}
-	if rpcResp != nil {
-		return withRequestID(req.Id, rpcResp)
-	}
-	if response := s.requireOwner(req.Id, current.OwnerPublicKey); response != nil {
-		return response
-	}
-	adminResp, err := s.Credentials.DeleteCredential(s.ownerContext(ctx), adminhttp.DeleteCredentialRequestObject{Name: params.Name})
-	if err != nil {
-		return internalError(req.Id, err.Error())
-	}
-	if _, notFound := adminResp.(adminhttp.DeleteCredential404JSONResponse); notFound {
-		return adminRPCResponse(req.Id, adminResp.VisitDeleteCredentialResponse, (*rpcapi.RPCPayload).FromCredentialDeleteResponse)
-	}
-	result, rpcResp, err := adminResult[apitypes.Credential](adminResp.VisitDeleteCredentialResponse)
-	if err != nil {
-		return internalError(req.Id, err.Error())
-	}
-	if rpcResp != nil {
-		return withRequestID(req.Id, rpcResp)
-	}
-	converted, err := apiCredentialToRPC(result)
-	if err != nil {
-		return internalError(req.Id, err.Error())
-	}
-	return resultResponse(req.Id, converted, (*rpcapi.RPCPayload).FromCredentialDeleteResponse)
+	return resultResponse(req.Id, rpcapi.VoiceGetResponse{
+		Value:              rpcapi.Voice{Alias: params.Alias, I18n: bindingI18n(binding)},
+		RuntimeProfileName: profile.Name, RuntimeProfileRevision: profile.Revision,
+	}, (*rpcapi.RPCPayload).FromVoiceGetResponse)
 }
 
 func adminRPCResponse[T any](id string, visit func(*fiber.Ctx) error, encode func(*rpcapi.RPCPayload, T) error) *rpcapi.RPCResponse {
@@ -1411,46 +1144,6 @@ func convertValue(dst reflect.Value, src reflect.Value) error {
 		}
 		return nil
 	}
-	if dst.Type() == reflect.TypeOf(apitypes.CredentialBody{}) && src.Type() == reflect.TypeOf(rpcapi.CredentialBody{}) {
-		body, err := rpcCredentialBodyToAPI(src.Interface().(rpcapi.CredentialBody))
-		if err != nil {
-			return err
-		}
-		dst.Set(reflect.ValueOf(body))
-		return nil
-	}
-	if dst.Type() == reflect.TypeOf(apitypes.ModelProviderData{}) && src.Type() == reflect.TypeOf(rpcapi.ModelProviderData{}) {
-		body, err := rpcModelProviderDataToAPI(src.Interface().(rpcapi.ModelProviderData))
-		if err != nil {
-			return err
-		}
-		dst.Set(reflect.ValueOf(body))
-		return nil
-	}
-	if dst.Type() == reflect.TypeOf(rpcapi.ModelProviderData{}) && src.Type() == reflect.TypeOf(apitypes.ModelProviderData{}) {
-		body, err := apiModelProviderDataToRPC(src.Interface().(apitypes.ModelProviderData))
-		if err != nil {
-			return err
-		}
-		dst.Set(reflect.ValueOf(body))
-		return nil
-	}
-	if dst.Type() == reflect.TypeOf(apitypes.VoiceProviderData{}) && src.Type() == reflect.TypeOf(rpcapi.VoiceProviderData{}) {
-		body, err := rpcVoiceProviderDataToAPI(src.Interface().(rpcapi.VoiceProviderData))
-		if err != nil {
-			return err
-		}
-		dst.Set(reflect.ValueOf(body))
-		return nil
-	}
-	if dst.Type() == reflect.TypeOf(rpcapi.VoiceProviderData{}) && src.Type() == reflect.TypeOf(apitypes.VoiceProviderData{}) {
-		body, err := apiVoiceProviderDataToRPC(src.Interface().(apitypes.VoiceProviderData))
-		if err != nil {
-			return err
-		}
-		dst.Set(reflect.ValueOf(body))
-		return nil
-	}
 	if dst.Type() == reflect.TypeOf(apitypes.WorkspaceParameters{}) && src.Type() == reflect.TypeOf(rpcapi.WorkspaceParameters{}) {
 		body, err := rpcWorkspaceParametersToAPI(src.Interface().(rpcapi.WorkspaceParameters))
 		if err != nil {
@@ -1513,12 +1206,6 @@ func convertValue(dst reflect.Value, src reflect.Value) error {
 			}
 			srcField := src.FieldByName(field.Name)
 			if !srcField.IsValid() {
-				continue
-			}
-			if handled, err := convertUnionFieldWithParent(dst.Field(i), srcField, src); handled {
-				if err != nil {
-					return fmt.Errorf("%s: %w", field.Name, err)
-				}
 				continue
 			}
 			if err := convertValue(dst.Field(i), srcField); err != nil {

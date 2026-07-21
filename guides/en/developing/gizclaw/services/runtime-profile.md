@@ -1,6 +1,6 @@
 # RuntimeProfile and device registration
 
-`RuntimeProfile` defines the server resources and gameplay configuration available to a device connection. It complements resource ownership: a device can access resources allowed by its RuntimeProfile and resources it owns. Lists place RuntimeProfile resources before owned resources.
+`RuntimeProfile` is the connection-scoped environment exposed to a device. Administrators create canonical Workflow, Model, Voice, Tool, PetDef, GameDef, BadgeDef, and Path resources; a Peer cannot create those resources. A Peer may create Workspace state and adopt Pet instances.
 
 ## Declarative structure
 
@@ -8,64 +8,87 @@
 apiVersion: gizclaw.admin/v1alpha1
 kind: RuntimeProfile
 metadata:
-  name: h106-tragon
+  name: default
 spec:
+  workflows:
+    collections:
+      assistants:
+        doubao-realtime:
+          resource_id: doubao-realtime-conversation
+          i18n:
+            en: {display_name: Doubao Assistant}
+            zh-CN: {display_name: 豆包助手}
+      raids:
+        journey:
+          resource_id: flowcraft-journey-guide
+          i18n:
+            en: {display_name: Journey Guide}
+            zh-CN: {display_name: 旅途向导}
   resources:
-    workflows:
-      chat: general-chat
     models:
-      primary: model-default
+      chat:
+        resource_id: doubao-seed-2-0-lite
+        i18n:
+          en: {display_name: Chat}
+          zh-CN: {display_name: 对话}
+      extraction:
+        resource_id: deepseek-v4-flash
+        i18n:
+          en: {display_name: Extraction}
+          zh-CN: {display_name: 信息提取}
+      embedding:
+        resource_id: qwen3.7-text-embedding
+        i18n:
+          en: {display_name: Embedding}
+          zh-CN: {display_name: 文本向量}
+      asr:
+        resource_id: volc-bigasr-sauc
+        i18n:
+          en: {display_name: Speech Recognition}
+          zh-CN: {display_name: 语音识别}
     voices:
-      assistant: voice-default
-    tools:
-      weather: weather-v2
+      cute-pet:
+        resource_id: volc-tenant:volc-main:zh_male_naiqimengwa_mars_bigtts
+        i18n:
+          en: {display_name: Cute Pet}
+          zh-CN: {display_name: 奶气萌宠}
     pet_defs:
-      tragon: petdef-tragon
-    game_defs:
-      dinodive: game-dinodive
-    badge_defs:
-      dinodive-master: badge-dinodive-master
+      codex:
+        resource_id: petdef-codex
+        i18n:
+          en: {display_name: Codex}
+          zh-CN: {display_name: Codex}
   gameplay:
     points:
       initial_balance: 100
-    pet_pool:
-      - pet_def: tragon
-        weight: 100
-        rarity: common
-        adoption_cost: 10
-    drive:
-      game_rewards:
-        dinodive:
-          points_delta: 20
-          badge_exp_delta:
-            dinodive-master: 100
+    adoption:
+      pool:
+        - {pet_def: codex, voice: cute-pet, weight: 100, rarity: common, adoption_cost: 10}
+    rewards:
+      default: {points_delta: 5, pet_exp_delta: 3}
 ```
 
-Each map under `resources` binds a profile-local alias to a concrete resource name. The values form the allow list. Gameplay configuration uses aliases only inside the RuntimeProfile, so `pet_def: tragon` resolves to `petdef-tragon`. Workflow is the only public resource RPC that exposes this alias namespace: `server.workflow.list/get` with `source=runtime` use the alias as the RPC `id`. Other resource RPCs continue to use concrete names.
+Workflow aliases live under `workflows.collections.<collection>.<alias>`. Alias IDs are globally unique across Collections, while the client owns its fixed Collection navigation, ordering, icons, and Collection translations. RuntimeProfile supplies dynamic Workflow membership and alias-level `en` and `zh-CN` display text; it has no top-level locale or Collection presentation section.
 
-Multiple aliases may reference the same concrete resource. Concrete-name resource lists deduplicate those values, while the runtime Workflow list preserves every alias because each alias is a distinct client-facing ID. A missing or deleted concrete resource is skipped; it does not prevent the RuntimeProfile from being stored, loaded, or deleted. RuntimeProfile does not carry icons, display names, or i18n. Product clients map aliases such as `chat` to their own presentation.
+The maps under `resources` bind environment aliases to canonical Admin resource IDs. Model aliases name semantic roles such as `chat`, `extraction`, `embedding`, `asr`, `realtime`, and `translation`; they do not contain provider or canonical Model names. Model and Voice aliases are independent environment variables, not Workflow members. Workflow specs and Workspace parameters store symbolic aliases, so each Workspace reload resolves the latest active binding. The same binary can therefore use production or debug RuntimeProfiles without rebuilding.
+
+Every `gameplay.adoption.pool` entry references both a `pet_defs` alias and a `voices` alias. PetDef stores the Pet character/speaking style, PIXA metadata, and fixed behavior-to-animation bindings, but no Voice ID or Voice alias. On adoption, the Server writes the pool entry's Voice alias into the system Workspace; rebinding that alias later changes the canonical voice without editing PetDef.
+
+The normalized spec has an opaque deterministic revision. Catalog list/get responses include the RuntimeProfile name and revision. Pagination cursors are revision-bound. Each list, get, Workspace reload, and standalone Speech call obtains one current profile snapshot; a concurrent update affects the next operation.
 
 ## RegistrationToken
 
-An administrator pre-creates a `RegistrationToken` that references one RuntimeProfile. The raw token is returned only by the create response; the server stores only its SHA-256 hash. A token can register multiple devices or connections until it is deleted. It has no enable/disable state and no database usage history or public-key binding. RegistrationToken names also accept the scoped `app:<bundle-id>` form; this does not change the generic custom-resource ID grammar.
+An administrator creates a `RegistrationToken` with one required RuntimeProfile name and, optionally, one Firmware release-line ID. The raw token is returned only on creation and the Server stores its SHA-256 hash. `server.register` associates the connection with the RuntimeProfile, persists the optional Firmware ID on the Peer, and returns both selections. Neither RegistrationToken nor Peer stores a Firmware channel: stable, beta, develop, or pending selection remains device-owned. Updating or switching the profile changes the environment used by later operations; it does not rewrite Workspace context or persisted aliases.
 
-The raw token is provisioned to a client through its secure enrollment channel. After connecting, the client calls `server.register`; the server validates the token and snapshots its RuntimeProfile onto that connection. The response contains only `runtime_profile_name`. Updating a RuntimeProfile does not mutate established connections. A reconnect and new registration loads the new configuration.
+Public HTTP login may submit the same token through `X-Registration-Token`. Registration success and failure are logged without storing raw tokens in business data.
 
-Public HTTP clients provide the same token in the optional `X-Registration-Token` header on `POST /login`. The resulting bearer session keeps that RuntimeProfile snapshot, so `/openai/v1` resolves the same profile-qualified Models and Voices without requiring a concurrent Peer RPC connection.
+## Peer surface and ownership
 
-Successful and rejected registrations are written to the system log with the Peer public key, connection source, RegistrationToken name, and RuntimeProfile. No token usage records are stored in the business database.
+- Workflow, Model, Voice, and Tool list/get return safe alias projections only. An AST Workflow projection includes its Workspace language-pair default so a client never infers behavior from the dynamic alias. Projections do not expose canonical IDs, providers, tenants, credentials, owners, or execution routing.
+- Workflow list requires a Collection. Workflow get uses the globally unique alias. There is no `source=runtime|owned` selector.
+- Workflow, Model, Credential, and Tool create/put/delete are not Peer RPC methods. Admin owns canonical resource management.
+- Workspace create requires `collection` and `workflow_alias`; Workspace list requires `collection`. The Server stores Collection as an internal Workspace label and does not return generic labels through Peer RPC.
+- A removed Workflow alias does not hide or delete its Workspace. List/get still return it, while reload/run fails with not found until the alias is restored.
+- Pet instances remain Peer/domain state. Adoption and all reward values come from `gameplay`; Server config contains only operational settings.
 
-## Access rules
-
-| Source | list / get / use | put / delete |
-| --- | --- | --- |
-| RuntimeProfile allow list | Allowed without an owner check | Not allowed |
-| Current Peer is owner | Allowed | Allowed |
-| Friend, FriendGroup, or Pet system Workspace | Allowed by domain relationship | Handled by domain rules |
-| Other resource | Hidden and unavailable | Not allowed |
-
-An unregistered device may still call public RPC methods; it simply has no RuntimeProfile resources. Workspace, Workflow, Model, Credential, and Tool resources created through public CRUD record the current Peer as owner. Runtime Workflows are read-only; owned Workflows support public CRUD.
-
-Model and Voice invocation resolves the configured ProviderTenant and its backing Credential internally. Access to a RuntimeProfile-qualified Model or Voice authorizes use of its server-side Credential, but does not expose that Credential through credential list/get or grant mutation. An owner-created Model outside the RuntimeProfile may use only a Credential owned by the same Peer; it cannot select an unrelated server-owned Credential through a ProviderTenant.
-
-Firmware remains an independently managed Admin resource. It is not selected by RegistrationToken, does not appear in connection registration state, and is not projected through peer Firmware RPCs. Deleting a RuntimeProfile or RegistrationToken does not cascade to other resources. An established connection keeps its RuntimeProfile snapshot until disconnect.
+Firmware remains an independent Admin resource and is not part of the RuntimeProfile projection. A RegistrationToken may bind its release-line ID independently of the RuntimeProfile, without binding a channel. Credentials and ProviderTenants remain Server-only dependencies of canonical Model and Voice resources.

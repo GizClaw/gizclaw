@@ -6,6 +6,21 @@
 #error Regenerate this file with the current version of nanopb generator.
 #endif
 
+PB_BIND(gizclaw_rpc_v1_AliasI18nText, gizclaw_rpc_v1_AliasI18nText, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_SpeechTranscribeRequest, gizclaw_rpc_v1_SpeechTranscribeRequest, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_SpeechTranscribeResponse, gizclaw_rpc_v1_SpeechTranscribeResponse, 4)
+
+
+PB_BIND(gizclaw_rpc_v1_SpeechSynthesizeRequest, gizclaw_rpc_v1_SpeechSynthesizeRequest, 4)
+
+
+PB_BIND(gizclaw_rpc_v1_SpeechSynthesizeResponse, gizclaw_rpc_v1_SpeechSynthesizeResponse, AUTO)
+
+
 PB_BIND(gizclaw_rpc_v1_ASTTranslateExternalVoiceParameters, gizclaw_rpc_v1_ASTTranslateExternalVoiceParameters, AUTO)
 
 
@@ -37,51 +52,6 @@ PB_BIND(gizclaw_rpc_v1_ChatRoomWorkspaceParameters, gizclaw_rpc_v1_ChatRoomWorks
 
 
 PB_BIND(gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters, gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_Credential, gizclaw_rpc_v1_Credential, 2)
-
-
-PB_BIND(gizclaw_rpc_v1_CredentialBody, gizclaw_rpc_v1_CredentialBody, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_CredentialCreateRequest, gizclaw_rpc_v1_CredentialCreateRequest, 2)
-
-
-PB_BIND(gizclaw_rpc_v1_CredentialCreateResponse, gizclaw_rpc_v1_CredentialCreateResponse, 2)
-
-
-PB_BIND(gizclaw_rpc_v1_CredentialDeleteRequest, gizclaw_rpc_v1_CredentialDeleteRequest, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_CredentialDeleteResponse, gizclaw_rpc_v1_CredentialDeleteResponse, 2)
-
-
-PB_BIND(gizclaw_rpc_v1_CredentialGetRequest, gizclaw_rpc_v1_CredentialGetRequest, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_CredentialGetResponse, gizclaw_rpc_v1_CredentialGetResponse, 2)
-
-
-PB_BIND(gizclaw_rpc_v1_CredentialListRequest, gizclaw_rpc_v1_CredentialListRequest, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_CredentialListResponse, gizclaw_rpc_v1_CredentialListResponse, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_CredentialPutRequest, gizclaw_rpc_v1_CredentialPutRequest, 2)
-
-
-PB_BIND(gizclaw_rpc_v1_CredentialPutResponse, gizclaw_rpc_v1_CredentialPutResponse, 2)
-
-
-PB_BIND(gizclaw_rpc_v1_DashScopeCredentialBody, gizclaw_rpc_v1_DashScopeCredentialBody, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_DashScopeTenantModelProviderData, gizclaw_rpc_v1_DashScopeTenantModelProviderData, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_DashScopeTenantVoiceProviderData, gizclaw_rpc_v1_DashScopeTenantVoiceProviderData, AUTO)
 
 
 PB_BIND(gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata, gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata, AUTO)
@@ -168,43 +138,19 @@ PB_BIND(gizclaw_rpc_v1_PetWorkflowSpec, gizclaw_rpc_v1_PetWorkflowSpec, AUTO)
 PB_BIND(gizclaw_rpc_v1_PetWorkspaceParameters, gizclaw_rpc_v1_PetWorkspaceParameters, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_GeminiCredentialBody, gizclaw_rpc_v1_GeminiCredentialBody, AUTO)
+PB_BIND(gizclaw_rpc_v1_Model, gizclaw_rpc_v1_Model, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_GeminiTenantModelProviderData, gizclaw_rpc_v1_GeminiTenantModelProviderData, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_GeminiTenantVoiceProviderData, gizclaw_rpc_v1_GeminiTenantVoiceProviderData, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_MiniMaxCredentialBody, gizclaw_rpc_v1_MiniMaxCredentialBody, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_MiniMaxTenantVoiceProviderData, gizclaw_rpc_v1_MiniMaxTenantVoiceProviderData, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_Model, gizclaw_rpc_v1_Model, 2)
+PB_BIND(gizclaw_rpc_v1_Model_I18nEntry, gizclaw_rpc_v1_Model_I18nEntry, AUTO)
 
 
 PB_BIND(gizclaw_rpc_v1_ModelCapabilities, gizclaw_rpc_v1_ModelCapabilities, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_ModelCreateRequest, gizclaw_rpc_v1_ModelCreateRequest, 2)
-
-
-PB_BIND(gizclaw_rpc_v1_ModelCreateResponse, gizclaw_rpc_v1_ModelCreateResponse, 2)
-
-
-PB_BIND(gizclaw_rpc_v1_ModelDeleteRequest, gizclaw_rpc_v1_ModelDeleteRequest, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_ModelDeleteResponse, gizclaw_rpc_v1_ModelDeleteResponse, 2)
-
-
 PB_BIND(gizclaw_rpc_v1_ModelGetRequest, gizclaw_rpc_v1_ModelGetRequest, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_ModelGetResponse, gizclaw_rpc_v1_ModelGetResponse, 2)
+PB_BIND(gizclaw_rpc_v1_ModelGetResponse, gizclaw_rpc_v1_ModelGetResponse, AUTO)
 
 
 PB_BIND(gizclaw_rpc_v1_ModelListRequest, gizclaw_rpc_v1_ModelListRequest, AUTO)
@@ -213,37 +159,19 @@ PB_BIND(gizclaw_rpc_v1_ModelListRequest, gizclaw_rpc_v1_ModelListRequest, AUTO)
 PB_BIND(gizclaw_rpc_v1_ModelListResponse, gizclaw_rpc_v1_ModelListResponse, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_ModelProvider, gizclaw_rpc_v1_ModelProvider, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_ModelProviderData, gizclaw_rpc_v1_ModelProviderData, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_ModelPutRequest, gizclaw_rpc_v1_ModelPutRequest, 2)
-
-
-PB_BIND(gizclaw_rpc_v1_ModelPutResponse, gizclaw_rpc_v1_ModelPutResponse, 2)
-
-
 PB_BIND(gizclaw_rpc_v1_ModelThinkingCapability, gizclaw_rpc_v1_ModelThinkingCapability, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_OpenAICredentialBody, gizclaw_rpc_v1_OpenAICredentialBody, AUTO)
+PB_BIND(gizclaw_rpc_v1_Voice, gizclaw_rpc_v1_Voice, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_OpenAITenantModelProviderData, gizclaw_rpc_v1_OpenAITenantModelProviderData, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_OpenAITenantVoiceProviderData, gizclaw_rpc_v1_OpenAITenantVoiceProviderData, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_Voice, gizclaw_rpc_v1_Voice, 2)
+PB_BIND(gizclaw_rpc_v1_Voice_I18nEntry, gizclaw_rpc_v1_Voice_I18nEntry, AUTO)
 
 
 PB_BIND(gizclaw_rpc_v1_VoiceGetRequest, gizclaw_rpc_v1_VoiceGetRequest, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_VoiceGetResponse, gizclaw_rpc_v1_VoiceGetResponse, 2)
+PB_BIND(gizclaw_rpc_v1_VoiceGetResponse, gizclaw_rpc_v1_VoiceGetResponse, AUTO)
 
 
 PB_BIND(gizclaw_rpc_v1_VoiceListRequest, gizclaw_rpc_v1_VoiceListRequest, AUTO)
@@ -252,43 +180,16 @@ PB_BIND(gizclaw_rpc_v1_VoiceListRequest, gizclaw_rpc_v1_VoiceListRequest, AUTO)
 PB_BIND(gizclaw_rpc_v1_VoiceListResponse, gizclaw_rpc_v1_VoiceListResponse, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_VoiceProvider, gizclaw_rpc_v1_VoiceProvider, AUTO)
+PB_BIND(gizclaw_rpc_v1_Workflow, gizclaw_rpc_v1_Workflow, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_VoiceProviderData, gizclaw_rpc_v1_VoiceProviderData, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_VolcCredentialBody, gizclaw_rpc_v1_VolcCredentialBody, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_VolcTenantModelProviderData, gizclaw_rpc_v1_VolcTenantModelProviderData, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_VolcTenantVoiceProviderData, gizclaw_rpc_v1_VolcTenantVoiceProviderData, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_Workflow, gizclaw_rpc_v1_Workflow, 2)
-
-
-PB_BIND(gizclaw_rpc_v1_WorkflowUpsert, gizclaw_rpc_v1_WorkflowUpsert, 2)
-
-
-PB_BIND(gizclaw_rpc_v1_WorkflowCreateRequest, gizclaw_rpc_v1_WorkflowCreateRequest, 2)
-
-
-PB_BIND(gizclaw_rpc_v1_WorkflowCreateResponse, gizclaw_rpc_v1_WorkflowCreateResponse, 2)
-
-
-PB_BIND(gizclaw_rpc_v1_WorkflowDeleteRequest, gizclaw_rpc_v1_WorkflowDeleteRequest, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_WorkflowDeleteResponse, gizclaw_rpc_v1_WorkflowDeleteResponse, 2)
+PB_BIND(gizclaw_rpc_v1_Workflow_I18nEntry, gizclaw_rpc_v1_Workflow_I18nEntry, AUTO)
 
 
 PB_BIND(gizclaw_rpc_v1_WorkflowGetRequest, gizclaw_rpc_v1_WorkflowGetRequest, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_WorkflowGetResponse, gizclaw_rpc_v1_WorkflowGetResponse, 2)
+PB_BIND(gizclaw_rpc_v1_WorkflowGetResponse, gizclaw_rpc_v1_WorkflowGetResponse, AUTO)
 
 
 PB_BIND(gizclaw_rpc_v1_WorkflowListRequest, gizclaw_rpc_v1_WorkflowListRequest, AUTO)
@@ -297,31 +198,16 @@ PB_BIND(gizclaw_rpc_v1_WorkflowListRequest, gizclaw_rpc_v1_WorkflowListRequest, 
 PB_BIND(gizclaw_rpc_v1_WorkflowListResponse, gizclaw_rpc_v1_WorkflowListResponse, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_WorkflowPutRequest, gizclaw_rpc_v1_WorkflowPutRequest, 2)
-
-
-PB_BIND(gizclaw_rpc_v1_WorkflowPutResponse, gizclaw_rpc_v1_WorkflowPutResponse, 2)
-
-
 PB_BIND(gizclaw_rpc_v1_ToolkitPolicyToolIds, gizclaw_rpc_v1_ToolkitPolicyToolIds, AUTO)
 
 
 PB_BIND(gizclaw_rpc_v1_ToolkitPolicy, gizclaw_rpc_v1_ToolkitPolicy, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_WorkflowSpec, gizclaw_rpc_v1_WorkflowSpec, 2)
+PB_BIND(gizclaw_rpc_v1_Tool, gizclaw_rpc_v1_Tool, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_ToolExecutor, gizclaw_rpc_v1_ToolExecutor, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_ToolTriggerExample, gizclaw_rpc_v1_ToolTriggerExample, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_ToolTrigger, gizclaw_rpc_v1_ToolTrigger, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_Tool, gizclaw_rpc_v1_Tool, 2)
+PB_BIND(gizclaw_rpc_v1_Tool_I18nEntry, gizclaw_rpc_v1_Tool_I18nEntry, AUTO)
 
 
 PB_BIND(gizclaw_rpc_v1_ToolListRequest, gizclaw_rpc_v1_ToolListRequest, AUTO)
@@ -333,25 +219,7 @@ PB_BIND(gizclaw_rpc_v1_ToolListResponse, gizclaw_rpc_v1_ToolListResponse, AUTO)
 PB_BIND(gizclaw_rpc_v1_ToolGetRequest, gizclaw_rpc_v1_ToolGetRequest, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_ToolGetResponse, gizclaw_rpc_v1_ToolGetResponse, 2)
-
-
-PB_BIND(gizclaw_rpc_v1_ToolCreateRequest, gizclaw_rpc_v1_ToolCreateRequest, 2)
-
-
-PB_BIND(gizclaw_rpc_v1_ToolCreateResponse, gizclaw_rpc_v1_ToolCreateResponse, 2)
-
-
-PB_BIND(gizclaw_rpc_v1_ToolPutRequest, gizclaw_rpc_v1_ToolPutRequest, 2)
-
-
-PB_BIND(gizclaw_rpc_v1_ToolPutResponse, gizclaw_rpc_v1_ToolPutResponse, 2)
-
-
-PB_BIND(gizclaw_rpc_v1_ToolDeleteRequest, gizclaw_rpc_v1_ToolDeleteRequest, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_ToolDeleteResponse, gizclaw_rpc_v1_ToolDeleteResponse, 2)
+PB_BIND(gizclaw_rpc_v1_ToolGetResponse, gizclaw_rpc_v1_ToolGetResponse, AUTO)
 
 
 PB_BIND(gizclaw_rpc_v1_ToolInvokeRequest, gizclaw_rpc_v1_ToolInvokeRequest, AUTO)

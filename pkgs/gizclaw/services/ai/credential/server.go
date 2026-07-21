@@ -12,14 +12,12 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 var (
 	credentialsRoot           = kv.Key{"by-name"}
 	credentialsByProviderRoot = kv.Key{"by-provider"}
-	credentialsByOwnerRoot    = kv.Key{"by-owner"}
 )
 
 const (
@@ -42,13 +40,12 @@ type CredentialAdminService interface {
 var _ CredentialAdminService = (*Server)(nil)
 
 type credentialRecord struct {
-	Body           apitypes.CredentialBody `json:"body"`
-	CreatedAt      time.Time               `json:"created_at"`
-	Description    *string                 `json:"description,omitempty"`
-	Name           string                  `json:"name"`
-	Provider       string                  `json:"provider"`
-	UpdatedAt      time.Time               `json:"updated_at"`
-	OwnerPublicKey *string                 `json:"owner_public_key,omitempty"`
+	Body        apitypes.CredentialBody `json:"body"`
+	CreatedAt   time.Time               `json:"created_at"`
+	Description *string                 `json:"description,omitempty"`
+	Name        string                  `json:"name"`
+	Provider    string                  `json:"provider"`
+	UpdatedAt   time.Time               `json:"updated_at"`
 }
 
 type normalizedCredentialUpsert struct {
@@ -88,39 +85,6 @@ func (s *Server) ListCredentials(ctx context.Context, request adminhttp.ListCred
 	}), nil
 }
 
-// ListCredentialsByOwner reads the immutable owner index used by Peer RPC.
-// Credential bodies retain the same redaction contract as Admin reads.
-func (s *Server) ListCredentialsByOwner(ctx context.Context, owner string) ([]apitypes.Credential, error) {
-	store, err := s.store()
-	if err != nil {
-		return nil, err
-	}
-	owner = strings.TrimSpace(owner)
-	if owner == "" {
-		return []apitypes.Credential{}, nil
-	}
-	prefix := credentialByOwnerPrefix(owner)
-	items := make([]apitypes.Credential, 0)
-	for entry, err := range store.List(ctx, prefix) {
-		if err != nil {
-			return nil, fmt.Errorf("credential: list owner %s: %w", owner, err)
-		}
-		if len(entry.Key) == 0 {
-			continue
-		}
-		name := unescapeStoreSegment(entry.Key[len(entry.Key)-1])
-		record, err := getCredentialRecord(ctx, store, name)
-		if errors.Is(err, kv.ErrNotFound) {
-			continue
-		}
-		if err != nil {
-			return nil, err
-		}
-		items = append(items, credentialFromRecord(record))
-	}
-	return items, nil
-}
-
 func (s *Server) CreateCredential(ctx context.Context, request adminhttp.CreateCredentialRequestObject) (adminhttp.CreateCredentialResponseObject, error) {
 	store, err := s.store()
 	if err != nil {
@@ -153,9 +117,6 @@ func (s *Server) CreateCredential(ctx context.Context, request adminhttp.CreateC
 		Provider:    upsert.Provider,
 		UpdatedAt:   now,
 	}
-	if owner, ok := ownership.FromContext(ctx); ok {
-		record.OwnerPublicKey = &owner
-	}
 	if err := writeCredential(ctx, store, record, nil); err != nil {
 		return adminhttp.CreateCredential500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -181,9 +142,6 @@ func (s *Server) DeleteCredential(ctx context.Context, request adminhttp.DeleteC
 	keys := []kv.Key{
 		credentialKey(string(record.Name)),
 		credentialByProviderKey(string(record.Provider), string(record.Name)),
-	}
-	if record.OwnerPublicKey != nil {
-		keys = append(keys, credentialByOwnerKey(*record.OwnerPublicKey, record.Name))
 	}
 	if err := store.BatchDelete(ctx, keys); err != nil {
 		return adminhttp.DeleteCredential500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
@@ -242,17 +200,11 @@ func (s *Server) PutCredential(ctx context.Context, request adminhttp.PutCredent
 	var previousPtr *credentialRecord
 	if err == nil {
 		record.CreatedAt = previous.CreatedAt
-		record.OwnerPublicKey = cloneString(previous.OwnerPublicKey)
 		if isZeroCredentialBody(record.Body) {
 			record.Body = cloneBody(previous.Body)
 		}
 		previousCopy := previous
 		previousPtr = &previousCopy
-	}
-	if err != nil {
-		if owner, ok := ownership.FromContext(ctx); ok {
-			record.OwnerPublicKey = &owner
-		}
 	}
 	if isZeroCredentialBody(record.Body) {
 		return adminhttp.PutCredential400JSONResponse(apitypes.NewErrorResponse("INVALID_CREDENTIAL", "body is required")), nil
@@ -268,13 +220,12 @@ func (s *Server) PutCredential(ctx context.Context, request adminhttp.PutCredent
 
 func credentialFromRecord(record credentialRecord) apitypes.Credential {
 	return apitypes.Credential{
-		Body:           cloneBody(record.Body),
-		CreatedAt:      record.CreatedAt,
-		Description:    cloneString(record.Description),
-		Name:           record.Name,
-		Provider:       record.Provider,
-		UpdatedAt:      record.UpdatedAt,
-		OwnerPublicKey: cloneString(record.OwnerPublicKey),
+		Body:        cloneBody(record.Body),
+		CreatedAt:   record.CreatedAt,
+		Description: cloneString(record.Description),
+		Name:        record.Name,
+		Provider:    record.Provider,
+		UpdatedAt:   record.UpdatedAt,
 	}
 }
 
@@ -288,17 +239,9 @@ func writeCredential(ctx context.Context, store kv.Store, record credentialRecor
 			return fmt.Errorf("credential: delete stale provider index %s: %w", previous.Name, err)
 		}
 	}
-	if previous != nil && !sameOwner(previous.OwnerPublicKey, record.OwnerPublicKey) && previous.OwnerPublicKey != nil {
-		if err := store.BatchDelete(ctx, []kv.Key{credentialByOwnerKey(*previous.OwnerPublicKey, previous.Name)}); err != nil {
-			return fmt.Errorf("credential: delete stale owner index %s: %w", previous.Name, err)
-		}
-	}
 	entries := []kv.Entry{
 		{Key: credentialKey(string(record.Name)), Value: data},
 		{Key: credentialByProviderKey(string(record.Provider), string(record.Name)), Value: []byte{}},
-	}
-	if record.OwnerPublicKey != nil {
-		entries = append(entries, kv.Entry{Key: credentialByOwnerKey(*record.OwnerPublicKey, record.Name), Value: []byte{}})
 	}
 	if err := store.BatchSet(ctx, entries); err != nil {
 		return fmt.Errorf("credential: write %s: %w", record.Name, err)
@@ -474,18 +417,6 @@ func credentialByProviderPrefix(provider string) kv.Key {
 
 func credentialByProviderKey(provider, name string) kv.Key {
 	return append(credentialByProviderPrefix(provider), escapeStoreSegment(name))
-}
-
-func credentialByOwnerKey(owner, name string) kv.Key {
-	return append(credentialByOwnerPrefix(owner), escapeStoreSegment(name))
-}
-
-func credentialByOwnerPrefix(owner string) kv.Key {
-	return append(append(kv.Key{}, credentialsByOwnerRoot...), escapeStoreSegment(owner))
-}
-
-func sameOwner(left, right *string) bool {
-	return (left == nil && right == nil) || (left != nil && right != nil && *left == *right)
 }
 
 func escapeStoreSegment(value string) string {

@@ -1,5 +1,5 @@
 import { GIZCLAW_SERVICE_EDGE_RPC, GIZCLAW_SERVICE_PEER_RPC, WebRTCRPCClient } from "./index.ts";
-import type { RPCBinaryCallResult, RPCCallOptions, WebRTCRPCClientOptions, WebRTCRPCDataChannelFactory } from "./index.ts";
+import type { RPCBinaryCallResult, RPCCallOptions, RPCStreamingCallResult, WebRTCRPCClientOptions, WebRTCRPCDataChannelFactory } from "./index.ts";
 import type { RPCMethodMap as GeneratedRPCMethodMap, RPCMethodName as GeneratedRPCMethodName } from "./generated/rpc/method-map.ts";
 import type * as RPCPayload from "./generated/rpc/payload-codec.ts";
 
@@ -19,9 +19,6 @@ export type Firmware = Omit<RPCPayload.Firmware, "slots"> & {
   "slots": FirmwareSlots;
 };
 export type FirmwareGetResponse = Firmware;
-export type FirmwareListResponse = Omit<RPCPayload.FirmwareListResponse, "items"> & {
-  "items": Firmware[];
-};
 export type PeerRunRecallHit = Omit<RPCPayload.PeerRunRecallHit, "metadata"> & {
   "metadata"?: Record<string, unknown>;
 };
@@ -39,19 +36,17 @@ export type RPCMethodMap = Override<GeneratedRPCMethodMap, {
   "server.firmware.get": Override<GeneratedRPCMethodMap["server.firmware.get"], {
     response: FirmwareGetResponse;
   }>;
-  "server.firmware.list": Override<GeneratedRPCMethodMap["server.firmware.list"], {
-    response: FirmwareListResponse;
-  }>;
   "server.run.workspace.recall": Override<GeneratedRPCMethodMap["server.run.workspace.recall"], {
     request: ServerRunWorkspaceRecallRequest;
     response: ServerRunWorkspaceRecallResponse;
   }>;
 }>;
 export type EdgeRPCMethodName = Extract<RPCMethodName, "server.peer.lookup" | "server.peer.assign" | "server.route.resolve">;
-export type PeerRPCMethodName = Exclude<RPCMethodName, EdgeRPCMethodName>;
+export type StreamingPeerRPCMethodName = Extract<RPCMethodName, "server.speech.transcribe" | "server.speech.synthesize">;
+export type PeerRPCMethodName = Exclude<RPCMethodName, EdgeRPCMethodName | StreamingPeerRPCMethodName>;
 
 export type PeerRPCClientOptions = Omit<WebRTCRPCClientOptions, "service">;
-export type PeerRPCCaller = Pick<WebRTCRPCClient, "call" | "callBinary">;
+export type PeerRPCCaller = Pick<WebRTCRPCClient, "call" | "callBinary" | "transcribeSpeech" | "synthesizeSpeech">;
 export type EdgeRPCClientOptions = Omit<WebRTCRPCClientOptions, "service">;
 export type EdgeRPCCaller = Pick<WebRTCRPCClient, "call" | "callBinary">;
 
@@ -59,6 +54,9 @@ export class PeerRPCClient {
   private readonly client: PeerRPCCaller;
 
   constructor(pc: WebRTCRPCDataChannelFactory | PeerRPCCaller, options: PeerRPCClientOptions = {}) {
+    if (looksLikeRPCCaller(pc) && !isPeerRPCCaller(pc)) {
+      throw new TypeError("Peer RPC caller must implement call, callBinary, transcribeSpeech, and synthesizeSpeech.");
+    }
     this.client =
       isPeerRPCCaller(pc)
         ? pc
@@ -82,6 +80,21 @@ export class PeerRPCClient {
     options?: RPCCallOptions,
   ): Promise<RPCBinaryCallResult<RPCMethodMap[M]["response"]>> {
     return this.client.callBinary<RPCMethodMap[M]["response"], RPCMethodMap[M]["request"]>(method, params, options);
+  }
+
+  transcribeSpeech(
+    params: RPCPayload.SpeechTranscribeRequest,
+    audio: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
+    options?: RPCCallOptions,
+  ): Promise<RPCPayload.SpeechTranscribeResponse> {
+    return this.client.transcribeSpeech(params, audio, options);
+  }
+
+  synthesizeSpeech(
+    params: RPCPayload.SpeechSynthesizeRequest,
+    options?: RPCCallOptions,
+  ): Promise<RPCStreamingCallResult<RPCPayload.SpeechSynthesizeResponse>> {
+    return this.client.synthesizeSpeech(params, options);
   }
 }
 
@@ -130,6 +143,12 @@ export function createEdgeRPCClient(
 }
 
 function isPeerRPCCaller(value: WebRTCRPCDataChannelFactory | PeerRPCCaller): value is PeerRPCCaller {
+  return looksLikeRPCCaller(value) &&
+    "transcribeSpeech" in value && typeof value.transcribeSpeech === "function" &&
+    "synthesizeSpeech" in value && typeof value.synthesizeSpeech === "function";
+}
+
+function looksLikeRPCCaller(value: WebRTCRPCDataChannelFactory | PeerRPCCaller): boolean {
   return "call" in value && typeof value.call === "function" && "callBinary" in value && typeof value.callBinary === "function";
 }
 

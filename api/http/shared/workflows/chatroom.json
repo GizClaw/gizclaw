@@ -28,7 +28,7 @@
           },
           "asr_model": {
             "type": "string",
-            "description": "GizClaw ASR model resource used to transcribe gear audio."
+            "description": "RuntimeProfile ASR Model alias resolved when the Workspace reloads."
           }
         }
       },

@@ -6,6 +6,10 @@ import {
   encodeRPCRequestPayload,
   encodeRPCResponsePayload,
   type PingRequest,
+  type SpeechSynthesizeRequest,
+  type SpeechSynthesizeResponse,
+  type SpeechTranscribeRequest,
+  type SpeechTranscribeResponse,
   type SpeedTestRequest,
 } from "./generated/rpc/payload-codec.ts";
 import { base58Decode, prepareEncryptedGiznetWebRTCOffer } from "./signaling.ts";
@@ -30,6 +34,8 @@ export const RPC_FRAME_TYPE_EOS = 0;
 export const RPC_FRAME_TYPE_JSON = 1;
 export const RPC_FRAME_TYPE_BINARY = 2;
 export const RPC_FRAME_TYPE_TEXT = 3;
+export const SPEECH_TRANSCRIPTION_REQUEST_TIMEOUT_MS = 80000;
+export const SPEECH_SYNTHESIS_REQUEST_TIMEOUT_MS = 125000;
 const RPC_MAX_FRAME_PAYLOAD_SIZE = 0xffff;
 const RPC_MAX_ENVELOPE_SIZE = RPC_MAX_FRAME_PAYLOAD_SIZE * 16;
 const DATA_CHANNEL_SEND_RETRY_DELAY_MS = 5;
@@ -66,6 +72,12 @@ export type RPCResponse<TResult = unknown> = {
 
 export type RPCBinaryCallResult<TResult = unknown> = {
   body: Uint8Array;
+  result: TResult;
+};
+
+export type RPCStreamingCallResult<TResult> = {
+  body: AsyncIterable<Uint8Array>;
+  cancel: () => void;
   result: TResult;
 };
 
@@ -201,6 +213,42 @@ export class WebRTCRPCClient {
       body: response.body,
       result: response.response.result as TResult,
     };
+  }
+
+  transcribeSpeech(
+    params: SpeechTranscribeRequest,
+    audio: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
+    options: RPCCallOptions = {},
+  ): Promise<SpeechTranscribeResponse> {
+    return rpcUploadCall<SpeechTranscribeResponse>(
+      this.pc,
+      this.channelLabel,
+      "server.speech.transcribe",
+      params,
+      audio,
+      {
+        ...options,
+        id: options.id ?? this.createID(),
+        timeoutMs: options.timeoutMs ?? Math.max(this.requestTimeoutMs, SPEECH_TRANSCRIPTION_REQUEST_TIMEOUT_MS),
+      },
+    );
+  }
+
+  synthesizeSpeech(
+    params: SpeechSynthesizeRequest,
+    options: RPCCallOptions = {},
+  ): Promise<RPCStreamingCallResult<SpeechSynthesizeResponse>> {
+    return rpcStreamingResponseCall<SpeechSynthesizeResponse>(
+      this.pc,
+      this.channelLabel,
+      "server.speech.synthesize",
+      params,
+      {
+        ...options,
+        id: options.id ?? this.createID(),
+        timeoutMs: options.timeoutMs ?? Math.max(this.requestTimeoutMs, SPEECH_SYNTHESIS_REQUEST_TIMEOUT_MS),
+      },
+    );
   }
 
   async request<TResult = unknown, TParams = unknown>(request: RPCRequest<TParams>, options: RPCCallOptions = {}): Promise<RPCResponse<TResult>> {
@@ -428,6 +476,378 @@ export class WebRTCRPCClient {
         onClose();
       }
     });
+  }
+}
+
+async function rpcUploadCall<TResult>(
+  pc: WebRTCRPCDataChannelFactory,
+  channelLabel: string,
+  method: string,
+  params: unknown,
+  body: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
+  options: Required<Pick<RPCCallOptions, "id" | "timeoutMs">> & RPCCallOptions,
+): Promise<TResult> {
+  const channel = pc.createDataChannel(channelLabel, { ordered: true });
+  channel.binaryType = "arraybuffer";
+  const request: RPCRequest = {
+    id: options.id,
+    method,
+    params,
+    v: RPC_VERSION,
+  };
+  const response = readRPCUnaryResponse<TResult>(
+    channel,
+    method,
+    request.id,
+    options.signal,
+    options.timeoutMs,
+  );
+  const responseOutcome = response.promise.then((value) => ({ kind: "response" as const, value }));
+  const iterator = Symbol.asyncIterator in body
+    ? body[Symbol.asyncIterator]()
+    : body[Symbol.iterator]();
+  let uploadComplete = false;
+  try {
+    await waitForDataChannelOpen(channel, options.signal, options.timeoutMs);
+    const requestEnvelope = encodeRPCRequestEnvelope(request);
+    await sendInboundRPCFrames(channel, encodeRPCEnvelopeFrames(requestEnvelope));
+    if (requestEnvelope.length > RPC_MAX_FRAME_PAYLOAD_SIZE) {
+      await sendInboundRPCFrames(channel, [encodeFrame(RPC_FRAME_TYPE_EOS)]);
+    }
+    for (;;) {
+      const outcome = await Promise.race([
+        Promise.resolve(iterator.next()).then((result) => ({ kind: "chunk" as const, result })),
+        responseOutcome,
+      ]);
+      if (outcome.kind === "response") {
+        return outcome.value;
+      }
+      if (outcome.result.done) break;
+      const chunk = outcome.result.value;
+      if (!(chunk instanceof Uint8Array) || chunk.length === 0) {
+        throw new Error("speech audio chunks must be non-empty Uint8Array values");
+      }
+      for (let offset = 0; offset < chunk.length; offset += RPC_MAX_FRAME_PAYLOAD_SIZE) {
+        await sendInboundRPCFrames(channel, [
+          encodeFrame(
+            RPC_FRAME_TYPE_BINARY,
+            chunk.subarray(offset, offset + RPC_MAX_FRAME_PAYLOAD_SIZE),
+          ),
+        ]);
+      }
+    }
+    uploadComplete = true;
+    await sendInboundRPCFrames(channel, [encodeFrame(RPC_FRAME_TYPE_EOS)]);
+    return await response.promise;
+  } catch (error) {
+    response.cancel(error);
+    await response.promise.catch(() => undefined);
+    try {
+      channel.close();
+    } catch {
+      // Ignore close races while unwinding a failed upload.
+    }
+    throw error;
+  } finally {
+    if (!uploadComplete && iterator.return != null) {
+      await Promise.resolve(iterator.return()).catch(() => undefined);
+    }
+  }
+}
+
+function readRPCUnaryResponse<TResult>(
+  channel: WebRTCRPCDataChannel,
+  method: string,
+  requestID: string,
+  signal: AbortSignal | undefined,
+  timeoutMs: number,
+): { cancel: (reason: unknown) => void; promise: Promise<TResult> } {
+  let cancel!: (reason: unknown) => void;
+  const promise = new Promise<TResult>((resolve, reject) => {
+    let buffer: Uint8Array<ArrayBufferLike> = new Uint8Array();
+    let queue = Promise.resolve();
+    let settled = false;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    const cleanup = (): void => {
+      if (timeout != null) clearTimeout(timeout);
+      signal?.removeEventListener("abort", onAbort);
+      channel.removeEventListener("message", onMessage);
+      channel.removeEventListener("error", onError);
+      channel.removeEventListener("close", onClose);
+    };
+    const settle = (action: () => void): void => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      try {
+        channel.close();
+      } catch {
+        // Ignore close races after a terminal response.
+      }
+      action();
+    };
+    const fail = (error: unknown): void =>
+      settle(() => reject(error instanceof Error ? error : new Error(String(error))));
+    cancel = fail;
+    const onAbort = (): void => fail(abortError());
+    const onError = (): void => fail(new Error("WebRTC RPC data channel failed."));
+    const onClose = (): void => {
+      queue = queue.then(() => {
+        if (!settled) fail(new Error("WebRTC RPC data channel closed before response EOS."));
+      });
+    };
+    const onMessage = (event: MessageEvent): void => {
+      queue = queue.then(async () => {
+        if (settled) return;
+        try {
+          buffer = appendBytes(buffer, await messageDataBytes(event.data));
+          const parsed = tryReadRPCResponse<TResult>(buffer, method);
+          if (parsed == null) return;
+          if (parsed.response.id != null && parsed.response.id !== requestID) {
+            throw new Error(`rpc response id mismatch: got ${parsed.response.id}, want ${requestID}`);
+          }
+          if (parsed.response.error != null) {
+            throw new WebRTCRPCError(parsed.response.error, parsed.response.id);
+          }
+          settle(() => resolve(parsed.response.result as TResult));
+        } catch (error) {
+          fail(error);
+        }
+      });
+    };
+    if (signal?.aborted) {
+      fail(abortError());
+      return;
+    }
+    signal?.addEventListener("abort", onAbort, { once: true });
+    channel.addEventListener("message", onMessage);
+    channel.addEventListener("error", onError);
+    channel.addEventListener("close", onClose);
+    if (timeoutMs > 0) {
+      timeout = setTimeout(
+        () => fail(new Error(`WebRTC RPC request timed out after ${timeoutMs}ms.`)),
+        timeoutMs,
+      );
+    }
+  });
+  return { cancel, promise };
+}
+
+async function rpcStreamingResponseCall<TResult>(
+  pc: WebRTCRPCDataChannelFactory,
+  channelLabel: string,
+  method: string,
+  params: unknown,
+  options: Required<Pick<RPCCallOptions, "id" | "timeoutMs">> & RPCCallOptions,
+): Promise<RPCStreamingCallResult<TResult>> {
+  const channel = pc.createDataChannel(channelLabel, { ordered: true });
+  channel.binaryType = "arraybuffer";
+  const request: RPCRequest = {
+    id: options.id,
+    method,
+    params,
+    v: RPC_VERSION,
+  };
+  const stream = new RPCBodyStream((reason) => cancel(reason ?? abortError()));
+  let buffer: Uint8Array<ArrayBufferLike> = new Uint8Array();
+  let response: RPCResponse<TResult> | undefined;
+  let envelopeLength = 0;
+  const envelopeChunks: Uint8Array[] = [];
+  let queue = Promise.resolve();
+  let terminal = false;
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  let resolveMetadata!: (value: TResult) => void;
+  let rejectMetadata!: (reason: unknown) => void;
+  const metadata = new Promise<TResult>((resolve, reject) => {
+    resolveMetadata = resolve;
+    rejectMetadata = reject;
+  });
+  const cleanup = (): void => {
+    if (timeout != null) clearTimeout(timeout);
+    options.signal?.removeEventListener("abort", onAbort);
+    channel.removeEventListener("message", onMessage);
+    channel.removeEventListener("error", onError);
+    channel.removeEventListener("close", onClose);
+  };
+  function cancel(reason: unknown): void {
+    if (terminal) return;
+    terminal = true;
+    cleanup();
+    const error = reason instanceof Error ? reason : new Error(String(reason));
+    rejectMetadata(error);
+    stream.fail(error);
+    try {
+      channel.close();
+    } catch {
+      // Ignore close races after cancellation.
+    }
+  }
+  const onAbort = (): void => cancel(abortError());
+  const onError = (): void => cancel(new Error("WebRTC RPC data channel failed."));
+  const onClose = (): void => {
+    queue = queue.then(() => {
+      if (!terminal) cancel(new Error("WebRTC RPC body closed without EOS."));
+    });
+  };
+  const acceptEnvelope = (payload: Uint8Array): void => {
+    response = decodeRPCResponseEnvelope<TResult>(payload, method);
+    if (response.id != null && response.id !== request.id) {
+      throw new Error(`rpc response id mismatch: got ${response.id}, want ${request.id}`);
+    }
+    if (response.error != null) {
+      throw new WebRTCRPCError(response.error, response.id);
+    }
+    resolveMetadata(response.result as TResult);
+  };
+  const processFrames = (): void => {
+    for (;;) {
+      const parsed = tryReadFrame(buffer);
+      if (parsed == null) return;
+      buffer = parsed.rest;
+      const { type, payload } = parsed.frame;
+      if (response == null) {
+        if (type === RPC_FRAME_TYPE_TEXT) {
+          envelopeLength += payload.length;
+          if (envelopeLength > RPC_MAX_ENVELOPE_SIZE) {
+            throw new Error(`RPC protobuf envelope too large: ${envelopeLength}`);
+          }
+          envelopeChunks.push(copyBytes(payload));
+          continue;
+        }
+        if (type === RPC_FRAME_TYPE_EOS && envelopeChunks.length > 0) {
+          acceptEnvelope(concatByteArrays(envelopeChunks));
+          continue;
+        }
+        if (type !== RPC_FRAME_TYPE_BINARY) {
+          throw new Error(`rpc: expected protobuf binary frame, got type ${type}`);
+        }
+        acceptEnvelope(payload);
+        continue;
+      }
+      if (type === RPC_FRAME_TYPE_BINARY) {
+        stream.push(copyBytes(payload));
+        continue;
+      }
+      if (type !== RPC_FRAME_TYPE_EOS) {
+        throw new Error(`rpc: expected speech body frame, got type ${type}`);
+      }
+      terminal = true;
+      cleanup();
+      stream.finish();
+      try {
+        channel.close();
+      } catch {
+        // Ignore close races after successful EOS.
+      }
+      return;
+    }
+  };
+  const onMessage = (event: MessageEvent): void => {
+    queue = queue.then(async () => {
+      if (terminal) return;
+      try {
+        buffer = appendBytes(buffer, await messageDataBytes(event.data));
+        processFrames();
+      } catch (error) {
+        cancel(error);
+      }
+    });
+  };
+  if (options.signal?.aborted) {
+    cancel(abortError());
+    return Promise.reject(abortError());
+  }
+  options.signal?.addEventListener("abort", onAbort, { once: true });
+  channel.addEventListener("message", onMessage);
+  channel.addEventListener("error", onError);
+  channel.addEventListener("close", onClose);
+  if (options.timeoutMs > 0) {
+    timeout = setTimeout(
+      () => cancel(new Error(`WebRTC RPC request timed out after ${options.timeoutMs}ms.`)),
+      options.timeoutMs,
+    );
+  }
+  try {
+    await waitForDataChannelOpen(channel, options.signal, options.timeoutMs);
+    await sendInboundRPCFrames(channel, [
+      ...encodeRPCEnvelopeFrames(encodeRPCRequestEnvelope(request)),
+      encodeFrame(RPC_FRAME_TYPE_EOS),
+    ]);
+    return {
+      body: stream,
+      cancel: () => cancel(abortError()),
+      result: await metadata,
+    };
+  } catch (error) {
+    cancel(error);
+    throw error;
+  }
+}
+
+class RPCBodyStream implements AsyncIterable<Uint8Array> {
+  private readonly chunks: Uint8Array[] = [];
+  private readonly waiters: Array<{
+    reject: (reason: unknown) => void;
+    resolve: (value: IteratorResult<Uint8Array>) => void;
+  }> = [];
+  private bufferedBytes = 0;
+  private done = false;
+  private error: Error | undefined;
+  private readonly onCancel: (reason?: Error) => void;
+
+  constructor(onCancel: (reason?: Error) => void) {
+    this.onCancel = onCancel;
+  }
+
+  push(chunk: Uint8Array): void {
+    if (this.done) return;
+    const waiter = this.waiters.shift();
+    if (waiter != null) {
+      waiter.resolve({ done: false, value: chunk });
+      return;
+    }
+    if (this.bufferedBytes + chunk.length > RPC_DATA_CHANNEL_BUFFER_HIGH_WATER_MARK) {
+      this.onCancel(new Error("WebRTC RPC body consumer is too slow."));
+      return;
+    }
+    this.chunks.push(chunk);
+    this.bufferedBytes += chunk.length;
+  }
+
+  finish(): void {
+    if (this.done) return;
+    this.done = true;
+    for (const waiter of this.waiters.splice(0)) {
+      waiter.resolve({ done: true, value: undefined });
+    }
+  }
+
+  fail(error: Error): void {
+    if (this.done) return;
+    this.done = true;
+    this.error = error;
+    for (const waiter of this.waiters.splice(0)) waiter.reject(error);
+  }
+
+  [Symbol.asyncIterator](): AsyncIterator<Uint8Array> {
+    return {
+      next: () => {
+        const chunk = this.chunks.shift();
+        if (chunk != null) {
+          this.bufferedBytes -= chunk.length;
+          return Promise.resolve({ done: false, value: chunk });
+        }
+        if (this.error != null) return Promise.reject(this.error);
+        if (this.done) return Promise.resolve({ done: true, value: undefined });
+        return new Promise((resolve, reject) => {
+          this.waiters.push({ resolve, reject });
+        });
+      },
+      return: async () => {
+        this.onCancel();
+        return { done: true, value: undefined };
+      },
+    };
   }
 }
 

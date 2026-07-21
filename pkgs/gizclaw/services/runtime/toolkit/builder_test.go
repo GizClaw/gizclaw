@@ -8,33 +8,27 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
-func TestBuilderUsesProfileAndOwnerUnion(t *testing.T) {
+func TestBuilderUsesOnlyRuntimeProfileTools(t *testing.T) {
 	ctx := context.Background()
 	store := &Server{Store: kv.NewMemory(nil)}
 	profileTool := testBuiltinTool("profile")
-	ownedTool := testBuiltinTool("owned")
-	owner := "peer-a"
-	ownedTool.OwnerPublicKey = &owner
-	otherTool := testBuiltinTool("other")
-	other := "peer-b"
-	otherTool.OwnerPublicKey = &other
+	unboundTool := testBuiltinTool("unbound")
 	disabled := testBuiltinTool("disabled")
 	disabled.Enabled = false
-	for _, tool := range []Tool{profileTool, ownedTool, otherTool, disabled} {
+	for _, tool := range []Tool{profileTool, unboundTool, disabled} {
 		if _, err := store.PutTool(ctx, tool); err != nil {
 			t.Fatal(err)
 		}
 	}
 
 	kit, err := (&Builder{Tools: store}).Build(ctx, BuildRequest{
-		OwnerPublicKey: owner,
 		ProfileToolIDs: []string{"profile", "missing", "profile"},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := toolIDs(kit.Tools); len(got) != 2 || got[0] != "profile" || got[1] != "owned" {
-		t.Fatalf("tools = %#v, want profile resources before owner resources", got)
+	if got := toolIDs(kit.Tools); len(got) != 1 || got[0] != "profile" {
+		t.Fatalf("tools = %#v, want only RuntimeProfile-bound resources", got)
 	}
 }
 

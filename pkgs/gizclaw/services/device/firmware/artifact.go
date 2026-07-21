@@ -249,7 +249,7 @@ func IsInvalidArtifactError(err error) bool {
 }
 
 func IsArtifactNotFoundError(err error) bool {
-	return errors.Is(err, errArtifactNotFound)
+	return errors.Is(err, kv.ErrNotFound) || errors.Is(err, errChannelNotFound) || errors.Is(err, errArtifactNotFound)
 }
 
 func (s *Server) getArtifactSlot(ctx context.Context, rawName, rawChannel string) (apitypes.Firmware, *apitypes.FirmwareSlot, string, error) {

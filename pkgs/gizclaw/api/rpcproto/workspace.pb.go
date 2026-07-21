@@ -1793,13 +1793,11 @@ func (x *ServerReloadRunWorkspaceResponse) GetValue() *PeerRunWorkspaceState {
 }
 
 type ServerRunSayRequest struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	CredentialName *string                `protobuf:"bytes,1,opt,name=credential_name,json=credentialName,proto3,oneof" json:"credential_name,omitempty"`
-	ModelId        *string                `protobuf:"bytes,2,opt,name=model_id,json=modelId,proto3,oneof" json:"model_id,omitempty"`
-	Text           string                 `protobuf:"bytes,3,opt,name=text,proto3" json:"text,omitempty"`
-	VoiceId        *string                `protobuf:"bytes,4,opt,name=voice_id,json=voiceId,proto3,oneof" json:"voice_id,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Text          string                 `protobuf:"bytes,1,opt,name=text,proto3" json:"text,omitempty"`
+	VoiceAlias    string                 `protobuf:"bytes,2,opt,name=voice_alias,json=voiceAlias,proto3" json:"voice_alias,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ServerRunSayRequest) Reset() {
@@ -1832,20 +1830,6 @@ func (*ServerRunSayRequest) Descriptor() ([]byte, []int) {
 	return file_payload_workspace_proto_rawDescGZIP(), []int{32}
 }
 
-func (x *ServerRunSayRequest) GetCredentialName() string {
-	if x != nil && x.CredentialName != nil {
-		return *x.CredentialName
-	}
-	return ""
-}
-
-func (x *ServerRunSayRequest) GetModelId() string {
-	if x != nil && x.ModelId != nil {
-		return *x.ModelId
-	}
-	return ""
-}
-
 func (x *ServerRunSayRequest) GetText() string {
 	if x != nil {
 		return x.Text
@@ -1853,9 +1837,9 @@ func (x *ServerRunSayRequest) GetText() string {
 	return ""
 }
 
-func (x *ServerRunSayRequest) GetVoiceId() string {
-	if x != nil && x.VoiceId != nil {
-		return *x.VoiceId
+func (x *ServerRunSayRequest) GetVoiceAlias() string {
+	if x != nil {
+		return x.VoiceAlias
 	}
 	return ""
 }
@@ -2255,12 +2239,12 @@ type Workspace struct {
 	Name           string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
 	Parameters     *WorkspaceParameters   `protobuf:"bytes,4,opt,name=parameters,proto3,oneof" json:"parameters,omitempty"`
 	UpdatedAt      string                 `protobuf:"bytes,5,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	WorkflowName   string                 `protobuf:"bytes,6,opt,name=workflow_name,json=workflowName,proto3" json:"workflow_name,omitempty"`
+	WorkflowAlias  string                 `protobuf:"bytes,6,opt,name=workflow_alias,json=workflowAlias,proto3" json:"workflow_alias,omitempty"`
 	Toolkit        *ToolkitPolicy         `protobuf:"bytes,7,opt,name=toolkit,proto3,oneof" json:"toolkit,omitempty"`
 	System         bool                   `protobuf:"varint,8,opt,name=system,proto3" json:"system,omitempty"`
 	Icon           *Icon                  `protobuf:"bytes,9,opt,name=icon,proto3,oneof" json:"icon,omitempty"`
 	OwnerPublicKey *string                `protobuf:"bytes,10,opt,name=owner_public_key,json=ownerPublicKey,proto3,oneof" json:"owner_public_key,omitempty"`
-	WorkflowSource *ResourceSource        `protobuf:"varint,11,opt,name=workflow_source,json=workflowSource,proto3,enum=gizclaw.rpc.v1.ResourceSource,oneof" json:"workflow_source,omitempty"`
+	Available      bool                   `protobuf:"varint,11,opt,name=available,proto3" json:"available,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -2330,9 +2314,9 @@ func (x *Workspace) GetUpdatedAt() string {
 	return ""
 }
 
-func (x *Workspace) GetWorkflowName() string {
+func (x *Workspace) GetWorkflowAlias() string {
 	if x != nil {
-		return x.WorkflowName
+		return x.WorkflowAlias
 	}
 	return ""
 }
@@ -2365,40 +2349,38 @@ func (x *Workspace) GetOwnerPublicKey() string {
 	return ""
 }
 
-func (x *Workspace) GetWorkflowSource() ResourceSource {
-	if x != nil && x.WorkflowSource != nil {
-		return *x.WorkflowSource
+func (x *Workspace) GetAvailable() bool {
+	if x != nil {
+		return x.Available
 	}
-	return ResourceSource_RESOURCE_SOURCE_UNSPECIFIED
+	return false
 }
 
-// Field numbers match Workspace so existing create and put clients remain wire
-// compatible while output-only lifecycle fields stay out of write payloads.
-type WorkspaceUpsert struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	Name           string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
-	Parameters     *WorkspaceParameters   `protobuf:"bytes,4,opt,name=parameters,proto3,oneof" json:"parameters,omitempty"`
-	WorkflowName   string                 `protobuf:"bytes,6,opt,name=workflow_name,json=workflowName,proto3" json:"workflow_name,omitempty"`
-	Toolkit        *ToolkitPolicy         `protobuf:"bytes,7,opt,name=toolkit,proto3,oneof" json:"toolkit,omitempty"`
-	WorkflowSource *ResourceSource        `protobuf:"varint,11,opt,name=workflow_source,json=workflowSource,proto3,enum=gizclaw.rpc.v1.ResourceSource,oneof" json:"workflow_source,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+type WorkspaceCreateBody struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Parameters    *WorkspaceParameters   `protobuf:"bytes,2,opt,name=parameters,proto3,oneof" json:"parameters,omitempty"`
+	WorkflowAlias string                 `protobuf:"bytes,3,opt,name=workflow_alias,json=workflowAlias,proto3" json:"workflow_alias,omitempty"`
+	Toolkit       *ToolkitPolicy         `protobuf:"bytes,4,opt,name=toolkit,proto3,oneof" json:"toolkit,omitempty"`
+	Collection    string                 `protobuf:"bytes,5,opt,name=collection,proto3" json:"collection,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *WorkspaceUpsert) Reset() {
-	*x = WorkspaceUpsert{}
+func (x *WorkspaceCreateBody) Reset() {
+	*x = WorkspaceCreateBody{}
 	mi := &file_payload_workspace_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *WorkspaceUpsert) String() string {
+func (x *WorkspaceCreateBody) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*WorkspaceUpsert) ProtoMessage() {}
+func (*WorkspaceCreateBody) ProtoMessage() {}
 
-func (x *WorkspaceUpsert) ProtoReflect() protoreflect.Message {
+func (x *WorkspaceCreateBody) ProtoReflect() protoreflect.Message {
 	mi := &file_payload_workspace_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -2410,44 +2392,96 @@ func (x *WorkspaceUpsert) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use WorkspaceUpsert.ProtoReflect.Descriptor instead.
-func (*WorkspaceUpsert) Descriptor() ([]byte, []int) {
+// Deprecated: Use WorkspaceCreateBody.ProtoReflect.Descriptor instead.
+func (*WorkspaceCreateBody) Descriptor() ([]byte, []int) {
 	return file_payload_workspace_proto_rawDescGZIP(), []int{43}
 }
 
-func (x *WorkspaceUpsert) GetName() string {
+func (x *WorkspaceCreateBody) GetName() string {
 	if x != nil {
 		return x.Name
 	}
 	return ""
 }
 
-func (x *WorkspaceUpsert) GetParameters() *WorkspaceParameters {
+func (x *WorkspaceCreateBody) GetParameters() *WorkspaceParameters {
 	if x != nil {
 		return x.Parameters
 	}
 	return nil
 }
 
-func (x *WorkspaceUpsert) GetWorkflowName() string {
+func (x *WorkspaceCreateBody) GetWorkflowAlias() string {
 	if x != nil {
-		return x.WorkflowName
+		return x.WorkflowAlias
 	}
 	return ""
 }
 
-func (x *WorkspaceUpsert) GetToolkit() *ToolkitPolicy {
+func (x *WorkspaceCreateBody) GetToolkit() *ToolkitPolicy {
 	if x != nil {
 		return x.Toolkit
 	}
 	return nil
 }
 
-func (x *WorkspaceUpsert) GetWorkflowSource() ResourceSource {
-	if x != nil && x.WorkflowSource != nil {
-		return *x.WorkflowSource
+func (x *WorkspaceCreateBody) GetCollection() string {
+	if x != nil {
+		return x.Collection
 	}
-	return ResourceSource_RESOURCE_SOURCE_UNSPECIFIED
+	return ""
+}
+
+type WorkspacePutBody struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Parameters    *WorkspaceParameters   `protobuf:"bytes,4,opt,name=parameters,proto3,oneof" json:"parameters,omitempty"`
+	Toolkit       *ToolkitPolicy         `protobuf:"bytes,7,opt,name=toolkit,proto3,oneof" json:"toolkit,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WorkspacePutBody) Reset() {
+	*x = WorkspacePutBody{}
+	mi := &file_payload_workspace_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WorkspacePutBody) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WorkspacePutBody) ProtoMessage() {}
+
+func (x *WorkspacePutBody) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_workspace_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WorkspacePutBody.ProtoReflect.Descriptor instead.
+func (*WorkspacePutBody) Descriptor() ([]byte, []int) {
+	return file_payload_workspace_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *WorkspacePutBody) GetParameters() *WorkspaceParameters {
+	if x != nil {
+		return x.Parameters
+	}
+	return nil
+}
+
+func (x *WorkspacePutBody) GetToolkit() *ToolkitPolicy {
+	if x != nil {
+		return x.Toolkit
+	}
+	return nil
 }
 
 type WorkspaceIconDownloadRequest struct {
@@ -2460,7 +2494,7 @@ type WorkspaceIconDownloadRequest struct {
 
 func (x *WorkspaceIconDownloadRequest) Reset() {
 	*x = WorkspaceIconDownloadRequest{}
-	mi := &file_payload_workspace_proto_msgTypes[44]
+	mi := &file_payload_workspace_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2472,7 +2506,7 @@ func (x *WorkspaceIconDownloadRequest) String() string {
 func (*WorkspaceIconDownloadRequest) ProtoMessage() {}
 
 func (x *WorkspaceIconDownloadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_workspace_proto_msgTypes[44]
+	mi := &file_payload_workspace_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2485,7 +2519,7 @@ func (x *WorkspaceIconDownloadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkspaceIconDownloadRequest.ProtoReflect.Descriptor instead.
 func (*WorkspaceIconDownloadRequest) Descriptor() ([]byte, []int) {
-	return file_payload_workspace_proto_rawDescGZIP(), []int{44}
+	return file_payload_workspace_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *WorkspaceIconDownloadRequest) GetName() string {
@@ -2513,7 +2547,7 @@ type WorkspaceIconDownloadResponse struct {
 
 func (x *WorkspaceIconDownloadResponse) Reset() {
 	*x = WorkspaceIconDownloadResponse{}
-	mi := &file_payload_workspace_proto_msgTypes[45]
+	mi := &file_payload_workspace_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2525,7 +2559,7 @@ func (x *WorkspaceIconDownloadResponse) String() string {
 func (*WorkspaceIconDownloadResponse) ProtoMessage() {}
 
 func (x *WorkspaceIconDownloadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_workspace_proto_msgTypes[45]
+	mi := &file_payload_workspace_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2538,7 +2572,7 @@ func (x *WorkspaceIconDownloadResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkspaceIconDownloadResponse.ProtoReflect.Descriptor instead.
 func (*WorkspaceIconDownloadResponse) Descriptor() ([]byte, []int) {
-	return file_payload_workspace_proto_rawDescGZIP(), []int{45}
+	return file_payload_workspace_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *WorkspaceIconDownloadResponse) GetName() string {
@@ -2564,14 +2598,14 @@ func (x *WorkspaceIconDownloadResponse) GetSizeBytes() int64 {
 
 type WorkspaceCreateRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Value         *WorkspaceUpsert       `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
+	Value         *WorkspaceCreateBody   `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *WorkspaceCreateRequest) Reset() {
 	*x = WorkspaceCreateRequest{}
-	mi := &file_payload_workspace_proto_msgTypes[46]
+	mi := &file_payload_workspace_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2583,7 +2617,7 @@ func (x *WorkspaceCreateRequest) String() string {
 func (*WorkspaceCreateRequest) ProtoMessage() {}
 
 func (x *WorkspaceCreateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_workspace_proto_msgTypes[46]
+	mi := &file_payload_workspace_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2596,10 +2630,10 @@ func (x *WorkspaceCreateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkspaceCreateRequest.ProtoReflect.Descriptor instead.
 func (*WorkspaceCreateRequest) Descriptor() ([]byte, []int) {
-	return file_payload_workspace_proto_rawDescGZIP(), []int{46}
+	return file_payload_workspace_proto_rawDescGZIP(), []int{47}
 }
 
-func (x *WorkspaceCreateRequest) GetValue() *WorkspaceUpsert {
+func (x *WorkspaceCreateRequest) GetValue() *WorkspaceCreateBody {
 	if x != nil {
 		return x.Value
 	}
@@ -2615,7 +2649,7 @@ type WorkspaceCreateResponse struct {
 
 func (x *WorkspaceCreateResponse) Reset() {
 	*x = WorkspaceCreateResponse{}
-	mi := &file_payload_workspace_proto_msgTypes[47]
+	mi := &file_payload_workspace_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2627,7 +2661,7 @@ func (x *WorkspaceCreateResponse) String() string {
 func (*WorkspaceCreateResponse) ProtoMessage() {}
 
 func (x *WorkspaceCreateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_workspace_proto_msgTypes[47]
+	mi := &file_payload_workspace_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2640,7 +2674,7 @@ func (x *WorkspaceCreateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkspaceCreateResponse.ProtoReflect.Descriptor instead.
 func (*WorkspaceCreateResponse) Descriptor() ([]byte, []int) {
-	return file_payload_workspace_proto_rawDescGZIP(), []int{47}
+	return file_payload_workspace_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *WorkspaceCreateResponse) GetValue() *Workspace {
@@ -2659,7 +2693,7 @@ type WorkspaceDeleteRequest struct {
 
 func (x *WorkspaceDeleteRequest) Reset() {
 	*x = WorkspaceDeleteRequest{}
-	mi := &file_payload_workspace_proto_msgTypes[48]
+	mi := &file_payload_workspace_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2671,7 +2705,7 @@ func (x *WorkspaceDeleteRequest) String() string {
 func (*WorkspaceDeleteRequest) ProtoMessage() {}
 
 func (x *WorkspaceDeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_workspace_proto_msgTypes[48]
+	mi := &file_payload_workspace_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2684,7 +2718,7 @@ func (x *WorkspaceDeleteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkspaceDeleteRequest.ProtoReflect.Descriptor instead.
 func (*WorkspaceDeleteRequest) Descriptor() ([]byte, []int) {
-	return file_payload_workspace_proto_rawDescGZIP(), []int{48}
+	return file_payload_workspace_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *WorkspaceDeleteRequest) GetName() string {
@@ -2703,7 +2737,7 @@ type WorkspaceDeleteResponse struct {
 
 func (x *WorkspaceDeleteResponse) Reset() {
 	*x = WorkspaceDeleteResponse{}
-	mi := &file_payload_workspace_proto_msgTypes[49]
+	mi := &file_payload_workspace_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2715,7 +2749,7 @@ func (x *WorkspaceDeleteResponse) String() string {
 func (*WorkspaceDeleteResponse) ProtoMessage() {}
 
 func (x *WorkspaceDeleteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_workspace_proto_msgTypes[49]
+	mi := &file_payload_workspace_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2728,7 +2762,7 @@ func (x *WorkspaceDeleteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkspaceDeleteResponse.ProtoReflect.Descriptor instead.
 func (*WorkspaceDeleteResponse) Descriptor() ([]byte, []int) {
-	return file_payload_workspace_proto_rawDescGZIP(), []int{49}
+	return file_payload_workspace_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *WorkspaceDeleteResponse) GetValue() *Workspace {
@@ -2747,7 +2781,7 @@ type WorkspaceGetRequest struct {
 
 func (x *WorkspaceGetRequest) Reset() {
 	*x = WorkspaceGetRequest{}
-	mi := &file_payload_workspace_proto_msgTypes[50]
+	mi := &file_payload_workspace_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2759,7 +2793,7 @@ func (x *WorkspaceGetRequest) String() string {
 func (*WorkspaceGetRequest) ProtoMessage() {}
 
 func (x *WorkspaceGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_workspace_proto_msgTypes[50]
+	mi := &file_payload_workspace_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2772,7 +2806,7 @@ func (x *WorkspaceGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkspaceGetRequest.ProtoReflect.Descriptor instead.
 func (*WorkspaceGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_workspace_proto_rawDescGZIP(), []int{50}
+	return file_payload_workspace_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *WorkspaceGetRequest) GetName() string {
@@ -2783,15 +2817,17 @@ func (x *WorkspaceGetRequest) GetName() string {
 }
 
 type WorkspaceGetResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Value         *Workspace             `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"open.v1"`
+	Value                  *Workspace             `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
+	RuntimeProfileName     string                 `protobuf:"bytes,2,opt,name=runtime_profile_name,json=runtimeProfileName,proto3" json:"runtime_profile_name,omitempty"`
+	RuntimeProfileRevision string                 `protobuf:"bytes,3,opt,name=runtime_profile_revision,json=runtimeProfileRevision,proto3" json:"runtime_profile_revision,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *WorkspaceGetResponse) Reset() {
 	*x = WorkspaceGetResponse{}
-	mi := &file_payload_workspace_proto_msgTypes[51]
+	mi := &file_payload_workspace_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2803,7 +2839,7 @@ func (x *WorkspaceGetResponse) String() string {
 func (*WorkspaceGetResponse) ProtoMessage() {}
 
 func (x *WorkspaceGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_workspace_proto_msgTypes[51]
+	mi := &file_payload_workspace_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2816,7 +2852,7 @@ func (x *WorkspaceGetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkspaceGetResponse.ProtoReflect.Descriptor instead.
 func (*WorkspaceGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_workspace_proto_rawDescGZIP(), []int{51}
+	return file_payload_workspace_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *WorkspaceGetResponse) GetValue() *Workspace {
@@ -2824,6 +2860,20 @@ func (x *WorkspaceGetResponse) GetValue() *Workspace {
 		return x.Value
 	}
 	return nil
+}
+
+func (x *WorkspaceGetResponse) GetRuntimeProfileName() string {
+	if x != nil {
+		return x.RuntimeProfileName
+	}
+	return ""
+}
+
+func (x *WorkspaceGetResponse) GetRuntimeProfileRevision() string {
+	if x != nil {
+		return x.RuntimeProfileRevision
+	}
+	return ""
 }
 
 type WorkspaceHistoryAudioGetRequest struct {
@@ -2836,7 +2886,7 @@ type WorkspaceHistoryAudioGetRequest struct {
 
 func (x *WorkspaceHistoryAudioGetRequest) Reset() {
 	*x = WorkspaceHistoryAudioGetRequest{}
-	mi := &file_payload_workspace_proto_msgTypes[52]
+	mi := &file_payload_workspace_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2848,7 +2898,7 @@ func (x *WorkspaceHistoryAudioGetRequest) String() string {
 func (*WorkspaceHistoryAudioGetRequest) ProtoMessage() {}
 
 func (x *WorkspaceHistoryAudioGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_workspace_proto_msgTypes[52]
+	mi := &file_payload_workspace_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2861,7 +2911,7 @@ func (x *WorkspaceHistoryAudioGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkspaceHistoryAudioGetRequest.ProtoReflect.Descriptor instead.
 func (*WorkspaceHistoryAudioGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_workspace_proto_rawDescGZIP(), []int{52}
+	return file_payload_workspace_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *WorkspaceHistoryAudioGetRequest) GetHistoryId() string {
@@ -2890,7 +2940,7 @@ type WorkspaceHistoryAudioGetResponse struct {
 
 func (x *WorkspaceHistoryAudioGetResponse) Reset() {
 	*x = WorkspaceHistoryAudioGetResponse{}
-	mi := &file_payload_workspace_proto_msgTypes[53]
+	mi := &file_payload_workspace_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2902,7 +2952,7 @@ func (x *WorkspaceHistoryAudioGetResponse) String() string {
 func (*WorkspaceHistoryAudioGetResponse) ProtoMessage() {}
 
 func (x *WorkspaceHistoryAudioGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_workspace_proto_msgTypes[53]
+	mi := &file_payload_workspace_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2915,7 +2965,7 @@ func (x *WorkspaceHistoryAudioGetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkspaceHistoryAudioGetResponse.ProtoReflect.Descriptor instead.
 func (*WorkspaceHistoryAudioGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_workspace_proto_rawDescGZIP(), []int{53}
+	return file_payload_workspace_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *WorkspaceHistoryAudioGetResponse) GetHistoryId() string {
@@ -2956,7 +3006,7 @@ type WorkspaceHistoryGetRequest struct {
 
 func (x *WorkspaceHistoryGetRequest) Reset() {
 	*x = WorkspaceHistoryGetRequest{}
-	mi := &file_payload_workspace_proto_msgTypes[54]
+	mi := &file_payload_workspace_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2968,7 +3018,7 @@ func (x *WorkspaceHistoryGetRequest) String() string {
 func (*WorkspaceHistoryGetRequest) ProtoMessage() {}
 
 func (x *WorkspaceHistoryGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_workspace_proto_msgTypes[54]
+	mi := &file_payload_workspace_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2981,7 +3031,7 @@ func (x *WorkspaceHistoryGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkspaceHistoryGetRequest.ProtoReflect.Descriptor instead.
 func (*WorkspaceHistoryGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_workspace_proto_rawDescGZIP(), []int{54}
+	return file_payload_workspace_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *WorkspaceHistoryGetRequest) GetHistoryId() string {
@@ -3007,7 +3057,7 @@ type WorkspaceHistoryGetResponse struct {
 
 func (x *WorkspaceHistoryGetResponse) Reset() {
 	*x = WorkspaceHistoryGetResponse{}
-	mi := &file_payload_workspace_proto_msgTypes[55]
+	mi := &file_payload_workspace_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3019,7 +3069,7 @@ func (x *WorkspaceHistoryGetResponse) String() string {
 func (*WorkspaceHistoryGetResponse) ProtoMessage() {}
 
 func (x *WorkspaceHistoryGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_workspace_proto_msgTypes[55]
+	mi := &file_payload_workspace_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3032,7 +3082,7 @@ func (x *WorkspaceHistoryGetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkspaceHistoryGetResponse.ProtoReflect.Descriptor instead.
 func (*WorkspaceHistoryGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_workspace_proto_rawDescGZIP(), []int{55}
+	return file_payload_workspace_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *WorkspaceHistoryGetResponse) GetValue() *PeerRunHistoryEntry {
@@ -3054,7 +3104,7 @@ type WorkspaceHistoryListRequest struct {
 
 func (x *WorkspaceHistoryListRequest) Reset() {
 	*x = WorkspaceHistoryListRequest{}
-	mi := &file_payload_workspace_proto_msgTypes[56]
+	mi := &file_payload_workspace_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3066,7 +3116,7 @@ func (x *WorkspaceHistoryListRequest) String() string {
 func (*WorkspaceHistoryListRequest) ProtoMessage() {}
 
 func (x *WorkspaceHistoryListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_workspace_proto_msgTypes[56]
+	mi := &file_payload_workspace_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3079,7 +3129,7 @@ func (x *WorkspaceHistoryListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkspaceHistoryListRequest.ProtoReflect.Descriptor instead.
 func (*WorkspaceHistoryListRequest) Descriptor() ([]byte, []int) {
-	return file_payload_workspace_proto_rawDescGZIP(), []int{56}
+	return file_payload_workspace_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *WorkspaceHistoryListRequest) GetCursor() string {
@@ -3119,7 +3169,7 @@ type WorkspaceHistoryListResponse struct {
 
 func (x *WorkspaceHistoryListResponse) Reset() {
 	*x = WorkspaceHistoryListResponse{}
-	mi := &file_payload_workspace_proto_msgTypes[57]
+	mi := &file_payload_workspace_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3131,7 +3181,7 @@ func (x *WorkspaceHistoryListResponse) String() string {
 func (*WorkspaceHistoryListResponse) ProtoMessage() {}
 
 func (x *WorkspaceHistoryListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_workspace_proto_msgTypes[57]
+	mi := &file_payload_workspace_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3144,7 +3194,7 @@ func (x *WorkspaceHistoryListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkspaceHistoryListResponse.ProtoReflect.Descriptor instead.
 func (*WorkspaceHistoryListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_workspace_proto_rawDescGZIP(), []int{57}
+	return file_payload_workspace_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *WorkspaceHistoryListResponse) GetValue() *PeerRunHistoryListResponse {
@@ -3159,13 +3209,14 @@ type WorkspaceListRequest struct {
 	Cursor        *string                `protobuf:"bytes,1,opt,name=cursor,proto3,oneof" json:"cursor,omitempty"`
 	Limit         *int64                 `protobuf:"varint,2,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
 	Prefix        *string                `protobuf:"bytes,3,opt,name=prefix,proto3,oneof" json:"prefix,omitempty"`
+	Collection    string                 `protobuf:"bytes,4,opt,name=collection,proto3" json:"collection,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *WorkspaceListRequest) Reset() {
 	*x = WorkspaceListRequest{}
-	mi := &file_payload_workspace_proto_msgTypes[58]
+	mi := &file_payload_workspace_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3177,7 +3228,7 @@ func (x *WorkspaceListRequest) String() string {
 func (*WorkspaceListRequest) ProtoMessage() {}
 
 func (x *WorkspaceListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_workspace_proto_msgTypes[58]
+	mi := &file_payload_workspace_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3190,7 +3241,7 @@ func (x *WorkspaceListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkspaceListRequest.ProtoReflect.Descriptor instead.
 func (*WorkspaceListRequest) Descriptor() ([]byte, []int) {
-	return file_payload_workspace_proto_rawDescGZIP(), []int{58}
+	return file_payload_workspace_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *WorkspaceListRequest) GetCursor() string {
@@ -3214,18 +3265,27 @@ func (x *WorkspaceListRequest) GetPrefix() string {
 	return ""
 }
 
+func (x *WorkspaceListRequest) GetCollection() string {
+	if x != nil {
+		return x.Collection
+	}
+	return ""
+}
+
 type WorkspaceListResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	HasNext       bool                   `protobuf:"varint,1,opt,name=has_next,json=hasNext,proto3" json:"has_next,omitempty"`
-	Items         []*Workspace           `protobuf:"bytes,2,rep,name=items,proto3" json:"items,omitempty"`
-	NextCursor    *string                `protobuf:"bytes,3,opt,name=next_cursor,json=nextCursor,proto3,oneof" json:"next_cursor,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"open.v1"`
+	HasNext                bool                   `protobuf:"varint,1,opt,name=has_next,json=hasNext,proto3" json:"has_next,omitempty"`
+	Items                  []*Workspace           `protobuf:"bytes,2,rep,name=items,proto3" json:"items,omitempty"`
+	NextCursor             *string                `protobuf:"bytes,3,opt,name=next_cursor,json=nextCursor,proto3,oneof" json:"next_cursor,omitempty"`
+	RuntimeProfileName     string                 `protobuf:"bytes,4,opt,name=runtime_profile_name,json=runtimeProfileName,proto3" json:"runtime_profile_name,omitempty"`
+	RuntimeProfileRevision string                 `protobuf:"bytes,5,opt,name=runtime_profile_revision,json=runtimeProfileRevision,proto3" json:"runtime_profile_revision,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *WorkspaceListResponse) Reset() {
 	*x = WorkspaceListResponse{}
-	mi := &file_payload_workspace_proto_msgTypes[59]
+	mi := &file_payload_workspace_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3237,7 +3297,7 @@ func (x *WorkspaceListResponse) String() string {
 func (*WorkspaceListResponse) ProtoMessage() {}
 
 func (x *WorkspaceListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_workspace_proto_msgTypes[59]
+	mi := &file_payload_workspace_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3250,7 +3310,7 @@ func (x *WorkspaceListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkspaceListResponse.ProtoReflect.Descriptor instead.
 func (*WorkspaceListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_workspace_proto_rawDescGZIP(), []int{59}
+	return file_payload_workspace_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *WorkspaceListResponse) GetHasNext() bool {
@@ -3274,6 +3334,20 @@ func (x *WorkspaceListResponse) GetNextCursor() string {
 	return ""
 }
 
+func (x *WorkspaceListResponse) GetRuntimeProfileName() string {
+	if x != nil {
+		return x.RuntimeProfileName
+	}
+	return ""
+}
+
+func (x *WorkspaceListResponse) GetRuntimeProfileRevision() string {
+	if x != nil {
+		return x.RuntimeProfileRevision
+	}
+	return ""
+}
+
 type WorkspaceParameters struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Types that are valid to be assigned to Value:
@@ -3290,7 +3364,7 @@ type WorkspaceParameters struct {
 
 func (x *WorkspaceParameters) Reset() {
 	*x = WorkspaceParameters{}
-	mi := &file_payload_workspace_proto_msgTypes[60]
+	mi := &file_payload_workspace_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3302,7 +3376,7 @@ func (x *WorkspaceParameters) String() string {
 func (*WorkspaceParameters) ProtoMessage() {}
 
 func (x *WorkspaceParameters) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_workspace_proto_msgTypes[60]
+	mi := &file_payload_workspace_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3315,7 +3389,7 @@ func (x *WorkspaceParameters) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkspaceParameters.ProtoReflect.Descriptor instead.
 func (*WorkspaceParameters) Descriptor() ([]byte, []int) {
-	return file_payload_workspace_proto_rawDescGZIP(), []int{60}
+	return file_payload_workspace_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *WorkspaceParameters) GetValue() isWorkspaceParameters_Value {
@@ -3406,7 +3480,7 @@ func (*WorkspaceParameters_PetWorkspaceParameters) isWorkspaceParameters_Value()
 
 type WorkspacePutRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Body          *WorkspaceUpsert       `protobuf:"bytes,1,opt,name=body,proto3" json:"body,omitempty"`
+	Body          *WorkspacePutBody      `protobuf:"bytes,1,opt,name=body,proto3" json:"body,omitempty"`
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -3414,7 +3488,7 @@ type WorkspacePutRequest struct {
 
 func (x *WorkspacePutRequest) Reset() {
 	*x = WorkspacePutRequest{}
-	mi := &file_payload_workspace_proto_msgTypes[61]
+	mi := &file_payload_workspace_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3426,7 +3500,7 @@ func (x *WorkspacePutRequest) String() string {
 func (*WorkspacePutRequest) ProtoMessage() {}
 
 func (x *WorkspacePutRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_workspace_proto_msgTypes[61]
+	mi := &file_payload_workspace_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3439,10 +3513,10 @@ func (x *WorkspacePutRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkspacePutRequest.ProtoReflect.Descriptor instead.
 func (*WorkspacePutRequest) Descriptor() ([]byte, []int) {
-	return file_payload_workspace_proto_rawDescGZIP(), []int{61}
+	return file_payload_workspace_proto_rawDescGZIP(), []int{62}
 }
 
-func (x *WorkspacePutRequest) GetBody() *WorkspaceUpsert {
+func (x *WorkspacePutRequest) GetBody() *WorkspacePutBody {
 	if x != nil {
 		return x.Body
 	}
@@ -3465,7 +3539,7 @@ type WorkspacePutResponse struct {
 
 func (x *WorkspacePutResponse) Reset() {
 	*x = WorkspacePutResponse{}
-	mi := &file_payload_workspace_proto_msgTypes[62]
+	mi := &file_payload_workspace_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3477,7 +3551,7 @@ func (x *WorkspacePutResponse) String() string {
 func (*WorkspacePutResponse) ProtoMessage() {}
 
 func (x *WorkspacePutResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_workspace_proto_msgTypes[62]
+	mi := &file_payload_workspace_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3490,7 +3564,7 @@ func (x *WorkspacePutResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkspacePutResponse.ProtoReflect.Descriptor instead.
 func (*WorkspacePutResponse) Descriptor() ([]byte, []int) {
-	return file_payload_workspace_proto_rawDescGZIP(), []int{62}
+	return file_payload_workspace_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *WorkspacePutResponse) GetValue() *Workspace {
@@ -3675,15 +3749,11 @@ const file_payload_workspace_proto_rawDesc = "" +
 	"\x05value\x18\x01 \x01(\v2\x1d.gizclaw.rpc.v1.PeerRunStatusR\x05value\"!\n" +
 	"\x1fServerReloadRunWorkspaceRequest\"_\n" +
 	" ServerReloadRunWorkspaceResponse\x12;\n" +
-	"\x05value\x18\x01 \x01(\v2%.gizclaw.rpc.v1.PeerRunWorkspaceStateR\x05value\"\xc5\x01\n" +
-	"\x13ServerRunSayRequest\x12,\n" +
-	"\x0fcredential_name\x18\x01 \x01(\tH\x00R\x0ecredentialName\x88\x01\x01\x12\x1e\n" +
-	"\bmodel_id\x18\x02 \x01(\tH\x01R\amodelId\x88\x01\x01\x12\x12\n" +
-	"\x04text\x18\x03 \x01(\tR\x04text\x12\x1e\n" +
-	"\bvoice_id\x18\x04 \x01(\tH\x02R\avoiceId\x88\x01\x01B\x12\n" +
-	"\x10_credential_nameB\v\n" +
-	"\t_model_idB\v\n" +
-	"\t_voice_id\"2\n" +
+	"\x05value\x18\x01 \x01(\v2%.gizclaw.rpc.v1.PeerRunWorkspaceStateR\x05value\"J\n" +
+	"\x13ServerRunSayRequest\x12\x12\n" +
+	"\x04text\x18\x01 \x01(\tR\x04text\x12\x1f\n" +
+	"\vvoice_alias\x18\x02 \x01(\tR\n" +
+	"voiceAlias\"2\n" +
 	"\x14ServerRunSayResponse\x12\x1a\n" +
 	"\baccepted\x18\x01 \x01(\bR\baccepted\"]\n" +
 	"\x1fServerRunWorkspaceRecallRequest\x12:\n" +
@@ -3700,7 +3770,7 @@ const file_payload_workspace_proto_rawDesc = "" +
 	"\x05value\x18\x01 \x01(\v2%.gizclaw.rpc.v1.PeerRunWorkspaceStateR\x05value\"\x16\n" +
 	"\x14ServerStopRunRequest\"L\n" +
 	"\x15ServerStopRunResponse\x123\n" +
-	"\x05value\x18\x01 \x01(\v2\x1d.gizclaw.rpc.v1.PeerRunStatusR\x05value\"\xc1\x04\n" +
+	"\x05value\x18\x01 \x01(\v2\x1d.gizclaw.rpc.v1.PeerRunStatusR\x05value\"\xff\x03\n" +
 	"\tWorkspace\x12\x1d\n" +
 	"\n" +
 	"created_at\x18\x01 \x01(\tR\tcreatedAt\x12$\n" +
@@ -3710,32 +3780,40 @@ const file_payload_workspace_proto_rawDesc = "" +
 	"parameters\x18\x04 \x01(\v2#.gizclaw.rpc.v1.WorkspaceParametersH\x00R\n" +
 	"parameters\x88\x01\x01\x12\x1d\n" +
 	"\n" +
-	"updated_at\x18\x05 \x01(\tR\tupdatedAt\x12#\n" +
-	"\rworkflow_name\x18\x06 \x01(\tR\fworkflowName\x12<\n" +
+	"updated_at\x18\x05 \x01(\tR\tupdatedAt\x12%\n" +
+	"\x0eworkflow_alias\x18\x06 \x01(\tR\rworkflowAlias\x12<\n" +
 	"\atoolkit\x18\a \x01(\v2\x1d.gizclaw.rpc.v1.ToolkitPolicyH\x01R\atoolkit\x88\x01\x01\x12\x16\n" +
 	"\x06system\x18\b \x01(\bR\x06system\x12-\n" +
 	"\x04icon\x18\t \x01(\v2\x14.gizclaw.rpc.v1.IconH\x02R\x04icon\x88\x01\x01\x12-\n" +
 	"\x10owner_public_key\x18\n" +
-	" \x01(\tH\x03R\x0eownerPublicKey\x88\x01\x01\x12L\n" +
-	"\x0fworkflow_source\x18\v \x01(\x0e2\x1e.gizclaw.rpc.v1.ResourceSourceH\x04R\x0eworkflowSource\x88\x01\x01B\r\n" +
+	" \x01(\tH\x03R\x0eownerPublicKey\x88\x01\x01\x12\x1c\n" +
+	"\tavailable\x18\v \x01(\bR\tavailableB\r\n" +
 	"\v_parametersB\n" +
 	"\n" +
 	"\b_toolkitB\a\n" +
 	"\x05_iconB\x13\n" +
-	"\x11_owner_public_keyB\x12\n" +
-	"\x10_workflow_source\"\xcf\x02\n" +
-	"\x0fWorkspaceUpsert\x12\x12\n" +
-	"\x04name\x18\x03 \x01(\tR\x04name\x12H\n" +
+	"\x11_owner_public_key\"\x93\x02\n" +
+	"\x13WorkspaceCreateBody\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12H\n" +
 	"\n" +
-	"parameters\x18\x04 \x01(\v2#.gizclaw.rpc.v1.WorkspaceParametersH\x00R\n" +
-	"parameters\x88\x01\x01\x12#\n" +
-	"\rworkflow_name\x18\x06 \x01(\tR\fworkflowName\x12<\n" +
-	"\atoolkit\x18\a \x01(\v2\x1d.gizclaw.rpc.v1.ToolkitPolicyH\x01R\atoolkit\x88\x01\x01\x12L\n" +
-	"\x0fworkflow_source\x18\v \x01(\x0e2\x1e.gizclaw.rpc.v1.ResourceSourceH\x02R\x0eworkflowSource\x88\x01\x01B\r\n" +
+	"parameters\x18\x02 \x01(\v2#.gizclaw.rpc.v1.WorkspaceParametersH\x00R\n" +
+	"parameters\x88\x01\x01\x12%\n" +
+	"\x0eworkflow_alias\x18\x03 \x01(\tR\rworkflowAlias\x12<\n" +
+	"\atoolkit\x18\x04 \x01(\v2\x1d.gizclaw.rpc.v1.ToolkitPolicyH\x01R\atoolkit\x88\x01\x01\x12\x1e\n" +
+	"\n" +
+	"collection\x18\x05 \x01(\tR\n" +
+	"collectionB\r\n" +
 	"\v_parametersB\n" +
 	"\n" +
-	"\b_toolkitB\x12\n" +
-	"\x10_workflow_source\"f\n" +
+	"\b_toolkit\"\xb5\x01\n" +
+	"\x10WorkspacePutBody\x12H\n" +
+	"\n" +
+	"parameters\x18\x04 \x01(\v2#.gizclaw.rpc.v1.WorkspaceParametersH\x00R\n" +
+	"parameters\x88\x01\x01\x12<\n" +
+	"\atoolkit\x18\a \x01(\v2\x1d.gizclaw.rpc.v1.ToolkitPolicyH\x01R\atoolkit\x88\x01\x01B\r\n" +
+	"\v_parametersB\n" +
+	"\n" +
+	"\b_toolkit\"f\n" +
 	"\x1cWorkspaceIconDownloadRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x122\n" +
 	"\x06format\x18\x02 \x01(\x0e2\x1a.gizclaw.rpc.v1.IconFormatR\x06format\"\x86\x01\n" +
@@ -3743,9 +3821,9 @@ const file_payload_workspace_proto_rawDesc = "" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x122\n" +
 	"\x06format\x18\x02 \x01(\x0e2\x1a.gizclaw.rpc.v1.IconFormatR\x06format\x12\x1d\n" +
 	"\n" +
-	"size_bytes\x18\x03 \x01(\x03R\tsizeBytes\"O\n" +
-	"\x16WorkspaceCreateRequest\x125\n" +
-	"\x05value\x18\x01 \x01(\v2\x1f.gizclaw.rpc.v1.WorkspaceUpsertR\x05value\"J\n" +
+	"size_bytes\x18\x03 \x01(\x03R\tsizeBytes\"S\n" +
+	"\x16WorkspaceCreateRequest\x129\n" +
+	"\x05value\x18\x01 \x01(\v2#.gizclaw.rpc.v1.WorkspaceCreateBodyR\x05value\"J\n" +
 	"\x17WorkspaceCreateResponse\x12/\n" +
 	"\x05value\x18\x01 \x01(\v2\x19.gizclaw.rpc.v1.WorkspaceR\x05value\",\n" +
 	"\x16WorkspaceDeleteRequest\x12\x12\n" +
@@ -3753,9 +3831,11 @@ const file_payload_workspace_proto_rawDesc = "" +
 	"\x17WorkspaceDeleteResponse\x12/\n" +
 	"\x05value\x18\x01 \x01(\v2\x19.gizclaw.rpc.v1.WorkspaceR\x05value\")\n" +
 	"\x13WorkspaceGetRequest\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\"G\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\"\xb3\x01\n" +
 	"\x14WorkspaceGetResponse\x12/\n" +
-	"\x05value\x18\x01 \x01(\v2\x19.gizclaw.rpc.v1.WorkspaceR\x05value\"g\n" +
+	"\x05value\x18\x01 \x01(\v2\x19.gizclaw.rpc.v1.WorkspaceR\x05value\x120\n" +
+	"\x14runtime_profile_name\x18\x02 \x01(\tR\x12runtimeProfileName\x128\n" +
+	"\x18runtime_profile_revision\x18\x03 \x01(\tR\x16runtimeProfileRevision\"g\n" +
 	"\x1fWorkspaceHistoryAudioGetRequest\x12\x1d\n" +
 	"\n" +
 	"history_id\x18\x01 \x01(\tR\thistoryId\x12%\n" +
@@ -3782,19 +3862,24 @@ const file_payload_workspace_proto_rawDesc = "" +
 	"\x06_limitB\b\n" +
 	"\x06_order\"`\n" +
 	"\x1cWorkspaceHistoryListResponse\x12@\n" +
-	"\x05value\x18\x01 \x01(\v2*.gizclaw.rpc.v1.PeerRunHistoryListResponseR\x05value\"\x8b\x01\n" +
+	"\x05value\x18\x01 \x01(\v2*.gizclaw.rpc.v1.PeerRunHistoryListResponseR\x05value\"\xab\x01\n" +
 	"\x14WorkspaceListRequest\x12\x1b\n" +
 	"\x06cursor\x18\x01 \x01(\tH\x00R\x06cursor\x88\x01\x01\x12\x19\n" +
 	"\x05limit\x18\x02 \x01(\x03H\x01R\x05limit\x88\x01\x01\x12\x1b\n" +
-	"\x06prefix\x18\x03 \x01(\tH\x02R\x06prefix\x88\x01\x01B\t\n" +
+	"\x06prefix\x18\x03 \x01(\tH\x02R\x06prefix\x88\x01\x01\x12\x1e\n" +
+	"\n" +
+	"collection\x18\x04 \x01(\tR\n" +
+	"collectionB\t\n" +
 	"\a_cursorB\b\n" +
 	"\x06_limitB\t\n" +
-	"\a_prefix\"\x99\x01\n" +
+	"\a_prefix\"\x85\x02\n" +
 	"\x15WorkspaceListResponse\x12\x19\n" +
 	"\bhas_next\x18\x01 \x01(\bR\ahasNext\x12/\n" +
 	"\x05items\x18\x02 \x03(\v2\x19.gizclaw.rpc.v1.WorkspaceR\x05items\x12$\n" +
 	"\vnext_cursor\x18\x03 \x01(\tH\x00R\n" +
-	"nextCursor\x88\x01\x01B\x0e\n" +
+	"nextCursor\x88\x01\x01\x120\n" +
+	"\x14runtime_profile_name\x18\x04 \x01(\tR\x12runtimeProfileName\x128\n" +
+	"\x18runtime_profile_revision\x18\x05 \x01(\tR\x16runtimeProfileRevisionB\x0e\n" +
 	"\f_next_cursor\"\xf2\x04\n" +
 	"\x13WorkspaceParameters\x12t\n" +
 	"\x1eflowcraft_workspace_parameters\x18\x01 \x01(\v2,.gizclaw.rpc.v1.FlowcraftWorkspaceParametersH\x00R\x1cflowcraftWorkspaceParameters\x12\x84\x01\n" +
@@ -3802,9 +3887,9 @@ const file_payload_workspace_proto_rawDesc = "" +
 	"!asttranslate_workspace_parameters\x18\x03 \x01(\v2/.gizclaw.rpc.v1.ASTTranslateWorkspaceParametersH\x00R\x1fasttranslateWorkspaceParameters\x12r\n" +
 	"\x1echat_room_workspace_parameters\x18\x04 \x01(\v2+.gizclaw.rpc.v1.ChatRoomWorkspaceParametersH\x00R\x1bchatRoomWorkspaceParameters\x12b\n" +
 	"\x18pet_workspace_parameters\x18\x05 \x01(\v2&.gizclaw.rpc.v1.PetWorkspaceParametersH\x00R\x16petWorkspaceParametersB\a\n" +
-	"\x05value\"^\n" +
-	"\x13WorkspacePutRequest\x123\n" +
-	"\x04body\x18\x01 \x01(\v2\x1f.gizclaw.rpc.v1.WorkspaceUpsertR\x04body\x12\x12\n" +
+	"\x05value\"_\n" +
+	"\x13WorkspacePutRequest\x124\n" +
+	"\x04body\x18\x01 \x01(\v2 .gizclaw.rpc.v1.WorkspacePutBodyR\x04body\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\"G\n" +
 	"\x14WorkspacePutResponse\x12/\n" +
 	"\x05value\x18\x01 \x01(\v2\x19.gizclaw.rpc.v1.WorkspaceR\x05valueB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
@@ -3821,7 +3906,7 @@ func file_payload_workspace_proto_rawDescGZIP() []byte {
 	return file_payload_workspace_proto_rawDescData
 }
 
-var file_payload_workspace_proto_msgTypes = make([]protoimpl.MessageInfo, 63)
+var file_payload_workspace_proto_msgTypes = make([]protoimpl.MessageInfo, 64)
 var file_payload_workspace_proto_goTypes = []any{
 	(*AgentSelection)(nil),                           // 0: gizclaw.rpc.v1.AgentSelection
 	(*PeerRunAgent)(nil),                             // 1: gizclaw.rpc.v1.PeerRunAgent
@@ -3866,34 +3951,34 @@ var file_payload_workspace_proto_goTypes = []any{
 	(*ServerStopRunRequest)(nil),                     // 40: gizclaw.rpc.v1.ServerStopRunRequest
 	(*ServerStopRunResponse)(nil),                    // 41: gizclaw.rpc.v1.ServerStopRunResponse
 	(*Workspace)(nil),                                // 42: gizclaw.rpc.v1.Workspace
-	(*WorkspaceUpsert)(nil),                          // 43: gizclaw.rpc.v1.WorkspaceUpsert
-	(*WorkspaceIconDownloadRequest)(nil),             // 44: gizclaw.rpc.v1.WorkspaceIconDownloadRequest
-	(*WorkspaceIconDownloadResponse)(nil),            // 45: gizclaw.rpc.v1.WorkspaceIconDownloadResponse
-	(*WorkspaceCreateRequest)(nil),                   // 46: gizclaw.rpc.v1.WorkspaceCreateRequest
-	(*WorkspaceCreateResponse)(nil),                  // 47: gizclaw.rpc.v1.WorkspaceCreateResponse
-	(*WorkspaceDeleteRequest)(nil),                   // 48: gizclaw.rpc.v1.WorkspaceDeleteRequest
-	(*WorkspaceDeleteResponse)(nil),                  // 49: gizclaw.rpc.v1.WorkspaceDeleteResponse
-	(*WorkspaceGetRequest)(nil),                      // 50: gizclaw.rpc.v1.WorkspaceGetRequest
-	(*WorkspaceGetResponse)(nil),                     // 51: gizclaw.rpc.v1.WorkspaceGetResponse
-	(*WorkspaceHistoryAudioGetRequest)(nil),          // 52: gizclaw.rpc.v1.WorkspaceHistoryAudioGetRequest
-	(*WorkspaceHistoryAudioGetResponse)(nil),         // 53: gizclaw.rpc.v1.WorkspaceHistoryAudioGetResponse
-	(*WorkspaceHistoryGetRequest)(nil),               // 54: gizclaw.rpc.v1.WorkspaceHistoryGetRequest
-	(*WorkspaceHistoryGetResponse)(nil),              // 55: gizclaw.rpc.v1.WorkspaceHistoryGetResponse
-	(*WorkspaceHistoryListRequest)(nil),              // 56: gizclaw.rpc.v1.WorkspaceHistoryListRequest
-	(*WorkspaceHistoryListResponse)(nil),             // 57: gizclaw.rpc.v1.WorkspaceHistoryListResponse
-	(*WorkspaceListRequest)(nil),                     // 58: gizclaw.rpc.v1.WorkspaceListRequest
-	(*WorkspaceListResponse)(nil),                    // 59: gizclaw.rpc.v1.WorkspaceListResponse
-	(*WorkspaceParameters)(nil),                      // 60: gizclaw.rpc.v1.WorkspaceParameters
-	(*WorkspacePutRequest)(nil),                      // 61: gizclaw.rpc.v1.WorkspacePutRequest
-	(*WorkspacePutResponse)(nil),                     // 62: gizclaw.rpc.v1.WorkspacePutResponse
-	(PeerRunHistoryEntryType)(0),                     // 63: gizclaw.rpc.v1.PeerRunHistoryEntryType
-	(PeerRunHistoryListRequestOrder)(0),              // 64: gizclaw.rpc.v1.PeerRunHistoryListRequestOrder
-	(*structpb.Struct)(nil),                          // 65: google.protobuf.Struct
-	(PeerRunStatusState)(0),                          // 66: gizclaw.rpc.v1.PeerRunStatusState
-	(*Runtime)(nil),                                  // 67: gizclaw.rpc.v1.Runtime
-	(*ToolkitPolicy)(nil),                            // 68: gizclaw.rpc.v1.ToolkitPolicy
-	(*Icon)(nil),                                     // 69: gizclaw.rpc.v1.Icon
-	(ResourceSource)(0),                              // 70: gizclaw.rpc.v1.ResourceSource
+	(*WorkspaceCreateBody)(nil),                      // 43: gizclaw.rpc.v1.WorkspaceCreateBody
+	(*WorkspacePutBody)(nil),                         // 44: gizclaw.rpc.v1.WorkspacePutBody
+	(*WorkspaceIconDownloadRequest)(nil),             // 45: gizclaw.rpc.v1.WorkspaceIconDownloadRequest
+	(*WorkspaceIconDownloadResponse)(nil),            // 46: gizclaw.rpc.v1.WorkspaceIconDownloadResponse
+	(*WorkspaceCreateRequest)(nil),                   // 47: gizclaw.rpc.v1.WorkspaceCreateRequest
+	(*WorkspaceCreateResponse)(nil),                  // 48: gizclaw.rpc.v1.WorkspaceCreateResponse
+	(*WorkspaceDeleteRequest)(nil),                   // 49: gizclaw.rpc.v1.WorkspaceDeleteRequest
+	(*WorkspaceDeleteResponse)(nil),                  // 50: gizclaw.rpc.v1.WorkspaceDeleteResponse
+	(*WorkspaceGetRequest)(nil),                      // 51: gizclaw.rpc.v1.WorkspaceGetRequest
+	(*WorkspaceGetResponse)(nil),                     // 52: gizclaw.rpc.v1.WorkspaceGetResponse
+	(*WorkspaceHistoryAudioGetRequest)(nil),          // 53: gizclaw.rpc.v1.WorkspaceHistoryAudioGetRequest
+	(*WorkspaceHistoryAudioGetResponse)(nil),         // 54: gizclaw.rpc.v1.WorkspaceHistoryAudioGetResponse
+	(*WorkspaceHistoryGetRequest)(nil),               // 55: gizclaw.rpc.v1.WorkspaceHistoryGetRequest
+	(*WorkspaceHistoryGetResponse)(nil),              // 56: gizclaw.rpc.v1.WorkspaceHistoryGetResponse
+	(*WorkspaceHistoryListRequest)(nil),              // 57: gizclaw.rpc.v1.WorkspaceHistoryListRequest
+	(*WorkspaceHistoryListResponse)(nil),             // 58: gizclaw.rpc.v1.WorkspaceHistoryListResponse
+	(*WorkspaceListRequest)(nil),                     // 59: gizclaw.rpc.v1.WorkspaceListRequest
+	(*WorkspaceListResponse)(nil),                    // 60: gizclaw.rpc.v1.WorkspaceListResponse
+	(*WorkspaceParameters)(nil),                      // 61: gizclaw.rpc.v1.WorkspaceParameters
+	(*WorkspacePutRequest)(nil),                      // 62: gizclaw.rpc.v1.WorkspacePutRequest
+	(*WorkspacePutResponse)(nil),                     // 63: gizclaw.rpc.v1.WorkspacePutResponse
+	(PeerRunHistoryEntryType)(0),                     // 64: gizclaw.rpc.v1.PeerRunHistoryEntryType
+	(PeerRunHistoryListRequestOrder)(0),              // 65: gizclaw.rpc.v1.PeerRunHistoryListRequestOrder
+	(*structpb.Struct)(nil),                          // 66: google.protobuf.Struct
+	(PeerRunStatusState)(0),                          // 67: gizclaw.rpc.v1.PeerRunStatusState
+	(*Runtime)(nil),                                  // 68: gizclaw.rpc.v1.Runtime
+	(*ToolkitPolicy)(nil),                            // 69: gizclaw.rpc.v1.ToolkitPolicy
+	(*Icon)(nil),                                     // 70: gizclaw.rpc.v1.Icon
 	(IconFormat)(0),                                  // 71: gizclaw.rpc.v1.IconFormat
 	(WorkspaceHistoryListRequestOrder)(0),            // 72: gizclaw.rpc.v1.WorkspaceHistoryListRequestOrder
 	(*FlowcraftWorkspaceParameters)(nil),             // 73: gizclaw.rpc.v1.FlowcraftWorkspaceParameters
@@ -3905,21 +3990,21 @@ var file_payload_workspace_proto_goTypes = []any{
 var file_payload_workspace_proto_depIdxs = []int32{
 	0,  // 0: gizclaw.rpc.v1.PeerRunAgent.active:type_name -> gizclaw.rpc.v1.AgentSelection
 	0,  // 1: gizclaw.rpc.v1.PeerRunAgent.pending:type_name -> gizclaw.rpc.v1.AgentSelection
-	63, // 2: gizclaw.rpc.v1.PeerRunHistoryEntry.type:type_name -> gizclaw.rpc.v1.PeerRunHistoryEntryType
-	64, // 3: gizclaw.rpc.v1.PeerRunHistoryListRequest.order:type_name -> gizclaw.rpc.v1.PeerRunHistoryListRequestOrder
+	64, // 2: gizclaw.rpc.v1.PeerRunHistoryEntry.type:type_name -> gizclaw.rpc.v1.PeerRunHistoryEntryType
+	65, // 3: gizclaw.rpc.v1.PeerRunHistoryListRequest.order:type_name -> gizclaw.rpc.v1.PeerRunHistoryListRequestOrder
 	2,  // 4: gizclaw.rpc.v1.PeerRunHistoryListResponse.items:type_name -> gizclaw.rpc.v1.PeerRunHistoryEntry
-	65, // 5: gizclaw.rpc.v1.PeerRunMemoryStatsResponse.metadata:type_name -> google.protobuf.Struct
-	65, // 6: gizclaw.rpc.v1.PeerRunRecallHit.metadata:type_name -> google.protobuf.Struct
-	65, // 7: gizclaw.rpc.v1.PeerRunRecallRequest.filters:type_name -> google.protobuf.Struct
+	66, // 5: gizclaw.rpc.v1.PeerRunMemoryStatsResponse.metadata:type_name -> google.protobuf.Struct
+	66, // 6: gizclaw.rpc.v1.PeerRunRecallHit.metadata:type_name -> google.protobuf.Struct
+	66, // 7: gizclaw.rpc.v1.PeerRunRecallRequest.filters:type_name -> google.protobuf.Struct
 	9,  // 8: gizclaw.rpc.v1.PeerRunRecallResponse.hits:type_name -> gizclaw.rpc.v1.PeerRunRecallHit
-	66, // 9: gizclaw.rpc.v1.PeerRunStatus.state:type_name -> gizclaw.rpc.v1.PeerRunStatusState
-	66, // 10: gizclaw.rpc.v1.PeerRunWorkspaceState.runtime_state:type_name -> gizclaw.rpc.v1.PeerRunStatusState
+	67, // 9: gizclaw.rpc.v1.PeerRunStatus.state:type_name -> gizclaw.rpc.v1.PeerRunStatusState
+	67, // 10: gizclaw.rpc.v1.PeerRunWorkspaceState.runtime_state:type_name -> gizclaw.rpc.v1.PeerRunStatusState
 	1,  // 11: gizclaw.rpc.v1.ServerGetRunAgentResponse.value:type_name -> gizclaw.rpc.v1.PeerRunAgent
 	12, // 12: gizclaw.rpc.v1.ServerGetRunStatusResponse.value:type_name -> gizclaw.rpc.v1.PeerRunStatus
 	7,  // 13: gizclaw.rpc.v1.ServerGetRunWorkspaceMemoryStatsRequest.value:type_name -> gizclaw.rpc.v1.PeerRunMemoryStatsRequest
 	8,  // 14: gizclaw.rpc.v1.ServerGetRunWorkspaceMemoryStatsResponse.value:type_name -> gizclaw.rpc.v1.PeerRunMemoryStatsResponse
 	13, // 15: gizclaw.rpc.v1.ServerGetRunWorkspaceResponse.value:type_name -> gizclaw.rpc.v1.PeerRunWorkspaceState
-	67, // 16: gizclaw.rpc.v1.ServerGetRuntimeResponse.value:type_name -> gizclaw.rpc.v1.Runtime
+	68, // 16: gizclaw.rpc.v1.ServerGetRuntimeResponse.value:type_name -> gizclaw.rpc.v1.Runtime
 	3,  // 17: gizclaw.rpc.v1.ServerListRunWorkspaceHistoryRequest.value:type_name -> gizclaw.rpc.v1.PeerRunHistoryListRequest
 	4,  // 18: gizclaw.rpc.v1.ServerListRunWorkspaceHistoryResponse.value:type_name -> gizclaw.rpc.v1.PeerRunHistoryListResponse
 	5,  // 19: gizclaw.rpc.v1.ServerPlayRunWorkspaceHistoryRequest.value:type_name -> gizclaw.rpc.v1.PeerRunHistoryPlayRequest
@@ -3933,16 +4018,16 @@ var file_payload_workspace_proto_depIdxs = []int32{
 	0,  // 27: gizclaw.rpc.v1.ServerSetRunWorkspaceRequest.value:type_name -> gizclaw.rpc.v1.AgentSelection
 	13, // 28: gizclaw.rpc.v1.ServerSetRunWorkspaceResponse.value:type_name -> gizclaw.rpc.v1.PeerRunWorkspaceState
 	12, // 29: gizclaw.rpc.v1.ServerStopRunResponse.value:type_name -> gizclaw.rpc.v1.PeerRunStatus
-	60, // 30: gizclaw.rpc.v1.Workspace.parameters:type_name -> gizclaw.rpc.v1.WorkspaceParameters
-	68, // 31: gizclaw.rpc.v1.Workspace.toolkit:type_name -> gizclaw.rpc.v1.ToolkitPolicy
-	69, // 32: gizclaw.rpc.v1.Workspace.icon:type_name -> gizclaw.rpc.v1.Icon
-	70, // 33: gizclaw.rpc.v1.Workspace.workflow_source:type_name -> gizclaw.rpc.v1.ResourceSource
-	60, // 34: gizclaw.rpc.v1.WorkspaceUpsert.parameters:type_name -> gizclaw.rpc.v1.WorkspaceParameters
-	68, // 35: gizclaw.rpc.v1.WorkspaceUpsert.toolkit:type_name -> gizclaw.rpc.v1.ToolkitPolicy
-	70, // 36: gizclaw.rpc.v1.WorkspaceUpsert.workflow_source:type_name -> gizclaw.rpc.v1.ResourceSource
+	61, // 30: gizclaw.rpc.v1.Workspace.parameters:type_name -> gizclaw.rpc.v1.WorkspaceParameters
+	69, // 31: gizclaw.rpc.v1.Workspace.toolkit:type_name -> gizclaw.rpc.v1.ToolkitPolicy
+	70, // 32: gizclaw.rpc.v1.Workspace.icon:type_name -> gizclaw.rpc.v1.Icon
+	61, // 33: gizclaw.rpc.v1.WorkspaceCreateBody.parameters:type_name -> gizclaw.rpc.v1.WorkspaceParameters
+	69, // 34: gizclaw.rpc.v1.WorkspaceCreateBody.toolkit:type_name -> gizclaw.rpc.v1.ToolkitPolicy
+	61, // 35: gizclaw.rpc.v1.WorkspacePutBody.parameters:type_name -> gizclaw.rpc.v1.WorkspaceParameters
+	69, // 36: gizclaw.rpc.v1.WorkspacePutBody.toolkit:type_name -> gizclaw.rpc.v1.ToolkitPolicy
 	71, // 37: gizclaw.rpc.v1.WorkspaceIconDownloadRequest.format:type_name -> gizclaw.rpc.v1.IconFormat
 	71, // 38: gizclaw.rpc.v1.WorkspaceIconDownloadResponse.format:type_name -> gizclaw.rpc.v1.IconFormat
-	43, // 39: gizclaw.rpc.v1.WorkspaceCreateRequest.value:type_name -> gizclaw.rpc.v1.WorkspaceUpsert
+	43, // 39: gizclaw.rpc.v1.WorkspaceCreateRequest.value:type_name -> gizclaw.rpc.v1.WorkspaceCreateBody
 	42, // 40: gizclaw.rpc.v1.WorkspaceCreateResponse.value:type_name -> gizclaw.rpc.v1.Workspace
 	42, // 41: gizclaw.rpc.v1.WorkspaceDeleteResponse.value:type_name -> gizclaw.rpc.v1.Workspace
 	42, // 42: gizclaw.rpc.v1.WorkspaceGetResponse.value:type_name -> gizclaw.rpc.v1.Workspace
@@ -3955,7 +4040,7 @@ var file_payload_workspace_proto_depIdxs = []int32{
 	75, // 49: gizclaw.rpc.v1.WorkspaceParameters.asttranslate_workspace_parameters:type_name -> gizclaw.rpc.v1.ASTTranslateWorkspaceParameters
 	76, // 50: gizclaw.rpc.v1.WorkspaceParameters.chat_room_workspace_parameters:type_name -> gizclaw.rpc.v1.ChatRoomWorkspaceParameters
 	77, // 51: gizclaw.rpc.v1.WorkspaceParameters.pet_workspace_parameters:type_name -> gizclaw.rpc.v1.PetWorkspaceParameters
-	43, // 52: gizclaw.rpc.v1.WorkspacePutRequest.body:type_name -> gizclaw.rpc.v1.WorkspaceUpsert
+	44, // 52: gizclaw.rpc.v1.WorkspacePutRequest.body:type_name -> gizclaw.rpc.v1.WorkspacePutBody
 	42, // 53: gizclaw.rpc.v1.WorkspacePutResponse.value:type_name -> gizclaw.rpc.v1.Workspace
 	54, // [54:54] is the sub-list for method output_type
 	54, // [54:54] is the sub-list for method input_type
@@ -3984,13 +4069,13 @@ func file_payload_workspace_proto_init() {
 	file_payload_workspace_proto_msgTypes[11].OneofWrappers = []any{}
 	file_payload_workspace_proto_msgTypes[12].OneofWrappers = []any{}
 	file_payload_workspace_proto_msgTypes[13].OneofWrappers = []any{}
-	file_payload_workspace_proto_msgTypes[32].OneofWrappers = []any{}
 	file_payload_workspace_proto_msgTypes[42].OneofWrappers = []any{}
 	file_payload_workspace_proto_msgTypes[43].OneofWrappers = []any{}
-	file_payload_workspace_proto_msgTypes[56].OneofWrappers = []any{}
-	file_payload_workspace_proto_msgTypes[58].OneofWrappers = []any{}
+	file_payload_workspace_proto_msgTypes[44].OneofWrappers = []any{}
+	file_payload_workspace_proto_msgTypes[57].OneofWrappers = []any{}
 	file_payload_workspace_proto_msgTypes[59].OneofWrappers = []any{}
-	file_payload_workspace_proto_msgTypes[60].OneofWrappers = []any{
+	file_payload_workspace_proto_msgTypes[60].OneofWrappers = []any{}
+	file_payload_workspace_proto_msgTypes[61].OneofWrappers = []any{
 		(*WorkspaceParameters_FlowcraftWorkspaceParameters)(nil),
 		(*WorkspaceParameters_DoubaoRealtimeWorkspaceParameters)(nil),
 		(*WorkspaceParameters_AsttranslateWorkspaceParameters)(nil),
@@ -4003,7 +4088,7 @@ func file_payload_workspace_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_payload_workspace_proto_rawDesc), len(file_payload_workspace_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   63,
+			NumMessages:   64,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

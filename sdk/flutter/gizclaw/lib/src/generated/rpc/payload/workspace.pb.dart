@@ -2379,16 +2379,12 @@ class ServerReloadRunWorkspaceResponse extends $pb.GeneratedMessage {
 
 class ServerRunSayRequest extends $pb.GeneratedMessage {
   factory ServerRunSayRequest({
-    $core.String? credentialName,
-    $core.String? modelId,
     $core.String? text,
-    $core.String? voiceId,
+    $core.String? voiceAlias,
   }) {
     final result = create();
-    if (credentialName != null) result.credentialName = credentialName;
-    if (modelId != null) result.modelId = modelId;
     if (text != null) result.text = text;
-    if (voiceId != null) result.voiceId = voiceId;
+    if (voiceAlias != null) result.voiceAlias = voiceAlias;
     return result;
   }
 
@@ -2405,10 +2401,8 @@ class ServerRunSayRequest extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'ServerRunSayRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'credentialName')
-    ..aOS(2, _omitFieldNames ? '' : 'modelId')
-    ..aOS(3, _omitFieldNames ? '' : 'text')
-    ..aOS(4, _omitFieldNames ? '' : 'voiceId')
+    ..aOS(1, _omitFieldNames ? '' : 'text')
+    ..aOS(2, _omitFieldNames ? '' : 'voiceAlias')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2431,40 +2425,22 @@ class ServerRunSayRequest extends $pb.GeneratedMessage {
   static ServerRunSayRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.String get credentialName => $_getSZ(0);
+  $core.String get text => $_getSZ(0);
   @$pb.TagNumber(1)
-  set credentialName($core.String value) => $_setString(0, value);
+  set text($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
-  $core.bool hasCredentialName() => $_has(0);
+  $core.bool hasText() => $_has(0);
   @$pb.TagNumber(1)
-  void clearCredentialName() => $_clearField(1);
+  void clearText() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $core.String get modelId => $_getSZ(1);
+  $core.String get voiceAlias => $_getSZ(1);
   @$pb.TagNumber(2)
-  set modelId($core.String value) => $_setString(1, value);
+  set voiceAlias($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
-  $core.bool hasModelId() => $_has(1);
+  $core.bool hasVoiceAlias() => $_has(1);
   @$pb.TagNumber(2)
-  void clearModelId() => $_clearField(2);
-
-  @$pb.TagNumber(3)
-  $core.String get text => $_getSZ(2);
-  @$pb.TagNumber(3)
-  set text($core.String value) => $_setString(2, value);
-  @$pb.TagNumber(3)
-  $core.bool hasText() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearText() => $_clearField(3);
-
-  @$pb.TagNumber(4)
-  $core.String get voiceId => $_getSZ(3);
-  @$pb.TagNumber(4)
-  set voiceId($core.String value) => $_setString(3, value);
-  @$pb.TagNumber(4)
-  $core.bool hasVoiceId() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearVoiceId() => $_clearField(4);
+  void clearVoiceAlias() => $_clearField(2);
 }
 
 class ServerRunSayResponse extends $pb.GeneratedMessage {
@@ -2983,12 +2959,12 @@ class Workspace extends $pb.GeneratedMessage {
     $core.String? name,
     WorkspaceParameters? parameters,
     $core.String? updatedAt,
-    $core.String? workflowName,
+    $core.String? workflowAlias,
     $2.ToolkitPolicy? toolkit,
     $core.bool? system,
     $3.Icon? icon,
     $core.String? ownerPublicKey,
-    $4.ResourceSource? workflowSource,
+    $core.bool? available,
   }) {
     final result = create();
     if (createdAt != null) result.createdAt = createdAt;
@@ -2996,12 +2972,12 @@ class Workspace extends $pb.GeneratedMessage {
     if (name != null) result.name = name;
     if (parameters != null) result.parameters = parameters;
     if (updatedAt != null) result.updatedAt = updatedAt;
-    if (workflowName != null) result.workflowName = workflowName;
+    if (workflowAlias != null) result.workflowAlias = workflowAlias;
     if (toolkit != null) result.toolkit = toolkit;
     if (system != null) result.system = system;
     if (icon != null) result.icon = icon;
     if (ownerPublicKey != null) result.ownerPublicKey = ownerPublicKey;
-    if (workflowSource != null) result.workflowSource = workflowSource;
+    if (available != null) result.available = available;
     return result;
   }
 
@@ -3024,14 +3000,13 @@ class Workspace extends $pb.GeneratedMessage {
     ..aOM<WorkspaceParameters>(4, _omitFieldNames ? '' : 'parameters',
         subBuilder: WorkspaceParameters.create)
     ..aOS(5, _omitFieldNames ? '' : 'updatedAt')
-    ..aOS(6, _omitFieldNames ? '' : 'workflowName')
+    ..aOS(6, _omitFieldNames ? '' : 'workflowAlias')
     ..aOM<$2.ToolkitPolicy>(7, _omitFieldNames ? '' : 'toolkit',
         subBuilder: $2.ToolkitPolicy.create)
     ..aOB(8, _omitFieldNames ? '' : 'system')
     ..aOM<$3.Icon>(9, _omitFieldNames ? '' : 'icon', subBuilder: $3.Icon.create)
     ..aOS(10, _omitFieldNames ? '' : 'ownerPublicKey')
-    ..aE<$4.ResourceSource>(11, _omitFieldNames ? '' : 'workflowSource',
-        enumValues: $4.ResourceSource.values)
+    ..aOB(11, _omitFieldNames ? '' : 'available')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3100,13 +3075,13 @@ class Workspace extends $pb.GeneratedMessage {
   void clearUpdatedAt() => $_clearField(5);
 
   @$pb.TagNumber(6)
-  $core.String get workflowName => $_getSZ(5);
+  $core.String get workflowAlias => $_getSZ(5);
   @$pb.TagNumber(6)
-  set workflowName($core.String value) => $_setString(5, value);
+  set workflowAlias($core.String value) => $_setString(5, value);
   @$pb.TagNumber(6)
-  $core.bool hasWorkflowName() => $_has(5);
+  $core.bool hasWorkflowAlias() => $_has(5);
   @$pb.TagNumber(6)
-  void clearWorkflowName() => $_clearField(6);
+  void clearWorkflowAlias() => $_clearField(6);
 
   @$pb.TagNumber(7)
   $2.ToolkitPolicy get toolkit => $_getN(6);
@@ -3149,124 +3124,193 @@ class Workspace extends $pb.GeneratedMessage {
   void clearOwnerPublicKey() => $_clearField(10);
 
   @$pb.TagNumber(11)
-  $4.ResourceSource get workflowSource => $_getN(10);
+  $core.bool get available => $_getBF(10);
   @$pb.TagNumber(11)
-  set workflowSource($4.ResourceSource value) => $_setField(11, value);
+  set available($core.bool value) => $_setBool(10, value);
   @$pb.TagNumber(11)
-  $core.bool hasWorkflowSource() => $_has(10);
+  $core.bool hasAvailable() => $_has(10);
   @$pb.TagNumber(11)
-  void clearWorkflowSource() => $_clearField(11);
+  void clearAvailable() => $_clearField(11);
 }
 
-/// Field numbers match Workspace so existing create and put clients remain wire
-/// compatible while output-only lifecycle fields stay out of write payloads.
-class WorkspaceUpsert extends $pb.GeneratedMessage {
-  factory WorkspaceUpsert({
+class WorkspaceCreateBody extends $pb.GeneratedMessage {
+  factory WorkspaceCreateBody({
     $core.String? name,
     WorkspaceParameters? parameters,
-    $core.String? workflowName,
+    $core.String? workflowAlias,
     $2.ToolkitPolicy? toolkit,
-    $4.ResourceSource? workflowSource,
+    $core.String? collection,
   }) {
     final result = create();
     if (name != null) result.name = name;
     if (parameters != null) result.parameters = parameters;
-    if (workflowName != null) result.workflowName = workflowName;
+    if (workflowAlias != null) result.workflowAlias = workflowAlias;
     if (toolkit != null) result.toolkit = toolkit;
-    if (workflowSource != null) result.workflowSource = workflowSource;
+    if (collection != null) result.collection = collection;
     return result;
   }
 
-  WorkspaceUpsert._();
+  WorkspaceCreateBody._();
 
-  factory WorkspaceUpsert.fromBuffer($core.List<$core.int> data,
+  factory WorkspaceCreateBody.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromBuffer(data, registry);
-  factory WorkspaceUpsert.fromJson($core.String json,
+  factory WorkspaceCreateBody.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'WorkspaceUpsert',
+      _omitMessageNames ? '' : 'WorkspaceCreateBody',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOS(3, _omitFieldNames ? '' : 'name')
-    ..aOM<WorkspaceParameters>(4, _omitFieldNames ? '' : 'parameters',
+    ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..aOM<WorkspaceParameters>(2, _omitFieldNames ? '' : 'parameters',
         subBuilder: WorkspaceParameters.create)
-    ..aOS(6, _omitFieldNames ? '' : 'workflowName')
-    ..aOM<$2.ToolkitPolicy>(7, _omitFieldNames ? '' : 'toolkit',
+    ..aOS(3, _omitFieldNames ? '' : 'workflowAlias')
+    ..aOM<$2.ToolkitPolicy>(4, _omitFieldNames ? '' : 'toolkit',
         subBuilder: $2.ToolkitPolicy.create)
-    ..aE<$4.ResourceSource>(11, _omitFieldNames ? '' : 'workflowSource',
-        enumValues: $4.ResourceSource.values)
+    ..aOS(5, _omitFieldNames ? '' : 'collection')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  WorkspaceUpsert clone() => deepCopy();
+  WorkspaceCreateBody clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  WorkspaceUpsert copyWith(void Function(WorkspaceUpsert) updates) =>
-      super.copyWith((message) => updates(message as WorkspaceUpsert))
-          as WorkspaceUpsert;
+  WorkspaceCreateBody copyWith(void Function(WorkspaceCreateBody) updates) =>
+      super.copyWith((message) => updates(message as WorkspaceCreateBody))
+          as WorkspaceCreateBody;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  static WorkspaceUpsert create() => WorkspaceUpsert._();
+  static WorkspaceCreateBody create() => WorkspaceCreateBody._();
   @$core.override
-  WorkspaceUpsert createEmptyInstance() => create();
+  WorkspaceCreateBody createEmptyInstance() => create();
   @$core.pragma('dart2js:noInline')
-  static WorkspaceUpsert getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<WorkspaceUpsert>(create);
-  static WorkspaceUpsert? _defaultInstance;
+  static WorkspaceCreateBody getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<WorkspaceCreateBody>(create);
+  static WorkspaceCreateBody? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get name => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set name($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearName() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  WorkspaceParameters get parameters => $_getN(1);
+  @$pb.TagNumber(2)
+  set parameters(WorkspaceParameters value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasParameters() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearParameters() => $_clearField(2);
+  @$pb.TagNumber(2)
+  WorkspaceParameters ensureParameters() => $_ensure(1);
 
   @$pb.TagNumber(3)
-  $core.String get name => $_getSZ(0);
+  $core.String get workflowAlias => $_getSZ(2);
   @$pb.TagNumber(3)
-  set name($core.String value) => $_setString(0, value);
+  set workflowAlias($core.String value) => $_setString(2, value);
   @$pb.TagNumber(3)
-  $core.bool hasName() => $_has(0);
+  $core.bool hasWorkflowAlias() => $_has(2);
   @$pb.TagNumber(3)
-  void clearName() => $_clearField(3);
+  void clearWorkflowAlias() => $_clearField(3);
 
   @$pb.TagNumber(4)
-  WorkspaceParameters get parameters => $_getN(1);
+  $2.ToolkitPolicy get toolkit => $_getN(3);
+  @$pb.TagNumber(4)
+  set toolkit($2.ToolkitPolicy value) => $_setField(4, value);
+  @$pb.TagNumber(4)
+  $core.bool hasToolkit() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearToolkit() => $_clearField(4);
+  @$pb.TagNumber(4)
+  $2.ToolkitPolicy ensureToolkit() => $_ensure(3);
+
+  @$pb.TagNumber(5)
+  $core.String get collection => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set collection($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasCollection() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearCollection() => $_clearField(5);
+}
+
+class WorkspacePutBody extends $pb.GeneratedMessage {
+  factory WorkspacePutBody({
+    WorkspaceParameters? parameters,
+    $2.ToolkitPolicy? toolkit,
+  }) {
+    final result = create();
+    if (parameters != null) result.parameters = parameters;
+    if (toolkit != null) result.toolkit = toolkit;
+    return result;
+  }
+
+  WorkspacePutBody._();
+
+  factory WorkspacePutBody.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory WorkspacePutBody.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'WorkspacePutBody',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOM<WorkspaceParameters>(4, _omitFieldNames ? '' : 'parameters',
+        subBuilder: WorkspaceParameters.create)
+    ..aOM<$2.ToolkitPolicy>(7, _omitFieldNames ? '' : 'toolkit',
+        subBuilder: $2.ToolkitPolicy.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  WorkspacePutBody clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  WorkspacePutBody copyWith(void Function(WorkspacePutBody) updates) =>
+      super.copyWith((message) => updates(message as WorkspacePutBody))
+          as WorkspacePutBody;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static WorkspacePutBody create() => WorkspacePutBody._();
+  @$core.override
+  WorkspacePutBody createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static WorkspacePutBody getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<WorkspacePutBody>(create);
+  static WorkspacePutBody? _defaultInstance;
+
+  @$pb.TagNumber(4)
+  WorkspaceParameters get parameters => $_getN(0);
   @$pb.TagNumber(4)
   set parameters(WorkspaceParameters value) => $_setField(4, value);
   @$pb.TagNumber(4)
-  $core.bool hasParameters() => $_has(1);
+  $core.bool hasParameters() => $_has(0);
   @$pb.TagNumber(4)
   void clearParameters() => $_clearField(4);
   @$pb.TagNumber(4)
-  WorkspaceParameters ensureParameters() => $_ensure(1);
-
-  @$pb.TagNumber(6)
-  $core.String get workflowName => $_getSZ(2);
-  @$pb.TagNumber(6)
-  set workflowName($core.String value) => $_setString(2, value);
-  @$pb.TagNumber(6)
-  $core.bool hasWorkflowName() => $_has(2);
-  @$pb.TagNumber(6)
-  void clearWorkflowName() => $_clearField(6);
+  WorkspaceParameters ensureParameters() => $_ensure(0);
 
   @$pb.TagNumber(7)
-  $2.ToolkitPolicy get toolkit => $_getN(3);
+  $2.ToolkitPolicy get toolkit => $_getN(1);
   @$pb.TagNumber(7)
   set toolkit($2.ToolkitPolicy value) => $_setField(7, value);
   @$pb.TagNumber(7)
-  $core.bool hasToolkit() => $_has(3);
+  $core.bool hasToolkit() => $_has(1);
   @$pb.TagNumber(7)
   void clearToolkit() => $_clearField(7);
   @$pb.TagNumber(7)
-  $2.ToolkitPolicy ensureToolkit() => $_ensure(3);
-
-  @$pb.TagNumber(11)
-  $4.ResourceSource get workflowSource => $_getN(4);
-  @$pb.TagNumber(11)
-  set workflowSource($4.ResourceSource value) => $_setField(11, value);
-  @$pb.TagNumber(11)
-  $core.bool hasWorkflowSource() => $_has(4);
-  @$pb.TagNumber(11)
-  void clearWorkflowSource() => $_clearField(11);
+  $2.ToolkitPolicy ensureToolkit() => $_ensure(1);
 }
 
 class WorkspaceIconDownloadRequest extends $pb.GeneratedMessage {
@@ -3423,7 +3467,7 @@ class WorkspaceIconDownloadResponse extends $pb.GeneratedMessage {
 
 class WorkspaceCreateRequest extends $pb.GeneratedMessage {
   factory WorkspaceCreateRequest({
-    WorkspaceUpsert? value,
+    WorkspaceCreateBody? value,
   }) {
     final result = create();
     if (value != null) result.value = value;
@@ -3443,8 +3487,8 @@ class WorkspaceCreateRequest extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'WorkspaceCreateRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOM<WorkspaceUpsert>(1, _omitFieldNames ? '' : 'value',
-        subBuilder: WorkspaceUpsert.create)
+    ..aOM<WorkspaceCreateBody>(1, _omitFieldNames ? '' : 'value',
+        subBuilder: WorkspaceCreateBody.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3468,15 +3512,15 @@ class WorkspaceCreateRequest extends $pb.GeneratedMessage {
   static WorkspaceCreateRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
-  WorkspaceUpsert get value => $_getN(0);
+  WorkspaceCreateBody get value => $_getN(0);
   @$pb.TagNumber(1)
-  set value(WorkspaceUpsert value) => $_setField(1, value);
+  set value(WorkspaceCreateBody value) => $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasValue() => $_has(0);
   @$pb.TagNumber(1)
   void clearValue() => $_clearField(1);
   @$pb.TagNumber(1)
-  WorkspaceUpsert ensureValue() => $_ensure(0);
+  WorkspaceCreateBody ensureValue() => $_ensure(0);
 }
 
 class WorkspaceCreateResponse extends $pb.GeneratedMessage {
@@ -3707,9 +3751,15 @@ class WorkspaceGetRequest extends $pb.GeneratedMessage {
 class WorkspaceGetResponse extends $pb.GeneratedMessage {
   factory WorkspaceGetResponse({
     Workspace? value,
+    $core.String? runtimeProfileName,
+    $core.String? runtimeProfileRevision,
   }) {
     final result = create();
     if (value != null) result.value = value;
+    if (runtimeProfileName != null)
+      result.runtimeProfileName = runtimeProfileName;
+    if (runtimeProfileRevision != null)
+      result.runtimeProfileRevision = runtimeProfileRevision;
     return result;
   }
 
@@ -3728,6 +3778,8 @@ class WorkspaceGetResponse extends $pb.GeneratedMessage {
       createEmptyInstance: create)
     ..aOM<Workspace>(1, _omitFieldNames ? '' : 'value',
         subBuilder: Workspace.create)
+    ..aOS(2, _omitFieldNames ? '' : 'runtimeProfileName')
+    ..aOS(3, _omitFieldNames ? '' : 'runtimeProfileRevision')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3759,6 +3811,24 @@ class WorkspaceGetResponse extends $pb.GeneratedMessage {
   void clearValue() => $_clearField(1);
   @$pb.TagNumber(1)
   Workspace ensureValue() => $_ensure(0);
+
+  @$pb.TagNumber(2)
+  $core.String get runtimeProfileName => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set runtimeProfileName($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasRuntimeProfileName() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearRuntimeProfileName() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get runtimeProfileRevision => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set runtimeProfileRevision($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasRuntimeProfileRevision() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearRuntimeProfileRevision() => $_clearField(3);
 }
 
 class WorkspaceHistoryAudioGetRequest extends $pb.GeneratedMessage {
@@ -4213,11 +4283,13 @@ class WorkspaceListRequest extends $pb.GeneratedMessage {
     $core.String? cursor,
     $fixnum.Int64? limit,
     $core.String? prefix,
+    $core.String? collection,
   }) {
     final result = create();
     if (cursor != null) result.cursor = cursor;
     if (limit != null) result.limit = limit;
     if (prefix != null) result.prefix = prefix;
+    if (collection != null) result.collection = collection;
     return result;
   }
 
@@ -4237,6 +4309,7 @@ class WorkspaceListRequest extends $pb.GeneratedMessage {
     ..aOS(1, _omitFieldNames ? '' : 'cursor')
     ..aInt64(2, _omitFieldNames ? '' : 'limit')
     ..aOS(3, _omitFieldNames ? '' : 'prefix')
+    ..aOS(4, _omitFieldNames ? '' : 'collection')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -4284,6 +4357,15 @@ class WorkspaceListRequest extends $pb.GeneratedMessage {
   $core.bool hasPrefix() => $_has(2);
   @$pb.TagNumber(3)
   void clearPrefix() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get collection => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set collection($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasCollection() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearCollection() => $_clearField(4);
 }
 
 class WorkspaceListResponse extends $pb.GeneratedMessage {
@@ -4291,11 +4373,17 @@ class WorkspaceListResponse extends $pb.GeneratedMessage {
     $core.bool? hasNext,
     $core.Iterable<Workspace>? items,
     $core.String? nextCursor,
+    $core.String? runtimeProfileName,
+    $core.String? runtimeProfileRevision,
   }) {
     final result = create();
     if (hasNext != null) result.hasNext = hasNext;
     if (items != null) result.items.addAll(items);
     if (nextCursor != null) result.nextCursor = nextCursor;
+    if (runtimeProfileName != null)
+      result.runtimeProfileName = runtimeProfileName;
+    if (runtimeProfileRevision != null)
+      result.runtimeProfileRevision = runtimeProfileRevision;
     return result;
   }
 
@@ -4316,6 +4404,8 @@ class WorkspaceListResponse extends $pb.GeneratedMessage {
     ..pPM<Workspace>(2, _omitFieldNames ? '' : 'items',
         subBuilder: Workspace.create)
     ..aOS(3, _omitFieldNames ? '' : 'nextCursor')
+    ..aOS(4, _omitFieldNames ? '' : 'runtimeProfileName')
+    ..aOS(5, _omitFieldNames ? '' : 'runtimeProfileRevision')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -4358,6 +4448,24 @@ class WorkspaceListResponse extends $pb.GeneratedMessage {
   $core.bool hasNextCursor() => $_has(2);
   @$pb.TagNumber(3)
   void clearNextCursor() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get runtimeProfileName => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set runtimeProfileName($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasRuntimeProfileName() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearRuntimeProfileName() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get runtimeProfileRevision => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set runtimeProfileRevision($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasRuntimeProfileRevision() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearRuntimeProfileRevision() => $_clearField(5);
 }
 
 enum WorkspaceParameters_Value {
@@ -4536,7 +4644,7 @@ class WorkspaceParameters extends $pb.GeneratedMessage {
 
 class WorkspacePutRequest extends $pb.GeneratedMessage {
   factory WorkspacePutRequest({
-    WorkspaceUpsert? body,
+    WorkspacePutBody? body,
     $core.String? name,
   }) {
     final result = create();
@@ -4558,8 +4666,8 @@ class WorkspacePutRequest extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'WorkspacePutRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOM<WorkspaceUpsert>(1, _omitFieldNames ? '' : 'body',
-        subBuilder: WorkspaceUpsert.create)
+    ..aOM<WorkspacePutBody>(1, _omitFieldNames ? '' : 'body',
+        subBuilder: WorkspacePutBody.create)
     ..aOS(2, _omitFieldNames ? '' : 'name')
     ..hasRequiredFields = false;
 
@@ -4583,15 +4691,15 @@ class WorkspacePutRequest extends $pb.GeneratedMessage {
   static WorkspacePutRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
-  WorkspaceUpsert get body => $_getN(0);
+  WorkspacePutBody get body => $_getN(0);
   @$pb.TagNumber(1)
-  set body(WorkspaceUpsert value) => $_setField(1, value);
+  set body(WorkspacePutBody value) => $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasBody() => $_has(0);
   @$pb.TagNumber(1)
   void clearBody() => $_clearField(1);
   @$pb.TagNumber(1)
-  WorkspaceUpsert ensureBody() => $_ensure(0);
+  WorkspacePutBody ensureBody() => $_ensure(0);
 
   @$pb.TagNumber(2)
   $core.String get name => $_getSZ(1);

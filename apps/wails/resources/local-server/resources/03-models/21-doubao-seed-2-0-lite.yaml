@@ -20,6 +20,10 @@ spec:
     thinking:
       supported: true
       param: thinking.type
+      levels:
+        - enabled
+        - disabled
+        - auto
       default_level: disabled
   provider_data:
     upstream_model: doubao-seed-2-0-lite-260215
@@ -28,5 +32,9 @@ spec:
     support_tool_calls: true
     support_thinking: true
     thinking_param: thinking.type
+    thinking_levels:
+      - enabled
+      - disabled
+      - auto
     default_thinking_level: disabled
     use_system_role: true

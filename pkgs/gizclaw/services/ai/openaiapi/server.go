@@ -33,6 +33,13 @@ type VoiceLister interface {
 	ListVoices(context.Context, adminhttp.ListVoicesRequestObject) (adminhttp.ListVoicesResponseObject, error)
 }
 
+// VoiceListParams contains the pagination accepted by the RuntimeProfile-scoped
+// OpenAI-compatible voice catalog.
+type VoiceListParams struct {
+	Cursor *string
+	Limit  *int32
+}
+
 type Server struct {
 	Caller      giznet.PublicKey
 	Models      ModelLister
@@ -76,11 +83,14 @@ func (s *Server) ListModels(ctx context.Context, _ openaihttp.ListModelsRequestO
 	return openaihttp.ListModels200JSONResponse{Object: "list", Data: out}, nil
 }
 
-func (s *Server) ListVoices(ctx context.Context, params adminhttp.ListVoicesParams) (adminhttp.VoiceList, error) {
+func (s *Server) ListVoices(ctx context.Context, params VoiceListParams) (adminhttp.VoiceList, error) {
 	if s == nil || s.Voices == nil {
 		return adminhttp.VoiceList{}, errors.New("openaiapi: voice service is not configured")
 	}
-	resp, err := s.Voices.ListVoices(ctx, adminhttp.ListVoicesRequestObject{Params: params})
+	resp, err := s.Voices.ListVoices(ctx, adminhttp.ListVoicesRequestObject{Params: adminhttp.ListVoicesParams{
+		Cursor: params.Cursor,
+		Limit:  params.Limit,
+	}})
 	if err != nil {
 		return adminhttp.VoiceList{}, err
 	}
@@ -298,7 +308,7 @@ func buildModelContext(body *openaihttp.CreateChatCompletionRequest) (genx.Model
 		if b.Params == nil {
 			b.Params = &genx.ModelParams{}
 		}
-		b.Params.ExtraFields = thinkingExtraFields(body.Thinking)
+		b.Params.Thinking = thinkingParams(body.Thinking)
 	}
 	for _, msg := range body.Messages {
 		role, _ := msg["role"].(string)
@@ -330,15 +340,15 @@ func buildModelContext(body *openaihttp.CreateChatCompletionRequest) (genx.Model
 	return b.Build(), nil
 }
 
-func thinkingExtraFields(options *openaihttp.ThinkingOptions) map[string]any {
-	out := map[string]any{}
-	if options.Enabled != nil {
-		out["enable_thinking"] = *options.Enabled
+func thinkingParams(options *openaihttp.ThinkingOptions) *genx.ThinkingParams {
+	if options == nil {
+		return nil
 	}
-	if options.Level != nil && strings.TrimSpace(*options.Level) != "" {
-		out["reasoning_effort"] = strings.TrimSpace(*options.Level)
+	out := &genx.ThinkingParams{Enabled: options.Enabled}
+	if options.Level != nil {
+		out.Level = strings.TrimSpace(*options.Level)
 	}
-	if len(out) == 0 {
+	if out.Enabled == nil && out.Level == "" {
 		return nil
 	}
 	return out
@@ -395,15 +405,30 @@ func parseInputAudio(value any) (*genx.Blob, error) {
 }
 
 func speechPattern(body *openaihttp.CreateSpeechRequest) (string, error) {
+	format := speechTransformerFormat(body)
 	voice := strings.TrimSpace(body.Voice)
 	if voice != "" {
-		return "voice/" + voice, nil
+		return "voice/" + voice + "?format=" + format, nil
 	}
 	model := strings.TrimSpace(body.Model)
 	if model == "" {
 		return "", errors.New("openaiapi: model or voice is required")
 	}
-	return "model/" + model, nil
+	return "model/" + model + "?format=" + format, nil
+}
+
+func speechTransformerFormat(body *openaihttp.CreateSpeechRequest) string {
+	if body == nil || body.ResponseFormat == nil {
+		return "mp3"
+	}
+	switch format := strings.ToLower(strings.TrimSpace(*body.ResponseFormat)); format {
+	case "opus":
+		return "ogg_opus"
+	case "aac", "flac", "mp3", "pcm", "wav":
+		return format
+	default:
+		return "mp3"
+	}
 }
 
 type transcriptionForm struct {

@@ -171,11 +171,17 @@ func LoadCatalog(source fs.FS) (*Catalog, error) {
 		return nil, err
 	}
 	for _, row := range voiceRows {
-		if row[0] != "volc" {
+		var tenantKind string
+		switch row[0] {
+		case "minimax":
+			tenantKind = "MiniMaxTenant"
+		case "volc":
+			tenantKind = "VolcTenant"
+		default:
 			return nil, fmt.Errorf("local server catalog: unsupported voice provider %q", row[0])
 		}
-		if !identities["VolcTenant"][row[1]] {
-			return nil, fmt.Errorf("local server catalog: voice sync references missing VolcTenant/%s", row[1])
+		if !identities[tenantKind][row[1]] {
+			return nil, fmt.Errorf("local server catalog: voice sync references missing %s/%s", tenantKind, row[1])
 		}
 		catalog.VoiceSyncs = append(catalog.VoiceSyncs, VoiceSync{Provider: row[0], Tenant: row[1]})
 	}

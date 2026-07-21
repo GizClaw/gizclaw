@@ -155,7 +155,7 @@ func TestPeerConnHelpersAndRPCHandle(t *testing.T) {
 			t.Fatalf("/v1/models response = %#v", models)
 		}
 
-		req = httptest.NewRequest(http.MethodGet, "/v1/voices?source=sync&providerKind=minimax-tenant&providerName=main&limit=10", nil)
+		req = httptest.NewRequest(http.MethodGet, "/v1/voices?cursor=voice-before&limit=10", nil)
 		resp = httptest.NewRecorder()
 		handler.ServeHTTP(resp, req)
 		if resp.Code != http.StatusOK {
@@ -175,14 +175,14 @@ func TestPeerConnHelpersAndRPCHandle(t *testing.T) {
 			t.Fatalf("voice requests = %d, want 1", len(voiceRequests))
 		}
 		params := voiceRequests[0].Params
-		if params.Source == nil || *params.Source != apitypes.VoiceSourceSync {
-			t.Fatalf("voice source param = %#v", params.Source)
+		if params.Cursor == nil || *params.Cursor != "voice-before" {
+			t.Fatalf("voice cursor param = %#v", params.Cursor)
 		}
-		if params.ProviderKind == nil || *params.ProviderKind != apitypes.VoiceProviderKindMinimaxTenant {
-			t.Fatalf("voice providerKind param = %#v", params.ProviderKind)
+		if params.Limit == nil || *params.Limit != 10 {
+			t.Fatalf("voice limit param = %#v", params.Limit)
 		}
-		if params.ProviderName == nil || *params.ProviderName != "main" {
-			t.Fatalf("voice providerName param = %#v", params.ProviderName)
+		if params.Source != nil || params.ProviderKind != nil || params.ProviderName != nil {
+			t.Fatalf("unexpected voice filters = %#v", params)
 		}
 
 		req = httptest.NewRequest(http.MethodGet, "/models", nil)

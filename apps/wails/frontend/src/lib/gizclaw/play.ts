@@ -24,6 +24,7 @@ export interface PlaySnapshot {
   history: PlayHistoryRow[];
   memoryStats?: PlayMemoryStats;
   models: PlayResourceRow[];
+  runtimeProfiles?: Partial<Record<RuntimeCatalogKey, RuntimeProfileMetadata>>;
   runWorkspace?: PlayWorkspaceState;
   voices: PlayResourceRow[];
   warnings: string[];
@@ -48,11 +49,26 @@ export interface PlayHistoryRow {
 }
 
 export interface PlayResourceRow {
+  [key: string]: unknown;
+  alias?: string;
+  driver?: string;
   id: string;
+  i18n?: unknown;
   raw?: unknown;
   subtitle?: string;
   title: string;
   updated_at?: string;
+}
+
+type RuntimeCatalogKey = "models" | "voices" | "workflows" | "workspaces";
+
+interface RuntimeProfileMetadata {
+  runtime_profile_name: string;
+  runtime_profile_revision: string;
+}
+
+interface RuntimeCollectionResult extends RuntimeProfileMetadata {
+  items: unknown[];
 }
 
 export interface PlayMemoryStats {
@@ -107,6 +123,7 @@ export function createPlayDataClientFromPeerConnection(pc: RTCPeerConnection): P
 export function createRPCPlayDataClient(rpc: PeerRPCClient): PlayDataClient {
   return {
     async loadSnapshot(): Promise<PlaySnapshot> {
+      const collections = ["assistants", "translates", "raids", "story-teller", "role-play"] as const;
       const [
         runWorkspace,
         history,
@@ -119,7 +136,6 @@ export function createRPCPlayDataClient(rpc: PeerRPCClient): PlayDataClient {
         workflows,
         models,
         voices,
-        credentials,
       ] = await Promise.all([
         captureCall(RPC_METHODS["server.run.workspace.get"], () => rpc.call(RPC_METHODS["server.run.workspace.get"], {})),
         captureCall(RPC_METHODS["server.run.workspace.history"], () => rpc.call(RPC_METHODS["server.run.workspace.history"], { limit: 30 })),
@@ -127,26 +143,39 @@ export function createRPCPlayDataClient(rpc: PeerRPCClient): PlayDataClient {
         captureCall(RPC_METHODS["server.contact.list"], () => rpc.call(RPC_METHODS["server.contact.list"], {})),
         captureCall(RPC_METHODS["server.friend.list"], () => rpc.call(RPC_METHODS["server.friend.list"], {})),
         captureCall(RPC_METHODS["server.friend_group.list"], () => rpc.call(RPC_METHODS["server.friend_group.list"], {})),
-        captureCall(RPC_METHODS["server.firmware.list"], () => rpc.call(RPC_METHODS["server.firmware.list"], {})),
-        captureCall(RPC_METHODS["server.workspace.list"], () => rpc.call(RPC_METHODS["server.workspace.list"], {})),
-        captureCall(RPC_METHODS["server.workflow.list"], () =>
-          rpc.call(RPC_METHODS["server.workflow.list"], {
-            source: "runtime",
-          }),
-        ),
+        captureCall(RPC_METHODS["server.firmware.get"], () => rpc.call(RPC_METHODS["server.firmware.get"], {})),
+        captureCall(RPC_METHODS["server.workspace.list"], async () => ({
+          ...(await collectCollections(await Promise.all(collections.map((collection) => collectCollectionPages(
+            (params) => rpc.call(RPC_METHODS["server.workspace.list"], params),
+            collection,
+            true,
+          ))))),
+        })),
+        captureCall(RPC_METHODS["server.workflow.list"], async () => ({
+          ...(await collectCollections(await Promise.all(collections.map((collection) => collectCollectionPages(
+            (params) => rpc.call(RPC_METHODS["server.workflow.list"], params),
+            collection,
+            true,
+          ))))),
+        })),
         captureCall(RPC_METHODS["server.model.list"], () => rpc.call(RPC_METHODS["server.model.list"], {})),
         captureCall(RPC_METHODS["server.voice.list"], () => rpc.call(RPC_METHODS["server.voice.list"], {})),
-        captureCall(RPC_METHODS["server.credential.list"], () => rpc.call(RPC_METHODS["server.credential.list"], {})),
       ]);
       return {
         contacts: listItems(contacts.value).map((item) => itemToResourceRow(item, "contact")),
-        credentials: listItems(credentials.value).map((item) => itemToResourceRow(item, "credential")),
-        firmwares: listItems(firmwares.value).map((item) => itemToResourceRow(item, "firmware")),
+        credentials: [],
+        firmwares: firmwares.value == null ? [] : [itemToResourceRow(firmwares.value, "firmware")],
         friendGroups: listItems(friendGroups.value).map((item) => itemToResourceRow(item, "friend-group")),
         friends: listItems(friends.value).map((item) => itemToResourceRow(item, "friend")),
         history: listItems(history.value).map(itemToHistoryRow),
         memoryStats: memoryStatsToRow(memoryStats.value),
         models: listItems(models.value).map((item) => itemToResourceRow(item, "model")),
+        runtimeProfiles: runtimeProfileMetadata({
+          models: models.value,
+          voices: voices.value,
+          workflows: workflows.value,
+          workspaces: workspaces.value,
+        }),
         runWorkspace: workspaceState(runWorkspace.value),
         voices: listItems(voices.value).map((item) => itemToResourceRow(item, "voice")),
         warnings: [
@@ -161,7 +190,6 @@ export function createRPCPlayDataClient(rpc: PeerRPCClient): PlayDataClient {
           workflows,
           models,
           voices,
-          credentials,
         ].flatMap((item) => (item.warning ? [item.warning] : [])),
         workflows: listItems(workflows.value).map((item) => itemToResourceRow(item, "workflow")),
         workspaces: listItems(workspaces.value).map((item) => itemToResourceRow(item, "workspace")),
@@ -196,6 +224,89 @@ async function captureCall<T>(label: string, fn: () => Promise<T>): Promise<{ va
   } catch (err) {
     return { warning: `${label}: ${errorMessage(err)}` };
   }
+}
+
+async function collectCollectionPages(
+  call: (params: { collection: string; cursor?: string }) => Promise<unknown>,
+  collection: string,
+  missingCollectionIsEmpty = false,
+): Promise<RuntimeCollectionResult> {
+  const items: unknown[] = [];
+  const seenCursors = new Set<string>();
+  let cursor: string | undefined;
+  let runtimeProfileName = "";
+  let runtimeProfileRevision = "";
+  for (;;) {
+    let page: unknown;
+    try {
+      page = await call(cursor == null ? { collection } : { collection, cursor });
+    } catch (err) {
+      if (cursor == null && missingCollectionIsEmpty && isNotFoundError(err)) {
+        return { items: [], runtime_profile_name: "", runtime_profile_revision: "" };
+      }
+      throw err;
+    }
+    const metadata = profileMetadata(page);
+    if (runtimeProfileRevision !== "" && (
+      metadata.runtime_profile_name !== runtimeProfileName ||
+      metadata.runtime_profile_revision !== runtimeProfileRevision
+    )) {
+      throw new Error(`${collection}: runtime profile changed while loading pages`);
+    }
+    runtimeProfileName = metadata.runtime_profile_name;
+    runtimeProfileRevision = metadata.runtime_profile_revision;
+    items.push(...listItems(page));
+    if (!isRecord(page) || page.has_next !== true) {
+      return { items, runtime_profile_name: runtimeProfileName, runtime_profile_revision: runtimeProfileRevision };
+    }
+    const nextCursor = stringValue(page.next_cursor);
+    if (nextCursor == null || seenCursors.has(nextCursor)) {
+      throw new Error(`${collection}: invalid pagination cursor`);
+    }
+    seenCursors.add(nextCursor);
+    cursor = nextCursor;
+  }
+}
+
+function collectCollections(results: RuntimeCollectionResult[]): RuntimeCollectionResult {
+  const items: unknown[] = [];
+  let runtimeProfileName = "";
+  let runtimeProfileRevision = "";
+  for (const result of results) {
+    if (result.runtime_profile_revision !== "") {
+      if (runtimeProfileRevision !== "" && (
+        result.runtime_profile_name !== runtimeProfileName ||
+        result.runtime_profile_revision !== runtimeProfileRevision
+      )) {
+        throw new Error("runtime profile changed while loading collections");
+      }
+      runtimeProfileName = result.runtime_profile_name;
+      runtimeProfileRevision = result.runtime_profile_revision;
+    }
+    items.push(...result.items);
+  }
+  return { items, runtime_profile_name: runtimeProfileName, runtime_profile_revision: runtimeProfileRevision };
+}
+
+function runtimeProfileMetadata(values: Record<RuntimeCatalogKey, unknown>): Partial<Record<RuntimeCatalogKey, RuntimeProfileMetadata>> {
+  const metadata: Partial<Record<RuntimeCatalogKey, RuntimeProfileMetadata>> = {};
+  for (const [key, value] of Object.entries(values) as Array<[RuntimeCatalogKey, unknown]>) {
+    const profile = profileMetadata(value);
+    if (profile.runtime_profile_revision !== "") metadata[key] = profile;
+  }
+  return metadata;
+}
+
+function profileMetadata(value: unknown): RuntimeProfileMetadata {
+  const record = isRecord(value) ? value : {};
+  return {
+    runtime_profile_name: stringValue(record.runtime_profile_name) ?? "",
+    runtime_profile_revision: stringValue(record.runtime_profile_revision) ?? "",
+  };
+}
+
+function isNotFoundError(err: unknown): boolean {
+  return isRecord(err) && (err.code === 404 || err.code === "404");
 }
 
 function errorMessage(err: unknown): string {
@@ -261,6 +372,7 @@ function itemToResourceRow(item: unknown, prefix: string): PlayResourceRow {
   const record = isRecord(item) ? item : {};
   const metadata = isRecord(record.metadata) ? record.metadata : {};
   const id =
+    stringValue(record.alias) ??
     stringValue(record.id) ??
     stringValue(record.name) ??
     stringValue(record.public_key) ??
@@ -272,11 +384,17 @@ function itemToResourceRow(item: unknown, prefix: string): PlayResourceRow {
   const title =
     stringValue(record.title) ??
     stringValue(record.display_name) ??
+    localizedDisplayName(record.i18n) ??
+    stringValue(record.alias) ??
     stringValue(record.name) ??
     stringValue(metadata.name) ??
     id;
   return {
+    ...record,
+    alias: stringValue(record.alias),
+    driver: stringValue(record.driver),
     id,
+    i18n: record.i18n,
     raw: item,
     subtitle:
       relationSubtitle(record) ??
@@ -287,6 +405,18 @@ function itemToResourceRow(item: unknown, prefix: string): PlayResourceRow {
     title,
     updated_at: stringValue(record.updated_at) ?? stringValue(record.created_at),
   };
+}
+
+function localizedDisplayName(value: unknown): string | undefined {
+  if (!isRecord(value)) return undefined;
+  for (const locale of ["en", "zh-CN"]) {
+    const translation = value[locale];
+    if (isRecord(translation)) {
+      const displayName = stringValue(translation.display_name);
+      if (displayName != null) return displayName;
+    }
+  }
+  return undefined;
 }
 
 function relationSubtitle(record: Record<string, unknown>): string | undefined {

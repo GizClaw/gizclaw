@@ -1,41 +1,31 @@
 # Server Provided to Client
 
-This set of capabilities is implemented by Server and called by Client/Device through Peer connection. It is the main RPC surface for Clients to access Server runtime, resources and product services.
+These methods are implemented by Server and called by a Client/Device through its Peer connection.
 
 ## Method groups
 
 | Prefix | Main capabilities |
 | --- | --- |
-| `server.info.*` | Reading and updating Server/Peer information |
-| `server.runtime.*`, `server.status.*` | Runtime and status query |
-| `server.run.*` | Agent, Workspace, history, memory, recall, say, reload and stop |
-| `server.firmware.*` | Compatibility surface only: list is empty and get/download return not found; Firmware is Admin-managed and is not projected by registration |
-| `server.workspace.*` | Workspace CRUD, history and history audio |
-| `server.workflow.*` | Source-qualified Workflow list/get and owned Workflow CRUD |
-| `server.model.*` | Model CRUD |
-| `server.voice.*` | Voice list/get |
-| `server.credential.*` | Credential CRUD |
-| `server.contact.*` | Contact CRUD |
-| `server.friend.*` | Friend and invite-token operations |
-| `server.friend_group.*` | Group, member, message and invite-token operations |
-| `server.register` | Select the current connection's RuntimeProfile with a RegistrationToken |
-| `server.pet.*` | Pet resource CRUD and drive |
-| `runtime.adopt` | Adopt a Pet from the current connection's RuntimeProfile |
-| `server.pet.actions.get` | Press Pet to get available actions, without returning the complete PetDef |
-| `server.pet.pixa.download` | Press Pet to download PIXA metadata and materials without exposing PetDef API |
-| `server.badge.*` | Badge resource query |
-| `server.badge_def.pixa.download` | Download the PIXA material associated with Badge Definition; Badge Definition CRUD is not provided |
-| `server.points.*` | Points account and transactions |
-| `server.game_result.*`, `server.reward_grant.*` | Gameplay result and reward query |
-| `server.tool.*` | Tool CRUD |
+| `server.info.*`, `server.runtime.*`, `server.status.*` | Peer information and runtime status |
+| `server.run.*` | Workspace selection, history, memory, speech output, reload and stop |
+| `server.workspace.*` | Peer-owned Workspace CRUD and history; list requires Collection |
+| `server.workflow.*` | RuntimeProfile Workflow alias list/get; list requires Collection |
+| `server.model.*`, `server.voice.*`, `server.tool.*` | Safe RuntimeProfile alias list/get |
+| `server.speech.*` | Standalone streaming transcription and synthesis |
+| `server.register` | Select the required RuntimeProfile and persist/return the RegistrationToken's optional Firmware release-line ID; channel selection remains device-owned |
+| `runtime.adopt`, `server.pet.*`, `server.badge.*`, `server.points.*` | Gameplay and Peer-owned Pet state |
+| `server.friend.*`, `server.friend_group.*`, `server.contact.*` | Social state |
+| `server.firmware.*` | Get the Peer's bound Firmware and download a file from a device-selected channel; no list method |
 
-`server.peer.lookup`, `server.peer.assign` and `server.route.resolve` do not belong to this page; they are only available to Edge-node.
+`server.peer.lookup`, `server.peer.assign`, and `server.route.resolve` belong only to Edge-node RPC.
 
-## Workflow sources
+## RuntimeProfile resource projection
 
-`server.workflow.list` and `server.workflow.get` require a `source` of `runtime` or `owned`. Runtime results use the current RuntimeProfile alias as the RPC `id`; the Server resolves that alias to the concrete Workflow and exposes it read-only. A missing RuntimeProfile target is skipped by list and returns not found from get. Owned results use the concrete, globally unique Workflow name as `id`; create, put, and delete are available only for the current Peer's owned Workflows.
+Canonical Workflow, Model, Credential, Voice, and Tool resources are Admin-managed. Peer RPC has no Workflow, Model, Credential, or Tool create/put/delete methods and no `source=runtime|owned` selector.
 
-Workspace create and put include the same Workflow `source`, so runtime aliases and owned names are unambiguous. Workflow carries no icon, display name, or i18n. Clients map stable RuntimeProfile aliases to their own localized presentation.
+Workflow aliases are grouped under RuntimeProfile Collections. `server.workflow.list` requires a Collection; `server.workflow.get` uses the globally unique alias. Model, Voice, and Tool list/get also address RuntimeProfile aliases. Responses contain only safe alias metadata and include the RuntimeProfile name and revision; canonical IDs, provider configuration, credentials, ownership, and executor routing stay on the Server.
+
+Workspace create requires `collection` and `workflow_alias`. The Server records Collection through an internal Workspace label. Workspace list requires Collection and performs exact filtering, but generic labels are not part of the Peer response. Removing an alias does not hide or delete an existing Workspace; reload/run reports not found until the alias exists again.
 
 ## Calling relationship
 
@@ -43,11 +33,13 @@ Workspace create and put include the same Workflow `source`, so runtime aliases 
 sequenceDiagram
     participant Client
     participant RPC as Server RPC
+    participant Profile as RuntimeProfile snapshot
     participant Service as Domain service
-    Client->>RPC: server.* request
+    Client->>RPC: typed request
+    RPC->>Profile: resolve aliases and policy
     RPC->>Service: typed command/query
     Service-->>RPC: result / domain error
-    RPC-->>Client: typed response / RPC error
+    RPC-->>Client: typed response / frames / RPC error
 ```
 
-RPC adapter is responsible for payload decoding, method dispatch and stable error mapping; domain service is responsible for authorization, resource rule, storage and lifecycle. These business behaviors cannot be implemented in the generated RPC package.
+The RPC adapter owns payload decoding, framing, lifecycle, and stable error mapping. Domain services own storage, resource validation, authorization, and execution.

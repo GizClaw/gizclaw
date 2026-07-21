@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/url"
-	"sort"
 	"sync"
 	"time"
 
@@ -105,19 +104,19 @@ func (s *Service) Reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 		err := errors.New("agenthost: input stream is required")
 		return s.setErrorStatus(selection.WorkspaceName, err), err
 	}
-	var profileToolIDs []string
+	profileToolBindings := map[string]string{}
 	profileWorkflowBindings := map[string]string{}
 	if s.RuntimeProfile != nil {
 		if profile := s.RuntimeProfile(); profile != nil {
-			profileToolIDs = runtimeProfileToolIDs(profile.Spec.Resources.Tools)
-			if profile.Spec.Resources.Workflows != nil {
-				for alias, name := range *profile.Spec.Resources.Workflows {
-					profileWorkflowBindings[alias] = name
+			profileToolBindings = runtimeProfileToolBindings(profile.Spec.Resources.Tools)
+			for _, workflows := range profile.Spec.Workflows.Collections {
+				for alias, binding := range workflows {
+					profileWorkflowBindings[alias] = binding.ResourceId
 				}
 			}
 		}
 	}
-	baseCtx := WithResourceAccess(withHistoryGearID(context.WithoutCancel(ctx), s.PublicKey.String()), s.PublicKey.String(), profileToolIDs, profileWorkflowBindings)
+	baseCtx := WithResourceAccess(withHistoryGearID(context.WithoutCancel(ctx), s.PublicKey.String()), s.PublicKey.String(), profileToolBindings, profileWorkflowBindings)
 	runCtx, cancel := context.WithCancel(baseCtx)
 	pattern := workspacePattern(selection.WorkspaceName)
 	agent, release, output, err := s.openAgentOutput(runCtx, pattern, input)
@@ -161,20 +160,15 @@ func (s *Service) Reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 	return status, nil
 }
 
-func runtimeProfileToolIDs(tools *map[string]string) []string {
+func runtimeProfileToolBindings(tools *map[string]apitypes.RuntimeProfileBinding) map[string]string {
 	if tools == nil {
-		return nil
+		return map[string]string{}
 	}
-	aliases := make([]string, 0, len(*tools))
-	for alias := range *tools {
-		aliases = append(aliases, alias)
+	bindings := make(map[string]string, len(*tools))
+	for alias, binding := range *tools {
+		bindings[alias] = binding.ResourceId
 	}
-	sort.Strings(aliases)
-	ids := make([]string, 0, len(aliases))
-	for _, alias := range aliases {
-		ids = append(ids, (*tools)[alias])
-	}
-	return ids
+	return bindings
 }
 
 type agentOpener interface {

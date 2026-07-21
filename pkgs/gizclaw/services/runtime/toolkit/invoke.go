@@ -38,6 +38,6 @@ func (b *Builder) Invoke(ctx context.Context, executors *ExecutorRegistry, req I
 		ID:        req.CallID,
 		Tool:      tool,
 		Args:      cloneRaw(args),
-		SubjectID: strings.TrimSpace(req.Build.OwnerPublicKey),
+		SubjectID: strings.TrimSpace(req.Build.CallerPublicKey),
 	})
 }

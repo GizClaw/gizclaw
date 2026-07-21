@@ -23,8 +23,7 @@ const (
 	PodManifestFile         = "pod.json"
 	PodInitializationMarker = ".initializing"
 	PodVersion              = 1
-	LocalCatalogVersion     = 1
-	DefaultPort             = 9820
+	LocalCatalogVersion     = 3
 )
 
 var (

@@ -29,7 +29,12 @@ func (s *Server) GetModel(ctx context.Context, request adminhttp.GetModelRequest
 	if s.Models == nil {
 		return adminhttp.GetModel500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "model service not configured")), nil
 	}
-	response, err := s.Models.GetModel(ctx, request)
+	alias := strings.TrimSpace(request.Id)
+	resourceID, ok := s.ResolveModelAlias(alias)
+	if !ok {
+		return adminhttp.GetModel404JSONResponse(apitypes.NewErrorResponse("MODEL_NOT_FOUND", "model not found")), nil
+	}
+	response, err := s.Models.GetModel(ctx, adminhttp.GetModelRequestObject{Id: resourceID})
 	if err != nil {
 		return nil, err
 	}
@@ -37,37 +42,32 @@ func (s *Server) GetModel(ctx context.Context, request adminhttp.GetModelRequest
 	if decodeErr != nil || rpcResponse != nil {
 		return response, nil
 	}
-	if !s.profileAllows(profileModels, request.Id) && !s.owns(item.OwnerPublicKey) {
-		return adminhttp.GetModel404JSONResponse(apitypes.NewErrorResponse("MODEL_NOT_FOUND", "model not found")), nil
-	}
-	return response, nil
+	item.Id = alias
+	return adminhttp.GetModel200JSONResponse(item), nil
 }
 
-func (s *Server) GetCredential(ctx context.Context, request adminhttp.GetCredentialRequestObject) (adminhttp.GetCredentialResponseObject, error) {
-	if s.Credentials == nil {
-		return adminhttp.GetCredential500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "credential service not configured")), nil
-	}
-	response, err := s.Credentials.GetCredential(ctx, request)
-	if err != nil {
-		return nil, err
-	}
-	item, rpcResponse, decodeErr := adminResult[apitypes.Credential](response.VisitGetCredentialResponse)
-	if decodeErr != nil || rpcResponse != nil {
-		return response, nil
-	}
-	if !s.owns(item.OwnerPublicKey) {
-		return adminhttp.GetCredential404JSONResponse(apitypes.NewErrorResponse("CREDENTIAL_NOT_FOUND", "credential not found")), nil
-	}
-	return response, nil
+// GetCanonicalModel returns a model by its administrator-owned resource ID.
+func (s *Server) GetCanonicalModel(ctx context.Context, request adminhttp.GetModelRequestObject) (adminhttp.GetModelResponseObject, error) {
+	return s.Models.GetModel(ctx, request)
 }
 
 func (s *Server) ListVoices(ctx context.Context, request adminhttp.ListVoicesRequestObject) (adminhttp.ListVoicesResponseObject, error) {
 	if s.Voices == nil {
 		return adminhttp.ListVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "voice service not configured")), nil
 	}
-	items := make([]apitypes.Voice, 0, len(s.profileNames(profileVoices)))
-	for _, id := range s.profileNames(profileVoices) {
-		response, err := s.Voices.GetVoice(ctx, adminhttp.GetVoiceRequestObject{Id: id})
+	profile := s.currentRuntimeProfile()
+	if profile == nil {
+		return adminhttp.ListVoices200JSONResponse(adminhttp.VoiceList{Items: []apitypes.Voice{}}), nil
+	}
+	bindings := bindingMap(profile.Spec.Resources.Voices)
+	aliases := sortedBindingAliases(bindings)
+	items := make([]apitypes.Voice, 0, len(aliases))
+	for _, alias := range aliases {
+		resourceID := strings.TrimSpace(bindings[alias].ResourceId)
+		if resourceID == "" {
+			continue
+		}
+		response, err := s.Voices.GetVoice(ctx, adminhttp.GetVoiceRequestObject{Id: resourceID})
 		if err != nil {
 			return nil, err
 		}
@@ -81,9 +81,7 @@ func (s *Server) ListVoices(ctx context.Context, request adminhttp.ListVoicesReq
 		if rpcResponse != nil {
 			return adminhttp.ListVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", rpcResponse.Error.Message)), nil
 		}
-		if !voiceMatchesListParams(item, request.Params) {
-			continue
-		}
+		item.Id = alias
 		items = append(items, item)
 	}
 	requested := 50
@@ -98,35 +96,28 @@ func (s *Server) ListVoices(ctx context.Context, request adminhttp.ListVoicesReq
 	}), nil
 }
 
-func voiceMatchesListParams(item apitypes.Voice, params adminhttp.ListVoicesParams) bool {
-	if params.Source != nil {
-		source := strings.TrimSpace(string(*params.Source))
-		if source != "" && string(item.Source) != source {
-			return false
-		}
-	}
-	if params.ProviderKind != nil {
-		kind := strings.TrimSpace(string(*params.ProviderKind))
-		if kind != "" && string(item.Provider.Kind) != kind {
-			return false
-		}
-	}
-	if params.ProviderName != nil {
-		name := strings.TrimSpace(*params.ProviderName)
-		if name != "" && item.Provider.Name != name {
-			return false
-		}
-	}
-	return true
-}
-
 func (s *Server) GetVoice(ctx context.Context, request adminhttp.GetVoiceRequestObject) (adminhttp.GetVoiceResponseObject, error) {
 	if s.Voices == nil {
 		return adminhttp.GetVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "voice service not configured")), nil
 	}
-	id := string(request.Id)
-	if !s.profileAllows(profileVoices, id) {
+	alias := strings.TrimSpace(string(request.Id))
+	resourceID, ok := s.ResolveVoiceAlias(alias)
+	if !ok {
 		return adminhttp.GetVoice404JSONResponse(apitypes.NewErrorResponse("VOICE_NOT_FOUND", http.StatusText(http.StatusNotFound))), nil
 	}
+	response, err := s.Voices.GetVoice(ctx, adminhttp.GetVoiceRequestObject{Id: resourceID})
+	if err != nil {
+		return nil, err
+	}
+	item, rpcResponse, decodeErr := adminResult[apitypes.Voice](response.VisitGetVoiceResponse)
+	if decodeErr != nil || rpcResponse != nil {
+		return response, nil
+	}
+	item.Id = alias
+	return adminhttp.GetVoice200JSONResponse(item), nil
+}
+
+// GetCanonicalVoice returns a voice by its administrator-owned resource ID.
+func (s *Server) GetCanonicalVoice(ctx context.Context, request adminhttp.GetVoiceRequestObject) (adminhttp.GetVoiceResponseObject, error) {
 	return s.Voices.GetVoice(ctx, request)
 }

@@ -23,6 +23,7 @@ type rpcPeerService interface {
 	GetSelfInfo(context.Context, giznet.PublicKey) (apitypes.DeviceInfo, error)
 	PutSelfInfo(context.Context, giznet.PublicKey, apitypes.DeviceInfo) (apitypes.DeviceInfo, error)
 	GetSelfRuntime(context.Context, giznet.PublicKey) apitypes.Runtime
+	BindFirmware(context.Context, giznet.PublicKey, string) (apitypes.Peer, error)
 }
 
 type rpcPeerRunService interface {
@@ -60,6 +61,7 @@ type rpcServer struct {
 	peerRunRuntime     rpcPeerRunRuntime
 	serverResources    rpcServerResourceService
 	serverGenX         rpcServerGenXService
+	speechLimits       SpeechLimits
 	registrations      *runtimeprofile.Server
 	onRegistration     func(runtimeprofile.Registration)
 	registrationSource string
@@ -83,6 +85,10 @@ func (s *rpcServer) dispatchStream(ctx context.Context, stream *rpcStream, req *
 	switch req.Method {
 	case rpcapi.RPCMethodAllSpeedTestRun:
 		return true, s.handleSpeedTest(ctx, stream, req)
+	case rpcapi.RPCMethodServerSpeechTranscribe:
+		return true, s.handleSpeechTranscribe(ctx, stream, req)
+	case rpcapi.RPCMethodServerSpeechSynthesize:
+		return true, s.handleSpeechSynthesize(ctx, stream, req)
 	case rpcapi.RPCMethodServerFirmwareFilesDownload:
 		return true, s.handleFirmwareBinDownload(ctx, stream, req)
 	case rpcapi.RPCMethodServerPetPixaDownload:
@@ -174,11 +180,20 @@ func (s *rpcServer) handleRegister(ctx context.Context, req *rpcapi.RPCRequest) 
 		}
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "registration failed"}.RPCResponse(), nil
 	}
+	if registration.FirmwareID != nil {
+		if s.peer == nil {
+			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "peer service not configured"}.RPCResponse(), nil
+		}
+		if _, err := s.peer.BindFirmware(ctx, s.callerPublicKey, *registration.FirmwareID); err != nil {
+			slog.WarnContext(ctx, "device firmware binding failed", "peer_public_key", s.callerPublicKey.String(), "source", s.registrationSource, "error", err)
+			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "registration failed"}.RPCResponse(), nil
+		}
+	}
 	if s.onRegistration != nil {
 		s.onRegistration(registration)
 	}
 	slog.InfoContext(ctx, "device registration accepted", "peer_public_key", s.callerPublicKey.String(), "source", s.registrationSource, "registration_token", registration.TokenName, "runtime_profile", registration.RuntimeProfile.Name)
-	response := rpcapi.ServerRegisterResponse{RuntimeProfileName: registration.RuntimeProfile.Name}
+	response := rpcapi.ServerRegisterResponse{RuntimeProfileName: registration.RuntimeProfile.Name, FirmwareID: registration.FirmwareID}
 	return newRPCResultResponse(req.Id, response, (*rpcapi.RPCPayload).FromServerRegisterResponse)
 }
 
@@ -192,8 +207,7 @@ func rpcNotImplemented(id string, method rpcapi.RPCMethod) *rpcapi.RPCResponse {
 
 func isPlannedServerMethod(method rpcapi.RPCMethod) bool {
 	switch method {
-	case rpcapi.RPCMethodServerFirmwareList,
-		rpcapi.RPCMethodServerFirmwareGet,
+	case rpcapi.RPCMethodServerFirmwareGet,
 		rpcapi.RPCMethodServerFirmwareFilesDownload,
 		rpcapi.RPCMethodServerWorkspaceList,
 		rpcapi.RPCMethodServerWorkspaceGet,
@@ -204,14 +218,6 @@ func isPlannedServerMethod(method rpcapi.RPCMethod) bool {
 		rpcapi.RPCMethodServerWorkflowGet,
 		rpcapi.RPCMethodServerModelList,
 		rpcapi.RPCMethodServerModelGet,
-		rpcapi.RPCMethodServerModelCreate,
-		rpcapi.RPCMethodServerModelPut,
-		rpcapi.RPCMethodServerModelDelete,
-		rpcapi.RPCMethodServerCredentialList,
-		rpcapi.RPCMethodServerCredentialGet,
-		rpcapi.RPCMethodServerCredentialCreate,
-		rpcapi.RPCMethodServerCredentialPut,
-		rpcapi.RPCMethodServerCredentialDelete,
 		rpcapi.RPCMethodServerContactList,
 		rpcapi.RPCMethodServerContactGet,
 		rpcapi.RPCMethodServerContactCreate,
@@ -729,10 +735,8 @@ func (s *rpcServer) handleServerRunSay(ctx context.Context, req *rpcapi.RPCReque
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "peergenx service not configured"}.RPCResponse(), nil
 	}
 	resp, err := s.serverGenX.Say(ctx, peergenx.SayRequest{
-		Text:           params.Text,
-		VoiceID:        stringPtrValue(params.VoiceId),
-		ModelID:        stringPtrValue(params.ModelId),
-		CredentialName: stringPtrValue(params.CredentialName),
+		Text:       params.Text,
+		VoiceAlias: strings.TrimSpace(params.VoiceAlias),
 	})
 	if err != nil {
 		switch {
@@ -748,11 +752,4 @@ func (s *rpcServer) handleServerRunSay(ctx context.Context, req *rpcapi.RPCReque
 	}
 	result := rpcapi.ServerRunSayResponse{Accepted: resp.Accepted}
 	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCPayload).FromServerRunSayResponse)
-}
-
-func stringPtrValue(value *string) string {
-	if value == nil {
-		return ""
-	}
-	return strings.TrimSpace(*value)
 }

@@ -29,6 +29,7 @@ type Config struct {
 	SystemLog      logging.Config
 	Friends        FriendsConfig
 	FriendGroups   FriendGroupsConfig
+	Speech         SpeechConfig
 	SystemTasks    SystemTasksConfig
 }
 
@@ -39,6 +40,36 @@ type FriendGroupsConfig struct {
 	MessageMaxTTL          string `yaml:"message_max_ttl"`
 	MessageCleanupInterval string `yaml:"message_cleanup_interval"`
 	MessageMaxAudioBytes   int64  `yaml:"message_max_audio_bytes"`
+}
+
+type SpeechConfig struct {
+	Transcription SpeechTranscriptionConfig `yaml:"transcription"`
+	Synthesis     SpeechSynthesisConfig     `yaml:"synthesis"`
+}
+
+type SpeechTranscriptionConfig struct {
+	MaxAudioBytes    int64  `yaml:"max_audio_bytes"`
+	MaxAudioDuration string `yaml:"max_audio_duration"`
+	RequestTimeout   string `yaml:"request_timeout"`
+}
+
+type SpeechSynthesisConfig struct {
+	MaxTextBytes   int64  `yaml:"max_text_bytes"`
+	MaxOutputBytes int64  `yaml:"max_output_bytes"`
+	RequestTimeout string `yaml:"request_timeout"`
+}
+
+type speechFileConfig struct {
+	Transcription struct {
+		MaxAudioBytes    *int64  `yaml:"max_audio_bytes"`
+		MaxAudioDuration *string `yaml:"max_audio_duration"`
+		RequestTimeout   *string `yaml:"request_timeout"`
+	} `yaml:"transcription"`
+	Synthesis struct {
+		MaxTextBytes   *int64  `yaml:"max_text_bytes"`
+		MaxOutputBytes *int64  `yaml:"max_output_bytes"`
+		RequestTimeout *string `yaml:"request_timeout"`
+	} `yaml:"synthesis"`
 }
 
 type SystemTasksConfig struct {
@@ -69,6 +100,7 @@ type ConfigFile struct {
 	SystemLog      logging.Config            `yaml:"system_log"`
 	Friends        FriendsConfig             `yaml:"friends"`
 	FriendGroups   FriendGroupsConfig        `yaml:"friend_groups"`
+	Speech         SpeechConfig              `yaml:"speech"`
 	SystemTasks    SystemTasksConfig         `yaml:"system_tasks"`
 }
 
@@ -134,6 +166,7 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		SystemLog      logging.Config            `yaml:"system_log"`
 		Friends        FriendsConfig             `yaml:"friends"`
 		FriendGroups   FriendGroupsConfig        `yaml:"friend_groups"`
+		Speech         speechFileConfig          `yaml:"speech"`
 		SystemTasks    SystemTasksConfig         `yaml:"system_tasks"`
 	}
 	if err := yaml.Unmarshal(data, &raw); err != nil {
@@ -160,6 +193,10 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		identity.PrivateKey = keyPair.Private
 	}
 	serveToClients := raw.ServeToClients != nil && *raw.ServeToClients
+	speech, err := raw.Speech.runtimeConfig()
+	if err != nil {
+		return ConfigFile{}, err
+	}
 	cfg := ConfigFile{
 		Identity:       identity,
 		Listen:         raw.Listen,
@@ -173,9 +210,51 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		SystemLog:      logCfg,
 		Friends:        raw.Friends,
 		FriendGroups:   raw.FriendGroups,
+		Speech:         speech,
 		SystemTasks:    raw.SystemTasks,
 	}
 	return cfg, nil
+}
+
+func (cfg speechFileConfig) runtimeConfig() (SpeechConfig, error) {
+	var out SpeechConfig
+	if value := cfg.Transcription.MaxAudioBytes; value != nil {
+		if *value <= 0 {
+			return SpeechConfig{}, fmt.Errorf("server: speech.transcription.max_audio_bytes must be > 0")
+		}
+		out.Transcription.MaxAudioBytes = *value
+	}
+	if value := cfg.Transcription.MaxAudioDuration; value != nil {
+		if _, err := parsePositiveConfigDuration(*value); err != nil {
+			return SpeechConfig{}, fmt.Errorf("server: speech.transcription.max_audio_duration: %w", err)
+		}
+		out.Transcription.MaxAudioDuration = *value
+	}
+	if value := cfg.Transcription.RequestTimeout; value != nil {
+		if _, err := parsePositiveConfigDuration(*value); err != nil {
+			return SpeechConfig{}, fmt.Errorf("server: speech.transcription.request_timeout: %w", err)
+		}
+		out.Transcription.RequestTimeout = *value
+	}
+	if value := cfg.Synthesis.MaxTextBytes; value != nil {
+		if *value <= 0 {
+			return SpeechConfig{}, fmt.Errorf("server: speech.synthesis.max_text_bytes must be > 0")
+		}
+		out.Synthesis.MaxTextBytes = *value
+	}
+	if value := cfg.Synthesis.MaxOutputBytes; value != nil {
+		if *value <= 0 {
+			return SpeechConfig{}, fmt.Errorf("server: speech.synthesis.max_output_bytes must be > 0")
+		}
+		out.Synthesis.MaxOutputBytes = *value
+	}
+	if value := cfg.Synthesis.RequestTimeout; value != nil {
+		if _, err := parsePositiveConfigDuration(*value); err != nil {
+			return SpeechConfig{}, fmt.Errorf("server: speech.synthesis.request_timeout: %w", err)
+		}
+		out.Synthesis.RequestTimeout = *value
+	}
+	return out, nil
 }
 
 func resolveAdminPublicKey(publicKey *giznet.PublicKey) (giznet.PublicKey, error) {
@@ -193,6 +272,10 @@ func DefaultConfig() Config {
 		Listen:    "0.0.0.0:9820",
 		Endpoint:  "0.0.0.0:9820",
 		SystemLog: logging.DefaultConfig(),
+		Speech: SpeechConfig{
+			Transcription: SpeechTranscriptionConfig{MaxAudioBytes: 2097152, MaxAudioDuration: "60s", RequestTimeout: "75s"},
+			Synthesis:     SpeechSynthesisConfig{MaxTextBytes: 4096, MaxOutputBytes: 4194304, RequestTimeout: "120s"},
+		},
 	}
 }
 
@@ -229,6 +312,7 @@ func mergeFileConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 	}
 	cfg.Friends = mergeFriendsConfig(cfg.Friends, fileCfg.Friends)
 	cfg.FriendGroups = mergeFriendGroupsConfig(cfg.FriendGroups, fileCfg.FriendGroups)
+	cfg.Speech = mergeSpeechConfig(cfg.Speech, fileCfg.Speech)
 	cfg.SystemTasks = mergeSystemTasksConfig(cfg.SystemTasks, fileCfg.SystemTasks)
 	return cfg, nil
 }
@@ -250,6 +334,28 @@ func mergeFriendGroupsConfig(runtime FriendGroupsConfig, file FriendGroupsConfig
 	}
 	if runtime.MessageMaxAudioBytes == 0 {
 		runtime.MessageMaxAudioBytes = file.MessageMaxAudioBytes
+	}
+	return runtime
+}
+
+func mergeSpeechConfig(runtime SpeechConfig, file SpeechConfig) SpeechConfig {
+	if runtime.Transcription.MaxAudioBytes == 0 {
+		runtime.Transcription.MaxAudioBytes = file.Transcription.MaxAudioBytes
+	}
+	if runtime.Transcription.MaxAudioDuration == "" {
+		runtime.Transcription.MaxAudioDuration = file.Transcription.MaxAudioDuration
+	}
+	if runtime.Transcription.RequestTimeout == "" {
+		runtime.Transcription.RequestTimeout = file.Transcription.RequestTimeout
+	}
+	if runtime.Synthesis.MaxTextBytes == 0 {
+		runtime.Synthesis.MaxTextBytes = file.Synthesis.MaxTextBytes
+	}
+	if runtime.Synthesis.MaxOutputBytes == 0 {
+		runtime.Synthesis.MaxOutputBytes = file.Synthesis.MaxOutputBytes
+	}
+	if runtime.Synthesis.RequestTimeout == "" {
+		runtime.Synthesis.RequestTimeout = file.Synthesis.RequestTimeout
 	}
 	return runtime
 }
@@ -283,6 +389,7 @@ func prepareConfig(cfg Config) (Config, error) {
 	if cfg.Endpoint == "" {
 		cfg.Endpoint = cfg.Listen
 	}
+	cfg.Speech = mergeSpeechConfig(cfg.Speech, defaults.Speech)
 	logCfg, err := logging.PrepareConfig(cfg.SystemLog)
 	if err != nil {
 		return Config{}, fmt.Errorf("server: %w", err)
@@ -334,7 +441,36 @@ func (cfg Config) validate() error {
 	if cfg.FriendGroups.MessageMaxAudioBytes < 0 {
 		return fmt.Errorf("server: friend_groups.message_max_audio_bytes must be >= 0")
 	}
+	if cfg.Speech.Transcription.MaxAudioBytes <= 0 {
+		return fmt.Errorf("server: speech.transcription.max_audio_bytes must be > 0")
+	}
+	if _, err := parsePositiveConfigDuration(cfg.Speech.Transcription.MaxAudioDuration); err != nil {
+		return fmt.Errorf("server: speech.transcription.max_audio_duration: %w", err)
+	}
+	if _, err := parsePositiveConfigDuration(cfg.Speech.Transcription.RequestTimeout); err != nil {
+		return fmt.Errorf("server: speech.transcription.request_timeout: %w", err)
+	}
+	if cfg.Speech.Synthesis.MaxTextBytes <= 0 {
+		return fmt.Errorf("server: speech.synthesis.max_text_bytes must be > 0")
+	}
+	if cfg.Speech.Synthesis.MaxOutputBytes <= 0 {
+		return fmt.Errorf("server: speech.synthesis.max_output_bytes must be > 0")
+	}
+	if _, err := parsePositiveConfigDuration(cfg.Speech.Synthesis.RequestTimeout); err != nil {
+		return fmt.Errorf("server: speech.synthesis.request_timeout: %w", err)
+	}
 	return nil
+}
+
+func parsePositiveConfigDuration(value string) (time.Duration, error) {
+	duration, err := parseConfigDuration(value)
+	if err != nil {
+		return 0, err
+	}
+	if duration <= 0 {
+		return 0, fmt.Errorf("must be > 0")
+	}
+	return duration, nil
 }
 
 func validateConfigShape(data []byte) error {

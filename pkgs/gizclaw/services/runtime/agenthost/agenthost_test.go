@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"slices"
 	"strings"
 	"testing"
 
@@ -151,6 +152,17 @@ func TestServiceResolverRequiresSubjectForToolkit(t *testing.T) {
 	}
 }
 
+func TestResolveToolAliasesUsesRuntimeProfileBindings(t *testing.T) {
+	got := resolveToolAliases([]string{"search", "system.clock", "missing"}, map[string]string{
+		"search": "system.search",
+		"clock":  "system.clock",
+	})
+	want := []string{"system.search", "system.clock", "missing"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("resolveToolAliases() = %#v, want %#v", got, want)
+	}
+}
+
 func TestAgentTypeFromWorkflowDriver(t *testing.T) {
 	for _, tc := range []struct {
 		driver string
@@ -204,7 +216,7 @@ func TestServiceResolverErrors(t *testing.T) {
 	}
 }
 
-func TestServiceResolverRejectsDirectWorkflowForNonSystemWorkspace(t *testing.T) {
+func TestServiceResolverAllowsAdminWorkspaceWithCanonicalWorkflow(t *testing.T) {
 	resolver := ServiceResolver{
 		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{
 			"demo": {Name: "demo", WorkflowName: "workflow-1"},
@@ -214,8 +226,8 @@ func TestServiceResolverRejectsDirectWorkflowForNonSystemWorkspace(t *testing.T)
 		}},
 	}
 
-	if _, err := resolver.Resolve(context.Background(), "demo"); err == nil || !strings.Contains(err.Error(), "requires a system workspace") {
-		t.Fatalf("Resolve() error = %v, want system workspace error", err)
+	if _, err := resolver.Resolve(context.Background(), "demo"); err != nil {
+		t.Fatalf("Resolve() error = %v", err)
 	}
 }
 

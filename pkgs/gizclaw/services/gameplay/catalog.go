@@ -588,9 +588,6 @@ func validatePetDef(spec apitypes.PetDefSpec, i18n apitypes.PetDefI18nSpec) erro
 	if strings.TrimSpace(spec.Character.Prompt) == "" {
 		return errors.New("character.prompt is required")
 	}
-	if strings.TrimSpace(spec.Voice.VoiceId) == "" {
-		return errors.New("voice.voice_id is required")
-	}
 	if strings.TrimSpace(spec.Voice.Prompt) == "" {
 		return errors.New("voice.prompt is required")
 	}

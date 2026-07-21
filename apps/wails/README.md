@@ -42,7 +42,7 @@ scanning client generates its own identity and stores the credential securely.
 A new local Pod is returned as soon as its manifest and projections are
 persisted. The response carries an `initializing` state while a cancellable
 background task starts the Server, applies the embedded deploy-derived catalog,
-syncs Volc voices, uploads all Workflow and PetDef assets, and creates the
+syncs MiniMax and Volc voices, uploads all Workflow and PetDef assets, and creates the
 fixed `RegistrationToken/app:com.gizclaw.opensource`, which selects only
 `RuntimeProfile/default`. The embedded declarative catalog contains 43 resources
 and no Firmware or Workspace. A successful task clears the state; a failed task
@@ -51,12 +51,14 @@ deletable. Desktop startup removes a Pod left actively initializing after an
 interrupted creation, while failed Pods remain visible. Successful Pods never
 replay the full catalog during start, restart, or app upgrade. A legacy local
 Pod performs one targeted runtime-contract migration after its Server is ready:
-Desktop restarts a recovered legacy process with the current companion, applies
-only `RuntimeProfile/default`, creates a fresh
+Desktop restarts a recovered legacy process with the current companion, reapplies
+the bundled Workflows referenced by `RuntimeProfile/default` plus the
+Server-owned `chatroom` Workflow, replaces that Profile, creates a fresh
 `RegistrationToken/app:com.gizclaw.opensource`, retires the legacy
 `RegistrationToken/desktop-local`, and records the catalog version in `pod.json`.
 The default profile retains the legacy translation aliases needed by existing
-Workspaces. User-modified resources are otherwise preserved. Until this
+Workspaces. Unreferenced Workflows and other user-modified resources are otherwise
+preserved. Until this
 migration completes, Desktop suppresses the legacy QR credential; opening Play
 starts the current companion and completes migration before token handoff.
 A remote Pod has one `remote_access_point` and zero or more

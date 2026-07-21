@@ -12,6 +12,7 @@ import '../features/pet/pet_page.dart';
 import '../features/social/social_pages.dart';
 import '../giz_ui/giz_ui.dart';
 import '../l10n/l10n.dart';
+import '../workflows/app_workflow_catalog.dart';
 
 GoRouter createAppRouter({required MobileDataController dataController}) {
   final rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -63,6 +64,33 @@ GoRouter createAppRouter({required MobileDataController dataController}) {
           ),
         ],
       ),
+      GoRoute(
+        path: '/workspaces',
+        redirect: (_, state) =>
+            state.uri.path == '/workspaces' ? '/collections/assistants' : null,
+        routes: [
+          GoRoute(
+            path: ':workspaceName',
+            parentNavigatorKey: rootNavigatorKey,
+            pageBuilder: (context, state) {
+              final workspaceName = state.pathParameters['workspaceName']!;
+              final workspace = dataController.workspace(workspaceName);
+              final isChatroom =
+                  workspace.chatroomKind != null ||
+                  dataController.chatroomWorkspace(workspaceName) != null;
+              return _page(
+                state,
+                GlobalConversationOverlay(
+                  location: state.uri,
+                  child: isChatroom
+                      ? ChatroomWorkspacePage(workspaceName: workspaceName)
+                      : WorkspaceChatPage(workspaceName: workspaceName),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
           return AppShell(
@@ -81,42 +109,46 @@ GoRouter createAppRouter({required MobileDataController dataController}) {
               ),
             ],
           ),
-          StatefulShellBranch(
-            initialLocation: '/workspaces',
-            routes: [
-              GoRoute(
-                path: '/workspaces',
-                pageBuilder: (context, state) =>
-                    _page(state, const ChatsPage()),
-                routes: [
-                  GoRoute(
-                    path: ':workspaceName',
-                    parentNavigatorKey: rootNavigatorKey,
-                    pageBuilder: (context, state) {
-                      final workspaceName =
-                          state.pathParameters['workspaceName']!;
-                      final workspace = dataController.workspace(workspaceName);
-                      final isChatroom =
-                          workspace.chatroomKind != null ||
-                          dataController.chatroomWorkspace(workspaceName) !=
-                              null;
-                      return _page(
-                        state,
-                        GlobalConversationOverlay(
-                          location: state.uri,
-                          child: isChatroom
-                              ? ChatroomWorkspacePage(
-                                  workspaceName: workspaceName,
-                                )
-                              : WorkspaceChatPage(workspaceName: workspaceName),
-                        ),
-                      );
-                    },
+          for (final collection in appWorkflowCollections)
+            StatefulShellBranch(
+              initialLocation: '/collections/${collection.id}',
+              routes: [
+                GoRoute(
+                  path: '/collections/${collection.id}',
+                  pageBuilder: (context, state) => _page(
+                    state,
+                    CollectionWorkspacesPage(collection: collection.id),
                   ),
-                ],
-              ),
-            ],
-          ),
+                  routes: [
+                    GoRoute(
+                      path: 'new',
+                      parentNavigatorKey: rootNavigatorKey,
+                      pageBuilder: (context, state) => _page(
+                        state,
+                        WorkflowPickerPage(collection: collection.id),
+                      ),
+                    ),
+                    GoRoute(
+                      path: ':workspaceName',
+                      parentNavigatorKey: rootNavigatorKey,
+                      pageBuilder: (context, state) {
+                        final workspaceName =
+                            state.pathParameters['workspaceName']!;
+                        return _page(
+                          state,
+                          GlobalConversationOverlay(
+                            location: state.uri,
+                            child: WorkspaceChatPage(
+                              workspaceName: workspaceName,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
           StatefulShellBranch(
             routes: [
               GoRoute(

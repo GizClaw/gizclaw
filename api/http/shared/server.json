@@ -125,7 +125,8 @@
       "ServerRunSayRequest": {
         "type": "object",
         "required": [
-          "text"
+          "text",
+          "voice_alias"
         ],
         "additionalProperties": false,
         "properties": {
@@ -133,13 +134,7 @@
             "type": "string",
             "minLength": 1
           },
-          "voice_id": {
-            "type": "string"
-          },
-          "model_id": {
-            "type": "string"
-          },
-          "credential_name": {
+          "voice_alias": {
             "type": "string"
           }
         }
@@ -165,52 +160,10 @@
           "pending"
         ]
       },
-      "FirmwareListRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "cursor": {
-            "type": "string"
-          },
-          "limit": {
-            "type": "integer",
-            "minimum": 1
-          }
-        }
-      },
-      "FirmwareListResponse": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "../shared/firmware.json#/components/schemas/Firmware"
-            }
-          },
-          "has_next": {
-            "type": "boolean"
-          },
-          "next_cursor": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "items",
-          "has_next"
-        ]
-      },
       "FirmwareGetRequest": {
         "type": "object",
-        "required": [
-          "firmware_id"
-        ],
         "additionalProperties": false,
-        "properties": {
-          "firmware_id": {
-            "type": "string"
-          }
-        }
+        "properties": {}
       },
       "FirmwareGetResponse": {
         "$ref": "../shared/firmware.json#/components/schemas/Firmware"
@@ -228,8 +181,15 @@
           "limit": {
             "type": "integer",
             "minimum": 1
+          },
+          "collection": {
+            "type": "string",
+            "minLength": 1
           }
-        }
+        },
+        "required": [
+          "collection"
+        ]
       },
       "WorkspaceListResponse": {
         "type": "object",
@@ -416,12 +376,13 @@
             "type": "integer",
             "minimum": 1
           },
-          "source": {
-            "$ref": "#/components/schemas/ResourceSource"
+          "collection": {
+            "type": "string",
+            "minLength": 1
           }
         },
         "required": [
-          "source"
+          "collection"
         ]
       },
       "WorkflowListResponse": {
@@ -439,139 +400,87 @@
           },
           "next_cursor": {
             "type": "string"
+          },
+          "runtime_profile_name": {
+            "type": "string"
+          },
+          "runtime_profile_revision": {
+            "type": "string"
           }
         },
         "required": [
           "items",
-          "has_next"
+          "has_next",
+          "runtime_profile_name",
+          "runtime_profile_revision"
         ]
       },
       "WorkflowGetRequest": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "name": {
+          "alias": {
             "type": "string",
             "minLength": 1
-          },
-          "source": {
-            "$ref": "#/components/schemas/ResourceSource"
           }
         },
         "required": [
-          "name",
-          "source"
+          "alias"
         ]
       },
       "WorkflowGetResponse": {
-        "$ref": "#/components/schemas/Workflow"
-      },
-      "WorkflowCreateRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "source",
-          "body"
-        ],
         "properties": {
-          "source": {
-            "$ref": "#/components/schemas/ResourceSource"
+          "value": {
+            "$ref": "#/components/schemas/Workflow"
           },
-          "body": {
-            "$ref": "#/components/schemas/WorkflowUpsert"
+          "runtime_profile_name": {
+            "type": "string"
+          },
+          "runtime_profile_revision": {
+            "type": "string"
           }
-        }
-      },
-      "WorkflowCreateResponse": {
-        "$ref": "#/components/schemas/Workflow"
-      },
-      "WorkflowPutRequest": {
-        "type": "object",
-        "additionalProperties": false,
+        },
         "required": [
-          "name",
-          "source",
-          "body"
-        ],
-        "properties": {
-          "name": {
-            "type": "string",
-            "minLength": 1
-          },
-          "source": {
-            "$ref": "#/components/schemas/ResourceSource"
-          },
-          "body": {
-            "$ref": "#/components/schemas/WorkflowUpsert"
-          }
-        }
-      },
-      "WorkflowPutResponse": {
-        "$ref": "#/components/schemas/Workflow"
-      },
-      "WorkflowDeleteRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "name",
-          "source"
-        ],
-        "properties": {
-          "name": {
-            "type": "string",
-            "minLength": 1
-          },
-          "source": {
-            "$ref": "#/components/schemas/ResourceSource"
-          }
-        }
-      },
-      "WorkflowDeleteResponse": {
-        "$ref": "#/components/schemas/Workflow"
-      },
-      "WorkflowUpsert": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "name",
-          "spec"
-        ],
-        "properties": {
-          "name": {
-            "type": "string",
-            "minLength": 1
-          },
-          "spec": {
-            "$ref": "../shared/workflow_spec.json#/components/schemas/WorkflowSpec"
-          }
-        }
+          "value",
+          "runtime_profile_name",
+          "runtime_profile_revision"
+        ]
       },
       "Workflow": {
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "name",
-          "spec"
+          "alias",
+          "collection",
+          "driver",
+          "i18n"
         ],
         "properties": {
-          "name": {
+          "alias": {
             "type": "string",
             "minLength": 1
           },
-          "spec": {
-            "$ref": "../shared/workflow_spec.json#/components/schemas/WorkflowSpec"
-          },
-          "owner_public_key": {
+          "collection": {
             "type": "string"
+          },
+          "driver": {
+            "$ref": "../shared/workflow_spec.json#/components/schemas/WorkflowDriver"
+          },
+          "i18n": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/AliasI18nText"
+            }
           }
         }
       },
-      "ResourceSource": {
-        "type": "string",
-        "enum": [
-          "runtime",
-          "owned"
-        ]
+      "AliasI18nText": {
+        "type": "object",
+        "required": ["display_name"],
+        "properties": {
+          "display_name": {"type": "string"},
+          "description": {"type": "string"}
+        }
       },
       "ModelListRequest": {
         "type": "object",
@@ -1609,15 +1518,11 @@
       "FirmwareFilesDownloadRequest": {
         "type": "object",
         "required": [
-          "firmware_id",
           "channel",
           "path"
         ],
         "additionalProperties": false,
         "properties": {
-          "firmware_id": {
-            "type": "string"
-          },
           "channel": {
             "$ref": "#/components/schemas/FirmwareChannelName"
           },

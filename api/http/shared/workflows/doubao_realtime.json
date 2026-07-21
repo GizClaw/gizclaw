@@ -356,7 +356,7 @@
         "properties": {
           "model": {
             "type": "string",
-            "description": "GizClaw Model resource name. The upstream Doubao model version is configured on Model provider_data.upstream_model."
+            "description": "RuntimeProfile realtime Model alias. The canonical Model and upstream version are resolved on Workspace reload."
           },
           "instructions": {
             "type": "string"

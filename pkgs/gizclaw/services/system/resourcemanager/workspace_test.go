@@ -82,6 +82,48 @@ func TestWorkspaceResourceRoundTripsToolkitPolicy(t *testing.T) {
 	}
 }
 
+func TestWorkspaceResourceRoundTripsLabelsAndDetectsLabelOnlyUpdate(t *testing.T) {
+	labels := map[string]string{"collection": "raids", "tier": "gold"}
+	workspaces := newFakeWorkspaces()
+	workspaces.items["demo"] = apitypes.Workspace{
+		CreatedAt:    time.Now().UTC(),
+		Labels:       &labels,
+		Name:         "demo",
+		UpdatedAt:    time.Now().UTC(),
+		WorkflowName: "workflow",
+	}
+	manager := New(Services{Workspaces: workspaces})
+
+	resource, err := manager.Get(context.Background(), apitypes.ResourceKindWorkspace, "demo")
+	if err != nil {
+		t.Fatalf("Get() error = %v", err)
+	}
+	got, err := resource.AsWorkspaceResource()
+	if err != nil {
+		t.Fatalf("AsWorkspaceResource() error = %v", err)
+	}
+	if got.Metadata.Labels == nil || (*got.Metadata.Labels)["collection"] != "raids" {
+		t.Fatalf("resource labels = %#v", got.Metadata.Labels)
+	}
+
+	result, err := manager.Apply(context.Background(), mustResource(t, `{
+		"apiVersion": "gizclaw.admin/v1alpha1",
+		"kind": "Workspace",
+		"metadata": {"name": "demo", "labels": {"collection": "story-teller", "tier": "gold"}},
+		"spec": {"workflow_name": "workflow"}
+	}`))
+	if err != nil {
+		t.Fatalf("Apply() error = %v", err)
+	}
+	if result.Action != apitypes.ApplyActionUpdated || workspaces.putCount != 1 {
+		t.Fatalf("Apply() = %#v, putCount = %d", result, workspaces.putCount)
+	}
+	stored := workspaces.items["demo"].Labels
+	if stored == nil || (*stored)["collection"] != "story-teller" {
+		t.Fatalf("stored labels = %#v", stored)
+	}
+}
+
 func TestGetWorkspaceReturnsResource(t *testing.T) {
 	workspaces := newFakeWorkspaces()
 	workspaces.items["demo"] = apitypes.Workspace{
@@ -343,12 +385,16 @@ func (f *fakeWorkspaces) PutWorkspace(_ context.Context, request adminhttp.PutWo
 	item := apitypes.Workspace{
 		CreatedAt:    now,
 		Icon:         previous.Icon,
+		Labels:       body.Labels,
 		Name:         body.Name,
 		Parameters:   body.Parameters,
 		System:       new(false),
 		Toolkit:      body.Toolkit,
 		UpdatedAt:    now,
 		WorkflowName: body.WorkflowName,
+	}
+	if body.Labels == nil {
+		item.Labels = previous.Labels
 	}
 	f.items[string(request.Name)] = item
 	return adminhttp.PutWorkspace200JSONResponse(item), nil

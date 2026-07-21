@@ -20,24 +20,6 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
-// Defines values for WorkspaceUpsertWorkflowSource.
-const (
-	Owned   WorkspaceUpsertWorkflowSource = "owned"
-	Runtime WorkspaceUpsertWorkflowSource = "runtime"
-)
-
-// Valid indicates whether the value is a known member of the WorkspaceUpsertWorkflowSource enum.
-func (e WorkspaceUpsertWorkflowSource) Valid() bool {
-	switch e {
-	case Owned:
-		return true
-	case Runtime:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for DeleteFirmwareArtifactParamsChannel.
 const (
 	DeleteFirmwareArtifactParamsChannelBeta    DeleteFirmwareArtifactParamsChannel = "beta"
@@ -627,8 +609,10 @@ type RegistrationTokenList struct {
 
 // RegistrationTokenUpsert defines model for RegistrationTokenUpsert.
 type RegistrationTokenUpsert struct {
-	Name               string `json:"name"`
-	RuntimeProfileName string `json:"runtime_profile_name"`
+	// FirmwareId Optional Server-assigned Firmware release-line ID. The device selects its own channel.
+	FirmwareId         *string `json:"firmware_id,omitempty"`
+	Name               string  `json:"name"`
+	RuntimeProfileName string  `json:"runtime_profile_name"`
 }
 
 // RuntimeProfileList defines model for RuntimeProfileList.
@@ -708,19 +692,18 @@ type WorkspaceList struct {
 // WorkspaceUpsert defines model for WorkspaceUpsert.
 type WorkspaceUpsert struct {
 	Icon *externalRef0.Icon `json:"icon,omitempty"`
-	Name string             `json:"name"`
+
+	// Labels Stored Workspace labels. Omission preserves labels on put; an explicit empty object clears them.
+	Labels *map[string]string `json:"labels,omitempty"`
+	Name   string             `json:"name"`
 
 	// Parameters Agent-specific workspace parameters. The shape is selected by agent_type.
 	Parameters *externalRef0.WorkspaceParameters `json:"parameters,omitempty"`
 
 	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
-	Toolkit        *externalRef0.ToolkitPolicy    `json:"toolkit,omitempty"`
-	WorkflowName   string                         `json:"workflow_name"`
-	WorkflowSource *WorkspaceUpsertWorkflowSource `json:"workflow_source,omitempty"`
+	Toolkit      *externalRef0.ToolkitPolicy `json:"toolkit,omitempty"`
+	WorkflowName string                      `json:"workflow_name"`
 }
-
-// WorkspaceUpsertWorkflowSource defines model for WorkspaceUpsert.WorkflowSource.
-type WorkspaceUpsertWorkflowSource string
 
 // ModelProviderKind Provider resource kind usable by model runtime.
 type ModelProviderKind = externalRef0.ModelProviderKind
@@ -1128,6 +1111,9 @@ type ListWorkspacesParams struct {
 
 	// Limit Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
 	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Label Repeated exact-match selector in key=value form. Multiple selectors use AND semantics and filtering occurs before pagination.
+	Label *[]string `form:"label,omitempty" json:"label,omitempty"`
 }
 
 // ListWorkspaceHistoryParams defines parameters for ListWorkspaceHistory.
@@ -11411,6 +11397,22 @@ func NewListWorkspacesRequest(server string, params *ListWorkspacesParams) (*htt
 
 		}
 
+		if params.Label != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "label", *params.Label, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
 		queryURL.RawQuery = queryValues.Encode()
 	}
 
@@ -16076,6 +16078,7 @@ type ListWorkspacesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *WorkspaceList
+	JSON400      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -24337,6 +24340,13 @@ func ParseListWorkspacesResponse(rsp *http.Response) (*ListWorkspacesResponse, e
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -28500,6 +28510,13 @@ func (siw *ServerInterfaceWrapper) ListWorkspaces(c *fiber.Ctx) error {
 	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", query, &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter limit: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "label" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "label", query, &params.Label, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter label: %w", err).Error())
 	}
 
 	return siw.Handler.ListWorkspaces(c, params)
@@ -34815,6 +34832,15 @@ type ListWorkspaces200JSONResponse WorkspaceList
 func (response ListWorkspaces200JSONResponse) VisitListWorkspacesResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type ListWorkspaces400JSONResponse externalRef0.ErrorResponse
+
+func (response ListWorkspaces400JSONResponse) VisitListWorkspacesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
 
 	return ctx.JSON(&response)
 }

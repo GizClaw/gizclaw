@@ -976,48 +976,15 @@ final $typed_data.Uint8List serverReloadRunWorkspaceResponseDescriptor =
 const ServerRunSayRequest$json = {
   '1': 'ServerRunSayRequest',
   '2': [
-    {
-      '1': 'credential_name',
-      '3': 1,
-      '4': 1,
-      '5': 9,
-      '9': 0,
-      '10': 'credentialName',
-      '17': true
-    },
-    {
-      '1': 'model_id',
-      '3': 2,
-      '4': 1,
-      '5': 9,
-      '9': 1,
-      '10': 'modelId',
-      '17': true
-    },
-    {'1': 'text', '3': 3, '4': 1, '5': 9, '10': 'text'},
-    {
-      '1': 'voice_id',
-      '3': 4,
-      '4': 1,
-      '5': 9,
-      '9': 2,
-      '10': 'voiceId',
-      '17': true
-    },
-  ],
-  '8': [
-    {'1': '_credential_name'},
-    {'1': '_model_id'},
-    {'1': '_voice_id'},
+    {'1': 'text', '3': 1, '4': 1, '5': 9, '10': 'text'},
+    {'1': 'voice_alias', '3': 2, '4': 1, '5': 9, '10': 'voiceAlias'},
   ],
 };
 
 /// Descriptor for `ServerRunSayRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List serverRunSayRequestDescriptor = $convert.base64Decode(
-    'ChNTZXJ2ZXJSdW5TYXlSZXF1ZXN0EiwKD2NyZWRlbnRpYWxfbmFtZRgBIAEoCUgAUg5jcmVkZW'
-    '50aWFsTmFtZYgBARIeCghtb2RlbF9pZBgCIAEoCUgBUgdtb2RlbElkiAEBEhIKBHRleHQYAyAB'
-    'KAlSBHRleHQSHgoIdm9pY2VfaWQYBCABKAlIAlIHdm9pY2VJZIgBAUISChBfY3JlZGVudGlhbF'
-    '9uYW1lQgsKCV9tb2RlbF9pZEILCglfdm9pY2VfaWQ=');
+    'ChNTZXJ2ZXJSdW5TYXlSZXF1ZXN0EhIKBHRleHQYASABKAlSBHRleHQSHwoLdm9pY2VfYWxpYX'
+    'MYAiABKAlSCnZvaWNlQWxpYXM=');
 
 @$core.Deprecated('Use serverRunSayResponseDescriptor instead')
 const ServerRunSayResponse$json = {
@@ -1205,7 +1172,7 @@ const Workspace$json = {
       '17': true
     },
     {'1': 'updated_at', '3': 5, '4': 1, '5': 9, '10': 'updatedAt'},
-    {'1': 'workflow_name', '3': 6, '4': 1, '5': 9, '10': 'workflowName'},
+    {'1': 'workflow_alias', '3': 6, '4': 1, '5': 9, '10': 'workflowAlias'},
     {
       '1': 'toolkit',
       '3': 7,
@@ -1236,23 +1203,13 @@ const Workspace$json = {
       '10': 'ownerPublicKey',
       '17': true
     },
-    {
-      '1': 'workflow_source',
-      '3': 11,
-      '4': 1,
-      '5': 14,
-      '6': '.gizclaw.rpc.v1.ResourceSource',
-      '9': 4,
-      '10': 'workflowSource',
-      '17': true
-    },
+    {'1': 'available', '3': 11, '4': 1, '5': 8, '10': 'available'},
   ],
   '8': [
     {'1': '_parameters'},
     {'1': '_toolkit'},
     {'1': '_icon'},
     {'1': '_owner_public_key'},
-    {'1': '_workflow_source'},
   ],
 };
 
@@ -1261,20 +1218,60 @@ final $typed_data.Uint8List workspaceDescriptor = $convert.base64Decode(
     'CglXb3Jrc3BhY2USHQoKY3JlYXRlZF9hdBgBIAEoCVIJY3JlYXRlZEF0EiQKDmxhc3RfYWN0aX'
     'ZlX2F0GAIgASgJUgxsYXN0QWN0aXZlQXQSEgoEbmFtZRgDIAEoCVIEbmFtZRJICgpwYXJhbWV0'
     'ZXJzGAQgASgLMiMuZ2l6Y2xhdy5ycGMudjEuV29ya3NwYWNlUGFyYW1ldGVyc0gAUgpwYXJhbW'
-    'V0ZXJziAEBEh0KCnVwZGF0ZWRfYXQYBSABKAlSCXVwZGF0ZWRBdBIjCg13b3JrZmxvd19uYW1l'
-    'GAYgASgJUgx3b3JrZmxvd05hbWUSPAoHdG9vbGtpdBgHIAEoCzIdLmdpemNsYXcucnBjLnYxLl'
-    'Rvb2xraXRQb2xpY3lIAVIHdG9vbGtpdIgBARIWCgZzeXN0ZW0YCCABKAhSBnN5c3RlbRItCgRp'
-    'Y29uGAkgASgLMhQuZ2l6Y2xhdy5ycGMudjEuSWNvbkgCUgRpY29uiAEBEi0KEG93bmVyX3B1Ym'
-    'xpY19rZXkYCiABKAlIA1IOb3duZXJQdWJsaWNLZXmIAQESTAoPd29ya2Zsb3dfc291cmNlGAsg'
-    'ASgOMh4uZ2l6Y2xhdy5ycGMudjEuUmVzb3VyY2VTb3VyY2VIBFIOd29ya2Zsb3dTb3VyY2WIAQ'
-    'FCDQoLX3BhcmFtZXRlcnNCCgoIX3Rvb2xraXRCBwoFX2ljb25CEwoRX293bmVyX3B1YmxpY19r'
-    'ZXlCEgoQX3dvcmtmbG93X3NvdXJjZQ==');
+    'V0ZXJziAEBEh0KCnVwZGF0ZWRfYXQYBSABKAlSCXVwZGF0ZWRBdBIlCg53b3JrZmxvd19hbGlh'
+    'cxgGIAEoCVINd29ya2Zsb3dBbGlhcxI8Cgd0b29sa2l0GAcgASgLMh0uZ2l6Y2xhdy5ycGMudj'
+    'EuVG9vbGtpdFBvbGljeUgBUgd0b29sa2l0iAEBEhYKBnN5c3RlbRgIIAEoCFIGc3lzdGVtEi0K'
+    'BGljb24YCSABKAsyFC5naXpjbGF3LnJwYy52MS5JY29uSAJSBGljb26IAQESLQoQb3duZXJfcH'
+    'VibGljX2tleRgKIAEoCUgDUg5vd25lclB1YmxpY0tleYgBARIcCglhdmFpbGFibGUYCyABKAhS'
+    'CWF2YWlsYWJsZUINCgtfcGFyYW1ldGVyc0IKCghfdG9vbGtpdEIHCgVfaWNvbkITChFfb3duZX'
+    'JfcHVibGljX2tleQ==');
 
-@$core.Deprecated('Use workspaceUpsertDescriptor instead')
-const WorkspaceUpsert$json = {
-  '1': 'WorkspaceUpsert',
+@$core.Deprecated('Use workspaceCreateBodyDescriptor instead')
+const WorkspaceCreateBody$json = {
+  '1': 'WorkspaceCreateBody',
   '2': [
-    {'1': 'name', '3': 3, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
+    {
+      '1': 'parameters',
+      '3': 2,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.WorkspaceParameters',
+      '9': 0,
+      '10': 'parameters',
+      '17': true
+    },
+    {'1': 'workflow_alias', '3': 3, '4': 1, '5': 9, '10': 'workflowAlias'},
+    {
+      '1': 'toolkit',
+      '3': 4,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.ToolkitPolicy',
+      '9': 1,
+      '10': 'toolkit',
+      '17': true
+    },
+    {'1': 'collection', '3': 5, '4': 1, '5': 9, '10': 'collection'},
+  ],
+  '8': [
+    {'1': '_parameters'},
+    {'1': '_toolkit'},
+  ],
+};
+
+/// Descriptor for `WorkspaceCreateBody`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List workspaceCreateBodyDescriptor = $convert.base64Decode(
+    'ChNXb3Jrc3BhY2VDcmVhdGVCb2R5EhIKBG5hbWUYASABKAlSBG5hbWUSSAoKcGFyYW1ldGVycx'
+    'gCIAEoCzIjLmdpemNsYXcucnBjLnYxLldvcmtzcGFjZVBhcmFtZXRlcnNIAFIKcGFyYW1ldGVy'
+    'c4gBARIlCg53b3JrZmxvd19hbGlhcxgDIAEoCVINd29ya2Zsb3dBbGlhcxI8Cgd0b29sa2l0GA'
+    'QgASgLMh0uZ2l6Y2xhdy5ycGMudjEuVG9vbGtpdFBvbGljeUgBUgd0b29sa2l0iAEBEh4KCmNv'
+    'bGxlY3Rpb24YBSABKAlSCmNvbGxlY3Rpb25CDQoLX3BhcmFtZXRlcnNCCgoIX3Rvb2xraXQ=');
+
+@$core.Deprecated('Use workspacePutBodyDescriptor instead')
+const WorkspacePutBody$json = {
+  '1': 'WorkspacePutBody',
+  '2': [
     {
       '1': 'parameters',
       '3': 4,
@@ -1285,7 +1282,6 @@ const WorkspaceUpsert$json = {
       '10': 'parameters',
       '17': true
     },
-    {'1': 'workflow_name', '3': 6, '4': 1, '5': 9, '10': 'workflowName'},
     {
       '1': 'toolkit',
       '3': 7,
@@ -1296,33 +1292,19 @@ const WorkspaceUpsert$json = {
       '10': 'toolkit',
       '17': true
     },
-    {
-      '1': 'workflow_source',
-      '3': 11,
-      '4': 1,
-      '5': 14,
-      '6': '.gizclaw.rpc.v1.ResourceSource',
-      '9': 2,
-      '10': 'workflowSource',
-      '17': true
-    },
   ],
   '8': [
     {'1': '_parameters'},
     {'1': '_toolkit'},
-    {'1': '_workflow_source'},
   ],
 };
 
-/// Descriptor for `WorkspaceUpsert`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List workspaceUpsertDescriptor = $convert.base64Decode(
-    'Cg9Xb3Jrc3BhY2VVcHNlcnQSEgoEbmFtZRgDIAEoCVIEbmFtZRJICgpwYXJhbWV0ZXJzGAQgAS'
-    'gLMiMuZ2l6Y2xhdy5ycGMudjEuV29ya3NwYWNlUGFyYW1ldGVyc0gAUgpwYXJhbWV0ZXJziAEB'
-    'EiMKDXdvcmtmbG93X25hbWUYBiABKAlSDHdvcmtmbG93TmFtZRI8Cgd0b29sa2l0GAcgASgLMh'
-    '0uZ2l6Y2xhdy5ycGMudjEuVG9vbGtpdFBvbGljeUgBUgd0b29sa2l0iAEBEkwKD3dvcmtmbG93'
-    'X3NvdXJjZRgLIAEoDjIeLmdpemNsYXcucnBjLnYxLlJlc291cmNlU291cmNlSAJSDndvcmtmbG'
-    '93U291cmNliAEBQg0KC19wYXJhbWV0ZXJzQgoKCF90b29sa2l0QhIKEF93b3JrZmxvd19zb3Vy'
-    'Y2U=');
+/// Descriptor for `WorkspacePutBody`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List workspacePutBodyDescriptor = $convert.base64Decode(
+    'ChBXb3Jrc3BhY2VQdXRCb2R5EkgKCnBhcmFtZXRlcnMYBCABKAsyIy5naXpjbGF3LnJwYy52MS'
+    '5Xb3Jrc3BhY2VQYXJhbWV0ZXJzSABSCnBhcmFtZXRlcnOIAQESPAoHdG9vbGtpdBgHIAEoCzId'
+    'LmdpemNsYXcucnBjLnYxLlRvb2xraXRQb2xpY3lIAVIHdG9vbGtpdIgBAUINCgtfcGFyYW1ldG'
+    'Vyc0IKCghfdG9vbGtpdA==');
 
 @$core.Deprecated('Use workspaceIconDownloadRequestDescriptor instead')
 const WorkspaceIconDownloadRequest$json = {
@@ -1379,7 +1361,7 @@ const WorkspaceCreateRequest$json = {
       '3': 1,
       '4': 1,
       '5': 11,
-      '6': '.gizclaw.rpc.v1.WorkspaceUpsert',
+      '6': '.gizclaw.rpc.v1.WorkspaceCreateBody',
       '10': 'value'
     },
   ],
@@ -1388,8 +1370,8 @@ const WorkspaceCreateRequest$json = {
 /// Descriptor for `WorkspaceCreateRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List workspaceCreateRequestDescriptor =
     $convert.base64Decode(
-        'ChZXb3Jrc3BhY2VDcmVhdGVSZXF1ZXN0EjUKBXZhbHVlGAEgASgLMh8uZ2l6Y2xhdy5ycGMudj'
-        'EuV29ya3NwYWNlVXBzZXJ0UgV2YWx1ZQ==');
+        'ChZXb3Jrc3BhY2VDcmVhdGVSZXF1ZXN0EjkKBXZhbHVlGAEgASgLMiMuZ2l6Y2xhdy5ycGMudj'
+        'EuV29ya3NwYWNlQ3JlYXRlQm9keVIFdmFsdWU=');
 
 @$core.Deprecated('Use workspaceCreateResponseDescriptor instead')
 const WorkspaceCreateResponse$json = {
@@ -1470,13 +1452,29 @@ const WorkspaceGetResponse$json = {
       '6': '.gizclaw.rpc.v1.Workspace',
       '10': 'value'
     },
+    {
+      '1': 'runtime_profile_name',
+      '3': 2,
+      '4': 1,
+      '5': 9,
+      '10': 'runtimeProfileName'
+    },
+    {
+      '1': 'runtime_profile_revision',
+      '3': 3,
+      '4': 1,
+      '5': 9,
+      '10': 'runtimeProfileRevision'
+    },
   ],
 };
 
 /// Descriptor for `WorkspaceGetResponse`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List workspaceGetResponseDescriptor = $convert.base64Decode(
     'ChRXb3Jrc3BhY2VHZXRSZXNwb25zZRIvCgV2YWx1ZRgBIAEoCzIZLmdpemNsYXcucnBjLnYxLl'
-    'dvcmtzcGFjZVIFdmFsdWU=');
+    'dvcmtzcGFjZVIFdmFsdWUSMAoUcnVudGltZV9wcm9maWxlX25hbWUYAiABKAlSEnJ1bnRpbWVQ'
+    'cm9maWxlTmFtZRI4ChhydW50aW1lX3Byb2ZpbGVfcmV2aXNpb24YAyABKAlSFnJ1bnRpbWVQcm'
+    '9maWxlUmV2aXNpb24=');
 
 @$core.Deprecated('Use workspaceHistoryAudioGetRequestDescriptor instead')
 const WorkspaceHistoryAudioGetRequest$json = {
@@ -1608,6 +1606,7 @@ const WorkspaceListRequest$json = {
     {'1': 'cursor', '3': 1, '4': 1, '5': 9, '9': 0, '10': 'cursor', '17': true},
     {'1': 'limit', '3': 2, '4': 1, '5': 3, '9': 1, '10': 'limit', '17': true},
     {'1': 'prefix', '3': 3, '4': 1, '5': 9, '9': 2, '10': 'prefix', '17': true},
+    {'1': 'collection', '3': 4, '4': 1, '5': 9, '10': 'collection'},
   ],
   '8': [
     {'1': '_cursor'},
@@ -1619,8 +1618,9 @@ const WorkspaceListRequest$json = {
 /// Descriptor for `WorkspaceListRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List workspaceListRequestDescriptor = $convert.base64Decode(
     'ChRXb3Jrc3BhY2VMaXN0UmVxdWVzdBIbCgZjdXJzb3IYASABKAlIAFIGY3Vyc29yiAEBEhkKBW'
-    'xpbWl0GAIgASgDSAFSBWxpbWl0iAEBEhsKBnByZWZpeBgDIAEoCUgCUgZwcmVmaXiIAQFCCQoH'
-    'X2N1cnNvckIICgZfbGltaXRCCQoHX3ByZWZpeA==');
+    'xpbWl0GAIgASgDSAFSBWxpbWl0iAEBEhsKBnByZWZpeBgDIAEoCUgCUgZwcmVmaXiIAQESHgoK'
+    'Y29sbGVjdGlvbhgEIAEoCVIKY29sbGVjdGlvbkIJCgdfY3Vyc29yQggKBl9saW1pdEIJCgdfcH'
+    'JlZml4');
 
 @$core.Deprecated('Use workspaceListResponseDescriptor instead')
 const WorkspaceListResponse$json = {
@@ -1644,6 +1644,20 @@ const WorkspaceListResponse$json = {
       '10': 'nextCursor',
       '17': true
     },
+    {
+      '1': 'runtime_profile_name',
+      '3': 4,
+      '4': 1,
+      '5': 9,
+      '10': 'runtimeProfileName'
+    },
+    {
+      '1': 'runtime_profile_revision',
+      '3': 5,
+      '4': 1,
+      '5': 9,
+      '10': 'runtimeProfileRevision'
+    },
   ],
   '8': [
     {'1': '_next_cursor'},
@@ -1654,7 +1668,9 @@ const WorkspaceListResponse$json = {
 final $typed_data.Uint8List workspaceListResponseDescriptor = $convert.base64Decode(
     'ChVXb3Jrc3BhY2VMaXN0UmVzcG9uc2USGQoIaGFzX25leHQYASABKAhSB2hhc05leHQSLwoFaX'
     'RlbXMYAiADKAsyGS5naXpjbGF3LnJwYy52MS5Xb3Jrc3BhY2VSBWl0ZW1zEiQKC25leHRfY3Vy'
-    'c29yGAMgASgJSABSCm5leHRDdXJzb3KIAQFCDgoMX25leHRfY3Vyc29y');
+    'c29yGAMgASgJSABSCm5leHRDdXJzb3KIAQESMAoUcnVudGltZV9wcm9maWxlX25hbWUYBCABKA'
+    'lSEnJ1bnRpbWVQcm9maWxlTmFtZRI4ChhydW50aW1lX3Byb2ZpbGVfcmV2aXNpb24YBSABKAlS'
+    'FnJ1bnRpbWVQcm9maWxlUmV2aXNpb25CDgoMX25leHRfY3Vyc29y');
 
 @$core.Deprecated('Use workspaceParametersDescriptor instead')
 const WorkspaceParameters$json = {
@@ -1735,7 +1751,7 @@ const WorkspacePutRequest$json = {
       '3': 1,
       '4': 1,
       '5': 11,
-      '6': '.gizclaw.rpc.v1.WorkspaceUpsert',
+      '6': '.gizclaw.rpc.v1.WorkspacePutBody',
       '10': 'body'
     },
     {'1': 'name', '3': 2, '4': 1, '5': 9, '10': 'name'},
@@ -1744,8 +1760,8 @@ const WorkspacePutRequest$json = {
 
 /// Descriptor for `WorkspacePutRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List workspacePutRequestDescriptor = $convert.base64Decode(
-    'ChNXb3Jrc3BhY2VQdXRSZXF1ZXN0EjMKBGJvZHkYASABKAsyHy5naXpjbGF3LnJwYy52MS5Xb3'
-    'Jrc3BhY2VVcHNlcnRSBGJvZHkSEgoEbmFtZRgCIAEoCVIEbmFtZQ==');
+    'ChNXb3Jrc3BhY2VQdXRSZXF1ZXN0EjQKBGJvZHkYASABKAsyIC5naXpjbGF3LnJwYy52MS5Xb3'
+    'Jrc3BhY2VQdXRCb2R5UgRib2R5EhIKBG5hbWUYAiABKAlSBG5hbWU=');
 
 @$core.Deprecated('Use workspacePutResponseDescriptor instead')
 const WorkspacePutResponse$json = {

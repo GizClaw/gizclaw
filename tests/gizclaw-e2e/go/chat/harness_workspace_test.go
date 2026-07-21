@@ -711,7 +711,7 @@ func TestEnsureWorkspaceRequiresSetupWorkflowAndRecreatesWorkspace(t *testing.T)
 	if err != nil {
 		t.Fatalf("ensureWorkspace() error = %v", err)
 	}
-	if control.getWorkflow.Name != "workflow-a" {
+	if control.getWorkflow.Alias != "workflow-a" {
 		t.Fatalf("get workflow = %+v", control.getWorkflow)
 	}
 	if !control.stopped {
@@ -723,7 +723,7 @@ func TestEnsureWorkspaceRequiresSetupWorkflowAndRecreatesWorkspace(t *testing.T)
 	if ensured.Workflow.Name != "workflow-a" {
 		t.Fatalf("ensured workflow name = %q", ensured.Workflow.Name)
 	}
-	if control.createdWorkspace.Name != "workspace-a" || control.createdWorkspace.WorkflowName != "workflow-a" {
+	if control.createdWorkspace.Name != "workspace-a" || control.createdWorkspace.WorkflowAlias != "workflow-a" || control.createdWorkspace.Collection != "assistants" {
 		t.Fatalf("created workspace = %+v", control.createdWorkspace)
 	}
 	if ensured.Workspace != "workspace-a" {
@@ -774,13 +774,13 @@ func TestEnsureWorkspaceAlwaysRecreatesWorkspace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ensureWorkspace() error = %v", err)
 	}
-	if control.getWorkflow.Name != "workflow-a" {
+	if control.getWorkflow.Alias != "workflow-a" {
 		t.Fatalf("get workflow = %+v", control.getWorkflow)
 	}
 	if control.deletedWorkspace != "workspace-a" {
 		t.Fatalf("deleted workspace = %q", control.deletedWorkspace)
 	}
-	if control.createdWorkspace.Name != "workspace-a" || control.createdWorkspace.WorkflowName != "workflow-a" {
+	if control.createdWorkspace.Name != "workspace-a" || control.createdWorkspace.WorkflowAlias != "workflow-a" || control.createdWorkspace.Collection != "assistants" {
 		t.Fatalf("created workspace = %+v", control.createdWorkspace)
 	}
 	if ensured.Workflow.Name != "workflow-a" || ensured.Workspace != "workspace-a" {
@@ -1234,7 +1234,7 @@ func (f *fakeRunControl) GetWorkflow(_ context.Context, _ string, request rpcapi
 		return f.workflow, nil
 	}
 	return &rpcapi.WorkflowGetResponse{
-		Name: request.Name,
+		Value: rpcapi.Workflow{Alias: request.Alias, Collection: "assistants"},
 	}, nil
 }
 
@@ -1244,10 +1244,11 @@ func (f *fakeRunControl) CreateWorkspace(_ context.Context, _ string, request rp
 		return nil, f.createWorkspaceErr
 	}
 	return &rpcapi.WorkspaceCreateResponse{
-		Name:         request.Name,
-		Parameters:   request.Parameters,
-		Toolkit:      request.Toolkit,
-		WorkflowName: request.WorkflowName,
+		Name:          request.Name,
+		Parameters:    request.Parameters,
+		Toolkit:       request.Toolkit,
+		WorkflowAlias: request.WorkflowAlias,
+		Available:     true,
 	}, nil
 }
 
@@ -1273,10 +1274,9 @@ func (f *fakeRunControl) PutWorkspace(_ context.Context, _ string, request rpcap
 		return nil, f.putWorkspaceErr
 	}
 	return &rpcapi.WorkspacePutResponse{
-		Name:         request.Body.Name,
-		Parameters:   request.Body.Parameters,
-		Toolkit:      request.Body.Toolkit,
-		WorkflowName: request.Body.WorkflowName,
+		Name:       request.Name,
+		Parameters: request.Body.Parameters,
+		Toolkit:    request.Body.Toolkit,
 	}, nil
 }
 

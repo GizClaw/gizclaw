@@ -30,12 +30,9 @@ Language preferences are held and persisted by the app itself, supporting "follo
 The language selector must also be able to be opened when the server is not configured. When following the system, only English and Simplified Chinese are mapped as
 Supported locales; Traditional Chinese and other unsupported languages fall back to English.
 
-The currently valid locale determines both the UI and workflow RPC locale: English must be passed explicitly
-`WORKFLOW_LOCALE_EN`, Simplified Chinese must be passed explicitly `WORKFLOW_LOCALE_ZH_CN`, and cannot be omitted or
-Pass `WORKFLOW_LOCALE_UNSPECIFIED`. Switching languages refreshes the workflow catalog; in Drift
-Localized workflow data must be recorded in the corresponding locale, and old caches that do not match the locale are ignored when reading.
-And fallback with stable `Workflow.name`. Asynchronous refresh must also verify the locale generation before writing to the cache.
-Prevent earlier requests from overwriting the switched language.
+The App owns the fixed Workflow Collections `assistants`, `translates`, `raids`, `story-teller`, and `role-play`, including their navigation labels, ordering, and icons. It requests each Collection explicitly and projects the RuntimeProfile-provided alias i18n for the current locale, with English and then the stable alias as fallback. RuntimeProfile does not translate the Collection or Profile itself.
+
+Catalog refresh reconciles all five Collection snapshots atomically and rejects mixed RuntimeProfile revisions or duplicate aliases. Selecting a Workflow creates a new Workspace with its `collection` and `workflow_alias`, then enters it directly. The UI does not ask the user to choose a concrete Model or Voice; Workspace reload resolves current RuntimeProfile aliases. A Workspace whose alias is missing remains listed but is shown unavailable.
 
 The Android application name and locale declaration are placed at `android/app/src/main/res`, and the iOS application name and
 The permission description is placed at `Runner/*lproj/InfoPlist.strings`. Flutter and Android must be synchronized when adding a new language

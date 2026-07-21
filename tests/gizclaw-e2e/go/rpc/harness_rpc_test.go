@@ -140,17 +140,28 @@ func registerSetupPeer(t *testing.T, h *clitest.Harness, contextName, serial str
 }
 
 func sharedRuntimeProfileSpec() apitypes.RuntimeProfileSpec {
-	workflows := map[string]string{
-		"shared":   sharedWorkflow,
-		"chatroom": sharedChatroomWorkflow,
-		"mutation": mutationWorkflow,
+	workflows := apitypes.RuntimeProfileWorkflowCollections{
+		"assistants": {
+			"shared":   e2eRuntimeBinding(sharedWorkflow),
+			"chatroom": e2eRuntimeBinding(sharedChatroomWorkflow),
+			"mutation": e2eRuntimeBinding(mutationWorkflow),
+		},
 	}
-	models := map[string]string{
-		"shared":       sharedModel,
-		"reward-claim": "reward-claim",
-		"pet-action":   "pet-action",
+	models := map[string]apitypes.RuntimeProfileBinding{
+		"chat":         e2eRuntimeBinding(sharedModel),
+		"reward-claim": e2eRuntimeBinding("reward-claim"),
+		"pet-action":   e2eRuntimeBinding("pet-action"),
 	}
-	return apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{Workflows: &workflows, Models: &models}}
+	return apitypes.RuntimeProfileSpec{
+		Workflows: apitypes.RuntimeProfileWorkflows{Collections: workflows},
+		Resources: apitypes.RuntimeProfileResources{Models: &models},
+	}
+}
+
+func e2eRuntimeBinding(resourceID string) apitypes.RuntimeProfileBinding {
+	return apitypes.RuntimeProfileBinding{ResourceId: resourceID, I18n: map[string]apitypes.RuntimeProfileI18nText{
+		"en": {DisplayName: resourceID}, "zh-CN": {DisplayName: resourceID},
+	}}
 }
 
 func registerRuntimeProfile(t *testing.T, h *clitest.Harness, peer *gizcli.Client, contextName string, spec apitypes.RuntimeProfileSpec) {
@@ -177,8 +188,9 @@ func registerRuntimeProfile(t *testing.T, h *clitest.Harness, peer *gizcli.Clien
 	}
 	tokenName := "e2e-token-" + contextName
 	_, _ = api.DeleteRegistrationTokenWithResponse(ctx, tokenName)
+	firmwareID := sharedFirmware
 	tokenResp, err := api.CreateRegistrationTokenWithResponse(ctx, adminhttp.RegistrationTokenUpsert{
-		Name: tokenName, RuntimeProfileName: profileName,
+		Name: tokenName, RuntimeProfileName: profileName, FirmwareId: &firmwareID,
 	})
 	if err != nil {
 		t.Fatalf("create RegistrationToken for %s: %v", contextName, err)
@@ -192,6 +204,9 @@ func registerRuntimeProfile(t *testing.T, h *clitest.Harness, peer *gizcli.Clien
 	}
 	if registered.RuntimeProfileName != profileName {
 		t.Fatalf("server.register for %s = %#v", contextName, registered)
+	}
+	if registered.FirmwareId == nil || *registered.FirmwareId != sharedFirmware {
+		t.Fatalf("server.register firmware for %s = %#v", contextName, registered)
 	}
 }
 
@@ -263,11 +278,6 @@ func createRPCFriendByInviteToken(t *testing.T, env *socialRPCHarness, from, to 
 
 func testStringPtr(value string) *string { return &value }
 
-func runtimeSourcePtr() *rpcapi.ResourceSource {
-	value := rpcapi.ResourceSourceRuntime
-	return &value
-}
-
 func hasString(items []string, value string) bool {
 	for _, item := range items {
 		if item == value {
@@ -307,29 +317,9 @@ func adminWorkflow(name, description string) apitypes.Workflow {
 	}
 }
 
-func rpcModel(id, providerName string) rpcapi.Model {
-	return rpcapi.Model{
-		Id:     id,
-		Kind:   rpcapi.ModelKindLlm,
-		Source: rpcapi.ModelSourceManual,
-		Provider: rpcapi.ModelProvider{
-			Kind: rpcapi.ModelProviderKindOpenaiTenant,
-			Name: providerName,
-		},
-	}
-}
-
-func rpcCredential(name, apiKey string) rpcapi.Credential {
-	return rpcapi.Credential{
-		Name:     name,
-		Provider: "openai",
-		Body:     testRPCOpenAICredentialBody(apiKey),
-	}
-}
-
 func rpcFlowcraftWorkspaceParameters(t *testing.T, input rpcapi.WorkspaceInputMode) *rpcapi.WorkspaceParameters {
 	t.Helper()
-	generateModel := sharedModel
+	generateModel := "chat"
 	var params rpcapi.WorkspaceParameters
 	if err := params.FromFlowcraftWorkspaceParameters(rpcapi.FlowcraftWorkspaceParameters{
 		AgentType:     rpcapi.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
@@ -359,7 +349,7 @@ func assertWorkflowPagination(t *testing.T, ctx context.Context, peer *gizcli.Cl
 	got := map[string]bool{}
 	var cursor *string
 	for page := 0; page < 300; page++ {
-		list, err := peer.ListWorkflows(ctx, "workflow.list.page", rpcapi.WorkflowListRequest{Source: rpcapi.ResourceSourceRuntime, Limit: &limit, Cursor: cursor})
+		list, err := peer.ListWorkflows(ctx, "workflow.list.page", rpcapi.WorkflowListRequest{Collection: "assistants", Limit: &limit, Cursor: cursor})
 		if err != nil {
 			t.Fatalf("workflow.list page %d: %v", page, err)
 		}
@@ -367,7 +357,7 @@ func assertWorkflowPagination(t *testing.T, ctx context.Context, peer *gizcli.Cl
 			t.Fatalf("workflow.list page %d len = %d, want <= %d", page, len(list.Items), limit)
 		}
 		for _, item := range list.Items {
-			got[item.Name] = true
+			got[item.Alias] = true
 		}
 		complete := true
 		for _, want := range wants {
@@ -394,7 +384,7 @@ func assertWorkspacePagination(t *testing.T, ctx context.Context, peer *gizcli.C
 	got := map[string]bool{}
 	var cursor *string
 	for page := 0; page < 300; page++ {
-		list, err := peer.ListWorkspaces(ctx, "workspace.list.page", rpcapi.WorkspaceListRequest{Limit: &limit, Cursor: cursor})
+		list, err := peer.ListWorkspaces(ctx, "workspace.list.page", rpcapi.WorkspaceListRequest{Collection: "assistants", Limit: &limit, Cursor: cursor})
 		if err != nil {
 			t.Fatalf("workspace.list page %d: %v", page, err)
 		}
@@ -423,7 +413,7 @@ func assertWorkspacePrefixList(t *testing.T, ctx context.Context, peer *gizcli.C
 
 	limit := 10
 	prefix := "mutation-rpc-"
-	list, err := peer.ListWorkspaces(ctx, "workspace.list.prefix", rpcapi.WorkspaceListRequest{Prefix: &prefix, Limit: &limit})
+	list, err := peer.ListWorkspaces(ctx, "workspace.list.prefix", rpcapi.WorkspaceListRequest{Collection: "assistants", Prefix: &prefix, Limit: &limit})
 	if err != nil {
 		t.Fatalf("workspace.list prefix: %v", err)
 	}
@@ -447,7 +437,7 @@ func assertModelPagination(t *testing.T, ctx context.Context, peer *gizcli.Clien
 			t.Fatalf("model.list page %d len = %d, want <= %d", page, len(list.Items), limit)
 		}
 		for _, item := range list.Items {
-			got[item.Id] = true
+			got[item.Alias] = true
 		}
 		if got[wantA] && got[wantB] {
 			return
@@ -463,48 +453,17 @@ func assertModelPagination(t *testing.T, ctx context.Context, peer *gizcli.Clien
 	t.Fatalf("model list pagination got ids %#v, want %q and %q", got, wantA, wantB)
 }
 
-func assertCredentialPagination(t *testing.T, ctx context.Context, peer *gizcli.Client, wantA, wantB string) {
-	t.Helper()
-
-	limit := 1
-	got := map[string]bool{}
-	var cursor *string
-	for page := 0; page < 300; page++ {
-		list, err := peer.ListCredentials(ctx, "credential.list.page", rpcapi.CredentialListRequest{Limit: &limit, Cursor: cursor})
-		if err != nil {
-			t.Fatalf("credential.list page %d: %v", page, err)
-		}
-		if len(list.Items) > limit {
-			t.Fatalf("credential.list page %d len = %d, want <= %d", page, len(list.Items), limit)
-		}
-		for _, item := range list.Items {
-			got[item.Name] = true
-		}
-		if got[wantA] && got[wantB] {
-			return
-		}
-		if !list.HasNext {
-			break
-		}
-		if list.NextCursor == nil || *list.NextCursor == "" {
-			t.Fatalf("credential.list page %d has_next without cursor: %#v", page, list)
-		}
-		cursor = list.NextCursor
-	}
-	t.Fatalf("credential list pagination got names %#v, want %q and %q", got, wantA, wantB)
-}
-
 func assertDeniedListsAreEmpty(t *testing.T, ctx context.Context, denied *gizcli.Client) {
 	t.Helper()
 
-	workflows, err := denied.ListWorkflows(ctx, "workflow.list.denied", rpcapi.WorkflowListRequest{Source: rpcapi.ResourceSourceRuntime})
+	workflows, err := denied.ListWorkflows(ctx, "workflow.list.denied", rpcapi.WorkflowListRequest{Collection: "assistants"})
 	if err != nil {
 		t.Fatalf("denied workflow.list: %v", err)
 	}
 	if len(workflows.Items) != 0 {
 		t.Fatalf("denied workflow.list items = %#v", workflows.Items)
 	}
-	workspaces, err := denied.ListWorkspaces(ctx, "workspace.list.denied", rpcapi.WorkspaceListRequest{})
+	workspaces, err := denied.ListWorkspaces(ctx, "workspace.list.denied", rpcapi.WorkspaceListRequest{Collection: "assistants"})
 	if err != nil {
 		t.Fatalf("denied workspace.list: %v", err)
 	}
@@ -518,18 +477,11 @@ func assertDeniedListsAreEmpty(t *testing.T, ctx context.Context, denied *gizcli
 	if len(models.Items) != 0 {
 		t.Fatalf("denied model.list items = %#v", models.Items)
 	}
-	credentials, err := denied.ListCredentials(ctx, "credential.list.denied", rpcapi.CredentialListRequest{})
-	if err != nil {
-		t.Fatalf("denied credential.list: %v", err)
-	}
-	if len(credentials.Items) != 0 {
-		t.Fatalf("denied credential.list items = %#v", credentials.Items)
-	}
 }
 
 func hasWorkflow(items []rpcapi.Workflow, name string) bool {
 	for _, item := range items {
-		if item.Name == name {
+		if item.Alias == name {
 			return true
 		}
 	}
@@ -547,16 +499,7 @@ func hasWorkspace(items []rpcapi.Workspace, name string) bool {
 
 func hasModel(items []rpcapi.Model, id string) bool {
 	for _, item := range items {
-		if item.Id == id {
-			return true
-		}
-	}
-	return false
-}
-
-func hasCredential(items []rpcapi.Credential, name string) bool {
-	for _, item := range items {
-		if item.Name == name {
+		if item.Alias == id {
 			return true
 		}
 	}

@@ -45,9 +45,9 @@ func TestBuilderInvokeUsesAllowedToolsACLAndExecutor(t *testing.T) {
 
 	result, err := builder.Invoke(ctx, executors, InvokeRequest{
 		Build: BuildRequest{
-			OwnerPublicKey: "owner-peer",
-			ProfileToolIDs: []string{"system.music.play"},
-			AllowedToolIDs: []string{"system.music.play"},
+			CallerPublicKey: "owner-peer",
+			ProfileToolIDs:  []string{"system.music.play"},
+			AllowedToolIDs:  []string{"system.music.play"},
 		},
 		CallID: "call-1",
 		Name:   "play_music",

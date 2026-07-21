@@ -16,11 +16,11 @@ services/system/
 
 ### ownership
 
-Defines the common owner context and KV index convention for Workspace, Model, Credential, and Tool. An owner may read, use, update, and delete a resource. Friend, FriendGroup, and Pet domain relationships add visibility for their system Workspaces.
+Defines owner context and KV index conventions used by persisted resources. On the Peer surface, Workspace is user-created state; canonical Model, Credential, Workflow, and Tool mutation is Admin-only. Friend, FriendGroup, and Pet relationships add visibility for their system Workspaces.
 
 ### runtimeprofile
 
-Owns RuntimeProfile and RegistrationToken KV state, validation, hash indexes, and registration resolution. RuntimeProfile resources are unioned with owned resources; it does not define reader, member, or administrator roles. See [RuntimeProfile and device registration](./runtime-profile).
+Owns RuntimeProfile and RegistrationToken KV state, schema validation, deterministic revisions, hash indexes, and registration resolution. It projects Admin resources through safe aliases and defines no reader/member role system. See [RuntimeProfile and device registration](./runtime-profile).
 
 ### publiclogin
 

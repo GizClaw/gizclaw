@@ -27,7 +27,11 @@
             "required": ["runtime_profile_name"],
             "additionalProperties": false,
             "properties": {
-              "runtime_profile_name": { "type": "string" }
+              "runtime_profile_name": { "type": "string" },
+              "firmware_id": {
+                "type": "string",
+                "description": "Optional Server-assigned Firmware release-line ID. The device selects its own channel."
+              }
             }
           },
           "token": {

@@ -76,7 +76,7 @@ func TestPeerConnOpenAIServiceWithOpenAISDK(t *testing.T) {
 		}),
 		Transformer: openAISDKTransformerFunc(func(_ context.Context, pattern string, input genx.Stream) (genx.Stream, error) {
 			switch pattern {
-			case "voice/voice-a":
+			case "voice/voice-a?format=mp3":
 				text, err := openAISDKReadText(input)
 				if err != nil {
 					t.Fatalf("read speech input: %v", err)
@@ -107,7 +107,7 @@ func TestPeerConnOpenAIServiceWithOpenAISDK(t *testing.T) {
 					t.Fatalf("transcription input = %q, want sdk audio bytes", audio)
 				}
 			default:
-				t.Fatalf("transformer pattern = %q, want voice/voice-a or model/asr", pattern)
+				t.Fatalf("transformer pattern = %q, want voice/voice-a?format=mp3 or model/asr", pattern)
 			}
 			return nil, nil
 		}),

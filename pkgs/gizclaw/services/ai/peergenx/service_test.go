@@ -47,64 +47,6 @@ func TestGeneratorAuthorizesBeforeReadingModel(t *testing.T) {
 	}
 }
 
-func TestOwnedModelCannotUseServerCredentialOutsideRuntimeProfile(t *testing.T) {
-	ctx := context.Background()
-	events := []string{}
-	peer := newTestPeer()
-	owner := peer.PublicKey().String()
-	svc := New(Service{
-		Peer:            peer,
-		Models:          fakeModels{events: &events, owner: &owner},
-		Credentials:     fakeCredentials{events: &events},
-		ProviderTenants: fakeTenants{events: &events},
-	})
-
-	if _, err := svc.ResolveGenerator(ctx, "model/chat"); !errors.Is(err, ErrDenied) {
-		t.Fatalf("ResolveGenerator() error = %v, want %v", err, ErrDenied)
-	}
-	want := []string{
-		"get:model:chat",
-		"get:tenant:openai:main",
-		"get:credential:openai-key",
-	}
-	if !reflect.DeepEqual(events, want) {
-		t.Fatalf("events = %#v, want %#v", events, want)
-	}
-}
-
-func TestOwnedModelCanUseOwnedOrRuntimeProfileCredential(t *testing.T) {
-	ctx := context.Background()
-	peer := newTestPeer()
-	owner := peer.PublicKey().String()
-
-	t.Run("owned credential", func(t *testing.T) {
-		events := []string{}
-		svc := New(Service{
-			Peer:            peer,
-			Models:          fakeModels{events: &events, owner: &owner},
-			Credentials:     fakeCredentials{events: &events, owner: &owner},
-			ProviderTenants: fakeTenants{events: &events},
-		})
-		if _, err := svc.ResolveGenerator(ctx, "model/chat"); err != nil {
-			t.Fatalf("ResolveGenerator() error = %v", err)
-		}
-	})
-
-	t.Run("runtime profile model", func(t *testing.T) {
-		events := []string{}
-		otherOwner := "another-peer"
-		svc := New(Service{
-			Peer:            peer,
-			Models:          fakeModels{events: &events, owner: &otherOwner, profileAllowed: true},
-			Credentials:     fakeCredentials{events: &events},
-			ProviderTenants: fakeTenants{events: &events},
-		})
-		if _, err := svc.ResolveGenerator(ctx, "model/chat"); err != nil {
-			t.Fatalf("ResolveGenerator() error = %v", err)
-		}
-	})
-}
-
 func TestTransformerVoiceAuthorizesBeforeReadingVoiceAndCredential(t *testing.T) {
 	ctx := context.Background()
 	events := []string{}
@@ -305,6 +247,83 @@ func TestDefaultBuilderBuildsVolcArkGenerator(t *testing.T) {
 	thinking, ok := openaiGen.ExtraFields["thinking"].(map[string]any)
 	if !ok || thinking["type"] != "disabled" {
 		t.Fatalf("OpenAIGenerator ExtraFields = %#v, want thinking.type=disabled", openaiGen.ExtraFields)
+	}
+}
+
+func TestModelThinkingExtraFieldsUsesCapabilityParameter(t *testing.T) {
+	disabled := false
+	tests := []struct {
+		name    string
+		caps    *apitypes.ModelThinkingCapability
+		request *genx.ThinkingParams
+		want    map[string]any
+	}{
+		{
+			name: "volc nested thinking",
+			caps: &apitypes.ModelThinkingCapability{
+				Supported: true,
+				Param:     stringPtr("thinking.type"),
+			},
+			request: &genx.ThinkingParams{Enabled: &disabled, Level: "disabled"},
+			want:    map[string]any{"thinking": map[string]any{"type": "disabled"}},
+		},
+		{
+			name: "separate enable and reasoning fields",
+			caps: &apitypes.ModelThinkingCapability{
+				Supported:  true,
+				Param:      stringPtr("enable_thinking"),
+				LevelParam: stringPtr("reasoning_effort"),
+			},
+			request: &genx.ThinkingParams{Enabled: &disabled, Level: "medium"},
+			want: map[string]any{
+				"enable_thinking":  false,
+				"reasoning_effort": "medium",
+			},
+		},
+		{
+			name: "disabled is not a reasoning effort",
+			caps: &apitypes.ModelThinkingCapability{
+				Supported: true,
+				Param:     stringPtr("reasoning_effort"),
+			},
+			request: &genx.ThinkingParams{Enabled: &disabled, Level: "disabled"},
+			want:    map[string]any{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			caps := &apitypes.ModelCapabilities{Thinking: tt.caps}
+			if got := modelThinkingExtraFields(caps, tt.request); !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("modelThinkingExtraFields() = %#v, want %#v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestModelContextForGeneratorMapsThinkingWithoutMutatingInput(t *testing.T) {
+	disabled := false
+	originalParams := &genx.ModelParams{
+		ExtraFields: map[string]any{"request_id": "test"},
+		Thinking:    &genx.ThinkingParams{Enabled: &disabled, Level: "disabled"},
+	}
+	mctx := (&genx.ModelContextBuilder{Params: originalParams}).Build()
+	cfg := GeneratorConfig{Model: apitypes.Model{Capabilities: &apitypes.ModelCapabilities{
+		Thinking: &apitypes.ModelThinkingCapability{
+			Supported: true,
+			Param:     stringPtr("thinking.type"),
+		},
+	}}}
+
+	mapped := modelContextForGenerator(cfg, mctx).Params()
+	thinking, ok := mapped.ExtraFields["thinking"].(map[string]any)
+	if !ok || thinking["type"] != "disabled" || mapped.ExtraFields["request_id"] != "test" {
+		t.Fatalf("mapped params = %#v", mapped)
+	}
+	if mapped.Thinking != nil {
+		t.Fatalf("mapped semantic thinking = %#v, want nil", mapped.Thinking)
+	}
+	if originalParams.Thinking == nil || originalParams.ExtraFields["thinking"] != nil {
+		t.Fatalf("input params mutated = %#v", originalParams)
 	}
 }
 
@@ -1173,6 +1192,42 @@ func TestResolveGeneratorSupportsAdditionalTenantKinds(t *testing.T) {
 	}
 }
 
+func TestResolveEmbeddingRequiresEmbeddingModel(t *testing.T) {
+	events := []string{}
+	svc := New(Service{
+		Peer:            newTestPeer(),
+		Models:          fakeModels{events: &events, modelKind: apitypes.ModelKindEmbedding},
+		Credentials:     fakeCredentials{events: &events},
+		ProviderTenants: fakeTenants{events: &events},
+	})
+
+	cfg, err := svc.ResolveEmbedding(context.Background(), "model/embed")
+	if err != nil {
+		t.Fatalf("ResolveEmbedding() error = %v", err)
+	}
+	if cfg.Model.Id != "embed" || cfg.Model.Kind != apitypes.ModelKindEmbedding {
+		t.Fatalf("ResolveEmbedding() = %#v", cfg)
+	}
+	want := []string{
+		"get:model:embed",
+		"get:tenant:openai:main",
+		"get:credential:openai-key",
+	}
+	if !reflect.DeepEqual(events, want) {
+		t.Fatalf("events = %#v, want %#v", events, want)
+	}
+
+	wrongKind := New(Service{
+		Peer:            newTestPeer(),
+		Models:          fakeModels{events: &events},
+		Credentials:     fakeCredentials{events: &events},
+		ProviderTenants: fakeTenants{events: &events},
+	})
+	if _, err := wrongKind.ResolveEmbedding(context.Background(), "model/chat"); err == nil || !strings.Contains(err.Error(), "embedding model role") {
+		t.Fatalf("ResolveEmbedding(LLM) error = %v", err)
+	}
+}
+
 func TestListAccessibleGeneratorConfigsEnumeratesAuthorizedLLMs(t *testing.T) {
 	ctx := context.Background()
 	events := []string{}
@@ -1206,19 +1261,15 @@ func TestListAccessibleGeneratorConfigsEnumeratesAuthorizedLLMs(t *testing.T) {
 	}
 }
 
-func TestListAccessibleGeneratorConfigsSkipsOwnedModelUsingServerCredential(t *testing.T) {
+func TestListAccessibleGeneratorConfigsUsesFilteredModelList(t *testing.T) {
 	ctx := context.Background()
 	events := []string{}
-	peer := newTestPeer()
-	owner := peer.PublicKey().String()
 	svc := New(Service{
-		Peer: peer,
 		Models: fakeModels{events: &events, listItems: []apitypes.Model{
 			testModel("profile", apitypes.ModelKindLlm),
 			{
-				Id:             "owned",
-				Kind:           apitypes.ModelKindLlm,
-				OwnerPublicKey: &owner,
+				Id:   "second-profile-model",
+				Kind: apitypes.ModelKindLlm,
 				Provider: apitypes.ModelProvider{
 					Kind: apitypes.ModelProviderKindOpenaiTenant,
 					Name: "main",
@@ -1233,8 +1284,8 @@ func TestListAccessibleGeneratorConfigsSkipsOwnedModelUsingServerCredential(t *t
 	if err != nil {
 		t.Fatalf("ListAccessibleGeneratorConfigs() error = %v", err)
 	}
-	if len(got) != 1 || got[0].Model.Id != "profile" {
-		t.Fatalf("ListAccessibleGeneratorConfigs() = %#v, want only profile model", got)
+	if len(got) != 2 || got[0].Model.Id != "profile" || got[1].Model.Id != "second-profile-model" {
+		t.Fatalf("ListAccessibleGeneratorConfigs() = %#v, want both filtered profile models", got)
 	}
 }
 
@@ -1449,15 +1500,11 @@ func newTestPeer() testPeer {
 }
 
 type fakeModels struct {
-	events         *[]string
-	modelKind      apitypes.ModelKind
-	providerKind   string
-	listItems      []apitypes.Model
-	owner          *string
-	profileAllowed bool
+	events       *[]string
+	modelKind    apitypes.ModelKind
+	providerKind string
+	listItems    []apitypes.Model
 }
-
-func (f fakeModels) ProfileAllowsModel(string) bool { return f.profileAllowed }
 
 func (f fakeModels) GetModel(_ context.Context, request adminhttp.GetModelRequestObject) (adminhttp.GetModelResponseObject, error) {
 	*f.events = append(*f.events, "get:model:"+request.Id)
@@ -1486,9 +1533,8 @@ func (f fakeModels) model(id string) apitypes.Model {
 		providerKind = string(apitypes.ModelProviderKindOpenaiTenant)
 	}
 	return apitypes.Model{
-		Id:             id,
-		Kind:           kind,
-		OwnerPublicKey: f.owner,
+		Id:   id,
+		Kind: kind,
 		Provider: apitypes.ModelProvider{
 			Kind: apitypes.ModelProviderKind(providerKind),
 			Name: "main",
@@ -1567,6 +1613,7 @@ func mustMiniMaxVoiceProviderData(t *testing.T, data apitypes.MiniMaxTenantVoice
 type fakeVoices struct {
 	events       *[]string
 	providerKind apitypes.VoiceProviderKind
+	sampleRate   *int
 }
 
 func (f fakeVoices) GetVoice(_ context.Context, request adminhttp.GetVoiceRequestObject) (adminhttp.GetVoiceResponseObject, error) {
@@ -1580,7 +1627,7 @@ func (f fakeVoices) GetVoice(_ context.Context, request adminhttp.GetVoiceReques
 	var err error
 	switch providerKind {
 	case apitypes.VoiceProviderKindMinimaxTenant:
-		err = providerData.FromMiniMaxTenantVoiceProviderData(apitypes.MiniMaxTenantVoiceProviderData{VoiceId: &voiceID})
+		err = providerData.FromMiniMaxTenantVoiceProviderData(apitypes.MiniMaxTenantVoiceProviderData{VoiceId: &voiceID, SampleRate: f.sampleRate})
 	default:
 		err = providerData.FromVolcTenantVoiceProviderData(apitypes.VolcTenantVoiceProviderData{VoiceId: &voiceID})
 	}
@@ -1599,15 +1646,13 @@ func (f fakeVoices) GetVoice(_ context.Context, request adminhttp.GetVoiceReques
 
 type fakeCredentials struct {
 	events *[]string
-	owner  *string
 }
 
 func (f fakeCredentials) GetCredential(_ context.Context, request adminhttp.GetCredentialRequestObject) (adminhttp.GetCredentialResponseObject, error) {
 	*f.events = append(*f.events, "get:credential:"+request.Name)
 	return adminhttp.GetCredential200JSONResponse(apitypes.Credential{
-		Name:           request.Name,
-		OwnerPublicKey: f.owner,
-		Body:           testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "speech_api_key": "sk-test"}),
+		Name: request.Name,
+		Body: testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "speech_api_key": "sk-test"}),
 	}), nil
 }
 

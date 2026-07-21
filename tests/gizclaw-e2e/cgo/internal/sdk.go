@@ -439,13 +439,8 @@ func CSDKFirmwareRPC(t *testing.T, identityDir, registrationToken string) {
 	client := newTestClient(t, identityDir)
 	defer client.Close()
 	registerClient(t, client, registrationToken)
-	var listResponse rpcpb.FirmwareListResponse
-	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_FIRMWARE_LIST, &rpcpb.FirmwareListRequest{Limit: ptr(int64(5))}, &listResponse)
-	if len(listResponse.GetItems()) == 0 {
-		t.Fatalf("empty server.firmware.list: %s", listResponse.String())
-	}
 	var getResponse rpcpb.FirmwareGetResponse
-	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_FIRMWARE_GET, &rpcpb.FirmwareGetRequest{FirmwareId: "devkit-firmware-main"}, &getResponse)
+	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_FIRMWARE_GET, &rpcpb.FirmwareGetRequest{}, &getResponse)
 	firmware := getResponse.GetValue()
 	if firmware == nil || firmware.GetName() != "devkit-firmware-main" || firmware.GetSlots() == nil {
 		t.Fatalf("invalid server.firmware.get: %s", getResponse.String())
@@ -458,9 +453,8 @@ func CSDKFirmwareDownload(t *testing.T, identityDir, registrationToken string) {
 	defer client.Close()
 	registerClient(t, client, registrationToken)
 	frames, err := client.CallStream(rpcpb.RpcMethod_RPC_METHOD_SERVER_FIRMWARE_FILES_DOWNLOAD, &rpcpb.FirmwareFilesDownloadRequest{
-		FirmwareId: "devkit-firmware-main",
-		Channel:    rpcpb.FirmwareChannelName_FIRMWARE_CHANNEL_NAME_STABLE,
-		Path:       "firmware/main.bin",
+		Channel: rpcpb.FirmwareChannelName_FIRMWARE_CHANNEL_NAME_STABLE,
+		Path:    "firmware/main.bin",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -499,13 +493,12 @@ func CSDKChatWorkspace(t *testing.T, identityDir, registrationToken string) {
 	defer client.Close()
 	registerClient(t, client, registrationToken)
 	workspaceName := fmt.Sprintf("cgo-direct-chatroom-%d", time.Now().UnixMilli())
-	workflowSource := rpcpb.ResourceSource_RESOURCE_SOURCE_RUNTIME
 	var createResponse rpcpb.WorkspaceCreateResponse
 	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_WORKSPACE_CREATE, &rpcpb.WorkspaceCreateRequest{
-		Value: &rpcpb.WorkspaceUpsert{
-			Name:           workspaceName,
-			WorkflowName:   "chatroom",
-			WorkflowSource: &workflowSource,
+		Value: &rpcpb.WorkspaceCreateBody{
+			Name:          workspaceName,
+			Collection:    "assistants",
+			WorkflowAlias: "chatroom",
 			Parameters: &rpcpb.WorkspaceParameters{Value: &rpcpb.WorkspaceParameters_ChatRoomWorkspaceParameters{
 				ChatRoomWorkspaceParameters: &rpcpb.ChatRoomWorkspaceParameters{},
 			}},
@@ -517,7 +510,7 @@ func CSDKChatWorkspace(t *testing.T, identityDir, registrationToken string) {
 	var workspaceResponse rpcpb.WorkspaceGetResponse
 	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_WORKSPACE_GET, &rpcpb.WorkspaceGetRequest{Name: workspaceName}, &workspaceResponse)
 	workspace := workspaceResponse.GetValue()
-	if workspace == nil || workspace.GetName() != workspaceName || workspace.GetWorkflowName() != "chatroom" || workspace.GetWorkflowSource() != rpcpb.ResourceSource_RESOURCE_SOURCE_RUNTIME {
+	if workspace == nil || workspace.GetName() != workspaceName || workspace.GetWorkflowAlias() != "chatroom" || !workspace.GetAvailable() {
 		t.Fatalf("invalid server.workspace.get: %s", workspaceResponse.String())
 	}
 	setChatWorkspace(t, client, workspaceName)

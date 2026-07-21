@@ -15,6 +15,131 @@ import 'dart:convert' as $convert;
 import 'dart:core' as $core;
 import 'dart:typed_data' as $typed_data;
 
+@$core.Deprecated('Use aliasI18nTextDescriptor instead')
+const AliasI18nText$json = {
+  '1': 'AliasI18nText',
+  '2': [
+    {'1': 'display_name', '3': 1, '4': 1, '5': 9, '10': 'displayName'},
+    {
+      '1': 'description',
+      '3': 2,
+      '4': 1,
+      '5': 9,
+      '9': 0,
+      '10': 'description',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_description'},
+  ],
+};
+
+/// Descriptor for `AliasI18nText`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List aliasI18nTextDescriptor = $convert.base64Decode(
+    'Cg1BbGlhc0kxOG5UZXh0EiEKDGRpc3BsYXlfbmFtZRgBIAEoCVILZGlzcGxheU5hbWUSJQoLZG'
+    'VzY3JpcHRpb24YAiABKAlIAFILZGVzY3JpcHRpb26IAQFCDgoMX2Rlc2NyaXB0aW9u');
+
+@$core.Deprecated('Use speechTranscribeRequestDescriptor instead')
+const SpeechTranscribeRequest$json = {
+  '1': 'SpeechTranscribeRequest',
+  '2': [
+    {'1': 'model_alias', '3': 1, '4': 1, '5': 9, '10': 'modelAlias'},
+    {'1': 'content_type', '3': 2, '4': 1, '5': 9, '10': 'contentType'},
+    {
+      '1': 'language',
+      '3': 3,
+      '4': 1,
+      '5': 9,
+      '9': 0,
+      '10': 'language',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_language'},
+  ],
+};
+
+/// Descriptor for `SpeechTranscribeRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List speechTranscribeRequestDescriptor = $convert.base64Decode(
+    'ChdTcGVlY2hUcmFuc2NyaWJlUmVxdWVzdBIfCgttb2RlbF9hbGlhcxgBIAEoCVIKbW9kZWxBbG'
+    'lhcxIhCgxjb250ZW50X3R5cGUYAiABKAlSC2NvbnRlbnRUeXBlEh8KCGxhbmd1YWdlGAMgASgJ'
+    'SABSCGxhbmd1YWdliAEBQgsKCV9sYW5ndWFnZQ==');
+
+@$core.Deprecated('Use speechTranscribeResponseDescriptor instead')
+const SpeechTranscribeResponse$json = {
+  '1': 'SpeechTranscribeResponse',
+  '2': [
+    {'1': 'transcript', '3': 1, '4': 1, '5': 9, '10': 'transcript'},
+  ],
+};
+
+/// Descriptor for `SpeechTranscribeResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List speechTranscribeResponseDescriptor =
+    $convert.base64Decode(
+        'ChhTcGVlY2hUcmFuc2NyaWJlUmVzcG9uc2USHgoKdHJhbnNjcmlwdBgBIAEoCVIKdHJhbnNjcm'
+        'lwdA==');
+
+@$core.Deprecated('Use speechSynthesizeRequestDescriptor instead')
+const SpeechSynthesizeRequest$json = {
+  '1': 'SpeechSynthesizeRequest',
+  '2': [
+    {'1': 'voice_alias', '3': 1, '4': 1, '5': 9, '10': 'voiceAlias'},
+    {'1': 'text', '3': 2, '4': 1, '5': 9, '10': 'text'},
+    {
+      '1': 'accepted_content_types',
+      '3': 3,
+      '4': 3,
+      '5': 9,
+      '10': 'acceptedContentTypes'
+    },
+  ],
+};
+
+/// Descriptor for `SpeechSynthesizeRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List speechSynthesizeRequestDescriptor = $convert.base64Decode(
+    'ChdTcGVlY2hTeW50aGVzaXplUmVxdWVzdBIfCgt2b2ljZV9hbGlhcxgBIAEoCVIKdm9pY2VBbG'
+    'lhcxISCgR0ZXh0GAIgASgJUgR0ZXh0EjQKFmFjY2VwdGVkX2NvbnRlbnRfdHlwZXMYAyADKAlS'
+    'FGFjY2VwdGVkQ29udGVudFR5cGVz');
+
+@$core.Deprecated('Use speechSynthesizeResponseDescriptor instead')
+const SpeechSynthesizeResponse$json = {
+  '1': 'SpeechSynthesizeResponse',
+  '2': [
+    {'1': 'content_type', '3': 1, '4': 1, '5': 9, '10': 'contentType'},
+    {
+      '1': 'sample_rate_hz',
+      '3': 2,
+      '4': 1,
+      '5': 5,
+      '9': 0,
+      '10': 'sampleRateHz',
+      '17': true
+    },
+    {
+      '1': 'channels',
+      '3': 3,
+      '4': 1,
+      '5': 5,
+      '9': 1,
+      '10': 'channels',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_sample_rate_hz'},
+    {'1': '_channels'},
+  ],
+};
+
+/// Descriptor for `SpeechSynthesizeResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List speechSynthesizeResponseDescriptor = $convert.base64Decode(
+    'ChhTcGVlY2hTeW50aGVzaXplUmVzcG9uc2USIQoMY29udGVudF90eXBlGAEgASgJUgtjb250ZW'
+    '50VHlwZRIpCg5zYW1wbGVfcmF0ZV9oehgCIAEoBUgAUgxzYW1wbGVSYXRlSHqIAQESHwoIY2hh'
+    'bm5lbHMYAyABKAVIAVIIY2hhbm5lbHOIAQFCEQoPX3NhbXBsZV9yYXRlX2h6QgsKCV9jaGFubm'
+    'Vscw==');
+
 @$core.Deprecated('Use aSTTranslateExternalVoiceParametersDescriptor instead')
 const ASTTranslateExternalVoiceParameters$json = {
   '1': 'ASTTranslateExternalVoiceParameters',
@@ -138,88 +263,58 @@ const ASTTranslateWorkflowSpec$json = {
       '17': true
     },
     {
-      '1': 'is_custom_speaker',
-      '3': 3,
-      '4': 1,
-      '5': 8,
-      '9': 2,
-      '10': 'isCustomSpeaker',
-      '17': true
-    },
-    {
       '1': 'mode',
-      '3': 4,
+      '3': 3,
       '4': 1,
       '5': 14,
       '6': '.gizclaw.rpc.v1.ASTTranslateMode',
-      '9': 3,
+      '9': 2,
       '10': 'mode',
       '17': true
     },
     {
       '1': 'resource_id',
-      '3': 5,
+      '3': 4,
       '4': 1,
       '5': 9,
-      '9': 4,
+      '9': 3,
       '10': 'resourceId',
       '17': true
     },
     {
-      '1': 'speaker_id',
-      '3': 6,
-      '4': 1,
-      '5': 9,
-      '9': 5,
-      '10': 'speakerId',
-      '17': true
-    },
-    {
-      '1': 'speech_rate',
-      '3': 7,
-      '4': 1,
-      '5': 3,
-      '9': 6,
-      '10': 'speechRate',
-      '17': true
-    },
-    {
       '1': 'translation_model',
-      '3': 8,
+      '3': 5,
       '4': 1,
       '5': 9,
       '10': 'translationModel'
     },
     {
-      '1': 'tts_resource_id',
-      '3': 9,
-      '4': 1,
-      '5': 9,
-      '9': 7,
-      '10': 'ttsResourceId',
-      '17': true
-    },
-    {
       '1': 'voice',
-      '3': 10,
+      '3': 6,
       '4': 1,
       '5': 11,
       '6': '.gizclaw.rpc.v1.ASTTranslateVoiceParameters',
-      '9': 8,
+      '9': 4,
       '10': 'voice',
+      '17': true
+    },
+    {
+      '1': 'lang_pair',
+      '3': 7,
+      '4': 1,
+      '5': 9,
+      '9': 5,
+      '10': 'langPair',
       '17': true
     },
   ],
   '8': [
     {'1': '_denoise'},
     {'1': '_enable_source_language_detect'},
-    {'1': '_is_custom_speaker'},
     {'1': '_mode'},
     {'1': '_resource_id'},
-    {'1': '_speaker_id'},
-    {'1': '_speech_rate'},
-    {'1': '_tts_resource_id'},
     {'1': '_voice'},
+    {'1': '_lang_pair'},
   ],
 };
 
@@ -227,16 +322,13 @@ const ASTTranslateWorkflowSpec$json = {
 final $typed_data.Uint8List aSTTranslateWorkflowSpecDescriptor = $convert.base64Decode(
     'ChhBU1RUcmFuc2xhdGVXb3JrZmxvd1NwZWMSHQoHZGVub2lzZRgBIAEoCEgAUgdkZW5vaXNliA'
     'EBEkYKHWVuYWJsZV9zb3VyY2VfbGFuZ3VhZ2VfZGV0ZWN0GAIgASgISAFSGmVuYWJsZVNvdXJj'
-    'ZUxhbmd1YWdlRGV0ZWN0iAEBEi8KEWlzX2N1c3RvbV9zcGVha2VyGAMgASgISAJSD2lzQ3VzdG'
-    '9tU3BlYWtlcogBARI5CgRtb2RlGAQgASgOMiAuZ2l6Y2xhdy5ycGMudjEuQVNUVHJhbnNsYXRl'
-    'TW9kZUgDUgRtb2RliAEBEiQKC3Jlc291cmNlX2lkGAUgASgJSARSCnJlc291cmNlSWSIAQESIg'
-    'oKc3BlYWtlcl9pZBgGIAEoCUgFUglzcGVha2VySWSIAQESJAoLc3BlZWNoX3JhdGUYByABKANI'
-    'BlIKc3BlZWNoUmF0ZYgBARIrChF0cmFuc2xhdGlvbl9tb2RlbBgIIAEoCVIQdHJhbnNsYXRpb2'
-    '5Nb2RlbBIrCg90dHNfcmVzb3VyY2VfaWQYCSABKAlIB1INdHRzUmVzb3VyY2VJZIgBARJGCgV2'
-    'b2ljZRgKIAEoCzIrLmdpemNsYXcucnBjLnYxLkFTVFRyYW5zbGF0ZVZvaWNlUGFyYW1ldGVyc0'
-    'gIUgV2b2ljZYgBAUIKCghfZGVub2lzZUIgCh5fZW5hYmxlX3NvdXJjZV9sYW5ndWFnZV9kZXRl'
-    'Y3RCFAoSX2lzX2N1c3RvbV9zcGVha2VyQgcKBV9tb2RlQg4KDF9yZXNvdXJjZV9pZEINCgtfc3'
-    'BlYWtlcl9pZEIOCgxfc3BlZWNoX3JhdGVCEgoQX3R0c19yZXNvdXJjZV9pZEIICgZfdm9pY2U=');
+    'ZUxhbmd1YWdlRGV0ZWN0iAEBEjkKBG1vZGUYAyABKA4yIC5naXpjbGF3LnJwYy52MS5BU1RUcm'
+    'Fuc2xhdGVNb2RlSAJSBG1vZGWIAQESJAoLcmVzb3VyY2VfaWQYBCABKAlIA1IKcmVzb3VyY2VJ'
+    'ZIgBARIrChF0cmFuc2xhdGlvbl9tb2RlbBgFIAEoCVIQdHJhbnNsYXRpb25Nb2RlbBJGCgV2b2'
+    'ljZRgGIAEoCzIrLmdpemNsYXcucnBjLnYxLkFTVFRyYW5zbGF0ZVZvaWNlUGFyYW1ldGVyc0gE'
+    'UgV2b2ljZYgBARIgCglsYW5nX3BhaXIYByABKAlIBVIIbGFuZ1BhaXKIAQFCCgoIX2Rlbm9pc2'
+    'VCIAoeX2VuYWJsZV9zb3VyY2VfbGFuZ3VhZ2VfZGV0ZWN0QgcKBV9tb2RlQg4KDF9yZXNvdXJj'
+    'ZV9pZEIICgZfdm9pY2VCDAoKX2xhbmdfcGFpcg==');
 
 @$core.Deprecated('Use aSTTranslateWorkspaceParametersDescriptor instead')
 const ASTTranslateWorkspaceParameters$json = {
@@ -280,76 +372,40 @@ const ASTTranslateWorkspaceParameters$json = {
       '17': true
     },
     {
-      '1': 'is_custom_speaker',
+      '1': 'lang_pair',
       '3': 6,
       '4': 1,
-      '5': 8,
-      '9': 4,
-      '10': 'isCustomSpeaker',
-      '17': true
-    },
-    {
-      '1': 'lang_pair',
-      '3': 7,
-      '4': 1,
       '5': 9,
-      '9': 5,
+      '9': 4,
       '10': 'langPair',
       '17': true
     },
     {
       '1': 'mode',
-      '3': 8,
+      '3': 7,
       '4': 1,
       '5': 14,
       '6': '.gizclaw.rpc.v1.ASTTranslateMode',
-      '9': 6,
+      '9': 5,
       '10': 'mode',
       '17': true
     },
     {
-      '1': 'speaker_id',
-      '3': 9,
-      '4': 1,
-      '5': 9,
-      '9': 7,
-      '10': 'speakerId',
-      '17': true
-    },
-    {
-      '1': 'speech_rate',
-      '3': 10,
-      '4': 1,
-      '5': 3,
-      '9': 8,
-      '10': 'speechRate',
-      '17': true
-    },
-    {
       '1': 'translation_model',
-      '3': 11,
+      '3': 8,
       '4': 1,
       '5': 9,
-      '9': 9,
+      '9': 6,
       '10': 'translationModel',
       '17': true
     },
     {
-      '1': 'tts_resource_id',
-      '3': 12,
-      '4': 1,
-      '5': 9,
-      '9': 10,
-      '10': 'ttsResourceId',
-      '17': true
-    },
-    {
       '1': 'voice',
-      '3': 13,
+      '3': 9,
       '4': 1,
       '5': 11,
       '6': '.gizclaw.rpc.v1.ASTTranslateVoiceParameters',
-      '9': 11,
+      '9': 7,
       '10': 'voice',
       '17': true
     },
@@ -359,13 +415,9 @@ const ASTTranslateWorkspaceParameters$json = {
     {'1': '_e2e'},
     {'1': '_enable_source_language_detect'},
     {'1': '_input'},
-    {'1': '_is_custom_speaker'},
     {'1': '_lang_pair'},
     {'1': '_mode'},
-    {'1': '_speaker_id'},
-    {'1': '_speech_rate'},
     {'1': '_translation_model'},
-    {'1': '_tts_resource_id'},
     {'1': '_voice'},
   ],
 };
@@ -377,17 +429,13 @@ final $typed_data.Uint8List aSTTranslateWorkspaceParametersDescriptor = $convert
     'UglhZ2VudFR5cGUSHQoHZGVub2lzZRgCIAEoCEgAUgdkZW5vaXNliAEBEhUKA2UyZRgDIAEoCE'
     'gBUgNlMmWIAQESRgodZW5hYmxlX3NvdXJjZV9sYW5ndWFnZV9kZXRlY3QYBCABKAhIAlIaZW5h'
     'YmxlU291cmNlTGFuZ3VhZ2VEZXRlY3SIAQESPQoFaW5wdXQYBSABKA4yIi5naXpjbGF3LnJwYy'
-    '52MS5Xb3Jrc3BhY2VJbnB1dE1vZGVIA1IFaW5wdXSIAQESLwoRaXNfY3VzdG9tX3NwZWFrZXIY'
-    'BiABKAhIBFIPaXNDdXN0b21TcGVha2VyiAEBEiAKCWxhbmdfcGFpchgHIAEoCUgFUghsYW5nUG'
-    'FpcogBARI5CgRtb2RlGAggASgOMiAuZ2l6Y2xhdy5ycGMudjEuQVNUVHJhbnNsYXRlTW9kZUgG'
-    'UgRtb2RliAEBEiIKCnNwZWFrZXJfaWQYCSABKAlIB1IJc3BlYWtlcklkiAEBEiQKC3NwZWVjaF'
-    '9yYXRlGAogASgDSAhSCnNwZWVjaFJhdGWIAQESMAoRdHJhbnNsYXRpb25fbW9kZWwYCyABKAlI'
-    'CVIQdHJhbnNsYXRpb25Nb2RlbIgBARIrCg90dHNfcmVzb3VyY2VfaWQYDCABKAlIClINdHRzUm'
-    'Vzb3VyY2VJZIgBARJGCgV2b2ljZRgNIAEoCzIrLmdpemNsYXcucnBjLnYxLkFTVFRyYW5zbGF0'
-    'ZVZvaWNlUGFyYW1ldGVyc0gLUgV2b2ljZYgBAUIKCghfZGVub2lzZUIGCgRfZTJlQiAKHl9lbm'
-    'FibGVfc291cmNlX2xhbmd1YWdlX2RldGVjdEIICgZfaW5wdXRCFAoSX2lzX2N1c3RvbV9zcGVh'
-    'a2VyQgwKCl9sYW5nX3BhaXJCBwoFX21vZGVCDQoLX3NwZWFrZXJfaWRCDgoMX3NwZWVjaF9yYX'
-    'RlQhQKEl90cmFuc2xhdGlvbl9tb2RlbEISChBfdHRzX3Jlc291cmNlX2lkQggKBl92b2ljZQ==');
+    '52MS5Xb3Jrc3BhY2VJbnB1dE1vZGVIA1IFaW5wdXSIAQESIAoJbGFuZ19wYWlyGAYgASgJSARS'
+    'CGxhbmdQYWlyiAEBEjkKBG1vZGUYByABKA4yIC5naXpjbGF3LnJwYy52MS5BU1RUcmFuc2xhdG'
+    'VNb2RlSAVSBG1vZGWIAQESMAoRdHJhbnNsYXRpb25fbW9kZWwYCCABKAlIBlIQdHJhbnNsYXRp'
+    'b25Nb2RlbIgBARJGCgV2b2ljZRgJIAEoCzIrLmdpemNsYXcucnBjLnYxLkFTVFRyYW5zbGF0ZV'
+    'ZvaWNlUGFyYW1ldGVyc0gHUgV2b2ljZYgBAUIKCghfZGVub2lzZUIGCgRfZTJlQiAKHl9lbmFi'
+    'bGVfc291cmNlX2xhbmd1YWdlX2RldGVjdEIICgZfaW5wdXRCDAoKX2xhbmdfcGFpckIHCgVfbW'
+    '9kZUIUChJfdHJhbnNsYXRpb25fbW9kZWxCCAoGX3ZvaWNl');
 
 @$core.Deprecated('Use chatRoomWorkflowHistorySpecDescriptor instead')
 const ChatRoomWorkflowHistorySpec$json = {
@@ -602,434 +650,6 @@ final $typed_data.Uint8List chatRoomWorkspaceTranscriptParametersDescriptor =
         'CiVDaGF0Um9vbVdvcmtzcGFjZVRyYW5zY3JpcHRQYXJhbWV0ZXJzEiAKCWFzcl9tb2RlbBgBIA'
         'EoCUgAUghhc3JNb2RlbIgBARIdCgdlbmFibGVkGAIgASgISAFSB2VuYWJsZWSIAQFCDAoKX2Fz'
         'cl9tb2RlbEIKCghfZW5hYmxlZA==');
-
-@$core.Deprecated('Use credentialDescriptor instead')
-const Credential$json = {
-  '1': 'Credential',
-  '2': [
-    {
-      '1': 'body',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.CredentialBody',
-      '10': 'body'
-    },
-    {'1': 'created_at', '3': 2, '4': 1, '5': 9, '10': 'createdAt'},
-    {
-      '1': 'description',
-      '3': 3,
-      '4': 1,
-      '5': 9,
-      '9': 0,
-      '10': 'description',
-      '17': true
-    },
-    {'1': 'name', '3': 4, '4': 1, '5': 9, '10': 'name'},
-    {'1': 'provider', '3': 5, '4': 1, '5': 9, '10': 'provider'},
-    {'1': 'updated_at', '3': 6, '4': 1, '5': 9, '10': 'updatedAt'},
-    {
-      '1': 'owner_public_key',
-      '3': 7,
-      '4': 1,
-      '5': 9,
-      '9': 1,
-      '10': 'ownerPublicKey',
-      '17': true
-    },
-  ],
-  '8': [
-    {'1': '_description'},
-    {'1': '_owner_public_key'},
-  ],
-};
-
-/// Descriptor for `Credential`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List credentialDescriptor = $convert.base64Decode(
-    'CgpDcmVkZW50aWFsEjIKBGJvZHkYASABKAsyHi5naXpjbGF3LnJwYy52MS5DcmVkZW50aWFsQm'
-    '9keVIEYm9keRIdCgpjcmVhdGVkX2F0GAIgASgJUgljcmVhdGVkQXQSJQoLZGVzY3JpcHRpb24Y'
-    'AyABKAlIAFILZGVzY3JpcHRpb26IAQESEgoEbmFtZRgEIAEoCVIEbmFtZRIaCghwcm92aWRlch'
-    'gFIAEoCVIIcHJvdmlkZXISHQoKdXBkYXRlZF9hdBgGIAEoCVIJdXBkYXRlZEF0Ei0KEG93bmVy'
-    'X3B1YmxpY19rZXkYByABKAlIAVIOb3duZXJQdWJsaWNLZXmIAQFCDgoMX2Rlc2NyaXB0aW9uQh'
-    'MKEV9vd25lcl9wdWJsaWNfa2V5');
-
-@$core.Deprecated('Use credentialBodyDescriptor instead')
-const CredentialBody$json = {
-  '1': 'CredentialBody',
-  '2': [
-    {
-      '1': 'open_aicredential_body',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.OpenAICredentialBody',
-      '9': 0,
-      '10': 'openAicredentialBody'
-    },
-    {
-      '1': 'gemini_credential_body',
-      '3': 2,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.GeminiCredentialBody',
-      '9': 0,
-      '10': 'geminiCredentialBody'
-    },
-    {
-      '1': 'dash_scope_credential_body',
-      '3': 3,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.DashScopeCredentialBody',
-      '9': 0,
-      '10': 'dashScopeCredentialBody'
-    },
-    {
-      '1': 'mini_max_credential_body',
-      '3': 4,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.MiniMaxCredentialBody',
-      '9': 0,
-      '10': 'miniMaxCredentialBody'
-    },
-    {
-      '1': 'volc_credential_body',
-      '3': 5,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.VolcCredentialBody',
-      '9': 0,
-      '10': 'volcCredentialBody'
-    },
-  ],
-  '8': [
-    {'1': 'value'},
-  ],
-};
-
-/// Descriptor for `CredentialBody`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List credentialBodyDescriptor = $convert.base64Decode(
-    'Cg5DcmVkZW50aWFsQm9keRJcChZvcGVuX2FpY3JlZGVudGlhbF9ib2R5GAEgASgLMiQuZ2l6Y2'
-    'xhdy5ycGMudjEuT3BlbkFJQ3JlZGVudGlhbEJvZHlIAFIUb3BlbkFpY3JlZGVudGlhbEJvZHkS'
-    'XAoWZ2VtaW5pX2NyZWRlbnRpYWxfYm9keRgCIAEoCzIkLmdpemNsYXcucnBjLnYxLkdlbWluaU'
-    'NyZWRlbnRpYWxCb2R5SABSFGdlbWluaUNyZWRlbnRpYWxCb2R5EmYKGmRhc2hfc2NvcGVfY3Jl'
-    'ZGVudGlhbF9ib2R5GAMgASgLMicuZ2l6Y2xhdy5ycGMudjEuRGFzaFNjb3BlQ3JlZGVudGlhbE'
-    'JvZHlIAFIXZGFzaFNjb3BlQ3JlZGVudGlhbEJvZHkSYAoYbWluaV9tYXhfY3JlZGVudGlhbF9i'
-    'b2R5GAQgASgLMiUuZ2l6Y2xhdy5ycGMudjEuTWluaU1heENyZWRlbnRpYWxCb2R5SABSFW1pbm'
-    'lNYXhDcmVkZW50aWFsQm9keRJWChR2b2xjX2NyZWRlbnRpYWxfYm9keRgFIAEoCzIiLmdpemNs'
-    'YXcucnBjLnYxLlZvbGNDcmVkZW50aWFsQm9keUgAUhJ2b2xjQ3JlZGVudGlhbEJvZHlCBwoFdm'
-    'FsdWU=');
-
-@$core.Deprecated('Use credentialCreateRequestDescriptor instead')
-const CredentialCreateRequest$json = {
-  '1': 'CredentialCreateRequest',
-  '2': [
-    {
-      '1': 'value',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.Credential',
-      '10': 'value'
-    },
-  ],
-};
-
-/// Descriptor for `CredentialCreateRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List credentialCreateRequestDescriptor =
-    $convert.base64Decode(
-        'ChdDcmVkZW50aWFsQ3JlYXRlUmVxdWVzdBIwCgV2YWx1ZRgBIAEoCzIaLmdpemNsYXcucnBjLn'
-        'YxLkNyZWRlbnRpYWxSBXZhbHVl');
-
-@$core.Deprecated('Use credentialCreateResponseDescriptor instead')
-const CredentialCreateResponse$json = {
-  '1': 'CredentialCreateResponse',
-  '2': [
-    {
-      '1': 'value',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.Credential',
-      '10': 'value'
-    },
-  ],
-};
-
-/// Descriptor for `CredentialCreateResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List credentialCreateResponseDescriptor =
-    $convert.base64Decode(
-        'ChhDcmVkZW50aWFsQ3JlYXRlUmVzcG9uc2USMAoFdmFsdWUYASABKAsyGi5naXpjbGF3LnJwYy'
-        '52MS5DcmVkZW50aWFsUgV2YWx1ZQ==');
-
-@$core.Deprecated('Use credentialDeleteRequestDescriptor instead')
-const CredentialDeleteRequest$json = {
-  '1': 'CredentialDeleteRequest',
-  '2': [
-    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
-  ],
-};
-
-/// Descriptor for `CredentialDeleteRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List credentialDeleteRequestDescriptor =
-    $convert.base64Decode(
-        'ChdDcmVkZW50aWFsRGVsZXRlUmVxdWVzdBISCgRuYW1lGAEgASgJUgRuYW1l');
-
-@$core.Deprecated('Use credentialDeleteResponseDescriptor instead')
-const CredentialDeleteResponse$json = {
-  '1': 'CredentialDeleteResponse',
-  '2': [
-    {
-      '1': 'value',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.Credential',
-      '10': 'value'
-    },
-  ],
-};
-
-/// Descriptor for `CredentialDeleteResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List credentialDeleteResponseDescriptor =
-    $convert.base64Decode(
-        'ChhDcmVkZW50aWFsRGVsZXRlUmVzcG9uc2USMAoFdmFsdWUYASABKAsyGi5naXpjbGF3LnJwYy'
-        '52MS5DcmVkZW50aWFsUgV2YWx1ZQ==');
-
-@$core.Deprecated('Use credentialGetRequestDescriptor instead')
-const CredentialGetRequest$json = {
-  '1': 'CredentialGetRequest',
-  '2': [
-    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
-  ],
-};
-
-/// Descriptor for `CredentialGetRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List credentialGetRequestDescriptor = $convert
-    .base64Decode('ChRDcmVkZW50aWFsR2V0UmVxdWVzdBISCgRuYW1lGAEgASgJUgRuYW1l');
-
-@$core.Deprecated('Use credentialGetResponseDescriptor instead')
-const CredentialGetResponse$json = {
-  '1': 'CredentialGetResponse',
-  '2': [
-    {
-      '1': 'value',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.Credential',
-      '10': 'value'
-    },
-  ],
-};
-
-/// Descriptor for `CredentialGetResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List credentialGetResponseDescriptor = $convert.base64Decode(
-    'ChVDcmVkZW50aWFsR2V0UmVzcG9uc2USMAoFdmFsdWUYASABKAsyGi5naXpjbGF3LnJwYy52MS'
-    '5DcmVkZW50aWFsUgV2YWx1ZQ==');
-
-@$core.Deprecated('Use credentialListRequestDescriptor instead')
-const CredentialListRequest$json = {
-  '1': 'CredentialListRequest',
-  '2': [
-    {'1': 'cursor', '3': 1, '4': 1, '5': 9, '9': 0, '10': 'cursor', '17': true},
-    {'1': 'limit', '3': 2, '4': 1, '5': 3, '9': 1, '10': 'limit', '17': true},
-  ],
-  '8': [
-    {'1': '_cursor'},
-    {'1': '_limit'},
-  ],
-};
-
-/// Descriptor for `CredentialListRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List credentialListRequestDescriptor = $convert.base64Decode(
-    'ChVDcmVkZW50aWFsTGlzdFJlcXVlc3QSGwoGY3Vyc29yGAEgASgJSABSBmN1cnNvcogBARIZCg'
-    'VsaW1pdBgCIAEoA0gBUgVsaW1pdIgBAUIJCgdfY3Vyc29yQggKBl9saW1pdA==');
-
-@$core.Deprecated('Use credentialListResponseDescriptor instead')
-const CredentialListResponse$json = {
-  '1': 'CredentialListResponse',
-  '2': [
-    {'1': 'has_next', '3': 1, '4': 1, '5': 8, '10': 'hasNext'},
-    {
-      '1': 'items',
-      '3': 2,
-      '4': 3,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.Credential',
-      '10': 'items'
-    },
-    {
-      '1': 'next_cursor',
-      '3': 3,
-      '4': 1,
-      '5': 9,
-      '9': 0,
-      '10': 'nextCursor',
-      '17': true
-    },
-  ],
-  '8': [
-    {'1': '_next_cursor'},
-  ],
-};
-
-/// Descriptor for `CredentialListResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List credentialListResponseDescriptor = $convert.base64Decode(
-    'ChZDcmVkZW50aWFsTGlzdFJlc3BvbnNlEhkKCGhhc19uZXh0GAEgASgIUgdoYXNOZXh0EjAKBW'
-    'l0ZW1zGAIgAygLMhouZ2l6Y2xhdy5ycGMudjEuQ3JlZGVudGlhbFIFaXRlbXMSJAoLbmV4dF9j'
-    'dXJzb3IYAyABKAlIAFIKbmV4dEN1cnNvcogBAUIOCgxfbmV4dF9jdXJzb3I=');
-
-@$core.Deprecated('Use credentialPutRequestDescriptor instead')
-const CredentialPutRequest$json = {
-  '1': 'CredentialPutRequest',
-  '2': [
-    {
-      '1': 'body',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.Credential',
-      '10': 'body'
-    },
-    {'1': 'name', '3': 2, '4': 1, '5': 9, '10': 'name'},
-  ],
-};
-
-/// Descriptor for `CredentialPutRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List credentialPutRequestDescriptor = $convert.base64Decode(
-    'ChRDcmVkZW50aWFsUHV0UmVxdWVzdBIuCgRib2R5GAEgASgLMhouZ2l6Y2xhdy5ycGMudjEuQ3'
-    'JlZGVudGlhbFIEYm9keRISCgRuYW1lGAIgASgJUgRuYW1l');
-
-@$core.Deprecated('Use credentialPutResponseDescriptor instead')
-const CredentialPutResponse$json = {
-  '1': 'CredentialPutResponse',
-  '2': [
-    {
-      '1': 'value',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.Credential',
-      '10': 'value'
-    },
-  ],
-};
-
-/// Descriptor for `CredentialPutResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List credentialPutResponseDescriptor = $convert.base64Decode(
-    'ChVDcmVkZW50aWFsUHV0UmVzcG9uc2USMAoFdmFsdWUYASABKAsyGi5naXpjbGF3LnJwYy52MS'
-    '5DcmVkZW50aWFsUgV2YWx1ZQ==');
-
-@$core.Deprecated('Use dashScopeCredentialBodyDescriptor instead')
-const DashScopeCredentialBody$json = {
-  '1': 'DashScopeCredentialBody',
-  '2': [
-    {
-      '1': 'api_key',
-      '3': 1,
-      '4': 1,
-      '5': 9,
-      '9': 0,
-      '10': 'apiKey',
-      '17': true
-    },
-    {
-      '1': 'base_url',
-      '3': 2,
-      '4': 1,
-      '5': 9,
-      '9': 1,
-      '10': 'baseUrl',
-      '17': true
-    },
-    {'1': 'token', '3': 3, '4': 1, '5': 9, '9': 2, '10': 'token', '17': true},
-  ],
-  '8': [
-    {'1': '_api_key'},
-    {'1': '_base_url'},
-    {'1': '_token'},
-  ],
-};
-
-/// Descriptor for `DashScopeCredentialBody`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List dashScopeCredentialBodyDescriptor = $convert.base64Decode(
-    'ChdEYXNoU2NvcGVDcmVkZW50aWFsQm9keRIcCgdhcGlfa2V5GAEgASgJSABSBmFwaUtleYgBAR'
-    'IeCghiYXNlX3VybBgCIAEoCUgBUgdiYXNlVXJsiAEBEhkKBXRva2VuGAMgASgJSAJSBXRva2Vu'
-    'iAEBQgoKCF9hcGlfa2V5QgsKCV9iYXNlX3VybEIICgZfdG9rZW4=');
-
-@$core.Deprecated('Use dashScopeTenantModelProviderDataDescriptor instead')
-const DashScopeTenantModelProviderData$json = {
-  '1': 'DashScopeTenantModelProviderData',
-  '2': [
-    {
-      '1': 'api_mode',
-      '3': 1,
-      '4': 1,
-      '5': 14,
-      '6': '.gizclaw.rpc.v1.DashScopeTenantModelProviderDataApiMode',
-      '9': 0,
-      '10': 'apiMode',
-      '17': true
-    },
-    {
-      '1': 'upstream_model',
-      '3': 2,
-      '4': 1,
-      '5': 9,
-      '9': 1,
-      '10': 'upstreamModel',
-      '17': true
-    },
-  ],
-  '8': [
-    {'1': '_api_mode'},
-    {'1': '_upstream_model'},
-  ],
-};
-
-/// Descriptor for `DashScopeTenantModelProviderData`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List dashScopeTenantModelProviderDataDescriptor =
-    $convert.base64Decode(
-        'CiBEYXNoU2NvcGVUZW5hbnRNb2RlbFByb3ZpZGVyRGF0YRJXCghhcGlfbW9kZRgBIAEoDjI3Lm'
-        'dpemNsYXcucnBjLnYxLkRhc2hTY29wZVRlbmFudE1vZGVsUHJvdmlkZXJEYXRhQXBpTW9kZUgA'
-        'UgdhcGlNb2RliAEBEioKDnVwc3RyZWFtX21vZGVsGAIgASgJSAFSDXVwc3RyZWFtTW9kZWyIAQ'
-        'FCCwoJX2FwaV9tb2RlQhEKD191cHN0cmVhbV9tb2RlbA==');
-
-@$core.Deprecated('Use dashScopeTenantVoiceProviderDataDescriptor instead')
-const DashScopeTenantVoiceProviderData$json = {
-  '1': 'DashScopeTenantVoiceProviderData',
-  '2': [
-    {
-      '1': 'raw',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.google.protobuf.Struct',
-      '10': 'raw'
-    },
-    {
-      '1': 'voice_id',
-      '3': 2,
-      '4': 1,
-      '5': 9,
-      '9': 0,
-      '10': 'voiceId',
-      '17': true
-    },
-  ],
-  '8': [
-    {'1': '_voice_id'},
-  ],
-};
-
-/// Descriptor for `DashScopeTenantVoiceProviderData`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List dashScopeTenantVoiceProviderDataDescriptor =
-    $convert.base64Decode(
-        'CiBEYXNoU2NvcGVUZW5hbnRWb2ljZVByb3ZpZGVyRGF0YRIpCgNyYXcYASABKAsyFy5nb29nbG'
-        'UucHJvdG9idWYuU3RydWN0UgNyYXcSHgoIdm9pY2VfaWQYAiABKAlIAFIHdm9pY2VJZIgBAUIL'
-        'Cglfdm9pY2VfaWQ=');
 
 @$core.Deprecated('Use doubaoRealtimeAIGCMetadataDescriptor instead')
 const DoubaoRealtimeAIGCMetadata$json = {
@@ -2291,229 +1911,30 @@ final $typed_data.Uint8List petWorkspaceParametersDescriptor = $convert.base64De
     'KAsyIi5naXpjbGF3LnJwYy52MS5QZXRWb2ljZVBhcmFtZXRlcnNSBXZvaWNlQg8KDV9jb252ZX'
     'JzYXRpb25CCAoGX2lucHV0QgoKCF9wZXJzb25h');
 
-@$core.Deprecated('Use geminiCredentialBodyDescriptor instead')
-const GeminiCredentialBody$json = {
-  '1': 'GeminiCredentialBody',
-  '2': [
-    {
-      '1': 'api_key',
-      '3': 1,
-      '4': 1,
-      '5': 9,
-      '9': 0,
-      '10': 'apiKey',
-      '17': true
-    },
-    {
-      '1': 'base_url',
-      '3': 2,
-      '4': 1,
-      '5': 9,
-      '9': 1,
-      '10': 'baseUrl',
-      '17': true
-    },
-    {'1': 'token', '3': 3, '4': 1, '5': 9, '9': 2, '10': 'token', '17': true},
-  ],
-  '8': [
-    {'1': '_api_key'},
-    {'1': '_base_url'},
-    {'1': '_token'},
-  ],
-};
-
-/// Descriptor for `GeminiCredentialBody`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List geminiCredentialBodyDescriptor = $convert.base64Decode(
-    'ChRHZW1pbmlDcmVkZW50aWFsQm9keRIcCgdhcGlfa2V5GAEgASgJSABSBmFwaUtleYgBARIeCg'
-    'hiYXNlX3VybBgCIAEoCUgBUgdiYXNlVXJsiAEBEhkKBXRva2VuGAMgASgJSAJSBXRva2VuiAEB'
-    'QgoKCF9hcGlfa2V5QgsKCV9iYXNlX3VybEIICgZfdG9rZW4=');
-
-@$core.Deprecated('Use geminiTenantModelProviderDataDescriptor instead')
-const GeminiTenantModelProviderData$json = {
-  '1': 'GeminiTenantModelProviderData',
-  '2': [
-    {
-      '1': 'upstream_model',
-      '3': 1,
-      '4': 1,
-      '5': 9,
-      '9': 0,
-      '10': 'upstreamModel',
-      '17': true
-    },
-  ],
-  '8': [
-    {'1': '_upstream_model'},
-  ],
-};
-
-/// Descriptor for `GeminiTenantModelProviderData`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List geminiTenantModelProviderDataDescriptor =
-    $convert.base64Decode(
-        'Ch1HZW1pbmlUZW5hbnRNb2RlbFByb3ZpZGVyRGF0YRIqCg51cHN0cmVhbV9tb2RlbBgBIAEoCU'
-        'gAUg11cHN0cmVhbU1vZGVsiAEBQhEKD191cHN0cmVhbV9tb2RlbA==');
-
-@$core.Deprecated('Use geminiTenantVoiceProviderDataDescriptor instead')
-const GeminiTenantVoiceProviderData$json = {
-  '1': 'GeminiTenantVoiceProviderData',
-  '2': [
-    {
-      '1': 'raw',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.google.protobuf.Struct',
-      '10': 'raw'
-    },
-    {
-      '1': 'voice_id',
-      '3': 2,
-      '4': 1,
-      '5': 9,
-      '9': 0,
-      '10': 'voiceId',
-      '17': true
-    },
-  ],
-  '8': [
-    {'1': '_voice_id'},
-  ],
-};
-
-/// Descriptor for `GeminiTenantVoiceProviderData`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List geminiTenantVoiceProviderDataDescriptor =
-    $convert.base64Decode(
-        'Ch1HZW1pbmlUZW5hbnRWb2ljZVByb3ZpZGVyRGF0YRIpCgNyYXcYASABKAsyFy5nb29nbGUucH'
-        'JvdG9idWYuU3RydWN0UgNyYXcSHgoIdm9pY2VfaWQYAiABKAlIAFIHdm9pY2VJZIgBAUILCglf'
-        'dm9pY2VfaWQ=');
-
-@$core.Deprecated('Use miniMaxCredentialBodyDescriptor instead')
-const MiniMaxCredentialBody$json = {
-  '1': 'MiniMaxCredentialBody',
-  '2': [
-    {
-      '1': 'api_key',
-      '3': 1,
-      '4': 1,
-      '5': 9,
-      '9': 0,
-      '10': 'apiKey',
-      '17': true
-    },
-    {
-      '1': 'base_url',
-      '3': 2,
-      '4': 1,
-      '5': 9,
-      '9': 1,
-      '10': 'baseUrl',
-      '17': true
-    },
-    {
-      '1': 'minimax_voice_base_url',
-      '3': 3,
-      '4': 1,
-      '5': 9,
-      '9': 2,
-      '10': 'minimaxVoiceBaseUrl',
-      '17': true
-    },
-    {'1': 'token', '3': 4, '4': 1, '5': 9, '9': 3, '10': 'token', '17': true},
-    {
-      '1': 'voice_base_url',
-      '3': 5,
-      '4': 1,
-      '5': 9,
-      '9': 4,
-      '10': 'voiceBaseUrl',
-      '17': true
-    },
-  ],
-  '8': [
-    {'1': '_api_key'},
-    {'1': '_base_url'},
-    {'1': '_minimax_voice_base_url'},
-    {'1': '_token'},
-    {'1': '_voice_base_url'},
-  ],
-};
-
-/// Descriptor for `MiniMaxCredentialBody`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List miniMaxCredentialBodyDescriptor = $convert.base64Decode(
-    'ChVNaW5pTWF4Q3JlZGVudGlhbEJvZHkSHAoHYXBpX2tleRgBIAEoCUgAUgZhcGlLZXmIAQESHg'
-    'oIYmFzZV91cmwYAiABKAlIAVIHYmFzZVVybIgBARI4ChZtaW5pbWF4X3ZvaWNlX2Jhc2VfdXJs'
-    'GAMgASgJSAJSE21pbmltYXhWb2ljZUJhc2VVcmyIAQESGQoFdG9rZW4YBCABKAlIA1IFdG9rZW'
-    '6IAQESKQoOdm9pY2VfYmFzZV91cmwYBSABKAlIBFIMdm9pY2VCYXNlVXJsiAEBQgoKCF9hcGlf'
-    'a2V5QgsKCV9iYXNlX3VybEIZChdfbWluaW1heF92b2ljZV9iYXNlX3VybEIICgZfdG9rZW5CEQ'
-    'oPX3ZvaWNlX2Jhc2VfdXJs');
-
-@$core.Deprecated('Use miniMaxTenantVoiceProviderDataDescriptor instead')
-const MiniMaxTenantVoiceProviderData$json = {
-  '1': 'MiniMaxTenantVoiceProviderData',
-  '2': [
-    {'1': 'format', '3': 1, '4': 1, '5': 9, '9': 0, '10': 'format', '17': true},
-    {'1': 'model', '3': 2, '4': 1, '5': 9, '9': 1, '10': 'model', '17': true},
-    {
-      '1': 'raw',
-      '3': 3,
-      '4': 1,
-      '5': 11,
-      '6': '.google.protobuf.Struct',
-      '10': 'raw'
-    },
-    {
-      '1': 'sample_rate',
-      '3': 4,
-      '4': 1,
-      '5': 3,
-      '9': 2,
-      '10': 'sampleRate',
-      '17': true
-    },
-    {
-      '1': 'voice_id',
-      '3': 5,
-      '4': 1,
-      '5': 9,
-      '9': 3,
-      '10': 'voiceId',
-      '17': true
-    },
-    {
-      '1': 'voice_type',
-      '3': 6,
-      '4': 1,
-      '5': 9,
-      '9': 4,
-      '10': 'voiceType',
-      '17': true
-    },
-  ],
-  '8': [
-    {'1': '_format'},
-    {'1': '_model'},
-    {'1': '_sample_rate'},
-    {'1': '_voice_id'},
-    {'1': '_voice_type'},
-  ],
-};
-
-/// Descriptor for `MiniMaxTenantVoiceProviderData`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List miniMaxTenantVoiceProviderDataDescriptor = $convert.base64Decode(
-    'Ch5NaW5pTWF4VGVuYW50Vm9pY2VQcm92aWRlckRhdGESGwoGZm9ybWF0GAEgASgJSABSBmZvcm'
-    '1hdIgBARIZCgVtb2RlbBgCIAEoCUgBUgVtb2RlbIgBARIpCgNyYXcYAyABKAsyFy5nb29nbGUu'
-    'cHJvdG9idWYuU3RydWN0UgNyYXcSJAoLc2FtcGxlX3JhdGUYBCABKANIAlIKc2FtcGxlUmF0ZY'
-    'gBARIeCgh2b2ljZV9pZBgFIAEoCUgDUgd2b2ljZUlkiAEBEiIKCnZvaWNlX3R5cGUYBiABKAlI'
-    'BFIJdm9pY2VUeXBliAEBQgkKB19mb3JtYXRCCAoGX21vZGVsQg4KDF9zYW1wbGVfcmF0ZUILCg'
-    'lfdm9pY2VfaWRCDQoLX3ZvaWNlX3R5cGU=');
-
 @$core.Deprecated('Use modelDescriptor instead')
 const Model$json = {
   '1': 'Model',
   '2': [
+    {'1': 'alias', '3': 1, '4': 1, '5': 9, '10': 'alias'},
+    {
+      '1': 'i18n',
+      '3': 2,
+      '4': 3,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.Model.I18nEntry',
+      '10': 'i18n'
+    },
+    {
+      '1': 'kind',
+      '3': 3,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.ModelKind',
+      '10': 'kind'
+    },
     {
       '1': 'capabilities',
-      '3': 1,
+      '3': 4,
       '4': 1,
       '5': 11,
       '6': '.gizclaw.rpc.v1.ModelCapabilities',
@@ -2521,96 +1942,38 @@ const Model$json = {
       '10': 'capabilities',
       '17': true
     },
-    {'1': 'created_at', '3': 2, '4': 1, '5': 9, '10': 'createdAt'},
-    {
-      '1': 'description',
-      '3': 3,
-      '4': 1,
-      '5': 9,
-      '9': 1,
-      '10': 'description',
-      '17': true
-    },
-    {'1': 'id', '3': 4, '4': 1, '5': 9, '10': 'id'},
-    {
-      '1': 'kind',
-      '3': 5,
-      '4': 1,
-      '5': 14,
-      '6': '.gizclaw.rpc.v1.ModelKind',
-      '10': 'kind'
-    },
-    {'1': 'name', '3': 6, '4': 1, '5': 9, '9': 2, '10': 'name', '17': true},
-    {
-      '1': 'provider',
-      '3': 7,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.ModelProvider',
-      '10': 'provider'
-    },
-    {
-      '1': 'provider_data',
-      '3': 8,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.ModelProviderData',
-      '9': 3,
-      '10': 'providerData',
-      '17': true
-    },
-    {
-      '1': 'source',
-      '3': 9,
-      '4': 1,
-      '5': 14,
-      '6': '.gizclaw.rpc.v1.ModelSource',
-      '10': 'source'
-    },
-    {
-      '1': 'synced_at',
-      '3': 10,
-      '4': 1,
-      '5': 9,
-      '9': 4,
-      '10': 'syncedAt',
-      '17': true
-    },
-    {'1': 'updated_at', '3': 11, '4': 1, '5': 9, '10': 'updatedAt'},
-    {
-      '1': 'owner_public_key',
-      '3': 12,
-      '4': 1,
-      '5': 9,
-      '9': 5,
-      '10': 'ownerPublicKey',
-      '17': true
-    },
   ],
+  '3': [Model_I18nEntry$json],
   '8': [
     {'1': '_capabilities'},
-    {'1': '_description'},
-    {'1': '_name'},
-    {'1': '_provider_data'},
-    {'1': '_synced_at'},
-    {'1': '_owner_public_key'},
   ],
+};
+
+@$core.Deprecated('Use modelDescriptor instead')
+const Model_I18nEntry$json = {
+  '1': 'I18nEntry',
+  '2': [
+    {'1': 'key', '3': 1, '4': 1, '5': 9, '10': 'key'},
+    {
+      '1': 'value',
+      '3': 2,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.AliasI18nText',
+      '10': 'value'
+    },
+  ],
+  '7': {'7': true},
 };
 
 /// Descriptor for `Model`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List modelDescriptor = $convert.base64Decode(
-    'CgVNb2RlbBJKCgxjYXBhYmlsaXRpZXMYASABKAsyIS5naXpjbGF3LnJwYy52MS5Nb2RlbENhcG'
-    'FiaWxpdGllc0gAUgxjYXBhYmlsaXRpZXOIAQESHQoKY3JlYXRlZF9hdBgCIAEoCVIJY3JlYXRl'
-    'ZEF0EiUKC2Rlc2NyaXB0aW9uGAMgASgJSAFSC2Rlc2NyaXB0aW9uiAEBEg4KAmlkGAQgASgJUg'
-    'JpZBItCgRraW5kGAUgASgOMhkuZ2l6Y2xhdy5ycGMudjEuTW9kZWxLaW5kUgRraW5kEhcKBG5h'
-    'bWUYBiABKAlIAlIEbmFtZYgBARI5Cghwcm92aWRlchgHIAEoCzIdLmdpemNsYXcucnBjLnYxLk'
-    '1vZGVsUHJvdmlkZXJSCHByb3ZpZGVyEksKDXByb3ZpZGVyX2RhdGEYCCABKAsyIS5naXpjbGF3'
-    'LnJwYy52MS5Nb2RlbFByb3ZpZGVyRGF0YUgDUgxwcm92aWRlckRhdGGIAQESMwoGc291cmNlGA'
-    'kgASgOMhsuZ2l6Y2xhdy5ycGMudjEuTW9kZWxTb3VyY2VSBnNvdXJjZRIgCglzeW5jZWRfYXQY'
-    'CiABKAlIBFIIc3luY2VkQXSIAQESHQoKdXBkYXRlZF9hdBgLIAEoCVIJdXBkYXRlZEF0Ei0KEG'
-    '93bmVyX3B1YmxpY19rZXkYDCABKAlIBVIOb3duZXJQdWJsaWNLZXmIAQFCDwoNX2NhcGFiaWxp'
-    'dGllc0IOCgxfZGVzY3JpcHRpb25CBwoFX25hbWVCEAoOX3Byb3ZpZGVyX2RhdGFCDAoKX3N5bm'
-    'NlZF9hdEITChFfb3duZXJfcHVibGljX2tleQ==');
+    'CgVNb2RlbBIUCgVhbGlhcxgBIAEoCVIFYWxpYXMSMwoEaTE4bhgCIAMoCzIfLmdpemNsYXcucn'
+    'BjLnYxLk1vZGVsLkkxOG5FbnRyeVIEaTE4bhItCgRraW5kGAMgASgOMhkuZ2l6Y2xhdy5ycGMu'
+    'djEuTW9kZWxLaW5kUgRraW5kEkoKDGNhcGFiaWxpdGllcxgEIAEoCzIhLmdpemNsYXcucnBjLn'
+    'YxLk1vZGVsQ2FwYWJpbGl0aWVzSABSDGNhcGFiaWxpdGllc4gBARpWCglJMThuRW50cnkSEAoD'
+    'a2V5GAEgASgJUgNrZXkSMwoFdmFsdWUYAiABKAsyHS5naXpjbGF3LnJwYy52MS5BbGlhc0kxOG'
+    '5UZXh0UgV2YWx1ZToCOAFCDwoNX2NhcGFiaWxpdGllcw==');
 
 @$core.Deprecated('Use modelCapabilitiesDescriptor instead')
 const ModelCapabilities$json = {
@@ -2692,89 +2055,17 @@ final $typed_data.Uint8List modelCapabilitiesDescriptor = $convert.base64Decode(
     'FCDgoMX2pzb25fb3V0cHV0Qg4KDF9zeXN0ZW1fcm9sZUIOCgxfdGVtcGVyYXR1cmVCDAoKX3Rl'
     'eHRfb25seUILCglfdGhpbmtpbmdCDQoLX3Rvb2xfY2FsbHM=');
 
-@$core.Deprecated('Use modelCreateRequestDescriptor instead')
-const ModelCreateRequest$json = {
-  '1': 'ModelCreateRequest',
-  '2': [
-    {
-      '1': 'value',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.Model',
-      '10': 'value'
-    },
-  ],
-};
-
-/// Descriptor for `ModelCreateRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List modelCreateRequestDescriptor = $convert.base64Decode(
-    'ChJNb2RlbENyZWF0ZVJlcXVlc3QSKwoFdmFsdWUYASABKAsyFS5naXpjbGF3LnJwYy52MS5Nb2'
-    'RlbFIFdmFsdWU=');
-
-@$core.Deprecated('Use modelCreateResponseDescriptor instead')
-const ModelCreateResponse$json = {
-  '1': 'ModelCreateResponse',
-  '2': [
-    {
-      '1': 'value',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.Model',
-      '10': 'value'
-    },
-  ],
-};
-
-/// Descriptor for `ModelCreateResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List modelCreateResponseDescriptor = $convert.base64Decode(
-    'ChNNb2RlbENyZWF0ZVJlc3BvbnNlEisKBXZhbHVlGAEgASgLMhUuZ2l6Y2xhdy5ycGMudjEuTW'
-    '9kZWxSBXZhbHVl');
-
-@$core.Deprecated('Use modelDeleteRequestDescriptor instead')
-const ModelDeleteRequest$json = {
-  '1': 'ModelDeleteRequest',
-  '2': [
-    {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
-  ],
-};
-
-/// Descriptor for `ModelDeleteRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List modelDeleteRequestDescriptor =
-    $convert.base64Decode('ChJNb2RlbERlbGV0ZVJlcXVlc3QSDgoCaWQYASABKAlSAmlk');
-
-@$core.Deprecated('Use modelDeleteResponseDescriptor instead')
-const ModelDeleteResponse$json = {
-  '1': 'ModelDeleteResponse',
-  '2': [
-    {
-      '1': 'value',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.Model',
-      '10': 'value'
-    },
-  ],
-};
-
-/// Descriptor for `ModelDeleteResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List modelDeleteResponseDescriptor = $convert.base64Decode(
-    'ChNNb2RlbERlbGV0ZVJlc3BvbnNlEisKBXZhbHVlGAEgASgLMhUuZ2l6Y2xhdy5ycGMudjEuTW'
-    '9kZWxSBXZhbHVl');
-
 @$core.Deprecated('Use modelGetRequestDescriptor instead')
 const ModelGetRequest$json = {
   '1': 'ModelGetRequest',
   '2': [
-    {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
+    {'1': 'alias', '3': 1, '4': 1, '5': 9, '10': 'alias'},
   ],
 };
 
 /// Descriptor for `ModelGetRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List modelGetRequestDescriptor =
-    $convert.base64Decode('Cg9Nb2RlbEdldFJlcXVlc3QSDgoCaWQYASABKAlSAmlk');
+final $typed_data.Uint8List modelGetRequestDescriptor = $convert
+    .base64Decode('Cg9Nb2RlbEdldFJlcXVlc3QSFAoFYWxpYXMYASABKAlSBWFsaWFz');
 
 @$core.Deprecated('Use modelGetResponseDescriptor instead')
 const ModelGetResponse$json = {
@@ -2788,13 +2079,29 @@ const ModelGetResponse$json = {
       '6': '.gizclaw.rpc.v1.Model',
       '10': 'value'
     },
+    {
+      '1': 'runtime_profile_name',
+      '3': 2,
+      '4': 1,
+      '5': 9,
+      '10': 'runtimeProfileName'
+    },
+    {
+      '1': 'runtime_profile_revision',
+      '3': 3,
+      '4': 1,
+      '5': 9,
+      '10': 'runtimeProfileRevision'
+    },
   ],
 };
 
 /// Descriptor for `ModelGetResponse`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List modelGetResponseDescriptor = $convert.base64Decode(
     'ChBNb2RlbEdldFJlc3BvbnNlEisKBXZhbHVlGAEgASgLMhUuZ2l6Y2xhdy5ycGMudjEuTW9kZW'
-    'xSBXZhbHVl');
+    'xSBXZhbHVlEjAKFHJ1bnRpbWVfcHJvZmlsZV9uYW1lGAIgASgJUhJydW50aW1lUHJvZmlsZU5h'
+    'bWUSOAoYcnVudGltZV9wcm9maWxlX3JldmlzaW9uGAMgASgJUhZydW50aW1lUHJvZmlsZVJldm'
+    'lzaW9u');
 
 @$core.Deprecated('Use modelListRequestDescriptor instead')
 const ModelListRequest$json = {
@@ -2836,6 +2143,20 @@ const ModelListResponse$json = {
       '10': 'nextCursor',
       '17': true
     },
+    {
+      '1': 'runtime_profile_name',
+      '3': 4,
+      '4': 1,
+      '5': 9,
+      '10': 'runtimeProfileName'
+    },
+    {
+      '1': 'runtime_profile_revision',
+      '3': 5,
+      '4': 1,
+      '5': 9,
+      '10': 'runtimeProfileRevision'
+    },
   ],
   '8': [
     {'1': '_next_cursor'},
@@ -2846,128 +2167,9 @@ const ModelListResponse$json = {
 final $typed_data.Uint8List modelListResponseDescriptor = $convert.base64Decode(
     'ChFNb2RlbExpc3RSZXNwb25zZRIZCghoYXNfbmV4dBgBIAEoCFIHaGFzTmV4dBIrCgVpdGVtcx'
     'gCIAMoCzIVLmdpemNsYXcucnBjLnYxLk1vZGVsUgVpdGVtcxIkCgtuZXh0X2N1cnNvchgDIAEo'
-    'CUgAUgpuZXh0Q3Vyc29yiAEBQg4KDF9uZXh0X2N1cnNvcg==');
-
-@$core.Deprecated('Use modelProviderDescriptor instead')
-const ModelProvider$json = {
-  '1': 'ModelProvider',
-  '2': [
-    {
-      '1': 'kind',
-      '3': 1,
-      '4': 1,
-      '5': 14,
-      '6': '.gizclaw.rpc.v1.ModelProviderKind',
-      '10': 'kind'
-    },
-    {'1': 'name', '3': 2, '4': 1, '5': 9, '10': 'name'},
-  ],
-};
-
-/// Descriptor for `ModelProvider`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List modelProviderDescriptor = $convert.base64Decode(
-    'Cg1Nb2RlbFByb3ZpZGVyEjUKBGtpbmQYASABKA4yIS5naXpjbGF3LnJwYy52MS5Nb2RlbFByb3'
-    'ZpZGVyS2luZFIEa2luZBISCgRuYW1lGAIgASgJUgRuYW1l');
-
-@$core.Deprecated('Use modelProviderDataDescriptor instead')
-const ModelProviderData$json = {
-  '1': 'ModelProviderData',
-  '2': [
-    {
-      '1': 'gemini_tenant_model_provider_data',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.GeminiTenantModelProviderData',
-      '9': 0,
-      '10': 'geminiTenantModelProviderData'
-    },
-    {
-      '1': 'dash_scope_tenant_model_provider_data',
-      '3': 2,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.DashScopeTenantModelProviderData',
-      '9': 0,
-      '10': 'dashScopeTenantModelProviderData'
-    },
-    {
-      '1': 'open_aitenant_model_provider_data',
-      '3': 3,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.OpenAITenantModelProviderData',
-      '9': 0,
-      '10': 'openAitenantModelProviderData'
-    },
-    {
-      '1': 'volc_tenant_model_provider_data',
-      '3': 4,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.VolcTenantModelProviderData',
-      '9': 0,
-      '10': 'volcTenantModelProviderData'
-    },
-  ],
-  '8': [
-    {'1': 'value'},
-  ],
-};
-
-/// Descriptor for `ModelProviderData`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List modelProviderDataDescriptor = $convert.base64Decode(
-    'ChFNb2RlbFByb3ZpZGVyRGF0YRJ5CiFnZW1pbmlfdGVuYW50X21vZGVsX3Byb3ZpZGVyX2RhdG'
-    'EYASABKAsyLS5naXpjbGF3LnJwYy52MS5HZW1pbmlUZW5hbnRNb2RlbFByb3ZpZGVyRGF0YUgA'
-    'Uh1nZW1pbmlUZW5hbnRNb2RlbFByb3ZpZGVyRGF0YRKDAQolZGFzaF9zY29wZV90ZW5hbnRfbW'
-    '9kZWxfcHJvdmlkZXJfZGF0YRgCIAEoCzIwLmdpemNsYXcucnBjLnYxLkRhc2hTY29wZVRlbmFu'
-    'dE1vZGVsUHJvdmlkZXJEYXRhSABSIGRhc2hTY29wZVRlbmFudE1vZGVsUHJvdmlkZXJEYXRhEn'
-    'kKIW9wZW5fYWl0ZW5hbnRfbW9kZWxfcHJvdmlkZXJfZGF0YRgDIAEoCzItLmdpemNsYXcucnBj'
-    'LnYxLk9wZW5BSVRlbmFudE1vZGVsUHJvdmlkZXJEYXRhSABSHW9wZW5BaXRlbmFudE1vZGVsUH'
-    'JvdmlkZXJEYXRhEnMKH3ZvbGNfdGVuYW50X21vZGVsX3Byb3ZpZGVyX2RhdGEYBCABKAsyKy5n'
-    'aXpjbGF3LnJwYy52MS5Wb2xjVGVuYW50TW9kZWxQcm92aWRlckRhdGFIAFIbdm9sY1RlbmFudE'
-    '1vZGVsUHJvdmlkZXJEYXRhQgcKBXZhbHVl');
-
-@$core.Deprecated('Use modelPutRequestDescriptor instead')
-const ModelPutRequest$json = {
-  '1': 'ModelPutRequest',
-  '2': [
-    {
-      '1': 'body',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.Model',
-      '10': 'body'
-    },
-    {'1': 'id', '3': 2, '4': 1, '5': 9, '10': 'id'},
-  ],
-};
-
-/// Descriptor for `ModelPutRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List modelPutRequestDescriptor = $convert.base64Decode(
-    'Cg9Nb2RlbFB1dFJlcXVlc3QSKQoEYm9keRgBIAEoCzIVLmdpemNsYXcucnBjLnYxLk1vZGVsUg'
-    'Rib2R5Eg4KAmlkGAIgASgJUgJpZA==');
-
-@$core.Deprecated('Use modelPutResponseDescriptor instead')
-const ModelPutResponse$json = {
-  '1': 'ModelPutResponse',
-  '2': [
-    {
-      '1': 'value',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.Model',
-      '10': 'value'
-    },
-  ],
-};
-
-/// Descriptor for `ModelPutResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List modelPutResponseDescriptor = $convert.base64Decode(
-    'ChBNb2RlbFB1dFJlc3BvbnNlEisKBXZhbHVlGAEgASgLMhUuZ2l6Y2xhdy5ycGMudjEuTW9kZW'
-    'xSBXZhbHVl');
+    'CUgAUgpuZXh0Q3Vyc29yiAEBEjAKFHJ1bnRpbWVfcHJvZmlsZV9uYW1lGAQgASgJUhJydW50aW'
+    '1lUHJvZmlsZU5hbWUSOAoYcnVudGltZV9wcm9maWxlX3JldmlzaW9uGAUgASgJUhZydW50aW1l'
+    'UHJvZmlsZVJldmlzaW9uQg4KDF9uZXh0X2N1cnNvcg==');
 
 @$core.Deprecated('Use modelThinkingCapabilityDescriptor instead')
 const ModelThinkingCapability$json = {
@@ -3010,298 +2212,58 @@ final $typed_data.Uint8List modelThinkingCapabilityDescriptor = $convert.base64D
     'RlZBgFIAEoCFIJc3VwcG9ydGVkQhAKDl9kZWZhdWx0X2xldmVsQg4KDF9sZXZlbF9wYXJhbUII'
     'CgZfcGFyYW0=');
 
-@$core.Deprecated('Use openAICredentialBodyDescriptor instead')
-const OpenAICredentialBody$json = {
-  '1': 'OpenAICredentialBody',
-  '2': [
-    {
-      '1': 'api_key',
-      '3': 1,
-      '4': 1,
-      '5': 9,
-      '9': 0,
-      '10': 'apiKey',
-      '17': true
-    },
-    {
-      '1': 'base_url',
-      '3': 2,
-      '4': 1,
-      '5': 9,
-      '9': 1,
-      '10': 'baseUrl',
-      '17': true
-    },
-    {
-      '1': 'organization',
-      '3': 3,
-      '4': 1,
-      '5': 9,
-      '9': 2,
-      '10': 'organization',
-      '17': true
-    },
-    {
-      '1': 'project',
-      '3': 4,
-      '4': 1,
-      '5': 9,
-      '9': 3,
-      '10': 'project',
-      '17': true
-    },
-    {'1': 'token', '3': 5, '4': 1, '5': 9, '9': 4, '10': 'token', '17': true},
-  ],
-  '8': [
-    {'1': '_api_key'},
-    {'1': '_base_url'},
-    {'1': '_organization'},
-    {'1': '_project'},
-    {'1': '_token'},
-  ],
-};
-
-/// Descriptor for `OpenAICredentialBody`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List openAICredentialBodyDescriptor = $convert.base64Decode(
-    'ChRPcGVuQUlDcmVkZW50aWFsQm9keRIcCgdhcGlfa2V5GAEgASgJSABSBmFwaUtleYgBARIeCg'
-    'hiYXNlX3VybBgCIAEoCUgBUgdiYXNlVXJsiAEBEicKDG9yZ2FuaXphdGlvbhgDIAEoCUgCUgxv'
-    'cmdhbml6YXRpb26IAQESHQoHcHJvamVjdBgEIAEoCUgDUgdwcm9qZWN0iAEBEhkKBXRva2VuGA'
-    'UgASgJSARSBXRva2VuiAEBQgoKCF9hcGlfa2V5QgsKCV9iYXNlX3VybEIPCg1fb3JnYW5pemF0'
-    'aW9uQgoKCF9wcm9qZWN0QggKBl90b2tlbg==');
-
-@$core.Deprecated('Use openAITenantModelProviderDataDescriptor instead')
-const OpenAITenantModelProviderData$json = {
-  '1': 'OpenAITenantModelProviderData',
-  '2': [
-    {
-      '1': 'default_thinking_level',
-      '3': 1,
-      '4': 1,
-      '5': 9,
-      '9': 0,
-      '10': 'defaultThinkingLevel',
-      '17': true
-    },
-    {
-      '1': 'support_json_output',
-      '3': 2,
-      '4': 1,
-      '5': 8,
-      '9': 1,
-      '10': 'supportJsonOutput',
-      '17': true
-    },
-    {
-      '1': 'support_text_only',
-      '3': 3,
-      '4': 1,
-      '5': 8,
-      '9': 2,
-      '10': 'supportTextOnly',
-      '17': true
-    },
-    {
-      '1': 'support_thinking',
-      '3': 4,
-      '4': 1,
-      '5': 8,
-      '9': 3,
-      '10': 'supportThinking',
-      '17': true
-    },
-    {
-      '1': 'support_tool_calls',
-      '3': 5,
-      '4': 1,
-      '5': 8,
-      '9': 4,
-      '10': 'supportToolCalls',
-      '17': true
-    },
-    {
-      '1': 'thinking_level_param',
-      '3': 6,
-      '4': 1,
-      '5': 9,
-      '9': 5,
-      '10': 'thinkingLevelParam',
-      '17': true
-    },
-    {'1': 'thinking_levels', '3': 7, '4': 3, '5': 9, '10': 'thinkingLevels'},
-    {
-      '1': 'thinking_param',
-      '3': 8,
-      '4': 1,
-      '5': 9,
-      '9': 6,
-      '10': 'thinkingParam',
-      '17': true
-    },
-    {
-      '1': 'upstream_model',
-      '3': 9,
-      '4': 1,
-      '5': 9,
-      '9': 7,
-      '10': 'upstreamModel',
-      '17': true
-    },
-    {
-      '1': 'use_system_role',
-      '3': 10,
-      '4': 1,
-      '5': 8,
-      '9': 8,
-      '10': 'useSystemRole',
-      '17': true
-    },
-  ],
-  '8': [
-    {'1': '_default_thinking_level'},
-    {'1': '_support_json_output'},
-    {'1': '_support_text_only'},
-    {'1': '_support_thinking'},
-    {'1': '_support_tool_calls'},
-    {'1': '_thinking_level_param'},
-    {'1': '_thinking_param'},
-    {'1': '_upstream_model'},
-    {'1': '_use_system_role'},
-  ],
-};
-
-/// Descriptor for `OpenAITenantModelProviderData`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List openAITenantModelProviderDataDescriptor = $convert.base64Decode(
-    'Ch1PcGVuQUlUZW5hbnRNb2RlbFByb3ZpZGVyRGF0YRI5ChZkZWZhdWx0X3RoaW5raW5nX2xldm'
-    'VsGAEgASgJSABSFGRlZmF1bHRUaGlua2luZ0xldmVsiAEBEjMKE3N1cHBvcnRfanNvbl9vdXRw'
-    'dXQYAiABKAhIAVIRc3VwcG9ydEpzb25PdXRwdXSIAQESLwoRc3VwcG9ydF90ZXh0X29ubHkYAy'
-    'ABKAhIAlIPc3VwcG9ydFRleHRPbmx5iAEBEi4KEHN1cHBvcnRfdGhpbmtpbmcYBCABKAhIA1IP'
-    'c3VwcG9ydFRoaW5raW5niAEBEjEKEnN1cHBvcnRfdG9vbF9jYWxscxgFIAEoCEgEUhBzdXBwb3'
-    'J0VG9vbENhbGxziAEBEjUKFHRoaW5raW5nX2xldmVsX3BhcmFtGAYgASgJSAVSEnRoaW5raW5n'
-    'TGV2ZWxQYXJhbYgBARInCg90aGlua2luZ19sZXZlbHMYByADKAlSDnRoaW5raW5nTGV2ZWxzEi'
-    'oKDnRoaW5raW5nX3BhcmFtGAggASgJSAZSDXRoaW5raW5nUGFyYW2IAQESKgoOdXBzdHJlYW1f'
-    'bW9kZWwYCSABKAlIB1INdXBzdHJlYW1Nb2RlbIgBARIrCg91c2Vfc3lzdGVtX3JvbGUYCiABKA'
-    'hICFINdXNlU3lzdGVtUm9sZYgBAUIZChdfZGVmYXVsdF90aGlua2luZ19sZXZlbEIWChRfc3Vw'
-    'cG9ydF9qc29uX291dHB1dEIUChJfc3VwcG9ydF90ZXh0X29ubHlCEwoRX3N1cHBvcnRfdGhpbm'
-    'tpbmdCFQoTX3N1cHBvcnRfdG9vbF9jYWxsc0IXChVfdGhpbmtpbmdfbGV2ZWxfcGFyYW1CEQoP'
-    'X3RoaW5raW5nX3BhcmFtQhEKD191cHN0cmVhbV9tb2RlbEISChBfdXNlX3N5c3RlbV9yb2xl');
-
-@$core.Deprecated('Use openAITenantVoiceProviderDataDescriptor instead')
-const OpenAITenantVoiceProviderData$json = {
-  '1': 'OpenAITenantVoiceProviderData',
-  '2': [
-    {
-      '1': 'raw',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.google.protobuf.Struct',
-      '10': 'raw'
-    },
-    {
-      '1': 'voice_id',
-      '3': 2,
-      '4': 1,
-      '5': 9,
-      '9': 0,
-      '10': 'voiceId',
-      '17': true
-    },
-  ],
-  '8': [
-    {'1': '_voice_id'},
-  ],
-};
-
-/// Descriptor for `OpenAITenantVoiceProviderData`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List openAITenantVoiceProviderDataDescriptor =
-    $convert.base64Decode(
-        'Ch1PcGVuQUlUZW5hbnRWb2ljZVByb3ZpZGVyRGF0YRIpCgNyYXcYASABKAsyFy5nb29nbGUucH'
-        'JvdG9idWYuU3RydWN0UgNyYXcSHgoIdm9pY2VfaWQYAiABKAlIAFIHdm9pY2VJZIgBAUILCglf'
-        'dm9pY2VfaWQ=');
-
 @$core.Deprecated('Use voiceDescriptor instead')
 const Voice$json = {
   '1': 'Voice',
   '2': [
-    {'1': 'created_at', '3': 1, '4': 1, '5': 9, '10': 'createdAt'},
+    {'1': 'alias', '3': 1, '4': 1, '5': 9, '10': 'alias'},
     {
-      '1': 'description',
+      '1': 'i18n',
+      '3': 2,
+      '4': 3,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.Voice.I18nEntry',
+      '10': 'i18n'
+    },
+  ],
+  '3': [Voice_I18nEntry$json],
+};
+
+@$core.Deprecated('Use voiceDescriptor instead')
+const Voice_I18nEntry$json = {
+  '1': 'I18nEntry',
+  '2': [
+    {'1': 'key', '3': 1, '4': 1, '5': 9, '10': 'key'},
+    {
+      '1': 'value',
       '3': 2,
       '4': 1,
-      '5': 9,
-      '9': 0,
-      '10': 'description',
-      '17': true
-    },
-    {'1': 'id', '3': 3, '4': 1, '5': 9, '10': 'id'},
-    {'1': 'name', '3': 4, '4': 1, '5': 9, '9': 1, '10': 'name', '17': true},
-    {
-      '1': 'provider',
-      '3': 5,
-      '4': 1,
       '5': 11,
-      '6': '.gizclaw.rpc.v1.VoiceProvider',
-      '10': 'provider'
+      '6': '.gizclaw.rpc.v1.AliasI18nText',
+      '10': 'value'
     },
-    {
-      '1': 'provider_data',
-      '3': 6,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.VoiceProviderData',
-      '9': 2,
-      '10': 'providerData',
-      '17': true
-    },
-    {
-      '1': 'source',
-      '3': 7,
-      '4': 1,
-      '5': 14,
-      '6': '.gizclaw.rpc.v1.VoiceSource',
-      '10': 'source'
-    },
-    {
-      '1': 'synced_at',
-      '3': 8,
-      '4': 1,
-      '5': 9,
-      '9': 3,
-      '10': 'syncedAt',
-      '17': true
-    },
-    {'1': 'updated_at', '3': 9, '4': 1, '5': 9, '10': 'updatedAt'},
   ],
-  '8': [
-    {'1': '_description'},
-    {'1': '_name'},
-    {'1': '_provider_data'},
-    {'1': '_synced_at'},
-  ],
+  '7': {'7': true},
 };
 
 /// Descriptor for `Voice`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List voiceDescriptor = $convert.base64Decode(
-    'CgVWb2ljZRIdCgpjcmVhdGVkX2F0GAEgASgJUgljcmVhdGVkQXQSJQoLZGVzY3JpcHRpb24YAi'
-    'ABKAlIAFILZGVzY3JpcHRpb26IAQESDgoCaWQYAyABKAlSAmlkEhcKBG5hbWUYBCABKAlIAVIE'
-    'bmFtZYgBARI5Cghwcm92aWRlchgFIAEoCzIdLmdpemNsYXcucnBjLnYxLlZvaWNlUHJvdmlkZX'
-    'JSCHByb3ZpZGVyEksKDXByb3ZpZGVyX2RhdGEYBiABKAsyIS5naXpjbGF3LnJwYy52MS5Wb2lj'
-    'ZVByb3ZpZGVyRGF0YUgCUgxwcm92aWRlckRhdGGIAQESMwoGc291cmNlGAcgASgOMhsuZ2l6Y2'
-    'xhdy5ycGMudjEuVm9pY2VTb3VyY2VSBnNvdXJjZRIgCglzeW5jZWRfYXQYCCABKAlIA1IIc3lu'
-    'Y2VkQXSIAQESHQoKdXBkYXRlZF9hdBgJIAEoCVIJdXBkYXRlZEF0Qg4KDF9kZXNjcmlwdGlvbk'
-    'IHCgVfbmFtZUIQCg5fcHJvdmlkZXJfZGF0YUIMCgpfc3luY2VkX2F0');
+    'CgVWb2ljZRIUCgVhbGlhcxgBIAEoCVIFYWxpYXMSMwoEaTE4bhgCIAMoCzIfLmdpemNsYXcucn'
+    'BjLnYxLlZvaWNlLkkxOG5FbnRyeVIEaTE4bhpWCglJMThuRW50cnkSEAoDa2V5GAEgASgJUgNr'
+    'ZXkSMwoFdmFsdWUYAiABKAsyHS5naXpjbGF3LnJwYy52MS5BbGlhc0kxOG5UZXh0UgV2YWx1ZT'
+    'oCOAE=');
 
 @$core.Deprecated('Use voiceGetRequestDescriptor instead')
 const VoiceGetRequest$json = {
   '1': 'VoiceGetRequest',
   '2': [
-    {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
+    {'1': 'alias', '3': 1, '4': 1, '5': 9, '10': 'alias'},
   ],
 };
 
 /// Descriptor for `VoiceGetRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List voiceGetRequestDescriptor =
-    $convert.base64Decode('Cg9Wb2ljZUdldFJlcXVlc3QSDgoCaWQYASABKAlSAmlk');
+final $typed_data.Uint8List voiceGetRequestDescriptor = $convert
+    .base64Decode('Cg9Wb2ljZUdldFJlcXVlc3QSFAoFYWxpYXMYASABKAlSBWFsaWFz');
 
 @$core.Deprecated('Use voiceGetResponseDescriptor instead')
 const VoiceGetResponse$json = {
@@ -3315,13 +2277,29 @@ const VoiceGetResponse$json = {
       '6': '.gizclaw.rpc.v1.Voice',
       '10': 'value'
     },
+    {
+      '1': 'runtime_profile_name',
+      '3': 2,
+      '4': 1,
+      '5': 9,
+      '10': 'runtimeProfileName'
+    },
+    {
+      '1': 'runtime_profile_revision',
+      '3': 3,
+      '4': 1,
+      '5': 9,
+      '10': 'runtimeProfileRevision'
+    },
   ],
 };
 
 /// Descriptor for `VoiceGetResponse`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List voiceGetResponseDescriptor = $convert.base64Decode(
     'ChBWb2ljZUdldFJlc3BvbnNlEisKBXZhbHVlGAEgASgLMhUuZ2l6Y2xhdy5ycGMudjEuVm9pY2'
-    'VSBXZhbHVl');
+    'VSBXZhbHVlEjAKFHJ1bnRpbWVfcHJvZmlsZV9uYW1lGAIgASgJUhJydW50aW1lUHJvZmlsZU5h'
+    'bWUSOAoYcnVudGltZV9wcm9maWxlX3JldmlzaW9uGAMgASgJUhZydW50aW1lUHJvZmlsZVJldm'
+    'lzaW9u');
 
 @$core.Deprecated('Use voiceListRequestDescriptor instead')
 const VoiceListRequest$json = {
@@ -3363,6 +2341,20 @@ const VoiceListResponse$json = {
       '10': 'nextCursor',
       '17': true
     },
+    {
+      '1': 'runtime_profile_name',
+      '3': 4,
+      '4': 1,
+      '5': 9,
+      '10': 'runtimeProfileName'
+    },
+    {
+      '1': 'runtime_profile_revision',
+      '3': 5,
+      '4': 1,
+      '5': 9,
+      '10': 'runtimeProfileRevision'
+    },
   ],
   '8': [
     {'1': '_next_cursor'},
@@ -3373,542 +2365,86 @@ const VoiceListResponse$json = {
 final $typed_data.Uint8List voiceListResponseDescriptor = $convert.base64Decode(
     'ChFWb2ljZUxpc3RSZXNwb25zZRIZCghoYXNfbmV4dBgBIAEoCFIHaGFzTmV4dBIrCgVpdGVtcx'
     'gCIAMoCzIVLmdpemNsYXcucnBjLnYxLlZvaWNlUgVpdGVtcxIkCgtuZXh0X2N1cnNvchgDIAEo'
-    'CUgAUgpuZXh0Q3Vyc29yiAEBQg4KDF9uZXh0X2N1cnNvcg==');
-
-@$core.Deprecated('Use voiceProviderDescriptor instead')
-const VoiceProvider$json = {
-  '1': 'VoiceProvider',
-  '2': [
-    {
-      '1': 'kind',
-      '3': 1,
-      '4': 1,
-      '5': 14,
-      '6': '.gizclaw.rpc.v1.VoiceProviderKind',
-      '10': 'kind'
-    },
-    {'1': 'name', '3': 2, '4': 1, '5': 9, '10': 'name'},
-  ],
-};
-
-/// Descriptor for `VoiceProvider`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List voiceProviderDescriptor = $convert.base64Decode(
-    'Cg1Wb2ljZVByb3ZpZGVyEjUKBGtpbmQYASABKA4yIS5naXpjbGF3LnJwYy52MS5Wb2ljZVByb3'
-    'ZpZGVyS2luZFIEa2luZBISCgRuYW1lGAIgASgJUgRuYW1l');
-
-@$core.Deprecated('Use voiceProviderDataDescriptor instead')
-const VoiceProviderData$json = {
-  '1': 'VoiceProviderData',
-  '2': [
-    {
-      '1': 'gemini_tenant_voice_provider_data',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.GeminiTenantVoiceProviderData',
-      '9': 0,
-      '10': 'geminiTenantVoiceProviderData'
-    },
-    {
-      '1': 'dash_scope_tenant_voice_provider_data',
-      '3': 2,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.DashScopeTenantVoiceProviderData',
-      '9': 0,
-      '10': 'dashScopeTenantVoiceProviderData'
-    },
-    {
-      '1': 'open_aitenant_voice_provider_data',
-      '3': 3,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.OpenAITenantVoiceProviderData',
-      '9': 0,
-      '10': 'openAitenantVoiceProviderData'
-    },
-    {
-      '1': 'mini_max_tenant_voice_provider_data',
-      '3': 4,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.MiniMaxTenantVoiceProviderData',
-      '9': 0,
-      '10': 'miniMaxTenantVoiceProviderData'
-    },
-    {
-      '1': 'volc_tenant_voice_provider_data',
-      '3': 5,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.VolcTenantVoiceProviderData',
-      '9': 0,
-      '10': 'volcTenantVoiceProviderData'
-    },
-  ],
-  '8': [
-    {'1': 'value'},
-  ],
-};
-
-/// Descriptor for `VoiceProviderData`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List voiceProviderDataDescriptor = $convert.base64Decode(
-    'ChFWb2ljZVByb3ZpZGVyRGF0YRJ5CiFnZW1pbmlfdGVuYW50X3ZvaWNlX3Byb3ZpZGVyX2RhdG'
-    'EYASABKAsyLS5naXpjbGF3LnJwYy52MS5HZW1pbmlUZW5hbnRWb2ljZVByb3ZpZGVyRGF0YUgA'
-    'Uh1nZW1pbmlUZW5hbnRWb2ljZVByb3ZpZGVyRGF0YRKDAQolZGFzaF9zY29wZV90ZW5hbnRfdm'
-    '9pY2VfcHJvdmlkZXJfZGF0YRgCIAEoCzIwLmdpemNsYXcucnBjLnYxLkRhc2hTY29wZVRlbmFu'
-    'dFZvaWNlUHJvdmlkZXJEYXRhSABSIGRhc2hTY29wZVRlbmFudFZvaWNlUHJvdmlkZXJEYXRhEn'
-    'kKIW9wZW5fYWl0ZW5hbnRfdm9pY2VfcHJvdmlkZXJfZGF0YRgDIAEoCzItLmdpemNsYXcucnBj'
-    'LnYxLk9wZW5BSVRlbmFudFZvaWNlUHJvdmlkZXJEYXRhSABSHW9wZW5BaXRlbmFudFZvaWNlUH'
-    'JvdmlkZXJEYXRhEn0KI21pbmlfbWF4X3RlbmFudF92b2ljZV9wcm92aWRlcl9kYXRhGAQgASgL'
-    'Mi4uZ2l6Y2xhdy5ycGMudjEuTWluaU1heFRlbmFudFZvaWNlUHJvdmlkZXJEYXRhSABSHm1pbm'
-    'lNYXhUZW5hbnRWb2ljZVByb3ZpZGVyRGF0YRJzCh92b2xjX3RlbmFudF92b2ljZV9wcm92aWRl'
-    'cl9kYXRhGAUgASgLMisuZ2l6Y2xhdy5ycGMudjEuVm9sY1RlbmFudFZvaWNlUHJvdmlkZXJEYX'
-    'RhSABSG3ZvbGNUZW5hbnRWb2ljZVByb3ZpZGVyRGF0YUIHCgV2YWx1ZQ==');
-
-@$core.Deprecated('Use volcCredentialBodyDescriptor instead')
-const VolcCredentialBody$json = {
-  '1': 'VolcCredentialBody',
-  '2': [
-    {
-      '1': 'speech_api_key',
-      '3': 1,
-      '4': 1,
-      '5': 9,
-      '9': 0,
-      '10': 'speechApiKey',
-      '17': true
-    },
-    {
-      '1': 'speech_app_id',
-      '3': 2,
-      '4': 1,
-      '5': 9,
-      '9': 1,
-      '10': 'speechAppId',
-      '17': true
-    },
-    {
-      '1': 'openapi_access_key',
-      '3': 3,
-      '4': 1,
-      '5': 9,
-      '9': 2,
-      '10': 'openapiAccessKey',
-      '17': true
-    },
-    {
-      '1': 'openapi_access_key_id',
-      '3': 4,
-      '4': 1,
-      '5': 9,
-      '9': 3,
-      '10': 'openapiAccessKeyId',
-      '17': true
-    },
-    {
-      '1': 'search_api_key',
-      '3': 5,
-      '4': 1,
-      '5': 9,
-      '9': 4,
-      '10': 'searchApiKey',
-      '17': true
-    },
-    {
-      '1': 'ark_api_key',
-      '3': 6,
-      '4': 1,
-      '5': 9,
-      '9': 5,
-      '10': 'arkApiKey',
-      '17': true
-    },
-  ],
-  '8': [
-    {'1': '_speech_api_key'},
-    {'1': '_speech_app_id'},
-    {'1': '_openapi_access_key'},
-    {'1': '_openapi_access_key_id'},
-    {'1': '_search_api_key'},
-    {'1': '_ark_api_key'},
-  ],
-};
-
-/// Descriptor for `VolcCredentialBody`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List volcCredentialBodyDescriptor = $convert.base64Decode(
-    'ChJWb2xjQ3JlZGVudGlhbEJvZHkSKQoOc3BlZWNoX2FwaV9rZXkYASABKAlIAFIMc3BlZWNoQX'
-    'BpS2V5iAEBEicKDXNwZWVjaF9hcHBfaWQYAiABKAlIAVILc3BlZWNoQXBwSWSIAQESMQoSb3Bl'
-    'bmFwaV9hY2Nlc3Nfa2V5GAMgASgJSAJSEG9wZW5hcGlBY2Nlc3NLZXmIAQESNgoVb3BlbmFwaV'
-    '9hY2Nlc3Nfa2V5X2lkGAQgASgJSANSEm9wZW5hcGlBY2Nlc3NLZXlJZIgBARIpCg5zZWFyY2hf'
-    'YXBpX2tleRgFIAEoCUgEUgxzZWFyY2hBcGlLZXmIAQESIwoLYXJrX2FwaV9rZXkYBiABKAlIBV'
-    'IJYXJrQXBpS2V5iAEBQhEKD19zcGVlY2hfYXBpX2tleUIQCg5fc3BlZWNoX2FwcF9pZEIVChNf'
-    'b3BlbmFwaV9hY2Nlc3Nfa2V5QhgKFl9vcGVuYXBpX2FjY2Vzc19rZXlfaWRCEQoPX3NlYXJjaF'
-    '9hcGlfa2V5Qg4KDF9hcmtfYXBpX2tleQ==');
-
-@$core.Deprecated('Use volcTenantModelProviderDataDescriptor instead')
-const VolcTenantModelProviderData$json = {
-  '1': 'VolcTenantModelProviderData',
-  '2': [
-    {
-      '1': 'api_mode',
-      '3': 1,
-      '4': 1,
-      '5': 14,
-      '6': '.gizclaw.rpc.v1.VolcTenantModelProviderDataApiMode',
-      '9': 0,
-      '10': 'apiMode',
-      '17': true
-    },
-    {
-      '1': 'default_thinking_level',
-      '3': 2,
-      '4': 1,
-      '5': 9,
-      '9': 1,
-      '10': 'defaultThinkingLevel',
-      '17': true
-    },
-    {
-      '1': 'resource_id',
-      '3': 3,
-      '4': 1,
-      '5': 9,
-      '9': 2,
-      '10': 'resourceId',
-      '17': true
-    },
-    {
-      '1': 'support_json_output',
-      '3': 4,
-      '4': 1,
-      '5': 8,
-      '9': 3,
-      '10': 'supportJsonOutput',
-      '17': true
-    },
-    {
-      '1': 'support_text_only',
-      '3': 5,
-      '4': 1,
-      '5': 8,
-      '9': 4,
-      '10': 'supportTextOnly',
-      '17': true
-    },
-    {
-      '1': 'support_thinking',
-      '3': 6,
-      '4': 1,
-      '5': 8,
-      '9': 5,
-      '10': 'supportThinking',
-      '17': true
-    },
-    {
-      '1': 'support_tool_calls',
-      '3': 7,
-      '4': 1,
-      '5': 8,
-      '9': 6,
-      '10': 'supportToolCalls',
-      '17': true
-    },
-    {
-      '1': 'thinking_level_param',
-      '3': 8,
-      '4': 1,
-      '5': 9,
-      '9': 7,
-      '10': 'thinkingLevelParam',
-      '17': true
-    },
-    {'1': 'thinking_levels', '3': 9, '4': 3, '5': 9, '10': 'thinkingLevels'},
-    {
-      '1': 'thinking_param',
-      '3': 10,
-      '4': 1,
-      '5': 9,
-      '9': 8,
-      '10': 'thinkingParam',
-      '17': true
-    },
-    {
-      '1': 'upstream_model',
-      '3': 11,
-      '4': 1,
-      '5': 9,
-      '9': 9,
-      '10': 'upstreamModel',
-      '17': true
-    },
-    {
-      '1': 'use_system_role',
-      '3': 12,
-      '4': 1,
-      '5': 8,
-      '9': 10,
-      '10': 'useSystemRole',
-      '17': true
-    },
-  ],
-  '8': [
-    {'1': '_api_mode'},
-    {'1': '_default_thinking_level'},
-    {'1': '_resource_id'},
-    {'1': '_support_json_output'},
-    {'1': '_support_text_only'},
-    {'1': '_support_thinking'},
-    {'1': '_support_tool_calls'},
-    {'1': '_thinking_level_param'},
-    {'1': '_thinking_param'},
-    {'1': '_upstream_model'},
-    {'1': '_use_system_role'},
-  ],
-};
-
-/// Descriptor for `VolcTenantModelProviderData`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List volcTenantModelProviderDataDescriptor = $convert.base64Decode(
-    'ChtWb2xjVGVuYW50TW9kZWxQcm92aWRlckRhdGESUgoIYXBpX21vZGUYASABKA4yMi5naXpjbG'
-    'F3LnJwYy52MS5Wb2xjVGVuYW50TW9kZWxQcm92aWRlckRhdGFBcGlNb2RlSABSB2FwaU1vZGWI'
-    'AQESOQoWZGVmYXVsdF90aGlua2luZ19sZXZlbBgCIAEoCUgBUhRkZWZhdWx0VGhpbmtpbmdMZX'
-    'ZlbIgBARIkCgtyZXNvdXJjZV9pZBgDIAEoCUgCUgpyZXNvdXJjZUlkiAEBEjMKE3N1cHBvcnRf'
-    'anNvbl9vdXRwdXQYBCABKAhIA1IRc3VwcG9ydEpzb25PdXRwdXSIAQESLwoRc3VwcG9ydF90ZX'
-    'h0X29ubHkYBSABKAhIBFIPc3VwcG9ydFRleHRPbmx5iAEBEi4KEHN1cHBvcnRfdGhpbmtpbmcY'
-    'BiABKAhIBVIPc3VwcG9ydFRoaW5raW5niAEBEjEKEnN1cHBvcnRfdG9vbF9jYWxscxgHIAEoCE'
-    'gGUhBzdXBwb3J0VG9vbENhbGxziAEBEjUKFHRoaW5raW5nX2xldmVsX3BhcmFtGAggASgJSAdS'
-    'EnRoaW5raW5nTGV2ZWxQYXJhbYgBARInCg90aGlua2luZ19sZXZlbHMYCSADKAlSDnRoaW5raW'
-    '5nTGV2ZWxzEioKDnRoaW5raW5nX3BhcmFtGAogASgJSAhSDXRoaW5raW5nUGFyYW2IAQESKgoO'
-    'dXBzdHJlYW1fbW9kZWwYCyABKAlICVINdXBzdHJlYW1Nb2RlbIgBARIrCg91c2Vfc3lzdGVtX3'
-    'JvbGUYDCABKAhIClINdXNlU3lzdGVtUm9sZYgBAUILCglfYXBpX21vZGVCGQoXX2RlZmF1bHRf'
-    'dGhpbmtpbmdfbGV2ZWxCDgoMX3Jlc291cmNlX2lkQhYKFF9zdXBwb3J0X2pzb25fb3V0cHV0Qh'
-    'QKEl9zdXBwb3J0X3RleHRfb25seUITChFfc3VwcG9ydF90aGlua2luZ0IVChNfc3VwcG9ydF90'
-    'b29sX2NhbGxzQhcKFV90aGlua2luZ19sZXZlbF9wYXJhbUIRCg9fdGhpbmtpbmdfcGFyYW1CEQ'
-    'oPX3Vwc3RyZWFtX21vZGVsQhIKEF91c2Vfc3lzdGVtX3JvbGU=');
-
-@$core.Deprecated('Use volcTenantVoiceProviderDataDescriptor instead')
-const VolcTenantVoiceProviderData$json = {
-  '1': 'VolcTenantVoiceProviderData',
-  '2': [
-    {
-      '1': 'raw',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.google.protobuf.Struct',
-      '10': 'raw'
-    },
-    {
-      '1': 'resource_id',
-      '3': 2,
-      '4': 1,
-      '5': 9,
-      '9': 0,
-      '10': 'resourceId',
-      '17': true
-    },
-    {'1': 'state', '3': 3, '4': 1, '5': 9, '9': 1, '10': 'state', '17': true},
-    {'1': 'status', '3': 4, '4': 1, '5': 9, '9': 2, '10': 'status', '17': true},
-    {
-      '1': 'voice_id',
-      '3': 5,
-      '4': 1,
-      '5': 9,
-      '9': 3,
-      '10': 'voiceId',
-      '17': true
-    },
-  ],
-  '8': [
-    {'1': '_resource_id'},
-    {'1': '_state'},
-    {'1': '_status'},
-    {'1': '_voice_id'},
-  ],
-};
-
-/// Descriptor for `VolcTenantVoiceProviderData`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List volcTenantVoiceProviderDataDescriptor = $convert.base64Decode(
-    'ChtWb2xjVGVuYW50Vm9pY2VQcm92aWRlckRhdGESKQoDcmF3GAEgASgLMhcuZ29vZ2xlLnByb3'
-    'RvYnVmLlN0cnVjdFIDcmF3EiQKC3Jlc291cmNlX2lkGAIgASgJSABSCnJlc291cmNlSWSIAQES'
-    'GQoFc3RhdGUYAyABKAlIAVIFc3RhdGWIAQESGwoGc3RhdHVzGAQgASgJSAJSBnN0YXR1c4gBAR'
-    'IeCgh2b2ljZV9pZBgFIAEoCUgDUgd2b2ljZUlkiAEBQg4KDF9yZXNvdXJjZV9pZEIICgZfc3Rh'
-    'dGVCCQoHX3N0YXR1c0ILCglfdm9pY2VfaWQ=');
+    'CUgAUgpuZXh0Q3Vyc29yiAEBEjAKFHJ1bnRpbWVfcHJvZmlsZV9uYW1lGAQgASgJUhJydW50aW'
+    '1lUHJvZmlsZU5hbWUSOAoYcnVudGltZV9wcm9maWxlX3JldmlzaW9uGAUgASgJUhZydW50aW1l'
+    'UHJvZmlsZVJldmlzaW9uQg4KDF9uZXh0X2N1cnNvcg==');
 
 @$core.Deprecated('Use workflowDescriptor instead')
 const Workflow$json = {
   '1': 'Workflow',
   '2': [
-    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'alias', '3': 1, '4': 1, '5': 9, '10': 'alias'},
     {
-      '1': 'spec',
+      '1': 'i18n',
       '3': 2,
-      '4': 1,
+      '4': 3,
       '5': 11,
-      '6': '.gizclaw.rpc.v1.WorkflowSpec',
-      '10': 'spec'
+      '6': '.gizclaw.rpc.v1.Workflow.I18nEntry',
+      '10': 'i18n'
+    },
+    {'1': 'collection', '3': 3, '4': 1, '5': 9, '10': 'collection'},
+    {
+      '1': 'driver',
+      '3': 4,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.WorkflowDriver',
+      '10': 'driver'
     },
     {
-      '1': 'owner_public_key',
+      '1': 'workspace_lang_pair',
       '3': 5,
       '4': 1,
       '5': 9,
       '9': 0,
-      '10': 'ownerPublicKey',
+      '10': 'workspaceLangPair',
       '17': true
     },
   ],
+  '3': [Workflow_I18nEntry$json],
   '8': [
-    {'1': '_owner_public_key'},
+    {'1': '_workspace_lang_pair'},
   ],
-  '9': [
-    {'1': 3, '2': 4},
-    {'1': 4, '2': 5},
+};
+
+@$core.Deprecated('Use workflowDescriptor instead')
+const Workflow_I18nEntry$json = {
+  '1': 'I18nEntry',
+  '2': [
+    {'1': 'key', '3': 1, '4': 1, '5': 9, '10': 'key'},
+    {
+      '1': 'value',
+      '3': 2,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.AliasI18nText',
+      '10': 'value'
+    },
   ],
+  '7': {'7': true},
 };
 
 /// Descriptor for `Workflow`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List workflowDescriptor = $convert.base64Decode(
-    'CghXb3JrZmxvdxISCgRuYW1lGAEgASgJUgRuYW1lEjAKBHNwZWMYAiABKAsyHC5naXpjbGF3Ln'
-    'JwYy52MS5Xb3JrZmxvd1NwZWNSBHNwZWMSLQoQb3duZXJfcHVibGljX2tleRgFIAEoCUgAUg5v'
-    'd25lclB1YmxpY0tleYgBAUITChFfb3duZXJfcHVibGljX2tleUoECAMQBEoECAQQBQ==');
-
-@$core.Deprecated('Use workflowUpsertDescriptor instead')
-const WorkflowUpsert$json = {
-  '1': 'WorkflowUpsert',
-  '2': [
-    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
-    {
-      '1': 'spec',
-      '3': 2,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.WorkflowSpec',
-      '10': 'spec'
-    },
-  ],
-};
-
-/// Descriptor for `WorkflowUpsert`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List workflowUpsertDescriptor = $convert.base64Decode(
-    'Cg5Xb3JrZmxvd1Vwc2VydBISCgRuYW1lGAEgASgJUgRuYW1lEjAKBHNwZWMYAiABKAsyHC5naX'
-    'pjbGF3LnJwYy52MS5Xb3JrZmxvd1NwZWNSBHNwZWM=');
-
-@$core.Deprecated('Use workflowCreateRequestDescriptor instead')
-const WorkflowCreateRequest$json = {
-  '1': 'WorkflowCreateRequest',
-  '2': [
-    {
-      '1': 'source',
-      '3': 1,
-      '4': 1,
-      '5': 14,
-      '6': '.gizclaw.rpc.v1.ResourceSource',
-      '10': 'source'
-    },
-    {
-      '1': 'body',
-      '3': 2,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.WorkflowUpsert',
-      '10': 'body'
-    },
-  ],
-};
-
-/// Descriptor for `WorkflowCreateRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List workflowCreateRequestDescriptor = $convert.base64Decode(
-    'ChVXb3JrZmxvd0NyZWF0ZVJlcXVlc3QSNgoGc291cmNlGAEgASgOMh4uZ2l6Y2xhdy5ycGMudj'
-    'EuUmVzb3VyY2VTb3VyY2VSBnNvdXJjZRIyCgRib2R5GAIgASgLMh4uZ2l6Y2xhdy5ycGMudjEu'
-    'V29ya2Zsb3dVcHNlcnRSBGJvZHk=');
-
-@$core.Deprecated('Use workflowCreateResponseDescriptor instead')
-const WorkflowCreateResponse$json = {
-  '1': 'WorkflowCreateResponse',
-  '2': [
-    {
-      '1': 'value',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.Workflow',
-      '10': 'value'
-    },
-  ],
-};
-
-/// Descriptor for `WorkflowCreateResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List workflowCreateResponseDescriptor =
-    $convert.base64Decode(
-        'ChZXb3JrZmxvd0NyZWF0ZVJlc3BvbnNlEi4KBXZhbHVlGAEgASgLMhguZ2l6Y2xhdy5ycGMudj'
-        'EuV29ya2Zsb3dSBXZhbHVl');
-
-@$core.Deprecated('Use workflowDeleteRequestDescriptor instead')
-const WorkflowDeleteRequest$json = {
-  '1': 'WorkflowDeleteRequest',
-  '2': [
-    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
-    {
-      '1': 'source',
-      '3': 2,
-      '4': 1,
-      '5': 14,
-      '6': '.gizclaw.rpc.v1.ResourceSource',
-      '10': 'source'
-    },
-  ],
-};
-
-/// Descriptor for `WorkflowDeleteRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List workflowDeleteRequestDescriptor = $convert.base64Decode(
-    'ChVXb3JrZmxvd0RlbGV0ZVJlcXVlc3QSEgoEbmFtZRgBIAEoCVIEbmFtZRI2CgZzb3VyY2UYAi'
-    'ABKA4yHi5naXpjbGF3LnJwYy52MS5SZXNvdXJjZVNvdXJjZVIGc291cmNl');
-
-@$core.Deprecated('Use workflowDeleteResponseDescriptor instead')
-const WorkflowDeleteResponse$json = {
-  '1': 'WorkflowDeleteResponse',
-  '2': [
-    {
-      '1': 'value',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.Workflow',
-      '10': 'value'
-    },
-  ],
-};
-
-/// Descriptor for `WorkflowDeleteResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List workflowDeleteResponseDescriptor =
-    $convert.base64Decode(
-        'ChZXb3JrZmxvd0RlbGV0ZVJlc3BvbnNlEi4KBXZhbHVlGAEgASgLMhguZ2l6Y2xhdy5ycGMudj'
-        'EuV29ya2Zsb3dSBXZhbHVl');
+    'CghXb3JrZmxvdxIUCgVhbGlhcxgBIAEoCVIFYWxpYXMSNgoEaTE4bhgCIAMoCzIiLmdpemNsYX'
+    'cucnBjLnYxLldvcmtmbG93LkkxOG5FbnRyeVIEaTE4bhIeCgpjb2xsZWN0aW9uGAMgASgJUgpj'
+    'b2xsZWN0aW9uEjYKBmRyaXZlchgEIAEoDjIeLmdpemNsYXcucnBjLnYxLldvcmtmbG93RHJpdm'
+    'VyUgZkcml2ZXISMwoTd29ya3NwYWNlX2xhbmdfcGFpchgFIAEoCUgAUhF3b3Jrc3BhY2VMYW5n'
+    'UGFpcogBARpWCglJMThuRW50cnkSEAoDa2V5GAEgASgJUgNrZXkSMwoFdmFsdWUYAiABKAsyHS'
+    '5naXpjbGF3LnJwYy52MS5BbGlhc0kxOG5UZXh0UgV2YWx1ZToCOAFCFgoUX3dvcmtzcGFjZV9s'
+    'YW5nX3BhaXI=');
 
 @$core.Deprecated('Use workflowGetRequestDescriptor instead')
 const WorkflowGetRequest$json = {
   '1': 'WorkflowGetRequest',
   '2': [
-    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
-    {
-      '1': 'source',
-      '3': 3,
-      '4': 1,
-      '5': 14,
-      '6': '.gizclaw.rpc.v1.ResourceSource',
-      '10': 'source'
-    },
-  ],
-  '9': [
-    {'1': 2, '2': 3},
+    {'1': 'alias', '3': 1, '4': 1, '5': 9, '10': 'alias'},
   ],
 };
 
 /// Descriptor for `WorkflowGetRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List workflowGetRequestDescriptor = $convert.base64Decode(
-    'ChJXb3JrZmxvd0dldFJlcXVlc3QSEgoEbmFtZRgBIAEoCVIEbmFtZRI2CgZzb3VyY2UYAyABKA'
-    '4yHi5naXpjbGF3LnJwYy52MS5SZXNvdXJjZVNvdXJjZVIGc291cmNlSgQIAhAD');
+final $typed_data.Uint8List workflowGetRequestDescriptor = $convert
+    .base64Decode('ChJXb3JrZmxvd0dldFJlcXVlc3QSFAoFYWxpYXMYASABKAlSBWFsaWFz');
 
 @$core.Deprecated('Use workflowGetResponseDescriptor instead')
 const WorkflowGetResponse$json = {
@@ -3922,13 +2458,29 @@ const WorkflowGetResponse$json = {
       '6': '.gizclaw.rpc.v1.Workflow',
       '10': 'value'
     },
+    {
+      '1': 'runtime_profile_name',
+      '3': 2,
+      '4': 1,
+      '5': 9,
+      '10': 'runtimeProfileName'
+    },
+    {
+      '1': 'runtime_profile_revision',
+      '3': 3,
+      '4': 1,
+      '5': 9,
+      '10': 'runtimeProfileRevision'
+    },
   ],
 };
 
 /// Descriptor for `WorkflowGetResponse`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List workflowGetResponseDescriptor = $convert.base64Decode(
     'ChNXb3JrZmxvd0dldFJlc3BvbnNlEi4KBXZhbHVlGAEgASgLMhguZ2l6Y2xhdy5ycGMudjEuV2'
-    '9ya2Zsb3dSBXZhbHVl');
+    '9ya2Zsb3dSBXZhbHVlEjAKFHJ1bnRpbWVfcHJvZmlsZV9uYW1lGAIgASgJUhJydW50aW1lUHJv'
+    'ZmlsZU5hbWUSOAoYcnVudGltZV9wcm9maWxlX3JldmlzaW9uGAMgASgJUhZydW50aW1lUHJvZm'
+    'lsZVJldmlzaW9u');
 
 @$core.Deprecated('Use workflowListRequestDescriptor instead')
 const WorkflowListRequest$json = {
@@ -3936,29 +2488,19 @@ const WorkflowListRequest$json = {
   '2': [
     {'1': 'cursor', '3': 1, '4': 1, '5': 9, '9': 0, '10': 'cursor', '17': true},
     {'1': 'limit', '3': 2, '4': 1, '5': 3, '9': 1, '10': 'limit', '17': true},
-    {
-      '1': 'source',
-      '3': 4,
-      '4': 1,
-      '5': 14,
-      '6': '.gizclaw.rpc.v1.ResourceSource',
-      '10': 'source'
-    },
+    {'1': 'collection', '3': 3, '4': 1, '5': 9, '10': 'collection'},
   ],
   '8': [
     {'1': '_cursor'},
     {'1': '_limit'},
-  ],
-  '9': [
-    {'1': 3, '2': 4},
   ],
 };
 
 /// Descriptor for `WorkflowListRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List workflowListRequestDescriptor = $convert.base64Decode(
     'ChNXb3JrZmxvd0xpc3RSZXF1ZXN0EhsKBmN1cnNvchgBIAEoCUgAUgZjdXJzb3KIAQESGQoFbG'
-    'ltaXQYAiABKANIAVIFbGltaXSIAQESNgoGc291cmNlGAQgASgOMh4uZ2l6Y2xhdy5ycGMudjEu'
-    'UmVzb3VyY2VTb3VyY2VSBnNvdXJjZUIJCgdfY3Vyc29yQggKBl9saW1pdEoECAMQBA==');
+    'ltaXQYAiABKANIAVIFbGltaXSIAQESHgoKY29sbGVjdGlvbhgDIAEoCVIKY29sbGVjdGlvbkIJ'
+    'CgdfY3Vyc29yQggKBl9saW1pdA==');
 
 @$core.Deprecated('Use workflowListResponseDescriptor instead')
 const WorkflowListResponse$json = {
@@ -3982,6 +2524,20 @@ const WorkflowListResponse$json = {
       '10': 'nextCursor',
       '17': true
     },
+    {
+      '1': 'runtime_profile_name',
+      '3': 4,
+      '4': 1,
+      '5': 9,
+      '10': 'runtimeProfileName'
+    },
+    {
+      '1': 'runtime_profile_revision',
+      '3': 5,
+      '4': 1,
+      '5': 9,
+      '10': 'runtimeProfileRevision'
+    },
   ],
   '8': [
     {'1': '_next_cursor'},
@@ -3992,57 +2548,9 @@ const WorkflowListResponse$json = {
 final $typed_data.Uint8List workflowListResponseDescriptor = $convert.base64Decode(
     'ChRXb3JrZmxvd0xpc3RSZXNwb25zZRIZCghoYXNfbmV4dBgBIAEoCFIHaGFzTmV4dBIuCgVpdG'
     'VtcxgCIAMoCzIYLmdpemNsYXcucnBjLnYxLldvcmtmbG93UgVpdGVtcxIkCgtuZXh0X2N1cnNv'
-    'chgDIAEoCUgAUgpuZXh0Q3Vyc29yiAEBQg4KDF9uZXh0X2N1cnNvcg==');
-
-@$core.Deprecated('Use workflowPutRequestDescriptor instead')
-const WorkflowPutRequest$json = {
-  '1': 'WorkflowPutRequest',
-  '2': [
-    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
-    {
-      '1': 'body',
-      '3': 2,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.WorkflowUpsert',
-      '10': 'body'
-    },
-    {
-      '1': 'source',
-      '3': 3,
-      '4': 1,
-      '5': 14,
-      '6': '.gizclaw.rpc.v1.ResourceSource',
-      '10': 'source'
-    },
-  ],
-};
-
-/// Descriptor for `WorkflowPutRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List workflowPutRequestDescriptor = $convert.base64Decode(
-    'ChJXb3JrZmxvd1B1dFJlcXVlc3QSEgoEbmFtZRgBIAEoCVIEbmFtZRIyCgRib2R5GAIgASgLMh'
-    '4uZ2l6Y2xhdy5ycGMudjEuV29ya2Zsb3dVcHNlcnRSBGJvZHkSNgoGc291cmNlGAMgASgOMh4u'
-    'Z2l6Y2xhdy5ycGMudjEuUmVzb3VyY2VTb3VyY2VSBnNvdXJjZQ==');
-
-@$core.Deprecated('Use workflowPutResponseDescriptor instead')
-const WorkflowPutResponse$json = {
-  '1': 'WorkflowPutResponse',
-  '2': [
-    {
-      '1': 'value',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.Workflow',
-      '10': 'value'
-    },
-  ],
-};
-
-/// Descriptor for `WorkflowPutResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List workflowPutResponseDescriptor = $convert.base64Decode(
-    'ChNXb3JrZmxvd1B1dFJlc3BvbnNlEi4KBXZhbHVlGAEgASgLMhguZ2l6Y2xhdy5ycGMudjEuV2'
-    '9ya2Zsb3dSBXZhbHVl');
+    'chgDIAEoCUgAUgpuZXh0Q3Vyc29yiAEBEjAKFHJ1bnRpbWVfcHJvZmlsZV9uYW1lGAQgASgJUh'
+    'JydW50aW1lUHJvZmlsZU5hbWUSOAoYcnVudGltZV9wcm9maWxlX3JldmlzaW9uGAUgASgJUhZy'
+    'dW50aW1lUHJvZmlsZVJldmlzaW9uQg4KDF9uZXh0X2N1cnNvcg==');
 
 @$core.Deprecated('Use toolkitPolicyToolIdsDescriptor instead')
 const ToolkitPolicyToolIds$json = {
@@ -4082,283 +2590,22 @@ final $typed_data.Uint8List toolkitPolicyDescriptor = $convert.base64Decode(
     'Cg1Ub29sa2l0UG9saWN5EkQKCHRvb2xfaWRzGAEgASgLMiQuZ2l6Y2xhdy5ycGMudjEuVG9vbG'
     'tpdFBvbGljeVRvb2xJZHNIAFIHdG9vbElkc4gBAUILCglfdG9vbF9pZHM=');
 
-@$core.Deprecated('Use workflowSpecDescriptor instead')
-const WorkflowSpec$json = {
-  '1': 'WorkflowSpec',
-  '2': [
-    {
-      '1': 'ast_translate',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.ASTTranslateWorkflowSpec',
-      '9': 0,
-      '10': 'astTranslate',
-      '17': true
-    },
-    {
-      '1': 'chatroom',
-      '3': 2,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.ChatRoomWorkflowSpec',
-      '9': 1,
-      '10': 'chatroom',
-      '17': true
-    },
-    {
-      '1': 'doubao_realtime',
-      '3': 3,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.DoubaoRealtimeWorkflowSpec',
-      '9': 2,
-      '10': 'doubaoRealtime',
-      '17': true
-    },
-    {
-      '1': 'driver',
-      '3': 4,
-      '4': 1,
-      '5': 14,
-      '6': '.gizclaw.rpc.v1.WorkflowDriver',
-      '10': 'driver'
-    },
-    {
-      '1': 'flowcraft',
-      '3': 5,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.FlowcraftWorkflowSpec',
-      '9': 3,
-      '10': 'flowcraft',
-      '17': true
-    },
-    {
-      '1': 'toolkit',
-      '3': 6,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.ToolkitPolicy',
-      '9': 4,
-      '10': 'toolkit',
-      '17': true
-    },
-    {
-      '1': 'pet',
-      '3': 7,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.PetWorkflowSpec',
-      '9': 5,
-      '10': 'pet',
-      '17': true
-    },
-  ],
-  '8': [
-    {'1': '_ast_translate'},
-    {'1': '_chatroom'},
-    {'1': '_doubao_realtime'},
-    {'1': '_flowcraft'},
-    {'1': '_toolkit'},
-    {'1': '_pet'},
-  ],
-};
-
-/// Descriptor for `WorkflowSpec`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List workflowSpecDescriptor = $convert.base64Decode(
-    'CgxXb3JrZmxvd1NwZWMSUgoNYXN0X3RyYW5zbGF0ZRgBIAEoCzIoLmdpemNsYXcucnBjLnYxLk'
-    'FTVFRyYW5zbGF0ZVdvcmtmbG93U3BlY0gAUgxhc3RUcmFuc2xhdGWIAQESRQoIY2hhdHJvb20Y'
-    'AiABKAsyJC5naXpjbGF3LnJwYy52MS5DaGF0Um9vbVdvcmtmbG93U3BlY0gBUghjaGF0cm9vbY'
-    'gBARJYCg9kb3ViYW9fcmVhbHRpbWUYAyABKAsyKi5naXpjbGF3LnJwYy52MS5Eb3ViYW9SZWFs'
-    'dGltZVdvcmtmbG93U3BlY0gCUg5kb3ViYW9SZWFsdGltZYgBARI2CgZkcml2ZXIYBCABKA4yHi'
-    '5naXpjbGF3LnJwYy52MS5Xb3JrZmxvd0RyaXZlclIGZHJpdmVyEkgKCWZsb3djcmFmdBgFIAEo'
-    'CzIlLmdpemNsYXcucnBjLnYxLkZsb3djcmFmdFdvcmtmbG93U3BlY0gDUglmbG93Y3JhZnSIAQ'
-    'ESPAoHdG9vbGtpdBgGIAEoCzIdLmdpemNsYXcucnBjLnYxLlRvb2xraXRQb2xpY3lIBFIHdG9v'
-    'bGtpdIgBARI2CgNwZXQYByABKAsyHy5naXpjbGF3LnJwYy52MS5QZXRXb3JrZmxvd1NwZWNIBV'
-    'IDcGV0iAEBQhAKDl9hc3RfdHJhbnNsYXRlQgsKCV9jaGF0cm9vbUISChBfZG91YmFvX3JlYWx0'
-    'aW1lQgwKCl9mbG93Y3JhZnRCCgoIX3Rvb2xraXRCBgoEX3BldA==');
-
-@$core.Deprecated('Use toolExecutorDescriptor instead')
-const ToolExecutor$json = {
-  '1': 'ToolExecutor',
-  '2': [
-    {
-      '1': 'kind',
-      '3': 1,
-      '4': 1,
-      '5': 14,
-      '6': '.gizclaw.rpc.v1.ToolExecutorKind',
-      '10': 'kind'
-    },
-    {'1': 'name', '3': 2, '4': 1, '5': 9, '9': 0, '10': 'name', '17': true},
-    {'1': 'method', '3': 3, '4': 1, '5': 9, '9': 1, '10': 'method', '17': true},
-    {
-      '1': 'peer_id',
-      '3': 4,
-      '4': 1,
-      '5': 9,
-      '9': 2,
-      '10': 'peerId',
-      '17': true
-    },
-    {
-      '1': 'config',
-      '3': 5,
-      '4': 1,
-      '5': 11,
-      '6': '.google.protobuf.Struct',
-      '9': 3,
-      '10': 'config',
-      '17': true
-    },
-  ],
-  '8': [
-    {'1': '_name'},
-    {'1': '_method'},
-    {'1': '_peer_id'},
-    {'1': '_config'},
-  ],
-};
-
-/// Descriptor for `ToolExecutor`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List toolExecutorDescriptor = $convert.base64Decode(
-    'CgxUb29sRXhlY3V0b3ISNAoEa2luZBgBIAEoDjIgLmdpemNsYXcucnBjLnYxLlRvb2xFeGVjdX'
-    'RvcktpbmRSBGtpbmQSFwoEbmFtZRgCIAEoCUgAUgRuYW1liAEBEhsKBm1ldGhvZBgDIAEoCUgB'
-    'UgZtZXRob2SIAQESHAoHcGVlcl9pZBgEIAEoCUgCUgZwZWVySWSIAQESNAoGY29uZmlnGAUgAS'
-    'gLMhcuZ29vZ2xlLnByb3RvYnVmLlN0cnVjdEgDUgZjb25maWeIAQFCBwoFX25hbWVCCQoHX21l'
-    'dGhvZEIKCghfcGVlcl9pZEIJCgdfY29uZmln');
-
-@$core.Deprecated('Use toolTriggerExampleDescriptor instead')
-const ToolTriggerExample$json = {
-  '1': 'ToolTriggerExample',
-  '2': [
-    {'1': 'input', '3': 1, '4': 1, '5': 9, '10': 'input'},
-    {
-      '1': 'args',
-      '3': 2,
-      '4': 1,
-      '5': 11,
-      '6': '.google.protobuf.Struct',
-      '9': 0,
-      '10': 'args',
-      '17': true
-    },
-    {'1': 'output', '3': 3, '4': 1, '5': 9, '9': 1, '10': 'output', '17': true},
-  ],
-  '8': [
-    {'1': '_args'},
-    {'1': '_output'},
-  ],
-};
-
-/// Descriptor for `ToolTriggerExample`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List toolTriggerExampleDescriptor = $convert.base64Decode(
-    'ChJUb29sVHJpZ2dlckV4YW1wbGUSFAoFaW5wdXQYASABKAlSBWlucHV0EjAKBGFyZ3MYAiABKA'
-    'syFy5nb29nbGUucHJvdG9idWYuU3RydWN0SABSBGFyZ3OIAQESGwoGb3V0cHV0GAMgASgJSAFS'
-    'Bm91dHB1dIgBAUIHCgVfYXJnc0IJCgdfb3V0cHV0');
-
-@$core.Deprecated('Use toolTriggerDescriptor instead')
-const ToolTrigger$json = {
-  '1': 'ToolTrigger',
-  '2': [
-    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
-    {
-      '1': 'description',
-      '3': 2,
-      '4': 1,
-      '5': 9,
-      '9': 0,
-      '10': 'description',
-      '17': true
-    },
-    {'1': 'patterns', '3': 3, '4': 3, '5': 9, '10': 'patterns'},
-    {
-      '1': 'examples',
-      '3': 4,
-      '4': 3,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.ToolTriggerExample',
-      '10': 'examples'
-    },
-    {
-      '1': 'metadata',
-      '3': 5,
-      '4': 1,
-      '5': 11,
-      '6': '.google.protobuf.Struct',
-      '9': 1,
-      '10': 'metadata',
-      '17': true
-    },
-  ],
-  '8': [
-    {'1': '_description'},
-    {'1': '_metadata'},
-  ],
-};
-
-/// Descriptor for `ToolTrigger`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List toolTriggerDescriptor = $convert.base64Decode(
-    'CgtUb29sVHJpZ2dlchISCgRuYW1lGAEgASgJUgRuYW1lEiUKC2Rlc2NyaXB0aW9uGAIgASgJSA'
-    'BSC2Rlc2NyaXB0aW9uiAEBEhoKCHBhdHRlcm5zGAMgAygJUghwYXR0ZXJucxI+CghleGFtcGxl'
-    'cxgEIAMoCzIiLmdpemNsYXcucnBjLnYxLlRvb2xUcmlnZ2VyRXhhbXBsZVIIZXhhbXBsZXMSOA'
-    'oIbWV0YWRhdGEYBSABKAsyFy5nb29nbGUucHJvdG9idWYuU3RydWN0SAFSCG1ldGFkYXRhiAEB'
-    'Qg4KDF9kZXNjcmlwdGlvbkILCglfbWV0YWRhdGE=');
-
 @$core.Deprecated('Use toolDescriptor instead')
 const Tool$json = {
   '1': 'Tool',
   '2': [
-    {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
-    {'1': 'name', '3': 2, '4': 1, '5': 9, '9': 0, '10': 'name', '17': true},
+    {'1': 'alias', '3': 1, '4': 1, '5': 9, '10': 'alias'},
     {
-      '1': 'description',
-      '3': 3,
-      '4': 1,
-      '5': 9,
-      '9': 1,
-      '10': 'description',
-      '17': true
-    },
-    {
-      '1': 'source',
-      '3': 4,
-      '4': 1,
-      '5': 14,
-      '6': '.gizclaw.rpc.v1.ToolSource',
-      '10': 'source'
-    },
-    {
-      '1': 'enabled',
-      '3': 5,
-      '4': 1,
-      '5': 8,
-      '9': 2,
-      '10': 'enabled',
-      '17': true
-    },
-    {
-      '1': 'owner_peer',
-      '3': 6,
-      '4': 1,
-      '5': 9,
-      '9': 3,
-      '10': 'ownerPeer',
-      '17': true
-    },
-    {
-      '1': 'version',
-      '3': 7,
-      '4': 1,
-      '5': 9,
-      '9': 4,
-      '10': 'version',
-      '17': true
+      '1': 'i18n',
+      '3': 2,
+      '4': 3,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.Tool.I18nEntry',
+      '10': 'i18n'
     },
     {
       '1': 'input_schema',
-      '3': 8,
+      '3': 3,
       '4': 1,
       '5': 11,
       '6': '.google.protobuf.Struct',
@@ -4366,80 +2613,46 @@ const Tool$json = {
     },
     {
       '1': 'output_schema',
-      '3': 9,
+      '3': 4,
       '4': 1,
       '5': 11,
       '6': '.google.protobuf.Struct',
-      '9': 5,
+      '9': 0,
       '10': 'outputSchema',
       '17': true
     },
-    {
-      '1': 'triggers',
-      '3': 10,
-      '4': 3,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.ToolTrigger',
-      '10': 'triggers'
-    },
-    {
-      '1': 'executor',
-      '3': 11,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.ToolExecutor',
-      '10': 'executor'
-    },
-    {
-      '1': 'metadata',
-      '3': 12,
-      '4': 1,
-      '5': 11,
-      '6': '.google.protobuf.Struct',
-      '9': 6,
-      '10': 'metadata',
-      '17': true
-    },
-    {'1': 'created_at', '3': 13, '4': 1, '5': 9, '10': 'createdAt'},
-    {'1': 'updated_at', '3': 14, '4': 1, '5': 9, '10': 'updatedAt'},
-    {
-      '1': 'owner_public_key',
-      '3': 15,
-      '4': 1,
-      '5': 9,
-      '9': 7,
-      '10': 'ownerPublicKey',
-      '17': true
-    },
   ],
+  '3': [Tool_I18nEntry$json],
   '8': [
-    {'1': '_name'},
-    {'1': '_description'},
-    {'1': '_enabled'},
-    {'1': '_owner_peer'},
-    {'1': '_version'},
     {'1': '_output_schema'},
-    {'1': '_metadata'},
-    {'1': '_owner_public_key'},
   ],
+};
+
+@$core.Deprecated('Use toolDescriptor instead')
+const Tool_I18nEntry$json = {
+  '1': 'I18nEntry',
+  '2': [
+    {'1': 'key', '3': 1, '4': 1, '5': 9, '10': 'key'},
+    {
+      '1': 'value',
+      '3': 2,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.AliasI18nText',
+      '10': 'value'
+    },
+  ],
+  '7': {'7': true},
 };
 
 /// Descriptor for `Tool`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List toolDescriptor = $convert.base64Decode(
-    'CgRUb29sEg4KAmlkGAEgASgJUgJpZBIXCgRuYW1lGAIgASgJSABSBG5hbWWIAQESJQoLZGVzY3'
-    'JpcHRpb24YAyABKAlIAVILZGVzY3JpcHRpb26IAQESMgoGc291cmNlGAQgASgOMhouZ2l6Y2xh'
-    'dy5ycGMudjEuVG9vbFNvdXJjZVIGc291cmNlEh0KB2VuYWJsZWQYBSABKAhIAlIHZW5hYmxlZI'
-    'gBARIiCgpvd25lcl9wZWVyGAYgASgJSANSCW93bmVyUGVlcogBARIdCgd2ZXJzaW9uGAcgASgJ'
-    'SARSB3ZlcnNpb26IAQESOgoMaW5wdXRfc2NoZW1hGAggASgLMhcuZ29vZ2xlLnByb3RvYnVmLl'
-    'N0cnVjdFILaW5wdXRTY2hlbWESQQoNb3V0cHV0X3NjaGVtYRgJIAEoCzIXLmdvb2dsZS5wcm90'
-    'b2J1Zi5TdHJ1Y3RIBVIMb3V0cHV0U2NoZW1hiAEBEjcKCHRyaWdnZXJzGAogAygLMhsuZ2l6Y2'
-    'xhdy5ycGMudjEuVG9vbFRyaWdnZXJSCHRyaWdnZXJzEjgKCGV4ZWN1dG9yGAsgASgLMhwuZ2l6'
-    'Y2xhdy5ycGMudjEuVG9vbEV4ZWN1dG9yUghleGVjdXRvchI4CghtZXRhZGF0YRgMIAEoCzIXLm'
-    'dvb2dsZS5wcm90b2J1Zi5TdHJ1Y3RIBlIIbWV0YWRhdGGIAQESHQoKY3JlYXRlZF9hdBgNIAEo'
-    'CVIJY3JlYXRlZEF0Eh0KCnVwZGF0ZWRfYXQYDiABKAlSCXVwZGF0ZWRBdBItChBvd25lcl9wdW'
-    'JsaWNfa2V5GA8gASgJSAdSDm93bmVyUHVibGljS2V5iAEBQgcKBV9uYW1lQg4KDF9kZXNjcmlw'
-    'dGlvbkIKCghfZW5hYmxlZEINCgtfb3duZXJfcGVlckIKCghfdmVyc2lvbkIQCg5fb3V0cHV0X3'
-    'NjaGVtYUILCglfbWV0YWRhdGFCEwoRX293bmVyX3B1YmxpY19rZXk=');
+    'CgRUb29sEhQKBWFsaWFzGAEgASgJUgVhbGlhcxIyCgRpMThuGAIgAygLMh4uZ2l6Y2xhdy5ycG'
+    'MudjEuVG9vbC5JMThuRW50cnlSBGkxOG4SOgoMaW5wdXRfc2NoZW1hGAMgASgLMhcuZ29vZ2xl'
+    'LnByb3RvYnVmLlN0cnVjdFILaW5wdXRTY2hlbWESQQoNb3V0cHV0X3NjaGVtYRgEIAEoCzIXLm'
+    'dvb2dsZS5wcm90b2J1Zi5TdHJ1Y3RIAFIMb3V0cHV0U2NoZW1hiAEBGlYKCUkxOG5FbnRyeRIQ'
+    'CgNrZXkYASABKAlSA2tleRIzCgV2YWx1ZRgCIAEoCzIdLmdpemNsYXcucnBjLnYxLkFsaWFzST'
+    'E4blRleHRSBXZhbHVlOgI4AUIQCg5fb3V0cHV0X3NjaGVtYQ==');
 
 @$core.Deprecated('Use toolListRequestDescriptor instead')
 const ToolListRequest$json = {
@@ -4481,6 +2694,20 @@ const ToolListResponse$json = {
       '10': 'nextCursor',
       '17': true
     },
+    {
+      '1': 'runtime_profile_name',
+      '3': 4,
+      '4': 1,
+      '5': 9,
+      '10': 'runtimeProfileName'
+    },
+    {
+      '1': 'runtime_profile_revision',
+      '3': 5,
+      '4': 1,
+      '5': 9,
+      '10': 'runtimeProfileRevision'
+    },
   ],
   '8': [
     {'1': '_next_cursor'},
@@ -4491,19 +2718,21 @@ const ToolListResponse$json = {
 final $typed_data.Uint8List toolListResponseDescriptor = $convert.base64Decode(
     'ChBUb29sTGlzdFJlc3BvbnNlEioKBWl0ZW1zGAEgAygLMhQuZ2l6Y2xhdy5ycGMudjEuVG9vbF'
     'IFaXRlbXMSGQoIaGFzX25leHQYAiABKAhSB2hhc05leHQSJAoLbmV4dF9jdXJzb3IYAyABKAlI'
-    'AFIKbmV4dEN1cnNvcogBAUIOCgxfbmV4dF9jdXJzb3I=');
+    'AFIKbmV4dEN1cnNvcogBARIwChRydW50aW1lX3Byb2ZpbGVfbmFtZRgEIAEoCVIScnVudGltZV'
+    'Byb2ZpbGVOYW1lEjgKGHJ1bnRpbWVfcHJvZmlsZV9yZXZpc2lvbhgFIAEoCVIWcnVudGltZVBy'
+    'b2ZpbGVSZXZpc2lvbkIOCgxfbmV4dF9jdXJzb3I=');
 
 @$core.Deprecated('Use toolGetRequestDescriptor instead')
 const ToolGetRequest$json = {
   '1': 'ToolGetRequest',
   '2': [
-    {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
+    {'1': 'alias', '3': 1, '4': 1, '5': 9, '10': 'alias'},
   ],
 };
 
 /// Descriptor for `ToolGetRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List toolGetRequestDescriptor =
-    $convert.base64Decode('Cg5Ub29sR2V0UmVxdWVzdBIOCgJpZBgBIAEoCVICaWQ=');
+final $typed_data.Uint8List toolGetRequestDescriptor = $convert
+    .base64Decode('Cg5Ub29sR2V0UmVxdWVzdBIUCgVhbGlhcxgBIAEoCVIFYWxpYXM=');
 
 @$core.Deprecated('Use toolGetResponseDescriptor instead')
 const ToolGetResponse$json = {
@@ -4517,126 +2746,29 @@ const ToolGetResponse$json = {
       '6': '.gizclaw.rpc.v1.Tool',
       '10': 'value'
     },
+    {
+      '1': 'runtime_profile_name',
+      '3': 2,
+      '4': 1,
+      '5': 9,
+      '10': 'runtimeProfileName'
+    },
+    {
+      '1': 'runtime_profile_revision',
+      '3': 3,
+      '4': 1,
+      '5': 9,
+      '10': 'runtimeProfileRevision'
+    },
   ],
 };
 
 /// Descriptor for `ToolGetResponse`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List toolGetResponseDescriptor = $convert.base64Decode(
     'Cg9Ub29sR2V0UmVzcG9uc2USKgoFdmFsdWUYASABKAsyFC5naXpjbGF3LnJwYy52MS5Ub29sUg'
-    'V2YWx1ZQ==');
-
-@$core.Deprecated('Use toolCreateRequestDescriptor instead')
-const ToolCreateRequest$json = {
-  '1': 'ToolCreateRequest',
-  '2': [
-    {
-      '1': 'value',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.Tool',
-      '10': 'value'
-    },
-  ],
-};
-
-/// Descriptor for `ToolCreateRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List toolCreateRequestDescriptor = $convert.base64Decode(
-    'ChFUb29sQ3JlYXRlUmVxdWVzdBIqCgV2YWx1ZRgBIAEoCzIULmdpemNsYXcucnBjLnYxLlRvb2'
-    'xSBXZhbHVl');
-
-@$core.Deprecated('Use toolCreateResponseDescriptor instead')
-const ToolCreateResponse$json = {
-  '1': 'ToolCreateResponse',
-  '2': [
-    {
-      '1': 'value',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.Tool',
-      '10': 'value'
-    },
-  ],
-};
-
-/// Descriptor for `ToolCreateResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List toolCreateResponseDescriptor = $convert.base64Decode(
-    'ChJUb29sQ3JlYXRlUmVzcG9uc2USKgoFdmFsdWUYASABKAsyFC5naXpjbGF3LnJwYy52MS5Ub2'
-    '9sUgV2YWx1ZQ==');
-
-@$core.Deprecated('Use toolPutRequestDescriptor instead')
-const ToolPutRequest$json = {
-  '1': 'ToolPutRequest',
-  '2': [
-    {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
-    {
-      '1': 'body',
-      '3': 2,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.Tool',
-      '10': 'body'
-    },
-  ],
-};
-
-/// Descriptor for `ToolPutRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List toolPutRequestDescriptor = $convert.base64Decode(
-    'Cg5Ub29sUHV0UmVxdWVzdBIOCgJpZBgBIAEoCVICaWQSKAoEYm9keRgCIAEoCzIULmdpemNsYX'
-    'cucnBjLnYxLlRvb2xSBGJvZHk=');
-
-@$core.Deprecated('Use toolPutResponseDescriptor instead')
-const ToolPutResponse$json = {
-  '1': 'ToolPutResponse',
-  '2': [
-    {
-      '1': 'value',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.Tool',
-      '10': 'value'
-    },
-  ],
-};
-
-/// Descriptor for `ToolPutResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List toolPutResponseDescriptor = $convert.base64Decode(
-    'Cg9Ub29sUHV0UmVzcG9uc2USKgoFdmFsdWUYASABKAsyFC5naXpjbGF3LnJwYy52MS5Ub29sUg'
-    'V2YWx1ZQ==');
-
-@$core.Deprecated('Use toolDeleteRequestDescriptor instead')
-const ToolDeleteRequest$json = {
-  '1': 'ToolDeleteRequest',
-  '2': [
-    {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
-  ],
-};
-
-/// Descriptor for `ToolDeleteRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List toolDeleteRequestDescriptor =
-    $convert.base64Decode('ChFUb29sRGVsZXRlUmVxdWVzdBIOCgJpZBgBIAEoCVICaWQ=');
-
-@$core.Deprecated('Use toolDeleteResponseDescriptor instead')
-const ToolDeleteResponse$json = {
-  '1': 'ToolDeleteResponse',
-  '2': [
-    {
-      '1': 'value',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.Tool',
-      '10': 'value'
-    },
-  ],
-};
-
-/// Descriptor for `ToolDeleteResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List toolDeleteResponseDescriptor = $convert.base64Decode(
-    'ChJUb29sRGVsZXRlUmVzcG9uc2USKgoFdmFsdWUYASABKAsyFC5naXpjbGF3LnJwYy52MS5Ub2'
-    '9sUgV2YWx1ZQ==');
+    'V2YWx1ZRIwChRydW50aW1lX3Byb2ZpbGVfbmFtZRgCIAEoCVIScnVudGltZVByb2ZpbGVOYW1l'
+    'EjgKGHJ1bnRpbWVfcHJvZmlsZV9yZXZpc2lvbhgDIAEoCVIWcnVudGltZVByb2ZpbGVSZXZpc2'
+    'lvbg==');
 
 @$core.Deprecated('Use toolInvokeRequestDescriptor instead')
 const ToolInvokeRequest$json = {

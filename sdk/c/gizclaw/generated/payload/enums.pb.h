@@ -16,12 +16,6 @@ typedef enum _gizclaw_rpc_v1_IconFormat {
     gizclaw_rpc_v1_IconFormat_ICON_FORMAT_PNG = 2
 } gizclaw_rpc_v1_IconFormat;
 
-typedef enum _gizclaw_rpc_v1_ResourceSource {
-    gizclaw_rpc_v1_ResourceSource_RESOURCE_SOURCE_UNSPECIFIED = 0,
-    gizclaw_rpc_v1_ResourceSource_RESOURCE_SOURCE_RUNTIME = 1,
-    gizclaw_rpc_v1_ResourceSource_RESOURCE_SOURCE_OWNED = 2
-} gizclaw_rpc_v1_ResourceSource;
-
 typedef enum _gizclaw_rpc_v1_ASTTranslateMode {
     gizclaw_rpc_v1_ASTTranslateMode_ASTTRANSLATE_MODE_UNSPECIFIED = 0,
     gizclaw_rpc_v1_ASTTranslateMode_ASTTRANSLATE_MODE_S2T = 1,
@@ -148,20 +142,6 @@ typedef enum _gizclaw_rpc_v1_ModelKind {
     gizclaw_rpc_v1_ModelKind_MODEL_KIND_EMBEDDING = 6
 } gizclaw_rpc_v1_ModelKind;
 
-typedef enum _gizclaw_rpc_v1_ModelProviderKind {
-    gizclaw_rpc_v1_ModelProviderKind_MODEL_PROVIDER_KIND_UNSPECIFIED = 0,
-    gizclaw_rpc_v1_ModelProviderKind_MODEL_PROVIDER_KIND_GEMINI_TENANT = 1,
-    gizclaw_rpc_v1_ModelProviderKind_MODEL_PROVIDER_KIND_DASHSCOPE_TENANT = 2,
-    gizclaw_rpc_v1_ModelProviderKind_MODEL_PROVIDER_KIND_OPENAI_TENANT = 3,
-    gizclaw_rpc_v1_ModelProviderKind_MODEL_PROVIDER_KIND_VOLC_TENANT = 4
-} gizclaw_rpc_v1_ModelProviderKind;
-
-typedef enum _gizclaw_rpc_v1_ModelSource {
-    gizclaw_rpc_v1_ModelSource_MODEL_SOURCE_UNSPECIFIED = 0,
-    gizclaw_rpc_v1_ModelSource_MODEL_SOURCE_SYNC = 1,
-    gizclaw_rpc_v1_ModelSource_MODEL_SOURCE_MANUAL = 2
-} gizclaw_rpc_v1_ModelSource;
-
 typedef enum _gizclaw_rpc_v1_PeerRunHistoryEntryType {
     gizclaw_rpc_v1_PeerRunHistoryEntryType_PEER_RUN_HISTORY_ENTRY_TYPE_UNSPECIFIED = 0,
     gizclaw_rpc_v1_PeerRunHistoryEntryType_PEER_RUN_HISTORY_ENTRY_TYPE_GEAR = 1,
@@ -182,21 +162,6 @@ typedef enum _gizclaw_rpc_v1_PeerRunStatusState {
     gizclaw_rpc_v1_PeerRunStatusState_PEER_RUN_STATUS_STATE_STOPPING = 4,
     gizclaw_rpc_v1_PeerRunStatusState_PEER_RUN_STATUS_STATE_ERROR = 5
 } gizclaw_rpc_v1_PeerRunStatusState;
-
-typedef enum _gizclaw_rpc_v1_VoiceProviderKind {
-    gizclaw_rpc_v1_VoiceProviderKind_VOICE_PROVIDER_KIND_UNSPECIFIED = 0,
-    gizclaw_rpc_v1_VoiceProviderKind_VOICE_PROVIDER_KIND_GEMINI_TENANT = 1,
-    gizclaw_rpc_v1_VoiceProviderKind_VOICE_PROVIDER_KIND_DASHSCOPE_TENANT = 2,
-    gizclaw_rpc_v1_VoiceProviderKind_VOICE_PROVIDER_KIND_OPENAI_TENANT = 3,
-    gizclaw_rpc_v1_VoiceProviderKind_VOICE_PROVIDER_KIND_MINIMAX_TENANT = 4,
-    gizclaw_rpc_v1_VoiceProviderKind_VOICE_PROVIDER_KIND_VOLC_TENANT = 5
-} gizclaw_rpc_v1_VoiceProviderKind;
-
-typedef enum _gizclaw_rpc_v1_VoiceSource {
-    gizclaw_rpc_v1_VoiceSource_VOICE_SOURCE_UNSPECIFIED = 0,
-    gizclaw_rpc_v1_VoiceSource_VOICE_SOURCE_SYNC = 1,
-    gizclaw_rpc_v1_VoiceSource_VOICE_SOURCE_MANUAL = 2
-} gizclaw_rpc_v1_VoiceSource;
 
 typedef enum _gizclaw_rpc_v1_VolcTenantModelProviderDataApiMode {
     gizclaw_rpc_v1_VolcTenantModelProviderDataApiMode_VOLC_TENANT_MODEL_PROVIDER_DATA_API_MODE_UNSPECIFIED = 0,
@@ -226,19 +191,6 @@ typedef enum _gizclaw_rpc_v1_WorkspaceInputMode {
     gizclaw_rpc_v1_WorkspaceInputMode_WORKSPACE_INPUT_MODE_REALTIME = 2
 } gizclaw_rpc_v1_WorkspaceInputMode;
 
-typedef enum _gizclaw_rpc_v1_ToolSource {
-    gizclaw_rpc_v1_ToolSource_TOOL_SOURCE_UNSPECIFIED = 0,
-    gizclaw_rpc_v1_ToolSource_TOOL_SOURCE_BUILTIN = 1,
-    gizclaw_rpc_v1_ToolSource_TOOL_SOURCE_DEVICE = 2,
-    gizclaw_rpc_v1_ToolSource_TOOL_SOURCE_ADMIN = 3
-} gizclaw_rpc_v1_ToolSource;
-
-typedef enum _gizclaw_rpc_v1_ToolExecutorKind {
-    gizclaw_rpc_v1_ToolExecutorKind_TOOL_EXECUTOR_KIND_UNSPECIFIED = 0,
-    gizclaw_rpc_v1_ToolExecutorKind_TOOL_EXECUTOR_KIND_BUILTIN = 1,
-    gizclaw_rpc_v1_ToolExecutorKind_TOOL_EXECUTOR_KIND_DEVICE_RPC = 2
-} gizclaw_rpc_v1_ToolExecutorKind;
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -247,10 +199,6 @@ extern "C" {
 #define _gizclaw_rpc_v1_IconFormat_MIN gizclaw_rpc_v1_IconFormat_ICON_FORMAT_UNSPECIFIED
 #define _gizclaw_rpc_v1_IconFormat_MAX gizclaw_rpc_v1_IconFormat_ICON_FORMAT_PNG
 #define _gizclaw_rpc_v1_IconFormat_ARRAYSIZE ((gizclaw_rpc_v1_IconFormat)(gizclaw_rpc_v1_IconFormat_ICON_FORMAT_PNG+1))
-
-#define _gizclaw_rpc_v1_ResourceSource_MIN gizclaw_rpc_v1_ResourceSource_RESOURCE_SOURCE_UNSPECIFIED
-#define _gizclaw_rpc_v1_ResourceSource_MAX gizclaw_rpc_v1_ResourceSource_RESOURCE_SOURCE_OWNED
-#define _gizclaw_rpc_v1_ResourceSource_ARRAYSIZE ((gizclaw_rpc_v1_ResourceSource)(gizclaw_rpc_v1_ResourceSource_RESOURCE_SOURCE_OWNED+1))
 
 #define _gizclaw_rpc_v1_ASTTranslateMode_MIN gizclaw_rpc_v1_ASTTranslateMode_ASTTRANSLATE_MODE_UNSPECIFIED
 #define _gizclaw_rpc_v1_ASTTranslateMode_MAX gizclaw_rpc_v1_ASTTranslateMode_ASTTRANSLATE_MODE_S2S
@@ -332,14 +280,6 @@ extern "C" {
 #define _gizclaw_rpc_v1_ModelKind_MAX gizclaw_rpc_v1_ModelKind_MODEL_KIND_EMBEDDING
 #define _gizclaw_rpc_v1_ModelKind_ARRAYSIZE ((gizclaw_rpc_v1_ModelKind)(gizclaw_rpc_v1_ModelKind_MODEL_KIND_EMBEDDING+1))
 
-#define _gizclaw_rpc_v1_ModelProviderKind_MIN gizclaw_rpc_v1_ModelProviderKind_MODEL_PROVIDER_KIND_UNSPECIFIED
-#define _gizclaw_rpc_v1_ModelProviderKind_MAX gizclaw_rpc_v1_ModelProviderKind_MODEL_PROVIDER_KIND_VOLC_TENANT
-#define _gizclaw_rpc_v1_ModelProviderKind_ARRAYSIZE ((gizclaw_rpc_v1_ModelProviderKind)(gizclaw_rpc_v1_ModelProviderKind_MODEL_PROVIDER_KIND_VOLC_TENANT+1))
-
-#define _gizclaw_rpc_v1_ModelSource_MIN gizclaw_rpc_v1_ModelSource_MODEL_SOURCE_UNSPECIFIED
-#define _gizclaw_rpc_v1_ModelSource_MAX gizclaw_rpc_v1_ModelSource_MODEL_SOURCE_MANUAL
-#define _gizclaw_rpc_v1_ModelSource_ARRAYSIZE ((gizclaw_rpc_v1_ModelSource)(gizclaw_rpc_v1_ModelSource_MODEL_SOURCE_MANUAL+1))
-
 #define _gizclaw_rpc_v1_PeerRunHistoryEntryType_MIN gizclaw_rpc_v1_PeerRunHistoryEntryType_PEER_RUN_HISTORY_ENTRY_TYPE_UNSPECIFIED
 #define _gizclaw_rpc_v1_PeerRunHistoryEntryType_MAX gizclaw_rpc_v1_PeerRunHistoryEntryType_PEER_RUN_HISTORY_ENTRY_TYPE_AGENT
 #define _gizclaw_rpc_v1_PeerRunHistoryEntryType_ARRAYSIZE ((gizclaw_rpc_v1_PeerRunHistoryEntryType)(gizclaw_rpc_v1_PeerRunHistoryEntryType_PEER_RUN_HISTORY_ENTRY_TYPE_AGENT+1))
@@ -351,14 +291,6 @@ extern "C" {
 #define _gizclaw_rpc_v1_PeerRunStatusState_MIN gizclaw_rpc_v1_PeerRunStatusState_PEER_RUN_STATUS_STATE_UNSPECIFIED
 #define _gizclaw_rpc_v1_PeerRunStatusState_MAX gizclaw_rpc_v1_PeerRunStatusState_PEER_RUN_STATUS_STATE_ERROR
 #define _gizclaw_rpc_v1_PeerRunStatusState_ARRAYSIZE ((gizclaw_rpc_v1_PeerRunStatusState)(gizclaw_rpc_v1_PeerRunStatusState_PEER_RUN_STATUS_STATE_ERROR+1))
-
-#define _gizclaw_rpc_v1_VoiceProviderKind_MIN gizclaw_rpc_v1_VoiceProviderKind_VOICE_PROVIDER_KIND_UNSPECIFIED
-#define _gizclaw_rpc_v1_VoiceProviderKind_MAX gizclaw_rpc_v1_VoiceProviderKind_VOICE_PROVIDER_KIND_VOLC_TENANT
-#define _gizclaw_rpc_v1_VoiceProviderKind_ARRAYSIZE ((gizclaw_rpc_v1_VoiceProviderKind)(gizclaw_rpc_v1_VoiceProviderKind_VOICE_PROVIDER_KIND_VOLC_TENANT+1))
-
-#define _gizclaw_rpc_v1_VoiceSource_MIN gizclaw_rpc_v1_VoiceSource_VOICE_SOURCE_UNSPECIFIED
-#define _gizclaw_rpc_v1_VoiceSource_MAX gizclaw_rpc_v1_VoiceSource_VOICE_SOURCE_MANUAL
-#define _gizclaw_rpc_v1_VoiceSource_ARRAYSIZE ((gizclaw_rpc_v1_VoiceSource)(gizclaw_rpc_v1_VoiceSource_VOICE_SOURCE_MANUAL+1))
 
 #define _gizclaw_rpc_v1_VolcTenantModelProviderDataApiMode_MIN gizclaw_rpc_v1_VolcTenantModelProviderDataApiMode_VOLC_TENANT_MODEL_PROVIDER_DATA_API_MODE_UNSPECIFIED
 #define _gizclaw_rpc_v1_VolcTenantModelProviderDataApiMode_MAX gizclaw_rpc_v1_VolcTenantModelProviderDataApiMode_VOLC_TENANT_MODEL_PROVIDER_DATA_API_MODE_REALTIME
@@ -375,14 +307,6 @@ extern "C" {
 #define _gizclaw_rpc_v1_WorkspaceInputMode_MIN gizclaw_rpc_v1_WorkspaceInputMode_WORKSPACE_INPUT_MODE_UNSPECIFIED
 #define _gizclaw_rpc_v1_WorkspaceInputMode_MAX gizclaw_rpc_v1_WorkspaceInputMode_WORKSPACE_INPUT_MODE_REALTIME
 #define _gizclaw_rpc_v1_WorkspaceInputMode_ARRAYSIZE ((gizclaw_rpc_v1_WorkspaceInputMode)(gizclaw_rpc_v1_WorkspaceInputMode_WORKSPACE_INPUT_MODE_REALTIME+1))
-
-#define _gizclaw_rpc_v1_ToolSource_MIN gizclaw_rpc_v1_ToolSource_TOOL_SOURCE_UNSPECIFIED
-#define _gizclaw_rpc_v1_ToolSource_MAX gizclaw_rpc_v1_ToolSource_TOOL_SOURCE_ADMIN
-#define _gizclaw_rpc_v1_ToolSource_ARRAYSIZE ((gizclaw_rpc_v1_ToolSource)(gizclaw_rpc_v1_ToolSource_TOOL_SOURCE_ADMIN+1))
-
-#define _gizclaw_rpc_v1_ToolExecutorKind_MIN gizclaw_rpc_v1_ToolExecutorKind_TOOL_EXECUTOR_KIND_UNSPECIFIED
-#define _gizclaw_rpc_v1_ToolExecutorKind_MAX gizclaw_rpc_v1_ToolExecutorKind_TOOL_EXECUTOR_KIND_DEVICE_RPC
-#define _gizclaw_rpc_v1_ToolExecutorKind_ARRAYSIZE ((gizclaw_rpc_v1_ToolExecutorKind)(gizclaw_rpc_v1_ToolExecutorKind_TOOL_EXECUTOR_KIND_DEVICE_RPC+1))
 
 
 #ifdef __cplusplus

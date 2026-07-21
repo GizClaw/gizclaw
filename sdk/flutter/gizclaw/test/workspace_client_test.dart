@@ -29,19 +29,23 @@ void main() {
       'server.model.list',
       payload.ModelListResponse(
         items: [
-          payload.Model(id: 'chat-model', kind: enums.ModelKind.MODEL_KIND_LLM),
+          payload.Model(
+            alias: 'chat-model',
+            kind: enums.ModelKind.MODEL_KIND_LLM,
+          ),
         ],
       ),
     );
-    expect((await future).items.single.id, 'chat-model');
+    expect((await future).items.single.alias, 'chat-model');
   });
 
   test('creates a typed workspace document', () async {
     final factory = FakeDataChannelFactory();
     final client = GizClawClient(factory);
-    final workspace = payload.WorkspaceUpsert(
+    final workspace = payload.WorkspaceCreateBody(
       name: 'mobile-ast-device',
-      workflowName: 'volc-ast-translate',
+      workflowAlias: 'volc-ast-translate',
+      collection: 'translates',
     );
 
     final future = client.createWorkspace(workspace);
@@ -50,12 +54,13 @@ void main() {
         decodeRpcRequestPayload('server.workspace.create', request.payload)
             as payload.WorkspaceCreateRequest;
     expect(body.value.name, 'mobile-ast-device');
-    expect(body.value.workflowName, 'volc-ast-translate');
+    expect(body.value.workflowAlias, 'volc-ast-translate');
+    expect(body.value.collection, 'translates');
 
     final responseWorkspace = payload.Workspace(
       name: workspace.name,
       system: true,
-      workflowName: workspace.workflowName,
+      workflowAlias: workspace.workflowAlias,
     );
     _respond(
       factory.channels.single,
@@ -72,26 +77,25 @@ void main() {
   test('updates a typed workspace document', () async {
     final factory = FakeDataChannelFactory();
     final client = GizClawClient(factory);
-    final workspace = payload.WorkspaceUpsert(
-      name: 'mobile-ast-device',
-      workflowName: 'volc-ast-translate',
+    final workspace = payload.WorkspacePutBody(
+      parameters: payload.WorkspaceParameters(),
     );
 
-    final future = client.putWorkspace(workspace.name, workspace);
+    final future = client.putWorkspace('mobile-ast-device', workspace);
     final request = await _request(factory, 0);
     final body =
         decodeRpcRequestPayload('server.workspace.put', request.payload)
             as payload.WorkspacePutRequest;
     expect(body.name, 'mobile-ast-device');
-    expect(body.body.workflowName, 'volc-ast-translate');
+    expect(body.body.hasParameters(), isTrue);
     _respond(
       factory.channels.single,
       request.id,
       'server.workspace.put',
       payload.WorkspacePutResponse(
         value: payload.Workspace(
-          name: workspace.name,
-          workflowName: workspace.workflowName,
+          name: 'mobile-ast-device',
+          workflowAlias: 'volc-ast-translate',
         ),
       ),
     );

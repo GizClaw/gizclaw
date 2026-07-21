@@ -2,6 +2,7 @@
 @import "tailwindcss";
 
 :root {
+  --desktop-window-radius: 19px;
   color-scheme: dark;
   font-family:
     Inter,
@@ -43,7 +44,7 @@ button {
   height: 100vh;
   margin: 0;
   overflow: hidden;
-  border-radius: 19px;
+  border-radius: var(--desktop-window-radius);
   background: #101114;
 }
 
@@ -551,6 +552,7 @@ select:focus-visible {
   position: fixed;
   z-index: 40;
   inset: 0;
+  border-radius: var(--desktop-window-radius);
   background: rgba(8, 9, 12, 0.7);
   backdrop-filter: blur(16px) saturate(0.85);
   animation: backdrop-in 0.24s ease both;
@@ -971,6 +973,9 @@ select:focus-visible {
 .manage-list-item-button:hover {
   transform: translateY(-1px);
   filter: brightness(1.08);
+}
+.local-status-progress {
+  animation: spin 0.8s linear infinite;
 }
 .local-admin-icon {
   color: #9ea8f8;
@@ -1539,6 +1544,7 @@ button:disabled {
   position: fixed;
   z-index: 48;
   inset: 0;
+  border-radius: var(--desktop-window-radius);
   background: rgba(8, 9, 12, 0.75);
   backdrop-filter: blur(10px);
   animation: backdrop-in 0.2s ease;

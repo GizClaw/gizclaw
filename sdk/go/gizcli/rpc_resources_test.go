@@ -15,7 +15,7 @@ func TestRPCResourceClientWrappers(t *testing.T) {
 
 	t.Run("workspace", func(t *testing.T) {
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkspaceList, rpcapi.WorkspaceListResponse{}, (*rpcapi.RPCPayload).FromWorkspaceListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkspaceListResponse, error) {
-			return client.ListWorkspaces(ctx, conn, "workspace-list", rpcapi.WorkspaceListRequest{})
+			return client.ListWorkspaces(ctx, conn, "workspace-list", rpcapi.WorkspaceListRequest{Collection: "assistants"})
 		})
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkspaceGet, rpcapi.WorkspaceGetResponse{}, (*rpcapi.RPCPayload).FromWorkspaceGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkspaceGetResponse, error) {
 			return client.GetWorkspace(ctx, conn, "workspace-get", rpcapi.WorkspaceGetRequest{Name: "main"})
@@ -41,10 +41,10 @@ func TestRPCResourceClientWrappers(t *testing.T) {
 	t.Run("workflow", func(t *testing.T) {
 		runWorkflowGetWrapperTest(t, client)
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkflowList, rpcapi.WorkflowListResponse{}, (*rpcapi.RPCPayload).FromWorkflowListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkflowListResponse, error) {
-			return client.ListWorkflows(ctx, conn, "workflow-list", rpcapi.WorkflowListRequest{})
+			return client.ListWorkflows(ctx, conn, "workflow-list", rpcapi.WorkflowListRequest{Collection: "assistants"})
 		})
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkflowGet, rpcapi.WorkflowGetResponse{}, (*rpcapi.RPCPayload).FromWorkflowGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkflowGetResponse, error) {
-			return client.GetWorkflow(ctx, conn, "workflow-get", rpcapi.WorkflowGetRequest{Name: "flow"})
+			return client.GetWorkflow(ctx, conn, "workflow-get", rpcapi.WorkflowGetRequest{Alias: "flow"})
 		})
 	})
 
@@ -53,34 +53,7 @@ func TestRPCResourceClientWrappers(t *testing.T) {
 			return client.ListModels(ctx, conn, "model-list", rpcapi.ModelListRequest{})
 		})
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerModelGet, rpcapi.ModelGetResponse{}, (*rpcapi.RPCPayload).FromModelGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ModelGetResponse, error) {
-			return client.GetModel(ctx, conn, "model-get", rpcapi.ModelGetRequest{Id: "llm"})
-		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerModelCreate, rpcapi.ModelCreateResponse{}, (*rpcapi.RPCPayload).FromModelCreateResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ModelCreateResponse, error) {
-			return client.CreateModel(ctx, conn, "model-create", rpcapi.ModelCreateRequest{})
-		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerModelPut, rpcapi.ModelPutResponse{}, (*rpcapi.RPCPayload).FromModelPutResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ModelPutResponse, error) {
-			return client.PutModel(ctx, conn, "model-put", rpcapi.ModelPutRequest{Id: "llm"})
-		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerModelDelete, rpcapi.ModelDeleteResponse{}, (*rpcapi.RPCPayload).FromModelDeleteResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ModelDeleteResponse, error) {
-			return client.DeleteModel(ctx, conn, "model-delete", rpcapi.ModelDeleteRequest{Id: "llm"})
-		})
-	})
-
-	t.Run("credential", func(t *testing.T) {
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerCredentialList, rpcapi.CredentialListResponse{}, (*rpcapi.RPCPayload).FromCredentialListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.CredentialListResponse, error) {
-			return client.ListCredentials(ctx, conn, "credential-list", rpcapi.CredentialListRequest{})
-		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerCredentialGet, rpcapi.CredentialGetResponse{}, (*rpcapi.RPCPayload).FromCredentialGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.CredentialGetResponse, error) {
-			return client.GetCredential(ctx, conn, "credential-get", rpcapi.CredentialGetRequest{Name: "openai"})
-		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerCredentialCreate, rpcapi.CredentialCreateResponse{}, (*rpcapi.RPCPayload).FromCredentialCreateResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.CredentialCreateResponse, error) {
-			return client.CreateCredential(ctx, conn, "credential-create", rpcapi.CredentialCreateRequest{})
-		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerCredentialPut, rpcapi.CredentialPutResponse{}, (*rpcapi.RPCPayload).FromCredentialPutResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.CredentialPutResponse, error) {
-			return client.PutCredential(ctx, conn, "credential-put", rpcapi.CredentialPutRequest{Name: "openai"})
-		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerCredentialDelete, rpcapi.CredentialDeleteResponse{}, (*rpcapi.RPCPayload).FromCredentialDeleteResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.CredentialDeleteResponse, error) {
-			return client.DeleteCredential(ctx, conn, "credential-delete", rpcapi.CredentialDeleteRequest{Name: "openai"})
+			return client.GetModel(ctx, conn, "model-get", rpcapi.ModelGetRequest{Alias: "llm"})
 		})
 	})
 
@@ -169,11 +142,8 @@ func TestRPCResourceClientWrappers(t *testing.T) {
 	})
 
 	t.Run("firmware", func(t *testing.T) {
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFirmwareList, rpcapi.FirmwareListResponse{}, (*rpcapi.RPCPayload).FromFirmwareListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FirmwareListResponse, error) {
-			return client.ListFirmwares(ctx, conn, "firmware-list", rpcapi.FirmwareListRequest{})
-		})
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFirmwareGet, rpcapi.FirmwareGetResponse{}, (*rpcapi.RPCPayload).FromFirmwareGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FirmwareGetResponse, error) {
-			return client.GetFirmware(ctx, conn, "firmware-get", rpcapi.FirmwareGetRequest{FirmwareId: "devkit"})
+			return client.GetFirmware(ctx, conn, "firmware-get")
 		})
 		runFirmwareDownloadWrapperTest(t, client)
 	})
@@ -181,6 +151,39 @@ func TestRPCResourceClientWrappers(t *testing.T) {
 	t.Run("gameplay pixa", func(t *testing.T) {
 		runBadgeDefPixaDownloadWrapperTest(t, client)
 	})
+}
+
+func TestRPCRegisterPreservesFirmwareID(t *testing.T) {
+	client := &rpcClient{}
+	serverSide, clientSide := net.Pipe()
+	defer serverSide.Close()
+	defer clientSide.Close()
+
+	firmwareID := "h106"
+	serverErrCh := make(chan error, 1)
+	go func() {
+		req, err := readRPCRequestWithEOS(serverSide)
+		if err != nil {
+			serverErrCh <- err
+			return
+		}
+		serverErrCh <- writeRPCResponseWithEOS(serverSide, req.Method, resourceResponse(
+			req.Id,
+			rpcapi.ServerRegisterResponse{RuntimeProfileName: "profile-a", FirmwareID: &firmwareID},
+			(*rpcapi.RPCPayload).FromServerRegisterResponse,
+		))
+	}()
+
+	response, err := client.Register(context.Background(), clientSide, "register", "token")
+	if err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+	if response.RuntimeProfileName != "profile-a" || response.FirmwareId == nil || *response.FirmwareId != firmwareID {
+		t.Fatalf("Register() response = %#v", response)
+	}
+	if err := <-serverErrCh; err != nil {
+		t.Fatalf("register server error = %v", err)
+	}
 }
 
 func runWorkflowGetWrapperTest(t *testing.T, client *rpcClient) {
@@ -203,11 +206,11 @@ func runWorkflowGetWrapperTest(t *testing.T, client *rpcClient) {
 		))
 	}()
 
-	got, err := client.GetWorkflow(context.Background(), clientSide, "workflow-get", rpcapi.WorkflowGetRequest{Name: "localized-flow", Source: rpcapi.ResourceSourceRuntime})
+	got, err := client.GetWorkflow(context.Background(), clientSide, "workflow-get", rpcapi.WorkflowGetRequest{Alias: "localized-flow"})
 	if err != nil {
 		t.Fatalf("workflow get call error = %v", err)
 	}
-	if got.Name != "localized-flow" {
+	if got.Value.Alias != "localized-flow" {
 		t.Fatalf("workflow get = %#v", got)
 	}
 	if err := <-serverErrCh; err != nil {
@@ -308,9 +311,8 @@ func runFirmwareDownloadWrapperTest(t *testing.T, client *rpcClient) {
 
 	var out bytes.Buffer
 	result, err := client.DownloadFirmware(context.Background(), clientSide, "firmware-download", rpcapi.FirmwareFilesDownloadRequest{
-		FirmwareId: "devkit",
-		Channel:    rpcapi.FirmwareChannelNameStable,
-		Path:       "firmware.bin",
+		Channel: rpcapi.FirmwareChannelNameStable,
+		Path:    "firmware.bin",
 	}, &out)
 	if err != nil {
 		t.Fatalf("firmware download call error = %v", err)
@@ -435,36 +437,20 @@ func runWorkspaceHistoryAudioGetWrapperTest(t *testing.T, client *rpcClient) {
 }
 
 func resourceWorkspace(name string) rpcapi.Workspace {
-	return rpcapi.Workspace{Name: name, WorkflowName: "flow-a"}
+	return rpcapi.Workspace{Name: name, WorkflowAlias: "flow-a"}
 }
 
-func resourceWorkflowDoc(name string) rpcapi.Workflow {
-	spec := rpcapi.FlowcraftWorkflowSpec{"entry_agent": ""}
-	return rpcapi.Workflow{
-		Name: name,
-		Spec: rpcapi.WorkflowSpec{
-			Driver:    rpcapi.WorkflowDriverFlowcraft,
-			Flowcraft: &spec,
-		},
+func resourceWorkflowDoc(alias string) rpcapi.WorkflowGetResponse {
+	return rpcapi.WorkflowGetResponse{
+		Value: rpcapi.Workflow{Alias: alias, Collection: "assistants", Driver: rpcapi.WorkflowDriverFlowcraft,
+			I18n: map[string]rpcapi.AliasI18nText{"en": {DisplayName: alias}, "zh-CN": {DisplayName: alias}}},
+		RuntimeProfileName: "default", RuntimeProfileRevision: "revision",
 	}
 }
 
-func resourceModel(id string) rpcapi.Model {
+func resourceModel(alias string) rpcapi.Model {
 	return rpcapi.Model{
-		Id:     id,
-		Kind:   rpcapi.ModelKindLlm,
-		Source: rpcapi.ModelSourceManual,
-		Provider: rpcapi.ModelProvider{
-			Kind: rpcapi.ModelProviderKindOpenaiTenant,
-			Name: "global",
-		},
-	}
-}
-
-func resourceCredential(name string) rpcapi.Credential {
-	return rpcapi.Credential{
-		Name:     name,
-		Provider: "openai",
-		Body:     testRPCOpenAICredentialBody("sk-test"),
+		Alias: alias, Kind: rpcapi.ModelKindLlm,
+		I18n: map[string]rpcapi.AliasI18nText{"en": {DisplayName: alias}, "zh-CN": {DisplayName: alias}},
 	}
 }

@@ -358,8 +358,7 @@ func ensureWorkspace(ctx context.Context, client runControlClient, cfg config) (
 	workspaceDisplayName := cfg.Workspace
 
 	workflow, err := client.GetWorkflow(ctx, "workspacetest.workflow.get", rpcapi.WorkflowGetRequest{
-		Name:   cfg.Workflow.Name,
-		Source: rpcapi.ResourceSourceRuntime,
+		Alias: cfg.Workflow.Name,
 	})
 	if err != nil {
 		if isRPCNotFound(err) {
@@ -367,11 +366,11 @@ func ensureWorkspace(ctx context.Context, client runControlClient, cfg config) (
 		}
 		return config{}, fmt.Errorf("get workflow %q (%s): %w", cfg.Workflow.Name, workflowDisplayName, err)
 	}
-	if workflow == nil || strings.TrimSpace(workflow.Name) == "" {
+	if workflow == nil || strings.TrimSpace(workflow.Value.Alias) == "" {
 		return config{}, fmt.Errorf("get workflow %q (%s): empty workflow id", cfg.Workflow.Name, workflowDisplayName)
 	}
-	if workflow.Name != cfg.Workflow.Name {
-		return config{}, fmt.Errorf("get workflow %q (%s): returned workflow id %q", cfg.Workflow.Name, workflowDisplayName, workflow.Name)
+	if workflow.Value.Alias != cfg.Workflow.Name {
+		return config{}, fmt.Errorf("get workflow %q (%s): returned workflow id %q", cfg.Workflow.Name, workflowDisplayName, workflow.Value.Alias)
 	}
 
 	workspace, err := workspaceDocument(cfg)
@@ -435,14 +434,6 @@ func workflowSpec(cfg config) rpcapi.WorkflowSpec {
 		if voice := astTranslateVoiceParams(cfg.Workflow.ASTTranslate.Voice); voice != nil {
 			spec.Voice = voice
 		}
-		if cfg.Workflow.ASTTranslate.SpeakerID != "" {
-			spec.SpeakerId = &cfg.Workflow.ASTTranslate.SpeakerID
-		}
-		spec.IsCustomSpeaker = cfg.Workflow.ASTTranslate.IsCustomSpeaker
-		if cfg.Workflow.ASTTranslate.TTSResourceID != "" {
-			spec.TtsResourceId = &cfg.Workflow.ASTTranslate.TTSResourceID
-		}
-		spec.SpeechRate = cfg.Workflow.ASTTranslate.SpeechRate
 		spec.EnableSourceLanguageDetect = cfg.Workflow.ASTTranslate.EnableSourceLanguageDetect
 		spec.Denoise = cfg.Workflow.ASTTranslate.Denoise
 		if cfg.Workflow.ASTTranslate.ResourceID != "" {
@@ -488,18 +479,14 @@ func workspaceDocument(cfg config) (rpcapi.WorkspaceCreateRequest, error) {
 			return rpcapi.WorkspaceCreateRequest{}, fmt.Errorf("encode flowcraft workspace parameters: %w", err)
 		}
 	case cfg.isASTTranslateAgent():
-		typed := rpcapi.ASTTranslateWorkspaceParameters{
-			AgentType:                  rpcapi.ASTTranslateWorkspaceParametersAgentTypeAstTranslate,
-			Input:                      optionalWorkspaceInputMode(cfg.Workflow.Parameters.Input),
-			TranslationModel:           optionalString(cfg.Workflow.Parameters.TranslationModel),
-			LangPair:                   optionalString(cfg.Workflow.Parameters.LangPair),
-			Mode:                       optionalASTTranslateMode(cfg.Workflow.Parameters.Mode),
-			Voice:                      astTranslateWorkspaceVoiceParams(cfg.Workflow.Parameters.Voice),
-			SpeakerId:                  optionalString(cfg.Workflow.Parameters.SpeakerID),
-			IsCustomSpeaker:            cfg.Workflow.Parameters.IsCustomSpeaker,
-			TtsResourceId:              optionalString(cfg.Workflow.Parameters.TTSResourceID),
-			SpeechRate:                 cfg.Workflow.Parameters.SpeechRate,
-			EnableSourceLanguageDetect: cfg.Workflow.Parameters.EnableSourceLanguageDetect,
+			typed := rpcapi.ASTTranslateWorkspaceParameters{
+				AgentType:                  rpcapi.ASTTranslateWorkspaceParametersAgentTypeAstTranslate,
+				Input:                      optionalWorkspaceInputMode(cfg.Workflow.Parameters.Input),
+				TranslationModel:           optionalString(cfg.Workflow.Parameters.TranslationModel),
+				LangPair:                   optionalString(cfg.Workflow.Parameters.LangPair),
+				Mode:                       optionalASTTranslateMode(cfg.Workflow.Parameters.Mode),
+				Voice:                      astTranslateWorkspaceVoiceParams(cfg.Workflow.Parameters.Voice),
+				EnableSourceLanguageDetect: cfg.Workflow.Parameters.EnableSourceLanguageDetect,
 			Denoise:                    cfg.Workflow.Parameters.Denoise,
 		}
 		if err := parameters.FromASTTranslateWorkspaceParameters(typed); err != nil {
@@ -520,13 +507,10 @@ func workspaceDocument(cfg config) (rpcapi.WorkspaceCreateRequest, error) {
 		}
 	}
 	return rpcapi.WorkspaceCreateRequest{
-		Name:         cfg.Workspace,
-		WorkflowName: cfg.Workflow.Name,
-		WorkflowSource: func() *rpcapi.ResourceSource {
-			value := rpcapi.ResourceSourceRuntime
-			return &value
-		}(),
-		Parameters: &parameters,
+		Name:          cfg.Workspace,
+		Collection:    "assistants",
+		WorkflowAlias: cfg.Workflow.Name,
+		Parameters:    &parameters,
 	}, nil
 }
 

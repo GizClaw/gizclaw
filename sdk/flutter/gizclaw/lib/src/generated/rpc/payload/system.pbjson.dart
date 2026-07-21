@@ -415,23 +415,31 @@ const ServerRegisterResponse$json = {
   '2': [
     {
       '1': 'runtime_profile_name',
-      '3': 2,
+      '3': 1,
       '4': 1,
       '5': 9,
       '10': 'runtimeProfileName'
     },
+    {
+      '1': 'firmware_id',
+      '3': 2,
+      '4': 1,
+      '5': 9,
+      '9': 0,
+      '10': 'firmwareId',
+      '17': true
+    },
   ],
-  '9': [
-    {'1': 1, '2': 2},
+  '8': [
+    {'1': '_firmware_id'},
   ],
-  '10': ['firmware_name'],
 };
 
 /// Descriptor for `ServerRegisterResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List serverRegisterResponseDescriptor =
-    $convert.base64Decode(
-        'ChZTZXJ2ZXJSZWdpc3RlclJlc3BvbnNlEjAKFHJ1bnRpbWVfcHJvZmlsZV9uYW1lGAIgASgJUh'
-        'JydW50aW1lUHJvZmlsZU5hbWVKBAgBEAJSDWZpcm13YXJlX25hbWU=');
+final $typed_data.Uint8List serverRegisterResponseDescriptor = $convert.base64Decode(
+    'ChZTZXJ2ZXJSZWdpc3RlclJlc3BvbnNlEjAKFHJ1bnRpbWVfcHJvZmlsZV9uYW1lGAEgASgJUh'
+    'JydW50aW1lUHJvZmlsZU5hbWUSJAoLZmlybXdhcmVfaWQYAiABKAlIAFIKZmlybXdhcmVJZIgB'
+    'AUIOCgxfZmlybXdhcmVfaWQ=');
 
 @$core.Deprecated('Use runtimeDescriptor instead')
 const Runtime$json = {

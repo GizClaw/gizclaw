@@ -36,13 +36,14 @@ func TestAdminRuntimeProfileRegistrationTokenFlow(t *testing.T) {
 	tokenPath := filepath.Join(h.SandboxDir, "registration-token.json")
 	writeAdminFixture(t, tokenPath, `{
   "name":"device-default",
-  "runtime_profile_name":"device-default"
+  "runtime_profile_name":"device-default",
+  "firmware_id":"devkit"
 }`)
 	created := h.RunCLI("admin", "registration-tokens", "create", "-f", tokenPath, "--context", "admin-a")
 	created.MustSucceed(t)
-	assertContains(t, created.Stdout, `"token":"`, `"runtime_profile_name":"device-default"`)
-	if strings.Contains(created.Stdout, `"firmware_name"`) {
-		t.Fatalf("registration token retained Firmware coupling:\n%s", created.Stdout)
+	assertContains(t, created.Stdout, `"token":"`, `"runtime_profile_name":"device-default"`, `"firmware_id":"devkit"`)
+	if strings.Contains(created.Stdout, `"channel"`) {
+		t.Fatalf("registration token persisted a Firmware channel:\n%s", created.Stdout)
 	}
 
 	got := h.RunCLI("admin", "registration-tokens", "get", "device-default", "--context", "admin-a")
@@ -50,6 +51,7 @@ func TestAdminRuntimeProfileRegistrationTokenFlow(t *testing.T) {
 	if strings.Contains(got.Stdout, `"token"`) {
 		t.Fatalf("registration token metadata leaked raw token:\n%s", got.Stdout)
 	}
+	assertContains(t, got.Stdout, `"firmware_id":"devkit"`)
 
 	h.RunCLI("admin", "registration-tokens", "delete", "device-default", "--context", "admin-a").MustSucceed(t)
 	h.RunCLI("admin", "runtime-profiles", "delete", "device-default", "--context", "admin-a").MustSucceed(t)

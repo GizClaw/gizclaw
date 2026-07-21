@@ -144,7 +144,7 @@
         "properties": {
           "voice_id": {
             "type": "string",
-            "description": "GizClaw Voice resource name used for this pet."
+            "description": "RuntimeProfile Voice alias used for this pet."
           },
           "prompt": {
             "type": "string",
@@ -195,7 +195,7 @@
           },
           "model": {
             "type": "string",
-            "description": "GizClaw Model resource name. Defaults to Workflow.spec.doubao_realtime.model."
+            "description": "RuntimeProfile Model alias. Defaults to Workflow.spec.doubao_realtime.model."
           },
           "instructions": {
             "type": "string"
@@ -270,19 +270,6 @@
           "voice": {
             "$ref": "#/components/schemas/ASTTranslateVoiceParameters"
           },
-          "speaker_id": {
-            "type": "string",
-            "description": "Deprecated compatibility field. Prefer voice.speaker_id."
-          },
-          "is_custom_speaker": {
-            "type": "boolean"
-          },
-          "tts_resource_id": {
-            "type": "string"
-          },
-          "speech_rate": {
-            "type": "integer"
-          },
           "enable_source_language_detect": {
             "type": "boolean"
           },
@@ -343,7 +330,7 @@
         "properties": {
           "tts_voice": {
             "type": "string",
-            "description": "GizClaw voice resource name used by an external TTS path."
+            "description": "RuntimeProfile Voice alias used by the external TTS path."
           }
         }
       },

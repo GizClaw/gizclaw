@@ -185,12 +185,16 @@ func (s *rpcStream) WriteRequest(req *rpcapi.RPCRequest) error {
 }
 
 func (s *rpcStream) WriteRequestEnvelope(req *rpcapi.RPCRequest) error {
+	_, err := s.writeRequestEnvelope(req)
+	return err
+}
+
+func (s *rpcStream) writeRequestEnvelope(req *rpcapi.RPCRequest) (bool, error) {
 	frame, err := rpcapi.NewRequestFrame(req)
 	if err != nil {
-		return err
+		return false, err
 	}
-	_, err = s.writeProtobufEnvelope(frame.Payload)
-	return err
+	return s.writeProtobufEnvelope(frame.Payload)
 }
 
 func (s *rpcStream) ReadResponse() (*rpcapi.RPCResponse, error) {

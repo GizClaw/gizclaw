@@ -254,7 +254,7 @@ const GameRewardSpec$json = {
   '2': [
     {
       '1': 'badge_exp_delta',
-      '3': 2,
+      '3': 1,
       '4': 3,
       '5': 11,
       '6': '.gizclaw.rpc.v1.GameRewardSpec.BadgeExpDeltaEntry',
@@ -262,7 +262,7 @@ const GameRewardSpec$json = {
     },
     {
       '1': 'pet_exp_delta',
-      '3': 4,
+      '3': 2,
       '4': 1,
       '5': 3,
       '9': 0,
@@ -271,7 +271,7 @@ const GameRewardSpec$json = {
     },
     {
       '1': 'points_delta',
-      '3': 5,
+      '3': 3,
       '4': 1,
       '5': 3,
       '9': 1,
@@ -284,11 +284,6 @@ const GameRewardSpec$json = {
     {'1': '_pet_exp_delta'},
     {'1': '_points_delta'},
   ],
-  '9': [
-    {'1': 1, '2': 2},
-    {'1': 3, '2': 4},
-  ],
-  '10': ['ability_delta', 'life_delta'],
 };
 
 @$core.Deprecated('Use gameRewardSpecDescriptor instead')
@@ -303,12 +298,12 @@ const GameRewardSpec_BadgeExpDeltaEntry$json = {
 
 /// Descriptor for `GameRewardSpec`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List gameRewardSpecDescriptor = $convert.base64Decode(
-    'Cg5HYW1lUmV3YXJkU3BlYxJZCg9iYWRnZV9leHBfZGVsdGEYAiADKAsyMS5naXpjbGF3LnJwYy'
+    'Cg5HYW1lUmV3YXJkU3BlYxJZCg9iYWRnZV9leHBfZGVsdGEYASADKAsyMS5naXpjbGF3LnJwYy'
     '52MS5HYW1lUmV3YXJkU3BlYy5CYWRnZUV4cERlbHRhRW50cnlSDWJhZGdlRXhwRGVsdGESJwoN'
-    'cGV0X2V4cF9kZWx0YRgEIAEoA0gAUgtwZXRFeHBEZWx0YYgBARImCgxwb2ludHNfZGVsdGEYBS'
+    'cGV0X2V4cF9kZWx0YRgCIAEoA0gAUgtwZXRFeHBEZWx0YYgBARImCgxwb2ludHNfZGVsdGEYAy'
     'ABKANIAVILcG9pbnRzRGVsdGGIAQEaQAoSQmFkZ2VFeHBEZWx0YUVudHJ5EhAKA2tleRgBIAEo'
     'CVIDa2V5EhQKBXZhbHVlGAIgASgDUgV2YWx1ZToCOAFCEAoOX3BldF9leHBfZGVsdGFCDwoNX3'
-    'BvaW50c19kZWx0YUoECAEQAkoECAMQBFINYWJpbGl0eV9kZWx0YVIKbGlmZV9kZWx0YQ==');
+    'BvaW50c19kZWx0YQ==');
 
 @$core.Deprecated('Use gameplayGetRequestDescriptor instead')
 const GameplayGetRequest$json = {
@@ -364,58 +359,50 @@ final $typed_data.Uint8List gameplayMetadataDescriptor = $convert.base64Decode(
 const Pet$json = {
   '1': 'Pet',
   '2': [
-    {'1': 'created_at', '3': 2, '4': 1, '5': 9, '10': 'createdAt'},
-    {'1': 'display_name', '3': 3, '4': 1, '5': 9, '10': 'displayName'},
-    {'1': 'id', '3': 5, '4': 1, '5': 9, '10': 'id'},
-    {'1': 'last_active_at', '3': 6, '4': 1, '5': 9, '10': 'lastActiveAt'},
+    {'1': 'created_at', '3': 1, '4': 1, '5': 9, '10': 'createdAt'},
+    {'1': 'display_name', '3': 2, '4': 1, '5': 9, '10': 'displayName'},
+    {'1': 'id', '3': 3, '4': 1, '5': 9, '10': 'id'},
+    {'1': 'last_active_at', '3': 4, '4': 1, '5': 9, '10': 'lastActiveAt'},
     {
       '1': 'life',
-      '3': 8,
+      '3': 5,
       '4': 1,
       '5': 11,
       '6': '.gizclaw.rpc.v1.PetLife',
       '10': 'life'
     },
-    {'1': 'owner_public_key', '3': 9, '4': 1, '5': 9, '10': 'ownerPublicKey'},
-    {'1': 'petdef_id', '3': 10, '4': 1, '5': 9, '10': 'petdefId'},
+    {'1': 'owner_public_key', '3': 6, '4': 1, '5': 9, '10': 'ownerPublicKey'},
+    {'1': 'petdef_id', '3': 7, '4': 1, '5': 9, '10': 'petdefId'},
     {
       '1': 'runtime_profile_name',
-      '3': 11,
+      '3': 8,
       '4': 1,
       '5': 9,
       '10': 'runtimeProfileName'
     },
-    {'1': 'updated_at', '3': 12, '4': 1, '5': 9, '10': 'updatedAt'},
-    {'1': 'workspace_name', '3': 14, '4': 1, '5': 9, '10': 'workspaceName'},
+    {'1': 'updated_at', '3': 9, '4': 1, '5': 9, '10': 'updatedAt'},
+    {'1': 'workspace_name', '3': 10, '4': 1, '5': 9, '10': 'workspaceName'},
     {
       '1': 'progression',
-      '3': 15,
+      '3': 11,
       '4': 1,
       '5': 11,
       '6': '.gizclaw.rpc.v1.PetProgression',
       '10': 'progression'
     },
   ],
-  '9': [
-    {'1': 1, '2': 2},
-    {'1': 4, '2': 5},
-    {'1': 7, '2': 8},
-    {'1': 13, '2': 14},
-  ],
-  '10': ['ability', 'exp', 'level', 'workflow_name'],
 };
 
 /// Descriptor for `Pet`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List petDescriptor = $convert.base64Decode(
-    'CgNQZXQSHQoKY3JlYXRlZF9hdBgCIAEoCVIJY3JlYXRlZEF0EiEKDGRpc3BsYXlfbmFtZRgDIA'
-    'EoCVILZGlzcGxheU5hbWUSDgoCaWQYBSABKAlSAmlkEiQKDmxhc3RfYWN0aXZlX2F0GAYgASgJ'
-    'UgxsYXN0QWN0aXZlQXQSKwoEbGlmZRgIIAEoCzIXLmdpemNsYXcucnBjLnYxLlBldExpZmVSBG'
-    'xpZmUSKAoQb3duZXJfcHVibGljX2tleRgJIAEoCVIOb3duZXJQdWJsaWNLZXkSGwoJcGV0ZGVm'
-    'X2lkGAogASgJUghwZXRkZWZJZBIwChRydW50aW1lX3Byb2ZpbGVfbmFtZRgLIAEoCVIScnVudG'
-    'ltZVByb2ZpbGVOYW1lEh0KCnVwZGF0ZWRfYXQYDCABKAlSCXVwZGF0ZWRBdBIlCg53b3Jrc3Bh'
-    'Y2VfbmFtZRgOIAEoCVINd29ya3NwYWNlTmFtZRJACgtwcm9ncmVzc2lvbhgPIAEoCzIeLmdpem'
-    'NsYXcucnBjLnYxLlBldFByb2dyZXNzaW9uUgtwcm9ncmVzc2lvbkoECAEQAkoECAQQBUoECAcQ'
-    'CEoECA0QDlIHYWJpbGl0eVIDZXhwUgVsZXZlbFINd29ya2Zsb3dfbmFtZQ==');
+    'CgNQZXQSHQoKY3JlYXRlZF9hdBgBIAEoCVIJY3JlYXRlZEF0EiEKDGRpc3BsYXlfbmFtZRgCIA'
+    'EoCVILZGlzcGxheU5hbWUSDgoCaWQYAyABKAlSAmlkEiQKDmxhc3RfYWN0aXZlX2F0GAQgASgJ'
+    'UgxsYXN0QWN0aXZlQXQSKwoEbGlmZRgFIAEoCzIXLmdpemNsYXcucnBjLnYxLlBldExpZmVSBG'
+    'xpZmUSKAoQb3duZXJfcHVibGljX2tleRgGIAEoCVIOb3duZXJQdWJsaWNLZXkSGwoJcGV0ZGVm'
+    'X2lkGAcgASgJUghwZXRkZWZJZBIwChRydW50aW1lX3Byb2ZpbGVfbmFtZRgIIAEoCVIScnVudG'
+    'ltZVByb2ZpbGVOYW1lEh0KCnVwZGF0ZWRfYXQYCSABKAlSCXVwZGF0ZWRBdBIlCg53b3Jrc3Bh'
+    'Y2VfbmFtZRgKIAEoCVINd29ya3NwYWNlTmFtZRJACgtwcm9ncmVzc2lvbhgLIAEoCzIeLmdpem'
+    'NsYXcucnBjLnYxLlBldFByb2dyZXNzaW9uUgtwcm9ncmVzc2lvbg==');
 
 @$core.Deprecated('Use petAdoptRequestDescriptor instead')
 const PetAdoptRequest$json = {
@@ -434,16 +421,12 @@ const PetAdoptRequest$json = {
   '8': [
     {'1': '_display_name'},
   ],
-  '9': [
-    {'1': 2, '2': 3},
-  ],
-  '10': ['ruleset_name'],
 };
 
 /// Descriptor for `PetAdoptRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List petAdoptRequestDescriptor = $convert.base64Decode(
     'Cg9QZXRBZG9wdFJlcXVlc3QSJgoMZGlzcGxheV9uYW1lGAEgASgJSABSC2Rpc3BsYXlOYW1liA'
-    'EBQg8KDV9kaXNwbGF5X25hbWVKBAgCEANSDHJ1bGVzZXRfbmFtZQ==');
+    'EBQg8KDV9kaXNwbGF5X25hbWU=');
 
 @$core.Deprecated('Use petAdoptResponseDescriptor instead')
 const PetAdoptResponse$json = {
@@ -1151,45 +1134,37 @@ const RewardGrant$json = {
   '2': [
     {
       '1': 'badge_exp_delta',
-      '3': 2,
+      '3': 1,
       '4': 3,
       '5': 11,
       '6': '.gizclaw.rpc.v1.RewardGrant.BadgeExpDeltaEntry',
       '10': 'badgeExpDelta'
     },
-    {'1': 'created_at', '3': 3, '4': 1, '5': 9, '10': 'createdAt'},
+    {'1': 'created_at', '3': 2, '4': 1, '5': 9, '10': 'createdAt'},
     {
       '1': 'game_result_id',
-      '3': 4,
+      '3': 3,
       '4': 1,
       '5': 9,
       '9': 0,
       '10': 'gameResultId',
       '17': true
     },
-    {'1': 'id', '3': 5, '4': 1, '5': 9, '10': 'id'},
-    {'1': 'owner_public_key', '3': 7, '4': 1, '5': 9, '10': 'ownerPublicKey'},
-    {'1': 'pet_exp_delta', '3': 8, '4': 1, '5': 3, '10': 'petExpDelta'},
-    {'1': 'pet_id', '3': 9, '4': 1, '5': 9, '9': 1, '10': 'petId', '17': true},
-    {'1': 'points_delta', '3': 10, '4': 1, '5': 3, '10': 'pointsDelta'},
-    {
-      '1': 'reason',
-      '3': 11,
-      '4': 1,
-      '5': 9,
-      '9': 2,
-      '10': 'reason',
-      '17': true
-    },
+    {'1': 'id', '3': 4, '4': 1, '5': 9, '10': 'id'},
+    {'1': 'owner_public_key', '3': 5, '4': 1, '5': 9, '10': 'ownerPublicKey'},
+    {'1': 'pet_exp_delta', '3': 6, '4': 1, '5': 3, '10': 'petExpDelta'},
+    {'1': 'pet_id', '3': 7, '4': 1, '5': 9, '9': 1, '10': 'petId', '17': true},
+    {'1': 'points_delta', '3': 8, '4': 1, '5': 3, '10': 'pointsDelta'},
+    {'1': 'reason', '3': 9, '4': 1, '5': 9, '9': 2, '10': 'reason', '17': true},
     {
       '1': 'runtime_profile_name',
-      '3': 12,
+      '3': 10,
       '4': 1,
       '5': 9,
       '10': 'runtimeProfileName'
     },
-    {'1': 'source_id', '3': 13, '4': 1, '5': 9, '10': 'sourceId'},
-    {'1': 'source_type', '3': 14, '4': 1, '5': 9, '10': 'sourceType'},
+    {'1': 'source_id', '3': 11, '4': 1, '5': 9, '10': 'sourceId'},
+    {'1': 'source_type', '3': 12, '4': 1, '5': 9, '10': 'sourceType'},
   ],
   '3': [RewardGrant_BadgeExpDeltaEntry$json],
   '8': [
@@ -1197,11 +1172,6 @@ const RewardGrant$json = {
     {'1': '_pet_id'},
     {'1': '_reason'},
   ],
-  '9': [
-    {'1': 1, '2': 2},
-    {'1': 6, '2': 7},
-  ],
-  '10': ['ability_delta', 'life_delta'],
 };
 
 @$core.Deprecated('Use rewardGrantDescriptor instead')
@@ -1216,18 +1186,17 @@ const RewardGrant_BadgeExpDeltaEntry$json = {
 
 /// Descriptor for `RewardGrant`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List rewardGrantDescriptor = $convert.base64Decode(
-    'CgtSZXdhcmRHcmFudBJWCg9iYWRnZV9leHBfZGVsdGEYAiADKAsyLi5naXpjbGF3LnJwYy52MS'
+    'CgtSZXdhcmRHcmFudBJWCg9iYWRnZV9leHBfZGVsdGEYASADKAsyLi5naXpjbGF3LnJwYy52MS'
     '5SZXdhcmRHcmFudC5CYWRnZUV4cERlbHRhRW50cnlSDWJhZGdlRXhwRGVsdGESHQoKY3JlYXRl'
-    'ZF9hdBgDIAEoCVIJY3JlYXRlZEF0EikKDmdhbWVfcmVzdWx0X2lkGAQgASgJSABSDGdhbWVSZX'
-    'N1bHRJZIgBARIOCgJpZBgFIAEoCVICaWQSKAoQb3duZXJfcHVibGljX2tleRgHIAEoCVIOb3du'
-    'ZXJQdWJsaWNLZXkSIgoNcGV0X2V4cF9kZWx0YRgIIAEoA1ILcGV0RXhwRGVsdGESGgoGcGV0X2'
-    'lkGAkgASgJSAFSBXBldElkiAEBEiEKDHBvaW50c19kZWx0YRgKIAEoA1ILcG9pbnRzRGVsdGES'
-    'GwoGcmVhc29uGAsgASgJSAJSBnJlYXNvbogBARIwChRydW50aW1lX3Byb2ZpbGVfbmFtZRgMIA'
-    'EoCVIScnVudGltZVByb2ZpbGVOYW1lEhsKCXNvdXJjZV9pZBgNIAEoCVIIc291cmNlSWQSHwoL'
-    'c291cmNlX3R5cGUYDiABKAlSCnNvdXJjZVR5cGUaQAoSQmFkZ2VFeHBEZWx0YUVudHJ5EhAKA2'
+    'ZF9hdBgCIAEoCVIJY3JlYXRlZEF0EikKDmdhbWVfcmVzdWx0X2lkGAMgASgJSABSDGdhbWVSZX'
+    'N1bHRJZIgBARIOCgJpZBgEIAEoCVICaWQSKAoQb3duZXJfcHVibGljX2tleRgFIAEoCVIOb3du'
+    'ZXJQdWJsaWNLZXkSIgoNcGV0X2V4cF9kZWx0YRgGIAEoA1ILcGV0RXhwRGVsdGESGgoGcGV0X2'
+    'lkGAcgASgJSAFSBXBldElkiAEBEiEKDHBvaW50c19kZWx0YRgIIAEoA1ILcG9pbnRzRGVsdGES'
+    'GwoGcmVhc29uGAkgASgJSAJSBnJlYXNvbogBARIwChRydW50aW1lX3Byb2ZpbGVfbmFtZRgKIA'
+    'EoCVIScnVudGltZVByb2ZpbGVOYW1lEhsKCXNvdXJjZV9pZBgLIAEoCVIIc291cmNlSWQSHwoL'
+    'c291cmNlX3R5cGUYDCABKAlSCnNvdXJjZVR5cGUaQAoSQmFkZ2VFeHBEZWx0YUVudHJ5EhAKA2'
     'tleRgBIAEoCVIDa2V5EhQKBXZhbHVlGAIgASgDUgV2YWx1ZToCOAFCEQoPX2dhbWVfcmVzdWx0'
-    'X2lkQgkKB19wZXRfaWRCCQoHX3JlYXNvbkoECAEQAkoECAYQB1INYWJpbGl0eV9kZWx0YVIKbG'
-    'lmZV9kZWx0YQ==');
+    'X2lkQgkKB19wZXRfaWRCCQoHX3JlYXNvbg==');
 
 @$core.Deprecated('Use rewardGrantListResponseDescriptor instead')
 const RewardGrantListResponse$json = {
@@ -1760,16 +1729,11 @@ final $typed_data.Uint8List serverPetPutResponseDescriptor = $convert.base64Deco
 @$core.Deprecated('Use serverPointsGetRequestDescriptor instead')
 const ServerPointsGetRequest$json = {
   '1': 'ServerPointsGetRequest',
-  '9': [
-    {'1': 1, '2': 2},
-  ],
-  '10': ['ruleset_name'],
 };
 
 /// Descriptor for `ServerPointsGetRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List serverPointsGetRequestDescriptor =
-    $convert.base64Decode(
-        'ChZTZXJ2ZXJQb2ludHNHZXRSZXF1ZXN0SgQIARACUgxydWxlc2V0X25hbWU=');
+    $convert.base64Decode('ChZTZXJ2ZXJQb2ludHNHZXRSZXF1ZXN0');
 
 @$core.Deprecated('Use serverPointsGetResponseDescriptor instead')
 const ServerPointsGetResponse$json = {

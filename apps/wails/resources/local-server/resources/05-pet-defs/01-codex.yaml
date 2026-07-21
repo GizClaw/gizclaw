@@ -14,7 +14,6 @@ spec:
   character:
     prompt: A compact blue coding mascot with a dark terminal screen face, command prompt eyes, rounded limbs, and a focused helpful personality.
   voice:
-    voice_id: volc-tenant:volc-main:zh_male_sunwukong_mars_bigtts
     prompt: Calm, clever, concise replies with friendly technical confidence.
   drive:
     actions:

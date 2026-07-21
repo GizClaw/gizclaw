@@ -178,12 +178,12 @@ func TestRPCServerPeerMethods(t *testing.T) {
 	}
 
 	audio := callRPCPair(t, server, func(conn net.Conn) (*rpcapi.ServerRunSayResponse, error) {
-		return client.ServerRunSay(context.Background(), conn, "audio-say", rpcapi.ServerRunSayRequest{Text: "hello", VoiceId: stringPtr("voice-1")})
+		return client.ServerRunSay(context.Background(), conn, "audio-say", rpcapi.ServerRunSayRequest{Text: "hello", VoiceAlias: "voice-1"})
 	})
 	if !audio.Accepted {
 		t.Fatalf("ServerRunSay() = %+v", audio)
 	}
-	if serverGenX.lastSay.Text != "hello" || serverGenX.lastSay.VoiceID != "voice-1" {
+	if serverGenX.lastSay.Text != "hello" || serverGenX.lastSay.VoiceAlias != "voice-1" {
 		t.Fatalf("ServerRunSay request = %+v", serverGenX.lastSay)
 	}
 }
@@ -478,7 +478,7 @@ func TestRPCServerDispatchErrorPaths(t *testing.T) {
 	if resp, err := (&rpcServer{}).dispatch(context.Background(), newRPCRequest("audio", rpcapi.RPCMethodServerRunSay, nil)); err != nil || resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeInvalidParams {
 		t.Fatalf("dispatch(audio missing params) = %+v, %v", resp, err)
 	}
-	if resp, err := (&rpcServer{}).dispatch(context.Background(), newRPCRequest("audio", rpcapi.RPCMethodServerRunSay, mustRPCParams(rpcapi.ServerRunSayRequest{Text: "hello", VoiceId: stringPtr("voice")}, (*rpcapi.RPCPayload).FromServerRunSayRequest))); err != nil || resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeInternalError {
+	if resp, err := (&rpcServer{}).dispatch(context.Background(), newRPCRequest("audio", rpcapi.RPCMethodServerRunSay, mustRPCParams(rpcapi.ServerRunSayRequest{Text: "hello", VoiceAlias: "voice"}, (*rpcapi.RPCPayload).FromServerRunSayRequest))); err != nil || resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeInternalError {
 		t.Fatalf("dispatch(audio missing service) = %+v, %v", resp, err)
 	}
 }
@@ -524,6 +524,10 @@ type fakeRPCPeerService struct {
 	putInfoError       error
 	waitPutInfoContext bool
 	putInfoStarted     chan struct{}
+}
+
+func (s *fakeRPCPeerService) BindFirmware(context.Context, giznet.PublicKey, string) (apitypes.Peer, error) {
+	return apitypes.Peer{}, nil
 }
 
 type fakeRPCRunWorkspaceResources struct {

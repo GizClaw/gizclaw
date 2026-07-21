@@ -690,13 +690,13 @@ class GameRewardSpec extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'GameRewardSpec',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..m<$core.String, $fixnum.Int64>(2, _omitFieldNames ? '' : 'badgeExpDelta',
+    ..m<$core.String, $fixnum.Int64>(1, _omitFieldNames ? '' : 'badgeExpDelta',
         entryClassName: 'GameRewardSpec.BadgeExpDeltaEntry',
         keyFieldType: $pb.PbFieldType.OS,
         valueFieldType: $pb.PbFieldType.O6,
         packageName: const $pb.PackageName('gizclaw.rpc.v1'))
-    ..aInt64(4, _omitFieldNames ? '' : 'petExpDelta')
-    ..aInt64(5, _omitFieldNames ? '' : 'pointsDelta')
+    ..aInt64(2, _omitFieldNames ? '' : 'petExpDelta')
+    ..aInt64(3, _omitFieldNames ? '' : 'pointsDelta')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -718,26 +718,26 @@ class GameRewardSpec extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<GameRewardSpec>(create);
   static GameRewardSpec? _defaultInstance;
 
-  @$pb.TagNumber(2)
+  @$pb.TagNumber(1)
   $pb.PbMap<$core.String, $fixnum.Int64> get badgeExpDelta => $_getMap(0);
 
-  @$pb.TagNumber(4)
+  @$pb.TagNumber(2)
   $fixnum.Int64 get petExpDelta => $_getI64(1);
-  @$pb.TagNumber(4)
+  @$pb.TagNumber(2)
   set petExpDelta($fixnum.Int64 value) => $_setInt64(1, value);
-  @$pb.TagNumber(4)
+  @$pb.TagNumber(2)
   $core.bool hasPetExpDelta() => $_has(1);
-  @$pb.TagNumber(4)
-  void clearPetExpDelta() => $_clearField(4);
+  @$pb.TagNumber(2)
+  void clearPetExpDelta() => $_clearField(2);
 
-  @$pb.TagNumber(5)
+  @$pb.TagNumber(3)
   $fixnum.Int64 get pointsDelta => $_getI64(2);
-  @$pb.TagNumber(5)
+  @$pb.TagNumber(3)
   set pointsDelta($fixnum.Int64 value) => $_setInt64(2, value);
-  @$pb.TagNumber(5)
+  @$pb.TagNumber(3)
   $core.bool hasPointsDelta() => $_has(2);
-  @$pb.TagNumber(5)
-  void clearPointsDelta() => $_clearField(5);
+  @$pb.TagNumber(3)
+  void clearPointsDelta() => $_clearField(3);
 }
 
 class GameplayGetRequest extends $pb.GeneratedMessage {
@@ -960,17 +960,17 @@ class Pet extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'Pet',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOS(2, _omitFieldNames ? '' : 'createdAt')
-    ..aOS(3, _omitFieldNames ? '' : 'displayName')
-    ..aOS(5, _omitFieldNames ? '' : 'id')
-    ..aOS(6, _omitFieldNames ? '' : 'lastActiveAt')
-    ..aOM<PetLife>(8, _omitFieldNames ? '' : 'life', subBuilder: PetLife.create)
-    ..aOS(9, _omitFieldNames ? '' : 'ownerPublicKey')
-    ..aOS(10, _omitFieldNames ? '' : 'petdefId')
-    ..aOS(11, _omitFieldNames ? '' : 'runtimeProfileName')
-    ..aOS(12, _omitFieldNames ? '' : 'updatedAt')
-    ..aOS(14, _omitFieldNames ? '' : 'workspaceName')
-    ..aOM<PetProgression>(15, _omitFieldNames ? '' : 'progression',
+    ..aOS(1, _omitFieldNames ? '' : 'createdAt')
+    ..aOS(2, _omitFieldNames ? '' : 'displayName')
+    ..aOS(3, _omitFieldNames ? '' : 'id')
+    ..aOS(4, _omitFieldNames ? '' : 'lastActiveAt')
+    ..aOM<PetLife>(5, _omitFieldNames ? '' : 'life', subBuilder: PetLife.create)
+    ..aOS(6, _omitFieldNames ? '' : 'ownerPublicKey')
+    ..aOS(7, _omitFieldNames ? '' : 'petdefId')
+    ..aOS(8, _omitFieldNames ? '' : 'runtimeProfileName')
+    ..aOS(9, _omitFieldNames ? '' : 'updatedAt')
+    ..aOS(10, _omitFieldNames ? '' : 'workspaceName')
+    ..aOM<PetProgression>(11, _omitFieldNames ? '' : 'progression',
         subBuilder: PetProgression.create)
     ..hasRequiredFields = false;
 
@@ -992,107 +992,107 @@ class Pet extends $pb.GeneratedMessage {
       _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Pet>(create);
   static Pet? _defaultInstance;
 
-  @$pb.TagNumber(2)
+  @$pb.TagNumber(1)
   $core.String get createdAt => $_getSZ(0);
-  @$pb.TagNumber(2)
+  @$pb.TagNumber(1)
   set createdAt($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(2)
+  @$pb.TagNumber(1)
   $core.bool hasCreatedAt() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearCreatedAt() => $_clearField(1);
+
   @$pb.TagNumber(2)
-  void clearCreatedAt() => $_clearField(2);
-
-  @$pb.TagNumber(3)
   $core.String get displayName => $_getSZ(1);
-  @$pb.TagNumber(3)
+  @$pb.TagNumber(2)
   set displayName($core.String value) => $_setString(1, value);
-  @$pb.TagNumber(3)
+  @$pb.TagNumber(2)
   $core.bool hasDisplayName() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearDisplayName() => $_clearField(2);
+
   @$pb.TagNumber(3)
-  void clearDisplayName() => $_clearField(3);
-
-  @$pb.TagNumber(5)
   $core.String get id => $_getSZ(2);
-  @$pb.TagNumber(5)
+  @$pb.TagNumber(3)
   set id($core.String value) => $_setString(2, value);
-  @$pb.TagNumber(5)
+  @$pb.TagNumber(3)
   $core.bool hasId() => $_has(2);
-  @$pb.TagNumber(5)
-  void clearId() => $_clearField(5);
+  @$pb.TagNumber(3)
+  void clearId() => $_clearField(3);
 
-  @$pb.TagNumber(6)
+  @$pb.TagNumber(4)
   $core.String get lastActiveAt => $_getSZ(3);
-  @$pb.TagNumber(6)
+  @$pb.TagNumber(4)
   set lastActiveAt($core.String value) => $_setString(3, value);
-  @$pb.TagNumber(6)
+  @$pb.TagNumber(4)
   $core.bool hasLastActiveAt() => $_has(3);
-  @$pb.TagNumber(6)
-  void clearLastActiveAt() => $_clearField(6);
+  @$pb.TagNumber(4)
+  void clearLastActiveAt() => $_clearField(4);
 
-  @$pb.TagNumber(8)
+  @$pb.TagNumber(5)
   PetLife get life => $_getN(4);
-  @$pb.TagNumber(8)
-  set life(PetLife value) => $_setField(8, value);
-  @$pb.TagNumber(8)
+  @$pb.TagNumber(5)
+  set life(PetLife value) => $_setField(5, value);
+  @$pb.TagNumber(5)
   $core.bool hasLife() => $_has(4);
-  @$pb.TagNumber(8)
-  void clearLife() => $_clearField(8);
-  @$pb.TagNumber(8)
+  @$pb.TagNumber(5)
+  void clearLife() => $_clearField(5);
+  @$pb.TagNumber(5)
   PetLife ensureLife() => $_ensure(4);
 
-  @$pb.TagNumber(9)
+  @$pb.TagNumber(6)
   $core.String get ownerPublicKey => $_getSZ(5);
-  @$pb.TagNumber(9)
+  @$pb.TagNumber(6)
   set ownerPublicKey($core.String value) => $_setString(5, value);
-  @$pb.TagNumber(9)
+  @$pb.TagNumber(6)
   $core.bool hasOwnerPublicKey() => $_has(5);
-  @$pb.TagNumber(9)
-  void clearOwnerPublicKey() => $_clearField(9);
+  @$pb.TagNumber(6)
+  void clearOwnerPublicKey() => $_clearField(6);
 
-  @$pb.TagNumber(10)
+  @$pb.TagNumber(7)
   $core.String get petdefId => $_getSZ(6);
-  @$pb.TagNumber(10)
+  @$pb.TagNumber(7)
   set petdefId($core.String value) => $_setString(6, value);
-  @$pb.TagNumber(10)
+  @$pb.TagNumber(7)
   $core.bool hasPetdefId() => $_has(6);
-  @$pb.TagNumber(10)
-  void clearPetdefId() => $_clearField(10);
+  @$pb.TagNumber(7)
+  void clearPetdefId() => $_clearField(7);
 
-  @$pb.TagNumber(11)
+  @$pb.TagNumber(8)
   $core.String get runtimeProfileName => $_getSZ(7);
-  @$pb.TagNumber(11)
+  @$pb.TagNumber(8)
   set runtimeProfileName($core.String value) => $_setString(7, value);
-  @$pb.TagNumber(11)
+  @$pb.TagNumber(8)
   $core.bool hasRuntimeProfileName() => $_has(7);
-  @$pb.TagNumber(11)
-  void clearRuntimeProfileName() => $_clearField(11);
+  @$pb.TagNumber(8)
+  void clearRuntimeProfileName() => $_clearField(8);
 
-  @$pb.TagNumber(12)
+  @$pb.TagNumber(9)
   $core.String get updatedAt => $_getSZ(8);
-  @$pb.TagNumber(12)
+  @$pb.TagNumber(9)
   set updatedAt($core.String value) => $_setString(8, value);
-  @$pb.TagNumber(12)
+  @$pb.TagNumber(9)
   $core.bool hasUpdatedAt() => $_has(8);
-  @$pb.TagNumber(12)
-  void clearUpdatedAt() => $_clearField(12);
+  @$pb.TagNumber(9)
+  void clearUpdatedAt() => $_clearField(9);
 
-  @$pb.TagNumber(14)
+  @$pb.TagNumber(10)
   $core.String get workspaceName => $_getSZ(9);
-  @$pb.TagNumber(14)
+  @$pb.TagNumber(10)
   set workspaceName($core.String value) => $_setString(9, value);
-  @$pb.TagNumber(14)
+  @$pb.TagNumber(10)
   $core.bool hasWorkspaceName() => $_has(9);
-  @$pb.TagNumber(14)
-  void clearWorkspaceName() => $_clearField(14);
+  @$pb.TagNumber(10)
+  void clearWorkspaceName() => $_clearField(10);
 
-  @$pb.TagNumber(15)
+  @$pb.TagNumber(11)
   PetProgression get progression => $_getN(10);
-  @$pb.TagNumber(15)
-  set progression(PetProgression value) => $_setField(15, value);
-  @$pb.TagNumber(15)
+  @$pb.TagNumber(11)
+  set progression(PetProgression value) => $_setField(11, value);
+  @$pb.TagNumber(11)
   $core.bool hasProgression() => $_has(10);
-  @$pb.TagNumber(15)
-  void clearProgression() => $_clearField(15);
-  @$pb.TagNumber(15)
+  @$pb.TagNumber(11)
+  void clearProgression() => $_clearField(11);
+  @$pb.TagNumber(11)
   PetProgression ensureProgression() => $_ensure(10);
 }
 
@@ -2837,22 +2837,22 @@ class RewardGrant extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'RewardGrant',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..m<$core.String, $fixnum.Int64>(2, _omitFieldNames ? '' : 'badgeExpDelta',
+    ..m<$core.String, $fixnum.Int64>(1, _omitFieldNames ? '' : 'badgeExpDelta',
         entryClassName: 'RewardGrant.BadgeExpDeltaEntry',
         keyFieldType: $pb.PbFieldType.OS,
         valueFieldType: $pb.PbFieldType.O6,
         packageName: const $pb.PackageName('gizclaw.rpc.v1'))
-    ..aOS(3, _omitFieldNames ? '' : 'createdAt')
-    ..aOS(4, _omitFieldNames ? '' : 'gameResultId')
-    ..aOS(5, _omitFieldNames ? '' : 'id')
-    ..aOS(7, _omitFieldNames ? '' : 'ownerPublicKey')
-    ..aInt64(8, _omitFieldNames ? '' : 'petExpDelta')
-    ..aOS(9, _omitFieldNames ? '' : 'petId')
-    ..aInt64(10, _omitFieldNames ? '' : 'pointsDelta')
-    ..aOS(11, _omitFieldNames ? '' : 'reason')
-    ..aOS(12, _omitFieldNames ? '' : 'runtimeProfileName')
-    ..aOS(13, _omitFieldNames ? '' : 'sourceId')
-    ..aOS(14, _omitFieldNames ? '' : 'sourceType')
+    ..aOS(2, _omitFieldNames ? '' : 'createdAt')
+    ..aOS(3, _omitFieldNames ? '' : 'gameResultId')
+    ..aOS(4, _omitFieldNames ? '' : 'id')
+    ..aOS(5, _omitFieldNames ? '' : 'ownerPublicKey')
+    ..aInt64(6, _omitFieldNames ? '' : 'petExpDelta')
+    ..aOS(7, _omitFieldNames ? '' : 'petId')
+    ..aInt64(8, _omitFieldNames ? '' : 'pointsDelta')
+    ..aOS(9, _omitFieldNames ? '' : 'reason')
+    ..aOS(10, _omitFieldNames ? '' : 'runtimeProfileName')
+    ..aOS(11, _omitFieldNames ? '' : 'sourceId')
+    ..aOS(12, _omitFieldNames ? '' : 'sourceType')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2874,107 +2874,107 @@ class RewardGrant extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<RewardGrant>(create);
   static RewardGrant? _defaultInstance;
 
-  @$pb.TagNumber(2)
+  @$pb.TagNumber(1)
   $pb.PbMap<$core.String, $fixnum.Int64> get badgeExpDelta => $_getMap(0);
 
-  @$pb.TagNumber(3)
+  @$pb.TagNumber(2)
   $core.String get createdAt => $_getSZ(1);
-  @$pb.TagNumber(3)
+  @$pb.TagNumber(2)
   set createdAt($core.String value) => $_setString(1, value);
-  @$pb.TagNumber(3)
+  @$pb.TagNumber(2)
   $core.bool hasCreatedAt() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearCreatedAt() => $_clearField(2);
+
   @$pb.TagNumber(3)
-  void clearCreatedAt() => $_clearField(3);
-
-  @$pb.TagNumber(4)
   $core.String get gameResultId => $_getSZ(2);
-  @$pb.TagNumber(4)
+  @$pb.TagNumber(3)
   set gameResultId($core.String value) => $_setString(2, value);
-  @$pb.TagNumber(4)
+  @$pb.TagNumber(3)
   $core.bool hasGameResultId() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearGameResultId() => $_clearField(3);
+
   @$pb.TagNumber(4)
-  void clearGameResultId() => $_clearField(4);
-
-  @$pb.TagNumber(5)
   $core.String get id => $_getSZ(3);
-  @$pb.TagNumber(5)
+  @$pb.TagNumber(4)
   set id($core.String value) => $_setString(3, value);
-  @$pb.TagNumber(5)
+  @$pb.TagNumber(4)
   $core.bool hasId() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearId() => $_clearField(4);
+
   @$pb.TagNumber(5)
-  void clearId() => $_clearField(5);
-
-  @$pb.TagNumber(7)
   $core.String get ownerPublicKey => $_getSZ(4);
-  @$pb.TagNumber(7)
+  @$pb.TagNumber(5)
   set ownerPublicKey($core.String value) => $_setString(4, value);
-  @$pb.TagNumber(7)
+  @$pb.TagNumber(5)
   $core.bool hasOwnerPublicKey() => $_has(4);
-  @$pb.TagNumber(7)
-  void clearOwnerPublicKey() => $_clearField(7);
+  @$pb.TagNumber(5)
+  void clearOwnerPublicKey() => $_clearField(5);
 
-  @$pb.TagNumber(8)
+  @$pb.TagNumber(6)
   $fixnum.Int64 get petExpDelta => $_getI64(5);
-  @$pb.TagNumber(8)
+  @$pb.TagNumber(6)
   set petExpDelta($fixnum.Int64 value) => $_setInt64(5, value);
-  @$pb.TagNumber(8)
+  @$pb.TagNumber(6)
   $core.bool hasPetExpDelta() => $_has(5);
-  @$pb.TagNumber(8)
-  void clearPetExpDelta() => $_clearField(8);
+  @$pb.TagNumber(6)
+  void clearPetExpDelta() => $_clearField(6);
 
-  @$pb.TagNumber(9)
+  @$pb.TagNumber(7)
   $core.String get petId => $_getSZ(6);
-  @$pb.TagNumber(9)
+  @$pb.TagNumber(7)
   set petId($core.String value) => $_setString(6, value);
-  @$pb.TagNumber(9)
+  @$pb.TagNumber(7)
   $core.bool hasPetId() => $_has(6);
-  @$pb.TagNumber(9)
-  void clearPetId() => $_clearField(9);
+  @$pb.TagNumber(7)
+  void clearPetId() => $_clearField(7);
 
-  @$pb.TagNumber(10)
+  @$pb.TagNumber(8)
   $fixnum.Int64 get pointsDelta => $_getI64(7);
-  @$pb.TagNumber(10)
+  @$pb.TagNumber(8)
   set pointsDelta($fixnum.Int64 value) => $_setInt64(7, value);
-  @$pb.TagNumber(10)
+  @$pb.TagNumber(8)
   $core.bool hasPointsDelta() => $_has(7);
-  @$pb.TagNumber(10)
-  void clearPointsDelta() => $_clearField(10);
+  @$pb.TagNumber(8)
+  void clearPointsDelta() => $_clearField(8);
 
-  @$pb.TagNumber(11)
+  @$pb.TagNumber(9)
   $core.String get reason => $_getSZ(8);
-  @$pb.TagNumber(11)
+  @$pb.TagNumber(9)
   set reason($core.String value) => $_setString(8, value);
-  @$pb.TagNumber(11)
+  @$pb.TagNumber(9)
   $core.bool hasReason() => $_has(8);
-  @$pb.TagNumber(11)
-  void clearReason() => $_clearField(11);
+  @$pb.TagNumber(9)
+  void clearReason() => $_clearField(9);
 
-  @$pb.TagNumber(12)
+  @$pb.TagNumber(10)
   $core.String get runtimeProfileName => $_getSZ(9);
-  @$pb.TagNumber(12)
+  @$pb.TagNumber(10)
   set runtimeProfileName($core.String value) => $_setString(9, value);
-  @$pb.TagNumber(12)
+  @$pb.TagNumber(10)
   $core.bool hasRuntimeProfileName() => $_has(9);
-  @$pb.TagNumber(12)
-  void clearRuntimeProfileName() => $_clearField(12);
+  @$pb.TagNumber(10)
+  void clearRuntimeProfileName() => $_clearField(10);
 
-  @$pb.TagNumber(13)
+  @$pb.TagNumber(11)
   $core.String get sourceId => $_getSZ(10);
-  @$pb.TagNumber(13)
+  @$pb.TagNumber(11)
   set sourceId($core.String value) => $_setString(10, value);
-  @$pb.TagNumber(13)
+  @$pb.TagNumber(11)
   $core.bool hasSourceId() => $_has(10);
-  @$pb.TagNumber(13)
-  void clearSourceId() => $_clearField(13);
+  @$pb.TagNumber(11)
+  void clearSourceId() => $_clearField(11);
 
-  @$pb.TagNumber(14)
+  @$pb.TagNumber(12)
   $core.String get sourceType => $_getSZ(11);
-  @$pb.TagNumber(14)
+  @$pb.TagNumber(12)
   set sourceType($core.String value) => $_setString(11, value);
-  @$pb.TagNumber(14)
+  @$pb.TagNumber(12)
   $core.bool hasSourceType() => $_has(11);
-  @$pb.TagNumber(14)
-  void clearSourceType() => $_clearField(14);
+  @$pb.TagNumber(12)
+  void clearSourceType() => $_clearField(12);
 }
 
 class RewardGrantListResponse extends $pb.GeneratedMessage {

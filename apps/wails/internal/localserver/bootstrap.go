@@ -25,6 +25,7 @@ const (
 	appRegistrationTokenName    = "app:com.gizclaw.opensource"
 	legacyRegistrationTokenName = "desktop-local"
 	defaultRuntimeProfileName   = "default"
+	systemRuntimeWorkflowName   = "chatroom"
 )
 
 // Bootstrapper applies a validated catalog through the packaged companion CLI.
@@ -35,9 +36,10 @@ type Bootstrapper struct {
 	RunOutput  func(context.Context, string, []string, []string) ([]byte, error)
 }
 
-// MigrateRuntimeContract installs only the fixed App registration contract for
-// a completed legacy Pod. It deliberately does not reapply the rest of the
-// bootstrap catalog because those resources may have been edited by the user.
+// MigrateRuntimeContract installs the fixed App runtime contract for a
+// completed legacy Pod. It reapplies the bundled Workflows referenced by
+// RuntimeProfile/default plus the Server-owned chatroom Workflow before
+// replacing that Profile; unrelated resources and Workflows remain untouched.
 func (b *Bootstrapper) MigrateRuntimeContract(ctx context.Context, podDir string) error {
 	if b == nil || b.Catalog == nil || b.Executable == nil {
 		return fmt.Errorf("local server bootstrap: bootstrapper is not configured")
@@ -53,6 +55,10 @@ func (b *Bootstrapper) MigrateRuntimeContract(ctx context.Context, podDir string
 	if profile == nil {
 		return fmt.Errorf("local server bootstrap: RuntimeProfile/%s is missing from the catalog", defaultRuntimeProfileName)
 	}
+	contractEntries, err := b.runtimeContractEntries(*profile)
+	if err != nil {
+		return err
+	}
 	executable, err := b.Executable()
 	if err != nil {
 		return err
@@ -62,16 +68,33 @@ func (b *Bootstrapper) MigrateRuntimeContract(ctx context.Context, podDir string
 		return err
 	}
 	defer os.RemoveAll(tempDir)
-	file, err := b.extract(tempDir, profile.Path)
-	if err != nil {
-		return err
-	}
+	environment = setCommandEnvironment(environment, "input", "${input}")
 	run := b.Run
 	if run == nil {
 		run = runBootstrapCommand
 	}
-	if err := runBootstrapOperation(ctx, run, executable, []string{"admin", "apply", "--context", "local", "-f", file}, environment); err != nil {
-		return fmt.Errorf("local server bootstrap: migrate RuntimeProfile/%s: %w", defaultRuntimeProfileName, err)
+	for _, entry := range contractEntries {
+		if entry.Kind == "RuntimeProfile" {
+			for _, item := range b.Catalog.VoiceSyncs {
+				args := []string{"admin", item.Provider + "-tenants", "sync-voices", item.Tenant, "--context", "local"}
+				if err := runBootstrapOperation(ctx, run, executable, args, environment); err != nil {
+					return fmt.Errorf("local server bootstrap: sync %s voices for %s during runtime migration: %w", item.Provider, item.Tenant, err)
+				}
+			}
+		}
+		if entry.Kind == "RuntimeProfile" {
+			err := runBootstrapOperation(ctx, run, executable, []string{"admin", "runtime-profiles", "delete", entry.Name, "--context", "local"}, environment)
+			if err != nil && !strings.Contains(err.Error(), "RESOURCE_NOT_FOUND:") {
+				return fmt.Errorf("local server bootstrap: replace %s/%s: %w", entry.Kind, entry.Name, err)
+			}
+		}
+		file, err := b.extract(tempDir, entry.Path)
+		if err != nil {
+			return err
+		}
+		if err := runBootstrapOperation(ctx, run, executable, []string{"admin", "apply", "--context", "local", "-f", file}, environment); err != nil {
+			return fmt.Errorf("local server bootstrap: migrate %s/%s: %w", entry.Kind, entry.Name, err)
+		}
 	}
 	// Retrying a partially completed migration must produce a raw token that
 	// matches the private handoff file written below.
@@ -83,6 +106,54 @@ func (b *Bootstrapper) MigrateRuntimeContract(ctx context.Context, podDir string
 		return fmt.Errorf("local server bootstrap: retire RegistrationToken/%s: %w", legacyRegistrationTokenName, err)
 	}
 	return nil
+}
+
+func (b *Bootstrapper) runtimeContractEntries(profile ResourceEntry) ([]ResourceEntry, error) {
+	data, err := fs.ReadFile(b.Catalog.FS, profile.Path)
+	if err != nil {
+		return nil, fmt.Errorf("local server bootstrap: read %s: %w", profile.Path, err)
+	}
+	var document struct {
+		Spec struct {
+			Workflows struct {
+				Collections map[string]map[string]struct {
+					ResourceID string `yaml:"resource_id"`
+				} `yaml:"collections"`
+			} `yaml:"workflows"`
+		} `yaml:"spec"`
+	}
+	if err := yaml.Unmarshal(data, &document); err != nil {
+		return nil, fmt.Errorf("local server bootstrap: parse %s: %w", profile.Path, err)
+	}
+	referenced := make(map[string]bool)
+	for _, bindings := range document.Spec.Workflows.Collections {
+		for _, binding := range bindings {
+			name := strings.TrimSpace(binding.ResourceID)
+			if name != "" {
+				referenced[name] = true
+			}
+		}
+	}
+	// Chatroom is a Server-owned system Workflow rather than a selectable
+	// RuntimeProfile alias, but its ASR input follows the same runtime alias
+	// contract and must be refreshed with the selectable Workflows.
+	referenced[systemRuntimeWorkflowName] = true
+	entries := make([]ResourceEntry, 0, len(referenced)+1)
+	for _, entry := range b.Catalog.Resources {
+		if entry.Kind == "Workflow" && referenced[entry.Name] {
+			entries = append(entries, entry)
+			delete(referenced, entry.Name)
+		}
+	}
+	if len(referenced) != 0 {
+		missing := make([]string, 0, len(referenced))
+		for name := range referenced {
+			missing = append(missing, name)
+		}
+		sort.Strings(missing)
+		return nil, fmt.Errorf("local server bootstrap: RuntimeProfile/%s references Workflows missing from the catalog: %s", profile.Name, strings.Join(missing, ", "))
+	}
+	return append(entries, profile), nil
 }
 
 func prepareAdminWorkspace(podDir string) (string, []string, error) {
@@ -191,7 +262,16 @@ func (b *Bootstrapper) Apply(ctx context.Context, podDir string, savedEnvironmen
 		}
 		return nil
 	}
-	if err := applyEntries("desktop-bootstrap-resources", b.Catalog.Resources); err != nil {
+	resources := make([]ResourceEntry, 0, len(b.Catalog.Resources))
+	runtimeProfiles := make([]ResourceEntry, 0, 1)
+	for _, entry := range b.Catalog.Resources {
+		if entry.Kind == "RuntimeProfile" {
+			runtimeProfiles = append(runtimeProfiles, entry)
+			continue
+		}
+		resources = append(resources, entry)
+	}
+	if err := applyEntries("desktop-bootstrap-resources", resources); err != nil {
 		return err
 	}
 	for _, item := range b.Catalog.VoiceSyncs {
@@ -199,6 +279,9 @@ func (b *Bootstrapper) Apply(ctx context.Context, podDir string, savedEnvironmen
 		if err := runBootstrapOperation(ctx, run, executable, args, environment); err != nil {
 			return fmt.Errorf("local server bootstrap: sync %s voices for %s: %w", item.Provider, item.Tenant, err)
 		}
+	}
+	if err := applyEntries("desktop-bootstrap-runtime-profiles", runtimeProfiles); err != nil {
+		return err
 	}
 	for _, asset := range b.Catalog.PetDefPIXAs {
 		file, err := b.extract(tempDir, asset.PIXA)

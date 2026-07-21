@@ -12,6 +12,8 @@ The RPC module is responsible for client/server, dispatch, stream framing and do
 | [Firmware Download](./firmware) | Retains Firmware streaming RPC framing for compatibility; the current peer projection returns not found. | `rpc_firmware.go` |
 | [Gameplay Assets](./gameplay-pixa) | Gameplay pixa asset streaming. | `rpc_gameplay_pixa.go` |
 | [Workspace History](./workspace-history) | History audio streaming. | `rpc_workspace_history.go` |
+| [Speech Transcription](./transcription) | Standalone streaming audio-to-text. | `rpc_speech.go` |
+| [Speech Synthesis](./synthesis) | Standalone streaming text-to-audio. | `rpc_speech.go` |
 | [Speed Test](./speed) | Bidirectional RPC/DataChannel throughput test. | `rpc_speed.go` |
 | [Streaming](./stream) | Frame, protobuf envelope and EOS. | `rpc_stream.go` |
 | [Tool Invocation](./tool) | Server calls the online Peer tool. | `rpc_tool.go` |
@@ -31,6 +33,7 @@ flowchart TB
     Server --> Firmware["Firmware Download"]
     Server --> Gameplay["Gameplay Assets"]
     Server --> History["Workspace History"]
+    Server --> Speech["Standalone Speech"]
     Server --> Speed["Speed Test"]
     Connection --> Edge["Edge Routing<br/>Independent Edge RPC dispatch"]
 

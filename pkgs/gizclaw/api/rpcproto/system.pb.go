@@ -794,7 +794,8 @@ func (x *ServerRegisterRequest) GetToken() string {
 
 type ServerRegisterResponse struct {
 	state              protoimpl.MessageState `protogen:"open.v1"`
-	RuntimeProfileName string                 `protobuf:"bytes,2,opt,name=runtime_profile_name,json=runtimeProfileName,proto3" json:"runtime_profile_name,omitempty"`
+	RuntimeProfileName string                 `protobuf:"bytes,1,opt,name=runtime_profile_name,json=runtimeProfileName,proto3" json:"runtime_profile_name,omitempty"`
+	FirmwareId         *string                `protobuf:"bytes,2,opt,name=firmware_id,json=firmwareId,proto3,oneof" json:"firmware_id,omitempty"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
@@ -832,6 +833,13 @@ func (*ServerRegisterResponse) Descriptor() ([]byte, []int) {
 func (x *ServerRegisterResponse) GetRuntimeProfileName() string {
 	if x != nil {
 		return x.RuntimeProfileName
+	}
+	return ""
+}
+
+func (x *ServerRegisterResponse) GetFirmwareId() string {
+	if x != nil && x.FirmwareId != nil {
+		return *x.FirmwareId
 	}
 	return ""
 }
@@ -1343,9 +1351,12 @@ const file_payload_system_proto_rawDesc = "" +
 	"\vserver_time\x18\x01 \x01(\x03R\n" +
 	"serverTime\"-\n" +
 	"\x15ServerRegisterRequest\x12\x14\n" +
-	"\x05token\x18\x01 \x01(\tR\x05token\"_\n" +
+	"\x05token\x18\x01 \x01(\tR\x05token\"\x80\x01\n" +
 	"\x16ServerRegisterResponse\x120\n" +
-	"\x14runtime_profile_name\x18\x02 \x01(\tR\x12runtimeProfileNameJ\x04\b\x01\x10\x02R\rfirmware_name\"\xcd\x01\n" +
+	"\x14runtime_profile_name\x18\x01 \x01(\tR\x12runtimeProfileName\x12$\n" +
+	"\vfirmware_id\x18\x02 \x01(\tH\x00R\n" +
+	"firmwareId\x88\x01\x01B\x0e\n" +
+	"\f_firmware_id\"\xcd\x01\n" +
 	"\aRuntime\x12 \n" +
 	"\tlast_addr\x18\x01 \x01(\tH\x00R\blastAddr\x88\x01\x01\x12 \n" +
 	"\flast_seen_at\x18\x02 \x01(\tR\n" +
@@ -1446,6 +1457,7 @@ func file_payload_system_proto_init() {
 	file_payload_system_proto_msgTypes[7].OneofWrappers = []any{}
 	file_payload_system_proto_msgTypes[8].OneofWrappers = []any{}
 	file_payload_system_proto_msgTypes[10].OneofWrappers = []any{}
+	file_payload_system_proto_msgTypes[14].OneofWrappers = []any{}
 	file_payload_system_proto_msgTypes[15].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

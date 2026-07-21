@@ -184,6 +184,11 @@ func (b *PodBridge) RecoverLocalServers(ctx context.Context) error {
 		if status.State == "running" {
 			pod := entry.Pod
 			if pod.LocalCatalogVersion < appconfig.LocalCatalogVersion {
+				if err := b.Store.Save(pod); err != nil {
+					endpoint := fmt.Sprintf("127.0.0.1:%d", pod.LocalServer.Port)
+					b.Health.MarkUnreachable(endpoint, fmt.Sprintf("local server workspace upgrade failed: %v", err))
+					continue
+				}
 				restartCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 				_, restartErr := b.Local.Restart(restartCtx, pod.ID, filepath.Join(b.Paths.PodsDir, pod.ID, "workspace"))
 				cancel()
@@ -371,13 +376,8 @@ func (b *PodBridge) CreatePod(_ context.Context, input PodInput) (PodSummary, er
 		if usedErr != nil {
 			return PodSummary{}, usedErr
 		}
-		switch pod.LocalServer.Port {
-		case 0, appconfig.DefaultPort:
-			preferred := appconfig.DefaultPort
-			if usedPorts[preferred] {
-				preferred = 0
-			}
-			pod.LocalServer.Port, err = appconfig.FindAvailablePort(preferred)
+		if pod.LocalServer.Port == 0 {
+			pod.LocalServer.Port, err = appconfig.FindAvailablePort(0)
 			if err != nil {
 				return PodSummary{}, err
 			}
@@ -387,7 +387,7 @@ func (b *PodBridge) CreatePod(_ context.Context, input PodInput) (PodSummary, er
 					return PodSummary{}, err
 				}
 			}
-		default:
+		} else {
 			if usedPorts[pod.LocalServer.Port] {
 				return PodSummary{}, fmt.Errorf("desktop bridge: local server port %d is already assigned to another Pod", pod.LocalServer.Port)
 			}

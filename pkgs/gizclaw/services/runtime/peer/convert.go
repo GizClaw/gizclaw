@@ -37,6 +37,7 @@ func toAdminRegistration(peer apitypes.Peer) apitypes.Registration {
 		AutoRegistered: peer.AutoRegistered,
 		CreatedAt:      peer.CreatedAt,
 		Device:         &peer.Device,
+		FirmwareId:     peer.FirmwareId,
 		PublicKey:      peer.PublicKey,
 		Role:           apitypes.PeerRole(peer.Role),
 		Status:         apitypes.PeerRegistrationStatus(peer.Status),

@@ -2,8 +2,6 @@ import { applyGiznetServerInfoICEServers, fetchGiznetServerInfo, rewriteGiznetWe
 import {
   RPC_METHODS,
   type ContactObject as RPCContactObject,
-  type Credential as RPCCredential,
-  type CredentialListResponse as RPCCredentialListResponse,
   type Firmware as RPCFirmware,
   type FriendGroupInviteTokenGetResponse as RPCFriendGroupInviteTokenGetResponse,
   type FriendGroupMemberMutableRole as RPCFriendGroupMemberMutableRole,
@@ -29,6 +27,7 @@ import {
   type PeerRunWorkspaceState as RPCPeerRunWorkspaceState,
   type RPCMethodMap,
   type Workspace as RPCWorkspace,
+  type WorkspaceGetResponse as RPCWorkspaceGetResponse,
   type WorkspaceListResponse as RPCWorkspaceListResponse,
   type WorkspaceParameters as RPCWorkspaceParameters,
   type Workflow as RPCWorkflow,
@@ -127,7 +126,8 @@ async function snapshotResult<T = any>(key: string): Promise<ApiResult<T>> {
   }
   try {
     const snapshot = await currentDataClient.loadSnapshot();
-    return { data: { items: snapshot[key] ?? [] } as T };
+    const runtimeProfile = snapshot.runtimeProfiles?.[key as keyof NonNullable<typeof snapshot.runtimeProfiles>];
+    return { data: { items: snapshot[key] ?? [], ...(runtimeProfile ?? {}) } as T };
   } catch (error) {
     return { error };
   }
@@ -173,7 +173,6 @@ async function callRPCBinary<M extends PeerRPCMethodName>(method: M, options?: R
 }
 
 export type ContactObject = RPCContactObject;
-export type Credential = RPCCredential;
 export type FriendGroupInviteTokenGetResponse = RPCFriendGroupInviteTokenGetResponse;
 export type FriendGroupMemberMutableRole = RPCFriendGroupMemberMutableRole;
 export type FriendGroupMemberObject = RPCFriendGroupMemberObject;
@@ -295,7 +294,10 @@ export const playPeerRunWorkspaceHistory = async (options: RequestOptions) => cu
 export const getPeerRunWorkspaceMemoryStats = async () => currentDataClient ? { data: (await currentDataClient.loadSnapshot()).memoryStats } : callRPC(RPC_METHODS["server.run.workspace.memory.stats"]);
 export const recallPeerRunWorkspaceMemory = async (options: RequestOptions) => currentDataClient ? { data: normalizeInjectedRecallResponse(await currentDataClient.recallMemory?.(String(options.body?.query ?? ""))) } : callRPC(RPC_METHODS["server.run.workspace.recall"], options);
 export const setPeerRunWorkspaceMode = (options: RequestOptions) => callRPC(RPC_METHODS["server.run.workspace.set"], options);
-export const getPeerRunWorkspaceDetails = (options?: RequestOptions) => callRPC(RPC_METHODS["server.workspace.get"], options);
+export const getPeerRunWorkspaceDetails = async (options?: RequestOptions): Promise<ApiResult<RPCWorkspace>> => {
+  const result: ApiResult<RPCWorkspaceGetResponse> = await callRPC(RPC_METHODS["server.workspace.get"], options);
+  return result.error != null ? { error: result.error } : { data: result.data?.value };
+};
 export const putPeerRunWorkspaceDetails = (options: RequestOptions) => callRPC(RPC_METHODS["server.workspace.put"], options);
 export const listPeerWorkspaceHistory = (options: RequestOptions) => callRPC(RPC_METHODS["server.workspace.history.list"], options);
 export const getPeerWorkspaceHistoryAudio = async (options: RequestOptions): Promise<ApiResult<Blob>> => {
@@ -312,11 +314,142 @@ export const getPeerWorkspaceHistoryAudio = async (options: RequestOptions): Pro
   };
 };
 
-export const listPeerFirmwares = (options?: RequestOptions) => currentDataClient ? snapshotResult("firmwares") : callRPC(RPC_METHODS["server.firmware.list"], options);
-export const listPeerWorkspaces = (options?: RequestOptions): Promise<ApiResult<RPCWorkspaceListResponse>> => currentDataClient ? snapshotResult<RPCWorkspaceListResponse>("workspaces") : callRPC(RPC_METHODS["server.workspace.list"], options);
-export const listPeerWorkflows = (options?: RequestOptions): Promise<ApiResult<RPCWorkflowListResponse>> => currentDataClient ? snapshotResult<RPCWorkflowListResponse>("workflows") : callRPC(RPC_METHODS["server.workflow.list"], options);
+export const getPeerBoundFirmwarePage = async (): Promise<ApiResult<{ has_next: boolean; items: RPCFirmware[] }>> => {
+  if (currentDataClient != null) {
+    return snapshotResult("firmwares") as Promise<ApiResult<{ has_next: boolean; items: RPCFirmware[] }>>;
+  }
+  const result: ApiResult<RPCFirmware> = await callRPC(RPC_METHODS["server.firmware.get"]);
+  if (result.error != null) {
+    return { error: result.error };
+  }
+  return { data: { has_next: false, items: result.data == null ? [] : [result.data] } };
+};
+const playCollections = ["assistants", "translates", "raids", "story-teller", "role-play"] as const;
+
+type RuntimeCollectionPage<T> = {
+  has_next: boolean;
+  items: T[];
+  next_cursor?: string;
+  runtime_profile_name: string;
+  runtime_profile_revision: string;
+};
+
+function rpcErrorCode(error: unknown): number | undefined {
+  return isRecord(error) && typeof error.code === "number" ? error.code : undefined;
+}
+
+async function drainRuntimeCollection<T>(
+  collection: string,
+  options: RequestOptions | undefined,
+  fetchPage: (options: RequestOptions) => Promise<ApiResult<RuntimeCollectionPage<T>>>,
+  missingIsEmpty = false,
+): Promise<ApiResult<RuntimeCollectionPage<T>>> {
+  const query = { ...(options?.query ?? {}) };
+  delete query.collection;
+  delete query.cursor;
+  const items: T[] = [];
+  const seenCursors = new Set<string>();
+  let cursor: string | undefined;
+  let runtimeProfileName = "";
+  let runtimeProfileRevision = "";
+  for (;;) {
+    const result = await fetchPage({
+      ...(options ?? {}),
+      query: { ...query, collection, ...(cursor == null ? {} : { cursor }) },
+    });
+    if (result.error != null) {
+      if (missingIsEmpty && rpcErrorCode(result.error) === 404) {
+        return {
+          data: {
+            has_next: false,
+            items: [],
+            runtime_profile_name: "",
+            runtime_profile_revision: "",
+          },
+        };
+      }
+      return { error: result.error };
+    }
+    const page = result.data;
+    if (page == null) return { error: new Error(`Collection ${collection} returned an empty response.`) };
+    if (runtimeProfileRevision !== "" && (
+      page.runtime_profile_name !== runtimeProfileName ||
+      page.runtime_profile_revision !== runtimeProfileRevision
+    )) {
+      return { error: new Error(`Runtime profile changed while loading collection ${collection}.`) };
+    }
+    runtimeProfileName = page.runtime_profile_name;
+    runtimeProfileRevision = page.runtime_profile_revision;
+    items.push(...page.items);
+    if (!page.has_next) break;
+    const nextCursor = page.next_cursor?.trim() ?? "";
+    if (nextCursor === "" || seenCursors.has(nextCursor)) {
+      return { error: new Error(`Collection ${collection} returned an invalid pagination cursor.`) };
+    }
+    seenCursors.add(nextCursor);
+    cursor = nextCursor;
+  }
+  return {
+    data: {
+      has_next: false,
+      items,
+      runtime_profile_name: runtimeProfileName,
+      runtime_profile_revision: runtimeProfileRevision,
+    },
+  };
+}
+
+function combineRuntimeCollections<T>(results: Array<ApiResult<RuntimeCollectionPage<T>>>): ApiResult<RuntimeCollectionPage<T>> {
+  const failed = results.find((result) => result.error != null);
+  if (failed?.error != null) return { error: failed.error };
+  const items: T[] = [];
+  let runtimeProfileName = "";
+  let runtimeProfileRevision = "";
+  for (const result of results) {
+    const page = result.data;
+    if (page == null) continue;
+    if (page.runtime_profile_revision !== "") {
+      if (runtimeProfileRevision !== "" && (
+        page.runtime_profile_name !== runtimeProfileName ||
+        page.runtime_profile_revision !== runtimeProfileRevision
+      )) {
+        return { error: new Error("Runtime profile changed while loading collections.") };
+      }
+      runtimeProfileName = page.runtime_profile_name;
+      runtimeProfileRevision = page.runtime_profile_revision;
+    }
+    items.push(...page.items);
+  }
+  return {
+    data: {
+      has_next: false,
+      items,
+      runtime_profile_name: runtimeProfileName,
+      runtime_profile_revision: runtimeProfileRevision,
+    },
+  };
+}
+
+export const listPeerWorkspaces = async (options?: RequestOptions): Promise<ApiResult<RPCWorkspaceListResponse>> => {
+  if (currentDataClient) return snapshotResult<RPCWorkspaceListResponse>("workspaces");
+  return combineRuntimeCollections(await Promise.all(playCollections.map((collection) => drainRuntimeCollection(
+    collection,
+    options,
+    (pageOptions) => callRPC(RPC_METHODS["server.workspace.list"], pageOptions),
+    true,
+  ))));
+};
+
+export const listPeerWorkflows = async (options?: RequestOptions): Promise<ApiResult<RPCWorkflowListResponse>> => {
+  if (currentDataClient) return snapshotResult<RPCWorkflowListResponse>("workflows");
+  return combineRuntimeCollections(await Promise.all(playCollections.map((collection) => drainRuntimeCollection(
+    collection,
+    options,
+    (pageOptions) => callRPC(RPC_METHODS["server.workflow.list"], pageOptions),
+    true,
+  ))));
+};
 export const listPeerModels = (options?: RequestOptions): Promise<ApiResult<RPCModelListResponse>> => currentDataClient ? snapshotResult<RPCModelListResponse>("models") : callRPC(RPC_METHODS["server.model.list"], options);
-export const listPeerCredentials = (options?: RequestOptions): Promise<ApiResult<RPCCredentialListResponse>> => currentDataClient ? snapshotResult<RPCCredentialListResponse>("credentials") : callRPC(RPC_METHODS["server.credential.list"], options);
 export const listPeerVoices = (options?: RequestOptions) => currentDataClient ? snapshotResult("voices") : callRPC(RPC_METHODS["server.voice.list"], options);
 export const listClientVoices = listPeerVoices;
 

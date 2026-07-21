@@ -556,7 +556,25 @@ func TestPeerServiceEdgeOpenAIRequiresActiveClientPeer(t *testing.T) {
 	if _, ok := createdModel.(adminhttp.CreateModel200JSONResponse); !ok {
 		t.Fatalf("CreateModel response = %#v", createdModel)
 	}
-	profileModels := map[string]string{"primary": "profile-model"}
+	profileModels := map[string]apitypes.RuntimeProfileBinding{
+		"primary": {ResourceId: "profile-model", I18n: map[string]apitypes.RuntimeProfileI18nText{
+			"en": {DisplayName: "Primary"}, "zh-CN": {DisplayName: "主要模型"},
+		}},
+	}
+	runtimeProfiles := &runtimeprofile.Server{Store: kv.NewMemory(nil)}
+	profileResponse, err := runtimeProfiles.PutRuntimeProfile(context.Background(), adminhttp.PutRuntimeProfileRequestObject{
+		Name: "edge-runtime",
+		Body: &adminhttp.RuntimeProfileUpsert{
+			Name: "edge-runtime",
+			Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{Models: &profileModels}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("PutRuntimeProfile error = %v", err)
+	}
+	if _, ok := profileResponse.(adminhttp.PutRuntimeProfile200JSONResponse); !ok {
+		t.Fatalf("PutRuntimeProfile response = %#v", profileResponse)
+	}
 	loginServer.RegistrationResolver = func(_ context.Context, rawToken string) (runtimeprofile.Registration, error) {
 		if rawToken != "edge-runtime-token" {
 			return runtimeprofile.Registration{}, errors.New("invalid token")
@@ -571,6 +589,7 @@ func TestPeerServiceEdgeOpenAIRequiresActiveClientPeer(t *testing.T) {
 	}
 	manager := NewManager(peersServer)
 	manager.Models = models
+	manager.RuntimeProfiles = runtimeProfiles
 	service := &PeerService{
 		manager:  manager,
 		sessions: loginServer.SessionManager(),
@@ -626,7 +645,7 @@ func TestPeerServiceEdgeOpenAIRequiresActiveClientPeer(t *testing.T) {
 				if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
 					t.Fatalf("decode models response: %v", err)
 				}
-				if len(result.Data) != 1 || result.Data[0].Id != "profile-model" {
+				if len(result.Data) != 1 || result.Data[0].Id != "primary" {
 					t.Fatalf("runtime models = %#v", result.Data)
 				}
 			}

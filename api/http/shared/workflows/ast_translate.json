@@ -24,26 +24,17 @@
         "properties": {
           "translation_model": {
             "type": "string",
-            "description": "GizClaw model resource used to resolve the Volc tenant credential for AST translate."
+            "description": "RuntimeProfile translation Model alias resolved when the Workspace reloads."
+          },
+          "lang_pair": {
+            "type": "string",
+            "description": "Default Workspace language pair projected to clients, for example zh/ja or auto."
           },
           "mode": {
             "$ref": "#/components/schemas/ASTTranslateMode"
           },
           "voice": {
             "$ref": "#/components/schemas/ASTTranslateVoiceParameters"
-          },
-          "speaker_id": {
-            "type": "string",
-            "description": "Deprecated compatibility field. Prefer voice.speaker_id."
-          },
-          "is_custom_speaker": {
-            "type": "boolean"
-          },
-          "tts_resource_id": {
-            "type": "string"
-          },
-          "speech_rate": {
-            "type": "integer"
           },
           "enable_source_language_detect": {
             "type": "boolean"
@@ -97,7 +88,7 @@
         "properties": {
           "tts_voice": {
             "type": "string",
-            "description": "GizClaw voice resource name used by an external TTS path."
+            "description": "RuntimeProfile Voice alias used by the external TTS path."
           }
         }
       }

@@ -2,24 +2,19 @@
 
 [Go API Reference](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource)
 
-`peerresource` 是 Peer RPC 的跨领域资源聚合层。它把 AI、Firmware、Gameplay、Social、Workspace history 和 Tool 组合成统一 RPC surface，并按当前 connection 的 RuntimeProfile、调用方 ownership 和领域关系计算可见资源。
-
-## 有效资源集合
+`peerresource` 把当前 RuntimeProfile 投影为 Peer RPC surface。Workflow、Model、Voice 和 Tool 都使用安全 alias DTO；AST Workflow 还会携带与 alias 无关的 Workspace 默认语言对。projection 不返回真实资源 ID、provider、tenant、credential、ownership 或 executor routing。
 
 ```mermaid
 flowchart LR
-    Registration["connection RuntimeProfile snapshot"] --> Effective["effective resources"]
-    Owner["owner KV indexes"] --> Effective
-    Domain["Friend / FriendGroup / Pet Workspaces"] --> Effective
-    Effective --> RPC["list / get / use"]
+    Profile["当前 RuntimeProfile snapshot"] --> Alias["Alias projection"]
+    Alias --> RPC["Peer list / get / use"]
+    Domain["Workspace / Friend / Pet state"] --> RPC
 ```
 
-RuntimeProfile map 的 value 是真实资源名。聚合列表按 alias 排序加入 profile 资源、去重，再加入 owner 资源；Workspace 还会加入 Friend、FriendGroup 和 Pet 领域资源。引用目标返回 404 时跳过，不让整个列表失败。
+Workflow list 必须传明确的 Collection，并保持 `workflows.collections` 中的动态成员关系。Workflow alias 全局唯一，因此 get 只需要 alias。Model、Voice 和 Tool catalog 分别来自 RuntimeProfile 对应的 resource map。所有 catalog 响应都携带 RuntimeProfile name 与内容 revision。
 
-Get 和 use 对 RuntimeProfile 资源不检查 owner。更新和删除只允许 owner，或交给对应 system Workspace 领域规则。未注册 connection 没有 profile snapshot，但仍可调用相同 RPC，并访问自己拥有或领域关系允许的资源。
+Peer 侧只有 Workspace 状态支持 create/put/delete。真实 Workflow、Model、Credential 和 Tool 统一由 Admin 修改。Workspace create 校验 `collection` 与 `workflow_alias`，把 Collection 写成内部 label；list 按 Collection 精确筛选。通用 labels 只是 Admin/storage 细节，不进入 Peer DTO。
 
-## 创建和 owner
+Firmware 不属于 RuntimeProfile alias catalog。Peer 可由 RegistrationToken 绑定一个 Firmware release-line；`server.firmware.get` 和 download 都从 caller Peer 读取该绑定，设备只在 download request 中选择 channel。Peer RPC 不提供 Firmware list。
 
-Peer 通过公开 CRUD 创建 Workspace、Workflow、Model、Credential 或 Tool 时，领域 service 从 context 写入 `owner_public_key`，并把资源加入 owner KV index。资源记录与 owner index 使用原子 batch 写入。Owner 字段不可通过后续 put 转移。
-
-Workflow list/get 必须显式选择 `source=runtime` 或 `source=owned`。Runtime Workflow 的 RPC ID 是 RuntimeProfile alias，并且只读；owned Workflow 的 ID 是全局唯一真实名称，owner 可以通过公开 RPC create/put/delete。Workspace create/put 携带相同的 source，使 Workflow 引用在正确 namespace 中解析。Admin surface 仍可以统一管理全部资源。
+每次 catalog 操作都重新取得当前 profile snapshot。Dangling alias 只表现为不可用，不泄漏真实 target。删除 Workflow alias 不会删除或隐藏已有 Workspace；在兼容 alias 恢复前，执行操作返回 not found。
