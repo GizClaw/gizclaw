@@ -109,6 +109,11 @@ spec:
         i18n:
           en: {display_name: General Assistant}
           zh-CN: {display_name: 通用助手}
+      cute-pet:
+        resource_id: volc-tenant:volc-main:zh_male_naiqimengwa_mars_bigtts
+        i18n:
+          en: {display_name: Cute Pet}
+          zh-CN: {display_name: 奶气萌宠}
       translator:
         resource_id: volc-tenant:volc-main:zh_female_sophie_conversation_wvae_bigtts
         i18n:

@@ -50,7 +50,7 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 	for kind, want := range map[string]int{
 		"Credential": 7, "VolcTenant": 2, "MiniMaxTenant": 1,
 		"OpenAITenant": 2, "DashScopeTenant": 1, "Model": 10,
-		"Workflow": 10, "PetDef": 9, "RuntimeProfile": 1,
+		"Workflow": 10, "Voice": 1, "PetDef": 9, "RuntimeProfile": 1,
 	} {
 		if kinds[kind] != want {
 			t.Fatalf("%s resources = %d, want %d", kind, kinds[kind], want)
@@ -107,6 +107,7 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 	wantVoices := map[string]string{
 		"doubao-assistant":  "volc-tenant:volc-main:zh_female_vv_jupiter_bigtts",
 		"general-assistant": "volc-tenant:volc-main:zh_female_qingxinnvsheng_mars_bigtts",
+		"cute-pet":          "volc-tenant:volc-main:zh_male_naiqimengwa_mars_bigtts",
 		"translator":        "volc-tenant:volc-main:zh_female_sophie_conversation_wvae_bigtts",
 		"narrator":          "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
 		"game-master":       "volc-tenant:volc-main:zh_male_changtianyi_mars_bigtts",
@@ -129,6 +130,28 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 	}
 	if len(resourceIDs) != len(gotVoices) {
 		t.Fatalf("RuntimeProfile/default Voices reuse resource IDs: %#v", gotVoices)
+	}
+	for _, resource := range catalog.Resources {
+		if resource.Kind != "PetDef" {
+			continue
+		}
+		data, err := fs.ReadFile(catalog.FS, resource.Path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var petDef struct {
+			Spec struct {
+				Voice struct {
+					VoiceID string `yaml:"voice_id"`
+				} `yaml:"voice"`
+			} `yaml:"spec"`
+		}
+		if err := yaml.Unmarshal(data, &petDef); err != nil {
+			t.Fatal(err)
+		}
+		if petDef.Spec.Voice.VoiceID != "cute-pet" {
+			t.Fatalf("%s voice_id = %q, want cute-pet", resource.Name, petDef.Spec.Voice.VoiceID)
+		}
 	}
 	for _, requirement := range catalog.Requirements {
 		if requirement.Name == "input" {

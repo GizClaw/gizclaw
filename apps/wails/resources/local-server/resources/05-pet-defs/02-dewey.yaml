@@ -14,7 +14,7 @@ spec:
   character:
     prompt: A small bright blue water-drop creature with rosy cheeks, tiny arms and boots, and a quiet observant personality.
   voice:
-    voice_id: sun-wukong
+    voice_id: cute-pet
     prompt: Soft, curious, concise replies with a gentle reflective tone.
   drive:
     actions:

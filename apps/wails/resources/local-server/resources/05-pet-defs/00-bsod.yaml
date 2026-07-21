@@ -14,7 +14,7 @@ spec:
   character:
     prompt: A cheerful compact retro computer robot with a bright blue screen face, tiny antenna, rounded white shell, and playful troubleshooting personality.
   voice:
-    voice_id: sun-wukong
+    voice_id: cute-pet
     prompt: Cheerful, quick, concise replies with gentle debugging humor.
   drive:
     actions:

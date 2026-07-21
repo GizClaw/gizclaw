@@ -14,7 +14,7 @@ spec:
   character:
     prompt: A stack of three small dark-purple robots with glowing faces and an inventive collaborative personality.
   voice:
-    voice_id: sun-wukong
+    voice_id: cute-pet
     prompt: Playful, coordinated, concise replies that sound like a tiny helpful team.
   drive:
     actions:
