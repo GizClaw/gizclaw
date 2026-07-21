@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	flowllm "github.com/GizClaw/flowcraft/sdk/llm"
 	flowclaw "github.com/GizClaw/flowcraft/sdkx/claw"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/ogg"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
@@ -2155,6 +2156,94 @@ func TestBuildClawConfigInjectsPeerResolvedOpenAIModel(t *testing.T) {
 	agent := got["agent"].(map[string]any)
 	if agent["system_prompt"] != "short" || agent["model"] != "generate_model" {
 		t.Fatalf("agent config = %#v", agent)
+	}
+}
+
+func TestResolveOpenAIClawModelConfigSelectsDeepSeekProvider(t *testing.T) {
+	tests := []struct {
+		name     string
+		kind     apitypes.ModelKind
+		upstream string
+		baseURL  string
+		provider string
+	}{
+		{
+			name:     "official DeepSeek LLM",
+			kind:     apitypes.ModelKindLlm,
+			upstream: "deepseek-v4-flash",
+			baseURL:  "https://api.deepseek.com",
+			provider: "deepseek",
+		},
+		{
+			name:     "other model at DeepSeek endpoint",
+			kind:     apitypes.ModelKindLlm,
+			upstream: "custom-chat",
+			baseURL:  "https://api.deepseek.com",
+			provider: "openai",
+		},
+		{
+			name:     "DeepSeek model at compatible endpoint",
+			kind:     apitypes.ModelKindLlm,
+			upstream: "deepseek-v4-flash",
+			baseURL:  "https://llm.example/v1",
+			provider: "openai",
+		},
+		{
+			name:     "DeepSeek embedding",
+			kind:     apitypes.ModelKindEmbedding,
+			upstream: "deepseek-embedding",
+			baseURL:  "https://api.deepseek.com",
+			provider: "openai",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			providerData := apitypes.ModelProviderData{}
+			if err := providerData.FromOpenAITenantModelProviderData(apitypes.OpenAITenantModelProviderData{
+				UpstreamModel:        new(tt.upstream),
+				ThinkingParam:        new("thinking.type"),
+				DefaultThinkingLevel: new("disabled"),
+			}); err != nil {
+				t.Fatalf("FromOpenAITenantModelProviderData() error = %v", err)
+			}
+			got, err := resolveOpenAIClawModelConfig(peergenx.GeneratorConfig{
+				Model: apitypes.Model{
+					Id:           "configured-model",
+					Kind:         tt.kind,
+					ProviderData: &providerData,
+				},
+				Tenant: peergenx.Tenant{
+					Kind: string(apitypes.ModelProviderKindOpenaiTenant),
+					OpenAI: &apitypes.OpenAITenant{
+						BaseUrl: new(tt.baseURL),
+					},
+				},
+				Credential: apitypes.Credential{
+					Name: "openai-key",
+					Body: testOpenAICredentialBody("test-key"),
+				},
+			})
+			if err != nil {
+				t.Fatalf("resolveOpenAIClawModelConfig() error = %v", err)
+			}
+			if got["provider"] != tt.provider || got["model"] != tt.upstream || got["api_key"] != "test-key" || got["base_url"] != tt.baseURL {
+				t.Fatalf("model config = %#v", got)
+			}
+			thinking := got["config"].(map[string]any)["thinking"].(map[string]any)
+			if thinking["type"] != "disabled" {
+				t.Fatalf("thinking config = %#v", thinking)
+			}
+		})
+	}
+}
+
+func TestDeepSeekProviderDisablesJSONSchema(t *testing.T) {
+	for _, model := range []string{"deepseek-v4-flash", "deepseek-v4-pro"} {
+		spec := flowllm.DefaultRegistry.LookupModelSpec("deepseek", model)
+		if spec.Caps.Supports(flowllm.CapJSONSchema) {
+			t.Fatalf("%s supports JSON Schema, want capability downgrade to JSON mode", model)
+		}
 	}
 }
 

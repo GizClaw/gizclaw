@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -3053,18 +3054,30 @@ func resolveOpenAIClawModelConfig(cfg peergenx.GeneratorConfig) (map[string]any,
 	if apiKey == "" {
 		return nil, fmt.Errorf("flowcraft: credential %q missing api_key", cfg.Credential.Name)
 	}
+	baseURL := firstString(cfg.Tenant.OpenAI.BaseUrl, body.BaseUrl)
 	out := map[string]any{
-		"provider": "openai",
+		"provider": openAIClawProvider(cfg.Model.Kind, upstream, baseURL),
 		"model":    upstream,
 		"api_key":  apiKey,
 	}
 	if extra := openAIThinkingConfig(providerData); len(extra) > 0 {
 		out["config"] = extra
 	}
-	if baseURL := firstString(cfg.Tenant.OpenAI.BaseUrl, body.BaseUrl); baseURL != "" {
+	if baseURL != "" {
 		out["base_url"] = baseURL
 	}
 	return out, nil
+}
+
+func openAIClawProvider(kind apitypes.ModelKind, upstream, baseURL string) string {
+	if kind != apitypes.ModelKindLlm || !strings.HasPrefix(upstream, "deepseek-") {
+		return "openai"
+	}
+	parsed, err := url.Parse(baseURL)
+	if err != nil || !strings.EqualFold(parsed.Hostname(), "api.deepseek.com") {
+		return "openai"
+	}
+	return "deepseek"
 }
 
 func resolveVolcClawModelConfig(cfg peergenx.GeneratorConfig) (map[string]any, error) {
