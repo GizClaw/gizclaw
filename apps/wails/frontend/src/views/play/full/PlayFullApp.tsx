@@ -3114,7 +3114,8 @@ function ChatTester({ models, onOpenChange, open }: { models: Model[]; onOpenCha
   const [thinkingLevel, setThinkingLevel] = useState("");
   const [chatError, setChatError] = useState("");
   const [resetToken, setResetToken] = useState(0);
-  const selectedModelSpec = useMemo(() => models.find((model) => model.alias === selectedModel), [models, selectedModel]);
+  const chatModels = useMemo(() => models.filter((model) => model.kind === "llm"), [models]);
+  const selectedModelSpec = useMemo(() => chatModels.find((model) => model.alias === selectedModel), [chatModels, selectedModel]);
   const playableVoices = useMemo(() => voices.filter(isPlayableVoice), [voices]);
   const thinkingCapability = selectedModelSpec?.capabilities?.thinking;
   const thinkingLevels = useMemo(() => thinkingCapability?.levels ?? [], [thinkingCapability]);
@@ -3162,10 +3163,14 @@ function ChatTester({ models, onOpenChange, open }: { models: Model[]; onOpenCha
   }, [sessions]);
 
   useEffect(() => {
-    if (selectedModel === "" && models.length > 0) {
-	  setSelectedModel(models[0].alias);
+    if (chatModels.length === 0) {
+      setSelectedModel("");
+      return;
     }
-  }, [models, selectedModel]);
+    if (!chatModels.some((model) => model.alias === selectedModel)) {
+      setSelectedModel(chatModels[0].alias);
+    }
+  }, [chatModels, selectedModel]);
 
   useEffect(() => {
     if (open) {
@@ -3279,7 +3284,7 @@ function ChatTester({ models, onOpenChange, open }: { models: Model[]; onOpenCha
         <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px]">
           <div className="flex min-h-0 flex-col">
             <div className="grid gap-3 border-b p-4 md:grid-cols-[minmax(0,1fr)_160px]">
-			  <SelectField label="Model" value={selectedModel} onChange={setSelectedModel} options={models.map((model) => model.alias)} />
+              <SelectField label="Model" value={selectedModel} onChange={setSelectedModel} options={chatModels.map((model) => model.alias)} />
               {supportsTemperature ? <Field label="Temperature" value={temperature} onChange={setTemperature} /> : <div />}
               <div className="md:col-span-2">
                 <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_160px]">

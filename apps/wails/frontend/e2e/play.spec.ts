@@ -36,6 +36,11 @@ test.beforeEach(async ({ page }) => {
       memoryStats: { total: 2 },
       models: [
         {
+          alias: "asr",
+          capabilities: { text_only: false },
+          kind: "asr",
+        },
+        {
           alias: "chat",
           capabilities: {
             temperature: true,
@@ -274,7 +279,7 @@ test("play view renders the full desktop play surface", async ({ page }) => {
   await expect(page.getByText("OpenAI Gateway")).toBeVisible();
   await expect(page.getByRole("button", { name: /Workspaces/ })).toBeVisible();
   await expect(page.getByText("RuntimeProfile and owner resources are listed in the resource sections.")).toBeVisible();
-  await expect(page.getByRole("button", { name: /Models 1/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Models 2/ })).toBeVisible();
 
   await page.getByRole("button", { name: /Workspaces/ }).click();
   await expect(page.getByRole("heading", { name: "Workspaces" })).toBeVisible();
@@ -282,7 +287,7 @@ test("play view renders the full desktop play surface", async ({ page }) => {
   await expect(page.getByRole("columnheader", { name: "Display name" })).toHaveCount(0);
   await expect(page.getByText("flowcraft-chat").first()).toBeVisible();
 
-  await page.getByRole("button", { name: /Models 1/ }).click();
+  await page.getByRole("button", { name: /Models 2/ }).click();
   await expect(page.getByRole("heading", { name: "Models" })).toBeVisible();
   await expect(page.getByRole("row").filter({ hasText: "chat" })).toContainText("thinking.type");
 
@@ -307,6 +312,8 @@ test("OpenAI tester keeps the thinking toggle consistent with the model level", 
   await page.getByRole("button", { name: "OpenAI", exact: true }).click();
 
   const drawer = page.getByRole("dialog");
+  await expect(drawer.getByText("chat", { exact: true })).toBeVisible();
+  await expect(drawer.getByText("asr", { exact: true })).toHaveCount(0);
   const thinking = drawer.getByRole("checkbox", { name: "Think" });
   await expect(thinking).not.toBeChecked();
   await expect(drawer.getByText("disabled", { exact: true })).toBeVisible();

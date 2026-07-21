@@ -139,8 +139,10 @@ test("admin view covers provider, AI, social, and settings sections", async ({ p
   await page.getByRole("combobox").click();
   await page.getByRole("option", { name: "RuntimeProfile" }).click();
   await expect(resourceJSON).toHaveValue(/"kind": "RuntimeProfile"/);
-  await expect(resourceJSON).toHaveValue(/"pet_pool"/);
-  await expect(resourceJSON).toHaveValue(/"tragon": "petdef-tragon"/);
+  await expect(resourceJSON).toHaveValue(/"collections"/);
+  await expect(resourceJSON).toHaveValue(/"resource_id": "general-chat"/);
+  await expect(resourceJSON).toHaveValue(/"resource_id": "petdef-starter"/);
+  await expect(resourceJSON).toHaveValue(/"zh-CN"/);
   await page.getByRole("combobox").click();
   await page.getByRole("option", { name: "RegistrationToken" }).click();
   await expect(resourceJSON).toHaveValue(/"kind": "RegistrationToken"/);
