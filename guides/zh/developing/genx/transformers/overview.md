@@ -11,6 +11,7 @@
 | [Doubao Speech](./doubao) | ASR、TTS、Realtime、Realtime Duplex 与 speech translation。 |
 | [DashScope](./dashscope) | Realtime multimodal conversation。 |
 | [MiniMax](./minimax) | Streaming TTS。 |
+| [Flowcraft](./flowcraft) | 文本 Stream 驱动的 Flowcraft Graph runtime。 |
 | [Stream Processing](./stream-processing) | Provider-neutral 的 mux、Stream lifecycle、audio byte stream filtering 和文本分段。 |
 
 Provider 实现与共享的内部 Stream lifecycle 使用独立 package：
@@ -19,6 +20,7 @@ Provider 实现与共享的内部 Stream lifecycle 使用独立 package：
 pkgs/genx/transformers/
 ├── audiostream/
 ├── internal/streamkit/
+├── flowcraft/
 ├── doubaoasr/
 ├── doubaotts/
 ├── minimaxtts/
@@ -39,10 +41,12 @@ flowchart LR
     Mux --> DashScope["DashScope Adapter"]
     Mux --> MiniMax["MiniMax Adapter"]
     Mux --> Processing["Stream Processing"]
+    Mux --> Flowcraft["Flowcraft Graph"]
     Doubao --> Output["Output Stream"]
     DashScope --> Output
     MiniMax --> Output
     Processing --> Output
+    Flowcraft --> Output
 ```
 
 ## 核心结构与主函数

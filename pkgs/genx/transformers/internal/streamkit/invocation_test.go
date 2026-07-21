@@ -190,6 +190,39 @@ func TestInvocationParentCancellationClosesOutput(t *testing.T) {
 	}
 }
 
+func TestInvocationCancellationAbandonsDeferredObservation(t *testing.T) {
+	invocation := NewInvocation(context.Background(), OutputConfig{Observe: func(*genx.MessageChunk) {}})
+	invocation.Output().DeferOutputObservation()
+	response, err := invocation.StartResponse(ResponseConfig{Role: genx.RoleModel}, "text/plain")
+	if err != nil {
+		t.Fatalf("StartResponse() error = %v", err)
+	}
+	if err := invocation.Emit(response, &genx.MessageChunk{Part: genx.Text("claimed")}); err != nil {
+		t.Fatalf("Emit() error = %v", err)
+	}
+	if _, err := invocation.Output().Next(); err != nil {
+		t.Fatalf("Next() error = %v", err)
+	}
+	waitDone := make(chan struct{})
+	go func() {
+		invocation.Output().WaitForObservers()
+		close(waitDone)
+	}()
+	select {
+	case <-waitDone:
+		t.Fatal("WaitForObservers returned before cancellation")
+	case <-time.After(20 * time.Millisecond):
+	}
+	if err := invocation.Cancel(context.Canceled); err != nil {
+		t.Fatalf("Cancel() error = %v", err)
+	}
+	select {
+	case <-waitDone:
+	case <-time.After(time.Second):
+		t.Fatal("WaitForObservers remained blocked after invocation cancellation")
+	}
+}
+
 func TestInvocationStartsClosedForCancelledParent(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
