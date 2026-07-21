@@ -323,6 +323,7 @@ func fillProtoMessageFromGo(msg protoreflect.Message, value reflect.Value, paren
 }
 
 func validateGoOneofFields(desc protoreflect.MessageDescriptor, value reflect.Value) error {
+	selectedByGroup := make(map[protoreflect.Name][]string, desc.Oneofs().Len())
 	for i := 0; i < desc.Oneofs().Len(); i++ {
 		oneof := desc.Oneofs().Get(i)
 		var selected []string
@@ -333,11 +334,27 @@ func validateGoOneofFields(desc protoreflect.MessageDescriptor, value reflect.Va
 				candidate = goFieldByJSONName(value, string(field.Name()))
 			}
 			if candidate.IsValid() && !goValueAbsent(candidate) {
-				selected = append(selected, field.JSONName())
+				selected = append(selected, string(field.Name()))
 			}
 		}
 		if len(selected) > 1 {
 			return fmt.Errorf("oneof %s has multiple values: %s", oneof.FullName(), strings.Join(selected, ", "))
+		}
+		selectedByGroup[oneof.Name()] = selected
+	}
+	if desc.Name() == "Model" {
+		providerKind := goStringField(value, "provider_kind")
+		expected := oneofDiscriminatorFieldName(desc.Name(), providerKind)
+		selected := selectedByGroup["provider_data"]
+		if expected == "" {
+			return fmt.Errorf("model provider_kind %q does not select a supported provider_data field", providerKind)
+		}
+		if len(selected) != 1 || selected[0] != expected {
+			actual := "none"
+			if len(selected) == 1 {
+				actual = selected[0]
+			}
+			return fmt.Errorf("model provider_kind %q requires provider_data field %s, got %s", providerKind, expected, actual)
 		}
 	}
 	return nil
@@ -542,7 +559,7 @@ func fillGoValueFromProto(target reflect.Value, msg protoreflect.Message, opts d
 			return fmt.Errorf("%s: %w", protoJSONFieldName(fd), err)
 		}
 	}
-	return nil
+	return validateGoOneofFields(desc, target)
 }
 
 func setGoValueFromProto(target reflect.Value, fd protoreflect.FieldDescriptor, value protoreflect.Value, opts decodeRPCPayloadOptions) error {
@@ -1148,6 +1165,21 @@ func isOneofValueWrapper(desc protoreflect.MessageDescriptor) bool {
 
 func oneofDiscriminatorFieldName(desc protoreflect.Name, discriminator string) string {
 	switch desc {
+	case "Model":
+		switch discriminator {
+		case "openai-tenant":
+			return "openai_tenant"
+		case "gemini-tenant":
+			return "gemini_tenant"
+		case "dashscope-tenant":
+			return "dashscope_tenant"
+		case "volc-tenant":
+			return "volc_tenant"
+		case "minimax-tenant":
+			return "minimax_tenant"
+		case "deepseek-tenant":
+			return "deepseek_tenant"
+		}
 	case "CredentialBody":
 		switch discriminator {
 		case "openai":

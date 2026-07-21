@@ -116,6 +116,7 @@ function encodeMessage(type: string, value: unknown, parent: Record<string, unkn
     return writer.finish();
   }
   const object = messageObjectForEncode(type, value);
+  validateDiscriminatedOneofs(type, desc, object);
   const encodedOneofs = new Set<string>();
   for (const field of fields) {
     if (field.oneof) {
@@ -155,11 +156,32 @@ function decodeMessage(type: string, payload: Uint8Array): unknown {
     }
     return {};
   }
-  return withMessageDefaults(desc, values);
+  const object = withMessageDefaults(desc, values);
+  validateDiscriminatedOneofs(type, desc, object);
+  return object;
 }
 
 function messageObjectForEncode(type: string, value: unknown): Record<string, unknown> {
   return asRecord(value, type);
+}
+
+function validateDiscriminatedOneofs(type: string, desc: MessageDesc, object: Record<string, unknown>): void {
+  if (type !== "Model") {
+    return;
+  }
+  const providerKind = discriminatorString(type, "provider_kind", object.provider_kind);
+  const expected = providerKind == null ? undefined : oneofDiscriminatorFieldName(type, providerKind);
+  const selected = desc.fields.filter((field) => field.oneofGroup === "provider_data" && object[field.name] != null);
+  if (selected.length > 1) {
+    throw new Error("protobuf message Model has multiple oneof values");
+  }
+  if (expected == null) {
+    throw new Error(\`protobuf message Model provider_kind \${JSON.stringify(providerKind ?? "")} does not select a supported provider_data field\`);
+  }
+  if (selected.length !== 1 || selected[0]?.name !== expected) {
+    const actual = selected.length === 1 ? selected[0]?.name : selected.length === 0 ? "none" : selected.map((field) => field.name).join(", ");
+    throw new Error(\`protobuf message Model provider_kind \${JSON.stringify(providerKind)} requires provider_data field \${expected}, got \${actual}\`);
+  }
 }
 
 function decodeMessageFields(desc: MessageDesc, payload: Uint8Array): Record<string, unknown> {
@@ -463,6 +485,9 @@ function oneofDiscriminatorKey(type: string): string | undefined {
 }
 
 function oneofDiscriminatorEnumType(type: string, field: string): string | undefined {
+  if (type === "Model" && field === "provider_kind") {
+    return "ModelProviderKind";
+  }
   if ((type === "ModelProviderData" || type === "VoiceProviderData") && field === "provider.kind") {
     return type === "ModelProviderData" ? "ModelProviderKind" : "VoiceProviderKind";
   }
@@ -471,6 +496,15 @@ function oneofDiscriminatorEnumType(type: string, field: string): string | undef
 
 function oneofDiscriminatorFieldName(type: string, discriminator: string): string | undefined {
   switch (type) {
+    case "Model":
+      return ({
+        "openai-tenant": "openai_tenant",
+        "gemini-tenant": "gemini_tenant",
+        "dashscope-tenant": "dashscope_tenant",
+        "volc-tenant": "volc_tenant",
+        "minimax-tenant": "minimax_tenant",
+        "deepseek-tenant": "deepseek_tenant",
+      } as Record<string, string>)[discriminator];
     case "CredentialBody":
       return ({
         "openai": "open_aicredential_body",

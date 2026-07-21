@@ -297,6 +297,33 @@ test("RPC payload codec enforces typed model provider-data oneof", () => {
     }),
     /protobuf message Model has multiple oneof values/,
   );
+
+  assert.throws(
+    () => encodeRPCResponsePayload("server.model.get", {
+      ...response,
+      value: {
+        ...response.value,
+        deepseek_tenant: undefined,
+        openai_tenant: { thinking_levels: [], upstream_model: "gpt-test" },
+      },
+    }),
+    /requires provider_data field deepseek_tenant, got openai_tenant/,
+  );
+
+  const mismatchedPayload = payload.slice();
+  let providerKindTag = -1;
+  for (let index = 0; index + 1 < mismatchedPayload.length; index++) {
+    if (mismatchedPayload[index] === 0x58 && mismatchedPayload[index + 1] === 0x06) {
+      providerKindTag = index;
+      break;
+    }
+  }
+  assert.notEqual(providerKindTag, -1);
+  mismatchedPayload[providerKindTag + 1] = 0x01;
+  assert.throws(
+    () => decodeRPCResponsePayload("server.model.get", mismatchedPayload),
+    /requires provider_data field openai_tenant, got deepseek_tenant/,
+  );
 });
 
 test("RPC payload codec rejects ambiguous numeric workspace discriminators", () => {

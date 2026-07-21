@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net"
+	"reflect"
 	"testing"
 	"time"
 
@@ -131,6 +132,22 @@ func TestModelProviderDataOneofRoundTripAndRejectsMultipleValues(t *testing.T) {
 	response.Value.OpenAITenant = &OpenAITenantModelProviderData{UpstreamModel: stringPtr("gpt-test")}
 	if err := payload.FromModelGetResponse(response); err == nil {
 		t.Fatal("FromModelGetResponse() accepted multiple provider_data oneof values")
+	}
+
+	response.Value.DeepSeekTenant = nil
+	if err := payload.FromModelGetResponse(response); err == nil {
+		t.Fatal("FromModelGetResponse() accepted provider_kind that does not match provider_data")
+	}
+
+	var decodedModel Model
+	mismatchedProto := &rpcpb.Model{
+		ProviderKind: rpcpb.ModelProviderKind_MODEL_PROVIDER_KIND_DEEPSEEK_TENANT,
+		ProviderData: &rpcpb.Model_OpenaiTenant{
+			OpenaiTenant: &rpcpb.OpenAITenantModelProviderData{UpstreamModel: stringPtr("gpt-test")},
+		},
+	}
+	if err := fillGoValueFromProto(reflect.ValueOf(&decodedModel), mismatchedProto.ProtoReflect(), decodeRPCPayloadOptions{}); err == nil {
+		t.Fatal("fillGoValueFromProto() accepted provider_kind that does not match provider_data")
 	}
 }
 
