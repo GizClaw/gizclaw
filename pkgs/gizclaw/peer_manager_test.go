@@ -192,6 +192,62 @@ func TestManagerForcePeerDownPreservesReplacementActivation(t *testing.T) {
 	}
 }
 
+func TestManagerPeerDownPreservesDeletingReservation(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		down func(*Manager, giznet.PublicKey, giznet.Conn)
+	}{
+		{
+			name: "connection down",
+			down: func(manager *Manager, key giznet.PublicKey, conn giznet.Conn) {
+				manager.SetPeerDown(key, conn)
+			},
+		},
+		{
+			name: "forced down",
+			down: func(manager *Manager, key giznet.PublicKey, _ giznet.Conn) {
+				manager.ForcePeerDown(key)
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			store := kv.NewMemory(nil)
+			peers := &peer.Server{Store: store}
+			key := giznet.PublicKey{7, 6}
+			if _, err := peers.EnsureConnectedPeer(context.Background(), key); err != nil {
+				t.Fatalf("EnsureConnectedPeer: %v", err)
+			}
+			blockingStore := &blockingBatchMutateStore{
+				Store:   store,
+				entered: make(chan struct{}),
+				release: make(chan struct{}),
+			}
+			peers.Store = blockingStore
+			manager := NewManager(peers)
+			conn := &testGiznetConn{publicKey: key}
+			manager.SetPeerUp(key, conn)
+			deleteErr := make(chan error, 1)
+			go func() {
+				deleteErr <- manager.deleteActivePeer(context.Background(), key, conn, nil)
+			}()
+			<-blockingStore.entered
+
+			test.down(manager, key, conn)
+			if _, ok := manager.Peer(key); ok {
+				t.Fatal("disconnected deleting Peer remained online")
+			}
+			if _, err := manager.activatePeer(context.Background(), &testGiznetConn{publicKey: key}); !errors.Is(err, ErrPeerConnRetiring) {
+				t.Fatalf("activatePeer during disconnected delete = %v, want %v", err, ErrPeerConnRetiring)
+			}
+
+			close(blockingStore.release)
+			if err := <-deleteErr; err != nil {
+				t.Fatalf("deleteActivePeer: %v", err)
+			}
+		})
+	}
+}
+
 func TestManagerActivatePeerRollsBackReservationOnEnsureFailure(t *testing.T) {
 	store := kv.NewMemory(nil)
 	peers := &peer.Server{Store: store}

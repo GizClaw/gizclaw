@@ -338,7 +338,7 @@ func (m *Manager) SetPeerDown(publicKey giznet.PublicKey, conn giznet.Conn) {
 	if !ok || state.conn != conn {
 		return
 	}
-	if state.activating != nil {
+	if state.deleting || state.activating != nil {
 		state.conn = nil
 		state.registration = nil
 		return
@@ -353,7 +353,7 @@ func (m *Manager) ForcePeerDown(publicKey giznet.PublicKey) {
 	if !ok {
 		return
 	}
-	if state.activating != nil {
+	if state.deleting || state.activating != nil {
 		state.conn = nil
 		state.registration = nil
 		return
