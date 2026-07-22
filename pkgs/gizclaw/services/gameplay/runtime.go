@@ -1438,10 +1438,14 @@ func (r *Runtime) ensureAccountTx(ctx context.Context, tx *sqlx.Tx, owner string
 		initial = int64Value(ruleset.Spec.Points.InitialBalance)
 	}
 	account = apitypes.PointsAccount{OwnerPublicKey: owner, RuntimeProfileName: ruleset.Name, Balance: initial, CreatedAt: now, UpdatedAt: now}
-	if err := insertPointsAccount(ctx, tx, account); err != nil {
+	inserted, err := insertPointsAccount(ctx, tx, account)
+	if err != nil {
 		return apitypes.PointsAccount{}, err
 	}
-	return account, nil
+	if inserted {
+		return account, nil
+	}
+	return scanPointsAccount(tx.QueryRowContext(ctx, tx.Rebind(pointsAccountSelectSQL()+` WHERE owner_public_key = ? AND runtime_profile_name = ?`), owner, ruleset.Name))
 }
 
 func (r *Runtime) applyPointsTx(ctx context.Context, tx *sqlx.Tx, account *apitypes.PointsAccount, delta int64, runtimeProfileName, petID, gameResultID, rewardGrantID, reason, sourceType, sourceID string) (apitypes.PointsTransaction, error) {
@@ -1452,16 +1456,18 @@ func (r *Runtime) recordPointsTx(ctx context.Context, tx *sqlx.Tx, account *apit
 	if delta == 0 && !recordZero {
 		return apitypes.PointsTransaction{}, nil
 	}
-	next := account.Balance + delta
-	if next < 0 {
+	now := r.now()
+	var next int64
+	err := tx.QueryRowContext(ctx, tx.Rebind(`UPDATE gameplay_points_accounts SET balance = balance + ?, updated_at = ? WHERE owner_public_key = ? AND runtime_profile_name = ? AND balance + ? >= 0 RETURNING balance`),
+		delta, formatTime(now), account.OwnerPublicKey, account.RuntimeProfileName, delta).Scan(&next)
+	if errors.Is(err, sql.ErrNoRows) {
 		return apitypes.PointsTransaction{}, errors.New("gameplay: insufficient points")
 	}
-	now := r.now()
-	account.Balance = next
-	account.UpdatedAt = now
-	if _, err := tx.ExecContext(ctx, tx.Rebind(`UPDATE gameplay_points_accounts SET balance = ?, updated_at = ? WHERE owner_public_key = ? AND runtime_profile_name = ?`), account.Balance, formatTime(account.UpdatedAt), account.OwnerPublicKey, account.RuntimeProfileName); err != nil {
+	if err != nil {
 		return apitypes.PointsTransaction{}, err
 	}
+	account.Balance = next
+	account.UpdatedAt = now
 	txn := apitypes.PointsTransaction{
 		Id:                 r.newID(),
 		OwnerPublicKey:     account.OwnerPublicKey,

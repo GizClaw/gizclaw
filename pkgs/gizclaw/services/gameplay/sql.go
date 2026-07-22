@@ -187,10 +187,14 @@ func findPointsAccount(ctx context.Context, db queryRebinder, owner, runtimeProf
 	return scanPointsAccount(db.QueryRowContext(ctx, db.Rebind(pointsAccountSelectSQL()+` WHERE owner_public_key = ? AND runtime_profile_name = ?`), owner, runtimeProfileName))
 }
 
-func insertPointsAccount(ctx context.Context, tx *sqlx.Tx, account apitypes.PointsAccount) error {
-	_, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_points_accounts (owner_public_key, runtime_profile_name, balance, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`),
+func insertPointsAccount(ctx context.Context, tx *sqlx.Tx, account apitypes.PointsAccount) (bool, error) {
+	result, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_points_accounts (owner_public_key, runtime_profile_name, balance, created_at, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(owner_public_key, runtime_profile_name) DO NOTHING`),
 		account.OwnerPublicKey, account.RuntimeProfileName, account.Balance, formatTime(account.CreatedAt), formatTime(account.UpdatedAt))
-	return err
+	if err != nil {
+		return false, err
+	}
+	rows, err := result.RowsAffected()
+	return rows == 1, err
 }
 
 func pointsTransactionSelectSQL() string {

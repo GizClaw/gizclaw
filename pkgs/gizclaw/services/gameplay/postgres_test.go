@@ -291,6 +291,79 @@ func TestPostgresCallerAssignedAdoptionIsConcurrent(t *testing.T) {
 	}
 }
 
+func TestPostgresDifferentPetAdoptionsDebitPointsAtomically(t *testing.T) {
+	db := openGameplayPostgresTestDB(t)
+	ctx := context.Background()
+	dropGameplayPostgresTables(t, ctx, db)
+	t.Cleanup(func() { dropGameplayPostgresTables(t, context.Background(), db) })
+	now := time.Date(2026, 7, 22, 11, 30, 0, 0, time.UTC)
+	catalog := testCatalog(t, now)
+	profile := seedGameplayCatalog(t, ctx, catalog)
+	ctx = WithRuntimeProfile(ctx, profile)
+	workspaces := &recordingWorkspaceService{}
+	newRuntime := func() *Runtime {
+		return &Runtime{
+			DB:         db,
+			Catalog:    catalog,
+			Workflows:  petWorkflowService{},
+			Workspaces: workspaces,
+			Now:        func() time.Time { return now },
+			PickWeight: func(int64) int64 { return 0 },
+		}
+	}
+	runtimes := []*Runtime{newRuntime(), newRuntime()}
+	if err := runtimes[0].Migration(ctx); err != nil {
+		t.Fatalf("Migration() error = %v", err)
+	}
+	petIDs := []string{"postgres-pet-a", "postgres-pet-b"}
+	start := make(chan struct{})
+	responses := make(chan apitypes.PetAdoptResponse, len(petIDs))
+	errs := make(chan error, len(petIDs))
+	var wg sync.WaitGroup
+	for i, petID := range petIDs {
+		runtime := runtimes[i]
+		wg.Go(func() {
+			<-start
+			response, err := runtime.AdoptPet(ctx, "peer-postgres", apitypes.PetAdoptRequest{Id: &petID})
+			responses <- response
+			errs <- err
+		})
+	}
+	close(start)
+	wg.Wait()
+	close(responses)
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("AdoptPet(concurrent different IDs) error = %v", err)
+		}
+	}
+	balances := map[int64]int{}
+	for response := range responses {
+		balances[response.Points.Balance]++
+	}
+	if balances[35] != 1 || balances[20] != 1 {
+		t.Fatalf("response balances = %v, want one 35 and one 20", balances)
+	}
+	var pets, transactions int
+	if err := db.QueryRowContext(ctx, `SELECT count(*) FROM gameplay_pets WHERE owner_public_key = $1`, "peer-postgres").Scan(&pets); err != nil {
+		t.Fatalf("count Pets: %v", err)
+	}
+	if err := db.QueryRowContext(ctx, `SELECT count(*) FROM gameplay_points_transactions WHERE owner_public_key = $1 AND source_type = 'pet' AND reason = 'pet.adopt'`, "peer-postgres").Scan(&transactions); err != nil {
+		t.Fatalf("count adoption transactions: %v", err)
+	}
+	var balance int64
+	if err := db.QueryRowContext(ctx, `SELECT balance FROM gameplay_points_accounts WHERE owner_public_key = $1 AND runtime_profile_name = $2`, "peer-postgres", profile.Name).Scan(&balance); err != nil {
+		t.Fatalf("load final Points balance: %v", err)
+	}
+	if pets != 2 || transactions != 2 || balance != 20 {
+		t.Fatalf("persisted Pets=%d transactions=%d balance=%d, want 2, 2, 20", pets, transactions, balance)
+	}
+	if len(workspaces.created) != 2 {
+		t.Fatalf("created workspaces = %d, want 2", len(workspaces.created))
+	}
+}
+
 func openGameplayPostgresTestDB(t *testing.T) *sqlx.DB {
 	t.Helper()
 	dsn := strings.TrimSpace(os.Getenv("GIZCLAW_TEST_POSTGRES_DSN"))
