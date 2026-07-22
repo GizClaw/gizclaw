@@ -348,10 +348,10 @@ func (c *config) validate() error {
 	}
 	if c.isFlowcraftAgent() {
 		if c.Workflow.VoiceAdapter.ASRModel == "" {
-			c.Workflow.VoiceAdapter.ASRModel = "asr"
+			c.Workflow.VoiceAdapter.ASRModel = c.Models.ASR
 		}
 		if c.Workflow.VoiceAdapter.DefaultVoice == "" {
-			c.Workflow.VoiceAdapter.DefaultVoice = "assistant-voice"
+			c.Workflow.VoiceAdapter.DefaultVoice = c.Voice
 		}
 	}
 	if c.isASTTranslateAgent() {

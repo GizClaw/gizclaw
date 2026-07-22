@@ -167,6 +167,34 @@ func TestLoadFlowcraftConfigs(t *testing.T) {
 	}
 }
 
+func TestFlowcraftVoiceAdapterDefaultsFollowFixtureAliases(t *testing.T) {
+	clientKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(client): %v", err)
+	}
+	cfg := config{
+		Server:           serverConfig{Addr: "127.0.0.1:9820"},
+		Agent:            "flowcraft",
+		Models:           modelConfig{LLM: "chat", TTS: "tts", ASR: "fixture-asr"},
+		Workflow:         workflowConfig{Name: "demo"},
+		Voice:            "fixture-voice",
+		Rounds:           1,
+		Timeout:          "1s",
+		Persona:          "persona",
+		ClientPrivateKey: clientKey.Private.String(),
+	}
+
+	if err := cfg.validate(); err != nil {
+		t.Fatalf("validate() error = %v", err)
+	}
+	if got := cfg.Workflow.VoiceAdapter.ASRModel; got != cfg.Models.ASR {
+		t.Fatalf("voice adapter ASR model = %q, want fixture alias %q", got, cfg.Models.ASR)
+	}
+	if got := cfg.Workflow.VoiceAdapter.DefaultVoice; got != cfg.Voice {
+		t.Fatalf("voice adapter default voice = %q, want fixture alias %q", got, cfg.Voice)
+	}
+}
+
 func TestReadSetupContextConfigErrors(t *testing.T) {
 	if _, err := readSetupContextConfig(filepath.Join(t.TempDir(), "missing.yaml")); err == nil {
 		t.Fatal("missing context config succeeded")
