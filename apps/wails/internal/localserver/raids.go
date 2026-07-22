@@ -87,7 +87,6 @@ func (r *RaidsResolver) Resolve(ctx context.Context) (*Catalog, error) {
 			r.cached = catalog
 			return catalog, nil
 		}
-		err = fmt.Errorf("validate cached archive: %w", catalogErr)
 	}
 	candidate, downloadErr := r.download(ctx)
 	if downloadErr != nil {
