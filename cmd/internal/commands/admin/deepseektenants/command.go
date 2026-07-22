@@ -3,6 +3,7 @@ package deepseektenantscmd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/cmd/internal/adminapi"
@@ -49,7 +50,10 @@ func newWriteCmd(ctxName *string, update bool) *cobra.Command {
 		Short: short,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			name := strings.TrimSpace(args[0])
+			name, err := tenantName(args[0])
+			if err != nil {
+				return err
+			}
 			request := adminhttp.DeepSeekTenantUpsert{Name: name, CredentialName: strings.TrimSpace(credentialName)}
 			if value := strings.TrimSpace(baseURL); value != "" {
 				request.BaseUrl = &value
@@ -87,12 +91,16 @@ func newDeleteCmd(ctxName *string) *cobra.Command {
 		Short: "Delete a DeepSeek tenant",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			name, err := tenantName(args[0])
+			if err != nil {
+				return err
+			}
 			client, err := connection.ConnectFromContext(*ctxName)
 			if err != nil {
 				return err
 			}
 			defer client.Close()
-			item, err := adminapi.DeleteDeepSeekTenant(context.Background(), client, args[0])
+			item, err := adminapi.DeleteDeepSeekTenant(context.Background(), client, name)
 			if err != nil {
 				return err
 			}
@@ -126,16 +134,28 @@ func newGetCmd(ctxName *string) *cobra.Command {
 		Short: "Get a DeepSeek tenant",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			name, err := tenantName(args[0])
+			if err != nil {
+				return err
+			}
 			c, err := connection.ConnectFromContext(*ctxName)
 			if err != nil {
 				return err
 			}
 			defer c.Close()
-			item, err := adminapi.GetDeepSeekTenant(context.Background(), c, args[0])
+			item, err := adminapi.GetDeepSeekTenant(context.Background(), c, name)
 			if err != nil {
 				return err
 			}
 			return json.NewEncoder(cmd.OutOrStdout()).Encode(item)
 		},
 	}
+}
+
+func tenantName(value string) (string, error) {
+	name := strings.TrimSpace(value)
+	if name == "" {
+		return "", errors.New("tenant name must not be empty")
+	}
+	return name, nil
 }
