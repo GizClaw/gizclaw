@@ -36,13 +36,15 @@ import (
 )
 
 var (
-	ErrDeviceOffline     = errors.New("gizclaw: device offline")
-	ErrPeerConnNotActive = errors.New("gizclaw: peer connection is not active")
-	errNoRefreshData     = errors.New("gizclaw: no refresh data")
+	ErrDeviceOffline      = errors.New("gizclaw: device offline")
+	ErrPeerConnNotActive  = errors.New("gizclaw: peer connection is not active")
+	errPeerConnActivating = errors.New("gizclaw: peer connection activation is in progress")
+	errNoRefreshData      = errors.New("gizclaw: no refresh data")
 )
 
 type activePeer struct {
 	conn         giznet.Conn
+	activating   giznet.Conn
 	registration *runtimeprofile.Registration
 	deleting     bool
 }
@@ -182,6 +184,7 @@ func (m *Manager) setPeerUpLocked(publicKey giznet.PublicKey, conn giznet.Conn) 
 		state.registration = nil
 	}
 	state.conn = conn
+	state.activating = nil
 	if oldConn == conn {
 		return nil
 	}
@@ -195,15 +198,54 @@ func (m *Manager) activatePeer(ctx context.Context, conn giznet.Conn) (giznet.Co
 	if conn == nil {
 		return nil, errors.New("gizclaw: nil conn")
 	}
+	publicKey := conn.PublicKey()
 	m.mu.Lock()
-	defer m.mu.Unlock()
-	if state, ok := m.peers[conn.PublicKey()]; ok && state.deleting {
+	if m.peers == nil {
+		m.peers = make(map[giznet.PublicKey]*activePeer)
+	}
+	state, ok := m.peers[publicKey]
+	if !ok {
+		state = &activePeer{}
+		m.peers[publicKey] = state
+	}
+	if state.deleting {
+		m.mu.Unlock()
 		return nil, ErrPeerConnRetiring
 	}
-	if _, err := m.Peers.EnsureConnectedPeer(ctx, conn.PublicKey()); err != nil {
+	if state.activating != nil {
+		m.mu.Unlock()
+		return nil, errPeerConnActivating
+	}
+	state.activating = conn
+	m.mu.Unlock()
+
+	if _, err := m.Peers.EnsureConnectedPeer(ctx, publicKey); err != nil {
+		m.mu.Lock()
+		if current, currentOK := m.peers[publicKey]; currentOK && current == state && current.activating == conn {
+			current.activating = nil
+			if current.conn == nil {
+				delete(m.peers, publicKey)
+			}
+		}
+		m.mu.Unlock()
 		return nil, err
 	}
-	return m.setPeerUpLocked(conn.PublicKey(), conn), nil
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	current, currentOK := m.peers[publicKey]
+	if !currentOK || current != state || current.activating != conn {
+		return nil, ErrPeerConnNotActive
+	}
+	current.activating = nil
+	if current.deleting {
+		return nil, ErrPeerConnRetiring
+	}
+	oldConn := current.conn
+	if oldConn != conn {
+		current.registration = nil
+	}
+	current.conn = conn
+	return oldConn, nil
 }
 
 func (m *Manager) deleteActivePeer(ctx context.Context, publicKey giznet.PublicKey, conn giznet.Conn, beginRetiring func() func()) error {
@@ -228,18 +270,22 @@ func (m *Manager) deleteActivePeer(ctx context.Context, publicKey giznet.PublicK
 	if err := m.Peers.DeleteSelf(ctx, publicKey); err != nil {
 		m.mu.Lock()
 		current, currentOK := m.peers[publicKey]
-		if currentOK && current == state && current.conn == conn && current.deleting {
+		if currentOK && current == state && current.deleting {
 			current.deleting = false
-			current.registration = previousRegistration
-			if rollbackRetiring != nil {
-				rollbackRetiring()
+			if current.conn == conn {
+				current.registration = previousRegistration
+				if rollbackRetiring != nil {
+					rollbackRetiring()
+				}
+			} else if current.conn == nil && current.activating == nil {
+				delete(m.peers, publicKey)
 			}
 		}
 		m.mu.Unlock()
 		return err
 	}
 	m.mu.Lock()
-	if current, currentOK := m.peers[publicKey]; currentOK && current == state && current.conn == conn && current.deleting {
+	if current, currentOK := m.peers[publicKey]; currentOK && current == state && current.deleting {
 		delete(m.peers, publicKey)
 	}
 	m.mu.Unlock()
@@ -290,6 +336,11 @@ func (m *Manager) SetPeerDown(publicKey giznet.PublicKey, conn giznet.Conn) {
 	defer m.mu.Unlock()
 	state, ok := m.peers[publicKey]
 	if !ok || state.conn != conn {
+		return
+	}
+	if state.activating != nil {
+		state.conn = nil
+		state.registration = nil
 		return
 	}
 	delete(m.peers, publicKey)

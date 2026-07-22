@@ -3,6 +3,7 @@ package gizclaw
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -13,6 +14,30 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
+
+type blockingGetStore struct {
+	kv.Store
+	entered chan struct{}
+	release chan struct{}
+	once    sync.Once
+}
+
+type failingGetStore struct {
+	kv.Store
+	err error
+}
+
+func (s *failingGetStore) Get(context.Context, kv.Key) ([]byte, error) {
+	return nil, s.err
+}
+
+func (s *blockingGetStore) Get(ctx context.Context, key kv.Key) ([]byte, error) {
+	s.once.Do(func() {
+		close(s.entered)
+		<-s.release
+	})
+	return s.Store.Get(ctx, key)
+}
 
 func TestManagerActivatePeerMakesRegistrationReady(t *testing.T) {
 	peers := &peer.Server{Store: kv.NewMemory(nil)}
@@ -32,6 +57,101 @@ func TestManagerActivatePeerMakesRegistrationReady(t *testing.T) {
 	registration := runtimeprofile.Registration{RuntimeProfile: apitypes.RuntimeProfile{Name: "profile-early"}}
 	if !manager.SetPeerRegistration(key, conn, registration) {
 		t.Fatal("registration immediately after activation was rejected")
+	}
+}
+
+func TestManagerActivatePeerDoesNotBlockUnrelatedPeer(t *testing.T) {
+	store := kv.NewMemory(nil)
+	peers := &peer.Server{Store: store}
+	manager := NewManager(peers)
+	otherKey := giznet.PublicKey{7, 1}
+	otherConn := &testGiznetConn{publicKey: otherKey}
+	manager.SetPeerUp(otherKey, otherConn)
+	if !manager.SetPeerRegistration(otherKey, otherConn, runtimeprofile.Registration{}) {
+		t.Fatal("SetPeerRegistration(other) rejected active connection")
+	}
+	targetKey := giznet.PublicKey{7, 2}
+	if _, err := peers.EnsureConnectedPeer(context.Background(), targetKey); err != nil {
+		t.Fatalf("EnsureConnectedPeer(target): %v", err)
+	}
+	oldTargetConn := &testGiznetConn{publicKey: targetKey}
+	manager.SetPeerUp(targetKey, oldTargetConn)
+	if !manager.SetPeerRegistration(targetKey, oldTargetConn, runtimeprofile.Registration{}) {
+		t.Fatal("SetPeerRegistration(target) rejected active connection")
+	}
+	blockingStore := &blockingGetStore{
+		Store:   store,
+		entered: make(chan struct{}),
+		release: make(chan struct{}),
+	}
+	peers.Store = blockingStore
+	targetConn := &testGiznetConn{publicKey: targetKey}
+	activation := make(chan error, 1)
+	go func() {
+		_, err := manager.activatePeer(context.Background(), targetConn)
+		activation <- err
+	}()
+	<-blockingStore.entered
+	if got, ok := manager.Peer(targetKey); !ok || got != oldTargetConn {
+		t.Fatalf("target during replacement activation = %v, %v, want old connection", got, ok)
+	}
+	if _, ok := manager.PeerRegistration(targetKey); !ok {
+		t.Fatal("replacement activation hid the active generation registration")
+	}
+
+	unrelatedReady := make(chan bool, 1)
+	go func() {
+		got, ok := manager.Peer(otherKey)
+		unrelatedReady <- ok && got == otherConn && manager.SetPeerRegistration(otherKey, otherConn, runtimeprofile.Registration{})
+	}()
+	select {
+	case ready := <-unrelatedReady:
+		if !ready {
+			t.Fatal("unrelated Peer was not available during activation")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("slow activation blocked unrelated Manager operations")
+	}
+	if _, err := manager.activatePeer(context.Background(), &testGiznetConn{publicKey: targetKey}); !errors.Is(err, errPeerConnActivating) {
+		t.Fatalf("concurrent activatePeer error = %v, want %v", err, errPeerConnActivating)
+	}
+	close(blockingStore.release)
+	if err := <-activation; err != nil {
+		t.Fatalf("activatePeer(target): %v", err)
+	}
+	if got, ok := manager.Peer(targetKey); !ok || got != targetConn {
+		t.Fatalf("activated target = %v, %v", got, ok)
+	}
+}
+
+func TestManagerActivatePeerRollsBackReservationOnEnsureFailure(t *testing.T) {
+	store := kv.NewMemory(nil)
+	peers := &peer.Server{Store: store}
+	manager := NewManager(peers)
+	key := giznet.PublicKey{7, 4}
+	if _, err := peers.EnsureConnectedPeer(context.Background(), key); err != nil {
+		t.Fatalf("EnsureConnectedPeer: %v", err)
+	}
+	oldConn := &testGiznetConn{publicKey: key}
+	manager.SetPeerUp(key, oldConn)
+	registration := runtimeprofile.Registration{RuntimeProfile: apitypes.RuntimeProfile{Name: "profile"}}
+	if !manager.SetPeerRegistration(key, oldConn, registration) {
+		t.Fatal("SetPeerRegistration rejected active connection")
+	}
+	ensureErr := errors.New("test ensure failure")
+	peers.Store = &failingGetStore{Store: store, err: ensureErr}
+	if _, err := manager.activatePeer(context.Background(), &testGiznetConn{publicKey: key}); !errors.Is(err, ensureErr) {
+		t.Fatalf("activatePeer error = %v, want %v", err, ensureErr)
+	}
+	if got, ok := manager.Peer(key); !ok || got != oldConn {
+		t.Fatalf("active connection after failed replacement = %v, %v", got, ok)
+	}
+	if got, ok := manager.PeerRegistration(key); !ok || got.RuntimeProfile.Name != "profile" {
+		t.Fatalf("registration after failed replacement = %#v, %v", got, ok)
+	}
+	peers.Store = store
+	if _, err := manager.activatePeer(context.Background(), &testGiznetConn{publicKey: key}); err != nil {
+		t.Fatalf("activatePeer after rollback: %v", err)
 	}
 }
 
