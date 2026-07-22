@@ -13,11 +13,13 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 var errTestRPCWrite = errors.New("test RPC write failure")
+var errTestPeerDelete = errors.New("test peer delete failure")
 
 type peerDeleteWriteConn struct {
 	mu      sync.Mutex
@@ -30,6 +32,29 @@ type peerDeleteWriteConn struct {
 type trackingGiznetConn struct {
 	*testGiznetConn
 	closed atomic.Bool
+}
+
+type blockingBatchMutateStore struct {
+	kv.Store
+	entered chan struct{}
+	release chan struct{}
+	once    sync.Once
+}
+
+type failingBatchMutateStore struct {
+	kv.Store
+}
+
+func (s *failingBatchMutateStore) BatchMutate(context.Context, []kv.Entry, []kv.Key) error {
+	return errTestPeerDelete
+}
+
+func (s *blockingBatchMutateStore) BatchMutate(ctx context.Context, entries []kv.Entry, keys []kv.Key) error {
+	s.once.Do(func() {
+		close(s.entered)
+		<-s.release
+	})
+	return s.Store.BatchMutate(ctx, entries, keys)
 }
 
 func (c *trackingGiznetConn) Close() error {
@@ -227,6 +252,83 @@ func TestRPCPeerDeleteRejectsNewWorkWhileAcknowledgementIsPending(t *testing.T) 
 	case <-closed:
 	default:
 		t.Fatal("terminal close was not called")
+	}
+}
+
+func TestRPCPeerDeleteRejectsNewWorkBeforeDurableDeleteCommits(t *testing.T) {
+	store := kv.NewMemory(nil)
+	peers := &peer.Server{Store: store}
+	publicKey := giznet.PublicKey{3, 1}
+	if _, err := peers.EnsureConnectedPeer(context.Background(), publicKey); err != nil {
+		t.Fatalf("EnsureConnectedPeer: %v", err)
+	}
+	blockingStore := &blockingBatchMutateStore{
+		Store:   store,
+		entered: make(chan struct{}),
+		release: make(chan struct{}),
+	}
+	peers.Store = blockingStore
+	manager := NewManager(peers)
+	transport := &testGiznetConn{publicKey: publicKey}
+	manager.SetPeerUp(publicKey, transport)
+	peerConn := &PeerConn{Conn: transport, Service: &PeerService{manager: manager}}
+	peerConn.initRPC()
+	stream, err := newRPCStream(context.Background(), &peerDeleteWriteConn{})
+	if err != nil {
+		t.Fatalf("newRPCStream: %v", err)
+	}
+	defer stream.Close()
+	stream.requestEOSAlreadyConsumed = true
+	request := newRPCRequest("delete-self", rpcapi.RPCMethodServerPeerDelete, mustRPCParams(rpcapi.ServerPeerDeleteRequest{}, (*rpcapi.RPCPayload).FromServerPeerDeleteRequest))
+	deleteErr := make(chan error, 1)
+	go func() { deleteErr <- peerConn.rpc.handlePeerDelete(context.Background(), stream, request) }()
+	<-blockingStore.entered
+	if !peerConn.isRetiring() {
+		t.Fatal("peer accepted new work while durable delete was committing")
+	}
+	response, err := peerConn.rpc.dispatch(context.Background(), newRPCRequest("ping", rpcapi.RPCMethodAllPing, nil))
+	if err != nil {
+		t.Fatalf("dispatch: %v", err)
+	}
+	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeConflict {
+		t.Fatalf("retiring response = %#v, want conflict", response)
+	}
+	close(blockingStore.release)
+	if err := <-deleteErr; err != nil {
+		t.Fatalf("handlePeerDelete: %v", err)
+	}
+	if _, ok := manager.Peer(publicKey); ok {
+		t.Fatal("deleted connection remained registered in Manager")
+	}
+}
+
+func TestManagerDeleteActivePeerRestoresConnectionAfterDeleteFailure(t *testing.T) {
+	store := kv.NewMemory(nil)
+	peers := &peer.Server{Store: store}
+	publicKey := giznet.PublicKey{3, 2}
+	if _, err := peers.EnsureConnectedPeer(context.Background(), publicKey); err != nil {
+		t.Fatalf("EnsureConnectedPeer: %v", err)
+	}
+	peers.Store = &failingBatchMutateStore{Store: store}
+	manager := NewManager(peers)
+	transport := &testGiznetConn{publicKey: publicKey}
+	manager.SetPeerUp(publicKey, transport)
+	peerConn := &PeerConn{Conn: transport, Service: &PeerService{manager: manager}}
+	registration := &runtimeprofile.Registration{RuntimeProfile: apitypes.RuntimeProfile{Name: "profile"}}
+	peerConn.registration.Store(registration)
+
+	err := manager.deleteActivePeer(context.Background(), publicKey, transport, peerConn.beginRetiring)
+	if !errors.Is(err, errTestPeerDelete) {
+		t.Fatalf("deleteActivePeer error = %v, want %v", err, errTestPeerDelete)
+	}
+	if peerConn.isRetiring() {
+		t.Fatal("failed delete left connection retiring")
+	}
+	if got := peerConn.registration.Load(); got != registration {
+		t.Fatalf("failed delete registration = %p, want %p", got, registration)
+	}
+	if got, ok := manager.Peer(publicKey); !ok || got != transport {
+		t.Fatalf("failed delete active connection = %v, %v", got, ok)
 	}
 }
 

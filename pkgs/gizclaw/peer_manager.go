@@ -202,7 +202,7 @@ func (m *Manager) activatePeer(ctx context.Context, conn giznet.Conn) (giznet.Co
 	return m.setPeerUpLocked(conn.PublicKey(), conn), nil
 }
 
-func (m *Manager) deleteActivePeer(ctx context.Context, publicKey giznet.PublicKey, conn giznet.Conn) error {
+func (m *Manager) deleteActivePeer(ctx context.Context, publicKey giznet.PublicKey, conn giznet.Conn, beginRetiring func() func()) error {
 	if m == nil || m.Peers == nil {
 		return errors.New("gizclaw: peers service not configured")
 	}
@@ -212,7 +212,18 @@ func (m *Manager) deleteActivePeer(ctx context.Context, publicKey giznet.PublicK
 	if !ok || state.conn != conn {
 		return ErrPeerConnNotActive
 	}
-	return m.Peers.DeleteSelf(ctx, publicKey)
+	var rollbackRetiring func()
+	if beginRetiring != nil {
+		rollbackRetiring = beginRetiring()
+	}
+	if err := m.Peers.DeleteSelf(ctx, publicKey); err != nil {
+		if rollbackRetiring != nil {
+			rollbackRetiring()
+		}
+		return err
+	}
+	delete(m.peers, publicKey)
+	return nil
 }
 
 func (m *Manager) SetPeerRegistration(publicKey giznet.PublicKey, conn giznet.Conn, registration runtimeprofile.Registration) bool {

@@ -213,8 +213,9 @@ func (h *PeerConn) initRPC() {
 		h.rpc.serverResources = h.peerResources()
 		h.rpc.registrations = h.Service.manager.RuntimeProfiles
 		h.rpc.deletePeerSelf = func(ctx context.Context) error {
-			return h.Service.manager.deleteActivePeer(ctx, h.Conn.PublicKey(), h.Conn)
+			return h.Service.manager.deleteActivePeer(ctx, h.Conn.PublicKey(), h.Conn, h.beginRetiring)
 		}
+		h.rpc.onPeerRetiring = nil
 		h.rpc.onRegistration = func(registration runtimeprofile.Registration) {
 			if h.Conn == nil {
 				return
@@ -406,6 +407,15 @@ func (h *PeerConn) retire() {
 	}
 	if h.retiring.CompareAndSwap(false, true) {
 		h.registration.Store(nil)
+	}
+}
+
+func (h *PeerConn) beginRetiring() func() {
+	previousRetiring := h.retiring.Swap(true)
+	previousRegistration := h.registration.Swap(nil)
+	return func() {
+		h.registration.Store(previousRegistration)
+		h.retiring.Store(previousRetiring)
 	}
 }
 
