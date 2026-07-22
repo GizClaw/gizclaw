@@ -2219,7 +2219,42 @@ class ServiceDataChannelWriter {
     const deadline = timeoutMs === 0 ? Number.POSITIVE_INFINITY : performance.now() + timeoutMs;
     const run = this.tail.then(() => this.writeNow(payloads, options.signal, deadline));
     this.tail = run.catch(() => undefined);
-    return run;
+    return this.observeWrite(run, options.signal, deadline);
+  }
+
+  private observeWrite(run: Promise<void>, signal: AbortSignal | undefined, deadline: number): Promise<void> {
+    return new Promise((resolve, reject) => {
+      let timeout: ReturnType<typeof setTimeout> | undefined;
+      let settled = false;
+      const cleanup = (): void => {
+        if (timeout != null) clearTimeout(timeout);
+        signal?.removeEventListener("abort", onAbort);
+      };
+      const settle = (fn: () => void): void => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        fn();
+      };
+      const onAbort = (): void => settle(() => reject(abortError()));
+      signal?.addEventListener("abort", onAbort, { once: true });
+      if (Number.isFinite(deadline)) {
+        const remaining = deadline - performance.now();
+        if (remaining <= 0) {
+          settle(() => reject(new Error("service data channel write timed out")));
+        } else {
+          timeout = setTimeout(
+            () => settle(() => reject(new Error("service data channel write timed out"))),
+            remaining,
+          );
+        }
+      }
+      run.then(
+        () => settle(resolve),
+        (error) => settle(() => reject(error)),
+      );
+      if (signal?.aborted) onAbort();
+    });
   }
 
   private async writeNow(

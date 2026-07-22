@@ -220,6 +220,38 @@ test("WebRTCRPCClient serializes logical writes sharing one service channel", as
   await Promise.allSettled([first, second]);
 });
 
+test("WebRTCRPCClient promptly cancels a write queued behind backpressure", async () => {
+  const channel = new FakeDataChannel(giznetServiceDataChannelLabel(GIZCLAW_SERVICE_PEER_RPC));
+  const factory = { createDataChannel: () => channel };
+  const firstController = new AbortController();
+  const queuedController = new AbortController();
+  const firstClient = new WebRTCRPCClient(factory, { createID: () => "req-blocked" });
+  const queuedClient = new WebRTCRPCClient(factory, { createID: () => "req-cancelled" });
+  const first = firstClient.call("server.run.say", { text: "x".repeat(70000) }, {
+    signal: firstController.signal,
+  });
+  const queued = queuedClient.call("all.ping", { client_send_time: 1 }, {
+    signal: queuedController.signal,
+  });
+  channel.bufferedAmount = 1024 * 1024;
+  channel.open();
+  await new Promise<void>((resolve) => setImmediate(resolve));
+
+  queuedController.abort();
+  const outcome = await Promise.race([
+    queued.then(
+      () => "resolved",
+      (error: unknown) => error instanceof Error ? error.name : "rejected",
+    ),
+    new Promise<string>((resolve) => setTimeout(() => resolve("pending"), 25)),
+  ]);
+
+  assert.equal(outcome, "AbortError");
+  assert.equal(channel.sent.length, 0);
+  firstController.abort();
+  await Promise.allSettled([first, queued]);
+});
+
 test("WebRTCRPCClient closes after a non-first native send fails", async () => {
   const channel = new FakeDataChannel(giznetServiceDataChannelLabel(GIZCLAW_SERVICE_PEER_RPC));
   const factory = { createDataChannel: () => channel };
