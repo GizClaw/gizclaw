@@ -109,6 +109,86 @@ func (c *peerDeleteWriteConn) WriteBuffers(buffers net.Buffers) (int64, error) {
 	return total, nil
 }
 
+func TestRPCPeerDeleteInvalidParamsDrainRequestBeforeNextRPC(t *testing.T) {
+	for _, test := range []struct {
+		name        string
+		consumedEOS bool
+	}{
+		{name: "request body"},
+		{name: "continuation envelope EOS", consumedEOS: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			serverSide, clientSide := net.Pipe()
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			serverStream, err := newRPCStream(ctx, serverSide)
+			if err != nil {
+				t.Fatalf("newRPCStream(server): %v", err)
+			}
+			defer serverStream.Close()
+			clientStream, err := newRPCStream(ctx, clientSide)
+			if err != nil {
+				t.Fatalf("newRPCStream(client): %v", err)
+			}
+			defer clientStream.Close()
+			serverStream.requestEOSAlreadyConsumed = test.consumedEOS
+			invalid := newRPCRequest("invalid-delete", rpcapi.RPCMethodServerPeerDelete, &rpcapi.RPCPayload{})
+			handlerErr := make(chan error, 1)
+			go func() {
+				handlerErr <- (&rpcServer{}).handlePeerDelete(ctx, serverStream, invalid)
+			}()
+			if !test.consumedEOS {
+				if err := clientStream.WriteFrame(rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: []byte("unexpected body")}); err != nil {
+					t.Fatalf("write request body: %v", err)
+				}
+				if err := clientStream.WriteEOS(); err != nil {
+					t.Fatalf("write request EOS: %v", err)
+				}
+			}
+			response, responseEOS, err := clientStream.ReadResponseEnvelopeForMethod(invalid.Method)
+			if err != nil {
+				t.Fatalf("read invalid response: %v", err)
+			}
+			if !responseEOS {
+				if err := clientStream.ReadEOS(); err != nil {
+					t.Fatalf("read invalid response EOS: %v", err)
+				}
+			}
+			if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeInvalidParams {
+				t.Fatalf("invalid response = %#v, want invalid params", response)
+			}
+			if err := <-handlerErr; err != nil {
+				t.Fatalf("handlePeerDelete: %v", err)
+			}
+
+			ping := newRPCRequest("after-invalid", rpcapi.RPCMethodAllPing, nil)
+			writeErr := make(chan error, 1)
+			go func() {
+				if err := clientStream.WriteRequest(ping); err != nil {
+					writeErr <- err
+					return
+				}
+				writeErr <- clientStream.WriteEOS()
+			}()
+			got, requestEOS, err := serverStream.ReadRequestEnvelope()
+			if err != nil {
+				t.Fatalf("read next request: %v", err)
+			}
+			if !requestEOS {
+				if err := serverStream.ReadEOS(); err != nil {
+					t.Fatalf("read next request EOS: %v", err)
+				}
+			}
+			if got.Id != ping.Id || got.Method != ping.Method {
+				t.Fatalf("next request after invalid delete = %#v, want ping", got)
+			}
+			if err := <-writeErr; err != nil {
+				t.Fatalf("write next request: %v", err)
+			}
+		})
+	}
+}
+
 func TestRPCPeerDeleteAcknowledgesBeforeTerminalAction(t *testing.T) {
 	store := kv.NewMemory(nil)
 	peers := &peer.Server{Store: store}

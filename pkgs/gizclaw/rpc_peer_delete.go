@@ -10,6 +10,9 @@ import (
 
 func (s *rpcServer) handlePeerDelete(ctx context.Context, stream *rpcStream, req *rpcapi.RPCRequest) error {
 	if err := validateRPCParams(req.Params, rpcapi.RPCPayload.AsServerPeerDeleteRequest); err != nil {
+		if err := stream.drainRequest(); err != nil {
+			return err
+		}
 		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInvalidParams, "invalid params")
 	}
 	if err := stream.ReadEOS(); err != nil {
