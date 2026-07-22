@@ -35,7 +35,7 @@ func (s *rpcServer) handlePeerDelete(ctx context.Context, stream *rpcStream, req
 		return err
 	}
 	if s.onPeerDeleted != nil {
-		_ = s.onPeerDeleted()
+		s.onPeerDeleted()
 	}
 	return nil
 }

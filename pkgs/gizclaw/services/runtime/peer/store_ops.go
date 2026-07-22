@@ -320,18 +320,16 @@ func (s *Server) putRecord(ctx context.Context, peer apitypes.Peer) (apitypes.Pe
 	if err != nil && !errors.Is(err, ErrPeerNotFound) {
 		return apitypes.Peer{}, err
 	}
-	if errors.Is(err, ErrPeerNotFound) {
-		store, storeErr := s.store()
-		if storeErr != nil {
-			return apitypes.Peer{}, storeErr
-		}
-		pending, pendingErr := pendingdeletion.HasLocator(ctx, store, pendingdeletion.KindPeer, publicKey.String())
-		if pendingErr != nil {
-			return apitypes.Peer{}, pendingErr
-		}
-		if pending {
-			return apitypes.Peer{}, ErrPeerPendingDeletion
-		}
+	store, storeErr := s.store()
+	if storeErr != nil {
+		return apitypes.Peer{}, storeErr
+	}
+	pending, pendingErr := pendingdeletion.HasLocator(ctx, store, pendingdeletion.KindPeer, publicKey.String())
+	if pendingErr != nil {
+		return apitypes.Peer{}, pendingErr
+	}
+	if pending {
+		return apitypes.Peer{}, ErrPeerPendingDeletion
 	}
 	if peer.CreatedAt.IsZero() {
 		if errors.Is(err, ErrPeerNotFound) {

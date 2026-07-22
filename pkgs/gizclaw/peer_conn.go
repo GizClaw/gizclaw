@@ -177,7 +177,9 @@ func (h *PeerConn) initRPC() {
 		return
 	}
 	h.rpc = &rpcServer{}
-	h.rpc.onPeerDeleted = h.close
+	h.rpc.onPeerDeleted = func() {
+		_ = h.close()
+	}
 	if h.Service != nil && h.Service.manager != nil {
 		h.rpc.peer = h.Service.manager.Peers
 		h.rpc.peerRun = h.Service.manager.PeerRun

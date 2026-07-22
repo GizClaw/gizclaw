@@ -145,7 +145,31 @@ func insertPet(ctx context.Context, tx *sqlx.Tx, pet apitypes.Pet) error {
 	}
 	_, err = tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_pets (owner_public_key, id, runtime_profile_name, petdef_id, display_name, workspace_name, stats_json, progression_json, lifecycle, died_at, state_settled_at, last_active_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
 		pet.OwnerPublicKey, pet.Id, pet.RuntimeProfileName, pet.PetdefId, pet.DisplayName, pet.WorkspaceName, statsJSON, progressionJSON, pet.Lifecycle, nullableTime(pet.DiedAt), formatTime(pet.StateSettledAt), formatTime(pet.LastActiveAt), formatTime(pet.CreatedAt), formatTime(pet.UpdatedAt))
+	if err != nil {
+		return err
+	}
+	return insertPetWorkspaceBinding(ctx, tx, pet)
+}
+
+func insertPetWorkspaceBinding(ctx context.Context, tx *sqlx.Tx, pet apitypes.Pet) error {
+	_, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_pet_workspace_bindings (owner_public_key, pet_id, runtime_profile_name, workspace_name, created_at) VALUES (?, ?, ?, ?, ?)`),
+		pet.OwnerPublicKey, pet.Id, pet.RuntimeProfileName, pet.WorkspaceName, formatTime(pet.CreatedAt))
 	return err
+}
+
+func ensurePetWorkspaceBinding(ctx context.Context, tx *sqlx.Tx, pet apitypes.Pet) error {
+	if _, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_pet_workspace_bindings (owner_public_key, pet_id, runtime_profile_name, workspace_name, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(owner_public_key, pet_id) DO NOTHING`),
+		pet.OwnerPublicKey, pet.Id, pet.RuntimeProfileName, pet.WorkspaceName, formatTime(pet.CreatedAt)); err != nil {
+		return err
+	}
+	var profileName, workspaceName string
+	if err := tx.QueryRowContext(ctx, tx.Rebind(`SELECT runtime_profile_name, workspace_name FROM gameplay_pet_workspace_bindings WHERE owner_public_key = ? AND pet_id = ?`), pet.OwnerPublicKey, pet.Id).Scan(&profileName, &workspaceName); err != nil {
+		return err
+	}
+	if profileName != pet.RuntimeProfileName || workspaceName != pet.WorkspaceName {
+		return fmt.Errorf("gameplay: Pet %q binding conflicts with RuntimeProfile %q Workspace %q", pet.Id, profileName, workspaceName)
+	}
+	return nil
 }
 
 func updatePet(ctx context.Context, tx *sqlx.Tx, pet apitypes.Pet) error {

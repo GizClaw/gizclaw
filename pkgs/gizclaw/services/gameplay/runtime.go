@@ -94,6 +94,14 @@ func (r *Runtime) Migration(ctx context.Context) error {
 			created_at TEXT NOT NULL,
 			PRIMARY KEY(owner_public_key, pet_id)
 		)`,
+		`CREATE TABLE IF NOT EXISTS gameplay_pet_workspace_bindings (
+			owner_public_key TEXT NOT NULL,
+			pet_id TEXT NOT NULL,
+			runtime_profile_name TEXT NOT NULL,
+			workspace_name TEXT NOT NULL,
+			created_at TEXT NOT NULL,
+			PRIMARY KEY(owner_public_key, pet_id)
+		)`,
 		`CREATE TABLE IF NOT EXISTS gameplay_pet_drive_ticks (
 			owner_public_key TEXT NOT NULL,
 			runtime_profile_name TEXT NOT NULL,
@@ -194,6 +202,9 @@ func (r *Runtime) Migration(ctx context.Context) error {
 		return err
 	}
 	if _, err := db.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS gameplay_pending_deletions_locator_idx ON gameplay_pending_deletions(kind, owner_public_key, resource_id, deletion_id)`); err != nil {
+		return err
+	}
+	if _, err := db.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS gameplay_pet_workspace_bindings_owner_idx ON gameplay_pet_workspace_bindings(owner_public_key, runtime_profile_name, workspace_name)`); err != nil {
 		return err
 	}
 	return nil
@@ -596,10 +607,40 @@ func (r *Runtime) OwnerHasPetDef(ctx context.Context, owner, petDefID string) (b
 	return err == nil, err
 }
 
-// OwnerHasPetWorkspace reports whether the Workspace belongs to one of the
-// caller's adopted pets under the active RuntimeProfile. Pet Workspaces are
-// system-managed, so this domain relationship supplies access independently of
-// the Workspace owner field without crossing RuntimeProfile boundaries.
+// ListPetWorkspaceNames returns every Pet Workspace retained for the owner
+// under the active RuntimeProfile, including Workspaces whose Pet was deleted.
+func (r *Runtime) ListPetWorkspaceNames(ctx context.Context, owner string) ([]string, error) {
+	if r == nil || r.DB == nil {
+		return nil, nil
+	}
+	profile, ok := runtimeProfileFromContext(ctx)
+	profileName := strings.TrimSpace(profile.Name)
+	if !ok || profileName == "" {
+		return nil, nil
+	}
+	owner = strings.TrimSpace(owner)
+	rows, err := r.DB.QueryContext(ctx, r.DB.Rebind(`SELECT workspace_name FROM gameplay_pet_workspace_bindings WHERE owner_public_key = ? AND runtime_profile_name = ?
+		UNION SELECT workspace_name FROM gameplay_pets WHERE owner_public_key = ? AND runtime_profile_name = ?
+		ORDER BY workspace_name`), owner, profileName, owner, profileName)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	names := make([]string, 0)
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		names = append(names, name)
+	}
+	return names, rows.Err()
+}
+
+// OwnerHasPetWorkspace reports whether the Workspace is retained for one of
+// the caller's adopted pets under the active RuntimeProfile. Pet Workspaces are
+// system-managed, so this durable domain relationship supplies access after
+// Pet deletion without crossing RuntimeProfile boundaries.
 func (r *Runtime) OwnerHasPetWorkspace(ctx context.Context, owner, workspaceName string) (bool, error) {
 	if r == nil || r.DB == nil {
 		return false, nil
@@ -610,7 +651,11 @@ func (r *Runtime) OwnerHasPetWorkspace(ctx context.Context, owner, workspaceName
 		return false, nil
 	}
 	var exists int
-	err := r.DB.QueryRowContext(ctx, r.DB.Rebind(`SELECT 1 FROM gameplay_pets WHERE owner_public_key = ? AND runtime_profile_name = ? AND workspace_name = ? LIMIT 1`), strings.TrimSpace(owner), profileName, strings.TrimSpace(workspaceName)).Scan(&exists)
+	owner = strings.TrimSpace(owner)
+	workspaceName = strings.TrimSpace(workspaceName)
+	err := r.DB.QueryRowContext(ctx, r.DB.Rebind(`SELECT 1 FROM gameplay_pet_workspace_bindings WHERE owner_public_key = ? AND runtime_profile_name = ? AND workspace_name = ?
+		UNION SELECT 1 FROM gameplay_pets WHERE owner_public_key = ? AND runtime_profile_name = ? AND workspace_name = ?
+		LIMIT 1`), owner, profileName, workspaceName, owner, profileName, workspaceName).Scan(&exists)
 	if errors.Is(err, sql.ErrNoRows) {
 		return false, nil
 	}
@@ -669,6 +714,9 @@ func (r *Runtime) DeletePet(ctx context.Context, owner, id string) (apitypes.Pet
 	record, err := pendingdeletion.New(pendingdeletion.KindPet, pet.Id, &pet.OwnerPublicKey, pendingdeletion.ReasonResourceDelete, descriptor, r.now())
 	if err != nil {
 		return apitypes.Pet{}, err
+	}
+	if err := ensurePetWorkspaceBinding(ctx, tx, pet); err != nil {
+		return apitypes.Pet{}, fmt.Errorf("delete pet %q Workspace binding: %w", pet.Id, err)
 	}
 	if _, err := tx.ExecContext(ctx, db.Rebind(`INSERT INTO gameplay_pending_deletions (deletion_id, kind, owner_public_key, resource_id, reason, deleted_at, descriptor_version, descriptor_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`), record.DeletionID, record.Kind, pet.OwnerPublicKey, record.ResourceID, record.Reason, formatTime(record.DeletedAt), record.DescriptorVersion, string(record.Descriptor)); err != nil {
 		return apitypes.Pet{}, fmt.Errorf("delete pet %q pending deletion: %w", pet.Id, err)

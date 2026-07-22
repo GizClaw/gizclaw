@@ -434,10 +434,6 @@ func (s *Server) GetWorkspaceRuntime(ctx context.Context, name string) (Runtime,
 }
 
 func (s *Server) PutWorkspace(ctx context.Context, request adminhttp.PutWorkspaceRequestObject) (adminhttp.PutWorkspaceResponseObject, error) {
-	store, err := s.store()
-	if err != nil {
-		return adminhttp.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
 	if request.Body == nil {
 		return adminhttp.PutWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", "request body required")), nil
 	}
@@ -445,16 +441,20 @@ func (s *Server) PutWorkspace(ctx context.Context, request adminhttp.PutWorkspac
 	if err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
 	}
+	normalized, err := normalizeWorkspaceUpsert(*request.Body, name)
+	if err != nil {
+		return adminhttp.PutWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", err.Error())), nil
+	}
+	store, err := s.store()
+	if err != nil {
+		return adminhttp.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
 	unlock := s.IconLocks.LockRecord(name)
 	defer unlock()
 	if pending, err := workspacePending(ctx, store, name); err != nil {
 		return adminhttp.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	} else if pending {
 		return adminhttp.PutWorkspace409JSONResponse(apitypes.NewErrorResponse(WorkspacePendingDeletionCode, "workspace pending deletion")), nil
-	}
-	normalized, err := normalizeWorkspaceUpsert(*request.Body, name)
-	if err != nil {
-		return adminhttp.PutWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", err.Error())), nil
 	}
 	workflowStore, err := s.workflowStore()
 	if err != nil {

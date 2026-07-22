@@ -30,9 +30,8 @@ func TestRPCPeerDeleteAcknowledgesBeforeTerminalAction(t *testing.T) {
 	server := &rpcServer{
 		peer:            peers,
 		callerPublicKey: publicKey,
-		onPeerDeleted: func() error {
+		onPeerDeleted: func() {
 			terminal <- struct{}{}
-			return nil
 		},
 	}
 	serverSide, clientSide := net.Pipe()

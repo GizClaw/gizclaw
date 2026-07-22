@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -141,6 +142,14 @@ func TestPostgresGameplayContract(t *testing.T) {
 	}
 	if len(workspaces.deleted) != 0 {
 		t.Fatalf("DeletePet() deleted bound Workspace: %#v", workspaces.deleted)
+	}
+	allowed, err := runtime.OwnerHasPetWorkspace(ctx, "peer-postgres", adopted.Pet.WorkspaceName)
+	if err != nil || !allowed {
+		t.Fatalf("OwnerHasPetWorkspace() after delete = %v, %v", allowed, err)
+	}
+	workspaceNames, err := runtime.ListPetWorkspaceNames(ctx, "peer-postgres")
+	if err != nil || !slices.Contains(workspaceNames, adopted.Pet.WorkspaceName) {
+		t.Fatalf("ListPetWorkspaceNames() after delete = %#v, %v", workspaceNames, err)
 	}
 	var pendingRows int
 	if err := db.QueryRowContext(ctx, `SELECT count(*) FROM gameplay_pending_deletions WHERE kind = 'pet' AND owner_public_key = $1 AND resource_id = $2`, "peer-postgres", adopted.Pet.Id).Scan(&pendingRows); err != nil {
@@ -464,6 +473,7 @@ func dropGameplayPostgresTables(t *testing.T, ctx context.Context, db *sqlx.DB) 
 	for _, table := range []string{
 		"gameplay_pending_deletions",
 		"gameplay_pet_drive_ticks",
+		"gameplay_pet_workspace_bindings",
 		"gameplay_pet_adoption_reservations",
 		"gameplay_reward_grants",
 		"gameplay_game_results",

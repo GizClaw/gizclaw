@@ -141,6 +141,15 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 	if response, ok := putAfterDelete.(adminhttp.PutWorkspace409JSONResponse); !ok || response.Error.Code != WorkspacePendingDeletionCode {
 		t.Fatalf("PutWorkspace() while pending response = %#v", putAfterDelete)
 	}
+	invalidPutBody := updateBody
+	invalidPutBody.Name = "other-workspace"
+	invalidPutAfterDelete, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Name: "alpha001", Body: &invalidPutBody})
+	if err != nil {
+		t.Fatalf("PutWorkspace() invalid while pending error = %v", err)
+	}
+	if _, ok := invalidPutAfterDelete.(adminhttp.PutWorkspace400JSONResponse); !ok {
+		t.Fatalf("PutWorkspace() invalid while pending response = %#v, want 400", invalidPutAfterDelete)
+	}
 	if _, _, err := srv.CreateSystemWorkspace(ctx, createBody); !errors.Is(err, ErrWorkspacePendingDeletion) {
 		t.Fatalf("CreateSystemWorkspace() while pending error = %v", err)
 	}

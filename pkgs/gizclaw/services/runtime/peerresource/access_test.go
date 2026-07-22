@@ -97,7 +97,7 @@ func TestDomainWorkspaceNamesSkipsGameplayWithoutDatabase(t *testing.T) {
 	}
 }
 
-func TestDomainWorkspaceNamesScopesPetsToRuntimeProfile(t *testing.T) {
+func TestDomainWorkspaceNamesRetainsDeletedPetWorkspaceWithinRuntimeProfile(t *testing.T) {
 	ctx := context.Background()
 	db, err := sqlx.Open("sqlite", ":memory:")
 	if err != nil {
@@ -117,6 +117,13 @@ func TestDomainWorkspaceNamesScopesPetsToRuntimeProfile(t *testing.T) {
 		if err != nil {
 			t.Fatalf("insert pet for %s: %v", profileName, err)
 		}
+	}
+	profileCtx := gameplay.WithRuntimeProfile(ctx, apitypes.RuntimeProfile{Name: "profile-a"})
+	if _, err := runtime.DeletePet(profileCtx, caller.String(), "profile-a-pet"); err != nil {
+		t.Fatalf("DeletePet(profile-a) error = %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `DELETE FROM gameplay_pending_deletions WHERE kind = 'pet' AND owner_public_key = ? AND resource_id = ?`, caller.String(), "profile-a-pet"); err != nil {
+		t.Fatalf("simulate completed pending cleanup: %v", err)
 	}
 	profile := apitypes.RuntimeProfile{Name: "profile-a"}
 	server := &Server{

@@ -40,6 +40,17 @@ func TestDeleteSelfReconnectCreatesDistinctDeletionEvents(t *testing.T) {
 	if _, err := server.EnsureConnectedPeer(ctx, publicKey); err != nil {
 		t.Fatalf("EnsureConnectedPeer: %v", err)
 	}
+	if _, err := server.SavePeer(ctx, apitypes.Peer{
+		PublicKey: publicKey.String(),
+		Role:      apitypes.PeerRoleClient,
+		Status:    apitypes.PeerRegistrationStatusActive,
+		Device:    apitypes.DeviceInfo{},
+	}); !errors.Is(err, ErrPeerPendingDeletion) {
+		t.Fatalf("SavePeer(reconnected pending): %v, want ErrPeerPendingDeletion", err)
+	}
+	if err := server.BootstrapEdgeNodes(ctx, []giznet.PublicKey{publicKey}); !errors.Is(err, ErrPeerPendingDeletion) {
+		t.Fatalf("BootstrapEdgeNodes(reconnected pending): %v, want ErrPeerPendingDeletion", err)
+	}
 	if err := server.DeleteSelf(ctx, publicKey); err != nil {
 		t.Fatalf("DeleteSelf(second): %v", err)
 	}

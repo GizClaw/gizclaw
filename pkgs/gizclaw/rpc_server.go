@@ -67,7 +67,7 @@ type rpcServer struct {
 	onRegistration     func(runtimeprofile.Registration)
 	registrationSource string
 	callerPublicKey    giznet.PublicKey
-	onPeerDeleted      func() error
+	onPeerDeleted      func()
 }
 
 func (s *rpcServer) Handle(conn net.Conn) error {
