@@ -7,6 +7,7 @@
 #include <string.h>
 
 #define GZC_RPC_MAX_ENVELOPE_SIZE (GZC_RPC_MAX_FRAME_SIZE * 16u)
+#define GZC_RPC_DOWNLOAD_FRAMES_PER_POLL 16u
 /* Keep client reads beyond the default server deadlines by a transport grace window. */
 #define GZC_RPC_SPEECH_TRANSCRIPTION_TIMEOUT_MS 80000
 #define GZC_RPC_SPEECH_SYNTHESIS_TIMEOUT_MS 125000
@@ -1373,84 +1374,92 @@ int gzc_rpc_inbound_poll(struct gzc_rpc_inbound *inbound) {
   if (inbound == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  if (inbound->tx_offset < inbound->tx.len) {
-    int timeout_ms = gzc_client_write_timeout_ms_internal(inbound->client);
-    if (timeout_ms <= 0 ||
-        gzc_client_instant_ms_internal(inbound->client) - inbound->write_started_ms >= timeout_ms) {
-      gzc_buf_reset(&inbound->tx);
-      inbound->tx_offset = 0;
-      inbound->write_started_ms = 0;
-      inbound->phase = GZC_INBOUND_TERMINAL;
-      inbound->close_after_write = false;
-      inbound->close_requested = true;
-      return GZC_ERR_TIMEOUT;
-    }
-    int rc = gzc_client_try_write_bytes_internal(
-        inbound->client,
-        inbound->channel,
-        inbound->tx.data,
-        inbound->tx.len,
-        &inbound->tx_offset,
-        &inbound->write_blocked,
-        16);
-    if (rc != GZC_OK) {
-      gzc_buf_reset(&inbound->tx);
-      inbound->tx_offset = 0;
-      inbound->write_started_ms = 0;
-      inbound->phase = GZC_INBOUND_TERMINAL;
-      inbound->close_after_write = false;
-      inbound->close_requested = true;
-      return rc;
-    }
+  uint8_t chunk[4096];
+  size_t download_frames = 0;
+  for (;;) {
     if (inbound->tx_offset < inbound->tx.len) {
+      int timeout_ms = gzc_client_write_timeout_ms_internal(inbound->client);
+      if (timeout_ms <= 0 ||
+          gzc_client_instant_ms_internal(inbound->client) - inbound->write_started_ms >= timeout_ms) {
+        gzc_buf_reset(&inbound->tx);
+        inbound->tx_offset = 0;
+        inbound->write_started_ms = 0;
+        inbound->phase = GZC_INBOUND_TERMINAL;
+        inbound->close_after_write = false;
+        inbound->close_requested = true;
+        return GZC_ERR_TIMEOUT;
+      }
+      int rc = gzc_client_try_write_bytes_internal(
+          inbound->client,
+          inbound->channel,
+          inbound->tx.data,
+          inbound->tx.len,
+          &inbound->tx_offset,
+          &inbound->write_blocked,
+          16);
+      if (rc != GZC_OK) {
+        gzc_buf_reset(&inbound->tx);
+        inbound->tx_offset = 0;
+        inbound->write_started_ms = 0;
+        inbound->phase = GZC_INBOUND_TERMINAL;
+        inbound->close_after_write = false;
+        inbound->close_requested = true;
+        return rc;
+      }
+      if (inbound->tx_offset < inbound->tx.len) {
+        return GZC_OK;
+      }
+      gzc_buf_reset(&inbound->tx);
+      inbound->tx_offset = 0;
+      inbound->write_started_ms = 0;
+      if (inbound->response_envelope_sent) {
+        inbound->response_envelope_flushed = true;
+      }
+    }
+    if (inbound->phase == GZC_INBOUND_TERMINAL) {
+      if (inbound->close_after_write) {
+        inbound->close_after_write = false;
+        inbound->close_requested = true;
+      }
       return GZC_OK;
     }
-    gzc_buf_reset(&inbound->tx);
-    inbound->tx_offset = 0;
-    inbound->write_started_ms = 0;
-    if (inbound->response_envelope_sent) {
-      inbound->response_envelope_flushed = true;
+    if (inbound->method != gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_SPEED_TEST_RUN ||
+        !inbound->response_envelope_flushed) {
+      return GZC_OK;
     }
-  }
-  if (inbound->phase == GZC_INBOUND_TERMINAL) {
-    if (inbound->close_after_write) {
-      inbound->close_after_write = false;
-      inbound->close_requested = true;
+    if (inbound->download_sent < inbound->download_expected) {
+      if (download_frames >= GZC_RPC_DOWNLOAD_FRAMES_PER_POLL) {
+        return GZC_OK;
+      }
+      size_t count = sizeof(chunk);
+      uint64_t remaining = inbound->download_expected - inbound->download_sent;
+      if (remaining < count) {
+        count = (size_t)remaining;
+      }
+      for (size_t i = 0; i < count; i++) {
+        chunk[i] = (uint8_t)((inbound->download_sent + i) & 0xffu);
+      }
+      int rc = inbound_queue_frame(inbound, GZC_RPC_FRAME_BINARY, chunk, count);
+      if (rc != GZC_OK) {
+        return inbound_close_transport(inbound, rc);
+      }
+      inbound->download_sent += count;
+      download_frames++;
+      continue;
+    }
+    if (!inbound->response_eos_sent) {
+      int rc = inbound_queue_frame(inbound, GZC_RPC_FRAME_EOS, NULL, 0);
+      if (rc != GZC_OK) {
+        return inbound_close_transport(inbound, rc);
+      }
+      inbound->response_eos_sent = true;
+      continue;
+    }
+    if (inbound->request_done) {
+      return inbound_close_transport(inbound, GZC_OK);
     }
     return GZC_OK;
   }
-  if (inbound->method != gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_SPEED_TEST_RUN ||
-      !inbound->response_envelope_flushed) {
-    return GZC_OK;
-  }
-  uint8_t chunk[4096];
-  if (inbound->download_sent < inbound->download_expected) {
-    size_t count = sizeof(chunk);
-    uint64_t remaining = inbound->download_expected - inbound->download_sent;
-    if (remaining < count) {
-      count = (size_t)remaining;
-    }
-    for (size_t i = 0; i < count; i++) {
-      chunk[i] = (uint8_t)((inbound->download_sent + i) & 0xffu);
-    }
-    int rc = inbound_queue_frame(inbound, GZC_RPC_FRAME_BINARY, chunk, count);
-    if (rc != GZC_OK) {
-      return inbound_close_transport(inbound, rc);
-    }
-    inbound->download_sent += count;
-    return GZC_OK;
-  }
-  if (!inbound->response_eos_sent) {
-    int rc = inbound_queue_frame(inbound, GZC_RPC_FRAME_EOS, NULL, 0);
-    if (rc != GZC_OK) {
-      return inbound_close_transport(inbound, rc);
-    }
-    inbound->response_eos_sent = true;
-  }
-  if (inbound->request_done && inbound->response_eos_sent) {
-    return inbound_close_transport(inbound, GZC_OK);
-  }
-  return GZC_OK;
 }
 
 int gzc_rpc_inbound_backend_timeout_ms(

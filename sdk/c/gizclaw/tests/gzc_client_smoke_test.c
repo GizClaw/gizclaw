@@ -1811,7 +1811,7 @@ int main(void) {
 
   gizclaw_rpc_v1_SpeedTestRequest speed_request = gizclaw_rpc_v1_SpeedTestRequest_init_zero;
   speed_request.up_content_length = 2;
-  speed_request.down_content_length = 3;
+  speed_request.down_content_length = 17 * 4096;
   gzc_buf_t speed_payload;
   gzc_buf_init(&speed_payload);
   size_t oversized_id_len = GZC_RPC_MAX_FRAME_SIZE;
@@ -1868,7 +1868,7 @@ int main(void) {
     return 1;
   }
   clock.instant_ms += config.write_timeout_ms - 4;
-  for (size_t i = 0; i < 16 && fake_webrtc.close_count == close_count_before_speed; i++) {
+  for (size_t i = 0; i < 4 && fake_webrtc.close_count == close_count_before_speed; i++) {
     rc = gzc_client_poll(client, 0);
     if (expect(rc == GZC_OK,
                "each deferred response batch gets an independent timeout") != 0) {
@@ -1911,11 +1911,13 @@ int main(void) {
   rc = gzc_rpc_decode_response_envelope(
       gzc_str_from_parts((const char *)continued_response.data, continued_response.len),
       &inbound_response);
-  if (expect(rc == GZC_OK && response_frames == 5 && saw_response_delimiter &&
-                 saw_response_eos && download_bytes == 3 && !inbound_response.has_error &&
+  if (expect(rc == GZC_OK && response_frames == 21 && saw_response_delimiter &&
+                 saw_response_eos &&
+                 download_bytes == (size_t)speed_request.down_content_length &&
+                 !inbound_response.has_error &&
                  inbound_response.id.len == oversized_id_len &&
                  memcmp(inbound_response.id.data, oversized_id, oversized_id_len) == 0,
-             "continued inbound speed response envelope body and eos") != 0) {
+             "continued inbound speed response batches body frames and eos") != 0) {
     return 1;
   }
   if (expect(fake_webrtc.close_count == close_count_before_speed + 1 &&
