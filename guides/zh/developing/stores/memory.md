@@ -10,6 +10,10 @@
 result, err := store.Observe(ctx, memory.Observation{
 	Scope: memory.Scope("player:42"),
 	Turns: turns,
+	Facts: []memory.FactCandidate{{
+		Text: "story_progress: current_beat=origin",
+		Attributes: map[string]any{"kind": "state"},
+	}},
 })
 
 recalled, err := store.Recall(ctx, memory.Query{
@@ -18,6 +22,8 @@ recalled, err := store.Recall(ctx, memory.Query{
 	Limit: 10,
 })
 ```
+
+`Text` 和 `Turns` 是待提取的原始材料；`Facts` 是上层已经结构化的候选事实。Provider 必须保持候选事实的文本与其支持的 attributes，无法直接写入时返回 `ErrUnsupported`，不能把候选事实静默送回模型二次提取。Flowcraft adapter 支持直接写入，并把 `kind`、`subject`、`predicate`、`object` 和 `entities` 映射到 native fact 字段。
 
 `Update` 和 `Delete` 只接收 store 返回的不透明 fact ID，以及可选的不透明 revision。`Wait` 只接收不透明 operation ID。基于 ID 的操作不再要求上层重复传 scope；适配器把再次路由所需的信息编码在 locator 内。
 

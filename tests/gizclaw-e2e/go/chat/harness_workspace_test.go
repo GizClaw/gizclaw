@@ -960,7 +960,7 @@ func TestValidateWorkspaceRuntimeReloadsDifferentWorkspace(t *testing.T) {
 }
 
 func TestValidateWorkspaceRuntimeAllowsDisabledMemory(t *testing.T) {
-	workspace := "flowcraft-func-chat"
+	workspace := "flowcraft-memory-disabled"
 	control := &fakeRunControl{
 		workspaceStates: []*rpcapi.ServerGetRunWorkspaceResponse{
 			{RuntimeState: rpcapi.PeerRunStatusStateRunning, WorkspaceName: workspace},

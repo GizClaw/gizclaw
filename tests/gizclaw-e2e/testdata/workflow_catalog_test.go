@@ -22,16 +22,12 @@ var workflowFixtureFiles = []string{
 	"04-doubao-realtime.yaml",
 	"05-flowcraft-basic.yaml",
 	"06-flowcraft-chat.yaml",
-	"07-flowcraft-func-chat.yaml",
 	"08-flowcraft-journey.yaml",
-	"09-flowcraft-match-route.yaml",
 	"10-flowcraft-multi-role-storyteller.yaml",
 	"11-flowcraft-murder-mystery.yaml",
 	"12-flowcraft-poetry-adventure-li-bai.yaml",
 	"13-flowcraft-werewolf.yaml",
 	"14-ast-translate-zh-en.yaml",
-	"20-flowcraft-assistant.yaml",
-	"21-flowcraft-support.yaml",
 	"22-chatroom-direct.yaml",
 	"23-pet-care.yaml",
 	"30-family-circle-chatroom.yaml",
@@ -69,7 +65,7 @@ func TestWorkflowCatalogFixtures(t *testing.T) {
 	}
 }
 
-func TestWerewolfLifecycleToolNodesAreInternal(t *testing.T) {
+func TestWerewolfLifecycleToolNodesAreRemoved(t *testing.T) {
 	var resource struct {
 		Spec struct {
 			Flowcraft struct {
@@ -78,6 +74,12 @@ func TestWerewolfLifecycleToolNodesAreInternal(t *testing.T) {
 						Nodes []workflowNodePublication `yaml:"nodes"`
 					} `yaml:"graph"`
 				} `yaml:"agent"`
+				Memory struct {
+					Extract struct {
+						Enabled bool   `yaml:"enabled"`
+						Model   string `yaml:"model"`
+					} `yaml:"extract"`
+				} `yaml:"memory"`
 			} `yaml:"flowcraft"`
 		} `yaml:"spec"`
 	}
@@ -88,7 +90,10 @@ func TestWerewolfLifecycleToolNodesAreInternal(t *testing.T) {
 	if err := yaml.Unmarshal(resourceRaw, &resource); err != nil {
 		t.Fatal(err)
 	}
-	assertWerewolfLifecycleNodesInternal(t, "resource", resource.Spec.Flowcraft.Agent.Graph.Nodes)
+	assertWerewolfLifecycleNodesRemoved(t, "resource", resource.Spec.Flowcraft.Agent.Graph.Nodes)
+	if !resource.Spec.Flowcraft.Memory.Extract.Enabled || resource.Spec.Flowcraft.Memory.Extract.Model != "llm" {
+		t.Fatalf("resource extraction = enabled %v model %q, want enabled with runtime alias llm", resource.Spec.Flowcraft.Memory.Extract.Enabled, resource.Spec.Flowcraft.Memory.Extract.Model)
+	}
 
 	var workspace struct {
 		Workflow struct {
@@ -98,6 +103,12 @@ func TestWerewolfLifecycleToolNodesAreInternal(t *testing.T) {
 						Nodes []workflowNodePublication `json:"nodes"`
 					} `json:"graph"`
 				} `json:"agent"`
+				Memory struct {
+					Extract struct {
+						Enabled bool   `json:"enabled"`
+						Model   string `json:"model"`
+					} `json:"extract"`
+				} `json:"memory"`
 			} `json:"flowcraft"`
 		} `json:"workflow"`
 	}
@@ -108,23 +119,18 @@ func TestWerewolfLifecycleToolNodesAreInternal(t *testing.T) {
 	if err := json.Unmarshal(workspaceRaw, &workspace); err != nil {
 		t.Fatal(err)
 	}
-	assertWerewolfLifecycleNodesInternal(t, "workspace", workspace.Workflow.Flowcraft.Agent.Graph.Nodes)
+	assertWerewolfLifecycleNodesRemoved(t, "workspace", workspace.Workflow.Flowcraft.Agent.Graph.Nodes)
+	if !workspace.Workflow.Flowcraft.Memory.Extract.Enabled || workspace.Workflow.Flowcraft.Memory.Extract.Model != "llm" {
+		t.Fatalf("workspace extraction = enabled %v model %q, want enabled with runtime alias llm", workspace.Workflow.Flowcraft.Memory.Extract.Enabled, workspace.Workflow.Flowcraft.Memory.Extract.Model)
+	}
 }
 
-func assertWerewolfLifecycleNodesInternal(t *testing.T, source string, nodes []workflowNodePublication) {
+func assertWerewolfLifecycleNodesRemoved(t *testing.T, source string, nodes []workflowNodePublication) {
 	t.Helper()
-	want := map[string]bool{"call_game_event": false, "call_game_over_event": false}
 	for _, node := range nodes {
-		if _, ok := want[node.ID]; !ok {
-			continue
+		if node.ID == "call_game_event" || node.ID == "call_game_over_event" {
+			t.Fatalf("%s retains unsupported ToolCall node %q", source, node.ID)
 		}
-		if node.Publish == nil || *node.Publish {
-			t.Fatalf("%s node %s publish = %v, want explicit false", source, node.ID, node.Publish)
-		}
-		delete(want, node.ID)
-	}
-	if len(want) != 0 {
-		t.Fatalf("%s missing lifecycle nodes: %v", source, want)
 	}
 }
 

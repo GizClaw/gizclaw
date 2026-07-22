@@ -23,15 +23,15 @@ func TestAdminAPIWorkflowsListGetPaginationAndMutation(t *testing.T) {
 		}
 		return resp.JSON200.Items, resp.JSON200.HasNext, resp.JSON200.NextCursor
 	})
-	requireName(t, all, "flowcraft-support", func(item apitypes.Workflow) string { return item.Name })
+	requireName(t, all, "flowcraft-chat-assistant", func(item apitypes.Workflow) string { return item.Name })
 	requirePrefixCount(t, all, "flowcraft-scenario-", 100, func(item apitypes.Workflow) string { return item.Name })
 
-	get, err := env.api.GetWorkflowWithResponse(env.ctx, "flowcraft-support")
+	get, err := env.api.GetWorkflowWithResponse(env.ctx, "flowcraft-chat-assistant")
 	if err != nil {
 		t.Fatalf("get workflow: %v", err)
 	}
 	requireStatusOK(t, get, get.Body)
-	if get.JSON200 == nil || get.JSON200.Name != "flowcraft-support" || get.JSON200.Spec.Driver != apitypes.WorkflowDriverFlowcraft {
+	if get.JSON200 == nil || get.JSON200.Name != "flowcraft-chat-assistant" || get.JSON200.Spec.Driver != apitypes.WorkflowDriverFlowcraft {
 		t.Fatalf("get workflow = %#v", get.JSON200)
 	}
 
@@ -39,7 +39,7 @@ func TestAdminAPIWorkflowsListGetPaginationAndMutation(t *testing.T) {
 	_, _ = env.api.DeleteWorkflowWithResponse(env.ctx, name)
 	created, err := env.api.CreateWorkflowWithResponse(env.ctx, apitypes.Workflow{
 		Name: name,
-		Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverFlowcraft, Flowcraft: &apitypes.FlowcraftWorkflowSpec{}},
+		Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverFlowcraft, Flowcraft: testFlowcraftWorkflowSpec()},
 	})
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)
@@ -57,7 +57,7 @@ func TestAdminAPIWorkflowsListGetPaginationAndMutation(t *testing.T) {
 
 func TestAdminAPIWorkflowHasExecutionDefinitionOnly(t *testing.T) {
 	env := newAdminAPIHarness(t)
-	const name = "flowcraft-support"
+	const name = "flowcraft-chat-assistant"
 	workflow, err := env.api.GetWorkflowWithResponse(env.ctx, name)
 	if err != nil {
 		t.Fatalf("get workflow: %v", err)

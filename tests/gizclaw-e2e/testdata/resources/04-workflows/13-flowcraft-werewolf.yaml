@@ -46,9 +46,6 @@ spec:
           to: host_witch_action
         - from: host_witch_action
           to: resolve_night
-        - condition: werewolf_pending_tool_event != ""
-          from: resolve_night
-          to: call_game_event
         - condition: werewolf_pending_tool_event == ""
           from: resolve_night
           to: write_game_audit
@@ -75,22 +72,11 @@ spec:
           to: host_vote_result
         - from: vote_retry
           to: __end__
-        - condition: werewolf_pending_tool_event == "game_over"
-          from: host_vote_result
-          to: call_game_over_event
         - condition: werewolf_phase == "night_open"
           from: host_vote_result
           to: host_night_begin
-        - condition: werewolf_pending_tool_event != "" && werewolf_pending_tool_event
-            != "game_over" && werewolf_phase != "night_open"
-          from: host_vote_result
-          to: call_game_event
         - condition: werewolf_pending_tool_event == "" && werewolf_phase != "night_open"
           from: host_vote_result
-          to: write_game_audit
-        - from: call_game_event
-          to: write_game_audit
-        - from: call_game_over_event
           to: write_game_audit
         - condition: werewolf_phase == "day_open"
           from: write_game_audit
@@ -100,9 +86,6 @@ spec:
           to: __end__
         - from: prepare_user_speech
           to: user_speech_prompt
-        - condition: werewolf_pending_tool_event != ""
-          from: user_speech_prompt
-          to: call_game_event
         - condition: werewolf_pending_tool_event == ""
           from: user_speech_prompt
           to: __end__
@@ -122,27 +105,27 @@ spec:
           to: post_game_host_wrap
         - from: post_game_host_wrap
           to: __end__
-        - from: validate_user_speech
+        - condition: speech_valid == "true"
+          from: validate_user_speech
           to: select_npc_tail_speaker
-          condition: speech_valid == "true"
-        - from: select_npc_tail_speaker
+        - condition: werewolf_npc_tail_speaker == "4"
+          from: select_npc_tail_speaker
           to: seat_4_xiaoman_speak
-          condition: werewolf_npc_tail_speaker == "4"
-        - from: select_npc_tail_speaker
+        - condition: werewolf_npc_tail_speaker == "5"
+          from: select_npc_tail_speaker
           to: seat_5_zhoulan_speak
-          condition: werewolf_npc_tail_speaker == "5"
-        - from: select_npc_tail_speaker
+        - condition: werewolf_npc_tail_speaker == "6"
+          from: select_npc_tail_speaker
           to: seat_6_chen_doctor_speak
-          condition: werewolf_npc_tail_speaker == "6"
-        - from: select_npc_tail_speaker
+        - condition: werewolf_npc_tail_speaker == "7"
+          from: select_npc_tail_speaker
           to: seat_7_laozhao_speak
-          condition: werewolf_npc_tail_speaker == "7"
-        - from: select_npc_tail_speaker
+        - condition: werewolf_npc_tail_speaker == "8"
+          from: select_npc_tail_speaker
           to: seat_8_suhe_speak
-          condition: werewolf_npc_tail_speaker == "8"
-        - from: select_npc_tail_speaker
+        - condition: werewolf_npc_tail_speaker == ""
+          from: select_npc_tail_speaker
           to: prepare_vote_phase
-          condition: werewolf_npc_tail_speaker == ""
         - from: seat_4_xiaoman_speak
           to: select_npc_tail_speaker
         - from: seat_5_zhoulan_speak
@@ -155,19 +138,32 @@ spec:
           to: select_npc_tail_speaker
         - from: host_day_announce
           to: select_day_open_speaker
-        - from: select_day_open_speaker
+        - condition: werewolf_day_open_speaker == "1"
+          from: select_day_open_speaker
           to: seat_1_lin_zhi_speak
-          condition: werewolf_day_open_speaker == "1"
-        - from: select_day_open_speaker
+        - condition: werewolf_day_open_speaker == "2"
+          from: select_day_open_speaker
           to: seat_2_ache_speak
-          condition: werewolf_day_open_speaker == "2"
-        - from: select_day_open_speaker
+        - condition: werewolf_day_open_speaker == ""
+          from: select_day_open_speaker
           to: prepare_user_speech
-          condition: werewolf_day_open_speaker == ""
         - from: seat_1_lin_zhi_speak
           to: select_day_open_speaker
         - from: seat_2_ache_speak
           to: select_day_open_speaker
+        - condition: werewolf_pending_tool_event != ""
+          from: resolve_night
+          to: write_game_audit
+        - condition: werewolf_pending_tool_event != "" && werewolf_pending_tool_event
+            != "game_over" && werewolf_phase != "night_open"
+          from: host_vote_result
+          to: write_game_audit
+        - condition: werewolf_pending_tool_event != ""
+          from: user_speech_prompt
+          to: write_game_audit
+        - condition: werewolf_pending_tool_event == "game_over"
+          from: host_vote_result
+          to: write_game_audit
         entry: load_game_state
         name: werewolf
         nodes:
@@ -1068,7 +1064,7 @@ spec:
           type: script
         - config:
             max_tokens: 64
-            model: extract_model
+            model: llm
             output_key: werewolf_move_text
             system_prompt: |
               You classify the latest user turn for a Werewolf game.
@@ -1294,7 +1290,7 @@ spec:
         - config:
             max_tokens: 64
             messages_channel: seat_4_channel
-            model: extract_model
+            model: llm
             output_key: tmp_speech_text
             system_prompt: |
               根据 messages_channel 中的公开角色视图、当前公开焦点、公开记忆和近期历史，扮演4号小满，用第一人称短话回应3号刚才的发言。
@@ -1305,7 +1301,7 @@ spec:
         - config:
             max_tokens: 64
             messages_channel: seat_5_channel
-            model: extract_model
+            model: llm
             system_prompt: |
               根据 messages_channel 中的公开角色视图、当前公开焦点、公开记忆和近期历史，扮演5号周岚，用第一人称短话回应票型、报验节奏和3号刚才的发言。
               只能自称5号周岚，禁止自称3号、用户或其他座位，禁止替其他玩家发言。
@@ -1315,7 +1311,7 @@ spec:
         - config:
             max_tokens: 64
             messages_channel: seat_6_channel
-            model: extract_model
+            model: llm
             system_prompt: |
               根据 messages_channel 中的公开角色视图、当前公开焦点、公开记忆和近期历史，扮演6号陈医生，用第一人称短话给出谨慎分析和投票倾向。
               只能自称6号陈医生，禁止自称3号、用户或其他座位，禁止替其他玩家发言。
@@ -1325,7 +1321,7 @@ spec:
         - config:
             max_tokens: 64
             messages_channel: seat_7_channel
-            model: extract_model
+            model: llm
             system_prompt: |
               根据 messages_channel 中的公开角色视图、当前公开焦点、公开记忆和近期历史，扮演7号老赵，用第一人称短话强势推动当前最清晰的投票方向。
               只能自称7号老赵，禁止自称3号、用户或其他座位，禁止替其他玩家发言。
@@ -1335,7 +1331,7 @@ spec:
         - config:
             max_tokens: 64
             messages_channel: seat_8_channel
-            model: extract_model
+            model: llm
             system_prompt: |
               根据 messages_channel 中的公开角色视图、当前公开焦点、公开记忆和近期历史，扮演8号苏禾，用第一人称短话发言。
               只能自称8号苏禾，禁止自称3号、用户或其他座位，禁止替其他玩家发言。
@@ -1889,38 +1885,6 @@ spec:
           publish: true
           type: script
         - config:
-            max_tokens: 64
-            messages_channel: werewolf_tool_channel
-            model: extract_model
-            system_prompt: |
-              You are a Werewolf lifecycle node. Call werewolf_game_event exactly once and output no text.
-
-              Use these values exactly. Do not infer, rename, translate, or summarize them.
-              - event_type: "${board.werewolf_pending_tool_event}"
-              - phase: "${board.werewolf_phase}"
-              - detail: "${board.werewolf_pending_tool_detail}"
-            tool_names:
-            - werewolf_game_event
-          id: call_game_event
-          publish: false
-          type: llm
-        - config:
-            max_tokens: 64
-            messages_channel: werewolf_tool_channel
-            model: extract_model
-            system_prompt: |
-              You are a Werewolf lifecycle node. Call werewolf_game_event exactly once and output no text.
-
-              Use these exact values:
-              - event_type: "game_over"
-              - phase: "ended"
-              - detail: "game_over_state_updated"
-            tool_names:
-            - werewolf_game_event
-          id: call_game_over_event
-          publish: false
-          type: llm
-        - config:
             source: |
               const state = board.getVar("werewolf_game_state") || {};
               const pendingEvent = state.pending_tool_event || "none";
@@ -2211,9 +2175,7 @@ spec:
           id: post_game_host_wrap
           publish: true
           type: script
-        - id: select_day_open_speaker
-          type: script
-          config:
+        - config:
             source: |
               const state = board.getVar("werewolf_game_state") || {};
               const day = Number(state.day || 0);
@@ -2235,9 +2197,9 @@ spec:
               progress.spoken = spoken;
               board.setVar("werewolf_day_open_progress", progress);
               board.setVar("werewolf_day_open_speaker", next);
-        - id: select_npc_tail_speaker
+          id: select_day_open_speaker
           type: script
-          config:
+        - config:
             source: |
               const state = board.getVar("werewolf_game_state") || {};
               const day = Number(state.day || 0);
@@ -2259,41 +2221,20 @@ spec:
               progress.spoken = spoken;
               board.setVar("werewolf_npc_tail_progress", progress);
               board.setVar("werewolf_npc_tail_speaker", next);
+          id: select_npc_tail_speaker
+          type: script
       id: werewolf-host
       max_iterations: 36
       name: Werewolf Host
-      tools:
-      - description: Emit a lifecycle event when Werewolf game state changes.
-        input_schema:
-          properties:
-            detail:
-              description: Internal lifecycle detail. Do not use it for public narration.
-              type: string
-            event_type:
-              description: setup, night_resolve, game_over, or continue.
-              type: string
-            phase:
-              description: Current phase after the event.
-              type: string
-          required:
-          - event_type
-          - phase
-          - detail
-          type: object
-        name: werewolf_game_event
     conversation:
-      context_id: flowcraft-werewolf-game
-      starts: self
-    history:
-      enabled: true
-      kind: buffer
-      max_messages: 20
+      starts: agent
     memory:
       embedding:
         enabled: false
       enabled: true
       extract:
         enabled: true
+        model: llm
       layout:
         lanes:
         - description: Audit mirror for phase, day, alive seats, and winner.
@@ -2390,10 +2331,6 @@ spec:
               item_prefix: "- "
               max_items: 3
             top_k: 3
-      scope:
-        agent_id: werewolf-host
-        runtime_id: werewolf
-        user_id: local
       write:
         board_facts:
         - board_var: tmp_game_progress_line
@@ -2454,42 +2391,33 @@ spec:
         mode: sync
         save_conversation: true
         tier: general
-    settings:
-      extract_model: extract_model
-      generate_model: generate_model
-    workspace:
-      history_root: history
-      memory_root: memory
-      state_root: state
     voice_adapter:
-      asr_model: volc-bigasr-sauc
-      default_voice: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
+      asr_model: asr
+      default_voice: narrator
       node_voices:
-        call_game_event: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
-        call_game_over_event: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
-        host_day_announce: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
-        host_night_begin: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
-        host_opening: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
-        host_seer_action: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
-        host_vote_prompt: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
-        host_vote_result: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
-        host_werewolf_action: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
-        host_witch_action: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
-        post_game_host_wrap: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
-        post_game_seat_1_free_chat: volc-tenant:volc-main:ICL_zh_female_bingjiao3_tob
-        post_game_seat_2_free_chat: volc-tenant:volc-main:zh_male_sunwukong_mars_bigtts
-        post_game_seat_4_free_chat: volc-tenant:volc-main:zh_male_tangseng_mars_bigtts
-        post_game_seat_5_free_chat: volc-tenant:volc-main:zh_male_zhubajie_mars_bigtts
-        post_game_seat_6_free_chat: volc-tenant:volc-main:zh_male_sunwukong_mars_bigtts
-        post_game_seat_7_free_chat: volc-tenant:volc-main:zh_male_tangseng_mars_bigtts
-        post_game_seat_8_free_chat: volc-tenant:volc-main:ICL_zh_female_bingjiao3_tob
-        seat_1_lin_zhi_speak: volc-tenant:volc-main:ICL_zh_female_bingjiao3_tob
-        seat_2_ache_speak: volc-tenant:volc-main:zh_male_sunwukong_mars_bigtts
-        seat_4_xiaoman_speak: volc-tenant:volc-main:zh_male_tangseng_mars_bigtts
-        seat_5_zhoulan_speak: volc-tenant:volc-main:zh_male_zhubajie_mars_bigtts
-        seat_6_chen_doctor_speak: volc-tenant:volc-main:zh_male_sunwukong_mars_bigtts
-        seat_7_laozhao_speak: volc-tenant:volc-main:zh_male_tangseng_mars_bigtts
-        seat_8_suhe_speak: volc-tenant:volc-main:ICL_zh_female_bingjiao3_tob
-        user_speech_prompt: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
-        user_speech_retry: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
-        vote_retry: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
+        host_day_announce: narrator
+        host_night_begin: narrator
+        host_opening: narrator
+        host_seer_action: narrator
+        host_vote_prompt: narrator
+        host_vote_result: narrator
+        host_werewolf_action: narrator
+        host_witch_action: narrator
+        post_game_host_wrap: narrator
+        post_game_seat_1_free_chat: monster
+        post_game_seat_2_free_chat: sun-wukong
+        post_game_seat_4_free_chat: tang-sanzang
+        post_game_seat_5_free_chat: zhu-bajie
+        post_game_seat_6_free_chat: sun-wukong
+        post_game_seat_7_free_chat: tang-sanzang
+        post_game_seat_8_free_chat: monster
+        seat_1_lin_zhi_speak: monster
+        seat_2_ache_speak: sun-wukong
+        seat_4_xiaoman_speak: tang-sanzang
+        seat_5_zhoulan_speak: zhu-bajie
+        seat_6_chen_doctor_speak: sun-wukong
+        seat_7_laozhao_speak: tang-sanzang
+        seat_8_suhe_speak: monster
+        user_speech_prompt: narrator
+        user_speech_retry: narrator
+        vote_retry: narrator

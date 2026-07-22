@@ -49,13 +49,15 @@ Owns workflow definition, driver selection, and workflow resource persistence. `
 
 Workflow describes how to run an Agent, but does not own the online state and stream lifecycle of the Agent instance.
 
-#### Flowcraft history
+#### Flowcraft composition boundary
 
-The Server optionally resolves the reserved named log store `flowcraft-history` and injects it into both normal and pet Flowcraft agents. The store must implement `logstore.MutableStore`; configuring an immutable driver such as Volc TLS is a startup error. Without that named store, Flowcraft keeps its existing workspace JSONL history. Existing JSONL files are not migrated, and a configured store error is returned to the caller instead of falling back to the file.
+The Flowcraft workflow factory only composes typed Workflow configuration with the Workspace owner's RuntimeProfile aliases, LogStore, KV Store, ObjectStore, and Audio Dock into the generic Flowcraft Transformer. It does not construct Claw, a local Flowcraft Workspace, `config.yaml`, or BBH.
 
-The adapter stores one `Stream=flowcraft-history`, `Kind=message` record per message. Indexed attributes contain `workspace_name`, `conversation_id`, and `schema_version`; the complete Flowcraft message, including tool calls, tool results, and data-reference metadata, stays in the JSON payload. Reads use the LogStore query cursor directly. Save replaces existing message records, deletes surplus records, and appends new records; it creates no snapshot, tombstone, operation log, or separate page index.
+History uses the AgentHost-injected `logstore.MutableStore`; State uses a Workspace/Agent-prefixed `kv.Store`. When long-term Memory is enabled, the factory constructs `memoryflowcraft.Store` with an ObjectStore-backed Flowcraft persistence interface. Workflows configure extraction, recall, and write policy, not physical Stores. Releasing the final Workspace Agent reference closes only per-Agent adapters, never Server-owned backing Stores or durable data.
 
-This is Flowcraft runtime history only. Workspace `HistoryStore` remains a separate resource boundary, and audio objects continue to use object storage.
+The public `FlowcraftWorkflowSpec` requires an explicit `agent.graph` with at least one node and an `entry` that names a defined node. Supported nodes are `llm`, inline `script`, and `passthrough`; `publish: true` selects the node output exposed through the GenX Stream. Graph, Memory extraction/rerank/embedding, ASR, and voice fields directly reference aliases exposed by the Workspace owner's RuntimeProfile.
+
+Workflow configuration retains `conversation`, Graph, Memory policy, and `voice_adapter`. It does not accept local directories, History drivers, Memory scope/retrieval backends, `settings`/`models` indirection, a parallel switch, implicit single-model Agents, or Tool configuration. The factory derives a compact deterministic Owner/Workspace/Agent scope; hashing each identity keeps Flowcraft retrieval and ObjectStore keys within filesystem limits without weakening isolation. Reload releases only the caller's reference; while another reference remains, the live Agent is reused. A new Agent reads current construction-time configuration only after the reference count reaches zero and a later acquire reconstructs it.
 
 ### [workspace](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/workspace)
 

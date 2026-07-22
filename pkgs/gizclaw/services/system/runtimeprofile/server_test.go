@@ -307,21 +307,15 @@ func TestValidateFlowcraftRuntimeAliasesRejectsWrongModelKindAndMissingVoice(t *
 		"generate-model": {Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindEmbedding}},
 	}
 	workflow := apitypes.WorkflowSpec{
-		Driver: apitypes.WorkflowDriverFlowcraft,
-		Flowcraft: &apitypes.FlowcraftWorkflowSpec{
-			"settings":      map[string]any{"generate_model": "generate-model"},
-			"voice_adapter": map[string]any{"default_voice": "narrator"},
-		},
+		Driver:    apitypes.WorkflowDriverFlowcraft,
+		Flowcraft: runtimeProfileTestFlowcraftSpec(t, "generate-model", "narrator"),
 	}
 	if err := validateWorkflowRuntimeAliases("workflows.collections.raids.demo", workflow, models, &voices); err == nil || !strings.Contains(err.Error(), "want \"llm\"") {
 		t.Fatalf("validateWorkflowRuntimeAliases(wrong model kind) error = %v", err)
 	}
 
 	models["generate-model"] = apitypes.ModelResource{Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindLlm}}
-	workflow.Flowcraft = &apitypes.FlowcraftWorkflowSpec{
-		"settings":      map[string]any{"generate_model": "generate-model"},
-		"voice_adapter": map[string]any{"default_voice": "missing-voice"},
-	}
+	workflow.Flowcraft = runtimeProfileTestFlowcraftSpec(t, "generate-model", "missing-voice")
 	if err := validateWorkflowRuntimeAliases("workflows.collections.raids.demo", workflow, models, &voices); err == nil || !strings.Contains(err.Error(), "not declared in resources.voices") {
 		t.Fatalf("validateWorkflowRuntimeAliases(missing voice) error = %v", err)
 	}
@@ -571,4 +565,25 @@ func runtimeProfileTestBinding(resourceID string) apitypes.RuntimeProfileBinding
 	return apitypes.RuntimeProfileBinding{ResourceId: resourceID, I18n: map[string]apitypes.RuntimeProfileI18nText{
 		"en": {DisplayName: "Test"}, "zh-CN": {DisplayName: "测试"},
 	}}
+}
+
+func runtimeProfileTestFlowcraftSpec(t *testing.T, modelAlias, voiceAlias string) *apitypes.FlowcraftWorkflowSpec {
+	t.Helper()
+	publish := true
+	var node apitypes.FlowcraftNode
+	if err := node.FromFlowcraftLLMNode(apitypes.FlowcraftLLMNode{
+		Id:      "answer",
+		Type:    apitypes.FlowcraftLLMNodeTypeLlm,
+		Publish: &publish,
+		Config:  apitypes.FlowcraftLLMNodeConfig{Model: modelAlias},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	return &apitypes.FlowcraftWorkflowSpec{
+		Agent: apitypes.FlowcraftAgent{
+			Id: "assistant", Name: "Assistant",
+			Graph: apitypes.FlowcraftGraph{Name: "Assistant", Entry: "answer", Nodes: []apitypes.FlowcraftNode{node}},
+		},
+		VoiceAdapter: &apitypes.FlowcraftVoiceAdapter{DefaultVoice: &voiceAlias},
+	}
 }

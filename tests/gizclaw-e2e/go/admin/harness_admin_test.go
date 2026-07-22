@@ -201,13 +201,35 @@ func flowcraftWorkspaceParameters(t *testing.T, input apitypes.WorkspaceInputMod
 	t.Helper()
 	var params apitypes.WorkspaceParameters
 	if err := params.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{
-		AgentType:     apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
-		GenerateModel: ptr("fake-openai-chat-000"),
-		Input:         &input,
+		AgentType: apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
+		Input:     &input,
 	}); err != nil {
 		t.Fatalf("build Flowcraft workspace parameters: %v", err)
 	}
 	return &params
+}
+
+func testFlowcraftWorkflowSpec() *apitypes.FlowcraftWorkflowSpec {
+	var node apitypes.FlowcraftNode
+	if err := node.FromFlowcraftLLMNode(apitypes.FlowcraftLLMNode{
+		Id:      "answer",
+		Type:    apitypes.FlowcraftLLMNodeTypeLlm,
+		Publish: ptr(true),
+		Config: apitypes.FlowcraftLLMNodeConfig{
+			Model: "llm",
+		},
+	}); err != nil {
+		panic(err)
+	}
+	return &apitypes.FlowcraftWorkflowSpec{Agent: apitypes.FlowcraftAgent{
+		Id:   "assistant",
+		Name: "Assistant",
+		Graph: apitypes.FlowcraftGraph{
+			Name:  "Assistant",
+			Entry: "answer",
+			Nodes: []apitypes.FlowcraftNode{node},
+		},
+	}}
 }
 
 func mutationName(base string) string {

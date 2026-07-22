@@ -117,6 +117,21 @@ func TestStoreSelfHostedUsesSharedScopeMapping(t *testing.T) {
 	}
 }
 
+func TestStoreRejectsDirectFactCandidates(t *testing.T) {
+	t.Parallel()
+	store, err := New(Config{Endpoint: "https://example.test", APIKey: "secret", Flavor: Platform})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = store.Observe(context.Background(), Observation{
+		Scope: "scope",
+		Facts: []FactCandidate{{Text: "structured fact"}},
+	})
+	if !errors.Is(err, ErrUnsupported) {
+		t.Fatalf("Observe() error = %v, want ErrUnsupported", err)
+	}
+}
+
 func TestStoreRejectsNativeRoutingFilters(t *testing.T) {
 	t.Parallel()
 	store, err := New(Config{Endpoint: "https://example.test", APIKey: "secret", Flavor: Platform})

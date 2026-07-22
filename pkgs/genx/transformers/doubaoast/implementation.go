@@ -17,7 +17,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
-	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/internal/streamkit"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/streamkit"
 )
 
 const (

@@ -25,6 +25,7 @@ type conversationHistory struct {
 	store     logstore.MutableStore
 	agentID   string
 	contextID string
+	scope     string
 
 	mu       sync.Mutex
 	live     []flowmodel.Message
@@ -46,6 +47,7 @@ func (h *conversationHistory) load(ctx context.Context) ([]flowmodel.Message, er
 		Matchers: []logstore.AttributeMatcher{
 			{Name: "agent_id", Op: logstore.MatchEqual, Value: h.agentID},
 			{Name: "context_id", Op: logstore.MatchEqual, Value: h.contextID},
+			{Name: "scope", Op: logstore.MatchEqual, Value: h.scope},
 		},
 		Start: time.Unix(0, 0).UTC(), End: time.Date(2262, 1, 1, 0, 0, 0, 0, time.UTC),
 		Limit: logstore.MaxLimit, Order: logstore.OrderDesc,
@@ -123,7 +125,7 @@ func (h *conversationHistory) append(ctx context.Context, messages []flowmodel.M
 			return fmt.Errorf("flowcraft: encode History: %w", err)
 		}
 		recordTime := now.Add(time.Duration(index))
-		attributes := map[string]string{"agent_id": h.agentID, "context_id": h.contextID, "schema_version": "1"}
+		attributes := map[string]string{"agent_id": h.agentID, "context_id": h.contextID, "scope": h.scope, "schema_version": "1"}
 		if interrupted && message.Role == flowmodel.RoleAssistant {
 			attributes["interrupted"] = "true"
 		}

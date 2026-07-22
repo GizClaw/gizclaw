@@ -28,18 +28,16 @@ spec:
           to: prepare_game_master_messages
         - from: prepare_game_master_messages
           to: generate_game_master
-        - condition: case_status == "solved"
-          from: generate_game_master
-          to: call_case_solved
         - condition: case_status != "solved"
           from: generate_game_master
-          to: write_case_audit
-        - from: call_case_solved
           to: write_case_audit
         - from: write_case_audit
           to: __end__
         - from: solved_chat
           to: __end__
+        - condition: case_status == "solved"
+          from: generate_game_master
+          to: write_case_audit
         entry: load_case_state
         name: murder-mystery
         nodes:
@@ -68,7 +66,7 @@ spec:
           type: script
         - config:
             max_tokens: 64
-            model: generate_model
+            model: chat
             output_key: case_action_text
             system_prompt: |
               You classify the latest user turn for a murder mystery game.
@@ -296,7 +294,7 @@ spec:
         - config:
             max_tokens: 64
             messages_channel: case_game_master_channel
-            model: generate_model
+            model: chat
             system_prompt: |
               你是中文剧本杀《雨夜留声机》的主持人。玩家是侦探，正在沈家大宅调查沈鹤年的密室死亡。
 
@@ -352,26 +350,6 @@ spec:
           publish: true
           type: llm
         - config:
-            max_tokens: 64
-            messages_channel: case_game_master_channel
-            model: generate_model
-            system_prompt: |
-              You are a case lifecycle node.
-
-              The murder mystery is solved. Do not write any user-facing text.
-              Call case_solved exactly once with:
-              - case_id: "rainy_gramophone"
-              - culprit: "沈知秋"
-              - status: "solved"
-
-              Current state:
-              ${board.case_progress_state_text}
-            tool_names:
-            - case_solved
-          id: call_case_solved
-          publish: true
-          type: llm
-        - config:
             source: |
               const state = board.getVar("case_progress_state") || {};
               const phase = state.phase || "investigation";
@@ -392,7 +370,7 @@ spec:
           type: script
         - config:
             max_tokens: 64
-            model: generate_model
+            model: chat
             system_prompt: |
               案件《雨夜留声机》已经破案。
 
@@ -413,33 +391,8 @@ spec:
       id: murder-mystery-gm
       max_iterations: 10
       name: Murder Mystery GM
-      tools:
-      - description: Emit a lifecycle event when the player solves the murder mystery
-          case.
-        input_schema:
-          properties:
-            case_id:
-              description: Stable case identifier.
-              type: string
-            culprit:
-              description: Culprit identified by the player.
-              type: string
-            status:
-              description: Final case status.
-              type: string
-          required:
-          - case_id
-          - culprit
-          - status
-          type: object
-        name: case_solved
     conversation:
-      context_id: flowcraft-murder-mystery
-      starts: self
-    history:
-      enabled: true
-      kind: buffer
-      max_messages: 20
+      starts: agent
     memory:
       embedding:
         enabled: false
@@ -460,10 +413,6 @@ spec:
           recall: Audit only. Runtime routing uses workspace case_progress_state.
       recall:
         enabled: false
-      scope:
-        agent_id: murder-mystery-gm
-        runtime_id: murder-mystery
-        user_id: local
       write:
         board_facts:
         - board_var: tmp_case_state_line
@@ -479,16 +428,9 @@ spec:
         mode: sync
         save_conversation: true
         tier: general
-    settings:
-      generate_model: chat
-    workspace:
-      history_root: history
-      memory_root: memory
-      state_root: state
     voice_adapter:
       asr_model: asr
       default_voice: game-master
       node_voices:
-        call_case_solved: police-officer
         generate_game_master: game-master
         solved_chat: detective

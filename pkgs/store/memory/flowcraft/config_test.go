@@ -103,6 +103,7 @@ func TestConfigValidation(t *testing.T) {
 	for name, config := range map[string]Config{
 		"mode":            {Extraction: ExtractionConfig{Mode: "unknown"}},
 		"timeout":         {Extraction: ExtractionConfig{StageTimeout: -1}},
+		"tier":            {Tier: "unknown"},
 		"async extractor": {AsyncQueue: recall.NewInMemoryAsyncSemanticQueue()},
 	} {
 		t.Run(name, func(t *testing.T) {

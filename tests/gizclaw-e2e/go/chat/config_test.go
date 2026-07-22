@@ -148,8 +148,8 @@ func TestLoadFlowcraftConfigs(t *testing.T) {
 		t.Fatalf("glob flowcraft configs: %v", err)
 	}
 	sort.Strings(paths)
-	if len(paths) != 9 {
-		t.Fatalf("flowcraft config count = %d, want 9: %v", len(paths), paths)
+	if len(paths) != 7 {
+		t.Fatalf("flowcraft config count = %d, want 7: %v", len(paths), paths)
 	}
 	for _, path := range paths {
 		t.Run(filepath.Base(path), func(t *testing.T) {

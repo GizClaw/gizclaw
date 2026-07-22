@@ -43,7 +43,7 @@ spec:
           type: script
         - config:
             max_tokens: 512
-            model: generate_model
+            model: chat
             system_prompt: "${board.system_prompt}"
             track_steps: true
           id: answer
@@ -52,12 +52,7 @@ spec:
       id: claw
       max_iterations: 8
       name: Claw
-    conversation:
-      context_id: flowcraft-chat-assistant
-    history:
-      enabled: true
-      kind: buffer
-      max_messages: 20
+    conversation: {}
     memory:
       embedding:
         enabled: false
@@ -65,7 +60,7 @@ spec:
       extract:
         enabled: true
         mode: two_pass
-        model: extract_model
+        model: extraction
         schema_name: claw_memory_facts
         system_prompt: Extract durable user memories from the conversation.
         temperature: 0
@@ -83,29 +78,10 @@ spec:
               item_prefix: "- "
               max_items: 5
             top_k: 5
-      retrieval:
-        backend: bbh
-        bbh:
-          bleve:
-            analyzer: gojieba
-          hnsw:
-            flush_interval: 60000000000
-          search_overfetch: 50
-      scope:
-        agent_id: claw
-        runtime_id: claw
-        user_id: local
       write:
         mode: async_semantic
         save_conversation: true
         tier: general
-    settings:
-      extract_model: extraction
-      generate_model: chat
-    workspace:
-      history_root: history
-      memory_root: memory
-      state_root: state
     voice_adapter:
       asr_model: asr
       default_voice: assistant-voice

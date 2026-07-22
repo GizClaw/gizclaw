@@ -78,9 +78,6 @@ type workflowConfig struct {
 
 type workspaceParameterConfig struct {
 	Input                      string                               `json:"input,omitempty"`
-	GenerateModel              string                               `json:"generate_model,omitempty"`
-	ExtractModel               string                               `json:"extract_model,omitempty"`
-	EmbeddingModel             string                               `json:"embedding_model,omitempty"`
 	TranslationModel           string                               `json:"translation_model,omitempty"`
 	LangPair                   string                               `json:"lang_pair,omitempty"`
 	Mode                       string                               `json:"mode,omitempty"`
@@ -105,6 +102,7 @@ type voiceAdapterConfig struct {
 }
 
 type astTranslateConfig struct {
+	LangPair                   string                  `json:"lang_pair,omitempty"`
 	Mode                       string                  `json:"mode,omitempty"`
 	Voice                      astTranslateVoiceConfig `json:"voice,omitempty"`
 	SpeakerID                  string                  `json:"speaker_id,omitempty"`
@@ -272,9 +270,6 @@ func (c *config) validate() error {
 	c.Workflow.Instructions = strings.TrimSpace(c.Workflow.Instructions)
 	c.Workflow.Translation = strings.TrimSpace(c.Workflow.Translation)
 	c.Workflow.Parameters.Input = strings.TrimSpace(c.Workflow.Parameters.Input)
-	c.Workflow.Parameters.GenerateModel = strings.TrimSpace(c.Workflow.Parameters.GenerateModel)
-	c.Workflow.Parameters.ExtractModel = strings.TrimSpace(c.Workflow.Parameters.ExtractModel)
-	c.Workflow.Parameters.EmbeddingModel = strings.TrimSpace(c.Workflow.Parameters.EmbeddingModel)
 	c.Workflow.Parameters.TranslationModel = strings.TrimSpace(c.Workflow.Parameters.TranslationModel)
 	c.Workflow.Parameters.LangPair = strings.TrimSpace(c.Workflow.Parameters.LangPair)
 	c.Workflow.Parameters.Mode = strings.TrimSpace(c.Workflow.Parameters.Mode)
@@ -353,13 +348,10 @@ func (c *config) validate() error {
 	}
 	if c.isFlowcraftAgent() {
 		if c.Workflow.VoiceAdapter.ASRModel == "" {
-			c.Workflow.VoiceAdapter.ASRModel = c.Models.ASR
+			c.Workflow.VoiceAdapter.ASRModel = "asr"
 		}
 		if c.Workflow.VoiceAdapter.DefaultVoice == "" {
-			c.Workflow.VoiceAdapter.DefaultVoice = c.Voice
-		}
-		if c.Workflow.Parameters.GenerateModel == "" {
-			c.Workflow.Parameters.GenerateModel = c.Models.LLM
+			c.Workflow.VoiceAdapter.DefaultVoice = "assistant-voice"
 		}
 	}
 	if c.isASTTranslateAgent() {
@@ -453,7 +445,7 @@ func (c config) flowcraftStartsSelf() bool {
 		return false
 	}
 	starts, _ := conversation["starts"].(string)
-	return strings.EqualFold(strings.TrimSpace(starts), "self")
+	return strings.EqualFold(strings.TrimSpace(starts), "agent")
 }
 
 func (c config) workspaceMode() string {

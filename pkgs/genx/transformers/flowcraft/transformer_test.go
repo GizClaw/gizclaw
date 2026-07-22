@@ -96,7 +96,12 @@ func TestTransformStreamsTextAndResolvesModelAlias(t *testing.T) {
 			t.Fatalf("one response used StreamIDs %q and %q", streamID, chunk.Ctrl.StreamID)
 		}
 		sawBOS = sawBOS || chunk.IsBeginOfStream()
-		sawEOS = sawEOS || chunk.IsEndOfStream()
+		if chunk.IsEndOfStream() {
+			sawEOS = true
+			if chunk.Name != assistantLabel || chunk.Ctrl.Label != assistantLabel {
+				t.Fatalf("route EOS name/label = %q/%q, want %q/%q", chunk.Name, chunk.Ctrl.Label, assistantLabel, assistantLabel)
+			}
+		}
 	}
 	if streamID == "" || !sawBOS || !sawEOS {
 		t.Fatalf("stream lifecycle: id=%q BOS=%v EOS=%v", streamID, sawBOS, sawEOS)
@@ -191,6 +196,116 @@ func TestTransformerSupportsConcurrentTransformCalls(t *testing.T) {
 	close(errorsCh)
 	for err := range errorsCh {
 		t.Errorf("concurrent Transform: %v", err)
+	}
+}
+
+func TestAgentInitiativeRunsOnceAcrossTransformCalls(t *testing.T) {
+	t.Parallel()
+	generator := &echoGenerator{}
+	config := testConfig(generator)
+	config.StartAgent = true
+	transformer, err := New(config)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+
+	emptyInput := newInputBuilder()
+	if err := emptyInput.Done(genx.Usage{}); err != nil {
+		t.Fatalf("finish empty input: %v", err)
+	}
+	first, err := transformer.Transform(context.Background(), emptyInput.Stream())
+	if err != nil {
+		t.Fatalf("Transform(first) error = %v", err)
+	}
+	firstChunks := drain(t, first)
+	if got := joinedText(firstChunks); got != "reply: " {
+		t.Fatalf("first output = %q, want initiative", got)
+	}
+	initiativeID := ""
+	if len(firstChunks) > 0 && firstChunks[0].Ctrl != nil {
+		initiativeID = firstChunks[0].Ctrl.StreamID
+	}
+	if initiativeID == "" {
+		t.Fatal("initiative StreamID is empty")
+	}
+	second, err := transformer.Transform(context.Background(), textInput("hello"))
+	if err != nil {
+		t.Fatalf("Transform(second) error = %v", err)
+	}
+	secondChunks := drain(t, second)
+	if got := joinedText(secondChunks); got != "reply: hello" {
+		t.Fatalf("second output = %q, want no repeated initiative", got)
+	}
+	if len(secondChunks) == 0 || secondChunks[0].Ctrl == nil || secondChunks[0].Ctrl.StreamID == initiativeID {
+		t.Fatalf("second response reused initiative StreamID %q", initiativeID)
+	}
+	third, err := transformer.Transform(context.Background(), textInput("again"))
+	if err != nil {
+		t.Fatalf("Transform(third) error = %v", err)
+	}
+	if got := joinedText(drain(t, third)); got != "reply: again" {
+		t.Fatalf("third output = %q, want no repeated initiative", got)
+	}
+	if patterns := generator.patterns(); len(patterns) != 3 {
+		t.Fatalf("generator calls = %v, want one initiative and two peer turns", patterns)
+	}
+}
+
+func TestNewBOSInterruptsRunningInitiative(t *testing.T) {
+	t.Parallel()
+	generator := &initiativeInterruptGenerator{started: make(chan struct{})}
+	config := testConfig(generator)
+	config.StartAgent = true
+	transformer, err := New(config)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	input := newInputBuilder()
+	output, err := transformer.Transform(t.Context(), input.Stream())
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	select {
+	case <-generator.started:
+	case <-time.After(time.Second):
+		t.Fatal("initiative did not start")
+	}
+	if err := addTextTurn(input, "hello"); err != nil {
+		t.Fatalf("add replacement turn: %v", err)
+	}
+	if err := input.Done(genx.Usage{}); err != nil {
+		t.Fatalf("finish input: %v", err)
+	}
+	type result struct {
+		chunks []*genx.MessageChunk
+		err    error
+	}
+	done := make(chan result, 1)
+	go func() {
+		chunks, drainErr := drainResult(output)
+		done <- result{chunks: chunks, err: drainErr}
+	}()
+	var chunks []*genx.MessageChunk
+	select {
+	case got := <-done:
+		if got.err != nil {
+			t.Fatalf("drain output: %v", got.err)
+		}
+		chunks = got.chunks
+	case <-time.After(2 * time.Second):
+		t.Fatal("replacement BOS did not interrupt initiative")
+	}
+	if got := joinedText(chunks); got != "reply: hello" {
+		t.Fatalf("output = %q, want replacement reply", got)
+	}
+	var interrupted bool
+	for _, chunk := range chunks {
+		if chunk.IsEndOfStream() && chunk.Ctrl != nil && chunk.Ctrl.Error == "interrupted" {
+			interrupted = true
+		}
+	}
+	if !interrupted {
+		t.Fatal("initiative did not emit interrupted EOS")
 	}
 }
 
@@ -740,7 +855,7 @@ func TestInlineScriptPersistsSerializableBoardState(t *testing.T) {
 	}
 }
 
-func TestObservationBuilderReceivesFilteredBoardSnapshot(t *testing.T) {
+func TestObservationBuilderReceivesTransientBoardSnapshot(t *testing.T) {
 	store := &waitingMemoryStore{}
 	config := testConfig(&echoGenerator{})
 	config.Memory = store
@@ -748,7 +863,7 @@ func TestObservationBuilderReceivesFilteredBoardSnapshot(t *testing.T) {
 	config.ObserveEnabled = true
 	config.Graph = flowgraph.GraphDefinition{Name: "script", Entry: "script", Nodes: []flowgraph.NodeDefinition{{
 		ID: "script", Type: "script", Config: map[string]any{
-			"source": `board.setVar("kept", {"value": "yes"}); board.setVar("tmp_drop", "no");`,
+			"source": `board.setVar("kept", {"value": "yes"}); board.setVar("tmp_drop", "no"); board.setVar("tmp_unserializable", function () {});`,
 		},
 	}}}
 	config.PublishNodes = []string{"script"}
@@ -773,8 +888,11 @@ func TestObservationBuilderReceivesFilteredBoardSnapshot(t *testing.T) {
 	if _, ok := observed.BoardVariables["kept"]; !ok {
 		t.Fatalf("ObservationInput BoardVariables = %#v", observed.BoardVariables)
 	}
-	if _, ok := observed.BoardVariables["tmp_drop"]; ok {
-		t.Fatalf("transient Board variable leaked: %#v", observed.BoardVariables)
+	if got := observed.BoardVariables["tmp_drop"]; got != "no" {
+		t.Fatalf("transient Board variable = %#v, want %q", got, "no")
+	}
+	if _, ok := observed.BoardVariables["tmp_unserializable"]; ok {
+		t.Fatalf("unserializable Board variable leaked: %#v", observed.BoardVariables)
 	}
 }
 
@@ -790,6 +908,67 @@ func TestDefaultRecallRendererPreservesMatchOrder(t *testing.T) {
 	}
 	if result != "Relevant memory:\n- first\n- second" {
 		t.Fatalf("DefaultRecallRenderer() = %q", result)
+	}
+}
+
+func TestDefaultObservationBuilderOmitsEmptyInitiativeUserTurn(t *testing.T) {
+	observation, err := DefaultObservationBuilder(t.Context(), ObservationInput{
+		StreamID: "initiative", DeliveredAssistantText: "hello",
+	})
+	if err != nil {
+		t.Fatalf("DefaultObservationBuilder() error = %v", err)
+	}
+	if len(observation.Turns) != 1 || observation.Turns[0].Role != memory.RoleAssistant || observation.Turns[0].Text != "hello" {
+		t.Fatalf("observation Turns = %#v", observation.Turns)
+	}
+}
+
+func TestRecallProfileExpandsInputQueryTemplate(t *testing.T) {
+	store := &waitingMemoryStore{}
+	config := testConfig(&echoGenerator{})
+	config.Memory = store
+	config.MemoryScope = "runtime/user/agent"
+	config.RecallProfiles = []MemoryRecallProfile{{
+		BoardVariable: "memory", QueryText: "${input} durable facts", Limit: 3,
+	}}
+	agent, err := New(config)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	output, err := agent.Transform(t.Context(), textInput("blue lantern"))
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	drain(t, output)
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	if len(store.queries) != 1 || store.queries[0].Text != "blue lantern durable facts" || store.queries[0].Limit != 3 {
+		t.Fatalf("Recall queries = %#v", store.queries)
+	}
+}
+
+func TestAgentInitiativeSkipsInputRecallWhenQueryIsEmpty(t *testing.T) {
+	store := &waitingMemoryStore{}
+	config := testConfig(&echoGenerator{})
+	config.StartAgent = true
+	config.Memory = store
+	config.MemoryScope = "runtime/user/agent"
+	config.RecallProfiles = []MemoryRecallProfile{{
+		BoardVariable: "memory", QueryText: "input", Limit: 3,
+	}}
+	agent, err := New(config)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	output, err := agent.Transform(t.Context(), textInput("hello"))
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	drain(t, output)
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	if len(store.queries) != 1 || store.queries[0].Text != "hello" {
+		t.Fatalf("Recall queries = %#v, want only the non-empty peer turn", store.queries)
 	}
 }
 
@@ -931,6 +1110,11 @@ type interruptGenerator struct {
 	once    sync.Once
 }
 
+type initiativeInterruptGenerator struct {
+	started chan struct{}
+	once    sync.Once
+}
+
 type silentInterruptGenerator struct {
 	started chan struct{}
 	once    sync.Once
@@ -939,6 +1123,7 @@ type silentInterruptGenerator struct {
 type waitingMemoryStore struct {
 	mu           sync.Mutex
 	observations []memory.Observation
+	queries      []memory.Query
 	waitStarted  chan struct{}
 	release      chan struct{}
 	once         sync.Once
@@ -968,7 +1153,10 @@ func (s *waitingMemoryStore) Observe(_ context.Context, observation memory.Obser
 	return memory.ObserveResult{Operation: &memory.Operation{ID: operationID, Status: memory.OperationPending}}, nil
 }
 
-func (*waitingMemoryStore) Recall(_ context.Context, _ memory.Query) (memory.RecallResult, error) {
+func (s *waitingMemoryStore) Recall(_ context.Context, query memory.Query) (memory.RecallResult, error) {
+	s.mu.Lock()
+	s.queries = append(s.queries, query)
+	s.mu.Unlock()
 	return memory.RecallResult{}, nil
 }
 
@@ -1003,6 +1191,20 @@ func (g *interruptGenerator) GenerateStream(ctx context.Context, _ string, model
 		_ = builder.Abort(context.Cause(ctx))
 	}()
 	return builder.Stream(), nil
+}
+
+func (g *initiativeInterruptGenerator) GenerateStream(ctx context.Context, _ string, modelContext genx.ModelContext) (genx.Stream, error) {
+	user := lastUserText(modelContext)
+	if user != "" {
+		return responseStream(modelContext, "reply: "+user), nil
+	}
+	g.once.Do(func() { close(g.started) })
+	<-ctx.Done()
+	return nil, context.Cause(ctx)
+}
+
+func (*initiativeInterruptGenerator) Invoke(context.Context, string, genx.ModelContext, *genx.FuncTool) (genx.Usage, *genx.FuncCall, error) {
+	return genx.Usage{}, nil, errors.New("not supported")
 }
 
 func (*interruptGenerator) Invoke(context.Context, string, genx.ModelContext, *genx.FuncTool) (genx.Usage, *genx.FuncCall, error) {
@@ -1045,6 +1247,9 @@ func lastUserText(modelContext genx.ModelContext) string {
 				result += string(text)
 			}
 		}
+	}
+	if result == providerSafeEmptyUserText {
+		return ""
 	}
 	return result
 }

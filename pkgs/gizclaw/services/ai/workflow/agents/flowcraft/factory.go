@@ -1,217 +1,767 @@
 package flowcraft
 
 import (
-	"bufio"
-	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
-	"net/http/httptest"
-	"os"
-	"path/filepath"
-	"strconv"
+	"maps"
+	"slices"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
-	flowmodel "github.com/GizClaw/flowcraft/sdk/model"
-	sdkworkspace "github.com/GizClaw/flowcraft/sdk/workspace"
-	flowclaw "github.com/GizClaw/flowcraft/sdkx/claw"
-	"gopkg.in/yaml.v3"
-
-	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/ogg"
-	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
+	flowmemory "github.com/GizClaw/flowcraft/memory/recall"
+	flowmemorystore "github.com/GizClaw/flowcraft/memory/recall/store/workspace"
+	flowretrievalstore "github.com/GizClaw/flowcraft/memory/retrieval/workspace"
+	flowembedding "github.com/GizClaw/flowcraft/sdk/embedding"
+	flowgraph "github.com/GizClaw/flowcraft/sdk/graph"
+	flowllm "github.com/GizClaw/flowcraft/sdk/llm"
+	embeddingbytedance "github.com/GizClaw/flowcraft/sdkx/embedding/bytedance"
+	embeddingopenai "github.com/GizClaw/flowcraft/sdkx/embedding/openai"
+	embeddingqwen "github.com/GizClaw/flowcraft/sdkx/embedding/qwen"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/agentkit/audiodock"
+	genxflowcraft "github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/flowcraft"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
+	memoryflowcraft "github.com/GizClaw/gizclaw-go/pkgs/store/memory/flowcraft"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
+	"github.com/openai/openai-go/option"
 )
 
 const Type = "flowcraft"
 
-const (
-	defaultInputStreamID = "audio"
-	selfStartStreamID    = "flowcraft-self-start"
-	transcriptLabel      = "transcript"
-	assistantLabel       = "assistant"
-	interruptedError     = "interrupted"
-)
-
-type inputMode string
-
-const (
-	inputModePushToTalk inputMode = "push_to_talk"
-	inputModeRealtime   inputMode = "realtime"
-)
-
-var clawModelRoles = []struct {
-	settingKey string
-	modelsKey  string
-	configKey  string
-	required   bool
-}{
-	{settingKey: "generate_model", modelsKey: "chat", configKey: "llm", required: true},
-	{settingKey: "extract_model", modelsKey: "extractor", configKey: "llm"},
-	{settingKey: "embedding_model", modelsKey: "embedder", configKey: "embedding"},
-}
-
+// Factory maps the public GizClaw Workflow plus AgentHost-owned dependencies
+// into the reusable GenX Flowcraft Transformer and Audio Dock.
 type Factory struct {
-	GenX    *peergenx.Service
-	History logstore.MutableStore
+	GenX          *peergenx.Service
+	GenXForOwner  func(context.Context, string) (*peergenx.Service, error)
+	History       logstore.MutableStore
+	State         kv.Store
+	MemoryObjects objectstore.ObjectStore
+	MemoryLoader  memoryflowcraft.ModelLoader
 }
 
-// InputProvider returns transient Flowcraft Board inputs immediately before a
-// turn starts. Keys prefixed with tmp_ are intentionally not persisted by Claw.
+// InputProvider supplies product-owned transient Board values. It remains for
+// the Pet factory until #464 moves that assembly into the Pet package.
 type InputProvider func(context.Context) (map[string]any, error)
 
-// ConfiguredAgentOptions supplies a Go-owned Flowcraft configuration to the
-// shared adapter. It is used by specialized drivers that run on Claw without
-// exposing arbitrary Flowcraft graph configuration in their public schemas.
+// ConfiguredAgentOptions is the temporary typed boundary used by Pet. Generic
+// Flowcraft workflows use the public OpenAPI type directly.
 type ConfiguredAgentOptions struct {
-	Flowcraft             map[string]any
-	GenerateModel         string
-	ExtractModel          string
-	EmbeddingModel        string
-	ASRModel              string
-	DefaultVoice          string
-	NodeVoices            map[string]string
-	Conversation          string
-	AgentInitiativePolicy string
-	InputMode             string
-	LocalDir              string
-	WorkspaceName         string
-	InputProvider         InputProvider
-	Toolkit               *agenthost.ToolkitContext
+	Flowcraft     map[string]any
+	ASRModel      string
+	DefaultVoice  string
+	NodeVoices    map[string]string
+	WorkspaceName string
+	InputProvider InputProvider
+}
+
+// NewConfiguredAgent keeps the product-owned Pet graph working while #464
+// moves it to direct construction. It removes the former Claw-only fields and
+// still runs through the reusable Transformer.
+func (f Factory) NewConfiguredAgent(ctx context.Context, options ConfiguredAgentOptions) (agenthost.Agent, error) {
+	workspaceName := strings.TrimSpace(options.WorkspaceName)
+	if workspaceName == "" {
+		return nil, fmt.Errorf("flowcraft: workspace name is required")
+	}
+	config := maps.Clone(options.Flowcraft)
+	config["voice_adapter"] = map[string]any{
+		"asr_model": options.ASRModel, "default_voice": options.DefaultVoice, "node_voices": maps.Clone(options.NodeVoices),
+	}
+	data, err := json.Marshal(config)
+	if err != nil {
+		return nil, fmt.Errorf("flowcraft: encode configured agent: %w", err)
+	}
+	var public apitypes.FlowcraftWorkflowSpec
+	if err := json.Unmarshal(data, &public); err != nil {
+		return nil, fmt.Errorf("flowcraft: decode configured agent: %w", err)
+	}
+	return f.newAgent(ctx, "", workspaceName, public, options.InputProvider)
 }
 
 func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.Agent, error) {
-	if f.GenX == nil {
-		return nil, fmt.Errorf("flowcraft: peergenx service is required")
+	if spec.Workflow.Spec.Flowcraft == nil {
+		return nil, fmt.Errorf("flowcraft: workflow spec.flowcraft is required")
 	}
-	cfg, err := parseWorkflowConfig(spec)
-	if err != nil {
-		return nil, err
+	workspaceName := strings.TrimSpace(spec.Workspace.Name)
+	if workspaceName == "" {
+		return nil, fmt.Errorf("flowcraft: workspace name is required")
 	}
-	if err := cfg.validate(); err != nil {
-		return nil, err
+	public := *spec.Workflow.Spec.Flowcraft
+	owner := stringValue(spec.Workspace.OwnerPublicKey)
+	if owner != "" && f.GenXForOwner != nil {
+		ownerGenX, err := f.GenXForOwner(ctx, owner)
+		if err != nil {
+			return nil, fmt.Errorf("flowcraft: workspace %q owner runtime: %w", workspaceName, err)
+		}
+		if ownerGenX == nil {
+			return nil, fmt.Errorf("flowcraft: workspace %q owner runtime returned no GenX service", workspaceName)
+		}
+		f.GenX = ownerGenX
 	}
-	if strings.TrimSpace(spec.Runtime.LocalDir) == "" {
-		return nil, fmt.Errorf("flowcraft: local workspace directory is required")
-	}
-	workspaceParams, err := flowcraftWorkspaceParameters(spec.Workspace.Parameters)
-	if err != nil {
-		return nil, err
-	}
-	starts, initiativePolicy := flowcraftConversationSettings(workspaceParams, cfg.Spec.Flowcraft)
-	mode := string(inputModePushToTalk)
-	if workspaceParams != nil && workspaceParams.Input != nil {
-		if normalized := normalizeInputMode(string(*workspaceParams.Input)); normalized != "" {
-			mode = string(normalized)
+	if spec.Workspace.Parameters != nil {
+		parameters, err := spec.Workspace.Parameters.AsFlowcraftWorkspaceParameters()
+		if err != nil {
+			return nil, fmt.Errorf("flowcraft: decode workspace parameters: %w", err)
+		}
+		if parameters.Conversation != nil && parameters.Conversation.Initiative != nil {
+			starts := apitypes.FlowcraftConversationStarts(*parameters.Conversation.Initiative)
+			public.Conversation = &apitypes.FlowcraftConversation{Starts: &starts}
 		}
 	}
-	options := ConfiguredAgentOptions{
-		Flowcraft:             cfg.Spec.Flowcraft,
-		ASRModel:              cfg.Spec.VoiceAdapter.ASRModel,
-		DefaultVoice:          cfg.Spec.VoiceAdapter.DefaultVoice,
-		NodeVoices:            cfg.Spec.VoiceAdapter.NodeVoices,
-		Conversation:          starts,
-		AgentInitiativePolicy: initiativePolicy,
-		InputMode:             mode,
-		LocalDir:              spec.Runtime.LocalDir,
-		WorkspaceName:         spec.Workspace.Name,
-		Toolkit:               spec.Toolkit,
-	}
-	if workspaceParams != nil {
-		options.GenerateModel = stringValue(workspaceParams.GenerateModel)
-		options.ExtractModel = stringValue(workspaceParams.ExtractModel)
-		options.EmbeddingModel = stringValue(workspaceParams.EmbeddingModel)
-	}
-	return f.NewConfiguredAgent(ctx, options)
+	return f.newAgent(ctx, owner, workspaceName, public, nil)
 }
 
-// NewConfiguredAgent creates a Claw-backed agent from a Go-owned configuration.
-func (f Factory) NewConfiguredAgent(ctx context.Context, options ConfiguredAgentOptions) (agenthost.Agent, error) {
+func (f Factory) newAgent(ctx context.Context, owner, workspaceName string, public apitypes.FlowcraftWorkflowSpec, inputs InputProvider) (agenthost.Agent, error) {
 	if f.GenX == nil {
 		return nil, fmt.Errorf("flowcraft: peergenx service is required")
 	}
-	options.LocalDir = strings.TrimSpace(options.LocalDir)
-	if options.LocalDir == "" {
-		return nil, fmt.Errorf("flowcraft: local workspace directory is required")
+	if err := public.Validate(); err != nil {
+		return nil, fmt.Errorf("flowcraft: invalid workflow config: %w", err)
 	}
-	voice := normalizeVoiceAdapter(voiceAdapterConfig{
-		ASRModel:     strings.TrimSpace(options.ASRModel),
-		DefaultVoice: strings.TrimSpace(options.DefaultVoice),
-		NodeVoices:   options.NodeVoices,
-	})
-	if err := voice.validate(); err != nil {
-		return nil, err
-	}
-	clawConfig, err := buildConfiguredClawConfig(ctx, f.GenX, options)
+	graph, publishNodes, err := mapGraph(public.Agent.Graph)
 	if err != nil {
 		return nil, err
 	}
-	if err := validateVoiceAdapterResources(ctx, f.GenX, voice); err != nil {
-		return nil, err
+	for _, node := range graph.Nodes {
+		if node.Type != "llm" {
+			continue
+		}
+		alias, _ := node.Config["model"].(string)
+		if _, err := f.GenX.ResolveGenerator(ctx, modelPattern(alias)); err != nil {
+			return nil, fmt.Errorf("flowcraft: resolve model alias %q for node %q: %w", alias, node.ID, err)
+		}
 	}
-	if err := writeClawConfig(options.LocalDir, clawConfig); err != nil {
-		return nil, err
+	agentID := strings.TrimSpace(public.Agent.Id)
+	if agentID == "" {
+		return nil, fmt.Errorf("flowcraft: agent.id is required")
 	}
-	ws, err := sdkworkspace.NewLocalWorkspace(options.LocalDir)
-	if err != nil {
-		return nil, err
+	scope := workspaceAgentScope(owner, workspaceName, agentID)
+	config := genxflowcraft.Config{
+		ID: agentID, Name: strings.TrimSpace(public.Agent.Name), Graph: graph,
+		MaxIterations: intValue(public.Agent.MaxIterations), PublishNodes: publishNodes,
+		Models: f.GenX.Generator(), History: f.History, HistoryScope: scope,
+		BoardInputs: genxflowcraftBoardInputs(inputs),
 	}
-	var clawOptions []flowclaw.Option
-	if f.History != nil {
-		historyStore, err := NewHistoryStore(f.History, options.WorkspaceName)
+	if public.Conversation != nil && public.Conversation.Starts != nil {
+		config.StartAgent = *public.Conversation.Starts == apitypes.FlowcraftConversationStartsAgent
+	}
+	if public.Agent.Description != nil {
+		config.Description = *public.Agent.Description
+	}
+	if f.State != nil {
+		config.State = kv.Prefixed(f.State, kv.Key{"flowcraft", workspaceName, agentID})
+	}
+
+	var owned []io.Closer
+	if public.Memory != nil && public.Memory.Enabled {
+		memoryStore, closer, memoryConfig, err := f.buildMemory(ctx, owner, workspaceName, agentID, *public.Memory)
 		if err != nil {
 			return nil, err
 		}
-		clawOptions = append(clawOptions, flowclaw.WithHistoryStore(historyStore))
+		owned = append(owned, closer)
+		config.Memory = memoryStore
+		config.MemoryScope = memory.Scope(scope)
+		config.RecallProfiles = memoryConfig.recallProfiles
+		config.ObserveEnabled = memoryConfig.observe
+		config.ObserveWaitForCompletion = memoryConfig.observeWait
+		config.ObservationBuilder = memoryConfig.observationBuilder
 	}
-	claw, err := flowclaw.New(ws, clawOptions...)
+
+	core, err := genxflowcraft.New(config)
+	if err != nil {
+		return nil, errors.Join(err, closeAll(owned))
+	}
+	var transformer genx.Transformer = core
+	if public.VoiceAdapter != nil {
+		transformer, err = f.wrapAudio(core, *public.VoiceAdapter)
+		if err != nil {
+			return nil, errors.Join(err, closeAll(owned))
+		}
+	}
+	return &managedAgent{Agent: agenthost.NewTransformerAgent(transformer), owned: owned}, nil
+}
+
+func mapGraph(source apitypes.FlowcraftGraph) (flowgraph.GraphDefinition, []string, error) {
+	graph := flowgraph.GraphDefinition{Name: strings.TrimSpace(source.Name), Entry: strings.TrimSpace(source.Entry)}
+	graph.Edges = make([]flowgraph.EdgeDefinition, 0, len(valueOrZero(source.Edges)))
+	for _, edge := range valueOrZero(source.Edges) {
+		graph.Edges = append(graph.Edges, flowgraph.EdgeDefinition{From: edge.From, To: edge.To, Condition: stringValue(edge.Condition)})
+	}
+	publish := make([]string, 0)
+	for index, raw := range source.Nodes {
+		discriminator, err := raw.Discriminator()
+		if err != nil {
+			return flowgraph.GraphDefinition{}, nil, fmt.Errorf("flowcraft: agent.graph.nodes[%d].type: %w", index, err)
+		}
+		var node flowgraph.NodeDefinition
+		switch discriminator {
+		case "llm":
+			typed, err := raw.AsFlowcraftLLMNode()
+			if err != nil {
+				return flowgraph.GraphDefinition{}, nil, fmt.Errorf("flowcraft: decode LLM node %d: %w", index, err)
+			}
+			node = flowgraph.NodeDefinition{ID: typed.Id, Type: "llm", SkipCondition: stringValue(typed.SkipCondition), Config: llmNodeConfig(typed.Config)}
+			if boolValue(typed.Publish) {
+				publish = append(publish, typed.Id)
+			}
+		case "script":
+			typed, err := raw.AsFlowcraftScriptNode()
+			if err != nil {
+				return flowgraph.GraphDefinition{}, nil, fmt.Errorf("flowcraft: decode script node %d: %w", index, err)
+			}
+			node = flowgraph.NodeDefinition{ID: typed.Id, Type: "script", SkipCondition: stringValue(typed.SkipCondition), Config: map[string]any{"source": typed.Config.Source}}
+			if boolValue(typed.Publish) {
+				publish = append(publish, typed.Id)
+			}
+		case "passthrough":
+			typed, err := raw.AsFlowcraftPassthroughNode()
+			if err != nil {
+				return flowgraph.GraphDefinition{}, nil, fmt.Errorf("flowcraft: decode passthrough node %d: %w", index, err)
+			}
+			node = flowgraph.NodeDefinition{ID: typed.Id, Type: "passthrough", SkipCondition: stringValue(typed.SkipCondition)}
+			if boolValue(typed.Publish) {
+				publish = append(publish, typed.Id)
+			}
+		default:
+			return flowgraph.GraphDefinition{}, nil, fmt.Errorf("flowcraft: unsupported agent.graph.nodes[%d].type %q", index, discriminator)
+		}
+		graph.Nodes = append(graph.Nodes, node)
+	}
+	if len(publish) == 0 {
+		return flowgraph.GraphDefinition{}, nil, fmt.Errorf("flowcraft: agent.graph requires at least one publish node")
+	}
+	return graph, publish, nil
+}
+
+func llmNodeConfig(source apitypes.FlowcraftLLMNodeConfig) map[string]any {
+	result := map[string]any{"model": strings.TrimSpace(source.Model)}
+	setString(result, "system_prompt", source.SystemPrompt)
+	setString(result, "output_key", source.OutputKey)
+	setString(result, "messages_channel", source.MessagesChannel)
+	setValue(result, "temperature", source.Temperature)
+	setValue(result, "max_tokens", source.MaxTokens)
+	setValue(result, "json_mode", source.JsonMode)
+	setValue(result, "thinking", source.Thinking)
+	setValue(result, "track_steps", source.TrackSteps)
+	return result
+}
+
+type builtMemoryConfig struct {
+	recallProfiles     []genxflowcraft.MemoryRecallProfile
+	observe            bool
+	observeWait        bool
+	observationBuilder genxflowcraft.ObservationBuilder
+}
+
+func (f Factory) buildMemory(ctx context.Context, owner, workspaceName, agentID string, public apitypes.FlowcraftMemory) (memory.Store, io.Closer, builtMemoryConfig, error) {
+	if f.MemoryObjects == nil {
+		return nil, nil, builtMemoryConfig{}, fmt.Errorf("flowcraft: workspace %q memory requires a server object store", workspaceName)
+	}
+	workspace, err := newObjectWorkspace(f.MemoryObjects, memoryObjectPrefix(owner, workspaceName, agentID))
+	if err != nil {
+		return nil, nil, builtMemoryConfig{}, err
+	}
+	backend, err := flowmemorystore.New(workspace)
+	if err != nil {
+		return nil, nil, builtMemoryConfig{}, fmt.Errorf("flowcraft: workspace %q memory backend: %w", workspaceName, err)
+	}
+	retrievalIndex, err := flowretrievalstore.New(workspace)
+	if err != nil {
+		_ = backend.Close()
+		return nil, nil, builtMemoryConfig{}, fmt.Errorf("flowcraft: workspace %q retrieval index: %w", workspaceName, err)
+	}
+	loader := f.MemoryLoader
+	if loader == nil {
+		loader = runtimeMemoryLoader{service: f.GenX}
+	}
+	runtimeConfig, mapped, err := mapMemoryConfig(public, loader, backend, retrievalIndex)
+	if err != nil {
+		_ = retrievalIndex.Close()
+		_ = backend.Close()
+		return nil, nil, builtMemoryConfig{}, fmt.Errorf("flowcraft: workspace %q memory: %w", workspaceName, err)
+	}
+	store, err := memoryflowcraft.New(ctx, runtimeConfig)
+	if err != nil {
+		_ = retrievalIndex.Close()
+		_ = backend.Close()
+		return nil, nil, builtMemoryConfig{}, fmt.Errorf("flowcraft: workspace %q memory: %w", workspaceName, err)
+	}
+	// closeAll reverses this construction-order slice: Store first, then its
+	// retrieval and persistence dependencies.
+	return store, multiCloser{backend, retrievalIndex, store}, mapped, nil
+}
+
+// memoryObjectPrefix keeps the physical object key independent from public
+// workspace and Agent name lengths. Flowcraft adds its native scope to several
+// retrieval filenames, while filesystem-backed ObjectStores also derive
+// metadata filenames from the complete key. A short deterministic prefix keeps
+// those composed names below filesystem component limits without changing the
+// logical memory.Scope stored in facts.
+func memoryObjectPrefix(owner, workspaceName, agentID string) string {
+	digest := sha256.Sum256([]byte(strings.TrimSpace(owner) + "\x00" + strings.TrimSpace(workspaceName) + "\x00" + strings.TrimSpace(agentID)))
+	return fmt.Sprintf("fc/%x", digest[:16])
+}
+
+func mapMemoryConfig(public apitypes.FlowcraftMemory, loader memoryflowcraft.ModelLoader, backend *flowmemorystore.Backend, retrievalIndex *flowretrievalstore.Index) (memoryflowcraft.Config, builtMemoryConfig, error) {
+	config := memoryflowcraft.Config{
+		Loader: loader, RetrievalIndex: retrievalIndex, TemporalStore: backend.TemporalStore(), EvidenceStore: backend.EvidenceStore(), SideEffectOutbox: backend.SideEffectOutbox(),
+	}
+	if public.Extract != nil && boolDefault(public.Extract.Enabled, true) {
+		config.Extraction.Model = stringValue(public.Extract.Model)
+		config.Extraction.Mode = flowmemory.LLMExtractionMode(stringValue((*string)(public.Extract.Mode)))
+		config.Extraction.SystemPrompt = memoryExtractionPrompt(*public.Extract, public.Layout)
+		config.Extraction.SchemaName = stringValue(public.Extract.SchemaName)
+		if public.Extract.Temperature != nil {
+			value := float64(*public.Extract.Temperature)
+			config.Extraction.Temperature = &value
+		}
+		if value := stringValue(public.Extract.StageTimeout); value != "" {
+			duration, err := time.ParseDuration(value)
+			if err != nil {
+				return memoryflowcraft.Config{}, builtMemoryConfig{}, fmt.Errorf("extract.stage_timeout: %w", err)
+			}
+			config.Extraction.StageTimeout = duration
+		}
+	}
+	if public.Embedding != nil && boolValue(public.Embedding.Enabled) {
+		config.Embedding.Model = stringValue(public.Embedding.Model)
+		if config.Embedding.Model == "" {
+			return memoryflowcraft.Config{}, builtMemoryConfig{}, fmt.Errorf("embedding.model is required when embedding is enabled")
+		}
+	}
+	if public.Rerank != nil && boolValue(public.Rerank.Enabled) {
+		config.Rerank.Model = stringValue(public.Rerank.Model)
+		if config.Rerank.Model == "" {
+			return memoryflowcraft.Config{}, builtMemoryConfig{}, fmt.Errorf("rerank.model is required when rerank is enabled")
+		}
+	}
+	if public.Recall != nil {
+		config.GraphEnabled = boolValue(public.Recall.GraphEnabled)
+	}
+	writeMode := "sync"
+	if public.Write != nil && public.Write.Mode != nil {
+		writeMode = string(*public.Write.Mode)
+	}
+	if public.Write != nil {
+		if public.Write.Tier != nil {
+			config.Tier = string(*public.Write.Tier)
+		}
+	}
+	if writeMode == "async_semantic" {
+		config.AsyncQueue = backend.AsyncSemanticQueue()
+	}
+	observe := memoryObserveEnabled(public)
+	mapped := builtMemoryConfig{
+		recallProfiles: mapRecallProfiles(public),
+		observe:        observe,
+		observeWait:    observe && writeMode == "sync",
+	}
+	mapped.observationBuilder = observationBuilder(public.Write)
+	return config, mapped, nil
+}
+
+func mapRecallProfiles(public apitypes.FlowcraftMemory) []genxflowcraft.MemoryRecallProfile {
+	if public.Recall == nil || !boolDefault(public.Recall.Enabled, true) || public.Recall.Profiles == nil {
+		return nil
+	}
+	laneKinds := make(map[string]string)
+	laneRecall := make(map[string]string)
+	if public.Layout != nil && public.Layout.Lanes != nil {
+		for _, lane := range *public.Layout.Lanes {
+			laneKinds[lane.Name] = lane.Kind
+			laneRecall[lane.Name] = stringValue(lane.Recall)
+		}
+	}
+	names := make([]string, 0, len(*public.Recall.Profiles))
+	for name := range *public.Recall.Profiles {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	result := make([]genxflowcraft.MemoryRecallProfile, 0, len(names))
+	for _, name := range names {
+		profile := (*public.Recall.Profiles)[name]
+		filters := make([]memory.Filter, 0)
+		if profile.Query != nil {
+			for _, kind := range valueOrZero(profile.Query.Kinds) {
+				filters = append(filters, memory.Filter{Field: "kind", Operator: memory.FilterEqual, Value: kind})
+			}
+			for _, lane := range valueOrZero(profile.Query.Lanes) {
+				if kind := laneKinds[lane]; kind != "" {
+					filters = append(filters, memory.Filter{Field: "kind", Operator: memory.FilterEqual, Value: kind})
+				}
+			}
+			for _, filter := range valueOrZero(profile.Query.Filters) {
+				operator := memory.FilterEqual
+				if filter.Operator != nil {
+					operator = memory.FilterOperator(*filter.Operator)
+				}
+				filters = append(filters, memory.Filter{Field: filter.Field, Operator: operator, Value: filter.Value})
+			}
+		}
+		if boolValue(public.Recall.IncludeRetired) {
+			filters = append(filters, memory.Filter{Field: "include_retired", Operator: memory.FilterEqual, Value: true})
+		}
+		result = append(result, genxflowcraft.MemoryRecallProfile{
+			BoardVariable: profile.Output, QueryText: recallQueryText(profile.Query), Limit: profile.TopK, Filters: filters, Renderer: recallRenderer(profile.Render, recallGuidance(profile.Query, laneRecall)),
+		})
+	}
+	return result
+}
+
+func recallQueryText(query *apitypes.FlowcraftMemoryRecallQuery) string {
+	if query == nil {
+		return ""
+	}
+	return stringValue(query.Text)
+}
+
+func recallGuidance(query *apitypes.FlowcraftMemoryRecallQuery, lanes map[string]string) []string {
+	if query == nil {
+		return nil
+	}
+	var guidance []string
+	for _, lane := range valueOrZero(query.Lanes) {
+		if text := strings.TrimSpace(lanes[lane]); text != "" {
+			guidance = append(guidance, text)
+		}
+	}
+	return guidance
+}
+
+func recallRenderer(config *apitypes.FlowcraftMemoryRecallRender, guidance []string) genxflowcraft.RecallRenderer {
+	if config == nil && len(guidance) == 0 {
+		return nil
+	}
+	var header, prefix string
+	var maxItems int
+	if config != nil {
+		header = stringValue(config.Header)
+		prefix = stringValue(config.ItemPrefix)
+		maxItems = intValue(config.MaxItems)
+	}
+	if prefix == "" {
+		prefix = "- "
+	}
+	return func(_ context.Context, matches []memory.Match) (string, error) {
+		if maxItems > 0 && len(matches) > maxItems {
+			matches = matches[:maxItems]
+		}
+		var lines []string
+		for _, match := range matches {
+			if text := strings.TrimSpace(match.Fact.Text); text != "" {
+				lines = append(lines, prefix+text)
+			}
+		}
+		if len(lines) == 0 {
+			return "", nil
+		}
+		if header != "" {
+			lines = append([]string{header}, lines...)
+		}
+		if len(guidance) != 0 {
+			lines = append([]string{"Recall policy:", strings.Join(guidance, "\n")}, lines...)
+		}
+		return strings.Join(lines, "\n"), nil
+	}
+}
+
+func memoryObserveEnabled(public apitypes.FlowcraftMemory) bool {
+	if public.Write == nil {
+		return false
+	}
+	return boolValue(public.Write.SaveConversation) || len(valueOrZero(public.Write.BoardFacts)) > 0
+}
+
+func observationBuilder(write *apitypes.FlowcraftMemoryWrite) genxflowcraft.ObservationBuilder {
+	return func(ctx context.Context, input genxflowcraft.ObservationInput) (memory.Observation, error) {
+		observation := memory.Observation{ID: input.StreamID}
+		if write != nil && boolValue(write.SaveConversation) {
+			var err error
+			observation, err = genxflowcraft.DefaultObservationBuilder(ctx, input)
+			if err != nil {
+				return memory.Observation{}, err
+			}
+		}
+		if write == nil || write.BoardFacts == nil {
+			return observation, nil
+		}
+		for _, fact := range *write.BoardFacts {
+			value, ok := input.BoardVariables[fact.BoardVar]
+			if !ok {
+				continue
+			}
+			text := boardFactText(value)
+			if text == "" {
+				continue
+			}
+			if required := strings.TrimSpace(stringValue(fact.RequiredPrefix)); required != "" {
+				index := strings.Index(text, required)
+				if index < 0 {
+					continue
+				}
+				text = strings.TrimSpace(text[index:])
+			}
+			attributes := make(map[string]any)
+			if kind := strings.TrimSpace(stringValue(fact.Kind)); kind != "" {
+				attributes["kind"] = kind
+			}
+			if subject := strings.TrimSpace(stringValue(fact.Subject)); subject != "" {
+				attributes["subject"] = subject
+			}
+			if predicate := strings.TrimSpace(stringValue(fact.Predicate)); predicate != "" {
+				attributes["predicate"] = predicate
+			}
+			if object := strings.TrimSpace(stringValue(fact.Object)); object != "" {
+				attributes["object"] = object
+			}
+			if fact.Entities != nil {
+				entities := nonEmptyStrings(*fact.Entities)
+				if len(entities) > 0 {
+					attributes["entities"] = entities
+				}
+			}
+			observation.Facts = append(observation.Facts, memory.FactCandidate{Text: text, Attributes: attributes})
+		}
+		return observation, nil
+	}
+}
+
+func boardFactText(value any) string {
+	switch typed := value.(type) {
+	case string:
+		return strings.TrimSpace(typed)
+	case fmt.Stringer:
+		return strings.TrimSpace(typed.String())
+	default:
+		return ""
+	}
+}
+
+func nonEmptyStrings(values []string) []string {
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		if value = strings.TrimSpace(value); value != "" {
+			result = append(result, value)
+		}
+	}
+	return result
+}
+
+func memoryExtractionPrompt(extract apitypes.FlowcraftMemoryExtract, layout *apitypes.FlowcraftMemoryLayout) string {
+	prompt := stringValue(extract.SystemPrompt)
+	if layout == nil || layout.Lanes == nil || len(*layout.Lanes) == 0 {
+		return prompt
+	}
+	var lines []string
+	for _, lane := range *layout.Lanes {
+		line := fmt.Sprintf("- %s (kind=%s): %s", lane.Name, lane.Kind, stringValue(lane.Description))
+		if instruction := stringValue(lane.Extract); instruction != "" {
+			line += " " + instruction
+		}
+		lines = append(lines, strings.TrimSpace(line))
+	}
+	return strings.TrimSpace(prompt + "\n\nMemory lanes:\n" + strings.Join(lines, "\n"))
+}
+
+func (f Factory) wrapAudio(core genx.Transformer, voice apitypes.FlowcraftVoiceAdapter) (genx.Transformer, error) {
+	config := audiodock.Config{Agent: core}
+	if alias := stringValue(voice.AsrModel); alias != "" {
+		config.ASR = patternTransformer{mux: f.GenX.Transformer(), pattern: modelPattern(alias)}
+	}
+	defaultVoice := stringValue(voice.DefaultVoice)
+	nodeVoices := maps.Clone(valueOrZero(voice.NodeVoices))
+	if defaultVoice != "" || len(nodeVoices) != 0 {
+		config.TTS = f.GenX.Transformer()
+		config.ResolveVoice = func(_ context.Context, request audiodock.VoiceRequest) (string, error) {
+			alias := strings.TrimSpace(nodeVoices[request.Name])
+			if alias == "" {
+				alias = defaultVoice
+			}
+			if alias == "" {
+				return "", nil
+			}
+			return voicePattern(alias), nil
+		}
+	}
+	return audiodock.New(config)
+}
+
+type patternTransformer struct {
+	mux     genx.TransformerMux
+	pattern string
+}
+
+func (t patternTransformer) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
+	return t.mux.Transform(ctx, t.pattern, input)
+}
+
+type runtimeMemoryLoader struct{ service *peergenx.Service }
+
+func (l runtimeMemoryLoader) LoadLLM(_ context.Context, alias string) (flowllm.LLM, error) {
+	if l.service == nil {
+		return nil, fmt.Errorf("flowcraft: RuntimeProfile model loader is not configured")
+	}
+	return genxflowcraft.ResolveLLM(l.service.Generator(), alias)
+}
+
+func (l runtimeMemoryLoader) LoadEmbedder(ctx context.Context, alias string) (flowembedding.Embedder, error) {
+	if l.service == nil {
+		return nil, fmt.Errorf("flowcraft: RuntimeProfile embedding loader is not configured")
+	}
+	config, err := l.service.ResolveEmbedding(ctx, modelPattern(alias))
 	if err != nil {
 		return nil, err
 	}
-	agentReady := false
-	defer func() {
-		if !agentReady {
-			_ = claw.CloseContext(context.Background())
+	return buildRuntimeEmbedder(config)
+}
+
+func buildRuntimeEmbedder(config peergenx.EmbeddingConfig) (flowembedding.Embedder, error) {
+	modelName := string(config.Model.Id)
+	switch config.Tenant.Kind {
+	case string(apitypes.ModelProviderKindOpenaiTenant):
+		if config.Tenant.OpenAI == nil {
+			return nil, fmt.Errorf("flowcraft: OpenAI embedding tenant is required")
 		}
-	}()
-	if err := registerToolkitHandlers(ctx, claw, options.Toolkit); err != nil {
-		return nil, err
+		body, err := config.Credential.Body.AsOpenAICredentialBody()
+		if err != nil {
+			return nil, fmt.Errorf("flowcraft: decode OpenAI embedding credential: %w", err)
+		}
+		data, err := config.Model.ProviderData.AsOpenAITenantModelProviderData()
+		if err != nil {
+			return nil, fmt.Errorf("flowcraft: decode OpenAI embedding model: %w", err)
+		}
+		if upstream := strings.TrimSpace(data.UpstreamModel); upstream != "" {
+			modelName = upstream
+		}
+		apiKey := firstNonEmpty(body.ApiKey, body.Token)
+		if apiKey == "" {
+			return nil, fmt.Errorf("flowcraft: embedding credential %q has no api_key", config.Credential.Name)
+		}
+		var options []option.RequestOption
+		if baseURL := firstNonEmpty(config.Tenant.OpenAI.BaseUrl, body.BaseUrl); baseURL != "" {
+			options = append(options, option.WithBaseURL(baseURL))
+		}
+		return embeddingopenai.New(apiKey, modelName, options...), nil
+
+	case string(apitypes.ModelProviderKindDashscopeTenant):
+		if config.Tenant.DashScope == nil {
+			return nil, fmt.Errorf("flowcraft: DashScope embedding tenant is required")
+		}
+		body, err := config.Credential.Body.AsDashScopeCredentialBody()
+		if err != nil {
+			return nil, fmt.Errorf("flowcraft: decode DashScope embedding credential: %w", err)
+		}
+		data, err := config.Model.ProviderData.AsDashScopeTenantModelProviderData()
+		if err != nil {
+			return nil, fmt.Errorf("flowcraft: decode DashScope embedding model: %w", err)
+		}
+		modelName = firstNonEmpty(data.UpstreamModel, &modelName)
+		return embeddingqwen.New(
+			firstNonEmpty(body.ApiKey, body.Token),
+			modelName,
+			firstNonEmpty(config.Tenant.DashScope.BaseUrl, body.BaseUrl),
+		)
+
+	case string(apitypes.ModelProviderKindVolcTenant):
+		if config.Tenant.Volc == nil {
+			return nil, fmt.Errorf("flowcraft: Volc embedding tenant is required")
+		}
+		body, err := config.Credential.Body.AsVolcCredentialBody()
+		if err != nil {
+			return nil, fmt.Errorf("flowcraft: decode Volc embedding credential: %w", err)
+		}
+		data, err := config.Model.ProviderData.AsVolcTenantModelProviderData()
+		if err != nil {
+			return nil, fmt.Errorf("flowcraft: decode Volc embedding model: %w", err)
+		}
+		modelName = firstNonEmpty(data.UpstreamModel, &modelName)
+		return embeddingbytedance.New(
+			firstNonEmpty(body.ArkApiKey),
+			modelName,
+			firstNonEmpty(config.Tenant.Volc.Endpoint),
+			firstNonEmpty(config.Tenant.Volc.Region),
+		)
+	default:
+		return nil, fmt.Errorf("flowcraft: embedding provider %q is unsupported", config.Tenant.Kind)
 	}
-	agentReady = true
-	starts := strings.TrimSpace(options.Conversation)
-	if starts == "" {
-		starts = "peer"
+}
+
+type managedAgent struct {
+	agenthost.Agent
+	owned     []io.Closer
+	closeOnce sync.Once
+	closeErr  error
+}
+
+func (a *managedAgent) Close() error {
+	if a == nil {
+		return nil
 	}
-	initiativePolicy := strings.TrimSpace(options.AgentInitiativePolicy)
-	if initiativePolicy == "" {
-		initiativePolicy = flowcraftDefaultAgentInitiativePolicy(starts)
+	a.closeOnce.Do(func() { a.closeErr = closeAll(a.owned) })
+	return a.closeErr
+}
+
+type multiCloser []io.Closer
+
+func (closers multiCloser) Close() error { return closeAll(closers) }
+
+func closeAll(closers []io.Closer) error {
+	var err error
+	for index := len(closers) - 1; index >= 0; index-- {
+		if closers[index] != nil {
+			err = errors.Join(err, closers[index].Close())
+		}
 	}
-	mode := normalizeInputMode(options.InputMode)
-	if mode == "" {
-		mode = inputModePushToTalk
+	return err
+}
+
+func genxflowcraftBoardInputs(provider InputProvider) func(context.Context) (map[string]any, error) {
+	if provider == nil {
+		return nil
 	}
-	return &agent{
-		transformers:  f.GenX,
-		claw:          realClaw{Claw: claw},
-		asrModel:      voice.ASRModel,
-		defaultVoice:  voice.DefaultVoice,
-		nodeVoices:    voice.NodeVoices,
-		starts:        starts,
-		startPolicy:   initiativePolicy,
-		inputMode:     mode,
-		localDir:      options.LocalDir,
-		inputProvider: options.InputProvider,
-	}, nil
+	return func(ctx context.Context) (map[string]any, error) { return provider(ctx) }
+}
+
+func workspaceAgentScope(owner, workspaceName, agentID string) string {
+	parts := make([]string, 0, 6)
+	if owner = strings.TrimSpace(owner); owner != "" {
+		parts = append(parts, "o", scopeToken(owner))
+	}
+	return strings.Join(append(parts, "w", scopeToken(workspaceName), "a", scopeToken(agentID)), "/")
+}
+
+// scopeToken keeps the product-owned owner/Workspace/Agent namespace short.
+// Flowcraft embeds the logical scope in retrieval namespaces and WAL object
+// keys, so preserving raw public keys and resource names can exceed filesystem
+// component limits after ObjectStore metadata encoding.
+func scopeToken(value string) string {
+	digest := sha256.Sum256([]byte(strings.TrimSpace(value)))
+	return fmt.Sprintf("%x", digest[:8])
+}
+
+func modelPattern(alias string) string {
+	alias = strings.Trim(strings.TrimSpace(alias), "/")
+	if strings.Contains(alias, "/") {
+		return alias
+	}
+	return "model/" + alias
+}
+
+func voicePattern(alias string) string {
+	alias = strings.Trim(strings.TrimSpace(alias), "/")
+	if strings.Contains(alias, "/") {
+		return alias
+	}
+	return "voice/" + alias
 }
 
 func stringValue(value *string) string {
@@ -221,3116 +771,47 @@ func stringValue(value *string) string {
 	return strings.TrimSpace(*value)
 }
 
-type workflowConfig struct {
-	Spec struct {
-		Flowcraft    map[string]any     `json:"flowcraft"`
-		VoiceAdapter voiceAdapterConfig `json:"voice_adapter"`
-	} `json:"spec"`
-}
-
-type voiceAdapterConfig struct {
-	ASRModel     string            `json:"asr_model"`
-	DefaultVoice string            `json:"default_voice"`
-	NodeVoices   map[string]string `json:"node_voices"`
-}
-
-func parseWorkflowConfig(spec agenthost.Spec) (workflowConfig, error) {
-	data, err := json.Marshal(spec.Workflow)
-	if err != nil {
-		return workflowConfig{}, fmt.Errorf("flowcraft: encode workflow: %w", err)
-	}
-	var cfg workflowConfig
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		return workflowConfig{}, fmt.Errorf("flowcraft: decode workflow: %w", err)
-	}
-	if cfg.Spec.Flowcraft == nil {
-		cfg.Spec.Flowcraft = map[string]any{}
-	}
-	if raw, ok := cfg.Spec.Flowcraft["voice_adapter"]; ok {
-		adapterData, err := json.Marshal(raw)
-		if err != nil {
-			return workflowConfig{}, fmt.Errorf("flowcraft: encode voice_adapter: %w", err)
-		}
-		if err := json.Unmarshal(adapterData, &cfg.Spec.VoiceAdapter); err != nil {
-			return workflowConfig{}, fmt.Errorf("flowcraft: decode voice_adapter: %w", err)
-		}
-		delete(cfg.Spec.Flowcraft, "voice_adapter")
-	}
-	cfg.Spec.VoiceAdapter.ASRModel = strings.TrimSpace(cfg.Spec.VoiceAdapter.ASRModel)
-	cfg.Spec.VoiceAdapter.DefaultVoice = strings.TrimSpace(cfg.Spec.VoiceAdapter.DefaultVoice)
-	for rawNodeID, voice := range cfg.Spec.VoiceAdapter.NodeVoices {
-		nodeID := strings.TrimSpace(rawNodeID)
-		voice = strings.TrimSpace(voice)
-		delete(cfg.Spec.VoiceAdapter.NodeVoices, rawNodeID)
-		if nodeID == "" || voice == "" {
-			continue
-		}
-		cfg.Spec.VoiceAdapter.NodeVoices[nodeID] = voice
-	}
-	return cfg, nil
-}
-
-func (c workflowConfig) validate() error {
-	return c.Spec.VoiceAdapter.validate()
-}
-
-func (c voiceAdapterConfig) validate() error {
-	if strings.TrimSpace(c.ASRModel) == "" {
-		return fmt.Errorf("flowcraft: voice_adapter.asr_model is required")
-	}
-	if strings.TrimSpace(c.DefaultVoice) == "" {
-		return fmt.Errorf("flowcraft: voice_adapter.default_voice is required")
-	}
-	return nil
-}
-
-func normalizeVoiceAdapter(cfg voiceAdapterConfig) voiceAdapterConfig {
-	cfg.ASRModel = strings.TrimSpace(cfg.ASRModel)
-	cfg.DefaultVoice = strings.TrimSpace(cfg.DefaultVoice)
-	nodeVoices := make(map[string]string, len(cfg.NodeVoices))
-	for nodeID, voice := range cfg.NodeVoices {
-		nodeID = strings.TrimSpace(nodeID)
-		voice = strings.TrimSpace(voice)
-		if nodeID != "" && voice != "" {
-			nodeVoices[nodeID] = voice
-		}
-	}
-	cfg.NodeVoices = nodeVoices
-	return cfg
-}
-
-func flowcraftConversationStarts(cfg map[string]any) string {
-	if conversation, ok := cfg["conversation"].(map[string]any); ok {
-		if starts, ok := conversation["starts"].(string); ok && strings.TrimSpace(starts) != "" {
-			return strings.TrimSpace(starts)
-		}
-	}
-	return "peer"
-}
-
-func flowcraftWorkspaceParameters(parameters *apitypes.WorkspaceParameters) (*apitypes.FlowcraftWorkspaceParameters, error) {
-	if parameters == nil {
-		return nil, nil
-	}
-	agentType, err := parameters.Discriminator()
-	if err != nil {
-		return nil, fmt.Errorf("flowcraft: decode workspace parameters: %w", err)
-	}
-	if strings.TrimSpace(agentType) != Type {
-		return nil, fmt.Errorf("flowcraft: decode workspace parameters: agent_type %q does not match %q", agentType, Type)
-	}
-	typed, err := parameters.AsFlowcraftWorkspaceParameters()
-	if err != nil {
-		return nil, fmt.Errorf("flowcraft: decode workspace parameters: %w", err)
-	}
-	return &typed, nil
-}
-
-func flowcraftConversationSettings(parameters *apitypes.FlowcraftWorkspaceParameters, cfg map[string]any) (string, string) {
-	starts := flowcraftConversationStarts(cfg)
-	policy := flowcraftDefaultAgentInitiativePolicy(starts)
-	if parameters == nil || parameters.Conversation == nil {
-		return starts, policy
-	}
-	if parameters.Conversation.Initiative != nil {
-		switch strings.ToLower(strings.TrimSpace(string(*parameters.Conversation.Initiative))) {
-		case "agent", "self":
-			starts = "self"
-			policy = flowcraftDefaultAgentInitiativePolicy(starts)
-		case "peer", "user":
-			starts = "peer"
-			policy = flowcraftDefaultAgentInitiativePolicy(starts)
-		}
-	}
-	if parameters.Conversation.AgentInitiativePolicy != nil {
-		switch strings.ToLower(strings.TrimSpace(string(*parameters.Conversation.AgentInitiativePolicy))) {
-		case "on_reload", "once_when_empty":
-			policy = strings.ToLower(strings.TrimSpace(string(*parameters.Conversation.AgentInitiativePolicy)))
-		}
-	}
-	return starts, policy
-}
-
-func flowcraftDefaultAgentInitiativePolicy(starts string) string {
-	if strings.EqualFold(strings.TrimSpace(starts), "self") {
-		return "on_reload"
-	}
-	return "once_when_empty"
-}
-
-type agent struct {
-	transformers  transformerProvider
-	claw          clawClient
-	asrModel      string
-	defaultVoice  string
-	nodeVoices    map[string]string
-	starts        string
-	startPolicy   string
-	inputMode     inputMode
-	localDir      string
-	inputProvider InputProvider
-
-	outputMu       sync.Mutex
-	activeOutput   *genx.StreamBuilder
-	activeStreamID string
-	observations   *flowcraftOutputObservations
-	outputEpoch    uint64
-
-	selfStartMu sync.Mutex
-	selfStarted bool
-}
-
-func (a *agent) Status(context.Context) (apitypes.PeerRunWorkspaceState, error) {
-	return apitypes.PeerRunWorkspaceState{RuntimeState: "running"}, nil
-}
-
-func (a *agent) ListHistory(ctx context.Context, req apitypes.PeerRunHistoryListRequest) (apitypes.PeerRunHistoryListResponse, error) {
-	var debugResp debugHistoryResponse
-	if err := a.callDebug(ctx, http.MethodGet, "/debug/history", nil, &debugResp); err != nil {
-		message := err.Error()
-		return apitypes.PeerRunHistoryListResponse{
-			Available: false,
-			Items:     []apitypes.PeerRunHistoryEntry{},
-			HasNext:   false,
-			Message:   &message,
-		}, nil
-	}
-	if !debugResp.Enabled {
-		message := "flowcraft history is disabled"
-		return apitypes.PeerRunHistoryListResponse{
-			Available: false,
-			Items:     []apitypes.PeerRunHistoryEntry{},
-			HasNext:   false,
-			Message:   &message,
-		}, nil
-	}
-	offset, err := parseHistoryCursor(req.Cursor)
-	if err != nil {
-		return apitypes.PeerRunHistoryListResponse{}, err
-	}
-	limit := 50
-	if req.Limit != nil {
-		limit = *req.Limit
-	}
-	if limit <= 0 {
-		limit = 50
-	}
-	if limit > 200 {
-		limit = 200
-	}
-	if offset > len(debugResp.Messages) {
-		offset = len(debugResp.Messages)
-	}
-	remaining := len(debugResp.Messages) - offset
-	if limit > remaining {
-		limit = remaining
-	}
-	end := offset + limit
-	items := make([]apitypes.PeerRunHistoryEntry, 0)
-	now := time.Now().UTC()
-	for i := offset; i < end; i++ {
-		items = append(items, historyEntryFromMessage(debugResp.ContextID, i, now, debugResp.Messages[i]))
-	}
-	resp := apitypes.PeerRunHistoryListResponse{
-		Available: true,
-		Items:     items,
-		HasNext:   end < len(debugResp.Messages),
-	}
-	if resp.HasNext {
-		next := strconv.Itoa(end)
-		resp.NextCursor = &next
-	}
-	if len(debugResp.Messages) == 0 {
-		message := "flowcraft history is empty"
-		resp.Message = &message
-	}
-	return resp, nil
-}
-
-func (a *agent) PlayHistory(ctx context.Context, req apitypes.PeerRunHistoryPlayRequest) (apitypes.PeerRunHistoryPlayResponse, error) {
-	var debugResp debugHistoryResponse
-	if err := a.callDebug(ctx, http.MethodGet, "/debug/history", nil, &debugResp); err != nil {
-		message := err.Error()
-		return apitypes.PeerRunHistoryPlayResponse{
-			Accepted:  false,
-			HistoryId: req.HistoryId,
-			State:     "unavailable",
-			Message:   &message,
-		}, nil
-	}
-	msg, ok := historyMessageByID(debugResp.ContextID, req.HistoryId, debugResp.Messages)
-	if !ok {
-		message := "history entry not found"
-		return apitypes.PeerRunHistoryPlayResponse{
-			Accepted:  false,
-			HistoryId: req.HistoryId,
-			State:     "not_found",
-			Message:   &message,
-		}, nil
-	}
-	text := strings.TrimSpace(msg.Content())
-	if text == "" {
-		message := "history entry has no text to replay"
-		return apitypes.PeerRunHistoryPlayResponse{
-			Accepted:  false,
-			HistoryId: req.HistoryId,
-			State:     "empty",
-			Message:   &message,
-		}, nil
-	}
-	output, streamID, epoch, ok := a.beginReplayOutput()
-	if !ok {
-		message := "flowcraft history replay requires an active peer output stream"
-		return apitypes.PeerRunHistoryPlayResponse{
-			Accepted:  false,
-			HistoryId: req.HistoryId,
-			State:     "unavailable",
-			Message:   &message,
-		}, nil
-	}
-	if msg.Role == flowmodel.RoleUser {
-		if err := a.addOutput(output, epoch,
-			textChunk(genx.RoleUser, transcriptLabel, streamID, transcriptLabel, text, false),
-			textChunk(genx.RoleUser, transcriptLabel, streamID, transcriptLabel, "", true),
-		); err != nil {
-			message := err.Error()
-			return apitypes.PeerRunHistoryPlayResponse{Accepted: false, HistoryId: req.HistoryId, State: "unavailable", Message: &message}, nil
-		}
-		return apitypes.PeerRunHistoryPlayResponse{Accepted: true, HistoryId: req.HistoryId, State: "played"}, nil
-	}
-	nodeID := "answer"
-	if err := a.addOutput(output, epoch,
-		textChunk(genx.RoleModel, nodeID, streamID, assistantLabel, text, false),
-		textChunk(genx.RoleModel, assistantLabel, streamID, assistantLabel, "", true),
-	); err != nil {
-		message := err.Error()
-		return apitypes.PeerRunHistoryPlayResponse{Accepted: false, HistoryId: req.HistoryId, State: "unavailable", Message: &message}, nil
-	}
-	voice, ok := a.voiceForNode(nodeID)
-	if !ok {
-		return apitypes.PeerRunHistoryPlayResponse{Accepted: true, HistoryId: req.HistoryId, State: "played"}, nil
-	}
-	if err := a.synthesize(ctx, streamID, nodeID, voice, text, output, epoch); err != nil {
-		message := err.Error()
-		return apitypes.PeerRunHistoryPlayResponse{Accepted: false, HistoryId: req.HistoryId, State: "audio_failed", Message: &message}, nil
-	}
-	return apitypes.PeerRunHistoryPlayResponse{Accepted: true, HistoryId: req.HistoryId, State: "played"}, nil
-}
-
-func (a *agent) MemoryStats(ctx context.Context, _ apitypes.PeerRunMemoryStatsRequest) (apitypes.PeerRunMemoryStatsResponse, error) {
-	var debugResp debugMemoryResponse
-	if err := a.callDebug(ctx, http.MethodGet, "/debug/memory", nil, &debugResp); err != nil {
-		message := err.Error()
-		return apitypes.PeerRunMemoryStatsResponse{
-			Available: false,
-			Enabled:   false,
-			Message:   &message,
-		}, nil
-	}
-	memoryRootPath := a.resolveWorkspacePath(debugResp.Root)
-	memoryStats, err := inspectDirectoryStats(memoryRootPath)
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return apitypes.PeerRunMemoryStatsResponse{}, fmt.Errorf("flowcraft: inspect memory root: %w", err)
-	}
-	workspaceStats, err := inspectDirectoryStats(a.localDir)
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return apitypes.PeerRunMemoryStatsResponse{}, fmt.Errorf("flowcraft: inspect workspace root: %w", err)
-	}
-	metadata := map[string]interface{}{
-		"root":                 debugResp.Root,
-		"root_path":            memoryRootPath,
-		"workspace_path":       a.localDir,
-		"scope":                debugResp.Scope,
-		"write":                debugResp.Write,
-		"recall":               debugResp.Recall,
-		"retrieval":            debugResp.Retrieval,
-		"layout":               debugResp.Layout,
-		"file_count":           workspaceStats.FileCount,
-		"memory_file_count":    memoryStats.FileCount,
-		"memory_storage_bytes": memoryStats.StorageBytes,
-	}
-	embeddingEnabled := false
-	embeddingStatus := "disabled"
-	indexStatus := "disabled"
-	if debugResp.Enabled {
-		indexStatus = "ready"
-	}
-	resp := apitypes.PeerRunMemoryStatsResponse{
-		Available:        true,
-		Enabled:          debugResp.Enabled,
-		ItemCount:        memoryStats.JSONLLineCount,
-		StorageBytes:     workspaceStats.StorageBytes,
-		EmbeddingEnabled: &embeddingEnabled,
-		EmbeddingStatus:  &embeddingStatus,
-		IndexStatus:      &indexStatus,
-		Metadata:         &metadata,
-	}
-	if backend := debugResp.RetrievalBackend(); backend != "" {
-		resp.Backend = &backend
-	}
-	if !workspaceStats.LastUpdatedAt.IsZero() {
-		updatedAt := workspaceStats.LastUpdatedAt
-		resp.LastUpdatedAt = &updatedAt
-	}
-	return resp, nil
-}
-
-func (a *agent) Recall(ctx context.Context, req apitypes.PeerRunRecallRequest) (apitypes.PeerRunRecallResponse, error) {
-	payload := map[string]interface{}{"text": req.Query}
-	if req.Limit != nil {
-		payload["top_k"] = *req.Limit
-	}
-	if req.Filters != nil {
-		for key, value := range *req.Filters {
-			payload[key] = value
-		}
-	}
-	var debugResp debugRecallResponse
-	if err := a.callDebug(ctx, http.MethodPost, "/debug/recall", payload, &debugResp); err != nil {
-		message := err.Error()
-		return apitypes.PeerRunRecallResponse{
-			Available: false,
-			Hits:      []apitypes.PeerRunRecallHit{},
-			Message:   &message,
-		}, nil
-	}
-	if !debugResp.Enabled {
-		message := "flowcraft memory recall is disabled"
-		return apitypes.PeerRunRecallResponse{
-			Available: false,
-			Hits:      []apitypes.PeerRunRecallHit{},
-			Message:   &message,
-		}, nil
-	}
-	hits := make([]apitypes.PeerRunRecallHit, 0, len(debugResp.Hits))
-	for i, hit := range debugResp.Hits {
-		hits = append(hits, recallHitFromDebug(i, hit))
-	}
-	return apitypes.PeerRunRecallResponse{
-		Available: true,
-		Hits:      hits,
-	}, nil
-}
-
-type transformerProvider interface {
-	Transformer() genx.TransformerMux
-}
-
-type clawClient interface {
-	RoundTrip(flowclaw.Request) (clawResponse, error)
-	CloseContext(context.Context) error
-}
-
-type debugHTTPClaw interface {
-	ServeDebugHTTP(http.ResponseWriter, *http.Request)
-}
-
-type clawResponse interface {
-	Next() (flowclaw.Event, error)
-}
-
-type realClaw struct {
-	Claw *flowclaw.Claw
-}
-
-func (c realClaw) RoundTrip(req flowclaw.Request) (clawResponse, error) {
-	return c.Claw.RoundTrip(req)
-}
-
-func (c realClaw) CloseContext(ctx context.Context) error {
-	if c.Claw == nil {
-		return nil
-	}
-	return c.Claw.CloseContext(ctx)
-}
-
-func (c realClaw) ServeDebugHTTP(w http.ResponseWriter, r *http.Request) {
-	if c.Claw == nil {
-		http.Error(w, "flowcraft: nil claw runtime", http.StatusServiceUnavailable)
-		return
-	}
-	c.Claw.ServeDebugHTTP(w, r)
-}
-
-func (a *agent) callDebug(ctx context.Context, method, path string, body any, out any) error {
-	debugger, ok := a.claw.(debugHTTPClaw)
-	if !ok || debugger == nil {
-		return fmt.Errorf("flowcraft debug API is not available")
-	}
-	var reader io.Reader
-	if body != nil {
-		raw, err := json.Marshal(body)
-		if err != nil {
-			return fmt.Errorf("flowcraft: encode debug request: %w", err)
-		}
-		reader = bytes.NewReader(raw)
-	}
-	req, err := http.NewRequestWithContext(ctx, method, path, reader)
-	if err != nil {
-		return err
-	}
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-	rec := httptest.NewRecorder()
-	debugger.ServeDebugHTTP(rec, req)
-	res := rec.Result()
-	defer func() { _ = res.Body.Close() }()
-	if res.StatusCode < http.StatusOK || res.StatusCode >= http.StatusMultipleChoices {
-		var problem struct {
-			Error string `json:"error"`
-		}
-		_ = json.NewDecoder(res.Body).Decode(&problem)
-		if problem.Error == "" {
-			problem.Error = res.Status
-		}
-		return fmt.Errorf("flowcraft debug %s %s: %s", method, path, problem.Error)
-	}
-	if out == nil {
-		return nil
-	}
-	if err := json.NewDecoder(res.Body).Decode(out); err != nil {
-		return fmt.Errorf("flowcraft: decode debug response: %w", err)
-	}
-	return nil
-}
-
-func (a *agent) resolveWorkspacePath(root string) string {
-	root = strings.TrimSpace(root)
-	if root == "" {
-		return a.localDir
-	}
-	if filepath.IsAbs(root) {
-		return filepath.Clean(root)
-	}
-	return filepath.Join(a.localDir, filepath.Clean(root))
-}
-
-type debugHistoryResponse struct {
-	Enabled   bool                `json:"enabled"`
-	ContextID string              `json:"context_id"`
-	Count     int                 `json:"count"`
-	Messages  []flowmodel.Message `json:"messages,omitempty"`
-}
-
-type debugMemoryResponse struct {
-	Enabled   bool                   `json:"enabled"`
-	Root      string                 `json:"root"`
-	Scope     map[string]interface{} `json:"scope"`
-	Write     map[string]interface{} `json:"write"`
-	Recall    map[string]interface{} `json:"recall"`
-	Retrieval map[string]interface{} `json:"retrieval"`
-	Layout    map[string]interface{} `json:"layout"`
-}
-
-func (r debugMemoryResponse) RetrievalBackend() string {
-	if raw, ok := r.Retrieval["backend"].(string); ok {
-		return strings.TrimSpace(raw)
-	}
-	return ""
-}
-
-type debugRecallResponse struct {
-	Enabled bool             `json:"enabled"`
-	Count   int              `json:"count"`
-	Hits    []debugRecallHit `json:"hits"`
-}
-
-type debugRecallHit struct {
-	ID        string   `json:"id,omitempty"`
-	Kind      string   `json:"kind,omitempty"`
-	Content   string   `json:"content"`
-	Subject   string   `json:"subject,omitempty"`
-	Predicate string   `json:"predicate,omitempty"`
-	Object    string   `json:"object,omitempty"`
-	Entities  []string `json:"entities,omitempty"`
-	Score     float64  `json:"score,omitempty"`
-	Sources   []string `json:"sources,omitempty"`
-}
-
-func parseHistoryCursor(cursor *string) (int, error) {
-	if cursor == nil || strings.TrimSpace(*cursor) == "" {
-		return 0, nil
-	}
-	offset, err := strconv.Atoi(strings.TrimSpace(*cursor))
-	if err != nil || offset < 0 {
-		return 0, fmt.Errorf("flowcraft: invalid history cursor %q", *cursor)
-	}
-	return offset, nil
-}
-
-func historyEntryFromMessage(contextID string, index int, createdAt time.Time, msg flowmodel.Message) apitypes.PeerRunHistoryEntry {
-	text := strings.TrimSpace(msg.Content())
-	entryType := apitypes.PeerRunHistoryEntryTypeAgent
-	name := "agent"
-	entry := apitypes.PeerRunHistoryEntry{
-		CreatedAt:       createdAt,
-		Id:              historyEntryID(contextID, index),
-		Name:            name,
-		ReplayAvailable: text != "",
-		Text:            text,
-		Type:            entryType,
-	}
-	if msg.Role == flowmodel.RoleUser {
-		gearID := "flowcraft"
-		entry.Type = apitypes.PeerRunHistoryEntryTypeGear
-		entry.GearId = &gearID
-		entry.Name = "gear"
-	}
-	return entry
-}
-
-func historyMessageByID(contextID, historyID string, messages []flowmodel.Message) (flowmodel.Message, bool) {
-	for i, msg := range messages {
-		if historyEntryID(contextID, i) == historyID {
-			return msg, true
-		}
-	}
-	return flowmodel.Message{}, false
-}
-
-func historyEntryID(contextID string, index int) string {
-	return fmt.Sprintf("%s:%06d", contextIDOrDefault(contextID), index)
-}
-
-func contextIDOrDefault(contextID string) string {
-	contextID = strings.TrimSpace(contextID)
-	if contextID == "" {
-		return "default"
-	}
-	return contextID
-}
-
-func recallHitFromDebug(index int, hit debugRecallHit) apitypes.PeerRunRecallHit {
-	id := strings.TrimSpace(hit.ID)
-	if id == "" {
-		id = fmt.Sprintf("hit-%06d", index)
-	}
-	snippet := strings.TrimSpace(hit.Content)
-	if snippet == "" {
-		snippet = strings.TrimSpace(strings.Join([]string{hit.Subject, hit.Predicate, hit.Object}, " "))
-	}
-	sourceType := strings.TrimSpace(hit.Kind)
-	var sourceTypePtr *string
-	if sourceType != "" {
-		sourceTypePtr = &sourceType
-	}
-	var sourceIDPtr *string
-	if len(hit.Sources) > 0 && strings.TrimSpace(hit.Sources[0]) != "" {
-		sourceID := strings.TrimSpace(hit.Sources[0])
-		sourceIDPtr = &sourceID
-	}
-	metadata := map[string]interface{}{
-		"subject":   hit.Subject,
-		"predicate": hit.Predicate,
-		"object":    hit.Object,
-		"entities":  hit.Entities,
-		"sources":   hit.Sources,
-	}
-	return apitypes.PeerRunRecallHit{
-		Id:         id,
-		Score:      hit.Score,
-		Snippet:    snippet,
-		SourceType: sourceTypePtr,
-		SourceId:   sourceIDPtr,
-		Metadata:   &metadata,
-	}
-}
-
-type directoryStats struct {
-	StorageBytes   int64
-	FileCount      int64
-	JSONLLineCount int64
-	LastUpdatedAt  time.Time
-}
-
-func inspectDirectoryStats(root string) (directoryStats, error) {
-	var stats directoryStats
-	if strings.TrimSpace(root) == "" {
-		return stats, nil
-	}
-	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if entry.IsDir() {
-			return nil
-		}
-		info, err := entry.Info()
-		if err != nil {
-			return err
-		}
-		stats.FileCount++
-		stats.StorageBytes += info.Size()
-		if info.ModTime().After(stats.LastUpdatedAt) {
-			stats.LastUpdatedAt = info.ModTime().UTC()
-		}
-		if filepath.Ext(path) != ".jsonl" {
-			return nil
-		}
-		lines, err := countFileLines(path)
-		if err != nil {
-			return err
-		}
-		stats.JSONLLineCount += lines
-		return nil
-	})
-	if err != nil {
-		return directoryStats{}, err
-	}
-	return stats, nil
-}
-
-func countFileLines(path string) (int64, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return 0, err
-	}
-	defer func() { _ = file.Close() }()
-	scanner := bufio.NewScanner(file)
-	scanner.Buffer(make([]byte, 1024), 1024*1024)
-	var lines int64
-	for scanner.Scan() {
-		if strings.TrimSpace(scanner.Text()) != "" {
-			lines++
-		}
-	}
-	if err := scanner.Err(); err != nil {
-		return 0, err
-	}
-	return lines, nil
-}
-
-func (a *agent) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
-	if a == nil {
-		return nil, fmt.Errorf("flowcraft: agent is nil")
-	}
-	output := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 64)
-	observations := newFlowcraftOutputObservations()
-	a.setActiveOutput(output, defaultInputStreamID, observations)
-	go a.run(ctx, input, output, observations)
-	return &flowcraftOutputStream{Stream: output.Stream(), observations: observations}, nil
-}
-
-func (a *agent) run(ctx context.Context, input genx.Stream, output *genx.StreamBuilder, observations *flowcraftOutputObservations) {
-	defer func() {
-		a.clearActiveOutput(output)
-		if a.claw != nil {
-			_ = a.claw.CloseContext(context.Background())
-		}
-	}()
-
-	current := a.startSelfTurnIfNeeded(ctx, output, observations)
-	if a.inputMode == inputModeRealtime {
-		a.runRealtime(ctx, input, output, current, observations)
-		return
-	}
-
-	readerCtx, cancelReader := context.WithCancel(ctx)
-	defer cancelReader()
-	turns := make(chan flowcraftInputTurn, 4)
-	readerDone := make(chan error, 1)
-	go func() {
-		readerDone <- a.readInputTurns(readerCtx, input, turns)
-	}()
-
-	inputDone := false
-	var inputErr error
-	var completed *flowcraftActiveTurn
-	startTurn := func(turn flowcraftInputTurn) {
-		if completed != nil {
-			a.finishCompletedOutput(output, completed, observations)
-			completed = nil
-		}
-		current = a.startFlowcraftTurn(ctx, output, turn, observations)
-	}
-	for {
-		if current == nil && inputDone {
-			select {
-			case turn, ok := <-turns:
-				if ok {
-					startTurn(turn)
-					continue
-				}
-			default:
-			}
-			if inputErr != nil && !isFlowcraftInputDone(inputErr) && !errors.Is(inputErr, context.Canceled) {
-				_ = output.Unexpected(genx.Usage{}, inputErr)
-			} else {
-				_ = output.Done(genx.Usage{})
-			}
-			return
-		}
-
-		if current == nil {
-			select {
-			case turn, ok := <-turns:
-				if !ok {
-					inputDone = true
-					continue
-				}
-				startTurn(turn)
-			case err := <-readerDone:
-				inputDone = true
-				inputErr = err
-				readerDone = nil
-			case <-ctx.Done():
-				_ = output.Unexpected(genx.Usage{}, ctx.Err())
-				return
-			}
-			continue
-		}
-
-		select {
-		case turn, ok := <-turns:
-			if !ok {
-				inputDone = true
-				continue
-			}
-			current.cancel()
-			_ = a.interruptOutput(output, current.streamID, current.epoch)
-			completed = nil
-			current = a.startFlowcraftTurn(ctx, output, turn, observations)
-		case err := <-current.done:
-			if err != nil && !errors.Is(err, context.Canceled) {
-				if isFlowcraftInputDone(err) {
-					current = nil
-					continue
-				}
-				_ = output.Unexpected(genx.Usage{}, err)
-				return
-			}
-			completed = current
-			current = nil
-		case err := <-readerDone:
-			inputDone = true
-			inputErr = err
-			readerDone = nil
-		case <-ctx.Done():
-			current.cancel()
-			_ = output.Unexpected(genx.Usage{}, ctx.Err())
-			return
-		}
-	}
-}
-
-type flowcraftInputTurn struct {
-	streamID string
-	stream   genx.Stream
-}
-
-type flowcraftActiveTurn struct {
-	streamID string
-	epoch    uint64
-	cancel   context.CancelFunc
-	done     <-chan error
-}
-
-type flowcraftOutputStream struct {
-	genx.Stream
-	observations        *flowcraftOutputObservations
-	observationDeferred atomic.Bool
-}
-
-var _ agenthost.OutputObservationStream = (*flowcraftOutputStream)(nil)
-
-func (s *flowcraftOutputStream) Next() (*genx.MessageChunk, error) {
-	chunk, err := s.Stream.Next()
-	if chunk != nil && !s.observationDeferred.Load() {
-		s.ObserveOutput(chunk)
-	}
-	return chunk, err
-}
-
-// DeferOutputObservation asks the final consumer to acknowledge output after
-// any downstream buffering or audio drain completes.
-func (s *flowcraftOutputStream) DeferOutputObservation() {
-	s.observationDeferred.Store(true)
-}
-
-// ObserveOutput records a chunk acknowledged by the final consumer.
-func (s *flowcraftOutputStream) ObserveOutput(chunk *genx.MessageChunk) {
-	if s != nil && s.observations != nil {
-		s.observations.observe(chunk)
-	}
-}
-
-type flowcraftOutputObservations struct {
-	mu      sync.Mutex
-	streams map[string]flowcraftOutputObservation
-}
-
-type flowcraftOutputObservation struct {
-	produced bool
-	audio    bool
-	drained  bool
-}
-
-func newFlowcraftOutputObservations() *flowcraftOutputObservations {
-	return &flowcraftOutputObservations{streams: make(map[string]flowcraftOutputObservation)}
-}
-
-func (o *flowcraftOutputObservations) begin(streamID string) {
-	if o == nil {
-		return
-	}
-	o.mu.Lock()
-	o.streams[streamID] = flowcraftOutputObservation{}
-	o.mu.Unlock()
-}
-
-func (o *flowcraftOutputObservations) produce(chunks ...*genx.MessageChunk) {
-	if o == nil {
-		return
-	}
-	o.mu.Lock()
-	defer o.mu.Unlock()
-	for _, chunk := range chunks {
-		if chunk == nil || chunk.Role != genx.RoleModel || chunk.Ctrl == nil ||
-			chunk.Ctrl.Label != assistantLabel || chunk.IsEndOfStream() {
-			continue
-		}
-		state := o.streams[chunk.Ctrl.StreamID]
-		state.produced = true
-		o.streams[chunk.Ctrl.StreamID] = state
-	}
-}
-
-func (o *flowcraftOutputObservations) observe(chunk *genx.MessageChunk) {
-	if o == nil || chunk == nil || chunk.Role != genx.RoleModel || chunk.Ctrl == nil ||
-		chunk.Ctrl.Label != assistantLabel {
-		return
-	}
-	streamID := strings.TrimSpace(chunk.Ctrl.StreamID)
-	o.mu.Lock()
-	defer o.mu.Unlock()
-	state := o.streams[streamID]
-	if chunk.IsEndOfStream() && strings.TrimSpace(chunk.Ctrl.Error) != "" {
-		delete(o.streams, streamID)
-		return
-	}
-	if !chunk.IsEndOfStream() {
-		state.drained = false
-		if blob, ok := chunk.Part.(*genx.Blob); ok && len(blob.Data) > 0 {
-			state.audio = true
-		}
-		o.streams[streamID] = state
-		return
-	}
-	switch chunk.Part.(type) {
-	case genx.Text:
-		if !state.audio {
-			state.drained = true
-		}
-	case *genx.Blob:
-		state.drained = true
-	}
-	o.streams[streamID] = state
-}
-
-func (o *flowcraftOutputObservations) take(streamID string) flowcraftOutputObservation {
-	if o == nil {
-		return flowcraftOutputObservation{}
-	}
-	o.mu.Lock()
-	defer o.mu.Unlock()
-	state := o.streams[streamID]
-	delete(o.streams, streamID)
-	return state
-}
-
-type flowcraftTranscriptTurn struct {
-	streamID     string
-	transcript   string
-	historyAudio []*genx.MessageChunk
-}
-
-func (a *agent) startFlowcraftTurn(ctx context.Context, output *genx.StreamBuilder, turn flowcraftInputTurn, observations *flowcraftOutputObservations) *flowcraftActiveTurn {
-	streamID := strings.TrimSpace(turn.streamID)
-	if streamID == "" {
-		streamID = genx.NewStreamID()
-	}
-	epoch := a.setActiveOutput(output, streamID, observations)
-	observations.begin(streamID)
-	turnCtx, cancel := context.WithCancel(ctx)
-	done := make(chan error, 1)
-	go func() {
-		done <- a.runTurn(turnCtx, turn.stream, output, epoch, streamID)
-	}()
-	return &flowcraftActiveTurn{
-		streamID: streamID,
-		epoch:    epoch,
-		cancel:   cancel,
-		done:     done,
-	}
-}
-
-func (a *agent) startFlowcraftTranscriptTurn(ctx context.Context, output *genx.StreamBuilder, streamID, transcript string, emitTranscript bool, observations *flowcraftOutputObservations, historyAudio ...*genx.MessageChunk) *flowcraftActiveTurn {
-	streamID = strings.TrimSpace(streamID)
-	if streamID == "" {
-		streamID = genx.NewStreamID()
-	}
-	epoch := a.setActiveOutput(output, streamID, observations)
-	observations.begin(streamID)
-	if len(historyAudio) > 0 {
-		if err := a.addOutput(output, epoch, historyAudio...); err != nil {
-			done := make(chan error, 1)
-			done <- err
-			return &flowcraftActiveTurn{streamID: streamID, epoch: epoch, cancel: func() {}, done: done}
-		}
-	}
-	if emitTranscript {
-		if err := a.addOutput(output, epoch,
-			textChunk(genx.RoleUser, transcriptLabel, streamID, transcriptLabel, strings.TrimSpace(transcript), false),
-			textChunk(genx.RoleUser, transcriptLabel, streamID, transcriptLabel, "", true),
-		); err != nil {
-			done := make(chan error, 1)
-			done <- err
-			return &flowcraftActiveTurn{streamID: streamID, epoch: epoch, cancel: func() {}, done: done}
-		}
-	}
-	turnCtx, cancel := context.WithCancel(ctx)
-	done := make(chan error, 1)
-	go func() {
-		done <- a.runTranscriptTurn(turnCtx, transcript, streamID, output, epoch, false)
-	}()
-	return &flowcraftActiveTurn{
-		streamID: streamID,
-		epoch:    epoch,
-		cancel:   cancel,
-		done:     done,
-	}
-}
-
-func (a *agent) startSelfTurnIfNeeded(ctx context.Context, output *genx.StreamBuilder, observations *flowcraftOutputObservations) *flowcraftActiveTurn {
-	if !a.shouldSelfStart(ctx) {
-		return nil
-	}
-	streamID := selfStartStreamID
-	epoch := a.setActiveOutput(output, streamID, observations)
-	observations.begin(streamID)
-	turnCtx, cancel := context.WithCancel(ctx)
-	done := make(chan error, 1)
-	go func() {
-		done <- a.runClawTextTurn(turnCtx, "", streamID, output, epoch)
-	}()
-	return &flowcraftActiveTurn{
-		streamID: streamID,
-		epoch:    epoch,
-		cancel:   cancel,
-		done:     done,
-	}
-}
-
-func (a *agent) shouldSelfStart(ctx context.Context) bool {
-	if !strings.EqualFold(strings.TrimSpace(a.starts), "self") {
-		return false
-	}
-	a.selfStartMu.Lock()
-	if a.selfStarted {
-		a.selfStartMu.Unlock()
-		return false
-	}
-	a.selfStarted = true
-	a.selfStartMu.Unlock()
-
-	if strings.EqualFold(strings.TrimSpace(a.startPolicy), "on_reload") {
-		return true
-	}
-	empty, err := a.historyEmpty(ctx)
-	if err != nil {
-		return true
-	}
-	return empty
-}
-
-func (a *agent) historyEmpty(ctx context.Context) (bool, error) {
-	var resp debugHistoryResponse
-	if err := a.callDebug(ctx, http.MethodGet, "/debug/history", nil, &resp); err != nil {
-		return false, err
-	}
-	return resp.Count == 0 && len(resp.Messages) == 0, nil
-}
-
-func (a *agent) runRealtime(ctx context.Context, input genx.Stream, output *genx.StreamBuilder, current *flowcraftActiveTurn, observations *flowcraftOutputObservations) {
-	transformer := a.transformers.Transformer()
-	asrInput := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 64)
-	asr, err := transformer.Transform(ctx, "model/"+a.asrModel+"?emit_interim=true", asrInput.Stream())
-	if err != nil {
-		_ = output.Unexpected(genx.Usage{}, fmt.Errorf("flowcraft: start ASR: %w", err))
-		return
-	}
-	defer func() { _ = asr.Close() }()
-
-	streamIDState := &lockedString{value: defaultInputStreamID}
-	historyAudio := &realtimeHistoryAudioBuffer{}
-	inputStarted := make(chan string, 4)
-	feedDone := make(chan feedASRResult, 1)
-	go func() {
-		feedDone <- feedRealtimeASRInput(ctx, input, asrInput, streamIDState, inputStarted)
-	}()
-
-	asrResults := make(chan streamResult, 1)
-	go readStreamResults(asr, asrResults)
-
-	var asrDone bool
-	var asrErr error
-	var feedResult feedASRResult
-	feedClosed := false
-	realtimeTurnIndex := 0
-	var pending []flowcraftTranscriptTurn
-	var completed *flowcraftActiveTurn
-	startPending := func() {
-		if current != nil || len(pending) == 0 {
-			return
-		}
-		turn := pending[0]
-		pending = pending[1:]
-		if completed != nil {
-			a.finishCompletedOutput(output, completed, observations)
-			completed = nil
-		}
-		current = a.startFlowcraftTranscriptTurn(ctx, output, turn.streamID, turn.transcript, true, observations, turn.historyAudio...)
-	}
-	queueTranscript := func(text string, asrStreamID string) {
-		realtimeTurnIndex++
-		streamID := realtimeTurnStreamID(streamIDState.Get(), realtimeTurnIndex)
-		audio := historyAudio.drain(asrStreamID, streamID)
-		turn := flowcraftTranscriptTurn{streamID: streamID, transcript: text, historyAudio: audio}
-		if current != nil {
-			current.cancel()
-			_ = a.interruptOutput(output, current.streamID, current.epoch)
-			current = nil
-			pending = nil
-		}
-		pending = append(pending, turn)
-		startPending()
-	}
-	interruptCurrent := func() {
-		pending = nil
-		if current == nil {
-			if completed != nil {
-				a.finishCompletedOutput(output, completed, observations)
-				completed = nil
-			}
-			return
-		}
-		current.cancel()
-		_ = a.interruptOutput(output, current.streamID, current.epoch)
-		current = nil
-		completed = nil
-	}
-	interruptForInput := func(streamID string) {
-		if current == nil || !realtimeInputInterruptsCurrent(current.streamID, streamID) {
-			return
-		}
-		interruptCurrent()
-	}
-	var asrTranscript string
-	var asrTranscriptStreamID string
-	asrTranscriptOpen := false
-	failCurrent := func(err error) bool {
-		if err == nil || isFlowcraftInputDone(err) || errors.Is(err, context.Canceled) {
-			return false
-		}
-		if current != nil {
-			current.cancel()
-			current = nil
-		}
-		pending = nil
-		_ = output.Unexpected(genx.Usage{}, err)
-		return true
-	}
-	handleASRChunk := func(chunk *genx.MessageChunk) {
-		if chunk == nil {
-			return
-		}
-		asrStreamID := realtimeASRStreamID(chunk, streamIDState.Get())
-		if chunk.Ctrl != nil && strings.TrimSpace(chunk.Ctrl.Label) == genx.HistoryUserAudioLabel {
-			historyAudio.append(chunk, asrStreamID)
-			return
-		}
-		if chunk.IsBeginOfStream() {
-			interruptCurrent()
-			asrTranscript = ""
-			asrTranscriptStreamID = asrStreamID
-			asrTranscriptOpen = true
-			return
-		}
-		if chunk.IsEndOfStream() {
-			if !asrTranscriptOpen {
-				return
-			}
-			transcript := strings.TrimSpace(asrTranscript)
-			asrTranscript = ""
-			asrTranscriptOpen = false
-			if chunk.Ctrl != nil && strings.TrimSpace(chunk.Ctrl.Error) != "" {
-				return
-			}
-			if transcript != "" {
-				queueTranscript(transcript, asrTranscriptStreamID)
-			}
-			asrTranscriptStreamID = ""
-			return
-		}
-		text, ok := chunk.Part.(genx.Text)
-		if !ok || strings.TrimSpace(string(text)) == "" {
-			return
-		}
-		if asrTranscriptOpen {
-			if asrTranscriptStreamID == "" {
-				asrTranscriptStreamID = asrStreamID
-			}
-			asrTranscript = mergeTranscript(asrTranscript, string(text))
-			return
-		}
-		queueTranscript(string(text), asrStreamID)
-	}
-
-	for {
-		startPending()
-		if current == nil && len(pending) == 0 && asrDone {
-			if !feedClosed {
-				feedResult = <-feedDone
-				feedClosed = true
-			}
-			if feedResult.err != nil && !isFlowcraftInputDone(feedResult.err) && !errors.Is(feedResult.err, context.Canceled) {
-				_ = output.Unexpected(genx.Usage{}, fmt.Errorf("flowcraft: feed ASR: %w", feedResult.err))
-				return
-			}
-			if asrErr != nil && !isFlowcraftInputDone(asrErr) && !errors.Is(asrErr, context.Canceled) {
-				_ = output.Unexpected(genx.Usage{}, fmt.Errorf("flowcraft: read ASR: %w", asrErr))
-				return
-			}
-			_ = output.Done(genx.Usage{})
-			return
-		}
-
-		if current == nil {
-			select {
-			case <-inputStarted:
-				interruptCurrent()
-				continue
-			case result := <-asrResults:
-				if result.err != nil {
-					if failCurrent(fmt.Errorf("flowcraft: read ASR: %w", result.err)) {
-						return
-					}
-					asrDone = true
-					asrErr = result.err
-					continue
-				}
-				if result.chunk == nil {
-					continue
-				}
-				handleASRChunk(result.chunk)
-			case feedResult = <-feedDone:
-				feedClosed = true
-				feedDone = nil
-				if feedResult.err != nil {
-					if failCurrent(fmt.Errorf("flowcraft: feed ASR: %w", feedResult.err)) {
-						return
-					}
-				}
-			case <-ctx.Done():
-				_ = output.Unexpected(genx.Usage{}, ctx.Err())
-				return
-			}
-			continue
-		}
-
-		select {
-		case err := <-current.done:
-			if err != nil && !errors.Is(err, context.Canceled) {
-				_ = output.Unexpected(genx.Usage{}, err)
-				return
-			}
-			completed = current
-			current = nil
-			continue
-		default:
-		}
-
-		select {
-		case streamID := <-inputStarted:
-			interruptForInput(streamID)
-		case result := <-asrResults:
-			if result.err != nil {
-				if failCurrent(fmt.Errorf("flowcraft: read ASR: %w", result.err)) {
-					return
-				}
-				asrDone = true
-				asrErr = result.err
-				continue
-			}
-			if result.chunk == nil {
-				continue
-			}
-			handleASRChunk(result.chunk)
-		case err := <-current.done:
-			if err != nil && !errors.Is(err, context.Canceled) {
-				_ = output.Unexpected(genx.Usage{}, err)
-				return
-			}
-			completed = current
-			current = nil
-		case feedResult = <-feedDone:
-			feedClosed = true
-			feedDone = nil
-			if feedResult.err != nil {
-				if failCurrent(fmt.Errorf("flowcraft: feed ASR: %w", feedResult.err)) {
-					return
-				}
-			}
-		case <-ctx.Done():
-			current.cancel()
-			_ = output.Unexpected(genx.Usage{}, ctx.Err())
-			return
-		}
-	}
-}
-
-func (a *agent) readInputTurns(ctx context.Context, input genx.Stream, turns chan<- flowcraftInputTurn) error {
-	defer close(turns)
-	if input == nil {
-		return fmt.Errorf("flowcraft: input stream is required")
-	}
-
-	type openTurn struct {
-		streamID string
-		input    *genx.StreamBuilder
-	}
-	var current *openTurn
-	closeCurrent := func() {
-		if current == nil {
-			return
-		}
-		_ = current.input.Done(genx.Usage{})
-		current = nil
-	}
-	startTurn := func(streamID string) error {
-		closeCurrent()
-		streamID = strings.TrimSpace(streamID)
-		if streamID == "" {
-			streamID = genx.NewStreamID()
-		}
-		builder := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 64)
-		turn := flowcraftInputTurn{streamID: streamID, stream: builder.Stream()}
-		select {
-		case <-ctx.Done():
-			_ = builder.Unexpected(genx.Usage{}, ctx.Err())
-			return ctx.Err()
-		case turns <- turn:
-		}
-		current = &openTurn{streamID: streamID, input: builder}
-		return nil
-	}
-
-	for {
-		if err := ctx.Err(); err != nil {
-			closeCurrent()
-			return err
-		}
-		chunk, err := input.Next()
-		if err != nil {
-			closeCurrent()
-			if isFlowcraftInputDone(err) {
-				return nil
-			}
-			return err
-		}
-		if chunk == nil {
-			continue
-		}
-
-		if chunk.IsBeginOfStream() {
-			streamID := chunkStreamID(chunk)
-			if err := startTurn(streamID); err != nil {
-				return err
-			}
-		}
-		if current == nil {
-			if isAudioChunk(chunk) {
-				continue
-			}
-			if err := startTurn(chunkStreamID(chunk)); err != nil {
-				return err
-			}
-		}
-		turnChunk := cloneTurnChunk(chunk, current.streamID)
-		if err := current.input.Add(turnChunk); err != nil {
-			closeCurrent()
-			return err
-		}
-		if chunk.IsEndOfStream() {
-			closeCurrent()
-		}
-	}
-}
-
-func cloneTurnChunk(chunk *genx.MessageChunk, streamID string) *genx.MessageChunk {
-	cloned := chunk.Clone()
-	if cloned.Ctrl == nil {
-		cloned.Ctrl = &genx.StreamCtrl{}
-	}
-	cloned.Ctrl.StreamID = streamID
-	return cloned
-}
-
-func chunkStreamID(chunk *genx.MessageChunk) string {
-	if chunk == nil || chunk.Ctrl == nil {
-		return ""
-	}
-	return strings.TrimSpace(chunk.Ctrl.StreamID)
-}
-
-func isAudioChunk(chunk *genx.MessageChunk) bool {
-	if chunk == nil {
-		return false
-	}
-	blob, ok := chunk.Part.(*genx.Blob)
-	if !ok {
-		return false
-	}
-	return isAudioMIME(blob.MIMEType)
-}
-
-func isFlowcraftInputDone(err error) bool {
-	return errors.Is(err, io.EOF) || agenthost.IsStreamDone(err)
-}
-
-func (a *agent) runTurn(ctx context.Context, input genx.Stream, output *genx.StreamBuilder, epoch uint64, defaultStreamID string) error {
-	transcript, streamID, err := a.transcribeInputTurn(ctx, input, output, epoch, defaultStreamID)
-	if err != nil {
-		return err
-	}
-	return a.runTranscriptTurn(ctx, transcript, streamID, output, epoch, false)
-}
-
-func (a *agent) runTranscriptTurn(ctx context.Context, transcript, streamID string, output *genx.StreamBuilder, epoch uint64, emitTranscript bool) error {
-	transcript = strings.TrimSpace(transcript)
-	if transcript == "" {
-		return fmt.Errorf("flowcraft: ASR produced empty transcript")
-	}
-	streamID = strings.TrimSpace(streamID)
-	if streamID == "" {
-		streamID = defaultInputStreamID
-	}
-	if emitTranscript {
-		if err := a.addOutput(output, epoch,
-			textChunk(genx.RoleUser, transcriptLabel, streamID, transcriptLabel, transcript, false),
-			textChunk(genx.RoleUser, transcriptLabel, streamID, transcriptLabel, "", true),
-		); err != nil {
-			return err
-		}
-	}
-	return a.runClawTextTurn(ctx, transcript, streamID, output, epoch)
-}
-
-func (a *agent) runClawTextTurn(ctx context.Context, text, streamID string, output *genx.StreamBuilder, epoch uint64) error {
-	text = strings.TrimSpace(text)
-	a.setActiveStreamID(streamID)
-
-	var inputs map[string]any
-	if a.inputProvider != nil {
-		var err error
-		inputs, err = a.inputProvider(ctx)
-		if err != nil {
-			return fmt.Errorf("flowcraft: provide turn inputs: %w", err)
-		}
-	}
-	resp, err := a.claw.RoundTrip(flowclaw.Request{Context: ctx, Text: text, Inputs: inputs})
-	if err != nil {
-		return fmt.Errorf("flowcraft: claw round trip: %w", err)
-	}
-	var currentNodeID string
-	var tts *ttsSession
-	emittedAudio := false
-	sawToken := false
-	closeTTS := func() error {
-		if tts == nil {
-			return nil
-		}
-		session := tts
-		tts = nil
-		if err := session.CloseInput(); err != nil {
-			return err
-		}
-		if err := session.Wait(); err != nil {
-			return err
-		}
-		emittedAudio = true
-		return nil
-	}
-	addTTSText := func(nodeID, text string) error {
-		if tts == nil {
-			voice, ok := a.voiceForNode(nodeID)
-			if !ok {
-				return nil
-			}
-			session, err := a.startTTS(ctx, streamID, nodeID, voice, output, epoch)
-			if err != nil {
-				return err
-			}
-			tts = session
-		}
-		return tts.AddText(text)
-	}
-	defer func() { _ = closeTTS() }()
-	for {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		ev, err := resp.Next()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			return fmt.Errorf("flowcraft: read claw event: %w", err)
-		}
-		if ev.Type == flowclaw.EventError || ev.IsError {
-			if ev.Err == "" {
-				ev.Err = ev.Content
-			}
-			if sawToken && isClawPartialResponseLimitError(ev.Err) {
-				break
-			}
-			return fmt.Errorf("flowcraft: claw event error: %s", ev.Err)
-		}
-		if ev.Type != flowclaw.EventToken || ev.Content == "" {
-			continue
-		}
-		sawToken = true
-		nodeID := strings.TrimSpace(ev.NodeID)
-		if nodeID == "" {
-			nodeID = assistantLabel
-		}
-		if currentNodeID != "" && nodeID != currentNodeID {
-			if err := closeTTS(); err != nil {
-				return err
-			}
-		}
-		currentNodeID = nodeID
-		if err := a.addOutput(output, epoch, textChunk(genx.RoleModel, nodeID, streamID, assistantLabel, ev.Content, false)); err != nil {
-			return err
-		}
-		if err := addTTSText(nodeID, ev.Content); err != nil {
-			return err
-		}
-	}
-	if err := closeTTS(); err != nil {
-		return err
-	}
-	if err := a.addOutput(output, epoch, textChunk(genx.RoleModel, assistantLabel, streamID, assistantLabel, "", true)); err != nil {
-		return err
-	}
-	if emittedAudio {
-		return a.addOutput(output, epoch, audioChunk(assistantLabel, streamID, nil, true))
-	}
-	return nil
-}
-
-func isClawPartialResponseLimitError(message string) bool {
-	message = strings.ToLower(strings.TrimSpace(message))
-	return strings.Contains(message, "response incomplete") && strings.Contains(message, "length")
-}
-
-type streamResult struct {
-	chunk *genx.MessageChunk
-	err   error
-}
-
-func readStreamResults(stream genx.Stream, results chan<- streamResult) {
-	for {
-		chunk, err := stream.Next()
-		results <- streamResult{chunk: chunk, err: err}
-		if err != nil {
-			return
-		}
-	}
-}
-
-func (a *agent) setActiveOutput(output *genx.StreamBuilder, streamID string, observations ...*flowcraftOutputObservations) uint64 {
-	a.outputMu.Lock()
-	defer a.outputMu.Unlock()
-	a.outputEpoch++
-	a.activeOutput = output
-	a.activeStreamID = streamID
-	a.observations = nil
-	if len(observations) > 0 {
-		a.observations = observations[0]
-	}
-	return a.outputEpoch
-}
-
-func (a *agent) setActiveStreamID(streamID string) {
-	if strings.TrimSpace(streamID) == "" {
-		return
-	}
-	a.outputMu.Lock()
-	defer a.outputMu.Unlock()
-	a.activeStreamID = streamID
-}
-
-func (a *agent) clearActiveOutput(output *genx.StreamBuilder) {
-	a.outputMu.Lock()
-	defer a.outputMu.Unlock()
-	if a.activeOutput == output {
-		a.activeOutput = nil
-		a.activeStreamID = ""
-		a.observations = nil
-	}
-}
-
-func (a *agent) beginReplayOutput() (*genx.StreamBuilder, string, uint64, bool) {
-	a.outputMu.Lock()
-	defer a.outputMu.Unlock()
-	if a.activeOutput == nil {
-		return nil, "", 0, false
-	}
-	a.outputEpoch++
-	streamID := strings.TrimSpace(a.activeStreamID)
-	if streamID == "" {
-		streamID = defaultInputStreamID
-	}
-	return a.activeOutput, streamID, a.outputEpoch, true
-}
-
-func (a *agent) currentOutputEpoch() uint64 {
-	a.outputMu.Lock()
-	defer a.outputMu.Unlock()
-	return a.outputEpoch
-}
-
-func (a *agent) isCurrentOutputEpoch(epoch uint64) bool {
-	a.outputMu.Lock()
-	defer a.outputMu.Unlock()
-	return a.outputEpoch == epoch
-}
-
-func (a *agent) addOutput(output *genx.StreamBuilder, epoch uint64, chunks ...*genx.MessageChunk) error {
-	a.outputMu.Lock()
-	if a.outputEpoch != epoch {
-		a.outputMu.Unlock()
-		return nil
-	}
-	observations := a.observations
-	a.outputMu.Unlock()
-	observations.produce(chunks...)
-	return output.Add(chunks...)
-}
-
-func (a *agent) watchInputInterrupt(ctx context.Context, input genx.Stream, output *genx.StreamBuilder, streamID string, epoch uint64, cancel func()) {
-	for {
-		if err := ctx.Err(); err != nil {
-			return
-		}
-		chunk, err := input.Next()
-		if err != nil {
-			return
-		}
-		if chunk == nil || !chunk.IsBeginOfStream() {
-			continue
-		}
-		if a.interruptOutput(output, streamID, epoch) && cancel != nil {
-			cancel()
-		}
-		return
-	}
-}
-
-func (a *agent) interruptOutput(output *genx.StreamBuilder, streamID string, epoch uint64) bool {
-	if output == nil {
-		return false
-	}
-	if strings.TrimSpace(streamID) == "" {
-		streamID = defaultInputStreamID
-	}
-	a.outputMu.Lock()
-	if a.outputEpoch != epoch {
-		a.outputMu.Unlock()
-		return false
-	}
-	a.outputEpoch++
-	a.outputMu.Unlock()
-	a.discardAssistantOutput(output, streamID)
-	return addInterruptedOutputEOS(output, streamID)
-}
-
-func (a *agent) interruptQueuedOutput(output *genx.StreamBuilder, streamID string, epoch uint64) bool {
-	if output == nil {
-		return false
-	}
-	if strings.TrimSpace(streamID) == "" {
-		streamID = defaultInputStreamID
-	}
-	a.outputMu.Lock()
-	if a.outputEpoch != epoch {
-		a.outputMu.Unlock()
-		return false
-	}
-	a.discardAssistantOutput(output, streamID)
-	a.outputEpoch++
-	a.outputMu.Unlock()
-	return addInterruptedOutputEOS(output, streamID)
-}
-
-func (a *agent) finishCompletedOutput(output *genx.StreamBuilder, completed *flowcraftActiveTurn, observations *flowcraftOutputObservations) {
-	if completed == nil {
-		return
-	}
-	state := observations.take(completed.streamID)
-	if !state.produced || state.drained {
-		return
-	}
-	_ = a.interruptQueuedOutput(output, completed.streamID, completed.epoch)
-}
-
-func (a *agent) discardAssistantOutput(output *genx.StreamBuilder, streamID string) int {
-	return output.Discard(func(chunk *genx.MessageChunk) bool {
-		return chunk != nil && chunk.Role == genx.RoleModel && chunk.Ctrl != nil &&
-			chunk.Ctrl.StreamID == streamID && chunk.Ctrl.Label == assistantLabel
-	})
-}
-
-func addInterruptedOutputEOS(output *genx.StreamBuilder, streamID string) bool {
-	textEOS := textChunk(genx.RoleModel, assistantLabel, streamID, assistantLabel, "", true)
-	audioEOS := audioChunk(assistantLabel, streamID, nil, true)
-	textEOS.Ctrl.Error = interruptedError
-	audioEOS.Ctrl.Error = interruptedError
-	return output.Add(textEOS, audioEOS) == nil
-}
-
-func (a *agent) transcribeInputTurn(ctx context.Context, input genx.Stream, output *genx.StreamBuilder, epoch uint64, defaultStreamID string) (string, string, error) {
-	prefetched, err := readInputTurn(ctx, input, defaultStreamID)
-	turnStreamID := strings.TrimSpace(prefetched.streamID)
-	if turnStreamID == "" {
-		turnStreamID = defaultInputStreamID
-	}
-	if err != nil {
-		return "", turnStreamID, err
-	}
-	if prefetched.hasText && !prefetched.hasAudio {
-		if err := a.addOutput(output, epoch,
-			textChunk(genx.RoleUser, transcriptLabel, turnStreamID, transcriptLabel, prefetched.transcript, false),
-			textChunk(genx.RoleUser, transcriptLabel, turnStreamID, transcriptLabel, "", true),
-		); err != nil {
-			return "", turnStreamID, err
-		}
-		return prefetched.transcript, turnStreamID, nil
-	}
-	input = &sliceStream{chunks: prefetched.chunks}
-	transformer := a.transformers.Transformer()
-	asrInput := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 64)
-	asr, err := transformer.Transform(ctx, "model/"+a.asrModel, asrInput.Stream())
-	if err != nil {
-		return "", turnStreamID, fmt.Errorf("flowcraft: start ASR: %w", err)
-	}
-	defer func() { _ = asr.Close() }()
-
-	feedDone := make(chan feedASRResult, 1)
-	go func() {
-		emitHistoryAudio := func(chunk *genx.MessageChunk) error {
-			return a.addOutput(output, epoch, userAudioHistoryChunk(chunk, turnStreamID))
-		}
-		result := feedASRInput(ctx, input, asrInput, turnStreamID, emitHistoryAudio)
-		feedDone <- result
-	}()
-
-	var transcript string
-	transcriptEOS := false
-	for {
-		chunk, err := asr.Next()
-		if err != nil {
-			if agenthost.IsStreamDone(err) {
-				break
-			}
-			result := <-feedDone
-			if result.err != nil {
-				return "", turnStreamID, result.err
-			}
-			return "", turnStreamID, fmt.Errorf("flowcraft: read ASR: %w", err)
-		}
-		if chunk.Ctrl != nil && strings.TrimSpace(chunk.Ctrl.Label) == genx.HistoryUserAudioLabel {
-			continue
-		}
-		text, ok := chunk.Part.(genx.Text)
-		if chunk.IsEndOfStream() {
-			transcriptEOS = true
-			if text != "" {
-				part := string(text)
-				transcript = mergeTranscript(transcript, part)
-				if err := a.addOutput(output, epoch, textChunk(genx.RoleUser, transcriptLabel, turnStreamID, transcriptLabel, part, false)); err != nil {
-					return "", turnStreamID, err
-				}
-			}
-			if err := a.addOutput(output, epoch, textChunk(genx.RoleUser, transcriptLabel, turnStreamID, transcriptLabel, "", true)); err != nil {
-				return "", turnStreamID, err
-			}
-			continue
-		}
-		if !ok || text == "" {
-			continue
-		}
-		part := string(text)
-		transcript = mergeTranscript(transcript, part)
-		if err := a.addOutput(output, epoch, textChunk(genx.RoleUser, transcriptLabel, turnStreamID, transcriptLabel, part, false)); err != nil {
-			return "", turnStreamID, err
-		}
-	}
-	result := <-feedDone
-	if result.err != nil {
-		return "", turnStreamID, result.err
-	}
-	if !transcriptEOS {
-		if err := a.addOutput(output, epoch, textChunk(genx.RoleUser, transcriptLabel, turnStreamID, transcriptLabel, "", true)); err != nil {
-			return "", turnStreamID, err
-		}
-	}
-	return transcript, turnStreamID, nil
-}
-
-type prefetchedInputTurn struct {
-	chunks     []*genx.MessageChunk
-	transcript string
-	streamID   string
-	hasText    bool
-	hasAudio   bool
-}
-
-func readInputTurn(ctx context.Context, input genx.Stream, defaultStreamID string) (prefetchedInputTurn, error) {
-	turn := prefetchedInputTurn{streamID: strings.TrimSpace(defaultStreamID)}
-	if turn.streamID == "" {
-		turn.streamID = defaultInputStreamID
-	}
-	if input == nil {
-		return turn, fmt.Errorf("flowcraft: input stream is required")
-	}
-	for {
-		if err := ctx.Err(); err != nil {
-			return turn, err
-		}
-		chunk, err := input.Next()
-		if err != nil {
-			if isFlowcraftInputDone(err) {
-				return turn, nil
-			}
-			return turn, err
-		}
-		if chunk == nil {
-			continue
-		}
-		cloned := chunk.Clone()
-		turn.chunks = append(turn.chunks, cloned)
-		if cloned.Ctrl != nil && strings.TrimSpace(cloned.Ctrl.StreamID) != "" {
-			turn.streamID = strings.TrimSpace(cloned.Ctrl.StreamID)
-		}
-		if text, ok := cloned.Part.(genx.Text); ok && strings.TrimSpace(string(text)) != "" {
-			turn.hasText = true
-			turn.transcript = mergeTranscript(turn.transcript, string(text))
-		}
-		if blob, ok := cloned.Part.(*genx.Blob); ok && isAudioMIME(blob.MIMEType) && len(blob.Data) > 0 {
-			turn.hasAudio = true
-		}
-	}
-}
-
-func (a *agent) synthesize(ctx context.Context, streamID, nodeID, voice, text string, output *genx.StreamBuilder, epoch uint64) error {
-	transformer := a.transformers.Transformer()
-	input := []*genx.MessageChunk{
-		textChunk(genx.RoleModel, nodeID, streamID, assistantLabel, text, false),
-		textChunk(genx.RoleModel, nodeID, streamID, assistantLabel, "", true),
-	}
-	tts, err := transformer.Transform(ctx, "voice/"+voice, &sliceStream{chunks: input})
-	if err != nil {
-		return fmt.Errorf("flowcraft: start TTS voice %q: %w", voice, err)
-	}
-	defer func() { _ = tts.Close() }()
-	return a.drainTTSOutput(ctx, streamID, nodeID, voice, tts, output, epoch, true)
-}
-
-func (a *agent) synthesizeTextSegment(ctx context.Context, streamID, nodeID, voice, text string, output *genx.StreamBuilder, epoch uint64, emitEOS bool) error {
-	text = strings.TrimSpace(text)
-	if text == "" {
-		return nil
-	}
-	transformer := a.transformers.Transformer()
-	input := []*genx.MessageChunk{
-		textChunk(genx.RoleModel, nodeID, streamID, assistantLabel, text, false),
-		textChunk(genx.RoleModel, nodeID, streamID, assistantLabel, "", true),
-	}
-	tts, err := transformer.Transform(ctx, "voice/"+voice, &sliceStream{chunks: input})
-	if err != nil {
-		return fmt.Errorf("flowcraft: start TTS voice %q: %w", voice, err)
-	}
-	defer func() { _ = tts.Close() }()
-	return a.drainTTSOutput(ctx, streamID, nodeID, voice, tts, output, epoch, emitEOS)
-}
-
-type ttsSession struct {
-	input    *genx.StreamBuilder
-	done     chan error
-	streamID string
-	nodeID   string
-}
-
-func (a *agent) startTTS(ctx context.Context, streamID, nodeID, voice string, output *genx.StreamBuilder, epoch uint64) (*ttsSession, error) {
-	transformer := a.transformers.Transformer()
-	input := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 64)
-	tts, err := transformer.Transform(ctx, "voice/"+voice, input.Stream())
-	if err != nil {
-		return nil, fmt.Errorf("flowcraft: start TTS voice %q: %w", voice, err)
-	}
-	session := &ttsSession{
-		input:    input,
-		done:     make(chan error, 1),
-		streamID: streamID,
-		nodeID:   nodeID,
-	}
-	go func() {
-		defer func() { _ = tts.Close() }()
-		session.done <- a.drainTTSOutput(ctx, streamID, nodeID, voice, tts, output, epoch, true)
-	}()
-	return session, nil
-}
-
-func (s *ttsSession) AddText(text string) error {
-	if s == nil {
-		return fmt.Errorf("flowcraft: TTS session is nil")
-	}
-	return s.input.Add(textChunk(genx.RoleModel, s.nodeID, s.streamID, assistantLabel, text, false))
-}
-
-func (s *ttsSession) CloseInput() error {
-	if s == nil {
-		return nil
-	}
-	if err := s.input.Add(textChunk(genx.RoleModel, s.nodeID, s.streamID, assistantLabel, "", true)); err != nil {
-		return err
-	}
-	return s.input.Done(genx.Usage{})
-}
-
-func (s *ttsSession) Wait() error {
-	if s == nil {
-		return nil
-	}
-	return <-s.done
-}
-
-func (a *agent) drainTTSOutput(ctx context.Context, streamID, nodeID, voice string, tts genx.Stream, output *genx.StreamBuilder, epoch uint64, emitEOS bool) error {
-	oggDecoder := newOggOpusFrameDecoder()
-	audioStarted := false
-	emitFrame := func(frame []byte) error {
-		chunks := make([]*genx.MessageChunk, 0, 2)
-		if !audioStarted {
-			bos := audioChunk(nodeID, streamID, nil, false)
-			bos.Ctrl.BeginOfStream = true
-			chunks = append(chunks, bos)
-			audioStarted = true
-		}
-		chunks = append(chunks, audioChunk(nodeID, streamID, frame, false))
-		return a.addOutput(output, epoch, chunks...)
-	}
-	for {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		chunk, err := tts.Next()
-		if err != nil {
-			if agenthost.IsStreamDone(err) {
-				break
-			}
-			return fmt.Errorf("flowcraft: read TTS voice %q: %w", voice, err)
-		}
-		blob, ok := chunk.Part.(*genx.Blob)
-		if !ok || len(blob.Data) == 0 {
-			continue
-		}
-		switch baseMIME(blob.MIMEType) {
-		case "audio/opus":
-			if err := emitFrame(blob.Data); err != nil {
-				return err
-			}
-		case "audio/ogg", "application/ogg":
-			frames, err := oggDecoder.Write(blob.Data)
-			if err != nil {
-				return fmt.Errorf("flowcraft: decode TTS ogg opus: %w", err)
-			}
-			for _, frame := range frames {
-				if err := emitFrame(frame); err != nil {
-					return err
-				}
-			}
-		default:
-			return fmt.Errorf("flowcraft: unsupported TTS audio MIME %q; want audio/ogg or audio/opus", blob.MIMEType)
-		}
-	}
-	if err := oggDecoder.Close(); err != nil {
-		return fmt.Errorf("flowcraft: decode TTS ogg opus: %w", err)
-	}
-	if !emitEOS {
-		return nil
-	}
-	return a.addOutput(output, epoch, audioChunk(nodeID, streamID, nil, true))
-}
-
-func (a *agent) voiceForNode(nodeID string) (string, bool) {
-	if a.nodeVoices != nil {
-		if voice := strings.TrimSpace(a.nodeVoices[nodeID]); voice != "" {
-			return voice, true
-		}
-		if len(a.nodeVoices) > 0 {
-			return "", false
-		}
-	}
-	voice := strings.TrimSpace(a.defaultVoice)
-	return voice, voice != ""
-}
-
-type feedASRResult struct {
-	streamID string
-	err      error
-}
-
-type historyAudioEmitter func(*genx.MessageChunk) error
-
-func feedASRInput(ctx context.Context, input genx.Stream, asrInput *genx.StreamBuilder, streamID string, emitHistoryAudio historyAudioEmitter) feedASRResult {
-	streamID = strings.TrimSpace(streamID)
-	if streamID == "" {
-		streamID = defaultInputStreamID
-	}
-	audioSeen := false
-	lastAudioMIME := "audio/pcm"
-	fail := func(err error) feedASRResult {
-		_ = asrInput.Unexpected(genx.Usage{}, err)
-		return feedASRResult{streamID: streamID, err: err}
-	}
-	if input == nil {
-		return fail(fmt.Errorf("flowcraft: input stream is required"))
-	}
-
-	for {
-		if err := ctx.Err(); err != nil {
-			return fail(err)
-		}
-		chunk, err := input.Next()
-		if err != nil {
-			if agenthost.IsStreamDone(err) || errors.Is(err, io.EOF) {
-				if err := asrInput.Done(genx.Usage{}); err != nil {
-					return feedASRResult{streamID: streamID, err: err}
-				}
-				if !audioSeen {
-					return feedASRResult{streamID: streamID, err: io.EOF}
-				}
-				if emitHistoryAudio != nil {
-					if err := emitHistoryAudio(userAudioHistoryEOSChunk(streamID, lastAudioMIME)); err != nil {
-						return feedASRResult{streamID: streamID, err: err}
-					}
-				}
-				return feedASRResult{streamID: streamID}
-			}
-			return fail(err)
-		}
-		if chunk == nil {
-			continue
-		}
-		if blob, ok := chunk.Part.(*genx.Blob); ok && isAudioMIME(blob.MIMEType) && len(blob.Data) > 0 {
-			audioSeen = true
-			lastAudioMIME = blob.MIMEType
-			if err := asrInput.Add(chunk.Clone()); err != nil {
-				return feedASRResult{streamID: streamID, err: err}
-			}
-			if emitHistoryAudio != nil {
-				if err := emitHistoryAudio(chunk); err != nil {
-					return feedASRResult{streamID: streamID, err: err}
-				}
-			}
-		}
-		if chunk.IsEndOfStream() {
-			eos := chunk.Clone()
-			if _, ok := eos.Part.(*genx.Blob); !ok {
-				eos.Part = &genx.Blob{MIMEType: lastAudioMIME}
-			}
-			if eos.Ctrl == nil {
-				eos.Ctrl = &genx.StreamCtrl{}
-			}
-			eos.Ctrl.StreamID = streamID
-			eos.Ctrl.EndOfStream = true
-			if err := asrInput.Add(eos); err != nil {
-				return feedASRResult{streamID: streamID, err: err}
-			}
-			if emitHistoryAudio != nil {
-				if err := emitHistoryAudio(eos); err != nil {
-					return feedASRResult{streamID: streamID, err: err}
-				}
-			}
-			if err := asrInput.Done(genx.Usage{}); err != nil {
-				return feedASRResult{streamID: streamID, err: err}
-			}
-			return feedASRResult{streamID: streamID}
-		}
-	}
-}
-
-func feedRealtimeASRInput(ctx context.Context, input genx.Stream, asrInput *genx.StreamBuilder, streamIDState *lockedString, inputStarted chan string) feedASRResult {
-	streamID := streamIDState.Get()
-	if streamID == "" {
-		streamID = defaultInputStreamID
-		streamIDState.Set(streamID)
-	}
-	notifiedStreamID := ""
-	notifyStarted := func(id string) {
-		id = strings.TrimSpace(id)
-		if id == "" || inputStarted == nil {
-			return
-		}
-		if id == notifiedStreamID {
-			return
-		}
-		notifiedStreamID = id
-		select {
-		case inputStarted <- id:
-		default:
-			select {
-			case <-inputStarted:
-			default:
-			}
-			select {
-			case inputStarted <- id:
-			default:
-			}
-		}
-	}
-	fail := func(err error) feedASRResult {
-		_ = asrInput.Unexpected(genx.Usage{}, err)
-		return feedASRResult{streamID: streamID, err: err}
-	}
-	if input == nil {
-		return fail(fmt.Errorf("flowcraft: input stream is required"))
-	}
-	for {
-		if err := ctx.Err(); err != nil {
-			return fail(err)
-		}
-		chunk, err := input.Next()
-		if err != nil {
-			if agenthost.IsStreamDone(err) || errors.Is(err, io.EOF) {
-				if err := asrInput.Done(genx.Usage{}); err != nil {
-					return feedASRResult{streamID: streamID, err: err}
-				}
-				return feedASRResult{streamID: streamID}
-			}
-			return fail(err)
-		}
-		if chunk == nil {
-			continue
-		}
-		if chunk.Ctrl != nil && strings.TrimSpace(chunk.Ctrl.StreamID) != "" {
-			streamID = strings.TrimSpace(chunk.Ctrl.StreamID)
-			streamIDState.Set(streamID)
-		}
-		if chunk.IsBeginOfStream() {
-			notifyStarted(streamID)
-			continue
-		}
-		blob, ok := chunk.Part.(*genx.Blob)
-		if !ok || !isAudioMIME(blob.MIMEType) {
-			continue
-		}
-		notifyStarted(streamID)
-		next := chunk.Clone()
-		if next.Ctrl == nil {
-			next.Ctrl = &genx.StreamCtrl{}
-		}
-		if strings.TrimSpace(next.Ctrl.StreamID) == "" {
-			next.Ctrl.StreamID = streamID
-		}
-		if err := asrInput.Add(next); err != nil {
-			return feedASRResult{streamID: streamID, err: err}
-		}
-	}
-}
-
-type realtimeHistoryAudioBuffer struct {
-	mu       sync.Mutex
-	byStream map[string][]*genx.MessageChunk
-}
-
-func (b *realtimeHistoryAudioBuffer) append(chunk *genx.MessageChunk, streamID string) {
-	if b == nil || chunk == nil {
-		return
-	}
-	if _, ok := chunk.Part.(*genx.Blob); !ok {
-		return
+func intValue(value *int) int {
+	if value == nil {
+		return 0
 	}
-	streamID = strings.TrimSpace(streamID)
-	if streamID == "" {
-		streamID = defaultInputStreamID
-	}
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	if b.byStream == nil {
-		b.byStream = make(map[string][]*genx.MessageChunk)
-	}
-	b.byStream[streamID] = append(b.byStream[streamID], userAudioHistoryChunk(chunk, streamID))
-}
-
-func (b *realtimeHistoryAudioBuffer) drain(sourceStreamID string, targetStreamID string) []*genx.MessageChunk {
-	if b == nil {
-		return nil
-	}
-	sourceStreamID = strings.TrimSpace(sourceStreamID)
-	if sourceStreamID == "" {
-		sourceStreamID = defaultInputStreamID
-	}
-	b.mu.Lock()
-	chunks := b.byStream[sourceStreamID]
-	delete(b.byStream, sourceStreamID)
-	b.mu.Unlock()
-	if len(chunks) == 0 {
-		return nil
-	}
-	out := make([]*genx.MessageChunk, 0, len(chunks))
-	for _, chunk := range chunks {
-		if chunk == nil {
-			continue
-		}
-		next := userAudioHistoryChunk(chunk, targetStreamID)
-		next.Ctrl.EndOfStream = chunk.IsEndOfStream()
-		out = append(out, next)
-	}
-	return out
-}
-
-func userAudioHistoryChunk(chunk *genx.MessageChunk, streamID string) *genx.MessageChunk {
-	if strings.TrimSpace(streamID) == "" {
-		streamID = defaultInputStreamID
-	}
-	next := chunk.Clone()
-	next.Role = genx.RoleUser
-	next.Name = transcriptLabel
-	if next.Ctrl == nil {
-		next.Ctrl = &genx.StreamCtrl{}
-	}
-	next.Ctrl.StreamID = streamID
-	next.Ctrl.Label = genx.HistoryUserAudioLabel
-	return next
-}
-
-func userAudioHistoryEOSChunk(streamID, mimeType string) *genx.MessageChunk {
-	if strings.TrimSpace(streamID) == "" {
-		streamID = defaultInputStreamID
-	}
-	if strings.TrimSpace(mimeType) == "" {
-		mimeType = "audio/pcm"
-	}
-	return &genx.MessageChunk{
-		Role: genx.RoleUser,
-		Name: transcriptLabel,
-		Part: &genx.Blob{MIMEType: mimeType},
-		Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: genx.HistoryUserAudioLabel, EndOfStream: true},
-	}
-}
-
-func realtimeASRStreamID(chunk *genx.MessageChunk, fallback string) string {
-	if chunk != nil && chunk.Ctrl != nil {
-		if streamID := strings.TrimSpace(chunk.Ctrl.StreamID); streamID != "" {
-			return streamID
-		}
-	}
-	fallback = strings.TrimSpace(fallback)
-	if fallback == "" {
-		return defaultInputStreamID
-	}
-	return fallback
-}
-
-func realtimeTurnStreamID(prefix string, index int) string {
-	prefix = strings.TrimSpace(prefix)
-	if prefix == "" {
-		prefix = defaultInputStreamID
-	}
-	if index <= 0 {
-		index = 1
-	}
-	return fmt.Sprintf("%s:rt:%d", prefix, index)
-}
-
-func realtimeInputInterruptsCurrent(currentStreamID, inputStreamID string) bool {
-	currentStreamID = strings.TrimSpace(currentStreamID)
-	inputStreamID = strings.TrimSpace(inputStreamID)
-	if currentStreamID == "" || inputStreamID == "" {
-		return true
-	}
-	return currentStreamID != inputStreamID && !strings.HasPrefix(currentStreamID, inputStreamID+":")
-}
-
-type lockedString struct {
-	mu    sync.RWMutex
-	value string
-}
-
-func (s *lockedString) Set(value string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.value = value
-}
-
-func (s *lockedString) Get() string {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.value
-}
-
-func textChunk(role genx.Role, name, streamID, label, text string, eos bool) *genx.MessageChunk {
-	return &genx.MessageChunk{
-		Role: role,
-		Name: name,
-		Part: genx.Text(text),
-		Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: label, EndOfStream: eos},
-	}
-}
-
-func audioChunk(name, streamID string, data []byte, eos bool) *genx.MessageChunk {
-	return &genx.MessageChunk{
-		Role: genx.RoleModel,
-		Name: name,
-		Part: &genx.Blob{MIMEType: "audio/opus", Data: data},
-		Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: assistantLabel, EndOfStream: eos},
-	}
-}
-
-func mergeTranscript(current, next string) string {
-	current = strings.TrimSpace(current)
-	next = strings.TrimSpace(next)
-	if current == "" || next == "" {
-		if current != "" {
-			return current
-		}
-		return next
-	}
-	if strings.HasPrefix(next, current) {
-		return next
-	}
-	if strings.HasPrefix(current, next) {
-		return current
-	}
-	currentNorm := normalizeTranscriptText(current)
-	nextNorm := normalizeTranscriptText(next)
-	if currentNorm != "" && nextNorm != "" {
-		if strings.HasPrefix(nextNorm, currentNorm) {
-			return next
-		}
-		if strings.HasPrefix(currentNorm, nextNorm) {
-			return current
-		}
-	}
-	return current + next
-}
-
-func normalizeTranscriptText(text string) string {
-	var b strings.Builder
-	for _, r := range strings.ToLower(text) {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || (r >= '\u4e00' && r <= '\u9fff') {
-			b.WriteRune(r)
-		}
-	}
-	return b.String()
-}
-
-func opusFramesFromOgg(raw []byte) ([][]byte, error) {
-	var frames [][]byte
-	for packet, err := range ogg.Packets(bytes.NewReader(raw)) {
-		if err != nil {
-			return nil, err
-		}
-		if codecconv.IsOpusHeadPacket(packet.Data) || codecconv.IsOpusTagsPacket(packet.Data) || len(packet.Data) == 0 {
-			continue
-		}
-		frames = append(frames, append([]byte(nil), packet.Data...))
-	}
-	if len(frames) == 0 {
-		return nil, fmt.Errorf("no opus audio packets found")
-	}
-	return frames, nil
-}
-
-type oggOpusFrameDecoder struct {
-	pending               []byte
-	packet                []byte
-	expectingContinuation bool
-	currentPacketBOS      bool
-}
-
-func newOggOpusFrameDecoder() *oggOpusFrameDecoder {
-	return &oggOpusFrameDecoder{}
-}
-
-func (d *oggOpusFrameDecoder) Write(data []byte) ([][]byte, error) {
-	if len(data) == 0 {
-		return nil, nil
-	}
-	d.pending = append(d.pending, data...)
-	var frames [][]byte
-	for {
-		page, ok, err := d.nextPage()
-		if err != nil {
-			return nil, err
-		}
-		if !ok {
-			return frames, nil
-		}
-		pageFrames, err := d.consumePage(page)
-		if err != nil {
-			return nil, err
-		}
-		frames = append(frames, pageFrames...)
-	}
-}
-
-func (d *oggOpusFrameDecoder) Close() error {
-	if len(d.pending) != 0 {
-		return fmt.Errorf("truncated ogg page: %d pending bytes", len(d.pending))
-	}
-	if d.expectingContinuation || len(d.packet) != 0 {
-		return fmt.Errorf("stream ended with unterminated ogg packet")
-	}
-	return nil
-}
-
-func (d *oggOpusFrameDecoder) nextPage() (*ogg.Page, bool, error) {
-	const oggPageHeaderSize = 27
-	if len(d.pending) == 0 {
-		return nil, false, nil
-	}
-	if len(d.pending) < oggPageHeaderSize {
-		if len(d.pending) < len(ogg.CapturePattern) && !strings.HasPrefix(ogg.CapturePattern, string(d.pending)) {
-			return nil, false, fmt.Errorf("invalid ogg capture pattern prefix %q", d.pending)
-		}
-		if len(d.pending) >= len(ogg.CapturePattern) && string(d.pending[:len(ogg.CapturePattern)]) != ogg.CapturePattern {
-			return nil, false, fmt.Errorf("invalid ogg capture pattern prefix %q", d.pending)
-		}
-		return nil, false, nil
-	}
-	if string(d.pending[:4]) != ogg.CapturePattern {
-		return nil, false, fmt.Errorf("invalid ogg capture pattern %q", d.pending[:4])
-	}
-	segmentCount := int(d.pending[26])
-	headerLen := oggPageHeaderSize + segmentCount
-	if len(d.pending) < headerLen {
-		return nil, false, nil
-	}
-	payloadLen := 0
-	for _, segment := range d.pending[oggPageHeaderSize:headerLen] {
-		payloadLen += int(segment)
-	}
-	pageLen := headerLen + payloadLen
-	if len(d.pending) < pageLen {
-		return nil, false, nil
-	}
-	page, err := ogg.ParsePage(d.pending[:pageLen])
-	if err != nil {
-		return nil, false, err
-	}
-	d.pending = d.pending[pageLen:]
-	return page, true, nil
-}
-
-func (d *oggOpusFrameDecoder) consumePage(page *ogg.Page) ([][]byte, error) {
-	if page == nil {
-		return nil, fmt.Errorf("ogg page is nil")
-	}
-	if page.HasContinuation() {
-		if !d.expectingContinuation {
-			return nil, fmt.Errorf("unexpected ogg continuation page")
-		}
-	} else if d.expectingContinuation {
-		return nil, fmt.Errorf("missing ogg continuation page")
-	}
-
-	var frames [][]byte
-	payloadOffset := 0
-	for segmentIndex, segment := range page.Segments {
-		if !d.expectingContinuation && len(d.packet) == 0 {
-			d.currentPacketBOS = page.HasBOS() && segmentIndex == 0
-		}
-		chunkLen := int(segment)
-		if payloadOffset+chunkLen > len(page.Payload) {
-			return nil, fmt.Errorf("ogg segment overflows payload")
-		}
-		if chunkLen > 0 {
-			d.packet = append(d.packet, page.Payload[payloadOffset:payloadOffset+chunkLen]...)
-		}
-		payloadOffset += chunkLen
-		if segment == 255 {
-			d.expectingContinuation = true
-			continue
-		}
-		packet := append([]byte(nil), d.packet...)
-		d.packet = d.packet[:0]
-		d.expectingContinuation = false
-		d.currentPacketBOS = false
-		if len(packet) == 0 || codecconv.IsOpusHeadPacket(packet) || codecconv.IsOpusTagsPacket(packet) {
-			continue
-		}
-		frames = append(frames, packet)
-	}
-	if payloadOffset != len(page.Payload) {
-		return nil, fmt.Errorf("ogg page has trailing payload")
-	}
-	return frames, nil
-}
-
-func baseMIME(mimeType string) string {
-	mimeType = strings.ToLower(strings.TrimSpace(mimeType))
-	if i := strings.IndexByte(mimeType, ';'); i >= 0 {
-		mimeType = strings.TrimSpace(mimeType[:i])
-	}
-	return mimeType
-}
-
-func isAudioMIME(mimeType string) bool {
-	return strings.HasPrefix(baseMIME(mimeType), "audio/")
-}
-
-type sliceStream struct {
-	chunks []*genx.MessageChunk
-	err    error
-}
-
-func (s *sliceStream) Next() (*genx.MessageChunk, error) {
-	if s.err != nil {
-		return nil, s.err
-	}
-	if len(s.chunks) == 0 {
-		return nil, genx.Done(genx.Usage{})
-	}
-	chunk := s.chunks[0]
-	s.chunks = s.chunks[1:]
-	return chunk, nil
-}
-
-func (s *sliceStream) Close() error {
-	s.chunks = nil
-	return nil
-}
-
-func (s *sliceStream) CloseWithError(err error) error {
-	s.err = err
-	s.chunks = nil
-	return nil
-}
-
-func writeClawConfig(root string, cfg map[string]any) error {
-	if err := os.MkdirAll(root, 0o755); err != nil {
-		return fmt.Errorf("flowcraft: create workspace dir: %w", err)
-	}
-	data, err := yaml.Marshal(cfg)
-	if err != nil {
-		return fmt.Errorf("flowcraft: encode claw config: %w", err)
-	}
-	if err := os.WriteFile(filepath.Join(root, "config.yaml"), data, 0o600); err != nil {
-		return fmt.Errorf("flowcraft: write claw config: %w", err)
-	}
-	return nil
-}
-
-func buildConfiguredClawConfig(ctx context.Context, genxService *peergenx.Service, options ConfiguredAgentOptions) (map[string]any, error) {
-	out := deepCopyMap(options.Flowcraft)
-	if out == nil {
-		out = map[string]any{}
-	}
-	settings := ensureMap(out, "settings")
-	models := ensureMap(out, "models")
-	for _, role := range clawModelRoles {
-		modelAlias, ok, err := configuredModelIDForRole(options, out, role.settingKey, role.required)
-		if err != nil {
-			return nil, err
-		}
-		if !ok {
-			continue
-		}
-		var resolved peergenx.GeneratorConfig
-		switch role.configKey {
-		case "llm":
-			resolved, err = genxService.ResolveGenerator(ctx, "model/"+modelAlias)
-		case "embedding":
-			resolved, err = genxService.ResolveEmbedding(ctx, "model/"+modelAlias)
-		default:
-			err = fmt.Errorf("flowcraft: unsupported model config section %q", role.configKey)
-		}
-		if err != nil {
-			return nil, fmt.Errorf("flowcraft: resolve model alias %q: %w", modelAlias, err)
-		}
-		modelCfg, err := clawModelConfig(resolved)
-		if err != nil {
-			return nil, err
-		}
-		settings[role.settingKey] = modelAlias
-		models[role.modelsKey] = role.settingKey
-		ensureMap(models, role.configKey)[modelAlias] = modelCfg
-	}
-	ensureDefaultAgent(out)
-	if err := addToolkitToolsToClawConfig(ctx, out, options.Toolkit); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func buildClawConfig(ctx context.Context, genxService *peergenx.Service, spec agenthost.Spec, cfg workflowConfig) (map[string]any, error) {
-	parameters, err := flowcraftWorkspaceParameters(spec.Workspace.Parameters)
-	if err != nil {
-		return nil, err
-	}
-	options := ConfiguredAgentOptions{Flowcraft: cfg.Spec.Flowcraft, Toolkit: spec.Toolkit}
-	if parameters != nil {
-		options.GenerateModel = stringValue(parameters.GenerateModel)
-		options.ExtractModel = stringValue(parameters.ExtractModel)
-		options.EmbeddingModel = stringValue(parameters.EmbeddingModel)
-	}
-	return buildConfiguredClawConfig(ctx, genxService, options)
-}
-
-func addToolkitToolsToClawConfig(ctx context.Context, cfg map[string]any, tools *agenthost.ToolkitContext) error {
-	resolved, err := flowcraftToolkitTools(ctx, tools)
-	if err != nil {
-		return fmt.Errorf("flowcraft: build toolkit: %w", err)
-	}
-	if len(resolved) == 0 {
-		return nil
-	}
-	return mergeToolkitToolConfigs(cfg, resolved)
-}
-
-func registerToolkitHandlers(ctx context.Context, claw *flowclaw.Claw, tools *agenthost.ToolkitContext) error {
-	resolved, err := flowcraftToolkitTools(ctx, tools)
-	if err != nil {
-		return fmt.Errorf("flowcraft: build toolkit handlers: %w", err)
-	}
-	for _, tool := range resolved {
-		name := flowcraftToolkitToolName(tool)
-		if name == "" {
-			return fmt.Errorf("flowcraft: toolkit tool %q has no callable name", tool.ID)
-		}
-		claw.Handle(name, toolkitToolHandler(tools))
-	}
-	return nil
-}
-
-func flowcraftToolkitTools(ctx context.Context, tools *agenthost.ToolkitContext) ([]toolkit.Tool, error) {
-	if tools == nil {
-		return nil, nil
-	}
-	kit, err := tools.BuildToolkit(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return kit.Tools, nil
-}
-
-func mergeToolkitToolConfigs(cfg map[string]any, tools []toolkit.Tool) error {
-	agent := ensureMap(cfg, "agent")
-	items, index, err := flowcraftToolConfigList(agent["tools"])
-	if err != nil {
-		return err
-	}
-	for _, tool := range tools {
-		item, err := flowcraftToolkitToolConfig(tool)
-		if err != nil {
-			return err
-		}
-		name := item["name"].(string)
-		if pos, ok := index[name]; ok {
-			items[pos] = item
-			continue
-		}
-		index[name] = len(items)
-		items = append(items, item)
-	}
-	agent["tools"] = items
-	return nil
-}
-
-func flowcraftToolConfigList(raw any) ([]any, map[string]int, error) {
-	index := map[string]int{}
-	if raw == nil {
-		return nil, index, nil
-	}
-	items, ok := raw.([]any)
-	if !ok {
-		return nil, nil, fmt.Errorf("flowcraft: agent.tools must be an array")
-	}
-	out := append([]any(nil), items...)
-	for i, item := range out {
-		name := flowcraftToolConfigName(item)
-		if name != "" {
-			index[name] = i
-		}
-	}
-	return out, index, nil
-}
-
-func flowcraftToolConfigName(item any) string {
-	switch value := item.(type) {
-	case string:
-		return strings.TrimSpace(value)
-	case map[string]any:
-		name, _ := value["name"].(string)
-		return strings.TrimSpace(name)
-	default:
-		return ""
-	}
-}
-
-func flowcraftToolkitToolConfig(tool toolkit.Tool) (map[string]any, error) {
-	name := flowcraftToolkitToolName(tool)
-	if name == "" {
-		return nil, fmt.Errorf("flowcraft: toolkit tool %q has no callable name", tool.ID)
-	}
-	schema, err := flowcraftToolkitInputSchema(tool)
-	if err != nil {
-		return nil, err
-	}
-	out := map[string]any{
-		"name":         name,
-		"input_schema": schema,
-	}
-	if description := firstString(tool.Description); description != "" {
-		out["description"] = description
-	}
-	return out, nil
-}
-
-func flowcraftToolkitToolName(tool toolkit.Tool) string {
-	if name := firstString(tool.Name); name != "" {
-		return name
-	}
-	return strings.TrimSpace(tool.ID)
-}
-
-func flowcraftToolkitInputSchema(tool toolkit.Tool) (map[string]any, error) {
-	data, err := json.Marshal(tool.InputSchema)
-	if err != nil {
-		return nil, fmt.Errorf("flowcraft: encode toolkit tool %q schema: %w", tool.ID, err)
-	}
-	var out map[string]any
-	if err := json.Unmarshal(data, &out); err != nil {
-		return nil, fmt.Errorf("flowcraft: decode toolkit tool %q schema: %w", tool.ID, err)
-	}
-	if out == nil {
-		out = map[string]any{"type": "object", "properties": map[string]any{}}
-	}
-	return out, nil
-}
-
-func toolkitToolHandler(tools *agenthost.ToolkitContext) flowclaw.ToolHandler {
-	return func(ctx context.Context, name string, args json.RawMessage) (string, error) {
-		result, err := tools.Invoke(ctx, "", name, args)
-		if err != nil {
-			return "", err
-		}
-		data := bytes.TrimSpace(result.Data)
-		if len(data) == 0 {
-			return "{}", nil
-		}
-		return string(data), nil
-	}
-}
-
-func accessibleGeneratorModels(ctx context.Context, genxService *peergenx.Service) (map[string]peergenx.GeneratorConfig, error) {
-	if genxService == nil {
-		return nil, fmt.Errorf("flowcraft: peergenx service is required")
-	}
-	configs, err := genxService.ListAccessibleGeneratorConfigs(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("flowcraft: list accessible generator models: %w", err)
-	}
-	out := make(map[string]peergenx.GeneratorConfig, len(configs))
-	for _, cfg := range configs {
-		out[string(cfg.Model.Id)] = cfg
-	}
-	return out, nil
-}
-
-func validateVoiceAdapterResources(ctx context.Context, genxService *peergenx.Service, cfg voiceAdapterConfig) error {
-	if genxService == nil {
-		return fmt.Errorf("flowcraft: peergenx service is required")
-	}
-	if _, err := genxService.ResolveTransformer(ctx, "model/"+cfg.ASRModel); err != nil {
-		return fmt.Errorf("flowcraft: resolve ASR model %q: %w", cfg.ASRModel, err)
-	}
-	voices := make([]string, 0)
-	seen := map[string]bool{}
-	addVoice := func(voice string) {
-		voice = strings.TrimSpace(voice)
-		if voice == "" || seen[voice] {
-			return
-		}
-		seen[voice] = true
-		voices = append(voices, voice)
-	}
-	addVoice(cfg.DefaultVoice)
-	for _, voice := range cfg.NodeVoices {
-		addVoice(voice)
-	}
-	for _, voice := range voices {
-		if _, err := genxService.ResolveTransformer(ctx, "voice/"+voice); err != nil {
-			return fmt.Errorf("flowcraft: resolve voice %q: %w", voice, err)
-		}
-	}
-	return nil
-}
-
-func configuredModelIDForRole(options ConfiguredAgentOptions, cfg map[string]any, key string, required bool) (string, bool, error) {
-	var value string
-	switch key {
-	case "generate_model":
-		value = options.GenerateModel
-	case "extract_model":
-		value = options.ExtractModel
-	case "embedding_model":
-		value = options.EmbeddingModel
-	}
-	if value = strings.TrimSpace(value); value != "" {
-		return value, true, nil
-	}
-	if settings, ok := cfg["settings"].(map[string]any); ok {
-		if text, ok := settings[key].(string); ok && strings.TrimSpace(text) != "" {
-			return strings.TrimSpace(text), true, nil
-		}
-	}
-	if required {
-		return "", false, fmt.Errorf("flowcraft: %s is required", key)
-	}
-	return "", false, nil
-}
-
-func normalizeInputMode(value any) inputMode {
-	text, ok := value.(string)
-	if !ok {
-		return ""
-	}
-	switch strings.ToLower(strings.TrimSpace(text)) {
-	case "push", "push_to_talk", "push-to-talk", "ptt":
-		return inputModePushToTalk
-	case "realtime", "real_time", "real-time":
-		return inputModeRealtime
-	default:
-		return ""
-	}
-}
-
-func clawModelConfig(cfg peergenx.GeneratorConfig) (map[string]any, error) {
-	switch cfg.Tenant.Kind {
-	case string(apitypes.ModelProviderKindDeepseekTenant):
-		return resolveDeepSeekClawModelConfig(cfg)
-	case string(apitypes.ModelProviderKindMinimaxTenant):
-		return resolveMiniMaxClawModelConfig(cfg)
-	case string(apitypes.ModelProviderKindDashscopeTenant):
-		return resolveDashScopeClawModelConfig(cfg)
-	case string(apitypes.ModelProviderKindOpenaiTenant):
-		return resolveOpenAIClawModelConfig(cfg)
-	case string(apitypes.ModelProviderKindVolcTenant):
-		return resolveVolcClawModelConfig(cfg)
-	default:
-		return nil, fmt.Errorf("flowcraft: model %q provider %q is not supported by claw config generation", cfg.Model.Id, cfg.Tenant.Kind)
-	}
-}
-
-func resolveDashScopeClawModelConfig(cfg peergenx.GeneratorConfig) (map[string]any, error) {
-	if cfg.Tenant.DashScope == nil {
-		return nil, fmt.Errorf("flowcraft: dashscope tenant is required")
-	}
-	providerData, err := cfg.Model.ProviderData.AsDashScopeTenantModelProviderData()
-	if err != nil {
-		return nil, fmt.Errorf("flowcraft: decode dashscope provider_data: %w", err)
-	}
-	body, err := cfg.Credential.Body.AsDashScopeCredentialBody()
-	if err != nil {
-		return nil, err
-	}
-	apiKey := firstString(body.ApiKey, body.Token)
-	if apiKey == "" {
-		return nil, fmt.Errorf("flowcraft: credential %q missing api_key", cfg.Credential.Name)
-	}
-	out := map[string]any{
-		"provider": "qwen",
-		"model":    firstString(providerData.UpstreamModel, string(cfg.Model.Id)),
-		"api_key":  apiKey,
-	}
-	if extra := providerThinkingConfig(providerData.ThinkingParam, providerData.ThinkingLevelParam, providerData.DefaultThinkingLevel); len(extra) > 0 {
-		out["config"] = extra
-	}
-	if baseURL := firstString(cfg.Tenant.DashScope.BaseUrl, body.BaseUrl); baseURL != "" {
-		out["base_url"] = baseURL
-	}
-	return out, nil
-}
-
-func resolveDeepSeekClawModelConfig(cfg peergenx.GeneratorConfig) (map[string]any, error) {
-	if cfg.Tenant.DeepSeek == nil {
-		return nil, fmt.Errorf("flowcraft: deepseek tenant is required")
-	}
-	providerData, err := cfg.Model.ProviderData.AsDeepSeekTenantModelProviderData()
-	if err != nil {
-		return nil, fmt.Errorf("flowcraft: decode deepseek provider_data: %w", err)
-	}
-	body, err := cfg.Credential.Body.AsDeepSeekCredentialBody()
-	if err != nil {
-		return nil, err
-	}
-	apiKey := strings.TrimSpace(body.ApiKey)
-	if apiKey == "" {
-		return nil, fmt.Errorf("flowcraft: credential %q missing api_key", cfg.Credential.Name)
-	}
-	out := map[string]any{
-		"provider": "deepseek",
-		"model":    providerData.UpstreamModel,
-		"api_key":  apiKey,
-	}
-	if extra := providerThinkingConfig(providerData.ThinkingParam, providerData.ThinkingLevelParam, providerData.DefaultThinkingLevel); len(extra) > 0 {
-		out["config"] = extra
-	}
-	if baseURL := firstString(cfg.Tenant.DeepSeek.BaseUrl); baseURL != "" {
-		out["base_url"] = baseURL
-	}
-	return out, nil
-}
-
-func resolveMiniMaxClawModelConfig(cfg peergenx.GeneratorConfig) (map[string]any, error) {
-	if cfg.Tenant.MiniMax == nil {
-		return nil, fmt.Errorf("flowcraft: minimax tenant is required")
-	}
-	providerData, err := cfg.Model.ProviderData.AsMiniMaxTenantModelProviderData()
-	if err != nil {
-		return nil, fmt.Errorf("flowcraft: decode minimax provider_data: %w", err)
-	}
-	body, err := cfg.Credential.Body.AsMiniMaxCredentialBody()
-	if err != nil {
-		return nil, err
-	}
-	apiKey := firstString(body.ApiKey, body.Token)
-	if apiKey == "" {
-		return nil, fmt.Errorf("flowcraft: credential %q missing api_key", cfg.Credential.Name)
-	}
-	out := map[string]any{
-		"provider": "minimax",
-		"model":    providerData.UpstreamModel,
-		"api_key":  apiKey,
-	}
-	if extra := providerThinkingConfig(providerData.ThinkingParam, providerData.ThinkingLevelParam, providerData.DefaultThinkingLevel); len(extra) > 0 {
-		out["config"] = extra
-	}
-	if baseURL := firstString(cfg.Tenant.MiniMax.BaseUrl, body.BaseUrl); baseURL != "" {
-		out["base_url"] = baseURL
-	}
-	return out, nil
-}
-
-func resolveOpenAIClawModelConfig(cfg peergenx.GeneratorConfig) (map[string]any, error) {
-	if cfg.Tenant.OpenAI == nil {
-		return nil, fmt.Errorf("flowcraft: openai tenant is required")
-	}
-	var providerData apitypes.OpenAITenantModelProviderData
-	providerData, err := cfg.Model.ProviderData.AsOpenAITenantModelProviderData()
-	if err != nil {
-		return nil, fmt.Errorf("flowcraft: decode openai provider_data: %w", err)
-	}
-	upstream := firstString(providerData.UpstreamModel, string(cfg.Model.Id))
-	body, err := cfg.Credential.Body.AsOpenAICredentialBody()
-	if err != nil {
-		return nil, err
-	}
-	apiKey := firstString(body.ApiKey, body.Token)
-	if apiKey == "" {
-		return nil, fmt.Errorf("flowcraft: credential %q missing api_key", cfg.Credential.Name)
-	}
-	out := map[string]any{
-		"provider": "openai",
-		"model":    upstream,
-		"api_key":  apiKey,
-	}
-	if extra := openAIThinkingConfig(providerData); len(extra) > 0 {
-		out["config"] = extra
-	}
-	if baseURL := firstString(cfg.Tenant.OpenAI.BaseUrl, body.BaseUrl); baseURL != "" {
-		out["base_url"] = baseURL
-	}
-	return out, nil
-}
-
-func resolveVolcClawModelConfig(cfg peergenx.GeneratorConfig) (map[string]any, error) {
-	if cfg.Tenant.Volc == nil {
-		return nil, fmt.Errorf("flowcraft: volc tenant is required")
-	}
-	var providerData apitypes.VolcTenantModelProviderData
-	providerData, err := cfg.Model.ProviderData.AsVolcTenantModelProviderData()
-	if err != nil {
-		return nil, fmt.Errorf("flowcraft: decode volc provider_data: %w", err)
-	}
-	model := firstString(providerData.UpstreamModel, string(cfg.Model.Id))
-	if model == "" {
-		return nil, fmt.Errorf("flowcraft: model %q missing upstream model", cfg.Model.Id)
-	}
-	body, err := cfg.Credential.Body.AsVolcCredentialBody()
-	if err != nil {
-		return nil, err
-	}
-	apiKey := firstString(body.ArkApiKey)
-	if apiKey == "" {
-		return nil, fmt.Errorf("flowcraft: credential %q missing ark_api_key", cfg.Credential.Name)
-	}
-	out := map[string]any{
-		"provider": "bytedance",
-		"model":    model,
-		"api_key":  apiKey,
-	}
-	if extra := volcThinkingConfig(providerData); len(extra) > 0 {
-		out["config"] = extra
-	}
-	if baseURL := firstString(cfg.Tenant.Volc.Endpoint); baseURL != "" {
-		out["base_url"] = baseURL
-	}
-	if region := firstString(cfg.Tenant.Volc.Region); region != "" {
-		out["region"] = region
-	}
-	return out, nil
-}
-
-func openAIThinkingConfig(data apitypes.OpenAITenantModelProviderData) map[string]any {
-	return providerThinkingConfig(data.ThinkingParam, data.ThinkingLevelParam, data.DefaultThinkingLevel)
-}
-
-func providerThinkingConfig(thinkingParam, thinkingLevelParam, defaultThinkingLevel *string) map[string]any {
-	param := firstString(thinkingParam, thinkingLevelParam)
-	level := firstString(defaultThinkingLevel)
-	if param == "" || level == "" {
-		return nil
-	}
-	out := map[string]any{}
-	setNestedConfigValue(out, param, openAIThinkingConfigValue(param, level))
-	return out
-}
-
-func volcThinkingConfig(data apitypes.VolcTenantModelProviderData) map[string]any {
-	param := firstString(data.ThinkingParam, data.ThinkingLevelParam)
-	level := firstString(data.DefaultThinkingLevel)
-	if param == "" || level == "" {
-		return nil
-	}
-	out := map[string]any{}
-	setNestedConfigValue(out, param, openAIThinkingConfigValue(param, level))
-	return out
-}
-
-func openAIThinkingConfigValue(param, level string) any {
-	if strings.EqualFold(strings.TrimSpace(param), "enable_thinking") {
-		return !isDisabledThinkingLevel(level)
-	}
-	return level
-}
-
-func isDisabledThinkingLevel(level string) bool {
-	switch strings.ToLower(strings.TrimSpace(level)) {
-	case "disabled", "disable", "off", "false", "0", "none", "no":
-		return true
-	default:
-		return false
-	}
-}
-
-func setNestedConfigValue(out map[string]any, path string, value any) {
-	parts := strings.Split(path, ".")
-	if len(parts) == 0 {
-		return
-	}
-	current := out
-	for _, raw := range parts[:len(parts)-1] {
-		part := strings.TrimSpace(raw)
-		if part == "" {
-			return
-		}
-		next, _ := current[part].(map[string]any)
-		if next == nil {
-			next = map[string]any{}
-			current[part] = next
-		}
-		current = next
-	}
-	last := strings.TrimSpace(parts[len(parts)-1])
-	if last != "" {
-		current[last] = value
-	}
-}
-
-func ensureDefaultAgent(cfg map[string]any) {
-	agent := ensureMap(cfg, "agent")
-	if _, ok := agent["id"]; !ok {
-		agent["id"] = "claw"
-	}
-	if _, ok := agent["name"]; !ok {
-		agent["name"] = "Claw"
-	}
-	if _, ok := agent["model"]; !ok {
-		agent["model"] = "generate_model"
-	}
-	if _, ok := agent["system_prompt"]; !ok {
-		agent["system_prompt"] = "你是一个简短、自然的中文语音聊天助手。"
-	}
-	if _, ok := agent["max_iterations"]; !ok {
-		agent["max_iterations"] = 8
-	}
-}
-
-func ensureMap(values map[string]any, key string) map[string]any {
-	if values == nil {
-		return nil
-	}
-	if existing, ok := values[key].(map[string]any); ok {
-		return existing
-	}
-	next := map[string]any{}
-	values[key] = next
-	return next
+	return *value
 }
 
-func deepCopyMap(values map[string]any) map[string]any {
-	if values == nil {
-		return nil
-	}
-	data, err := json.Marshal(values)
-	if err != nil {
-		return nil
-	}
-	var out map[string]any
-	if err := json.Unmarshal(data, &out); err != nil {
-		return nil
-	}
-	return out
-}
+func boolValue(value *bool) bool { return value != nil && *value }
 
-func mapString(values map[string]any, keys ...string) string {
-	for _, key := range keys {
-		if value, ok := values[key].(string); ok && strings.TrimSpace(value) != "" {
-			return strings.TrimSpace(value)
-		}
+func boolDefault(value *bool, fallback bool) bool {
+	if value == nil {
+		return fallback
 	}
-	return ""
+	return *value
 }
 
-func firstString(values ...any) string {
+func firstNonEmpty(values ...*string) string {
 	for _, value := range values {
-		switch typed := value.(type) {
-		case string:
-			if strings.TrimSpace(typed) != "" {
-				return strings.TrimSpace(typed)
-			}
-		case *string:
-			if typed != nil && strings.TrimSpace(*typed) != "" {
-				return strings.TrimSpace(*typed)
-			}
+		if value != nil && strings.TrimSpace(*value) != "" {
+			return strings.TrimSpace(*value)
 		}
 	}
 	return ""
+}
+
+func valueOrZero[T any](value *T) T {
+	if value == nil {
+		var zero T
+		return zero
+	}
+	return *value
+}
+
+func setString(target map[string]any, key string, value *string) {
+	if value != nil {
+		target[key] = *value
+	}
+}
+
+func setValue[T any](target map[string]any, key string, value *T) {
+	if value != nil {
+		target[key] = *value
+	}
 }

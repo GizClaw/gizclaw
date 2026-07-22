@@ -22,7 +22,13 @@ func TestIntegrationAdminServiceWorkflowLifecycle(t *testing.T) {
 		"name": "demo-assistant",
 		"spec": {
 			"driver": "flowcraft",
-			"flowcraft": {}
+			"flowcraft": {
+				"agent": {
+					"id": "assistant",
+					"name": "Assistant",
+					"graph": {"name":"Assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"updated"}}]}
+				}
+			}
 		}
 	}`)
 	created, err := createWorkflow(context.Background(), admin, createDoc)
@@ -54,8 +60,10 @@ func TestIntegrationAdminServiceWorkflowLifecycle(t *testing.T) {
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {
-				"runtime": {
-					"executor_ref": "local"
+				"agent": {
+					"id": "assistant",
+					"name": "Updated Assistant",
+					"graph": {"name":"Assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"updated"}}]}
 				}
 			}
 		}
@@ -64,7 +72,7 @@ func TestIntegrationAdminServiceWorkflowLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PutWorkflow error: %v", err)
 	}
-	if updated.Spec.Flowcraft == nil || (*updated.Spec.Flowcraft)["runtime"] == nil {
+	if updated.Spec.Flowcraft == nil || updated.Spec.Flowcraft.Agent.Name != "Updated Assistant" {
 		t.Fatalf("PutWorkflow spec = %#v", updated.Spec)
 	}
 
@@ -111,7 +119,13 @@ func TestIntegrationAdminServiceWorkspaceLifecycle(t *testing.T) {
 		"name": "demo-workflow",
 		"spec": {
 			"driver": "flowcraft",
-			"flowcraft": {}
+			"flowcraft": {
+				"agent": {
+					"id": "assistant",
+					"name": "Assistant",
+					"graph": {"name":"Assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"updated"}}]}
+				}
+			}
 		}
 	}`)
 	if _, err := createWorkflow(context.Background(), admin, workflowDoc); err != nil {
@@ -168,7 +182,7 @@ func TestIntegrationAdminServiceWorkspaceLifecycle(t *testing.T) {
 		t.Fatalf("PutWorkspace error: %v", err)
 	}
 	params, err := updated.Parameters.AsFlowcraftWorkspaceParameters()
-	if err != nil || params.GenerateModel == nil || *params.GenerateModel != "updated" {
+	if err != nil || params.AgentType != apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft {
 		t.Fatalf("PutWorkspace parameters = %#v", updated.Parameters)
 	}
 

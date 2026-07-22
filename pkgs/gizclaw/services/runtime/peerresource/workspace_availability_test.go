@@ -105,7 +105,11 @@ func TestSystemWorkspaceAvailabilityDoesNotRequireCollectionLabel(t *testing.T) 
 func runtimeProfileWithWorkspaceAlias(revision string) apitypes.RuntimeProfile {
 	return apitypes.RuntimeProfile{
 		Name: "default", Revision: revision,
-		Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{
+		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{
+			Models: &map[string]apitypes.RuntimeProfileBinding{
+				"llm": collectionTestBinding("chat-model", "Chat"),
+			},
+		}, Workflows: apitypes.RuntimeProfileWorkflows{
 			Collections: apitypes.RuntimeProfileWorkflowCollections{
 				"story-teller": {"journey": collectionTestBinding("canonical-workflow", "Journey")},
 			},

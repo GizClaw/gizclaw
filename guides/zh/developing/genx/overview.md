@@ -8,6 +8,7 @@
 
 ```text
 pkgs/genx/
+├── agentkit/      # 通用 Agent stream 组合，例如 Audio Dock
 ├── generators/    # Generator 注册、选择与调用
 ├── transformers/  # ASR、TTS、Realtime 与流转换
 ├── segmentors/    # 对话内容分段与实体关系抽取
@@ -135,13 +136,16 @@ type Stream interface {
 
 ```mermaid
 flowchart LR
-    Product["Agent / GizClaw service"] --> Loader["modelloader"]
+    Product["Agent / GizClaw service"] --> AgentKit["agentkit"]
+    Product --> Loader["modelloader"]
     Loader --> Generators["generators"]
     Loader --> Transformers["transformers"]
     Product --> Context["ModelContext"]
     Context --> Generators
     Generators --> Stream["genx.Stream"]
     Stream --> Transformers
+    AgentKit --> Stream
+    AgentKit --> Transformers
     Stream --> Segmentors["segmentors"]
     Stream --> Profilers["profilers"]
     Stream --> Labelers["labelers"]

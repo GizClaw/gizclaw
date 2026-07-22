@@ -311,7 +311,7 @@ spec:
         - config:
             max_tokens: 96
             messages_channel: story_route_channel
-            model: generate_model
+            model: chat
             output_key: tmp_story_route_text
             system_prompt: |
               You are a fast control formatter for a Journey to the West interactive storyteller.
@@ -572,7 +572,7 @@ spec:
           type: script
         - config:
             max_tokens: 80
-            model: generate_model
+            model: chat
             output_key: tmp_story_text
             system_prompt: |
               你是西游记互动故事的讲述者，当前要讲石猴从花果山出世、出海拜师、得名孙悟空，到返回花果山取得金箍棒并改写生死簿的开篇故事。
@@ -671,7 +671,7 @@ spec:
           type: script
         - config:
             max_tokens: 80
-            model: generate_model
+            model: chat
             system_prompt: |
               你是西游记互动故事的讲述者，当前要讲孙悟空被天庭招安又反出天宫，偷桃盗丹、大闹天宫，最后被如来压在五行山下的故事。
               这是语音对话。只输出你会直接说出口、能被 TTS 朗读的中文对话文本。
@@ -750,7 +750,7 @@ spec:
           type: script
         - config:
             max_tokens: 80
-            model: generate_model
+            model: chat
             system_prompt: |
               你是西游记互动故事的讲述者，当前要讲唐三藏西行出发，救出孙悟空，并让白龙马、猪八戒、沙悟净陆续入队的故事。
               这是语音对话。只输出你会直接说出口、能被 TTS 朗读的中文对话文本。
@@ -829,7 +829,7 @@ spec:
           type: script
         - config:
             max_tokens: 80
-            model: generate_model
+            model: chat
             system_prompt: |
               你是西游记互动故事的讲述者，当前要讲取经队伍进入连续劫难，真假难辨、误会加深，悟空被逐又归来的故事。
               这是语音对话。只输出你会直接说出口、能被 TTS 朗读的中文对话文本。
@@ -907,7 +907,7 @@ spec:
           type: script
         - config:
             max_tokens: 80
-            model: generate_model
+            model: chat
             system_prompt: |
               你是西游记互动故事的讲述者，当前要讲师徒经过女儿国等奇异国度，面对权力、欲望、人情和强妖阻路的故事。
               这是语音对话。只输出你会直接说出口、能被 TTS 朗读的中文对话文本。
@@ -992,7 +992,7 @@ spec:
           type: script
         - config:
             max_tokens: 80
-            model: generate_model
+            model: chat
             system_prompt: |
               你是西游记互动故事的讲述者，当前要讲取经队伍接近灵山前的最后大劫、取得真经、经历无字经试炼并最终修成正果的故事。
               这是语音对话。只输出你会直接说出口、能被 TTS 朗读的中文对话文本。
@@ -1221,7 +1221,7 @@ spec:
           type: script
         - config:
             max_tokens: 80
-            model: generate_model
+            model: chat
             output_key: tmp_story_text
             system_prompt: |
               你是西游记互动故事的讲述者，当前要讲石猴从花果山出世、出海拜师、得名孙悟空，到返回花果山取得金箍棒并改写生死簿的开篇故事。
@@ -1310,7 +1310,7 @@ spec:
           type: llm
         - config:
             max_tokens: 80
-            model: generate_model
+            model: chat
             system_prompt: |
               你是西游记互动故事的讲述者，当前要讲孙悟空被天庭招安又反出天宫，偷桃盗丹、大闹天宫，最后被如来压在五行山下的故事。
               这是语音对话。只输出你会直接说出口、能被 TTS 朗读的中文对话文本。
@@ -1379,7 +1379,7 @@ spec:
           type: llm
         - config:
             max_tokens: 80
-            model: generate_model
+            model: chat
             system_prompt: |
               你是西游记互动故事的讲述者，当前要讲唐三藏西行出发，救出孙悟空，并让白龙马、猪八戒、沙悟净陆续入队的故事。
               这是语音对话。只输出你会直接说出口、能被 TTS 朗读的中文对话文本。
@@ -1448,7 +1448,7 @@ spec:
           type: llm
         - config:
             max_tokens: 80
-            model: generate_model
+            model: chat
             system_prompt: |
               你是西游记互动故事的讲述者，当前要讲取经队伍进入连续劫难，真假难辨、误会加深，悟空被逐又归来的故事。
               这是语音对话。只输出你会直接说出口、能被 TTS 朗读的中文对话文本。
@@ -1516,7 +1516,7 @@ spec:
           type: llm
         - config:
             max_tokens: 80
-            model: generate_model
+            model: chat
             system_prompt: |
               你是西游记互动故事的讲述者，当前要讲师徒经过女儿国等奇异国度，面对权力、欲望、人情和强妖阻路的故事。
               这是语音对话。只输出你会直接说出口、能被 TTS 朗读的中文对话文本。
@@ -1591,7 +1591,7 @@ spec:
           type: llm
         - config:
             max_tokens: 80
-            model: generate_model
+            model: chat
             system_prompt: |
               你是西游记互动故事的讲述者，当前要讲取经队伍接近灵山前的最后大劫、取得真经、经历无字经试炼并最终修成正果的故事。
               这是语音对话。只输出你会直接说出口、能被 TTS 朗读的中文对话文本。
@@ -1701,17 +1701,8 @@ spec:
       id: journey-storyteller
       max_iterations: 16
       name: Journey Storyteller
-      parallel:
-        enabled: true
-        max_branches: 4
-        merge_strategy: last_wins
     conversation:
-      context_id: flowcraft-journey-guide
       starts: peer
-    history:
-      enabled: true
-      kind: buffer
-      max_messages: 20
     memory:
       embedding:
         enabled: false
@@ -1719,7 +1710,7 @@ spec:
       extract:
         enabled: true
         mode: two_pass
-        model: extract_model
+        model: extraction
         schema_name: journey_story_memory
         system_prompt: |
           Extract durable memory facts for an interactive Journey to the West storytelling agent.
@@ -1849,18 +1840,6 @@ spec:
               item_prefix: "- "
               max_items: 4
             top_k: 4
-      retrieval:
-        backend: bbh
-        bbh:
-          bleve:
-            analyzer: gojieba
-          hnsw:
-            flush_interval: 60000000000
-          search_overfetch: 80
-      scope:
-        agent_id: journey-storyteller
-        runtime_id: journey
-        user_id: local
       write:
         board_facts:
         - board_var: tmp_story_progress_line
@@ -1871,13 +1850,6 @@ spec:
         mode: sync
         save_conversation: true
         tier: general
-    settings:
-      extract_model: extraction
-      generate_model: chat
-    workspace:
-      history_root: history
-      memory_root: memory
-      state_root: state
     voice_adapter:
       asr_model: asr
       default_voice: narrator

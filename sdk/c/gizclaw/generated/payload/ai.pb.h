@@ -338,9 +338,6 @@ typedef struct _gizclaw_rpc_v1_FlowcraftWorkspaceParameters {
     gizclaw_rpc_v1_FlowcraftConversationParameters conversation;
     bool has_e2e;
     bool e2e;
-    pb_callback_t embedding_model;
-    pb_callback_t extract_model;
-    pb_callback_t generate_model;
     bool has_input;
     gizclaw_rpc_v1_WorkspaceInputMode input;
 } gizclaw_rpc_v1_FlowcraftWorkspaceParameters;
@@ -834,7 +831,7 @@ extern "C" {
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_init_default {_gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParametersAgentType_MIN, false, gizclaw_rpc_v1_DoubaoRealtimeAudio_init_default, false, 0, false, gizclaw_rpc_v1_DoubaoRealtimeExtension_init_default, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_FlowcraftConversationParameters_init_default {false, _gizclaw_rpc_v1_FlowcraftConversationParametersAgentInitiativePolicy_MIN, false, _gizclaw_rpc_v1_FlowcraftConversationParametersInitiative_MIN}
 #define gizclaw_rpc_v1_FlowcraftWorkflowSpec_init_default {false, google_protobuf_Struct_init_default}
-#define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_init_default {_gizclaw_rpc_v1_FlowcraftWorkspaceParametersAgentType_MIN, false, gizclaw_rpc_v1_FlowcraftConversationParameters_init_default, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN}
+#define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_init_default {_gizclaw_rpc_v1_FlowcraftWorkspaceParametersAgentType_MIN, false, gizclaw_rpc_v1_FlowcraftConversationParameters_init_default, false, 0, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN}
 #define gizclaw_rpc_v1_PetConversationParameters_init_default {false, _gizclaw_rpc_v1_PetConversationParametersInitiative_MIN}
 #define gizclaw_rpc_v1_PetPersonaParameters_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_PetVoiceParameters_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
@@ -912,7 +909,7 @@ extern "C" {
 #define gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_init_zero {_gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParametersAgentType_MIN, false, gizclaw_rpc_v1_DoubaoRealtimeAudio_init_zero, false, 0, false, gizclaw_rpc_v1_DoubaoRealtimeExtension_init_zero, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_FlowcraftConversationParameters_init_zero {false, _gizclaw_rpc_v1_FlowcraftConversationParametersAgentInitiativePolicy_MIN, false, _gizclaw_rpc_v1_FlowcraftConversationParametersInitiative_MIN}
 #define gizclaw_rpc_v1_FlowcraftWorkflowSpec_init_zero {false, google_protobuf_Struct_init_zero}
-#define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_init_zero {_gizclaw_rpc_v1_FlowcraftWorkspaceParametersAgentType_MIN, false, gizclaw_rpc_v1_FlowcraftConversationParameters_init_zero, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN}
+#define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_init_zero {_gizclaw_rpc_v1_FlowcraftWorkspaceParametersAgentType_MIN, false, gizclaw_rpc_v1_FlowcraftConversationParameters_init_zero, false, 0, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN}
 #define gizclaw_rpc_v1_PetConversationParameters_init_zero {false, _gizclaw_rpc_v1_PetConversationParametersInitiative_MIN}
 #define gizclaw_rpc_v1_PetPersonaParameters_init_zero {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_PetVoiceParameters_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
@@ -1087,9 +1084,6 @@ extern "C" {
 #define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_agent_type_tag 1
 #define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_conversation_tag 2
 #define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_e2e_tag 3
-#define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_embedding_model_tag 4
-#define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_extract_model_tag 5
-#define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_generate_model_tag 6
 #define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_input_tag 7
 #define gizclaw_rpc_v1_PetConversationParameters_initiative_tag 1
 #define gizclaw_rpc_v1_PetPersonaParameters_prompt_tag 1
@@ -1574,11 +1568,8 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  fields,            1)
 X(a, STATIC,   SINGULAR, UENUM,    agent_type,        1) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  conversation,      2) \
 X(a, STATIC,   OPTIONAL, BOOL,     e2e,               3) \
-X(a, CALLBACK, OPTIONAL, STRING,   embedding_model,   4) \
-X(a, CALLBACK, OPTIONAL, STRING,   extract_model,     5) \
-X(a, CALLBACK, OPTIONAL, STRING,   generate_model,    6) \
 X(a, STATIC,   OPTIONAL, UENUM,    input,             7)
-#define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_CALLBACK NULL
 #define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_DEFAULT NULL
 #define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_conversation_MSGTYPE gizclaw_rpc_v1_FlowcraftConversationParameters
 
@@ -2119,7 +2110,6 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ToolInvokeResponse_msg;
 /* gizclaw_rpc_v1_DoubaoRealtimeTTSExtra_size depends on runtime parameters */
 /* gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_size depends on runtime parameters */
 /* gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_size depends on runtime parameters */
-/* gizclaw_rpc_v1_FlowcraftWorkspaceParameters_size depends on runtime parameters */
 /* gizclaw_rpc_v1_PetPersonaParameters_size depends on runtime parameters */
 /* gizclaw_rpc_v1_PetVoiceParameters_size depends on runtime parameters */
 /* gizclaw_rpc_v1_PetWorkspaceParameters_size depends on runtime parameters */
@@ -2161,6 +2151,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ToolInvokeResponse_msg;
 #define gizclaw_rpc_v1_DoubaoRealtimeAudioFormat_size 13
 #define gizclaw_rpc_v1_DoubaoRealtimeAudioInput_size 15
 #define gizclaw_rpc_v1_FlowcraftConversationParameters_size 4
+#define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_size 12
 #define gizclaw_rpc_v1_PetConversationParameters_size 2
 #define gizclaw_rpc_v1_PetWorkflowSpec_size      0
 #define gizclaw_rpc_v1_SpeechSynthesizeRequest_size 5212

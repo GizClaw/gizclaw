@@ -19,7 +19,7 @@ const (
 func TestAdminAPIResourcesGet(t *testing.T) {
 	env := newAdminAPIHarness(t)
 
-	get, err := env.api.GetResourceWithResponse(env.ctx, apitypes.ResourceKindWorkflow, "flowcraft-support")
+	get, err := env.api.GetResourceWithResponse(env.ctx, apitypes.ResourceKindWorkflow, "flowcraft-chat-assistant")
 	if err != nil {
 		t.Fatalf("get workflow resource: %v", err)
 	}
@@ -31,7 +31,7 @@ func TestAdminAPIResourcesGet(t *testing.T) {
 	if err != nil {
 		t.Fatalf("decode workflow resource union: %v", err)
 	}
-	if workflow.Metadata.Name != "flowcraft-support" {
+	if workflow.Metadata.Name != "flowcraft-chat-assistant" {
 		t.Fatalf("workflow resource name = %q", workflow.Metadata.Name)
 	}
 }

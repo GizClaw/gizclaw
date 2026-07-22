@@ -16,24 +16,24 @@ func TestAdminWorkflowsUserStory(t *testing.T) {
 
 	list := h.RunCLI("admin", "workflows", "list", "--context", "admin-a")
 	list.MustSucceed(t)
-	if !strings.Contains(list.Stdout, `"name":"flowcraft-assistant"`) {
-		t.Fatalf("workflows list missing flowcraft-assistant:\n%s", list.Stdout)
+	if !strings.Contains(list.Stdout, `"name":"flowcraft-voice-assistant"`) {
+		t.Fatalf("workflows list missing flowcraft-voice-assistant:\n%s", list.Stdout)
 	}
-	for _, want := range []string{`"name":"flowcraft-support"`, `"name":"flowcraft-scenario-119"`} {
+	for _, want := range []string{`"name":"flowcraft-chat-assistant"`, `"name":"flowcraft-scenario-119"`} {
 		if !strings.Contains(list.Stdout, want) {
 			t.Fatalf("workflows list missing %q:\n%s", want, list.Stdout)
 		}
 	}
 
-	get := h.RunCLI("admin", "workflows", "get", "flowcraft-assistant", "--context", "admin-a")
+	get := h.RunCLI("admin", "workflows", "get", "flowcraft-voice-assistant", "--context", "admin-a")
 	get.MustSucceed(t)
 	if !strings.Contains(get.Stdout, `"driver":"flowcraft"`) {
 		t.Fatalf("workflows get missing driver:\n%s", get.Stdout)
 	}
 
-	rpcGet := h.RunCLI("admin", "workflows", "get", "flowcraft-support", "--context", "admin-a")
+	rpcGet := h.RunCLI("admin", "workflows", "get", "flowcraft-chat-assistant", "--context", "admin-a")
 	rpcGet.MustSucceed(t)
-	if !strings.Contains(rpcGet.Stdout, `"name":"flowcraft-support"`) || !strings.Contains(rpcGet.Stdout, `"driver":"flowcraft"`) {
+	if !strings.Contains(rpcGet.Stdout, `"name":"flowcraft-chat-assistant"`) || !strings.Contains(rpcGet.Stdout, `"driver":"flowcraft"`) {
 		t.Fatalf("workflows get missing resource fields:\n%s", rpcGet.Stdout)
 	}
 

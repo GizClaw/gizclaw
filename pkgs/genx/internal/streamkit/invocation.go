@@ -107,6 +107,20 @@ func (i *Invocation) StartResponse(config ResponseConfig, mimeTypes ...string) (
 // Emit appends one chunk for an active response. Missing route metadata is
 // filled from ResponseConfig; mismatched or late StreamIDs are rejected.
 func (i *Invocation) Emit(response *Response, chunk *genx.MessageChunk) error {
+	return i.EmitObserved(response, chunk, nil)
+}
+
+// EmitObserved appends one chunk and records the supplied observer at the
+// final pull boundary. It is used by composition layers that must preserve a
+// wrapped producer's delivered-output accounting.
+func (i *Invocation) EmitObserved(response *Response, chunk *genx.MessageChunk, observe func(*genx.MessageChunk)) error {
+	return i.EmitTracked(response, chunk, observe, nil)
+}
+
+// EmitTracked emits one chunk with callbacks for final delivery and for a
+// later pre-delivery discard. It lets a composition layer preserve the
+// wrapped producer's pull-visible accounting across read-ahead buffering.
+func (i *Invocation) EmitTracked(response *Response, chunk *genx.MessageChunk, observe, abandon func(*genx.MessageChunk)) error {
 	if i == nil || response == nil || chunk == nil {
 		return ErrInactiveResponse
 	}
@@ -122,7 +136,7 @@ func (i *Invocation) Emit(response *Response, chunk *genx.MessageChunk) error {
 	if !response.Accept(chunk) {
 		return ErrInactiveResponse
 	}
-	if err := i.output.Push(chunk); err != nil {
+	if err := i.output.PushTracked(chunk, observe, abandon); err != nil {
 		i.closed = true
 		clear(i.responses)
 		i.cancel()

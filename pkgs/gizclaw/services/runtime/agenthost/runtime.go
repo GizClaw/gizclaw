@@ -109,11 +109,7 @@ func (s *Service) Reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 	if s.RuntimeProfile != nil {
 		if profile := s.RuntimeProfile(); profile != nil {
 			profileToolBindings = runtimeProfileToolBindings(profile.Spec.Resources.Tools)
-			for _, workflows := range profile.Spec.Workflows.Collections {
-				for alias, binding := range workflows {
-					profileWorkflowBindings[alias] = binding.ResourceId
-				}
-			}
+			profileWorkflowBindings = runtimeProfileWorkflowBindings(*profile)
 		}
 	}
 	baseCtx := WithResourceAccess(withHistoryGearID(context.WithoutCancel(ctx), s.PublicKey.String()), s.PublicKey.String(), profileToolBindings, profileWorkflowBindings)
@@ -158,6 +154,16 @@ func (s *Service) Reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 	status := s.setStatus(apitypes.PeerRunStatusStateRunning, selection.WorkspaceName, nil, &now)
 	go s.consume(runCtx, next)
 	return status, nil
+}
+
+func runtimeProfileWorkflowBindings(profile apitypes.RuntimeProfile) map[string]string {
+	bindings := make(map[string]string)
+	for _, workflows := range profile.Spec.Workflows.Collections {
+		for alias, binding := range workflows {
+			bindings[alias] = binding.ResourceId
+		}
+	}
+	return bindings
 }
 
 func runtimeProfileToolBindings(tools *map[string]apitypes.RuntimeProfileBinding) map[string]string {

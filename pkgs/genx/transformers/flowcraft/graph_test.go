@@ -42,10 +42,10 @@ func TestRunHostPublishesOnlyAcceptedCandidateFromAllowedNode(t *testing.T) {
 		t.Fatalf("speculative output escaped before acceptance: %v", emitted)
 	}
 	emit("answer", engine.StreamDeltaPayload{
-		Type: engine.StreamDeltaParallelBranchCancel, ForkID: "fork", BranchID: "two",
+		Type: engine.StreamDeltaParallelBranchCancel, ForkID: "fork", BranchID: "two", Speculative: true,
 	})
 	emit("answer", engine.StreamDeltaPayload{
-		Type: engine.StreamDeltaParallelBranchAccept, ForkID: "fork", BranchID: "one",
+		Type: engine.StreamDeltaParallelBranchAccept, ForkID: "fork", BranchID: "one", Speculative: true,
 	})
 	emit("answer", engine.StreamDeltaPayload{
 		Type: engine.StreamDeltaToken, Content: "late-accepted", Speculative: true,

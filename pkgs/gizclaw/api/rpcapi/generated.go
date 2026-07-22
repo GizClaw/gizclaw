@@ -1683,11 +1683,8 @@ type FlowcraftWorkspaceParameters struct {
 	Conversation *FlowcraftConversationParameters      `json:"conversation,omitempty"`
 
 	// E2e Marks seed resources used by the local e2e harness.
-	E2e            *bool               `json:"e2e,omitempty"`
-	EmbeddingModel *string             `json:"embedding_model,omitempty"`
-	ExtractModel   *string             `json:"extract_model,omitempty"`
-	GenerateModel  *string             `json:"generate_model,omitempty"`
-	Input          *WorkspaceInputMode `json:"input,omitempty"`
+	E2e   *bool               `json:"e2e,omitempty"`
+	Input *WorkspaceInputMode `json:"input,omitempty"`
 }
 
 // FlowcraftWorkspaceParametersAgentType defines model for FlowcraftWorkspaceParameters.AgentType.

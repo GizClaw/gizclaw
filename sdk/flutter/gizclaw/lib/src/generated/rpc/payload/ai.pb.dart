@@ -3255,18 +3255,12 @@ class FlowcraftWorkspaceParameters extends $pb.GeneratedMessage {
     $1.FlowcraftWorkspaceParametersAgentType? agentType,
     FlowcraftConversationParameters? conversation,
     $core.bool? e2e,
-    $core.String? embeddingModel,
-    $core.String? extractModel,
-    $core.String? generateModel,
     $1.WorkspaceInputMode? input,
   }) {
     final result = create();
     if (agentType != null) result.agentType = agentType;
     if (conversation != null) result.conversation = conversation;
     if (e2e != null) result.e2e = e2e;
-    if (embeddingModel != null) result.embeddingModel = embeddingModel;
-    if (extractModel != null) result.extractModel = extractModel;
-    if (generateModel != null) result.generateModel = generateModel;
     if (input != null) result.input = input;
     return result;
   }
@@ -3291,9 +3285,6 @@ class FlowcraftWorkspaceParameters extends $pb.GeneratedMessage {
         2, _omitFieldNames ? '' : 'conversation',
         subBuilder: FlowcraftConversationParameters.create)
     ..aOB(3, _omitFieldNames ? '' : 'e2e')
-    ..aOS(4, _omitFieldNames ? '' : 'embeddingModel')
-    ..aOS(5, _omitFieldNames ? '' : 'extractModel')
-    ..aOS(6, _omitFieldNames ? '' : 'generateModel')
     ..aE<$1.WorkspaceInputMode>(7, _omitFieldNames ? '' : 'input',
         enumValues: $1.WorkspaceInputMode.values)
     ..hasRequiredFields = false;
@@ -3351,39 +3342,12 @@ class FlowcraftWorkspaceParameters extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearE2e() => $_clearField(3);
 
-  @$pb.TagNumber(4)
-  $core.String get embeddingModel => $_getSZ(3);
-  @$pb.TagNumber(4)
-  set embeddingModel($core.String value) => $_setString(3, value);
-  @$pb.TagNumber(4)
-  $core.bool hasEmbeddingModel() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearEmbeddingModel() => $_clearField(4);
-
-  @$pb.TagNumber(5)
-  $core.String get extractModel => $_getSZ(4);
-  @$pb.TagNumber(5)
-  set extractModel($core.String value) => $_setString(4, value);
-  @$pb.TagNumber(5)
-  $core.bool hasExtractModel() => $_has(4);
-  @$pb.TagNumber(5)
-  void clearExtractModel() => $_clearField(5);
-
-  @$pb.TagNumber(6)
-  $core.String get generateModel => $_getSZ(5);
-  @$pb.TagNumber(6)
-  set generateModel($core.String value) => $_setString(5, value);
-  @$pb.TagNumber(6)
-  $core.bool hasGenerateModel() => $_has(5);
-  @$pb.TagNumber(6)
-  void clearGenerateModel() => $_clearField(6);
-
   @$pb.TagNumber(7)
-  $1.WorkspaceInputMode get input => $_getN(6);
+  $1.WorkspaceInputMode get input => $_getN(3);
   @$pb.TagNumber(7)
   set input($1.WorkspaceInputMode value) => $_setField(7, value);
   @$pb.TagNumber(7)
-  $core.bool hasInput() => $_has(6);
+  $core.bool hasInput() => $_has(3);
   @$pb.TagNumber(7)
   void clearInput() => $_clearField(7);
 }

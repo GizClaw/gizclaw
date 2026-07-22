@@ -52,26 +52,6 @@ spec:
           to: checkpoint_clear
         - from: retry_hint
           to: write_poetry_audit
-        - condition: poetry_award_route == "tang_award_badge"
-          from: checkpoint_clear
-          to: call_tang_moon_badge
-        - condition: poetry_award_route == "song_award_badge"
-          from: checkpoint_clear
-          to: call_song_river_badge
-        - condition: poetry_award_route == "yuan_award_badge"
-          from: checkpoint_clear
-          to: call_yuan_dusk_badge
-        - condition: poetry_award_route == "ming_award_badge"
-          from: checkpoint_clear
-          to: call_ming_courage_badge
-        - from: call_tang_moon_badge
-          to: advance_checkpoint
-        - from: call_song_river_badge
-          to: advance_checkpoint
-        - from: call_yuan_dusk_badge
-          to: advance_checkpoint
-        - from: call_ming_courage_badge
-          to: advance_checkpoint
         - condition: poetry_after_award_route == "journey_finish"
           from: advance_checkpoint
           to: journey_finish
@@ -84,6 +64,18 @@ spec:
           to: write_poetry_audit
         - from: write_poetry_audit
           to: __end__
+        - condition: poetry_award_route == "tang_award_badge"
+          from: checkpoint_clear
+          to: advance_checkpoint
+        - condition: poetry_award_route == "song_award_badge"
+          from: checkpoint_clear
+          to: advance_checkpoint
+        - condition: poetry_award_route == "yuan_award_badge"
+          from: checkpoint_clear
+          to: advance_checkpoint
+        - condition: poetry_award_route == "ming_award_badge"
+          from: checkpoint_clear
+          to: advance_checkpoint
         entry: load_journey_state
         name: poetry-adventure-li-bai
         nodes:
@@ -206,7 +198,7 @@ spec:
         - config:
             max_tokens: 28
             messages_channel: poetry_input_channel
-            model: generate_model
+            model: llm
             system_prompt: |
               你是李白，正在带孩子进行古诗朝代闯关。
 
@@ -228,7 +220,7 @@ spec:
         - config:
             max_tokens: 28
             messages_channel: poetry_input_channel
-            model: generate_model
+            model: llm
             system_prompt: |
               你是李白，正在带孩子进行古诗朝代闯关。
 
@@ -250,7 +242,7 @@ spec:
         - config:
             max_tokens: 28
             messages_channel: poetry_input_channel
-            model: generate_model
+            model: llm
             system_prompt: |
               你是李白，正在带孩子进行古诗朝代闯关。
 
@@ -272,7 +264,7 @@ spec:
         - config:
             max_tokens: 28
             messages_channel: poetry_input_channel
-            model: generate_model
+            model: llm
             system_prompt: |
               你是李白，正在带孩子进行古诗朝代闯关。
 
@@ -294,7 +286,7 @@ spec:
         - config:
             max_tokens: 128
             messages_channel: poetry_input_channel
-            model: generate_model
+            model: llm
             output_key: challenge_judgement_text
             system_prompt: |
               You judge a child answer for a dynasty poetry checkpoint.
@@ -392,7 +384,7 @@ spec:
         - config:
             max_tokens: 28
             messages_channel: poetry_response_channel
-            model: generate_model
+            model: llm
             system_prompt: |
               你是李白，正在带孩子进行古诗朝代闯关。
 
@@ -419,7 +411,7 @@ spec:
         - config:
             max_tokens: 28
             messages_channel: poetry_response_channel
-            model: generate_model
+            model: llm
             system_prompt: |
               你是李白，正在带孩子进行古诗朝代闯关。
 
@@ -438,66 +430,6 @@ spec:
               - 不要输出 challenge_result、requirements、JSON、参数、英文判断文本。
               - 只输出一句，最多 18 个汉字。
           id: retry_hint
-          publish: true
-          type: llm
-        - config:
-            max_tokens: 64
-            messages_channel: poetry_response_channel
-            model: extract_model
-            system_prompt: |
-              You are the Tang badge lifecycle node. Call award_tang_moon_badge exactly once and output no text.
-
-              This tool awards badge_tang_moon and 100 points.
-              Use line = "${board.last_line}".
-              Use reason = "child cleared the Tang moon checkpoint".
-            tool_names:
-            - award_tang_moon_badge
-          id: call_tang_moon_badge
-          publish: true
-          type: llm
-        - config:
-            max_tokens: 64
-            messages_channel: poetry_response_channel
-            model: extract_model
-            system_prompt: |
-              You are the Song badge lifecycle node. Call award_song_river_badge exactly once and output no text.
-
-              This tool awards badge_song_river and 100 points.
-              Use line = "${board.last_line}".
-              Use reason = "child cleared the Song river checkpoint".
-            tool_names:
-            - award_song_river_badge
-          id: call_song_river_badge
-          publish: true
-          type: llm
-        - config:
-            max_tokens: 64
-            messages_channel: poetry_response_channel
-            model: extract_model
-            system_prompt: |
-              You are the Yuan badge lifecycle node. Call award_yuan_dusk_badge exactly once and output no text.
-
-              This tool awards badge_yuan_dusk and 100 points.
-              Use line = "${board.last_line}".
-              Use reason = "child cleared the Yuan dusk checkpoint".
-            tool_names:
-            - award_yuan_dusk_badge
-          id: call_yuan_dusk_badge
-          publish: true
-          type: llm
-        - config:
-            max_tokens: 64
-            messages_channel: poetry_response_channel
-            model: extract_model
-            system_prompt: |
-              You are the Ming badge lifecycle node. Call award_ming_courage_badge exactly once and output no text.
-
-              This tool awards badge_ming_courage and 100 points.
-              Use line = "${board.last_line}".
-              Use reason = "child cleared the Ming courage checkpoint".
-            tool_names:
-            - award_ming_courage_badge
-          id: call_ming_courage_badge
           publish: true
           type: llm
         - config:
@@ -539,7 +471,7 @@ spec:
         - config:
             max_tokens: 28
             messages_channel: poetry_response_channel
-            model: generate_model
+            model: llm
             system_prompt: |
               你是李白，正在带孩子进行古诗朝代闯关。
 
@@ -563,7 +495,7 @@ spec:
         - config:
             max_tokens: 28
             messages_channel: poetry_response_channel
-            model: generate_model
+            model: llm
             system_prompt: |
               你是李白，孩子已经完成古诗朝代闯关，现在进入通关后的角色扮演闲聊。
 
@@ -612,65 +544,9 @@ spec:
           type: script
       id: poetry-adventure-li-bai
       max_iterations: 16
-      model: generate_model
       name: Poetry Adventure Li Bai
-      system_prompt: 你是一个简短、自然的中文语音聊天助手。
-      tools:
-      - description: Award the Tang Moon badge and 100 points after the child clears
-          the Tang poetry checkpoint.
-        input_schema:
-          properties:
-            line:
-              description: The poem line that cleared the Tang checkpoint.
-              type: string
-            reason:
-              description: Short reason for the award.
-              type: string
-          type: object
-        name: award_tang_moon_badge
-      - description: Award the Song River badge and 100 points after the child clears
-          the Song poetry checkpoint.
-        input_schema:
-          properties:
-            line:
-              description: The poem or ci line that cleared the Song checkpoint.
-              type: string
-            reason:
-              description: Short reason for the award.
-              type: string
-          type: object
-        name: award_song_river_badge
-      - description: Award the Yuan Dusk badge and 100 points after the child clears
-          the Yuan poetry checkpoint.
-        input_schema:
-          properties:
-            line:
-              description: The Yuanqu line that cleared the Yuan checkpoint.
-              type: string
-            reason:
-              description: Short reason for the award.
-              type: string
-          type: object
-        name: award_yuan_dusk_badge
-      - description: Award the Ming Courage badge and 100 points after the child clears
-          the Ming poetry checkpoint.
-        input_schema:
-          properties:
-            line:
-              description: The poem line that cleared the Ming checkpoint.
-              type: string
-            reason:
-              description: Short reason for the award.
-              type: string
-          type: object
-        name: award_ming_courage_badge
     conversation:
-      context_id: flowcraft-poetry-adventure-li-bai
-      starts: self
-    history:
-      enabled: true
-      kind: buffer
-      max_messages: 20
+      starts: agent
     memory:
       embedding:
         enabled: false
@@ -696,10 +572,6 @@ spec:
           recall: Audit only. Runtime routing uses workspace poetry_journey_state.
       recall:
         enabled: false
-      scope:
-        agent_id: poetry-adventure-li-bai
-        runtime_id: poetry-adventure-li-bai
-        user_id: local
       write:
         board_facts:
         - board_var: tmp_checkpoint_progress_line
@@ -720,26 +592,15 @@ spec:
         mode: sync
         save_conversation: true
         tier: general
-    settings:
-      extract_model: extract_model
-      generate_model: generate_model
-    workspace:
-      history_root: history
-      memory_root: memory
-      state_root: state
     voice_adapter:
-      asr_model: volc-bigasr-sauc
-      default_voice: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
+      asr_model: asr
+      default_voice: narrator
       node_voices:
-        tang_checkpoint: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
-        song_checkpoint: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
-        yuan_checkpoint: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
-        ming_checkpoint: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
-        checkpoint_clear: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
-        retry_hint: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
-        call_tang_moon_badge: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
-        call_song_river_badge: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
-        call_yuan_dusk_badge: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
-        call_ming_courage_badge: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
-        journey_finish: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
-        finished_roleplay_chat: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
+        checkpoint_clear: narrator
+        finished_roleplay_chat: narrator
+        journey_finish: narrator
+        ming_checkpoint: narrator
+        retry_hint: narrator
+        song_checkpoint: narrator
+        tang_checkpoint: narrator
+        yuan_checkpoint: narrator

@@ -1,0 +1,17 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: Voice
+metadata:
+  name: volc-tenant:volc-main:zh_female_vv_jupiter_bigtts
+spec:
+  source: manual
+  provider:
+    kind: volc-tenant
+    name: volc-main
+  name: Vivi Realtime
+  description: Vivi voice supported by the Doubao end-to-end realtime speech model
+  provider_data:
+    resource_id: volc.speech.dialog
+    voice_id: zh_female_vv_jupiter_bigtts
+    raw:
+      origin: volc-realtime-model-catalog

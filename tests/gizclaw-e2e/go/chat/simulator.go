@@ -247,7 +247,6 @@ type conversationMode struct {
 	LightweightInterrupt     bool
 }
 
-const flowcraftSelfStartStreamID = "flowcraft-self-start"
 const assistantAudioASRMinRatio = 0.35
 const realtimeInputTailSilence = 1200 * time.Millisecond
 
@@ -730,6 +729,7 @@ func (d *personaDriver) runInterruptScenario(ctx context.Context, index int, mod
 			return stat, fmt.Errorf("interrupt prepare second realtime tail silence: %w", err)
 		}
 	}
+	fmt.Printf("workspace_progress event=interrupt_audio_ready workspace=%s round=%d first_packets=%d second_packets=%d realtime=%t\n", d.cfg.Workspace, index, len(firstPackets), len(secondPackets), mode.Realtime)
 	if d.reloadAgent != nil && index == 1 {
 		if err := d.reloadAgent(ctx); err != nil && !isAgentAlreadyRunning(err) {
 			return stat, fmt.Errorf("interrupt reload workspace: %w", err)
@@ -738,6 +738,7 @@ func (d *personaDriver) runInterruptScenario(ctx context.Context, index int, mod
 	if err := d.resetTransport(); err != nil {
 		return stat, fmt.Errorf("interrupt open transport: %w", err)
 	}
+	fmt.Printf("workspace_progress event=interrupt_transport_ready workspace=%s round=%d\n", d.cfg.Workspace, index)
 	if index == 1 && d.cfg.flowcraftStartsSelf() {
 		if _, ok, err := d.consumeSelfStart(ctx, mode.SkipAssistantAudioASR); err != nil {
 			return stat, fmt.Errorf("interrupt consume self-start: %w", err)
@@ -757,7 +758,9 @@ func (d *personaDriver) runInterruptScenario(ctx context.Context, index int, mod
 	secondSendDone := make(chan error, 1)
 	if mode.Realtime {
 		go func() {
-			firstSendDone <- d.transport.sendAudioTurn(ctx, firstStreamID, firstPackets)
+			err := d.transport.sendAudioTurn(ctx, firstStreamID, firstPackets)
+			fmt.Printf("workspace_progress event=interrupt_first_uplink_done workspace=%s round=%d stream=%s error=%q\n", d.cfg.Workspace, index, firstStreamID, fmt.Sprint(err))
+			firstSendDone <- err
 		}()
 	} else {
 		if err := d.transport.sendAudioTurn(ctx, firstStreamID, firstPackets); err != nil {
@@ -776,8 +779,11 @@ func (d *personaDriver) runInterruptScenario(ctx context.Context, index int, mod
 			if err := d.transport.sendAudioTurnBOS(ctx, secondStreamID); err != nil {
 				return fmt.Errorf("interrupt send second BOS: %w", err)
 			}
+			fmt.Printf("workspace_progress event=interrupt_second_bos_sent workspace=%s round=%d stream=%s\n", d.cfg.Workspace, index, secondStreamID)
 			go func() {
-				secondSendDone <- d.transport.sendAudioTurnAudioAndEOS(ctx, secondStreamID, secondPackets)
+				err := d.transport.sendAudioTurnAudioAndEOS(ctx, secondStreamID, secondPackets)
+				fmt.Printf("workspace_progress event=interrupt_second_uplink_done workspace=%s round=%d stream=%s error=%q\n", d.cfg.Workspace, index, secondStreamID, fmt.Sprint(err))
+				secondSendDone <- err
 			}()
 			return nil
 		}
@@ -892,6 +898,7 @@ func (d *personaDriver) runInterruptScenario(ctx context.Context, index int, mod
 			secondSendDone = nil
 		case event := <-d.transport.events:
 			trace.add("event stream=%s label=%s type=%s text=%q error=%s", eventStreamID(event.event), eventLabel(event.event), event.event.Type, eventText(event.event), eventError(event.event))
+			fmt.Printf("workspace_progress event=interrupt_peer_event workspace=%s round=%d stream=%s label=%s type=%s text_chars=%d error=%q\n", d.cfg.Workspace, index, eventStreamID(event.event), eventLabel(event.event), event.event.Type, runeCount(eventText(event.event)), eventError(event.event))
 			if eventLabel(event.event) == "assistant" && event.event.Error != nil && *event.event.Error == "interrupted" {
 				if !acceptRoundEventStream(event.event, firstStreamID, &firstAssistantStreamID) {
 					continue

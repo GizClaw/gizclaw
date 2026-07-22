@@ -21,8 +21,7 @@ func testCredentialBodyString(body apitypes.CredentialBody, key string) string {
 func testFlowcraftWorkspaceParameters() *apitypes.WorkspaceParameters {
 	var params apitypes.WorkspaceParameters
 	if err := params.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{
-		AgentType:     apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
-		GenerateModel: stringPtr("updated"),
+		AgentType: apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
 	}); err != nil {
 		panic(err)
 	}
