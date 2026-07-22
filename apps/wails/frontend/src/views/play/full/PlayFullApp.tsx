@@ -1,9 +1,52 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import type { JSX, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import type {
+  JSX,
+  MouseEvent as ReactMouseEvent,
+  PointerEvent as ReactPointerEvent,
+} from "react";
 import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
-import { drawPixaFrame, parsePixa, pixaClipFrameIndex, selectPixaClip, type PixaAsset } from "@gizclaw/pixa";
-import { ArrowLeft, Bot, Brain, BriefcaseBusiness, ChevronDown, Clock3, ContactRound, Database, Loader2, MessageCircle, Mic2, PackageCheck, PawPrint, Pencil, Play, Plus, RefreshCw, Search, SendHorizontal, Trash2, UserPlus, Users, Volume2, VolumeX, Workflow } from "lucide-react";
+import {
+  drawPixaFrame,
+  parsePixa,
+  pixaClipFrameIndex,
+  selectPixaClip,
+  type PixaAsset,
+} from "@gizclaw/pixa";
+import {
+  ArrowLeft,
+  Bot,
+  Brain,
+  BriefcaseBusiness,
+  ChevronDown,
+  Clock3,
+  ContactRound,
+  Database,
+  Loader2,
+  MessageCircle,
+  Mic2,
+  PackageCheck,
+  PawPrint,
+  Pencil,
+  Play,
+  Plus,
+  RefreshCw,
+  Search,
+  SendHorizontal,
+  Trash2,
+  UserPlus,
+  Users,
+  Volume2,
+  VolumeX,
+  Workflow,
+} from "lucide-react";
 import { toast } from "sonner";
 import {
   ActionBarPrimitive,
@@ -67,7 +110,6 @@ import {
   listPeerPets,
   listPeerPointsTransactions,
   listPeerRewardGrants,
-  listPeerVoices,
   listPeerWorkspaceHistory,
   listPeerWorkflows,
   listPeerWorkspaces,
@@ -96,7 +138,6 @@ import {
   type PeerRunHistoryEntry,
   type PeerRunMemoryStatsResponse,
   type PeerRunRecallHit,
-  type PeerRunRecallResponse,
   type PetObject,
   type PetActionsObject,
   type PlayWorkspaceMode,
@@ -105,7 +146,6 @@ import {
   type PointsAccountObject,
   type PointsTransactionObject,
   type RewardGrantObject,
-  type WebRtcSessionDescription,
   type Workflow as PeerWorkflow,
   type Workspace,
   type WorkspaceParameters,
@@ -116,31 +156,89 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Field as ShadField, FieldGroup, FieldLabel } from "@/components/ui/field";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Field as ShadField,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Toaster } from "@/components/ui/sonner";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/components/ui/utils";
-import { DashboardEmptyState, DashboardPager, DashboardShell, DashboardTable, DashboardTableCard, type DashboardNavItem } from "@/dashboard";
-import { getPlayOpenAIClient, readPlaySpeechAudioBlob } from "../../../lib/gizclaw/openai";
-import { hasThinkingToggle, isDisabledThinkingLevel, thinkingParameter } from "../../../lib/play-thinking";
+import {
+  DashboardEmptyState,
+  DashboardPager,
+  DashboardShell,
+  DashboardTable,
+  DashboardTableCard,
+  type DashboardNavItem,
+} from "@/dashboard";
+import {
+  getPlayOpenAIClient,
+  readPlaySpeechAudioBlob,
+} from "../../../lib/gizclaw/openai";
+import {
+  hasThinkingToggle,
+  isDisabledThinkingLevel,
+  thinkingParameter,
+} from "../../../lib/play-thinking";
 
-type Section = "overview" | "contacts" | "friends" | "friendGroups" | "gameplay" | "workspaces" | "workflows" | "models" | "firmwares" | "voices";
+type Section =
+  | "overview"
+  | "contacts"
+  | "friends"
+  | "friendGroups"
+  | "gameplay"
+  | "workspaces"
+  | "workflows"
+  | "models"
+  | "firmwares"
+  | "voices";
 type TopDrawer = "workspace" | "social-chat" | "test-chat" | null;
 
 type Voice = {
-	alias: string;
-	i18n: Record<string, { display_name: string; description?: string }>;
+  alias: string;
+  i18n: Record<string, { display_name: string; description?: string }>;
 };
 
 type PageResponse<T> = {
@@ -197,7 +295,8 @@ type PeerStreamEvent = {
   stream_id?: string;
   text?: string;
   timestamp?: number;
-  type: "bos" | "eos" | "text.delta" | "text.done" | "workspace.history.updated";
+  type:
+    "bos" | "eos" | "text.delta" | "text.done" | "workspace.history.updated";
   v: number;
 };
 
@@ -207,7 +306,8 @@ type WorkspaceVoiceSession = {
   startInputTurn: (streamID: string) => Promise<void>;
 };
 
-type WorkspaceChatTurnStatus = "recording" | "sending" | "responding" | "playing" | "complete" | "error";
+type WorkspaceChatTurnStatus =
+  "recording" | "sending" | "responding" | "playing" | "complete" | "error";
 
 type WorkspaceChatTurn = {
   assistantText?: string;
@@ -235,18 +335,32 @@ const sections: Array<DashboardNavItem<Section>> = [
 
 const chatSessionsKey = "gizclaw.openai.chat.sessions";
 const chatStore = new Map<string, string>();
-const workspaceAudioPlaybackRequestEvent = "gizclaw:workspace-audio-play-request";
+const workspaceAudioPlaybackRequestEvent =
+  "gizclaw:workspace-audio-play-request";
 const topDrawerContentClassName =
   "top-32 h-[calc(100dvh-8rem)] w-[min(100vw,1120px)] gap-0 p-0 sm:top-24 sm:h-[calc(100dvh-6rem)] sm:max-w-none lg:top-20 lg:h-[calc(100dvh-5rem)]";
 
-export function PlayFullApp({ contextName, onSignOut }: { contextName?: string; onSignOut(): Promise<void> }): JSX.Element {
+export function PlayFullApp({
+  contextName,
+  onSignOut,
+}: {
+  contextName?: string;
+  onSignOut(): Promise<void>;
+}): JSX.Element {
   const [section, setSection] = useState<Section>("overview");
   const [topDrawer, setTopDrawer] = useState<TopDrawer>(null);
   const [models, setModels] = useState<Model[]>([]);
-  const [selectedFriend, setSelectedFriend] = useState<FriendObject | null>(null);
-  const [selectedGroup, setSelectedGroup] = useState<FriendGroupObject | null>(null);
-  const [selectedFirmware, setSelectedFirmware] = useState<Firmware | null>(null);
-  const [socialChatTarget, setSocialChatTarget] = useState<SocialChatTarget | null>(null);
+  const [selectedFriend, setSelectedFriend] = useState<FriendObject | null>(
+    null,
+  );
+  const [selectedGroup, setSelectedGroup] = useState<FriendGroupObject | null>(
+    null,
+  );
+  const [selectedFirmware, setSelectedFirmware] = useState<Firmware | null>(
+    null,
+  );
+  const [socialChatTarget, setSocialChatTarget] =
+    useState<SocialChatTarget | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -254,9 +368,9 @@ export function PlayFullApp({ contextName, onSignOut }: { contextName?: string; 
     setLoading(true);
     setError("");
     const failures: string[] = [];
-    await Promise.all([
-      listModels().then(setModels).catch((err: unknown) => failures.push(`models: ${toMessage(err)}`)),
-    ]);
+    await listModels()
+      .then(setModels)
+      .catch((err: unknown) => failures.push(`models: ${toMessage(err)}`));
     if (failures.length > 0) {
       setError(failures.join("\n"));
     }
@@ -284,7 +398,12 @@ export function PlayFullApp({ contextName, onSignOut }: { contextName?: string; 
       {
         items: sections.map((item) => ({
           ...item,
-          badge: counts[item.id as keyof typeof counts] == null ? undefined : <Badge variant="outline">{counts[item.id as keyof typeof counts]}</Badge>,
+          badge:
+            counts[item.id as keyof typeof counts] == null ? undefined : (
+              <Badge variant="outline">
+                {counts[item.id as keyof typeof counts]}
+              </Badge>
+            ),
         })),
       },
     ],
@@ -292,7 +411,13 @@ export function PlayFullApp({ contextName, onSignOut }: { contextName?: string; 
   );
   const headerActions = (
     <>
-      <Button disabled={loading} onClick={() => void refresh()} size="sm" type="button" variant="outline">
+      <Button
+        disabled={loading}
+        onClick={() => void refresh()}
+        size="sm"
+        type="button"
+        variant="outline"
+      >
         <RefreshCw className={cn("size-4", loading && "animate-spin")} />
         Refresh
       </Button>
@@ -300,10 +425,19 @@ export function PlayFullApp({ contextName, onSignOut }: { contextName?: string; 
         initialTarget={socialChatTarget}
         open={topDrawer === "social-chat"}
         onInitialTargetChange={setSocialChatTarget}
-        onOpenChange={(nextOpen) => setTopDrawer(nextOpen ? "social-chat" : null)}
+        onOpenChange={(nextOpen) =>
+          setTopDrawer(nextOpen ? "social-chat" : null)
+        }
       />
-      <WorkspaceDrawer open={topDrawer === "workspace"} onOpenChange={(nextOpen) => setTopDrawer(nextOpen ? "workspace" : null)} />
-      <ChatTester models={models} open={topDrawer === "test-chat"} onOpenChange={(nextOpen) => setTopDrawer(nextOpen ? "test-chat" : null)} />
+      <WorkspaceDrawer
+        open={topDrawer === "workspace"}
+        onOpenChange={(nextOpen) => setTopDrawer(nextOpen ? "workspace" : null)}
+      />
+      <ChatTester
+        models={models}
+        open={topDrawer === "test-chat"}
+        onOpenChange={(nextOpen) => setTopDrawer(nextOpen ? "test-chat" : null)}
+      />
     </>
   );
 
@@ -322,45 +456,67 @@ export function PlayFullApp({ contextName, onSignOut }: { contextName?: string; 
         title={sectionTitle(section)}
         titleAsHeading
       >
-            {error !== "" ? (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
+        {error !== "" ? (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : null}
+        {loading ? (
+          <LoadingGrid />
+        ) : (
+          <>
+            {section === "overview" ? (
+              <OverviewPanel modelCount={models.length} />
             ) : null}
-            {loading ? (
-              <LoadingGrid />
-            ) : (
-              <>
-                {section === "overview" ? <OverviewPanel modelCount={models.length} /> : null}
-                {section === "contacts" ? <ContactsPanel /> : null}
-                {section === "friends" ? (
-                  selectedFriend == null ? (
-                    <FriendsPanel onOpenChat={openSocialChat} onOpenFriend={setSelectedFriend} />
-                  ) : (
-                    <FriendDetailPanel friend={selectedFriend} onBack={() => setSelectedFriend(null)} onOpenChat={openSocialChat} />
-                  )
-                ) : null}
-                {section === "friendGroups" ? (
-                  selectedGroup == null ? (
-                    <FriendGroupsPanel onOpenChat={openSocialChat} onOpenGroup={setSelectedGroup} />
-                  ) : (
-                    <FriendGroupDetailPanel group={selectedGroup} onBack={() => setSelectedGroup(null)} onGroupChange={setSelectedGroup} onOpenChat={openSocialChat} />
-                  )
-                ) : null}
-                {section === "gameplay" ? <GameplayPanel /> : null}
-                {section === "workspaces" ? <WorkspacesPanel /> : null}
-                {section === "workflows" ? <WorkflowsPanel /> : null}
-                {section === "models" ? <ModelsPanel initialModels={models} /> : null}
-                {section === "firmwares" ? (
-                  selectedFirmware == null ? (
-                    <FirmwaresPanel onOpenFirmware={setSelectedFirmware} />
-                  ) : (
-                    <FirmwareDetailPanel firmware={selectedFirmware} onBack={() => setSelectedFirmware(null)} />
-                  )
-                ) : null}
-                {section === "voices" ? <VoicesPanel /> : null}
-              </>
-            )}
+            {section === "contacts" ? <ContactsPanel /> : null}
+            {section === "friends" ? (
+              selectedFriend == null ? (
+                <FriendsPanel
+                  onOpenChat={openSocialChat}
+                  onOpenFriend={setSelectedFriend}
+                />
+              ) : (
+                <FriendDetailPanel
+                  friend={selectedFriend}
+                  onBack={() => setSelectedFriend(null)}
+                  onOpenChat={openSocialChat}
+                />
+              )
+            ) : null}
+            {section === "friendGroups" ? (
+              selectedGroup == null ? (
+                <FriendGroupsPanel
+                  onOpenChat={openSocialChat}
+                  onOpenGroup={setSelectedGroup}
+                />
+              ) : (
+                <FriendGroupDetailPanel
+                  group={selectedGroup}
+                  onBack={() => setSelectedGroup(null)}
+                  onGroupChange={setSelectedGroup}
+                  onOpenChat={openSocialChat}
+                />
+              )
+            ) : null}
+            {section === "gameplay" ? <GameplayPanel /> : null}
+            {section === "workspaces" ? <WorkspacesPanel /> : null}
+            {section === "workflows" ? <WorkflowsPanel /> : null}
+            {section === "models" ? (
+              <ModelsPanel initialModels={models} />
+            ) : null}
+            {section === "firmwares" ? (
+              selectedFirmware == null ? (
+                <FirmwaresPanel onOpenFirmware={setSelectedFirmware} />
+              ) : (
+                <FirmwareDetailPanel
+                  firmware={selectedFirmware}
+                  onBack={() => setSelectedFirmware(null)}
+                />
+              )
+            ) : null}
+            {section === "voices" ? <VoicesPanel /> : null}
+          </>
+        )}
       </DashboardShell>
       <Toaster richColors />
     </>
@@ -368,14 +524,36 @@ export function PlayFullApp({ contextName, onSignOut }: { contextName?: string; 
 }
 
 function GameplayPanel(): JSX.Element {
-  const loadPetsPage = useCallback((cursor: string) => listGameplayPage<PetObject>(listPeerPets, cursor), []);
-  const loadBadgesPage = useCallback((cursor: string) => listGameplayPage<BadgeObject>(listPeerBadges, cursor), []);
-  const loadTransactionsPage = useCallback((cursor: string) => listGameplayPage<PointsTransactionObject>(listPeerPointsTransactions, cursor), []);
-  const loadResultsPage = useCallback((cursor: string) => listGameplayPage<GameResultObject>(listPeerGameResults, cursor), []);
-  const loadGrantsPage = useCallback((cursor: string) => listGameplayPage<RewardGrantObject>(listPeerRewardGrants, cursor), []);
+  const loadPetsPage = useCallback(
+    (cursor: string) => listGameplayPage<PetObject>(listPeerPets, cursor),
+    [],
+  );
+  const loadBadgesPage = useCallback(
+    (cursor: string) => listGameplayPage<BadgeObject>(listPeerBadges, cursor),
+    [],
+  );
+  const loadTransactionsPage = useCallback(
+    (cursor: string) =>
+      listGameplayPage<PointsTransactionObject>(
+        listPeerPointsTransactions,
+        cursor,
+      ),
+    [],
+  );
+  const loadResultsPage = useCallback(
+    (cursor: string) =>
+      listGameplayPage<GameResultObject>(listPeerGameResults, cursor),
+    [],
+  );
+  const loadGrantsPage = useCallback(
+    (cursor: string) =>
+      listGameplayPage<RewardGrantObject>(listPeerRewardGrants, cursor),
+    [],
+  );
   const pets = usePagedList<PetObject>(loadPetsPage);
   const badges = usePagedList<BadgeObject>(loadBadgesPage);
-  const transactions = usePagedList<PointsTransactionObject>(loadTransactionsPage);
+  const transactions =
+    usePagedList<PointsTransactionObject>(loadTransactionsPage);
   const results = usePagedList<GameResultObject>(loadResultsPage);
   const grants = usePagedList<RewardGrantObject>(loadGrantsPage);
   const [points, setPoints] = useState<PointsAccountObject | null>(null);
@@ -420,7 +598,12 @@ function GameplayPanel(): JSX.Element {
     setBusy("adopt");
     setError("");
     try {
-      await expectData(adoptPeerPet({ body: { ...(adoptName.trim() !== "" ? { display_name: adoptName.trim() } : {}) } }));
+      await expectData(
+        adoptPeerPet({
+          body:
+            adoptName.trim() !== "" ? { display_name: adoptName.trim() } : {},
+        }),
+      );
       setAdoptName("");
       await refreshAll();
     } catch (err) {
@@ -445,11 +628,21 @@ function GameplayPanel(): JSX.Element {
         body.game_result = {
           game_def_id: driveGameID.trim(),
           ...(driveScore.trim() !== "" ? { score: Number(driveScore) } : {}),
-          ...(driveMaxScore.trim() !== "" ? { max_score: Number(driveMaxScore) } : {}),
-          ...(driveDifficulty.trim() !== "" ? { difficulty: driveDifficulty.trim() } : {}),
-          ...(driveOutcome.trim() !== "" ? { outcome: driveOutcome.trim() } : {}),
-          ...(driveDurationMs.trim() !== "" ? { duration_ms: Number(driveDurationMs) } : {}),
-          ...(driveIdempotencyKey.trim() !== "" ? { idempotency_key: driveIdempotencyKey.trim() } : {}),
+          ...(driveMaxScore.trim() !== ""
+            ? { max_score: Number(driveMaxScore) }
+            : {}),
+          ...(driveDifficulty.trim() !== ""
+            ? { difficulty: driveDifficulty.trim() }
+            : {}),
+          ...(driveOutcome.trim() !== ""
+            ? { outcome: driveOutcome.trim() }
+            : {}),
+          ...(driveDurationMs.trim() !== ""
+            ? { duration_ms: Number(driveDurationMs) }
+            : {}),
+          ...(driveIdempotencyKey.trim() !== ""
+            ? { idempotency_key: driveIdempotencyKey.trim() }
+            : {}),
         };
       } else if (driveIdempotencyKey.trim() !== "") {
         if (driveBehavior.trim() !== "") {
@@ -463,7 +656,13 @@ function GameplayPanel(): JSX.Element {
       const petID = selectedPetID.trim();
       const actionID = driveGameID.trim() === "" ? driveBehavior.trim() : "";
       const presentation = await getPeerPetActions({ body: { id: petID } });
-      const clipName = presentation.data == null ? actionID || "idle" : petActionPixaClipName(presentation.data as PetActionsObject, actionID);
+      const clipName =
+        presentation.data == null
+          ? actionID || "idle"
+          : petActionPixaClipName(
+              presentation.data as PetActionsObject,
+              actionID,
+            );
       setPetClipByID((current) => ({ ...current, [petID]: clipName }));
       await refreshAll();
     } catch (err) {
@@ -481,7 +680,9 @@ function GameplayPanel(): JSX.Element {
     setBusy(`rename:${pet.id}`);
     setError("");
     try {
-      await expectData(putPeerPet({ body: { id: pet.id, display_name: name.trim() } }));
+      await expectData(
+        putPeerPet({ body: { id: pet.id, display_name: name.trim() } }),
+      );
       await refreshAll();
     } catch (err) {
       setError(toMessage(err));
@@ -519,7 +720,10 @@ function GameplayPanel(): JSX.Element {
             <CardTitle>Runtime Profile</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <WorkspaceInfoItem label="Name" value={points?.runtime_profile_name ?? "-"} />
+            <WorkspaceInfoItem
+              label="Name"
+              value={points?.runtime_profile_name ?? "-"}
+            />
           </CardContent>
         </Card>
         <Card>
@@ -527,9 +731,18 @@ function GameplayPanel(): JSX.Element {
             <CardTitle>Points</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <WorkspaceInfoItem label="Runtime Profile" value={points?.runtime_profile_name ?? "-"} />
-            <WorkspaceInfoItem label="Balance" value={points == null ? "-" : String(points.balance)} />
-            <WorkspaceInfoItem label="Updated" value={formatDate(points?.updated_at)} />
+            <WorkspaceInfoItem
+              label="Runtime Profile"
+              value={points?.runtime_profile_name ?? "-"}
+            />
+            <WorkspaceInfoItem
+              label="Balance"
+              value={points == null ? "-" : String(points.balance)}
+            />
+            <WorkspaceInfoItem
+              label="Updated"
+              value={formatDate(points?.updated_at)}
+            />
           </CardContent>
         </Card>
         <Card>
@@ -537,8 +750,16 @@ function GameplayPanel(): JSX.Element {
             <CardTitle>Adopt</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
-            <Input onChange={(event) => setAdoptName(event.target.value)} placeholder="Display name" value={adoptName} />
-            <Button disabled={busy !== ""} onClick={() => void adopt()} type="button">
+            <Input
+              onChange={(event) => setAdoptName(event.target.value)}
+              placeholder="Display name"
+              value={adoptName}
+            />
+            <Button
+              disabled={busy !== ""}
+              onClick={() => void adopt()}
+              type="button"
+            >
               <PawPrint className="size-4" />
               Adopt Pet
             </Button>
@@ -548,7 +769,13 @@ function GameplayPanel(): JSX.Element {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-3">
           <CardTitle>Drive</CardTitle>
-          <Button disabled={busy !== ""} onClick={() => void refreshAll()} size="sm" type="button" variant="outline">
+          <Button
+            disabled={busy !== ""}
+            onClick={() => void refreshAll()}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
             <RefreshCw className="size-4" />
             Refresh
           </Button>
@@ -566,37 +793,139 @@ function GameplayPanel(): JSX.Element {
               ))}
             </SelectContent>
           </Select>
-          <Input onChange={(event) => setDriveBehavior(event.target.value)} placeholder="Behavior (feed/bathe/play/heal)" value={driveBehavior} />
-          <Input onChange={(event) => setDriveGameID(event.target.value)} placeholder="Game ID" value={driveGameID} />
-          <Input onChange={(event) => setDriveScore(event.target.value)} placeholder="Score" type="number" value={driveScore} />
-          <Input onChange={(event) => setDriveMaxScore(event.target.value)} placeholder="Max score" type="number" value={driveMaxScore} />
-          <Input onChange={(event) => setDriveDifficulty(event.target.value)} placeholder="Difficulty" value={driveDifficulty} />
-          <Input onChange={(event) => setDriveOutcome(event.target.value)} placeholder="Outcome" value={driveOutcome} />
-          <Input onChange={(event) => setDriveDurationMs(event.target.value)} placeholder="Duration ms" type="number" value={driveDurationMs} />
-          <Input onChange={(event) => setDriveIdempotencyKey(event.target.value)} placeholder="Idempotency key" value={driveIdempotencyKey} />
-          <Button disabled={busy !== "" || selectedPetID === ""} onClick={() => void drive()} type="button">
+          <Input
+            onChange={(event) => setDriveBehavior(event.target.value)}
+            placeholder="Behavior (feed/bathe/play/heal)"
+            value={driveBehavior}
+          />
+          <Input
+            onChange={(event) => setDriveGameID(event.target.value)}
+            placeholder="Game ID"
+            value={driveGameID}
+          />
+          <Input
+            onChange={(event) => setDriveScore(event.target.value)}
+            placeholder="Score"
+            type="number"
+            value={driveScore}
+          />
+          <Input
+            onChange={(event) => setDriveMaxScore(event.target.value)}
+            placeholder="Max score"
+            type="number"
+            value={driveMaxScore}
+          />
+          <Input
+            onChange={(event) => setDriveDifficulty(event.target.value)}
+            placeholder="Difficulty"
+            value={driveDifficulty}
+          />
+          <Input
+            onChange={(event) => setDriveOutcome(event.target.value)}
+            placeholder="Outcome"
+            value={driveOutcome}
+          />
+          <Input
+            onChange={(event) => setDriveDurationMs(event.target.value)}
+            placeholder="Duration ms"
+            type="number"
+            value={driveDurationMs}
+          />
+          <Input
+            onChange={(event) => setDriveIdempotencyKey(event.target.value)}
+            placeholder="Idempotency key"
+            value={driveIdempotencyKey}
+          />
+          <Button
+            disabled={busy !== "" || selectedPetID === ""}
+            onClick={() => void drive()}
+            type="button"
+          >
             <Play className="size-4" />
             Drive
           </Button>
         </CardContent>
       </Card>
-      <GameplayPetTable busy={busy} pager={pets} petClipByID={petClipByID} onDelete={remove} onRename={rename} />
+      <GameplayPetTable
+        busy={busy}
+        pager={pets}
+        petClipByID={petClipByID}
+        onDelete={remove}
+        onRename={rename}
+      />
       <div className="grid gap-4 xl:grid-cols-2">
         <GameplayBadgeTable pager={badges} />
-        <GameplayObjectTable columns={["delta", "balance_after", "source_type", "source_id", "reason", "created_at"]} pager={transactions} title="Point Transactions" />
-        <GameplayObjectTable columns={["pet_id", "game_def_id", "score", "max_score", "difficulty", "outcome", "duration_ms", "idempotency_key", "occurred_at"]} pager={results} title="Game Results" />
-        <GameplayObjectTable columns={["pet_id", "points_delta", "pet_exp_delta", "source_type", "source_id", "reason", "created_at"]} pager={grants} title="Reward Grants" />
+        <GameplayObjectTable
+          columns={[
+            "delta",
+            "balance_after",
+            "source_type",
+            "source_id",
+            "reason",
+            "created_at",
+          ]}
+          pager={transactions}
+          title="Point Transactions"
+        />
+        <GameplayObjectTable
+          columns={[
+            "pet_id",
+            "game_def_id",
+            "score",
+            "max_score",
+            "difficulty",
+            "outcome",
+            "duration_ms",
+            "idempotency_key",
+            "occurred_at",
+          ]}
+          pager={results}
+          title="Game Results"
+        />
+        <GameplayObjectTable
+          columns={[
+            "pet_id",
+            "points_delta",
+            "pet_exp_delta",
+            "source_type",
+            "source_id",
+            "reason",
+            "created_at",
+          ]}
+          pager={grants}
+          title="Reward Grants"
+        />
       </div>
     </div>
   );
 }
 
-function GameplayPetTable({ busy, onDelete, onRename, pager, petClipByID }: { busy: string; onDelete: (pet: PetObject) => Promise<void>; onRename: (pet: PetObject) => Promise<void>; pager: ReturnType<typeof usePagedList<PetObject>>; petClipByID: Record<string, string> }): JSX.Element {
+function GameplayPetTable({
+  busy,
+  onDelete,
+  onRename,
+  pager,
+  petClipByID,
+}: {
+  busy: string;
+  onDelete: (pet: PetObject) => Promise<void>;
+  onRename: (pet: PetObject) => Promise<void>;
+  pager: ReturnType<typeof usePagedList<PetObject>>;
+  petClipByID: Record<string, string>;
+}): JSX.Element {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-3">
         <CardTitle>Pets</CardTitle>
-        <PageAction canNext={pager.page.hasNext} canPrevious={pager.page.cursors.length > 1} loading={pager.page.loading} onNext={pager.next} onPrevious={pager.previous} onRefresh={pager.refresh} pageIndex={pager.page.cursors.length} />
+        <PageAction
+          canNext={pager.page.hasNext}
+          canPrevious={pager.page.cursors.length > 1}
+          loading={pager.page.loading}
+          onNext={pager.next}
+          onPrevious={pager.previous}
+          onRefresh={pager.refresh}
+          pageIndex={pager.page.cursors.length}
+        />
       </CardHeader>
       <CardContent>
         {pager.error !== "" ? (
@@ -604,7 +933,10 @@ function GameplayPetTable({ busy, onDelete, onRename, pager, petClipByID }: { bu
             <AlertDescription>{pager.error}</AlertDescription>
           </Alert>
         ) : pager.page.items.length === 0 ? (
-          <EmptyMessage description="Adopted pets will appear here." title="No pets" />
+          <EmptyMessage
+            description="Adopted pets will appear here."
+            title="No pets"
+          />
         ) : (
           <DashboardTable>
             <TableHeader>
@@ -623,24 +955,61 @@ function GameplayPetTable({ busy, onDelete, onRename, pager, petClipByID }: { bu
                 <TableRow key={pet.id}>
                   <TableCell>
                     <div className="flex items-center gap-3">
-                      <GameplayPixaSprite clipName={petClipByID[pet.id] ?? "idle"} id={pet.id} type="pet" />
+                      <GameplayPixaSprite
+                        clipName={petClipByID[pet.id] ?? "idle"}
+                        id={pet.id}
+                        type="pet"
+                      />
                       <div>
-                        <div className="font-medium">{pet.display_name || pet.id}</div>
-                        <div className="font-mono text-xs text-muted-foreground">{pet.id}</div>
+                        <div className="font-medium">
+                          {pet.display_name || pet.id}
+                        </div>
+                        <div className="font-mono text-xs text-muted-foreground">
+                          {pet.id}
+                        </div>
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell className="font-mono text-xs">{pet.petdef_id}</TableCell>
+                  <TableCell className="font-mono text-xs">
+                    {pet.petdef_id}
+                  </TableCell>
                   <TableCell>{petXP(pet)}</TableCell>
-                  <TableCell className="max-w-52 truncate font-mono text-xs" title={jsonSummary(pet.progression)}>{jsonSummary(pet.progression)}</TableCell>
-                  <TableCell className="max-w-52 truncate font-mono text-xs" title={jsonSummary(pet.stats)}>{jsonSummary(pet.stats)}</TableCell>
-                  <TableCell className="max-w-52 truncate font-mono text-xs" title={pet.workspace_name}>{pet.workspace_name}</TableCell>
+                  <TableCell
+                    className="max-w-52 truncate font-mono text-xs"
+                    title={jsonSummary(pet.progression)}
+                  >
+                    {jsonSummary(pet.progression)}
+                  </TableCell>
+                  <TableCell
+                    className="max-w-52 truncate font-mono text-xs"
+                    title={jsonSummary(pet.stats)}
+                  >
+                    {jsonSummary(pet.stats)}
+                  </TableCell>
+                  <TableCell
+                    className="max-w-52 truncate font-mono text-xs"
+                    title={pet.workspace_name}
+                  >
+                    {pet.workspace_name}
+                  </TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-2">
-                      <Button disabled={busy !== ""} onClick={() => void onRename(pet)} size="sm" type="button" variant="outline">
+                      <Button
+                        disabled={busy !== ""}
+                        onClick={() => void onRename(pet)}
+                        size="sm"
+                        type="button"
+                        variant="outline"
+                      >
                         <Pencil className="size-4" />
                       </Button>
-                      <Button disabled={busy !== ""} onClick={() => void onDelete(pet)} size="sm" type="button" variant="outline">
+                      <Button
+                        disabled={busy !== ""}
+                        onClick={() => void onDelete(pet)}
+                        size="sm"
+                        type="button"
+                        variant="outline"
+                      >
                         <Trash2 className="size-4" />
                       </Button>
                     </div>
@@ -655,20 +1024,38 @@ function GameplayPetTable({ busy, onDelete, onRename, pager, petClipByID }: { bu
   );
 }
 
-function petActionPixaClipName(actions: PetActionsObject, actionID: string): string {
-  const binding = actionID === "" ? actions.bindings.idle : actions.bindings[actionID as keyof typeof actions.bindings];
+function petActionPixaClipName(
+  actions: PetActionsObject,
+  actionID: string,
+): string {
+  const binding =
+    actionID === ""
+      ? actions.bindings.idle
+      : actions.bindings[actionID as keyof typeof actions.bindings];
   if (typeof binding !== "string" || binding === "") {
     return actionID || "idle";
   }
   return actions.clip_names[binding] ?? binding;
 }
 
-function GameplayBadgeTable({ pager }: { pager: ReturnType<typeof usePagedList<BadgeObject>> }): JSX.Element {
+function GameplayBadgeTable({
+  pager,
+}: {
+  pager: ReturnType<typeof usePagedList<BadgeObject>>;
+}): JSX.Element {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-3">
         <CardTitle>Badges</CardTitle>
-        <PageAction canNext={pager.page.hasNext} canPrevious={pager.page.cursors.length > 1} loading={pager.page.loading} onNext={pager.next} onPrevious={pager.previous} onRefresh={pager.refresh} pageIndex={pager.page.cursors.length} />
+        <PageAction
+          canNext={pager.page.hasNext}
+          canPrevious={pager.page.cursors.length > 1}
+          loading={pager.page.loading}
+          onNext={pager.next}
+          onPrevious={pager.previous}
+          onRefresh={pager.refresh}
+          pageIndex={pager.page.cursors.length}
+        />
       </CardHeader>
       <CardContent>
         {pager.error !== "" ? (
@@ -676,7 +1063,10 @@ function GameplayBadgeTable({ pager }: { pager: ReturnType<typeof usePagedList<B
             <AlertDescription>{pager.error}</AlertDescription>
           </Alert>
         ) : pager.page.items.length === 0 ? (
-          <EmptyMessage description="Badges will appear here when gameplay activity is recorded." title="No badges" />
+          <EmptyMessage
+            description="Badges will appear here when gameplay activity is recorded."
+            title="No badges"
+          />
         ) : (
           <DashboardTable>
             <TableHeader>
@@ -692,10 +1082,18 @@ function GameplayBadgeTable({ pager }: { pager: ReturnType<typeof usePagedList<B
                 <TableRow key={badge.id}>
                   <TableCell>
                     <div className="flex items-center gap-3">
-                      <GameplayPixaSprite clipName="icon" id={badge.badge_def_id} type="badgedef" />
+                      <GameplayPixaSprite
+                        clipName="icon"
+                        id={badge.badge_def_id}
+                        type="badgedef"
+                      />
                       <div>
-                        <div className="font-mono text-xs">{badge.badge_def_id}</div>
-                        <div className="font-mono text-xs text-muted-foreground">{badge.id}</div>
+                        <div className="font-mono text-xs">
+                          {badge.badge_def_id}
+                        </div>
+                        <div className="font-mono text-xs text-muted-foreground">
+                          {badge.id}
+                        </div>
                       </div>
                     </div>
                   </TableCell>
@@ -712,7 +1110,15 @@ function GameplayBadgeTable({ pager }: { pager: ReturnType<typeof usePagedList<B
   );
 }
 
-function GameplayPixaSprite({ clipName, id, type }: { clipName: string; id: string; type: "pet" | "badgedef" }): JSX.Element {
+function GameplayPixaSprite({
+  clipName,
+  id,
+  type,
+}: {
+  clipName: string;
+  id: string;
+  type: "pet" | "badgedef";
+}): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [asset, setAsset] = useState<PixaAsset | null>(null);
   const [error, setError] = useState("");
@@ -725,9 +1131,10 @@ function GameplayPixaSprite({ clipName, id, type }: { clipName: string; id: stri
       return;
     }
     void (async () => {
-      const result = type === "pet"
-        ? await getPeerPetPixa({ body: { pet_id: id } })
-        : await getPeerBadgeDefPixa({ body: { id } });
+      const result =
+        type === "pet"
+          ? await getPeerPetPixa({ body: { pet_id: id } })
+          : await getPeerBadgeDefPixa({ body: { id } });
       if (cancelled) {
         return;
       }
@@ -777,18 +1184,37 @@ function GameplayPixaSprite({ clipName, id, type }: { clipName: string; id: stri
       {asset == null || error !== "" ? (
         <PawPrint className="size-5 text-muted-foreground" />
       ) : (
-        <canvas ref={canvasRef} className="max-h-10 max-w-10 [image-rendering:pixelated]" />
+        <canvas
+          ref={canvasRef}
+          className="max-h-10 max-w-10 [image-rendering:pixelated]"
+        />
       )}
     </div>
   );
 }
 
-function GameplayObjectTable<T extends Record<string, unknown>>({ columns, pager, title }: { columns: string[]; pager: ReturnType<typeof usePagedList<T>>; title: string }): JSX.Element {
+function GameplayObjectTable<T extends Record<string, unknown>>({
+  columns,
+  pager,
+  title,
+}: {
+  columns: string[];
+  pager: ReturnType<typeof usePagedList<T>>;
+  title: string;
+}): JSX.Element {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-3">
         <CardTitle>{title}</CardTitle>
-        <PageAction canNext={pager.page.hasNext} canPrevious={pager.page.cursors.length > 1} loading={pager.page.loading} onNext={pager.next} onPrevious={pager.previous} onRefresh={pager.refresh} pageIndex={pager.page.cursors.length} />
+        <PageAction
+          canNext={pager.page.hasNext}
+          canPrevious={pager.page.cursors.length > 1}
+          loading={pager.page.loading}
+          onNext={pager.next}
+          onPrevious={pager.previous}
+          onRefresh={pager.refresh}
+          pageIndex={pager.page.cursors.length}
+        />
       </CardHeader>
       <CardContent>
         {pager.error !== "" ? (
@@ -796,23 +1222,37 @@ function GameplayObjectTable<T extends Record<string, unknown>>({ columns, pager
             <AlertDescription>{pager.error}</AlertDescription>
           </Alert>
         ) : pager.page.items.length === 0 ? (
-          <EmptyMessage description={`${title} will appear here when gameplay activity is recorded.`} title={`No ${title.toLowerCase()}`} />
+          <EmptyMessage
+            description={`${title} will appear here when gameplay activity is recorded.`}
+            title={`No ${title.toLowerCase()}`}
+          />
         ) : (
           <DashboardTable>
             <TableHeader>
               <TableRow>
                 <TableHead>ID</TableHead>
                 {columns.map((column) => (
-                  <TableHead key={column}>{column.replaceAll("_", " ")}</TableHead>
+                  <TableHead key={column}>
+                    {column.replaceAll("_", " ")}
+                  </TableHead>
                 ))}
               </TableRow>
             </TableHeader>
             <TableBody>
               {pager.page.items.map((item) => (
                 <TableRow key={String(item.id ?? JSON.stringify(item))}>
-                  <TableCell className="max-w-44 truncate font-mono text-xs" title={String(item.id ?? "")}>{String(item.id ?? "-")}</TableCell>
+                  <TableCell
+                    className="max-w-44 truncate font-mono text-xs"
+                    title={String(item.id ?? "")}
+                  >
+                    {String(item.id ?? "-")}
+                  </TableCell>
                   {columns.map((column) => (
-                    <TableCell className="max-w-52 truncate text-sm" key={column} title={gameplayCell(item[column])}>
+                    <TableCell
+                      className="max-w-52 truncate text-sm"
+                      key={column}
+                      title={gameplayCell(item[column])}
+                    >
                       {gameplayCell(item[column])}
                     </TableCell>
                   ))}
@@ -851,7 +1291,15 @@ function ContactsPanel(): JSX.Element {
               <Plus className="size-4" />
               New Contact
             </Button>
-            <PageAction canNext={pager.page.hasNext} canPrevious={pager.page.cursors.length > 1} loading={pager.page.loading} onNext={pager.next} onPrevious={pager.previous} onRefresh={pager.refresh} pageIndex={pager.page.cursors.length} />
+            <PageAction
+              canNext={pager.page.hasNext}
+              canPrevious={pager.page.cursors.length > 1}
+              loading={pager.page.loading}
+              onNext={pager.next}
+              onPrevious={pager.previous}
+              onRefresh={pager.refresh}
+              pageIndex={pager.page.cursors.length}
+            />
           </div>
         </CardHeader>
         <CardContent>
@@ -861,23 +1309,38 @@ function ContactsPanel(): JSX.Element {
             </Alert>
           ) : null}
           {pager.page.items.length === 0 ? (
-            <EmptyMessage description={pager.page.loading ? "Loading contacts." : "No contacts are saved for this peer."} title={pager.page.loading ? "Loading" : "No contacts"} />
+            <EmptyMessage
+              description={
+                pager.page.loading
+                  ? "Loading contacts."
+                  : "No contacts are saved for this peer."
+              }
+              title={pager.page.loading ? "Loading" : "No contacts"}
+            />
           ) : (
             <DashboardTable>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-52">Contact</TableHead>
-                    <TableHead>Phone</TableHead>
-                    <TableHead className="w-40">Updated</TableHead>
-                    <TableHead className="w-44 text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {pager.page.items.map((contact) => (
-                    <ContactRow contact={contact} key={contact.id ?? `${contact.display_name ?? ""}:${contact.phone_number ?? ""}`} onChanged={pager.refresh} onEdit={openEdit} />
-                  ))}
-                </TableBody>
-              </DashboardTable>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-52">Contact</TableHead>
+                  <TableHead>Phone</TableHead>
+                  <TableHead className="w-40">Updated</TableHead>
+                  <TableHead className="w-44 text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pager.page.items.map((contact) => (
+                  <ContactRow
+                    contact={contact}
+                    key={
+                      contact.id ??
+                      `${contact.display_name ?? ""}:${contact.phone_number ?? ""}`
+                    }
+                    onChanged={pager.refresh}
+                    onEdit={openEdit}
+                  />
+                ))}
+              </TableBody>
+            </DashboardTable>
           )}
         </CardContent>
       </Card>
@@ -888,7 +1351,9 @@ function ContactsPanel(): JSX.Element {
         onSaved={(contact) => {
           setDialogOpen(false);
           setEditing(null);
-          toast.success(editing == null ? "Contact created" : "Contact saved", { description: contactDisplayName(contact) });
+          toast.success(editing == null ? "Contact created" : "Contact saved", {
+            description: contactDisplayName(contact),
+          });
           pager.refresh();
         }}
       />
@@ -896,7 +1361,15 @@ function ContactsPanel(): JSX.Element {
   );
 }
 
-function ContactRow({ contact, onChanged, onEdit }: { contact: ContactObject; onChanged: () => void; onEdit: (contact: ContactObject) => void }): JSX.Element {
+function ContactRow({
+  contact,
+  onChanged,
+  onEdit,
+}: {
+  contact: ContactObject;
+  onChanged: () => void;
+  onEdit: (contact: ContactObject) => void;
+}): JSX.Element {
   const [deleting, setDeleting] = useState(false);
   const id = contact.id ?? "";
 
@@ -907,7 +1380,9 @@ function ContactRow({ contact, onChanged, onEdit }: { contact: ContactObject; on
     setDeleting(true);
     try {
       await deleteContact(id);
-      toast.success("Contact deleted", { description: contactDisplayName(contact) });
+      toast.success("Contact deleted", {
+        description: contactDisplayName(contact),
+      });
       onChanged();
     } catch (err) {
       toast.error("Contact delete failed", { description: toMessage(err) });
@@ -919,23 +1394,45 @@ function ContactRow({ contact, onChanged, onEdit }: { contact: ContactObject; on
   return (
     <TableRow>
       <TableCell className="min-w-0">
-        <div className="truncate font-medium" title={contactDisplayName(contact)}>
+        <div
+          className="truncate font-medium"
+          title={contactDisplayName(contact)}
+        >
           {contactDisplayName(contact)}
         </div>
-        <div className="truncate font-mono text-xs text-muted-foreground" title={id}>
+        <div
+          className="truncate font-mono text-xs text-muted-foreground"
+          title={id}
+        >
           {id || "-"}
         </div>
       </TableCell>
-      <TableCell className="truncate font-mono text-xs" title={contact.phone_number ?? ""}>
+      <TableCell
+        className="truncate font-mono text-xs"
+        title={contact.phone_number ?? ""}
+      >
         {contact.phone_number ?? "-"}
       </TableCell>
-      <TableCell className="text-muted-foreground">{formatDate(contact.updated_at ?? contact.created_at)}</TableCell>
+      <TableCell className="text-muted-foreground">
+        {formatDate(contact.updated_at ?? contact.created_at)}
+      </TableCell>
       <TableCell>
         <div className="flex justify-end gap-2">
-          <Button onClick={() => onEdit(contact)} size="sm" type="button" variant="outline">
+          <Button
+            onClick={() => onEdit(contact)}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
             Edit
           </Button>
-          <Button disabled={deleting || id === ""} onClick={() => void remove()} size="sm" type="button" variant="destructive">
+          <Button
+            disabled={deleting || id === ""}
+            onClick={() => void remove()}
+            size="sm"
+            type="button"
+            variant="destructive"
+          >
             Delete
           </Button>
         </div>
@@ -992,8 +1489,12 @@ function ContactDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{contact == null ? "New Contact" : "Edit Contact"}</DialogTitle>
-          <DialogDescription>Contacts are saved in this peer address book.</DialogDescription>
+          <DialogTitle>
+            {contact == null ? "New Contact" : "Edit Contact"}
+          </DialogTitle>
+          <DialogDescription>
+            Contacts are saved in this peer address book.
+          </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-4">
           {error !== "" ? (
@@ -1003,20 +1504,43 @@ function ContactDialog({
           ) : null}
           <FieldGroup>
             <ShadField>
-              <FieldLabel htmlFor="contact-display-name">Display name</FieldLabel>
-              <Input id="contact-display-name" onChange={(event) => setDisplayName(event.target.value)} value={displayName} />
+              <FieldLabel htmlFor="contact-display-name">
+                Display name
+              </FieldLabel>
+              <Input
+                id="contact-display-name"
+                onChange={(event) => setDisplayName(event.target.value)}
+                value={displayName}
+              />
             </ShadField>
             <ShadField>
-              <FieldLabel htmlFor="contact-phone-number">Phone number</FieldLabel>
-              <Input id="contact-phone-number" onChange={(event) => setPhoneNumber(event.target.value)} value={phoneNumber} />
+              <FieldLabel htmlFor="contact-phone-number">
+                Phone number
+              </FieldLabel>
+              <Input
+                id="contact-phone-number"
+                onChange={(event) => setPhoneNumber(event.target.value)}
+                value={phoneNumber}
+              />
             </ShadField>
           </FieldGroup>
         </div>
         <DialogFooter>
-          <Button disabled={saving} onClick={() => onOpenChange(false)} type="button" variant="outline">
+          <Button
+            disabled={saving}
+            onClick={() => onOpenChange(false)}
+            type="button"
+            variant="outline"
+          >
             Cancel
           </Button>
-          <Button disabled={saving || (displayName.trim() === "" && phoneNumber.trim() === "")} onClick={() => void submit()} type="button">
+          <Button
+            disabled={
+              saving || (displayName.trim() === "" && phoneNumber.trim() === "")
+            }
+            onClick={() => void submit()}
+            type="button"
+          >
             {contact == null ? "Create" : "Save"}
           </Button>
         </DialogFooter>
@@ -1025,7 +1549,13 @@ function ContactDialog({
   );
 }
 
-function FriendsPanel({ onOpenChat, onOpenFriend }: { onOpenChat: (target: SocialChatTarget) => void; onOpenFriend: (friend: FriendObject) => void }): JSX.Element {
+function FriendsPanel({
+  onOpenChat,
+  onOpenFriend,
+}: {
+  onOpenChat: (target: SocialChatTarget) => void;
+  onOpenFriend: (friend: FriendObject) => void;
+}): JSX.Element {
   const pager = usePagedList<FriendObject>(listFriendsPage);
   return (
     <Tabs className="max-w-6xl" defaultValue="friends">
@@ -1038,7 +1568,15 @@ function FriendsPanel({ onOpenChat, onOpenFriend }: { onOpenChat: (target: Socia
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-3">
             <CardTitle>Friends</CardTitle>
-            <PageAction canNext={pager.page.hasNext} canPrevious={pager.page.cursors.length > 1} loading={pager.page.loading} onNext={pager.next} onPrevious={pager.previous} onRefresh={pager.refresh} pageIndex={pager.page.cursors.length} />
+            <PageAction
+              canNext={pager.page.hasNext}
+              canPrevious={pager.page.cursors.length > 1}
+              loading={pager.page.loading}
+              onNext={pager.next}
+              onPrevious={pager.previous}
+              onRefresh={pager.refresh}
+              pageIndex={pager.page.cursors.length}
+            />
           </CardHeader>
           <CardContent>
             {pager.error !== "" ? (
@@ -1047,49 +1585,87 @@ function FriendsPanel({ onOpenChat, onOpenFriend }: { onOpenChat: (target: Socia
               </Alert>
             ) : null}
             {pager.page.items.length === 0 ? (
-              <EmptyMessage description={pager.page.loading ? "Loading friends." : "No direct friends are visible for this peer."} title={pager.page.loading ? "Loading" : "No friends"} />
+              <EmptyMessage
+                description={
+                  pager.page.loading
+                    ? "Loading friends."
+                    : "No direct friends are visible for this peer."
+                }
+                title={pager.page.loading ? "Loading" : "No friends"}
+              />
             ) : (
               <DashboardTable>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-44">Friend</TableHead>
-                      <TableHead>Peer public key</TableHead>
-                      <TableHead className="w-56">Workspace</TableHead>
-                      <TableHead className="w-40">Updated</TableHead>
-                      <TableHead className="w-44 text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {pager.page.items.map((friend) => {
-                      const workspaceName = friend.workspace_name ?? "";
-                      return (
-                        <TableRow key={friend.id ?? friend.peer_public_key ?? workspaceName}>
-                          <TableCell className="min-w-0">
-                            <div className="truncate font-medium" title={friendDisplayName(friend)}>
-                              {friendDisplayName(friend)}
-                            </div>
-                            <div className="truncate font-mono text-xs text-muted-foreground" title={friend.id ?? ""}>
-                              {friend.id ?? "-"}
-                            </div>
-                          </TableCell>
-                          <TableCell className="truncate font-mono text-xs" title={friend.peer_public_key ?? ""}>{friend.peer_public_key ?? "-"}</TableCell>
-                          <TableCell className="truncate" title={workspaceName}>{workspaceName || "-"}</TableCell>
-                          <TableCell className="text-muted-foreground">{formatDate(friend.updated_at ?? friend.created_at)}</TableCell>
-                          <TableCell>
-                            <div className="flex justify-end gap-2">
-                              <Button onClick={() => onOpenFriend(friend)} size="sm" type="button" variant="outline">
-                                Open
-                              </Button>
-                              <Button disabled={workspaceName === ""} onClick={() => onOpenChat(friendChatTarget(friend))} size="sm" type="button">
-                                <MessageCircle data-icon="inline-start" />
-                                Chat
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-44">Friend</TableHead>
+                    <TableHead>Peer public key</TableHead>
+                    <TableHead className="w-56">Workspace</TableHead>
+                    <TableHead className="w-40">Updated</TableHead>
+                    <TableHead className="w-44 text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pager.page.items.map((friend) => {
+                    const workspaceName = friend.workspace_name ?? "";
+                    return (
+                      <TableRow
+                        key={
+                          friend.id ?? friend.peer_public_key ?? workspaceName
+                        }
+                      >
+                        <TableCell className="min-w-0">
+                          <div
+                            className="truncate font-medium"
+                            title={friendDisplayName(friend)}
+                          >
+                            {friendDisplayName(friend)}
+                          </div>
+                          <div
+                            className="truncate font-mono text-xs text-muted-foreground"
+                            title={friend.id ?? ""}
+                          >
+                            {friend.id ?? "-"}
+                          </div>
+                        </TableCell>
+                        <TableCell
+                          className="truncate font-mono text-xs"
+                          title={friend.peer_public_key ?? ""}
+                        >
+                          {friend.peer_public_key ?? "-"}
+                        </TableCell>
+                        <TableCell className="truncate" title={workspaceName}>
+                          {workspaceName || "-"}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {formatDate(friend.updated_at ?? friend.created_at)}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              onClick={() => onOpenFriend(friend)}
+                              size="sm"
+                              type="button"
+                              variant="outline"
+                            >
+                              Open
+                            </Button>
+                            <Button
+                              disabled={workspaceName === ""}
+                              onClick={() =>
+                                onOpenChat(friendChatTarget(friend))
+                              }
+                              size="sm"
+                              type="button"
+                            >
+                              <MessageCircle data-icon="inline-start" />
+                              Chat
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
               </DashboardTable>
             )}
           </CardContent>
@@ -1158,7 +1734,13 @@ function FriendInviteTokenPanel(): JSX.Element {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-3">
         <CardTitle>Invite Token</CardTitle>
-        <Button disabled={loading} onClick={() => void load()} size="sm" type="button" variant="outline">
+        <Button
+          disabled={loading}
+          onClick={() => void load()}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
           <RefreshCw className={cn("size-4", loading && "animate-spin")} />
         </Button>
       </CardHeader>
@@ -1174,22 +1756,41 @@ function FriendInviteTokenPanel(): JSX.Element {
             <Input id="friend-invite-token" readOnly value={activeToken} />
           </ShadField>
           <ShadField>
-            <FieldLabel htmlFor="friend-invite-token-expires">Expires</FieldLabel>
-            <Input id="friend-invite-token-expires" readOnly value={formatDate(token?.expires_at)} />
+            <FieldLabel htmlFor="friend-invite-token-expires">
+              Expires
+            </FieldLabel>
+            <Input
+              id="friend-invite-token-expires"
+              readOnly
+              value={formatDate(token?.expires_at)}
+            />
           </ShadField>
         </FieldGroup>
         <div className="flex justify-end gap-2">
           {activeToken === "" ? (
-            <Button disabled={loading} onClick={() => void create()} type="button">
+            <Button
+              disabled={loading}
+              onClick={() => void create()}
+              type="button"
+            >
               <RefreshCw data-icon="inline-start" />
               Refresh
             </Button>
           ) : (
             <>
-              <Button disabled={loading} onClick={() => void clear()} type="button" variant="outline">
+              <Button
+                disabled={loading}
+                onClick={() => void clear()}
+                type="button"
+                variant="outline"
+              >
                 Clear
               </Button>
-              <Button disabled={loading} onClick={() => void create()} type="button">
+              <Button
+                disabled={loading}
+                onClick={() => void create()}
+                type="button"
+              >
                 <RefreshCw data-icon="inline-start" />
                 Refresh
               </Button>
@@ -1201,7 +1802,13 @@ function FriendInviteTokenPanel(): JSX.Element {
   );
 }
 
-function AddFriendPanel({ onAdded, onOpenFriend }: { onAdded: () => void; onOpenFriend: (friend: FriendObject) => void }): JSX.Element {
+function AddFriendPanel({
+  onAdded,
+  onOpenFriend,
+}: {
+  onAdded: () => void;
+  onOpenFriend: (friend: FriendObject) => void;
+}): JSX.Element {
   const [inviteToken, setInviteToken] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -1240,11 +1847,20 @@ function AddFriendPanel({ onAdded, onOpenFriend }: { onAdded: () => void; onOpen
         <FieldGroup>
           <ShadField data-invalid={error !== ""}>
             <FieldLabel htmlFor="friend-add-token">Invite token</FieldLabel>
-            <Input aria-invalid={error !== ""} id="friend-add-token" onChange={(event) => setInviteToken(event.target.value)} value={inviteToken} />
+            <Input
+              aria-invalid={error !== ""}
+              id="friend-add-token"
+              onChange={(event) => setInviteToken(event.target.value)}
+              value={inviteToken}
+            />
           </ShadField>
         </FieldGroup>
         <div className="flex justify-end">
-          <Button disabled={saving || inviteToken.trim() === ""} onClick={() => void submit()} type="button">
+          <Button
+            disabled={saving || inviteToken.trim() === ""}
+            onClick={() => void submit()}
+            type="button"
+          >
             <UserPlus data-icon="inline-start" />
             Add Friend
           </Button>
@@ -1254,7 +1870,15 @@ function AddFriendPanel({ onAdded, onOpenFriend }: { onAdded: () => void; onOpen
   );
 }
 
-function FriendDetailPanel({ friend, onBack, onOpenChat }: { friend: FriendObject; onBack: () => void; onOpenChat: (target: SocialChatTarget) => void }): JSX.Element {
+function FriendDetailPanel({
+  friend,
+  onBack,
+  onOpenChat,
+}: {
+  friend: FriendObject;
+  onBack: () => void;
+  onOpenChat: (target: SocialChatTarget) => void;
+}): JSX.Element {
   const [deleting, setDeleting] = useState(false);
   const workspaceName = friend.workspace_name ?? "";
   const history = useWorkspaceHistory(workspaceName, "desc");
@@ -1284,11 +1908,20 @@ function FriendDetailPanel({ friend, onBack, onOpenChat }: { friend: FriendObjec
           Friends
         </Button>
         <div className="flex gap-2">
-          <Button disabled={workspaceName === ""} onClick={() => onOpenChat(friendChatTarget(friend))} type="button">
+          <Button
+            disabled={workspaceName === ""}
+            onClick={() => onOpenChat(friendChatTarget(friend))}
+            type="button"
+          >
             <MessageCircle data-icon="inline-start" />
             Chat
           </Button>
-          <Button disabled={deleting || friend.id == null || friend.id === ""} onClick={() => void remove()} type="button" variant="destructive">
+          <Button
+            disabled={deleting || friend.id == null || friend.id === ""}
+            onClick={() => void remove()}
+            type="button"
+            variant="destructive"
+          >
             <Trash2 data-icon="inline-start" />
             Delete
           </Button>
@@ -1301,9 +1934,18 @@ function FriendDetailPanel({ friend, onBack, onOpenChat }: { friend: FriendObjec
           </CardHeader>
           <CardContent className="grid gap-x-6 gap-y-3 text-sm">
             <WorkspaceInfoItem label="Friend ID" value={friend.id ?? "-"} />
-            <WorkspaceInfoItem label="Peer public key" value={friend.peer_public_key ?? "-"} />
-            <WorkspaceInfoItem label="Created" value={formatDate(friend.created_at)} />
-            <WorkspaceInfoItem label="Updated" value={formatDate(friend.updated_at)} />
+            <WorkspaceInfoItem
+              label="Peer public key"
+              value={friend.peer_public_key ?? "-"}
+            />
+            <WorkspaceInfoItem
+              label="Created"
+              value={formatDate(friend.created_at)}
+            />
+            <WorkspaceInfoItem
+              label="Updated"
+              value={formatDate(friend.updated_at)}
+            />
           </CardContent>
         </Card>
         <Card>
@@ -1312,26 +1954,50 @@ function FriendDetailPanel({ friend, onBack, onOpenChat }: { friend: FriendObjec
           </CardHeader>
           <CardContent className="grid gap-x-6 gap-y-3 text-sm">
             <WorkspaceInfoItem label="Workspace" value={workspaceName || "-"} />
-            <WorkspaceInfoItem label="Conversation" value={friendDisplayName(friend)} />
+            <WorkspaceInfoItem
+              label="Conversation"
+              value={friendDisplayName(friend)}
+            />
           </CardContent>
         </Card>
       </div>
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-3">
           <CardTitle>History</CardTitle>
-          <Button disabled={history.loading || workspaceName === ""} onClick={history.refresh} size="sm" type="button" variant="outline">
-            <RefreshCw className={cn("size-4", history.loading && "animate-spin")} />
+          <Button
+            disabled={history.loading || workspaceName === ""}
+            onClick={history.refresh}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            <RefreshCw
+              className={cn("size-4", history.loading && "animate-spin")}
+            />
           </Button>
         </CardHeader>
         <CardContent className="p-0">
-          <WorkspaceHistoryPanel error={history.error} history={history.items} loading={history.loading} onPlay={(entry) => playWorkspaceHistoryAsset(workspaceName, entry.id)} />
+          <WorkspaceHistoryPanel
+            error={history.error}
+            history={history.items}
+            loading={history.loading}
+            onPlay={(entry) =>
+              playWorkspaceHistoryAsset(workspaceName, entry.id)
+            }
+          />
         </CardContent>
       </Card>
     </div>
   );
 }
 
-function FriendGroupsPanel({ onOpenChat, onOpenGroup }: { onOpenChat: (target: SocialChatTarget) => void; onOpenGroup: (group: FriendGroupObject) => void }): JSX.Element {
+function FriendGroupsPanel({
+  onOpenChat,
+  onOpenGroup,
+}: {
+  onOpenChat: (target: SocialChatTarget) => void;
+  onOpenGroup: (group: FriendGroupObject) => void;
+}): JSX.Element {
   const pager = usePagedList<FriendGroupObject>(listFriendGroupsPage);
   const [createOpen, setCreateOpen] = useState(false);
   const [createName, setCreateName] = useState("");
@@ -1373,7 +2039,9 @@ function FriendGroupsPanel({ onOpenChat, onOpenGroup }: { onOpenChat: (target: S
       const response = await joinFriendGroupByInviteToken(token);
       setJoinToken("");
       setJoinOpen(false);
-      toast.success("Group joined", { description: groupDisplayName(response.group) });
+      toast.success("Group joined", {
+        description: groupDisplayName(response.group),
+      });
       pager.refresh();
       onOpenGroup(response.group);
     } catch (err) {
@@ -1402,51 +2070,84 @@ function FriendGroupsPanel({ onOpenChat, onOpenGroup }: { onOpenChat: (target: S
               <Users data-icon="inline-start" />
               Join Group
             </Button>
-            <PageAction canNext={pager.page.hasNext} canPrevious={pager.page.cursors.length > 1} loading={pager.page.loading} onNext={pager.next} onPrevious={pager.previous} onRefresh={pager.refresh} pageIndex={pager.page.cursors.length} />
+            <PageAction
+              canNext={pager.page.hasNext}
+              canPrevious={pager.page.cursors.length > 1}
+              loading={pager.page.loading}
+              onNext={pager.next}
+              onPrevious={pager.previous}
+              onRefresh={pager.refresh}
+              pageIndex={pager.page.cursors.length}
+            />
           </div>
         </CardHeader>
         <CardContent>
           {pager.page.items.length === 0 ? (
-            <EmptyMessage description={pager.page.loading ? "Loading groups." : "No friend groups are visible for this peer."} title={pager.page.loading ? "Loading" : "No groups"} />
+            <EmptyMessage
+              description={
+                pager.page.loading
+                  ? "Loading groups."
+                  : "No friend groups are visible for this peer."
+              }
+              title={pager.page.loading ? "Loading" : "No groups"}
+            />
           ) : (
             <DashboardTable>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-56">Group</TableHead>
-                    <TableHead className="w-28">My role</TableHead>
-                    <TableHead>Workspace</TableHead>
-                    <TableHead className="w-40">Updated</TableHead>
-                    <TableHead className="w-44 text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {pager.page.items.map((group) => {
-                    const workspaceName = group.workspace_name ?? "";
-                    return (
-                      <TableRow key={group.id ?? group.name ?? workspaceName}>
-                        <TableCell>
-                          <div className="font-medium">{groupDisplayName(group)}</div>
-                          <div className="font-mono text-xs text-muted-foreground">{group.id ?? "-"}</div>
-                        </TableCell>
-                        <TableCell>{group.my_role ?? "-"}</TableCell>
-                        <TableCell className="truncate" title={workspaceName}>{workspaceName || "-"}</TableCell>
-                        <TableCell className="text-muted-foreground">{formatDate(group.updated_at ?? group.created_at)}</TableCell>
-                        <TableCell>
-                          <div className="flex justify-end gap-2">
-                            <Button onClick={() => onOpenGroup(group)} size="sm" type="button" variant="outline">
-                              Open
-                            </Button>
-                            <Button disabled={workspaceName === ""} onClick={() => onOpenChat(groupChatTarget(group))} size="sm" type="button">
-                              <MessageCircle data-icon="inline-start" />
-                              Chat
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </DashboardTable>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-56">Group</TableHead>
+                  <TableHead className="w-28">My role</TableHead>
+                  <TableHead>Workspace</TableHead>
+                  <TableHead className="w-40">Updated</TableHead>
+                  <TableHead className="w-44 text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pager.page.items.map((group) => {
+                  const workspaceName = group.workspace_name ?? "";
+                  return (
+                    <TableRow key={group.id ?? group.name ?? workspaceName}>
+                      <TableCell>
+                        <div className="font-medium">
+                          {groupDisplayName(group)}
+                        </div>
+                        <div className="font-mono text-xs text-muted-foreground">
+                          {group.id ?? "-"}
+                        </div>
+                      </TableCell>
+                      <TableCell>{group.my_role ?? "-"}</TableCell>
+                      <TableCell className="truncate" title={workspaceName}>
+                        {workspaceName || "-"}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {formatDate(group.updated_at ?? group.created_at)}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            onClick={() => onOpenGroup(group)}
+                            size="sm"
+                            type="button"
+                            variant="outline"
+                          >
+                            Open
+                          </Button>
+                          <Button
+                            disabled={workspaceName === ""}
+                            onClick={() => onOpenChat(groupChatTarget(group))}
+                            size="sm"
+                            type="button"
+                          >
+                            <MessageCircle data-icon="inline-start" />
+                            Chat
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </DashboardTable>
           )}
         </CardContent>
       </Card>
@@ -1454,17 +2155,32 @@ function FriendGroupsPanel({ onOpenChat, onOpenGroup }: { onOpenChat: (target: S
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create Group</DialogTitle>
-            <DialogDescription>Create a group workspace owned by this peer.</DialogDescription>
+            <DialogDescription>
+              Create a group workspace owned by this peer.
+            </DialogDescription>
           </DialogHeader>
           <FieldGroup>
             <Field label="Name" value={createName} onChange={setCreateName} />
-            <TextAreaField label="Description" value={createDescription} onChange={setCreateDescription} />
+            <TextAreaField
+              label="Description"
+              value={createDescription}
+              onChange={setCreateDescription}
+            />
           </FieldGroup>
           <DialogFooter>
-            <Button disabled={creating} onClick={() => setCreateOpen(false)} type="button" variant="outline">
+            <Button
+              disabled={creating}
+              onClick={() => setCreateOpen(false)}
+              type="button"
+              variant="outline"
+            >
               Cancel
             </Button>
-            <Button disabled={creating || createName.trim() === ""} onClick={() => void create()} type="button">
+            <Button
+              disabled={creating || createName.trim() === ""}
+              onClick={() => void create()}
+              type="button"
+            >
               Create Group
             </Button>
           </DialogFooter>
@@ -1474,19 +2190,34 @@ function FriendGroupsPanel({ onOpenChat, onOpenGroup }: { onOpenChat: (target: S
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Join Group</DialogTitle>
-            <DialogDescription>Join a group by its invite token.</DialogDescription>
+            <DialogDescription>
+              Join a group by its invite token.
+            </DialogDescription>
           </DialogHeader>
           <FieldGroup>
             <ShadField>
               <FieldLabel htmlFor="group-join-token">Invite token</FieldLabel>
-              <Input id="group-join-token" onChange={(event) => setJoinToken(event.target.value)} value={joinToken} />
+              <Input
+                id="group-join-token"
+                onChange={(event) => setJoinToken(event.target.value)}
+                value={joinToken}
+              />
             </ShadField>
           </FieldGroup>
           <DialogFooter>
-            <Button disabled={joining} onClick={() => setJoinOpen(false)} type="button" variant="outline">
+            <Button
+              disabled={joining}
+              onClick={() => setJoinOpen(false)}
+              type="button"
+              variant="outline"
+            >
               Cancel
             </Button>
-            <Button disabled={joining || joinToken.trim() === ""} onClick={() => void join()} type="button">
+            <Button
+              disabled={joining || joinToken.trim() === ""}
+              onClick={() => void join()}
+              type="button"
+            >
               Join Group
             </Button>
           </DialogFooter>
@@ -1536,7 +2267,11 @@ function FriendGroupDetailPanel({
           <ArrowLeft data-icon="inline-start" />
           Groups
         </Button>
-        <Button disabled={workspaceName === ""} onClick={() => onOpenChat(groupChatTarget(currentGroup))} type="button">
+        <Button
+          disabled={workspaceName === ""}
+          onClick={() => onOpenChat(groupChatTarget(currentGroup))}
+          type="button"
+        >
           <MessageCircle data-icon="inline-start" />
           Chat
         </Button>
@@ -1561,12 +2296,27 @@ function FriendGroupDetailPanel({
           <Card>
             <CardHeader className="flex flex-row items-center justify-between gap-3">
               <CardTitle>History</CardTitle>
-              <Button disabled={history.loading || workspaceName === ""} onClick={history.refresh} size="sm" type="button" variant="outline">
-                <RefreshCw className={cn("size-4", history.loading && "animate-spin")} />
+              <Button
+                disabled={history.loading || workspaceName === ""}
+                onClick={history.refresh}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                <RefreshCw
+                  className={cn("size-4", history.loading && "animate-spin")}
+                />
               </Button>
             </CardHeader>
             <CardContent className="p-0">
-              <WorkspaceHistoryPanel error={history.error} history={history.items} loading={history.loading} onPlay={(entry) => playWorkspaceHistoryAsset(workspaceName, entry.id)} />
+              <WorkspaceHistoryPanel
+                error={history.error}
+                history={history.items}
+                loading={history.loading}
+                onPlay={(entry) =>
+                  playWorkspaceHistoryAsset(workspaceName, entry.id)
+                }
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -1575,12 +2325,23 @@ function FriendGroupDetailPanel({
   );
 }
 
-function GroupInfoPanel({ group, onRefresh }: { group: FriendGroupObject; onRefresh: () => Promise<void> }): JSX.Element {
+function GroupInfoPanel({
+  group,
+  onRefresh,
+}: {
+  group: FriendGroupObject;
+  onRefresh: () => Promise<void>;
+}): JSX.Element {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-3">
         <CardTitle>Info</CardTitle>
-        <Button onClick={() => void onRefresh()} size="sm" type="button" variant="outline">
+        <Button
+          onClick={() => void onRefresh()}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
           <RefreshCw data-icon="inline-start" />
           Refresh
         </Button>
@@ -1589,19 +2350,38 @@ function GroupInfoPanel({ group, onRefresh }: { group: FriendGroupObject; onRefr
         <WorkspaceInfoItem label="Group ID" value={group.id ?? "-"} />
         <WorkspaceInfoItem label="Name" value={group.name ?? "-"} />
         <WorkspaceInfoItem label="My role" value={group.my_role ?? "-"} />
-        <WorkspaceInfoItem label="Workspace" value={group.workspace_name ?? "-"} />
-        <WorkspaceInfoItem label="Created by" value={group.created_by_peer_public_key ?? "-"} />
-        <WorkspaceInfoItem label="Updated" value={formatDate(group.updated_at ?? group.created_at)} />
+        <WorkspaceInfoItem
+          label="Workspace"
+          value={group.workspace_name ?? "-"}
+        />
+        <WorkspaceInfoItem
+          label="Created by"
+          value={group.created_by_peer_public_key ?? "-"}
+        />
+        <WorkspaceInfoItem
+          label="Updated"
+          value={formatDate(group.updated_at ?? group.created_at)}
+        />
       </CardContent>
     </Card>
   );
 }
 
-function GroupMembersPanel({ group }: { group: FriendGroupObject }): JSX.Element {
+function GroupMembersPanel({
+  group,
+}: {
+  group: FriendGroupObject;
+}): JSX.Element {
   const groupID = group.id ?? "";
-  const pager = usePagedList<FriendGroupMemberObject>(useCallback((cursor: string) => listFriendGroupMembersPage(groupID, cursor), [groupID]));
+  const pager = usePagedList<FriendGroupMemberObject>(
+    useCallback(
+      (cursor: string) => listFriendGroupMembersPage(groupID, cursor),
+      [groupID],
+    ),
+  );
   const [memberPublicKey, setMemberPublicKey] = useState("");
-  const [memberRole, setMemberRole] = useState<FriendGroupMemberMutableRole>("member");
+  const [memberRole, setMemberRole] =
+    useState<FriendGroupMemberMutableRole>("member");
   const [saving, setSaving] = useState(false);
   const canManage = group.my_role === "owner" || group.my_role === "admin";
 
@@ -1627,7 +2407,15 @@ function GroupMembersPanel({ group }: { group: FriendGroupObject }): JSX.Element
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-3">
         <CardTitle>Members</CardTitle>
-        <PageAction canNext={pager.page.hasNext} canPrevious={pager.page.cursors.length > 1} loading={pager.page.loading} onNext={pager.next} onPrevious={pager.previous} onRefresh={pager.refresh} pageIndex={pager.page.cursors.length} />
+        <PageAction
+          canNext={pager.page.hasNext}
+          canPrevious={pager.page.cursors.length > 1}
+          loading={pager.page.loading}
+          onNext={pager.next}
+          onPrevious={pager.previous}
+          onRefresh={pager.refresh}
+          pageIndex={pager.page.cursors.length}
+        />
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {pager.error !== "" ? (
@@ -1637,10 +2425,25 @@ function GroupMembersPanel({ group }: { group: FriendGroupObject }): JSX.Element
         ) : null}
         {canManage ? (
           <div className="grid gap-3 rounded-md border p-3 md:grid-cols-[minmax(0,1fr)_160px_auto]">
-            <Field label="Peer public key" value={memberPublicKey} onChange={setMemberPublicKey} />
-            <SelectField label="Role" value={memberRole} onChange={(value) => setMemberRole(value === "admin" ? "admin" : "member")} options={["member", "admin"]} />
+            <Field
+              label="Peer public key"
+              value={memberPublicKey}
+              onChange={setMemberPublicKey}
+            />
+            <SelectField
+              label="Role"
+              value={memberRole}
+              onChange={(value) =>
+                setMemberRole(value === "admin" ? "admin" : "member")
+              }
+              options={["member", "admin"]}
+            />
             <div className="flex items-end">
-              <Button disabled={saving || memberPublicKey.trim() === ""} onClick={() => void addMember()} type="button">
+              <Button
+                disabled={saving || memberPublicKey.trim() === ""}
+                onClick={() => void addMember()}
+                type="button"
+              >
                 <Plus data-icon="inline-start" />
                 Add
               </Button>
@@ -1648,41 +2451,69 @@ function GroupMembersPanel({ group }: { group: FriendGroupObject }): JSX.Element
           </div>
         ) : null}
         {pager.page.items.length === 0 ? (
-          <EmptyMessage description={pager.page.loading ? "Loading members." : "No group members are visible."} title={pager.page.loading ? "Loading" : "No members"} />
+          <EmptyMessage
+            description={
+              pager.page.loading
+                ? "Loading members."
+                : "No group members are visible."
+            }
+            title={pager.page.loading ? "Loading" : "No members"}
+          />
         ) : (
           <DashboardTable>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Peer public key</TableHead>
-                  <TableHead className="w-28">Role</TableHead>
-                  <TableHead className="w-40">Updated</TableHead>
-                  <TableHead className="w-56 text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {pager.page.items.map((member) => (
-                  <GroupMemberRow canManage={canManage} groupID={groupID} key={member.id ?? member.peer_public_key ?? ""} member={member} onChanged={pager.refresh} />
-                ))}
-              </TableBody>
-              </DashboardTable>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Peer public key</TableHead>
+                <TableHead className="w-28">Role</TableHead>
+                <TableHead className="w-40">Updated</TableHead>
+                <TableHead className="w-56 text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {pager.page.items.map((member) => (
+                <GroupMemberRow
+                  canManage={canManage}
+                  groupID={groupID}
+                  key={member.id ?? member.peer_public_key ?? ""}
+                  member={member}
+                  onChanged={pager.refresh}
+                />
+              ))}
+            </TableBody>
+          </DashboardTable>
         )}
       </CardContent>
     </Card>
   );
 }
 
-function GroupMemberRow({ canManage, groupID, member, onChanged }: { canManage: boolean; groupID: string; member: FriendGroupMemberObject; onChanged: () => void }): JSX.Element {
+function GroupMemberRow({
+  canManage,
+  groupID,
+  member,
+  onChanged,
+}: {
+  canManage: boolean;
+  groupID: string;
+  member: FriendGroupMemberObject;
+  onChanged: () => void;
+}): JSX.Element {
   const [saving, setSaving] = useState(false);
   const memberID = member.id ?? "";
-  const mutable = canManage && member.role !== "owner" && groupID !== "" && memberID !== "";
-  const updateRole = async (role: FriendGroupMemberMutableRole): Promise<void> => {
+  const mutable =
+    canManage && member.role !== "owner" && groupID !== "" && memberID !== "";
+  const updateRole = async (
+    role: FriendGroupMemberMutableRole,
+  ): Promise<void> => {
     setSaving(true);
     try {
       await updateFriendGroupMember(groupID, memberID, role);
       toast.success("Group member updated");
       onChanged();
     } catch (err) {
-      toast.error("Group member update failed", { description: toMessage(err) });
+      toast.error("Group member update failed", {
+        description: toMessage(err),
+      });
     } finally {
       setSaving(false);
     }
@@ -1694,7 +2525,9 @@ function GroupMemberRow({ canManage, groupID, member, onChanged }: { canManage: 
       toast.success("Group member removed");
       onChanged();
     } catch (err) {
-      toast.error("Group member remove failed", { description: toMessage(err) });
+      toast.error("Group member remove failed", {
+        description: toMessage(err),
+      });
     } finally {
       setSaving(false);
     }
@@ -1702,19 +2535,44 @@ function GroupMemberRow({ canManage, groupID, member, onChanged }: { canManage: 
 
   return (
     <TableRow>
-      <TableCell className="truncate font-mono text-xs" title={member.peer_public_key ?? ""}>{member.peer_public_key ?? "-"}</TableCell>
+      <TableCell
+        className="truncate font-mono text-xs"
+        title={member.peer_public_key ?? ""}
+      >
+        {member.peer_public_key ?? "-"}
+      </TableCell>
       <TableCell>{member.role ?? "-"}</TableCell>
-      <TableCell className="text-muted-foreground">{formatDate(member.updated_at ?? member.created_at)}</TableCell>
+      <TableCell className="text-muted-foreground">
+        {formatDate(member.updated_at ?? member.created_at)}
+      </TableCell>
       <TableCell>
         {mutable ? (
           <div className="flex justify-end gap-2">
-            <Button disabled={saving || member.role === "admin"} onClick={() => void updateRole("admin")} size="sm" type="button" variant="outline">
+            <Button
+              disabled={saving || member.role === "admin"}
+              onClick={() => void updateRole("admin")}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
               Admin
             </Button>
-            <Button disabled={saving || member.role === "member"} onClick={() => void updateRole("member")} size="sm" type="button" variant="outline">
+            <Button
+              disabled={saving || member.role === "member"}
+              onClick={() => void updateRole("member")}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
               Member
             </Button>
-            <Button disabled={saving} onClick={() => void remove()} size="sm" type="button" variant="destructive">
+            <Button
+              disabled={saving}
+              onClick={() => void remove()}
+              size="sm"
+              type="button"
+              variant="destructive"
+            >
               Remove
             </Button>
           </div>
@@ -1726,10 +2584,16 @@ function GroupMemberRow({ canManage, groupID, member, onChanged }: { canManage: 
   );
 }
 
-function GroupInviteTokenPanel({ group }: { group: FriendGroupObject }): JSX.Element {
+function GroupInviteTokenPanel({
+  group,
+}: {
+  group: FriendGroupObject;
+}): JSX.Element {
   const groupID = group.id ?? "";
   const owner = group.my_role === "owner";
-  const [token, setToken] = useState<FriendGroupInviteTokenGetResponse | null>(null);
+  const [token, setToken] = useState<FriendGroupInviteTokenGetResponse | null>(
+    null,
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -1781,7 +2645,12 @@ function GroupInviteTokenPanel({ group }: { group: FriendGroupObject }): JSX.Ele
   };
 
   if (!owner) {
-    return <EmptyMessage description="Only the group owner can manage the invite token." title="Invite token unavailable" />;
+    return (
+      <EmptyMessage
+        description="Only the group owner can manage the invite token."
+        title="Invite token unavailable"
+      />
+    );
   }
 
   const activeToken = token?.invite_token ?? "";
@@ -1789,7 +2658,13 @@ function GroupInviteTokenPanel({ group }: { group: FriendGroupObject }): JSX.Ele
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-3">
         <CardTitle>Invite Token</CardTitle>
-        <Button disabled={loading} onClick={() => void load()} size="sm" type="button" variant="outline">
+        <Button
+          disabled={loading}
+          onClick={() => void load()}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
           <RefreshCw className={cn("size-4", loading && "animate-spin")} />
         </Button>
       </CardHeader>
@@ -1805,17 +2680,32 @@ function GroupInviteTokenPanel({ group }: { group: FriendGroupObject }): JSX.Ele
             <Input id="group-invite-token" readOnly value={activeToken} />
           </ShadField>
           <ShadField>
-            <FieldLabel htmlFor="group-invite-token-expires">Expires</FieldLabel>
-            <Input id="group-invite-token-expires" readOnly value={formatDate(token?.expires_at)} />
+            <FieldLabel htmlFor="group-invite-token-expires">
+              Expires
+            </FieldLabel>
+            <Input
+              id="group-invite-token-expires"
+              readOnly
+              value={formatDate(token?.expires_at)}
+            />
           </ShadField>
         </FieldGroup>
         <div className="flex justify-end gap-2">
           {activeToken !== "" ? (
-            <Button disabled={loading} onClick={() => void clear()} type="button" variant="outline">
+            <Button
+              disabled={loading}
+              onClick={() => void clear()}
+              type="button"
+              variant="outline"
+            >
               Clear
             </Button>
           ) : null}
-          <Button disabled={loading} onClick={() => void create()} type="button">
+          <Button
+            disabled={loading}
+            onClick={() => void create()}
+            type="button"
+          >
             <RefreshCw data-icon="inline-start" />
             Refresh
           </Button>
@@ -1843,21 +2733,50 @@ function SocialChatDrawer({
   const [mode, setMode] = useState<PlayWorkspaceMode>("push");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const targets = useMemo(() => [...friends.map(friendChatTarget), ...groups.map(groupChatTarget)].filter((target) => target.workspaceName !== ""), [friends, groups]);
-  const selectedTarget = useMemo(() => targets.find((target) => socialTargetKey(target) === targetKey) ?? initialTarget ?? targets[0] ?? null, [initialTarget, targetKey, targets]);
-  const history = useWorkspaceHistory(selectedTarget?.workspaceName ?? "", "asc");
+  const targets = useMemo(
+    () =>
+      [...friends.map(friendChatTarget), ...groups.map(groupChatTarget)].filter(
+        (target) => target.workspaceName !== "",
+      ),
+    [friends, groups],
+  );
+  const selectedTarget = useMemo(
+    () =>
+      targets.find((target) => socialTargetKey(target) === targetKey) ??
+      initialTarget ??
+      targets[0] ??
+      null,
+    [initialTarget, targetKey, targets],
+  );
+  const history = useWorkspaceHistory(
+    selectedTarget?.workspaceName ?? "",
+    "asc",
+  );
 
   const loadTargets = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const [friendPage, groupPage] = await Promise.all([listFriendsPage(""), listFriendGroupsPage("")]);
+      const [friendPage, groupPage] = await Promise.all([
+        listFriendsPage(""),
+        listFriendGroupsPage(""),
+      ]);
       const nextFriends = friendPage.items ?? friendPage.data ?? [];
       const nextGroups = groupPage.items ?? groupPage.data ?? [];
       setFriends(nextFriends);
       setGroups(nextGroups);
-      const allTargets = [...nextFriends.map(friendChatTarget), ...nextGroups.map(groupChatTarget)].filter((target) => target.workspaceName !== "");
-      const nextTarget = initialTarget != null && allTargets.some((target) => socialTargetKey(target) === socialTargetKey(initialTarget)) ? initialTarget : allTargets[0] ?? null;
+      const allTargets = [
+        ...nextFriends.map(friendChatTarget),
+        ...nextGroups.map(groupChatTarget),
+      ].filter((target) => target.workspaceName !== "");
+      const nextTarget =
+        initialTarget != null &&
+        allTargets.some(
+          (target) =>
+            socialTargetKey(target) === socialTargetKey(initialTarget),
+        )
+          ? initialTarget
+          : (allTargets[0] ?? null);
       setTargetKey(nextTarget == null ? "" : socialTargetKey(nextTarget));
     } catch (err) {
       setError(toMessage(err));
@@ -1879,7 +2798,11 @@ function SocialChatDrawer({
     onInitialTargetChange(selectedTarget);
     setError("");
     setLoading(true);
-    void expectData(setPeerRunWorkspace({ body: { workspace_name: selectedTarget.workspaceName } }))
+    void expectData(
+      setPeerRunWorkspace({
+        body: { workspace_name: selectedTarget.workspaceName },
+      }),
+    )
       .then((nextState) => {
         const normalized = normalizeWorkspaceState(nextState);
         setState(normalized);
@@ -1887,9 +2810,16 @@ function SocialChatDrawer({
       })
       .catch((err: unknown) => setError(toMessage(err)))
       .finally(() => setLoading(false));
-  }, [onInitialTargetChange, open, selectedTarget?.workspaceName, selectedTarget]);
+  }, [
+    onInitialTargetChange,
+    open,
+    selectedTarget?.workspaceName,
+    selectedTarget,
+  ]);
 
-  const updateWorkspaceMode = async (nextMode: PlayWorkspaceMode): Promise<void> => {
+  const updateWorkspaceMode = async (
+    nextMode: PlayWorkspaceMode,
+  ): Promise<void> => {
     const workspaceName = selectedTarget?.workspaceName ?? "";
     if (workspaceName === "") {
       return;
@@ -1897,10 +2827,18 @@ function SocialChatDrawer({
     setError("");
     setLoading(true);
     try {
-      const nextState = normalizeWorkspaceState(await expectData(setPeerRunWorkspaceMode({ body: { mode: nextMode, workspace_name: workspaceName } })));
+      const nextState = normalizeWorkspaceState(
+        await expectData(
+          setPeerRunWorkspaceMode({
+            body: { mode: nextMode, workspace_name: workspaceName },
+          }),
+        ),
+      );
       setState(nextState);
       setMode(nextState.workspace_mode ?? nextMode);
-      toast.success("Chat mode updated", { description: nextMode === "push" ? "Push To Talk" : "Realtime Chat" });
+      toast.success("Chat mode updated", {
+        description: nextMode === "push" ? "Push To Talk" : "Realtime Chat",
+      });
     } catch (err) {
       setError(toMessage(err));
     } finally {
@@ -1911,16 +2849,26 @@ function SocialChatDrawer({
   const playHistory = async (entry: PeerRunHistoryEntry): Promise<void> => {
     try {
       requestWorkspaceAudioPlayback();
-      await expectData(playPeerRunWorkspaceHistory({ body: { history_id: entry.id } }));
+      await expectData(
+        playPeerRunWorkspaceHistory({ body: { history_id: entry.id } }),
+      );
       toast.success("History replay started", { description: entry.id });
     } catch (err) {
-      toast.error("History replay failed", { description: workspaceFeatureMessage(err) });
+      toast.error("History replay failed", {
+        description: workspaceFeatureMessage(err),
+      });
     }
   };
 
   return (
     <Sheet modal={false} open={open} onOpenChange={onOpenChange}>
-      <Button aria-pressed={open} onClick={() => onOpenChange(!open)} size="sm" type="button" variant={open ? "default" : "outline"}>
+      <Button
+        aria-pressed={open}
+        onClick={() => onOpenChange(!open)}
+        size="sm"
+        type="button"
+        variant={open ? "default" : "outline"}
+      >
         <MessageCircle data-icon="inline-start" />
         Chat
       </Button>
@@ -1932,27 +2880,48 @@ function SocialChatDrawer({
       >
         <SheetHeader className="border-b px-5 py-4 pr-12">
           <SheetTitle>Chat</SheetTitle>
-          <SheetDescription>Append voice messages and replay history through the selected social workspace.</SheetDescription>
+          <SheetDescription>
+            Append voice messages and replay history through the selected social
+            workspace.
+          </SheetDescription>
           <div className="grid gap-3 pt-2 md:grid-cols-[220px_minmax(0,1fr)_auto]">
-            <Select value={selectedTarget == null ? "" : socialTargetKey(selectedTarget)} onValueChange={setTargetKey}>
+            <Select
+              value={
+                selectedTarget == null ? "" : socialTargetKey(selectedTarget)
+              }
+              onValueChange={setTargetKey}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Conversation" />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
                   {targets.map((target) => (
-                    <SelectItem key={socialTargetKey(target)} value={socialTargetKey(target)}>
-                      {target.kind === "friend" ? "Friend" : "Group"} / {target.title}
+                    <SelectItem
+                      key={socialTargetKey(target)}
+                      value={socialTargetKey(target)}
+                    >
+                      {target.kind === "friend" ? "Friend" : "Group"} /{" "}
+                      {target.title}
                     </SelectItem>
                   ))}
                 </SelectGroup>
               </SelectContent>
             </Select>
             <div className="min-w-0 rounded-md border px-3 py-2 text-sm">
-              <div className="truncate font-medium">{selectedTarget?.title ?? "No conversation"}</div>
-              <div className="truncate text-xs text-muted-foreground">{selectedTarget?.workspaceName ?? "-"}</div>
+              <div className="truncate font-medium">
+                {selectedTarget?.title ?? "No conversation"}
+              </div>
+              <div className="truncate text-xs text-muted-foreground">
+                {selectedTarget?.workspaceName ?? "-"}
+              </div>
             </div>
-            <Button disabled={loading} onClick={() => void loadTargets()} type="button" variant="outline">
+            <Button
+              disabled={loading}
+              onClick={() => void loadTargets()}
+              type="button"
+              variant="outline"
+            >
               <RefreshCw className={cn("size-4", loading && "animate-spin")} />
             </Button>
           </div>
@@ -1964,22 +2933,52 @@ function SocialChatDrawer({
             </Alert>
           ) : null}
           {selectedTarget == null ? (
-            <EmptyMessage description="No friend or group conversation has a workspace yet." title="No chat target" />
+            <EmptyMessage
+              description="No friend or group conversation has a workspace yet."
+              title="No chat target"
+            />
           ) : (
             <>
-              <WorkspaceChatPanel mode={mode} onHistoryChange={history.loadNewer} onModeChange={(nextMode) => void updateWorkspaceMode(nextMode)} showTurns={false} state={state} title="Composer" />
+              <WorkspaceChatPanel
+                mode={mode}
+                onHistoryChange={history.loadNewer}
+                onModeChange={(nextMode) => void updateWorkspaceMode(nextMode)}
+                showTurns={false}
+                state={state}
+                title="Composer"
+              />
               <Card className="min-h-0 flex-1">
                 <CardHeader className="flex flex-row items-center justify-between gap-3">
                   <CardTitle className="flex min-w-0 items-center gap-2 text-sm">
                     <span className="truncate">History</span>
-                    {history.lastUpdatedAt !== "" ? <Badge variant="outline">{formatDate(history.lastUpdatedAt)}</Badge> : null}
+                    {history.lastUpdatedAt !== "" ? (
+                      <Badge variant="outline">
+                        {formatDate(history.lastUpdatedAt)}
+                      </Badge>
+                    ) : null}
                   </CardTitle>
-                  <Button disabled={history.loading} onClick={history.refresh} size="sm" type="button" variant="outline">
-                    <RefreshCw className={cn("size-4", history.loading && "animate-spin")} />
+                  <Button
+                    disabled={history.loading}
+                    onClick={history.refresh}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    <RefreshCw
+                      className={cn(
+                        "size-4",
+                        history.loading && "animate-spin",
+                      )}
+                    />
                   </Button>
                 </CardHeader>
                 <CardContent className="min-h-0 p-0">
-                  <ChatHistoryTimeline error={history.error} history={history.items} loading={history.loading} onPlay={playHistory} />
+                  <ChatHistoryTimeline
+                    error={history.error}
+                    history={history.items}
+                    loading={history.loading}
+                    onPlay={playHistory}
+                  />
                 </CardContent>
               </Card>
             </>
@@ -1990,7 +2989,13 @@ function SocialChatDrawer({
   );
 }
 
-function WorkspaceDrawer({ onOpenChange, open }: { onOpenChange: (open: boolean) => void; open: boolean }): JSX.Element {
+function WorkspaceDrawer({
+  onOpenChange,
+  open,
+}: {
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+}): JSX.Element {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [state, setState] = useState<PlayWorkspaceState | null>(null);
   const [selectedWorkspace, setSelectedWorkspace] = useState("");
@@ -2013,10 +3018,14 @@ function WorkspaceDrawer({ onOpenChange, open }: { onOpenChange: (open: boolean)
   const activeWorkspace = state?.active_workspace_name ?? "";
   const pendingWorkspace = state?.pending_workspace_name ?? "";
   const currentWorkspace = state?.workspace_name ?? "";
-  const runtimeState = state?.runtime_state ?? (currentWorkspace === "" ? "no active workspace" : "unknown");
-  const pendingDirty = selectedWorkspace !== "" && selectedWorkspace !== currentWorkspace;
+  const runtimeState =
+    state?.runtime_state ??
+    (currentWorkspace === "" ? "no active workspace" : "unknown");
+  const pendingDirty =
+    selectedWorkspace !== "" && selectedWorkspace !== currentWorkspace;
   const canSetWorkspace = pendingDirty && !loading;
-  const canReloadWorkspace = currentWorkspace !== "" && !pendingDirty && !loading;
+  const canReloadWorkspace =
+    currentWorkspace !== "" && !pendingDirty && !loading;
 
   const loadWorkspace = useCallback(async (workspaceName: string) => {
     const name = workspaceName.trim();
@@ -2027,7 +3036,9 @@ function WorkspaceDrawer({ onOpenChange, open }: { onOpenChange: (open: boolean)
       return;
     }
     try {
-	  const details = await expectData(getPeerRunWorkspaceDetails({ query: { name } }));
+      const details = await expectData(
+        getPeerRunWorkspaceDetails({ query: { name } }),
+      );
       setWorkspace(details);
       setWorkspaceParametersText(formatWorkspaceParameters(details.parameters));
       setWorkspaceError("");
@@ -2037,44 +3048,59 @@ function WorkspaceDrawer({ onOpenChange, open }: { onOpenChange: (open: boolean)
     }
   }, []);
 
-  const loadWorkspaceIntrospection = useCallback(async (workspaceName: string) => {
-    setHistoryError("");
-    setMemoryError("");
-    setRecallError("");
-    setRecallHits([]);
-    if (workspaceName === "") {
-      setHistory([]);
-      setMemory(null);
-      return;
-    }
+  const loadWorkspaceIntrospection = useCallback(
+    async (workspaceName: string) => {
+      setHistoryError("");
+      setMemoryError("");
+      setRecallError("");
+      setRecallHits([]);
+      if (workspaceName === "") {
+        setHistory([]);
+        setMemory(null);
+        return;
+      }
 
-    const [nextHistory, nextMemory] = await Promise.allSettled([expectData(listPeerRunWorkspaceHistory()), expectData(getPeerRunWorkspaceMemoryStats())]);
-    if (nextHistory.status === "fulfilled") {
-      setHistory(nextHistory.value.items ?? []);
-    } else {
-      setHistory([]);
-      setHistoryError(workspaceFeatureMessage(nextHistory.reason));
-    }
-    if (nextMemory.status === "fulfilled") {
-      setMemory(nextMemory.value);
-    } else {
-      setMemory(null);
-      setMemoryError(workspaceFeatureMessage(nextMemory.reason));
-    }
-  }, []);
+      const [nextHistory, nextMemory] = await Promise.allSettled([
+        expectData(listPeerRunWorkspaceHistory()),
+        expectData(getPeerRunWorkspaceMemoryStats()),
+      ]);
+      if (nextHistory.status === "fulfilled") {
+        setHistory(nextHistory.value.items ?? []);
+      } else {
+        setHistory([]);
+        setHistoryError(workspaceFeatureMessage(nextHistory.reason));
+      }
+      if (nextMemory.status === "fulfilled") {
+        setMemory(nextMemory.value);
+      } else {
+        setMemory(null);
+        setMemoryError(workspaceFeatureMessage(nextMemory.reason));
+      }
+    },
+    [],
+  );
 
   const loadDrawer = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const [workspacePage, workspaceState] = await Promise.all([listWorkspacesPage(""), expectData(getPeerRunWorkspace())]);
+      const [workspacePage, workspaceState] = await Promise.all([
+        listWorkspacesPage(""),
+        expectData(getPeerRunWorkspace()),
+      ]);
       const nextState = normalizeWorkspaceState(workspaceState);
-      setWorkspaces(sortWorkspacesByActivity(workspacePage.items ?? workspacePage.data ?? []));
+      setWorkspaces(
+        sortWorkspacesByActivity(
+          workspacePage.items ?? workspacePage.data ?? [],
+        ),
+      );
       setState(nextState);
       setSelectedWorkspace(nextState.workspace_name ?? "");
       setMode(nextState.workspace_mode ?? "push");
       await loadWorkspace(nextState.workspace_name ?? "");
-      await loadWorkspaceIntrospection(nextState.active_workspace_name ?? nextState.workspace_name ?? "");
+      await loadWorkspaceIntrospection(
+        nextState.active_workspace_name ?? nextState.workspace_name ?? "",
+      );
     } catch (err) {
       setError(toMessage(err));
     } finally {
@@ -2096,13 +3122,19 @@ function WorkspaceDrawer({ onOpenChange, open }: { onOpenChange: (open: boolean)
     setError("");
     setLoading(true);
     try {
-      const nextState = normalizeWorkspaceState(await expectData(setPeerRunWorkspace({ body: { workspace_name: workspaceName } })));
+      const nextState = normalizeWorkspaceState(
+        await expectData(
+          setPeerRunWorkspace({ body: { workspace_name: workspaceName } }),
+        ),
+      );
       setState(nextState);
       setSelectedWorkspace(nextState.workspace_name ?? workspaceName);
       setMode(nextState.workspace_mode ?? "push");
       await loadWorkspace(nextState.workspace_name ?? workspaceName);
       await loadWorkspaceIntrospection(nextState.active_workspace_name ?? "");
-      toast.success("Workspace selection updated", { description: workspaceName });
+      toast.success("Workspace selection updated", {
+        description: workspaceName,
+      });
     } catch (err) {
       setError(toMessage(err));
     } finally {
@@ -2114,13 +3146,20 @@ function WorkspaceDrawer({ onOpenChange, open }: { onOpenChange: (open: boolean)
     setError("");
     setLoading(true);
     try {
-      const nextState = normalizeWorkspaceState(await expectData(reloadPeerRunWorkspace()));
+      const nextState = normalizeWorkspaceState(
+        await expectData(reloadPeerRunWorkspace()),
+      );
       setState(nextState);
       setSelectedWorkspace(nextState.workspace_name ?? "");
       setMode(nextState.workspace_mode ?? "push");
       await loadWorkspace(nextState.workspace_name ?? "");
-      await loadWorkspaceIntrospection(nextState.active_workspace_name ?? nextState.workspace_name ?? "");
-      toast.success("Workspace runtime reloaded", { description: nextState.active_workspace_name ?? nextState.workspace_name ?? "" });
+      await loadWorkspaceIntrospection(
+        nextState.active_workspace_name ?? nextState.workspace_name ?? "",
+      );
+      toast.success("Workspace runtime reloaded", {
+        description:
+          nextState.active_workspace_name ?? nextState.workspace_name ?? "",
+      });
     } catch (err) {
       setError(toMessage(err));
     } finally {
@@ -2132,7 +3171,9 @@ function WorkspaceDrawer({ onOpenChange, open }: { onOpenChange: (open: boolean)
     setHistoryError("");
     try {
       requestWorkspaceAudioPlayback();
-      await expectData(playPeerRunWorkspaceHistory({ body: { history_id: entry.id } }));
+      await expectData(
+        playPeerRunWorkspaceHistory({ body: { history_id: entry.id } }),
+      );
       setWorkspaceTab("chat");
       toast.success("History replay started", { description: entry.id });
     } catch (err) {
@@ -2141,12 +3182,20 @@ function WorkspaceDrawer({ onOpenChange, open }: { onOpenChange: (open: boolean)
   };
 
   const refreshActiveWorkspaceIntrospection = useCallback(() => {
-    const workspaceName = state?.active_workspace_name ?? state?.workspace_name ?? selectedWorkspace;
+    const workspaceName =
+      state?.active_workspace_name ??
+      state?.workspace_name ??
+      selectedWorkspace;
     if (workspaceName === "") {
       return;
     }
     void loadWorkspaceIntrospection(workspaceName);
-  }, [loadWorkspaceIntrospection, selectedWorkspace, state?.active_workspace_name, state?.workspace_name]);
+  }, [
+    loadWorkspaceIntrospection,
+    selectedWorkspace,
+    state?.active_workspace_name,
+    state?.workspace_name,
+  ]);
 
   const runRecall = async (): Promise<void> => {
     const query = recallQuery.trim();
@@ -2156,7 +3205,9 @@ function WorkspaceDrawer({ onOpenChange, open }: { onOpenChange: (open: boolean)
     setRecallError("");
     setLoading(true);
     try {
-      const response = await expectData(recallPeerRunWorkspaceMemory({ body: { limit: 10, query } }));
+      const response = await expectData(
+        recallPeerRunWorkspaceMemory({ body: { limit: 10, query } }),
+      );
       setRecallHits(response.hits ?? []);
     } catch (err) {
       setRecallHits([]);
@@ -2166,17 +3217,32 @@ function WorkspaceDrawer({ onOpenChange, open }: { onOpenChange: (open: boolean)
     }
   };
 
-  const updateWorkspaceMode = async (nextMode: PlayWorkspaceMode): Promise<void> => {
+  const updateWorkspaceMode = async (
+    nextMode: PlayWorkspaceMode,
+  ): Promise<void> => {
     setError("");
     setLoading(true);
     try {
-      const nextState = normalizeWorkspaceState(await expectData(setPeerRunWorkspaceMode({ body: { mode: nextMode, workspace_name: currentWorkspace || selectedWorkspace } })));
+      const nextState = normalizeWorkspaceState(
+        await expectData(
+          setPeerRunWorkspaceMode({
+            body: {
+              mode: nextMode,
+              workspace_name: currentWorkspace || selectedWorkspace,
+            },
+          }),
+        ),
+      );
       setState(nextState);
       setSelectedWorkspace(nextState.workspace_name ?? "");
       setMode(nextState.workspace_mode ?? nextMode);
       await loadWorkspace(nextState.workspace_name ?? "");
-      await loadWorkspaceIntrospection(nextState.active_workspace_name ?? nextState.workspace_name ?? "");
-      toast.success("Workspace mode reloaded", { description: nextMode === "push" ? "Push To Talk" : "Realtime Chat" });
+      await loadWorkspaceIntrospection(
+        nextState.active_workspace_name ?? nextState.workspace_name ?? "",
+      );
+      toast.success("Workspace mode reloaded", {
+        description: nextMode === "push" ? "Push To Talk" : "Realtime Chat",
+      });
     } catch (err) {
       setError(toMessage(err));
     } finally {
@@ -2185,7 +3251,11 @@ function WorkspaceDrawer({ onOpenChange, open }: { onOpenChange: (open: boolean)
   };
 
   const saveWorkspace = async (): Promise<void> => {
-    const workspaceName = (workspaceDetails?.name ?? currentWorkspace ?? selectedWorkspace).trim();
+    const workspaceName = (
+      workspaceDetails?.name ??
+      currentWorkspace ??
+      selectedWorkspace
+    ).trim();
     if (workspaceName === "") {
       setWorkspaceError("Select a workspace before saving.");
       return;
@@ -2199,14 +3269,20 @@ function WorkspaceDrawer({ onOpenChange, open }: { onOpenChange: (open: boolean)
     }
     setWorkspaceSaving(true);
     try {
-	  const updated = await expectData(putPeerRunWorkspaceDetails({ body: {
-		name: workspaceName,
-		body: { parameters },
-	  } }));
+      const updated = await expectData(
+        putPeerRunWorkspaceDetails({
+          body: {
+            name: workspaceName,
+            body: { parameters },
+          },
+        }),
+      );
       setWorkspace(updated);
       setWorkspaceParametersText(formatWorkspaceParameters(updated.parameters));
       setWorkspaceError("");
-      toast.success("Workspace saved", { description: "Reload the workspace runtime to apply changes." });
+      toast.success("Workspace saved", {
+        description: "Reload the workspace runtime to apply changes.",
+      });
       await loadDrawer();
     } catch (err) {
       setWorkspaceError(workspaceFeatureMessage(err));
@@ -2217,7 +3293,13 @@ function WorkspaceDrawer({ onOpenChange, open }: { onOpenChange: (open: boolean)
 
   return (
     <Sheet modal={false} open={open} onOpenChange={onOpenChange}>
-      <Button aria-pressed={open} onClick={() => onOpenChange(!open)} size="sm" type="button" variant={open ? "default" : "outline"}>
+      <Button
+        aria-pressed={open}
+        onClick={() => onOpenChange(!open)}
+        size="sm"
+        type="button"
+        variant={open ? "default" : "outline"}
+      >
         <BriefcaseBusiness data-icon="inline-start" />
         Workspace
       </Button>
@@ -2230,7 +3312,9 @@ function WorkspaceDrawer({ onOpenChange, open }: { onOpenChange: (open: boolean)
         <SheetHeader className="border-b px-5 py-4 pr-12">
           <div className="flex flex-col gap-2">
             <SheetTitle>Workspace</SheetTitle>
-            <SheetDescription>Inspect and test the current peer run active workspace.</SheetDescription>
+            <SheetDescription>
+              Inspect and test the current peer run active workspace.
+            </SheetDescription>
           </div>
           <div className="grid items-end gap-3 pt-2 sm:grid-cols-[minmax(0,1fr)_auto]">
             <div className="min-w-0">
@@ -2239,14 +3323,27 @@ function WorkspaceDrawer({ onOpenChange, open }: { onOpenChange: (open: boolean)
                 loading={loading}
                 value={selectedWorkspace}
                 onChange={setSelectedWorkspace}
-                options={workspaces.map((workspace) => workspace.name).filter((name) => name !== "")}
+                options={workspaces
+                  .map((workspace) => workspace.name)
+                  .filter((name) => name !== "")}
               />
             </div>
             <div className="flex items-end gap-2">
-              <Button className="shrink-0" disabled={!canSetWorkspace} onClick={() => void setWorkspaceSelection()} type="button" variant="outline">
+              <Button
+                className="shrink-0"
+                disabled={!canSetWorkspace}
+                onClick={() => void setWorkspaceSelection()}
+                type="button"
+                variant="outline"
+              >
                 Set
               </Button>
-              <Button className="shrink-0" disabled={!canReloadWorkspace} onClick={() => void reloadWorkspace()} type="button">
+              <Button
+                className="shrink-0"
+                disabled={!canReloadWorkspace}
+                onClick={() => void reloadWorkspace()}
+                type="button"
+              >
                 <RefreshCw data-icon="inline-start" />
                 Reload
               </Button>
@@ -2256,17 +3353,42 @@ function WorkspaceDrawer({ onOpenChange, open }: { onOpenChange: (open: boolean)
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center justify-between gap-3 text-sm">
                 <span>Runtime</span>
-                <Badge variant={runtimeState === "running" ? "default" : "outline"}>{runtimeState}</Badge>
+                <Badge
+                  variant={runtimeState === "running" ? "default" : "outline"}
+                >
+                  {runtimeState}
+                </Badge>
               </CardTitle>
             </CardHeader>
             <CardContent className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
-              <WorkspaceInfoItem label="Workspace" value={workspaceDetails?.name || "-"} />
-              <WorkspaceInfoItem label="Workspace ID" value={currentWorkspace || selectedWorkspace || "-"} />
-              <WorkspaceInfoItem label="Selected" value={selectedWorkspace || "-"} />
-              <WorkspaceInfoItem label="Pending" value={pendingWorkspace || "-"} />
-              <WorkspaceInfoItem label="Active" value={activeWorkspace || "-"} />
-              <WorkspaceInfoItem label="Workflow" value={state?.workflow_name || "-"} />
-              <WorkspaceInfoItem label="Agent" value={state?.agent_type || "unavailable"} />
+              <WorkspaceInfoItem
+                label="Workspace"
+                value={workspaceDetails?.name || "-"}
+              />
+              <WorkspaceInfoItem
+                label="Workspace ID"
+                value={currentWorkspace || selectedWorkspace || "-"}
+              />
+              <WorkspaceInfoItem
+                label="Selected"
+                value={selectedWorkspace || "-"}
+              />
+              <WorkspaceInfoItem
+                label="Pending"
+                value={pendingWorkspace || "-"}
+              />
+              <WorkspaceInfoItem
+                label="Active"
+                value={activeWorkspace || "-"}
+              />
+              <WorkspaceInfoItem
+                label="Workflow"
+                value={state?.workflow_name || "-"}
+              />
+              <WorkspaceInfoItem
+                label="Agent"
+                value={state?.agent_type || "unavailable"}
+              />
             </CardContent>
           </Card>
         </SheetHeader>
@@ -2276,7 +3398,11 @@ function WorkspaceDrawer({ onOpenChange, open }: { onOpenChange: (open: boolean)
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           ) : null}
-          <Tabs className="flex min-h-0 flex-1 flex-col" value={workspaceTab} onValueChange={setWorkspaceTab}>
+          <Tabs
+            className="flex min-h-0 flex-1 flex-col"
+            value={workspaceTab}
+            onValueChange={setWorkspaceTab}
+          >
             <div className="border-b px-5 py-3">
               <TabsList>
                 <TabsTrigger value="chat">Chat</TabsTrigger>
@@ -2286,21 +3412,73 @@ function WorkspaceDrawer({ onOpenChange, open }: { onOpenChange: (open: boolean)
                 <TabsTrigger value="settings">Settings</TabsTrigger>
               </TabsList>
             </div>
-            <TabsContent forceMount className={cn("m-0 min-h-0 flex-1", workspaceTab !== "chat" && "hidden")} value="chat">
-              <WorkspaceChatPanel mode={mode} onModeChange={(nextMode) => {
-                void updateWorkspaceMode(nextMode);
-              }} onHistoryChange={refreshActiveWorkspaceIntrospection} state={state} />
+            <TabsContent
+              forceMount
+              className={cn(
+                "m-0 min-h-0 flex-1",
+                workspaceTab !== "chat" && "hidden",
+              )}
+              value="chat"
+            >
+              <WorkspaceChatPanel
+                mode={mode}
+                onModeChange={(nextMode) => {
+                  void updateWorkspaceMode(nextMode);
+                }}
+                onHistoryChange={refreshActiveWorkspaceIntrospection}
+                state={state}
+              />
             </TabsContent>
-            <TabsContent forceMount className={cn("m-0 min-h-0 flex-1", workspaceTab !== "history" && "hidden")} value="history">
-              <WorkspaceHistoryPanel error={historyError} history={history} loading={loading} onPlay={playHistory} />
+            <TabsContent
+              forceMount
+              className={cn(
+                "m-0 min-h-0 flex-1",
+                workspaceTab !== "history" && "hidden",
+              )}
+              value="history"
+            >
+              <WorkspaceHistoryPanel
+                error={historyError}
+                history={history}
+                loading={loading}
+                onPlay={playHistory}
+              />
             </TabsContent>
-            <TabsContent forceMount className={cn("m-0 min-h-0 flex-1", workspaceTab !== "memory" && "hidden")} value="memory">
+            <TabsContent
+              forceMount
+              className={cn(
+                "m-0 min-h-0 flex-1",
+                workspaceTab !== "memory" && "hidden",
+              )}
+              value="memory"
+            >
               <WorkspaceMemoryPanel error={memoryError} memory={memory} />
             </TabsContent>
-            <TabsContent forceMount className={cn("m-0 min-h-0 flex-1", workspaceTab !== "recall" && "hidden")} value="recall">
-              <WorkspaceRecallPanel error={recallError} hits={recallHits} loading={loading} query={recallQuery} onQueryChange={setRecallQuery} onRun={runRecall} />
+            <TabsContent
+              forceMount
+              className={cn(
+                "m-0 min-h-0 flex-1",
+                workspaceTab !== "recall" && "hidden",
+              )}
+              value="recall"
+            >
+              <WorkspaceRecallPanel
+                error={recallError}
+                hits={recallHits}
+                loading={loading}
+                query={recallQuery}
+                onQueryChange={setRecallQuery}
+                onRun={runRecall}
+              />
             </TabsContent>
-            <TabsContent forceMount className={cn("m-0 min-h-0 flex-1", workspaceTab !== "settings" && "hidden")} value="settings">
+            <TabsContent
+              forceMount
+              className={cn(
+                "m-0 min-h-0 flex-1",
+                workspaceTab !== "settings" && "hidden",
+              )}
+              value="settings"
+            >
               <WorkspacePanel
                 details={workspaceDetails}
                 error={workspaceDetailsError}
@@ -2308,7 +3486,9 @@ function WorkspaceDrawer({ onOpenChange, open }: { onOpenChange: (open: boolean)
                 parametersText={workspaceParametersText}
                 saving={workspaceSaving}
                 onParametersChange={setWorkspaceParametersText}
-                onRefresh={() => void loadWorkspace(currentWorkspace || selectedWorkspace)}
+                onRefresh={() =>
+                  void loadWorkspace(currentWorkspace || selectedWorkspace)
+                }
                 onSave={() => void saveWorkspace()}
               />
             </TabsContent>
@@ -2319,7 +3499,13 @@ function WorkspaceDrawer({ onOpenChange, open }: { onOpenChange: (open: boolean)
   );
 }
 
-function WorkspaceInfoItem({ label, value }: { label: string; value: string }): JSX.Element {
+function WorkspaceInfoItem({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}): JSX.Element {
   return (
     <div className="min-w-0">
       <div className="text-xs font-medium text-muted-foreground">{label}</div>
@@ -2360,41 +3546,61 @@ function WorkspacePanel({
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center justify-between gap-3 text-sm">
               <span>Workspace Info</span>
-              {details != null ? <Badge variant="outline">{details.name}</Badge> : null}
+              {details != null ? (
+                <Badge variant="outline">{details.name}</Badge>
+              ) : null}
             </CardTitle>
           </CardHeader>
           <CardContent>
             {details == null ? (
-              <EmptyMessage description="Select a workspace to edit its configuration." title="No workspace selected" />
+              <EmptyMessage
+                description="Select a workspace to edit its configuration."
+                title="No workspace selected"
+              />
             ) : (
               <div className="flex flex-col gap-5">
                 <div className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-                  <WorkspaceInfoItem label="Workspace ID" value={details.name || "-"} />
-				  <WorkspaceInfoItem label="Workflow" value={details.workflow_alias || "-"} />
+                  <WorkspaceInfoItem
+                    label="Workspace ID"
+                    value={details.name || "-"}
+                  />
+                  <WorkspaceInfoItem
+                    label="Workflow"
+                    value={details.workflow_alias || "-"}
+                  />
                 </div>
                 <FieldGroup>
-                <ShadField data-invalid={error !== ""}>
-                  <FieldLabel htmlFor="workspace-parameters">Parameters</FieldLabel>
-                  <Textarea
-                    aria-invalid={error !== ""}
-                    className="min-h-64 font-mono text-sm"
-                    disabled={disabled}
-                    id="workspace-parameters"
-                    spellCheck={false}
-                    value={parametersText}
-                    onChange={(event) => onParametersChange(event.target.value)}
-                  />
-                </ShadField>
-                <div className="flex items-center justify-end gap-2">
-                  <Button disabled={loading || saving} onClick={onRefresh} type="button" variant="outline">
-                    <RefreshCw data-icon="inline-start" />
-                    Refresh
-                  </Button>
-                  <Button disabled={disabled} onClick={onSave} type="button">
-                    <Pencil data-icon="inline-start" />
-                    Save
-                  </Button>
-                </div>
+                  <ShadField data-invalid={error !== ""}>
+                    <FieldLabel htmlFor="workspace-parameters">
+                      Parameters
+                    </FieldLabel>
+                    <Textarea
+                      aria-invalid={error !== ""}
+                      className="min-h-64 font-mono text-sm"
+                      disabled={disabled}
+                      id="workspace-parameters"
+                      spellCheck={false}
+                      value={parametersText}
+                      onChange={(event) =>
+                        onParametersChange(event.target.value)
+                      }
+                    />
+                  </ShadField>
+                  <div className="flex items-center justify-end gap-2">
+                    <Button
+                      disabled={loading || saving}
+                      onClick={onRefresh}
+                      type="button"
+                      variant="outline"
+                    >
+                      <RefreshCw data-icon="inline-start" />
+                      Refresh
+                    </Button>
+                    <Button disabled={disabled} onClick={onSave} type="button">
+                      <Pencil data-icon="inline-start" />
+                      Save
+                    </Button>
+                  </div>
                 </FieldGroup>
               </div>
             )}
@@ -2422,7 +3628,9 @@ function workspaceTurnStatusLabel(status: WorkspaceChatTurnStatus): string {
   }
 }
 
-function workspaceTurnBadgeVariant(status: WorkspaceChatTurnStatus): "default" | "secondary" | "outline" | "destructive" {
+function workspaceTurnBadgeVariant(
+  status: WorkspaceChatTurnStatus,
+): "default" | "secondary" | "outline" | "destructive" {
   switch (status) {
     case "recording":
     case "playing":
@@ -2436,7 +3644,10 @@ function workspaceTurnBadgeVariant(status: WorkspaceChatTurnStatus): "default" |
   }
 }
 
-function splitWorkspaceStreamID(streamID?: string): { prefix: string; suffix: string } {
+function splitWorkspaceStreamID(streamID?: string): {
+  prefix: string;
+  suffix: string;
+} {
   const normalized = streamID?.trim() ?? "";
   if (normalized === "") {
     return { prefix: "", suffix: "" };
@@ -2468,7 +3679,9 @@ function WorkspaceChatPanel({
 }): JSX.Element {
   const activeWorkspaceName = state?.active_workspace_name ?? "";
   const hasActiveWorkspace = activeWorkspaceName !== "";
-  const [status, setStatus] = useState<"idle" | "connecting" | "connected" | "error">("idle");
+  const [status, setStatus] = useState<
+    "idle" | "connecting" | "connected" | "error"
+  >("idle");
   const [inputActive, setInputActive] = useState(false);
   const [inputPressed, setInputPressed] = useState(false);
   const [error, setError] = useState("");
@@ -2514,7 +3727,10 @@ function WorkspaceChatPanel({
             if (existing.status !== "recording") {
               return existing;
             }
-            return { ...existing, status: "sending" as WorkspaceChatTurnStatus };
+            return {
+              ...existing,
+              status: "sending" as WorkspaceChatTurnStatus,
+            };
           })
           .slice(-19),
         turn,
@@ -2524,9 +3740,16 @@ function WorkspaceChatPanel({
     [],
   );
 
-  const updateTurn = useCallback((targetID: string, patch: Partial<WorkspaceChatTurn>) => {
-    setTurns((current) => current.map((turn) => (turn.id === targetID ? { ...turn, ...patch } : turn)));
-  }, []);
+  const updateTurn = useCallback(
+    (targetID: string, patch: Partial<WorkspaceChatTurn>) => {
+      setTurns((current) =>
+        current.map((turn) =>
+          turn.id === targetID ? { ...turn, ...patch } : turn,
+        ),
+      );
+    },
+    [],
+  );
 
   const turnIDForStream = useCallback(
     (streamID: string | undefined, status: WorkspaceChatTurnStatus) => {
@@ -2549,13 +3772,16 @@ function WorkspaceChatPanel({
     [closeRecordingTurnsExcept, createTurn],
   );
 
-  const updateCurrentTurn = useCallback((patch: Partial<WorkspaceChatTurn>) => {
-    let id = currentTurnIDRef.current;
-    if (id == null) {
-      id = createTurn("responding");
-    }
-    updateTurn(id, patch);
-  }, [createTurn, updateTurn]);
+  const updateCurrentTurn = useCallback(
+    (patch: Partial<WorkspaceChatTurn>) => {
+      let id = currentTurnIDRef.current;
+      if (id == null) {
+        id = createTurn("responding");
+      }
+      updateTurn(id, patch);
+    },
+    [createTurn, updateTurn],
+  );
 
   const playWorkspaceAudio = useCallback(() => {
     void unlockBrowserAudio();
@@ -2564,16 +3790,22 @@ function WorkspaceChatPanel({
     }
   }, []);
 
-  const notifyHistoryChange = useCallback((lastUpdatedAt?: string) => {
-    if (onHistoryChange == null) {
-      return;
-    }
-    window.setTimeout(() => onHistoryChange(lastUpdatedAt), 1000);
-  }, [onHistoryChange]);
+  const notifyHistoryChange = useCallback(
+    (lastUpdatedAt?: string) => {
+      if (onHistoryChange == null) {
+        return;
+      }
+      window.setTimeout(() => onHistoryChange(lastUpdatedAt), 1000);
+    },
+    [onHistoryChange],
+  );
 
   const handlePeerEvent = useCallback(
     (event: PeerStreamEvent) => {
-      const updateEventTurn = (patch: Partial<WorkspaceChatTurn>, status: WorkspaceChatTurnStatus = "responding"): string => {
+      const updateEventTurn = (
+        patch: Partial<WorkspaceChatTurn>,
+        status: WorkspaceChatTurnStatus = "responding",
+      ): string => {
         const targetID = turnIDForStream(event.stream_id, status);
         updateTurn(targetID, patch);
         return targetID;
@@ -2582,11 +3814,17 @@ function WorkspaceChatPanel({
         notifyHistoryChange(event.last_updated_at);
         return;
       }
-      if ((event.type === "text.delta" || event.type === "text.done") && event.text != null) {
+      if (
+        (event.type === "text.delta" || event.type === "text.done") &&
+        event.text != null
+      ) {
         const label = (event.label ?? "").toLowerCase();
         const key = `${event.stream_id ?? "default"}:${label}`;
         const current = streamTextRef.current.get(key) ?? "";
-        const next = event.type === "text.done" ? event.text || current : current + event.text;
+        const next =
+          event.type === "text.done"
+            ? event.text || current
+            : current + event.text;
         streamTextRef.current.set(key, next);
         if (label.includes("transcript")) {
           updateEventTurn({ status: "responding", transcript: next });
@@ -2605,7 +3843,10 @@ function WorkspaceChatPanel({
       }
       if (event.type === "eos" && event.text == null) {
         if (event.kind === "audio") {
-          const targetID = updateEventTurn({ audioState: "done", status: "complete" }, "responding");
+          const targetID = updateEventTurn(
+            { audioState: "done", status: "complete" },
+            "responding",
+          );
           if (currentTurnIDRef.current === targetID) {
             currentTurnIDRef.current = null;
           }
@@ -2614,7 +3855,10 @@ function WorkspaceChatPanel({
       }
       if (event.type === "bos" && event.kind === "audio") {
         playWorkspaceAudio();
-        updateEventTurn({ audioState: "playing", status: "playing" }, "playing");
+        updateEventTurn(
+          { audioState: "playing", status: "playing" },
+          "playing",
+        );
       }
     },
     [notifyHistoryChange, playWorkspaceAudio, turnIDForStream, updateTurn],
@@ -2657,7 +3901,11 @@ function WorkspaceChatPanel({
           playWorkspaceAudio();
         },
         onState: (stateName) => {
-          if (stateName === "failed" || stateName === "disconnected" || stateName === "closed") {
+          if (
+            stateName === "failed" ||
+            stateName === "disconnected" ||
+            stateName === "closed"
+          ) {
             sessionRef.current = null;
             setStatus(stateName === "closed" ? "idle" : "error");
           }
@@ -2682,7 +3930,11 @@ function WorkspaceChatPanel({
   }, [closeSession, ensureSession, hasActiveWorkspace]);
 
   const startInputTurn = useCallback(async () => {
-    if (sessionRef.current == null || inputActiveRef.current || inputStartingRef.current) {
+    if (
+      sessionRef.current == null ||
+      inputActiveRef.current ||
+      inputStartingRef.current
+    ) {
       return;
     }
     inputStartingRef.current = true;
@@ -2695,7 +3947,13 @@ function WorkspaceChatPanel({
       await sessionRef.current.startInputTurn(streamID);
       inputActiveRef.current = true;
       setInputActive(true);
-      setTurns((current) => current.map((turn) => (turn.id === turnID ? { ...turn, audioState: "waiting", status: "recording" } : turn)));
+      setTurns((current) =>
+        current.map((turn) =>
+          turn.id === turnID
+            ? { ...turn, audioState: "waiting", status: "recording" }
+            : turn,
+        ),
+      );
       const pendingReason = inputFinishPendingRef.current;
       if (pendingReason !== undefined) {
         inputFinishPendingRef.current = undefined;
@@ -2706,7 +3964,17 @@ function WorkspaceChatPanel({
           inputPressedRef.current = false;
           setInputActive(false);
           setInputPressed(false);
-          setTurns((current) => current.map((turn) => (turn.id === turnID ? { ...turn, status: pendingReason === "" ? "sending" : "error", error: pendingReason === "" ? turn.error : pendingReason } : turn)));
+          setTurns((current) =>
+            current.map((turn) =>
+              turn.id === turnID
+                ? {
+                    ...turn,
+                    status: pendingReason === "" ? "sending" : "error",
+                    error: pendingReason === "" ? turn.error : pendingReason,
+                  }
+                : turn,
+            ),
+          );
         }
       }
     } catch (err) {
@@ -2714,7 +3982,13 @@ function WorkspaceChatPanel({
       inputPressedRef.current = false;
       setInputPressed(false);
       const message = toMessage(err);
-      setTurns((current) => current.map((turn) => (turn.id === turnID ? { ...turn, error: message, status: "error" } : turn)));
+      setTurns((current) =>
+        current.map((turn) =>
+          turn.id === turnID
+            ? { ...turn, error: message, status: "error" }
+            : turn,
+        ),
+      );
       setError(message);
       toast.error("Workspace microphone failed", { description: message });
     } finally {
@@ -2723,9 +3997,15 @@ function WorkspaceChatPanel({
   }, [createTurn, playWorkspaceAudio]);
 
   useEffect(() => {
-    window.addEventListener(workspaceAudioPlaybackRequestEvent, playWorkspaceAudio);
+    window.addEventListener(
+      workspaceAudioPlaybackRequestEvent,
+      playWorkspaceAudio,
+    );
     return () => {
-      window.removeEventListener(workspaceAudioPlaybackRequestEvent, playWorkspaceAudio);
+      window.removeEventListener(
+        workspaceAudioPlaybackRequestEvent,
+        playWorkspaceAudio,
+      );
     };
   }, [playWorkspaceAudio]);
 
@@ -2756,7 +4036,10 @@ function WorkspaceChatPanel({
         inputPressedRef.current = false;
         setInputActive(false);
         setInputPressed(false);
-        updateCurrentTurn({ status: reason == null || reason === "" ? "sending" : "error", ...(reason == null || reason === "" ? {} : { error: reason }) });
+        updateCurrentTurn({
+          status: reason == null || reason === "" ? "sending" : "error",
+          ...(reason == null || reason === "" ? {} : { error: reason }),
+        });
       }
     },
     [updateCurrentTurn],
@@ -2780,10 +4063,19 @@ function WorkspaceChatPanel({
   }, [finishInputTurn, inputPressed, mode]);
 
   const connected = status === "connected";
-  const buttonLabel = mode === "push" ? (inputPressed ? "Release to stop" : "Push to talk") : inputPressed ? "Stop realtime chat" : "Start realtime chat";
+  const buttonLabel =
+    mode === "push"
+      ? inputPressed
+        ? "Release to stop"
+        : "Push to talk"
+      : inputPressed
+        ? "Stop realtime chat"
+        : "Start realtime chat";
   const statusLabel = status === "idle" ? "stopped" : status;
 
-  const handlePrimaryPointerDown = (event: ReactPointerEvent<HTMLButtonElement>): void => {
+  const handlePrimaryPointerDown = (
+    event: ReactPointerEvent<HTMLButtonElement>,
+  ): void => {
     if (mode !== "push" || !hasActiveWorkspace || !connected) {
       return;
     }
@@ -2795,7 +4087,9 @@ function WorkspaceChatPanel({
     void startInputTurn();
   };
 
-  const handlePrimaryPointerUp = (event: ReactPointerEvent<HTMLButtonElement>): void => {
+  const handlePrimaryPointerUp = (
+    event: ReactPointerEvent<HTMLButtonElement>,
+  ): void => {
     if (mode !== "push") {
       return;
     }
@@ -2806,7 +4100,9 @@ function WorkspaceChatPanel({
     void finishInputTurn();
   };
 
-  const handlePrimaryClick = (event: ReactMouseEvent<HTMLButtonElement>): void => {
+  const handlePrimaryClick = (
+    event: ReactMouseEvent<HTMLButtonElement>,
+  ): void => {
     if (mode === "push") {
       event.preventDefault();
       event.stopPropagation();
@@ -2823,19 +4119,32 @@ function WorkspaceChatPanel({
   };
 
   return (
-    <div className={cn("flex flex-col gap-4 p-5", showTurns ? "h-full" : "shrink-0 rounded-md border bg-background")}>
+    <div
+      className={cn(
+        "flex flex-col gap-4 p-5",
+        showTurns ? "h-full" : "shrink-0 rounded-md border bg-background",
+      )}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-sm font-semibold">{title}</div>
           <div className="mt-1 flex flex-wrap gap-2">
-            <Badge variant={connected ? "default" : "secondary"}>{statusLabel}</Badge>
-            {activeWorkspaceName !== "" ? <Badge variant="outline">{activeWorkspaceName}</Badge> : null}
+            <Badge variant={connected ? "default" : "secondary"}>
+              {statusLabel}
+            </Badge>
+            {activeWorkspaceName !== "" ? (
+              <Badge variant="outline">{activeWorkspaceName}</Badge>
+            ) : null}
           </div>
         </div>
         {hasActiveWorkspace ? (
           <div className="flex h-10 shrink-0">
             <Button
-              className={cn("h-10 rounded-r-none", inputPressed && "bg-primary text-primary-foreground ring-2 ring-primary/40 ring-offset-2 ring-offset-background")}
+              className={cn(
+                "h-10 rounded-r-none",
+                inputPressed &&
+                  "bg-primary text-primary-foreground ring-2 ring-primary/40 ring-offset-2 ring-offset-background",
+              )}
               data-state={inputPressed ? "pressed" : "idle"}
               disabled={!hasActiveWorkspace || !connected}
               id="workspace-chat-primary-trigger"
@@ -2847,26 +4156,40 @@ function WorkspaceChatPanel({
                 }
               }}
               onKeyDown={(event) => {
-                if (mode === "push" && (event.key === " " || event.key === "Enter") && !event.repeat) {
+                if (
+                  mode === "push" &&
+                  (event.key === " " || event.key === "Enter") &&
+                  !event.repeat
+                ) {
                   event.preventDefault();
                   void startInputTurn();
                 }
               }}
               onKeyUp={(event) => {
-                if (mode === "push" && (event.key === " " || event.key === "Enter")) {
+                if (
+                  mode === "push" &&
+                  (event.key === " " || event.key === "Enter")
+                ) {
                   event.preventDefault();
                   void finishInputTurn();
                 }
               }}
               onPointerCancel={(event) => {
-                if (mode === "push" && event.currentTarget.hasPointerCapture(event.pointerId)) {
+                if (
+                  mode === "push" &&
+                  event.currentTarget.hasPointerCapture(event.pointerId)
+                ) {
                   event.currentTarget.releasePointerCapture(event.pointerId);
                   void finishInputTurn("push to talk canceled");
                 }
               }}
               onPointerDown={handlePrimaryPointerDown}
               onPointerUp={handlePrimaryPointerUp}
-              style={mode === "push" ? { touchAction: "none", userSelect: "none" } : undefined}
+              style={
+                mode === "push"
+                  ? { touchAction: "none", userSelect: "none" }
+                  : undefined
+              }
             >
               <Mic2 data-icon="inline-start" />
               <span>{buttonLabel}</span>
@@ -2884,14 +4207,22 @@ function WorkspaceChatPanel({
                 </Button>
               </PopoverTrigger>
               <PopoverContent align="end" className="w-56 p-1">
-                <WorkspaceModeOption current={mode === "push"} label="Push To Talk" onSelect={() => {
-                  onModeChange("push");
-                  setModeMenuOpen(false);
-                }} />
-                <WorkspaceModeOption current={mode === "realtime"} label="Realtime Chat" onSelect={() => {
-                  onModeChange("realtime");
-                  setModeMenuOpen(false);
-                }} />
+                <WorkspaceModeOption
+                  current={mode === "push"}
+                  label="Push To Talk"
+                  onSelect={() => {
+                    onModeChange("push");
+                    setModeMenuOpen(false);
+                  }}
+                />
+                <WorkspaceModeOption
+                  current={mode === "realtime"}
+                  label="Realtime Chat"
+                  onSelect={() => {
+                    onModeChange("realtime");
+                    setModeMenuOpen(false);
+                  }}
+                />
               </PopoverContent>
             </Popover>
           </div>
@@ -2909,57 +4240,114 @@ function WorkspaceChatPanel({
             <ScrollArea className="min-h-0 flex-1 rounded-md border bg-background">
               <div className="flex flex-col gap-3 p-4 text-sm">
                 {turns.length === 0 ? (
-                  <EmptyMessage description="Hold the button to start a voice turn." title="No conversation turns" />
+                  <EmptyMessage
+                    description="Hold the button to start a voice turn."
+                    title="No conversation turns"
+                  />
                 ) : (
-                  Array.from(turns).reverse().map((turn) => {
-                    const streamMeta = splitWorkspaceStreamID(turn.streamID);
-                    return (
-                      <div className="rounded-md border bg-card px-3 py-3" key={turn.id}>
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div className="flex flex-wrap items-center gap-2">
-                            {streamMeta.prefix !== "" ? <Badge variant="outline">{streamMeta.prefix}</Badge> : null}
-                            <Badge variant={workspaceTurnBadgeVariant(turn.status)}>{workspaceTurnStatusLabel(turn.status)}</Badge>
-                            {turn.status === "recording" ? <Badge variant="secondary">BOS sent</Badge> : null}
-                            {turn.status !== "recording" && turn.status !== "error" ? <Badge variant="secondary">EOS sent</Badge> : null}
-                            {turn.audioState != null ? <Badge variant="outline">audio {turn.audioState}</Badge> : null}
+                  Array.from(turns)
+                    .reverse()
+                    .map((turn) => {
+                      const streamMeta = splitWorkspaceStreamID(turn.streamID);
+                      return (
+                        <div
+                          className="rounded-md border bg-card px-3 py-3"
+                          key={turn.id}
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              {streamMeta.prefix !== "" ? (
+                                <Badge variant="outline">
+                                  {streamMeta.prefix}
+                                </Badge>
+                              ) : null}
+                              <Badge
+                                variant={workspaceTurnBadgeVariant(turn.status)}
+                              >
+                                {workspaceTurnStatusLabel(turn.status)}
+                              </Badge>
+                              {turn.status === "recording" ? (
+                                <Badge variant="secondary">BOS sent</Badge>
+                              ) : null}
+                              {turn.status !== "recording" &&
+                              turn.status !== "error" ? (
+                                <Badge variant="secondary">EOS sent</Badge>
+                              ) : null}
+                              {turn.audioState != null ? (
+                                <Badge variant="outline">
+                                  audio {turn.audioState}
+                                </Badge>
+                              ) : null}
+                            </div>
+                            <span className="text-xs text-muted-foreground">
+                              {formatDate(turn.createdAt)}
+                            </span>
                           </div>
-                          <span className="text-xs text-muted-foreground">{formatDate(turn.createdAt)}</span>
+                          {turn.transcript != null && turn.transcript !== "" ? (
+                            <div className="mt-3 rounded-md bg-muted px-3 py-2">
+                              <div className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
+                                <span>You</span>
+                                {streamMeta.suffix !== "" ? (
+                                  <span className="font-mono">
+                                    {streamMeta.suffix}
+                                  </span>
+                                ) : null}
+                              </div>
+                              <div className="whitespace-pre-wrap break-words">
+                                {turn.transcript}
+                              </div>
+                            </div>
+                          ) : null}
+                          {turn.assistantText != null &&
+                          turn.assistantText !== "" ? (
+                            <div className="mt-3 rounded-md bg-secondary px-3 py-2">
+                              <div className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
+                                <span>Assistant</span>
+                                {streamMeta.suffix !== "" ? (
+                                  <span className="font-mono">
+                                    {streamMeta.suffix}
+                                  </span>
+                                ) : null}
+                              </div>
+                              <div className="whitespace-pre-wrap break-words">
+                                {turn.assistantText}
+                              </div>
+                            </div>
+                          ) : null}
+                          {turn.error != null && turn.error !== "" ? (
+                            <div className="mt-3 text-sm text-destructive">
+                              {turn.error}
+                            </div>
+                          ) : null}
                         </div>
-                        {turn.transcript != null && turn.transcript !== "" ? (
-                          <div className="mt-3 rounded-md bg-muted px-3 py-2">
-                            <div className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
-                              <span>You</span>
-                              {streamMeta.suffix !== "" ? <span className="font-mono">{streamMeta.suffix}</span> : null}
-                            </div>
-                            <div className="whitespace-pre-wrap break-words">{turn.transcript}</div>
-                          </div>
-                        ) : null}
-                        {turn.assistantText != null && turn.assistantText !== "" ? (
-                          <div className="mt-3 rounded-md bg-secondary px-3 py-2">
-                            <div className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
-                              <span>Assistant</span>
-                              {streamMeta.suffix !== "" ? <span className="font-mono">{streamMeta.suffix}</span> : null}
-                            </div>
-                            <div className="whitespace-pre-wrap break-words">{turn.assistantText}</div>
-                          </div>
-                        ) : null}
-                        {turn.error != null && turn.error !== "" ? <div className="mt-3 text-sm text-destructive">{turn.error}</div> : null}
-                      </div>
-                    );
-                  })
+                      );
+                    })
                 )}
               </div>
             </ScrollArea>
           ) : null}
         </div>
       ) : (
-        <EmptyMessage description="Select an active workspace before starting conversation tests." title="No active workspace" />
+        <EmptyMessage
+          description="Select an active workspace before starting conversation tests."
+          title="No active workspace"
+        />
       )}
     </div>
   );
 }
 
-function WorkspaceHistoryPanel({ error, history, loading, onPlay }: { error: string; history: PeerRunHistoryEntry[]; loading: boolean; onPlay: (entry: PeerRunHistoryEntry) => Promise<void> }): JSX.Element {
+function WorkspaceHistoryPanel({
+  error,
+  history,
+  loading,
+  onPlay,
+}: {
+  error: string;
+  history: PeerRunHistoryEntry[];
+  loading: boolean;
+  onPlay: (entry: PeerRunHistoryEntry) => Promise<void>;
+}): JSX.Element {
   if (loading && history.length === 0) {
     return <LoadingGrid />;
   }
@@ -2967,52 +4355,84 @@ function WorkspaceHistoryPanel({ error, history, loading, onPlay }: { error: str
     return <EmptyMessage description={error} title="History unavailable" />;
   }
   if (history.length === 0) {
-    return <EmptyMessage description="No history is available for the active workspace." title="No history" />;
+    return (
+      <EmptyMessage
+        description="No history is available for the active workspace."
+        title="No history"
+      />
+    );
   }
   return (
     <ScrollArea className="h-full">
       <div className="p-5">
         <DashboardTable>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-36">Time</TableHead>
-                <TableHead className="w-20">Type</TableHead>
-                <TableHead className="w-44">Name</TableHead>
-                <TableHead>Text</TableHead>
-                <TableHead className="w-24 text-right">Replay</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {history.map((entry) => {
-                const replayable = entry.replay_available === true;
-                const entryName = entry.type === "gear" && entry.gear_id != null && entry.gear_id !== "" ? `${entry.name} / ${entry.gear_id}` : entry.name;
-                return (
-                  <TableRow key={entry.id}>
-                    <TableCell className="truncate text-muted-foreground">{formatDate(entry.created_at)}</TableCell>
-                    <TableCell className="truncate">{entry.type}</TableCell>
-                    <TableCell className="truncate" title={entryName}>{entryName}</TableCell>
-                    <TableCell className="truncate" title={entry.text || entry.id}>{entry.text || entry.id}</TableCell>
-                    <TableCell className="text-right">
-                      {replayable ? (
-                        <Button onClick={() => void onPlay(entry)} size="sm" type="button" variant="outline">
-                          <Play data-icon="inline-start" />
-                          Play
-                        </Button>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-              </DashboardTable>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-36">Time</TableHead>
+              <TableHead className="w-20">Type</TableHead>
+              <TableHead className="w-44">Name</TableHead>
+              <TableHead>Text</TableHead>
+              <TableHead className="w-24 text-right">Replay</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {history.map((entry) => {
+              const replayable = entry.replay_available === true;
+              const entryName =
+                entry.type === "gear" &&
+                entry.gear_id != null &&
+                entry.gear_id !== ""
+                  ? `${entry.name} / ${entry.gear_id}`
+                  : entry.name;
+              return (
+                <TableRow key={entry.id}>
+                  <TableCell className="truncate text-muted-foreground">
+                    {formatDate(entry.created_at)}
+                  </TableCell>
+                  <TableCell className="truncate">{entry.type}</TableCell>
+                  <TableCell className="truncate" title={entryName}>
+                    {entryName}
+                  </TableCell>
+                  <TableCell
+                    className="truncate"
+                    title={entry.text || entry.id}
+                  >
+                    {entry.text || entry.id}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {replayable ? (
+                      <Button
+                        onClick={() => void onPlay(entry)}
+                        size="sm"
+                        type="button"
+                        variant="outline"
+                      >
+                        <Play data-icon="inline-start" />
+                        Play
+                      </Button>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">-</span>
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </DashboardTable>
       </div>
     </ScrollArea>
   );
 }
 
-function WorkspaceModeOption({ current, label, onSelect }: { current: boolean; label: string; onSelect: () => void }): JSX.Element {
+function WorkspaceModeOption({
+  current,
+  label,
+  onSelect,
+}: {
+  current: boolean;
+  label: string;
+  onSelect: () => void;
+}): JSX.Element {
   return (
     <button
       aria-pressed={current}
@@ -3029,12 +4449,23 @@ function WorkspaceModeOption({ current, label, onSelect }: { current: boolean; l
   );
 }
 
-function WorkspaceMemoryPanel({ error, memory }: { error: string; memory: PeerRunMemoryStatsResponse | null }): JSX.Element {
+function WorkspaceMemoryPanel({
+  error,
+  memory,
+}: {
+  error: string;
+  memory: PeerRunMemoryStatsResponse | null;
+}): JSX.Element {
   if (error !== "") {
     return <EmptyMessage description={error} title="Memory unavailable" />;
   }
   if (memory == null || memory.available === false) {
-    return <EmptyMessage description="Memory stats are unavailable for the active workspace." title="Memory unavailable" />;
+    return (
+      <EmptyMessage
+        description="Memory stats are unavailable for the active workspace."
+        title="Memory unavailable"
+      />
+    );
   }
   const rows = [
     ["Enabled", memory.enabled === false ? "No" : "Yes"],
@@ -3061,24 +4492,55 @@ function WorkspaceMemoryPanel({ error, memory }: { error: string; memory: PeerRu
   );
 }
 
-function WorkspaceRecallPanel({ error, hits, loading, onQueryChange, onRun, query }: { error: string; hits: PeerRunRecallHit[]; loading: boolean; onQueryChange: (value: string) => void; onRun: () => Promise<void>; query: string }): JSX.Element {
+function WorkspaceRecallPanel({
+  error,
+  hits,
+  loading,
+  onQueryChange,
+  onRun,
+  query,
+}: {
+  error: string;
+  hits: PeerRunRecallHit[];
+  loading: boolean;
+  onQueryChange: (value: string) => void;
+  onRun: () => Promise<void>;
+  query: string;
+}): JSX.Element {
   return (
     <div className="flex h-full flex-col gap-4 p-5">
       <div className="flex gap-2">
-        <Input onChange={(event) => onQueryChange(event.target.value)} onKeyDown={(event) => {
-          if (event.key === "Enter") {
-            void onRun();
-          }
-        }} placeholder="Recall query" value={query} />
-        <Button aria-busy={loading} disabled={loading || query.trim() === ""} onClick={() => void onRun()} type="button">
-          {loading ? <Loader2 className="animate-spin" data-icon="inline-start" /> : <Search data-icon="inline-start" />}
+        <Input
+          onChange={(event) => onQueryChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              void onRun();
+            }
+          }}
+          placeholder="Recall query"
+          value={query}
+        />
+        <Button
+          aria-busy={loading}
+          disabled={loading || query.trim() === ""}
+          onClick={() => void onRun()}
+          type="button"
+        >
+          {loading ? (
+            <Loader2 className="animate-spin" data-icon="inline-start" />
+          ) : (
+            <Search data-icon="inline-start" />
+          )}
           {loading ? "Running" : "Run Recall"}
         </Button>
       </div>
       {error !== "" ? (
         <EmptyMessage description={error} title="Recall unavailable" />
       ) : hits.length === 0 ? (
-        <EmptyMessage description="Run a recall query to inspect active workspace matches." title="No recall results" />
+        <EmptyMessage
+          description="Run a recall query to inspect active workspace matches."
+          title="No recall results"
+        />
       ) : (
         <ScrollArea className="min-h-0 flex-1 rounded-md border">
           <div className="flex flex-col gap-3 p-4">
@@ -3106,9 +4568,21 @@ function WorkspaceRecallPanel({ error, hits, loading, onQueryChange, onRun, quer
   );
 }
 
-function ChatTester({ models, onOpenChange, open }: { models: Model[]; onOpenChange: (open: boolean) => void; open: boolean }): JSX.Element {
-  const [sessions, setSessions] = useState<ChatSession[]>(() => loadChatSessions());
-  const [activeSessionID, setActiveSessionID] = useState(() => sessions[0]?.id ?? createChatSession().id);
+function ChatTester({
+  models,
+  onOpenChange,
+  open,
+}: {
+  models: Model[];
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+}): JSX.Element {
+  const [sessions, setSessions] = useState<ChatSession[]>(() =>
+    loadChatSessions(),
+  );
+  const [activeSessionID, setActiveSessionID] = useState(
+    () => sessions[0]?.id ?? createChatSession().id,
+  );
   const [selectedModel, setSelectedModel] = useState("");
   const [selectedVoice, setSelectedVoice] = useState("");
   const [voices, setVoices] = useState<Voice[]>([]);
@@ -3121,11 +4595,26 @@ function ChatTester({ models, onOpenChange, open }: { models: Model[]; onOpenCha
   const [thinkingLevel, setThinkingLevel] = useState("");
   const [chatError, setChatError] = useState("");
   const [resetToken, setResetToken] = useState(0);
-  const chatModels = useMemo(() => models.filter((model) => model.kind === "llm"), [models]);
-  const selectedModelSpec = useMemo(() => chatModels.find((model) => model.alias === selectedModel), [chatModels, selectedModel]);
-  const playableVoices = useMemo(() => voices.filter(isPlayableVoice), [voices]);
-  const providerData = selectedModelSpec == null ? undefined : runtimeModelProviderData(selectedModelSpec);
-  const thinkingLevels = useMemo(() => providerData?.thinking_levels ?? [], [providerData]);
+  const chatModels = useMemo(
+    () => models.filter((model) => model.kind === "llm"),
+    [models],
+  );
+  const selectedModelSpec = useMemo(
+    () => chatModels.find((model) => model.alias === selectedModel),
+    [chatModels, selectedModel],
+  );
+  const playableVoices = useMemo(
+    () => voices.filter(isPlayableVoice),
+    [voices],
+  );
+  const providerData =
+    selectedModelSpec == null
+      ? undefined
+      : runtimeModelProviderData(selectedModelSpec);
+  const thinkingLevels = useMemo(
+    () => providerData?.thinking_levels ?? [],
+    [providerData],
+  );
   const supportsThinking = providerData?.support_thinking === true;
   const supportsThinkingToggle = hasThinkingToggle(providerData);
   const supportsTemperature = providerData?.support_temperature === true;
@@ -3187,8 +4676,8 @@ function ChatTester({ models, onOpenChange, open }: { models: Model[]; onOpenCha
       setSelectedVoice("");
       return;
     }
-	if (!playableVoices.some((voice) => voice.alias === selectedVoice)) {
-	  setSelectedVoice(playableVoices[0].alias);
+    if (!playableVoices.some((voice) => voice.alias === selectedVoice)) {
+      setSelectedVoice(playableVoices[0].alias);
     }
   }, [playableVoices, selectedVoice]);
 
@@ -3197,9 +4686,16 @@ function ChatTester({ models, onOpenChange, open }: { models: Model[]; onOpenCha
       setThinkingLevel("");
       return;
     }
-    const defaultLevel = providerData?.default_thinking_level ?? thinkingLevels[0] ?? "";
-    setThinkingLevel((current) => (current !== "" && thinkingLevels.includes(current) ? current : defaultLevel));
-    setThinkingEnabled(defaultLevel === "" || !isDisabledThinkingLevel(defaultLevel));
+    const defaultLevel =
+      providerData?.default_thinking_level ?? thinkingLevels[0] ?? "";
+    setThinkingLevel((current) =>
+      current !== "" && thinkingLevels.includes(current)
+        ? current
+        : defaultLevel,
+    );
+    setThinkingEnabled(
+      defaultLevel === "" || !isDisabledThinkingLevel(defaultLevel),
+    );
   }, [selectedModelSpec, supportsThinking, thinkingLevels]);
 
   const changeThinkingEnabled = useCallback(
@@ -3208,7 +4704,9 @@ function ChatTester({ models, onOpenChange, open }: { models: Model[]; onOpenCha
       setThinkingLevel((current) => {
         if (checked) {
           return isDisabledThinkingLevel(current)
-            ? (thinkingLevels.find((level) => !isDisabledThinkingLevel(level)) ?? "enabled")
+            ? (thinkingLevels.find(
+                (level) => !isDisabledThinkingLevel(level),
+              ) ?? "enabled")
             : current;
         }
         return thinkingLevels.find(isDisabledThinkingLevel) ?? "disabled";
@@ -3217,13 +4715,21 @@ function ChatTester({ models, onOpenChange, open }: { models: Model[]; onOpenCha
     [thinkingLevels],
   );
 
-  const activeSession = sessions.find((session) => session.id === activeSessionID) ?? sessions[0];
+  const activeSession =
+    sessions.find((session) => session.id === activeSessionID) ?? sessions[0];
 
-  const touchSession = useCallback((sessionID: string, _firstUserText?: string) => {
-    setSessions((current) =>
-      current.map((session) => (session.id === sessionID ? { ...session, updatedAt: Date.now() } : session)),
-    );
-  }, []);
+  const touchSession = useCallback(
+    (sessionID: string, _firstUserText?: string) => {
+      setSessions((current) =>
+        current.map((session) =>
+          session.id === sessionID
+            ? { ...session, updatedAt: Date.now() }
+            : session,
+        ),
+      );
+    },
+    [],
+  );
 
   const setSessionTitle = useCallback((sessionID: string, title: string) => {
     setSessions((current) =>
@@ -3231,7 +4737,11 @@ function ChatTester({ models, onOpenChange, open }: { models: Model[]; onOpenCha
         if (session.id !== sessionID || session.title !== "Chat") {
           return session;
         }
-        return { ...session, title: title.trim().slice(0, 48), updatedAt: Date.now() };
+        return {
+          ...session,
+          title: title.trim().slice(0, 48),
+          updatedAt: Date.now(),
+        };
       }),
     );
   }, []);
@@ -3250,7 +4760,13 @@ function ChatTester({ models, onOpenChange, open }: { models: Model[]; onOpenCha
     }
     setChatError("");
     chatStore.delete(chatHistoryKey(activeSession.id));
-    setSessions((current) => current.map((session) => (session.id === activeSession.id ? { ...session, title: "Chat", updatedAt: Date.now() } : session)));
+    setSessions((current) =>
+      current.map((session) =>
+        session.id === activeSession.id
+          ? { ...session, title: "Chat", updatedAt: Date.now() }
+          : session,
+      ),
+    );
     setResetToken((value) => value + 1);
   };
 
@@ -3271,7 +4787,13 @@ function ChatTester({ models, onOpenChange, open }: { models: Model[]; onOpenCha
 
   return (
     <Sheet modal={false} open={open} onOpenChange={onOpenChange}>
-      <Button aria-pressed={open} onClick={() => onOpenChange(!open)} size="sm" type="button" variant={open ? "default" : "outline"}>
+      <Button
+        aria-pressed={open}
+        onClick={() => onOpenChange(!open)}
+        size="sm"
+        type="button"
+        variant={open ? "default" : "outline"}
+      >
         <MessageCircle data-icon="inline-start" />
         OpenAI
       </Button>
@@ -3283,24 +4805,64 @@ function ChatTester({ models, onOpenChange, open }: { models: Model[]; onOpenCha
       >
         <SheetHeader className="border-b px-5 py-4">
           <SheetTitle>OpenAI</SheetTitle>
-          <SheetDescription>Send requests to this gateway through the OpenAI-compatible chat completions endpoint.</SheetDescription>
+          <SheetDescription>
+            Send requests to this gateway through the OpenAI-compatible chat
+            completions endpoint.
+          </SheetDescription>
         </SheetHeader>
         <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px]">
           <div className="flex min-h-0 flex-col">
             <div className="grid gap-3 border-b p-4 md:grid-cols-[minmax(0,1fr)_160px]">
-              <SelectField label="Model" value={selectedModel} onChange={setSelectedModel} options={chatModels.map((model) => model.alias)} />
-              {supportsTemperature ? <Field label="Temperature" value={temperature} onChange={setTemperature} /> : <div />}
+              <SelectField
+                label="Model"
+                value={selectedModel}
+                onChange={setSelectedModel}
+                options={chatModels.map((model) => model.alias)}
+              />
+              {supportsTemperature ? (
+                <Field
+                  label="Temperature"
+                  value={temperature}
+                  onChange={setTemperature}
+                />
+              ) : (
+                <div />
+              )}
               <div className="md:col-span-2">
                 <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_160px]">
-				  <ScrollableSelectField label="Voice" loading={voicesLoading} value={selectedVoice} onChange={setSelectedVoice} onOpen={loadVoices} options={playableVoices.map((voice) => voice.alias)} />
-                  <SwitchField label="Auto Speak" checked={autoSpeak} onChange={setAutoSpeakEnabled} />
+                  <ScrollableSelectField
+                    label="Voice"
+                    loading={voicesLoading}
+                    value={selectedVoice}
+                    onChange={setSelectedVoice}
+                    onOpen={loadVoices}
+                    options={playableVoices.map((voice) => voice.alias)}
+                  />
+                  <SwitchField
+                    label="Auto Speak"
+                    checked={autoSpeak}
+                    onChange={setAutoSpeakEnabled}
+                  />
                 </div>
               </div>
               {supportsThinking ? (
                 <div className="grid gap-3 md:col-span-2 md:grid-cols-[160px_minmax(0,1fr)]">
-                  {supportsThinkingToggle ? <Toggle label="Think" checked={thinkingEnabled} onChange={changeThinkingEnabled} /> : <div />}
+                  {supportsThinkingToggle ? (
+                    <Toggle
+                      label="Think"
+                      checked={thinkingEnabled}
+                      onChange={changeThinkingEnabled}
+                    />
+                  ) : (
+                    <div />
+                  )}
                   {thinkingLevels.length > 0 ? (
-                    <SelectField label="Think Level" value={thinkingLevel} onChange={setThinkingLevel} options={thinkingLevels} />
+                    <SelectField
+                      label="Think Level"
+                      value={thinkingLevel}
+                      onChange={setThinkingLevel}
+                      options={thinkingLevels}
+                    />
                   ) : (
                     <div className="flex items-end text-xs text-muted-foreground">
                       <Brain className="mr-1 size-3" />
@@ -3310,11 +4872,19 @@ function ChatTester({ models, onOpenChange, open }: { models: Model[]; onOpenCha
                 </div>
               ) : null}
               <div className="md:col-span-2">
-                <TextAreaField label="System Prompt" value={systemPrompt} onChange={setSystemPrompt} placeholder="Optional system instructions for this test chat." />
+                <TextAreaField
+                  label="System Prompt"
+                  value={systemPrompt}
+                  onChange={setSystemPrompt}
+                  placeholder="Optional system instructions for this test chat."
+                />
               </div>
             </div>
             {activeSession == null || selectedModel === "" ? (
-              <EmptyMessage description="Create a session and select an LLM model before chatting." title="No chat target" />
+              <EmptyMessage
+                description="Create a session and select an LLM model before chatting."
+                title="No chat target"
+              />
             ) : (
               <ChatRuntime
                 key={`${activeSession.id}:${resetToken}`}
@@ -3329,12 +4899,20 @@ function ChatTester({ models, onOpenChange, open }: { models: Model[]; onOpenCha
                 thinking={
                   supportsThinking
                     ? {
-                        ...(supportsThinkingToggle ? { enabled: thinkingEnabled } : {}),
-                        ...(thinkingLevel === "" ? {} : { level: thinkingLevel }),
+                        ...(supportsThinkingToggle
+                          ? { enabled: thinkingEnabled }
+                          : {}),
+                        ...(thinkingLevel === ""
+                          ? {}
+                          : { level: thinkingLevel }),
                       }
                     : undefined
                 }
-                temperature={supportsTemperature ? Number.parseFloat(temperature) : undefined}
+                temperature={
+                  supportsTemperature
+                    ? Number.parseFloat(temperature)
+                    : undefined
+                }
                 touchSession={touchSession}
                 voice={selectedVoice}
               />
@@ -3353,7 +4931,8 @@ function ChatTester({ models, onOpenChange, open }: { models: Model[]; onOpenCha
                 <button
                   className={cn(
                     "mb-1 flex w-full flex-col rounded-md px-3 py-2 text-left text-sm hover:bg-accent",
-                    session.id === activeSessionID && "bg-accent text-accent-foreground",
+                    session.id === activeSessionID &&
+                      "bg-accent text-accent-foreground",
                   )}
                   key={session.id}
                   onClick={() => {
@@ -3363,16 +4942,28 @@ function ChatTester({ models, onOpenChange, open }: { models: Model[]; onOpenCha
                   }}
                   type="button"
                 >
-                  <span className="line-clamp-1 font-medium">{session.title}</span>
-                  <span className="text-xs text-muted-foreground">{formatDate(new Date(session.updatedAt).toISOString())}</span>
+                  <span className="line-clamp-1 font-medium">
+                    {session.title}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {formatDate(new Date(session.updatedAt).toISOString())}
+                  </span>
                 </button>
               ))}
             </div>
             <div className="grid gap-2 border-t p-3">
-              <Button onClick={clearActiveSession} type="button" variant="outline">
+              <Button
+                onClick={clearActiveSession}
+                type="button"
+                variant="outline"
+              >
                 Clear Current
               </Button>
-              <Button onClick={deleteActiveSession} type="button" variant="outline">
+              <Button
+                onClick={deleteActiveSession}
+                type="button"
+                variant="outline"
+              >
                 <Trash2 className="size-4" />
                 Delete Current
               </Button>
@@ -3411,8 +5002,17 @@ function ChatRuntime({
   touchSession: (sessionID: string, firstUserText?: string) => void;
   voice: string;
 }): JSX.Element {
-  const history = useMemo(() => createThreadHistoryAdapter(sessionID, touchSession), [sessionID, touchSession]);
-  const speech = useMemo(() => (voice === "" ? undefined : createOpenAISpeechSynthesisAdapter({ onError: onChatError, voice })), [onChatError, voice]);
+  const history = useMemo(
+    () => createThreadHistoryAdapter(sessionID, touchSession),
+    [sessionID, touchSession],
+  );
+  const speech = useMemo(
+    () =>
+      voice === ""
+        ? undefined
+        : createOpenAISpeechSynthesisAdapter({ onError: onChatError, voice }),
+    [onChatError, voice],
+  );
   const speakText = useCallback(
     (text: string) => {
       if (speech == null || text.trim() === "") {
@@ -3433,8 +5033,27 @@ function ChatRuntime({
     [autoSpeak, speakText],
   );
   const adapter = useMemo(
-    () => createOpenAIChatAdapter({ model, onChatError, onCompleteText: speakResponse, sessionID, setSessionTitle, systemPrompt, temperature, thinking }),
-    [model, onChatError, sessionID, setSessionTitle, speakResponse, systemPrompt, temperature, thinking],
+    () =>
+      createOpenAIChatAdapter({
+        model,
+        onChatError,
+        onCompleteText: speakResponse,
+        sessionID,
+        setSessionTitle,
+        systemPrompt,
+        temperature,
+        thinking,
+      }),
+    [
+      model,
+      onChatError,
+      sessionID,
+      setSessionTitle,
+      speakResponse,
+      systemPrompt,
+      temperature,
+      thinking,
+    ],
   );
   const runtime = useLocalRuntime(adapter, { adapters: { history, speech } });
 
@@ -3445,25 +5064,54 @@ function ChatRuntime({
           <AuiIf condition={(state) => state.thread.isEmpty}>
             <div className="m-auto max-w-sm text-center">
               <div className="text-sm font-medium">Ready to test {model}</div>
-              <div className="mt-1 text-sm text-muted-foreground">Send a message to call /v1/chat/completions on this example service.</div>
+              <div className="mt-1 text-sm text-muted-foreground">
+                Send a message to call /v1/chat/completions on this example
+                service.
+              </div>
             </div>
           </AuiIf>
-          <ThreadPrimitive.Messages>{({ message }) => (message.role === "user" ? <UserChatMessage /> : <AssistantChatMessage onSpeak={speakText} />)}</ThreadPrimitive.Messages>
+          <ThreadPrimitive.Messages>
+            {({ message }) =>
+              message.role === "user" ? (
+                <UserChatMessage />
+              ) : (
+                <AssistantChatMessage onSpeak={speakText} />
+              )
+            }
+          </ThreadPrimitive.Messages>
           <ThreadPrimitive.ViewportFooter className="sticky bottom-0 mt-auto bg-background pt-2">
             {chatError !== "" ? (
-              <Alert className="mb-2 border-destructive/50 bg-destructive/5 text-destructive" variant="destructive">
+              <Alert
+                className="mb-2 border-destructive/50 bg-destructive/5 text-destructive"
+                variant="destructive"
+              >
                 <AlertDescription className="flex items-start justify-between gap-3">
-                  <span className="min-w-0 whitespace-pre-wrap break-words text-xs">{chatError}</span>
-                  <Button aria-label="Dismiss chat error" className="h-6 shrink-0 px-2" onClick={clearChatError} size="sm" type="button" variant="ghost">
+                  <span className="min-w-0 whitespace-pre-wrap break-words text-xs">
+                    {chatError}
+                  </span>
+                  <Button
+                    aria-label="Dismiss chat error"
+                    className="h-6 shrink-0 px-2"
+                    onClick={clearChatError}
+                    size="sm"
+                    type="button"
+                    variant="ghost"
+                  >
                     Dismiss
                   </Button>
                 </AlertDescription>
               </Alert>
             ) : null}
             <ComposerPrimitive.Root className="rounded-lg border bg-background shadow-sm">
-              <ComposerPrimitive.Input className="max-h-40 min-h-16 w-full resize-none bg-transparent px-3 py-3 text-sm outline-none" placeholder="Type a test message..." submitMode="ctrlEnter" />
+              <ComposerPrimitive.Input
+                className="max-h-40 min-h-16 w-full resize-none bg-transparent px-3 py-3 text-sm outline-none"
+                placeholder="Type a test message..."
+                submitMode="ctrlEnter"
+              />
               <div className="flex items-center justify-between border-t px-2 py-2">
-                <div className="text-xs text-muted-foreground">Ctrl+Enter sends</div>
+                <div className="text-xs text-muted-foreground">
+                  Ctrl+Enter sends
+                </div>
                 <ComposerPrimitive.Send asChild>
                   <Button size="sm" type="submit">
                     <SendHorizontal className="size-4" />
@@ -3480,7 +5128,11 @@ function ChatRuntime({
 }
 
 function UserChatMessage(): JSX.Element {
-  const isEditing = useEditComposer({ optional: true, selector: (state: EditComposerState) => state.isEditing }) ?? false;
+  const isEditing =
+    useEditComposer({
+      optional: true,
+      selector: (state: EditComposerState) => state.isEditing,
+    }) ?? false;
 
   return (
     <MessagePrimitive.Root className="group flex justify-end">
@@ -3500,7 +5152,11 @@ function UserChatMessage(): JSX.Element {
   );
 }
 
-function AssistantChatMessage({ onSpeak }: { onSpeak: (text: string) => void }): JSX.Element {
+function AssistantChatMessage({
+  onSpeak,
+}: {
+  onSpeak: (text: string) => void;
+}): JSX.Element {
   const message = useMessage();
   const text = threadMessageText(message);
 
@@ -3510,7 +5166,10 @@ function AssistantChatMessage({ onSpeak }: { onSpeak: (text: string) => void }):
         <div className="whitespace-pre-wrap rounded-lg bg-muted px-3 py-2 text-sm">
           <MessagePrimitive.Parts />
         </div>
-        <AssistantMessageActions onSpeak={() => onSpeak(text)} speakDisabled={text.trim() === ""} />
+        <AssistantMessageActions
+          onSpeak={() => onSpeak(text)}
+          speakDisabled={text.trim() === ""}
+        />
       </div>
     </MessagePrimitive.Root>
   );
@@ -3532,12 +5191,24 @@ function UserMessageActions(): JSX.Element {
   );
 }
 
-function AssistantMessageActions({ onSpeak, speakDisabled }: { onSpeak: () => void; speakDisabled: boolean }): JSX.Element {
+function AssistantMessageActions({
+  onSpeak,
+  speakDisabled,
+}: {
+  onSpeak: () => void;
+  speakDisabled: boolean;
+}): JSX.Element {
   return (
     <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
       <BranchPicker />
       <ActionBarPrimitive.Root hideWhenRunning>
-        <Button disabled={speakDisabled} onClick={onSpeak} size="xs" type="button" variant="ghost">
+        <Button
+          disabled={speakDisabled}
+          onClick={onSpeak}
+          size="xs"
+          type="button"
+          variant="ghost"
+        >
           <Volume2 className="size-3" />
           Speak
         </Button>
@@ -3607,7 +5278,14 @@ function createOpenAISpeechSynthesisAdapter({
         subscribers.forEach((callback) => callback());
       };
 
-      const finish = (reason: SpeechSynthesisAdapter.Status extends infer Status ? Status extends { type: "ended"; reason: infer Reason } ? Reason : never : never, error?: unknown) => {
+      const finish = (
+        reason: SpeechSynthesisAdapter.Status extends infer Status
+          ? Status extends { type: "ended"; reason: infer Reason }
+            ? Reason
+            : never
+          : never,
+        error?: unknown,
+      ) => {
         if (ended) {
           return;
         }
@@ -3619,7 +5297,10 @@ function createOpenAISpeechSynthesisAdapter({
         if (audio != null) {
           audio.remove();
         }
-        utterance.status = error === undefined ? { type: "ended", reason } : { type: "ended", reason, error };
+        utterance.status =
+          error === undefined
+            ? { type: "ended", reason }
+            : { type: "ended", reason, error };
         notify();
       };
 
@@ -3632,7 +5313,11 @@ function createOpenAISpeechSynthesisAdapter({
       void (async () => {
         try {
           toast.info("Speech request started");
-          const blob = await fetchSpeechAudioBlob({ input: text, signal: controller.signal, voice });
+          const blob = await fetchSpeechAudioBlob({
+            input: text,
+            signal: controller.signal,
+            voice,
+          });
           toast.info(`Speech audio received (${blob.size} bytes)`);
           if (controller.signal.aborted) {
             finish("cancelled");
@@ -3646,8 +5331,14 @@ function createOpenAISpeechSynthesisAdapter({
           audio.setAttribute("playsinline", "true");
           audio.style.display = "none";
           document.body.append(audio);
-          audio.addEventListener("ended", () => finish("finished"), { once: true });
-          audio.addEventListener("error", () => fail("Speech playback failed", audio?.error ?? undefined), { once: true });
+          audio.addEventListener("ended", () => finish("finished"), {
+            once: true,
+          });
+          audio.addEventListener(
+            "error",
+            () => fail("Speech playback failed", audio?.error ?? undefined),
+            { once: true },
+          );
           utterance.status = { type: "running" };
           notify();
           await playAudioWithTimeout(audio);
@@ -3678,7 +5369,10 @@ function unlockBrowserAudio(): Promise<void> {
     return audioUnlockPromise;
   }
   audioUnlockPromise = (async () => {
-    const AudioContextCtor = window.AudioContext ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    const AudioContextCtor =
+      window.AudioContext ??
+      (window as Window & { webkitAudioContext?: typeof AudioContext })
+        .webkitAudioContext;
     if (AudioContextCtor != null) {
       const ctx = new AudioContextCtor();
       if (ctx.state === "suspended") {
@@ -3715,7 +5409,15 @@ function playAudioWithTimeout(audio: HTMLAudioElement): Promise<void> {
   });
 }
 
-async function fetchSpeechAudioBlob({ input, signal, voice }: { input: string; signal: AbortSignal; voice: string }): Promise<Blob> {
+async function fetchSpeechAudioBlob({
+  input,
+  signal,
+  voice,
+}: {
+  input: string;
+  signal: AbortSignal;
+  voice: string;
+}): Promise<Blob> {
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
       const response = await getPlayOpenAIClient().audio.speech.create(
@@ -3776,7 +5478,12 @@ function BranchPicker(): JSX.Element {
     <MessagePrimitive.If hasBranches>
       <BranchPickerPrimitive.Root className="flex h-6 items-center gap-1 rounded-md border bg-background px-1 text-xs text-muted-foreground">
         <BranchPickerPrimitive.Previous asChild>
-          <Button aria-label="Previous branch" size="icon-xs" type="button" variant="ghost">
+          <Button
+            aria-label="Previous branch"
+            size="icon-xs"
+            type="button"
+            variant="ghost"
+          >
             <span aria-hidden="true">&lt;</span>
           </Button>
         </BranchPickerPrimitive.Previous>
@@ -3784,7 +5491,12 @@ function BranchPicker(): JSX.Element {
           <BranchPickerPrimitive.Number />/<BranchPickerPrimitive.Count />
         </span>
         <BranchPickerPrimitive.Next asChild>
-          <Button aria-label="Next branch" size="icon-xs" type="button" variant="ghost">
+          <Button
+            aria-label="Next branch"
+            size="icon-xs"
+            type="button"
+            variant="ghost"
+          >
             <span aria-hidden="true">&gt;</span>
           </Button>
         </BranchPickerPrimitive.Next>
@@ -3796,7 +5508,10 @@ function BranchPicker(): JSX.Element {
 function EditMessageComposer(): JSX.Element {
   return (
     <ComposerPrimitive.Root className="w-[min(560px,78vw)] rounded-lg border bg-background shadow-sm">
-      <ComposerPrimitive.Input className="max-h-40 min-h-20 w-full resize-none bg-transparent px-3 py-3 text-sm outline-none" submitMode="ctrlEnter" />
+      <ComposerPrimitive.Input
+        className="max-h-40 min-h-20 w-full resize-none bg-transparent px-3 py-3 text-sm outline-none"
+        submitMode="ctrlEnter"
+      />
       <div className="flex items-center justify-end gap-2 border-t px-2 py-2">
         <ComposerPrimitive.Cancel asChild>
           <Button size="sm" type="button" variant="outline">
@@ -3832,7 +5547,12 @@ function ChatHistoryTimeline({
     return <EmptyMessage description={error} title="History unavailable" />;
   }
   if (history.length === 0) {
-    return <EmptyMessage description="No history is available for this conversation." title="No history" />;
+    return (
+      <EmptyMessage
+        description="No history is available for this conversation."
+        title="No history"
+      />
+    );
   }
   return (
     <ScrollArea className="h-full">
@@ -3840,17 +5560,48 @@ function ChatHistoryTimeline({
         {history.map((entry) => {
           const source = historyEntrySource(entry);
           return (
-            <div className={cn("flex", entry.type === "gear" ? "justify-end" : "justify-start")} key={entry.id}>
-              <div className={cn("max-w-[82%] rounded-md border px-3 py-2 text-sm", entry.type === "gear" ? "bg-primary text-primary-foreground" : "bg-muted")}>
-                <div className={cn("mb-1 flex flex-wrap items-center gap-2 text-xs", entry.type === "gear" ? "text-primary-foreground/75" : "text-muted-foreground")}>
-                  <Badge variant={entry.type === "gear" ? "secondary" : "outline"}>{entry.type}</Badge>
+            <div
+              className={cn(
+                "flex",
+                entry.type === "gear" ? "justify-end" : "justify-start",
+              )}
+              key={entry.id}
+            >
+              <div
+                className={cn(
+                  "max-w-[82%] rounded-md border px-3 py-2 text-sm",
+                  entry.type === "gear"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted",
+                )}
+              >
+                <div
+                  className={cn(
+                    "mb-1 flex flex-wrap items-center gap-2 text-xs",
+                    entry.type === "gear"
+                      ? "text-primary-foreground/75"
+                      : "text-muted-foreground",
+                  )}
+                >
+                  <Badge
+                    variant={entry.type === "gear" ? "secondary" : "outline"}
+                  >
+                    {entry.type}
+                  </Badge>
                   <span className="truncate">{source}</span>
                   <span>{formatDate(entry.created_at)}</span>
                 </div>
-                <div className="whitespace-pre-wrap break-words">{entry.text || entry.id}</div>
+                <div className="whitespace-pre-wrap break-words">
+                  {entry.text || entry.id}
+                </div>
                 <div className="mt-2 flex justify-end">
                   {entry.replay_available === true ? (
-                    <Button onClick={() => void onPlay(entry)} size="xs" type="button" variant={entry.type === "gear" ? "secondary" : "outline"}>
+                    <Button
+                      onClick={() => void onPlay(entry)}
+                      size="xs"
+                      type="button"
+                      variant={entry.type === "gear" ? "secondary" : "outline"}
+                    >
                       <Play data-icon="inline-start" />
                       Play
                     </Button>
@@ -3867,7 +5618,10 @@ function ChatHistoryTimeline({
   );
 }
 
-function useWorkspaceHistory(workspaceName: string, order: "asc" | "desc"): {
+function useWorkspaceHistory(
+  workspaceName: string,
+  order: "asc" | "desc",
+): {
   error: string;
   items: PeerRunHistoryEntry[];
   lastUpdatedAt: string;
@@ -3894,11 +5648,21 @@ function useWorkspaceHistory(workspaceName: string, order: "asc" | "desc"): {
       setLoading(true);
       setError("");
       try {
-        const response = await listWorkspaceHistoryPage(normalizedWorkspace, cursor, order);
+        const response = await listWorkspaceHistoryPage(
+          normalizedWorkspace,
+          cursor,
+          order,
+        );
         const nextItems = response.items ?? response.data ?? [];
-        setItems((current) => (append ? mergeHistoryEntries(current, nextItems, order) : nextItems));
+        setItems((current) =>
+          append ? mergeHistoryEntries(current, nextItems, order) : nextItems,
+        );
         setNextCursor(response.next_cursor ?? "");
-        setLastUpdatedAt(notifiedAt == null || notifiedAt === "" ? new Date().toISOString() : notifiedAt);
+        setLastUpdatedAt(
+          notifiedAt == null || notifiedAt === ""
+            ? new Date().toISOString()
+            : notifiedAt,
+        );
       } catch (err) {
         if (!append) {
           setItems([]);
@@ -3929,7 +5693,11 @@ function useWorkspaceHistory(workspaceName: string, order: "asc" | "desc"): {
   };
 }
 
-function mergeHistoryEntries(current: PeerRunHistoryEntry[], incoming: PeerRunHistoryEntry[], order: "asc" | "desc"): PeerRunHistoryEntry[] {
+function mergeHistoryEntries(
+  current: PeerRunHistoryEntry[],
+  incoming: PeerRunHistoryEntry[],
+  order: "asc" | "desc",
+): PeerRunHistoryEntry[] {
   const byID = new Map<string, PeerRunHistoryEntry>();
   for (const item of current) {
     byID.set(item.id, item);
@@ -3938,7 +5706,9 @@ function mergeHistoryEntries(current: PeerRunHistoryEntry[], incoming: PeerRunHi
     byID.set(item.id, item);
   }
   return Array.from(byID.values()).sort((left, right) => {
-    const delta = new Date(left.created_at ?? 0).getTime() - new Date(right.created_at ?? 0).getTime();
+    const delta =
+      new Date(left.created_at ?? 0).getTime() -
+      new Date(right.created_at ?? 0).getTime();
     return order === "asc" ? delta : -delta;
   });
 }
@@ -3951,7 +5721,9 @@ function historyEntrySource(entry: PeerRunHistoryEntry): string {
 }
 
 function friendDisplayName(friend: FriendObject): string {
-  return compactID(friend.peer_public_key ?? friend.id ?? friend.workspace_name ?? "friend");
+  return compactID(
+    friend.peer_public_key ?? friend.id ?? friend.workspace_name ?? "friend",
+  );
 }
 
 function groupDisplayName(group: FriendGroupObject): string {
@@ -3981,14 +5753,25 @@ function socialTargetKey(target: SocialChatTarget): string {
 }
 
 function contactDisplayName(contact: ContactObject): string {
-  return contact.display_name?.trim() || contact.phone_number?.trim() || compactID(contact.id ?? "contact");
+  return (
+    contact.display_name?.trim() ||
+    contact.phone_number?.trim() ||
+    compactID(contact.id ?? "contact")
+  );
 }
 
-function listContactsPage(cursor: string): Promise<PageResponse<ContactObject>> {
-  return expectData(listPeerContacts({ query: pageQuery(cursor) })) as Promise<PageResponse<ContactObject>>;
+function listContactsPage(
+  cursor: string,
+): Promise<PageResponse<ContactObject>> {
+  return expectData(listPeerContacts({ query: pageQuery(cursor) })) as Promise<
+    PageResponse<ContactObject>
+  >;
 }
 
-function createContact(displayName: string, phoneNumber: string): Promise<ContactObject> {
+function createContact(
+  displayName: string,
+  phoneNumber: string,
+): Promise<ContactObject> {
   return expectData(
     createPeerContact({
       body: {
@@ -3999,7 +5782,11 @@ function createContact(displayName: string, phoneNumber: string): Promise<Contac
   ) as Promise<ContactObject>;
 }
 
-function updateContact(id: string, displayName: string, phoneNumber: string): Promise<ContactObject> {
+function updateContact(
+  id: string,
+  displayName: string,
+  phoneNumber: string,
+): Promise<ContactObject> {
   return expectData(
     putPeerContact({
       body: {
@@ -4013,19 +5800,27 @@ function updateContact(id: string, displayName: string, phoneNumber: string): Pr
 }
 
 function deleteContact(id: string): Promise<ContactObject> {
-  return expectData(deletePeerContact({ path: { id } })) as Promise<ContactObject>;
+  return expectData(
+    deletePeerContact({ path: { id } }),
+  ) as Promise<ContactObject>;
 }
 
 function listFriendsPage(cursor: string): Promise<PageResponse<FriendObject>> {
-  return expectData(listPeerFriends({ query: pageQuery(cursor) })) as Promise<PageResponse<FriendObject>>;
+  return expectData(listPeerFriends({ query: pageQuery(cursor) })) as Promise<
+    PageResponse<FriendObject>
+  >;
 }
 
 function getFriendInviteToken(): Promise<FriendInviteTokenGetResponse> {
-  return expectData(getPeerFriendInviteToken()) as Promise<FriendInviteTokenGetResponse>;
+  return expectData(
+    getPeerFriendInviteToken(),
+  ) as Promise<FriendInviteTokenGetResponse>;
 }
 
 function createFriendInviteToken(): Promise<FriendInviteTokenGetResponse> {
-  return expectData(createPeerFriendInviteToken()) as Promise<FriendInviteTokenGetResponse>;
+  return expectData(
+    createPeerFriendInviteToken(),
+  ) as Promise<FriendInviteTokenGetResponse>;
 }
 
 function clearFriendInviteToken(): Promise<unknown> {
@@ -4033,78 +5828,155 @@ function clearFriendInviteToken(): Promise<unknown> {
 }
 
 function addFriendByInviteToken(inviteToken: string): Promise<FriendObject> {
-  return expectData(addPeerFriend({ body: { invite_token: inviteToken } })) as Promise<FriendObject>;
+  return expectData(
+    addPeerFriend({ body: { invite_token: inviteToken } }),
+  ) as Promise<FriendObject>;
 }
 
 function deleteFriend(id: string): Promise<FriendObject> {
-  return expectData(deletePeerFriend({ path: { id } })) as Promise<FriendObject>;
+  return expectData(
+    deletePeerFriend({ path: { id } }),
+  ) as Promise<FriendObject>;
 }
 
-function listFriendGroupsPage(cursor: string): Promise<PageResponse<FriendGroupObject>> {
-  return expectData(listPeerFriendGroups({ query: pageQuery(cursor) })) as Promise<PageResponse<FriendGroupObject>>;
+function listFriendGroupsPage(
+  cursor: string,
+): Promise<PageResponse<FriendGroupObject>> {
+  return expectData(
+    listPeerFriendGroups({ query: pageQuery(cursor) }),
+  ) as Promise<PageResponse<FriendGroupObject>>;
 }
 
-function createFriendGroup(name: string, description: string): Promise<FriendGroupObject> {
+function createFriendGroup(
+  name: string,
+  description: string,
+): Promise<FriendGroupObject> {
   const body = description === "" ? { name } : { name, description };
-  return expectData(createPeerFriendGroup({ body })) as Promise<FriendGroupObject>;
+  return expectData(
+    createPeerFriendGroup({ body }),
+  ) as Promise<FriendGroupObject>;
 }
 
 function getFriendGroup(id: string): Promise<FriendGroupObject> {
-  return expectData(getPeerFriendGroup({ path: { id } })) as Promise<FriendGroupObject>;
+  return expectData(
+    getPeerFriendGroup({ path: { id } }),
+  ) as Promise<FriendGroupObject>;
 }
 
-function joinFriendGroupByInviteToken(inviteToken: string): Promise<{ group: FriendGroupObject; member: FriendGroupMemberObject }> {
-  return expectData(joinPeerFriendGroup({ body: { invite_token: inviteToken } })) as Promise<{ group: FriendGroupObject; member: FriendGroupMemberObject }>;
+function joinFriendGroupByInviteToken(
+  inviteToken: string,
+): Promise<{ group: FriendGroupObject; member: FriendGroupMemberObject }> {
+  return expectData(
+    joinPeerFriendGroup({ body: { invite_token: inviteToken } }),
+  ) as Promise<{ group: FriendGroupObject; member: FriendGroupMemberObject }>;
 }
 
-function getFriendGroupInviteToken(id: string): Promise<FriendGroupInviteTokenGetResponse> {
-  return expectData(getPeerFriendGroupInviteToken({ path: { id } })) as Promise<FriendGroupInviteTokenGetResponse>;
+function getFriendGroupInviteToken(
+  id: string,
+): Promise<FriendGroupInviteTokenGetResponse> {
+  return expectData(
+    getPeerFriendGroupInviteToken({ path: { id } }),
+  ) as Promise<FriendGroupInviteTokenGetResponse>;
 }
 
-function createFriendGroupInviteToken(id: string): Promise<FriendGroupInviteTokenGetResponse> {
-  return expectData(createPeerFriendGroupInviteToken({ path: { id } })) as Promise<FriendGroupInviteTokenGetResponse>;
+function createFriendGroupInviteToken(
+  id: string,
+): Promise<FriendGroupInviteTokenGetResponse> {
+  return expectData(
+    createPeerFriendGroupInviteToken({ path: { id } }),
+  ) as Promise<FriendGroupInviteTokenGetResponse>;
 }
 
 function clearFriendGroupInviteToken(id: string): Promise<unknown> {
   return expectData(clearPeerFriendGroupInviteToken({ path: { id } }));
 }
 
-function listFriendGroupMembersPage(id: string, cursor: string): Promise<PageResponse<FriendGroupMemberObject>> {
+function listFriendGroupMembersPage(
+  id: string,
+  cursor: string,
+): Promise<PageResponse<FriendGroupMemberObject>> {
   if (id.trim() === "") {
     return Promise.resolve({ has_next: false, items: [] });
   }
-  return expectData(listPeerFriendGroupMembers({ path: { id }, query: pageQuery(cursor) })) as Promise<PageResponse<FriendGroupMemberObject>>;
+  return expectData(
+    listPeerFriendGroupMembers({ path: { id }, query: pageQuery(cursor) }),
+  ) as Promise<PageResponse<FriendGroupMemberObject>>;
 }
 
-function addFriendGroupMember(id: string, peerPublicKey: string, role: FriendGroupMemberMutableRole): Promise<FriendGroupMemberObject> {
-  return expectData(addPeerFriendGroupMember({ body: { friend_group_id: id, peer_public_key: peerPublicKey, role }, path: { id } })) as Promise<FriendGroupMemberObject>;
+function addFriendGroupMember(
+  id: string,
+  peerPublicKey: string,
+  role: FriendGroupMemberMutableRole,
+): Promise<FriendGroupMemberObject> {
+  return expectData(
+    addPeerFriendGroupMember({
+      body: { friend_group_id: id, peer_public_key: peerPublicKey, role },
+      path: { id },
+    }),
+  ) as Promise<FriendGroupMemberObject>;
 }
 
-function updateFriendGroupMember(id: string, memberID: string, role: FriendGroupMemberMutableRole): Promise<FriendGroupMemberObject> {
-  return expectData(putPeerFriendGroupMember({ body: { friend_group_id: id, id: memberID, role }, path: { id, member_id: memberID } })) as Promise<FriendGroupMemberObject>;
+function updateFriendGroupMember(
+  id: string,
+  memberID: string,
+  role: FriendGroupMemberMutableRole,
+): Promise<FriendGroupMemberObject> {
+  return expectData(
+    putPeerFriendGroupMember({
+      body: { friend_group_id: id, id: memberID, role },
+      path: { id, member_id: memberID },
+    }),
+  ) as Promise<FriendGroupMemberObject>;
 }
 
-function deleteFriendGroupMember(id: string, memberID: string): Promise<FriendGroupMemberObject> {
-  return expectData(deletePeerFriendGroupMember({ path: { id, member_id: memberID } })) as Promise<FriendGroupMemberObject>;
+function deleteFriendGroupMember(
+  id: string,
+  memberID: string,
+): Promise<FriendGroupMemberObject> {
+  return expectData(
+    deletePeerFriendGroupMember({ path: { id, member_id: memberID } }),
+  ) as Promise<FriendGroupMemberObject>;
 }
 
-function listWorkspaceHistoryPage(workspaceName: string, cursor: string, order: "asc" | "desc"): Promise<PageResponse<PeerRunHistoryEntry>> {
-  return expectData(listPeerWorkspaceHistory({ path: { workspace_name: workspaceName }, query: { ...pageQuery(cursor), order } })) as Promise<PageResponse<PeerRunHistoryEntry>>;
+function listWorkspaceHistoryPage(
+  workspaceName: string,
+  cursor: string,
+  order: "asc" | "desc",
+): Promise<PageResponse<PeerRunHistoryEntry>> {
+  return expectData(
+    listPeerWorkspaceHistory({
+      path: { workspace_name: workspaceName },
+      query: { ...pageQuery(cursor), order },
+    }),
+  ) as Promise<PageResponse<PeerRunHistoryEntry>>;
 }
 
-async function playWorkspaceHistoryAsset(workspaceName: string, historyID: string): Promise<void> {
-  const blob = await expectData(getPeerWorkspaceHistoryAudio({ path: { history_id: historyID, workspace_name: workspaceName } })) as Blob;
+async function playWorkspaceHistoryAsset(
+  workspaceName: string,
+  historyID: string,
+): Promise<void> {
+  const blob = (await expectData(
+    getPeerWorkspaceHistoryAudio({
+      path: { history_id: historyID, workspace_name: workspaceName },
+    }),
+  )) as Blob;
   const url = URL.createObjectURL(blob);
   const audio = new Audio(url);
   audio.preload = "auto";
   audio.setAttribute("playsinline", "true");
-  audio.addEventListener("ended", () => URL.revokeObjectURL(url), { once: true });
-  audio.addEventListener("error", () => URL.revokeObjectURL(url), { once: true });
+  audio.addEventListener("ended", () => URL.revokeObjectURL(url), {
+    once: true,
+  });
+  audio.addEventListener("error", () => URL.revokeObjectURL(url), {
+    once: true,
+  });
   await unlockBrowserAudio();
   await playAudioWithTimeout(audio);
 }
 
-function usePagedList<T>(loadPage: (cursor: string) => Promise<PageResponse<T>>): {
+function usePagedList<T>(
+  loadPage: (cursor: string) => Promise<PageResponse<T>>,
+): {
   error: string;
   next: () => void;
   page: PagedState<T>;
@@ -4128,13 +6000,20 @@ function usePagedList<T>(loadPage: (cursor: string) => Promise<PageResponse<T>>)
         setPage({
           cursors,
           error: "",
-          hasNext: response.has_next === true && response.next_cursor != null && response.next_cursor !== "",
+          hasNext:
+            response.has_next === true &&
+            response.next_cursor != null &&
+            response.next_cursor !== "",
           items: response.items ?? response.data ?? [],
           loading: false,
           nextCursor: response.next_cursor ?? "",
         });
       } catch (err) {
-        setPage((current) => ({ ...current, error: toMessage(err), loading: false }));
+        setPage((current) => ({
+          ...current,
+          error: toMessage(err),
+          loading: false,
+        }));
       }
     },
     [loadPage],
@@ -4167,8 +6046,34 @@ function usePagedList<T>(loadPage: (cursor: string) => Promise<PageResponse<T>>)
   };
 }
 
-function PageAction({ canNext, canPrevious, loading, onNext, onPrevious, onRefresh, pageIndex }: { canNext: boolean; canPrevious: boolean; loading: boolean; onNext: () => void; onPrevious: () => void; onRefresh: () => void; pageIndex: number }): JSX.Element {
-  return <DashboardPager canNext={canNext} canPrevious={canPrevious} loading={loading} onNext={onNext} onPrevious={onPrevious} onRefresh={onRefresh} pageIndex={pageIndex} />;
+function PageAction({
+  canNext,
+  canPrevious,
+  loading,
+  onNext,
+  onPrevious,
+  onRefresh,
+  pageIndex,
+}: {
+  canNext: boolean;
+  canPrevious: boolean;
+  loading: boolean;
+  onNext: () => void;
+  onPrevious: () => void;
+  onRefresh: () => void;
+  pageIndex: number;
+}): JSX.Element {
+  return (
+    <DashboardPager
+      canNext={canNext}
+      canPrevious={canPrevious}
+      loading={loading}
+      onNext={onNext}
+      onPrevious={onPrevious}
+      onRefresh={onRefresh}
+      pageIndex={pageIndex}
+    />
+  );
 }
 
 function PagedSimpleTable<T>({
@@ -4193,7 +6098,17 @@ function PagedSimpleTable<T>({
         </Alert>
       ) : null}
       <SimpleTable
-        action={<PageAction canNext={pager.page.hasNext} canPrevious={pager.page.cursors.length > 1} loading={pager.page.loading} onNext={pager.next} onPrevious={pager.previous} onRefresh={pager.refresh} pageIndex={pager.page.cursors.length} />}
+        action={
+          <PageAction
+            canNext={pager.page.hasNext}
+            canPrevious={pager.page.cursors.length > 1}
+            loading={pager.page.loading}
+            onNext={pager.next}
+            onPrevious={pager.previous}
+            onRefresh={pager.refresh}
+            pageIndex={pager.page.cursors.length}
+          />
+        }
         columns={columns}
         empty={pager.page.loading ? "Loading" : empty}
         rows={pager.page.items.map(row)}
@@ -4217,20 +6132,28 @@ function WorkspacesPanel(): JSX.Element {
       columns={["Name", "Workflow", "Last active", "Updated"]}
       empty="No workspaces"
       loadPage={loadPage}
-	  row={(item) => [item.name, item.workflow_alias, formatDate(item.last_active_at), formatDate(item.updated_at)]}
+      row={(item) => [
+        item.name,
+        item.workflow_alias,
+        formatDate(item.last_active_at),
+        formatDate(item.updated_at),
+      ]}
       title="Workspaces"
     />
   );
 }
 
 function WorkflowsPanel(): JSX.Element {
-  const loadPage = useCallback((cursor: string) => listWorkflowsPage(cursor), []);
+  const loadPage = useCallback(
+    (cursor: string) => listWorkflowsPage(cursor),
+    [],
+  );
   return (
     <PagedSimpleTable
       columns={["Alias", "Driver"]}
       empty="No workflows"
       loadPage={loadPage}
-	  row={(item) => [item.alias, String(item.driver)]}
+      row={(item) => [item.alias, String(item.driver)]}
       title="Workflows"
     />
   );
@@ -4245,13 +6168,25 @@ const firmwareChannels: Array<{ key: FirmwareChannelKey; label: string }> = [
   { key: "pending", label: "Pending" },
 ];
 
-function FirmwaresPanel({ onOpenFirmware }: { onOpenFirmware: (firmware: Firmware) => void }): JSX.Element {
+function FirmwaresPanel({
+  onOpenFirmware,
+}: {
+  onOpenFirmware: (firmware: Firmware) => void;
+}): JSX.Element {
   const pager = usePagedList<Firmware>(listFirmwaresPage);
   return (
     <Card className="max-w-6xl">
       <CardHeader className="flex flex-row items-center justify-between gap-3">
         <CardTitle>Firmwares</CardTitle>
-        <PageAction canNext={pager.page.hasNext} canPrevious={pager.page.cursors.length > 1} loading={pager.page.loading} onNext={pager.next} onPrevious={pager.previous} onRefresh={pager.refresh} pageIndex={pager.page.cursors.length} />
+        <PageAction
+          canNext={pager.page.hasNext}
+          canPrevious={pager.page.cursors.length > 1}
+          loading={pager.page.loading}
+          onNext={pager.next}
+          onPrevious={pager.previous}
+          onRefresh={pager.refresh}
+          pageIndex={pager.page.cursors.length}
+        />
       </CardHeader>
       <CardContent>
         {pager.error !== "" ? (
@@ -4260,54 +6195,83 @@ function FirmwaresPanel({ onOpenFirmware }: { onOpenFirmware: (firmware: Firmwar
           </Alert>
         ) : null}
         {pager.page.items.length === 0 ? (
-          <EmptyMessage description={pager.page.loading ? "Loading firmwares." : "No firmwares are visible for this peer."} title={pager.page.loading ? "Loading" : "No firmwares"} />
+          <EmptyMessage
+            description={
+              pager.page.loading
+                ? "Loading firmwares."
+                : "No firmwares are visible for this peer."
+            }
+            title={pager.page.loading ? "Loading" : "No firmwares"}
+          />
         ) : (
           <DashboardTable>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-64">Firmware</TableHead>
-                  <TableHead className="w-28">Stable</TableHead>
-                  <TableHead className="w-28">Beta</TableHead>
-                  <TableHead className="w-28">Develop</TableHead>
-                  <TableHead className="w-28">Pending</TableHead>
-                  <TableHead className="w-40">Updated</TableHead>
-                  <TableHead className="w-24 text-right">Actions</TableHead>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-64">Firmware</TableHead>
+                <TableHead className="w-28">Stable</TableHead>
+                <TableHead className="w-28">Beta</TableHead>
+                <TableHead className="w-28">Develop</TableHead>
+                <TableHead className="w-28">Pending</TableHead>
+                <TableHead className="w-40">Updated</TableHead>
+                <TableHead className="w-24 text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {pager.page.items.map((item) => (
+                <TableRow key={item.name}>
+                  <TableCell className="min-w-0">
+                    <div className="truncate font-medium" title={item.name}>
+                      {item.name}
+                    </div>
+                    <div
+                      className="truncate text-xs text-muted-foreground"
+                      title={item.description ?? ""}
+                    >
+                      {item.description ?? "-"}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {firmwareSlotSummary(item.slots.stable)}
+                  </TableCell>
+                  <TableCell>{firmwareSlotSummary(item.slots.beta)}</TableCell>
+                  <TableCell>
+                    {firmwareSlotSummary(item.slots.develop)}
+                  </TableCell>
+                  <TableCell>
+                    {firmwareSlotSummary(item.slots.pending)}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {formatDate(item.updated_at)}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex justify-end">
+                      <Button
+                        onClick={() => onOpenFirmware(item)}
+                        size="sm"
+                        type="button"
+                        variant="outline"
+                      >
+                        Open
+                      </Button>
+                    </div>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {pager.page.items.map((item) => (
-                  <TableRow key={item.name}>
-                    <TableCell className="min-w-0">
-                      <div className="truncate font-medium" title={item.name}>
-                        {item.name}
-                      </div>
-                      <div className="truncate text-xs text-muted-foreground" title={item.description ?? ""}>
-                        {item.description ?? "-"}
-                      </div>
-                    </TableCell>
-                    <TableCell>{firmwareSlotSummary(item.slots.stable)}</TableCell>
-                    <TableCell>{firmwareSlotSummary(item.slots.beta)}</TableCell>
-                    <TableCell>{firmwareSlotSummary(item.slots.develop)}</TableCell>
-                    <TableCell>{firmwareSlotSummary(item.slots.pending)}</TableCell>
-                    <TableCell className="text-muted-foreground">{formatDate(item.updated_at)}</TableCell>
-                    <TableCell>
-                      <div className="flex justify-end">
-                        <Button onClick={() => onOpenFirmware(item)} size="sm" type="button" variant="outline">
-                          Open
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-              </DashboardTable>
+              ))}
+            </TableBody>
+          </DashboardTable>
         )}
       </CardContent>
     </Card>
   );
 }
 
-function FirmwareDetailPanel({ firmware, onBack }: { firmware: Firmware; onBack: () => void }): JSX.Element {
+function FirmwareDetailPanel({
+  firmware,
+  onBack,
+}: {
+  firmware: Firmware;
+  onBack: () => void;
+}): JSX.Element {
   return (
     <div className="flex max-w-6xl flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -4323,9 +6287,18 @@ function FirmwareDetailPanel({ firmware, onBack }: { firmware: Firmware; onBack:
           </CardHeader>
           <CardContent className="grid gap-x-6 gap-y-3 text-sm">
             <WorkspaceInfoItem label="Name" value={firmware.name} />
-            <WorkspaceInfoItem label="Description" value={firmware.description ?? "-"} />
-            <WorkspaceInfoItem label="Created" value={formatDate(firmware.created_at)} />
-            <WorkspaceInfoItem label="Updated" value={formatDate(firmware.updated_at)} />
+            <WorkspaceInfoItem
+              label="Description"
+              value={firmware.description ?? "-"}
+            />
+            <WorkspaceInfoItem
+              label="Created"
+              value={formatDate(firmware.created_at)}
+            />
+            <WorkspaceInfoItem
+              label="Updated"
+              value={formatDate(firmware.updated_at)}
+            />
           </CardContent>
         </Card>
         <Card>
@@ -4334,7 +6307,11 @@ function FirmwareDetailPanel({ firmware, onBack }: { firmware: Firmware; onBack:
           </CardHeader>
           <CardContent className="grid gap-x-6 gap-y-3 text-sm">
             {firmwareChannels.map(({ key, label }) => (
-              <WorkspaceInfoItem key={key} label={label} value={firmwareSlotSummary(firmware.slots[key])} />
+              <WorkspaceInfoItem
+                key={key}
+                label={label}
+                value={firmwareSlotSummary(firmware.slots[key])}
+              />
             ))}
           </CardContent>
         </Card>
@@ -4345,37 +6322,58 @@ function FirmwareDetailPanel({ firmware, onBack }: { firmware: Firmware; onBack:
         </CardHeader>
         <CardContent>
           <DashboardTable>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-28">Channel</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead className="w-28">Artifact</TableHead>
-                  <TableHead className="w-28">Size</TableHead>
-                  <TableHead className="w-40">Uploaded</TableHead>
-                  <TableHead>Tar path</TableHead>
-                  <TableHead className="w-44">SHA-256</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {firmwareChannels.map(({ key, label }) => {
-                  const slot = firmware.slots[key];
-                  const artifact = slot.artifact;
-                  return (
-                    <TableRow key={key}>
-                      <TableCell className="font-medium">{label}</TableCell>
-                      <TableCell className="truncate" title={slot.description ?? ""}>{slot.description ?? "-"}</TableCell>
-                      <TableCell>
-                        <Badge variant={artifact == null ? "outline" : "secondary"}>{artifact == null ? "None" : "Uploaded"}</Badge>
-                      </TableCell>
-                      <TableCell>{formatBytes(artifact?.size)}</TableCell>
-                      <TableCell className="text-muted-foreground">{formatDate(artifact?.uploaded_at)}</TableCell>
-                      <TableCell className="truncate font-mono text-xs" title={artifact?.tar_path ?? ""}>{artifact?.tar_path ?? "-"}</TableCell>
-                      <TableCell className="truncate font-mono text-xs" title={artifact?.sha256 ?? ""}>{compactID(artifact?.sha256 ?? "-")}</TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-              </DashboardTable>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-28">Channel</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead className="w-28">Artifact</TableHead>
+                <TableHead className="w-28">Size</TableHead>
+                <TableHead className="w-40">Uploaded</TableHead>
+                <TableHead>Tar path</TableHead>
+                <TableHead className="w-44">SHA-256</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {firmwareChannels.map(({ key, label }) => {
+                const slot = firmware.slots[key];
+                const artifact = slot.artifact;
+                return (
+                  <TableRow key={key}>
+                    <TableCell className="font-medium">{label}</TableCell>
+                    <TableCell
+                      className="truncate"
+                      title={slot.description ?? ""}
+                    >
+                      {slot.description ?? "-"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={artifact == null ? "outline" : "secondary"}
+                      >
+                        {artifact == null ? "None" : "Uploaded"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{formatBytes(artifact?.size)}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {formatDate(artifact?.uploaded_at)}
+                    </TableCell>
+                    <TableCell
+                      className="truncate font-mono text-xs"
+                      title={artifact?.tar_path ?? ""}
+                    >
+                      {artifact?.tar_path ?? "-"}
+                    </TableCell>
+                    <TableCell
+                      className="truncate font-mono text-xs"
+                      title={artifact?.sha256 ?? ""}
+                    >
+                      {compactID(artifact?.sha256 ?? "-")}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </DashboardTable>
         </CardContent>
       </Card>
     </div>
@@ -4395,7 +6393,10 @@ function OverviewPanel({ modelCount }: { modelCount: number }): JSX.Element {
               <div className="text-xs text-muted-foreground">Models</div>
               <div className="text-2xl font-semibold">{modelCount}</div>
             </div>
-            <div className="text-muted-foreground">RuntimeProfile and owner resources are listed in the resource sections.</div>
+            <div className="text-muted-foreground">
+              RuntimeProfile and owner resources are listed in the resource
+              sections.
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -4410,10 +6411,17 @@ function firmwareSlotSummary(slot: Firmware["slots"]["stable"]): string {
   return slot.description?.trim() || "-";
 }
 
-function ModelsPanel({ initialModels }: { initialModels: Model[] }): JSX.Element {
+function ModelsPanel({
+  initialModels,
+}: {
+  initialModels: Model[];
+}): JSX.Element {
   const loadPage = useCallback((cursor: string) => listModelsPage(cursor), []);
   const pager = usePagedList(loadPage);
-  const models = pager.page.items.length === 0 && pager.page.loading ? initialModels : pager.page.items;
+  const models =
+    pager.page.items.length === 0 && pager.page.loading
+      ? initialModels
+      : pager.page.items;
   return (
     <div className="max-w-6xl space-y-3">
       {pager.error !== "" ? (
@@ -4424,40 +6432,61 @@ function ModelsPanel({ initialModels }: { initialModels: Model[] }): JSX.Element
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-3">
           <CardTitle>Models</CardTitle>
-          <PageAction canNext={pager.page.hasNext} canPrevious={pager.page.cursors.length > 1} loading={pager.page.loading} onNext={pager.next} onPrevious={pager.previous} onRefresh={pager.refresh} pageIndex={pager.page.cursors.length} />
+          <PageAction
+            canNext={pager.page.hasNext}
+            canPrevious={pager.page.cursors.length > 1}
+            loading={pager.page.loading}
+            onNext={pager.next}
+            onPrevious={pager.previous}
+            onRefresh={pager.refresh}
+            pageIndex={pager.page.cursors.length}
+          />
         </CardHeader>
         <CardContent>
           {models.length === 0 ? (
-            <EmptyMessage description="No model resources are visible for this context." title="No models" />
+            <EmptyMessage
+              description="No model resources are visible for this context."
+              title="No models"
+            />
           ) : (
             <DashboardTable>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>ID</TableHead>
-                    <TableHead>Kind</TableHead>
-                    <TableHead>Provider</TableHead>
-                    <TableHead>Think</TableHead>
-                    <TableHead>Source</TableHead>
-                    <TableHead>Updated</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {models.map((model) => {
-                    const providerData = runtimeModelProviderData(model);
-                    const thinkingParam = thinkingParameter(providerData);
-                    return (
-                      <TableRow key={model.alias}>
-                        <TableCell className="font-mono text-xs font-medium">{model.alias}</TableCell>
-                        <TableCell>{model.kind ?? "-"}</TableCell>
-                        <TableCell>{model.provider_kind || "-"}</TableCell>
-                        <TableCell>{providerData?.support_thinking === true ? <Badge variant="outline">{thinkingParam || "on"}</Badge> : "-"}</TableCell>
-                        <TableCell>RuntimeProfile</TableCell>
-                        <TableCell className="text-muted-foreground">-</TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </DashboardTable>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>ID</TableHead>
+                  <TableHead>Kind</TableHead>
+                  <TableHead>Provider</TableHead>
+                  <TableHead>Think</TableHead>
+                  <TableHead>Source</TableHead>
+                  <TableHead>Updated</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {models.map((model) => {
+                  const providerData = runtimeModelProviderData(model);
+                  const thinkingParam = thinkingParameter(providerData);
+                  return (
+                    <TableRow key={model.alias}>
+                      <TableCell className="font-mono text-xs font-medium">
+                        {model.alias}
+                      </TableCell>
+                      <TableCell>{model.kind ?? "-"}</TableCell>
+                      <TableCell>{model.provider_kind || "-"}</TableCell>
+                      <TableCell>
+                        {providerData?.support_thinking === true ? (
+                          <Badge variant="outline">
+                            {thinkingParam || "on"}
+                          </Badge>
+                        ) : (
+                          "-"
+                        )}
+                      </TableCell>
+                      <TableCell>RuntimeProfile</TableCell>
+                      <TableCell className="text-muted-foreground">-</TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </DashboardTable>
           )}
         </CardContent>
       </Card>
@@ -4488,14 +6517,28 @@ function VoicesPanel(): JSX.Element {
   const loadPage = useCallback((cursor: string) => listVoicesPage(cursor), []);
   const pager = usePagedList(loadPage);
 
-	return (
-	  <SimpleTable
-		action={<PageAction canNext={pager.page.hasNext} canPrevious={pager.page.cursors.length > 1} loading={pager.page.loading} onNext={pager.next} onPrevious={pager.previous} onRefresh={pager.refresh} pageIndex={pager.page.cursors.length} />}
-		columns={["Alias", "English", "Chinese"]}
-		empty={pager.page.loading ? "Loading" : pager.error || "No voices"}
-		rows={pager.page.items.map((item) => [item.alias, item.i18n.en?.display_name ?? "", item.i18n["zh-CN"]?.display_name ?? ""])}
-		title="Voices"
-	  />
+  return (
+    <SimpleTable
+      action={
+        <PageAction
+          canNext={pager.page.hasNext}
+          canPrevious={pager.page.cursors.length > 1}
+          loading={pager.page.loading}
+          onNext={pager.next}
+          onPrevious={pager.previous}
+          onRefresh={pager.refresh}
+          pageIndex={pager.page.cursors.length}
+        />
+      }
+      columns={["Alias", "English", "Chinese"]}
+      empty={pager.page.loading ? "Loading" : pager.error || "No voices"}
+      rows={pager.page.items.map((item) => [
+        item.alias,
+        item.i18n.en?.display_name ?? "",
+        item.i18n["zh-CN"]?.display_name ?? "",
+      ])}
+      title="Voices"
+    />
   );
 }
 
@@ -4513,56 +6556,113 @@ function SimpleTable({
   title: string;
 }): JSX.Element {
   return (
-    <DashboardTableCard actions={action} emptyDescription={empty} emptyTitle={rows.length === 0 ? empty : undefined} title={title}>
-          <DashboardTable className="table-auto">
-              <TableHeader>
-                <TableRow>
-                  {columns.map((column) => (
-                    <TableHead key={column}>{column}</TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((row) => (
-                  <TableRow key={row.join(":")}>
-                    {row.map((cell, index) => (
-                      <TableCell className={index === 0 ? "font-medium" : "text-muted-foreground"} key={`${index}:${cell}`}>
-                        {cell || "-"}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))}
-              </TableBody>
-          </DashboardTable>
+    <DashboardTableCard
+      actions={action}
+      emptyDescription={empty}
+      emptyTitle={rows.length === 0 ? empty : undefined}
+      title={title}
+    >
+      <DashboardTable className="table-auto">
+        <TableHeader>
+          <TableRow>
+            {columns.map((column) => (
+              <TableHead key={column}>{column}</TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((row) => (
+            <TableRow key={row.join(":")}>
+              {row.map((cell, index) => (
+                <TableCell
+                  className={
+                    index === 0 ? "font-medium" : "text-muted-foreground"
+                  }
+                  key={`${index}:${cell}`}
+                >
+                  {cell || "-"}
+                </TableCell>
+              ))}
+            </TableRow>
+          ))}
+        </TableBody>
+      </DashboardTable>
     </DashboardTableCard>
   );
 }
 
-function EmptyMessage({ description, title }: { description: string; title: string }): JSX.Element {
+function EmptyMessage({
+  description,
+  title,
+}: {
+  description: string;
+  title: string;
+}): JSX.Element {
   return <DashboardEmptyState description={description} title={title} />;
 }
 
-function Field({ label, onChange, type = "text", value }: { label: string; onChange: (value: string) => void; type?: string; value: string }): JSX.Element {
+function Field({
+  label,
+  onChange,
+  type = "text",
+  value,
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  type?: string;
+  value: string;
+}): JSX.Element {
   const id = useId();
   return (
     <div className="flex flex-col gap-1.5">
       <Label htmlFor={id}>{label}</Label>
-      <Input id={id} onChange={(event) => onChange(event.target.value)} type={type} value={value} />
+      <Input
+        id={id}
+        onChange={(event) => onChange(event.target.value)}
+        type={type}
+        value={value}
+      />
     </div>
   );
 }
 
-function TextAreaField({ label, onChange, placeholder, value }: { label: string; onChange: (value: string) => void; placeholder?: string; value: string }): JSX.Element {
+function TextAreaField({
+  label,
+  onChange,
+  placeholder,
+  value,
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  value: string;
+}): JSX.Element {
   const id = useId();
   return (
     <div className="flex flex-col gap-1.5">
       <Label htmlFor={id}>{label}</Label>
-      <Textarea className="min-h-20 resize-y" id={id} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} value={value} />
+      <Textarea
+        className="min-h-20 resize-y"
+        id={id}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        value={value}
+      />
     </div>
   );
 }
 
-function SelectField({ label, onChange, options, value }: { label: string; onChange: (value: string) => void; options: string[]; value: string }): JSX.Element {
+function SelectField({
+  label,
+  onChange,
+  options,
+  value,
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  options: string[];
+  value: string;
+}): JSX.Element {
   return (
     <div className="flex flex-col gap-1.5">
       <Label>{label}</Label>
@@ -4584,7 +6684,21 @@ function SelectField({ label, onChange, options, value }: { label: string; onCha
   );
 }
 
-function ScrollableSelectField({ label, loading = false, onChange, onOpen, options, value }: { label: string; loading?: boolean; onChange: (value: string) => void; onOpen?: () => void; options: string[]; value: string }): JSX.Element {
+function ScrollableSelectField({
+  label,
+  loading = false,
+  onChange,
+  onOpen,
+  options,
+  value,
+}: {
+  label: string;
+  loading?: boolean;
+  onChange: (value: string) => void;
+  onOpen?: () => void;
+  options: string[];
+  value: string;
+}): JSX.Element {
   const id = `scroll-select-${label.toLowerCase().replaceAll(/\s+/g, "-")}`;
   const [open, setOpen] = useState(false);
   return (
@@ -4600,12 +6714,22 @@ function ScrollableSelectField({ label, loading = false, onChange, onOpen, optio
         }}
       >
         <PopoverTrigger asChild>
-          <Button aria-expanded={open} className="h-9 w-full justify-between px-3 font-normal" id={id} role="combobox" type="button" variant="outline">
+          <Button
+            aria-expanded={open}
+            className="h-9 w-full justify-between px-3 font-normal"
+            id={id}
+            role="combobox"
+            type="button"
+            variant="outline"
+          >
             <span className="min-w-0 truncate text-left">{value || "-"}</span>
             <span className="text-xs text-muted-foreground">Select</span>
           </Button>
         </PopoverTrigger>
-        <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] p-0">
+        <PopoverContent
+          align="start"
+          className="w-[var(--radix-popover-trigger-width)] p-0"
+        >
           <div
             className="max-h-72 overflow-y-auto overscroll-contain p-1"
             data-slot="voice-options-scroll"
@@ -4615,12 +6739,17 @@ function ScrollableSelectField({ label, loading = false, onChange, onOpen, optio
             }}
           >
             {options.length === 0 ? (
-              <div className="px-2 py-6 text-center text-sm text-muted-foreground">{loading ? "Loading" : "No options"}</div>
+              <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                {loading ? "Loading" : "No options"}
+              </div>
             ) : (
               options.map((option) => (
                 <button
                   aria-selected={option === value}
-                  className={cn("flex w-full items-center rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent hover:text-accent-foreground", option === value && "bg-accent text-accent-foreground")}
+                  className={cn(
+                    "flex w-full items-center rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent hover:text-accent-foreground",
+                    option === value && "bg-accent text-accent-foreground",
+                  )}
                   key={option || "none"}
                   onClick={() => {
                     onChange(option);
@@ -4641,22 +6770,44 @@ function ScrollableSelectField({ label, loading = false, onChange, onOpen, optio
   );
 }
 
-function Toggle({ checked, label, onChange }: { checked: boolean; label: string; onChange: (checked: boolean) => void }): JSX.Element {
+function Toggle({
+  checked,
+  label,
+  onChange,
+}: {
+  checked: boolean;
+  label: string;
+  onChange: (checked: boolean) => void;
+}): JSX.Element {
   return (
     <label className="flex h-9 items-center gap-2 rounded-md border px-3 text-sm">
-      <input checked={checked} onChange={(event) => onChange(event.target.checked)} type="checkbox" />
+      <input
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        type="checkbox"
+      />
       {label}
     </label>
   );
 }
 
-function SwitchField({ checked, label, onChange }: { checked: boolean; label: string; onChange: (checked: boolean) => void }): JSX.Element {
+function SwitchField({
+  checked,
+  label,
+  onChange,
+}: {
+  checked: boolean;
+  label: string;
+  onChange: (checked: boolean) => void;
+}): JSX.Element {
   const id = `switch-${label.toLowerCase().replaceAll(/\s+/g, "-")}`;
   return (
     <div className="flex flex-col gap-1.5">
       <Label htmlFor={id}>{label}</Label>
       <div className="flex h-9 items-center justify-between gap-3 rounded-md border px-3">
-        <span className="text-sm text-muted-foreground">{checked ? "Enabled" : "Disabled"}</span>
+        <span className="text-sm text-muted-foreground">
+          {checked ? "Enabled" : "Disabled"}
+        </span>
         <Switch checked={checked} id={id} onCheckedChange={onChange} />
       </div>
     </div>
@@ -4681,11 +6832,15 @@ function listModelsPage(cursor: string): Promise<PageResponse<Model>> {
 }
 
 function listVoicesPage(cursor: string): Promise<PageResponse<Voice>> {
-  return expectData(listClientVoices({ query: pageQuery(cursor) })) as Promise<PageResponse<Voice>>;
+  return expectData(listClientVoices({ query: pageQuery(cursor) })) as Promise<
+    PageResponse<Voice>
+  >;
 }
 
-function listWorkflowsPage(cursor: string): Promise<PageResponse<PeerWorkflow>> {
-	return expectData(listPeerWorkflows({ query: pageQuery(cursor) }));
+function listWorkflowsPage(
+  cursor: string,
+): Promise<PageResponse<PeerWorkflow>> {
+  return expectData(listPeerWorkflows({ query: pageQuery(cursor) }));
 }
 
 function listWorkspacesPage(cursor: string): Promise<PageResponse<Workspace>> {
@@ -4696,12 +6851,24 @@ function listFirmwaresPage(_cursor: string): Promise<PageResponse<Firmware>> {
   return expectData(getPeerBoundFirmwarePage());
 }
 
-function listGameplayPage<T>(list: (options?: { query?: { cursor?: string; limit: number } }) => Promise<{ data?: unknown; error?: unknown }>, cursor: string): Promise<PageResponse<T>> {
-  return expectData(list({ query: pageQuery(cursor) })) as Promise<PageResponse<T>>;
+function listGameplayPage<T>(
+  list: (options?: {
+    query?: { cursor?: string; limit: number };
+  }) => Promise<{ data?: unknown; error?: unknown }>,
+  cursor: string,
+): Promise<PageResponse<T>> {
+  return expectData(list({ query: pageQuery(cursor) })) as Promise<
+    PageResponse<T>
+  >;
 }
 
-async function streamPlayableVoices(onVoice: (voice: Voice) => void): Promise<void> {
-  const result = await streamPlayableVoicesSDK({ query: { limit: 100, provider_kind: "volc-tenant" }, sseMaxRetryAttempts: 0 });
+async function streamPlayableVoices(
+  onVoice: (voice: Voice) => void,
+): Promise<void> {
+  const result = await streamPlayableVoicesSDK({
+    query: { limit: 100, provider_kind: "volc-tenant" },
+    sseMaxRetryAttempts: 0,
+  });
   for await (const payload of result.stream as AsyncIterable<PlayVoiceStreamEvent>) {
     if (payload.error != null && payload.error !== "") {
       throw new Error(payload.error);
@@ -4719,17 +6886,17 @@ function mergeVoices(voices: Voice[]): Voice[] {
   const seen = new Set<string>();
   const out: Voice[] = [];
   for (const voice of voices) {
-	if (seen.has(voice.alias)) {
+    if (seen.has(voice.alias)) {
       continue;
     }
-	seen.add(voice.alias);
+    seen.add(voice.alias);
     out.push(voice);
   }
   return out;
 }
 
 function isPlayableVoice(voice: Voice): boolean {
-	return voice.alias.trim() !== "";
+  return voice.alias.trim() !== "";
 }
 
 async function createWorkspaceVoiceSession({
@@ -4748,7 +6915,9 @@ async function createWorkspaceVoiceSession({
   const pc = new RTCPeerConnection();
   const eventChannel = pc.createDataChannel("event", { ordered: true });
   const remote = new MediaStream();
-  const audioTransceiver = pc.addTransceiver("audio", { direction: "sendrecv" });
+  const audioTransceiver = pc.addTransceiver("audio", {
+    direction: "sendrecv",
+  });
   let inputStream: MediaStream | null = null;
   let inputTrack: MediaStreamTrack | null = null;
   let audioEOSSent = false;
@@ -4778,7 +6947,9 @@ async function createWorkspaceVoiceSession({
     if (local == null) {
       throw new Error("WebRTC offer was not created.");
     }
-    const answer = await expectData(createWebRtcOffer({ body: { sdp: local.sdp, type: local.type } }));
+    const answer = await expectData(
+      createWebRtcOffer({ body: { sdp: local.sdp, type: local.type } }),
+    );
     await pc.setRemoteDescription(answer);
     await waitForDataChannelOpen(eventChannel);
   } catch (err) {
@@ -4796,7 +6967,11 @@ async function createWorkspaceVoiceSession({
     if (inputTrack != null && inputTrack.readyState === "live") {
       return inputTrack;
     }
-    if (!window.isSecureContext && window.location.hostname !== "127.0.0.1" && window.location.hostname !== "localhost") {
+    if (
+      !window.isSecureContext &&
+      window.location.hostname !== "127.0.0.1" &&
+      window.location.hostname !== "localhost"
+    ) {
       throw new Error("Microphone capture requires a secure context.");
     }
     const media = await navigator.mediaDevices.getUserMedia({
@@ -4844,7 +7019,10 @@ async function createWorkspaceVoiceSession({
       for (const track of remote.getTracks()) {
         track.stop();
       }
-      if (eventChannel.readyState === "open" || eventChannel.readyState === "connecting") {
+      if (
+        eventChannel.readyState === "open" ||
+        eventChannel.readyState === "connecting"
+      ) {
         eventChannel.close();
       }
       pc.close();
@@ -4853,7 +7031,8 @@ async function createWorkspaceVoiceSession({
       if (audioEOSSent || !audioBOSSent) {
         return;
       }
-      const streamID = inputStreamID === "" ? newWorkspaceAudioStreamID() : inputStreamID;
+      const streamID =
+        inputStreamID === "" ? newWorkspaceAudioStreamID() : inputStreamID;
       audioEOSSent = true;
       audioBOSSent = false;
       inputStreamID = "";
@@ -4877,7 +7056,13 @@ async function createWorkspaceVoiceSession({
       inputStreamID = streamID;
       audioBOSSent = true;
       audioEOSSent = false;
-      sendEvent({ kind: "audio", mime_type: "audio/opus", stream_id: inputStreamID, type: "bos", v: 1 });
+      sendEvent({
+        kind: "audio",
+        mime_type: "audio/opus",
+        stream_id: inputStreamID,
+        type: "bos",
+        v: 1,
+      });
       track.enabled = true;
     },
   };
@@ -4902,7 +7087,13 @@ function createInjectedWorkspaceVoiceSession(
       });
     },
     startInputTurn: async (streamID: string) => {
-      onEvent({ kind: "audio", mime_type: "audio/opus", stream_id: streamID, type: "bos", v: 1 });
+      onEvent({
+        kind: "audio",
+        mime_type: "audio/opus",
+        stream_id: streamID,
+        type: "bos",
+        v: 1,
+      });
     },
   };
 }
@@ -4913,7 +7104,12 @@ function newWorkspaceAudioStreamID(): string {
 
 function parsePeerStreamEvent(data: unknown): PeerStreamEvent | null {
   try {
-    const text = typeof data === "string" ? data : data instanceof ArrayBuffer ? new TextDecoder().decode(data) : "";
+    const text =
+      typeof data === "string"
+        ? data
+        : data instanceof ArrayBuffer
+          ? new TextDecoder().decode(data)
+          : "";
     if (text === "") {
       return null;
     }
@@ -4970,16 +7166,26 @@ function waitForDataChannelOpen(channel: RTCDataChannel): Promise<void> {
   });
 }
 
-function normalizeWorkspaceState(state: PlayWorkspaceState): PlayWorkspaceState {
+function normalizeWorkspaceState(
+  state: PlayWorkspaceState,
+): PlayWorkspaceState {
   return {
     ...state,
-    runtime_state: state.runtime_state ?? (state.workspace_name == null || state.workspace_name === "" ? "no active workspace" : "unknown"),
+    runtime_state:
+      state.runtime_state ??
+      (state.workspace_name == null || state.workspace_name === ""
+        ? "no active workspace"
+        : "unknown"),
     workspace_mode: normalizeWorkspaceMode(state.workspace_mode),
   };
 }
 
 function normalizeWorkspaceMode(mode: unknown): PlayWorkspaceMode {
-  switch (String(mode ?? "").trim().toLowerCase()) {
+  switch (
+    String(mode ?? "")
+      .trim()
+      .toLowerCase()
+  ) {
     case "realtime":
     case "real_time":
     case "real-time":
@@ -5004,8 +7210,12 @@ function parseWorkspaceParameters(text: string): WorkspaceParameters {
 }
 
 function workspaceFeatureMessage(err: unknown): string {
-  const message = toMessage(err).replace(/^HTTP 501 Not Implemented\s*/i, "").trim();
-  return message === "" ? "This workspace feature is unavailable for the active agent." : message;
+  const message = toMessage(err)
+    .replace(/^HTTP 501 Not Implemented\s*/i, "")
+    .trim();
+  return message === ""
+    ? "This workspace feature is unavailable for the active agent."
+    : message;
 }
 
 function pageQuery(cursor: string): { cursor?: string; limit: number } {
@@ -5013,7 +7223,9 @@ function pageQuery(cursor: string): { cursor?: string; limit: number } {
 }
 
 function sectionTitle(section: Section): string {
-  return sections.find((item) => item.id === section)?.label ?? "OpenAI Gateway";
+  return (
+    sections.find((item) => item.id === section)?.label ?? "OpenAI Gateway"
+  );
 }
 
 function sortWorkspacesByActivity(items: Workspace[]): Workspace[] {
@@ -5098,7 +7310,10 @@ function chatHistoryKey(sessionID: string): string {
   return `gizclaw.openai.chat.history.${sessionID}`;
 }
 
-function createThreadHistoryAdapter(sessionID: string, touchSession: (sessionID: string, firstUserText?: string) => void): ThreadHistoryAdapter {
+function createThreadHistoryAdapter(
+  sessionID: string,
+  touchSession: (sessionID: string, firstUserText?: string) => void,
+): ThreadHistoryAdapter {
   return {
     async load() {
       return loadThreadHistory(sessionID);
@@ -5136,7 +7351,10 @@ function loadThreadHistory(sessionID: string): ExportedMessageRepository {
   }
 }
 
-function saveThreadHistory(sessionID: string, repository: ExportedMessageRepository): void {
+function saveThreadHistory(
+  sessionID: string,
+  repository: ExportedMessageRepository,
+): void {
   const stored: StoredHistory = {
     headId: repository.headId ?? null,
     messages: repository.messages.map((item) => ({
@@ -5150,10 +7368,24 @@ function saveThreadHistory(sessionID: string, repository: ExportedMessageReposit
   chatStore.set(chatHistoryKey(sessionID), JSON.stringify(stored));
 }
 
-function upsertThreadHistoryItem(sessionID: string, item: ExportedMessageRepositoryItem, localMessageID?: string): void {
+function upsertThreadHistoryItem(
+  sessionID: string,
+  item: ExportedMessageRepositoryItem,
+  localMessageID?: string,
+): void {
   const repository = loadThreadHistory(sessionID);
-  const index = repository.messages.findIndex((entry) => entry.message.id === item.message.id || (localMessageID != null && entry.message.id === localMessageID));
-  const nextItem = { ...item, message: { ...item.message, createdAt: normalizeDate(item.message.createdAt) } };
+  const index = repository.messages.findIndex(
+    (entry) =>
+      entry.message.id === item.message.id ||
+      (localMessageID != null && entry.message.id === localMessageID),
+  );
+  const nextItem = {
+    ...item,
+    message: {
+      ...item.message,
+      createdAt: normalizeDate(item.message.createdAt),
+    },
+  };
   const messages = [...repository.messages];
   if (index >= 0) {
     messages[index] = nextItem;
@@ -5187,20 +7419,28 @@ function createOpenAIChatAdapter({
   thinking?: ChatThinkingOptions;
 }): ChatModelAdapter {
   return {
-    async *run({ abortSignal, messages }): AsyncGenerator<ChatModelRunResult, void> {
+    async *run({
+      abortSignal,
+      messages,
+    }): AsyncGenerator<ChatModelRunResult, void> {
       onChatError("");
       const chatMessages = toChatCompletionMessages(messages, systemPrompt);
-      const shouldGenerateTitle = chatMessages.filter((message) => message.role === "user").length === 1;
+      const shouldGenerateTitle =
+        chatMessages.filter((message) => message.role === "user").length === 1;
       const body = {
         messages: chatMessages,
         model,
         stream: false,
         ...(Number.isFinite(temperature) ? { temperature } : {}),
         ...(thinking == null ? {} : { thinking }),
-      } satisfies OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming & { thinking?: ChatThinkingOptions };
+      } satisfies OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming & {
+        thinking?: ChatThinkingOptions;
+      };
       let completion: OpenAI.Chat.Completions.ChatCompletion;
       try {
-        completion = await getPlayOpenAIClient().chat.completions.create(body, { signal: abortSignal });
+        completion = await getPlayOpenAIClient().chat.completions.create(body, {
+          signal: abortSignal,
+        });
       } catch (err) {
         if (isAbortError(err)) {
           return;
@@ -5212,7 +7452,12 @@ function createOpenAIChatAdapter({
       }
 
       if (shouldGenerateTitle) {
-        void generateChatTitle(model, chatMessages, abortSignal, Number.isFinite(temperature) ? 0.2 : undefined)
+        void generateChatTitle(
+          model,
+          chatMessages,
+          abortSignal,
+          Number.isFinite(temperature) ? 0.2 : undefined,
+        )
           .then((title) => {
             if (title !== "") {
               setSessionTitle(sessionID, title);
@@ -5225,7 +7470,10 @@ function createOpenAIChatAdapter({
 
       const text = completion.choices[0]?.message.content ?? "";
       onCompleteText?.(text);
-      yield { content: [{ type: "text", text }], status: { type: "complete", reason: "stop" } };
+      yield {
+        content: [{ type: "text", text }],
+        status: { type: "complete", reason: "stop" },
+      };
     },
   };
 }
@@ -5235,12 +7483,17 @@ function isTransientSpeechProxyError(message: string): boolean {
   return (
     normalized.includes("giznet: conn closed") ||
     normalized.includes("transport: timeout") ||
-    (normalized.includes("gizhttp: read response:") && normalized.includes("timeout"))
+    (normalized.includes("gizhttp: read response:") &&
+      normalized.includes("timeout"))
   );
 }
 
-function chatErrorResult(errorText: string, partialText = ""): ChatModelRunResult {
-  const text = partialText === "" ? errorText : `${partialText}\n\n${errorText}`;
+function chatErrorResult(
+  errorText: string,
+  partialText = "",
+): ChatModelRunResult {
+  const text =
+    partialText === "" ? errorText : `${partialText}\n\n${errorText}`;
   return {
     content: [{ type: "text", text }],
     status: { type: "incomplete", reason: "error", error: errorText },
@@ -5249,7 +7502,10 @@ function chatErrorResult(errorText: string, partialText = ""): ChatModelRunResul
 
 function chatRequestErrorText(model: string, detail: string): string {
   const trimmed = detail.trim();
-  const message = trimmed === "" ? "No error detail was returned by the gateway or upstream provider. Check the server logs for this request." : trimmed;
+  const message =
+    trimmed === ""
+      ? "No error detail was returned by the gateway or upstream provider. Check the server logs for this request."
+      : trimmed;
   return `Chat request failed for ${model}.\n\n${message}`;
 }
 
@@ -5264,7 +7520,8 @@ function openAIErrorPayloadMessage(payload: unknown): string {
   }
   if (typeof error === "object" && error != null) {
     const errorRecord = error as Record<string, unknown>;
-    const message = typeof errorRecord.message === "string" ? errorRecord.message : "";
+    const message =
+      typeof errorRecord.message === "string" ? errorRecord.message : "";
     const code = typeof errorRecord.code === "string" ? errorRecord.code : "";
     const kind = typeof errorRecord.type === "string" ? errorRecord.type : "";
     const suffix = [code, kind].filter(Boolean).join(" / ");
@@ -5293,9 +7550,17 @@ function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError";
 }
 
-async function generateChatTitle(model: string, messages: ChatCompletionMessageParam[], abortSignal: AbortSignal, temperature?: number): Promise<string> {
-  const firstUserContent = messages.find((message) => message.role === "user")?.content;
-  const firstUserMessage = typeof firstUserContent === "string" ? firstUserContent.trim() : "";
+async function generateChatTitle(
+  model: string,
+  messages: ChatCompletionMessageParam[],
+  abortSignal: AbortSignal,
+  temperature?: number,
+): Promise<string> {
+  const firstUserContent = messages.find(
+    (message) => message.role === "user",
+  )?.content;
+  const firstUserMessage =
+    typeof firstUserContent === "string" ? firstUserContent.trim() : "";
   if (firstUserMessage === "") {
     return "";
   }
@@ -5304,7 +7569,8 @@ async function generateChatTitle(model: string, messages: ChatCompletionMessageP
       messages: [
         {
           role: "system",
-          content: "Generate a concise chat title. Return only the title, no quotes, no punctuation suffix. Use the user's language. Keep it under 8 words.",
+          content:
+            "Generate a concise chat title. Return only the title, no quotes, no punctuation suffix. Use the user's language. Keep it under 8 words.",
         },
         {
           role: "user",
@@ -5327,13 +7593,20 @@ function cleanChatTitle(value: string): string {
     .slice(0, 48);
 }
 
-function toChatCompletionMessages(messages: readonly ThreadMessage[], systemPrompt: string): ChatCompletionMessageParam[] {
+function toChatCompletionMessages(
+  messages: readonly ThreadMessage[],
+  systemPrompt: string,
+): ChatCompletionMessageParam[] {
   const result: ChatCompletionMessageParam[] = [];
   if (systemPrompt.trim() !== "") {
     result.push({ role: "system", content: systemPrompt.trim() });
   }
   for (const message of messages) {
-    if (message.role !== "user" && message.role !== "assistant" && message.role !== "system") {
+    if (
+      message.role !== "user" &&
+      message.role !== "assistant" &&
+      message.role !== "system"
+    ) {
       continue;
     }
     const content = threadMessageText(message);
@@ -5355,21 +7628,14 @@ function formatDate(value: number | string | undefined | null): string {
   if (value == null || value === "") {
     return "-";
   }
-  const date = typeof value === "number" ? new Date(value < 10_000_000_000 ? value * 1000 : value) : new Date(value);
+  const date =
+    typeof value === "number"
+      ? new Date(value < 10_000_000_000 ? value * 1000 : value)
+      : new Date(value);
   if (Number.isNaN(date.getTime())) {
     return String(value);
   }
   return date.toLocaleString();
-}
-
-function formatDuration(value: number | undefined | null): string {
-  if (value == null || !Number.isFinite(value)) {
-    return "-";
-  }
-  if (value < 1000) {
-    return `${Math.round(value)}ms`;
-  }
-  return `${(value / 1000).toFixed(1)}s`;
 }
 
 function formatBytes(value: number | undefined | null): string {

@@ -4,8 +4,11 @@ import { hkdf } from "@noble/hashes/hkdf.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 
 const signalingPath = "/webrtc/v1/offer";
-const base58Alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-const base58Map = new Map([...base58Alphabet].map((char, index) => [char, index]));
+const base58Alphabet =
+  "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+const base58Map = new Map(
+  [...base58Alphabet].map((char, index) => [char, index]),
+);
 
 export type GiznetSignalingIdentity = {
   clientPrivateKey: Uint8Array;
@@ -25,7 +28,10 @@ export async function prepareEncryptedGiznetWebRTCOffer(
   identity: GiznetSignalingIdentity,
   offerSDP: string,
 ): Promise<PreparedGiznetWebRTCOffer> {
-  const clientPrivateKey = expectKeyBytes(identity.clientPrivateKey, "client private key");
+  const clientPrivateKey = expectKeyBytes(
+    identity.clientPrivateKey,
+    "client private key",
+  );
   const clientPublicKey =
     typeof identity.clientPublicKey === "string"
       ? base58Decode(identity.clientPublicKey)
@@ -33,12 +39,23 @@ export async function prepareEncryptedGiznetWebRTCOffer(
         ? expectKeyBytes(identity.clientPublicKey, "client public key")
         : x25519.getPublicKey(clientPrivateKey);
   const serverPublicKey =
-    typeof identity.serverPublicKey === "string" ? base58Decode(identity.serverPublicKey) : expectKeyBytes(identity.serverPublicKey, "server public key");
+    typeof identity.serverPublicKey === "string"
+      ? base58Decode(identity.serverPublicKey)
+      : expectKeyBytes(identity.serverPublicKey, "server public key");
   const nonce = randomNonce();
   const timestamp = Math.floor(Date.now() / 1000);
-  const keys = deriveSignalingKeys(clientPrivateKey, serverPublicKey, nonce, timestamp);
+  const keys = deriveSignalingKeys(
+    clientPrivateKey,
+    serverPublicKey,
+    nonce,
+    timestamp,
+  );
   const requestAAD = signalingAAD(clientPublicKey, timestamp, nonce, false);
-  const body = chacha20poly1305(keys.requestKey, keys.requestNonce, requestAAD).encrypt(new TextEncoder().encode(offerSDP));
+  const body = chacha20poly1305(
+    keys.requestKey,
+    keys.requestNonce,
+    requestAAD,
+  ).encrypt(new TextEncoder().encode(offerSDP));
 
   return {
     body: new Blob([arrayBufferFromBytes(body)]),
@@ -47,26 +64,73 @@ export async function prepareEncryptedGiznetWebRTCOffer(
     openAnswer: async (encryptedAnswer: Blob) => {
       const encrypted = new Uint8Array(await encryptedAnswer.arrayBuffer());
       const responseAAD = signalingAAD(clientPublicKey, timestamp, nonce, true);
-      const answer = chacha20poly1305(keys.responseKey, keys.responseNonce, responseAAD).decrypt(encrypted);
+      const answer = chacha20poly1305(
+        keys.responseKey,
+        keys.responseNonce,
+        responseAAD,
+      ).decrypt(encrypted);
       return new TextDecoder().decode(answer);
     },
     timestamp,
   };
 }
 
-function deriveSignalingKeys(clientPrivateKey: Uint8Array, serverPublicKey: Uint8Array, nonce: string, timestamp: number) {
+function deriveSignalingKeys(
+  clientPrivateKey: Uint8Array,
+  serverPublicKey: Uint8Array,
+  nonce: string,
+  timestamp: number,
+) {
   const shared = x25519.getSharedSecret(clientPrivateKey, serverPublicKey);
-  const salt = concatBytes([base64URLDecode(nonce), new TextEncoder().encode(String(timestamp))]);
+  const salt = concatBytes([
+    base64URLDecode(nonce),
+    new TextEncoder().encode(String(timestamp)),
+  ]);
   return {
-    requestKey: hkdf(sha256, shared, salt, new TextEncoder().encode("giznet/gizwebrtc/http-signaling/v1 c2s"), 32),
-    requestNonce: hkdf(sha256, shared, salt, new TextEncoder().encode("giznet/gizwebrtc/http-signaling/v1 c2s nonce"), 12),
-    responseKey: hkdf(sha256, shared, salt, new TextEncoder().encode("giznet/gizwebrtc/http-signaling/v1 s2c"), 32),
-    responseNonce: hkdf(sha256, shared, salt, new TextEncoder().encode("giznet/gizwebrtc/http-signaling/v1 s2c nonce"), 12),
+    requestKey: hkdf(
+      sha256,
+      shared,
+      salt,
+      new TextEncoder().encode("giznet/gizwebrtc/http-signaling/v1 c2s"),
+      32,
+    ),
+    requestNonce: hkdf(
+      sha256,
+      shared,
+      salt,
+      new TextEncoder().encode("giznet/gizwebrtc/http-signaling/v1 c2s nonce"),
+      12,
+    ),
+    responseKey: hkdf(
+      sha256,
+      shared,
+      salt,
+      new TextEncoder().encode("giznet/gizwebrtc/http-signaling/v1 s2c"),
+      32,
+    ),
+    responseNonce: hkdf(
+      sha256,
+      shared,
+      salt,
+      new TextEncoder().encode("giznet/gizwebrtc/http-signaling/v1 s2c nonce"),
+      12,
+    ),
   };
 }
 
-function signalingAAD(clientPublicKey: Uint8Array, timestamp: number, nonce: string, answer: boolean): Uint8Array {
-  const parts = ["POST", signalingPath, base58Encode(clientPublicKey), String(timestamp), nonce];
+function signalingAAD(
+  clientPublicKey: Uint8Array,
+  timestamp: number,
+  nonce: string,
+  answer: boolean,
+): Uint8Array {
+  const parts = [
+    "POST",
+    signalingPath,
+    base58Encode(clientPublicKey),
+    String(timestamp),
+    nonce,
+  ];
   if (answer) {
     parts.push("answer");
   }
@@ -132,7 +196,10 @@ export function base64Decode(text: string): Uint8Array {
 }
 
 function base64URLDecode(text: string): Uint8Array {
-  const padded = text.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(text.length / 4) * 4, "=");
+  const padded = text
+    .replace(/-/g, "+")
+    .replace(/_/g, "/")
+    .padEnd(Math.ceil(text.length / 4) * 4, "=");
   return base64Decode(padded);
 }
 
@@ -141,7 +208,10 @@ function base64URLEncode(bytes: Uint8Array): string {
   for (const byte of bytes) {
     binary += String.fromCharCode(byte);
   }
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  return btoa(binary)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
 }
 
 function expectKeyBytes(bytes: Uint8Array, name: string): Uint8Array {

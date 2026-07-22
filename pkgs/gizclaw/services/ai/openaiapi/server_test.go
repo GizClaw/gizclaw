@@ -163,7 +163,7 @@ func TestCreateChatCompletionStreamsGenXText(t *testing.T) {
 		Body: &openaihttp.CreateChatCompletionRequest{
 			Model:  "chat",
 			Stream: &stream,
-			Messages: []map[string]interface{}{
+			Messages: []map[string]any{
 				{"role": "user", "content": "hi"},
 			},
 		},
@@ -230,11 +230,11 @@ func TestCreateChatCompletionNonStreamConvertsOpenAIRequest(t *testing.T) {
 			Model:       "chat",
 			Temperature: &temperature,
 			Thinking:    &openaihttp.ThinkingOptions{Level: &level},
-			Messages: []map[string]interface{}{
+			Messages: []map[string]any{
 				{"role": "system", "content": "be brief"},
-				{"role": "user", "content": []interface{}{
-					map[string]interface{}{"type": "text", "text": "listen"},
-					map[string]interface{}{"type": "input_audio", "input_audio": map[string]interface{}{"data": audio, "format": "wav"}},
+				{"role": "user", "content": []any{
+					map[string]any{"type": "text", "text": "listen"},
+					map[string]any{"type": "input_audio", "input_audio": map[string]any{"data": audio, "format": "wav"}},
 				}},
 				{"role": "assistant", "content": "previous"},
 			},
@@ -258,7 +258,7 @@ func TestCreateChatCompletionPropagatesDenied(t *testing.T) {
 	_, err := srv.CreateChatCompletion(context.Background(), openaihttp.CreateChatCompletionRequestObject{
 		Body: &openaihttp.CreateChatCompletionRequest{
 			Model:    "chat",
-			Messages: []map[string]interface{}{{"role": "user", "content": "hi"}},
+			Messages: []map[string]any{{"role": "user", "content": "hi"}},
 		},
 	})
 	if !errors.Is(err, peergenx.ErrDenied) {
@@ -274,10 +274,10 @@ func TestCreateChatCompletionValidationErrors(t *testing.T) {
 	}{
 		{name: "nil body", srv: &Server{}},
 		{name: "missing model", srv: &Server{}, body: &openaihttp.CreateChatCompletionRequest{}},
-		{name: "unsupported role", srv: &Server{}, body: &openaihttp.CreateChatCompletionRequest{Model: "m", Messages: []map[string]interface{}{{"role": "tool", "content": "x"}}}},
-		{name: "bad content", srv: &Server{}, body: &openaihttp.CreateChatCompletionRequest{Model: "m", Messages: []map[string]interface{}{{"role": "user", "content": 3}}}},
-		{name: "bad audio", srv: &Server{}, body: &openaihttp.CreateChatCompletionRequest{Model: "m", Messages: []map[string]interface{}{{"role": "user", "content": []interface{}{map[string]interface{}{"type": "input_audio", "input_audio": map[string]interface{}{"data": "!", "format": "wav"}}}}}}},
-		{name: "no generator", srv: &Server{}, body: &openaihttp.CreateChatCompletionRequest{Model: "m", Messages: []map[string]interface{}{{"role": "user", "content": "x"}}}},
+		{name: "unsupported role", srv: &Server{}, body: &openaihttp.CreateChatCompletionRequest{Model: "m", Messages: []map[string]any{{"role": "tool", "content": "x"}}}},
+		{name: "bad content", srv: &Server{}, body: &openaihttp.CreateChatCompletionRequest{Model: "m", Messages: []map[string]any{{"role": "user", "content": 3}}}},
+		{name: "bad audio", srv: &Server{}, body: &openaihttp.CreateChatCompletionRequest{Model: "m", Messages: []map[string]any{{"role": "user", "content": []any{map[string]any{"type": "input_audio", "input_audio": map[string]any{"data": "!", "format": "wav"}}}}}}},
+		{name: "no generator", srv: &Server{}, body: &openaihttp.CreateChatCompletionRequest{Model: "m", Messages: []map[string]any{{"role": "user", "content": "x"}}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

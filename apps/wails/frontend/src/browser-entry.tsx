@@ -19,36 +19,107 @@ function BrowserSurface() {
       return;
     }
     const token = new URLSearchParams(window.location.search).get("token");
-    if (!token) { setError("This Desktop runtime URL is missing its token."); return; }
+    if (!token) {
+      setError("This Desktop runtime URL is missing its token.");
+      return;
+    }
     fetch("/__gizclaw/runtime", {
       method: "POST",
       cache: "no-store",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token }),
-    }).then(async (response) => {
-      if (!response.ok) throw new Error(await response.text());
-      return response.json() as Promise<RuntimeContext>;
-    }).then((next) => {
-      setRuntime(next);
-    }).catch((reason) => setError(reason instanceof Error ? reason.message : String(reason)));
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(await response.text());
+        return response.json() as Promise<RuntimeContext>;
+      })
+      .then((next) => {
+        setRuntime(next);
+      })
+      .catch((reason) =>
+        setError(reason instanceof Error ? reason.message : String(reason)),
+      );
   }, []);
-  if (error) return <div className="browser-launch-state"><h1>Unable to open {surface === "admin" ? "Admin" : "Play"}</h1><p>{error}</p></div>;
-  if (!runtime) return <div className="browser-launch-state"><span className="browser-spinner" /><h1>Opening {surface === "admin" ? "Admin" : "Play"}</h1><p>Loading the local Desktop runtime…</p></div>;
-  const close = async () => { window.close(); };
-  return surface === "admin" ? <AdminBrowserSurface handoff={runtime} onClose={close} /> : <PlayFullHome onSignOut={close} runtime={runtime} />;
+  if (error)
+    return (
+      <div className="browser-launch-state">
+        <h1>Unable to open {surface === "admin" ? "Admin" : "Play"}</h1>
+        <p>{error}</p>
+      </div>
+    );
+  if (!runtime)
+    return (
+      <div className="browser-launch-state">
+        <span className="browser-spinner" />
+        <h1>Opening {surface === "admin" ? "Admin" : "Play"}</h1>
+        <p>Loading the local Desktop runtime…</p>
+      </div>
+    );
+  const close = async () => {
+    window.close();
+  };
+  return surface === "admin" ? (
+    <AdminBrowserSurface handoff={runtime} onClose={close} />
+  ) : (
+    <PlayFullHome onSignOut={close} runtime={runtime} />
+  );
 }
 
-function AdminBrowserSurface({ handoff, onClose }: { handoff: RuntimeContext; onClose(): Promise<void> }) {
+function AdminBrowserSurface({
+  handoff,
+  onClose,
+}: {
+  handoff: RuntimeContext;
+  onClose(): Promise<void>;
+}) {
   const options = handoff.admin_servers ?? [];
-  const initial = options.find((option) => option.id === handoff.admin_server_id) ?? options.find((option) => option.context.endpoint === handoff.context?.endpoint);
-  const [selectedID, setSelectedID] = useState(initial?.id ?? options[0]?.id ?? "");
+  const initial =
+    options.find((option) => option.id === handoff.admin_server_id) ??
+    options.find(
+      (option) => option.context.endpoint === handoff.context?.endpoint,
+    );
+  const [selectedID, setSelectedID] = useState(
+    initial?.id ?? options[0]?.id ?? "",
+  );
   const selected = options.find((option) => option.id === selectedID);
-  const runtime: RuntimeContext = selected ? { context: selected.context, private_key_base64: selected.private_key_base64 } : handoff;
-  return <><AdminFullHome key={selectedID || runtime.context?.endpoint} onSignOut={onClose} runtime={runtime} />{options.length > 1 ? <label className="admin-server-switch"><span>Server</span><select onChange={(event) => setSelectedID(event.target.value)} value={selectedID}>{options.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}</select></label> : null}</>;
+  const runtime: RuntimeContext = selected
+    ? {
+        context: selected.context,
+        private_key_base64: selected.private_key_base64,
+      }
+    : handoff;
+  return (
+    <>
+      <AdminFullHome
+        key={selectedID || runtime.context?.endpoint}
+        onSignOut={onClose}
+        runtime={runtime}
+      />
+      {options.length > 1 ? (
+        <label className="admin-server-switch">
+          <span>Server</span>
+          <select
+            onChange={(event) => setSelectedID(event.target.value)}
+            value={selectedID}
+          >
+            {options.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
+    </>
+  );
 }
 
-createRoot(root).render(<React.StrictMode><BrowserSurface /></React.StrictMode>);
+createRoot(root).render(
+  <React.StrictMode>
+    <BrowserSurface />
+  </React.StrictMode>,
+);
 
 declare global {
   interface Window {

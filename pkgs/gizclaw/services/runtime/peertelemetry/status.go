@@ -116,7 +116,7 @@ func telemetryStatusFieldTime(status apitypes.PeerStatus, fieldKey string) (time
 		return time.Time{}, false
 	}
 	raw := (*status.Details)[telemetryStatusDetailsKey]
-	fields, ok := raw.(map[string]interface{})
+	fields, ok := raw.(map[string]any)
 	if !ok {
 		return time.Time{}, false
 	}
@@ -127,7 +127,7 @@ func telemetryStatusFieldTime(status apitypes.PeerStatus, fieldKey string) (time
 	return time.UnixMilli(unixMS).UTC(), true
 }
 
-func telemetryStatusUnixMS(value interface{}) (int64, bool) {
+func telemetryStatusUnixMS(value any) (int64, bool) {
 	switch v := value.(type) {
 	case int64:
 		return v, true
@@ -157,14 +157,14 @@ func setTelemetryStatusFieldTime(status *apitypes.PeerStatus, fieldKey string, f
 	if fieldAt.IsZero() {
 		return
 	}
-	details := map[string]interface{}{}
+	details := map[string]any{}
 	if status.Details != nil && *status.Details != nil {
 		for k, v := range *status.Details {
 			details[k] = v
 		}
 	}
-	fields := map[string]interface{}{}
-	if raw, ok := details[telemetryStatusDetailsKey].(map[string]interface{}); ok {
+	fields := map[string]any{}
+	if raw, ok := details[telemetryStatusDetailsKey].(map[string]any); ok {
 		for k, v := range raw {
 			fields[k] = v
 		}

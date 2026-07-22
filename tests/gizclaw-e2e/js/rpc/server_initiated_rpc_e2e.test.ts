@@ -18,17 +18,30 @@ async function main(): Promise<void> {
     stderr += chunk;
   });
   const lines = new LineReader(probe.stdout);
-  const exit = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((resolve) => {
+  const exit = new Promise<{
+    code: number | null;
+    signal: NodeJS.Signals | null;
+  }>((resolve) => {
     probe.once("exit", (code, signal) => resolve({ code, signal }));
   });
   let pc: wrtc.RTCPeerConnection | undefined;
   try {
-    const ready = JSON.parse(await nextProbeLine(lines, exit, () => stderr)) as { endpoint?: string; public_key?: string };
+    const ready = JSON.parse(
+      await nextProbeLine(lines, exit, () => stderr),
+    ) as { endpoint?: string; public_key?: string };
     assert.equal(typeof ready.endpoint, "string");
     assert.equal(typeof ready.public_key, "string");
 
-    for (const name of ["ping", "zero", "upload-only", "download-only", "full-duplex"]) {
-      const started = JSON.parse(await nextProbeLine(lines, exit, () => stderr)) as { case?: string };
+    for (const name of [
+      "ping",
+      "zero",
+      "upload-only",
+      "download-only",
+      "full-duplex",
+    ]) {
+      const started = JSON.parse(
+        await nextProbeLine(lines, exit, () => stderr),
+      ) as { case?: string };
       assert.equal(started.case, name);
       pc = new wrtc.RTCPeerConnection();
       await connectGiznetWebRTCFromEndpoint({
@@ -36,16 +49,24 @@ async function main(): Promise<void> {
         endpoint: ready.endpoint,
         pc: pc as unknown as RTCPeerConnection,
       });
-      const completed = JSON.parse(await nextProbeLine(lines, exit, () => stderr)) as { case?: string; ok?: boolean };
+      const completed = JSON.parse(
+        await nextProbeLine(lines, exit, () => stderr),
+      ) as { case?: string; ok?: boolean };
       assert.deepEqual(completed, { case: name, ok: true });
       closePeerConnection(pc);
       pc = undefined;
     }
 
-    const result = JSON.parse(await nextProbeLine(lines, exit, () => stderr)) as { ok?: boolean };
+    const result = JSON.parse(
+      await nextProbeLine(lines, exit, () => stderr),
+    ) as { ok?: boolean };
     assert.equal(result.ok, true);
     const status = await exit;
-    assert.equal(status.code, 0, `server RPC probe failed (${status.signal ?? status.code}): ${stderr}`);
+    assert.equal(
+      status.code,
+      0,
+      `server RPC probe failed (${status.signal ?? status.code}): ${stderr}`,
+    );
   } finally {
     if (pc != null) {
       closePeerConnection(pc);
@@ -65,7 +86,9 @@ async function nextProbeLine(
   return Promise.race([
     lines.next(30_000),
     exit.then((status) => {
-      throw new Error(`server RPC probe exited before completing (${status.signal ?? status.code}): ${stderr()}`);
+      throw new Error(
+        `server RPC probe exited before completing (${status.signal ?? status.code}): ${stderr()}`,
+      );
     }),
   ]);
 }
@@ -108,7 +131,15 @@ class LineReader {
       this.waiters.push(resolve);
     });
     const timeout = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => reject(new Error(`server RPC probe did not produce output within ${timeoutMs}ms`)), timeoutMs);
+      timer = setTimeout(
+        () =>
+          reject(
+            new Error(
+              `server RPC probe did not produce output within ${timeoutMs}ms`,
+            ),
+          ),
+        timeoutMs,
+      );
     });
     try {
       return await Promise.race([line, timeout]);
@@ -128,7 +159,9 @@ class LineReader {
 
 main().then(
   () => {
-    console.log("ok - Node WebRTC SDK serves server-initiated protobuf ping and speed-test RPC");
+    console.log(
+      "ok - Node WebRTC SDK serves server-initiated protobuf ping and speed-test RPC",
+    );
     process.exit(0);
   },
   (err: unknown) => {

@@ -1,14 +1,25 @@
 import { ChevronRight, Home } from "lucide-react";
 import { Link } from "react-router-dom";
 
-import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 
 export type BreadcrumbEntry = {
   href?: string;
   label: string;
 };
 
-export function PageBreadcrumb({ items }: { items: BreadcrumbEntry[] }): JSX.Element {
+export function PageBreadcrumb({
+  items,
+}: {
+  items: BreadcrumbEntry[];
+}): JSX.Element {
   return (
     <Breadcrumb>
       <BreadcrumbList>

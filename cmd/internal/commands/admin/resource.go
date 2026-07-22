@@ -409,7 +409,7 @@ func parseNamedResourceArgs(args []string) (apitypes.ResourceKind, string, error
 	return kind, name, nil
 }
 
-func resourceResponseError(status int, body []byte, errs ...interface{}) error {
+func resourceResponseError(status int, body []byte, errs ...any) error {
 	for _, errResp := range errs {
 		switch e := errResp.(type) {
 		case *apitypes.ErrorResponse:

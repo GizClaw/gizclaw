@@ -63,7 +63,11 @@
 
   body {
     background:
-      radial-gradient(circle at top left, rgba(59, 130, 246, 0.12), transparent 26rem),
+      radial-gradient(
+        circle at top left,
+        rgba(59, 130, 246, 0.12),
+        transparent 26rem
+      ),
       linear-gradient(180deg, #fafafa 0%, #f8fafc 100%);
     color: hsl(var(--foreground));
     font-family:

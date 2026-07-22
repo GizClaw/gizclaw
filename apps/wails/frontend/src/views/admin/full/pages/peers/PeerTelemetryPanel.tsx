@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { Activity, BatteryCharging, Cpu, MapPinned, Radio, RefreshCw, Route, Sigma } from "lucide-react";
+import {
+  Activity,
+  BatteryCharging,
+  Cpu,
+  MapPinned,
+  Radio,
+  RefreshCw,
+  Route,
+  Sigma,
+} from "lucide-react";
 import maplibregl from "maplibre-gl";
 import type { StyleSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -9,10 +18,29 @@ import { expectData, toMessage } from "@/dashboard";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 import {
   aggregatePeerTelemetry,
@@ -61,7 +89,11 @@ const latestFields: PeerTelemetryField[] = [
   "system.temperature_c",
 ];
 
-const fieldOptions: Array<{ label: string; value: PeerTelemetryField; unit: string }> = [
+const fieldOptions: Array<{
+  label: string;
+  value: PeerTelemetryField;
+  unit: string;
+}> = [
   { label: "Battery percent", value: "battery.percent", unit: "%" },
   { label: "Battery voltage", value: "battery.voltage_mv", unit: "mV" },
   { label: "GNSS latitude", value: "gnss.latitude", unit: "" },
@@ -76,12 +108,34 @@ const fieldOptions: Array<{ label: string; value: PeerTelemetryField; unit: stri
 ];
 
 const windowOptions: WindowOption[] = [
-  { label: "6h", ms: 6 * 60 * 60 * 1000, stepMs: 2 * 60 * 1000, bucketMs: 30 * 60 * 1000 },
-  { label: "24h", ms: 24 * 60 * 60 * 1000, stepMs: 10 * 60 * 1000, bucketMs: 2 * 60 * 60 * 1000 },
-  { label: "7d", ms: 7 * 24 * 60 * 60 * 1000, stepMs: 60 * 60 * 1000, bucketMs: 12 * 60 * 60 * 1000 },
+  {
+    label: "6h",
+    ms: 6 * 60 * 60 * 1000,
+    stepMs: 2 * 60 * 1000,
+    bucketMs: 30 * 60 * 1000,
+  },
+  {
+    label: "24h",
+    ms: 24 * 60 * 60 * 1000,
+    stepMs: 10 * 60 * 1000,
+    bucketMs: 2 * 60 * 60 * 1000,
+  },
+  {
+    label: "7d",
+    ms: 7 * 24 * 60 * 60 * 1000,
+    stepMs: 60 * 60 * 1000,
+    bucketMs: 12 * 60 * 60 * 1000,
+  },
 ];
 
-const aggregateOptions: PeerTelemetryAggregate[] = ["avg", "min", "max", "sum", "count", "last"];
+const aggregateOptions: PeerTelemetryAggregate[] = [
+  "avg",
+  "min",
+  "max",
+  "sum",
+  "count",
+  "last",
+];
 
 const offlineRouteMapStyle: StyleSpecification = {
   version: 8,
@@ -95,17 +149,33 @@ const offlineRouteMapStyle: StyleSpecification = {
   ],
 };
 
-export function PeerTelemetryPanel({ publicKey }: { publicKey: string }): JSX.Element {
+export function PeerTelemetryPanel({
+  publicKey,
+}: {
+  publicKey: string;
+}): JSX.Element {
   const [field, setField] = useState<PeerTelemetryField>("battery.percent");
   const [windowMs, setWindowMs] = useState(windowOptions[1].ms);
   const [aggregate, setAggregate] = useState<PeerTelemetryAggregate>("avg");
-  const [state, setState] = useState<TelemetryState>({ aggregate: [], history: [], latest: [], route: [] });
+  const [state, setState] = useState<TelemetryState>({
+    aggregate: [],
+    history: [],
+    latest: [],
+    route: [],
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const loadSequenceRef = useRef(0);
 
-  const selectedWindow = useMemo(() => windowOptions.find((item) => item.ms === windowMs) ?? windowOptions[1], [windowMs]);
-  const selectedField = useMemo(() => fieldOptions.find((item) => item.value === field) ?? fieldOptions[0], [field]);
+  const selectedWindow = useMemo(
+    () =>
+      windowOptions.find((item) => item.ms === windowMs) ?? windowOptions[1],
+    [windowMs],
+  );
+  const selectedField = useMemo(
+    () => fieldOptions.find((item) => item.value === field) ?? fieldOptions[0],
+    [field],
+  );
 
   const load = useCallback(async () => {
     const loadSequence = loadSequenceRef.current + 1;
@@ -116,7 +186,12 @@ export function PeerTelemetryPanel({ publicKey }: { publicKey: string }): JSX.El
     setError("");
     try {
       const [latest, history, lat, lng] = await Promise.all([
-        expectData(getPeerTelemetryLatest({ path: { publicKey }, query: { fields: latestFields.join(",") } })),
+        expectData(
+          getPeerTelemetryLatest({
+            path: { publicKey },
+            query: { fields: latestFields.join(",") },
+          }),
+        ),
         expectData(
           queryPeerTelemetry({
             path: { publicKey },
@@ -201,7 +276,10 @@ export function PeerTelemetryPanel({ publicKey }: { publicKey: string }): JSX.El
     void load();
   }, [load]);
 
-  const latestByField = useMemo(() => new Map(state.latest.map((value) => [value.field, value])), [state.latest]);
+  const latestByField = useMemo(
+    () => new Map(state.latest.map((value) => [value.field, value])),
+    [state.latest],
+  );
 
   return (
     <div className="space-y-4">
@@ -215,7 +293,10 @@ export function PeerTelemetryPanel({ publicKey }: { publicKey: string }): JSX.El
 
       <div className="flex flex-col gap-3 rounded-lg border bg-card p-3 md:flex-row md:items-center md:justify-between">
         <div className="grid gap-2 sm:grid-cols-[14rem_8rem_9rem]">
-          <Select onValueChange={(value) => setField(value as PeerTelemetryField)} value={field}>
+          <Select
+            onValueChange={(value) => setField(value as PeerTelemetryField)}
+            value={field}
+          >
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
@@ -227,7 +308,10 @@ export function PeerTelemetryPanel({ publicKey }: { publicKey: string }): JSX.El
               ))}
             </SelectContent>
           </Select>
-          <Select onValueChange={(value) => setWindowMs(Number(value))} value={String(windowMs)}>
+          <Select
+            onValueChange={(value) => setWindowMs(Number(value))}
+            value={String(windowMs)}
+          >
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
@@ -239,7 +323,12 @@ export function PeerTelemetryPanel({ publicKey }: { publicKey: string }): JSX.El
               ))}
             </SelectContent>
           </Select>
-          <Select onValueChange={(value) => setAggregate(value as PeerTelemetryAggregate)} value={aggregate}>
+          <Select
+            onValueChange={(value) =>
+              setAggregate(value as PeerTelemetryAggregate)
+            }
+            value={aggregate}
+          >
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
@@ -252,7 +341,12 @@ export function PeerTelemetryPanel({ publicKey }: { publicKey: string }): JSX.El
             </SelectContent>
           </Select>
         </div>
-        <Button disabled={loading} onClick={() => void load()} size="sm" variant="outline">
+        <Button
+          disabled={loading}
+          onClick={() => void load()}
+          size="sm"
+          variant="outline"
+        >
           <RefreshCw className="size-4" />
           Reload
         </Button>
@@ -273,7 +367,9 @@ export function PeerTelemetryPanel({ publicKey }: { publicKey: string }): JSX.El
                   <Activity className="size-4" />
                   Latest
                 </CardTitle>
-                <CardDescription>{formatLatestTime(state.latest)}</CardDescription>
+                <CardDescription>
+                  {formatLatestTime(state.latest)}
+                </CardDescription>
               </CardHeader>
               <CardContent className="grid gap-3 sm:grid-cols-2">
                 <LatestGroup
@@ -307,8 +403,16 @@ export function PeerTelemetryPanel({ publicKey }: { publicKey: string }): JSX.El
                   icon={<Cpu className="size-4" />}
                   items={[
                     ["Uptime", latestByField.get("system.uptime_seconds"), "s"],
-                    ["Free memory", latestByField.get("system.free_memory_bytes"), "B"],
-                    ["Temperature", latestByField.get("system.temperature_c"), "C"],
+                    [
+                      "Free memory",
+                      latestByField.get("system.free_memory_bytes"),
+                      "B",
+                    ],
+                    [
+                      "Temperature",
+                      latestByField.get("system.temperature_c"),
+                      "C",
+                    ],
                   ]}
                   title="System"
                 />
@@ -321,7 +425,11 @@ export function PeerTelemetryPanel({ publicKey }: { publicKey: string }): JSX.El
                   <Route className="size-4" />
                   Trajectory
                 </CardTitle>
-                <CardDescription>{state.route.length === 0 ? "No GNSS points" : `${state.route.length} points`}</CardDescription>
+                <CardDescription>
+                  {state.route.length === 0
+                    ? "No GNSS points"
+                    : `${state.route.length} points`}
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <TelemetryRouteMap points={state.route} />
@@ -332,11 +440,19 @@ export function PeerTelemetryPanel({ publicKey }: { publicKey: string }): JSX.El
           <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">{selectedField.label}</CardTitle>
-                <CardDescription>{state.history.length} sampled points</CardDescription>
+                <CardTitle className="text-base">
+                  {selectedField.label}
+                </CardTitle>
+                <CardDescription>
+                  {state.history.length} sampled points
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                <TelemetrySparkline field={selectedField.value} points={state.history} unit={selectedField.unit} />
+                <TelemetrySparkline
+                  field={selectedField.value}
+                  points={state.history}
+                  unit={selectedField.unit}
+                />
               </CardContent>
             </Card>
 
@@ -351,7 +467,12 @@ export function PeerTelemetryPanel({ publicKey }: { publicKey: string }): JSX.El
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <AggregateTable aggregate={aggregate} field={selectedField.value} points={state.aggregate} unit={selectedField.unit} />
+                <AggregateTable
+                  aggregate={aggregate}
+                  field={selectedField.value}
+                  points={state.aggregate}
+                  unit={selectedField.unit}
+                />
               </CardContent>
             </Card>
           </div>
@@ -367,7 +488,9 @@ function LatestGroup({
   title,
 }: {
   icon: ReactNode;
-  items: Array<[label: string, value: PeerTelemetryValue | undefined, unit: string]>;
+  items: Array<
+    [label: string, value: PeerTelemetryValue | undefined, unit: string]
+  >;
   title: string;
 }): JSX.Element {
   return (
@@ -377,13 +500,20 @@ function LatestGroup({
           {icon}
           {title}
         </div>
-        <Badge variant="outline">{items.filter(([, value]) => value !== undefined).length}</Badge>
+        <Badge variant="outline">
+          {items.filter(([, value]) => value !== undefined).length}
+        </Badge>
       </div>
       <dl className="space-y-2">
         {items.map(([label, value, unit]) => (
-          <div className="flex min-w-0 items-baseline justify-between gap-3" key={label}>
+          <div
+            className="flex min-w-0 items-baseline justify-between gap-3"
+            key={label}
+          >
             <dt className="truncate text-xs text-muted-foreground">{label}</dt>
-            <dd className="min-w-fit text-right font-mono text-sm">{formatTelemetryValue(value, unit)}</dd>
+            <dd className="min-w-fit text-right font-mono text-sm">
+              {formatTelemetryValue(value, unit)}
+            </dd>
           </div>
         ))}
       </dl>
@@ -391,30 +521,63 @@ function LatestGroup({
   );
 }
 
-function TelemetrySparkline({ field, points, unit }: { field: PeerTelemetryField; points: PeerTelemetryPoint[]; unit: string }): JSX.Element {
+function TelemetrySparkline({
+  field,
+  points,
+  unit,
+}: {
+  field: PeerTelemetryField;
+  points: PeerTelemetryPoint[];
+  unit: string;
+}): JSX.Element {
   const path = useMemo(() => sparklinePath(points), [points]);
   const latest = points.at(-1);
   const min = minValue(points);
   const max = maxValue(points);
   if (points.length === 0) {
-    return <div className="flex h-64 items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">No points</div>;
+    return (
+      <div className="flex h-64 items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
+        No points
+      </div>
+    );
   }
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-3 gap-2">
-        <MetricPill label="Latest" value={formatNumber(latest?.value, unit, field)} />
+        <MetricPill
+          label="Latest"
+          value={formatNumber(latest?.value, unit, field)}
+        />
         <MetricPill label="Min" value={formatNumber(min, unit, field)} />
         <MetricPill label="Max" value={formatNumber(max, unit, field)} />
       </div>
-      <svg className="h-56 w-full rounded-lg border bg-background" preserveAspectRatio="none" viewBox="0 0 100 100">
+      <svg
+        className="h-56 w-full rounded-lg border bg-background"
+        preserveAspectRatio="none"
+        viewBox="0 0 100 100"
+      >
         <path d={path.area} fill="rgba(16, 185, 129, 0.12)" />
-        <path d={path.line} fill="none" stroke="rgb(13, 148, 136)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+        <path
+          d={path.line}
+          fill="none"
+          stroke="rgb(13, 148, 136)"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="2"
+          vectorEffect="non-scaling-stroke"
+        />
       </svg>
     </div>
   );
 }
 
-function MetricPill({ label, value }: { label: string; value: string }): JSX.Element {
+function MetricPill({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}): JSX.Element {
   return (
     <div className="rounded-lg border bg-muted/20 px-3 py-2">
       <div className="text-xs text-muted-foreground">{label}</div>
@@ -450,7 +613,10 @@ function TelemetryRouteMap({ points }: { points: RoutePoint[] }): JSX.Element {
       setMapError("Map unavailable");
       return;
     }
-    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+    map.addControl(
+      new maplibregl.NavigationControl({ showCompass: false }),
+      "top-right",
+    );
     map.on("error", () => setMapError("Map rendering unavailable"));
     map.on("load", () => {
       const coordinates = points.map((point) => [point.lng, point.lat]);
@@ -467,7 +633,11 @@ function TelemetryRouteMap({ points }: { points: RoutePoint[] }): JSX.Element {
           id: "telemetry-route-line",
           type: "line",
           source: "telemetry-route",
-          paint: { "line-color": "#0f766e", "line-width": 3, "line-opacity": 0.9 },
+          paint: {
+            "line-color": "#0f766e",
+            "line-width": 3,
+            "line-opacity": 0.9,
+          },
         });
       }
       map.addSource("telemetry-route-points", {
@@ -485,10 +655,18 @@ function TelemetryRouteMap({ points }: { points: RoutePoint[] }): JSX.Element {
         id: "telemetry-route-points",
         type: "circle",
         source: "telemetry-route-points",
-        paint: { "circle-color": "#f97316", "circle-radius": 4, "circle-stroke-color": "#ffffff", "circle-stroke-width": 1 },
+        paint: {
+          "circle-color": "#f97316",
+          "circle-radius": 4,
+          "circle-stroke-color": "#ffffff",
+          "circle-stroke-width": 1,
+        },
       });
       if (points.length > 1) {
-        const bounds = new maplibregl.LngLatBounds([points[0].lng, points[0].lat], [points[0].lng, points[0].lat]);
+        const bounds = new maplibregl.LngLatBounds(
+          [points[0].lng, points[0].lat],
+          [points[0].lng, points[0].lat],
+        );
         points.forEach((point) => bounds.extend([point.lng, point.lat]));
         map.fitBounds(bounds, { padding: 36, maxZoom: 15, duration: 0 });
       }
@@ -497,7 +675,11 @@ function TelemetryRouteMap({ points }: { points: RoutePoint[] }): JSX.Element {
   }, [points]);
 
   if (points.length === 0) {
-    return <div className="flex h-64 items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">No route</div>;
+    return (
+      <div className="flex h-64 items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
+        No route
+      </div>
+    );
   }
   return (
     <div className="relative h-64 overflow-hidden rounded-lg border">
@@ -506,7 +688,9 @@ function TelemetryRouteMap({ points }: { points: RoutePoint[] }): JSX.Element {
         <div className="absolute inset-0 grid place-items-center bg-background/85 p-4 text-center text-sm text-muted-foreground">
           <div>
             <div className="font-medium text-foreground">{mapError}</div>
-            <div className="mt-1 font-mono text-xs">{formatLatLng(points.at(-1))}</div>
+            <div className="mt-1 font-mono text-xs">
+              {formatLatLng(points.at(-1))}
+            </div>
           </div>
         </div>
       ) : null}
@@ -526,7 +710,11 @@ function AggregateTable({
   unit: string;
 }): JSX.Element {
   if (points.length === 0) {
-    return <div className="flex h-64 items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">No buckets</div>;
+    return (
+      <div className="flex h-64 items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
+        No buckets
+      </div>
+    );
   }
   const valueUnit = aggregate === "count" ? "" : unit;
   const valueField = aggregate === "count" ? undefined : field;
@@ -540,20 +728,32 @@ function AggregateTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {points.slice(-12).reverse().map((point) => (
-            <TableRow key={point.bucket_start_time_ms}>
-              <TableCell>{formatDateTime(point.bucket_start_time_ms)}</TableCell>
-              <TableCell className="text-right font-mono">{formatNumber(point.value, valueUnit, valueField)}</TableCell>
-            </TableRow>
-          ))}
+          {points
+            .slice(-12)
+            .reverse()
+            .map((point) => (
+              <TableRow key={point.bucket_start_time_ms}>
+                <TableCell>
+                  {formatDateTime(point.bucket_start_time_ms)}
+                </TableCell>
+                <TableCell className="text-right font-mono">
+                  {formatNumber(point.value, valueUnit, valueField)}
+                </TableCell>
+              </TableRow>
+            ))}
         </TableBody>
       </Table>
     </div>
   );
 }
 
-function pairRoute(latPoints: PeerTelemetryPoint[], lngPoints: PeerTelemetryPoint[]): RoutePoint[] {
-  const longitudes = new Map(lngPoints.map((point) => [point.observed_at_unix_ms, point.value]));
+function pairRoute(
+  latPoints: PeerTelemetryPoint[],
+  lngPoints: PeerTelemetryPoint[],
+): RoutePoint[] {
+  const longitudes = new Map(
+    lngPoints.map((point) => [point.observed_at_unix_ms, point.value]),
+  );
   return latPoints
     .flatMap((latPoint) => {
       const lng = longitudes.get(latPoint.observed_at_unix_ms);
@@ -566,10 +766,20 @@ function pairRoute(latPoints: PeerTelemetryPoint[], lngPoints: PeerTelemetryPoin
 }
 
 function validLatLng(lat: number, lng: number): boolean {
-  return Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+  return (
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lng >= -180 &&
+    lng <= 180
+  );
 }
 
-function sparklinePath(points: PeerTelemetryPoint[]): { area: string; line: string } {
+function sparklinePath(points: PeerTelemetryPoint[]): {
+  area: string;
+  line: string;
+} {
   if (points.length === 0) {
     return { area: "", line: "" };
   }
@@ -581,30 +791,53 @@ function sparklinePath(points: PeerTelemetryPoint[]): { area: string; line: stri
     const y = 92 - ((point.value - min) / span) * 84;
     return [x, y] as const;
   });
-  const line = mapped.map(([x, y], index) => `${index === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`).join(" ");
+  const line = mapped
+    .map(
+      ([x, y], index) =>
+        `${index === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`,
+    )
+    .join(" ");
   const area = `${line} L ${mapped.at(-1)?.[0].toFixed(2) ?? "100"} 96 L ${mapped[0]?.[0].toFixed(2) ?? "0"} 96 Z`;
   return { area, line };
 }
 
 function minValue(points: PeerTelemetryPoint[]): number | undefined {
-  return points.reduce<number | undefined>((min, point) => (min === undefined || point.value < min ? point.value : min), undefined);
+  return points.reduce<number | undefined>(
+    (min, point) =>
+      min === undefined || point.value < min ? point.value : min,
+    undefined,
+  );
 }
 
 function maxValue(points: PeerTelemetryPoint[]): number | undefined {
-  return points.reduce<number | undefined>((max, point) => (max === undefined || point.value > max ? point.value : max), undefined);
+  return points.reduce<number | undefined>(
+    (max, point) =>
+      max === undefined || point.value > max ? point.value : max,
+    undefined,
+  );
 }
 
-function formatTelemetryValue(value: PeerTelemetryValue | undefined, unit: string): string {
+function formatTelemetryValue(
+  value: PeerTelemetryValue | undefined,
+  unit: string,
+): string {
   if (value === undefined) {
     return "-";
   }
-  if (value.field === "battery.charging" || value.field === "network.connected") {
+  if (
+    value.field === "battery.charging" ||
+    value.field === "network.connected"
+  ) {
     return value.value > 0 ? "Yes" : "No";
   }
   return formatNumber(value.value, unit, value.field);
 }
 
-function formatNumber(value: number | undefined, unit: string, field?: PeerTelemetryField): string {
+function formatNumber(
+  value: number | undefined,
+  unit: string,
+  field?: PeerTelemetryField,
+): string {
   if (value === undefined || !Number.isFinite(value)) {
     return "-";
   }
@@ -615,7 +848,8 @@ function formatNumber(value: number | undefined, unit: string, field?: PeerTelem
     return formatBytes(value);
   }
   const abs = Math.abs(value);
-  const precision = abs >= 100 || Number.isInteger(value) ? 0 : abs >= 10 ? 1 : 2;
+  const precision =
+    abs >= 100 || Number.isInteger(value) ? 0 : abs >= 10 ? 1 : 2;
   const suffix = unit === "" ? "" : ` ${unit}`;
   return `${value.toFixed(precision)}${suffix}`;
 }
@@ -642,8 +876,16 @@ function formatDateTime(ms: number | undefined): string {
 }
 
 function formatLatestTime(values: PeerTelemetryValue[]): string {
-  const latest = values.reduce<number | undefined>((max, item) => (max === undefined || item.observed_at_unix_ms > max ? item.observed_at_unix_ms : max), undefined);
-  return latest === undefined ? "No latest values" : `Updated ${formatDateTime(latest)}`;
+  const latest = values.reduce<number | undefined>(
+    (max, item) =>
+      max === undefined || item.observed_at_unix_ms > max
+        ? item.observed_at_unix_ms
+        : max,
+    undefined,
+  );
+  return latest === undefined
+    ? "No latest values"
+    : `Updated ${formatDateTime(latest)}`;
 }
 
 function formatLatLng(point: RoutePoint | undefined): string {
@@ -659,5 +901,8 @@ function isCoordinateField(field: PeerTelemetryField): boolean {
 
 function webGLAvailable(): boolean {
   const canvas = document.createElement("canvas");
-  return canvas.getContext("webgl") !== null || canvas.getContext("experimental-webgl") !== null;
+  return (
+    canvas.getContext("webgl") !== null ||
+    canvas.getContext("experimental-webgl") !== null
+  );
 }

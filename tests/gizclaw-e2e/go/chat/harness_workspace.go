@@ -413,7 +413,7 @@ func isRPCNotFound(err error) bool {
 func workflowSpec(cfg config) rpcapi.WorkflowSpec {
 	if cfg.isFlowcraftAgent() {
 		flowcraft := cloneWorkflowMap(cfg.Workflow.Flowcraft)
-		flowcraft["voice_adapter"] = map[string]interface{}{
+		flowcraft["voice_adapter"] = map[string]any{
 			"asr_model":     cfg.Workflow.VoiceAdapter.ASRModel,
 			"default_voice": cfg.Workflow.VoiceAdapter.DefaultVoice,
 			"node_voices":   cfg.Workflow.VoiceAdapter.NodeVoices,
@@ -459,7 +459,7 @@ func workflowSpec(cfg config) rpcapi.WorkflowSpec {
 	}
 }
 
-func cloneWorkflowMap(in map[string]interface{}) rpcapi.FlowcraftWorkflowSpec {
+func cloneWorkflowMap(in map[string]any) rpcapi.FlowcraftWorkflowSpec {
 	out := make(rpcapi.FlowcraftWorkflowSpec, len(in))
 	for key, value := range in {
 		out[key] = value
@@ -842,7 +842,7 @@ func printWorkspaceRuntimeReport(report workspaceRuntimeReport) {
 }
 
 func printInterruptSummary(stat interruptStats) {
-	fmt.Printf("interrupt=%s\n", encodeJSONLine(map[string]interface{}{
+	fmt.Printf("interrupt=%s\n", encodeJSONLine(map[string]any{
 		"round":                      stat.Index,
 		"first_user":                 stat.FirstUser,
 		"second_user":                stat.SecondUser,

@@ -8,14 +8,32 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { expectData } from "@/dashboard";
 import { listCredentials, type Credential } from "@gizclaw/gizclaw/admin";
 
 import { ErrorBanner } from "@/dashboard";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { EmptyState } from "@/dashboard";
 import { PageHeader, PageSummaryCard } from "@/dashboard";
 import { useDashboardCursorPage as useCursorListPage } from "@/dashboard";
@@ -23,9 +41,19 @@ import { formatDate } from "../../lib/format";
 
 export function CredentialsListPage(): JSX.Element {
   const navigate = useNavigate();
-  const [selectedCredential, setSelectedCredential] = useState<Credential | null>(null);
+  const [selectedCredential, setSelectedCredential] =
+    useState<Credential | null>(null);
   const [copiedName, setCopiedName] = useState("");
-  const { error, hasNext, items, loading, nextPage, pageNumber, prevPage, refresh } = useCursorListPage<Credential>(async (query) => {
+  const {
+    error,
+    hasNext,
+    items,
+    loading,
+    nextPage,
+    pageNumber,
+    prevPage,
+    refresh,
+  } = useCursorListPage<Credential>(async (query) => {
     const result = await expectData(listCredentials({ query }));
     return {
       hasNext: result.has_next,
@@ -38,7 +66,10 @@ export function CredentialsListPage(): JSX.Element {
     navigate(`/providers/credentials/${encodeURIComponent(name)}`);
   };
 
-  const handleRowKeyDown = (event: KeyboardEvent<HTMLTableRowElement>, name: string): void => {
+  const handleRowKeyDown = (
+    event: KeyboardEvent<HTMLTableRowElement>,
+    name: string,
+  ): void => {
     if (isInteractiveTarget(event.target)) {
       return;
     }
@@ -49,12 +80,18 @@ export function CredentialsListPage(): JSX.Element {
     openCredential(name);
   };
 
-  const openBodyDialog = (event: MouseEvent<HTMLButtonElement>, credential: Credential): void => {
+  const openBodyDialog = (
+    event: MouseEvent<HTMLButtonElement>,
+    credential: Credential,
+  ): void => {
     event.stopPropagation();
     setSelectedCredential(credential);
   };
 
-  const copyCredentialName = async (event: MouseEvent<HTMLButtonElement>, name: string): Promise<void> => {
+  const copyCredentialName = async (
+    event: MouseEvent<HTMLButtonElement>,
+    name: string,
+  ): Promise<void> => {
     event.stopPropagation();
     await navigator.clipboard.writeText(name);
     setCopiedName(name);
@@ -80,7 +117,10 @@ export function CredentialsListPage(): JSX.Element {
             </DashboardActionButton>
           </>
         }
-        items={[{ href: "/overview", label: "Overview" }, { label: "Credentials" }]}
+        items={[
+          { href: "/overview", label: "Overview" },
+          { label: "Credentials" },
+        ]}
       />
 
       <PageSummaryCard
@@ -102,12 +142,23 @@ export function CredentialsListPage(): JSX.Element {
         <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
           <div className="space-y-1">
             <CardTitle>Credential catalog</CardTitle>
-            <CardDescription>Stored authentication entries keyed by provider and credential body shape.</CardDescription>
+            <CardDescription>
+              Stored authentication entries keyed by provider and credential
+              body shape.
+            </CardDescription>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex justify-end">
-            <DashboardPager canNext={hasNext} canPrevious={pageNumber > 1} loading={loading} onNext={nextPage} onPrevious={prevPage} onRefresh={() => void refresh()} pageIndex={pageNumber} />
+            <DashboardPager
+              canNext={hasNext}
+              canPrevious={pageNumber > 1}
+              loading={loading}
+              onNext={nextPage}
+              onPrevious={prevPage}
+              onRefresh={() => void refresh()}
+              pageIndex={pageNumber}
+            />
           </div>
 
           {loading ? (
@@ -117,132 +168,189 @@ export function CredentialsListPage(): JSX.Element {
               ))}
             </div>
           ) : items.length === 0 ? (
-            <EmptyState description="Credentials will appear here after they are created through the admin API." title="No credentials" />
+            <EmptyState
+              description="Credentials will appear here after they are created through the admin API."
+              title="No credentials"
+            />
           ) : (
             <DashboardTable className="table-fixed">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[24%]">Credential ID</TableHead>
-                    <TableHead className="w-32">Provider</TableHead>
-                    <TableHead className="w-36">Method</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead className="w-28 text-right">Body Keys</TableHead>
-                    <TableHead className="w-40 text-right">Updated</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {items.map((credential) => (
-                    <TableRow
-                      className="cursor-pointer hover:bg-muted/40"
-                      key={credential.name}
-                      onClick={() => openCredential(credential.name)}
-                      onKeyDown={(event) => handleRowKeyDown(event, credential.name)}
-                      role="link"
-                      tabIndex={0}
-                    >
-                      <TableCell className="min-w-0">
-                        <div className="flex min-w-0 items-center gap-1.5">
-                          <button
-                            className="min-w-0 truncate rounded-sm text-left font-medium underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              openCredential(credential.name);
-                            }}
-                            title={credential.name}
-                            type="button"
-                          >
-                            {credential.name}
-                          </button>
-                          <button
-                            aria-label={`Copy credential name ${credential.name}`}
-                            className="shrink-0 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                            onClick={(event) => void copyCredentialName(event, credential.name)}
-                            title="Copy credential name"
-                            type="button"
-                          >
-                            {copiedName === credential.name ? <Check className="size-3 shrink-0 text-emerald-600" /> : <Copy className="size-3 shrink-0" />}
-                          </button>
-                        </div>
-                      </TableCell>
-                      <TableCell className="truncate" title={credential.provider}>{credential.provider}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{credentialAuthSummary(credential)}</Badge>
-                      </TableCell>
-                      <TableCell className="truncate text-sm text-muted-foreground" title={credential.description?.trim() || "—"}>
-                        {credential.description?.trim() || "—"}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          aria-label={`View body keys for ${credential.name}`}
-                          className="h-8 min-w-fit gap-2 px-2 text-xs"
-                          onClick={(event) => openBodyDialog(event, credential)}
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[24%]">Credential ID</TableHead>
+                  <TableHead className="w-32">Provider</TableHead>
+                  <TableHead className="w-36">Method</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead className="w-28 text-right">Body Keys</TableHead>
+                  <TableHead className="w-40 text-right">Updated</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.map((credential) => (
+                  <TableRow
+                    className="cursor-pointer hover:bg-muted/40"
+                    key={credential.name}
+                    onClick={() => openCredential(credential.name)}
+                    onKeyDown={(event) =>
+                      handleRowKeyDown(event, credential.name)
+                    }
+                    role="link"
+                    tabIndex={0}
+                  >
+                    <TableCell className="min-w-0">
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <button
+                          className="min-w-0 truncate rounded-sm text-left font-medium underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openCredential(credential.name);
+                          }}
+                          title={credential.name}
                           type="button"
-                          variant="outline"
                         >
-                          <Eye className="size-3.5" />
-                          {Object.keys(credential.body).length}
-                        </Button>
-                      </TableCell>
-                      <TableCell className="text-right text-sm text-muted-foreground">{formatDate(credential.updated_at)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </DashboardTable>
+                          {credential.name}
+                        </button>
+                        <button
+                          aria-label={`Copy credential name ${credential.name}`}
+                          className="shrink-0 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          onClick={(event) =>
+                            void copyCredentialName(event, credential.name)
+                          }
+                          title="Copy credential name"
+                          type="button"
+                        >
+                          {copiedName === credential.name ? (
+                            <Check className="size-3 shrink-0 text-emerald-600" />
+                          ) : (
+                            <Copy className="size-3 shrink-0" />
+                          )}
+                        </button>
+                      </div>
+                    </TableCell>
+                    <TableCell className="truncate" title={credential.provider}>
+                      {credential.provider}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">
+                        {credentialAuthSummary(credential)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell
+                      className="truncate text-sm text-muted-foreground"
+                      title={credential.description?.trim() || "—"}
+                    >
+                      {credential.description?.trim() || "—"}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        aria-label={`View body keys for ${credential.name}`}
+                        className="h-8 min-w-fit gap-2 px-2 text-xs"
+                        onClick={(event) => openBodyDialog(event, credential)}
+                        type="button"
+                        variant="outline"
+                      >
+                        <Eye className="size-3.5" />
+                        {Object.keys(credential.body).length}
+                      </Button>
+                    </TableCell>
+                    <TableCell className="text-right text-sm text-muted-foreground">
+                      {formatDate(credential.updated_at)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </DashboardTable>
           )}
         </CardContent>
       </Card>
-      {selectedCredential != null ? <CredentialBodyDialog credential={selectedCredential} onClose={() => setSelectedCredential(null)} /> : null}
+      {selectedCredential != null ? (
+        <CredentialBodyDialog
+          credential={selectedCredential}
+          onClose={() => setSelectedCredential(null)}
+        />
+      ) : null}
     </div>
   );
 }
 
-function CredentialBodyDialog({ credential, onClose }: { credential: Credential; onClose: () => void }): JSX.Element {
+function CredentialBodyDialog({
+  credential,
+  onClose,
+}: {
+  credential: Credential;
+  onClose: () => void;
+}): JSX.Element {
   const [revealed, setRevealed] = useState(false);
-  const entries = useMemo(() => Object.entries(credential.body), [credential.body]);
+  const entries = useMemo(
+    () => Object.entries(credential.body),
+    [credential.body],
+  );
 
   return (
-    <Dialog open onOpenChange={(open) => {
-      if (!open) {
-        onClose();
-      }
-    }}>
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) {
+          onClose();
+        }
+      }}
+    >
       <DialogContent className="max-w-3xl">
         <DialogHeader className="pr-10">
-          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Credential body</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Credential body
+          </div>
           <DialogTitle>{credential.name}</DialogTitle>
           <DialogDescription>
             {credential.provider} · {credentialAuthSummary(credential)}
           </DialogDescription>
         </DialogHeader>
         <div className="flex justify-end">
-          <Button className="h-8 gap-2 px-3 text-xs" onClick={() => setRevealed((value) => !value)} type="button" variant="outline">
-            {revealed ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+          <Button
+            className="h-8 gap-2 px-3 text-xs"
+            onClick={() => setRevealed((value) => !value)}
+            type="button"
+            variant="outline"
+          >
+            {revealed ? (
+              <EyeOff className="size-3.5" />
+            ) : (
+              <Eye className="size-3.5" />
+            )}
             {revealed ? "Hide values" : "Show values"}
           </Button>
         </div>
         <div className="max-h-[60vh] overflow-auto p-5">
           {entries.length === 0 ? (
-            <EmptyState description="This credential has an empty body." title="No body keys" />
+            <EmptyState
+              description="This credential has an empty body."
+              title="No body keys"
+            />
           ) : (
             <DashboardTable>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-56">Key</TableHead>
-                    <TableHead>Value</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {entries.map(([key, value]) => {
-                    const formatted = formatCredentialBodyValue(value);
-                    return (
-                      <TableRow key={key}>
-                        <TableCell className="font-mono text-xs font-medium">{key}</TableCell>
-                        <TableCell className="break-all font-mono text-xs">{revealed ? formatted : maskCredentialBodyValue(formatted)}</TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </DashboardTable>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-56">Key</TableHead>
+                  <TableHead>Value</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {entries.map(([key, value]) => {
+                  const formatted = formatCredentialBodyValue(value);
+                  return (
+                    <TableRow key={key}>
+                      <TableCell className="font-mono text-xs font-medium">
+                        {key}
+                      </TableCell>
+                      <TableCell className="break-all font-mono text-xs">
+                        {revealed
+                          ? formatted
+                          : maskCredentialBodyValue(formatted)}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </DashboardTable>
           )}
         </div>
       </DialogContent>
@@ -286,5 +394,8 @@ function maskCredentialBodyValue(value: string): string {
 }
 
 function isInteractiveTarget(target: EventTarget): boolean {
-  return target instanceof Element && target.closest("a,button,input,select,textarea") !== null;
+  return (
+    target instanceof Element &&
+    target.closest("a,button,input,select,textarea") !== null
+  );
 }

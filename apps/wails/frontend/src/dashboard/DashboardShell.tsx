@@ -68,7 +68,9 @@ export function DashboardShell<ID extends string>({
               titleAsHeading={titleAsHeading}
             />
           </DashboardHeaderLayout>
-          <DashboardContentLayout className={contentClassName}>{children}</DashboardContentLayout>
+          <DashboardContentLayout className={contentClassName}>
+            {children}
+          </DashboardContentLayout>
         </DashboardMainLayout>
       </div>
     </DashboardLayout>

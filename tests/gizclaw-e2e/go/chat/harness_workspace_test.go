@@ -351,7 +351,7 @@ func TestWorkflowSpecCoversTypedAgentSpecs(t *testing.T) {
 		Voice:  "voice-a",
 		Models: modelConfig{ASR: "asr-a"},
 		Workflow: workflowConfig{
-			Flowcraft: map[string]interface{}{"agent": map[string]interface{}{"id": "demo"}},
+			Flowcraft: map[string]any{"agent": map[string]any{"id": "demo"}},
 		},
 	})
 	if flowcraft.Driver != rpcapi.WorkflowDriverFlowcraft || flowcraft.Flowcraft == nil {

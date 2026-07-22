@@ -37,10 +37,21 @@ import { FriendGroupDetailPage } from "./pages/social/FriendGroupDetailPage";
 import { FriendGroupsListPage } from "./pages/social/FriendGroupsListPage";
 import { FriendsListPage } from "./pages/social/FriendsListPage";
 
-export function AppRoutes({ contextName, onSignOut }: { contextName?: string; onSignOut(): Promise<void> }): JSX.Element {
+export function AppRoutes({
+  contextName,
+  onSignOut,
+}: {
+  contextName?: string;
+  onSignOut(): Promise<void>;
+}): JSX.Element {
   return (
     <Routes>
-      <Route element={<AdminLayout contextName={contextName} onSignOut={onSignOut} />} path="/">
+      <Route
+        element={
+          <AdminLayout contextName={contextName} onSignOut={onSignOut} />
+        }
+        path="/"
+      >
         <Route index element={<Navigate replace to="/overview" />} />
         <Route element={<OverviewPage />} path="overview" />
         <Route element={<PeersListPage />} path="peers" />
@@ -49,34 +60,88 @@ export function AppRoutes({ contextName, onSignOut }: { contextName?: string; on
         <Route element={<FirmwareCreatePage />} path="firmwares/new" />
         <Route element={<FirmwareDetailPage />} path="firmwares/:name" />
         <Route element={<CredentialsListPage />} path="providers/credentials" />
-        <Route element={<CredentialDetailPage />} path="providers/credentials/:name" />
-        <Route element={<OpenAITenantsListPage />} path="providers/openai-tenants" />
-        <Route element={<OpenAITenantDetailPage />} path="providers/openai-tenants/:name" />
-        <Route element={<GeminiTenantsListPage />} path="providers/gemini-tenants" />
-        <Route element={<GeminiTenantDetailPage />} path="providers/gemini-tenants/:name" />
-        <Route element={<DashScopeTenantsListPage />} path="providers/dashscope-tenants" />
-        <Route element={<DashScopeTenantDetailPage />} path="providers/dashscope-tenants/:name" />
-        <Route element={<DeepSeekTenantsListPage />} path="providers/deepseek-tenants" />
-        <Route element={<DeepSeekTenantDetailPage />} path="providers/deepseek-tenants/:name" />
-        <Route element={<MiniMaxTenantsListPage />} path="providers/minimax-tenants" />
-        <Route element={<MiniMaxTenantDetailPage />} path="providers/minimax-tenants/:name" />
-        <Route element={<VolcTenantsListPage />} path="providers/volc-tenants" />
-        <Route element={<VolcTenantDetailPage />} path="providers/volc-tenants/:name" />
+        <Route
+          element={<CredentialDetailPage />}
+          path="providers/credentials/:name"
+        />
+        <Route
+          element={<OpenAITenantsListPage />}
+          path="providers/openai-tenants"
+        />
+        <Route
+          element={<OpenAITenantDetailPage />}
+          path="providers/openai-tenants/:name"
+        />
+        <Route
+          element={<GeminiTenantsListPage />}
+          path="providers/gemini-tenants"
+        />
+        <Route
+          element={<GeminiTenantDetailPage />}
+          path="providers/gemini-tenants/:name"
+        />
+        <Route
+          element={<DashScopeTenantsListPage />}
+          path="providers/dashscope-tenants"
+        />
+        <Route
+          element={<DashScopeTenantDetailPage />}
+          path="providers/dashscope-tenants/:name"
+        />
+        <Route
+          element={<DeepSeekTenantsListPage />}
+          path="providers/deepseek-tenants"
+        />
+        <Route
+          element={<DeepSeekTenantDetailPage />}
+          path="providers/deepseek-tenants/:name"
+        />
+        <Route
+          element={<MiniMaxTenantsListPage />}
+          path="providers/minimax-tenants"
+        />
+        <Route
+          element={<MiniMaxTenantDetailPage />}
+          path="providers/minimax-tenants/:name"
+        />
+        <Route
+          element={<VolcTenantsListPage />}
+          path="providers/volc-tenants"
+        />
+        <Route
+          element={<VolcTenantDetailPage />}
+          path="providers/volc-tenants/:name"
+        />
         <Route element={<VoicesListPage />} path="ai/voices" />
         <Route element={<VoiceDetailPage />} path="ai/voices/:id" />
         <Route element={<ModelsListPage />} path="ai/models" />
         <Route element={<ModelDetailPage />} path="ai/models/:id" />
         <Route element={<WorkflowsListPage />} path="ai/workflows" />
-        <Route element={<Navigate replace to="/ai/workflows" />} path="ai/workspace-templates" />
-        <Route element={<Navigate replace to="/ai/workflows" />} path="workspace-templates" />
+        <Route
+          element={<Navigate replace to="/ai/workflows" />}
+          path="ai/workspace-templates"
+        />
+        <Route
+          element={<Navigate replace to="/ai/workflows" />}
+          path="workspace-templates"
+        />
         <Route element={<WorkspacesListPage />} path="ai/workspaces" />
         <Route element={<ResourcesPage />} path="resources" />
         <Route element={<ContactsListPage />} path="social/contacts" />
-        <Route element={<ContactDetailPage />} path="social/contacts/:ownerPublicKey/:id" />
+        <Route
+          element={<ContactDetailPage />}
+          path="social/contacts/:ownerPublicKey/:id"
+        />
         <Route element={<FriendsListPage />} path="social/friends" />
-        <Route element={<FriendDetailPage />} path="social/friends/:ownerPublicKey/:id" />
+        <Route
+          element={<FriendDetailPage />}
+          path="social/friends/:ownerPublicKey/:id"
+        />
         <Route element={<FriendGroupsListPage />} path="social/friend-groups" />
-        <Route element={<FriendGroupDetailPage />} path="social/friend-groups/:id" />
+        <Route
+          element={<FriendGroupDetailPage />}
+          path="social/friend-groups/:id"
+        />
       </Route>
       <Route element={<Navigate replace to="/overview" />} path="*" />
     </Routes>

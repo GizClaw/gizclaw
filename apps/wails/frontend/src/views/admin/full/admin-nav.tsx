@@ -31,12 +31,36 @@ export const adminNavGroups: Array<DashboardNavGroup<string>> = [
     label: "Providers",
     items: [
       { id: "/providers/credentials", icon: KeyRound, label: "Credentials" },
-      { id: "/providers/openai-tenants", icon: ServerCog, label: "OpenAI Tenants" },
-      { id: "/providers/gemini-tenants", icon: ServerCog, label: "Gemini Tenants" },
-      { id: "/providers/dashscope-tenants", icon: ServerCog, label: "DashScope Tenants" },
-      { id: "/providers/deepseek-tenants", icon: ServerCog, label: "DeepSeek Tenants" },
-      { id: "/providers/minimax-tenants", icon: AudioLines, label: "MiniMax Tenants" },
-      { id: "/providers/volc-tenants", icon: AudioLines, label: "Volcengine Tenants" },
+      {
+        id: "/providers/openai-tenants",
+        icon: ServerCog,
+        label: "OpenAI Tenants",
+      },
+      {
+        id: "/providers/gemini-tenants",
+        icon: ServerCog,
+        label: "Gemini Tenants",
+      },
+      {
+        id: "/providers/dashscope-tenants",
+        icon: ServerCog,
+        label: "DashScope Tenants",
+      },
+      {
+        id: "/providers/deepseek-tenants",
+        icon: ServerCog,
+        label: "DeepSeek Tenants",
+      },
+      {
+        id: "/providers/minimax-tenants",
+        icon: AudioLines,
+        label: "MiniMax Tenants",
+      },
+      {
+        id: "/providers/volc-tenants",
+        icon: AudioLines,
+        label: "Volcengine Tenants",
+      },
     ],
   },
   {
@@ -58,7 +82,7 @@ export const adminNavGroups: Array<DashboardNavGroup<string>> = [
   },
   {
     label: "Settings",
-	items: [{ id: "/resources", icon: FileJson, label: "Resources" }],
+    items: [{ id: "/resources", icon: FileJson, label: "Resources" }],
   },
 ];
 
@@ -70,9 +94,13 @@ export function adminActiveNavID(pathname: string): string {
   return matchAdminNavItem(pathname)?.id ?? "/overview";
 }
 
-function matchAdminNavItem(pathname: string): { id: string; label: string } | undefined {
+function matchAdminNavItem(
+  pathname: string,
+): { id: string; label: string } | undefined {
   const items = adminNavGroups.flatMap((group) => group.items);
   return items
-    .filter((item) => pathname === item.id || pathname.startsWith(`${item.id}/`))
+    .filter(
+      (item) => pathname === item.id || pathname.startsWith(`${item.id}/`),
+    )
     .sort((left, right) => right.id.length - left.id.length)[0];
 }

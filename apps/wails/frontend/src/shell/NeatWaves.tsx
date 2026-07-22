@@ -131,14 +131,7 @@ void main() {
 }
 `;
 
-const vertices = new Float32Array([
-  -1, -1,
-  1, -1,
-  -1, 1,
-  -1, 1,
-  1, -1,
-  1, 1,
-]);
+const vertices = new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]);
 
 export function NeatWaves() {
   const canvasRef = useRef<HTMLCanvasElement>(null);

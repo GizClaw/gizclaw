@@ -24,9 +24,17 @@ export function DashboardSidebar<ID extends string>({
 }): JSX.Element {
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <DashboardSidebarBrand icon={brandIcon} subtitle={brandSubtitle} title={brandTitle} />
+      <DashboardSidebarBrand
+        icon={brandIcon}
+        subtitle={brandSubtitle}
+        title={brandTitle}
+      />
       <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-        <DashboardSidebarNav activeID={activeID} groups={navGroups} onNavigate={onNavigate} />
+        <DashboardSidebarNav
+          activeID={activeID}
+          groups={navGroups}
+          onNavigate={onNavigate}
+        />
       </div>
       <DashboardSidebarFooter contextName={contextName} />
     </div>

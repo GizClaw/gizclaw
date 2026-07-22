@@ -1,8 +1,13 @@
-export function formatDashboardDate(value: number | string | undefined | null): string {
+export function formatDashboardDate(
+  value: number | string | undefined | null,
+): string {
   if (value == null || value === "") {
     return "-";
   }
-  const date = typeof value === "number" ? new Date(value < 10_000_000_000 ? value * 1000 : value) : new Date(value);
+  const date =
+    typeof value === "number"
+      ? new Date(value < 10_000_000_000 ? value * 1000 : value)
+      : new Date(value);
   if (Number.isNaN(date.getTime())) {
     return String(value);
   }

@@ -2,18 +2,39 @@ import { ChevronLeft, RefreshCw, Save } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
-import { getResource, getVolcTenant, listCredentials, putVolcTenant, syncVolcTenantVoices, type Credential, type Resource, type VolcTenant } from "@gizclaw/gizclaw/admin";
+import {
+  getResource,
+  getVolcTenant,
+  listCredentials,
+  putVolcTenant,
+  syncVolcTenantVoices,
+  type Credential,
+  type Resource,
+  type VolcTenant,
+} from "@gizclaw/gizclaw/admin";
 import { expectData, toMessage } from "@/dashboard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { DetailBlock } from "@/dashboard";
 import { EmptyState } from "@/dashboard";
 import { ErrorBanner, NoticeBanner } from "@/dashboard";
 import { FormField } from "@/dashboard";
 import { Input } from "@/components/ui/input";
 import { PageHeader, PageSummaryCard } from "@/dashboard";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -29,7 +50,10 @@ type VolcTenantForm = {
 
 export function VolcTenantDetailPage(): JSX.Element {
   const params = useParams();
-  const tenantName = useMemo(() => decodeRouteParam(params.name ?? ""), [params.name]);
+  const tenantName = useMemo(
+    () => decodeRouteParam(params.name ?? ""),
+    [params.name],
+  );
   const [tenant, setTenant] = useState<VolcTenant | null>(null);
   const [tenantResource, setTenantResource] = useState<Resource | null>(null);
   const [credentials, setCredentials] = useState<Credential[]>([]);
@@ -52,7 +76,9 @@ export function VolcTenantDetailPage(): JSX.Element {
     try {
       const [nextTenant, nextResource, credentialList] = await Promise.all([
         expectData(getVolcTenant({ path: { name: tenantName } })),
-        expectData(getResource({ path: { kind: "VolcTenant", name: tenantName } })),
+        expectData(
+          getResource({ path: { kind: "VolcTenant", name: tenantName } }),
+        ),
         expectData(listCredentials({ query: { limit: 200 } })),
       ]);
       setTenant(nextTenant);
@@ -93,7 +119,11 @@ export function VolcTenantDetailPage(): JSX.Element {
       );
       setTenant(updated);
       setForm(formFromTenant(updated));
-      setTenantResource(await expectData(getResource({ path: { kind: "VolcTenant", name: updated.name } })));
+      setTenantResource(
+        await expectData(
+          getResource({ path: { kind: "VolcTenant", name: updated.name } }),
+        ),
+      );
       setNotice("Volcengine tenant saved.");
     } catch (err) {
       setError(toMessage(err));
@@ -110,9 +140,13 @@ export function VolcTenantDetailPage(): JSX.Element {
     setError("");
     setNotice("");
     try {
-      const result = await expectData(syncVolcTenantVoices({ path: { name: tenant.name } }));
+      const result = await expectData(
+        syncVolcTenantVoices({ path: { name: tenant.name } }),
+      );
       await load();
-      setNotice(`Synced voices: ${result.created_count} created, ${result.updated_count} updated, ${result.deleted_count} deleted.`);
+      setNotice(
+        `Synced voices: ${result.created_count} created, ${result.updated_count} updated, ${result.deleted_count} deleted.`,
+      );
     } catch (err) {
       setError(toMessage(err));
     } finally {
@@ -121,10 +155,18 @@ export function VolcTenantDetailPage(): JSX.Element {
   };
 
   if (tenantName === "") {
-    return <EmptyState description="Missing Volcengine tenant name in the URL." title="Invalid route" />;
+    return (
+      <EmptyState
+        description="Missing Volcengine tenant name in the URL."
+        title="Invalid route"
+      />
+    );
   }
 
-  const credentialOptions = mergeCredentialOptions(credentials, form.credentialName);
+  const credentialOptions = mergeCredentialOptions(
+    credentials,
+    form.credentialName,
+  );
 
   return (
     <div className="space-y-6">
@@ -137,12 +179,25 @@ export function VolcTenantDetailPage(): JSX.Element {
                 Back to list
               </Link>
             </Button>
-            <Button className="min-w-fit shrink-0 whitespace-nowrap" onClick={() => void load()} size="sm" variant="outline">
+            <Button
+              className="min-w-fit shrink-0 whitespace-nowrap"
+              onClick={() => void load()}
+              size="sm"
+              variant="outline"
+            >
               <RefreshCw className="size-4" />
               Reload
             </Button>
-            <Button className="min-w-fit shrink-0 whitespace-nowrap" disabled={tenant === null || syncing} onClick={() => void syncVoices()} size="sm" variant="outline">
-              <RefreshCw className={`size-4 ${syncing ? "animate-spin" : ""}`} />
+            <Button
+              className="min-w-fit shrink-0 whitespace-nowrap"
+              disabled={tenant === null || syncing}
+              onClick={() => void syncVoices()}
+              size="sm"
+              variant="outline"
+            >
+              <RefreshCw
+                className={`size-4 ${syncing ? "animate-spin" : ""}`}
+              />
               Sync voices
             </Button>
           </>
@@ -170,7 +225,10 @@ export function VolcTenantDetailPage(): JSX.Element {
           <Skeleton className="h-80 w-full" />
         </div>
       ) : tenant === null ? (
-        <EmptyState description="This Volcengine tenant could not be loaded." title="Volcengine tenant not found" />
+        <EmptyState
+          description="This Volcengine tenant could not be loaded."
+          title="Volcengine tenant not found"
+        />
       ) : (
         <Tabs defaultValue="summary">
           <TabsList>
@@ -207,51 +265,116 @@ export function VolcTenantDetailPage(): JSX.Element {
             <Card>
               <CardHeader>
                 <CardTitle>Edit Volcengine Tenant</CardTitle>
-                <CardDescription>Update tenant credential binding and speech sync options. The tenant name is the resource identity and is not editable here.</CardDescription>
+                <CardDescription>
+                  Update tenant credential binding and speech sync options. The
+                  tenant name is the resource identity and is not editable here.
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid gap-4 lg:grid-cols-2">
-                  <FormField description="Resource identity. Rename via resource replacement if needed." label="Name">
+                  <FormField
+                    description="Resource identity. Rename via resource replacement if needed."
+                    label="Name"
+                  >
                     <Input disabled value={tenant.name} />
                   </FormField>
-                  <FormField description="Stored credential used when syncing Volcengine voices." label="Credential">
-                    <Select disabled={saving || credentialOptions.length === 0} onValueChange={(value) => setForm((current) => ({ ...current, credentialName: value }))} value={form.credentialName}>
+                  <FormField
+                    description="Stored credential used when syncing Volcengine voices."
+                    label="Credential"
+                  >
+                    <Select
+                      disabled={saving || credentialOptions.length === 0}
+                      onValueChange={(value) =>
+                        setForm((current) => ({
+                          ...current,
+                          credentialName: value,
+                        }))
+                      }
+                      value={form.credentialName}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Select credential" />
                       </SelectTrigger>
                       <SelectContent>
                         {credentialOptions.map((credential) => (
-                          <SelectItem key={credential.name} value={credential.name}>
+                          <SelectItem
+                            key={credential.name}
+                            value={credential.name}
+                          >
                             {credential.name} · {credential.provider}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </FormField>
-                  <FormField description="Optional Volcengine region override." label="Region">
-                    <Input onChange={(event) => setForm((current) => ({ ...current, region: event.target.value }))} placeholder="cn-north-1" value={form.region} />
+                  <FormField
+                    description="Optional Volcengine region override."
+                    label="Region"
+                  >
+                    <Input
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          region: event.target.value,
+                        }))
+                      }
+                      placeholder="cn-north-1"
+                      value={form.region}
+                    />
                   </FormField>
-                  <FormField description="Optional Volcengine endpoint override." label="Endpoint">
-                    <Input onChange={(event) => setForm((current) => ({ ...current, endpoint: event.target.value }))} placeholder="https://..." value={form.endpoint} />
+                  <FormField
+                    description="Optional Volcengine endpoint override."
+                    label="Endpoint"
+                  >
+                    <Input
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          endpoint: event.target.value,
+                        }))
+                      }
+                      placeholder="https://..."
+                      value={form.endpoint}
+                    />
                   </FormField>
-                  <FormField description="Comma or newline separated ResourceIDs for purchased or cloned voices. Leave empty to sync public timbres only." label="Resource IDs">
+                  <FormField
+                    description="Comma or newline separated ResourceIDs for purchased or cloned voices. Leave empty to sync public timbres only."
+                    label="Resource IDs"
+                  >
                     <Textarea
                       className="min-h-24 font-mono"
-                      onChange={(event) => setForm((current) => ({ ...current, resourceIDs: event.target.value }))}
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          resourceIDs: event.target.value,
+                        }))
+                      }
                       placeholder={"seed-tts-2.0"}
                       value={form.resourceIDs}
                     />
                   </FormField>
-                  <FormField description="Human-readable note for operators." label="Description">
+                  <FormField
+                    description="Human-readable note for operators."
+                    label="Description"
+                  >
                     <Textarea
                       className="min-h-24"
-                      onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          description: event.target.value,
+                        }))
+                      }
                       value={form.description}
                     />
                   </FormField>
                 </div>
                 <div className="flex justify-end border-t pt-4">
-                  <Button disabled={saving} onClick={() => void save()} type="button">
+                  <Button
+                    disabled={saving}
+                    onClick={() => void save()}
+                    type="button"
+                  >
                     <Save className="size-4" />
                     {saving ? "Saving..." : "Save"}
                   </Button>
@@ -283,7 +406,13 @@ function decodeRouteParam(value: string): string {
 }
 
 function emptyForm(): VolcTenantForm {
-  return { credentialName: "", description: "", endpoint: "", region: "", resourceIDs: "" };
+  return {
+    credentialName: "",
+    description: "",
+    endpoint: "",
+    region: "",
+    resourceIDs: "",
+  };
 }
 
 function formFromTenant(tenant: VolcTenant): VolcTenantForm {
@@ -309,11 +438,26 @@ function optionalStringList(value: string): string[] | undefined {
   return items.length === 0 ? undefined : items;
 }
 
-function mergeCredentialOptions(credentials: Credential[], currentName: string): Credential[] {
-  if (currentName === "" || credentials.some((credential) => credential.name === currentName)) {
+function mergeCredentialOptions(
+  credentials: Credential[],
+  currentName: string,
+): Credential[] {
+  if (
+    currentName === "" ||
+    credentials.some((credential) => credential.name === currentName)
+  ) {
     return credentials;
   }
-  return [{ name: currentName, provider: "unknown", body: {}, created_at: "", updated_at: "" }, ...credentials];
+  return [
+    {
+      name: currentName,
+      provider: "unknown",
+      body: {},
+      created_at: "",
+      updated_at: "",
+    },
+    ...credentials,
+  ];
 }
 
 function volcTenantCliCommands(tenant: VolcTenant): string {

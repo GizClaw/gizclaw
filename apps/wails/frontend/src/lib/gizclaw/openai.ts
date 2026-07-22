@@ -31,7 +31,10 @@ export function clearPlayOpenAIClient(fetchImpl: typeof fetch): void {
   clientFetch = null;
 }
 
-export async function readPlaySpeechAudioBlob(response: Response, fallbackContentType: string): Promise<Blob> {
+export async function readPlaySpeechAudioBlob(
+  response: Response,
+  fallbackContentType: string,
+): Promise<Blob> {
   const contentType = response.headers.get("content-type") ?? "";
   if (!contentType.startsWith("text/event-stream")) {
     return response.blob();
@@ -52,7 +55,11 @@ export async function readPlaySpeechAudioBlob(response: Response, fallbackConten
       return;
     }
     const data = trimmed.slice("data:".length).trim();
-    const event = JSON.parse(data) as { audio?: string; done?: boolean; type?: string };
+    const event = JSON.parse(data) as {
+      audio?: string;
+      done?: boolean;
+      type?: string;
+    };
     switch (event.type) {
       case "speech.audio.delta":
         if (event.audio == null || event.audio === "") {
@@ -64,7 +71,9 @@ export async function readPlaySpeechAudioBlob(response: Response, fallbackConten
         doneEvent = true;
         return;
       default:
-        throw new Error(`Unexpected speech stream event: ${event.type ?? "unknown"}`);
+        throw new Error(
+          `Unexpected speech stream event: ${event.type ?? "unknown"}`,
+        );
     }
   };
 
@@ -93,7 +102,9 @@ export async function readPlaySpeechAudioBlob(response: Response, fallbackConten
   if (!doneEvent) {
     throw new Error("Speech stream ended without done event");
   }
-  return new Blob(chunks, { type: detectSpeechAudioContentType(chunks) ?? fallbackContentType });
+  return new Blob(chunks, {
+    type: detectSpeechAudioContentType(chunks) ?? fallbackContentType,
+  });
 }
 
 function base64ToArrayBuffer(value: string): ArrayBuffer {
@@ -102,10 +113,15 @@ function base64ToArrayBuffer(value: string): ArrayBuffer {
   for (let i = 0; i < binary.length; i += 1) {
     bytes[i] = binary.charCodeAt(i);
   }
-  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+  return bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength,
+  ) as ArrayBuffer;
 }
 
-function detectSpeechAudioContentType(chunks: ArrayBuffer[]): string | undefined {
+function detectSpeechAudioContentType(
+  chunks: ArrayBuffer[],
+): string | undefined {
   const prefix = new Uint8Array(12);
   let length = 0;
   for (const chunk of chunks) {

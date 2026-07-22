@@ -40,9 +40,19 @@ import {
   waitForICEGatheringComplete,
 } from "./index.ts";
 import { createSseClient } from "./generated/adminhttp/core/serverSentEvents.gen.ts";
-import { decodeRPCRequestPayload, decodeRPCResponsePayload, encodeRPCRequestPayload, encodeRPCResponsePayload } from "./generated/rpc/payload-codec.ts";
+import {
+  decodeRPCRequestPayload,
+  decodeRPCResponsePayload,
+  encodeRPCRequestPayload,
+  encodeRPCResponsePayload,
+} from "./generated/rpc/payload-codec.ts";
 import { createEdgeRPCClient, createPeerRPCClient } from "./rpc.ts";
-import { base58Decode, base58Encode, base64Decode, prepareEncryptedGiznetWebRTCOffer } from "./signaling.ts";
+import {
+  base58Decode,
+  base58Encode,
+  base64Decode,
+  prepareEncryptedGiznetWebRTCOffer,
+} from "./signaling.ts";
 
 function concatBuffers(parts: Array<ArrayBuffer | Uint8Array>): ArrayBuffer {
   let total = 0;
@@ -82,21 +92,42 @@ test("WebRTCRPCClient sends protobuf RPC over an rpc data channel", async () => 
   const pc = new FakePeerConnection();
   const client = new WebRTCRPCClient(pc, { createID: () => "req-1" });
 
-  const promise = client.call<{ server_time: number }>("all.ping", { client_send_time: 1 });
+  const promise = client.call<{ server_time: number }>("all.ping", {
+    client_send_time: 1,
+  });
   const channel = pc.lastChannel();
   channel.open();
   await new Promise<void>((resolve) => setImmediate(resolve));
 
-  assert.equal(channel.label, giznetServiceDataChannelLabel(GIZCLAW_SERVICE_PEER_RPC));
+  assert.equal(
+    channel.label,
+    giznetServiceDataChannelLabel(GIZCLAW_SERVICE_PEER_RPC),
+  );
   const frames = decodeFrames(channel.sent[0] ?? new ArrayBuffer(0));
   assert.equal(frames.length, 2);
   assert.equal(frames[0]?.type, RPC_FRAME_TYPE_BINARY);
   assert.ok((frames[0]?.payload.length ?? 0) > 0);
-  assert.equal(new TextDecoder().decode(frames[0]?.payload ?? new Uint8Array()).includes("client_send_time"), false);
-  assert.equal(includesBytes(frames[0]?.payload ?? new Uint8Array(), [0x1a, 0x02, 0x08, 0x01]), true);
+  assert.equal(
+    new TextDecoder()
+      .decode(frames[0]?.payload ?? new Uint8Array())
+      .includes("client_send_time"),
+    false,
+  );
+  assert.equal(
+    includesBytes(
+      frames[0]?.payload ?? new Uint8Array(),
+      [0x1a, 0x02, 0x08, 0x01],
+    ),
+    true,
+  );
   assert.equal(frames[1]?.type, RPC_FRAME_TYPE_EOS);
 
-  channel.receive(encodeRPCResponse({ id: "req-1", result: { server_time: 99 }, v: 1 }, "all.ping"));
+  channel.receive(
+    encodeRPCResponse(
+      { id: "req-1", result: { server_time: 99 }, v: 1 },
+      "all.ping",
+    ),
+  );
 
   assert.deepEqual(await promise, { server_time: 99 });
   assert.equal(channel.closed, true);
@@ -114,10 +145,18 @@ test("WebRTCRPCClient omits protobuf payload when params are absent", async () =
   const frames = decodeFrames(channel.sent[0] ?? new ArrayBuffer(0));
   assert.equal(frames.length, 2);
   assert.equal(frames[0]?.type, RPC_FRAME_TYPE_BINARY);
-  assert.equal(includesBytes(frames[0]?.payload ?? new Uint8Array(), [0x1a]), false);
+  assert.equal(
+    includesBytes(frames[0]?.payload ?? new Uint8Array(), [0x1a]),
+    false,
+  );
   assert.equal(frames[1]?.type, RPC_FRAME_TYPE_EOS);
 
-  channel.receive(encodeRPCResponse({ id: "req-no-params", result: { server_time: 98 }, v: 1 }, "all.ping"));
+  channel.receive(
+    encodeRPCResponse(
+      { id: "req-no-params", result: { server_time: 98 }, v: 1 },
+      "all.ping",
+    ),
+  );
 
   assert.deepEqual(await promise, { server_time: 98 });
 });
@@ -138,14 +177,21 @@ test("WebRTCRPCClient resumes service writes on bufferedamountlow", async () => 
   channel.bufferedAmountLow();
   await new Promise<void>((resolve) => setImmediate(resolve));
   assert.equal(channel.sent.length, 1);
-  channel.receive(encodeRPCResponse({ id: "req-water", result: { server_time: 97 }, v: 1 }, "all.ping"));
+  channel.receive(
+    encodeRPCResponse(
+      { id: "req-water", result: { server_time: 97 }, v: 1 },
+      "all.ping",
+    ),
+  );
   assert.deepEqual(await promise, { server_time: 97 });
 });
 
 test("WebRTCRPCClient handles a drain while installing the low-water waiter", async () => {
   const pc = new FakePeerConnection();
   const client = new WebRTCRPCClient(pc, { createID: () => "req-water-race" });
-  const promise = client.call<{ server_time: number }>("all.ping", { client_send_time: 1 });
+  const promise = client.call<{ server_time: number }>("all.ping", {
+    client_send_time: 1,
+  });
   const channel = pc.lastChannel();
   channel.bufferedAmount = 1024 * 1024;
   channel.drainBufferedAmountOnRead = 2;
@@ -153,7 +199,12 @@ test("WebRTCRPCClient handles a drain while installing the low-water waiter", as
   await channel.waitForSent();
 
   assert.equal(channel.sent.length, 1);
-  channel.receive(encodeRPCResponse({ id: "req-water-race", result: { server_time: 96 }, v: 1 }, "all.ping"));
+  channel.receive(
+    encodeRPCResponse(
+      { id: "req-water-race", result: { server_time: 96 }, v: 1 },
+      "all.ping",
+    ),
+  );
   assert.deepEqual(await promise, { server_time: 96 });
 });
 
@@ -167,11 +218,18 @@ test("WebRTCRPCClient service write timeouts ignore the wall clock", async () =>
   try {
     const pc = new FakePeerConnection();
     const client = new WebRTCRPCClient(pc, { createID: () => "req-monotonic" });
-    const promise = client.call<{ server_time: number }>("all.ping", { client_send_time: 1 });
+    const promise = client.call<{ server_time: number }>("all.ping", {
+      client_send_time: 1,
+    });
     const channel = pc.lastChannel();
     channel.open();
     await channel.waitForSent();
-    channel.receive(encodeRPCResponse({ id: "req-monotonic", result: { server_time: 95 }, v: 1 }, "all.ping"));
+    channel.receive(
+      encodeRPCResponse(
+        { id: "req-monotonic", result: { server_time: 95 }, v: 1 },
+        "all.ping",
+      ),
+    );
 
     assert.deepEqual(await promise, { server_time: 95 });
     assert.equal(wallClockReads, 0);
@@ -181,7 +239,9 @@ test("WebRTCRPCClient service write timeouts ignore the wall clock", async () =>
 });
 
 test("WebRTCRPCClient serializes logical writes sharing one service channel", async () => {
-  const channel = new FakeDataChannel(giznetServiceDataChannelLabel(GIZCLAW_SERVICE_PEER_RPC));
+  const channel = new FakeDataChannel(
+    giznetServiceDataChannelLabel(GIZCLAW_SERVICE_PEER_RPC),
+  );
   const factory = { createDataChannel: () => channel };
   const firstController = new AbortController();
   const secondController = new AbortController();
@@ -197,20 +257,28 @@ test("WebRTCRPCClient serializes logical writes sharing one service channel", as
     params: { client_send_time: 2 },
     v: 1 as const,
   };
-  const firstClient = new WebRTCRPCClient(factory, { createID: () => firstRequest.id });
-  const secondClient = new WebRTCRPCClient(factory, { createID: () => secondRequest.id });
-  const first = firstClient.call(firstRequest.method, firstRequest.params, { signal: firstController.signal });
-  const second = secondClient.call(secondRequest.method, secondRequest.params, { signal: secondController.signal });
+  const firstClient = new WebRTCRPCClient(factory, {
+    createID: () => firstRequest.id,
+  });
+  const secondClient = new WebRTCRPCClient(factory, {
+    createID: () => secondRequest.id,
+  });
+  const first = firstClient.call(firstRequest.method, firstRequest.params, {
+    signal: firstController.signal,
+  });
+  const second = secondClient.call(secondRequest.method, secondRequest.params, {
+    signal: secondController.signal,
+  });
   const expectedNativeMessages =
-    Math.ceil(encodeRPCRequest(firstRequest).byteLength / 1400)
-    + Math.ceil(encodeRPCRequest(secondRequest).byteLength / 1400);
+    Math.ceil(encodeRPCRequest(firstRequest).byteLength / 1400) +
+    Math.ceil(encodeRPCRequest(secondRequest).byteLength / 1400);
 
   channel.open();
   await channel.waitForSentCount(expectedNativeMessages);
 
   const frames = decodeFrames(concatBuffers(channel.sent));
   const eosIndexes = frames
-    .map((frame, index) => frame.type === RPC_FRAME_TYPE_EOS ? index : -1)
+    .map((frame, index) => (frame.type === RPC_FRAME_TYPE_EOS ? index : -1))
     .filter((index) => index >= 0);
   assert.equal(eosIndexes.length, 2);
   assert.equal(frames[eosIndexes[0]! + 1]?.type, RPC_FRAME_TYPE_BINARY);
@@ -221,18 +289,32 @@ test("WebRTCRPCClient serializes logical writes sharing one service channel", as
 });
 
 test("WebRTCRPCClient promptly cancels a write queued behind backpressure", async () => {
-  const channel = new FakeDataChannel(giznetServiceDataChannelLabel(GIZCLAW_SERVICE_PEER_RPC));
+  const channel = new FakeDataChannel(
+    giznetServiceDataChannelLabel(GIZCLAW_SERVICE_PEER_RPC),
+  );
   const factory = { createDataChannel: () => channel };
   const firstController = new AbortController();
   const queuedController = new AbortController();
-  const firstClient = new WebRTCRPCClient(factory, { createID: () => "req-blocked" });
-  const queuedClient = new WebRTCRPCClient(factory, { createID: () => "req-cancelled" });
-  const first = firstClient.call("server.run.say", { text: "x".repeat(70000) }, {
-    signal: firstController.signal,
+  const firstClient = new WebRTCRPCClient(factory, {
+    createID: () => "req-blocked",
   });
-  const queued = queuedClient.call("all.ping", { client_send_time: 1 }, {
-    signal: queuedController.signal,
+  const queuedClient = new WebRTCRPCClient(factory, {
+    createID: () => "req-cancelled",
   });
+  const first = firstClient.call(
+    "server.run.say",
+    { text: "x".repeat(70000) },
+    {
+      signal: firstController.signal,
+    },
+  );
+  const queued = queuedClient.call(
+    "all.ping",
+    { client_send_time: 1 },
+    {
+      signal: queuedController.signal,
+    },
+  );
   channel.bufferedAmount = 1024 * 1024;
   channel.open();
   await new Promise<void>((resolve) => setImmediate(resolve));
@@ -241,7 +323,7 @@ test("WebRTCRPCClient promptly cancels a write queued behind backpressure", asyn
   const outcome = await Promise.race([
     queued.then(
       () => "resolved",
-      (error: unknown) => error instanceof Error ? error.name : "rejected",
+      (error: unknown) => (error instanceof Error ? error.name : "rejected"),
     ),
     new Promise<string>((resolve) => setTimeout(() => resolve("pending"), 25)),
   ]);
@@ -253,11 +335,19 @@ test("WebRTCRPCClient promptly cancels a write queued behind backpressure", asyn
 });
 
 test("WebRTCRPCClient closes after a non-first native send fails", async () => {
-  const channel = new FakeDataChannel(giznetServiceDataChannelLabel(GIZCLAW_SERVICE_PEER_RPC));
+  const channel = new FakeDataChannel(
+    giznetServiceDataChannelLabel(GIZCLAW_SERVICE_PEER_RPC),
+  );
   const factory = { createDataChannel: () => channel };
-  const firstClient = new WebRTCRPCClient(factory, { createID: () => "req-send-failure" });
-  const secondClient = new WebRTCRPCClient(factory, { createID: () => "req-queued" });
-  const active = firstClient.call("server.run.say", { text: "x".repeat(70000) });
+  const firstClient = new WebRTCRPCClient(factory, {
+    createID: () => "req-send-failure",
+  });
+  const secondClient = new WebRTCRPCClient(factory, {
+    createID: () => "req-queued",
+  });
+  const active = firstClient.call("server.run.say", {
+    text: "x".repeat(70000),
+  });
   const queued = secondClient.call("all.ping", { client_send_time: 1 });
   channel.failSendCall = 2;
 
@@ -273,7 +363,9 @@ test("WebRTCRPCClient aborts a service write waiting for low water", async () =>
   const pc = new FakePeerConnection();
   const client = new WebRTCRPCClient(pc, { createID: () => "req-water-abort" });
   const controller = new AbortController();
-  const promise = client.call("all.ping", undefined, { signal: controller.signal });
+  const promise = client.call("all.ping", undefined, {
+    signal: controller.signal,
+  });
   const channel = pc.lastChannel();
   channel.bufferedAmount = 1024 * 1024;
   channel.open();
@@ -281,7 +373,10 @@ test("WebRTCRPCClient aborts a service write waiting for low water", async () =>
 
   controller.abort();
 
-  await assert.rejects(promise, (error: unknown) => error instanceof Error && error.name === "AbortError");
+  await assert.rejects(
+    promise,
+    (error: unknown) => error instanceof Error && error.name === "AbortError",
+  );
   assert.equal(channel.closed, true);
   assert.equal(channel.sent.length, 0);
 });
@@ -290,20 +385,33 @@ test("WebRTCRPCClient splits oversized request envelopes into continuation frame
   const pc = new FakePeerConnection();
   const client = new WebRTCRPCClient(pc, { createID: () => "req-large" });
 
-  const promise = client.call<{ accepted: boolean }>("server.run.say", { text: "x".repeat(70000) });
+  const promise = client.call<{ accepted: boolean }>("server.run.say", {
+    text: "x".repeat(70000),
+  });
   const channel = pc.lastChannel();
   channel.open();
   await new Promise<void>((resolve) => setImmediate(resolve));
 
   const frames = decodeFrames(concatBuffers(channel.sent));
-  assert.equal(channel.sent.every((message) => message.byteLength <= 1400), true);
+  assert.equal(
+    channel.sent.every((message) => message.byteLength <= 1400),
+    true,
+  );
   assert.equal(frames.length >= 3, true);
   assert.equal(frames[0]?.type, RPC_FRAME_TYPE_TEXT);
   assert.equal(frames[0]?.payload.length, 0xffff);
   assert.equal(frames[frames.length - 1]?.type, RPC_FRAME_TYPE_EOS);
-  assert.equal(frames.slice(0, -1).every((frame) => frame.type === RPC_FRAME_TYPE_TEXT), true);
+  assert.equal(
+    frames.slice(0, -1).every((frame) => frame.type === RPC_FRAME_TYPE_TEXT),
+    true,
+  );
 
-  channel.receive(encodeRPCResponse({ id: "req-large", result: { accepted: true }, v: 1 }, "server.run.say"));
+  channel.receive(
+    encodeRPCResponse(
+      { id: "req-large", result: { accepted: true }, v: 1 },
+      "server.run.say",
+    ),
+  );
 
   assert.deepEqual(await promise, { accepted: true });
 });
@@ -312,28 +420,42 @@ test("WebRTCRPCClient decodes Go-compatible protobuf payload bytes", async () =>
   const pc = new FakePeerConnection();
   const client = new WebRTCRPCClient(pc, { createID: () => "req-go" });
 
-  const promise = client.call<{ server_time: number }>("all.ping", { client_send_time: 5 });
+  const promise = client.call<{ server_time: number }>("all.ping", {
+    client_send_time: 5,
+  });
   const channel = pc.lastChannel();
   channel.open();
 
-  channel.receive(concatBuffers([
-    encodeFrame(RPC_FRAME_TYPE_BINARY, new Uint8Array([
-      0x0a, 0x06, 0x72, 0x65, 0x71, 0x2d, 0x67, 0x6f,
-      0x12, 0x03, 0x08, 0xe3, 0x07,
-    ])),
-    encodeFrame(RPC_FRAME_TYPE_EOS),
-  ]));
+  channel.receive(
+    concatBuffers([
+      encodeFrame(
+        RPC_FRAME_TYPE_BINARY,
+        new Uint8Array([
+          0x0a, 0x06, 0x72, 0x65, 0x71, 0x2d, 0x67, 0x6f, 0x12, 0x03, 0x08,
+          0xe3, 0x07,
+        ]),
+      ),
+      encodeFrame(RPC_FRAME_TYPE_EOS),
+    ]),
+  );
 
   assert.deepEqual(await promise, { server_time: 995 });
 });
 
 test("parseRPCResponse decodes framed protobuf responses", () => {
   const response = parseRPCResponse<{ server_time: number }>(
-    encodeRPCResponse({ id: "req-low", result: { server_time: 77 }, v: 1 }, "all.ping"),
+    encodeRPCResponse(
+      { id: "req-low", result: { server_time: 77 }, v: 1 },
+      "all.ping",
+    ),
     "all.ping",
   );
 
-  assert.deepEqual(response, { id: "req-low", result: { server_time: 77 }, v: 1 });
+  assert.deepEqual(response, {
+    id: "req-low",
+    result: { server_time: 77 },
+    v: 1,
+  });
 });
 
 test("RPC payload codec preserves optional registration firmware release line", () => {
@@ -376,7 +498,10 @@ test("RPC payload codec selects workspace oneofs from discriminators", () => {
     workflow_name: "chat",
   });
 
-  const decoded = decodeRPCRequestPayload("server.workspace.create", payload) as {
+  const decoded = decodeRPCRequestPayload(
+    "server.workspace.create",
+    payload,
+  ) as {
     parameters?: { agent_type?: string; input?: string };
   };
 
@@ -397,8 +522,14 @@ test("RPC payload codec round-trips pet workspace parameters", () => {
     workflow_name: "pet-care",
   });
 
-  const decoded = decodeRPCRequestPayload("server.workspace.create", payload) as {
-    parameters?: { agent_type?: string; voice?: { voice_id?: string; prompt?: string } };
+  const decoded = decodeRPCRequestPayload(
+    "server.workspace.create",
+    payload,
+  ) as {
+    parameters?: {
+      agent_type?: string;
+      voice?: { voice_id?: string; prompt?: string };
+    };
   };
 
   assert.deepEqual(decoded.parameters, {
@@ -448,7 +579,10 @@ test("RPC payload codec enforces typed model provider-data oneof", () => {
     },
   };
   const payload = encodeRPCResponsePayload("server.model.get", response);
-  assert.deepEqual(decodeRPCResponsePayload("server.model.get", payload), response);
+  assert.deepEqual(
+    decodeRPCResponsePayload("server.model.get", payload),
+    response,
+  );
 
   const dashScopeResponse = {
     ...response,
@@ -464,36 +598,47 @@ test("RPC payload codec enforces typed model provider-data oneof", () => {
       provider_kind: "dashscope-tenant",
     },
   };
-  const dashScopePayload = encodeRPCResponsePayload("server.model.get", dashScopeResponse);
-  assert.deepEqual(decodeRPCResponsePayload("server.model.get", dashScopePayload), dashScopeResponse);
+  const dashScopePayload = encodeRPCResponsePayload(
+    "server.model.get",
+    dashScopeResponse,
+  );
+  assert.deepEqual(
+    decodeRPCResponsePayload("server.model.get", dashScopePayload),
+    dashScopeResponse,
+  );
 
   assert.throws(
-    () => encodeRPCResponsePayload("server.model.get", {
-      ...response,
-      value: {
-        ...response.value,
-        openai_tenant: { thinking_levels: [], upstream_model: "gpt-test" },
-      },
-    }),
+    () =>
+      encodeRPCResponsePayload("server.model.get", {
+        ...response,
+        value: {
+          ...response.value,
+          openai_tenant: { thinking_levels: [], upstream_model: "gpt-test" },
+        },
+      }),
     /protobuf message Model has multiple oneof values/,
   );
 
   assert.throws(
-    () => encodeRPCResponsePayload("server.model.get", {
-      ...response,
-      value: {
-        ...response.value,
-        deepseek_tenant: undefined,
-        openai_tenant: { thinking_levels: [], upstream_model: "gpt-test" },
-      },
-    }),
+    () =>
+      encodeRPCResponsePayload("server.model.get", {
+        ...response,
+        value: {
+          ...response.value,
+          deepseek_tenant: undefined,
+          openai_tenant: { thinking_levels: [], upstream_model: "gpt-test" },
+        },
+      }),
     /requires provider_data field deepseek_tenant, got openai_tenant/,
   );
 
   const mismatchedPayload = payload.slice();
   let providerKindTag = -1;
   for (let index = 0; index + 1 < mismatchedPayload.length; index++) {
-    if (mismatchedPayload[index] === 0x58 && mismatchedPayload[index + 1] === 0x06) {
+    if (
+      mismatchedPayload[index] === 0x58 &&
+      mismatchedPayload[index + 1] === 0x06
+    ) {
       providerKindTag = index;
       break;
     }
@@ -508,16 +653,17 @@ test("RPC payload codec enforces typed model provider-data oneof", () => {
 
 test("RPC payload codec rejects ambiguous numeric workspace discriminators", () => {
   assert.throws(
-    () => encodeRPCRequestPayload("server.workspace.create", {
-      created_at: "now",
-      last_active_at: "now",
-      name: "main",
-      parameters: {
-        agent_type: 1,
-      },
-      updated_at: "now",
-      workflow_name: "chat",
-    }),
+    () =>
+      encodeRPCRequestPayload("server.workspace.create", {
+        created_at: "now",
+        last_active_at: "now",
+        name: "main",
+        parameters: {
+          agent_type: 1,
+        },
+        updated_at: "now",
+        workflow_name: "chat",
+      }),
     /no protobuf oneof candidate for WorkspaceParameters/,
   );
 });
@@ -529,12 +675,18 @@ test("RPC payload codec excludes peer resource mutation methods", () => {
     "server.credential.create",
     "server.tool.create",
   ]) {
-    assert.throws(() => encodeRPCRequestPayload(method, {}), new RegExp(`unknown RPC method: ${method.replaceAll(".", "\\.")}`));
+    assert.throws(
+      () => encodeRPCRequestPayload(method, {}),
+      new RegExp(`unknown RPC method: ${method.replaceAll(".", "\\.")}`),
+    );
   }
 });
 
 test("RPC method map preserves generated payload types", () => {
-  const source = readFileSync(new URL("./generated/rpc/method-map.ts", import.meta.url), "utf8");
+  const source = readFileSync(
+    new URL("./generated/rpc/method-map.ts", import.meta.url),
+    "utf8",
+  );
 
   assert.match(source, /request: PingRequest;/);
   assert.match(source, /response: PingResponse;/);
@@ -543,23 +695,32 @@ test("RPC method map preserves generated payload types", () => {
 });
 
 test("RPC payload codec decodes omitted proto3 defaults", () => {
-  assert.deepEqual(decodeRPCResponsePayload("all.speed_test.run", new Uint8Array()), {
-    down_content_length: 0,
-    up_content_length: 0,
-  });
-  assert.deepEqual(decodeRPCResponsePayload("server.workspace.list", new Uint8Array()), {
-    has_next: false,
-    items: [],
-    runtime_profile_name: "",
-    runtime_profile_revision: "",
-  });
+  assert.deepEqual(
+    decodeRPCResponsePayload("all.speed_test.run", new Uint8Array()),
+    {
+      down_content_length: 0,
+      up_content_length: 0,
+    },
+  );
+  assert.deepEqual(
+    decodeRPCResponsePayload("server.workspace.list", new Uint8Array()),
+    {
+      has_next: false,
+      items: [],
+      runtime_profile_name: "",
+      runtime_profile_revision: "",
+    },
+  );
 });
 
 test("RPC payload codec preserves Tool invocation JSON strings", () => {
   const value = { data_json: `{"ok":true}` };
   const payload = encodeRPCResponsePayload("client.tool.invoke", value);
 
-  assert.deepEqual(decodeRPCResponsePayload("client.tool.invoke", payload), value);
+  assert.deepEqual(
+    decodeRPCResponsePayload("client.tool.invoke", payload),
+    value,
+  );
 });
 
 test("RPC payload codec preserves safe Tool JSON schema fields", () => {
@@ -585,9 +746,18 @@ test("RPC payload codec preserves safe Tool JSON schema fields", () => {
   assert.equal(parameters?.additionalProperties, false);
   assert.equal(parameters?.minLength, 1);
   assert.equal(parameters?.type, "string");
-  assert.equal(Object.prototype.hasOwnProperty.call(parameters ?? {}, "enum"), false);
-  assert.equal(Object.prototype.hasOwnProperty.call(parameters ?? {}, "required"), false);
-  assert.equal(Object.prototype.hasOwnProperty.call(parameters ?? {}, "anyOf"), false);
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(parameters ?? {}, "enum"),
+    false,
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(parameters ?? {}, "required"),
+    false,
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(parameters ?? {}, "anyOf"),
+    false,
+  );
 });
 
 test("RPC payload codec exposes only runtime workflow aliases", () => {
@@ -605,7 +775,12 @@ test("RPC payload codec exposes only runtime workflow aliases", () => {
   };
   const payload = encodeRPCResponsePayload("server.workflow.get", workflow);
   const decoded = decodeRPCResponsePayload("server.workflow.get", payload) as {
-    value?: { alias?: string; collection?: string; owner_public_key?: string; spec?: unknown };
+    value?: {
+      alias?: string;
+      collection?: string;
+      owner_public_key?: string;
+      spec?: unknown;
+    };
   };
 
   assert.equal(decoded.value?.alias, "assistant");
@@ -625,27 +800,29 @@ test("RPC payload codec addresses workflows by globally unique alias", () => {
 
 test("RPC payload codec rejects string values for bool fields", () => {
   assert.throws(
-    () => encodeRPCRequestPayload("server.workspace.create", {
-      created_at: "now",
-      last_active_at: "now",
-      name: "main",
-      parameters: {
-        agent_type: "doubao-realtime",
-        e2e: "false",
-      },
-      updated_at: "now",
-      workflow_name: "chat",
-    }),
+    () =>
+      encodeRPCRequestPayload("server.workspace.create", {
+        created_at: "now",
+        last_active_at: "now",
+        name: "main",
+        parameters: {
+          agent_type: "doubao-realtime",
+          e2e: "false",
+        },
+        updated_at: "now",
+        workflow_name: "chat",
+      }),
     /protobuf bool field expects boolean/,
   );
 });
 
 test("RPC payload codec rejects unknown enum strings", () => {
   assert.throws(
-    () => encodeRPCRequestPayload("server.firmware.files.download", {
-      channel: "stabel",
-      path: "firmware.bin",
-    }),
+    () =>
+      encodeRPCRequestPayload("server.firmware.files.download", {
+        channel: "stabel",
+        path: "firmware.bin",
+      }),
     /unknown protobuf enum value for FirmwareChannelName: stabel/,
   );
 });
@@ -654,11 +831,18 @@ test("WebRTCRPCClient reassembles response frames split across messages", async 
   const pc = new FakePeerConnection();
   const client = new WebRTCRPCClient(pc, { createID: () => "req-split" });
 
-  const promise = client.call<{ server_time: number }>("all.ping", { client_send_time: 2 });
+  const promise = client.call<{ server_time: number }>("all.ping", {
+    client_send_time: 2,
+  });
   const channel = pc.lastChannel();
   channel.open();
 
-  const response = new Uint8Array(encodeRPCResponse({ id: "req-split", result: { server_time: 100 }, v: 1 }, "all.ping"));
+  const response = new Uint8Array(
+    encodeRPCResponse(
+      { id: "req-split", result: { server_time: 100 }, v: 1 },
+      "all.ping",
+    ),
+  );
   channel.receiveBytes(response.slice(0, 5));
   channel.receiveBytes(response.slice(5));
 
@@ -667,13 +851,22 @@ test("WebRTCRPCClient reassembles response frames split across messages", async 
 
 test("WebRTCRPCClient reassembles oversized protobuf envelope continuation frames", async () => {
   const pc = new FakePeerConnection();
-  const client = new WebRTCRPCClient(pc, { createID: () => "req-continuation" });
+  const client = new WebRTCRPCClient(pc, {
+    createID: () => "req-continuation",
+  });
 
-  const promise = client.call<{ server_time: number }>("all.ping", { client_send_time: 3 });
+  const promise = client.call<{ server_time: number }>("all.ping", {
+    client_send_time: 3,
+  });
   const channel = pc.lastChannel();
   channel.open();
 
-  const responseFrames = decodeFrames(encodeRPCResponse({ id: "req-continuation", result: { server_time: 101 }, v: 1 }, "all.ping"));
+  const responseFrames = decodeFrames(
+    encodeRPCResponse(
+      { id: "req-continuation", result: { server_time: 101 }, v: 1 },
+      "all.ping",
+    ),
+  );
   const envelope = responseFrames[0]?.payload;
   assert.ok(envelope);
   const split = Math.floor(envelope.length / 2);
@@ -686,7 +879,9 @@ test("WebRTCRPCClient reassembles oversized protobuf envelope continuation frame
 
 test("WebRTCRPCClient rejects oversized protobuf response continuation frames", async () => {
   const pc = new FakePeerConnection();
-  const client = new WebRTCRPCClient(pc, { createID: () => "req-continuation-too-large" });
+  const client = new WebRTCRPCClient(pc, {
+    createID: () => "req-continuation-too-large",
+  });
 
   const promise = client.call("all.ping", { client_send_time: 3 });
   const channel = pc.lastChannel();
@@ -704,10 +899,17 @@ test("WebRTCRPCClient resolves queued response before close", async () => {
   const pc = new FakePeerConnection();
   const client = new WebRTCRPCClient(pc, { createID: () => "req-close" });
 
-  const promise = client.call<{ server_time: number }>("all.ping", { client_send_time: 4 });
+  const promise = client.call<{ server_time: number }>("all.ping", {
+    client_send_time: 4,
+  });
   const channel = pc.lastChannel();
   channel.open();
-  channel.receive(encodeRPCResponse({ id: "req-close", result: { server_time: 102 }, v: 1 }, "all.ping"));
+  channel.receive(
+    encodeRPCResponse(
+      { id: "req-close", result: { server_time: 102 }, v: 1 },
+      "all.ping",
+    ),
+  );
   channel.remoteClose();
 
   assert.deepEqual(await promise, { server_time: 102 });
@@ -717,16 +919,30 @@ test("WebRTCRPCClient reads metadata plus binary response frames", async () => {
   const pc = new FakePeerConnection();
   const client = new WebRTCRPCClient(pc, { createID: () => "req-binary" });
 
-  const promise = client.callBinary<{ mime_type: string; size_bytes: number }>("server.workspace.history.audio.get", {
-    history_id: "h1",
-    workspace_name: "main",
-  });
+  const promise = client.callBinary<{ mime_type: string; size_bytes: number }>(
+    "server.workspace.history.audio.get",
+    {
+      history_id: "h1",
+      workspace_name: "main",
+    },
+  );
   const channel = pc.lastChannel();
   channel.open();
 
-  channel.receive(encodeRPCResponse({ id: "req-binary", result: { mime_type: "audio/ogg", size_bytes: 5 }, v: 1 }, "server.workspace.history.audio.get").slice(0, -4));
+  channel.receive(
+    encodeRPCResponse(
+      {
+        id: "req-binary",
+        result: { mime_type: "audio/ogg", size_bytes: 5 },
+        v: 1,
+      },
+      "server.workspace.history.audio.get",
+    ).slice(0, -4),
+  );
   channel.receive(encodeFrame(RPC_FRAME_TYPE_BINARY, new Uint8Array([1, 2])));
-  channel.receive(encodeFrame(RPC_FRAME_TYPE_BINARY, new Uint8Array([3, 4, 5])));
+  channel.receive(
+    encodeFrame(RPC_FRAME_TYPE_BINARY, new Uint8Array([3, 4, 5])),
+  );
   channel.receive(encodeFrame(RPC_FRAME_TYPE_EOS));
 
   const result = await promise;
@@ -742,7 +958,9 @@ test("WebRTCRPCClient reads metadata plus binary response frames", async () => {
 
 test("WebRTCRPCClient streams transcription audio before request EOS", async () => {
   const pc = new FakePeerConnection();
-  const client = new WebRTCRPCClient(pc, { createID: () => "speech-transcribe" });
+  const client = new WebRTCRPCClient(pc, {
+    createID: () => "speech-transcribe",
+  });
   let releaseUpload!: () => void;
   const uploadGate = new Promise<void>((resolve) => {
     releaseUpload = resolve;
@@ -753,28 +971,47 @@ test("WebRTCRPCClient streams transcription audio before request EOS", async () 
     yield new Uint8Array([3, 4]);
   }
 
-  const promise = client.transcribeSpeech({
-    model_alias: "asr-main",
-    content_type: "audio/L16;rate=16000;channels=1",
-  }, audio());
+  const promise = client.transcribeSpeech(
+    {
+      model_alias: "asr-main",
+      content_type: "audio/L16;rate=16000;channels=1",
+    },
+    audio(),
+  );
   const channel = pc.lastChannel();
   channel.open();
   await channel.waitForSentCount(2);
 
-  assert.equal(decodeFrames(channel.sent[0] ?? new ArrayBuffer(0))[0]?.type, RPC_FRAME_TYPE_BINARY);
+  assert.equal(
+    decodeFrames(channel.sent[0] ?? new ArrayBuffer(0))[0]?.type,
+    RPC_FRAME_TYPE_BINARY,
+  );
   assert.deepEqual(decodeFrames(channel.sent[1] ?? new ArrayBuffer(0)), [
     { payload: new Uint8Array([1, 2]), type: RPC_FRAME_TYPE_BINARY },
   ]);
-  assert.equal(channel.sent.some((message) => decodeFrames(message)[0]?.type === RPC_FRAME_TYPE_EOS), false);
+  assert.equal(
+    channel.sent.some(
+      (message) => decodeFrames(message)[0]?.type === RPC_FRAME_TYPE_EOS,
+    ),
+    false,
+  );
 
   releaseUpload();
   await channel.waitForSentCount(4);
-  assert.equal(decodeFrames(channel.sent[3] ?? new ArrayBuffer(0))[0]?.type, RPC_FRAME_TYPE_EOS);
-  channel.receive(encodeRPCResponse({
-    id: "speech-transcribe",
-    result: { transcript: "hello" },
-    v: 1,
-  }, "server.speech.transcribe"));
+  assert.equal(
+    decodeFrames(channel.sent[3] ?? new ArrayBuffer(0))[0]?.type,
+    RPC_FRAME_TYPE_EOS,
+  );
+  channel.receive(
+    encodeRPCResponse(
+      {
+        id: "speech-transcribe",
+        result: { transcript: "hello" },
+        v: 1,
+      },
+      "server.speech.transcribe",
+    ),
+  );
 
   assert.deepEqual(await promise, { transcript: "hello" });
   assert.equal(channel.closed, true);
@@ -784,10 +1021,13 @@ test("WebRTCRPCClient delimits a split transcription envelope before audio", asy
   const largeID = "r".repeat(0xffff + 1024);
   const pc = new FakePeerConnection();
   const client = new WebRTCRPCClient(pc, { createID: () => largeID });
-  const promise = client.transcribeSpeech({
-    model_alias: "asr-main",
-    content_type: "audio/L16;rate=16000;channels=1",
-  }, [new Uint8Array([1, 2])]);
+  const promise = client.transcribeSpeech(
+    {
+      model_alias: "asr-main",
+      content_type: "audio/L16;rate=16000;channels=1",
+    },
+    [new Uint8Array([1, 2])],
+  );
   const channel = pc.lastChannel();
   channel.open();
   await new Promise<void>((resolve) => setImmediate(resolve));
@@ -802,17 +1042,24 @@ test("WebRTCRPCClient delimits a split transcription envelope before audio", asy
   });
   assert.equal(sentFrames[4]?.type, RPC_FRAME_TYPE_EOS);
 
-  channel.receive(encodeRPCResponse({
-    id: largeID,
-    result: { transcript: "hello" },
-    v: 1,
-  }, "server.speech.transcribe"));
+  channel.receive(
+    encodeRPCResponse(
+      {
+        id: largeID,
+        result: { transcript: "hello" },
+        v: 1,
+      },
+      "server.speech.transcribe",
+    ),
+  );
   assert.deepEqual(await promise, { transcript: "hello" });
 });
 
 test("WebRTCRPCClient stops a live transcription upload on an early response", async () => {
   const pc = new FakePeerConnection();
-  const client = new WebRTCRPCClient(pc, { createID: () => "speech-early-error" });
+  const client = new WebRTCRPCClient(pc, {
+    createID: () => "speech-early-error",
+  });
   let reads = 0;
   let returned = false;
   const audio: AsyncIterable<Uint8Array> = {
@@ -820,7 +1067,8 @@ test("WebRTCRPCClient stops a live transcription upload on an early response", a
       return {
         next: async () => {
           reads += 1;
-          if (reads === 1) return { done: false, value: new Uint8Array([1, 2]) };
+          if (reads === 1)
+            return { done: false, value: new Uint8Array([1, 2]) };
           return await new Promise<IteratorResult<Uint8Array>>(() => {});
         },
         return: async () => {
@@ -831,18 +1079,26 @@ test("WebRTCRPCClient stops a live transcription upload on an early response", a
     },
   };
 
-  const promise = client.transcribeSpeech({
-    model_alias: "missing",
-    content_type: "audio/L16;rate=16000;channels=1",
-  }, audio);
+  const promise = client.transcribeSpeech(
+    {
+      model_alias: "missing",
+      content_type: "audio/L16;rate=16000;channels=1",
+    },
+    audio,
+  );
   const channel = pc.lastChannel();
   channel.open();
   await channel.waitForSentCount(2);
-  channel.receive(encodeRPCResponse({
-    error: { code: -32602, message: "model alias is invalid" },
-    id: "speech-early-error",
-    v: 1,
-  }, "server.speech.transcribe"));
+  channel.receive(
+    encodeRPCResponse(
+      {
+        error: { code: -32602, message: "model alias is invalid" },
+        id: "speech-early-error",
+        v: 1,
+      },
+      "server.speech.transcribe",
+    ),
+  );
 
   await assert.rejects(promise, /model alias is invalid/);
   assert.equal(returned, true);
@@ -851,7 +1107,9 @@ test("WebRTCRPCClient stops a live transcription upload on an early response", a
 
 test("WebRTCRPCClient exposes synthesized audio before response EOS", async () => {
   const pc = new FakePeerConnection();
-  const client = new WebRTCRPCClient(pc, { createID: () => "speech-synthesize" });
+  const client = new WebRTCRPCClient(pc, {
+    createID: () => "speech-synthesize",
+  });
   const promise = client.synthesizeSpeech({
     voice_alias: "narrator",
     text: "hello",
@@ -861,11 +1119,20 @@ test("WebRTCRPCClient exposes synthesized audio before response EOS", async () =
   channel.open();
   await channel.waitForSent();
 
-  channel.receive(encodeRPCResponse({
-    id: "speech-synthesize",
-    result: { content_type: "audio/pcm", sample_rate_hz: 16000, channels: 1 },
-    v: 1,
-  }, "server.speech.synthesize").slice(0, -4));
+  channel.receive(
+    encodeRPCResponse(
+      {
+        id: "speech-synthesize",
+        result: {
+          content_type: "audio/pcm",
+          sample_rate_hz: 16000,
+          channels: 1,
+        },
+        v: 1,
+      },
+      "server.speech.synthesize",
+    ).slice(0, -4),
+  );
   channel.receive(encodeFrame(RPC_FRAME_TYPE_BINARY, new Uint8Array([1, 2])));
 
   const result = await promise;
@@ -875,12 +1142,18 @@ test("WebRTCRPCClient exposes synthesized audio before response EOS", async () =
     sample_rate_hz: 16000,
   });
   const iterator = result.body[Symbol.asyncIterator]();
-  assert.deepEqual(await iterator.next(), { done: false, value: new Uint8Array([1, 2]) });
+  assert.deepEqual(await iterator.next(), {
+    done: false,
+    value: new Uint8Array([1, 2]),
+  });
   assert.equal(channel.closed, false);
 
   channel.receive(encodeFrame(RPC_FRAME_TYPE_BINARY, new Uint8Array([3, 4])));
   channel.receive(encodeFrame(RPC_FRAME_TYPE_EOS));
-  assert.deepEqual(await iterator.next(), { done: false, value: new Uint8Array([3, 4]) });
+  assert.deepEqual(await iterator.next(), {
+    done: false,
+    value: new Uint8Array([3, 4]),
+  });
   assert.deepEqual(await iterator.next(), { done: true, value: undefined });
   assert.equal(channel.closed, true);
 });
@@ -894,18 +1167,26 @@ test("WebRTCRPCClient gives speech calls speech-specific default timeouts", asyn
     createID: () => "slow-transcription",
     requestTimeoutMs: 1,
   });
-  const transcription = transcriptionClient.transcribeSpeech({
-    model_alias: "asr-main",
-    content_type: "audio/L16;rate=16000;channels=1",
-  }, [new Uint8Array([1, 2])]);
+  const transcription = transcriptionClient.transcribeSpeech(
+    {
+      model_alias: "asr-main",
+      content_type: "audio/L16;rate=16000;channels=1",
+    },
+    [new Uint8Array([1, 2])],
+  );
   const transcriptionChannel = transcriptionPC.lastChannel();
   transcriptionChannel.open();
   await new Promise((resolve) => setTimeout(resolve, 20));
-  transcriptionChannel.receive(encodeRPCResponse({
-    id: "slow-transcription",
-    result: { transcript: "hello" },
-    v: 1,
-  }, "server.speech.transcribe"));
+  transcriptionChannel.receive(
+    encodeRPCResponse(
+      {
+        id: "slow-transcription",
+        result: { transcript: "hello" },
+        v: 1,
+      },
+      "server.speech.transcribe",
+    ),
+  );
   assert.deepEqual(await transcription, { transcript: "hello" });
 
   const synthesisPC = new FakePeerConnection();
@@ -921,11 +1202,20 @@ test("WebRTCRPCClient gives speech calls speech-specific default timeouts", asyn
   const synthesisChannel = synthesisPC.lastChannel();
   synthesisChannel.open();
   await new Promise((resolve) => setTimeout(resolve, 20));
-  synthesisChannel.receive(encodeRPCResponse({
-    id: "slow-synthesis",
-    result: { content_type: "audio/pcm", sample_rate_hz: 16000, channels: 1 },
-    v: 1,
-  }, "server.speech.synthesize").slice(0, -4));
+  synthesisChannel.receive(
+    encodeRPCResponse(
+      {
+        id: "slow-synthesis",
+        result: {
+          content_type: "audio/pcm",
+          sample_rate_hz: 16000,
+          channels: 1,
+        },
+        v: 1,
+      },
+      "server.speech.synthesize",
+    ).slice(0, -4),
+  );
   synthesisChannel.receive(encodeFrame(RPC_FRAME_TYPE_EOS));
   const result = await synthesis;
   assert.equal(result.result.content_type, "audio/pcm");
@@ -933,9 +1223,15 @@ test("WebRTCRPCClient gives speech calls speech-specific default timeouts", asyn
 
 test("WebRTCRPCClient reads continuation metadata plus binary response frames", async () => {
   const pc = new FakePeerConnection();
-  const client = new WebRTCRPCClient(pc, { createID: () => "req-binary-continuation" });
+  const client = new WebRTCRPCClient(pc, {
+    createID: () => "req-binary-continuation",
+  });
 
-  const promise = client.callBinary<{ mime_type: string; size_bytes: number; workspace_name: string }>("server.workspace.history.audio.get", {
+  const promise = client.callBinary<{
+    mime_type: string;
+    size_bytes: number;
+    workspace_name: string;
+  }>("server.workspace.history.audio.get", {
     history_id: "h1",
     workspace_name: "main",
   });
@@ -943,11 +1239,20 @@ test("WebRTCRPCClient reads continuation metadata plus binary response frames", 
   channel.open();
 
   const workspaceName = "w".repeat(70000);
-  channel.receive(encodeRPCResponse({
-    id: "req-binary-continuation",
-    result: { mime_type: "audio/ogg", size_bytes: 2, workspace_name: workspaceName },
-    v: 1,
-  }, "server.workspace.history.audio.get"));
+  channel.receive(
+    encodeRPCResponse(
+      {
+        id: "req-binary-continuation",
+        result: {
+          mime_type: "audio/ogg",
+          size_bytes: 2,
+          workspace_name: workspaceName,
+        },
+        v: 1,
+      },
+      "server.workspace.history.audio.get",
+    ),
+  );
   channel.receive(encodeFrame(RPC_FRAME_TYPE_BINARY, new Uint8Array([8, 9])));
   channel.receive(encodeFrame(RPC_FRAME_TYPE_EOS));
 
@@ -958,7 +1263,9 @@ test("WebRTCRPCClient reads continuation metadata plus binary response frames", 
 
 test("WebRTCRPCClient rejects oversized binary metadata continuation frames", async () => {
   const pc = new FakePeerConnection();
-  const client = new WebRTCRPCClient(pc, { createID: () => "req-binary-continuation-too-large" });
+  const client = new WebRTCRPCClient(pc, {
+    createID: () => "req-binary-continuation-too-large",
+  });
 
   const promise = client.callBinary("server.workspace.history.audio.get", {
     history_id: "h1",
@@ -977,7 +1284,9 @@ test("WebRTCRPCClient rejects oversized binary metadata continuation frames", as
 
 test("WebRTCRPCClient rejects continuation binary RPC errors without body frames", async () => {
   const pc = new FakePeerConnection();
-  const client = new WebRTCRPCClient(pc, { createID: () => "req-binary-error" });
+  const client = new WebRTCRPCClient(pc, {
+    createID: () => "req-binary-error",
+  });
 
   const promise = client.callBinary("server.workspace.history.audio.get", {
     history_id: "h1",
@@ -986,11 +1295,16 @@ test("WebRTCRPCClient rejects continuation binary RPC errors without body frames
   const channel = pc.lastChannel();
   channel.open();
 
-  channel.receive(encodeRPCResponse({
-    error: { code: -32000, message: "x".repeat(70000) },
-    id: "req-binary-error",
-    v: 1,
-  }, "server.workspace.history.audio.get"));
+  channel.receive(
+    encodeRPCResponse(
+      {
+        error: { code: -32000, message: "x".repeat(70000) },
+        id: "req-binary-error",
+        v: 1,
+      },
+      "server.workspace.history.audio.get",
+    ),
+  );
 
   await assert.rejects(promise, (err) => {
     assert.equal(err instanceof WebRTCRPCError, true);
@@ -1007,7 +1321,12 @@ test("WebRTCRPCClient rejects RPC error responses", async () => {
   const promise = client.call("server.run.workspace.reload");
   const channel = pc.lastChannel();
   channel.open();
-  channel.receive(encodeRPCResponse({ error: { code: -32000, message: "boom" }, id: "req-2", v: 1 }, "server.run.workspace.reload"));
+  channel.receive(
+    encodeRPCResponse(
+      { error: { code: -32000, message: "boom" }, id: "req-2", v: 1 },
+      "server.run.workspace.reload",
+    ),
+  );
 
   await assert.rejects(promise, (err) => {
     assert.equal(err instanceof WebRTCRPCError, true);
@@ -1019,28 +1338,47 @@ test("WebRTCRPCClient rejects RPC error responses", async () => {
 
 test("WebRTCRPCClient rejects unknown methods before data channel open", async () => {
   const pc = new FakePeerConnection();
-  const client = new WebRTCRPCClient(pc, { createID: () => "req-unknown", requestTimeoutMs: 0 });
+  const client = new WebRTCRPCClient(pc, {
+    createID: () => "req-unknown",
+    requestTimeoutMs: 0,
+  });
 
-  await assert.rejects(client.call("peer.unknown", {}), /unknown RPC method: peer\.unknown/);
+  await assert.rejects(
+    client.call("peer.unknown", {}),
+    /unknown RPC method: peer\.unknown/,
+  );
   assert.equal(pc.lastChannel().closed, true);
   assert.equal(pc.lastChannel().sent.length, 0);
 });
 
 test("WebRTCRPCClient rejects unknown binary methods before data channel open", async () => {
   const pc = new FakePeerConnection();
-  const client = new WebRTCRPCClient(pc, { createID: () => "req-unknown-binary", requestTimeoutMs: 0 });
+  const client = new WebRTCRPCClient(pc, {
+    createID: () => "req-unknown-binary",
+    requestTimeoutMs: 0,
+  });
 
-  await assert.rejects(client.callBinary("peer.unknown", {}), /unknown RPC method: peer\.unknown/);
+  await assert.rejects(
+    client.callBinary("peer.unknown", {}),
+    /unknown RPC method: peer\.unknown/,
+  );
   assert.equal(pc.lastChannel().closed, true);
   assert.equal(pc.lastChannel().sent.length, 0);
 });
 
 test("WebRTCRPCClient honors AbortSignal", async () => {
   const pc = new FakePeerConnection();
-  const client = new WebRTCRPCClient(pc, { createID: () => "req-3", requestTimeoutMs: 0 });
+  const client = new WebRTCRPCClient(pc, {
+    createID: () => "req-3",
+    requestTimeoutMs: 0,
+  });
   const ac = new AbortController();
 
-  const promise = client.call("server.run.workspace.get", {}, { signal: ac.signal });
+  const promise = client.call(
+    "server.run.workspace.get",
+    {},
+    { signal: ac.signal },
+  );
   const channel = pc.lastChannel();
   ac.abort();
 
@@ -1069,14 +1407,29 @@ test("createPeerRPCClient calls generated typed RPC methods", async () => {
 
   await rpc.call("server.run.workspace.set", { workspace_name: "main" });
   await rpc.call("server.run.workspace.history.play", { history_id: "h1" });
-  await rpc.call("server.firmware.files.download", { channel: "stable", path: "firmware.bin" });
-  await rpc.call("server.friend_group.messages.send", { friend_group_id: "group-a", text: "hello" });
+  await rpc.call("server.firmware.files.download", {
+    channel: "stable",
+    path: "firmware.bin",
+  });
+  await rpc.call("server.friend_group.messages.send", {
+    friend_group_id: "group-a",
+    text: "hello",
+  });
 
   assert.deepEqual(calls, [
     { method: "server.run.workspace.set", params: { workspace_name: "main" } },
-    { method: "server.run.workspace.history.play", params: { history_id: "h1" } },
-    { method: "server.firmware.files.download", params: { channel: "stable", path: "firmware.bin" } },
-    { method: "server.friend_group.messages.send", params: { friend_group_id: "group-a", text: "hello" } },
+    {
+      method: "server.run.workspace.history.play",
+      params: { history_id: "h1" },
+    },
+    {
+      method: "server.firmware.files.download",
+      params: { channel: "stable", path: "firmware.bin" },
+    },
+    {
+      method: "server.friend_group.messages.send",
+      params: { friend_group_id: "group-a", text: "hello" },
+    },
   ]);
 });
 
@@ -1096,23 +1449,33 @@ test("createEdgeRPCClient uses the edge RPC service channel", async () => {
   const pc = new FakePeerConnection();
   const rpc = createEdgeRPCClient(pc, { createID: () => "req-edge" });
 
-  const promise = rpc.call("server.route.resolve", { target_peer_public_key: "peer-b" });
+  const promise = rpc.call("server.route.resolve", {
+    target_peer_public_key: "peer-b",
+  });
   const channel = pc.lastChannel();
   channel.open();
 
-  assert.equal(channel.label, giznetServiceDataChannelLabel(GIZCLAW_SERVICE_EDGE_RPC));
-  channel.receive(encodeRPCResponse({
-    id: "req-edge",
-    result: {
-      assignment: {
-        role: "edge-node",
-        server_endpoint: "https://edge.example",
-        server_public_key: "server-pk",
-        version: 1,
+  assert.equal(
+    channel.label,
+    giznetServiceDataChannelLabel(GIZCLAW_SERVICE_EDGE_RPC),
+  );
+  channel.receive(
+    encodeRPCResponse(
+      {
+        id: "req-edge",
+        result: {
+          assignment: {
+            role: "edge-node",
+            server_endpoint: "https://edge.example",
+            server_public_key: "server-pk",
+            version: 1,
+          },
+        },
+        v: 1,
       },
-    },
-    v: 1,
-  }, "server.route.resolve"));
+      "server.route.resolve",
+    ),
+  );
 
   assert.deepEqual(await promise, {
     assignment: {
@@ -1146,18 +1509,12 @@ test("createEdgeRPCClient calls generated edge RPC methods", async () => {
   assert.deepEqual(calls, [
     { method: "server.peer.lookup", params: { peer_public_key: "peer-a" } },
     { method: "server.peer.assign", params: { peer_public_key: "peer-a" } },
-    { method: "server.route.resolve", params: { target_peer_public_key: "peer-a" } },
+    {
+      method: "server.route.resolve",
+      params: { target_peer_public_key: "peer-a" },
+    },
   ]);
 });
-
-type AssertAssignable<T extends U, U> = T;
-type PeerRPCMethodParameter = Parameters<ReturnType<typeof createPeerRPCClient>["call"]>[0];
-// @ts-expect-error edge RPC methods must use createEdgeRPCClient.
-type PeerRPCRejectsEdgeMethod = AssertAssignable<"server.peer.assign", PeerRPCMethodParameter>;
-// @ts-expect-error streaming speech must use PeerRPCClient.transcribeSpeech.
-type PeerRPCRejectsSpeechTranscribe = AssertAssignable<"server.speech.transcribe", PeerRPCMethodParameter>;
-// @ts-expect-error streaming speech must use PeerRPCClient.synthesizeSpeech.
-type PeerRPCRejectsSpeechSynthesize = AssertAssignable<"server.speech.synthesize", PeerRPCMethodParameter>;
 
 test("createPeerRPCClient forwards dedicated streaming speech methods", async () => {
   const audio = [new Uint8Array([1, 2])];
@@ -1165,14 +1522,21 @@ test("createPeerRPCClient forwards dedicated streaming speech methods", async ()
   const client = {
     call: async () => ({}),
     callBinary: async () => ({ body: new Uint8Array(), result: {} }),
-    transcribeSpeech: async (params: { model_alias: string }, input: Iterable<Uint8Array>) => {
-      calls.push(`transcribe:${params.model_alias}:${Array.from(input)[0]?.byteLength ?? 0}`);
+    transcribeSpeech: async (
+      params: { model_alias: string },
+      input: Iterable<Uint8Array>,
+    ) => {
+      calls.push(
+        `transcribe:${params.model_alias}:${Array.from(input)[0]?.byteLength ?? 0}`,
+      );
       return { transcript: "hello" };
     },
     synthesizeSpeech: async (params: { voice_alias: string }) => {
       calls.push(`synthesize:${params.voice_alias}`);
       return {
-        body: (async function* () { yield new Uint8Array([3, 4]); })(),
+        body: (async function* () {
+          yield new Uint8Array([3, 4]);
+        })(),
         cancel: () => {},
         result: { content_type: "audio/pcm" },
       };
@@ -1180,10 +1544,26 @@ test("createPeerRPCClient forwards dedicated streaming speech methods", async ()
   } as unknown as WebRTCRPCClient;
   const rpc = createPeerRPCClient(client);
 
-  assert.equal((await rpc.transcribeSpeech({ model_alias: "2fa-asr", content_type: "audio/L16;rate=16000;channels=1" }, audio)).transcript, "hello");
-  const synthesis = await rpc.synthesizeSpeech({ voice_alias: "2fa-voice", text: "hello", accepted_content_types: ["audio/pcm"] });
+  assert.equal(
+    (
+      await rpc.transcribeSpeech(
+        {
+          model_alias: "2fa-asr",
+          content_type: "audio/L16;rate=16000;channels=1",
+        },
+        audio,
+      )
+    ).transcript,
+    "hello",
+  );
+  const synthesis = await rpc.synthesizeSpeech({
+    voice_alias: "2fa-voice",
+    text: "hello",
+    accepted_content_types: ["audio/pcm"],
+  });
   let synthesizedBytes = 0;
-  for await (const chunk of synthesis.body) synthesizedBytes += chunk.byteLength;
+  for await (const chunk of synthesis.body)
+    synthesizedBytes += chunk.byteLength;
   assert.equal(synthesizedBytes, 2);
   assert.deepEqual(calls, ["transcribe:2fa-asr:2", "synthesize:2fa-voice"]);
 });
@@ -1222,15 +1602,22 @@ test("createAdminAPIFetch sends HTTP over the admin HTTP service channel", async
   const channel = pc.lastChannel();
   channel.open();
 
-  assert.equal(channel.label, giznetServiceDataChannelLabel(GIZCLAW_SERVICE_ADMIN_HTTP));
+  assert.equal(
+    channel.label,
+    giznetServiceDataChannelLabel(GIZCLAW_SERVICE_ADMIN_HTTP),
+  );
   await channel.waitForSent();
-  const requestText = new TextDecoder().decode(channel.sent[0] ?? new ArrayBuffer(0));
+  const requestText = new TextDecoder().decode(
+    channel.sent[0] ?? new ArrayBuffer(0),
+  );
   assert.match(requestText, /^GET \/peers\?limit=10 HTTP\/1\.1\r\n/);
   assert.match(requestText, /\r\nHost: gizclaw\r\n/);
   assert.match(requestText, /\r\nConnection: close\r\n/);
 
   const body = JSON.stringify({ has_next: false, items: [] });
-  channel.receiveText(`HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: ${body.length}\r\n\r\n${body}`);
+  channel.receiveText(
+    `HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: ${body.length}\r\n\r\n${body}`,
+  );
 
   const response = await promise;
   assert.equal(response.status, 200);
@@ -1250,7 +1637,9 @@ test("createAdminAPIFetch waits for open readyState before sending", async () =>
   await channel.waitForSent();
 
   const body = JSON.stringify({ has_next: false, items: [] });
-  channel.receiveText(`HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: ${body.length}\r\n\r\n${body}`);
+  channel.receiveText(
+    `HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: ${body.length}\r\n\r\n${body}`,
+  );
 
   const response = await promise;
   assert.equal(response.status, 200);
@@ -1291,11 +1680,23 @@ test("rewriteGiznetWebRTCAnswerForEndpoint uses a loopback signaling endpoint fo
     "",
   ].join("\r\n");
 
-  const rewritten = rewriteGiznetWebRTCAnswerForEndpoint(answer, "127.0.0.1:63933");
+  const rewritten = rewriteGiznetWebRTCAnswerForEndpoint(
+    answer,
+    "127.0.0.1:63933",
+  );
 
-  assert.match(rewritten, /a=candidate:1 1 udp 2130706431 127\.0\.0\.1 63933 typ host/);
-  assert.match(rewritten, /a=candidate:2 1 udp 1694498815 198\.51\.100\.10 50000 typ srflx/);
-  assert.equal(rewriteGiznetWebRTCAnswerForEndpoint(answer, "192.168.1.20:63933"), answer);
+  assert.match(
+    rewritten,
+    /a=candidate:1 1 udp 2130706431 127\.0\.0\.1 63933 typ host/,
+  );
+  assert.match(
+    rewritten,
+    /a=candidate:2 1 udp 1694498815 198\.51\.100\.10 50000 typ srflx/,
+  );
+  assert.equal(
+    rewriteGiznetWebRTCAnswerForEndpoint(answer, "192.168.1.20:63933"),
+    answer,
+  );
 });
 
 test("createAdminAPIFetch reads chunked HTTP service responses", async () => {
@@ -1306,7 +1707,9 @@ test("createAdminAPIFetch reads chunked HTTP service responses", async () => {
   channel.open();
   await channel.waitForSent();
 
-  channel.receiveText("HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\nB\r\n{\"ok\":t");
+  channel.receiveText(
+    'HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\nB\r\n{"ok":t',
+  );
   channel.receiveText("rue}\r\n0\r\n\r\n");
 
   const response = await promise;
@@ -1322,7 +1725,9 @@ test("createAdminAPIFetch resolves close-delimited HTTP service responses", asyn
   channel.open();
   await channel.waitForSent();
 
-  channel.receiveText("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nhello");
+  channel.receiveText(
+    "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nhello",
+  );
   channel.remoteClose();
 
   const response = await promise;
@@ -1331,7 +1736,12 @@ test("createAdminAPIFetch resolves close-delimited HTTP service responses", asyn
 });
 
 test("SSE client parses HTTP JSON errors without retrying", async () => {
-  const errorBody = { error: { code: "LOG_QUERY_NOT_CONFIGURED", message: "server log query backend is not configured" } };
+  const errorBody = {
+    error: {
+      code: "LOG_QUERY_NOT_CONFIGURED",
+      message: "server log query backend is not configured",
+    },
+  };
   const seenErrors: Array<unknown> = [];
   let attempts = 0;
   const result = createSseClient({
@@ -1365,7 +1775,9 @@ test("SSE client parses HTTP JSON errors without retrying", async () => {
 });
 
 test("SSE client does not retry backend JSON errors", async () => {
-  const errorBody = { error: { code: "LOG_BACKEND_ERROR", message: "backend search failed" } };
+  const errorBody = {
+    error: { code: "LOG_BACKEND_ERROR", message: "backend search failed" },
+  };
   let attempts = 0;
   const result = createSseClient({
     fetch: async () => {
@@ -1425,7 +1837,10 @@ test("SSE client retries transient HTTP errors", async () => {
 
   assert.equal(attempts, 3);
   assert.equal(sleeps, 2);
-  assert.deepEqual(seenErrors, ["temporarily unavailable", "temporarily unavailable"]);
+  assert.deepEqual(seenErrors, [
+    "temporarily unavailable",
+    "temporarily unavailable",
+  ]);
   assert.deepEqual(events, [{ message: "ready" }]);
 });
 
@@ -1453,27 +1868,42 @@ test("prepareGiznetWebRTCPeerConnection creates packet channel and audio transce
   prepareGiznetWebRTCPeerConnection(pc as unknown as RTCPeerConnection);
 
   assert.equal(pc.channels[0]?.label, GIZNET_WEBRTC_PACKET_DATA_CHANNEL_LABEL);
-  assert.deepEqual(pc.channels[0]?.options, { maxRetransmits: 0, ordered: false });
-  assert.equal(getGiznetWebRTCPacketDataChannel(pc as unknown as RTCPeerConnection), pc.channels[0]);
-  assert.deepEqual(pc.transceivers, [{ kind: "audio", init: { direction: "sendrecv" } }]);
+  assert.deepEqual(pc.channels[0]?.options, {
+    maxRetransmits: 0,
+    ordered: false,
+  });
+  assert.equal(
+    getGiznetWebRTCPacketDataChannel(pc as unknown as RTCPeerConnection),
+    pc.channels[0],
+  );
+  assert.deepEqual(pc.transceivers, [
+    { kind: "audio", init: { direction: "sendrecv" } },
+  ]);
 });
 
 test("prepared WebRTC peer serves server-initiated protobuf ping", async () => {
   const pc = new FakePeerConnection();
   prepareGiznetWebRTCPeerConnection(pc as unknown as RTCPeerConnection);
-  const channel = new FakeDataChannel(giznetServiceDataChannelLabel(GIZCLAW_SERVICE_PEER_RPC));
+  const channel = new FakeDataChannel(
+    giznetServiceDataChannelLabel(GIZCLAW_SERVICE_PEER_RPC),
+  );
   channel.open();
   pc.receiveDataChannel(channel);
 
-  channel.receive(encodeRPCRequest({
-    id: "server-ping",
-    method: "all.ping",
-    params: { client_send_time: 123 },
-    v: 1,
-  }));
+  channel.receive(
+    encodeRPCRequest({
+      id: "server-ping",
+      method: "all.ping",
+      params: { client_send_time: 123 },
+      v: 1,
+    }),
+  );
   await channel.waitForSentCount(2);
 
-  const response = parseRPCResponse<{ server_time: number }>(concatBuffers(channel.sent), "all.ping");
+  const response = parseRPCResponse<{ server_time: number }>(
+    concatBuffers(channel.sent),
+    "all.ping",
+  );
   assert.equal(response.id, "server-ping");
   assert.ok((response.result?.server_time ?? 0) > 0);
 });
@@ -1481,49 +1911,71 @@ test("prepared WebRTC peer serves server-initiated protobuf ping", async () => {
 test("prepared WebRTC peer serves full-duplex server-initiated speed test", async () => {
   const pc = new FakePeerConnection();
   prepareGiznetWebRTCPeerConnection(pc as unknown as RTCPeerConnection);
-  const channel = new FakeDataChannel(giznetServiceDataChannelLabel(GIZCLAW_SERVICE_PEER_RPC));
+  const channel = new FakeDataChannel(
+    giznetServiceDataChannelLabel(GIZCLAW_SERVICE_PEER_RPC),
+  );
   channel.open();
   pc.receiveDataChannel(channel);
 
-  const request = decodeFrames(encodeRPCRequest({
-    id: "server-speed",
-    method: "all.speed_test.run",
-    params: { down_content_length: 32 * 1024 + 7, up_content_length: 32 * 1024 + 5 },
-    v: 1,
-  }));
+  const request = decodeFrames(
+    encodeRPCRequest({
+      id: "server-speed",
+      method: "all.speed_test.run",
+      params: {
+        down_content_length: 32 * 1024 + 7,
+        up_content_length: 32 * 1024 + 5,
+      },
+      v: 1,
+    }),
+  );
   channel.receive(encodeFrame(RPC_FRAME_TYPE_BINARY, request[0]?.payload));
-  channel.receive(encodeFrame(RPC_FRAME_TYPE_BINARY, new Uint8Array(32 * 1024)));
+  channel.receive(
+    encodeFrame(RPC_FRAME_TYPE_BINARY, new Uint8Array(32 * 1024)),
+  );
   channel.receive(encodeFrame(RPC_FRAME_TYPE_BINARY, new Uint8Array(5)));
   channel.receive(encodeFrame(RPC_FRAME_TYPE_EOS));
   await channel.waitForSentCount(4);
 
   const frames = decodeFrames(concatBuffers(channel.sent));
-  assert.deepEqual(frames.map((frame) => frame.type), [
-    RPC_FRAME_TYPE_BINARY,
-    RPC_FRAME_TYPE_BINARY,
-    RPC_FRAME_TYPE_BINARY,
-    RPC_FRAME_TYPE_EOS,
-  ]);
-  assert.deepEqual(frames.slice(1, 3).map((frame) => frame.payload.length), [32 * 1024, 7]);
+  assert.deepEqual(
+    frames.map((frame) => frame.type),
+    [
+      RPC_FRAME_TYPE_BINARY,
+      RPC_FRAME_TYPE_BINARY,
+      RPC_FRAME_TYPE_BINARY,
+      RPC_FRAME_TYPE_EOS,
+    ],
+  );
+  assert.deepEqual(
+    frames.slice(1, 3).map((frame) => frame.payload.length),
+    [32 * 1024, 7],
+  );
 });
 
 test("prepared WebRTC peer finishes a continued server-initiated ping on its envelope EOS", async () => {
   const pc = new FakePeerConnection();
   prepareGiznetWebRTCPeerConnection(pc as unknown as RTCPeerConnection);
-  const channel = new FakeDataChannel(giznetServiceDataChannelLabel(GIZCLAW_SERVICE_PEER_RPC));
+  const channel = new FakeDataChannel(
+    giznetServiceDataChannelLabel(GIZCLAW_SERVICE_PEER_RPC),
+  );
   channel.open();
   pc.receiveDataChannel(channel);
   const id = "p".repeat(70_000);
 
-  channel.receive(encodeRPCRequest({
-    id,
-    method: "all.ping",
-    params: { client_send_time: 123 },
-    v: 1,
-  }));
+  channel.receive(
+    encodeRPCRequest({
+      id,
+      method: "all.ping",
+      params: { client_send_time: 123 },
+      v: 1,
+    }),
+  );
   await channel.waitForSentCount(3);
 
-  const response = parseRPCResponse<{ server_time: number }>(concatBuffers(channel.sent), "all.ping");
+  const response = parseRPCResponse<{ server_time: number }>(
+    concatBuffers(channel.sent),
+    "all.ping",
+  );
   assert.equal(response.id, id);
   assert.ok((response.result?.server_time ?? 0) > 0);
 });
@@ -1531,29 +1983,36 @@ test("prepared WebRTC peer finishes a continued server-initiated ping on its env
 test("prepared WebRTC peer delimits a continued speed-test response envelope", async () => {
   const pc = new FakePeerConnection();
   prepareGiznetWebRTCPeerConnection(pc as unknown as RTCPeerConnection);
-  const channel = new FakeDataChannel(giznetServiceDataChannelLabel(GIZCLAW_SERVICE_PEER_RPC));
+  const channel = new FakeDataChannel(
+    giznetServiceDataChannelLabel(GIZCLAW_SERVICE_PEER_RPC),
+  );
   channel.open();
   pc.receiveDataChannel(channel);
   const id = "s".repeat(70_000);
 
-  channel.receive(encodeRPCRequest({
-    id,
-    method: "all.speed_test.run",
-    params: { down_content_length: 7, up_content_length: 5 },
-    v: 1,
-  }));
+  channel.receive(
+    encodeRPCRequest({
+      id,
+      method: "all.speed_test.run",
+      params: { down_content_length: 7, up_content_length: 5 },
+      v: 1,
+    }),
+  );
   channel.receive(encodeFrame(RPC_FRAME_TYPE_BINARY, new Uint8Array(5)));
   channel.receive(encodeFrame(RPC_FRAME_TYPE_EOS));
   await channel.waitForSentCount(5);
 
   const frames = decodeFrames(concatBuffers(channel.sent));
-  assert.deepEqual(frames.map((frame) => frame.type), [
-    RPC_FRAME_TYPE_TEXT,
-    RPC_FRAME_TYPE_TEXT,
-    RPC_FRAME_TYPE_EOS,
-    RPC_FRAME_TYPE_BINARY,
-    RPC_FRAME_TYPE_EOS,
-  ]);
+  assert.deepEqual(
+    frames.map((frame) => frame.type),
+    [
+      RPC_FRAME_TYPE_TEXT,
+      RPC_FRAME_TYPE_TEXT,
+      RPC_FRAME_TYPE_EOS,
+      RPC_FRAME_TYPE_BINARY,
+      RPC_FRAME_TYPE_EOS,
+    ],
+  );
   assert.equal(frames[3]?.payload.length, 7);
 });
 
@@ -1575,10 +2034,13 @@ test("sendGiznetWebRTCTelemetry uses the prepared packet channel", async () => {
 test("sendGiznetWebRTCTelemetry waits for the packet channel to open", async () => {
   const pc = new FakePeerConnection();
   prepareGiznetWebRTCPeerConnection(pc as unknown as RTCPeerConnection);
-  const promise = sendGiznetWebRTCTelemetry(pc as unknown as RTCPeerConnection, {
-    observedAtUnixMs: 1000,
-    observations: [batteryTelemetry({ percent: 82 })],
-  });
+  const promise = sendGiznetWebRTCTelemetry(
+    pc as unknown as RTCPeerConnection,
+    {
+      observedAtUnixMs: 1000,
+      observations: [batteryTelemetry({ percent: 82 })],
+    },
+  );
 
   assert.equal(pc.channels[0]?.sent.length, 0);
   pc.channels[0]?.open();
@@ -1590,10 +2052,14 @@ test("sendGiznetWebRTCTelemetry waits for the packet channel to open", async () 
 test("sendGiznetWebRTCTelemetry waits beyond the RPC send retry budget", async () => {
   const pc = new FakePeerConnection();
   prepareGiznetWebRTCPeerConnection(pc as unknown as RTCPeerConnection);
-  const promise = sendGiznetWebRTCTelemetry(pc as unknown as RTCPeerConnection, {
-    observedAtUnixMs: 1000,
-    observations: [batteryTelemetry({ percent: 82 })],
-  }, { timeoutMs: 1000 });
+  const promise = sendGiznetWebRTCTelemetry(
+    pc as unknown as RTCPeerConnection,
+    {
+      observedAtUnixMs: 1000,
+      observations: [batteryTelemetry({ percent: 82 })],
+    },
+    { timeoutMs: 1000 },
+  );
 
   await new Promise((resolve) => setTimeout(resolve, 150));
   assert.equal(pc.channels[0]?.sent.length, 0);
@@ -1608,10 +2074,14 @@ test("sendGiznetWebRTCTelemetry rejects when the packet channel does not open", 
   prepareGiznetWebRTCPeerConnection(pc as unknown as RTCPeerConnection);
 
   await assert.rejects(
-    sendGiznetWebRTCTelemetry(pc as unknown as RTCPeerConnection, {
-      observedAtUnixMs: 1000,
-      observations: [batteryTelemetry({ percent: 82 })],
-    }, { timeoutMs: 1 }),
+    sendGiznetWebRTCTelemetry(
+      pc as unknown as RTCPeerConnection,
+      {
+        observedAtUnixMs: 1000,
+        observations: [batteryTelemetry({ percent: 82 })],
+      },
+      { timeoutMs: 1 },
+    ),
     /did not open/,
   );
 });
@@ -1624,14 +2094,10 @@ test("encodeTelemetryPacket prefixes protobuf telemetry payload", () => {
   });
 
   assert.equal(packet[0], GIZCLAW_EVENT_STREAM_TELEMETRY);
-  assert.deepEqual([...packet.slice(1)], [
-    8, 7,
-    16, 232, 7,
-    26, 13,
-    82, 11,
-    9, 0, 0, 0, 0, 0, 128, 84, 64,
-    16, 1,
-  ]);
+  assert.deepEqual(
+    Array.from(packet.slice(1)),
+    [8, 7, 16, 232, 7, 26, 13, 82, 11, 9, 0, 0, 0, 0, 0, 128, 84, 64, 16, 1],
+  );
 });
 
 test("encodeTelemetryPacket stamps frames before send", () => {
@@ -1646,7 +2112,7 @@ test("encodeTelemetryPacket stamps frames before send", () => {
 
     assert.equal(frame.observations.length, 1);
     assert.equal(frame.observedAtUnixMs, 0);
-    assert.deepEqual([...packet.slice(1, 4)], [16, 210, 9]);
+    assert.deepEqual(Array.from(packet.slice(1, 4)), [16, 210, 9]);
   } finally {
     Date.now = originalNow;
   }
@@ -1654,28 +2120,33 @@ test("encodeTelemetryPacket stamps frames before send", () => {
 
 test("encodeTelemetryPacket rejects observations with multiple bodies", () => {
   assert.throws(
-    () => encodeTelemetryPacket({
-      observations: [{
-        battery: { percent: 82 },
-        system: { temperatureC: 33 },
-      } as any],
-    }),
+    () =>
+      encodeTelemetryPacket({
+        observations: [
+          {
+            battery: { percent: 82 },
+            system: { temperatureC: 33 },
+          } as any,
+        ],
+      }),
     /exactly one body/,
   );
 });
 
 test("encodeTelemetryPacket rejects empty frames before encoding", () => {
-  assert.throws(
-    () => encodeTelemetryPacket({}),
-    /at least one observation/,
-  );
+  assert.throws(() => encodeTelemetryPacket({}), /at least one observation/);
 });
 
 test("encodeTelemetryPacket rejects oversized packets", () => {
   assert.throws(
-    () => encodeTelemetryPacket({
-      observations: [systemTelemetry({ firmwareVersion: "x".repeat(GIZCLAW_MAX_PACKET_MESSAGE_SIZE) })],
-    }),
+    () =>
+      encodeTelemetryPacket({
+        observations: [
+          systemTelemetry({
+            firmwareVersion: "x".repeat(GIZCLAW_MAX_PACKET_MESSAGE_SIZE),
+          }),
+        ],
+      }),
     /maximum/,
   );
 });
@@ -1695,7 +2166,10 @@ test("waitForICEGatheringComplete resolves on the end-of-candidates marker", asy
   const abortTimer = setTimeout(() => controller.abort(), 10);
 
   try {
-    const gathering = waitForICEGatheringComplete(pc as unknown as RTCPeerConnection, controller.signal);
+    const gathering = waitForICEGatheringComplete(
+      pc as unknown as RTCPeerConnection,
+      controller.signal,
+    );
     pc.emitEndOfCandidates();
     await gathering;
   } finally {
@@ -1715,7 +2189,11 @@ test("waitForICEGatheringComplete uses a gathered candidate after the bounded wi
   const abortTimer = setTimeout(() => controller.abort(), 20);
 
   try {
-    await waitForICEGatheringComplete(pc as unknown as RTCPeerConnection, controller.signal, 1);
+    await waitForICEGatheringComplete(
+      pc as unknown as RTCPeerConnection,
+      controller.signal,
+      1,
+    );
   } finally {
     clearTimeout(abortTimer);
   }
@@ -1729,7 +2207,11 @@ test("waitForICEGatheringComplete rejects a host-only partial offer after the bo
   } as RTCSessionDescription;
 
   await assert.rejects(
-    waitForICEGatheringComplete(pc as unknown as RTCPeerConnection, undefined, 1),
+    waitForICEGatheringComplete(
+      pc as unknown as RTCPeerConnection,
+      undefined,
+      1,
+    ),
     /before producing a relay candidate/,
   );
 });
@@ -1750,24 +2232,38 @@ test("sendGiznetWebRTCOffer posts the peer HTTP signaling request", async () => 
     {
       fetch: async (input, init) => {
         captured = new Request(input, init);
-        return new Response(answer, { headers: { "content-type": "application/octet-stream" }, status: 200 });
+        return new Response(answer, {
+          headers: { "content-type": "application/octet-stream" },
+          status: 200,
+        });
       },
       url: `http://localhost${GIZNET_WEBRTC_SIGNALING_PATH}`,
     },
   );
 
-  assert.deepEqual(new Uint8Array(await result.arrayBuffer()), new Uint8Array([4, 5]));
+  assert.deepEqual(
+    new Uint8Array(await result.arrayBuffer()),
+    new Uint8Array([4, 5]),
+  );
   assert.equal(result.type, "application/octet-stream");
-  assert.equal(captured?.url, `http://localhost${GIZNET_WEBRTC_SIGNALING_PATH}`);
+  assert.equal(
+    captured?.url,
+    `http://localhost${GIZNET_WEBRTC_SIGNALING_PATH}`,
+  );
   assert.equal(captured?.method, "POST");
-  assert.equal(captured?.headers.get("content-type"), "application/octet-stream");
+  assert.equal(
+    captured?.headers.get("content-type"),
+    "application/octet-stream",
+  );
   assert.equal(captured?.headers.get("x-giznet-public-key"), "peer-pk");
   assert.equal(captured?.headers.get("x-giznet-timestamp"), "123");
   assert.equal(captured?.headers.get("x-giznet-nonce"), "nonce");
 });
 
 test("fetchGiznetServerInfo validates server metadata", async () => {
-  const serverPublicKey = base58Encode(x25519.getPublicKey(new Uint8Array(32).fill(2)));
+  const serverPublicKey = base58Encode(
+    x25519.getPublicKey(new Uint8Array(32).fill(2)),
+  );
   let captured: Request | undefined;
 
   const info = await fetchGiznetServerInfo({
@@ -1775,7 +2271,13 @@ test("fetchGiznetServerInfo validates server metadata", async () => {
     fetch: async (input, init) => {
       captured = new Request(input, init);
       return Response.json({
-        ice_servers: [{ credential: "pass", urls: [" turn:edge.example.com:3478?transport=udp "], username: "user" }],
+        ice_servers: [
+          {
+            credential: "pass",
+            urls: [" turn:edge.example.com:3478?transport=udp "],
+            username: "user",
+          },
+        ],
         protocol: "gizclaw-webrtc",
         public_key: serverPublicKey,
         signaling_path: "/custom/offer",
@@ -1786,11 +2288,19 @@ test("fetchGiznetServerInfo validates server metadata", async () => {
   assert.equal(captured?.url, "http://localhost:9820/server-info");
   assert.equal(info.public_key, serverPublicKey);
   assert.equal(info.signaling_path, "/custom/offer");
-  assert.deepEqual(info.ice_servers, [{ credential: "pass", urls: ["turn:edge.example.com:3478?transport=udp"], username: "user" }]);
+  assert.deepEqual(info.ice_servers, [
+    {
+      credential: "pass",
+      urls: ["turn:edge.example.com:3478?transport=udp"],
+      username: "user",
+    },
+  ]);
 });
 
 test("fetchGiznetServerInfo rejects invalid ICE server metadata", async () => {
-  const serverPublicKey = base58Encode(x25519.getPublicKey(new Uint8Array(32).fill(2)));
+  const serverPublicKey = base58Encode(
+    x25519.getPublicKey(new Uint8Array(32).fill(2)),
+  );
   for (const iceServers of [
     {},
     [{}],
@@ -1801,7 +2311,11 @@ test("fetchGiznetServerInfo rejects invalid ICE server metadata", async () => {
     await assert.rejects(
       fetchGiznetServerInfo({
         baseUrl: "http://localhost:9820",
-        fetch: async () => Response.json({ ice_servers: iceServers, public_key: serverPublicKey }),
+        fetch: async () =>
+          Response.json({
+            ice_servers: iceServers,
+            public_key: serverPublicKey,
+          }),
       }),
       /invalid ice_servers/,
     );
@@ -1810,9 +2324,17 @@ test("fetchGiznetServerInfo rejects invalid ICE server metadata", async () => {
 
 test("applyGiznetServerInfoICEServers updates peer connection configuration", () => {
   const pc = new FakeConfigurablePeerConnection();
-  const iceServers = [{ credential: "pass", urls: ["turn:edge.example.com:3478?transport=udp"], username: "user" }];
+  const iceServers = [
+    {
+      credential: "pass",
+      urls: ["turn:edge.example.com:3478?transport=udp"],
+      username: "user",
+    },
+  ];
 
-  applyGiznetServerInfoICEServers(pc as unknown as RTCPeerConnection, { ice_servers: iceServers });
+  applyGiznetServerInfoICEServers(pc as unknown as RTCPeerConnection, {
+    ice_servers: iceServers,
+  });
 
   assert.deepEqual(pc.configuration, {
     bundlePolicy: "balanced",
@@ -1821,7 +2343,9 @@ test("applyGiznetServerInfoICEServers updates peer connection configuration", ()
 });
 
 test("fetchGiznetServerInfo defaults signaling path and reports HTTP failures", async () => {
-  const serverPublicKey = base58Encode(x25519.getPublicKey(new Uint8Array(32).fill(2)));
+  const serverPublicKey = base58Encode(
+    x25519.getPublicKey(new Uint8Array(32).fill(2)),
+  );
   const info = await fetchGiznetServerInfo({
     baseUrl: "http://localhost:9820",
     fetch: async () =>
@@ -1835,7 +2359,11 @@ test("fetchGiznetServerInfo defaults signaling path and reports HTTP failures", 
   await assert.rejects(
     fetchGiznetServerInfo({
       baseUrl: "http://localhost:9820",
-      fetch: async () => new Response("not ready", { status: 503, statusText: "Service Unavailable" }),
+      fetch: async () =>
+        new Response("not ready", {
+          status: 503,
+          statusText: "Service Unavailable",
+        }),
     }),
     /server-info failed: 503 Service Unavailable: not ready/,
   );
@@ -1868,7 +2396,10 @@ test("prepareEncryptedGiznetWebRTCOffer builds a browser-safe encrypted offer", 
   const clientPublicKey = x25519.getPublicKey(clientPrivateKey);
   const serverPublicKey = x25519.getPublicKey(serverPrivateKey);
 
-  assert.deepEqual(base58Decode(base58Encode(clientPublicKey)), clientPublicKey);
+  assert.deepEqual(
+    base58Decode(base58Encode(clientPublicKey)),
+    clientPublicKey,
+  );
   assert.deepEqual(base64Decode("AQID"), new Uint8Array([1, 2, 3]));
 
   const offer = await prepareEncryptedGiznetWebRTCOffer(
@@ -1893,7 +2424,10 @@ class FakePeerConnection {
   transceivers: Array<{ init?: RTCRtpTransceiverInit; kind: string }> = [];
   readonly listeners = new Map<string, Set<(event: unknown) => void>>();
 
-  createDataChannel(label: string, options?: RTCDataChannelInit): FakeDataChannel {
+  createDataChannel(
+    label: string,
+    options?: RTCDataChannelInit,
+  ): FakeDataChannel {
     const channel = new FakeDataChannel(label, options);
     this.channels.push(channel);
     return channel;
@@ -1903,11 +2437,15 @@ class FakePeerConnection {
     return { sdp: "v=0", type: "offer" };
   }
 
-  async setLocalDescription(description: RTCLocalSessionDescriptionInit): Promise<void> {
+  async setLocalDescription(
+    description: RTCLocalSessionDescriptionInit,
+  ): Promise<void> {
     this.localDescription = description as RTCSessionDescription;
   }
 
-  async setRemoteDescription(_description: RTCSessionDescriptionInit): Promise<void> {}
+  async setRemoteDescription(
+    _description: RTCSessionDescriptionInit,
+  ): Promise<void> {}
 
   addTransceiver(kind: string, init?: RTCRtpTransceiverInit): void {
     this.transceivers.push({ kind, init });
@@ -2051,7 +2589,9 @@ class FakeDataChannel {
       return;
     }
     if (ArrayBuffer.isView(data)) {
-      this.sent.push(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength));
+      this.sent.push(
+        data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength),
+      );
       return;
     }
     if (typeof data === "string") {
@@ -2114,7 +2654,9 @@ class FakeDataChannel {
       }
       await new Promise((resolve) => setTimeout(resolve, 0));
     }
-    throw new Error(`fake data channel sent ${this.sent.length} messages, want ${count}`);
+    throw new Error(
+      `fake data channel sent ${this.sent.length} messages, want ${count}`,
+    );
   }
 
   private emit(type: string, event?: unknown): void {

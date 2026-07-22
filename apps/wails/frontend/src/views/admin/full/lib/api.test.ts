@@ -10,27 +10,37 @@ test("transport failure replaces the Admin session once and retries once", async
   const connections = [first, second];
   let connectCalls = 0;
   const session = new AdminPeerSessionManager({
-    connect: async () => connections[connectCalls++] as unknown as RTCPeerConnection,
+    connect: async () =>
+      connections[connectCalls++] as unknown as RTCPeerConnection,
   });
   await session.start();
 
   let firstCalls = 0;
   let secondCalls = 0;
-  const recoveringFetch = createRecoveringServiceFetch(session, (connection) => {
-    if (connection === (first as unknown as RTCPeerConnection)) {
+  const recoveringFetch = createRecoveringServiceFetch(
+    session,
+    (connection) => {
+      if (connection === (first as unknown as RTCPeerConnection)) {
+        return async () => {
+          firstCalls += 1;
+          throw new Error("service data channel timed out");
+        };
+      }
       return async () => {
-        firstCalls += 1;
-        throw new Error("service data channel timed out");
+        secondCalls += 1;
+        return new Response("ok");
       };
-    }
-    return async () => {
-      secondCalls += 1;
-      return new Response("ok");
-    };
-  });
+    },
+  );
 
-  const responses = await Promise.all([recoveringFetch("http://gizclaw/a"), recoveringFetch("http://gizclaw/b")]);
-  assert.deepEqual(await Promise.all(responses.map((response) => response.text())), ["ok", "ok"]);
+  const responses = await Promise.all([
+    recoveringFetch("http://gizclaw/a"),
+    recoveringFetch("http://gizclaw/b"),
+  ]);
+  assert.deepEqual(
+    await Promise.all(responses.map((response) => response.text())),
+    ["ok", "ok"],
+  );
   assert.equal(connectCalls, 2);
   assert.equal(firstCalls, 2);
   assert.equal(secondCalls, 2);
@@ -43,19 +53,23 @@ test("transport retry replays the complete request body", async () => {
   const connections = [first, second];
   let connectCalls = 0;
   const session = new AdminPeerSessionManager({
-    connect: async () => connections[connectCalls++] as unknown as RTCPeerConnection,
+    connect: async () =>
+      connections[connectCalls++] as unknown as RTCPeerConnection,
   });
   await session.start();
 
   const bodies: string[] = [];
-  const recoveringFetch = createRecoveringServiceFetch(session, (connection) => async (input) => {
-    const request = new Request(input);
-    bodies.push(await request.text());
-    if (connection === (first as unknown as RTCPeerConnection)) {
-      throw new Error("service data channel timed out");
-    }
-    return new Response("ok");
-  });
+  const recoveringFetch = createRecoveringServiceFetch(
+    session,
+    (connection) => async (input) => {
+      const request = new Request(input);
+      bodies.push(await request.text());
+      if (connection === (first as unknown as RTCPeerConnection)) {
+        throw new Error("service data channel timed out");
+      }
+      return new Response("ok");
+    },
+  );
 
   const response = await recoveringFetch("http://gizclaw/models", {
     method: "POST",
@@ -78,7 +92,10 @@ test("HTTP responses and request cancellation do not recover the session", async
   });
   await session.start();
 
-  const httpFetch = createRecoveringServiceFetch(session, () => async () => new Response("failed", { status: 503 }));
+  const httpFetch = createRecoveringServiceFetch(
+    session,
+    () => async () => new Response("failed", { status: 503 }),
+  );
   assert.equal((await httpFetch("http://gizclaw/http-error")).status, 503);
 
   const aborted = new AbortController();
@@ -86,7 +103,10 @@ test("HTTP responses and request cancellation do not recover the session", async
   const abortFetch = createRecoveringServiceFetch(session, () => async () => {
     throw Object.assign(new Error("cancelled"), { name: "AbortError" });
   });
-  await assert.rejects(abortFetch("http://gizclaw/aborted", { signal: aborted.signal }), { name: "AbortError" });
+  await assert.rejects(
+    abortFetch("http://gizclaw/aborted", { signal: aborted.signal }),
+    { name: "AbortError" },
+  );
   assert.equal(connectCalls, 1);
 });
 
@@ -96,7 +116,8 @@ test("late events and cleanup from an obsolete session cannot replace the active
   const connections = [first, second];
   let connectCalls = 0;
   const session = new AdminPeerSessionManager({
-    connect: async () => connections[connectCalls++] as unknown as RTCPeerConnection,
+    connect: async () =>
+      connections[connectCalls++] as unknown as RTCPeerConnection,
     disconnectedGraceMS: 0,
   });
   await session.start();
@@ -104,7 +125,10 @@ test("late events and cleanup from an obsolete session cannot replace the active
 
   first.setState("failed");
   await new Promise((resolve) => setTimeout(resolve, 0));
-  assert.equal(await session.connection(), second as unknown as RTCPeerConnection);
+  assert.equal(
+    await session.connection(),
+    second as unknown as RTCPeerConnection,
+  );
   assert.equal(connectCalls, 2);
   assert.equal(second.closeCalls, 0);
 
@@ -120,16 +144,23 @@ test("a failed retry becomes terminal without a third request", async () => {
   let connectCalls = 0;
   let fetchCalls = 0;
   const session = new AdminPeerSessionManager({
-    connect: async () => connections[connectCalls++] as unknown as RTCPeerConnection,
+    connect: async () =>
+      connections[connectCalls++] as unknown as RTCPeerConnection,
     onState: (state) => states.push(state.status),
   });
   await session.start();
-  const recoveringFetch = createRecoveringServiceFetch(session, () => async () => {
-    fetchCalls += 1;
-    throw new Error(`transport failure ${fetchCalls}`);
-  });
+  const recoveringFetch = createRecoveringServiceFetch(
+    session,
+    () => async () => {
+      fetchCalls += 1;
+      throw new Error(`transport failure ${fetchCalls}`);
+    },
+  );
 
-  await assert.rejects(recoveringFetch("http://gizclaw/workflows"), /transport failure 2/);
+  await assert.rejects(
+    recoveringFetch("http://gizclaw/workflows"),
+    /transport failure 2/,
+  );
   await assert.rejects(session.connection(), /transport failure 2/);
   assert.equal(connectCalls, 2);
   assert.equal(fetchCalls, 2);
@@ -169,9 +200,16 @@ class FakePeerConnection {
   closeCalls = 0;
   readonly #listeners: Array<() => void> = [];
 
-  addEventListener(type: string, listener: EventListenerOrEventListenerObject): void {
+  addEventListener(
+    type: string,
+    listener: EventListenerOrEventListenerObject,
+  ): void {
     if (type === "connectionstatechange") {
-      this.#listeners.push(typeof listener === "function" ? () => listener(new Event(type)) : () => listener.handleEvent(new Event(type)));
+      this.#listeners.push(
+        typeof listener === "function"
+          ? () => listener(new Event(type))
+          : () => listener.handleEvent(new Event(type)),
+      );
     }
   }
 

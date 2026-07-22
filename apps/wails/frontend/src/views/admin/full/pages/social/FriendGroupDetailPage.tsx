@@ -2,11 +2,22 @@ import { ChevronLeft, RefreshCw, Save, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
-import { deleteFriendGroup, getFriendGroup, putFriendGroup, type FriendGroupObject } from "@gizclaw/gizclaw/admin";
+import {
+  deleteFriendGroup,
+  getFriendGroup,
+  putFriendGroup,
+  type FriendGroupObject,
+} from "@gizclaw/gizclaw/admin";
 import { expectData, toMessage } from "@/dashboard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -34,7 +45,10 @@ export function FriendGroupDetailPage(): JSX.Element {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState<{ message: string; tone: "error" | "success" } | null>(null);
+  const [notice, setNotice] = useState<{
+    message: string;
+    tone: "error" | "success";
+  } | null>(null);
 
   const load = async (): Promise<void> => {
     if (groupID === "") {
@@ -65,7 +79,15 @@ export function FriendGroupDetailPage(): JSX.Element {
     setBusy("save");
     setNotice(null);
     try {
-      const next = await expectData(putFriendGroup({ body: { name: name.trim() || undefined, description: description.trim() || undefined }, path: { id: groupID } }));
+      const next = await expectData(
+        putFriendGroup({
+          body: {
+            name: name.trim() || undefined,
+            description: description.trim() || undefined,
+          },
+          path: { id: groupID },
+        }),
+      );
       setGroup(next);
       setName(next.name ?? "");
       setDescription(next.description ?? "");
@@ -91,7 +113,12 @@ export function FriendGroupDetailPage(): JSX.Element {
   };
 
   if (groupID === "") {
-    return <EmptyState description="Missing friend group id in the URL." title="Invalid route" />;
+    return (
+      <EmptyState
+        description="Missing friend group id in the URL."
+        title="Invalid route"
+      />
+    );
   }
 
   return (
@@ -105,7 +132,13 @@ export function FriendGroupDetailPage(): JSX.Element {
                 Back to list
               </Link>
             </Button>
-            <Button className="min-w-fit shrink-0 whitespace-nowrap" disabled={loading} onClick={() => void load()} size="sm" variant="outline">
+            <Button
+              className="min-w-fit shrink-0 whitespace-nowrap"
+              disabled={loading}
+              onClick={() => void load()}
+              size="sm"
+              variant="outline"
+            >
               <RefreshCw className="size-4" />
               Reload
             </Button>
@@ -131,13 +164,25 @@ export function FriendGroupDetailPage(): JSX.Element {
       />
 
       <PageSummaryCard
-        description={group?.description?.trim() || <span className="break-all font-mono text-xs">{groupID}</span>}
+        description={
+          group?.description?.trim() || (
+            <span className="break-all font-mono text-xs">{groupID}</span>
+          )
+        }
         eyebrow="Social Friend Group"
-        meta={group ? <Badge variant="outline">{socialWorkspaceName(group.workspace_name)}</Badge> : null}
+        meta={
+          group ? (
+            <Badge variant="outline">
+              {socialWorkspaceName(group.workspace_name)}
+            </Badge>
+          ) : null
+        }
         title={group?.name?.trim() || groupID}
       />
 
-      {notice !== null ? <NoticeBanner message={notice.message} tone={notice.tone} /> : null}
+      {notice !== null ? (
+        <NoticeBanner message={notice.message} tone={notice.tone} />
+      ) : null}
 
       {loading ? (
         <div className="space-y-4">
@@ -147,7 +192,10 @@ export function FriendGroupDetailPage(): JSX.Element {
       ) : error !== "" ? (
         <ErrorBanner message={error} />
       ) : group === null ? (
-        <EmptyState description="This friend group could not be loaded." title="Friend group not found" />
+        <EmptyState
+          description="This friend group could not be loaded."
+          title="Friend group not found"
+        />
       ) : (
         <Tabs className="space-y-4" defaultValue="info">
           <TabsList className="grid h-auto w-full grid-cols-4 lg:w-[34rem]">
@@ -171,7 +219,12 @@ export function FriendGroupDetailPage(): JSX.Element {
               <DetailBlock
                 items={[
                   ["Resource", "FriendGroup"],
-                  ["Implicit owner", group.created_by_peer_public_key ? group.created_by_peer_public_key : "None"],
+                  [
+                    "Implicit owner",
+                    group.created_by_peer_public_key
+                      ? group.created_by_peer_public_key
+                      : "None",
+                  ],
                   ["My role", group.my_role ?? "None"],
                   ["Workspace access", "Members only"],
                 ]}
@@ -182,19 +235,32 @@ export function FriendGroupDetailPage(): JSX.Element {
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Edit Group</CardTitle>
-                <CardDescription>Update group metadata. Member roles are managed on the Members tab.</CardDescription>
+                <CardDescription>
+                  Update group metadata. Member roles are managed on the Members
+                  tab.
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid gap-4 xl:grid-cols-2">
                   <FormField label="Name">
-                    <Input onChange={(event) => setName(event.target.value)} value={name} />
+                    <Input
+                      onChange={(event) => setName(event.target.value)}
+                      value={name}
+                    />
                   </FormField>
                   <FormField label="Description">
-                    <Textarea onChange={(event) => setDescription(event.target.value)} value={description} />
+                    <Textarea
+                      onChange={(event) => setDescription(event.target.value)}
+                      value={description}
+                    />
                   </FormField>
                 </div>
                 <div className="flex justify-end border-t pt-4">
-                  <Button disabled={busy !== "" || name.trim() === ""} onClick={() => void save()} type="button">
+                  <Button
+                    disabled={busy !== "" || name.trim() === ""}
+                    onClick={() => void save()}
+                    type="button"
+                  >
                     <Save className="size-4" />
                     Save Info
                   </Button>

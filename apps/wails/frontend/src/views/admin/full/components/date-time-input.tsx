@@ -4,9 +4,18 @@ import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/components/ui/utils";
 
 type DateTimeInputProps = {
@@ -15,7 +24,11 @@ type DateTimeInputProps = {
   value: string;
 };
 
-export function DateTimeInput({ disabled = false, onChange, value }: DateTimeInputProps): JSX.Element {
+export function DateTimeInput({
+  disabled = false,
+  onChange,
+  value,
+}: DateTimeInputProps): JSX.Element {
   const selectedDate = useMemo(() => dateFromRFC3339(value), [value]);
   const timeValue = useMemo(() => timeInputFromRFC3339(value), [value]);
 
@@ -24,13 +37,20 @@ export function DateTimeInput({ disabled = false, onChange, value }: DateTimeInp
       <Popover>
         <PopoverTrigger asChild>
           <Button
-            className={cn("min-w-0 flex-1 justify-start px-3 font-normal", value.trim() === "" ? "text-muted-foreground" : undefined)}
+            className={cn(
+              "min-w-0 flex-1 justify-start px-3 font-normal",
+              value.trim() === "" ? "text-muted-foreground" : undefined,
+            )}
             disabled={disabled}
             type="button"
             variant="outline"
           >
             <CalendarIcon className="size-4" />
-            <span className="truncate">{selectedDate ? formatDateTime(selectedDate) : "Pick date and time"}</span>
+            <span className="truncate">
+              {selectedDate
+                ? formatDateTime(selectedDate)
+                : "Pick date and time"}
+            </span>
           </Button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-auto p-0">
@@ -46,7 +66,9 @@ export function DateTimeInput({ disabled = false, onChange, value }: DateTimeInp
           />
           <Separator />
           <div className="flex items-center gap-3 p-3">
-            <span className="text-sm font-medium text-muted-foreground">Time</span>
+            <span className="text-sm font-medium text-muted-foreground">
+              Time
+            </span>
             <Input
               className="w-32"
               onChange={(event) => {
@@ -63,7 +85,15 @@ export function DateTimeInput({ disabled = false, onChange, value }: DateTimeInp
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button aria-label="Clear datetime" className="shrink-0" disabled={disabled || value.trim() === ""} onClick={() => onChange("")} size="icon" type="button" variant="outline">
+            <Button
+              aria-label="Clear datetime"
+              className="shrink-0"
+              disabled={disabled || value.trim() === ""}
+              onClick={() => onChange("")}
+              size="icon"
+              type="button"
+              variant="outline"
+            >
               <X className="size-4" />
             </Button>
           </TooltipTrigger>
@@ -111,6 +141,11 @@ function rfc3339FromDateAndTime(date: Date, timeValue: string): string {
   const hour = Number(hourValue);
   const minute = Number(minuteValue);
   const nextDate = new Date(date);
-  nextDate.setHours(Number.isFinite(hour) ? hour : 0, Number.isFinite(minute) ? minute : 0, 0, 0);
+  nextDate.setHours(
+    Number.isFinite(hour) ? hour : 0,
+    Number.isFinite(minute) ? minute : 0,
+    0,
+    0,
+  );
   return nextDate.toISOString().replace(/\.\d{3}Z$/, "Z");
 }

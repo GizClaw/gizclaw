@@ -17,7 +17,11 @@ export function DashboardSidebarBrand({
       </div>
       <div className="min-w-0">
         <div className="truncate text-sm font-semibold">{title}</div>
-        {subtitle ? <div className="truncate text-xs text-muted-foreground">{subtitle}</div> : null}
+        {subtitle ? (
+          <div className="truncate text-xs text-muted-foreground">
+            {subtitle}
+          </div>
+        ) : null}
       </div>
     </div>
   );

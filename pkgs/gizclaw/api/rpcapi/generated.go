@@ -1166,13 +1166,13 @@ type ChatRoomWorkspaceTranscriptParameters struct {
 }
 
 // ClientGetIdentifiersRequest defines model for ClientGetIdentifiersRequest.
-type ClientGetIdentifiersRequest = map[string]interface{}
+type ClientGetIdentifiersRequest = map[string]any
 
 // ClientGetIdentifiersResponse defines model for ClientGetIdentifiersResponse.
 type ClientGetIdentifiersResponse = DeviceIdentifiers
 
 // ClientGetInfoRequest defines model for ClientGetInfoRequest.
-type ClientGetInfoRequest = map[string]interface{}
+type ClientGetInfoRequest = map[string]any
 
 // ClientGetInfoResponse defines model for ClientGetInfoResponse.
 type ClientGetInfoResponse = HardwareInfo
@@ -1328,8 +1328,8 @@ type DashScopeTenantModelProviderDataApiMode string
 
 // DashScopeTenantVoiceProviderData defines model for DashScopeTenantVoiceProviderData.
 type DashScopeTenantVoiceProviderData struct {
-	Raw     *map[string]interface{} `json:"raw,omitempty"`
-	VoiceId *string                 `json:"voice_id,omitempty"`
+	Raw     *map[string]any `json:"raw,omitempty"`
+	VoiceId *string         `json:"voice_id,omitempty"`
 }
 
 // DeviceInfo defines model for DeviceInfo.
@@ -1675,7 +1675,7 @@ type FlowcraftConversationParametersAgentInitiativePolicy string
 type FlowcraftConversationParametersInitiative string
 
 // FlowcraftWorkflowSpec defines model for FlowcraftWorkflowSpec.
-type FlowcraftWorkflowSpec map[string]interface{}
+type FlowcraftWorkflowSpec map[string]any
 
 // FlowcraftWorkspaceParameters defines model for FlowcraftWorkspaceParameters.
 type FlowcraftWorkspaceParameters struct {
@@ -1754,7 +1754,7 @@ type FriendGroupInviteTokenClearRequest struct {
 }
 
 // FriendGroupInviteTokenClearResponse defines model for FriendGroupInviteTokenClearResponse.
-type FriendGroupInviteTokenClearResponse = map[string]interface{}
+type FriendGroupInviteTokenClearResponse = map[string]any
 
 // FriendGroupInviteTokenCreateRequest defines model for FriendGroupInviteTokenCreateRequest.
 type FriendGroupInviteTokenCreateRequest struct {
@@ -1931,13 +1931,13 @@ type FriendGroupPutRequest struct {
 type FriendGroupPutResponse = FriendGroupObject
 
 // FriendInviteTokenClearRequest defines model for FriendInviteTokenClearRequest.
-type FriendInviteTokenClearRequest = map[string]interface{}
+type FriendInviteTokenClearRequest = map[string]any
 
 // FriendInviteTokenClearResponse defines model for FriendInviteTokenClearResponse.
-type FriendInviteTokenClearResponse = map[string]interface{}
+type FriendInviteTokenClearResponse = map[string]any
 
 // FriendInviteTokenCreateRequest defines model for FriendInviteTokenCreateRequest.
-type FriendInviteTokenCreateRequest = map[string]interface{}
+type FriendInviteTokenCreateRequest = map[string]any
 
 // FriendInviteTokenCreateResponse defines model for FriendInviteTokenCreateResponse.
 type FriendInviteTokenCreateResponse struct {
@@ -1946,7 +1946,7 @@ type FriendInviteTokenCreateResponse struct {
 }
 
 // FriendInviteTokenGetRequest defines model for FriendInviteTokenGetRequest.
-type FriendInviteTokenGetRequest = map[string]interface{}
+type FriendInviteTokenGetRequest = map[string]any
 
 // FriendInviteTokenGetResponse defines model for FriendInviteTokenGetResponse.
 type FriendInviteTokenGetResponse struct {
@@ -2038,7 +2038,7 @@ type GameplayListRequest struct {
 }
 
 // GameplayMetadata defines model for GameplayMetadata.
-type GameplayMetadata map[string]interface{}
+type GameplayMetadata map[string]any
 
 // GeminiCredentialBody defines model for GeminiCredentialBody.
 type GeminiCredentialBody struct {
@@ -2064,8 +2064,8 @@ type GeminiTenantModelProviderData struct {
 
 // GeminiTenantVoiceProviderData defines model for GeminiTenantVoiceProviderData.
 type GeminiTenantVoiceProviderData struct {
-	Raw     *map[string]interface{} `json:"raw,omitempty"`
-	VoiceId *string                 `json:"voice_id,omitempty"`
+	Raw     *map[string]any `json:"raw,omitempty"`
+	VoiceId *string         `json:"voice_id,omitempty"`
 }
 
 // HardwareInfo defines model for HardwareInfo.
@@ -2122,12 +2122,12 @@ type DeepSeekTenantModelProviderDataApiMode string
 
 // MiniMaxTenantVoiceProviderData defines model for MiniMaxTenantVoiceProviderData.
 type MiniMaxTenantVoiceProviderData struct {
-	Format     *string                 `json:"format,omitempty"`
-	Model      *string                 `json:"model,omitempty"`
-	Raw        *map[string]interface{} `json:"raw,omitempty"`
-	SampleRate *int                    `json:"sample_rate,omitempty"`
-	VoiceId    *string                 `json:"voice_id,omitempty"`
-	VoiceType  *string                 `json:"voice_type,omitempty"`
+	Format     *string         `json:"format,omitempty"`
+	Model      *string         `json:"model,omitempty"`
+	Raw        *map[string]any `json:"raw,omitempty"`
+	SampleRate *int            `json:"sample_rate,omitempty"`
+	VoiceId    *string         `json:"voice_id,omitempty"`
+	VoiceType  *string         `json:"voice_type,omitempty"`
 }
 
 // Model defines model for Model.
@@ -2245,8 +2245,8 @@ type OpenAITenantModelProviderData struct {
 
 // OpenAITenantVoiceProviderData defines model for OpenAITenantVoiceProviderData.
 type OpenAITenantVoiceProviderData struct {
-	Raw     *map[string]interface{} `json:"raw,omitempty"`
-	VoiceId *string                 `json:"voice_id,omitempty"`
+	Raw     *map[string]any `json:"raw,omitempty"`
+	VoiceId *string         `json:"voice_id,omitempty"`
 }
 
 // PeerIMEI defines model for PeerIMEI.
@@ -2320,39 +2320,39 @@ type PeerRunHistoryPlayResponse struct {
 }
 
 // PeerRunMemoryStatsRequest defines model for PeerRunMemoryStatsRequest.
-type PeerRunMemoryStatsRequest = map[string]interface{}
+type PeerRunMemoryStatsRequest = map[string]any
 
 // PeerRunMemoryStatsResponse defines model for PeerRunMemoryStatsResponse.
 type PeerRunMemoryStatsResponse struct {
-	Available        bool                    `json:"available"`
-	Backend          *string                 `json:"backend,omitempty"`
-	EmbeddingEnabled *bool                   `json:"embedding_enabled,omitempty"`
-	EmbeddingStatus  *string                 `json:"embedding_status,omitempty"`
-	Enabled          bool                    `json:"enabled"`
-	IndexStatus      *string                 `json:"index_status,omitempty"`
-	ItemCount        int64                   `json:"item_count"`
-	LastUpdatedAt    *time.Time              `json:"last_updated_at,omitempty"`
-	Message          *string                 `json:"message,omitempty"`
-	Metadata         *map[string]interface{} `json:"metadata,omitempty"`
-	StorageBytes     int64                   `json:"storage_bytes"`
+	Available        bool            `json:"available"`
+	Backend          *string         `json:"backend,omitempty"`
+	EmbeddingEnabled *bool           `json:"embedding_enabled,omitempty"`
+	EmbeddingStatus  *string         `json:"embedding_status,omitempty"`
+	Enabled          bool            `json:"enabled"`
+	IndexStatus      *string         `json:"index_status,omitempty"`
+	ItemCount        int64           `json:"item_count"`
+	LastUpdatedAt    *time.Time      `json:"last_updated_at,omitempty"`
+	Message          *string         `json:"message,omitempty"`
+	Metadata         *map[string]any `json:"metadata,omitempty"`
+	StorageBytes     int64           `json:"storage_bytes"`
 }
 
 // PeerRunRecallHit defines model for PeerRunRecallHit.
 type PeerRunRecallHit struct {
-	CreatedAt  *time.Time              `json:"created_at,omitempty"`
-	Id         string                  `json:"id"`
-	Metadata   *map[string]interface{} `json:"metadata,omitempty"`
-	Score      float64                 `json:"score"`
-	Snippet    string                  `json:"snippet"`
-	SourceId   *string                 `json:"source_id,omitempty"`
-	SourceType *string                 `json:"source_type,omitempty"`
+	CreatedAt  *time.Time      `json:"created_at,omitempty"`
+	Id         string          `json:"id"`
+	Metadata   *map[string]any `json:"metadata,omitempty"`
+	Score      float64         `json:"score"`
+	Snippet    string          `json:"snippet"`
+	SourceId   *string         `json:"source_id,omitempty"`
+	SourceType *string         `json:"source_type,omitempty"`
 }
 
 // PeerRunRecallRequest defines model for PeerRunRecallRequest.
 type PeerRunRecallRequest struct {
-	Filters *map[string]interface{} `json:"filters,omitempty"`
-	Limit   *int                    `json:"limit,omitempty"`
-	Query   string                  `json:"query"`
+	Filters *map[string]any `json:"filters,omitempty"`
+	Limit   *int            `json:"limit,omitempty"`
+	Query   string          `json:"query"`
 }
 
 // PeerRunRecallResponse defines model for PeerRunRecallResponse.
@@ -2393,17 +2393,17 @@ type PeerRunWorkspaceState struct {
 
 // PeerStatus defines model for PeerStatus.
 type PeerStatus struct {
-	BatteryPercent *int                    `json:"battery_percent,omitempty"`
-	Charging       *bool                   `json:"charging,omitempty"`
-	Details        *map[string]interface{} `json:"details,omitempty"`
-	GnssAccuracyM  *float32                `json:"gnss_accuracy_m,omitempty"`
-	GnssAltitudeM  *float32                `json:"gnss_altitude_m,omitempty"`
-	GnssLatitude   *float32                `json:"gnss_latitude,omitempty"`
-	GnssLongitude  *float32                `json:"gnss_longitude,omitempty"`
-	Labels         *map[string]string      `json:"labels,omitempty"`
-	Muted          *bool                   `json:"muted,omitempty"`
-	ReportedAt     *time.Time              `json:"reported_at,omitempty"`
-	Volume         *int                    `json:"volume,omitempty"`
+	BatteryPercent *int               `json:"battery_percent,omitempty"`
+	Charging       *bool              `json:"charging,omitempty"`
+	Details        *map[string]any    `json:"details,omitempty"`
+	GnssAccuracyM  *float32           `json:"gnss_accuracy_m,omitempty"`
+	GnssAltitudeM  *float32           `json:"gnss_altitude_m,omitempty"`
+	GnssLatitude   *float32           `json:"gnss_latitude,omitempty"`
+	GnssLongitude  *float32           `json:"gnss_longitude,omitempty"`
+	Labels         *map[string]string `json:"labels,omitempty"`
+	Muted          *bool              `json:"muted,omitempty"`
+	ReportedAt     *time.Time         `json:"reported_at,omitempty"`
+	Volume         *int               `json:"volume,omitempty"`
 }
 
 // Pet defines model for Pet.
@@ -2736,19 +2736,19 @@ type ServerGameResultListRequest = GameplayListRequest
 type ServerGameResultListResponse = GameResultListResponse
 
 // ServerGetInfoRequest defines model for ServerGetInfoRequest.
-type ServerGetInfoRequest = map[string]interface{}
+type ServerGetInfoRequest = map[string]any
 
 // ServerGetInfoResponse defines model for ServerGetInfoResponse.
 type ServerGetInfoResponse = DeviceInfo
 
 // ServerGetRunAgentRequest defines model for ServerGetRunAgentRequest.
-type ServerGetRunAgentRequest = map[string]interface{}
+type ServerGetRunAgentRequest = map[string]any
 
 // ServerGetRunAgentResponse defines model for ServerGetRunAgentResponse.
 type ServerGetRunAgentResponse = PeerRunAgent
 
 // ServerGetRunStatusRequest defines model for ServerGetRunStatusRequest.
-type ServerGetRunStatusRequest = map[string]interface{}
+type ServerGetRunStatusRequest = map[string]any
 
 // ServerGetRunStatusResponse defines model for ServerGetRunStatusResponse.
 type ServerGetRunStatusResponse = PeerRunStatus
@@ -2760,19 +2760,19 @@ type ServerGetRunWorkspaceMemoryStatsRequest = PeerRunMemoryStatsRequest
 type ServerGetRunWorkspaceMemoryStatsResponse = PeerRunMemoryStatsResponse
 
 // ServerGetRunWorkspaceRequest defines model for ServerGetRunWorkspaceRequest.
-type ServerGetRunWorkspaceRequest = map[string]interface{}
+type ServerGetRunWorkspaceRequest = map[string]any
 
 // ServerGetRunWorkspaceResponse defines model for ServerGetRunWorkspaceResponse.
 type ServerGetRunWorkspaceResponse = PeerRunWorkspaceState
 
 // ServerGetRuntimeRequest defines model for ServerGetRuntimeRequest.
-type ServerGetRuntimeRequest = map[string]interface{}
+type ServerGetRuntimeRequest = map[string]any
 
 // ServerGetRuntimeResponse defines model for ServerGetRuntimeResponse.
 type ServerGetRuntimeResponse = Runtime
 
 // ServerGetStatusRequest defines model for ServerGetStatusRequest.
-type ServerGetStatusRequest = map[string]interface{}
+type ServerGetStatusRequest = map[string]any
 
 // ServerGetStatusResponse defines model for ServerGetStatusResponse.
 type ServerGetStatusResponse = PeerStatus
@@ -2826,7 +2826,7 @@ type ServerPlayRunWorkspaceHistoryRequest = PeerRunHistoryPlayRequest
 type ServerPlayRunWorkspaceHistoryResponse = PeerRunHistoryPlayResponse
 
 // ServerPointsGetRequest defines model for ServerPointsGetRequest.
-type ServerPointsGetRequest = map[string]interface{}
+type ServerPointsGetRequest = map[string]any
 
 // ServerPointsGetResponse defines model for ServerPointsGetResponse.
 type ServerPointsGetResponse = PointsAccount
@@ -2850,13 +2850,13 @@ type ServerPutInfoRequest = DeviceProfile
 type ServerPutInfoResponse = DeviceInfo
 
 // ServerReloadRunRequest defines model for ServerReloadRunRequest.
-type ServerReloadRunRequest = map[string]interface{}
+type ServerReloadRunRequest = map[string]any
 
 // ServerReloadRunResponse defines model for ServerReloadRunResponse.
 type ServerReloadRunResponse = PeerRunStatus
 
 // ServerReloadRunWorkspaceRequest defines model for ServerReloadRunWorkspaceRequest.
-type ServerReloadRunWorkspaceRequest = map[string]interface{}
+type ServerReloadRunWorkspaceRequest = map[string]any
 
 // ServerReloadRunWorkspaceResponse defines model for ServerReloadRunWorkspaceResponse.
 type ServerReloadRunWorkspaceResponse = PeerRunWorkspaceState
@@ -2903,7 +2903,7 @@ type ServerSetRunWorkspaceRequest = AgentSelection
 type ServerSetRunWorkspaceResponse = PeerRunWorkspaceState
 
 // ServerStopRunRequest defines model for ServerStopRunRequest.
-type ServerStopRunRequest = map[string]interface{}
+type ServerStopRunRequest = map[string]any
 
 // ServerStopRunResponse defines model for ServerStopRunResponse.
 type ServerStopRunResponse = PeerRunStatus
@@ -2966,7 +2966,7 @@ type PetVoiceParameters struct {
 }
 
 // PetWorkflowSpec defines model for PetWorkflowSpec.
-type PetWorkflowSpec = map[string]interface{}
+type PetWorkflowSpec = map[string]any
 
 // PetWorkspaceParameters defines model for PetWorkspaceParameters.
 type PetWorkspaceParameters struct {
@@ -3062,11 +3062,11 @@ type VolcTenantModelProviderDataApiMode string
 
 // VolcTenantVoiceProviderData defines model for VolcTenantVoiceProviderData.
 type VolcTenantVoiceProviderData struct {
-	Raw        *map[string]interface{} `json:"raw,omitempty"`
-	ResourceId *string                 `json:"resource_id,omitempty"`
-	State      *string                 `json:"state,omitempty"`
-	Status     *string                 `json:"status,omitempty"`
-	VoiceId    *string                 `json:"voice_id,omitempty"`
+	Raw        *map[string]any `json:"raw,omitempty"`
+	ResourceId *string         `json:"resource_id,omitempty"`
+	State      *string         `json:"state,omitempty"`
+	Status     *string         `json:"status,omitempty"`
+	VoiceId    *string         `json:"voice_id,omitempty"`
 }
 
 // Workflow defines model for Workflow.
@@ -6810,7 +6810,7 @@ func (t WorkspaceParameters) Discriminator() (string, error) {
 	}
 }
 
-func (t WorkspaceParameters) ValueByDiscriminator() (interface{}, error) {
+func (t WorkspaceParameters) ValueByDiscriminator() (any, error) {
 	discriminator, err := t.Discriminator()
 	if err != nil {
 		return nil, err

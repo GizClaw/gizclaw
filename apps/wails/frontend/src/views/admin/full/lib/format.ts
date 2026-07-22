@@ -39,6 +39,9 @@ function isDateTimeLike(value: string): boolean {
   return value.includes("T") || value.endsWith("Z");
 }
 
-export function peerTitle(info: DeviceInfo | null | undefined, publicKey: string): string {
+export function peerTitle(
+  info: DeviceInfo | null | undefined,
+  publicKey: string,
+): string {
   return info?.name?.trim() ? info.name : formatShortKey(publicKey);
 }

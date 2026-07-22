@@ -20,8 +20,8 @@ func (f peerFirmwareBindingFunc) LoadPeer(ctx context.Context, publicKey giznet.
 }
 
 type firmwarePeerServiceFuncs struct {
-	get      func(context.Context, adminhttp.GetFirmwareRequestObject) (adminhttp.GetFirmwareResponseObject, error)
-	prepare  func(context.Context, string, string, string) (apitypes.FirmwareArtifact, apitypes.FirmwareArtifactEntry, io.ReadCloser, error)
+	get     func(context.Context, adminhttp.GetFirmwareRequestObject) (adminhttp.GetFirmwareResponseObject, error)
+	prepare func(context.Context, string, string, string) (apitypes.FirmwareArtifact, apitypes.FirmwareArtifactEntry, io.ReadCloser, error)
 }
 
 func (f firmwarePeerServiceFuncs) GetFirmware(ctx context.Context, request adminhttp.GetFirmwareRequestObject) (adminhttp.GetFirmwareResponseObject, error) {

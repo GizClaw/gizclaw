@@ -2,7 +2,11 @@ import { ChevronLeft, RefreshCw, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
-import { deleteFriend, getFriend, type AdminFriendObject } from "@gizclaw/gizclaw/admin";
+import {
+  deleteFriend,
+  getFriend,
+  type AdminFriendObject,
+} from "@gizclaw/gizclaw/admin";
 import { expectData, toMessage } from "@/dashboard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,12 +24,21 @@ import { decodeRouteParam, socialPeerLabel } from "./social-utils";
 export function FriendDetailPage(): JSX.Element {
   const params = useParams();
   const navigate = useNavigate();
-  const ownerPublicKey = useMemo(() => decodeRouteParam(params.ownerPublicKey ?? ""), [params.ownerPublicKey]);
-  const friendID = useMemo(() => decodeRouteParam(params.id ?? ""), [params.id]);
+  const ownerPublicKey = useMemo(
+    () => decodeRouteParam(params.ownerPublicKey ?? ""),
+    [params.ownerPublicKey],
+  );
+  const friendID = useMemo(
+    () => decodeRouteParam(params.id ?? ""),
+    [params.id],
+  );
   const [friend, setFriend] = useState<AdminFriendObject | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState<{ message: string; tone: "error" | "success" } | null>(null);
+  const [notice, setNotice] = useState<{
+    message: string;
+    tone: "error" | "success";
+  } | null>(null);
   const [busy, setBusy] = useState("");
 
   const load = async (): Promise<void> => {
@@ -37,7 +50,9 @@ export function FriendDetailPage(): JSX.Element {
     setLoading(true);
     setError("");
     try {
-      setFriend(await expectData(getFriend({ path: { ownerPublicKey, id: friendID } })));
+      setFriend(
+        await expectData(getFriend({ path: { ownerPublicKey, id: friendID } })),
+      );
     } catch (err) {
       setFriend(null);
       setError(toMessage(err));
@@ -54,7 +69,9 @@ export function FriendDetailPage(): JSX.Element {
     setBusy("delete");
     setNotice(null);
     try {
-      await expectData(deleteFriend({ path: { ownerPublicKey, id: friendID } }));
+      await expectData(
+        deleteFriend({ path: { ownerPublicKey, id: friendID } }),
+      );
       navigate("/social/friends");
     } catch (err) {
       setNotice({ message: toMessage(err), tone: "error" });
@@ -64,7 +81,12 @@ export function FriendDetailPage(): JSX.Element {
   };
 
   if (ownerPublicKey === "" || friendID === "") {
-    return <EmptyState description="Missing friend owner or friend id in the URL." title="Invalid route" />;
+    return (
+      <EmptyState
+        description="Missing friend owner or friend id in the URL."
+        title="Invalid route"
+      />
+    );
   }
 
   return (
@@ -78,7 +100,13 @@ export function FriendDetailPage(): JSX.Element {
                 Back to list
               </Link>
             </Button>
-            <Button className="min-w-fit shrink-0 whitespace-nowrap" disabled={loading} onClick={() => void load()} size="sm" variant="outline">
+            <Button
+              className="min-w-fit shrink-0 whitespace-nowrap"
+              disabled={loading}
+              onClick={() => void load()}
+              size="sm"
+              variant="outline"
+            >
               <RefreshCw className="size-4" />
               Reload
             </Button>
@@ -104,13 +132,23 @@ export function FriendDetailPage(): JSX.Element {
       />
 
       <PageSummaryCard
-        description={<span className="break-all font-mono text-xs">{friendID}</span>}
+        description={
+          <span className="break-all font-mono text-xs">{friendID}</span>
+        }
         eyebrow="Social Friend"
-        meta={friend ? <Badge variant="outline">{formatShortKey(friend.workspace_name)}</Badge> : null}
+        meta={
+          friend ? (
+            <Badge variant="outline">
+              {formatShortKey(friend.workspace_name)}
+            </Badge>
+          ) : null
+        }
         title={friend ? socialPeerLabel(friend.owner_public_key) : "Friend"}
       />
 
-      {notice !== null ? <NoticeBanner message={notice.message} tone={notice.tone} /> : null}
+      {notice !== null ? (
+        <NoticeBanner message={notice.message} tone={notice.tone} />
+      ) : null}
 
       {loading ? (
         <div className="space-y-4">
@@ -120,7 +158,10 @@ export function FriendDetailPage(): JSX.Element {
       ) : error !== "" ? (
         <ErrorBanner message={error} />
       ) : friend === null ? (
-        <EmptyState description="This friend relation could not be loaded." title="Friend not found" />
+        <EmptyState
+          description="This friend relation could not be loaded."
+          title="Friend not found"
+        />
       ) : (
         <div className="space-y-4">
           <div className="grid gap-4 xl:grid-cols-2">

@@ -457,9 +457,9 @@ func TestDecodeRPCResponseRejectsGenericPayload(t *testing.T) {
 func TestPayloadCodecMapsGoDTOsDirectlyToProtobuf(t *testing.T) {
 	var recall RPCPayload
 	if err := recall.FromServerRunWorkspaceRecallRequest(ServerRunWorkspaceRecallRequest{
-		Filters: &map[string]interface{}{
+		Filters: &map[string]any{
 			"score":  float64(1),
-			"nested": map[string]interface{}{"weight": float64(2)},
+			"nested": map[string]any{"weight": float64(2)},
 		},
 	}); err != nil {
 		t.Fatalf("FromServerRunWorkspaceRecallRequest() error = %v", err)

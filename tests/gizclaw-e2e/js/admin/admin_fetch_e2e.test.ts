@@ -9,9 +9,17 @@ import {
   listWorkflows,
   type ResourceWritable,
 } from "@gizclaw/gizclaw/admin";
-import { assertSetupServerAvailable, closePeerConnection, connectSetupPeer, loadIdentity, repoRoot } from "../common/webrtc.ts";
+import {
+  assertSetupServerAvailable,
+  closePeerConnection,
+  connectSetupPeer,
+  loadIdentity,
+  repoRoot,
+} from "../common/webrtc.ts";
 
-const identityDir = process.env.GIZCLAW_E2E_JS_ADMIN_IDENTITY_DIR ?? path.join(repoRoot, "tests/gizclaw-e2e/testdata/identities/admin");
+const identityDir =
+  process.env.GIZCLAW_E2E_JS_ADMIN_IDENTITY_DIR ??
+  path.join(repoRoot, "tests/gizclaw-e2e/testdata/identities/admin");
 
 async function main(): Promise<void> {
   const identity = await loadIdentity(identityDir);
@@ -19,7 +27,9 @@ async function main(): Promise<void> {
 
   const pc = await connectSetupPeer(identityDir);
   try {
-    const client = createAdminAPIClient(pc as unknown as RTCPeerConnection, { requestTimeoutMs: 10_000 });
+    const client = createAdminAPIClient(pc as unknown as RTCPeerConnection, {
+      requestTimeoutMs: 10_000,
+    });
     const response = await listPeers({
       client,
       query: { limit: 5 },
@@ -29,7 +39,11 @@ async function main(): Promise<void> {
 
     const workflows = await listWorkflows({ client, throwOnError: true });
     const workflowName = workflows.data.items[0]?.name;
-    assert.notEqual(workflowName, undefined, "setup server must contain a Workflow fixture");
+    assert.notEqual(
+      workflowName,
+      undefined,
+      "setup server must contain a Workflow fixture",
+    );
     const current = await getResource({
       client,
       path: { kind: "Workflow", name: workflowName! },
@@ -38,7 +52,9 @@ async function main(): Promise<void> {
     type MutableAdminResource = {
       metadata: { annotations?: Record<string, string> };
     } & Record<string, unknown>;
-    const original = structuredClone(current.data) as unknown as MutableAdminResource;
+    const original = structuredClone(
+      current.data,
+    ) as unknown as MutableAdminResource;
     const large = structuredClone(original);
     large.metadata.annotations = {
       ...large.metadata.annotations,
@@ -47,7 +63,11 @@ async function main(): Promise<void> {
     assert.equal(JSON.stringify(large).length > 64 * 1024, true);
     let changed = false;
     try {
-      await applyResource({ body: large as unknown as ResourceWritable, client, throwOnError: true });
+      await applyResource({
+        body: large as unknown as ResourceWritable,
+        client,
+        throwOnError: true,
+      });
       changed = true;
       const unchanged = await applyResource({
         body: large as unknown as ResourceWritable,
@@ -57,7 +77,11 @@ async function main(): Promise<void> {
       assert.equal(unchanged.data.action, "unchanged");
     } finally {
       if (changed) {
-        await applyResource({ body: original as unknown as ResourceWritable, client, throwOnError: true });
+        await applyResource({
+          body: original as unknown as ResourceWritable,
+          client,
+          throwOnError: true,
+        });
       }
     }
   } finally {
@@ -68,7 +92,9 @@ async function main(): Promise<void> {
 
 main().then(
   () => {
-    console.log("ok - Node WebRTC SDK fetches Admin API over the admin HTTP service channel");
+    console.log(
+      "ok - Node WebRTC SDK fetches Admin API over the admin HTTP service channel",
+    );
     process.exit(0);
   },
   (err: unknown) => {

@@ -4,7 +4,13 @@ import { Link } from "react-router-dom";
 
 import type { Resource } from "@gizclaw/gizclaw/admin";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 type ResourceCliPanelProps = {
   commands: string;
@@ -36,10 +42,15 @@ export function ResourceCliPanel({
       <Card>
         <CardHeader>
           <CardTitle>CLI Commands</CardTitle>
-          <CardDescription>Declarative admin resources use JSON. Use a separate CLI context instead of reusing the UI context.</CardDescription>
+          <CardDescription>
+            Declarative admin resources use JSON. Use a separate CLI context
+            instead of reusing the UI context.
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <pre className="overflow-auto rounded-md bg-muted p-4 text-xs leading-5">{commands}</pre>
+          <pre className="overflow-auto rounded-md bg-muted p-4 text-xs leading-5">
+            {commands}
+          </pre>
         </CardContent>
       </Card>
       <Card>
@@ -50,14 +61,25 @@ export function ResourceCliPanel({
           </div>
           <div className="flex flex-wrap justify-end gap-2">
             {editHref !== null ? (
-              <Button asChild className="min-w-fit shrink-0 whitespace-nowrap" size="sm" variant="outline">
+              <Button
+                asChild
+                className="min-w-fit shrink-0 whitespace-nowrap"
+                size="sm"
+                variant="outline"
+              >
                 <Link to={editHref}>
                   <FileJson className="size-4" />
                   Edit Resource
                 </Link>
               </Button>
             ) : null}
-            <Button className="min-w-fit shrink-0 whitespace-nowrap" disabled={resource === null} onClick={() => void copyJSON()} size="sm" variant="outline">
+            <Button
+              className="min-w-fit shrink-0 whitespace-nowrap"
+              disabled={resource === null}
+              onClick={() => void copyJSON()}
+              size="sm"
+              variant="outline"
+            >
               <Copy className="size-4" />
               {copied ? "Copied" : "Copy Spec"}
             </Button>

@@ -11,10 +11,16 @@ interface FormFieldProps extends React.HTMLAttributes<HTMLDivElement> {
 
 const FormField = React.forwardRef<HTMLDivElement, FormFieldProps>(
   ({ children, className, description, htmlFor, label, ...props }, ref) => (
-    <Field ref={ref} className={cn("gap-2 rounded-lg border bg-muted/20 p-4", className)} {...props}>
+    <Field
+      ref={ref}
+      className={cn("gap-2 rounded-lg border bg-muted/20 p-4", className)}
+      {...props}
+    >
       <div className="flex flex-col gap-1">
         <FieldLabel htmlFor={htmlFor}>{label}</FieldLabel>
-        {description ? <FieldDescription>{description}</FieldDescription> : null}
+        {description ? (
+          <FieldDescription>{description}</FieldDescription>
+        ) : null}
       </div>
       {children}
     </Field>

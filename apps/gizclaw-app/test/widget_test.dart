@@ -1094,7 +1094,9 @@ void main() {
 
     expect(find.text('Unable to activate'), findsOneWidget);
     expect(
-      find.textContaining('flowcraft parameter "agent.graph.nodes[0].config.model"'),
+      find.textContaining(
+        'flowcraft parameter "agent.graph.nodes[0].config.model"',
+      ),
       findsOneWidget,
     );
   });

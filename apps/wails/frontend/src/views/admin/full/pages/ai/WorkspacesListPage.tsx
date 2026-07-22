@@ -7,10 +7,21 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { expectData } from "@/dashboard";
 import { listWorkspaces, type Workspace } from "@gizclaw/gizclaw/admin";
 
@@ -23,7 +34,16 @@ import { formatDate } from "../../lib/format";
 export function WorkspacesListPage(): JSX.Element {
   const navigate = useNavigate();
   const [copiedName, setCopiedName] = useState("");
-  const { error, hasNext, items, loading, nextPage, pageNumber, prevPage, refresh } = useCursorListPage<Workspace>(async (query) => {
+  const {
+    error,
+    hasNext,
+    items,
+    loading,
+    nextPage,
+    pageNumber,
+    prevPage,
+    refresh,
+  } = useCursorListPage<Workspace>(async (query) => {
     const result = await expectData(listWorkspaces({ query }));
     return {
       hasNext: result.has_next,
@@ -36,7 +56,10 @@ export function WorkspacesListPage(): JSX.Element {
     navigate(`/resources?kind=Workspace&name=${encodeURIComponent(name)}`);
   };
 
-  const handleRowKeyDown = (event: KeyboardEvent<HTMLTableRowElement>, name: string): void => {
+  const handleRowKeyDown = (
+    event: KeyboardEvent<HTMLTableRowElement>,
+    name: string,
+  ): void => {
     if (isInteractiveTarget(event.target)) {
       return;
     }
@@ -47,7 +70,10 @@ export function WorkspacesListPage(): JSX.Element {
     openWorkspace(name);
   };
 
-  const copyWorkspaceName = async (event: MouseEvent<HTMLButtonElement>, name: string): Promise<void> => {
+  const copyWorkspaceName = async (
+    event: MouseEvent<HTMLButtonElement>,
+    name: string,
+  ): Promise<void> => {
     event.stopPropagation();
     await navigator.clipboard.writeText(name);
     setCopiedName(name);
@@ -73,7 +99,10 @@ export function WorkspacesListPage(): JSX.Element {
             </DashboardActionButton>
           </>
         }
-        items={[{ href: "/overview", label: "Overview" }, { label: "Workspaces" }]}
+        items={[
+          { href: "/overview", label: "Overview" },
+          { label: "Workspaces" },
+        ]}
       />
 
       <PageSummaryCard
@@ -95,12 +124,22 @@ export function WorkspacesListPage(): JSX.Element {
         <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
           <div className="space-y-1">
             <CardTitle>Workspace catalog</CardTitle>
-            <CardDescription>Instantiated workspaces and the workflows they are bound to.</CardDescription>
+            <CardDescription>
+              Instantiated workspaces and the workflows they are bound to.
+            </CardDescription>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex justify-end">
-            <DashboardPager canNext={hasNext} canPrevious={pageNumber > 1} loading={loading} onNext={nextPage} onPrevious={prevPage} onRefresh={() => void refresh()} pageIndex={pageNumber} />
+            <DashboardPager
+              canNext={hasNext}
+              canPrevious={pageNumber > 1}
+              loading={loading}
+              onNext={nextPage}
+              onPrevious={prevPage}
+              onRefresh={() => void refresh()}
+              pageIndex={pageNumber}
+            />
           </div>
 
           {loading ? (
@@ -110,52 +149,77 @@ export function WorkspacesListPage(): JSX.Element {
               ))}
             </div>
           ) : items.length === 0 ? (
-            <EmptyState description="Workspace instances will appear here after they are created." title="No workspaces" />
+            <EmptyState
+              description="Workspace instances will appear here after they are created."
+              title="No workspaces"
+            />
           ) : (
             <DashboardTable className="table-fixed">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[26%]">Workspace ID</TableHead>
-                    <TableHead>Workflow</TableHead>
-                    <TableHead className="w-28 text-right">Parameters</TableHead>
-                    <TableHead className="w-40">Created</TableHead>
-                    <TableHead className="w-40 text-right">Updated</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {items.map((workspace) => (
-                    <TableRow
-                      className="cursor-pointer hover:bg-muted/40"
-                      key={workspace.name}
-                      onClick={() => openWorkspace(workspace.name)}
-                      onKeyDown={(event) => handleRowKeyDown(event, workspace.name)}
-                      role="link"
-                      tabIndex={0}
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[26%]">Workspace ID</TableHead>
+                  <TableHead>Workflow</TableHead>
+                  <TableHead className="w-28 text-right">Parameters</TableHead>
+                  <TableHead className="w-40">Created</TableHead>
+                  <TableHead className="w-40 text-right">Updated</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.map((workspace) => (
+                  <TableRow
+                    className="cursor-pointer hover:bg-muted/40"
+                    key={workspace.name}
+                    onClick={() => openWorkspace(workspace.name)}
+                    onKeyDown={(event) =>
+                      handleRowKeyDown(event, workspace.name)
+                    }
+                    role="link"
+                    tabIndex={0}
+                  >
+                    <TableCell className="min-w-0">
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <span
+                          className="min-w-0 truncate font-medium"
+                          title={workspace.name}
+                        >
+                          {workspace.name}
+                        </span>
+                        <button
+                          aria-label={`Copy workspace name ${workspace.name}`}
+                          className="shrink-0 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          onClick={(event) =>
+                            void copyWorkspaceName(event, workspace.name)
+                          }
+                          title="Copy workspace name"
+                          type="button"
+                        >
+                          {copiedName === workspace.name ? (
+                            <Check className="size-3 shrink-0 text-emerald-600" />
+                          ) : (
+                            <Copy className="size-3 shrink-0" />
+                          )}
+                        </button>
+                      </div>
+                    </TableCell>
+                    <TableCell
+                      className="truncate"
+                      title={workspace.workflow_name}
                     >
-                      <TableCell className="min-w-0">
-                        <div className="flex min-w-0 items-center gap-1.5">
-                          <span className="min-w-0 truncate font-medium" title={workspace.name}>
-                            {workspace.name}
-                          </span>
-                          <button
-                            aria-label={`Copy workspace name ${workspace.name}`}
-                            className="shrink-0 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                            onClick={(event) => void copyWorkspaceName(event, workspace.name)}
-                            title="Copy workspace name"
-                            type="button"
-                          >
-                            {copiedName === workspace.name ? <Check className="size-3 shrink-0 text-emerald-600" /> : <Copy className="size-3 shrink-0" />}
-                          </button>
-                        </div>
-                      </TableCell>
-                      <TableCell className="truncate" title={workspace.workflow_name}>{workspace.workflow_name}</TableCell>
-                      <TableCell className="text-right">{Object.keys(workspace.parameters ?? {}).length}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{formatDate(workspace.created_at)}</TableCell>
-                      <TableCell className="text-right text-sm text-muted-foreground">{formatDate(workspace.updated_at)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </DashboardTable>
+                      {workspace.workflow_name}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {Object.keys(workspace.parameters ?? {}).length}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {formatDate(workspace.created_at)}
+                    </TableCell>
+                    <TableCell className="text-right text-sm text-muted-foreground">
+                      {formatDate(workspace.updated_at)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </DashboardTable>
           )}
         </CardContent>
       </Card>
@@ -164,5 +228,8 @@ export function WorkspacesListPage(): JSX.Element {
 }
 
 function isInteractiveTarget(target: EventTarget): boolean {
-  return target instanceof Element && target.closest("a,button,input,select,textarea") !== null;
+  return (
+    target instanceof Element &&
+    target.closest("a,button,input,select,textarea") !== null
+  );
 }
