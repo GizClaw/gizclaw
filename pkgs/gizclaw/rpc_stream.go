@@ -111,6 +111,22 @@ func (s *rpcStream) ReadEOS() error {
 	return nil
 }
 
+func (s *rpcStream) drainRequest() error {
+	if s.requestEOSAlreadyConsumed {
+		s.requestEOSAlreadyConsumed = false
+		return nil
+	}
+	for {
+		frame, err := s.ReadFrame()
+		if err != nil {
+			return err
+		}
+		if frame.Type == rpcapi.FrameTypeEOS {
+			return nil
+		}
+	}
+}
+
 func (s *rpcStream) ReadFrame() (rpcapi.Frame, error) {
 	if err := s.Context().Err(); err != nil {
 		return rpcapi.Frame{}, err

@@ -88,6 +88,9 @@ func (s *rpcServer) dispatchStream(ctx context.Context, stream *rpcStream, req *
 		return false, nil
 	}
 	if s.isPeerRetiring != nil && s.isPeerRetiring() {
+		if err := stream.drainRequest(); err != nil {
+			return true, err
+		}
 		return true, writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeConflict, ErrPeerConnRetiring.Error())
 	}
 	switch req.Method {
