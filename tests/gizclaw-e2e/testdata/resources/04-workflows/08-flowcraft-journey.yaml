@@ -309,7 +309,7 @@ spec:
           id: prepare_story_context
           type: script
         - config:
-            max_tokens: 96
+            max_tokens: 2048
             messages_channel: story_route_channel
             model: llm
             output_key: tmp_story_route_text
@@ -571,7 +571,7 @@ spec:
           id: reroute_start_storytell
           type: script
         - config:
-            max_tokens: 80
+            max_tokens: 2048
             model: llm
             output_key: tmp_story_text
             system_prompt: |
@@ -670,7 +670,7 @@ spec:
           id: state_after_origin
           type: script
         - config:
-            max_tokens: 80
+            max_tokens: 2048
             model: llm
             system_prompt: |
               你是西游记互动故事的讲述者，当前要讲孙悟空被天庭招安又反出天宫，偷桃盗丹、大闹天宫，最后被如来压在五行山下的故事。
@@ -749,7 +749,7 @@ spec:
           id: state_after_heaven
           type: script
         - config:
-            max_tokens: 80
+            max_tokens: 2048
             model: llm
             system_prompt: |
               你是西游记互动故事的讲述者，当前要讲唐三藏西行出发，救出孙悟空，并让白龙马、猪八戒、沙悟净陆续入队的故事。
@@ -828,7 +828,7 @@ spec:
           id: state_after_pilgrimage
           type: script
         - config:
-            max_tokens: 80
+            max_tokens: 2048
             model: llm
             system_prompt: |
               你是西游记互动故事的讲述者，当前要讲取经队伍进入连续劫难，真假难辨、误会加深，悟空被逐又归来的故事。
@@ -906,7 +906,7 @@ spec:
           id: state_after_trials
           type: script
         - config:
-            max_tokens: 80
+            max_tokens: 2048
             model: llm
             system_prompt: |
               你是西游记互动故事的讲述者，当前要讲师徒经过女儿国等奇异国度，面对权力、欲望、人情和强妖阻路的故事。
@@ -991,7 +991,7 @@ spec:
           id: state_after_kingdoms
           type: script
         - config:
-            max_tokens: 80
+            max_tokens: 2048
             model: llm
             system_prompt: |
               你是西游记互动故事的讲述者，当前要讲取经队伍接近灵山前的最后大劫、取得真经、经历无字经试炼并最终修成正果的故事。
@@ -1220,7 +1220,7 @@ spec:
           id: write_story_progress
           type: script
         - config:
-            max_tokens: 80
+            max_tokens: 2048
             model: llm
             output_key: tmp_story_text
             system_prompt: |
@@ -1309,7 +1309,7 @@ spec:
           publish: true
           type: llm
         - config:
-            max_tokens: 80
+            max_tokens: 2048
             model: llm
             system_prompt: |
               你是西游记互动故事的讲述者，当前要讲孙悟空被天庭招安又反出天宫，偷桃盗丹、大闹天宫，最后被如来压在五行山下的故事。
@@ -1378,7 +1378,7 @@ spec:
           publish: true
           type: llm
         - config:
-            max_tokens: 80
+            max_tokens: 2048
             model: llm
             system_prompt: |
               你是西游记互动故事的讲述者，当前要讲唐三藏西行出发，救出孙悟空，并让白龙马、猪八戒、沙悟净陆续入队的故事。
@@ -1447,7 +1447,7 @@ spec:
           publish: true
           type: llm
         - config:
-            max_tokens: 80
+            max_tokens: 2048
             model: llm
             system_prompt: |
               你是西游记互动故事的讲述者，当前要讲取经队伍进入连续劫难，真假难辨、误会加深，悟空被逐又归来的故事。
@@ -1515,7 +1515,7 @@ spec:
           publish: true
           type: llm
         - config:
-            max_tokens: 80
+            max_tokens: 2048
             model: llm
             system_prompt: |
               你是西游记互动故事的讲述者，当前要讲师徒经过女儿国等奇异国度，面对权力、欲望、人情和强妖阻路的故事。
@@ -1590,7 +1590,7 @@ spec:
           publish: true
           type: llm
         - config:
-            max_tokens: 80
+            max_tokens: 2048
             model: llm
             system_prompt: |
               你是西游记互动故事的讲述者，当前要讲取经队伍接近灵山前的最后大劫、取得真经、经历无字经试炼并最终修成正果的故事。

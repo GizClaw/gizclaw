@@ -15,7 +15,7 @@ spec:
         name: Assistant
         nodes:
         - config:
-            max_tokens: 512
+            max_tokens: 2048
             model: llm
             system_prompt: 你是一个简短、自然的中文语音聊天助手。直接回答用户，不要解释测试流程。
           id: answer

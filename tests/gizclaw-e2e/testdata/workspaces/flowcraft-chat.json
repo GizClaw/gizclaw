@@ -37,7 +37,7 @@
             },
             {
               "config": {
-                "max_tokens": 512,
+                "max_tokens": 2048,
                 "model": "llm",
                 "system_prompt": "${board.system_prompt}",
                 "track_steps": true

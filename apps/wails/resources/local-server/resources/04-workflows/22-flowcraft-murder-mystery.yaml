@@ -65,7 +65,7 @@ spec:
           id: load_case_state
           type: script
         - config:
-            max_tokens: 64
+            max_tokens: 2048
             model: chat
             output_key: case_action_text
             system_prompt: |
@@ -292,7 +292,7 @@ spec:
           id: prepare_game_master_messages
           type: script
         - config:
-            max_tokens: 64
+            max_tokens: 2048
             messages_channel: case_game_master_channel
             model: chat
             system_prompt: |
@@ -369,7 +369,7 @@ spec:
           id: write_case_audit
           type: script
         - config:
-            max_tokens: 64
+            max_tokens: 2048
             model: chat
             system_prompt: |
               案件《雨夜留声机》已经破案。

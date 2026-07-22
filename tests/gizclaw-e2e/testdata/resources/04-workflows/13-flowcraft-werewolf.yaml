@@ -1063,7 +1063,7 @@ spec:
           id: resolve_night
           type: script
         - config:
-            max_tokens: 64
+            max_tokens: 2048
             model: llm
             output_key: werewolf_move_text
             system_prompt: |
@@ -1288,7 +1288,7 @@ spec:
           publish: true
           type: script
         - config:
-            max_tokens: 64
+            max_tokens: 2048
             messages_channel: seat_4_channel
             model: llm
             output_key: tmp_speech_text
@@ -1299,7 +1299,7 @@ spec:
           publish: true
           type: llm
         - config:
-            max_tokens: 64
+            max_tokens: 2048
             messages_channel: seat_5_channel
             model: llm
             system_prompt: |
@@ -1309,7 +1309,7 @@ spec:
           publish: true
           type: llm
         - config:
-            max_tokens: 64
+            max_tokens: 2048
             messages_channel: seat_6_channel
             model: llm
             system_prompt: |
@@ -1319,7 +1319,7 @@ spec:
           publish: true
           type: llm
         - config:
-            max_tokens: 64
+            max_tokens: 2048
             messages_channel: seat_7_channel
             model: llm
             system_prompt: |
@@ -1329,7 +1329,7 @@ spec:
           publish: true
           type: llm
         - config:
-            max_tokens: 64
+            max_tokens: 2048
             messages_channel: seat_8_channel
             model: llm
             system_prompt: |

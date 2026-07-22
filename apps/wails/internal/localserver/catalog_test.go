@@ -3,6 +3,7 @@ package localserver_test
 import (
 	"io/fs"
 	"maps"
+	"path/filepath"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -207,6 +208,50 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 	}
 	if !strings.Contains(string(miniMaxTenant), "base_url: https://api.minimaxi.com") {
 		t.Fatal("MiniMax CN tenant does not use the fixed CN endpoint")
+	}
+}
+
+func TestBundledFlowcraftGeneratorsUseProductionTokenBudget(t *testing.T) {
+	source, err := desktopresources.LocalServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	paths, err := fs.Glob(source, "resources/04-workflows/*-flowcraft-*.yaml")
+	if err != nil {
+		 t.Fatal(err)
+	}
+	for _, path := range paths {
+		t.Run(strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)), func(t *testing.T) {
+			raw, err := fs.ReadFile(source, path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var resource struct {
+				Spec struct {
+					Flowcraft struct {
+						Agent struct {
+							Graph struct {
+								Nodes []struct {
+									ID     string `yaml:"id"`
+									Type   string `yaml:"type"`
+									Config struct {
+										MaxTokens int `yaml:"max_tokens"`
+									} `yaml:"config"`
+								} `yaml:"nodes"`
+							} `yaml:"graph"`
+						} `yaml:"agent"`
+					} `yaml:"flowcraft"`
+				} `yaml:"spec"`
+			}
+			if err := yaml.Unmarshal(raw, &resource); err != nil {
+				t.Fatal(err)
+			}
+			for _, node := range resource.Spec.Flowcraft.Agent.Graph.Nodes {
+				if node.Type == "llm" && node.Config.MaxTokens != 2048 {
+					t.Errorf("generator node %q max_tokens = %d, want 2048", node.ID, node.Config.MaxTokens)
+				}
+			}
+		})
 	}
 }
 

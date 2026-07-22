@@ -43,7 +43,7 @@
                   "config": {
                     "model": "llm",
                     "system_prompt": "${board.system_prompt}",
-                    "max_tokens": 512
+                    "max_tokens": 2048
                   }
                 }
               ],

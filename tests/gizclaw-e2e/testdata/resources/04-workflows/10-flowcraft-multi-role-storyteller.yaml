@@ -305,7 +305,7 @@ spec:
           id: select_story_step
           type: script
         - config:
-            max_tokens: 128
+            max_tokens: 2048
             messages_channel: speaker_select_channel
             model: llm
             output_key: speaker_select_text
@@ -420,7 +420,7 @@ spec:
           id: route_speaker
           type: script
         - config:
-            max_tokens: 36
+            max_tokens: 2048
             messages_channel: speech_channel
             model: llm
             output_key: tmp_speech_text
@@ -439,7 +439,7 @@ spec:
           publish: true
           type: llm
         - config:
-            max_tokens: 28
+            max_tokens: 2048
             messages_channel: speech_channel
             model: llm
             output_key: tmp_speech_text
@@ -456,7 +456,7 @@ spec:
           publish: true
           type: llm
         - config:
-            max_tokens: 28
+            max_tokens: 2048
             messages_channel: speech_channel
             model: llm
             output_key: tmp_speech_text
@@ -473,7 +473,7 @@ spec:
           publish: true
           type: llm
         - config:
-            max_tokens: 28
+            max_tokens: 2048
             messages_channel: speech_channel
             model: llm
             output_key: tmp_speech_text
@@ -490,7 +490,7 @@ spec:
           publish: true
           type: llm
         - config:
-            max_tokens: 28
+            max_tokens: 2048
             messages_channel: speech_channel
             model: llm
             output_key: tmp_speech_text

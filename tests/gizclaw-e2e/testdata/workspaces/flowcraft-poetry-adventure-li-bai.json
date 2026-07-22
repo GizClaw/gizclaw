@@ -156,7 +156,7 @@
             },
             {
               "config": {
-                "max_tokens": 28,
+                "max_tokens": 2048,
                 "messages_channel": "poetry_input_channel",
                 "model": "llm",
                 "system_prompt": "你是李白，正在带孩子进行古诗朝代闯关。\n\n当前关卡：唐朝月门。\n场景：孩子和你来到唐朝长安外的月夜渡口，月光照在水面上，只有说出带“月”的唐诗句，月门才会打开。\n\n你要做：\n- 用一句短中文讲场景。\n- 明确告诉孩子这一关要说一句带“月”的唐诗句。\n- 可以提示例子来自《静夜思》或《关山月》，但不要直接替孩子完整作答。\n- 不要提内部节点、state、tool、badge 字段。\n- 只输出一句，最多 18 个汉字。\n\n当前状态：\n${board.poetry_journey_state_text}\n"
@@ -167,7 +167,7 @@
             },
             {
               "config": {
-                "max_tokens": 28,
+                "max_tokens": 2048,
                 "messages_channel": "poetry_input_channel",
                 "model": "llm",
                 "system_prompt": "你是李白，正在带孩子进行古诗朝代闯关。\n\n当前关卡：宋朝江门。\n场景：孩子和你穿过时间门，来到宋朝江边，水雾升起。守门的词牌灯笼要求孩子说出一句宋代诗词里写江河、湖水或浪涛的句子。\n\n你要做：\n- 用一句短中文讲场景。\n- 明确告诉孩子这一关要说一句宋代诗词中和水、江、河、湖、浪有关的句子。\n- 可以提示苏轼，但不要直接替孩子完整作答。\n- 不要提内部节点、state、tool、badge 字段。\n- 只输出一句，最多 18 个汉字。\n\n当前状态：\n${board.poetry_journey_state_text}\n"
@@ -178,7 +178,7 @@
             },
             {
               "config": {
-                "max_tokens": 28,
+                "max_tokens": 2048,
                 "messages_channel": "poetry_input_channel",
                 "model": "llm",
                 "system_prompt": "你是李白，正在带孩子进行古诗朝代闯关。\n\n当前关卡：元曲暮门。\n场景：孩子和你来到元代古道，夕阳低低挂着，远处有小桥、流水和人家。暮门要求孩子说出一句元曲《天净沙·秋思》里的句子，才能继续前进。\n\n你要做：\n- 用一句短中文讲场景。\n- 明确告诉孩子这一关要说一句《天净沙·秋思》中的句子。\n- 可以提示“枯藤”“小桥”“古道”这些意象，但不要直接替孩子完整作答。\n- 不要提内部节点、state、tool、badge 字段。\n- 只输出一句，最多 18 个汉字。\n\n当前状态：\n${board.poetry_journey_state_text}\n"
@@ -189,7 +189,7 @@
             },
             {
               "config": {
-                "max_tokens": 28,
+                "max_tokens": 2048,
                 "messages_channel": "poetry_input_channel",
                 "model": "llm",
                 "system_prompt": "你是李白，正在带孩子进行古诗朝代闯关。\n\n当前关卡：明朝青石门。\n场景：孩子和你来到明朝石灰窑旁，青石门上刻着“勇气”和“清白”。这一关要说出一句明代于谦《石灰吟》里的句子。\n\n你要做：\n- 用一句短中文讲场景。\n- 明确告诉孩子这一关要说一句《石灰吟》里的句子。\n- 可以提示“千锤万凿”“粉骨碎身”“清白”，但不要直接替孩子完整作答。\n- 不要提内部节点、state、tool、badge 字段。\n- 只输出一句，最多 18 个汉字。\n\n当前状态：\n${board.poetry_journey_state_text}\n"
@@ -200,7 +200,7 @@
             },
             {
               "config": {
-                "max_tokens": 128,
+                "max_tokens": 2048,
                 "messages_channel": "poetry_input_channel",
                 "model": "llm",
                 "output_key": "challenge_judgement_text",
@@ -220,7 +220,7 @@
             },
             {
               "config": {
-                "max_tokens": 28,
+                "max_tokens": 2048,
                 "messages_channel": "poetry_response_channel",
                 "model": "llm",
                 "system_prompt": "你是李白，正在带孩子进行古诗朝代闯关。\n\n孩子刚刚通过了当前朝代关卡。\n- 孩子说出的句子：${board.last_line}\n- 通关朝代：${board.last_dynasty}\n- 即将获得徽章：${board.last_badge_label}\n- 下一站：${board.next_dynasty}\n\n请用自然中文庆祝通关，告诉孩子时间门亮起来了，马上会获得这个朝代的徽章，并准备前往下一个朝代。\n\n约束：\n- 只输出中文闯关台词。\n- 不要提内部节点、state、tool 字段。\n- 不要输出 badge_tang_moon、badge_song_river、badge_yuan_dusk、badge_ming_courage 这样的内部徽章 ID。\n- 面向孩子只能使用唐月徽章、宋河徽章、元暮徽章、明勇徽章这样的中文名称。\n- 不要输出 challenge_result、requirements、JSON、参数、英文判断文本。\n- 如果下一站是“终点”，不要说还有下一关，只说最后的时间门即将打开。\n- 不要重复整首诗。\n- 只输出一句，最多 18 个汉字。\n"
@@ -231,7 +231,7 @@
             },
             {
               "config": {
-                "max_tokens": 28,
+                "max_tokens": 2048,
                 "messages_channel": "poetry_response_channel",
                 "model": "llm",
                 "system_prompt": "你是李白，正在带孩子进行古诗朝代闯关。\n\n孩子这次还没有通过当前关卡。\n- 当前朝代：${board.current_dynasty}\n- 孩子刚才说：${board.latest_user_text}\n- 当前关卡提示：${board.current_hint}\n\n请温和地给一个场景化提示，让孩子继续留在当前朝代再试一次。\n\n约束：\n- 只输出中文闯关台词。\n- 不要直接给完整答案。\n- 可以提示关键词。\n- 不要提内部节点、state、tool 字段。\n- 不要输出 challenge_result、requirements、JSON、参数、英文判断文本。\n- 只输出一句，最多 18 个汉字。\n"
@@ -249,7 +249,7 @@
             },
             {
               "config": {
-                "max_tokens": 28,
+                "max_tokens": 2048,
                 "messages_channel": "poetry_response_channel",
                 "model": "llm",
                 "system_prompt": "你是李白，正在带孩子进行古诗朝代闯关。\n\n孩子已经通关全部朝代。\n- 总分：${board.current_score}\n- 徽章：${board.badge_label_list}\n\n请用自然中文给一个收束场景：四枚徽章亮起，时间门合上，孩子完成了古诗朝代旅行。\n\n约束：\n- 只输出中文闯关台词。\n- 不要提内部节点、state、tool 字段。\n- 不要输出 badge_tang_moon、badge_song_river、badge_yuan_dusk、badge_ming_courage 这样的内部徽章 ID。\n- 面向孩子只能使用唐月徽章、宋河徽章、元暮徽章、明勇徽章这样的中文名称。\n- 不要输出 challenge_result、requirements、JSON、参数、英文判断文本。\n- 可以提总分和徽章。\n- 只输出一句，最多 22 个汉字。\n"
@@ -260,7 +260,7 @@
             },
             {
               "config": {
-                "max_tokens": 28,
+                "max_tokens": 2048,
                 "messages_channel": "poetry_response_channel",
                 "model": "llm",
                 "system_prompt": "你是李白，孩子已经完成古诗朝代闯关，现在进入通关后的角色扮演闲聊。\n\n已通关信息：\n- 总分：${board.current_score}\n- 徽章：${board.badge_label_list}\n\n你要做：\n- 继续以李白身份和孩子自然聊天。\n- 可以聊诗、旅行、月亮、江河、下一次想去哪里、徽章的故事含义。\n- 如果孩子问是否通关，明确说今天的四朝闯关已经完成。\n- 如果孩子问下一次冒险，回答成角色扮演里的约定或伏笔，不要开启新关卡，不要重新出题。\n\n约束：\n- 不要再发徽章。\n- 不要再判定答案。\n- 不要提内部节点、state、tool 字段。\n- 不要输出 badge_tang_moon、badge_song_river、badge_yuan_dusk、badge_ming_courage 这样的内部徽章 ID。\n- 面向孩子只能使用唐月徽章、宋河徽章、元暮徽章、明勇徽章这样的中文名称。\n- 不要输出 challenge_result、requirements、JSON、参数、英文判断文本。\n- 只输出一句，最多 22 个汉字。\n"

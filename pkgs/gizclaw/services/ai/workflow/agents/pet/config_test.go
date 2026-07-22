@@ -103,6 +103,9 @@ func TestFixedFlowcraftConfigOwnsPetGraphAndAsyncMemoryLayout(t *testing.T) {
 	if answer["model"] != "chat-model" {
 		t.Fatalf("answer model = %#v", answer["model"])
 	}
+	if answer["max_tokens"] != 2048 {
+		t.Fatalf("answer max_tokens = %#v, want 2048", answer["max_tokens"])
+	}
 	if _, ok := cfg["tools"]; ok {
 		t.Fatalf("pet config unexpectedly contains tools: %#v", cfg["tools"])
 	}

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/goccy/go-yaml"
@@ -12,6 +13,14 @@ import (
 type workflowNodePublication struct {
 	ID      string `json:"id" yaml:"id"`
 	Publish *bool  `json:"publish" yaml:"publish"`
+}
+
+type flowcraftGeneratorNode struct {
+	ID     string `json:"id" yaml:"id"`
+	Type   string `json:"type" yaml:"type"`
+	Config struct {
+		MaxTokens int `json:"max_tokens" yaml:"max_tokens"`
+	} `json:"config" yaml:"config"`
 }
 
 var workflowFixtureFiles = []string{
@@ -45,7 +54,6 @@ type workflowFixture struct {
 func TestWorkflowCatalogFixtures(t *testing.T) {
 	workflowDir := filepath.Join("resources", "04-workflows")
 	for _, filename := range workflowFixtureFiles {
-		filename := filename
 		t.Run(filename, func(t *testing.T) {
 			raw, err := os.ReadFile(filepath.Join(workflowDir, filename))
 			if err != nil {
@@ -62,6 +70,73 @@ func TestWorkflowCatalogFixtures(t *testing.T) {
 				t.Fatalf("Workflow display metadata must be client-owned: icon=%#v i18n=%#v", fixture.Icon, fixture.I18n)
 			}
 		})
+	}
+}
+
+func TestFlowcraftGeneratorsUseProductionTokenBudget(t *testing.T) {
+	resourcePaths, err := filepath.Glob(filepath.Join("resources", "04-workflows", "*-flowcraft-*.yaml"))
+	if err != nil {
+		 t.Fatal(err)
+	}
+	for _, path := range resourcePaths {
+		t.Run(strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)), func(t *testing.T) {
+			raw, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var resource struct {
+				Spec struct {
+					Flowcraft struct {
+						Agent struct {
+							Graph struct {
+								Nodes []flowcraftGeneratorNode `yaml:"nodes"`
+							} `yaml:"graph"`
+						} `yaml:"agent"`
+					} `yaml:"flowcraft"`
+				} `yaml:"spec"`
+			}
+			if err := yaml.Unmarshal(raw, &resource); err != nil {
+				t.Fatal(err)
+			}
+			assertFlowcraftGeneratorTokenBudget(t, resource.Spec.Flowcraft.Agent.Graph.Nodes)
+		})
+	}
+
+	workspacePaths, err := filepath.Glob(filepath.Join("workspaces", "flowcraft-*.json"))
+	if err != nil {
+		 t.Fatal(err)
+	}
+	for _, path := range workspacePaths {
+		t.Run(strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)), func(t *testing.T) {
+			raw, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var workspace struct {
+				Workflow struct {
+					Flowcraft struct {
+						Agent struct {
+							Graph struct {
+								Nodes []flowcraftGeneratorNode `json:"nodes"`
+							} `json:"graph"`
+						} `json:"agent"`
+					} `json:"flowcraft"`
+				} `json:"workflow"`
+			}
+			if err := json.Unmarshal(raw, &workspace); err != nil {
+				t.Fatal(err)
+			}
+			assertFlowcraftGeneratorTokenBudget(t, workspace.Workflow.Flowcraft.Agent.Graph.Nodes)
+		})
+	}
+}
+
+func assertFlowcraftGeneratorTokenBudget(t *testing.T, nodes []flowcraftGeneratorNode) {
+	t.Helper()
+	for _, node := range nodes {
+		if node.Type == "llm" && node.Config.MaxTokens != 2048 {
+			t.Errorf("generator node %q max_tokens = %d, want 2048", node.ID, node.Config.MaxTokens)
+		}
 	}
 }
 

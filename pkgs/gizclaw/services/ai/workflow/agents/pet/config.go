@@ -99,7 +99,7 @@ func petAgentConfig(generateModel string) map[string]any {
 				},
 				map[string]any{
 					"id": "answer", "type": "llm", "publish": true,
-					"config": map[string]any{"model": generateModel, "max_tokens": 384, "system_prompt": "${board.system_prompt}", "track_steps": true},
+					"config": map[string]any{"model": generateModel, "max_tokens": 2048, "system_prompt": "${board.system_prompt}", "track_steps": true},
 				},
 			},
 		},

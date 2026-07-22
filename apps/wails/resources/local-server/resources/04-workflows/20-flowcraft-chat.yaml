@@ -42,7 +42,7 @@ spec:
           id: style_prompt
           type: script
         - config:
-            max_tokens: 512
+            max_tokens: 2048
             model: chat
             system_prompt: "${board.system_prompt}"
             track_steps: true

@@ -196,7 +196,7 @@ spec:
           id: route_checkpoint
           type: script
         - config:
-            max_tokens: 28
+            max_tokens: 2048
             messages_channel: poetry_input_channel
             model: llm
             system_prompt: |
@@ -218,7 +218,7 @@ spec:
           publish: true
           type: llm
         - config:
-            max_tokens: 28
+            max_tokens: 2048
             messages_channel: poetry_input_channel
             model: llm
             system_prompt: |
@@ -240,7 +240,7 @@ spec:
           publish: true
           type: llm
         - config:
-            max_tokens: 28
+            max_tokens: 2048
             messages_channel: poetry_input_channel
             model: llm
             system_prompt: |
@@ -262,7 +262,7 @@ spec:
           publish: true
           type: llm
         - config:
-            max_tokens: 28
+            max_tokens: 2048
             messages_channel: poetry_input_channel
             model: llm
             system_prompt: |
@@ -284,7 +284,7 @@ spec:
           publish: true
           type: llm
         - config:
-            max_tokens: 128
+            max_tokens: 2048
             messages_channel: poetry_input_channel
             model: llm
             output_key: challenge_judgement_text
@@ -382,7 +382,7 @@ spec:
           id: apply_checkpoint_result
           type: script
         - config:
-            max_tokens: 28
+            max_tokens: 2048
             messages_channel: poetry_response_channel
             model: llm
             system_prompt: |
@@ -409,7 +409,7 @@ spec:
           publish: true
           type: llm
         - config:
-            max_tokens: 28
+            max_tokens: 2048
             messages_channel: poetry_response_channel
             model: llm
             system_prompt: |
@@ -469,7 +469,7 @@ spec:
           id: advance_checkpoint
           type: script
         - config:
-            max_tokens: 28
+            max_tokens: 2048
             messages_channel: poetry_response_channel
             model: llm
             system_prompt: |
@@ -493,7 +493,7 @@ spec:
           publish: true
           type: llm
         - config:
-            max_tokens: 28
+            max_tokens: 2048
             messages_channel: poetry_response_channel
             model: llm
             system_prompt: |

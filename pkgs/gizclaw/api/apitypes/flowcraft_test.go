@@ -18,7 +18,7 @@ const flowcraftSpecJSON = `{
       "nodes": [
         {"id":"prepare","type":"script","config":{"source":"board.setVar('ready', true);"}},
         {"id":"route","type":"passthrough"},
-        {"id":"answer","type":"llm","publish":true,"config":{"model":"llm","max_tokens":512}}
+        {"id":"answer","type":"llm","publish":true,"config":{"model":"llm","max_tokens":2048}}
       ],
       "edges": [
         {"from":"prepare","to":"route"},
@@ -86,7 +86,7 @@ func TestFlowcraftWorkflowSpecRejectsInvalidConfig(t *testing.T) {
 	}{
 		"empty":             {raw: `{}`, want: "agent.id is required"},
 		"unknown top level": {raw: strings.TrimSuffix(flowcraftSpecJSON, "}") + `,"history":{}}`, want: "unknown field"},
-		"tool names":        {raw: strings.Replace(flowcraftSpecJSON, `"max_tokens":512`, `"max_tokens":512,"tool_names":["echo"]`, 1), want: "unknown field"},
+		"tool names":        {raw: strings.Replace(flowcraftSpecJSON, `"max_tokens":2048`, `"max_tokens":2048,"tool_names":["echo"]`, 1), want: "unknown field"},
 		"unknown node":      {raw: strings.Replace(flowcraftSpecJSON, `"type":"passthrough"`, `"type":"tool"`, 1), want: "unsupported"},
 		"missing entry":     {raw: strings.Replace(flowcraftSpecJSON, `"entry": "prepare"`, `"entry": "missing"`, 1), want: "not a defined node"},
 		"missing publisher": {raw: strings.Replace(flowcraftSpecJSON, `,"publish":true`, ``, 1), want: "publish=true"},
