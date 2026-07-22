@@ -1069,8 +1069,8 @@ int main(void) {
   fake_webrtc.buffered_amount = GZC_SERVICE_WRITE_HIGH_WATER_DEFAULT;
   fake_webrtc.emit_low_event = false;
   rc = gzc_service_channel_send_frame(bounded_channel, &(gzc_rpc_frame_t){
-      .type = GZC_RPC_FRAME_EOS,
-  });
+                                                           .type = GZC_RPC_FRAME_EOS,
+                                                       });
   fake_webrtc.emit_low_event = true;
   if (expect(rc == GZC_OK && fake_webrtc.native_sent.len == 4u,
              "writer rechecks after a drain that races the low-water event") != 0) {
