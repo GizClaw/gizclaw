@@ -24,6 +24,11 @@ typedef enum {
 } fake_response_mode_t;
 
 typedef struct {
+  int64_t instant_ms;
+  int64_t unix_ms;
+} fake_clock_t;
+
+typedef struct {
   gzc_webrtc_callbacks_t callbacks;
   struct gzc_rtc_peer peer;
   struct gzc_rtc_channel packet_channel;
@@ -32,13 +37,27 @@ typedef struct {
   struct gzc_rtc_channel edge_channel;
   struct gzc_rtc_channel remote_channels[GZC_RPC_MAX_INBOUND_CHANNELS + 1u];
   gzc_buf_t sent;
+  gzc_buf_t outgoing;
+  gzc_buf_t native_sent;
   const gzc_platform_t *platform;
+  fake_clock_t *clock;
+  uint64_t buffered_amount;
+  uint64_t low_threshold;
+  uint64_t threshold_values[8];
+  gzc_rtc_channel_t *threshold_channels[8];
+  size_t max_send_len;
+  size_t threshold_count;
+  int send_calls;
+  int fail_send_call;
   int poll_count;
+  int last_poll_timeout_ms;
   int create_channel_count;
   int close_count;
   gzc_rtc_channel_t *last_closed;
   int ice_server_count;
   bool offer_started;
+  bool drain_on_poll;
+  bool emit_low_event;
   fake_response_mode_t response_mode;
 } fake_webrtc_t;
 
@@ -54,6 +73,16 @@ typedef struct {
 } fake_crypto_t;
 
 static fake_webrtc_t *global_fake_webrtc;
+
+static int64_t test_time_instant_ms(void *userdata) {
+  fake_clock_t *clock = (fake_clock_t *)userdata;
+  return clock == NULL ? 0 : clock->instant_ms;
+}
+
+static int64_t test_time_unix_ms(void *userdata) {
+  fake_clock_t *clock = (fake_clock_t *)userdata;
+  return clock == NULL ? 0 : clock->unix_ms;
+}
 
 static bool str_eq_cstr(gzc_str_t value, const char *want) {
   size_t want_len = strlen(want);
@@ -192,8 +221,22 @@ static int test_peer_create_data_channel(gzc_rtc_peer_t *peer, const gzc_rtc_cha
 
 static int test_peer_poll(gzc_rtc_peer_t *peer, int timeout_ms) {
   (void)peer;
-  (void)timeout_ms;
-  global_fake_webrtc->poll_count++;
+  fake_webrtc_t *fake = global_fake_webrtc;
+  fake->poll_count++;
+  fake->last_poll_timeout_ms = timeout_ms;
+  if (fake->clock != NULL) {
+    fake->clock->instant_ms += timeout_ms > 0 ? timeout_ms : 1;
+    fake->clock->unix_ms -= 1000;
+  }
+  if (fake->drain_on_poll && fake->buffered_amount > fake->low_threshold) {
+    fake->buffered_amount = fake->low_threshold;
+    if (fake->emit_low_event && fake->callbacks.on_channel_buffered_amount_low != NULL) {
+      fake->callbacks.on_channel_buffered_amount_low(
+          fake->callbacks.userdata,
+          &fake->peer,
+          &fake->rpc_channel);
+    }
+  }
   return GZC_OK;
 }
 
@@ -345,7 +388,7 @@ static size_t first_frame_size(const gzc_buf_t *bytes) {
   return 4 + ((size_t)bytes->data[0] | ((size_t)bytes->data[1] << 8));
 }
 
-static int test_channel_send(gzc_rtc_channel_t *channel, const uint8_t *data, size_t len, bool is_text) {
+static int test_channel_send_frame(gzc_rtc_channel_t *channel, const uint8_t *data, size_t len, bool is_text) {
   fake_webrtc_t *fake = global_fake_webrtc;
   if (channel == &fake->packet_channel && !is_text) {
     gzc_buf_reset(&fake->sent);
@@ -536,6 +579,87 @@ static int test_channel_send(gzc_rtc_channel_t *channel, const uint8_t *data, si
   gzc_buf_free(&response_error, fake->platform);
   gzc_buf_free(&response_payload, fake->platform);
   gzc_buf_free(&framed, fake->platform);
+  return GZC_OK;
+}
+
+static void consume_test_bytes(gzc_buf_t *bytes, size_t len) {
+  if (len >= bytes->len) {
+    bytes->len = 0;
+    if (bytes->data != NULL) {
+      bytes->data[0] = 0;
+    }
+    return;
+  }
+  memmove(bytes->data, bytes->data + len, bytes->len - len);
+  bytes->len -= len;
+  bytes->data[bytes->len] = 0;
+}
+
+static int test_channel_send(gzc_rtc_channel_t *channel, const uint8_t *data, size_t len, bool is_text) {
+  fake_webrtc_t *fake = global_fake_webrtc;
+  if (fake == NULL || (data == NULL && len != 0)) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  fake->send_calls++;
+  if (fake->fail_send_call == fake->send_calls) {
+    return GZC_ERR_WEBRTC;
+  }
+  if (len > fake->max_send_len) {
+    fake->max_send_len = len;
+  }
+  fake->buffered_amount += len;
+  bool service_channel = channel == &fake->rpc_channel || channel == &fake->edge_channel;
+  for (size_t i = 0; i < 16 && !service_channel; i++) {
+    service_channel = channel == &fake->service_channels[i];
+  }
+  if (!service_channel || is_text) {
+    return test_channel_send_frame(channel, data, len, is_text);
+  }
+  int rc = gzc_buf_append(&fake->native_sent, fake->platform, data, len);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  rc = gzc_buf_append(&fake->outgoing, fake->platform, data, len);
+  while (rc == GZC_OK) {
+    size_t frame_size = first_frame_size(&fake->outgoing);
+    if (frame_size < 4 || fake->outgoing.len < frame_size) {
+      break;
+    }
+    gzc_buf_t frame;
+    gzc_buf_init(&frame);
+    rc = gzc_buf_append(&frame, fake->platform, fake->outgoing.data, frame_size);
+    consume_test_bytes(&fake->outgoing, frame_size);
+    if (rc == GZC_OK) {
+      rc = test_channel_send_frame(channel, frame.data, frame.len, false);
+    }
+    gzc_buf_free(&frame, fake->platform);
+  }
+  return rc;
+}
+
+static int test_channel_buffered_amount(gzc_rtc_channel_t *channel, uint64_t *out_bytes) {
+  (void)channel;
+  if (global_fake_webrtc == NULL || out_bytes == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  *out_bytes = global_fake_webrtc->buffered_amount;
+  return GZC_OK;
+}
+
+static int test_channel_set_buffered_amount_low_threshold(
+    gzc_rtc_channel_t *channel,
+    uint64_t bytes) {
+  (void)channel;
+  if (global_fake_webrtc == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  fake_webrtc_t *fake = global_fake_webrtc;
+  fake->low_threshold = bytes;
+  if (fake->threshold_count < sizeof(fake->threshold_values) / sizeof(fake->threshold_values[0])) {
+    fake->threshold_values[fake->threshold_count] = bytes;
+    fake->threshold_channels[fake->threshold_count] = channel;
+    fake->threshold_count++;
+  }
   return GZC_OK;
 }
 
@@ -756,11 +880,21 @@ int main(void) {
     return 1;
   }
 
-  const gzc_platform_t *platform = gzc_default_platform();
+  fake_clock_t clock = {1000, INT64_C(1700000000000)};
+  gzc_platform_t test_platform = *gzc_default_platform();
+  test_platform.userdata = &clock;
+  test_platform.time_instant_ms = test_time_instant_ms;
+  test_platform.time_unix_ms = test_time_unix_ms;
+  const gzc_platform_t *platform = &test_platform;
   fake_webrtc_t fake_webrtc;
   memset(&fake_webrtc, 0, sizeof(fake_webrtc));
   fake_webrtc.platform = platform;
+  fake_webrtc.clock = &clock;
+  fake_webrtc.drain_on_poll = true;
+  fake_webrtc.emit_low_event = true;
   gzc_buf_init(&fake_webrtc.sent);
+  gzc_buf_init(&fake_webrtc.outgoing);
+  gzc_buf_init(&fake_webrtc.native_sent);
 
   fake_http_t fake_http;
   memset(&fake_http, 0, sizeof(fake_http));
@@ -802,6 +936,9 @@ int main(void) {
   webrtc.peer_create_data_channel = test_peer_create_data_channel;
   webrtc.peer_poll = test_peer_poll;
   webrtc.channel_send = test_channel_send;
+  webrtc.channel_buffered_amount = test_channel_buffered_amount;
+  webrtc.channel_set_buffered_amount_low_threshold =
+      test_channel_set_buffered_amount_low_threshold;
   webrtc.channel_close = fake_channel_close;
   webrtc.peer_close = fake_peer_close;
 
@@ -821,8 +958,45 @@ int main(void) {
   config.webrtc = &webrtc;
   config.cipher_mode = GZC_CIPHER_PLAINTEXT;
   config.connect_timeout_ms = 1000;
+  config.write_timeout_ms = 1000;
 
   gzc_client_t *client = NULL;
+  gzc_client_config_t invalid_config = config;
+  invalid_config.write_timeout_ms = 0;
+  rc = gzc_client_create(&invalid_config, &client);
+  if (expect(rc == GZC_ERR_INVALID_ARGUMENT && client == NULL,
+             "write timeout is required") != 0) {
+    return 1;
+  }
+  invalid_config = config;
+  invalid_config.service_write_high_water_bytes = GZC_SERVICE_WRITE_CHUNK_SIZE - 1;
+  invalid_config.service_write_low_water_bytes = 1;
+  rc = gzc_client_create(&invalid_config, &client);
+  if (expect(rc == GZC_ERR_INVALID_ARGUMENT && client == NULL,
+             "high water covers one service chunk") != 0) {
+    return 1;
+  }
+  gzc_webrtc_vtable_t incomplete_webrtc = webrtc;
+  incomplete_webrtc.channel_buffered_amount = NULL;
+  invalid_config = config;
+  invalid_config.webrtc = &incomplete_webrtc;
+  rc = gzc_client_create(&invalid_config, &client);
+  if (expect(rc == GZC_ERR_UNSUPPORTED && client == NULL,
+             "incomplete v2 flow control is unsupported") != 0) {
+    return 1;
+  }
+  gzc_platform_t platform_without_instant = *platform;
+  platform_without_instant.time_instant_ms = NULL;
+  invalid_config = config;
+  invalid_config.platform = &platform_without_instant;
+  rc = gzc_client_create(&invalid_config, &client);
+  if (expect(rc == GZC_ERR_UNSUPPORTED && client == NULL,
+             "monotonic instant clock is required") != 0) {
+    return 1;
+  }
+  if (expect(GZC_API_VERSION == 2, "C API version 2") != 0) {
+    return 1;
+  }
   rc = gzc_client_create(&config, &client);
   if (expect(rc == GZC_OK, "client create") != 0) {
     return 1;
@@ -845,9 +1019,157 @@ int main(void) {
   if (expect(fake_webrtc.create_channel_count == 2, "packet and rpc channels created during connect") != 0) {
     return 1;
   }
+  if (expect(fake_webrtc.low_threshold == GZC_SERVICE_WRITE_LOW_WATER_DEFAULT,
+             "default low-water threshold is installed") != 0) {
+    return 1;
+  }
   if (expect(fake_webrtc.ice_server_count == 1, "server-info ICE server applied before offer") != 0) {
     return 1;
   }
+
+  gzc_service_channel_t *bounded_channel = NULL;
+  rc = gzc_client_open_service_channel(client, 49, 1000, &bounded_channel);
+  if (expect(rc == GZC_OK && bounded_channel != NULL,
+             "open bounded service channel") != 0) {
+    return 1;
+  }
+  uint8_t *large_payload =
+      (uint8_t *)platform->malloc(platform->userdata, GZC_RPC_MAX_FRAME_SIZE);
+  if (large_payload == NULL) {
+    return 1;
+  }
+  memset(large_payload, 0xa5, GZC_RPC_MAX_FRAME_SIZE);
+  gzc_rpc_frame_t large_frame;
+  memset(&large_frame, 0, sizeof(large_frame));
+  large_frame.type = GZC_RPC_FRAME_BINARY;
+  large_frame.data = large_payload;
+  large_frame.len = GZC_RPC_MAX_FRAME_SIZE;
+  fake_webrtc.buffered_amount = GZC_SERVICE_WRITE_HIGH_WATER_DEFAULT;
+  fake_webrtc.max_send_len = 0;
+  gzc_buf_reset(&fake_webrtc.native_sent);
+  int poll_count_before_write = fake_webrtc.poll_count;
+  rc = gzc_service_channel_send_frame(bounded_channel, &large_frame);
+  if (expect(rc == GZC_OK && fake_webrtc.poll_count > poll_count_before_write,
+             "high water waits for low-water notification") != 0 ||
+      expect(fake_webrtc.max_send_len <= GZC_SERVICE_WRITE_CHUNK_SIZE,
+             "service writes are chunked to 1400 bytes") != 0 ||
+      expect(fake_webrtc.native_sent.len == GZC_RPC_MAX_FRAME_SIZE + 4u &&
+                 fake_webrtc.native_sent.data[0] == 0xffu &&
+                 fake_webrtc.native_sent.data[1] == 0xffu &&
+                 memcmp(fake_webrtc.native_sent.data + 4u,
+                        large_payload,
+                        GZC_RPC_MAX_FRAME_SIZE) == 0,
+             "large borrowed frame preserves the service byte stream") != 0) {
+    platform->free(platform->userdata, large_payload);
+    return 1;
+  }
+  platform->free(platform->userdata, large_payload);
+
+  gzc_buf_reset(&fake_webrtc.native_sent);
+  fake_webrtc.buffered_amount = GZC_SERVICE_WRITE_HIGH_WATER_DEFAULT;
+  fake_webrtc.emit_low_event = false;
+  rc = gzc_service_channel_send_frame(bounded_channel, &(gzc_rpc_frame_t){
+      .type = GZC_RPC_FRAME_EOS,
+  });
+  fake_webrtc.emit_low_event = true;
+  if (expect(rc == GZC_OK && fake_webrtc.native_sent.len == 4u,
+             "writer rechecks after a drain that races the low-water event") != 0) {
+    return 1;
+  }
+
+  uint8_t partial_payload[GZC_SERVICE_WRITE_CHUNK_SIZE + 1u];
+  memset(partial_payload, 0x5a, sizeof(partial_payload));
+  gzc_rpc_frame_t partial_frame;
+  memset(&partial_frame, 0, sizeof(partial_frame));
+  partial_frame.type = GZC_RPC_FRAME_BINARY;
+  partial_frame.data = partial_payload;
+  partial_frame.len = sizeof(partial_payload);
+  fake_webrtc.buffered_amount = 0;
+  fake_webrtc.fail_send_call = fake_webrtc.send_calls + 2;
+  int close_count_before_failure = fake_webrtc.close_count;
+  rc = gzc_service_channel_send_frame(bounded_channel, &partial_frame);
+  fake_webrtc.fail_send_call = 0;
+  if (expect(rc == GZC_ERR_WEBRTC &&
+                 fake_webrtc.close_count == close_count_before_failure + 1 &&
+                 fake_webrtc.last_closed == &fake_webrtc.edge_channel,
+             "partial service write failure closes the channel") != 0 ||
+      expect(gzc_service_channel_send_frame(bounded_channel, &partial_frame) == GZC_ERR_CLOSED,
+             "partial service write failure is locally terminal") != 0) {
+    return 1;
+  }
+  gzc_buf_reset(&fake_webrtc.outgoing);
+  gzc_buf_reset(&fake_webrtc.native_sent);
+  fake_webrtc.buffered_amount = 0;
+  gzc_service_channel_close(bounded_channel);
+  if (expect(fake_webrtc.close_count == close_count_before_failure + 1,
+             "releasing a failed service channel does not close it twice") != 0) {
+    return 1;
+  }
+
+  gzc_service_channel_t *timeout_channel = NULL;
+  rc = gzc_client_open_service_channel(client, 49, 1000, &timeout_channel);
+  if (expect(rc == GZC_OK && timeout_channel != NULL,
+             "open service channel for write timeout") != 0) {
+    return 1;
+  }
+  fake_webrtc.drain_on_poll = false;
+  fake_webrtc.buffered_amount = GZC_SERVICE_WRITE_HIGH_WATER_DEFAULT;
+  gzc_buf_reset(&fake_webrtc.native_sent);
+  int64_t timeout_start = clock.instant_ms;
+  int64_t unix_start = clock.unix_ms;
+  close_count_before_failure = fake_webrtc.close_count;
+  rc = gzc_service_channel_send_frame(timeout_channel, &partial_frame);
+  if (expect(rc == GZC_ERR_TIMEOUT && fake_webrtc.native_sent.len == 0 &&
+                 fake_webrtc.close_count == close_count_before_failure + 1,
+             "write timeout before the first chunk closes the channel") != 0 ||
+      expect(clock.instant_ms - timeout_start >= config.write_timeout_ms &&
+                 clock.unix_ms < unix_start,
+             "write timeout uses instant time while Unix time moves backward") != 0) {
+    return 1;
+  }
+  gzc_service_channel_close(timeout_channel);
+
+  timeout_channel = NULL;
+  rc = gzc_client_open_service_channel(client, 49, 1000, &timeout_channel);
+  if (expect(rc == GZC_OK && timeout_channel != NULL,
+             "reopen service channel for partial write timeout") != 0) {
+    return 1;
+  }
+  fake_webrtc.buffered_amount = GZC_SERVICE_WRITE_HIGH_WATER_DEFAULT - 1u;
+  gzc_buf_reset(&fake_webrtc.native_sent);
+  gzc_buf_reset(&fake_webrtc.outgoing);
+  close_count_before_failure = fake_webrtc.close_count;
+  rc = gzc_service_channel_send_frame(timeout_channel, &partial_frame);
+  if (expect(rc == GZC_ERR_TIMEOUT && fake_webrtc.native_sent.len == 4u &&
+                 fake_webrtc.close_count == close_count_before_failure + 1,
+             "write timeout after a partial frame is terminal") != 0 ||
+      expect(gzc_service_channel_send_frame(timeout_channel, &partial_frame) == GZC_ERR_CLOSED,
+             "partial timeout never retries later chunks") != 0) {
+    return 1;
+  }
+  gzc_buf_reset(&fake_webrtc.outgoing);
+  gzc_service_channel_close(timeout_channel);
+  fake_webrtc.drain_on_poll = true;
+  fake_webrtc.buffered_amount = 0;
+
+  timeout_channel = NULL;
+  rc = gzc_client_open_service_channel(client, 49, 1000, &timeout_channel);
+  if (expect(rc == GZC_OK && timeout_channel != NULL,
+             "open service channel for read timeout") != 0) {
+    return 1;
+  }
+  gzc_buf_t timeout_read;
+  gzc_buf_init(&timeout_read);
+  timeout_start = clock.instant_ms;
+  unix_start = clock.unix_ms;
+  rc = gzc_service_channel_read_frame(timeout_channel, 25, &timeout_read);
+  if (expect(rc == GZC_ERR_TIMEOUT && clock.instant_ms - timeout_start >= 25 &&
+                 clock.unix_ms < unix_start,
+             "read timeout uses instant time while Unix time moves backward") != 0) {
+    return 1;
+  }
+  gzc_buf_free(&timeout_read, platform);
+  gzc_service_channel_close(timeout_channel);
 
   gzc_json_t malformed_json = {gzc_str_from_cstr("{\"public_key\":\"x\",}")};
   if (expect(gzc_json_validate_object(malformed_json.raw) == GZC_ERR_JSON, "malformed object rejected") != 0) {
@@ -1437,6 +1759,41 @@ int main(void) {
     return 1;
   }
 
+  announce_remote_rpc(&fake_webrtc, 0);
+  gzc_buf_reset(&fake_webrtc.sent);
+  fake_webrtc.buffered_amount = GZC_SERVICE_WRITE_HIGH_WATER_DEFAULT;
+  fake_webrtc.drain_on_poll = false;
+  int close_count_before_deferred_timeout = fake_webrtc.close_count;
+  int64_t deferred_unix_start = clock.unix_ms;
+  fake_webrtc.callbacks.on_channel_message(
+      fake_webrtc.callbacks.userdata, &fake_webrtc.peer,
+      &fake_webrtc.remote_channels[0], NULL,
+      inbound_framed.data, inbound_framed.len, false);
+  rc = gzc_client_poll(client, 37);
+  if (expect(rc == GZC_OK && fake_webrtc.last_poll_timeout_ms == 0,
+             "new deferred output requests an immediate poll") != 0) {
+    return 1;
+  }
+  rc = gzc_client_poll(client, 37);
+  if (expect(rc == GZC_OK && fake_webrtc.last_poll_timeout_ms == 37,
+             "backpressured deferred output preserves the caller poll timeout") != 0) {
+    return 1;
+  }
+  rc = gzc_client_poll(client, 60000);
+  if (expect(rc == GZC_ERR_TIMEOUT && fake_webrtc.sent.len == 0 &&
+                 fake_webrtc.last_poll_timeout_ms > 0 &&
+                 fake_webrtc.last_poll_timeout_ms < config.write_timeout_ms &&
+                 fake_webrtc.close_count == close_count_before_deferred_timeout + 1 &&
+                 fake_webrtc.last_closed == &fake_webrtc.remote_channels[0],
+             "blocked deferred output caps poll by its timeout and closes") != 0 ||
+      expect(clock.unix_ms < deferred_unix_start,
+             "deferred timeout ignores backward Unix clock movement") != 0) {
+    return 1;
+  }
+  fake_webrtc.drain_on_poll = true;
+  fake_webrtc.buffered_amount = 0;
+  rc = GZC_OK;
+
   for (size_t i = 0; i < GZC_RPC_MAX_INBOUND_CHANNELS; i++) {
     announce_remote_rpc(&fake_webrtc, i);
   }
@@ -1454,7 +1811,7 @@ int main(void) {
 
   gizclaw_rpc_v1_SpeedTestRequest speed_request = gizclaw_rpc_v1_SpeedTestRequest_init_zero;
   speed_request.up_content_length = 2;
-  speed_request.down_content_length = 3;
+  speed_request.down_content_length = 17 * 4096;
   gzc_buf_t speed_payload;
   gzc_buf_init(&speed_payload);
   size_t oversized_id_len = GZC_RPC_MAX_FRAME_SIZE;
@@ -1510,6 +1867,14 @@ int main(void) {
   if (expect(rc == GZC_OK, "poll serves inbound full-duplex speed test") != 0) {
     return 1;
   }
+  clock.instant_ms += config.write_timeout_ms - 4;
+  for (size_t i = 0; i < 4 && fake_webrtc.close_count == close_count_before_speed; i++) {
+    rc = gzc_client_poll(client, 0);
+    if (expect(rc == GZC_OK,
+               "each deferred response batch gets an independent timeout") != 0) {
+      return 1;
+    }
+  }
   size_t offset = 0;
   size_t response_frames = 0;
   size_t download_bytes = 0;
@@ -1546,11 +1911,13 @@ int main(void) {
   rc = gzc_rpc_decode_response_envelope(
       gzc_str_from_parts((const char *)continued_response.data, continued_response.len),
       &inbound_response);
-  if (expect(rc == GZC_OK && response_frames == 5 && saw_response_delimiter &&
-                 saw_response_eos && download_bytes == 3 && !inbound_response.has_error &&
+  if (expect(rc == GZC_OK && response_frames == 21 && saw_response_delimiter &&
+                 saw_response_eos &&
+                 download_bytes == (size_t)speed_request.down_content_length &&
+                 !inbound_response.has_error &&
                  inbound_response.id.len == oversized_id_len &&
                  memcmp(inbound_response.id.data, oversized_id, oversized_id_len) == 0,
-             "continued inbound speed response envelope body and eos") != 0) {
+             "continued inbound speed response batches body frames and eos") != 0) {
     return 1;
   }
   if (expect(fake_webrtc.close_count == close_count_before_speed + 1 &&
@@ -1585,6 +1952,10 @@ int main(void) {
       fake_webrtc.callbacks.userdata, &fake_webrtc.peer,
       &fake_webrtc.remote_channels[0], NULL,
       inbound_framed.data, inbound_framed.len, false);
+  rc = gzc_client_poll(client, 0);
+  if (rc != GZC_OK) {
+    return 1;
+  }
   inbound_frame_size = first_frame_size(&fake_webrtc.sent);
   rc = gzc_rpc_frame_decode(fake_webrtc.sent.data, inbound_frame_size, &inbound_frame);
   if (rc == GZC_OK) {
@@ -1630,6 +2001,10 @@ int main(void) {
         fake_webrtc.callbacks.userdata, &fake_webrtc.peer,
         &fake_webrtc.remote_channels[0], NULL,
         inbound_framed.data, inbound_framed.len, false);
+    rc = gzc_client_poll(client, 0);
+    if (rc != GZC_OK) {
+      return 1;
+    }
     inbound_frame_size = first_frame_size(&fake_webrtc.sent);
     rc = gzc_rpc_frame_decode(
         fake_webrtc.sent.data, inbound_frame_size, &inbound_frame);
@@ -1670,6 +2045,10 @@ int main(void) {
       fake_webrtc.callbacks.userdata, &fake_webrtc.peer,
       &fake_webrtc.remote_channels[0], NULL,
       inbound_framed.data, inbound_framed.len, false);
+  rc = gzc_client_poll(client, 0);
+  if (rc != GZC_OK) {
+    return 1;
+  }
   inbound_frame_size = first_frame_size(&fake_webrtc.sent);
   rc = gzc_rpc_frame_decode(fake_webrtc.sent.data, inbound_frame_size, &inbound_frame);
   if (rc == GZC_OK) {
@@ -1711,6 +2090,8 @@ int main(void) {
 
   gzc_buf_free(&params, platform);
   gzc_buf_free(&fake_webrtc.sent, platform);
+  gzc_buf_free(&fake_webrtc.outgoing, platform);
+  gzc_buf_free(&fake_webrtc.native_sent, platform);
   rc = gzc_client_close(client);
   if (expect(rc == GZC_OK && gzc_client_poll(client, 0) == GZC_ERR_CLOSED,
              "poll reports closed client") != 0) {
@@ -1718,10 +2099,86 @@ int main(void) {
   }
   gzc_client_destroy(client);
 
+  fake_webrtc_t fake_webrtc_custom;
+  memset(&fake_webrtc_custom, 0, sizeof(fake_webrtc_custom));
+  fake_webrtc_custom.platform = platform;
+  fake_webrtc_custom.clock = &clock;
+  fake_webrtc_custom.drain_on_poll = true;
+  fake_webrtc_custom.emit_low_event = true;
+  gzc_buf_init(&fake_webrtc_custom.sent);
+  gzc_buf_init(&fake_webrtc_custom.outgoing);
+  gzc_buf_init(&fake_webrtc_custom.native_sent);
+  fake_http_t fake_http_custom;
+  memset(&fake_http_custom, 0, sizeof(fake_http_custom));
+  fake_http_custom.platform = platform;
+  gzc_webrtc_vtable_t webrtc_custom = webrtc;
+  webrtc_custom.userdata = &fake_webrtc_custom;
+  gzc_http_vtable_t http_custom = http;
+  http_custom.userdata = &fake_http_custom;
+  gzc_client_config_t config_custom = config;
+  config_custom.http = &http_custom;
+  config_custom.webrtc = &webrtc_custom;
+  config_custom.service_write_high_water_bytes = 512u * 1024u;
+  config_custom.service_write_low_water_bytes = 128u * 1024u;
+  gzc_client_t *client_custom = NULL;
+  rc = gzc_client_create(&config_custom, &client_custom);
+  if (rc == GZC_OK) {
+    rc = gzc_client_set_peer_add_ice_server(client_custom, test_peer_add_ice_server);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_client_connect(client_custom);
+  }
+  gzc_service_channel_t *custom_channel = NULL;
+  if (rc == GZC_OK) {
+    rc = gzc_client_open_service_channel(client_custom, 49, 1000, &custom_channel);
+  }
+  if (rc == GZC_OK) {
+    announce_remote_rpc(&fake_webrtc_custom, 0);
+  }
+  if (expect(rc == GZC_OK && fake_webrtc_custom.threshold_count == 3u &&
+                 fake_webrtc_custom.threshold_values[0] == 128u * 1024u &&
+                 fake_webrtc_custom.threshold_values[1] == 128u * 1024u &&
+                 fake_webrtc_custom.threshold_values[2] == 128u * 1024u &&
+                 fake_webrtc_custom.threshold_channels[0] == &fake_webrtc_custom.rpc_channel &&
+                 fake_webrtc_custom.threshold_channels[1] == &fake_webrtc_custom.edge_channel &&
+                 fake_webrtc_custom.threshold_channels[2] == &fake_webrtc_custom.remote_channels[0],
+             "custom low-water threshold applies to every service channel") != 0) {
+    return 1;
+  }
+  gzc_rpc_frame_t custom_eos;
+  memset(&custom_eos, 0, sizeof(custom_eos));
+  custom_eos.type = GZC_RPC_FRAME_EOS;
+  fake_webrtc_custom.buffered_amount = 300u * 1024u;
+  int custom_poll_count = fake_webrtc_custom.poll_count;
+  rc = gzc_service_channel_send_frame(custom_channel, &custom_eos);
+  if (expect(rc == GZC_OK && fake_webrtc_custom.poll_count == custom_poll_count,
+             "custom high-water allows writes above the embedded default") != 0) {
+    return 1;
+  }
+  fake_webrtc_custom.buffered_amount = 512u * 1024u;
+  rc = gzc_service_channel_send_frame(custom_channel, &custom_eos);
+  if (expect(rc == GZC_OK && fake_webrtc_custom.poll_count > custom_poll_count &&
+                 fake_webrtc_custom.buffered_amount == 128u * 1024u + 4u,
+             "custom high-water resumes from the custom low-water boundary") != 0) {
+    return 1;
+  }
+  gzc_service_channel_close(custom_channel);
+  close_remote_rpc(&fake_webrtc_custom, 0);
+  gzc_client_close(client_custom);
+  gzc_client_destroy(client_custom);
+  gzc_buf_free(&fake_webrtc_custom.sent, platform);
+  gzc_buf_free(&fake_webrtc_custom.outgoing, platform);
+  gzc_buf_free(&fake_webrtc_custom.native_sent, platform);
+
   fake_webrtc_t fake_webrtc_no_ice_hook;
   memset(&fake_webrtc_no_ice_hook, 0, sizeof(fake_webrtc_no_ice_hook));
   fake_webrtc_no_ice_hook.platform = platform;
+  fake_webrtc_no_ice_hook.clock = &clock;
+  fake_webrtc_no_ice_hook.drain_on_poll = true;
+  fake_webrtc_no_ice_hook.emit_low_event = true;
   gzc_buf_init(&fake_webrtc_no_ice_hook.sent);
+  gzc_buf_init(&fake_webrtc_no_ice_hook.outgoing);
+  gzc_buf_init(&fake_webrtc_no_ice_hook.native_sent);
 
   fake_http_t fake_http_no_ice_hook;
   memset(&fake_http_no_ice_hook, 0, sizeof(fake_http_no_ice_hook));
@@ -1741,20 +2198,28 @@ int main(void) {
   rc = gzc_client_create(&config_no_ice_hook, &client_no_ice_hook);
   if (expect(rc == GZC_OK, "client create without ICE hook") != 0) {
     gzc_buf_free(&fake_webrtc_no_ice_hook.sent, platform);
+    gzc_buf_free(&fake_webrtc_no_ice_hook.outgoing, platform);
+    gzc_buf_free(&fake_webrtc_no_ice_hook.native_sent, platform);
     return 1;
   }
   rc = gzc_client_connect(client_no_ice_hook);
   if (expect(rc == GZC_ERR_UNSUPPORTED, "client connect without ICE hook rejects advertised ICE metadata") != 0) {
     gzc_client_destroy(client_no_ice_hook);
     gzc_buf_free(&fake_webrtc_no_ice_hook.sent, platform);
+    gzc_buf_free(&fake_webrtc_no_ice_hook.outgoing, platform);
+    gzc_buf_free(&fake_webrtc_no_ice_hook.native_sent, platform);
     return 1;
   }
   if (expect(fake_webrtc_no_ice_hook.ice_server_count == 0, "missing ICE hook skips advertised ICE servers") != 0) {
     gzc_client_destroy(client_no_ice_hook);
     gzc_buf_free(&fake_webrtc_no_ice_hook.sent, platform);
+    gzc_buf_free(&fake_webrtc_no_ice_hook.outgoing, platform);
+    gzc_buf_free(&fake_webrtc_no_ice_hook.native_sent, platform);
     return 1;
   }
   gzc_client_destroy(client_no_ice_hook);
   gzc_buf_free(&fake_webrtc_no_ice_hook.sent, platform);
+  gzc_buf_free(&fake_webrtc_no_ice_hook.outgoing, platform);
+  gzc_buf_free(&fake_webrtc_no_ice_hook.native_sent, platform);
   return 0;
 }

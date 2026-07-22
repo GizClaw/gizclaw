@@ -59,12 +59,14 @@ int gzc_rpc_call_stream(
     gzc_str_t params_payload,
     gzc_rpc_frame_cb on_frame,
     void *userdata);
+/* frame and frame->data are borrowed until this synchronous call returns. */
 int gzc_rpc_send_frame(gzc_client_t *client, const gzc_rpc_frame_t *frame);
 /* Opens an incremental transcription upload on a dedicated Peer RPC stream. */
 int gzc_rpc_speech_transcribe_open(
     gzc_client_t *client,
     const gizclaw_rpc_v1_SpeechTranscribeRequest *request,
     gzc_rpc_speech_upload_t **out_upload);
+/* data is borrowed until this synchronous call returns. */
 int gzc_rpc_speech_transcribe_write(
     gzc_rpc_speech_upload_t *upload,
     const uint8_t *data,

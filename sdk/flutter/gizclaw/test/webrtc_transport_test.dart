@@ -389,20 +389,35 @@ void main() {
       initialState: GizClawDataChannelState.open,
     );
     final bytes = Uint8List.fromList(
-      List.generate(3001, (index) => index % 251),
+      List.generate(70 * 1024 + 1, (index) => index % 251),
     );
 
     await channel.send(bytes);
 
-    expect(native.sent.map((message) => message.binary.length), [
-      1400,
-      1400,
-      201,
-    ]);
+    expect(
+      native.sent.every((message) => message.binary.length <= 1400),
+      isTrue,
+    );
     expect(native.sent.expand((message) => message.binary).toList(), bytes);
   });
 
-  test('waits for bufferedAmount before sending native chunks', () async {
+  test('handles a drain while installing the low-water waiter', () async {
+    final native = _FakeRtcDataChannel(
+      bufferedAmountValue: 1024 * 1024,
+      drainBufferedAmountOnRead: 2,
+      initialState: rtc.RTCDataChannelState.RTCDataChannelOpen,
+    );
+    final channel = FlutterWebRtcDataChannel(
+      native,
+      initialState: GizClawDataChannelState.open,
+    );
+
+    await channel.send(Uint8List.fromList([1]));
+
+    expect(native.sent, hasLength(1));
+  });
+
+  test('waits for the low-water event before sending native chunks', () async {
     final native = _FakeRtcDataChannel(
       bufferedAmountValue: 1024 * 1024 + 1,
       initialState: rtc.RTCDataChannelState.RTCDataChannelOpen,
@@ -415,10 +430,67 @@ void main() {
 
     await Future<void>.delayed(const Duration(milliseconds: 10));
     expect(native.sent, isEmpty);
+    expect(native.bufferedAmountLowThreshold, 256 * 1024);
 
-    native.bufferedAmountValue = 0;
+    native.emitBufferedAmountLow(256 * 1024);
     await future;
     expect(native.sent, hasLength(1));
+  });
+
+  test('serializes concurrent logical service writes', () async {
+    final native = _FakeRtcDataChannel(
+      initialState: rtc.RTCDataChannelState.RTCDataChannelOpen,
+    );
+    final channel = FlutterWebRtcDataChannel(
+      native,
+      initialState: GizClawDataChannelState.open,
+    );
+    final first = Uint8List(2000)..fillRange(0, 2000, 1);
+    final second = Uint8List(2000)..fillRange(0, 2000, 2);
+
+    await Future.wait([channel.send(first), channel.send(second)]);
+
+    expect(native.sent.map((message) => message.binary.first), [1, 1, 2, 2]);
+  });
+
+  test('closes after a partial logical service write fails', () async {
+    final native = _FakeRtcDataChannel(
+      failSendCall: 2,
+      initialState: rtc.RTCDataChannelState.RTCDataChannelOpen,
+    );
+    final channel = FlutterWebRtcDataChannel(
+      native,
+      initialState: GizClawDataChannelState.open,
+    );
+
+    final active = channel.send(Uint8List(1401));
+    final queued = channel.send(Uint8List(1));
+
+    await expectLater(active, throwsStateError);
+    await expectLater(queued, throwsStateError);
+
+    expect(native.sent, hasLength(1));
+    expect(native.closeCalls, 1);
+    expect(channel.state, GizClawDataChannelState.closing);
+    expect(native.sent, hasLength(1));
+  });
+
+  test('fails a low-water wait when the channel starts closing', () async {
+    final native = _FakeRtcDataChannel(
+      bufferedAmountValue: 1024 * 1024,
+      initialState: rtc.RTCDataChannelState.RTCDataChannelOpen,
+    );
+    final channel = FlutterWebRtcDataChannel(
+      native,
+      initialState: GizClawDataChannelState.open,
+    );
+    final future = channel.send(Uint8List.fromList([1]));
+    await Future<void>.delayed(Duration.zero);
+
+    native.emitState(rtc.RTCDataChannelState.RTCDataChannelClosing);
+
+    await expectLater(future, throwsStateError);
+    expect(native.sent, isEmpty);
   });
 }
 
@@ -750,6 +822,8 @@ class _FakeMediaStreamTrack extends rtc.MediaStreamTrack {
 class _FakeRtcDataChannel extends rtc.RTCDataChannel {
   _FakeRtcDataChannel({
     this.bufferedAmountValue = 0,
+    this.drainBufferedAmountOnRead,
+    this.failSendCall,
     rtc.RTCDataChannelState? initialState,
     String label = 'test',
     this.nativeReady = false,
@@ -761,7 +835,10 @@ class _FakeRtcDataChannel extends rtc.RTCDataChannel {
 
   final String _label;
   final bool nativeReady;
+  final int? drainBufferedAmountOnRead;
+  final int? failSendCall;
   rtc.RTCDataChannelState? _state;
+  int bufferedAmountReads = 0;
   int closeCalls = 0;
   int getBufferedAmountCalls = 0;
   int? bufferedAmountValue;
@@ -780,8 +857,19 @@ class _FakeRtcDataChannel extends rtc.RTCDataChannel {
     onMessage?.call(rtc.RTCDataChannelMessage.fromBinary(bytes));
   }
 
+  void emitBufferedAmountLow(int amount) {
+    bufferedAmountValue = amount;
+    onBufferedAmountLow?.call(amount);
+  }
+
   @override
-  int? get bufferedAmount => bufferedAmountValue;
+  int? get bufferedAmount {
+    bufferedAmountReads++;
+    if (bufferedAmountReads == drainBufferedAmountOnRead) {
+      bufferedAmountValue = 256 * 1024;
+    }
+    return bufferedAmountValue;
+  }
 
   @override
   Future<int> getBufferedAmount() async {
@@ -804,6 +892,9 @@ class _FakeRtcDataChannel extends rtc.RTCDataChannel {
 
   @override
   Future<void> send(rtc.RTCDataChannelMessage message) async {
+    if (sent.length + 1 == failSendCall) {
+      throw StateError('injected send failure');
+    }
     sent.add(message);
   }
 

@@ -40,6 +40,8 @@ const (
 	RTCChannelClosed = 2
 )
 
+var processStart = time.Now()
+
 type HTTPHeader struct {
 	Name  string
 	Value string
@@ -54,6 +56,7 @@ type EventSink interface {
 	RemoteChannel(channelID int, label string, ordered, reliable bool)
 	ChannelState(channelID int, state int)
 	ChannelMessage(channelID int, data []byte, isText bool)
+	BufferedAmountLow(channelID int)
 }
 
 type Backend struct {
@@ -85,6 +88,7 @@ const (
 	backendEventRemoteChannel backendEventKind = iota
 	backendEventChannelState
 	backendEventChannelMessage
+	backendEventBufferedAmountLow
 )
 
 type backendEvent struct {
@@ -113,6 +117,10 @@ func Random(out []byte) error {
 
 func TimeUnixMs() int64 {
 	return time.Now().UnixMilli()
+}
+
+func TimeInstantMs() int64 {
+	return time.Since(processStart).Milliseconds()
 }
 
 func KeyPairFromPrivate(private []byte) (giznet.KeyPair, error) {
@@ -275,6 +283,10 @@ func (b *Backend) acceptRemoteDataChannel(dc *webrtc.DataChannel) {
 		<-published
 		b.emitChannelMessage(channelID, msg.Data, msg.IsString)
 	})
+	dc.OnBufferedAmountLow(func() {
+		<-published
+		b.emitBufferedAmountLow(channelID)
+	})
 	b.mu.Lock()
 	if b.closed || b.dcs == nil {
 		b.mu.Unlock()
@@ -365,6 +377,9 @@ func (b *Backend) CreateDataChannel(label string, channelID int, ordered, reliab
 	})
 	dc.OnMessage(func(msg webrtc.DataChannelMessage) {
 		b.emitChannelMessage(channelID, msg.Data, msg.IsString)
+	})
+	dc.OnBufferedAmountLow(func() {
+		b.emitBufferedAmountLow(channelID)
 	})
 	b.mu.Lock()
 	state.dc = dc
@@ -459,6 +474,8 @@ func (b *Backend) Poll(timeoutMS int) {
 			sink.ChannelState(event.channelID, event.state)
 		case backendEventChannelMessage:
 			sink.ChannelMessage(event.channelID, event.data, event.isText)
+		case backendEventBufferedAmountLow:
+			sink.BufferedAmountLow(event.channelID)
 		}
 	}
 }
@@ -474,6 +491,27 @@ func (b *Backend) Send(channelID int, data []byte, isText bool) error {
 		return state.dc.SendText(string(data))
 	}
 	return state.dc.Send(data)
+}
+
+func (b *Backend) BufferedAmount(channelID int) (uint64, error) {
+	b.mu.Lock()
+	state := b.dcs[channelID]
+	b.mu.Unlock()
+	if state == nil || state.dc == nil {
+		return 0, fmt.Errorf("nil data channel %d", channelID)
+	}
+	return state.dc.BufferedAmount(), nil
+}
+
+func (b *Backend) SetBufferedAmountLowThreshold(channelID int, bytes uint64) error {
+	b.mu.Lock()
+	state := b.dcs[channelID]
+	b.mu.Unlock()
+	if state == nil || state.dc == nil {
+		return fmt.Errorf("nil data channel %d", channelID)
+	}
+	state.dc.SetBufferedAmountLowThreshold(bytes)
+	return nil
 }
 
 func (b *Backend) CloseDataChannel(channelID int) {
@@ -550,6 +588,10 @@ func (b *Backend) emitChannelMessage(channelID int, data []byte, isText bool) {
 		kind: backendEventChannelMessage, channelID: channelID,
 		data: append([]byte(nil), data...), isText: isText,
 	})
+}
+
+func (b *Backend) emitBufferedAmountLow(channelID int) {
+	b.enqueue(backendEvent{kind: backendEventBufferedAmountLow, channelID: channelID})
 }
 
 func (b *Backend) enqueue(event backendEvent) {

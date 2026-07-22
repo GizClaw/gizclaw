@@ -37,6 +37,14 @@ flowchart LR
 
 Agent Event Stream 中的 BOS/EOS 是按 `stream_id` 划分的业务边界；关闭某个业务 stream 不会关闭 Event Stream DataChannel 或 Peer connection。DataChannel EOF 才表示该 transport stream 已终止。
 
+## Service stream 写入流控
+
+JavaScript、Flutter 和 C SDK 对 reliable、ordered service DataChannel 使用每 channel 串行 writer。每个原生 DataChannel message 最多承载 1400 bytes；writer 到达 high-water 后暂停，收到 buffered-amount-low 通知且队列降到 low-water 后才继续。一次写入成功表示该逻辑消息的全部分片已被本地 WebRTC 发送队列接受，不表示远端已经消费。
+
+JavaScript 与 Flutter 的 high/low water 固定为 1 MiB / 256 KiB。C API v2 默认使用 256 KiB / 64 KiB，嵌入式调用方可以通过 `gzc_client_config_t` 的 `service_write_high_water_bytes` 和 `service_write_low_water_bytes` 调大；自定义值必须满足 high-water 至少 1400 bytes 且 low-water 小于 high-water。C 的同步发送只在调用期间借用 caller payload，并使用 `write_timeout_ms` 限制整个逻辑写入；elapsed timeout 读取 platform 的单调 `time_instant_ms`，协议时间戳仍读取 `time_unix_ms`。
+
+Direct packet、Telemetry 和 RTP 不走这套 service stream writer，也不继承这些阈值。
+
 ## 核心结构与主函数
 
 | 符号 | 作用 |

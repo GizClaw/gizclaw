@@ -15,6 +15,9 @@ typedef struct gzc_service_channel gzc_service_channel_t;
 
 /* Maximum live server-created ServicePeerRPC exchanges per client. */
 #define GZC_RPC_MAX_INBOUND_CHANNELS 4u
+#define GZC_SERVICE_WRITE_CHUNK_SIZE 1400u
+#define GZC_SERVICE_WRITE_HIGH_WATER_DEFAULT (256u * 1024u)
+#define GZC_SERVICE_WRITE_LOW_WATER_DEFAULT (64u * 1024u)
 
 typedef struct {
   gzc_str_t server_endpoint;
@@ -25,6 +28,11 @@ typedef struct {
   const gzc_webrtc_vtable_t *webrtc;
   gzc_cipher_mode_t cipher_mode;
   int connect_timeout_ms;
+  /* Required positive timeout for accepting a logical service write locally. */
+  int write_timeout_ms;
+  /* A zero pair selects the embedded defaults above. Otherwise low < high. */
+  size_t service_write_high_water_bytes;
+  size_t service_write_low_water_bytes;
   void *userdata;
 } gzc_client_config_t;
 
@@ -48,6 +56,7 @@ int gzc_client_open_service_channel(
     uint64_t service,
     int timeout_ms,
     gzc_service_channel_t **out_channel);
+/* frame and frame->data are borrowed until this synchronous call returns. */
 int gzc_service_channel_send_frame(gzc_service_channel_t *channel, const gzc_rpc_frame_t *frame);
 int gzc_service_channel_read_frame(gzc_service_channel_t *channel, int timeout_ms, gzc_buf_t *out_frame_bytes);
 void gzc_service_channel_close(gzc_service_channel_t *channel);

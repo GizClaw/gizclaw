@@ -85,6 +85,11 @@ func gzcGoTimeUnixMs() C.int64_t {
 	return C.int64_t(TimeUnixMs())
 }
 
+//export gzcGoTimeInstantMs
+func gzcGoTimeInstantMs() C.int64_t {
+	return C.int64_t(TimeInstantMs())
+}
+
 //export gzcGoHTTPRequest
 func gzcGoHTTPRequest(handle C.uint64_t, method C.int, urlData *C.char, urlLen C.size_t, headers *C.gzc_http_header_t, headerCount C.size_t, data *C.uint8_t, length C.size_t, outStatus *C.int, outData **C.uint8_t, outLen *C.size_t) C.int {
 	b := backendFromHandle(handle)
@@ -334,6 +339,32 @@ func gzcGoChannelSend(handle C.uint64_t, channelID C.int, data *C.uint8_t, lengt
 	return C.GZC_OK
 }
 
+//export gzcGoChannelBufferedAmount
+func gzcGoChannelBufferedAmount(handle C.uint64_t, channelID C.int, outBytes *C.uint64_t) C.int {
+	b := backendFromHandle(handle)
+	if b == nil || outBytes == nil {
+		return C.GZC_ERR_INVALID_ARGUMENT
+	}
+	amount, err := b.BufferedAmount(int(channelID))
+	if err != nil {
+		return C.GZC_ERR_WEBRTC
+	}
+	*outBytes = C.uint64_t(amount)
+	return C.GZC_OK
+}
+
+//export gzcGoChannelSetBufferedAmountLowThreshold
+func gzcGoChannelSetBufferedAmountLowThreshold(handle C.uint64_t, channelID C.int, bytes C.uint64_t) C.int {
+	b := backendFromHandle(handle)
+	if b == nil {
+		return C.GZC_ERR_INVALID_ARGUMENT
+	}
+	if err := b.SetBufferedAmountLowThreshold(int(channelID), uint64(bytes)); err != nil {
+		return C.GZC_ERR_WEBRTC
+	}
+	return C.GZC_OK
+}
+
 //export gzcGoChannelClose
 func gzcGoChannelClose(handle C.uint64_t, channelID C.int) {
 	if b := backendFromHandle(handle); b != nil {
@@ -371,6 +402,15 @@ func (s cgoSink) ChannelMessage(channelID int, data []byte, isText bool) {
 		(*C.uint8_t)(raw),
 		C.size_t(len(data)),
 		C.bool(isText),
+	)
+}
+
+func (s cgoSink) BufferedAmountLow(channelID int) {
+	if s.cBackend == nil {
+		return
+	}
+	C.gzc_cgo_emit_channel_buffered_amount_low(
+		(*C.gzc_cgo_backend_t)(s.cBackend), C.int(channelID),
 	)
 }
 

@@ -70,6 +70,11 @@ typedef void (*gzc_rtc_channel_message_cb)(
     size_t len,
     bool is_text);
 
+typedef void (*gzc_rtc_channel_buffered_amount_low_cb)(
+    void *userdata,
+    gzc_rtc_peer_t *peer,
+    gzc_rtc_channel_t *channel);
+
 /*
  * Announces a remotely created channel before any state or message callback
  * for that channel. channel and info->label are borrowed for the callback;
@@ -93,6 +98,7 @@ typedef struct {
   gzc_rtc_local_sdp_cb on_local_sdp;
   gzc_rtc_channel_state_cb on_channel_state;
   gzc_rtc_channel_message_cb on_channel_message;
+  gzc_rtc_channel_buffered_amount_low_cb on_channel_buffered_amount_low;
   gzc_rtc_remote_channel_cb on_remote_channel;
 } gzc_webrtc_callbacks_t;
 
@@ -104,6 +110,8 @@ typedef struct {
   int (*peer_create_data_channel)(gzc_rtc_peer_t *peer, const gzc_rtc_channel_config_t *config, gzc_rtc_channel_t **out_channel);
   int (*peer_poll)(gzc_rtc_peer_t *peer, int timeout_ms);
   int (*channel_send)(gzc_rtc_channel_t *channel, const uint8_t *data, size_t len, bool is_text);
+  int (*channel_buffered_amount)(gzc_rtc_channel_t *channel, uint64_t *out_bytes);
+  int (*channel_set_buffered_amount_low_threshold)(gzc_rtc_channel_t *channel, uint64_t bytes);
   void (*channel_close)(gzc_rtc_channel_t *channel);
   void (*peer_close)(gzc_rtc_peer_t *peer);
 } gzc_webrtc_vtable_t;
