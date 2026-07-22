@@ -13,7 +13,7 @@ int gzc_rpc_inbound_create(
     gzc_rpc_inbound_t **out_inbound);
 int gzc_rpc_inbound_feed(gzc_rpc_inbound_t *inbound, const uint8_t *data, size_t len, bool is_text);
 int gzc_rpc_inbound_poll(gzc_rpc_inbound_t *inbound);
-bool gzc_rpc_inbound_needs_immediate_poll(gzc_rpc_inbound_t *inbound);
+int gzc_rpc_inbound_backend_timeout_ms(gzc_rpc_inbound_t *inbound, int requested_timeout_ms);
 bool gzc_rpc_inbound_close_requested(gzc_rpc_inbound_t *inbound);
 void gzc_rpc_inbound_destroy(gzc_rpc_inbound_t *inbound);
 
@@ -1116,8 +1116,9 @@ int gzc_client_poll(gzc_client_t *client, int timeout_ms) {
   client->dispatch_error = GZC_OK;
   int backend_timeout_ms = timeout_ms;
   for (size_t i = 0; i < GZC_RPC_MAX_INBOUND_CHANNELS; i++) {
-    if (gzc_rpc_inbound_needs_immediate_poll(client->inbound[i])) {
-      backend_timeout_ms = 0;
+    backend_timeout_ms =
+        gzc_rpc_inbound_backend_timeout_ms(client->inbound[i], backend_timeout_ms);
+    if (backend_timeout_ms == 0) {
       break;
     }
   }

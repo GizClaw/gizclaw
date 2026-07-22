@@ -1453,17 +1453,34 @@ int gzc_rpc_inbound_poll(struct gzc_rpc_inbound *inbound) {
   return GZC_OK;
 }
 
-bool gzc_rpc_inbound_needs_immediate_poll(struct gzc_rpc_inbound *inbound) {
+int gzc_rpc_inbound_backend_timeout_ms(
+    struct gzc_rpc_inbound *inbound,
+    int requested_timeout_ms) {
   if (inbound == NULL) {
-    return false;
+    return requested_timeout_ms;
   }
   if (inbound->tx_offset < inbound->tx.len) {
-    return !inbound->write_blocked;
+    if (!inbound->write_blocked) {
+      return 0;
+    }
+    int64_t remaining =
+        (int64_t)gzc_client_write_timeout_ms_internal(inbound->client) -
+        (gzc_client_instant_ms_internal(inbound->client) - inbound->write_started_ms);
+    if (remaining <= 0) {
+      return 0;
+    }
+    if (requested_timeout_ms < 0 || remaining < requested_timeout_ms) {
+      return (int)remaining;
+    }
+    return requested_timeout_ms;
   }
-  return inbound->close_after_write ||
-         (inbound->method == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_SPEED_TEST_RUN &&
-          inbound->phase != GZC_INBOUND_TERMINAL && inbound->response_envelope_sent &&
-          !inbound->response_eos_sent);
+  if (inbound->close_after_write ||
+      (inbound->method == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_SPEED_TEST_RUN &&
+       inbound->phase != GZC_INBOUND_TERMINAL && inbound->response_envelope_sent &&
+       !inbound->response_eos_sent)) {
+    return 0;
+  }
+  return requested_timeout_ms;
 }
 
 bool gzc_rpc_inbound_close_requested(struct gzc_rpc_inbound *inbound) {

@@ -1779,13 +1779,13 @@ int main(void) {
              "backpressured deferred output preserves the caller poll timeout") != 0) {
     return 1;
   }
-  for (size_t i = 0; i <= (size_t)config.write_timeout_ms && rc == GZC_OK; i++) {
-    rc = gzc_client_poll(client, 0);
-  }
+  rc = gzc_client_poll(client, 60000);
   if (expect(rc == GZC_ERR_TIMEOUT && fake_webrtc.sent.len == 0 &&
+                 fake_webrtc.last_poll_timeout_ms > 0 &&
+                 fake_webrtc.last_poll_timeout_ms < config.write_timeout_ms &&
                  fake_webrtc.close_count == close_count_before_deferred_timeout + 1 &&
                  fake_webrtc.last_closed == &fake_webrtc.remote_channels[0],
-             "deferred callback output times out and closes outside the callback") != 0 ||
+             "blocked deferred output caps poll by its timeout and closes") != 0 ||
       expect(clock.unix_ms < deferred_unix_start,
              "deferred timeout ignores backward Unix clock movement") != 0) {
     return 1;
