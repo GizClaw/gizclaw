@@ -26,6 +26,8 @@ This prefix has server-perspective online connection indexing and cross-connecti
 | `retainTelemetryStatusLock` / `releaseTelemetryStatusLock` | Manage telemetry status and update the lock life cycle by public key. |
 | `applyPeerRefreshInfo` / `applyPeerRefreshIdentifiers` | Merge RPC refresh response into the persistent Peer model. |
 
+Connection registration updates are accepted only for the exact connection already present in the active index; they never recreate a missing entry. Registration publication and `PeerConn` retirement share the same Manager critical section, so retirement either follows and removes a completed registration or wins first and causes the late registration to be rejected.
+
 ## Device metadata ownership
 
 `client.info.get` refreshes only `HardwareInfo` (`hardware_revision`, `manufacturer`, and `model`). `client.identifiers.get` refreshes `DeviceIdentifiers` (`sn`, `imeis`, and `labels`). The server-owned profile fields `name` and `emoji` are changed through `server.info.put` and are not overwritten by reverse refresh. Names must be valid UTF-8 and at most 256 bytes; emoji values must be valid UTF-8 and at most 64 bytes.

@@ -183,22 +183,32 @@ func (m *Manager) SetPeerUp(publicKey giznet.PublicKey, conn giznet.Conn) giznet
 }
 
 func (m *Manager) SetPeerRegistration(publicKey giznet.PublicKey, conn giznet.Conn, registration runtimeprofile.Registration) bool {
+	return m.setPeerRegistrationIfActive(publicKey, conn, registration, nil)
+}
+
+func (m *Manager) setPeerRegistrationIfActive(publicKey giznet.PublicKey, conn giznet.Conn, registration runtimeprofile.Registration, accept func() bool) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.peers == nil {
-		m.peers = make(map[giznet.PublicKey]*activePeer)
-	}
 	state, ok := m.peers[publicKey]
-	if !ok {
-		state = &activePeer{conn: conn}
-		m.peers[publicKey] = state
-	}
-	if state.conn != conn {
+	if !ok || state.conn != conn || accept != nil && !accept() {
 		return false
 	}
 	copy := registration
 	state.registration = &copy
 	return true
+}
+
+func (m *Manager) retirePeer(publicKey giznet.PublicKey, conn giznet.Conn, retire func()) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if retire != nil {
+		retire()
+	}
+	state, ok := m.peers[publicKey]
+	if !ok || state.conn != conn {
+		return
+	}
+	delete(m.peers, publicKey)
 }
 
 func (m *Manager) PeerRegistration(publicKey giznet.PublicKey) (runtimeprofile.Registration, bool) {

@@ -204,15 +204,17 @@ func (h *PeerConn) initRPC() {
 		h.rpc.serverResources = h.peerResources()
 		h.rpc.registrations = h.Service.manager.RuntimeProfiles
 		h.rpc.onRegistration = func(registration runtimeprofile.Registration) {
-			if h.isRetiring() {
+			if h.Conn == nil {
 				return
 			}
-			h.registration.Store(&registration)
-			accepted := true
-			if h.Conn != nil {
-				accepted = h.Service.manager.SetPeerRegistration(h.Conn.PublicKey(), h.Conn, registration)
-			}
-			if h.isRetiring() || !accepted {
+			accepted := h.Service.manager.setPeerRegistrationIfActive(h.Conn.PublicKey(), h.Conn, registration, func() bool {
+				if h.isRetiring() {
+					return false
+				}
+				h.registration.Store(&registration)
+				return true
+			})
+			if !accepted {
 				h.registration.CompareAndSwap(&registration, nil)
 			}
 		}
@@ -379,12 +381,19 @@ func (h *PeerConn) close() error {
 }
 
 func (h *PeerConn) retire() {
-	if h == nil || !h.retiring.CompareAndSwap(false, true) {
+	if h == nil {
 		return
 	}
-	h.registration.Store(nil)
 	if h.Conn != nil && h.Service != nil && h.Service.manager != nil {
-		h.Service.manager.SetPeerDown(h.Conn.PublicKey(), h.Conn)
+		h.Service.manager.retirePeer(h.Conn.PublicKey(), h.Conn, func() {
+			if h.retiring.CompareAndSwap(false, true) {
+				h.registration.Store(nil)
+			}
+		})
+		return
+	}
+	if h.retiring.CompareAndSwap(false, true) {
+		h.registration.Store(nil)
 	}
 }
 

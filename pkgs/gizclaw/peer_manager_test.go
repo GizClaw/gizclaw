@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 
@@ -124,6 +125,57 @@ func TestManagerPeerRegistrationFollowsActiveConnection(t *testing.T) {
 	manager.SetPeerDown(key, newConn)
 	if _, ok := manager.PeerRegistration(key); ok {
 		t.Fatal("disconnected peer retained registration")
+	}
+	if manager.SetPeerRegistration(key, newConn, newRegistration) {
+		t.Fatal("SetPeerRegistration recreated a disconnected peer")
+	}
+	if _, ok := manager.Peer(key); ok {
+		t.Fatal("registration recreated a disconnected peer entry")
+	}
+}
+
+func TestPeerConnRetireSerializesConcurrentRegistration(t *testing.T) {
+	manager := &Manager{}
+	key := giznet.PublicKey{8}
+	conn := &testGiznetConn{publicKey: key}
+	manager.SetPeerUp(key, conn)
+	peerConn := &PeerConn{Conn: conn, Service: &PeerService{manager: manager}}
+	registration := runtimeprofile.Registration{RuntimeProfile: apitypes.RuntimeProfile{Name: "profile-race"}}
+	registrationEntered := make(chan struct{})
+	releaseRegistration := make(chan struct{})
+	registrationDone := make(chan bool, 1)
+	go func() {
+		registrationDone <- manager.setPeerRegistrationIfActive(key, conn, registration, func() bool {
+			close(registrationEntered)
+			<-releaseRegistration
+			peerConn.registration.Store(&registration)
+			return !peerConn.isRetiring()
+		})
+	}()
+	<-registrationEntered
+	retireDone := make(chan struct{})
+	go func() {
+		peerConn.retire()
+		close(retireDone)
+	}()
+	select {
+	case <-retireDone:
+		t.Fatal("retire crossed the registration Manager critical section")
+	case <-time.After(50 * time.Millisecond):
+	}
+	close(releaseRegistration)
+	if accepted := <-registrationDone; !accepted {
+		t.Fatal("active registration was unexpectedly rejected before retire")
+	}
+	<-retireDone
+	if !peerConn.isRetiring() {
+		t.Fatal("PeerConn was not marked retiring")
+	}
+	if peerConn.registration.Load() != nil {
+		t.Fatal("retiring PeerConn retained local registration")
+	}
+	if _, ok := manager.Peer(key); ok {
+		t.Fatal("concurrent registration restored retiring PeerConn in Manager")
 	}
 }
 
