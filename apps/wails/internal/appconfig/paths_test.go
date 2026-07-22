@@ -13,7 +13,7 @@ func TestDefaultPathsUsesEnvConfigHome(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if paths.ConfigRoot != root || paths.PodsDir != filepath.Join(root, "pods") {
+	if paths.ConfigRoot != root || paths.PodsDir != filepath.Join(root, "pods") || paths.RaidsCacheDir != filepath.Join(root, "raids") {
 		t.Fatalf("paths = %+v", paths)
 	}
 	if err := paths.Ensure(); err != nil {
@@ -22,6 +22,10 @@ func TestDefaultPathsUsesEnvConfigHome(t *testing.T) {
 	info, err := os.Stat(paths.PodsDir)
 	if err != nil || !info.IsDir() || info.Mode().Perm() != 0o700 {
 		t.Fatalf("PodsDir stat = %v/%v", info, err)
+	}
+	info, err = os.Stat(paths.RaidsCacheDir)
+	if err != nil || !info.IsDir() || info.Mode().Perm() != 0o700 {
+		t.Fatalf("RaidsCacheDir stat = %v/%v", info, err)
 	}
 }
 

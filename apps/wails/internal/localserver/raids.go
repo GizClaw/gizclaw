@@ -239,7 +239,9 @@ func buildRaidsCatalog(profileFS fs.FS, archive []byte) (*Catalog, error) {
 		resourcePath := raidsCatalogPath(candidate, key)
 		mapFS[resourcePath] = &fstest.MapFile{Data: candidate.data, Mode: 0o444}
 		resources = append(resources, ResourceEntry{Path: resourcePath, Kind: candidate.kind, Name: candidate.name})
-		collectEnvironmentRequirements(candidate.data, requirements)
+		if err := collectEnvironmentRequirements(candidate.data, requirements); err != nil {
+			return nil, fmt.Errorf("raids catalog: collect environment requirements from %s/%s: %w", candidate.kind, candidate.name, err)
+		}
 	}
 	resources = append(resources, ResourceEntry{Path: "resources/07-runtime-profiles/00-default.yaml", Kind: "RuntimeProfile", Name: "default"})
 	sort.Slice(resources, func(i, j int) bool { return resources[i].Path < resources[j].Path })
@@ -724,7 +726,7 @@ func raidsCatalogPath(candidate raidsCandidate, key string) string {
 	return path.Join("resources", directory, fmt.Sprintf("%x.yaml", digest[:]))
 }
 
-func collectEnvironmentRequirements(data []byte, requirements map[string]EnvironmentRequirement) {
+func collectEnvironmentRequirements(data []byte, requirements map[string]EnvironmentRequirement) error {
 	for _, match := range bootstrapEnvPattern.FindAllSubmatch(data, -1) {
 		name := string(match[1])
 		if name == "input" {
@@ -735,8 +737,10 @@ func collectEnvironmentRequirements(data []byte, requirements map[string]Environ
 			value := string(match[3])
 			requirement.Default = &value
 		}
-		if previous, exists := requirements[name]; !exists || (previous.Default != nil && requirement.Default == nil) {
-			requirements[name] = requirement
+		if previous, exists := requirements[name]; exists && !sameRequirement(previous, requirement) {
+			return fmt.Errorf("environment %s has conflicting defaults", name)
 		}
+		requirements[name] = requirement
 	}
+	return nil
 }

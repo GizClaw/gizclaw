@@ -133,6 +133,16 @@ spec:
 	}
 }
 
+func TestCollectEnvironmentRequirementsRejectsConflictingDefaults(t *testing.T) {
+	requirements := map[string]EnvironmentRequirement{}
+	if err := collectEnvironmentRequirements([]byte("one: ${RAIDS_TOKEN:-first}"), requirements); err != nil {
+		t.Fatal(err)
+	}
+	if err := collectEnvironmentRequirements([]byte("two: ${RAIDS_TOKEN:-second}"), requirements); err == nil {
+		t.Fatal("collectEnvironmentRequirements() error = nil")
+	}
+}
+
 func testRaidsArchive(t *testing.T, headers []tar.Header, contents [][]byte) []byte {
 	t.Helper()
 	var compressed bytes.Buffer

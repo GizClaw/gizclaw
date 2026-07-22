@@ -45,5 +45,8 @@ func (p Paths) Ensure() error {
 	if err := secureDir(p.PodsDir); err != nil {
 		return fmt.Errorf("appconfig: mkdir pods: %w", err)
 	}
+	if err := secureDir(p.RaidsCacheDir); err != nil {
+		return fmt.Errorf("appconfig: mkdir raids cache: %w", err)
+	}
 	return nil
 }
