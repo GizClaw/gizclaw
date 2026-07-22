@@ -143,7 +143,7 @@ func TestBootstrapperRecoversRegistrationTokenWithoutReapplyingCatalog(t *testin
 	}
 	var commands []string
 	bootstrapper := &Bootstrapper{
-		Catalog:    &Catalog{},
+		Resolver:   catalogResolverFunc(func(context.Context) (*Catalog, error) { return &Catalog{}, nil }),
 		Executable: func() (string, error) { return "/fake/gizclaw", nil },
 		Run: func(_ context.Context, _ string, args, _ []string) error {
 			commands = append(commands, strings.Join(args, " "))
@@ -167,6 +167,12 @@ func TestBootstrapperRecoversRegistrationTokenWithoutReapplyingCatalog(t *testin
 	if string(token) != "replacement-secret" {
 		t.Fatalf("replacement token = %q", token)
 	}
+}
+
+type catalogResolverFunc func(context.Context) (*Catalog, error)
+
+func (resolve catalogResolverFunc) Resolve(ctx context.Context) (*Catalog, error) {
+	return resolve(ctx)
 }
 
 func TestBootstrapperMigratesDependencyClosureBeforeDefaultRuntimeProfile(t *testing.T) {

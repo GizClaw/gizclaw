@@ -624,6 +624,22 @@ func workflowAliases(data []byte) ([]string, []string, error) {
 			add(models, settings["extract_model"])
 			add(models, settings["generate_model"])
 		}
+		if agent, ok := anyMap(document.Spec.Flowcraft["agent"]); ok {
+			if graph, ok := anyMap(agent["graph"]); ok {
+				for _, node := range anySlice(graph["nodes"]) {
+					if node, ok := anyMap(node); ok {
+						if config, ok := anyMap(node["config"]); ok {
+							add(models, config["model"])
+						}
+					}
+				}
+			}
+		}
+		if memory, ok := anyMap(document.Spec.Flowcraft["memory"]); ok {
+			if extract, ok := anyMap(memory["extract"]); ok {
+				add(models, extract["model"])
+			}
+		}
 		if adapter, ok := anyMap(document.Spec.Flowcraft["voice_adapter"]); ok {
 			add(models, adapter["asr_model"])
 			add(voices, adapter["default_voice"])
@@ -637,6 +653,11 @@ func workflowAliases(data []byte) ([]string, []string, error) {
 		return nil, nil, fmt.Errorf("unsupported workflow driver %q", document.Spec.Driver)
 	}
 	return sortedAliases(models), sortedAliases(voices), nil
+}
+
+func anySlice(value any) []any {
+	items, _ := value.([]any)
+	return items
 }
 
 func anyMap(value any) (map[string]any, bool) {

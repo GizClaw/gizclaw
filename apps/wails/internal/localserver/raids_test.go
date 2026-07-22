@@ -103,6 +103,36 @@ func TestRaidsResolverCachesValidatedArchive(t *testing.T) {
 	}
 }
 
+func TestWorkflowAliasesIncludesFlowcraftGraphAndMemoryModels(t *testing.T) {
+	models, voices, err := workflowAliases([]byte(`
+apiVersion: gizclaw.admin/v1alpha1
+kind: Workflow
+metadata: {name: flowcraft-example}
+spec:
+  driver: flowcraft
+  flowcraft:
+    agent:
+      graph:
+        nodes:
+          - config: {model: chat}
+          - config: {model: extraction}
+    memory:
+      extract: {model: extraction}
+    voice_adapter:
+      asr_model: asr
+      default_voice: narrator
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := models; len(got) != 3 || got[0] != "asr" || got[1] != "chat" || got[2] != "extraction" {
+		t.Fatalf("models = %v", got)
+	}
+	if got := voices; len(got) != 1 || got[0] != "narrator" {
+		t.Fatalf("voices = %v", got)
+	}
+}
+
 func testRaidsArchive(t *testing.T, headers []tar.Header, contents [][]byte) []byte {
 	t.Helper()
 	var compressed bytes.Buffer

@@ -266,14 +266,18 @@ func (b *Bootstrapper) catalog(ctx context.Context) (*Catalog, error) {
 // Pod predates token handoff or its private handoff file has been lost. The raw
 // token cannot be recovered from server storage, so replacement is required.
 func (b *Bootstrapper) RecoverRegistrationToken(ctx context.Context, podDir string, savedEnvironment map[string]string) error {
-	if b == nil || b.Catalog == nil || b.Executable == nil {
+	if b == nil || b.Executable == nil {
 		return fmt.Errorf("local server bootstrap: bootstrapper is not configured")
+	}
+	catalog, err := b.catalog(ctx)
+	if err != nil {
+		return err
 	}
 	executable, err := b.Executable()
 	if err != nil {
 		return err
 	}
-	resolved, missing := b.Catalog.ResolveEnvironment(savedEnvironment, os.LookupEnv)
+	resolved, missing := catalog.ResolveEnvironment(savedEnvironment, os.LookupEnv)
 	if len(missing) != 0 {
 		return fmt.Errorf("local server bootstrap: missing environment: %s", strings.Join(missing, ", "))
 	}
