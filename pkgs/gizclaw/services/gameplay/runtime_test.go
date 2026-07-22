@@ -236,6 +236,62 @@ func TestRuntimeAdoptCallerIDDoesNotReserveUnaffordableID(t *testing.T) {
 	}
 }
 
+func TestRuntimeAdoptCallerIDUsesAuthoritativeReservationCost(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 7, 22, 9, 55, 0, 0, time.UTC)
+	catalog := testCatalog(t, now)
+	profile := seedGameplayCatalog(t, ctx, catalog)
+	pool := append([]apitypes.RuntimeProfilePetPoolEntry(nil), (*profile.Spec.Gameplay.Adoption.Pool)...)
+	tooExpensive := int64(60)
+	expensiveEntry := pool[0]
+	expensiveEntry.AdoptionCost = &tooExpensive
+	pool = append(pool, expensiveEntry)
+	profile.Spec.Gameplay.Adoption.Pool = &pool
+	ctx = WithRuntimeProfile(ctx, profile)
+	db := testDB(t)
+	petID := "device-pet-reservation-race"
+	runtime := &Runtime{
+		DB:         db,
+		Catalog:    catalog,
+		Workflows:  petWorkflowService{},
+		Workspaces: &recordingWorkspaceService{},
+		Now:        func() time.Time { return now },
+		NewID:      sequentialIDs("adopt-txn"),
+		PickWeight: func(total int64) int64 {
+			tx, err := db.BeginTxx(ctx, nil)
+			if err != nil {
+				t.Fatalf("begin concurrent reservation: %v", err)
+			}
+			defer tx.Rollback()
+			if err := insertPetAdoptionReservation(ctx, tx, petAdoptionReservation{
+				OwnerPublicKey: "peer-a", PetID: petID, RuntimeProfileName: profile.Name,
+				PetDefID: "petdef-basic", DisplayName: "Spark", WorkspaceName: petWorkspaceName("peer-a", petID),
+				WorkflowName: defaultPetWorkflowName, VoiceAlias: "voice-basic", AdoptionCost: 15, CreatedAt: now,
+			}); err != nil {
+				t.Fatalf("insert concurrent reservation: %v", err)
+			}
+			if err := tx.Commit(); err != nil {
+				t.Fatalf("commit concurrent reservation: %v", err)
+			}
+			return total - 1
+		},
+	}
+	response, err := runtime.AdoptPet(ctx, "peer-a", apitypes.PetAdoptRequest{Id: &petID})
+	if err != nil {
+		t.Fatalf("AdoptPet() error = %v", err)
+	}
+	if response.Pet.Id != petID || response.Points.Balance != 35 {
+		t.Fatalf("AdoptPet() = %#v, want authoritative affordable reservation", response)
+	}
+	var adoptionCost int64
+	if err := db.QueryRow(`SELECT adoption_cost FROM gameplay_pet_adoption_reservations WHERE owner_public_key = ? AND pet_id = ?`, "peer-a", petID).Scan(&adoptionCost); err != nil {
+		t.Fatalf("load authoritative reservation cost: %v", err)
+	}
+	if adoptionCost != 15 {
+		t.Fatalf("authoritative reservation cost = %d, want 15", adoptionCost)
+	}
+}
+
 func TestRuntimeAdoptCallerIDRejectsInvalidProfileAndDeletedReuse(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 7, 22, 10, 0, 0, 0, time.UTC)

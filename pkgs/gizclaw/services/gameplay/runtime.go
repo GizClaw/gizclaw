@@ -275,9 +275,6 @@ func (r *Runtime) reservePetAdoption(ctx context.Context, owner string, req apit
 		WorkflowName: defaultPetWorkflowName, VoiceAlias: poolEntry.VoiceAlias,
 		AdoptionCost: int64Value(poolEntry.AdoptionCost), CreatedAt: r.now(),
 	}
-	if err := r.preflightPetAdoption(ctx, owner, ruleset, reservation.AdoptionCost); err != nil {
-		return petAdoptionReservation{}, err
-	}
 	tx, err := db.BeginTxx(ctx, nil)
 	if err != nil {
 		return petAdoptionReservation{}, err
@@ -288,6 +285,12 @@ func (r *Runtime) reservePetAdoption(ctx context.Context, owner string, req apit
 	}
 	reserved, err = findPetAdoptionReservation(ctx, tx, owner, petID)
 	if err != nil {
+		return petAdoptionReservation{}, err
+	}
+	if reserved.RuntimeProfileName != ruleset.Name {
+		return reserved, nil
+	}
+	if err := r.preflightPetAdoptionTx(ctx, tx, owner, ruleset, reserved.AdoptionCost); err != nil {
 		return petAdoptionReservation{}, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -324,15 +327,21 @@ func (r *Runtime) preflightPetAdoption(ctx context.Context, owner string, rulese
 		return err
 	}
 	defer tx.Rollback()
+	if err := r.preflightPetAdoptionTx(ctx, tx, owner, ruleset, adoptionCost); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *Runtime) preflightPetAdoptionTx(ctx context.Context, tx *sqlx.Tx, owner string, ruleset ProfileRules, adoptionCost int64) error {
 	account, err := r.ensureAccountTx(ctx, tx, owner, ruleset)
 	if err != nil {
 		return err
 	}
-	affordable := account.Balance >= adoptionCost
-	if err := tx.Commit(); err != nil {
-		return err
-	}
-	if !affordable {
+	if account.Balance < adoptionCost {
 		return errors.New("gameplay: insufficient points")
 	}
 	return nil
