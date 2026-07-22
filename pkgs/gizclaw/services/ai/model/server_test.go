@@ -261,8 +261,11 @@ func TestServerValidatesProviderKindAgainstProviderData(t *testing.T) {
 	dashScopeMode := apitypes.DashScopeTenantModelProviderDataApiModeChatCompletions
 	volcMode := apitypes.VolcTenantModelProviderDataApiModeChatCompletions
 	falseValue := false
+	trueValue := true
+	booleanThinkingParam := "enable_thinking"
 	valid := []adminhttp.ModelUpsert{
 		modelUpsert("openai-chat", string(apitypes.ModelProviderKindOpenaiTenant), "openai-main"),
+		modelUpsertWithProviderData("openai-thinking-toggle", apitypes.ModelProviderKindOpenaiTenant, modelProviderData(t, apitypes.OpenAITenantModelProviderData{UpstreamModel: "gpt-thinking", SupportJsonOutput: &falseValue, SupportToolCalls: &falseValue, SupportTextOnly: &falseValue, UseSystemRole: &falseValue, SupportTemperature: &falseValue, SupportThinking: &trueValue, ThinkingParam: &booleanThinkingParam})),
 		modelUpsertWithProviderData("gemini-chat", apitypes.ModelProviderKindGeminiTenant, modelProviderData(t, apitypes.GeminiTenantModelProviderData{UpstreamModel: "gemini-pro", SupportJsonOutput: &falseValue, SupportToolCalls: &falseValue, SupportTextOnly: &falseValue, UseSystemRole: &falseValue, SupportTemperature: &falseValue, SupportThinking: &falseValue})),
 		modelUpsertWithProviderData("qwen-chat", apitypes.ModelProviderKindDashscopeTenant, modelProviderData(t, apitypes.DashScopeTenantModelProviderData{ApiMode: &dashScopeMode, UpstreamModel: stringPtr("qwen-max"), SupportJsonOutput: &falseValue, SupportToolCalls: &falseValue, SupportTextOnly: &falseValue, UseSystemRole: &falseValue, SupportTemperature: &falseValue, SupportThinking: &falseValue})),
 		modelUpsertWithProviderData("volc-chat", apitypes.ModelProviderKindVolcTenant, modelProviderData(t, apitypes.VolcTenantModelProviderData{ApiMode: volcMode, UpstreamModel: stringPtr("doubao-pro"), SupportJsonOutput: &falseValue, SupportToolCalls: &falseValue, SupportTextOnly: &falseValue, UseSystemRole: &falseValue, SupportTemperature: &falseValue, SupportThinking: &falseValue})),
@@ -333,6 +336,8 @@ func modelProviderData(t *testing.T, value any) apitypes.ModelProviderData {
 	var out apitypes.ModelProviderData
 	var err error
 	switch typed := value.(type) {
+	case apitypes.OpenAITenantModelProviderData:
+		err = out.FromOpenAITenantModelProviderData(typed)
 	case apitypes.GeminiTenantModelProviderData:
 		err = out.FromGeminiTenantModelProviderData(typed)
 	case apitypes.DashScopeTenantModelProviderData:
@@ -470,6 +475,51 @@ func readModelSchema(t *testing.T, relativePath string, out any) {
 	}
 	if err := json.Unmarshal(data, out); err != nil {
 		t.Fatalf("json.Unmarshal(%s) error = %v", relativePath, err)
+	}
+}
+
+func TestValidateLLMThinkingSupportsBooleanAndLevelParameters(t *testing.T) {
+	trueValue := true
+	booleanParam := "enable_thinking"
+	levelParam := "reasoning_effort"
+	defaultLevel := "medium"
+	levels := []string{"low", "medium", "high"}
+
+	tests := []struct {
+		name               string
+		thinkingParam      *string
+		thinkingLevelParam *string
+		thinkingLevels     *[]string
+		defaultLevel       *string
+		wantError          string
+	}{
+		{name: "boolean parameter", thinkingParam: &booleanParam},
+		{name: "level parameter", thinkingLevelParam: &levelParam, thinkingLevels: &levels, defaultLevel: &defaultLevel},
+		{name: "missing parameters", wantError: "requires thinking_param or thinking_level_param"},
+		{name: "level parameter missing levels", thinkingLevelParam: &levelParam, wantError: "requires thinking_levels"},
+		{name: "level parameter missing default", thinkingLevelParam: &levelParam, thinkingLevels: &levels, wantError: "requires default_thinking_level"},
+		{name: "boolean parameter default missing levels", thinkingParam: &booleanParam, defaultLevel: &defaultLevel, wantError: "requires thinking_levels"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateLLMThinking(
+				apitypes.ModelProviderKindOpenaiTenant,
+				&trueValue,
+				tt.thinkingParam,
+				tt.thinkingLevelParam,
+				tt.thinkingLevels,
+				tt.defaultLevel,
+			)
+			if tt.wantError == "" {
+				if err != nil {
+					t.Fatalf("validateLLMThinking() error = %v", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), tt.wantError) {
+				t.Fatalf("validateLLMThinking() error = %v, want %q", err, tt.wantError)
+			}
+		})
 	}
 }
 

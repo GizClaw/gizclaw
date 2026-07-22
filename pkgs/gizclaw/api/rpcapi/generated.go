@@ -909,9 +909,12 @@ func (e VoiceSource) Valid() bool {
 
 // Defines values for VolcTenantModelProviderDataApiMode.
 const (
-	VolcTenantModelProviderDataApiModeAsr      VolcTenantModelProviderDataApiMode = "asr"
-	VolcTenantModelProviderDataApiModeRealtime VolcTenantModelProviderDataApiMode = "realtime"
-	VolcTenantModelProviderDataApiModeTts      VolcTenantModelProviderDataApiMode = "tts"
+	VolcTenantModelProviderDataApiModeAsr             VolcTenantModelProviderDataApiMode = "asr"
+	VolcTenantModelProviderDataApiModeChatCompletions VolcTenantModelProviderDataApiMode = "chat_completions"
+	VolcTenantModelProviderDataApiModeEmbedding       VolcTenantModelProviderDataApiMode = "embedding"
+	VolcTenantModelProviderDataApiModeRealtime        VolcTenantModelProviderDataApiMode = "realtime"
+	VolcTenantModelProviderDataApiModeTranslation     VolcTenantModelProviderDataApiMode = "translation"
+	VolcTenantModelProviderDataApiModeTts             VolcTenantModelProviderDataApiMode = "tts"
 )
 
 // Valid indicates whether the value is a known member of the VolcTenantModelProviderDataApiMode enum.
@@ -919,7 +922,13 @@ func (e VolcTenantModelProviderDataApiMode) Valid() bool {
 	switch e {
 	case VolcTenantModelProviderDataApiModeAsr:
 		return true
+	case VolcTenantModelProviderDataApiModeChatCompletions:
+		return true
+	case VolcTenantModelProviderDataApiModeEmbedding:
+		return true
 	case VolcTenantModelProviderDataApiModeRealtime:
+		return true
+	case VolcTenantModelProviderDataApiModeTranslation:
 		return true
 	case VolcTenantModelProviderDataApiModeTts:
 		return true

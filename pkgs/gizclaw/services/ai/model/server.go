@@ -386,10 +386,13 @@ func validateLLMThinking(
 	if stringValue(thinkingParam) == "" && stringValue(thinkingLevelParam) == "" {
 		return fmt.Errorf("provider_data for %s/llm with support_thinking requires thinking_param or thinking_level_param", providerKind)
 	}
+	defaultLevel := stringValue(defaultThinkingLevel)
+	if stringValue(thinkingLevelParam) == "" && defaultLevel == "" {
+		return nil
+	}
 	if thinkingLevels == nil || len(*thinkingLevels) == 0 {
 		return fmt.Errorf("provider_data for %s/llm with support_thinking requires thinking_levels", providerKind)
 	}
-	defaultLevel := stringValue(defaultThinkingLevel)
 	if defaultLevel == "" {
 		return fmt.Errorf("provider_data for %s/llm with support_thinking requires default_thinking_level", providerKind)
 	}

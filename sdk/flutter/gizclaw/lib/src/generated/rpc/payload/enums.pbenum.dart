@@ -790,6 +790,27 @@ class VolcTenantModelProviderDataApiMode extends $pb.ProtobufEnum {
           _omitEnumNames
               ? ''
               : 'VOLC_TENANT_MODEL_PROVIDER_DATA_API_MODE_REALTIME');
+  static const VolcTenantModelProviderDataApiMode
+      VOLC_TENANT_MODEL_PROVIDER_DATA_API_MODE_CHAT_COMPLETIONS =
+      VolcTenantModelProviderDataApiMode._(
+          4,
+          _omitEnumNames
+              ? ''
+              : 'VOLC_TENANT_MODEL_PROVIDER_DATA_API_MODE_CHAT_COMPLETIONS');
+  static const VolcTenantModelProviderDataApiMode
+      VOLC_TENANT_MODEL_PROVIDER_DATA_API_MODE_TRANSLATION =
+      VolcTenantModelProviderDataApiMode._(
+          5,
+          _omitEnumNames
+              ? ''
+              : 'VOLC_TENANT_MODEL_PROVIDER_DATA_API_MODE_TRANSLATION');
+  static const VolcTenantModelProviderDataApiMode
+      VOLC_TENANT_MODEL_PROVIDER_DATA_API_MODE_EMBEDDING =
+      VolcTenantModelProviderDataApiMode._(
+          6,
+          _omitEnumNames
+              ? ''
+              : 'VOLC_TENANT_MODEL_PROVIDER_DATA_API_MODE_EMBEDDING');
 
   static const $core.List<VolcTenantModelProviderDataApiMode> values =
       <VolcTenantModelProviderDataApiMode>[
@@ -797,10 +818,13 @@ class VolcTenantModelProviderDataApiMode extends $pb.ProtobufEnum {
     VOLC_TENANT_MODEL_PROVIDER_DATA_API_MODE_ASR,
     VOLC_TENANT_MODEL_PROVIDER_DATA_API_MODE_TTS,
     VOLC_TENANT_MODEL_PROVIDER_DATA_API_MODE_REALTIME,
+    VOLC_TENANT_MODEL_PROVIDER_DATA_API_MODE_CHAT_COMPLETIONS,
+    VOLC_TENANT_MODEL_PROVIDER_DATA_API_MODE_TRANSLATION,
+    VOLC_TENANT_MODEL_PROVIDER_DATA_API_MODE_EMBEDDING,
   ];
 
   static final $core.List<VolcTenantModelProviderDataApiMode?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 3);
+      $pb.ProtobufEnum.$_initByValueList(values, 6);
   static VolcTenantModelProviderDataApiMode? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

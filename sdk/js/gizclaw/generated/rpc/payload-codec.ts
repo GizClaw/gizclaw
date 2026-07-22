@@ -50,7 +50,7 @@ export type PetBehavior = "" | "bathe" | "feed" | "heal" | "play" | "unspecified
 export type PetConversationParametersInitiative = "" | "agent" | "peer" | "unspecified" | number;
 export type PetLifecycle = "" | "alive" | "dead" | "unspecified" | number;
 export type PetWorkspaceParametersAgentType = "" | "pet" | "unspecified" | number;
-export type VolcTenantModelProviderDataApiMode = "" | "asr" | "realtime" | "tts" | "unspecified" | number;
+export type VolcTenantModelProviderDataApiMode = "" | "asr" | "chat_completions" | "embedding" | "realtime" | "translation" | "tts" | "unspecified" | number;
 export type WorkflowDriver = "" | "ast-translate" | "chatroom" | "doubao-realtime" | "flowcraft" | "pet" | "unspecified" | number;
 export type WorkspaceHistoryListRequestOrder = "" | "asc" | "desc" | "unspecified" | number;
 export type WorkspaceInputMode = "" | "push-to-talk" | "realtime" | "unspecified" | number;
@@ -7650,7 +7650,10 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
   "VolcTenantModelProviderDataApiMode": {
     "byName": {
       "asr": 1,
+      "chat_completions": 4,
+      "embedding": 6,
       "realtime": 3,
+      "translation": 5,
       "tts": 2,
       "unspecified": 0
     },
@@ -7658,7 +7661,10 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "0": "",
       "1": "asr",
       "2": "tts",
-      "3": "realtime"
+      "3": "realtime",
+      "4": "chat_completions",
+      "5": "translation",
+      "6": "embedding"
     }
   },
   "WorkflowDriver": {

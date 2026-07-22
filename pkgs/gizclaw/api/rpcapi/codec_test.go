@@ -629,6 +629,34 @@ func TestRPCMethodValid(t *testing.T) {
 	}
 }
 
+func TestVolcTenantModelProviderDataAPIModesStayComplete(t *testing.T) {
+	for _, mode := range []VolcTenantModelProviderDataApiMode{
+		VolcTenantModelProviderDataApiModeAsr,
+		VolcTenantModelProviderDataApiModeChatCompletions,
+		VolcTenantModelProviderDataApiModeEmbedding,
+		VolcTenantModelProviderDataApiModeRealtime,
+		VolcTenantModelProviderDataApiModeTranslation,
+		VolcTenantModelProviderDataApiModeTts,
+	} {
+		if !mode.Valid() {
+			t.Fatalf("Volc API mode %q should be valid", mode)
+		}
+	}
+	if VolcTenantModelProviderDataApiMode("unknown").Valid() {
+		t.Fatal("unknown Volc API mode should be invalid")
+	}
+
+	for _, name := range []string{
+		"VOLC_TENANT_MODEL_PROVIDER_DATA_API_MODE_CHAT_COMPLETIONS",
+		"VOLC_TENANT_MODEL_PROVIDER_DATA_API_MODE_TRANSLATION",
+		"VOLC_TENANT_MODEL_PROVIDER_DATA_API_MODE_EMBEDDING",
+	} {
+		if _, ok := rpcpb.VolcTenantModelProviderDataApiMode_value[name]; !ok {
+			t.Fatalf("protobuf Volc API mode %q is missing", name)
+		}
+	}
+}
+
 func TestProtoMethodRegistry(t *testing.T) {
 	if err := ValidateProtoMethodRegistry(); err != nil {
 		t.Fatalf("ValidateProtoMethodRegistry() error = %v", err)
