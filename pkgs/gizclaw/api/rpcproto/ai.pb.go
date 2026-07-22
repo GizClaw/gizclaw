@@ -5339,7 +5339,7 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\x18_agent_initiative_policyB\r\n" +
 	"\v_initiative\"H\n" +
 	"\x15FlowcraftWorkflowSpec\x12/\n" +
-	"\x06fields\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x06fields\"\xc7\x02\n" +
+	"\x06fields\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x06fields\"\x89\x03\n" +
 	"\x1cFlowcraftWorkspaceParameters\x12T\n" +
 	"\n" +
 	"agent_type\x18\x01 \x01(\x0e25.gizclaw.rpc.v1.FlowcraftWorkspaceParametersAgentTypeR\tagentType\x12X\n" +
@@ -5348,7 +5348,7 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\x05input\x18\a \x01(\x0e2\".gizclaw.rpc.v1.WorkspaceInputModeH\x02R\x05input\x88\x01\x01B\x0f\n" +
 	"\r_conversationB\x06\n" +
 	"\x04_e2eB\b\n" +
-	"\x06_input\"\x84\x01\n" +
+	"\x06_inputJ\x04\b\x04\x10\x05J\x04\b\x05\x10\x06J\x04\b\x06\x10\aR\x0egenerate_modelR\rextract_modelR\x0fembedding_model\"\x84\x01\n" +
 	"\x19PetConversationParameters\x12X\n" +
 	"\n" +
 	"initiative\x18\x01 \x01(\x0e23.gizclaw.rpc.v1.PetConversationParametersInitiativeH\x00R\n" +

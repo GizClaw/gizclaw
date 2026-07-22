@@ -42,14 +42,17 @@ func (h *conversationHistory) load(ctx context.Context) ([]flowmodel.Message, er
 		}
 		return flowmodel.CloneMessages(live), nil
 	}
+	matchers := []logstore.AttributeMatcher{
+		{Name: "agent_id", Op: logstore.MatchEqual, Value: h.agentID},
+		{Name: "context_id", Op: logstore.MatchEqual, Value: h.contextID},
+	}
+	if h.scope != "" {
+		matchers = append(matchers, logstore.AttributeMatcher{Name: "scope", Op: logstore.MatchEqual, Value: h.scope})
+	}
 	page, err := h.store.Query(ctx, logstore.Query{
 		Streams: []string{historyStream}, Kinds: []string{historyKind},
-		Matchers: []logstore.AttributeMatcher{
-			{Name: "agent_id", Op: logstore.MatchEqual, Value: h.agentID},
-			{Name: "context_id", Op: logstore.MatchEqual, Value: h.contextID},
-			{Name: "scope", Op: logstore.MatchEqual, Value: h.scope},
-		},
-		Start: time.Unix(0, 0).UTC(), End: time.Date(2262, 1, 1, 0, 0, 0, 0, time.UTC),
+		Matchers: matchers,
+		Start:    time.Unix(0, 0).UTC(), End: time.Date(2262, 1, 1, 0, 0, 0, 0, time.UTC),
 		Limit: logstore.MaxLimit, Order: logstore.OrderDesc,
 	})
 	if err != nil {
@@ -125,7 +128,10 @@ func (h *conversationHistory) append(ctx context.Context, messages []flowmodel.M
 			return fmt.Errorf("flowcraft: encode History: %w", err)
 		}
 		recordTime := now.Add(time.Duration(index))
-		attributes := map[string]string{"agent_id": h.agentID, "context_id": h.contextID, "scope": h.scope, "schema_version": "1"}
+		attributes := map[string]string{"agent_id": h.agentID, "context_id": h.contextID, "schema_version": "1"}
+		if h.scope != "" {
+			attributes["scope"] = h.scope
+		}
 		if interrupted && message.Role == flowmodel.RoleAssistant {
 			attributes["interrupted"] = "true"
 		}

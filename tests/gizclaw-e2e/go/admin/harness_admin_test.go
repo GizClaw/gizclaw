@@ -184,7 +184,7 @@ func openAICredentialBody(t *testing.T, apiKey string) apitypes.CredentialBody {
 	return body
 }
 
-func openAIModelProviderData(t *testing.T, upstream string) *apitypes.ModelProviderData {
+func openAIModelProviderData(t *testing.T, upstream string) apitypes.ModelProviderData {
 	t.Helper()
 	var body apitypes.ModelProviderData
 	if err := body.FromOpenAITenantModelProviderData(apitypes.OpenAITenantModelProviderData{
@@ -194,7 +194,7 @@ func openAIModelProviderData(t *testing.T, upstream string) *apitypes.ModelProvi
 	}); err != nil {
 		t.Fatalf("build OpenAI model provider data: %v", err)
 	}
-	return &body
+	return body
 }
 
 func flowcraftWorkspaceParameters(t *testing.T, input apitypes.WorkspaceInputMode) *apitypes.WorkspaceParameters {

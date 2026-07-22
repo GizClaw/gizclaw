@@ -126,7 +126,7 @@ func TestMapMemoryConfigPreservesPolicy(t *testing.T) {
 		"agent":{"id":"assistant","name":"Assistant","graph":{"name":"graph","entry":"route","nodes":[{"id":"route","type":"passthrough","publish":true}]}},
 		"memory":{
 			"enabled":true,
-			"extract":{"enabled":false},
+			"extract":{"enabled":true,"model":"extractor"},
 			"layout":{"lanes":[{"name":"owner","kind":"fact","recall":"Use only for owner continuity."}]},
 			"recall":{"enabled":true,"graph_enabled":true,"include_retired":true,"profiles":{"owner":{"output":"memory_context","query":{"text":"${input} owner facts","kinds":["fact"],"lanes":["owner"]},"render":{"header":"Memory:","max_items":3},"top_k":4}}},
 			"write":{"mode":"async_semantic","tier":"core","save_conversation":true,"board_facts":[{"board_var":"profile","kind":"fact","subject":"owner","predicate":"prefers","object":"tea","entities":["owner","tea"],"required_prefix":"profile:"}]}
@@ -152,6 +152,16 @@ func TestMapMemoryConfigPreservesPolicy(t *testing.T) {
 	}
 	if runtimeConfig.AsyncQueue == nil || runtimeConfig.RetrievalIndex != retrievalIndex || runtimeConfig.Tier != "core" || !runtimeConfig.GraphEnabled || !mapped.observe || mapped.observeWait {
 		t.Fatalf("runtime config = %#v, mapped = %#v", runtimeConfig, mapped)
+	}
+	disabledExtraction := *spec.Memory
+	disabled := false
+	disabledExtraction.Extract = &apitypes.FlowcraftMemoryExtract{Enabled: &disabled}
+	disabledRuntimeConfig, disabledMapped, err := mapMemoryConfig(disabledExtraction, nil, backend, retrievalIndex)
+	if err != nil {
+		t.Fatalf("mapMemoryConfig(disabled extraction) error = %v", err)
+	}
+	if disabledRuntimeConfig.AsyncQueue != nil || !disabledMapped.observe || disabledMapped.observeWait {
+		t.Fatalf("disabled extraction runtime config = %#v, mapped = %#v", disabledRuntimeConfig, disabledMapped)
 	}
 	if len(mapped.recallProfiles) != 1 || mapped.recallProfiles[0].BoardVariable != "memory_context" || mapped.recallProfiles[0].QueryText != "${input} owner facts" || mapped.recallProfiles[0].Limit != 4 {
 		t.Fatalf("recall profiles = %#v", mapped.recallProfiles)

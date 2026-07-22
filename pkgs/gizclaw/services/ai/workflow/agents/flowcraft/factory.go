@@ -356,7 +356,7 @@ func mapMemoryConfig(public apitypes.FlowcraftMemory, loader memoryflowcraft.Mod
 			config.Tier = string(*public.Write.Tier)
 		}
 	}
-	if writeMode == "async_semantic" {
+	if writeMode == "async_semantic" && config.Extraction.Model != "" {
 		config.AsyncQueue = backend.AsyncSemanticQueue()
 	}
 	observe := memoryObserveEnabled(public)

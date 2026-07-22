@@ -322,6 +322,8 @@ func (s *Server) usesLegacySharedStore() bool {
 	return s.CredentialStore == nil &&
 		s.FirmwareStore == nil &&
 		s.AgentHostStore == nil &&
+		s.FlowcraftState == nil &&
+		s.FlowcraftMemoryObjects == nil &&
 		s.MiniMaxTenantStore == nil &&
 		s.DeepSeekTenantStore == nil &&
 		s.VolcTenantStore == nil &&

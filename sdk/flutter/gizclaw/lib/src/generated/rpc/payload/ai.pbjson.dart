@@ -1752,6 +1752,12 @@ const FlowcraftWorkspaceParameters$json = {
     {'1': '_e2e'},
     {'1': '_input'},
   ],
+  '9': [
+    {'1': 4, '2': 5},
+    {'1': 5, '2': 6},
+    {'1': 6, '2': 7},
+  ],
+  '10': ['generate_model', 'extract_model', 'embedding_model'],
 };
 
 /// Descriptor for `FlowcraftWorkspaceParameters`. Decode as a `google.protobuf.DescriptorProto`.
@@ -1761,7 +1767,9 @@ final $typed_data.Uint8List flowcraftWorkspaceParametersDescriptor = $convert.ba
     'dFR5cGUSWAoMY29udmVyc2F0aW9uGAIgASgLMi8uZ2l6Y2xhdy5ycGMudjEuRmxvd2NyYWZ0Q2'
     '9udmVyc2F0aW9uUGFyYW1ldGVyc0gAUgxjb252ZXJzYXRpb26IAQESFQoDZTJlGAMgASgISAFS'
     'A2UyZYgBARI9CgVpbnB1dBgHIAEoDjIiLmdpemNsYXcucnBjLnYxLldvcmtzcGFjZUlucHV0TW'
-    '9kZUgCUgVpbnB1dIgBAUIPCg1fY29udmVyc2F0aW9uQgYKBF9lMmVCCAoGX2lucHV0');
+    '9kZUgCUgVpbnB1dIgBAUIPCg1fY29udmVyc2F0aW9uQgYKBF9lMmVCCAoGX2lucHV0SgQIBBAF'
+    'SgQIBRAGSgQIBhAHUg5nZW5lcmF0ZV9tb2RlbFINZXh0cmFjdF9tb2RlbFIPZW1iZWRkaW5nX2'
+    '1vZGVs');
 
 @$core.Deprecated('Use petConversationParametersDescriptor instead')
 const PetConversationParameters$json = {
