@@ -181,6 +181,36 @@ func (e DashScopeTenantResourceKind) Valid() bool {
 	}
 }
 
+// Defines values for DeepSeekTenantModelProviderDataApiMode.
+const (
+	DeepSeekTenantModelProviderDataApiModeChatCompletions DeepSeekTenantModelProviderDataApiMode = "chat_completions"
+)
+
+// Valid indicates whether the value is a known member of the DeepSeekTenantModelProviderDataApiMode enum.
+func (e DeepSeekTenantModelProviderDataApiMode) Valid() bool {
+	switch e {
+	case DeepSeekTenantModelProviderDataApiModeChatCompletions:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DeepSeekTenantResourceKind.
+const (
+	DeepSeekTenantResourceKindDeepSeekTenant DeepSeekTenantResourceKind = "DeepSeekTenant"
+)
+
+// Valid indicates whether the value is a known member of the DeepSeekTenantResourceKind enum.
+func (e DeepSeekTenantResourceKind) Valid() bool {
+	switch e {
+	case DeepSeekTenantResourceKindDeepSeekTenant:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DoubaoRealtimeAudioFormatType.
 const (
 	DoubaoRealtimeAudioFormatTypeOggOpus    DoubaoRealtimeAudioFormatType = "ogg_opus"
@@ -451,6 +481,21 @@ func (e GeminiTenantResourceKind) Valid() bool {
 	}
 }
 
+// Defines values for MiniMaxTenantModelProviderDataApiMode.
+const (
+	MiniMaxTenantModelProviderDataApiModeChatCompletions MiniMaxTenantModelProviderDataApiMode = "chat_completions"
+)
+
+// Valid indicates whether the value is a known member of the MiniMaxTenantModelProviderDataApiMode enum.
+func (e MiniMaxTenantModelProviderDataApiMode) Valid() bool {
+	switch e {
+	case MiniMaxTenantModelProviderDataApiModeChatCompletions:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MiniMaxTenantResourceKind.
 const (
 	MiniMaxTenantResourceKindMiniMaxTenant MiniMaxTenantResourceKind = "MiniMaxTenant"
@@ -499,7 +544,9 @@ func (e ModelKind) Valid() bool {
 // Defines values for ModelProviderKind.
 const (
 	ModelProviderKindDashscopeTenant ModelProviderKind = "dashscope-tenant"
+	ModelProviderKindDeepseekTenant  ModelProviderKind = "deepseek-tenant"
 	ModelProviderKindGeminiTenant    ModelProviderKind = "gemini-tenant"
+	ModelProviderKindMinimaxTenant   ModelProviderKind = "minimax-tenant"
 	ModelProviderKindOpenaiTenant    ModelProviderKind = "openai-tenant"
 	ModelProviderKindVolcTenant      ModelProviderKind = "volc-tenant"
 )
@@ -509,7 +556,11 @@ func (e ModelProviderKind) Valid() bool {
 	switch e {
 	case ModelProviderKindDashscopeTenant:
 		return true
+	case ModelProviderKindDeepseekTenant:
+		return true
 	case ModelProviderKindGeminiTenant:
+		return true
+	case ModelProviderKindMinimaxTenant:
 		return true
 	case ModelProviderKindOpenaiTenant:
 		return true
@@ -991,6 +1042,7 @@ const (
 	ResourceKindContact                ResourceKind = "Contact"
 	ResourceKindCredential             ResourceKind = "Credential"
 	ResourceKindDashScopeTenant        ResourceKind = "DashScopeTenant"
+	ResourceKindDeepSeekTenant         ResourceKind = "DeepSeekTenant"
 	ResourceKindFirmware               ResourceKind = "Firmware"
 	ResourceKindFriend                 ResourceKind = "Friend"
 	ResourceKindFriendGroup            ResourceKind = "FriendGroup"
@@ -1022,6 +1074,8 @@ func (e ResourceKind) Valid() bool {
 	case ResourceKindCredential:
 		return true
 	case ResourceKindDashScopeTenant:
+		return true
+	case ResourceKindDeepSeekTenant:
 		return true
 	case ResourceKindFirmware:
 		return true
@@ -1212,9 +1266,12 @@ func (e VoiceSource) Valid() bool {
 
 // Defines values for VolcTenantModelProviderDataApiMode.
 const (
-	VolcTenantModelProviderDataApiModeAsr      VolcTenantModelProviderDataApiMode = "asr"
-	VolcTenantModelProviderDataApiModeRealtime VolcTenantModelProviderDataApiMode = "realtime"
-	VolcTenantModelProviderDataApiModeTts      VolcTenantModelProviderDataApiMode = "tts"
+	VolcTenantModelProviderDataApiModeAsr             VolcTenantModelProviderDataApiMode = "asr"
+	VolcTenantModelProviderDataApiModeChatCompletions VolcTenantModelProviderDataApiMode = "chat_completions"
+	VolcTenantModelProviderDataApiModeEmbedding       VolcTenantModelProviderDataApiMode = "embedding"
+	VolcTenantModelProviderDataApiModeRealtime        VolcTenantModelProviderDataApiMode = "realtime"
+	VolcTenantModelProviderDataApiModeTranslation     VolcTenantModelProviderDataApiMode = "translation"
+	VolcTenantModelProviderDataApiModeTts             VolcTenantModelProviderDataApiMode = "tts"
 )
 
 // Valid indicates whether the value is a known member of the VolcTenantModelProviderDataApiMode enum.
@@ -1222,7 +1279,13 @@ func (e VolcTenantModelProviderDataApiMode) Valid() bool {
 	switch e {
 	case VolcTenantModelProviderDataApiModeAsr:
 		return true
+	case VolcTenantModelProviderDataApiModeChatCompletions:
+		return true
+	case VolcTenantModelProviderDataApiModeEmbedding:
+		return true
 	case VolcTenantModelProviderDataApiModeRealtime:
+		return true
+	case VolcTenantModelProviderDataApiModeTranslation:
 		return true
 	case VolcTenantModelProviderDataApiModeTts:
 		return true
@@ -1590,8 +1653,18 @@ type DashScopeTenant struct {
 
 // DashScopeTenantModelProviderData defines model for DashScopeTenantModelProviderData.
 type DashScopeTenantModelProviderData struct {
-	ApiMode       *DashScopeTenantModelProviderDataApiMode `json:"api_mode,omitempty"`
-	UpstreamModel *string                                  `json:"upstream_model,omitempty"`
+	ApiMode              *DashScopeTenantModelProviderDataApiMode `json:"api_mode,omitempty"`
+	DefaultThinkingLevel *string                                  `json:"default_thinking_level,omitempty"`
+	SupportJsonOutput    *bool                                    `json:"support_json_output,omitempty"`
+	SupportTemperature   *bool                                    `json:"support_temperature,omitempty"`
+	SupportTextOnly      *bool                                    `json:"support_text_only,omitempty"`
+	SupportThinking      *bool                                    `json:"support_thinking,omitempty"`
+	SupportToolCalls     *bool                                    `json:"support_tool_calls,omitempty"`
+	ThinkingLevelParam   *string                                  `json:"thinking_level_param,omitempty"`
+	ThinkingLevels       *[]string                                `json:"thinking_levels,omitempty"`
+	ThinkingParam        *string                                  `json:"thinking_param,omitempty"`
+	UpstreamModel        *string                                  `json:"upstream_model,omitempty"`
+	UseSystemRole        *bool                                    `json:"use_system_role,omitempty"`
 }
 
 // DashScopeTenantModelProviderDataApiMode defines model for DashScopeTenantModelProviderData.ApiMode.
@@ -1620,6 +1693,59 @@ type DashScopeTenantSpec struct {
 type DashScopeTenantVoiceProviderData struct {
 	Raw     *map[string]interface{} `json:"raw,omitempty"`
 	VoiceId *string                 `json:"voice_id,omitempty"`
+}
+
+// DeepSeekCredentialBody defines model for DeepSeekCredentialBody.
+type DeepSeekCredentialBody struct {
+	ApiKey string `json:"api_key"`
+}
+
+// DeepSeekTenant defines model for DeepSeekTenant.
+type DeepSeekTenant struct {
+	BaseUrl        *string   `json:"base_url,omitempty"`
+	CreatedAt      time.Time `json:"created_at"`
+	CredentialName string    `json:"credential_name"`
+	Description    *string   `json:"description,omitempty"`
+	Name           string    `json:"name"`
+	UpdatedAt      time.Time `json:"updated_at"`
+}
+
+// DeepSeekTenantModelProviderData defines model for DeepSeekTenantModelProviderData.
+type DeepSeekTenantModelProviderData struct {
+	ApiMode              DeepSeekTenantModelProviderDataApiMode `json:"api_mode"`
+	DefaultThinkingLevel *string                                `json:"default_thinking_level,omitempty"`
+	SupportJsonOutput    *bool                                  `json:"support_json_output,omitempty"`
+	SupportTemperature   *bool                                  `json:"support_temperature,omitempty"`
+	SupportTextOnly      *bool                                  `json:"support_text_only,omitempty"`
+	SupportThinking      *bool                                  `json:"support_thinking,omitempty"`
+	SupportToolCalls     *bool                                  `json:"support_tool_calls,omitempty"`
+	ThinkingLevelParam   *string                                `json:"thinking_level_param,omitempty"`
+	ThinkingLevels       *[]string                              `json:"thinking_levels,omitempty"`
+	ThinkingParam        *string                                `json:"thinking_param,omitempty"`
+	UpstreamModel        string                                 `json:"upstream_model"`
+	UseSystemRole        *bool                                  `json:"use_system_role,omitempty"`
+}
+
+// DeepSeekTenantModelProviderDataApiMode defines model for DeepSeekTenantModelProviderData.ApiMode.
+type DeepSeekTenantModelProviderDataApiMode string
+
+// DeepSeekTenantResource defines model for DeepSeekTenantResource.
+type DeepSeekTenantResource struct {
+	// ApiVersion API version for declarative GizClaw resources.
+	ApiVersion ResourceAPIVersion         `json:"apiVersion"`
+	Kind       DeepSeekTenantResourceKind `json:"kind"`
+	Metadata   ResourceMetadata           `json:"metadata"`
+	Spec       DeepSeekTenantSpec         `json:"spec"`
+}
+
+// DeepSeekTenantResourceKind defines model for DeepSeekTenantResource.Kind.
+type DeepSeekTenantResourceKind string
+
+// DeepSeekTenantSpec defines model for DeepSeekTenantSpec.
+type DeepSeekTenantSpec struct {
+	BaseUrl        *string `json:"base_url,omitempty"`
+	CredentialName string  `json:"credential_name"`
+	Description    *string `json:"description,omitempty"`
 }
 
 // DeviceIdentifiers defines model for DeviceIdentifiers.
@@ -2174,7 +2300,17 @@ type GeminiTenant struct {
 
 // GeminiTenantModelProviderData defines model for GeminiTenantModelProviderData.
 type GeminiTenantModelProviderData struct {
-	UpstreamModel *string `json:"upstream_model,omitempty"`
+	DefaultThinkingLevel *string   `json:"default_thinking_level,omitempty"`
+	SupportJsonOutput    *bool     `json:"support_json_output,omitempty"`
+	SupportTemperature   *bool     `json:"support_temperature,omitempty"`
+	SupportTextOnly      *bool     `json:"support_text_only,omitempty"`
+	SupportThinking      *bool     `json:"support_thinking,omitempty"`
+	SupportToolCalls     *bool     `json:"support_tool_calls,omitempty"`
+	ThinkingLevelParam   *string   `json:"thinking_level_param,omitempty"`
+	ThinkingLevels       *[]string `json:"thinking_levels,omitempty"`
+	ThinkingParam        *string   `json:"thinking_param,omitempty"`
+	UpstreamModel        string    `json:"upstream_model"`
+	UseSystemRole        *bool     `json:"use_system_role,omitempty"`
 }
 
 // GeminiTenantResource defines model for GeminiTenantResource.
@@ -2231,16 +2367,35 @@ type MiniMaxCredentialBody struct {
 
 // MiniMaxTenant defines model for MiniMaxTenant.
 type MiniMaxTenant struct {
-	AppId          string     `json:"app_id"`
+	AppId          *string    `json:"app_id,omitempty"`
 	BaseUrl        *string    `json:"base_url,omitempty"`
 	CreatedAt      time.Time  `json:"created_at"`
 	CredentialName string     `json:"credential_name"`
 	Description    *string    `json:"description,omitempty"`
-	GroupId        string     `json:"group_id"`
+	GroupId        *string    `json:"group_id,omitempty"`
 	LastSyncedAt   *time.Time `json:"last_synced_at,omitempty"`
 	Name           string     `json:"name"`
 	UpdatedAt      time.Time  `json:"updated_at"`
 }
+
+// MiniMaxTenantModelProviderData defines model for MiniMaxTenantModelProviderData.
+type MiniMaxTenantModelProviderData struct {
+	ApiMode              MiniMaxTenantModelProviderDataApiMode `json:"api_mode"`
+	DefaultThinkingLevel *string                               `json:"default_thinking_level,omitempty"`
+	SupportJsonOutput    *bool                                 `json:"support_json_output,omitempty"`
+	SupportTemperature   *bool                                 `json:"support_temperature,omitempty"`
+	SupportTextOnly      *bool                                 `json:"support_text_only,omitempty"`
+	SupportThinking      *bool                                 `json:"support_thinking,omitempty"`
+	SupportToolCalls     *bool                                 `json:"support_tool_calls,omitempty"`
+	ThinkingLevelParam   *string                               `json:"thinking_level_param,omitempty"`
+	ThinkingLevels       *[]string                             `json:"thinking_levels,omitempty"`
+	ThinkingParam        *string                               `json:"thinking_param,omitempty"`
+	UpstreamModel        string                                `json:"upstream_model"`
+	UseSystemRole        *bool                                 `json:"use_system_role,omitempty"`
+}
+
+// MiniMaxTenantModelProviderDataApiMode defines model for MiniMaxTenantModelProviderData.ApiMode.
+type MiniMaxTenantModelProviderDataApiMode string
 
 // MiniMaxTenantResource defines model for MiniMaxTenantResource.
 type MiniMaxTenantResource struct {
@@ -2256,11 +2411,11 @@ type MiniMaxTenantResourceKind string
 
 // MiniMaxTenantSpec defines model for MiniMaxTenantSpec.
 type MiniMaxTenantSpec struct {
-	AppId          string  `json:"app_id"`
+	AppId          *string `json:"app_id,omitempty"`
 	BaseUrl        *string `json:"base_url,omitempty"`
 	CredentialName string  `json:"credential_name"`
 	Description    *string `json:"description,omitempty"`
-	GroupId        string  `json:"group_id"`
+	GroupId        *string `json:"group_id,omitempty"`
 }
 
 // MiniMaxTenantVoiceProviderData defines model for MiniMaxTenantVoiceProviderData.
@@ -2275,33 +2430,22 @@ type MiniMaxTenantVoiceProviderData struct {
 
 // Model defines model for Model.
 type Model struct {
-	Capabilities *ModelCapabilities `json:"capabilities,omitempty"`
-	CreatedAt    time.Time          `json:"created_at"`
-	Description  *string            `json:"description,omitempty"`
-	Id           string             `json:"id"`
+	CreatedAt   time.Time `json:"created_at"`
+	Description *string   `json:"description,omitempty"`
+	Id          string    `json:"id"`
 
 	// Kind Runtime role of a model.
 	Kind     ModelKind     `json:"kind"`
 	Name     *string       `json:"name,omitempty"`
 	Provider ModelProvider `json:"provider"`
 
-	// ProviderData Provider-specific model runtime configuration. The shape is selected by Model.provider.kind.
-	ProviderData *ModelProviderData `json:"provider_data,omitempty"`
+	// ProviderData Provider-specific model runtime configuration selected by Model.provider.kind. Optional behavior flags default to false.
+	ProviderData ModelProviderData `json:"provider_data"`
 
 	// Source How the model entered the global catalog
 	Source    ModelSource `json:"source"`
 	SyncedAt  *time.Time  `json:"synced_at,omitempty"`
 	UpdatedAt time.Time   `json:"updated_at"`
-}
-
-// ModelCapabilities defines model for ModelCapabilities.
-type ModelCapabilities struct {
-	JsonOutput  *bool                    `json:"json_output,omitempty"`
-	SystemRole  *bool                    `json:"system_role,omitempty"`
-	Temperature *bool                    `json:"temperature,omitempty"`
-	TextOnly    *bool                    `json:"text_only,omitempty"`
-	Thinking    *ModelThinkingCapability `json:"thinking,omitempty"`
-	ToolCalls   *bool                    `json:"tool_calls,omitempty"`
 }
 
 // ModelKind Runtime role of a model.
@@ -2314,7 +2458,7 @@ type ModelProvider struct {
 	Name string            `json:"name"`
 }
 
-// ModelProviderData Provider-specific model runtime configuration. The shape is selected by Model.provider.kind.
+// ModelProviderData Provider-specific model runtime configuration selected by Model.provider.kind. Optional behavior flags default to false.
 type ModelProviderData struct {
 	union json.RawMessage
 }
@@ -2339,32 +2483,18 @@ type ModelSource string
 
 // ModelSpec defines model for ModelSpec.
 type ModelSpec struct {
-	Capabilities *ModelCapabilities `json:"capabilities,omitempty"`
-	Description  *string            `json:"description,omitempty"`
+	Description *string `json:"description,omitempty"`
 
 	// Kind Runtime role of a model.
 	Kind     ModelKind     `json:"kind"`
 	Name     *string       `json:"name,omitempty"`
 	Provider ModelProvider `json:"provider"`
 
-	// ProviderData Provider-specific model runtime configuration. The shape is selected by Model.provider.kind.
-	ProviderData *ModelProviderData `json:"provider_data,omitempty"`
+	// ProviderData Provider-specific model runtime configuration selected by Model.provider.kind. Optional behavior flags default to false.
+	ProviderData ModelProviderData `json:"provider_data"`
 
 	// Source How the model entered the global catalog
 	Source ModelSource `json:"source"`
-}
-
-// ModelThinkingCapability defines model for ModelThinkingCapability.
-type ModelThinkingCapability struct {
-	DefaultLevel *string `json:"default_level,omitempty"`
-
-	// LevelParam Optional provider request parameter used for the selected thinking level or budget.
-	LevelParam *string   `json:"level_param,omitempty"`
-	Levels     *[]string `json:"levels,omitempty"`
-
-	// Param Provider request parameter mapping, such as reasoning_effort, thinking.type, or enable_thinking.
-	Param     *string `json:"param,omitempty"`
-	Supported bool    `json:"supported"`
 }
 
 // OpenAICredentialBody defines model for OpenAICredentialBody.
@@ -2401,13 +2531,14 @@ type OpenAITenantKind string
 type OpenAITenantModelProviderData struct {
 	DefaultThinkingLevel *string   `json:"default_thinking_level,omitempty"`
 	SupportJsonOutput    *bool     `json:"support_json_output,omitempty"`
+	SupportTemperature   *bool     `json:"support_temperature,omitempty"`
 	SupportTextOnly      *bool     `json:"support_text_only,omitempty"`
 	SupportThinking      *bool     `json:"support_thinking,omitempty"`
 	SupportToolCalls     *bool     `json:"support_tool_calls,omitempty"`
 	ThinkingLevelParam   *string   `json:"thinking_level_param,omitempty"`
 	ThinkingLevels       *[]string `json:"thinking_levels,omitempty"`
 	ThinkingParam        *string   `json:"thinking_param,omitempty"`
-	UpstreamModel        *string   `json:"upstream_model,omitempty"`
+	UpstreamModel        string    `json:"upstream_model"`
 	UseSystemRole        *bool     `json:"use_system_role,omitempty"`
 }
 
@@ -3535,18 +3666,19 @@ type VolcTenant struct {
 
 // VolcTenantModelProviderData defines model for VolcTenantModelProviderData.
 type VolcTenantModelProviderData struct {
-	ApiMode              *VolcTenantModelProviderDataApiMode `json:"api_mode,omitempty"`
-	DefaultThinkingLevel *string                             `json:"default_thinking_level,omitempty"`
-	ResourceId           *string                             `json:"resource_id,omitempty"`
-	SupportJsonOutput    *bool                               `json:"support_json_output,omitempty"`
-	SupportTextOnly      *bool                               `json:"support_text_only,omitempty"`
-	SupportThinking      *bool                               `json:"support_thinking,omitempty"`
-	SupportToolCalls     *bool                               `json:"support_tool_calls,omitempty"`
-	ThinkingLevelParam   *string                             `json:"thinking_level_param,omitempty"`
-	ThinkingLevels       *[]string                           `json:"thinking_levels,omitempty"`
-	ThinkingParam        *string                             `json:"thinking_param,omitempty"`
-	UpstreamModel        *string                             `json:"upstream_model,omitempty"`
-	UseSystemRole        *bool                               `json:"use_system_role,omitempty"`
+	ApiMode              VolcTenantModelProviderDataApiMode `json:"api_mode"`
+	DefaultThinkingLevel *string                            `json:"default_thinking_level,omitempty"`
+	ResourceId           *string                            `json:"resource_id,omitempty"`
+	SupportJsonOutput    *bool                              `json:"support_json_output,omitempty"`
+	SupportTemperature   *bool                              `json:"support_temperature,omitempty"`
+	SupportTextOnly      *bool                              `json:"support_text_only,omitempty"`
+	SupportThinking      *bool                              `json:"support_thinking,omitempty"`
+	SupportToolCalls     *bool                              `json:"support_tool_calls,omitempty"`
+	ThinkingLevelParam   *string                            `json:"thinking_level_param,omitempty"`
+	ThinkingLevels       *[]string                          `json:"thinking_levels,omitempty"`
+	ThinkingParam        *string                            `json:"thinking_param,omitempty"`
+	UpstreamModel        *string                            `json:"upstream_model,omitempty"`
+	UseSystemRole        *bool                              `json:"use_system_role,omitempty"`
 }
 
 // VolcTenantModelProviderDataApiMode defines model for VolcTenantModelProviderData.ApiMode.
@@ -3887,6 +4019,32 @@ func (t *CredentialBody) MergeDashScopeCredentialBody(v DashScopeCredentialBody)
 	return err
 }
 
+// AsDeepSeekCredentialBody returns the union data inside the CredentialBody as a DeepSeekCredentialBody
+func (t CredentialBody) AsDeepSeekCredentialBody() (DeepSeekCredentialBody, error) {
+	var body DeepSeekCredentialBody
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDeepSeekCredentialBody overwrites any union data inside the CredentialBody as the provided DeepSeekCredentialBody
+func (t *CredentialBody) FromDeepSeekCredentialBody(v DeepSeekCredentialBody) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDeepSeekCredentialBody performs a merge with any union data inside the CredentialBody, using the provided DeepSeekCredentialBody
+func (t *CredentialBody) MergeDeepSeekCredentialBody(v DeepSeekCredentialBody) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsMiniMaxCredentialBody returns the union data inside the CredentialBody as a MiniMaxCredentialBody
 func (t CredentialBody) AsMiniMaxCredentialBody() (MiniMaxCredentialBody, error) {
 	var body MiniMaxCredentialBody
@@ -4001,6 +4159,32 @@ func (t *ModelProviderData) MergeDashScopeTenantModelProviderData(v DashScopeTen
 	return err
 }
 
+// AsDeepSeekTenantModelProviderData returns the union data inside the ModelProviderData as a DeepSeekTenantModelProviderData
+func (t ModelProviderData) AsDeepSeekTenantModelProviderData() (DeepSeekTenantModelProviderData, error) {
+	var body DeepSeekTenantModelProviderData
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDeepSeekTenantModelProviderData overwrites any union data inside the ModelProviderData as the provided DeepSeekTenantModelProviderData
+func (t *ModelProviderData) FromDeepSeekTenantModelProviderData(v DeepSeekTenantModelProviderData) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDeepSeekTenantModelProviderData performs a merge with any union data inside the ModelProviderData, using the provided DeepSeekTenantModelProviderData
+func (t *ModelProviderData) MergeDeepSeekTenantModelProviderData(v DeepSeekTenantModelProviderData) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsOpenAITenantModelProviderData returns the union data inside the ModelProviderData as a OpenAITenantModelProviderData
 func (t ModelProviderData) AsOpenAITenantModelProviderData() (OpenAITenantModelProviderData, error) {
 	var body OpenAITenantModelProviderData
@@ -4017,6 +4201,32 @@ func (t *ModelProviderData) FromOpenAITenantModelProviderData(v OpenAITenantMode
 
 // MergeOpenAITenantModelProviderData performs a merge with any union data inside the ModelProviderData, using the provided OpenAITenantModelProviderData
 func (t *ModelProviderData) MergeOpenAITenantModelProviderData(v OpenAITenantModelProviderData) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsMiniMaxTenantModelProviderData returns the union data inside the ModelProviderData as a MiniMaxTenantModelProviderData
+func (t ModelProviderData) AsMiniMaxTenantModelProviderData() (MiniMaxTenantModelProviderData, error) {
+	var body MiniMaxTenantModelProviderData
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMiniMaxTenantModelProviderData overwrites any union data inside the ModelProviderData as the provided MiniMaxTenantModelProviderData
+func (t *ModelProviderData) FromMiniMaxTenantModelProviderData(v MiniMaxTenantModelProviderData) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMiniMaxTenantModelProviderData performs a merge with any union data inside the ModelProviderData, using the provided MiniMaxTenantModelProviderData
+func (t *ModelProviderData) MergeMiniMaxTenantModelProviderData(v MiniMaxTenantModelProviderData) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -4305,6 +4515,34 @@ func (t *Resource) FromDashScopeTenantResource(v DashScopeTenantResource) error 
 // MergeDashScopeTenantResource performs a merge with any union data inside the Resource, using the provided DashScopeTenantResource
 func (t *Resource) MergeDashScopeTenantResource(v DashScopeTenantResource) error {
 	v.Kind = "DashScopeTenantResource"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsDeepSeekTenantResource returns the union data inside the Resource as a DeepSeekTenantResource
+func (t Resource) AsDeepSeekTenantResource() (DeepSeekTenantResource, error) {
+	var body DeepSeekTenantResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDeepSeekTenantResource overwrites any union data inside the Resource as the provided DeepSeekTenantResource
+func (t *Resource) FromDeepSeekTenantResource(v DeepSeekTenantResource) error {
+	v.Kind = "DeepSeekTenantResource"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDeepSeekTenantResource performs a merge with any union data inside the Resource, using the provided DeepSeekTenantResource
+func (t *Resource) MergeDeepSeekTenantResource(v DeepSeekTenantResource) error {
+	v.Kind = "DeepSeekTenantResource"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -4729,6 +4967,8 @@ func (t Resource) ValueByDiscriminator() (interface{}, error) {
 		return t.AsCredentialResource()
 	case "DashScopeTenantResource":
 		return t.AsDashScopeTenantResource()
+	case "DeepSeekTenantResource":
+		return t.AsDeepSeekTenantResource()
 	case "FirmwareResource":
 		return t.AsFirmwareResource()
 	case "FriendGroupInviteTokenResource":

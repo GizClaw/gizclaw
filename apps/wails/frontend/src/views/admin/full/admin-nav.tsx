@@ -34,6 +34,7 @@ export const adminNavGroups: Array<DashboardNavGroup<string>> = [
       { id: "/providers/openai-tenants", icon: ServerCog, label: "OpenAI Tenants" },
       { id: "/providers/gemini-tenants", icon: ServerCog, label: "Gemini Tenants" },
       { id: "/providers/dashscope-tenants", icon: ServerCog, label: "DashScope Tenants" },
+      { id: "/providers/deepseek-tenants", icon: ServerCog, label: "DeepSeek Tenants" },
       { id: "/providers/minimax-tenants", icon: AudioLines, label: "MiniMax Tenants" },
       { id: "/providers/volc-tenants", icon: AudioLines, label: "Volcengine Tenants" },
     ],

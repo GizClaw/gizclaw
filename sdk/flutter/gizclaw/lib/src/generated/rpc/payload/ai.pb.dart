@@ -16,9 +16,12 @@ import 'package:fixnum/fixnum.dart' as $fixnum;
 import 'package:protobuf/protobuf.dart' as $pb;
 import 'package:protobuf/well_known_types/google/protobuf/struct.pb.dart' as $0;
 
+import 'ai.pbenum.dart';
 import 'enums.pbenum.dart' as $1;
 
 export 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
+
+export 'ai.pbenum.dart';
 
 class AliasI18nText extends $pb.GeneratedMessage {
   factory AliasI18nText({
@@ -3717,18 +3720,40 @@ class PetWorkspaceParameters extends $pb.GeneratedMessage {
   PetVoiceParameters ensureVoice() => $_ensure(4);
 }
 
+enum Model_ProviderData {
+  openaiTenant,
+  geminiTenant,
+  dashscopeTenant,
+  volcTenant,
+  minimaxTenant,
+  deepseekTenant,
+  notSet
+}
+
 class Model extends $pb.GeneratedMessage {
   factory Model({
     $core.String? alias,
     $core.Iterable<$core.MapEntry<$core.String, AliasI18nText>>? i18n,
     $1.ModelKind? kind,
-    ModelCapabilities? capabilities,
+    OpenAITenantModelProviderData? openaiTenant,
+    GeminiTenantModelProviderData? geminiTenant,
+    DashScopeTenantModelProviderData? dashscopeTenant,
+    VolcTenantModelProviderData? volcTenant,
+    MiniMaxTenantModelProviderData? minimaxTenant,
+    DeepSeekTenantModelProviderData? deepseekTenant,
+    ModelProviderKind? providerKind,
   }) {
     final result = create();
     if (alias != null) result.alias = alias;
     if (i18n != null) result.i18n.addEntries(i18n);
     if (kind != null) result.kind = kind;
-    if (capabilities != null) result.capabilities = capabilities;
+    if (openaiTenant != null) result.openaiTenant = openaiTenant;
+    if (geminiTenant != null) result.geminiTenant = geminiTenant;
+    if (dashscopeTenant != null) result.dashscopeTenant = dashscopeTenant;
+    if (volcTenant != null) result.volcTenant = volcTenant;
+    if (minimaxTenant != null) result.minimaxTenant = minimaxTenant;
+    if (deepseekTenant != null) result.deepseekTenant = deepseekTenant;
+    if (providerKind != null) result.providerKind = providerKind;
     return result;
   }
 
@@ -3741,10 +3766,21 @@ class Model extends $pb.GeneratedMessage {
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromJson(json, registry);
 
+  static const $core.Map<$core.int, Model_ProviderData>
+      _Model_ProviderDataByTag = {
+    5: Model_ProviderData.openaiTenant,
+    6: Model_ProviderData.geminiTenant,
+    7: Model_ProviderData.dashscopeTenant,
+    8: Model_ProviderData.volcTenant,
+    9: Model_ProviderData.minimaxTenant,
+    10: Model_ProviderData.deepseekTenant,
+    0: Model_ProviderData.notSet
+  };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'Model',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
+    ..oo(0, [5, 6, 7, 8, 9, 10])
     ..aOS(1, _omitFieldNames ? '' : 'alias')
     ..m<$core.String, AliasI18nText>(2, _omitFieldNames ? '' : 'i18n',
         entryClassName: 'Model.I18nEntry',
@@ -3755,8 +3791,25 @@ class Model extends $pb.GeneratedMessage {
         packageName: const $pb.PackageName('gizclaw.rpc.v1'))
     ..aE<$1.ModelKind>(3, _omitFieldNames ? '' : 'kind',
         enumValues: $1.ModelKind.values)
-    ..aOM<ModelCapabilities>(4, _omitFieldNames ? '' : 'capabilities',
-        subBuilder: ModelCapabilities.create)
+    ..aOM<OpenAITenantModelProviderData>(
+        5, _omitFieldNames ? '' : 'openaiTenant',
+        subBuilder: OpenAITenantModelProviderData.create)
+    ..aOM<GeminiTenantModelProviderData>(
+        6, _omitFieldNames ? '' : 'geminiTenant',
+        subBuilder: GeminiTenantModelProviderData.create)
+    ..aOM<DashScopeTenantModelProviderData>(
+        7, _omitFieldNames ? '' : 'dashscopeTenant',
+        subBuilder: DashScopeTenantModelProviderData.create)
+    ..aOM<VolcTenantModelProviderData>(8, _omitFieldNames ? '' : 'volcTenant',
+        subBuilder: VolcTenantModelProviderData.create)
+    ..aOM<MiniMaxTenantModelProviderData>(
+        9, _omitFieldNames ? '' : 'minimaxTenant',
+        subBuilder: MiniMaxTenantModelProviderData.create)
+    ..aOM<DeepSeekTenantModelProviderData>(
+        10, _omitFieldNames ? '' : 'deepseekTenant',
+        subBuilder: DeepSeekTenantModelProviderData.create)
+    ..aE<ModelProviderKind>(11, _omitFieldNames ? '' : 'providerKind',
+        enumValues: ModelProviderKind.values)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3776,6 +3829,22 @@ class Model extends $pb.GeneratedMessage {
   static Model getDefault() =>
       _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Model>(create);
   static Model? _defaultInstance;
+
+  @$pb.TagNumber(5)
+  @$pb.TagNumber(6)
+  @$pb.TagNumber(7)
+  @$pb.TagNumber(8)
+  @$pb.TagNumber(9)
+  @$pb.TagNumber(10)
+  Model_ProviderData whichProviderData() =>
+      _Model_ProviderDataByTag[$_whichOneof(0)]!;
+  @$pb.TagNumber(5)
+  @$pb.TagNumber(6)
+  @$pb.TagNumber(7)
+  @$pb.TagNumber(8)
+  @$pb.TagNumber(9)
+  @$pb.TagNumber(10)
+  void clearProviderData() => $_clearField($_whichOneof(0));
 
   @$pb.TagNumber(1)
   $core.String get alias => $_getSZ(0);
@@ -3798,133 +3867,1190 @@ class Model extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearKind() => $_clearField(3);
 
-  @$pb.TagNumber(4)
-  ModelCapabilities get capabilities => $_getN(3);
-  @$pb.TagNumber(4)
-  set capabilities(ModelCapabilities value) => $_setField(4, value);
-  @$pb.TagNumber(4)
-  $core.bool hasCapabilities() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearCapabilities() => $_clearField(4);
-  @$pb.TagNumber(4)
-  ModelCapabilities ensureCapabilities() => $_ensure(3);
+  @$pb.TagNumber(5)
+  OpenAITenantModelProviderData get openaiTenant => $_getN(3);
+  @$pb.TagNumber(5)
+  set openaiTenant(OpenAITenantModelProviderData value) => $_setField(5, value);
+  @$pb.TagNumber(5)
+  $core.bool hasOpenaiTenant() => $_has(3);
+  @$pb.TagNumber(5)
+  void clearOpenaiTenant() => $_clearField(5);
+  @$pb.TagNumber(5)
+  OpenAITenantModelProviderData ensureOpenaiTenant() => $_ensure(3);
+
+  @$pb.TagNumber(6)
+  GeminiTenantModelProviderData get geminiTenant => $_getN(4);
+  @$pb.TagNumber(6)
+  set geminiTenant(GeminiTenantModelProviderData value) => $_setField(6, value);
+  @$pb.TagNumber(6)
+  $core.bool hasGeminiTenant() => $_has(4);
+  @$pb.TagNumber(6)
+  void clearGeminiTenant() => $_clearField(6);
+  @$pb.TagNumber(6)
+  GeminiTenantModelProviderData ensureGeminiTenant() => $_ensure(4);
+
+  @$pb.TagNumber(7)
+  DashScopeTenantModelProviderData get dashscopeTenant => $_getN(5);
+  @$pb.TagNumber(7)
+  set dashscopeTenant(DashScopeTenantModelProviderData value) =>
+      $_setField(7, value);
+  @$pb.TagNumber(7)
+  $core.bool hasDashscopeTenant() => $_has(5);
+  @$pb.TagNumber(7)
+  void clearDashscopeTenant() => $_clearField(7);
+  @$pb.TagNumber(7)
+  DashScopeTenantModelProviderData ensureDashscopeTenant() => $_ensure(5);
+
+  @$pb.TagNumber(8)
+  VolcTenantModelProviderData get volcTenant => $_getN(6);
+  @$pb.TagNumber(8)
+  set volcTenant(VolcTenantModelProviderData value) => $_setField(8, value);
+  @$pb.TagNumber(8)
+  $core.bool hasVolcTenant() => $_has(6);
+  @$pb.TagNumber(8)
+  void clearVolcTenant() => $_clearField(8);
+  @$pb.TagNumber(8)
+  VolcTenantModelProviderData ensureVolcTenant() => $_ensure(6);
+
+  @$pb.TagNumber(9)
+  MiniMaxTenantModelProviderData get minimaxTenant => $_getN(7);
+  @$pb.TagNumber(9)
+  set minimaxTenant(MiniMaxTenantModelProviderData value) =>
+      $_setField(9, value);
+  @$pb.TagNumber(9)
+  $core.bool hasMinimaxTenant() => $_has(7);
+  @$pb.TagNumber(9)
+  void clearMinimaxTenant() => $_clearField(9);
+  @$pb.TagNumber(9)
+  MiniMaxTenantModelProviderData ensureMinimaxTenant() => $_ensure(7);
+
+  @$pb.TagNumber(10)
+  DeepSeekTenantModelProviderData get deepseekTenant => $_getN(8);
+  @$pb.TagNumber(10)
+  set deepseekTenant(DeepSeekTenantModelProviderData value) =>
+      $_setField(10, value);
+  @$pb.TagNumber(10)
+  $core.bool hasDeepseekTenant() => $_has(8);
+  @$pb.TagNumber(10)
+  void clearDeepseekTenant() => $_clearField(10);
+  @$pb.TagNumber(10)
+  DeepSeekTenantModelProviderData ensureDeepseekTenant() => $_ensure(8);
+
+  @$pb.TagNumber(11)
+  ModelProviderKind get providerKind => $_getN(9);
+  @$pb.TagNumber(11)
+  set providerKind(ModelProviderKind value) => $_setField(11, value);
+  @$pb.TagNumber(11)
+  $core.bool hasProviderKind() => $_has(9);
+  @$pb.TagNumber(11)
+  void clearProviderKind() => $_clearField(11);
 }
 
-class ModelCapabilities extends $pb.GeneratedMessage {
-  factory ModelCapabilities({
-    $core.bool? jsonOutput,
-    $core.bool? systemRole,
-    $core.bool? temperature,
-    $core.bool? textOnly,
-    ModelThinkingCapability? thinking,
-    $core.bool? toolCalls,
+class OpenAITenantModelProviderData extends $pb.GeneratedMessage {
+  factory OpenAITenantModelProviderData({
+    $core.String? upstreamModel,
+    $core.bool? supportJsonOutput,
+    $core.bool? supportToolCalls,
+    $core.bool? supportTextOnly,
+    $core.bool? supportTemperature,
+    $core.bool? supportThinking,
+    $core.bool? useSystemRole,
+    $core.String? thinkingParam,
+    $core.String? thinkingLevelParam,
+    $core.Iterable<$core.String>? thinkingLevels,
+    $core.String? defaultThinkingLevel,
   }) {
     final result = create();
-    if (jsonOutput != null) result.jsonOutput = jsonOutput;
-    if (systemRole != null) result.systemRole = systemRole;
-    if (temperature != null) result.temperature = temperature;
-    if (textOnly != null) result.textOnly = textOnly;
-    if (thinking != null) result.thinking = thinking;
-    if (toolCalls != null) result.toolCalls = toolCalls;
+    if (upstreamModel != null) result.upstreamModel = upstreamModel;
+    if (supportJsonOutput != null) result.supportJsonOutput = supportJsonOutput;
+    if (supportToolCalls != null) result.supportToolCalls = supportToolCalls;
+    if (supportTextOnly != null) result.supportTextOnly = supportTextOnly;
+    if (supportTemperature != null)
+      result.supportTemperature = supportTemperature;
+    if (supportThinking != null) result.supportThinking = supportThinking;
+    if (useSystemRole != null) result.useSystemRole = useSystemRole;
+    if (thinkingParam != null) result.thinkingParam = thinkingParam;
+    if (thinkingLevelParam != null)
+      result.thinkingLevelParam = thinkingLevelParam;
+    if (thinkingLevels != null) result.thinkingLevels.addAll(thinkingLevels);
+    if (defaultThinkingLevel != null)
+      result.defaultThinkingLevel = defaultThinkingLevel;
     return result;
   }
 
-  ModelCapabilities._();
+  OpenAITenantModelProviderData._();
 
-  factory ModelCapabilities.fromBuffer($core.List<$core.int> data,
+  factory OpenAITenantModelProviderData.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromBuffer(data, registry);
-  factory ModelCapabilities.fromJson($core.String json,
+  factory OpenAITenantModelProviderData.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'ModelCapabilities',
+      _omitMessageNames ? '' : 'OpenAITenantModelProviderData',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOB(1, _omitFieldNames ? '' : 'jsonOutput')
-    ..aOB(2, _omitFieldNames ? '' : 'systemRole')
-    ..aOB(3, _omitFieldNames ? '' : 'temperature')
-    ..aOB(4, _omitFieldNames ? '' : 'textOnly')
-    ..aOM<ModelThinkingCapability>(5, _omitFieldNames ? '' : 'thinking',
-        subBuilder: ModelThinkingCapability.create)
-    ..aOB(6, _omitFieldNames ? '' : 'toolCalls')
+    ..aOS(1, _omitFieldNames ? '' : 'upstreamModel')
+    ..aOB(2, _omitFieldNames ? '' : 'supportJsonOutput')
+    ..aOB(3, _omitFieldNames ? '' : 'supportToolCalls')
+    ..aOB(4, _omitFieldNames ? '' : 'supportTextOnly')
+    ..aOB(5, _omitFieldNames ? '' : 'supportTemperature')
+    ..aOB(6, _omitFieldNames ? '' : 'supportThinking')
+    ..aOB(7, _omitFieldNames ? '' : 'useSystemRole')
+    ..aOS(8, _omitFieldNames ? '' : 'thinkingParam')
+    ..aOS(9, _omitFieldNames ? '' : 'thinkingLevelParam')
+    ..pPS(10, _omitFieldNames ? '' : 'thinkingLevels')
+    ..aOS(11, _omitFieldNames ? '' : 'defaultThinkingLevel')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ModelCapabilities clone() => deepCopy();
+  OpenAITenantModelProviderData clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ModelCapabilities copyWith(void Function(ModelCapabilities) updates) =>
-      super.copyWith((message) => updates(message as ModelCapabilities))
-          as ModelCapabilities;
+  OpenAITenantModelProviderData copyWith(
+          void Function(OpenAITenantModelProviderData) updates) =>
+      super.copyWith(
+              (message) => updates(message as OpenAITenantModelProviderData))
+          as OpenAITenantModelProviderData;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  static ModelCapabilities create() => ModelCapabilities._();
+  static OpenAITenantModelProviderData create() =>
+      OpenAITenantModelProviderData._();
   @$core.override
-  ModelCapabilities createEmptyInstance() => create();
+  OpenAITenantModelProviderData createEmptyInstance() => create();
   @$core.pragma('dart2js:noInline')
-  static ModelCapabilities getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ModelCapabilities>(create);
-  static ModelCapabilities? _defaultInstance;
+  static OpenAITenantModelProviderData getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<OpenAITenantModelProviderData>(create);
+  static OpenAITenantModelProviderData? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.bool get jsonOutput => $_getBF(0);
+  $core.String get upstreamModel => $_getSZ(0);
   @$pb.TagNumber(1)
-  set jsonOutput($core.bool value) => $_setBool(0, value);
+  set upstreamModel($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
-  $core.bool hasJsonOutput() => $_has(0);
+  $core.bool hasUpstreamModel() => $_has(0);
   @$pb.TagNumber(1)
-  void clearJsonOutput() => $_clearField(1);
+  void clearUpstreamModel() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $core.bool get systemRole => $_getBF(1);
+  $core.bool get supportJsonOutput => $_getBF(1);
   @$pb.TagNumber(2)
-  set systemRole($core.bool value) => $_setBool(1, value);
+  set supportJsonOutput($core.bool value) => $_setBool(1, value);
   @$pb.TagNumber(2)
-  $core.bool hasSystemRole() => $_has(1);
+  $core.bool hasSupportJsonOutput() => $_has(1);
   @$pb.TagNumber(2)
-  void clearSystemRole() => $_clearField(2);
+  void clearSupportJsonOutput() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  $core.bool get temperature => $_getBF(2);
+  $core.bool get supportToolCalls => $_getBF(2);
   @$pb.TagNumber(3)
-  set temperature($core.bool value) => $_setBool(2, value);
+  set supportToolCalls($core.bool value) => $_setBool(2, value);
   @$pb.TagNumber(3)
-  $core.bool hasTemperature() => $_has(2);
+  $core.bool hasSupportToolCalls() => $_has(2);
   @$pb.TagNumber(3)
-  void clearTemperature() => $_clearField(3);
+  void clearSupportToolCalls() => $_clearField(3);
 
   @$pb.TagNumber(4)
-  $core.bool get textOnly => $_getBF(3);
+  $core.bool get supportTextOnly => $_getBF(3);
   @$pb.TagNumber(4)
-  set textOnly($core.bool value) => $_setBool(3, value);
+  set supportTextOnly($core.bool value) => $_setBool(3, value);
   @$pb.TagNumber(4)
-  $core.bool hasTextOnly() => $_has(3);
+  $core.bool hasSupportTextOnly() => $_has(3);
   @$pb.TagNumber(4)
-  void clearTextOnly() => $_clearField(4);
+  void clearSupportTextOnly() => $_clearField(4);
 
   @$pb.TagNumber(5)
-  ModelThinkingCapability get thinking => $_getN(4);
+  $core.bool get supportTemperature => $_getBF(4);
   @$pb.TagNumber(5)
-  set thinking(ModelThinkingCapability value) => $_setField(5, value);
+  set supportTemperature($core.bool value) => $_setBool(4, value);
   @$pb.TagNumber(5)
-  $core.bool hasThinking() => $_has(4);
+  $core.bool hasSupportTemperature() => $_has(4);
   @$pb.TagNumber(5)
-  void clearThinking() => $_clearField(5);
-  @$pb.TagNumber(5)
-  ModelThinkingCapability ensureThinking() => $_ensure(4);
+  void clearSupportTemperature() => $_clearField(5);
 
   @$pb.TagNumber(6)
-  $core.bool get toolCalls => $_getBF(5);
+  $core.bool get supportThinking => $_getBF(5);
   @$pb.TagNumber(6)
-  set toolCalls($core.bool value) => $_setBool(5, value);
+  set supportThinking($core.bool value) => $_setBool(5, value);
   @$pb.TagNumber(6)
-  $core.bool hasToolCalls() => $_has(5);
+  $core.bool hasSupportThinking() => $_has(5);
   @$pb.TagNumber(6)
-  void clearToolCalls() => $_clearField(6);
+  void clearSupportThinking() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.bool get useSystemRole => $_getBF(6);
+  @$pb.TagNumber(7)
+  set useSystemRole($core.bool value) => $_setBool(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasUseSystemRole() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearUseSystemRole() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.String get thinkingParam => $_getSZ(7);
+  @$pb.TagNumber(8)
+  set thinkingParam($core.String value) => $_setString(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasThinkingParam() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearThinkingParam() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.String get thinkingLevelParam => $_getSZ(8);
+  @$pb.TagNumber(9)
+  set thinkingLevelParam($core.String value) => $_setString(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasThinkingLevelParam() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearThinkingLevelParam() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $pb.PbList<$core.String> get thinkingLevels => $_getList(9);
+
+  @$pb.TagNumber(11)
+  $core.String get defaultThinkingLevel => $_getSZ(10);
+  @$pb.TagNumber(11)
+  set defaultThinkingLevel($core.String value) => $_setString(10, value);
+  @$pb.TagNumber(11)
+  $core.bool hasDefaultThinkingLevel() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearDefaultThinkingLevel() => $_clearField(11);
+}
+
+class GeminiTenantModelProviderData extends $pb.GeneratedMessage {
+  factory GeminiTenantModelProviderData({
+    $core.String? upstreamModel,
+    $core.bool? supportJsonOutput,
+    $core.bool? supportToolCalls,
+    $core.bool? supportTextOnly,
+    $core.bool? supportTemperature,
+    $core.bool? supportThinking,
+    $core.bool? useSystemRole,
+    $core.String? thinkingParam,
+    $core.String? thinkingLevelParam,
+    $core.Iterable<$core.String>? thinkingLevels,
+    $core.String? defaultThinkingLevel,
+  }) {
+    final result = create();
+    if (upstreamModel != null) result.upstreamModel = upstreamModel;
+    if (supportJsonOutput != null) result.supportJsonOutput = supportJsonOutput;
+    if (supportToolCalls != null) result.supportToolCalls = supportToolCalls;
+    if (supportTextOnly != null) result.supportTextOnly = supportTextOnly;
+    if (supportTemperature != null)
+      result.supportTemperature = supportTemperature;
+    if (supportThinking != null) result.supportThinking = supportThinking;
+    if (useSystemRole != null) result.useSystemRole = useSystemRole;
+    if (thinkingParam != null) result.thinkingParam = thinkingParam;
+    if (thinkingLevelParam != null)
+      result.thinkingLevelParam = thinkingLevelParam;
+    if (thinkingLevels != null) result.thinkingLevels.addAll(thinkingLevels);
+    if (defaultThinkingLevel != null)
+      result.defaultThinkingLevel = defaultThinkingLevel;
+    return result;
+  }
+
+  GeminiTenantModelProviderData._();
+
+  factory GeminiTenantModelProviderData.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory GeminiTenantModelProviderData.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GeminiTenantModelProviderData',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'upstreamModel')
+    ..aOB(2, _omitFieldNames ? '' : 'supportJsonOutput')
+    ..aOB(3, _omitFieldNames ? '' : 'supportToolCalls')
+    ..aOB(4, _omitFieldNames ? '' : 'supportTextOnly')
+    ..aOB(5, _omitFieldNames ? '' : 'supportTemperature')
+    ..aOB(6, _omitFieldNames ? '' : 'supportThinking')
+    ..aOB(7, _omitFieldNames ? '' : 'useSystemRole')
+    ..aOS(8, _omitFieldNames ? '' : 'thinkingParam')
+    ..aOS(9, _omitFieldNames ? '' : 'thinkingLevelParam')
+    ..pPS(10, _omitFieldNames ? '' : 'thinkingLevels')
+    ..aOS(11, _omitFieldNames ? '' : 'defaultThinkingLevel')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GeminiTenantModelProviderData clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GeminiTenantModelProviderData copyWith(
+          void Function(GeminiTenantModelProviderData) updates) =>
+      super.copyWith(
+              (message) => updates(message as GeminiTenantModelProviderData))
+          as GeminiTenantModelProviderData;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static GeminiTenantModelProviderData create() =>
+      GeminiTenantModelProviderData._();
+  @$core.override
+  GeminiTenantModelProviderData createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static GeminiTenantModelProviderData getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GeminiTenantModelProviderData>(create);
+  static GeminiTenantModelProviderData? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get upstreamModel => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set upstreamModel($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasUpstreamModel() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearUpstreamModel() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.bool get supportJsonOutput => $_getBF(1);
+  @$pb.TagNumber(2)
+  set supportJsonOutput($core.bool value) => $_setBool(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSupportJsonOutput() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSupportJsonOutput() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.bool get supportToolCalls => $_getBF(2);
+  @$pb.TagNumber(3)
+  set supportToolCalls($core.bool value) => $_setBool(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasSupportToolCalls() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearSupportToolCalls() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.bool get supportTextOnly => $_getBF(3);
+  @$pb.TagNumber(4)
+  set supportTextOnly($core.bool value) => $_setBool(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasSupportTextOnly() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearSupportTextOnly() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.bool get supportTemperature => $_getBF(4);
+  @$pb.TagNumber(5)
+  set supportTemperature($core.bool value) => $_setBool(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasSupportTemperature() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearSupportTemperature() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.bool get supportThinking => $_getBF(5);
+  @$pb.TagNumber(6)
+  set supportThinking($core.bool value) => $_setBool(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasSupportThinking() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearSupportThinking() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.bool get useSystemRole => $_getBF(6);
+  @$pb.TagNumber(7)
+  set useSystemRole($core.bool value) => $_setBool(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasUseSystemRole() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearUseSystemRole() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.String get thinkingParam => $_getSZ(7);
+  @$pb.TagNumber(8)
+  set thinkingParam($core.String value) => $_setString(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasThinkingParam() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearThinkingParam() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.String get thinkingLevelParam => $_getSZ(8);
+  @$pb.TagNumber(9)
+  set thinkingLevelParam($core.String value) => $_setString(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasThinkingLevelParam() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearThinkingLevelParam() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $pb.PbList<$core.String> get thinkingLevels => $_getList(9);
+
+  @$pb.TagNumber(11)
+  $core.String get defaultThinkingLevel => $_getSZ(10);
+  @$pb.TagNumber(11)
+  set defaultThinkingLevel($core.String value) => $_setString(10, value);
+  @$pb.TagNumber(11)
+  $core.bool hasDefaultThinkingLevel() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearDefaultThinkingLevel() => $_clearField(11);
+}
+
+class DashScopeTenantModelProviderData extends $pb.GeneratedMessage {
+  factory DashScopeTenantModelProviderData({
+    $core.String? upstreamModel,
+    $core.String? apiMode,
+    $core.bool? supportJsonOutput,
+    $core.bool? supportToolCalls,
+    $core.bool? supportTextOnly,
+    $core.bool? supportTemperature,
+    $core.bool? supportThinking,
+    $core.bool? useSystemRole,
+    $core.String? thinkingParam,
+    $core.String? thinkingLevelParam,
+    $core.Iterable<$core.String>? thinkingLevels,
+    $core.String? defaultThinkingLevel,
+  }) {
+    final result = create();
+    if (upstreamModel != null) result.upstreamModel = upstreamModel;
+    if (apiMode != null) result.apiMode = apiMode;
+    if (supportJsonOutput != null) result.supportJsonOutput = supportJsonOutput;
+    if (supportToolCalls != null) result.supportToolCalls = supportToolCalls;
+    if (supportTextOnly != null) result.supportTextOnly = supportTextOnly;
+    if (supportTemperature != null)
+      result.supportTemperature = supportTemperature;
+    if (supportThinking != null) result.supportThinking = supportThinking;
+    if (useSystemRole != null) result.useSystemRole = useSystemRole;
+    if (thinkingParam != null) result.thinkingParam = thinkingParam;
+    if (thinkingLevelParam != null)
+      result.thinkingLevelParam = thinkingLevelParam;
+    if (thinkingLevels != null) result.thinkingLevels.addAll(thinkingLevels);
+    if (defaultThinkingLevel != null)
+      result.defaultThinkingLevel = defaultThinkingLevel;
+    return result;
+  }
+
+  DashScopeTenantModelProviderData._();
+
+  factory DashScopeTenantModelProviderData.fromBuffer(
+          $core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DashScopeTenantModelProviderData.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DashScopeTenantModelProviderData',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'upstreamModel')
+    ..aOS(2, _omitFieldNames ? '' : 'apiMode')
+    ..aOB(3, _omitFieldNames ? '' : 'supportJsonOutput')
+    ..aOB(4, _omitFieldNames ? '' : 'supportToolCalls')
+    ..aOB(5, _omitFieldNames ? '' : 'supportTextOnly')
+    ..aOB(6, _omitFieldNames ? '' : 'supportTemperature')
+    ..aOB(7, _omitFieldNames ? '' : 'supportThinking')
+    ..aOB(8, _omitFieldNames ? '' : 'useSystemRole')
+    ..aOS(9, _omitFieldNames ? '' : 'thinkingParam')
+    ..aOS(10, _omitFieldNames ? '' : 'thinkingLevelParam')
+    ..pPS(11, _omitFieldNames ? '' : 'thinkingLevels')
+    ..aOS(12, _omitFieldNames ? '' : 'defaultThinkingLevel')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DashScopeTenantModelProviderData clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DashScopeTenantModelProviderData copyWith(
+          void Function(DashScopeTenantModelProviderData) updates) =>
+      super.copyWith(
+              (message) => updates(message as DashScopeTenantModelProviderData))
+          as DashScopeTenantModelProviderData;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DashScopeTenantModelProviderData create() =>
+      DashScopeTenantModelProviderData._();
+  @$core.override
+  DashScopeTenantModelProviderData createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DashScopeTenantModelProviderData getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DashScopeTenantModelProviderData>(
+          create);
+  static DashScopeTenantModelProviderData? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get upstreamModel => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set upstreamModel($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasUpstreamModel() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearUpstreamModel() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get apiMode => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set apiMode($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasApiMode() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearApiMode() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.bool get supportJsonOutput => $_getBF(2);
+  @$pb.TagNumber(3)
+  set supportJsonOutput($core.bool value) => $_setBool(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasSupportJsonOutput() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearSupportJsonOutput() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.bool get supportToolCalls => $_getBF(3);
+  @$pb.TagNumber(4)
+  set supportToolCalls($core.bool value) => $_setBool(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasSupportToolCalls() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearSupportToolCalls() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.bool get supportTextOnly => $_getBF(4);
+  @$pb.TagNumber(5)
+  set supportTextOnly($core.bool value) => $_setBool(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasSupportTextOnly() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearSupportTextOnly() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.bool get supportTemperature => $_getBF(5);
+  @$pb.TagNumber(6)
+  set supportTemperature($core.bool value) => $_setBool(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasSupportTemperature() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearSupportTemperature() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.bool get supportThinking => $_getBF(6);
+  @$pb.TagNumber(7)
+  set supportThinking($core.bool value) => $_setBool(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasSupportThinking() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearSupportThinking() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.bool get useSystemRole => $_getBF(7);
+  @$pb.TagNumber(8)
+  set useSystemRole($core.bool value) => $_setBool(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasUseSystemRole() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearUseSystemRole() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.String get thinkingParam => $_getSZ(8);
+  @$pb.TagNumber(9)
+  set thinkingParam($core.String value) => $_setString(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasThinkingParam() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearThinkingParam() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $core.String get thinkingLevelParam => $_getSZ(9);
+  @$pb.TagNumber(10)
+  set thinkingLevelParam($core.String value) => $_setString(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasThinkingLevelParam() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearThinkingLevelParam() => $_clearField(10);
+
+  @$pb.TagNumber(11)
+  $pb.PbList<$core.String> get thinkingLevels => $_getList(10);
+
+  @$pb.TagNumber(12)
+  $core.String get defaultThinkingLevel => $_getSZ(11);
+  @$pb.TagNumber(12)
+  set defaultThinkingLevel($core.String value) => $_setString(11, value);
+  @$pb.TagNumber(12)
+  $core.bool hasDefaultThinkingLevel() => $_has(11);
+  @$pb.TagNumber(12)
+  void clearDefaultThinkingLevel() => $_clearField(12);
+}
+
+class VolcTenantModelProviderData extends $pb.GeneratedMessage {
+  factory VolcTenantModelProviderData({
+    $core.String? upstreamModel,
+    $core.String? resourceId,
+    $core.String? apiMode,
+    $core.bool? supportJsonOutput,
+    $core.bool? supportToolCalls,
+    $core.bool? supportTextOnly,
+    $core.bool? supportTemperature,
+    $core.bool? supportThinking,
+    $core.bool? useSystemRole,
+    $core.String? thinkingParam,
+    $core.String? thinkingLevelParam,
+    $core.Iterable<$core.String>? thinkingLevels,
+    $core.String? defaultThinkingLevel,
+  }) {
+    final result = create();
+    if (upstreamModel != null) result.upstreamModel = upstreamModel;
+    if (resourceId != null) result.resourceId = resourceId;
+    if (apiMode != null) result.apiMode = apiMode;
+    if (supportJsonOutput != null) result.supportJsonOutput = supportJsonOutput;
+    if (supportToolCalls != null) result.supportToolCalls = supportToolCalls;
+    if (supportTextOnly != null) result.supportTextOnly = supportTextOnly;
+    if (supportTemperature != null)
+      result.supportTemperature = supportTemperature;
+    if (supportThinking != null) result.supportThinking = supportThinking;
+    if (useSystemRole != null) result.useSystemRole = useSystemRole;
+    if (thinkingParam != null) result.thinkingParam = thinkingParam;
+    if (thinkingLevelParam != null)
+      result.thinkingLevelParam = thinkingLevelParam;
+    if (thinkingLevels != null) result.thinkingLevels.addAll(thinkingLevels);
+    if (defaultThinkingLevel != null)
+      result.defaultThinkingLevel = defaultThinkingLevel;
+    return result;
+  }
+
+  VolcTenantModelProviderData._();
+
+  factory VolcTenantModelProviderData.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory VolcTenantModelProviderData.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'VolcTenantModelProviderData',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'upstreamModel')
+    ..aOS(2, _omitFieldNames ? '' : 'resourceId')
+    ..aOS(3, _omitFieldNames ? '' : 'apiMode')
+    ..aOB(4, _omitFieldNames ? '' : 'supportJsonOutput')
+    ..aOB(5, _omitFieldNames ? '' : 'supportToolCalls')
+    ..aOB(6, _omitFieldNames ? '' : 'supportTextOnly')
+    ..aOB(7, _omitFieldNames ? '' : 'supportTemperature')
+    ..aOB(8, _omitFieldNames ? '' : 'supportThinking')
+    ..aOB(9, _omitFieldNames ? '' : 'useSystemRole')
+    ..aOS(10, _omitFieldNames ? '' : 'thinkingParam')
+    ..aOS(11, _omitFieldNames ? '' : 'thinkingLevelParam')
+    ..pPS(12, _omitFieldNames ? '' : 'thinkingLevels')
+    ..aOS(13, _omitFieldNames ? '' : 'defaultThinkingLevel')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  VolcTenantModelProviderData clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  VolcTenantModelProviderData copyWith(
+          void Function(VolcTenantModelProviderData) updates) =>
+      super.copyWith(
+              (message) => updates(message as VolcTenantModelProviderData))
+          as VolcTenantModelProviderData;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static VolcTenantModelProviderData create() =>
+      VolcTenantModelProviderData._();
+  @$core.override
+  VolcTenantModelProviderData createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static VolcTenantModelProviderData getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<VolcTenantModelProviderData>(create);
+  static VolcTenantModelProviderData? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get upstreamModel => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set upstreamModel($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasUpstreamModel() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearUpstreamModel() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get resourceId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set resourceId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasResourceId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearResourceId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get apiMode => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set apiMode($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasApiMode() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearApiMode() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.bool get supportJsonOutput => $_getBF(3);
+  @$pb.TagNumber(4)
+  set supportJsonOutput($core.bool value) => $_setBool(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasSupportJsonOutput() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearSupportJsonOutput() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.bool get supportToolCalls => $_getBF(4);
+  @$pb.TagNumber(5)
+  set supportToolCalls($core.bool value) => $_setBool(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasSupportToolCalls() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearSupportToolCalls() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.bool get supportTextOnly => $_getBF(5);
+  @$pb.TagNumber(6)
+  set supportTextOnly($core.bool value) => $_setBool(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasSupportTextOnly() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearSupportTextOnly() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.bool get supportTemperature => $_getBF(6);
+  @$pb.TagNumber(7)
+  set supportTemperature($core.bool value) => $_setBool(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasSupportTemperature() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearSupportTemperature() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.bool get supportThinking => $_getBF(7);
+  @$pb.TagNumber(8)
+  set supportThinking($core.bool value) => $_setBool(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasSupportThinking() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearSupportThinking() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.bool get useSystemRole => $_getBF(8);
+  @$pb.TagNumber(9)
+  set useSystemRole($core.bool value) => $_setBool(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasUseSystemRole() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearUseSystemRole() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $core.String get thinkingParam => $_getSZ(9);
+  @$pb.TagNumber(10)
+  set thinkingParam($core.String value) => $_setString(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasThinkingParam() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearThinkingParam() => $_clearField(10);
+
+  @$pb.TagNumber(11)
+  $core.String get thinkingLevelParam => $_getSZ(10);
+  @$pb.TagNumber(11)
+  set thinkingLevelParam($core.String value) => $_setString(10, value);
+  @$pb.TagNumber(11)
+  $core.bool hasThinkingLevelParam() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearThinkingLevelParam() => $_clearField(11);
+
+  @$pb.TagNumber(12)
+  $pb.PbList<$core.String> get thinkingLevels => $_getList(11);
+
+  @$pb.TagNumber(13)
+  $core.String get defaultThinkingLevel => $_getSZ(12);
+  @$pb.TagNumber(13)
+  set defaultThinkingLevel($core.String value) => $_setString(12, value);
+  @$pb.TagNumber(13)
+  $core.bool hasDefaultThinkingLevel() => $_has(12);
+  @$pb.TagNumber(13)
+  void clearDefaultThinkingLevel() => $_clearField(13);
+}
+
+class MiniMaxTenantModelProviderData extends $pb.GeneratedMessage {
+  factory MiniMaxTenantModelProviderData({
+    $core.String? upstreamModel,
+    $core.String? apiMode,
+    $core.bool? supportJsonOutput,
+    $core.bool? supportToolCalls,
+    $core.bool? supportTextOnly,
+    $core.bool? supportTemperature,
+    $core.bool? supportThinking,
+    $core.bool? useSystemRole,
+    $core.String? thinkingParam,
+    $core.String? thinkingLevelParam,
+    $core.Iterable<$core.String>? thinkingLevels,
+    $core.String? defaultThinkingLevel,
+  }) {
+    final result = create();
+    if (upstreamModel != null) result.upstreamModel = upstreamModel;
+    if (apiMode != null) result.apiMode = apiMode;
+    if (supportJsonOutput != null) result.supportJsonOutput = supportJsonOutput;
+    if (supportToolCalls != null) result.supportToolCalls = supportToolCalls;
+    if (supportTextOnly != null) result.supportTextOnly = supportTextOnly;
+    if (supportTemperature != null)
+      result.supportTemperature = supportTemperature;
+    if (supportThinking != null) result.supportThinking = supportThinking;
+    if (useSystemRole != null) result.useSystemRole = useSystemRole;
+    if (thinkingParam != null) result.thinkingParam = thinkingParam;
+    if (thinkingLevelParam != null)
+      result.thinkingLevelParam = thinkingLevelParam;
+    if (thinkingLevels != null) result.thinkingLevels.addAll(thinkingLevels);
+    if (defaultThinkingLevel != null)
+      result.defaultThinkingLevel = defaultThinkingLevel;
+    return result;
+  }
+
+  MiniMaxTenantModelProviderData._();
+
+  factory MiniMaxTenantModelProviderData.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory MiniMaxTenantModelProviderData.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'MiniMaxTenantModelProviderData',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'upstreamModel')
+    ..aOS(2, _omitFieldNames ? '' : 'apiMode')
+    ..aOB(3, _omitFieldNames ? '' : 'supportJsonOutput')
+    ..aOB(4, _omitFieldNames ? '' : 'supportToolCalls')
+    ..aOB(5, _omitFieldNames ? '' : 'supportTextOnly')
+    ..aOB(6, _omitFieldNames ? '' : 'supportTemperature')
+    ..aOB(7, _omitFieldNames ? '' : 'supportThinking')
+    ..aOB(8, _omitFieldNames ? '' : 'useSystemRole')
+    ..aOS(9, _omitFieldNames ? '' : 'thinkingParam')
+    ..aOS(10, _omitFieldNames ? '' : 'thinkingLevelParam')
+    ..pPS(11, _omitFieldNames ? '' : 'thinkingLevels')
+    ..aOS(12, _omitFieldNames ? '' : 'defaultThinkingLevel')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MiniMaxTenantModelProviderData clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MiniMaxTenantModelProviderData copyWith(
+          void Function(MiniMaxTenantModelProviderData) updates) =>
+      super.copyWith(
+              (message) => updates(message as MiniMaxTenantModelProviderData))
+          as MiniMaxTenantModelProviderData;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static MiniMaxTenantModelProviderData create() =>
+      MiniMaxTenantModelProviderData._();
+  @$core.override
+  MiniMaxTenantModelProviderData createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static MiniMaxTenantModelProviderData getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<MiniMaxTenantModelProviderData>(create);
+  static MiniMaxTenantModelProviderData? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get upstreamModel => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set upstreamModel($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasUpstreamModel() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearUpstreamModel() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get apiMode => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set apiMode($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasApiMode() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearApiMode() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.bool get supportJsonOutput => $_getBF(2);
+  @$pb.TagNumber(3)
+  set supportJsonOutput($core.bool value) => $_setBool(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasSupportJsonOutput() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearSupportJsonOutput() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.bool get supportToolCalls => $_getBF(3);
+  @$pb.TagNumber(4)
+  set supportToolCalls($core.bool value) => $_setBool(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasSupportToolCalls() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearSupportToolCalls() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.bool get supportTextOnly => $_getBF(4);
+  @$pb.TagNumber(5)
+  set supportTextOnly($core.bool value) => $_setBool(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasSupportTextOnly() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearSupportTextOnly() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.bool get supportTemperature => $_getBF(5);
+  @$pb.TagNumber(6)
+  set supportTemperature($core.bool value) => $_setBool(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasSupportTemperature() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearSupportTemperature() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.bool get supportThinking => $_getBF(6);
+  @$pb.TagNumber(7)
+  set supportThinking($core.bool value) => $_setBool(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasSupportThinking() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearSupportThinking() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.bool get useSystemRole => $_getBF(7);
+  @$pb.TagNumber(8)
+  set useSystemRole($core.bool value) => $_setBool(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasUseSystemRole() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearUseSystemRole() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.String get thinkingParam => $_getSZ(8);
+  @$pb.TagNumber(9)
+  set thinkingParam($core.String value) => $_setString(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasThinkingParam() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearThinkingParam() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $core.String get thinkingLevelParam => $_getSZ(9);
+  @$pb.TagNumber(10)
+  set thinkingLevelParam($core.String value) => $_setString(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasThinkingLevelParam() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearThinkingLevelParam() => $_clearField(10);
+
+  @$pb.TagNumber(11)
+  $pb.PbList<$core.String> get thinkingLevels => $_getList(10);
+
+  @$pb.TagNumber(12)
+  $core.String get defaultThinkingLevel => $_getSZ(11);
+  @$pb.TagNumber(12)
+  set defaultThinkingLevel($core.String value) => $_setString(11, value);
+  @$pb.TagNumber(12)
+  $core.bool hasDefaultThinkingLevel() => $_has(11);
+  @$pb.TagNumber(12)
+  void clearDefaultThinkingLevel() => $_clearField(12);
+}
+
+class DeepSeekTenantModelProviderData extends $pb.GeneratedMessage {
+  factory DeepSeekTenantModelProviderData({
+    $core.String? upstreamModel,
+    $core.String? apiMode,
+    $core.bool? supportJsonOutput,
+    $core.bool? supportToolCalls,
+    $core.bool? supportTextOnly,
+    $core.bool? supportTemperature,
+    $core.bool? supportThinking,
+    $core.bool? useSystemRole,
+    $core.String? thinkingParam,
+    $core.String? thinkingLevelParam,
+    $core.Iterable<$core.String>? thinkingLevels,
+    $core.String? defaultThinkingLevel,
+  }) {
+    final result = create();
+    if (upstreamModel != null) result.upstreamModel = upstreamModel;
+    if (apiMode != null) result.apiMode = apiMode;
+    if (supportJsonOutput != null) result.supportJsonOutput = supportJsonOutput;
+    if (supportToolCalls != null) result.supportToolCalls = supportToolCalls;
+    if (supportTextOnly != null) result.supportTextOnly = supportTextOnly;
+    if (supportTemperature != null)
+      result.supportTemperature = supportTemperature;
+    if (supportThinking != null) result.supportThinking = supportThinking;
+    if (useSystemRole != null) result.useSystemRole = useSystemRole;
+    if (thinkingParam != null) result.thinkingParam = thinkingParam;
+    if (thinkingLevelParam != null)
+      result.thinkingLevelParam = thinkingLevelParam;
+    if (thinkingLevels != null) result.thinkingLevels.addAll(thinkingLevels);
+    if (defaultThinkingLevel != null)
+      result.defaultThinkingLevel = defaultThinkingLevel;
+    return result;
+  }
+
+  DeepSeekTenantModelProviderData._();
+
+  factory DeepSeekTenantModelProviderData.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeepSeekTenantModelProviderData.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeepSeekTenantModelProviderData',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'upstreamModel')
+    ..aOS(2, _omitFieldNames ? '' : 'apiMode')
+    ..aOB(3, _omitFieldNames ? '' : 'supportJsonOutput')
+    ..aOB(4, _omitFieldNames ? '' : 'supportToolCalls')
+    ..aOB(5, _omitFieldNames ? '' : 'supportTextOnly')
+    ..aOB(6, _omitFieldNames ? '' : 'supportTemperature')
+    ..aOB(7, _omitFieldNames ? '' : 'supportThinking')
+    ..aOB(8, _omitFieldNames ? '' : 'useSystemRole')
+    ..aOS(9, _omitFieldNames ? '' : 'thinkingParam')
+    ..aOS(10, _omitFieldNames ? '' : 'thinkingLevelParam')
+    ..pPS(11, _omitFieldNames ? '' : 'thinkingLevels')
+    ..aOS(12, _omitFieldNames ? '' : 'defaultThinkingLevel')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeepSeekTenantModelProviderData clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeepSeekTenantModelProviderData copyWith(
+          void Function(DeepSeekTenantModelProviderData) updates) =>
+      super.copyWith(
+              (message) => updates(message as DeepSeekTenantModelProviderData))
+          as DeepSeekTenantModelProviderData;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeepSeekTenantModelProviderData create() =>
+      DeepSeekTenantModelProviderData._();
+  @$core.override
+  DeepSeekTenantModelProviderData createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeepSeekTenantModelProviderData getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeepSeekTenantModelProviderData>(
+          create);
+  static DeepSeekTenantModelProviderData? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get upstreamModel => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set upstreamModel($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasUpstreamModel() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearUpstreamModel() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get apiMode => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set apiMode($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasApiMode() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearApiMode() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.bool get supportJsonOutput => $_getBF(2);
+  @$pb.TagNumber(3)
+  set supportJsonOutput($core.bool value) => $_setBool(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasSupportJsonOutput() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearSupportJsonOutput() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.bool get supportToolCalls => $_getBF(3);
+  @$pb.TagNumber(4)
+  set supportToolCalls($core.bool value) => $_setBool(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasSupportToolCalls() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearSupportToolCalls() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.bool get supportTextOnly => $_getBF(4);
+  @$pb.TagNumber(5)
+  set supportTextOnly($core.bool value) => $_setBool(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasSupportTextOnly() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearSupportTextOnly() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.bool get supportTemperature => $_getBF(5);
+  @$pb.TagNumber(6)
+  set supportTemperature($core.bool value) => $_setBool(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasSupportTemperature() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearSupportTemperature() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.bool get supportThinking => $_getBF(6);
+  @$pb.TagNumber(7)
+  set supportThinking($core.bool value) => $_setBool(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasSupportThinking() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearSupportThinking() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.bool get useSystemRole => $_getBF(7);
+  @$pb.TagNumber(8)
+  set useSystemRole($core.bool value) => $_setBool(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasUseSystemRole() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearUseSystemRole() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.String get thinkingParam => $_getSZ(8);
+  @$pb.TagNumber(9)
+  set thinkingParam($core.String value) => $_setString(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasThinkingParam() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearThinkingParam() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $core.String get thinkingLevelParam => $_getSZ(9);
+  @$pb.TagNumber(10)
+  set thinkingLevelParam($core.String value) => $_setString(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasThinkingLevelParam() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearThinkingLevelParam() => $_clearField(10);
+
+  @$pb.TagNumber(11)
+  $pb.PbList<$core.String> get thinkingLevels => $_getList(10);
+
+  @$pb.TagNumber(12)
+  $core.String get defaultThinkingLevel => $_getSZ(11);
+  @$pb.TagNumber(12)
+  set defaultThinkingLevel($core.String value) => $_setString(11, value);
+  @$pb.TagNumber(12)
+  $core.bool hasDefaultThinkingLevel() => $_has(11);
+  @$pb.TagNumber(12)
+  void clearDefaultThinkingLevel() => $_clearField(12);
 }
 
 class ModelGetRequest extends $pb.GeneratedMessage {
@@ -4225,103 +5351,6 @@ class ModelListResponse extends $pb.GeneratedMessage {
   $core.bool hasRuntimeProfileRevision() => $_has(4);
   @$pb.TagNumber(5)
   void clearRuntimeProfileRevision() => $_clearField(5);
-}
-
-class ModelThinkingCapability extends $pb.GeneratedMessage {
-  factory ModelThinkingCapability({
-    $core.String? defaultLevel,
-    $core.String? levelParam,
-    $core.Iterable<$core.String>? levels,
-    $core.String? param,
-    $core.bool? supported,
-  }) {
-    final result = create();
-    if (defaultLevel != null) result.defaultLevel = defaultLevel;
-    if (levelParam != null) result.levelParam = levelParam;
-    if (levels != null) result.levels.addAll(levels);
-    if (param != null) result.param = param;
-    if (supported != null) result.supported = supported;
-    return result;
-  }
-
-  ModelThinkingCapability._();
-
-  factory ModelThinkingCapability.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory ModelThinkingCapability.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'ModelThinkingCapability',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'defaultLevel')
-    ..aOS(2, _omitFieldNames ? '' : 'levelParam')
-    ..pPS(3, _omitFieldNames ? '' : 'levels')
-    ..aOS(4, _omitFieldNames ? '' : 'param')
-    ..aOB(5, _omitFieldNames ? '' : 'supported')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ModelThinkingCapability clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ModelThinkingCapability copyWith(
-          void Function(ModelThinkingCapability) updates) =>
-      super.copyWith((message) => updates(message as ModelThinkingCapability))
-          as ModelThinkingCapability;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static ModelThinkingCapability create() => ModelThinkingCapability._();
-  @$core.override
-  ModelThinkingCapability createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static ModelThinkingCapability getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ModelThinkingCapability>(create);
-  static ModelThinkingCapability? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.String get defaultLevel => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set defaultLevel($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasDefaultLevel() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearDefaultLevel() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.String get levelParam => $_getSZ(1);
-  @$pb.TagNumber(2)
-  set levelParam($core.String value) => $_setString(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasLevelParam() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearLevelParam() => $_clearField(2);
-
-  @$pb.TagNumber(3)
-  $pb.PbList<$core.String> get levels => $_getList(2);
-
-  @$pb.TagNumber(4)
-  $core.String get param => $_getSZ(3);
-  @$pb.TagNumber(4)
-  set param($core.String value) => $_setString(3, value);
-  @$pb.TagNumber(4)
-  $core.bool hasParam() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearParam() => $_clearField(4);
-
-  @$pb.TagNumber(5)
-  $core.bool get supported => $_getBF(4);
-  @$pb.TagNumber(5)
-  set supported($core.bool value) => $_setBool(4, value);
-  @$pb.TagNumber(5)
-  $core.bool hasSupported() => $_has(4);
-  @$pb.TagNumber(5)
-  void clearSupported() => $_clearField(5);
 }
 
 class Voice extends $pb.GeneratedMessage {

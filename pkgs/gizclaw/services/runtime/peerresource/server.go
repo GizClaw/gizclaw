@@ -931,15 +931,82 @@ func (s *Server) handleModelGet(ctx context.Context, req *rpcapi.RPCRequest) *rp
 }
 
 func modelRPCProjection(alias string, binding apitypes.RuntimeProfileBinding, item apitypes.Model) (rpcapi.Model, error) {
-	out := rpcapi.Model{Alias: alias, I18n: bindingI18n(binding), Kind: rpcapi.ModelKind(item.Kind)}
-	if item.Capabilities != nil {
-		capabilities, err := convertType[rpcapi.ModelCapabilities](*item.Capabilities)
+	if err := model.ValidateProviderData(item.Kind, item.Provider.Kind, item.ProviderData); err != nil {
+		return rpcapi.Model{}, fmt.Errorf("invalid model provider data: %w", err)
+	}
+	out := rpcapi.Model{
+		Alias:        alias,
+		I18n:         bindingI18n(binding),
+		Kind:         rpcapi.ModelKind(item.Kind),
+		ProviderKind: rpcapi.ModelProviderKind(item.Provider.Kind),
+	}
+	switch item.Provider.Kind {
+	case apitypes.ModelProviderKindOpenaiTenant:
+		value, err := item.ProviderData.AsOpenAITenantModelProviderData()
 		if err != nil {
 			return rpcapi.Model{}, err
 		}
-		out.Capabilities = &capabilities
+		out.OpenAITenant, err = ptrConvertType[rpcapi.OpenAITenantModelProviderData](value)
+		if err != nil {
+			return rpcapi.Model{}, err
+		}
+	case apitypes.ModelProviderKindGeminiTenant:
+		value, err := item.ProviderData.AsGeminiTenantModelProviderData()
+		if err != nil {
+			return rpcapi.Model{}, err
+		}
+		out.GeminiTenant, err = ptrConvertType[rpcapi.GeminiTenantModelProviderData](value)
+		if err != nil {
+			return rpcapi.Model{}, err
+		}
+	case apitypes.ModelProviderKindDashscopeTenant:
+		value, err := item.ProviderData.AsDashScopeTenantModelProviderData()
+		if err != nil {
+			return rpcapi.Model{}, err
+		}
+		out.DashScopeTenant, err = ptrConvertType[rpcapi.DashScopeTenantModelProviderData](value)
+		if err != nil {
+			return rpcapi.Model{}, err
+		}
+	case apitypes.ModelProviderKindVolcTenant:
+		value, err := item.ProviderData.AsVolcTenantModelProviderData()
+		if err != nil {
+			return rpcapi.Model{}, err
+		}
+		out.VolcTenant, err = ptrConvertType[rpcapi.VolcTenantModelProviderData](value)
+		if err != nil {
+			return rpcapi.Model{}, err
+		}
+	case apitypes.ModelProviderKindMinimaxTenant:
+		value, err := item.ProviderData.AsMiniMaxTenantModelProviderData()
+		if err != nil {
+			return rpcapi.Model{}, err
+		}
+		out.MiniMaxTenant, err = ptrConvertType[rpcapi.MiniMaxTenantModelProviderData](value)
+		if err != nil {
+			return rpcapi.Model{}, err
+		}
+	case apitypes.ModelProviderKindDeepseekTenant:
+		value, err := item.ProviderData.AsDeepSeekTenantModelProviderData()
+		if err != nil {
+			return rpcapi.Model{}, err
+		}
+		out.DeepSeekTenant, err = ptrConvertType[rpcapi.DeepSeekTenantModelProviderData](value)
+		if err != nil {
+			return rpcapi.Model{}, err
+		}
+	default:
+		return rpcapi.Model{}, fmt.Errorf("unsupported model provider kind %q", item.Provider.Kind)
 	}
 	return out, nil
+}
+
+func ptrConvertType[T any](value any) (*T, error) {
+	converted, err := convertType[T](value)
+	if err != nil {
+		return nil, err
+	}
+	return &converted, nil
 }
 
 func (s *Server) handleVoiceList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {

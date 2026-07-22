@@ -28,6 +28,7 @@
           "FriendGroupMember",
           "Model",
           "DashScopeTenant",
+          "DeepSeekTenant",
           "GeminiTenant",
           "MiniMaxTenant",
           "OpenAITenant",
@@ -102,6 +103,9 @@
             "$ref": "./dashscope_tenant.json#/components/schemas/DashScopeTenantResource"
           },
           {
+            "$ref": "./deepseek_tenant.json#/components/schemas/DeepSeekTenantResource"
+          },
+          {
             "$ref": "./gemini_tenant.json#/components/schemas/GeminiTenantResource"
           },
           {
@@ -155,6 +159,7 @@
             "FriendGroupInviteToken": "./friend_group_invite_token.json#/components/schemas/FriendGroupInviteTokenResource",
             "FriendGroupMember": "./friend_group_member.json#/components/schemas/FriendGroupMemberResource",
             "DashScopeTenant": "./dashscope_tenant.json#/components/schemas/DashScopeTenantResource",
+            "DeepSeekTenant": "./deepseek_tenant.json#/components/schemas/DeepSeekTenantResource",
             "GeminiTenant": "./gemini_tenant.json#/components/schemas/GeminiTenantResource",
             "Model": "./model.json#/components/schemas/ModelResource",
             "MiniMaxTenant": "./minimax_tenant.json#/components/schemas/MiniMaxTenantResource",

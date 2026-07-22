@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net"
+	"reflect"
 	"testing"
 	"time"
 
@@ -83,6 +84,86 @@ func TestFrameRequestResponseRoundTrip(t *testing.T) {
 	if gotRespResult.ServerTime != 456 {
 		t.Fatalf("AsPingResponse().ServerTime = %d", gotRespResult.ServerTime)
 	}
+}
+
+func TestModelProviderDataOneofRoundTripAndRejectsMultipleValues(t *testing.T) {
+	deepSeek := &DeepSeekTenantModelProviderData{
+		ApiMode:       DeepSeekTenantModelProviderDataApiModeChatCompletions,
+		UpstreamModel: "deepseek-chat",
+	}
+	response := ModelGetResponse{Value: Model{
+		Alias:          "chat",
+		Kind:           ModelKindLlm,
+		ProviderKind:   ModelProviderKindDeepseekTenant,
+		DeepSeekTenant: deepSeek,
+	}}
+	var payload RPCPayload
+	if err := payload.FromModelGetResponse(response); err != nil {
+		t.Fatalf("FromModelGetResponse() error = %v", err)
+	}
+	decoded, err := payload.AsModelGetResponse()
+	if err != nil {
+		t.Fatalf("AsModelGetResponse() error = %v", err)
+	}
+	if decoded.Value.ProviderKind != ModelProviderKindDeepseekTenant || decoded.Value.DeepSeekTenant == nil || decoded.Value.DeepSeekTenant.UpstreamModel != "deepseek-chat" || decoded.Value.OpenAITenant != nil {
+		t.Fatalf("AsModelGetResponse() = %#v", decoded)
+	}
+	dashScopeMode := DashScopeTenantModelProviderDataApiModeChatCompletions
+	dashScopeResponse := ModelGetResponse{Value: Model{
+		Alias:        "qwen",
+		Kind:         ModelKindLlm,
+		ProviderKind: ModelProviderKindDashscopeTenant,
+		DashScopeTenant: &DashScopeTenantModelProviderData{
+			ApiMode:       &dashScopeMode,
+			UpstreamModel: stringPtr("qwen-plus"),
+		},
+	}}
+	if err := payload.FromModelGetResponse(dashScopeResponse); err != nil {
+		t.Fatalf("FromModelGetResponse(DashScope) error = %v", err)
+	}
+	dashScopeDecoded, err := payload.AsModelGetResponse()
+	if err != nil {
+		t.Fatalf("AsModelGetResponse(DashScope) error = %v", err)
+	}
+	if dashScopeDecoded.Value.DashScopeTenant == nil || dashScopeDecoded.Value.DashScopeTenant.ApiMode == nil || *dashScopeDecoded.Value.DashScopeTenant.ApiMode != dashScopeMode {
+		t.Fatalf("AsModelGetResponse(DashScope) lost api_mode: %#v", dashScopeDecoded)
+	}
+
+	response.Value.OpenAITenant = &OpenAITenantModelProviderData{UpstreamModel: stringPtr("gpt-test")}
+	if err := payload.FromModelGetResponse(response); err == nil {
+		t.Fatal("FromModelGetResponse() accepted multiple provider_data oneof values")
+	}
+
+	response.Value.DeepSeekTenant = nil
+	if err := payload.FromModelGetResponse(response); err == nil {
+		t.Fatal("FromModelGetResponse() accepted provider_kind that does not match provider_data")
+	}
+
+	var decodedModel Model
+	mismatchedProto := &rpcpb.Model{
+		ProviderKind: rpcpb.ModelProviderKind_MODEL_PROVIDER_KIND_DEEPSEEK_TENANT,
+		ProviderData: &rpcpb.Model_OpenaiTenant{
+			OpenaiTenant: &rpcpb.OpenAITenantModelProviderData{UpstreamModel: stringPtr("gpt-test")},
+		},
+	}
+	if err := fillGoValueFromProto(reflect.ValueOf(&decodedModel), mismatchedProto.ProtoReflect(), decodeRPCPayloadOptions{}); err == nil {
+		t.Fatal("fillGoValueFromProto() accepted provider_kind that does not match provider_data")
+	}
+}
+
+func TestModelRetiredCapabilitiesTagRemainsReserved(t *testing.T) {
+	descriptor := (&rpcpb.Model{}).ProtoReflect().Descriptor()
+	providerKind := descriptor.Fields().ByName("provider_kind")
+	if providerKind == nil || providerKind.Number() != 11 {
+		t.Fatalf("Model.provider_kind field = %v, want tag 11", providerKind)
+	}
+	for i := 0; i < descriptor.ReservedRanges().Len(); i++ {
+		reserved := descriptor.ReservedRanges().Get(i)
+		if reserved[0] <= 4 && 4 < reserved[1] {
+			return
+		}
+	}
+	t.Fatal("Model tag 4 is not reserved after removing capabilities")
 }
 
 func TestEncodeRPCResponseRejectsResultWithoutMethod(t *testing.T) {
@@ -545,6 +626,34 @@ func TestRPCMethodValid(t *testing.T) {
 	}
 	if RPCErrorCode(418).Valid() {
 		t.Fatal("unknown RPC error code should be invalid")
+	}
+}
+
+func TestVolcTenantModelProviderDataAPIModesStayComplete(t *testing.T) {
+	for _, mode := range []VolcTenantModelProviderDataApiMode{
+		VolcTenantModelProviderDataApiModeAsr,
+		VolcTenantModelProviderDataApiModeChatCompletions,
+		VolcTenantModelProviderDataApiModeEmbedding,
+		VolcTenantModelProviderDataApiModeRealtime,
+		VolcTenantModelProviderDataApiModeTranslation,
+		VolcTenantModelProviderDataApiModeTts,
+	} {
+		if !mode.Valid() {
+			t.Fatalf("Volc API mode %q should be valid", mode)
+		}
+	}
+	if VolcTenantModelProviderDataApiMode("unknown").Valid() {
+		t.Fatal("unknown Volc API mode should be invalid")
+	}
+
+	for _, name := range []string{
+		"VOLC_TENANT_MODEL_PROVIDER_DATA_API_MODE_CHAT_COMPLETIONS",
+		"VOLC_TENANT_MODEL_PROVIDER_DATA_API_MODE_TRANSLATION",
+		"VOLC_TENANT_MODEL_PROVIDER_DATA_API_MODE_EMBEDDING",
+	} {
+		if _, ok := rpcpb.VolcTenantModelProviderDataApiMode_value[name]; !ok {
+			t.Fatalf("protobuf Volc API mode %q is missing", name)
+		}
 	}
 }
 

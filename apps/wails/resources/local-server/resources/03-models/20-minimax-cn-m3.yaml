@@ -7,17 +7,16 @@ spec:
   kind: llm
   source: manual
   provider:
-    kind: openai-tenant
-    name: minimax-cn-openai
+    kind: minimax-tenant
+    name: minimax-cn
   name: MiniMax M3 CN
-  description: MiniMax M3 through the CN OpenAI-compatible API
-  capabilities:
-    system_role: true
-    temperature: true
-    text_only: true
-    tool_calls: true
+  description: MiniMax M3 through the CN chat completions API
   provider_data:
+    api_mode: chat_completions
     upstream_model: MiniMax-M3
+    support_json_output: false
     support_text_only: true
+    support_temperature: true
+    support_thinking: false
     support_tool_calls: true
     use_system_role: true

@@ -45,6 +45,7 @@ type FieldDesc = {
   optionalRepeated?: boolean;
   mapValue?: string;
   oneof?: boolean;
+  oneofGroup?: string;
   optional?: boolean;
 };
 
@@ -115,9 +116,18 @@ function encodeMessage(type: string, value: unknown, parent: Record<string, unkn
     return writer.finish();
   }
   const object = messageObjectForEncode(type, value);
+  validateDiscriminatedOneofs(type, desc, object);
+  const encodedOneofs = new Set<string>();
   for (const field of fields) {
     if (field.oneof) {
-      continue;
+      if (!Object.prototype.hasOwnProperty.call(object, field.name) || object[field.name] == null) {
+        continue;
+      }
+      const oneofGroup = field.oneofGroup ?? "";
+      if (encodedOneofs.has(oneofGroup)) {
+        throw new Error(\`protobuf message \${type} has multiple oneof values\`);
+      }
+      encodedOneofs.add(oneofGroup);
     }
     if (!Object.prototype.hasOwnProperty.call(object, field.name)) {
       continue;
@@ -146,11 +156,32 @@ function decodeMessage(type: string, payload: Uint8Array): unknown {
     }
     return {};
   }
-  return withMessageDefaults(desc, values);
+  const object = withMessageDefaults(desc, values);
+  validateDiscriminatedOneofs(type, desc, object);
+  return object;
 }
 
 function messageObjectForEncode(type: string, value: unknown): Record<string, unknown> {
   return asRecord(value, type);
+}
+
+function validateDiscriminatedOneofs(type: string, desc: MessageDesc, object: Record<string, unknown>): void {
+  if (type !== "Model") {
+    return;
+  }
+  const providerKind = discriminatorString(type, "provider_kind", object.provider_kind);
+  const expected = providerKind == null ? undefined : oneofDiscriminatorFieldName(type, providerKind);
+  const selected = desc.fields.filter((field) => field.oneofGroup === "provider_data" && object[field.name] != null);
+  if (selected.length > 1) {
+    throw new Error("protobuf message Model has multiple oneof values");
+  }
+  if (expected == null) {
+    throw new Error(\`protobuf message Model provider_kind \${JSON.stringify(providerKind ?? "")} does not select a supported provider_data field\`);
+  }
+  if (selected.length !== 1 || selected[0]?.name !== expected) {
+    const actual = selected.length === 1 ? selected[0]?.name : selected.length === 0 ? "none" : selected.map((field) => field.name).join(", ");
+    throw new Error(\`protobuf message Model provider_kind \${JSON.stringify(providerKind)} requires provider_data field \${expected}, got \${actual}\`);
+  }
 }
 
 function decodeMessageFields(desc: MessageDesc, payload: Uint8Array): Record<string, unknown> {
@@ -319,7 +350,8 @@ function singleValueField(desc: MessageDesc): FieldDesc | undefined {
 }
 
 function isOneofValueWrapper(desc: MessageDesc): boolean {
-  return desc.fields.length > 0 && desc.fields.every((field) => field.oneof === true);
+  const group = desc.fields[0]?.oneofGroup;
+  return group != null && desc.fields.every((field) => field.oneofGroup === group);
 }
 
 function withMessageDefaults(desc: MessageDesc, values: Record<string, unknown>): Record<string, unknown> {
@@ -453,6 +485,9 @@ function oneofDiscriminatorKey(type: string): string | undefined {
 }
 
 function oneofDiscriminatorEnumType(type: string, field: string): string | undefined {
+  if (type === "Model" && field === "provider_kind") {
+    return "ModelProviderKind";
+  }
   if ((type === "ModelProviderData" || type === "VoiceProviderData") && field === "provider.kind") {
     return type === "ModelProviderData" ? "ModelProviderKind" : "VoiceProviderKind";
   }
@@ -461,6 +496,15 @@ function oneofDiscriminatorEnumType(type: string, field: string): string | undef
 
 function oneofDiscriminatorFieldName(type: string, discriminator: string): string | undefined {
   switch (type) {
+    case "Model":
+      return ({
+        "openai-tenant": "openai_tenant",
+        "gemini-tenant": "gemini_tenant",
+        "dashscope-tenant": "dashscope_tenant",
+        "volc-tenant": "volc_tenant",
+        "minimax-tenant": "minimax_tenant",
+        "deepseek-tenant": "deepseek_tenant",
+      } as Record<string, string>)[discriminator];
     case "CredentialBody":
       return ({
         "openai": "open_aicredential_body",
@@ -916,7 +960,7 @@ function parsePayloadProto(proto) {
   const enums = {};
   let currentMessage = null;
   let currentEnum = null;
-  let inOneof = false;
+  let currentOneof = null;
 
   for (const line of lines) {
     const enumStart = /^\s*enum\s+(\w+)\s*\{/.exec(line);
@@ -945,20 +989,21 @@ function parsePayloadProto(proto) {
     if (currentMessage == null) {
       continue;
     }
-    if (/^\s*oneof\s+value\s*\{/.test(line)) {
-      inOneof = true;
+    const oneofStart = /^\s*oneof\s+(\w+)\s*\{/.exec(line);
+    if (oneofStart != null) {
+      currentOneof = oneofStart[1];
       continue;
     }
     if (/^\s*\}/.test(line)) {
-      if (inOneof) {
-        inOneof = false;
+      if (currentOneof != null) {
+        currentOneof = null;
         continue;
       }
       messages[currentMessage.name] = { fields: currentMessage.fields };
       currentMessage = null;
       continue;
     }
-    const field = parseField(line, inOneof, currentMessage.name);
+    const field = parseField(line, currentOneof, currentMessage.name);
     if (field != null) {
       currentMessage.fields.push(field);
     }
@@ -966,7 +1011,7 @@ function parsePayloadProto(proto) {
   return { messages, enums };
 }
 
-function parseField(line, oneof, messageName) {
+function parseField(line, oneofGroup, messageName) {
   const map = /^\s*map<\s*string\s*,\s*([\w.]+)\s*>\s+(\w+)\s*=\s*(\d+)\s*(?:\[([^\]]*)\])?\s*;/.exec(line);
   if (map != null) {
     const name = fieldJSONName(map[2], map[4]);
@@ -976,7 +1021,7 @@ function parseField(line, oneof, messageName) {
       type: "map",
       mapValue: map[1],
       ...(OPTIONAL_MAP_FIELDS.has(`${messageName}.${name}`) ? { optional: true } : {}),
-      ...(oneof ? { oneof: true } : {}),
+      ...(oneofGroup != null ? { oneof: true, oneofGroup } : {}),
     };
   }
   const match = /^\s*(optional\s+|repeated\s+)?([\w.]+)\s+(\w+)\s*=\s*(\d+)\s*(?:\[([^\]]*)\])?\s*;/.exec(line);
@@ -992,7 +1037,7 @@ function parseField(line, oneof, messageName) {
     ...(repeated ? { repeated: true } : {}),
     ...(repeated && OPTIONAL_REPEATED_FIELDS.has(`${messageName}.${name}`) ? { optionalRepeated: true } : {}),
     ...(match[1]?.trim() === "optional" ? { optional: true } : {}),
-    ...(oneof ? { oneof: true } : {}),
+    ...(oneofGroup != null ? { oneof: true, oneofGroup } : {}),
   };
 }
 
@@ -1024,7 +1069,7 @@ function messageTypeExpression(name, parsed) {
   if (single != null) {
     return tsFieldType(single, parsed);
   }
-  if (desc.fields.length > 0 && desc.fields.every((field) => field.oneof === true)) {
+  if (hasSingleOneofGroup(desc)) {
     return desc.fields.map((field) => tsFieldType(field, parsed)).join(" | ") || "Record<string, never>";
   }
   if (desc.fields.length === 0) {
@@ -1032,14 +1077,16 @@ function messageTypeExpression(name, parsed) {
   }
   const lines = ["{"];
   for (const field of desc.fields) {
-    if (field.oneof === true) {
-      continue;
-    }
     const optional = tsFieldOptional(field, parsed) ? "?" : "";
     lines.push(`  ${JSON.stringify(field.name)}${optional}: ${tsFieldType(field, parsed)};`);
   }
   lines.push("}");
   return lines.join("\n");
+}
+
+function hasSingleOneofGroup(desc) {
+  const group = desc.fields[0]?.oneofGroup;
+  return group != null && desc.fields.every((field) => field.oneofGroup === group);
 }
 
 function singleValueTypeField(desc) {
@@ -1126,6 +1173,7 @@ function enumJSONValue(name) {
     "AST_TRANSLATE": "ast-translate",
     "DASH_SCOPE_TENANT": "dashscope-tenant",
     "DASHSCOPE_TENANT": "dashscope-tenant",
+    "DEEPSEEK_TENANT": "deepseek-tenant",
     "DOUBAO_REALTIME": "doubao-realtime",
     "EDGE_NODE": "edge-node",
     "GEMINI_TENANT": "gemini-tenant",

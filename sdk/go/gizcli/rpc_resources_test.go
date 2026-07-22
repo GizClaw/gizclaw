@@ -52,7 +52,7 @@ func TestRPCResourceClientWrappers(t *testing.T) {
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerModelList, rpcapi.ModelListResponse{}, (*rpcapi.RPCPayload).FromModelListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ModelListResponse, error) {
 			return client.ListModels(ctx, conn, "model-list", rpcapi.ModelListRequest{})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerModelGet, rpcapi.ModelGetResponse{}, (*rpcapi.RPCPayload).FromModelGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ModelGetResponse, error) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerModelGet, rpcapi.ModelGetResponse{Value: resourceModel("llm")}, (*rpcapi.RPCPayload).FromModelGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ModelGetResponse, error) {
 			return client.GetModel(ctx, conn, "model-get", rpcapi.ModelGetRequest{Alias: "llm"})
 		})
 	})
@@ -451,6 +451,8 @@ func resourceWorkflowDoc(alias string) rpcapi.WorkflowGetResponse {
 func resourceModel(alias string) rpcapi.Model {
 	return rpcapi.Model{
 		Alias: alias, Kind: rpcapi.ModelKindLlm,
-		I18n: map[string]rpcapi.AliasI18nText{"en": {DisplayName: alias}, "zh-CN": {DisplayName: alias}},
+		I18n:         map[string]rpcapi.AliasI18nText{"en": {DisplayName: alias}, "zh-CN": {DisplayName: alias}},
+		ProviderKind: rpcapi.ModelProviderKindOpenaiTenant,
+		OpenAITenant: &rpcapi.OpenAITenantModelProviderData{},
 	}
 }

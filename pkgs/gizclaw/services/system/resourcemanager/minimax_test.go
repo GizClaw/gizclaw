@@ -211,10 +211,10 @@ func TestDeleteVolcTenantDeletesAndReturnsResource(t *testing.T) {
 func TestDeleteMiniMaxTenantDeletesAndReturnsResource(t *testing.T) {
 	minimax := newFakeMiniMax()
 	minimax.tenants["main"] = apitypes.MiniMaxTenant{
-		AppId:          "new-app",
+		AppId:          stringPtr("new-app"),
 		CreatedAt:      time.Now().UTC(),
 		CredentialName: "minimax-main",
-		GroupId:        "group",
+		GroupId:        stringPtr("group"),
 		Name:           "main",
 		UpdatedAt:      time.Now().UTC(),
 	}
@@ -239,10 +239,10 @@ func TestDeleteMiniMaxTenantDeletesAndReturnsResource(t *testing.T) {
 func TestGetMiniMaxTenantReturnsResource(t *testing.T) {
 	minimax := newFakeMiniMax()
 	minimax.tenants["main"] = apitypes.MiniMaxTenant{
-		AppId:          "old-app",
+		AppId:          stringPtr("old-app"),
 		CreatedAt:      time.Now().UTC(),
 		CredentialName: "minimax-main",
-		GroupId:        "group",
+		GroupId:        stringPtr("group"),
 		Name:           "main",
 		UpdatedAt:      time.Now().UTC(),
 	}
@@ -267,10 +267,10 @@ func TestGetMiniMaxTenantReturnsResource(t *testing.T) {
 func TestApplyMiniMaxTenantUnchangedSkipsPut(t *testing.T) {
 	minimax := newFakeMiniMax()
 	minimax.tenants["main"] = apitypes.MiniMaxTenant{
-		AppId:          "new-app",
+		AppId:          stringPtr("new-app"),
 		CreatedAt:      time.Now().UTC(),
 		CredentialName: "minimax-main",
-		GroupId:        "group",
+		GroupId:        stringPtr("group"),
 		Name:           "main",
 		UpdatedAt:      time.Now().UTC(),
 	}
@@ -302,7 +302,7 @@ func TestApplyMiniMaxTenantUpdatesResource(t *testing.T) {
 	minimax.tenants["main"] = apitypes.MiniMaxTenant{
 		CreatedAt:      time.Now().UTC(),
 		CredentialName: "minimax-main",
-		GroupId:        "group",
+		GroupId:        stringPtr("group"),
 		Name:           "main",
 		UpdatedAt:      time.Now().UTC(),
 	}
@@ -628,6 +628,26 @@ func newFakeMiniMax() *fakeMiniMax {
 }
 
 func (f *fakeMiniMax) ListMiniMaxTenants(context.Context, adminhttp.ListMiniMaxTenantsRequestObject) (adminhttp.ListMiniMaxTenantsResponseObject, error) {
+	return nil, nil
+}
+
+func (f *fakeMiniMax) CreateDeepSeekTenant(context.Context, adminhttp.CreateDeepSeekTenantRequestObject) (adminhttp.CreateDeepSeekTenantResponseObject, error) {
+	return nil, nil
+}
+
+func (f *fakeMiniMax) ListDeepSeekTenants(context.Context, adminhttp.ListDeepSeekTenantsRequestObject) (adminhttp.ListDeepSeekTenantsResponseObject, error) {
+	return nil, nil
+}
+
+func (f *fakeMiniMax) DeleteDeepSeekTenant(context.Context, adminhttp.DeleteDeepSeekTenantRequestObject) (adminhttp.DeleteDeepSeekTenantResponseObject, error) {
+	return nil, nil
+}
+
+func (f *fakeMiniMax) GetDeepSeekTenant(context.Context, adminhttp.GetDeepSeekTenantRequestObject) (adminhttp.GetDeepSeekTenantResponseObject, error) {
+	return nil, nil
+}
+
+func (f *fakeMiniMax) PutDeepSeekTenant(context.Context, adminhttp.PutDeepSeekTenantRequestObject) (adminhttp.PutDeepSeekTenantResponseObject, error) {
 	return nil, nil
 }
 

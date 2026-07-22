@@ -15,6 +15,29 @@ import 'dart:convert' as $convert;
 import 'dart:core' as $core;
 import 'dart:typed_data' as $typed_data;
 
+@$core.Deprecated('Use modelProviderKindDescriptor instead')
+const ModelProviderKind$json = {
+  '1': 'ModelProviderKind',
+  '2': [
+    {'1': 'MODEL_PROVIDER_KIND_UNSPECIFIED', '2': 0},
+    {'1': 'MODEL_PROVIDER_KIND_OPENAI_TENANT', '2': 1},
+    {'1': 'MODEL_PROVIDER_KIND_GEMINI_TENANT', '2': 2},
+    {'1': 'MODEL_PROVIDER_KIND_DASHSCOPE_TENANT', '2': 3},
+    {'1': 'MODEL_PROVIDER_KIND_VOLC_TENANT', '2': 4},
+    {'1': 'MODEL_PROVIDER_KIND_MINIMAX_TENANT', '2': 5},
+    {'1': 'MODEL_PROVIDER_KIND_DEEPSEEK_TENANT', '2': 6},
+  ],
+};
+
+/// Descriptor for `ModelProviderKind`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List modelProviderKindDescriptor = $convert.base64Decode(
+    'ChFNb2RlbFByb3ZpZGVyS2luZBIjCh9NT0RFTF9QUk9WSURFUl9LSU5EX1VOU1BFQ0lGSUVEEA'
+    'ASJQohTU9ERUxfUFJPVklERVJfS0lORF9PUEVOQUlfVEVOQU5UEAESJQohTU9ERUxfUFJPVklE'
+    'RVJfS0lORF9HRU1JTklfVEVOQU5UEAISKAokTU9ERUxfUFJPVklERVJfS0lORF9EQVNIU0NPUE'
+    'VfVEVOQU5UEAMSIwofTU9ERUxfUFJPVklERVJfS0lORF9WT0xDX1RFTkFOVBAEEiYKIk1PREVM'
+    'X1BST1ZJREVSX0tJTkRfTUlOSU1BWF9URU5BTlQQBRInCiNNT0RFTF9QUk9WSURFUl9LSU5EX0'
+    'RFRVBTRUVLX1RFTkFOVBAG');
+
 @$core.Deprecated('Use aliasI18nTextDescriptor instead')
 const AliasI18nText$json = {
   '1': 'AliasI18nText',
@@ -1933,19 +1956,74 @@ const Model$json = {
       '10': 'kind'
     },
     {
-      '1': 'capabilities',
-      '3': 4,
+      '1': 'openai_tenant',
+      '3': 5,
       '4': 1,
       '5': 11,
-      '6': '.gizclaw.rpc.v1.ModelCapabilities',
+      '6': '.gizclaw.rpc.v1.OpenAITenantModelProviderData',
       '9': 0,
-      '10': 'capabilities',
-      '17': true
+      '10': 'openaiTenant'
+    },
+    {
+      '1': 'gemini_tenant',
+      '3': 6,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.GeminiTenantModelProviderData',
+      '9': 0,
+      '10': 'geminiTenant'
+    },
+    {
+      '1': 'dashscope_tenant',
+      '3': 7,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.DashScopeTenantModelProviderData',
+      '9': 0,
+      '10': 'dashscopeTenant'
+    },
+    {
+      '1': 'volc_tenant',
+      '3': 8,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.VolcTenantModelProviderData',
+      '9': 0,
+      '10': 'volcTenant'
+    },
+    {
+      '1': 'minimax_tenant',
+      '3': 9,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.MiniMaxTenantModelProviderData',
+      '9': 0,
+      '10': 'minimaxTenant'
+    },
+    {
+      '1': 'deepseek_tenant',
+      '3': 10,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.DeepSeekTenantModelProviderData',
+      '9': 0,
+      '10': 'deepseekTenant'
+    },
+    {
+      '1': 'provider_kind',
+      '3': 11,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.ModelProviderKind',
+      '10': 'providerKind'
     },
   ],
   '3': [Model_I18nEntry$json],
   '8': [
-    {'1': '_capabilities'},
+    {'1': 'provider_data'},
+  ],
+  '9': [
+    {'1': 4, '2': 5},
   ],
 };
 
@@ -1970,90 +2048,805 @@ const Model_I18nEntry$json = {
 final $typed_data.Uint8List modelDescriptor = $convert.base64Decode(
     'CgVNb2RlbBIUCgVhbGlhcxgBIAEoCVIFYWxpYXMSMwoEaTE4bhgCIAMoCzIfLmdpemNsYXcucn'
     'BjLnYxLk1vZGVsLkkxOG5FbnRyeVIEaTE4bhItCgRraW5kGAMgASgOMhkuZ2l6Y2xhdy5ycGMu'
-    'djEuTW9kZWxLaW5kUgRraW5kEkoKDGNhcGFiaWxpdGllcxgEIAEoCzIhLmdpemNsYXcucnBjLn'
-    'YxLk1vZGVsQ2FwYWJpbGl0aWVzSABSDGNhcGFiaWxpdGllc4gBARpWCglJMThuRW50cnkSEAoD'
-    'a2V5GAEgASgJUgNrZXkSMwoFdmFsdWUYAiABKAsyHS5naXpjbGF3LnJwYy52MS5BbGlhc0kxOG'
-    '5UZXh0UgV2YWx1ZToCOAFCDwoNX2NhcGFiaWxpdGllcw==');
+    'djEuTW9kZWxLaW5kUgRraW5kElQKDW9wZW5haV90ZW5hbnQYBSABKAsyLS5naXpjbGF3LnJwYy'
+    '52MS5PcGVuQUlUZW5hbnRNb2RlbFByb3ZpZGVyRGF0YUgAUgxvcGVuYWlUZW5hbnQSVAoNZ2Vt'
+    'aW5pX3RlbmFudBgGIAEoCzItLmdpemNsYXcucnBjLnYxLkdlbWluaVRlbmFudE1vZGVsUHJvdm'
+    'lkZXJEYXRhSABSDGdlbWluaVRlbmFudBJdChBkYXNoc2NvcGVfdGVuYW50GAcgASgLMjAuZ2l6'
+    'Y2xhdy5ycGMudjEuRGFzaFNjb3BlVGVuYW50TW9kZWxQcm92aWRlckRhdGFIAFIPZGFzaHNjb3'
+    'BlVGVuYW50Ek4KC3ZvbGNfdGVuYW50GAggASgLMisuZ2l6Y2xhdy5ycGMudjEuVm9sY1RlbmFu'
+    'dE1vZGVsUHJvdmlkZXJEYXRhSABSCnZvbGNUZW5hbnQSVwoObWluaW1heF90ZW5hbnQYCSABKA'
+    'syLi5naXpjbGF3LnJwYy52MS5NaW5pTWF4VGVuYW50TW9kZWxQcm92aWRlckRhdGFIAFINbWlu'
+    'aW1heFRlbmFudBJaCg9kZWVwc2Vla190ZW5hbnQYCiABKAsyLy5naXpjbGF3LnJwYy52MS5EZW'
+    'VwU2Vla1RlbmFudE1vZGVsUHJvdmlkZXJEYXRhSABSDmRlZXBzZWVrVGVuYW50EkYKDXByb3Zp'
+    'ZGVyX2tpbmQYCyABKA4yIS5naXpjbGF3LnJwYy52MS5Nb2RlbFByb3ZpZGVyS2luZFIMcHJvdm'
+    'lkZXJLaW5kGlYKCUkxOG5FbnRyeRIQCgNrZXkYASABKAlSA2tleRIzCgV2YWx1ZRgCIAEoCzId'
+    'LmdpemNsYXcucnBjLnYxLkFsaWFzSTE4blRleHRSBXZhbHVlOgI4AUIPCg1wcm92aWRlcl9kYX'
+    'RhSgQIBBAF');
 
-@$core.Deprecated('Use modelCapabilitiesDescriptor instead')
-const ModelCapabilities$json = {
-  '1': 'ModelCapabilities',
+@$core.Deprecated('Use openAITenantModelProviderDataDescriptor instead')
+const OpenAITenantModelProviderData$json = {
+  '1': 'OpenAITenantModelProviderData',
   '2': [
     {
-      '1': 'json_output',
+      '1': 'upstream_model',
       '3': 1,
       '4': 1,
-      '5': 8,
+      '5': 9,
       '9': 0,
-      '10': 'jsonOutput',
+      '10': 'upstreamModel',
       '17': true
     },
     {
-      '1': 'system_role',
+      '1': 'support_json_output',
       '3': 2,
       '4': 1,
       '5': 8,
       '9': 1,
-      '10': 'systemRole',
+      '10': 'supportJsonOutput',
       '17': true
     },
     {
-      '1': 'temperature',
+      '1': 'support_tool_calls',
       '3': 3,
       '4': 1,
       '5': 8,
       '9': 2,
-      '10': 'temperature',
+      '10': 'supportToolCalls',
       '17': true
     },
     {
-      '1': 'text_only',
+      '1': 'support_text_only',
       '3': 4,
       '4': 1,
       '5': 8,
       '9': 3,
-      '10': 'textOnly',
+      '10': 'supportTextOnly',
       '17': true
     },
     {
-      '1': 'thinking',
+      '1': 'support_temperature',
       '3': 5,
       '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.ModelThinkingCapability',
+      '5': 8,
       '9': 4,
-      '10': 'thinking',
+      '10': 'supportTemperature',
       '17': true
     },
     {
-      '1': 'tool_calls',
+      '1': 'support_thinking',
       '3': 6,
       '4': 1,
       '5': 8,
       '9': 5,
-      '10': 'toolCalls',
+      '10': 'supportThinking',
+      '17': true
+    },
+    {
+      '1': 'use_system_role',
+      '3': 7,
+      '4': 1,
+      '5': 8,
+      '9': 6,
+      '10': 'useSystemRole',
+      '17': true
+    },
+    {
+      '1': 'thinking_param',
+      '3': 8,
+      '4': 1,
+      '5': 9,
+      '9': 7,
+      '10': 'thinkingParam',
+      '17': true
+    },
+    {
+      '1': 'thinking_level_param',
+      '3': 9,
+      '4': 1,
+      '5': 9,
+      '9': 8,
+      '10': 'thinkingLevelParam',
+      '17': true
+    },
+    {'1': 'thinking_levels', '3': 10, '4': 3, '5': 9, '10': 'thinkingLevels'},
+    {
+      '1': 'default_thinking_level',
+      '3': 11,
+      '4': 1,
+      '5': 9,
+      '9': 9,
+      '10': 'defaultThinkingLevel',
       '17': true
     },
   ],
   '8': [
-    {'1': '_json_output'},
-    {'1': '_system_role'},
-    {'1': '_temperature'},
-    {'1': '_text_only'},
-    {'1': '_thinking'},
-    {'1': '_tool_calls'},
+    {'1': '_upstream_model'},
+    {'1': '_support_json_output'},
+    {'1': '_support_tool_calls'},
+    {'1': '_support_text_only'},
+    {'1': '_support_temperature'},
+    {'1': '_support_thinking'},
+    {'1': '_use_system_role'},
+    {'1': '_thinking_param'},
+    {'1': '_thinking_level_param'},
+    {'1': '_default_thinking_level'},
   ],
 };
 
-/// Descriptor for `ModelCapabilities`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List modelCapabilitiesDescriptor = $convert.base64Decode(
-    'ChFNb2RlbENhcGFiaWxpdGllcxIkCgtqc29uX291dHB1dBgBIAEoCEgAUgpqc29uT3V0cHV0iA'
-    'EBEiQKC3N5c3RlbV9yb2xlGAIgASgISAFSCnN5c3RlbVJvbGWIAQESJQoLdGVtcGVyYXR1cmUY'
-    'AyABKAhIAlILdGVtcGVyYXR1cmWIAQESIAoJdGV4dF9vbmx5GAQgASgISANSCHRleHRPbmx5iA'
-    'EBEkgKCHRoaW5raW5nGAUgASgLMicuZ2l6Y2xhdy5ycGMudjEuTW9kZWxUaGlua2luZ0NhcGFi'
-    'aWxpdHlIBFIIdGhpbmtpbmeIAQESIgoKdG9vbF9jYWxscxgGIAEoCEgFUgl0b29sQ2FsbHOIAQ'
-    'FCDgoMX2pzb25fb3V0cHV0Qg4KDF9zeXN0ZW1fcm9sZUIOCgxfdGVtcGVyYXR1cmVCDAoKX3Rl'
-    'eHRfb25seUILCglfdGhpbmtpbmdCDQoLX3Rvb2xfY2FsbHM=');
+/// Descriptor for `OpenAITenantModelProviderData`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List openAITenantModelProviderDataDescriptor = $convert.base64Decode(
+    'Ch1PcGVuQUlUZW5hbnRNb2RlbFByb3ZpZGVyRGF0YRIqCg51cHN0cmVhbV9tb2RlbBgBIAEoCU'
+    'gAUg11cHN0cmVhbU1vZGVsiAEBEjMKE3N1cHBvcnRfanNvbl9vdXRwdXQYAiABKAhIAVIRc3Vw'
+    'cG9ydEpzb25PdXRwdXSIAQESMQoSc3VwcG9ydF90b29sX2NhbGxzGAMgASgISAJSEHN1cHBvcn'
+    'RUb29sQ2FsbHOIAQESLwoRc3VwcG9ydF90ZXh0X29ubHkYBCABKAhIA1IPc3VwcG9ydFRleHRP'
+    'bmx5iAEBEjQKE3N1cHBvcnRfdGVtcGVyYXR1cmUYBSABKAhIBFISc3VwcG9ydFRlbXBlcmF0dX'
+    'JliAEBEi4KEHN1cHBvcnRfdGhpbmtpbmcYBiABKAhIBVIPc3VwcG9ydFRoaW5raW5niAEBEisK'
+    'D3VzZV9zeXN0ZW1fcm9sZRgHIAEoCEgGUg11c2VTeXN0ZW1Sb2xliAEBEioKDnRoaW5raW5nX3'
+    'BhcmFtGAggASgJSAdSDXRoaW5raW5nUGFyYW2IAQESNQoUdGhpbmtpbmdfbGV2ZWxfcGFyYW0Y'
+    'CSABKAlICFISdGhpbmtpbmdMZXZlbFBhcmFtiAEBEicKD3RoaW5raW5nX2xldmVscxgKIAMoCV'
+    'IOdGhpbmtpbmdMZXZlbHMSOQoWZGVmYXVsdF90aGlua2luZ19sZXZlbBgLIAEoCUgJUhRkZWZh'
+    'dWx0VGhpbmtpbmdMZXZlbIgBAUIRCg9fdXBzdHJlYW1fbW9kZWxCFgoUX3N1cHBvcnRfanNvbl'
+    '9vdXRwdXRCFQoTX3N1cHBvcnRfdG9vbF9jYWxsc0IUChJfc3VwcG9ydF90ZXh0X29ubHlCFgoU'
+    'X3N1cHBvcnRfdGVtcGVyYXR1cmVCEwoRX3N1cHBvcnRfdGhpbmtpbmdCEgoQX3VzZV9zeXN0ZW'
+    '1fcm9sZUIRCg9fdGhpbmtpbmdfcGFyYW1CFwoVX3RoaW5raW5nX2xldmVsX3BhcmFtQhkKF19k'
+    'ZWZhdWx0X3RoaW5raW5nX2xldmVs');
+
+@$core.Deprecated('Use geminiTenantModelProviderDataDescriptor instead')
+const GeminiTenantModelProviderData$json = {
+  '1': 'GeminiTenantModelProviderData',
+  '2': [
+    {
+      '1': 'upstream_model',
+      '3': 1,
+      '4': 1,
+      '5': 9,
+      '9': 0,
+      '10': 'upstreamModel',
+      '17': true
+    },
+    {
+      '1': 'support_json_output',
+      '3': 2,
+      '4': 1,
+      '5': 8,
+      '9': 1,
+      '10': 'supportJsonOutput',
+      '17': true
+    },
+    {
+      '1': 'support_tool_calls',
+      '3': 3,
+      '4': 1,
+      '5': 8,
+      '9': 2,
+      '10': 'supportToolCalls',
+      '17': true
+    },
+    {
+      '1': 'support_text_only',
+      '3': 4,
+      '4': 1,
+      '5': 8,
+      '9': 3,
+      '10': 'supportTextOnly',
+      '17': true
+    },
+    {
+      '1': 'support_temperature',
+      '3': 5,
+      '4': 1,
+      '5': 8,
+      '9': 4,
+      '10': 'supportTemperature',
+      '17': true
+    },
+    {
+      '1': 'support_thinking',
+      '3': 6,
+      '4': 1,
+      '5': 8,
+      '9': 5,
+      '10': 'supportThinking',
+      '17': true
+    },
+    {
+      '1': 'use_system_role',
+      '3': 7,
+      '4': 1,
+      '5': 8,
+      '9': 6,
+      '10': 'useSystemRole',
+      '17': true
+    },
+    {
+      '1': 'thinking_param',
+      '3': 8,
+      '4': 1,
+      '5': 9,
+      '9': 7,
+      '10': 'thinkingParam',
+      '17': true
+    },
+    {
+      '1': 'thinking_level_param',
+      '3': 9,
+      '4': 1,
+      '5': 9,
+      '9': 8,
+      '10': 'thinkingLevelParam',
+      '17': true
+    },
+    {'1': 'thinking_levels', '3': 10, '4': 3, '5': 9, '10': 'thinkingLevels'},
+    {
+      '1': 'default_thinking_level',
+      '3': 11,
+      '4': 1,
+      '5': 9,
+      '9': 9,
+      '10': 'defaultThinkingLevel',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_upstream_model'},
+    {'1': '_support_json_output'},
+    {'1': '_support_tool_calls'},
+    {'1': '_support_text_only'},
+    {'1': '_support_temperature'},
+    {'1': '_support_thinking'},
+    {'1': '_use_system_role'},
+    {'1': '_thinking_param'},
+    {'1': '_thinking_level_param'},
+    {'1': '_default_thinking_level'},
+  ],
+};
+
+/// Descriptor for `GeminiTenantModelProviderData`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List geminiTenantModelProviderDataDescriptor = $convert.base64Decode(
+    'Ch1HZW1pbmlUZW5hbnRNb2RlbFByb3ZpZGVyRGF0YRIqCg51cHN0cmVhbV9tb2RlbBgBIAEoCU'
+    'gAUg11cHN0cmVhbU1vZGVsiAEBEjMKE3N1cHBvcnRfanNvbl9vdXRwdXQYAiABKAhIAVIRc3Vw'
+    'cG9ydEpzb25PdXRwdXSIAQESMQoSc3VwcG9ydF90b29sX2NhbGxzGAMgASgISAJSEHN1cHBvcn'
+    'RUb29sQ2FsbHOIAQESLwoRc3VwcG9ydF90ZXh0X29ubHkYBCABKAhIA1IPc3VwcG9ydFRleHRP'
+    'bmx5iAEBEjQKE3N1cHBvcnRfdGVtcGVyYXR1cmUYBSABKAhIBFISc3VwcG9ydFRlbXBlcmF0dX'
+    'JliAEBEi4KEHN1cHBvcnRfdGhpbmtpbmcYBiABKAhIBVIPc3VwcG9ydFRoaW5raW5niAEBEisK'
+    'D3VzZV9zeXN0ZW1fcm9sZRgHIAEoCEgGUg11c2VTeXN0ZW1Sb2xliAEBEioKDnRoaW5raW5nX3'
+    'BhcmFtGAggASgJSAdSDXRoaW5raW5nUGFyYW2IAQESNQoUdGhpbmtpbmdfbGV2ZWxfcGFyYW0Y'
+    'CSABKAlICFISdGhpbmtpbmdMZXZlbFBhcmFtiAEBEicKD3RoaW5raW5nX2xldmVscxgKIAMoCV'
+    'IOdGhpbmtpbmdMZXZlbHMSOQoWZGVmYXVsdF90aGlua2luZ19sZXZlbBgLIAEoCUgJUhRkZWZh'
+    'dWx0VGhpbmtpbmdMZXZlbIgBAUIRCg9fdXBzdHJlYW1fbW9kZWxCFgoUX3N1cHBvcnRfanNvbl'
+    '9vdXRwdXRCFQoTX3N1cHBvcnRfdG9vbF9jYWxsc0IUChJfc3VwcG9ydF90ZXh0X29ubHlCFgoU'
+    'X3N1cHBvcnRfdGVtcGVyYXR1cmVCEwoRX3N1cHBvcnRfdGhpbmtpbmdCEgoQX3VzZV9zeXN0ZW'
+    '1fcm9sZUIRCg9fdGhpbmtpbmdfcGFyYW1CFwoVX3RoaW5raW5nX2xldmVsX3BhcmFtQhkKF19k'
+    'ZWZhdWx0X3RoaW5raW5nX2xldmVs');
+
+@$core.Deprecated('Use dashScopeTenantModelProviderDataDescriptor instead')
+const DashScopeTenantModelProviderData$json = {
+  '1': 'DashScopeTenantModelProviderData',
+  '2': [
+    {
+      '1': 'upstream_model',
+      '3': 1,
+      '4': 1,
+      '5': 9,
+      '9': 0,
+      '10': 'upstreamModel',
+      '17': true
+    },
+    {
+      '1': 'api_mode',
+      '3': 2,
+      '4': 1,
+      '5': 9,
+      '9': 1,
+      '10': 'apiMode',
+      '17': true
+    },
+    {
+      '1': 'support_json_output',
+      '3': 3,
+      '4': 1,
+      '5': 8,
+      '9': 2,
+      '10': 'supportJsonOutput',
+      '17': true
+    },
+    {
+      '1': 'support_tool_calls',
+      '3': 4,
+      '4': 1,
+      '5': 8,
+      '9': 3,
+      '10': 'supportToolCalls',
+      '17': true
+    },
+    {
+      '1': 'support_text_only',
+      '3': 5,
+      '4': 1,
+      '5': 8,
+      '9': 4,
+      '10': 'supportTextOnly',
+      '17': true
+    },
+    {
+      '1': 'support_temperature',
+      '3': 6,
+      '4': 1,
+      '5': 8,
+      '9': 5,
+      '10': 'supportTemperature',
+      '17': true
+    },
+    {
+      '1': 'support_thinking',
+      '3': 7,
+      '4': 1,
+      '5': 8,
+      '9': 6,
+      '10': 'supportThinking',
+      '17': true
+    },
+    {
+      '1': 'use_system_role',
+      '3': 8,
+      '4': 1,
+      '5': 8,
+      '9': 7,
+      '10': 'useSystemRole',
+      '17': true
+    },
+    {
+      '1': 'thinking_param',
+      '3': 9,
+      '4': 1,
+      '5': 9,
+      '9': 8,
+      '10': 'thinkingParam',
+      '17': true
+    },
+    {
+      '1': 'thinking_level_param',
+      '3': 10,
+      '4': 1,
+      '5': 9,
+      '9': 9,
+      '10': 'thinkingLevelParam',
+      '17': true
+    },
+    {'1': 'thinking_levels', '3': 11, '4': 3, '5': 9, '10': 'thinkingLevels'},
+    {
+      '1': 'default_thinking_level',
+      '3': 12,
+      '4': 1,
+      '5': 9,
+      '9': 10,
+      '10': 'defaultThinkingLevel',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_upstream_model'},
+    {'1': '_api_mode'},
+    {'1': '_support_json_output'},
+    {'1': '_support_tool_calls'},
+    {'1': '_support_text_only'},
+    {'1': '_support_temperature'},
+    {'1': '_support_thinking'},
+    {'1': '_use_system_role'},
+    {'1': '_thinking_param'},
+    {'1': '_thinking_level_param'},
+    {'1': '_default_thinking_level'},
+  ],
+};
+
+/// Descriptor for `DashScopeTenantModelProviderData`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List dashScopeTenantModelProviderDataDescriptor = $convert.base64Decode(
+    'CiBEYXNoU2NvcGVUZW5hbnRNb2RlbFByb3ZpZGVyRGF0YRIqCg51cHN0cmVhbV9tb2RlbBgBIA'
+    'EoCUgAUg11cHN0cmVhbU1vZGVsiAEBEh4KCGFwaV9tb2RlGAIgASgJSAFSB2FwaU1vZGWIAQES'
+    'MwoTc3VwcG9ydF9qc29uX291dHB1dBgDIAEoCEgCUhFzdXBwb3J0SnNvbk91dHB1dIgBARIxCh'
+    'JzdXBwb3J0X3Rvb2xfY2FsbHMYBCABKAhIA1IQc3VwcG9ydFRvb2xDYWxsc4gBARIvChFzdXBw'
+    'b3J0X3RleHRfb25seRgFIAEoCEgEUg9zdXBwb3J0VGV4dE9ubHmIAQESNAoTc3VwcG9ydF90ZW'
+    '1wZXJhdHVyZRgGIAEoCEgFUhJzdXBwb3J0VGVtcGVyYXR1cmWIAQESLgoQc3VwcG9ydF90aGlu'
+    'a2luZxgHIAEoCEgGUg9zdXBwb3J0VGhpbmtpbmeIAQESKwoPdXNlX3N5c3RlbV9yb2xlGAggAS'
+    'gISAdSDXVzZVN5c3RlbVJvbGWIAQESKgoOdGhpbmtpbmdfcGFyYW0YCSABKAlICFINdGhpbmtp'
+    'bmdQYXJhbYgBARI1ChR0aGlua2luZ19sZXZlbF9wYXJhbRgKIAEoCUgJUhJ0aGlua2luZ0xldm'
+    'VsUGFyYW2IAQESJwoPdGhpbmtpbmdfbGV2ZWxzGAsgAygJUg50aGlua2luZ0xldmVscxI5ChZk'
+    'ZWZhdWx0X3RoaW5raW5nX2xldmVsGAwgASgJSApSFGRlZmF1bHRUaGlua2luZ0xldmVsiAEBQh'
+    'EKD191cHN0cmVhbV9tb2RlbEILCglfYXBpX21vZGVCFgoUX3N1cHBvcnRfanNvbl9vdXRwdXRC'
+    'FQoTX3N1cHBvcnRfdG9vbF9jYWxsc0IUChJfc3VwcG9ydF90ZXh0X29ubHlCFgoUX3N1cHBvcn'
+    'RfdGVtcGVyYXR1cmVCEwoRX3N1cHBvcnRfdGhpbmtpbmdCEgoQX3VzZV9zeXN0ZW1fcm9sZUIR'
+    'Cg9fdGhpbmtpbmdfcGFyYW1CFwoVX3RoaW5raW5nX2xldmVsX3BhcmFtQhkKF19kZWZhdWx0X3'
+    'RoaW5raW5nX2xldmVs');
+
+@$core.Deprecated('Use volcTenantModelProviderDataDescriptor instead')
+const VolcTenantModelProviderData$json = {
+  '1': 'VolcTenantModelProviderData',
+  '2': [
+    {
+      '1': 'upstream_model',
+      '3': 1,
+      '4': 1,
+      '5': 9,
+      '9': 0,
+      '10': 'upstreamModel',
+      '17': true
+    },
+    {
+      '1': 'resource_id',
+      '3': 2,
+      '4': 1,
+      '5': 9,
+      '9': 1,
+      '10': 'resourceId',
+      '17': true
+    },
+    {
+      '1': 'api_mode',
+      '3': 3,
+      '4': 1,
+      '5': 9,
+      '9': 2,
+      '10': 'apiMode',
+      '17': true
+    },
+    {
+      '1': 'support_json_output',
+      '3': 4,
+      '4': 1,
+      '5': 8,
+      '9': 3,
+      '10': 'supportJsonOutput',
+      '17': true
+    },
+    {
+      '1': 'support_tool_calls',
+      '3': 5,
+      '4': 1,
+      '5': 8,
+      '9': 4,
+      '10': 'supportToolCalls',
+      '17': true
+    },
+    {
+      '1': 'support_text_only',
+      '3': 6,
+      '4': 1,
+      '5': 8,
+      '9': 5,
+      '10': 'supportTextOnly',
+      '17': true
+    },
+    {
+      '1': 'support_temperature',
+      '3': 7,
+      '4': 1,
+      '5': 8,
+      '9': 6,
+      '10': 'supportTemperature',
+      '17': true
+    },
+    {
+      '1': 'support_thinking',
+      '3': 8,
+      '4': 1,
+      '5': 8,
+      '9': 7,
+      '10': 'supportThinking',
+      '17': true
+    },
+    {
+      '1': 'use_system_role',
+      '3': 9,
+      '4': 1,
+      '5': 8,
+      '9': 8,
+      '10': 'useSystemRole',
+      '17': true
+    },
+    {
+      '1': 'thinking_param',
+      '3': 10,
+      '4': 1,
+      '5': 9,
+      '9': 9,
+      '10': 'thinkingParam',
+      '17': true
+    },
+    {
+      '1': 'thinking_level_param',
+      '3': 11,
+      '4': 1,
+      '5': 9,
+      '9': 10,
+      '10': 'thinkingLevelParam',
+      '17': true
+    },
+    {'1': 'thinking_levels', '3': 12, '4': 3, '5': 9, '10': 'thinkingLevels'},
+    {
+      '1': 'default_thinking_level',
+      '3': 13,
+      '4': 1,
+      '5': 9,
+      '9': 11,
+      '10': 'defaultThinkingLevel',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_upstream_model'},
+    {'1': '_resource_id'},
+    {'1': '_api_mode'},
+    {'1': '_support_json_output'},
+    {'1': '_support_tool_calls'},
+    {'1': '_support_text_only'},
+    {'1': '_support_temperature'},
+    {'1': '_support_thinking'},
+    {'1': '_use_system_role'},
+    {'1': '_thinking_param'},
+    {'1': '_thinking_level_param'},
+    {'1': '_default_thinking_level'},
+  ],
+};
+
+/// Descriptor for `VolcTenantModelProviderData`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List volcTenantModelProviderDataDescriptor = $convert.base64Decode(
+    'ChtWb2xjVGVuYW50TW9kZWxQcm92aWRlckRhdGESKgoOdXBzdHJlYW1fbW9kZWwYASABKAlIAF'
+    'INdXBzdHJlYW1Nb2RlbIgBARIkCgtyZXNvdXJjZV9pZBgCIAEoCUgBUgpyZXNvdXJjZUlkiAEB'
+    'Eh4KCGFwaV9tb2RlGAMgASgJSAJSB2FwaU1vZGWIAQESMwoTc3VwcG9ydF9qc29uX291dHB1dB'
+    'gEIAEoCEgDUhFzdXBwb3J0SnNvbk91dHB1dIgBARIxChJzdXBwb3J0X3Rvb2xfY2FsbHMYBSAB'
+    'KAhIBFIQc3VwcG9ydFRvb2xDYWxsc4gBARIvChFzdXBwb3J0X3RleHRfb25seRgGIAEoCEgFUg'
+    '9zdXBwb3J0VGV4dE9ubHmIAQESNAoTc3VwcG9ydF90ZW1wZXJhdHVyZRgHIAEoCEgGUhJzdXBw'
+    'b3J0VGVtcGVyYXR1cmWIAQESLgoQc3VwcG9ydF90aGlua2luZxgIIAEoCEgHUg9zdXBwb3J0VG'
+    'hpbmtpbmeIAQESKwoPdXNlX3N5c3RlbV9yb2xlGAkgASgISAhSDXVzZVN5c3RlbVJvbGWIAQES'
+    'KgoOdGhpbmtpbmdfcGFyYW0YCiABKAlICVINdGhpbmtpbmdQYXJhbYgBARI1ChR0aGlua2luZ1'
+    '9sZXZlbF9wYXJhbRgLIAEoCUgKUhJ0aGlua2luZ0xldmVsUGFyYW2IAQESJwoPdGhpbmtpbmdf'
+    'bGV2ZWxzGAwgAygJUg50aGlua2luZ0xldmVscxI5ChZkZWZhdWx0X3RoaW5raW5nX2xldmVsGA'
+    '0gASgJSAtSFGRlZmF1bHRUaGlua2luZ0xldmVsiAEBQhEKD191cHN0cmVhbV9tb2RlbEIOCgxf'
+    'cmVzb3VyY2VfaWRCCwoJX2FwaV9tb2RlQhYKFF9zdXBwb3J0X2pzb25fb3V0cHV0QhUKE19zdX'
+    'Bwb3J0X3Rvb2xfY2FsbHNCFAoSX3N1cHBvcnRfdGV4dF9vbmx5QhYKFF9zdXBwb3J0X3RlbXBl'
+    'cmF0dXJlQhMKEV9zdXBwb3J0X3RoaW5raW5nQhIKEF91c2Vfc3lzdGVtX3JvbGVCEQoPX3RoaW'
+    '5raW5nX3BhcmFtQhcKFV90aGlua2luZ19sZXZlbF9wYXJhbUIZChdfZGVmYXVsdF90aGlua2lu'
+    'Z19sZXZlbA==');
+
+@$core.Deprecated('Use miniMaxTenantModelProviderDataDescriptor instead')
+const MiniMaxTenantModelProviderData$json = {
+  '1': 'MiniMaxTenantModelProviderData',
+  '2': [
+    {'1': 'upstream_model', '3': 1, '4': 1, '5': 9, '10': 'upstreamModel'},
+    {'1': 'api_mode', '3': 2, '4': 1, '5': 9, '10': 'apiMode'},
+    {
+      '1': 'support_json_output',
+      '3': 3,
+      '4': 1,
+      '5': 8,
+      '9': 0,
+      '10': 'supportJsonOutput',
+      '17': true
+    },
+    {
+      '1': 'support_tool_calls',
+      '3': 4,
+      '4': 1,
+      '5': 8,
+      '9': 1,
+      '10': 'supportToolCalls',
+      '17': true
+    },
+    {
+      '1': 'support_text_only',
+      '3': 5,
+      '4': 1,
+      '5': 8,
+      '9': 2,
+      '10': 'supportTextOnly',
+      '17': true
+    },
+    {
+      '1': 'support_temperature',
+      '3': 6,
+      '4': 1,
+      '5': 8,
+      '9': 3,
+      '10': 'supportTemperature',
+      '17': true
+    },
+    {
+      '1': 'support_thinking',
+      '3': 7,
+      '4': 1,
+      '5': 8,
+      '9': 4,
+      '10': 'supportThinking',
+      '17': true
+    },
+    {
+      '1': 'use_system_role',
+      '3': 8,
+      '4': 1,
+      '5': 8,
+      '9': 5,
+      '10': 'useSystemRole',
+      '17': true
+    },
+    {
+      '1': 'thinking_param',
+      '3': 9,
+      '4': 1,
+      '5': 9,
+      '9': 6,
+      '10': 'thinkingParam',
+      '17': true
+    },
+    {
+      '1': 'thinking_level_param',
+      '3': 10,
+      '4': 1,
+      '5': 9,
+      '9': 7,
+      '10': 'thinkingLevelParam',
+      '17': true
+    },
+    {'1': 'thinking_levels', '3': 11, '4': 3, '5': 9, '10': 'thinkingLevels'},
+    {
+      '1': 'default_thinking_level',
+      '3': 12,
+      '4': 1,
+      '5': 9,
+      '9': 8,
+      '10': 'defaultThinkingLevel',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_support_json_output'},
+    {'1': '_support_tool_calls'},
+    {'1': '_support_text_only'},
+    {'1': '_support_temperature'},
+    {'1': '_support_thinking'},
+    {'1': '_use_system_role'},
+    {'1': '_thinking_param'},
+    {'1': '_thinking_level_param'},
+    {'1': '_default_thinking_level'},
+  ],
+};
+
+/// Descriptor for `MiniMaxTenantModelProviderData`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List miniMaxTenantModelProviderDataDescriptor = $convert.base64Decode(
+    'Ch5NaW5pTWF4VGVuYW50TW9kZWxQcm92aWRlckRhdGESJQoOdXBzdHJlYW1fbW9kZWwYASABKA'
+    'lSDXVwc3RyZWFtTW9kZWwSGQoIYXBpX21vZGUYAiABKAlSB2FwaU1vZGUSMwoTc3VwcG9ydF9q'
+    'c29uX291dHB1dBgDIAEoCEgAUhFzdXBwb3J0SnNvbk91dHB1dIgBARIxChJzdXBwb3J0X3Rvb2'
+    'xfY2FsbHMYBCABKAhIAVIQc3VwcG9ydFRvb2xDYWxsc4gBARIvChFzdXBwb3J0X3RleHRfb25s'
+    'eRgFIAEoCEgCUg9zdXBwb3J0VGV4dE9ubHmIAQESNAoTc3VwcG9ydF90ZW1wZXJhdHVyZRgGIA'
+    'EoCEgDUhJzdXBwb3J0VGVtcGVyYXR1cmWIAQESLgoQc3VwcG9ydF90aGlua2luZxgHIAEoCEgE'
+    'Ug9zdXBwb3J0VGhpbmtpbmeIAQESKwoPdXNlX3N5c3RlbV9yb2xlGAggASgISAVSDXVzZVN5c3'
+    'RlbVJvbGWIAQESKgoOdGhpbmtpbmdfcGFyYW0YCSABKAlIBlINdGhpbmtpbmdQYXJhbYgBARI1'
+    'ChR0aGlua2luZ19sZXZlbF9wYXJhbRgKIAEoCUgHUhJ0aGlua2luZ0xldmVsUGFyYW2IAQESJw'
+    'oPdGhpbmtpbmdfbGV2ZWxzGAsgAygJUg50aGlua2luZ0xldmVscxI5ChZkZWZhdWx0X3RoaW5r'
+    'aW5nX2xldmVsGAwgASgJSAhSFGRlZmF1bHRUaGlua2luZ0xldmVsiAEBQhYKFF9zdXBwb3J0X2'
+    'pzb25fb3V0cHV0QhUKE19zdXBwb3J0X3Rvb2xfY2FsbHNCFAoSX3N1cHBvcnRfdGV4dF9vbmx5'
+    'QhYKFF9zdXBwb3J0X3RlbXBlcmF0dXJlQhMKEV9zdXBwb3J0X3RoaW5raW5nQhIKEF91c2Vfc3'
+    'lzdGVtX3JvbGVCEQoPX3RoaW5raW5nX3BhcmFtQhcKFV90aGlua2luZ19sZXZlbF9wYXJhbUIZ'
+    'ChdfZGVmYXVsdF90aGlua2luZ19sZXZlbA==');
+
+@$core.Deprecated('Use deepSeekTenantModelProviderDataDescriptor instead')
+const DeepSeekTenantModelProviderData$json = {
+  '1': 'DeepSeekTenantModelProviderData',
+  '2': [
+    {'1': 'upstream_model', '3': 1, '4': 1, '5': 9, '10': 'upstreamModel'},
+    {'1': 'api_mode', '3': 2, '4': 1, '5': 9, '10': 'apiMode'},
+    {
+      '1': 'support_json_output',
+      '3': 3,
+      '4': 1,
+      '5': 8,
+      '9': 0,
+      '10': 'supportJsonOutput',
+      '17': true
+    },
+    {
+      '1': 'support_tool_calls',
+      '3': 4,
+      '4': 1,
+      '5': 8,
+      '9': 1,
+      '10': 'supportToolCalls',
+      '17': true
+    },
+    {
+      '1': 'support_text_only',
+      '3': 5,
+      '4': 1,
+      '5': 8,
+      '9': 2,
+      '10': 'supportTextOnly',
+      '17': true
+    },
+    {
+      '1': 'support_temperature',
+      '3': 6,
+      '4': 1,
+      '5': 8,
+      '9': 3,
+      '10': 'supportTemperature',
+      '17': true
+    },
+    {
+      '1': 'support_thinking',
+      '3': 7,
+      '4': 1,
+      '5': 8,
+      '9': 4,
+      '10': 'supportThinking',
+      '17': true
+    },
+    {
+      '1': 'use_system_role',
+      '3': 8,
+      '4': 1,
+      '5': 8,
+      '9': 5,
+      '10': 'useSystemRole',
+      '17': true
+    },
+    {
+      '1': 'thinking_param',
+      '3': 9,
+      '4': 1,
+      '5': 9,
+      '9': 6,
+      '10': 'thinkingParam',
+      '17': true
+    },
+    {
+      '1': 'thinking_level_param',
+      '3': 10,
+      '4': 1,
+      '5': 9,
+      '9': 7,
+      '10': 'thinkingLevelParam',
+      '17': true
+    },
+    {'1': 'thinking_levels', '3': 11, '4': 3, '5': 9, '10': 'thinkingLevels'},
+    {
+      '1': 'default_thinking_level',
+      '3': 12,
+      '4': 1,
+      '5': 9,
+      '9': 8,
+      '10': 'defaultThinkingLevel',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_support_json_output'},
+    {'1': '_support_tool_calls'},
+    {'1': '_support_text_only'},
+    {'1': '_support_temperature'},
+    {'1': '_support_thinking'},
+    {'1': '_use_system_role'},
+    {'1': '_thinking_param'},
+    {'1': '_thinking_level_param'},
+    {'1': '_default_thinking_level'},
+  ],
+};
+
+/// Descriptor for `DeepSeekTenantModelProviderData`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List deepSeekTenantModelProviderDataDescriptor = $convert.base64Decode(
+    'Ch9EZWVwU2Vla1RlbmFudE1vZGVsUHJvdmlkZXJEYXRhEiUKDnVwc3RyZWFtX21vZGVsGAEgAS'
+    'gJUg11cHN0cmVhbU1vZGVsEhkKCGFwaV9tb2RlGAIgASgJUgdhcGlNb2RlEjMKE3N1cHBvcnRf'
+    'anNvbl9vdXRwdXQYAyABKAhIAFIRc3VwcG9ydEpzb25PdXRwdXSIAQESMQoSc3VwcG9ydF90b2'
+    '9sX2NhbGxzGAQgASgISAFSEHN1cHBvcnRUb29sQ2FsbHOIAQESLwoRc3VwcG9ydF90ZXh0X29u'
+    'bHkYBSABKAhIAlIPc3VwcG9ydFRleHRPbmx5iAEBEjQKE3N1cHBvcnRfdGVtcGVyYXR1cmUYBi'
+    'ABKAhIA1ISc3VwcG9ydFRlbXBlcmF0dXJliAEBEi4KEHN1cHBvcnRfdGhpbmtpbmcYByABKAhI'
+    'BFIPc3VwcG9ydFRoaW5raW5niAEBEisKD3VzZV9zeXN0ZW1fcm9sZRgIIAEoCEgFUg11c2VTeX'
+    'N0ZW1Sb2xliAEBEioKDnRoaW5raW5nX3BhcmFtGAkgASgJSAZSDXRoaW5raW5nUGFyYW2IAQES'
+    'NQoUdGhpbmtpbmdfbGV2ZWxfcGFyYW0YCiABKAlIB1ISdGhpbmtpbmdMZXZlbFBhcmFtiAEBEi'
+    'cKD3RoaW5raW5nX2xldmVscxgLIAMoCVIOdGhpbmtpbmdMZXZlbHMSOQoWZGVmYXVsdF90aGlu'
+    'a2luZ19sZXZlbBgMIAEoCUgIUhRkZWZhdWx0VGhpbmtpbmdMZXZlbIgBAUIWChRfc3VwcG9ydF'
+    '9qc29uX291dHB1dEIVChNfc3VwcG9ydF90b29sX2NhbGxzQhQKEl9zdXBwb3J0X3RleHRfb25s'
+    'eUIWChRfc3VwcG9ydF90ZW1wZXJhdHVyZUITChFfc3VwcG9ydF90aGlua2luZ0ISChBfdXNlX3'
+    'N5c3RlbV9yb2xlQhEKD190aGlua2luZ19wYXJhbUIXChVfdGhpbmtpbmdfbGV2ZWxfcGFyYW1C'
+    'GQoXX2RlZmF1bHRfdGhpbmtpbmdfbGV2ZWw=');
 
 @$core.Deprecated('Use modelGetRequestDescriptor instead')
 const ModelGetRequest$json = {
@@ -2170,47 +2963,6 @@ final $typed_data.Uint8List modelListResponseDescriptor = $convert.base64Decode(
     'CUgAUgpuZXh0Q3Vyc29yiAEBEjAKFHJ1bnRpbWVfcHJvZmlsZV9uYW1lGAQgASgJUhJydW50aW'
     '1lUHJvZmlsZU5hbWUSOAoYcnVudGltZV9wcm9maWxlX3JldmlzaW9uGAUgASgJUhZydW50aW1l'
     'UHJvZmlsZVJldmlzaW9uQg4KDF9uZXh0X2N1cnNvcg==');
-
-@$core.Deprecated('Use modelThinkingCapabilityDescriptor instead')
-const ModelThinkingCapability$json = {
-  '1': 'ModelThinkingCapability',
-  '2': [
-    {
-      '1': 'default_level',
-      '3': 1,
-      '4': 1,
-      '5': 9,
-      '9': 0,
-      '10': 'defaultLevel',
-      '17': true
-    },
-    {
-      '1': 'level_param',
-      '3': 2,
-      '4': 1,
-      '5': 9,
-      '9': 1,
-      '10': 'levelParam',
-      '17': true
-    },
-    {'1': 'levels', '3': 3, '4': 3, '5': 9, '10': 'levels'},
-    {'1': 'param', '3': 4, '4': 1, '5': 9, '9': 2, '10': 'param', '17': true},
-    {'1': 'supported', '3': 5, '4': 1, '5': 8, '10': 'supported'},
-  ],
-  '8': [
-    {'1': '_default_level'},
-    {'1': '_level_param'},
-    {'1': '_param'},
-  ],
-};
-
-/// Descriptor for `ModelThinkingCapability`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List modelThinkingCapabilityDescriptor = $convert.base64Decode(
-    'ChdNb2RlbFRoaW5raW5nQ2FwYWJpbGl0eRIoCg1kZWZhdWx0X2xldmVsGAEgASgJSABSDGRlZm'
-    'F1bHRMZXZlbIgBARIkCgtsZXZlbF9wYXJhbRgCIAEoCUgBUgpsZXZlbFBhcmFtiAEBEhYKBmxl'
-    'dmVscxgDIAMoCVIGbGV2ZWxzEhkKBXBhcmFtGAQgASgJSAJSBXBhcmFtiAEBEhwKCXN1cHBvcn'
-    'RlZBgFIAEoCFIJc3VwcG9ydGVkQhAKDl9kZWZhdWx0X2xldmVsQg4KDF9sZXZlbF9wYXJhbUII'
-    'CgZfcGFyYW0=');
 
 @$core.Deprecated('Use voiceDescriptor instead')
 const Voice$json = {

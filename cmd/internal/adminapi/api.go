@@ -807,6 +807,90 @@ func GetDashScopeTenant(ctx context.Context, c *gizcli.Client, name string) (api
 	return apitypes.DashScopeTenant{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
 }
 
+func ListDeepSeekTenants(ctx context.Context, c *gizcli.Client) ([]apitypes.DeepSeekTenant, error) {
+	api, err := c.ServerAdminClient()
+	if err != nil {
+		return nil, err
+	}
+	return collectAllPages(func(cursor *string, limit *int32) (pagedItems[apitypes.DeepSeekTenant], error) {
+		resp, err := api.ListDeepSeekTenantsWithResponse(ctx, &adminhttp.ListDeepSeekTenantsParams{
+			Cursor: cursor,
+			Limit:  limit,
+		})
+		if err != nil {
+			return pagedItems[apitypes.DeepSeekTenant]{}, err
+		}
+		if resp.JSON200 == nil {
+			return pagedItems[apitypes.DeepSeekTenant]{}, responseError(resp.StatusCode(), resp.Body, resp.JSON500)
+		}
+		return pagedItems[apitypes.DeepSeekTenant]{
+			HasNext:    resp.JSON200.HasNext,
+			Items:      resp.JSON200.Items,
+			NextCursor: resp.JSON200.NextCursor,
+		}, nil
+	})
+}
+
+func GetDeepSeekTenant(ctx context.Context, c *gizcli.Client, name string) (apitypes.DeepSeekTenant, error) {
+	api, err := c.ServerAdminClient()
+	if err != nil {
+		return apitypes.DeepSeekTenant{}, err
+	}
+	resp, err := api.GetDeepSeekTenantWithResponse(ctx, name)
+	if err != nil {
+		return apitypes.DeepSeekTenant{}, err
+	}
+	if resp.JSON200 != nil {
+		return *resp.JSON200, nil
+	}
+	return apitypes.DeepSeekTenant{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
+}
+
+func CreateDeepSeekTenant(ctx context.Context, c *gizcli.Client, req adminhttp.DeepSeekTenantUpsert) (apitypes.DeepSeekTenant, error) {
+	api, err := c.ServerAdminClient()
+	if err != nil {
+		return apitypes.DeepSeekTenant{}, err
+	}
+	resp, err := api.CreateDeepSeekTenantWithResponse(ctx, req)
+	if err != nil {
+		return apitypes.DeepSeekTenant{}, err
+	}
+	if resp.JSON200 != nil {
+		return *resp.JSON200, nil
+	}
+	return apitypes.DeepSeekTenant{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON409, resp.JSON500)
+}
+
+func PutDeepSeekTenant(ctx context.Context, c *gizcli.Client, name string, req adminhttp.DeepSeekTenantUpsert) (apitypes.DeepSeekTenant, error) {
+	api, err := c.ServerAdminClient()
+	if err != nil {
+		return apitypes.DeepSeekTenant{}, err
+	}
+	resp, err := api.PutDeepSeekTenantWithResponse(ctx, name, req)
+	if err != nil {
+		return apitypes.DeepSeekTenant{}, err
+	}
+	if resp.JSON200 != nil {
+		return *resp.JSON200, nil
+	}
+	return apitypes.DeepSeekTenant{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON500)
+}
+
+func DeleteDeepSeekTenant(ctx context.Context, c *gizcli.Client, name string) (apitypes.DeepSeekTenant, error) {
+	api, err := c.ServerAdminClient()
+	if err != nil {
+		return apitypes.DeepSeekTenant{}, err
+	}
+	resp, err := api.DeleteDeepSeekTenantWithResponse(ctx, name)
+	if err != nil {
+		return apitypes.DeepSeekTenant{}, err
+	}
+	if resp.JSON200 != nil {
+		return *resp.JSON200, nil
+	}
+	return apitypes.DeepSeekTenant{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
+}
+
 func ListModels(ctx context.Context, c *gizcli.Client, source, providerKind, providerName string) ([]apitypes.Model, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {

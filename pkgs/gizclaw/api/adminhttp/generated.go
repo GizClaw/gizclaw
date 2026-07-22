@@ -451,6 +451,21 @@ type DashScopeTenantUpsert struct {
 	Name           string  `json:"name"`
 }
 
+// DeepSeekTenantList defines model for DeepSeekTenantList.
+type DeepSeekTenantList struct {
+	HasNext    bool                          `json:"has_next"`
+	Items      []externalRef0.DeepSeekTenant `json:"items"`
+	NextCursor *string                       `json:"next_cursor,omitempty"`
+}
+
+// DeepSeekTenantUpsert defines model for DeepSeekTenantUpsert.
+type DeepSeekTenantUpsert struct {
+	BaseUrl        *string `json:"base_url,omitempty"`
+	CredentialName string  `json:"credential_name"`
+	Description    *string `json:"description,omitempty"`
+	Name           string  `json:"name"`
+}
+
 // FirmwareList defines model for FirmwareList.
 type FirmwareList struct {
 	HasNext    bool                    `json:"has_next"`
@@ -514,11 +529,11 @@ type MiniMaxTenantList struct {
 
 // MiniMaxTenantUpsert defines model for MiniMaxTenantUpsert.
 type MiniMaxTenantUpsert struct {
-	AppId          string  `json:"app_id"`
+	AppId          *string `json:"app_id,omitempty"`
 	BaseUrl        *string `json:"base_url,omitempty"`
 	CredentialName string  `json:"credential_name"`
 	Description    *string `json:"description,omitempty"`
-	GroupId        string  `json:"group_id"`
+	GroupId        *string `json:"group_id,omitempty"`
 	Name           string  `json:"name"`
 }
 
@@ -531,17 +546,16 @@ type ModelList struct {
 
 // ModelUpsert defines model for ModelUpsert.
 type ModelUpsert struct {
-	Capabilities *externalRef0.ModelCapabilities `json:"capabilities,omitempty"`
-	Description  *string                         `json:"description,omitempty"`
-	Id           string                          `json:"id"`
+	Description *string `json:"description,omitempty"`
+	Id          string  `json:"id"`
 
 	// Kind Runtime role of a model.
 	Kind     externalRef0.ModelKind     `json:"kind"`
 	Name     *string                    `json:"name,omitempty"`
 	Provider externalRef0.ModelProvider `json:"provider"`
 
-	// ProviderData Provider-specific model runtime configuration. The shape is selected by Model.provider.kind.
-	ProviderData *externalRef0.ModelProviderData `json:"provider_data,omitempty"`
+	// ProviderData Provider-specific model runtime configuration selected by Model.provider.kind. Optional behavior flags default to false.
+	ProviderData externalRef0.ModelProviderData `json:"provider_data"`
 
 	// Source How the model entered the global catalog
 	Source externalRef0.ModelSource `json:"source"`
@@ -743,6 +757,15 @@ type ListCredentialsParams struct {
 
 // ListDashScopeTenantsParams defines parameters for ListDashScopeTenants.
 type ListDashScopeTenantsParams struct {
+	// Cursor Opaque cursor returned by the previous list response
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Limit Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
+	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListDeepSeekTenantsParams defines parameters for ListDeepSeekTenants.
+type ListDeepSeekTenantsParams struct {
 	// Cursor Opaque cursor returned by the previous list response
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
 
@@ -1161,6 +1184,12 @@ type CreateDashScopeTenantJSONRequestBody = DashScopeTenantUpsert
 // PutDashScopeTenantJSONRequestBody defines body for PutDashScopeTenant for application/json ContentType.
 type PutDashScopeTenantJSONRequestBody = DashScopeTenantUpsert
 
+// CreateDeepSeekTenantJSONRequestBody defines body for CreateDeepSeekTenant for application/json ContentType.
+type CreateDeepSeekTenantJSONRequestBody = DeepSeekTenantUpsert
+
+// PutDeepSeekTenantJSONRequestBody defines body for PutDeepSeekTenant for application/json ContentType.
+type PutDeepSeekTenantJSONRequestBody = DeepSeekTenantUpsert
+
 // CreateFirmwareJSONRequestBody defines body for CreateFirmware for application/json ContentType.
 type CreateFirmwareJSONRequestBody = FirmwareUpsert
 
@@ -1412,6 +1441,25 @@ type ClientInterface interface {
 	PutDashScopeTenantWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	PutDashScopeTenant(ctx context.Context, name string, body PutDashScopeTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListDeepSeekTenants request
+	ListDeepSeekTenants(ctx context.Context, params *ListDeepSeekTenantsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateDeepSeekTenantWithBody request with any body
+	CreateDeepSeekTenantWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateDeepSeekTenant(ctx context.Context, body CreateDeepSeekTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteDeepSeekTenant request
+	DeleteDeepSeekTenant(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetDeepSeekTenant request
+	GetDeepSeekTenant(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutDeepSeekTenantWithBody request with any body
+	PutDeepSeekTenantWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PutDeepSeekTenant(ctx context.Context, name string, body PutDeepSeekTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListFirmwares request
 	ListFirmwares(ctx context.Context, params *ListFirmwaresParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2201,6 +2249,90 @@ func (c *Client) PutDashScopeTenantWithBody(ctx context.Context, name string, co
 
 func (c *Client) PutDashScopeTenant(ctx context.Context, name string, body PutDashScopeTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPutDashScopeTenantRequest(c.Server, name, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListDeepSeekTenants(ctx context.Context, params *ListDeepSeekTenantsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListDeepSeekTenantsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateDeepSeekTenantWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateDeepSeekTenantRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateDeepSeekTenant(ctx context.Context, body CreateDeepSeekTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateDeepSeekTenantRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteDeepSeekTenant(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteDeepSeekTenantRequest(c.Server, name)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetDeepSeekTenant(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDeepSeekTenantRequest(c.Server, name)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutDeepSeekTenantWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutDeepSeekTenantRequestWithBody(c.Server, name, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutDeepSeekTenant(ctx context.Context, name string, body PutDeepSeekTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutDeepSeekTenantRequest(c.Server, name, body)
 	if err != nil {
 		return nil, err
 	}
@@ -5114,6 +5246,226 @@ func NewPutDashScopeTenantRequestWithBody(server string, name string, contentTyp
 	}
 
 	operationPath := fmt.Sprintf("/dashscope-tenants/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListDeepSeekTenantsRequest generates requests for ListDeepSeekTenants
+func NewListDeepSeekTenantsRequest(server string, params *ListDeepSeekTenantsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/deepseek-tenants")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateDeepSeekTenantRequest calls the generic CreateDeepSeekTenant builder with application/json body
+func NewCreateDeepSeekTenantRequest(server string, body CreateDeepSeekTenantJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateDeepSeekTenantRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateDeepSeekTenantRequestWithBody generates requests for CreateDeepSeekTenant with any type of body
+func NewCreateDeepSeekTenantRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/deepseek-tenants")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteDeepSeekTenantRequest generates requests for DeleteDeepSeekTenant
+func NewDeleteDeepSeekTenantRequest(server string, name string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/deepseek-tenants/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetDeepSeekTenantRequest generates requests for GetDeepSeekTenant
+func NewGetDeepSeekTenantRequest(server string, name string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/deepseek-tenants/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutDeepSeekTenantRequest calls the generic PutDeepSeekTenant builder with application/json body
+func NewPutDeepSeekTenantRequest(server string, name string, body PutDeepSeekTenantJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutDeepSeekTenantRequestWithBody(server, name, "application/json", bodyReader)
+}
+
+// NewPutDeepSeekTenantRequestWithBody generates requests for PutDeepSeekTenant with any type of body
+func NewPutDeepSeekTenantRequestWithBody(server string, name string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/deepseek-tenants/%s", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -11985,6 +12337,25 @@ type ClientWithResponsesInterface interface {
 
 	PutDashScopeTenantWithResponse(ctx context.Context, name string, body PutDashScopeTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*PutDashScopeTenantResponse, error)
 
+	// ListDeepSeekTenantsWithResponse request
+	ListDeepSeekTenantsWithResponse(ctx context.Context, params *ListDeepSeekTenantsParams, reqEditors ...RequestEditorFn) (*ListDeepSeekTenantsResponse, error)
+
+	// CreateDeepSeekTenantWithBodyWithResponse request with any body
+	CreateDeepSeekTenantWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateDeepSeekTenantResponse, error)
+
+	CreateDeepSeekTenantWithResponse(ctx context.Context, body CreateDeepSeekTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDeepSeekTenantResponse, error)
+
+	// DeleteDeepSeekTenantWithResponse request
+	DeleteDeepSeekTenantWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteDeepSeekTenantResponse, error)
+
+	// GetDeepSeekTenantWithResponse request
+	GetDeepSeekTenantWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetDeepSeekTenantResponse, error)
+
+	// PutDeepSeekTenantWithBodyWithResponse request with any body
+	PutDeepSeekTenantWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutDeepSeekTenantResponse, error)
+
+	PutDeepSeekTenantWithResponse(ctx context.Context, name string, body PutDeepSeekTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*PutDeepSeekTenantResponse, error)
+
 	// ListFirmwaresWithResponse request
 	ListFirmwaresWithResponse(ctx context.Context, params *ListFirmwaresParams, reqEditors ...RequestEditorFn) (*ListFirmwaresResponse, error)
 
@@ -12911,6 +13282,126 @@ func (r PutDashScopeTenantResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r PutDashScopeTenantResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListDeepSeekTenantsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DeepSeekTenantList
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ListDeepSeekTenantsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListDeepSeekTenantsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateDeepSeekTenantResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.DeepSeekTenant
+	JSON400      *externalRef0.ErrorResponse
+	JSON409      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateDeepSeekTenantResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateDeepSeekTenantResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteDeepSeekTenantResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.DeepSeekTenant
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteDeepSeekTenantResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteDeepSeekTenantResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetDeepSeekTenantResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.DeepSeekTenant
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetDeepSeekTenantResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetDeepSeekTenantResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PutDeepSeekTenantResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.DeepSeekTenant
+	JSON400      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PutDeepSeekTenantResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutDeepSeekTenantResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -16561,6 +17052,67 @@ func (c *ClientWithResponses) PutDashScopeTenantWithResponse(ctx context.Context
 	return ParsePutDashScopeTenantResponse(rsp)
 }
 
+// ListDeepSeekTenantsWithResponse request returning *ListDeepSeekTenantsResponse
+func (c *ClientWithResponses) ListDeepSeekTenantsWithResponse(ctx context.Context, params *ListDeepSeekTenantsParams, reqEditors ...RequestEditorFn) (*ListDeepSeekTenantsResponse, error) {
+	rsp, err := c.ListDeepSeekTenants(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListDeepSeekTenantsResponse(rsp)
+}
+
+// CreateDeepSeekTenantWithBodyWithResponse request with arbitrary body returning *CreateDeepSeekTenantResponse
+func (c *ClientWithResponses) CreateDeepSeekTenantWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateDeepSeekTenantResponse, error) {
+	rsp, err := c.CreateDeepSeekTenantWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateDeepSeekTenantResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateDeepSeekTenantWithResponse(ctx context.Context, body CreateDeepSeekTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDeepSeekTenantResponse, error) {
+	rsp, err := c.CreateDeepSeekTenant(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateDeepSeekTenantResponse(rsp)
+}
+
+// DeleteDeepSeekTenantWithResponse request returning *DeleteDeepSeekTenantResponse
+func (c *ClientWithResponses) DeleteDeepSeekTenantWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteDeepSeekTenantResponse, error) {
+	rsp, err := c.DeleteDeepSeekTenant(ctx, name, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteDeepSeekTenantResponse(rsp)
+}
+
+// GetDeepSeekTenantWithResponse request returning *GetDeepSeekTenantResponse
+func (c *ClientWithResponses) GetDeepSeekTenantWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetDeepSeekTenantResponse, error) {
+	rsp, err := c.GetDeepSeekTenant(ctx, name, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetDeepSeekTenantResponse(rsp)
+}
+
+// PutDeepSeekTenantWithBodyWithResponse request with arbitrary body returning *PutDeepSeekTenantResponse
+func (c *ClientWithResponses) PutDeepSeekTenantWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutDeepSeekTenantResponse, error) {
+	rsp, err := c.PutDeepSeekTenantWithBody(ctx, name, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutDeepSeekTenantResponse(rsp)
+}
+
+func (c *ClientWithResponses) PutDeepSeekTenantWithResponse(ctx context.Context, name string, body PutDeepSeekTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*PutDeepSeekTenantResponse, error) {
+	rsp, err := c.PutDeepSeekTenant(ctx, name, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutDeepSeekTenantResponse(rsp)
+}
+
 // ListFirmwaresWithResponse request returning *ListFirmwaresResponse
 func (c *ClientWithResponses) ListFirmwaresWithResponse(ctx context.Context, params *ListFirmwaresParams, reqEditors ...RequestEditorFn) (*ListFirmwaresResponse, error) {
 	rsp, err := c.ListFirmwares(ctx, params, reqEditors...)
@@ -18836,6 +19388,206 @@ func ParsePutDashScopeTenantResponse(rsp *http.Response) (*PutDashScopeTenantRes
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest externalRef0.DashScopeTenant
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListDeepSeekTenantsResponse parses an HTTP response from a ListDeepSeekTenantsWithResponse call
+func ParseListDeepSeekTenantsResponse(rsp *http.Response) (*ListDeepSeekTenantsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListDeepSeekTenantsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DeepSeekTenantList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateDeepSeekTenantResponse parses an HTTP response from a CreateDeepSeekTenantWithResponse call
+func ParseCreateDeepSeekTenantResponse(rsp *http.Response) (*CreateDeepSeekTenantResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateDeepSeekTenantResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.DeepSeekTenant
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteDeepSeekTenantResponse parses an HTTP response from a DeleteDeepSeekTenantWithResponse call
+func ParseDeleteDeepSeekTenantResponse(rsp *http.Response) (*DeleteDeepSeekTenantResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteDeepSeekTenantResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.DeepSeekTenant
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetDeepSeekTenantResponse parses an HTTP response from a GetDeepSeekTenantWithResponse call
+func ParseGetDeepSeekTenantResponse(rsp *http.Response) (*GetDeepSeekTenantResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetDeepSeekTenantResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.DeepSeekTenant
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePutDeepSeekTenantResponse parses an HTTP response from a PutDeepSeekTenantWithResponse call
+func ParsePutDeepSeekTenantResponse(rsp *http.Response) (*PutDeepSeekTenantResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutDeepSeekTenantResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.DeepSeekTenant
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -24850,6 +25602,21 @@ type ServerInterface interface {
 	// Create or update a DashScope tenant
 	// (PUT /dashscope-tenants/{name})
 	PutDashScopeTenant(c *fiber.Ctx, name string) error
+	// List all DeepSeek tenants
+	// (GET /deepseek-tenants)
+	ListDeepSeekTenants(c *fiber.Ctx, params ListDeepSeekTenantsParams) error
+	// Create a DeepSeek tenant
+	// (POST /deepseek-tenants)
+	CreateDeepSeekTenant(c *fiber.Ctx) error
+	// Delete a DeepSeek tenant
+	// (DELETE /deepseek-tenants/{name})
+	DeleteDeepSeekTenant(c *fiber.Ctx, name string) error
+	// Get a DeepSeek tenant
+	// (GET /deepseek-tenants/{name})
+	GetDeepSeekTenant(c *fiber.Ctx, name string) error
+	// Create or update a DeepSeek tenant
+	// (PUT /deepseek-tenants/{name})
+	PutDeepSeekTenant(c *fiber.Ctx, name string) error
 	// List firmwares
 	// (GET /firmwares)
 	ListFirmwares(c *fiber.Ctx, params ListFirmwaresParams) error
@@ -25580,6 +26347,91 @@ func (siw *ServerInterfaceWrapper) PutDashScopeTenant(c *fiber.Ctx) error {
 	}
 
 	return siw.Handler.PutDashScopeTenant(c, name)
+}
+
+// ListDeepSeekTenants operation middleware
+func (siw *ServerInterfaceWrapper) ListDeepSeekTenants(c *fiber.Ctx) error {
+
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListDeepSeekTenantsParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", query, &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter cursor: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", query, &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter limit: %w", err).Error())
+	}
+
+	return siw.Handler.ListDeepSeekTenants(c, params)
+}
+
+// CreateDeepSeekTenant operation middleware
+func (siw *ServerInterfaceWrapper) CreateDeepSeekTenant(c *fiber.Ctx) error {
+
+	return siw.Handler.CreateDeepSeekTenant(c)
+}
+
+// DeleteDeepSeekTenant operation middleware
+func (siw *ServerInterfaceWrapper) DeleteDeepSeekTenant(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+	}
+
+	return siw.Handler.DeleteDeepSeekTenant(c, name)
+}
+
+// GetDeepSeekTenant operation middleware
+func (siw *ServerInterfaceWrapper) GetDeepSeekTenant(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+	}
+
+	return siw.Handler.GetDeepSeekTenant(c, name)
+}
+
+// PutDeepSeekTenant operation middleware
+func (siw *ServerInterfaceWrapper) PutDeepSeekTenant(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+	}
+
+	return siw.Handler.PutDeepSeekTenant(c, name)
 }
 
 // ListFirmwares operation middleware
@@ -28799,6 +29651,16 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 
 	router.Put(options.BaseURL+"/dashscope-tenants/:name", wrapper.PutDashScopeTenant)
 
+	router.Get(options.BaseURL+"/deepseek-tenants", wrapper.ListDeepSeekTenants)
+
+	router.Post(options.BaseURL+"/deepseek-tenants", wrapper.CreateDeepSeekTenant)
+
+	router.Delete(options.BaseURL+"/deepseek-tenants/:name", wrapper.DeleteDeepSeekTenant)
+
+	router.Get(options.BaseURL+"/deepseek-tenants/:name", wrapper.GetDeepSeekTenant)
+
+	router.Put(options.BaseURL+"/deepseek-tenants/:name", wrapper.PutDeepSeekTenant)
+
 	router.Get(options.BaseURL+"/firmwares", wrapper.ListFirmwares)
 
 	router.Post(options.BaseURL+"/firmwares", wrapper.CreateFirmware)
@@ -29749,6 +30611,182 @@ func (response PutDashScopeTenant400JSONResponse) VisitPutDashScopeTenantRespons
 type PutDashScopeTenant500JSONResponse externalRef0.ErrorResponse
 
 func (response PutDashScopeTenant500JSONResponse) VisitPutDashScopeTenantResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type ListDeepSeekTenantsRequestObject struct {
+	Params ListDeepSeekTenantsParams
+}
+
+type ListDeepSeekTenantsResponseObject interface {
+	VisitListDeepSeekTenantsResponse(ctx *fiber.Ctx) error
+}
+
+type ListDeepSeekTenants200JSONResponse DeepSeekTenantList
+
+func (response ListDeepSeekTenants200JSONResponse) VisitListDeepSeekTenantsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type ListDeepSeekTenants500JSONResponse externalRef0.ErrorResponse
+
+func (response ListDeepSeekTenants500JSONResponse) VisitListDeepSeekTenantsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type CreateDeepSeekTenantRequestObject struct {
+	Body *CreateDeepSeekTenantJSONRequestBody
+}
+
+type CreateDeepSeekTenantResponseObject interface {
+	VisitCreateDeepSeekTenantResponse(ctx *fiber.Ctx) error
+}
+
+type CreateDeepSeekTenant200JSONResponse externalRef0.DeepSeekTenant
+
+func (response CreateDeepSeekTenant200JSONResponse) VisitCreateDeepSeekTenantResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type CreateDeepSeekTenant400JSONResponse externalRef0.ErrorResponse
+
+func (response CreateDeepSeekTenant400JSONResponse) VisitCreateDeepSeekTenantResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type CreateDeepSeekTenant409JSONResponse externalRef0.ErrorResponse
+
+func (response CreateDeepSeekTenant409JSONResponse) VisitCreateDeepSeekTenantResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type CreateDeepSeekTenant500JSONResponse externalRef0.ErrorResponse
+
+func (response CreateDeepSeekTenant500JSONResponse) VisitCreateDeepSeekTenantResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteDeepSeekTenantRequestObject struct {
+	Name string `json:"name"`
+}
+
+type DeleteDeepSeekTenantResponseObject interface {
+	VisitDeleteDeepSeekTenantResponse(ctx *fiber.Ctx) error
+}
+
+type DeleteDeepSeekTenant200JSONResponse externalRef0.DeepSeekTenant
+
+func (response DeleteDeepSeekTenant200JSONResponse) VisitDeleteDeepSeekTenantResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteDeepSeekTenant404JSONResponse externalRef0.ErrorResponse
+
+func (response DeleteDeepSeekTenant404JSONResponse) VisitDeleteDeepSeekTenantResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteDeepSeekTenant500JSONResponse externalRef0.ErrorResponse
+
+func (response DeleteDeepSeekTenant500JSONResponse) VisitDeleteDeepSeekTenantResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type GetDeepSeekTenantRequestObject struct {
+	Name string `json:"name"`
+}
+
+type GetDeepSeekTenantResponseObject interface {
+	VisitGetDeepSeekTenantResponse(ctx *fiber.Ctx) error
+}
+
+type GetDeepSeekTenant200JSONResponse externalRef0.DeepSeekTenant
+
+func (response GetDeepSeekTenant200JSONResponse) VisitGetDeepSeekTenantResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type GetDeepSeekTenant404JSONResponse externalRef0.ErrorResponse
+
+func (response GetDeepSeekTenant404JSONResponse) VisitGetDeepSeekTenantResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type GetDeepSeekTenant500JSONResponse externalRef0.ErrorResponse
+
+func (response GetDeepSeekTenant500JSONResponse) VisitGetDeepSeekTenantResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type PutDeepSeekTenantRequestObject struct {
+	Name string `json:"name"`
+	Body *PutDeepSeekTenantJSONRequestBody
+}
+
+type PutDeepSeekTenantResponseObject interface {
+	VisitPutDeepSeekTenantResponse(ctx *fiber.Ctx) error
+}
+
+type PutDeepSeekTenant200JSONResponse externalRef0.DeepSeekTenant
+
+func (response PutDeepSeekTenant200JSONResponse) VisitPutDeepSeekTenantResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type PutDeepSeekTenant400JSONResponse externalRef0.ErrorResponse
+
+func (response PutDeepSeekTenant400JSONResponse) VisitPutDeepSeekTenantResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type PutDeepSeekTenant500JSONResponse externalRef0.ErrorResponse
+
+func (response PutDeepSeekTenant500JSONResponse) VisitPutDeepSeekTenantResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(500)
 
@@ -35370,6 +36408,21 @@ type StrictServerInterface interface {
 	// Create or update a DashScope tenant
 	// (PUT /dashscope-tenants/{name})
 	PutDashScopeTenant(ctx context.Context, request PutDashScopeTenantRequestObject) (PutDashScopeTenantResponseObject, error)
+	// List all DeepSeek tenants
+	// (GET /deepseek-tenants)
+	ListDeepSeekTenants(ctx context.Context, request ListDeepSeekTenantsRequestObject) (ListDeepSeekTenantsResponseObject, error)
+	// Create a DeepSeek tenant
+	// (POST /deepseek-tenants)
+	CreateDeepSeekTenant(ctx context.Context, request CreateDeepSeekTenantRequestObject) (CreateDeepSeekTenantResponseObject, error)
+	// Delete a DeepSeek tenant
+	// (DELETE /deepseek-tenants/{name})
+	DeleteDeepSeekTenant(ctx context.Context, request DeleteDeepSeekTenantRequestObject) (DeleteDeepSeekTenantResponseObject, error)
+	// Get a DeepSeek tenant
+	// (GET /deepseek-tenants/{name})
+	GetDeepSeekTenant(ctx context.Context, request GetDeepSeekTenantRequestObject) (GetDeepSeekTenantResponseObject, error)
+	// Create or update a DeepSeek tenant
+	// (PUT /deepseek-tenants/{name})
+	PutDeepSeekTenant(ctx context.Context, request PutDeepSeekTenantRequestObject) (PutDeepSeekTenantResponseObject, error)
 	// List firmwares
 	// (GET /firmwares)
 	ListFirmwares(ctx context.Context, request ListFirmwaresRequestObject) (ListFirmwaresResponseObject, error)
@@ -36337,6 +37390,151 @@ func (sh *strictHandler) PutDashScopeTenant(ctx *fiber.Ctx, name string) error {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	} else if validResponse, ok := response.(PutDashScopeTenantResponseObject); ok {
 		if err := validResponse.VisitPutDashScopeTenantResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListDeepSeekTenants operation middleware
+func (sh *strictHandler) ListDeepSeekTenants(ctx *fiber.Ctx, params ListDeepSeekTenantsParams) error {
+	var request ListDeepSeekTenantsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.ListDeepSeekTenants(ctx.UserContext(), request.(ListDeepSeekTenantsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListDeepSeekTenants")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(ListDeepSeekTenantsResponseObject); ok {
+		if err := validResponse.VisitListDeepSeekTenantsResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateDeepSeekTenant operation middleware
+func (sh *strictHandler) CreateDeepSeekTenant(ctx *fiber.Ctx) error {
+	var request CreateDeepSeekTenantRequestObject
+
+	var body CreateDeepSeekTenantJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateDeepSeekTenant(ctx.UserContext(), request.(CreateDeepSeekTenantRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateDeepSeekTenant")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(CreateDeepSeekTenantResponseObject); ok {
+		if err := validResponse.VisitCreateDeepSeekTenantResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DeleteDeepSeekTenant operation middleware
+func (sh *strictHandler) DeleteDeepSeekTenant(ctx *fiber.Ctx, name string) error {
+	var request DeleteDeepSeekTenantRequestObject
+
+	request.Name = name
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteDeepSeekTenant(ctx.UserContext(), request.(DeleteDeepSeekTenantRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteDeepSeekTenant")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(DeleteDeepSeekTenantResponseObject); ok {
+		if err := validResponse.VisitDeleteDeepSeekTenantResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetDeepSeekTenant operation middleware
+func (sh *strictHandler) GetDeepSeekTenant(ctx *fiber.Ctx, name string) error {
+	var request GetDeepSeekTenantRequestObject
+
+	request.Name = name
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.GetDeepSeekTenant(ctx.UserContext(), request.(GetDeepSeekTenantRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetDeepSeekTenant")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(GetDeepSeekTenantResponseObject); ok {
+		if err := validResponse.VisitGetDeepSeekTenantResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// PutDeepSeekTenant operation middleware
+func (sh *strictHandler) PutDeepSeekTenant(ctx *fiber.Ctx, name string) error {
+	var request PutDeepSeekTenantRequestObject
+
+	request.Name = name
+
+	var body PutDeepSeekTenantJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.PutDeepSeekTenant(ctx.UserContext(), request.(PutDeepSeekTenantRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutDeepSeekTenant")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(PutDeepSeekTenantResponseObject); ok {
+		if err := validResponse.VisitPutDeepSeekTenantResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {

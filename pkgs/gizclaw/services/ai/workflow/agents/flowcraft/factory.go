@@ -3023,6 +3023,12 @@ func normalizeInputMode(value any) inputMode {
 
 func clawModelConfig(cfg peergenx.GeneratorConfig) (map[string]any, error) {
 	switch cfg.Tenant.Kind {
+	case string(apitypes.ModelProviderKindDeepseekTenant):
+		return resolveDeepSeekClawModelConfig(cfg)
+	case string(apitypes.ModelProviderKindMinimaxTenant):
+		return resolveMiniMaxClawModelConfig(cfg)
+	case string(apitypes.ModelProviderKindDashscopeTenant):
+		return resolveDashScopeClawModelConfig(cfg)
 	case string(apitypes.ModelProviderKindOpenaiTenant):
 		return resolveOpenAIClawModelConfig(cfg)
 	case string(apitypes.ModelProviderKindVolcTenant):
@@ -3032,17 +3038,104 @@ func clawModelConfig(cfg peergenx.GeneratorConfig) (map[string]any, error) {
 	}
 }
 
+func resolveDashScopeClawModelConfig(cfg peergenx.GeneratorConfig) (map[string]any, error) {
+	if cfg.Tenant.DashScope == nil {
+		return nil, fmt.Errorf("flowcraft: dashscope tenant is required")
+	}
+	providerData, err := cfg.Model.ProviderData.AsDashScopeTenantModelProviderData()
+	if err != nil {
+		return nil, fmt.Errorf("flowcraft: decode dashscope provider_data: %w", err)
+	}
+	body, err := cfg.Credential.Body.AsDashScopeCredentialBody()
+	if err != nil {
+		return nil, err
+	}
+	apiKey := firstString(body.ApiKey, body.Token)
+	if apiKey == "" {
+		return nil, fmt.Errorf("flowcraft: credential %q missing api_key", cfg.Credential.Name)
+	}
+	out := map[string]any{
+		"provider": "qwen",
+		"model":    firstString(providerData.UpstreamModel, string(cfg.Model.Id)),
+		"api_key":  apiKey,
+	}
+	if extra := providerThinkingConfig(providerData.ThinkingParam, providerData.ThinkingLevelParam, providerData.DefaultThinkingLevel); len(extra) > 0 {
+		out["config"] = extra
+	}
+	if baseURL := firstString(cfg.Tenant.DashScope.BaseUrl, body.BaseUrl); baseURL != "" {
+		out["base_url"] = baseURL
+	}
+	return out, nil
+}
+
+func resolveDeepSeekClawModelConfig(cfg peergenx.GeneratorConfig) (map[string]any, error) {
+	if cfg.Tenant.DeepSeek == nil {
+		return nil, fmt.Errorf("flowcraft: deepseek tenant is required")
+	}
+	providerData, err := cfg.Model.ProviderData.AsDeepSeekTenantModelProviderData()
+	if err != nil {
+		return nil, fmt.Errorf("flowcraft: decode deepseek provider_data: %w", err)
+	}
+	body, err := cfg.Credential.Body.AsDeepSeekCredentialBody()
+	if err != nil {
+		return nil, err
+	}
+	apiKey := strings.TrimSpace(body.ApiKey)
+	if apiKey == "" {
+		return nil, fmt.Errorf("flowcraft: credential %q missing api_key", cfg.Credential.Name)
+	}
+	out := map[string]any{
+		"provider": "deepseek",
+		"model":    providerData.UpstreamModel,
+		"api_key":  apiKey,
+	}
+	if extra := providerThinkingConfig(providerData.ThinkingParam, providerData.ThinkingLevelParam, providerData.DefaultThinkingLevel); len(extra) > 0 {
+		out["config"] = extra
+	}
+	if baseURL := firstString(cfg.Tenant.DeepSeek.BaseUrl); baseURL != "" {
+		out["base_url"] = baseURL
+	}
+	return out, nil
+}
+
+func resolveMiniMaxClawModelConfig(cfg peergenx.GeneratorConfig) (map[string]any, error) {
+	if cfg.Tenant.MiniMax == nil {
+		return nil, fmt.Errorf("flowcraft: minimax tenant is required")
+	}
+	providerData, err := cfg.Model.ProviderData.AsMiniMaxTenantModelProviderData()
+	if err != nil {
+		return nil, fmt.Errorf("flowcraft: decode minimax provider_data: %w", err)
+	}
+	body, err := cfg.Credential.Body.AsMiniMaxCredentialBody()
+	if err != nil {
+		return nil, err
+	}
+	apiKey := firstString(body.ApiKey, body.Token)
+	if apiKey == "" {
+		return nil, fmt.Errorf("flowcraft: credential %q missing api_key", cfg.Credential.Name)
+	}
+	out := map[string]any{
+		"provider": "minimax",
+		"model":    providerData.UpstreamModel,
+		"api_key":  apiKey,
+	}
+	if extra := providerThinkingConfig(providerData.ThinkingParam, providerData.ThinkingLevelParam, providerData.DefaultThinkingLevel); len(extra) > 0 {
+		out["config"] = extra
+	}
+	if baseURL := firstString(cfg.Tenant.MiniMax.BaseUrl, body.BaseUrl); baseURL != "" {
+		out["base_url"] = baseURL
+	}
+	return out, nil
+}
+
 func resolveOpenAIClawModelConfig(cfg peergenx.GeneratorConfig) (map[string]any, error) {
 	if cfg.Tenant.OpenAI == nil {
 		return nil, fmt.Errorf("flowcraft: openai tenant is required")
 	}
 	var providerData apitypes.OpenAITenantModelProviderData
-	if cfg.Model.ProviderData != nil {
-		var err error
-		providerData, err = cfg.Model.ProviderData.AsOpenAITenantModelProviderData()
-		if err != nil {
-			return nil, fmt.Errorf("flowcraft: decode openai provider_data: %w", err)
-		}
+	providerData, err := cfg.Model.ProviderData.AsOpenAITenantModelProviderData()
+	if err != nil {
+		return nil, fmt.Errorf("flowcraft: decode openai provider_data: %w", err)
 	}
 	upstream := firstString(providerData.UpstreamModel, string(cfg.Model.Id))
 	body, err := cfg.Credential.Body.AsOpenAICredentialBody()
@@ -3072,12 +3165,9 @@ func resolveVolcClawModelConfig(cfg peergenx.GeneratorConfig) (map[string]any, e
 		return nil, fmt.Errorf("flowcraft: volc tenant is required")
 	}
 	var providerData apitypes.VolcTenantModelProviderData
-	if cfg.Model.ProviderData != nil {
-		var err error
-		providerData, err = cfg.Model.ProviderData.AsVolcTenantModelProviderData()
-		if err != nil {
-			return nil, fmt.Errorf("flowcraft: decode volc provider_data: %w", err)
-		}
+	providerData, err := cfg.Model.ProviderData.AsVolcTenantModelProviderData()
+	if err != nil {
+		return nil, fmt.Errorf("flowcraft: decode volc provider_data: %w", err)
 	}
 	model := firstString(providerData.UpstreamModel, string(cfg.Model.Id))
 	if model == "" {
@@ -3109,8 +3199,12 @@ func resolveVolcClawModelConfig(cfg peergenx.GeneratorConfig) (map[string]any, e
 }
 
 func openAIThinkingConfig(data apitypes.OpenAITenantModelProviderData) map[string]any {
-	param := firstString(data.ThinkingParam, data.ThinkingLevelParam)
-	level := firstString(data.DefaultThinkingLevel)
+	return providerThinkingConfig(data.ThinkingParam, data.ThinkingLevelParam, data.DefaultThinkingLevel)
+}
+
+func providerThinkingConfig(thinkingParam, thinkingLevelParam, defaultThinkingLevel *string) map[string]any {
+	param := firstString(thinkingParam, thinkingLevelParam)
+	level := firstString(defaultThinkingLevel)
 	if param == "" || level == "" {
 		return nil
 	}

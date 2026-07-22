@@ -10,6 +10,7 @@ type FieldDesc = {
   optionalRepeated?: boolean;
   mapValue?: string;
   oneof?: boolean;
+  oneofGroup?: string;
   optional?: boolean;
 };
 
@@ -40,6 +41,7 @@ export type FriendGroupMemberMutableRole = "" | "admin" | "member" | "unspecifie
 export type FriendGroupMemberRole = "" | "admin" | "member" | "owner" | "unspecified" | number;
 export type IconFormat = "" | "pixa" | "png" | "unspecified" | number;
 export type ModelKind = "" | "asr" | "embedding" | "llm" | "realtime" | "translation" | "tts" | "unspecified" | number;
+export type ModelProviderKind = "" | "dashscope-tenant" | "deepseek-tenant" | "gemini-tenant" | "minimax-tenant" | "openai-tenant" | "unspecified" | "volc-tenant" | number;
 export type PeerRole = "" | "admin" | "client" | "edge-node" | "server" | "unspecified" | number;
 export type PeerRunHistoryEntryType = "" | "agent" | "gear" | "unspecified" | number;
 export type PeerRunHistoryListRequestOrder = "" | "asc" | "desc" | "unspecified" | number;
@@ -48,7 +50,7 @@ export type PetBehavior = "" | "bathe" | "feed" | "heal" | "play" | "unspecified
 export type PetConversationParametersInitiative = "" | "agent" | "peer" | "unspecified" | number;
 export type PetLifecycle = "" | "alive" | "dead" | "unspecified" | number;
 export type PetWorkspaceParametersAgentType = "" | "pet" | "unspecified" | number;
-export type VolcTenantModelProviderDataApiMode = "" | "asr" | "realtime" | "tts" | "unspecified" | number;
+export type VolcTenantModelProviderDataApiMode = "" | "asr" | "chat_completions" | "embedding" | "realtime" | "translation" | "tts" | "unspecified" | number;
 export type WorkflowDriver = "" | "ast-translate" | "chatroom" | "doubao-realtime" | "flowcraft" | "pet" | "unspecified" | number;
 export type WorkspaceHistoryListRequestOrder = "" | "asc" | "desc" | "unspecified" | number;
 export type WorkspaceInputMode = "" | "push-to-talk" | "realtime" | "unspecified" | number;
@@ -177,6 +179,34 @@ export type ContactPutRequest = {
   "phone_number"?: string;
 };
 export type ContactPutResponse = ContactObject;
+export type DashScopeTenantModelProviderData = {
+  "upstream_model"?: string;
+  "api_mode"?: string;
+  "support_json_output"?: boolean;
+  "support_tool_calls"?: boolean;
+  "support_text_only"?: boolean;
+  "support_temperature"?: boolean;
+  "support_thinking"?: boolean;
+  "use_system_role"?: boolean;
+  "thinking_param"?: string;
+  "thinking_level_param"?: string;
+  "thinking_levels": string[];
+  "default_thinking_level"?: string;
+};
+export type DeepSeekTenantModelProviderData = {
+  "upstream_model": string;
+  "api_mode": string;
+  "support_json_output"?: boolean;
+  "support_tool_calls"?: boolean;
+  "support_text_only"?: boolean;
+  "support_temperature"?: boolean;
+  "support_thinking"?: boolean;
+  "use_system_role"?: boolean;
+  "thinking_param"?: string;
+  "thinking_level_param"?: string;
+  "thinking_levels": string[];
+  "default_thinking_level"?: string;
+};
 export type DeviceIdentifiers = {
   "sn"?: string;
   "imeis"?: PeerIMEI[];
@@ -580,6 +610,19 @@ export type GameplayListRequest = {
 export type GameplayMetadata = {
   "fields": Record<string, unknown>;
 };
+export type GeminiTenantModelProviderData = {
+  "upstream_model"?: string;
+  "support_json_output"?: boolean;
+  "support_tool_calls"?: boolean;
+  "support_text_only"?: boolean;
+  "support_temperature"?: boolean;
+  "support_thinking"?: boolean;
+  "use_system_role"?: boolean;
+  "thinking_param"?: string;
+  "thinking_level_param"?: string;
+  "thinking_levels": string[];
+  "default_thinking_level"?: string;
+};
 export type HardwareInfo = {
   "hardware_revision"?: string;
   "manufacturer"?: string;
@@ -589,19 +632,31 @@ export type Icon = {
   "pixa"?: string;
   "png"?: string;
 };
+export type MiniMaxTenantModelProviderData = {
+  "upstream_model": string;
+  "api_mode": string;
+  "support_json_output"?: boolean;
+  "support_tool_calls"?: boolean;
+  "support_text_only"?: boolean;
+  "support_temperature"?: boolean;
+  "support_thinking"?: boolean;
+  "use_system_role"?: boolean;
+  "thinking_param"?: string;
+  "thinking_level_param"?: string;
+  "thinking_levels": string[];
+  "default_thinking_level"?: string;
+};
 export type Model = {
   "alias": string;
   "i18n": Record<string, AliasI18nText>;
   "kind": ModelKind;
-  "capabilities"?: ModelCapabilities;
-};
-export type ModelCapabilities = {
-  "json_output"?: boolean;
-  "system_role"?: boolean;
-  "temperature"?: boolean;
-  "text_only"?: boolean;
-  "thinking"?: ModelThinkingCapability;
-  "tool_calls"?: boolean;
+  "openai_tenant"?: OpenAITenantModelProviderData;
+  "gemini_tenant"?: GeminiTenantModelProviderData;
+  "dashscope_tenant"?: DashScopeTenantModelProviderData;
+  "volc_tenant"?: VolcTenantModelProviderData;
+  "minimax_tenant"?: MiniMaxTenantModelProviderData;
+  "deepseek_tenant"?: DeepSeekTenantModelProviderData;
+  "provider_kind": ModelProviderKind;
 };
 export type ModelGetRequest = {
   "alias": string;
@@ -622,12 +677,18 @@ export type ModelListResponse = {
   "runtime_profile_name": string;
   "runtime_profile_revision": string;
 };
-export type ModelThinkingCapability = {
-  "default_level"?: string;
-  "level_param"?: string;
-  "levels": string[];
-  "param"?: string;
-  "supported": boolean;
+export type OpenAITenantModelProviderData = {
+  "upstream_model"?: string;
+  "support_json_output"?: boolean;
+  "support_tool_calls"?: boolean;
+  "support_text_only"?: boolean;
+  "support_temperature"?: boolean;
+  "support_thinking"?: boolean;
+  "use_system_role"?: boolean;
+  "thinking_param"?: string;
+  "thinking_level_param"?: string;
+  "thinking_levels": string[];
+  "default_thinking_level"?: string;
 };
 export type PeerAssignment = {
   "peer_public_key": string;
@@ -1112,6 +1173,21 @@ export type VoiceListResponse = {
   "runtime_profile_name": string;
   "runtime_profile_revision": string;
 };
+export type VolcTenantModelProviderData = {
+  "upstream_model"?: string;
+  "resource_id"?: string;
+  "api_mode"?: string;
+  "support_json_output"?: boolean;
+  "support_tool_calls"?: boolean;
+  "support_text_only"?: boolean;
+  "support_temperature"?: boolean;
+  "support_thinking"?: boolean;
+  "use_system_role"?: boolean;
+  "thinking_param"?: string;
+  "thinking_level_param"?: string;
+  "thinking_levels": string[];
+  "default_thinking_level"?: string;
+};
 export type Workflow = {
   "alias": string;
   "i18n": Record<string, AliasI18nText>;
@@ -1485,12 +1561,14 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "asttranslate_internal_speaker_parameters",
         "number": 1,
         "oneof": true,
+        "oneofGroup": "value",
         "type": "ASTTranslateInternalSpeakerParameters"
       },
       {
         "name": "asttranslate_external_voice_parameters",
         "number": 2,
         "oneof": true,
+        "oneofGroup": "value",
         "type": "ASTTranslateExternalVoiceParameters"
       }
     ]
@@ -1979,6 +2057,156 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "value",
         "number": 1,
         "type": "ContactObject"
+      }
+    ]
+  },
+  "DashScopeTenantModelProviderData": {
+    "fields": [
+      {
+        "name": "upstream_model",
+        "number": 1,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "api_mode",
+        "number": 2,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "support_json_output",
+        "number": 3,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "support_tool_calls",
+        "number": 4,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "support_text_only",
+        "number": 5,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "support_temperature",
+        "number": 6,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "support_thinking",
+        "number": 7,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "use_system_role",
+        "number": 8,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "thinking_param",
+        "number": 9,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "thinking_level_param",
+        "number": 10,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "thinking_levels",
+        "number": 11,
+        "repeated": true,
+        "type": "string"
+      },
+      {
+        "name": "default_thinking_level",
+        "number": 12,
+        "optional": true,
+        "type": "string"
+      }
+    ]
+  },
+  "DeepSeekTenantModelProviderData": {
+    "fields": [
+      {
+        "name": "upstream_model",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "api_mode",
+        "number": 2,
+        "type": "string"
+      },
+      {
+        "name": "support_json_output",
+        "number": 3,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "support_tool_calls",
+        "number": 4,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "support_text_only",
+        "number": 5,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "support_temperature",
+        "number": 6,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "support_thinking",
+        "number": 7,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "use_system_role",
+        "number": 8,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "thinking_param",
+        "number": 9,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "thinking_level_param",
+        "number": 10,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "thinking_levels",
+        "number": 11,
+        "repeated": true,
+        "type": "string"
+      },
+      {
+        "name": "default_thinking_level",
+        "number": 12,
+        "optional": true,
+        "type": "string"
       }
     ]
   },
@@ -3761,6 +3989,76 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "GeminiTenantModelProviderData": {
+    "fields": [
+      {
+        "name": "upstream_model",
+        "number": 1,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "support_json_output",
+        "number": 2,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "support_tool_calls",
+        "number": 3,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "support_text_only",
+        "number": 4,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "support_temperature",
+        "number": 5,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "support_thinking",
+        "number": 6,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "use_system_role",
+        "number": 7,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "thinking_param",
+        "number": 8,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "thinking_level_param",
+        "number": 9,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "thinking_levels",
+        "number": 10,
+        "repeated": true,
+        "type": "string"
+      },
+      {
+        "name": "default_thinking_level",
+        "number": 11,
+        "optional": true,
+        "type": "string"
+      }
+    ]
+  },
   "HardwareInfo": {
     "fields": [
       {
@@ -3799,6 +4097,80 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "MiniMaxTenantModelProviderData": {
+    "fields": [
+      {
+        "name": "upstream_model",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "api_mode",
+        "number": 2,
+        "type": "string"
+      },
+      {
+        "name": "support_json_output",
+        "number": 3,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "support_tool_calls",
+        "number": 4,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "support_text_only",
+        "number": 5,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "support_temperature",
+        "number": 6,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "support_thinking",
+        "number": 7,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "use_system_role",
+        "number": 8,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "thinking_param",
+        "number": 9,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "thinking_level_param",
+        "number": 10,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "thinking_levels",
+        "number": 11,
+        "repeated": true,
+        "type": "string"
+      },
+      {
+        "name": "default_thinking_level",
+        "number": 12,
+        "optional": true,
+        "type": "string"
+      }
+    ]
+  },
   "Model": {
     "fields": [
       {
@@ -3818,50 +4190,51 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "ModelKind"
       },
       {
-        "name": "capabilities",
-        "number": 4,
-        "optional": true,
-        "type": "ModelCapabilities"
-      }
-    ]
-  },
-  "ModelCapabilities": {
-    "fields": [
-      {
-        "name": "json_output",
-        "number": 1,
-        "optional": true,
-        "type": "bool"
-      },
-      {
-        "name": "system_role",
-        "number": 2,
-        "optional": true,
-        "type": "bool"
-      },
-      {
-        "name": "temperature",
-        "number": 3,
-        "optional": true,
-        "type": "bool"
-      },
-      {
-        "name": "text_only",
-        "number": 4,
-        "optional": true,
-        "type": "bool"
-      },
-      {
-        "name": "thinking",
+        "name": "openai_tenant",
         "number": 5,
-        "optional": true,
-        "type": "ModelThinkingCapability"
+        "oneof": true,
+        "oneofGroup": "provider_data",
+        "type": "OpenAITenantModelProviderData"
       },
       {
-        "name": "tool_calls",
+        "name": "gemini_tenant",
         "number": 6,
-        "optional": true,
-        "type": "bool"
+        "oneof": true,
+        "oneofGroup": "provider_data",
+        "type": "GeminiTenantModelProviderData"
+      },
+      {
+        "name": "dashscope_tenant",
+        "number": 7,
+        "oneof": true,
+        "oneofGroup": "provider_data",
+        "type": "DashScopeTenantModelProviderData"
+      },
+      {
+        "name": "volc_tenant",
+        "number": 8,
+        "oneof": true,
+        "oneofGroup": "provider_data",
+        "type": "VolcTenantModelProviderData"
+      },
+      {
+        "name": "minimax_tenant",
+        "number": 9,
+        "oneof": true,
+        "oneofGroup": "provider_data",
+        "type": "MiniMaxTenantModelProviderData"
+      },
+      {
+        "name": "deepseek_tenant",
+        "number": 10,
+        "oneof": true,
+        "oneofGroup": "provider_data",
+        "type": "DeepSeekTenantModelProviderData"
+      },
+      {
+        "name": "provider_kind",
+        "number": 11,
+        "type": "ModelProviderKind"
       }
     ]
   },
@@ -3940,36 +4313,73 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
-  "ModelThinkingCapability": {
+  "OpenAITenantModelProviderData": {
     "fields": [
       {
-        "name": "default_level",
+        "name": "upstream_model",
         "number": 1,
         "optional": true,
         "type": "string"
       },
       {
-        "name": "level_param",
+        "name": "support_json_output",
         "number": 2,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "support_tool_calls",
+        "number": 3,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "support_text_only",
+        "number": 4,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "support_temperature",
+        "number": 5,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "support_thinking",
+        "number": 6,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "use_system_role",
+        "number": 7,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "thinking_param",
+        "number": 8,
         "optional": true,
         "type": "string"
       },
       {
-        "name": "levels",
-        "number": 3,
+        "name": "thinking_level_param",
+        "number": 9,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "thinking_levels",
+        "number": 10,
         "repeated": true,
         "type": "string"
       },
       {
-        "name": "param",
-        "number": 4,
+        "name": "default_thinking_level",
+        "number": 11,
         "optional": true,
         "type": "string"
-      },
-      {
-        "name": "supported",
-        "number": 5,
-        "type": "bool"
       }
     ]
   },
@@ -6264,6 +6674,88 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "VolcTenantModelProviderData": {
+    "fields": [
+      {
+        "name": "upstream_model",
+        "number": 1,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "resource_id",
+        "number": 2,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "api_mode",
+        "number": 3,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "support_json_output",
+        "number": 4,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "support_tool_calls",
+        "number": 5,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "support_text_only",
+        "number": 6,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "support_temperature",
+        "number": 7,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "support_thinking",
+        "number": 8,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "use_system_role",
+        "number": 9,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "thinking_param",
+        "number": 10,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "thinking_level_param",
+        "number": 11,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "thinking_levels",
+        "number": 12,
+        "repeated": true,
+        "type": "string"
+      },
+      {
+        "name": "default_thinking_level",
+        "number": 13,
+        "optional": true,
+        "type": "string"
+      }
+    ]
+  },
   "Workflow": {
     "fields": [
       {
@@ -6727,30 +7219,35 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "flowcraft_workspace_parameters",
         "number": 1,
         "oneof": true,
+        "oneofGroup": "value",
         "type": "FlowcraftWorkspaceParameters"
       },
       {
         "name": "doubao_realtime_workspace_parameters",
         "number": 2,
         "oneof": true,
+        "oneofGroup": "value",
         "type": "DoubaoRealtimeWorkspaceParameters"
       },
       {
         "name": "asttranslate_workspace_parameters",
         "number": 3,
         "oneof": true,
+        "oneofGroup": "value",
         "type": "ASTTranslateWorkspaceParameters"
       },
       {
         "name": "chat_room_workspace_parameters",
         "number": 4,
         "oneof": true,
+        "oneofGroup": "value",
         "type": "ChatRoomWorkspaceParameters"
       },
       {
         "name": "pet_workspace_parameters",
         "number": 5,
         "oneof": true,
+        "oneofGroup": "value",
         "type": "PetWorkspaceParameters"
       }
     ]
@@ -7022,6 +7519,26 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "6": "embedding"
     }
   },
+  "ModelProviderKind": {
+    "byName": {
+      "dashscope-tenant": 3,
+      "deepseek-tenant": 6,
+      "gemini-tenant": 2,
+      "minimax-tenant": 5,
+      "openai-tenant": 1,
+      "unspecified": 0,
+      "volc-tenant": 4
+    },
+    "byNumber": {
+      "0": "",
+      "1": "openai-tenant",
+      "2": "gemini-tenant",
+      "3": "dashscope-tenant",
+      "4": "volc-tenant",
+      "5": "minimax-tenant",
+      "6": "deepseek-tenant"
+    }
+  },
   "PeerRole": {
     "byName": {
       "admin": 1,
@@ -7133,7 +7650,10 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
   "VolcTenantModelProviderDataApiMode": {
     "byName": {
       "asr": 1,
+      "chat_completions": 4,
+      "embedding": 6,
       "realtime": 3,
+      "translation": 5,
       "tts": 2,
       "unspecified": 0
     },
@@ -7141,7 +7661,10 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "0": "",
       "1": "asr",
       "2": "tts",
-      "3": "realtime"
+      "3": "realtime",
+      "4": "chat_completions",
+      "5": "translation",
+      "6": "embedding"
     }
   },
   "WorkflowDriver": {
@@ -7239,9 +7762,18 @@ function encodeMessage(type: string, value: unknown, parent: Record<string, unkn
     return writer.finish();
   }
   const object = messageObjectForEncode(type, value);
+  validateDiscriminatedOneofs(type, desc, object);
+  const encodedOneofs = new Set<string>();
   for (const field of fields) {
     if (field.oneof) {
-      continue;
+      if (!Object.prototype.hasOwnProperty.call(object, field.name) || object[field.name] == null) {
+        continue;
+      }
+      const oneofGroup = field.oneofGroup ?? "";
+      if (encodedOneofs.has(oneofGroup)) {
+        throw new Error(`protobuf message ${type} has multiple oneof values`);
+      }
+      encodedOneofs.add(oneofGroup);
     }
     if (!Object.prototype.hasOwnProperty.call(object, field.name)) {
       continue;
@@ -7270,11 +7802,32 @@ function decodeMessage(type: string, payload: Uint8Array): unknown {
     }
     return {};
   }
-  return withMessageDefaults(desc, values);
+  const object = withMessageDefaults(desc, values);
+  validateDiscriminatedOneofs(type, desc, object);
+  return object;
 }
 
 function messageObjectForEncode(type: string, value: unknown): Record<string, unknown> {
   return asRecord(value, type);
+}
+
+function validateDiscriminatedOneofs(type: string, desc: MessageDesc, object: Record<string, unknown>): void {
+  if (type !== "Model") {
+    return;
+  }
+  const providerKind = discriminatorString(type, "provider_kind", object.provider_kind);
+  const expected = providerKind == null ? undefined : oneofDiscriminatorFieldName(type, providerKind);
+  const selected = desc.fields.filter((field) => field.oneofGroup === "provider_data" && object[field.name] != null);
+  if (selected.length > 1) {
+    throw new Error("protobuf message Model has multiple oneof values");
+  }
+  if (expected == null) {
+    throw new Error(`protobuf message Model provider_kind ${JSON.stringify(providerKind ?? "")} does not select a supported provider_data field`);
+  }
+  if (selected.length !== 1 || selected[0]?.name !== expected) {
+    const actual = selected.length === 1 ? selected[0]?.name : selected.length === 0 ? "none" : selected.map((field) => field.name).join(", ");
+    throw new Error(`protobuf message Model provider_kind ${JSON.stringify(providerKind)} requires provider_data field ${expected}, got ${actual}`);
+  }
 }
 
 function decodeMessageFields(desc: MessageDesc, payload: Uint8Array): Record<string, unknown> {
@@ -7443,7 +7996,8 @@ function singleValueField(desc: MessageDesc): FieldDesc | undefined {
 }
 
 function isOneofValueWrapper(desc: MessageDesc): boolean {
-  return desc.fields.length > 0 && desc.fields.every((field) => field.oneof === true);
+  const group = desc.fields[0]?.oneofGroup;
+  return group != null && desc.fields.every((field) => field.oneofGroup === group);
 }
 
 function withMessageDefaults(desc: MessageDesc, values: Record<string, unknown>): Record<string, unknown> {
@@ -7577,6 +8131,9 @@ function oneofDiscriminatorKey(type: string): string | undefined {
 }
 
 function oneofDiscriminatorEnumType(type: string, field: string): string | undefined {
+  if (type === "Model" && field === "provider_kind") {
+    return "ModelProviderKind";
+  }
   if ((type === "ModelProviderData" || type === "VoiceProviderData") && field === "provider.kind") {
     return type === "ModelProviderData" ? "ModelProviderKind" : "VoiceProviderKind";
   }
@@ -7585,6 +8142,15 @@ function oneofDiscriminatorEnumType(type: string, field: string): string | undef
 
 function oneofDiscriminatorFieldName(type: string, discriminator: string): string | undefined {
   switch (type) {
+    case "Model":
+      return ({
+        "openai-tenant": "openai_tenant",
+        "gemini-tenant": "gemini_tenant",
+        "dashscope-tenant": "dashscope_tenant",
+        "volc-tenant": "volc_tenant",
+        "minimax-tenant": "minimax_tenant",
+        "deepseek-tenant": "deepseek_tenant",
+      } as Record<string, string>)[discriminator];
     case "CredentialBody":
       return ({
         "openai": "open_aicredential_body",

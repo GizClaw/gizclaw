@@ -9,133 +9,126 @@
   "components": {
     "schemas": {
       "ModelProviderData": {
-        "description": "Provider-specific model runtime configuration. The shape is selected by Model.provider.kind.",
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/GeminiTenantModelProviderData"
-          },
-          {
-            "$ref": "#/components/schemas/DashScopeTenantModelProviderData"
-          },
-          {
-            "$ref": "#/components/schemas/OpenAITenantModelProviderData"
-          },
-          {
-            "$ref": "#/components/schemas/VolcTenantModelProviderData"
-          }
-        ],
-        "example": {
-          "upstream_model": "MiniMax-M2.5"
-        }
+        "description": "Provider-specific model runtime configuration selected by Model.provider.kind. Optional behavior flags default to false.",
+        "anyOf": [
+          { "$ref": "#/components/schemas/GeminiTenantModelProviderData" },
+          { "$ref": "#/components/schemas/DashScopeTenantModelProviderData" },
+          { "$ref": "#/components/schemas/DeepSeekTenantModelProviderData" },
+          { "$ref": "#/components/schemas/OpenAITenantModelProviderData" },
+          { "$ref": "#/components/schemas/MiniMaxTenantModelProviderData" },
+          { "$ref": "#/components/schemas/VolcTenantModelProviderData" }
+        ]
       },
       "DashScopeTenantModelProviderData": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
-          "upstream_model": {
-            "type": "string"
-          },
-          "api_mode": {
-            "type": "string",
-            "enum": [
-              "chat_completions",
-              "realtime"
-            ]
-          }
+          "upstream_model": { "type": "string" },
+          "api_mode": { "type": "string", "enum": ["chat_completions", "realtime"] },
+          "support_json_output": { "type": "boolean" },
+          "support_tool_calls": { "type": "boolean" },
+          "support_text_only": { "type": "boolean" },
+          "use_system_role": { "type": "boolean" },
+          "support_temperature": { "type": "boolean" },
+          "support_thinking": { "type": "boolean" },
+          "thinking_param": { "type": "string" },
+          "thinking_level_param": { "type": "string" },
+          "thinking_levels": { "type": "array", "items": { "type": "string" } },
+          "default_thinking_level": { "type": "string" }
+        }
+      },
+      "DeepSeekTenantModelProviderData": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["upstream_model", "api_mode"],
+        "properties": {
+          "upstream_model": { "type": "string", "minLength": 1 },
+          "api_mode": { "type": "string", "enum": ["chat_completions"] },
+          "support_json_output": { "type": "boolean" },
+          "support_tool_calls": { "type": "boolean" },
+          "support_text_only": { "type": "boolean" },
+          "use_system_role": { "type": "boolean" },
+          "support_temperature": { "type": "boolean" },
+          "support_thinking": { "type": "boolean" },
+          "thinking_param": { "type": "string" },
+          "thinking_level_param": { "type": "string" },
+          "thinking_levels": { "type": "array", "items": { "type": "string" } },
+          "default_thinking_level": { "type": "string" }
         }
       },
       "GeminiTenantModelProviderData": {
         "type": "object",
+        "additionalProperties": false,
+        "required": ["upstream_model"],
         "properties": {
-          "upstream_model": {
-            "type": "string"
-          }
+          "upstream_model": { "type": "string", "minLength": 1 },
+          "support_json_output": { "type": "boolean" },
+          "support_tool_calls": { "type": "boolean" },
+          "support_text_only": { "type": "boolean" },
+          "use_system_role": { "type": "boolean" },
+          "support_temperature": { "type": "boolean" },
+          "support_thinking": { "type": "boolean" },
+          "thinking_param": { "type": "string" },
+          "thinking_level_param": { "type": "string" },
+          "thinking_levels": { "type": "array", "items": { "type": "string" } },
+          "default_thinking_level": { "type": "string" }
+        }
+      },
+      "MiniMaxTenantModelProviderData": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["upstream_model", "api_mode"],
+        "properties": {
+          "upstream_model": { "type": "string", "minLength": 1 },
+          "api_mode": { "type": "string", "enum": ["chat_completions"] },
+          "support_json_output": { "type": "boolean" },
+          "support_tool_calls": { "type": "boolean" },
+          "support_text_only": { "type": "boolean" },
+          "use_system_role": { "type": "boolean" },
+          "support_temperature": { "type": "boolean" },
+          "support_thinking": { "type": "boolean" },
+          "thinking_param": { "type": "string" },
+          "thinking_level_param": { "type": "string" },
+          "thinking_levels": { "type": "array", "items": { "type": "string" } },
+          "default_thinking_level": { "type": "string" }
         }
       },
       "OpenAITenantModelProviderData": {
         "type": "object",
+        "additionalProperties": false,
+        "required": ["upstream_model"],
         "properties": {
-          "upstream_model": {
-            "type": "string"
-          },
-          "support_json_output": {
-            "type": "boolean"
-          },
-          "support_tool_calls": {
-            "type": "boolean"
-          },
-          "support_text_only": {
-            "type": "boolean"
-          },
-          "use_system_role": {
-            "type": "boolean"
-          },
-          "support_thinking": {
-            "type": "boolean"
-          },
-          "thinking_param": {
-            "type": "string"
-          },
-          "thinking_level_param": {
-            "type": "string"
-          },
-          "thinking_levels": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "default_thinking_level": {
-            "type": "string"
-          }
+          "upstream_model": { "type": "string", "minLength": 1 },
+          "support_json_output": { "type": "boolean" },
+          "support_tool_calls": { "type": "boolean" },
+          "support_text_only": { "type": "boolean" },
+          "use_system_role": { "type": "boolean" },
+          "support_temperature": { "type": "boolean" },
+          "support_thinking": { "type": "boolean" },
+          "thinking_param": { "type": "string" },
+          "thinking_level_param": { "type": "string" },
+          "thinking_levels": { "type": "array", "items": { "type": "string" } },
+          "default_thinking_level": { "type": "string" }
         }
       },
       "VolcTenantModelProviderData": {
         "type": "object",
+        "additionalProperties": false,
+        "required": ["api_mode"],
         "properties": {
-          "upstream_model": {
-            "type": "string"
-          },
-          "api_mode": {
-            "type": "string",
-            "enum": [
-              "asr",
-              "tts",
-              "realtime"
-            ]
-          },
-          "resource_id": {
-            "type": "string"
-          },
-          "support_json_output": {
-            "type": "boolean"
-          },
-          "support_tool_calls": {
-            "type": "boolean"
-          },
-          "support_text_only": {
-            "type": "boolean"
-          },
-          "use_system_role": {
-            "type": "boolean"
-          },
-          "support_thinking": {
-            "type": "boolean"
-          },
-          "thinking_param": {
-            "type": "string"
-          },
-          "thinking_level_param": {
-            "type": "string"
-          },
-          "thinking_levels": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "default_thinking_level": {
-            "type": "string"
-          }
+          "upstream_model": { "type": "string" },
+          "api_mode": { "type": "string", "enum": ["asr", "tts", "realtime", "translation", "chat_completions", "embedding"] },
+          "resource_id": { "type": "string" },
+          "support_json_output": { "type": "boolean" },
+          "support_tool_calls": { "type": "boolean" },
+          "support_text_only": { "type": "boolean" },
+          "use_system_role": { "type": "boolean" },
+          "support_temperature": { "type": "boolean" },
+          "support_thinking": { "type": "boolean" },
+          "thinking_param": { "type": "string" },
+          "thinking_level_param": { "type": "string" },
+          "thinking_levels": { "type": "array", "items": { "type": "string" } },
+          "default_thinking_level": { "type": "string" }
         }
       }
     }

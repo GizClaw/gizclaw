@@ -138,28 +138,40 @@ PB_BIND(gizclaw_rpc_v1_PetWorkflowSpec, gizclaw_rpc_v1_PetWorkflowSpec, AUTO)
 PB_BIND(gizclaw_rpc_v1_PetWorkspaceParameters, gizclaw_rpc_v1_PetWorkspaceParameters, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_Model, gizclaw_rpc_v1_Model, AUTO)
+PB_BIND(gizclaw_rpc_v1_Model, gizclaw_rpc_v1_Model, 2)
 
 
 PB_BIND(gizclaw_rpc_v1_Model_I18nEntry, gizclaw_rpc_v1_Model_I18nEntry, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_ModelCapabilities, gizclaw_rpc_v1_ModelCapabilities, AUTO)
+PB_BIND(gizclaw_rpc_v1_OpenAITenantModelProviderData, gizclaw_rpc_v1_OpenAITenantModelProviderData, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_GeminiTenantModelProviderData, gizclaw_rpc_v1_GeminiTenantModelProviderData, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_DashScopeTenantModelProviderData, gizclaw_rpc_v1_DashScopeTenantModelProviderData, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_VolcTenantModelProviderData, gizclaw_rpc_v1_VolcTenantModelProviderData, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_MiniMaxTenantModelProviderData, gizclaw_rpc_v1_MiniMaxTenantModelProviderData, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_DeepSeekTenantModelProviderData, gizclaw_rpc_v1_DeepSeekTenantModelProviderData, AUTO)
 
 
 PB_BIND(gizclaw_rpc_v1_ModelGetRequest, gizclaw_rpc_v1_ModelGetRequest, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_ModelGetResponse, gizclaw_rpc_v1_ModelGetResponse, AUTO)
+PB_BIND(gizclaw_rpc_v1_ModelGetResponse, gizclaw_rpc_v1_ModelGetResponse, 2)
 
 
 PB_BIND(gizclaw_rpc_v1_ModelListRequest, gizclaw_rpc_v1_ModelListRequest, AUTO)
 
 
 PB_BIND(gizclaw_rpc_v1_ModelListResponse, gizclaw_rpc_v1_ModelListResponse, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_ModelThinkingCapability, gizclaw_rpc_v1_ModelThinkingCapability, AUTO)
 
 
 PB_BIND(gizclaw_rpc_v1_Voice, gizclaw_rpc_v1_Voice, AUTO)
@@ -226,6 +238,8 @@ PB_BIND(gizclaw_rpc_v1_ToolInvokeRequest, gizclaw_rpc_v1_ToolInvokeRequest, AUTO
 
 
 PB_BIND(gizclaw_rpc_v1_ToolInvokeResponse, gizclaw_rpc_v1_ToolInvokeResponse, AUTO)
+
+
 
 
 

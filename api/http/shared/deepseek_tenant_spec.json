@@ -1,0 +1,19 @@
+{
+  "openapi": "3.0.3",
+  "info": { "title": "DeepSeek Tenant Spec Type", "description": "DeepSeekTenantSpec schema.", "version": "1.0.0" },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "DeepSeekTenantSpec": {
+        "type": "object",
+        "required": ["credential_name"],
+        "additionalProperties": false,
+        "properties": {
+          "credential_name": { "type": "string" },
+          "base_url": { "type": "string", "format": "uri", "example": "https://api.deepseek.com" },
+          "description": { "type": "string", "example": "primary DeepSeek tenant" }
+        }
+      }
+    }
+  }
+}

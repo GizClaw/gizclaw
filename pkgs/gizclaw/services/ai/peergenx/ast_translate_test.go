@@ -19,8 +19,9 @@ func TestDefaultBuilderBuildsVolcASTTranslateTransformer(t *testing.T) {
 	}
 	transformer, err := (DefaultBuilder{}).BuildTransformer(context.Background(), TransformerConfig{
 		Model: &apitypes.Model{
-			Id:   "ast-model",
-			Kind: apitypes.ModelKindTranslation,
+			Id:           "ast-model",
+			Kind:         apitypes.ModelKindTranslation,
+			ProviderData: mustVolcModelProviderData(t, apitypes.VolcTenantModelProviderData{}),
 		},
 		Tenant: Tenant{Kind: string(apitypes.ModelProviderKindVolcTenant), Volc: &apitypes.VolcTenant{}},
 		Credential: apitypes.Credential{

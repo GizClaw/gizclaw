@@ -133,6 +133,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/components/ui/utils";
 import { DashboardEmptyState, DashboardPager, DashboardShell, DashboardTable, DashboardTableCard, type DashboardNavItem } from "@/dashboard";
 import { getPlayOpenAIClient, readPlaySpeechAudioBlob } from "../../../lib/gizclaw/openai";
+import { hasThinkingToggle, isDisabledThinkingLevel, thinkingParameter } from "../../../lib/play-thinking";
 
 type Section = "overview" | "contacts" | "friends" | "friendGroups" | "gameplay" | "workspaces" | "workflows" | "models" | "firmwares" | "voices";
 type TopDrawer = "workspace" | "social-chat" | "test-chat" | null;
@@ -3123,14 +3124,11 @@ function ChatTester({ models, onOpenChange, open }: { models: Model[]; onOpenCha
   const chatModels = useMemo(() => models.filter((model) => model.kind === "llm"), [models]);
   const selectedModelSpec = useMemo(() => chatModels.find((model) => model.alias === selectedModel), [chatModels, selectedModel]);
   const playableVoices = useMemo(() => voices.filter(isPlayableVoice), [voices]);
-  const thinkingCapability = selectedModelSpec?.capabilities?.thinking;
-  const thinkingLevels = useMemo(() => thinkingCapability?.levels ?? [], [thinkingCapability]);
-  const supportsThinking = thinkingCapability?.supported === true;
-  const supportsThinkingToggle =
-    thinkingCapability?.param === "enable_thinking" ||
-    thinkingCapability?.param === "thinking.type" ||
-    thinkingLevels.some(isDisabledThinkingLevel);
-  const supportsTemperature = selectedModelSpec?.capabilities?.temperature !== false;
+  const providerData = selectedModelSpec == null ? undefined : runtimeModelProviderData(selectedModelSpec);
+  const thinkingLevels = useMemo(() => providerData?.thinking_levels ?? [], [providerData]);
+  const supportsThinking = providerData?.support_thinking === true;
+  const supportsThinkingToggle = hasThinkingToggle(providerData);
+  const supportsTemperature = providerData?.support_temperature === true;
 
   const reportChatError = useCallback((message: string) => {
     setChatError(message);
@@ -3199,7 +3197,7 @@ function ChatTester({ models, onOpenChange, open }: { models: Model[]; onOpenCha
       setThinkingLevel("");
       return;
     }
-    const defaultLevel = selectedModelSpec?.capabilities?.thinking?.default_level ?? thinkingLevels[0] ?? "";
+    const defaultLevel = providerData?.default_thinking_level ?? thinkingLevels[0] ?? "";
     setThinkingLevel((current) => (current !== "" && thinkingLevels.includes(current) ? current : defaultLevel));
     setThinkingEnabled(defaultLevel === "" || !isDisabledThinkingLevel(defaultLevel));
   }, [selectedModelSpec, supportsThinking, thinkingLevels]);
@@ -4444,16 +4442,20 @@ function ModelsPanel({ initialModels }: { initialModels: Model[] }): JSX.Element
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {models.map((model) => (
-				  <TableRow key={model.alias}>
-					<TableCell className="font-mono text-xs font-medium">{model.alias}</TableCell>
-					<TableCell>{model.kind ?? "-"}</TableCell>
-					<TableCell>-</TableCell>
-					<TableCell>{model.capabilities?.thinking?.supported === true ? <Badge variant="outline">{model.capabilities.thinking.param || "on"}</Badge> : "-"}</TableCell>
-					<TableCell>RuntimeProfile</TableCell>
-					<TableCell className="text-muted-foreground">-</TableCell>
-                    </TableRow>
-                  ))}
+                  {models.map((model) => {
+                    const providerData = runtimeModelProviderData(model);
+                    const thinkingParam = thinkingParameter(providerData);
+                    return (
+                      <TableRow key={model.alias}>
+                        <TableCell className="font-mono text-xs font-medium">{model.alias}</TableCell>
+                        <TableCell>{model.kind ?? "-"}</TableCell>
+                        <TableCell>{model.provider_kind || "-"}</TableCell>
+                        <TableCell>{providerData?.support_thinking === true ? <Badge variant="outline">{thinkingParam || "on"}</Badge> : "-"}</TableCell>
+                        <TableCell>RuntimeProfile</TableCell>
+                        <TableCell className="text-muted-foreground">-</TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </DashboardTable>
           )}
@@ -4461,6 +4463,25 @@ function ModelsPanel({ initialModels }: { initialModels: Model[] }): JSX.Element
       </Card>
     </div>
   );
+}
+
+function runtimeModelProviderData(model: Model) {
+  switch (model.provider_kind) {
+    case "openai-tenant":
+      return model.openai_tenant;
+    case "gemini-tenant":
+      return model.gemini_tenant;
+    case "dashscope-tenant":
+      return model.dashscope_tenant;
+    case "volc-tenant":
+      return model.volc_tenant;
+    case "minimax-tenant":
+      return model.minimax_tenant;
+    case "deepseek-tenant":
+      return model.deepseek_tenant;
+    default:
+      return undefined;
+  }
 }
 
 function VoicesPanel(): JSX.Element {
@@ -4989,10 +5010,6 @@ function workspaceFeatureMessage(err: unknown): string {
 
 function pageQuery(cursor: string): { cursor?: string; limit: number } {
   return cursor === "" ? { limit: 50 } : { cursor, limit: 50 };
-}
-
-function isDisabledThinkingLevel(level: string): boolean {
-  return ["disabled", "disable", "off", "false", "0", "none", "no"].includes(level.trim().toLowerCase());
 }
 
 function sectionTitle(section: Section): string {

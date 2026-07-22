@@ -42,6 +42,7 @@ type Server struct {
 	Store                    kv.Store
 	ModelStore               kv.Store
 	TenantStore              kv.Store
+	DeepSeekTenantStore      kv.Store
 	VolcTenantStore          kv.Store
 	VoiceStore               kv.Store
 	CredentialStore          kv.Store
@@ -52,6 +53,11 @@ type Server struct {
 }
 
 type ProviderTenantsAdminService interface {
+	CreateDeepSeekTenant(context.Context, adminhttp.CreateDeepSeekTenantRequestObject) (adminhttp.CreateDeepSeekTenantResponseObject, error)
+	ListDeepSeekTenants(context.Context, adminhttp.ListDeepSeekTenantsRequestObject) (adminhttp.ListDeepSeekTenantsResponseObject, error)
+	DeleteDeepSeekTenant(context.Context, adminhttp.DeleteDeepSeekTenantRequestObject) (adminhttp.DeleteDeepSeekTenantResponseObject, error)
+	GetDeepSeekTenant(context.Context, adminhttp.GetDeepSeekTenantRequestObject) (adminhttp.GetDeepSeekTenantResponseObject, error)
+	PutDeepSeekTenant(context.Context, adminhttp.PutDeepSeekTenantRequestObject) (adminhttp.PutDeepSeekTenantResponseObject, error)
 	CreateDashScopeTenant(context.Context, adminhttp.CreateDashScopeTenantRequestObject) (adminhttp.CreateDashScopeTenantResponseObject, error)
 	ListDashScopeTenants(context.Context, adminhttp.ListDashScopeTenantsRequestObject) (adminhttp.ListDashScopeTenantsResponseObject, error)
 	DeleteDashScopeTenant(context.Context, adminhttp.DeleteDashScopeTenantRequestObject) (adminhttp.DeleteDashScopeTenantResponseObject, error)
@@ -300,23 +306,23 @@ func normalizeMiniMaxTenantUpsert(in adminhttp.MiniMaxTenantUpsert, expectedName
 	if expectedName != "" && name != expectedName {
 		return apitypes.MiniMaxTenant{}, fmt.Errorf("name %q must match path name %q", name, expectedName)
 	}
-	appID := strings.TrimSpace(string(in.AppId))
-	if appID == "" {
-		return apitypes.MiniMaxTenant{}, errors.New("app_id is required")
-	}
-	groupID := strings.TrimSpace(string(in.GroupId))
-	if groupID == "" {
-		return apitypes.MiniMaxTenant{}, errors.New("group_id is required")
-	}
 	credentialName := strings.TrimSpace(string(in.CredentialName))
 	if credentialName == "" {
 		return apitypes.MiniMaxTenant{}, errors.New("credential_name is required")
 	}
 	tenant := apitypes.MiniMaxTenant{
-		AppId:          string(appID),
 		CredentialName: string(credentialName),
-		GroupId:        string(groupID),
 		Name:           string(name),
+	}
+	if in.AppId != nil {
+		if appID := strings.TrimSpace(*in.AppId); appID != "" {
+			tenant.AppId = &appID
+		}
+	}
+	if in.GroupId != nil {
+		if groupID := strings.TrimSpace(*in.GroupId); groupID != "" {
+			tenant.GroupId = &groupID
+		}
 	}
 	if in.BaseUrl != nil {
 		baseURL := strings.TrimSpace(*in.BaseUrl)
@@ -979,6 +985,22 @@ func (s *Server) tenantStore() (kv.Store, error) {
 		return nil, errors.New("MiniMax tenant store not configured")
 	}
 	return s.Store, nil
+}
+
+func (s *Server) deepSeekTenantStore() (kv.Store, error) {
+	if s == nil {
+		return nil, errors.New("DeepSeek tenant store not configured")
+	}
+	if s.DeepSeekTenantStore != nil {
+		return s.DeepSeekTenantStore, nil
+	}
+	if s.ModelStore != nil {
+		return kv.Prefixed(s.ModelStore, kv.Key{"deepseek-tenants"}), nil
+	}
+	if s.Store == nil {
+		return nil, errors.New("DeepSeek tenant store not configured")
+	}
+	return kv.Prefixed(s.Store, kv.Key{"deepseek-tenants"}), nil
 }
 
 func (s *Server) voiceStore() (kv.Store, error) {

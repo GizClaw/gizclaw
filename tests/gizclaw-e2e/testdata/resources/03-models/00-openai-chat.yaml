@@ -11,15 +11,11 @@ spec:
     name: openai-main
   name: OpenAI GPT-4o Mini
   description: OpenAI-compatible GPT-4o Mini chat model
-  capabilities:
-    json_output: true
-    system_role: true
-    temperature: true
-    text_only: true
-    tool_calls: true
   provider_data:
     upstream_model: gpt-4o-mini
     support_json_output: true
     support_text_only: true
     support_tool_calls: true
+    support_temperature: true
+    support_thinking: false
     use_system_role: true

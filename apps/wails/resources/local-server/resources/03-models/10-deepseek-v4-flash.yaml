@@ -7,26 +7,15 @@ spec:
   kind: llm
   source: manual
   provider:
-    kind: openai-tenant
+    kind: deepseek-tenant
     name: deepseek-main
   name: DeepSeek V4 Flash
   description: DeepSeek V4 Flash OpenAI-compatible chat model
-  capabilities:
-    json_output: true
-    system_role: true
-    temperature: true
-    text_only: true
-    tool_calls: true
-    thinking:
-      supported: true
-      param: thinking.type
-      levels:
-        - enabled
-        - disabled
-      default_level: enabled
   provider_data:
+    api_mode: chat_completions
     upstream_model: deepseek-v4-flash
     support_json_output: true
+    support_temperature: true
     support_text_only: true
     support_tool_calls: true
     support_thinking: true

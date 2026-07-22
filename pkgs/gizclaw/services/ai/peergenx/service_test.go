@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"strings"
 	"testing"
@@ -166,14 +169,12 @@ func TestDefaultBuilderBuildsOpenAIGenerator(t *testing.T) {
 		Model: apitypes.Model{
 			Id:   "chat",
 			Kind: apitypes.ModelKindLlm,
-			Capabilities: &apitypes.ModelCapabilities{
-				JsonOutput: &trueValue,
-				ToolCalls:  &trueValue,
-				TextOnly:   &trueValue,
-				SystemRole: &trueValue,
-			},
 			ProviderData: mustOpenAIModelProviderData(t, apitypes.OpenAITenantModelProviderData{
-				UpstreamModel:        &upstream,
+				UpstreamModel:        upstream,
+				SupportJsonOutput:    &trueValue,
+				SupportToolCalls:     &trueValue,
+				SupportTextOnly:      &trueValue,
+				UseSystemRole:        &trueValue,
 				ThinkingParam:        stringPtr("thinking.type"),
 				DefaultThinkingLevel: stringPtr("disabled"),
 			}),
@@ -203,6 +204,137 @@ func TestDefaultBuilderBuildsOpenAIGenerator(t *testing.T) {
 	}
 }
 
+func TestDefaultBuilderBuildsFirstClassOpenAICompatibleGenerators(t *testing.T) {
+	upstream := "vendor-chat"
+	trueValue := true
+	tests := []struct {
+		name           string
+		providerData   apitypes.ModelProviderData
+		tenant         Tenant
+		credentialBody apitypes.CredentialBody
+	}{
+		{
+			name: "deepseek",
+			providerData: mustDeepSeekModelProviderData(t, apitypes.DeepSeekTenantModelProviderData{
+				ApiMode:          apitypes.DeepSeekTenantModelProviderDataApiModeChatCompletions,
+				UpstreamModel:    upstream,
+				SupportToolCalls: &trueValue,
+				UseSystemRole:    &trueValue,
+			}),
+			tenant: Tenant{Kind: string(apitypes.ModelProviderKindDeepseekTenant), DeepSeek: &apitypes.DeepSeekTenant{
+				Name: "main", CredentialName: "deepseek-key",
+			}},
+			credentialBody: testDeepSeekCredentialBody("sk-deepseek"),
+		},
+		{
+			name: "minimax",
+			providerData: mustMiniMaxModelProviderData(t, apitypes.MiniMaxTenantModelProviderData{
+				ApiMode:          apitypes.MiniMaxTenantModelProviderDataApiModeChatCompletions,
+				UpstreamModel:    upstream,
+				SupportToolCalls: &trueValue,
+				UseSystemRole:    &trueValue,
+			}),
+			tenant: Tenant{Kind: string(apitypes.ModelProviderKindMinimaxTenant), MiniMax: &apitypes.MiniMaxTenant{
+				Name: "main", CredentialName: "minimax-key",
+			}},
+			credentialBody: testMiniMaxCredentialBody("sk-minimax"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			generator, err := (DefaultBuilder{}).BuildGenerator(context.Background(), GeneratorConfig{
+				Model:      apitypes.Model{Id: "chat", Kind: apitypes.ModelKindLlm, ProviderData: tt.providerData},
+				Tenant:     tt.tenant,
+				Credential: apitypes.Credential{Name: tt.name + "-key", Body: tt.credentialBody},
+			})
+			if err != nil {
+				t.Fatalf("BuildGenerator() error = %v", err)
+			}
+			openAIGenerator, ok := generator.(*genx.OpenAIGenerator)
+			if !ok {
+				t.Fatalf("BuildGenerator() = %T, want *genx.OpenAIGenerator", generator)
+			}
+			if openAIGenerator.Model != upstream || !openAIGenerator.SupportToolCalls || openAIGenerator.PromptRole != genx.PromptRoleSystem {
+				t.Fatalf("OpenAIGenerator = %#v", openAIGenerator)
+			}
+		})
+	}
+}
+
+func TestDefaultBuilderPreservesDeepSeekEndpointCredentialAndModel(t *testing.T) {
+	const (
+		apiKey   = "sk-deepseek-test"
+		upstream = "deepseek-custom"
+	)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		if request.URL.Path != "/gateway/v1/chat/completions" {
+			t.Errorf("request path = %q", request.URL.Path)
+		}
+		if got := request.Header.Get("Authorization"); got != "Bearer "+apiKey {
+			t.Errorf("Authorization = %q", got)
+		}
+		var body struct {
+			Model string `json:"model"`
+		}
+		if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
+			t.Errorf("decode request: %v", err)
+		}
+		if body.Model != upstream {
+			t.Errorf("request model = %q", body.Model)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"id":"chatcmpl-test","object":"chat.completion","created":1,"model":"deepseek-custom","choices":[{"index":0,"finish_reason":"tool_calls","message":{"role":"assistant","tool_calls":[{"id":"call_1","type":"function","function":{"name":"answer","arguments":"{\"ok\":true}"}}]}}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}`)
+	}))
+	defer server.Close()
+
+	trueValue := true
+	baseURL := server.URL + "/gateway"
+	generator, err := (DefaultBuilder{}).BuildGenerator(context.Background(), GeneratorConfig{
+		Model: apitypes.Model{
+			Id:   "deepseek",
+			Kind: apitypes.ModelKindLlm,
+			ProviderData: mustDeepSeekModelProviderData(t, apitypes.DeepSeekTenantModelProviderData{
+				ApiMode:          apitypes.DeepSeekTenantModelProviderDataApiModeChatCompletions,
+				UpstreamModel:    upstream,
+				SupportToolCalls: &trueValue,
+			}),
+		},
+		Tenant: Tenant{
+			Kind:     string(apitypes.ModelProviderKindDeepseekTenant),
+			DeepSeek: &apitypes.DeepSeekTenant{Name: "main", CredentialName: "deepseek-key", BaseUrl: &baseURL},
+		},
+		Credential: apitypes.Credential{Name: "deepseek-key", Body: testDeepSeekCredentialBody(apiKey)},
+	})
+	if err != nil {
+		t.Fatalf("BuildGenerator() error = %v", err)
+	}
+	tool := genx.MustNewFuncTool[struct {
+		OK bool `json:"ok"`
+	}]("answer", "answer")
+	_, call, err := generator.Invoke(context.Background(), "", (&genx.ModelContextBuilder{}).Build(), tool)
+	if err != nil {
+		t.Fatalf("Invoke() error = %v", err)
+	}
+	if call == nil || call.Name != "answer" || call.Arguments != `{"ok":true}` {
+		t.Fatalf("Invoke() call = %#v", call)
+	}
+}
+
+func TestOpenAICompatibleV1BaseURL(t *testing.T) {
+	tests := map[string]string{
+		"https://api.deepseek.com":          "https://api.deepseek.com/v1",
+		"https://api.minimax.io/":           "https://api.minimax.io/v1",
+		"https://proxy.example/gateway":     "https://proxy.example/gateway/v1",
+		"https://proxy.example/gateway/v1/": "https://proxy.example/gateway/v1",
+	}
+	for input, want := range tests {
+		if got := openAICompatibleV1BaseURL(input); got != want {
+			t.Errorf("openAICompatibleV1BaseURL(%q) = %q, want %q", input, got, want)
+		}
+	}
+}
+
 func TestDefaultBuilderBuildsVolcArkGenerator(t *testing.T) {
 	trueValue := true
 	upstream := "doubao-test"
@@ -210,14 +342,12 @@ func TestDefaultBuilderBuildsVolcArkGenerator(t *testing.T) {
 		Model: apitypes.Model{
 			Id:   "chat",
 			Kind: apitypes.ModelKindLlm,
-			Capabilities: &apitypes.ModelCapabilities{
-				JsonOutput: &trueValue,
-				ToolCalls:  &trueValue,
-				TextOnly:   &trueValue,
-				SystemRole: &trueValue,
-			},
 			ProviderData: mustVolcModelProviderData(t, apitypes.VolcTenantModelProviderData{
 				UpstreamModel:        &upstream,
+				SupportJsonOutput:    &trueValue,
+				SupportToolCalls:     &trueValue,
+				SupportTextOnly:      &trueValue,
+				UseSystemRole:        &trueValue,
 				ThinkingParam:        stringPtr("thinking.type"),
 				DefaultThinkingLevel: stringPtr("disabled"),
 			}),
@@ -250,30 +380,31 @@ func TestDefaultBuilderBuildsVolcArkGenerator(t *testing.T) {
 	}
 }
 
-func TestModelThinkingExtraFieldsUsesCapabilityParameter(t *testing.T) {
+func TestOpenAIProviderDataFromVolcPreservesSupportTemperature(t *testing.T) {
+	supported := true
+	got := openAIProviderDataFromVolc(apitypes.VolcTenantModelProviderData{SupportTemperature: &supported})
+	if got.SupportTemperature == nil || !*got.SupportTemperature {
+		t.Fatalf("SupportTemperature = %v, want true", got.SupportTemperature)
+	}
+}
+
+func TestModelThinkingExtraFieldsUsesProviderDataParameter(t *testing.T) {
 	disabled := false
 	tests := []struct {
 		name    string
-		caps    *apitypes.ModelThinkingCapability
+		config  modelThinkingConfig
 		request *genx.ThinkingParams
 		want    map[string]any
 	}{
 		{
-			name: "volc nested thinking",
-			caps: &apitypes.ModelThinkingCapability{
-				Supported: true,
-				Param:     stringPtr("thinking.type"),
-			},
+			name:    "volc nested thinking",
+			config:  modelThinkingConfig{supported: true, param: stringPtr("thinking.type")},
 			request: &genx.ThinkingParams{Enabled: &disabled, Level: "disabled"},
 			want:    map[string]any{"thinking": map[string]any{"type": "disabled"}},
 		},
 		{
-			name: "separate enable and reasoning fields",
-			caps: &apitypes.ModelThinkingCapability{
-				Supported:  true,
-				Param:      stringPtr("enable_thinking"),
-				LevelParam: stringPtr("reasoning_effort"),
-			},
+			name:    "separate enable and reasoning fields",
+			config:  modelThinkingConfig{supported: true, param: stringPtr("enable_thinking"), levelParam: stringPtr("reasoning_effort")},
 			request: &genx.ThinkingParams{Enabled: &disabled, Level: "medium"},
 			want: map[string]any{
 				"enable_thinking":  false,
@@ -281,19 +412,15 @@ func TestModelThinkingExtraFieldsUsesCapabilityParameter(t *testing.T) {
 			},
 		},
 		{
-			name: "disabled is not a reasoning effort",
-			caps: &apitypes.ModelThinkingCapability{
-				Supported: true,
-				Param:     stringPtr("reasoning_effort"),
-			},
+			name:    "disabled is not a reasoning effort",
+			config:  modelThinkingConfig{supported: true, param: stringPtr("reasoning_effort")},
 			request: &genx.ThinkingParams{Enabled: &disabled, Level: "disabled"},
 			want:    map[string]any{},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			caps := &apitypes.ModelCapabilities{Thinking: tt.caps}
-			if got := modelThinkingExtraFields(caps, tt.request); !reflect.DeepEqual(got, tt.want) {
+			if got := modelThinkingExtraFields(tt.config, tt.request); !reflect.DeepEqual(got, tt.want) {
 				t.Fatalf("modelThinkingExtraFields() = %#v, want %#v", got, tt.want)
 			}
 		})
@@ -307,14 +434,20 @@ func TestModelContextForGeneratorMapsThinkingWithoutMutatingInput(t *testing.T) 
 		Thinking:    &genx.ThinkingParams{Enabled: &disabled, Level: "disabled"},
 	}
 	mctx := (&genx.ModelContextBuilder{Params: originalParams}).Build()
-	cfg := GeneratorConfig{Model: apitypes.Model{Capabilities: &apitypes.ModelCapabilities{
-		Thinking: &apitypes.ModelThinkingCapability{
-			Supported: true,
-			Param:     stringPtr("thinking.type"),
-		},
-	}}}
+	cfg := GeneratorConfig{Model: apitypes.Model{
+		Provider: apitypes.ModelProvider{Kind: apitypes.ModelProviderKindOpenaiTenant, Name: "main"},
+		ProviderData: mustOpenAIModelProviderData(t, apitypes.OpenAITenantModelProviderData{
+			UpstreamModel:   "gpt-test",
+			SupportThinking: boolPtr(true),
+			ThinkingParam:   stringPtr("thinking.type"),
+		}),
+	}}
 
-	mapped := modelContextForGenerator(cfg, mctx).Params()
+	mappedContext, err := modelContextForGenerator(cfg, mctx)
+	if err != nil {
+		t.Fatalf("modelContextForGenerator() error = %v", err)
+	}
+	mapped := mappedContext.Params()
 	thinking, ok := mapped.ExtraFields["thinking"].(map[string]any)
 	if !ok || thinking["type"] != "disabled" || mapped.ExtraFields["request_id"] != "test" {
 		t.Fatalf("mapped params = %#v", mapped)
@@ -324,6 +457,16 @@ func TestModelContextForGeneratorMapsThinkingWithoutMutatingInput(t *testing.T) 
 	}
 	if originalParams.Thinking == nil || originalParams.ExtraFields["thinking"] != nil {
 		t.Fatalf("input params mutated = %#v", originalParams)
+	}
+}
+
+func TestModelContextForGeneratorRejectsMalformedProviderData(t *testing.T) {
+	mctx := (&genx.ModelContextBuilder{Params: &genx.ModelParams{Thinking: &genx.ThinkingParams{Level: "medium"}}}).Build()
+	_, err := modelContextForGenerator(GeneratorConfig{Model: apitypes.Model{
+		Provider: apitypes.ModelProvider{Kind: apitypes.ModelProviderKindOpenaiTenant, Name: "main"},
+	}}, mctx)
+	if !errors.Is(err, ErrInvalid) {
+		t.Fatalf("modelContextForGenerator() error = %v, want ErrInvalid", err)
 	}
 }
 
@@ -344,7 +487,11 @@ func TestDefaultBuilderRejectsWrongVolcServiceKey(t *testing.T) {
 	}
 
 	_, err = (DefaultBuilder{}).BuildTransformer(context.Background(), TransformerConfig{
-		Model: &apitypes.Model{Id: "asr", Kind: apitypes.ModelKindAsr},
+		Model: &apitypes.Model{
+			Id:           "asr",
+			Kind:         apitypes.ModelKindAsr,
+			ProviderData: mustVolcModelProviderData(t, apitypes.VolcTenantModelProviderData{}),
+		},
 		Tenant: Tenant{
 			Kind: "volc-tenant",
 			Volc: &apitypes.VolcTenant{Name: "main"},
@@ -760,7 +907,7 @@ func TestDefaultBuilderBuildsGeminiGenerator(t *testing.T) {
 			Id:   "gemini",
 			Kind: apitypes.ModelKindLlm,
 			ProviderData: mustGeminiModelProviderData(t, apitypes.GeminiTenantModelProviderData{
-				UpstreamModel: &upstream,
+				UpstreamModel: upstream,
 			}),
 		},
 		Tenant: Tenant{
@@ -1340,20 +1487,6 @@ func TestBuilderBooleanHelperBranches(t *testing.T) {
 	if boolValue(nil, boolPtr(true)) != true || boolValue(nil) != false {
 		t.Fatal("boolValue() returned unexpected result")
 	}
-	caps := &apitypes.ModelCapabilities{
-		JsonOutput: boolPtr(true),
-		ToolCalls:  boolPtr(false),
-		TextOnly:   boolPtr(true),
-		SystemRole: boolPtr(true),
-	}
-	for _, name := range []string{"json", "tools", "text", "system"} {
-		if capabilityBool(caps, name) == nil {
-			t.Fatalf("capabilityBool(%s) = nil", name)
-		}
-	}
-	if capabilityBool(caps, "unknown") != nil || capabilityBool(nil, "json") != nil {
-		t.Fatal("capabilityBool unknown/nil returned non-nil")
-	}
 	if openAIPromptRole(boolPtr(true)) != genx.PromptRoleSystem || openAIPromptRole(boolPtr(false)) != "" {
 		t.Fatal("openAIPromptRole() returned unexpected result")
 	}
@@ -1565,31 +1698,49 @@ func intPtr(value int) *int {
 	return &value
 }
 
-func mustOpenAIModelProviderData(t *testing.T, data apitypes.OpenAITenantModelProviderData) *apitypes.ModelProviderData {
+func mustOpenAIModelProviderData(t *testing.T, data apitypes.OpenAITenantModelProviderData) apitypes.ModelProviderData {
 	t.Helper()
 	out := apitypes.ModelProviderData{}
 	if err := out.FromOpenAITenantModelProviderData(data); err != nil {
 		t.Fatalf("FromOpenAITenantModelProviderData() error = %v", err)
 	}
-	return &out
+	return out
 }
 
-func mustVolcModelProviderData(t *testing.T, data apitypes.VolcTenantModelProviderData) *apitypes.ModelProviderData {
+func mustVolcModelProviderData(t *testing.T, data apitypes.VolcTenantModelProviderData) apitypes.ModelProviderData {
 	t.Helper()
 	out := apitypes.ModelProviderData{}
 	if err := out.FromVolcTenantModelProviderData(data); err != nil {
 		t.Fatalf("FromVolcTenantModelProviderData() error = %v", err)
 	}
-	return &out
+	return out
 }
 
-func mustGeminiModelProviderData(t *testing.T, data apitypes.GeminiTenantModelProviderData) *apitypes.ModelProviderData {
+func mustGeminiModelProviderData(t *testing.T, data apitypes.GeminiTenantModelProviderData) apitypes.ModelProviderData {
 	t.Helper()
 	out := apitypes.ModelProviderData{}
 	if err := out.FromGeminiTenantModelProviderData(data); err != nil {
 		t.Fatalf("FromGeminiTenantModelProviderData() error = %v", err)
 	}
-	return &out
+	return out
+}
+
+func mustDeepSeekModelProviderData(t *testing.T, data apitypes.DeepSeekTenantModelProviderData) apitypes.ModelProviderData {
+	t.Helper()
+	out := apitypes.ModelProviderData{}
+	if err := out.FromDeepSeekTenantModelProviderData(data); err != nil {
+		t.Fatalf("FromDeepSeekTenantModelProviderData() error = %v", err)
+	}
+	return out
+}
+
+func mustMiniMaxModelProviderData(t *testing.T, data apitypes.MiniMaxTenantModelProviderData) apitypes.ModelProviderData {
+	t.Helper()
+	out := apitypes.ModelProviderData{}
+	if err := out.FromMiniMaxTenantModelProviderData(data); err != nil {
+		t.Fatalf("FromMiniMaxTenantModelProviderData() error = %v", err)
+	}
+	return out
 }
 
 func mustVolcVoiceProviderData(t *testing.T, data apitypes.VolcTenantVoiceProviderData) *apitypes.VoiceProviderData {
@@ -1660,6 +1811,11 @@ type fakeTenants struct {
 	events *[]string
 }
 
+func (f fakeTenants) GetDeepSeekTenant(_ context.Context, request adminhttp.GetDeepSeekTenantRequestObject) (adminhttp.GetDeepSeekTenantResponseObject, error) {
+	*f.events = append(*f.events, "get:tenant:deepseek:"+request.Name)
+	return adminhttp.GetDeepSeekTenant200JSONResponse(apitypes.DeepSeekTenant{Name: request.Name, CredentialName: "deepseek-key"}), nil
+}
+
 func (f fakeTenants) GetOpenAITenant(_ context.Context, request adminhttp.GetOpenAITenantRequestObject) (adminhttp.GetOpenAITenantResponseObject, error) {
 	*f.events = append(*f.events, "get:tenant:openai:"+request.Name)
 	return adminhttp.GetOpenAITenant200JSONResponse(apitypes.OpenAITenant{Name: request.Name, CredentialName: "openai-key"}), nil
@@ -1722,11 +1878,16 @@ func (f responseCredentials) GetCredential(context.Context, adminhttp.GetCredent
 }
 
 type responseTenants struct {
+	deepseek  adminhttp.GetDeepSeekTenantResponseObject
 	openai    adminhttp.GetOpenAITenantResponseObject
 	gemini    adminhttp.GetGeminiTenantResponseObject
 	dashscope adminhttp.GetDashScopeTenantResponseObject
 	minimax   adminhttp.GetMiniMaxTenantResponseObject
 	volc      adminhttp.GetVolcTenantResponseObject
+}
+
+func (f responseTenants) GetDeepSeekTenant(context.Context, adminhttp.GetDeepSeekTenantRequestObject) (adminhttp.GetDeepSeekTenantResponseObject, error) {
+	return f.deepseek, nil
 }
 
 func (f responseTenants) GetOpenAITenant(context.Context, adminhttp.GetOpenAITenantRequestObject) (adminhttp.GetOpenAITenantResponseObject, error) {

@@ -114,17 +114,20 @@ export function ModelDetailPage(): JSX.Element {
               />
               <DetailBlock
                 items={[
-                  ["JSON output", boolText(model.capabilities?.json_output)],
-                  ["Tool calls", boolText(model.capabilities?.tool_calls)],
-                  ["Text only", boolText(model.capabilities?.text_only)],
-                  ["System role", boolText(model.capabilities?.system_role)],
-                  ["Temperature", boolText(model.capabilities?.temperature)],
-                  ["Thinking", boolText(model.capabilities?.thinking?.supported)],
+                  ["API mode", "api_mode" in model.provider_data ? model.provider_data.api_mode : undefined],
+                  ["Resource ID", "resource_id" in model.provider_data ? model.provider_data.resource_id : undefined],
+                  ["Upstream model", model.provider_data.upstream_model],
+                  ["JSON output", boolText(model.provider_data.support_json_output)],
+                  ["Tool calls", boolText(model.provider_data.support_tool_calls)],
+                  ["Text only", boolText(model.provider_data.support_text_only)],
+                  ["System role", boolText(model.provider_data.use_system_role)],
+                  ["Temperature", boolText(model.provider_data.support_temperature)],
+                  ["Thinking", boolText(model.provider_data.support_thinking)],
                   ["Synced at", model.synced_at],
                   ["Created", model.created_at],
                   ["Updated", model.updated_at],
                 ]}
-                title="Capabilities"
+                title="Provider Data"
               />
             </div>
           </TabsContent>

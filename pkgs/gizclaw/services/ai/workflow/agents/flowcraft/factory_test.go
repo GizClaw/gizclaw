@@ -2063,12 +2063,12 @@ func toolkitTestContext(t *testing.T, owner string, allowed []string) *agenthost
 	ptr := func(value string) *string { return &value }
 	store := &toolkit.Server{Store: kv.NewMemory(nil)}
 	tool := toolkit.Tool{
-		ID:             "system.music.play",
-		Name:           ptr("play_music"),
-		Description:    ptr("Play music"),
-		Source:         toolkit.ToolSourceBuiltin,
-		Enabled:        true,
-		InputSchema:    jsonschema.Schema{Type: "object"},
+		ID:          "system.music.play",
+		Name:        ptr("play_music"),
+		Description: ptr("Play music"),
+		Source:      toolkit.ToolSourceBuiltin,
+		Enabled:     true,
+		InputSchema: jsonschema.Schema{Type: "object"},
 		Executor: toolkit.ToolExecutor{
 			Kind: toolkit.ToolExecutorKindBuiltin,
 			Name: ptr("music.play"),
@@ -2155,6 +2155,86 @@ func TestBuildClawConfigInjectsPeerResolvedOpenAIModel(t *testing.T) {
 	agent := got["agent"].(map[string]any)
 	if agent["system_prompt"] != "short" || agent["model"] != "generate_model" {
 		t.Fatalf("agent config = %#v", agent)
+	}
+}
+
+func TestClawModelConfigSupportsFirstClassOpenAICompatibleProviders(t *testing.T) {
+	deepSeekBaseURL := "https://deepseek.example/v1"
+	miniMaxBaseURL := "https://minimax.example/v1"
+	dashScopeBaseURL := "https://dashscope.example/compatible-mode/v1"
+	deepSeekData := apitypes.ModelProviderData{}
+	if err := deepSeekData.FromDeepSeekTenantModelProviderData(apitypes.DeepSeekTenantModelProviderData{
+		ApiMode:       apitypes.DeepSeekTenantModelProviderDataApiModeChatCompletions,
+		UpstreamModel: "deepseek-chat",
+	}); err != nil {
+		t.Fatalf("FromDeepSeekTenantModelProviderData() error = %v", err)
+	}
+	miniMaxData := apitypes.ModelProviderData{}
+	if err := miniMaxData.FromMiniMaxTenantModelProviderData(apitypes.MiniMaxTenantModelProviderData{
+		ApiMode:       apitypes.MiniMaxTenantModelProviderDataApiModeChatCompletions,
+		UpstreamModel: "MiniMax-M2",
+	}); err != nil {
+		t.Fatalf("FromMiniMaxTenantModelProviderData() error = %v", err)
+	}
+	dashScopeData := apitypes.ModelProviderData{}
+	if err := dashScopeData.FromDashScopeTenantModelProviderData(apitypes.DashScopeTenantModelProviderData{
+		UpstreamModel: testStringPtr("text-embedding-v4"),
+	}); err != nil {
+		t.Fatalf("FromDashScopeTenantModelProviderData() error = %v", err)
+	}
+
+	tests := []struct {
+		name         string
+		config       peergenx.GeneratorConfig
+		wantProvider string
+		wantModel    string
+		wantBaseURL  string
+	}{
+		{
+			name: "deepseek",
+			config: peergenx.GeneratorConfig{
+				Model:      apitypes.Model{Id: "deepseek", ProviderData: deepSeekData},
+				Tenant:     peergenx.Tenant{Kind: string(apitypes.ModelProviderKindDeepseekTenant), DeepSeek: &apitypes.DeepSeekTenant{BaseUrl: &deepSeekBaseURL}},
+				Credential: apitypes.Credential{Name: "deepseek-key", Body: testDeepSeekCredentialBody("sk-deepseek")},
+			},
+			wantProvider: "deepseek",
+			wantModel:    "deepseek-chat",
+			wantBaseURL:  deepSeekBaseURL,
+		},
+		{
+			name: "minimax",
+			config: peergenx.GeneratorConfig{
+				Model:      apitypes.Model{Id: "minimax", ProviderData: miniMaxData},
+				Tenant:     peergenx.Tenant{Kind: string(apitypes.ModelProviderKindMinimaxTenant), MiniMax: &apitypes.MiniMaxTenant{BaseUrl: &miniMaxBaseURL}},
+				Credential: apitypes.Credential{Name: "minimax-key", Body: testMiniMaxCredentialBody("sk-minimax")},
+			},
+			wantProvider: "minimax",
+			wantModel:    "MiniMax-M2",
+			wantBaseURL:  miniMaxBaseURL,
+		},
+		{
+			name: "dashscope",
+			config: peergenx.GeneratorConfig{
+				Model:      apitypes.Model{Id: "qwen-embedding", ProviderData: dashScopeData},
+				Tenant:     peergenx.Tenant{Kind: string(apitypes.ModelProviderKindDashscopeTenant), DashScope: &apitypes.DashScopeTenant{BaseUrl: &dashScopeBaseURL}},
+				Credential: apitypes.Credential{Name: "dashscope-key", Body: testDashScopeCredentialBody("sk-dashscope")},
+			},
+			wantProvider: "qwen",
+			wantModel:    "text-embedding-v4",
+			wantBaseURL:  dashScopeBaseURL,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := clawModelConfig(tt.config)
+			if err != nil {
+				t.Fatalf("clawModelConfig() error = %v", err)
+			}
+			if got["provider"] != tt.wantProvider || got["model"] != tt.wantModel || got["api_key"] == "" || got["base_url"] != tt.wantBaseURL {
+				t.Fatalf("clawModelConfig() = %#v", got)
+			}
+		})
 	}
 }
 
@@ -3006,7 +3086,7 @@ func (f fakeModels) model(id string) apitypes.Model {
 		}
 	default:
 		if err := providerData.FromOpenAITenantModelProviderData(apitypes.OpenAITenantModelProviderData{
-			UpstreamModel:        ptrString("gpt-test"),
+			UpstreamModel:        "gpt-test",
 			ThinkingParam:        ptrString("thinking.type"),
 			DefaultThinkingLevel: ptrString("disabled"),
 		}); err != nil {
@@ -3020,7 +3100,7 @@ func (f fakeModels) model(id string) apitypes.Model {
 			Kind: providerKind,
 			Name: "main",
 		},
-		ProviderData: &providerData,
+		ProviderData: providerData,
 	}
 }
 
@@ -3084,6 +3164,10 @@ func (f fakeTenants) GetGeminiTenant(_ context.Context, request adminhttp.GetGem
 
 func (f fakeTenants) GetDashScopeTenant(context.Context, adminhttp.GetDashScopeTenantRequestObject) (adminhttp.GetDashScopeTenantResponseObject, error) {
 	panic("unexpected dashscope tenant lookup")
+}
+
+func (f fakeTenants) GetDeepSeekTenant(context.Context, adminhttp.GetDeepSeekTenantRequestObject) (adminhttp.GetDeepSeekTenantResponseObject, error) {
+	panic("unexpected deepseek tenant lookup")
 }
 
 func (f fakeTenants) GetMiniMaxTenant(context.Context, adminhttp.GetMiniMaxTenantRequestObject) (adminhttp.GetMiniMaxTenantResponseObject, error) {

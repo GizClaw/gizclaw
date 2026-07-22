@@ -96,7 +96,6 @@ func (m *Manager) deleteModel(ctx context.Context, id string) (apitypes.Model, b
 
 func modelSpec(model apitypes.Model) apitypes.ModelSpec {
 	return apitypes.ModelSpec{
-		Capabilities: model.Capabilities,
 		Description:  model.Description,
 		Kind:         model.Kind,
 		Name:         model.Name,
@@ -108,7 +107,6 @@ func modelSpec(model apitypes.Model) apitypes.ModelSpec {
 
 func modelUpsert(resource apitypes.ModelResource) adminhttp.ModelUpsert {
 	return adminhttp.ModelUpsert{
-		Capabilities: resource.Spec.Capabilities,
 		Description:  resource.Spec.Description,
 		Id:           string(resource.Metadata.Name),
 		Kind:         resource.Spec.Kind,

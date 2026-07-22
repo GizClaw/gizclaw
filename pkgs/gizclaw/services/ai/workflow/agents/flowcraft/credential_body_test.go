@@ -17,6 +17,14 @@ func testOpenAICredentialBody(apiKey string) apitypes.CredentialBody {
 	return body
 }
 
+func testDeepSeekCredentialBody(apiKey string) apitypes.CredentialBody {
+	var body apitypes.CredentialBody
+	if err := body.FromDeepSeekCredentialBody(apitypes.DeepSeekCredentialBody{ApiKey: apiKey}); err != nil {
+		panic(err)
+	}
+	return body
+}
+
 func testMiniMaxCredentialBody(apiKey string) apitypes.CredentialBody {
 	return testMiniMaxCredentialBodyFromStrings(map[string]string{"api_key": apiKey})
 }
@@ -50,6 +58,14 @@ func testMiniMaxCredentialBodyFromStrings(values map[string]string) apitypes.Cre
 func testGeminiCredentialBody(apiKey string) apitypes.CredentialBody {
 	var body apitypes.CredentialBody
 	if err := body.FromGeminiCredentialBody(apitypes.GeminiCredentialBody{ApiKey: testStringPtr(apiKey)}); err != nil {
+		panic(err)
+	}
+	return body
+}
+
+func testDashScopeCredentialBody(apiKey string) apitypes.CredentialBody {
+	var body apitypes.CredentialBody
+	if err := body.FromDashScopeCredentialBody(apitypes.DashScopeCredentialBody{ApiKey: testStringPtr(apiKey)}); err != nil {
 		panic(err)
 	}
 	return body

@@ -1,10 +1,12 @@
 package model
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"strings"
 	"time"
@@ -217,6 +219,9 @@ func normalizeModelUpsert(in adminhttp.ModelUpsert, expectedID string) (apitypes
 	if providerKind == "" {
 		return apitypes.Model{}, errors.New("provider.kind is required")
 	}
+	if !apitypes.ModelProviderKind(providerKind).Valid() {
+		return apitypes.Model{}, fmt.Errorf("unsupported provider.kind %q", providerKind)
+	}
 	providerName := strings.TrimSpace(string(in.Provider.Name))
 	if providerName == "" {
 		return apitypes.Model{}, errors.New("provider.name is required")
@@ -242,29 +247,213 @@ func normalizeModelUpsert(in adminhttp.ModelUpsert, expectedID string) (apitypes
 			model.Description = &description
 		}
 	}
-	if in.ProviderData != nil {
-		model.ProviderData = cloneModelProviderData(in.ProviderData)
+	providerData, err := cloneModelProviderData(in.ProviderData)
+	if err != nil {
+		return apitypes.Model{}, fmt.Errorf("clone provider_data: %w", err)
 	}
-	if in.Capabilities != nil {
-		model.Capabilities = cloneModelCapabilities(in.Capabilities)
+	model.ProviderData = providerData
+	if err := validateModelProviderData(model.Kind, model.Provider.Kind, model.ProviderData); err != nil {
+		return apitypes.Model{}, err
 	}
 	return model, nil
 }
 
-func cloneModelCapabilities(in *apitypes.ModelCapabilities) *apitypes.ModelCapabilities {
-	if in == nil {
+func validateModelProviderData(modelKind apitypes.ModelKind, providerKind apitypes.ModelProviderKind, data apitypes.ModelProviderData) error {
+	var upstream string
+	switch providerKind {
+	case apitypes.ModelProviderKindOpenaiTenant:
+		if modelKind != apitypes.ModelKindLlm && modelKind != apitypes.ModelKindEmbedding {
+			return fmt.Errorf("provider %q does not support model kind %q", providerKind, modelKind)
+		}
+		var value apitypes.OpenAITenantModelProviderData
+		if err := decodeStrictModelProviderData(data, &value); err != nil {
+			return fmt.Errorf("provider_data for %s: %w", providerKind, err)
+		}
+		if modelKind == apitypes.ModelKindLlm {
+			if err := validateLLMThinking(providerKind, value.SupportThinking, value.ThinkingParam, value.ThinkingLevelParam, value.ThinkingLevels, value.DefaultThinkingLevel); err != nil {
+				return err
+			}
+		}
+		upstream = strings.TrimSpace(value.UpstreamModel)
+	case apitypes.ModelProviderKindGeminiTenant:
+		if modelKind != apitypes.ModelKindLlm {
+			return fmt.Errorf("provider %q does not support model kind %q", providerKind, modelKind)
+		}
+		var value apitypes.GeminiTenantModelProviderData
+		if err := decodeStrictModelProviderData(data, &value); err != nil {
+			return fmt.Errorf("provider_data for %s: %w", providerKind, err)
+		}
+		if err := validateLLMThinking(providerKind, value.SupportThinking, value.ThinkingParam, value.ThinkingLevelParam, value.ThinkingLevels, value.DefaultThinkingLevel); err != nil {
+			return err
+		}
+		upstream = strings.TrimSpace(value.UpstreamModel)
+	case apitypes.ModelProviderKindDashscopeTenant:
+		if modelKind != apitypes.ModelKindLlm && modelKind != apitypes.ModelKindEmbedding && modelKind != apitypes.ModelKindRealtime {
+			return fmt.Errorf("provider %q does not support model kind %q", providerKind, modelKind)
+		}
+		var value apitypes.DashScopeTenantModelProviderData
+		if err := decodeStrictModelProviderData(data, &value); err != nil {
+			return fmt.Errorf("provider_data for %s: %w", providerKind, err)
+		}
+		if value.ApiMode != nil && !value.ApiMode.Valid() {
+			return fmt.Errorf("provider_data for %s has unsupported api_mode %q", providerKind, *value.ApiMode)
+		}
+		if modelKind == apitypes.ModelKindLlm && (value.ApiMode == nil || *value.ApiMode != apitypes.DashScopeTenantModelProviderDataApiModeChatCompletions) {
+			return fmt.Errorf("provider_data for %s/%s requires api_mode %q", providerKind, modelKind, apitypes.DashScopeTenantModelProviderDataApiModeChatCompletions)
+		}
+		if modelKind == apitypes.ModelKindRealtime && (value.ApiMode == nil || *value.ApiMode != apitypes.DashScopeTenantModelProviderDataApiModeRealtime) {
+			return fmt.Errorf("provider_data for %s/%s requires api_mode %q", providerKind, modelKind, apitypes.DashScopeTenantModelProviderDataApiModeRealtime)
+		}
+		if modelKind == apitypes.ModelKindEmbedding && value.ApiMode != nil {
+			return fmt.Errorf("provider_data for %s/%s does not support api_mode %q", providerKind, modelKind, *value.ApiMode)
+		}
+		if modelKind == apitypes.ModelKindLlm {
+			if err := validateLLMThinking(providerKind, value.SupportThinking, value.ThinkingParam, value.ThinkingLevelParam, value.ThinkingLevels, value.DefaultThinkingLevel); err != nil {
+				return err
+			}
+		}
+		upstream = stringValue(value.UpstreamModel)
+	case apitypes.ModelProviderKindDeepseekTenant:
+		if modelKind != apitypes.ModelKindLlm {
+			return fmt.Errorf("provider %q does not support model kind %q", providerKind, modelKind)
+		}
+		var value apitypes.DeepSeekTenantModelProviderData
+		if err := decodeStrictModelProviderData(data, &value); err != nil {
+			return fmt.Errorf("provider_data for %s: %w", providerKind, err)
+		}
+		if !value.ApiMode.Valid() {
+			return fmt.Errorf("provider_data for %s has unsupported api_mode %q", providerKind, value.ApiMode)
+		}
+		if err := validateLLMThinking(providerKind, value.SupportThinking, value.ThinkingParam, value.ThinkingLevelParam, value.ThinkingLevels, value.DefaultThinkingLevel); err != nil {
+			return err
+		}
+		upstream = strings.TrimSpace(value.UpstreamModel)
+	case apitypes.ModelProviderKindMinimaxTenant:
+		if modelKind != apitypes.ModelKindLlm {
+			return fmt.Errorf("provider %q does not support model kind %q", providerKind, modelKind)
+		}
+		var value apitypes.MiniMaxTenantModelProviderData
+		if err := decodeStrictModelProviderData(data, &value); err != nil {
+			return fmt.Errorf("provider_data for %s: %w", providerKind, err)
+		}
+		if !value.ApiMode.Valid() {
+			return fmt.Errorf("provider_data for %s has unsupported api_mode %q", providerKind, value.ApiMode)
+		}
+		if err := validateLLMThinking(providerKind, value.SupportThinking, value.ThinkingParam, value.ThinkingLevelParam, value.ThinkingLevels, value.DefaultThinkingLevel); err != nil {
+			return err
+		}
+		upstream = strings.TrimSpace(value.UpstreamModel)
+	case apitypes.ModelProviderKindVolcTenant:
+		var value apitypes.VolcTenantModelProviderData
+		if err := decodeStrictModelProviderData(data, &value); err != nil {
+			return fmt.Errorf("provider_data for %s: %w", providerKind, err)
+		}
+		if !value.ApiMode.Valid() {
+			return fmt.Errorf("provider_data for %s has unsupported api_mode %q", providerKind, value.ApiMode)
+		}
+		expectedMode, ok := volcAPIModeForModelKind(modelKind)
+		if !ok {
+			return fmt.Errorf("provider %q does not support model kind %q", providerKind, modelKind)
+		}
+		if value.ApiMode != expectedMode {
+			return fmt.Errorf("provider_data for %s/%s requires api_mode %q", providerKind, modelKind, expectedMode)
+		}
+		if modelKind == apitypes.ModelKindLlm {
+			if err := validateLLMThinking(providerKind, value.SupportThinking, value.ThinkingParam, value.ThinkingLevelParam, value.ThinkingLevels, value.DefaultThinkingLevel); err != nil {
+				return err
+			}
+		}
+		upstream = stringValue(value.UpstreamModel)
+	default:
+		return fmt.Errorf("unsupported provider.kind %q", providerKind)
+	}
+	if (modelKind == apitypes.ModelKindLlm || modelKind == apitypes.ModelKindEmbedding) && upstream == "" {
+		return fmt.Errorf("provider_data for %s/%s requires upstream_model", providerKind, modelKind)
+	}
+	return nil
+}
+
+func validateLLMThinking(
+	providerKind apitypes.ModelProviderKind,
+	supportThinking *bool,
+	thinkingParam, thinkingLevelParam *string,
+	thinkingLevels *[]string,
+	defaultThinkingLevel *string,
+) error {
+	if supportThinking == nil || !*supportThinking {
 		return nil
 	}
-	out := *in
-	if in.Thinking != nil {
-		thinking := *in.Thinking
-		if in.Thinking.Levels != nil {
-			levels := append([]string(nil), (*in.Thinking.Levels)...)
-			thinking.Levels = &levels
-		}
-		out.Thinking = &thinking
+	if stringValue(thinkingParam) == "" && stringValue(thinkingLevelParam) == "" {
+		return fmt.Errorf("provider_data for %s/llm with support_thinking requires thinking_param or thinking_level_param", providerKind)
 	}
-	return &out
+	defaultLevel := stringValue(defaultThinkingLevel)
+	if stringValue(thinkingLevelParam) == "" && defaultLevel == "" {
+		return nil
+	}
+	if thinkingLevels == nil || len(*thinkingLevels) == 0 {
+		return fmt.Errorf("provider_data for %s/llm with support_thinking requires thinking_levels", providerKind)
+	}
+	if defaultLevel == "" {
+		return fmt.Errorf("provider_data for %s/llm with support_thinking requires default_thinking_level", providerKind)
+	}
+	for _, level := range *thinkingLevels {
+		if strings.TrimSpace(level) == defaultLevel {
+			return nil
+		}
+	}
+	return fmt.Errorf("provider_data for %s/llm default_thinking_level %q is not in thinking_levels", providerKind, defaultLevel)
+}
+
+func volcAPIModeForModelKind(modelKind apitypes.ModelKind) (apitypes.VolcTenantModelProviderDataApiMode, bool) {
+	switch modelKind {
+	case apitypes.ModelKindLlm:
+		return apitypes.VolcTenantModelProviderDataApiModeChatCompletions, true
+	case apitypes.ModelKindTts:
+		return apitypes.VolcTenantModelProviderDataApiModeTts, true
+	case apitypes.ModelKindAsr:
+		return apitypes.VolcTenantModelProviderDataApiModeAsr, true
+	case apitypes.ModelKindRealtime:
+		return apitypes.VolcTenantModelProviderDataApiModeRealtime, true
+	case apitypes.ModelKindTranslation:
+		return apitypes.VolcTenantModelProviderDataApiModeTranslation, true
+	case apitypes.ModelKindEmbedding:
+		return apitypes.VolcTenantModelProviderDataApiModeEmbedding, true
+	default:
+		return "", false
+	}
+}
+
+// ValidateProviderData verifies that provider data is complete for the selected
+// model role and decodes strictly as the concrete type selected by providerKind.
+func ValidateProviderData(modelKind apitypes.ModelKind, providerKind apitypes.ModelProviderKind, data apitypes.ModelProviderData) error {
+	return validateModelProviderData(modelKind, providerKind, data)
+}
+
+func decodeStrictModelProviderData(data apitypes.ModelProviderData, out any) error {
+	raw, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(out); err != nil {
+		return err
+	}
+	var extra any
+	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
+		if err == nil {
+			return errors.New("multiple JSON values")
+		}
+		return err
+	}
+	return nil
+}
+
+func stringValue(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return strings.TrimSpace(*value)
 }
 
 func listModelsPage(ctx context.Context, store kv.Store, filters modelFilters, cursor string, limit int) ([]apitypes.Model, bool, *string, error) {
@@ -457,19 +646,16 @@ func unescapeStoreSegment(value string) string {
 	return decoded
 }
 
-func cloneModelProviderData(in *apitypes.ModelProviderData) *apitypes.ModelProviderData {
-	if in == nil {
-		return nil
-	}
+func cloneModelProviderData(in apitypes.ModelProviderData) (apitypes.ModelProviderData, error) {
 	data, err := json.Marshal(in)
 	if err != nil {
-		return nil
+		return apitypes.ModelProviderData{}, err
 	}
 	var out apitypes.ModelProviderData
 	if err := json.Unmarshal(data, &out); err != nil {
-		return nil
+		return apitypes.ModelProviderData{}, err
 	}
-	return &out
+	return out, nil
 }
 
 func cloneTime(in *time.Time) *time.Time {

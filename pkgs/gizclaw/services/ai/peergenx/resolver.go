@@ -14,6 +14,7 @@ import (
 
 type Tenant struct {
 	Kind      string
+	DeepSeek  *apitypes.DeepSeekTenant
 	OpenAI    *apitypes.OpenAITenant
 	Gemini    *apitypes.GeminiTenant
 	DashScope *apitypes.DashScopeTenant
@@ -317,6 +318,18 @@ func (s *Service) resolveModelTenant(ctx context.Context, model apitypes.Model) 
 	kind := string(model.Provider.Kind)
 	name := strings.TrimSpace(model.Provider.Name)
 	switch kind {
+	case string(apitypes.ModelProviderKindDeepseekTenant):
+		tenant, err := s.getDeepSeekTenant(ctx, name)
+		if err != nil {
+			return Tenant{}, "", err
+		}
+		return Tenant{Kind: kind, DeepSeek: &tenant}, tenant.CredentialName, nil
+	case string(apitypes.ModelProviderKindMinimaxTenant):
+		tenant, err := s.getMiniMaxTenant(ctx, name)
+		if err != nil {
+			return Tenant{}, "", err
+		}
+		return Tenant{Kind: kind, MiniMax: &tenant}, tenant.CredentialName, nil
 	case string(apitypes.ModelProviderKindOpenaiTenant):
 		tenant, err := s.getOpenAITenant(ctx, name)
 		if err != nil {
@@ -439,6 +452,21 @@ func (s *Service) getOpenAITenant(ctx context.Context, name string) (apitypes.Op
 		return apitypes.OpenAITenant{}, fmt.Errorf("%w: openai tenant %q", ErrNotFound, name)
 	default:
 		return apitypes.OpenAITenant{}, fmt.Errorf("%w: get openai tenant %q returned %T", ErrInvalid, name, response)
+	}
+}
+
+func (s *Service) getDeepSeekTenant(ctx context.Context, name string) (apitypes.DeepSeekTenant, error) {
+	response, err := s.ProviderTenants.GetDeepSeekTenant(ctx, adminhttp.GetDeepSeekTenantRequestObject{Name: name})
+	if err != nil {
+		return apitypes.DeepSeekTenant{}, err
+	}
+	switch typed := response.(type) {
+	case adminhttp.GetDeepSeekTenant200JSONResponse:
+		return apitypes.DeepSeekTenant(typed), nil
+	case adminhttp.GetDeepSeekTenant404JSONResponse:
+		return apitypes.DeepSeekTenant{}, fmt.Errorf("%w: deepseek tenant %q", ErrNotFound, name)
+	default:
+		return apitypes.DeepSeekTenant{}, fmt.Errorf("%w: get deepseek tenant %q returned %T", ErrInvalid, name, response)
 	}
 }
 

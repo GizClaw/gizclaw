@@ -119,7 +119,11 @@ func resourceWorkflow(alias string) rpcapi.Workflow {
 }
 
 func resourceModel(alias string) rpcapi.Model {
-	return rpcapi.Model{Alias: alias, Kind: rpcapi.ModelKindLlm, I18n: resourceI18n(alias)}
+	return rpcapi.Model{
+		Alias: alias, Kind: rpcapi.ModelKindLlm, I18n: resourceI18n(alias),
+		ProviderKind: rpcapi.ModelProviderKindOpenaiTenant,
+		OpenAITenant: &rpcapi.OpenAITenantModelProviderData{},
+	}
 }
 
 func resourceI18n(name string) map[string]rpcapi.AliasI18nText {

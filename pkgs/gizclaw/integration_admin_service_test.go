@@ -125,6 +125,7 @@ func TestIntegrationAdminServiceWorkspaceLifecycle(t *testing.T) {
 			Kind: "openai-tenant",
 			Name: "global",
 		},
+		ProviderData: mustOpenAIProviderData(t, "updated-upstream"),
 	}); err != nil {
 		t.Fatalf("CreateModel error: %v", err)
 	}
@@ -276,4 +277,22 @@ func mustCredentialUpsert(t *testing.T, raw string) adminhttp.CredentialUpsert {
 		t.Fatalf("json.Unmarshal() error = %v", err)
 	}
 	return upsert
+}
+
+func mustOpenAIProviderData(t *testing.T, upstreamModel string) apitypes.ModelProviderData {
+	t.Helper()
+	falseValue := false
+	var data apitypes.ModelProviderData
+	if err := data.FromOpenAITenantModelProviderData(apitypes.OpenAITenantModelProviderData{
+		UpstreamModel:      upstreamModel,
+		SupportJsonOutput:  &falseValue,
+		SupportToolCalls:   &falseValue,
+		SupportTextOnly:    &falseValue,
+		UseSystemRole:      &falseValue,
+		SupportTemperature: &falseValue,
+		SupportThinking:    &falseValue,
+	}); err != nil {
+		t.Fatalf("FromOpenAITenantModelProviderData() error = %v", err)
+	}
+	return data
 }

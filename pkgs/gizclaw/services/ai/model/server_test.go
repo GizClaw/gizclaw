@@ -2,6 +2,11 @@ package model
 
 import (
 	"context"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -19,14 +24,7 @@ func TestServerModelCRUDListFiltersAndIndexes(t *testing.T) {
 	}
 	first := modelUpsert("qwen-flash", "openai-tenant", "dashscope")
 	first.Name = stringPtr("Qwen Flash")
-	levels := []string{"low", "medium"}
-	first.Capabilities = &apitypes.ModelCapabilities{
-		Thinking: &apitypes.ModelThinkingCapability{
-			Supported: true,
-			Levels:    &levels,
-		},
-	}
-	first.ProviderData = openAIProviderData("https://dashscope.aliyuncs.com/compatible-mode/v1")
+	first.ProviderData = openAIProviderData("qwen-flash")
 	second := modelUpsert("speech", "openai-tenant", "global")
 
 	resp, err := srv.CreateModel(ctx, adminhttp.CreateModelRequestObject{Body: &first})
@@ -256,6 +254,275 @@ func TestServerModelValidationAndErrorResponses(t *testing.T) {
 	}
 }
 
+func TestServerValidatesProviderKindAgainstProviderData(t *testing.T) {
+	ctx := context.Background()
+	srv := &Server{Store: kv.NewMemory(nil)}
+
+	dashScopeMode := apitypes.DashScopeTenantModelProviderDataApiModeChatCompletions
+	volcMode := apitypes.VolcTenantModelProviderDataApiModeChatCompletions
+	falseValue := false
+	trueValue := true
+	booleanThinkingParam := "enable_thinking"
+	valid := []adminhttp.ModelUpsert{
+		modelUpsert("openai-chat", string(apitypes.ModelProviderKindOpenaiTenant), "openai-main"),
+		modelUpsertWithProviderData("openai-thinking-toggle", apitypes.ModelProviderKindOpenaiTenant, modelProviderData(t, apitypes.OpenAITenantModelProviderData{UpstreamModel: "gpt-thinking", SupportJsonOutput: &falseValue, SupportToolCalls: &falseValue, SupportTextOnly: &falseValue, UseSystemRole: &falseValue, SupportTemperature: &falseValue, SupportThinking: &trueValue, ThinkingParam: &booleanThinkingParam})),
+		modelUpsertWithProviderData("gemini-chat", apitypes.ModelProviderKindGeminiTenant, modelProviderData(t, apitypes.GeminiTenantModelProviderData{UpstreamModel: "gemini-pro", SupportJsonOutput: &falseValue, SupportToolCalls: &falseValue, SupportTextOnly: &falseValue, UseSystemRole: &falseValue, SupportTemperature: &falseValue, SupportThinking: &falseValue})),
+		modelUpsertWithProviderData("qwen-chat", apitypes.ModelProviderKindDashscopeTenant, modelProviderData(t, apitypes.DashScopeTenantModelProviderData{ApiMode: &dashScopeMode, UpstreamModel: stringPtr("qwen-max"), SupportJsonOutput: &falseValue, SupportToolCalls: &falseValue, SupportTextOnly: &falseValue, UseSystemRole: &falseValue, SupportTemperature: &falseValue, SupportThinking: &falseValue})),
+		modelUpsertWithProviderData("volc-chat", apitypes.ModelProviderKindVolcTenant, modelProviderData(t, apitypes.VolcTenantModelProviderData{ApiMode: volcMode, UpstreamModel: stringPtr("doubao-pro"), SupportJsonOutput: &falseValue, SupportToolCalls: &falseValue, SupportTextOnly: &falseValue, UseSystemRole: &falseValue, SupportTemperature: &falseValue, SupportThinking: &falseValue})),
+		modelUpsertWithProviderData("minimax-m2", apitypes.ModelProviderKindMinimaxTenant, miniMaxProviderData("MiniMax-M2")),
+		modelUpsertWithProviderData("deepseek-chat", apitypes.ModelProviderKindDeepseekTenant, deepSeekProviderData("deepseek-chat")),
+	}
+	for _, body := range valid {
+		resp, err := srv.CreateModel(ctx, adminhttp.CreateModelRequestObject{Body: &body})
+		if err != nil {
+			t.Fatalf("CreateModel(%s) error = %v", body.Id, err)
+		}
+		if _, ok := resp.(adminhttp.CreateModel200JSONResponse); !ok {
+			t.Fatalf("CreateModel(%s) response = %#v", body.Id, resp)
+		}
+		description := "updated"
+		body.Description = &description
+		put, err := srv.PutModel(ctx, adminhttp.PutModelRequestObject{Id: body.Id, Body: &body})
+		if err != nil {
+			t.Fatalf("PutModel(%s) error = %v", body.Id, err)
+		}
+		if _, ok := put.(adminhttp.PutModel200JSONResponse); !ok {
+			t.Fatalf("PutModel(%s) response = %#v", body.Id, put)
+		}
+	}
+
+	deepSeek := valid[len(valid)-1]
+	wrongKind := deepSeek
+	wrongKind.Id = "wrong-kind"
+	wrongKind.Provider = apitypes.ModelProvider{Kind: apitypes.ModelProviderKindOpenaiTenant, Name: "openai-main"}
+	unknownField := modelUpsert("unknown-field", string(apitypes.ModelProviderKindOpenaiTenant), "openai-main")
+	if err := json.Unmarshal([]byte(`{"upstream_model":"gpt-test","vendor_option":true}`), &unknownField.ProviderData); err != nil {
+		t.Fatalf("json.Unmarshal(provider_data) error = %v", err)
+	}
+	wrongModelKind := deepSeek
+	wrongModelKind.Id = "deepseek-embedding"
+	wrongModelKind.Kind = apitypes.ModelKindEmbedding
+	defaultBehavior := modelUpsert("default-behavior", string(apitypes.ModelProviderKindOpenaiTenant), "openai-main")
+	if err := defaultBehavior.ProviderData.FromOpenAITenantModelProviderData(apitypes.OpenAITenantModelProviderData{UpstreamModel: "gpt-test"}); err != nil {
+		t.Fatalf("FromOpenAITenantModelProviderData() error = %v", err)
+	}
+	resp, err := srv.CreateModel(ctx, adminhttp.CreateModelRequestObject{Body: &defaultBehavior})
+	if err != nil {
+		t.Fatalf("CreateModel(default-behavior) error = %v", err)
+	}
+	if _, ok := resp.(adminhttp.CreateModel200JSONResponse); !ok {
+		t.Fatalf("CreateModel(default-behavior) response = %#v, want 200", resp)
+	}
+
+	for _, body := range []adminhttp.ModelUpsert{wrongKind, unknownField, wrongModelKind} {
+		resp, err := srv.CreateModel(ctx, adminhttp.CreateModelRequestObject{Body: &body})
+		if err != nil {
+			t.Fatalf("CreateModel(%s) error = %v", body.Id, err)
+		}
+		if _, ok := resp.(adminhttp.CreateModel400JSONResponse); !ok {
+			t.Fatalf("CreateModel(%s) response = %#v, want 400", body.Id, resp)
+		}
+	}
+}
+
+func modelUpsertWithProviderData(id string, kind apitypes.ModelProviderKind, data apitypes.ModelProviderData) adminhttp.ModelUpsert {
+	out := modelUpsert(id, string(kind), string(kind)+"-main")
+	out.ProviderData = data
+	return out
+}
+
+func modelProviderData(t *testing.T, value any) apitypes.ModelProviderData {
+	t.Helper()
+	var out apitypes.ModelProviderData
+	var err error
+	switch typed := value.(type) {
+	case apitypes.OpenAITenantModelProviderData:
+		err = out.FromOpenAITenantModelProviderData(typed)
+	case apitypes.GeminiTenantModelProviderData:
+		err = out.FromGeminiTenantModelProviderData(typed)
+	case apitypes.DashScopeTenantModelProviderData:
+		err = out.FromDashScopeTenantModelProviderData(typed)
+	case apitypes.VolcTenantModelProviderData:
+		err = out.FromVolcTenantModelProviderData(typed)
+	default:
+		t.Fatalf("unsupported provider data %T", value)
+	}
+	if err != nil {
+		t.Fatalf("encode provider data %T: %v", value, err)
+	}
+	return out
+}
+
+func TestModelProviderKindAndDataSchemasStayExhaustive(t *testing.T) {
+	expected := map[string]string{
+		"openai-tenant":    "OpenAITenantModelProviderData",
+		"gemini-tenant":    "GeminiTenantModelProviderData",
+		"dashscope-tenant": "DashScopeTenantModelProviderData",
+		"volc-tenant":      "VolcTenantModelProviderData",
+		"minimax-tenant":   "MiniMaxTenantModelProviderData",
+		"deepseek-tenant":  "DeepSeekTenantModelProviderData",
+	}
+	var kindSchema struct {
+		Components struct {
+			Schemas struct {
+				ModelProviderKind struct {
+					Enum []string `json:"enum"`
+				} `json:"ModelProviderKind"`
+			} `json:"schemas"`
+		} `json:"components"`
+	}
+	readModelSchema(t, "api/http/shared/model_provider_kind.json", &kindSchema)
+	if len(kindSchema.Components.Schemas.ModelProviderKind.Enum) != len(expected) {
+		t.Fatalf("ModelProviderKind enum = %#v, want %d exhaustive entries", kindSchema.Components.Schemas.ModelProviderKind.Enum, len(expected))
+	}
+	for _, kind := range kindSchema.Components.Schemas.ModelProviderKind.Enum {
+		if expected[kind] == "" || !apitypes.ModelProviderKind(kind).Valid() {
+			t.Fatalf("ModelProviderKind %q has no validated provider-data mapping", kind)
+		}
+	}
+
+	var dataSchema struct {
+		Components struct {
+			Schemas struct {
+				ModelProviderData struct {
+					AnyOf []struct {
+						Ref string `json:"$ref"`
+					} `json:"anyOf"`
+				} `json:"ModelProviderData"`
+			} `json:"schemas"`
+		} `json:"components"`
+	}
+	readModelSchema(t, "api/http/shared/model_provider_data.json", &dataSchema)
+	variants := map[string]bool{}
+	for _, item := range dataSchema.Components.Schemas.ModelProviderData.AnyOf {
+		variants[item.Ref[strings.LastIndex(item.Ref, "/")+1:]] = true
+	}
+	if len(variants) != len(expected) {
+		t.Fatalf("ModelProviderData variants = %#v, want %d exhaustive entries", variants, len(expected))
+	}
+	for kind, variant := range expected {
+		if !variants[variant] {
+			t.Fatalf("provider kind %q is missing provider-data variant %q", kind, variant)
+		}
+	}
+}
+
+func TestVolcProviderDataRequiresTheAPIModeForEachModelRole(t *testing.T) {
+	upstream := "volc-upstream"
+	tests := []struct {
+		kind apitypes.ModelKind
+		mode apitypes.VolcTenantModelProviderDataApiMode
+	}{
+		{kind: apitypes.ModelKindLlm, mode: apitypes.VolcTenantModelProviderDataApiModeChatCompletions},
+		{kind: apitypes.ModelKindTts, mode: apitypes.VolcTenantModelProviderDataApiModeTts},
+		{kind: apitypes.ModelKindAsr, mode: apitypes.VolcTenantModelProviderDataApiModeAsr},
+		{kind: apitypes.ModelKindRealtime, mode: apitypes.VolcTenantModelProviderDataApiModeRealtime},
+		{kind: apitypes.ModelKindTranslation, mode: apitypes.VolcTenantModelProviderDataApiModeTranslation},
+		{kind: apitypes.ModelKindEmbedding, mode: apitypes.VolcTenantModelProviderDataApiModeEmbedding},
+	}
+	for _, tt := range tests {
+		t.Run(string(tt.kind), func(t *testing.T) {
+			data := apitypes.ModelProviderData{}
+			value := apitypes.VolcTenantModelProviderData{ApiMode: tt.mode}
+			if tt.kind == apitypes.ModelKindLlm {
+				falseValue := false
+				value.SupportJsonOutput = &falseValue
+				value.SupportToolCalls = &falseValue
+				value.SupportTextOnly = &falseValue
+				value.UseSystemRole = &falseValue
+				value.SupportTemperature = &falseValue
+				value.SupportThinking = &falseValue
+			}
+			if tt.kind == apitypes.ModelKindLlm || tt.kind == apitypes.ModelKindEmbedding {
+				value.UpstreamModel = &upstream
+			}
+			if err := data.FromVolcTenantModelProviderData(value); err != nil {
+				t.Fatalf("FromVolcTenantModelProviderData() error = %v", err)
+			}
+			if err := ValidateProviderData(tt.kind, apitypes.ModelProviderKindVolcTenant, data); err != nil {
+				t.Fatalf("ValidateProviderData() error = %v", err)
+			}
+
+			wrongMode := apitypes.VolcTenantModelProviderDataApiModeRealtime
+			if wrongMode == tt.mode {
+				wrongMode = apitypes.VolcTenantModelProviderDataApiModeAsr
+			}
+			value.ApiMode = wrongMode
+			if err := data.FromVolcTenantModelProviderData(value); err != nil {
+				t.Fatalf("FromVolcTenantModelProviderData(wrong mode) error = %v", err)
+			}
+			if err := ValidateProviderData(tt.kind, apitypes.ModelProviderKindVolcTenant, data); err == nil {
+				t.Fatalf("ValidateProviderData(%s) accepted api_mode %q", tt.kind, wrongMode)
+			}
+		})
+	}
+
+	if err := ValidateProviderData(apitypes.ModelKindTts, apitypes.ModelProviderKindOpenaiTenant, openAIProviderData("tts")); err == nil {
+		t.Fatal("ValidateProviderData() accepted unsupported OpenAI TTS model")
+	}
+}
+
+func readModelSchema(t *testing.T, relativePath string, out any) {
+	t.Helper()
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller() failed")
+	}
+	repoRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "../../../../.."))
+	data, err := os.ReadFile(filepath.Join(repoRoot, relativePath))
+	if err != nil {
+		t.Fatalf("os.ReadFile(%s) error = %v", relativePath, err)
+	}
+	if err := json.Unmarshal(data, out); err != nil {
+		t.Fatalf("json.Unmarshal(%s) error = %v", relativePath, err)
+	}
+}
+
+func TestValidateLLMThinkingSupportsBooleanAndLevelParameters(t *testing.T) {
+	trueValue := true
+	booleanParam := "enable_thinking"
+	levelParam := "reasoning_effort"
+	defaultLevel := "medium"
+	levels := []string{"low", "medium", "high"}
+
+	tests := []struct {
+		name               string
+		thinkingParam      *string
+		thinkingLevelParam *string
+		thinkingLevels     *[]string
+		defaultLevel       *string
+		wantError          string
+	}{
+		{name: "boolean parameter", thinkingParam: &booleanParam},
+		{name: "level parameter", thinkingLevelParam: &levelParam, thinkingLevels: &levels, defaultLevel: &defaultLevel},
+		{name: "missing parameters", wantError: "requires thinking_param or thinking_level_param"},
+		{name: "level parameter missing levels", thinkingLevelParam: &levelParam, wantError: "requires thinking_levels"},
+		{name: "level parameter missing default", thinkingLevelParam: &levelParam, thinkingLevels: &levels, wantError: "requires default_thinking_level"},
+		{name: "boolean parameter default missing levels", thinkingParam: &booleanParam, defaultLevel: &defaultLevel, wantError: "requires thinking_levels"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateLLMThinking(
+				apitypes.ModelProviderKindOpenaiTenant,
+				&trueValue,
+				tt.thinkingParam,
+				tt.thinkingLevelParam,
+				tt.thinkingLevels,
+				tt.defaultLevel,
+			)
+			if tt.wantError == "" {
+				if err != nil {
+					t.Fatalf("validateLLMThinking() error = %v", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), tt.wantError) {
+				t.Fatalf("validateLLMThinking() error = %v, want %q", err, tt.wantError)
+			}
+		})
+	}
+}
+
 func TestServerListModelsSourceFilterAndSyncedTimePreserved(t *testing.T) {
 	ctx := context.Background()
 	syncedAt := time.Date(2026, 5, 10, 8, 0, 0, 0, time.UTC)
@@ -305,16 +572,53 @@ func modelUpsert(id string, providerKind, providerName string) adminhttp.ModelUp
 			Kind: apitypes.ModelProviderKind(providerKind),
 			Name: string(providerName),
 		},
+		ProviderData: openAIProviderData(id),
 	}
 }
 
-func openAIProviderData(baseURL string) *apitypes.ModelProviderData {
-	_ = baseURL
+func openAIProviderData(upstreamModel string) apitypes.ModelProviderData {
 	out := apitypes.ModelProviderData{}
-	if err := out.FromOpenAITenantModelProviderData(apitypes.OpenAITenantModelProviderData{}); err != nil {
+	falseValue := false
+	if err := out.FromOpenAITenantModelProviderData(apitypes.OpenAITenantModelProviderData{UpstreamModel: upstreamModel, SupportJsonOutput: &falseValue, SupportToolCalls: &falseValue, SupportTextOnly: &falseValue, UseSystemRole: &falseValue, SupportTemperature: &falseValue, SupportThinking: &falseValue}); err != nil {
 		panic(err)
 	}
-	return &out
+	return out
+}
+
+func deepSeekProviderData(upstreamModel string) apitypes.ModelProviderData {
+	out := apitypes.ModelProviderData{}
+	falseValue := false
+	if err := out.FromDeepSeekTenantModelProviderData(apitypes.DeepSeekTenantModelProviderData{
+		ApiMode:            apitypes.DeepSeekTenantModelProviderDataApiModeChatCompletions,
+		UpstreamModel:      upstreamModel,
+		SupportJsonOutput:  &falseValue,
+		SupportToolCalls:   &falseValue,
+		SupportTextOnly:    &falseValue,
+		UseSystemRole:      &falseValue,
+		SupportTemperature: &falseValue,
+		SupportThinking:    &falseValue,
+	}); err != nil {
+		panic(err)
+	}
+	return out
+}
+
+func miniMaxProviderData(upstreamModel string) apitypes.ModelProviderData {
+	out := apitypes.ModelProviderData{}
+	falseValue := false
+	if err := out.FromMiniMaxTenantModelProviderData(apitypes.MiniMaxTenantModelProviderData{
+		ApiMode:            apitypes.MiniMaxTenantModelProviderDataApiModeChatCompletions,
+		UpstreamModel:      upstreamModel,
+		SupportJsonOutput:  &falseValue,
+		SupportToolCalls:   &falseValue,
+		SupportTextOnly:    &falseValue,
+		UseSystemRole:      &falseValue,
+		SupportTemperature: &falseValue,
+		SupportThinking:    &falseValue,
+	}); err != nil {
+		panic(err)
+	}
+	return out
 }
 
 func requireModelList(t *testing.T, resp adminhttp.ListModelsResponseObject) adminhttp.ModelList {

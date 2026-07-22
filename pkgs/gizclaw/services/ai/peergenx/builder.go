@@ -31,11 +31,16 @@ const (
 	defaultMiniMaxTTSAudioFormat = "mp3"
 	defaultTTSAudioSampleRate    = 16000
 	defaultMiniMaxBaseURL        = "https://api.minimax.io"
+	defaultDeepSeekBaseURL       = "https://api.deepseek.com"
 	defaultVolcArkBaseURL        = "https://ark.cn-beijing.volces.com/api/v3"
 )
 
 func (b DefaultBuilder) BuildGenerator(ctx context.Context, cfg GeneratorConfig) (genx.Generator, error) {
 	switch cfg.Tenant.Kind {
+	case string(apitypes.ModelProviderKindDeepseekTenant):
+		return b.buildDeepSeekGenerator(cfg)
+	case string(apitypes.ModelProviderKindMinimaxTenant):
+		return b.buildMiniMaxGenerator(cfg)
 	case string(apitypes.ModelProviderKindOpenaiTenant):
 		return b.buildOpenAIGenerator(cfg)
 	case string(apitypes.ModelProviderKindVolcTenant):
@@ -45,6 +50,85 @@ func (b DefaultBuilder) BuildGenerator(ctx context.Context, cfg GeneratorConfig)
 	default:
 		return nil, fmt.Errorf("%w: generator provider %q", ErrUnsupported, cfg.Tenant.Kind)
 	}
+}
+
+func (b DefaultBuilder) buildDeepSeekGenerator(cfg GeneratorConfig) (genx.Generator, error) {
+	if cfg.Tenant.DeepSeek == nil {
+		return nil, fmt.Errorf("%w: deepseek tenant is required", ErrInvalid)
+	}
+	body, err := cfg.Credential.Body.AsDeepSeekCredentialBody()
+	if err != nil {
+		return nil, err
+	}
+	apiKey := strings.TrimSpace(body.ApiKey)
+	if apiKey == "" {
+		return nil, fmt.Errorf("%w: credential %q missing api_key", ErrInvalid, cfg.Credential.Name)
+	}
+	providerData, err := cfg.Model.ProviderData.AsDeepSeekTenantModelProviderData()
+	if err != nil {
+		return nil, fmt.Errorf("%w: decode deepseek model provider_data: %w", ErrInvalid, err)
+	}
+	return b.buildOpenAICompatibleGenerator(
+		apiKey,
+		openAICompatibleV1BaseURL(firstString(cfg.Tenant.DeepSeek.BaseUrl, defaultDeepSeekBaseURL)),
+		providerData.UpstreamModel,
+		openAIProviderDataFromDeepSeek(providerData),
+		cfg,
+	)
+}
+
+func (b DefaultBuilder) buildMiniMaxGenerator(cfg GeneratorConfig) (genx.Generator, error) {
+	if cfg.Tenant.MiniMax == nil {
+		return nil, fmt.Errorf("%w: minimax tenant is required", ErrInvalid)
+	}
+	body, err := cfg.Credential.Body.AsMiniMaxCredentialBody()
+	if err != nil {
+		return nil, err
+	}
+	apiKey := firstString(body.ApiKey, body.Token)
+	if apiKey == "" {
+		return nil, fmt.Errorf("%w: credential %q missing api_key", ErrInvalid, cfg.Credential.Name)
+	}
+	providerData, err := cfg.Model.ProviderData.AsMiniMaxTenantModelProviderData()
+	if err != nil {
+		return nil, fmt.Errorf("%w: decode minimax model provider_data: %w", ErrInvalid, err)
+	}
+	return b.buildOpenAICompatibleGenerator(
+		apiKey,
+		openAICompatibleV1BaseURL(firstString(cfg.Tenant.MiniMax.BaseUrl, body.BaseUrl, defaultMiniMaxBaseURL)),
+		providerData.UpstreamModel,
+		openAIProviderDataFromMiniMax(providerData),
+		cfg,
+	)
+}
+
+func (b DefaultBuilder) buildOpenAICompatibleGenerator(apiKey, baseURL, modelName string, providerData apitypes.OpenAITenantModelProviderData, cfg GeneratorConfig) (genx.Generator, error) {
+	modelName = strings.TrimSpace(modelName)
+	if modelName == "" {
+		return nil, fmt.Errorf("%w: model %q missing upstream model", ErrInvalid, cfg.Model.Id)
+	}
+	opts := []option.RequestOption{option.WithAPIKey(apiKey), option.WithBaseURL(strings.TrimRight(baseURL, "/"))}
+	if b.HTTPClient != nil {
+		opts = append(opts, option.WithHTTPClient(b.HTTPClient))
+	}
+	client := openai.NewClient(opts...)
+	return &genx.OpenAIGenerator{
+		Client:            &client,
+		Model:             modelName,
+		SupportJSONOutput: boolValue(providerData.SupportJsonOutput),
+		SupportToolCalls:  boolValue(providerData.SupportToolCalls),
+		TextOnly:          boolValue(providerData.SupportTextOnly),
+		PromptRole:        openAIPromptRole(providerData.UseSystemRole),
+		ExtraFields:       openAIThinkingExtraFields(providerData),
+	}, nil
+}
+
+func openAICompatibleV1BaseURL(baseURL string) string {
+	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	if strings.HasSuffix(baseURL, "/v1") {
+		return baseURL
+	}
+	return baseURL + "/v1"
 }
 
 func (b DefaultBuilder) BuildTransformer(_ context.Context, cfg TransformerConfig) (genx.Transformer, error) {
@@ -110,24 +194,21 @@ func (b DefaultBuilder) buildOpenAIGenerator(cfg GeneratorConfig) (genx.Generato
 	client := openai.NewClient(opts...)
 
 	var providerData apitypes.OpenAITenantModelProviderData
-	if cfg.Model.ProviderData != nil {
-		providerData, err = cfg.Model.ProviderData.AsOpenAITenantModelProviderData()
-		if err != nil {
-			return nil, fmt.Errorf("%w: decode openai model provider_data: %w", ErrInvalid, err)
-		}
+	providerData, err = cfg.Model.ProviderData.AsOpenAITenantModelProviderData()
+	if err != nil {
+		return nil, fmt.Errorf("%w: decode openai model provider_data: %w", ErrInvalid, err)
 	}
 	modelName := firstString(providerData.UpstreamModel, string(cfg.Model.Id))
 	if modelName == "" {
 		return nil, fmt.Errorf("%w: model %q missing upstream model", ErrInvalid, cfg.Model.Id)
 	}
-	caps := cfg.Model.Capabilities
 	return &genx.OpenAIGenerator{
 		Client:            &client,
 		Model:             modelName,
-		SupportJSONOutput: boolValue(providerData.SupportJsonOutput, capabilityBool(caps, "json")),
-		SupportToolCalls:  boolValue(providerData.SupportToolCalls, capabilityBool(caps, "tools")),
-		TextOnly:          boolValue(providerData.SupportTextOnly, capabilityBool(caps, "text")),
-		PromptRole:        openAIPromptRole(providerData.UseSystemRole, capabilityBool(caps, "system")),
+		SupportJSONOutput: boolValue(providerData.SupportJsonOutput),
+		SupportToolCalls:  boolValue(providerData.SupportToolCalls),
+		TextOnly:          boolValue(providerData.SupportTextOnly),
+		PromptRole:        openAIPromptRole(providerData.UseSystemRole),
 		ExtraFields:       openAIThinkingExtraFields(providerData),
 	}, nil
 }
@@ -153,25 +234,22 @@ func (b DefaultBuilder) buildVolcArkGenerator(cfg GeneratorConfig) (genx.Generat
 	client := openai.NewClient(opts...)
 
 	var providerData apitypes.VolcTenantModelProviderData
-	if cfg.Model.ProviderData != nil {
-		providerData, err = cfg.Model.ProviderData.AsVolcTenantModelProviderData()
-		if err != nil {
-			return nil, fmt.Errorf("%w: decode volc model provider_data: %w", ErrInvalid, err)
-		}
+	providerData, err = cfg.Model.ProviderData.AsVolcTenantModelProviderData()
+	if err != nil {
+		return nil, fmt.Errorf("%w: decode volc model provider_data: %w", ErrInvalid, err)
 	}
 	openAIData := openAIProviderDataFromVolc(providerData)
 	modelName := firstString(providerData.UpstreamModel, string(cfg.Model.Id))
 	if modelName == "" {
 		return nil, fmt.Errorf("%w: model %q missing upstream model", ErrInvalid, cfg.Model.Id)
 	}
-	caps := cfg.Model.Capabilities
 	return &genx.OpenAIGenerator{
 		Client:            &client,
 		Model:             modelName,
-		SupportJSONOutput: boolValue(providerData.SupportJsonOutput, capabilityBool(caps, "json")),
-		SupportToolCalls:  boolValue(providerData.SupportToolCalls, capabilityBool(caps, "tools")),
-		TextOnly:          boolValue(providerData.SupportTextOnly, capabilityBool(caps, "text")),
-		PromptRole:        openAIPromptRole(providerData.UseSystemRole, capabilityBool(caps, "system")),
+		SupportJSONOutput: boolValue(providerData.SupportJsonOutput),
+		SupportToolCalls:  boolValue(providerData.SupportToolCalls),
+		TextOnly:          boolValue(providerData.SupportTextOnly),
+		PromptRole:        openAIPromptRole(providerData.UseSystemRole),
 		ExtraFields:       openAIThinkingExtraFields(openAIData),
 	}, nil
 }
@@ -193,11 +271,9 @@ func (b DefaultBuilder) buildGeminiGenerator(ctx context.Context, cfg GeneratorC
 		return nil, err
 	}
 	var providerData apitypes.GeminiTenantModelProviderData
-	if cfg.Model.ProviderData != nil {
-		providerData, err = cfg.Model.ProviderData.AsGeminiTenantModelProviderData()
-		if err != nil {
-			return nil, fmt.Errorf("%w: decode gemini model provider_data: %w", ErrInvalid, err)
-		}
+	providerData, err = cfg.Model.ProviderData.AsGeminiTenantModelProviderData()
+	if err != nil {
+		return nil, fmt.Errorf("%w: decode gemini model provider_data: %w", ErrInvalid, err)
 	}
 	modelName := firstString(providerData.UpstreamModel, string(cfg.Model.Id))
 	if modelName == "" {
@@ -214,12 +290,9 @@ func (b DefaultBuilder) buildVolcASR(cfg TransformerConfig) (genx.Transformer, e
 		return nil, fmt.Errorf("%w: volc tenant and model are required", ErrInvalid)
 	}
 	var providerData apitypes.VolcTenantModelProviderData
-	if cfg.Model.ProviderData != nil {
-		var err error
-		providerData, err = cfg.Model.ProviderData.AsVolcTenantModelProviderData()
-		if err != nil {
-			return nil, fmt.Errorf("%w: decode volc model provider_data: %w", ErrInvalid, err)
-		}
+	providerData, err := cfg.Model.ProviderData.AsVolcTenantModelProviderData()
+	if err != nil {
+		return nil, fmt.Errorf("%w: decode volc model provider_data: %w", ErrInvalid, err)
 	}
 	clientOpts := []doubaospeech.Option{}
 	resourceID := firstString(providerData.ResourceId)
@@ -276,12 +349,9 @@ func (b DefaultBuilder) buildVolcRealtime(cfg TransformerConfig) (genx.Transform
 		return nil, fmt.Errorf("%w: volc tenant and model are required", ErrInvalid)
 	}
 	var providerData apitypes.VolcTenantModelProviderData
-	if cfg.Model.ProviderData != nil {
-		var err error
-		providerData, err = cfg.Model.ProviderData.AsVolcTenantModelProviderData()
-		if err != nil {
-			return nil, fmt.Errorf("%w: decode volc realtime model provider_data: %w", ErrInvalid, err)
-		}
+	providerData, err := cfg.Model.ProviderData.AsVolcTenantModelProviderData()
+	if err != nil {
+		return nil, fmt.Errorf("%w: decode volc realtime model provider_data: %w", ErrInvalid, err)
 	}
 	credentialBody, err := cfg.Credential.Body.AsVolcCredentialBody()
 	if err != nil {
@@ -533,11 +603,9 @@ func (b DefaultBuilder) buildVolcASTTranslate(cfg TransformerConfig) (genx.Trans
 		return nil, err
 	}
 	var providerData apitypes.VolcTenantModelProviderData
-	if cfg.Model.ProviderData != nil {
-		providerData, err = cfg.Model.ProviderData.AsVolcTenantModelProviderData()
-		if err != nil {
-			return nil, fmt.Errorf("%w: decode volc model provider_data: %w", ErrInvalid, err)
-		}
+	providerData, err = cfg.Model.ProviderData.AsVolcTenantModelProviderData()
+	if err != nil {
+		return nil, fmt.Errorf("%w: decode volc model provider_data: %w", ErrInvalid, err)
 	}
 	data := mergeParams(nil, cfg.Params)
 	if err := normalizeVolcASTTranslateLanguagePair(data); err != nil {
@@ -876,24 +944,6 @@ func boolValue(values ...*bool) bool {
 	return false
 }
 
-func capabilityBool(caps *apitypes.ModelCapabilities, name string) *bool {
-	if caps == nil {
-		return nil
-	}
-	switch name {
-	case "json":
-		return caps.JsonOutput
-	case "tools":
-		return caps.ToolCalls
-	case "text":
-		return caps.TextOnly
-	case "system":
-		return caps.SystemRole
-	default:
-		return nil
-	}
-}
-
 func openAIPromptRole(values ...*bool) genx.PromptRole {
 	if boolValue(values...) {
 		return genx.PromptRoleSystem
@@ -916,6 +966,39 @@ func openAIProviderDataFromVolc(data apitypes.VolcTenantModelProviderData) apity
 	return apitypes.OpenAITenantModelProviderData{
 		DefaultThinkingLevel: data.DefaultThinkingLevel,
 		SupportJsonOutput:    data.SupportJsonOutput,
+		SupportTemperature:   data.SupportTemperature,
+		SupportTextOnly:      data.SupportTextOnly,
+		SupportThinking:      data.SupportThinking,
+		SupportToolCalls:     data.SupportToolCalls,
+		ThinkingLevelParam:   data.ThinkingLevelParam,
+		ThinkingLevels:       data.ThinkingLevels,
+		ThinkingParam:        data.ThinkingParam,
+		UpstreamModel:        firstString(data.UpstreamModel),
+		UseSystemRole:        data.UseSystemRole,
+	}
+}
+
+func openAIProviderDataFromDeepSeek(data apitypes.DeepSeekTenantModelProviderData) apitypes.OpenAITenantModelProviderData {
+	return apitypes.OpenAITenantModelProviderData{
+		DefaultThinkingLevel: data.DefaultThinkingLevel,
+		SupportJsonOutput:    data.SupportJsonOutput,
+		SupportTemperature:   data.SupportTemperature,
+		SupportTextOnly:      data.SupportTextOnly,
+		SupportThinking:      data.SupportThinking,
+		SupportToolCalls:     data.SupportToolCalls,
+		ThinkingLevelParam:   data.ThinkingLevelParam,
+		ThinkingLevels:       data.ThinkingLevels,
+		ThinkingParam:        data.ThinkingParam,
+		UpstreamModel:        data.UpstreamModel,
+		UseSystemRole:        data.UseSystemRole,
+	}
+}
+
+func openAIProviderDataFromMiniMax(data apitypes.MiniMaxTenantModelProviderData) apitypes.OpenAITenantModelProviderData {
+	return apitypes.OpenAITenantModelProviderData{
+		DefaultThinkingLevel: data.DefaultThinkingLevel,
+		SupportJsonOutput:    data.SupportJsonOutput,
+		SupportTemperature:   data.SupportTemperature,
 		SupportTextOnly:      data.SupportTextOnly,
 		SupportThinking:      data.SupportThinking,
 		SupportToolCalls:     data.SupportToolCalls,

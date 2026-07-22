@@ -11,6 +11,17 @@
 #error Regenerate this file with the current version of nanopb generator.
 #endif
 
+/* Enum definitions */
+typedef enum _gizclaw_rpc_v1_ModelProviderKind {
+    gizclaw_rpc_v1_ModelProviderKind_MODEL_PROVIDER_KIND_UNSPECIFIED = 0,
+    gizclaw_rpc_v1_ModelProviderKind_MODEL_PROVIDER_KIND_OPENAI_TENANT = 1,
+    gizclaw_rpc_v1_ModelProviderKind_MODEL_PROVIDER_KIND_GEMINI_TENANT = 2,
+    gizclaw_rpc_v1_ModelProviderKind_MODEL_PROVIDER_KIND_DASHSCOPE_TENANT = 3,
+    gizclaw_rpc_v1_ModelProviderKind_MODEL_PROVIDER_KIND_VOLC_TENANT = 4,
+    gizclaw_rpc_v1_ModelProviderKind_MODEL_PROVIDER_KIND_MINIMAX_TENANT = 5,
+    gizclaw_rpc_v1_ModelProviderKind_MODEL_PROVIDER_KIND_DEEPSEEK_TENANT = 6
+} gizclaw_rpc_v1_ModelProviderKind;
+
 /* Struct definitions */
 typedef struct _gizclaw_rpc_v1_AliasI18nText {
     pb_callback_t display_name;
@@ -370,9 +381,157 @@ typedef struct _gizclaw_rpc_v1_Model_I18nEntry {
     gizclaw_rpc_v1_AliasI18nText value;
 } gizclaw_rpc_v1_Model_I18nEntry;
 
+typedef struct _gizclaw_rpc_v1_OpenAITenantModelProviderData {
+    pb_callback_t upstream_model;
+    bool has_support_json_output;
+    bool support_json_output;
+    bool has_support_tool_calls;
+    bool support_tool_calls;
+    bool has_support_text_only;
+    bool support_text_only;
+    bool has_support_temperature;
+    bool support_temperature;
+    bool has_support_thinking;
+    bool support_thinking;
+    bool has_use_system_role;
+    bool use_system_role;
+    pb_callback_t thinking_param;
+    pb_callback_t thinking_level_param;
+    pb_callback_t thinking_levels;
+    pb_callback_t default_thinking_level;
+} gizclaw_rpc_v1_OpenAITenantModelProviderData;
+
+typedef struct _gizclaw_rpc_v1_GeminiTenantModelProviderData {
+    pb_callback_t upstream_model;
+    bool has_support_json_output;
+    bool support_json_output;
+    bool has_support_tool_calls;
+    bool support_tool_calls;
+    bool has_support_text_only;
+    bool support_text_only;
+    bool has_support_temperature;
+    bool support_temperature;
+    bool has_support_thinking;
+    bool support_thinking;
+    bool has_use_system_role;
+    bool use_system_role;
+    pb_callback_t thinking_param;
+    pb_callback_t thinking_level_param;
+    pb_callback_t thinking_levels;
+    pb_callback_t default_thinking_level;
+} gizclaw_rpc_v1_GeminiTenantModelProviderData;
+
+typedef struct _gizclaw_rpc_v1_DashScopeTenantModelProviderData {
+    pb_callback_t upstream_model;
+    pb_callback_t api_mode;
+    bool has_support_json_output;
+    bool support_json_output;
+    bool has_support_tool_calls;
+    bool support_tool_calls;
+    bool has_support_text_only;
+    bool support_text_only;
+    bool has_support_temperature;
+    bool support_temperature;
+    bool has_support_thinking;
+    bool support_thinking;
+    bool has_use_system_role;
+    bool use_system_role;
+    pb_callback_t thinking_param;
+    pb_callback_t thinking_level_param;
+    pb_callback_t thinking_levels;
+    pb_callback_t default_thinking_level;
+} gizclaw_rpc_v1_DashScopeTenantModelProviderData;
+
+typedef struct _gizclaw_rpc_v1_VolcTenantModelProviderData {
+    pb_callback_t upstream_model;
+    pb_callback_t resource_id;
+    pb_callback_t api_mode;
+    bool has_support_json_output;
+    bool support_json_output;
+    bool has_support_tool_calls;
+    bool support_tool_calls;
+    bool has_support_text_only;
+    bool support_text_only;
+    bool has_support_temperature;
+    bool support_temperature;
+    bool has_support_thinking;
+    bool support_thinking;
+    bool has_use_system_role;
+    bool use_system_role;
+    pb_callback_t thinking_param;
+    pb_callback_t thinking_level_param;
+    pb_callback_t thinking_levels;
+    pb_callback_t default_thinking_level;
+} gizclaw_rpc_v1_VolcTenantModelProviderData;
+
+typedef struct _gizclaw_rpc_v1_MiniMaxTenantModelProviderData {
+    pb_callback_t upstream_model;
+    pb_callback_t api_mode;
+    bool has_support_json_output;
+    bool support_json_output;
+    bool has_support_tool_calls;
+    bool support_tool_calls;
+    bool has_support_text_only;
+    bool support_text_only;
+    bool has_support_temperature;
+    bool support_temperature;
+    bool has_support_thinking;
+    bool support_thinking;
+    bool has_use_system_role;
+    bool use_system_role;
+    pb_callback_t thinking_param;
+    pb_callback_t thinking_level_param;
+    pb_callback_t thinking_levels;
+    pb_callback_t default_thinking_level;
+} gizclaw_rpc_v1_MiniMaxTenantModelProviderData;
+
+typedef struct _gizclaw_rpc_v1_DeepSeekTenantModelProviderData {
+    pb_callback_t upstream_model;
+    pb_callback_t api_mode;
+    bool has_support_json_output;
+    bool support_json_output;
+    bool has_support_tool_calls;
+    bool support_tool_calls;
+    bool has_support_text_only;
+    bool support_text_only;
+    bool has_support_temperature;
+    bool support_temperature;
+    bool has_support_thinking;
+    bool support_thinking;
+    bool has_use_system_role;
+    bool use_system_role;
+    pb_callback_t thinking_param;
+    pb_callback_t thinking_level_param;
+    pb_callback_t thinking_levels;
+    pb_callback_t default_thinking_level;
+} gizclaw_rpc_v1_DeepSeekTenantModelProviderData;
+
+typedef struct _gizclaw_rpc_v1_Model {
+    pb_callback_t alias;
+    pb_callback_t i18n;
+    gizclaw_rpc_v1_ModelKind kind;
+    pb_size_t which_provider_data;
+    union {
+        gizclaw_rpc_v1_OpenAITenantModelProviderData openai_tenant;
+        gizclaw_rpc_v1_GeminiTenantModelProviderData gemini_tenant;
+        gizclaw_rpc_v1_DashScopeTenantModelProviderData dashscope_tenant;
+        gizclaw_rpc_v1_VolcTenantModelProviderData volc_tenant;
+        gizclaw_rpc_v1_MiniMaxTenantModelProviderData minimax_tenant;
+        gizclaw_rpc_v1_DeepSeekTenantModelProviderData deepseek_tenant;
+    } provider_data;
+    gizclaw_rpc_v1_ModelProviderKind provider_kind;
+} gizclaw_rpc_v1_Model;
+
 typedef struct _gizclaw_rpc_v1_ModelGetRequest {
     pb_callback_t alias;
 } gizclaw_rpc_v1_ModelGetRequest;
+
+typedef struct _gizclaw_rpc_v1_ModelGetResponse {
+    bool has_value;
+    gizclaw_rpc_v1_Model value;
+    pb_callback_t runtime_profile_name;
+    pb_callback_t runtime_profile_revision;
+} gizclaw_rpc_v1_ModelGetResponse;
 
 typedef struct _gizclaw_rpc_v1_ModelListRequest {
     pb_callback_t cursor;
@@ -387,44 +546,6 @@ typedef struct _gizclaw_rpc_v1_ModelListResponse {
     pb_callback_t runtime_profile_name;
     pb_callback_t runtime_profile_revision;
 } gizclaw_rpc_v1_ModelListResponse;
-
-typedef struct _gizclaw_rpc_v1_ModelThinkingCapability {
-    pb_callback_t default_level;
-    pb_callback_t level_param;
-    pb_callback_t levels;
-    pb_callback_t param;
-    bool supported;
-} gizclaw_rpc_v1_ModelThinkingCapability;
-
-typedef struct _gizclaw_rpc_v1_ModelCapabilities {
-    bool has_json_output;
-    bool json_output;
-    bool has_system_role;
-    bool system_role;
-    bool has_temperature;
-    bool temperature;
-    bool has_text_only;
-    bool text_only;
-    bool has_thinking;
-    gizclaw_rpc_v1_ModelThinkingCapability thinking;
-    bool has_tool_calls;
-    bool tool_calls;
-} gizclaw_rpc_v1_ModelCapabilities;
-
-typedef struct _gizclaw_rpc_v1_Model {
-    pb_callback_t alias;
-    pb_callback_t i18n;
-    gizclaw_rpc_v1_ModelKind kind;
-    bool has_capabilities;
-    gizclaw_rpc_v1_ModelCapabilities capabilities;
-} gizclaw_rpc_v1_Model;
-
-typedef struct _gizclaw_rpc_v1_ModelGetResponse {
-    bool has_value;
-    gizclaw_rpc_v1_Model value;
-    pb_callback_t runtime_profile_name;
-    pb_callback_t runtime_profile_revision;
-} gizclaw_rpc_v1_ModelGetResponse;
 
 typedef struct _gizclaw_rpc_v1_Voice {
     pb_callback_t alias;
@@ -568,6 +689,112 @@ typedef struct _gizclaw_rpc_v1_ToolInvokeResponse {
 extern "C" {
 #endif
 
+/* Helper constants for enums */
+#define _gizclaw_rpc_v1_ModelProviderKind_MIN gizclaw_rpc_v1_ModelProviderKind_MODEL_PROVIDER_KIND_UNSPECIFIED
+#define _gizclaw_rpc_v1_ModelProviderKind_MAX gizclaw_rpc_v1_ModelProviderKind_MODEL_PROVIDER_KIND_DEEPSEEK_TENANT
+#define _gizclaw_rpc_v1_ModelProviderKind_ARRAYSIZE ((gizclaw_rpc_v1_ModelProviderKind)(gizclaw_rpc_v1_ModelProviderKind_MODEL_PROVIDER_KIND_DEEPSEEK_TENANT+1))
+
+
+
+
+
+
+
+
+
+#define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_mode_ENUMTYPE gizclaw_rpc_v1_ASTTranslateMode
+
+#define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_agent_type_ENUMTYPE gizclaw_rpc_v1_ASTTranslateWorkspaceParametersAgentType
+#define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_input_ENUMTYPE gizclaw_rpc_v1_WorkspaceInputMode
+#define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_mode_ENUMTYPE gizclaw_rpc_v1_ASTTranslateMode
+
+
+
+
+
+#define gizclaw_rpc_v1_ChatRoomWorkspaceParameters_agent_type_ENUMTYPE gizclaw_rpc_v1_ChatRoomWorkspaceParametersAgentType
+#define gizclaw_rpc_v1_ChatRoomWorkspaceParameters_input_ENUMTYPE gizclaw_rpc_v1_WorkspaceInputMode
+#define gizclaw_rpc_v1_ChatRoomWorkspaceParameters_mode_ENUMTYPE gizclaw_rpc_v1_ChatRoomMode
+
+
+
+
+
+
+
+
+
+#define gizclaw_rpc_v1_DoubaoRealtimeAudioFormat_type_ENUMTYPE gizclaw_rpc_v1_DoubaoRealtimeAudioFormatType
+
+
+
+
+#define gizclaw_rpc_v1_DoubaoRealtimeDialogExtra_volc_websearch_type_ENUMTYPE gizclaw_rpc_v1_DoubaoRealtimeDialogExtraVolcWebsearchType
+
+
+#define gizclaw_rpc_v1_DoubaoRealtimeFunctionTool_type_ENUMTYPE gizclaw_rpc_v1_DoubaoRealtimeFunctionToolType
+
+
+
+
+
+
+#define gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_agent_type_ENUMTYPE gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParametersAgentType
+#define gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_input_ENUMTYPE gizclaw_rpc_v1_WorkspaceInputMode
+
+#define gizclaw_rpc_v1_FlowcraftConversationParameters_agent_initiative_policy_ENUMTYPE gizclaw_rpc_v1_FlowcraftConversationParametersAgentInitiativePolicy
+#define gizclaw_rpc_v1_FlowcraftConversationParameters_initiative_ENUMTYPE gizclaw_rpc_v1_FlowcraftConversationParametersInitiative
+
+
+#define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_agent_type_ENUMTYPE gizclaw_rpc_v1_FlowcraftWorkspaceParametersAgentType
+#define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_input_ENUMTYPE gizclaw_rpc_v1_WorkspaceInputMode
+
+#define gizclaw_rpc_v1_PetConversationParameters_initiative_ENUMTYPE gizclaw_rpc_v1_PetConversationParametersInitiative
+
+
+
+
+#define gizclaw_rpc_v1_PetWorkspaceParameters_agent_type_ENUMTYPE gizclaw_rpc_v1_PetWorkspaceParametersAgentType
+#define gizclaw_rpc_v1_PetWorkspaceParameters_input_ENUMTYPE gizclaw_rpc_v1_WorkspaceInputMode
+
+#define gizclaw_rpc_v1_Model_kind_ENUMTYPE gizclaw_rpc_v1_ModelKind
+#define gizclaw_rpc_v1_Model_provider_kind_ENUMTYPE gizclaw_rpc_v1_ModelProviderKind
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#define gizclaw_rpc_v1_Workflow_driver_ENUMTYPE gizclaw_rpc_v1_WorkflowDriver
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 /* Initializer values for message structs */
 #define gizclaw_rpc_v1_AliasI18nText_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_SpeechTranscribeRequest_init_default {"", "", false, ""}
@@ -613,14 +840,18 @@ extern "C" {
 #define gizclaw_rpc_v1_PetVoiceParameters_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PetWorkflowSpec_init_default {0}
 #define gizclaw_rpc_v1_PetWorkspaceParameters_init_default {_gizclaw_rpc_v1_PetWorkspaceParametersAgentType_MIN, false, gizclaw_rpc_v1_PetConversationParameters_init_default, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, gizclaw_rpc_v1_PetPersonaParameters_init_default, false, gizclaw_rpc_v1_PetVoiceParameters_init_default}
-#define gizclaw_rpc_v1_Model_init_default        {{{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_ModelKind_MIN, false, gizclaw_rpc_v1_ModelCapabilities_init_default}
+#define gizclaw_rpc_v1_Model_init_default        {{{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_ModelKind_MIN, 0, {gizclaw_rpc_v1_OpenAITenantModelProviderData_init_default}, _gizclaw_rpc_v1_ModelProviderKind_MIN}
 #define gizclaw_rpc_v1_Model_I18nEntry_init_default {{{NULL}, NULL}, false, gizclaw_rpc_v1_AliasI18nText_init_default}
-#define gizclaw_rpc_v1_ModelCapabilities_init_default {false, 0, false, 0, false, 0, false, 0, false, gizclaw_rpc_v1_ModelThinkingCapability_init_default, false, 0}
+#define gizclaw_rpc_v1_OpenAITenantModelProviderData_init_default {{{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_GeminiTenantModelProviderData_init_default {{{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_DashScopeTenantModelProviderData_init_default {{{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_VolcTenantModelProviderData_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_MiniMaxTenantModelProviderData_init_default {{{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_DeepSeekTenantModelProviderData_init_default {{{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ModelGetRequest_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ModelGetResponse_init_default {false, gizclaw_rpc_v1_Model_init_default, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ModelListRequest_init_default {{{NULL}, NULL}, false, 0}
 #define gizclaw_rpc_v1_ModelListResponse_init_default {0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_ModelThinkingCapability_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, 0}
 #define gizclaw_rpc_v1_Voice_init_default        {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_Voice_I18nEntry_init_default {{{NULL}, NULL}, false, gizclaw_rpc_v1_AliasI18nText_init_default}
 #define gizclaw_rpc_v1_VoiceGetRequest_init_default {{{NULL}, NULL}}
@@ -687,14 +918,18 @@ extern "C" {
 #define gizclaw_rpc_v1_PetVoiceParameters_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PetWorkflowSpec_init_zero {0}
 #define gizclaw_rpc_v1_PetWorkspaceParameters_init_zero {_gizclaw_rpc_v1_PetWorkspaceParametersAgentType_MIN, false, gizclaw_rpc_v1_PetConversationParameters_init_zero, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, gizclaw_rpc_v1_PetPersonaParameters_init_zero, false, gizclaw_rpc_v1_PetVoiceParameters_init_zero}
-#define gizclaw_rpc_v1_Model_init_zero           {{{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_ModelKind_MIN, false, gizclaw_rpc_v1_ModelCapabilities_init_zero}
+#define gizclaw_rpc_v1_Model_init_zero           {{{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_ModelKind_MIN, 0, {gizclaw_rpc_v1_OpenAITenantModelProviderData_init_zero}, _gizclaw_rpc_v1_ModelProviderKind_MIN}
 #define gizclaw_rpc_v1_Model_I18nEntry_init_zero {{{NULL}, NULL}, false, gizclaw_rpc_v1_AliasI18nText_init_zero}
-#define gizclaw_rpc_v1_ModelCapabilities_init_zero {false, 0, false, 0, false, 0, false, 0, false, gizclaw_rpc_v1_ModelThinkingCapability_init_zero, false, 0}
+#define gizclaw_rpc_v1_OpenAITenantModelProviderData_init_zero {{{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_GeminiTenantModelProviderData_init_zero {{{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_DashScopeTenantModelProviderData_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_VolcTenantModelProviderData_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_MiniMaxTenantModelProviderData_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_DeepSeekTenantModelProviderData_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ModelGetRequest_init_zero {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ModelGetResponse_init_zero {false, gizclaw_rpc_v1_Model_init_zero, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ModelListRequest_init_zero {{{NULL}, NULL}, false, 0}
 #define gizclaw_rpc_v1_ModelListResponse_init_zero {0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_ModelThinkingCapability_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, 0}
 #define gizclaw_rpc_v1_Voice_init_zero           {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_Voice_I18nEntry_init_zero {{{NULL}, NULL}, false, gizclaw_rpc_v1_AliasI18nText_init_zero}
 #define gizclaw_rpc_v1_VoiceGetRequest_init_zero {{{NULL}, NULL}}
@@ -867,7 +1102,91 @@ extern "C" {
 #define gizclaw_rpc_v1_PetWorkspaceParameters_voice_tag 5
 #define gizclaw_rpc_v1_Model_I18nEntry_key_tag   1
 #define gizclaw_rpc_v1_Model_I18nEntry_value_tag 2
+#define gizclaw_rpc_v1_OpenAITenantModelProviderData_upstream_model_tag 1
+#define gizclaw_rpc_v1_OpenAITenantModelProviderData_support_json_output_tag 2
+#define gizclaw_rpc_v1_OpenAITenantModelProviderData_support_tool_calls_tag 3
+#define gizclaw_rpc_v1_OpenAITenantModelProviderData_support_text_only_tag 4
+#define gizclaw_rpc_v1_OpenAITenantModelProviderData_support_temperature_tag 5
+#define gizclaw_rpc_v1_OpenAITenantModelProviderData_support_thinking_tag 6
+#define gizclaw_rpc_v1_OpenAITenantModelProviderData_use_system_role_tag 7
+#define gizclaw_rpc_v1_OpenAITenantModelProviderData_thinking_param_tag 8
+#define gizclaw_rpc_v1_OpenAITenantModelProviderData_thinking_level_param_tag 9
+#define gizclaw_rpc_v1_OpenAITenantModelProviderData_thinking_levels_tag 10
+#define gizclaw_rpc_v1_OpenAITenantModelProviderData_default_thinking_level_tag 11
+#define gizclaw_rpc_v1_GeminiTenantModelProviderData_upstream_model_tag 1
+#define gizclaw_rpc_v1_GeminiTenantModelProviderData_support_json_output_tag 2
+#define gizclaw_rpc_v1_GeminiTenantModelProviderData_support_tool_calls_tag 3
+#define gizclaw_rpc_v1_GeminiTenantModelProviderData_support_text_only_tag 4
+#define gizclaw_rpc_v1_GeminiTenantModelProviderData_support_temperature_tag 5
+#define gizclaw_rpc_v1_GeminiTenantModelProviderData_support_thinking_tag 6
+#define gizclaw_rpc_v1_GeminiTenantModelProviderData_use_system_role_tag 7
+#define gizclaw_rpc_v1_GeminiTenantModelProviderData_thinking_param_tag 8
+#define gizclaw_rpc_v1_GeminiTenantModelProviderData_thinking_level_param_tag 9
+#define gizclaw_rpc_v1_GeminiTenantModelProviderData_thinking_levels_tag 10
+#define gizclaw_rpc_v1_GeminiTenantModelProviderData_default_thinking_level_tag 11
+#define gizclaw_rpc_v1_DashScopeTenantModelProviderData_upstream_model_tag 1
+#define gizclaw_rpc_v1_DashScopeTenantModelProviderData_api_mode_tag 2
+#define gizclaw_rpc_v1_DashScopeTenantModelProviderData_support_json_output_tag 3
+#define gizclaw_rpc_v1_DashScopeTenantModelProviderData_support_tool_calls_tag 4
+#define gizclaw_rpc_v1_DashScopeTenantModelProviderData_support_text_only_tag 5
+#define gizclaw_rpc_v1_DashScopeTenantModelProviderData_support_temperature_tag 6
+#define gizclaw_rpc_v1_DashScopeTenantModelProviderData_support_thinking_tag 7
+#define gizclaw_rpc_v1_DashScopeTenantModelProviderData_use_system_role_tag 8
+#define gizclaw_rpc_v1_DashScopeTenantModelProviderData_thinking_param_tag 9
+#define gizclaw_rpc_v1_DashScopeTenantModelProviderData_thinking_level_param_tag 10
+#define gizclaw_rpc_v1_DashScopeTenantModelProviderData_thinking_levels_tag 11
+#define gizclaw_rpc_v1_DashScopeTenantModelProviderData_default_thinking_level_tag 12
+#define gizclaw_rpc_v1_VolcTenantModelProviderData_upstream_model_tag 1
+#define gizclaw_rpc_v1_VolcTenantModelProviderData_resource_id_tag 2
+#define gizclaw_rpc_v1_VolcTenantModelProviderData_api_mode_tag 3
+#define gizclaw_rpc_v1_VolcTenantModelProviderData_support_json_output_tag 4
+#define gizclaw_rpc_v1_VolcTenantModelProviderData_support_tool_calls_tag 5
+#define gizclaw_rpc_v1_VolcTenantModelProviderData_support_text_only_tag 6
+#define gizclaw_rpc_v1_VolcTenantModelProviderData_support_temperature_tag 7
+#define gizclaw_rpc_v1_VolcTenantModelProviderData_support_thinking_tag 8
+#define gizclaw_rpc_v1_VolcTenantModelProviderData_use_system_role_tag 9
+#define gizclaw_rpc_v1_VolcTenantModelProviderData_thinking_param_tag 10
+#define gizclaw_rpc_v1_VolcTenantModelProviderData_thinking_level_param_tag 11
+#define gizclaw_rpc_v1_VolcTenantModelProviderData_thinking_levels_tag 12
+#define gizclaw_rpc_v1_VolcTenantModelProviderData_default_thinking_level_tag 13
+#define gizclaw_rpc_v1_MiniMaxTenantModelProviderData_upstream_model_tag 1
+#define gizclaw_rpc_v1_MiniMaxTenantModelProviderData_api_mode_tag 2
+#define gizclaw_rpc_v1_MiniMaxTenantModelProviderData_support_json_output_tag 3
+#define gizclaw_rpc_v1_MiniMaxTenantModelProviderData_support_tool_calls_tag 4
+#define gizclaw_rpc_v1_MiniMaxTenantModelProviderData_support_text_only_tag 5
+#define gizclaw_rpc_v1_MiniMaxTenantModelProviderData_support_temperature_tag 6
+#define gizclaw_rpc_v1_MiniMaxTenantModelProviderData_support_thinking_tag 7
+#define gizclaw_rpc_v1_MiniMaxTenantModelProviderData_use_system_role_tag 8
+#define gizclaw_rpc_v1_MiniMaxTenantModelProviderData_thinking_param_tag 9
+#define gizclaw_rpc_v1_MiniMaxTenantModelProviderData_thinking_level_param_tag 10
+#define gizclaw_rpc_v1_MiniMaxTenantModelProviderData_thinking_levels_tag 11
+#define gizclaw_rpc_v1_MiniMaxTenantModelProviderData_default_thinking_level_tag 12
+#define gizclaw_rpc_v1_DeepSeekTenantModelProviderData_upstream_model_tag 1
+#define gizclaw_rpc_v1_DeepSeekTenantModelProviderData_api_mode_tag 2
+#define gizclaw_rpc_v1_DeepSeekTenantModelProviderData_support_json_output_tag 3
+#define gizclaw_rpc_v1_DeepSeekTenantModelProviderData_support_tool_calls_tag 4
+#define gizclaw_rpc_v1_DeepSeekTenantModelProviderData_support_text_only_tag 5
+#define gizclaw_rpc_v1_DeepSeekTenantModelProviderData_support_temperature_tag 6
+#define gizclaw_rpc_v1_DeepSeekTenantModelProviderData_support_thinking_tag 7
+#define gizclaw_rpc_v1_DeepSeekTenantModelProviderData_use_system_role_tag 8
+#define gizclaw_rpc_v1_DeepSeekTenantModelProviderData_thinking_param_tag 9
+#define gizclaw_rpc_v1_DeepSeekTenantModelProviderData_thinking_level_param_tag 10
+#define gizclaw_rpc_v1_DeepSeekTenantModelProviderData_thinking_levels_tag 11
+#define gizclaw_rpc_v1_DeepSeekTenantModelProviderData_default_thinking_level_tag 12
+#define gizclaw_rpc_v1_Model_alias_tag           1
+#define gizclaw_rpc_v1_Model_i18n_tag            2
+#define gizclaw_rpc_v1_Model_kind_tag            3
+#define gizclaw_rpc_v1_Model_openai_tenant_tag   5
+#define gizclaw_rpc_v1_Model_gemini_tenant_tag   6
+#define gizclaw_rpc_v1_Model_dashscope_tenant_tag 7
+#define gizclaw_rpc_v1_Model_volc_tenant_tag     8
+#define gizclaw_rpc_v1_Model_minimax_tenant_tag  9
+#define gizclaw_rpc_v1_Model_deepseek_tenant_tag 10
+#define gizclaw_rpc_v1_Model_provider_kind_tag   11
 #define gizclaw_rpc_v1_ModelGetRequest_alias_tag 1
+#define gizclaw_rpc_v1_ModelGetResponse_value_tag 1
+#define gizclaw_rpc_v1_ModelGetResponse_runtime_profile_name_tag 2
+#define gizclaw_rpc_v1_ModelGetResponse_runtime_profile_revision_tag 3
 #define gizclaw_rpc_v1_ModelListRequest_cursor_tag 1
 #define gizclaw_rpc_v1_ModelListRequest_limit_tag 2
 #define gizclaw_rpc_v1_ModelListResponse_has_next_tag 1
@@ -875,24 +1194,6 @@ extern "C" {
 #define gizclaw_rpc_v1_ModelListResponse_next_cursor_tag 3
 #define gizclaw_rpc_v1_ModelListResponse_runtime_profile_name_tag 4
 #define gizclaw_rpc_v1_ModelListResponse_runtime_profile_revision_tag 5
-#define gizclaw_rpc_v1_ModelThinkingCapability_default_level_tag 1
-#define gizclaw_rpc_v1_ModelThinkingCapability_level_param_tag 2
-#define gizclaw_rpc_v1_ModelThinkingCapability_levels_tag 3
-#define gizclaw_rpc_v1_ModelThinkingCapability_param_tag 4
-#define gizclaw_rpc_v1_ModelThinkingCapability_supported_tag 5
-#define gizclaw_rpc_v1_ModelCapabilities_json_output_tag 1
-#define gizclaw_rpc_v1_ModelCapabilities_system_role_tag 2
-#define gizclaw_rpc_v1_ModelCapabilities_temperature_tag 3
-#define gizclaw_rpc_v1_ModelCapabilities_text_only_tag 4
-#define gizclaw_rpc_v1_ModelCapabilities_thinking_tag 5
-#define gizclaw_rpc_v1_ModelCapabilities_tool_calls_tag 6
-#define gizclaw_rpc_v1_Model_alias_tag           1
-#define gizclaw_rpc_v1_Model_i18n_tag            2
-#define gizclaw_rpc_v1_Model_kind_tag            3
-#define gizclaw_rpc_v1_Model_capabilities_tag    4
-#define gizclaw_rpc_v1_ModelGetResponse_value_tag 1
-#define gizclaw_rpc_v1_ModelGetResponse_runtime_profile_name_tag 2
-#define gizclaw_rpc_v1_ModelGetResponse_runtime_profile_revision_tag 3
 #define gizclaw_rpc_v1_Voice_alias_tag           1
 #define gizclaw_rpc_v1_Voice_i18n_tag            2
 #define gizclaw_rpc_v1_Voice_I18nEntry_key_tag   1
@@ -1318,11 +1619,22 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  voice,             5)
 X(a, CALLBACK, SINGULAR, STRING,   alias,             1) \
 X(a, CALLBACK, REPEATED, MESSAGE,  i18n,              2) \
 X(a, STATIC,   SINGULAR, UENUM,    kind,              3) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  capabilities,      4)
+X(a, STATIC,   ONEOF,    MESSAGE,  (provider_data,openai_tenant,provider_data.openai_tenant),   5) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (provider_data,gemini_tenant,provider_data.gemini_tenant),   6) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (provider_data,dashscope_tenant,provider_data.dashscope_tenant),   7) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (provider_data,volc_tenant,provider_data.volc_tenant),   8) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (provider_data,minimax_tenant,provider_data.minimax_tenant),   9) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (provider_data,deepseek_tenant,provider_data.deepseek_tenant),  10) \
+X(a, STATIC,   SINGULAR, UENUM,    provider_kind,    11)
 #define gizclaw_rpc_v1_Model_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_Model_DEFAULT NULL
 #define gizclaw_rpc_v1_Model_i18n_MSGTYPE gizclaw_rpc_v1_Model_I18nEntry
-#define gizclaw_rpc_v1_Model_capabilities_MSGTYPE gizclaw_rpc_v1_ModelCapabilities
+#define gizclaw_rpc_v1_Model_provider_data_openai_tenant_MSGTYPE gizclaw_rpc_v1_OpenAITenantModelProviderData
+#define gizclaw_rpc_v1_Model_provider_data_gemini_tenant_MSGTYPE gizclaw_rpc_v1_GeminiTenantModelProviderData
+#define gizclaw_rpc_v1_Model_provider_data_dashscope_tenant_MSGTYPE gizclaw_rpc_v1_DashScopeTenantModelProviderData
+#define gizclaw_rpc_v1_Model_provider_data_volc_tenant_MSGTYPE gizclaw_rpc_v1_VolcTenantModelProviderData
+#define gizclaw_rpc_v1_Model_provider_data_minimax_tenant_MSGTYPE gizclaw_rpc_v1_MiniMaxTenantModelProviderData
+#define gizclaw_rpc_v1_Model_provider_data_deepseek_tenant_MSGTYPE gizclaw_rpc_v1_DeepSeekTenantModelProviderData
 
 #define gizclaw_rpc_v1_Model_I18nEntry_FIELDLIST(X, a) \
 X(a, CALLBACK, SINGULAR, STRING,   key,               1) \
@@ -1331,16 +1643,100 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  value,             2)
 #define gizclaw_rpc_v1_Model_I18nEntry_DEFAULT NULL
 #define gizclaw_rpc_v1_Model_I18nEntry_value_MSGTYPE gizclaw_rpc_v1_AliasI18nText
 
-#define gizclaw_rpc_v1_ModelCapabilities_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, BOOL,     json_output,       1) \
-X(a, STATIC,   OPTIONAL, BOOL,     system_role,       2) \
-X(a, STATIC,   OPTIONAL, BOOL,     temperature,       3) \
-X(a, STATIC,   OPTIONAL, BOOL,     text_only,         4) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  thinking,          5) \
-X(a, STATIC,   OPTIONAL, BOOL,     tool_calls,        6)
-#define gizclaw_rpc_v1_ModelCapabilities_CALLBACK NULL
-#define gizclaw_rpc_v1_ModelCapabilities_DEFAULT NULL
-#define gizclaw_rpc_v1_ModelCapabilities_thinking_MSGTYPE gizclaw_rpc_v1_ModelThinkingCapability
+#define gizclaw_rpc_v1_OpenAITenantModelProviderData_FIELDLIST(X, a) \
+X(a, CALLBACK, OPTIONAL, STRING,   upstream_model,    1) \
+X(a, STATIC,   OPTIONAL, BOOL,     support_json_output,   2) \
+X(a, STATIC,   OPTIONAL, BOOL,     support_tool_calls,   3) \
+X(a, STATIC,   OPTIONAL, BOOL,     support_text_only,   4) \
+X(a, STATIC,   OPTIONAL, BOOL,     support_temperature,   5) \
+X(a, STATIC,   OPTIONAL, BOOL,     support_thinking,   6) \
+X(a, STATIC,   OPTIONAL, BOOL,     use_system_role,   7) \
+X(a, CALLBACK, OPTIONAL, STRING,   thinking_param,    8) \
+X(a, CALLBACK, OPTIONAL, STRING,   thinking_level_param,   9) \
+X(a, CALLBACK, REPEATED, STRING,   thinking_levels,  10) \
+X(a, CALLBACK, OPTIONAL, STRING,   default_thinking_level,  11)
+#define gizclaw_rpc_v1_OpenAITenantModelProviderData_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_OpenAITenantModelProviderData_DEFAULT NULL
+
+#define gizclaw_rpc_v1_GeminiTenantModelProviderData_FIELDLIST(X, a) \
+X(a, CALLBACK, OPTIONAL, STRING,   upstream_model,    1) \
+X(a, STATIC,   OPTIONAL, BOOL,     support_json_output,   2) \
+X(a, STATIC,   OPTIONAL, BOOL,     support_tool_calls,   3) \
+X(a, STATIC,   OPTIONAL, BOOL,     support_text_only,   4) \
+X(a, STATIC,   OPTIONAL, BOOL,     support_temperature,   5) \
+X(a, STATIC,   OPTIONAL, BOOL,     support_thinking,   6) \
+X(a, STATIC,   OPTIONAL, BOOL,     use_system_role,   7) \
+X(a, CALLBACK, OPTIONAL, STRING,   thinking_param,    8) \
+X(a, CALLBACK, OPTIONAL, STRING,   thinking_level_param,   9) \
+X(a, CALLBACK, REPEATED, STRING,   thinking_levels,  10) \
+X(a, CALLBACK, OPTIONAL, STRING,   default_thinking_level,  11)
+#define gizclaw_rpc_v1_GeminiTenantModelProviderData_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_GeminiTenantModelProviderData_DEFAULT NULL
+
+#define gizclaw_rpc_v1_DashScopeTenantModelProviderData_FIELDLIST(X, a) \
+X(a, CALLBACK, OPTIONAL, STRING,   upstream_model,    1) \
+X(a, CALLBACK, OPTIONAL, STRING,   api_mode,          2) \
+X(a, STATIC,   OPTIONAL, BOOL,     support_json_output,   3) \
+X(a, STATIC,   OPTIONAL, BOOL,     support_tool_calls,   4) \
+X(a, STATIC,   OPTIONAL, BOOL,     support_text_only,   5) \
+X(a, STATIC,   OPTIONAL, BOOL,     support_temperature,   6) \
+X(a, STATIC,   OPTIONAL, BOOL,     support_thinking,   7) \
+X(a, STATIC,   OPTIONAL, BOOL,     use_system_role,   8) \
+X(a, CALLBACK, OPTIONAL, STRING,   thinking_param,    9) \
+X(a, CALLBACK, OPTIONAL, STRING,   thinking_level_param,  10) \
+X(a, CALLBACK, REPEATED, STRING,   thinking_levels,  11) \
+X(a, CALLBACK, OPTIONAL, STRING,   default_thinking_level,  12)
+#define gizclaw_rpc_v1_DashScopeTenantModelProviderData_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_DashScopeTenantModelProviderData_DEFAULT NULL
+
+#define gizclaw_rpc_v1_VolcTenantModelProviderData_FIELDLIST(X, a) \
+X(a, CALLBACK, OPTIONAL, STRING,   upstream_model,    1) \
+X(a, CALLBACK, OPTIONAL, STRING,   resource_id,       2) \
+X(a, CALLBACK, OPTIONAL, STRING,   api_mode,          3) \
+X(a, STATIC,   OPTIONAL, BOOL,     support_json_output,   4) \
+X(a, STATIC,   OPTIONAL, BOOL,     support_tool_calls,   5) \
+X(a, STATIC,   OPTIONAL, BOOL,     support_text_only,   6) \
+X(a, STATIC,   OPTIONAL, BOOL,     support_temperature,   7) \
+X(a, STATIC,   OPTIONAL, BOOL,     support_thinking,   8) \
+X(a, STATIC,   OPTIONAL, BOOL,     use_system_role,   9) \
+X(a, CALLBACK, OPTIONAL, STRING,   thinking_param,   10) \
+X(a, CALLBACK, OPTIONAL, STRING,   thinking_level_param,  11) \
+X(a, CALLBACK, REPEATED, STRING,   thinking_levels,  12) \
+X(a, CALLBACK, OPTIONAL, STRING,   default_thinking_level,  13)
+#define gizclaw_rpc_v1_VolcTenantModelProviderData_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_VolcTenantModelProviderData_DEFAULT NULL
+
+#define gizclaw_rpc_v1_MiniMaxTenantModelProviderData_FIELDLIST(X, a) \
+X(a, CALLBACK, SINGULAR, STRING,   upstream_model,    1) \
+X(a, CALLBACK, SINGULAR, STRING,   api_mode,          2) \
+X(a, STATIC,   OPTIONAL, BOOL,     support_json_output,   3) \
+X(a, STATIC,   OPTIONAL, BOOL,     support_tool_calls,   4) \
+X(a, STATIC,   OPTIONAL, BOOL,     support_text_only,   5) \
+X(a, STATIC,   OPTIONAL, BOOL,     support_temperature,   6) \
+X(a, STATIC,   OPTIONAL, BOOL,     support_thinking,   7) \
+X(a, STATIC,   OPTIONAL, BOOL,     use_system_role,   8) \
+X(a, CALLBACK, OPTIONAL, STRING,   thinking_param,    9) \
+X(a, CALLBACK, OPTIONAL, STRING,   thinking_level_param,  10) \
+X(a, CALLBACK, REPEATED, STRING,   thinking_levels,  11) \
+X(a, CALLBACK, OPTIONAL, STRING,   default_thinking_level,  12)
+#define gizclaw_rpc_v1_MiniMaxTenantModelProviderData_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_MiniMaxTenantModelProviderData_DEFAULT NULL
+
+#define gizclaw_rpc_v1_DeepSeekTenantModelProviderData_FIELDLIST(X, a) \
+X(a, CALLBACK, SINGULAR, STRING,   upstream_model,    1) \
+X(a, CALLBACK, SINGULAR, STRING,   api_mode,          2) \
+X(a, STATIC,   OPTIONAL, BOOL,     support_json_output,   3) \
+X(a, STATIC,   OPTIONAL, BOOL,     support_tool_calls,   4) \
+X(a, STATIC,   OPTIONAL, BOOL,     support_text_only,   5) \
+X(a, STATIC,   OPTIONAL, BOOL,     support_temperature,   6) \
+X(a, STATIC,   OPTIONAL, BOOL,     support_thinking,   7) \
+X(a, STATIC,   OPTIONAL, BOOL,     use_system_role,   8) \
+X(a, CALLBACK, OPTIONAL, STRING,   thinking_param,    9) \
+X(a, CALLBACK, OPTIONAL, STRING,   thinking_level_param,  10) \
+X(a, CALLBACK, REPEATED, STRING,   thinking_levels,  11) \
+X(a, CALLBACK, OPTIONAL, STRING,   default_thinking_level,  12)
+#define gizclaw_rpc_v1_DeepSeekTenantModelProviderData_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_DeepSeekTenantModelProviderData_DEFAULT NULL
 
 #define gizclaw_rpc_v1_ModelGetRequest_FIELDLIST(X, a) \
 X(a, CALLBACK, SINGULAR, STRING,   alias,             1)
@@ -1370,15 +1766,6 @@ X(a, CALLBACK, SINGULAR, STRING,   runtime_profile_revision,   5)
 #define gizclaw_rpc_v1_ModelListResponse_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_ModelListResponse_DEFAULT NULL
 #define gizclaw_rpc_v1_ModelListResponse_items_MSGTYPE gizclaw_rpc_v1_Model
-
-#define gizclaw_rpc_v1_ModelThinkingCapability_FIELDLIST(X, a) \
-X(a, CALLBACK, OPTIONAL, STRING,   default_level,     1) \
-X(a, CALLBACK, OPTIONAL, STRING,   level_param,       2) \
-X(a, CALLBACK, REPEATED, STRING,   levels,            3) \
-X(a, CALLBACK, OPTIONAL, STRING,   param,             4) \
-X(a, STATIC,   SINGULAR, BOOL,     supported,         5)
-#define gizclaw_rpc_v1_ModelThinkingCapability_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_ModelThinkingCapability_DEFAULT NULL
 
 #define gizclaw_rpc_v1_Voice_FIELDLIST(X, a) \
 X(a, CALLBACK, SINGULAR, STRING,   alias,             1) \
@@ -1588,12 +1975,16 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_PetWorkflowSpec_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_PetWorkspaceParameters_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_Model_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_Model_I18nEntry_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_ModelCapabilities_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_OpenAITenantModelProviderData_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_GeminiTenantModelProviderData_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_DashScopeTenantModelProviderData_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_VolcTenantModelProviderData_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_MiniMaxTenantModelProviderData_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_DeepSeekTenantModelProviderData_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ModelGetRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ModelGetResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ModelListRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ModelListResponse_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_ModelThinkingCapability_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_Voice_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_Voice_I18nEntry_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_VoiceGetRequest_msg;
@@ -1664,12 +2055,16 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ToolInvokeResponse_msg;
 #define gizclaw_rpc_v1_PetWorkspaceParameters_fields &gizclaw_rpc_v1_PetWorkspaceParameters_msg
 #define gizclaw_rpc_v1_Model_fields &gizclaw_rpc_v1_Model_msg
 #define gizclaw_rpc_v1_Model_I18nEntry_fields &gizclaw_rpc_v1_Model_I18nEntry_msg
-#define gizclaw_rpc_v1_ModelCapabilities_fields &gizclaw_rpc_v1_ModelCapabilities_msg
+#define gizclaw_rpc_v1_OpenAITenantModelProviderData_fields &gizclaw_rpc_v1_OpenAITenantModelProviderData_msg
+#define gizclaw_rpc_v1_GeminiTenantModelProviderData_fields &gizclaw_rpc_v1_GeminiTenantModelProviderData_msg
+#define gizclaw_rpc_v1_DashScopeTenantModelProviderData_fields &gizclaw_rpc_v1_DashScopeTenantModelProviderData_msg
+#define gizclaw_rpc_v1_VolcTenantModelProviderData_fields &gizclaw_rpc_v1_VolcTenantModelProviderData_msg
+#define gizclaw_rpc_v1_MiniMaxTenantModelProviderData_fields &gizclaw_rpc_v1_MiniMaxTenantModelProviderData_msg
+#define gizclaw_rpc_v1_DeepSeekTenantModelProviderData_fields &gizclaw_rpc_v1_DeepSeekTenantModelProviderData_msg
 #define gizclaw_rpc_v1_ModelGetRequest_fields &gizclaw_rpc_v1_ModelGetRequest_msg
 #define gizclaw_rpc_v1_ModelGetResponse_fields &gizclaw_rpc_v1_ModelGetResponse_msg
 #define gizclaw_rpc_v1_ModelListRequest_fields &gizclaw_rpc_v1_ModelListRequest_msg
 #define gizclaw_rpc_v1_ModelListResponse_fields &gizclaw_rpc_v1_ModelListResponse_msg
-#define gizclaw_rpc_v1_ModelThinkingCapability_fields &gizclaw_rpc_v1_ModelThinkingCapability_msg
 #define gizclaw_rpc_v1_Voice_fields &gizclaw_rpc_v1_Voice_msg
 #define gizclaw_rpc_v1_Voice_I18nEntry_fields &gizclaw_rpc_v1_Voice_I18nEntry_msg
 #define gizclaw_rpc_v1_VoiceGetRequest_fields &gizclaw_rpc_v1_VoiceGetRequest_msg
@@ -1730,12 +2125,16 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ToolInvokeResponse_msg;
 /* gizclaw_rpc_v1_PetWorkspaceParameters_size depends on runtime parameters */
 /* gizclaw_rpc_v1_Model_size depends on runtime parameters */
 /* gizclaw_rpc_v1_Model_I18nEntry_size depends on runtime parameters */
-/* gizclaw_rpc_v1_ModelCapabilities_size depends on runtime parameters */
+/* gizclaw_rpc_v1_OpenAITenantModelProviderData_size depends on runtime parameters */
+/* gizclaw_rpc_v1_GeminiTenantModelProviderData_size depends on runtime parameters */
+/* gizclaw_rpc_v1_DashScopeTenantModelProviderData_size depends on runtime parameters */
+/* gizclaw_rpc_v1_VolcTenantModelProviderData_size depends on runtime parameters */
+/* gizclaw_rpc_v1_MiniMaxTenantModelProviderData_size depends on runtime parameters */
+/* gizclaw_rpc_v1_DeepSeekTenantModelProviderData_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ModelGetRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ModelGetResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ModelListRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ModelListResponse_size depends on runtime parameters */
-/* gizclaw_rpc_v1_ModelThinkingCapability_size depends on runtime parameters */
 /* gizclaw_rpc_v1_Voice_size depends on runtime parameters */
 /* gizclaw_rpc_v1_Voice_I18nEntry_size depends on runtime parameters */
 /* gizclaw_rpc_v1_VoiceGetRequest_size depends on runtime parameters */

@@ -20,6 +20,8 @@ import { MiniMaxTenantsListPage } from "./pages/providers/MiniMaxTenantsListPage
 import {
   DashScopeTenantDetailPage,
   DashScopeTenantsListPage,
+  DeepSeekTenantDetailPage,
+  DeepSeekTenantsListPage,
   GeminiTenantDetailPage,
   GeminiTenantsListPage,
   OpenAITenantDetailPage,
@@ -54,6 +56,8 @@ export function AppRoutes({ contextName, onSignOut }: { contextName?: string; on
         <Route element={<GeminiTenantDetailPage />} path="providers/gemini-tenants/:name" />
         <Route element={<DashScopeTenantsListPage />} path="providers/dashscope-tenants" />
         <Route element={<DashScopeTenantDetailPage />} path="providers/dashscope-tenants/:name" />
+        <Route element={<DeepSeekTenantsListPage />} path="providers/deepseek-tenants" />
+        <Route element={<DeepSeekTenantDetailPage />} path="providers/deepseek-tenants/:name" />
         <Route element={<MiniMaxTenantsListPage />} path="providers/minimax-tenants" />
         <Route element={<MiniMaxTenantDetailPage />} path="providers/minimax-tenants/:name" />
         <Route element={<VolcTenantsListPage />} path="providers/volc-tenants" />
