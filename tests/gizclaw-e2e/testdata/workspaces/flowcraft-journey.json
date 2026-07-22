@@ -462,7 +462,7 @@
       },
       "conversation": {
         "context_id": "flowcraft-journey-guide",
-        "starts": "self"
+        "starts": "peer"
       },
       "history": {
         "enabled": true,

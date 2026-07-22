@@ -1707,7 +1707,7 @@ spec:
         merge_strategy: last_wins
     conversation:
       context_id: flowcraft-journey-guide
-      starts: self
+      starts: peer
     history:
       enabled: true
       kind: buffer
