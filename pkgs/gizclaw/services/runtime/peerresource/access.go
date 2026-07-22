@@ -418,7 +418,11 @@ func (s *Server) domainWorkspaceNames(ctx context.Context) ([]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		names = append(names, petWorkspaceNames...)
+		for _, name := range petWorkspaceNames {
+			if name = strings.TrimSpace(name); name != "" {
+				names = append(names, name)
+			}
+		}
 	}
 	return orderedUnique(names, nil), nil
 }
