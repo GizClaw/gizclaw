@@ -2,11 +2,22 @@ import { ChevronLeft, RefreshCw, Save, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
-import { deleteContact, getContact, putContact, type AdminContactObject } from "@gizclaw/gizclaw/admin";
+import {
+  deleteContact,
+  getContact,
+  putContact,
+  type AdminContactObject,
+} from "@gizclaw/gizclaw/admin";
 import { expectData, toMessage } from "@/dashboard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -22,15 +33,24 @@ import { decodeRouteParam, socialPeerLabel } from "./social-utils";
 export function ContactDetailPage(): JSX.Element {
   const params = useParams();
   const navigate = useNavigate();
-  const ownerPublicKey = useMemo(() => decodeRouteParam(params.ownerPublicKey ?? ""), [params.ownerPublicKey]);
-  const contactID = useMemo(() => decodeRouteParam(params.id ?? ""), [params.id]);
+  const ownerPublicKey = useMemo(
+    () => decodeRouteParam(params.ownerPublicKey ?? ""),
+    [params.ownerPublicKey],
+  );
+  const contactID = useMemo(
+    () => decodeRouteParam(params.id ?? ""),
+    [params.id],
+  );
   const [contact, setContact] = useState<AdminContactObject | null>(null);
   const [displayName, setDisplayName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState<{ message: string; tone: "error" | "success" } | null>(null);
+  const [notice, setNotice] = useState<{
+    message: string;
+    tone: "error" | "success";
+  } | null>(null);
 
   const load = async (): Promise<void> => {
     if (ownerPublicKey === "" || contactID === "") {
@@ -41,7 +61,9 @@ export function ContactDetailPage(): JSX.Element {
     setLoading(true);
     setError("");
     try {
-      const next = await expectData(getContact({ path: { ownerPublicKey, id: contactID } }));
+      const next = await expectData(
+        getContact({ path: { ownerPublicKey, id: contactID } }),
+      );
       setContact(next);
       setDisplayName(next.display_name ?? "");
       setPhoneNumber(next.phone_number ?? "");
@@ -63,7 +85,10 @@ export function ContactDetailPage(): JSX.Element {
     try {
       const next = await expectData(
         putContact({
-          body: { display_name: displayName.trim(), phone_number: phoneNumber.trim() },
+          body: {
+            display_name: displayName.trim(),
+            phone_number: phoneNumber.trim(),
+          },
           path: { ownerPublicKey, id: contactID },
         }),
       );
@@ -82,7 +107,9 @@ export function ContactDetailPage(): JSX.Element {
     setBusy("delete");
     setNotice(null);
     try {
-      await expectData(deleteContact({ path: { ownerPublicKey, id: contactID } }));
+      await expectData(
+        deleteContact({ path: { ownerPublicKey, id: contactID } }),
+      );
       navigate("/social/contacts");
     } catch (err) {
       setNotice({ message: toMessage(err), tone: "error" });
@@ -92,7 +119,12 @@ export function ContactDetailPage(): JSX.Element {
   };
 
   if (ownerPublicKey === "" || contactID === "") {
-    return <EmptyState description="Missing contact owner or contact id in the URL." title="Invalid route" />;
+    return (
+      <EmptyState
+        description="Missing contact owner or contact id in the URL."
+        title="Invalid route"
+      />
+    );
   }
 
   return (
@@ -106,7 +138,13 @@ export function ContactDetailPage(): JSX.Element {
                 Back to list
               </Link>
             </Button>
-            <Button className="min-w-fit shrink-0 whitespace-nowrap" disabled={loading} onClick={() => void load()} size="sm" variant="outline">
+            <Button
+              className="min-w-fit shrink-0 whitespace-nowrap"
+              disabled={loading}
+              onClick={() => void load()}
+              size="sm"
+              variant="outline"
+            >
               <RefreshCw className="size-4" />
               Reload
             </Button>
@@ -132,13 +170,23 @@ export function ContactDetailPage(): JSX.Element {
       />
 
       <PageSummaryCard
-        description={<span className="break-all font-mono text-xs">{`${ownerPublicKey}/${contactID}`}</span>}
+        description={
+          <span className="break-all font-mono text-xs">{`${ownerPublicKey}/${contactID}`}</span>
+        }
         eyebrow="Social Contact"
-        meta={contact ? <Badge variant="outline">{socialPeerLabel(contact.owner_public_key)}</Badge> : null}
+        meta={
+          contact ? (
+            <Badge variant="outline">
+              {socialPeerLabel(contact.owner_public_key)}
+            </Badge>
+          ) : null
+        }
         title={contact?.display_name?.trim() || contactID}
       />
 
-      {notice !== null ? <NoticeBanner message={notice.message} tone={notice.tone} /> : null}
+      {notice !== null ? (
+        <NoticeBanner message={notice.message} tone={notice.tone} />
+      ) : null}
 
       {loading ? (
         <div className="space-y-4">
@@ -148,7 +196,10 @@ export function ContactDetailPage(): JSX.Element {
       ) : error !== "" ? (
         <ErrorBanner message={error} />
       ) : contact === null ? (
-        <EmptyState description="This contact could not be loaded." title="Contact not found" />
+        <EmptyState
+          description="This contact could not be loaded."
+          title="Contact not found"
+        />
       ) : (
         <div className="space-y-4">
           <div className="grid gap-4 xl:grid-cols-2">
@@ -166,7 +217,7 @@ export function ContactDetailPage(): JSX.Element {
                 ["Display name", contact.display_name],
                 ["Phone number", contact.phone_number],
                 ["Resource", "Contact"],
-				["Access", "Owner-scoped contact"],
+                ["Access", "Owner-scoped contact"],
               ]}
               title="Summary"
             />
@@ -175,19 +226,35 @@ export function ContactDetailPage(): JSX.Element {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Edit Contact</CardTitle>
-              <CardDescription>Update contact display fields for this owner-scoped address book row.</CardDescription>
+              <CardDescription>
+                Update contact display fields for this owner-scoped address book
+                row.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-4 xl:grid-cols-2">
                 <FormField label="Display name">
-                  <Input onChange={(event) => setDisplayName(event.target.value)} value={displayName} />
+                  <Input
+                    onChange={(event) => setDisplayName(event.target.value)}
+                    value={displayName}
+                  />
                 </FormField>
                 <FormField label="Phone number">
-                  <Input onChange={(event) => setPhoneNumber(event.target.value)} value={phoneNumber} />
+                  <Input
+                    onChange={(event) => setPhoneNumber(event.target.value)}
+                    value={phoneNumber}
+                  />
                 </FormField>
               </div>
               <div className="flex justify-end border-t pt-4">
-                <Button disabled={busy !== "" || (displayName.trim() === "" && phoneNumber.trim() === "")} onClick={() => void save()} type="button">
+                <Button
+                  disabled={
+                    busy !== "" ||
+                    (displayName.trim() === "" && phoneNumber.trim() === "")
+                  }
+                  onClick={() => void save()}
+                  type="button"
+                >
                   <Save className="size-4" />
                   Save Contact
                 </Button>

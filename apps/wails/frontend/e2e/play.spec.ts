@@ -9,11 +9,24 @@ test.beforeEach(async ({ page }) => {
       local_public_key: "local-public-key",
       name: "local",
     };
-    window.__GIZCLAW_DESKTOP_TEST_RUNTIME__ = { context, private_key_base64: "cHJpdmF0ZS1rZXktbWF0ZXJpYWw=" };
+    window.__GIZCLAW_DESKTOP_TEST_RUNTIME__ = {
+      context,
+      private_key_base64: "cHJpdmF0ZS1rZXktbWF0ZXJpYWw=",
+    };
     const actions: string[] = [];
     const snapshot = {
-      badges: [{ active: true, badge_def_id: "badge-basic", exp: 125, id: "badge-basic", level: 1 }],
-      contacts: [{ id: "contact-main", name: "Main Contact", title: "Main Contact" }],
+      badges: [
+        {
+          active: true,
+          badge_def_id: "badge-basic",
+          exp: 125,
+          id: "badge-basic",
+          level: 1,
+        },
+      ],
+      contacts: [
+        { id: "contact-main", name: "Main Contact", title: "Main Contact" },
+      ],
       credentials: [
         {
           body: { api_key: "fake-openai-api-key" },
@@ -24,14 +37,56 @@ test.beforeEach(async ({ page }) => {
           updated_at: "2026-07-01T00:00:00Z",
         },
       ],
-      firmwares: [{ id: "devkit-firmware-main", name: "devkit-firmware-main", slots: { beta: {}, develop: {}, pending: {}, stable: { description: "stable" } }, title: "Devkit Firmware" }],
-      friendGroups: [{ id: "story-group", my_role: "member", name: "Story Group", workspace_name: "story-group-workspace" }],
-      friends: [{ id: "peer-b", peer_public_key: "peer-b", name: "Peer B", workspace_name: "friend-workspace" }],
+      firmwares: [
+        {
+          id: "devkit-firmware-main",
+          name: "devkit-firmware-main",
+          slots: {
+            beta: {},
+            develop: {},
+            pending: {},
+            stable: { description: "stable" },
+          },
+          title: "Devkit Firmware",
+        },
+      ],
+      friendGroups: [
+        {
+          id: "story-group",
+          my_role: "member",
+          name: "Story Group",
+          workspace_name: "story-group-workspace",
+        },
+      ],
+      friends: [
+        {
+          id: "peer-b",
+          peer_public_key: "peer-b",
+          name: "Peer B",
+          workspace_name: "friend-workspace",
+        },
+      ],
       gameResults: [],
       grants: [],
       history: [
-        { created_at: "2026-07-01T00:00:00Z", id: "20260701T000000Z-1", name: "transcript", replay_available: true, text: "你好，开始测试。", type: "gear", updated_at: "2026-07-01T00:00:00Z" },
-        { created_at: "2026-07-01T00:00:01Z", id: "20260701T000001Z-2", name: "answer", replay_available: true, text: "收到，我们继续。", type: "agent", updated_at: "2026-07-01T00:00:01Z" },
+        {
+          created_at: "2026-07-01T00:00:00Z",
+          id: "20260701T000000Z-1",
+          name: "transcript",
+          replay_available: true,
+          text: "你好，开始测试。",
+          type: "gear",
+          updated_at: "2026-07-01T00:00:00Z",
+        },
+        {
+          created_at: "2026-07-01T00:00:01Z",
+          id: "20260701T000001Z-2",
+          name: "answer",
+          replay_available: true,
+          text: "收到，我们继续。",
+          type: "agent",
+          updated_at: "2026-07-01T00:00:01Z",
+        },
       ],
       memoryStats: { total: 2 },
       models: [
@@ -71,12 +126,23 @@ test.beforeEach(async ({ page }) => {
           progression: { experience: 90, level: 3 },
           runtime_profile_name: "default-gameplay",
           state_settled_at: "2026-07-01T00:00:00Z",
-          stats: { life: 100, health: 100, satiety: 90, hygiene: 80, mood: 100, energy: 100 },
+          stats: {
+            life: 100,
+            health: 100,
+            satiety: 90,
+            hygiene: 80,
+            mood: 100,
+            energy: 100,
+          },
           updated_at: "2026-07-01T00:00:00Z",
           workspace_name: "pet-pet-main",
         },
       ],
-      points: { balance: 100, runtime_profile_name: "default-gameplay", updated_at: "2026-07-01T00:00:00Z" },
+      points: {
+        balance: 100,
+        runtime_profile_name: "default-gameplay",
+        updated_at: "2026-07-01T00:00:00Z",
+      },
       pointsTransactions: [],
       runWorkspace: {
         active_workspace_name: "flowcraft-chat",
@@ -84,7 +150,15 @@ test.beforeEach(async ({ page }) => {
         workspace_mode: "push",
         workspace_name: "flowcraft-chat",
       },
-      voices: [{ alias: "pet", id: "volc-voice-000", name: "Volc Voice", provider: { kind: "volc-tenant", name: "volc-tenant" }, source: "sync" }],
+      voices: [
+        {
+          alias: "pet",
+          id: "volc-voice-000",
+          name: "Volc Voice",
+          provider: { kind: "volc-tenant", name: "volc-tenant" },
+          source: "sync",
+        },
+      ],
       warnings: [],
       workflows: [
         {
@@ -104,8 +178,13 @@ test.beforeEach(async ({ page }) => {
         },
       ],
     };
-    const pageResponse = (items) => ({ has_next: false, items, next_cursor: null });
-    const findByID = (items, id) => items.find((item) => item.id === id) ?? null;
+    const pageResponse = (items) => ({
+      has_next: false,
+      items,
+      next_cursor: null,
+    });
+    const findByID = (items, id) =>
+      items.find((item) => item.id === id) ?? null;
     window.__GIZCLAW_DESKTOP_TEST_PLAY_CLIENT__ = {
       async adoptPet(req) {
         const displayName = String(req.display_name ?? "Adopted Pet");
@@ -120,7 +199,14 @@ test.beforeEach(async ({ page }) => {
           progression: { experience: 0, level: 1 },
           runtime_profile_name: "default-gameplay",
           state_settled_at: "2026-07-01T00:00:02Z",
-          stats: { life: 100, health: 100, satiety: 100, hygiene: 100, mood: 100, energy: 100 },
+          stats: {
+            life: 100,
+            health: 100,
+            satiety: 100,
+            hygiene: 100,
+            mood: 100,
+            energy: 100,
+          },
           updated_at: "2026-07-01T00:00:02Z",
           workspace_name: `pet-${id}`,
         };
@@ -178,10 +264,14 @@ test.beforeEach(async ({ page }) => {
         } else {
           pet.progression.experience += 2;
           pet.stats.energy -= 10;
-          if (req.behavior === "feed") pet.stats.satiety = Math.min(100, pet.stats.satiety + 10);
-          if (req.behavior === "bathe") pet.stats.hygiene = Math.min(100, pet.stats.hygiene + 10);
-          if (req.behavior === "play") pet.stats.mood = Math.min(100, pet.stats.mood + 10);
-          if (req.behavior === "heal") pet.stats.health = Math.min(100, pet.stats.health + 10);
+          if (req.behavior === "feed")
+            pet.stats.satiety = Math.min(100, pet.stats.satiety + 10);
+          if (req.behavior === "bathe")
+            pet.stats.hygiene = Math.min(100, pet.stats.hygiene + 10);
+          if (req.behavior === "play")
+            pet.stats.mood = Math.min(100, pet.stats.mood + 10);
+          if (req.behavior === "heal")
+            pet.stats.health = Math.min(100, pet.stats.health + 10);
         }
         snapshot.grants.push({
           created_at: "2026-07-01T00:00:03Z",
@@ -203,7 +293,10 @@ test.beforeEach(async ({ page }) => {
           pet,
           points: snapshot.points,
           reward_grants: snapshot.grants.slice(-1),
-          transactions: req.game_result == null ? [] : snapshot.pointsTransactions.slice(-1),
+          transactions:
+            req.game_result == null
+              ? []
+              : snapshot.pointsTransactions.slice(-1),
         };
       },
       async getBadge(req) {
@@ -221,7 +314,15 @@ test.beforeEach(async ({ page }) => {
           throw new Error("pet not found");
         }
         return {
-          bindings: { feed: "idle", bathe: "bath", play: "idle", heal: "idle", idle: "idle", sick: "idle", dead: "idle" },
+          bindings: {
+            feed: "idle",
+            bathe: "bath",
+            play: "idle",
+            heal: "idle",
+            idle: "idle",
+            sick: "idle",
+            dead: "idle",
+          },
           clip_names: { idle: "idle", bath: "bath" },
           pet_id: pet.id,
           petdef_id: pet.petdef_id,
@@ -270,7 +371,16 @@ test.beforeEach(async ({ page }) => {
       async recallMemory(query) {
         actions.push(`recall:${query}`);
         window.__GIZCLAW_DESKTOP_TEST_PLAY_ACTIONS__ = actions;
-        return { hits: [{ id: "memory-hit-1", score: 0.95, snippet: `Memory Hit: ${query}`, source_id: "memory-hit-1" }] };
+        return {
+          hits: [
+            {
+              id: "memory-hit-1",
+              score: 0.95,
+              snippet: `Memory Hit: ${query}`,
+              source_id: "memory-hit-1",
+            },
+          ],
+        };
       },
       async reloadWorkspace() {
         actions.push("reload");
@@ -293,18 +403,26 @@ test("play view renders the full desktop play surface", async ({ page }) => {
 
   await expect(page.getByText("OpenAI Gateway")).toBeVisible();
   await expect(page.getByRole("button", { name: /Workspaces/ })).toBeVisible();
-  await expect(page.getByText("RuntimeProfile and owner resources are listed in the resource sections.")).toBeVisible();
+  await expect(
+    page.getByText(
+      "RuntimeProfile and owner resources are listed in the resource sections.",
+    ),
+  ).toBeVisible();
   await expect(page.getByRole("button", { name: /Models 2/ })).toBeVisible();
 
   await page.getByRole("button", { name: /Workspaces/ }).click();
   await expect(page.getByRole("heading", { name: "Workspaces" })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "Name" })).toBeVisible();
-  await expect(page.getByRole("columnheader", { name: "Display name" })).toHaveCount(0);
+  await expect(
+    page.getByRole("columnheader", { name: "Display name" }),
+  ).toHaveCount(0);
   await expect(page.getByText("flowcraft-chat").first()).toBeVisible();
 
   await page.getByRole("button", { name: /Models 2/ }).click();
   await expect(page.getByRole("heading", { name: "Models" })).toBeVisible();
-  await expect(page.getByRole("row").filter({ hasText: "chat" })).toContainText("thinking.type");
+  await expect(page.getByRole("row").filter({ hasText: "chat" })).toContainText(
+    "thinking.type",
+  );
 
   await page.getByRole("button", { name: /Friends/ }).click();
   await expect(page.getByRole("heading", { name: "Friends" })).toBeVisible();
@@ -317,12 +435,18 @@ test("play view renders the full desktop play surface", async ({ page }) => {
   await page.getByRole("button", { name: /Workflows/ }).click();
   await expect(page.getByRole("heading", { name: "Workflows" })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "Alias" })).toBeVisible();
-  await expect(page.getByRole("columnheader", { name: "Display name" })).toHaveCount(0);
-  const workflowRow = page.getByRole("row").filter({ hasText: "flowcraft-chat" });
+  await expect(
+    page.getByRole("columnheader", { name: "Display name" }),
+  ).toHaveCount(0);
+  const workflowRow = page
+    .getByRole("row")
+    .filter({ hasText: "flowcraft-chat" });
   await expect(workflowRow).toContainText("flowcraft");
 });
 
-test("OpenAI tester keeps the thinking toggle consistent with the model level", async ({ page }) => {
+test("OpenAI tester keeps the thinking toggle consistent with the model level", async ({
+  page,
+}) => {
   await page.goto("/play.html");
   await page.getByRole("button", { name: "OpenAI", exact: true }).click();
 
@@ -338,19 +462,29 @@ test("OpenAI tester keeps the thinking toggle consistent with the model level", 
   await expect(drawer.getByText("enabled", { exact: true })).toBeVisible();
 });
 
-test("play workspace drawer sends direct RPC-backed actions", async ({ page }) => {
+test("play workspace drawer sends direct RPC-backed actions", async ({
+  page,
+}) => {
   await page.goto("/play.html");
 
   await page.getByRole("button", { name: /^Workspace$/ }).click();
   await expect(page.getByRole("heading", { name: "Workspace" })).toBeVisible();
   await page.getByRole("button", { name: /Reload/ }).click();
-  await expect.poll(() => page.evaluate(() => window.__GIZCLAW_DESKTOP_TEST_PLAY_ACTIONS__ ?? [])).toContain("reload");
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.__GIZCLAW_DESKTOP_TEST_PLAY_ACTIONS__ ?? []),
+    )
+    .toContain("reload");
 
   await page.getByRole("tab", { name: /Recall/ }).click();
   await page.getByPlaceholder("Recall query").fill("route");
   await page.getByRole("button", { name: "Run Recall" }).click();
   await expect(page.getByText("Memory Hit: route")).toBeVisible();
-  await expect.poll(() => page.evaluate(() => window.__GIZCLAW_DESKTOP_TEST_PLAY_ACTIONS__ ?? [])).toContain("recall:route");
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.__GIZCLAW_DESKTOP_TEST_PLAY_ACTIONS__ ?? []),
+    )
+    .toContain("recall:route");
 });
 
 test("play workspace history replay uses direct peer RPC", async ({ page }) => {
@@ -360,13 +494,21 @@ test("play workspace history replay uses direct peer RPC", async ({ page }) => {
   await page.getByRole("tab", { name: "History" }).click();
   await expect(page.getByText("你好，开始测试。")).toBeVisible();
 
-  const firstHistoryRow = page.getByRole("row").filter({ hasText: "你好，开始测试。" });
+  const firstHistoryRow = page
+    .getByRole("row")
+    .filter({ hasText: "你好，开始测试。" });
   await firstHistoryRow.getByRole("button", { name: "Play" }).click();
 
-  await expect.poll(() => page.evaluate(() => window.__GIZCLAW_DESKTOP_TEST_PLAY_ACTIONS__ ?? [])).toContain("play:20260701T000000Z-1");
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.__GIZCLAW_DESKTOP_TEST_PLAY_ACTIONS__ ?? []),
+    )
+    .toContain("play:20260701T000000Z-1");
 });
 
-test("play gameplay panel adopts and drives pets through peer RPC", async ({ page }) => {
+test("play gameplay panel adopts and drives pets through peer RPC", async ({
+  page,
+}) => {
   await page.goto("/play.html");
 
   await page.getByRole("button", { name: /Gameplay/ }).click();
@@ -377,14 +519,20 @@ test("play gameplay panel adopts and drives pets through peer RPC", async ({ pag
   await page.getByPlaceholder("Display name").fill("Test Pet");
   await page.getByRole("button", { name: "Adopt Pet" }).click();
   await expect(page.getByText("Test Pet")).toBeVisible();
-  await expect.poll(() => page.evaluate(() => window.__GIZCLAW_DESKTOP_TEST_PLAY_ACTIONS__ ?? [])).toContain("adopt:Test Pet");
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.__GIZCLAW_DESKTOP_TEST_PLAY_ACTIONS__ ?? []),
+    )
+    .toContain("adopt:Test Pet");
 
   await page.getByPlaceholder("Behavior (feed/bathe/play/heal)").fill("bathe");
   await page.getByPlaceholder("Idempotency key").fill("ui-e2e-care-1");
   await page.getByRole("button", { name: "Drive" }).click();
-  await expect.poll(() => page.evaluate(() => window.__GIZCLAW_DESKTOP_TEST_PLAY_ACTIONS__ ?? [])).toContain(
-    "drive:pet-main:bathe:ui-e2e-care-1",
-  );
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.__GIZCLAW_DESKTOP_TEST_PLAY_ACTIONS__ ?? []),
+    )
+    .toContain("drive:pet-main:bathe:ui-e2e-care-1");
 
   await page.getByPlaceholder("Game ID").fill("game-basic");
   await page.getByPlaceholder("Score", { exact: true }).fill("42");
@@ -398,9 +546,11 @@ test("play gameplay panel adopts and drives pets through peer RPC", async ({ pag
   await expect(page.getByText("ui-e2e-result-1")).toBeVisible();
   await expect(page.getByText("game-result-1").first()).toBeVisible();
   await expect(page.getByText("game_result").first()).toBeVisible();
-  await expect.poll(() => page.evaluate(() => window.__GIZCLAW_DESKTOP_TEST_PLAY_ACTIONS__ ?? [])).toContain(
-    "drive:pet-main::ui-e2e-result-1",
-  );
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.__GIZCLAW_DESKTOP_TEST_PLAY_ACTIONS__ ?? []),
+    )
+    .toContain("drive:pet-main::ui-e2e-result-1");
 });
 
 declare global {

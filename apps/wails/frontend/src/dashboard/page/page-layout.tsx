@@ -13,7 +13,9 @@ export function PageHeader({ actions, items }: PageHeaderProps): JSX.Element {
   return (
     <div className="sticky top-0 z-30 -mx-4 flex min-w-0 flex-col gap-3 border-b bg-muted/90 px-4 py-4 backdrop-blur supports-[backdrop-filter]:bg-muted/70 sm:-mx-6 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
       <PageBreadcrumb items={items} />
-      {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
+      {actions ? (
+        <div className="flex flex-wrap items-center gap-2">{actions}</div>
+      ) : null}
     </div>
   );
 }
@@ -38,13 +40,25 @@ export function PageSummaryCard({
   title,
 }: PageSummaryCardProps): JSX.Element {
   return (
-    <Card className={cn("border-border/60 bg-background/95 shadow-sm", className)}>
+    <Card
+      className={cn("border-border/60 bg-background/95 shadow-sm", className)}
+    >
       <CardContent className="flex flex-col gap-4 p-5">
         <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex min-w-0 flex-col gap-2">
-            {eyebrow ? <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{eyebrow}</div> : null}
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground lg:text-3xl">{title}</h1>
-            {description ? <div className="max-w-3xl text-sm leading-6 text-muted-foreground lg:text-base">{description}</div> : null}
+            {eyebrow ? (
+              <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                {eyebrow}
+              </div>
+            ) : null}
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground lg:text-3xl">
+              {title}
+            </h1>
+            {description ? (
+              <div className="max-w-3xl text-sm leading-6 text-muted-foreground lg:text-base">
+                {description}
+              </div>
+            ) : null}
           </div>
           {meta || actions ? (
             <div className="flex shrink-0 flex-wrap items-center gap-2">

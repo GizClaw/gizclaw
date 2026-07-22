@@ -777,7 +777,7 @@ func refreshPeer(ctx context.Context, c *gizcli.Client, publicKey string) (admin
 	return adminhttp.RefreshResult{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON409, resp.JSON502)
 }
 
-func responseError(status int, body []byte, errs ...interface{}) error {
+func responseError(status int, body []byte, errs ...any) error {
 	for _, errResp := range errs {
 		switch e := errResp.(type) {
 		case *apitypes.ErrorResponse:

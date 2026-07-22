@@ -41,7 +41,7 @@ func main() {
 			WindowIsTranslucent:  true,
 		},
 		Linux: &linux.Options{WindowIsTranslucent: true},
-		Bind:  []interface{}{desktopApp},
+		Bind:  []any{desktopApp},
 	})
 	if err != nil {
 		log.Fatal(err)

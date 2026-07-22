@@ -1,0 +1,5 @@
+Checks: >
+  -*,
+  clang-analyzer-*
+WarningsAsErrors: '*'
+HeaderFilterRegex: '^(sdk/c/gizclaw|tests/gizclaw-e2e/cgo)/'

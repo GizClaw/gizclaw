@@ -132,17 +132,17 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 		t.Fatalf("RuntimeProfile/default Models = %#v, want semantic role aliases %#v", gotModels, wantModels)
 	}
 	wantVoices := map[string]string{
-		"doubao-assistant":  "volc-tenant:volc-main:zh_female_vv_jupiter_bigtts",
-		"assistant-voice":   "volc-tenant:volc-main:zh_female_qingxinnvsheng_mars_bigtts",
-		"cute-pet":          "volc-tenant:volc-main:zh_male_naiqimengwa_mars_bigtts",
-		"translator":        "volc-tenant:volc-main:zh_female_sophie_conversation_wvae_bigtts",
-		"narrator":          "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
-		"game-master":       "volc-tenant:volc-main:zh_male_changtianyi_mars_bigtts",
-		"detective":         "volc-tenant:volc-main:ICL_zh_male_lengjungaozhi_tob",
-		"police-officer":    "volc-tenant:volc-main:ICL_zh_male_zhengzhiqingnian_tob",
-		"sun-wukong":        "volc-tenant:volc-main:zh_male_sunwukong_mars_bigtts",
-		"tang-sanzang":      "volc-tenant:volc-main:zh_male_tangseng_mars_bigtts",
-		"zhu-bajie":         "volc-tenant:volc-main:zh_male_zhubajie_mars_bigtts",
+		"doubao-assistant": "volc-tenant:volc-main:zh_female_vv_jupiter_bigtts",
+		"assistant-voice":  "volc-tenant:volc-main:zh_female_qingxinnvsheng_mars_bigtts",
+		"cute-pet":         "volc-tenant:volc-main:zh_male_naiqimengwa_mars_bigtts",
+		"translator":       "volc-tenant:volc-main:zh_female_sophie_conversation_wvae_bigtts",
+		"narrator":         "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+		"game-master":      "volc-tenant:volc-main:zh_male_changtianyi_mars_bigtts",
+		"detective":        "volc-tenant:volc-main:ICL_zh_male_lengjungaozhi_tob",
+		"police-officer":   "volc-tenant:volc-main:ICL_zh_male_zhengzhiqingnian_tob",
+		"sun-wukong":       "volc-tenant:volc-main:zh_male_sunwukong_mars_bigtts",
+		"tang-sanzang":     "volc-tenant:volc-main:zh_male_tangseng_mars_bigtts",
+		"zhu-bajie":        "volc-tenant:volc-main:zh_male_zhubajie_mars_bigtts",
 	}
 	gotVoices := make(map[string]string, len(parsed.Spec.Resources.Voices))
 	for alias, binding := range parsed.Spec.Resources.Voices {

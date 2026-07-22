@@ -16,7 +16,10 @@ export function DashboardMobileNav<ID extends string>({
       {items.map((item) => (
         <button
           aria-label={item.label}
-          className={cn("flex size-8 shrink-0 items-center justify-center rounded-sm text-muted-foreground", activeID === item.id && "bg-accent text-accent-foreground")}
+          className={cn(
+            "flex size-8 shrink-0 items-center justify-center rounded-sm text-muted-foreground",
+            activeID === item.id && "bg-accent text-accent-foreground",
+          )}
           key={item.id}
           onClick={() => onNavigate(item.id)}
           type="button"

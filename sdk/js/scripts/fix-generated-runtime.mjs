@@ -16,7 +16,9 @@ async function rewriteTree(url) {
   }
   if (info.isDirectory()) {
     for (const entry of await readdir(url)) {
-      await rewriteTree(new URL(`${entry}${entry.endsWith("/") ? "" : ""}`, ensureDirURL(url)));
+      await rewriteTree(
+        new URL(`${entry}${entry.endsWith("/") ? "" : ""}`, ensureDirURL(url)),
+      );
     }
     return;
   }
@@ -56,7 +58,11 @@ async function rewriteSseRuntime(url) {
       "class SseHttpError extends Error {\n  status: number;\n  statusText: string;\n  error: unknown;\n\n  constructor(status: number, statusText: string, error: unknown) {\n    super(`SSE failed: ${status} ${statusText}`);\n    this.status = status;\n    this.statusText = statusText;\n    this.error = error;\n  }\n}\n\nfunction isRetryableSseHttpError(error: SseHttpError): boolean {\n  return error.status === 408 || error.status === 429 || (error.status >= 500 && error.status !== 501);\n}\n\nasync function parseSseErrorResponse(response: Response): Promise<unknown> {\n  const text = await response.text();\n  if (text === '') {\n    return new Error(`SSE failed: ${response.status} ${response.statusText}`);\n  }\n  try {\n    return JSON.parse(text);\n  } catch {\n    return text;\n  }\n}\n\nexport function createSseClient<TData = unknown>({\n",
     );
   }
-  if (!after.includes("function isRetryableSseHttpError(error: SseHttpError): boolean")) {
+  if (
+    !after.includes(
+      "function isRetryableSseHttpError(error: SseHttpError): boolean",
+    )
+  ) {
     after = after.replace(
       "async function parseSseErrorResponse(response: Response): Promise<unknown> {\n",
       "function isRetryableSseHttpError(error: SseHttpError): boolean {\n  return error.status === 408 || error.status === 429 || (error.status >= 500 && error.status !== 501);\n}\n\nasync function parseSseErrorResponse(response: Response): Promise<unknown> {\n",

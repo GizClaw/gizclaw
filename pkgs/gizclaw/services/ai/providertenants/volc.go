@@ -443,7 +443,7 @@ func (c volcSpeechSDKClient) BatchListMegaTTSTrainStatusWithContext(ctx context.
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	body := map[string]interface{}{
+	body := map[string]any{
 		"AppID":       appID,
 		"ResourceIDs": volcResourceIDStrings(resourceIDs),
 		"PageNumber":  pageNumber,
@@ -508,7 +508,7 @@ type volcSpeaker struct {
 	Name        string
 	Description string
 	ResourceID  string
-	Raw         interface{}
+	Raw         any
 }
 
 type volcSpeakersPage struct {
@@ -521,7 +521,7 @@ type volcSpeakersPage struct {
 type volcPublicTimbre struct {
 	SpeakerID string
 	Name      string
-	Raw       interface{}
+	Raw       any
 }
 
 type volcMegaTTSTrainStatusPage struct {
@@ -535,22 +535,22 @@ type volcMegaTTSTrainStatusPage struct {
 }
 
 type volcSpeakerStatus struct {
-	Alias                  string                 `json:"Alias"`
-	AvailableTrainingTimes int32                  `json:"AvailableTrainingTimes"`
-	CreateTime             int64                  `json:"CreateTime"`
-	DemoAudio              string                 `json:"DemoAudio"`
-	Description            string                 `json:"Description"`
-	ExpireTime             int64                  `json:"ExpireTime"`
-	InstanceNO             string                 `json:"InstanceNO"`
-	InstanceStatus         string                 `json:"InstanceStatus"`
-	IsActivatable          bool                   `json:"IsActivatable"`
-	ModelTypeDetails       []volcModelTypeDetail  `json:"ModelTypeDetails"`
-	OrderTime              int64                  `json:"OrderTime"`
-	ResourceID             string                 `json:"ResourceID"`
-	SpeakerID              string                 `json:"SpeakerID"`
-	State                  string                 `json:"State"`
-	Version                string                 `json:"Version"`
-	raw                    map[string]interface{} `json:"-"`
+	Alias                  string                `json:"Alias"`
+	AvailableTrainingTimes int32                 `json:"AvailableTrainingTimes"`
+	CreateTime             int64                 `json:"CreateTime"`
+	DemoAudio              string                `json:"DemoAudio"`
+	Description            string                `json:"Description"`
+	ExpireTime             int64                 `json:"ExpireTime"`
+	InstanceNO             string                `json:"InstanceNO"`
+	InstanceStatus         string                `json:"InstanceStatus"`
+	IsActivatable          bool                  `json:"IsActivatable"`
+	ModelTypeDetails       []volcModelTypeDetail `json:"ModelTypeDetails"`
+	OrderTime              int64                 `json:"OrderTime"`
+	ResourceID             string                `json:"ResourceID"`
+	SpeakerID              string                `json:"SpeakerID"`
+	State                  string                `json:"State"`
+	Version                string                `json:"Version"`
+	raw                    map[string]any        `json:"-"`
 }
 
 type volcModelTypeDetail struct {
@@ -577,7 +577,7 @@ func (p *volcMegaTTSTrainStatusPage) UnmarshalJSON(data []byte) error {
 		if err := json.Unmarshal(item, &status); err != nil {
 			return err
 		}
-		var rawStatus map[string]interface{}
+		var rawStatus map[string]any
 		if err := json.Unmarshal(item, &rawStatus); err != nil {
 			return err
 		}
@@ -806,7 +806,7 @@ func voiceFromVolc(tenantName string, upstream volcSpeakerRecord, now time.Time)
 			Kind: volcProviderKind,
 			Name: string(tenantName),
 		},
-		ProviderData: voicecatalog.ProviderData(volcProviderKind, map[string]interface{}{
+		ProviderData: voicecatalog.ProviderData(volcProviderKind, map[string]any{
 			"raw":         raw,
 			"resource_id": resourceID,
 			"state":       upstream.state(),
@@ -826,7 +826,7 @@ func voiceFromVolc(tenantName string, upstream volcSpeakerRecord, now time.Time)
 	return voice
 }
 
-func volcVoiceDisplay(record volcSpeakerRecord) (string, string, interface{}) {
+func volcVoiceDisplay(record volcSpeakerRecord) (string, string, any) {
 	if record.status != nil {
 		name := strings.TrimSpace(record.status.Alias)
 		if name == "" {
@@ -964,12 +964,12 @@ func volcRegion(tenant apitypes.VolcTenant) string {
 	return defaultVolcRegion
 }
 
-func rawStructToMap(in interface{}) *map[string]interface{} {
+func rawStructToMap(in any) *map[string]any {
 	data, err := json.Marshal(in)
 	if err != nil {
 		return nil
 	}
-	var out map[string]interface{}
+	var out map[string]any
 	if err := json.Unmarshal(data, &out); err != nil || len(out) == 0 {
 		return nil
 	}

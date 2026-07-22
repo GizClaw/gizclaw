@@ -71,7 +71,7 @@ type workflowConfig struct {
 	Extension    *rpcapi.DoubaoRealtimeExtension      `json:"extension,omitempty"`
 	Translation  string                               `json:"translation_model,omitempty"`
 	Parameters   workspaceParameterConfig             `json:"parameters,omitempty"`
-	Flowcraft    map[string]interface{}               `json:"flowcraft,omitempty"`
+	Flowcraft    map[string]any                       `json:"flowcraft,omitempty"`
 	VoiceAdapter voiceAdapterConfig                   `json:"voice_adapter,omitempty"`
 	ASTTranslate astTranslateConfig                   `json:"ast_translate,omitempty"`
 }
@@ -440,7 +440,7 @@ func (c config) flowcraftStartsAgent() bool {
 	if !c.isFlowcraftAgent() {
 		return false
 	}
-	conversation, ok := c.Workflow.Flowcraft["conversation"].(map[string]interface{})
+	conversation, ok := c.Workflow.Flowcraft["conversation"].(map[string]any)
 	if !ok {
 		return false
 	}

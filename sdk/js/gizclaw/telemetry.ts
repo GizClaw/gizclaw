@@ -20,7 +20,12 @@ export type {
 
 export const GIZCLAW_EVENT_STREAM_TELEMETRY = 0x40;
 export const GIZCLAW_MAX_PACKET_MESSAGE_SIZE = 64 * 1024;
-const TELEMETRY_OBSERVATION_BODY_KEYS = ["battery", "gnss", "network", "system"] as const;
+const TELEMETRY_OBSERVATION_BODY_KEYS = [
+  "battery",
+  "gnss",
+  "network",
+  "system",
+] as const;
 
 export function batteryTelemetry(input: BatteryObservation): Observation {
   return { battery: input };
@@ -40,10 +45,15 @@ export function systemTelemetry(input: SystemObservation): Observation {
 
 export function encodeTelemetryPacket(frame: TelemetryFrame): Uint8Array {
   validateTelemetryFrame(frame);
-  const stampedFrame = frame.observedAtUnixMs == null || frame.observedAtUnixMs === 0 ? { ...frame, observedAtUnixMs: Date.now() } : frame;
+  const stampedFrame =
+    frame.observedAtUnixMs == null || frame.observedAtUnixMs === 0
+      ? { ...frame, observedAtUnixMs: Date.now() }
+      : frame;
   const body = encodeTelemetryFrame(stampedFrame);
   if (body.length > GIZCLAW_MAX_PACKET_MESSAGE_SIZE - 1) {
-    throw new Error(`telemetry packet payload is ${body.length} bytes, maximum is ${GIZCLAW_MAX_PACKET_MESSAGE_SIZE - 1}`);
+    throw new Error(
+      `telemetry packet payload is ${body.length} bytes, maximum is ${GIZCLAW_MAX_PACKET_MESSAGE_SIZE - 1}`,
+    );
   }
   const packet = new Uint8Array(body.length + 1);
   packet[0] = GIZCLAW_EVENT_STREAM_TELEMETRY;
@@ -51,7 +61,10 @@ export function encodeTelemetryPacket(frame: TelemetryFrame): Uint8Array {
   return packet;
 }
 
-export function sendTelemetryPacket(channel: WebRTCRPCDataChannel, frame: TelemetryFrame): void {
+export function sendTelemetryPacket(
+  channel: WebRTCRPCDataChannel,
+  frame: TelemetryFrame,
+): void {
   channel.send(encodeTelemetryPacket(frame));
 }
 
@@ -63,9 +76,14 @@ export function validateTelemetryFrame(frame: TelemetryFrame): void {
     if (observation == null || typeof observation !== "object") {
       throw new Error(`telemetry observation ${index} must be an object`);
     }
-    const bodyCount = TELEMETRY_OBSERVATION_BODY_KEYS.reduce((count, key) => count + Number(observation[key] != null), 0);
+    const bodyCount = TELEMETRY_OBSERVATION_BODY_KEYS.reduce(
+      (count, key) => count + Number(observation[key] != null),
+      0,
+    );
     if (bodyCount !== 1) {
-      throw new Error(`telemetry observation ${index} must have exactly one body, got ${bodyCount}`);
+      throw new Error(
+        `telemetry observation ${index} must have exactly one body, got ${bodyCount}`,
+      );
     }
   }
 }

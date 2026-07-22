@@ -8,10 +8,22 @@ import { useNavigate } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 import type { DeviceInfo, Runtime } from "@gizclaw/gizclaw/admin";
 import { EmptyState } from "@/dashboard";
@@ -44,31 +56,46 @@ export function PeersListPage(): JSX.Element {
     setFilter,
   } = usePeersPage();
 
-  const handleCopyPublicKey = useCallback(async (event: MouseEvent<HTMLButtonElement>, publicKey: string) => {
-    event.stopPropagation();
-    try {
-      await navigator.clipboard.writeText(publicKey);
-      setCopiedPublicKey(publicKey);
-      window.setTimeout(() => setCopiedPublicKey((current) => (current === publicKey ? null : current)), 1200);
-    } catch {
-      setCopiedPublicKey(null);
-    }
-  }, []);
+  const handleCopyPublicKey = useCallback(
+    async (event: MouseEvent<HTMLButtonElement>, publicKey: string) => {
+      event.stopPropagation();
+      try {
+        await navigator.clipboard.writeText(publicKey);
+        setCopiedPublicKey(publicKey);
+        window.setTimeout(
+          () =>
+            setCopiedPublicKey((current) =>
+              current === publicKey ? null : current,
+            ),
+          1200,
+        );
+      } catch {
+        setCopiedPublicKey(null);
+      }
+    },
+    [],
+  );
 
-  const openPeer = useCallback((publicKey: string) => {
-    navigate(`/peers/${encodeURIComponent(publicKey)}`);
-  }, [navigate]);
+  const openPeer = useCallback(
+    (publicKey: string) => {
+      navigate(`/peers/${encodeURIComponent(publicKey)}`);
+    },
+    [navigate],
+  );
 
-  const handlePeerRowKeyDown = useCallback((event: KeyboardEvent<HTMLTableRowElement>, publicKey: string) => {
-    if (isInteractiveTarget(event.target)) {
-      return;
-    }
-    if (event.key !== "Enter" && event.key !== " ") {
-      return;
-    }
-    event.preventDefault();
-    openPeer(publicKey);
-  }, [openPeer]);
+  const handlePeerRowKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLTableRowElement>, publicKey: string) => {
+      if (isInteractiveTarget(event.target)) {
+        return;
+      }
+      if (event.key !== "Enter" && event.key !== " ") {
+        return;
+      }
+      event.preventDefault();
+      openPeer(publicKey);
+    },
+    [openPeer],
+  );
 
   return (
     <div className="space-y-6">
@@ -91,14 +118,18 @@ export function PeersListPage(): JSX.Element {
           <>
             <Badge variant="outline">Page {peerPageNumber}</Badge>
             <Badge variant="secondary">{dashboard.peers.length} loaded</Badge>
-            {peerList.hasNext ? <Badge variant="outline">More Available</Badge> : null}
+            {peerList.hasNext ? (
+              <Badge variant="outline">More Available</Badge>
+            ) : null}
           </>
         }
         title="Peers"
       />
 
       {dashboard.error !== "" ? (
-        <div className="rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">{dashboard.error}</div>
+        <div className="rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {dashboard.error}
+        </div>
       ) : null}
 
       <Card>
@@ -107,7 +138,9 @@ export function PeersListPage(): JSX.Element {
             <div className="flex flex-col gap-3 border-b px-4 py-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="space-y-1">
                 <CardTitle>Peer Inventory</CardTitle>
-                <CardDescription>Browse paged peer results and open a row to inspect details.</CardDescription>
+                <CardDescription>
+                  Browse paged peer results and open a row to inspect details.
+                </CardDescription>
               </div>
             </div>
 
@@ -130,7 +163,11 @@ export function PeersListPage(): JSX.Element {
                   Previous
                 </DashboardActionButton>
                 <DashboardActionButton
-                  disabled={dashboard.loading || !peerList.hasNext || peerList.nextCursor === null}
+                  disabled={
+                    dashboard.loading ||
+                    !peerList.hasNext ||
+                    peerList.nextCursor === null
+                  }
                   onClick={nextPage}
                   type="button"
                 >
@@ -148,7 +185,11 @@ export function PeersListPage(): JSX.Element {
             ) : filteredPeers.length === 0 ? (
               <div className="p-4">
                 <EmptyState
-                  description={filter.trim() === "" ? "Peers will appear here as soon as they are registered." : "No peers on this page match the current filter."}
+                  description={
+                    filter.trim() === ""
+                      ? "Peers will appear here as soon as they are registered."
+                      : "No peers on this page match the current filter."
+                  }
                   title="No matching peers"
                 />
               </div>
@@ -165,7 +206,10 @@ export function PeersListPage(): JSX.Element {
                 </TableHeader>
                 <TableBody>
                   {filteredPeers.map((peer) => {
-                    const name = peerDisplayName(peer, dashboard.infos[peer.public_key]);
+                    const name = peerDisplayName(
+                      peer,
+                      dashboard.infos[peer.public_key],
+                    );
                     const copied = copiedPublicKey === peer.public_key;
                     const runtime = dashboard.runtimes[peer.public_key];
 
@@ -174,7 +218,9 @@ export function PeersListPage(): JSX.Element {
                         className="cursor-pointer hover:bg-muted/40"
                         key={peer.public_key}
                         onClick={() => openPeer(peer.public_key)}
-                        onKeyDown={(event) => handlePeerRowKeyDown(event, peer.public_key)}
+                        onKeyDown={(event) =>
+                          handlePeerRowKeyDown(event, peer.public_key)
+                        }
                         role="link"
                         tabIndex={0}
                       >
@@ -182,13 +228,21 @@ export function PeersListPage(): JSX.Element {
                           <div className="flex min-w-0 items-center gap-1.5">
                             <div className="min-w-0 flex-1">
                               {name !== "" ? (
-                                <div className="block truncate font-medium" title={name}>
+                                <div
+                                  className="block truncate font-medium"
+                                  title={name}
+                                >
                                   {name}
                                 </div>
                               ) : null}
                               <button
                                 className="block w-full truncate text-left font-mono text-xs text-muted-foreground hover:text-foreground"
-                                onClick={(event) => void handleCopyPublicKey(event, peer.public_key)}
+                                onClick={(event) =>
+                                  void handleCopyPublicKey(
+                                    event,
+                                    peer.public_key,
+                                  )
+                                }
                                 title="Copy public key"
                                 type="button"
                               >
@@ -198,21 +252,37 @@ export function PeersListPage(): JSX.Element {
                             <button
                               aria-label={`Copy public key ${peer.public_key}`}
                               className="shrink-0 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                              onClick={(event) => void handleCopyPublicKey(event, peer.public_key)}
+                              onClick={(event) =>
+                                void handleCopyPublicKey(event, peer.public_key)
+                              }
                               title="Copy public key"
                               type="button"
                             >
-                              {copied ? <Check className="size-3 shrink-0 text-emerald-600" /> : <Copy className="size-3 shrink-0" />}
+                              {copied ? (
+                                <Check className="size-3 shrink-0 text-emerald-600" />
+                              ) : (
+                                <Copy className="size-3 shrink-0" />
+                              )}
                             </button>
                           </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex justify-start gap-1.5">
-                            <Badge title={peer.auto_registered ? "Auto registered" : "Manual registration"} variant="secondary">
+                            <Badge
+                              title={
+                                peer.auto_registered
+                                  ? "Auto registered"
+                                  : "Manual registration"
+                              }
+                              variant="secondary"
+                            >
                               {peer.auto_registered ? "A" : "M"}
                             </Badge>
                             <StatusBadge status={peer.status} />
-                            <Badge title={`Role: ${peer.role}`} variant="outline">
+                            <Badge
+                              title={`Role: ${peer.role}`}
+                              variant="outline"
+                            >
                               {peer.role}
                             </Badge>
                           </div>
@@ -223,7 +293,9 @@ export function PeersListPage(): JSX.Element {
                         <TableCell>
                           <PeerEndpoint runtime={runtime} />
                         </TableCell>
-                        <TableCell className="text-right text-sm text-muted-foreground">{formatDate(peer.updated_at)}</TableCell>
+                        <TableCell className="text-right text-sm text-muted-foreground">
+                          {formatDate(peer.updated_at)}
+                        </TableCell>
                       </TableRow>
                     );
                   })}
@@ -233,9 +305,12 @@ export function PeersListPage(): JSX.Element {
 
             <div className="flex items-center justify-between border-t px-4 py-4 text-sm text-muted-foreground">
               <span>
-                Showing {filteredPeers.length} of {dashboard.peers.length} peers on page {peerPageNumber}
+                Showing {filteredPeers.length} of {dashboard.peers.length} peers
+                on page {peerPageNumber}
               </span>
-              <span>{peerList.hasNext ? "Next page available" : "End of results"}</span>
+              <span>
+                {peerList.hasNext ? "Next page available" : "End of results"}
+              </span>
             </div>
           </div>
         </CardContent>
@@ -244,11 +319,20 @@ export function PeersListPage(): JSX.Element {
   );
 }
 
-function peerDisplayName(peer: NamedRegistration, info: DeviceInfo | null | undefined): string {
-  return peer.name?.trim() || peer.device?.name?.trim() || info?.name?.trim() || "";
+function peerDisplayName(
+  peer: NamedRegistration,
+  info: DeviceInfo | null | undefined,
+): string {
+  return (
+    peer.name?.trim() || peer.device?.name?.trim() || info?.name?.trim() || ""
+  );
 }
 
-function PeerRuntime({ runtime }: { runtime: Runtime | null | undefined }): JSX.Element {
+function PeerRuntime({
+  runtime,
+}: {
+  runtime: Runtime | null | undefined;
+}): JSX.Element {
   if (runtime === undefined || runtime === null) {
     return <span className="text-sm text-muted-foreground">Unavailable</span>;
   }
@@ -257,10 +341,20 @@ function PeerRuntime({ runtime }: { runtime: Runtime | null | undefined }): JSX.
   return (
     <div className="max-w-56 space-y-1">
       <div className="flex items-center gap-2">
-        <Badge className={runtime.online ? undefined : "border-transparent bg-muted text-muted-foreground hover:bg-muted"} variant={runtime.online ? "success" : "outline"}>
+        <Badge
+          className={
+            runtime.online
+              ? undefined
+              : "border-transparent bg-muted text-muted-foreground hover:bg-muted"
+          }
+          variant={runtime.online ? "success" : "outline"}
+        >
           {runtime.online ? "Online" : "Offline"}
         </Badge>
-        <span className="whitespace-nowrap text-xs text-muted-foreground" title={lastSeen.title}>
+        <span
+          className="whitespace-nowrap text-xs text-muted-foreground"
+          title={lastSeen.title}
+        >
           {lastSeen.label}
         </span>
       </div>
@@ -268,7 +362,11 @@ function PeerRuntime({ runtime }: { runtime: Runtime | null | undefined }): JSX.
   );
 }
 
-function PeerEndpoint({ runtime }: { runtime: Runtime | null | undefined }): JSX.Element {
+function PeerEndpoint({
+  runtime,
+}: {
+  runtime: Runtime | null | undefined;
+}): JSX.Element {
   if (runtime === undefined || runtime === null) {
     return <span className="text-sm text-muted-foreground">Unavailable</span>;
   }
@@ -277,13 +375,19 @@ function PeerEndpoint({ runtime }: { runtime: Runtime | null | undefined }): JSX
     return <span className="text-sm text-muted-foreground">No endpoint</span>;
   }
   return (
-    <div className="max-w-48 truncate font-mono text-xs text-muted-foreground" title={endpoint}>
+    <div
+      className="max-w-48 truncate font-mono text-xs text-muted-foreground"
+      title={endpoint}
+    >
       {endpoint}
     </div>
   );
 }
 
-function formatRuntimeLastSeen(value: string | undefined): { label: string; title: string } {
+function formatRuntimeLastSeen(value: string | undefined): {
+  label: string;
+  title: string;
+} {
   if (value === undefined || value === "" || value.startsWith("0001-01-01")) {
     return { label: "Never seen", title: "Never seen" };
   }
@@ -291,9 +395,15 @@ function formatRuntimeLastSeen(value: string | undefined): { label: string; titl
   if (!seenAt.isValid()) {
     return { label: value, title: value };
   }
-  return { label: `Seen ${seenAt.fromNow()}`, title: seenAt.toDate().toLocaleString() };
+  return {
+    label: `Seen ${seenAt.fromNow()}`,
+    title: seenAt.toDate().toLocaleString(),
+  };
 }
 
 function isInteractiveTarget(target: EventTarget): boolean {
-  return target instanceof Element && target.closest("a,button,input,select,textarea") !== null;
+  return (
+    target instanceof Element &&
+    target.closest("a,button,input,select,textarea") !== null
+  );
 }

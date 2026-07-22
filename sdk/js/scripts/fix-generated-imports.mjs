@@ -16,7 +16,9 @@ async function rewriteTree(url) {
   }
   if (info.isDirectory()) {
     for (const entry of await readdir(url)) {
-      await rewriteTree(new URL(`${entry}${entry.endsWith("/") ? "" : ""}`, ensureDirURL(url)));
+      await rewriteTree(
+        new URL(`${entry}${entry.endsWith("/") ? "" : ""}`, ensureDirURL(url)),
+      );
     }
     return;
   }
@@ -27,7 +29,8 @@ async function rewriteTree(url) {
   const after = await replaceAsync(
     before,
     /\b(from\s+['"])(\.\.?\/[^'"]+?)(['"])/g,
-    async (_match, prefix, specifier, suffix) => `${prefix}${await withTSExtension(url, specifier)}${suffix}`,
+    async (_match, prefix, specifier, suffix) =>
+      `${prefix}${await withTSExtension(url, specifier)}${suffix}`,
   );
   if (after !== before) {
     await writeFile(url, after);

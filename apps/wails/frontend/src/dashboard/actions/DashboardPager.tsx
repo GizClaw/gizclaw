@@ -23,10 +23,17 @@ export function DashboardPager({
   return (
     <div className="flex items-center gap-2 text-sm">
       <span className="text-muted-foreground">Page {pageIndex}</span>
-      <DashboardActionButton aria-label="Refresh" disabled={loading} onClick={onRefresh}>
+      <DashboardActionButton
+        aria-label="Refresh"
+        disabled={loading}
+        onClick={onRefresh}
+      >
         <RefreshCw className={cn("size-4", loading && "animate-spin")} />
       </DashboardActionButton>
-      <DashboardActionButton disabled={loading || !canPrevious} onClick={onPrevious}>
+      <DashboardActionButton
+        disabled={loading || !canPrevious}
+        onClick={onPrevious}
+      >
         Prev
       </DashboardActionButton>
       <DashboardActionButton disabled={loading || !canNext} onClick={onNext}>

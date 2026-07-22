@@ -7,7 +7,11 @@ import { expectData, toMessage } from "@/dashboard";
 import { Button } from "@/components/ui/button";
 import { ErrorBanner } from "@/dashboard";
 import { PageHeader, PageSummaryCard } from "@/dashboard";
-import { FirmwareEditor, emptyFirmwareForm, formToUpsert } from "./FirmwareForm";
+import {
+  FirmwareEditor,
+  emptyFirmwareForm,
+  formToUpsert,
+} from "./FirmwareForm";
 
 export function FirmwareCreatePage(): JSX.Element {
   const navigate = useNavigate();
@@ -33,14 +37,23 @@ export function FirmwareCreatePage(): JSX.Element {
     <div className="space-y-6">
       <PageHeader
         actions={
-          <Button asChild className="min-w-fit shrink-0 whitespace-nowrap" size="sm" variant="outline">
+          <Button
+            asChild
+            className="min-w-fit shrink-0 whitespace-nowrap"
+            size="sm"
+            variant="outline"
+          >
             <Link to="/firmwares">
               <ChevronLeft className="size-4" />
               Back to list
             </Link>
           </Button>
         }
-        items={[{ href: "/overview", label: "Overview" }, { href: "/firmwares", label: "Firmwares" }, { label: "Create" }]}
+        items={[
+          { href: "/overview", label: "Overview" },
+          { href: "/firmwares", label: "Firmwares" },
+          { label: "Create" },
+        ]}
       />
 
       <PageSummaryCard
@@ -51,7 +64,13 @@ export function FirmwareCreatePage(): JSX.Element {
 
       {error !== "" ? <ErrorBanner message={error} /> : null}
 
-      <FirmwareEditor form={form} onChange={setForm} onSave={(nextForm) => void create(nextForm)} saveLabel="Create" saving={saving} />
+      <FirmwareEditor
+        form={form}
+        onChange={setForm}
+        onSave={(nextForm) => void create(nextForm)}
+        saveLabel="Create"
+        saving={saving}
+      />
     </div>
   );
 }

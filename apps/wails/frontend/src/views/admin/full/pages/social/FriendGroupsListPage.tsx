@@ -6,15 +6,40 @@ import type { KeyboardEvent, MouseEvent } from "react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { createFriendGroup, getFriendGroup, listFriendGroups, type FriendGroupObject } from "@gizclaw/gizclaw/admin";
+import {
+  createFriendGroup,
+  getFriendGroup,
+  listFriendGroups,
+  type FriendGroupObject,
+} from "@gizclaw/gizclaw/admin";
 import { expectData, toMessage } from "@/dashboard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 
 import { ErrorBanner, NoticeBanner } from "@/dashboard";
@@ -27,7 +52,16 @@ import { friendGroupDetailPath, socialWorkspaceName } from "./social-utils";
 
 export function FriendGroupsListPage(): JSX.Element {
   const navigate = useNavigate();
-  const { error, hasNext, items, loading, nextPage, pageNumber, prevPage, refresh } = useCursorListPage<FriendGroupObject>(async (query) => {
+  const {
+    error,
+    hasNext,
+    items,
+    loading,
+    nextPage,
+    pageNumber,
+    prevPage,
+    refresh,
+  } = useCursorListPage<FriendGroupObject>(async (query) => {
     const result = await expectData(listFriendGroups({ query }));
     return {
       hasNext: result.has_next,
@@ -38,7 +72,10 @@ export function FriendGroupsListPage(): JSX.Element {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [notice, setNotice] = useState<{ message: string; tone: "error" | "success" } | null>(null);
+  const [notice, setNotice] = useState<{
+    message: string;
+    tone: "error" | "success";
+  } | null>(null);
   const [busy, setBusy] = useState("");
   const [copiedID, setCopiedID] = useState("");
 
@@ -46,7 +83,10 @@ export function FriendGroupsListPage(): JSX.Element {
     navigate(friendGroupDetailPath(group));
   };
 
-  const handleRowKeyDown = (event: KeyboardEvent<HTMLTableRowElement>, group: FriendGroupObject): void => {
+  const handleRowKeyDown = (
+    event: KeyboardEvent<HTMLTableRowElement>,
+    group: FriendGroupObject,
+  ): void => {
     if (isInteractiveTarget(event.target)) {
       return;
     }
@@ -57,7 +97,10 @@ export function FriendGroupsListPage(): JSX.Element {
     openGroup(group);
   };
 
-  const copyGroupID = async (event: MouseEvent<HTMLButtonElement>, id: string): Promise<void> => {
+  const copyGroupID = async (
+    event: MouseEvent<HTMLButtonElement>,
+    id: string,
+  ): Promise<void> => {
     event.stopPropagation();
     await navigator.clipboard.writeText(id);
     setCopiedID(id);
@@ -71,14 +114,20 @@ export function FriendGroupsListPage(): JSX.Element {
     setNotice(null);
     const groupID = name.trim();
     try {
-      const group = await expectData(createFriendGroup({ body: { name: groupID, description: description.trim() || undefined } }));
+      const group = await expectData(
+        createFriendGroup({
+          body: { name: groupID, description: description.trim() || undefined },
+        }),
+      );
       setName("");
       setDescription("");
       setCreateDialogOpen(false);
       navigate(friendGroupDetailPath(group));
     } catch (err) {
       try {
-        const group = await expectData(getFriendGroup({ path: { id: groupID } }));
+        const group = await expectData(
+          getFriendGroup({ path: { id: groupID } }),
+        );
         setName("");
         setDescription("");
         setCreateDialogOpen(false);
@@ -98,17 +147,26 @@ export function FriendGroupsListPage(): JSX.Element {
       <PageHeader
         actions={
           <>
-            <DashboardActionButton onClick={() => setCreateDialogOpen(true)} type="button">
+            <DashboardActionButton
+              onClick={() => setCreateDialogOpen(true)}
+              type="button"
+            >
               <Plus className="size-4" />
               New Friend Group
             </DashboardActionButton>
-            <DashboardActionButton disabled={loading} onClick={() => void refresh()}>
+            <DashboardActionButton
+              disabled={loading}
+              onClick={() => void refresh()}
+            >
               <RefreshCw className="size-4" />
               Refresh
             </DashboardActionButton>
           </>
         }
-        items={[{ href: "/overview", label: "Overview" }, { label: "Friend Groups" }]}
+        items={[
+          { href: "/overview", label: "Overview" },
+          { label: "Friend Groups" },
+        ]}
       />
 
       <PageSummaryCard
@@ -125,13 +183,18 @@ export function FriendGroupsListPage(): JSX.Element {
       />
 
       {error !== "" ? <ErrorBanner message={error} /> : null}
-      {notice !== null ? <NoticeBanner message={notice.message} tone={notice.tone} /> : null}
+      {notice !== null ? (
+        <NoticeBanner message={notice.message} tone={notice.tone} />
+      ) : null}
 
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>New Friend Group</DialogTitle>
-            <DialogDescription>Create group metadata and a backing chatroom workspace. Members are added separately.</DialogDescription>
+            <DialogDescription>
+              Create group metadata and a backing chatroom workspace. Members
+              are added separately.
+            </DialogDescription>
           </DialogHeader>
           <form
             className="flex flex-col gap-4"
@@ -141,16 +204,34 @@ export function FriendGroupsListPage(): JSX.Element {
             }}
           >
             <FormField label="Name">
-              <Input onChange={(event) => setName(event.target.value)} placeholder="story-club" value={name} />
+              <Input
+                onChange={(event) => setName(event.target.value)}
+                placeholder="story-club"
+                value={name}
+              />
             </FormField>
             <FormField label="Description">
-              <Textarea className="min-h-10" onChange={(event) => setDescription(event.target.value)} placeholder="Group description" value={description} />
+              <Textarea
+                className="min-h-10"
+                onChange={(event) => setDescription(event.target.value)}
+                placeholder="Group description"
+                value={description}
+              />
             </FormField>
             <DialogFooter>
-              <Button disabled={busy !== ""} onClick={() => setCreateDialogOpen(false)} type="button" variant="outline">
+              <Button
+                disabled={busy !== ""}
+                onClick={() => setCreateDialogOpen(false)}
+                type="button"
+                variant="outline"
+              >
                 Cancel
               </Button>
-              <Button disabled={busy !== "" || name.trim() === ""} onClick={() => void create()} type="button">
+              <Button
+                disabled={busy !== "" || name.trim() === ""}
+                onClick={() => void create()}
+                type="button"
+              >
                 Create
               </Button>
             </DialogFooter>
@@ -162,12 +243,22 @@ export function FriendGroupsListPage(): JSX.Element {
         <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
           <div className="space-y-1">
             <CardTitle>Groups</CardTitle>
-            <CardDescription>Cursor-paginated friend group resources.</CardDescription>
+            <CardDescription>
+              Cursor-paginated friend group resources.
+            </CardDescription>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex justify-end">
-            <DashboardPager canNext={hasNext} canPrevious={pageNumber > 1} loading={loading} onNext={nextPage} onPrevious={prevPage} onRefresh={() => void refresh()} pageIndex={pageNumber} />
+            <DashboardPager
+              canNext={hasNext}
+              canPrevious={pageNumber > 1}
+              loading={loading}
+              onNext={nextPage}
+              onPrevious={prevPage}
+              onRefresh={() => void refresh()}
+              pageIndex={pageNumber}
+            />
           </div>
 
           {loading ? (
@@ -177,72 +268,90 @@ export function FriendGroupsListPage(): JSX.Element {
               ))}
             </div>
           ) : items.length === 0 ? (
-            <EmptyState description="Friend groups will appear here after they are created." title="No friend groups" />
+            <EmptyState
+              description="Friend groups will appear here after they are created."
+              title="No friend groups"
+            />
           ) : (
             <DashboardTable className="table-fixed">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[22%]">Group ID</TableHead>
-                    <TableHead className="w-[28%]">Description</TableHead>
-                    <TableHead className="w-[34%]">Workspace</TableHead>
-                    <TableHead className="w-32 text-right">Updated</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {items.map((group) => {
-                    const id = group.id ?? "";
-                    return (
-                      <TableRow
-                        className="cursor-pointer hover:bg-muted/40"
-                        key={id}
-                        onClick={() => openGroup(group)}
-                        onKeyDown={(event) => handleRowKeyDown(event, group)}
-                        role="link"
-                        tabIndex={0}
-                      >
-                        <TableCell className="min-w-0">
-                          <div className="flex min-w-0 items-center gap-1.5">
-                            <div className="min-w-0 flex-1">
-                              <div className="truncate font-medium" title={group.name?.trim() || id}>
-                                {group.name?.trim() || id}
-                              </div>
-                              <button
-                                className="block w-full truncate rounded-sm text-left font-mono text-xs text-muted-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                disabled={id === ""}
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  openGroup(group);
-                                }}
-                                title={id}
-                                type="button"
-                              >
-                                {id}
-                              </button>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[22%]">Group ID</TableHead>
+                  <TableHead className="w-[28%]">Description</TableHead>
+                  <TableHead className="w-[34%]">Workspace</TableHead>
+                  <TableHead className="w-32 text-right">Updated</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.map((group) => {
+                  const id = group.id ?? "";
+                  return (
+                    <TableRow
+                      className="cursor-pointer hover:bg-muted/40"
+                      key={id}
+                      onClick={() => openGroup(group)}
+                      onKeyDown={(event) => handleRowKeyDown(event, group)}
+                      role="link"
+                      tabIndex={0}
+                    >
+                      <TableCell className="min-w-0">
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <div className="min-w-0 flex-1">
+                            <div
+                              className="truncate font-medium"
+                              title={group.name?.trim() || id}
+                            >
+                              {group.name?.trim() || id}
                             </div>
                             <button
-                              aria-label={`Copy group id ${id}`}
-                              className="shrink-0 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              className="block w-full truncate rounded-sm text-left font-mono text-xs text-muted-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                               disabled={id === ""}
-                              onClick={(event) => void copyGroupID(event, id)}
-                              title="Copy group id"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openGroup(group);
+                              }}
+                              title={id}
                               type="button"
                             >
-                              {copiedID === id ? <Check className="size-3 shrink-0 text-emerald-600" /> : <Copy className="size-3 shrink-0" />}
+                              {id}
                             </button>
                           </div>
-                        </TableCell>
-                        <TableCell className="truncate text-sm leading-6 text-muted-foreground" title={group.description?.trim() || "—"}>
-                          {group.description?.trim() || "—"}
-                        </TableCell>
-                        <TableCell className="truncate font-mono text-xs" title={socialWorkspaceName(group.workspace_name)}>
-                          {socialWorkspaceName(group.workspace_name)}
-                        </TableCell>
-                        <TableCell className="text-right text-sm text-muted-foreground">{formatDate(group.updated_at)}</TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </DashboardTable>
+                          <button
+                            aria-label={`Copy group id ${id}`}
+                            className="shrink-0 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            disabled={id === ""}
+                            onClick={(event) => void copyGroupID(event, id)}
+                            title="Copy group id"
+                            type="button"
+                          >
+                            {copiedID === id ? (
+                              <Check className="size-3 shrink-0 text-emerald-600" />
+                            ) : (
+                              <Copy className="size-3 shrink-0" />
+                            )}
+                          </button>
+                        </div>
+                      </TableCell>
+                      <TableCell
+                        className="truncate text-sm leading-6 text-muted-foreground"
+                        title={group.description?.trim() || "—"}
+                      >
+                        {group.description?.trim() || "—"}
+                      </TableCell>
+                      <TableCell
+                        className="truncate font-mono text-xs"
+                        title={socialWorkspaceName(group.workspace_name)}
+                      >
+                        {socialWorkspaceName(group.workspace_name)}
+                      </TableCell>
+                      <TableCell className="text-right text-sm text-muted-foreground">
+                        {formatDate(group.updated_at)}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </DashboardTable>
           )}
         </CardContent>
       </Card>
@@ -251,5 +360,8 @@ export function FriendGroupsListPage(): JSX.Element {
 }
 
 function isInteractiveTarget(target: EventTarget): boolean {
-  return target instanceof Element && target.closest("a,button,input,select,textarea") !== null;
+  return (
+    target instanceof Element &&
+    target.closest("a,button,input,select,textarea") !== null
+  );
 }

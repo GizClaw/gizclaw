@@ -1365,7 +1365,7 @@ func DeleteRegistrationToken(ctx context.Context, c *gizcli.Client, name string)
 	return apitypes.RegistrationToken{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404, resp.JSON500)
 }
 
-func responseError(status int, body []byte, errs ...interface{}) error {
+func responseError(status int, body []byte, errs ...any) error {
 	for _, errResp := range errs {
 		switch e := errResp.(type) {
 		case *apitypes.ErrorResponse:

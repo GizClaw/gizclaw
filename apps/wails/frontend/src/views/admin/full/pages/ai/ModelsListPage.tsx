@@ -8,9 +8,22 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { expectData } from "@/dashboard";
 import { listModels, type Model } from "@gizclaw/gizclaw/admin";
 
@@ -23,7 +36,16 @@ import { formatDate } from "../../lib/format";
 export function ModelsListPage(): JSX.Element {
   const navigate = useNavigate();
   const [copiedID, setCopiedID] = useState("");
-  const { error, hasNext, items, loading, nextPage, pageNumber, prevPage, refresh } = useCursorListPage<Model>(async (query) => {
+  const {
+    error,
+    hasNext,
+    items,
+    loading,
+    nextPage,
+    pageNumber,
+    prevPage,
+    refresh,
+  } = useCursorListPage<Model>(async (query) => {
     const result = await expectData(listModels({ query }));
     return {
       hasNext: result.has_next,
@@ -36,7 +58,10 @@ export function ModelsListPage(): JSX.Element {
     navigate(`/ai/models/${encodeURIComponent(id)}`);
   };
 
-  const handleRowKeyDown = (event: KeyboardEvent<HTMLTableRowElement>, id: string): void => {
+  const handleRowKeyDown = (
+    event: KeyboardEvent<HTMLTableRowElement>,
+    id: string,
+  ): void => {
     if (isInteractiveTarget(event.target)) {
       return;
     }
@@ -47,7 +72,10 @@ export function ModelsListPage(): JSX.Element {
     openModel(id);
   };
 
-  const copyModelID = async (event: MouseEvent<HTMLButtonElement>, id: string): Promise<void> => {
+  const copyModelID = async (
+    event: MouseEvent<HTMLButtonElement>,
+    id: string,
+  ): Promise<void> => {
     event.stopPropagation();
     await navigator.clipboard.writeText(id);
     setCopiedID(id);
@@ -95,12 +123,23 @@ export function ModelsListPage(): JSX.Element {
         <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
           <div className="space-y-1">
             <CardTitle>Model catalog</CardTitle>
-            <CardDescription>Provider models stored in the shared catalog and ready for workflow use.</CardDescription>
+            <CardDescription>
+              Provider models stored in the shared catalog and ready for
+              workflow use.
+            </CardDescription>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex justify-end">
-            <DashboardPager canNext={hasNext} canPrevious={pageNumber > 1} loading={loading} onNext={nextPage} onPrevious={prevPage} onRefresh={() => void refresh()} pageIndex={pageNumber} />
+            <DashboardPager
+              canNext={hasNext}
+              canPrevious={pageNumber > 1}
+              loading={loading}
+              onNext={nextPage}
+              onPrevious={prevPage}
+              onRefresh={() => void refresh()}
+              pageIndex={pageNumber}
+            />
           </div>
 
           {loading ? (
@@ -110,62 +149,88 @@ export function ModelsListPage(): JSX.Element {
               ))}
             </div>
           ) : items.length === 0 ? (
-            <EmptyState description="Models will appear here after manual creation or provider sync." title="No models" />
+            <EmptyState
+              description="Models will appear here after manual creation or provider sync."
+              title="No models"
+            />
           ) : (
             <DashboardTable className="table-fixed">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-48">ID</TableHead>
-                    <TableHead className="w-24">Kind</TableHead>
-                    <TableHead>Provider</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Source</TableHead>
-                    <TableHead className="text-right">Updated</TableHead>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-48">ID</TableHead>
+                  <TableHead className="w-24">Kind</TableHead>
+                  <TableHead>Provider</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Source</TableHead>
+                  <TableHead className="text-right">Updated</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.map((model) => (
+                  <TableRow
+                    className="cursor-pointer hover:bg-muted/40"
+                    key={model.id}
+                    onClick={() => openModel(model.id)}
+                    onKeyDown={(event) => handleRowKeyDown(event, model.id)}
+                    role="link"
+                    tabIndex={0}
+                  >
+                    <TableCell className="w-48 max-w-48">
+                      <button
+                        className="inline-flex w-44 max-w-44 items-center gap-2 rounded-sm text-left font-mono text-xs font-medium underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        onClick={(event) => void copyModelID(event, model.id)}
+                        title={`Copy full ID: ${model.id}`}
+                        type="button"
+                      >
+                        <span className="truncate">
+                          {compactModelID(model.id)}
+                        </span>
+                        {copiedID === model.id ? (
+                          <Check className="size-3 shrink-0 text-emerald-600" />
+                        ) : (
+                          <Copy className="size-3 shrink-0" />
+                        )}
+                      </button>
+                    </TableCell>
+                    <TableCell className="w-24">
+                      <Badge variant="outline">{model.kind}</Badge>
+                    </TableCell>
+                    <TableCell className="text-sm font-medium">
+                      <ProviderLabel
+                        kind={model.provider.kind}
+                        name={model.provider.name}
+                      />
+                    </TableCell>
+                    <TableCell className="max-w-[24rem]">
+                      <div
+                        className="block max-w-full truncate font-medium"
+                        title={model.name?.trim() || model.id}
+                      >
+                        {model.name?.trim() || "Unnamed model"}
+                      </div>
+                      <div
+                        className="block truncate text-xs text-muted-foreground"
+                        title={model.description?.trim() || undefined}
+                      >
+                        {model.description?.trim() || "No description"}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          model.source === "sync" ? "secondary" : "outline"
+                        }
+                      >
+                        {model.source}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right text-sm text-muted-foreground">
+                      {formatDate(model.updated_at)}
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {items.map((model) => (
-                    <TableRow
-                      className="cursor-pointer hover:bg-muted/40"
-                      key={model.id}
-                      onClick={() => openModel(model.id)}
-                      onKeyDown={(event) => handleRowKeyDown(event, model.id)}
-                      role="link"
-                      tabIndex={0}
-                    >
-                      <TableCell className="w-48 max-w-48">
-                        <button
-                          className="inline-flex w-44 max-w-44 items-center gap-2 rounded-sm text-left font-mono text-xs font-medium underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                          onClick={(event) => void copyModelID(event, model.id)}
-                          title={`Copy full ID: ${model.id}`}
-                          type="button"
-                        >
-                          <span className="truncate">{compactModelID(model.id)}</span>
-                          {copiedID === model.id ? <Check className="size-3 shrink-0 text-emerald-600" /> : <Copy className="size-3 shrink-0" />}
-                        </button>
-                      </TableCell>
-                      <TableCell className="w-24">
-                        <Badge variant="outline">{model.kind}</Badge>
-                      </TableCell>
-                      <TableCell className="text-sm font-medium">
-                        <ProviderLabel kind={model.provider.kind} name={model.provider.name} />
-                      </TableCell>
-                      <TableCell className="max-w-[24rem]">
-                        <div className="block max-w-full truncate font-medium" title={model.name?.trim() || model.id}>
-                          {model.name?.trim() || "Unnamed model"}
-                        </div>
-                        <div className="block truncate text-xs text-muted-foreground" title={model.description?.trim() || undefined}>
-                          {model.description?.trim() || "No description"}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={model.source === "sync" ? "secondary" : "outline"}>{model.source}</Badge>
-                      </TableCell>
-                      <TableCell className="text-right text-sm text-muted-foreground">{formatDate(model.updated_at)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </DashboardTable>
+                ))}
+              </TableBody>
+            </DashboardTable>
           )}
         </CardContent>
       </Card>
@@ -186,7 +251,13 @@ function compactModelID(id: string): string {
   return `${last.slice(0, 14)}...${last.slice(-8)}`;
 }
 
-function ProviderLabel({ kind, name }: { kind: string; name: string }): JSX.Element {
+function ProviderLabel({
+  kind,
+  name,
+}: {
+  kind: string;
+  name: string;
+}): JSX.Element {
   return (
     <span className="inline-flex max-w-[14rem] items-baseline font-mono text-xs">
       <span className="shrink-0 text-muted-foreground">{kind}/</span>
@@ -196,5 +267,8 @@ function ProviderLabel({ kind, name }: { kind: string; name: string }): JSX.Elem
 }
 
 function isInteractiveTarget(target: EventTarget): boolean {
-  return target instanceof Element && target.closest("a,button,input,select,textarea") !== null;
+  return (
+    target instanceof Element &&
+    target.closest("a,button,input,select,textarea") !== null
+  );
 }

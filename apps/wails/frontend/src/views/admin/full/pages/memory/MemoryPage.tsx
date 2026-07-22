@@ -2,7 +2,13 @@ import type { ComponentType } from "react";
 import { Activity, Database, MemoryStick } from "lucide-react";
 import { Link } from "react-router-dom";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 import { EmptyState } from "@/dashboard";
 import { PageHeader, PageSummaryCard } from "@/dashboard";
@@ -32,7 +38,9 @@ function FutureModule({
 export function MemoryPage(): JSX.Element {
   return (
     <div className="space-y-6">
-      <PageHeader items={[{ href: "/overview", label: "Overview" }, { label: "Memory" }]} />
+      <PageHeader
+        items={[{ href: "/overview", label: "Overview" }, { label: "Memory" }]}
+      />
 
       <PageSummaryCard
         description="Reserved diagnostics area for future operational surfaces (cache, KV, jobs) without redesigning navigation."
@@ -44,7 +52,10 @@ export function MemoryPage(): JSX.Element {
         <Card>
           <CardHeader>
             <CardTitle>Memory module</CardTitle>
-            <CardDescription>This screen exists so future operational areas have a real home in the sidebar.</CardDescription>
+            <CardDescription>
+              This screen exists so future operational areas have a real home in
+              the sidebar.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <EmptyState
@@ -56,12 +67,26 @@ export function MemoryPage(): JSX.Element {
         <Card>
           <CardHeader>
             <CardTitle>Planned surfaces</CardTitle>
-            <CardDescription>Examples of modules that can slot into this admin console next.</CardDescription>
+            <CardDescription>
+              Examples of modules that can slot into this admin console next.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <FutureModule description="Active sessions, peer state, and cache inspection." icon={MemoryStick} title="In-memory state" />
-            <FutureModule description="Store backends, persistence health, and data debugging." icon={Database} title="KV stores" />
-            <FutureModule description="Background refreshes, resource updates, and execution traces." icon={Activity} title="Jobs" />
+            <FutureModule
+              description="Active sessions, peer state, and cache inspection."
+              icon={MemoryStick}
+              title="In-memory state"
+            />
+            <FutureModule
+              description="Store backends, persistence health, and data debugging."
+              icon={Database}
+              title="KV stores"
+            />
+            <FutureModule
+              description="Background refreshes, resource updates, and execution traces."
+              icon={Activity}
+              title="Jobs"
+            />
           </CardContent>
         </Card>
       </div>

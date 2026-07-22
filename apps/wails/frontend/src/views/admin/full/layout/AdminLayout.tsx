@@ -4,7 +4,13 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { DashboardShell } from "@/dashboard";
 import { adminActiveNavID, adminNavGroups, adminNavTitle } from "../admin-nav";
 
-export function AdminLayout({ contextName, onSignOut }: { contextName?: string; onSignOut(): Promise<void> }): JSX.Element {
+export function AdminLayout({
+  contextName,
+  onSignOut,
+}: {
+  contextName?: string;
+  onSignOut(): Promise<void>;
+}): JSX.Element {
   const location = useLocation();
   const navigate = useNavigate();
   const activeID = adminActiveNavID(location.pathname);

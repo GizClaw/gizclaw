@@ -3,25 +3,48 @@ import { DashboardTable } from "@/dashboard";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
-import { getCredential, getResource, type Credential, type Resource } from "@gizclaw/gizclaw/admin";
+import {
+  getCredential,
+  getResource,
+  type Credential,
+  type Resource,
+} from "@gizclaw/gizclaw/admin";
 import { expectData, toMessage } from "@/dashboard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { DetailBlock } from "@/dashboard";
 import { EmptyState } from "@/dashboard";
 import { ErrorBanner } from "@/dashboard";
 import { PageHeader, PageSummaryCard } from "@/dashboard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ResourceCliPanel } from "../../components/ResourceCliPanel";
 
 export function CredentialDetailPage(): JSX.Element {
   const params = useParams();
-  const credentialName = useMemo(() => decodeRouteParam(params.name ?? ""), [params.name]);
+  const credentialName = useMemo(
+    () => decodeRouteParam(params.name ?? ""),
+    [params.name],
+  );
   const [credential, setCredential] = useState<Credential | null>(null);
-  const [credentialResource, setCredentialResource] = useState<Resource | null>(null);
+  const [credentialResource, setCredentialResource] = useState<Resource | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [revealed, setRevealed] = useState(false);
@@ -37,7 +60,9 @@ export function CredentialDetailPage(): JSX.Element {
     try {
       const [nextCredential, nextResource] = await Promise.all([
         expectData(getCredential({ path: { name: credentialName } })),
-        expectData(getResource({ path: { kind: "Credential", name: credentialName } })),
+        expectData(
+          getResource({ path: { kind: "Credential", name: credentialName } }),
+        ),
       ]);
       setCredential(nextCredential);
       setCredentialResource(nextResource);
@@ -53,7 +78,12 @@ export function CredentialDetailPage(): JSX.Element {
   }, [credentialName]);
 
   if (credentialName === "") {
-    return <EmptyState description="Missing credential name in the URL." title="Invalid route" />;
+    return (
+      <EmptyState
+        description="Missing credential name in the URL."
+        title="Invalid route"
+      />
+    );
   }
 
   return (
@@ -67,7 +97,12 @@ export function CredentialDetailPage(): JSX.Element {
                 Back to list
               </Link>
             </Button>
-            <Button className="min-w-fit shrink-0 whitespace-nowrap" onClick={() => void load()} size="sm" variant="outline">
+            <Button
+              className="min-w-fit shrink-0 whitespace-nowrap"
+              onClick={() => void load()}
+              size="sm"
+              variant="outline"
+            >
               <RefreshCw className="size-4" />
               Reload
             </Button>
@@ -83,7 +118,11 @@ export function CredentialDetailPage(): JSX.Element {
       <PageSummaryCard
         description="Provider credential details and declarative resource access."
         eyebrow="Providers"
-        meta={credential ? <Badge variant="secondary">{credential.provider}</Badge> : null}
+        meta={
+          credential ? (
+            <Badge variant="secondary">{credential.provider}</Badge>
+          ) : null
+        }
         title={credential?.name ?? credentialName}
       />
 
@@ -95,7 +134,10 @@ export function CredentialDetailPage(): JSX.Element {
       ) : error !== "" ? (
         <ErrorBanner message={error} />
       ) : credential === null ? (
-        <EmptyState description="This credential could not be loaded." title="Credential not found" />
+        <EmptyState
+          description="This credential could not be loaded."
+          title="Credential not found"
+        />
       ) : (
         <Tabs defaultValue="summary">
           <TabsList>
@@ -130,15 +172,30 @@ export function CredentialDetailPage(): JSX.Element {
               <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
                 <div className="space-y-1">
                   <CardTitle>Credential Body</CardTitle>
-                  <CardDescription>Stored authentication fields returned by the admin API.</CardDescription>
+                  <CardDescription>
+                    Stored authentication fields returned by the admin API.
+                  </CardDescription>
                 </div>
-                <Button className="min-w-fit shrink-0 whitespace-nowrap" onClick={() => setRevealed((value) => !value)} size="sm" type="button" variant="outline">
-                  {revealed ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                <Button
+                  className="min-w-fit shrink-0 whitespace-nowrap"
+                  onClick={() => setRevealed((value) => !value)}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  {revealed ? (
+                    <EyeOff className="size-4" />
+                  ) : (
+                    <Eye className="size-4" />
+                  )}
                   {revealed ? "Hide values" : "Show values"}
                 </Button>
               </CardHeader>
               <CardContent>
-                <CredentialBodyTable credential={credential} revealed={revealed} />
+                <CredentialBodyTable
+                  credential={credential}
+                  revealed={revealed}
+                />
               </CardContent>
             </Card>
           </TabsContent>
@@ -157,31 +214,46 @@ export function CredentialDetailPage(): JSX.Element {
   );
 }
 
-function CredentialBodyTable({ credential, revealed }: { credential: Credential; revealed: boolean }): JSX.Element {
+function CredentialBodyTable({
+  credential,
+  revealed,
+}: {
+  credential: Credential;
+  revealed: boolean;
+}): JSX.Element {
   const entries = Object.entries(credential.body);
   if (entries.length === 0) {
-    return <EmptyState description="This credential has an empty body." title="No body keys" />;
+    return (
+      <EmptyState
+        description="This credential has an empty body."
+        title="No body keys"
+      />
+    );
   }
   return (
     <DashboardTable>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-56">Key</TableHead>
-            <TableHead>Value</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {entries.map(([key, value]) => {
-            const formatted = formatCredentialBodyValue(value);
-            return (
-              <TableRow key={key}>
-                <TableCell className="font-mono text-xs font-medium">{key}</TableCell>
-                <TableCell className="break-all font-mono text-xs">{revealed ? formatted : maskCredentialBodyValue(formatted)}</TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </DashboardTable>
+      <TableHeader>
+        <TableRow>
+          <TableHead className="w-56">Key</TableHead>
+          <TableHead>Value</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {entries.map(([key, value]) => {
+          const formatted = formatCredentialBodyValue(value);
+          return (
+            <TableRow key={key}>
+              <TableCell className="font-mono text-xs font-medium">
+                {key}
+              </TableCell>
+              <TableCell className="break-all font-mono text-xs">
+                {revealed ? formatted : maskCredentialBodyValue(formatted)}
+              </TableCell>
+            </TableRow>
+          );
+        })}
+      </TableBody>
+    </DashboardTable>
   );
 }
 

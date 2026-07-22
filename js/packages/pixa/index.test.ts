@@ -1,10 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { parsePixa, pixaClipFrameIndex, renderPixaFrameRGBA, selectPixaClip, validatePixa, PixaParseError } from "./index.ts";
+import {
+  parsePixa,
+  pixaClipFrameIndex,
+  renderPixaFrameRGBA,
+  selectPixaClip,
+  validatePixa,
+  PixaParseError,
+} from "./index.ts";
 
 test("parsePixa reads a valid PIXA header, clips, and frames", () => {
-  const asset = parsePixa(makePixa({ clips: ["idle", "feed"], height: 96, width: 120 }));
+  const asset = parsePixa(
+    makePixa({ clips: ["idle", "feed"], height: 96, width: 120 }),
+  );
 
   assert.equal(asset.version, 1);
   assert.deepEqual(asset.canvas, {
@@ -18,13 +27,26 @@ test("parsePixa reads a valid PIXA header, clips, and frames", () => {
   assert.equal(asset.frameCount, 1);
   assert.equal(asset.payloadLength, 4);
   assert.deepEqual(
-    asset.clips.map((clip) => ({ frameCount: clip.frameCount, loop: clip.loop, name: clip.name, totalDurationMs: clip.totalDurationMs })),
+    asset.clips.map((clip) => ({
+      frameCount: clip.frameCount,
+      loop: clip.loop,
+      name: clip.name,
+      totalDurationMs: clip.totalDurationMs,
+    })),
     [
       { frameCount: 1, loop: true, name: "idle", totalDurationMs: 120 },
       { frameCount: 1, loop: true, name: "feed", totalDurationMs: 120 },
     ],
   );
-  assert.deepEqual(asset.frames, [{ durationMs: 120, payloadLength: 4, payloadOffset: 0, type: "key", typeCode: 0 }]);
+  assert.deepEqual(asset.frames, [
+    {
+      durationMs: 120,
+      payloadLength: 4,
+      payloadOffset: 0,
+      type: "key",
+      typeCode: 0,
+    },
+  ]);
 });
 
 test("parsePixa accepts typed array views with byte offsets", () => {
@@ -40,7 +62,10 @@ test("parsePixa accepts typed array views with byte offsets", () => {
 
 test("parsePixa rejects invalid files", () => {
   assert.throws(() => parsePixa(new Uint8Array()), PixaParseError);
-  assert.throws(() => parsePixa(new TextEncoder().encode("ZPET")), PixaParseError);
+  assert.throws(
+    () => parsePixa(new TextEncoder().encode("ZPET")),
+    PixaParseError,
+  );
   assert.throws(
     () =>
       parsePixa(
@@ -68,14 +93,28 @@ test("parsePixa rejects invalid files", () => {
 });
 
 test("validatePixa enforces PetDef and BadgeDef clip contracts", () => {
-  assert.equal(validatePixa(makePixa({ clips: ["idle", "feed"] }), "petdef").clips.length, 2);
-  assert.equal(validatePixa(makePixa({ clips: ["icon"] }), "badgedef").clips[0]?.name, "icon");
-  assert.throws(() => validatePixa(makePixa({ clips: ["feed"] }), "petdef"), /idle/);
-  assert.throws(() => validatePixa(makePixa({ clips: ["idle"] }), "badgedef"), /icon/);
+  assert.equal(
+    validatePixa(makePixa({ clips: ["idle", "feed"] }), "petdef").clips.length,
+    2,
+  );
+  assert.equal(
+    validatePixa(makePixa({ clips: ["icon"] }), "badgedef").clips[0]?.name,
+    "icon",
+  );
+  assert.throws(
+    () => validatePixa(makePixa({ clips: ["feed"] }), "petdef"),
+    /idle/,
+  );
+  assert.throws(
+    () => validatePixa(makePixa({ clips: ["idle"] }), "badgedef"),
+    /icon/,
+  );
 });
 
 test("selectPixaClip and pixaClipFrameIndex choose stable animation frames", () => {
-  const asset = parsePixa(makePixa({ clips: ["idle", "bath"], height: 1, width: 2 }));
+  const asset = parsePixa(
+    makePixa({ clips: ["idle", "bath"], height: 1, width: 2 }),
+  );
 
   assert.equal(selectPixaClip(asset, "bath")?.name, "bath");
   assert.equal(selectPixaClip(asset, "missing")?.name, "idle");
@@ -101,7 +140,12 @@ type MakePixaOptions = {
   width?: number;
 };
 
-function makePixa({ clips, height = 16, mutate, width = 16 }: MakePixaOptions): ArrayBuffer {
+function makePixa({
+  clips,
+  height = 16,
+  mutate,
+  width = 16,
+}: MakePixaOptions): ArrayBuffer {
   const headerSize = 40;
   const clipEntrySize = 56;
   const frameEntrySize = 16;

@@ -263,8 +263,8 @@ static int bridge_aead(
   uint8_t *raw = NULL;
   size_t raw_len = 0;
   int rc = seal
-      ? gzcGoAEADSeal((int)mode, key, key_len, nonce, nonce_len, input, input_len, aad, aad_len, &raw, &raw_len)
-      : gzcGoAEADOpen((int)mode, key, key_len, nonce, nonce_len, input, input_len, aad, aad_len, &raw, &raw_len);
+               ? gzcGoAEADSeal((int)mode, key, key_len, nonce, nonce_len, input, input_len, aad, aad_len, &raw, &raw_len)
+               : gzcGoAEADOpen((int)mode, key, key_len, nonce, nonce_len, input, input_len, aad, aad_len, &raw, &raw_len);
   if (rc == GZC_OK) {
     rc = bridge_buf_replace(out, backend->platform, raw, raw_len);
   }

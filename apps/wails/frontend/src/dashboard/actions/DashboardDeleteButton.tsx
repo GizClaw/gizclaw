@@ -33,7 +33,11 @@ export function DashboardDeleteButton({
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <DashboardActionButton className="border-destructive/40 text-destructive hover:bg-destructive/10" disabled={disabled} size={size}>
+        <DashboardActionButton
+          className="border-destructive/40 text-destructive hover:bg-destructive/10"
+          disabled={disabled}
+          size={size}
+        >
           {children}
         </DashboardActionButton>
       </AlertDialogTrigger>
@@ -44,7 +48,10 @@ export function DashboardDeleteButton({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={onConfirm}>
+          <AlertDialogAction
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            onClick={onConfirm}
+          >
             Delete
           </AlertDialogAction>
         </AlertDialogFooter>

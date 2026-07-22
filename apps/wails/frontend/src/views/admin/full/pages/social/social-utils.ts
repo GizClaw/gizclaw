@@ -1,4 +1,8 @@
-import type { AdminContactObject, AdminFriendObject, FriendGroupObject } from "@gizclaw/gizclaw/admin";
+import type {
+  AdminContactObject,
+  AdminFriendObject,
+  FriendGroupObject,
+} from "@gizclaw/gizclaw/admin";
 
 import { formatShortKey } from "../../lib/format";
 

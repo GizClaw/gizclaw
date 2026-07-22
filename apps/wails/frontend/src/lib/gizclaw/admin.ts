@@ -77,7 +77,10 @@ export class AdminPeerSessionManager {
     if (this.#closed) {
       throw new Error("Admin WebRTC session is closed.");
     }
-    if (this.#connection != null && !isUnusableAdminConnection(this.#connection)) {
+    if (
+      this.#connection != null &&
+      !isUnusableAdminConnection(this.#connection)
+    ) {
       return this.#connection;
     }
     return this.recover(this.#connection);
@@ -90,7 +93,12 @@ export class AdminPeerSessionManager {
     if (this.#closed) {
       return Promise.reject(new Error("Admin WebRTC session is closed."));
     }
-    if (expected != null && expected !== this.#connection && this.#connection != null && !isUnusableAdminConnection(this.#connection)) {
+    if (
+      expected != null &&
+      expected !== this.#connection &&
+      this.#connection != null &&
+      !isUnusableAdminConnection(this.#connection)
+    ) {
       return Promise.resolve(this.#connection);
     }
     if (this.#recovery != null) {
@@ -128,7 +136,10 @@ export class AdminPeerSessionManager {
     connection?.close();
   }
 
-  #replace(expected: RTCPeerConnection | undefined, recovering: boolean): Promise<RTCPeerConnection> {
+  #replace(
+    expected: RTCPeerConnection | undefined,
+    recovering: boolean,
+  ): Promise<RTCPeerConnection> {
     if (recovering) {
       this.#onState({ status: "reconnecting" });
     }
@@ -171,10 +182,17 @@ export class AdminPeerSessionManager {
 
   #observe(connection: RTCPeerConnection, generation: number): void {
     connection.addEventListener("connectionstatechange", () => {
-      if (this.#closed || generation !== this.#generation || connection !== this.#connection) {
+      if (
+        this.#closed ||
+        generation !== this.#generation ||
+        connection !== this.#connection
+      ) {
         return;
       }
-      if (connection.connectionState === "failed" || connection.connectionState === "closed") {
+      if (
+        connection.connectionState === "failed" ||
+        connection.connectionState === "closed"
+      ) {
         void this.recover(connection).catch(() => undefined);
         return;
       }
@@ -182,7 +200,11 @@ export class AdminPeerSessionManager {
         this.#clearDisconnectedTimer();
         this.#disconnectedTimer = setTimeout(() => {
           this.#disconnectedTimer = undefined;
-          if (generation === this.#generation && connection === this.#connection && connection.connectionState === "disconnected") {
+          if (
+            generation === this.#generation &&
+            connection === this.#connection &&
+            connection.connectionState === "disconnected"
+          ) {
             void this.recover(connection).catch(() => undefined);
           }
         }, this.#disconnectedGraceMS);
@@ -201,7 +223,10 @@ export class AdminPeerSessionManager {
 }
 
 function isUnusableAdminConnection(connection: RTCPeerConnection): boolean {
-  return connection.connectionState === "closed" || connection.connectionState === "failed";
+  return (
+    connection.connectionState === "closed" ||
+    connection.connectionState === "failed"
+  );
 }
 
 function toError(error: unknown): Error {
@@ -234,36 +259,133 @@ interface SectionSpec {
 }
 
 const sectionSpecs: SectionSpec[] = [
-  { description: "Registered peers and runtime metadata.", key: "peers", list: listPeers as ListFn, title: "Peers" },
-  { description: "Workspace workflow definitions.", key: "workflows", list: listWorkflows as ListFn, title: "Workflows" },
-  { description: "Workspace instances visible to admin.", key: "workspaces", list: listWorkspaces as ListFn, title: "Workspaces" },
-  { description: "Model catalog entries.", key: "models", list: listModels as ListFn, title: "Models" },
-  { description: "Credential resources.", key: "credentials", list: listCredentials as ListFn, title: "Credentials" },
-  { description: "Voice catalog entries.", key: "voices", list: listVoices as ListFn, title: "Voices" },
-  { description: "Firmware records and artifacts.", key: "firmwares", list: listFirmwares as ListFn, title: "Firmwares" },
-  { description: "Global contact resources.", key: "contacts", list: listContacts as ListFn, title: "Contacts" },
-  { description: "Friend pair resources.", key: "friends", list: listFriends as ListFn, title: "Friends" },
-  { description: "Friend group resources.", key: "friend-groups", list: listFriendGroups as ListFn, title: "Friend Groups" },
-  { description: "Device product resource and gameplay qualification.", key: "runtime-profiles", list: listRuntimeProfiles as ListFn, title: "Runtime Profiles" },
-  { description: "RuntimeProfile registration credentials.", key: "registration-tokens", list: listRegistrationTokens as ListFn, title: "Registration Tokens" },
-  { description: "Gemini provider tenants.", key: "gemini-tenants", list: listGeminiTenants as ListFn, title: "Gemini Tenants" },
-  { description: "DashScope provider tenants.", key: "dashscope-tenants", list: listDashScopeTenants as ListFn, title: "DashScope Tenants" },
-  { description: "DeepSeek provider tenants.", key: "deepseek-tenants", list: listDeepSeekTenants as ListFn, title: "DeepSeek Tenants" },
-  { description: "OpenAI provider tenants.", key: "openai-tenants", list: listOpenAiTenants as ListFn, title: "OpenAI Tenants" },
-  { description: "MiniMax provider tenants.", key: "minimax-tenants", list: listMiniMaxTenants as ListFn, title: "MiniMax Tenants" },
-  { description: "Volc provider tenants.", key: "volc-tenants", list: listVolcTenants as ListFn, title: "Volc Tenants" },
+  {
+    description: "Registered peers and runtime metadata.",
+    key: "peers",
+    list: listPeers as ListFn,
+    title: "Peers",
+  },
+  {
+    description: "Workspace workflow definitions.",
+    key: "workflows",
+    list: listWorkflows as ListFn,
+    title: "Workflows",
+  },
+  {
+    description: "Workspace instances visible to admin.",
+    key: "workspaces",
+    list: listWorkspaces as ListFn,
+    title: "Workspaces",
+  },
+  {
+    description: "Model catalog entries.",
+    key: "models",
+    list: listModels as ListFn,
+    title: "Models",
+  },
+  {
+    description: "Credential resources.",
+    key: "credentials",
+    list: listCredentials as ListFn,
+    title: "Credentials",
+  },
+  {
+    description: "Voice catalog entries.",
+    key: "voices",
+    list: listVoices as ListFn,
+    title: "Voices",
+  },
+  {
+    description: "Firmware records and artifacts.",
+    key: "firmwares",
+    list: listFirmwares as ListFn,
+    title: "Firmwares",
+  },
+  {
+    description: "Global contact resources.",
+    key: "contacts",
+    list: listContacts as ListFn,
+    title: "Contacts",
+  },
+  {
+    description: "Friend pair resources.",
+    key: "friends",
+    list: listFriends as ListFn,
+    title: "Friends",
+  },
+  {
+    description: "Friend group resources.",
+    key: "friend-groups",
+    list: listFriendGroups as ListFn,
+    title: "Friend Groups",
+  },
+  {
+    description: "Device product resource and gameplay qualification.",
+    key: "runtime-profiles",
+    list: listRuntimeProfiles as ListFn,
+    title: "Runtime Profiles",
+  },
+  {
+    description: "RuntimeProfile registration credentials.",
+    key: "registration-tokens",
+    list: listRegistrationTokens as ListFn,
+    title: "Registration Tokens",
+  },
+  {
+    description: "Gemini provider tenants.",
+    key: "gemini-tenants",
+    list: listGeminiTenants as ListFn,
+    title: "Gemini Tenants",
+  },
+  {
+    description: "DashScope provider tenants.",
+    key: "dashscope-tenants",
+    list: listDashScopeTenants as ListFn,
+    title: "DashScope Tenants",
+  },
+  {
+    description: "DeepSeek provider tenants.",
+    key: "deepseek-tenants",
+    list: listDeepSeekTenants as ListFn,
+    title: "DeepSeek Tenants",
+  },
+  {
+    description: "OpenAI provider tenants.",
+    key: "openai-tenants",
+    list: listOpenAiTenants as ListFn,
+    title: "OpenAI Tenants",
+  },
+  {
+    description: "MiniMax provider tenants.",
+    key: "minimax-tenants",
+    list: listMiniMaxTenants as ListFn,
+    title: "MiniMax Tenants",
+  },
+  {
+    description: "Volc provider tenants.",
+    key: "volc-tenants",
+    list: listVolcTenants as ListFn,
+    title: "Volc Tenants",
+  },
 ];
 
-export function createAdminDataClientFromPeerConnection(pc: WebRTCRPCDataChannelFactory): AdminDataClient {
+export function createAdminDataClientFromPeerConnection(
+  pc: WebRTCRPCDataChannelFactory,
+): AdminDataClient {
   return createGeneratedAdminDataClient(createAdminAPIClient(pc));
 }
 
-export async function connectAdminPeerConnection(runtime: RuntimeContext, signal?: AbortSignal): Promise<RTCPeerConnection> {
+export async function connectAdminPeerConnection(
+  runtime: RuntimeContext,
+  signal?: AbortSignal,
+): Promise<RTCPeerConnection> {
   if (runtime.context == null) {
     throw new Error("Admin WebRTC session requires a selected context.");
   }
   if (!runtime.private_key_base64) {
-    throw new Error("Admin WebRTC session requires injected private key material.");
+    throw new Error(
+      "Admin WebRTC session requires injected private key material.",
+    );
   }
   if (!runtime.context.endpoint) {
     throw new Error("Admin WebRTC session requires a server endpoint.");
@@ -297,7 +419,9 @@ export async function connectAdminPeerConnection(runtime: RuntimeContext, signal
   }
 }
 
-export async function connectAdminSession(runtime: RuntimeContext): Promise<AdminSession> {
+export async function connectAdminSession(
+  runtime: RuntimeContext,
+): Promise<AdminSession> {
   const pc = await connectAdminPeerConnection(runtime);
   const client = createGeneratedAdminDataClient(createAdminAPIClient(pc));
   return {
@@ -308,7 +432,9 @@ export async function connectAdminSession(runtime: RuntimeContext): Promise<Admi
   };
 }
 
-export function createGeneratedAdminDataClient(client: AdminHTTPClient): AdminDataClient {
+export function createGeneratedAdminDataClient(
+  client: AdminHTTPClient,
+): AdminDataClient {
   return {
     async listSections(): Promise<AdminSection[]> {
       const sections: AdminSection[] = [];
@@ -365,7 +491,12 @@ function itemToRow(item: unknown, section: string): AdminRow {
     stringValue(metadata.name) ??
     stringValue(spec.name) ??
     `${section}-${hashJSON(item)}`;
-  const title = stringValue(record.display_name) ?? stringValue(record.title) ?? stringValue(record.name) ?? stringValue(metadata.name) ?? id;
+  const title =
+    stringValue(record.display_name) ??
+    stringValue(record.title) ??
+    stringValue(record.name) ??
+    stringValue(metadata.name) ??
+    id;
   const subtitle =
     relationSubtitle(record) ??
     stringValue(record.description) ??
@@ -375,16 +506,25 @@ function itemToRow(item: unknown, section: string): AdminRow {
   return {
     id,
     raw: item,
-    status: stringValue(record.status) ?? stringValue(record.role) ?? stringValue(record.my_role),
+    status:
+      stringValue(record.status) ??
+      stringValue(record.role) ??
+      stringValue(record.my_role),
     subtitle,
     title,
-    updated_at: stringValue(record.updated_at) ?? stringValue(record.updatedAt) ?? stringValue(metadata.updated_at),
+    updated_at:
+      stringValue(record.updated_at) ??
+      stringValue(record.updatedAt) ??
+      stringValue(metadata.updated_at),
   };
 }
 
 function relationSubtitle(record: Record<string, unknown>): string | undefined {
-  const owner = stringValue(record.owner_public_key) ?? stringValue(record.ownerPublicKey);
-  const friend = stringValue(record.friend_public_key) ?? stringValue(record.friendPublicKey);
+  const owner =
+    stringValue(record.owner_public_key) ?? stringValue(record.ownerPublicKey);
+  const friend =
+    stringValue(record.friend_public_key) ??
+    stringValue(record.friendPublicKey);
   if (owner != null && friend != null) {
     return `${owner} <-> ${friend}`;
   }

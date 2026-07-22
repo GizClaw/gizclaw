@@ -1,15 +1,34 @@
 import { useEffect, useState } from "react";
 
-import { createWebRTCServiceFetch, GIZCLAW_SERVICE_PEER_OPENAI } from "@gizclaw/gizclaw";
+import {
+  createWebRTCServiceFetch,
+  GIZCLAW_SERVICE_PEER_OPENAI,
+} from "@gizclaw/gizclaw";
 import { createPeerRPCClient, RPC_METHODS } from "@gizclaw/gizclaw/rpc";
 import { connectPlayPeerConnection } from "../../lib/gizclaw/play";
-import { clearPlayOpenAIClient, configurePlayOpenAIClient } from "../../lib/gizclaw/openai";
+import {
+  clearPlayOpenAIClient,
+  configurePlayOpenAIClient,
+} from "../../lib/gizclaw/openai";
 import type { RuntimeContext } from "../../lib/runtime/types";
-import { clearPlayDataClient, clearPlayRPCClient, clearPlayRuntime, configurePlayDataClient, configurePlayRPCClient, configurePlayRuntime } from "./full/peer-rpc-adapter";
+import {
+  clearPlayDataClient,
+  clearPlayRPCClient,
+  clearPlayRuntime,
+  configurePlayDataClient,
+  configurePlayRPCClient,
+  configurePlayRuntime,
+} from "./full/peer-rpc-adapter";
 import { PlayFullApp } from "./full/PlayFullApp";
 import "./full/styles.css";
 
-export function PlayFullHome({ onSignOut, runtime }: { onSignOut(): Promise<void>; runtime: RuntimeContext }) {
+export function PlayFullHome({
+  onSignOut,
+  runtime,
+}: {
+  onSignOut(): Promise<void>;
+  runtime: RuntimeContext;
+}) {
   const [error, setError] = useState("");
   const [ready, setReady] = useState(false);
 
@@ -39,8 +58,13 @@ export function PlayFullHome({ onSignOut, runtime }: { onSignOut(): Promise<void
         pc = next;
         const rpc = createPeerRPCClient(next);
         rpcClients.push(rpc);
-        if (runtime.registration_token != null && runtime.registration_token !== "") {
-          await rpc.call(RPC_METHODS["server.register"], { token: runtime.registration_token });
+        if (
+          runtime.registration_token != null &&
+          runtime.registration_token !== ""
+        ) {
+          await rpc.call(RPC_METHODS["server.register"], {
+            token: runtime.registration_token,
+          });
         }
         if (cancelled) {
           next.close();
@@ -80,14 +104,24 @@ export function PlayFullHome({ onSignOut, runtime }: { onSignOut(): Promise<void
   if (!ready) {
     return <ViewConnectionState title="Connecting Play RPC" />;
   }
-  return <PlayFullApp contextName={runtime.context?.name} onSignOut={onSignOut} />;
+  return (
+    <PlayFullApp contextName={runtime.context?.name} onSignOut={onSignOut} />
+  );
 }
 
-function ViewConnectionState({ error = "", title }: { error?: string; title: string }): JSX.Element {
+function ViewConnectionState({
+  error = "",
+  title,
+}: {
+  error?: string;
+  title: string;
+}): JSX.Element {
   return (
     <div className="flex h-screen items-center justify-center bg-slate-50 px-6">
       <div className="grid max-w-md gap-4 text-center">
-        {error === "" ? <div className="mx-auto size-8 animate-spin rounded-full border-2 border-primary border-t-transparent" /> : null}
+        {error === "" ? (
+          <div className="mx-auto size-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        ) : null}
         <div>
           <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
           <p className="mt-2 text-sm text-muted-foreground">

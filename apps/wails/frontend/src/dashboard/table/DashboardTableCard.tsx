@@ -31,7 +31,14 @@ export function DashboardTableCard({
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         ) : null}
-        {emptyTitle ? <DashboardEmptyState description={emptyDescription ?? ""} title={emptyTitle} /> : children}
+        {emptyTitle ? (
+          <DashboardEmptyState
+            description={emptyDescription ?? ""}
+            title={emptyTitle}
+          />
+        ) : (
+          children
+        )}
       </CardContent>
     </Card>
   );

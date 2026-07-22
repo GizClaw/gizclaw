@@ -111,7 +111,7 @@ func TestServerMiniMaxTenantsCRUD(t *testing.T) {
 			Kind: miniMaxProviderKind,
 			Name: string("tenant-a"),
 		},
-		ProviderData: providerData(miniMaxProviderKind, map[string]interface{}{
+		ProviderData: providerData(miniMaxProviderKind, map[string]any{
 			"voice_id": "voice-1",
 		}),
 		Source:    apitypes.VoiceSourceSync,
@@ -397,12 +397,12 @@ func TestServerMiniMaxHelpers(t *testing.T) {
 	if got := testCredentialBodyString(testOpenAICredentialBody("12345"), "api_key"); got != "12345" {
 		t.Fatalf("testCredentialBodyString(api key) = %q, want 12345", got)
 	}
-	left := map[string]interface{}{"a": float64(1), "b": "text"}
-	right := map[string]interface{}{"b": "text", "a": float64(1)}
+	left := map[string]any{"a": float64(1), "b": "text"}
+	right := map[string]any{"b": "text", "a": float64(1)}
 	if !rawEqual(&left, &right) {
 		t.Fatalf("rawEqual() = false, want true")
 	}
-	different := map[string]interface{}{"a": float64(2)}
+	different := map[string]any{"a": float64(2)}
 	if rawEqual(&left, &different) {
 		t.Fatalf("rawEqual(different) = true, want false")
 	}
@@ -426,11 +426,11 @@ func TestVoiceHelperEdgeCases(t *testing.T) {
 	if !mapEqual(nil, nil) {
 		t.Fatal("mapEqual(nil, nil) = false")
 	}
-	empty := map[string]interface{}{}
+	empty := map[string]any{}
 	if mapEqual(nil, &empty) {
 		t.Fatal("mapEqual(nil, empty) = true")
 	}
-	unmarshalable := map[string]interface{}{"ch": make(chan struct{})}
+	unmarshalable := map[string]any{"ch": make(chan struct{})}
 	if mapEqual(&unmarshalable, &empty) {
 		t.Fatal("mapEqual(unmarshalable, empty) = true")
 	}
@@ -1089,7 +1089,7 @@ func TestServerVolcTenantsCRUDAndSyncVoices(t *testing.T) {
 				VoiceType:  "zh_female_public",
 				Name:       "Public Female",
 				ResourceID: "seed-tts-2.0",
-				Raw:        map[string]interface{}{"VoiceType": "zh_female_public", "ResourceID": "seed-tts-2.0"},
+				Raw:        map[string]any{"VoiceType": "zh_female_public", "ResourceID": "seed-tts-2.0"},
 			},
 		},
 		pages: []*volcMegaTTSTrainStatusPage{{
@@ -1185,7 +1185,7 @@ func TestServerVolcTenantsCRUDAndSyncVoices(t *testing.T) {
 			VoiceType:  "zh_female_public",
 			Name:       "Public Female Updated",
 			ResourceID: "seed-tts-2.0",
-			Raw:        map[string]interface{}{"VoiceType": "zh_female_public", "ResourceID": "seed-tts-2.0", "version": "2"},
+			Raw:        map[string]any{"VoiceType": "zh_female_public", "ResourceID": "seed-tts-2.0", "version": "2"},
 		},
 	}
 	fakeClient.pages = []*volcMegaTTSTrainStatusPage{{
@@ -1400,8 +1400,8 @@ func TestServerVolcSyncPublicOnlySkipsTrainStatusAPI(t *testing.T) {
 	})
 	fakeClient := &fakeVolcSpeakerClient{
 		speakers: []volcSpeaker{
-			{VoiceType: "public-a", Name: "Public A", ResourceID: "seed-tts-2.0", Raw: map[string]interface{}{"VoiceType": "public-a", "ResourceID": "seed-tts-2.0"}},
-			{VoiceType: "public-b", Name: "Public B", ResourceID: "seed-icl-2.0", Raw: map[string]interface{}{"VoiceType": "public-b", "ResourceID": "seed-icl-2.0"}},
+			{VoiceType: "public-a", Name: "Public A", ResourceID: "seed-tts-2.0", Raw: map[string]any{"VoiceType": "public-a", "ResourceID": "seed-tts-2.0"}},
+			{VoiceType: "public-b", Name: "Public B", ResourceID: "seed-icl-2.0", Raw: map[string]any{"VoiceType": "public-b", "ResourceID": "seed-icl-2.0"}},
 		},
 	}
 	srv.VolcSpeakerClientFactory = func(context.Context, apitypes.Credential, apitypes.VolcTenant) (VolcSpeakerClient, error) {
@@ -1450,8 +1450,8 @@ func TestServerVolcSyncTimbreFallbackMapsICLResourceID(t *testing.T) {
 	fakeClient := &fakeVolcSpeakerClient{
 		speakersErr: errors.New("ListSpeakers unsupported"),
 		timbres: []volcPublicTimbre{
-			{SpeakerID: "ICL_en_female_cc_cm_v1_tob", Name: "Charlie", Raw: map[string]interface{}{"SpeakerID": "ICL_en_female_cc_cm_v1_tob"}},
-			{SpeakerID: "zh_female_vv_uranus_bigtts", Name: "VV", Raw: map[string]interface{}{"SpeakerID": "zh_female_vv_uranus_bigtts"}},
+			{SpeakerID: "ICL_en_female_cc_cm_v1_tob", Name: "Charlie", Raw: map[string]any{"SpeakerID": "ICL_en_female_cc_cm_v1_tob"}},
+			{SpeakerID: "zh_female_vv_uranus_bigtts", Name: "VV", Raw: map[string]any{"SpeakerID": "zh_female_vv_uranus_bigtts"}},
 		},
 	}
 	srv.VolcSpeakerClientFactory = func(context.Context, apitypes.Credential, apitypes.VolcTenant) (VolcSpeakerClient, error) {
@@ -1489,23 +1489,23 @@ func TestServerVolcTenantStoreNotConfigured(t *testing.T) {
 	srv := &Server{}
 	ctx := context.Background()
 	createBody := adminhttp.VolcTenantUpsert{Name: "tenant-a", CredentialName: "cred"}
-	for name, call := range map[string]func() (interface{}, error){
-		"ListVolcTenants": func() (interface{}, error) {
+	for name, call := range map[string]func() (any, error){
+		"ListVolcTenants": func() (any, error) {
 			return srv.ListVolcTenants(ctx, adminhttp.ListVolcTenantsRequestObject{})
 		},
-		"CreateVolcTenant": func() (interface{}, error) {
+		"CreateVolcTenant": func() (any, error) {
 			return srv.CreateVolcTenant(ctx, adminhttp.CreateVolcTenantRequestObject{Body: &createBody})
 		},
-		"DeleteVolcTenant": func() (interface{}, error) {
+		"DeleteVolcTenant": func() (any, error) {
 			return srv.DeleteVolcTenant(ctx, adminhttp.DeleteVolcTenantRequestObject{Name: "tenant-a"})
 		},
-		"GetVolcTenant": func() (interface{}, error) {
+		"GetVolcTenant": func() (any, error) {
 			return srv.GetVolcTenant(ctx, adminhttp.GetVolcTenantRequestObject{Name: "tenant-a"})
 		},
-		"PutVolcTenant": func() (interface{}, error) {
+		"PutVolcTenant": func() (any, error) {
 			return srv.PutVolcTenant(ctx, adminhttp.PutVolcTenantRequestObject{Name: "tenant-a", Body: &createBody})
 		},
-		"SyncVolcTenantVoices": func() (interface{}, error) {
+		"SyncVolcTenantVoices": func() (any, error) {
 			return srv.SyncVolcTenantVoices(ctx, adminhttp.SyncVolcTenantVoicesRequestObject{Name: "tenant-a"})
 		},
 	} {
@@ -1660,7 +1660,7 @@ func TestVolcCredentialAndResourceHelpers(t *testing.T) {
 	if cloneMap(nil) != nil {
 		t.Fatal("cloneMap(nil) should return nil")
 	}
-	originalMap := map[string]interface{}{"name": "voice-a"}
+	originalMap := map[string]any{"name": "voice-a"}
 	clonedMap := cloneMap(&originalMap)
 	originalMap["name"] = "voice-b"
 	if clonedMap == nil || (*clonedMap)["name"] != "voice-a" {
