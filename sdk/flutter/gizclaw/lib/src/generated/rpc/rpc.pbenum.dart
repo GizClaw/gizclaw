@@ -276,6 +276,8 @@ class RpcMethod extends $pb.ProtobufEnum {
       92, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_SPEECH_TRANSCRIBE');
   static const RpcMethod RPC_METHOD_SERVER_SPEECH_SYNTHESIZE = RpcMethod._(
       93, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_SPEECH_SYNTHESIZE');
+  static const RpcMethod RPC_METHOD_SERVER_PEER_DELETE =
+      RpcMethod._(94, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_PEER_DELETE');
 
   static const $core.List<RpcMethod> values = <RpcMethod>[
     RPC_METHOD_UNSPECIFIED,
@@ -372,10 +374,11 @@ class RpcMethod extends $pb.ProtobufEnum {
     RPC_METHOD_SERVER_REGISTER,
     RPC_METHOD_SERVER_SPEECH_TRANSCRIBE,
     RPC_METHOD_SERVER_SPEECH_SYNTHESIZE,
+    RPC_METHOD_SERVER_PEER_DELETE,
   ];
 
   static final $core.List<RpcMethod?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 93);
+      $pb.ProtobufEnum.$_initByValueList(values, 94);
   static RpcMethod? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

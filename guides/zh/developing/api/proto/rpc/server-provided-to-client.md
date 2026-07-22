@@ -6,7 +6,7 @@
 
 | Prefix | 主要能力 |
 | --- | --- |
-| `server.info.*`、`server.runtime.*`、`server.status.*` | Peer information 与 runtime status |
+| `server.info.*`、`server.runtime.*`、`server.status.*`、`server.peer.delete` | Peer information、runtime status 与 caller-scoped retirement |
 | `server.run.*` | Workspace selection、history、memory、speech output、reload 与 stop |
 | `server.workspace.*` | Peer-owned Workspace CRUD 与 history；list 必须传 Collection |
 | `server.workflow.*` | RuntimeProfile Workflow alias list/get；list 必须传 Collection |
@@ -43,3 +43,5 @@ sequenceDiagram
 ```
 
 RPC adapter 负责 payload decode、framing、lifecycle 和稳定 error mapping；领域 service 负责 storage、resource validation、authorization 与 execution。
+
+`server.peer.delete` 使用空 request/response message，不接受目标 public key。成功时原子删除 caller 的 active Peer 并写入 pending-deletion handoff；Server flush response 和 EOS 后才关闭 retired connection。`server.workspace.delete` 只对 caller-owned 用户 Workspace 执行相同 fast handoff，system Workspace 始终不可通过该方法删除。`server.pet.delete` 删除 Pet 并写入 Pet pending work，但保留绑定的 system Workspace。

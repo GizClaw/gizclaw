@@ -20,6 +20,10 @@ Go 生成输出：`pkgs/gizclaw/api/adminhttp`
 
 Admin OpenAPI 只拥有 HTTP path、request/response 和 wire error。Resource validation、authorization、storage 和领域 lifecycle 由对应 services 与 resource manager 实现。
 
+## Fast-delete operations
+
+`DELETE /peers/{publicKey}`、`DELETE /workspaces/{name}` 和 `DELETE /peers/{publicKey}/pets/{id}` 会在原子写入一条领域 pending-deletion handoff 后返回已删除的 active projection，不对外暴露 handoff record。Admin 删除 Peer 不会强制关闭在线 connection。Workspace delete 只接受用户 Workspace；system Workspace 返回 `SYSTEM_WORKSPACE_DELETE_FORBIDDEN`。Pet delete 保留绑定的 system Workspace。物理清理以及 pending inspection/retry API 属于 cleanup service，不属于这些 delete operations。
+
 ## Resource 依赖
 
 Admin 引用 `shared.json`；该生成入口继续引用 `resources/*.json`：

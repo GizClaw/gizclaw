@@ -81,8 +81,15 @@ func TestAdminServiceDeletePeerPetUsesGameplayLifecycle(t *testing.T) {
 	if !ok || deleted.Id != "pet-a" {
 		t.Fatalf("DeletePeerPet() response = %#v", resp)
 	}
-	if len(workspaces.deleted) != 1 || workspaces.deleted[0] != "pet-pet-a" {
-		t.Fatalf("deleted Workspaces = %#v", workspaces.deleted)
+	if len(workspaces.deleted) != 0 {
+		t.Fatalf("DeletePeerPet deleted bound Workspace = %#v", workspaces.deleted)
+	}
+	var pendingCount int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM gameplay_pending_deletions WHERE kind = 'pet' AND owner_public_key = ? AND resource_id = ?`, "peer-a", "pet-a").Scan(&pendingCount); err != nil {
+		t.Fatalf("query Pet pending deletion: %v", err)
+	}
+	if pendingCount != 1 {
+		t.Fatalf("Pet pending deletion count = %d, want 1", pendingCount)
 	}
 	resp, err = service.DeletePeerPet(ctx, adminhttp.DeletePeerPetRequestObject{PublicKey: "peer-a", Id: "pet-a"})
 	if err != nil {

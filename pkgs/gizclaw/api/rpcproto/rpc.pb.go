@@ -189,6 +189,7 @@ const (
 	RpcMethod_RPC_METHOD_SERVER_REGISTER                         RpcMethod = 91
 	RpcMethod_RPC_METHOD_SERVER_SPEECH_TRANSCRIBE                RpcMethod = 92
 	RpcMethod_RPC_METHOD_SERVER_SPEECH_SYNTHESIZE                RpcMethod = 93
+	RpcMethod_RPC_METHOD_SERVER_PEER_DELETE                      RpcMethod = 94
 )
 
 // Enum value maps for RpcMethod.
@@ -288,6 +289,7 @@ var (
 		91: "RPC_METHOD_SERVER_REGISTER",
 		92: "RPC_METHOD_SERVER_SPEECH_TRANSCRIBE",
 		93: "RPC_METHOD_SERVER_SPEECH_SYNTHESIZE",
+		94: "RPC_METHOD_SERVER_PEER_DELETE",
 	}
 	RpcMethod_value = map[string]int32{
 		"RPC_METHOD_UNSPECIFIED":                             0,
@@ -384,6 +386,7 @@ var (
 		"RPC_METHOD_SERVER_REGISTER":                         91,
 		"RPC_METHOD_SERVER_SPEECH_TRANSCRIBE":                92,
 		"RPC_METHOD_SERVER_SPEECH_SYNTHESIZE":                93,
+		"RPC_METHOD_SERVER_PEER_DELETE":                      94,
 	}
 )
 
@@ -876,7 +879,7 @@ const file_rpc_proto_rawDesc = "" +
 	"\x1aRPC_ERROR_CODE_BAD_REQUEST\x10\x90\x03\x12\x1d\n" +
 	"\x18RPC_ERROR_CODE_FORBIDDEN\x10\x93\x03\x12\x1d\n" +
 	"\x18RPC_ERROR_CODE_NOT_FOUND\x10\x94\x03\x12\x1c\n" +
-	"\x17RPC_ERROR_CODE_CONFLICT\x10\x99\x03*\xafY\n" +
+	"\x17RPC_ERROR_CODE_CONFLICT\x10\x99\x03*\x9fZ\n" +
 	"\tRpcMethod\x12\x1a\n" +
 	"\x16RPC_METHOD_UNSPECIFIED\x10\x00\x12B\n" +
 	"\x13RPC_METHOD_ALL_PING\x10\x01\x1a)\xc2\xf3\x18%\n" +
@@ -1065,7 +1068,9 @@ const file_rpc_proto_rawDesc = "" +
 	"#RPC_METHOD_SERVER_SPEECH_TRANSCRIBE\x10\\\x1aQ\xc2\xf3\x18M\n" +
 	"\x18server.speech.transcribe\x12\x17SpeechTranscribeRequest\x1a\x18SpeechTranscribeResponse\x12z\n" +
 	"#RPC_METHOD_SERVER_SPEECH_SYNTHESIZE\x10]\x1aQ\xc2\xf3\x18M\n" +
-	"\x18server.speech.synthesize\x12\x17SpeechSynthesizeRequest\x1a\x18SpeechSynthesizeResponse:d\n" +
+	"\x18server.speech.synthesize\x12\x17SpeechSynthesizeRequest\x1a\x18SpeechSynthesizeResponse\x12n\n" +
+	"\x1dRPC_METHOD_SERVER_PEER_DELETE\x10^\x1aK\xc2\xf3\x18G\n" +
+	"\x12server.peer.delete\x12\x17ServerPeerDeleteRequest\x1a\x18ServerPeerDeleteResponse:d\n" +
 	"\n" +
 	"rpc_method\x12!.google.protobuf.EnumValueOptions\x18\xb8\x8e\x03 \x01(\v2 .gizclaw.rpc.v1.RpcMethodOptionsR\trpcMethodB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
 

@@ -15,5 +15,8 @@
 | `Server.EnsureConnectedPeer` | Create a default active peer for the authenticated public key. |
 | `Server.LoadPeer` / `SavePeer` | Press public key to read or save the complete Peer. |
 | `Server.BootstrapEdgeNodes` | Synchronize the Edge Node identity in the configuration as a Peer resource. |
+| `Server.DeleteSelf` | Atomically remove the authenticated Peer and write its durable pending-deletion handoff. |
 
 Public key is Peer identity and should not be mixed with database ID, connection ID or Edge assignment. WebRTC connection lifecycle belongs to `giznet` and root `PeerManager`, and does not belong to this package.
+
+Peer deletion removes the active record and every Peer index in the same KV transaction that writes one `kind=peer` PendingDeletion. It does not cascade into Workspace, Pet, social, gameplay, or RegistrationToken resources. Admin deletion does not forcibly close an online connection. `server.peer.delete` is caller-scoped: after its acknowledgement and EOS are written, the root connection runtime closes that retired connection. A lost-acknowledgement reconnect may create a later Client record without overwriting the older pending event; configured Edge bootstrap and generic writes remain blocked while the locator is pending.

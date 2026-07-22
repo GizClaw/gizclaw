@@ -6,7 +6,7 @@ These methods are implemented by Server and called by a Client/Device through it
 
 | Prefix | Main capabilities |
 | --- | --- |
-| `server.info.*`, `server.runtime.*`, `server.status.*` | Peer information and runtime status |
+| `server.info.*`, `server.runtime.*`, `server.status.*`, `server.peer.delete` | Peer information, runtime status, and caller-scoped retirement |
 | `server.run.*` | Workspace selection, history, memory, speech output, reload and stop |
 | `server.workspace.*` | Peer-owned Workspace CRUD and history; list requires Collection |
 | `server.workflow.*` | RuntimeProfile Workflow alias list/get; list requires Collection |
@@ -43,3 +43,5 @@ sequenceDiagram
 ```
 
 The RPC adapter owns payload decoding, framing, lifecycle, and stable error mapping. Domain services own storage, resource validation, authorization, and execution.
+
+`server.peer.delete` has empty request and response messages and never accepts a target public key. Success atomically removes the caller's active Peer and writes its pending-deletion handoff. The Server flushes the response and EOS before closing the retired connection. `server.workspace.delete` performs the same fast handoff only for a caller-owned user Workspace; system Workspaces remain non-deletable. `server.pet.delete` removes the Pet and writes Pet pending work while retaining its bound system Workspace.

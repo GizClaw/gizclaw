@@ -236,6 +236,40 @@ func (b *Badger) BatchDelete(ctx context.Context, keys []Key) error {
 	})
 }
 
+func (b *Badger) BatchMutate(ctx context.Context, entries []Entry, keys []Key) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return b.db.Update(func(txn *badger.Txn) error {
+		now := time.Now()
+		for _, item := range entries {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			entry := badger.NewEntry(b.opts.encode(item.Key), item.Value)
+			if !item.Deadline.IsZero() {
+				ttl := item.Deadline.Sub(now)
+				if ttl <= 0 {
+					return ErrInvalidDeadline
+				}
+				entry = entry.WithTTL(ttl)
+			}
+			if err := txn.SetEntry(entry); err != nil {
+				return err
+			}
+		}
+		for _, key := range keys {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			if err := txn.Delete(b.opts.encode(key)); err != nil && err != badger.ErrKeyNotFound {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
 func (b *Badger) Close() error {
 	return b.db.Close()
 }

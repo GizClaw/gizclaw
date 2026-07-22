@@ -61,7 +61,7 @@ Adapter 为每条消息保存一条 `Stream=flowcraft-history`、`Kind=message` 
 
 拥有 workspace 资源、workspace runtime storage 和 history。Workspace 是实例化 Agent 环境的持久化边界；运行中的 Agent、输入输出和 connection stream 由 Runtime 领域负责。
 
-Workspace 还拥有不可变的 `system` 生命周期分类。通用创建写入 `system: false`，领域拥有的创建写入 `system: true`。通用删除拒绝 system Workspace；内部 system lifecycle surface 只提供给拥有该 Workspace 的 Social 或 Gameplay service。
+Workspace 还拥有不可变的 `system` 生命周期分类。通用创建写入 `system: false`，领域拥有的创建写入 `system: true`；通用删除始终拒绝 system Workspace。删除用户 Workspace 时，会原子删除 active record 与 owner index，并写入一条 `kind=workspace` PendingDeletion；runtime、history、icon、object 和 file 留给异步清理。pending record 存在期间不能重新 create/put 同名 Workspace。内部 system lifecycle surface 仍只提供给拥有该 Workspace 的 Social 或 Gameplay service，且不会在这里改成 pending-deletion producer。
 
 ## 依赖与边界
 

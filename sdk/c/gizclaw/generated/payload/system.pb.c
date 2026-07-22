@@ -54,6 +54,12 @@ PB_BIND(gizclaw_rpc_v1_ServerRegisterRequest, gizclaw_rpc_v1_ServerRegisterReque
 PB_BIND(gizclaw_rpc_v1_ServerRegisterResponse, gizclaw_rpc_v1_ServerRegisterResponse, 2)
 
 
+PB_BIND(gizclaw_rpc_v1_ServerPeerDeleteRequest, gizclaw_rpc_v1_ServerPeerDeleteRequest, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ServerPeerDeleteResponse, gizclaw_rpc_v1_ServerPeerDeleteResponse, AUTO)
+
+
 PB_BIND(gizclaw_rpc_v1_Runtime, gizclaw_rpc_v1_Runtime, AUTO)
 
 

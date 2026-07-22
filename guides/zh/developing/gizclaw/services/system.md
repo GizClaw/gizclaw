@@ -7,6 +7,7 @@
 ```text
 services/system/
 ├── ownership/         # owner context、owner index key 和写入规则
+├── pendingdeletion/   # durable fast-delete handoff record
 ├── publiclogin/       # Public HTTP login、assertion 和 session
 ├── resourcemanager/   # Admin declarative resource 的统一入口
 └── runtimeprofile/    # RuntimeProfile 与 RegistrationToken
@@ -17,6 +18,10 @@ services/system/
 ### ownership
 
 提供 persisted resource 使用的 owner context 与 KV index 约定。在 Peer surface 上，Workspace 是用户创建状态；真实 Model、Credential、Workflow 和 Tool 只能由 Admin 修改。Friend、FriendGroup 和 Pet 的 system Workspace 由各自领域关系补充可见性。
+
+### pendingdeletion
+
+定义带版本的、backend-neutral `PendingDeletion` envelope。领域 fast-delete 必须在资源自己的物理存储中，原子地让 active resource 不可发现并写入一条最小 cleanup descriptor。Peer 和用户 Workspace 使用 KV，Pet 使用 gameplay SQL database。这个 package 不运行 worker、不删除 pending record，也不暴露已删除资源内容；processing 属于后续 managed cleanup service。
 
 ### runtimeprofile
 

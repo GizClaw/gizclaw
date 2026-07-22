@@ -97,6 +97,8 @@ func (m *Manager) putWorkspace(ctx context.Context, name string, body adminhttp.
 		return nil
 	case adminhttp.PutWorkspace400JSONResponse:
 		return responseError(400, "PUT_WORKSPACE_FAILED", "failed to put workspace", response)
+	case adminhttp.PutWorkspace409JSONResponse:
+		return responseError(409, workspace.WorkspacePendingDeletionCode, "workspace is pending deletion", response)
 	case adminhttp.PutWorkspace500JSONResponse:
 		return responseError(500, "PUT_WORKSPACE_FAILED", "failed to put workspace", response)
 	default:

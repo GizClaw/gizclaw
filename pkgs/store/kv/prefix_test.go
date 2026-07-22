@@ -360,6 +360,10 @@ func (s listScriptStore) BatchDelete(context.Context, []kv.Key) error {
 	return nil
 }
 
+func (s listScriptStore) BatchMutate(context.Context, []kv.Entry, []kv.Key) error {
+	return nil
+}
+
 func (s listScriptStore) Close() error {
 	return nil
 }

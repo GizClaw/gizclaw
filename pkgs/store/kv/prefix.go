@@ -97,6 +97,22 @@ func (s *prefixedStore) BatchDelete(ctx context.Context, keys []Key) error {
 	return s.base.BatchDelete(ctx, prefixed)
 }
 
+func (s *prefixedStore) BatchMutate(ctx context.Context, entries []Entry, keys []Key) error {
+	prefixedEntries := make([]Entry, len(entries))
+	for i, entry := range entries {
+		prefixedEntries[i] = Entry{
+			Key:      s.prefixedKey(entry.Key),
+			Value:    entry.Value,
+			Deadline: entry.Deadline,
+		}
+	}
+	prefixedKeys := make([]Key, len(keys))
+	for i, key := range keys {
+		prefixedKeys[i] = s.prefixedKey(key)
+	}
+	return s.base.BatchMutate(ctx, prefixedEntries, prefixedKeys)
+}
+
 func (s *prefixedStore) Close() error {
 	return nil
 }

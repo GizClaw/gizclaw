@@ -11,6 +11,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
@@ -164,7 +165,7 @@ func (s *Server) block(ctx context.Context, publicKey giznet.PublicKey) (apitype
 	return s.putRecord(ctx, peer)
 }
 
-func (s *Server) delete(ctx context.Context, publicKey giznet.PublicKey) (apitypes.Peer, error) {
+func (s *Server) delete(ctx context.Context, publicKey giznet.PublicKey, reason pendingdeletion.Reason) (apitypes.Peer, error) {
 	unlock := s.IconLocks.LockRecord(publicKey.String())
 	defer unlock()
 	peer, err := s.get(ctx, publicKey)
@@ -175,11 +176,43 @@ func (s *Server) delete(ctx context.Context, publicKey giznet.PublicKey) (apityp
 	if err != nil {
 		return apitypes.Peer{}, err
 	}
+	record, err := pendingdeletion.New(pendingdeletion.KindPeer, peer.PublicKey, &peer.PublicKey, reason, struct {
+		PublicKey string `json:"public_key"`
+	}{PublicKey: peer.PublicKey}, time.Now())
+	if err != nil {
+		return apitypes.Peer{}, err
+	}
+	entries, err := pendingdeletion.KVEntries(record)
+	if err != nil {
+		return apitypes.Peer{}, err
+	}
 	deletes := append([]kv.Key{peerKey(peer.PublicKey)}, indexKeys(peer)...)
-	if err := store.BatchDelete(ctx, deletes); err != nil {
+	if err := store.BatchMutate(ctx, entries, deletes); err != nil {
 		return apitypes.Peer{}, fmt.Errorf("peer: delete %s: %w", peer.PublicKey, err)
 	}
 	return peer, nil
+}
+
+// DeleteSelf retires the authenticated Peer. A retry after a lost response is
+// successful when a durable pending record already exists for the public key.
+func (s *Server) DeleteSelf(ctx context.Context, publicKey giznet.PublicKey) error {
+	if _, err := s.delete(ctx, publicKey, pendingdeletion.ReasonPeerDelete); err == nil {
+		return nil
+	} else if !errors.Is(err, ErrPeerNotFound) {
+		return err
+	}
+	store, err := s.store()
+	if err != nil {
+		return err
+	}
+	exists, err := pendingdeletion.HasLocator(ctx, store, pendingdeletion.KindPeer, publicKey.String())
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return ErrPeerNotFound
+	}
+	return nil
 }
 
 func (s *Server) get(ctx context.Context, publicKey giznet.PublicKey) (apitypes.Peer, error) {
@@ -229,6 +262,9 @@ func (s *Server) exists(ctx context.Context, publicKey giznet.PublicKey) (bool, 
 	return false, err
 }
 
+// create is reserved for a newly authenticated Client connection. Reconnect is
+// the one path allowed to create a later active generation while an older
+// deletion event remains pending.
 func (s *Server) create(ctx context.Context, peer apitypes.Peer) (apitypes.Peer, error) {
 	if err := validatePeer(peer); err != nil {
 		return apitypes.Peer{}, err
@@ -248,7 +284,6 @@ func (s *Server) create(ctx context.Context, peer apitypes.Peer) (apitypes.Peer,
 	} else if !errors.Is(err, ErrPeerNotFound) {
 		return apitypes.Peer{}, err
 	}
-
 	now := time.Now()
 	peer.CreatedAt = now
 	peer.UpdatedAt = now
@@ -284,6 +319,19 @@ func (s *Server) putRecord(ctx context.Context, peer apitypes.Peer) (apitypes.Pe
 	old, err := s.get(ctx, publicKey)
 	if err != nil && !errors.Is(err, ErrPeerNotFound) {
 		return apitypes.Peer{}, err
+	}
+	if errors.Is(err, ErrPeerNotFound) {
+		store, storeErr := s.store()
+		if storeErr != nil {
+			return apitypes.Peer{}, storeErr
+		}
+		pending, pendingErr := pendingdeletion.HasLocator(ctx, store, pendingdeletion.KindPeer, publicKey.String())
+		if pendingErr != nil {
+			return apitypes.Peer{}, pendingErr
+		}
+		if pending {
+			return apitypes.Peer{}, ErrPeerPendingDeletion
+		}
 	}
 	if peer.CreatedAt.IsZero() {
 		if errors.Is(err, ErrPeerNotFound) {

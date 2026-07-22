@@ -592,6 +592,7 @@ const (
 	RPCMethodServerRewardGrantGet               RPCMethod = "server.reward_grant.get"
 	RPCMethodServerRewardGrantList              RPCMethod = "server.reward_grant.list"
 	RPCMethodServerPeerAssign                   RPCMethod = "server.peer.assign"
+	RPCMethodServerPeerDelete                   RPCMethod = "server.peer.delete"
 	RPCMethodServerPeerLookup                   RPCMethod = "server.peer.lookup"
 	RPCMethodServerRouteResolve                 RPCMethod = "server.route.resolve"
 	RPCMethodServerRunAgentGet                  RPCMethod = "server.run.agent.get"
@@ -746,6 +747,8 @@ func (e RPCMethod) Valid() bool {
 	case RPCMethodServerRewardGrantList:
 		return true
 	case RPCMethodServerPeerAssign:
+		return true
+	case RPCMethodServerPeerDelete:
 		return true
 	case RPCMethodServerPeerLookup:
 		return true

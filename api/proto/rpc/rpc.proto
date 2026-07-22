@@ -155,4 +155,5 @@ enum RpcMethod {
   RPC_METHOD_SERVER_REGISTER = 91 [(rpc_method) = { name: "server.register" request: "ServerRegisterRequest" response: "ServerRegisterResponse" }];
   RPC_METHOD_SERVER_SPEECH_TRANSCRIBE = 92 [(rpc_method) = { name: "server.speech.transcribe" request: "SpeechTranscribeRequest" response: "SpeechTranscribeResponse" }];
   RPC_METHOD_SERVER_SPEECH_SYNTHESIZE = 93 [(rpc_method) = { name: "server.speech.synthesize" request: "SpeechSynthesizeRequest" response: "SpeechSynthesizeResponse" }];
+  RPC_METHOD_SERVER_PEER_DELETE = 94 [(rpc_method) = { name: "server.peer.delete" request: "ServerPeerDeleteRequest" response: "ServerPeerDeleteResponse" }];
 }

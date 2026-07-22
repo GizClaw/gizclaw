@@ -19,6 +19,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/jmoiron/sqlx"
 )
@@ -168,6 +169,16 @@ func (r *Runtime) Migration(ctx context.Context) error {
 			created_at TEXT NOT NULL,
 			PRIMARY KEY(owner_public_key, id)
 		)`,
+		`CREATE TABLE IF NOT EXISTS gameplay_pending_deletions (
+			deletion_id TEXT NOT NULL PRIMARY KEY,
+			kind TEXT NOT NULL,
+			owner_public_key TEXT NOT NULL,
+			resource_id TEXT NOT NULL,
+			reason TEXT NOT NULL,
+			deleted_at TEXT NOT NULL,
+			descriptor_version INTEGER NOT NULL,
+			descriptor_json TEXT NOT NULL
+		)`,
 	} {
 		if _, err := db.ExecContext(ctx, stmt); err != nil {
 			return err
@@ -180,6 +191,9 @@ func (r *Runtime) Migration(ctx context.Context) error {
 		return err
 	}
 	if _, err := db.ExecContext(ctx, `CREATE UNIQUE INDEX IF NOT EXISTS gameplay_points_transactions_pet_adoption_idx ON gameplay_points_transactions(owner_public_key, source_id) WHERE source_type = 'pet' AND reason = 'pet.adopt'`); err != nil {
+		return err
+	}
+	if _, err := db.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS gameplay_pending_deletions_locator_idx ON gameplay_pending_deletions(kind, owner_public_key, resource_id, deletion_id)`); err != nil {
 		return err
 	}
 	return nil
@@ -625,50 +639,55 @@ func (r *Runtime) PutPet(ctx context.Context, owner string, req apitypes.PetPutR
 }
 
 func (r *Runtime) DeletePet(ctx context.Context, owner, id string) (apitypes.Pet, error) {
-	pet, err := r.GetPet(ctx, owner, id)
+	db, err := r.db()
 	if err != nil {
 		return apitypes.Pet{}, err
 	}
-	cleanupCtx := context.WithoutCancel(ctx)
-	if r.Workspaces == nil {
-		return apitypes.Pet{}, fmt.Errorf("delete pet %q: workspace service is not configured", pet.Id)
-	}
-	deletedWorkspace, err := r.Workspaces.DeleteSystemWorkspace(cleanupCtx, pet.WorkspaceName)
+	tx, err := db.BeginTxx(ctx, nil)
 	if err != nil {
-		return apitypes.Pet{}, fmt.Errorf("delete pet %q workspace: %v", pet.Id, err)
+		return apitypes.Pet{}, err
 	}
-	db, err := r.db()
+	defer tx.Rollback()
+	query, args := profileScopedOwnerIDQuery(ctx, petSelectSQL(), owner, id)
+	pet, err := scanPet(tx.QueryRowContext(ctx, db.Rebind(query), args...))
 	if err != nil {
-		return apitypes.Pet{}, r.restorePetAfterDeleteFailure(cleanupCtx, pet, deletedWorkspace, err)
+		return apitypes.Pet{}, err
 	}
-	if _, err := db.ExecContext(ctx, db.Rebind(`DELETE FROM gameplay_pets WHERE owner_public_key = ? AND id = ? AND runtime_profile_name = ?`), owner, pet.Id, pet.RuntimeProfileName); err != nil {
-		return apitypes.Pet{}, r.restorePetAfterDeleteFailure(cleanupCtx, pet, deletedWorkspace, err)
+	descriptor := struct {
+		OwnerPublicKey string `json:"owner_public_key"`
+		PetID          string `json:"pet_id"`
+		RuntimeProfile string `json:"runtime_profile_name"`
+		PetDefID       string `json:"petdef_id"`
+		WorkspaceName  string `json:"workspace_name"`
+	}{
+		OwnerPublicKey: pet.OwnerPublicKey,
+		PetID:          pet.Id,
+		RuntimeProfile: pet.RuntimeProfileName,
+		PetDefID:       pet.PetdefId,
+		WorkspaceName:  pet.WorkspaceName,
+	}
+	record, err := pendingdeletion.New(pendingdeletion.KindPet, pet.Id, &pet.OwnerPublicKey, pendingdeletion.ReasonResourceDelete, descriptor, r.now())
+	if err != nil {
+		return apitypes.Pet{}, err
+	}
+	if _, err := tx.ExecContext(ctx, db.Rebind(`INSERT INTO gameplay_pending_deletions (deletion_id, kind, owner_public_key, resource_id, reason, deleted_at, descriptor_version, descriptor_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`), record.DeletionID, record.Kind, pet.OwnerPublicKey, record.ResourceID, record.Reason, formatTime(record.DeletedAt), record.DescriptorVersion, string(record.Descriptor)); err != nil {
+		return apitypes.Pet{}, fmt.Errorf("delete pet %q pending deletion: %w", pet.Id, err)
+	}
+	result, err := tx.ExecContext(ctx, db.Rebind(`DELETE FROM gameplay_pets WHERE owner_public_key = ? AND id = ? AND runtime_profile_name = ?`), pet.OwnerPublicKey, pet.Id, pet.RuntimeProfileName)
+	if err != nil {
+		return apitypes.Pet{}, fmt.Errorf("delete pet %q row: %w", pet.Id, err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return apitypes.Pet{}, fmt.Errorf("delete pet %q rows affected: %w", pet.Id, err)
+	}
+	if affected != 1 {
+		return apitypes.Pet{}, sql.ErrNoRows
+	}
+	if err := tx.Commit(); err != nil {
+		return apitypes.Pet{}, fmt.Errorf("delete pet %q commit: %w", pet.Id, err)
 	}
 	return pet, nil
-}
-
-func (r *Runtime) restorePetAfterDeleteFailure(ctx context.Context, pet apitypes.Pet, workspace apitypes.Workspace, cause error) error {
-	var rollbackErrs []error
-	if r.Workspaces == nil {
-		rollbackErrs = append(rollbackErrs, errors.New("restore workspace: workspace service is not configured"))
-	} else {
-		body := adminhttp.WorkspaceUpsert{
-			Labels:       workspace.Labels,
-			Name:         workspace.Name,
-			Parameters:   workspace.Parameters,
-			Toolkit:      workspace.Toolkit,
-			WorkflowName: workspace.WorkflowName,
-		}
-		if _, created, err := r.Workspaces.CreateSystemWorkspace(ctx, body); err != nil {
-			rollbackErrs = append(rollbackErrs, fmt.Errorf("restore workspace: %w", err))
-		} else if !created {
-			rollbackErrs = append(rollbackErrs, errors.New("restore workspace: workspace already exists"))
-		}
-	}
-	if rollbackErr := errors.Join(rollbackErrs...); rollbackErr != nil {
-		return fmt.Errorf("delete pet %q row: %w; rollback failed: %v", pet.Id, cause, rollbackErr)
-	}
-	return fmt.Errorf("delete pet %q row: %w", pet.Id, cause)
 }
 
 func (r *Runtime) DrivePet(ctx context.Context, owner string, req apitypes.PetDriveRequest) (apitypes.PetDriveResponse, error) {

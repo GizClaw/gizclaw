@@ -199,6 +199,44 @@ func (m *Memory) BatchDelete(ctx context.Context, keys []Key) error {
 	return nil
 }
 
+func (m *Memory) BatchMutate(ctx context.Context, entries []Entry, keys []Key) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	now := time.Now()
+	type preparedEntry struct {
+		key   string
+		entry memoryEntry
+	}
+	prepared := make([]preparedEntry, 0, len(entries))
+	for _, item := range entries {
+		if !item.Deadline.IsZero() && !item.Deadline.After(now) {
+			return ErrInvalidDeadline
+		}
+		value := append([]byte(nil), item.Value...)
+		prepared = append(prepared, preparedEntry{
+			key:   string(m.opts.encode(item.Key)),
+			entry: memoryEntry{value: value, expiresAt: item.Deadline},
+		})
+	}
+	encodedDeletes := make([]string, len(keys))
+	for i, key := range keys {
+		encodedDeletes[i] = string(m.opts.encode(key))
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, item := range prepared {
+		m.data[item.key] = item.entry
+	}
+	for _, key := range encodedDeletes {
+		delete(m.data, key)
+	}
+	return nil
+}
+
 func (m *Memory) Close() error {
 	return nil
 }

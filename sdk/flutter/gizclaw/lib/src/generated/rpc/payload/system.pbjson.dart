@@ -441,6 +441,24 @@ final $typed_data.Uint8List serverRegisterResponseDescriptor = $convert.base64De
     'JydW50aW1lUHJvZmlsZU5hbWUSJAoLZmlybXdhcmVfaWQYAiABKAlIAFIKZmlybXdhcmVJZIgB'
     'AUIOCgxfZmlybXdhcmVfaWQ=');
 
+@$core.Deprecated('Use serverPeerDeleteRequestDescriptor instead')
+const ServerPeerDeleteRequest$json = {
+  '1': 'ServerPeerDeleteRequest',
+};
+
+/// Descriptor for `ServerPeerDeleteRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List serverPeerDeleteRequestDescriptor =
+    $convert.base64Decode('ChdTZXJ2ZXJQZWVyRGVsZXRlUmVxdWVzdA==');
+
+@$core.Deprecated('Use serverPeerDeleteResponseDescriptor instead')
+const ServerPeerDeleteResponse$json = {
+  '1': 'ServerPeerDeleteResponse',
+};
+
+/// Descriptor for `ServerPeerDeleteResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List serverPeerDeleteResponseDescriptor =
+    $convert.base64Decode('ChhTZXJ2ZXJQZWVyRGVsZXRlUmVzcG9uc2U=');
+
 @$core.Deprecated('Use runtimeDescriptor instead')
 const Runtime$json = {
   '1': 'Runtime',

@@ -149,6 +149,7 @@ const RpcMethod$json = {
     {'1': 'RPC_METHOD_SERVER_REGISTER', '2': 91, '3': {}},
     {'1': 'RPC_METHOD_SERVER_SPEECH_TRANSCRIBE', '2': 92, '3': {}},
     {'1': 'RPC_METHOD_SERVER_SPEECH_SYNTHESIZE', '2': 93, '3': {}},
+    {'1': 'RPC_METHOD_SERVER_PEER_DELETE', '2': 94, '3': {}},
   ],
 };
 
@@ -360,7 +361,9 @@ final $typed_data.Uint8List rpcMethodDescriptor = $convert.base64Decode(
     'NwZWVjaFRyYW5zY3JpYmVSZXF1ZXN0GhhTcGVlY2hUcmFuc2NyaWJlUmVzcG9uc2USegojUlBD'
     'X01FVEhPRF9TRVJWRVJfU1BFRUNIX1NZTlRIRVNJWkUQXRpRwvMYTQoYc2VydmVyLnNwZWVjaC'
     '5zeW50aGVzaXplEhdTcGVlY2hTeW50aGVzaXplUmVxdWVzdBoYU3BlZWNoU3ludGhlc2l6ZVJl'
-    'c3BvbnNl');
+    'c3BvbnNlEm4KHVJQQ19NRVRIT0RfU0VSVkVSX1BFRVJfREVMRVRFEF4aS8LzGEcKEnNlcnZlci'
+    '5wZWVyLmRlbGV0ZRIXU2VydmVyUGVlckRlbGV0ZVJlcXVlc3QaGFNlcnZlclBlZXJEZWxldGVS'
+    'ZXNwb25zZQ==');
 
 @$core.Deprecated('Use rpcResponseDescriptor instead')
 const RpcResponse$json = {

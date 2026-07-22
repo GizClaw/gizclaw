@@ -66,6 +66,10 @@ type Store interface {
 	// BatchDelete atomically removes multiple keys.
 	BatchDelete(ctx context.Context, keys []Key) error
 
+	// BatchMutate atomically stores entries and removes keys in one transaction.
+	// If a key appears in both collections, the delete is applied last.
+	BatchMutate(ctx context.Context, entries []Entry, keys []Key) error
+
 	// Close releases any resources held by the store.
 	Close() error
 }

@@ -24,6 +24,7 @@ type rpcPeerService interface {
 	PutSelfInfo(context.Context, giznet.PublicKey, apitypes.DeviceInfo) (apitypes.DeviceInfo, error)
 	GetSelfRuntime(context.Context, giznet.PublicKey) apitypes.Runtime
 	BindFirmware(context.Context, giznet.PublicKey, string) (apitypes.Peer, error)
+	DeleteSelf(context.Context, giznet.PublicKey) error
 }
 
 type rpcPeerRunService interface {
@@ -66,6 +67,7 @@ type rpcServer struct {
 	onRegistration     func(runtimeprofile.Registration)
 	registrationSource string
 	callerPublicKey    giznet.PublicKey
+	onPeerDeleted      func() error
 }
 
 func (s *rpcServer) Handle(conn net.Conn) error {
@@ -99,6 +101,8 @@ func (s *rpcServer) dispatchStream(ctx context.Context, stream *rpcStream, req *
 		return true, s.handleWorkspaceIconDownload(ctx, stream, req)
 	case rpcapi.RPCMethodServerWorkspaceHistoryAudioGet:
 		return true, s.handleWorkspaceHistoryAudioGet(ctx, stream, req)
+	case rpcapi.RPCMethodServerPeerDelete:
+		return true, s.handlePeerDelete(ctx, stream, req)
 	default:
 		return false, nil
 	}

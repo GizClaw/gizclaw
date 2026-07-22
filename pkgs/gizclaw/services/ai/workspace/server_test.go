@@ -13,6 +13,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/model"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
@@ -112,8 +113,11 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 	if _, ok := deleteResp.(adminhttp.DeleteWorkspace200JSONResponse); !ok {
 		t.Fatalf("DeleteWorkspace() response = %#v", deleteResp)
 	}
-	if len(runtime.deleted) != 1 || runtime.deleted[0] != "alpha001" {
-		t.Fatalf("runtime deleted = %#v", runtime.deleted)
+	if len(runtime.deleted) != 0 {
+		t.Fatalf("runtime deleted during fast delete = %#v", runtime.deleted)
+	}
+	if pending, err := pendingdeletion.HasLocator(ctx, srv.Store, pendingdeletion.KindWorkspace, "alpha001"); err != nil || !pending {
+		t.Fatalf("workspace pending deletion = %v, error = %v", pending, err)
 	}
 
 	getAfterDelete, err := srv.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Name: "alpha001"})
@@ -122,6 +126,23 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 	}
 	if _, ok := getAfterDelete.(adminhttp.GetWorkspace404JSONResponse); !ok {
 		t.Fatalf("GetWorkspace() after delete response = %#v", getAfterDelete)
+	}
+	createAfterDelete, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &createBody})
+	if err != nil {
+		t.Fatalf("CreateWorkspace() while pending error = %v", err)
+	}
+	if response, ok := createAfterDelete.(adminhttp.CreateWorkspace409JSONResponse); !ok || response.Error.Code != WorkspacePendingDeletionCode {
+		t.Fatalf("CreateWorkspace() while pending response = %#v", createAfterDelete)
+	}
+	putAfterDelete, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Name: "alpha001", Body: &updateBody})
+	if err != nil {
+		t.Fatalf("PutWorkspace() while pending error = %v", err)
+	}
+	if response, ok := putAfterDelete.(adminhttp.PutWorkspace409JSONResponse); !ok || response.Error.Code != WorkspacePendingDeletionCode {
+		t.Fatalf("PutWorkspace() while pending response = %#v", putAfterDelete)
+	}
+	if _, _, err := srv.CreateSystemWorkspace(ctx, createBody); !errors.Is(err, ErrWorkspacePendingDeletion) {
+		t.Fatalf("CreateSystemWorkspace() while pending error = %v", err)
 	}
 }
 
@@ -174,6 +195,9 @@ func TestServerSystemWorkspaceLifecycle(t *testing.T) {
 	if _, err := getWorkspace(ctx, srv.Store, "friend-chat"); err != nil {
 		t.Fatalf("system workspace after rejected generic delete: %v", err)
 	}
+	if pending, err := pendingdeletion.HasLocator(ctx, srv.Store, pendingdeletion.KindWorkspace, "friend-chat"); err != nil || pending {
+		t.Fatalf("system workspace pending deletion = %v, error = %v", pending, err)
+	}
 
 	deleted, err := srv.DeleteSystemWorkspace(ctx, "friend-chat")
 	if err != nil {
@@ -190,6 +214,55 @@ func TestServerSystemWorkspaceLifecycle(t *testing.T) {
 	}
 	if len(runtime.deleted) != 2 || runtime.deleted[1] != "friend-chat" {
 		t.Fatalf("runtime deleted after missing system delete = %#v", runtime.deleted)
+	}
+}
+
+func TestWorkspaceDeleteSerializesWithPut(t *testing.T) {
+	srv := newTestServer(t)
+	ctx := context.Background()
+	seedWorkflow(t, srv, "workflow-1")
+	body := adminhttp.WorkspaceUpsert{Name: "concurrent", WorkflowName: "workflow-1"}
+	if response, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body}); err != nil {
+		t.Fatalf("CreateWorkspace: %v", err)
+	} else if _, ok := response.(adminhttp.CreateWorkspace200JSONResponse); !ok {
+		t.Fatalf("CreateWorkspace response = %#v", response)
+	}
+
+	start := make(chan struct{})
+	errs := make(chan error, 2)
+	go func() {
+		<-start
+		response, err := srv.DeleteWorkspace(ctx, adminhttp.DeleteWorkspaceRequestObject{Name: body.Name})
+		if err == nil {
+			if _, ok := response.(adminhttp.DeleteWorkspace200JSONResponse); !ok {
+				err = fmt.Errorf("DeleteWorkspace response = %#v", response)
+			}
+		}
+		errs <- err
+	}()
+	go func() {
+		<-start
+		response, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Name: body.Name, Body: &body})
+		if err == nil {
+			switch response.(type) {
+			case adminhttp.PutWorkspace200JSONResponse, adminhttp.PutWorkspace409JSONResponse:
+			default:
+				err = fmt.Errorf("PutWorkspace response = %#v", response)
+			}
+		}
+		errs <- err
+	}()
+	close(start)
+	for range 2 {
+		if err := <-errs; err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := getWorkspace(ctx, srv.Store, body.Name); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("workspace after concurrent delete/put error = %v, want kv.ErrNotFound", err)
+	}
+	if pending, err := pendingdeletion.HasLocator(ctx, srv.Store, pendingdeletion.KindWorkspace, body.Name); err != nil || !pending {
+		t.Fatalf("workspace pending deletion = %v, error = %v", pending, err)
 	}
 }
 
@@ -631,7 +704,7 @@ func TestServerWorkspaceConflictAndMissingDelete(t *testing.T) {
 	if _, ok := deleteResp.(adminhttp.DeleteWorkspace404JSONResponse); !ok {
 		t.Fatalf("DeleteWorkspace(missing) response = %#v", deleteResp)
 	}
-	if len(runtime.deleted) != 1 || runtime.deleted[0] != "missing" {
+	if len(runtime.deleted) != 0 {
 		t.Fatalf("runtime deleted for missing workspace = %#v", runtime.deleted)
 	}
 }

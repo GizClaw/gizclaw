@@ -14549,6 +14549,7 @@ type DeletePeerResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.Registration
 	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -16668,6 +16669,7 @@ type PutWorkspaceResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.Workspace
 	JSON400      *externalRef0.ErrorResponse
+	JSON409      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -21576,6 +21578,13 @@ func ParseDeletePeerResponse(rsp *http.Response) (*DeletePeerResponse, error) {
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
 	}
 
 	return response, nil
@@ -25272,6 +25281,13 @@ func ParsePutWorkspaceResponse(rsp *http.Response) (*PutWorkspaceResponse, error
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
@@ -32654,6 +32670,15 @@ func (response DeletePeer404JSONResponse) VisitDeletePeerResponse(ctx *fiber.Ctx
 	return ctx.JSON(&response)
 }
 
+type DeletePeer500JSONResponse externalRef0.ErrorResponse
+
+func (response DeletePeer500JSONResponse) VisitDeletePeerResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
 type GetPeerRequestObject struct {
 	PublicKey string `json:"publicKey"`
 }
@@ -36038,6 +36063,15 @@ type PutWorkspace400JSONResponse externalRef0.ErrorResponse
 func (response PutWorkspace400JSONResponse) VisitPutWorkspaceResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type PutWorkspace409JSONResponse externalRef0.ErrorResponse
+
+func (response PutWorkspace409JSONResponse) VisitPutWorkspaceResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
 
 	return ctx.JSON(&response)
 }

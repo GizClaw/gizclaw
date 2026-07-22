@@ -7,6 +7,7 @@
 ```text
 services/system/
 ├── ownership/         # owner context, owner index keys, and write rules
+├── pendingdeletion/   # durable fast-delete handoff records
 ├── publiclogin/       # Public HTTP login, assertions, and sessions
 ├── resourcemanager/   # unified entry point for Admin declarative resources
 └── runtimeprofile/    # RuntimeProfile and RegistrationToken
@@ -17,6 +18,10 @@ services/system/
 ### ownership
 
 Defines owner context and KV index conventions used by persisted resources. On the Peer surface, Workspace is user-created state; canonical Model, Credential, Workflow, and Tool mutation is Admin-only. Friend, FriendGroup, and Pet relationships add visibility for their system Workspaces.
+
+### pendingdeletion
+
+Defines the versioned, backend-neutral `PendingDeletion` envelope. A domain fast-delete makes its active resource undiscoverable and writes one minimal cleanup descriptor atomically in that resource's physical store. Peer and user Workspace producers use KV; Pet uses the gameplay SQL database. This package does not run workers, remove pending records, or expose deleted payloads. Processing belongs to the managed cleanup service.
 
 ### runtimeprofile
 

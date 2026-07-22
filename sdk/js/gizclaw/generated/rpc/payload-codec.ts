@@ -1021,6 +1021,8 @@ export type ServerPeerAssignRequest = {
 export type ServerPeerAssignResponse = {
   "assignment": PeerAssignment;
 };
+export type ServerPeerDeleteRequest = Record<string, never>;
+export type ServerPeerDeleteResponse = Record<string, never>;
 export type ServerPeerLookupRequest = {
   "peer_public_key": string;
 };
@@ -1352,6 +1354,7 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.model.get": "ModelGetRequest",
   "server.model.list": "ModelListRequest",
   "server.peer.assign": "ServerPeerAssignRequest",
+  "server.peer.delete": "ServerPeerDeleteRequest",
   "server.peer.lookup": "ServerPeerLookupRequest",
   "server.pet.actions.get": "ServerPetActionsGetRequest",
   "server.pet.delete": "ServerPetDeleteRequest",
@@ -1447,6 +1450,7 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.model.get": "ModelGetResponse",
   "server.model.list": "ModelListResponse",
   "server.peer.assign": "ServerPeerAssignResponse",
+  "server.peer.delete": "ServerPeerDeleteResponse",
   "server.peer.lookup": "ServerPeerLookupResponse",
   "server.pet.actions.get": "ServerPetActionsGetResponse",
   "server.pet.delete": "ServerPetDeleteResponse",
@@ -5919,6 +5923,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "PeerAssignment"
       }
     ]
+  },
+  "ServerPeerDeleteRequest": {
+    "fields": []
+  },
+  "ServerPeerDeleteResponse": {
+    "fields": []
   },
   "ServerPeerLookupRequest": {
     "fields": [

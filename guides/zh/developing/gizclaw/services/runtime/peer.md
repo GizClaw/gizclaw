@@ -15,5 +15,8 @@
 | `Server.EnsureConnectedPeer` | 为已认证 public key 创建默认 active Peer。 |
 | `Server.LoadPeer` / `SavePeer` | 按 public key 读取或保存完整 Peer。 |
 | `Server.BootstrapEdgeNodes` | 将配置中的 Edge Node identity 同步为 Peer 资源。 |
+| `Server.DeleteSelf` | 原子删除 authenticated Peer，并写入 durable pending-deletion handoff。 |
 
 Public key 是 Peer identity，不应和数据库 ID、connection ID 或 Edge assignment 混用。WebRTC connection lifecycle 属于 `giznet` 与根 `PeerManager`，不属于本 package。
+
+Peer 删除会在同一个 KV transaction 中删除 active record 和全部 Peer indexes，并写入一条 `kind=peer` PendingDeletion；它不级联删除 Workspace、Pet、social、gameplay 或 RegistrationToken resource。Admin 删除不会强制关闭在线 connection。`server.peer.delete` 只能删除 caller 自己：Server 写完 acknowledgement 和 EOS 后，由根 connection runtime 关闭该 retired connection。丢失 acknowledgement 后的 Client reconnect 可以创建新一代 active record，但不能覆盖旧 pending event；configured Edge bootstrap 和 generic write 在 locator pending 期间保持 blocked。

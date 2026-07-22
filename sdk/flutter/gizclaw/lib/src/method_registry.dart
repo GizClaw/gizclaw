@@ -573,6 +573,12 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     requestType: 'SpeechSynthesizeRequest',
     responseType: 'SpeechSynthesizeResponse',
   ),
+  'server.peer.delete': RpcMethodDescriptor(
+    id: 94,
+    name: 'server.peer.delete',
+    requestType: 'ServerPeerDeleteRequest',
+    responseType: 'ServerPeerDeleteResponse',
+  ),
 };
 
 const rpcMethodNamesById = <int, String>{
@@ -669,6 +675,7 @@ const rpcMethodNamesById = <int, String>{
   91: 'server.register',
   92: 'server.speech.transcribe',
   93: 'server.speech.synthesize',
+  94: 'server.peer.delete',
 };
 
 RpcMethodDescriptor rpcMethodByName(String name) {

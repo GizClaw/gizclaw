@@ -524,6 +524,12 @@ type fakeRPCPeerService struct {
 	putInfoError       error
 	waitPutInfoContext bool
 	putInfoStarted     chan struct{}
+	deleteSelfError    error
+}
+
+func (s *fakeRPCPeerService) DeleteSelf(_ context.Context, publicKey giznet.PublicKey) error {
+	s.checkPublicKey(publicKey)
+	return s.deleteSelfError
 }
 
 func (s *fakeRPCPeerService) BindFirmware(context.Context, giznet.PublicKey, string) (apitypes.Peer, error) {

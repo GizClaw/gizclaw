@@ -5430,7 +5430,7 @@
             }
           },
           "409": {
-            "description": "Workspace already exists",
+            "description": "Workspace already exists or is pending deletion",
             "content": {
               "application/json": {
                 "schema": {
@@ -5551,6 +5551,16 @@
               }
             }
           },
+          "409": {
+            "description": "Workspace name is pending deletion",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal error",
             "content": {
@@ -5566,6 +5576,7 @@
       "delete": {
         "operationId": "deleteWorkspace",
         "summary": "Delete a workspace",
+        "description": "Immediately removes a user-created Workspace and writes a durable pending-deletion handoff. System Workspaces cannot be deleted through this operation; physical runtime, history, assets, objects, and files are retained for asynchronous cleanup.",
         "tags": [
           "Workspaces"
         ],
@@ -6274,6 +6285,7 @@
       "delete": {
         "operationId": "deletePeer",
         "summary": "Delete a peer",
+        "description": "Immediately removes the active Peer registration and writes a durable pending-deletion handoff. An existing online connection is not forcibly closed by this Admin operation.",
         "tags": [
           "Resource"
         ],
@@ -6301,6 +6313,16 @@
           },
           "404": {
             "description": "Peer not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
             "content": {
               "application/json": {
                 "schema": {
@@ -9142,6 +9164,7 @@
       "delete": {
         "operationId": "deletePeerPet",
         "summary": "Delete a peer Pet",
+        "description": "Immediately removes the Pet row and writes a durable pending-deletion handoff in the same transaction. The Pet's bound system Workspace is retained.",
         "tags": [
           "GameplayDebug"
         ],

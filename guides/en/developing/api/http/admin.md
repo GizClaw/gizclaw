@@ -20,6 +20,10 @@ Go generated output: `pkgs/gizclaw/api/adminhttp`
 
 Admin OpenAPI only has HTTP path, request/response and wire error. Resource validation, authorization, storage and domain lifecycle are implemented by corresponding services and resource managers.
 
+## Fast-delete operations
+
+`DELETE /peers/{publicKey}`, `DELETE /workspaces/{name}`, and `DELETE /peers/{publicKey}/pets/{id}` return the deleted active projection after atomically writing one domain pending-deletion handoff. They do not expose the handoff record. Peer Admin deletion does not force-close an online Peer. Workspace deletion accepts only user-created Workspaces and returns `SYSTEM_WORKSPACE_DELETE_FORBIDDEN` for a system Workspace. Pet deletion retains its bound system Workspace. Physical cleanup and pending inspection/retry APIs are owned by the cleanup service, not these delete operations.
+
 ## Resource dependency
 
 Admin quotes `shared.json`; the generation entry continues to quote `resources/*.json`:

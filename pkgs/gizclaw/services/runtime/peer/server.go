@@ -17,15 +17,17 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/iconasset"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 var (
-	ErrPeerNotFound      = errors.New("peer: peer not found")
-	ErrPeerAlreadyExists = errors.New("peer: peer already exists")
-	ErrInvalidInfo       = errors.New("peer: invalid device info")
+	ErrPeerNotFound        = errors.New("peer: peer not found")
+	ErrPeerAlreadyExists   = errors.New("peer: peer already exists")
+	ErrInvalidInfo         = errors.New("peer: invalid device info")
+	ErrPeerPendingDeletion = errors.New("peer: pending deletion")
 )
 
 const (
@@ -120,9 +122,12 @@ func (s *Server) DeletePeer(ctx context.Context, request adminhttp.DeletePeerReq
 	if err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
 	}
-	peer, err := s.delete(ctx, publicKey)
+	peer, err := s.delete(ctx, publicKey, pendingdeletion.ReasonAdminDelete)
 	if err != nil {
-		return adminhttp.DeletePeer404JSONResponse(apitypes.NewErrorResponse("PEER_NOT_FOUND", err.Error())), nil
+		if errors.Is(err, ErrPeerNotFound) {
+			return adminhttp.DeletePeer404JSONResponse(apitypes.NewErrorResponse("PEER_NOT_FOUND", err.Error())), nil
+		}
+		return adminhttp.DeletePeer500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	return adminhttp.DeletePeer200JSONResponse(toAdminRegistration(peer)), nil
 }

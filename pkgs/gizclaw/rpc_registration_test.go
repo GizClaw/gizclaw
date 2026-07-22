@@ -210,6 +210,10 @@ func (rejectingFirmwarePeer) BindFirmware(context.Context, giznet.PublicKey, str
 	return apitypes.Peer{}, errors.New("store unavailable")
 }
 
+func (rejectingFirmwarePeer) DeleteSelf(context.Context, giznet.PublicKey) error {
+	return nil
+}
+
 func firmwareRegistrationServer(t *testing.T, profileName, firmwareID string) *runtimeprofile.Server {
 	t.Helper()
 	server := &runtimeprofile.Server{

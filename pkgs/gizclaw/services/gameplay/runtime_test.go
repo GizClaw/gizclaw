@@ -11,6 +11,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
 	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
 )
@@ -378,8 +379,66 @@ func TestRuntimeAdoptCallerIDRejectsInvalidProfileAndDeletedReuse(t *testing.T) 
 	if _, err := runtime.DeletePet(profileCtx, "peer-a", petID); err != nil {
 		t.Fatalf("DeletePet() error = %v", err)
 	}
+	if len(workspaces.deleted) != 0 {
+		t.Fatalf("DeletePet() deleted bound Workspace: %#v", workspaces.deleted)
+	}
+	var pendingCount int
+	if err := runtime.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM gameplay_pending_deletions WHERE kind = 'pet' AND owner_public_key = ? AND resource_id = ?`, "peer-a", petID).Scan(&pendingCount); err != nil {
+		t.Fatalf("query Pet pending deletion: %v", err)
+	}
+	if pendingCount != 1 {
+		t.Fatalf("Pet pending deletion count = %d, want 1", pendingCount)
+	}
+	var deletionID string
+	if err := runtime.DB.QueryRowContext(ctx, `SELECT deletion_id FROM gameplay_pending_deletions WHERE owner_public_key = ? AND resource_id = ?`, "peer-a", petID).Scan(&deletionID); err != nil {
+		t.Fatalf("query Pet pending deletion ID: %v", err)
+	}
+	source := PendingDeletionSource{DB: runtime.DB}
+	record, err := source.Get(ctx, deletionID)
+	if err != nil || record.Kind != pendingdeletion.KindPet || record.ResourceID != petID {
+		t.Fatalf("PendingDeletionSource.Get() = %#v, error = %v", record, err)
+	}
+	owner := "peer-a"
+	if exists, err := source.HasLocator(ctx, pendingdeletion.Locator{Kind: pendingdeletion.KindPet, ResourceID: petID, OwnerPublicKey: &owner}); err != nil || !exists {
+		t.Fatalf("PendingDeletionSource.HasLocator() = %v, error = %v", exists, err)
+	}
 	if _, err := runtime.AdoptPet(profileCtx, "peer-a", apitypes.PetAdoptRequest{Id: &petID}); !errors.Is(err, ErrPetIDConflict) {
 		t.Fatalf("AdoptPet(deleted ID) error = %v, want conflict", err)
+	}
+}
+
+func TestRuntimeDeletePetRollsBackWhenPendingInsertFails(t *testing.T) {
+	ctx := context.Background()
+	db := testDB(t)
+	runtime := &Runtime{DB: db}
+	if err := runtime.Migration(ctx); err != nil {
+		t.Fatalf("Migration() error = %v", err)
+	}
+	now := time.Date(2026, 7, 22, 11, 0, 0, 0, time.UTC).Format(time.RFC3339Nano)
+	if _, err := db.ExecContext(ctx, `INSERT INTO gameplay_pets (
+		owner_public_key, id, runtime_profile_name, petdef_id, display_name, workspace_name,
+		stats_json, progression_json, lifecycle, died_at, state_settled_at, last_active_at, created_at, updated_at
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"peer-a", "pet-rollback", "default", "petdef-a", "Pet", "pet-pet-rollback",
+		`{"life":100,"health":100,"satiety":100,"hygiene":100,"mood":100,"energy":100}`, `{"experience":0,"level":1}`, "alive", nil, now, now, now, now,
+	); err != nil {
+		t.Fatalf("insert Pet: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `CREATE TRIGGER fail_gameplay_pending_insert BEFORE INSERT ON gameplay_pending_deletions BEGIN SELECT RAISE(ABORT, 'injected pending failure'); END`); err != nil {
+		t.Fatalf("create failure trigger: %v", err)
+	}
+	if _, err := runtime.DeletePet(ctx, "peer-a", "pet-rollback"); err == nil {
+		t.Fatal("DeletePet() error = nil, want pending insert failure")
+	}
+	var pets, pending int
+	if err := db.QueryRowContext(ctx, `SELECT count(*) FROM gameplay_pets WHERE owner_public_key = ? AND id = ?`, "peer-a", "pet-rollback").Scan(&pets); err != nil {
+		t.Fatalf("count Pets: %v", err)
+	}
+	if err := db.QueryRowContext(ctx, `SELECT count(*) FROM gameplay_pending_deletions WHERE owner_public_key = ? AND resource_id = ?`, "peer-a", "pet-rollback").Scan(&pending); err != nil {
+		t.Fatalf("count pending deletions: %v", err)
+	}
+	if pets != 1 || pending != 0 {
+		t.Fatalf("after rollback Pets=%d pending=%d, want 1 and 0", pets, pending)
 	}
 }
 

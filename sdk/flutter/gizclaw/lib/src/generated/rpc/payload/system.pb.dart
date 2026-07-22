@@ -1069,6 +1069,84 @@ class ServerRegisterResponse extends $pb.GeneratedMessage {
   void clearFirmwareId() => $_clearField(2);
 }
 
+class ServerPeerDeleteRequest extends $pb.GeneratedMessage {
+  factory ServerPeerDeleteRequest() => create();
+
+  ServerPeerDeleteRequest._();
+
+  factory ServerPeerDeleteRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ServerPeerDeleteRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ServerPeerDeleteRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ServerPeerDeleteRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ServerPeerDeleteRequest copyWith(
+          void Function(ServerPeerDeleteRequest) updates) =>
+      super.copyWith((message) => updates(message as ServerPeerDeleteRequest))
+          as ServerPeerDeleteRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ServerPeerDeleteRequest create() => ServerPeerDeleteRequest._();
+  @$core.override
+  ServerPeerDeleteRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ServerPeerDeleteRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ServerPeerDeleteRequest>(create);
+  static ServerPeerDeleteRequest? _defaultInstance;
+}
+
+class ServerPeerDeleteResponse extends $pb.GeneratedMessage {
+  factory ServerPeerDeleteResponse() => create();
+
+  ServerPeerDeleteResponse._();
+
+  factory ServerPeerDeleteResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ServerPeerDeleteResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ServerPeerDeleteResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ServerPeerDeleteResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ServerPeerDeleteResponse copyWith(
+          void Function(ServerPeerDeleteResponse) updates) =>
+      super.copyWith((message) => updates(message as ServerPeerDeleteResponse))
+          as ServerPeerDeleteResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ServerPeerDeleteResponse create() => ServerPeerDeleteResponse._();
+  @$core.override
+  ServerPeerDeleteResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ServerPeerDeleteResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ServerPeerDeleteResponse>(create);
+  static ServerPeerDeleteResponse? _defaultInstance;
+}
+
 class Runtime extends $pb.GeneratedMessage {
   factory Runtime({
     $core.String? lastAddr,
