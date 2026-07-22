@@ -997,7 +997,7 @@ static int inbound_queue_frame(
   frame.type = type;
   frame.data = data;
   frame.len = len;
-  if (inbound->write_started_ms == 0) {
+  if (inbound->tx_offset >= inbound->tx.len) {
     inbound->write_started_ms = gzc_client_instant_ms_internal(inbound->client);
   }
   return gzc_rpc_frame_encode(inbound->platform, &frame, &inbound->tx);
@@ -1379,6 +1379,7 @@ int gzc_rpc_inbound_poll(struct gzc_rpc_inbound *inbound) {
         gzc_client_instant_ms_internal(inbound->client) - inbound->write_started_ms >= timeout_ms) {
       gzc_buf_reset(&inbound->tx);
       inbound->tx_offset = 0;
+      inbound->write_started_ms = 0;
       inbound->phase = GZC_INBOUND_TERMINAL;
       inbound->close_after_write = false;
       inbound->close_requested = true;
@@ -1395,6 +1396,7 @@ int gzc_rpc_inbound_poll(struct gzc_rpc_inbound *inbound) {
     if (rc != GZC_OK) {
       gzc_buf_reset(&inbound->tx);
       inbound->tx_offset = 0;
+      inbound->write_started_ms = 0;
       inbound->phase = GZC_INBOUND_TERMINAL;
       inbound->close_after_write = false;
       inbound->close_requested = true;
@@ -1405,6 +1407,7 @@ int gzc_rpc_inbound_poll(struct gzc_rpc_inbound *inbound) {
     }
     gzc_buf_reset(&inbound->tx);
     inbound->tx_offset = 0;
+    inbound->write_started_ms = 0;
     if (inbound->response_envelope_sent) {
       inbound->response_envelope_flushed = true;
     }

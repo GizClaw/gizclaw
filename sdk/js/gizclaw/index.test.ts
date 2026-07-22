@@ -157,6 +157,29 @@ test("WebRTCRPCClient handles a drain while installing the low-water waiter", as
   assert.deepEqual(await promise, { server_time: 96 });
 });
 
+test("WebRTCRPCClient service write timeouts ignore the wall clock", async () => {
+  const originalNow = Date.now;
+  let wallClockReads = 0;
+  Date.now = () => {
+    wallClockReads += 1;
+    return wallClockReads % 2 === 0 ? 0 : Number.MAX_SAFE_INTEGER;
+  };
+  try {
+    const pc = new FakePeerConnection();
+    const client = new WebRTCRPCClient(pc, { createID: () => "req-monotonic" });
+    const promise = client.call<{ server_time: number }>("all.ping", { client_send_time: 1 });
+    const channel = pc.lastChannel();
+    channel.open();
+    await channel.waitForSent();
+    channel.receive(encodeRPCResponse({ id: "req-monotonic", result: { server_time: 95 }, v: 1 }, "all.ping"));
+
+    assert.deepEqual(await promise, { server_time: 95 });
+    assert.equal(wallClockReads, 0);
+  } finally {
+    Date.now = originalNow;
+  }
+});
+
 test("WebRTCRPCClient serializes logical writes sharing one service channel", async () => {
   const channel = new FakeDataChannel(giznetServiceDataChannelLabel(GIZCLAW_SERVICE_PEER_RPC));
   const factory = { createDataChannel: () => channel };

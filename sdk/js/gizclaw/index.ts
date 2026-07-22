@@ -2216,7 +2216,7 @@ class ServiceDataChannelWriter {
     if (!Number.isFinite(timeoutMs) || timeoutMs < 0) {
       return Promise.reject(new Error("service data channel write timeout must be a non-negative finite number"));
     }
-    const deadline = timeoutMs === 0 ? Number.POSITIVE_INFINITY : Date.now() + timeoutMs;
+    const deadline = timeoutMs === 0 ? Number.POSITIVE_INFINITY : performance.now() + timeoutMs;
     const run = this.tail.then(() => this.writeNow(payloads, options.signal, deadline));
     this.tail = run.catch(() => undefined);
     return run;
@@ -2297,7 +2297,7 @@ class ServiceDataChannelWriter {
       this.channel.addEventListener("bufferedamountlow", onLow);
       this.channel.addEventListener("close", onClose);
       this.channel.addEventListener("error", onError);
-      const remaining = deadline - Date.now();
+      const remaining = deadline - performance.now();
       if (Number.isFinite(deadline)) {
         if (remaining <= 0) {
           settle(() => reject(new Error("service data channel write timed out")));
@@ -2320,7 +2320,7 @@ class ServiceDataChannelWriter {
 
   private assertWritable(signal: AbortSignal | undefined, deadline: number): void {
     if (signal?.aborted) throw abortError();
-    if (Date.now() >= deadline) throw new Error("service data channel write timed out");
+    if (performance.now() >= deadline) throw new Error("service data channel write timed out");
     if (this.channel.readyState !== "open") {
       throw new Error(`RTCDataChannel.readyState is ${JSON.stringify(this.channel.readyState)}, want "open"`);
     }

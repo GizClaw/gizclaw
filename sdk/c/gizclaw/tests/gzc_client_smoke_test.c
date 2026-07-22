@@ -1855,9 +1855,11 @@ int main(void) {
   if (expect(rc == GZC_OK, "poll serves inbound full-duplex speed test") != 0) {
     return 1;
   }
+  clock.instant_ms += config.write_timeout_ms - 4;
   for (size_t i = 0; i < 16 && fake_webrtc.close_count == close_count_before_speed; i++) {
     rc = gzc_client_poll(client, 0);
-    if (rc != GZC_OK) {
+    if (expect(rc == GZC_OK,
+               "each deferred response batch gets an independent timeout") != 0) {
       return 1;
     }
   }

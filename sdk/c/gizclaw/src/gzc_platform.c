@@ -31,7 +31,9 @@ static int64_t gzc_default_time_instant_ms(void *userdata) {
   (void)userdata;
   struct timespec now;
   if (clock_gettime(CLOCK_MONOTONIC, &now) != 0) {
-    return 0;
+    if (timespec_get(&now, TIME_UTC) != TIME_UTC) {
+      return (int64_t)time(NULL) * 1000;
+    }
   }
   return (int64_t)now.tv_sec * 1000 + now.tv_nsec / 1000000;
 }
