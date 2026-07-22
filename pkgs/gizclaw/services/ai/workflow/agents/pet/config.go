@@ -1,38 +1,18 @@
 package pet
 
-func fixedFlowcraftConfig(workspaceName, generateModel, extractModel string, embeddingEnabled bool) map[string]any {
+func fixedFlowcraftConfig(generateModel, extractModel, embeddingModel, starts string) map[string]any {
 	return map[string]any{
-		"workspace": map[string]any{
-			"memory_root":  "memory",
-			"state_root":   "state",
-			"history_root": "history",
-		},
 		"conversation": map[string]any{
-			"starts":     "peer",
-			"context_id": workspaceName,
+			"starts": starts,
 		},
-		"history": map[string]any{
-			"enabled":      true,
-			"kind":         "buffer",
-			"max_messages": 20,
-		},
-		"settings": map[string]any{
-			"generate_model": generateModel,
-			"extract_model":  extractModel,
-		},
-		"memory": petMemoryConfig(workspaceName, embeddingEnabled),
-		"agent":  petAgentConfig(),
+		"memory": petMemoryConfig(extractModel, embeddingModel),
+		"agent":  petAgentConfig(generateModel),
 	}
 }
 
-func petMemoryConfig(workspaceName string, embeddingEnabled bool) map[string]any {
-	return map[string]any{
+func petMemoryConfig(extractModel, embeddingModel string) map[string]any {
+	memory := map[string]any{
 		"enabled": true,
-		"scope": map[string]any{
-			"runtime_id": "gizclaw-pet",
-			"user_id":    workspaceName,
-			"agent_id":   workspaceName,
-		},
 		"write": map[string]any{
 			"save_conversation": true,
 			"mode":              "async_semantic",
@@ -40,7 +20,7 @@ func petMemoryConfig(workspaceName string, embeddingEnabled bool) map[string]any
 		},
 		"extract": map[string]any{
 			"enabled":     true,
-			"model":       "extract_model",
+			"model":       extractModel,
 			"mode":        "two_pass",
 			"temperature": 0,
 			"schema_name": "pet_memory",
@@ -73,16 +53,13 @@ Do not store current Gameplay life/progression numbers, hidden prompts, implemen
 				"events":       recallProfile("tmp_memory_shared_events", []any{"shared_events"}, []any{"event"}, "Shared events:"),
 			},
 		},
-		"retrieval": map[string]any{
-			"backend": "bbh",
-			"bbh": map[string]any{
-				"search_overfetch": 50,
-				"bleve":            map[string]any{"analyzer": "gojieba"},
-				"hnsw":             map[string]any{"flush_interval": 60000000000},
-			},
-		},
-		"embedding": map[string]any{"enabled": embeddingEnabled},
 	}
+	embedding := map[string]any{"enabled": embeddingModel != ""}
+	if embeddingModel != "" {
+		embedding["model"] = embeddingModel
+	}
+	memory["embedding"] = embedding
+	return memory
 }
 
 func memoryLane(name, kind, description, extract, recall string) map[string]any {
@@ -102,7 +79,7 @@ func recallProfile(output string, lanes, kinds []any, header string) map[string]
 	}
 }
 
-func petAgentConfig() map[string]any {
+func petAgentConfig(generateModel string) map[string]any {
 	return map[string]any{
 		"id":             "pet",
 		"name":           "Pet",
@@ -122,7 +99,7 @@ func petAgentConfig() map[string]any {
 				},
 				map[string]any{
 					"id": "answer", "type": "llm", "publish": true,
-					"config": map[string]any{"model": "generate_model", "max_tokens": 384, "system_prompt": "${board.system_prompt}", "track_steps": true},
+					"config": map[string]any{"model": generateModel, "max_tokens": 2048, "system_prompt": "${board.system_prompt}", "track_steps": true},
 				},
 			},
 		},

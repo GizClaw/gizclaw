@@ -400,7 +400,8 @@ func TestServiceReusesWorkspaceRuntimeForMultipleGears(t *testing.T) {
 	}
 	agent := &multiAttachAgent{}
 	factoryCalls := 0
-	host := New(fakeResolver{spec: Spec{Workspace: apitypes.Workspace{Name: "demo"}, AgentType: "multi"}})
+	owner := "workspace-owner"
+	host := New(fakeResolver{spec: Spec{Workspace: apitypes.Workspace{Name: "demo", OwnerPublicKey: &owner}, AgentType: "multi"}})
 	if err := host.Register("multi", FactoryFunc(func(context.Context, Spec) (genx.Transformer, error) {
 		factoryCalls++
 		return agent, nil
@@ -457,6 +458,20 @@ func TestServiceReusesWorkspaceRuntimeForMultipleGears(t *testing.T) {
 	}
 	if err := lease.Release(ctx); err != nil {
 		t.Fatalf("Release after both stops error = %v", err)
+	}
+}
+
+func TestRuntimeKeyIsolatesOwnerlessRuntimeProfiles(t *testing.T) {
+	spec := Spec{Workspace: apitypes.Workspace{Name: "system"}}
+	first := WithResourceAccess(t.Context(), "peer-a", nil, nil, "profile-a")
+	second := WithResourceAccess(t.Context(), "peer-b", nil, nil, "profile-b")
+	if runtimeKey(first, "system", spec) == runtimeKey(second, "system", spec) {
+		t.Fatal("ownerless workspace reused a different caller RuntimeProfile")
+	}
+	owner := "owner"
+	spec.Workspace.OwnerPublicKey = &owner
+	if runtimeKey(first, "system", spec) != runtimeKey(second, "system", spec) {
+		t.Fatal("owned workspace did not share the owner's runtime")
 	}
 }
 

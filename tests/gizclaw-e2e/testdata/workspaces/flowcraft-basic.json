@@ -1,72 +1,76 @@
 {
   "agent": "flowcraft",
   "models": {
-    "llm": "doubao-lite-chat",
-    "tts": "volc-bigtts",
-    "asr": "volc-bigasr-sauc"
+    "asr": "asr",
+    "llm": "llm",
+    "tts": "tts"
   },
+  "persona": "You are a concise Chinese voice chat test user. Keep every utterance short and speech friendly.",
+  "rounds": 3,
+  "timeout": "1200s",
+  "voice": "assistant-voice",
   "workflow": {
-    "name": "flowcraft-voice-assistant",
     "description": "Flowcraft voice adapter workflow",
-    "parameters": {
-      "generate_model": "doubao-lite-chat",
-      "extract_model": "doubao-lite-chat",
-      "input": "push-to-talk"
-    },
     "flowcraft": {
-      "workspace": {
-        "memory_root": "memory",
-        "state_root": "state",
-        "history_root": "history"
+      "agent": {
+        "graph": {
+          "edges": [
+            {
+              "from": "answer",
+              "to": "__end__"
+            }
+          ],
+          "entry": "answer",
+          "name": "Assistant",
+          "nodes": [
+            {
+              "config": {
+                "max_tokens": 2048,
+                "model": "llm",
+                "system_prompt": "你是一个简短、自然的中文语音聊天助手。直接回答用户，不要解释测试流程。"
+              },
+              "id": "answer",
+              "publish": true,
+              "type": "llm"
+            }
+          ]
+        },
+        "id": "voice-adapter",
+        "max_iterations": 4,
+        "name": "Voice Adapter"
       },
       "conversation": {
-        "starts": "peer",
-        "context_id": "flowcraft-voice-assistant"
-      },
-      "history": {
-        "enabled": true,
-        "kind": "buffer",
-        "max_messages": 20
+        "starts": "peer"
       },
       "memory": {
-        "enabled": true,
-        "write": {
-          "save_conversation": true,
-          "mode": "async_semantic",
-          "tier": "general"
-        },
-        "extract": {
-          "enabled": true,
-          "model": "extract_model",
-          "mode": "two_pass",
-          "temperature": 0,
-          "schema_name": "flowcraft_voice_memory"
-        },
         "embedding": {
           "enabled": false
         },
-        "retrieval": {
-          "backend": "memory"
+        "enabled": true,
+        "extract": {
+          "enabled": true,
+          "mode": "two_pass",
+          "model": "llm",
+          "schema_name": "flowcraft_voice_memory",
+          "temperature": 0
+        },
+        "write": {
+          "mode": "async_semantic",
+          "save_conversation": true,
+          "tier": "general"
         }
-      },
-      "agent": {
-        "id": "voice-adapter",
-        "name": "Voice Adapter",
-        "model": "generate_model",
-        "system_prompt": "你是一个简短、自然的中文语音聊天助手。直接回答用户，不要解释测试流程。",
-        "max_iterations": 4
       }
     },
+    "name": "flowcraft-voice-assistant",
+    "parameters": {
+      "input": "push-to-talk"
+    },
     "voice_adapter": {
-      "asr_model": "volc-bigasr-sauc",
-      "default_voice": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+      "asr_model": "asr",
+      "default_voice": "narrator",
       "node_voices": {
-        "answer": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts"
+        "answer": "narrator"
       }
     }
-  },
-  "voice": "volc-tenant:volc-main:zh_female_vv_mars_bigtts",
-  "rounds": 3,
-  "timeout": "1200s",
-  "persona": "You are a concise Chinese voice chat test user. Keep every utterance short and speech friendly."
+  }
 }

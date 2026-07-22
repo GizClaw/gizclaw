@@ -239,6 +239,86 @@ func TestOutputAbandonsDeferredObservationOnErrorClose(t *testing.T) {
 	}
 }
 
+func TestOutputAbandonsOneDeferredObservationWithoutObservingIt(t *testing.T) {
+	var observed []*genx.MessageChunk
+	output := NewOutput(OutputConfig{Observe: func(chunk *genx.MessageChunk) {
+		observed = append(observed, chunk)
+	}})
+	output.DeferOutputObservation()
+	first := &genx.MessageChunk{Part: genx.Text("first")}
+	second := &genx.MessageChunk{Part: genx.Text("second")}
+	_ = output.Push(first)
+	_ = output.Push(second)
+	_, _ = output.Next()
+	_, _ = output.Next()
+	output.AbandonOutputObservation(second)
+	waitDone := make(chan struct{})
+	go func() {
+		output.WaitForObservers()
+		close(waitDone)
+	}()
+	select {
+	case <-waitDone:
+		t.Fatal("WaitForObservers returned before the delivered chunk was observed")
+	case <-time.After(20 * time.Millisecond):
+	}
+	output.ObserveOutput(first)
+	select {
+	case <-waitDone:
+	case <-time.After(time.Second):
+		t.Fatal("WaitForObservers remained blocked after observe and abandon")
+	}
+	if len(observed) != 1 || observed[0] != first {
+		t.Fatalf("observed = %#v, want only first chunk", observed)
+	}
+}
+
+func TestOutputTrackedAbandonmentPropagatesAfterPull(t *testing.T) {
+	output := NewOutput(OutputConfig{})
+	output.DeferOutputObservation()
+	chunk := &genx.MessageChunk{Part: genx.Text("discarded")}
+	abandoned := make(chan *genx.MessageChunk, 1)
+	if err := output.PushTracked(chunk, func(*genx.MessageChunk) {
+		t.Fatal("discarded chunk was observed")
+	}, func(got *genx.MessageChunk) {
+		abandoned <- got
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := output.Next(); err != nil {
+		t.Fatal(err)
+	}
+	output.AbandonOutputObservation(chunk)
+	select {
+	case got := <-abandoned:
+		if got != chunk {
+			t.Fatalf("abandoned chunk = %#v, want %#v", got, chunk)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("abandon callback was not called")
+	}
+}
+
+func TestOutputErrorCloseAbandonsQueuedTrackedChunks(t *testing.T) {
+	output := NewOutput(OutputConfig{})
+	chunk := &genx.MessageChunk{Part: genx.Text("queued")}
+	abandoned := make(chan *genx.MessageChunk, 1)
+	if err := output.PushTracked(chunk, nil, func(got *genx.MessageChunk) {
+		abandoned <- got
+	}); err != nil {
+		t.Fatal(err)
+	}
+	_ = output.CloseWithError(context.Canceled)
+	select {
+	case got := <-abandoned:
+		if got != chunk {
+			t.Fatalf("abandoned chunk = %#v, want %#v", got, chunk)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("abandon callback was not called")
+	}
+}
+
 func TestOutputCloseRejectsNewChunksAfterDraining(t *testing.T) {
 	output := NewOutput(OutputConfig{})
 	if err := output.Close(); err != nil {

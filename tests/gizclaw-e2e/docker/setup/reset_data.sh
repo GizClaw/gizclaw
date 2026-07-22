@@ -129,11 +129,22 @@ init_data() {
       "$bin_path" admin apply --context "$admin_context" -f "$resource_file"
   }
 
+  local provider_voices_synced=0
   for resource_file in "${resource_files[@]}"; do
+    # RuntimeProfiles in the gameplay fixtures bind provider-owned Voice
+    # resources. Materialize those Voices after tenants exist and before the
+    # first profile that references them is validated.
+    if [[ "$provider_voices_synced" == "0" && "$resource_file" == */07-gameplay/* ]]; then
+      if [[ "${GIZCLAW_E2E_SKIP_PROVIDER_SYNC:-0}" != "1" ]]; then
+        XDG_CONFIG_HOME="$config_home" \
+          "$bin_path" admin volc-tenants sync-voices volc-main --context "$admin_context" >/dev/null
+      fi
+      provider_voices_synced=1
+    fi
     apply_resource "$resource_file"
   done
 
-  if [[ "${GIZCLAW_E2E_SKIP_PROVIDER_SYNC:-0}" != "1" ]]; then
+  if [[ "$provider_voices_synced" == "0" && "${GIZCLAW_E2E_SKIP_PROVIDER_SYNC:-0}" != "1" ]]; then
     XDG_CONFIG_HOME="$config_home" \
       "$bin_path" admin volc-tenants sync-voices volc-main --context "$admin_context" >/dev/null
   fi

@@ -1,9 +1,9 @@
 {
   "agent": "flowcraft",
   "models": {
-    "asr": "volc-bigasr-sauc",
-    "llm": "doubao-lite-chat",
-    "tts": "volc-bigtts"
+    "asr": "asr",
+    "llm": "llm",
+    "tts": "tts"
   },
   "persona": "Use short Chinese hint-seeking utterances that keep the poetry adventure on the retry path.",
   "rounds": 3,
@@ -13,9 +13,8 @@
     "请再给我一点提示",
     "我还需要更多线索"
   ],
-  "voice": "volc-tenant:volc-main:zh_female_vv_mars_bigtts",
+  "voice": "assistant-voice",
   "workflow": {
-    "name": "flowcraft-poetry-adventure-li-bai",
     "description": "Flowcraft raid: Poetry Adventure Li Bai",
     "flowcraft": {
       "agent": {
@@ -96,42 +95,6 @@
               "to": "write_poetry_audit"
             },
             {
-              "condition": "poetry_award_route == \"tang_award_badge\"",
-              "from": "checkpoint_clear",
-              "to": "call_tang_moon_badge"
-            },
-            {
-              "condition": "poetry_award_route == \"song_award_badge\"",
-              "from": "checkpoint_clear",
-              "to": "call_song_river_badge"
-            },
-            {
-              "condition": "poetry_award_route == \"yuan_award_badge\"",
-              "from": "checkpoint_clear",
-              "to": "call_yuan_dusk_badge"
-            },
-            {
-              "condition": "poetry_award_route == \"ming_award_badge\"",
-              "from": "checkpoint_clear",
-              "to": "call_ming_courage_badge"
-            },
-            {
-              "from": "call_tang_moon_badge",
-              "to": "advance_checkpoint"
-            },
-            {
-              "from": "call_song_river_badge",
-              "to": "advance_checkpoint"
-            },
-            {
-              "from": "call_yuan_dusk_badge",
-              "to": "advance_checkpoint"
-            },
-            {
-              "from": "call_ming_courage_badge",
-              "to": "advance_checkpoint"
-            },
-            {
               "condition": "poetry_after_award_route == \"journey_finish\"",
               "from": "advance_checkpoint",
               "to": "journey_finish"
@@ -152,6 +115,26 @@
             {
               "from": "write_poetry_audit",
               "to": "__end__"
+            },
+            {
+              "condition": "poetry_award_route == \"tang_award_badge\"",
+              "from": "checkpoint_clear",
+              "to": "advance_checkpoint"
+            },
+            {
+              "condition": "poetry_award_route == \"song_award_badge\"",
+              "from": "checkpoint_clear",
+              "to": "advance_checkpoint"
+            },
+            {
+              "condition": "poetry_award_route == \"yuan_award_badge\"",
+              "from": "checkpoint_clear",
+              "to": "advance_checkpoint"
+            },
+            {
+              "condition": "poetry_award_route == \"ming_award_badge\"",
+              "from": "checkpoint_clear",
+              "to": "advance_checkpoint"
             }
           ],
           "entry": "load_journey_state",
@@ -159,23 +142,23 @@
           "nodes": [
             {
               "config": {
-                "source": "function latestUserText() {\n  const msgs = board.channel(board.MAIN_CHANNEL) || [];\n  for (let i = msgs.length - 1; i >= 0; i--) {\n    const msg = msgs[i] || {};\n    if (msg.role !== \"user\") continue;\n    if (typeof msg.content === \"string\" && msg.content.trim()) return msg.content.trim();\n    const parts = Array.isArray(msg.parts) ? msg.parts : [];\n    const text = parts.map(function(part) {\n      return part && part.type === \"text\" && typeof part.text === \"string\" ? part.text : \"\";\n    }).join(\"\").trim();\n    if (text) return text;\n  }\n  return \"\";\n}\n\nconst checkpoints = [\"tang\", \"song\", \"yuan\", \"ming\"];\nconst checkpointInfo = {\n  tang: { title: \"唐朝月门\", badge: \"badge_tang_moon\", badge_label: \"唐月徽章\", dynasty: \"唐朝\", points: 100, hint: \"这一关要一句带月亮意象的唐诗，可以想《静夜思》或《关山月》。\" },\n  song: { title: \"宋朝江门\", badge: \"badge_song_river\", badge_label: \"宋河徽章\", dynasty: \"宋朝\", points: 100, hint: \"这一关要一句宋代诗词里写江河、湖水或浪涛的句子，可以想苏轼和赤壁江水。\" },\n  yuan: { title: \"元曲暮门\", badge: \"badge_yuan_dusk\", badge_label: \"元暮徽章\", dynasty: \"元朝\", points: 100, hint: \"这一关要一句《天净沙·秋思》里的句子，可以想枯藤、小桥、古道这些画面。\" },\n  ming: { title: \"明朝青石门\", badge: \"badge_ming_courage\", badge_label: \"明勇徽章\", dynasty: \"明朝\", points: 100, hint: \"这一关要一句于谦《石灰吟》里的句子，可以想千锤万凿、粉骨碎身、清白这些词。\" }\n};\nconst existing = board.getVar(\"poetry_journey_state\") || {};\nconst state = Object.assign({\n  checkpoint: \"tang\",\n  status: \"playing\",\n  score: 0,\n  badges: [],\n  attempts: {},\n  awaiting_response: false,\n  last_result: \"\",\n  last_line: \"\",\n  last_badge: \"\",\n  last_badge_label: \"\",\n  last_dynasty: \"\",\n  last_points: 0\n}, existing || {});\nstate.badges = Array.isArray(state.badges) ? state.badges : [];\nstate.attempts = state.attempts && typeof state.attempts === \"object\" ? state.attempts : {};\nif (checkpoints.indexOf(state.checkpoint) < 0 && state.status !== \"finished\") {\n  state.checkpoint = \"tang\";\n}\nstate.latest_user_text = latestUserText();\nstate.current_info = checkpointInfo[state.checkpoint] || checkpointInfo.tang;\nstate.checkpoints = checkpoints;\nconst idx = checkpoints.indexOf(state.checkpoint);\nconst nextCheckpoint = idx >= 0 && idx < checkpoints.length - 1 ? checkpoints[idx + 1] : \"\";\nconst nextInfo = nextCheckpoint ? checkpointInfo[nextCheckpoint] : null;\nboard.setVar(\"poetry_journey_state\", state);\nboard.setVar(\"poetry_journey_state_text\", JSON.stringify(state, null, 2));\nboard.setVar(\"current_checkpoint\", state.checkpoint);\nboard.setVar(\"current_dynasty\", state.current_info.dynasty);\nboard.setVar(\"current_badge\", state.current_info.badge);\nboard.setVar(\"current_badge_label\", state.current_info.badge_label);\nboard.setVar(\"current_points\", state.current_info.points);\nboard.setVar(\"current_hint\", state.current_info.hint || \"\");\nboard.setVar(\"next_dynasty\", nextInfo ? nextInfo.dynasty : \"终点\");\nboard.setVar(\"current_score\", state.score || 0);\nboard.setVar(\"badge_list\", state.badges.join(\",\"));\nconst badgeLabels = {\n  badge_tang_moon: \"唐月徽章\",\n  badge_song_river: \"宋河徽章\",\n  badge_yuan_dusk: \"元暮徽章\",\n  badge_ming_courage: \"明勇徽章\"\n};\nboard.setVar(\"badge_label_list\", state.badges.map(function(badge) {\n  return badgeLabels[badge] || badge;\n}).join(\"、\"));\nboard.setVar(\"latest_user_text\", state.latest_user_text);\nboard.setVar(\"challenge_judgement_text\", \"\");\nboard.setChannel(\"poetry_input_channel\", [{\n  role: \"user\",\n  parts: [{ type: \"text\", text: state.latest_user_text || \"开始\" }]\n}]);\nboard.setChannel(\"poetry_response_channel\", [{\n  role: \"user\",\n  parts: [{ type: \"text\", text: state.latest_user_text || \"开始\" }]\n}]);\n"
+                "source": "function latestUserText() {\n  const msgs = board.channel(board.MAIN_CHANNEL) || [];\n  for (let i = msgs.length - 1; i \u003e= 0; i--) {\n    const msg = msgs[i] || {};\n    if (msg.role !== \"user\") continue;\n    if (typeof msg.content === \"string\" \u0026\u0026 msg.content.trim()) return msg.content.trim();\n    const parts = Array.isArray(msg.parts) ? msg.parts : [];\n    const text = parts.map(function(part) {\n      return part \u0026\u0026 part.type === \"text\" \u0026\u0026 typeof part.text === \"string\" ? part.text : \"\";\n    }).join(\"\").trim();\n    if (text) return text;\n  }\n  return \"\";\n}\n\nconst checkpoints = [\"tang\", \"song\", \"yuan\", \"ming\"];\nconst checkpointInfo = {\n  tang: { title: \"唐朝月门\", badge: \"badge_tang_moon\", badge_label: \"唐月徽章\", dynasty: \"唐朝\", points: 100, hint: \"这一关要一句带月亮意象的唐诗，可以想《静夜思》或《关山月》。\" },\n  song: { title: \"宋朝江门\", badge: \"badge_song_river\", badge_label: \"宋河徽章\", dynasty: \"宋朝\", points: 100, hint: \"这一关要一句宋代诗词里写江河、湖水或浪涛的句子，可以想苏轼和赤壁江水。\" },\n  yuan: { title: \"元曲暮门\", badge: \"badge_yuan_dusk\", badge_label: \"元暮徽章\", dynasty: \"元朝\", points: 100, hint: \"这一关要一句《天净沙·秋思》里的句子，可以想枯藤、小桥、古道这些画面。\" },\n  ming: { title: \"明朝青石门\", badge: \"badge_ming_courage\", badge_label: \"明勇徽章\", dynasty: \"明朝\", points: 100, hint: \"这一关要一句于谦《石灰吟》里的句子，可以想千锤万凿、粉骨碎身、清白这些词。\" }\n};\nconst existing = board.getVar(\"poetry_journey_state\") || {};\nconst state = Object.assign({\n  checkpoint: \"tang\",\n  status: \"playing\",\n  score: 0,\n  badges: [],\n  attempts: {},\n  awaiting_response: false,\n  last_result: \"\",\n  last_line: \"\",\n  last_badge: \"\",\n  last_badge_label: \"\",\n  last_dynasty: \"\",\n  last_points: 0\n}, existing || {});\nstate.badges = Array.isArray(state.badges) ? state.badges : [];\nstate.attempts = state.attempts \u0026\u0026 typeof state.attempts === \"object\" ? state.attempts : {};\nif (checkpoints.indexOf(state.checkpoint) \u003c 0 \u0026\u0026 state.status !== \"finished\") {\n  state.checkpoint = \"tang\";\n}\nstate.latest_user_text = latestUserText();\nstate.current_info = checkpointInfo[state.checkpoint] || checkpointInfo.tang;\nstate.checkpoints = checkpoints;\nconst idx = checkpoints.indexOf(state.checkpoint);\nconst nextCheckpoint = idx \u003e= 0 \u0026\u0026 idx \u003c checkpoints.length - 1 ? checkpoints[idx + 1] : \"\";\nconst nextInfo = nextCheckpoint ? checkpointInfo[nextCheckpoint] : null;\nboard.setVar(\"poetry_journey_state\", state);\nboard.setVar(\"poetry_journey_state_text\", JSON.stringify(state, null, 2));\nboard.setVar(\"current_checkpoint\", state.checkpoint);\nboard.setVar(\"current_dynasty\", state.current_info.dynasty);\nboard.setVar(\"current_badge\", state.current_info.badge);\nboard.setVar(\"current_badge_label\", state.current_info.badge_label);\nboard.setVar(\"current_points\", state.current_info.points);\nboard.setVar(\"current_hint\", state.current_info.hint || \"\");\nboard.setVar(\"next_dynasty\", nextInfo ? nextInfo.dynasty : \"终点\");\nboard.setVar(\"current_score\", state.score || 0);\nboard.setVar(\"badge_list\", state.badges.join(\",\"));\nconst badgeLabels = {\n  badge_tang_moon: \"唐月徽章\",\n  badge_song_river: \"宋河徽章\",\n  badge_yuan_dusk: \"元暮徽章\",\n  badge_ming_courage: \"明勇徽章\"\n};\nboard.setVar(\"badge_label_list\", state.badges.map(function(badge) {\n  return badgeLabels[badge] || badge;\n}).join(\"、\"));\nboard.setVar(\"latest_user_text\", state.latest_user_text);\nboard.setVar(\"challenge_judgement_text\", \"\");\nboard.setChannel(\"poetry_input_channel\", [{\n  role: \"user\",\n  parts: [{ type: \"text\", text: state.latest_user_text || \"开始\" }]\n}]);\nboard.setChannel(\"poetry_response_channel\", [{\n  role: \"user\",\n  parts: [{ type: \"text\", text: state.latest_user_text || \"开始\" }]\n}]);\n"
               },
               "id": "load_journey_state",
               "type": "script"
             },
             {
               "config": {
-                "source": "const state = board.getVar(\"poetry_journey_state\") || {};\nfunction containsAny(text, arr) {\n  for (let i = 0; i < arr.length; i++) {\n    if (text.indexOf(arr[i]) >= 0) return true;\n  }\n  return false;\n}\nconst accepted = {\n  tang: [\"床前明月光\", \"举头望明月\", \"明月出天山\", \"我寄愁心与明月\"],\n  song: [\"大江东去浪淘尽\", \"水光潋滟晴方好\", \"竹外桃花三两枝\"],\n  yuan: [\"枯藤老树昏鸦\", \"小桥流水人家\", \"古道西风瘦马\", \"夕阳西下\"],\n  ming: [\"千锤万凿出深山\", \"粉骨碎身浑不怕\", \"要留清白在人间\"]\n};\nconst latest = String(state.latest_user_text || \"\");\nconst cp = String(state.checkpoint || \"tang\");\nif (state.status === \"finished\") {\n  board.setVar(\"poetry_route\", \"finished_roleplay_chat\");\n} else if (state.awaiting_response === true) {\n  board.setVar(\"poetry_route\", \"judge_challenge\");\n} else if (containsAny(latest, accepted[cp] || [])) {\n  state.awaiting_response = true;\n  board.setVar(\"poetry_journey_state\", state);\n  board.setVar(\"poetry_journey_state_text\", JSON.stringify(state, null, 2));\n  board.setVar(\"poetry_route\", \"judge_challenge\");\n} else {\n  state.awaiting_response = true;\n  board.setVar(\"poetry_journey_state\", state);\n  board.setVar(\"poetry_journey_state_text\", JSON.stringify(state, null, 2));\n  board.setVar(\"poetry_route\", cp + \"_checkpoint\");\n}\n"
+                "source": "const state = board.getVar(\"poetry_journey_state\") || {};\nfunction containsAny(text, arr) {\n  for (let i = 0; i \u003c arr.length; i++) {\n    if (text.indexOf(arr[i]) \u003e= 0) return true;\n  }\n  return false;\n}\nconst accepted = {\n  tang: [\"床前明月光\", \"举头望明月\", \"明月出天山\", \"我寄愁心与明月\"],\n  song: [\"大江东去浪淘尽\", \"水光潋滟晴方好\", \"竹外桃花三两枝\"],\n  yuan: [\"枯藤老树昏鸦\", \"小桥流水人家\", \"古道西风瘦马\", \"夕阳西下\"],\n  ming: [\"千锤万凿出深山\", \"粉骨碎身浑不怕\", \"要留清白在人间\"]\n};\nconst latest = String(state.latest_user_text || \"\");\nconst cp = String(state.checkpoint || \"tang\");\nif (state.status === \"finished\") {\n  board.setVar(\"poetry_route\", \"finished_roleplay_chat\");\n} else if (state.awaiting_response === true) {\n  board.setVar(\"poetry_route\", \"judge_challenge\");\n} else if (containsAny(latest, accepted[cp] || [])) {\n  state.awaiting_response = true;\n  board.setVar(\"poetry_journey_state\", state);\n  board.setVar(\"poetry_journey_state_text\", JSON.stringify(state, null, 2));\n  board.setVar(\"poetry_route\", \"judge_challenge\");\n} else {\n  state.awaiting_response = true;\n  board.setVar(\"poetry_journey_state\", state);\n  board.setVar(\"poetry_journey_state_text\", JSON.stringify(state, null, 2));\n  board.setVar(\"poetry_route\", cp + \"_checkpoint\");\n}\n"
               },
               "id": "route_checkpoint",
               "type": "script"
             },
             {
               "config": {
-                "max_tokens": 28,
+                "max_tokens": 2048,
                 "messages_channel": "poetry_input_channel",
-                "model": "generate_model",
+                "model": "llm",
                 "system_prompt": "你是李白，正在带孩子进行古诗朝代闯关。\n\n当前关卡：唐朝月门。\n场景：孩子和你来到唐朝长安外的月夜渡口，月光照在水面上，只有说出带“月”的唐诗句，月门才会打开。\n\n你要做：\n- 用一句短中文讲场景。\n- 明确告诉孩子这一关要说一句带“月”的唐诗句。\n- 可以提示例子来自《静夜思》或《关山月》，但不要直接替孩子完整作答。\n- 不要提内部节点、state、tool、badge 字段。\n- 只输出一句，最多 18 个汉字。\n\n当前状态：\n${board.poetry_journey_state_text}\n"
               },
               "id": "tang_checkpoint",
@@ -184,9 +167,9 @@
             },
             {
               "config": {
-                "max_tokens": 28,
+                "max_tokens": 2048,
                 "messages_channel": "poetry_input_channel",
-                "model": "generate_model",
+                "model": "llm",
                 "system_prompt": "你是李白，正在带孩子进行古诗朝代闯关。\n\n当前关卡：宋朝江门。\n场景：孩子和你穿过时间门，来到宋朝江边，水雾升起。守门的词牌灯笼要求孩子说出一句宋代诗词里写江河、湖水或浪涛的句子。\n\n你要做：\n- 用一句短中文讲场景。\n- 明确告诉孩子这一关要说一句宋代诗词中和水、江、河、湖、浪有关的句子。\n- 可以提示苏轼，但不要直接替孩子完整作答。\n- 不要提内部节点、state、tool、badge 字段。\n- 只输出一句，最多 18 个汉字。\n\n当前状态：\n${board.poetry_journey_state_text}\n"
               },
               "id": "song_checkpoint",
@@ -195,9 +178,9 @@
             },
             {
               "config": {
-                "max_tokens": 28,
+                "max_tokens": 2048,
                 "messages_channel": "poetry_input_channel",
-                "model": "generate_model",
+                "model": "llm",
                 "system_prompt": "你是李白，正在带孩子进行古诗朝代闯关。\n\n当前关卡：元曲暮门。\n场景：孩子和你来到元代古道，夕阳低低挂着，远处有小桥、流水和人家。暮门要求孩子说出一句元曲《天净沙·秋思》里的句子，才能继续前进。\n\n你要做：\n- 用一句短中文讲场景。\n- 明确告诉孩子这一关要说一句《天净沙·秋思》中的句子。\n- 可以提示“枯藤”“小桥”“古道”这些意象，但不要直接替孩子完整作答。\n- 不要提内部节点、state、tool、badge 字段。\n- 只输出一句，最多 18 个汉字。\n\n当前状态：\n${board.poetry_journey_state_text}\n"
               },
               "id": "yuan_checkpoint",
@@ -206,9 +189,9 @@
             },
             {
               "config": {
-                "max_tokens": 28,
+                "max_tokens": 2048,
                 "messages_channel": "poetry_input_channel",
-                "model": "generate_model",
+                "model": "llm",
                 "system_prompt": "你是李白，正在带孩子进行古诗朝代闯关。\n\n当前关卡：明朝青石门。\n场景：孩子和你来到明朝石灰窑旁，青石门上刻着“勇气”和“清白”。这一关要说出一句明代于谦《石灰吟》里的句子。\n\n你要做：\n- 用一句短中文讲场景。\n- 明确告诉孩子这一关要说一句《石灰吟》里的句子。\n- 可以提示“千锤万凿”“粉骨碎身”“清白”，但不要直接替孩子完整作答。\n- 不要提内部节点、state、tool、badge 字段。\n- 只输出一句，最多 18 个汉字。\n\n当前状态：\n${board.poetry_journey_state_text}\n"
               },
               "id": "ming_checkpoint",
@@ -217,11 +200,11 @@
             },
             {
               "config": {
-                "max_tokens": 128,
+                "max_tokens": 2048,
                 "messages_channel": "poetry_input_channel",
-                "model": "generate_model",
+                "model": "llm",
                 "output_key": "challenge_judgement_text",
-                "system_prompt": "You judge a child answer for a dynasty poetry checkpoint.\n\nOutput exactly one line:\nchallenge_result: passed=<true|false>; line=<line>; reason=<short reason>\n\nCurrent checkpoint:\n${board.current_checkpoint}\n\nPass rules:\n- tang: pass if the child gives a Tang poem line with moon imagery, especially 床前明月光, 举头望明月, 明月出天山, 我寄愁心与明月.\n- song: pass if the child gives a Song poem/ci line about water, river, lake, or waves, especially 大江东去浪淘尽, 水光潋滟晴方好, 竹外桃花三两枝.\n- yuan: pass if the child gives a line from 马致远《天净沙·秋思》, especially 枯藤老树昏鸦, 小桥流水人家, 古道西风瘦马.\n- ming: pass if the child gives a line from 于谦《石灰吟》, especially 千锤万凿出深山, 粉骨碎身浑不怕, 要留清白在人间.\n\nDo not award points. Do not write encouragement. Only output the result line.\n",
+                "system_prompt": "You judge a child answer for a dynasty poetry checkpoint.\n\nOutput exactly one line:\nchallenge_result: passed=\u003ctrue|false\u003e; line=\u003cline\u003e; reason=\u003cshort reason\u003e\n\nCurrent checkpoint:\n${board.current_checkpoint}\n\nPass rules:\n- tang: pass if the child gives a Tang poem line with moon imagery, especially 床前明月光, 举头望明月, 明月出天山, 我寄愁心与明月.\n- song: pass if the child gives a Song poem/ci line about water, river, lake, or waves, especially 大江东去浪淘尽, 水光潋滟晴方好, 竹外桃花三两枝.\n- yuan: pass if the child gives a line from 马致远《天净沙·秋思》, especially 枯藤老树昏鸦, 小桥流水人家, 古道西风瘦马.\n- ming: pass if the child gives a line from 于谦《石灰吟》, especially 千锤万凿出深山, 粉骨碎身浑不怕, 要留清白在人间.\n\nDo not award points. Do not write encouragement. Only output the result line.\n",
                 "temperature": 0
               },
               "id": "judge_challenge",
@@ -230,16 +213,16 @@
             },
             {
               "config": {
-                "source": "function containsAny(text, arr) {\n  for (let i = 0; i < arr.length; i++) {\n    if (text.indexOf(arr[i]) >= 0) return arr[i];\n  }\n  return \"\";\n}\nfunction addUnique(arr, item) {\n  if (arr.indexOf(item) < 0) arr.push(item);\n}\nconst accepted = {\n  tang: [\"床前明月光\", \"举头望明月\", \"明月出天山\", \"我寄愁心与明月\"],\n  song: [\"大江东去浪淘尽\", \"水光潋滟晴方好\", \"竹外桃花三两枝\"],\n  yuan: [\"枯藤老树昏鸦\", \"小桥流水人家\", \"古道西风瘦马\", \"夕阳西下\"],\n  ming: [\"千锤万凿出深山\", \"粉骨碎身浑不怕\", \"要留清白在人间\"]\n};\nconst info = {\n  tang: { dynasty: \"唐朝\", badge: \"badge_tang_moon\", badge_label: \"唐月徽章\", points: 100 },\n  song: { dynasty: \"宋朝\", badge: \"badge_song_river\", badge_label: \"宋河徽章\", points: 100 },\n  yuan: { dynasty: \"元朝\", badge: \"badge_yuan_dusk\", badge_label: \"元暮徽章\", points: 100 },\n  ming: { dynasty: \"明朝\", badge: \"badge_ming_courage\", badge_label: \"明勇徽章\", points: 100 }\n};\nconst state = board.getVar(\"poetry_journey_state\") || {};\nstate.badges = Array.isArray(state.badges) ? state.badges : [];\nstate.attempts = state.attempts && typeof state.attempts === \"object\" ? state.attempts : {};\nconst cp = String(state.checkpoint || \"tang\");\nconst latest = String(state.latest_user_text || board.getVar(\"latest_user_text\") || \"\");\nconst line = containsAny(latest, accepted[cp] || []);\nconst judgeText = String(board.getVar(\"challenge_judgement_text\") || \"\");\nconst modelPassed = /passed\\s*=\\s*true/i.test(judgeText) && !/passed\\s*=\\s*false/i.test(judgeText);\nconst passed = !!line || modelPassed;\nstate.attempts[cp] = (Number(state.attempts[cp]) || 0) + 1;\nstate.last_line = line || latest;\nstate.last_result = passed ? \"passed\" : \"retry\";\nstate.last_reason = passed ? \"cleared checkpoint\" : \"needs another poem line\";\nif (passed) {\n  const current = info[cp] || info.tang;\n  state.awaiting_response = false;\n  state.last_badge = current.badge;\n  state.last_badge_label = current.badge_label;\n  state.last_dynasty = current.dynasty;\n  state.last_points = current.points;\n  const nextBadges = Array.isArray(state.badges) ? state.badges.slice() : [];\n  addUnique(nextBadges, current.badge);\n  state.badges = nextBadges;\n  board.setVar(\"poetry_award_route\", cp + \"_award_badge\");\n  board.setVar(\"poetry_result_route\", \"checkpoint_clear\");\n} else {\n  state.awaiting_response = true;\n  state.last_badge = \"\";\n  state.last_badge_label = \"\";\n  state.last_dynasty = info[cp] ? info[cp].dynasty : \"\";\n  state.last_points = 0;\n  board.setVar(\"poetry_award_route\", \"\");\n  board.setVar(\"poetry_result_route\", \"retry_hint\");\n}\nboard.setVar(\"poetry_journey_state\", state);\nboard.setVar(\"poetry_journey_state_text\", JSON.stringify(state, null, 2));\nboard.setVar(\"last_badge\", state.last_badge || \"\");\nboard.setVar(\"last_badge_label\", state.last_badge_label || \"\");\nboard.setVar(\"last_dynasty\", state.last_dynasty || \"\");\nboard.setVar(\"last_points\", state.last_points || 0);\nboard.setVar(\"last_line\", state.last_line || \"\");\nconst responseText = passed ?\n  (\"孩子说出了：\" + (state.last_line || latest) + \"。他通过了\" + (state.last_dynasty || \"\") + \"关卡，请庆祝通关。\") :\n  (\"孩子刚才说：\" + latest + \"。这次还没有通过\" + (state.last_dynasty || \"\") + \"关卡，请给一个提示。\");\nboard.setChannel(\"poetry_response_channel\", [{\n  role: \"user\",\n  parts: [{ type: \"text\", text: responseText }]\n}]);\n"
+                "source": "function containsAny(text, arr) {\n  for (let i = 0; i \u003c arr.length; i++) {\n    if (text.indexOf(arr[i]) \u003e= 0) return arr[i];\n  }\n  return \"\";\n}\nfunction addUnique(arr, item) {\n  if (arr.indexOf(item) \u003c 0) arr.push(item);\n}\nconst accepted = {\n  tang: [\"床前明月光\", \"举头望明月\", \"明月出天山\", \"我寄愁心与明月\"],\n  song: [\"大江东去浪淘尽\", \"水光潋滟晴方好\", \"竹外桃花三两枝\"],\n  yuan: [\"枯藤老树昏鸦\", \"小桥流水人家\", \"古道西风瘦马\", \"夕阳西下\"],\n  ming: [\"千锤万凿出深山\", \"粉骨碎身浑不怕\", \"要留清白在人间\"]\n};\nconst info = {\n  tang: { dynasty: \"唐朝\", badge: \"badge_tang_moon\", badge_label: \"唐月徽章\", points: 100 },\n  song: { dynasty: \"宋朝\", badge: \"badge_song_river\", badge_label: \"宋河徽章\", points: 100 },\n  yuan: { dynasty: \"元朝\", badge: \"badge_yuan_dusk\", badge_label: \"元暮徽章\", points: 100 },\n  ming: { dynasty: \"明朝\", badge: \"badge_ming_courage\", badge_label: \"明勇徽章\", points: 100 }\n};\nconst state = board.getVar(\"poetry_journey_state\") || {};\nstate.badges = Array.isArray(state.badges) ? state.badges : [];\nstate.attempts = state.attempts \u0026\u0026 typeof state.attempts === \"object\" ? state.attempts : {};\nconst cp = String(state.checkpoint || \"tang\");\nconst latest = String(state.latest_user_text || board.getVar(\"latest_user_text\") || \"\");\nconst line = containsAny(latest, accepted[cp] || []);\nconst judgeText = String(board.getVar(\"challenge_judgement_text\") || \"\");\nconst modelPassed = /passed\\s*=\\s*true/i.test(judgeText) \u0026\u0026 !/passed\\s*=\\s*false/i.test(judgeText);\nconst passed = !!line || modelPassed;\nstate.attempts[cp] = (Number(state.attempts[cp]) || 0) + 1;\nstate.last_line = line || latest;\nstate.last_result = passed ? \"passed\" : \"retry\";\nstate.last_reason = passed ? \"cleared checkpoint\" : \"needs another poem line\";\nif (passed) {\n  const current = info[cp] || info.tang;\n  state.awaiting_response = false;\n  state.last_badge = current.badge;\n  state.last_badge_label = current.badge_label;\n  state.last_dynasty = current.dynasty;\n  state.last_points = current.points;\n  const nextBadges = Array.isArray(state.badges) ? state.badges.slice() : [];\n  addUnique(nextBadges, current.badge);\n  state.badges = nextBadges;\n  board.setVar(\"poetry_award_route\", cp + \"_award_badge\");\n  board.setVar(\"poetry_result_route\", \"checkpoint_clear\");\n} else {\n  state.awaiting_response = true;\n  state.last_badge = \"\";\n  state.last_badge_label = \"\";\n  state.last_dynasty = info[cp] ? info[cp].dynasty : \"\";\n  state.last_points = 0;\n  board.setVar(\"poetry_award_route\", \"\");\n  board.setVar(\"poetry_result_route\", \"retry_hint\");\n}\nboard.setVar(\"poetry_journey_state\", state);\nboard.setVar(\"poetry_journey_state_text\", JSON.stringify(state, null, 2));\nboard.setVar(\"last_badge\", state.last_badge || \"\");\nboard.setVar(\"last_badge_label\", state.last_badge_label || \"\");\nboard.setVar(\"last_dynasty\", state.last_dynasty || \"\");\nboard.setVar(\"last_points\", state.last_points || 0);\nboard.setVar(\"last_line\", state.last_line || \"\");\nconst responseText = passed ?\n  (\"孩子说出了：\" + (state.last_line || latest) + \"。他通过了\" + (state.last_dynasty || \"\") + \"关卡，请庆祝通关。\") :\n  (\"孩子刚才说：\" + latest + \"。这次还没有通过\" + (state.last_dynasty || \"\") + \"关卡，请给一个提示。\");\nboard.setChannel(\"poetry_response_channel\", [{\n  role: \"user\",\n  parts: [{ type: \"text\", text: responseText }]\n}]);\n"
               },
               "id": "apply_checkpoint_result",
               "type": "script"
             },
             {
               "config": {
-                "max_tokens": 28,
+                "max_tokens": 2048,
                 "messages_channel": "poetry_response_channel",
-                "model": "generate_model",
+                "model": "llm",
                 "system_prompt": "你是李白，正在带孩子进行古诗朝代闯关。\n\n孩子刚刚通过了当前朝代关卡。\n- 孩子说出的句子：${board.last_line}\n- 通关朝代：${board.last_dynasty}\n- 即将获得徽章：${board.last_badge_label}\n- 下一站：${board.next_dynasty}\n\n请用自然中文庆祝通关，告诉孩子时间门亮起来了，马上会获得这个朝代的徽章，并准备前往下一个朝代。\n\n约束：\n- 只输出中文闯关台词。\n- 不要提内部节点、state、tool 字段。\n- 不要输出 badge_tang_moon、badge_song_river、badge_yuan_dusk、badge_ming_courage 这样的内部徽章 ID。\n- 面向孩子只能使用唐月徽章、宋河徽章、元暮徽章、明勇徽章这样的中文名称。\n- 不要输出 challenge_result、requirements、JSON、参数、英文判断文本。\n- 如果下一站是“终点”，不要说还有下一关，只说最后的时间门即将打开。\n- 不要重复整首诗。\n- 只输出一句，最多 18 个汉字。\n"
               },
               "id": "checkpoint_clear",
@@ -248,9 +231,9 @@
             },
             {
               "config": {
-                "max_tokens": 28,
+                "max_tokens": 2048,
                 "messages_channel": "poetry_response_channel",
-                "model": "generate_model",
+                "model": "llm",
                 "system_prompt": "你是李白，正在带孩子进行古诗朝代闯关。\n\n孩子这次还没有通过当前关卡。\n- 当前朝代：${board.current_dynasty}\n- 孩子刚才说：${board.latest_user_text}\n- 当前关卡提示：${board.current_hint}\n\n请温和地给一个场景化提示，让孩子继续留在当前朝代再试一次。\n\n约束：\n- 只输出中文闯关台词。\n- 不要直接给完整答案。\n- 可以提示关键词。\n- 不要提内部节点、state、tool 字段。\n- 不要输出 challenge_result、requirements、JSON、参数、英文判断文本。\n- 只输出一句，最多 18 个汉字。\n"
               },
               "id": "retry_hint",
@@ -259,72 +242,16 @@
             },
             {
               "config": {
-                "max_tokens": 64,
-                "messages_channel": "poetry_response_channel",
-                "model": "extract_model",
-                "system_prompt": "You are the Tang badge lifecycle node. Call award_tang_moon_badge exactly once and output no text.\n\nThis tool awards badge_tang_moon and 100 points.\nUse line = \"${board.last_line}\".\nUse reason = \"child cleared the Tang moon checkpoint\".\n",
-                "tool_names": [
-                  "award_tang_moon_badge"
-                ]
-              },
-              "id": "call_tang_moon_badge",
-              "publish": true,
-              "type": "llm"
-            },
-            {
-              "config": {
-                "max_tokens": 64,
-                "messages_channel": "poetry_response_channel",
-                "model": "extract_model",
-                "system_prompt": "You are the Song badge lifecycle node. Call award_song_river_badge exactly once and output no text.\n\nThis tool awards badge_song_river and 100 points.\nUse line = \"${board.last_line}\".\nUse reason = \"child cleared the Song river checkpoint\".\n",
-                "tool_names": [
-                  "award_song_river_badge"
-                ]
-              },
-              "id": "call_song_river_badge",
-              "publish": true,
-              "type": "llm"
-            },
-            {
-              "config": {
-                "max_tokens": 64,
-                "messages_channel": "poetry_response_channel",
-                "model": "extract_model",
-                "system_prompt": "You are the Yuan badge lifecycle node. Call award_yuan_dusk_badge exactly once and output no text.\n\nThis tool awards badge_yuan_dusk and 100 points.\nUse line = \"${board.last_line}\".\nUse reason = \"child cleared the Yuan dusk checkpoint\".\n",
-                "tool_names": [
-                  "award_yuan_dusk_badge"
-                ]
-              },
-              "id": "call_yuan_dusk_badge",
-              "publish": true,
-              "type": "llm"
-            },
-            {
-              "config": {
-                "max_tokens": 64,
-                "messages_channel": "poetry_response_channel",
-                "model": "extract_model",
-                "system_prompt": "You are the Ming badge lifecycle node. Call award_ming_courage_badge exactly once and output no text.\n\nThis tool awards badge_ming_courage and 100 points.\nUse line = \"${board.last_line}\".\nUse reason = \"child cleared the Ming courage checkpoint\".\n",
-                "tool_names": [
-                  "award_ming_courage_badge"
-                ]
-              },
-              "id": "call_ming_courage_badge",
-              "publish": true,
-              "type": "llm"
-            },
-            {
-              "config": {
-                "source": "const order = [\"tang\", \"song\", \"yuan\", \"ming\"];\nconst state = board.getVar(\"poetry_journey_state\") || {};\nconst idx = order.indexOf(String(state.checkpoint || \"tang\"));\nif (idx >= 0 && idx < order.length - 1) {\n  state.checkpoint = order[idx + 1];\n  state.status = \"playing\";\n  state.awaiting_response = false;\n  board.setVar(\"poetry_after_award_route\", \"audit\");\n} else {\n  state.status = \"finished\";\n  state.checkpoint = \"finished\";\n  state.awaiting_response = false;\n  board.setVar(\"poetry_after_award_route\", \"journey_finish\");\n}\nstate.score = (Number(state.score) || 0) + (Number(state.last_points) || 0);\nboard.setVar(\"poetry_journey_state\", state);\nboard.setVar(\"poetry_journey_state_text\", JSON.stringify(state, null, 2));\nboard.setVar(\"current_score\", state.score || 0);\nboard.setVar(\"badge_list\", Array.isArray(state.badges) ? state.badges.join(\",\") : \"\");\nconst badgeLabels = {\n  badge_tang_moon: \"唐月徽章\",\n  badge_song_river: \"宋河徽章\",\n  badge_yuan_dusk: \"元暮徽章\",\n  badge_ming_courage: \"明勇徽章\"\n};\nboard.setVar(\"badge_label_list\", Array.isArray(state.badges) ? state.badges.map(function(badge) {\n  return badgeLabels[badge] || badge;\n}).join(\"、\") : \"\");\nboard.setChannel(\"poetry_response_channel\", [{\n  role: \"user\",\n  parts: [{ type: \"text\", text: \"孩子已经收集完全部朝代徽章，请为古诗旅行收束。\" }]\n}]);\n"
+                "source": "const order = [\"tang\", \"song\", \"yuan\", \"ming\"];\nconst state = board.getVar(\"poetry_journey_state\") || {};\nconst idx = order.indexOf(String(state.checkpoint || \"tang\"));\nif (idx \u003e= 0 \u0026\u0026 idx \u003c order.length - 1) {\n  state.checkpoint = order[idx + 1];\n  state.status = \"playing\";\n  state.awaiting_response = false;\n  board.setVar(\"poetry_after_award_route\", \"audit\");\n} else {\n  state.status = \"finished\";\n  state.checkpoint = \"finished\";\n  state.awaiting_response = false;\n  board.setVar(\"poetry_after_award_route\", \"journey_finish\");\n}\nstate.score = (Number(state.score) || 0) + (Number(state.last_points) || 0);\nboard.setVar(\"poetry_journey_state\", state);\nboard.setVar(\"poetry_journey_state_text\", JSON.stringify(state, null, 2));\nboard.setVar(\"current_score\", state.score || 0);\nboard.setVar(\"badge_list\", Array.isArray(state.badges) ? state.badges.join(\",\") : \"\");\nconst badgeLabels = {\n  badge_tang_moon: \"唐月徽章\",\n  badge_song_river: \"宋河徽章\",\n  badge_yuan_dusk: \"元暮徽章\",\n  badge_ming_courage: \"明勇徽章\"\n};\nboard.setVar(\"badge_label_list\", Array.isArray(state.badges) ? state.badges.map(function(badge) {\n  return badgeLabels[badge] || badge;\n}).join(\"、\") : \"\");\nboard.setChannel(\"poetry_response_channel\", [{\n  role: \"user\",\n  parts: [{ type: \"text\", text: \"孩子已经收集完全部朝代徽章，请为古诗旅行收束。\" }]\n}]);\n"
               },
               "id": "advance_checkpoint",
               "type": "script"
             },
             {
               "config": {
-                "max_tokens": 28,
+                "max_tokens": 2048,
                 "messages_channel": "poetry_response_channel",
-                "model": "generate_model",
+                "model": "llm",
                 "system_prompt": "你是李白，正在带孩子进行古诗朝代闯关。\n\n孩子已经通关全部朝代。\n- 总分：${board.current_score}\n- 徽章：${board.badge_label_list}\n\n请用自然中文给一个收束场景：四枚徽章亮起，时间门合上，孩子完成了古诗朝代旅行。\n\n约束：\n- 只输出中文闯关台词。\n- 不要提内部节点、state、tool 字段。\n- 不要输出 badge_tang_moon、badge_song_river、badge_yuan_dusk、badge_ming_courage 这样的内部徽章 ID。\n- 面向孩子只能使用唐月徽章、宋河徽章、元暮徽章、明勇徽章这样的中文名称。\n- 不要输出 challenge_result、requirements、JSON、参数、英文判断文本。\n- 可以提总分和徽章。\n- 只输出一句，最多 22 个汉字。\n"
               },
               "id": "journey_finish",
@@ -333,9 +260,9 @@
             },
             {
               "config": {
-                "max_tokens": 28,
+                "max_tokens": 2048,
                 "messages_channel": "poetry_response_channel",
-                "model": "generate_model",
+                "model": "llm",
                 "system_prompt": "你是李白，孩子已经完成古诗朝代闯关，现在进入通关后的角色扮演闲聊。\n\n已通关信息：\n- 总分：${board.current_score}\n- 徽章：${board.badge_label_list}\n\n你要做：\n- 继续以李白身份和孩子自然聊天。\n- 可以聊诗、旅行、月亮、江河、下一次想去哪里、徽章的故事含义。\n- 如果孩子问是否通关，明确说今天的四朝闯关已经完成。\n- 如果孩子问下一次冒险，回答成角色扮演里的约定或伏笔，不要开启新关卡，不要重新出题。\n\n约束：\n- 不要再发徽章。\n- 不要再判定答案。\n- 不要提内部节点、state、tool 字段。\n- 不要输出 badge_tang_moon、badge_song_river、badge_yuan_dusk、badge_ming_courage 这样的内部徽章 ID。\n- 面向孩子只能使用唐月徽章、宋河徽章、元暮徽章、明勇徽章这样的中文名称。\n- 不要输出 challenge_result、requirements、JSON、参数、英文判断文本。\n- 只输出一句，最多 22 个汉字。\n"
               },
               "id": "finished_roleplay_chat",
@@ -344,7 +271,7 @@
             },
             {
               "config": {
-                "source": "const state = board.getVar(\"poetry_journey_state\") || {};\nconst badges = Array.isArray(state.badges) ? state.badges : [];\nconst attempts = state.attempts && typeof state.attempts === \"object\" ? state.attempts : {};\nboard.setVar(\"tmp_checkpoint_progress_line\",\n  \"checkpoint_progress: status=\" + (state.status || \"playing\") +\n  \"; checkpoint=\" + (state.checkpoint || \"\") +\n  \"; score=\" + (state.score || 0) +\n  \"; badges=\" + badges.join(\",\") +\n  \"; awaiting=\" + (state.awaiting_response === true));\nboard.setVar(\"tmp_achievement_log_line\",\n  \"achievement_log: checkpoint=\" + (state.last_dynasty || state.checkpoint || \"\") +\n  \"; result=\" + (state.last_result || \"\") +\n  \"; line=\" + (state.last_line || \"\") +\n  \"; attempts=\" + JSON.stringify(attempts));\nboard.setVar(\"tmp_badge_events_line\",\n  \"badge_events: badge=\" + (state.last_badge || \"none\") +\n  \"; points=\" + (state.last_points || 0) +\n  \"; score=\" + (state.score || 0));\n"
+                "source": "const state = board.getVar(\"poetry_journey_state\") || {};\nconst badges = Array.isArray(state.badges) ? state.badges : [];\nconst attempts = state.attempts \u0026\u0026 typeof state.attempts === \"object\" ? state.attempts : {};\nboard.setVar(\"tmp_checkpoint_progress_line\",\n  \"checkpoint_progress: status=\" + (state.status || \"playing\") +\n  \"; checkpoint=\" + (state.checkpoint || \"\") +\n  \"; score=\" + (state.score || 0) +\n  \"; badges=\" + badges.join(\",\") +\n  \"; awaiting=\" + (state.awaiting_response === true));\nboard.setVar(\"tmp_achievement_log_line\",\n  \"achievement_log: checkpoint=\" + (state.last_dynasty || state.checkpoint || \"\") +\n  \"; result=\" + (state.last_result || \"\") +\n  \"; line=\" + (state.last_line || \"\") +\n  \"; attempts=\" + JSON.stringify(attempts));\nboard.setVar(\"tmp_badge_events_line\",\n  \"badge_events: badge=\" + (state.last_badge || \"none\") +\n  \"; points=\" + (state.last_points || 0) +\n  \"; score=\" + (state.score || 0));\n"
               },
               "id": "write_poetry_audit",
               "type": "script"
@@ -353,88 +280,10 @@
         },
         "id": "poetry-adventure-li-bai",
         "max_iterations": 16,
-        "model": "generate_model",
-        "name": "Poetry Adventure Li Bai",
-        "system_prompt": "你是一个简短、自然的中文语音聊天助手。",
-        "tools": [
-          {
-            "description": "Award the Tang Moon badge and 100 points after the child clears the Tang poetry checkpoint.",
-            "input_schema": {
-              "properties": {
-                "line": {
-                  "description": "The poem line that cleared the Tang checkpoint.",
-                  "type": "string"
-                },
-                "reason": {
-                  "description": "Short reason for the award.",
-                  "type": "string"
-                }
-              },
-              "type": "object"
-            },
-            "name": "award_tang_moon_badge"
-          },
-          {
-            "description": "Award the Song River badge and 100 points after the child clears the Song poetry checkpoint.",
-            "input_schema": {
-              "properties": {
-                "line": {
-                  "description": "The poem or ci line that cleared the Song checkpoint.",
-                  "type": "string"
-                },
-                "reason": {
-                  "description": "Short reason for the award.",
-                  "type": "string"
-                }
-              },
-              "type": "object"
-            },
-            "name": "award_song_river_badge"
-          },
-          {
-            "description": "Award the Yuan Dusk badge and 100 points after the child clears the Yuan poetry checkpoint.",
-            "input_schema": {
-              "properties": {
-                "line": {
-                  "description": "The Yuanqu line that cleared the Yuan checkpoint.",
-                  "type": "string"
-                },
-                "reason": {
-                  "description": "Short reason for the award.",
-                  "type": "string"
-                }
-              },
-              "type": "object"
-            },
-            "name": "award_yuan_dusk_badge"
-          },
-          {
-            "description": "Award the Ming Courage badge and 100 points after the child clears the Ming poetry checkpoint.",
-            "input_schema": {
-              "properties": {
-                "line": {
-                  "description": "The poem line that cleared the Ming checkpoint.",
-                  "type": "string"
-                },
-                "reason": {
-                  "description": "Short reason for the award.",
-                  "type": "string"
-                }
-              },
-              "type": "object"
-            },
-            "name": "award_ming_courage_badge"
-          }
-        ]
+        "name": "Poetry Adventure Li Bai"
       },
       "conversation": {
-        "context_id": "flowcraft-poetry-adventure-li-bai",
-        "starts": "self"
-      },
-      "history": {
-        "enabled": true,
-        "kind": "buffer",
-        "max_messages": 20
+        "starts": "agent"
       },
       "memory": {
         "embedding": {
@@ -472,11 +321,6 @@
         "recall": {
           "enabled": false
         },
-        "scope": {
-          "agent_id": "poetry-adventure-li-bai",
-          "runtime_id": "poetry-adventure-li-bai",
-          "user_id": "local"
-        },
         "write": {
           "board_facts": [
             {
@@ -505,38 +349,23 @@
           "save_conversation": true,
           "tier": "general"
         }
-      },
-      "settings": {
-        "extract_model": "extract_model",
-        "generate_model": "generate_model"
-      },
-      "workspace": {
-        "history_root": "history",
-        "memory_root": "memory",
-        "state_root": "state"
       }
     },
+    "name": "flowcraft-poetry-adventure-li-bai",
+    "parameters": {},
     "voice_adapter": {
-      "asr_model": "volc-bigasr-sauc",
-      "default_voice": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+      "asr_model": "asr",
+      "default_voice": "narrator",
       "node_voices": {
-        "tang_checkpoint": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
-        "song_checkpoint": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
-        "yuan_checkpoint": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
-        "ming_checkpoint": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
-        "checkpoint_clear": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
-        "retry_hint": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
-        "call_tang_moon_badge": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
-        "call_song_river_badge": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
-        "call_yuan_dusk_badge": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
-        "call_ming_courage_badge": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
-        "journey_finish": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
-        "finished_roleplay_chat": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts"
+        "checkpoint_clear": "narrator",
+        "finished_roleplay_chat": "narrator",
+        "journey_finish": "narrator",
+        "ming_checkpoint": "narrator",
+        "retry_hint": "narrator",
+        "song_checkpoint": "narrator",
+        "tang_checkpoint": "narrator",
+        "yuan_checkpoint": "narrator"
       }
-    },
-    "parameters": {
-      "extract_model": "doubao-lite-chat",
-      "generate_model": "doubao-lite-chat"
     }
   }
 }

@@ -3,6 +3,8 @@ package agenthost
 import (
 	"context"
 	"fmt"
+	"io"
+	"sync"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
@@ -85,24 +87,35 @@ func (h *Host) openWorkspaceAgent(ctx context.Context, workspaceName string, spe
 		return nil, nil, err
 	}
 
-	release := func() {
-		_ = lease.Release(context.Background())
-	}
+	releaseLease := func() { _ = lease.Release(context.Background()) }
 	factory, ok := h.registry().Get(spec.AgentType)
 	if !ok {
-		release()
+		releaseLease()
 		return nil, nil, fmt.Errorf("agenthost: agent factory not found for %q", spec.AgentType)
 	}
 	agent, err := factory.NewAgent(ctx, spec)
 	if err != nil {
-		release()
+		releaseLease()
 		return nil, nil, err
 	}
 	if agent == nil {
-		release()
+		releaseLease()
 		return nil, nil, fmt.Errorf("agenthost: factory %q returned nil agent", spec.AgentType)
 	}
+	var closer io.Closer
+	if candidate, ok := agent.(io.Closer); ok {
+		closer = candidate
+	}
 	agent = wrapHistoryAgent(agent, spec.Runtime.History)
+	var once sync.Once
+	release := func() {
+		once.Do(func() {
+			if closer != nil {
+				_ = closer.Close()
+			}
+			releaseLease()
+		})
+	}
 	return agent, release, nil
 }
 

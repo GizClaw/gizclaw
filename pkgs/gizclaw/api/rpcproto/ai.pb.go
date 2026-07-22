@@ -2422,16 +2422,13 @@ func (x *FlowcraftWorkflowSpec) GetFields() *structpb.Struct {
 }
 
 type FlowcraftWorkspaceParameters struct {
-	state          protoimpl.MessageState                `protogen:"open.v1"`
-	AgentType      FlowcraftWorkspaceParametersAgentType `protobuf:"varint,1,opt,name=agent_type,json=agentType,proto3,enum=gizclaw.rpc.v1.FlowcraftWorkspaceParametersAgentType" json:"agent_type,omitempty"`
-	Conversation   *FlowcraftConversationParameters      `protobuf:"bytes,2,opt,name=conversation,proto3,oneof" json:"conversation,omitempty"`
-	E2E            *bool                                 `protobuf:"varint,3,opt,name=e2e,proto3,oneof" json:"e2e,omitempty"`
-	EmbeddingModel *string                               `protobuf:"bytes,4,opt,name=embedding_model,json=embeddingModel,proto3,oneof" json:"embedding_model,omitempty"`
-	ExtractModel   *string                               `protobuf:"bytes,5,opt,name=extract_model,json=extractModel,proto3,oneof" json:"extract_model,omitempty"`
-	GenerateModel  *string                               `protobuf:"bytes,6,opt,name=generate_model,json=generateModel,proto3,oneof" json:"generate_model,omitempty"`
-	Input          *WorkspaceInputMode                   `protobuf:"varint,7,opt,name=input,proto3,enum=gizclaw.rpc.v1.WorkspaceInputMode,oneof" json:"input,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state         protoimpl.MessageState                `protogen:"open.v1"`
+	AgentType     FlowcraftWorkspaceParametersAgentType `protobuf:"varint,1,opt,name=agent_type,json=agentType,proto3,enum=gizclaw.rpc.v1.FlowcraftWorkspaceParametersAgentType" json:"agent_type,omitempty"`
+	Conversation  *FlowcraftConversationParameters      `protobuf:"bytes,2,opt,name=conversation,proto3,oneof" json:"conversation,omitempty"`
+	E2E           *bool                                 `protobuf:"varint,3,opt,name=e2e,proto3,oneof" json:"e2e,omitempty"`
+	Input         *WorkspaceInputMode                   `protobuf:"varint,7,opt,name=input,proto3,enum=gizclaw.rpc.v1.WorkspaceInputMode,oneof" json:"input,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *FlowcraftWorkspaceParameters) Reset() {
@@ -2483,27 +2480,6 @@ func (x *FlowcraftWorkspaceParameters) GetE2E() bool {
 		return *x.E2E
 	}
 	return false
-}
-
-func (x *FlowcraftWorkspaceParameters) GetEmbeddingModel() string {
-	if x != nil && x.EmbeddingModel != nil {
-		return *x.EmbeddingModel
-	}
-	return ""
-}
-
-func (x *FlowcraftWorkspaceParameters) GetExtractModel() string {
-	if x != nil && x.ExtractModel != nil {
-		return *x.ExtractModel
-	}
-	return ""
-}
-
-func (x *FlowcraftWorkspaceParameters) GetGenerateModel() string {
-	if x != nil && x.GenerateModel != nil {
-		return *x.GenerateModel
-	}
-	return ""
 }
 
 func (x *FlowcraftWorkspaceParameters) GetInput() WorkspaceInputMode {
@@ -5363,22 +5339,16 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\x18_agent_initiative_policyB\r\n" +
 	"\v_initiative\"H\n" +
 	"\x15FlowcraftWorkflowSpec\x12/\n" +
-	"\x06fields\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x06fields\"\x84\x04\n" +
+	"\x06fields\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x06fields\"\x89\x03\n" +
 	"\x1cFlowcraftWorkspaceParameters\x12T\n" +
 	"\n" +
 	"agent_type\x18\x01 \x01(\x0e25.gizclaw.rpc.v1.FlowcraftWorkspaceParametersAgentTypeR\tagentType\x12X\n" +
 	"\fconversation\x18\x02 \x01(\v2/.gizclaw.rpc.v1.FlowcraftConversationParametersH\x00R\fconversation\x88\x01\x01\x12\x15\n" +
-	"\x03e2e\x18\x03 \x01(\bH\x01R\x03e2e\x88\x01\x01\x12,\n" +
-	"\x0fembedding_model\x18\x04 \x01(\tH\x02R\x0eembeddingModel\x88\x01\x01\x12(\n" +
-	"\rextract_model\x18\x05 \x01(\tH\x03R\fextractModel\x88\x01\x01\x12*\n" +
-	"\x0egenerate_model\x18\x06 \x01(\tH\x04R\rgenerateModel\x88\x01\x01\x12=\n" +
-	"\x05input\x18\a \x01(\x0e2\".gizclaw.rpc.v1.WorkspaceInputModeH\x05R\x05input\x88\x01\x01B\x0f\n" +
+	"\x03e2e\x18\x03 \x01(\bH\x01R\x03e2e\x88\x01\x01\x12=\n" +
+	"\x05input\x18\a \x01(\x0e2\".gizclaw.rpc.v1.WorkspaceInputModeH\x02R\x05input\x88\x01\x01B\x0f\n" +
 	"\r_conversationB\x06\n" +
-	"\x04_e2eB\x12\n" +
-	"\x10_embedding_modelB\x10\n" +
-	"\x0e_extract_modelB\x11\n" +
-	"\x0f_generate_modelB\b\n" +
-	"\x06_input\"\x84\x01\n" +
+	"\x04_e2eB\b\n" +
+	"\x06_inputJ\x04\b\x04\x10\x05J\x04\b\x05\x10\x06J\x04\b\x06\x10\aR\x0egenerate_modelR\rextract_modelR\x0fembedding_model\"\x84\x01\n" +
 	"\x19PetConversationParameters\x12X\n" +
 	"\n" +
 	"initiative\x18\x01 \x01(\x0e23.gizclaw.rpc.v1.PetConversationParametersInitiativeH\x00R\n" +

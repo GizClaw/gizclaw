@@ -69,14 +69,6 @@ func (h *runHost) Publish(_ context.Context, envelope event.Envelope) error {
 	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	if delta.Speculative && delta.ForkID != "" && delta.BranchID != "" {
-		key := delta.ForkID + "\x00" + delta.BranchID
-		if _, done := h.terminal[key]; done {
-			return nil
-		}
-		h.buffers[key] = append(h.buffers[key], bufferedDelta{nodeID: envelope.NodeID(), delta: delta})
-		return nil
-	}
 	switch delta.Type {
 	case engine.StreamDeltaParallelBranchAccept:
 		key := delta.ForkID + "\x00" + delta.BranchID
@@ -95,6 +87,14 @@ func (h *runHost) Publish(_ context.Context, envelope event.Envelope) error {
 		delete(h.buffers, key)
 		h.terminal[key] = struct{}{}
 	default:
+		if delta.Speculative && delta.ForkID != "" && delta.BranchID != "" {
+			key := delta.ForkID + "\x00" + delta.BranchID
+			if _, done := h.terminal[key]; done {
+				return nil
+			}
+			h.buffers[key] = append(h.buffers[key], bufferedDelta{nodeID: envelope.NodeID(), delta: delta})
+			return nil
+		}
 		return h.emitLocked(envelope.NodeID(), delta)
 	}
 	return nil

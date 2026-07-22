@@ -33,7 +33,7 @@ func TestCSDKChatRoundtrip(t *testing.T) {
 	configPath := filepath.Join(h.RepoRoot, "tests", "gizclaw-e2e", "testdata", "workspaces", "doubao-realtime.json")
 	contextConfigPath := filepath.Join(identityDir, "config.yaml")
 	registrationToken := createCSDKChatRegistrationToken(t, h, "roundtrip")
-	workspaceName, err := gochat.PrepareCgoPushToTalkWorkspace(ctx, configPath, contextConfigPath, "realtime", registrationToken)
+	workspaceName, err := gochat.PrepareCgoPushToTalkWorkspace(ctx, configPath, contextConfigPath, "realtime-workflow", registrationToken)
 	if err != nil {
 		t.Fatalf("prepare cgo chat workspace: %v", err)
 	}
@@ -54,8 +54,8 @@ func createCSDKChatRegistrationToken(t *testing.T, h *clitest.Harness, scenario 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	workflowResources := map[string]string{
-		"chatroom": "chatroom-direct",
-		"realtime": "doubao-realtime-conversation",
+		"chatroom":          "chatroom-direct",
+		"realtime-workflow": "doubao-realtime-conversation",
 	}
 	modelResources := map[string]string{
 		"llm":      "doubao-lite-chat",
@@ -63,11 +63,15 @@ func createCSDKChatRegistrationToken(t *testing.T, h *clitest.Harness, scenario 
 		"asr":      "volc-bigasr-sauc",
 		"realtime": "doubao-realtime-dialog",
 	}
+	voiceResources := map[string]string{
+		"doubao-assistant": "volc-tenant:volc-main:zh_female_vv_jupiter_bigtts",
+	}
 	profileName := "cgo-chat"
 	profileResp, err := api.PutRuntimeProfileWithResponse(ctx, profileName, adminhttp.RuntimeProfileUpsert{
 		Name: profileName,
 		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{
 			Models: ptr(runtimeBindings(modelResources)),
+			Voices: ptr(runtimeBindings(voiceResources)),
 		}, Workflows: apitypes.RuntimeProfileWorkflows{Collections: apitypes.RuntimeProfileWorkflowCollections{
 			"assistants": runtimeBindings(workflowResources),
 		}}},

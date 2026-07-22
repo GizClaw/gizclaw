@@ -7,6 +7,4 @@ spec:
   workflow_name: flowcraft-voice-assistant
   parameters:
     agent_type: flowcraft
-    generate_model: doubao-lite-chat
-    extract_model: doubao-lite-chat
     input: push-to-talk

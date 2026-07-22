@@ -83,15 +83,6 @@
           "input": {
             "$ref": "#/components/schemas/WorkspaceInputMode"
           },
-          "generate_model": {
-            "type": "string"
-          },
-          "extract_model": {
-            "type": "string"
-          },
-          "embedding_model": {
-            "type": "string"
-          },
           "conversation": {
             "$ref": "#/components/schemas/FlowcraftConversationParameters"
           },
@@ -103,8 +94,6 @@
         "example": {
           "agent_type": "flowcraft",
           "input": "push-to-talk",
-          "generate_model": "e2e-doubao-2-lite-chat",
-          "extract_model": "e2e-doubao-2-lite-chat",
           "conversation": {
             "initiative": "agent",
             "agent_initiative_policy": "once_when_empty"

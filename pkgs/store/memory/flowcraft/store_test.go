@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -13,6 +14,7 @@ import (
 	flowworkspace "github.com/GizClaw/flowcraft/memory/recall/store/workspace"
 	"github.com/GizClaw/flowcraft/sdk/errdefs"
 	"github.com/GizClaw/flowcraft/sdk/workspace"
+	memorystore "github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
 const testScope Scope = "conversation-a"
@@ -54,6 +56,34 @@ func TestStoreScopesAreIsolated(t *testing.T) {
 		if _, leaked := result.Matches[0].Fact.Attributes["scope"]; leaked {
 			t.Fatalf("scope leaked into fact attributes: %+v", result.Matches[0].Fact.Attributes)
 		}
+	}
+}
+
+func TestStorePersistsStructuredFactCandidatesWithoutExtraction(t *testing.T) {
+	t.Parallel()
+	store := newTestStore(t, Config{})
+	result, err := store.Observe(context.Background(), Observation{
+		Scope: testScope,
+		Facts: []memorystore.FactCandidate{{
+			Text: "story_progress: progress: current_beat=origin",
+			Attributes: map[string]any{
+				"kind": "state", "subject": "story_progress", "predicate": "progress",
+				"object": "origin", "entities": []string{"wukong", "origin"}, "lane": "story_progress",
+			},
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Facts) != 1 {
+		t.Fatalf("Observe() facts = %d, want 1", len(result.Facts))
+	}
+	fact := result.Facts[0]
+	if fact.Text != "story_progress: progress: current_beat=origin" || fact.Attributes["kind"] != "state" || fact.Attributes["subject"] != "story_progress" || fact.Attributes["predicate"] != "progress" || fact.Attributes["object"] != "origin" || fact.Attributes["lane"] != "story_progress" {
+		t.Fatalf("Observe() fact = %#v", fact)
+	}
+	if entities, ok := fact.Attributes["entities"].([]string); !ok || !slices.Contains(entities, "wukong") || !slices.Contains(entities, "origin") {
+		t.Fatalf("Observe() entities = %#v, want wukong and origin", fact.Attributes["entities"])
 	}
 }
 

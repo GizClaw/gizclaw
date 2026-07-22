@@ -2,6 +2,7 @@ package peerresource
 
 import (
 	"context"
+	"encoding/json"
 	"reflect"
 	"strings"
 	"testing"
@@ -295,7 +296,22 @@ func assertAliasNotFound(t *testing.T, response *rpcapi.RPCResponse, message, ca
 
 func createWorkflowForCollectionTest(t *testing.T, ctx context.Context, server *workflow.Server, name string) {
 	t.Helper()
-	spec := apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverFlowcraft}
+	var flowcraftSpec apitypes.FlowcraftWorkflowSpec
+	if err := json.Unmarshal([]byte(`{
+		"agent": {
+			"id": "assistant",
+			"name": "Assistant",
+			"graph": {
+				"name": "assistant",
+				"entry": "answer",
+				"nodes": [{"id": "answer", "type": "passthrough", "publish": true}],
+				"edges": [{"from": "answer", "to": "__end__"}]
+			}
+		}
+	}`), &flowcraftSpec); err != nil {
+		t.Fatalf("decode test Flowcraft config: %v", err)
+	}
+	spec := apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverFlowcraft, Flowcraft: &flowcraftSpec}
 	if strings.Contains(name, "translate") {
 		langPair := "zh/ja"
 		spec = apitypes.WorkflowSpec{

@@ -86,6 +86,8 @@ type Server struct {
 	MetricsStore                 metrics.Store
 	ServerLogQuery               ServerLogQueryService
 	FlowcraftHistory             logstore.MutableStore
+	FlowcraftState               kv.Store
+	FlowcraftMemoryObjects       objectstore.ObjectStore
 	FriendGroupMessageDefaultTTL time.Duration
 	FriendGroupMessageMaxTTL     time.Duration
 	FriendGroupMessageCleanup    time.Duration
@@ -320,6 +322,8 @@ func (s *Server) usesLegacySharedStore() bool {
 	return s.CredentialStore == nil &&
 		s.FirmwareStore == nil &&
 		s.AgentHostStore == nil &&
+		s.FlowcraftState == nil &&
+		s.FlowcraftMemoryObjects == nil &&
 		s.MiniMaxTenantStore == nil &&
 		s.DeepSeekTenantStore == nil &&
 		s.VolcTenantStore == nil &&
@@ -406,6 +410,14 @@ func (s *Server) init() error {
 	manager := NewManager(peersServer)
 	manager.PetWorkflow = s.PetWorkflow
 	manager.FlowcraftHistory = s.FlowcraftHistory
+	manager.FlowcraftState = s.FlowcraftState
+	if manager.FlowcraftState == nil {
+		manager.FlowcraftState = moduleStore(nil, s.PeerStore, "flowcraft-state")
+	}
+	manager.FlowcraftMemoryObjects = s.FlowcraftMemoryObjects
+	if manager.FlowcraftMemoryObjects == nil {
+		manager.FlowcraftMemoryObjects = s.AgentHostStore
+	}
 	manager.SpeechLimits = s.SpeechLimits
 	manager.PeerRoutes = &peerroute.Server{
 		Store:           peerRouteStore,
@@ -489,10 +501,11 @@ func (s *Server) init() error {
 	manager.ToolExecutors = toolExecutors
 	manager.ToolBuilder = &toolkit.Builder{Tools: toolServer, Availability: toolExecutors}
 	manager.AgentHost = agenthost.New(agenthost.ServiceResolver{
-		Workspaces:    workspaceServer,
-		Workflows:     workflowServer,
-		ToolBuilder:   manager.ToolBuilder,
-		ToolExecutors: toolExecutors,
+		Workspaces:             workspaceServer,
+		Workflows:              workflowServer,
+		RuntimeProfileForOwner: manager.runtimeProfileForOwner,
+		ToolBuilder:            manager.ToolBuilder,
+		ToolExecutors:          toolExecutors,
 	})
 	manager.Workspaces = workspaceServer
 	manager.Workflows = workflowServer

@@ -82,11 +82,55 @@ func TestHistoryAgentForwardsFinalOutputObservation(t *testing.T) {
 	}
 	select {
 	case observed := <-upstream.observed:
-		if observed != got {
-			t.Fatalf("observed chunk = %#v, want forwarded chunk %#v", observed, got)
+		if observed != chunk {
+			t.Fatalf("observed chunk = %#v, want original upstream chunk %#v", observed, chunk)
 		}
 	case <-time.After(time.Second):
 		t.Fatal("history wrapper did not forward final output observation")
+	}
+	if _, err := out.Next(); !IsStreamDone(err) {
+		t.Fatalf("Next() done error = %v", err)
+	}
+}
+
+func TestHistoryAgentForwardsAbandonedOutputObservation(t *testing.T) {
+	chunk := &genx.MessageChunk{
+		Role: genx.RoleModel,
+		Name: "assistant",
+		Part: genx.Text("discard me"),
+		Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant"},
+	}
+	upstream := newRecordingObservationStream(historyStreamFromChunks(chunk))
+	agent := wrapHistoryAgent(historyTestAgent{output: upstream}, workspace.NewHistoryStore(objectstore.Dir(t.TempDir()), "demo"))
+	out, err := agent.Transform(withHistoryGearID(context.Background(), "gear-a"), historyStreamFromChunks())
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	observer, ok := out.(interface {
+		DeferOutputObservation()
+		AbandonOutputObservation(*genx.MessageChunk)
+	})
+	if !ok {
+		t.Fatalf("output %T does not preserve the abandonment contract", out)
+	}
+	observer.DeferOutputObservation()
+	forwarded, err := out.Next()
+	if err != nil {
+		t.Fatalf("Next() error = %v", err)
+	}
+	observer.AbandonOutputObservation(forwarded)
+	select {
+	case abandoned := <-upstream.abandoned:
+		if abandoned != chunk {
+			t.Fatalf("abandoned chunk = %#v, want original upstream chunk %#v", abandoned, chunk)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("history wrapper did not forward abandoned output observation")
+	}
+	select {
+	case observed := <-upstream.observed:
+		t.Fatalf("abandoned chunk was incorrectly observed: %#v", observed)
+	default:
 	}
 	if _, err := out.Next(); !IsStreamDone(err) {
 		t.Fatalf("Next() done error = %v", err)

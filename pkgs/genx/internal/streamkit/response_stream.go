@@ -2,6 +2,7 @@ package streamkit
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 
@@ -18,7 +19,7 @@ type ResponseStream struct {
 
 	mu                  sync.Mutex
 	responses           map[string]*responseRouteState
-	pendingObservations map[string]*pendingObservation
+	pendingObservations map[string][]pendingObservation
 	observationDeferred bool
 	sequence            uint64
 }
@@ -33,13 +34,20 @@ type responseRouteState struct {
 }
 
 type pendingObservation struct {
-	upstreamID string
-	count      uint64
+	chunk *genx.MessageChunk
 }
 
 type outputObservationStream interface {
 	DeferOutputObservation()
 	ObserveOutput(*genx.MessageChunk)
+}
+
+type outputObservationAbandoner interface {
+	AbandonOutputObservation(*genx.MessageChunk)
+}
+
+type outputObservationBulkAbandoner interface {
+	AbandonDeferredObservations()
 }
 
 // NewResponseStream wraps a provider output stream with response-ID isolation.
@@ -50,7 +58,7 @@ func NewResponseStream(source genx.Stream) (*ResponseStream, error) {
 	return &ResponseStream{
 		source:              source,
 		responses:           make(map[string]*responseRouteState),
-		pendingObservations: make(map[string]*pendingObservation),
+		pendingObservations: make(map[string][]pendingObservation),
 	}, nil
 }
 
@@ -76,12 +84,10 @@ func (s *ResponseStream) Next() (*genx.MessageChunk, error) {
 
 	s.mu.Lock()
 	if s.observationDeferred {
-		pending := s.pendingObservations[copyCtrl.StreamID]
-		if pending == nil {
-			pending = &pendingObservation{upstreamID: upstreamID}
-			s.pendingObservations[copyCtrl.StreamID] = pending
-		}
-		pending.count++
+		s.pendingObservations[copyCtrl.StreamID] = append(
+			s.pendingObservations[copyCtrl.StreamID],
+			pendingObservation{chunk: chunk},
+		)
 	}
 	s.mu.Unlock()
 	return result, nil
@@ -133,28 +139,89 @@ func (s *ResponseStream) ObserveOutput(chunk *genx.MessageChunk) {
 	if !ok {
 		return
 	}
-	observed := chunk
-	if chunk.Ctrl != nil {
-		s.mu.Lock()
-		localID := strings.TrimSpace(chunk.Ctrl.StreamID)
-		pending := s.pendingObservations[localID]
-		if pending != nil {
-			if pending.count > 1 {
-				pending.count--
-			} else {
-				delete(s.pendingObservations, localID)
-			}
-		}
-		s.mu.Unlock()
-		if pending != nil {
-			copyChunk := *chunk
-			copyCtrl := *chunk.Ctrl
-			copyCtrl.StreamID = pending.upstreamID
-			copyChunk.Ctrl = &copyCtrl
-			observed = &copyChunk
+	pending, ok := s.takePendingObservation(chunk)
+	if !ok {
+		return
+	}
+	observer.ObserveOutput(pending.chunk)
+}
+
+// AbandonOutputObservation releases the wrapped producer's deferred delivery
+// acknowledgement without recording the chunk as delivered. Composition
+// layers call this for read-ahead output discarded by a later interruption.
+func (s *ResponseStream) AbandonOutputObservation(chunk *genx.MessageChunk) {
+	if s == nil || chunk == nil {
+		return
+	}
+	abandoner, ok := s.source.(outputObservationAbandoner)
+	if !ok {
+		return
+	}
+	pending, ok := s.takePendingObservation(chunk)
+	if !ok {
+		return
+	}
+	abandoner.AbandonOutputObservation(pending.chunk)
+}
+
+// AbandonAllOutputObservations releases every source chunk already read by
+// this wrapper but not acknowledged at a later delivery boundary. It returns
+// the local response IDs so a composition layer can reject late chunks from
+// those interrupted routes as well.
+func (s *ResponseStream) AbandonAllOutputObservations() []string {
+	if s == nil {
+		return nil
+	}
+	abandoner, ok := s.source.(outputObservationAbandoner)
+	bulkAbandoner, bulkOK := s.source.(outputObservationBulkAbandoner)
+	if !ok && !bulkOK {
+		return nil
+	}
+	s.mu.Lock()
+	ids := make([]string, 0, len(s.pendingObservations))
+	pending := make([]pendingObservation, 0)
+	for localID, observations := range s.pendingObservations {
+		ids = append(ids, localID)
+		pending = append(pending, observations...)
+	}
+	clear(s.pendingObservations)
+	s.mu.Unlock()
+	if ok {
+		for _, observation := range pending {
+			abandoner.AbandonOutputObservation(observation.chunk)
 		}
 	}
-	observer.ObserveOutput(observed)
+	// A source can dequeue a chunk immediately before this wrapper records its
+	// response-local observation. A bulk-capable source has no other consumer,
+	// so releasing its remaining deferred observations closes that race without
+	// marking discarded output as delivered.
+	if bulkOK {
+		bulkAbandoner.AbandonDeferredObservations()
+	}
+	sort.Strings(ids)
+	return ids
+}
+
+func (s *ResponseStream) takePendingObservation(chunk *genx.MessageChunk) (pendingObservation, bool) {
+	if s == nil || chunk == nil || chunk.Ctrl == nil {
+		return pendingObservation{}, false
+	}
+	localID := strings.TrimSpace(chunk.Ctrl.StreamID)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	pending := s.pendingObservations[localID]
+	if len(pending) == 0 {
+		return pendingObservation{}, false
+	}
+	result := pending[0]
+	if len(pending) == 1 {
+		delete(s.pendingObservations, localID)
+	} else {
+		var zero pendingObservation
+		pending[0] = zero
+		s.pendingObservations[localID] = pending[1:]
+	}
+	return result, true
 }
 
 func (s *ResponseStream) responseID(upstream string, chunk *genx.MessageChunk) string {

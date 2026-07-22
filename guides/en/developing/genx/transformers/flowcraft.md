@@ -9,6 +9,7 @@ transformer, err := flowcraft.New(flowcraft.Config{
     ID:          "assistant",
     Name:        "Assistant",
     Description: "General assistant",
+    ContextID:   "workspace/assistant",
     Graph:       graphDefinition,
     MaxIterations: 32,
     PublishNodes: []string{"answer"},
@@ -28,7 +29,7 @@ transformer, err := flowcraft.New(flowcraft.Config{
 })
 ```
 
-`Graph` is required and accepts only LLM nodes and script nodes with inline `source`. Scripts can operate on the Board and use runtime features such as match, but no Workspace is installed, so filesystem APIs are unavailable. `PublishNodes` explicitly selects which node assistant tokens can enter the output Stream.
+`Graph` is required and accepts LLM nodes, script nodes with inline `source`, and passthrough nodes. Scripts can operate on the Board and use runtime features such as match, but no Workspace is installed, so filesystem APIs are unavailable. `PublishNodes` explicitly selects which node assistant tokens can enter the output Stream.
 
 An LLM node's `model` field is an alias such as `chat`. The Transformer resolves it internally as `Models.GenerateStream(ctx, "model/chat", modelContext)`; a Graph cannot supply a raw provider model ID or bypass the runtime alias.
 
@@ -38,7 +39,9 @@ Parallel Graph execution always uses the Flowcraft SDK defaults: up to 10 branch
 
 ## Stream lifecycle
 
-Each `Transform(ctx, input)` creates an internal ContextID. It correlates ordered turns only within that call and is not accepted by the public API, returned, persisted for resumption, or reused across Transform calls or process restarts. The same Transformer supports concurrent Transform calls with independent ContextIDs, runs, input accumulators, and output buffers.
+Each constructed Transformer owns one ContextID. All `Transform(ctx, input)` calls during that Agent lifetime share the ContextID, History, Memory scope, and Board State. A configured `ContextID` restores the same History and State after reconstruction; an empty value generates an Agent-lifetime identity for standalone use. GizClaw's workflow Factory derives the stable value from the Workspace/Agent scope rather than exposing it in Workflow YAML. Concurrent Transform calls still own independent runs, input accumulators, output buffers, and cancellation.
+
+`InitiativeOnReload` runs one empty-input Graph turn on the first `Transform` of a Transformer lifetime. `InitiativeOnceWhenEmpty` does so only when the configured conversation History is empty. Initiative is claimed once across concurrent attachments and later Transform calls.
 
 Text input starts at BOS and is accumulated until the matching text EOS before the Graph runs. Each completed text turn produces a fresh output StreamID, BOS, streaming text, and EOS. Non-text content bypasses Flowcraft unchanged on its original route.
 
@@ -46,12 +49,14 @@ A new text BOS, whether control-only or text-bearing, cancels an unfinished prio
 
 ## Store boundaries
 
-- `History` uses the caller-provided `logstore.MutableStore` for ordered turns inside one Transform. An invocation-local in-memory transcript is used when it is nil.
+- `History` uses the caller-provided `logstore.MutableStore` and `HistoryScope` for ordered turns across one Agent lifetime. Agent-local memory is used when it is nil.
 - `State` uses a caller-prefixed `kv.Store` for JSON-serializable Board variables. `response`, `usage`, `tool`, `tmp_*`, and `__*` variables are excluded.
 - `Memory` uses the provider-neutral `memory.Store`. Every recall and observation uses the fixed caller-configured `MemoryScope`.
 
 `RecallRenderer` and `ObservationBuilder` have package defaults and may be replaced. The default recall value is a `Relevant memory:` list. The default observation contains the user turn and the assistant text actually pulled by downstream, never Board variables as facts.
 
-With `ObserveWaitForCompletion=false`, EOS and the next turn wait for `Observe` acceptance but not for an asynchronous operation to materialize; later failure belongs to the Memory Store. When true, Memory must implement `memory.OperationWaiter`, and both the current EOS and next Graph turn wait for operation completion. The input pump continues reading in either mode and does not use downstream output as backpressure.
+On top of that reusable default, the GizClaw workflow Factory handles public `memory.write.board_facts`: only explicitly named Board variables become `memory.FactCandidate` values, and the Flowcraft Memory Store ingests them directly as structured facts. When `save_conversation: false`, user and assistant turns are not persisted as a side effect.
+
+With `ObserveWaitForCompletion=false`, EOS and the next turn wait for `Observe` acceptance but not for an asynchronous operation to materialize. Stores that implement `memory.AsyncOperationProcessor` materialize that operation in the background. When true, Memory must implement `memory.OperationWaiter`, and both the current EOS and next Graph turn wait for operation completion. The input pump continues reading in either mode and does not use downstream output as backpressure.
 
 Toolkit continuation is outside this Transformer's current contract.

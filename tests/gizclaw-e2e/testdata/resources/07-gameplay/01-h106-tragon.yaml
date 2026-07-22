@@ -72,16 +72,16 @@ spec:
           pet-extract: {resource_id: pet-flowcraft-workflow-extract, i18n: {en: {display_name: Pet extraction}, zh-CN: {display_name: 宠物提取}}}
           pet-asr: {resource_id: pet-flowcraft-workflow-asr, i18n: {en: {display_name: Pet ASR}, zh-CN: {display_name: 宠物语音识别}}}
         voices:
-          tragon: {resource_id: "volc-tenant:volc-main:zh_male_sunwukong_mars_bigtts", i18n: {en: {display_name: Tragon voice}, zh-CN: {display_name: 小蓝龙音色}}}
+          tragon-voice: {resource_id: "volc-tenant:volc-main:zh_male_sunwukong_mars_bigtts", i18n: {en: {display_name: Tragon voice}, zh-CN: {display_name: 小蓝龙音色}}}
         pet_defs:
-          tragon: {resource_id: petdef-tragon, i18n: {en: {display_name: Tragon}, zh-CN: {display_name: 小蓝龙}}}
+          tragon-pet: {resource_id: petdef-tragon, i18n: {en: {display_name: Tragon}, zh-CN: {display_name: 小蓝龙}}}
       gameplay:
         points:
           initial_balance: 100
         adoption:
           pool:
-          - pet_def: tragon
-            voice: tragon
+          - pet_def: tragon-pet
+            voice: tragon-voice
             weight: 100
             rarity: rare
             adoption_cost: 10

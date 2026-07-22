@@ -427,6 +427,9 @@ func workflowSpec(cfg config) rpcapi.WorkflowSpec {
 		spec := rpcapi.ASTTranslateWorkflowSpec{
 			TranslationModel: cfg.Workflow.Translation,
 		}
+		if cfg.Workflow.ASTTranslate.LangPair != "" {
+			spec.LangPair = &cfg.Workflow.ASTTranslate.LangPair
+		}
 		if cfg.Workflow.ASTTranslate.Mode != "" {
 			mode := rpcapi.ASTTranslateMode(cfg.Workflow.ASTTranslate.Mode)
 			spec.Mode = &mode
@@ -469,24 +472,21 @@ func workspaceDocument(cfg config) (rpcapi.WorkspaceCreateRequest, error) {
 	switch {
 	case cfg.isFlowcraftAgent():
 		typed := rpcapi.FlowcraftWorkspaceParameters{
-			AgentType:      rpcapi.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
-			Input:          optionalWorkspaceInputMode(cfg.Workflow.Parameters.Input),
-			GenerateModel:  optionalString(cfg.Workflow.Parameters.GenerateModel),
-			ExtractModel:   optionalString(cfg.Workflow.Parameters.ExtractModel),
-			EmbeddingModel: optionalString(cfg.Workflow.Parameters.EmbeddingModel),
+			AgentType: rpcapi.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
+			Input:     optionalWorkspaceInputMode(cfg.Workflow.Parameters.Input),
 		}
 		if err := parameters.FromFlowcraftWorkspaceParameters(typed); err != nil {
 			return rpcapi.WorkspaceCreateRequest{}, fmt.Errorf("encode flowcraft workspace parameters: %w", err)
 		}
 	case cfg.isASTTranslateAgent():
-			typed := rpcapi.ASTTranslateWorkspaceParameters{
-				AgentType:                  rpcapi.ASTTranslateWorkspaceParametersAgentTypeAstTranslate,
-				Input:                      optionalWorkspaceInputMode(cfg.Workflow.Parameters.Input),
-				TranslationModel:           optionalString(cfg.Workflow.Parameters.TranslationModel),
-				LangPair:                   optionalString(cfg.Workflow.Parameters.LangPair),
-				Mode:                       optionalASTTranslateMode(cfg.Workflow.Parameters.Mode),
-				Voice:                      astTranslateWorkspaceVoiceParams(cfg.Workflow.Parameters.Voice),
-				EnableSourceLanguageDetect: cfg.Workflow.Parameters.EnableSourceLanguageDetect,
+		typed := rpcapi.ASTTranslateWorkspaceParameters{
+			AgentType:                  rpcapi.ASTTranslateWorkspaceParametersAgentTypeAstTranslate,
+			Input:                      optionalWorkspaceInputMode(cfg.Workflow.Parameters.Input),
+			TranslationModel:           optionalString(cfg.Workflow.Parameters.TranslationModel),
+			LangPair:                   optionalString(cfg.Workflow.Parameters.LangPair),
+			Mode:                       optionalASTTranslateMode(cfg.Workflow.Parameters.Mode),
+			Voice:                      astTranslateWorkspaceVoiceParams(cfg.Workflow.Parameters.Voice),
+			EnableSourceLanguageDetect: cfg.Workflow.Parameters.EnableSourceLanguageDetect,
 			Denoise:                    cfg.Workflow.Parameters.Denoise,
 		}
 		if err := parameters.FromASTTranslateWorkspaceParameters(typed); err != nil {

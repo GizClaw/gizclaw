@@ -10,6 +10,10 @@
 result, err := store.Observe(ctx, memory.Observation{
 	Scope: memory.Scope("player:42"),
 	Turns: turns,
+	Facts: []memory.FactCandidate{{
+		Text: "story_progress: current_beat=origin",
+		Attributes: map[string]any{"kind": "state"},
+	}},
 })
 
 recalled, err := store.Recall(ctx, memory.Query{
@@ -18,6 +22,8 @@ recalled, err := store.Recall(ctx, memory.Query{
 	Limit: 10,
 })
 ```
+
+`Text` and `Turns` are raw extraction material; `Facts` are candidates already structured by the caller. A provider must preserve candidate text and supported attributes or return `ErrUnsupported`; it must not silently send candidates through model extraction again. The Flowcraft adapter supports direct ingestion and maps `kind`, `subject`, `predicate`, `object`, and `entities` to native fact fields.
 
 `Update` and `Delete` take only the opaque fact ID previously returned by the store, plus an optional opaque revision. `Wait` takes only the opaque operation ID. Callers must not resubmit a scope for identity-based operations; adapters encode any routing state they need in those opaque locators.
 

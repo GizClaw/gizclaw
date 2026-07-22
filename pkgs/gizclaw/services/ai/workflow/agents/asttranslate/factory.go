@@ -14,9 +14,9 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/ogg"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/agentkit/audiodock"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
-	"golang.org/x/sync/errgroup"
 )
 
 const Type = "ast-translate"
@@ -650,67 +650,39 @@ func (t externalVoiceTransformer) Transform(ctx context.Context, input genx.Stre
 	if t.Transformer == nil {
 		return nil, fmt.Errorf("asttranslate: transformer is required")
 	}
-	astOutput, err := t.Transformer.Transform(ctx, t.ASTPattern, input)
+	dock, err := audiodock.New(audiodock.Config{
+		Agent: patternTransformer{Transformer: t.Transformer, Pattern: t.ASTPattern},
+		TTS:   astVoiceTransformerMux{Transformer: t.Transformer},
+		ResolveVoice: func(context.Context, audiodock.VoiceRequest) (string, error) {
+			return t.TTSPattern, nil
+		},
+	})
 	if err != nil {
 		return nil, err
 	}
-	ttsInput := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 128)
-	ttsOutput, err := t.Transformer.Transform(ctx, t.TTSPattern, ttsInput.Stream())
+	return dock.Transform(ctx, input)
+}
+
+// astVoiceTransformerMux keeps the AST product boundary's Ogg/Opus packet
+// normalization while Audio Dock owns text/TTS composition and route EOS.
+type astVoiceTransformerMux struct {
+	Transformer genx.TransformerMux
+}
+
+func (t astVoiceTransformerMux) Transform(ctx context.Context, pattern string, input genx.Stream) (genx.Stream, error) {
+	raw, err := t.Transformer.Transform(ctx, pattern, input)
 	if err != nil {
-		_ = astOutput.Close()
-		_ = ttsInput.Abort(err)
 		return nil, err
 	}
 	output := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 256)
-	go t.run(ctx, astOutput, ttsInput, ttsOutput, output)
+	go func() {
+		if err := forwardASTTranslateTTS(ctx, raw, output); err != nil {
+			_ = output.Abort(err)
+			return
+		}
+		_ = output.Done(genx.Usage{})
+	}()
 	return output.Stream(), nil
-}
-
-func (t externalVoiceTransformer) run(ctx context.Context, astOutput genx.Stream, ttsInput *genx.StreamBuilder, ttsOutput genx.Stream, output *genx.StreamBuilder) {
-	g, ctx := errgroup.WithContext(ctx)
-	g.Go(func() error {
-		err := forwardASTTranslateText(ctx, astOutput, ttsInput, output)
-		if err != nil {
-			_ = ttsInput.Abort(err)
-			return err
-		}
-		return ttsInput.Done(genx.Usage{})
-	})
-	g.Go(func() error {
-		return forwardASTTranslateTTS(ctx, ttsOutput, output)
-	})
-	if err := g.Wait(); err != nil {
-		_ = output.Abort(err)
-		return
-	}
-	_ = output.Done(genx.Usage{})
-}
-
-func forwardASTTranslateText(ctx context.Context, astOutput genx.Stream, ttsInput *genx.StreamBuilder, output *genx.StreamBuilder) error {
-	defer astOutput.Close()
-	for {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		chunk, err := astOutput.Next()
-		if err != nil {
-			if isStreamDone(err) {
-				return nil
-			}
-			return err
-		}
-		if chunk == nil {
-			continue
-		}
-		if err := output.Add(chunk.Clone()); err != nil {
-			return err
-		}
-		if isAssistantTextChunk(chunk) {
-			if err := ttsInput.Add(chunk.Clone()); err != nil {
-				return err
-			}
-		}
-	}
 }
 
 func forwardASTTranslateTTS(ctx context.Context, ttsOutput genx.Stream, output *genx.StreamBuilder) error {
@@ -780,14 +752,6 @@ func forwardASTTranslateTTS(ctx context.Context, ttsOutput genx.Stream, output *
 			}
 		}
 	}
-}
-
-func isAssistantTextChunk(chunk *genx.MessageChunk) bool {
-	if chunk == nil || chunk.Ctrl == nil || chunk.Ctrl.Label != "assistant" {
-		return false
-	}
-	_, ok := chunk.Part.(genx.Text)
-	return ok
 }
 
 func isStreamDone(err error) bool {

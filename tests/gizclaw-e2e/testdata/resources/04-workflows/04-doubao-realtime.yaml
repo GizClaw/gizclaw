@@ -6,7 +6,7 @@ metadata:
 spec:
   driver: doubao-realtime
   doubao_realtime:
-    model: doubao-realtime-dialog
+    model: realtime
     instructions: 你是一个简短、自然的中文语音聊天助手。遇到天气、新闻、今天、现在等实时问题时，使用内置搜索能力回答。
     audio:
       input:
@@ -17,7 +17,7 @@ spec:
         format:
           type: ogg_opus
           rate: 24000
-        voice: zh_female_vv_jupiter_bigtts
+        voice: doubao-assistant
         speed: 0
         loudness: 0
     extension:

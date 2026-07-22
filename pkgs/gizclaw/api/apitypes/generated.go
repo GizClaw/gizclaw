@@ -319,6 +319,24 @@ func (e FirmwareResourceKind) Valid() bool {
 	}
 }
 
+// Defines values for FlowcraftConversationStarts.
+const (
+	FlowcraftConversationStartsAgent FlowcraftConversationStarts = "agent"
+	FlowcraftConversationStartsPeer  FlowcraftConversationStarts = "peer"
+)
+
+// Valid indicates whether the value is a known member of the FlowcraftConversationStarts enum.
+func (e FlowcraftConversationStarts) Valid() bool {
+	switch e {
+	case FlowcraftConversationStartsAgent:
+		return true
+	case FlowcraftConversationStartsPeer:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for FlowcraftConversationParametersAgentInitiativePolicy.
 const (
 	FlowcraftConversationParametersAgentInitiativePolicyOnReload      FlowcraftConversationParametersAgentInitiativePolicy = "on_reload"
@@ -349,6 +367,126 @@ func (e FlowcraftConversationParametersInitiative) Valid() bool {
 	case FlowcraftConversationParametersInitiativeAgent:
 		return true
 	case FlowcraftConversationParametersInitiativePeer:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FlowcraftLLMNodeType.
+const (
+	FlowcraftLLMNodeTypeLlm FlowcraftLLMNodeType = "llm"
+)
+
+// Valid indicates whether the value is a known member of the FlowcraftLLMNodeType enum.
+func (e FlowcraftLLMNodeType) Valid() bool {
+	switch e {
+	case FlowcraftLLMNodeTypeLlm:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FlowcraftMemoryExtractMode.
+const (
+	FlowcraftMemoryExtractModeSinglePass FlowcraftMemoryExtractMode = "single_pass"
+	FlowcraftMemoryExtractModeTwoPass    FlowcraftMemoryExtractMode = "two_pass"
+)
+
+// Valid indicates whether the value is a known member of the FlowcraftMemoryExtractMode enum.
+func (e FlowcraftMemoryExtractMode) Valid() bool {
+	switch e {
+	case FlowcraftMemoryExtractModeSinglePass:
+		return true
+	case FlowcraftMemoryExtractModeTwoPass:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FlowcraftMemoryFilterOperator.
+const (
+	FlowcraftMemoryFilterOperatorEq FlowcraftMemoryFilterOperator = "eq"
+)
+
+// Valid indicates whether the value is a known member of the FlowcraftMemoryFilterOperator enum.
+func (e FlowcraftMemoryFilterOperator) Valid() bool {
+	switch e {
+	case FlowcraftMemoryFilterOperatorEq:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FlowcraftMemoryWriteMode.
+const (
+	FlowcraftMemoryWriteModeAsyncSemantic FlowcraftMemoryWriteMode = "async_semantic"
+	FlowcraftMemoryWriteModeSync          FlowcraftMemoryWriteMode = "sync"
+)
+
+// Valid indicates whether the value is a known member of the FlowcraftMemoryWriteMode enum.
+func (e FlowcraftMemoryWriteMode) Valid() bool {
+	switch e {
+	case FlowcraftMemoryWriteModeAsyncSemantic:
+		return true
+	case FlowcraftMemoryWriteModeSync:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FlowcraftMemoryWriteTier.
+const (
+	FlowcraftMemoryWriteTierCore    FlowcraftMemoryWriteTier = "core"
+	FlowcraftMemoryWriteTierData    FlowcraftMemoryWriteTier = "data"
+	FlowcraftMemoryWriteTierGeneral FlowcraftMemoryWriteTier = "general"
+	FlowcraftMemoryWriteTierStorage FlowcraftMemoryWriteTier = "storage"
+)
+
+// Valid indicates whether the value is a known member of the FlowcraftMemoryWriteTier enum.
+func (e FlowcraftMemoryWriteTier) Valid() bool {
+	switch e {
+	case FlowcraftMemoryWriteTierCore:
+		return true
+	case FlowcraftMemoryWriteTierData:
+		return true
+	case FlowcraftMemoryWriteTierGeneral:
+		return true
+	case FlowcraftMemoryWriteTierStorage:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FlowcraftPassthroughNodeType.
+const (
+	FlowcraftPassthroughNodeTypePassthrough FlowcraftPassthroughNodeType = "passthrough"
+)
+
+// Valid indicates whether the value is a known member of the FlowcraftPassthroughNodeType enum.
+func (e FlowcraftPassthroughNodeType) Valid() bool {
+	switch e {
+	case FlowcraftPassthroughNodeTypePassthrough:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FlowcraftScriptNodeType.
+const (
+	FlowcraftScriptNodeTypeScript FlowcraftScriptNodeType = "script"
+)
+
+// Valid indicates whether the value is a known member of the FlowcraftScriptNodeType enum.
+func (e FlowcraftScriptNodeType) Valid() bool {
+	switch e {
+	case FlowcraftScriptNodeTypeScript:
 		return true
 	default:
 		return false
@@ -2076,6 +2214,23 @@ type FirmwareSpecSlots struct {
 	Stable  FirmwareSpecSlot `json:"stable"`
 }
 
+// FlowcraftAgent defines model for FlowcraftAgent.
+type FlowcraftAgent struct {
+	Description   *string        `json:"description,omitempty"`
+	Graph         FlowcraftGraph `json:"graph"`
+	Id            string         `json:"id"`
+	MaxIterations *int           `json:"max_iterations,omitempty"`
+	Name          string         `json:"name"`
+}
+
+// FlowcraftConversation defines model for FlowcraftConversation.
+type FlowcraftConversation struct {
+	Starts *FlowcraftConversationStarts `json:"starts,omitempty"`
+}
+
+// FlowcraftConversationStarts defines model for FlowcraftConversation.Starts.
+type FlowcraftConversationStarts string
+
 // FlowcraftConversationParameters defines model for FlowcraftConversationParameters.
 type FlowcraftConversationParameters struct {
 	// AgentInitiativePolicy When agent initiative is allowed.
@@ -2091,8 +2246,219 @@ type FlowcraftConversationParametersAgentInitiativePolicy string
 // FlowcraftConversationParametersInitiative Who starts the conversation when the workspace runtime opens.
 type FlowcraftConversationParametersInitiative string
 
+// FlowcraftEdge defines model for FlowcraftEdge.
+type FlowcraftEdge struct {
+	Condition *string `json:"condition,omitempty"`
+	From      string  `json:"from"`
+	To        string  `json:"to"`
+}
+
+// FlowcraftGraph defines model for FlowcraftGraph.
+type FlowcraftGraph struct {
+	Edges *[]FlowcraftEdge `json:"edges,omitempty"`
+	Entry string           `json:"entry"`
+	Id    *string          `json:"id,omitempty"`
+	Name  string           `json:"name"`
+	Nodes []FlowcraftNode  `json:"nodes"`
+}
+
+// FlowcraftLLMNode defines model for FlowcraftLLMNode.
+type FlowcraftLLMNode struct {
+	Config        FlowcraftLLMNodeConfig `json:"config"`
+	Id            string                 `json:"id"`
+	Publish       *bool                  `json:"publish,omitempty"`
+	SkipCondition *string                `json:"skip_condition,omitempty"`
+	Type          FlowcraftLLMNodeType   `json:"type"`
+}
+
+// FlowcraftLLMNodeType defines model for FlowcraftLLMNode.Type.
+type FlowcraftLLMNodeType string
+
+// FlowcraftLLMNodeConfig defines model for FlowcraftLLMNodeConfig.
+type FlowcraftLLMNodeConfig struct {
+	JsonMode        *bool    `json:"json_mode,omitempty"`
+	MaxTokens       *int     `json:"max_tokens,omitempty"`
+	MessagesChannel *string  `json:"messages_channel,omitempty"`
+	Model           string   `json:"model"`
+	OutputKey       *string  `json:"output_key,omitempty"`
+	SystemPrompt    *string  `json:"system_prompt,omitempty"`
+	Temperature     *float32 `json:"temperature,omitempty"`
+	Thinking        *bool    `json:"thinking,omitempty"`
+	TrackSteps      *bool    `json:"track_steps,omitempty"`
+}
+
+// FlowcraftMemory defines model for FlowcraftMemory.
+type FlowcraftMemory struct {
+	Embedding *FlowcraftMemoryEmbedding `json:"embedding,omitempty"`
+	Enabled   bool                      `json:"enabled"`
+	Extract   *FlowcraftMemoryExtract   `json:"extract,omitempty"`
+	Layout    *FlowcraftMemoryLayout    `json:"layout,omitempty"`
+	Recall    *FlowcraftMemoryRecall    `json:"recall,omitempty"`
+	Rerank    *FlowcraftMemoryRerank    `json:"rerank,omitempty"`
+	Write     *FlowcraftMemoryWrite     `json:"write,omitempty"`
+}
+
+// FlowcraftMemoryBoardFact defines model for FlowcraftMemoryBoardFact.
+type FlowcraftMemoryBoardFact struct {
+	BoardVar       string    `json:"board_var"`
+	Entities       *[]string `json:"entities,omitempty"`
+	Kind           *string   `json:"kind,omitempty"`
+	Object         *string   `json:"object,omitempty"`
+	Predicate      *string   `json:"predicate,omitempty"`
+	RequiredPrefix *string   `json:"required_prefix,omitempty"`
+	Subject        *string   `json:"subject,omitempty"`
+}
+
+// FlowcraftMemoryEmbedding defines model for FlowcraftMemoryEmbedding.
+type FlowcraftMemoryEmbedding struct {
+	Enabled *bool   `json:"enabled,omitempty"`
+	Model   *string `json:"model,omitempty"`
+}
+
+// FlowcraftMemoryExtract defines model for FlowcraftMemoryExtract.
+type FlowcraftMemoryExtract struct {
+	Enabled      *bool                       `json:"enabled,omitempty"`
+	Mode         *FlowcraftMemoryExtractMode `json:"mode,omitempty"`
+	Model        *string                     `json:"model,omitempty"`
+	SchemaName   *string                     `json:"schema_name,omitempty"`
+	StageTimeout *string                     `json:"stage_timeout,omitempty"`
+	SystemPrompt *string                     `json:"system_prompt,omitempty"`
+	Temperature  *float32                    `json:"temperature,omitempty"`
+}
+
+// FlowcraftMemoryExtractMode defines model for FlowcraftMemoryExtract.Mode.
+type FlowcraftMemoryExtractMode string
+
+// FlowcraftMemoryFilter defines model for FlowcraftMemoryFilter.
+type FlowcraftMemoryFilter struct {
+	Field    string                         `json:"field"`
+	Operator *FlowcraftMemoryFilterOperator `json:"operator,omitempty"`
+	Value    interface{}                    `json:"value"`
+}
+
+// FlowcraftMemoryFilterOperator defines model for FlowcraftMemoryFilter.Operator.
+type FlowcraftMemoryFilterOperator string
+
+// FlowcraftMemoryLane defines model for FlowcraftMemoryLane.
+type FlowcraftMemoryLane struct {
+	Description *string `json:"description,omitempty"`
+	Extract     *string `json:"extract,omitempty"`
+	Kind        string  `json:"kind"`
+	Name        string  `json:"name"`
+	Recall      *string `json:"recall,omitempty"`
+}
+
+// FlowcraftMemoryLayout defines model for FlowcraftMemoryLayout.
+type FlowcraftMemoryLayout struct {
+	Lanes *[]FlowcraftMemoryLane `json:"lanes,omitempty"`
+}
+
+// FlowcraftMemoryRecall defines model for FlowcraftMemoryRecall.
+type FlowcraftMemoryRecall struct {
+	Enabled        *bool                                    `json:"enabled,omitempty"`
+	GraphEnabled   *bool                                    `json:"graph_enabled,omitempty"`
+	IncludeRetired *bool                                    `json:"include_retired,omitempty"`
+	Profiles       *map[string]FlowcraftMemoryRecallProfile `json:"profiles,omitempty"`
+}
+
+// FlowcraftMemoryRecallProfile defines model for FlowcraftMemoryRecallProfile.
+type FlowcraftMemoryRecallProfile struct {
+	Output string                       `json:"output"`
+	Query  *FlowcraftMemoryRecallQuery  `json:"query,omitempty"`
+	Render *FlowcraftMemoryRecallRender `json:"render,omitempty"`
+	TopK   int                          `json:"top_k"`
+}
+
+// FlowcraftMemoryRecallQuery defines model for FlowcraftMemoryRecallQuery.
+type FlowcraftMemoryRecallQuery struct {
+	Filters *[]FlowcraftMemoryFilter `json:"filters,omitempty"`
+	Kinds   *[]string                `json:"kinds,omitempty"`
+	Lanes   *[]string                `json:"lanes,omitempty"`
+	Text    *string                  `json:"text,omitempty"`
+}
+
+// FlowcraftMemoryRecallRender defines model for FlowcraftMemoryRecallRender.
+type FlowcraftMemoryRecallRender struct {
+	Header     *string `json:"header,omitempty"`
+	ItemPrefix *string `json:"item_prefix,omitempty"`
+	MaxItems   *int    `json:"max_items,omitempty"`
+}
+
+// FlowcraftMemoryRerank defines model for FlowcraftMemoryRerank.
+type FlowcraftMemoryRerank struct {
+	Enabled *bool   `json:"enabled,omitempty"`
+	Model   *string `json:"model,omitempty"`
+}
+
+// FlowcraftMemoryWrite defines model for FlowcraftMemoryWrite.
+type FlowcraftMemoryWrite struct {
+	BoardFacts       *[]FlowcraftMemoryBoardFact `json:"board_facts,omitempty"`
+	Mode             *FlowcraftMemoryWriteMode   `json:"mode,omitempty"`
+	SaveConversation *bool                       `json:"save_conversation,omitempty"`
+	Tier             *FlowcraftMemoryWriteTier   `json:"tier,omitempty"`
+}
+
+// FlowcraftMemoryWriteMode defines model for FlowcraftMemoryWrite.Mode.
+type FlowcraftMemoryWriteMode string
+
+// FlowcraftMemoryWriteTier defines model for FlowcraftMemoryWrite.Tier.
+type FlowcraftMemoryWriteTier string
+
+// FlowcraftNode defines model for FlowcraftNode.
+type FlowcraftNode struct {
+	union json.RawMessage
+}
+
+// FlowcraftNodeBase defines model for FlowcraftNodeBase.
+type FlowcraftNodeBase struct {
+	Id            string  `json:"id"`
+	Publish       *bool   `json:"publish,omitempty"`
+	SkipCondition *string `json:"skip_condition,omitempty"`
+	Type          string  `json:"type"`
+}
+
+// FlowcraftPassthroughNode defines model for FlowcraftPassthroughNode.
+type FlowcraftPassthroughNode struct {
+	Id            string                       `json:"id"`
+	Publish       *bool                        `json:"publish,omitempty"`
+	SkipCondition *string                      `json:"skip_condition,omitempty"`
+	Type          FlowcraftPassthroughNodeType `json:"type"`
+}
+
+// FlowcraftPassthroughNodeType defines model for FlowcraftPassthroughNode.Type.
+type FlowcraftPassthroughNodeType string
+
+// FlowcraftScriptNode defines model for FlowcraftScriptNode.
+type FlowcraftScriptNode struct {
+	Config        FlowcraftScriptNodeConfig `json:"config"`
+	Id            string                    `json:"id"`
+	Publish       *bool                     `json:"publish,omitempty"`
+	SkipCondition *string                   `json:"skip_condition,omitempty"`
+	Type          FlowcraftScriptNodeType   `json:"type"`
+}
+
+// FlowcraftScriptNodeType defines model for FlowcraftScriptNode.Type.
+type FlowcraftScriptNodeType string
+
+// FlowcraftScriptNodeConfig defines model for FlowcraftScriptNodeConfig.
+type FlowcraftScriptNodeConfig struct {
+	Source string `json:"source"`
+}
+
+// FlowcraftVoiceAdapter defines model for FlowcraftVoiceAdapter.
+type FlowcraftVoiceAdapter struct {
+	AsrModel     *string            `json:"asr_model,omitempty"`
+	DefaultVoice *string            `json:"default_voice,omitempty"`
+	NodeVoices   *map[string]string `json:"node_voices,omitempty"`
+}
+
 // FlowcraftWorkflowSpec defines model for FlowcraftWorkflowSpec.
-type FlowcraftWorkflowSpec map[string]interface{}
+type FlowcraftWorkflowSpec struct {
+	Agent        FlowcraftAgent         `json:"agent"`
+	Conversation *FlowcraftConversation `json:"conversation,omitempty"`
+	Memory       *FlowcraftMemory       `json:"memory,omitempty"`
+	VoiceAdapter *FlowcraftVoiceAdapter `json:"voice_adapter,omitempty"`
+}
 
 // FlowcraftWorkspaceParameters defines model for FlowcraftWorkspaceParameters.
 type FlowcraftWorkspaceParameters struct {
@@ -2100,11 +2466,8 @@ type FlowcraftWorkspaceParameters struct {
 	Conversation *FlowcraftConversationParameters      `json:"conversation,omitempty"`
 
 	// E2e Marks seed resources used by the local e2e harness.
-	E2e            *bool               `json:"e2e,omitempty"`
-	EmbeddingModel *string             `json:"embedding_model,omitempty"`
-	ExtractModel   *string             `json:"extract_model,omitempty"`
-	GenerateModel  *string             `json:"generate_model,omitempty"`
-	Input          *WorkspaceInputMode `json:"input,omitempty"`
+	E2e   *bool               `json:"e2e,omitempty"`
+	Input *WorkspaceInputMode `json:"input,omitempty"`
 }
 
 // FlowcraftWorkspaceParametersAgentType defines model for FlowcraftWorkspaceParameters.AgentType.
@@ -4104,6 +4467,125 @@ func (t CredentialBody) MarshalJSON() ([]byte, error) {
 }
 
 func (t *CredentialBody) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsFlowcraftLLMNode returns the union data inside the FlowcraftNode as a FlowcraftLLMNode
+func (t FlowcraftNode) AsFlowcraftLLMNode() (FlowcraftLLMNode, error) {
+	var body FlowcraftLLMNode
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFlowcraftLLMNode overwrites any union data inside the FlowcraftNode as the provided FlowcraftLLMNode
+func (t *FlowcraftNode) FromFlowcraftLLMNode(v FlowcraftLLMNode) error {
+	v.Type = "llm"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFlowcraftLLMNode performs a merge with any union data inside the FlowcraftNode, using the provided FlowcraftLLMNode
+func (t *FlowcraftNode) MergeFlowcraftLLMNode(v FlowcraftLLMNode) error {
+	v.Type = "llm"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFlowcraftScriptNode returns the union data inside the FlowcraftNode as a FlowcraftScriptNode
+func (t FlowcraftNode) AsFlowcraftScriptNode() (FlowcraftScriptNode, error) {
+	var body FlowcraftScriptNode
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFlowcraftScriptNode overwrites any union data inside the FlowcraftNode as the provided FlowcraftScriptNode
+func (t *FlowcraftNode) FromFlowcraftScriptNode(v FlowcraftScriptNode) error {
+	v.Type = "script"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFlowcraftScriptNode performs a merge with any union data inside the FlowcraftNode, using the provided FlowcraftScriptNode
+func (t *FlowcraftNode) MergeFlowcraftScriptNode(v FlowcraftScriptNode) error {
+	v.Type = "script"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFlowcraftPassthroughNode returns the union data inside the FlowcraftNode as a FlowcraftPassthroughNode
+func (t FlowcraftNode) AsFlowcraftPassthroughNode() (FlowcraftPassthroughNode, error) {
+	var body FlowcraftPassthroughNode
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFlowcraftPassthroughNode overwrites any union data inside the FlowcraftNode as the provided FlowcraftPassthroughNode
+func (t *FlowcraftNode) FromFlowcraftPassthroughNode(v FlowcraftPassthroughNode) error {
+	v.Type = "passthrough"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFlowcraftPassthroughNode performs a merge with any union data inside the FlowcraftNode, using the provided FlowcraftPassthroughNode
+func (t *FlowcraftNode) MergeFlowcraftPassthroughNode(v FlowcraftPassthroughNode) error {
+	v.Type = "passthrough"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t FlowcraftNode) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"type"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t FlowcraftNode) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "llm":
+		return t.AsFlowcraftLLMNode()
+	case "passthrough":
+		return t.AsFlowcraftPassthroughNode()
+	case "script":
+		return t.AsFlowcraftScriptNode()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t FlowcraftNode) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *FlowcraftNode) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }

@@ -35,6 +35,9 @@ type Config struct {
 	SideEffectOutbox recall.SideEffectOutbox
 
 	GraphEnabled bool
+
+	// Tier applies Flowcraft's write-time salience intent to every observation.
+	Tier string
 }
 
 type ExtractionConfig struct {
@@ -55,6 +58,11 @@ type RerankConfig struct {
 }
 
 func (c Config) validate() error {
+	switch c.Tier {
+	case "", "core", "general", "data", "storage":
+	default:
+		return fmt.Errorf("%w: flowcraft memory tier %q is invalid", errInvalidInput, c.Tier)
+	}
 	switch c.Extraction.Mode {
 	case "", recall.LLMExtractionSinglePass, recall.LLMExtractionTwoPass:
 	default:
@@ -76,6 +84,7 @@ func (c Config) normalized() Config {
 	c.Extraction.Model = strings.TrimSpace(c.Extraction.Model)
 	c.Embedding.Model = strings.TrimSpace(c.Embedding.Model)
 	c.Rerank.Model = strings.TrimSpace(c.Rerank.Model)
+	c.Tier = strings.TrimSpace(c.Tier)
 	return c
 }
 

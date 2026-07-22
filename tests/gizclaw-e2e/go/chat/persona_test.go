@@ -266,7 +266,7 @@ func TestPrepareConversationRequiresConfiguredSelfStart(t *testing.T) {
 			timeout:   20 * time.Millisecond,
 			Workflow: workflowConfig{
 				Flowcraft: map[string]interface{}{
-					"conversation": map[string]interface{}{"starts": "self"},
+					"conversation": map[string]interface{}{"starts": "agent"},
 				},
 			},
 		},
@@ -305,7 +305,7 @@ func TestPrepareConversationDoesNotRequireHistoryForSelfStart(t *testing.T) {
 			timeout:   2 * time.Second,
 			Workflow: workflowConfig{
 				Flowcraft: map[string]interface{}{
-					"conversation": map[string]interface{}{"starts": "self"},
+					"conversation": map[string]interface{}{"starts": "agent"},
 				},
 			},
 		},

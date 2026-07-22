@@ -246,12 +246,12 @@ message FlowcraftWorkflowSpec {
 }
 
 message FlowcraftWorkspaceParameters {
+  reserved 4, 5, 6;
+  reserved "generate_model", "extract_model", "embedding_model";
+
   FlowcraftWorkspaceParametersAgentType agent_type = 1;
   optional FlowcraftConversationParameters conversation = 2;
   optional bool e2e = 3;
-  optional string embedding_model = 4;
-  optional string extract_model = 5;
-  optional string generate_model = 6;
   optional WorkspaceInputMode input = 7;
 }
 

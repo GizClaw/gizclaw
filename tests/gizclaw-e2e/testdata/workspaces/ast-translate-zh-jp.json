@@ -1,29 +1,30 @@
 {
   "agent": "ast-translate",
   "models": {
-    "llm": "doubao-lite-chat",
-    "tts": "volc-bigtts",
-    "asr": "volc-bigasr-sauc",
-    "translation": "volc-ast-translate"
+    "llm": "llm",
+    "tts": "tts",
+    "asr": "asr",
+    "translation": "translation"
   },
   "workflow": {
     "name": "volc-ast-translate-zh-jp",
     "description": "AST Chinese to Japanese speech translation workflow",
-    "translation_model": "volc-ast-translate",
+    "translation_model": "translation",
     "parameters": {
       "input": "push-to-talk",
       "lang_pair": "zh/jp"
     },
     "ast_translate": {
+      "lang_pair": "zh/jp",
       "mode": "s2s",
       "voice": {
-        "speaker_id": "zh_female_vv_uranus_bigtts"
+        "tts_voice": "japanese-voice"
       },
       "resource_id": "volc.service_type.10053",
       "denoise": false
     }
   },
-  "voice": "volc-tenant:volc-main:zh_female_vv_mars_bigtts",
+  "voice": "japanese-voice",
   "interrupt": {
     "rounds": 1
   },

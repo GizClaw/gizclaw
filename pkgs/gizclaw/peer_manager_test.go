@@ -96,6 +96,9 @@ func TestManagerPeerRegistrationFollowsActiveConnection(t *testing.T) {
 	if !manager.SetPeerRegistration(key, oldConn, oldRegistration) {
 		t.Fatal("SetPeerRegistration() rejected active connection")
 	}
+	if profile, err := manager.runtimeProfileForOwner(t.Context(), key.String()); err != nil || profile.Name != "profile-old" {
+		t.Fatalf("runtimeProfileForOwner() = %#v, %v", profile, err)
+	}
 	resources := (&PeerService{manager: manager}).peerResources(key)
 	if profile := resources.RuntimeProfile(); profile == nil || profile.Name != "profile-old" {
 		t.Fatalf("active RuntimeProfile = %#v", profile)

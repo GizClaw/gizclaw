@@ -123,6 +123,9 @@ func (r *Response) End(errorText string) []*genx.MessageChunk {
 			mimeTypes = append(mimeTypes, mimeType)
 		}
 	}
+	if len(mimeTypes) == 0 && strings.TrimSpace(errorText) != "" {
+		return []*genx.MessageChunk{r.controlEOS(errorText)}
+	}
 	sort.Strings(mimeTypes)
 	chunks := make([]*genx.MessageChunk, 0, len(mimeTypes))
 	for _, mimeType := range mimeTypes {

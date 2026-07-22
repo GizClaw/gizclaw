@@ -1737,39 +1737,12 @@ const FlowcraftWorkspaceParameters$json = {
     },
     {'1': 'e2e', '3': 3, '4': 1, '5': 8, '9': 1, '10': 'e2e', '17': true},
     {
-      '1': 'embedding_model',
-      '3': 4,
-      '4': 1,
-      '5': 9,
-      '9': 2,
-      '10': 'embeddingModel',
-      '17': true
-    },
-    {
-      '1': 'extract_model',
-      '3': 5,
-      '4': 1,
-      '5': 9,
-      '9': 3,
-      '10': 'extractModel',
-      '17': true
-    },
-    {
-      '1': 'generate_model',
-      '3': 6,
-      '4': 1,
-      '5': 9,
-      '9': 4,
-      '10': 'generateModel',
-      '17': true
-    },
-    {
       '1': 'input',
       '3': 7,
       '4': 1,
       '5': 14,
       '6': '.gizclaw.rpc.v1.WorkspaceInputMode',
-      '9': 5,
+      '9': 2,
       '10': 'input',
       '17': true
     },
@@ -1777,11 +1750,14 @@ const FlowcraftWorkspaceParameters$json = {
   '8': [
     {'1': '_conversation'},
     {'1': '_e2e'},
-    {'1': '_embedding_model'},
-    {'1': '_extract_model'},
-    {'1': '_generate_model'},
     {'1': '_input'},
   ],
+  '9': [
+    {'1': 4, '2': 5},
+    {'1': 5, '2': 6},
+    {'1': 6, '2': 7},
+  ],
+  '10': ['generate_model', 'extract_model', 'embedding_model'],
 };
 
 /// Descriptor for `FlowcraftWorkspaceParameters`. Decode as a `google.protobuf.DescriptorProto`.
@@ -1790,12 +1766,10 @@ final $typed_data.Uint8List flowcraftWorkspaceParametersDescriptor = $convert.ba
     'pjbGF3LnJwYy52MS5GbG93Y3JhZnRXb3Jrc3BhY2VQYXJhbWV0ZXJzQWdlbnRUeXBlUglhZ2Vu'
     'dFR5cGUSWAoMY29udmVyc2F0aW9uGAIgASgLMi8uZ2l6Y2xhdy5ycGMudjEuRmxvd2NyYWZ0Q2'
     '9udmVyc2F0aW9uUGFyYW1ldGVyc0gAUgxjb252ZXJzYXRpb26IAQESFQoDZTJlGAMgASgISAFS'
-    'A2UyZYgBARIsCg9lbWJlZGRpbmdfbW9kZWwYBCABKAlIAlIOZW1iZWRkaW5nTW9kZWyIAQESKA'
-    'oNZXh0cmFjdF9tb2RlbBgFIAEoCUgDUgxleHRyYWN0TW9kZWyIAQESKgoOZ2VuZXJhdGVfbW9k'
-    'ZWwYBiABKAlIBFINZ2VuZXJhdGVNb2RlbIgBARI9CgVpbnB1dBgHIAEoDjIiLmdpemNsYXcucn'
-    'BjLnYxLldvcmtzcGFjZUlucHV0TW9kZUgFUgVpbnB1dIgBAUIPCg1fY29udmVyc2F0aW9uQgYK'
-    'BF9lMmVCEgoQX2VtYmVkZGluZ19tb2RlbEIQCg5fZXh0cmFjdF9tb2RlbEIRCg9fZ2VuZXJhdG'
-    'VfbW9kZWxCCAoGX2lucHV0');
+    'A2UyZYgBARI9CgVpbnB1dBgHIAEoDjIiLmdpemNsYXcucnBjLnYxLldvcmtzcGFjZUlucHV0TW'
+    '9kZUgCUgVpbnB1dIgBAUIPCg1fY29udmVyc2F0aW9uQgYKBF9lMmVCCAoGX2lucHV0SgQIBBAF'
+    'SgQIBRAGSgQIBhAHUg5nZW5lcmF0ZV9tb2RlbFINZXh0cmFjdF9tb2RlbFIPZW1iZWRkaW5nX2'
+    '1vZGVs');
 
 @$core.Deprecated('Use petConversationParametersDescriptor instead')
 const PetConversationParameters$json = {

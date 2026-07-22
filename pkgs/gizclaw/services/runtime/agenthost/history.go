@@ -69,6 +69,9 @@ type historyOutput struct {
 	output           *genx.StreamBuilder
 	upstreamObserver OutputObservationStream
 
+	observationMu      sync.Mutex
+	pendingObservation map[*genx.MessageChunk]*genx.MessageChunk
+
 	replayMu       sync.Mutex
 	replayCancel   context.CancelFunc
 	replaySeq      uint64
@@ -159,8 +162,52 @@ func (s *historyOutputStream) ObserveOutput(chunk *genx.MessageChunk) {
 	s.output.observeReplayOutput(chunk)
 	s.output.observeForwardOutput(chunk)
 	if s.output.upstreamObserver != nil {
-		s.output.upstreamObserver.ObserveOutput(chunk)
+		upstream := s.output.takePendingObservation(chunk)
+		if upstream != nil {
+			s.output.upstreamObserver.ObserveOutput(upstream)
+		}
 	}
+}
+
+// AbandonOutputObservation releases an upstream delivery acknowledgement when
+// a composition layer read this chunk but discarded it before the final
+// consumer pulled it. Keeping this contract across the history wrapper is
+// required for interruption: otherwise a deferred producer can wait forever
+// for a chunk that AudioDock intentionally removed.
+func (s *historyOutputStream) AbandonOutputObservation(chunk *genx.MessageChunk) {
+	if s == nil || s.output == nil {
+		return
+	}
+	upstream := s.output.takePendingObservation(chunk)
+	if upstream == nil || s.output.upstreamObserver == nil {
+		return
+	}
+	abandoner, ok := s.output.upstreamObserver.(interface {
+		AbandonOutputObservation(*genx.MessageChunk)
+	})
+	if ok {
+		abandoner.AbandonOutputObservation(upstream)
+	}
+}
+
+func (s *historyOutputStream) Close() error {
+	if s == nil {
+		return nil
+	}
+	if s.output != nil {
+		s.output.abandonPendingObservations()
+	}
+	return s.Stream.Close()
+}
+
+func (s *historyOutputStream) CloseWithError(err error) error {
+	if s == nil {
+		return nil
+	}
+	if s.output != nil {
+		s.output.abandonPendingObservations()
+	}
+	return s.Stream.CloseWithError(err)
 }
 
 func (a *historyAgent) Status(ctx context.Context) (apitypes.PeerRunWorkspaceState, error) {
@@ -262,7 +309,10 @@ func (a *historyAgent) forwardOutput(ctx context.Context, outputKey string, outp
 			_ = output.Abort(err)
 			return
 		}
-		if err := output.Add(chunk.Clone()); err != nil {
+		forwarded := chunk.Clone()
+		outputState.addPendingObservation(forwarded, chunk)
+		if err := output.Add(forwarded); err != nil {
+			outputState.abandonPendingObservation(forwarded)
 			_ = recorder.Flush(ctx)
 			a.clearOutput(outputKey, outputState)
 			return
@@ -317,6 +367,66 @@ func (a *historyAgent) clearOutput(outputKey string, state *historyOutput) {
 		state.cancelReplay()
 		state.cancelHistoryUpdated()
 		state.clearForwardOutput()
+	}
+}
+
+func (o *historyOutput) addPendingObservation(forwarded, upstream *genx.MessageChunk) {
+	if o == nil || forwarded == nil || upstream == nil || o.upstreamObserver == nil {
+		return
+	}
+	o.observationMu.Lock()
+	if o.pendingObservation == nil {
+		o.pendingObservation = make(map[*genx.MessageChunk]*genx.MessageChunk)
+	}
+	o.pendingObservation[forwarded] = upstream
+	o.observationMu.Unlock()
+}
+
+func (o *historyOutput) takePendingObservation(forwarded *genx.MessageChunk) *genx.MessageChunk {
+	if o == nil || forwarded == nil {
+		return nil
+	}
+	o.observationMu.Lock()
+	upstream := o.pendingObservation[forwarded]
+	delete(o.pendingObservation, forwarded)
+	o.observationMu.Unlock()
+	return upstream
+}
+
+func (o *historyOutput) abandonPendingObservation(forwarded *genx.MessageChunk) {
+	if o == nil || o.upstreamObserver == nil {
+		return
+	}
+	upstream := o.takePendingObservation(forwarded)
+	if upstream == nil {
+		return
+	}
+	if abandoner, ok := o.upstreamObserver.(interface {
+		AbandonOutputObservation(*genx.MessageChunk)
+	}); ok {
+		abandoner.AbandonOutputObservation(upstream)
+	}
+}
+
+func (o *historyOutput) abandonPendingObservations() {
+	if o == nil || o.upstreamObserver == nil {
+		return
+	}
+	abandoner, ok := o.upstreamObserver.(interface {
+		AbandonOutputObservation(*genx.MessageChunk)
+	})
+	if !ok {
+		return
+	}
+	o.observationMu.Lock()
+	pending := make([]*genx.MessageChunk, 0, len(o.pendingObservation))
+	for _, upstream := range o.pendingObservation {
+		pending = append(pending, upstream)
+	}
+	clear(o.pendingObservation)
+	o.observationMu.Unlock()
+	for _, upstream := range pending {
+		abandoner.AbandonOutputObservation(upstream)
 	}
 }
 

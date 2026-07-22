@@ -1,3 +1,4 @@
+---
 apiVersion: gizclaw.admin/v1alpha1
 kind: ResourceList
 metadata:
@@ -5,1442 +6,2882 @@ metadata:
 spec:
   items:
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-000
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 000
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-000
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-000
+          name: Flowcraft Scenario 000
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-001
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 001
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-001
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-001
+          name: Flowcraft Scenario 001
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-002
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 002
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-002
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-002
+          name: Flowcraft Scenario 002
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-003
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 003
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-003
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-003
+          name: Flowcraft Scenario 003
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-004
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 004
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-004
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-004
+          name: Flowcraft Scenario 004
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-005
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 005
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-005
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-005
+          name: Flowcraft Scenario 005
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-006
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 006
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-006
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-006
+          name: Flowcraft Scenario 006
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-007
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 007
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-007
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-007
+          name: Flowcraft Scenario 007
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-008
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 008
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-008
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-008
+          name: Flowcraft Scenario 008
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-009
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 009
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-009
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-009
+          name: Flowcraft Scenario 009
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-010
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 010
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-010
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-010
+          name: Flowcraft Scenario 010
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-011
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 011
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-011
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-011
+          name: Flowcraft Scenario 011
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-012
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 012
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-012
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-012
+          name: Flowcraft Scenario 012
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-013
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 013
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-013
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-013
+          name: Flowcraft Scenario 013
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-014
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 014
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-014
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-014
+          name: Flowcraft Scenario 014
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-015
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 015
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-015
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-015
+          name: Flowcraft Scenario 015
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-016
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 016
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-016
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-016
+          name: Flowcraft Scenario 016
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-017
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 017
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-017
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-017
+          name: Flowcraft Scenario 017
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-018
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 018
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-018
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-018
+          name: Flowcraft Scenario 018
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-019
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 019
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-019
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-019
+          name: Flowcraft Scenario 019
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-020
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 020
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-020
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-020
+          name: Flowcraft Scenario 020
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-021
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 021
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-021
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-021
+          name: Flowcraft Scenario 021
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-022
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 022
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-022
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-022
+          name: Flowcraft Scenario 022
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-023
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 023
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-023
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-023
+          name: Flowcraft Scenario 023
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-024
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 024
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-024
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-024
+          name: Flowcraft Scenario 024
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-025
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 025
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-025
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-025
+          name: Flowcraft Scenario 025
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-026
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 026
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-026
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-026
+          name: Flowcraft Scenario 026
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-027
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 027
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-027
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-027
+          name: Flowcraft Scenario 027
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-028
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 028
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-028
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-028
+          name: Flowcraft Scenario 028
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-029
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 029
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-029
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-029
+          name: Flowcraft Scenario 029
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-030
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 030
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-030
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-030
+          name: Flowcraft Scenario 030
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-031
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 031
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-031
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-031
+          name: Flowcraft Scenario 031
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-032
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 032
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-032
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-032
+          name: Flowcraft Scenario 032
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-033
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 033
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-033
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-033
+          name: Flowcraft Scenario 033
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-034
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 034
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-034
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-034
+          name: Flowcraft Scenario 034
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-035
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 035
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-035
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-035
+          name: Flowcraft Scenario 035
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-036
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 036
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-036
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-036
+          name: Flowcraft Scenario 036
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-037
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 037
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-037
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-037
+          name: Flowcraft Scenario 037
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-038
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 038
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-038
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-038
+          name: Flowcraft Scenario 038
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-039
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 039
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-039
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-039
+          name: Flowcraft Scenario 039
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-040
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 040
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-040
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-040
+          name: Flowcraft Scenario 040
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-041
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 041
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-041
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-041
+          name: Flowcraft Scenario 041
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-042
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 042
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-042
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-042
+          name: Flowcraft Scenario 042
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-043
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 043
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-043
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-043
+          name: Flowcraft Scenario 043
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-044
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 044
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-044
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-044
+          name: Flowcraft Scenario 044
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-045
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 045
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-045
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-045
+          name: Flowcraft Scenario 045
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-046
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 046
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-046
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-046
+          name: Flowcraft Scenario 046
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-047
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 047
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-047
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-047
+          name: Flowcraft Scenario 047
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-048
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 048
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-048
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-048
+          name: Flowcraft Scenario 048
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-049
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 049
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-049
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-049
+          name: Flowcraft Scenario 049
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-050
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 050
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-050
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-050
+          name: Flowcraft Scenario 050
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-051
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 051
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-051
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-051
+          name: Flowcraft Scenario 051
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-052
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 052
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-052
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-052
+          name: Flowcraft Scenario 052
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-053
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 053
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-053
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-053
+          name: Flowcraft Scenario 053
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-054
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 054
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-054
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-054
+          name: Flowcraft Scenario 054
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-055
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 055
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-055
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-055
+          name: Flowcraft Scenario 055
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-056
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 056
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-056
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-056
+          name: Flowcraft Scenario 056
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-057
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 057
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-057
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-057
+          name: Flowcraft Scenario 057
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-058
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 058
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-058
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-058
+          name: Flowcraft Scenario 058
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-059
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 059
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-059
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-059
+          name: Flowcraft Scenario 059
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-060
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 060
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-060
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-060
+          name: Flowcraft Scenario 060
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-061
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 061
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-061
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-061
+          name: Flowcraft Scenario 061
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-062
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 062
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-062
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-062
+          name: Flowcraft Scenario 062
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-063
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 063
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-063
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-063
+          name: Flowcraft Scenario 063
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-064
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 064
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-064
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-064
+          name: Flowcraft Scenario 064
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-065
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 065
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-065
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-065
+          name: Flowcraft Scenario 065
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-066
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 066
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-066
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-066
+          name: Flowcraft Scenario 066
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-067
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 067
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-067
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-067
+          name: Flowcraft Scenario 067
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-068
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 068
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-068
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-068
+          name: Flowcraft Scenario 068
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-069
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 069
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-069
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-069
+          name: Flowcraft Scenario 069
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-070
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 070
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-070
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-070
+          name: Flowcraft Scenario 070
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-071
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 071
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-071
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-071
+          name: Flowcraft Scenario 071
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-072
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 072
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-072
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-072
+          name: Flowcraft Scenario 072
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-073
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 073
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-073
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-073
+          name: Flowcraft Scenario 073
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-074
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 074
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-074
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-074
+          name: Flowcraft Scenario 074
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-075
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 075
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-075
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-075
+          name: Flowcraft Scenario 075
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-076
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 076
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-076
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-076
+          name: Flowcraft Scenario 076
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-077
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 077
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-077
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-077
+          name: Flowcraft Scenario 077
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-078
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 078
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-078
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-078
+          name: Flowcraft Scenario 078
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-079
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 079
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-079
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-079
+          name: Flowcraft Scenario 079
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-080
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 080
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-080
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-080
+          name: Flowcraft Scenario 080
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-081
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 081
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-081
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-081
+          name: Flowcraft Scenario 081
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-082
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 082
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-082
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-082
+          name: Flowcraft Scenario 082
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-083
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 083
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-083
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-083
+          name: Flowcraft Scenario 083
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-084
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 084
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-084
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-084
+          name: Flowcraft Scenario 084
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-085
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 085
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-085
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-085
+          name: Flowcraft Scenario 085
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-086
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 086
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-086
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-086
+          name: Flowcraft Scenario 086
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-087
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 087
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-087
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-087
+          name: Flowcraft Scenario 087
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-088
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 088
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-088
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-088
+          name: Flowcraft Scenario 088
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-089
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 089
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-089
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-089
+          name: Flowcraft Scenario 089
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-090
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 090
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-090
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-090
+          name: Flowcraft Scenario 090
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-091
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 091
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-091
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-091
+          name: Flowcraft Scenario 091
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-092
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 092
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-092
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-092
+          name: Flowcraft Scenario 092
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-093
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 093
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-093
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-093
+          name: Flowcraft Scenario 093
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-094
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 094
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-094
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-094
+          name: Flowcraft Scenario 094
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-095
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 095
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-095
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-095
+          name: Flowcraft Scenario 095
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-096
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 096
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-096
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-096
+          name: Flowcraft Scenario 096
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-097
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 097
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-097
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-097
+          name: Flowcraft Scenario 097
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-098
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 098
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-098
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-098
+          name: Flowcraft Scenario 098
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-099
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 099
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-099
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-099
+          name: Flowcraft Scenario 099
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-100
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 100
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-100
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-100
+          name: Flowcraft Scenario 100
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-101
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 101
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-101
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-101
+          name: Flowcraft Scenario 101
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-102
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 102
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-102
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-102
+          name: Flowcraft Scenario 102
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-103
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 103
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-103
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-103
+          name: Flowcraft Scenario 103
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-104
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 104
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-104
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-104
+          name: Flowcraft Scenario 104
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-105
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 105
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-105
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-105
+          name: Flowcraft Scenario 105
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-106
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 106
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-106
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-106
+          name: Flowcraft Scenario 106
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-107
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 107
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-107
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-107
+          name: Flowcraft Scenario 107
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-108
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 108
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-108
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-108
+          name: Flowcraft Scenario 108
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-109
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 109
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-109
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-109
+          name: Flowcraft Scenario 109
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-110
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 110
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-110
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-110
+          name: Flowcraft Scenario 110
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-111
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 111
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-111
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-111
+          name: Flowcraft Scenario 111
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-112
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 112
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-112
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-112
+          name: Flowcraft Scenario 112
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-113
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 113
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-113
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-113
+          name: Flowcraft Scenario 113
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-114
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 114
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-114
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-114
+          name: Flowcraft Scenario 114
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-115
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 115
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-115
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-115
+          name: Flowcraft Scenario 115
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-116
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 116
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-116
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-116
+          name: Flowcraft Scenario 116
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-117
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 117
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-117
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-117
+          name: Flowcraft Scenario 117
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-118
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 118
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-118
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-118
+          name: Flowcraft Scenario 118
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      name: flowcraft-scenario-119
     i18n:
       default_locale: en
       en:
         description: Flowcraft scenario 119
+    kind: Workflow
+    metadata:
+      name: flowcraft-scenario-119
     spec:
       driver: flowcraft
       flowcraft:
-        entry_agent: ""
+        agent:
+          id: flowcraft-scenario-119
+          name: Flowcraft Scenario 119
+          graph:
+            name: passthrough
+            entry: passthrough
+            nodes:
+            - id: passthrough
+              type: passthrough
+              publish: true
+            edges:
+            - from: passthrough
+              to: __end__

@@ -2202,8 +2202,193 @@ export type DoubaoRealtimeWorkflowSpec = {
     extension?: DoubaoRealtimeExtension;
 };
 
+export type FlowcraftAgent = {
+    id: string;
+    name: string;
+    description?: string;
+    max_iterations?: number;
+    graph: FlowcraftGraph;
+};
+
+export type FlowcraftConversation = {
+    starts?: 'peer' | 'agent';
+};
+
+export type FlowcraftEdge = {
+    from: string;
+    to: string;
+    condition?: string;
+};
+
+export type FlowcraftGraph = {
+    id?: string;
+    name: string;
+    entry: string;
+    nodes: Array<FlowcraftNode>;
+    edges?: Array<FlowcraftEdge>;
+};
+
+export type FlowcraftLlmNode = FlowcraftNodeBase & {
+    id?: string;
+    type: 'llm';
+    publish?: boolean;
+    skip_condition?: string;
+    config: FlowcraftLlmNodeConfig;
+};
+
+export type FlowcraftLlmNodeConfig = {
+    model: string;
+    system_prompt?: string;
+    temperature?: number;
+    max_tokens?: number;
+    output_key?: string;
+    messages_channel?: string;
+    json_mode?: boolean;
+    thinking?: boolean;
+    track_steps?: boolean;
+};
+
+export type FlowcraftMemory = {
+    enabled: boolean;
+    extract?: FlowcraftMemoryExtract;
+    embedding?: FlowcraftMemoryEmbedding;
+    rerank?: FlowcraftMemoryRerank;
+    layout?: FlowcraftMemoryLayout;
+    recall?: FlowcraftMemoryRecall;
+    write?: FlowcraftMemoryWrite;
+};
+
+export type FlowcraftMemoryBoardFact = {
+    board_var: string;
+    kind?: string;
+    subject?: string;
+    predicate?: string;
+    object?: string;
+    entities?: Array<string>;
+    required_prefix?: string;
+};
+
+export type FlowcraftMemoryEmbedding = {
+    enabled?: boolean;
+    model?: string;
+};
+
+export type FlowcraftMemoryExtract = {
+    enabled?: boolean;
+    model?: string;
+    mode?: 'single_pass' | 'two_pass';
+    system_prompt?: string;
+    schema_name?: string;
+    temperature?: number;
+    stage_timeout?: string;
+};
+
+export type FlowcraftMemoryFilter = {
+    field: string;
+    operator?: 'eq';
+    value: unknown;
+};
+
+export type FlowcraftMemoryLane = {
+    name: string;
+    kind: string;
+    description?: string;
+    extract?: string;
+    recall?: string;
+};
+
+export type FlowcraftMemoryLayout = {
+    lanes?: Array<FlowcraftMemoryLane>;
+};
+
+export type FlowcraftMemoryRecall = {
+    enabled?: boolean;
+    graph_enabled?: boolean;
+    include_retired?: boolean;
+    profiles?: {
+        [key: string]: FlowcraftMemoryRecallProfile;
+    };
+};
+
+export type FlowcraftMemoryRecallProfile = {
+    output: string;
+    query?: FlowcraftMemoryRecallQuery;
+    render?: FlowcraftMemoryRecallRender;
+    top_k: number;
+};
+
+export type FlowcraftMemoryRecallQuery = {
+    text?: string;
+    kinds?: Array<string>;
+    lanes?: Array<string>;
+    filters?: Array<FlowcraftMemoryFilter>;
+};
+
+export type FlowcraftMemoryRecallRender = {
+    header?: string;
+    item_prefix?: string;
+    max_items?: number;
+};
+
+export type FlowcraftMemoryRerank = {
+    enabled?: boolean;
+    model?: string;
+};
+
+export type FlowcraftMemoryWrite = {
+    mode?: 'sync' | 'async_semantic';
+    tier?: 'core' | 'general' | 'data' | 'storage';
+    save_conversation?: boolean;
+    board_facts?: Array<FlowcraftMemoryBoardFact>;
+};
+
+export type FlowcraftNode = ({
+    type: 'llm';
+} & FlowcraftLlmNode) | ({
+    type: 'script';
+} & FlowcraftScriptNode) | ({
+    type: 'passthrough';
+} & FlowcraftPassthroughNode);
+
+export type FlowcraftNodeBase = {
+    id: string;
+    type: string;
+    publish?: boolean;
+    skip_condition?: string;
+};
+
+export type FlowcraftPassthroughNode = {
+    id: string;
+    type: 'passthrough';
+    publish?: boolean;
+    skip_condition?: string;
+};
+
+export type FlowcraftScriptNode = FlowcraftNodeBase & {
+    id?: string;
+    type: 'script';
+    publish?: boolean;
+    skip_condition?: string;
+    config: FlowcraftScriptNodeConfig;
+};
+
+export type FlowcraftScriptNodeConfig = {
+    source: string;
+};
+
+export type FlowcraftVoiceAdapter = {
+    asr_model?: string;
+    default_voice?: string;
+    node_voices?: {
+        [key: string]: string;
+    };
+};
+
 export type FlowcraftWorkflowSpec = {
-    [key: string]: unknown;
+    agent: FlowcraftAgent;
+    conversation?: FlowcraftConversation;
+    memory?: FlowcraftMemory;
+    voice_adapter?: FlowcraftVoiceAdapter;
 };
 
 export type PetWorkflowSpec = {
@@ -2334,9 +2519,6 @@ export type FlowcraftConversationParameters = {
 export type FlowcraftWorkspaceParameters = {
     agent_type: 'flowcraft';
     input?: WorkspaceInputMode;
-    generate_model?: string;
-    extract_model?: string;
-    embedding_model?: string;
     conversation?: FlowcraftConversationParameters;
     /**
      * Marks seed resources used by the local e2e harness.

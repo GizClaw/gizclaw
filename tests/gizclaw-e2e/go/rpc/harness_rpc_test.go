@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	sharedWorkflow          = "flowcraft-support"
+	sharedWorkflow          = "flowcraft-chat-assistant"
 	sharedChatroomWorkflow  = "chatroom-direct"
 	sharedWorkspace         = "support-desk-workspace"
 	sharedChatroomWorkspace = "direct-chatroom-workspace"
@@ -148,7 +148,7 @@ func sharedRuntimeProfileSpec() apitypes.RuntimeProfileSpec {
 		},
 	}
 	models := map[string]apitypes.RuntimeProfileBinding{
-		"chat":         e2eRuntimeBinding(sharedModel),
+		"llm":          e2eRuntimeBinding(sharedModel),
 		"reward-claim": e2eRuntimeBinding("reward-claim"),
 		"pet-action":   e2eRuntimeBinding("pet-action"),
 	}
@@ -304,10 +304,18 @@ func testRPCCredentialBodyString(body rpcapi.CredentialBody, key string) string 
 }
 
 func adminWorkflow(name, description string) apitypes.Workflow {
-	_ = description
-	spec := apitypes.FlowcraftWorkflowSpec{
-		"entry_agent": "",
+	publish := true
+	var node apitypes.FlowcraftNode
+	if err := node.FromFlowcraftLLMNode(apitypes.FlowcraftLLMNode{
+		Id: "answer", Type: apitypes.FlowcraftLLMNodeTypeLlm, Publish: &publish,
+		Config: apitypes.FlowcraftLLMNodeConfig{Model: "llm"},
+	}); err != nil {
+		panic(err)
 	}
+	spec := apitypes.FlowcraftWorkflowSpec{Agent: apitypes.FlowcraftAgent{
+		Id: "assistant", Name: description,
+		Graph: apitypes.FlowcraftGraph{Name: description, Entry: "answer", Nodes: []apitypes.FlowcraftNode{node}},
+	}}
 	return apitypes.Workflow{
 		Name: name,
 		Spec: apitypes.WorkflowSpec{
@@ -319,12 +327,10 @@ func adminWorkflow(name, description string) apitypes.Workflow {
 
 func rpcFlowcraftWorkspaceParameters(t *testing.T, input rpcapi.WorkspaceInputMode) *rpcapi.WorkspaceParameters {
 	t.Helper()
-	generateModel := "chat"
 	var params rpcapi.WorkspaceParameters
 	if err := params.FromFlowcraftWorkspaceParameters(rpcapi.FlowcraftWorkspaceParameters{
-		AgentType:     rpcapi.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
-		Input:         &input,
-		GenerateModel: &generateModel,
+		AgentType: rpcapi.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
+		Input:     &input,
 	}); err != nil {
 		t.Fatalf("build Flowcraft Workspace parameters: %v", err)
 	}

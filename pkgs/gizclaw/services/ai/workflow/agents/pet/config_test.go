@@ -2,22 +2,16 @@ package pet
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 
-	"github.com/GizClaw/flowcraft/memory/recall"
-	"github.com/GizClaw/flowcraft/memory/recall/recalltest"
-	recallworkspace "github.com/GizClaw/flowcraft/memory/recall/store/workspace"
-	sdkworkspace "github.com/GizClaw/flowcraft/sdk/workspace"
-	flowclaw "github.com/GizClaw/flowcraft/sdkx/claw"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
-	"gopkg.in/yaml.v3"
 )
 
 func TestTurnInputsComposeWorkspacePromptsAndDefinedAttributes(t *testing.T) {
@@ -53,18 +47,17 @@ func TestTurnInputsComposeWorkspacePromptsAndDefinedAttributes(t *testing.T) {
 }
 
 func TestFixedFlowcraftConfigOwnsPetGraphAndAsyncMemoryLayout(t *testing.T) {
-	cfg := fixedFlowcraftConfig("pet-123", "chat-model", "extract-model", false)
-	settings := cfg["settings"].(map[string]any)
-	if settings["generate_model"] != "chat-model" || settings["extract_model"] != "extract-model" {
-		t.Fatalf("configured model resource names = %#v", settings)
-	}
+	cfg := fixedFlowcraftConfig("chat-model", "extract-model", "", "peer")
 	memory := cfg["memory"].(map[string]any)
-	if got := memory["scope"]; !reflect.DeepEqual(got, map[string]any{
-		"runtime_id": "gizclaw-pet",
-		"user_id":    "pet-123",
-		"agent_id":   "pet-123",
-	}) {
-		t.Fatalf("memory scope = %#v", got)
+	for _, legacy := range []string{"workspace", "history", "settings"} {
+		if _, exists := cfg[legacy]; exists {
+			t.Fatalf("fixed config contains legacy %q: %#v", legacy, cfg[legacy])
+		}
+	}
+	for _, legacy := range []string{"scope", "retrieval"} {
+		if _, exists := memory[legacy]; exists {
+			t.Fatalf("memory contains legacy %q: %#v", legacy, memory[legacy])
+		}
 	}
 	write := memory["write"].(map[string]any)
 	if write["mode"] != "async_semantic" || write["save_conversation"] != true {
@@ -105,82 +98,31 @@ func TestFixedFlowcraftConfigOwnsPetGraphAndAsyncMemoryLayout(t *testing.T) {
 	if graph["entry"] != "prepare_pet_context" {
 		t.Fatalf("graph entry = %#v", graph["entry"])
 	}
+	nodes := graph["nodes"].([]any)
+	answer := nodes[1].(map[string]any)["config"].(map[string]any)
+	if answer["model"] != "chat-model" {
+		t.Fatalf("answer model = %#v", answer["model"])
+	}
+	if answer["max_tokens"] != 2048 {
+		t.Fatalf("answer max_tokens = %#v, want 2048", answer["max_tokens"])
+	}
 	if _, ok := cfg["tools"]; ok {
 		t.Fatalf("pet config unexpectedly contains tools: %#v", cfg["tools"])
 	}
 }
 
-func TestPetAsyncMemoryUsesWorkspaceQueueContract(t *testing.T) {
-	recalltest.RunAsyncSemanticQueueSuite(t, func(t testing.TB) recall.AsyncSemanticQueue {
-		backend, err := recallworkspace.Open(t.TempDir())
-		if err != nil {
-			t.Fatalf("workspace queue Open() error = %v", err)
-		}
-		t.Cleanup(func() { _ = backend.Close() })
-		return backend.AsyncSemanticQueue()
-	})
-}
-
-func TestPetAsyncMemoryQueueSurvivesWorkspaceReopen(t *testing.T) {
-	ctx := context.Background()
-	dir := t.TempDir()
-	scope := recall.Scope{RuntimeID: "gizclaw-pet", UserID: "pet-123", AgentID: "pet-123"}
-	backend, err := recallworkspace.Open(dir)
+func TestFixedFlowcraftConfigLoadsAsPublicSpec(t *testing.T) {
+	cfg := fixedFlowcraftConfig("chat-model", "extract-model", "embedding-model", "agent")
+	raw, err := json.Marshal(cfg)
 	if err != nil {
-		t.Fatalf("workspace queue Open() error = %v", err)
+		t.Fatalf("json.Marshal() error = %v", err)
 	}
-	if _, err := backend.AsyncSemanticQueue().Enqueue(ctx, recall.AsyncSemanticJob{RequestID: "relationship-1", Scope: scope}); err != nil {
-		t.Fatalf("Enqueue() error = %v", err)
+	var spec apitypes.FlowcraftWorkflowSpec
+	if err := json.Unmarshal(raw, &spec); err != nil {
+		t.Fatalf("public Flowcraft config rejected fixed Pet config: %v", err)
 	}
-	if err := backend.Close(); err != nil {
-		t.Fatalf("Close() error = %v", err)
-	}
-	reopened, err := recallworkspace.Open(dir)
-	if err != nil {
-		t.Fatalf("workspace queue reopen error = %v", err)
-	}
-	t.Cleanup(func() { _ = reopened.Close() })
-	jobs, err := reopened.AsyncSemanticQueue().Claim(ctx, recall.AsyncSemanticClaimOptions{
-		WorkerID: "pet-test",
-		Now:      time.Now(),
-		Max:      1,
-		Scope:    &scope,
-	})
-	if err != nil {
-		t.Fatalf("Claim() after reopen error = %v", err)
-	}
-	if len(jobs) != 1 || jobs[0].RequestID != "relationship-1" {
-		t.Fatalf("Claim() after reopen = %#v", jobs)
-	}
-}
-
-func TestFixedFlowcraftConfigLoadsInClaw(t *testing.T) {
-	cfg := fixedFlowcraftConfig("pet-123", "chat-model", "extract-model", false)
-	cfg["models"] = map[string]any{
-		"chat":      "generate_model",
-		"extractor": "extract_model",
-		"llm": map[string]any{
-			"chat-model":    map[string]any{"provider": "mock", "model": "mock-generate"},
-			"extract-model": map[string]any{"provider": "mock", "model": "mock-extract"},
-		},
-	}
-	raw, err := yaml.Marshal(cfg)
-	if err != nil {
-		t.Fatalf("yaml.Marshal() error = %v", err)
-	}
-	ws, err := sdkworkspace.NewLocalWorkspace(t.TempDir())
-	if err != nil {
-		t.Fatalf("NewLocalWorkspace() error = %v", err)
-	}
-	if err := ws.Write(context.Background(), "config.yaml", raw); err != nil {
-		t.Fatalf("workspace.Write() error = %v", err)
-	}
-	claw, err := flowclaw.New(ws)
-	if err != nil {
-		t.Fatalf("claw.New() rejected fixed Pet config: %v", err)
-	}
-	if err := claw.CloseContext(context.Background()); err != nil {
-		t.Fatalf("CloseContext() error = %v", err)
+	if spec.Conversation == nil || spec.Conversation.Starts == nil || *spec.Conversation.Starts != apitypes.FlowcraftConversationStartsAgent {
+		t.Fatalf("conversation = %#v", spec.Conversation)
 	}
 }
 
@@ -194,7 +136,6 @@ func TestFactoryRejectsMissingOrAmbiguousPetBinding(t *testing.T) {
 			Pet:    &petSpec,
 		}},
 	}
-	spec.Runtime.LocalDir = t.TempDir()
 	wantErr := errors.New("multiple pets")
 	_, err := (Factory{Pets: failingPetProvider{err: wantErr}}).NewAgent(context.Background(), spec)
 	if err == nil || !strings.Contains(err.Error(), wantErr.Error()) {
@@ -212,7 +153,6 @@ func TestFactoryRequiresConfiguredModelResourcesToBeOperational(t *testing.T) {
 			Pet:    &petSpec,
 		}},
 	}
-	spec.Runtime.LocalDir = t.TempDir()
 	_, err := (Factory{
 		GenX: peergenx.New(peergenx.Service{Models: emptyPetModels{}}),
 		Pets: staticPetProvider{
@@ -236,7 +176,6 @@ func TestFactoryRejectsMissingServerModelConfig(t *testing.T) {
 			Pet:    &petSpec,
 		}},
 	}
-	spec.Runtime.LocalDir = t.TempDir()
 	_, err := (Factory{Pets: staticPetProvider{}}).NewAgent(context.Background(), spec)
 	if err == nil || !strings.Contains(err.Error(), "generate_model") || !strings.Contains(err.Error(), "system_tasks.pet_flowcraft_workflow") {
 		t.Fatalf("NewAgent() error = %v", err)

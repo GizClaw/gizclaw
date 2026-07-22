@@ -13,11 +13,11 @@ import (
 	flowmodel "github.com/GizClaw/flowcraft/sdk/model"
 	"github.com/GizClaw/gizclaw-go/pkgs/buffer"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
-	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/internal/streamkit"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/streamkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
-const assistantLabel = "agent.flowcraft.assistant"
+const assistantLabel = "assistant"
 
 // Agent owns one immutable Flowcraft graph runtime. Transform may be
 // called concurrently; mutable conversation state is allocated per call.
@@ -25,6 +25,11 @@ type Agent struct {
 	config Config
 	agent  flowagent.Agent
 	engine engine.Engine
+
+	contextID         string
+	history           *conversationHistory
+	initiativeMu      sync.Mutex
+	initiativeClaimed bool
 }
 
 // New validates Config and constructs a reusable Flowcraft Agent.
@@ -37,7 +42,17 @@ func New(source Config) (*Agent, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Agent{config: config, agent: sdkAgent, engine: graphEngine}, nil
+	contextID := config.ContextID
+	if contextID == "" {
+		contextID = genx.NewStreamID()
+	}
+	return &Agent{
+		config: config, agent: sdkAgent, engine: graphEngine,
+		contextID: contextID,
+		history: &conversationHistory{
+			store: config.History, agentID: config.ID, contextID: contextID, scope: config.HistoryScope,
+		},
+	}, nil
 }
 
 // Transform consumes a long-lived GenX stream. Each completed text BOS/EOS
@@ -75,12 +90,11 @@ type session struct {
 }
 
 func newSession(ctx context.Context, transformer *Agent, input genx.Stream) *session {
-	contextID := genx.NewStreamID()
 	s := &session{
-		transformer: transformer, input: input, contextID: contextID,
+		transformer: transformer, input: input, contextID: transformer.contextID,
 		runs: make(map[string]*turnRun), done: make(chan struct{}),
 	}
-	s.history = &conversationHistory{store: transformer.config.History, agentID: transformer.config.ID, contextID: contextID}
+	s.history = transformer.history
 	s.invocation = streamkit.NewInvocation(ctx, streamkit.OutputConfig{InitialCapacity: 64, Observe: s.observeOutput})
 	return s
 }
@@ -135,6 +149,14 @@ func (s *session) run() {
 	activeBypassID := ""
 	var inputFailure error
 	var previous <-chan struct{}
+	initiative, err := s.transformer.claimInitiative(s.invocation.Context())
+	if err != nil {
+		_ = s.invocation.Output().CloseWithError(err)
+		return
+	}
+	if initiative {
+		previous = s.startTurn("", nil)
+	}
 	for {
 		chunk, err := s.input.Next()
 		if err != nil {
@@ -260,6 +282,27 @@ func (s *session) run() {
 	_ = s.invocation.Close()
 }
 
+func (t *Agent) claimInitiative(ctx context.Context) (bool, error) {
+	if t == nil || t.config.Initiative == InitiativeDisabled {
+		return false, nil
+	}
+	t.initiativeMu.Lock()
+	defer t.initiativeMu.Unlock()
+	if t.initiativeClaimed {
+		return false, nil
+	}
+	t.initiativeClaimed = true
+	if t.config.Initiative == InitiativeOnReload {
+		return true, nil
+	}
+	messages, err := t.history.load(ctx)
+	if err != nil {
+		t.initiativeClaimed = false
+		return false, fmt.Errorf("flowcraft: inspect History for initiative: %w", err)
+	}
+	return len(messages) == 0, nil
+}
+
 type pendingBegin struct {
 	streamID string
 	chunk    *genx.MessageChunk
@@ -302,7 +345,11 @@ func takePendingBegin(pending *[]pendingBegin, streamID string) *genx.MessageChu
 
 func (s *session) startTurn(user string, previous <-chan struct{}) <-chan struct{} {
 	response, err := s.invocation.StartResponse(streamkit.ResponseConfig{
-		Role: genx.RoleModel, Name: s.transformer.config.Name, Label: assistantLabel,
+		// Published data chunks keep their node ID in Name for node-specific
+		// voice routing. The synthesized route EOS uses the stable assistant
+		// name/label pair so downstream history can close every published node
+		// channel belonging to this response.
+		Role: genx.RoleModel, Name: assistantLabel, Label: assistantLabel,
 	}, "text/plain")
 	if err != nil {
 		_ = s.invocation.Fail(err)
@@ -476,6 +523,15 @@ func (r *turnRun) runGraph() (*flowagent.Result, error) {
 		for key, value := range state {
 			board.SetVar(key, value)
 		}
+		if config.BoardInputs != nil {
+			inputs, err := config.BoardInputs(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("flowcraft: resolve Board inputs: %w", err)
+			}
+			for key, value := range inputs {
+				board.SetVar(key, value)
+			}
+		}
 		messages, err := r.session.history.load(ctx)
 		if err != nil {
 			return nil, err
@@ -483,11 +539,25 @@ func (r *turnRun) runGraph() (*flowagent.Result, error) {
 		board.SetChannel(engine.MainChannel, messages)
 		board.AppendChannelMessage(engine.MainChannel, req.Message)
 		for _, profile := range config.RecallProfiles {
-			recalled, err := config.Memory.Recall(ctx, memory.Query{Scope: config.MemoryScope, Text: r.user, Limit: profile.Limit, Filters: profile.Filters})
-			if err != nil {
-				return nil, fmt.Errorf("flowcraft: recall Memory for %q: %w", profile.BoardVariable, err)
+			queryText := profile.QueryText
+			if queryText == "" || queryText == "input" {
+				queryText = r.user
+			} else {
+				queryText = strings.ReplaceAll(queryText, "${input}", r.user)
 			}
-			rendered, err := config.RecallRenderer(ctx, recalled.Matches)
+			renderer := config.RecallRenderer
+			if profile.Renderer != nil {
+				renderer = profile.Renderer
+			}
+			var matches []memory.Match
+			if queryText = strings.TrimSpace(queryText); queryText != "" {
+				recalled, err := config.Memory.Recall(ctx, memory.Query{Scope: config.MemoryScope, Text: queryText, Limit: profile.Limit, Filters: profile.Filters})
+				if err != nil {
+					return nil, fmt.Errorf("flowcraft: recall Memory for %q: %w", profile.BoardVariable, err)
+				}
+				matches = recalled.Matches
+			}
+			rendered, err := renderer(ctx, matches)
 			if err != nil {
 				return nil, fmt.Errorf("flowcraft: render Memory for %q: %w", profile.BoardVariable, err)
 			}
@@ -520,7 +590,7 @@ func (r *turnRun) waitUntilDelivered() {
 
 func (r *turnRun) finalize(ctx context.Context, delivered string, interrupted bool, finalBoard *engine.Board) error {
 	var messages []flowmodel.Message
-	if !interrupted || delivered != "" {
+	if strings.TrimSpace(r.user) != "" && (!interrupted || delivered != "") {
 		messages = append(messages, flowmodel.NewTextMessage(flowmodel.RoleUser, r.user))
 	}
 	if delivered != "" {
@@ -539,7 +609,7 @@ func (r *turnRun) finalize(ctx context.Context, delivered string, interrupted bo
 	if !config.ObserveEnabled {
 		return nil
 	}
-	boardVariables, err := serializableBoardVariables(finalBoard)
+	boardVariables, err := observationBoardVariables(finalBoard)
 	if err != nil {
 		return err
 	}
@@ -549,6 +619,9 @@ func (r *turnRun) finalize(ctx context.Context, delivered string, interrupted bo
 	})
 	if err != nil {
 		return fmt.Errorf("flowcraft: build Memory observation: %w", err)
+	}
+	if strings.TrimSpace(observation.Text) == "" && len(observation.Turns) == 0 && len(observation.Facts) == 0 {
+		return nil
 	}
 	observation.Scope = config.MemoryScope
 	if err := memory.ValidateObservation(observation); err != nil {
@@ -561,11 +634,25 @@ func (r *turnRun) finalize(ctx context.Context, delivered string, interrupted bo
 	if observed.Operation != nil && observed.Operation.Status == memory.OperationFailed {
 		return fmt.Errorf("flowcraft: Memory operation %q failed: %s", observed.Operation.ID, observed.Operation.Error)
 	}
-	if config.ObserveWaitForCompletion && observed.Operation != nil && observed.Operation.Status == memory.OperationPending {
+	if observed.Operation != nil && observed.Operation.Status == memory.OperationPending {
 		if strings.TrimSpace(observed.Operation.ID) == "" {
 			return fmt.Errorf("flowcraft: pending Memory operation has no ID")
 		}
-		waiter := config.Memory.(memory.OperationWaiter)
+		waiter, ok := config.Memory.(memory.OperationWaiter)
+		if !ok {
+			return fmt.Errorf("flowcraft: pending Memory operation requires OperationWaiter")
+		}
+		if !config.ObserveWaitForCompletion {
+			// Async semantic stores enqueue extraction work rather than running it in
+			// Observe. Drain that caller-owned work independently so a later turn can
+			// recall it without extending the current response lifecycle.
+			if processor, ok := config.Memory.(memory.AsyncOperationProcessor); ok {
+				go func(operationID string) {
+					_, _ = processor.ProcessAsync(context.WithoutCancel(ctx), operationID)
+				}(observed.Operation.ID)
+			}
+			return nil
+		}
 		completed, err := waiter.Wait(ctx, observed.Operation.ID)
 		if err != nil {
 			return fmt.Errorf("flowcraft: wait Memory operation %q: %w", observed.Operation.ID, err)

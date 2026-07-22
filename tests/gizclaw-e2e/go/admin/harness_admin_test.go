@@ -184,7 +184,7 @@ func openAICredentialBody(t *testing.T, apiKey string) apitypes.CredentialBody {
 	return body
 }
 
-func openAIModelProviderData(t *testing.T, upstream string) *apitypes.ModelProviderData {
+func openAIModelProviderData(t *testing.T, upstream string) apitypes.ModelProviderData {
 	t.Helper()
 	var body apitypes.ModelProviderData
 	if err := body.FromOpenAITenantModelProviderData(apitypes.OpenAITenantModelProviderData{
@@ -194,20 +194,42 @@ func openAIModelProviderData(t *testing.T, upstream string) *apitypes.ModelProvi
 	}); err != nil {
 		t.Fatalf("build OpenAI model provider data: %v", err)
 	}
-	return &body
+	return body
 }
 
 func flowcraftWorkspaceParameters(t *testing.T, input apitypes.WorkspaceInputMode) *apitypes.WorkspaceParameters {
 	t.Helper()
 	var params apitypes.WorkspaceParameters
 	if err := params.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{
-		AgentType:     apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
-		GenerateModel: ptr("fake-openai-chat-000"),
-		Input:         &input,
+		AgentType: apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
+		Input:     &input,
 	}); err != nil {
 		t.Fatalf("build Flowcraft workspace parameters: %v", err)
 	}
 	return &params
+}
+
+func testFlowcraftWorkflowSpec() *apitypes.FlowcraftWorkflowSpec {
+	var node apitypes.FlowcraftNode
+	if err := node.FromFlowcraftLLMNode(apitypes.FlowcraftLLMNode{
+		Id:      "answer",
+		Type:    apitypes.FlowcraftLLMNodeTypeLlm,
+		Publish: ptr(true),
+		Config: apitypes.FlowcraftLLMNodeConfig{
+			Model: "llm",
+		},
+	}); err != nil {
+		panic(err)
+	}
+	return &apitypes.FlowcraftWorkflowSpec{Agent: apitypes.FlowcraftAgent{
+		Id:   "assistant",
+		Name: "Assistant",
+		Graph: apitypes.FlowcraftGraph{
+			Name:  "Assistant",
+			Entry: "answer",
+			Nodes: []apitypes.FlowcraftNode{node},
+		},
+	}}
 }
 
 func mutationName(base string) string {

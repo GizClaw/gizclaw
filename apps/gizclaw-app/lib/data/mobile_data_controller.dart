@@ -1414,24 +1414,12 @@ String _newWorkspaceName(String workflowName) {
 WorkspaceParameters newWorkspaceParametersForDriver(
   WorkflowDriverKind driver, {
   String? langPair,
-  String? generateModel = 'chat',
-  String? extractModel = 'extraction',
-  String? embeddingModel,
 }) => switch (driver) {
   WorkflowDriverKind.flowcraft => WorkspaceParameters(
     flowcraftWorkspaceParameters: FlowcraftWorkspaceParameters(
       agentType: FlowcraftWorkspaceParametersAgentType
           .FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT,
       input: WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK,
-      generateModel: generateModel?.trim().isEmpty == false
-          ? generateModel!.trim()
-          : null,
-      extractModel: extractModel?.trim().isEmpty == false
-          ? extractModel!.trim()
-          : null,
-      embeddingModel: embeddingModel?.trim().isEmpty == false
-          ? embeddingModel!.trim()
-          : null,
     ),
   ),
   WorkflowDriverKind.doubaoRealtime => WorkspaceParameters(

@@ -4,6 +4,7 @@ import memorystore "github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 
 type (
 	DeleteRequest = memorystore.DeleteRequest
+	FactCandidate = memorystore.FactCandidate
 	Filter        = memorystore.Filter
 	Observation   = memorystore.Observation
 	Query         = memorystore.Query

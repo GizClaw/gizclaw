@@ -1296,8 +1296,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_WorkspacePutResponse_msg;
 #define gizclaw_rpc_v1_WorkspacePutResponse_fields &gizclaw_rpc_v1_WorkspacePutResponse_msg
 
 /* Maximum encoded size of messages (where known) */
-#if defined(gizclaw_rpc_v1_FlowcraftWorkspaceParameters_size) && defined(gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_size) && defined(gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_size) && defined(gizclaw_rpc_v1_ChatRoomWorkspaceParameters_size) && defined(gizclaw_rpc_v1_PetWorkspaceParameters_size)
-union gizclaw_rpc_v1_WorkspaceParameters_value_size_union {char f1[(6 + gizclaw_rpc_v1_FlowcraftWorkspaceParameters_size)]; char f2[(6 + gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_size)]; char f3[(6 + gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_size)]; char f4[(6 + gizclaw_rpc_v1_ChatRoomWorkspaceParameters_size)]; char f5[(6 + gizclaw_rpc_v1_PetWorkspaceParameters_size)];};
+#if defined(gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_size) && defined(gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_size) && defined(gizclaw_rpc_v1_ChatRoomWorkspaceParameters_size) && defined(gizclaw_rpc_v1_PetWorkspaceParameters_size)
+union gizclaw_rpc_v1_WorkspaceParameters_value_size_union {char f2[(6 + gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_size)]; char f3[(6 + gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_size)]; char f4[(6 + gizclaw_rpc_v1_ChatRoomWorkspaceParameters_size)]; char f5[(6 + gizclaw_rpc_v1_PetWorkspaceParameters_size)]; char f0[14];};
 #endif
 /* gizclaw_rpc_v1_AgentSelection_size depends on runtime parameters */
 /* gizclaw_rpc_v1_PeerRunAgent_size depends on runtime parameters */
@@ -1364,10 +1364,10 @@ union gizclaw_rpc_v1_WorkspaceParameters_value_size_union {char f1[(6 + gizclaw_
 #if defined(gizclaw_rpc_v1_Runtime_size)
 #define gizclaw_rpc_v1_ServerGetRuntimeResponse_size (6 + gizclaw_rpc_v1_Runtime_size)
 #endif
-#if defined(gizclaw_rpc_v1_FlowcraftWorkspaceParameters_size) && defined(gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_size) && defined(gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_size) && defined(gizclaw_rpc_v1_ChatRoomWorkspaceParameters_size) && defined(gizclaw_rpc_v1_PetWorkspaceParameters_size) && defined(gizclaw_rpc_v1_ToolkitPolicy_size)
+#if defined(gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_size) && defined(gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_size) && defined(gizclaw_rpc_v1_ChatRoomWorkspaceParameters_size) && defined(gizclaw_rpc_v1_PetWorkspaceParameters_size) && defined(gizclaw_rpc_v1_ToolkitPolicy_size)
 #define gizclaw_rpc_v1_WorkspacePutBody_size     (12 + sizeof(union gizclaw_rpc_v1_WorkspaceParameters_value_size_union) + gizclaw_rpc_v1_ToolkitPolicy_size)
 #endif
-#if defined(gizclaw_rpc_v1_FlowcraftWorkspaceParameters_size) && defined(gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_size) && defined(gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_size) && defined(gizclaw_rpc_v1_ChatRoomWorkspaceParameters_size) && defined(gizclaw_rpc_v1_PetWorkspaceParameters_size)
+#if defined(gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_size) && defined(gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_size) && defined(gizclaw_rpc_v1_ChatRoomWorkspaceParameters_size) && defined(gizclaw_rpc_v1_PetWorkspaceParameters_size)
 #define gizclaw_rpc_v1_WorkspaceParameters_size  (0 + sizeof(union gizclaw_rpc_v1_WorkspaceParameters_value_size_union))
 #endif
 
