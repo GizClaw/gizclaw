@@ -81,6 +81,10 @@ func TestKVSourceLookup(t *testing.T) {
 	if err != nil || exists {
 		t.Fatalf("HasLocator(missing) = %v, error = %v", exists, err)
 	}
+	owner := "peer-a"
+	if _, err := source.HasLocator(ctx, Locator{Kind: KindWorkspace, ResourceID: record.ResourceID, OwnerPublicKey: &owner}); err == nil {
+		t.Fatal("HasLocator(owner filter) error = nil")
+	}
 }
 
 func TestKVSourceRejectsMissingStore(t *testing.T) {

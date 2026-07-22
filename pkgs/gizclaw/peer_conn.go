@@ -87,6 +87,15 @@ func (h *PeerConn) serve() error {
 	if err := h.Service.validateServices(); err != nil {
 		return err
 	}
+	oldConn, err := h.Service.activateConn(context.Background(), h.Conn)
+	if err != nil {
+		_ = h.close()
+		return err
+	}
+	defer h.Service.manager.SetPeerDown(h.Conn.PublicKey(), h.Conn)
+	if oldConn != nil {
+		_ = oldConn.Close()
+	}
 	h.init()
 
 	var g errgroup.Group
@@ -96,7 +105,7 @@ func (h *PeerConn) serve() error {
 	g.Go(h.serveEdgeRPC)
 	g.Go(h.serveOpenAI)
 	g.Go(h.serveEvents)
-	err := g.Wait()
+	err = g.Wait()
 	if err != nil {
 		_ = h.close()
 	}
@@ -107,7 +116,7 @@ func (h *PeerConn) serveService() error {
 	defer func() {
 		_ = h.close()
 	}()
-	return h.Service.serveConn(h.Conn, h.isRetiring)
+	return h.Service.serveActiveConn(h.Conn, h.isRetiring)
 }
 
 func (h *PeerConn) servePackets() error {
@@ -203,6 +212,9 @@ func (h *PeerConn) initRPC() {
 		h.rpc.speechLimits = h.Service.manager.SpeechLimits
 		h.rpc.serverResources = h.peerResources()
 		h.rpc.registrations = h.Service.manager.RuntimeProfiles
+		h.rpc.deletePeerSelf = func(ctx context.Context) error {
+			return h.Service.manager.deleteActivePeer(ctx, h.Conn.PublicKey(), h.Conn)
+		}
 		h.rpc.onRegistration = func(registration runtimeprofile.Registration) {
 			if h.Conn == nil {
 				return

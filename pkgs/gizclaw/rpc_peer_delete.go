@@ -15,12 +15,21 @@ func (s *rpcServer) handlePeerDelete(ctx context.Context, stream *rpcStream, req
 	if err := stream.ReadEOS(); err != nil {
 		return err
 	}
-	if s.peer == nil {
+	if s.peer == nil && s.deletePeerSelf == nil {
 		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInternalError, "peer service not configured")
 	}
-	if err := s.peer.DeleteSelf(ctx, s.callerPublicKey); err != nil {
+	var err error
+	if s.deletePeerSelf != nil {
+		err = s.deletePeerSelf(ctx)
+	} else {
+		err = s.peer.DeleteSelf(ctx, s.callerPublicKey)
+	}
+	if err != nil {
 		if errors.Is(err, peer.ErrPeerNotFound) {
 			return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeNotFound, err.Error())
+		}
+		if errors.Is(err, ErrPeerConnNotActive) {
+			return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeConflict, err.Error())
 		}
 		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInternalError, err.Error())
 	}

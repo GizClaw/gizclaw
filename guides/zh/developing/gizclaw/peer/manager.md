@@ -26,7 +26,7 @@
 | `retainTelemetryStatusLock` / `releaseTelemetryStatusLock` | 按 public key 管理 telemetry status 更新锁的生命周期。 |
 | `applyPeerRefreshInfo` / `applyPeerRefreshIdentifiers` | 将 RPC refresh response 合并到持久化 Peer model。 |
 
-Connection registration 更新只接受在线索引中已存在且完全相同的 connection，绝不会为缺失条目重新创建在线 Peer。registration 发布与 `PeerConn` retiring 共用同一个 Manager 临界区：要么 registration 先完成、随后被 retiring 摘除，要么 retiring 先完成、迟到的 registration 被拒绝。
+Connection activation 会在启动 transport service loop 前，通过同一个 Manager 临界区确保 durable Peer generation 并发布准确 connection。registration 更新只接受这条 active connection，绝不会重新创建缺失条目。registration 发布、connection-scoped self-delete、replacement activation 与 `PeerConn` retiring 遵循相同的 Manager 锁顺序，因此被替换的旧 connection 不能重新 registration，也不能删除 replacement generation。
 
 ## 设备元数据归属
 

@@ -613,6 +613,9 @@ func (r *Runtime) ListPetWorkspaceNames(ctx context.Context, owner string) ([]st
 	if r == nil || r.DB == nil {
 		return nil, nil
 	}
+	if err := r.Migration(ctx); err != nil {
+		return nil, err
+	}
 	profile, ok := runtimeProfileFromContext(ctx)
 	profileName := strings.TrimSpace(profile.Name)
 	if !ok || profileName == "" {

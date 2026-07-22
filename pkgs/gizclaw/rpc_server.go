@@ -67,6 +67,7 @@ type rpcServer struct {
 	onRegistration     func(runtimeprofile.Registration)
 	registrationSource string
 	callerPublicKey    giznet.PublicKey
+	deletePeerSelf     func(context.Context) error
 	isPeerRetiring     func() bool
 	onPeerRetiring     func()
 	onPeerDeleted      func()

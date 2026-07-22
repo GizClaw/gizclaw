@@ -36,6 +36,18 @@ func TestGetPointsAllowsProfileWithoutPetGameplay(t *testing.T) {
 	}
 }
 
+func TestListPetWorkspaceNamesMigratesFreshDatabase(t *testing.T) {
+	runtime := &Runtime{DB: testDB(t)}
+	ctx := WithRuntimeProfile(context.Background(), apitypes.RuntimeProfile{Name: "profile-a"})
+	names, err := runtime.ListPetWorkspaceNames(ctx, "peer-a")
+	if err != nil {
+		t.Fatalf("ListPetWorkspaceNames() error = %v", err)
+	}
+	if len(names) != 0 {
+		t.Fatalf("ListPetWorkspaceNames() = %#v, want empty", names)
+	}
+}
+
 func TestRuntimeAdoptDoesNotDeleteExistingSystemWorkspaceOnIDCollision(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 7, 5, 10, 0, 0, 0, time.UTC)

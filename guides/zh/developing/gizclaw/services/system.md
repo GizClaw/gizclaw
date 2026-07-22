@@ -21,7 +21,7 @@ services/system/
 
 ### pendingdeletion
 
-定义带版本的、backend-neutral `PendingDeletion` envelope。领域 fast-delete 必须在资源自己的物理存储中，原子地让 active resource 不可发现并写入一条最小 cleanup descriptor。Peer 和用户 Workspace 使用 KV，Pet 使用 gameplay SQL database。这个 package 不运行 worker、不删除 pending record，也不暴露已删除资源内容；processing 属于后续 managed cleanup service。
+定义带版本的、backend-neutral `PendingDeletion` envelope。领域 fast-delete 必须在资源自己的物理存储中，原子地让 active resource 不可发现并写入一条最小 cleanup descriptor。Peer 和用户 Workspace 使用 KV，Pet 使用 gameplay SQL database。KV locator lookup 支持 kind 与全局唯一 resource ID，并显式拒绝 owner-scoped filter；gameplay SQL source 支持包含 owner 的 locator。这个 package 不运行 worker、不删除 pending record，也不暴露已删除资源内容；processing 属于后续 managed cleanup service。
 
 ### runtimeprofile
 

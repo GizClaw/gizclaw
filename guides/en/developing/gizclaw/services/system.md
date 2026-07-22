@@ -21,7 +21,7 @@ Defines owner context and KV index conventions used by persisted resources. On t
 
 ### pendingdeletion
 
-Defines the versioned, backend-neutral `PendingDeletion` envelope. A domain fast-delete makes its active resource undiscoverable and writes one minimal cleanup descriptor atomically in that resource's physical store. Peer and user Workspace producers use KV; Pet uses the gameplay SQL database. This package does not run workers, remove pending records, or expose deleted payloads. Processing belongs to the managed cleanup service.
+Defines the versioned, backend-neutral `PendingDeletion` envelope. A domain fast-delete makes its active resource undiscoverable and writes one minimal cleanup descriptor atomically in that resource's physical store. Peer and user Workspace producers use KV; Pet uses the gameplay SQL database. KV locator lookup supports kind and globally unique resource ID and explicitly rejects owner-scoped filters; the gameplay SQL source supports its owner-scoped locator. This package does not run workers, remove pending records, or expose deleted payloads. Processing belongs to the managed cleanup service.
 
 ### runtimeprofile
 

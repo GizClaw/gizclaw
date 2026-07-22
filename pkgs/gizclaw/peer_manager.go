@@ -36,8 +36,9 @@ import (
 )
 
 var (
-	ErrDeviceOffline = errors.New("gizclaw: device offline")
-	errNoRefreshData = errors.New("gizclaw: no refresh data")
+	ErrDeviceOffline     = errors.New("gizclaw: device offline")
+	ErrPeerConnNotActive = errors.New("gizclaw: peer connection is not active")
+	errNoRefreshData     = errors.New("gizclaw: no refresh data")
 )
 
 type activePeer struct {
@@ -163,6 +164,10 @@ func (m *Manager) allowActivePeerRole(ctx context.Context, publicKey giznet.Publ
 func (m *Manager) SetPeerUp(publicKey giznet.PublicKey, conn giznet.Conn) giznet.Conn {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	return m.setPeerUpLocked(publicKey, conn)
+}
+
+func (m *Manager) setPeerUpLocked(publicKey giznet.PublicKey, conn giznet.Conn) giznet.Conn {
 	if m.peers == nil {
 		m.peers = make(map[giznet.PublicKey]*activePeer)
 	}
@@ -180,6 +185,34 @@ func (m *Manager) SetPeerUp(publicKey giznet.PublicKey, conn giznet.Conn) giznet
 		return nil
 	}
 	return oldConn
+}
+
+func (m *Manager) activatePeer(ctx context.Context, conn giznet.Conn) (giznet.Conn, error) {
+	if m == nil || m.Peers == nil {
+		return nil, errors.New("gizclaw: peers service not configured")
+	}
+	if conn == nil {
+		return nil, errors.New("gizclaw: nil conn")
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if _, err := m.Peers.EnsureConnectedPeer(ctx, conn.PublicKey()); err != nil {
+		return nil, err
+	}
+	return m.setPeerUpLocked(conn.PublicKey(), conn), nil
+}
+
+func (m *Manager) deleteActivePeer(ctx context.Context, publicKey giznet.PublicKey, conn giznet.Conn) error {
+	if m == nil || m.Peers == nil {
+		return errors.New("gizclaw: peers service not configured")
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	state, ok := m.peers[publicKey]
+	if !ok || state.conn != conn {
+		return ErrPeerConnNotActive
+	}
+	return m.Peers.DeleteSelf(ctx, publicKey)
 }
 
 func (m *Manager) SetPeerRegistration(publicKey giznet.PublicKey, conn giznet.Conn, registration runtimeprofile.Registration) bool {

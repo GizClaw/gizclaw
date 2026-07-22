@@ -74,6 +74,9 @@ func TestDeleteSelfReconnectCreatesDistinctDeletionEvents(t *testing.T) {
 	if _, err := server.EnsureConnectedPeer(ctx, publicKey); err != nil {
 		t.Fatalf("EnsureConnectedPeer: %v", err)
 	}
+	if _, err := server.BindFirmware(ctx, publicKey, "firmware-reconnected"); err != nil {
+		t.Fatalf("BindFirmware(reconnected pending): %v", err)
+	}
 	if _, err := server.SavePeer(ctx, apitypes.Peer{
 		PublicKey: publicKey.String(),
 		Role:      apitypes.PeerRoleClient,

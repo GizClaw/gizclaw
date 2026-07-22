@@ -229,3 +229,47 @@ func TestRPCPeerDeleteRejectsNewWorkWhileAcknowledgementIsPending(t *testing.T) 
 		t.Fatal("terminal close was not called")
 	}
 }
+
+func TestRPCPeerDeleteRejectsSupersededConnection(t *testing.T) {
+	store := kv.NewMemory(nil)
+	peers := &peer.Server{Store: store}
+	manager := NewManager(peers)
+	publicKey := giznet.PublicKey{4}
+	if _, err := peers.EnsureConnectedPeer(context.Background(), publicKey); err != nil {
+		t.Fatalf("EnsureConnectedPeer: %v", err)
+	}
+	oldConn := &testGiznetConn{publicKey: publicKey}
+	replacement := &testGiznetConn{publicKey: publicKey}
+	manager.SetPeerUp(publicKey, oldConn)
+	manager.SetPeerUp(publicKey, replacement)
+	oldPeer := &PeerConn{Conn: oldConn, Service: &PeerService{manager: manager}}
+	oldPeer.initRPC()
+
+	serverSide, clientSide := net.Pipe()
+	defer clientSide.Close()
+	serverErr := make(chan error, 1)
+	go func() { serverErr <- oldPeer.rpc.Handle(serverSide) }()
+	request := newRPCRequest("stale-delete", rpcapi.RPCMethodServerPeerDelete, mustRPCParams(rpcapi.ServerPeerDeleteRequest{}, (*rpcapi.RPCPayload).FromServerPeerDeleteRequest))
+	response, err := callRPC(context.Background(), clientSide, request)
+	if err != nil {
+		t.Fatalf("callRPC: %v", err)
+	}
+	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeConflict {
+		t.Fatalf("response = %#v, want conflict", response)
+	}
+	if _, err := peers.LoadPeer(context.Background(), publicKey); err != nil {
+		t.Fatalf("replacement active Peer was deleted: %v", err)
+	}
+	if got, ok := manager.Peer(publicKey); !ok || got != replacement {
+		t.Fatalf("replacement connection = %v, %v", got, ok)
+	}
+	_ = clientSide.Close()
+	select {
+	case err := <-serverErr:
+		if err != nil {
+			t.Fatalf("server Handle: %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("server Handle did not stop")
+	}
+}

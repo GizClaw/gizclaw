@@ -30,6 +30,9 @@ func (s KVSource) HasLocator(ctx context.Context, locator Locator) (bool, error)
 	if s.Store == nil {
 		return false, errors.New("pending deletion: KV store not configured")
 	}
+	if locator.OwnerPublicKey != nil {
+		return false, errors.New("pending deletion: KV locator owner filter is not supported")
+	}
 	return HasLocator(ctx, s.Store, locator.Kind, locator.ResourceID)
 }
 

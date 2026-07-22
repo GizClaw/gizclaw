@@ -34,7 +34,7 @@ func (s *Server) BindFirmware(ctx context.Context, publicKey giznet.PublicKey, f
 		return apitypes.Peer{}, err
 	}
 	peer.FirmwareId = &firmwareID
-	return s.putRecord(ctx, peer)
+	return s.putRecordAllowPending(ctx, peer)
 }
 
 // EnsureConnectedPeer creates a default active peer record for a connected peer
@@ -316,6 +316,14 @@ func (s *Server) put(ctx context.Context, peer apitypes.Peer) (apitypes.Peer, er
 }
 
 func (s *Server) putRecord(ctx context.Context, peer apitypes.Peer) (apitypes.Peer, error) {
+	return s.putRecordWithPending(ctx, peer, false)
+}
+
+func (s *Server) putRecordAllowPending(ctx context.Context, peer apitypes.Peer) (apitypes.Peer, error) {
+	return s.putRecordWithPending(ctx, peer, true)
+}
+
+func (s *Server) putRecordWithPending(ctx context.Context, peer apitypes.Peer, allowPending bool) (apitypes.Peer, error) {
 	if err := validatePeer(peer); err != nil {
 		return apitypes.Peer{}, err
 	}
@@ -339,7 +347,7 @@ func (s *Server) putRecord(ctx context.Context, peer apitypes.Peer) (apitypes.Pe
 	if pendingErr != nil {
 		return apitypes.Peer{}, pendingErr
 	}
-	if pending {
+	if pending && !allowPending {
 		return apitypes.Peer{}, ErrPeerPendingDeletion
 	}
 	if peer.CreatedAt.IsZero() {

@@ -53,6 +53,6 @@ Agent Event Stream 中的 BOS/EOS 是按 `stream_id` 划分的业务边界；关
 | `streamMixedAudio` | 在每个 20ms pacing opportunity 从已混合 PCM stream 读取一帧，编码一次 Opus，并写入一次 WebRTC audio track。 |
 | `close` | 按 lifecycle 顺序关闭所有 connection-scoped 资源。 |
 
-`server.peer.delete` 的 active Peer 删除提交后，`PeerConn` 立即进入 retiring：先从 `Manager` 条件摘除当前这条 connection 及其 registration，停止接受新的 RPC、HTTP、Event、telemetry、Agent input 和 audio 工作，再尝试写入删除 acknowledgement 与 EOS。当前删除 RPC 的 transport 会保留到这次写入尝试结束；无论 response 或 EOS 写入是否成功，terminal action 都会关闭完整 Giznet connection。相同 public key 已建立的新 connection 不会被旧 connection 的 retiring/close 路径摘除。
+在启动任何 RPC、HTTP、Event、packet 或 audio loop 前，`PeerConn` 会原子确保 durable Peer generation 并把准确 connection 发布到 `Manager`，因此立即到达的 `server.register` 不会早于 connection activation。`server.peer.delete` 的 active Peer 删除提交后，`PeerConn` 立即进入 retiring：先从 `Manager` 条件摘除当前这条 connection 及其 registration，停止接受新工作，再尝试写入删除 acknowledgement 与 EOS。当前删除 RPC 的 transport 会保留到这次写入尝试结束；无论 response 或 EOS 写入是否成功，terminal action 都会关闭完整 Giznet connection。相同 public key 已建立的新 connection 不会被旧 connection 的 retiring/close 路径摘除，也不会被旧 connection 的 self-delete 删除。
 
 `streamMixedAudio` 是生成音频唯一的发送 pacing owner。普通 Go ticker 迟到时继续读取下一帧，不丢弃、重排或批量补发 PCM，也不创建 provider epoch。Pion 在同一条 WebRTC track 生命周期内维护 SSRC、RTP sequence number 和 timestamp；每个 20ms Opus sample 在 48kHz RTP clock 上推进 960 ticks，新连接建立独立 RTP timeline。到达 jitter、adaptive playout delay、packet-loss concealment 与 Opus FEC 属于 WebRTC receiver。

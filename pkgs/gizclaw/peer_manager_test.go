@@ -11,7 +11,29 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
+
+func TestManagerActivatePeerMakesRegistrationReady(t *testing.T) {
+	peers := &peer.Server{Store: kv.NewMemory(nil)}
+	manager := NewManager(peers)
+	key := giznet.PublicKey{7}
+	conn := &testGiznetConn{publicKey: key}
+	oldConn, err := manager.activatePeer(context.Background(), conn)
+	if err != nil {
+		t.Fatalf("activatePeer: %v", err)
+	}
+	if oldConn != nil {
+		t.Fatalf("activatePeer oldConn = %v, want nil", oldConn)
+	}
+	if _, err := peers.LoadPeer(context.Background(), key); err != nil {
+		t.Fatalf("LoadPeer after activation: %v", err)
+	}
+	registration := runtimeprofile.Registration{RuntimeProfile: apitypes.RuntimeProfile{Name: "profile-early"}}
+	if !manager.SetPeerRegistration(key, conn, registration) {
+		t.Fatal("registration immediately after activation was rejected")
+	}
+}
 
 func TestManagerSetPeerDownDeletesMatchingPeer(t *testing.T) {
 	manager := &Manager{}
