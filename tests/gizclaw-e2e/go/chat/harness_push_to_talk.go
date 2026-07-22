@@ -97,7 +97,7 @@ func (d *personaDriver) prepareConversation(ctx context.Context, mode conversati
 			}
 		}
 	}
-	if d.cfg.flowcraftStartsSelf() {
+	if d.cfg.flowcraftStartsAgent() {
 		stat, ok, err := d.consumeSelfStart(ctx, mode.SkipAssistantAudioASR)
 		if err != nil {
 			return nil, err

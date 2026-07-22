@@ -739,7 +739,7 @@ func (d *personaDriver) runInterruptScenario(ctx context.Context, index int, mod
 		return stat, fmt.Errorf("interrupt open transport: %w", err)
 	}
 	fmt.Printf("workspace_progress event=interrupt_transport_ready workspace=%s round=%d\n", d.cfg.Workspace, index)
-	if index == 1 && d.cfg.flowcraftStartsSelf() {
+	if index == 1 && d.cfg.flowcraftStartsAgent() {
 		if _, ok, err := d.consumeSelfStart(ctx, mode.SkipAssistantAudioASR); err != nil {
 			return stat, fmt.Errorf("interrupt consume self-start: %w", err)
 		} else if ok {

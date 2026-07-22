@@ -436,7 +436,7 @@ func (c config) shouldEnsureWorkspace() bool {
 	return c.Ensure == nil || *c.Ensure
 }
 
-func (c config) flowcraftStartsSelf() bool {
+func (c config) flowcraftStartsAgent() bool {
 	if !c.isFlowcraftAgent() {
 		return false
 	}
