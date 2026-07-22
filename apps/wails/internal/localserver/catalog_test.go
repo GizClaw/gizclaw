@@ -218,7 +218,7 @@ func TestBundledFlowcraftGeneratorsUseProductionTokenBudget(t *testing.T) {
 	}
 	paths, err := fs.Glob(source, "resources/04-workflows/*-flowcraft-*.yaml")
 	if err != nil {
-		 t.Fatal(err)
+		t.Fatal(err)
 	}
 	for _, path := range paths {
 		t.Run(strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)), func(t *testing.T) {
