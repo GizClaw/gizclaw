@@ -32,6 +32,7 @@ var (
 	ErrPetIDConflict = errors.New("gameplay: pet id is already reserved")
 	// ErrInvalidPetID is returned when a caller-assigned Pet ID is not canonical.
 	ErrInvalidPetID          = errors.New("gameplay: invalid pet id")
+	errInsufficientPoints    = errors.New("gameplay: insufficient points")
 	errPetWorkspaceNotFound  = errors.New("gameplay: pet workspace binding not found")
 	errPetWorkspaceAmbiguous = errors.New("gameplay: pet workspace binding is ambiguous")
 )
@@ -242,6 +243,13 @@ func (r *Runtime) AdoptPet(ctx context.Context, owner string, req apitypes.PetAd
 	if recoveryErr != nil {
 		return apitypes.PetAdoptResponse{}, recoveryErr
 	}
+	if errors.Is(createErr, errInsufficientPoints) {
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
+		defer cleanupCancel()
+		if _, err := deletePetAdoptionReservationIfIncomplete(cleanupCtx, r.DB, owner, petID); err != nil {
+			return apitypes.PetAdoptResponse{}, errors.Join(createErr, fmt.Errorf("release failed adoption reservation: %w", err))
+		}
+	}
 	return apitypes.PetAdoptResponse{}, createErr
 }
 
@@ -342,7 +350,7 @@ func (r *Runtime) preflightPetAdoptionTx(ctx context.Context, tx *sqlx.Tx, owner
 		return err
 	}
 	if account.Balance < adoptionCost {
-		return errors.New("gameplay: insufficient points")
+		return errInsufficientPoints
 	}
 	return nil
 }
@@ -1461,7 +1469,7 @@ func (r *Runtime) recordPointsTx(ctx context.Context, tx *sqlx.Tx, account *apit
 	err := tx.QueryRowContext(ctx, tx.Rebind(`UPDATE gameplay_points_accounts SET balance = balance + ?, updated_at = ? WHERE owner_public_key = ? AND runtime_profile_name = ? AND balance + ? >= 0 RETURNING balance`),
 		delta, formatTime(now), account.OwnerPublicKey, account.RuntimeProfileName, delta).Scan(&next)
 	if errors.Is(err, sql.ErrNoRows) {
-		return apitypes.PointsTransaction{}, errors.New("gameplay: insufficient points")
+		return apitypes.PointsTransaction{}, errInsufficientPoints
 	}
 	if err != nil {
 		return apitypes.PointsTransaction{}, err

@@ -58,6 +58,19 @@ func insertPetAdoptionReservation(ctx context.Context, tx *sqlx.Tx, reservation 
 	return err
 }
 
+func deletePetAdoptionReservationIfIncomplete(ctx context.Context, db *sqlx.DB, owner, petID string) (bool, error) {
+	result, err := db.ExecContext(ctx, db.Rebind(`DELETE FROM gameplay_pet_adoption_reservations
+		WHERE owner_public_key = ? AND pet_id = ?
+		AND NOT EXISTS (SELECT 1 FROM gameplay_pets WHERE owner_public_key = ? AND id = ?)
+		AND NOT EXISTS (SELECT 1 FROM gameplay_points_transactions WHERE owner_public_key = ? AND source_type = 'pet' AND source_id = ? AND reason = 'pet.adopt')`),
+		owner, petID, owner, petID, owner, petID)
+	if err != nil {
+		return false, err
+	}
+	deleted, err := result.RowsAffected()
+	return deleted == 1, err
+}
+
 type petDriveTick struct {
 	OwnerPublicKey     string
 	RuntimeProfileName string

@@ -2,12 +2,14 @@ package gameplay
 
 import (
 	"context"
+	"errors"
 	"os"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
@@ -362,6 +364,88 @@ func TestPostgresDifferentPetAdoptionsDebitPointsAtomically(t *testing.T) {
 	if len(workspaces.created) != 2 {
 		t.Fatalf("created workspaces = %d, want 2", len(workspaces.created))
 	}
+}
+
+func TestPostgresDifferentPetAdoptionsReleaseFailedReservation(t *testing.T) {
+	db := openGameplayPostgresTestDB(t)
+	ctx := context.Background()
+	dropGameplayPostgresTables(t, ctx, db)
+	t.Cleanup(func() { dropGameplayPostgresTables(t, context.Background(), db) })
+	now := time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC)
+	catalog := testCatalog(t, now)
+	profile := seedGameplayCatalog(t, ctx, catalog)
+	initialBalance := int64(15)
+	profile.Spec.Gameplay.Points.InitialBalance = &initialBalance
+	ctx = WithRuntimeProfile(ctx, profile)
+	workspaces := &barrierWorkspaceService{
+		recordingWorkspaceService: &recordingWorkspaceService{},
+		arrived:                   make(chan struct{}, 2),
+		release:                   make(chan struct{}),
+	}
+	newRuntime := func() *Runtime {
+		return &Runtime{
+			DB: db, Catalog: catalog, Workflows: petWorkflowService{}, Workspaces: workspaces,
+			Now: func() time.Time { return now }, PickWeight: func(int64) int64 { return 0 },
+		}
+	}
+	runtimes := []*Runtime{newRuntime(), newRuntime()}
+	if err := runtimes[0].Migration(ctx); err != nil {
+		t.Fatalf("Migration() error = %v", err)
+	}
+	petIDs := []string{"postgres-pet-funded", "postgres-pet-unfunded"}
+	errs := make(chan error, len(petIDs))
+	for i, petID := range petIDs {
+		runtime := runtimes[i]
+		go func() {
+			_, err := runtime.AdoptPet(ctx, "peer-postgres", apitypes.PetAdoptRequest{Id: &petID})
+			errs <- err
+		}()
+	}
+	<-workspaces.arrived
+	<-workspaces.arrived
+	close(workspaces.release)
+	var succeeded, insufficient int
+	for range petIDs {
+		err := <-errs
+		switch {
+		case err == nil:
+			succeeded++
+		case errors.Is(err, errInsufficientPoints):
+			insufficient++
+		default:
+			t.Fatalf("AdoptPet(concurrent different IDs) error = %v", err)
+		}
+	}
+	if succeeded != 1 || insufficient != 1 {
+		t.Fatalf("concurrent results: succeeded=%d insufficient=%d, want 1 and 1", succeeded, insufficient)
+	}
+	var reservations, pets, transactions int
+	if err := db.QueryRowContext(ctx, `SELECT
+		(SELECT count(*) FROM gameplay_pet_adoption_reservations WHERE owner_public_key = $1),
+		(SELECT count(*) FROM gameplay_pets WHERE owner_public_key = $1),
+		(SELECT count(*) FROM gameplay_points_transactions WHERE owner_public_key = $1 AND source_type = 'pet' AND reason = 'pet.adopt')`,
+		"peer-postgres").Scan(&reservations, &pets, &transactions); err != nil {
+		t.Fatalf("count adoption rows: %v", err)
+	}
+	if reservations != 1 || pets != 1 || transactions != 1 {
+		t.Fatalf("persisted reservations=%d Pets=%d transactions=%d, want 1, 1, 1", reservations, pets, transactions)
+	}
+}
+
+type barrierWorkspaceService struct {
+	*recordingWorkspaceService
+	arrived chan struct{}
+	release chan struct{}
+}
+
+func (s *barrierWorkspaceService) CreateSystemWorkspace(ctx context.Context, body adminhttp.WorkspaceUpsert) (apitypes.Workspace, bool, error) {
+	s.arrived <- struct{}{}
+	select {
+	case <-s.release:
+	case <-ctx.Done():
+		return apitypes.Workspace{}, false, ctx.Err()
+	}
+	return s.recordingWorkspaceService.CreateSystemWorkspace(ctx, body)
 }
 
 func openGameplayPostgresTestDB(t *testing.T) *sqlx.DB {
