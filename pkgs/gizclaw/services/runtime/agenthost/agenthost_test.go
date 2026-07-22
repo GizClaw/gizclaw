@@ -356,6 +356,34 @@ func TestHostTransformReusesAgentForConcurrentSameWorkspace(t *testing.T) {
 	}
 }
 
+func TestHostUsesCanonicalWorkspaceLeaseAcrossRuntimeProfiles(t *testing.T) {
+	spec := Spec{Workspace: apitypes.Workspace{Name: "system"}, AgentType: "echo"}
+	host := New(fakeResolver{spec: spec})
+	if err := host.Register("echo", FactoryFunc(func(context.Context, Spec) (genx.Transformer, error) {
+		return passthroughTransformer{}, nil
+	})); err != nil {
+		t.Fatal(err)
+	}
+	firstContext := WithResourceAccess(t.Context(), "peer-a", nil, nil, "profile-a")
+	secondContext := WithResourceAccess(t.Context(), "peer-b", nil, nil, "profile-b")
+	if runtimeKey(firstContext, "system", spec) == runtimeKey(secondContext, "system", spec) {
+		t.Fatal("test contexts must produce distinct runtime keys")
+	}
+	_, release, err := host.OpenAgent(firstContext, "system")
+	if err != nil {
+		t.Fatalf("OpenAgent(first profile) error = %v", err)
+	}
+	if _, _, err := host.OpenAgent(secondContext, "system"); !errors.Is(err, ErrWorkspaceBusy) {
+		t.Fatalf("OpenAgent(second profile) error = %v, want %v", err, ErrWorkspaceBusy)
+	}
+	release()
+	_, releaseSecond, err := host.OpenAgent(secondContext, "system")
+	if err != nil {
+		t.Fatalf("OpenAgent(second profile after release) error = %v", err)
+	}
+	releaseSecond()
+}
+
 func TestHostTransformReleasesWhenOutputEnds(t *testing.T) {
 	host := New(fakeResolver{spec: Spec{Workspace: apitypes.Workspace{Name: "demo"}, AgentType: "echo"}})
 	if err := host.Register("echo", FactoryFunc(func(context.Context, Spec) (genx.Transformer, error) {

@@ -71,6 +71,51 @@ func TestFactoryConstructsWithoutLocalWorkspace(t *testing.T) {
 	}
 }
 
+func TestBuildRuntimeEmbedderRequiresProviderCredential(t *testing.T) {
+	makeModel := func(t *testing.T, provider apitypes.ModelProviderKind, data apitypes.ModelProviderData) apitypes.Model {
+		t.Helper()
+		return apitypes.Model{Id: "embedding", Provider: apitypes.ModelProvider{Kind: provider}, ProviderData: data}
+	}
+	dashScopeData := apitypes.ModelProviderData{}
+	if err := dashScopeData.FromDashScopeTenantModelProviderData(apitypes.DashScopeTenantModelProviderData{}); err != nil {
+		t.Fatal(err)
+	}
+	volcData := apitypes.ModelProviderData{}
+	if err := volcData.FromVolcTenantModelProviderData(apitypes.VolcTenantModelProviderData{}); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name   string
+		config peergenx.EmbeddingConfig
+		want   string
+	}{
+		{
+			name: "dashscope api key",
+			config: peergenx.EmbeddingConfig{
+				Model:      makeModel(t, apitypes.ModelProviderKindDashscopeTenant, dashScopeData),
+				Tenant:     peergenx.Tenant{Kind: string(apitypes.ModelProviderKindDashscopeTenant), DashScope: &apitypes.DashScopeTenant{}},
+				Credential: apitypes.Credential{Name: "dashscope-empty", Body: testDashScopeCredentialBody("")},
+			},
+			want: "credential \"dashscope-empty\" has no api_key",
+		},
+		{
+			name: "volc ark api key",
+			config: peergenx.EmbeddingConfig{
+				Model:      makeModel(t, apitypes.ModelProviderKindVolcTenant, volcData),
+				Tenant:     peergenx.Tenant{Kind: string(apitypes.ModelProviderKindVolcTenant), Volc: &apitypes.VolcTenant{}},
+				Credential: apitypes.Credential{Name: "volc-empty", Body: testVolcCredentialBodyFromStrings(nil)},
+			},
+			want: "credential \"volc-empty\" has no ark_api_key",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, err := buildRuntimeEmbedder(tc.config); err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("buildRuntimeEmbedder() error = %v, want %q", err, tc.want)
+			}
+		})
+	}
+}
+
 func TestFactoryUsesWorkspaceOwnerGenX(t *testing.T) {
 	spec := decodeFlowcraftSpec(t, `{
 		"agent":{"id":"assistant","name":"Assistant","graph":{

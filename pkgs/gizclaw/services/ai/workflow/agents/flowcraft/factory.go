@@ -682,8 +682,12 @@ func buildRuntimeEmbedder(config peergenx.EmbeddingConfig) (flowembedding.Embedd
 			return nil, fmt.Errorf("flowcraft: decode DashScope embedding model: %w", err)
 		}
 		modelName = firstNonEmpty(data.UpstreamModel, &modelName)
+		apiKey := firstNonEmpty(body.ApiKey, body.Token)
+		if apiKey == "" {
+			return nil, fmt.Errorf("flowcraft: embedding credential %q has no api_key", config.Credential.Name)
+		}
 		return embeddingqwen.New(
-			firstNonEmpty(body.ApiKey, body.Token),
+			apiKey,
 			modelName,
 			firstNonEmpty(config.Tenant.DashScope.BaseUrl, body.BaseUrl),
 		)
@@ -701,8 +705,12 @@ func buildRuntimeEmbedder(config peergenx.EmbeddingConfig) (flowembedding.Embedd
 			return nil, fmt.Errorf("flowcraft: decode Volc embedding model: %w", err)
 		}
 		modelName = firstNonEmpty(data.UpstreamModel, &modelName)
+		apiKey := firstNonEmpty(body.ArkApiKey)
+		if apiKey == "" {
+			return nil, fmt.Errorf("flowcraft: embedding credential %q has no ark_api_key", config.Credential.Name)
+		}
 		return embeddingbytedance.New(
-			firstNonEmpty(body.ArkApiKey),
+			apiKey,
 			modelName,
 			firstNonEmpty(config.Tenant.Volc.Endpoint),
 			firstNonEmpty(config.Tenant.Volc.Region),

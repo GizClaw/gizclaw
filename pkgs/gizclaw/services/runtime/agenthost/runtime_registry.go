@@ -40,7 +40,7 @@ func (r *RuntimeRegistry) Acquire(ctx context.Context, host *Host, workspaceName
 		current.refs++
 		return current.agent, r.releaseFunc(key, current), nil
 	}
-	agent, release, err := host.openWorkspaceAgent(ctx, key, spec)
+	agent, release, err := host.openWorkspaceAgent(ctx, workspaceName, spec)
 	if err != nil {
 		return nil, nil, err
 	}
