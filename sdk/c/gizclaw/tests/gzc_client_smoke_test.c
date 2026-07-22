@@ -50,6 +50,7 @@ typedef struct {
   int send_calls;
   int fail_send_call;
   int poll_count;
+  int last_poll_timeout_ms;
   int create_channel_count;
   int close_count;
   gzc_rtc_channel_t *last_closed;
@@ -222,6 +223,7 @@ static int test_peer_poll(gzc_rtc_peer_t *peer, int timeout_ms) {
   (void)peer;
   fake_webrtc_t *fake = global_fake_webrtc;
   fake->poll_count++;
+  fake->last_poll_timeout_ms = timeout_ms;
   if (fake->clock != NULL) {
     fake->clock->instant_ms += timeout_ms > 0 ? timeout_ms : 1;
     fake->clock->unix_ms -= 1000;
@@ -1767,6 +1769,16 @@ int main(void) {
       fake_webrtc.callbacks.userdata, &fake_webrtc.peer,
       &fake_webrtc.remote_channels[0], NULL,
       inbound_framed.data, inbound_framed.len, false);
+  rc = gzc_client_poll(client, 37);
+  if (expect(rc == GZC_OK && fake_webrtc.last_poll_timeout_ms == 0,
+             "new deferred output requests an immediate poll") != 0) {
+    return 1;
+  }
+  rc = gzc_client_poll(client, 37);
+  if (expect(rc == GZC_OK && fake_webrtc.last_poll_timeout_ms == 37,
+             "backpressured deferred output preserves the caller poll timeout") != 0) {
+    return 1;
+  }
   for (size_t i = 0; i <= (size_t)config.write_timeout_ms && rc == GZC_OK; i++) {
     rc = gzc_client_poll(client, 0);
   }

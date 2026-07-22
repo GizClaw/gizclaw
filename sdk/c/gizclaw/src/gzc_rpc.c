@@ -1453,12 +1453,17 @@ int gzc_rpc_inbound_poll(struct gzc_rpc_inbound *inbound) {
   return GZC_OK;
 }
 
-bool gzc_rpc_inbound_has_pending_output(struct gzc_rpc_inbound *inbound) {
-  return inbound != NULL &&
-         (inbound->tx_offset < inbound->tx.len || inbound->close_after_write ||
-          (inbound->method == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_SPEED_TEST_RUN &&
-           inbound->phase != GZC_INBOUND_TERMINAL && inbound->response_envelope_sent &&
-           !inbound->response_eos_sent));
+bool gzc_rpc_inbound_needs_immediate_poll(struct gzc_rpc_inbound *inbound) {
+  if (inbound == NULL) {
+    return false;
+  }
+  if (inbound->tx_offset < inbound->tx.len) {
+    return !inbound->write_blocked;
+  }
+  return inbound->close_after_write ||
+         (inbound->method == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_SPEED_TEST_RUN &&
+          inbound->phase != GZC_INBOUND_TERMINAL && inbound->response_envelope_sent &&
+          !inbound->response_eos_sent);
 }
 
 bool gzc_rpc_inbound_close_requested(struct gzc_rpc_inbound *inbound) {
