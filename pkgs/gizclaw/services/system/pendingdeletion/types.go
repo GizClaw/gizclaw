@@ -71,6 +71,10 @@ type Source interface {
 // New constructs a validated deletion event with a unique deletion ID.
 func New(kind Kind, resourceID string, ownerPublicKey *string, reason Reason, descriptor any, now time.Time) (Record, error) {
 	resourceID = strings.TrimSpace(resourceID)
+	ownerPublicKey = cloneString(ownerPublicKey)
+	if ownerPublicKey != nil {
+		*ownerPublicKey = strings.TrimSpace(*ownerPublicKey)
+	}
 	if !kind.valid() {
 		return Record{}, fmt.Errorf("pending deletion: invalid kind %q", kind)
 	}
@@ -93,7 +97,7 @@ func New(kind Kind, resourceID string, ownerPublicKey *string, reason Reason, de
 		ResourceID:        resourceID,
 		Reason:            reason,
 		DeletedAt:         now.UTC(),
-		OwnerPublicKey:    cloneString(ownerPublicKey),
+		OwnerPublicKey:    ownerPublicKey,
 		DescriptorVersion: DescriptorVersion,
 		Descriptor:        data,
 	}
@@ -111,11 +115,21 @@ func (r Record) Validate() error {
 	if !r.Kind.valid() {
 		return fmt.Errorf("pending deletion: invalid kind %q", r.Kind)
 	}
-	if strings.TrimSpace(r.ResourceID) == "" {
+	resourceID := strings.TrimSpace(r.ResourceID)
+	if resourceID == "" {
 		return errors.New("pending deletion: empty resource id")
 	}
-	if r.OwnerPublicKey != nil && strings.TrimSpace(*r.OwnerPublicKey) == "" {
-		return errors.New("pending deletion: empty owner public key")
+	if resourceID != r.ResourceID {
+		return errors.New("pending deletion: non-canonical resource id")
+	}
+	if r.OwnerPublicKey != nil {
+		ownerPublicKey := strings.TrimSpace(*r.OwnerPublicKey)
+		if ownerPublicKey == "" {
+			return errors.New("pending deletion: empty owner public key")
+		}
+		if ownerPublicKey != *r.OwnerPublicKey {
+			return errors.New("pending deletion: non-canonical owner public key")
+		}
 	}
 	if !r.Reason.valid() {
 		return fmt.Errorf("pending deletion: invalid reason %q", r.Reason)

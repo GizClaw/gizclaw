@@ -18,8 +18,13 @@ func TestRecordValidateRejectsInvalidEnvelope(t *testing.T) {
 		{name: "deletion ID", mutate: func(record *Record) { record.DeletionID = "invalid" }},
 		{name: "kind", mutate: func(record *Record) { record.Kind = "unknown" }},
 		{name: "resource ID", mutate: func(record *Record) { record.ResourceID = " " }},
+		{name: "non-canonical resource ID", mutate: func(record *Record) { record.ResourceID = " peer-a " }},
 		{name: "owner public key", mutate: func(record *Record) {
 			owner := " "
+			record.OwnerPublicKey = &owner
+		}},
+		{name: "non-canonical owner public key", mutate: func(record *Record) {
+			owner := " peer-a "
 			record.OwnerPublicKey = &owner
 		}},
 		{name: "reason", mutate: func(record *Record) { record.Reason = "unknown" }},
@@ -67,6 +72,20 @@ func TestNewRejectsEmptyOwnerPublicKey(t *testing.T) {
 	owner := " "
 	if _, err := New(KindPeer, "peer-a", &owner, ReasonPeerDelete, struct{}{}, time.Time{}); err == nil {
 		t.Fatal("New error = nil")
+	}
+}
+
+func TestNewCanonicalizesLocator(t *testing.T) {
+	owner := " peer-a "
+	record, err := New(KindPet, " pet-a ", &owner, ReasonResourceDelete, struct{}{}, time.Time{})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if record.ResourceID != "pet-a" || record.OwnerPublicKey == nil || *record.OwnerPublicKey != "peer-a" {
+		t.Fatalf("New locator = %q, %v", record.ResourceID, record.OwnerPublicKey)
+	}
+	if owner != " peer-a " {
+		t.Fatalf("New mutated owner input = %q", owner)
 	}
 }
 
