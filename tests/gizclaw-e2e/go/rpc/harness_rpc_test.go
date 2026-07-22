@@ -308,7 +308,7 @@ func adminWorkflow(name, description string) apitypes.Workflow {
 	var node apitypes.FlowcraftNode
 	if err := node.FromFlowcraftLLMNode(apitypes.FlowcraftLLMNode{
 		Id: "answer", Type: apitypes.FlowcraftLLMNodeTypeLlm, Publish: &publish,
-		Config: apitypes.FlowcraftLLMNodeConfig{Model: "chat"},
+		Config: apitypes.FlowcraftLLMNodeConfig{Model: "llm"},
 	}); err != nil {
 		panic(err)
 	}
