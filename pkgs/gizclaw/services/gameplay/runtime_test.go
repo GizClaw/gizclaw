@@ -181,7 +181,7 @@ func TestRuntimeAdoptCallerIDScopesIdentityToPeer(t *testing.T) {
 	}
 }
 
-func TestRuntimeAdoptCallerIDRetryReusesReservationAfterFailure(t *testing.T) {
+func TestRuntimeAdoptCallerIDDoesNotReserveUnaffordableID(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 7, 22, 9, 45, 0, 0, time.UTC)
 	catalog := testCatalog(t, now)
@@ -210,18 +210,29 @@ func TestRuntimeAdoptCallerIDRetryReusesReservationAfterFailure(t *testing.T) {
 	if len(workspaces.created) != 0 || len(workspaces.deleted) != 0 {
 		t.Fatalf("workspace mutations after unaffordable adoption: created=%d deleted=%d, want 0 and 0", len(workspaces.created), len(workspaces.deleted))
 	}
-	if _, err := runtime.DB.Exec(`UPDATE gameplay_points_accounts SET balance = 50 WHERE owner_public_key = ? AND runtime_profile_name = ?`, "peer-a", profile.Name); err != nil {
-		t.Fatalf("fund reserved adoption account: %v", err)
+	var reservations, pets, transactions int
+	if err := runtime.DB.QueryRow(`SELECT
+		(SELECT count(*) FROM gameplay_pet_adoption_reservations WHERE owner_public_key = ? AND pet_id = ?),
+		(SELECT count(*) FROM gameplay_pets WHERE owner_public_key = ? AND id = ?),
+		(SELECT count(*) FROM gameplay_points_transactions WHERE owner_public_key = ? AND source_type = 'pet' AND source_id = ? AND reason = 'pet.adopt')`,
+		"peer-a", petID, "peer-a", petID, "peer-a", petID).Scan(&reservations, &pets, &transactions); err != nil {
+		t.Fatalf("count unaffordable adoption rows: %v", err)
 	}
-	response, err := runtime.AdoptPet(ctx, "peer-a", apitypes.PetAdoptRequest{Id: &petID})
+	if reservations != 0 || pets != 0 || transactions != 0 {
+		t.Fatalf("rows after unaffordable adoption: reservations=%d Pets=%d transactions=%d, want all zero", reservations, pets, transactions)
+	}
+	fundedBalance := int64(50)
+	profile.Name = "funded"
+	profile.Spec.Gameplay.Points.InitialBalance = &fundedBalance
+	response, err := runtime.AdoptPet(WithRuntimeProfile(context.Background(), profile), "peer-a", apitypes.PetAdoptRequest{Id: &petID})
 	if err != nil {
-		t.Fatalf("AdoptPet(retry) error = %v", err)
+		t.Fatalf("AdoptPet(funded profile) error = %v", err)
 	}
-	if response.Pet.Id != petID || response.Points.Balance != 35 || pickCount != 1 {
-		t.Fatalf("AdoptPet(retry) = %#v, picks=%d; want reserved selection and one pool pick", response, pickCount)
+	if response.Pet.Id != petID || response.Pet.RuntimeProfileName != profile.Name || response.Points.Balance != 35 || pickCount != 2 {
+		t.Fatalf("AdoptPet(funded profile) = %#v, picks=%d; want successful reuse under funded profile", response, pickCount)
 	}
 	if len(workspaces.created) != 1 {
-		t.Fatalf("created workspaces after funded retry = %d, want 1", len(workspaces.created))
+		t.Fatalf("created workspaces after funded adoption = %d, want 1", len(workspaces.created))
 	}
 }
 

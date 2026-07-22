@@ -275,6 +275,9 @@ func (r *Runtime) reservePetAdoption(ctx context.Context, owner string, req apit
 		WorkflowName: defaultPetWorkflowName, VoiceAlias: poolEntry.VoiceAlias,
 		AdoptionCost: int64Value(poolEntry.AdoptionCost), CreatedAt: r.now(),
 	}
+	if err := r.preflightPetAdoption(ctx, owner, ruleset, reservation.AdoptionCost); err != nil {
+		return petAdoptionReservation{}, err
+	}
 	tx, err := db.BeginTxx(ctx, nil)
 	if err != nil {
 		return petAdoptionReservation{}, err
