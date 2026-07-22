@@ -14,7 +14,7 @@ import (
 	desktopresources "github.com/GizClaw/gizclaw-go/apps/wails/resources"
 )
 
-func TestBootstrapperAppliesResourcesSyncsVoicesUploadsPetAssetsAndCreatesRegistrationToken(t *testing.T) {
+func TestBootstrapperAppliesResourcesThenRuntimeProfileAndCreatesRegistrationToken(t *testing.T) {
 	podDir := t.TempDir()
 	contextDir := filepath.Join(podDir, "admin_context", "local")
 	if err := os.MkdirAll(contextDir, 0o700); err != nil {
@@ -106,17 +106,14 @@ func TestBootstrapperAppliesResourcesSyncsVoicesUploadsPetAssetsAndCreatesRegist
 	if err := bootstrapper.Apply(context.Background(), podDir, map[string]string{"BOOTSTRAP_SAVED": "desktop"}); err != nil {
 		t.Fatal(err)
 	}
-	if len(commands) != 4 {
+	if len(commands) != 2 {
 		t.Fatalf("commands = %d: %v", len(commands), commands)
 	}
-	if !strings.Contains(commands[0], "admin apply") || !strings.Contains(commands[1], "volc-tenants sync-voices volc-main") {
-		t.Fatalf("resource/sync order = %v", commands[:2])
+	if !strings.Contains(commands[0], "admin apply") {
+		t.Fatalf("resource apply = %v", commands)
 	}
-	if !strings.Contains(commands[2], "upload-pixa pet-a") {
-		t.Fatalf("asset command = %v", commands[2])
-	}
-	if !strings.Contains(commands[3], "registration-tokens create --context local") {
-		t.Fatalf("RegistrationToken command = %q", commands[3])
+	if !strings.Contains(commands[1], "registration-tokens create --context local") {
+		t.Fatalf("RegistrationToken command = %q", commands[1])
 	}
 	tokenPath := filepath.Join(podDir, "workspace", RegistrationTokenFile)
 	token, err := os.ReadFile(tokenPath)
@@ -172,7 +169,7 @@ func TestBootstrapperRecoversRegistrationTokenWithoutReapplyingCatalog(t *testin
 	}
 }
 
-func TestBootstrapperMigratesReferencedWorkflowsBeforeDefaultRuntimeContract(t *testing.T) {
+func TestBootstrapperMigratesDependencyClosureBeforeDefaultRuntimeProfile(t *testing.T) {
 	podDir := t.TempDir()
 	contextDir := filepath.Join(podDir, "admin_context", "local")
 	if err := os.MkdirAll(contextDir, 0o700); err != nil {
@@ -185,20 +182,13 @@ func TestBootstrapperMigratesReferencedWorkflowsBeforeDefaultRuntimeContract(t *
 		FS: fstest.MapFS{
 			"resources/00-credentials/a.yaml":               {Data: []byte("kind: Credential\nmetadata: {name: a}\n")},
 			"resources/04-workflows/00-referenced.yaml":     {Data: []byte("kind: Workflow\nmetadata: {name: referenced}\n")},
-			"resources/04-workflows/01-chatroom.yaml":       {Data: []byte("kind: Workflow\nmetadata: {name: chatroom}\n")},
-			"resources/04-workflows/02-pet-care.yaml":       {Data: []byte("kind: Workflow\nmetadata: {name: pet-care}\n")},
-			"resources/04-workflows/02-unreferenced.yaml":   {Data: []byte("kind: Workflow\nmetadata: {name: unreferenced}\n")},
-			"resources/07-runtime-profiles/00-default.yaml": {Data: []byte("kind: RuntimeProfile\nmetadata: {name: default}\nspec:\n  workflows:\n    system:\n      friend_chatroom: chatroom\n      group_chatroom: chatroom\n      pet: pet-care\n    collections:\n      assistants:\n        demo: {resource_id: referenced}\n")},
+			"resources/07-runtime-profiles/00-default.yaml": {Data: []byte("kind: RuntimeProfile\nmetadata: {name: default}\nspec:\n  workflows:\n    collections:\n      assistants:\n        demo: {resource_id: referenced}\n")},
 		},
 		Resources: []ResourceEntry{
 			{Path: "resources/00-credentials/a.yaml", Kind: "Credential", Name: "a"},
 			{Path: "resources/04-workflows/00-referenced.yaml", Kind: "Workflow", Name: "referenced"},
-			{Path: "resources/04-workflows/01-chatroom.yaml", Kind: "Workflow", Name: "chatroom"},
-			{Path: "resources/04-workflows/02-pet-care.yaml", Kind: "Workflow", Name: "pet-care"},
-			{Path: "resources/04-workflows/02-unreferenced.yaml", Kind: "Workflow", Name: "unreferenced"},
 			{Path: "resources/07-runtime-profiles/00-default.yaml", Kind: "RuntimeProfile", Name: "default"},
 		},
-		VoiceSyncs: []VoiceSync{{Provider: "volc", Tenant: "volc-main"}},
 	}
 	var commands []string
 	var applied []string
@@ -216,12 +206,10 @@ func TestBootstrapperMigratesReferencedWorkflowsBeforeDefaultRuntimeContract(t *
 					t.Fatal(err)
 				}
 				switch {
+				case strings.Contains(string(data), "name: a"):
+					applied = append(applied, "Credential/a")
 				case strings.Contains(string(data), "name: referenced"):
 					applied = append(applied, "Workflow/referenced")
-				case strings.Contains(string(data), "name: chatroom"):
-					applied = append(applied, "Workflow/chatroom")
-				case strings.Contains(string(data), "name: pet-care"):
-					applied = append(applied, "Workflow/pet-care")
 				case strings.Contains(string(data), "name: default"):
 					applied = append(applied, "RuntimeProfile/default")
 				default:
@@ -238,10 +226,10 @@ func TestBootstrapperMigratesReferencedWorkflowsBeforeDefaultRuntimeContract(t *
 	if err := bootstrapper.MigrateRuntimeContract(context.Background(), podDir); err != nil {
 		t.Fatal(err)
 	}
-	if got := strings.Join(applied, ","); got != "Workflow/referenced,Workflow/chatroom,Workflow/pet-care,RuntimeProfile/default" {
+	if got := strings.Join(applied, ","); got != "Credential/a,Workflow/referenced,RuntimeProfile/default" {
 		t.Fatalf("migration applied = %s", got)
 	}
-	if len(commands) != 9 || !strings.Contains(commands[0], "admin apply") || !strings.Contains(commands[1], "admin apply") || !strings.Contains(commands[2], "admin apply") || !strings.Contains(commands[3], "volc-tenants sync-voices volc-main") || !strings.Contains(commands[4], "runtime-profiles delete default") || !strings.Contains(commands[5], "admin apply") || !strings.Contains(commands[6], "registration-tokens delete app:com.gizclaw.opensource") || !strings.Contains(commands[7], "registration-tokens create") || !strings.Contains(commands[8], "registration-tokens delete desktop-local") {
+	if len(commands) != 7 || !strings.Contains(commands[0], "admin apply") || !strings.Contains(commands[1], "admin apply") || !strings.Contains(commands[2], "runtime-profiles delete default") || !strings.Contains(commands[3], "admin apply") || !strings.Contains(commands[4], "registration-tokens delete app:com.gizclaw.opensource") || !strings.Contains(commands[5], "registration-tokens create") || !strings.Contains(commands[6], "registration-tokens delete desktop-local") {
 		t.Fatalf("migration commands = %v", commands)
 	}
 	token, err := os.ReadFile(filepath.Join(podDir, "workspace", RegistrationTokenFile))
@@ -273,23 +261,8 @@ func TestRuntimeContractEntriesUseBundledProfileReferences(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(entries) != 11 || entries[len(entries)-1] != profile {
+	if len(entries) != 1 || entries[len(entries)-1] != profile {
 		t.Fatalf("runtime contract entries = %#v", entries)
-	}
-	for _, entry := range entries[:len(entries)-1] {
-		if entry.Kind != "Workflow" {
-			t.Fatalf("runtime contract entry = %+v", entry)
-		}
-	}
-	if !slices.ContainsFunc(entries, func(entry ResourceEntry) bool {
-		return entry.Kind == "Workflow" && entry.Name == "chatroom"
-	}) {
-		t.Fatal("runtime contract entries omit Workflow/chatroom")
-	}
-	if !slices.ContainsFunc(entries, func(entry ResourceEntry) bool {
-		return entry.Kind == "Workflow" && entry.Name == "pet-care"
-	}) {
-		t.Fatal("runtime contract entries omit Workflow/pet-care")
 	}
 }
 

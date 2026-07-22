@@ -1,7 +1,0 @@
----
-apiVersion: gizclaw.admin/v1alpha1
-kind: Workflow
-metadata: {name: ast-translate-zh-es}
-spec:
-  driver: ast-translate
-  ast_translate: {translation_model: translation, lang_pair: zh/es, mode: s2s, voice: {tts_voice: translator}, resource_id: volc.service_type.10053, denoise: false}

@@ -26,6 +26,7 @@ type PodBridge struct {
 	Store                appconfig.Store
 	BootstrapEnvironment appconfig.BootstrapEnvironmentStore
 	Catalog              *localserver.Catalog
+	CatalogResolver      localserver.CatalogResolver
 	Bootstrapper         LocalPodBootstrapper
 	WaitLocalReady       func(context.Context, string, int) error
 	Health               *endpointhealth.Prober
@@ -156,7 +157,7 @@ func (b *PodBridge) Bootstrap(ctx context.Context) (BootstrapState, error) {
 	if err != nil {
 		return BootstrapState{}, err
 	}
-	environment, _, err := b.bootstrapEnvironmentState()
+	environment, _, err := b.bootstrapEnvironmentState(ctx)
 	if err != nil {
 		return BootstrapState{}, err
 	}
@@ -260,12 +261,12 @@ func (b *PodBridge) recoverLocalServerForMutation(ctx context.Context, pod appco
 	return nil
 }
 
-func (b *PodBridge) GetBootstrapEnvironment(context.Context) (BootstrapEnvironmentState, error) {
-	state, _, err := b.bootstrapEnvironmentState()
+func (b *PodBridge) GetBootstrapEnvironment(ctx context.Context) (BootstrapEnvironmentState, error) {
+	state, _, err := b.bootstrapEnvironmentState(ctx)
 	return state, err
 }
 
-func (b *PodBridge) UpdateBootstrapEnvironment(_ context.Context, update BootstrapEnvironmentUpdate) (BootstrapEnvironmentState, error) {
+func (b *PodBridge) UpdateBootstrapEnvironment(ctx context.Context, update BootstrapEnvironmentUpdate) (BootstrapEnvironmentState, error) {
 	b.mutationMu.Lock()
 	defer b.mutationMu.Unlock()
 	values, err := appconfig.ParseBootstrapEnvironment(update.Content)
@@ -273,10 +274,11 @@ func (b *PodBridge) UpdateBootstrapEnvironment(_ context.Context, update Bootstr
 		return BootstrapEnvironmentState{}, err
 	}
 	allowed := map[string]bool{}
-	if b.Catalog == nil {
-		return BootstrapEnvironmentState{}, fmt.Errorf("desktop bridge: bootstrap catalog is not configured")
+	catalog, err := b.catalog(ctx)
+	if err != nil {
+		return BootstrapEnvironmentState{}, err
 	}
-	for _, requirement := range b.Catalog.Requirements {
+	for _, requirement := range catalog.Requirements {
 		allowed[requirement.Name] = true
 	}
 	for name := range values {
@@ -287,7 +289,7 @@ func (b *PodBridge) UpdateBootstrapEnvironment(_ context.Context, update Bootstr
 	if err := b.BootstrapEnvironment.Replace(update.Content); err != nil {
 		return BootstrapEnvironmentState{}, err
 	}
-	state, _, err := b.bootstrapEnvironmentState()
+	state, _, err := b.bootstrapEnvironmentState(ctx)
 	return state, err
 }
 
@@ -336,7 +338,7 @@ func (b *PodBridge) GetPod(_ context.Context, id string) (PodSummary, error) {
 
 func (b *PodBridge) RevealPath(id string) (string, error) { return b.Store.PodDir(id) }
 
-func (b *PodBridge) CreatePod(_ context.Context, input PodInput) (PodSummary, error) {
+func (b *PodBridge) CreatePod(ctx context.Context, input PodInput) (PodSummary, error) {
 	input.ID = strings.TrimSpace(input.ID)
 	if input.ID == "" {
 		input.ID = newInternalID("pod")
@@ -349,7 +351,7 @@ func (b *PodBridge) CreatePod(_ context.Context, input PodInput) (PodSummary, er
 	defer b.mutationMu.Unlock()
 	var savedEnvironment map[string]string
 	if input.LocalServer != nil && b.Bootstrapper != nil {
-		state, saved, err := b.bootstrapEnvironmentState()
+		state, saved, err := b.bootstrapEnvironmentState(ctx)
 		if err != nil {
 			return PodSummary{}, err
 		}
@@ -471,10 +473,7 @@ func (b *PodBridge) initializeLocalPod(ctx context.Context, pod appconfig.Pod, d
 	return b.Store.CompleteInitialization(pod.ID)
 }
 
-func (b *PodBridge) bootstrapEnvironmentState() (BootstrapEnvironmentState, map[string]string, error) {
-	if b.Catalog == nil {
-		return BootstrapEnvironmentState{Ready: true, Missing: []string{}, Variables: []BootstrapEnvironmentVariableState{}}, map[string]string{}, nil
-	}
+func (b *PodBridge) bootstrapEnvironmentState(ctx context.Context) (BootstrapEnvironmentState, map[string]string, error) {
 	content, err := b.BootstrapEnvironment.Content()
 	if err != nil {
 		return BootstrapEnvironmentState{}, nil, err
@@ -488,13 +487,17 @@ func (b *PodBridge) bootstrapEnvironmentState() (BootstrapEnvironmentState, map[
 			Variables: []BootstrapEnvironmentVariableState{},
 		}, map[string]string{}, nil
 	}
+	catalog, err := b.catalog(ctx)
+	if err != nil {
+		return BootstrapEnvironmentState{Ready: false, Content: content, Error: err.Error(), Missing: []string{}, Variables: []BootstrapEnvironmentVariableState{}}, saved, nil
+	}
 	state := BootstrapEnvironmentState{
 		Ready:     true,
 		Missing:   []string{},
 		Content:   content,
-		Variables: make([]BootstrapEnvironmentVariableState, 0, len(b.Catalog.Requirements)),
+		Variables: make([]BootstrapEnvironmentVariableState, 0, len(catalog.Requirements)),
 	}
-	for _, requirement := range b.Catalog.Requirements {
+	for _, requirement := range catalog.Requirements {
 		variable := BootstrapEnvironmentVariableState{Name: requirement.Name, Required: requirement.Default == nil, Value: saved[requirement.Name]}
 		if saved[requirement.Name] != "" {
 			variable.Configured = true
@@ -509,6 +512,20 @@ func (b *PodBridge) bootstrapEnvironmentState() (BootstrapEnvironmentState, map[
 		state.Variables = append(state.Variables, variable)
 	}
 	return state, saved, nil
+}
+
+func (b *PodBridge) catalog(ctx context.Context) (*localserver.Catalog, error) {
+	if b.Catalog != nil {
+		return b.Catalog, nil
+	}
+	if b.CatalogResolver == nil {
+		return nil, errors.New("desktop bridge: bootstrap catalog is not configured")
+	}
+	catalog, err := b.CatalogResolver.Resolve(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("desktop bridge: resolve bootstrap catalog: %w", err)
+	}
+	return catalog, nil
 }
 
 func (b *PodBridge) waitLocalReady(ctx context.Context, podID string, port int) error {

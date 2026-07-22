@@ -25,14 +25,20 @@ Schema source of desktop bridge DTO; generated through `gen:sdk` of `sdk/js` aft
 
 ## Local Server bootstrap
 
-`resources/local-server` is the versioned, read-only bootstrap source embedded in the Desktop
-binary. It contains 43 declarative resources: Credentials, Tenants, Models, Workflows, PetDefs,
-and exactly one `RuntimeProfile/default`, plus the PetDef assets required by a new local Server. It
-contains no Firmware or Workspace because Firmware is not part of registration and
-Workspaces remain client-created resources.
+`resources/local-server` embeds exactly one Desktop-owned declarative resource:
+`RuntimeProfile/default`. The fixed public Raids `v0.1` GitHub archive supplies the Credential,
+Tenant, Model, Voice, and Workflow resources referenced by that profile. Desktop validates and
+caches the archive privately below its config root, resolves only the profile's dependency closure,
+and applies it before the local profile. The Raids example RuntimeProfile is never applied.
 
-After applying the catalog, synchronizing dynamic MiniMax and Volc Voices, and uploading owner-managed assets,
-Desktop creates `RegistrationToken/app:com.gizclaw.opensource`, mapped only to
+Credential templates come from Raids; credential values remain in Desktop's private
+`bootstrap.env` or the process environment. The archive cache, RuntimeProfile, `pod.json`, URLs,
+Web Storage, and logs never contain those values. If neither a valid cache nor GitHub is available,
+Desktop and remote Pod management remain usable, but new local Pod creation and required local
+runtime-contract migration fail before they can partially apply a catalog.
+
+After applying the selected Raids resources and the local profile, Desktop creates
+`RegistrationToken/app:com.gizclaw.opensource`, mapped only to
 `RuntimeProfile/default`. Its raw value
 is written only to the Pod's private workspace with mode `0600`. When local Play opens, the bridge
 passes that token through the separately protected per-launch Browser Runtime handoff. Play calls
@@ -45,9 +51,8 @@ remote Pods.
 
 Completed local Pods do not replay the full bootstrap catalog during start,
 restart, or Desktop upgrade. A legacy local Pod performs one targeted migration
-after its Server is ready: Desktop reapplies the bundled Workflows referenced
-by `RuntimeProfile/default` plus the Server-owned `chatroom` Workflow, replaces
-that Profile, creates a fresh
+after its Server is ready: Desktop reapplies the resolved Raids dependency
+closure, replaces `RuntimeProfile/default`, creates a fresh
 `RegistrationToken/app:com.gizclaw.opensource`, retires
 `RegistrationToken/desktop-local`, and records the local catalog version in
 `pod.json`. A recovered legacy process is restarted with the current companion

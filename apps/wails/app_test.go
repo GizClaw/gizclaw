@@ -33,68 +33,6 @@ func TestNewAppUsesConfiguredHome(t *testing.T) {
 	}
 }
 
-func TestNewAppRestartsRecoveredLegacyLocalServerBeforeMigration(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("the test helper is a POSIX shell script")
-	}
-	paths := appconfig.NewPaths(t.TempDir())
-	seed, err := NewAppWithPaths(paths)
-	if err != nil {
-		t.Fatal(err)
-	}
-	seed.bridge.Bootstrapper = nil
-	created, err := seed.CreatePod(bridge.PodInput{Version: 1, Name: "Recovered", LocalServer: testLocalServerInput(t)})
-	if err != nil {
-		t.Fatal(err)
-	}
-	executable := filepath.Join(t.TempDir(), "gizclaw")
-	script := `#!/bin/sh
-if [ "$1" = "serve" ]; then
-  trap 'exit 0' INT TERM
-  while :; do sleep 1; done
-fi
-if [ "$1" = "admin" ] && [ "$2" = "registration-tokens" ] && [ "$3" = "create" ]; then
-  printf '{"token":"migrated-secret"}\n'
-fi
-exit 0
-`
-	if err := os.WriteFile(executable, []byte(script), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv(localserver.EnvExecutable, executable)
-	seed.bridge.Local.Executable = executable
-	workspace := filepath.Join(paths.PodsDir, created.ID, "workspace")
-	started, err := seed.bridge.Local.Start(created.ID, workspace)
-	if err != nil {
-		t.Fatal(err)
-	}
-	attempts := startWarmingLocalServerInfo(t, seed.bridge.Store, created.ID, created.Local.Port, 2)
-
-	restarted, err := NewAppWithPaths(paths)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		defer cancel()
-		restarted.bridge.Local.Shutdown(ctx)
-	})
-	recovered := restarted.bridge.Local.Status(created.ID)
-	if recovered.State != "running" || recovered.PID == 0 || recovered.PID == started.PID {
-		t.Fatalf("upgraded process = %+v, legacy PID %d", recovered, started.PID)
-	}
-	pod, err := restarted.bridge.Store.Load(created.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if pod.LocalCatalogVersion != appconfig.LocalCatalogVersion {
-		t.Fatalf("local catalog version = %d", pod.LocalCatalogVersion)
-	}
-	if attempts.Load() < 3 {
-		t.Fatalf("server-info attempts = %d, want at least 3", attempts.Load())
-	}
-}
-
 func TestNewAppStopsServerBeforeCleaningInterruptedPod(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("the test helper is a POSIX shell script")
@@ -322,6 +260,7 @@ func TestBootstrapEnvironmentFacadeReturnsEditableDotenvContent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	app.bridge.Catalog = &localserver.Catalog{Requirements: []localserver.EnvironmentRequirement{{Name: "GIZCLAW_TEST_TOKEN"}}}
 	name := app.bridge.Catalog.Requirements[0].Name
 	const secret = "must-not-cross-the-bridge"
 	content := name + "=" + secret + "\n"

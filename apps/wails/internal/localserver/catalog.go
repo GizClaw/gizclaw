@@ -130,6 +130,9 @@ func LoadCatalog(source fs.FS) (*Catalog, error) {
 		catalog.Requirements = append(catalog.Requirements, requirement)
 	}
 	sort.Slice(catalog.Requirements, func(i, j int) bool { return catalog.Requirements[i].Name < catalog.Requirements[j].Name })
+	if len(catalog.Resources) == 1 && catalog.Resources[0].Kind == "RuntimeProfile" && catalog.Resources[0].Name == "default" {
+		return catalog, nil
+	}
 
 	declaredAssets := map[string]string{}
 	declareAsset := func(name, owner string) error {
