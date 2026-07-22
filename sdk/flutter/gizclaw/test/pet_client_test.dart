@@ -44,12 +44,16 @@ void main() {
     );
     expect((await actionsFuture).value.petId, 'pet-a');
 
-    final adoptFuture = client.adoptPet(displayName: 'Miso');
+    final adoptFuture = client.adoptPet(
+      id: 'device-pet-01',
+      displayName: 'Miso',
+    );
     final adoptRequest = await _request(factory, 2);
     final adoptPayload =
         decodeRpcRequestPayload('runtime.adopt', adoptRequest.payload)
             as RuntimeAdoptRequest;
     expect(adoptPayload.value.displayName, 'Miso');
+    expect(adoptPayload.value.id, 'device-pet-01');
     _respond(
       factory.channels[2],
       adoptRequest.id,

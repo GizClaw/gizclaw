@@ -486,16 +486,18 @@ const PetAdoptRequest$json = {
       '10': 'displayName',
       '17': true
     },
+    {'1': 'id', '3': 2, '4': 1, '5': 9, '9': 1, '10': 'id', '17': true},
   ],
   '8': [
     {'1': '_display_name'},
+    {'1': '_id'},
   ],
 };
 
 /// Descriptor for `PetAdoptRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List petAdoptRequestDescriptor = $convert.base64Decode(
     'Cg9QZXRBZG9wdFJlcXVlc3QSJgoMZGlzcGxheV9uYW1lGAEgASgJSABSC2Rpc3BsYXlOYW1liA'
-    'EBQg8KDV9kaXNwbGF5X25hbWU=');
+    'EBEhMKAmlkGAIgASgJSAFSAmlkiAEBQg8KDV9kaXNwbGF5X25hbWVCBQoDX2lk');
 
 @$core.Deprecated('Use petAdoptResponseDescriptor instead')
 const PetAdoptResponse$json = {

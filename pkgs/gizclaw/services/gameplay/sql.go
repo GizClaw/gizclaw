@@ -22,6 +22,64 @@ type queryRebinder interface {
 	QueryRowContext(context.Context, string, ...any) *sql.Row
 }
 
+type petAdoptionReservation struct {
+	OwnerPublicKey     string
+	PetID              string
+	RuntimeProfileName string
+	PetDefID           string
+	DisplayName        string
+	WorkspaceName      string
+	WorkflowName       string
+	VoiceAlias         string
+	AdoptionCost       int64
+	CreatedAt          time.Time
+}
+
+func findPetAdoptionReservation(ctx context.Context, db queryRebinder, owner, petID string) (petAdoptionReservation, error) {
+	var reservation petAdoptionReservation
+	var createdAt string
+	err := db.QueryRowContext(ctx, db.Rebind(`SELECT owner_public_key, pet_id, runtime_profile_name, petdef_id, display_name, workspace_name, workflow_name, voice_alias, adoption_cost, created_at FROM gameplay_pet_adoption_reservations WHERE owner_public_key = ? AND pet_id = ?`), owner, petID).Scan(
+		&reservation.OwnerPublicKey, &reservation.PetID, &reservation.RuntimeProfileName, &reservation.PetDefID,
+		&reservation.DisplayName, &reservation.WorkspaceName, &reservation.WorkflowName, &reservation.VoiceAlias,
+		&reservation.AdoptionCost, &createdAt,
+	)
+	if err != nil {
+		return petAdoptionReservation{}, err
+	}
+	reservation.CreatedAt = parseTime(createdAt)
+	return reservation, nil
+}
+
+func insertPetAdoptionReservation(ctx context.Context, tx *sqlx.Tx, reservation petAdoptionReservation) error {
+	_, err := insertPetAdoptionReservationIfAbsent(ctx, tx, reservation)
+	return err
+}
+
+func insertPetAdoptionReservationIfAbsent(ctx context.Context, tx *sqlx.Tx, reservation petAdoptionReservation) (bool, error) {
+	result, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_pet_adoption_reservations (owner_public_key, pet_id, runtime_profile_name, petdef_id, display_name, workspace_name, workflow_name, voice_alias, adoption_cost, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(owner_public_key, pet_id) DO NOTHING`),
+		reservation.OwnerPublicKey, reservation.PetID, reservation.RuntimeProfileName, reservation.PetDefID,
+		reservation.DisplayName, reservation.WorkspaceName, reservation.WorkflowName, reservation.VoiceAlias,
+		reservation.AdoptionCost, formatTime(reservation.CreatedAt))
+	if err != nil {
+		return false, err
+	}
+	inserted, err := result.RowsAffected()
+	return inserted == 1, err
+}
+
+func deletePetAdoptionReservationIfIncomplete(ctx context.Context, db *sqlx.DB, owner, petID string) (bool, error) {
+	result, err := db.ExecContext(ctx, db.Rebind(`DELETE FROM gameplay_pet_adoption_reservations
+		WHERE owner_public_key = ? AND pet_id = ?
+		AND NOT EXISTS (SELECT 1 FROM gameplay_pets WHERE owner_public_key = ? AND id = ?)
+		AND NOT EXISTS (SELECT 1 FROM gameplay_points_transactions WHERE owner_public_key = ? AND source_type = 'pet' AND source_id = ? AND reason = 'pet.adopt')`),
+		owner, petID, owner, petID, owner, petID)
+	if err != nil {
+		return false, err
+	}
+	deleted, err := result.RowsAffected()
+	return deleted == 1, err
+}
+
 type petDriveTick struct {
 	OwnerPublicKey     string
 	RuntimeProfileName string
@@ -70,6 +128,10 @@ func scanPet(row rowScanner) (apitypes.Pet, error) {
 		return apitypes.Pet{}, fmt.Errorf("gameplay: invalid pet lifecycle %q", pet.Lifecycle)
 	}
 	return pet, nil
+}
+
+func findPetByOwnerID(ctx context.Context, db queryRebinder, owner, id string) (apitypes.Pet, error) {
+	return scanPet(db.QueryRowContext(ctx, db.Rebind(petSelectSQL()+` WHERE owner_public_key = ? AND id = ?`), owner, id))
 }
 
 func insertPet(ctx context.Context, tx *sqlx.Tx, pet apitypes.Pet) error {
@@ -143,10 +205,18 @@ func scanPointsAccount(row rowScanner) (apitypes.PointsAccount, error) {
 	return account, nil
 }
 
-func insertPointsAccount(ctx context.Context, tx *sqlx.Tx, account apitypes.PointsAccount) error {
-	_, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_points_accounts (owner_public_key, runtime_profile_name, balance, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`),
+func findPointsAccount(ctx context.Context, db queryRebinder, owner, runtimeProfileName string) (apitypes.PointsAccount, error) {
+	return scanPointsAccount(db.QueryRowContext(ctx, db.Rebind(pointsAccountSelectSQL()+` WHERE owner_public_key = ? AND runtime_profile_name = ?`), owner, runtimeProfileName))
+}
+
+func insertPointsAccount(ctx context.Context, tx *sqlx.Tx, account apitypes.PointsAccount) (bool, error) {
+	result, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_points_accounts (owner_public_key, runtime_profile_name, balance, created_at, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(owner_public_key, runtime_profile_name) DO NOTHING`),
 		account.OwnerPublicKey, account.RuntimeProfileName, account.Balance, formatTime(account.CreatedAt), formatTime(account.UpdatedAt))
-	return err
+	if err != nil {
+		return false, err
+	}
+	rows, err := result.RowsAffected()
+	return rows == 1, err
 }
 
 func pointsTransactionSelectSQL() string {
@@ -172,6 +242,10 @@ func insertPointsTransaction(ctx context.Context, tx *sqlx.Tx, item apitypes.Poi
 	_, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_points_transactions (owner_public_key, id, runtime_profile_name, pet_id, game_result_id, reward_grant_id, delta, balance_after, reason, source_type, source_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
 		item.OwnerPublicKey, item.Id, item.RuntimeProfileName, nullableString(item.PetId), nullableString(item.GameResultId), nullableString(item.RewardGrantId), item.Delta, item.BalanceAfter, item.Reason, item.SourceType, item.SourceId, formatTime(item.CreatedAt))
 	return err
+}
+
+func findPetAdoptionTransaction(ctx context.Context, db queryRebinder, owner, petID string) (apitypes.PointsTransaction, error) {
+	return scanPointsTransaction(db.QueryRowContext(ctx, db.Rebind(pointsTransactionSelectSQL()+` WHERE owner_public_key = ? AND source_type = 'pet' AND source_id = ? AND reason = 'pet.adopt'`), owner, petID))
 }
 
 func badgeSelectSQL() string {

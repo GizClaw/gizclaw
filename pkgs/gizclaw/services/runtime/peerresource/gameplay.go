@@ -233,7 +233,7 @@ func (s *Server) handlePetAdopt(ctx context.Context, req *rpcapi.RPCRequest) *rp
 	}
 	resp, err := runtime.AdoptPet(profileCtx, s.Caller.String(), apiParams)
 	if err != nil {
-		return businessError(req.Id, err)
+		return gameplayBusinessError(req.Id, err)
 	}
 	return resultResponse(req.Id, resp, (*rpcapi.RPCPayload).FromRuntimeAdoptResponse)
 }
@@ -310,8 +310,13 @@ func (s *Server) handlePetDrive(ctx context.Context, req *rpcapi.RPCRequest) *rp
 }
 
 func gameplayBusinessError(id string, err error) *rpcapi.RPCResponse {
-	if errors.Is(err, gameplay.ErrPetDead) {
+	switch {
+	case errors.Is(err, gameplay.ErrPetDead):
 		return statusError(id, http.StatusConflict, "pet is dead")
+	case errors.Is(err, gameplay.ErrPetIDConflict):
+		return statusError(id, http.StatusConflict, "pet id is already reserved")
+	case errors.Is(err, gameplay.ErrInvalidPetID):
+		return statusError(id, http.StatusBadRequest, "invalid pet id")
 	}
 	return businessError(id, err)
 }

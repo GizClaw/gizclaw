@@ -1320,9 +1320,11 @@ class Pet extends $pb.GeneratedMessage {
 class PetAdoptRequest extends $pb.GeneratedMessage {
   factory PetAdoptRequest({
     $core.String? displayName,
+    $core.String? id,
   }) {
     final result = create();
     if (displayName != null) result.displayName = displayName;
+    if (id != null) result.id = id;
     return result;
   }
 
@@ -1340,6 +1342,7 @@ class PetAdoptRequest extends $pb.GeneratedMessage {
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'displayName')
+    ..aOS(2, _omitFieldNames ? '' : 'id')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1369,6 +1372,15 @@ class PetAdoptRequest extends $pb.GeneratedMessage {
   $core.bool hasDisplayName() => $_has(0);
   @$pb.TagNumber(1)
   void clearDisplayName() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get id => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set id($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearId() => $_clearField(2);
 }
 
 class PetAdoptResponse extends $pb.GeneratedMessage {

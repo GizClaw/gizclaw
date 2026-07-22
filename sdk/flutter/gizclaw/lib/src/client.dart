@@ -314,8 +314,12 @@ class GizClawClient {
     );
   }
 
-  Future<payload.RuntimeAdoptResponse> adoptPet({String? displayName}) {
+  Future<payload.RuntimeAdoptResponse> adoptPet({
+    String? id,
+    String? displayName,
+  }) {
     final value = payload.PetAdoptRequest();
+    if (id != null) value.id = id;
     if (displayName != null && displayName.isNotEmpty) {
       value.displayName = displayName;
     }

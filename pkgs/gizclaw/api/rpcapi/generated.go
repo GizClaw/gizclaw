@@ -2430,6 +2430,7 @@ type Pet struct {
 // PetAdoptRequest defines model for PetAdoptRequest.
 type PetAdoptRequest struct {
 	DisplayName *string `json:"display_name,omitempty"`
+	Id          *string `json:"id,omitempty"`
 }
 
 // PetAdoptResponse defines model for PetAdoptResponse.

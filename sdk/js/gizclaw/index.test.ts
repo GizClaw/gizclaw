@@ -184,6 +184,18 @@ test("RPC payload codec preserves optional registration firmware release line", 
   });
 });
 
+test("RPC payload codec preserves caller-assigned Pet adoption IDs", () => {
+  const payload = encodeRPCRequestPayload("runtime.adopt", {
+    display_name: "Miso",
+    id: "device-pet-01",
+  });
+
+  assert.deepEqual(decodeRPCRequestPayload("runtime.adopt", payload), {
+    display_name: "Miso",
+    id: "device-pet-01",
+  });
+});
+
 test("RPC payload codec selects workspace oneofs from discriminators", () => {
   const payload = encodeRPCRequestPayload("server.workspace.create", {
     created_at: "now",

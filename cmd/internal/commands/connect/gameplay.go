@@ -145,19 +145,26 @@ func newPetPixaCmd() *cobra.Command {
 func newPetAdoptCmd() *cobra.Command {
 	var opts connectRPCOptions
 	var displayName string
+	var petID string
 	cmd := &cobra.Command{
 		Use:   "adopt",
 		Short: "Adopt a pet",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
+				var id *string
+				if cmd.Flags().Changed("id") {
+					id = &petID
+				}
 				return c.AdoptPet(ctx, "runtime.adopt", rpcapi.RuntimeAdoptRequest{
 					DisplayName: optionalString(displayName),
+					Id:          id,
 				})
 			})
 		},
 	}
 	opts.addFlags(cmd)
+	cmd.Flags().StringVar(&petID, "id", "", "stable peer-scoped pet ID")
 	cmd.Flags().StringVar(&displayName, "name", "", "pet display name")
 	return cmd
 }

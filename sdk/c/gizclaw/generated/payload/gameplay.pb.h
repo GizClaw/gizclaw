@@ -142,6 +142,7 @@ typedef struct _gizclaw_rpc_v1_Pet {
 
 typedef struct _gizclaw_rpc_v1_PetAdoptRequest {
     pb_callback_t display_name;
+    pb_callback_t id;
 } gizclaw_rpc_v1_PetAdoptRequest;
 
 typedef struct _gizclaw_rpc_v1_PetPixaDownloadRequest {
@@ -569,7 +570,7 @@ extern "C" {
 #define gizclaw_rpc_v1_PetStats_init_default     {0, 0, 0, 0, 0, 0}
 #define gizclaw_rpc_v1_PetProgression_init_default {0, 0}
 #define gizclaw_rpc_v1_Pet_init_default          {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_PetStats_init_default, false, gizclaw_rpc_v1_PetProgression_init_default, _gizclaw_rpc_v1_PetLifecycle_MIN, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_PetAdoptRequest_init_default {{{NULL}, NULL}}
+#define gizclaw_rpc_v1_PetAdoptRequest_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PetAdoptResponse_init_default {false, gizclaw_rpc_v1_Pet_init_default, false, gizclaw_rpc_v1_PointsAccount_init_default, false, gizclaw_rpc_v1_PointsTransaction_init_default}
 #define gizclaw_rpc_v1_PetPixaDownloadRequest_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_PetPixaDownloadResponse_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, 0}
@@ -637,7 +638,7 @@ extern "C" {
 #define gizclaw_rpc_v1_PetStats_init_zero        {0, 0, 0, 0, 0, 0}
 #define gizclaw_rpc_v1_PetProgression_init_zero  {0, 0}
 #define gizclaw_rpc_v1_Pet_init_zero             {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_PetStats_init_zero, false, gizclaw_rpc_v1_PetProgression_init_zero, _gizclaw_rpc_v1_PetLifecycle_MIN, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_PetAdoptRequest_init_zero {{{NULL}, NULL}}
+#define gizclaw_rpc_v1_PetAdoptRequest_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PetAdoptResponse_init_zero {false, gizclaw_rpc_v1_Pet_init_zero, false, gizclaw_rpc_v1_PointsAccount_init_zero, false, gizclaw_rpc_v1_PointsTransaction_init_zero}
 #define gizclaw_rpc_v1_PetPixaDownloadRequest_init_zero {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_PetPixaDownloadResponse_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, 0}
@@ -758,6 +759,7 @@ extern "C" {
 #define gizclaw_rpc_v1_Pet_created_at_tag        13
 #define gizclaw_rpc_v1_Pet_updated_at_tag        14
 #define gizclaw_rpc_v1_PetAdoptRequest_display_name_tag 1
+#define gizclaw_rpc_v1_PetAdoptRequest_id_tag    2
 #define gizclaw_rpc_v1_PetPixaDownloadRequest_pet_id_tag 1
 #define gizclaw_rpc_v1_PetPixaDownloadResponse_pet_id_tag 1
 #define gizclaw_rpc_v1_PetPixaDownloadResponse_petdef_id_tag 2
@@ -1007,7 +1009,8 @@ X(a, CALLBACK, SINGULAR, STRING,   updated_at,       14)
 #define gizclaw_rpc_v1_Pet_progression_MSGTYPE gizclaw_rpc_v1_PetProgression
 
 #define gizclaw_rpc_v1_PetAdoptRequest_FIELDLIST(X, a) \
-X(a, CALLBACK, OPTIONAL, STRING,   display_name,      1)
+X(a, CALLBACK, OPTIONAL, STRING,   display_name,      1) \
+X(a, CALLBACK, OPTIONAL, STRING,   id,                2)
 #define gizclaw_rpc_v1_PetAdoptRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_PetAdoptRequest_DEFAULT NULL
 
