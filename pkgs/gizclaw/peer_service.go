@@ -83,6 +83,10 @@ type PeerService struct {
 var _ peerhttp.StrictServerInterface = (*peerHTTP)(nil)
 
 func (s *PeerService) ServeConn(conn giznet.Conn) error {
+	return s.serveConn(conn, nil)
+}
+
+func (s *PeerService) serveConn(conn giznet.Conn, isRetiring func() bool) error {
 	if s == nil {
 		return errors.New("gizclaw: nil peer service")
 	}
@@ -106,9 +110,9 @@ func (s *PeerService) ServeConn(conn giznet.Conn) error {
 	}
 
 	errCh := make(chan error, 3)
-	go func() { errCh <- s.serveAdmin(conn) }()
-	go func() { errCh <- s.servePublic(conn) }()
-	go func() { errCh <- s.serveEdgePublic(conn) }()
+	go func() { errCh <- s.serveAdminWithRetiring(conn, isRetiring) }()
+	go func() { errCh <- s.servePublicWithRetiring(conn, isRetiring) }()
+	go func() { errCh <- s.serveEdgePublicWithRetiring(conn, isRetiring) }()
 
 	var errs []error
 	for i := 0; i < 3; i++ {

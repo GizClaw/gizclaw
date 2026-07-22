@@ -17,7 +17,7 @@
 | 7 | `server.runtime.get` | 读取当前 Peer 的在线状态、最后地址、最后在线时间和传输字节统计。 |
 | 8 | `server.status.get` | 读取当前 Peer 最近上报的电量、充电、GNSS、音量、静音等状态。 |
 | 91 | `server.register` | 使用 RegistrationToken 为当前 Peer 选择 RuntimeProfile，持久化并返回可选 Firmware ID。 |
-| 94 | `server.peer.delete` | 原子删除当前 Peer 并写入 pending-deletion handoff；返回空 acknowledgement 与 EOS 后关闭连接。 |
+| 94 | `server.peer.delete` | 原子删除当前 Peer 并写入 pending-deletion handoff；立即拒绝当前连接的新工作，尝试返回空 acknowledgement 与 EOS，随后无条件关闭完整连接。 |
 
 ## Agent 与运行中的 Workspace
 

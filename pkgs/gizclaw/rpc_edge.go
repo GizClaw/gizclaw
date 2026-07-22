@@ -14,7 +14,8 @@ import (
 )
 
 type edgeRPCServer struct {
-	routes *peerroute.Server
+	routes         *peerroute.Server
+	isPeerRetiring func() bool
 }
 
 func (s *edgeRPCServer) Handle(conn net.Conn) error {
@@ -24,6 +25,9 @@ func (s *edgeRPCServer) Handle(conn net.Conn) error {
 func (s *edgeRPCServer) dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
 	if req == nil {
 		return rpcapi.Error{Code: rpcapi.RPCErrorCodeInvalidRequest, Message: "nil request"}.RPCResponse(), nil
+	}
+	if s.isPeerRetiring != nil && s.isPeerRetiring() {
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeConflict, Message: ErrPeerConnRetiring.Error()}.RPCResponse(), nil
 	}
 	switch req.Method {
 	case rpcapi.RPCMethodServerPeerLookup:

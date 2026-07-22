@@ -19,7 +19,7 @@ import (
 )
 
 func (h *PeerConn) serveOpenAI() error {
-	handler := h.openAIHTTPHandler()
+	handler := rejectRetiringHTTP(h.isRetiring, h.openAIHTTPHandler())
 	server := gizhttp.NewServer(h.Conn, ServicePeerOpenAI, handler)
 	defer func() {
 		_ = server.Shutdown(context.Background())

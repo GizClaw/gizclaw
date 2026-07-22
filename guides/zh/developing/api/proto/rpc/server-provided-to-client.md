@@ -44,4 +44,4 @@ sequenceDiagram
 
 RPC adapter 负责 payload decode、framing、lifecycle 和稳定 error mapping；领域 service 负责 storage、resource validation、authorization 与 execution。
 
-`server.peer.delete` 使用空 request/response message，不接受目标 public key。成功时原子删除 caller 的 active Peer 并写入 pending-deletion handoff；Server flush response 和 EOS 后才关闭 retired connection。`server.workspace.delete` 只对 caller-owned 用户 Workspace 执行相同 fast handoff，system Workspace 始终不可通过该方法删除。`server.pet.delete` 删除 Pet 并写入 Pet pending work，但保留绑定的 system Workspace。
+`server.peer.delete` 使用空 request/response message，不接受目标 public key。成功提交 active Peer 与 pending-deletion handoff 后，Server 立即把当前 connection 标为 retiring 并拒绝新工作，再尝试 flush response 和 EOS；即使任一写入失败也会关闭完整 connection。`server.workspace.delete` 只对 caller-owned 用户 Workspace 执行相同 fast handoff，system Workspace 始终不可通过该方法删除。`server.pet.delete` 删除 Pet 并写入 Pet pending work，但保留绑定的 system Workspace。

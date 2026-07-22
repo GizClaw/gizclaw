@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"iter"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -16,6 +19,37 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
+
+type blockingPendingLookupStore struct {
+	kv.Store
+	listOnce  sync.Once
+	entered   chan struct{}
+	release   chan struct{}
+	getCount  atomic.Int32
+	secondGet chan struct{}
+}
+
+func (s *blockingPendingLookupStore) Get(ctx context.Context, key kv.Key) ([]byte, error) {
+	if s.getCount.Add(1) == 2 {
+		close(s.secondGet)
+	}
+	return s.Store.Get(ctx, key)
+}
+
+func (s *blockingPendingLookupStore) List(ctx context.Context, prefix kv.Key) iter.Seq2[kv.Entry, error] {
+	next := s.Store.List(ctx, prefix)
+	return func(yield func(kv.Entry, error) bool) {
+		s.listOnce.Do(func() {
+			close(s.entered)
+			<-s.release
+		})
+		for entry, err := range next {
+			if !yield(entry, err) {
+				return
+			}
+		}
+	}
+}
 
 func saveTestPeer(t *testing.T, server *Server, publicKey giznet.PublicKey, device apitypes.DeviceInfo) {
 	t.Helper()
@@ -63,6 +97,48 @@ func TestDeleteSelfReconnectCreatesDistinctDeletionEvents(t *testing.T) {
 	}
 	if count != 2 {
 		t.Fatalf("pending deletion events = %d, want 2", count)
+	}
+}
+
+func TestDeleteSelfRetrySerializesPendingLookupWithReconnect(t *testing.T) {
+	ctx := context.Background()
+	base := mustBadgerInMemory(t, nil)
+	server := &Server{Store: base}
+	publicKey := giznet.PublicKey{10}
+	saveTestPeer(t, server, publicKey, apitypes.DeviceInfo{})
+	if err := server.DeleteSelf(ctx, publicKey); err != nil {
+		t.Fatalf("DeleteSelf(first): %v", err)
+	}
+	blocking := &blockingPendingLookupStore{
+		Store:     base,
+		entered:   make(chan struct{}),
+		release:   make(chan struct{}),
+		secondGet: make(chan struct{}),
+	}
+	server.Store = blocking
+
+	retryErr := make(chan error, 1)
+	go func() { retryErr <- server.DeleteSelf(ctx, publicKey) }()
+	<-blocking.entered
+	reconnectErr := make(chan error, 1)
+	go func() {
+		_, err := server.EnsureConnectedPeer(ctx, publicKey)
+		reconnectErr <- err
+	}()
+	select {
+	case <-blocking.secondGet:
+		t.Fatal("reconnect entered the store while DeleteSelf held the record lock")
+	case <-time.After(50 * time.Millisecond):
+	}
+	close(blocking.release)
+	if err := <-retryErr; err != nil {
+		t.Fatalf("DeleteSelf(retry): %v", err)
+	}
+	if err := <-reconnectErr; err != nil {
+		t.Fatalf("EnsureConnectedPeer: %v", err)
+	}
+	if _, err := server.LoadPeer(ctx, publicKey); err != nil {
+		t.Fatalf("LoadPeer(reconnected): %v", err)
 	}
 }
 

@@ -55,6 +55,10 @@ type adminService struct {
 var _ adminhttp.StrictServerInterface = (*adminService)(nil)
 
 func (s *PeerService) serveAdmin(conn giznet.Conn) error {
+	return s.serveAdminWithRetiring(conn, nil)
+}
+
+func (s *PeerService) serveAdminWithRetiring(conn giznet.Conn, isRetiring func() bool) error {
 	app := fiber.New(fiber.Config{DisableStartupMessage: true, StreamRequestBody: true})
 	app.Use(observeFiberRoute)
 	app.Use(func(ctx *fiber.Ctx) error {
@@ -63,11 +67,11 @@ func (s *PeerService) serveAdmin(conn giznet.Conn) error {
 	handler := adminhttp.NewStrictHandler(s.admin, nil)
 	adminhttp.RegisterHandlers(app, handler)
 
-	httpHandler := observeHTTPHandler(fiberHTTPHandler(app), httpObservationOptions{
+	httpHandler := rejectRetiringHTTP(isRetiring, observeHTTPHandler(fiberHTTPHandler(app), httpObservationOptions{
 		surface:       observability.SurfaceAdminHTTP,
 		peerPublicKey: conn.PublicKey().String(),
 		peerRole:      string(apitypes.PeerRoleAdmin),
-	})
+	}))
 	server := gizhttp.NewServer(conn, ServiceAdminHTTP, httpHandler)
 	defer func() {
 		_ = server.Shutdown(context.Background())

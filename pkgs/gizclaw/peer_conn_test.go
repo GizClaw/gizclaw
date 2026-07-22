@@ -24,11 +24,60 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 	"google.golang.org/protobuf/proto"
 )
+
+func TestPeerConnRetireDetachesOnlyItsActiveConnection(t *testing.T) {
+	key := giznet.PublicKey{44}
+	manager := &Manager{}
+	conn := &testGiznetConn{publicKey: key}
+	manager.SetPeerUp(key, conn)
+	registration := runtimeprofile.Registration{RuntimeProfile: apitypes.RuntimeProfile{Name: "profile-a"}}
+	if !manager.SetPeerRegistration(key, conn, registration) {
+		t.Fatal("SetPeerRegistration rejected active connection")
+	}
+	peerConn := &PeerConn{Conn: conn, Service: &PeerService{manager: manager}}
+	peerConn.registration.Store(&registration)
+	peerConn.retire()
+	if !peerConn.isRetiring() {
+		t.Fatal("PeerConn was not marked retiring")
+	}
+	if peerConn.registration.Load() != nil {
+		t.Fatal("PeerConn retained its registration")
+	}
+	if _, ok := manager.Peer(key); ok {
+		t.Fatal("Manager retained retiring connection")
+	}
+	if _, _, err := peerConn.CreateAudioTrack(); !errors.Is(err, ErrPeerConnRetiring) {
+		t.Fatalf("CreateAudioTrack error = %v, want ErrPeerConnRetiring", err)
+	}
+
+	replacement := &testGiznetConn{publicKey: key}
+	manager.SetPeerUp(key, replacement)
+	peerConn.retire()
+	if got, ok := manager.Peer(key); !ok || got != replacement {
+		t.Fatalf("repeated retire removed replacement connection: %v, %v", got, ok)
+	}
+}
+
+func TestRejectRetiringHTTP(t *testing.T) {
+	called := false
+	handler := rejectRetiringHTTP(func() bool { return true }, http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		called = true
+	}))
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/", nil))
+	if response.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusServiceUnavailable)
+	}
+	if called {
+		t.Fatal("retiring request reached the underlying handler")
+	}
+}
 
 func TestPeerConnHelpersAndRPCHandle(t *testing.T) {
 	t.Run("audio mixer lifecycle", func(t *testing.T) {

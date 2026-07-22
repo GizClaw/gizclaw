@@ -19,18 +19,26 @@ import (
 )
 
 func (s *PeerService) servePublic(conn giznet.Conn) error {
-	return s.servePublicService(conn, ServicePeerHTTP)
+	return s.servePublicWithRetiring(conn, nil)
+}
+
+func (s *PeerService) servePublicWithRetiring(conn giznet.Conn, isRetiring func() bool) error {
+	return s.servePublicService(conn, ServicePeerHTTP, isRetiring)
 }
 
 func (s *PeerService) serveEdgePublic(conn giznet.Conn) error {
-	server := gizhttp.NewServer(conn, ServiceEdgeHTTP, s.edgeHTTPHandlerForPeer(s.sessions, conn.PublicKey().String()))
+	return s.serveEdgePublicWithRetiring(conn, nil)
+}
+
+func (s *PeerService) serveEdgePublicWithRetiring(conn giznet.Conn, isRetiring func() bool) error {
+	server := gizhttp.NewServer(conn, ServiceEdgeHTTP, rejectRetiringHTTP(isRetiring, s.edgeHTTPHandlerForPeer(s.sessions, conn.PublicKey().String())))
 	defer func() {
 		_ = server.Shutdown(context.Background())
 	}()
 	return server.Serve()
 }
 
-func (s *PeerService) servePublicService(conn giznet.Conn, service uint64) error {
+func (s *PeerService) servePublicService(conn giznet.Conn, service uint64, isRetiring func() bool) error {
 	app := fiber.New(fiber.Config{DisableStartupMessage: true})
 	app.Use(observeFiberRoute)
 	app.Use(func(ctx *fiber.Ctx) error {
@@ -49,15 +57,28 @@ func (s *PeerService) servePublicService(conn giznet.Conn, service uint64) error
 	if service == ServiceEdgeHTTP {
 		surface = observability.SurfaceEdgeHTTP
 	}
-	handler := observeHTTPHandler(fiberHTTPHandler(app), httpObservationOptions{
+	handler := rejectRetiringHTTP(isRetiring, observeHTTPHandler(fiberHTTPHandler(app), httpObservationOptions{
 		surface:       surface,
 		peerPublicKey: conn.PublicKey().String(),
-	})
+	}))
 	server := gizhttp.NewServer(conn, service, handler)
 	defer func() {
 		_ = server.Shutdown(context.Background())
 	}()
 	return server.Serve()
+}
+
+func rejectRetiringHTTP(isRetiring func() bool, next http.Handler) http.Handler {
+	if isRetiring == nil {
+		return next
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if isRetiring() {
+			http.Error(w, ErrPeerConnRetiring.Error(), http.StatusServiceUnavailable)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 type publicHTTPOptions struct {

@@ -29,6 +29,7 @@ var (
 	ErrNilPeerConnTransport = errors.New("gizclaw: nil peer conn transport")
 	ErrNilPeerConnService   = errors.New("gizclaw: nil peer conn service")
 	ErrNilPeerConnMixer     = errors.New("gizclaw: nil peer conn mixer")
+	ErrPeerConnRetiring     = errors.New("gizclaw: peer conn retiring")
 )
 
 const peerConnMixerFormat = pcm.L16Mono16K
@@ -55,12 +56,16 @@ type PeerConn struct {
 	rpc               *rpcServer
 	audioPacing       <-chan time.Time
 	closed            atomic.Bool
+	retiring          atomic.Bool
 	registration      atomic.Pointer[runtimeprofile.Registration]
 }
 
 // CreateAudioTrack creates a writable audio track on the peer mixer.
 // The mixer itself is intentionally kept private to PeerConn.
 func (h *PeerConn) CreateAudioTrack(opts ...pcm.TrackOption) (pcm.Track, *pcm.TrackCtrl, error) {
+	if h.isRetiring() {
+		return nil, nil, ErrPeerConnRetiring
+	}
 	mx, err := h.audioMixer()
 	if err != nil {
 		return nil, nil, err
@@ -102,7 +107,7 @@ func (h *PeerConn) serveService() error {
 	defer func() {
 		_ = h.close()
 	}()
-	return h.Service.ServeConn(h.Conn)
+	return h.Service.serveConn(h.Conn, h.isRetiring)
 }
 
 func (h *PeerConn) servePackets() error {
@@ -132,6 +137,10 @@ func (h *PeerConn) serveRPC() error {
 			}
 			return err
 		}
+		if h.isRetiring() {
+			_ = stream.Close()
+			continue
+		}
 		go func(stream net.Conn) {
 			if err := server.Handle(stream); err != nil {
 				_ = stream.Close()
@@ -148,7 +157,7 @@ func (h *PeerConn) serveEdgeRPC() error {
 	defer func() {
 		_ = listener.Close()
 	}()
-	server := &edgeRPCServer{routes: h.Service.manager.PeerRoutes}
+	server := &edgeRPCServer{routes: h.Service.manager.PeerRoutes, isPeerRetiring: h.isRetiring}
 	for {
 		stream, err := listener.Accept()
 		if err != nil {
@@ -156,6 +165,10 @@ func (h *PeerConn) serveEdgeRPC() error {
 				return nil
 			}
 			return err
+		}
+		if h.isRetiring() {
+			_ = stream.Close()
+			continue
 		}
 		go func(stream net.Conn) {
 			if err := server.Handle(stream); err != nil {
@@ -177,6 +190,8 @@ func (h *PeerConn) initRPC() {
 		return
 	}
 	h.rpc = &rpcServer{}
+	h.rpc.isPeerRetiring = h.isRetiring
+	h.rpc.onPeerRetiring = h.retire
 	h.rpc.onPeerDeleted = func() {
 		_ = h.close()
 	}
@@ -189,9 +204,16 @@ func (h *PeerConn) initRPC() {
 		h.rpc.serverResources = h.peerResources()
 		h.rpc.registrations = h.Service.manager.RuntimeProfiles
 		h.rpc.onRegistration = func(registration runtimeprofile.Registration) {
+			if h.isRetiring() {
+				return
+			}
 			h.registration.Store(&registration)
+			accepted := true
 			if h.Conn != nil {
-				h.Service.manager.SetPeerRegistration(h.Conn.PublicKey(), h.Conn, registration)
+				accepted = h.Service.manager.SetPeerRegistration(h.Conn.PublicKey(), h.Conn, registration)
+			}
+			if h.isRetiring() || !accepted {
+				h.registration.CompareAndSwap(&registration, nil)
 			}
 		}
 	}
@@ -356,6 +378,20 @@ func (h *PeerConn) close() error {
 	return closeErr
 }
 
+func (h *PeerConn) retire() {
+	if h == nil || !h.retiring.CompareAndSwap(false, true) {
+		return
+	}
+	h.registration.Store(nil)
+	if h.Conn != nil && h.Service != nil && h.Service.manager != nil {
+		h.Service.manager.SetPeerDown(h.Conn.PublicKey(), h.Conn)
+	}
+}
+
+func (h *PeerConn) isRetiring() bool {
+	return h != nil && h.retiring.Load()
+}
+
 func (h *PeerConn) serveEvents() error {
 	listener := h.Conn.ListenService(EventStreamAgent)
 	defer func() {
@@ -368,6 +404,10 @@ func (h *PeerConn) serveEvents() error {
 				return nil
 			}
 			return err
+		}
+		if h.isRetiring() {
+			_ = stream.Close()
+			continue
 		}
 		go func(stream net.Conn) {
 			if err := h.handleEventStream(stream); err != nil {
@@ -385,12 +425,18 @@ func (h *PeerConn) handleEventStream(stream net.Conn) error {
 	defer unsubscribe()
 	defer func() { _ = stream.Close() }()
 	for {
+		if h.isRetiring() {
+			return ErrPeerConnRetiring
+		}
 		event, err := readPeerStreamEvent(stream)
 		if err != nil {
 			if errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) {
 				return nil
 			}
 			return err
+		}
+		if h.isRetiring() {
+			return ErrPeerConnRetiring
 		}
 		chunk, err := peerStreamEventToChunk(event)
 		if err != nil {
@@ -458,6 +504,9 @@ func (h *PeerConn) serveDirectPackets() error {
 			}
 			return err
 		}
+		if h.isRetiring() {
+			continue
+		}
 		switch protocol {
 		case giznet.ProtocolOpusPacket:
 			chunk, ok := opusPacketChunk(buf[:n])
@@ -484,6 +533,9 @@ func (h *PeerConn) serveDirectPackets() error {
 func (h *PeerConn) processTelemetryPackets(ctx context.Context, packets <-chan []byte, done chan<- struct{}) {
 	defer close(done)
 	for payload := range packets {
+		if h.isRetiring() {
+			continue
+		}
 		if err := h.handleTelemetryPacket(ctx, payload); err != nil && !errors.Is(err, context.Canceled) {
 			slog.Warn("gizclaw: peer telemetry packet ignored", "error", err)
 		}
@@ -537,8 +589,14 @@ func (h *PeerConn) pushAgentInputChunk(ctx context.Context, chunk *genx.MessageC
 	if h == nil || chunk == nil {
 		return nil
 	}
+	if h.isRetiring() {
+		return ErrPeerConnRetiring
+	}
 	h.agentInputMu.Lock()
 	defer h.agentInputMu.Unlock()
+	if h.isRetiring() {
+		return ErrPeerConnRetiring
+	}
 	if h.agentInput == nil {
 		return nil
 	}
@@ -561,7 +619,7 @@ func (h *PeerConn) pushAgentInputChunk(ctx context.Context, chunk *genx.MessageC
 
 func (h *PeerConn) streamMixedAudioLoop() {
 	hasWrittenBefore := false
-	for !h.isClosed() {
+	for !h.isClosed() && !h.isRetiring() {
 		wrote, err := h.streamMixedAudio(hasWrittenBefore)
 		hasWrittenBefore = hasWrittenBefore || wrote
 		if err != nil {
@@ -584,6 +642,9 @@ func (h *PeerConn) streamMixedAudio(hasWrittenBefore bool) (wrote bool, err erro
 
 	frameSize := int(peerConnMixerFormat.SamplesInDuration(peerConnOpusFrameDuration))
 	for {
+		if h.isRetiring() {
+			return wrote, nil
+		}
 		if !waitForPacing() {
 			return wrote, nil
 		}

@@ -24,6 +24,12 @@ func (s *rpcServer) handlePeerDelete(ctx context.Context, stream *rpcStream, req
 		}
 		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInternalError, err.Error())
 	}
+	if s.onPeerRetiring != nil {
+		s.onPeerRetiring()
+	}
+	if s.onPeerDeleted != nil {
+		defer s.onPeerDeleted()
+	}
 	resp, err := newRPCResultResponse(req.Id, rpcapi.ServerPeerDeleteResponse{}, (*rpcapi.RPCPayload).FromServerPeerDeleteResponse)
 	if err != nil {
 		return err
@@ -33,9 +39,6 @@ func (s *rpcServer) handlePeerDelete(ctx context.Context, stream *rpcStream, req
 	}
 	if err := stream.WriteEOS(); err != nil {
 		return err
-	}
-	if s.onPeerDeleted != nil {
-		s.onPeerDeleted()
 	}
 	return nil
 }

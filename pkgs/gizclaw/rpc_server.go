@@ -67,6 +67,8 @@ type rpcServer struct {
 	onRegistration     func(runtimeprofile.Registration)
 	registrationSource string
 	callerPublicKey    giznet.PublicKey
+	isPeerRetiring     func() bool
+	onPeerRetiring     func()
 	onPeerDeleted      func()
 }
 
@@ -83,6 +85,9 @@ func (s *rpcServer) Handle(conn net.Conn) error {
 func (s *rpcServer) dispatchStream(ctx context.Context, stream *rpcStream, req *rpcapi.RPCRequest) (bool, error) {
 	if req == nil {
 		return false, nil
+	}
+	if s.isPeerRetiring != nil && s.isPeerRetiring() {
+		return true, writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeConflict, ErrPeerConnRetiring.Error())
 	}
 	switch req.Method {
 	case rpcapi.RPCMethodAllSpeedTestRun:
@@ -111,6 +116,9 @@ func (s *rpcServer) dispatchStream(ctx context.Context, stream *rpcStream, req *
 func (s *rpcServer) dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
 	if req == nil {
 		return rpcapi.Error{Code: rpcapi.RPCErrorCodeInvalidRequest, Message: "nil request"}.RPCResponse(), nil
+	}
+	if s.isPeerRetiring != nil && s.isPeerRetiring() {
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeConflict, Message: ErrPeerConnRetiring.Error()}.RPCResponse(), nil
 	}
 	switch req.Method {
 	case rpcapi.RPCMethodAllPing:

@@ -43,6 +43,8 @@ func (s *Server) EnsureConnectedPeer(ctx context.Context, publicKey giznet.Publi
 	if publicKey.IsZero() {
 		return apitypes.Peer{}, fmt.Errorf("peer: empty public key")
 	}
+	recordUnlock := s.IconLocks.LockRecord(publicKey.String())
+	defer recordUnlock()
 	existing, err := s.get(ctx, publicKey)
 	if err == nil {
 		return existing, nil
@@ -52,7 +54,7 @@ func (s *Server) EnsureConnectedPeer(ctx context.Context, publicKey giznet.Publi
 	}
 
 	autoRegistered := true
-	created, err := s.create(ctx, apitypes.Peer{
+	created, err := s.createLocked(ctx, publicKey, apitypes.Peer{
 		PublicKey:      publicKey.String(),
 		Role:           apitypes.PeerRoleClient,
 		Status:         apitypes.PeerRegistrationStatusActive,
@@ -168,6 +170,10 @@ func (s *Server) block(ctx context.Context, publicKey giznet.PublicKey) (apitype
 func (s *Server) delete(ctx context.Context, publicKey giznet.PublicKey, reason pendingdeletion.Reason) (apitypes.Peer, error) {
 	unlock := s.IconLocks.LockRecord(publicKey.String())
 	defer unlock()
+	return s.deleteLocked(ctx, publicKey, reason)
+}
+
+func (s *Server) deleteLocked(ctx context.Context, publicKey giznet.PublicKey, reason pendingdeletion.Reason) (apitypes.Peer, error) {
 	peer, err := s.get(ctx, publicKey)
 	if err != nil {
 		return apitypes.Peer{}, err
@@ -196,7 +202,9 @@ func (s *Server) delete(ctx context.Context, publicKey giznet.PublicKey, reason 
 // DeleteSelf retires the authenticated Peer. A retry after a lost response is
 // successful when a durable pending record already exists for the public key.
 func (s *Server) DeleteSelf(ctx context.Context, publicKey giznet.PublicKey) error {
-	if _, err := s.delete(ctx, publicKey, pendingdeletion.ReasonPeerDelete); err == nil {
+	unlock := s.IconLocks.LockRecord(publicKey.String())
+	defer unlock()
+	if _, err := s.deleteLocked(ctx, publicKey, pendingdeletion.ReasonPeerDelete); err == nil {
 		return nil
 	} else if !errors.Is(err, ErrPeerNotFound) {
 		return err
@@ -275,7 +283,10 @@ func (s *Server) create(ctx context.Context, peer apitypes.Peer) (apitypes.Peer,
 	}
 	recordUnlock := s.IconLocks.LockRecord(publicKey.String())
 	defer recordUnlock()
+	return s.createLocked(ctx, publicKey, peer)
+}
 
+func (s *Server) createLocked(ctx context.Context, publicKey giznet.PublicKey, peer apitypes.Peer) (apitypes.Peer, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
