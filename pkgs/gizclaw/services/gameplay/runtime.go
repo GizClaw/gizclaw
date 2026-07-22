@@ -223,7 +223,7 @@ func (r *Runtime) AdoptPet(ctx context.Context, owner string, req apitypes.PetAd
 	if err != nil {
 		return apitypes.PetAdoptResponse{}, err
 	}
-	reservation, err := r.reservePetAdoption(ctx, owner, req, ruleset, petID)
+	reservation, reservationCreated, err := r.reservePetAdoption(ctx, owner, req, ruleset, petID)
 	if err != nil {
 		return apitypes.PetAdoptResponse{}, err
 	}
@@ -243,7 +243,7 @@ func (r *Runtime) AdoptPet(ctx context.Context, owner string, req apitypes.PetAd
 	if recoveryErr != nil {
 		return apitypes.PetAdoptResponse{}, recoveryErr
 	}
-	if errors.Is(createErr, errInsufficientPoints) {
+	if reservationCreated && errors.Is(createErr, errInsufficientPoints) {
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
 		defer cleanupCancel()
 		if _, err := deletePetAdoptionReservationIfIncomplete(cleanupCtx, r.DB, owner, petID); err != nil {
@@ -253,25 +253,25 @@ func (r *Runtime) AdoptPet(ctx context.Context, owner string, req apitypes.PetAd
 	return apitypes.PetAdoptResponse{}, createErr
 }
 
-func (r *Runtime) reservePetAdoption(ctx context.Context, owner string, req apitypes.PetAdoptRequest, ruleset ProfileRules, petID string) (petAdoptionReservation, error) {
+func (r *Runtime) reservePetAdoption(ctx context.Context, owner string, req apitypes.PetAdoptRequest, ruleset ProfileRules, petID string) (petAdoptionReservation, bool, error) {
 	db, err := r.db()
 	if err != nil {
-		return petAdoptionReservation{}, err
+		return petAdoptionReservation{}, false, err
 	}
 	reserved, err := findPetAdoptionReservation(ctx, db, owner, petID)
 	if err == nil {
-		return reserved, nil
+		return reserved, false, nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
-		return petAdoptionReservation{}, err
+		return petAdoptionReservation{}, false, err
 	}
 	poolEntry, err := r.pickPetDef(ruleset.Spec.PetPool)
 	if err != nil {
-		return petAdoptionReservation{}, err
+		return petAdoptionReservation{}, false, err
 	}
 	petDef, err := r.Catalog.GetPetDefByID(ctx, poolEntry.PetDefID)
 	if err != nil {
-		return petAdoptionReservation{}, err
+		return petAdoptionReservation{}, false, err
 	}
 	displayName := strings.TrimSpace(valueOrZero(req.DisplayName))
 	if displayName == "" {
@@ -285,26 +285,27 @@ func (r *Runtime) reservePetAdoption(ctx context.Context, owner string, req apit
 	}
 	tx, err := db.BeginTxx(ctx, nil)
 	if err != nil {
-		return petAdoptionReservation{}, err
+		return petAdoptionReservation{}, false, err
 	}
 	defer tx.Rollback()
-	if err := insertPetAdoptionReservation(ctx, tx, reservation); err != nil {
-		return petAdoptionReservation{}, err
+	inserted, err := insertPetAdoptionReservationIfAbsent(ctx, tx, reservation)
+	if err != nil {
+		return petAdoptionReservation{}, false, err
 	}
 	reserved, err = findPetAdoptionReservation(ctx, tx, owner, petID)
 	if err != nil {
-		return petAdoptionReservation{}, err
+		return petAdoptionReservation{}, false, err
 	}
 	if reserved.RuntimeProfileName != ruleset.Name {
-		return reserved, nil
+		return reserved, inserted, nil
 	}
 	if err := r.preflightPetAdoptionTx(ctx, tx, owner, ruleset, reserved.AdoptionCost); err != nil {
-		return petAdoptionReservation{}, err
+		return petAdoptionReservation{}, false, err
 	}
 	if err := tx.Commit(); err != nil {
-		return petAdoptionReservation{}, err
+		return petAdoptionReservation{}, false, err
 	}
-	return reserved, nil
+	return reserved, inserted, nil
 }
 
 func (r *Runtime) createReservedPetAdoption(ctx context.Context, reservation petAdoptionReservation, ruleset ProfileRules) (apitypes.PetAdoptResponse, error) {

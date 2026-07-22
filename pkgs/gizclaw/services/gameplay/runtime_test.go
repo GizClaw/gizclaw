@@ -236,6 +236,57 @@ func TestRuntimeAdoptCallerIDDoesNotReserveUnaffordableID(t *testing.T) {
 	}
 }
 
+func TestRuntimeAdoptCallerIDPreservesExistingReservationWhenUnfunded(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 7, 22, 9, 50, 0, 0, time.UTC)
+	catalog := testCatalog(t, now)
+	profile := seedGameplayCatalog(t, ctx, catalog)
+	initialBalance := int64(0)
+	profile.Spec.Gameplay.Points.InitialBalance = &initialBalance
+	ctx = WithRuntimeProfile(ctx, profile)
+	workspaces := &recordingWorkspaceService{}
+	runtime := &Runtime{
+		DB: testDB(t), Catalog: catalog, Workflows: petWorkflowService{}, Workspaces: workspaces,
+		Now: func() time.Time { return now }, PickWeight: func(int64) int64 { return 0 },
+	}
+	if err := runtime.Migration(ctx); err != nil {
+		t.Fatalf("Migration() error = %v", err)
+	}
+	petID := "device-pet-existing-reservation"
+	reservation := petAdoptionReservation{
+		OwnerPublicKey: "peer-a", PetID: petID, RuntimeProfileName: profile.Name,
+		PetDefID: "petdef-basic", DisplayName: "Spark", WorkspaceName: petWorkspaceName("peer-a", petID),
+		WorkflowName: defaultPetWorkflowName, VoiceAlias: "voice-basic", AdoptionCost: 15, CreatedAt: now,
+	}
+	tx, err := runtime.DB.BeginTxx(ctx, nil)
+	if err != nil {
+		t.Fatalf("begin reservation: %v", err)
+	}
+	if err := insertPetAdoptionReservation(ctx, tx, reservation); err != nil {
+		t.Fatalf("insert reservation: %v", err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("commit reservation: %v", err)
+	}
+	if _, err := runtime.createPetWorkspace(ctx, reservation.WorkspaceName, reservation.WorkflowName, reservation.VoiceAlias); err != nil {
+		t.Fatalf("create reserved Workspace: %v", err)
+	}
+	if _, err := runtime.AdoptPet(ctx, "peer-a", apitypes.PetAdoptRequest{Id: &petID}); !errors.Is(err, errInsufficientPoints) {
+		t.Fatalf("AdoptPet(existing unfunded reservation) error = %v, want insufficient Points", err)
+	}
+	var reservations, pets, transactions int
+	if err := runtime.DB.QueryRow(`SELECT
+		(SELECT count(*) FROM gameplay_pet_adoption_reservations WHERE owner_public_key = ? AND pet_id = ?),
+		(SELECT count(*) FROM gameplay_pets WHERE owner_public_key = ? AND id = ?),
+		(SELECT count(*) FROM gameplay_points_transactions WHERE owner_public_key = ? AND source_type = 'pet' AND source_id = ? AND reason = 'pet.adopt')`,
+		"peer-a", petID, "peer-a", petID, "peer-a", petID).Scan(&reservations, &pets, &transactions); err != nil {
+		t.Fatalf("count preserved adoption rows: %v", err)
+	}
+	if reservations != 1 || pets != 0 || transactions != 0 || len(workspaces.created) != 1 {
+		t.Fatalf("preserved state: reservations=%d Pets=%d transactions=%d Workspaces=%d, want 1, 0, 0, 1", reservations, pets, transactions, len(workspaces.created))
+	}
+}
+
 func TestRuntimeAdoptCallerIDUsesAuthoritativeReservationCost(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 7, 22, 9, 55, 0, 0, time.UTC)

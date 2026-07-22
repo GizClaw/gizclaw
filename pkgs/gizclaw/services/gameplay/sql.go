@@ -51,11 +51,20 @@ func findPetAdoptionReservation(ctx context.Context, db queryRebinder, owner, pe
 }
 
 func insertPetAdoptionReservation(ctx context.Context, tx *sqlx.Tx, reservation petAdoptionReservation) error {
-	_, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_pet_adoption_reservations (owner_public_key, pet_id, runtime_profile_name, petdef_id, display_name, workspace_name, workflow_name, voice_alias, adoption_cost, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(owner_public_key, pet_id) DO NOTHING`),
+	_, err := insertPetAdoptionReservationIfAbsent(ctx, tx, reservation)
+	return err
+}
+
+func insertPetAdoptionReservationIfAbsent(ctx context.Context, tx *sqlx.Tx, reservation petAdoptionReservation) (bool, error) {
+	result, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_pet_adoption_reservations (owner_public_key, pet_id, runtime_profile_name, petdef_id, display_name, workspace_name, workflow_name, voice_alias, adoption_cost, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(owner_public_key, pet_id) DO NOTHING`),
 		reservation.OwnerPublicKey, reservation.PetID, reservation.RuntimeProfileName, reservation.PetDefID,
 		reservation.DisplayName, reservation.WorkspaceName, reservation.WorkflowName, reservation.VoiceAlias,
 		reservation.AdoptionCost, formatTime(reservation.CreatedAt))
-	return err
+	if err != nil {
+		return false, err
+	}
+	inserted, err := result.RowsAffected()
+	return inserted == 1, err
 }
 
 func deletePetAdoptionReservationIfIncomplete(ctx context.Context, db *sqlx.DB, owner, petID string) (bool, error) {
