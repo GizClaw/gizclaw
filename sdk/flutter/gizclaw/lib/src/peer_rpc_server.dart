@@ -13,8 +13,6 @@ import 'transport.dart';
 
 const _rpcSpeedTestFrameSize = 32 * 1024;
 const _rpcSpeedTestMaxContentLength = 1 << 30;
-const _rpcDataChannelBufferHighWaterMark = 1024 * 1024;
-const _dataChannelSendRetryDelay = Duration(milliseconds: 5);
 
 typedef GizClawDeviceInfoProvider = FutureOr<payload.DeviceInfo> Function();
 typedef GizClawToolInvoker =
@@ -443,13 +441,6 @@ class _InboundPeerRpcChannel {
   }
 
   Future<void> _sendFrame(Uint8List frame) async {
-    while ((channel.bufferedAmount ?? 0) > _rpcDataChannelBufferHighWaterMark) {
-      if (channel.state == GizClawDataChannelState.closed ||
-          channel.state == GizClawDataChannelState.closing) {
-        throw StateError('RPC data channel closed while sending response');
-      }
-      await Future<void>.delayed(_dataChannelSendRetryDelay);
-    }
     if (channel.state != GizClawDataChannelState.open) {
       throw StateError('RPC data channel is ${channel.state}, want open');
     }

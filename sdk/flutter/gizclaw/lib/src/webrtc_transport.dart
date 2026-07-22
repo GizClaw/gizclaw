@@ -10,7 +10,7 @@ import 'transport.dart';
 
 const _dataChannelMessageChunkSize = 1400;
 const _dataChannelBufferHighWaterMark = 1024 * 1024;
-const _dataChannelSendRetryDelay = Duration(milliseconds: 5);
+const _dataChannelBufferLowWaterMark = 256 * 1024;
 const _dataChannelNativeReadyGracePeriod = Duration(milliseconds: 250);
 const _dataChannelStatePollDelay = Duration(milliseconds: 250);
 
@@ -189,6 +189,13 @@ class FlutterWebRtcDataChannel implements GizClawDataChannel {
     this._channel, {
     GizClawDataChannelState? initialState,
   }) : _state = initialState ?? _convertState(_channel.state) {
+    _channel.bufferedAmountLowThreshold = _dataChannelBufferLowWaterMark;
+    _channel.onBufferedAmountLow = (currentAmount) {
+      if (currentAmount <= _dataChannelBufferLowWaterMark) {
+        _lowWaterWaiter?.complete();
+        _lowWaterWaiter = null;
+      }
+    };
     _channel.onMessage = (message) {
       if (message.isBinary) {
         _messages.add(Uint8List.fromList(message.binary));
@@ -199,6 +206,10 @@ class FlutterWebRtcDataChannel implements GizClawDataChannel {
     _channel.onDataChannelState = (state) {
       _state = _convertState(state);
       _states.add(_state);
+      if (state == rtc.RTCDataChannelState.RTCDataChannelClosing ||
+          state == rtc.RTCDataChannelState.RTCDataChannelClosed) {
+        _failLowWaterWaiter();
+      }
       if (state == rtc.RTCDataChannelState.RTCDataChannelClosed) {
         _unawaited(_messages.close());
         _unawaited(_states.close());
@@ -210,6 +221,9 @@ class FlutterWebRtcDataChannel implements GizClawDataChannel {
   GizClawDataChannelState _state;
   final _messages = StreamController<Uint8List>.broadcast();
   final _states = StreamController<GizClawDataChannelState>.broadcast();
+  Future<void> _sendTail = Future<void>.value();
+  Completer<void>? _lowWaterWaiter;
+  bool _writeBackpressured = false;
 
   @override
   int? get bufferedAmount => _channel.bufferedAmount;
@@ -227,32 +241,104 @@ class FlutterWebRtcDataChannel implements GizClawDataChannel {
   Stream<GizClawDataChannelState> get states => _states.stream;
 
   @override
-  Future<void> close() => _channel.close();
+  Future<void> close() async {
+    _state = GizClawDataChannelState.closing;
+    _failLowWaterWaiter();
+    await _channel.close();
+  }
 
   @override
-  Future<void> send(Uint8List bytes) async {
-    for (
-      var offset = 0;
-      offset < bytes.length;
-      offset += _dataChannelMessageChunkSize
-    ) {
-      while ((_channel.bufferedAmount ?? 0) > _dataChannelBufferHighWaterMark) {
-        if (_state == GizClawDataChannelState.closed ||
-            _state == GizClawDataChannelState.closing) {
-          throw StateError('WebRTC data channel closed while sending');
+  Future<void> send(Uint8List bytes) {
+    final previous = _sendTail;
+    final released = Completer<void>();
+    _sendTail = released.future;
+    return _sendAfter(previous, released, bytes);
+  }
+
+  Future<void> _sendAfter(
+    Future<void> previous,
+    Completer<void> released,
+    Uint8List bytes,
+  ) async {
+    try {
+      await previous;
+      await _sendBytes(bytes);
+    } finally {
+      released.complete();
+    }
+  }
+
+  Future<void> _sendBytes(Uint8List bytes) async {
+    var sent = false;
+    try {
+      for (
+        var offset = 0;
+        offset < bytes.length;
+        offset += _dataChannelMessageChunkSize
+      ) {
+        await _waitForWriteBudget();
+        if (_state != GizClawDataChannelState.open) {
+          throw StateError('WebRTC data channel is $_state, want open');
         }
-        await Future<void>.delayed(_dataChannelSendRetryDelay);
+        final end = offset + _dataChannelMessageChunkSize > bytes.length
+            ? bytes.length
+            : offset + _dataChannelMessageChunkSize;
+        await _channel.send(
+          rtc.RTCDataChannelMessage.fromBinary(
+            Uint8List.sublistView(bytes, offset, end),
+          ),
+        );
+        sent = true;
       }
-      if (_state != GizClawDataChannelState.open) {
-        throw StateError('WebRTC data channel is $_state, want open');
+    } catch (_) {
+      if (sent) {
+        _state = GizClawDataChannelState.closing;
+        _failLowWaterWaiter();
+        try {
+          await _channel.close();
+        } catch (_) {
+          // Preserve the original partial-write failure.
+        }
       }
-      final end = offset + _dataChannelMessageChunkSize > bytes.length
-          ? bytes.length
-          : offset + _dataChannelMessageChunkSize;
-      await _channel.send(
-        rtc.RTCDataChannelMessage.fromBinary(
-          Uint8List.sublistView(bytes, offset, end),
-        ),
+      rethrow;
+    }
+  }
+
+  Future<void> _waitForWriteBudget() async {
+    while (true) {
+      if (_state == GizClawDataChannelState.closed ||
+          _state == GizClawDataChannelState.closing) {
+        throw StateError('WebRTC data channel closed while sending');
+      }
+      final amount = _channel.bufferedAmount ?? 0;
+      if (_writeBackpressured) {
+        if (amount <= _dataChannelBufferLowWaterMark) {
+          _writeBackpressured = false;
+          return;
+        }
+      } else if (amount < _dataChannelBufferHighWaterMark) {
+        return;
+      } else {
+        _writeBackpressured = true;
+      }
+
+      final waiter = Completer<void>();
+      _lowWaterWaiter = waiter;
+      if ((_channel.bufferedAmount ?? 0) <= _dataChannelBufferLowWaterMark) {
+        _lowWaterWaiter = null;
+        _writeBackpressured = false;
+        return;
+      }
+      await waiter.future;
+    }
+  }
+
+  void _failLowWaterWaiter() {
+    final waiter = _lowWaterWaiter;
+    _lowWaterWaiter = null;
+    if (waiter != null && !waiter.isCompleted) {
+      waiter.completeError(
+        StateError('WebRTC data channel closed while sending'),
       );
     }
   }

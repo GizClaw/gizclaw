@@ -6,6 +6,7 @@
 
 - [Admin API](/api/)：使用 Scalar 浏览 Admin、Peer HTTP、Desktop Pod 与 OpenAI-compatible API。
 - [RPC API Reference](./rpc)：全部 RPC method ID、method name 与用途。
+- [Stream Reference](./streams)：Service DataChannel 的分片、背压、完成与终止语义。
 
 ## SDK Reference
 

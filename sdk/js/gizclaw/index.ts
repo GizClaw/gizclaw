@@ -38,12 +38,14 @@ export const SPEECH_TRANSCRIPTION_REQUEST_TIMEOUT_MS = 80000;
 export const SPEECH_SYNTHESIS_REQUEST_TIMEOUT_MS = 125000;
 const RPC_MAX_FRAME_PAYLOAD_SIZE = 0xffff;
 const RPC_MAX_ENVELOPE_SIZE = RPC_MAX_FRAME_PAYLOAD_SIZE * 16;
-const DATA_CHANNEL_SEND_RETRY_DELAY_MS = 5;
-const DATA_CHANNEL_SEND_RETRY_LIMIT = 20;
 const PACKET_DATA_CHANNEL_OPEN_TIMEOUT_MS = 30000;
 const RPC_SPEED_TEST_FRAME_SIZE = 32 * 1024;
 const RPC_SPEED_TEST_MAX_CONTENT_LENGTH = 1 << 30;
-const RPC_DATA_CHANNEL_BUFFER_HIGH_WATER_MARK = 1024 * 1024;
+const RPC_BODY_BUFFER_HIGH_WATER_MARK = 1024 * 1024;
+const SERVICE_DATA_CHANNEL_MESSAGE_CHUNK_SIZE = 1400;
+const SERVICE_DATA_CHANNEL_BUFFER_HIGH_WATER_MARK = 1024 * 1024;
+const SERVICE_DATA_CHANNEL_BUFFER_LOW_WATER_MARK = 256 * 1024;
+const SERVICE_DATA_CHANNEL_WRITE_TIMEOUT_MS = 30000;
 const giznetPacketDataChannels = new WeakMap<object, WebRTCRPCDataChannel>();
 const giznetRPCServers = new WeakSet<object>();
 const rpcMethodNamesByID = new Map<number, string>(Object.entries(RPC_METHOD_IDS).map(([name, id]) => [id, name]));
@@ -86,8 +88,10 @@ export type WebRTCRPCDataChannel = {
   addEventListener(type: "message", listener: (event: MessageEvent) => void): void;
   addEventListener(type: "error", listener: () => void): void;
   addEventListener(type: "close", listener: () => void): void;
+  addEventListener(type: "bufferedamountlow", listener: () => void): void;
   binaryType?: BinaryType;
   bufferedAmount?: number;
+  bufferedAmountLowThreshold?: number;
   close(): void;
   label?: string;
   readyState: RTCDataChannelState;
@@ -95,6 +99,7 @@ export type WebRTCRPCDataChannel = {
   removeEventListener(type: "message", listener: (event: MessageEvent) => void): void;
   removeEventListener(type: "error", listener: () => void): void;
   removeEventListener(type: "close", listener: () => void): void;
+  removeEventListener(type: "bufferedamountlow", listener: () => void): void;
   send(data: ArrayBuffer | ArrayBufferView | Blob | string): void;
 };
 
@@ -304,7 +309,12 @@ export class WebRTCRPCClient {
         settle(() => reject(abortError()));
       };
       const onOpen = (): void => {
-        sendDataChannelMessage(channel, encodedRequest, (err) => settle(() => reject(err)));
+        sendDataChannelMessage(
+          channel,
+          encodedRequest,
+          (err) => settle(() => reject(err)),
+          { signal: abortSignal, timeoutMs },
+        );
       };
       const onMessage = (event: MessageEvent): void => {
         messageQueue = messageQueue.then(async () => {
@@ -419,7 +429,12 @@ export class WebRTCRPCClient {
         settle(() => reject(abortError()));
       };
       const onOpen = (): void => {
-        sendDataChannelMessage(channel, encodedRequest, (err) => settle(() => reject(err)));
+        sendDataChannelMessage(
+          channel,
+          encodedRequest,
+          (err) => settle(() => reject(err)),
+          { signal: abortSignal, timeoutMs },
+        );
       };
       const onMessage = (event: MessageEvent): void => {
         messageQueue = messageQueue.then(async () => {
@@ -510,9 +525,9 @@ async function rpcUploadCall<TResult>(
   try {
     await waitForDataChannelOpen(channel, options.signal, options.timeoutMs);
     const requestEnvelope = encodeRPCRequestEnvelope(request);
-    await sendInboundRPCFrames(channel, encodeRPCEnvelopeFrames(requestEnvelope));
+    await sendInboundRPCFrames(channel, encodeRPCEnvelopeFrames(requestEnvelope), options);
     if (requestEnvelope.length > RPC_MAX_FRAME_PAYLOAD_SIZE) {
-      await sendInboundRPCFrames(channel, [encodeFrame(RPC_FRAME_TYPE_EOS)]);
+      await sendInboundRPCFrames(channel, [encodeFrame(RPC_FRAME_TYPE_EOS)], options);
     }
     for (;;) {
       const outcome = await Promise.race([
@@ -533,11 +548,11 @@ async function rpcUploadCall<TResult>(
             RPC_FRAME_TYPE_BINARY,
             chunk.subarray(offset, offset + RPC_MAX_FRAME_PAYLOAD_SIZE),
           ),
-        ]);
+        ], options);
       }
     }
     uploadComplete = true;
-    await sendInboundRPCFrames(channel, [encodeFrame(RPC_FRAME_TYPE_EOS)]);
+    await sendInboundRPCFrames(channel, [encodeFrame(RPC_FRAME_TYPE_EOS)], options);
     return await response.promise;
   } catch (error) {
     response.cancel(error);
@@ -772,7 +787,7 @@ async function rpcStreamingResponseCall<TResult>(
     await sendInboundRPCFrames(channel, [
       ...encodeRPCEnvelopeFrames(encodeRPCRequestEnvelope(request)),
       encodeFrame(RPC_FRAME_TYPE_EOS),
-    ]);
+    ], options);
     return {
       body: stream,
       cancel: () => cancel(abortError()),
@@ -806,7 +821,7 @@ class RPCBodyStream implements AsyncIterable<Uint8Array> {
       waiter.resolve({ done: false, value: chunk });
       return;
     }
-    if (this.bufferedBytes + chunk.length > RPC_DATA_CHANNEL_BUFFER_HIGH_WATER_MARK) {
+    if (this.bufferedBytes + chunk.length > RPC_BODY_BUFFER_HIGH_WATER_MARK) {
       this.onCancel(new Error("WebRTC RPC body consumer is too slow."));
       return;
     }
@@ -1507,19 +1522,12 @@ async function sendInboundSpeedTestResponse(channel: WebRTCRPCDataChannel, id: s
   await sendInboundRPCFrames(channel, [encodeFrame(RPC_FRAME_TYPE_EOS)]);
 }
 
-async function sendInboundRPCFrames(channel: WebRTCRPCDataChannel, frames: ArrayBuffer[]): Promise<void> {
-  for (const frame of frames) {
-    while ((channel.bufferedAmount ?? 0) > RPC_DATA_CHANNEL_BUFFER_HIGH_WATER_MARK) {
-      if (channel.readyState === "closed" || channel.readyState === "closing") {
-        throw new Error("WebRTC RPC data channel closed while sending response.");
-      }
-      await new Promise((resolve) => setTimeout(resolve, DATA_CHANNEL_SEND_RETRY_DELAY_MS));
-    }
-    if (channel.readyState !== "open") {
-      throw new Error(`RTCDataChannel.readyState is ${JSON.stringify(channel.readyState)}, want "open"`);
-    }
-    channel.send(frame);
-  }
+function sendInboundRPCFrames(
+  channel: WebRTCRPCDataChannel,
+  frames: ArrayBuffer[],
+  options: ServiceDataChannelWriteOptions = {},
+): Promise<void> {
+  return serviceDataChannelWriter(channel).write(frames, options);
 }
 
 function decodeRPCError(payload: Uint8Array): RPCErrorBody {
@@ -2058,7 +2066,12 @@ function readHTTPResponse(channel: WebRTCRPCDataChannel, requestBytes: Uint8Arra
       settle(() => reject(abortError()));
     };
     const onOpen = (): void => {
-      sendDataChannelMessage(channel, requestBytes, (err) => settle(() => reject(err)));
+      sendDataChannelMessage(
+        channel,
+        requestBytes,
+        (err) => settle(() => reject(err)),
+        { signal, timeoutMs },
+      );
     };
     const onMessage = (event: MessageEvent): void => {
       messageQueue = messageQueue.then(async () => {
@@ -2181,25 +2194,162 @@ function waitForDataChannelOpen(channel: WebRTCRPCDataChannel, signal?: AbortSig
   });
 }
 
-function sendDataChannelMessage(channel: WebRTCRPCDataChannel, payload: DataChannelPayload, onError: (err: unknown) => void): void {
-  let retries = 0;
-  const send = (): void => {
-    if (channel.readyState === "open") {
-      try {
-        channel.send(payload);
-      } catch (err) {
-        onError(err);
+type ServiceDataChannelWriteOptions = {
+  signal?: AbortSignal;
+  timeoutMs?: number;
+};
+
+const serviceDataChannelWriters = new WeakMap<object, ServiceDataChannelWriter>();
+
+class ServiceDataChannelWriter {
+  private tail: Promise<void> = Promise.resolve();
+  private backpressured = false;
+  private readonly channel: WebRTCRPCDataChannel;
+
+  constructor(channel: WebRTCRPCDataChannel) {
+    this.channel = channel;
+    channel.bufferedAmountLowThreshold = SERVICE_DATA_CHANNEL_BUFFER_LOW_WATER_MARK;
+  }
+
+  write(payloads: readonly DataChannelPayload[], options: ServiceDataChannelWriteOptions = {}): Promise<void> {
+    const timeoutMs = options.timeoutMs ?? SERVICE_DATA_CHANNEL_WRITE_TIMEOUT_MS;
+    if (!Number.isFinite(timeoutMs) || timeoutMs < 0) {
+      return Promise.reject(new Error("service data channel write timeout must be a non-negative finite number"));
+    }
+    const deadline = timeoutMs === 0 ? Number.POSITIVE_INFINITY : Date.now() + timeoutMs;
+    const run = this.tail.then(() => this.writeNow(payloads, options.signal, deadline));
+    this.tail = run.catch(() => undefined);
+    return run;
+  }
+
+  private async writeNow(
+    payloads: readonly DataChannelPayload[],
+    signal: AbortSignal | undefined,
+    deadline: number,
+  ): Promise<void> {
+    let sent = false;
+    try {
+      for (const payload of payloads) {
+        const bytes = await dataChannelPayloadBytes(payload);
+        for (let offset = 0; offset < bytes.length; offset += SERVICE_DATA_CHANNEL_MESSAGE_CHUNK_SIZE) {
+          await this.waitForBudget(signal, deadline);
+          this.assertWritable(signal, deadline);
+          this.channel.send(bytes.subarray(offset, offset + SERVICE_DATA_CHANNEL_MESSAGE_CHUNK_SIZE));
+          sent = true;
+        }
       }
-      return;
+    } catch (error) {
+      if (sent) {
+        try {
+          this.channel.close();
+        } catch {
+          // Ignore close races after a partial logical write.
+        }
+      }
+      throw error;
     }
-    if (channel.readyState === "connecting" && retries < DATA_CHANNEL_SEND_RETRY_LIMIT) {
-      retries += 1;
-      setTimeout(send, DATA_CHANNEL_SEND_RETRY_DELAY_MS);
-      return;
+  }
+
+  private async waitForBudget(signal: AbortSignal | undefined, deadline: number): Promise<void> {
+    for (;;) {
+      this.assertWritable(signal, deadline);
+      const amount = this.channel.bufferedAmount ?? 0;
+      if (this.backpressured) {
+        if (amount <= SERVICE_DATA_CHANNEL_BUFFER_LOW_WATER_MARK) {
+          this.backpressured = false;
+          return;
+        }
+      } else if (amount < SERVICE_DATA_CHANNEL_BUFFER_HIGH_WATER_MARK) {
+        return;
+      } else {
+        this.backpressured = true;
+      }
+      await this.waitForLowWater(signal, deadline);
     }
-    onError(new Error(`RTCDataChannel.readyState is ${JSON.stringify(channel.readyState)}, want "open"`));
-  };
-  send();
+  }
+
+  private waitForLowWater(signal: AbortSignal | undefined, deadline: number): Promise<void> {
+    return new Promise((resolve, reject) => {
+      let timeout: ReturnType<typeof setTimeout> | undefined;
+      let settled = false;
+      const cleanup = (): void => {
+        if (timeout != null) clearTimeout(timeout);
+        signal?.removeEventListener("abort", onAbort);
+        this.channel.removeEventListener("bufferedamountlow", onLow);
+        this.channel.removeEventListener("close", onClose);
+        this.channel.removeEventListener("error", onError);
+      };
+      const settle = (fn: () => void): void => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        fn();
+      };
+      const onLow = (): void => {
+        if ((this.channel.bufferedAmount ?? 0) <= SERVICE_DATA_CHANNEL_BUFFER_LOW_WATER_MARK) {
+          settle(resolve);
+        }
+      };
+      const onAbort = (): void => settle(() => reject(abortError()));
+      const onClose = (): void => settle(() => reject(new Error("service data channel closed while writing")));
+      const onError = (): void => settle(() => reject(new Error("service data channel failed while writing")));
+      signal?.addEventListener("abort", onAbort, { once: true });
+      this.channel.addEventListener("bufferedamountlow", onLow);
+      this.channel.addEventListener("close", onClose);
+      this.channel.addEventListener("error", onError);
+      const remaining = deadline - Date.now();
+      if (Number.isFinite(deadline)) {
+        if (remaining <= 0) {
+          settle(() => reject(new Error("service data channel write timed out")));
+          return;
+        }
+        timeout = setTimeout(
+          () => settle(() => reject(new Error("service data channel write timed out"))),
+          remaining,
+        );
+      }
+      if (signal?.aborted) {
+        onAbort();
+      } else if (this.channel.readyState !== "open") {
+        onClose();
+      } else {
+        onLow();
+      }
+    });
+  }
+
+  private assertWritable(signal: AbortSignal | undefined, deadline: number): void {
+    if (signal?.aborted) throw abortError();
+    if (Date.now() >= deadline) throw new Error("service data channel write timed out");
+    if (this.channel.readyState !== "open") {
+      throw new Error(`RTCDataChannel.readyState is ${JSON.stringify(this.channel.readyState)}, want "open"`);
+    }
+  }
+}
+
+function serviceDataChannelWriter(channel: WebRTCRPCDataChannel): ServiceDataChannelWriter {
+  let writer = serviceDataChannelWriters.get(channel);
+  if (writer == null) {
+    writer = new ServiceDataChannelWriter(channel);
+    serviceDataChannelWriters.set(channel, writer);
+  }
+  return writer;
+}
+
+function sendDataChannelMessage(
+  channel: WebRTCRPCDataChannel,
+  payload: DataChannelPayload,
+  onError: (err: unknown) => void,
+  options: ServiceDataChannelWriteOptions = {},
+): void {
+  void serviceDataChannelWriter(channel).write([payload], options).catch(onError);
+}
+
+async function dataChannelPayloadBytes(payload: DataChannelPayload): Promise<Uint8Array> {
+  if (payload instanceof ArrayBuffer) return new Uint8Array(payload);
+  if (ArrayBuffer.isView(payload)) return new Uint8Array(payload.buffer, payload.byteOffset, payload.byteLength);
+  if (typeof payload === "string") return new TextEncoder().encode(payload);
+  return new Uint8Array(await payload.arrayBuffer());
 }
 
 async function messageDataBytes(data: unknown): Promise<Uint8Array> {

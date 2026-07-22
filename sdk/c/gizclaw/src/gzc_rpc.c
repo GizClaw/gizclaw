@@ -7,7 +7,6 @@
 #include <string.h>
 
 #define GZC_RPC_MAX_ENVELOPE_SIZE (GZC_RPC_MAX_FRAME_SIZE * 16u)
-#define GZC_RPC_DOWNLOAD_FRAMES_PER_POLL 16u
 /* Keep client reads beyond the default server deadlines by a transport grace window. */
 #define GZC_RPC_SPEECH_TRANSCRIPTION_TIMEOUT_MS 80000
 #define GZC_RPC_SPEECH_SYNTHESIS_TIMEOUT_MS 125000
@@ -19,6 +18,17 @@ int gzc_client_open_rpc_channel_internal(gzc_client_t *client, int timeout_ms);
 void gzc_client_close_rpc_channel_internal(gzc_client_t *client);
 int gzc_client_read_rpc_frame_internal(gzc_client_t *client, int timeout_ms, gzc_buf_t *out_frame_bytes);
 int gzc_client_store_rpc_response_internal(gzc_client_t *client, const uint8_t *data, size_t len, gzc_str_t *out_payload);
+int gzc_client_write_rpc_frame_internal(gzc_client_t *client, const gzc_rpc_frame_t *frame);
+int64_t gzc_client_instant_ms_internal(gzc_client_t *client);
+int gzc_client_write_timeout_ms_internal(gzc_client_t *client);
+int gzc_client_try_write_bytes_internal(
+    gzc_client_t *client,
+    gzc_rtc_channel_t *channel,
+    const uint8_t *data,
+    size_t len,
+    size_t *offset,
+    bool *blocked,
+    size_t max_chunks);
 
 typedef struct {
   const uint8_t *data;
@@ -34,34 +44,6 @@ struct gzc_rpc_speech_upload {
   const gzc_platform_t *platform;
   gzc_service_channel_t *channel;
 };
-
-static int append_frame(const gzc_platform_t *platform, gzc_buf_t *out, gzc_rpc_frame_type_t type, const uint8_t *data, size_t len) {
-  gzc_rpc_frame_t frame;
-  memset(&frame, 0, sizeof(frame));
-  frame.type = type;
-  frame.data = data;
-  frame.len = len;
-  return gzc_rpc_frame_encode(platform, &frame, out);
-}
-
-static int append_binary_envelope_frame(const gzc_platform_t *platform, gzc_buf_t *out, const uint8_t *data, size_t len) {
-  if (len <= GZC_RPC_MAX_FRAME_SIZE) {
-    return append_frame(platform, out, GZC_RPC_FRAME_BINARY, data, len);
-  }
-  size_t offset = 0;
-  while (offset < len) {
-    size_t chunk = len - offset;
-    if (chunk > GZC_RPC_MAX_FRAME_SIZE) {
-      chunk = GZC_RPC_MAX_FRAME_SIZE;
-    }
-    int rc = append_frame(platform, out, GZC_RPC_FRAME_TEXT, data + offset, chunk);
-    if (rc != GZC_OK) {
-      return rc;
-    }
-    offset += chunk;
-  }
-  return GZC_OK;
-}
 
 static int append_envelope_continuation(gzc_buf_t *envelope, const gzc_platform_t *platform, const gzc_rpc_frame_t *frame) {
   if (envelope == NULL || frame == NULL) {
@@ -176,29 +158,35 @@ static bool is_edge_rpc_method(gizclaw_rpc_v1_RpcMethod method) {
 static int send_request_envelope(
     gzc_client_t *client,
     const gzc_platform_t *platform,
-    const gzc_webrtc_vtable_t *webrtc,
-    gzc_rtc_channel_t *channel,
     gizclaw_rpc_v1_RpcMethod method,
     gzc_str_t params_payload) {
   gzc_buf_t request;
-  gzc_buf_t framed;
   gzc_buf_init(&request);
-  gzc_buf_init(&framed);
   int rc = gzc_rpc_encode_request_envelope(platform, gzc_str_from_cstr("1"), method, params_payload, &request);
-  if (rc == GZC_OK) {
-    rc = append_binary_envelope_frame(platform, &framed, request.data, request.len);
-  }
-  if (rc == GZC_OK) {
-    rc = append_frame(platform, &framed, GZC_RPC_FRAME_EOS, NULL, 0);
-  }
   if (rc == GZC_OK) {
     rc = gzc_client_reset_rpc_rx_internal(client);
   }
+  size_t offset = 0;
+  while (rc == GZC_OK && offset < request.len) {
+    size_t chunk = request.len - offset;
+    if (chunk > GZC_RPC_MAX_FRAME_SIZE) {
+      chunk = GZC_RPC_MAX_FRAME_SIZE;
+    }
+    gzc_rpc_frame_t frame;
+    memset(&frame, 0, sizeof(frame));
+    frame.type = request.len <= GZC_RPC_MAX_FRAME_SIZE ? GZC_RPC_FRAME_BINARY : GZC_RPC_FRAME_TEXT;
+    frame.data = request.data + offset;
+    frame.len = chunk;
+    rc = gzc_client_write_rpc_frame_internal(client, &frame);
+    offset += chunk;
+  }
   if (rc == GZC_OK) {
-    rc = webrtc->channel_send(channel, framed.data, framed.len, false);
+    gzc_rpc_frame_t eos;
+    memset(&eos, 0, sizeof(eos));
+    eos.type = GZC_RPC_FRAME_EOS;
+    rc = gzc_client_write_rpc_frame_internal(client, &eos);
   }
   gzc_buf_free(&request, platform);
-  gzc_buf_free(&framed, platform);
   return rc;
 }
 
@@ -432,7 +420,7 @@ int gzc_rpc_call(gzc_client_t *client, gizclaw_rpc_v1_RpcMethod method, gzc_str_
     gzc_client_close_rpc_channel_internal(client);
     return GZC_ERR_CLOSED;
   }
-  rc = send_request_envelope(client, platform, webrtc, channel, method, params_payload);
+  rc = send_request_envelope(client, platform, method, params_payload);
   if (rc != GZC_OK) {
     gzc_client_close_rpc_channel_internal(client);
     return rc;
@@ -525,7 +513,7 @@ static int gzc_rpc_call_stream_with_timeout(
     gzc_client_close_rpc_channel_internal(client);
     return GZC_ERR_CLOSED;
   }
-  rc = send_request_envelope(client, platform, webrtc, channel, method, params_payload);
+  rc = send_request_envelope(client, platform, method, params_payload);
   if (rc != GZC_OK) {
     gzc_client_close_rpc_channel_internal(client);
     return rc;
@@ -922,20 +910,7 @@ int gzc_rpc_send_frame(gzc_client_t *client, const gzc_rpc_frame_t *frame) {
   if (client == NULL || frame == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  const gzc_platform_t *platform = gzc_client_platform(client);
-  const gzc_webrtc_vtable_t *webrtc = gzc_client_webrtc(client);
-  gzc_rtc_channel_t *channel = gzc_client_rpc_channel(client);
-  if (platform == NULL || webrtc == NULL || channel == NULL || webrtc->channel_send == NULL) {
-    return GZC_ERR_CLOSED;
-  }
-  gzc_buf_t framed;
-  gzc_buf_init(&framed);
-  int rc = gzc_rpc_frame_encode(platform, frame, &framed);
-  if (rc == GZC_OK) {
-    rc = webrtc->channel_send(channel, framed.data, framed.len, false);
-  }
-  gzc_buf_free(&framed, platform);
-  return rc;
+  return gzc_client_write_rpc_frame_internal(client, frame);
 }
 
 void gzc_rpc_response_free(gzc_client_t *client, gzc_rpc_response_t *response) {
@@ -953,13 +928,16 @@ typedef enum {
 } gzc_inbound_phase_t;
 
 struct gzc_rpc_inbound {
+  gzc_client_t *client;
   const gzc_platform_t *platform;
-  const gzc_webrtc_vtable_t *webrtc;
   gzc_rtc_channel_t *channel;
   gzc_buf_t rx;
   gzc_buf_t envelope;
   gzc_buf_t id;
   gzc_buf_t payload;
+  gzc_buf_t tx;
+  size_t tx_offset;
+  int64_t write_started_ms;
   gzc_inbound_phase_t phase;
   gizclaw_rpc_v1_RpcMethod method;
   uint64_t upload_expected;
@@ -970,7 +948,10 @@ struct gzc_rpc_inbound {
   bool decoded_envelope;
   bool request_done;
   bool response_envelope_sent;
+  bool response_envelope_flushed;
   bool response_eos_sent;
+  bool write_blocked;
+  bool close_after_write;
   bool close_requested;
 };
 
@@ -1006,7 +987,7 @@ static void inbound_consume(gzc_buf_t *rx, size_t len) {
   rx->data[rx->len] = 0;
 }
 
-static int inbound_send_frame(
+static int inbound_queue_frame(
     struct gzc_rpc_inbound *inbound,
     gzc_rpc_frame_type_t type,
     const uint8_t *data,
@@ -1016,14 +997,10 @@ static int inbound_send_frame(
   frame.type = type;
   frame.data = data;
   frame.len = len;
-  gzc_buf_t bytes;
-  gzc_buf_init(&bytes);
-  int rc = gzc_rpc_frame_encode(inbound->platform, &frame, &bytes);
-  if (rc == GZC_OK) {
-    rc = inbound->webrtc->channel_send(inbound->channel, bytes.data, bytes.len, false);
+  if (inbound->write_started_ms == 0) {
+    inbound->write_started_ms = gzc_client_instant_ms_internal(inbound->client);
   }
-  gzc_buf_free(&bytes, inbound->platform);
-  return rc;
+  return gzc_rpc_frame_encode(inbound->platform, &frame, &inbound->tx);
 }
 
 static int inbound_encode_response(
@@ -1064,7 +1041,7 @@ static int inbound_send_response_envelope(
     return GZC_ERR_RPC;
   }
   if (len <= GZC_RPC_MAX_FRAME_SIZE) {
-    return inbound_send_frame(inbound, GZC_RPC_FRAME_BINARY, data, len);
+    return inbound_queue_frame(inbound, GZC_RPC_FRAME_BINARY, data, len);
   }
   size_t offset = 0;
   while (offset < len) {
@@ -1072,14 +1049,14 @@ static int inbound_send_response_envelope(
     if (chunk > GZC_RPC_MAX_FRAME_SIZE) {
       chunk = GZC_RPC_MAX_FRAME_SIZE;
     }
-    int rc = inbound_send_frame(inbound, GZC_RPC_FRAME_TEXT, data + offset, chunk);
+    int rc = inbound_queue_frame(inbound, GZC_RPC_FRAME_TEXT, data + offset, chunk);
     if (rc != GZC_OK) {
       return rc;
     }
     offset += chunk;
   }
   if (body_follows) {
-    return inbound_send_frame(inbound, GZC_RPC_FRAME_EOS, NULL, 0);
+    return inbound_queue_frame(inbound, GZC_RPC_FRAME_EOS, NULL, 0);
   }
   return GZC_OK;
 }
@@ -1114,7 +1091,11 @@ static int inbound_send_response_payload(
 
 static int inbound_close_transport(struct gzc_rpc_inbound *inbound, int rc) {
   inbound->phase = GZC_INBOUND_TERMINAL;
-  inbound->close_requested = true;
+  if (inbound->tx_offset < inbound->tx.len) {
+    inbound->close_after_write = true;
+  } else {
+    inbound->close_requested = true;
+  }
   return rc;
 }
 
@@ -1132,7 +1113,7 @@ static int inbound_error(
     rc = inbound_send_response_envelope(inbound, response.data, response.len, false);
   }
   if (rc == GZC_OK) {
-    rc = inbound_send_frame(inbound, GZC_RPC_FRAME_EOS, NULL, 0);
+    rc = inbound_queue_frame(inbound, GZC_RPC_FRAME_EOS, NULL, 0);
   }
   gzc_buf_free(&response, inbound->platform);
   inbound->response_envelope_sent = rc == GZC_OK;
@@ -1231,7 +1212,7 @@ static int inbound_finish_ping(struct gzc_rpc_inbound *inbound) {
   response.server_time = platform->time_unix_ms(platform->userdata);
   int rc = inbound_send_response_payload(inbound, gizclaw_rpc_v1_PingResponse_fields, &response);
   if (rc == GZC_OK) {
-    rc = inbound_send_frame(inbound, GZC_RPC_FRAME_EOS, NULL, 0);
+    rc = inbound_queue_frame(inbound, GZC_RPC_FRAME_EOS, NULL, 0);
   }
   if (rc != GZC_OK) {
     return inbound_close_transport(inbound, rc);
@@ -1331,14 +1312,15 @@ int gzc_rpc_inbound_create(
     return GZC_ERR_NO_MEMORY;
   }
   memset(inbound, 0, sizeof(*inbound));
+  inbound->client = client;
   inbound->platform = platform;
-  inbound->webrtc = webrtc;
   inbound->channel = channel;
   inbound->phase = GZC_INBOUND_ENVELOPE;
   gzc_buf_init(&inbound->rx);
   gzc_buf_init(&inbound->envelope);
   gzc_buf_init(&inbound->id);
   gzc_buf_init(&inbound->payload);
+  gzc_buf_init(&inbound->tx);
   *out_inbound = inbound;
   return GZC_OK;
 }
@@ -1391,14 +1373,55 @@ int gzc_rpc_inbound_poll(struct gzc_rpc_inbound *inbound) {
   if (inbound == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
+  if (inbound->tx_offset < inbound->tx.len) {
+    int timeout_ms = gzc_client_write_timeout_ms_internal(inbound->client);
+    if (timeout_ms <= 0 ||
+        gzc_client_instant_ms_internal(inbound->client) - inbound->write_started_ms >= timeout_ms) {
+      gzc_buf_reset(&inbound->tx);
+      inbound->tx_offset = 0;
+      inbound->phase = GZC_INBOUND_TERMINAL;
+      inbound->close_after_write = false;
+      inbound->close_requested = true;
+      return GZC_ERR_TIMEOUT;
+    }
+    int rc = gzc_client_try_write_bytes_internal(
+        inbound->client,
+        inbound->channel,
+        inbound->tx.data,
+        inbound->tx.len,
+        &inbound->tx_offset,
+        &inbound->write_blocked,
+        16);
+    if (rc != GZC_OK) {
+      gzc_buf_reset(&inbound->tx);
+      inbound->tx_offset = 0;
+      inbound->phase = GZC_INBOUND_TERMINAL;
+      inbound->close_after_write = false;
+      inbound->close_requested = true;
+      return rc;
+    }
+    if (inbound->tx_offset < inbound->tx.len) {
+      return GZC_OK;
+    }
+    gzc_buf_reset(&inbound->tx);
+    inbound->tx_offset = 0;
+    if (inbound->response_envelope_sent) {
+      inbound->response_envelope_flushed = true;
+    }
+  }
+  if (inbound->phase == GZC_INBOUND_TERMINAL) {
+    if (inbound->close_after_write) {
+      inbound->close_after_write = false;
+      inbound->close_requested = true;
+    }
+    return GZC_OK;
+  }
   if (inbound->method != gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_SPEED_TEST_RUN ||
-      inbound->phase == GZC_INBOUND_TERMINAL || !inbound->response_envelope_sent) {
+      !inbound->response_envelope_flushed) {
     return GZC_OK;
   }
   uint8_t chunk[4096];
-  size_t frames_sent = 0;
-  while (inbound->download_sent < inbound->download_expected &&
-         frames_sent < GZC_RPC_DOWNLOAD_FRAMES_PER_POLL) {
+  if (inbound->download_sent < inbound->download_expected) {
     size_t count = sizeof(chunk);
     uint64_t remaining = inbound->download_expected - inbound->download_sent;
     if (remaining < count) {
@@ -1407,15 +1430,15 @@ int gzc_rpc_inbound_poll(struct gzc_rpc_inbound *inbound) {
     for (size_t i = 0; i < count; i++) {
       chunk[i] = (uint8_t)((inbound->download_sent + i) & 0xffu);
     }
-    int rc = inbound_send_frame(inbound, GZC_RPC_FRAME_BINARY, chunk, count);
+    int rc = inbound_queue_frame(inbound, GZC_RPC_FRAME_BINARY, chunk, count);
     if (rc != GZC_OK) {
       return inbound_close_transport(inbound, rc);
     }
     inbound->download_sent += count;
-    frames_sent++;
+    return GZC_OK;
   }
-  if (inbound->download_sent == inbound->download_expected && !inbound->response_eos_sent) {
-    int rc = inbound_send_frame(inbound, GZC_RPC_FRAME_EOS, NULL, 0);
+  if (!inbound->response_eos_sent) {
+    int rc = inbound_queue_frame(inbound, GZC_RPC_FRAME_EOS, NULL, 0);
     if (rc != GZC_OK) {
       return inbound_close_transport(inbound, rc);
     }
@@ -1429,9 +1452,10 @@ int gzc_rpc_inbound_poll(struct gzc_rpc_inbound *inbound) {
 
 bool gzc_rpc_inbound_has_pending_output(struct gzc_rpc_inbound *inbound) {
   return inbound != NULL &&
-         inbound->method == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_SPEED_TEST_RUN &&
-         inbound->phase != GZC_INBOUND_TERMINAL && inbound->response_envelope_sent &&
-         !inbound->response_eos_sent;
+         (inbound->tx_offset < inbound->tx.len || inbound->close_after_write ||
+          (inbound->method == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_SPEED_TEST_RUN &&
+           inbound->phase != GZC_INBOUND_TERMINAL && inbound->response_envelope_sent &&
+           !inbound->response_eos_sent));
 }
 
 bool gzc_rpc_inbound_close_requested(struct gzc_rpc_inbound *inbound) {
@@ -1447,5 +1471,6 @@ void gzc_rpc_inbound_destroy(struct gzc_rpc_inbound *inbound) {
   gzc_buf_free(&inbound->envelope, platform);
   gzc_buf_free(&inbound->id, platform);
   gzc_buf_free(&inbound->payload, platform);
+  gzc_buf_free(&inbound->tx, platform);
   platform->free(platform->userdata, inbound);
 }

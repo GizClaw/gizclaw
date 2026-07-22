@@ -23,6 +23,15 @@ static int64_t gzc_default_time_unix_ms(void *userdata) {
   return (int64_t)time(NULL) * 1000;
 }
 
+static int64_t gzc_default_time_instant_ms(void *userdata) {
+  (void)userdata;
+  struct timespec now;
+  if (clock_gettime(CLOCK_MONOTONIC, &now) != 0) {
+    return 0;
+  }
+  return (int64_t)now.tv_sec * 1000 + now.tv_nsec / 1000000;
+}
+
 static int gzc_default_random(void *userdata, uint8_t *out, size_t len) {
   (void)userdata;
   if (out == NULL && len != 0) {
@@ -46,6 +55,7 @@ const gzc_platform_t *gzc_default_platform(void) {
       gzc_default_malloc,
       gzc_default_realloc,
       gzc_default_free,
+      gzc_default_time_instant_ms,
       gzc_default_time_unix_ms,
       gzc_default_random,
       gzc_default_log,

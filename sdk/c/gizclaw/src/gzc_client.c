@@ -24,6 +24,7 @@ struct gzc_service_channel {
   uint64_t service;
   bool open;
   bool closed;
+  bool write_blocked;
 };
 
 struct gzc_client {
@@ -43,6 +44,7 @@ struct gzc_client {
   bool has_local_sdp;
   bool packet_channel_open;
   bool rpc_channel_open;
+  bool rpc_write_blocked;
   bool closed;
 };
 
@@ -52,10 +54,182 @@ enum {
 };
 
 static int64_t now_ms(gzc_client_t *client) {
-  if (client->config.platform != NULL && client->config.platform->time_unix_ms != NULL) {
-    return client->config.platform->time_unix_ms(client->config.platform->userdata);
+  if (client->config.platform != NULL && client->config.platform->time_instant_ms != NULL) {
+    return client->config.platform->time_instant_ms(client->config.platform->userdata);
   }
   return 0;
+}
+
+static int configure_service_channel(gzc_client_t *client, gzc_rtc_channel_t *channel) {
+  if (client == NULL || channel == NULL || client->config.webrtc == NULL ||
+      client->config.webrtc->channel_set_buffered_amount_low_threshold == NULL) {
+    return GZC_ERR_UNSUPPORTED;
+  }
+  return client->config.webrtc->channel_set_buffered_amount_low_threshold(
+      channel, (uint64_t)client->config.service_write_low_water_bytes);
+}
+
+static int service_write_ready(
+    gzc_client_t *client,
+    gzc_rtc_channel_t *channel,
+    bool *blocked,
+    bool *out_ready) {
+  if (client == NULL || channel == NULL || blocked == NULL || out_ready == NULL ||
+      client->config.webrtc == NULL || client->config.webrtc->channel_buffered_amount == NULL) {
+    return GZC_ERR_UNSUPPORTED;
+  }
+  uint64_t amount = 0;
+  int rc = client->config.webrtc->channel_buffered_amount(channel, &amount);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  if (*blocked) {
+    if (amount > (uint64_t)client->config.service_write_low_water_bytes) {
+      *out_ready = false;
+      return GZC_OK;
+    }
+    *blocked = false;
+  }
+  if (amount >= (uint64_t)client->config.service_write_high_water_bytes) {
+    *blocked = true;
+    *out_ready = false;
+    return GZC_OK;
+  }
+  *out_ready = true;
+  return GZC_OK;
+}
+
+static void fail_service_write(
+    gzc_client_t *client,
+    gzc_rtc_channel_t *channel) {
+  if (client == NULL || channel == NULL) {
+    return;
+  }
+  if (channel == client->rpc_channel) {
+    client->rpc_channel_open = false;
+    client->rpc_channel = NULL;
+  }
+  if (client->service_channel != NULL && channel == client->service_channel->rtc) {
+    client->service_channel->open = false;
+    client->service_channel->closed = true;
+  }
+  if (client->config.webrtc != NULL && client->config.webrtc->channel_close != NULL) {
+    client->config.webrtc->channel_close(channel);
+  }
+}
+
+int gzc_client_try_write_bytes_internal(
+    gzc_client_t *client,
+    gzc_rtc_channel_t *channel,
+    const uint8_t *data,
+    size_t len,
+    size_t *offset,
+    bool *blocked,
+    size_t max_chunks) {
+  if (client == NULL || channel == NULL || offset == NULL || blocked == NULL ||
+      (data == NULL && len != 0) || *offset > len || max_chunks == 0 ||
+      client->config.webrtc == NULL || client->config.webrtc->channel_send == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  size_t chunks = 0;
+  while (*offset < len && chunks < max_chunks) {
+    bool ready = false;
+    int rc = service_write_ready(client, channel, blocked, &ready);
+    if (rc != GZC_OK || !ready) {
+      return rc;
+    }
+    size_t count = len - *offset;
+    if (count > GZC_SERVICE_WRITE_CHUNK_SIZE) {
+      count = GZC_SERVICE_WRITE_CHUNK_SIZE;
+    }
+    rc = client->config.webrtc->channel_send(channel, data + *offset, count, false);
+    if (rc != GZC_OK) {
+      return rc;
+    }
+    *offset += count;
+    chunks++;
+  }
+  return GZC_OK;
+}
+
+static int write_segments(
+    gzc_client_t *client,
+    gzc_rtc_channel_t *channel,
+    const uint8_t *first,
+    size_t first_len,
+    const uint8_t *second,
+    size_t second_len,
+    bool *blocked) {
+  if (client == NULL || channel == NULL || blocked == NULL ||
+      (first == NULL && first_len != 0) || (second == NULL && second_len != 0)) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  const uint8_t *segments[2] = {first, second};
+  size_t lengths[2] = {first_len, second_len};
+  const int64_t start = now_ms(client);
+  bool partial = false;
+  for (size_t segment = 0; segment < 2; segment++) {
+    size_t offset = 0;
+    while (offset < lengths[segment]) {
+      int rc = gzc_client_try_write_bytes_internal(
+          client, channel, segments[segment], lengths[segment], &offset, blocked, SIZE_MAX);
+      partial = partial || offset != 0;
+      if (rc != GZC_OK) {
+        if (partial) {
+          fail_service_write(client, channel);
+        }
+        return rc;
+      }
+      if (offset == lengths[segment]) {
+        break;
+      }
+      if (client->closed) {
+        return GZC_ERR_CLOSED;
+      }
+      const int64_t remaining =
+          (int64_t)client->config.write_timeout_ms - (now_ms(client) - start);
+      if (remaining <= 0) {
+        fail_service_write(client, channel);
+        return GZC_ERR_TIMEOUT;
+      }
+      const int poll_timeout_ms = remaining < 10 ? (int)remaining : 10;
+      rc = gzc_client_poll(client, poll_timeout_ms);
+      if (rc != GZC_OK) {
+        if (partial) {
+          fail_service_write(client, channel);
+        }
+        return rc;
+      }
+    }
+  }
+  return GZC_OK;
+}
+
+int gzc_client_write_bytes_internal(
+    gzc_client_t *client,
+    gzc_rtc_channel_t *channel,
+    const uint8_t *data,
+    size_t len,
+    bool *blocked) {
+  return write_segments(client, channel, data, len, NULL, 0, blocked);
+}
+
+int gzc_client_write_frame_internal(
+    gzc_client_t *client,
+    gzc_rtc_channel_t *channel,
+    const gzc_rpc_frame_t *frame,
+    bool *blocked) {
+  if (frame == NULL || (frame->data == NULL && frame->len != 0) ||
+      !gzc_rpc_frame_type_valid(frame->type) || frame->len > GZC_RPC_MAX_FRAME_SIZE ||
+      (frame->type == GZC_RPC_FRAME_EOS && frame->len != 0)) {
+    return GZC_ERR_RPC;
+  }
+  uint8_t header[4];
+  header[0] = (uint8_t)(frame->len & 0xffu);
+  header[1] = (uint8_t)((frame->len >> 8) & 0xffu);
+  header[2] = (uint8_t)(((uint16_t)frame->type) & 0xffu);
+  header[3] = (uint8_t)((((uint16_t)frame->type) >> 8) & 0xffu);
+  return write_segments(client, channel, header, sizeof(header), frame->data, frame->len, blocked);
 }
 
 static int copy_str(gzc_client_t *client, gzc_str_t src, gzc_buf_t *dst) {
@@ -505,6 +679,16 @@ static void on_channel_state(
   }
 }
 
+static void on_channel_buffered_amount_low(
+    void *userdata,
+    gzc_rtc_peer_t *peer,
+    gzc_rtc_channel_t *channel) {
+  (void)userdata;
+  (void)peer;
+  (void)channel;
+  /* The callback is dispatched by peer_poll, which wakes the blocked writer. */
+}
+
 static void on_remote_channel(
     void *userdata,
     gzc_rtc_peer_t *peer,
@@ -541,7 +725,10 @@ static void on_remote_channel(
     return;
   }
   gzc_rpc_inbound_t *inbound = NULL;
-  int rc = gzc_rpc_inbound_create(client, channel, &inbound);
+  int rc = configure_service_channel(client, channel);
+  if (rc == GZC_OK) {
+    rc = gzc_rpc_inbound_create(client, channel, &inbound);
+  }
   if (rc != GZC_OK) {
     client->dispatch_error = rc;
     if (client->config.webrtc->channel_close != NULL) {
@@ -617,6 +804,8 @@ static int wait_until(gzc_client_t *client, bool *flag, int timeout_ms) {
   return GZC_OK;
 }
 
+static void close_rpc_channel(gzc_client_t *client);
+
 static int open_rpc_channel(gzc_client_t *client, int timeout_ms) {
   if (client == NULL || client->peer == NULL || client->config.webrtc == NULL ||
       client->config.webrtc->peer_create_data_channel == NULL) {
@@ -630,6 +819,7 @@ static int open_rpc_channel(gzc_client_t *client, int timeout_ms) {
   }
   client->rpc_channel = NULL;
   client->rpc_channel_open = false;
+  client->rpc_write_blocked = false;
   gzc_buf_reset(&client->rpc_rx);
   gzc_buf_reset(&client->rpc_response);
 
@@ -641,6 +831,11 @@ static int open_rpc_channel(gzc_client_t *client, int timeout_ms) {
   int rc = client->config.webrtc->peer_create_data_channel(client->peer, &rpc_cfg, &client->rpc_channel);
   if (rc != GZC_OK) {
     client->rpc_channel = NULL;
+    return rc;
+  }
+  rc = configure_service_channel(client, client->rpc_channel);
+  if (rc != GZC_OK) {
+    close_rpc_channel(client);
     return rc;
   }
   return wait_until(client, &client->rpc_channel_open, timeout_ms);
@@ -655,6 +850,7 @@ static void close_rpc_channel(gzc_client_t *client) {
   }
   client->rpc_channel = NULL;
   client->rpc_channel_open = false;
+  client->rpc_write_blocked = false;
   gzc_buf_reset(&client->rpc_rx);
 }
 
@@ -663,12 +859,28 @@ int gzc_client_create(const gzc_client_config_t *config, gzc_client_t **out_clie
       config->crypto == NULL ||
       config->webrtc->peer_create == NULL || config->webrtc->peer_start_offer == NULL ||
       config->webrtc->peer_set_remote_sdp == NULL || config->webrtc->peer_create_data_channel == NULL ||
-      config->webrtc->channel_send == NULL || config->webrtc->peer_close == NULL ||
-      config->http->request == NULL) {
+      config->webrtc->peer_poll == NULL ||
+      config->webrtc->channel_send == NULL ||
+      config->webrtc->channel_close == NULL || config->webrtc->peer_close == NULL ||
+      config->http->request == NULL ||
+      config->write_timeout_ms <= 0) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
+  if (config->webrtc->channel_buffered_amount == NULL ||
+      config->webrtc->channel_set_buffered_amount_low_threshold == NULL) {
+    return GZC_ERR_UNSUPPORTED;
+  }
   const gzc_platform_t *platform = config->platform == NULL ? gzc_default_platform() : config->platform;
-  if (platform->malloc == NULL || platform->realloc == NULL || platform->free == NULL) {
+  if (platform->malloc == NULL || platform->realloc == NULL || platform->free == NULL ||
+      platform->time_instant_ms == NULL) {
+    return GZC_ERR_UNSUPPORTED;
+  }
+  size_t high_water = config->service_write_high_water_bytes;
+  size_t low_water = config->service_write_low_water_bytes;
+  if (high_water == 0 && low_water == 0) {
+    high_water = GZC_SERVICE_WRITE_HIGH_WATER_DEFAULT;
+    low_water = GZC_SERVICE_WRITE_LOW_WATER_DEFAULT;
+  } else if (high_water < GZC_SERVICE_WRITE_CHUNK_SIZE || low_water >= high_water) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
   gzc_client_t *client = (gzc_client_t *)platform->malloc(platform->userdata, sizeof(*client));
@@ -678,6 +890,8 @@ int gzc_client_create(const gzc_client_config_t *config, gzc_client_t **out_clie
   memset(client, 0, sizeof(*client));
   client->config = *config;
   client->config.platform = platform;
+  client->config.service_write_high_water_bytes = high_water;
+  client->config.service_write_low_water_bytes = low_water;
   gzc_buf_init(&client->local_sdp);
   gzc_buf_init(&client->packet_rx);
   gzc_buf_init(&client->rpc_rx);
@@ -716,6 +930,7 @@ int gzc_client_connect(gzc_client_t *client) {
   callbacks.on_local_sdp = on_local_sdp;
   callbacks.on_channel_state = on_channel_state;
   callbacks.on_channel_message = on_channel_message;
+  callbacks.on_channel_buffered_amount_low = on_channel_buffered_amount_low;
   callbacks.on_remote_channel = on_remote_channel;
 
   int rc = client->config.webrtc->peer_create(client->config.webrtc->userdata, &callbacks, &client->peer);
@@ -739,6 +954,10 @@ int gzc_client_connect(gzc_client_t *client) {
   rpc_cfg.ordered = true;
   rpc_cfg.reliable = true;
   rc = client->config.webrtc->peer_create_data_channel(client->peer, &rpc_cfg, &client->rpc_channel);
+  if (rc != GZC_OK) {
+    goto fail;
+  }
+  rc = configure_service_channel(client, client->rpc_channel);
   if (rc != GZC_OK) {
     goto fail;
   }
@@ -955,6 +1174,14 @@ const gzc_webrtc_vtable_t *gzc_client_webrtc(gzc_client_t *client) {
   return client == NULL ? NULL : client->config.webrtc;
 }
 
+int64_t gzc_client_instant_ms_internal(gzc_client_t *client) {
+  return client == NULL ? 0 : now_ms(client);
+}
+
+int gzc_client_write_timeout_ms_internal(gzc_client_t *client) {
+  return client == NULL ? 0 : client->config.write_timeout_ms;
+}
+
 static void consume_rpc_rx(gzc_client_t *client, size_t len) {
   if (client == NULL || len == 0) {
     return;
@@ -1015,6 +1242,14 @@ int gzc_client_open_rpc_channel_internal(gzc_client_t *client, int timeout_ms) {
 
 void gzc_client_close_rpc_channel_internal(gzc_client_t *client) {
   close_rpc_channel(client);
+}
+
+int gzc_client_write_rpc_frame_internal(gzc_client_t *client, const gzc_rpc_frame_t *frame) {
+  if (client == NULL || client->rpc_channel == NULL || !client->rpc_channel_open) {
+    return GZC_ERR_CLOSED;
+  }
+  return gzc_client_write_frame_internal(
+      client, client->rpc_channel, frame, &client->rpc_write_blocked);
 }
 
 int gzc_client_store_rpc_response_internal(gzc_client_t *client, const uint8_t *data, size_t len, gzc_str_t *out_json) {
@@ -1146,6 +1381,11 @@ int gzc_client_open_service_channel(
     gzc_service_channel_close(channel);
     return rc;
   }
+  rc = configure_service_channel(client, channel->rtc);
+  if (rc != GZC_OK) {
+    gzc_service_channel_close(channel);
+    return rc;
+  }
   rc = wait_until(client, &channel->open, timeout_ms);
   if (rc != GZC_OK) {
     gzc_service_channel_close(channel);
@@ -1159,14 +1399,11 @@ int gzc_service_channel_send_frame(gzc_service_channel_t *channel, const gzc_rpc
   if (channel == NULL || channel->client == NULL || channel->rtc == NULL || frame == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_buf_t bytes;
-  gzc_buf_init(&bytes);
-  int rc = gzc_rpc_frame_encode(channel->client->config.platform, frame, &bytes);
-  if (rc == GZC_OK) {
-    rc = channel->client->config.webrtc->channel_send(channel->rtc, bytes.data, bytes.len, false);
+  if (channel->closed || !channel->open) {
+    return GZC_ERR_CLOSED;
   }
-  gzc_buf_free(&bytes, channel->client->config.platform);
-  return rc;
+  return gzc_client_write_frame_internal(
+      channel->client, channel->rtc, frame, &channel->write_blocked);
 }
 
 int gzc_service_channel_read_frame(gzc_service_channel_t *channel, int timeout_ms, gzc_buf_t *out_frame_bytes) {
@@ -1213,7 +1450,7 @@ void gzc_service_channel_close(gzc_service_channel_t *channel) {
   }
   gzc_client_t *client = channel->client;
   const gzc_platform_t *platform = client == NULL || client->config.platform == NULL ? gzc_default_platform() : client->config.platform;
-  if (client != NULL && client->peer != NULL && channel->rtc != NULL && client->config.webrtc != NULL &&
+  if (!channel->closed && client != NULL && client->peer != NULL && channel->rtc != NULL && client->config.webrtc != NULL &&
       client->config.webrtc->channel_close != NULL) {
     client->config.webrtc->channel_close(channel->rtc);
   }
