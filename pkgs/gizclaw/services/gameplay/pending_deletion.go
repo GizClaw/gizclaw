@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
@@ -60,15 +61,16 @@ func (s PendingDeletionSource) HasLocator(ctx context.Context, locator pendingde
 	if s.DB == nil {
 		return false, errors.New("gameplay: database not configured")
 	}
-	query := `SELECT 1 FROM gameplay_pending_deletions WHERE kind = ? AND resource_id = ?`
-	args := []any{locator.Kind, locator.ResourceID}
-	if locator.OwnerPublicKey != nil {
-		query += ` AND owner_public_key = ?`
-		args = append(args, *locator.OwnerPublicKey)
+	if locator.OwnerPublicKey == nil {
+		return false, errors.New("gameplay: pending deletion locator owner is required")
 	}
-	query += ` LIMIT 1`
+	owner := strings.TrimSpace(*locator.OwnerPublicKey)
+	if owner == "" {
+		return false, errors.New("gameplay: pending deletion locator owner is empty")
+	}
+	query := `SELECT 1 FROM gameplay_pending_deletions WHERE kind = ? AND resource_id = ? AND owner_public_key = ? LIMIT 1`
 	var exists int
-	err := s.DB.QueryRowContext(ctx, s.DB.Rebind(query), args...).Scan(&exists)
+	err := s.DB.QueryRowContext(ctx, s.DB.Rebind(query), locator.Kind, locator.ResourceID, owner).Scan(&exists)
 	if errors.Is(err, sql.ErrNoRows) {
 		return false, nil
 	}

@@ -433,6 +433,13 @@ func TestRuntimeAdoptCallerIDRejectsInvalidProfileAndDeletedReuse(t *testing.T) 
 	if exists, err := source.HasLocator(ctx, pendingdeletion.Locator{Kind: pendingdeletion.KindPet, ResourceID: petID, OwnerPublicKey: &owner}); err != nil || !exists {
 		t.Fatalf("PendingDeletionSource.HasLocator() = %v, error = %v", exists, err)
 	}
+	otherOwner := "peer-b"
+	if exists, err := source.HasLocator(ctx, pendingdeletion.Locator{Kind: pendingdeletion.KindPet, ResourceID: petID, OwnerPublicKey: &otherOwner}); err != nil || exists {
+		t.Fatalf("PendingDeletionSource.HasLocator(other owner) = %v, error = %v", exists, err)
+	}
+	if _, err := source.HasLocator(ctx, pendingdeletion.Locator{Kind: pendingdeletion.KindPet, ResourceID: petID}); err == nil {
+		t.Fatal("PendingDeletionSource.HasLocator(ownerless) error = nil")
+	}
 	if _, err := runtime.AdoptPet(profileCtx, "peer-a", apitypes.PetAdoptRequest{Id: &petID}); !errors.Is(err, ErrPetIDConflict) {
 		t.Fatalf("AdoptPet(deleted ID) error = %v, want conflict", err)
 	}
