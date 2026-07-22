@@ -691,6 +691,58 @@ func TestDockSurfacesTTSFailureAfterTextEOS(t *testing.T) {
 	t.Fatalf("TTS failure was not surfaced: %#v", chunks)
 }
 
+func TestDockPreservesTTSTerminalEOSError(t *testing.T) {
+	want := errors.New("tts synthesis failed")
+	dock, err := New(Config{
+		Agent: fixedAgentOutput(
+			&genx.MessageChunk{Role: genx.RoleModel, Name: "answer", Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "one"}},
+			&genx.MessageChunk{Role: genx.RoleModel, Name: "answer", Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "one", EndOfStream: true}},
+		),
+		TTS: muxFunc(func(_ context.Context, _ string, input genx.Stream) (genx.Stream, error) {
+			output := streamkit.NewOutput(streamkit.OutputConfig{InitialCapacity: 2})
+			go func() {
+				defer output.Close()
+				for {
+					chunk, err := input.Next()
+					if err != nil {
+						return
+					}
+					if !chunk.IsEndOfStream() {
+						continue
+					}
+					_ = output.Push(&genx.MessageChunk{
+						Role: genx.RoleModel,
+						Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte("audio")},
+					})
+					_ = output.Push(&genx.MessageChunk{
+						Role: genx.RoleModel,
+						Part: &genx.Blob{MIMEType: "audio/opus"},
+						Ctrl: &genx.StreamCtrl{EndOfStream: true, Error: want.Error()},
+					})
+					return
+				}
+			}()
+			return output, nil
+		}),
+		ResolveVoice: fixedVoice("voice/narrator"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	output, err := dock.Transform(t.Context(), emptyStream{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	chunks := readAll(t, output)
+	for _, chunk := range chunks {
+		blob, ok := chunk.Part.(*genx.Blob)
+		if ok && blob.MIMEType == "audio/opus" && chunk.IsEndOfStream() && chunk.Ctrl.Error == want.Error() {
+			return
+		}
+	}
+	t.Fatalf("TTS terminal EOS error was not preserved: %#v", chunks)
+}
+
 func TestDockConcurrentTransformsDoNotShareVoiceState(t *testing.T) {
 	var mu sync.Mutex
 	seen := make(map[string]int)

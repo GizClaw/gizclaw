@@ -430,6 +430,11 @@ func (r *dockRun) forwardTTS(route *dockRoute, pipe *ttsPipe) {
 		// Provider-level audio EOS is combined into one MIME-route EOS after all
 		// publisher-node TTS pipes complete.
 		if emitted.IsEndOfStream() {
+			if emitted.Ctrl.Error != "" {
+				err := errors.New(emitted.Ctrl.Error)
+				r.abortTTS(route, err)
+				r.finishRoute(route, emitted.Ctrl.Error)
+			}
 			continue
 		}
 		if err := r.invocation.Emit(route.response, emitted); err != nil {
