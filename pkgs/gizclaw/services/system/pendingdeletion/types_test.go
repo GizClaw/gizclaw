@@ -18,6 +18,10 @@ func TestRecordValidateRejectsInvalidEnvelope(t *testing.T) {
 		{name: "deletion ID", mutate: func(record *Record) { record.DeletionID = "invalid" }},
 		{name: "kind", mutate: func(record *Record) { record.Kind = "unknown" }},
 		{name: "resource ID", mutate: func(record *Record) { record.ResourceID = " " }},
+		{name: "owner public key", mutate: func(record *Record) {
+			owner := " "
+			record.OwnerPublicKey = &owner
+		}},
 		{name: "reason", mutate: func(record *Record) { record.Reason = "unknown" }},
 		{name: "deleted at", mutate: func(record *Record) { record.DeletedAt = time.Time{} }},
 		{name: "descriptor version", mutate: func(record *Record) { record.DescriptorVersion++ }},
@@ -56,6 +60,13 @@ func TestNewRejectsInvalidInput(t *testing.T) {
 				t.Fatal("New error = nil")
 			}
 		})
+	}
+}
+
+func TestNewRejectsEmptyOwnerPublicKey(t *testing.T) {
+	owner := " "
+	if _, err := New(KindPeer, "peer-a", &owner, ReasonPeerDelete, struct{}{}, time.Time{}); err == nil {
+		t.Fatal("New error = nil")
 	}
 }
 

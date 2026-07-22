@@ -114,6 +114,9 @@ func (r Record) Validate() error {
 	if strings.TrimSpace(r.ResourceID) == "" {
 		return errors.New("pending deletion: empty resource id")
 	}
+	if r.OwnerPublicKey != nil && strings.TrimSpace(*r.OwnerPublicKey) == "" {
+		return errors.New("pending deletion: empty owner public key")
+	}
 	if !r.Reason.valid() {
 		return fmt.Errorf("pending deletion: invalid reason %q", r.Reason)
 	}
