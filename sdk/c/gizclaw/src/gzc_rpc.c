@@ -391,7 +391,6 @@ int gzc_rpc_call_service(
       break;
     }
     saw_response = true;
-    rc = GZC_OK;
     continue;
   }
   gzc_buf_free(&envelope, platform);
@@ -481,7 +480,6 @@ int gzc_rpc_call(gzc_client_t *client, gizclaw_rpc_v1_RpcMethod method, gzc_str_
       break;
     }
     saw_response = true;
-    rc = GZC_OK;
     continue;
   }
   gzc_buf_free(&envelope, platform);
