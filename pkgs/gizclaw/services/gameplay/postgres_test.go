@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
@@ -377,11 +376,7 @@ func TestPostgresDifferentPetAdoptionsReleaseFailedReservation(t *testing.T) {
 	initialBalance := int64(15)
 	profile.Spec.Gameplay.Points.InitialBalance = &initialBalance
 	ctx = WithRuntimeProfile(ctx, profile)
-	workspaces := &barrierWorkspaceService{
-		recordingWorkspaceService: &recordingWorkspaceService{},
-		arrived:                   make(chan struct{}, 2),
-		release:                   make(chan struct{}),
-	}
+	workspaces := &recordingWorkspaceService{}
 	newRuntime := func() *Runtime {
 		return &Runtime{
 			DB: db, Catalog: catalog, Workflows: petWorkflowService{}, Workspaces: workspaces,
@@ -401,9 +396,6 @@ func TestPostgresDifferentPetAdoptionsReleaseFailedReservation(t *testing.T) {
 			errs <- err
 		}()
 	}
-	<-workspaces.arrived
-	<-workspaces.arrived
-	close(workspaces.release)
 	var succeeded, insufficient int
 	for range petIDs {
 		err := <-errs
@@ -430,22 +422,9 @@ func TestPostgresDifferentPetAdoptionsReleaseFailedReservation(t *testing.T) {
 	if reservations != 1 || pets != 1 || transactions != 1 {
 		t.Fatalf("persisted reservations=%d Pets=%d transactions=%d, want 1, 1, 1", reservations, pets, transactions)
 	}
-}
-
-type barrierWorkspaceService struct {
-	*recordingWorkspaceService
-	arrived chan struct{}
-	release chan struct{}
-}
-
-func (s *barrierWorkspaceService) CreateSystemWorkspace(ctx context.Context, body adminhttp.WorkspaceUpsert) (apitypes.Workspace, bool, error) {
-	s.arrived <- struct{}{}
-	select {
-	case <-s.release:
-	case <-ctx.Done():
-		return apitypes.Workspace{}, false, ctx.Err()
+	if len(workspaces.created) != 1 {
+		t.Fatalf("created workspaces = %d, want 1", len(workspaces.created))
 	}
-	return s.recordingWorkspaceService.CreateSystemWorkspace(ctx, body)
 }
 
 func openGameplayPostgresTestDB(t *testing.T) *sqlx.DB {

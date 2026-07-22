@@ -308,8 +308,24 @@ func (r *Runtime) reservePetAdoption(ctx context.Context, owner string, req apit
 }
 
 func (r *Runtime) createReservedPetAdoption(ctx context.Context, reservation petAdoptionReservation, ruleset ProfileRules) (apitypes.PetAdoptResponse, error) {
-	if err := r.preflightPetAdoption(ctx, reservation.OwnerPublicKey, ruleset, reservation.AdoptionCost); err != nil {
+	db, err := r.db()
+	if err != nil {
 		return apitypes.PetAdoptResponse{}, err
+	}
+	tx, err := db.BeginTxx(ctx, nil)
+	if err != nil {
+		return apitypes.PetAdoptResponse{}, err
+	}
+	defer tx.Rollback()
+	account, err := r.ensureAccountTx(ctx, tx, reservation.OwnerPublicKey, ruleset)
+	if err != nil {
+		return apitypes.PetAdoptResponse{}, err
+	}
+	if err := lockPointsAccountTx(ctx, tx, &account); err != nil {
+		return apitypes.PetAdoptResponse{}, err
+	}
+	if account.Balance < reservation.AdoptionCost {
+		return apitypes.PetAdoptResponse{}, errInsufficientPoints
 	}
 	if _, err := r.createPetWorkspace(ctx, reservation.WorkspaceName, reservation.WorkflowName, reservation.VoiceAlias); err != nil {
 		return apitypes.PetAdoptResponse{}, err
@@ -322,26 +338,17 @@ func (r *Runtime) createReservedPetAdoption(ctx context.Context, reservation pet
 		Stats: initialPetStats(), Progression: initialPetProgression(), Lifecycle: apitypes.PetLifecycleAlive,
 		StateSettledAt: now, LastActiveAt: now, CreatedAt: now, UpdatedAt: now,
 	}
-	return r.commitPetAdoption(ctx, pet, ruleset, reservation.AdoptionCost)
-}
-
-func (r *Runtime) preflightPetAdoption(ctx context.Context, owner string, ruleset ProfileRules, adoptionCost int64) error {
-	db, err := r.db()
+	txn, err := r.recordPointsTx(ctx, tx, &account, -reservation.AdoptionCost, ruleset.Name, pet.Id, "", "", "pet.adopt", "pet", pet.Id, true)
 	if err != nil {
-		return err
+		return apitypes.PetAdoptResponse{}, err
 	}
-	tx, err := db.BeginTxx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-	if err := r.preflightPetAdoptionTx(ctx, tx, owner, ruleset, adoptionCost); err != nil {
-		return err
+	if err := insertPet(ctx, tx, pet); err != nil {
+		return apitypes.PetAdoptResponse{}, err
 	}
 	if err := tx.Commit(); err != nil {
-		return err
+		return apitypes.PetAdoptResponse{}, err
 	}
-	return nil
+	return apitypes.PetAdoptResponse{Pet: pet, Points: account, Transaction: txn}, nil
 }
 
 func (r *Runtime) preflightPetAdoptionTx(ctx context.Context, tx *sqlx.Tx, owner string, ruleset ProfileRules, adoptionCost int64) error {
@@ -1454,6 +1461,11 @@ func (r *Runtime) ensureAccountTx(ctx context.Context, tx *sqlx.Tx, owner string
 		return account, nil
 	}
 	return scanPointsAccount(tx.QueryRowContext(ctx, tx.Rebind(pointsAccountSelectSQL()+` WHERE owner_public_key = ? AND runtime_profile_name = ?`), owner, ruleset.Name))
+}
+
+func lockPointsAccountTx(ctx context.Context, tx *sqlx.Tx, account *apitypes.PointsAccount) error {
+	return tx.QueryRowContext(ctx, tx.Rebind(`UPDATE gameplay_points_accounts SET balance = balance WHERE owner_public_key = ? AND runtime_profile_name = ? RETURNING balance`),
+		account.OwnerPublicKey, account.RuntimeProfileName).Scan(&account.Balance)
 }
 
 func (r *Runtime) applyPointsTx(ctx context.Context, tx *sqlx.Tx, account *apitypes.PointsAccount, delta int64, runtimeProfileName, petID, gameResultID, rewardGrantID, reason, sourceType, sourceID string) (apitypes.PointsTransaction, error) {
