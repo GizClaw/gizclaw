@@ -26,7 +26,7 @@ This prefix has server-perspective online connection indexing and cross-connecti
 | `retainTelemetryStatusLock` / `releaseTelemetryStatusLock` | Manage telemetry status and update the lock life cycle by public key. |
 | `applyPeerRefreshInfo` / `applyPeerRefreshIdentifiers` | Merge RPC refresh response into the persistent Peer model. |
 
-Connection activation ensures the durable Peer generation and publishes the exact connection under one Manager critical section before transport service loops start. Registration updates are accepted only for that exact active connection and never recreate a missing entry. Registration publication, connection-scoped self-delete, replacement activation, and `PeerConn` retirement use the same Manager ordering, so a superseded connection cannot register again or delete its replacement generation.
+Connection activation ensures the durable Peer generation and publishes the exact connection under one Manager critical section before transport service loops start. Registration updates are accepted only for that exact active connection and never recreate a missing entry. A connection-scoped self-delete publishes a per-Peer deleting state under the Manager lock, performs the durable store mutation without holding the global Manager lock, and then conditionally removes or rolls back only that same connection generation. Replacement activation and registration reject the deleting generation, while unrelated Peers remain available.
 
 ## Device metadata ownership
 

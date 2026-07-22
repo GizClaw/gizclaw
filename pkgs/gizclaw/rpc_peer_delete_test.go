@@ -262,6 +262,10 @@ func TestRPCPeerDeleteRejectsNewWorkBeforeDurableDeleteCommits(t *testing.T) {
 	if _, err := peers.EnsureConnectedPeer(context.Background(), publicKey); err != nil {
 		t.Fatalf("EnsureConnectedPeer: %v", err)
 	}
+	otherPublicKey := giznet.PublicKey{3, 3}
+	if _, err := peers.EnsureConnectedPeer(context.Background(), otherPublicKey); err != nil {
+		t.Fatalf("EnsureConnectedPeer(other): %v", err)
+	}
 	blockingStore := &blockingBatchMutateStore{
 		Store:   store,
 		entered: make(chan struct{}),
@@ -293,6 +297,32 @@ func TestRPCPeerDeleteRejectsNewWorkBeforeDurableDeleteCommits(t *testing.T) {
 	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeConflict {
 		t.Fatalf("retiring response = %#v, want conflict", response)
 	}
+	if _, ok := manager.Peer(publicKey); ok {
+		t.Fatal("deleting Peer remained discoverable in Manager")
+	}
+	if runtime := manager.PeerRuntime(context.Background(), publicKey); runtime.Online {
+		t.Fatalf("deleting Peer runtime = %+v, want offline", runtime)
+	}
+	if manager.SetPeerRegistration(publicKey, transport, runtimeprofile.Registration{}) {
+		t.Fatal("deleting Peer accepted a registration")
+	}
+	otherConn := &testGiznetConn{publicKey: otherPublicKey}
+	otherActivation := make(chan error, 1)
+	go func() {
+		_, err := manager.activatePeer(context.Background(), otherConn)
+		otherActivation <- err
+	}()
+	select {
+	case err := <-otherActivation:
+		if err != nil {
+			t.Fatalf("activatePeer(other): %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("slow delete blocked activation for another Peer")
+	}
+	if _, err := manager.activatePeer(context.Background(), &testGiznetConn{publicKey: publicKey}); !errors.Is(err, ErrPeerConnRetiring) {
+		t.Fatalf("activatePeer(deleting) error = %v, want %v", err, ErrPeerConnRetiring)
+	}
 	close(blockingStore.release)
 	if err := <-deleteErr; err != nil {
 		t.Fatalf("handlePeerDelete: %v", err)
@@ -316,6 +346,9 @@ func TestManagerDeleteActivePeerRestoresConnectionAfterDeleteFailure(t *testing.
 	peerConn := &PeerConn{Conn: transport, Service: &PeerService{manager: manager}}
 	registration := &runtimeprofile.Registration{RuntimeProfile: apitypes.RuntimeProfile{Name: "profile"}}
 	peerConn.registration.Store(registration)
+	if !manager.SetPeerRegistration(publicKey, transport, *registration) {
+		t.Fatal("SetPeerRegistration rejected active connection")
+	}
 
 	err := manager.deleteActivePeer(context.Background(), publicKey, transport, peerConn.beginRetiring)
 	if !errors.Is(err, errTestPeerDelete) {
@@ -329,6 +362,9 @@ func TestManagerDeleteActivePeerRestoresConnectionAfterDeleteFailure(t *testing.
 	}
 	if got, ok := manager.Peer(publicKey); !ok || got != transport {
 		t.Fatalf("failed delete active connection = %v, %v", got, ok)
+	}
+	if got, ok := manager.PeerRegistration(publicKey); !ok || got.RuntimeProfile.Name != "profile" {
+		t.Fatalf("failed delete Manager registration = %#v, %v", got, ok)
 	}
 }
 
