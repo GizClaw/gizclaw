@@ -112,14 +112,19 @@ type dockRoute struct {
 	response *streamkit.Response
 	mu       sync.Mutex
 
-	voiceResolved bool
-	deferredEOS   *genx.MessageChunk
-	ttsRoutes     map[string]bool
-	ttsInput      *streamkit.Output
-	ttsOutput     genx.Stream
-	ttsCancel     context.CancelFunc
-	finish        sync.Once
-	closed        atomic.Bool
+	deferredEOS *genx.MessageChunk
+	ttsRoutes   map[string]bool
+	ttsPipes    map[string]*ttsPipe
+	ttsDone     sync.WaitGroup
+	finish      sync.Once
+	closed      atomic.Bool
+}
+
+type ttsPipe struct {
+	name   string
+	input  *streamkit.Output
+	output genx.Stream
+	cancel context.CancelFunc
 }
 
 func (r *dockRun) execute() {
@@ -174,6 +179,9 @@ func (r *dockRun) execute() {
 				}
 				r.finishOpenRoutes()
 				r.tts.Wait()
+				for _, route := range r.routeSnapshot() {
+					r.finishRoute(route, "")
+				}
 				_ = r.invocation.Close()
 				return
 			}
@@ -269,7 +277,7 @@ func (r *dockRun) forwardModelChunk(ctx context.Context, chunk *genx.MessageChun
 		r.source.AbandonOutputObservation(chunk)
 		return nil
 	}
-	deferTextEOS := chunk.IsEndOfStream() && route.ttsInput != nil && !route.hasTTSRoute()
+	deferTextEOS := chunk.IsEndOfStream() && route.hasTTSPipes()
 	if deferTextEOS {
 		route.mu.Lock()
 		route.deferredEOS = chunk
@@ -289,29 +297,17 @@ func (r *dockRun) forwardModelChunk(ctx context.Context, chunk *genx.MessageChun
 	}
 
 	text, textChunk := chunk.Part.(genx.Text)
-	if textChunk && strings.TrimSpace(string(text)) != "" && !route.voiceResolved && r.dock.config.TTS != nil {
-		route.voiceResolved = true
-		pattern, err := resolveVoice(ctx, r.dock.config.ResolveVoice, chunk)
+	if textChunk && strings.TrimSpace(string(text)) != "" && r.dock.config.TTS != nil {
+		pipe, err := r.ttsPipe(ctx, route, chunk)
 		if err != nil {
 			r.finishRoute(route, err.Error())
 			return nil
 		}
-		if pattern != "" {
-			if err := r.startTTS(route, pattern); err != nil {
+		if pipe != nil {
+			if err := pipe.input.Push(chunk); err != nil && !errors.Is(err, io.ErrClosedPipe) {
 				r.finishRoute(route, err.Error())
 				return nil
 			}
-		}
-	}
-
-	if route.ttsInput != nil && (textChunk || chunk.IsEndOfStream()) {
-		ttsChunk := chunk
-		if !textChunk {
-			ttsChunk = &genx.MessageChunk{Role: chunk.Role, Name: chunk.Name, Part: genx.Text(""), Ctrl: cloneCtrl(chunk.Ctrl)}
-		}
-		if err := route.ttsInput.Push(ttsChunk); err != nil && !errors.Is(err, io.ErrClosedPipe) {
-			r.finishRoute(route, err.Error())
-			return nil
 		}
 	}
 	if !chunk.IsEndOfStream() {
@@ -322,8 +318,8 @@ func (r *dockRun) forwardModelChunk(ctx context.Context, chunk *genx.MessageChun
 		r.finishRoute(route, chunk.Ctrl.Error)
 		return nil
 	}
-	if route.ttsInput != nil {
-		_ = route.ttsInput.Close()
+	if route.hasTTSPipes() {
+		r.endTTS(route, chunk)
 		return nil
 	}
 	r.finishRoute(route, "")
@@ -351,39 +347,69 @@ func (r *dockRun) route(chunk *genx.MessageChunk) (*dockRoute, error) {
 	if err != nil {
 		return nil, err
 	}
-	route := &dockRoute{response: response}
+	route := &dockRoute{response: response, ttsPipes: make(map[string]*ttsPipe)}
 	r.routes[streamID] = route
 	return route, nil
 }
 
-func (r *dockRun) startTTS(route *dockRoute, pattern string) error {
+func (r *dockRun) ttsPipe(ctx context.Context, route *dockRoute, chunk *genx.MessageChunk) (*ttsPipe, error) {
+	key := strings.TrimSpace(chunk.Name)
+	route.mu.Lock()
+	pipe, resolved := route.ttsPipes[key]
+	route.mu.Unlock()
+	if resolved {
+		return pipe, nil
+	}
+	pattern, err := resolveVoice(ctx, r.dock.config.ResolveVoice, chunk)
+	if err != nil {
+		return nil, err
+	}
+	if pattern == "" {
+		route.mu.Lock()
+		route.ttsPipes[key] = nil
+		route.mu.Unlock()
+		return nil, nil
+	}
+	return r.startTTS(route, key, chunk.Name, pattern)
+}
+
+func (r *dockRun) startTTS(route *dockRoute, key, name, pattern string) (*ttsPipe, error) {
 	ctx, cancel := context.WithCancel(r.invocation.Context())
 	input := streamkit.NewOutput(streamkit.OutputConfig{InitialCapacity: initialOutputCapacity})
 	output, err := r.dock.config.TTS.Transform(ctx, pattern, input)
 	if err != nil {
 		cancel()
 		_ = input.CloseWithError(err)
-		return fmt.Errorf("audiodock: start TTS pattern=%q: %w", pattern, err)
+		return nil, fmt.Errorf("audiodock: start TTS pattern=%q: %w", pattern, err)
 	}
-	route.ttsInput = input
-	route.ttsOutput = output
-	route.ttsCancel = cancel
-	route.ttsRoutes = make(map[string]bool)
+	pipe := &ttsPipe{name: name, input: input, output: output, cancel: cancel}
+	route.mu.Lock()
+	if existing, ok := route.ttsPipes[key]; ok {
+		route.mu.Unlock()
+		cancel()
+		_ = errors.Join(input.Close(), output.Close())
+		return existing, nil
+	}
+	route.ttsPipes[key] = pipe
+	if route.ttsRoutes == nil {
+		route.ttsRoutes = make(map[string]bool)
+	}
+	route.ttsDone.Add(1)
+	route.mu.Unlock()
 	r.tts.Add(1)
-	go r.forwardTTS(route)
-	return nil
+	go r.forwardTTS(route, pipe)
+	return pipe, nil
 }
 
-func (r *dockRun) forwardTTS(route *dockRoute) {
+func (r *dockRun) forwardTTS(route *dockRoute, pipe *ttsPipe) {
 	defer r.tts.Done()
-	defer route.ttsCancel()
-	defer route.ttsOutput.Close()
+	defer route.ttsDone.Done()
+	defer pipe.cancel()
+	defer pipe.output.Close()
 	for {
-		chunk, err := route.ttsOutput.Next()
+		chunk, err := pipe.output.Next()
 		if err != nil {
-			if streamDone(err) {
-				r.finishRoute(route, "")
-			} else {
+			if !streamDone(err) {
 				r.finishRoute(route, err.Error())
 			}
 			return
@@ -396,19 +422,43 @@ func (r *dockRun) forwardTTS(route *dockRoute) {
 			emitted.Ctrl = &genx.StreamCtrl{}
 		}
 		emitted.Ctrl.StreamID = route.response.StreamID()
+		route.mu.Lock()
+		if mimeType, ok := emitted.MIMEType(); ok {
+			route.ttsRoutes[mimeType] = false
+		}
+		route.mu.Unlock()
+		// Provider-level audio EOS is combined into one MIME-route EOS after all
+		// publisher-node TTS pipes complete.
+		if emitted.IsEndOfStream() {
+			continue
+		}
 		if err := r.invocation.Emit(route.response, emitted); err != nil {
 			return
 		}
-		route.mu.Lock()
-		if mimeType, ok := emitted.MIMEType(); ok {
-			route.ttsRoutes[mimeType] = emitted.IsEndOfStream()
-		}
-		route.mu.Unlock()
-		if err := r.emitDeferredTextEOS(route, ""); err != nil {
-			r.finishRoute(route, err.Error())
-			return
+	}
+}
+
+func (r *dockRun) endTTS(route *dockRoute, sourceEOS *genx.MessageChunk) {
+	if route == nil {
+		return
+	}
+	route.mu.Lock()
+	pipes := make([]*ttsPipe, 0, len(route.ttsPipes))
+	for _, pipe := range route.ttsPipes {
+		if pipe != nil {
+			pipes = append(pipes, pipe)
 		}
 	}
+	route.mu.Unlock()
+	for _, pipe := range pipes {
+		end := &genx.MessageChunk{Role: sourceEOS.Role, Name: pipe.name, Part: genx.Text(""), Ctrl: cloneCtrl(sourceEOS.Ctrl)}
+		_ = pipe.input.Push(end)
+		_ = pipe.input.Close()
+	}
+	go func() {
+		route.ttsDone.Wait()
+		r.finishRoute(route, "")
+	}()
 }
 
 func (r *dockRun) finishRoute(route *dockRoute, errorText string) {
@@ -423,20 +473,22 @@ func (r *dockRun) finishRoute(route *dockRoute, errorText string) {
 			errorText = err.Error()
 		}
 		route.closed.Store(true)
-		if route.ttsCancel != nil {
-			defer route.ttsCancel()
-		}
 		_ = r.invocation.FinishResponse(route.response, errorText)
 	})
 }
 
-func (r *dockRoute) hasTTSRoute() bool {
+func (r *dockRoute) hasTTSPipes() bool {
 	if r == nil {
 		return false
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return len(r.ttsRoutes) > 0
+	for _, pipe := range r.ttsPipes {
+		if pipe != nil {
+			return true
+		}
+	}
+	return false
 }
 
 // emitPendingTTSEOS normalizes TTS implementations that end their Stream
@@ -503,21 +555,25 @@ func (r *dockRun) abortTTS(route *dockRoute, err error) {
 	if route == nil {
 		return
 	}
-	if route.ttsInput != nil {
-		_ = route.ttsInput.CloseWithError(err)
+	route.mu.Lock()
+	pipes := make([]*ttsPipe, 0, len(route.ttsPipes))
+	for _, pipe := range route.ttsPipes {
+		if pipe != nil {
+			pipes = append(pipes, pipe)
+		}
 	}
-	if route.ttsOutput != nil {
-		_ = route.ttsOutput.CloseWithError(err)
-	}
-	if route.ttsCancel != nil {
-		route.ttsCancel()
+	route.mu.Unlock()
+	for _, pipe := range pipes {
+		_ = pipe.input.CloseWithError(err)
+		_ = pipe.output.CloseWithError(err)
+		pipe.cancel()
 	}
 }
 
 func (r *dockRun) finishOpenRoutes() {
 	for _, route := range r.routeSnapshot() {
-		if route.ttsInput != nil {
-			_ = route.ttsInput.Close()
+		if route.hasTTSPipes() {
+			r.endTTS(route, &genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{EndOfStream: true}})
 			continue
 		}
 		r.finishRoute(route, "")

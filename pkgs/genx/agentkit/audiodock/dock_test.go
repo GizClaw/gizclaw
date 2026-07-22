@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"io"
+	"slices"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -743,6 +745,55 @@ func TestDockConcurrentTransformsDoNotShareVoiceState(t *testing.T) {
 	defer mu.Unlock()
 	if seen["alpha"] != 1 || seen["beta"] != 1 {
 		t.Fatalf("voice calls = %#v", seen)
+	}
+}
+
+func TestDockResolvesVoicePerPublisherNode(t *testing.T) {
+	var mu sync.Mutex
+	var patterns []string
+	tts := muxFunc(func(_ context.Context, pattern string, input genx.Stream) (genx.Stream, error) {
+		mu.Lock()
+		patterns = append(patterns, pattern)
+		mu.Unlock()
+		output := streamkit.NewOutput(streamkit.OutputConfig{InitialCapacity: 2})
+		go func() {
+			defer output.Close()
+			for {
+				chunk, err := input.Next()
+				if err != nil {
+					return
+				}
+				if chunk.IsEndOfStream() {
+					return
+				}
+			}
+		}()
+		return output, nil
+	})
+	dock, err := New(Config{
+		Agent: fixedAgentOutput(
+			&genx.MessageChunk{Role: genx.RoleModel, Name: "narrator", Part: genx.Text("first"), Ctrl: &genx.StreamCtrl{StreamID: "one"}},
+			&genx.MessageChunk{Role: genx.RoleModel, Name: "character", Part: genx.Text("second"), Ctrl: &genx.StreamCtrl{StreamID: "one"}},
+			&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "one", EndOfStream: true}},
+		),
+		TTS: tts,
+		ResolveVoice: func(_ context.Context, request VoiceRequest) (string, error) {
+			return "voice/" + request.Name, nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	output, err := dock.Transform(t.Context(), emptyStream{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = readAll(t, output)
+	mu.Lock()
+	defer mu.Unlock()
+	sort.Strings(patterns)
+	if !slices.Equal(patterns, []string{"voice/character", "voice/narrator"}) {
+		t.Fatalf("TTS patterns = %v", patterns)
 	}
 }
 

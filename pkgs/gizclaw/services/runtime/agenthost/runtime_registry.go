@@ -2,6 +2,10 @@ package agenthost
 
 import (
 	"context"
+	"crypto/sha256"
+	"fmt"
+	"sort"
+	"strings"
 	"sync"
 )
 
@@ -31,12 +35,12 @@ func (r *RuntimeRegistry) Acquire(ctx context.Context, host *Host, workspaceName
 	if r.runtimes == nil {
 		r.runtimes = make(map[string]*workspaceRuntime)
 	}
-	key := runtimeKey(workspaceName, spec)
+	key := runtimeKey(ctx, workspaceName, spec)
 	if current := r.runtimes[key]; current != nil {
 		current.refs++
 		return current.agent, r.releaseFunc(key, current), nil
 	}
-	agent, release, err := host.openWorkspaceAgent(ctx, workspaceName, spec)
+	agent, release, err := host.openWorkspaceAgent(ctx, key, spec)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -45,11 +49,40 @@ func (r *RuntimeRegistry) Acquire(ctx context.Context, host *Host, workspaceName
 	return agent, r.releaseFunc(key, current), nil
 }
 
-func runtimeKey(workspaceName string, spec Spec) string {
-	if spec.Toolkit == nil {
-		return workspaceName
+func runtimeKey(ctx context.Context, workspaceName string, spec Spec) string {
+	key := workspaceName
+	// Owned workspaces deliberately share their owner's runtime across callers.
+	// System workspaces have no owner runtime, so their construction depends on
+	// the caller's RuntimeProfile snapshot and must not reuse another caller's
+	// model/voice bindings.
+	workspaceOwner := ""
+	if spec.Workspace.OwnerPublicKey != nil {
+		workspaceOwner = strings.TrimSpace(*spec.Workspace.OwnerPublicKey)
 	}
-	return workspaceName + "#toolkit-caller=" + spec.Toolkit.BuildRequest.CallerPublicKey
+	if workspaceOwner == "" {
+		key += "#profile=" + resourceAccessFingerprint(ctx)
+	}
+	if spec.Toolkit == nil {
+		return key
+	}
+	return key + "#toolkit-caller=" + spec.Toolkit.BuildRequest.CallerPublicKey
+}
+
+func resourceAccessFingerprint(ctx context.Context) string {
+	access, ok := resourceAccessFromContext(ctx)
+	if !ok {
+		return "none"
+	}
+	values := []string{"owner=" + access.ownerPublicKey, "profile=" + access.profileFingerprint}
+	for alias, resourceID := range access.profileToolBindings {
+		values = append(values, "tool="+alias+"="+resourceID)
+	}
+	for alias, resourceID := range access.profileWorkflowBindings {
+		values = append(values, "workflow="+alias+"="+resourceID)
+	}
+	sort.Strings(values)
+	digest := sha256.Sum256([]byte(strings.Join(values, "\x00")))
+	return fmt.Sprintf("%x", digest[:16])
 }
 
 func (r *RuntimeRegistry) releaseFunc(key string, current *workspaceRuntime) func() {

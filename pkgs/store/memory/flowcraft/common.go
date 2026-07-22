@@ -22,6 +22,8 @@ type (
 	sourceRef               = memorystore.SourceRef
 	storeContract           = memorystore.Store
 	operationWaiterContract = memorystore.OperationWaiter
+	asyncProcessorContract  = memorystore.AsyncOperationProcessor
+	statisticsContract      = memorystore.StatisticsProvider
 	operationWaiter         = memorystore.OperationWaiter
 	turn                    = memorystore.Turn
 	updateRequest           = memorystore.UpdateRequest

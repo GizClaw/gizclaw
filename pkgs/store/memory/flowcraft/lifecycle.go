@@ -126,6 +126,28 @@ func (s *Store) Wait(ctx context.Context, operationID string) (memorystore.Obser
 	}
 }
 
+// ProcessAsync drains one queued semantic operation. It is distinct from Wait
+// so streaming callers can opt into background materialization explicitly.
+func (s *Store) ProcessAsync(ctx context.Context, operationID string) (memorystore.ObserveResult, error) {
+	s.mu.Lock()
+	if s.closing {
+		s.mu.Unlock()
+		return memorystore.ObserveResult{}, fmt.Errorf("%w: flowcraft store is closing", errUnavailable)
+	}
+	s.asyncWG.Add(1)
+	asyncCtx := s.asyncCtx
+	s.mu.Unlock()
+	defer s.asyncWG.Done()
+
+	processCtx, cancel := context.WithCancel(ctx)
+	stop := context.AfterFunc(asyncCtx, cancel)
+	defer func() {
+		stop()
+		cancel()
+	}()
+	return s.Wait(processCtx, operationID)
+}
+
 func (s *Store) rehydrateOperations(ctx context.Context) error {
 	enumerator, ok := s.temporal.(recall.ScopeEnumerator)
 	if !ok {
@@ -548,6 +570,11 @@ func (s *Store) drainSideEffects(ctx context.Context, scope recall.Scope) error 
 // Close releases only the recall memory constructed by this adapter.
 func (s *Store) Close() error {
 	s.closeOnce.Do(func() {
+		s.mu.Lock()
+		s.closing = true
+		s.asyncCancel()
+		s.mu.Unlock()
+		s.asyncWG.Wait()
 		s.closeErr = s.memory.Close()
 	})
 	return s.closeErr

@@ -84,7 +84,7 @@ func (f Factory) NewConfiguredAgent(ctx context.Context, options ConfiguredAgent
 	if err := json.Unmarshal(data, &public); err != nil {
 		return nil, fmt.Errorf("flowcraft: decode configured agent: %w", err)
 	}
-	return f.newAgent(ctx, "", workspaceName, public, options.InputProvider)
+	return f.newAgent(ctx, "", workspaceName, public, options.InputProvider, "")
 }
 
 func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.Agent, error) {
@@ -97,6 +97,7 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	}
 	public := *spec.Workflow.Spec.Flowcraft
 	owner := stringValue(spec.Workspace.OwnerPublicKey)
+	initiativePolicy := ""
 	if owner != "" && f.GenXForOwner != nil {
 		ownerGenX, err := f.GenXForOwner(ctx, owner)
 		if err != nil {
@@ -112,15 +113,18 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 		if err != nil {
 			return nil, fmt.Errorf("flowcraft: decode workspace parameters: %w", err)
 		}
-		if parameters.Conversation != nil && parameters.Conversation.Initiative != nil {
-			starts := apitypes.FlowcraftConversationStarts(*parameters.Conversation.Initiative)
-			public.Conversation = &apitypes.FlowcraftConversation{Starts: &starts}
+		if parameters.Conversation != nil {
+			initiativePolicy = stringValue((*string)(parameters.Conversation.AgentInitiativePolicy))
+			if parameters.Conversation.Initiative != nil {
+				starts := apitypes.FlowcraftConversationStarts(*parameters.Conversation.Initiative)
+				public.Conversation = &apitypes.FlowcraftConversation{Starts: &starts}
+			}
 		}
 	}
-	return f.newAgent(ctx, owner, workspaceName, public, nil)
+	return f.newAgent(ctx, owner, workspaceName, public, nil, initiativePolicy)
 }
 
-func (f Factory) newAgent(ctx context.Context, owner, workspaceName string, public apitypes.FlowcraftWorkflowSpec, inputs InputProvider) (agenthost.Agent, error) {
+func (f Factory) newAgent(ctx context.Context, owner, workspaceName string, public apitypes.FlowcraftWorkflowSpec, inputs InputProvider, initiativePolicy string) (agenthost.Agent, error) {
 	if f.GenX == nil {
 		return nil, fmt.Errorf("flowcraft: peergenx service is required")
 	}
@@ -148,12 +152,10 @@ func (f Factory) newAgent(ctx context.Context, owner, workspaceName string, publ
 	config := genxflowcraft.Config{
 		ID: agentID, Name: strings.TrimSpace(public.Agent.Name), Graph: graph,
 		MaxIterations: intValue(public.Agent.MaxIterations), PublishNodes: publishNodes,
-		Models: f.GenX.Generator(), History: f.History, HistoryScope: scope,
+		Models: f.GenX.Generator(), History: f.History, HistoryScope: scope, ContextID: scope,
 		BoardInputs: genxflowcraftBoardInputs(inputs),
 	}
-	if public.Conversation != nil && public.Conversation.Starts != nil {
-		config.StartAgent = *public.Conversation.Starts == apitypes.FlowcraftConversationStartsAgent
-	}
+	config.Initiative = mapInitiative(public.Conversation, initiativePolicy)
 	if public.Agent.Description != nil {
 		config.Description = *public.Agent.Description
 	}
@@ -162,6 +164,7 @@ func (f Factory) newAgent(ctx context.Context, owner, workspaceName string, publ
 	}
 
 	var owned []io.Closer
+	var agentMemory memory.Store
 	if public.Memory != nil && public.Memory.Enabled {
 		memoryStore, closer, memoryConfig, err := f.buildMemory(ctx, owner, workspaceName, agentID, *public.Memory)
 		if err != nil {
@@ -169,6 +172,7 @@ func (f Factory) newAgent(ctx context.Context, owner, workspaceName string, publ
 		}
 		owned = append(owned, closer)
 		config.Memory = memoryStore
+		agentMemory = memoryStore
 		config.MemoryScope = memory.Scope(scope)
 		config.RecallProfiles = memoryConfig.recallProfiles
 		config.ObserveEnabled = memoryConfig.observe
@@ -187,7 +191,20 @@ func (f Factory) newAgent(ctx context.Context, owner, workspaceName string, publ
 			return nil, errors.Join(err, closeAll(owned))
 		}
 	}
-	return &managedAgent{Agent: agenthost.NewTransformerAgent(transformer), owned: owned}, nil
+	return &managedAgent{
+		Agent: agenthost.NewTransformerAgent(transformer), owned: owned,
+		memory: agentMemory, memoryScope: memory.Scope(scope),
+	}, nil
+}
+
+func mapInitiative(conversation *apitypes.FlowcraftConversation, policy string) genxflowcraft.InitiativePolicy {
+	if conversation == nil || conversation.Starts == nil || *conversation.Starts != apitypes.FlowcraftConversationStartsAgent {
+		return genxflowcraft.InitiativeDisabled
+	}
+	if policy == string(apitypes.FlowcraftConversationParametersAgentInitiativePolicyOnceWhenEmpty) {
+		return genxflowcraft.InitiativeOnceWhenEmpty
+	}
+	return genxflowcraft.InitiativeOnReload
 }
 
 func mapGraph(source apitypes.FlowcraftGraph) (flowgraph.GraphDefinition, []string, error) {
@@ -697,9 +714,86 @@ func buildRuntimeEmbedder(config peergenx.EmbeddingConfig) (flowembedding.Embedd
 
 type managedAgent struct {
 	agenthost.Agent
-	owned     []io.Closer
-	closeOnce sync.Once
-	closeErr  error
+	owned       []io.Closer
+	memory      memory.Store
+	memoryScope memory.Scope
+	closeOnce   sync.Once
+	closeErr    error
+}
+
+func (a *managedAgent) Status(ctx context.Context) (apitypes.PeerRunWorkspaceState, error) {
+	status, err := a.Agent.Status(ctx)
+	if err != nil {
+		return status, err
+	}
+	available := a.memory != nil
+	status.MemoryStatsAvailable = &available
+	status.RecallAvailable = &available
+	return status, nil
+}
+
+func (a *managedAgent) MemoryStats(ctx context.Context, _ apitypes.PeerRunMemoryStatsRequest) (apitypes.PeerRunMemoryStatsResponse, error) {
+	if a == nil || a.memory == nil {
+		message := "workspace memory is not enabled"
+		return apitypes.PeerRunMemoryStatsResponse{Available: true, Enabled: false, Message: &message}, nil
+	}
+	backend := "flowcraft"
+	metadata := map[string]any{"scope": string(a.memoryScope)}
+	response := apitypes.PeerRunMemoryStatsResponse{
+		Available: true, Enabled: true, Backend: &backend, Metadata: &metadata,
+	}
+	if provider, ok := a.memory.(memory.StatisticsProvider); ok {
+		stats, err := provider.Stats(ctx, a.memoryScope)
+		if err != nil {
+			return apitypes.PeerRunMemoryStatsResponse{}, err
+		}
+		response.ItemCount = stats.ItemCount
+		if !stats.LastUpdatedAt.IsZero() {
+			response.LastUpdatedAt = &stats.LastUpdatedAt
+		}
+	}
+	return response, nil
+}
+
+func (a *managedAgent) Recall(ctx context.Context, req apitypes.PeerRunRecallRequest) (apitypes.PeerRunRecallResponse, error) {
+	if a == nil || a.memory == nil {
+		message := "workspace memory is not enabled"
+		return apitypes.PeerRunRecallResponse{Available: true, Hits: []apitypes.PeerRunRecallHit{}, Message: &message}, nil
+	}
+	limit := 10
+	if req.Limit != nil && *req.Limit > 0 {
+		limit = *req.Limit
+	}
+	filters := make([]memory.Filter, 0)
+	if req.Filters != nil {
+		keys := make([]string, 0, len(*req.Filters))
+		for key := range *req.Filters {
+			keys = append(keys, key)
+		}
+		slices.Sort(keys)
+		for _, key := range keys {
+			filters = append(filters, memory.Filter{Field: key, Operator: memory.FilterEqual, Value: (*req.Filters)[key]})
+		}
+	}
+	result, err := a.memory.Recall(ctx, memory.Query{Scope: a.memoryScope, Text: req.Query, Limit: limit, Filters: filters})
+	if err != nil {
+		return apitypes.PeerRunRecallResponse{}, err
+	}
+	hits := make([]apitypes.PeerRunRecallHit, 0, len(result.Matches))
+	for _, match := range result.Matches {
+		metadata := maps.Clone(match.Fact.Attributes)
+		hit := apitypes.PeerRunRecallHit{
+			Id: match.Fact.ID, Score: match.Score, Snippet: match.Fact.Text,
+			CreatedAt: &match.Fact.CreatedAt, Metadata: &metadata,
+		}
+		if len(match.Fact.Sources) > 0 && strings.TrimSpace(match.Fact.Sources[0].ObservationID) != "" {
+			hit.SourceId = &match.Fact.Sources[0].ObservationID
+			sourceType := "observation"
+			hit.SourceType = &sourceType
+		}
+		hits = append(hits, hit)
+	}
+	return apitypes.PeerRunRecallResponse{Available: true, Hits: hits}, nil
 }
 
 func (a *managedAgent) Close() error {

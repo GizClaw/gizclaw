@@ -26,9 +26,10 @@ type Agent struct {
 	agent  flowagent.Agent
 	engine engine.Engine
 
-	contextID  string
-	history    *conversationHistory
-	initiative sync.Once
+	contextID         string
+	history           *conversationHistory
+	initiativeMu      sync.Mutex
+	initiativeClaimed bool
 }
 
 // New validates Config and constructs a reusable Flowcraft Agent.
@@ -41,7 +42,10 @@ func New(source Config) (*Agent, error) {
 	if err != nil {
 		return nil, err
 	}
-	contextID := genx.NewStreamID()
+	contextID := config.ContextID
+	if contextID == "" {
+		contextID = genx.NewStreamID()
+	}
 	return &Agent{
 		config: config, agent: sdkAgent, engine: graphEngine,
 		contextID: contextID,
@@ -145,7 +149,12 @@ func (s *session) run() {
 	activeBypassID := ""
 	var inputFailure error
 	var previous <-chan struct{}
-	if s.transformer.claimInitiative() {
+	initiative, err := s.transformer.claimInitiative(s.invocation.Context())
+	if err != nil {
+		_ = s.invocation.Output().CloseWithError(err)
+		return
+	}
+	if initiative {
 		previous = s.startTurn("", nil)
 	}
 	for {
@@ -273,13 +282,25 @@ func (s *session) run() {
 	_ = s.invocation.Close()
 }
 
-func (t *Agent) claimInitiative() bool {
-	if t == nil || !t.config.StartAgent {
-		return false
+func (t *Agent) claimInitiative(ctx context.Context) (bool, error) {
+	if t == nil || t.config.Initiative == InitiativeDisabled {
+		return false, nil
 	}
-	claimed := false
-	t.initiative.Do(func() { claimed = true })
-	return claimed
+	t.initiativeMu.Lock()
+	defer t.initiativeMu.Unlock()
+	if t.initiativeClaimed {
+		return false, nil
+	}
+	t.initiativeClaimed = true
+	if t.config.Initiative == InitiativeOnReload {
+		return true, nil
+	}
+	messages, err := t.history.load(ctx)
+	if err != nil {
+		t.initiativeClaimed = false
+		return false, fmt.Errorf("flowcraft: inspect History for initiative: %w", err)
+	}
+	return len(messages) == 0, nil
 }
 
 type pendingBegin struct {
@@ -613,11 +634,25 @@ func (r *turnRun) finalize(ctx context.Context, delivered string, interrupted bo
 	if observed.Operation != nil && observed.Operation.Status == memory.OperationFailed {
 		return fmt.Errorf("flowcraft: Memory operation %q failed: %s", observed.Operation.ID, observed.Operation.Error)
 	}
-	if config.ObserveWaitForCompletion && observed.Operation != nil && observed.Operation.Status == memory.OperationPending {
+	if observed.Operation != nil && observed.Operation.Status == memory.OperationPending {
 		if strings.TrimSpace(observed.Operation.ID) == "" {
 			return fmt.Errorf("flowcraft: pending Memory operation has no ID")
 		}
-		waiter := config.Memory.(memory.OperationWaiter)
+		waiter, ok := config.Memory.(memory.OperationWaiter)
+		if !ok {
+			return fmt.Errorf("flowcraft: pending Memory operation requires OperationWaiter")
+		}
+		if !config.ObserveWaitForCompletion {
+			// Async semantic stores enqueue extraction work rather than running it in
+			// Observe. Drain that caller-owned work independently so a later turn can
+			// recall it without extending the current response lifecycle.
+			if processor, ok := config.Memory.(memory.AsyncOperationProcessor); ok {
+				go func(operationID string) {
+					_, _ = processor.ProcessAsync(context.WithoutCancel(ctx), operationID)
+				}(observed.Operation.ID)
+			}
+			return nil
+		}
 		completed, err := waiter.Wait(ctx, observed.Operation.ID)
 		if err != nil {
 			return fmt.Errorf("flowcraft: wait Memory operation %q: %w", observed.Operation.ID, err)

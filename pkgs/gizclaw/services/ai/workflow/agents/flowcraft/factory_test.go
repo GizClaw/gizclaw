@@ -121,6 +121,63 @@ func TestFactoryRequiresDurableBackendForEnabledMemory(t *testing.T) {
 	}
 }
 
+func TestFactoryExposesEnabledMemoryRuntimeAPI(t *testing.T) {
+	spec := decodeFlowcraftSpec(t, `{
+		"agent":{"id":"assistant","name":"Assistant","graph":{"name":"graph","entry":"route","nodes":[{"id":"route","type":"passthrough","publish":true}]}},
+		"memory":{"enabled":true,"extract":{"enabled":false}}
+	}`)
+	agent, err := (Factory{
+		GenX: peergenx.New(peergenx.Service{}), MemoryObjects: objectstore.Dir(t.TempDir()),
+	}).NewAgent(t.Context(), agenthost.Spec{
+		Workspace: apitypes.Workspace{Name: "workspace-a"},
+		Workflow:  apitypes.Workflow{Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverFlowcraft, Flowcraft: &spec}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if closer, ok := agent.(io.Closer); ok {
+			_ = closer.Close()
+		}
+	})
+	status, err := agent.Status(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status.MemoryStatsAvailable == nil || !*status.MemoryStatsAvailable || status.RecallAvailable == nil || !*status.RecallAvailable {
+		t.Fatalf("memory availability = %+v", status)
+	}
+	stats, err := agent.MemoryStats(t.Context(), apitypes.PeerRunMemoryStatsRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !stats.Available || !stats.Enabled || stats.Backend == nil || *stats.Backend != "flowcraft" {
+		t.Fatalf("memory stats = %+v", stats)
+	}
+	limit := 5
+	recalled, err := agent.Recall(t.Context(), apitypes.PeerRunRecallRequest{Query: "nothing", Limit: &limit})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !recalled.Available || len(recalled.Hits) != 0 {
+		t.Fatalf("recall = %+v", recalled)
+	}
+}
+
+func TestMapInitiativePreservesWorkspacePolicy(t *testing.T) {
+	agent := apitypes.FlowcraftConversationStartsAgent
+	peer := apitypes.FlowcraftConversationStartsPeer
+	if got := mapInitiative(&apitypes.FlowcraftConversation{Starts: &agent}, "once_when_empty"); got != genxflowcraft.InitiativeOnceWhenEmpty {
+		t.Fatalf("once_when_empty = %q", got)
+	}
+	if got := mapInitiative(&apitypes.FlowcraftConversation{Starts: &agent}, "on_reload"); got != genxflowcraft.InitiativeOnReload {
+		t.Fatalf("on_reload = %q", got)
+	}
+	if got := mapInitiative(&apitypes.FlowcraftConversation{Starts: &peer}, "once_when_empty"); got != genxflowcraft.InitiativeDisabled {
+		t.Fatalf("peer initiative = %q", got)
+	}
+}
+
 func TestMapMemoryConfigPreservesPolicy(t *testing.T) {
 	spec := decodeFlowcraftSpec(t, `{
 		"agent":{"id":"assistant","name":"Assistant","graph":{"name":"graph","entry":"route","nodes":[{"id":"route","type":"passthrough","publish":true}]}},

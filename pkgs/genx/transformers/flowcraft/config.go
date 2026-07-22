@@ -22,6 +22,9 @@ type Config struct {
 	Name string
 	// Description is copied to the Flowcraft Agent card.
 	Description string
+	// ContextID is the stable conversation identity used by Flowcraft, History,
+	// and State. Empty creates an invocation-lifetime identity for standalone use.
+	ContextID string
 
 	// Graph is the required Flowcraft Graph definition.
 	Graph flowgraph.GraphDefinition
@@ -60,10 +63,18 @@ type Config struct {
 	// turn. Returned values are copied into the Board after durable State loads.
 	BoardInputs func(context.Context) (map[string]any, error)
 
-	// StartAgent runs one empty-input Graph turn on the first Transform call.
-	// The Agent owns this once-per-lifetime initiative across concurrent calls.
-	StartAgent bool
+	// Initiative controls the optional empty-input Graph turn.
+	Initiative InitiativePolicy
 }
+
+// InitiativePolicy controls when an Agent may run without user input.
+type InitiativePolicy string
+
+const (
+	InitiativeDisabled      InitiativePolicy = ""
+	InitiativeOnceWhenEmpty InitiativePolicy = "once_when_empty"
+	InitiativeOnReload      InitiativePolicy = "on_reload"
+)
 
 // MemoryRecallProfile recalls long-term memory into one Board variable.
 type MemoryRecallProfile struct {
@@ -139,6 +150,7 @@ func normalizeConfig(source Config) (Config, error) {
 	config := source
 	config.ID = strings.TrimSpace(config.ID)
 	config.Name = strings.TrimSpace(config.Name)
+	config.ContextID = strings.TrimSpace(config.ContextID)
 	config.HistoryScope = strings.TrimSpace(config.HistoryScope)
 	config.MemoryScope = memory.Scope(strings.TrimSpace(string(config.MemoryScope)))
 	if config.ID == "" {
@@ -149,6 +161,11 @@ func normalizeConfig(source Config) (Config, error) {
 	}
 	if config.MaxIterations < 0 {
 		return Config{}, fmt.Errorf("flowcraft: MaxIterations cannot be negative")
+	}
+	switch config.Initiative {
+	case InitiativeDisabled, InitiativeOnceWhenEmpty, InitiativeOnReload:
+	default:
+		return Config{}, fmt.Errorf("flowcraft: unsupported Initiative %q", config.Initiative)
 	}
 	if err := config.Graph.Validate(); err != nil {
 		return Config{}, fmt.Errorf("flowcraft: invalid Graph: %w", err)

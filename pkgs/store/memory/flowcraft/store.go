@@ -22,21 +22,27 @@ type Store struct {
 	temporal recall.TemporalStore
 	queue    *flowcraftAsyncQueue
 
-	mu         sync.Mutex
-	waitGate   chan struct{}
-	operations map[string]observeResult
-	ready      map[string]struct{}
-	failed     map[string]struct{}
-	closeOnce  sync.Once
-	closeErr   error
+	mu          sync.Mutex
+	waitGate    chan struct{}
+	operations  map[string]observeResult
+	ready       map[string]struct{}
+	failed      map[string]struct{}
+	asyncCtx    context.Context
+	asyncCancel context.CancelFunc
+	asyncWG     sync.WaitGroup
+	closing     bool
+	closeOnce   sync.Once
+	closeErr    error
 }
 
 func newStore(config Config, memory recall.Memory, temporal recall.TemporalStore, queue *flowcraftAsyncQueue) *Store {
 	waitGate := make(chan struct{}, 1)
 	waitGate <- struct{}{}
+	asyncCtx, asyncCancel := context.WithCancel(context.Background())
 	return &Store{
 		config: config, memory: memory, temporal: temporal, queue: queue,
 		waitGate: waitGate, operations: make(map[string]observeResult), ready: make(map[string]struct{}), failed: make(map[string]struct{}),
+		asyncCtx: asyncCtx, asyncCancel: asyncCancel,
 	}
 }
 
@@ -118,6 +124,28 @@ func (s *Store) Observe(ctx context.Context, observation memorystore.Observation
 		return observeResult{}, err
 	}
 	return observeResult{Facts: facts}, nil
+}
+
+// Stats reports materialized, non-internal facts for one scope.
+func (s *Store) Stats(ctx context.Context, scope memorystore.Scope) (memorystore.Statistics, error) {
+	if strings.TrimSpace(string(scope)) == "" {
+		return memorystore.Statistics{}, fmt.Errorf("%w: stats scope is required", errInvalidInput)
+	}
+	facts, err := s.temporal.List(ctx, nativeScope(scope), recall.ListQuery{})
+	if err != nil {
+		return memorystore.Statistics{}, mapFlowcraftError("stats", err)
+	}
+	stats := memorystore.Statistics{}
+	for _, fact := range facts {
+		if isFlowcraftProvenanceMarker(fact) {
+			continue
+		}
+		stats.ItemCount++
+		if fact.ObservedAt.After(stats.LastUpdatedAt) {
+			stats.LastUpdatedAt = fact.ObservedAt
+		}
+	}
+	return stats, nil
 }
 
 func validateFlowcraftFactCandidates(candidates []memorystore.FactCandidate) error {
@@ -611,3 +639,5 @@ func mapFlowcraftError(operation string, err error) error {
 
 var _ storeContract = (*Store)(nil)
 var _ operationWaiterContract = (*Store)(nil)
+var _ asyncProcessorContract = (*Store)(nil)
+var _ statisticsContract = (*Store)(nil)

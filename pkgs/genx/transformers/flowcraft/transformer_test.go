@@ -203,7 +203,7 @@ func TestAgentInitiativeRunsOnceAcrossTransformCalls(t *testing.T) {
 	t.Parallel()
 	generator := &echoGenerator{}
 	config := testConfig(generator)
-	config.StartAgent = true
+	config.Initiative = InitiativeOnReload
 	transformer, err := New(config)
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
@@ -251,11 +251,32 @@ func TestAgentInitiativeRunsOnceAcrossTransformCalls(t *testing.T) {
 	}
 }
 
+func TestOnceWhenEmptyUsesStableConversationHistory(t *testing.T) {
+	config := testConfig(&echoGenerator{})
+	config.ContextID = "workspace-agent"
+	config.Initiative = InitiativeOnceWhenEmpty
+	transformer, err := New(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if transformer.contextID != "workspace-agent" {
+		t.Fatalf("context ID = %q", transformer.contextID)
+	}
+	transformer.history.live = []flowmodel.Message{flowmodel.NewTextMessage(flowmodel.RoleUser, "existing")}
+	claimed, err := transformer.claimInitiative(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if claimed {
+		t.Fatal("once_when_empty claimed initiative with existing history")
+	}
+}
+
 func TestNewBOSInterruptsRunningInitiative(t *testing.T) {
 	t.Parallel()
 	generator := &initiativeInterruptGenerator{started: make(chan struct{})}
 	config := testConfig(generator)
-	config.StartAgent = true
+	config.Initiative = InitiativeOnReload
 	transformer, err := New(config)
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
@@ -950,7 +971,7 @@ func TestRecallProfileExpandsInputQueryTemplate(t *testing.T) {
 func TestAgentInitiativeSkipsInputRecallWhenQueryIsEmpty(t *testing.T) {
 	store := &waitingMemoryStore{}
 	config := testConfig(&echoGenerator{})
-	config.StartAgent = true
+	config.Initiative = InitiativeOnReload
 	config.Memory = store
 	config.MemoryScope = "runtime/user/agent"
 	config.RecallProfiles = []MemoryRecallProfile{{
