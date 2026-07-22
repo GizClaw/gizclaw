@@ -31,7 +31,8 @@ type peerDeleteWriteConn struct {
 
 type trackingGiznetConn struct {
 	*testGiznetConn
-	closed atomic.Bool
+	closed    atomic.Bool
+	dialCount atomic.Int32
 }
 
 type blockingBatchMutateStore struct {
@@ -60,6 +61,11 @@ func (s *blockingBatchMutateStore) BatchMutate(ctx context.Context, entries []kv
 func (c *trackingGiznetConn) Close() error {
 	c.closed.Store(true)
 	return nil
+}
+
+func (c *trackingGiznetConn) Dial(uint64) (net.Conn, error) {
+	c.dialCount.Add(1)
+	return nil, nil
 }
 
 func (c *peerDeleteWriteConn) Read([]byte) (int, error)         { return 0, net.ErrClosed }
@@ -273,7 +279,7 @@ func TestRPCPeerDeleteRejectsNewWorkBeforeDurableDeleteCommits(t *testing.T) {
 	}
 	peers.Store = blockingStore
 	manager := NewManager(peers)
-	transport := &testGiznetConn{publicKey: publicKey}
+	transport := &trackingGiznetConn{testGiznetConn: &testGiznetConn{publicKey: publicKey}}
 	manager.SetPeerUp(publicKey, transport)
 	peerConn := &PeerConn{Conn: transport, Service: &PeerService{manager: manager}}
 	peerConn.initRPC()
@@ -305,6 +311,12 @@ func TestRPCPeerDeleteRejectsNewWorkBeforeDurableDeleteCommits(t *testing.T) {
 	}
 	if manager.SetPeerRegistration(publicKey, transport, runtimeprofile.Registration{}) {
 		t.Fatal("deleting Peer accepted a registration")
+	}
+	if _, err := manager.peerRPCConn(publicKey); !errors.Is(err, ErrDeviceOffline) {
+		t.Fatalf("peerRPCConn(deleting) error = %v, want %v", err, ErrDeviceOffline)
+	}
+	if got := transport.dialCount.Load(); got != 0 {
+		t.Fatalf("peerRPCConn(deleting) called Dial %d times, want 0", got)
 	}
 	otherConn := &testGiznetConn{publicKey: otherPublicKey}
 	otherActivation := make(chan error, 1)

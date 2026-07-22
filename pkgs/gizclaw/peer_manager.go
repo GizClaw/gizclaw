@@ -349,6 +349,15 @@ func (m *Manager) SetPeerDown(publicKey giznet.PublicKey, conn giznet.Conn) {
 func (m *Manager) ForcePeerDown(publicKey giznet.PublicKey) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	state, ok := m.peers[publicKey]
+	if !ok {
+		return
+	}
+	if state.activating != nil {
+		state.conn = nil
+		state.registration = nil
+		return
+	}
 	delete(m.peers, publicKey)
 }
 
@@ -366,21 +375,19 @@ func (m *Manager) PeerRuntime(_ context.Context, publicKey giznet.PublicKey) api
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	state, ok := m.peers[publicKey]
-	if !ok || state.deleting {
+	if !ok || state.conn == nil || state.deleting {
 		return apitypes.Runtime{}
 	}
 	runtime := apitypes.Runtime{
 		Online: true,
 	}
-	if state.conn != nil {
-		if info := state.conn.PeerInfo(); info != nil {
-			runtime.LastSeenAt = info.LastSeen
-			runtime.RxBytes = &info.RxBytes
-			runtime.TxBytes = &info.TxBytes
-			if info.Endpoint != nil {
-				lastAddr := info.Endpoint.String()
-				runtime.LastAddr = &lastAddr
-			}
+	if info := state.conn.PeerInfo(); info != nil {
+		runtime.LastSeenAt = info.LastSeen
+		runtime.RxBytes = &info.RxBytes
+		runtime.TxBytes = &info.TxBytes
+		if info.Endpoint != nil {
+			lastAddr := info.Endpoint.String()
+			runtime.LastAddr = &lastAddr
 		}
 	}
 	return runtime
@@ -439,7 +446,7 @@ func (m *Manager) peerRPCConn(publicKey giznet.PublicKey) (net.Conn, error) {
 	m.mu.RLock()
 	state, ok := m.peers[publicKey]
 	var peerConn giznet.Conn
-	if ok {
+	if ok && !state.deleting {
 		peerConn = state.conn
 	}
 	m.mu.RUnlock()

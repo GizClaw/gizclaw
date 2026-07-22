@@ -124,6 +124,74 @@ func TestManagerActivatePeerDoesNotBlockUnrelatedPeer(t *testing.T) {
 	}
 }
 
+func TestManagerPeerRuntimeStaysOfflineUntilFirstActivationPublishes(t *testing.T) {
+	store := kv.NewMemory(nil)
+	blockingStore := &blockingGetStore{
+		Store:   store,
+		entered: make(chan struct{}),
+		release: make(chan struct{}),
+	}
+	manager := NewManager(&peer.Server{Store: blockingStore})
+	key := giznet.PublicKey{7, 3}
+	conn := &testGiznetConn{publicKey: key}
+	activation := make(chan error, 1)
+	go func() {
+		_, err := manager.activatePeer(context.Background(), conn)
+		activation <- err
+	}()
+	<-blockingStore.entered
+	if runtime := manager.PeerRuntime(context.Background(), key); runtime.Online {
+		t.Fatalf("runtime during first activation = %+v, want offline", runtime)
+	}
+	close(blockingStore.release)
+	if err := <-activation; err != nil {
+		t.Fatalf("activatePeer: %v", err)
+	}
+	if runtime := manager.PeerRuntime(context.Background(), key); !runtime.Online {
+		t.Fatalf("runtime after activation = %+v, want online", runtime)
+	}
+}
+
+func TestManagerForcePeerDownPreservesReplacementActivation(t *testing.T) {
+	store := kv.NewMemory(nil)
+	peers := &peer.Server{Store: store}
+	manager := NewManager(peers)
+	key := giznet.PublicKey{7, 5}
+	if _, err := peers.EnsureConnectedPeer(context.Background(), key); err != nil {
+		t.Fatalf("EnsureConnectedPeer: %v", err)
+	}
+	oldConn := &testGiznetConn{publicKey: key}
+	manager.SetPeerUp(key, oldConn)
+	if !manager.SetPeerRegistration(key, oldConn, runtimeprofile.Registration{}) {
+		t.Fatal("SetPeerRegistration rejected active connection")
+	}
+	blockingStore := &blockingGetStore{
+		Store:   store,
+		entered: make(chan struct{}),
+		release: make(chan struct{}),
+	}
+	peers.Store = blockingStore
+	newConn := &testGiznetConn{publicKey: key}
+	activation := make(chan error, 1)
+	go func() {
+		_, err := manager.activatePeer(context.Background(), newConn)
+		activation <- err
+	}()
+	<-blockingStore.entered
+
+	manager.ForcePeerDown(key)
+	if _, ok := manager.Peer(key); ok {
+		t.Fatal("forced-down generation remained online")
+	}
+	close(blockingStore.release)
+	if err := <-activation; err != nil {
+		t.Fatalf("replacement activatePeer: %v", err)
+	}
+	if got, ok := manager.Peer(key); !ok || got != newConn {
+		t.Fatalf("replacement after force down = %v, %v, want new connection", got, ok)
+	}
+}
+
 func TestManagerActivatePeerRollsBackReservationOnEnsureFailure(t *testing.T) {
 	store := kv.NewMemory(nil)
 	peers := &peer.Server{Store: store}
