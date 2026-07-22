@@ -9,7 +9,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { listFirmwares, type Firmware } from "@gizclaw/gizclaw/admin";
 import { expectData } from "@/dashboard";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -22,7 +21,6 @@ import { EmptyState } from "@/dashboard";
 import { PageHeader, PageSummaryCard } from "@/dashboard";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,

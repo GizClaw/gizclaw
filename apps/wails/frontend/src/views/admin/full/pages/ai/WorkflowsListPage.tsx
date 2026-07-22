@@ -7,7 +7,6 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -17,7 +16,6 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -223,9 +221,9 @@ export function WorkflowsListPage(): JSX.Element {
                     <TableCell>{workflowSpecLabel(workflow)}</TableCell>
                     <TableCell
                       className="truncate text-sm text-muted-foreground"
-                      title={workflowDescription(workflow) || "—"}
+                      title="—"
                     >
-                      {workflowDescription(workflow) || "—"}
+                      —
                     </TableCell>
                     <TableCell className="text-right text-sm text-muted-foreground">
                       —
@@ -246,10 +244,6 @@ function isInteractiveTarget(target: EventTarget): boolean {
     target instanceof Element &&
     target.closest("a,button,input,select,textarea") !== null
   );
-}
-
-function workflowDescription(workflow: Workflow): string {
-  return "";
 }
 
 function workflowDisplayName(workflow: Workflow): string {

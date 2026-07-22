@@ -26,7 +26,6 @@ import {
 import { FormField } from "@/dashboard";
 import { Input } from "@/components/ui/input";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,

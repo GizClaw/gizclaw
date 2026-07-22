@@ -142,7 +142,7 @@ async function snapshotResult<T = any>(key: string): Promise<ApiResult<T>> {
         key as keyof NonNullable<typeof snapshot.runtimeProfiles>
       ];
     return {
-      data: { items: snapshot[key] ?? [], ...(runtimeProfile ?? {}) } as T,
+      data: { items: snapshot[key] ?? [], ...runtimeProfile } as T,
     };
   } catch (error) {
     return { error };
@@ -151,9 +151,9 @@ async function snapshotResult<T = any>(key: string): Promise<ApiResult<T>> {
 
 function params(options?: RequestOptions): Record<string, unknown> {
   return {
-    ...(options?.query ?? {}),
-    ...(options?.path ?? {}),
-    ...(options?.body ?? {}),
+    ...options?.query,
+    ...options?.path,
+    ...options?.body,
   };
 }
 
@@ -533,7 +533,7 @@ async function drainRuntimeCollection<T>(
   ) => Promise<ApiResult<RuntimeCollectionPage<T>>>,
   missingIsEmpty = false,
 ): Promise<ApiResult<RuntimeCollectionPage<T>>> {
-  const query = { ...(options?.query ?? {}) };
+  const query = { ...options?.query };
   delete query.collection;
   delete query.cursor;
   const items: T[] = [];
@@ -543,7 +543,7 @@ async function drainRuntimeCollection<T>(
   let runtimeProfileRevision = "";
   for (;;) {
     const result = await fetchPage({
-      ...(options ?? {}),
+      ...options,
       query: { ...query, collection, ...(cursor == null ? {} : { cursor }) },
     });
     if (result.error != null) {

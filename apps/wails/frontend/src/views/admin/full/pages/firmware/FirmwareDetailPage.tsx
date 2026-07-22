@@ -56,7 +56,6 @@ import { PageHeader, PageSummaryCard } from "@/dashboard";
 import { ResourceCliPanel } from "../../components/ResourceCliPanel";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,

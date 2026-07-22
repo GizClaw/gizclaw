@@ -25,7 +25,6 @@ import { ErrorBanner } from "@/dashboard";
 import { PageHeader, PageSummaryCard } from "@/dashboard";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,

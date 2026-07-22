@@ -19,7 +19,6 @@ import type * as RPCPayload from "./generated/rpc/payload-codec.ts";
 export type * from "./generated/rpc/payload-codec.ts";
 export { RPC_METHODS } from "./generated/rpc/method-map.ts";
 
-type WithRequired<T, K extends keyof T> = Omit<T, K> & Required<Pick<T, K>>;
 type Override<T, U> = Omit<T, keyof U> & U;
 
 export type FriendGroupMemberMutableRole = "member" | "admin";

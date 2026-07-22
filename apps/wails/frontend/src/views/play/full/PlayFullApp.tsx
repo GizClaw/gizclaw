@@ -110,7 +110,6 @@ import {
   listPeerPets,
   listPeerPointsTransactions,
   listPeerRewardGrants,
-  listPeerVoices,
   listPeerWorkspaceHistory,
   listPeerWorkflows,
   listPeerWorkspaces,
@@ -139,7 +138,6 @@ import {
   type PeerRunHistoryEntry,
   type PeerRunMemoryStatsResponse,
   type PeerRunRecallHit,
-  type PeerRunRecallResponse,
   type PetObject,
   type PetActionsObject,
   type PlayWorkspaceMode,
@@ -148,7 +146,6 @@ import {
   type PointsAccountObject,
   type PointsTransactionObject,
   type RewardGrantObject,
-  type WebRtcSessionDescription,
   type Workflow as PeerWorkflow,
   type Workspace,
   type WorkspaceParameters,
@@ -200,7 +197,6 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Toaster } from "@/components/ui/sonner";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -372,11 +368,9 @@ export function PlayFullApp({
     setLoading(true);
     setError("");
     const failures: string[] = [];
-    await Promise.all([
-      listModels()
-        .then(setModels)
-        .catch((err: unknown) => failures.push(`models: ${toMessage(err)}`)),
-    ]);
+    await listModels()
+      .then(setModels)
+      .catch((err: unknown) => failures.push(`models: ${toMessage(err)}`));
     if (failures.length > 0) {
       setError(failures.join("\n"));
     }
@@ -606,11 +600,8 @@ function GameplayPanel(): JSX.Element {
     try {
       await expectData(
         adoptPeerPet({
-          body: {
-            ...(adoptName.trim() !== ""
-              ? { display_name: adoptName.trim() }
-              : {}),
-          },
+          body:
+            adoptName.trim() !== "" ? { display_name: adoptName.trim() } : {},
         }),
       );
       setAdoptName("");
@@ -7645,16 +7636,6 @@ function formatDate(value: number | string | undefined | null): string {
     return String(value);
   }
   return date.toLocaleString();
-}
-
-function formatDuration(value: number | undefined | null): string {
-  if (value == null || !Number.isFinite(value)) {
-    return "-";
-  }
-  if (value < 1000) {
-    return `${Math.round(value)}ms`;
-  }
-  return `${(value / 1000).toFixed(1)}s`;
 }
 
 function formatBytes(value: number | undefined | null): string {

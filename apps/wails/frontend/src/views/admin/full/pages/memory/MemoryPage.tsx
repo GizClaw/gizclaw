@@ -1,6 +1,5 @@
 import type { ComponentType } from "react";
 import { Activity, Database, MemoryStick } from "lucide-react";
-import { Link } from "react-router-dom";
 
 import {
   Card,

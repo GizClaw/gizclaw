@@ -1147,7 +1147,7 @@ function singleValueTypeField(desc) {
     : null;
 }
 
-function tsFieldOptional(field, parsed) {
+function tsFieldOptional(field, _parsed) {
   return (
     field.optional === true ||
     field.oneof === true ||
