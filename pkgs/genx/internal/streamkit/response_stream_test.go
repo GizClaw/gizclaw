@@ -87,7 +87,7 @@ func TestResponseStreamKeepsInterruptedRoutesOnResponseID(t *testing.T) {
 	_ = source.Close()
 	stream, _ := NewResponseStream(source)
 	var responseID string
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		chunk, err := stream.Next()
 		if err != nil {
 			t.Fatalf("Next(%d) error = %v", i, err)

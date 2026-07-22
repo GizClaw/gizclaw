@@ -76,7 +76,7 @@ func TestWorkflowCatalogFixtures(t *testing.T) {
 func TestFlowcraftGeneratorsUseProductionTokenBudget(t *testing.T) {
 	resourcePaths, err := filepath.Glob(filepath.Join("resources", "04-workflows", "*-flowcraft-*.yaml"))
 	if err != nil {
-		 t.Fatal(err)
+		t.Fatal(err)
 	}
 	for _, path := range resourcePaths {
 		t.Run(strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)), func(t *testing.T) {
@@ -104,7 +104,7 @@ func TestFlowcraftGeneratorsUseProductionTokenBudget(t *testing.T) {
 
 	workspacePaths, err := filepath.Glob(filepath.Join("workspaces", "flowcraft-*.json"))
 	if err != nil {
-		 t.Fatal(err)
+		t.Fatal(err)
 	}
 	for _, path := range workspacePaths {
 		t.Run(strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)), func(t *testing.T) {

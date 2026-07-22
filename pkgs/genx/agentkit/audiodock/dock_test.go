@@ -779,10 +779,7 @@ func TestDockConcurrentTransformsDoNotShareVoiceState(t *testing.T) {
 	}
 	var wg sync.WaitGroup
 	for _, text := range []string{"alpha", "beta"} {
-		text := text
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			input := &sliceStream{chunks: []*genx.MessageChunk{{Role: genx.RoleUser, Part: genx.Text(text), Ctrl: &genx.StreamCtrl{StreamID: text, EndOfStream: true}}}}
 			output, err := dock.Transform(t.Context(), input)
 			if err != nil {
@@ -790,7 +787,7 @@ func TestDockConcurrentTransformsDoNotShareVoiceState(t *testing.T) {
 				return
 			}
 			_ = readAll(t, output)
-		}()
+		})
 	}
 	wg.Wait()
 	mu.Lock()

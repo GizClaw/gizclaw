@@ -56,7 +56,6 @@ pkgs/genx/transformers/doubaorealtime/implementation_test.go:96:3: Goroutine cre
 pkgs/genx/transformers/doubaorealtime/realtime_audio.go:282:7: for loop can be modernized using range over int
 pkgs/genx/transformers/doubaorealtime/realtime_audio.go:298:7: for loop can be modernized using range over int
 pkgs/genx/transformers/doubaorealtimeduplex/implementation_test.go:75:3: Goroutine creation can be simplified using WaitGroup.Go
-pkgs/genx/transformers/internal/streamkit/response_stream_test.go:89:6: for loop can be modernized using range over int
 pkgs/gizclaw/api/openaihttp/generated_test.go:177:6: stringPtr can be an inlinable wrapper around new(expr)
 pkgs/gizclaw/api/openaihttp/generated_test.go:66:11: Replace []byte(fmt.Sprintf...) with fmt.Appendf
 pkgs/gizclaw/api/openaihttp/generated_test.go:80:19: call of stringPtr(x) can be simplified to new(x)
@@ -107,10 +106,10 @@ pkgs/gizclaw/api/rpcapi/payload_codec.go:990:21: reflect.TypeOf call can be simp
 pkgs/gizclaw/credential_body_test.go:10:6: testStringPtr can be an inlinable wrapper around new(expr)
 pkgs/gizclaw/credential_body_test.go:14:80: call of testStringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/credential_body_test.go:34:78: call of testStringPtr(x) can be simplified to new(x)
-pkgs/gizclaw/integration_admin_service_test.go:108:58: call of strPtr(x) can be simplified to new(x)
-pkgs/gizclaw/integration_admin_service_test.go:187:58: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/integration_admin_service_test.go:116:58: call of strPtr(x) can be simplified to new(x)
 pkgs/gizclaw/integration_admin_service_test.go:19:58: call of strPtr(x) can be simplified to new(x)
-pkgs/gizclaw/integration_admin_service_test.go:83:58: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/integration_admin_service_test.go:201:58: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/integration_admin_service_test.go:91:58: call of strPtr(x) can be simplified to new(x)
 pkgs/gizclaw/integration_peer_http_test.go:18:16: call of strPtr(x) can be simplified to new(x)
 pkgs/gizclaw/integration_peer_http_test.go:19:48: call of strPtr(x) can be simplified to new(x)
 pkgs/gizclaw/integration_peer_http_test.go:21:18: call of strPtr(x) can be simplified to new(x)
@@ -273,12 +272,12 @@ pkgs/gizclaw/services/ai/voice/server_test.go:172:24: call of stringPtr(x) can b
 pkgs/gizclaw/services/ai/voice/server_test.go:378:32: call of stringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/ai/voice/server_test.go:426:6: stringPtr can be an inlinable wrapper around new(expr)
 pkgs/gizclaw/services/ai/workflow/agents/asttranslate/factory.go:478:10: strings.Index can be simplified using strings.Cut
-pkgs/gizclaw/services/ai/workflow/agents/asttranslate/factory_test.go:275:6: for loop can be modernized using range over int
-pkgs/gizclaw/services/ai/workflow/agents/asttranslate/factory_test.go:377:6: for loop can be modernized using range over int
-pkgs/gizclaw/services/ai/workflow/agents/asttranslate/factory_test.go:600:20: call of stringPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/ai/workflow/agents/asttranslate/factory_test.go:606:13: call of stringPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/ai/workflow/agents/asttranslate/factory_test.go:789:6: stringPtr can be an inlinable wrapper around new(expr)
-pkgs/gizclaw/services/ai/workflow/agents/asttranslate/factory_test.go:793:6: astModePtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/services/ai/workflow/agents/asttranslate/factory_test.go:276:6: for loop can be modernized using range over int
+pkgs/gizclaw/services/ai/workflow/agents/asttranslate/factory_test.go:378:6: for loop can be modernized using range over int
+pkgs/gizclaw/services/ai/workflow/agents/asttranslate/factory_test.go:601:20: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/workflow/agents/asttranslate/factory_test.go:607:13: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/workflow/agents/asttranslate/factory_test.go:787:6: stringPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/services/ai/workflow/agents/asttranslate/factory_test.go:791:6: astModePtr can be an inlinable wrapper around new(expr)
 pkgs/gizclaw/services/ai/workflow/agents/chatroom/factory_test.go:755:17: context.WithCancel can be modernized using t.Context
 pkgs/gizclaw/services/ai/workflow/agents/doubaorealtime/factory_test.go:132:10: call of stringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/ai/workflow/agents/doubaorealtime/factory_test.go:16:6: stringPtr can be an inlinable wrapper around new(expr)
@@ -296,20 +295,6 @@ pkgs/gizclaw/services/ai/workflow/agents/flowcraft/credential_body_test.go:35:3:
 pkgs/gizclaw/services/ai/workflow/agents/flowcraft/credential_body_test.go:60:80: call of testStringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/ai/workflow/agents/flowcraft/credential_body_test.go:68:86: call of testStringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/ai/workflow/agents/flowcraft/credential_body_test.go:77:3: copying variable is unneeded
-pkgs/gizclaw/services/ai/workflow/agents/flowcraft/factory.go:585:4: Replace m[k]=v loop with maps.Copy
-pkgs/gizclaw/services/ai/workflow/agents/flowcraft/factory_test.go:1179:123: call of ptrString(x) can be simplified to new(x)
-pkgs/gizclaw/services/ai/workflow/agents/flowcraft/factory_test.go:2181:18: call of testStringPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/ai/workflow/agents/flowcraft/factory_test.go:2967:29: call of ptrString(x) can be simplified to new(x)
-pkgs/gizclaw/services/ai/workflow/agents/flowcraft/factory_test.go:2967:45: call of ptrString(x) can be simplified to new(x)
-pkgs/gizclaw/services/ai/workflow/agents/flowcraft/factory_test.go:2972:6: ptrString can be an inlinable wrapper around new(expr)
-pkgs/gizclaw/services/ai/workflow/agents/flowcraft/factory_test.go:3081:26: call of ptrString(x) can be simplified to new(x)
-pkgs/gizclaw/services/ai/workflow/agents/flowcraft/factory_test.go:3082:26: call of ptrString(x) can be simplified to new(x)
-pkgs/gizclaw/services/ai/workflow/agents/flowcraft/factory_test.go:3083:26: call of ptrString(x) can be simplified to new(x)
-pkgs/gizclaw/services/ai/workflow/agents/flowcraft/factory_test.go:3090:26: call of ptrString(x) can be simplified to new(x)
-pkgs/gizclaw/services/ai/workflow/agents/flowcraft/factory_test.go:3091:26: call of ptrString(x) can be simplified to new(x)
-pkgs/gizclaw/services/ai/workflow/agents/flowcraft/factory_test.go:349:17: context.WithCancel can be modernized using t.Context
-pkgs/gizclaw/services/ai/workflow/agents/flowcraft/factory_test.go:426:17: context.WithCancel can be modernized using t.Context
-pkgs/gizclaw/services/ai/workflow/agents/flowcraft/factory_test.go:581:17: context.WithCancel can be modernized using t.Context
 pkgs/gizclaw/services/ai/workspace/server.go:260:17: call of boolPointer(x) can be simplified to new(x)
 pkgs/gizclaw/services/ai/workspace/server.go:431:17: call of boolPointer(x) can be simplified to new(x)
 pkgs/gizclaw/services/ai/workspace/server.go:527:22: call of boolPointer(x) can be simplified to new(x)
@@ -317,7 +302,7 @@ pkgs/gizclaw/services/ai/workspace/server.go:543:6: boolPointer can be an inlina
 pkgs/gizclaw/services/ai/workspace/server.go:62:3: Replace m[k]=v loop with maps.Copy
 pkgs/gizclaw/services/ai/workspace/server.go:72:3: Replace m[k]=v loop with maps.Copy
 pkgs/gizclaw/services/ai/workspace/server.go:82:3: Replace m[k]=v loop with maps.Copy
-pkgs/gizclaw/services/ai/workspace/server.go:950:4: Replace m[k]=v loop with maps.Copy
+pkgs/gizclaw/services/ai/workspace/server.go:912:4: Replace m[k]=v loop with maps.Copy
 pkgs/gizclaw/services/device/firmware/artifact.go:574:23: Ranging over SplitSeq is more efficient
 pkgs/gizclaw/services/device/firmware/artifact.go:574:2: Loop can be simplified using slices.Contains
 pkgs/gizclaw/services/device/firmware/artifact_fuzz_test.go:78:23: Ranging over SplitSeq is more efficient
@@ -346,8 +331,8 @@ pkgs/gizclaw/services/gameplay/reward.go:207:6: stringPtr can be an inlinable wr
 pkgs/gizclaw/services/gameplay/runtime.go:942:12: call of stringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/gameplay/runtime.go:956:12: call of stringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/runtime/agent/resolver.go:63:5: HasPrefix + TrimPrefix can be simplified to CutPrefix
-pkgs/gizclaw/services/runtime/agenthost/context.go:39:3: Replace m[k]=v loop with maps.Copy
-pkgs/gizclaw/services/runtime/agenthost/resolver.go:185:5: HasPrefix + TrimPrefix can be simplified to CutPrefix
+pkgs/gizclaw/services/runtime/agenthost/context.go:43:3: Replace m[k]=v loop with maps.Copy
+pkgs/gizclaw/services/runtime/agenthost/resolver.go:202:5: HasPrefix + TrimPrefix can be simplified to CutPrefix
 pkgs/gizclaw/services/runtime/peer/store_ops.go:346:5: if statement can be modernized using min
 pkgs/gizclaw/services/runtime/peerresource/access.go:610:6: ptr can be an inlinable wrapper around new(expr)
 pkgs/gizclaw/services/runtime/peerresource/server.go:1215:19: reflect.TypeOf call can be simplified using TypeFor
@@ -463,8 +448,7 @@ pkgs/gizclaw/services/system/resourcemanager/minimax_test.go:305:19: call of str
 pkgs/gizclaw/services/system/resourcemanager/minimax_test.go:337:14: call of ptr(x) can be simplified to new(x)
 pkgs/gizclaw/services/system/resourcemanager/minimax_test.go:76:19: call of stringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/system/resourcemanager/workspace.go:160:3: Replace m[k]=v loop with maps.Copy
-pkgs/gizclaw/test_credential_body_external_test.go:25:18: call of stringPtr(x) can be simplified to new(x)
-pkgs/gizclaw/test_credential_body_external_test.go:32:6: stringPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/test_credential_body_external_test.go:31:6: stringPtr can be an inlinable wrapper around new(expr)
 pkgs/gizedge/config_test.go:249:6: for loop can be modernized using range over int
 pkgs/gizedge/config_test.go:468:17: context.WithCancel can be modernized using t.Context
 pkgs/giznet/gizhttp/server_test.go:121:17: context.WithCancel can be modernized using t.Context

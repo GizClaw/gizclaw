@@ -10,8 +10,8 @@ import (
 
 	"github.com/GizClaw/doubao-speech-go"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
-	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/audiostream"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/streamkit"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/audiostream"
 )
 
 // SeedV2 is a TTS transformer using Doubao seed-tts-2.0 (大模型 TTS 2.0).
