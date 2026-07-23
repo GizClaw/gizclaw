@@ -424,6 +424,60 @@ func TestPeerConnCloseStopsAgentRuntime(t *testing.T) {
 	}
 }
 
+func TestPeerConnCloseDoesNotWaitForBlockedRuntimeTransition(t *testing.T) {
+	ctx := context.Background()
+	keyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair error = %v", err)
+	}
+	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	if _, err := store.SetRunAgent(ctx, keyPair.Public, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
+		t.Fatalf("SetRunAgent() error = %v", err)
+	}
+	source := newPeerConnBlockingOpenInput()
+	runtime := &agenthost.Service{
+		Host:      peerConnTestHost{output: newPeerConnBlockingStream()},
+		PeerRun:   store,
+		PublicKey: keyPair.Public,
+		Source:    source,
+		Consumer: agenthost.StreamConsumerFunc(func(ctx context.Context, _ genx.Stream) error {
+			<-ctx.Done()
+			return nil
+		}),
+	}
+	reloadDone := make(chan error, 1)
+	go func() {
+		_, err := runtime.Reload(ctx)
+		reloadDone <- err
+	}()
+	select {
+	case <-source.openEntered:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for blocked Reload")
+	}
+	originalStopTimeout := peerConnRuntimeStopTimeout
+	peerConnRuntimeStopTimeout = 50 * time.Millisecond
+	t.Cleanup(func() { peerConnRuntimeStopTimeout = originalStopTimeout })
+	peer := &PeerConn{agentHost: runtime, agentInput: source}
+	startedAt := time.Now()
+	err = peer.close()
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("close() error = %v, want deadline exceeded", err)
+	}
+	if elapsed := time.Since(startedAt); elapsed > time.Second {
+		t.Fatalf("close() waited %s for blocked runtime transition", elapsed)
+	}
+	close(source.openRelease)
+	select {
+	case err := <-reloadDone:
+		if err != nil {
+			t.Fatalf("Reload() error = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for Reload after close")
+	}
+}
+
 func TestPeerConnHandleTelemetryPacket(t *testing.T) {
 	ctx := context.Background()
 	keyPair, err := giznet.GenerateKeyPair()
@@ -873,6 +927,29 @@ type blockingPeerAgentInput struct {
 	pushRelease chan struct{}
 	pushOnce    sync.Once
 	opens       int
+}
+
+type peerConnBlockingOpenInput struct {
+	openEntered chan struct{}
+	openRelease chan struct{}
+}
+
+func newPeerConnBlockingOpenInput() *peerConnBlockingOpenInput {
+	return &peerConnBlockingOpenInput{openEntered: make(chan struct{}), openRelease: make(chan struct{})}
+}
+
+func (s *peerConnBlockingOpenInput) OpenAgentInput(context.Context) (genx.Stream, error) {
+	close(s.openEntered)
+	<-s.openRelease
+	return agenthost.NewInputStream(1), nil
+}
+
+func (s *peerConnBlockingOpenInput) Push(context.Context, *genx.MessageChunk) error {
+	return agenthost.ErrNoActiveInput
+}
+
+func (s *peerConnBlockingOpenInput) Close() error {
+	return nil
 }
 
 func newBlockingPeerAgentInput() *blockingPeerAgentInput {

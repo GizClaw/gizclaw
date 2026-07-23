@@ -39,6 +39,7 @@ const peerConnOpusFrameDuration = 20 * time.Millisecond
 const peerConnTelemetryQueueSize = 32
 
 var peerConnTelemetryShutdownTimeout = 2 * time.Second
+var peerConnRuntimeStopTimeout = 2 * time.Second
 
 // PeerConn is the in-memory runtime for one active peer connection.
 // It wraps the existing PeerService bundle and serves one live conn at a time.
@@ -65,6 +66,23 @@ type peerAgentInput interface {
 	agenthost.StreamSource
 	agenthost.InputPusher
 	Close() error
+}
+
+type peerConnInputPusher struct {
+	peer  *PeerConn
+	input peerAgentInput
+}
+
+func (p peerConnInputPusher) Push(ctx context.Context, chunk *genx.MessageChunk) error {
+	if p.peer == nil || p.input == nil {
+		return agenthost.ErrNoActiveInput
+	}
+	p.peer.agentInputMu.Lock()
+	defer p.peer.agentInputMu.Unlock()
+	if p.peer.isRetiring() {
+		return ErrPeerConnRetiring
+	}
+	return p.input.Push(ctx, chunk)
 }
 
 // CreateAudioTrack creates a writable audio track on the peer mixer.
@@ -417,16 +435,27 @@ func (h *PeerConn) close() error {
 	var closeErr error
 	h.closeOnce.Do(func() {
 		h.closed.Store(true)
-		if h.agentHost != nil {
-			_, err := h.agentHost.Stop(context.Background())
-			closeErr = errors.Join(closeErr, err)
+		if h.Conn != nil {
+			if err := h.Conn.Close(); err != nil && !errors.Is(err, giznet.ErrConnClosed) {
+				closeErr = errors.Join(closeErr, err)
+			}
 		}
 		if h.agentInput != nil {
 			closeErr = errors.Join(closeErr, h.agentInput.Close())
 		}
-		if h.Conn != nil {
-			if err := h.Conn.Close(); err != nil && !errors.Is(err, giznet.ErrConnClosed) {
+		if h.agentHost != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), peerConnRuntimeStopTimeout)
+			defer cancel()
+			stopDone := make(chan error, 1)
+			go func() {
+				_, err := h.agentHost.Stop(ctx)
+				stopDone <- err
+			}()
+			select {
+			case err := <-stopDone:
 				closeErr = errors.Join(closeErr, err)
+			case <-ctx.Done():
+				closeErr = errors.Join(closeErr, ctx.Err())
 			}
 		}
 		mx := h.mixer
@@ -674,25 +703,22 @@ func (h *PeerConn) pushAgentInputChunk(ctx context.Context, chunk *genx.MessageC
 		// queued chunk must retain the runtime it observed when it arrived.
 		revision = host.RuntimeRevision()
 	}
-	h.agentInputMu.Lock()
-	defer h.agentInputMu.Unlock()
-	if h.isRetiring() {
-		return ErrPeerConnRetiring
-	}
-	if h.agentInput == nil {
+	input := h.agentInput
+	if input == nil {
 		return nil
 	}
 	if host == nil {
-		return h.agentInput.Push(ctx, chunk)
+		return peerConnInputPusher{peer: h, input: input}.Push(ctx, chunk)
 	}
-	pushed, err := host.PushInputIfCurrentRevision(ctx, revision, h.agentInput, chunk)
+	inputPusher := peerConnInputPusher{peer: h, input: input}
+	pushed, err := host.PushInputIfCurrentRevision(ctx, revision, inputPusher, chunk)
 	if !pushed {
 		return nil
 	}
 	if !errors.Is(err, agenthost.ErrNoActiveInput) {
 		return err
 	}
-	reloaded, err := host.ReloadAndPushInputIfCurrentRevision(ctx, revision, h.agentInput, chunk)
+	reloaded, err := host.ReloadAndPushInputIfCurrentRevision(ctx, revision, inputPusher, chunk)
 	if !reloaded {
 		return err
 	}
