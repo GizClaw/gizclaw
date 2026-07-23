@@ -413,7 +413,7 @@ func isRPCNotFound(err error) bool {
 func workflowSpec(cfg config) rpcapi.WorkflowSpec {
 	if cfg.isFlowcraftAgent() {
 		flowcraft := cloneWorkflowMap(cfg.Workflow.Flowcraft)
-		flowcraft["voice_adapter"] = map[string]interface{}{
+		flowcraft["voice_adapter"] = map[string]any{
 			"asr_model":     cfg.Workflow.VoiceAdapter.ASRModel,
 			"default_voice": cfg.Workflow.VoiceAdapter.DefaultVoice,
 			"node_voices":   cfg.Workflow.VoiceAdapter.NodeVoices,
@@ -426,6 +426,9 @@ func workflowSpec(cfg config) rpcapi.WorkflowSpec {
 	if cfg.isASTTranslateAgent() {
 		spec := rpcapi.ASTTranslateWorkflowSpec{
 			TranslationModel: cfg.Workflow.Translation,
+		}
+		if cfg.Workflow.ASTTranslate.LangPair != "" {
+			spec.LangPair = &cfg.Workflow.ASTTranslate.LangPair
 		}
 		if cfg.Workflow.ASTTranslate.Mode != "" {
 			mode := rpcapi.ASTTranslateMode(cfg.Workflow.ASTTranslate.Mode)
@@ -456,7 +459,7 @@ func workflowSpec(cfg config) rpcapi.WorkflowSpec {
 	}
 }
 
-func cloneWorkflowMap(in map[string]interface{}) rpcapi.FlowcraftWorkflowSpec {
+func cloneWorkflowMap(in map[string]any) rpcapi.FlowcraftWorkflowSpec {
 	out := make(rpcapi.FlowcraftWorkflowSpec, len(in))
 	for key, value := range in {
 		out[key] = value
@@ -469,24 +472,21 @@ func workspaceDocument(cfg config) (rpcapi.WorkspaceCreateRequest, error) {
 	switch {
 	case cfg.isFlowcraftAgent():
 		typed := rpcapi.FlowcraftWorkspaceParameters{
-			AgentType:      rpcapi.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
-			Input:          optionalWorkspaceInputMode(cfg.Workflow.Parameters.Input),
-			GenerateModel:  optionalString(cfg.Workflow.Parameters.GenerateModel),
-			ExtractModel:   optionalString(cfg.Workflow.Parameters.ExtractModel),
-			EmbeddingModel: optionalString(cfg.Workflow.Parameters.EmbeddingModel),
+			AgentType: rpcapi.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
+			Input:     optionalWorkspaceInputMode(cfg.Workflow.Parameters.Input),
 		}
 		if err := parameters.FromFlowcraftWorkspaceParameters(typed); err != nil {
 			return rpcapi.WorkspaceCreateRequest{}, fmt.Errorf("encode flowcraft workspace parameters: %w", err)
 		}
 	case cfg.isASTTranslateAgent():
-			typed := rpcapi.ASTTranslateWorkspaceParameters{
-				AgentType:                  rpcapi.ASTTranslateWorkspaceParametersAgentTypeAstTranslate,
-				Input:                      optionalWorkspaceInputMode(cfg.Workflow.Parameters.Input),
-				TranslationModel:           optionalString(cfg.Workflow.Parameters.TranslationModel),
-				LangPair:                   optionalString(cfg.Workflow.Parameters.LangPair),
-				Mode:                       optionalASTTranslateMode(cfg.Workflow.Parameters.Mode),
-				Voice:                      astTranslateWorkspaceVoiceParams(cfg.Workflow.Parameters.Voice),
-				EnableSourceLanguageDetect: cfg.Workflow.Parameters.EnableSourceLanguageDetect,
+		typed := rpcapi.ASTTranslateWorkspaceParameters{
+			AgentType:                  rpcapi.ASTTranslateWorkspaceParametersAgentTypeAstTranslate,
+			Input:                      optionalWorkspaceInputMode(cfg.Workflow.Parameters.Input),
+			TranslationModel:           optionalString(cfg.Workflow.Parameters.TranslationModel),
+			LangPair:                   optionalString(cfg.Workflow.Parameters.LangPair),
+			Mode:                       optionalASTTranslateMode(cfg.Workflow.Parameters.Mode),
+			Voice:                      astTranslateWorkspaceVoiceParams(cfg.Workflow.Parameters.Voice),
+			EnableSourceLanguageDetect: cfg.Workflow.Parameters.EnableSourceLanguageDetect,
 			Denoise:                    cfg.Workflow.Parameters.Denoise,
 		}
 		if err := parameters.FromASTTranslateWorkspaceParameters(typed); err != nil {
@@ -842,7 +842,7 @@ func printWorkspaceRuntimeReport(report workspaceRuntimeReport) {
 }
 
 func printInterruptSummary(stat interruptStats) {
-	fmt.Printf("interrupt=%s\n", encodeJSONLine(map[string]interface{}{
+	fmt.Printf("interrupt=%s\n", encodeJSONLine(map[string]any{
 		"round":                      stat.Index,
 		"first_user":                 stat.FirstUser,
 		"second_user":                stat.SecondUser,

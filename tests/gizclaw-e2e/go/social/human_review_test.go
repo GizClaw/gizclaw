@@ -153,13 +153,16 @@ func registerSocialHumanReviewProfile(t *testing.T, api *adminhttp.ClientWithRes
 		"tts": socialHumanReviewTTSModel,
 	}
 	voices := map[string]string{"tts": socialHumanReviewVoiceResource}
+	modelBindings := socialRuntimeBindings(models)
+	voiceBindings := socialRuntimeBindings(voices)
 	profileResp, err := api.PutRuntimeProfileWithResponse(ctx, socialHumanReviewRuntimeProfile, adminhttp.RuntimeProfileUpsert{
 		Name: socialHumanReviewRuntimeProfile,
 		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{
-			Workflows: &workflows,
-			Models:    &models,
-			Voices:    &voices,
-		}},
+			Models: &modelBindings,
+			Voices: &voiceBindings,
+		}, Workflows: apitypes.RuntimeProfileWorkflows{Collections: apitypes.RuntimeProfileWorkflowCollections{
+			"social": socialRuntimeBindings(workflows),
+		}}},
 	})
 	if err != nil {
 		t.Fatalf("put social human-review RuntimeProfile: %v", err)
@@ -188,6 +191,19 @@ func registerSocialHumanReviewProfile(t *testing.T, api *adminhttp.ClientWithRes
 			t.Fatalf("register %s for social human review = %#v", peerName, registered)
 		}
 	}
+}
+
+func socialRuntimeBindings(resources map[string]string) map[string]apitypes.RuntimeProfileBinding {
+	bindings := make(map[string]apitypes.RuntimeProfileBinding, len(resources))
+	for alias, resourceID := range resources {
+		bindings[alias] = apitypes.RuntimeProfileBinding{
+			ResourceId: resourceID,
+			I18n: map[string]apitypes.RuntimeProfileI18nText{
+				"en": {DisplayName: alias}, "zh-CN": {DisplayName: alias},
+			},
+		}
+	}
+	return bindings
 }
 
 func runSocialHumanReviewAudioStory(t *testing.T, h socialHarness, playback *socialHumanReviewPlayback, writerContext, readerContext, workspaceName string, texts []string) {

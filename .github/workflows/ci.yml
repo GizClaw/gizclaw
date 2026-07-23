@@ -12,6 +12,122 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  quality:
+    name: Quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      CGO_ENABLED: "1"
+      MODERNIZE_VERSION: v0.42.0
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          lfs: true
+
+      - name: Ensure Git LFS assets are available
+        run: git lfs pull
+
+      - name: Initialize nanopb submodule
+        run: git submodule update --init --depth=1 third_party/nanopb/upstream
+
+      - name: Install C/C++ analysis tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            clang-format-18 \
+            clang-tidy-18 \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: |
+            go.sum
+            **/go.sum
+
+      - name: Download root Go modules
+        run: go mod download
+
+      - name: Install modernize
+        run: go install golang.org/x/tools/go/analysis/passes/modernize/cmd/modernize@${MODERNIZE_VERSION}
+
+      - name: Check handwritten Go formatting
+        run: go run ./tools/quality gofmt
+
+      - name: Check Go modernization baseline
+        run: go run ./tools/quality modernize -binary "$(go env GOPATH)/bin/modernize"
+
+      - name: Vet every maintained Go module
+        run: go run ./tools/quality vet
+
+      - name: Check handwritten C/C++ formatting
+        run: >-
+          go run ./tools/quality files -language=c -print0 |
+          xargs -0 clang-format-18 --dry-run --Werror
+
+      - name: Run C SDK static analysis
+        run: >-
+          clang-tidy-18
+          sdk/c/gizclaw/cgobackend/gzc_cgo_backend.c
+          sdk/c/gizclaw/src/*.c
+          --
+          -std=c11
+          -I sdk/c/gizclaw/include
+          -I sdk/c/gizclaw/generated
+          -I third_party/nanopb/upstream
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 26
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Check TypeScript types
+        run: npm run quality:typescript
+
+      - name: Lint JavaScript and TypeScript
+        run: npm run quality:lint
+
+      - name: Check JavaScript and TypeScript formatting
+        run: npm run quality:format
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version: "3.38.1"
+          channel: stable
+          cache: true
+
+      - name: Install Flutter SDK dependencies
+        working-directory: sdk/flutter/gizclaw
+        run: flutter pub get
+
+      - name: Install Flutter app dependencies
+        working-directory: apps/gizclaw-app
+        run: flutter pub get
+
+      - name: Check handwritten Dart formatting
+        run: >-
+          go run ./tools/quality files -language=dart -print0 |
+          xargs -0 dart format --output=none --set-exit-if-changed
+
+      - name: Analyze Flutter SDK
+        working-directory: sdk/flutter/gizclaw
+        run: flutter analyze
+
+      - name: Analyze Flutter app
+        working-directory: apps/gizclaw-app
+        run: flutter analyze
+
   test:
     name: Go Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -58,9 +174,6 @@ jobs:
 
       - name: Verify root module is tidy
         run: go mod tidy -diff
-
-      - name: Run scoped vet checks
-        run: go vet ./pkgs/gizclaw/services/runtime/peerroute ./sdk/c/gizclaw/cgobackend
 
       - name: Run C bridge checkptr tests
         run: go test -gcflags=all=-d=checkptr=2 ./sdk/c/gizclaw/cgobackend -count=1

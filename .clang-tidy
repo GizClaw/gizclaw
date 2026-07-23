@@ -1,0 +1,7 @@
+Checks: >
+  -*,
+  clang-analyzer-*,
+  -clang-analyzer-optin.performance.Padding,
+  -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling
+WarningsAsErrors: '*'
+HeaderFilterRegex: '^(sdk/c/gizclaw|tests/gizclaw-e2e/cgo)/'

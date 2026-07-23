@@ -13,6 +13,12 @@ func TestRequestValidation(t *testing.T) {
 	if err := validateObservation(Observation{Scope: "scope", Turns: []Turn{{Role: RoleUser, Text: "remember", Attributes: map[string]any{"channel": "voice"}}}}); !errors.Is(err, ErrUnsupported) {
 		t.Fatalf("validateObservation() turn attributes error = %v, want ErrUnsupported", err)
 	}
+	if err := validateObservation(Observation{Scope: "scope", Facts: []FactCandidate{{Text: "remember", Attributes: map[string]any{"kind": "fact"}}}}); err != nil {
+		t.Fatalf("validateObservation() fact candidate error = %v", err)
+	}
+	if err := validateObservation(Observation{Scope: "scope", Facts: []FactCandidate{{Text: " "}}}); !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("validateObservation() empty fact candidate error = %v, want ErrInvalidInput", err)
+	}
 	if err := validateQuery(Query{Scope: "scope", Text: "where", Limit: 0}); !errors.Is(err, ErrInvalidInput) {
 		t.Fatalf("validateQuery() error = %v, want ErrInvalidInput", err)
 	}

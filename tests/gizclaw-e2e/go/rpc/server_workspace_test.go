@@ -120,11 +120,9 @@ func TestServerResourceCreatorOwnsConcreteResources(t *testing.T) {
 
 	input := apitypes.WorkspaceInputModePushToTalk
 	var adminParameters apitypes.WorkspaceParameters
-	generateModel := sharedModel
 	if err := adminParameters.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{
-		AgentType:     apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
-		Input:         &input,
-		GenerateModel: &generateModel,
+		AgentType: apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
+		Input:     &input,
 	}); err != nil {
 		t.Fatalf("build unowned Workspace parameters: %v", err)
 	}

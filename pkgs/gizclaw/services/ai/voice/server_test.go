@@ -105,7 +105,7 @@ func TestProviderDataStringAndLegacyDecode(t *testing.T) {
 	kind := apitypes.VoiceProviderKindMinimaxTenant
 	voice := apitypes.Voice{
 		Provider:     apitypes.VoiceProvider{Kind: kind, Name: "tenant"},
-		ProviderData: ProviderData(kind, map[string]interface{}{"voice_id": " voice-1 "}),
+		ProviderData: ProviderData(kind, map[string]any{"voice_id": " voice-1 "}),
 	}
 	if got := ProviderDataString(voice, "voice_id"); got != "voice-1" {
 		t.Fatalf("ProviderDataString() = %q, want voice-1", got)
@@ -134,10 +134,10 @@ func TestVoiceHelperIndexesAndSemanticEquality(t *testing.T) {
 	if got := StableID(kind, "main", "voice-1"); got != "minimax-tenant:main:voice-1" {
 		t.Fatalf("StableID() = %q", got)
 	}
-	if got := ProviderData(kind, map[string]interface{}{"voice_id": " ", "nil": nil}); got != nil {
+	if got := ProviderData(kind, map[string]any{"voice_id": " ", "nil": nil}); got != nil {
 		t.Fatalf("ProviderData() = %#v, want nil", got)
 	}
-	raw := map[string]interface{}{"nested": "value"}
+	raw := map[string]any{"nested": "value"}
 	if got := RawMapValue(&raw); got == nil {
 		t.Fatalf("RawMapValue() = nil, want map")
 	}
@@ -147,7 +147,7 @@ func TestVoiceHelperIndexesAndSemanticEquality(t *testing.T) {
 
 	name := "Voice One"
 	description := "Primary"
-	providerData := ProviderData(kind, map[string]interface{}{
+	providerData := ProviderData(kind, map[string]any{
 		"voice_id":   customStringer(" voice-1 "),
 		"voice_type": " system ",
 	})
@@ -174,7 +174,7 @@ func TestVoiceHelperIndexesAndSemanticEquality(t *testing.T) {
 		t.Fatalf("SemanticEqual(different description) = true")
 	}
 	changed = voice
-	changed.ProviderData = ProviderData(kind, map[string]interface{}{"voice_id": "voice-2"})
+	changed.ProviderData = ProviderData(kind, map[string]any{"voice_id": "voice-2"})
 	if SemanticEqual(voice, changed) {
 		t.Fatalf("SemanticEqual(different provider data) = true")
 	}
@@ -192,7 +192,7 @@ func TestVoiceHelperIndexesAndSemanticEquality(t *testing.T) {
 
 	updated := voice
 	updated.Provider = apitypes.VoiceProvider{Kind: kind, Name: "secondary"}
-	updated.ProviderData = ProviderData(kind, map[string]interface{}{"voice_id": "voice-2"})
+	updated.ProviderData = ProviderData(kind, map[string]any{"voice_id": "voice-2"})
 	if err := Write(ctx, store, updated, &voice); err != nil {
 		t.Fatalf("Write(updated) error = %v", err)
 	}
@@ -339,13 +339,13 @@ func TestVoiceBoundaryBranches(t *testing.T) {
 	}
 	if got := ProviderDataString(apitypes.Voice{
 		Provider:     apitypes.VoiceProvider{Kind: kind, Name: "main"},
-		ProviderData: ProviderData(apitypes.VoiceProviderKindMinimaxTenant, map[string]interface{}{"voice_type": "system"}),
+		ProviderData: ProviderData(apitypes.VoiceProviderKindMinimaxTenant, map[string]any{"voice_type": "system"}),
 	}, "voice_id"); got != "" {
 		t.Fatalf("ProviderDataString(missing key) = %q, want empty", got)
 	}
 
 	manual := voiceUpsert("manual:with-provider-data", "main")
-	manual.ProviderData = ProviderData(kind, map[string]interface{}{"voice_id": "voice-1"})
+	manual.ProviderData = ProviderData(kind, map[string]any{"voice_id": "voice-1"})
 	normalized, err := normalizeVoiceUpsert(manual, manual.Id)
 	if err != nil {
 		t.Fatalf("normalizeVoiceUpsert(provider data) error = %v", err)

@@ -74,6 +74,9 @@ func (s *Store) Observe(ctx context.Context, observation memorystore.Observation
 	if err := validateObservation(observation); err != nil {
 		return observeResult{}, err
 	}
+	if len(observation.Facts) > 0 {
+		return observeResult{}, fmt.Errorf("%w: mem0 does not expose direct structured fact ingestion", errUnsupported)
+	}
 	if err := validateMem0Metadata(observation.Context); err != nil {
 		return observeResult{}, err
 	}

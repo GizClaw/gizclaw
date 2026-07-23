@@ -144,9 +144,7 @@ test.beforeEach(async ({ page }) => {
         const value = match?.[1]?.replace(/^['"]|['"]$/g, "") ?? "";
         bootstrapEnvironment = {
           ready: value !== "",
-          missing: value !== ""
-            ? []
-            : ["GIZCLAW_VOLC_SPEECH_API_KEY"],
+          missing: value !== "" ? [] : ["GIZCLAW_VOLC_SPEECH_API_KEY"],
           content: update.content,
           variables: bootstrapEnvironment.variables.map((variable) => ({
             ...variable,
@@ -430,9 +428,11 @@ test("local creation returns immediately and reports initialization in Pod detai
   await expect(detail.getByRole("img", { name: "Server QR code" })).toHaveCount(
     0,
   );
-  await expect(detail.getByRole("img", { name: "Server QR code" })).toBeVisible({
-    timeout: 5000,
-  });
+  await expect(detail.getByRole("img", { name: "Server QR code" })).toBeVisible(
+    {
+      timeout: 5000,
+    },
+  );
 });
 
 test("local creation refreshes the initializing Pod card without opening details", async ({
@@ -484,11 +484,11 @@ test("local creation opens an editable nested bootstrap environment form", async
   });
   const tabsBeforeScroll = await modeTabs.boundingBox();
   const saveBeforeScroll = await saveButton.boundingBox();
-  await environment.locator(".bootstrap-environment-scroll-region").evaluate(
-    (element) => {
+  await environment
+    .locator(".bootstrap-environment-scroll-region")
+    .evaluate((element) => {
       element.scrollTop = element.scrollHeight;
-    },
-  );
+    });
   expect(
     Math.abs((await modeTabs.boundingBox())!.y - tabsBeforeScroll!.y),
   ).toBeLessThan(1);
@@ -499,9 +499,7 @@ test("local creation opens an editable nested bootstrap environment form", async
   await expect(input).toHaveAttribute("type", "text");
   await expect(input).toBeEditable();
   await input.fill("replacement-secret");
-  await environment
-    .getByRole("button", { name: "Save configuration" })
-    .click();
+  await environment.getByRole("button", { name: "Save configuration" }).click();
   await expect(environment).toHaveCount(0);
   await page
     .locator(".create-dialog")
@@ -739,9 +737,7 @@ test("bootstrap environment supports direct dotenv text editing", async ({
   await editor.fill(
     "# Speech provider\nGIZCLAW_VOLC_SPEECH_API_KEY=text-editor-secret\n",
   );
-  await environment
-    .getByRole("button", { name: "Save configuration" })
-    .click();
+  await environment.getByRole("button", { name: "Save configuration" }).click();
   await expect(environment).toHaveCount(0);
   await page.getByRole("button", { name: "Bootstrap ready" }).click();
   await expect(

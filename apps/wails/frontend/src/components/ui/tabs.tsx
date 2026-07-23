@@ -4,10 +4,17 @@ import { Tabs as TabsPrimitive } from "radix-ui";
 
 import { cn } from "./utils";
 
-function Tabs({ className, orientation = "horizontal", ...props }: React.ComponentProps<typeof TabsPrimitive.Root>): JSX.Element {
+function Tabs({
+  className,
+  orientation = "horizontal",
+  ...props
+}: React.ComponentProps<typeof TabsPrimitive.Root>): JSX.Element {
   return (
     <TabsPrimitive.Root
-      className={cn("group/tabs flex gap-2 data-[orientation=horizontal]:flex-col", className)}
+      className={cn(
+        "group/tabs flex gap-2 data-[orientation=horizontal]:flex-col",
+        className,
+      )}
       data-orientation={orientation}
       data-slot="tabs"
       orientation={orientation}
@@ -31,7 +38,12 @@ const tabsListVariants = cva(
   },
 );
 
-function TabsList({ className, variant = "default", ...props }: React.ComponentProps<typeof TabsPrimitive.List> & VariantProps<typeof tabsListVariants>): JSX.Element {
+function TabsList({
+  className,
+  variant = "default",
+  ...props
+}: React.ComponentProps<typeof TabsPrimitive.List> &
+  VariantProps<typeof tabsListVariants>): JSX.Element {
   return (
     <TabsPrimitive.List
       className={cn(tabsListVariants({ variant }), className)}
@@ -42,7 +54,10 @@ function TabsList({ className, variant = "default", ...props }: React.ComponentP
   );
 }
 
-function TabsTrigger({ className, ...props }: React.ComponentProps<typeof TabsPrimitive.Trigger>): JSX.Element {
+function TabsTrigger({
+  className,
+  ...props
+}: React.ComponentProps<typeof TabsPrimitive.Trigger>): JSX.Element {
   return (
     <TabsPrimitive.Trigger
       className={cn(
@@ -58,8 +73,17 @@ function TabsTrigger({ className, ...props }: React.ComponentProps<typeof TabsPr
   );
 }
 
-function TabsContent({ className, ...props }: React.ComponentProps<typeof TabsPrimitive.Content>): JSX.Element {
-  return <TabsPrimitive.Content className={cn("flex-1 outline-none", className)} data-slot="tabs-content" {...props} />;
+function TabsContent({
+  className,
+  ...props
+}: React.ComponentProps<typeof TabsPrimitive.Content>): JSX.Element {
+  return (
+    <TabsPrimitive.Content
+      className={cn("flex-1 outline-none", className)}
+      data-slot="tabs-content"
+      {...props}
+    />
+  );
 }
 
 export { Tabs, TabsContent, TabsList, tabsListVariants, TabsTrigger };

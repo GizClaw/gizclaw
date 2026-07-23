@@ -1,0 +1,476 @@
+apps/wails/internal/endpointhealth/prober.go:67:5: if statement can be modernized using max
+apps/wails/internal/endpointhealth/prober.go:74:3: copying variable is unneeded
+apps/wails/internal/endpointhealth/prober.go:76:3: Goroutine creation can be simplified using WaitGroup.Go
+cmd/internal/commands/admin/resource.go:368:6: for loop can be modernized using range over int
+cmd/internal/commands/connect/command.go:995:6: stringPtr can be an inlinable wrapper around new(expr)
+cmd/internal/connection/connection.go:100:6: for loop can be modernized using range over int
+cmd/internal/server/config.go:677:5: HasSuffix + TrimSuffix can be simplified to CutSuffix
+cmd/internal/server/tcp_mux.go:32:2: Goroutine creation can be simplified using WaitGroup.Go
+cmd/internal/server/tcp_mux.go:67:3: Goroutine creation can be simplified using WaitGroup.Go
+cmd/internal/server/workspace_test.go:114:72: Replace []byte(fmt.Sprintf...) with fmt.Appendf
+cmd/internal/server/workspace_test.go:150:72: Replace []byte(fmt.Sprintf...) with fmt.Appendf
+cmd/internal/server/workspace_test.go:26:72: Replace []byte(fmt.Sprintf...) with fmt.Appendf
+cmd/internal/server/workspace_test.go:606:69: Replace []byte(fmt.Sprintf...) with fmt.Appendf
+cmd/internal/server/workspace_test.go:655:34: Replace []byte(fmt.Sprintf...) with fmt.Appendf
+cmd/internal/service/service_test.go:823:2: Loop can be simplified using slices.Contains
+cmd/internal/storage/storage_test.go:460:3: Goroutine creation can be simplified using WaitGroup.Go
+examples/genx/main.go:382:24: Ranging over SplitSeq is more efficient
+examples/genx/main.go:387:11: strings.Index can be simplified using strings.Cut
+examples/songs/main.go:826:9: if statement can be modernized using max
+examples/songs/main.go:856:6: for loop can be modernized using range over int
+examples/voiceprint/main.go:342:7: for loop can be modernized using range over int
+examples/voiceprint/main.go:355:6: for loop can be modernized using range over int
+examples/voiceprint/main.go:378:5: if statement can be modernized using min
+examples/voiceprint/main_test.go:252:6: for loop can be modernized using range over int
+pkgs/agent/memory/compact.go:70:5: if statement can be modernized using max
+pkgs/agent/memory/compact_regression_test.go:92:5: if statement can be modernized using max
+pkgs/agent/ncnn/ncnn_test.go:21:2: Loop can be simplified using slices.Contains
+pkgs/agent/recall/keys.go:72:12: strings.IndexByte can be simplified using strings.Cut
+pkgs/audio/codec/ogg/packet.go:50:6: if statement can be modernized using min
+pkgs/audio/codec/opus/opus_cgo_supported.go:222:5: if statement can be modernized using max
+pkgs/audio/pcm/mixer_test.go:496:6: if statement can be modernized using min
+pkgs/audio/pcm/mixer_test.go:683:3: Goroutine creation can be simplified using WaitGroup.Go
+pkgs/audio/pcm/mixer_test.go:791:3: Goroutine creation can be simplified using WaitGroup.Go
+pkgs/audio/portaudio/config.go:68:5: if statement can be modernized using max
+pkgs/audio/resampler/resampler.go:2:1: +build line is no longer needed
+pkgs/audio/resampler/sample_reader_test.go:209:5: if statement can be modernized using min
+pkgs/audio/voiceprint/detector_common.go:59:5: if statement can be modernized using min
+pkgs/audio/voiceprint/model_ncnn.go:166:5: if statement can be modernized using min
+pkgs/audio/voiceprint/model_ncnn_test.go:333:13: call of ptrToFbankConfig(x) can be simplified to new(x)
+pkgs/audio/voiceprint/model_ncnn_test.go:35:6: ptrToFbankConfig can be an inlinable wrapper around new(expr)
+pkgs/buffer/buffer_test.go:62:7: if statement can be modernized using min
+pkgs/genx/transformers/dashscoperealtime/implementation.go:695:8: if statement can be modernized using min
+pkgs/genx/transformers/dashscoperealtime/implementation.go:711:8: if statement can be modernized using min
+pkgs/genx/transformers/dashscoperealtime/transformer_test.go:24:3: Goroutine creation can be simplified using WaitGroup.Go
+pkgs/genx/transformers/doubaoasr/history.go:91:6: if statement can be modernized using max
+pkgs/genx/transformers/doubaoasr/transformer_test.go:238:70: call of boolPointer(x) can be simplified to new(x)
+pkgs/genx/transformers/doubaoasr/transformer_test.go:443:70: call of boolPointer(x) can be simplified to new(x)
+pkgs/genx/transformers/doubaoasr/transformer_test.go:530:21: call of boolPointer(x) can be simplified to new(x)
+pkgs/genx/transformers/doubaoasr/transformer_test.go:597:19: call of boolPointer(x) can be simplified to new(x)
+pkgs/genx/transformers/doubaoasr/transformer_test.go:712:19: call of boolPointer(x) can be simplified to new(x)
+pkgs/genx/transformers/doubaoasr/transformer_test.go:802:19: call of boolPointer(x) can be simplified to new(x)
+pkgs/genx/transformers/doubaoasr/transformer_test.go:95:6: boolPointer can be an inlinable wrapper around new(expr)
+pkgs/genx/transformers/doubaoast/implementation_test.go:116:3: Goroutine creation can be simplified using WaitGroup.Go
+pkgs/genx/transformers/doubaoast/implementation_test.go:1408:4: using string += string in a loop is inefficient
+pkgs/genx/transformers/doubaorealtime/implementation_test.go:96:3: Goroutine creation can be simplified using WaitGroup.Go
+pkgs/genx/transformers/doubaorealtime/realtime_audio.go:282:7: for loop can be modernized using range over int
+pkgs/genx/transformers/doubaorealtime/realtime_audio.go:298:7: for loop can be modernized using range over int
+pkgs/genx/transformers/doubaorealtimeduplex/implementation_test.go:75:3: Goroutine creation can be simplified using WaitGroup.Go
+pkgs/gizclaw/api/openaihttp/generated_test.go:177:6: stringPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/api/openaihttp/generated_test.go:66:11: Replace []byte(fmt.Sprintf...) with fmt.Appendf
+pkgs/gizclaw/api/openaihttp/generated_test.go:80:19: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/api/rpcapi/codec_test.go:118:19: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/api/rpcapi/codec_test.go:132:78: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/api/rpcapi/codec_test.go:146:70: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/api/rpcapi/codec_test.go:212:68: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/api/rpcapi/codec_test.go:227:70: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/api/rpcapi/codec_test.go:228:70: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/api/rpcapi/codec_test.go:230:71: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/api/rpcapi/codec_test.go:231:82: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/api/rpcapi/codec_test.go:476:96: call of ptr(x) can be simplified to new(x)
+pkgs/gizclaw/api/rpcapi/codec_test.go:550:25: call of ptr(x) can be simplified to new(x)
+pkgs/gizclaw/api/rpcapi/codec_test.go:552:11: call of ptr(x) can be simplified to new(x)
+pkgs/gizclaw/api/rpcapi/codec_test.go:555:15: call of ptr(x) can be simplified to new(x)
+pkgs/gizclaw/api/rpcapi/codec_test.go:719:6: stringPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/api/rpcapi/codec_test.go:723:6: int64Ptr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/api/rpcapi/codec_test.go:727:6: ptr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/api/rpcapi/payload_codec.go:1123:22: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/api/rpcapi/payload_codec.go:1261:5: HasPrefix + TrimPrefix can be simplified to CutPrefix
+pkgs/gizclaw/api/rpcapi/payload_codec.go:223:16: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/api/rpcapi/payload_codec.go:226:43: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/api/rpcapi/payload_codec.go:227:43: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/api/rpcapi/payload_codec.go:228:43: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/api/rpcapi/payload_codec.go:229:43: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/api/rpcapi/payload_codec.go:230:43: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/api/rpcapi/payload_codec.go:231:43: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/api/rpcapi/payload_codec.go:232:43: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/api/rpcapi/payload_codec.go:233:43: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/api/rpcapi/payload_codec.go:234:43: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/api/rpcapi/payload_codec.go:235:43: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/api/rpcapi/payload_codec.go:236:43: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/api/rpcapi/payload_codec.go:237:43: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/api/rpcapi/payload_codec.go:238:43: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/api/rpcapi/payload_codec.go:239:43: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/api/rpcapi/payload_codec.go:240:43: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/api/rpcapi/payload_codec.go:241:43: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/api/rpcapi/payload_codec.go:242:43: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/api/rpcapi/payload_codec.go:243:43: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/api/rpcapi/payload_codec.go:244:43: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/api/rpcapi/payload_codec.go:245:43: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/api/rpcapi/payload_codec.go:246:43: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/api/rpcapi/payload_codec.go:247:43: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/api/rpcapi/payload_codec.go:248:43: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/api/rpcapi/payload_codec.go:249:43: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/api/rpcapi/payload_codec.go:828:2: NumField/Field loop can simplified using Type.Fields iteration
+pkgs/gizclaw/api/rpcapi/payload_codec.go:990:21: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/credential_body_test.go:10:6: testStringPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/credential_body_test.go:14:80: call of testStringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/credential_body_test.go:34:78: call of testStringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/integration_admin_service_test.go:116:58: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/integration_admin_service_test.go:19:58: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/integration_admin_service_test.go:201:58: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/integration_admin_service_test.go:91:58: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/integration_peer_http_test.go:18:16: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/integration_peer_http_test.go:19:48: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/integration_peer_http_test.go:21:18: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/integration_peer_http_test.go:22:18: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/integration_peer_http_test.go:49:10: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/integration_peer_http_test.go:50:10: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/integration_peer_rpc_test.go:21:58: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/integration_peer_rpc_test.go:25:18: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/integration_peer_rpc_test.go:26:18: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/integration_peer_rpc_test.go:28:48: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/integration_peer_rpc_test.go:30:73: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/integration_peer_rpc_test.go:45:58: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/integration_peer_rpc_test.go:48:73: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/integration_peer_service_test.go:15:76: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/integration_peer_service_test.go:19:9: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/integration_peer_service_test.go:21:11: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/integration_peer_service_test.go:22:39: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/integration_peer_service_test.go:71:58: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/integration_rpc_test.go:159:11: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/integration_rpc_test.go:160:11: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/integration_rpc_test.go:174:92: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/integration_utils_test.go:800:6: strPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/internal/socialutil/util.go:281:6: IntPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/internal/socialutil/util_test.go:161:6: strPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/internal/socialutil/util_test.go:22:36: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/internal/socialutil/util_test.go:22:66: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/internal/socialutil/util_test.go:23:37: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/internal/socialutil/util_test.go:23:68: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/internal/socialutil/util_test.go:63:34: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/internal/socialutil/util_test.go:63:8: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/internal/socialutil/util_test.go:64:34: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/internal/socialutil/util_test.go:64:8: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/internal/socialutil/util_test.go:65:34: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/internal/socialutil/util_test.go:65:8: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/peer_conn_test.go:452:6: for loop can be modernized using range over int
+pkgs/gizclaw/peer_conn_test.go:542:119: call of peerConnIntPtr(x) can be simplified to new(x)
+pkgs/gizclaw/peer_conn_test.go:550:113: call of peerConnBoolPtr(x) can be simplified to new(x)
+pkgs/gizclaw/peer_conn_test.go:558:6: for loop can be modernized using range over int
+pkgs/gizclaw/peer_conn_test.go:705:6: peerConnBoolPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/peer_conn_test.go:709:6: peerConnIntPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/peer_service.go:114:6: for loop can be modernized using range over int
+pkgs/gizclaw/peer_service_serve_admin_test.go:337:23: call of adminTestStringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/peer_service_serve_admin_test.go:387:73: call of adminTestStringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/peer_service_serve_admin_test.go:641:6: adminTestStringPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/peer_stream_event.go:59:3: Replace m[k]=v loop with maps.Copy
+pkgs/gizclaw/rpc_server_service_test.go:156:151: call of intPtr(x) can be simplified to new(x)
+pkgs/gizclaw/rpc_server_service_test.go:29:46: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/rpc_server_service_test.go:31:46: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/rpc_server_service_test.go:34:92: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/rpc_server_service_test.go:35:92: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/rpc_server_service_test.go:36:92: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/rpc_server_service_test.go:40:26: call of boolPtr(x) can be simplified to new(x)
+pkgs/gizclaw/rpc_server_service_test.go:41:26: call of boolPtr(x) can be simplified to new(x)
+pkgs/gizclaw/rpc_server_service_test.go:42:26: call of boolPtr(x) can be simplified to new(x)
+pkgs/gizclaw/rpc_server_service_test.go:715:6: stringPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/rpc_server_service_test.go:719:6: intPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/rpc_server_service_test.go:723:6: boolPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/rpc_server_service_test.go:73:105: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/rpc_speech.go:398:2: Loop can be simplified using slices.Contains
+pkgs/gizclaw/services/ai/credential/credential_body_test.go:13:80: call of testStringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/credential/credential_body_test.go:9:6: testStringPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/services/ai/model/server_test.go:26:15: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/model/server_test.go:270:190: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/model/server_test.go:271:174: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/model/server_test.go:633:6: stringPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/services/ai/openaiapi/server.go:261:23: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/services/ai/openaiapi/server.go:611:66: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/openaiapi/server.go:905:6: stringPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/services/ai/openaiapi/server_test.go:114:51: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/openaiapi/server_test.go:808:23: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/services/ai/openaiapi/server_test.go:845:23: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/services/ai/peergenx/ast_translate_test.go:15:17: call of testStringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/peergenx/ast_translate_test.go:16:17: call of testStringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/peergenx/builder.go:519:5: Replace m[k]=v loop with maps.Copy
+pkgs/gizclaw/services/ai/peergenx/builder.go:913:3: Replace m[k]=v loop with maps.Copy
+pkgs/gizclaw/services/ai/peergenx/builder.go:916:3: Replace m[k]=v loop with maps.Copy
+pkgs/gizclaw/services/ai/peergenx/credential_body_test.go:11:80: call of testStringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/peergenx/credential_body_test.go:32:3: copying variable is unneeded
+pkgs/gizclaw/services/ai/peergenx/credential_body_test.go:57:80: call of testStringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/peergenx/credential_body_test.go:66:3: copying variable is unneeded
+pkgs/gizclaw/services/ai/peergenx/credential_body_test.go:7:6: testStringPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/services/ai/peergenx/service_test.go:1165:16: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/peergenx/service_test.go:1487:20: call of boolPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/peergenx/service_test.go:1490:22: call of boolPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/peergenx/service_test.go:1490:82: call of boolPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/peergenx/service_test.go:1689:6: boolPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/services/ai/peergenx/service_test.go:1693:6: stringPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/services/ai/peergenx/service_test.go:1697:6: intPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/services/ai/peergenx/service_test.go:178:27: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/peergenx/service_test.go:179:27: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/peergenx/service_test.go:351:27: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/peergenx/service_test.go:352:27: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/peergenx/service_test.go:401:57: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/peergenx/service_test.go:407:57: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/peergenx/service_test.go:407:99: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/peergenx/service_test.go:416:57: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/peergenx/service_test.go:441:21: call of boolPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/peergenx/service_test.go:442:21: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/peergenx/service_test.go:516:20: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/peergenx/service_test.go:545:17: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/peergenx/service_test.go:598:17: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/peergenx/service_test.go:652:20: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/peergenx/service_test.go:696:20: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/peergenx/service_test.go:697:20: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/peergenx/service_test.go:723:20: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/peergenx/service_test.go:724:20: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/peergenx/service_test.go:856:20: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/peergenx/service_test.go:883:17: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/peergenx/service_test.go:951:19: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/peergenx/service_test.go:952:19: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/peergenx/service_test.go:971:16: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/peergenx/service_test.go:972:16: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/peergenx/service_test.go:992:16: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/providertenants/credential_body_test.go:13:80: call of testStringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/providertenants/credential_body_test.go:26:3: copying variable is unneeded
+pkgs/gizclaw/services/ai/providertenants/credential_body_test.go:52:3: copying variable is unneeded
+pkgs/gizclaw/services/ai/providertenants/credential_body_test.go:9:6: testStringPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/services/ai/providertenants/deepseek_tenant_test.go:144:123: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/providertenants/deepseek_tenant_test.go:145:123: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/providertenants/openai_tenant_test.go:126:61: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/providertenants/openai_tenant_test.go:127:70: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/providertenants/server.go:462:3: Loop can be simplified using slices.Contains
+pkgs/gizclaw/services/ai/providertenants/server.go:933:3: Replace m[k]=v loop with maps.Copy
+pkgs/gizclaw/services/ai/providertenants/server.go:953:6: intPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/services/ai/providertenants/server_test.go:1045:23: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/providertenants/server_test.go:1126:19: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/providertenants/server_test.go:1128:19: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/providertenants/server_test.go:118:14: call of timePtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/providertenants/server_test.go:1237:19: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/providertenants/server_test.go:1258:19: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/providertenants/server_test.go:1259:19: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/providertenants/server_test.go:1261:19: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/providertenants/server_test.go:1626:51: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/providertenants/server_test.go:1651:25: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/providertenants/server_test.go:1654:21: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/providertenants/server_test.go:1654:41: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/providertenants/server_test.go:1657:20: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/providertenants/server_test.go:1657:40: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/providertenants/server_test.go:171:26: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/providertenants/server_test.go:171:55: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/providertenants/server_test.go:172:25: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/providertenants/server_test.go:172:54: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/providertenants/server_test.go:173:26: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/providertenants/server_test.go:173:55: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/providertenants/server_test.go:1740:19: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/providertenants/server_test.go:1956:6: stringPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/services/ai/providertenants/server_test.go:1960:6: timePtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/services/ai/providertenants/server_test.go:215:19: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/providertenants/server_test.go:266:19: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/providertenants/server_test.go:361:35: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/providertenants/server_test.go:412:98: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/providertenants/server_test.go:698:23: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/providertenants/server_test.go:769:23: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/providertenants/server_test.go:812:23: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/providertenants/server_test.go:866:23: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/providertenants/server_test.go:926:23: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/providertenants/volc.go:922:3: copying variable is unneeded
+pkgs/gizclaw/services/ai/voice/server.go:654:4: Replace m[k]=v loop with maps.Copy
+pkgs/gizclaw/services/ai/voice/server_test.go:172:24: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/voice/server_test.go:378:32: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/voice/server_test.go:426:6: stringPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/services/ai/workflow/agents/asttranslate/factory.go:478:10: strings.Index can be simplified using strings.Cut
+pkgs/gizclaw/services/ai/workflow/agents/asttranslate/factory_test.go:276:6: for loop can be modernized using range over int
+pkgs/gizclaw/services/ai/workflow/agents/asttranslate/factory_test.go:378:6: for loop can be modernized using range over int
+pkgs/gizclaw/services/ai/workflow/agents/asttranslate/factory_test.go:601:20: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/workflow/agents/asttranslate/factory_test.go:607:13: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/workflow/agents/asttranslate/factory_test.go:787:6: stringPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/services/ai/workflow/agents/asttranslate/factory_test.go:791:6: astModePtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/services/ai/workflow/agents/chatroom/factory_test.go:755:17: context.WithCancel can be modernized using t.Context
+pkgs/gizclaw/services/ai/workflow/agents/doubaorealtime/factory_test.go:132:10: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/workflow/agents/doubaorealtime/factory_test.go:16:6: stringPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/services/ai/workflow/agents/doubaorealtime/factory_test.go:47:17: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/workflow/agents/doubaorealtime/factory_test.go:55:13: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/workflow/agents/doubaorealtime/factory_test.go:62:17: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/workflow/agents/doubaorealtime/factory_test.go:65:11: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/workflow/agents/doubaorealtime/factory_test.go:67:21: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/workflow/agents/doubaorealtime/factory_test.go:74:84: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/workflow/agents/doubaorealtime/factory_test.go:85:15: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/workflow/agents/flowcraft/credential_body_test.go:10:6: testStringPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/services/ai/workflow/agents/flowcraft/credential_body_test.go:116:78: call of testStringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/workflow/agents/flowcraft/credential_body_test.go:14:80: call of testStringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/workflow/agents/flowcraft/credential_body_test.go:35:3: copying variable is unneeded
+pkgs/gizclaw/services/ai/workflow/agents/flowcraft/credential_body_test.go:60:80: call of testStringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/workflow/agents/flowcraft/credential_body_test.go:68:86: call of testStringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/workflow/agents/flowcraft/credential_body_test.go:77:3: copying variable is unneeded
+pkgs/gizclaw/services/ai/workspace/server.go:260:17: call of boolPointer(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/workspace/server.go:431:17: call of boolPointer(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/workspace/server.go:527:22: call of boolPointer(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/workspace/server.go:543:6: boolPointer can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/services/ai/workspace/server.go:62:3: Replace m[k]=v loop with maps.Copy
+pkgs/gizclaw/services/ai/workspace/server.go:72:3: Replace m[k]=v loop with maps.Copy
+pkgs/gizclaw/services/ai/workspace/server.go:82:3: Replace m[k]=v loop with maps.Copy
+pkgs/gizclaw/services/ai/workspace/server.go:912:4: Replace m[k]=v loop with maps.Copy
+pkgs/gizclaw/services/device/firmware/artifact.go:574:23: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/services/device/firmware/artifact.go:574:2: Loop can be simplified using slices.Contains
+pkgs/gizclaw/services/device/firmware/artifact_fuzz_test.go:78:23: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/services/device/firmware/artifact_fuzz_test.go:78:2: Loop can be simplified using slices.Contains
+pkgs/gizclaw/services/device/firmware/server_test.go:109:9: call of ptr(x) can be simplified to new(x)
+pkgs/gizclaw/services/device/firmware/server_test.go:122:94: call of ptr(x) can be simplified to new(x)
+pkgs/gizclaw/services/device/firmware/server_test.go:165:88: call of ptr(x) can be simplified to new(x)
+pkgs/gizclaw/services/device/firmware/server_test.go:170:98: call of ptr(x) can be simplified to new(x)
+pkgs/gizclaw/services/device/firmware/server_test.go:175:81: call of ptr(x) can be simplified to new(x)
+pkgs/gizclaw/services/device/firmware/server_test.go:178:88: call of ptr(x) can be simplified to new(x)
+pkgs/gizclaw/services/device/firmware/server_test.go:190:81: call of ptr(x) can be simplified to new(x)
+pkgs/gizclaw/services/device/firmware/server_test.go:28:83: call of ptr(x) can be simplified to new(x)
+pkgs/gizclaw/services/device/firmware/server_test.go:317:81: call of ptr(x) can be simplified to new(x)
+pkgs/gizclaw/services/device/firmware/server_test.go:352:81: call of ptr(x) can be simplified to new(x)
+pkgs/gizclaw/services/device/firmware/server_test.go:373:81: call of ptr(x) can be simplified to new(x)
+pkgs/gizclaw/services/device/firmware/server_test.go:436:83: call of ptr(x) can be simplified to new(x)
+pkgs/gizclaw/services/device/firmware/server_test.go:458:81: call of ptr(x) can be simplified to new(x)
+pkgs/gizclaw/services/device/firmware/server_test.go:467:94: call of ptr(x) can be simplified to new(x)
+pkgs/gizclaw/services/device/firmware/server_test.go:482:82: call of ptr(x) can be simplified to new(x)
+pkgs/gizclaw/services/device/firmware/server_test.go:552:6: ptr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/services/device/firmware/server_test.go:556:6: int64Ptr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/services/device/firmware/server_test.go:78:81: call of ptr(x) can be simplified to new(x)
+pkgs/gizclaw/services/gameplay/pixa.go:165:6: for loop can be modernized using range over int
+pkgs/gizclaw/services/gameplay/postgres_test.go:175:3: Goroutine creation can be simplified using WaitGroup.Go
+pkgs/gizclaw/services/gameplay/reward.go:207:6: stringPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/services/gameplay/runtime.go:942:12: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/gameplay/runtime.go:956:12: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/runtime/agent/resolver.go:63:5: HasPrefix + TrimPrefix can be simplified to CutPrefix
+pkgs/gizclaw/services/runtime/agenthost/context.go:43:3: Replace m[k]=v loop with maps.Copy
+pkgs/gizclaw/services/runtime/agenthost/resolver.go:202:5: HasPrefix + TrimPrefix can be simplified to CutPrefix
+pkgs/gizclaw/services/runtime/peer/store_ops.go:346:5: if statement can be modernized using min
+pkgs/gizclaw/services/runtime/peerresource/access.go:610:6: ptr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/services/runtime/peerresource/server.go:1215:19: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/services/runtime/peerresource/server.go:1215:83: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/services/runtime/peerresource/server.go:1223:19: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/services/runtime/peerresource/server.go:1223:81: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/services/runtime/peerresource/server.go:1231:19: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/services/runtime/peerresource/server.go:1231:65: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/services/runtime/peerresource/server.go:1235:19: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/services/runtime/peerresource/server.go:1235:67: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/services/runtime/peerresource/server.go:1239:19: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/services/runtime/peerresource/server.go:1239:78: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/services/runtime/peertelemetry/codec_test.go:503:103: call of intPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/runtime/peertelemetry/codec_test.go:520:19: call of intPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/runtime/peertelemetry/codec_test.go:533:19: call of intPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/runtime/peertelemetry/codec_test.go:562:21: call of intPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/runtime/peertelemetry/codec_test.go:564:21: call of boolPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/runtime/peertelemetry/codec_test.go:587:19: call of intPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/runtime/peertelemetry/codec_test.go:588:19: call of boolPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/runtime/peertelemetry/codec_test.go:594:21: call of intPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/runtime/peertelemetry/codec_test.go:622:20: call of float64Ptr(x) can be simplified to new(x)
+pkgs/gizclaw/services/runtime/peertelemetry/codec_test.go:624:20: call of float64Ptr(x) can be simplified to new(x)
+pkgs/gizclaw/services/runtime/peertelemetry/codec_test.go:728:6: intPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/services/runtime/peertelemetry/codec_test.go:732:6: boolPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/services/runtime/peertelemetry/codec_test.go:736:6: float64Ptr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/services/runtime/peertelemetry/codec_test.go:88:13: call of intPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/runtime/peertelemetry/mapper.go:240:3: Replace m[k]=v loop with maps.Copy
+pkgs/gizclaw/services/runtime/peertelemetry/status.go:163:4: Replace m[k]=v loop with maps.Copy
+pkgs/gizclaw/services/runtime/peertelemetry/status.go:169:4: Replace m[k]=v loop with maps.Copy
+pkgs/gizclaw/services/runtime/toolkit/invoke_test.go:129:14: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/runtime/toolkit/invoke_test.go:18:14: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/runtime/toolkit/invoke_test.go:68:20: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/runtime/toolkit/invoke_test.go:74:30: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/runtime/toolkit/store_test.go:130:16: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/runtime/toolkit/store_test.go:135:12: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/runtime/toolkit/store_test.go:43:20: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/runtime/toolkit/test_helpers_test.go:15:10: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/runtime/toolkit/test_helpers_test.go:23:16: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/runtime/toolkit/test_helpers_test.go:24:16: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/runtime/toolkit/test_helpers_test.go:27:16: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/runtime/toolkit/test_helpers_test.go:31:12: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/runtime/toolkit/test_helpers_test.go:36:6: stringPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/services/runtime/toolkit/test_helpers_test.go:8:16: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/runtime/toolkit/test_helpers_test.go:9:16: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/runtime/toolkit/validate.go:57:2: Loop can be simplified using slices.Contains
+pkgs/gizclaw/services/social/contact/server_test.go:105:17: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/contact/server_test.go:106:17: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/contact/server_test.go:111:87: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/contact/server_test.go:122:19: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/contact/server_test.go:123:19: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/contact/server_test.go:124:19: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/contact/server_test.go:137:19: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/contact/server_test.go:138:19: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/contact/server_test.go:144:19: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/contact/server_test.go:145:19: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/contact/server_test.go:152:19: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/contact/server_test.go:153:19: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/contact/server_test.go:159:19: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/contact/server_test.go:160:19: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/contact/server_test.go:165:55: call of intPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/contact/server_test.go:172:71: call of intPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/contact/server_test.go:179:51: call of intPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/contact/server_test.go:186:69: call of intPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/contact/server_test.go:195:16: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/contact/server_test.go:196:16: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/contact/server_test.go:20:16: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/contact/server_test.go:21:16: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/contact/server_test.go:227:65: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/contact/server_test.go:227:82: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/contact/server_test.go:237:65: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/contact/server_test.go:237:88: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/contact/server_test.go:248:62: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/contact/server_test.go:248:77: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/contact/server_test.go:259:19: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/contact/server_test.go:260:19: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/contact/server_test.go:264:64: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/contact/server_test.go:275:85: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/contact/server_test.go:293:6: strPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/services/social/contact/server_test.go:297:6: intPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/services/social/contact/server_test.go:33:87: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/contact/server_test.go:36:87: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/contact/server_test.go:42:16: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/contact/server_test.go:43:16: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/contact/server_test.go:53:16: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/contact/server_test.go:63:16: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/contact/server_test.go:64:16: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/friend/server_test.go:186:39: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/friend/server_test.go:186:76: call of IntPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/friend/server_test.go:279:6: stringPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/services/social/friendgroup/server_test.go:214:110: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/friendgroup/server_test.go:244:46: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/friendgroup/server_test.go:301:21: call of IntPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/friendgroup/server_test.go:400:94: call of IntPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/friendgroup/server_test.go:424:129: call of IntPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/friendgroup/server_test.go:431:128: call of IntPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/friendgroup/server_test.go:601:6: strPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/services/system/publiclogin/server_test.go:117:10: Replace []byte(fmt.Sprintf...) with fmt.Appendf
+pkgs/gizclaw/services/system/publiclogin/server_test.go:343:10: Replace []byte(fmt.Sprintf...) with fmt.Appendf
+pkgs/gizclaw/services/system/resourcemanager/common_test.go:115:6: ptr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/services/system/resourcemanager/credential_body_test.go:13:80: call of testStringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/system/resourcemanager/credential_body_test.go:9:6: testStringPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/services/system/resourcemanager/credential_test.go:45:16: call of ptr(x) can be simplified to new(x)
+pkgs/gizclaw/services/system/resourcemanager/firmware_test.go:284:50: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/system/resourcemanager/firmware_test.go:288:6: stringPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/services/system/resourcemanager/minimax_test.go:103:19: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/system/resourcemanager/minimax_test.go:214:19: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/system/resourcemanager/minimax_test.go:217:19: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/system/resourcemanager/minimax_test.go:242:19: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/system/resourcemanager/minimax_test.go:245:19: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/system/resourcemanager/minimax_test.go:270:19: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/system/resourcemanager/minimax_test.go:273:19: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/system/resourcemanager/minimax_test.go:305:19: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/system/resourcemanager/minimax_test.go:337:14: call of ptr(x) can be simplified to new(x)
+pkgs/gizclaw/services/system/resourcemanager/minimax_test.go:76:19: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/system/resourcemanager/workspace.go:160:3: Replace m[k]=v loop with maps.Copy
+pkgs/gizclaw/test_credential_body_external_test.go:31:6: stringPtr can be an inlinable wrapper around new(expr)
+pkgs/gizedge/config_test.go:249:6: for loop can be modernized using range over int
+pkgs/gizedge/config_test.go:468:17: context.WithCancel can be modernized using t.Context
+pkgs/giznet/gizhttp/server_test.go:121:17: context.WithCancel can be modernized using t.Context
+pkgs/giznet/gizhttp/server_test.go:45:17: context.WithCancel can be modernized using t.Context
+pkgs/giznet/gizwebrtc/stream.go:105:6: if statement can be modernized using min
+pkgs/store/graph/kvgraph.go:179:3: Replace m[k]=v loop with maps.Copy
+pkgs/store/vecstore/hnsw.go:375:5: if statement can be modernized using min
+pkgs/store/vecstore/hnsw.go:447:5: if statement can be modernized using max
+pkgs/store/vecstore/hnsw.go:542:5: if statement can be modernized using min
+pkgs/store/vecstore/hnsw_io.go:381:5: if statement can be modernized using max
+pkgs/store/vecstore/hnsw_test.go:70:5: if statement can be modernized using min
+pkgs/store/vecstore/hnsw_test.go:81:2: Loop can be simplified using slices.Contains
+pkgs/trie/trie.go:118:7: strings.IndexByte can be simplified using strings.Cut
+pkgs/trie/trie.go:48:12: strings.IndexByte can be simplified using strings.Cut
+sdk/go/gizcli/credential_body_test.go:11:78: call of testStringPtr(x) can be simplified to new(x)
+sdk/go/gizcli/credential_body_test.go:7:6: testStringPtr can be an inlinable wrapper around new(expr)
+sdk/go/gizcli/rpc_firmware_test.go:77:6: for loop can be modernized using range over int
+tests/memory/same_example_test.go:37:3: copying variable is unneeded
+tests/memory/testutils_test.go:183:23: Ranging over SplitSeq is more efficient
+tests/memory/testutils_test.go:317:6: HasPrefix + TrimPrefix can be simplified to CutPrefix
+tests/memory/testutils_test.go:327:6: HasPrefix + TrimPrefix can be simplified to CutPrefix
+tests/memory/testutils_test.go:473:6: if statement can be modernized using min
+tests/memory/testutils_test.go:541:2: Loop can be simplified using slices.Contains
+tests/memory/testutils_test.go:550:2: Loop can be simplified using slices.Contains
+tools/quality/main.go:178:23: Ranging over SplitSeq is more efficient

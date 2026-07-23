@@ -18,7 +18,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/ogg"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
-	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/internal/streamkit"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/streamkit"
 )
 
 // Transformer is a realtime transformer using Doubao realtime dialogue.

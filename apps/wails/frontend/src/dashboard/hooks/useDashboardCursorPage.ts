@@ -10,7 +10,10 @@ type CursorListResult<T> = {
   nextCursor: string | null;
 };
 
-type CursorPageLoader<T> = (query: { cursor?: string; limit: number }) => Promise<CursorListResult<T>>;
+type CursorPageLoader<T> = (query: {
+  cursor?: string;
+  limit: number;
+}) => Promise<CursorListResult<T>>;
 
 type CursorListPageState<T> = {
   cursor: string | null;

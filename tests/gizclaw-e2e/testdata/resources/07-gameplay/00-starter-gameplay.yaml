@@ -70,17 +70,17 @@ spec:
         voices:
           pet: {resource_id: "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts", i18n: {en: {display_name: Pet voice}, zh-CN: {display_name: 宠物音色}}}
         pet_defs:
-          starter: {resource_id: petdef-starter, i18n: {en: {display_name: Starter Pet}, zh-CN: {display_name: 初始宠物}}}
+          starter-pet: {resource_id: petdef-starter, i18n: {en: {display_name: Starter Pet}, zh-CN: {display_name: 初始宠物}}}
         badge_defs:
-          starter: {resource_id: badge-starter, i18n: {en: {display_name: Starter Badge}, zh-CN: {display_name: 初始徽章}}}
+          starter-badge: {resource_id: badge-starter, i18n: {en: {display_name: Starter Badge}, zh-CN: {display_name: 初始徽章}}}
         game_defs:
-          starter: {resource_id: game-starter, i18n: {en: {display_name: Starter Game}, zh-CN: {display_name: 初始游戏}}}
+          starter-game: {resource_id: game-starter, i18n: {en: {display_name: Starter Game}, zh-CN: {display_name: 初始游戏}}}
       gameplay:
         points:
           initial_balance: 100
         adoption:
           pool:
-          - pet_def: starter
+          - pet_def: starter-pet
             voice: pet
             weight: 100
             rarity: common
@@ -102,7 +102,7 @@ spec:
             play: {energy_cost: 10, stat_delta: 10}
             heal: {energy_cost: 10, stat_delta: 10}
           games:
-            starter:
+            starter-game:
               energy_cost: 10
               points_cost: 10
               reward:

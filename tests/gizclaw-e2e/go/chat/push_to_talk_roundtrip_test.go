@@ -131,9 +131,7 @@ func createChatRegistrationToken(t *testing.T, selected workspaceCase) string {
 		"doubao-realtime-conversation":      "doubao-realtime-conversation",
 		"flowcraft-voice-assistant":         "flowcraft-voice-assistant",
 		"flowcraft-chat-assistant":          "flowcraft-chat-assistant",
-		"flowcraft-tool-chat":               "flowcraft-tool-chat",
 		"flowcraft-journey-guide":           "flowcraft-journey-guide",
-		"flowcraft-route-matcher":           "flowcraft-route-matcher",
 		"flowcraft-multi-role-storyteller":  "flowcraft-multi-role-storyteller",
 		"flowcraft-murder-mystery":          "flowcraft-murder-mystery",
 		"flowcraft-poetry-adventure-li-bai": "flowcraft-poetry-adventure-li-bai",
@@ -147,12 +145,18 @@ func createChatRegistrationToken(t *testing.T, selected workspaceCase) string {
 		"translation": "volc-ast-translate",
 	}
 	voiceResources := map[string]string{
-		"assistant":   "volc-tenant:volc-main:zh_female_vv_mars_bigtts",
-		"storyteller": "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
-		"monster":     "volc-tenant:volc-main:ICL_zh_female_bingjiao3_tob",
-		"wukong":      "volc-tenant:volc-main:zh_male_sunwukong_mars_bigtts",
-		"tangseng":    "volc-tenant:volc-main:zh_male_tangseng_mars_bigtts",
-		"bajie":       "volc-tenant:volc-main:zh_male_zhubajie_mars_bigtts",
+		"assistant-voice":  "volc-tenant:volc-main:zh_female_vv_mars_bigtts",
+		"japanese-voice":   "volc-tenant:volc-main:multi_female_shuangkuaisisi_moon_bigtts",
+		"doubao-assistant": "volc-tenant:volc-main:zh_female_vv_jupiter_bigtts",
+		"narrator":         "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+		"cute-pet":         "volc-tenant:volc-main:zh_male_naiqimengwa_mars_bigtts",
+		"monster":          "volc-tenant:volc-main:ICL_zh_female_bingjiao3_tob",
+		"game-master":      "volc-tenant:volc-main:zh_male_changtianyi_mars_bigtts",
+		"detective":        "volc-tenant:volc-main:ICL_zh_male_lengjungaozhi_tob",
+		"police-officer":   "volc-tenant:volc-main:ICL_zh_male_zhengzhiqingnian_tob",
+		"sun-wukong":       "volc-tenant:volc-main:zh_male_sunwukong_mars_bigtts",
+		"tang-sanzang":     "volc-tenant:volc-main:zh_male_tangseng_mars_bigtts",
+		"zhu-bajie":        "volc-tenant:volc-main:zh_male_zhubajie_mars_bigtts",
 	}
 	const profileName = "e2e-chat"
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)

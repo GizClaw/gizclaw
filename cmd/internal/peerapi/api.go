@@ -35,7 +35,7 @@ func GetServerInfo(ctx context.Context, c *gizcli.Client) (apitypes.ServerInfo, 
 	return apitypes.ServerInfo{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400)
 }
 
-func responseError(status int, body []byte, errs ...interface{}) error {
+func responseError(status int, body []byte, errs ...any) error {
 	for _, errResp := range errs {
 		switch e := errResp.(type) {
 		case *apitypes.ErrorResponse:

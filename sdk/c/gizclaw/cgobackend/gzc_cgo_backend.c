@@ -13,6 +13,7 @@ int gzcGoHKDFSHA256(const uint8_t *secret, size_t secret_len, const uint8_t *sal
 int gzcGoAEADSeal(int mode, const uint8_t *key, size_t key_len, const uint8_t *nonce, size_t nonce_len, const uint8_t *plaintext, size_t plaintext_len, const uint8_t *aad, size_t aad_len, uint8_t **out_data, size_t *out_len);
 int gzcGoAEADOpen(int mode, const uint8_t *key, size_t key_len, const uint8_t *nonce, size_t nonce_len, const uint8_t *ciphertext, size_t ciphertext_len, const uint8_t *aad, size_t aad_len, uint8_t **out_data, size_t *out_len);
 int gzcGoRandom(uint8_t *out, size_t len);
+int64_t gzcGoTimeInstantMs(void);
 int64_t gzcGoTimeUnixMs(void);
 int gzcGoPeerCreate(uint64_t handle);
 int gzcGoPeerAddICEServer(uint64_t handle, const char *url, size_t url_len, const char *username, size_t username_len, const char *credential, size_t credential_len);
@@ -21,6 +22,8 @@ int gzcGoPeerSetRemoteSDP(uint64_t handle, const char *sdp, size_t len);
 int gzcGoPeerCreateDataChannel(uint64_t handle, const char *label, size_t len, int channel_id, bool ordered, bool reliable);
 int gzcGoPeerPoll(uint64_t handle, int timeout_ms);
 int gzcGoChannelSend(uint64_t handle, int channel_id, const uint8_t *data, size_t len, bool is_text);
+int gzcGoChannelBufferedAmount(uint64_t handle, int channel_id, uint64_t *out_bytes);
+int gzcGoChannelSetBufferedAmountLowThreshold(uint64_t handle, int channel_id, uint64_t bytes);
 void gzcGoChannelClose(uint64_t handle, int channel_id);
 void gzcGoPeerClose(uint64_t handle);
 enum {
@@ -99,6 +102,11 @@ static int64_t bridge_time_unix_ms(void *userdata) {
   return gzcGoTimeUnixMs();
 }
 
+static int64_t bridge_time_instant_ms(void *userdata) {
+  (void)userdata;
+  return gzcGoTimeInstantMs();
+}
+
 static int bridge_random(void *userdata, uint8_t *out, size_t len) {
   (void)userdata;
   return gzcGoRandom(out, len);
@@ -119,6 +127,7 @@ int gzc_cgo_backend_init(gzc_cgo_backend_t *backend) {
   backend->platform_impl.malloc = bridge_malloc;
   backend->platform_impl.realloc = bridge_realloc;
   backend->platform_impl.free = bridge_free;
+  backend->platform_impl.time_instant_ms = bridge_time_instant_ms;
   backend->platform_impl.time_unix_ms = bridge_time_unix_ms;
   backend->platform_impl.random = bridge_random;
   backend->platform_impl.log = bridge_log;
@@ -254,8 +263,8 @@ static int bridge_aead(
   uint8_t *raw = NULL;
   size_t raw_len = 0;
   int rc = seal
-      ? gzcGoAEADSeal((int)mode, key, key_len, nonce, nonce_len, input, input_len, aad, aad_len, &raw, &raw_len)
-      : gzcGoAEADOpen((int)mode, key, key_len, nonce, nonce_len, input, input_len, aad, aad_len, &raw, &raw_len);
+               ? gzcGoAEADSeal((int)mode, key, key_len, nonce, nonce_len, input, input_len, aad, aad_len, &raw, &raw_len)
+               : gzcGoAEADOpen((int)mode, key, key_len, nonce, nonce_len, input, input_len, aad, aad_len, &raw, &raw_len);
   if (rc == GZC_OK) {
     rc = bridge_buf_replace(out, backend->platform, raw, raw_len);
   }
@@ -419,6 +428,22 @@ static int bridge_channel_send(gzc_rtc_channel_t *channel, const uint8_t *data, 
   return gzcGoChannelSend(channel->backend->handle, channel->id, data, len, is_text);
 }
 
+static int bridge_channel_buffered_amount(gzc_rtc_channel_t *channel, uint64_t *out_bytes) {
+  if (channel == NULL || channel->backend == NULL || out_bytes == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  return gzcGoChannelBufferedAmount(channel->backend->handle, channel->id, out_bytes);
+}
+
+static int bridge_channel_set_buffered_amount_low_threshold(
+    gzc_rtc_channel_t *channel,
+    uint64_t bytes) {
+  if (channel == NULL || channel->backend == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  return gzcGoChannelSetBufferedAmountLowThreshold(channel->backend->handle, channel->id, bytes);
+}
+
 static void bridge_channel_close(gzc_rtc_channel_t *channel) {
   if (channel != NULL && channel->backend != NULL) {
     gzcGoChannelClose(channel->backend->handle, channel->id);
@@ -440,6 +465,9 @@ void gzc_cgo_backend_webrtc_vtable(gzc_cgo_backend_t *backend, gzc_webrtc_vtable
   out_webrtc->peer_create_data_channel = bridge_peer_create_data_channel;
   out_webrtc->peer_poll = bridge_peer_poll;
   out_webrtc->channel_send = bridge_channel_send;
+  out_webrtc->channel_buffered_amount = bridge_channel_buffered_amount;
+  out_webrtc->channel_set_buffered_amount_low_threshold =
+      bridge_channel_set_buffered_amount_low_threshold;
   out_webrtc->channel_close = bridge_channel_close;
   out_webrtc->peer_close = bridge_peer_close;
 }
@@ -578,4 +606,24 @@ void gzc_cgo_emit_channel_message(gzc_cgo_backend_t *backend, int channel_id, co
       data,
       len,
       is_text);
+}
+
+void gzc_cgo_emit_channel_buffered_amount_low(gzc_cgo_backend_t *backend, int channel_id) {
+  if (backend == NULL || backend->callbacks.on_channel_buffered_amount_low == NULL) {
+    return;
+  }
+  gzc_rtc_channel_t *channel = remote_channel_by_id(backend, channel_id);
+  if (channel == NULL) {
+    if (channel_id == gzc_cgo_channel_packet) {
+      channel = &backend->packet_channel;
+    } else if (channel_id == gzc_cgo_channel_rpc) {
+      channel = &backend->rpc_channel;
+    } else if (channel_id == gzc_cgo_channel_event) {
+      channel = &backend->event_channel;
+    } else {
+      return;
+    }
+  }
+  backend->callbacks.on_channel_buffered_amount_low(
+      backend->callbacks.userdata, &backend->peer, channel);
 }

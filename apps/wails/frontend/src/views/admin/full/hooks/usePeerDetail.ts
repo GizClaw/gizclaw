@@ -22,7 +22,9 @@ export interface PeerDetailState {
   loading: boolean;
 }
 
-export function usePeerDetail(publicKey: string | undefined): PeerDetailState & { reload: () => Promise<void> } {
+export function usePeerDetail(
+  publicKey: string | undefined,
+): PeerDetailState & { reload: () => Promise<void> } {
   const [state, setState] = useState<PeerDetailState>({
     data: null,
     error: "",
@@ -38,7 +40,7 @@ export function usePeerDetail(publicKey: string | undefined): PeerDetailState & 
     setState({ data: null, error: "", loading: true });
     try {
       const registration = await expectData(getPeer({ path: { publicKey } }));
-	  const [info, runtime] = await Promise.all([
+      const [info, runtime] = await Promise.all([
         loadOptional(() => expectData(getPeerInfo({ path: { publicKey } }))),
         loadOptional(() => expectData(getPeerRuntime({ path: { publicKey } }))),
       ]);

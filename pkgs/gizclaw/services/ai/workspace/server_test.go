@@ -718,64 +718,20 @@ func TestServerWorkspaceConflictAndMissingDelete(t *testing.T) {
 	}
 }
 
-func TestServerRejectsIncompleteFlowcraftModelParameters(t *testing.T) {
+func TestServerDefersDirectFlowcraftAliasesToOwnerRuntimeProfile(t *testing.T) {
 	t.Parallel()
 
 	srv := newTestServer(t)
 	ctx := context.Background()
-	seedFlowcraftWorkflow(t, srv, "flowcraft-chat", true)
-	seedModel(t, srv, "chat-model", apitypes.ModelKindLlm)
-	seedModel(t, srv, "embedding-model", apitypes.ModelKindEmbedding)
-	seedModel(t, srv, "speech-model", apitypes.ModelKindTts)
-
-	tests := []struct {
-		name string
-		body string
-		want string
-		ok   bool
-	}{
-		{name: "missing parameters", body: `{"name":"missing-params","workflow_name":"flowcraft-chat"}`, want: `"generate_model" requires a concrete Model resource name`},
-		{name: "missing generate", body: `{"name":"missing-generate","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft"}}`, want: `"generate_model" requires a concrete Model resource name`},
-		{name: "symbolic generate", body: `{"name":"symbolic-generate","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft","generate_model":"generate_model","extract_model":"chat-model"}}`, want: `"generate_model" requires a concrete Model resource name`},
-		{name: "missing model", body: `{"name":"missing-model","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft","generate_model":"not-found","extract_model":"chat-model","embedding_model":"embedding-model"}}`, want: `references missing Model "not-found"`},
-		{name: "wrong kind", body: `{"name":"wrong-kind","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft","generate_model":"speech-model","extract_model":"chat-model","embedding_model":"embedding-model"}}`, want: `has kind "tts", want "llm"`},
-		{name: "missing extract", body: `{"name":"missing-extract","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft","generate_model":"chat-model"}}`, want: `"extract_model" requires a concrete Model resource name`},
-		{name: "missing embedding", body: `{"name":"missing-embedding","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft","generate_model":"chat-model","extract_model":"chat-model"}}`, want: `"embedding_model" requires a concrete Model resource name`},
-		{name: "missing embedding model", body: `{"name":"missing-embedding-model","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft","generate_model":"chat-model","extract_model":"chat-model","embedding_model":"not-found"}}`, want: `references missing Model "not-found"`},
-		{name: "wrong embedding kind", body: `{"name":"wrong-embedding-kind","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft","generate_model":"chat-model","extract_model":"chat-model","embedding_model":"chat-model"}}`, want: `has kind "llm", want "embedding"`},
-		{name: "valid", body: `{"name":"valid-models","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft","generate_model":"chat-model","extract_model":"chat-model","embedding_model":"embedding-model"}}`, ok: true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			body := mustWorkspaceUpsert(t, tt.body)
-			resp, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
-			if err != nil {
-				t.Fatalf("CreateWorkspace() error = %v", err)
-			}
-			if tt.ok {
-				if _, ok := resp.(adminhttp.CreateWorkspace200JSONResponse); !ok {
-					t.Fatalf("CreateWorkspace() response = %#v", resp)
-				}
-				return
-			}
-			invalid, ok := resp.(adminhttp.CreateWorkspace400JSONResponse)
-			if !ok {
-				t.Fatalf("CreateWorkspace() response = %#v, want 400", resp)
-			}
-			if !strings.Contains(invalid.Error.Message, tt.want) {
-				t.Fatalf("CreateWorkspace() message = %q, want substring %q", invalid.Error.Message, tt.want)
-			}
-		})
-	}
-
+	seedFlowcraftWorkflow(t, srv, "model-service-missing", "chat-alias", "", "")
 	srv.Models = nil
-	body := mustWorkspaceUpsert(t, `{"name":"model-service-missing","workflow_name":"flowcraft-chat","parameters":{"agent_type":"flowcraft","generate_model":"chat-model","extract_model":"chat-model","embedding_model":"embedding-model"}}`)
+	body := mustWorkspaceUpsert(t, `{"name":"model-service-missing","workflow_name":"model-service-missing","parameters":{"agent_type":"flowcraft"}}`)
 	resp, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
 	if err != nil {
 		t.Fatalf("CreateWorkspace(model service missing) error = %v", err)
 	}
-	if _, ok := resp.(adminhttp.CreateWorkspace500JSONResponse); !ok {
-		t.Fatalf("CreateWorkspace(model service missing) response = %#v, want 500", resp)
+	if _, ok := resp.(adminhttp.CreateWorkspace200JSONResponse); !ok {
+		t.Fatalf("CreateWorkspace(model service missing) response = %#v, want 200", resp)
 	}
 }
 
@@ -783,7 +739,7 @@ func TestServerValidatesRuntimeFlowcraftModelAliases(t *testing.T) {
 	t.Parallel()
 
 	srv := newTestServer(t)
-	seedFlowcraftWorkflow(t, srv, "flowcraft-chat", true)
+	seedFlowcraftWorkflow(t, srv, "flowcraft-chat", "generate-model", "extract-model", "embedding-model")
 	seedModel(t, srv, "chat-model", apitypes.ModelKindLlm)
 	seedModel(t, srv, "embedding-resource", apitypes.ModelKindEmbedding)
 	ctx := WithRuntimeModelBindings(
@@ -797,31 +753,32 @@ func TestServerValidatesRuntimeFlowcraftModelAliases(t *testing.T) {
 	)
 
 	tests := []struct {
-		name string
-		body string
-		want string
-		ok   bool
+		name     string
+		bindings map[string]string
+		want     string
+		ok       bool
 	}{
 		{
-			name: "valid aliases",
-			body: `{"name":"runtime-valid","workflow_name":"2fa-chat","parameters":{"agent_type":"flowcraft","generate_model":"generate-model","extract_model":"extract-model","embedding_model":"embedding-model"}}`,
-			ok:   true,
+			name:     "valid aliases",
+			bindings: map[string]string{"generate-model": "chat-model", "extract-model": "chat-model", "embedding-model": "embedding-resource"},
+			ok:       true,
 		},
 		{
-			name: "missing override alias",
-			body: `{"name":"runtime-missing","workflow_name":"2fa-chat","parameters":{"agent_type":"flowcraft","generate_model":"missing-alias","extract_model":"extract-model","embedding_model":"embedding-model"}}`,
-			want: `references missing runtime Model alias "missing-alias"`,
+			name:     "missing graph alias",
+			bindings: map[string]string{"extract-model": "chat-model", "embedding-model": "embedding-resource"},
+			want:     `references missing runtime Model alias "generate-model"`,
 		},
 		{
-			name: "wrong override kind",
-			body: `{"name":"runtime-wrong-kind","workflow_name":"2fa-chat","parameters":{"agent_type":"flowcraft","generate_model":"generate-model","extract_model":"extract-model","embedding_model":"wrong-embedding"}}`,
-			want: `has kind "llm", want "embedding"`,
+			name:     "wrong embedding kind",
+			bindings: map[string]string{"generate-model": "chat-model", "extract-model": "chat-model", "embedding-model": "chat-model"},
+			want:     `has kind "llm", want "embedding"`,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			body := mustWorkspaceUpsert(t, tt.body)
-			resp, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
+			testCtx := WithRuntimeModelBindings(WithRuntimeWorkflowBindings(context.Background(), map[string]string{"2fa-chat": "flowcraft-chat"}), tt.bindings)
+			body := mustWorkspaceUpsert(t, fmt.Sprintf(`{"name":%q,"workflow_name":"2fa-chat","parameters":{"agent_type":"flowcraft"}}`, "runtime-"+strings.ReplaceAll(tt.name, " ", "-")))
+			resp, err := srv.CreateWorkspace(testCtx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
 			if err != nil {
 				t.Fatalf("CreateWorkspace() error = %v", err)
 			}
@@ -843,7 +800,7 @@ func TestServerValidatesRuntimeFlowcraftModelAliases(t *testing.T) {
 			}
 		})
 	}
-	getResp, err := srv.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Name: "runtime-valid"})
+	getResp, err := srv.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Name: "runtime-valid-aliases"})
 	if err != nil {
 		t.Fatalf("GetWorkspace(runtime-valid) error = %v", err)
 	}
@@ -855,10 +812,8 @@ func TestServerValidatesRuntimeFlowcraftModelAliases(t *testing.T) {
 	if err != nil {
 		t.Fatalf("stored Workspace parameters: %v", err)
 	}
-	if parameters.GenerateModel == nil || *parameters.GenerateModel != "generate-model" ||
-		parameters.ExtractModel == nil || *parameters.ExtractModel != "extract-model" ||
-		parameters.EmbeddingModel == nil || *parameters.EmbeddingModel != "embedding-model" {
-		t.Fatalf("stored Workspace parameters = %#v, want runtime aliases", parameters)
+	if parameters.AgentType != apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft {
+		t.Fatalf("stored Workspace parameters = %#v", parameters)
 	}
 }
 
@@ -970,19 +925,25 @@ func seedWorkflow(t *testing.T, srv *Server, name string) {
 	}
 }
 
-func seedFlowcraftWorkflow(t *testing.T, srv *Server, name string, extract bool) {
+func seedFlowcraftWorkflow(t *testing.T, srv *Server, name, generateModel, extractModel, embeddingModel string) {
 	t.Helper()
 
-	settings := `"generate_model":"generate_model"`
-	if extract {
-		settings += `,"extract_model":"extract_model"`
+	memoryConfig := ""
+	if extractModel != "" || embeddingModel != "" {
+		memoryConfig = `,"memory":{"enabled":true`
+		if extractModel != "" {
+			memoryConfig += fmt.Sprintf(`,"extract":{"enabled":true,"model":%q}`, extractModel)
+		}
+		if embeddingModel != "" {
+			memoryConfig += fmt.Sprintf(`,"embedding":{"enabled":true,"model":%q}`, embeddingModel)
+		}
+		memoryConfig += "}"
 	}
-	settings += `,"embedding_model":"embedding_model"`
 	store, err := srv.workflowStore()
 	if err != nil {
 		t.Fatalf("workflow store: %v", err)
 	}
-	body := fmt.Appendf(nil, `{"name":%q,"spec":{"driver":"flowcraft","flowcraft":{"settings":{%s}}}}`, name, settings)
+	body := fmt.Appendf(nil, `{"name":%q,"spec":{"driver":"flowcraft","flowcraft":{"agent":{"id":"assistant","name":"Assistant","graph":{"name":"Assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":%q}}]}}%s}}}`, name, generateModel, memoryConfig)
 	if err := store.Set(context.Background(), workflowReferenceKey(name), body); err != nil {
 		t.Fatalf("seed flowcraft workflow %q: %v", name, err)
 	}

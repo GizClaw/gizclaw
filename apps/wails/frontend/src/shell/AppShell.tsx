@@ -131,11 +131,9 @@ export function AppShell() {
         const nextPods = await Promise.all(ids.map((id) => api.GetPod(id)));
         if (cancelled) return;
         const byID = new Map(nextPods.map((pod) => [pod.id, pod]));
-        setPods((current) =>
-          current.map((pod) => byID.get(pod.id) ?? pod),
-        );
+        setPods((current) => current.map((pod) => byID.get(pod.id) ?? pod));
         setSelected((current) =>
-          current == null ? null : byID.get(current.id) ?? current,
+          current == null ? null : (byID.get(current.id) ?? current),
         );
       } catch (reason) {
         if (!cancelled) setError(errorMessage(reason));
@@ -585,176 +583,176 @@ function PodDetail({
     >
       {(close) => (
         <>
-        <div className="dialog-aurora" />
-        <header className="pod-dialog-header">
-          {managing && pod.valid ? (
-            <button
-              aria-label={t("shareServer")}
-              className="icon-button detail-back-button"
-              onClick={() => setManaging(false)}
-              title={t("shareServer")}
-              type="button"
-            >
-              <ChevronLeft size={18} />
-            </button>
-          ) : null}
-          <div className="pod-dialog-heading">
-            <DesktopDialogTitle>
-              {pod.valid && !pod.initialization ? (
-                <h2>
-                  <button
-                    className="pod-name-button"
-                    onClick={onEdit}
-                    title={t("renameServer")}
-                    type="button"
-                  >
-                    {pod.name}
-                  </button>
-                </h2>
-              ) : (
-                <h2>{pod.name}</h2>
-              )}
-            </DesktopDialogTitle>
-          </div>
-          <span className="pod-header-meta">
-            {detailSubtitle || pod.description || pod.id}
-          </span>
-          <button
-            aria-label={t("close")}
-            className="icon-button close-button"
-            onClick={close}
-            title={t("close")}
-            type="button"
-          >
-            <X size={20} />
-          </button>
-        </header>
-        <div className="pod-dialog-body">
-          {!pod.valid ? (
-            <div className="invalid-detail">
-              <Activity size={26} />
-              <h3>{t("invalid")}</h3>
-              <p>{pod.error}</p>
+          <div className="dialog-aurora" />
+          <header className="pod-dialog-header">
+            {managing && pod.valid ? (
               <button
-                className="secondary-action"
-                onClick={onReveal}
+                aria-label={t("shareServer")}
+                className="icon-button detail-back-button"
+                onClick={() => setManaging(false)}
+                title={t("shareServer")}
                 type="button"
               >
-                <FolderOpen size={15} />
-                {t("reveal")}
+                <ChevronLeft size={18} />
               </button>
+            ) : null}
+            <div className="pod-dialog-heading">
+              <DesktopDialogTitle>
+                {pod.valid && !pod.initialization ? (
+                  <h2>
+                    <button
+                      className="pod-name-button"
+                      onClick={onEdit}
+                      title={t("renameServer")}
+                      type="button"
+                    >
+                      {pod.name}
+                    </button>
+                  </h2>
+                ) : (
+                  <h2>{pod.name}</h2>
+                )}
+              </DesktopDialogTitle>
             </div>
-          ) : pod.initialization ? (
-            <PodInitializationDetail
-              initialization={pod.initialization}
-              onDelete={() => setConfirmingDelete(true)}
-              onReveal={onReveal}
-            />
-          ) : pod.local ? (
-            <PodDetailPages
-              back={
-                <LocalManageFace
-                  api={api}
-                  onDelete={() => setConfirmingDelete(true)}
-                  onError={onError}
-                  pod={pod}
-                  run={run}
-                />
-              }
-              managing={managing}
-              front={
-                <PodShareFace
-                  endpoint={preferredLANAddress(pod.local.lan_addresses)}
-                  onManage={() => setManaging(true)}
-                  onPlay={() =>
-                    openBrowserLaunch(api.OpenPlay(pod.id), onError)
-                  }
-                  pod={pod}
-                  publicKey={pod.local.server_public_key ?? ""}
-                />
-              }
-            />
-          ) : (
-            <PodDetailPages
-              back={
-                <RemoteManageFace
-                  api={api}
-                  onAddServer={() => setServerEditor("new")}
-                  onDelete={() => setConfirmingDelete(true)}
-                  onEditServer={setServerEditor}
-                  onError={onError}
-                  onQuery={setQuery}
-                  pod={pod}
-                  query={query}
-                  servers={servers}
-                />
-              }
-              managing={managing}
-              front={
-                <PodShareFace
-                  endpoint={pod.remote!.access_point.endpoint}
-                  onManage={() => setManaging(true)}
-                  onPlay={() =>
-                    openBrowserLaunch(api.OpenPlay(pod.id), onError)
-                  }
-                  pod={pod}
-                  publicKey={pod.remote!.access_point.public_key ?? ""}
-                />
-              }
-            />
-          )}
-        </div>
-        {serverEditor ? (
-          <ServerEditorDialog
-            server={serverEditor === "new" ? undefined : serverEditor}
-            onClose={() => setServerEditor(null)}
-            onDelete={
-              serverEditor === "new"
-                ? undefined
-                : async () => {
-                    if (!window.confirm(t("confirmDeleteServer"))) return;
-                    try {
-                      const next = await api.UpdatePod(
-                        podInputWithServers(
-                          pod,
-                          pod.remote!.servers.filter(
-                            (server) => server.id !== serverEditor.id,
-                          ),
-                        ),
-                      );
-                      onChange(next);
-                      setServerEditor(null);
-                    } catch (reason) {
-                      onError(reason);
+            <span className="pod-header-meta">
+              {detailSubtitle || pod.description || pod.id}
+            </span>
+            <button
+              aria-label={t("close")}
+              className="icon-button close-button"
+              onClick={close}
+              title={t("close")}
+              type="button"
+            >
+              <X size={20} />
+            </button>
+          </header>
+          <div className="pod-dialog-body">
+            {!pod.valid ? (
+              <div className="invalid-detail">
+                <Activity size={26} />
+                <h3>{t("invalid")}</h3>
+                <p>{pod.error}</p>
+                <button
+                  className="secondary-action"
+                  onClick={onReveal}
+                  type="button"
+                >
+                  <FolderOpen size={15} />
+                  {t("reveal")}
+                </button>
+              </div>
+            ) : pod.initialization ? (
+              <PodInitializationDetail
+                initialization={pod.initialization}
+                onDelete={() => setConfirmingDelete(true)}
+                onReveal={onReveal}
+              />
+            ) : pod.local ? (
+              <PodDetailPages
+                back={
+                  <LocalManageFace
+                    api={api}
+                    onDelete={() => setConfirmingDelete(true)}
+                    onError={onError}
+                    pod={pod}
+                    run={run}
+                  />
+                }
+                managing={managing}
+                front={
+                  <PodShareFace
+                    endpoint={preferredLANAddress(pod.local.lan_addresses)}
+                    onManage={() => setManaging(true)}
+                    onPlay={() =>
+                      openBrowserLaunch(api.OpenPlay(pod.id), onError)
                     }
-                  }
-            }
-            onSave={async (draft) => {
-              const nextServers =
+                    pod={pod}
+                    publicKey={pod.local.server_public_key ?? ""}
+                  />
+                }
+              />
+            ) : (
+              <PodDetailPages
+                back={
+                  <RemoteManageFace
+                    api={api}
+                    onAddServer={() => setServerEditor("new")}
+                    onDelete={() => setConfirmingDelete(true)}
+                    onEditServer={setServerEditor}
+                    onError={onError}
+                    onQuery={setQuery}
+                    pod={pod}
+                    query={query}
+                    servers={servers}
+                  />
+                }
+                managing={managing}
+                front={
+                  <PodShareFace
+                    endpoint={pod.remote!.access_point.endpoint}
+                    onManage={() => setManaging(true)}
+                    onPlay={() =>
+                      openBrowserLaunch(api.OpenPlay(pod.id), onError)
+                    }
+                    pod={pod}
+                    publicKey={pod.remote!.access_point.public_key ?? ""}
+                  />
+                }
+              />
+            )}
+          </div>
+          {serverEditor ? (
+            <ServerEditorDialog
+              server={serverEditor === "new" ? undefined : serverEditor}
+              onClose={() => setServerEditor(null)}
+              onDelete={
                 serverEditor === "new"
-                  ? [...pod.remote!.servers, draft]
-                  : pod.remote!.servers.map((server) =>
-                      server.id === serverEditor.id ? draft : server,
-                    );
-              try {
-                const next = await api.UpdatePod(
-                  podInputWithServers(pod, nextServers),
-                );
-                onChange(next);
-                setServerEditor(null);
-              } catch (reason) {
-                onError(reason);
+                  ? undefined
+                  : async () => {
+                      if (!window.confirm(t("confirmDeleteServer"))) return;
+                      try {
+                        const next = await api.UpdatePod(
+                          podInputWithServers(
+                            pod,
+                            pod.remote!.servers.filter(
+                              (server) => server.id !== serverEditor.id,
+                            ),
+                          ),
+                        );
+                        onChange(next);
+                        setServerEditor(null);
+                      } catch (reason) {
+                        onError(reason);
+                      }
+                    }
               }
-            }}
-          />
-        ) : null}
-        {confirmingDelete ? (
-          <DeletePodDialog
-            onClose={() => setConfirmingDelete(false)}
-            onDelete={onDelete}
-            podName={pod.name}
-          />
-        ) : null}
+              onSave={async (draft) => {
+                const nextServers =
+                  serverEditor === "new"
+                    ? [...pod.remote!.servers, draft]
+                    : pod.remote!.servers.map((server) =>
+                        server.id === serverEditor.id ? draft : server,
+                      );
+                try {
+                  const next = await api.UpdatePod(
+                    podInputWithServers(pod, nextServers),
+                  );
+                  onChange(next);
+                  setServerEditor(null);
+                } catch (reason) {
+                  onError(reason);
+                }
+              }}
+            />
+          ) : null}
+          {confirmingDelete ? (
+            <DeletePodDialog
+              onClose={() => setConfirmingDelete(false)}
+              onDelete={onDelete}
+              podName={pod.name}
+            />
+          ) : null}
         </>
       )}
     </DesktopDialog>
@@ -1025,9 +1023,7 @@ function LocalManageFace({
     setChanging(true);
     try {
       await run(() =>
-        running
-          ? api.StopLocalServer(pod.id)
-          : api.StartLocalServer(pod.id),
+        running ? api.StopLocalServer(pod.id) : api.StartLocalServer(pod.id),
       );
     } finally {
       changingRef.current = false;
@@ -1556,7 +1552,11 @@ function BootstrapEnvironmentDialog({
   }
 
   return (
-    <DesktopDialog className="create-dialog bootstrap-environment-dialog" nested={nested} onClose={onClose}>
+    <DesktopDialog
+      className="create-dialog bootstrap-environment-dialog"
+      nested={nested}
+      onClose={onClose}
+    >
       {(close) => (
         <form
           className="desktop-dialog-form bootstrap-environment-form"
@@ -1571,7 +1571,12 @@ function BootstrapEnvironmentDialog({
                 {t("bootstrapEnvironmentHint")}
               </p>
             </div>
-            <button aria-label={t("close")} className="icon-button" onClick={close} type="button">
+            <button
+              aria-label={t("close")}
+              className="icon-button"
+              onClick={close}
+              type="button"
+            >
               <X size={18} />
             </button>
           </header>
@@ -1606,10 +1611,17 @@ function BootstrapEnvironmentDialog({
                 {initial.variables.map((variable, index) => {
                   const inputID = `bootstrap-environment-${index}`;
                   return (
-                    <div className="bootstrap-environment-field" key={variable.name}>
+                    <div
+                      className="bootstrap-environment-field"
+                      key={variable.name}
+                    >
                       <label htmlFor={inputID}>
-                        <span>{bootstrapEnvironmentLabel(variable.name, t)}</span>
-                        <code title={t("bootstrapEnvironmentKey")}>{variable.name}</code>
+                        <span>
+                          {bootstrapEnvironmentLabel(variable.name, t)}
+                        </span>
+                        <code title={t("bootstrapEnvironmentKey")}>
+                          {variable.name}
+                        </code>
                       </label>
                       <div className="bootstrap-environment-input-row">
                         <input
@@ -1618,9 +1630,16 @@ function BootstrapEnvironmentDialog({
                           onChange={(event) => {
                             const value = event.target.value;
                             setValues((current) => {
-                              const next = { ...current, [variable.name]: value };
+                              const next = {
+                                ...current,
+                                [variable.name]: value,
+                              };
                               setContent((currentContent) =>
-                                updateBootstrapEnvContent(currentContent, names, next),
+                                updateBootstrapEnvContent(
+                                  currentContent,
+                                  names,
+                                  next,
+                                ),
                               );
                               return next;
                             });
@@ -1642,7 +1661,11 @@ function BootstrapEnvironmentDialog({
                             setValues((current) => {
                               const next = { ...current, [variable.name]: "" };
                               setContent((currentContent) =>
-                                updateBootstrapEnvContent(currentContent, names, next),
+                                updateBootstrapEnvContent(
+                                  currentContent,
+                                  names,
+                                  next,
+                                ),
                               );
                               return next;
                             });
@@ -1706,9 +1729,10 @@ function bootstrapEnvironmentLabel(
   name: string,
   t: ReturnType<typeof useMessages>,
 ): string {
-  const key = bootstrapEnvironmentLabelKeys[
-    name as keyof typeof bootstrapEnvironmentLabelKeys
-  ];
+  const key =
+    bootstrapEnvironmentLabelKeys[
+      name as keyof typeof bootstrapEnvironmentLabelKeys
+    ];
   if (key) return t(key);
   return name
     .replace(/^GIZCLAW_/, "")
@@ -1767,65 +1791,61 @@ function PodSettingsDialog({
           className="desktop-dialog-form"
           onSubmit={(event) => void submit(event)}
         >
-        <header>
-          <div>
-            <span className="mode-chip">{t("editPod")}</span>
-            <DesktopDialogTitle>
-              <h2>{initial.name}</h2>
-            </DesktopDialogTitle>
+          <header>
+            <div>
+              <span className="mode-chip">{t("editPod")}</span>
+              <DesktopDialogTitle>
+                <h2>{initial.name}</h2>
+              </DesktopDialogTitle>
+            </div>
+            <button
+              aria-label={t("close")}
+              className="icon-button"
+              onClick={close}
+              title={t("close")}
+              type="button"
+            >
+              <X size={18} />
+            </button>
+          </header>
+          <div className="form-grid">
+            <Field
+              label={t("name")}
+              onChange={setName}
+              placeholder={t("name")}
+              required
+              value={name}
+              wide
+            />
+            {initial.remote ? (
+              <>
+                <Field
+                  label={t("accessPoint")}
+                  onChange={setAccessPoint}
+                  placeholder="ap.dev.gizclaw.com:9820"
+                  required
+                  value={accessPoint}
+                  wide
+                />
+                <Field
+                  label={t("registrationToken")}
+                  onChange={setRegistrationToken}
+                  placeholder={t("keepRegistrationToken")}
+                  secret
+                  value={registrationToken}
+                  wide
+                />
+              </>
+            ) : null}
           </div>
-          <button
-            aria-label={t("close")}
-            className="icon-button"
-            onClick={close}
-            title={t("close")}
-            type="button"
-          >
-            <X size={18} />
-          </button>
-        </header>
-        <div className="form-grid">
-          <Field
-            label={t("name")}
-            onChange={setName}
-            placeholder={t("name")}
-            required
-            value={name}
-            wide
-          />
-          {initial.remote ? (
-            <>
-              <Field
-                label={t("accessPoint")}
-                onChange={setAccessPoint}
-                placeholder="ap.dev.gizclaw.com:9820"
-                required
-                value={accessPoint}
-                wide
-              />
-              <Field
-                label={t("registrationToken")}
-                onChange={setRegistrationToken}
-                placeholder={t("keepRegistrationToken")}
-                secret
-                value={registrationToken}
-                wide
-              />
-            </>
-          ) : null}
-        </div>
-        <footer>
-          <button
-            className="secondary-action"
-            onClick={close}
-            type="button"
-          >
-            {t("cancel")}
-          </button>
-          <button className="primary-action" type="submit">
-            {t("saveConfiguration")}
-          </button>
-        </footer>
+          <footer>
+            <button className="secondary-action" onClick={close} type="button">
+              {t("cancel")}
+            </button>
+            <button className="primary-action" type="submit">
+              {t("saveConfiguration")}
+            </button>
+          </footer>
         </form>
       )}
     </DesktopDialog>
@@ -1896,8 +1916,7 @@ function serverDeepLink(
     .replaceAll("%5D", "]");
   const query = new URLSearchParams({ name, mode });
   if (publicKey) query.set("public_key", publicKey);
-  if (registrationToken)
-    query.set("registration_token", registrationToken);
+  if (registrationToken) query.set("registration_token", registrationToken);
   return `gizclaw://ap/${path}?${query}`;
 }
 

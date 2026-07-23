@@ -737,12 +737,12 @@ func float64Ptr(v float64) *float64 {
 	return &v
 }
 
-func telemetryStatusDetails(items ...interface{}) map[string]interface{} {
-	fields := map[string]interface{}{}
+func telemetryStatusDetails(items ...any) map[string]any {
+	fields := map[string]any{}
 	for i := 0; i+1 < len(items); i += 2 {
 		key, _ := items[i].(string)
 		at, _ := items[i+1].(time.Time)
 		fields[key] = at.UTC().UnixMilli()
 	}
-	return map[string]interface{}{telemetryStatusDetailsKey: fields}
+	return map[string]any{telemetryStatusDetailsKey: fields}
 }

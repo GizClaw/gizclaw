@@ -1,4 +1,14 @@
-import { ChevronLeft, Download, FileText, Folder, RefreshCw, RotateCcw, StepForward, Trash2, Upload } from "lucide-react";
+import {
+  ChevronLeft,
+  Download,
+  FileText,
+  Folder,
+  RefreshCw,
+  RotateCcw,
+  StepForward,
+  Trash2,
+  Upload,
+} from "lucide-react";
 import { DashboardTable } from "@/dashboard";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
@@ -24,25 +34,54 @@ import {
 import { expectData, toMessage } from "@/dashboard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { DetailBlock } from "@/dashboard";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { EmptyState } from "@/dashboard";
 import { ErrorBanner } from "@/dashboard";
 import { PageHeader, PageSummaryCard } from "@/dashboard";
 import { ResourceCliPanel } from "../../components/ResourceCliPanel";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FirmwareEditor, type FirmwareFormState, firmwareToForm, formToUpsert } from "./FirmwareForm";
+import {
+  FirmwareEditor,
+  type FirmwareFormState,
+  firmwareToForm,
+  formToUpsert,
+} from "./FirmwareForm";
 
 export function FirmwareDetailPage(): JSX.Element {
   const params = useParams();
-  const firmwareName = useMemo(() => decodeRouteParam(params.name ?? ""), [params.name]);
+  const firmwareName = useMemo(
+    () => decodeRouteParam(params.name ?? ""),
+    [params.name],
+  );
   const [firmware, setFirmware] = useState<Firmware | null>(null);
   const [resource, setResource] = useState<Resource | null>(null);
   const [form, setForm] = useState<FirmwareFormState | null>(null);
-  const [artifactEntries, setArtifactEntries] = useState<Partial<Record<SlotKey, FirmwareArtifactEntry[]>>>({});
+  const [artifactEntries, setArtifactEntries] = useState<
+    Partial<Record<SlotKey, FirmwareArtifactEntry[]>>
+  >({});
   const [inspection, setInspection] = useState<ArtifactInspection | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -60,7 +99,9 @@ export function FirmwareDetailPage(): JSX.Element {
     try {
       const [nextFirmware, nextResource] = await Promise.all([
         expectData(getFirmware({ path: { name: firmwareName } })),
-        expectData(getResource({ path: { kind: "Firmware", name: firmwareName } })),
+        expectData(
+          getResource({ path: { kind: "Firmware", name: firmwareName } }),
+        ),
       ]);
       setFirmware(nextFirmware);
       setResource(nextResource);
@@ -84,10 +125,14 @@ export function FirmwareDetailPage(): JSX.Element {
         throw new Error("Firmware form is not loaded.");
       }
       const body = formToUpsert({ ...nextForm, name: firmwareName });
-      const next = await expectData(putFirmware({ body, path: { name: firmwareName } }));
+      const next = await expectData(
+        putFirmware({ body, path: { name: firmwareName } }),
+      );
       setFirmware(next);
       setForm(firmwareToForm(next));
-      const nextResource = await expectData(getResource({ path: { kind: "Firmware", name: firmwareName } }));
+      const nextResource = await expectData(
+        getResource({ path: { kind: "Firmware", name: firmwareName } }),
+      );
       setResource(nextResource);
     } catch (err) {
       setError(toMessage(err));
@@ -100,10 +145,16 @@ export function FirmwareDetailPage(): JSX.Element {
     setActing(action);
     setError("");
     try {
-      const next = await expectData(action === "release" ? releaseFirmware({ path: { name: firmwareName } }) : rollbackFirmware({ path: { name: firmwareName } }));
+      const next = await expectData(
+        action === "release"
+          ? releaseFirmware({ path: { name: firmwareName } })
+          : rollbackFirmware({ path: { name: firmwareName } }),
+      );
       setFirmware(next);
       setForm(firmwareToForm(next));
-      const nextResource = await expectData(getResource({ path: { kind: "Firmware", name: firmwareName } }));
+      const nextResource = await expectData(
+        getResource({ path: { kind: "Firmware", name: firmwareName } }),
+      );
       setResource(nextResource);
     } catch (err) {
       setError(toMessage(err));
@@ -112,16 +163,26 @@ export function FirmwareDetailPage(): JSX.Element {
     }
   };
 
-  const uploadArtifact = async (channel: SlotKey, file: File): Promise<void> => {
+  const uploadArtifact = async (
+    channel: SlotKey,
+    file: File,
+  ): Promise<void> => {
     const action = `upload:${channel}`;
     setActing(action);
     setError("");
     try {
-      const next = await expectData(uploadFirmwareArtifact({ body: file, path: { name: firmwareName, channel } }));
+      const next = await expectData(
+        uploadFirmwareArtifact({
+          body: file,
+          path: { name: firmwareName, channel },
+        }),
+      );
       setFirmware(next);
       setForm(firmwareToForm(next));
       setArtifactEntries((current) => ({ ...current, [channel]: undefined }));
-      const nextResource = await expectData(getResource({ path: { kind: "Firmware", name: firmwareName } }));
+      const nextResource = await expectData(
+        getResource({ path: { kind: "Firmware", name: firmwareName } }),
+      );
       setResource(nextResource);
     } catch (err) {
       setError(toMessage(err));
@@ -135,11 +196,15 @@ export function FirmwareDetailPage(): JSX.Element {
     setActing(action);
     setError("");
     try {
-      const next = await expectData(deleteFirmwareArtifact({ path: { name: firmwareName, channel } }));
+      const next = await expectData(
+        deleteFirmwareArtifact({ path: { name: firmwareName, channel } }),
+      );
       setFirmware(next);
       setForm(firmwareToForm(next));
       setArtifactEntries((current) => ({ ...current, [channel]: undefined }));
-      const nextResource = await expectData(getResource({ path: { kind: "Firmware", name: firmwareName } }));
+      const nextResource = await expectData(
+        getResource({ path: { kind: "Firmware", name: firmwareName } }),
+      );
       setResource(nextResource);
     } catch (err) {
       setError(toMessage(err));
@@ -153,7 +218,9 @@ export function FirmwareDetailPage(): JSX.Element {
     setActing(action);
     setError("");
     try {
-      const tree = await expectData(treeFirmwareArtifactEntries({ path: { name: firmwareName, channel } }));
+      const tree = await expectData(
+        treeFirmwareArtifactEntries({ path: { name: firmwareName, channel } }),
+      );
       setArtifactEntries((current) => ({ ...current, [channel]: tree.items }));
     } catch (err) {
       setError(toMessage(err));
@@ -167,7 +234,9 @@ export function FirmwareDetailPage(): JSX.Element {
     setActing(action);
     setError("");
     try {
-      const blob = await expectData(downloadFirmwareArtifact({ path: { name: firmwareName, channel } }));
+      const blob = await expectData(
+        downloadFirmwareArtifact({ path: { name: firmwareName, channel } }),
+      );
       saveBlob(blob, `${firmwareName}-${channel}-artifact.tar`);
     } catch (err) {
       setError(toMessage(err));
@@ -176,12 +245,20 @@ export function FirmwareDetailPage(): JSX.Element {
     }
   };
 
-  const downloadArtifactEntryFile = async (channel: SlotKey, entryPath: string): Promise<void> => {
+  const downloadArtifactEntryFile = async (
+    channel: SlotKey,
+    entryPath: string,
+  ): Promise<void> => {
     const action = `download-file:${channel}:${entryPath}`;
     setActing(action);
     setError("");
     try {
-      const blob = await expectData(downloadFirmwareArtifactEntry({ path: { name: firmwareName, channel }, query: { path: entryPath } }));
+      const blob = await expectData(
+        downloadFirmwareArtifactEntry({
+          path: { name: firmwareName, channel },
+          query: { path: entryPath },
+        }),
+      );
       saveBlob(blob, entryPath.split("/").pop() || "artifact-file");
     } catch (err) {
       setError(toMessage(err));
@@ -190,12 +267,20 @@ export function FirmwareDetailPage(): JSX.Element {
     }
   };
 
-  const inspectArtifactEntry = async (channel: SlotKey, entryPath: string): Promise<void> => {
+  const inspectArtifactEntry = async (
+    channel: SlotKey,
+    entryPath: string,
+  ): Promise<void> => {
     const action = `stat-file:${channel}:${entryPath}`;
     setActing(action);
     setError("");
     try {
-      const stats = await expectData(statFirmwareArtifactEntry({ path: { name: firmwareName, channel }, query: { path: entryPath } }));
+      const stats = await expectData(
+        statFirmwareArtifactEntry({
+          path: { name: firmwareName, channel },
+          query: { path: entryPath },
+        }),
+      );
       setInspection({ channel, stats });
     } catch (err) {
       setError(toMessage(err));
@@ -205,7 +290,12 @@ export function FirmwareDetailPage(): JSX.Element {
   };
 
   if (firmwareName === "") {
-    return <EmptyState description="Missing firmware name in the URL." title="Invalid route" />;
+    return (
+      <EmptyState
+        description="Missing firmware name in the URL."
+        title="Invalid route"
+      />
+    );
   }
 
   return (
@@ -219,19 +309,34 @@ export function FirmwareDetailPage(): JSX.Element {
                 Back to list
               </Link>
             </Button>
-            <Button className="min-w-fit shrink-0 whitespace-nowrap" onClick={() => void load()} size="sm" variant="outline">
+            <Button
+              className="min-w-fit shrink-0 whitespace-nowrap"
+              onClick={() => void load()}
+              size="sm"
+              variant="outline"
+            >
               <RefreshCw className="size-4" />
               Reload
             </Button>
           </>
         }
-        items={[{ href: "/overview", label: "Overview" }, { href: "/firmwares", label: "Firmwares" }, { label: firmwareName }]}
+        items={[
+          { href: "/overview", label: "Overview" },
+          { href: "/firmwares", label: "Firmwares" },
+          { label: firmwareName },
+        ]}
       />
 
       <PageSummaryCard
         description="Firmware release slots and declarative resource state."
         eyebrow="Devices"
-        meta={firmware ? <Badge variant="secondary">{slotVersion(firmware.slots.stable) || "no stable version"}</Badge> : null}
+        meta={
+          firmware ? (
+            <Badge variant="secondary">
+              {slotVersion(firmware.slots.stable) || "no stable version"}
+            </Badge>
+          ) : null
+        }
         title={firmware?.name ?? firmwareName}
       />
 
@@ -243,7 +348,10 @@ export function FirmwareDetailPage(): JSX.Element {
       ) : error !== "" && firmware === null ? (
         <ErrorBanner message={error} />
       ) : firmware === null ? (
-        <EmptyState description="This firmware could not be loaded." title="Firmware not found" />
+        <EmptyState
+          description="This firmware could not be loaded."
+          title="Firmware not found"
+        />
       ) : (
         <Tabs defaultValue="summary">
           <TabsList>
@@ -281,14 +389,28 @@ export function FirmwareDetailPage(): JSX.Element {
               <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
                 <div className="space-y-1">
                   <CardTitle>Slots</CardTitle>
-                  <CardDescription>Current develop, beta, stable, and pending slot contents.</CardDescription>
+                  <CardDescription>
+                    Current develop, beta, stable, and pending slot contents.
+                  </CardDescription>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <Button disabled={acting !== ""} onClick={() => void runAction("release")} size="sm" type="button" variant="outline">
+                  <Button
+                    disabled={acting !== ""}
+                    onClick={() => void runAction("release")}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
                     <StepForward className="size-4" />
                     Release
                   </Button>
-                  <Button disabled={acting !== ""} onClick={() => void runAction("rollback")} size="sm" type="button" variant="outline">
+                  <Button
+                    disabled={acting !== ""}
+                    onClick={() => void runAction("rollback")}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
                     <RotateCcw className="size-4" />
                     Rollback
                   </Button>
@@ -300,11 +422,19 @@ export function FirmwareDetailPage(): JSX.Element {
                   disabled={acting !== "" || saving}
                   firmware={firmware}
                   onDelete={(channel) => void removeArtifact(channel)}
-                  onDownloadEntry={(channel, entryPath) => void downloadArtifactEntryFile(channel, entryPath)}
-                  onDownloadTar={(channel) => void downloadArtifactTarFile(channel)}
-                  onInspectEntry={(channel, entryPath) => void inspectArtifactEntry(channel, entryPath)}
+                  onDownloadEntry={(channel, entryPath) =>
+                    void downloadArtifactEntryFile(channel, entryPath)
+                  }
+                  onDownloadTar={(channel) =>
+                    void downloadArtifactTarFile(channel)
+                  }
+                  onInspectEntry={(channel, entryPath) =>
+                    void inspectArtifactEntry(channel, entryPath)
+                  }
                   onLoadFiles={(channel) => void loadArtifactFiles(channel)}
-                  onUpload={(channel, file) => void uploadArtifact(channel, file)}
+                  onUpload={(channel, file) =>
+                    void uploadArtifact(channel, file)
+                  }
                 />
               </CardContent>
             </Card>
@@ -335,7 +465,14 @@ export function FirmwareDetailPage(): JSX.Element {
           </TabsContent>
         </Tabs>
       )}
-      <ArtifactStatsDialog disabled={acting !== ""} inspection={inspection} onClose={() => setInspection(null)} onDownload={(channel, entryPath) => void downloadArtifactEntryFile(channel, entryPath)} />
+      <ArtifactStatsDialog
+        disabled={acting !== ""}
+        inspection={inspection}
+        onClose={() => setInspection(null)}
+        onDownload={(channel, entryPath) =>
+          void downloadArtifactEntryFile(channel, entryPath)
+        }
+      />
     </div>
   );
 }
@@ -372,106 +509,153 @@ function SlotsTable({
   ] as const;
   return (
     <DashboardTable>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-32">Slot</TableHead>
-            <TableHead className="w-40">Version</TableHead>
-            <TableHead>Metadata</TableHead>
-            <TableHead className="w-64 text-right">Artifact</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.flatMap(([name, slot]) => {
-            const entries = artifactEntries[name] ?? [];
-            return [
-              <TableRow key={name}>
-                <TableCell className="font-medium">{name}</TableCell>
-                <TableCell className="font-mono text-xs">{slotVersion(slot) || "-"}</TableCell>
-                <TableCell>
+      <TableHeader>
+        <TableRow>
+          <TableHead className="w-32">Slot</TableHead>
+          <TableHead className="w-40">Version</TableHead>
+          <TableHead>Metadata</TableHead>
+          <TableHead className="w-64 text-right">Artifact</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.flatMap(([name, slot]) => {
+          const entries = artifactEntries[name] ?? [];
+          return [
+            <TableRow key={name}>
+              <TableCell className="font-medium">{name}</TableCell>
+              <TableCell className="font-mono text-xs">
+                {slotVersion(slot) || "-"}
+              </TableCell>
+              <TableCell>
+                {slot.artifact == null ? (
+                  <span className="text-sm text-muted-foreground">
+                    {slot.description?.trim() || "No artifact uploaded."}
+                  </span>
+                ) : (
+                  <ArtifactMetadata artifact={slot.artifact} />
+                )}
+              </TableCell>
+              <TableCell className="text-right">
+                <div className="flex flex-wrap justify-end gap-2">
                   {slot.artifact == null ? (
-                    <span className="text-sm text-muted-foreground">{slot.description?.trim() || "No artifact uploaded."}</span>
+                    <Button
+                      asChild
+                      className="h-8 min-w-fit px-2 text-xs"
+                      disabled={disabled}
+                      variant="outline"
+                    >
+                      <label>
+                        <Upload className="size-3.5" />
+                        Upload tar
+                        <input
+                          className="sr-only"
+                          disabled={disabled}
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            event.currentTarget.value = "";
+                            if (file != null) {
+                              onUpload(name, file);
+                            }
+                          }}
+                          type="file"
+                        />
+                      </label>
+                    </Button>
                   ) : (
-                    <ArtifactMetadata artifact={slot.artifact} />
-                  )}
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex flex-wrap justify-end gap-2">
-                    {slot.artifact == null ? (
-                      <Button asChild className="h-8 min-w-fit px-2 text-xs" disabled={disabled} variant="outline">
-                        <label>
-                          <Upload className="size-3.5" />
-                          Upload tar
-                          <input
-                            className="sr-only"
-                            disabled={disabled}
-                            onChange={(event) => {
-                              const file = event.target.files?.[0];
-                              event.currentTarget.value = "";
-                              if (file != null) {
-                                onUpload(name, file);
-                              }
-                            }}
-                            type="file"
-                          />
-                        </label>
+                    <>
+                      <Button
+                        className="h-8 min-w-fit px-2 text-xs"
+                        disabled={disabled}
+                        onClick={() => onLoadFiles(name)}
+                        type="button"
+                        variant="outline"
+                      >
+                        <Folder className="size-3.5" />
+                        Files
                       </Button>
-                    ) : (
-                      <>
-                        <Button className="h-8 min-w-fit px-2 text-xs" disabled={disabled} onClick={() => onLoadFiles(name)} type="button" variant="outline">
-                          <Folder className="size-3.5" />
-                          Files
-                        </Button>
-                        <Button className="h-8 min-w-fit px-2 text-xs" disabled={disabled} onClick={() => onDownloadTar(name)} type="button" variant="outline">
-                          <Download className="size-3.5" />
-                          Tar
-                        </Button>
-                        <Button className="h-8 min-w-fit px-2 text-xs" disabled={disabled} onClick={() => onDelete(name)} type="button" variant="outline">
-                          <Trash2 className="size-3.5" />
-                          Delete
-                        </Button>
-                      </>
-                    )}
-                  </div>
+                      <Button
+                        className="h-8 min-w-fit px-2 text-xs"
+                        disabled={disabled}
+                        onClick={() => onDownloadTar(name)}
+                        type="button"
+                        variant="outline"
+                      >
+                        <Download className="size-3.5" />
+                        Tar
+                      </Button>
+                      <Button
+                        className="h-8 min-w-fit px-2 text-xs"
+                        disabled={disabled}
+                        onClick={() => onDelete(name)}
+                        type="button"
+                        variant="outline"
+                      >
+                        <Trash2 className="size-3.5" />
+                        Delete
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </TableCell>
+            </TableRow>,
+            ...entries.map((entry) => (
+              <TableRow key={`${name}:${entry.path}`}>
+                <TableCell className="font-medium">{name}</TableCell>
+                <TableCell>
+                  <Badge variant="outline">{entry.type}</Badge>
                 </TableCell>
-              </TableRow>,
-              ...entries.map((entry) => (
-                <TableRow key={`${name}:${entry.path}`}>
-                  <TableCell className="font-medium">{name}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{entry.type}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex min-w-0 items-center gap-2">
-                      {entry.type === "dir" ? <Folder className="size-3.5 shrink-0 text-muted-foreground" /> : <FileText className="size-3.5 shrink-0 text-muted-foreground" />}
-                      <div className="min-w-0">
-                        <div className="truncate font-mono text-xs" title={entry.path}>
-                          {entry.path}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {entry.type === "file" ? formatBytes(entry.size) : "-"} · {entry.content_type ?? "-"} · {entry.mod_time}
-                        </div>
+                <TableCell>
+                  <div className="flex min-w-0 items-center gap-2">
+                    {entry.type === "dir" ? (
+                      <Folder className="size-3.5 shrink-0 text-muted-foreground" />
+                    ) : (
+                      <FileText className="size-3.5 shrink-0 text-muted-foreground" />
+                    )}
+                    <div className="min-w-0">
+                      <div
+                        className="truncate font-mono text-xs"
+                        title={entry.path}
+                      >
+                        {entry.path}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {entry.type === "file" ? formatBytes(entry.size) : "-"}{" "}
+                        · {entry.content_type ?? "-"} · {entry.mod_time}
                       </div>
                     </div>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button className="h-8 min-w-fit px-2 text-xs" disabled={disabled} onClick={() => onInspectEntry(name, entry.path)} type="button" variant="outline">
-                        Info
+                  </div>
+                </TableCell>
+                <TableCell className="text-right">
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      className="h-8 min-w-fit px-2 text-xs"
+                      disabled={disabled}
+                      onClick={() => onInspectEntry(name, entry.path)}
+                      type="button"
+                      variant="outline"
+                    >
+                      Info
+                    </Button>
+                    {entry.type === "file" ? (
+                      <Button
+                        className="h-8 min-w-fit px-2 text-xs"
+                        disabled={disabled}
+                        onClick={() => onDownloadEntry(name, entry.path)}
+                        type="button"
+                        variant="outline"
+                      >
+                        <Download className="size-3.5" />
+                        Download
                       </Button>
-                      {entry.type === "file" ? (
-                        <Button className="h-8 min-w-fit px-2 text-xs" disabled={disabled} onClick={() => onDownloadEntry(name, entry.path)} type="button" variant="outline">
-                          <Download className="size-3.5" />
-                          Download
-                        </Button>
-                      ) : null}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              )),
-            ];
-          })}
-        </TableBody>
-      </DashboardTable>
+                    ) : null}
+                  </div>
+                </TableCell>
+              </TableRow>
+            )),
+          ];
+        })}
+      </TableBody>
+    </DashboardTable>
   );
 }
 
@@ -504,7 +688,9 @@ function ArtifactStatsDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Artifact entry</DialogTitle>
-          <DialogDescription>Firmware artifact file or directory metadata.</DialogDescription>
+          <DialogDescription>
+            Firmware artifact file or directory metadata.
+          </DialogDescription>
         </DialogHeader>
         {inspection == null ? null : (
           <div className="grid gap-3 text-sm">
@@ -539,7 +725,12 @@ function ArtifactStatsDialog({
             Close
           </Button>
           {inspection != null && entry?.type === "file" ? (
-            <Button disabled={disabled} onClick={() => onDownload(inspection.channel, entry.path)} type="button" variant="outline">
+            <Button
+              disabled={disabled}
+              onClick={() => onDownload(inspection.channel, entry.path)}
+              type="button"
+              variant="outline"
+            >
               <Download className="size-4" />
               Download
             </Button>
@@ -550,19 +741,29 @@ function ArtifactStatsDialog({
   );
 }
 
-function ArtifactMetadata({ artifact }: { artifact: FirmwareArtifact }): JSX.Element {
+function ArtifactMetadata({
+  artifact,
+}: {
+  artifact: FirmwareArtifact;
+}): JSX.Element {
   if (artifact.tar_path.trim() === "") {
     return <span className="text-sm text-muted-foreground">Not uploaded</span>;
   }
   return (
     <div className="grid gap-1 text-xs">
-      <div className="break-all font-mono text-foreground">{artifact.tar_path}</div>
+      <div className="break-all font-mono text-foreground">
+        {artifact.tar_path}
+      </div>
       <div className="flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground">
         <span>{formatBytes(artifact.size)}</span>
         <span>{artifact.content_type}</span>
         <span>{artifact.uploaded_at}</span>
       </div>
-      {artifact.sha256.trim() !== "" ? <div className="break-all font-mono text-muted-foreground">sha256:{artifact.sha256}</div> : null}
+      {artifact.sha256.trim() !== "" ? (
+        <div className="break-all font-mono text-muted-foreground">
+          sha256:{artifact.sha256}
+        </div>
+      ) : null}
     </div>
   );
 }

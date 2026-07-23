@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Flowcraft Workflow Type",
-    "description": "FlowcraftWorkflowSpec schema.",
+    "description": "Strongly typed GizClaw Flowcraft workflow policy.",
     "version": "1.0.0"
   },
   "paths": {},
@@ -10,7 +10,357 @@
     "schemas": {
       "FlowcraftWorkflowSpec": {
         "type": "object",
-        "additionalProperties": true
+        "required": ["agent"],
+        "additionalProperties": false,
+        "properties": {
+          "agent": { "$ref": "#/components/schemas/FlowcraftAgent" },
+          "conversation": { "$ref": "#/components/schemas/FlowcraftConversation" },
+          "memory": { "$ref": "#/components/schemas/FlowcraftMemory" },
+          "voice_adapter": { "$ref": "#/components/schemas/FlowcraftVoiceAdapter" }
+        },
+        "example": {
+          "agent": {
+            "id": "assistant",
+            "name": "Assistant",
+            "description": "A conversational assistant.",
+            "max_iterations": 8,
+            "graph": {
+              "id": "assistant",
+              "name": "Assistant",
+              "entry": "prepare",
+              "nodes": [
+                {
+                  "id": "prepare",
+                  "type": "script",
+                  "config": {
+                    "source": "const memoryContext = board.getVar(\"memory_context\") || \"\";\nboard.setVar(\"system_prompt\", [\n  \"You are a helpful conversational assistant.\",\n  memoryContext\n].filter(Boolean).join(\"\\n\\n\"));\n"
+                  }
+                },
+                {
+                  "id": "answer",
+                  "type": "llm",
+                  "publish": true,
+                  "config": {
+                    "model": "llm",
+                    "system_prompt": "${board.system_prompt}",
+                    "max_tokens": 2048
+                  }
+                }
+              ],
+              "edges": [{ "from": "prepare", "to": "answer" }, { "from": "answer", "to": "__end__" }]
+            }
+          },
+          "conversation": { "starts": "peer" },
+          "memory": {
+            "enabled": true,
+            "extract": {
+              "enabled": true,
+              "model": "extractor",
+              "mode": "two_pass",
+              "schema_name": "memory_facts",
+              "system_prompt": "Extract durable user memories from the conversation.",
+              "temperature": 0
+            },
+            "embedding": { "enabled": false, "model": "embedding" },
+            "layout": {
+              "lanes": [
+                {
+                  "name": "owner_profile",
+                  "kind": "fact",
+                  "description": "Durable facts about the owner.",
+                  "extract": "Store stable identity and preference facts only.",
+                  "recall": "Use for personal continuity."
+                }
+              ]
+            },
+            "recall": {
+              "enabled": true,
+              "graph_enabled": true,
+              "include_retired": false,
+              "profiles": {
+                "memory_context": {
+                  "output": "memory_context",
+                  "query": { "text": "input", "kinds": ["fact"], "lanes": ["owner_profile"] },
+                  "render": { "header": "Relevant memory:", "item_prefix": "- ", "max_items": 5 },
+                  "top_k": 5
+                }
+              }
+            },
+            "write": { "mode": "async_semantic", "tier": "general", "save_conversation": true }
+          },
+          "voice_adapter": { "asr_model": "asr", "default_voice": "narrator", "node_voices": { "answer": "narrator" } }
+        }
+      },
+      "FlowcraftAgent": {
+        "type": "object",
+        "required": ["id", "name", "graph"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "name": { "type": "string", "minLength": 1 },
+          "description": { "type": "string" },
+          "max_iterations": { "type": "integer", "minimum": 1 },
+          "graph": { "$ref": "#/components/schemas/FlowcraftGraph" }
+        }
+      },
+      "FlowcraftGraph": {
+        "type": "object",
+        "required": ["name", "entry", "nodes"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string", "minLength": 1 },
+          "entry": { "type": "string", "minLength": 1 },
+          "nodes": { "type": "array", "minItems": 1, "items": { "$ref": "#/components/schemas/FlowcraftNode" } },
+          "edges": { "type": "array", "items": { "$ref": "#/components/schemas/FlowcraftEdge" } }
+        }
+      },
+      "FlowcraftNode": {
+        "oneOf": [
+          { "$ref": "#/components/schemas/FlowcraftLLMNode" },
+          { "$ref": "#/components/schemas/FlowcraftScriptNode" },
+          { "$ref": "#/components/schemas/FlowcraftPassthroughNode" }
+        ],
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "llm": "#/components/schemas/FlowcraftLLMNode",
+            "script": "#/components/schemas/FlowcraftScriptNode",
+            "passthrough": "#/components/schemas/FlowcraftPassthroughNode"
+          }
+        }
+      },
+      "FlowcraftNodeBase": {
+        "type": "object",
+        "required": ["id", "type"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "type": { "type": "string" },
+          "publish": { "type": "boolean" },
+          "skip_condition": { "type": "string" }
+        }
+      },
+      "FlowcraftLLMNode": {
+        "allOf": [
+          { "$ref": "#/components/schemas/FlowcraftNodeBase" },
+          {
+            "type": "object",
+            "required": ["type", "config"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "type": { "type": "string", "enum": ["llm"] },
+              "publish": { "type": "boolean" },
+              "skip_condition": { "type": "string" },
+              "config": { "$ref": "#/components/schemas/FlowcraftLLMNodeConfig" }
+            }
+          }
+        ]
+      },
+      "FlowcraftScriptNode": {
+        "allOf": [
+          { "$ref": "#/components/schemas/FlowcraftNodeBase" },
+          {
+            "type": "object",
+            "required": ["type", "config"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "type": { "type": "string", "enum": ["script"] },
+              "publish": { "type": "boolean" },
+              "skip_condition": { "type": "string" },
+              "config": { "$ref": "#/components/schemas/FlowcraftScriptNodeConfig" }
+            }
+          }
+        ]
+      },
+      "FlowcraftPassthroughNode": {
+        "type": "object",
+        "required": ["id", "type"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "type": { "type": "string", "enum": ["passthrough"] },
+          "publish": { "type": "boolean" },
+          "skip_condition": { "type": "string" }
+        }
+      },
+      "FlowcraftLLMNodeConfig": {
+        "type": "object",
+        "required": ["model"],
+        "additionalProperties": false,
+        "properties": {
+          "model": { "type": "string", "minLength": 1, "maxLength": 63, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+          "system_prompt": { "type": "string" },
+          "temperature": { "type": "number" },
+          "max_tokens": { "type": "integer", "minimum": 1 },
+          "output_key": { "type": "string" },
+          "messages_channel": { "type": "string" },
+          "json_mode": { "type": "boolean" },
+          "thinking": { "type": "boolean" },
+          "track_steps": { "type": "boolean" }
+        }
+      },
+      "FlowcraftScriptNodeConfig": {
+        "type": "object",
+        "required": ["source"],
+        "additionalProperties": false,
+        "properties": { "source": { "type": "string", "minLength": 1 } }
+      },
+      "FlowcraftEdge": {
+        "type": "object",
+        "required": ["from", "to"],
+        "additionalProperties": false,
+        "properties": {
+          "from": { "type": "string", "minLength": 1 },
+          "to": { "type": "string", "minLength": 1 },
+          "condition": { "type": "string" }
+        }
+      },
+      "FlowcraftConversation": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": { "starts": { "type": "string", "enum": ["peer", "agent"] } }
+      },
+      "FlowcraftMemory": {
+        "type": "object",
+        "required": ["enabled"],
+        "additionalProperties": false,
+        "properties": {
+          "enabled": { "type": "boolean" },
+          "extract": { "$ref": "#/components/schemas/FlowcraftMemoryExtract" },
+          "embedding": { "$ref": "#/components/schemas/FlowcraftMemoryEmbedding" },
+          "rerank": { "$ref": "#/components/schemas/FlowcraftMemoryRerank" },
+          "layout": { "$ref": "#/components/schemas/FlowcraftMemoryLayout" },
+          "recall": { "$ref": "#/components/schemas/FlowcraftMemoryRecall" },
+          "write": { "$ref": "#/components/schemas/FlowcraftMemoryWrite" }
+        }
+      },
+      "FlowcraftMemoryExtract": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enabled": { "type": "boolean" },
+          "model": { "type": "string", "maxLength": 63, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+          "mode": { "type": "string", "enum": ["single_pass", "two_pass"] },
+          "system_prompt": { "type": "string" },
+          "schema_name": { "type": "string" },
+          "temperature": { "type": "number" },
+          "stage_timeout": { "type": "string" }
+        }
+      },
+      "FlowcraftMemoryEmbedding": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": { "enabled": { "type": "boolean" }, "model": { "type": "string", "maxLength": 63, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" } }
+      },
+      "FlowcraftMemoryRerank": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": { "enabled": { "type": "boolean" }, "model": { "type": "string", "maxLength": 63, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" } }
+      },
+      "FlowcraftMemoryLayout": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": { "lanes": { "type": "array", "items": { "$ref": "#/components/schemas/FlowcraftMemoryLane" } } }
+      },
+      "FlowcraftMemoryLane": {
+        "type": "object",
+        "required": ["name", "kind"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string" },
+          "kind": { "type": "string" },
+          "description": { "type": "string" },
+          "extract": { "type": "string" },
+          "recall": { "type": "string" }
+        }
+      },
+      "FlowcraftMemoryRecall": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enabled": { "type": "boolean" },
+          "graph_enabled": { "type": "boolean" },
+          "include_retired": { "type": "boolean" },
+          "profiles": {
+            "type": "object",
+            "additionalProperties": { "$ref": "#/components/schemas/FlowcraftMemoryRecallProfile" }
+          }
+        }
+      },
+      "FlowcraftMemoryRecallProfile": {
+        "type": "object",
+        "required": ["output", "top_k"],
+        "additionalProperties": false,
+        "properties": {
+          "output": { "type": "string" },
+          "query": { "$ref": "#/components/schemas/FlowcraftMemoryRecallQuery" },
+          "render": { "$ref": "#/components/schemas/FlowcraftMemoryRecallRender" },
+          "top_k": { "type": "integer", "minimum": 1 }
+        }
+      },
+      "FlowcraftMemoryRecallQuery": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "text": { "type": "string" },
+          "kinds": { "type": "array", "items": { "type": "string" } },
+          "lanes": { "type": "array", "items": { "type": "string" } },
+          "filters": { "type": "array", "items": { "$ref": "#/components/schemas/FlowcraftMemoryFilter" } }
+        }
+      },
+      "FlowcraftMemoryFilter": {
+        "type": "object",
+        "required": ["field", "value"],
+        "additionalProperties": false,
+        "properties": {
+          "field": { "type": "string" },
+          "operator": { "type": "string", "enum": ["eq"] },
+          "value": {}
+        }
+      },
+      "FlowcraftMemoryRecallRender": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "header": { "type": "string" },
+          "item_prefix": { "type": "string" },
+          "max_items": { "type": "integer", "minimum": 1 }
+        }
+      },
+      "FlowcraftMemoryWrite": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "mode": { "type": "string", "enum": ["sync", "async_semantic"] },
+          "tier": { "type": "string", "enum": ["core", "general", "data", "storage"] },
+          "save_conversation": { "type": "boolean" },
+          "board_facts": { "type": "array", "items": { "$ref": "#/components/schemas/FlowcraftMemoryBoardFact" } }
+        }
+      },
+      "FlowcraftMemoryBoardFact": {
+        "type": "object",
+        "required": ["board_var"],
+        "additionalProperties": false,
+        "properties": {
+          "board_var": { "type": "string" },
+          "kind": { "type": "string" },
+          "subject": { "type": "string" },
+          "predicate": { "type": "string" },
+          "object": { "type": "string" },
+          "entities": { "type": "array", "items": { "type": "string" } },
+          "required_prefix": { "type": "string" }
+        }
+      },
+      "FlowcraftVoiceAdapter": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "asr_model": { "type": "string", "maxLength": 63, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+          "default_voice": { "type": "string", "maxLength": 63, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+          "node_voices": { "type": "object", "additionalProperties": { "type": "string", "maxLength": 63, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" } }
+        }
       }
     }
   }

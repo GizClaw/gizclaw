@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"testing"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
@@ -86,7 +87,7 @@ func TestResponseStreamKeepsInterruptedRoutesOnResponseID(t *testing.T) {
 	_ = source.Close()
 	stream, _ := NewResponseStream(source)
 	var responseID string
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		chunk, err := stream.Next()
 		if err != nil {
 			t.Fatalf("Next(%d) error = %v", i, err)
@@ -117,5 +118,60 @@ func TestResponseStreamForwardsPullObservationWithUpstreamID(t *testing.T) {
 	stream.ObserveOutput(chunk.Clone())
 	if observed == nil || observed.Ctrl == nil || observed.Ctrl.StreamID != "provider" {
 		t.Fatalf("forwarded observation = %#v", observed)
+	}
+}
+
+func TestResponseStreamAbandonsReadAheadWithoutObservation(t *testing.T) {
+	var observed []*genx.MessageChunk
+	source := NewOutput(OutputConfig{Observe: func(chunk *genx.MessageChunk) {
+		observed = append(observed, chunk)
+	}})
+	_ = source.Push(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("one"), Ctrl: &genx.StreamCtrl{StreamID: "provider"}})
+	_ = source.Push(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("two"), Ctrl: &genx.StreamCtrl{StreamID: "provider"}})
+	stream, _ := NewResponseStream(source)
+	stream.DeferOutputObservation()
+	first, _ := stream.Next()
+	second, _ := stream.Next()
+	stream.ObserveOutput(first)
+	ids := stream.AbandonAllOutputObservations()
+	if len(ids) != 1 || ids[0] != second.Ctrl.StreamID {
+		t.Fatalf("abandoned response IDs = %#v, want %q", ids, second.Ctrl.StreamID)
+	}
+	source.WaitForObservers()
+	if len(observed) != 1 || observed[0].Part != genx.Text("one") {
+		t.Fatalf("observed = %#v, want only delivered first chunk", observed)
+	}
+}
+
+func TestResponseStreamAbandonAllReleasesUnmappedSourceObservation(t *testing.T) {
+	source := NewOutput(OutputConfig{InitialCapacity: 1, Observe: func(*genx.MessageChunk) {}})
+	source.DeferOutputObservation()
+	if err := source.Push(&genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text("bypass")}); err != nil {
+		t.Fatal(err)
+	}
+	stream, err := NewResponseStream(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := stream.Next(); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan struct{})
+	go func() {
+		source.WaitForObservers()
+		close(done)
+	}()
+	select {
+	case <-done:
+		t.Fatal("source observation was not deferred")
+	case <-time.After(20 * time.Millisecond):
+	}
+	if ids := stream.AbandonAllOutputObservations(); len(ids) != 0 {
+		t.Fatalf("unmapped response IDs = %v", ids)
+	}
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("bulk abandonment did not release the unmapped source observation")
 	}
 }

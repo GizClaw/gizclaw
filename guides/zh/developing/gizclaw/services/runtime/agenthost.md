@@ -35,4 +35,6 @@ flowchart TD
 
 所有 runtime 创建路径都必须具有对称的 cancel、stream close、lease release 和 registry cleanup。Agent definition、Workflow 与 Workspace 的持久化仍属于 AI services。
 
+`RuntimeRegistry` 按 Workspace 复用同一个已构造 Agent，并对每个 attach 返回独立 release。单个 Peer reload 只释放自己的引用；剩余引用继续使用原 Agent，既不会被打断，也不会重跑 initiative。最后一个引用释放时，registry 移除该 Agent、关闭 factory 拥有的 per-Agent adapter 并释放 workspace lease；下一次 acquire 才重新解析构造期配置。
+
 Transformer 与 history replay 必须尽快把 provider output drain 到 growable stream buffer，不在该层按播放时钟等待。Raw Opus、Ogg/Opus、MP3 与 PCM audio 都先 decode/normalize，再进入 mixer 的 PCM stream；`PeerConn` 只在 mixer 出口每个 20ms pacing opportunity 读取一帧、编码 Opus 并写入 WebRTC。普通 EOS 使用 `CloseWrite` 让已缓存 PCM 排空，error EOS 使用 `CloseWithError` 丢弃对应 track 和尚未消费的 stream backlog。

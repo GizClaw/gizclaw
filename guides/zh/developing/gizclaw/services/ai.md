@@ -49,13 +49,15 @@ services/ai/
 
 Workflow 描述如何运行 Agent，但不拥有 Agent instance 的在线状态和 stream lifecycle。
 
-#### Flowcraft history
+#### Flowcraft 组合边界
 
-Server 可以解析保留的 named log store `flowcraft-history`，并把它注入普通与 pet Flowcraft agent。该 store 必须实现 `logstore.MutableStore`；配置 Volc TLS 这类 immutable driver 会导致启动失败。未配置该 named store 时，Flowcraft 保持现有 workspace JSONL history。已有 JSONL 文件不会自动迁移；配置后的 store 发生错误时会直接返回错误，不会回退到文件。
+Flowcraft workflow factory 只负责把 typed Workflow 配置与 Workspace owner 的 RuntimeProfile alias、LogStore、KV Store、ObjectStore 和 Audio Dock 组装成通用 Flowcraft Transformer。它不创建 Claw、本地 Flowcraft Workspace、`config.yaml` 或 BBH。
 
-Adapter 为每条消息保存一条 `Stream=flowcraft-history`、`Kind=message` record。Indexed attributes 包含 `workspace_name`、`conversation_id` 和 `schema_version`；完整 Flowcraft message（包括 tool call、tool result 与 data-reference metadata）保存在 JSON payload 中。读取直接使用 LogStore query cursor。Save 会替换已有 message record、删除多余 record、追加新 record，不创建 snapshot、tombstone、operation log 或额外分页索引。
+History 使用 AgentHost 注入的 `logstore.MutableStore`，State 使用按 Workspace/Agent prefix 的 `kv.Store`。启用长期 Memory 时，factory 使用 ObjectStore-backed Flowcraft persistence interface 构造 `memoryflowcraft.Store`；Workflow 只配置 extraction、recall 与 write policy，不选择物理 Store。最后一个 Workspace Agent 引用释放时，只关闭本 Agent 构造的 adapter，不关闭 Server 拥有的底层 Store，也不删除持久数据。
 
-这里仅处理 Flowcraft runtime history。Workspace `HistoryStore` 仍是独立 resource boundary，audio object 继续使用 object storage。
+Public `FlowcraftWorkflowSpec` 要求显式 `agent.graph`，Graph 至少有一个 node，且 `entry` 必须引用已定义 node。支持 `llm`、inline `script` 与 `passthrough`；`publish: true` 决定哪些 node 输出进入 GenX Stream。Graph、Memory extraction/rerank/embedding、ASR 和 voice 都直接填写 Workspace owner RuntimeProfile 暴露的 alias。
+
+Workflow 保留 `conversation`、Graph、Memory policy 与 `voice_adapter`。它不接受本地目录、History driver、Memory scope/retrieval backend、`settings`/`models` 二级映射、parallel switch、隐式单模型 Agent 或 Tool 配置。Factory 为 Owner/Workspace/Agent 的每层 identity 推导紧凑且稳定的 scope digest，在保持隔离的同时避免 Flowcraft retrieval 与 ObjectStore key 超出文件系统限制；reload 仅释放当前引用，仍有其他引用时复用现有 Agent。引用归零后再次 acquire 才会按最新构造期配置建立新 Agent。
 
 ### [workspace](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/workspace)
 

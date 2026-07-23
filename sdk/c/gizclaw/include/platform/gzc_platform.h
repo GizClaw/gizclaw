@@ -19,6 +19,9 @@ typedef struct gzc_platform {
   void *(*malloc)(void *userdata, size_t size);
   void *(*realloc)(void *userdata, void *ptr, size_t size);
   void (*free)(void *userdata, void *ptr);
+  /* Monotonic milliseconds with an arbitrary epoch, used for elapsed time. */
+  int64_t (*time_instant_ms)(void *userdata);
+  /* Unix milliseconds, used only for protocol timestamps and telemetry. */
   int64_t (*time_unix_ms)(void *userdata);
   int (*random)(void *userdata, uint8_t *out, size_t len);
   void (*log)(void *userdata, gzc_log_level_t level, gzc_str_t message);

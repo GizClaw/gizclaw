@@ -31,8 +31,10 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
 var (
@@ -61,22 +63,24 @@ type Manager struct {
 	AgentHost       *agenthost.Host
 	RuntimeProfiles *runtimeprofile.Server
 
-	Workspaces       workspace.WorkspaceAdminService
-	Workflows        workflow.WorkflowAdminService
-	Firmwares        *firmware.Server
-	Models           model.ModelAdminService
-	Credentials      credential.CredentialAdminService
-	Voices           voice.VoiceAdminService
-	Contacts         *contact.Server
-	Friends          *friend.Server
-	FriendGroups     *friendgroup.Server
-	Gameplay         *gameplay.Runtime
-	PetWorkflow      petagent.Config
-	FlowcraftHistory logstore.MutableStore
-	SpeechLimits     SpeechLimits
-	Tools            *toolkit.Server
-	ToolBuilder      *toolkit.Builder
-	ToolExecutors    *toolkit.ExecutorRegistry
+	Workspaces             workspace.WorkspaceAdminService
+	Workflows              workflow.WorkflowAdminService
+	Firmwares              *firmware.Server
+	Models                 model.ModelAdminService
+	Credentials            credential.CredentialAdminService
+	Voices                 voice.VoiceAdminService
+	Contacts               *contact.Server
+	Friends                *friend.Server
+	FriendGroups           *friendgroup.Server
+	Gameplay               *gameplay.Runtime
+	PetWorkflow            petagent.Config
+	FlowcraftHistory       logstore.MutableStore
+	FlowcraftState         kv.Store
+	FlowcraftMemoryObjects objectstore.ObjectStore
+	SpeechLimits           SpeechLimits
+	Tools                  *toolkit.Server
+	ToolBuilder            *toolkit.Builder
+	ToolExecutors          *toolkit.ExecutorRegistry
 
 	ProviderTenants providertenants.ProviderTenantsAdminService
 	Metrics         metrics.Store
@@ -345,6 +349,25 @@ func (m *Manager) PeerRegistration(publicKey giznet.PublicKey) (runtimeprofile.R
 		return runtimeprofile.Registration{}, false
 	}
 	return *state.registration, true
+}
+
+func (m *Manager) runtimeProfileForOwner(ctx context.Context, owner string) (apitypes.RuntimeProfile, error) {
+	if m == nil || m.RuntimeProfiles == nil {
+		return apitypes.RuntimeProfile{}, errors.New("gizclaw: runtime profile service is not configured")
+	}
+	var publicKey giznet.PublicKey
+	if err := publicKey.UnmarshalText([]byte(strings.TrimSpace(owner))); err != nil || publicKey.IsZero() {
+		return apitypes.RuntimeProfile{}, fmt.Errorf("gizclaw: invalid workspace owner public key %q", owner)
+	}
+	registration, ok := m.PeerRegistration(publicKey)
+	if !ok {
+		return apitypes.RuntimeProfile{}, fmt.Errorf("gizclaw: workspace owner %q has no active runtime registration", owner)
+	}
+	profile, err := m.RuntimeProfiles.ResolveProfile(ctx, registration.RuntimeProfile.Name)
+	if err != nil {
+		return apitypes.RuntimeProfile{}, fmt.Errorf("gizclaw: resolve runtime profile %q: %w", registration.RuntimeProfile.Name, err)
+	}
+	return profile, nil
 }
 
 func (m *Manager) SetPeerDown(publicKey giznet.PublicKey, conn giznet.Conn) {

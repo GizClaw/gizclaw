@@ -9,7 +9,9 @@ export type ApiResult<T> = {
   error?: unknown;
 };
 
-export async function expectData<T>(promise: Promise<ApiResult<T>>): Promise<T> {
+export async function expectData<T>(
+  promise: Promise<ApiResult<T>>,
+): Promise<T> {
   const result = await promise;
   if (result.error !== undefined || result.data === undefined) {
     throw result.error ?? new Error("Request failed");

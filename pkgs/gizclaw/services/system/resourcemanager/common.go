@@ -9,7 +9,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
-func marshalResource(in interface{}) (apitypes.Resource, error) {
+func marshalResource(in any) (apitypes.Resource, error) {
 	data, err := json.Marshal(in)
 	if err != nil {
 		return apitypes.Resource{}, err
@@ -31,19 +31,19 @@ func validateResourceHeader(apiVersion apitypes.ResourceAPIVersion, name string)
 	return nil
 }
 
-func semanticEqual(left, right interface{}) (bool, error) {
-	var leftValue interface{}
+func semanticEqual(left, right any) (bool, error) {
+	var leftValue any
 	if err := normalizeJSON(left, &leftValue); err != nil {
 		return false, err
 	}
-	var rightValue interface{}
+	var rightValue any
 	if err := normalizeJSON(right, &rightValue); err != nil {
 		return false, err
 	}
 	return reflect.DeepEqual(leftValue, rightValue), nil
 }
 
-func normalizeJSON(in interface{}, out *interface{}) error {
+func normalizeJSON(in any, out *any) error {
 	data, err := json.Marshal(in)
 	if err != nil {
 		return err
@@ -72,7 +72,7 @@ func notFound(kind apitypes.ResourceKind, name string) *Error {
 	return applyError(404, "RESOURCE_NOT_FOUND", fmt.Sprintf("%s %q not found", kind, name))
 }
 
-func responseError(statusCode int, fallbackCode, fallbackMessage string, response interface{}) *Error {
+func responseError(statusCode int, fallbackCode, fallbackMessage string, response any) *Error {
 	body := apitypes.ErrorResponse{}
 	data, err := json.Marshal(response)
 	if err == nil {
@@ -84,7 +84,7 @@ func responseError(statusCode int, fallbackCode, fallbackMessage string, respons
 	return applyError(statusCode, fallbackCode, fallbackMessage)
 }
 
-func unexpectedResponse(operation string, response interface{}) *Error {
+func unexpectedResponse(operation string, response any) *Error {
 	return applyError(500, "UNEXPECTED_SERVICE_RESPONSE", fmt.Sprintf("%s returned unexpected response %T", operation, response))
 }
 

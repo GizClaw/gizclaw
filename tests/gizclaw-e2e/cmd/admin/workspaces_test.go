@@ -33,7 +33,7 @@ func TestAdminWorkspacesUserStory(t *testing.T) {
 
 	rpcGet := h.RunCLI("admin", "workspaces", "get", "support-desk-workspace", "--context", "admin-a")
 	rpcGet.MustSucceed(t)
-	if !strings.Contains(rpcGet.Stdout, `"workflow_name":"flowcraft-support"`) {
+	if !strings.Contains(rpcGet.Stdout, `"workflow_name":"flowcraft-chat-assistant"`) {
 		t.Fatalf("workspaces get missing resource workflow name:\n%s", rpcGet.Stdout)
 	}
 }

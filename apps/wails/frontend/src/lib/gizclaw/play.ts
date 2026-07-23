@@ -1,5 +1,9 @@
 import { connectGiznetWebRTCFromEndpoint } from "@gizclaw/gizclaw";
-import { RPC_METHODS, createPeerRPCClient, type PeerRPCClient } from "@gizclaw/gizclaw/rpc";
+import {
+  RPC_METHODS,
+  createPeerRPCClient,
+  type PeerRPCClient,
+} from "@gizclaw/gizclaw/rpc";
 import { base64Decode } from "@gizclaw/gizclaw/signaling";
 import type { RuntimeContext } from "../runtime/types";
 
@@ -81,12 +85,16 @@ export interface PlayMemoryRecall {
   raw?: unknown;
 }
 
-export async function connectPlayPeerConnection(runtime: RuntimeContext): Promise<RTCPeerConnection> {
+export async function connectPlayPeerConnection(
+  runtime: RuntimeContext,
+): Promise<RTCPeerConnection> {
   if (runtime.context == null) {
     throw new Error("Play WebRTC session requires a selected context.");
   }
   if (!runtime.private_key_base64) {
-    throw new Error("Play WebRTC session requires injected private key material.");
+    throw new Error(
+      "Play WebRTC session requires injected private key material.",
+    );
   }
   if (!runtime.context.endpoint) {
     throw new Error("Play WebRTC session requires a server endpoint.");
@@ -101,7 +109,9 @@ export async function connectPlayPeerConnection(runtime: RuntimeContext): Promis
   return pc;
 }
 
-export async function connectPlaySession(runtime: RuntimeContext): Promise<PlaySession> {
+export async function connectPlaySession(
+  runtime: RuntimeContext,
+): Promise<PlaySession> {
   const pc = await connectPlayPeerConnection(runtime);
   const client = createPlayDataClientFromPeerConnection(pc);
   return {
@@ -116,14 +126,22 @@ export async function connectPlaySession(runtime: RuntimeContext): Promise<PlayS
   };
 }
 
-export function createPlayDataClientFromPeerConnection(pc: RTCPeerConnection): PlayDataClient {
+export function createPlayDataClientFromPeerConnection(
+  pc: RTCPeerConnection,
+): PlayDataClient {
   return createRPCPlayDataClient(createPeerRPCClient(pc));
 }
 
 export function createRPCPlayDataClient(rpc: PeerRPCClient): PlayDataClient {
   return {
     async loadSnapshot(): Promise<PlaySnapshot> {
-      const collections = ["assistants", "translates", "raids", "story-teller", "role-play"] as const;
+      const collections = [
+        "assistants",
+        "translates",
+        "raids",
+        "story-teller",
+        "role-play",
+      ] as const;
       const [
         runWorkspace,
         history,
@@ -137,39 +155,82 @@ export function createRPCPlayDataClient(rpc: PeerRPCClient): PlayDataClient {
         models,
         voices,
       ] = await Promise.all([
-        captureCall(RPC_METHODS["server.run.workspace.get"], () => rpc.call(RPC_METHODS["server.run.workspace.get"], {})),
-        captureCall(RPC_METHODS["server.run.workspace.history"], () => rpc.call(RPC_METHODS["server.run.workspace.history"], { limit: 30 })),
-        captureCall(RPC_METHODS["server.run.workspace.memory.stats"], () => rpc.call(RPC_METHODS["server.run.workspace.memory.stats"], {})),
-        captureCall(RPC_METHODS["server.contact.list"], () => rpc.call(RPC_METHODS["server.contact.list"], {})),
-        captureCall(RPC_METHODS["server.friend.list"], () => rpc.call(RPC_METHODS["server.friend.list"], {})),
-        captureCall(RPC_METHODS["server.friend_group.list"], () => rpc.call(RPC_METHODS["server.friend_group.list"], {})),
-        captureCall(RPC_METHODS["server.firmware.get"], () => rpc.call(RPC_METHODS["server.firmware.get"], {})),
+        captureCall(RPC_METHODS["server.run.workspace.get"], () =>
+          rpc.call(RPC_METHODS["server.run.workspace.get"], {}),
+        ),
+        captureCall(RPC_METHODS["server.run.workspace.history"], () =>
+          rpc.call(RPC_METHODS["server.run.workspace.history"], { limit: 30 }),
+        ),
+        captureCall(RPC_METHODS["server.run.workspace.memory.stats"], () =>
+          rpc.call(RPC_METHODS["server.run.workspace.memory.stats"], {}),
+        ),
+        captureCall(RPC_METHODS["server.contact.list"], () =>
+          rpc.call(RPC_METHODS["server.contact.list"], {}),
+        ),
+        captureCall(RPC_METHODS["server.friend.list"], () =>
+          rpc.call(RPC_METHODS["server.friend.list"], {}),
+        ),
+        captureCall(RPC_METHODS["server.friend_group.list"], () =>
+          rpc.call(RPC_METHODS["server.friend_group.list"], {}),
+        ),
+        captureCall(RPC_METHODS["server.firmware.get"], () =>
+          rpc.call(RPC_METHODS["server.firmware.get"], {}),
+        ),
         captureCall(RPC_METHODS["server.workspace.list"], async () => ({
-          ...(await collectCollections(await Promise.all(collections.map((collection) => collectCollectionPages(
-            (params) => rpc.call(RPC_METHODS["server.workspace.list"], params),
-            collection,
-            true,
-          ))))),
+          ...(await collectCollections(
+            await Promise.all(
+              collections.map((collection) =>
+                collectCollectionPages(
+                  (params) =>
+                    rpc.call(RPC_METHODS["server.workspace.list"], params),
+                  collection,
+                  true,
+                ),
+              ),
+            ),
+          )),
         })),
         captureCall(RPC_METHODS["server.workflow.list"], async () => ({
-          ...(await collectCollections(await Promise.all(collections.map((collection) => collectCollectionPages(
-            (params) => rpc.call(RPC_METHODS["server.workflow.list"], params),
-            collection,
-            true,
-          ))))),
+          ...(await collectCollections(
+            await Promise.all(
+              collections.map((collection) =>
+                collectCollectionPages(
+                  (params) =>
+                    rpc.call(RPC_METHODS["server.workflow.list"], params),
+                  collection,
+                  true,
+                ),
+              ),
+            ),
+          )),
         })),
-        captureCall(RPC_METHODS["server.model.list"], () => rpc.call(RPC_METHODS["server.model.list"], {})),
-        captureCall(RPC_METHODS["server.voice.list"], () => rpc.call(RPC_METHODS["server.voice.list"], {})),
+        captureCall(RPC_METHODS["server.model.list"], () =>
+          rpc.call(RPC_METHODS["server.model.list"], {}),
+        ),
+        captureCall(RPC_METHODS["server.voice.list"], () =>
+          rpc.call(RPC_METHODS["server.voice.list"], {}),
+        ),
       ]);
       return {
-        contacts: listItems(contacts.value).map((item) => itemToResourceRow(item, "contact")),
+        contacts: listItems(contacts.value).map((item) =>
+          itemToResourceRow(item, "contact"),
+        ),
         credentials: [],
-        firmwares: firmwares.value == null ? [] : [itemToResourceRow(firmwares.value, "firmware")],
-        friendGroups: listItems(friendGroups.value).map((item) => itemToResourceRow(item, "friend-group")),
-        friends: listItems(friends.value).map((item) => itemToResourceRow(item, "friend")),
+        firmwares:
+          firmwares.value == null
+            ? []
+            : [itemToResourceRow(firmwares.value, "firmware")],
+        friendGroups: listItems(friendGroups.value).map((item) =>
+          itemToResourceRow(item, "friend-group"),
+        ),
+        friends: listItems(friends.value).map((item) =>
+          itemToResourceRow(item, "friend"),
+        ),
         history: listItems(history.value).map(itemToHistoryRow),
         memoryStats: memoryStatsToRow(memoryStats.value),
-        models: listItems(models.value).map((item) => itemToResourceRow(item, "model")),
+        models: listItems(models.value).map((item) =>
+          itemToResourceRow(item, "model"),
+        ),
         runtimeProfiles: runtimeProfileMetadata({
           models: models.value,
           voices: voices.value,
@@ -177,7 +238,9 @@ export function createRPCPlayDataClient(rpc: PeerRPCClient): PlayDataClient {
           workspaces: workspaces.value,
         }),
         runWorkspace: workspaceState(runWorkspace.value),
-        voices: listItems(voices.value).map((item) => itemToResourceRow(item, "voice")),
+        voices: listItems(voices.value).map((item) =>
+          itemToResourceRow(item, "voice"),
+        ),
         warnings: [
           runWorkspace,
           history,
@@ -191,15 +254,24 @@ export function createRPCPlayDataClient(rpc: PeerRPCClient): PlayDataClient {
           models,
           voices,
         ].flatMap((item) => (item.warning ? [item.warning] : [])),
-        workflows: listItems(workflows.value).map((item) => itemToResourceRow(item, "workflow")),
-        workspaces: listItems(workspaces.value).map((item) => itemToResourceRow(item, "workspace")),
+        workflows: listItems(workflows.value).map((item) =>
+          itemToResourceRow(item, "workflow"),
+        ),
+        workspaces: listItems(workspaces.value).map((item) =>
+          itemToResourceRow(item, "workspace"),
+        ),
       };
     },
     playHistory(historyID: string): Promise<unknown> {
-      return rpc.call(RPC_METHODS["server.run.workspace.history.play"], { history_id: historyID });
+      return rpc.call(RPC_METHODS["server.run.workspace.history.play"], {
+        history_id: historyID,
+      });
     },
     async recallMemory(query: string): Promise<PlayMemoryRecall> {
-      const raw = await rpc.call(RPC_METHODS["server.run.workspace.recall"], { limit: 8, query });
+      const raw = await rpc.call(RPC_METHODS["server.run.workspace.recall"], {
+        limit: 8,
+        query,
+      });
       return {
         hits: listItems(raw).map((item) => itemToResourceRow(item, "memory")),
         raw,
@@ -209,7 +281,9 @@ export function createRPCPlayDataClient(rpc: PeerRPCClient): PlayDataClient {
       return rpc.call(RPC_METHODS["server.run.workspace.reload"], {});
     },
     setWorkspace(workspaceName: string): Promise<unknown> {
-      return rpc.call(RPC_METHODS["server.run.workspace.set"], { workspace_name: workspaceName });
+      return rpc.call(RPC_METHODS["server.run.workspace.set"], {
+        workspace_name: workspaceName,
+      });
     },
   };
 }
@@ -218,7 +292,10 @@ export function getInjectedPlayDataClient(): PlayDataClient | undefined {
   return window.__GIZCLAW_DESKTOP_TEST_PLAY_CLIENT__;
 }
 
-async function captureCall<T>(label: string, fn: () => Promise<T>): Promise<{ value?: T; warning?: string }> {
+async function captureCall<T>(
+  label: string,
+  fn: () => Promise<T>,
+): Promise<{ value?: T; warning?: string }> {
   try {
     return { value: await fn() };
   } catch (err) {
@@ -239,25 +316,38 @@ async function collectCollectionPages(
   for (;;) {
     let page: unknown;
     try {
-      page = await call(cursor == null ? { collection } : { collection, cursor });
+      page = await call(
+        cursor == null ? { collection } : { collection, cursor },
+      );
     } catch (err) {
       if (cursor == null && missingCollectionIsEmpty && isNotFoundError(err)) {
-        return { items: [], runtime_profile_name: "", runtime_profile_revision: "" };
+        return {
+          items: [],
+          runtime_profile_name: "",
+          runtime_profile_revision: "",
+        };
       }
       throw err;
     }
     const metadata = profileMetadata(page);
-    if (runtimeProfileRevision !== "" && (
-      metadata.runtime_profile_name !== runtimeProfileName ||
-      metadata.runtime_profile_revision !== runtimeProfileRevision
-    )) {
-      throw new Error(`${collection}: runtime profile changed while loading pages`);
+    if (
+      runtimeProfileRevision !== "" &&
+      (metadata.runtime_profile_name !== runtimeProfileName ||
+        metadata.runtime_profile_revision !== runtimeProfileRevision)
+    ) {
+      throw new Error(
+        `${collection}: runtime profile changed while loading pages`,
+      );
     }
     runtimeProfileName = metadata.runtime_profile_name;
     runtimeProfileRevision = metadata.runtime_profile_revision;
     items.push(...listItems(page));
     if (!isRecord(page) || page.has_next !== true) {
-      return { items, runtime_profile_name: runtimeProfileName, runtime_profile_revision: runtimeProfileRevision };
+      return {
+        items,
+        runtime_profile_name: runtimeProfileName,
+        runtime_profile_revision: runtimeProfileRevision,
+      };
     }
     const nextCursor = stringValue(page.next_cursor);
     if (nextCursor == null || seenCursors.has(nextCursor)) {
@@ -268,16 +358,19 @@ async function collectCollectionPages(
   }
 }
 
-function collectCollections(results: RuntimeCollectionResult[]): RuntimeCollectionResult {
+function collectCollections(
+  results: RuntimeCollectionResult[],
+): RuntimeCollectionResult {
   const items: unknown[] = [];
   let runtimeProfileName = "";
   let runtimeProfileRevision = "";
   for (const result of results) {
     if (result.runtime_profile_revision !== "") {
-      if (runtimeProfileRevision !== "" && (
-        result.runtime_profile_name !== runtimeProfileName ||
-        result.runtime_profile_revision !== runtimeProfileRevision
-      )) {
+      if (
+        runtimeProfileRevision !== "" &&
+        (result.runtime_profile_name !== runtimeProfileName ||
+          result.runtime_profile_revision !== runtimeProfileRevision)
+      ) {
         throw new Error("runtime profile changed while loading collections");
       }
       runtimeProfileName = result.runtime_profile_name;
@@ -285,12 +378,21 @@ function collectCollections(results: RuntimeCollectionResult[]): RuntimeCollecti
     }
     items.push(...result.items);
   }
-  return { items, runtime_profile_name: runtimeProfileName, runtime_profile_revision: runtimeProfileRevision };
+  return {
+    items,
+    runtime_profile_name: runtimeProfileName,
+    runtime_profile_revision: runtimeProfileRevision,
+  };
 }
 
-function runtimeProfileMetadata(values: Record<RuntimeCatalogKey, unknown>): Partial<Record<RuntimeCatalogKey, RuntimeProfileMetadata>> {
-  const metadata: Partial<Record<RuntimeCatalogKey, RuntimeProfileMetadata>> = {};
-  for (const [key, value] of Object.entries(values) as Array<[RuntimeCatalogKey, unknown]>) {
+function runtimeProfileMetadata(
+  values: Record<RuntimeCatalogKey, unknown>,
+): Partial<Record<RuntimeCatalogKey, RuntimeProfileMetadata>> {
+  const metadata: Partial<Record<RuntimeCatalogKey, RuntimeProfileMetadata>> =
+    {};
+  for (const [key, value] of Object.entries(values) as Array<
+    [RuntimeCatalogKey, unknown]
+  >) {
     const profile = profileMetadata(value);
     if (profile.runtime_profile_revision !== "") metadata[key] = profile;
   }
@@ -301,7 +403,8 @@ function profileMetadata(value: unknown): RuntimeProfileMetadata {
   const record = isRecord(value) ? value : {};
   return {
     runtime_profile_name: stringValue(record.runtime_profile_name) ?? "",
-    runtime_profile_revision: stringValue(record.runtime_profile_revision) ?? "",
+    runtime_profile_revision:
+      stringValue(record.runtime_profile_revision) ?? "",
   };
 }
 
@@ -321,7 +424,8 @@ function workspaceState(value: unknown): PlayWorkspaceState | undefined {
     mode: stringValue(value.mode),
     name: stringValue(value.name),
     state: stringValue(value.state),
-    workspace_name: stringValue(value.workspace_name) ?? stringValue(value.workspaceName),
+    workspace_name:
+      stringValue(value.workspace_name) ?? stringValue(value.workspaceName),
   };
 }
 
@@ -331,7 +435,10 @@ function memoryStatsToRow(value: unknown): PlayMemoryStats | undefined {
   }
   return {
     raw: value,
-    total: numberValue(value.total) ?? numberValue(value.count) ?? numberValue(value.entries),
+    total:
+      numberValue(value.total) ??
+      numberValue(value.count) ??
+      numberValue(value.entries),
   };
 }
 
@@ -340,7 +447,15 @@ function listItems(value: unknown): unknown[] {
     return value;
   }
   if (isRecord(value)) {
-    for (const key of ["items", "data", "resources", "history", "entries", "hits", "messages"]) {
+    for (const key of [
+      "items",
+      "data",
+      "resources",
+      "history",
+      "entries",
+      "hits",
+      "messages",
+    ]) {
       const items = value[key];
       if (Array.isArray(items)) {
         return items;
@@ -362,9 +477,15 @@ function itemToHistoryRow(item: unknown): PlayHistoryRow {
     id,
     name: stringValue(record.name),
     raw: item,
-    text: stringValue(record.text) ?? stringValue(record.transcript) ?? stringValue(record.content),
+    text:
+      stringValue(record.text) ??
+      stringValue(record.transcript) ??
+      stringValue(record.content),
     type: stringValue(record.type) ?? stringValue(record.role),
-    updated_at: stringValue(record.updated_at) ?? stringValue(record.created_at) ?? stringValue(record.time),
+    updated_at:
+      stringValue(record.updated_at) ??
+      stringValue(record.created_at) ??
+      stringValue(record.time),
   };
 }
 
@@ -403,7 +524,8 @@ function itemToResourceRow(item: unknown, prefix: string): PlayResourceRow {
       stringValue(record.my_role) ??
       stringValue(record.status),
     title,
-    updated_at: stringValue(record.updated_at) ?? stringValue(record.created_at),
+    updated_at:
+      stringValue(record.updated_at) ?? stringValue(record.created_at),
   };
 }
 
@@ -420,8 +542,11 @@ function localizedDisplayName(value: unknown): string | undefined {
 }
 
 function relationSubtitle(record: Record<string, unknown>): string | undefined {
-  const owner = stringValue(record.owner_public_key) ?? stringValue(record.ownerPublicKey);
-  const friend = stringValue(record.friend_public_key) ?? stringValue(record.friendPublicKey);
+  const owner =
+    stringValue(record.owner_public_key) ?? stringValue(record.ownerPublicKey);
+  const friend =
+    stringValue(record.friend_public_key) ??
+    stringValue(record.friendPublicKey);
   if (owner != null && friend != null) {
     return `${owner} <-> ${friend}`;
   }
@@ -433,7 +558,9 @@ function stringValue(value: unknown): string | undefined {
 }
 
 function numberValue(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+  return typeof value === "number" && Number.isFinite(value)
+    ? value
+    : undefined;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

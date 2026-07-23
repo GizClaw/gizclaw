@@ -4,6 +4,7 @@ package memory
 import (
 	"context"
 	"errors"
+	"time"
 )
 
 var (
@@ -34,4 +35,23 @@ type Store interface {
 // or ctx is cancelled. The returned result is authoritative for the operation.
 type OperationWaiter interface {
 	Wait(context.Context, string) (ObserveResult, error)
+}
+
+// AsyncOperationProcessor is implemented by caller-owned stores that can
+// materialize a pending Observe operation without blocking the response that
+// submitted it.
+type AsyncOperationProcessor interface {
+	ProcessAsync(context.Context, string) (ObserveResult, error)
+}
+
+// Statistics summarizes one product-owned memory scope when a provider can
+// enumerate its materialized facts.
+type Statistics struct {
+	ItemCount     int64
+	LastUpdatedAt time.Time
+}
+
+// StatisticsProvider is an optional capability for workspace status APIs.
+type StatisticsProvider interface {
+	Stats(context.Context, Scope) (Statistics, error)
 }

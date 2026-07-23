@@ -22,6 +22,9 @@ type Config struct {
 	Name string
 	// Description is copied to the Flowcraft Agent card.
 	Description string
+	// ContextID is the stable conversation identity used by Flowcraft, History,
+	// and State. Empty creates an invocation-lifetime identity for standalone use.
+	ContextID string
 
 	// Graph is the required Flowcraft Graph definition.
 	Graph flowgraph.GraphDefinition
@@ -34,6 +37,8 @@ type Config struct {
 
 	// History stores ordered conversation messages. The caller owns its lifecycle.
 	History logstore.MutableStore
+	// HistoryScope is the durable Workspace/Agent partition recorded on History.
+	HistoryScope string
 	// Memory stores provider-neutral long-term facts. The caller owns its lifecycle.
 	Memory memory.Store
 	// State stores serializable Board variables. The caller owns its lifecycle.
@@ -53,16 +58,37 @@ type Config struct {
 	ObservationBuilder ObservationBuilder
 	// ObserveWaitForCompletion waits for pending Memory operations before EOS.
 	ObserveWaitForCompletion bool
+
+	// BoardInputs resolves transient variables immediately before every Graph
+	// turn. Returned values are copied into the Board after durable State loads.
+	BoardInputs func(context.Context) (map[string]any, error)
+
+	// Initiative controls the optional empty-input Graph turn.
+	Initiative InitiativePolicy
 }
+
+// InitiativePolicy controls when an Agent may run without user input.
+type InitiativePolicy string
+
+const (
+	InitiativeDisabled      InitiativePolicy = ""
+	InitiativeOnceWhenEmpty InitiativePolicy = "once_when_empty"
+	InitiativeOnReload      InitiativePolicy = "on_reload"
+)
 
 // MemoryRecallProfile recalls long-term memory into one Board variable.
 type MemoryRecallProfile struct {
 	// BoardVariable receives the rendered recall result.
 	BoardVariable string
+	// QueryText is a retained Flowcraft query template. Empty or "input" uses
+	// the current user turn; ${input} is replaced with that turn.
+	QueryText string
 	// Limit is the positive maximum number of matches requested.
 	Limit int
 	// Filters are passed unchanged to memory.Store.Recall.
 	Filters []memory.Filter
+	// Renderer overrides Config.RecallRenderer for this profile.
+	Renderer RecallRenderer
 }
 
 // ObservationInput is the completed, downstream-delivered turn presented to
@@ -74,7 +100,9 @@ type ObservationInput struct {
 	UserText string
 	// DeliveredAssistantText is only the text delivered through downstream Next calls.
 	DeliveredAssistantText string
-	// BoardVariables is a defensive copy of the serializable, non-transient final Board state.
+	// BoardVariables is a defensive copy of serializable final Board values.
+	// Transient tmp_* values are included so configured memory board facts can
+	// observe them, but they are still excluded from durable State persistence.
 	BoardVariables map[string]any
 	// Interrupted reports that an unpulled suffix was discarded.
 	Interrupted bool
@@ -86,9 +114,14 @@ type ObservationBuilder func(context.Context, ObservationInput) (memory.Observat
 // RecallRenderer converts ordered provider-neutral memory matches into a Board value.
 type RecallRenderer func(context.Context, []memory.Match) (string, error)
 
-// DefaultObservationBuilder preserves the user and delivered assistant text.
+// DefaultObservationBuilder preserves each non-empty user or delivered
+// assistant turn. Agent-initiative runs therefore observe only the assistant
+// turn and never manufacture an empty user message.
 func DefaultObservationBuilder(_ context.Context, input ObservationInput) (memory.Observation, error) {
-	turns := []memory.Turn{{ID: input.StreamID + ":user", Role: memory.RoleUser, Text: input.UserText}}
+	var turns []memory.Turn
+	if strings.TrimSpace(input.UserText) != "" {
+		turns = append(turns, memory.Turn{ID: input.StreamID + ":user", Role: memory.RoleUser, Text: input.UserText})
+	}
 	if strings.TrimSpace(input.DeliveredAssistantText) != "" {
 		turns = append(turns, memory.Turn{ID: input.StreamID + ":assistant", Role: memory.RoleAssistant, Text: input.DeliveredAssistantText})
 	}
@@ -117,6 +150,8 @@ func normalizeConfig(source Config) (Config, error) {
 	config := source
 	config.ID = strings.TrimSpace(config.ID)
 	config.Name = strings.TrimSpace(config.Name)
+	config.ContextID = strings.TrimSpace(config.ContextID)
+	config.HistoryScope = strings.TrimSpace(config.HistoryScope)
 	config.MemoryScope = memory.Scope(strings.TrimSpace(string(config.MemoryScope)))
 	if config.ID == "" {
 		return Config{}, fmt.Errorf("flowcraft: ID is required")
@@ -126,6 +161,11 @@ func normalizeConfig(source Config) (Config, error) {
 	}
 	if config.MaxIterations < 0 {
 		return Config{}, fmt.Errorf("flowcraft: MaxIterations cannot be negative")
+	}
+	switch config.Initiative {
+	case InitiativeDisabled, InitiativeOnceWhenEmpty, InitiativeOnReload:
+	default:
+		return Config{}, fmt.Errorf("flowcraft: unsupported Initiative %q", config.Initiative)
 	}
 	if err := config.Graph.Validate(); err != nil {
 		return Config{}, fmt.Errorf("flowcraft: invalid Graph: %w", err)
@@ -156,6 +196,10 @@ func normalizeConfig(source Config) (Config, error) {
 			source, _ := node.Config["source"].(string)
 			if strings.TrimSpace(source) == "" {
 				return Config{}, fmt.Errorf("flowcraft: script node %q requires inline source", node.ID)
+			}
+		case "passthrough":
+			if len(node.Config) != 0 {
+				return Config{}, fmt.Errorf("flowcraft: passthrough node %q does not accept config", node.ID)
 			}
 		default:
 			return Config{}, fmt.Errorf("flowcraft: unsupported node type %q for node %q", node.Type, node.ID)
@@ -197,6 +241,7 @@ func normalizeConfig(source Config) (Config, error) {
 	for index := range config.RecallProfiles {
 		profile := &config.RecallProfiles[index]
 		profile.BoardVariable = strings.TrimSpace(profile.BoardVariable)
+		profile.QueryText = strings.TrimSpace(profile.QueryText)
 		profile.Filters = append([]memory.Filter(nil), profile.Filters...)
 		for filterIndex := range profile.Filters {
 			value, err := cloneConfigValue(profile.Filters[filterIndex].Value)

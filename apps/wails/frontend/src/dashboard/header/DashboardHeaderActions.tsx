@@ -13,7 +13,12 @@ export function DashboardHeaderActions({
   return (
     <div className="flex min-w-0 flex-wrap justify-end gap-2">
       {actions}
-      <Button onClick={() => void onSignOut()} size="sm" type="button" variant="outline">
+      <Button
+        onClick={() => void onSignOut()}
+        size="sm"
+        type="button"
+        variant="outline"
+      >
         <LogOut className="size-4" />
         Logout
       </Button>

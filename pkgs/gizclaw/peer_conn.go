@@ -3,6 +3,7 @@ package gizclaw
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net"
@@ -268,7 +269,7 @@ func (h *PeerConn) initAgentHost() {
 	resources := h.peerResources()
 	h.agentInput = newPeerRealtimeSource()
 	h.events = newPeerStreamEventBroker()
-	host := newPeerAgentHost(manager.AgentHost, h.serverGenX, manager.Gameplay, manager.PetWorkflow, manager.FlowcraftHistory)
+	host := newPeerAgentHost(manager.AgentHost, h.serverGenX, h.ownerGenX, manager.Gameplay, manager.PetWorkflow, manager.FlowcraftHistory, manager.FlowcraftState, manager.FlowcraftMemoryObjects)
 	h.agentHost = &agenthost.Service{
 		Host:           host,
 		PeerRun:        manager.PeerRun,
@@ -354,6 +355,43 @@ func (h *PeerConn) currentRuntimeProfile() *apitypes.RuntimeProfile {
 		return nil
 	}
 	return &profile
+}
+
+func (h *PeerConn) ownerRuntimeProfile(ctx context.Context, owner string) (apitypes.RuntimeProfile, error) {
+	if h == nil || h.Service == nil || h.Service.manager == nil {
+		return apitypes.RuntimeProfile{}, errors.New("gizclaw: manager is not configured")
+	}
+	return h.Service.manager.runtimeProfileForOwner(ctx, owner)
+}
+
+func (h *PeerConn) ownerGenX(ctx context.Context, owner string) (*peergenx.Service, error) {
+	profile, err := h.ownerRuntimeProfile(ctx, owner)
+	if err != nil {
+		return nil, err
+	}
+	manager := h.Service.manager
+	var publicKey giznet.PublicKey
+	if err := publicKey.UnmarshalText([]byte(owner)); err != nil {
+		return nil, fmt.Errorf("gizclaw: invalid workspace owner public key %q: %w", owner, err)
+	}
+	resources := &peerresource.Server{
+		Caller:         publicKey,
+		Peers:          manager.Peers,
+		Firmwares:      manager.Firmwares,
+		Workspaces:     manager.Workspaces,
+		Workflows:      manager.Workflows,
+		Models:         manager.Models,
+		Voices:         manager.Voices,
+		Contacts:       manager.Contacts,
+		Friends:        manager.Friends,
+		FriendGroups:   manager.FriendGroups,
+		Gameplay:       manager.Gameplay,
+		Tools:          manager.Tools,
+		RuntimeProfile: func() *apitypes.RuntimeProfile { return &profile },
+	}
+	return peergenx.New(peergenx.Service{
+		Models: resources, Voices: resources, Credentials: manager.Credentials, ProviderTenants: manager.ProviderTenants,
+	}), nil
 }
 
 func (h *PeerConn) audioMixer() (*pcm.Mixer, error) {

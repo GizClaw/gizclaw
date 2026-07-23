@@ -13,10 +13,11 @@ type accessContext struct {
 	profileToolIDs          []string
 	profileToolBindings     map[string]string
 	profileWorkflowBindings map[string]string
+	profileFingerprint      string
 }
 
 // WithResourceAccess attaches the caller ownership and RuntimeProfile snapshot.
-func WithResourceAccess(ctx context.Context, ownerPublicKey string, profileToolBindings, profileWorkflowBindings map[string]string) context.Context {
+func WithResourceAccess(ctx context.Context, ownerPublicKey string, profileToolBindings, profileWorkflowBindings map[string]string, profileFingerprints ...string) context.Context {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -24,6 +25,9 @@ func WithResourceAccess(ctx context.Context, ownerPublicKey string, profileToolB
 		ownerPublicKey:          strings.TrimSpace(ownerPublicKey),
 		profileToolBindings:     make(map[string]string, len(profileToolBindings)),
 		profileWorkflowBindings: make(map[string]string, len(profileWorkflowBindings)),
+	}
+	if len(profileFingerprints) > 0 {
+		access.profileFingerprint = strings.TrimSpace(profileFingerprints[0])
 	}
 	aliases := make([]string, 0, len(profileToolBindings))
 	for alias := range profileToolBindings {

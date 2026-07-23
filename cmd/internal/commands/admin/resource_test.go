@@ -69,7 +69,7 @@ func TestAdminResourceCLIUserStoryApplyThenShow(t *testing.T) {
 	if fake.gotKind != apitypes.ResourceKindCredential || fake.gotName != "minimax-main" {
 		t.Fatalf("got resource = %s/%s", fake.gotKind, fake.gotName)
 	}
-	var shown map[string]interface{}
+	var shown map[string]any
 	if err := json.Unmarshal(showOut.Bytes(), &shown); err != nil {
 		t.Fatalf("decode show output: %v", err)
 	}
@@ -87,7 +87,7 @@ func TestAdminResourceCLIUserStoryApplyThenShow(t *testing.T) {
 	if fake.deletedKind != apitypes.ResourceKindCredential || fake.deletedName != "minimax-main" {
 		t.Fatalf("deleted resource = %s/%s", fake.deletedKind, fake.deletedName)
 	}
-	var deleted map[string]interface{}
+	var deleted map[string]any
 	if err := json.Unmarshal(deleteOut.Bytes(), &deleted); err != nil {
 		t.Fatalf("decode delete output: %v", err)
 	}
@@ -616,7 +616,7 @@ func mustResource(t *testing.T, raw string) apitypes.Resource {
 	return resource
 }
 
-func mustJSON(t *testing.T, value interface{}) []byte {
+func mustJSON(t *testing.T, value any) []byte {
 	t.Helper()
 
 	data, err := json.Marshal(value)

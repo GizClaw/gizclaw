@@ -47,6 +47,7 @@ int gzc_cgo_backend_peer_add_ice_server(gzc_rtc_peer_t *peer, gzc_str_t url, gzc
 
 void gzc_cgo_emit_channel_state(gzc_cgo_backend_t *backend, int channel_id, gzc_rtc_channel_state_t state);
 void gzc_cgo_emit_channel_message(gzc_cgo_backend_t *backend, int channel_id, const uint8_t *data, size_t len, bool is_text);
+void gzc_cgo_emit_channel_buffered_amount_low(gzc_cgo_backend_t *backend, int channel_id);
 void gzc_cgo_emit_remote_channel(gzc_cgo_backend_t *backend, int channel_id, const char *label, size_t label_len, bool ordered, bool reliable);
 
 #ifdef __cplusplus

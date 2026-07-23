@@ -86,7 +86,7 @@ func TestDialSignalingPacketAndServiceStream(t *testing.T) {
 		t.Fatalf("client Dial(service) error = %v", err)
 	}
 	defer clientStream.Close()
-	serverStreamCh := make(chan interface{}, 1)
+	serverStreamCh := make(chan any, 1)
 	go func() {
 		s, err := service.Accept()
 		if err != nil {
@@ -95,7 +95,7 @@ func TestDialSignalingPacketAndServiceStream(t *testing.T) {
 		}
 		serverStreamCh <- s
 	}()
-	var serverStream interface{}
+	var serverStream any
 	select {
 	case serverStream = <-serverStreamCh:
 	case <-time.After(5 * time.Second):

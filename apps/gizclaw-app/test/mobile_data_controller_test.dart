@@ -170,29 +170,6 @@ void main() {
       client.requests.single.parameters.flowcraftWorkspaceParameters.input,
       WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK,
     );
-    expect(
-      client
-          .requests
-          .single
-          .parameters
-          .flowcraftWorkspaceParameters
-          .generateModel,
-      'chat',
-    );
-    expect(
-      client
-          .requests
-          .single
-          .parameters
-          .flowcraftWorkspaceParameters
-          .extractModel,
-      'extraction',
-    );
-    expect(
-      client.requests.single.parameters.flowcraftWorkspaceParameters
-          .hasEmbeddingModel(),
-      isFalse,
-    );
   });
 
   test(
@@ -756,26 +733,12 @@ void main() {
     expect(doubao.input, WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK);
   });
 
-  test('includes RuntimeProfile FlowCraft model aliases by default', () {
+  test('keeps FlowCraft model aliases in the workflow', () {
     final defaults = newWorkspaceParametersForDriver(
       WorkflowDriverKind.flowcraft,
     ).flowcraftWorkspaceParameters;
-    expect(defaults.generateModel, 'chat');
-    expect(defaults.extractModel, 'extraction');
-    expect(defaults.hasEmbeddingModel(), isFalse);
-
-    final parameters = newWorkspaceParametersForDriver(
-      WorkflowDriverKind.flowcraft,
-      generateModel: 'chat-model',
-      extractModel: 'memory-model',
-      embeddingModel: 'embedding',
-    );
-    final flowcraft = parameters.flowcraftWorkspaceParameters;
-    expect(flowcraft.generateModel, 'chat-model');
-    expect(flowcraft.extractModel, 'memory-model');
-    expect(flowcraft.embeddingModel, 'embedding');
     expect(
-      flowcraft.input,
+      defaults.input,
       WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK,
     );
   });

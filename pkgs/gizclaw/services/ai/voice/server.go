@@ -189,8 +189,8 @@ func (s *Server) PutVoice(ctx context.Context, request adminhttp.PutVoiceRequest
 	return adminhttp.PutVoice200JSONResponse(voice), nil
 }
 
-func ProviderData(kind apitypes.VoiceProviderKind, values map[string]interface{}) *apitypes.VoiceProviderData {
-	clean := make(map[string]interface{}, len(values))
+func ProviderData(kind apitypes.VoiceProviderKind, values map[string]any) *apitypes.VoiceProviderData {
+	clean := make(map[string]any, len(values))
 	for key, value := range values {
 		switch typed := value.(type) {
 		case nil:
@@ -319,7 +319,7 @@ func ProviderDataString(voice apitypes.Voice, key string) string {
 	}
 }
 
-func RawMapValue(in *map[string]interface{}) interface{} {
+func RawMapValue(in *map[string]any) any {
 	if in == nil {
 		return nil
 	}
@@ -427,16 +427,16 @@ func Get(ctx context.Context, store kv.Store, id string) (apitypes.Voice, error)
 func Decode(data []byte, out *apitypes.Voice) error {
 	var decoded struct {
 		apitypes.Voice
-		ProviderVoiceID   *string                 `json:"provider_voice_id,omitempty"`
-		ProviderVoiceType *string                 `json:"provider_voice_type,omitempty"`
-		Raw               *map[string]interface{} `json:"raw,omitempty"`
+		ProviderVoiceID   *string         `json:"provider_voice_id,omitempty"`
+		ProviderVoiceType *string         `json:"provider_voice_type,omitempty"`
+		Raw               *map[string]any `json:"raw,omitempty"`
 	}
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		return err
 	}
 	voice := decoded.Voice
 	if voice.ProviderData == nil {
-		values := map[string]interface{}{
+		values := map[string]any{
 			"raw":        RawMapValue(decoded.Raw),
 			"voice_id":   stringPtrValue(decoded.ProviderVoiceID),
 			"voice_type": stringPtrValue(decoded.ProviderVoiceType),
@@ -624,7 +624,7 @@ func providerDataEqual(left, right *apitypes.VoiceProviderData) bool {
 	return string(leftJSON) == string(rightJSON)
 }
 
-func providerDataString(value interface{}) string {
+func providerDataString(value any) string {
 	switch typed := value.(type) {
 	case string:
 		return strings.TrimSpace(typed)
@@ -635,21 +635,21 @@ func providerDataString(value interface{}) string {
 	}
 }
 
-func rawProviderDataString(raw *map[string]interface{}, key string) string {
+func rawProviderDataString(raw *map[string]any, key string) string {
 	if raw == nil {
 		return ""
 	}
 	return providerDataString((*raw)[key])
 }
 
-func rawMapFromProviderData(values map[string]interface{}) *map[string]interface{} {
+func rawMapFromProviderData(values map[string]any) *map[string]any {
 	rawValue, ok := values["raw"]
 	if !ok || rawValue == nil {
 		return nil
 	}
 	switch typed := rawValue.(type) {
-	case map[string]interface{}:
-		out := make(map[string]interface{}, len(typed))
+	case map[string]any:
+		out := make(map[string]any, len(typed))
 		for key, value := range typed {
 			out[key] = value
 		}
@@ -658,7 +658,7 @@ func rawMapFromProviderData(values map[string]interface{}) *map[string]interface
 		}
 		return &out
 	case map[string]string:
-		out := make(map[string]interface{}, len(typed))
+		out := make(map[string]any, len(typed))
 		for key, value := range typed {
 			out[key] = value
 		}
@@ -671,7 +671,7 @@ func rawMapFromProviderData(values map[string]interface{}) *map[string]interface
 	}
 }
 
-func stringPtrFromProviderData(values map[string]interface{}, key string) *string {
+func stringPtrFromProviderData(values map[string]any, key string) *string {
 	value := providerDataString(values[key])
 	if value == "" {
 		return nil
@@ -679,7 +679,7 @@ func stringPtrFromProviderData(values map[string]interface{}, key string) *strin
 	return &value
 }
 
-func intPtrFromProviderData(values map[string]interface{}, key string) *int {
+func intPtrFromProviderData(values map[string]any, key string) *int {
 	switch typed := values[key].(type) {
 	case int:
 		return &typed

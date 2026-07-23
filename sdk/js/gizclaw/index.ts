@@ -1,4 +1,4 @@
-import type { CreateGiznetWebRtcOfferData } from "./generated/peerhttp/types.gen";
+import type { CreateGiznetWebRtcOfferData } from "./generated/peerhttp/types.gen.ts";
 import { RPC_METHOD_IDS } from "./generated/rpc/method-map.ts";
 import {
   decodeRPCRequestPayload,
@@ -12,7 +12,10 @@ import {
   type SpeechTranscribeResponse,
   type SpeedTestRequest,
 } from "./generated/rpc/payload-codec.ts";
-import { base58Decode, prepareEncryptedGiznetWebRTCOffer } from "./signaling.ts";
+import {
+  base58Decode,
+  prepareEncryptedGiznetWebRTCOffer,
+} from "./signaling.ts";
 import { encodeTelemetryPacket, type TelemetryFrame } from "./telemetry.ts";
 export * from "./telemetry.ts";
 
@@ -38,15 +41,19 @@ export const SPEECH_TRANSCRIPTION_REQUEST_TIMEOUT_MS = 80000;
 export const SPEECH_SYNTHESIS_REQUEST_TIMEOUT_MS = 125000;
 const RPC_MAX_FRAME_PAYLOAD_SIZE = 0xffff;
 const RPC_MAX_ENVELOPE_SIZE = RPC_MAX_FRAME_PAYLOAD_SIZE * 16;
-const DATA_CHANNEL_SEND_RETRY_DELAY_MS = 5;
-const DATA_CHANNEL_SEND_RETRY_LIMIT = 20;
 const PACKET_DATA_CHANNEL_OPEN_TIMEOUT_MS = 30000;
 const RPC_SPEED_TEST_FRAME_SIZE = 32 * 1024;
 const RPC_SPEED_TEST_MAX_CONTENT_LENGTH = 1 << 30;
-const RPC_DATA_CHANNEL_BUFFER_HIGH_WATER_MARK = 1024 * 1024;
+const RPC_BODY_BUFFER_HIGH_WATER_MARK = 1024 * 1024;
+const SERVICE_DATA_CHANNEL_MESSAGE_CHUNK_SIZE = 1400;
+const SERVICE_DATA_CHANNEL_BUFFER_HIGH_WATER_MARK = 1024 * 1024;
+const SERVICE_DATA_CHANNEL_BUFFER_LOW_WATER_MARK = 256 * 1024;
+const SERVICE_DATA_CHANNEL_WRITE_TIMEOUT_MS = 30000;
 const giznetPacketDataChannels = new WeakMap<object, WebRTCRPCDataChannel>();
 const giznetRPCServers = new WeakSet<object>();
-const rpcMethodNamesByID = new Map<number, string>(Object.entries(RPC_METHOD_IDS).map(([name, id]) => [id, name]));
+const rpcMethodNamesByID = new Map<number, string>(
+  Object.entries(RPC_METHOD_IDS).map(([name, id]) => [id, name]),
+);
 
 export type RPCID = string;
 
@@ -83,27 +90,42 @@ export type RPCStreamingCallResult<TResult> = {
 
 export type WebRTCRPCDataChannel = {
   addEventListener(type: "open", listener: () => void): void;
-  addEventListener(type: "message", listener: (event: MessageEvent) => void): void;
+  addEventListener(
+    type: "message",
+    listener: (event: MessageEvent) => void,
+  ): void;
   addEventListener(type: "error", listener: () => void): void;
   addEventListener(type: "close", listener: () => void): void;
+  addEventListener(type: "bufferedamountlow", listener: () => void): void;
   binaryType?: BinaryType;
   bufferedAmount?: number;
+  bufferedAmountLowThreshold?: number;
   close(): void;
   label?: string;
   readyState: RTCDataChannelState;
   removeEventListener(type: "open", listener: () => void): void;
-  removeEventListener(type: "message", listener: (event: MessageEvent) => void): void;
+  removeEventListener(
+    type: "message",
+    listener: (event: MessageEvent) => void,
+  ): void;
   removeEventListener(type: "error", listener: () => void): void;
   removeEventListener(type: "close", listener: () => void): void;
+  removeEventListener(type: "bufferedamountlow", listener: () => void): void;
   send(data: ArrayBuffer | ArrayBufferView | Blob | string): void;
 };
 
 export type WebRTCRPCDataChannelFactory = {
-  createDataChannel(label: string, options?: RTCDataChannelInit): WebRTCRPCDataChannel;
+  createDataChannel(
+    label: string,
+    options?: RTCDataChannelInit,
+  ): WebRTCRPCDataChannel;
 };
 
 export type WebRTCRPCDataChannelServer = {
-  addEventListener(type: "datachannel", listener: (event: { channel: WebRTCRPCDataChannel }) => void): void;
+  addEventListener(
+    type: "datachannel",
+    listener: (event: { channel: WebRTCRPCDataChannel }) => void,
+  ): void;
 };
 
 export type PreparedGiznetWebRTCOffer = {
@@ -121,7 +143,10 @@ export type ConnectGiznetWebRTCOptions = {
   iceGatheringTimeoutMs?: number;
   pc: RTCPeerConnection;
   prepareOffer: (offerSDP: string) => Promise<PreparedGiznetWebRTCOffer>;
-  sendOffer?: (offer: PreparedGiznetWebRTCOffer, signal?: AbortSignal) => Promise<Blob>;
+  sendOffer?: (
+    offer: PreparedGiznetWebRTCOffer,
+    signal?: AbortSignal,
+  ) => Promise<Blob>;
   signal?: AbortSignal;
 };
 
@@ -145,7 +170,10 @@ export type ServerInfoBootstrapOptions = {
   signal?: AbortSignal;
 };
 
-export type ConnectGiznetWebRTCFromEndpointOptions = Omit<ConnectGiznetWebRTCOptions, "prepareOffer" | "sendOffer"> & {
+export type ConnectGiznetWebRTCFromEndpointOptions = Omit<
+  ConnectGiznetWebRTCOptions,
+  "prepareOffer" | "sendOffer"
+> & {
   baseUrl?: string;
   clientPrivateKey: Uint8Array;
   clientPublicKey?: Uint8Array | string;
@@ -187,25 +215,46 @@ export class WebRTCRPCClient {
   private readonly createID: () => string;
   private readonly requestTimeoutMs: number;
 
-  constructor(pc: WebRTCRPCDataChannelFactory, options: WebRTCRPCClientOptions = {}) {
+  constructor(
+    pc: WebRTCRPCDataChannelFactory,
+    options: WebRTCRPCClientOptions = {},
+  ) {
     this.pc = pc;
-    this.channelLabel = options.channelLabel ?? giznetServiceDataChannelLabel(options.service ?? GIZCLAW_SERVICE_PEER_RPC);
+    this.channelLabel =
+      options.channelLabel ??
+      giznetServiceDataChannelLabel(
+        options.service ?? GIZCLAW_SERVICE_PEER_RPC,
+      );
     this.createID = options.createID ?? defaultRPCID;
     this.requestTimeoutMs = options.requestTimeoutMs ?? 30000;
   }
 
-  async call<TResult = unknown, TParams = unknown>(method: string, params?: TParams, options: RPCCallOptions = {}): Promise<TResult> {
+  async call<TResult = unknown, TParams = unknown>(
+    method: string,
+    params?: TParams,
+    options: RPCCallOptions = {},
+  ): Promise<TResult> {
     const id = options.id ?? this.createID();
-    const response = await this.request<TResult, TParams>({ id, method, params, v: RPC_VERSION }, options);
+    const response = await this.request<TResult, TParams>(
+      { id, method, params, v: RPC_VERSION },
+      options,
+    );
     if (response.error != null) {
       throw new WebRTCRPCError(response.error, response.id);
     }
     return response.result as TResult;
   }
 
-  async callBinary<TResult = unknown, TParams = unknown>(method: string, params?: TParams, options: RPCCallOptions = {}): Promise<RPCBinaryCallResult<TResult>> {
+  async callBinary<TResult = unknown, TParams = unknown>(
+    method: string,
+    params?: TParams,
+    options: RPCCallOptions = {},
+  ): Promise<RPCBinaryCallResult<TResult>> {
     const id = options.id ?? this.createID();
-    const response = await this.requestBinary<TResult, TParams>({ id, method, params, v: RPC_VERSION }, options);
+    const response = await this.requestBinary<TResult, TParams>(
+      { id, method, params, v: RPC_VERSION },
+      options,
+    );
     if (response.response.error != null) {
       throw new WebRTCRPCError(response.response.error, response.response.id);
     }
@@ -229,7 +278,12 @@ export class WebRTCRPCClient {
       {
         ...options,
         id: options.id ?? this.createID(),
-        timeoutMs: options.timeoutMs ?? Math.max(this.requestTimeoutMs, SPEECH_TRANSCRIPTION_REQUEST_TIMEOUT_MS),
+        timeoutMs:
+          options.timeoutMs ??
+          Math.max(
+            this.requestTimeoutMs,
+            SPEECH_TRANSCRIPTION_REQUEST_TIMEOUT_MS,
+          ),
       },
     );
   }
@@ -246,13 +300,20 @@ export class WebRTCRPCClient {
       {
         ...options,
         id: options.id ?? this.createID(),
-        timeoutMs: options.timeoutMs ?? Math.max(this.requestTimeoutMs, SPEECH_SYNTHESIS_REQUEST_TIMEOUT_MS),
+        timeoutMs:
+          options.timeoutMs ??
+          Math.max(this.requestTimeoutMs, SPEECH_SYNTHESIS_REQUEST_TIMEOUT_MS),
       },
     );
   }
 
-  async request<TResult = unknown, TParams = unknown>(request: RPCRequest<TParams>, options: RPCCallOptions = {}): Promise<RPCResponse<TResult>> {
-    const channel = this.pc.createDataChannel(this.channelLabel, { ordered: true });
+  async request<TResult = unknown, TParams = unknown>(
+    request: RPCRequest<TParams>,
+    options: RPCCallOptions = {},
+  ): Promise<RPCResponse<TResult>> {
+    const channel = this.pc.createDataChannel(this.channelLabel, {
+      ordered: true,
+    });
     channel.binaryType = "arraybuffer";
     let encodedRequest: ArrayBuffer;
     try {
@@ -304,7 +365,12 @@ export class WebRTCRPCClient {
         settle(() => reject(abortError()));
       };
       const onOpen = (): void => {
-        sendDataChannelMessage(channel, encodedRequest, (err) => settle(() => reject(err)));
+        sendDataChannelMessage(
+          channel,
+          encodedRequest,
+          (err) => settle(() => reject(err)),
+          { signal: abortSignal, timeoutMs },
+        );
       };
       const onMessage = (event: MessageEvent): void => {
         messageQueue = messageQueue.then(async () => {
@@ -319,8 +385,13 @@ export class WebRTCRPCClient {
               return;
             }
             buffer = parsed.rest;
-            if (parsed.response.id != null && parsed.response.id !== request.id) {
-              throw new Error(`rpc response id mismatch: got ${parsed.response.id}, want ${request.id}`);
+            if (
+              parsed.response.id != null &&
+              parsed.response.id !== request.id
+            ) {
+              throw new Error(
+                `rpc response id mismatch: got ${parsed.response.id}, want ${request.id}`,
+              );
             }
             settle(() => resolve(parsed.response));
           } catch (err) {
@@ -334,7 +405,11 @@ export class WebRTCRPCClient {
       const onClose = (): void => {
         messageQueue = messageQueue.then(() => {
           if (!settled) {
-            settle(() => reject(new Error("WebRTC RPC data channel closed before response.")));
+            settle(() =>
+              reject(
+                new Error("WebRTC RPC data channel closed before response."),
+              ),
+            );
           }
         });
       };
@@ -352,7 +427,11 @@ export class WebRTCRPCClient {
 
       if (timeoutMs > 0) {
         timeout = setTimeout(() => {
-          settle(() => reject(new Error(`WebRTC RPC request timed out after ${timeoutMs}ms.`)));
+          settle(() =>
+            reject(
+              new Error(`WebRTC RPC request timed out after ${timeoutMs}ms.`),
+            ),
+          );
         }, timeoutMs);
       }
       if (channel.readyState === "open") {
@@ -367,7 +446,9 @@ export class WebRTCRPCClient {
     request: RPCRequest<TParams>,
     options: RPCCallOptions = {},
   ): Promise<{ body: Uint8Array; response: RPCResponse<TResult> }> {
-    const channel = this.pc.createDataChannel(this.channelLabel, { ordered: true });
+    const channel = this.pc.createDataChannel(this.channelLabel, {
+      ordered: true,
+    });
     channel.binaryType = "arraybuffer";
     let encodedRequest: ArrayBuffer;
     try {
@@ -384,98 +465,125 @@ export class WebRTCRPCClient {
     const timeoutMs = options.timeoutMs ?? this.requestTimeoutMs;
     const abortSignal = options.signal;
 
-    return new Promise<{ body: Uint8Array; response: RPCResponse<TResult> }>((resolve, reject) => {
-      let buffer: Uint8Array<ArrayBufferLike> = new Uint8Array();
-      let messageQueue = Promise.resolve();
-      let settled = false;
-      let timeout: ReturnType<typeof setTimeout> | undefined;
+    return new Promise<{ body: Uint8Array; response: RPCResponse<TResult> }>(
+      (resolve, reject) => {
+        let buffer: Uint8Array<ArrayBufferLike> = new Uint8Array();
+        let messageQueue = Promise.resolve();
+        let settled = false;
+        let timeout: ReturnType<typeof setTimeout> | undefined;
 
-      const settle = (fn: () => void): void => {
-        if (settled) {
-          return;
-        }
-        settled = true;
-        cleanup();
-        try {
-          channel.close();
-        } catch {
-          // Ignore close races from browsers that already closed the channel.
-        }
-        fn();
-      };
-
-      const cleanup = (): void => {
-        if (timeout != null) {
-          clearTimeout(timeout);
-        }
-        abortSignal?.removeEventListener("abort", onAbort);
-        channel.removeEventListener("open", onOpen);
-        channel.removeEventListener("message", onMessage);
-        channel.removeEventListener("error", onError);
-        channel.removeEventListener("close", onClose);
-      };
-
-      const onAbort = (): void => {
-        settle(() => reject(abortError()));
-      };
-      const onOpen = (): void => {
-        sendDataChannelMessage(channel, encodedRequest, (err) => settle(() => reject(err)));
-      };
-      const onMessage = (event: MessageEvent): void => {
-        messageQueue = messageQueue.then(async () => {
+        const settle = (fn: () => void): void => {
           if (settled) {
             return;
           }
+          settled = true;
+          cleanup();
           try {
-            const chunk = await messageDataBytes(event.data);
-            buffer = appendBytes(buffer, chunk);
-            const parsed = tryReadRPCBinaryResponse<TResult>(buffer, request.method);
-            if (parsed == null) {
+            channel.close();
+          } catch {
+            // Ignore close races from browsers that already closed the channel.
+          }
+          fn();
+        };
+
+        const cleanup = (): void => {
+          if (timeout != null) {
+            clearTimeout(timeout);
+          }
+          abortSignal?.removeEventListener("abort", onAbort);
+          channel.removeEventListener("open", onOpen);
+          channel.removeEventListener("message", onMessage);
+          channel.removeEventListener("error", onError);
+          channel.removeEventListener("close", onClose);
+        };
+
+        const onAbort = (): void => {
+          settle(() => reject(abortError()));
+        };
+        const onOpen = (): void => {
+          sendDataChannelMessage(
+            channel,
+            encodedRequest,
+            (err) => settle(() => reject(err)),
+            { signal: abortSignal, timeoutMs },
+          );
+        };
+        const onMessage = (event: MessageEvent): void => {
+          messageQueue = messageQueue.then(async () => {
+            if (settled) {
               return;
             }
-            buffer = parsed.rest;
-            if (parsed.response.id != null && parsed.response.id !== request.id) {
-              throw new Error(`rpc response id mismatch: got ${parsed.response.id}, want ${request.id}`);
+            try {
+              const chunk = await messageDataBytes(event.data);
+              buffer = appendBytes(buffer, chunk);
+              const parsed = tryReadRPCBinaryResponse<TResult>(
+                buffer,
+                request.method,
+              );
+              if (parsed == null) {
+                return;
+              }
+              buffer = parsed.rest;
+              if (
+                parsed.response.id != null &&
+                parsed.response.id !== request.id
+              ) {
+                throw new Error(
+                  `rpc response id mismatch: got ${parsed.response.id}, want ${request.id}`,
+                );
+              }
+              settle(() =>
+                resolve({ body: parsed.body, response: parsed.response }),
+              );
+            } catch (err) {
+              settle(() => reject(err));
             }
-            settle(() => resolve({ body: parsed.body, response: parsed.response }));
-          } catch (err) {
-            settle(() => reject(err));
-          }
-        });
-      };
-      const onError = (): void => {
-        settle(() => reject(new Error("WebRTC RPC data channel failed.")));
-      };
-      const onClose = (): void => {
-        messageQueue = messageQueue.then(() => {
-          if (!settled) {
-            settle(() => reject(new Error("WebRTC RPC data channel closed before binary response.")));
-          }
-        });
-      };
+          });
+        };
+        const onError = (): void => {
+          settle(() => reject(new Error("WebRTC RPC data channel failed.")));
+        };
+        const onClose = (): void => {
+          messageQueue = messageQueue.then(() => {
+            if (!settled) {
+              settle(() =>
+                reject(
+                  new Error(
+                    "WebRTC RPC data channel closed before binary response.",
+                  ),
+                ),
+              );
+            }
+          });
+        };
 
-      if (abortSignal?.aborted) {
-        settle(() => reject(abortError()));
-        return;
-      }
+        if (abortSignal?.aborted) {
+          settle(() => reject(abortError()));
+          return;
+        }
 
-      abortSignal?.addEventListener("abort", onAbort, { once: true });
-      channel.addEventListener("open", onOpen);
-      channel.addEventListener("message", onMessage);
-      channel.addEventListener("error", onError);
-      channel.addEventListener("close", onClose);
+        abortSignal?.addEventListener("abort", onAbort, { once: true });
+        channel.addEventListener("open", onOpen);
+        channel.addEventListener("message", onMessage);
+        channel.addEventListener("error", onError);
+        channel.addEventListener("close", onClose);
 
-      if (timeoutMs > 0) {
-        timeout = setTimeout(() => {
-          settle(() => reject(new Error(`WebRTC RPC request timed out after ${timeoutMs}ms.`)));
-        }, timeoutMs);
-      }
-      if (channel.readyState === "open") {
-        onOpen();
-      } else if (channel.readyState === "closed") {
-        onClose();
-      }
-    });
+        if (timeoutMs > 0) {
+          timeout = setTimeout(() => {
+            settle(() =>
+              reject(
+                new Error(`WebRTC RPC request timed out after ${timeoutMs}ms.`),
+              ),
+            );
+          }, timeoutMs);
+        }
+        if (channel.readyState === "open") {
+          onOpen();
+        } else if (channel.readyState === "closed") {
+          onClose();
+        }
+      },
+    );
   }
 }
 
@@ -502,21 +610,36 @@ async function rpcUploadCall<TResult>(
     options.signal,
     options.timeoutMs,
   );
-  const responseOutcome = response.promise.then((value) => ({ kind: "response" as const, value }));
-  const iterator = Symbol.asyncIterator in body
-    ? body[Symbol.asyncIterator]()
-    : body[Symbol.iterator]();
+  const responseOutcome = response.promise.then((value) => ({
+    kind: "response" as const,
+    value,
+  }));
+  const iterator =
+    Symbol.asyncIterator in body
+      ? body[Symbol.asyncIterator]()
+      : body[Symbol.iterator]();
   let uploadComplete = false;
   try {
     await waitForDataChannelOpen(channel, options.signal, options.timeoutMs);
     const requestEnvelope = encodeRPCRequestEnvelope(request);
-    await sendInboundRPCFrames(channel, encodeRPCEnvelopeFrames(requestEnvelope));
+    await sendInboundRPCFrames(
+      channel,
+      encodeRPCEnvelopeFrames(requestEnvelope),
+      options,
+    );
     if (requestEnvelope.length > RPC_MAX_FRAME_PAYLOAD_SIZE) {
-      await sendInboundRPCFrames(channel, [encodeFrame(RPC_FRAME_TYPE_EOS)]);
+      await sendInboundRPCFrames(
+        channel,
+        [encodeFrame(RPC_FRAME_TYPE_EOS)],
+        options,
+      );
     }
     for (;;) {
       const outcome = await Promise.race([
-        Promise.resolve(iterator.next()).then((result) => ({ kind: "chunk" as const, result })),
+        Promise.resolve(iterator.next()).then((result) => ({
+          kind: "chunk" as const,
+          result,
+        })),
         responseOutcome,
       ]);
       if (outcome.kind === "response") {
@@ -525,19 +648,33 @@ async function rpcUploadCall<TResult>(
       if (outcome.result.done) break;
       const chunk = outcome.result.value;
       if (!(chunk instanceof Uint8Array) || chunk.length === 0) {
-        throw new Error("speech audio chunks must be non-empty Uint8Array values");
+        throw new Error(
+          "speech audio chunks must be non-empty Uint8Array values",
+        );
       }
-      for (let offset = 0; offset < chunk.length; offset += RPC_MAX_FRAME_PAYLOAD_SIZE) {
-        await sendInboundRPCFrames(channel, [
-          encodeFrame(
-            RPC_FRAME_TYPE_BINARY,
-            chunk.subarray(offset, offset + RPC_MAX_FRAME_PAYLOAD_SIZE),
-          ),
-        ]);
+      for (
+        let offset = 0;
+        offset < chunk.length;
+        offset += RPC_MAX_FRAME_PAYLOAD_SIZE
+      ) {
+        await sendInboundRPCFrames(
+          channel,
+          [
+            encodeFrame(
+              RPC_FRAME_TYPE_BINARY,
+              chunk.subarray(offset, offset + RPC_MAX_FRAME_PAYLOAD_SIZE),
+            ),
+          ],
+          options,
+        );
       }
     }
     uploadComplete = true;
-    await sendInboundRPCFrames(channel, [encodeFrame(RPC_FRAME_TYPE_EOS)]);
+    await sendInboundRPCFrames(
+      channel,
+      [encodeFrame(RPC_FRAME_TYPE_EOS)],
+      options,
+    );
     return await response.promise;
   } catch (error) {
     response.cancel(error);
@@ -587,13 +724,19 @@ function readRPCUnaryResponse<TResult>(
       action();
     };
     const fail = (error: unknown): void =>
-      settle(() => reject(error instanceof Error ? error : new Error(String(error))));
+      settle(() =>
+        reject(error instanceof Error ? error : new Error(String(error))),
+      );
     cancel = fail;
     const onAbort = (): void => fail(abortError());
-    const onError = (): void => fail(new Error("WebRTC RPC data channel failed."));
+    const onError = (): void =>
+      fail(new Error("WebRTC RPC data channel failed."));
     const onClose = (): void => {
       queue = queue.then(() => {
-        if (!settled) fail(new Error("WebRTC RPC data channel closed before response EOS."));
+        if (!settled)
+          fail(
+            new Error("WebRTC RPC data channel closed before response EOS."),
+          );
       });
     };
     const onMessage = (event: MessageEvent): void => {
@@ -604,7 +747,9 @@ function readRPCUnaryResponse<TResult>(
           const parsed = tryReadRPCResponse<TResult>(buffer, method);
           if (parsed == null) return;
           if (parsed.response.id != null && parsed.response.id !== requestID) {
-            throw new Error(`rpc response id mismatch: got ${parsed.response.id}, want ${requestID}`);
+            throw new Error(
+              `rpc response id mismatch: got ${parsed.response.id}, want ${requestID}`,
+            );
           }
           if (parsed.response.error != null) {
             throw new WebRTCRPCError(parsed.response.error, parsed.response.id);
@@ -625,7 +770,8 @@ function readRPCUnaryResponse<TResult>(
     channel.addEventListener("close", onClose);
     if (timeoutMs > 0) {
       timeout = setTimeout(
-        () => fail(new Error(`WebRTC RPC request timed out after ${timeoutMs}ms.`)),
+        () =>
+          fail(new Error(`WebRTC RPC request timed out after ${timeoutMs}ms.`)),
         timeoutMs,
       );
     }
@@ -683,7 +829,8 @@ async function rpcStreamingResponseCall<TResult>(
     }
   }
   const onAbort = (): void => cancel(abortError());
-  const onError = (): void => cancel(new Error("WebRTC RPC data channel failed."));
+  const onError = (): void =>
+    cancel(new Error("WebRTC RPC data channel failed."));
   const onClose = (): void => {
     queue = queue.then(() => {
       if (!terminal) cancel(new Error("WebRTC RPC body closed without EOS."));
@@ -692,7 +839,9 @@ async function rpcStreamingResponseCall<TResult>(
   const acceptEnvelope = (payload: Uint8Array): void => {
     response = decodeRPCResponseEnvelope<TResult>(payload, method);
     if (response.id != null && response.id !== request.id) {
-      throw new Error(`rpc response id mismatch: got ${response.id}, want ${request.id}`);
+      throw new Error(
+        `rpc response id mismatch: got ${response.id}, want ${request.id}`,
+      );
     }
     if (response.error != null) {
       throw new WebRTCRPCError(response.error, response.id);
@@ -709,7 +858,9 @@ async function rpcStreamingResponseCall<TResult>(
         if (type === RPC_FRAME_TYPE_TEXT) {
           envelopeLength += payload.length;
           if (envelopeLength > RPC_MAX_ENVELOPE_SIZE) {
-            throw new Error(`RPC protobuf envelope too large: ${envelopeLength}`);
+            throw new Error(
+              `RPC protobuf envelope too large: ${envelopeLength}`,
+            );
           }
           envelopeChunks.push(copyBytes(payload));
           continue;
@@ -719,7 +870,9 @@ async function rpcStreamingResponseCall<TResult>(
           continue;
         }
         if (type !== RPC_FRAME_TYPE_BINARY) {
-          throw new Error(`rpc: expected protobuf binary frame, got type ${type}`);
+          throw new Error(
+            `rpc: expected protobuf binary frame, got type ${type}`,
+          );
         }
         acceptEnvelope(payload);
         continue;
@@ -763,16 +916,25 @@ async function rpcStreamingResponseCall<TResult>(
   channel.addEventListener("close", onClose);
   if (options.timeoutMs > 0) {
     timeout = setTimeout(
-      () => cancel(new Error(`WebRTC RPC request timed out after ${options.timeoutMs}ms.`)),
+      () =>
+        cancel(
+          new Error(
+            `WebRTC RPC request timed out after ${options.timeoutMs}ms.`,
+          ),
+        ),
       options.timeoutMs,
     );
   }
   try {
     await waitForDataChannelOpen(channel, options.signal, options.timeoutMs);
-    await sendInboundRPCFrames(channel, [
-      ...encodeRPCEnvelopeFrames(encodeRPCRequestEnvelope(request)),
-      encodeFrame(RPC_FRAME_TYPE_EOS),
-    ]);
+    await sendInboundRPCFrames(
+      channel,
+      [
+        ...encodeRPCEnvelopeFrames(encodeRPCRequestEnvelope(request)),
+        encodeFrame(RPC_FRAME_TYPE_EOS),
+      ],
+      options,
+    );
     return {
       body: stream,
       cancel: () => cancel(abortError()),
@@ -806,7 +968,7 @@ class RPCBodyStream implements AsyncIterable<Uint8Array> {
       waiter.resolve({ done: false, value: chunk });
       return;
     }
-    if (this.bufferedBytes + chunk.length > RPC_DATA_CHANNEL_BUFFER_HIGH_WATER_MARK) {
+    if (this.bufferedBytes + chunk.length > RPC_BODY_BUFFER_HIGH_WATER_MARK) {
       this.onCancel(new Error("WebRTC RPC body consumer is too slow."));
       return;
     }
@@ -858,17 +1020,27 @@ export type WebRTCFetchRoute = {
   status?: number;
 };
 
-export type WebRTCFetchRouter = (request: Request) => WebRTCFetchRoute | Promise<WebRTCFetchRoute>;
+export type WebRTCFetchRouter = (
+  request: Request,
+) => WebRTCFetchRoute | Promise<WebRTCFetchRoute>;
 
 export type WebRTCFetchOptions = {
   router: WebRTCFetchRouter;
 };
 
-export function createWebRTCFetch(client: WebRTCRPCClient, options: WebRTCFetchOptions): typeof fetch {
-  return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+export function createWebRTCFetch(
+  client: WebRTCRPCClient,
+  options: WebRTCFetchOptions,
+): typeof fetch {
+  return async (
+    input: RequestInfo | URL,
+    init?: RequestInit,
+  ): Promise<Response> => {
     const request = new Request(input, init);
     const route = await options.router(request);
-    const result = await client.call(route.method, route.params, { signal: request.signal });
+    const result = await client.call(route.method, route.params, {
+      signal: request.signal,
+    });
     const headers = new Headers(route.headers);
     if (!headers.has("content-type")) {
       headers.set("content-type", "application/json");
@@ -886,35 +1058,60 @@ export type WebRTCServiceFetchOptions = {
   service?: number;
 };
 
-export function createWebRTCServiceFetch(pc: WebRTCRPCDataChannelFactory, options: WebRTCServiceFetchOptions = {}): typeof fetch {
+export function createWebRTCServiceFetch(
+  pc: WebRTCRPCDataChannelFactory,
+  options: WebRTCServiceFetchOptions = {},
+): typeof fetch {
   const service = options.service ?? GIZCLAW_SERVICE_ADMIN_HTTP;
   const host = options.host ?? "gizclaw";
   const timeoutMs = options.requestTimeoutMs ?? 30000;
-  return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+  return async (
+    input: RequestInfo | URL,
+    init?: RequestInit,
+  ): Promise<Response> => {
     const request = new Request(input, init);
-    const channel = pc.createDataChannel(giznetServiceDataChannelLabel(service), { ordered: true });
+    const channel = pc.createDataChannel(
+      giznetServiceDataChannelLabel(service),
+      { ordered: true },
+    );
     channel.binaryType = "arraybuffer";
     const requestBytes = await encodeHTTPRequest(request, host);
     return readHTTPResponse(channel, requestBytes, request.signal, timeoutMs);
   };
 }
 
-export function createAdminAPIFetch(pc: WebRTCRPCDataChannelFactory, options: Omit<WebRTCServiceFetchOptions, "service"> = {}): typeof fetch {
-  return createWebRTCServiceFetch(pc, { ...options, service: GIZCLAW_SERVICE_ADMIN_HTTP });
+export function createAdminAPIFetch(
+  pc: WebRTCRPCDataChannelFactory,
+  options: Omit<WebRTCServiceFetchOptions, "service"> = {},
+): typeof fetch {
+  return createWebRTCServiceFetch(pc, {
+    ...options,
+    service: GIZCLAW_SERVICE_ADMIN_HTTP,
+  });
 }
 
-export async function connectGiznetWebRTC(options: ConnectGiznetWebRTCOptions): Promise<RTCPeerConnection> {
+export async function connectGiznetWebRTC(
+  options: ConnectGiznetWebRTCOptions,
+): Promise<RTCPeerConnection> {
   prepareGiznetWebRTCPeerConnection(options.pc, options);
   const offer = await options.pc.createOffer();
   await options.pc.setLocalDescription(offer);
-  await waitForICEGatheringComplete(options.pc, options.signal, options.iceGatheringTimeoutMs);
+  await waitForICEGatheringComplete(
+    options.pc,
+    options.signal,
+    options.iceGatheringTimeoutMs,
+  );
   const local = options.pc.localDescription;
   if (local == null) {
     throw new Error("WebRTC offer was not created.");
   }
 
   const prepared = await options.prepareOffer(local.sdp);
-  const encryptedAnswer = await (options.sendOffer ?? ((item, signal) => sendGiznetWebRTCOffer(item, { fetch: options.fetch, signal })))(prepared, options.signal);
+  const encryptedAnswer = await (
+    options.sendOffer ??
+    ((item, signal) =>
+      sendGiznetWebRTCOffer(item, { fetch: options.fetch, signal }))
+  )(prepared, options.signal);
   const answerSDP = await prepared.openAnswer(encryptedAnswer);
   await options.pc.setRemoteDescription({ sdp: answerSDP, type: "answer" });
   const packetDataChannel = getGiznetWebRTCPacketDataChannel(options.pc);
@@ -924,9 +1121,13 @@ export async function connectGiznetWebRTC(options: ConnectGiznetWebRTCOptions): 
   return options.pc;
 }
 
-export async function connectGiznetWebRTCFromEndpoint(options: ConnectGiznetWebRTCFromEndpointOptions): Promise<RTCPeerConnection> {
+export async function connectGiznetWebRTCFromEndpoint(
+  options: ConnectGiznetWebRTCFromEndpointOptions,
+): Promise<RTCPeerConnection> {
   const serverInfo = await fetchGiznetServerInfo(options);
-  const signalingPath = normalizeServerInfoSignalingPath(serverInfo.signaling_path);
+  const signalingPath = normalizeServerInfoSignalingPath(
+    serverInfo.signaling_path,
+  );
   applyGiznetServerInfoICEServers(options.pc, serverInfo);
   return connectGiznetWebRTC({
     ...options,
@@ -942,7 +1143,10 @@ export async function connectGiznetWebRTCFromEndpoint(options: ConnectGiznetWebR
       return {
         ...prepared,
         openAnswer: async (encryptedAnswer) =>
-          rewriteGiznetWebRTCAnswerForEndpoint(await prepared.openAnswer(encryptedAnswer), options.endpoint),
+          rewriteGiznetWebRTCAnswerForEndpoint(
+            await prepared.openAnswer(encryptedAnswer),
+            options.endpoint,
+          ),
       };
     },
     sendOffer: (offer, signal) =>
@@ -955,7 +1159,10 @@ export async function connectGiznetWebRTCFromEndpoint(options: ConnectGiznetWebR
   });
 }
 
-export function rewriteGiznetWebRTCAnswerForEndpoint(answerSDP: string, endpoint?: string): string {
+export function rewriteGiznetWebRTCAnswerForEndpoint(
+  answerSDP: string,
+  endpoint?: string,
+): string {
   const target = loopbackICEEndpoint(endpoint);
   if (target == null) {
     return answerSDP;
@@ -963,7 +1170,11 @@ export function rewriteGiznetWebRTCAnswerForEndpoint(answerSDP: string, endpoint
   return answerSDP.replace(/^a=candidate:.*$/gm, (line) => {
     const trailingCR = line.endsWith("\r") ? "\r" : "";
     const fields = line.slice(0, line.length - trailingCR.length).split(/\s+/);
-    if (fields.length < 8 || fields[6]?.toLowerCase() !== "typ" || fields[7]?.toLowerCase() !== "host") {
+    if (
+      fields.length < 8 ||
+      fields[6]?.toLowerCase() !== "typ" ||
+      fields[7]?.toLowerCase() !== "host"
+    ) {
       return line;
     }
     fields[4] = target.host;
@@ -972,7 +1183,9 @@ export function rewriteGiznetWebRTCAnswerForEndpoint(answerSDP: string, endpoint
   });
 }
 
-function loopbackICEEndpoint(endpoint?: string): { host: string; port: string } | undefined {
+function loopbackICEEndpoint(
+  endpoint?: string,
+): { host: string; port: string } | undefined {
   const value = endpoint?.trim() ?? "";
   if (value === "") {
     return undefined;
@@ -984,34 +1197,56 @@ function loopbackICEEndpoint(endpoint?: string): { host: string; port: string } 
     return undefined;
   }
   const host = parsed.hostname.replace(/^\[(.*)\]$/, "$1");
-  const isLoopback = host === "localhost" || host === "::1" || /^127(?:\.\d{1,3}){3}$/.test(host);
+  const isLoopback =
+    host === "localhost" ||
+    host === "::1" ||
+    /^127(?:\.\d{1,3}){3}$/.test(host);
   if (!isLoopback || parsed.port === "") {
     return undefined;
   }
   return { host, port: parsed.port };
 }
 
-export function applyGiznetServerInfoICEServers(pc: RTCPeerConnection, serverInfo: Pick<GiznetServerInfo, "ice_servers">): void {
-  if (serverInfo.ice_servers == null || serverInfo.ice_servers.length === 0 || typeof pc.setConfiguration !== "function") {
+export function applyGiznetServerInfoICEServers(
+  pc: RTCPeerConnection,
+  serverInfo: Pick<GiznetServerInfo, "ice_servers">,
+): void {
+  if (
+    serverInfo.ice_servers == null ||
+    serverInfo.ice_servers.length === 0 ||
+    typeof pc.setConfiguration !== "function"
+  ) {
     return;
   }
   const current = pc.getConfiguration?.() ?? {};
   pc.setConfiguration({ ...current, iceServers: serverInfo.ice_servers });
 }
 
-export async function fetchGiznetServerInfo(options: ServerInfoBootstrapOptions = {}): Promise<GiznetServerInfo> {
+export async function fetchGiznetServerInfo(
+  options: ServerInfoBootstrapOptions = {},
+): Promise<GiznetServerInfo> {
   const fetchImpl = options.fetch ?? globalThis.fetch;
-  const response = await fetchImpl(new URL("/server-info", serverInfoBaseURL(options)), { signal: options.signal });
+  const response = await fetchImpl(
+    new URL("/server-info", serverInfoBaseURL(options)),
+    { signal: options.signal },
+  );
   if (!response.ok) {
     const body = await response.text().catch(() => "");
     const suffix = body.trim() === "" ? "" : `: ${body.trim()}`;
-    throw new Error(`server-info failed: ${response.status} ${response.statusText}${suffix}`);
+    throw new Error(
+      `server-info failed: ${response.status} ${response.statusText}${suffix}`,
+    );
   }
   const serverInfo = (await response.json()) as Partial<GiznetServerInfo>;
   if (serverInfo.protocol != null && serverInfo.protocol !== "gizclaw-webrtc") {
-    throw new Error(`server-info protocol = ${serverInfo.protocol}, want gizclaw-webrtc`);
+    throw new Error(
+      `server-info protocol = ${serverInfo.protocol}, want gizclaw-webrtc`,
+    );
   }
-  if (typeof serverInfo.public_key !== "string" || serverInfo.public_key.trim() === "") {
+  if (
+    typeof serverInfo.public_key !== "string" ||
+    serverInfo.public_key.trim() === ""
+  ) {
     throw new Error("server-info missing public_key");
   }
   const publicKey = base58Decode(serverInfo.public_key.trim());
@@ -1020,13 +1255,17 @@ export async function fetchGiznetServerInfo(options: ServerInfoBootstrapOptions 
   }
   return {
     ...serverInfo,
-    ice_servers: normalizeServerInfoICEServers((serverInfo as { ice_servers?: unknown }).ice_servers),
+    ice_servers: normalizeServerInfoICEServers(
+      (serverInfo as { ice_servers?: unknown }).ice_servers,
+    ),
     public_key: serverInfo.public_key.trim(),
     signaling_path: normalizeServerInfoSignalingPath(serverInfo.signaling_path),
   };
 }
 
-function normalizeServerInfoICEServers(servers: unknown): RTCIceServer[] | undefined {
+function normalizeServerInfoICEServers(
+  servers: unknown,
+): RTCIceServer[] | undefined {
   if (servers == null) {
     return undefined;
   }
@@ -1035,28 +1274,42 @@ function normalizeServerInfoICEServers(servers: unknown): RTCIceServer[] | undef
   }
   return servers.map((server, serverIndex) => {
     if (typeof server !== "object" || server == null || Array.isArray(server)) {
-      throw new Error(`server-info invalid ice_servers[${serverIndex}]: expected an object`);
+      throw new Error(
+        `server-info invalid ice_servers[${serverIndex}]: expected an object`,
+      );
     }
     const value = server as Record<string, unknown>;
-    const rawURLs = Array.isArray(value.urls) ? value.urls : typeof value.urls === "string" ? [value.urls] : null;
+    const rawURLs = Array.isArray(value.urls)
+      ? value.urls
+      : typeof value.urls === "string"
+        ? [value.urls]
+        : null;
     if (rawURLs == null || rawURLs.length === 0) {
       throw new Error(`server-info invalid ice_servers[${serverIndex}].urls`);
     }
     const urls = rawURLs.map((rawURL, urlIndex) => {
       if (typeof rawURL !== "string") {
-        throw new Error(`server-info invalid ice_servers[${serverIndex}].urls[${urlIndex}]`);
+        throw new Error(
+          `server-info invalid ice_servers[${serverIndex}].urls[${urlIndex}]`,
+        );
       }
       const url = rawURL.trim();
       if (!/^(?:stun|stuns|turn|turns):\S+$/i.test(url)) {
-        throw new Error(`server-info invalid ice_servers[${serverIndex}].urls[${urlIndex}]`);
+        throw new Error(
+          `server-info invalid ice_servers[${serverIndex}].urls[${urlIndex}]`,
+        );
       }
       return url;
     });
     if (value.username != null && typeof value.username !== "string") {
-      throw new Error(`server-info invalid ice_servers[${serverIndex}].username`);
+      throw new Error(
+        `server-info invalid ice_servers[${serverIndex}].username`,
+      );
     }
     if (value.credential != null && typeof value.credential !== "string") {
-      throw new Error(`server-info invalid ice_servers[${serverIndex}].credential`);
+      throw new Error(
+        `server-info invalid ice_servers[${serverIndex}].credential`,
+      );
     }
     return {
       credential: value.credential as string | undefined,
@@ -1066,14 +1319,18 @@ function normalizeServerInfoICEServers(servers: unknown): RTCIceServer[] | undef
   });
 }
 
-function serverInfoBaseURL(options: Pick<ServerInfoBootstrapOptions, "baseUrl" | "endpoint">): string {
+function serverInfoBaseURL(
+  options: Pick<ServerInfoBootstrapOptions, "baseUrl" | "endpoint">,
+): string {
   if (options.baseUrl != null) {
     return options.baseUrl;
   }
   if (options.endpoint != null) {
     return `http://${options.endpoint}`;
   }
-  return typeof location === "undefined" ? "http://gizclaw.local" : location.origin;
+  return typeof location === "undefined"
+    ? "http://gizclaw.local"
+    : location.origin;
 }
 
 function normalizeServerInfoSignalingPath(path: string | undefined): string {
@@ -1089,19 +1346,28 @@ function normalizeServerInfoSignalingPath(path: string | undefined): string {
 
 export function prepareGiznetWebRTCPeerConnection(
   pc: RTCPeerConnection,
-  options: Pick<ConnectGiznetWebRTCOptions, "addAudioTransceiver" | "createPacketDataChannel"> = {},
+  options: Pick<
+    ConnectGiznetWebRTCOptions,
+    "addAudioTransceiver" | "createPacketDataChannel"
+  > = {},
 ): void {
   serveGiznetWebRTCRPC(pc);
   if (options.createPacketDataChannel !== false) {
-    const packetDataChannel = pc.createDataChannel(GIZNET_WEBRTC_PACKET_DATA_CHANNEL_LABEL, {
-      maxRetransmits: 0,
-      ordered: false,
-    });
+    const packetDataChannel = pc.createDataChannel(
+      GIZNET_WEBRTC_PACKET_DATA_CHANNEL_LABEL,
+      {
+        maxRetransmits: 0,
+        ordered: false,
+      },
+    );
     giznetPacketDataChannels.set(pc, packetDataChannel);
   } else {
     giznetPacketDataChannels.delete(pc);
   }
-  if (options.addAudioTransceiver !== false && typeof pc.addTransceiver === "function") {
+  if (
+    options.addAudioTransceiver !== false &&
+    typeof pc.addTransceiver === "function"
+  ) {
     pc.addTransceiver("audio", { direction: "sendrecv" });
   }
 }
@@ -1116,14 +1382,18 @@ export function serveGiznetWebRTCRPC(pc: WebRTCRPCDataChannelServer): void {
   giznetRPCServers.add(pc);
   pc.addEventListener("datachannel", (event) => {
     const channel = event.channel;
-    if (channel.label !== giznetServiceDataChannelLabel(GIZCLAW_SERVICE_PEER_RPC)) {
+    if (
+      channel.label !== giznetServiceDataChannelLabel(GIZCLAW_SERVICE_PEER_RPC)
+    ) {
       return;
     }
     handleInboundRPCDataChannel(channel);
   });
 }
 
-export function getGiznetWebRTCPacketDataChannel(pc: RTCPeerConnection): WebRTCRPCDataChannel | undefined {
+export function getGiznetWebRTCPacketDataChannel(
+  pc: RTCPeerConnection,
+): WebRTCRPCDataChannel | undefined {
   return giznetPacketDataChannels.get(pc);
 }
 
@@ -1137,7 +1407,11 @@ export async function sendGiznetWebRTCTelemetry(
     throw new Error("giznet WebRTC packet data channel is not available");
   }
   const packet = encodeTelemetryPacket(frame);
-  await waitForDataChannelOpen(channel, options.signal, options.timeoutMs ?? PACKET_DATA_CHANNEL_OPEN_TIMEOUT_MS);
+  await waitForDataChannelOpen(
+    channel,
+    options.signal,
+    options.timeoutMs ?? PACKET_DATA_CHANNEL_OPEN_TIMEOUT_MS,
+  );
   channel.send(packet);
 }
 
@@ -1151,8 +1425,12 @@ export async function sendGiznetWebRTCOffer(
   } = {},
 ): Promise<Blob> {
   const fetchImpl = options.fetch ?? globalThis.fetch;
-  const defaultBaseUrl = typeof location === "undefined" ? "http://gizclaw.local" : location.origin;
-  const requestURL = new URL(options.url ?? GIZNET_WEBRTC_SIGNALING_PATH, options.baseUrl ?? defaultBaseUrl);
+  const defaultBaseUrl =
+    typeof location === "undefined" ? "http://gizclaw.local" : location.origin;
+  const requestURL = new URL(
+    options.url ?? GIZNET_WEBRTC_SIGNALING_PATH,
+    options.baseUrl ?? defaultBaseUrl,
+  );
   const data: CreateGiznetWebRtcOfferData = {
     body: offer.body,
     headers: {
@@ -1176,12 +1454,17 @@ export async function sendGiznetWebRTCOffer(
   if (!response.ok) {
     const body = await response.text().catch(() => "");
     const suffix = body.trim() === "" ? "" : `: ${body.trim()}`;
-    throw new Error(`WebRTC signaling failed: ${response.status} ${response.statusText}${suffix}`);
+    throw new Error(
+      `WebRTC signaling failed: ${response.status} ${response.statusText}${suffix}`,
+    );
   }
   return response.blob();
 }
 
-export function parseRPCResponse<TResult = unknown>(data: ArrayBuffer | Uint8Array, method: string): RPCResponse<TResult> {
+export function parseRPCResponse<TResult = unknown>(
+  data: ArrayBuffer | Uint8Array,
+  method: string,
+): RPCResponse<TResult> {
   const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
   const parsed = tryReadRPCResponse<TResult>(bytes, method);
   if (parsed == null) {
@@ -1201,15 +1484,27 @@ export function giznetServiceDataChannelLabel(service: number): string {
 }
 
 export function encodeRPCRequest(request: RPCRequest): ArrayBuffer {
-  return concatBytes([...encodeRPCEnvelopeFrames(encodeRPCRequestEnvelope(request)), encodeFrame(RPC_FRAME_TYPE_EOS)]);
+  return concatBytes([
+    ...encodeRPCEnvelopeFrames(encodeRPCRequestEnvelope(request)),
+    encodeFrame(RPC_FRAME_TYPE_EOS),
+  ]);
 }
 
-export function encodeRPCResponse(response: RPCResponse, method: string): ArrayBuffer {
-  return concatBytes([...encodeRPCEnvelopeFrames(encodeRPCResponseEnvelope(response, method)), encodeFrame(RPC_FRAME_TYPE_EOS)]);
+export function encodeRPCResponse(
+  response: RPCResponse,
+  method: string,
+): ArrayBuffer {
+  return concatBytes([
+    ...encodeRPCEnvelopeFrames(encodeRPCResponseEnvelope(response, method)),
+    encodeFrame(RPC_FRAME_TYPE_EOS),
+  ]);
 }
 
 export function encodeJSONFrame(value: unknown): ArrayBuffer {
-  return encodeFrame(RPC_FRAME_TYPE_JSON, new TextEncoder().encode(JSON.stringify(value)));
+  return encodeFrame(
+    RPC_FRAME_TYPE_JSON,
+    new TextEncoder().encode(JSON.stringify(value)),
+  );
 }
 
 function encodeRPCRequestEnvelope(request: RPCRequest): Uint8Array {
@@ -1226,7 +1521,10 @@ function encodeRPCRequestEnvelope(request: RPCRequest): Uint8Array {
   return writer.finish();
 }
 
-function encodeRPCResponseEnvelope(response: RPCResponse, method: string): Uint8Array {
+function encodeRPCResponseEnvelope(
+  response: RPCResponse,
+  method: string,
+): Uint8Array {
   const writer = new ProtoWriter();
   if (response.id != null) {
     writer.string(1, response.id);
@@ -1247,13 +1545,25 @@ function encodeRPCEnvelopeFrames(envelope: Uint8Array): ArrayBuffer[] {
     return [encodeFrame(RPC_FRAME_TYPE_BINARY, envelope)];
   }
   const frames: ArrayBuffer[] = [];
-  for (let offset = 0; offset < envelope.length; offset += RPC_MAX_FRAME_PAYLOAD_SIZE) {
-    frames.push(encodeFrame(RPC_FRAME_TYPE_TEXT, envelope.slice(offset, offset + RPC_MAX_FRAME_PAYLOAD_SIZE)));
+  for (
+    let offset = 0;
+    offset < envelope.length;
+    offset += RPC_MAX_FRAME_PAYLOAD_SIZE
+  ) {
+    frames.push(
+      encodeFrame(
+        RPC_FRAME_TYPE_TEXT,
+        envelope.slice(offset, offset + RPC_MAX_FRAME_PAYLOAD_SIZE),
+      ),
+    );
   }
   return frames;
 }
 
-function decodeRPCResponseEnvelope<TResult>(payload: Uint8Array, method: string): RPCResponse<TResult> {
+function decodeRPCResponseEnvelope<TResult>(
+  payload: Uint8Array,
+  method: string,
+): RPCResponse<TResult> {
   const reader = new ProtoReader(payload);
   const response: RPCResponse<TResult> = { v: RPC_VERSION };
   while (!reader.done()) {
@@ -1347,13 +1657,21 @@ function handleInboundRPCDataChannel(channel: WebRTCRPCDataChannel): void {
   };
   const fail = (): void => close();
   const sendResponse = (response: RPCResponse, method: string): Promise<void> =>
-    sendInboundRPCFrames(channel, [...encodeRPCEnvelopeFrames(encodeRPCResponseEnvelope(response, method)), encodeFrame(RPC_FRAME_TYPE_EOS)]);
+    sendInboundRPCFrames(channel, [
+      ...encodeRPCEnvelopeFrames(encodeRPCResponseEnvelope(response, method)),
+      encodeFrame(RPC_FRAME_TYPE_EOS),
+    ]);
 
   const finishPing = (pingRequest: RPCRequest): void => {
     const params = pingRequest.params as PingRequest | undefined;
-    const response = params == null
-      ? rpcErrorResponse(pingRequest.id, -32602, "missing params")
-      : { id: pingRequest.id, result: { server_time: Date.now() }, v: RPC_VERSION } satisfies RPCResponse;
+    const response =
+      params == null
+        ? rpcErrorResponse(pingRequest.id, -32602, "missing params")
+        : ({
+            id: pingRequest.id,
+            result: { server_time: Date.now() },
+            v: RPC_VERSION,
+          } satisfies RPCResponse);
     ignoreBody = true;
     void sendResponse(response, pingRequest.method).catch(fail);
   };
@@ -1367,7 +1685,10 @@ function handleInboundRPCDataChannel(channel: WebRTCRPCDataChannel): void {
         const params = validSpeedTestParams(next.params);
         if (params == null) {
           ignoreBody = true;
-          void sendResponse(rpcErrorResponse(next.id, -32602, "invalid params"), next.method).catch(fail);
+          void sendResponse(
+            rpcErrorResponse(next.id, -32602, "invalid params"),
+            next.method,
+          ).catch(fail);
           return;
         }
         void sendInboundSpeedTestResponse(channel, next.id, params).catch(fail);
@@ -1375,7 +1696,14 @@ function handleInboundRPCDataChannel(channel: WebRTCRPCDataChannel): void {
       }
       default:
         ignoreBody = true;
-        void sendResponse(rpcErrorResponse(next.id, -32601, `unsupported method: ${next.method}`), next.method).catch(fail);
+        void sendResponse(
+          rpcErrorResponse(
+            next.id,
+            -32601,
+            `unsupported method: ${next.method}`,
+          ),
+          next.method,
+        ).catch(fail);
     }
   };
 
@@ -1397,14 +1725,18 @@ function handleInboundRPCDataChannel(channel: WebRTCRPCDataChannel): void {
         return;
       }
       if (frame.type === RPC_FRAME_TYPE_EOS && envelopeChunks.length > 0) {
-        const continuedRequest = decodeRPCRequestEnvelope(concatByteArrays(envelopeChunks));
+        const continuedRequest = decodeRPCRequestEnvelope(
+          concatByteArrays(envelopeChunks),
+        );
         startRequest(continuedRequest);
         if (continuedRequest.method === "all.ping") {
           finishPing(continuedRequest);
         }
         return;
       }
-      throw new Error(`rpc: expected protobuf request frame, got type ${frame.type}`);
+      throw new Error(
+        `rpc: expected protobuf request frame, got type ${frame.type}`,
+      );
     }
 
     if (ignoreBody) {
@@ -1423,11 +1755,15 @@ function handleInboundRPCDataChannel(channel: WebRTCRPCDataChannel): void {
         return;
       }
       if (frame.type !== RPC_FRAME_TYPE_EOS) {
-        throw new Error(`rpc: expected speed-test binary frame, got type ${frame.type}`);
+        throw new Error(
+          `rpc: expected speed-test binary frame, got type ${frame.type}`,
+        );
       }
       const params = request.params as SpeedTestRequest;
       if (uploaded !== params.up_content_length) {
-        throw new Error(`rpc: speed test upload length mismatch: got ${uploaded} want ${params.up_content_length}`);
+        throw new Error(
+          `rpc: speed test upload length mismatch: got ${uploaded} want ${params.up_content_length}`,
+        );
       }
       ignoreBody = true;
     }
@@ -1444,13 +1780,15 @@ function handleInboundRPCDataChannel(channel: WebRTCRPCDataChannel): void {
     }
   };
   const onMessage = (event: MessageEvent): void => {
-    messageQueue = messageQueue.then(async () => {
-      if (closed) {
-        return;
-      }
-      buffer = appendBytes(buffer, await messageDataBytes(event.data));
-      drainFrames();
-    }).catch(fail);
+    messageQueue = messageQueue
+      .then(async () => {
+        if (closed) {
+          return;
+        }
+        buffer = appendBytes(buffer, await messageDataBytes(event.data));
+        drainFrames();
+      })
+      .catch(fail);
   };
   const onClose = (): void => {
     closed = true;
@@ -1469,23 +1807,31 @@ function validSpeedTestParams(value: unknown): SpeedTestRequest | null {
   }
   const params = value as Partial<SpeedTestRequest>;
   if (
-    !Number.isSafeInteger(params.up_content_length)
-    || !Number.isSafeInteger(params.down_content_length)
-    || (params.up_content_length ?? -1) < 0
-    || (params.down_content_length ?? -1) < 0
-    || (params.up_content_length ?? 0) > RPC_SPEED_TEST_MAX_CONTENT_LENGTH
-    || (params.down_content_length ?? 0) > RPC_SPEED_TEST_MAX_CONTENT_LENGTH
+    !Number.isSafeInteger(params.up_content_length) ||
+    !Number.isSafeInteger(params.down_content_length) ||
+    (params.up_content_length ?? -1) < 0 ||
+    (params.down_content_length ?? -1) < 0 ||
+    (params.up_content_length ?? 0) > RPC_SPEED_TEST_MAX_CONTENT_LENGTH ||
+    (params.down_content_length ?? 0) > RPC_SPEED_TEST_MAX_CONTENT_LENGTH
   ) {
     return null;
   }
   return params as SpeedTestRequest;
 }
 
-function rpcErrorResponse(id: string, code: number, message: string): RPCResponse {
+function rpcErrorResponse(
+  id: string,
+  code: number,
+  message: string,
+): RPCResponse {
   return { error: { code, message }, id, v: RPC_VERSION };
 }
 
-async function sendInboundSpeedTestResponse(channel: WebRTCRPCDataChannel, id: string, params: SpeedTestRequest): Promise<void> {
+async function sendInboundSpeedTestResponse(
+  channel: WebRTCRPCDataChannel,
+  id: string,
+  params: SpeedTestRequest,
+): Promise<void> {
   const response: RPCResponse = {
     id,
     result: {
@@ -1494,32 +1840,37 @@ async function sendInboundSpeedTestResponse(channel: WebRTCRPCDataChannel, id: s
     },
     v: RPC_VERSION,
   };
-  const responseEnvelope = encodeRPCResponseEnvelope(response, "all.speed_test.run");
-  await sendInboundRPCFrames(channel, encodeRPCEnvelopeFrames(responseEnvelope));
+  const responseEnvelope = encodeRPCResponseEnvelope(
+    response,
+    "all.speed_test.run",
+  );
+  await sendInboundRPCFrames(
+    channel,
+    encodeRPCEnvelopeFrames(responseEnvelope),
+  );
   if (responseEnvelope.length > RPC_MAX_FRAME_PAYLOAD_SIZE) {
     await sendInboundRPCFrames(channel, [encodeFrame(RPC_FRAME_TYPE_EOS)]);
   }
   const chunk = new Uint8Array(RPC_SPEED_TEST_FRAME_SIZE);
-  for (let offset = 0; offset < params.down_content_length; offset += chunk.length) {
+  for (
+    let offset = 0;
+    offset < params.down_content_length;
+    offset += chunk.length
+  ) {
     const size = Math.min(chunk.length, params.down_content_length - offset);
-    await sendInboundRPCFrames(channel, [encodeFrame(RPC_FRAME_TYPE_BINARY, chunk.subarray(0, size))]);
+    await sendInboundRPCFrames(channel, [
+      encodeFrame(RPC_FRAME_TYPE_BINARY, chunk.subarray(0, size)),
+    ]);
   }
   await sendInboundRPCFrames(channel, [encodeFrame(RPC_FRAME_TYPE_EOS)]);
 }
 
-async function sendInboundRPCFrames(channel: WebRTCRPCDataChannel, frames: ArrayBuffer[]): Promise<void> {
-  for (const frame of frames) {
-    while ((channel.bufferedAmount ?? 0) > RPC_DATA_CHANNEL_BUFFER_HIGH_WATER_MARK) {
-      if (channel.readyState === "closed" || channel.readyState === "closing") {
-        throw new Error("WebRTC RPC data channel closed while sending response.");
-      }
-      await new Promise((resolve) => setTimeout(resolve, DATA_CHANNEL_SEND_RETRY_DELAY_MS));
-    }
-    if (channel.readyState !== "open") {
-      throw new Error(`RTCDataChannel.readyState is ${JSON.stringify(channel.readyState)}, want "open"`);
-    }
-    channel.send(frame);
-  }
+function sendInboundRPCFrames(
+  channel: WebRTCRPCDataChannel,
+  frames: ArrayBuffer[],
+  options: ServiceDataChannelWriteOptions = {},
+): Promise<void> {
+  return serviceDataChannelWriter(channel).write(frames, options);
 }
 
 function decodeRPCError(payload: Uint8Array): RPCErrorBody {
@@ -1542,7 +1893,10 @@ function decodeRPCError(payload: Uint8Array): RPCErrorBody {
   return error;
 }
 
-export function encodeFrame(type: number, payload: Uint8Array = new Uint8Array()): ArrayBuffer {
+export function encodeFrame(
+  type: number,
+  payload: Uint8Array = new Uint8Array(),
+): ArrayBuffer {
   if (!Number.isInteger(type) || type < 0 || type > 0xffff) {
     throw new Error(`invalid RPC frame type: ${type}`);
   }
@@ -1560,7 +1914,9 @@ export function encodeFrame(type: number, payload: Uint8Array = new Uint8Array()
   return out.buffer;
 }
 
-export function decodeFrames(data: ArrayBuffer | Uint8Array): Array<{ payload: Uint8Array; type: number }> {
+export function decodeFrames(
+  data: ArrayBuffer | Uint8Array,
+): Array<{ payload: Uint8Array; type: number }> {
   let offset = 0;
   const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
   const frames: Array<{ payload: Uint8Array; type: number }> = [];
@@ -1584,9 +1940,10 @@ export function decodeFrames(data: ArrayBuffer | Uint8Array): Array<{ payload: U
   return frames;
 }
 
-function tryReadFrame(
-  buffer: Uint8Array<ArrayBufferLike>,
-): { frame: { payload: Uint8Array; type: number }; rest: Uint8Array<ArrayBufferLike> } | null {
+function tryReadFrame(buffer: Uint8Array<ArrayBufferLike>): {
+  frame: { payload: Uint8Array; type: number };
+  rest: Uint8Array<ArrayBufferLike>;
+} | null {
   if (buffer.length < 4) {
     return null;
   }
@@ -1605,7 +1962,10 @@ function tryReadFrame(
   };
 }
 
-export async function encodeHTTPRequest(request: Request, host = "gizclaw"): Promise<Uint8Array> {
+export async function encodeHTTPRequest(
+  request: Request,
+  host = "gizclaw",
+): Promise<Uint8Array> {
   const url = new URL(request.url);
   const target = `${url.pathname}${url.search}`;
   const body = new Uint8Array(await request.arrayBuffer());
@@ -1622,7 +1982,9 @@ export async function encodeHTTPRequest(request: Request, host = "gizclaw"): Pro
     lines.push(`${canonicalHTTPHeaderName(key)}: ${value}`);
   });
   lines.push("", "");
-  return new Uint8Array(concatBytes([new TextEncoder().encode(lines.join("\r\n")), body]));
+  return new Uint8Array(
+    concatBytes([new TextEncoder().encode(lines.join("\r\n")), body]),
+  );
 }
 
 export type ParsedHTTPResponse = {
@@ -1632,7 +1994,10 @@ export type ParsedHTTPResponse = {
   statusText: string;
 };
 
-export function tryParseHTTPResponse(buffer: Uint8Array<ArrayBufferLike>, closed = false): ParsedHTTPResponse | null {
+export function tryParseHTTPResponse(
+  buffer: Uint8Array<ArrayBufferLike>,
+  closed = false,
+): ParsedHTTPResponse | null {
   const headerEnd = indexOfBytes(buffer, CRLFCRLF);
   if (headerEnd < 0) {
     return null;
@@ -1699,7 +2064,10 @@ export function tryParseHTTPResponse(buffer: Uint8Array<ArrayBufferLike>, closed
 function tryReadRPCResponse<TResult>(
   buffer: Uint8Array<ArrayBufferLike>,
   method: string,
-): { response: RPCResponse<TResult>; rest: Uint8Array<ArrayBufferLike> } | null {
+): {
+  response: RPCResponse<TResult>;
+  rest: Uint8Array<ArrayBufferLike>;
+} | null {
   let offset = 0;
   let response: RPCResponse<TResult> | undefined;
   const envelopeChunks: Uint8Array[] = [];
@@ -1722,7 +2090,10 @@ function tryReadRPCResponse<TResult>(
         throw new Error("RPC EOS frame must be empty.");
       }
       if (response == null && envelopeChunks.length > 0) {
-        response = decodeRPCResponseEnvelope<TResult>(concatByteArrays(envelopeChunks), method);
+        response = decodeRPCResponseEnvelope<TResult>(
+          concatByteArrays(envelopeChunks),
+          method,
+        );
       }
       if (response == null) {
         throw new Error("RPC response EOS before protobuf frame.");
@@ -1731,7 +2102,9 @@ function tryReadRPCResponse<TResult>(
     }
     if (type === RPC_FRAME_TYPE_TEXT) {
       if (response != null) {
-        throw new Error("RPC response contains continuation after protobuf frame.");
+        throw new Error(
+          "RPC response contains continuation after protobuf frame.",
+        );
       }
       envelopeLength += payload.length;
       if (envelopeLength > RPC_MAX_ENVELOPE_SIZE) {
@@ -1753,7 +2126,11 @@ function tryReadRPCResponse<TResult>(
 function tryReadRPCBinaryResponse<TResult>(
   buffer: Uint8Array<ArrayBufferLike>,
   method: string,
-): { body: Uint8Array; response: RPCResponse<TResult>; rest: Uint8Array<ArrayBufferLike> } | null {
+): {
+  body: Uint8Array;
+  response: RPCResponse<TResult>;
+  rest: Uint8Array<ArrayBufferLike>;
+} | null {
   let offset = 0;
   let response: RPCResponse<TResult> | undefined;
   const envelopeChunks: Uint8Array[] = [];
@@ -1777,16 +2154,27 @@ function tryReadRPCBinaryResponse<TResult>(
         throw new Error("RPC EOS frame must be empty.");
       }
       if (response == null && envelopeChunks.length > 0) {
-        response = decodeRPCResponseEnvelope<TResult>(concatByteArrays(envelopeChunks), method);
+        response = decodeRPCResponseEnvelope<TResult>(
+          concatByteArrays(envelopeChunks),
+          method,
+        );
         if (response.error != null) {
-          return { body: concatByteArrays(body), response, rest: buffer.slice(offset) };
+          return {
+            body: concatByteArrays(body),
+            response,
+            rest: buffer.slice(offset),
+          };
         }
         continue;
       }
       if (response == null) {
         throw new Error("RPC binary response EOS before protobuf frame.");
       }
-      return { body: concatByteArrays(body), response, rest: buffer.slice(offset) };
+      return {
+        body: concatByteArrays(body),
+        response,
+        rest: buffer.slice(offset),
+      };
     }
     if (response == null) {
       if (type === RPC_FRAME_TYPE_TEXT) {
@@ -1798,10 +2186,14 @@ function tryReadRPCBinaryResponse<TResult>(
         continue;
       }
       if (type !== RPC_FRAME_TYPE_BINARY) {
-        throw new Error(`rpc: expected protobuf binary frame, got type ${type}`);
+        throw new Error(
+          `rpc: expected protobuf binary frame, got type ${type}`,
+        );
       }
       if (envelopeChunks.length > 0) {
-        throw new Error("RPC binary response contains multiple protobuf frames.");
+        throw new Error(
+          "RPC binary response contains multiple protobuf frames.",
+        );
       }
       response = decodeRPCResponseEnvelope<TResult>(payload, method);
       continue;
@@ -1890,7 +2282,11 @@ class ProtoReader {
   bytes(field: ProtoField): Uint8Array {
     this.expect(field, 2);
     const length = Number(this.varint());
-    if (!Number.isSafeInteger(length) || length < 0 || this.data.length - this.offset < length) {
+    if (
+      !Number.isSafeInteger(length) ||
+      length < 0 ||
+      this.data.length - this.offset < length
+    ) {
       throw new Error("invalid protobuf bytes length");
     }
     const out = this.data.slice(this.offset, this.offset + length);
@@ -1913,7 +2309,9 @@ class ProtoReader {
 
   private expect(field: ProtoField, wireType: number): void {
     if (field.wireType !== wireType) {
-      throw new Error(`unexpected protobuf wire type ${field.wireType} for field ${field.number}`);
+      throw new Error(
+        `unexpected protobuf wire type ${field.wireType} for field ${field.number}`,
+      );
     }
   }
 
@@ -1937,12 +2335,18 @@ class ProtoReader {
   }
 }
 
-export function waitForICEGatheringComplete(pc: RTCPeerConnection, signal?: AbortSignal, timeoutMs = 10_000): Promise<void> {
+export function waitForICEGatheringComplete(
+  pc: RTCPeerConnection,
+  signal?: AbortSignal,
+  timeoutMs = 10_000,
+): Promise<void> {
   if (pc.iceGatheringState === "complete") {
     return Promise.resolve();
   }
   if (!Number.isFinite(timeoutMs) || timeoutMs < 0) {
-    return Promise.reject(new Error("ICE gathering timeout must be a non-negative finite number."));
+    return Promise.reject(
+      new Error("ICE gathering timeout must be a non-negative finite number."),
+    );
   }
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -1985,11 +2389,17 @@ export function waitForICEGatheringComplete(pc: RTCPeerConnection, signal?: Abor
       }
     };
     const onTimeout = (): void => {
-      if (/^a=candidate:.*\btyp\s+relay\b/im.test(pc.localDescription?.sdp ?? "")) {
+      if (
+        /^a=candidate:.*\btyp\s+relay\b/im.test(pc.localDescription?.sdp ?? "")
+      ) {
         complete();
         return;
       }
-      fail(new Error(`ICE gathering timed out after ${timeoutMs}ms before producing a relay candidate.`));
+      fail(
+        new Error(
+          `ICE gathering timed out after ${timeoutMs}ms before producing a relay candidate.`,
+        ),
+      );
     };
     if (signal?.aborted) {
       reject(abortError());
@@ -2008,7 +2418,12 @@ export function waitForICEGatheringComplete(pc: RTCPeerConnection, signal?: Abor
 const CRLF = new TextEncoder().encode("\r\n");
 const CRLFCRLF = new TextEncoder().encode("\r\n\r\n");
 
-function readHTTPResponse(channel: WebRTCRPCDataChannel, requestBytes: Uint8Array, signal?: AbortSignal, timeoutMs = 30000): Promise<Response> {
+function readHTTPResponse(
+  channel: WebRTCRPCDataChannel,
+  requestBytes: Uint8Array,
+  signal?: AbortSignal,
+  timeoutMs = 30000,
+): Promise<Response> {
   return new Promise<Response>((resolve, reject) => {
     let buffer: Uint8Array<ArrayBufferLike> = new Uint8Array();
     let messageQueue = Promise.resolve();
@@ -2058,7 +2473,12 @@ function readHTTPResponse(channel: WebRTCRPCDataChannel, requestBytes: Uint8Arra
       settle(() => reject(abortError()));
     };
     const onOpen = (): void => {
-      sendDataChannelMessage(channel, requestBytes, (err) => settle(() => reject(err)));
+      sendDataChannelMessage(
+        channel,
+        requestBytes,
+        (err) => settle(() => reject(err)),
+        { signal, timeoutMs },
+      );
     };
     const onMessage = (event: MessageEvent): void => {
       messageQueue = messageQueue.then(async () => {
@@ -2074,13 +2494,21 @@ function readHTTPResponse(channel: WebRTCRPCDataChannel, requestBytes: Uint8Arra
       });
     };
     const onError = (): void => {
-      settle(() => reject(new Error("WebRTC HTTP service data channel failed.")));
+      settle(() =>
+        reject(new Error("WebRTC HTTP service data channel failed.")),
+      );
     };
     const onClose = (): void => {
       messageQueue = messageQueue.then(() => {
         try {
           if (!settled && !resolveParsed(true)) {
-            settle(() => reject(new Error("WebRTC HTTP service data channel closed before response.")));
+            settle(() =>
+              reject(
+                new Error(
+                  "WebRTC HTTP service data channel closed before response.",
+                ),
+              ),
+            );
           }
         } catch (err) {
           settle(() => reject(err));
@@ -2099,7 +2527,13 @@ function readHTTPResponse(channel: WebRTCRPCDataChannel, requestBytes: Uint8Arra
     channel.addEventListener("close", onClose);
     if (timeoutMs > 0) {
       timeout = setTimeout(() => {
-        settle(() => reject(new Error(`WebRTC HTTP service request timed out after ${timeoutMs}ms.`)));
+        settle(() =>
+          reject(
+            new Error(
+              `WebRTC HTTP service request timed out after ${timeoutMs}ms.`,
+            ),
+          ),
+        );
       }, timeoutMs);
     }
     if (channel.readyState === "open") {
@@ -2123,12 +2557,20 @@ function abortError(): Error {
   return err;
 }
 
-function waitForDataChannelOpen(channel: WebRTCRPCDataChannel, signal?: AbortSignal, timeoutMs = 30000): Promise<void> {
+function waitForDataChannelOpen(
+  channel: WebRTCRPCDataChannel,
+  signal?: AbortSignal,
+  timeoutMs = 30000,
+): Promise<void> {
   if (channel.readyState === "open") {
     return Promise.resolve();
   }
   if (channel.readyState === "closed") {
-    return Promise.reject(new Error(`RTCDataChannel.readyState is ${JSON.stringify(channel.readyState)}, want "open"`));
+    return Promise.reject(
+      new Error(
+        `RTCDataChannel.readyState is ${JSON.stringify(channel.readyState)}, want "open"`,
+      ),
+    );
   }
   return new Promise((resolve, reject) => {
     let timeout: ReturnType<typeof setTimeout> | undefined;
@@ -2174,32 +2616,280 @@ function waitForDataChannelOpen(channel: WebRTCRPCDataChannel, signal?: AbortSig
     channel.addEventListener("error", onError);
     if (timeoutMs > 0) {
       timeout = setTimeout(() => {
-        settle(() => reject(new Error(`RTCDataChannel did not open within ${timeoutMs}ms`)));
+        settle(() =>
+          reject(
+            new Error(`RTCDataChannel did not open within ${timeoutMs}ms`),
+          ),
+        );
       }, timeoutMs);
     }
     onOpen();
   });
 }
 
-function sendDataChannelMessage(channel: WebRTCRPCDataChannel, payload: DataChannelPayload, onError: (err: unknown) => void): void {
-  let retries = 0;
-  const send = (): void => {
-    if (channel.readyState === "open") {
-      try {
-        channel.send(payload);
-      } catch (err) {
-        onError(err);
+type ServiceDataChannelWriteOptions = {
+  signal?: AbortSignal;
+  timeoutMs?: number;
+};
+
+const serviceDataChannelWriters = new WeakMap<
+  object,
+  ServiceDataChannelWriter
+>();
+
+class ServiceDataChannelWriter {
+  private tail: Promise<void> = Promise.resolve();
+  private backpressured = false;
+  private readonly channel: WebRTCRPCDataChannel;
+
+  constructor(channel: WebRTCRPCDataChannel) {
+    this.channel = channel;
+    channel.bufferedAmountLowThreshold =
+      SERVICE_DATA_CHANNEL_BUFFER_LOW_WATER_MARK;
+  }
+
+  write(
+    payloads: readonly DataChannelPayload[],
+    options: ServiceDataChannelWriteOptions = {},
+  ): Promise<void> {
+    const timeoutMs =
+      options.timeoutMs ?? SERVICE_DATA_CHANNEL_WRITE_TIMEOUT_MS;
+    if (!Number.isFinite(timeoutMs) || timeoutMs < 0) {
+      return Promise.reject(
+        new Error(
+          "service data channel write timeout must be a non-negative finite number",
+        ),
+      );
+    }
+    const deadline =
+      timeoutMs === 0
+        ? Number.POSITIVE_INFINITY
+        : performance.now() + timeoutMs;
+    const run = this.tail.then(() =>
+      this.writeNow(payloads, options.signal, deadline),
+    );
+    this.tail = run.catch(() => undefined);
+    return this.observeWrite(run, options.signal, deadline);
+  }
+
+  private observeWrite(
+    run: Promise<void>,
+    signal: AbortSignal | undefined,
+    deadline: number,
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      let timeout: ReturnType<typeof setTimeout> | undefined;
+      let settled = false;
+      const cleanup = (): void => {
+        if (timeout != null) clearTimeout(timeout);
+        signal?.removeEventListener("abort", onAbort);
+      };
+      const settle = (fn: () => void): void => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        fn();
+      };
+      const onAbort = (): void => settle(() => reject(abortError()));
+      signal?.addEventListener("abort", onAbort, { once: true });
+      if (Number.isFinite(deadline)) {
+        const remaining = deadline - performance.now();
+        if (remaining <= 0) {
+          settle(() =>
+            reject(new Error("service data channel write timed out")),
+          );
+        } else {
+          timeout = setTimeout(
+            () =>
+              settle(() =>
+                reject(new Error("service data channel write timed out")),
+              ),
+            remaining,
+          );
+        }
       }
-      return;
+      run.then(
+        () => settle(resolve),
+        (error) => settle(() => reject(error)),
+      );
+      if (signal?.aborted) onAbort();
+    });
+  }
+
+  private async writeNow(
+    payloads: readonly DataChannelPayload[],
+    signal: AbortSignal | undefined,
+    deadline: number,
+  ): Promise<void> {
+    let sent = false;
+    try {
+      for (const payload of payloads) {
+        const bytes = await dataChannelPayloadBytes(payload);
+        for (
+          let offset = 0;
+          offset < bytes.length;
+          offset += SERVICE_DATA_CHANNEL_MESSAGE_CHUNK_SIZE
+        ) {
+          await this.waitForBudget(signal, deadline);
+          this.assertWritable(signal, deadline);
+          this.channel.send(
+            bytes.subarray(
+              offset,
+              offset + SERVICE_DATA_CHANNEL_MESSAGE_CHUNK_SIZE,
+            ),
+          );
+          sent = true;
+        }
+      }
+    } catch (error) {
+      if (sent) {
+        try {
+          this.channel.close();
+        } catch {
+          // Ignore close races after a partial logical write.
+        }
+      }
+      throw error;
     }
-    if (channel.readyState === "connecting" && retries < DATA_CHANNEL_SEND_RETRY_LIMIT) {
-      retries += 1;
-      setTimeout(send, DATA_CHANNEL_SEND_RETRY_DELAY_MS);
-      return;
+  }
+
+  private async waitForBudget(
+    signal: AbortSignal | undefined,
+    deadline: number,
+  ): Promise<void> {
+    for (;;) {
+      this.assertWritable(signal, deadline);
+      const amount = this.channel.bufferedAmount ?? 0;
+      if (this.backpressured) {
+        if (amount <= SERVICE_DATA_CHANNEL_BUFFER_LOW_WATER_MARK) {
+          this.backpressured = false;
+          return;
+        }
+      } else if (amount < SERVICE_DATA_CHANNEL_BUFFER_HIGH_WATER_MARK) {
+        return;
+      } else {
+        this.backpressured = true;
+      }
+      await this.waitForLowWater(signal, deadline);
     }
-    onError(new Error(`RTCDataChannel.readyState is ${JSON.stringify(channel.readyState)}, want "open"`));
-  };
-  send();
+  }
+
+  private waitForLowWater(
+    signal: AbortSignal | undefined,
+    deadline: number,
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      let timeout: ReturnType<typeof setTimeout> | undefined;
+      let settled = false;
+      const cleanup = (): void => {
+        if (timeout != null) clearTimeout(timeout);
+        signal?.removeEventListener("abort", onAbort);
+        this.channel.removeEventListener("bufferedamountlow", onLow);
+        this.channel.removeEventListener("close", onClose);
+        this.channel.removeEventListener("error", onError);
+      };
+      const settle = (fn: () => void): void => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        fn();
+      };
+      const onLow = (): void => {
+        if (
+          (this.channel.bufferedAmount ?? 0) <=
+          SERVICE_DATA_CHANNEL_BUFFER_LOW_WATER_MARK
+        ) {
+          settle(resolve);
+        }
+      };
+      const onAbort = (): void => settle(() => reject(abortError()));
+      const onClose = (): void =>
+        settle(() =>
+          reject(new Error("service data channel closed while writing")),
+        );
+      const onError = (): void =>
+        settle(() =>
+          reject(new Error("service data channel failed while writing")),
+        );
+      signal?.addEventListener("abort", onAbort, { once: true });
+      this.channel.addEventListener("bufferedamountlow", onLow);
+      this.channel.addEventListener("close", onClose);
+      this.channel.addEventListener("error", onError);
+      const remaining = deadline - performance.now();
+      if (Number.isFinite(deadline)) {
+        if (remaining <= 0) {
+          settle(() =>
+            reject(new Error("service data channel write timed out")),
+          );
+          return;
+        }
+        timeout = setTimeout(
+          () =>
+            settle(() =>
+              reject(new Error("service data channel write timed out")),
+            ),
+          remaining,
+        );
+      }
+      if (signal?.aborted) {
+        onAbort();
+      } else if (this.channel.readyState !== "open") {
+        onClose();
+      } else {
+        onLow();
+      }
+    });
+  }
+
+  private assertWritable(
+    signal: AbortSignal | undefined,
+    deadline: number,
+  ): void {
+    if (signal?.aborted) throw abortError();
+    if (performance.now() >= deadline)
+      throw new Error("service data channel write timed out");
+    if (this.channel.readyState !== "open") {
+      throw new Error(
+        `RTCDataChannel.readyState is ${JSON.stringify(this.channel.readyState)}, want "open"`,
+      );
+    }
+  }
+}
+
+function serviceDataChannelWriter(
+  channel: WebRTCRPCDataChannel,
+): ServiceDataChannelWriter {
+  let writer = serviceDataChannelWriters.get(channel);
+  if (writer == null) {
+    writer = new ServiceDataChannelWriter(channel);
+    serviceDataChannelWriters.set(channel, writer);
+  }
+  return writer;
+}
+
+function sendDataChannelMessage(
+  channel: WebRTCRPCDataChannel,
+  payload: DataChannelPayload,
+  onError: (err: unknown) => void,
+  options: ServiceDataChannelWriteOptions = {},
+): void {
+  void serviceDataChannelWriter(channel)
+    .write([payload], options)
+    .catch(onError);
+}
+
+async function dataChannelPayloadBytes(
+  payload: DataChannelPayload,
+): Promise<Uint8Array> {
+  if (payload instanceof ArrayBuffer) return new Uint8Array(payload);
+  if (ArrayBuffer.isView(payload))
+    return new Uint8Array(
+      payload.buffer,
+      payload.byteOffset,
+      payload.byteLength,
+    );
+  if (typeof payload === "string") return new TextEncoder().encode(payload);
+  return new Uint8Array(await payload.arrayBuffer());
 }
 
 async function messageDataBytes(data: unknown): Promise<Uint8Array> {
@@ -2207,7 +2897,9 @@ async function messageDataBytes(data: unknown): Promise<Uint8Array> {
     return new Uint8Array(data);
   }
   if (ArrayBuffer.isView(data)) {
-    return copyBytes(new Uint8Array(data.buffer, data.byteOffset, data.byteLength));
+    return copyBytes(
+      new Uint8Array(data.buffer, data.byteOffset, data.byteLength),
+    );
   }
   if (typeof Blob !== "undefined" && data instanceof Blob) {
     return new Uint8Array(await data.arrayBuffer());
@@ -2251,8 +2943,12 @@ function concatByteArrays(parts: Uint8Array[]): Uint8Array {
 }
 
 function concatBytes(parts: Array<ArrayBuffer | Uint8Array>): ArrayBuffer {
-  const arrays = parts.map((part) => (part instanceof Uint8Array ? part : new Uint8Array(part)));
-  const out = new Uint8Array(arrays.reduce((sum, part) => sum + part.length, 0));
+  const arrays = parts.map((part) =>
+    part instanceof Uint8Array ? part : new Uint8Array(part),
+  );
+  const out = new Uint8Array(
+    arrays.reduce((sum, part) => sum + part.length, 0),
+  );
   let offset = 0;
   for (const part of arrays) {
     out.set(part, offset);
@@ -2261,11 +2957,19 @@ function concatBytes(parts: Array<ArrayBuffer | Uint8Array>): ArrayBuffer {
   return out.buffer;
 }
 
-function indexOfBytes(haystack: Uint8Array, needle: Uint8Array, start = 0): number {
+function indexOfBytes(
+  haystack: Uint8Array,
+  needle: Uint8Array,
+  start = 0,
+): number {
   if (needle.length === 0) {
     return start;
   }
-  outer: for (let i = Math.max(0, start); i <= haystack.length - needle.length; i += 1) {
+  outer: for (
+    let i = Math.max(0, start);
+    i <= haystack.length - needle.length;
+    i += 1
+  ) {
     for (let j = 0; j < needle.length; j += 1) {
       if (haystack[i + j] !== needle[j]) {
         continue outer;
@@ -2293,7 +2997,10 @@ function tryDecodeChunkedBody(data: Uint8Array): Uint8Array | null {
     offset = lineEnd + CRLF.length;
     if (size === 0) {
       const trailerEnd = indexOfBytes(data, CRLFCRLF, offset);
-      const hasEmptyTrailer = data.length >= offset + CRLF.length && data[offset] === 13 && data[offset + 1] === 10;
+      const hasEmptyTrailer =
+        data.length >= offset + CRLF.length &&
+        data[offset] === 13 &&
+        data[offset + 1] === 10;
       if (trailerEnd >= 0 || hasEmptyTrailer) {
         return new Uint8Array(concatBytes(chunks));
       }
@@ -2314,6 +3021,10 @@ function tryDecodeChunkedBody(data: Uint8Array): Uint8Array | null {
 function canonicalHTTPHeaderName(name: string): string {
   return name
     .split("-")
-    .map((part) => (part === "" ? part : `${part.slice(0, 1).toUpperCase()}${part.slice(1).toLowerCase()}`))
+    .map((part) =>
+      part === ""
+        ? part
+        : `${part.slice(0, 1).toUpperCase()}${part.slice(1).toLowerCase()}`,
+    )
     .join("-");
 }

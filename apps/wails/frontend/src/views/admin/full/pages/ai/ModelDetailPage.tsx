@@ -2,7 +2,12 @@ import { ChevronLeft, RefreshCw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
-import { getModel, getResource, type Model, type Resource } from "@gizclaw/gizclaw/admin";
+import {
+  getModel,
+  getResource,
+  type Model,
+  type Resource,
+} from "@gizclaw/gizclaw/admin";
 import { expectData, toMessage } from "@/dashboard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -49,7 +54,12 @@ export function ModelDetailPage(): JSX.Element {
   }, [modelID]);
 
   if (modelID === "") {
-    return <EmptyState description="Missing model ID in the URL." title="Invalid route" />;
+    return (
+      <EmptyState
+        description="Missing model ID in the URL."
+        title="Invalid route"
+      />
+    );
   }
 
   return (
@@ -63,7 +73,12 @@ export function ModelDetailPage(): JSX.Element {
                 Back to list
               </Link>
             </Button>
-            <Button className="min-w-fit shrink-0 whitespace-nowrap" onClick={() => void load()} size="sm" variant="outline">
+            <Button
+              className="min-w-fit shrink-0 whitespace-nowrap"
+              onClick={() => void load()}
+              size="sm"
+              variant="outline"
+            >
               <RefreshCw className="size-4" />
               Reload
             </Button>
@@ -77,9 +92,17 @@ export function ModelDetailPage(): JSX.Element {
       />
 
       <PageSummaryCard
-        description={<span className="break-all font-mono text-xs">{modelID}</span>}
+        description={
+          <span className="break-all font-mono text-xs">{modelID}</span>
+        }
         eyebrow="AI"
-        meta={model ? <Badge variant={model.source === "sync" ? "secondary" : "outline"}>{model.source}</Badge> : null}
+        meta={
+          model ? (
+            <Badge variant={model.source === "sync" ? "secondary" : "outline"}>
+              {model.source}
+            </Badge>
+          ) : null
+        }
         title={model?.name?.trim() || compactModelID(modelID)}
       />
 
@@ -91,7 +114,10 @@ export function ModelDetailPage(): JSX.Element {
       ) : error !== "" ? (
         <ErrorBanner message={error} />
       ) : model === null ? (
-        <EmptyState description="This model could not be loaded." title="Model not found" />
+        <EmptyState
+          description="This model could not be loaded."
+          title="Model not found"
+        />
       ) : (
         <Tabs defaultValue="summary">
           <TabsList>
@@ -114,14 +140,39 @@ export function ModelDetailPage(): JSX.Element {
               />
               <DetailBlock
                 items={[
-                  ["API mode", "api_mode" in model.provider_data ? model.provider_data.api_mode : undefined],
-                  ["Resource ID", "resource_id" in model.provider_data ? model.provider_data.resource_id : undefined],
+                  [
+                    "API mode",
+                    "api_mode" in model.provider_data
+                      ? model.provider_data.api_mode
+                      : undefined,
+                  ],
+                  [
+                    "Resource ID",
+                    "resource_id" in model.provider_data
+                      ? model.provider_data.resource_id
+                      : undefined,
+                  ],
                   ["Upstream model", model.provider_data.upstream_model],
-                  ["JSON output", boolText(model.provider_data.support_json_output)],
-                  ["Tool calls", boolText(model.provider_data.support_tool_calls)],
-                  ["Text only", boolText(model.provider_data.support_text_only)],
-                  ["System role", boolText(model.provider_data.use_system_role)],
-                  ["Temperature", boolText(model.provider_data.support_temperature)],
+                  [
+                    "JSON output",
+                    boolText(model.provider_data.support_json_output),
+                  ],
+                  [
+                    "Tool calls",
+                    boolText(model.provider_data.support_tool_calls),
+                  ],
+                  [
+                    "Text only",
+                    boolText(model.provider_data.support_text_only),
+                  ],
+                  [
+                    "System role",
+                    boolText(model.provider_data.use_system_role),
+                  ],
+                  [
+                    "Temperature",
+                    boolText(model.provider_data.support_temperature),
+                  ],
                   ["Thinking", boolText(model.provider_data.support_thinking)],
                   ["Synced at", model.synced_at],
                   ["Created", model.created_at],

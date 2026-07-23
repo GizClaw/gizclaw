@@ -9,12 +9,17 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/80 aria-pressed:bg-primary/80",
-        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90 active:bg-destructive/80 focus-visible:ring-destructive/20 aria-pressed:bg-destructive/80 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40",
-        ghost: "hover:bg-accent hover:text-accent-foreground active:bg-accent active:text-accent-foreground aria-pressed:bg-accent aria-pressed:text-accent-foreground dark:hover:bg-accent/50",
+        default:
+          "bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/80 aria-pressed:bg-primary/80",
+        destructive:
+          "bg-destructive text-destructive-foreground hover:bg-destructive/90 active:bg-destructive/80 focus-visible:ring-destructive/20 aria-pressed:bg-destructive/80 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40",
+        ghost:
+          "hover:bg-accent hover:text-accent-foreground active:bg-accent active:text-accent-foreground aria-pressed:bg-accent aria-pressed:text-accent-foreground dark:hover:bg-accent/50",
         link: "text-primary underline-offset-4 hover:underline active:text-primary/80 aria-pressed:text-primary/80",
-        outline: "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground active:bg-accent active:text-accent-foreground active:shadow-none aria-pressed:bg-accent aria-pressed:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80 active:bg-secondary/70 aria-pressed:bg-secondary/70",
+        outline:
+          "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground active:bg-accent active:text-accent-foreground active:shadow-none aria-pressed:bg-accent aria-pressed:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
+        secondary:
+          "bg-secondary text-secondary-foreground hover:bg-secondary/80 active:bg-secondary/70 aria-pressed:bg-secondary/70",
       },
       size: {
         default: "h-9 px-4 py-2 has-[>svg]:px-3",
@@ -39,7 +44,13 @@ type ButtonProps = React.ComponentProps<"button"> &
     asChild?: boolean;
   };
 
-function Button({ asChild = false, className, size = "default", variant = "default", ...props }: ButtonProps): JSX.Element {
+function Button({
+  asChild = false,
+  className,
+  size = "default",
+  variant = "default",
+  ...props
+}: ButtonProps): JSX.Element {
   const Comp = asChild ? Slot.Root : "button";
 
   return (

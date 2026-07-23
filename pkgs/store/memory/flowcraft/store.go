@@ -22,21 +22,27 @@ type Store struct {
 	temporal recall.TemporalStore
 	queue    *flowcraftAsyncQueue
 
-	mu         sync.Mutex
-	waitGate   chan struct{}
-	operations map[string]observeResult
-	ready      map[string]struct{}
-	failed     map[string]struct{}
-	closeOnce  sync.Once
-	closeErr   error
+	mu          sync.Mutex
+	waitGate    chan struct{}
+	operations  map[string]observeResult
+	ready       map[string]struct{}
+	failed      map[string]struct{}
+	asyncCtx    context.Context
+	asyncCancel context.CancelFunc
+	asyncWG     sync.WaitGroup
+	closing     bool
+	closeOnce   sync.Once
+	closeErr    error
 }
 
 func newStore(config Config, memory recall.Memory, temporal recall.TemporalStore, queue *flowcraftAsyncQueue) *Store {
 	waitGate := make(chan struct{}, 1)
 	waitGate <- struct{}{}
+	asyncCtx, asyncCancel := context.WithCancel(context.Background())
 	return &Store{
 		config: config, memory: memory, temporal: temporal, queue: queue,
 		waitGate: waitGate, operations: make(map[string]observeResult), ready: make(map[string]struct{}), failed: make(map[string]struct{}),
+		asyncCtx: asyncCtx, asyncCancel: asyncCancel,
 	}
 }
 
@@ -48,11 +54,22 @@ func (s *Store) Observe(ctx context.Context, observation memorystore.Observation
 	if err := validateFlowcraftAttributeKeys(observation.Context); err != nil {
 		return observeResult{}, err
 	}
+	if err := validateFlowcraftFactCandidates(observation.Facts); err != nil {
+		return observeResult{}, err
+	}
 	scope := nativeScope(observation.Scope)
 	if s.config.Extraction.Model != "" && len(observation.Context) > 0 {
 		return observeResult{}, fmt.Errorf("%w: flowcraft model extraction does not support observation context", errUnsupported)
 	}
-	request := recall.SaveRequest{ObservedAt: observation.ObservedAt}
+	observedAt := observation.ObservedAt
+	if observedAt.IsZero() {
+		observedAt = time.Now()
+	}
+	request := recall.SaveRequest{
+		ObservedAt: observedAt,
+		Tier:       s.config.Tier,
+		Facts:      flowcraftFactCandidates(observation.Facts, observedAt),
+	}
 	if s.config.Extraction.Model == "" {
 		parts := make([]string, 0, len(observation.Turns)+1)
 		if text := strings.TrimSpace(observation.Text); text != "" {
@@ -62,19 +79,21 @@ func (s *Store) Observe(ctx context.Context, observation memorystore.Observation
 			parts = append(parts, turn.Text)
 		}
 		text := strings.Join(parts, "\n")
-		request.Facts = []recall.TemporalFact{{Kind: recall.FactNote, Content: text, ObservedAt: observation.ObservedAt, Metadata: cloneMap(observation.Context)}}
-		fact := &request.Facts[0]
-		if observation.ID != "" {
-			if fact.Metadata == nil {
-				fact.Metadata = make(map[string]any)
+		if text != "" {
+			fact := recall.TemporalFact{Kind: recall.FactNote, Content: text, ObservedAt: observedAt, Metadata: cloneMap(observation.Context)}
+			if observation.ID != "" {
+				if fact.Metadata == nil {
+					fact.Metadata = make(map[string]any)
+				}
+				fact.Metadata["observation_id"] = observation.ID
 			}
-			fact.Metadata["observation_id"] = observation.ID
-		}
-		for _, turn := range observation.Turns {
-			if turn.ID != "" {
-				fact.SourceMessageIDs = append(fact.SourceMessageIDs, turn.ID)
-				fact.EvidenceRefs = append(fact.EvidenceRefs, recall.EvidenceRef{ID: turn.ID, MessageID: turn.ID, Role: string(turn.Role), Text: turn.Text, Timestamp: turn.ObservedAt})
+			for _, turn := range observation.Turns {
+				if turn.ID != "" {
+					fact.SourceMessageIDs = append(fact.SourceMessageIDs, turn.ID)
+					fact.EvidenceRefs = append(fact.EvidenceRefs, recall.EvidenceRef{ID: turn.ID, MessageID: turn.ID, Role: string(turn.Role), Text: turn.Text, Timestamp: turn.ObservedAt})
+				}
 			}
+			request.Facts = append(request.Facts, fact)
 		}
 	} else {
 		request.Turns = flowcraftTurns(observation)
@@ -107,6 +126,111 @@ func (s *Store) Observe(ctx context.Context, observation memorystore.Observation
 	return observeResult{Facts: facts}, nil
 }
 
+// Stats reports materialized, non-internal facts for one scope.
+func (s *Store) Stats(ctx context.Context, scope memorystore.Scope) (memorystore.Statistics, error) {
+	if strings.TrimSpace(string(scope)) == "" {
+		return memorystore.Statistics{}, fmt.Errorf("%w: stats scope is required", errInvalidInput)
+	}
+	facts, err := s.temporal.List(ctx, nativeScope(scope), recall.ListQuery{})
+	if err != nil {
+		return memorystore.Statistics{}, mapFlowcraftError("stats", err)
+	}
+	stats := memorystore.Statistics{}
+	for _, fact := range facts {
+		if isFlowcraftProvenanceMarker(fact) {
+			continue
+		}
+		stats.ItemCount++
+		if fact.ObservedAt.After(stats.LastUpdatedAt) {
+			stats.LastUpdatedAt = fact.ObservedAt
+		}
+	}
+	return stats, nil
+}
+
+func validateFlowcraftFactCandidates(candidates []memorystore.FactCandidate) error {
+	for index, candidate := range candidates {
+		for _, key := range []string{"kind", "subject", "predicate", "object"} {
+			if value, exists := candidate.Attributes[key]; exists {
+				if _, ok := value.(string); !ok {
+					return fmt.Errorf("%w: fact candidate %d attribute %q must be a string", errInvalidInput, index, key)
+				}
+			}
+		}
+		if value, exists := candidate.Attributes["entities"]; exists {
+			switch typed := value.(type) {
+			case []string:
+			case []any:
+				for _, item := range typed {
+					if _, ok := item.(string); !ok {
+						return fmt.Errorf("%w: fact candidate %d attribute %q must contain only strings", errInvalidInput, index, "entities")
+					}
+				}
+			default:
+				return fmt.Errorf("%w: fact candidate %d attribute %q must be a string array", errInvalidInput, index, "entities")
+			}
+		}
+	}
+	return nil
+}
+
+func flowcraftFactCandidates(candidates []memorystore.FactCandidate, observedAt time.Time) []recall.TemporalFact {
+	facts := make([]recall.TemporalFact, 0, len(candidates))
+	for _, candidate := range candidates {
+		attributes := cloneMap(candidate.Attributes)
+		kind := recall.FactKind(stringAttribute(attributes, "kind"))
+		if !kind.IsValid() {
+			kind = recall.FactNote
+		}
+		fact := recall.TemporalFact{
+			Kind:       kind,
+			Content:    strings.TrimSpace(candidate.Text),
+			Subject:    stringAttribute(attributes, "subject"),
+			Predicate:  stringAttribute(attributes, "predicate"),
+			Object:     stringAttribute(attributes, "object"),
+			Entities:   stringSliceAttribute(attributes, "entities"),
+			ObservedAt: observedAt,
+			ValidFrom:  &observedAt,
+			Polarity:   recall.PolarityAffirmed,
+			Modality:   recall.ModalityActual,
+			Certainty:  recall.CertaintyExplicit,
+			Confidence: 0.9,
+			Metadata:   attributes,
+		}
+		facts = append(facts, fact)
+	}
+	return facts
+}
+
+func stringAttribute(attributes map[string]any, key string) string {
+	value, _ := attributes[key].(string)
+	delete(attributes, key)
+	return strings.TrimSpace(value)
+}
+
+func stringSliceAttribute(attributes map[string]any, key string) []string {
+	value := attributes[key]
+	delete(attributes, key)
+	var result []string
+	switch typed := value.(type) {
+	case []string:
+		for _, item := range typed {
+			if item = strings.TrimSpace(item); item != "" {
+				result = append(result, item)
+			}
+		}
+	case []any:
+		for _, item := range typed {
+			if text, ok := item.(string); ok {
+				if text = strings.TrimSpace(text); text != "" {
+					result = append(result, text)
+				}
+			}
+		}
+	}
+	return result
+}
+
 // Recall returns facts relevant to the query.
 func (s *Store) Recall(ctx context.Context, query memorystore.Query) (memorystore.RecallResult, error) {
 	if err := validateQuery(query); err != nil {
@@ -128,6 +252,12 @@ func (s *Store) Recall(ctx context.Context, query memorystore.Query) (memorystor
 			flowQuery.Entities = append(flowQuery.Entities, fmt.Sprint(filter.Value))
 		case "kind":
 			flowQuery.Kinds = append(flowQuery.Kinds, recall.FactKind(fmt.Sprint(filter.Value)))
+		case "include_retired":
+			include, ok := filter.Value.(bool)
+			if !ok {
+				return recallResult{}, fmt.Errorf("%w: flowcraft include_retired filter requires a boolean", errUnsupported)
+			}
+			flowQuery.IncludeRetired = include
 		default:
 			return recallResult{}, fmt.Errorf("%w: flowcraft filter field %q", errUnsupported, filter.Field)
 		}
@@ -509,3 +639,5 @@ func mapFlowcraftError(operation string, err error) error {
 
 var _ storeContract = (*Store)(nil)
 var _ operationWaiterContract = (*Store)(nil)
+var _ asyncProcessorContract = (*Store)(nil)
+var _ statisticsContract = (*Store)(nil)

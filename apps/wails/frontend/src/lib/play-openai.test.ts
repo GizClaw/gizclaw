@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { clearPlayOpenAIClient, configurePlayOpenAIClient, getPlayOpenAIClient, readPlaySpeechAudioBlob } from "./gizclaw/openai.ts";
+import {
+  clearPlayOpenAIClient,
+  configurePlayOpenAIClient,
+  getPlayOpenAIClient,
+  readPlaySpeechAudioBlob,
+} from "./gizclaw/openai.ts";
 
 test("Play OpenAI client sends chat completions through the injected fetch", async () => {
   let request: Request | undefined;
@@ -9,7 +14,13 @@ test("Play OpenAI client sends chat completions through the injected fetch", asy
     request = new Request(input, init);
     return new Response(
       JSON.stringify({
-        choices: [{ finish_reason: "stop", index: 0, message: { content: "ok", role: "assistant" } }],
+        choices: [
+          {
+            finish_reason: "stop",
+            index: 0,
+            message: { content: "ok", role: "assistant" },
+          },
+        ],
         created: 1,
         id: "chatcmpl-test",
         model: "model-test",
@@ -38,7 +49,9 @@ test("Play speech parser preserves the streamed Ogg audio type", async () => {
     `data: ${JSON.stringify({ done: true, type: "speech.audio.done" })}`,
     "",
   ].join("\n");
-  const response = new Response(body, { headers: { "content-type": "text/event-stream" } });
+  const response = new Response(body, {
+    headers: { "content-type": "text/event-stream" },
+  });
 
   const blob = await readPlaySpeechAudioBlob(response, "audio/mpeg");
 

@@ -31,14 +31,25 @@ type Turn struct {
 // to their native routing fields without exposing those fields to callers.
 type Scope string
 
-// Observation is raw material submitted for fact extraction. Text, Turns, or
-// both may be set. Context is extraction input and is not required to be copied
-// into resulting fact attributes.
+// FactCandidate is an already-structured fact submitted together with an
+// observation. Providers must preserve Text and supported Attributes or return
+// ErrUnsupported; they must not silently send candidates back through model
+// extraction.
+type FactCandidate struct {
+	Text       string
+	Attributes map[string]any
+}
+
+// Observation is material submitted to memory. Text and Turns are raw
+// extraction input. Facts are already-structured candidates. Context is
+// extraction input and is not required to be copied into resulting fact
+// attributes.
 type Observation struct {
 	Scope      Scope
 	ID         string
 	Text       string
 	Turns      []Turn
+	Facts      []FactCandidate
 	Context    map[string]any
 	ObservedAt time.Time
 }
@@ -157,8 +168,8 @@ func ValidateObservation(observation Observation) error {
 	if strings.TrimSpace(string(observation.Scope)) == "" {
 		return fmt.Errorf("%w: observation scope is required", ErrInvalidInput)
 	}
-	if strings.TrimSpace(observation.Text) == "" && len(observation.Turns) == 0 {
-		return fmt.Errorf("%w: observation requires text or turns", ErrInvalidInput)
+	if strings.TrimSpace(observation.Text) == "" && len(observation.Turns) == 0 && len(observation.Facts) == 0 {
+		return fmt.Errorf("%w: observation requires text, turns, or facts", ErrInvalidInput)
 	}
 	for i, turn := range observation.Turns {
 		if !validRole(turn.Role) {
@@ -169,6 +180,16 @@ func ValidateObservation(observation Observation) error {
 		}
 		if len(turn.Attributes) > 0 {
 			return fmt.Errorf("%w: turn %d attributes are not supported", ErrUnsupported, i)
+		}
+	}
+	for i, fact := range observation.Facts {
+		if strings.TrimSpace(fact.Text) == "" {
+			return fmt.Errorf("%w: fact candidate %d has empty text", ErrInvalidInput, i)
+		}
+		for key := range fact.Attributes {
+			if strings.TrimSpace(key) == "" {
+				return fmt.Errorf("%w: fact candidate %d has an empty attribute key", ErrInvalidInput, i)
+			}
 		}
 	}
 	return nil

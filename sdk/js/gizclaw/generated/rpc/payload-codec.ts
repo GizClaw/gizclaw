@@ -391,9 +391,6 @@ export type FlowcraftWorkspaceParameters = {
   "agent_type": string;
   "conversation"?: FlowcraftConversationParameters;
   "e2e"?: boolean;
-  "embedding_model"?: string;
-  "extract_model"?: string;
-  "generate_model"?: string;
   "input"?: WorkspaceInputMode;
 };
 export type FriendAddRequest = {
@@ -3041,24 +3038,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 3,
         "optional": true,
         "type": "bool"
-      },
-      {
-        "name": "embedding_model",
-        "number": 4,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "extract_model",
-        "number": 5,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "generate_model",
-        "number": 6,
-        "optional": true,
-        "type": "string"
       },
       {
         "name": "input",

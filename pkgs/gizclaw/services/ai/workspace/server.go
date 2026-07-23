@@ -747,31 +747,31 @@ func (s *Server) validateReferences(ctx context.Context, store kv.Store, workspa
 	if workflow.Spec.Driver != apitypes.WorkflowDriverFlowcraft {
 		return nil
 	}
-	var references []FlowcraftModelReference
-	if runtimeAlias {
-		// Workflow defaults were already validated when this RuntimeProfile
-		// snapshot was applied. Only Workspace-level overrides are new input.
-		references, err = resolveFlowcraftModelOverrides(workspace.Parameters)
-	} else {
-		references, err = ResolveFlowcraftModelReferences(workflow, workspace.Parameters)
-	}
+	references, err := ResolveFlowcraftModelReferences(workflow, workspace.Parameters)
 	if err != nil {
 		return err
+	}
+	// Flowcraft model fields are RuntimeProfile aliases, including when a
+	// Workspace names the Workflow resource directly. A direct Workspace write
+	// has no authoritative owner RuntimeProfile in this request, so resource
+	// existence and model kinds are validated when that profile resolves the
+	// Workflow. Treating aliases as Model IDs here would reject valid Graphs and
+	// couple reusable Workflow resources to one deployment's model catalog.
+	if !runtimeAlias {
+		return nil
 	}
 	for _, reference := range references {
 		modelID := reference.ModelID
 		visibleModelID := modelID
-		if runtimeAlias {
-			bindings, present := ctx.Value(runtimeModelBindingsContextKey{}).(map[string]string)
-			if !present {
-				return errors.New("runtime model bindings not configured")
-			}
-			modelID = strings.TrimSpace(bindings[reference.ModelID])
-			if modelID == "" {
-				return invalidWorkspaceReference("flowcraft parameter %q references missing runtime Model alias %q", reference.Role, reference.ModelID)
-			}
+		bindings, present := ctx.Value(runtimeModelBindingsContextKey{}).(map[string]string)
+		if !present {
+			return errors.New("runtime model bindings not configured")
 		}
-		if err := s.validateFlowcraftModel(ctx, reference.Role, modelID, visibleModelID); err != nil {
+		modelID = strings.TrimSpace(bindings[reference.ModelID])
+		if modelID == "" {
+			return invalidWorkspaceReference("flowcraft parameter %q references missing runtime Model alias %q", reference.Role, reference.ModelID)
+		}
+		if err := s.validateModelKind(ctx, "flowcraft parameter", reference.Role, modelID, visibleModelID, reference.Kind); err != nil {
 			return err
 		}
 	}
@@ -835,38 +835,11 @@ func resolveWorkflowReference(ctx context.Context, workspace adminhttp.Workspace
 	return name, false, nil
 }
 
-func resolveFlowcraftModelOverrides(workspaceParameters *apitypes.WorkspaceParameters) ([]FlowcraftModelReference, error) {
-	if workspaceParameters == nil {
-		return nil, nil
-	}
-	parameters, err := workspaceParameters.AsFlowcraftWorkspaceParameters()
-	if err != nil {
-		return nil, invalidWorkspaceReference("flowcraft parameters are required: %v", err)
-	}
-	roles := []struct {
-		name  string
-		value *string
-	}{
-		{name: "generate_model", value: parameters.GenerateModel},
-		{name: "extract_model", value: parameters.ExtractModel},
-		{name: "embedding_model", value: parameters.EmbeddingModel},
-	}
-	references := make([]FlowcraftModelReference, 0, len(roles))
-	for _, role := range roles {
-		if role.value == nil {
-			continue
-		}
-		if modelAlias := strings.TrimSpace(*role.value); modelAlias != "" {
-			references = append(references, FlowcraftModelReference{Role: role.name, ModelID: modelAlias})
-		}
-	}
-	return references, nil
-}
-
 // FlowcraftModelReference is one effective Model selected for a FlowCraft role.
 type FlowcraftModelReference struct {
 	Role    string
 	ModelID string
+	Kind    apitypes.ModelKind
 }
 
 // ResolveFlowcraftModelReferences resolves Workspace overrides and Workflow
@@ -875,69 +848,58 @@ func ResolveFlowcraftModelReferences(workflow apitypes.Workflow, workspaceParame
 	if workflow.Spec.Driver != apitypes.WorkflowDriverFlowcraft {
 		return nil, nil
 	}
-	parameters := apitypes.FlowcraftWorkspaceParameters{}
 	if workspaceParameters != nil {
-		var err error
-		parameters, err = workspaceParameters.AsFlowcraftWorkspaceParameters()
+		_, err := workspaceParameters.AsFlowcraftWorkspaceParameters()
 		if err != nil {
 			return nil, invalidWorkspaceReference("flowcraft parameters are required: %v", err)
 		}
 	}
-	settings := map[string]any{}
-	if workflow.Spec.Flowcraft != nil {
-		if configured, ok := (*workflow.Spec.Flowcraft)["settings"].(map[string]any); ok {
-			settings = configured
-		}
+	if workflow.Spec.Flowcraft == nil {
+		return nil, invalidWorkspaceReference("flowcraft workflow config is required")
 	}
-	roles := []struct {
-		name     string
-		value    *string
-		required bool
-	}{
-		{name: "generate_model", value: parameters.GenerateModel, required: true},
-		{name: "extract_model", value: parameters.ExtractModel},
-		{name: "embedding_model", value: parameters.EmbeddingModel},
-	}
-	references := make([]FlowcraftModelReference, 0, len(roles))
-	for _, role := range roles {
-		modelID, required := resolveFlowcraftModel(role.name, role.value, settings, role.required)
-		if modelID == "" {
-			if required {
-				return nil, invalidWorkspaceReference("flowcraft parameter %q requires a concrete Model resource name", role.name)
+	configured := *workflow.Spec.Flowcraft
+	references := make([]FlowcraftModelReference, 0, len(configured.Agent.Graph.Nodes)+3)
+	for index, raw := range configured.Agent.Graph.Nodes {
+		if discriminator, _ := raw.Discriminator(); discriminator == "llm" {
+			node, err := raw.AsFlowcraftLLMNode()
+			if err != nil {
+				return nil, invalidWorkspaceReference("flowcraft graph node %d is invalid: %v", index, err)
 			}
-			continue
+			references = append(references, FlowcraftModelReference{
+				Role: fmt.Sprintf("agent.graph.nodes[%d].config.model", index), ModelID: node.Config.Model, Kind: apitypes.ModelKindLlm,
+			})
 		}
-		references = append(references, FlowcraftModelReference{Role: role.name, ModelID: modelID})
+	}
+	if configured.Memory != nil && configured.Memory.Enabled {
+		if configured.Memory.Extract != nil && (configured.Memory.Extract.Enabled == nil || *configured.Memory.Extract.Enabled) {
+			if alias := stringPointerValue(configured.Memory.Extract.Model); alias != "" {
+				references = append(references, FlowcraftModelReference{Role: "memory.extract.model", ModelID: alias, Kind: apitypes.ModelKindLlm})
+			}
+		}
+		if configured.Memory.Embedding != nil && configured.Memory.Embedding.Enabled != nil && *configured.Memory.Embedding.Enabled {
+			if alias := stringPointerValue(configured.Memory.Embedding.Model); alias != "" {
+				references = append(references, FlowcraftModelReference{Role: "memory.embedding.model", ModelID: alias, Kind: apitypes.ModelKindEmbedding})
+			}
+		}
+		if configured.Memory.Rerank != nil && configured.Memory.Rerank.Enabled != nil && *configured.Memory.Rerank.Enabled {
+			if alias := stringPointerValue(configured.Memory.Rerank.Model); alias != "" {
+				references = append(references, FlowcraftModelReference{Role: "memory.rerank.model", ModelID: alias, Kind: apitypes.ModelKindLlm})
+			}
+		}
+	}
+	if configured.VoiceAdapter != nil {
+		if alias := stringPointerValue(configured.VoiceAdapter.AsrModel); alias != "" {
+			references = append(references, FlowcraftModelReference{Role: "voice_adapter.asr_model", ModelID: alias, Kind: apitypes.ModelKindAsr})
+		}
 	}
 	return references, nil
 }
 
-func resolveFlowcraftModel(name string, workspaceValue *string, settings map[string]any, required bool) (string, bool) {
-	if workspaceValue != nil {
-		if value := strings.TrimSpace(*workspaceValue); value != "" {
-			if value == name {
-				return "", true
-			}
-			return value, true
-		}
+func stringPointerValue(value *string) string {
+	if value == nil {
+		return ""
 	}
-	configured, _ := settings[name].(string)
-	configured = strings.TrimSpace(configured)
-	if configured == "" {
-		return "", required
-	}
-	if configured == name {
-		return "", true
-	}
-	return configured, true
-}
-
-func (s *Server) validateFlowcraftModel(ctx context.Context, role, modelID, visibleModelID string) error {
-	want := apitypes.ModelKindLlm
-	if role == "embedding_model" {
-		want = apitypes.ModelKindEmbedding
-	}
-	return s.validateModelKind(ctx, "flowcraft parameter", role, modelID, visibleModelID, want)
+	return strings.TrimSpace(*value)
 }
 
 func (s *Server) validateModelKind(ctx context.Context, subject, role, modelID, visibleModelID string, want apitypes.ModelKind) error {

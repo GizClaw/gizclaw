@@ -20,8 +20,16 @@ type OutputConfig struct {
 }
 
 type outputEntry struct {
-	chunk *genx.MessageChunk
-	bytes int64
+	chunk   *genx.MessageChunk
+	bytes   int64
+	observe func(*genx.MessageChunk)
+	abandon func(*genx.MessageChunk)
+}
+
+type deferredObservation struct {
+	chunk   *genx.MessageChunk
+	observe func(*genx.MessageChunk)
+	abandon func(*genx.MessageChunk)
 }
 
 // Output is a growable, concurrency-safe GenX Stream. Producers never wait for
@@ -41,6 +49,7 @@ type Output struct {
 
 	observationDeferred bool
 	observe             func(*genx.MessageChunk)
+	deferred            []deferredObservation
 	observers           int
 	deferredObservers   int
 }
@@ -85,13 +94,19 @@ func (o *Output) Next() (*genx.MessageChunk, error) {
 	o.queue = o.queue[1:]
 	o.queuedBytes -= entry.bytes
 	deferred := o.observationDeferred
-	observe := o.observe
+	observe := entry.observe
+	if observe == nil {
+		observe = o.observe
+	}
 	tracked := entry.chunk != nil && observe != nil
 	observing := tracked && !deferred
 	if tracked {
 		o.observers++
 		if deferred {
 			o.deferredObservers++
+			o.deferred = append(o.deferred, deferredObservation{
+				chunk: entry.chunk, observe: observe, abandon: entry.abandon,
+			})
 		}
 	}
 	o.mu.Unlock()
@@ -113,26 +128,48 @@ func (o *Output) finishObservation() {
 
 // Push appends a chunk without waiting for a downstream pull.
 func (o *Output) Push(chunk *genx.MessageChunk) error {
+	return o.PushObserved(chunk, nil)
+}
+
+// PushObserved appends a chunk with an optional per-entry delivery observer.
+// The observer runs only after the chunk crosses the final pull boundary and
+// takes precedence over the Output-wide observer.
+func (o *Output) PushObserved(chunk *genx.MessageChunk, observe func(*genx.MessageChunk)) error {
+	return o.PushTracked(chunk, observe, nil)
+}
+
+// PushTracked appends a chunk with final-delivery and pre-delivery-discard
+// callbacks. Composition layers use abandon to release a wrapped producer's
+// deferred acknowledgement without recording discarded read-ahead output.
+func (o *Output) PushTracked(chunk *genx.MessageChunk, observe, abandon func(*genx.MessageChunk)) error {
 	if o == nil {
 		return io.ErrClosedPipe
 	}
-	entry := outputEntry{chunk: chunk, bytes: chunkContentBytes(chunk)}
+	entry := outputEntry{chunk: chunk, bytes: chunkContentBytes(chunk), observe: observe, abandon: abandon}
 	o.mu.Lock()
-	defer o.mu.Unlock()
 	if o.closeErr != nil {
-		return o.closeErr
+		err := o.closeErr
+		o.mu.Unlock()
+		return err
 	}
 	if o.closed {
+		o.mu.Unlock()
 		return io.ErrClosedPipe
 	}
 	if o.maxBytes > 0 && o.queuedBytes+entry.bytes > o.maxBytes {
 		err := fmt.Errorf("%w: queued=%d next=%d max=%d", ErrOutputLimit, o.queuedBytes, entry.bytes, o.maxBytes)
-		o.closeWithErrorLocked(err)
+		abandoned := o.closeWithErrorLocked(err)
+		if entry.abandon != nil {
+			abandoned = append(abandoned, deferredObservation{chunk: entry.chunk, abandon: entry.abandon})
+		}
+		o.mu.Unlock()
+		runAbandonments(abandoned)
 		return err
 	}
 	o.queue = append(o.queue, entry)
 	o.queuedBytes += entry.bytes
 	o.cond.Signal()
+	o.mu.Unlock()
 	return nil
 }
 
@@ -146,19 +183,26 @@ func (o *Output) discardChunks(predicate func(*genx.MessageChunk) bool) []*genx.
 		return nil
 	}
 	o.mu.Lock()
-	defer o.mu.Unlock()
 	kept := o.queue[:0]
 	removed := make([]*genx.MessageChunk, 0)
+	abandoned := make([]outputEntry, 0)
 	for _, entry := range o.queue {
 		if predicate(entry.chunk) {
 			o.queuedBytes -= entry.bytes
 			removed = append(removed, entry.chunk)
+			if entry.abandon != nil {
+				abandoned = append(abandoned, entry)
+			}
 			continue
 		}
 		kept = append(kept, entry)
 	}
 	clear(o.queue[len(kept):])
 	o.queue = kept
+	o.mu.Unlock()
+	for _, entry := range abandoned {
+		entry.abandon(entry.chunk)
+	}
 	return removed
 }
 
@@ -186,23 +230,31 @@ func (o *Output) CloseWithError(err error) error {
 		err = io.ErrClosedPipe
 	}
 	o.mu.Lock()
-	o.closeWithErrorLocked(err)
+	abandoned := o.closeWithErrorLocked(err)
 	o.mu.Unlock()
+	runAbandonments(abandoned)
 	return nil
 }
 
-func (o *Output) closeWithErrorLocked(err error) {
+func (o *Output) closeWithErrorLocked(err error) []deferredObservation {
 	if o.closed || o.closeErr != nil {
-		return
+		return nil
+	}
+	abandoned := make([]deferredObservation, 0, len(o.queue)+len(o.deferred))
+	for _, entry := range o.queue {
+		if entry.abandon != nil {
+			abandoned = append(abandoned, deferredObservation{chunk: entry.chunk, abandon: entry.abandon})
+		}
 	}
 	o.closeErr = err
 	o.closed = true
 	clear(o.queue)
 	o.queue = nil
 	o.queuedBytes = 0
-	o.abandonDeferredObservationsLocked()
+	abandoned = append(abandoned, o.abandonDeferredObservationsLocked()...)
 	o.signalDoneLocked()
 	o.cond.Broadcast()
+	return abandoned
 }
 
 // AbandonDeferredObservations releases delivery acknowledgements that can no
@@ -212,17 +264,21 @@ func (o *Output) AbandonDeferredObservations() {
 		return
 	}
 	o.mu.Lock()
-	o.abandonDeferredObservationsLocked()
+	abandoned := o.abandonDeferredObservationsLocked()
 	o.mu.Unlock()
+	runAbandonments(abandoned)
 }
 
-func (o *Output) abandonDeferredObservationsLocked() {
+func (o *Output) abandonDeferredObservationsLocked() []deferredObservation {
 	if o.deferredObservers == 0 {
-		return
+		return nil
 	}
+	abandoned := o.deferred
 	o.observers -= o.deferredObservers
 	o.deferredObservers = 0
+	o.deferred = nil
 	o.cond.Broadcast()
+	return abandoned
 }
 
 func (o *Output) signalDoneLocked() {
@@ -257,9 +313,12 @@ func (o *Output) ObserveOutput(chunk *genx.MessageChunk) {
 		return
 	}
 	o.mu.Lock()
-	observe := o.observe
-	tracked := o.observationDeferred && o.deferredObservers > 0
+	var observe func(*genx.MessageChunk)
+	index := o.deferredObservationIndexLocked(chunk, true)
+	tracked := o.observationDeferred && index >= 0
 	if tracked {
+		observe = o.deferred[index].observe
+		o.removeDeferredObservationLocked(index)
 		o.deferredObservers--
 	}
 	o.mu.Unlock()
@@ -270,6 +329,62 @@ func (o *Output) ObserveOutput(chunk *genx.MessageChunk) {
 	if observe != nil {
 		observe(chunk)
 	}
+}
+
+// AbandonOutputObservation releases the delivery acknowledgement associated
+// with a chunk that a composition layer read but later discarded before its
+// final consumer pulled it. Unlike ObserveOutput, it does not run the
+// persistence observer.
+func (o *Output) AbandonOutputObservation(chunk *genx.MessageChunk) {
+	if o == nil || chunk == nil {
+		return
+	}
+	o.mu.Lock()
+	index := o.deferredObservationIndexLocked(chunk, false)
+	var abandon func(*genx.MessageChunk)
+	if o.observationDeferred && index >= 0 {
+		abandon = o.deferred[index].abandon
+		o.removeDeferredObservationLocked(index)
+		o.deferredObservers--
+		o.observers--
+		o.cond.Broadcast()
+	}
+	o.mu.Unlock()
+	if abandon != nil {
+		abandon(chunk)
+	}
+}
+
+func runAbandonments(observations []deferredObservation) {
+	for _, observation := range observations {
+		if observation.abandon != nil {
+			observation.abandon(observation.chunk)
+		}
+	}
+}
+
+func (o *Output) deferredObservationIndexLocked(chunk *genx.MessageChunk, allowFIFO bool) int {
+	if !o.observationDeferred || len(o.deferred) == 0 {
+		return -1
+	}
+	for index := range o.deferred {
+		if o.deferred[index].chunk == chunk {
+			return index
+		}
+	}
+	if allowFIFO {
+		// Preserve the original FIFO acknowledgement contract for callers that
+		// pass a defensive clone rather than the exact chunk returned by Next.
+		return 0
+	}
+	return -1
+}
+
+func (o *Output) removeDeferredObservationLocked(index int) {
+	copy(o.deferred[index:], o.deferred[index+1:])
+	var zero deferredObservation
+	o.deferred[len(o.deferred)-1] = zero
+	o.deferred = o.deferred[:len(o.deferred)-1]
 }
 
 // SetOutputObserver replaces the pull-visible observation callback.

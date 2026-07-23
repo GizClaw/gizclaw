@@ -25,10 +25,16 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {
-				"workspace_layout": {},
-				"runtime": {},
-				"agents": [],
-				"entry_agent": ""
+				"agent": {
+					"id": "assistant",
+					"name": "Assistant",
+					"graph": {
+						"name": "assistant",
+						"entry": "answer",
+						"nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}],
+						"edges": [{"from": "answer", "to": "__end__"}]
+					}
+				}
 			}
 		}
 	}`)
@@ -75,8 +81,15 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {
-				"runtime": {
-					"executor_ref": "local"
+				"agent": {
+					"id": "assistant",
+					"name": "Updated Assistant",
+					"graph": {
+						"name": "assistant",
+						"entry": "answer",
+						"nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}],
+						"edges": [{"from": "answer", "to": "__end__"}]
+					}
 				}
 			}
 		}
@@ -93,7 +106,7 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 		t.Fatalf("PutWorkflow() response = %#v", putResp)
 	}
 	putSingle := mustSingle(t, apitypes.Workflow(putDoc))
-	if putSingle.Spec.Flowcraft == nil || (*putSingle.Spec.Flowcraft)["runtime"] == nil {
+	if putSingle.Spec.Flowcraft == nil || putSingle.Spec.Flowcraft.Agent.Name != "Updated Assistant" {
 		t.Fatalf("PutWorkflow() spec = %#v", putSingle.Spec)
 	}
 
@@ -149,30 +162,22 @@ func TestValidateDriverSpecRequiresPetConfig(t *testing.T) {
 	}
 }
 
-func TestServerAcceptsEmptyFlowcraftSpec(t *testing.T) {
+func TestServerRejectsEmptyFlowcraftSpec(t *testing.T) {
 	t.Parallel()
 
 	srv := newTestServer(t)
 	ctx := context.Background()
-	doc := mustDocument(t, `{
-		"name": "empty-flowcraft",
-		"spec": {
-			"driver": "flowcraft",
-			"flowcraft": {}
-		}
-	}`)
+	empty := apitypes.FlowcraftWorkflowSpec{}
+	doc := apitypes.Workflow{Name: "empty-flowcraft", Spec: apitypes.WorkflowSpec{
+		Driver: apitypes.WorkflowDriverFlowcraft, Flowcraft: &empty,
+	}}
 
 	resp, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &doc})
 	if err != nil {
 		t.Fatalf("CreateWorkflow() error = %v", err)
 	}
-	created, ok := resp.(adminhttp.CreateWorkflow200JSONResponse)
-	if !ok {
+	if _, ok := resp.(adminhttp.CreateWorkflow400JSONResponse); !ok {
 		t.Fatalf("CreateWorkflow() response = %#v", resp)
-	}
-	flowcraft := apitypes.Workflow(created)
-	if flowcraft.Name != "empty-flowcraft" {
-		t.Fatalf("CreateWorkflow() name = %q", flowcraft.Name)
 	}
 }
 
@@ -278,7 +283,7 @@ func TestServerCreateWorkflowRequiresName(t *testing.T) {
 		"metadata": {},
 		"spec": {
 			"driver": "flowcraft",
-			"flowcraft": {}
+			"flowcraft": {"agent":{"id":"assistant","name":"Assistant","graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}}
 		}
 	}`)
 
@@ -300,7 +305,7 @@ func TestServerPutRejectsPathNameMismatch(t *testing.T) {
 		"name": "other-name",
 		"spec": {
 			"driver": "flowcraft",
-			"flowcraft": {}
+			"flowcraft": {"agent":{"id":"assistant","name":"Assistant","graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}}
 		}
 	}`)
 
@@ -341,7 +346,7 @@ func TestServerRejectsNonCanonicalWorkflowName(t *testing.T) {
 		"name": " padded-workflow ",
 		"spec": {
 			"driver": "flowcraft",
-			"flowcraft": {}
+			"flowcraft": {"agent":{"id":"assistant","name":"Assistant","graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}}
 		}
 	}`)
 
@@ -365,7 +370,7 @@ func TestServerListWorkflowsPagination(t *testing.T) {
 			"name": %q,
 			"spec": {
 				"driver": "flowcraft",
-				"flowcraft": {}
+				"flowcraft": {"agent":{"id":"assistant","name":"Assistant","graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}}
 			}
 		}`, name))
 		if _, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &doc}); err != nil {
@@ -416,7 +421,7 @@ func TestServerWorkflowConflictAndMissingDelete(t *testing.T) {
 		"name": "duplicate",
 		"spec": {
 			"driver": "flowcraft",
-			"flowcraft": {}
+			"flowcraft": {"agent":{"id":"assistant","name":"Assistant","graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}}
 		}
 	}`)
 	if _, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &doc}); err != nil {
@@ -448,7 +453,7 @@ func TestServerWorkflowStoreNotConfigured(t *testing.T) {
 		"name": "missing-store",
 		"spec": {
 			"driver": "flowcraft",
-			"flowcraft": {}
+			"flowcraft": {"agent":{"id":"assistant","name":"Assistant","graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}}
 		}
 	}`)
 
@@ -481,8 +486,8 @@ func TestServerRejectsMissingWorkflowRequiredFields(t *testing.T) {
 	srv := newTestServer(t)
 	ctx := context.Background()
 	for name, raw := range map[string]string{
-		"name":   `{"metadata":{},"spec":{"driver":"flowcraft","flowcraft":{}}}`,
-		"driver": `{"name": "bad","spec":{"flowcraft":{}}}`,
+		"name":   `{"metadata":{},"spec":{"driver":"flowcraft"}}`,
+		"driver": `{"name": "bad","spec":{}}`,
 		"spec":   `{"name": "bad"}`,
 	} {
 		doc := mustDocument(t, raw)
@@ -521,7 +526,7 @@ func TestWorkflowResponseVisitors(t *testing.T) {
 		"name": "visitor",
 		"spec": {
 			"driver": "flowcraft",
-			"flowcraft": {}
+			"flowcraft": {"agent":{"id":"assistant","name":"Assistant","graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}}
 		}
 	}`)
 	cases := map[string]func(*fiber.Ctx) error{

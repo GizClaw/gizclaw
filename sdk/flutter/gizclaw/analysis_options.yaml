@@ -1,5 +1,9 @@
 include: package:lints/recommended.yaml
 
+analyzer:
+  exclude:
+    - lib/src/generated/**
+
 linter:
   rules:
     avoid_print: true

@@ -71,16 +71,13 @@ type workflowConfig struct {
 	Extension    *rpcapi.DoubaoRealtimeExtension      `json:"extension,omitempty"`
 	Translation  string                               `json:"translation_model,omitempty"`
 	Parameters   workspaceParameterConfig             `json:"parameters,omitempty"`
-	Flowcraft    map[string]interface{}               `json:"flowcraft,omitempty"`
+	Flowcraft    map[string]any                       `json:"flowcraft,omitempty"`
 	VoiceAdapter voiceAdapterConfig                   `json:"voice_adapter,omitempty"`
 	ASTTranslate astTranslateConfig                   `json:"ast_translate,omitempty"`
 }
 
 type workspaceParameterConfig struct {
 	Input                      string                               `json:"input,omitempty"`
-	GenerateModel              string                               `json:"generate_model,omitempty"`
-	ExtractModel               string                               `json:"extract_model,omitempty"`
-	EmbeddingModel             string                               `json:"embedding_model,omitempty"`
 	TranslationModel           string                               `json:"translation_model,omitempty"`
 	LangPair                   string                               `json:"lang_pair,omitempty"`
 	Mode                       string                               `json:"mode,omitempty"`
@@ -105,6 +102,7 @@ type voiceAdapterConfig struct {
 }
 
 type astTranslateConfig struct {
+	LangPair                   string                  `json:"lang_pair,omitempty"`
 	Mode                       string                  `json:"mode,omitempty"`
 	Voice                      astTranslateVoiceConfig `json:"voice,omitempty"`
 	SpeakerID                  string                  `json:"speaker_id,omitempty"`
@@ -272,9 +270,6 @@ func (c *config) validate() error {
 	c.Workflow.Instructions = strings.TrimSpace(c.Workflow.Instructions)
 	c.Workflow.Translation = strings.TrimSpace(c.Workflow.Translation)
 	c.Workflow.Parameters.Input = strings.TrimSpace(c.Workflow.Parameters.Input)
-	c.Workflow.Parameters.GenerateModel = strings.TrimSpace(c.Workflow.Parameters.GenerateModel)
-	c.Workflow.Parameters.ExtractModel = strings.TrimSpace(c.Workflow.Parameters.ExtractModel)
-	c.Workflow.Parameters.EmbeddingModel = strings.TrimSpace(c.Workflow.Parameters.EmbeddingModel)
 	c.Workflow.Parameters.TranslationModel = strings.TrimSpace(c.Workflow.Parameters.TranslationModel)
 	c.Workflow.Parameters.LangPair = strings.TrimSpace(c.Workflow.Parameters.LangPair)
 	c.Workflow.Parameters.Mode = strings.TrimSpace(c.Workflow.Parameters.Mode)
@@ -357,9 +352,6 @@ func (c *config) validate() error {
 		}
 		if c.Workflow.VoiceAdapter.DefaultVoice == "" {
 			c.Workflow.VoiceAdapter.DefaultVoice = c.Voice
-		}
-		if c.Workflow.Parameters.GenerateModel == "" {
-			c.Workflow.Parameters.GenerateModel = c.Models.LLM
 		}
 	}
 	if c.isASTTranslateAgent() {
@@ -444,16 +436,16 @@ func (c config) shouldEnsureWorkspace() bool {
 	return c.Ensure == nil || *c.Ensure
 }
 
-func (c config) flowcraftStartsSelf() bool {
+func (c config) flowcraftStartsAgent() bool {
 	if !c.isFlowcraftAgent() {
 		return false
 	}
-	conversation, ok := c.Workflow.Flowcraft["conversation"].(map[string]interface{})
+	conversation, ok := c.Workflow.Flowcraft["conversation"].(map[string]any)
 	if !ok {
 		return false
 	}
 	starts, _ := conversation["starts"].(string)
-	return strings.EqualFold(strings.TrimSpace(starts), "self")
+	return strings.EqualFold(strings.TrimSpace(starts), "agent")
 }
 
 func (c config) workspaceMode() string {

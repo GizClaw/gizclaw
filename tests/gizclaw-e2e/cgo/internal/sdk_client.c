@@ -93,6 +93,7 @@ int gzc_cgo_session_open(
   config.webrtc = &session->webrtc;
   config.cipher_mode = GZC_CIPHER_CHACHA20_POLY1305;
   config.connect_timeout_ms = 15000;
+  config.write_timeout_ms = 15000;
 
   rc = gzc_client_create(&config, &session->client);
   if (rc != GZC_OK) {

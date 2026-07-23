@@ -6,6 +6,7 @@ import (
 	"io"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
@@ -109,6 +110,37 @@ func TestServiceResolverUsesWorkflowDriverAsAgentType(t *testing.T) {
 	}
 	if spec.AgentType != "flowcraft" {
 		t.Fatalf("AgentType = %q, want flowcraft", spec.AgentType)
+	}
+}
+
+func TestServiceResolverUsesWorkspaceOwnerRuntimeProfile(t *testing.T) {
+	owner := "owner-public-key"
+	labels := map[string]string{"collection": "assistants"}
+	ws := systemWorkspace("shared", "chat", nil)
+	ws.OwnerPublicKey = &owner
+	ws.Labels = &labels
+	resolver := ServiceResolver{
+		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{"shared": ws}},
+		Workflows: fakeWorkflowService{items: map[string]apitypes.Workflow{
+			"owner-workflow":  mustWorkflow(t, "owner-workflow"),
+			"caller-workflow": mustWorkflow(t, "caller-workflow"),
+		}},
+		RuntimeProfileForOwner: func(_ context.Context, gotOwner string) (apitypes.RuntimeProfile, error) {
+			if gotOwner != owner {
+				t.Fatalf("owner = %q, want %q", gotOwner, owner)
+			}
+			return apitypes.RuntimeProfile{Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{
+				Collections: apitypes.RuntimeProfileWorkflowCollections{"assistants": {"chat": {ResourceId: "owner-workflow"}}},
+			}}}, nil
+		},
+	}
+	callerCtx := WithResourceAccess(context.Background(), "caller", nil, map[string]string{"chat": "caller-workflow"})
+	spec, err := resolver.Resolve(callerCtx, "shared")
+	if err != nil {
+		t.Fatalf("Resolve() error = %v", err)
+	}
+	if spec.Workflow.Name != "owner-workflow" {
+		t.Fatalf("workflow = %q, want owner-workflow", spec.Workflow.Name)
 	}
 }
 
@@ -324,6 +356,34 @@ func TestHostTransformReusesAgentForConcurrentSameWorkspace(t *testing.T) {
 	}
 }
 
+func TestHostUsesCanonicalWorkspaceLeaseAcrossRuntimeProfiles(t *testing.T) {
+	spec := Spec{Workspace: apitypes.Workspace{Name: "system"}, AgentType: "echo"}
+	host := New(fakeResolver{spec: spec})
+	if err := host.Register("echo", FactoryFunc(func(context.Context, Spec) (genx.Transformer, error) {
+		return passthroughTransformer{}, nil
+	})); err != nil {
+		t.Fatal(err)
+	}
+	firstContext := WithResourceAccess(t.Context(), "peer-a", nil, nil, "profile-a")
+	secondContext := WithResourceAccess(t.Context(), "peer-b", nil, nil, "profile-b")
+	if runtimeKey(firstContext, "system", spec) == runtimeKey(secondContext, "system", spec) {
+		t.Fatal("test contexts must produce distinct runtime keys")
+	}
+	_, release, err := host.OpenAgent(firstContext, "system")
+	if err != nil {
+		t.Fatalf("OpenAgent(first profile) error = %v", err)
+	}
+	if _, _, err := host.OpenAgent(secondContext, "system"); !errors.Is(err, ErrWorkspaceBusy) {
+		t.Fatalf("OpenAgent(second profile) error = %v, want %v", err, ErrWorkspaceBusy)
+	}
+	release()
+	_, releaseSecond, err := host.OpenAgent(secondContext, "system")
+	if err != nil {
+		t.Fatalf("OpenAgent(second profile after release) error = %v", err)
+	}
+	releaseSecond()
+}
+
 func TestHostTransformReleasesWhenOutputEnds(t *testing.T) {
 	host := New(fakeResolver{spec: Spec{Workspace: apitypes.Workspace{Name: "demo"}, AgentType: "echo"}})
 	if err := host.Register("echo", FactoryFunc(func(context.Context, Spec) (genx.Transformer, error) {
@@ -430,9 +490,89 @@ func TestMemoryCoordinatorHonorsContextAndRelease(t *testing.T) {
 	}
 }
 
+func TestRuntimeRegistrySharesAgentAndClosesOnFinalRelease(t *testing.T) {
+	t.Parallel()
+	spec := Spec{Workspace: apitypes.Workspace{Name: "demo"}, AgentType: "shared"}
+	host := New(fakeResolver{spec: spec})
+	var mu sync.Mutex
+	created := 0
+	closed := 0
+	if err := host.Register("shared", agentFactoryFunc(func(context.Context, Spec) (Agent, error) {
+		mu.Lock()
+		created++
+		mu.Unlock()
+		return &closeTrackingAgent{
+			Agent: NewTransformerAgent(passthroughTransformer{}),
+			close: func() {
+				mu.Lock()
+				closed++
+				mu.Unlock()
+			},
+		}, nil
+	})); err != nil {
+		t.Fatal(err)
+	}
+
+	first, releaseFirst, err := host.OpenAgent(context.Background(), "demo")
+	if err != nil {
+		t.Fatalf("OpenAgent(first) error = %v", err)
+	}
+	second, releaseSecond, err := host.OpenAgent(context.Background(), "demo")
+	if err != nil {
+		t.Fatalf("OpenAgent(second) error = %v", err)
+	}
+	if first != second {
+		t.Fatal("same Workspace did not share one Agent")
+	}
+	releaseFirst()
+	mu.Lock()
+	if created != 1 || closed != 0 {
+		t.Fatalf("after first release created=%d closed=%d", created, closed)
+	}
+	mu.Unlock()
+	releaseSecond()
+	releaseSecond()
+	mu.Lock()
+	if closed != 1 {
+		t.Fatalf("after final release closed=%d, want 1", closed)
+	}
+	mu.Unlock()
+
+	third, releaseThird, err := host.OpenAgent(context.Background(), "demo")
+	if err != nil {
+		t.Fatalf("OpenAgent(after final release) error = %v", err)
+	}
+	if third == first {
+		t.Fatal("Agent was not reconstructed after final release")
+	}
+	releaseThird()
+	mu.Lock()
+	defer mu.Unlock()
+	if created != 2 || closed != 2 {
+		t.Fatalf("final created=%d closed=%d, want 2/2", created, closed)
+	}
+}
+
 type fakeResolver struct {
 	spec Spec
 	err  error
+}
+
+type agentFactoryFunc func(context.Context, Spec) (Agent, error)
+
+func (f agentFactoryFunc) NewAgent(ctx context.Context, spec Spec) (Agent, error) {
+	return f(ctx, spec)
+}
+
+type closeTrackingAgent struct {
+	Agent
+	once  sync.Once
+	close func()
+}
+
+func (a *closeTrackingAgent) Close() error {
+	a.once.Do(a.close)
+	return nil
 }
 
 func (r fakeResolver) Resolve(context.Context, string) (Spec, error) {

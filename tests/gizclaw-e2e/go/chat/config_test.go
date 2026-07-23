@@ -148,8 +148,8 @@ func TestLoadFlowcraftConfigs(t *testing.T) {
 		t.Fatalf("glob flowcraft configs: %v", err)
 	}
 	sort.Strings(paths)
-	if len(paths) != 9 {
-		t.Fatalf("flowcraft config count = %d, want 9: %v", len(paths), paths)
+	if len(paths) != 7 {
+		t.Fatalf("flowcraft config count = %d, want 7: %v", len(paths), paths)
 	}
 	for _, path := range paths {
 		t.Run(filepath.Base(path), func(t *testing.T) {
@@ -164,6 +164,34 @@ func TestLoadFlowcraftConfigs(t *testing.T) {
 				t.Fatalf("voice adapter = %+v", cfg.Workflow.VoiceAdapter)
 			}
 		})
+	}
+}
+
+func TestFlowcraftVoiceAdapterDefaultsFollowFixtureAliases(t *testing.T) {
+	clientKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(client): %v", err)
+	}
+	cfg := config{
+		Server:           serverConfig{Addr: "127.0.0.1:9820"},
+		Agent:            "flowcraft",
+		Models:           modelConfig{LLM: "chat", TTS: "tts", ASR: "fixture-asr"},
+		Workflow:         workflowConfig{Name: "demo"},
+		Voice:            "fixture-voice",
+		Rounds:           1,
+		Timeout:          "1s",
+		Persona:          "persona",
+		ClientPrivateKey: clientKey.Private.String(),
+	}
+
+	if err := cfg.validate(); err != nil {
+		t.Fatalf("validate() error = %v", err)
+	}
+	if got := cfg.Workflow.VoiceAdapter.ASRModel; got != cfg.Models.ASR {
+		t.Fatalf("voice adapter ASR model = %q, want fixture alias %q", got, cfg.Models.ASR)
+	}
+	if got := cfg.Workflow.VoiceAdapter.DefaultVoice; got != cfg.Voice {
+		t.Fatalf("voice adapter default voice = %q, want fixture alias %q", got, cfg.Voice)
 	}
 }
 

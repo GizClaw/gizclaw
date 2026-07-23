@@ -1,13 +1,36 @@
 import type { ComponentType } from "react";
 import { DashboardTable } from "@/dashboard";
 import type { KeyboardEvent } from "react";
-import { AudioLines, Boxes, ChevronRight, Cpu, FolderKanban, KeyRound, Mic2, Server, ShieldCheck, Workflow } from "lucide-react";
+import {
+  AudioLines,
+  Boxes,
+  ChevronRight,
+  Cpu,
+  FolderKanban,
+  KeyRound,
+  Mic2,
+  Server,
+  ShieldCheck,
+  Workflow,
+} from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 import { EmptyState } from "@/dashboard";
 import { PageHeader, PageSummaryCard } from "@/dashboard";
@@ -19,11 +42,16 @@ export function OverviewPage(): JSX.Element {
   const navigate = useNavigate();
   const dashboard = useOverviewData();
   const latestPeers = dashboard.peers.slice(0, 5);
-  const autoCount = dashboard.peers.filter((peer) => peer.auto_registered).length;
+  const autoCount = dashboard.peers.filter(
+    (peer) => peer.auto_registered,
+  ).length;
   const openPath = (path: string) => {
     navigate(path);
   };
-  const handleRowKeyDown = (event: KeyboardEvent<HTMLTableRowElement>, path: string) => {
+  const handleRowKeyDown = (
+    event: KeyboardEvent<HTMLTableRowElement>,
+    path: string,
+  ) => {
     if (event.key !== "Enter" && event.key !== " ") {
       return;
     }
@@ -42,7 +70,9 @@ export function OverviewPage(): JSX.Element {
       />
 
       {dashboard.error !== "" ? (
-        <div className="rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">{dashboard.error}</div>
+        <div className="rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {dashboard.error}
+        </div>
       ) : null}
 
       <section className="grid gap-4 md:grid-cols-3">
@@ -71,7 +101,9 @@ export function OverviewPage(): JSX.Element {
           <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
             <div className="space-y-1">
               <CardTitle>Recent Peers</CardTitle>
-              <CardDescription>Latest peers from the first page of results.</CardDescription>
+              <CardDescription>
+                Latest peers from the first page of results.
+              </CardDescription>
             </div>
             <Button asChild size="sm" variant="outline">
               <Link to="/peers">
@@ -94,35 +126,37 @@ export function OverviewPage(): JSX.Element {
               />
             ) : (
               <DashboardTable>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Peer</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {latestPeers.map((peer) => {
-                      const path = `/peers/${encodeURIComponent(peer.public_key)}`;
-                      return (
-                        <TableRow
-                          className="cursor-pointer hover:bg-muted/40"
-                          key={peer.public_key}
-                          onClick={() => openPath(path)}
-                          onKeyDown={(event) => handleRowKeyDown(event, path)}
-                          role="link"
-                          tabIndex={0}
-                        >
-                          <TableCell className="font-medium">{formatShortKey(peer.public_key)}</TableCell>
-                          <TableCell>{peer.role}</TableCell>
-                          <TableCell>
-                            <StatusBadge status={peer.status} />
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </DashboardTable>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Peer</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {latestPeers.map((peer) => {
+                    const path = `/peers/${encodeURIComponent(peer.public_key)}`;
+                    return (
+                      <TableRow
+                        className="cursor-pointer hover:bg-muted/40"
+                        key={peer.public_key}
+                        onClick={() => openPath(path)}
+                        onKeyDown={(event) => handleRowKeyDown(event, path)}
+                        role="link"
+                        tabIndex={0}
+                      >
+                        <TableCell className="font-medium">
+                          {formatShortKey(peer.public_key)}
+                        </TableCell>
+                        <TableCell>{peer.role}</TableCell>
+                        <TableCell>
+                          <StatusBadge status={peer.status} />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </DashboardTable>
             )}
           </CardContent>
         </Card>

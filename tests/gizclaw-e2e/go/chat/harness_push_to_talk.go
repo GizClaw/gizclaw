@@ -81,6 +81,15 @@ func (d *personaDriver) runConversation(ctx context.Context, mode conversationMo
 }
 
 func (d *personaDriver) prepareConversation(ctx context.Context, mode conversationMode) ([]roundStats, error) {
+	// Subscribe before reloading the Agent runtime. An agent-initiated Flowcraft
+	// turn may begin as soon as Reload returns; opening the event stream after
+	// Reload races with that output because the peer event broker intentionally
+	// does not replay old events to later subscribers.
+	if d.transport == nil {
+		if err := d.resetTransport(); err != nil {
+			return nil, fmt.Errorf("open transport: %w", err)
+		}
+	}
 	if d.reloadAgent != nil {
 		if err := d.reloadAgent(ctx); err != nil {
 			if !isAgentAlreadyRunning(err) {
@@ -88,12 +97,7 @@ func (d *personaDriver) prepareConversation(ctx context.Context, mode conversati
 			}
 		}
 	}
-	if d.transport == nil {
-		if err := d.resetTransport(); err != nil {
-			return nil, fmt.Errorf("open transport: %w", err)
-		}
-	}
-	if d.cfg.flowcraftStartsSelf() {
+	if d.cfg.flowcraftStartsAgent() {
 		stat, ok, err := d.consumeSelfStart(ctx, mode.SkipAssistantAudioASR)
 		if err != nil {
 			return nil, err
@@ -136,6 +140,8 @@ func (d *personaDriver) consumeSelfStart(ctx context.Context, skipAssistantAudio
 	var frames [][]byte
 	var settle <-chan time.Time
 	var responseDeadline <-chan time.Time
+	var selfStartStreamID string
+	selfStartBound := false
 	responseTimeout := d.roundResponseTimeout()
 	var trace roundEventTrace
 	for {
@@ -179,13 +185,20 @@ func (d *personaDriver) consumeSelfStart(ctx context.Context, skipAssistantAudio
 			}
 		case <-first.C:
 			if !started {
-				return stat, false, fmt.Errorf("self-start did not emit output within %s", firstWait)
+				return stat, false, fmt.Errorf("self-start did not emit output within %s; recent events: %s", firstWait, trace.String())
 			}
 		case err := <-d.transport.errs:
 			return stat, true, fmt.Errorf("consume self-start transport: %w; recent events: %s", err, trace.String())
 		case received := <-d.transport.events:
 			event := received.event
-			if event.StreamId != nil && !streamIDMatches(*event.StreamId, flowcraftSelfStartStreamID) {
+			label := eventLabel(event)
+			streamID := eventStreamID(event)
+			if !selfStartBound && label == "assistant" {
+				selfStartStreamID = streamID
+				selfStartBound = true
+			}
+			if !selfStartBound || !streamIDMatches(streamID, selfStartStreamID) {
+				trace.add("ignored event stream=%s label=%s type=%s text=%q error=%s", eventStreamID(event), eventLabel(event), event.Type, eventText(event), eventError(event))
 				continue
 			}
 			if !started {
@@ -193,7 +206,6 @@ func (d *personaDriver) consumeSelfStart(ctx context.Context, skipAssistantAudio
 			}
 			started = true
 			stat.EventCount++
-			label := eventLabel(event)
 			trace.add("event stream=%s label=%s type=%s text=%q error=%s", eventStreamID(event), label, event.Type, eventText(event), eventError(event))
 			if msg, ok := peerEventError(event); ok {
 				return stat, true, fmt.Errorf("self-start peer event error: %s; recent events: %s", msg, trace.String())

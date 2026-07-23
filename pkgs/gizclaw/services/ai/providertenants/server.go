@@ -769,7 +769,7 @@ func voiceFromMiniMax(tenantName string, upstream minimax.Voice, now time.Time) 
 	name := strings.TrimSpace(upstream.VoiceName)
 	voiceType := strings.TrimSpace(upstream.VoiceType)
 	raw := rawMessagesToMap(upstream.Raw)
-	providerValues := map[string]interface{}{
+	providerValues := map[string]any{
 		"raw":      voicecatalog.RawMapValue(raw),
 		"voice_id": providerVoiceID,
 	}
@@ -826,13 +826,13 @@ func getCredential(ctx context.Context, store kv.Store, name string) (apitypes.C
 	return credential, nil
 }
 
-func rawMessagesToMap(raw map[string]json.RawMessage) *map[string]interface{} {
+func rawMessagesToMap(raw map[string]json.RawMessage) *map[string]any {
 	if len(raw) == 0 {
 		return nil
 	}
-	out := make(map[string]interface{}, len(raw))
+	out := make(map[string]any, len(raw))
 	for key, value := range raw {
-		var decoded interface{}
+		var decoded any
 		if err := json.Unmarshal(value, &decoded); err != nil {
 			out[key] = string(value)
 			continue
@@ -924,11 +924,11 @@ func cloneTime(in *time.Time) *time.Time {
 	return &out
 }
 
-func cloneMap(in *map[string]interface{}) *map[string]interface{} {
+func cloneMap(in *map[string]any) *map[string]any {
 	if in == nil {
 		return nil
 	}
-	out := make(map[string]interface{}, len(*in))
+	out := make(map[string]any, len(*in))
 	for key, value := range *in {
 		out[key] = value
 	}

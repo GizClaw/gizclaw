@@ -2,7 +2,7 @@ package doubaorealtime
 
 import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
-	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/internal/streamkit"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/streamkit"
 )
 
 type bufferStream struct {

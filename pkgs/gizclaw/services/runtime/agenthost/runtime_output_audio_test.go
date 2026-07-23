@@ -246,16 +246,18 @@ func TestMixerOutputPublishesEOSAfterTrackDrain(t *testing.T) {
 
 type recordingObservationStream struct {
 	genx.Stream
-	deferred chan struct{}
-	observed chan *genx.MessageChunk
-	once     sync.Once
+	deferred  chan struct{}
+	observed  chan *genx.MessageChunk
+	abandoned chan *genx.MessageChunk
+	once      sync.Once
 }
 
 func newRecordingObservationStream(stream genx.Stream) *recordingObservationStream {
 	return &recordingObservationStream{
-		Stream:   stream,
-		deferred: make(chan struct{}),
-		observed: make(chan *genx.MessageChunk, 1),
+		Stream:    stream,
+		deferred:  make(chan struct{}),
+		observed:  make(chan *genx.MessageChunk, 1),
+		abandoned: make(chan *genx.MessageChunk, 1),
 	}
 }
 
@@ -265,6 +267,10 @@ func (s *recordingObservationStream) DeferOutputObservation() {
 
 func (s *recordingObservationStream) ObserveOutput(chunk *genx.MessageChunk) {
 	s.observed <- chunk
+}
+
+func (s *recordingObservationStream) AbandonOutputObservation(chunk *genx.MessageChunk) {
+	s.abandoned <- chunk
 }
 
 type blockingSliceStream struct {

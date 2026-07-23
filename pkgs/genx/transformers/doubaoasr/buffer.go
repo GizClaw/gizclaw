@@ -1,6 +1,6 @@
 package doubaoasr
 
-import "github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/internal/streamkit"
+import "github.com/GizClaw/gizclaw-go/pkgs/genx/internal/streamkit"
 
 type bufferStream struct {
 	*streamkit.Output

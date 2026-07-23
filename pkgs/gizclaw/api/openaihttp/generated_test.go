@@ -346,7 +346,7 @@ func TestGeneratedHandlerErrorPaths(t *testing.T) {
 		calls := 0
 		RegisterHandlersWithOptions(app, NewStrictHandler(&Stub{}, []StrictMiddlewareFunc{
 			func(next StrictHandlerFunc, operationID string) StrictHandlerFunc {
-				return func(ctx *fiber.Ctx, args interface{}) (interface{}, error) {
+				return func(ctx *fiber.Ctx, args any) (any, error) {
 					calls++
 					if operationID != "ListModels" {
 						t.Fatalf("operationID = %q, want %q", operationID, "ListModels")
@@ -373,7 +373,7 @@ func TestGeneratedHandlerErrorPaths(t *testing.T) {
 	t.Run("unexpected response types", func(t *testing.T) {
 		app := fiber.New()
 		unexpectedMiddleware := func(StrictHandlerFunc, string) StrictHandlerFunc {
-			return func(*fiber.Ctx, interface{}) (interface{}, error) {
+			return func(*fiber.Ctx, any) (any, error) {
 				return unexpectedResponse{}, nil
 			}
 		}

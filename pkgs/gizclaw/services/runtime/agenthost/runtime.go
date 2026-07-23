@@ -2,6 +2,8 @@ package agenthost
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -106,17 +108,15 @@ func (s *Service) Reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 	}
 	profileToolBindings := map[string]string{}
 	profileWorkflowBindings := map[string]string{}
+	profileFingerprint := ""
 	if s.RuntimeProfile != nil {
 		if profile := s.RuntimeProfile(); profile != nil {
 			profileToolBindings = runtimeProfileToolBindings(profile.Spec.Resources.Tools)
-			for _, workflows := range profile.Spec.Workflows.Collections {
-				for alias, binding := range workflows {
-					profileWorkflowBindings[alias] = binding.ResourceId
-				}
-			}
+			profileWorkflowBindings = runtimeProfileWorkflowBindings(*profile)
+			profileFingerprint = runtimeProfileFingerprint(*profile)
 		}
 	}
-	baseCtx := WithResourceAccess(withHistoryGearID(context.WithoutCancel(ctx), s.PublicKey.String()), s.PublicKey.String(), profileToolBindings, profileWorkflowBindings)
+	baseCtx := WithResourceAccess(withHistoryGearID(context.WithoutCancel(ctx), s.PublicKey.String()), s.PublicKey.String(), profileToolBindings, profileWorkflowBindings, profileFingerprint)
 	runCtx, cancel := context.WithCancel(baseCtx)
 	pattern := workspacePattern(selection.WorkspaceName)
 	agent, release, output, err := s.openAgentOutput(runCtx, pattern, input)
@@ -158,6 +158,25 @@ func (s *Service) Reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 	status := s.setStatus(apitypes.PeerRunStatusStateRunning, selection.WorkspaceName, nil, &now)
 	go s.consume(runCtx, next)
 	return status, nil
+}
+
+func runtimeProfileFingerprint(profile apitypes.RuntimeProfile) string {
+	data, err := json.Marshal(profile)
+	if err != nil {
+		return profile.Name
+	}
+	digest := sha256.Sum256(data)
+	return fmt.Sprintf("%x", digest[:16])
+}
+
+func runtimeProfileWorkflowBindings(profile apitypes.RuntimeProfile) map[string]string {
+	bindings := make(map[string]string)
+	for _, workflows := range profile.Spec.Workflows.Collections {
+		for alias, binding := range workflows {
+			bindings[alias] = binding.ResourceId
+		}
+	}
+	return bindings
 }
 
 func runtimeProfileToolBindings(tools *map[string]apitypes.RuntimeProfileBinding) map[string]string {

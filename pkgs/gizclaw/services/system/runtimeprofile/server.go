@@ -678,48 +678,91 @@ func validateWorkflowRuntimeAliases(path string, workflow apitypes.WorkflowSpec,
 		if workflow.Flowcraft == nil {
 			return fmt.Errorf("%s has no flowcraft spec", path)
 		}
-		encoded, err := json.Marshal(workflow.Flowcraft)
-		if err != nil {
-			return fmt.Errorf("%s: encode flowcraft spec: %w", path, err)
-		}
-		var config struct {
-			Settings struct {
-				GenerateModel  string `json:"generate_model"`
-				ExtractModel   string `json:"extract_model"`
-				EmbeddingModel string `json:"embedding_model"`
-			} `json:"settings"`
-			VoiceAdapter struct {
-				ASRModel     string            `json:"asr_model"`
-				DefaultVoice string            `json:"default_voice"`
-				NodeVoices   map[string]string `json:"node_voices"`
-			} `json:"voice_adapter"`
-		}
-		if err := json.Unmarshal(encoded, &config); err != nil {
-			return fmt.Errorf("%s: decode flowcraft runtime aliases: %w", path, err)
-		}
-		for _, model := range []struct {
+		flowcraft := *workflow.Flowcraft
+		modelAliases := make([]struct {
 			field string
 			alias string
 			kind  apitypes.ModelKind
-		}{
-			{field: "settings.generate_model", alias: config.Settings.GenerateModel, kind: apitypes.ModelKindLlm},
-			{field: "settings.extract_model", alias: config.Settings.ExtractModel, kind: apitypes.ModelKindLlm},
-			{field: "settings.embedding_model", alias: config.Settings.EmbeddingModel, kind: apitypes.ModelKindEmbedding},
-			{field: "voice_adapter.asr_model", alias: config.VoiceAdapter.ASRModel, kind: apitypes.ModelKindAsr},
-		} {
+		}, 0, len(flowcraft.Agent.Graph.Nodes)+4)
+		for index, raw := range flowcraft.Agent.Graph.Nodes {
+			if discriminator, _ := raw.Discriminator(); discriminator == "llm" {
+				node, err := raw.AsFlowcraftLLMNode()
+				if err != nil {
+					return fmt.Errorf("%s.agent.graph.nodes[%d]: %w", path, index, err)
+				}
+				modelAliases = append(modelAliases, struct {
+					field string
+					alias string
+					kind  apitypes.ModelKind
+				}{field: fmt.Sprintf("agent.graph.nodes[%d].config.model", index), alias: node.Config.Model, kind: apitypes.ModelKindLlm})
+			}
+		}
+		if flowcraft.Memory != nil && flowcraft.Memory.Enabled {
+			if cfg := flowcraft.Memory.Extract; cfg != nil && (cfg.Enabled == nil || *cfg.Enabled) && cfg.Model != nil {
+				modelAliases = append(modelAliases, struct {
+					field, alias string
+					kind         apitypes.ModelKind
+				}{"memory.extract.model", *cfg.Model, apitypes.ModelKindLlm})
+			}
+			if cfg := flowcraft.Memory.Embedding; cfg != nil && cfg.Enabled != nil && *cfg.Enabled && cfg.Model != nil {
+				modelAliases = append(modelAliases, struct {
+					field, alias string
+					kind         apitypes.ModelKind
+				}{"memory.embedding.model", *cfg.Model, apitypes.ModelKindEmbedding})
+			}
+			if cfg := flowcraft.Memory.Rerank; cfg != nil && cfg.Enabled != nil && *cfg.Enabled && cfg.Model != nil {
+				modelAliases = append(modelAliases, struct {
+					field, alias string
+					kind         apitypes.ModelKind
+				}{"memory.rerank.model", *cfg.Model, apitypes.ModelKindLlm})
+			}
+		}
+		if flowcraft.VoiceAdapter != nil && flowcraft.VoiceAdapter.AsrModel != nil {
+			modelAliases = append(modelAliases, struct {
+				field, alias string
+				kind         apitypes.ModelKind
+			}{"voice_adapter.asr_model", *flowcraft.VoiceAdapter.AsrModel, apitypes.ModelKindAsr})
+		}
+		for _, model := range modelAliases {
 			if strings.TrimSpace(model.alias) != "" {
 				if err := requireModel(model.field, model.alias, model.kind); err != nil {
 					return err
 				}
 			}
 		}
-		if err := requireVoice("voice_adapter.default_voice", config.VoiceAdapter.DefaultVoice); err != nil {
-			return err
+		if flowcraft.VoiceAdapter != nil {
+			if flowcraft.VoiceAdapter.DefaultVoice != nil {
+				if err := requireVoice("voice_adapter.default_voice", *flowcraft.VoiceAdapter.DefaultVoice); err != nil {
+					return err
+				}
+			}
+			if flowcraft.VoiceAdapter.NodeVoices != nil {
+				for nodeID, alias := range *flowcraft.VoiceAdapter.NodeVoices {
+					if err := requireVoice("voice_adapter.node_voices."+nodeID, alias); err != nil {
+						return err
+					}
+				}
+			}
 		}
-		for nodeID, alias := range config.VoiceAdapter.NodeVoices {
-			if err := requireVoice("voice_adapter.node_voices."+nodeID, alias); err != nil {
+		if strings.TrimSpace(flowcraft.Agent.Graph.Entry) == "" || len(flowcraft.Agent.Graph.Nodes) == 0 {
+			return fmt.Errorf("%s.agent.graph must have an entry and at least one node", path)
+		}
+		entryFound := false
+		for _, raw := range flowcraft.Agent.Graph.Nodes {
+			data, err := raw.MarshalJSON()
+			if err != nil {
 				return err
 			}
+			var node struct {
+				ID string `json:"id"`
+			}
+			if err := json.Unmarshal(data, &node); err != nil {
+				return err
+			}
+			entryFound = entryFound || node.ID == flowcraft.Agent.Graph.Entry
+		}
+		if !entryFound {
+			return fmt.Errorf("%s.agent.graph.entry %q is not a defined node", path, flowcraft.Agent.Graph.Entry)
 		}
 	}
 	return nil

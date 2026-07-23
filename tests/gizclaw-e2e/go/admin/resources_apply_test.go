@@ -22,7 +22,7 @@ func TestAdminAPIApplyResource(t *testing.T) {
 		Metadata:   apitypes.ResourceMetadata{Name: name},
 		Spec: apitypes.WorkflowSpec{
 			Driver:    apitypes.WorkflowDriverFlowcraft,
-			Flowcraft: &apitypes.FlowcraftWorkflowSpec{},
+			Flowcraft: testFlowcraftWorkflowSpec(),
 		},
 	}); err != nil {
 		t.Fatalf("build workflow resource: %v", err)
@@ -119,7 +119,7 @@ func workflowResource(t *testing.T, name string) apitypes.Resource {
 		Metadata:   apitypes.ResourceMetadata{Name: name},
 		Spec: apitypes.WorkflowSpec{
 			Driver:    apitypes.WorkflowDriverFlowcraft,
-			Flowcraft: &apitypes.FlowcraftWorkflowSpec{},
+			Flowcraft: testFlowcraftWorkflowSpec(),
 		},
 	}); err != nil {
 		t.Fatalf("build workflow resource: %v", err)

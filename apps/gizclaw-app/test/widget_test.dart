@@ -1094,7 +1094,9 @@ void main() {
 
     expect(find.text('Unable to activate'), findsOneWidget);
     expect(
-      find.textContaining('flowcraft parameter "generate_model" requires'),
+      find.textContaining(
+        'flowcraft parameter "agent.graph.nodes[0].config.model"',
+      ),
       findsOneWidget,
     );
   });
@@ -1329,7 +1331,7 @@ class _ActivationFailureController extends _ServerListTestController {
   Future<WorkspaceChatController> activateWorkspaceChat(String workspaceName) {
     return Future.error(
       StateError(
-        'flowcraft parameter "generate_model" requires a concrete Model',
+        'flowcraft parameter "agent.graph.nodes[0].config.model" references a missing RuntimeProfile alias',
       ),
     );
   }

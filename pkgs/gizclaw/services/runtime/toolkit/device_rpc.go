@@ -44,7 +44,7 @@ func (e *DeviceRPCExecutor) Invoke(ctx context.Context, call Call) (Result, erro
 	if !e.Client.ToolPeerAvailable(peerID) {
 		return Result{}, fmt.Errorf("%w: %s", ErrExecutorUnavailable, peerID)
 	}
-	args := map[string]interface{}{}
+	args := map[string]any{}
 	if len(call.Args) > 0 {
 		if err := json.Unmarshal(call.Args, &args); err != nil || args == nil {
 			return Result{}, fmt.Errorf("%w: tool arguments must be a JSON object", ErrInvalidTool)

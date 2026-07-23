@@ -9,8 +9,10 @@ const alertVariants = cva(
     variants: {
       variant: {
         default: "bg-card text-card-foreground",
-        destructive: "bg-card text-destructive *:data-[slot=alert-description]:text-destructive/90 [&>svg]:text-current",
-        success: "border-emerald-200 bg-emerald-50 text-emerald-700 *:data-[slot=alert-description]:text-emerald-700 [&>svg]:text-current",
+        destructive:
+          "bg-card text-destructive *:data-[slot=alert-description]:text-destructive/90 [&>svg]:text-current",
+        success:
+          "border-emerald-200 bg-emerald-50 text-emerald-700 *:data-[slot=alert-description]:text-emerald-700 [&>svg]:text-current",
       },
     },
     defaultVariants: {
@@ -19,7 +21,12 @@ const alertVariants = cva(
   },
 );
 
-function Alert({ className, variant, ...props }: React.ComponentProps<"div"> & VariantProps<typeof alertVariants>): JSX.Element {
+function Alert({
+  className,
+  variant,
+  ...props
+}: React.ComponentProps<"div"> &
+  VariantProps<typeof alertVariants>): JSX.Element {
   return (
     <div
       className={cn(alertVariants({ variant }), className)}
@@ -30,20 +37,32 @@ function Alert({ className, variant, ...props }: React.ComponentProps<"div"> & V
   );
 }
 
-function AlertTitle({ className, ...props }: React.ComponentProps<"div">): JSX.Element {
+function AlertTitle({
+  className,
+  ...props
+}: React.ComponentProps<"div">): JSX.Element {
   return (
     <div
-      className={cn("col-start-2 line-clamp-1 min-h-4 font-medium tracking-tight", className)}
+      className={cn(
+        "col-start-2 line-clamp-1 min-h-4 font-medium tracking-tight",
+        className,
+      )}
       data-slot="alert-title"
       {...props}
     />
   );
 }
 
-function AlertDescription({ className, ...props }: React.ComponentProps<"div">): JSX.Element {
+function AlertDescription({
+  className,
+  ...props
+}: React.ComponentProps<"div">): JSX.Element {
   return (
     <div
-      className={cn("col-start-2 grid justify-items-start gap-1 text-sm text-muted-foreground [&_p]:leading-relaxed", className)}
+      className={cn(
+        "col-start-2 grid justify-items-start gap-1 text-sm text-muted-foreground [&_p]:leading-relaxed",
+        className,
+      )}
       data-slot="alert-description"
       {...props}
     />

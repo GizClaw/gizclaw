@@ -10,18 +10,18 @@ import (
 )
 
 func TestSemanticEqualNormalizesJSONValues(t *testing.T) {
-	left := map[string]interface{}{
-		"nested": map[string]interface{}{
+	left := map[string]any{
+		"nested": map[string]any{
 			"enabled": true,
 		},
 		"items": []string{"a", "b"},
 	}
 	right := struct {
-		Items  []string               `json:"items"`
-		Nested map[string]interface{} `json:"nested"`
+		Items  []string       `json:"items"`
+		Nested map[string]any `json:"nested"`
 	}{
 		Items: []string{"a", "b"},
-		Nested: map[string]interface{}{
+		Nested: map[string]any{
 			"enabled": true,
 		},
 	}
@@ -85,7 +85,7 @@ func TestCommonResourceErrors(t *testing.T) {
 	if _, err := marshalResource(func() {}); err == nil {
 		t.Fatal("marshalResource unsupported input error = nil, want error")
 	}
-	if _, err := semanticEqual(func() {}, map[string]interface{}{}); err == nil {
+	if _, err := semanticEqual(func() {}, map[string]any{}); err == nil {
 		t.Fatal("semanticEqual unsupported input error = nil, want error")
 	}
 	fallback := responseError(500, "FALLBACK", "fallback message", struct{}{})

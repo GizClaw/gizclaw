@@ -5,9 +5,21 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { expectData, toMessage } from "@/dashboard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -44,7 +56,10 @@ export function PeerDetailPage(): JSX.Element {
   }, [rawKey]);
 
   const detail = usePeerDetail(publicKey === "" ? undefined : publicKey);
-  const [peerNotice, setPeerNotice] = useState<{ message: string; tone: "error" | "success" } | null>(null);
+  const [peerNotice, setPeerNotice] = useState<{
+    message: string;
+    tone: "error" | "success";
+  } | null>(null);
   const [peerActionBusy, setPeerActionBusy] = useState<string | null>(null);
   const [approveRole, setApproveRole] = useState<PeerRole>("client");
   const [deviceName, setDeviceName] = useState("");
@@ -56,25 +71,39 @@ export function PeerDetailPage(): JSX.Element {
   const isApproved = isActive && registration?.role !== "unspecified";
 
   useEffect(() => {
-    if (detail.data?.registration?.role && detail.data.registration.role !== "unspecified") {
+    if (
+      detail.data?.registration?.role &&
+      detail.data.registration.role !== "unspecified"
+    ) {
       setApproveRole(detail.data.registration.role);
     }
     setDeviceName(detail.data?.info?.name ?? "");
     setDeviceEmoji(detail.data?.info?.emoji ?? "");
-  }, [detail.data?.info?.emoji, detail.data?.info?.name, detail.data?.registration?.role]);
+  }, [
+    detail.data?.info?.emoji,
+    detail.data?.info?.name,
+    detail.data?.registration?.role,
+  ]);
 
-  const runPeerAction = useCallback(async (name: string, action: () => Promise<void>, successMessage: string) => {
-    setPeerActionBusy(name);
-    setPeerNotice(null);
-    try {
-      await action();
-      setPeerNotice({ message: successMessage, tone: "success" });
-    } catch (error) {
-      setPeerNotice({ message: toMessage(error), tone: "error" });
-    } finally {
-      setPeerActionBusy(null);
-    }
-  }, []);
+  const runPeerAction = useCallback(
+    async (
+      name: string,
+      action: () => Promise<void>,
+      successMessage: string,
+    ) => {
+      setPeerActionBusy(name);
+      setPeerNotice(null);
+      try {
+        await action();
+        setPeerNotice({ message: successMessage, tone: "success" });
+      } catch (error) {
+        setPeerNotice({ message: toMessage(error), tone: "error" });
+      } finally {
+        setPeerActionBusy(null);
+      }
+    },
+    [],
+  );
 
   const handleApprove = useCallback(async () => {
     if (publicKey === "") {
@@ -92,7 +121,9 @@ export function PeerDetailPage(): JSX.Element {
         );
         await detail.reload();
       },
-      isApproved ? `Peer role saved as ${nextRole}.` : `Peer approved as ${nextRole}.`,
+      isApproved
+        ? `Peer role saved as ${nextRole}.`
+        : `Peer approved as ${nextRole}.`,
     );
   }, [approveRole, detail, isApproved, publicKey, runPeerAction]);
 
@@ -179,12 +210,19 @@ export function PeerDetailPage(): JSX.Element {
         );
         await detail.reload();
       },
-      deviceName.trim() === "" ? "Peer name cleared." : `Peer renamed to ${deviceName.trim()}.`,
+      deviceName.trim() === ""
+        ? "Peer name cleared."
+        : `Peer renamed to ${deviceName.trim()}.`,
     );
   }, [detail, deviceEmoji, deviceName, publicKey, runPeerAction]);
 
   if (publicKey === "") {
-    return <EmptyState description="Missing peer public key in the URL." title="Invalid route" />;
+    return (
+      <EmptyState
+        description="Missing peer public key in the URL."
+        title="Invalid route"
+      />
+    );
   }
 
   return (
@@ -198,7 +236,12 @@ export function PeerDetailPage(): JSX.Element {
                 Back to list
               </Link>
             </Button>
-            <Button className="min-w-fit shrink-0 whitespace-nowrap" onClick={() => void detail.reload()} size="sm" variant="outline">
+            <Button
+              className="min-w-fit shrink-0 whitespace-nowrap"
+              onClick={() => void detail.reload()}
+              size="sm"
+              variant="outline"
+            >
               <span className="inline-flex items-center gap-2 whitespace-nowrap">
                 <RefreshCw className="size-4" />
                 Reload
@@ -216,25 +259,43 @@ export function PeerDetailPage(): JSX.Element {
       <PageSummaryCard
         actions={
           registration ? (
-            <Button disabled={peerActionBusy !== null} onClick={() => void handleRefreshPeer()} size="sm" type="button" variant="outline">
+            <Button
+              disabled={peerActionBusy !== null}
+              onClick={() => void handleRefreshPeer()}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
               <RefreshCw className="size-4" />
               Refresh Peer
             </Button>
           ) : null
         }
-        description={<span className="break-all font-mono text-xs">{publicKey}</span>}
+        description={
+          <span className="break-all font-mono text-xs">{publicKey}</span>
+        }
         eyebrow="Peers"
         meta={
           registration ? (
             <>
               <StatusBadge status={registration.status} />
               <Badge variant="outline">{registration.role}</Badge>
-              {registration.auto_registered ? <Badge variant="secondary">Auto Registered</Badge> : null}
-              {detail.data?.runtime?.online ? <Badge variant="success">Online</Badge> : <Badge variant="outline">Offline</Badge>}
+              {registration.auto_registered ? (
+                <Badge variant="secondary">Auto Registered</Badge>
+              ) : null}
+              {detail.data?.runtime?.online ? (
+                <Badge variant="success">Online</Badge>
+              ) : (
+                <Badge variant="outline">Offline</Badge>
+              )}
             </>
           ) : null
         }
-        title={registration ? peerTitle(detail.data?.info, registration.public_key) : "Peer"}
+        title={
+          registration
+            ? peerTitle(detail.data?.info, registration.public_key)
+            : "Peer"
+        }
       />
 
       {detail.loading ? (
@@ -245,10 +306,15 @@ export function PeerDetailPage(): JSX.Element {
       ) : detail.error !== "" ? (
         <ErrorBanner message={detail.error} />
       ) : registration === null ? (
-        <EmptyState description="This peer could not be loaded." title="Not found" />
+        <EmptyState
+          description="This peer could not be loaded."
+          title="Not found"
+        />
       ) : (
         <div className="space-y-4">
-          {peerNotice !== null ? <NoticeBanner message={peerNotice.message} tone={peerNotice.tone} /> : null}
+          {peerNotice !== null ? (
+            <NoticeBanner message={peerNotice.message} tone={peerNotice.tone} />
+          ) : null}
 
           <Tabs className="space-y-4" defaultValue="info">
             <TabsList className="grid h-auto w-full grid-cols-4 lg:w-[34rem]">
@@ -267,7 +333,10 @@ export function PeerDetailPage(): JSX.Element {
                     ["Serial", detail.data?.info?.identifiers?.sn],
                     ["Manufacturer", detail.data?.info?.hardware?.manufacturer],
                     ["Model", detail.data?.info?.hardware?.model],
-                    ["Revision", detail.data?.info?.hardware?.hardware_revision],
+                    [
+                      "Revision",
+                      detail.data?.info?.hardware?.hardware_revision,
+                    ],
                   ]}
                   title="Peer Info"
                 />
@@ -276,7 +345,10 @@ export function PeerDetailPage(): JSX.Element {
                     ["Public Key", registration.public_key],
                     ["Role", registration.role],
                     ["Status", registration.status],
-                    ["Auto registered", registration.auto_registered ? "Yes" : "No"],
+                    [
+                      "Auto registered",
+                      registration.auto_registered ? "Yes" : "No",
+                    ],
                     ["Created", registration.created_at],
                     ["Approved", registration.approved_at],
                     ["Updated", registration.updated_at],
@@ -286,7 +358,10 @@ export function PeerDetailPage(): JSX.Element {
                 <DetailBlock
                   items={[
                     ["Online", detail.data?.runtime?.online ? "Yes" : "No"],
-                    ["Last Seen", formatDate(detail.data?.runtime?.last_seen_at)],
+                    [
+                      "Last Seen",
+                      formatDate(detail.data?.runtime?.last_seen_at),
+                    ],
                     ["Last Address", detail.data?.runtime?.last_addr],
                     ["RX Bytes", formatBytes(detail.data?.runtime?.rx_bytes)],
                     ["TX Bytes", formatBytes(detail.data?.runtime?.tx_bytes)],
@@ -298,7 +373,9 @@ export function PeerDetailPage(): JSX.Element {
               <Card className="min-w-0">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">Raw Detail</CardTitle>
-				  <CardDescription>Combined registration, info, and runtime payloads.</CardDescription>
+                  <CardDescription>
+                    Combined registration, info, and runtime payloads.
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="pt-6">
                   <pre className="max-h-[32rem] min-w-0 overflow-x-auto rounded-lg border bg-muted/50 p-4 text-xs leading-6 text-foreground">
@@ -313,17 +390,26 @@ export function PeerDetailPage(): JSX.Element {
                 <Card>
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base">Device Info</CardTitle>
-                    <CardDescription>Set the operator-facing name shown in peer lists and detail headers.</CardDescription>
+                    <CardDescription>
+                      Set the operator-facing name shown in peer lists and
+                      detail headers.
+                    </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <FormField description="Leave blank to clear the stored device name." label="Name">
+                    <FormField
+                      description="Leave blank to clear the stored device name."
+                      label="Name"
+                    >
                       <Input
                         onChange={(event) => setDeviceName(event.target.value)}
                         placeholder="Living room display"
                         value={deviceName}
                       />
                     </FormField>
-                    <FormField description="A platform-rendered Unicode emoji sequence, up to 64 UTF-8 bytes." label="Emoji">
+                    <FormField
+                      description="A platform-rendered Unicode emoji sequence, up to 64 UTF-8 bytes."
+                      label="Emoji"
+                    >
                       <Input
                         onChange={(event) => setDeviceEmoji(event.target.value)}
                         placeholder="🧑‍🚀"
@@ -331,7 +417,11 @@ export function PeerDetailPage(): JSX.Element {
                       />
                     </FormField>
                     <div className="flex justify-end border-t pt-4">
-                      <Button disabled={peerActionBusy !== null} onClick={() => void handleSaveInfo()} type="button">
+                      <Button
+                        disabled={peerActionBusy !== null}
+                        onClick={() => void handleSaveInfo()}
+                        type="button"
+                      >
                         <Save className="size-4" />
                         Save Info
                       </Button>
@@ -342,7 +432,10 @@ export function PeerDetailPage(): JSX.Element {
                 <Card>
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base">Peer Actions</CardTitle>
-                    <CardDescription>Approve, restore, block, refresh, or reset this peer registration.</CardDescription>
+                    <CardDescription>
+                      Approve, restore, block, refresh, or reset this peer
+                      registration.
+                    </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <FormField
@@ -354,7 +447,12 @@ export function PeerDetailPage(): JSX.Element {
                       label={isBlocked ? "Restore role" : "Approval role"}
                     >
                       <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-                        <Select onValueChange={(value) => setApproveRole(value as PeerRole)} value={approveRole}>
+                        <Select
+                          onValueChange={(value) =>
+                            setApproveRole(value as PeerRole)
+                          }
+                          value={approveRole}
+                        >
                           <SelectTrigger id="approve-role">
                             <SelectValue placeholder="Select role" />
                           </SelectTrigger>
@@ -367,13 +465,23 @@ export function PeerDetailPage(): JSX.Element {
                         </Select>
                         <div className="flex flex-wrap gap-2">
                           {isBlocked ? (
-                            <Button className="w-full md:w-auto" disabled={peerActionBusy !== null} onClick={() => void handleUnblock()} type="button">
+                            <Button
+                              className="w-full md:w-auto"
+                              disabled={peerActionBusy !== null}
+                              onClick={() => void handleUnblock()}
+                              type="button"
+                            >
                               <Check className="size-4" />
                               Unblock
                             </Button>
                           ) : (
                             <>
-                              <Button className="w-full md:w-auto" disabled={peerActionBusy !== null} onClick={() => void handleApprove()} type="button">
+                              <Button
+                                className="w-full md:w-auto"
+                                disabled={peerActionBusy !== null}
+                                onClick={() => void handleApprove()}
+                                type="button"
+                              >
                                 <Check className="size-4" />
                                 {isApproved ? "Save Role" : "Approve"}
                               </Button>
@@ -395,11 +503,21 @@ export function PeerDetailPage(): JSX.Element {
 
                     <div className="space-y-3 rounded-lg border bg-muted/20 p-4">
                       <div className="space-y-1">
-                        <div className="text-sm font-medium">Registration reset</div>
-                        <p className="text-sm leading-6 text-muted-foreground">Reset the peer registration back to the unapproved state.</p>
+                        <div className="text-sm font-medium">
+                          Registration reset
+                        </div>
+                        <p className="text-sm leading-6 text-muted-foreground">
+                          Reset the peer registration back to the unapproved
+                          state.
+                        </p>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        <Button disabled={peerActionBusy !== null} onClick={() => void handleDeletePeer()} type="button" variant="outline">
+                        <Button
+                          disabled={peerActionBusy !== null}
+                          onClick={() => void handleDeletePeer()}
+                          type="button"
+                          variant="outline"
+                        >
                           <Trash2 className="size-4" />
                           Reset
                         </Button>
@@ -407,7 +525,6 @@ export function PeerDetailPage(): JSX.Element {
                     </div>
                   </CardContent>
                 </Card>
-
               </div>
             </TabsContent>
 
@@ -416,15 +533,23 @@ export function PeerDetailPage(): JSX.Element {
             </TabsContent>
 
             <TabsContent className="space-y-4" value="cli">
-			  <Card>
-				<CardHeader>
-				  <CardTitle>CLI Commands</CardTitle>
-				  <CardDescription>Administrative peer lifecycle and runtime inspection commands.</CardDescription>
-				</CardHeader>
-				<CardContent>
-				  <pre className="overflow-auto rounded-md bg-muted p-4 text-xs leading-5">{peerCliCommands(registration.public_key, registration.role)}</pre>
-				</CardContent>
-			  </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>CLI Commands</CardTitle>
+                  <CardDescription>
+                    Administrative peer lifecycle and runtime inspection
+                    commands.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <pre className="overflow-auto rounded-md bg-muted p-4 text-xs leading-5">
+                    {peerCliCommands(
+                      registration.public_key,
+                      registration.role,
+                    )}
+                  </pre>
+                </CardContent>
+              </Card>
             </TabsContent>
           </Tabs>
         </div>
@@ -460,7 +585,7 @@ function peerCliCommands(publicKey: string, role: PeerRole): string {
     ``,
     `# Read peer snapshots`,
     `gizclaw admin peers --context <admin-cli-context> info ${key}`,
-	`gizclaw admin peers --context <admin-cli-context> runtime ${key}`,
+    `gizclaw admin peers --context <admin-cli-context> runtime ${key}`,
     ``,
     `# Refresh state from the device-side API`,
     `gizclaw admin peers --context <admin-cli-context> refresh ${key}`,

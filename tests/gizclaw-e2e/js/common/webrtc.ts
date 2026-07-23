@@ -2,7 +2,10 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { x25519 } from "@noble/curves/ed25519.js";
 import wrtc from "@roamhq/wrtc";
-import { GIZNET_WEBRTC_PACKET_DATA_CHANNEL_LABEL, connectGiznetWebRTCFromEndpoint } from "@gizclaw/gizclaw";
+import {
+  GIZNET_WEBRTC_PACKET_DATA_CHANNEL_LABEL,
+  connectGiznetWebRTCFromEndpoint,
+} from "@gizclaw/gizclaw";
 import { base58Decode, base58Encode } from "@gizclaw/gizclaw/signaling";
 
 export const repoRoot = path.resolve(import.meta.dirname, "../../../..");
@@ -14,7 +17,9 @@ export type Identity = {
   publicKey: string;
 };
 
-export async function connectSetupPeer(identityDir: string): Promise<wrtc.RTCPeerConnection> {
+export async function connectSetupPeer(
+  identityDir: string,
+): Promise<wrtc.RTCPeerConnection> {
   const identity = await loadIdentity(identityDir);
   const pc = new wrtc.RTCPeerConnection({ iceTransportPolicy: "relay" });
   try {
@@ -38,13 +43,18 @@ export type SetupPeerWithPacketChannel = {
   pc: wrtc.RTCPeerConnection;
 };
 
-export async function connectSetupPeerWithPacketChannel(identityDir: string): Promise<SetupPeerWithPacketChannel> {
+export async function connectSetupPeerWithPacketChannel(
+  identityDir: string,
+): Promise<SetupPeerWithPacketChannel> {
   const identity = await loadIdentity(identityDir);
   const pc = new wrtc.RTCPeerConnection({ iceTransportPolicy: "relay" });
-  const packetChannel = pc.createDataChannel(GIZNET_WEBRTC_PACKET_DATA_CHANNEL_LABEL, {
-    maxRetransmits: 0,
-    ordered: false,
-  }) as unknown as RTCDataChannel;
+  const packetChannel = pc.createDataChannel(
+    GIZNET_WEBRTC_PACKET_DATA_CHANNEL_LABEL,
+    {
+      maxRetransmits: 0,
+      ordered: false,
+    },
+  ) as unknown as RTCDataChannel;
   try {
     await connectGiznetWebRTCFromEndpoint({
       clientPrivateKey: identity.clientPrivateKey,
@@ -64,9 +74,13 @@ export async function connectSetupPeerWithPacketChannel(identityDir: string): Pr
 
 export async function loadIdentity(dir: string): Promise<Identity> {
   const config = await readFile(path.join(dir, "config.yaml"), "utf8");
-  const privateKey = base58Decode(matchConfig(config, /private-key:\s*"?([^"\s]+)"?/));
+  const privateKey = base58Decode(
+    matchConfig(config, /private-key:\s*"?([^"\s]+)"?/),
+  );
   if (privateKey.length !== 32) {
-    throw new Error(`identity.private-key length = ${privateKey.length}, want 32`);
+    throw new Error(
+      `identity.private-key length = ${privateKey.length}, want 32`,
+    );
   }
   return {
     clientPrivateKey: privateKey,
@@ -75,9 +89,13 @@ export async function loadIdentity(dir: string): Promise<Identity> {
   };
 }
 
-export async function assertSetupServerAvailable(endpoint: string): Promise<void> {
+export async function assertSetupServerAvailable(
+  endpoint: string,
+): Promise<void> {
   try {
-    const response = await fetch(`http://${endpoint}/server-info`, { signal: AbortSignal.timeout(1000) });
+    const response = await fetch(`http://${endpoint}/server-info`, {
+      signal: AbortSignal.timeout(1000),
+    });
     if (!response.ok) {
       throw new Error(`server-info returned HTTP ${response.status}`);
     }
@@ -94,7 +112,8 @@ export function closePeerConnection(pc: wrtc.RTCPeerConnection): void {
 }
 
 function setupConnectError(pc: wrtc.RTCPeerConnection, cause: unknown): Error {
-  const candidateCount = pc.localDescription?.sdp.match(/^a=candidate:/gm)?.length ?? 0;
+  const candidateCount =
+    pc.localDescription?.sdp.match(/^a=candidate:/gm)?.length ?? 0;
   return new Error(
     `setup WebRTC connect failed: connection=${pc.connectionState} iceConnection=${pc.iceConnectionState} iceGathering=${pc.iceGatheringState} signaling=${pc.signalingState} localCandidates=${candidateCount}`,
     { cause },
@@ -108,7 +127,11 @@ function waitForDataChannelOpen(channel: RTCDataChannel): Promise<void> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       cleanup();
-      reject(new Error(`packet data channel readyState is ${channel.readyState}, want open`));
+      reject(
+        new Error(
+          `packet data channel readyState is ${channel.readyState}, want open`,
+        ),
+      );
     }, 10_000);
     const onOpen = (): void => {
       cleanup();

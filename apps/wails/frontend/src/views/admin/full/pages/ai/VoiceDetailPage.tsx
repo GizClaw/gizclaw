@@ -2,7 +2,12 @@ import { ChevronLeft, RefreshCw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
-import { getResource, getVoice, type Resource, type Voice } from "@gizclaw/gizclaw/admin";
+import {
+  getResource,
+  getVoice,
+  type Resource,
+  type Voice,
+} from "@gizclaw/gizclaw/admin";
 import { expectData, toMessage } from "@/dashboard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -49,7 +54,12 @@ export function VoiceDetailPage(): JSX.Element {
   }, [voiceID]);
 
   if (voiceID === "") {
-    return <EmptyState description="Missing voice ID in the URL." title="Invalid route" />;
+    return (
+      <EmptyState
+        description="Missing voice ID in the URL."
+        title="Invalid route"
+      />
+    );
   }
 
   return (
@@ -63,7 +73,12 @@ export function VoiceDetailPage(): JSX.Element {
                 Back to list
               </Link>
             </Button>
-            <Button className="min-w-fit shrink-0 whitespace-nowrap" onClick={() => void load()} size="sm" variant="outline">
+            <Button
+              className="min-w-fit shrink-0 whitespace-nowrap"
+              onClick={() => void load()}
+              size="sm"
+              variant="outline"
+            >
               <span className="inline-flex items-center gap-2 whitespace-nowrap">
                 <RefreshCw className="size-4" />
                 Reload
@@ -79,9 +94,17 @@ export function VoiceDetailPage(): JSX.Element {
       />
 
       <PageSummaryCard
-        description={<span className="break-all font-mono text-xs">{voiceID}</span>}
+        description={
+          <span className="break-all font-mono text-xs">{voiceID}</span>
+        }
         eyebrow="AI"
-        meta={voice ? <Badge variant={voice.source === "sync" ? "secondary" : "outline"}>{voice.source}</Badge> : null}
+        meta={
+          voice ? (
+            <Badge variant={voice.source === "sync" ? "secondary" : "outline"}>
+              {voice.source}
+            </Badge>
+          ) : null
+        }
         title={voice?.name?.trim() || compactVoiceID(voiceID)}
       />
 
@@ -93,7 +116,10 @@ export function VoiceDetailPage(): JSX.Element {
       ) : error !== "" ? (
         <ErrorBanner message={error} />
       ) : voice === null ? (
-        <EmptyState description="This voice could not be loaded." title="Voice not found" />
+        <EmptyState
+          description="This voice could not be loaded."
+          title="Voice not found"
+        />
       ) : (
         <Tabs defaultValue="summary">
           <TabsList>
@@ -162,7 +188,11 @@ function compactVoiceID(id: string): string {
 
 function providerDataString(voice: Voice, key: string): string | undefined {
   const providerData = voice.provider_data;
-  if (typeof providerData !== "object" || providerData === null || Array.isArray(providerData)) {
+  if (
+    typeof providerData !== "object" ||
+    providerData === null ||
+    Array.isArray(providerData)
+  ) {
     return undefined;
   }
   const value = (providerData as Record<string, unknown>)[key];

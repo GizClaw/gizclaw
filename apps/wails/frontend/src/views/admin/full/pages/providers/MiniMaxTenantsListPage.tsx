@@ -7,10 +7,21 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { expectData } from "@/dashboard";
 import { listMiniMaxTenants, type MiniMaxTenant } from "@gizclaw/gizclaw/admin";
 
@@ -23,7 +34,16 @@ import { formatDate, formatValue } from "../../lib/format";
 export function MiniMaxTenantsListPage(): JSX.Element {
   const navigate = useNavigate();
   const [copiedName, setCopiedName] = useState("");
-  const { error, hasNext, items, loading, nextPage, pageNumber, prevPage, refresh } = useCursorListPage<MiniMaxTenant>(async (query) => {
+  const {
+    error,
+    hasNext,
+    items,
+    loading,
+    nextPage,
+    pageNumber,
+    prevPage,
+    refresh,
+  } = useCursorListPage<MiniMaxTenant>(async (query) => {
     const result = await expectData(listMiniMaxTenants({ query }));
     return {
       hasNext: result.has_next,
@@ -36,7 +56,10 @@ export function MiniMaxTenantsListPage(): JSX.Element {
     navigate(`/providers/minimax-tenants/${encodeURIComponent(name)}`);
   };
 
-  const handleRowKeyDown = (event: KeyboardEvent<HTMLTableRowElement>, name: string): void => {
+  const handleRowKeyDown = (
+    event: KeyboardEvent<HTMLTableRowElement>,
+    name: string,
+  ): void => {
     if (isInteractiveTarget(event.target)) {
       return;
     }
@@ -47,7 +70,10 @@ export function MiniMaxTenantsListPage(): JSX.Element {
     openTenant(name);
   };
 
-  const copyTenantName = async (event: MouseEvent<HTMLButtonElement>, name: string): Promise<void> => {
+  const copyTenantName = async (
+    event: MouseEvent<HTMLButtonElement>,
+    name: string,
+  ): Promise<void> => {
     event.stopPropagation();
     await navigator.clipboard.writeText(name);
     setCopiedName(name);
@@ -73,7 +99,10 @@ export function MiniMaxTenantsListPage(): JSX.Element {
             </DashboardActionButton>
           </>
         }
-        items={[{ href: "/overview", label: "Overview" }, { label: "MiniMax Tenants" }]}
+        items={[
+          { href: "/overview", label: "Overview" },
+          { label: "MiniMax Tenants" },
+        ]}
       />
 
       <PageSummaryCard
@@ -95,12 +124,22 @@ export function MiniMaxTenantsListPage(): JSX.Element {
         <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
           <div className="space-y-1">
             <CardTitle>Tenant catalog</CardTitle>
-            <CardDescription>Each tenant maps an app and group pair to a reusable credential.</CardDescription>
+            <CardDescription>
+              Each tenant maps an app and group pair to a reusable credential.
+            </CardDescription>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex justify-end">
-            <DashboardPager canNext={hasNext} canPrevious={pageNumber > 1} loading={loading} onNext={nextPage} onPrevious={prevPage} onRefresh={() => void refresh()} pageIndex={pageNumber} />
+            <DashboardPager
+              canNext={hasNext}
+              canPrevious={pageNumber > 1}
+              loading={loading}
+              onNext={nextPage}
+              onPrevious={prevPage}
+              onRefresh={() => void refresh()}
+              pageIndex={pageNumber}
+            />
           </div>
 
           {loading ? (
@@ -110,64 +149,97 @@ export function MiniMaxTenantsListPage(): JSX.Element {
               ))}
             </div>
           ) : items.length === 0 ? (
-            <EmptyState description="MiniMax tenant records will appear here after they are created." title="No MiniMax tenants" />
+            <EmptyState
+              description="MiniMax tenant records will appear here after they are created."
+              title="No MiniMax tenants"
+            />
           ) : (
             <DashboardTable className="table-fixed">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[20%]">Tenant ID</TableHead>
-                    <TableHead className="w-36">App ID</TableHead>
-                    <TableHead className="w-36">Group ID</TableHead>
-                    <TableHead className="w-40">Credential</TableHead>
-                    <TableHead>Base URL</TableHead>
-                    <TableHead className="w-40">Last Sync</TableHead>
-                    <TableHead className="w-40 text-right">Updated</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {items.map((tenant) => (
-                    <TableRow
-                      className="cursor-pointer hover:bg-muted/40"
-                      key={tenant.name}
-                      onClick={() => openTenant(tenant.name)}
-                      onKeyDown={(event) => handleRowKeyDown(event, tenant.name)}
-                      role="link"
-                      tabIndex={0}
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[20%]">Tenant ID</TableHead>
+                  <TableHead className="w-36">App ID</TableHead>
+                  <TableHead className="w-36">Group ID</TableHead>
+                  <TableHead className="w-40">Credential</TableHead>
+                  <TableHead>Base URL</TableHead>
+                  <TableHead className="w-40">Last Sync</TableHead>
+                  <TableHead className="w-40 text-right">Updated</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.map((tenant) => (
+                  <TableRow
+                    className="cursor-pointer hover:bg-muted/40"
+                    key={tenant.name}
+                    onClick={() => openTenant(tenant.name)}
+                    onKeyDown={(event) => handleRowKeyDown(event, tenant.name)}
+                    role="link"
+                    tabIndex={0}
+                  >
+                    <TableCell className="min-w-0">
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <button
+                          className="min-w-0 truncate rounded-sm text-left font-medium underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openTenant(tenant.name);
+                          }}
+                          title={tenant.name}
+                          type="button"
+                        >
+                          {tenant.name}
+                        </button>
+                        <button
+                          aria-label={`Copy tenant name ${tenant.name}`}
+                          className="shrink-0 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          onClick={(event) =>
+                            void copyTenantName(event, tenant.name)
+                          }
+                          title="Copy tenant name"
+                          type="button"
+                        >
+                          {copiedName === tenant.name ? (
+                            <Check className="size-3 shrink-0 text-emerald-600" />
+                          ) : (
+                            <Copy className="size-3 shrink-0" />
+                          )}
+                        </button>
+                      </div>
+                    </TableCell>
+                    <TableCell
+                      className="truncate font-mono text-xs"
+                      title={tenant.app_id}
                     >
-                      <TableCell className="min-w-0">
-                        <div className="flex min-w-0 items-center gap-1.5">
-                          <button
-                            className="min-w-0 truncate rounded-sm text-left font-medium underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              openTenant(tenant.name);
-                            }}
-                            title={tenant.name}
-                            type="button"
-                          >
-                            {tenant.name}
-                          </button>
-                          <button
-                            aria-label={`Copy tenant name ${tenant.name}`}
-                            className="shrink-0 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                            onClick={(event) => void copyTenantName(event, tenant.name)}
-                            title="Copy tenant name"
-                            type="button"
-                          >
-                            {copiedName === tenant.name ? <Check className="size-3 shrink-0 text-emerald-600" /> : <Copy className="size-3 shrink-0" />}
-                          </button>
-                        </div>
-                      </TableCell>
-                      <TableCell className="truncate font-mono text-xs" title={tenant.app_id}>{tenant.app_id}</TableCell>
-                      <TableCell className="truncate font-mono text-xs" title={tenant.group_id}>{tenant.group_id}</TableCell>
-                      <TableCell className="truncate" title={tenant.credential_name}>{tenant.credential_name}</TableCell>
-                      <TableCell className="truncate text-sm text-muted-foreground" title={formatValue(tenant.base_url)}>{formatValue(tenant.base_url)}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{formatDate(tenant.last_synced_at)}</TableCell>
-                      <TableCell className="text-right text-sm text-muted-foreground">{formatDate(tenant.updated_at)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </DashboardTable>
+                      {tenant.app_id}
+                    </TableCell>
+                    <TableCell
+                      className="truncate font-mono text-xs"
+                      title={tenant.group_id}
+                    >
+                      {tenant.group_id}
+                    </TableCell>
+                    <TableCell
+                      className="truncate"
+                      title={tenant.credential_name}
+                    >
+                      {tenant.credential_name}
+                    </TableCell>
+                    <TableCell
+                      className="truncate text-sm text-muted-foreground"
+                      title={formatValue(tenant.base_url)}
+                    >
+                      {formatValue(tenant.base_url)}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {formatDate(tenant.last_synced_at)}
+                    </TableCell>
+                    <TableCell className="text-right text-sm text-muted-foreground">
+                      {formatDate(tenant.updated_at)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </DashboardTable>
           )}
         </CardContent>
       </Card>
@@ -176,5 +248,8 @@ export function MiniMaxTenantsListPage(): JSX.Element {
 }
 
 function isInteractiveTarget(target: EventTarget): boolean {
-  return target instanceof Element && target.closest("a,button,input,select,textarea") !== null;
+  return (
+    target instanceof Element &&
+    target.closest("a,button,input,select,textarea") !== null
+  );
 }

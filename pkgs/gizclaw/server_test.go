@@ -137,14 +137,20 @@ func TestServerInitKeepsLegacyPeerPrefixWithObjectStores(t *testing.T) {
 	}
 }
 
-func TestServerInitPreservesExistingObjectStorePeerLayout(t *testing.T) {
+func TestServerInitPreservesExistingModularPeerLayout(t *testing.T) {
 	tests := []struct {
 		name      string
-		configure func(*Server, objectstore.ObjectStore)
+		configure func(*Server, kv.Store, objectstore.ObjectStore)
 	}{
-		{name: "agent host", configure: func(server *Server, store objectstore.ObjectStore) { server.AgentHostStore = store }},
-		{name: "friend group message", configure: func(server *Server, store objectstore.ObjectStore) { server.FriendGroupMessageAssets = store }},
-		{name: "gameplay", configure: func(server *Server, store objectstore.ObjectStore) { server.GameplayAssets = store }},
+		{name: "agent host", configure: func(server *Server, _ kv.Store, objects objectstore.ObjectStore) { server.AgentHostStore = objects }},
+		{name: "friend group message", configure: func(server *Server, _ kv.Store, objects objectstore.ObjectStore) {
+			server.FriendGroupMessageAssets = objects
+		}},
+		{name: "gameplay", configure: func(server *Server, _ kv.Store, objects objectstore.ObjectStore) { server.GameplayAssets = objects }},
+		{name: "flowcraft state", configure: func(server *Server, state kv.Store, _ objectstore.ObjectStore) { server.FlowcraftState = state }},
+		{name: "flowcraft memory", configure: func(server *Server, _ kv.Store, objects objectstore.ObjectStore) {
+			server.FlowcraftMemoryObjects = objects
+		}},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -154,7 +160,7 @@ func TestServerInitPreservesExistingObjectStorePeerLayout(t *testing.T) {
 			}
 			baseStore := kv.NewMemory(nil)
 			server := &Server{LocalStatic: *keyPair, PeerStore: baseStore}
-			tc.configure(server, objectstore.Dir(t.TempDir()))
+			tc.configure(server, kv.NewMemory(nil), objectstore.Dir(t.TempDir()))
 			if err := server.init(); err != nil {
 				t.Fatalf("init() error = %v", err)
 			}

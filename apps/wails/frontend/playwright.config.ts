@@ -1,7 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const port = process.env.GIZCLAW_DESKTOP_E2E_PORT ?? "4191";
-const baseURL = process.env.GIZCLAW_E2E_DESKTOP_URL ?? `http://127.0.0.1:${port}`;
+const baseURL =
+  process.env.GIZCLAW_E2E_DESKTOP_URL ?? `http://127.0.0.1:${port}`;
 const webServer = process.env.GIZCLAW_E2E_DESKTOP_URL
   ? undefined
   : {

@@ -19,10 +19,11 @@ type Resolver interface {
 }
 
 type ServiceResolver struct {
-	Workspaces    workspace.WorkspaceAdminService
-	Workflows     workflow.WorkflowAdminService
-	ToolBuilder   *toolkit.Builder
-	ToolExecutors *toolkit.ExecutorRegistry
+	Workspaces             workspace.WorkspaceAdminService
+	Workflows              workflow.WorkflowAdminService
+	RuntimeProfileForOwner func(context.Context, string) (apitypes.RuntimeProfile, error)
+	ToolBuilder            *toolkit.Builder
+	ToolExecutors          *toolkit.ExecutorRegistry
 }
 
 type workspaceRuntimeProvider interface {
@@ -45,7 +46,11 @@ func (r ServiceResolver) Resolve(ctx context.Context, pattern string) (Spec, err
 	if err != nil {
 		return Spec{}, err
 	}
-	workflowName, err := resolveWorkspaceWorkflowName(ctx, ws)
+	resolutionCtx, err := r.ownerRuntimeContext(ctx, ws)
+	if err != nil {
+		return Spec{}, err
+	}
+	workflowName, err := resolveWorkspaceWorkflowName(resolutionCtx, ws)
 	if err != nil {
 		return Spec{}, err
 	}
@@ -64,7 +69,7 @@ func (r ServiceResolver) Resolve(ctx context.Context, pattern string) (Spec, err
 			return Spec{}, err
 		}
 	}
-	tools, err := r.resolveToolkit(ctx, ws, workflow)
+	tools, err := r.resolveToolkit(resolutionCtx, ws, workflow)
 	if err != nil {
 		return Spec{}, err
 	}
@@ -75,6 +80,18 @@ func (r ServiceResolver) Resolve(ctx context.Context, pattern string) (Spec, err
 		Runtime:   runtime,
 		Toolkit:   tools,
 	}, nil
+}
+
+func (r ServiceResolver) ownerRuntimeContext(ctx context.Context, ws apitypes.Workspace) (context.Context, error) {
+	if ws.OwnerPublicKey == nil || strings.TrimSpace(*ws.OwnerPublicKey) == "" || r.RuntimeProfileForOwner == nil {
+		return ctx, nil
+	}
+	owner := strings.TrimSpace(*ws.OwnerPublicKey)
+	profile, err := r.RuntimeProfileForOwner(ctx, owner)
+	if err != nil {
+		return nil, fmt.Errorf("agenthost: resolve workspace %q owner runtime profile: %w", ws.Name, err)
+	}
+	return WithResourceAccess(ctx, owner, runtimeProfileToolBindings(profile.Spec.Resources.Tools), runtimeProfileWorkflowBindings(profile)), nil
 }
 
 func resolveWorkspaceWorkflowName(ctx context.Context, ws apitypes.Workspace) (string, error) {

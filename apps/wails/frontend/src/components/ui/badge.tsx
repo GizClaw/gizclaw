@@ -10,11 +10,14 @@ const badgeVariants = cva(
     variants: {
       variant: {
         default: "bg-primary text-primary-foreground [a&]:hover:bg-primary/90",
-        destructive: "bg-destructive text-destructive-foreground focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40 [a&]:hover:bg-destructive/90",
+        destructive:
+          "bg-destructive text-destructive-foreground focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40 [a&]:hover:bg-destructive/90",
         ghost: "[a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
         link: "text-primary underline-offset-4 [a&]:hover:underline",
-        outline: "border-border text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
-        secondary: "bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90",
+        outline:
+          "border-border text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
+        secondary:
+          "bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90",
         success: "bg-emerald-100 text-emerald-700 [a&]:hover:bg-emerald-100",
       },
     },
@@ -29,7 +32,12 @@ type BadgeProps = React.ComponentProps<"span"> &
     asChild?: boolean;
   };
 
-function Badge({ asChild = false, className, variant = "default", ...props }: BadgeProps): JSX.Element {
+function Badge({
+  asChild = false,
+  className,
+  variant = "default",
+  ...props
+}: BadgeProps): JSX.Element {
   const Comp = asChild ? Slot.Root : "span";
 
   return (

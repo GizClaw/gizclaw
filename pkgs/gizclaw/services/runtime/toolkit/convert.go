@@ -124,18 +124,18 @@ func ToSpec(tool Tool) (apitypes.ToolSpec, error) {
 	}, nil
 }
 
-func mapToRaw(in *map[string]interface{}) (json.RawMessage, error) {
+func mapToRaw(in *map[string]any) (json.RawMessage, error) {
 	if in == nil {
 		return nil, nil
 	}
 	return json.Marshal(*in)
 }
 
-func rawToMap(in json.RawMessage) (*map[string]interface{}, error) {
+func rawToMap(in json.RawMessage) (*map[string]any, error) {
 	if len(in) == 0 {
 		return nil, nil
 	}
-	var out map[string]interface{}
+	var out map[string]any
 	if err := json.Unmarshal(in, &out); err != nil {
 		return nil, err
 	}

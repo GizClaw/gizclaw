@@ -1,3 +1,4 @@
+---
 apiVersion: gizclaw.admin/v1alpha1
 kind: ResourceList
 metadata:
@@ -11,8 +12,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-000
   - apiVersion: gizclaw.admin/v1alpha1
@@ -22,8 +21,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-001
   - apiVersion: gizclaw.admin/v1alpha1
@@ -33,8 +30,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-002
   - apiVersion: gizclaw.admin/v1alpha1
@@ -44,8 +39,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-003
   - apiVersion: gizclaw.admin/v1alpha1
@@ -55,8 +48,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-004
   - apiVersion: gizclaw.admin/v1alpha1
@@ -66,8 +57,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-005
   - apiVersion: gizclaw.admin/v1alpha1
@@ -77,8 +66,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-006
   - apiVersion: gizclaw.admin/v1alpha1
@@ -88,8 +75,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-007
   - apiVersion: gizclaw.admin/v1alpha1
@@ -99,8 +84,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-008
   - apiVersion: gizclaw.admin/v1alpha1
@@ -110,8 +93,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-009
   - apiVersion: gizclaw.admin/v1alpha1
@@ -121,8 +102,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-010
   - apiVersion: gizclaw.admin/v1alpha1
@@ -132,8 +111,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-011
   - apiVersion: gizclaw.admin/v1alpha1
@@ -143,8 +120,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-012
   - apiVersion: gizclaw.admin/v1alpha1
@@ -154,8 +129,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-013
   - apiVersion: gizclaw.admin/v1alpha1
@@ -165,8 +138,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-014
   - apiVersion: gizclaw.admin/v1alpha1
@@ -176,8 +147,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-015
   - apiVersion: gizclaw.admin/v1alpha1
@@ -187,8 +156,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-016
   - apiVersion: gizclaw.admin/v1alpha1
@@ -198,8 +165,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-017
   - apiVersion: gizclaw.admin/v1alpha1
@@ -209,8 +174,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-018
   - apiVersion: gizclaw.admin/v1alpha1
@@ -220,8 +183,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-019
   - apiVersion: gizclaw.admin/v1alpha1
@@ -231,8 +192,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-020
   - apiVersion: gizclaw.admin/v1alpha1
@@ -242,8 +201,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-021
   - apiVersion: gizclaw.admin/v1alpha1
@@ -253,8 +210,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-022
   - apiVersion: gizclaw.admin/v1alpha1
@@ -264,8 +219,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-023
   - apiVersion: gizclaw.admin/v1alpha1
@@ -275,8 +228,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-024
   - apiVersion: gizclaw.admin/v1alpha1
@@ -286,8 +237,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-025
   - apiVersion: gizclaw.admin/v1alpha1
@@ -297,8 +246,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-026
   - apiVersion: gizclaw.admin/v1alpha1
@@ -308,8 +255,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-027
   - apiVersion: gizclaw.admin/v1alpha1
@@ -319,8 +264,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-028
   - apiVersion: gizclaw.admin/v1alpha1
@@ -330,8 +273,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-029
   - apiVersion: gizclaw.admin/v1alpha1
@@ -341,8 +282,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-030
   - apiVersion: gizclaw.admin/v1alpha1
@@ -352,8 +291,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-031
   - apiVersion: gizclaw.admin/v1alpha1
@@ -363,8 +300,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-032
   - apiVersion: gizclaw.admin/v1alpha1
@@ -374,8 +309,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-033
   - apiVersion: gizclaw.admin/v1alpha1
@@ -385,8 +318,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-034
   - apiVersion: gizclaw.admin/v1alpha1
@@ -396,8 +327,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-035
   - apiVersion: gizclaw.admin/v1alpha1
@@ -407,8 +336,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-036
   - apiVersion: gizclaw.admin/v1alpha1
@@ -418,8 +345,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-037
   - apiVersion: gizclaw.admin/v1alpha1
@@ -429,8 +354,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-038
   - apiVersion: gizclaw.admin/v1alpha1
@@ -440,8 +363,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-039
   - apiVersion: gizclaw.admin/v1alpha1
@@ -451,8 +372,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-040
   - apiVersion: gizclaw.admin/v1alpha1
@@ -462,8 +381,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-041
   - apiVersion: gizclaw.admin/v1alpha1
@@ -473,8 +390,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-042
   - apiVersion: gizclaw.admin/v1alpha1
@@ -484,8 +399,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-043
   - apiVersion: gizclaw.admin/v1alpha1
@@ -495,8 +408,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-044
   - apiVersion: gizclaw.admin/v1alpha1
@@ -506,8 +417,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-045
   - apiVersion: gizclaw.admin/v1alpha1
@@ -517,8 +426,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-046
   - apiVersion: gizclaw.admin/v1alpha1
@@ -528,8 +435,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-047
   - apiVersion: gizclaw.admin/v1alpha1
@@ -539,8 +444,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-048
   - apiVersion: gizclaw.admin/v1alpha1
@@ -550,8 +453,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-049
   - apiVersion: gizclaw.admin/v1alpha1
@@ -561,8 +462,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-050
   - apiVersion: gizclaw.admin/v1alpha1
@@ -572,8 +471,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-051
   - apiVersion: gizclaw.admin/v1alpha1
@@ -583,8 +480,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-052
   - apiVersion: gizclaw.admin/v1alpha1
@@ -594,8 +489,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-053
   - apiVersion: gizclaw.admin/v1alpha1
@@ -605,8 +498,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-054
   - apiVersion: gizclaw.admin/v1alpha1
@@ -616,8 +507,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-055
   - apiVersion: gizclaw.admin/v1alpha1
@@ -627,8 +516,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-056
   - apiVersion: gizclaw.admin/v1alpha1
@@ -638,8 +525,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-057
   - apiVersion: gizclaw.admin/v1alpha1
@@ -649,8 +534,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-058
   - apiVersion: gizclaw.admin/v1alpha1
@@ -660,8 +543,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-059
   - apiVersion: gizclaw.admin/v1alpha1
@@ -671,8 +552,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-060
   - apiVersion: gizclaw.admin/v1alpha1
@@ -682,8 +561,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-061
   - apiVersion: gizclaw.admin/v1alpha1
@@ -693,8 +570,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-062
   - apiVersion: gizclaw.admin/v1alpha1
@@ -704,8 +579,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-063
   - apiVersion: gizclaw.admin/v1alpha1
@@ -715,8 +588,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-064
   - apiVersion: gizclaw.admin/v1alpha1
@@ -726,8 +597,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-065
   - apiVersion: gizclaw.admin/v1alpha1
@@ -737,8 +606,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-066
   - apiVersion: gizclaw.admin/v1alpha1
@@ -748,8 +615,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-067
   - apiVersion: gizclaw.admin/v1alpha1
@@ -759,8 +624,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-068
   - apiVersion: gizclaw.admin/v1alpha1
@@ -770,8 +633,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-069
   - apiVersion: gizclaw.admin/v1alpha1
@@ -781,8 +642,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-070
   - apiVersion: gizclaw.admin/v1alpha1
@@ -792,8 +651,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-071
   - apiVersion: gizclaw.admin/v1alpha1
@@ -803,8 +660,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-072
   - apiVersion: gizclaw.admin/v1alpha1
@@ -814,8 +669,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-073
   - apiVersion: gizclaw.admin/v1alpha1
@@ -825,8 +678,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-074
   - apiVersion: gizclaw.admin/v1alpha1
@@ -836,8 +687,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-075
   - apiVersion: gizclaw.admin/v1alpha1
@@ -847,8 +696,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-076
   - apiVersion: gizclaw.admin/v1alpha1
@@ -858,8 +705,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-077
   - apiVersion: gizclaw.admin/v1alpha1
@@ -869,8 +714,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-078
   - apiVersion: gizclaw.admin/v1alpha1
@@ -880,8 +723,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-079
   - apiVersion: gizclaw.admin/v1alpha1
@@ -891,8 +732,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-080
   - apiVersion: gizclaw.admin/v1alpha1
@@ -902,8 +741,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-081
   - apiVersion: gizclaw.admin/v1alpha1
@@ -913,8 +750,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-082
   - apiVersion: gizclaw.admin/v1alpha1
@@ -924,8 +759,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-083
   - apiVersion: gizclaw.admin/v1alpha1
@@ -935,8 +768,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-084
   - apiVersion: gizclaw.admin/v1alpha1
@@ -946,8 +777,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-085
   - apiVersion: gizclaw.admin/v1alpha1
@@ -957,8 +786,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-086
   - apiVersion: gizclaw.admin/v1alpha1
@@ -968,8 +795,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-087
   - apiVersion: gizclaw.admin/v1alpha1
@@ -979,8 +804,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-088
   - apiVersion: gizclaw.admin/v1alpha1
@@ -990,8 +813,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-089
   - apiVersion: gizclaw.admin/v1alpha1
@@ -1001,8 +822,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-090
   - apiVersion: gizclaw.admin/v1alpha1
@@ -1012,8 +831,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-091
   - apiVersion: gizclaw.admin/v1alpha1
@@ -1023,8 +840,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-092
   - apiVersion: gizclaw.admin/v1alpha1
@@ -1034,8 +849,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-093
   - apiVersion: gizclaw.admin/v1alpha1
@@ -1045,8 +858,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-094
   - apiVersion: gizclaw.admin/v1alpha1
@@ -1056,8 +867,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-095
   - apiVersion: gizclaw.admin/v1alpha1
@@ -1067,8 +876,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-096
   - apiVersion: gizclaw.admin/v1alpha1
@@ -1078,8 +885,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-097
   - apiVersion: gizclaw.admin/v1alpha1
@@ -1089,8 +894,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-098
   - apiVersion: gizclaw.admin/v1alpha1
@@ -1100,8 +903,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-099
   - apiVersion: gizclaw.admin/v1alpha1
@@ -1111,8 +912,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-100
   - apiVersion: gizclaw.admin/v1alpha1
@@ -1122,8 +921,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-101
   - apiVersion: gizclaw.admin/v1alpha1
@@ -1133,8 +930,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-102
   - apiVersion: gizclaw.admin/v1alpha1
@@ -1144,8 +939,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-103
   - apiVersion: gizclaw.admin/v1alpha1
@@ -1155,8 +948,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-104
   - apiVersion: gizclaw.admin/v1alpha1
@@ -1166,8 +957,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-105
   - apiVersion: gizclaw.admin/v1alpha1
@@ -1177,8 +966,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-106
   - apiVersion: gizclaw.admin/v1alpha1
@@ -1188,8 +975,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-107
   - apiVersion: gizclaw.admin/v1alpha1
@@ -1199,8 +984,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-108
   - apiVersion: gizclaw.admin/v1alpha1
@@ -1210,8 +993,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-109
   - apiVersion: gizclaw.admin/v1alpha1
@@ -1221,8 +1002,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-110
   - apiVersion: gizclaw.admin/v1alpha1
@@ -1232,8 +1011,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-111
   - apiVersion: gizclaw.admin/v1alpha1
@@ -1243,8 +1020,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-112
   - apiVersion: gizclaw.admin/v1alpha1
@@ -1254,8 +1029,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-113
   - apiVersion: gizclaw.admin/v1alpha1
@@ -1265,8 +1038,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-114
   - apiVersion: gizclaw.admin/v1alpha1
@@ -1276,8 +1047,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-115
   - apiVersion: gizclaw.admin/v1alpha1
@@ -1287,8 +1056,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-116
   - apiVersion: gizclaw.admin/v1alpha1
@@ -1298,8 +1065,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-117
   - apiVersion: gizclaw.admin/v1alpha1
@@ -1309,8 +1074,6 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-118
   - apiVersion: gizclaw.admin/v1alpha1
@@ -1320,7 +1083,5 @@ spec:
     spec:
       parameters:
         agent_type: flowcraft
-        generate_model: doubao-lite-chat
-        extract_model: doubao-lite-chat
         input: push-to-talk
       workflow_name: flowcraft-scenario-119

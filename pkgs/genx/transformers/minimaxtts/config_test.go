@@ -12,7 +12,7 @@ import (
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
-	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/internal/streamkit"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/streamkit"
 	"github.com/GizClaw/minimax-go"
 	"github.com/coder/websocket"
 )

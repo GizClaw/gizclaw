@@ -2,8 +2,14 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const protoURL = new URL("../../../api/proto/telemetry/peer_telemetry.proto", import.meta.url);
-const outputURL = new URL("../gizclaw/generated/telemetry/peer_telemetry.ts", import.meta.url);
+const protoURL = new URL(
+  "../../../api/proto/telemetry/peer_telemetry.proto",
+  import.meta.url,
+);
+const outputURL = new URL(
+  "../gizclaw/generated/telemetry/peer_telemetry.ts",
+  import.meta.url,
+);
 const proto = readFileSync(protoURL, "utf8");
 const messages = parseProtoMessages(proto);
 
@@ -16,7 +22,9 @@ for (const expected of [
   "SystemObservation",
 ]) {
   if (!messages.has(expected)) {
-    throw new Error(`api/proto/telemetry/peer_telemetry.proto missing message ${expected}`);
+    throw new Error(
+      `api/proto/telemetry/peer_telemetry.proto missing message ${expected}`,
+    );
   }
 }
 
@@ -149,7 +157,10 @@ function parseMessage(name, body) {
 }
 
 function parseField(line, options = {}) {
-  const match = /^(?:(repeated|optional)\s+)?([A-Za-z_]\w*)\s+([A-Za-z_]\w*)\s*=\s*(\d+)\s*;/.exec(line);
+  const match =
+    /^(?:(repeated|optional)\s+)?([A-Za-z_]\w*)\s+([A-Za-z_]\w*)\s*=\s*(\d+)\s*;/.exec(
+      line,
+    );
   if (match == null) {
     throw new Error(`unsupported telemetry proto field: ${line}`);
   }
@@ -192,7 +203,9 @@ function generateTypes(messages) {
 function generateMessageType(message) {
   const lines = [`export type ${message.name} = {`];
   for (const field of message.fields) {
-    lines.push(`  ${camelCase(field.name)}${isTypeOptional(message.name, field) ? "?" : ""}: ${fieldType(field)};`);
+    lines.push(
+      `  ${camelCase(field.name)}${isTypeOptional(message.name, field) ? "?" : ""}: ${fieldType(field)};`,
+    );
   }
   lines.push("};");
   return lines.join("\n");
@@ -211,7 +224,10 @@ function generateObservationType(message) {
   const bodyKeys = oneof.fields.map((field) => camelCase(field.name));
   const variants = oneof.fields.map((field) => {
     const key = camelCase(field.name);
-    const entries = bodyKeys.map((item) => `${item}${item === key ? "" : "?"}: ${item === key ? field.type : "never"}`);
+    const entries = bodyKeys.map(
+      (item) =>
+        `${item}${item === key ? "" : "?"}: ${item === key ? field.type : "never"}`,
+    );
     return `  | (ObservationBase & { ${entries.join("; ")} })`;
   });
   return `${baseLines.join("\n")}\n\nexport type Observation =\n${variants.join("\n")};`;
@@ -227,7 +243,10 @@ function generateEncoders(messages) {
 
 function generateEncoder(message, messages) {
   const exportPrefix = message.name === "TelemetryFrame" ? "export " : "";
-  const lines = [`${exportPrefix}function encode${message.name}(message: ${message.name}): Uint8Array {`, "  const writer = new ProtoWriter();"];
+  const lines = [
+    `${exportPrefix}function encode${message.name}(message: ${message.name}): Uint8Array {`,
+    "  const writer = new ProtoWriter();",
+  ];
   for (const field of message.fields) {
     lines.push(...generateFieldEncoder(message.name, field, messages));
   }
@@ -249,7 +268,9 @@ function generateOneofEncoder(oneof, messages) {
   for (const field of oneof.fields) {
     const key = camelCase(field.name);
     lines.push(`  if (message.${key} != null) {`);
-    lines.push(`    writer.message(${field.fieldNumber}, encode${field.type}(message.${key}));`);
+    lines.push(
+      `    writer.message(${field.fieldNumber}, encode${field.type}(message.${key}));`,
+    );
     lines.push("  }");
     if (!messages.has(field.type)) {
       throw new Error(`unsupported telemetry message field type ${field.type}`);
@@ -270,9 +291,10 @@ function generateFieldEncoder(messageName, field, messages) {
       "  }",
     ];
   }
-  const writeLine = method === "message"
-    ? `writer.message(${field.fieldNumber}, encode${field.type}(message.${key}));`
-    : `writer.${method}(${field.fieldNumber}, message.${key});`;
+  const writeLine =
+    method === "message"
+      ? `writer.message(${field.fieldNumber}, encode${field.type}(message.${key}));`
+      : `writer.${method}(${field.fieldNumber}, message.${key});`;
   if (isTypeOptional(messageName, field)) {
     return [`  if (message.${key} != null) {`, `    ${writeLine}`, "  }"];
   }
@@ -285,7 +307,12 @@ function fieldType(field) {
 }
 
 function isTypeOptional(messageName, field) {
-  return field.kind === "optional" || field.kind === "repeated" || messageName === "TelemetryFrame" || messageName === "Observation";
+  return (
+    field.kind === "optional" ||
+    field.kind === "repeated" ||
+    messageName === "TelemetryFrame" ||
+    messageName === "Observation"
+  );
 }
 
 function tsType(type) {

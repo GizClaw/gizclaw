@@ -358,11 +358,11 @@ func parseMessageContent(value any) (string, []*genx.Blob, error) {
 	switch v := value.(type) {
 	case string:
 		return v, nil, nil
-	case []interface{}:
+	case []any:
 		var text strings.Builder
 		var blobs []*genx.Blob
 		for _, raw := range v {
-			part, ok := raw.(map[string]interface{})
+			part, ok := raw.(map[string]any)
 			if !ok {
 				continue
 			}
@@ -388,7 +388,7 @@ func parseMessageContent(value any) (string, []*genx.Blob, error) {
 }
 
 func parseInputAudio(value any) (*genx.Blob, error) {
-	m, ok := value.(map[string]interface{})
+	m, ok := value.(map[string]any)
 	if !ok {
 		return nil, errors.New("openaiapi: input_audio must be an object")
 	}

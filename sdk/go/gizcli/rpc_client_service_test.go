@@ -75,7 +75,7 @@ func TestRPCClientHandleToolInvoke(t *testing.T) {
 		return rpcapi.ToolInvokeResponse{DataJson: `{"playing":true}`}, nil
 	}}
 	var params rpcapi.RPCPayload
-	if err := params.FromToolInvokeRequest(rpcapi.ToolInvokeRequest{CallId: "call", ToolId: "peer.device.music.play", Method: "music.play", Args: map[string]interface{}{"query": "song"}}); err != nil {
+	if err := params.FromToolInvokeRequest(rpcapi.ToolInvokeRequest{CallId: "call", ToolId: "peer.device.music.play", Method: "music.play", Args: map[string]any{"query": "song"}}); err != nil {
 		t.Fatalf("FromToolInvokeRequest() error = %v", err)
 	}
 	resp, err := (&rpcClient{peer: device}).dispatch(context.Background(), &rpcapi.RPCRequest{Id: "invoke", Method: rpcapi.RPCMethodClientToolInvoke, Params: &params})

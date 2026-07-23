@@ -17,7 +17,7 @@ type voiceFilters struct {
 	providerName *string
 }
 
-func providerData(kind apitypes.VoiceProviderKind, values map[string]interface{}) *apitypes.VoiceProviderData {
+func providerData(kind apitypes.VoiceProviderKind, values map[string]any) *apitypes.VoiceProviderData {
 	return voicecatalog.ProviderData(kind, values)
 }
 
@@ -50,7 +50,7 @@ func matchesVoiceFilters(voice apitypes.Voice, filters voiceFilters) bool {
 	return true
 }
 
-func providerDataString(value interface{}) string {
+func providerDataString(value any) string {
 	switch typed := value.(type) {
 	case string:
 		return strings.TrimSpace(typed)
@@ -61,11 +61,11 @@ func providerDataString(value interface{}) string {
 	}
 }
 
-func rawEqual(left, right *map[string]interface{}) bool {
+func rawEqual(left, right *map[string]any) bool {
 	return mapEqual(left, right)
 }
 
-func mapEqual(left, right *map[string]interface{}) bool {
+func mapEqual(left, right *map[string]any) bool {
 	if left == nil && right == nil {
 		return true
 	}

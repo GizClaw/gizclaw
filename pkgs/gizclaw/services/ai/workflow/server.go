@@ -217,6 +217,14 @@ func validateWorkflow(item apitypes.Workflow, expectedName string) (apitypes.Wor
 
 func validateDriverSpec(spec apitypes.WorkflowSpec) error {
 	switch spec.Driver {
+	case apitypes.WorkflowDriverFlowcraft:
+		if spec.Flowcraft == nil {
+			return errors.New("spec.flowcraft is required")
+		}
+		if err := spec.Flowcraft.Validate(); err != nil {
+			return fmt.Errorf("spec.flowcraft: %w", err)
+		}
+		return nil
 	case apitypes.WorkflowDriverChatroom:
 		if spec.Chatroom == nil {
 			return errors.New("spec.chatroom is required")

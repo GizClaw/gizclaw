@@ -31,7 +31,7 @@ func TestAdminAPIWorkspacesListGetPaginationAndMutation(t *testing.T) {
 		t.Fatalf("get workspace: %v", err)
 	}
 	requireStatusOK(t, get, get.Body)
-	if get.JSON200 == nil || get.JSON200.WorkflowName != "flowcraft-support" {
+	if get.JSON200 == nil || get.JSON200.WorkflowName != "flowcraft-chat-assistant" {
 		t.Fatalf("get workspace = %#v", get.JSON200)
 	}
 
@@ -39,7 +39,7 @@ func TestAdminAPIWorkspacesListGetPaginationAndMutation(t *testing.T) {
 	_, _ = env.api.DeleteWorkspaceWithResponse(env.ctx, name)
 	created, err := env.api.CreateWorkspaceWithResponse(env.ctx, adminhttp.WorkspaceUpsert{
 		Name:         name,
-		WorkflowName: "flowcraft-support",
+		WorkflowName: "flowcraft-chat-assistant",
 		Parameters:   flowcraftWorkspaceParameters(t, apitypes.WorkspaceInputModePushToTalk),
 	})
 	if err != nil {
