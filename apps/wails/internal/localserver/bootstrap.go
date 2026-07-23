@@ -39,13 +39,17 @@ type Bootstrapper struct {
 
 // MigrateRuntimeContract installs the resolved Raids dependency closure for a
 // completed legacy Pod before replacing RuntimeProfile/default.
-func (b *Bootstrapper) MigrateRuntimeContract(ctx context.Context, podDir string) error {
+func (b *Bootstrapper) MigrateRuntimeContract(ctx context.Context, podDir string, savedEnvironment map[string]string) error {
 	if b == nil || b.Executable == nil {
 		return fmt.Errorf("local server bootstrap: bootstrapper is not configured")
 	}
 	catalog, err := b.catalog(ctx)
 	if err != nil {
 		return err
+	}
+	resolved, missing := catalog.ResolveEnvironment(savedEnvironment, os.LookupEnv)
+	if len(missing) != 0 {
+		return fmt.Errorf("local server bootstrap: missing environment: %s", strings.Join(missing, ", "))
 	}
 	var profile *ResourceEntry
 	for i := range catalog.Resources {
@@ -68,6 +72,9 @@ func (b *Bootstrapper) MigrateRuntimeContract(ctx context.Context, podDir string
 		return err
 	}
 	defer os.RemoveAll(tempDir)
+	for name, value := range resolved {
+		environment = setCommandEnvironment(environment, name, value)
+	}
 	environment = setCommandEnvironment(environment, "input", "${input}")
 	run := b.Run
 	if run == nil {

@@ -44,7 +44,7 @@ type PodBridge struct {
 
 type LocalPodBootstrapper interface {
 	Apply(context.Context, string, map[string]string) error
-	MigrateRuntimeContract(context.Context, string) error
+	MigrateRuntimeContract(context.Context, string, map[string]string) error
 	RecoverRegistrationToken(context.Context, string, map[string]string) error
 }
 
@@ -821,8 +821,16 @@ func (b *PodBridge) migrateLocalRuntimeContract(ctx context.Context, id string) 
 	if b.Bootstrapper == nil {
 		return errors.New("desktop bridge: local runtime migration requires a bootstrapper")
 	}
+	savedEnvironment := map[string]string{}
+	if b.BootstrapEnvironment.Path != "" {
+		var err error
+		savedEnvironment, err = b.BootstrapEnvironment.Load()
+		if err != nil {
+			return fmt.Errorf("desktop bridge: load bootstrap environment for local runtime migration: %w", err)
+		}
+	}
 	podDir := filepath.Join(b.Paths.PodsDir, id)
-	if err := b.Bootstrapper.MigrateRuntimeContract(ctx, podDir); err != nil {
+	if err := b.Bootstrapper.MigrateRuntimeContract(ctx, podDir, savedEnvironment); err != nil {
 		return fmt.Errorf("desktop bridge: migrate local runtime contract: %w", err)
 	}
 	pod.LocalCatalogVersion = appconfig.LocalCatalogVersion

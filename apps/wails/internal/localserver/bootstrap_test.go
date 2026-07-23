@@ -195,6 +195,7 @@ func TestBootstrapperMigratesDependencyClosureBeforeDefaultRuntimeProfile(t *tes
 			{Path: "resources/04-workflows/00-referenced.yaml", Kind: "Workflow", Name: "referenced"},
 			{Path: "resources/07-runtime-profiles/00-default.yaml", Kind: "RuntimeProfile", Name: "default"},
 		},
+		Requirements: []EnvironmentRequirement{{Name: "RAIDS_TOKEN"}},
 	}
 	var commands []string
 	var applied []string
@@ -204,6 +205,9 @@ func TestBootstrapperMigratesDependencyClosureBeforeDefaultRuntimeProfile(t *tes
 		Run: func(_ context.Context, _ string, args, environment []string) error {
 			if !slices.Contains(environment, "input=${input}") {
 				t.Fatalf("migration environment does not preserve input placeholder: %v", environment)
+			}
+			if !slices.Contains(environment, "RAIDS_TOKEN=saved-token") {
+				t.Fatalf("migration environment does not contain saved value: %v", environment)
 			}
 			commands = append(commands, strings.Join(args, " "))
 			if args[1] == "apply" {
@@ -229,7 +233,7 @@ func TestBootstrapperMigratesDependencyClosureBeforeDefaultRuntimeProfile(t *tes
 			return []byte(`{"token":"migrated-secret"}`), nil
 		},
 	}
-	if err := bootstrapper.MigrateRuntimeContract(context.Background(), podDir); err != nil {
+	if err := bootstrapper.MigrateRuntimeContract(context.Background(), podDir, map[string]string{"RAIDS_TOKEN": "saved-token"}); err != nil {
 		t.Fatal(err)
 	}
 	if got := strings.Join(applied, ","); got != "Credential/a,Workflow/referenced,RuntimeProfile/default" {
