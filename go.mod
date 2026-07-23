@@ -41,7 +41,7 @@ require (
 	github.com/volcengine/volc-sdk-golang v1.0.246
 	github.com/volcengine/volcengine-go-sdk v1.2.43
 	golang.org/x/crypto v0.53.0
-	golang.org/x/sync v0.21.0
+	golang.org/x/sync v0.22.0
 	gonum.org/v1/gonum v0.17.0
 	google.golang.org/genai v1.42.0
 	google.golang.org/protobuf v1.36.11
