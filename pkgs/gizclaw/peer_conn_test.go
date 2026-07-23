@@ -470,11 +470,18 @@ func TestPeerConnCloseDoesNotWaitForBlockedRuntimeTransition(t *testing.T) {
 	close(source.openRelease)
 	select {
 	case err := <-reloadDone:
-		if err != nil {
-			t.Fatalf("Reload() error = %v", err)
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("Reload() error = %v, want context canceled", err)
 		}
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for Reload after close")
+	}
+	status, statusErr := runtime.Status(ctx)
+	if statusErr != nil {
+		t.Fatalf("Status() error = %v", statusErr)
+	}
+	if status.State == apitypes.PeerRunStatusStateRunning {
+		t.Fatalf("runtime status after canceled Reload = %+v", status)
 	}
 }
 

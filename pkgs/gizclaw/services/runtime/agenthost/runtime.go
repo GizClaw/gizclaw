@@ -74,8 +74,11 @@ type Service struct {
 	Logger                     *slog.Logger
 	Now                        func() time.Time
 
-	transitionMu sync.Mutex
-	revision     atomic.Uint64
+	transitionGateOnce sync.Once
+	transitionGate     chan struct{}
+	transitionCancelMu sync.Mutex
+	transitionCancel   context.CancelFunc
+	revision           atomic.Uint64
 
 	mu      sync.Mutex
 	runtime *runtime
@@ -92,8 +95,12 @@ func (s *Service) Reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	s.transitionMu.Lock()
-	defer s.transitionMu.Unlock()
+	if err := s.lockTransition(ctx); err != nil {
+		return s.setErrorStatus("", err), err
+	}
+	defer s.unlockTransition()
+	ctx, finish := s.beginCancellableTransition(ctx)
+	defer finish()
 	return s.reload(ctx)
 }
 
@@ -104,6 +111,9 @@ func (s *Service) reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 	selection, err := s.PeerRun.ResolveRunAgent(ctx, s.PublicKey)
 	if err != nil {
 		return s.setErrorStatus("", err), err
+	}
+	if err := ctx.Err(); err != nil {
+		return s.setErrorStatus(selection.WorkspaceName, err), err
 	}
 	if s.ValidateWorkspaceSelection != nil {
 		canonicalName, err := s.ValidateWorkspaceSelection(ctx, selection.WorkspaceName)
@@ -124,6 +134,10 @@ func (s *Service) reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 	}
 	if input == nil {
 		err := errors.New("agenthost: input stream is required")
+		return s.setErrorStatus(selection.WorkspaceName, err), err
+	}
+	if err := ctx.Err(); err != nil {
+		_ = input.CloseWithError(err)
 		return s.setErrorStatus(selection.WorkspaceName, err), err
 	}
 	profileToolBindings := map[string]string{}
@@ -152,6 +166,14 @@ func (s *Service) reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 		}
 		_ = input.Close()
 		err := errors.New("agenthost: output stream is required")
+		return s.setErrorStatus(selection.WorkspaceName, err), err
+	}
+	if err := ctx.Err(); err != nil {
+		cancel()
+		if release != nil {
+			release()
+		}
+		_ = errors.Join(output.CloseWithError(err), input.CloseWithError(err))
 		return s.setErrorStatus(selection.WorkspaceName, err), err
 	}
 	if _, err := s.PeerRun.ActivateRunAgent(ctx, s.PublicKey, selection); err != nil {
@@ -194,8 +216,12 @@ func (s *Service) SetRunAgent(ctx context.Context, selection apitypes.AgentSelec
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	s.transitionMu.Lock()
-	defer s.transitionMu.Unlock()
+	if err := s.lockTransition(ctx); err != nil {
+		return apitypes.PeerRunAgent{}, err
+	}
+	defer s.unlockTransition()
+	ctx, finish := s.beginCancellableTransition(ctx)
+	defer finish()
 	if current := s.currentRuntime(); current != nil && current.workspace == selection.WorkspaceName {
 		return s.PeerRun.SetRunAgent(ctx, s.PublicKey, selection)
 	}
@@ -228,12 +254,42 @@ func (s *Service) PushInputIfCurrentRevision(ctx context.Context, revision uint6
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	s.transitionMu.Lock()
-	defer s.transitionMu.Unlock()
+	if err := s.lockTransition(ctx); err != nil {
+		return false, err
+	}
+	defer s.unlockTransition()
+	ctx, finish := s.beginCancellableTransition(ctx)
+	defer finish()
 	if revision%2 != 0 || s.revision.Load() != revision {
 		return false, nil
 	}
 	return true, input.Push(ctx, chunk)
+}
+
+// PushInput writes an input chunk through the transition gate and reports the
+// stable revision that owned the write. Sampling inside the gate gives queued
+// input and control-plane transitions one serialization point.
+func (s *Service) PushInput(ctx context.Context, input InputPusher, chunk *genx.MessageChunk) (uint64, bool, error) {
+	if s == nil {
+		return 0, false, ErrNilService
+	}
+	if input == nil {
+		return 0, false, ErrMissingInputPusher
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := s.lockTransition(ctx); err != nil {
+		return 0, false, err
+	}
+	defer s.unlockTransition()
+	ctx, finish := s.beginCancellableTransition(ctx)
+	defer finish()
+	revision := s.revision.Load()
+	if revision%2 != 0 {
+		return revision, false, nil
+	}
+	return revision, true, input.Push(ctx, chunk)
 }
 
 // ReloadIfCurrentRevision recovers a missing input only when the caller saw
@@ -249,8 +305,12 @@ func (s *Service) ReloadIfCurrentRevision(ctx context.Context, revision uint64) 
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	s.transitionMu.Lock()
-	defer s.transitionMu.Unlock()
+	if err := s.lockTransition(ctx); err != nil {
+		return false, err
+	}
+	defer s.unlockTransition()
+	ctx, finish := s.beginCancellableTransition(ctx)
+	defer finish()
 	return s.reloadIfCurrentRevision(ctx, revision)
 }
 
@@ -270,8 +330,12 @@ func (s *Service) ReloadAndPushInputIfCurrentRevision(ctx context.Context, revis
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	s.transitionMu.Lock()
-	defer s.transitionMu.Unlock()
+	if err := s.lockTransition(ctx); err != nil {
+		return false, err
+	}
+	defer s.unlockTransition()
+	ctx, finish := s.beginCancellableTransition(ctx)
+	defer finish()
 	reloaded, err := s.reloadIfCurrentRevision(ctx, revision)
 	if !reloaded || err != nil {
 		return reloaded, err
@@ -388,8 +452,13 @@ func (s *Service) Stop(ctx context.Context) (apitypes.PeerRunStatus, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	s.transitionMu.Lock()
-	defer s.transitionMu.Unlock()
+	if err := s.lockTransition(ctx); err != nil {
+		status, statusErr := s.Status(context.Background())
+		return status, errors.Join(err, statusErr)
+	}
+	defer s.unlockTransition()
+	ctx, finish := s.beginCancellableTransition(ctx)
+	defer finish()
 	s.beginTransition()
 	defer s.finishTransition()
 	current := s.swap(nil)
@@ -409,6 +478,53 @@ func (s *Service) beginTransition() {
 
 func (s *Service) finishTransition() {
 	s.revision.Add(1)
+}
+
+// CancelTransition asks the currently running lifecycle or input operation to
+// stop. It is used by peer teardown before it waits for Stop.
+func (s *Service) CancelTransition() {
+	if s == nil {
+		return
+	}
+	s.transitionCancelMu.Lock()
+	cancel := s.transitionCancel
+	s.transitionCancelMu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
+}
+
+func (s *Service) lockTransition(ctx context.Context) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	s.transitionGateOnce.Do(func() {
+		s.transitionGate = make(chan struct{}, 1)
+		s.transitionGate <- struct{}{}
+	})
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-s.transitionGate:
+		return nil
+	}
+}
+
+func (s *Service) unlockTransition() {
+	s.transitionGate <- struct{}{}
+}
+
+func (s *Service) beginCancellableTransition(ctx context.Context) (context.Context, func()) {
+	ctx, cancel := context.WithCancel(ctx)
+	s.transitionCancelMu.Lock()
+	s.transitionCancel = cancel
+	s.transitionCancelMu.Unlock()
+	return ctx, func() {
+		s.transitionCancelMu.Lock()
+		s.transitionCancel = nil
+		s.transitionCancelMu.Unlock()
+		cancel()
+	}
 }
 
 func (s *Service) WorkspaceState(ctx context.Context) (apitypes.PeerRunWorkspaceState, error) {

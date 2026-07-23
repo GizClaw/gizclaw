@@ -444,19 +444,11 @@ func (h *PeerConn) close() error {
 			closeErr = errors.Join(closeErr, h.agentInput.Close())
 		}
 		if h.agentHost != nil {
+			h.agentHost.CancelTransition()
 			ctx, cancel := context.WithTimeout(context.Background(), peerConnRuntimeStopTimeout)
 			defer cancel()
-			stopDone := make(chan error, 1)
-			go func() {
-				_, err := h.agentHost.Stop(ctx)
-				stopDone <- err
-			}()
-			select {
-			case err := <-stopDone:
-				closeErr = errors.Join(closeErr, err)
-			case <-ctx.Done():
-				closeErr = errors.Join(closeErr, ctx.Err())
-			}
+			_, err := h.agentHost.Stop(ctx)
+			closeErr = errors.Join(closeErr, err)
 		}
 		mx := h.mixer
 		if mx != nil {
@@ -697,12 +689,6 @@ func (h *PeerConn) pushAgentInputChunk(ctx context.Context, chunk *genx.MessageC
 		return ErrPeerConnRetiring
 	}
 	host := h.agentHost
-	revision := uint64(0)
-	if host != nil {
-		// Capture the revision before waiting behind another input write. A
-		// queued chunk must retain the runtime it observed when it arrived.
-		revision = host.RuntimeRevision()
-	}
 	input := h.agentInput
 	if input == nil {
 		return nil
@@ -711,7 +697,7 @@ func (h *PeerConn) pushAgentInputChunk(ctx context.Context, chunk *genx.MessageC
 		return peerConnInputPusher{peer: h, input: input}.Push(ctx, chunk)
 	}
 	inputPusher := peerConnInputPusher{peer: h, input: input}
-	pushed, err := host.PushInputIfCurrentRevision(ctx, revision, inputPusher, chunk)
+	revision, pushed, err := host.PushInput(ctx, inputPusher, chunk)
 	if !pushed {
 		return nil
 	}

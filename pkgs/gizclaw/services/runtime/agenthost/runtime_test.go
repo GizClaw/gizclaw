@@ -266,6 +266,10 @@ func TestServicePushInputRequiresPusher(t *testing.T) {
 	if pushed || !errors.Is(err, ErrMissingInputPusher) {
 		t.Fatalf("PushInputIfCurrentRevision() = (%v, %v), want (false, %v)", pushed, err, ErrMissingInputPusher)
 	}
+	revision, pushed, err := (&Service{}).PushInput(context.Background(), nil, nil)
+	if revision != 0 || pushed || !errors.Is(err, ErrMissingInputPusher) {
+		t.Fatalf("PushInput() = (%d, %v, %v), want (0, false, %v)", revision, pushed, err, ErrMissingInputPusher)
+	}
 }
 
 func TestServiceReloadAndPushKeepsRetryInsideTransition(t *testing.T) {
