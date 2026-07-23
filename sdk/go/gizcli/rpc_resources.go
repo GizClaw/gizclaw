@@ -24,6 +24,10 @@ func (c *rpcClient) Register(ctx context.Context, conn net.Conn, id, token strin
 	}, nil
 }
 
+func (c *rpcClient) DeletePeer(ctx context.Context, conn net.Conn, id string, request rpcapi.ServerPeerDeleteRequest) (*rpcapi.ServerPeerDeleteResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerPeerDelete, request, (*rpcapi.RPCPayload).FromServerPeerDeleteRequest, rpcapi.RPCPayload.AsServerPeerDeleteResponse, "peer delete")
+}
+
 func callResourceRPC[Req any, Resp any](
 	ctx context.Context,
 	conn net.Conn,

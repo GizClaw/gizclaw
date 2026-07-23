@@ -60,6 +60,61 @@ func TestOwnerHasPetWorkspaceMigratesFreshDatabase(t *testing.T) {
 	}
 }
 
+func TestPetWorkspaceBindingCanonicalizesNames(t *testing.T) {
+	ctx := context.Background()
+	runtime := &Runtime{DB: testDB(t)}
+	if err := runtime.Migration(ctx); err != nil {
+		t.Fatalf("Migration() error = %v", err)
+	}
+	now := time.Date(2026, 7, 23, 1, 0, 0, 0, time.UTC)
+	pet := apitypes.Pet{
+		OwnerPublicKey:     "peer-a",
+		Id:                 "pet-a",
+		RuntimeProfileName: " profile-a ",
+		WorkspaceName:      " workspace-a ",
+		CreatedAt:          now,
+	}
+
+	t.Run("insert", func(t *testing.T) {
+		tx, err := runtime.DB.BeginTxx(ctx, nil)
+		if err != nil {
+			t.Fatalf("BeginTxx() error = %v", err)
+		}
+		defer tx.Rollback()
+		if err := insertPetWorkspaceBinding(ctx, tx, pet); err != nil {
+			t.Fatalf("insertPetWorkspaceBinding() error = %v", err)
+		}
+		assertPetWorkspaceBindingNames(t, ctx, tx, pet.OwnerPublicKey, pet.Id, "profile-a", "workspace-a")
+	})
+
+	t.Run("repair legacy padding", func(t *testing.T) {
+		tx, err := runtime.DB.BeginTxx(ctx, nil)
+		if err != nil {
+			t.Fatalf("BeginTxx() error = %v", err)
+		}
+		defer tx.Rollback()
+		if _, err := tx.ExecContext(ctx, `INSERT INTO gameplay_pet_workspace_bindings (owner_public_key, pet_id, runtime_profile_name, workspace_name, created_at) VALUES (?, ?, ?, ?, ?)`,
+			pet.OwnerPublicKey, pet.Id, pet.RuntimeProfileName, pet.WorkspaceName, formatTime(pet.CreatedAt)); err != nil {
+			t.Fatalf("insert legacy binding: %v", err)
+		}
+		if err := ensurePetWorkspaceBinding(ctx, tx, pet); err != nil {
+			t.Fatalf("ensurePetWorkspaceBinding() error = %v", err)
+		}
+		assertPetWorkspaceBindingNames(t, ctx, tx, pet.OwnerPublicKey, pet.Id, "profile-a", "workspace-a")
+	})
+}
+
+func assertPetWorkspaceBindingNames(t *testing.T, ctx context.Context, tx *sqlx.Tx, owner, petID, wantProfile, wantWorkspace string) {
+	t.Helper()
+	var profileName, workspaceName string
+	if err := tx.QueryRowContext(ctx, `SELECT runtime_profile_name, workspace_name FROM gameplay_pet_workspace_bindings WHERE owner_public_key = ? AND pet_id = ?`, owner, petID).Scan(&profileName, &workspaceName); err != nil {
+		t.Fatalf("query Pet Workspace binding: %v", err)
+	}
+	if profileName != wantProfile || workspaceName != wantWorkspace {
+		t.Fatalf("Pet Workspace binding = (%q, %q), want (%q, %q)", profileName, workspaceName, wantProfile, wantWorkspace)
+	}
+}
+
 func TestDeletePetMigratesFreshDatabase(t *testing.T) {
 	runtime := &Runtime{DB: testDB(t)}
 	ctx := WithRuntimeProfile(context.Background(), apitypes.RuntimeProfile{Name: "profile-a"})

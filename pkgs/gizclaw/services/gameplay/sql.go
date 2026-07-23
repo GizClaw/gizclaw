@@ -152,22 +152,31 @@ func insertPet(ctx context.Context, tx *sqlx.Tx, pet apitypes.Pet) error {
 }
 
 func insertPetWorkspaceBinding(ctx context.Context, tx *sqlx.Tx, pet apitypes.Pet) error {
+	profileName := strings.TrimSpace(pet.RuntimeProfileName)
+	workspaceName := strings.TrimSpace(pet.WorkspaceName)
 	_, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_pet_workspace_bindings (owner_public_key, pet_id, runtime_profile_name, workspace_name, created_at) VALUES (?, ?, ?, ?, ?)`),
-		pet.OwnerPublicKey, pet.Id, pet.RuntimeProfileName, pet.WorkspaceName, formatTime(pet.CreatedAt))
+		pet.OwnerPublicKey, pet.Id, profileName, workspaceName, formatTime(pet.CreatedAt))
 	return err
 }
 
 func ensurePetWorkspaceBinding(ctx context.Context, tx *sqlx.Tx, pet apitypes.Pet) error {
+	wantProfileName := strings.TrimSpace(pet.RuntimeProfileName)
+	wantWorkspaceName := strings.TrimSpace(pet.WorkspaceName)
 	if _, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_pet_workspace_bindings (owner_public_key, pet_id, runtime_profile_name, workspace_name, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(owner_public_key, pet_id) DO NOTHING`),
-		pet.OwnerPublicKey, pet.Id, pet.RuntimeProfileName, pet.WorkspaceName, formatTime(pet.CreatedAt)); err != nil {
+		pet.OwnerPublicKey, pet.Id, wantProfileName, wantWorkspaceName, formatTime(pet.CreatedAt)); err != nil {
 		return err
 	}
 	var profileName, workspaceName string
 	if err := tx.QueryRowContext(ctx, tx.Rebind(`SELECT runtime_profile_name, workspace_name FROM gameplay_pet_workspace_bindings WHERE owner_public_key = ? AND pet_id = ?`), pet.OwnerPublicKey, pet.Id).Scan(&profileName, &workspaceName); err != nil {
 		return err
 	}
-	if profileName != pet.RuntimeProfileName || workspaceName != pet.WorkspaceName {
+	if strings.TrimSpace(profileName) != wantProfileName || strings.TrimSpace(workspaceName) != wantWorkspaceName {
 		return fmt.Errorf("gameplay: Pet %q binding conflicts with RuntimeProfile %q Workspace %q", pet.Id, profileName, workspaceName)
+	}
+	if profileName != wantProfileName || workspaceName != wantWorkspaceName {
+		_, err := tx.ExecContext(ctx, tx.Rebind(`UPDATE gameplay_pet_workspace_bindings SET runtime_profile_name = ?, workspace_name = ? WHERE owner_public_key = ? AND pet_id = ?`),
+			wantProfileName, wantWorkspaceName, pet.OwnerPublicKey, pet.Id)
+		return err
 	}
 	return nil
 }

@@ -13,6 +13,10 @@ import (
 func TestRPCResourceClientWrappers(t *testing.T) {
 	client := &rpcClient{}
 
+	runRPCResultWrapperTest(t, rpcapi.RPCMethodServerPeerDelete, rpcapi.ServerPeerDeleteResponse{}, (*rpcapi.RPCPayload).FromServerPeerDeleteResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ServerPeerDeleteResponse, error) {
+		return client.DeletePeer(ctx, conn, "peer-delete", rpcapi.ServerPeerDeleteRequest{})
+	})
+
 	t.Run("workspace", func(t *testing.T) {
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkspaceList, rpcapi.WorkspaceListResponse{}, (*rpcapi.RPCPayload).FromWorkspaceListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkspaceListResponse, error) {
 			return client.ListWorkspaces(ctx, conn, "workspace-list", rpcapi.WorkspaceListRequest{Collection: "assistants"})
@@ -151,6 +155,43 @@ func TestRPCResourceClientWrappers(t *testing.T) {
 	t.Run("gameplay pixa", func(t *testing.T) {
 		runBadgeDefPixaDownloadWrapperTest(t, client)
 	})
+}
+
+func TestClientDeletePeerUsesRPCConnection(t *testing.T) {
+	client, serverConn, cleanup := connectedFirmwareTestClient(t)
+	defer cleanup()
+
+	listener := serverConn.ListenService(ServicePeerRPC)
+	defer listener.Close()
+	serverErrCh := make(chan error, 1)
+	go func() {
+		stream, err := listener.Accept()
+		if err != nil {
+			serverErrCh <- err
+			return
+		}
+		req, err := readRPCRequestWithEOS(stream)
+		if err != nil {
+			serverErrCh <- err
+			return
+		}
+		if req.Method != rpcapi.RPCMethodServerPeerDelete {
+			serverErrCh <- &unexpectedRPCMethodError{got: req.Method, want: rpcapi.RPCMethodServerPeerDelete}
+			return
+		}
+		serverErrCh <- writeRPCResponseWithEOS(stream, req.Method, resourceResponse(req.Id, rpcapi.ServerPeerDeleteResponse{}, (*rpcapi.RPCPayload).FromServerPeerDeleteResponse))
+	}()
+
+	response, err := client.DeletePeer(context.Background(), "peer-delete", rpcapi.ServerPeerDeleteRequest{})
+	if err != nil {
+		t.Fatalf("DeletePeer() error = %v", err)
+	}
+	if response == nil {
+		t.Fatal("DeletePeer() response = nil")
+	}
+	if err := <-serverErrCh; err != nil {
+		t.Fatalf("peer delete server error = %v", err)
+	}
 }
 
 func TestRPCRegisterPreservesFirmwareID(t *testing.T) {

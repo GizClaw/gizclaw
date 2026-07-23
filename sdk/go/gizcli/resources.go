@@ -15,6 +15,14 @@ func (c *Client) Register(ctx context.Context, id, token string) (*rpcpb.ServerR
 	})
 }
 
+// DeletePeer deletes the connected caller's active Peer. A successful call is
+// terminal for the current Peer connection; reconnect before issuing more work.
+func (c *Client) DeletePeer(ctx context.Context, id string, request rpcapi.ServerPeerDeleteRequest) (*rpcapi.ServerPeerDeleteResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ServerPeerDeleteResponse, error) {
+		return client.DeletePeer(ctx, conn, id, request)
+	})
+}
+
 func (c *Client) ListWorkspaces(ctx context.Context, id string, request rpcapi.WorkspaceListRequest) (*rpcapi.WorkspaceListResponse, error) {
 	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.WorkspaceListResponse, error) {
 		return client.ListWorkspaces(ctx, conn, id, request)

@@ -6,4 +6,6 @@
 
 Go SDK is client-facing boundary and does not have server domain behavior. API and RPC methods come from [API Design](../api/overview); when modifying the contract, the surface, SDK implementation and test must be generated simultaneously.
 
+Caller-scoped Peer deletion is exposed as `Client.DeletePeer`. A successful response is terminal for the current Peer connection, so the caller must reconnect before issuing more work.
+
 [Go API Reference](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/sdk/go/gizcli)
