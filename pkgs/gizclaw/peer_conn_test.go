@@ -455,10 +455,7 @@ func TestPeerConnCloseDoesNotWaitForBlockedRuntimeTransition(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for blocked Reload")
 	}
-	originalStopTimeout := peerConnRuntimeStopTimeout
-	peerConnRuntimeStopTimeout = 50 * time.Millisecond
-	t.Cleanup(func() { peerConnRuntimeStopTimeout = originalStopTimeout })
-	peer := &PeerConn{agentHost: runtime, agentInput: source}
+	peer := &PeerConn{agentHost: runtime, agentInput: source, runtimeStopTimeout: 50 * time.Millisecond}
 	startedAt := time.Now()
 	err = peer.close()
 	if !errors.Is(err, context.DeadlineExceeded) {
@@ -997,6 +994,7 @@ type blockingPeerAgentInput struct {
 type peerConnBlockingOpenInput struct {
 	openEntered chan struct{}
 	openRelease chan struct{}
+	openOnce    sync.Once
 }
 
 func newPeerConnBlockingOpenInput() *peerConnBlockingOpenInput {
@@ -1004,7 +1002,7 @@ func newPeerConnBlockingOpenInput() *peerConnBlockingOpenInput {
 }
 
 func (s *peerConnBlockingOpenInput) OpenAgentInput(context.Context) (genx.Stream, error) {
-	close(s.openEntered)
+	s.openOnce.Do(func() { close(s.openEntered) })
 	<-s.openRelease
 	return agenthost.NewInputStream(1), nil
 }

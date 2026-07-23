@@ -33,13 +33,14 @@ var (
 	ErrPeerConnRetiring     = errors.New("gizclaw: peer conn retiring")
 )
 
-const peerConnMixerFormat = pcm.L16Mono16K
-
-const peerConnOpusFrameDuration = 20 * time.Millisecond
-const peerConnTelemetryQueueSize = 32
+const (
+	peerConnMixerFormat        = pcm.L16Mono16K
+	peerConnOpusFrameDuration  = 20 * time.Millisecond
+	peerConnTelemetryQueueSize = 32
+	peerConnRuntimeStopTimeout = 2 * time.Second
+)
 
 var peerConnTelemetryShutdownTimeout = 2 * time.Second
-var peerConnRuntimeStopTimeout = 2 * time.Second
 
 // PeerConn is the in-memory runtime for one active peer connection.
 // It wraps the existing PeerService bundle and serves one live conn at a time.
@@ -47,19 +48,20 @@ type PeerConn struct {
 	Conn    giznet.Conn
 	Service *PeerService
 
-	closeOnce         sync.Once
-	agentHost         *agenthost.Service
-	agentInput        peerAgentInput
-	agentInputMu      sync.Mutex
-	events            *peerStreamEventBroker
-	telemetryStatusMu *sync.Mutex
-	serverGenX        *peergenx.Service
-	mixer             *pcm.Mixer
-	rpc               *rpcServer
-	audioPacing       <-chan time.Time
-	closed            atomic.Bool
-	retiring          atomic.Bool
-	registration      atomic.Pointer[runtimeprofile.Registration]
+	closeOnce          sync.Once
+	agentHost          *agenthost.Service
+	agentInput         peerAgentInput
+	agentInputMu       sync.Mutex
+	events             *peerStreamEventBroker
+	telemetryStatusMu  *sync.Mutex
+	serverGenX         *peergenx.Service
+	mixer              *pcm.Mixer
+	rpc                *rpcServer
+	audioPacing        <-chan time.Time
+	runtimeStopTimeout time.Duration
+	closed             atomic.Bool
+	retiring           atomic.Bool
+	registration       atomic.Pointer[runtimeprofile.Registration]
 }
 
 type peerAgentInput interface {
@@ -445,7 +447,11 @@ func (h *PeerConn) close() error {
 		}
 		if h.agentHost != nil {
 			h.agentHost.CancelTransition()
-			ctx, cancel := context.WithTimeout(context.Background(), peerConnRuntimeStopTimeout)
+			timeout := h.runtimeStopTimeout
+			if timeout <= 0 {
+				timeout = peerConnRuntimeStopTimeout
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
 			defer cancel()
 			_, err := h.agentHost.Stop(ctx)
 			closeErr = errors.Join(closeErr, err)
