@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -16,6 +15,15 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 )
+
+const (
+	defaultInputStreamID = "audio"
+	transcriptLabel      = "transcript"
+)
+
+func isStreamDone(err error) bool {
+	return errors.Is(err, io.EOF) || errors.Is(err, genx.ErrDone)
+}
 
 func TestFactoryCreatesChatRoomAgent(t *testing.T) {
 	params := validWorkspaceParameters(t)
@@ -616,74 +624,6 @@ func TestAgentTransformTranscribesAudioInput(t *testing.T) {
 	}
 }
 
-func TestASRInputTransportConsumerCloseBeforeProducerDone(t *testing.T) {
-	transport := newASRInputTransport(nil)
-	consumer := transport.Stream()
-	want := &genx.MessageChunk{
-		Role: genx.RoleUser,
-		Part: &genx.Blob{MIMEType: "audio/opus"},
-		Ctrl: &genx.StreamCtrl{StreamID: "turn-a", EndOfStream: true},
-	}
-	if err := transport.Add(want); err != nil {
-		t.Fatalf("transport.Add() error = %v", err)
-	}
-	got, err := consumer.Next()
-	if err != nil {
-		t.Fatalf("consumer.Next() error = %v", err)
-	}
-	if got == nil || !got.IsEndOfStream() || got.Ctrl.StreamID != "turn-a" {
-		t.Fatalf("consumer.Next() = %#v, want audio EOS", got)
-	}
-	if err := consumer.Close(); err != nil {
-		t.Fatalf("consumer.Close() error = %v", err)
-	}
-	if err := transport.Done(); err != nil {
-		t.Fatalf("transport.Done() after consumer close error = %v", err)
-	}
-	if chunk, err := consumer.Next(); !isStreamDone(err) || chunk != nil {
-		t.Fatalf("consumer.Next() after Done = %#v, %v; want done", chunk, err)
-	}
-}
-
-func TestASRInputTransportAbortUnblocksPendingDone(t *testing.T) {
-	transport := newASRInputTransport(nil)
-	consumer := transport.Stream()
-	for range 64 {
-		if err := transport.Add(&genx.MessageChunk{Part: genx.Text("audio")}); err != nil {
-			t.Fatalf("transport.Add() error = %v", err)
-		}
-	}
-	done := make(chan error, 1)
-	go func() {
-		done <- transport.Done()
-	}()
-	deadline := time.Now().Add(time.Second)
-	for {
-		transport.mu.Lock()
-		completing := transport.completing != nil
-		transport.mu.Unlock()
-		if completing {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("transport.Done() did not enter completion")
-		}
-		runtime.Gosched()
-	}
-	want := errors.New("consumer stopped")
-	if err := consumer.CloseWithError(want); err != nil {
-		t.Fatalf("consumer.CloseWithError() error = %v", err)
-	}
-	select {
-	case err := <-done:
-		if !errors.Is(err, want) {
-			t.Fatalf("transport.Done() error = %v, want %v", err, want)
-		}
-	case <-time.After(time.Second):
-		t.Fatal("transport.Done() remained blocked after consumer error")
-	}
-}
-
 func TestAgentTransformTranscribesAudioInputAddsHistoryEOSOnInputDone(t *testing.T) {
 	transformer := &scriptedASRTransformer{text: "hello"}
 	agent, err := (Factory{Transformer: transformer}).NewAgent(context.Background(), agenthost.Spec{
@@ -822,77 +762,6 @@ func TestAgentTransformRealtimeTranscribesASRSegmentStreams(t *testing.T) {
 	}
 	if len(transformer.audio) != 1 || string(transformer.audio[0]) != string([]byte{7}) {
 		t.Fatalf("ASR audio = %#v, want one forwarded input packet", transformer.audio)
-	}
-}
-
-func TestChunkHelpers(t *testing.T) {
-	if isAudioChunk(nil) {
-		t.Fatal("isAudioChunk(nil) = true")
-	}
-	if isAudioChunk(&genx.MessageChunk{Part: genx.Text("hello")}) {
-		t.Fatal("isAudioChunk(text) = true")
-	}
-	if !isAudioChunk(&genx.MessageChunk{Part: &genx.Blob{MIMEType: " Audio/OGG ; codecs=opus "}}) {
-		t.Fatal("isAudioChunk(audio/ogg) = false")
-	}
-	chunk := textChunk("", "hello", false)
-	if chunk.Ctrl == nil || chunk.Ctrl.StreamID != defaultInputStreamID {
-		t.Fatalf("textChunk default stream = %#v", chunk)
-	}
-	if got := baseMIME(" Audio/OGG ; codecs=opus "); got != "audio/ogg" {
-		t.Fatalf("baseMIME = %q, want audio/ogg", got)
-	}
-}
-
-func TestNormalizeASRTranscriptChunk(t *testing.T) {
-	if got := normalizeASRTranscriptChunk(nil, "fallback"); got != nil {
-		t.Fatalf("normalizeASRTranscriptChunk(nil) = %#v, want nil", got)
-	}
-	if got := normalizeASRTranscriptChunk(&genx.MessageChunk{Part: genx.Text("")}, "fallback"); got != nil {
-		t.Fatalf("normalizeASRTranscriptChunk(empty text) = %#v, want nil", got)
-	}
-
-	text := normalizeASRTranscriptChunk(&genx.MessageChunk{Part: genx.Text("hello")}, " fallback ")
-	if text == nil || text.Role != genx.RoleUser || text.Name != transcriptLabel || text.Ctrl == nil || text.Ctrl.StreamID != "fallback" || text.Ctrl.Label != transcriptLabel || text.Part != genx.Text("hello") {
-		t.Fatalf("normalized text = %#v", text)
-	}
-
-	eos := normalizeASRTranscriptChunk(&genx.MessageChunk{Ctrl: &genx.StreamCtrl{EndOfStream: true}}, "")
-	if eos == nil || eos.Ctrl == nil || eos.Ctrl.StreamID != defaultInputStreamID || eos.Ctrl.Label != transcriptLabel || eos.Part != genx.Text("") || !eos.IsEndOfStream() {
-		t.Fatalf("normalized eos = %#v", eos)
-	}
-
-	historyAudio := normalizeASRTranscriptChunk(&genx.MessageChunk{
-		Role: genx.RoleModel,
-		Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}},
-		Ctrl: &genx.StreamCtrl{Label: genx.HistoryUserAudioLabel},
-	}, "")
-	if historyAudio == nil || historyAudio.Role != genx.RoleUser || historyAudio.Name != transcriptLabel || historyAudio.Ctrl == nil || historyAudio.Ctrl.StreamID != defaultInputStreamID || historyAudio.Ctrl.Label != genx.HistoryUserAudioLabel {
-		t.Fatalf("normalized history audio = %#v", historyAudio)
-	}
-
-	bos := normalizeASRTranscriptChunk(&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "asr-1", BeginOfStream: true}}, "")
-	if bos == nil || bos.Ctrl == nil || bos.Ctrl.StreamID != "asr-1" || !bos.IsBeginOfStream() {
-		t.Fatalf("normalized bos = %#v", bos)
-	}
-}
-
-func TestReadTranscriptReportsASRReadError(t *testing.T) {
-	want := errors.New("asr read failed")
-	output := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 2)
-	err := readTranscript(context.Background(), &recordingStream{doneErr: want}, output, &lockedString{value: "turn-a"})
-	if err == nil || !strings.Contains(err.Error(), "read ASR") || !errors.Is(err, want) {
-		t.Fatalf("readTranscript() error = %v, want wrapped ASR error", err)
-	}
-}
-
-func TestReadTranscriptHonorsContextCancellation(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	output := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 2)
-	err := readTranscript(ctx, &recordingStream{}, output, &lockedString{value: "turn-a"})
-	if !errors.Is(err, context.Canceled) {
-		t.Fatalf("readTranscript(canceled) error = %v, want context.Canceled", err)
 	}
 }
 
