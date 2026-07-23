@@ -207,7 +207,8 @@ func TestServerSystemWorkspaceLifecycle(t *testing.T) {
 		WorkflowName: "chatroom",
 		Parameters:   &updatedParameters,
 	}
-	putResp, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Name: "friend-chat", Body: &putBody})
+	putCtx := WithRuntimeWorkflowBindings(ctx, map[string]string{"personal": "chatroom"})
+	putResp, err := srv.PutWorkspace(putCtx, adminhttp.PutWorkspaceRequestObject{Name: "friend-chat", Body: &putBody})
 	if err != nil {
 		t.Fatalf("PutWorkspace(system) error = %v", err)
 	}

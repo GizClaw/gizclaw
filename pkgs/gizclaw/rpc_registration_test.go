@@ -212,7 +212,66 @@ func TestRPCRegistrationFirmwareBindingFailurePreservesSnapshot(t *testing.T) {
 	}
 }
 
+func TestRPCRegistrationOwnerProfileBindingFailurePreservesFirmware(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	registrations := firmwareRegistrationServer(t, "h106-production", "h106")
+	_ = createRegistrationToken(t, registrations, "previous-profile")
+	publicKey := giznet.PublicKey{8}
+	if err := registrations.BindOwnerProfile(ctx, publicKey.String(), "previous-profile"); err != nil {
+		t.Fatalf("BindOwnerProfile(previous) error = %v", err)
+	}
+	firmwareID := "h106"
+	tokenResponse, err := registrations.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
+		Name: "h106-token", RuntimeProfileName: "h106-production", FirmwareId: &firmwareID,
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	created := tokenResponse.(adminhttp.CreateRegistrationToken200JSONResponse)
+
+	peers := &peer.Server{Store: kv.NewMemory(nil)}
+	if _, err := peers.EnsureConnectedPeer(ctx, publicKey); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := peers.BindFirmware(ctx, publicKey, "previous-firmware"); err != nil {
+		t.Fatal(err)
+	}
+	registrations.Store = rejectingOwnerBindingStore{Store: registrations.Store}
+	server := &rpcServer{registrations: registrations, peer: peers, callerPublicKey: publicKey}
+
+	response, err := server.dispatch(ctx, registrationRequest(created.Token))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeInternalError {
+		t.Fatalf("server.register = %#v, want internal error", response)
+	}
+	stored, err := peers.LoadPeer(ctx, publicKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.FirmwareId == nil || *stored.FirmwareId != "previous-firmware" {
+		t.Fatalf("failed owner binding replaced firmware: %#v", stored)
+	}
+	bound, err := registrations.ResolveOwnerProfile(ctx, publicKey.String())
+	if err != nil || bound.Name != "previous-profile" {
+		t.Fatalf("failed owner binding replaced owner profile: %#v, %v", bound, err)
+	}
+}
+
 type rejectingFirmwarePeer struct{}
+
+type rejectingOwnerBindingStore struct {
+	kv.Store
+}
+
+func (s rejectingOwnerBindingStore) Set(ctx context.Context, key kv.Key, value []byte) error {
+	if strings.Contains(key.String(), "by-owner") {
+		return errors.New("owner binding store unavailable")
+	}
+	return s.Store.Set(ctx, key, value)
+}
 
 func (rejectingFirmwarePeer) GetSelfInfo(context.Context, giznet.PublicKey) (apitypes.DeviceInfo, error) {
 	return apitypes.DeviceInfo{}, nil

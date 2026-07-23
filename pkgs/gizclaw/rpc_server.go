@@ -200,17 +200,23 @@ func (s *rpcServer) handleRegister(ctx context.Context, req *rpcapi.RPCRequest) 
 		}
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "registration failed"}.RPCResponse(), nil
 	}
-	if registration.FirmwareID != nil {
-		if s.peer == nil {
-			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "peer service not configured"}.RPCResponse(), nil
-		}
-		if _, err := s.peer.BindFirmware(ctx, s.callerPublicKey, *registration.FirmwareID); err != nil {
-			slog.WarnContext(ctx, "device firmware binding failed", "peer_public_key", s.callerPublicKey.String(), "source", s.registrationSource, "error", err)
-			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "registration failed"}.RPCResponse(), nil
-		}
+	if registration.FirmwareID != nil && s.peer == nil {
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "peer service not configured"}.RPCResponse(), nil
 	}
-	if err := s.registrations.BindOwnerProfile(ctx, s.callerPublicKey.String(), registration.RuntimeProfile.Name); err != nil {
-		slog.WarnContext(ctx, "device RuntimeProfile owner binding failed", "peer_public_key", s.callerPublicKey.String(), "source", s.registrationSource, "error", err)
+	var firmwareBindingErr error
+	err = s.registrations.BindOwnerProfileAndCommit(ctx, s.callerPublicKey.String(), registration.RuntimeProfile.Name, func() error {
+		if registration.FirmwareID == nil {
+			return nil
+		}
+		_, firmwareBindingErr = s.peer.BindFirmware(ctx, s.callerPublicKey, *registration.FirmwareID)
+		return firmwareBindingErr
+	})
+	if err != nil {
+		message := "device RuntimeProfile owner binding failed"
+		if firmwareBindingErr != nil {
+			message = "device firmware binding failed"
+		}
+		slog.WarnContext(ctx, message, "peer_public_key", s.callerPublicKey.String(), "source", s.registrationSource, "error", err)
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "registration failed"}.RPCResponse(), nil
 	}
 	if s.onRegistration != nil {

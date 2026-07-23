@@ -445,7 +445,7 @@ func (s *Server) init() error {
 	firmwareServer := &firmware.Server{Store: firmwareStore, Assets: s.FirmwareAssets}
 	runtimeProfileServer := &runtimeprofile.Server{Store: runtimeProfileStore}
 	publicLoginServer.RegistrationResolver = runtimeProfileServer.ResolveRegistration
-	publicLoginServer.OwnerProfileBinder = runtimeProfileServer.BindOwnerProfile
+	publicLoginServer.OwnerProfileBinder = runtimeProfileServer.BindOwnerProfileAndCommit
 	voiceServer := &voice.Server{Store: voiceStore}
 	toolServer := &toolkit.Server{Store: toolStore}
 	contactServer := &contact.Server{

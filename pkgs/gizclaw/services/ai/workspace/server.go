@@ -206,7 +206,7 @@ func (s *Server) CreateWorkspace(ctx context.Context, request adminhttp.CreateWo
 	if err != nil {
 		return adminhttp.CreateWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := s.validateReferences(ctx, workflowStore, normalized); err != nil {
+	if err := s.validateReferences(ctx, workflowStore, normalized, false); err != nil {
 		if isInvalidWorkspaceReference(err) {
 			return adminhttp.CreateWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", err.Error())), nil
 		}
@@ -245,7 +245,7 @@ func (s *Server) CreateSystemWorkspace(ctx context.Context, body adminhttp.Works
 	if err != nil {
 		return apitypes.Workspace{}, false, err
 	}
-	if err := s.validateReferences(ctx, workflowStore, normalized); err != nil {
+	if err := s.validateReferences(ctx, workflowStore, normalized, true); err != nil {
 		return apitypes.Workspace{}, false, err
 	}
 	existing, err := getWorkspace(ctx, store, string(normalized.Name))
@@ -455,7 +455,7 @@ func (s *Server) PutWorkspace(ctx context.Context, request adminhttp.PutWorkspac
 	if err != nil {
 		return adminhttp.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := s.validateReferences(ctx, workflowStore, normalized); err != nil {
+	if err := s.validateReferences(ctx, workflowStore, normalized, previousErr == nil && workspaceIsSystem(previous)); err != nil {
 		if isInvalidWorkspaceReference(err) {
 			return adminhttp.PutWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", err.Error())), nil
 		}
@@ -756,8 +756,8 @@ func workspaceMatchesLabels(workspace apitypes.Workspace, selector map[string]st
 	return true
 }
 
-func (s *Server) validateReferences(ctx context.Context, store kv.Store, workspace adminhttp.WorkspaceUpsert) error {
-	workflowName, runtimeAlias, err := resolveWorkflowReference(ctx, workspace)
+func (s *Server) validateReferences(ctx context.Context, store kv.Store, workspace adminhttp.WorkspaceUpsert, directWorkflow bool) error {
+	workflowName, runtimeAlias, err := resolveWorkflowReference(ctx, workspace, directWorkflow)
 	if err != nil {
 		return err
 	}
@@ -871,8 +871,11 @@ func (s *Server) validateASTTranslateOverrides(ctx context.Context, workspacePar
 	return nil
 }
 
-func resolveWorkflowReference(ctx context.Context, workspace adminhttp.WorkspaceUpsert) (string, bool, error) {
+func resolveWorkflowReference(ctx context.Context, workspace adminhttp.WorkspaceUpsert, direct bool) (string, bool, error) {
 	name := string(workspace.WorkflowName)
+	if direct {
+		return name, false, nil
+	}
 	if bindings, present := ctx.Value(runtimeWorkflowBindingsContextKey{}).(map[string]string); present {
 		resolved := strings.TrimSpace(bindings[name])
 		if resolved == "" {

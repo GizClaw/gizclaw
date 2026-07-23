@@ -594,7 +594,7 @@ func TestPeerServiceEdgeOpenAIRequiresActiveClientPeer(t *testing.T) {
 			},
 		}, nil
 	}
-	loginServer.OwnerProfileBinder = runtimeProfiles.BindOwnerProfile
+	loginServer.OwnerProfileBinder = runtimeProfiles.BindOwnerProfileAndCommit
 	manager := NewManager(peersServer)
 	manager.Models = models
 	manager.RuntimeProfiles = runtimeProfiles

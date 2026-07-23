@@ -286,7 +286,7 @@ pkgs/gizclaw/services/ai/workflow/agents/flowcraft/credential_body_test.go:35:3:
 pkgs/gizclaw/services/ai/workflow/agents/flowcraft/credential_body_test.go:60:80: call of testStringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/ai/workflow/agents/flowcraft/credential_body_test.go:68:86: call of testStringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/ai/workflow/agents/flowcraft/credential_body_test.go:77:3: copying variable is unneeded
-pkgs/gizclaw/services/ai/workspace/server.go:1012:4: Replace m[k]=v loop with maps.Copy
+pkgs/gizclaw/services/ai/workspace/server.go:1015:4: Replace m[k]=v loop with maps.Copy
 pkgs/gizclaw/services/ai/workspace/server.go:276:17: call of boolPointer(x) can be simplified to new(x)
 pkgs/gizclaw/services/ai/workspace/server.go:474:17: call of boolPointer(x) can be simplified to new(x)
 pkgs/gizclaw/services/ai/workspace/server.go:610:22: call of boolPointer(x) can be simplified to new(x)
@@ -419,7 +419,7 @@ pkgs/gizclaw/services/social/friendgroup/server_test.go:443:129: call of IntPtr(
 pkgs/gizclaw/services/social/friendgroup/server_test.go:450:128: call of IntPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/social/friendgroup/server_test.go:623:6: strPtr can be an inlinable wrapper around new(expr)
 pkgs/gizclaw/services/system/publiclogin/server_test.go:118:10: Replace []byte(fmt.Sprintf...) with fmt.Appendf
-pkgs/gizclaw/services/system/publiclogin/server_test.go:408:10: Replace []byte(fmt.Sprintf...) with fmt.Appendf
+pkgs/gizclaw/services/system/publiclogin/server_test.go:455:10: Replace []byte(fmt.Sprintf...) with fmt.Appendf
 pkgs/gizclaw/services/system/resourcemanager/common_test.go:115:6: ptr can be an inlinable wrapper around new(expr)
 pkgs/gizclaw/services/system/resourcemanager/credential_body_test.go:13:80: call of testStringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/system/resourcemanager/credential_body_test.go:9:6: testStringPtr can be an inlinable wrapper around new(expr)

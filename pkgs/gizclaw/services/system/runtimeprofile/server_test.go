@@ -731,6 +731,37 @@ func TestOwnerProfileBindingSurvivesConnectionLifetimeAndLoadsCurrentRevision(t 
 	}
 }
 
+func TestBindOwnerProfileAndCommitRestoresPreviousBinding(t *testing.T) {
+	t.Parallel()
+	s := &Server{Store: kv.NewMemory(nil)}
+	createProfile(t, s, "profile-a", nil)
+	createProfile(t, s, "profile-b", nil)
+	if err := s.BindOwnerProfile(t.Context(), "peer-a", "profile-a"); err != nil {
+		t.Fatalf("BindOwnerProfile(profile-a) error = %v", err)
+	}
+	commitErr := errors.New("dependent commit failed")
+	err := s.BindOwnerProfileAndCommit(t.Context(), "peer-a", "profile-b", func() error {
+		return commitErr
+	})
+	if !errors.Is(err, commitErr) {
+		t.Fatalf("BindOwnerProfileAndCommit() error = %v, want %v", err, commitErr)
+	}
+	current, err := s.ResolveOwnerProfile(t.Context(), "peer-a")
+	if err != nil || current.Name != "profile-a" {
+		t.Fatalf("ResolveOwnerProfile() = %#v, %v, want profile-a", current, err)
+	}
+
+	err = s.BindOwnerProfileAndCommit(t.Context(), "peer-b", "profile-b", func() error {
+		return commitErr
+	})
+	if !errors.Is(err, commitErr) {
+		t.Fatalf("BindOwnerProfileAndCommit(new owner) error = %v, want %v", err, commitErr)
+	}
+	if _, err := s.ResolveOwnerProfile(t.Context(), "peer-b"); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("ResolveOwnerProfile(new owner) error = %v, want not found", err)
+	}
+}
+
 func createProfile(t *testing.T, s *Server, name string, models map[string]string) {
 	t.Helper()
 	previousResolver := s.ResolveResource

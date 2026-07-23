@@ -91,6 +91,13 @@ func (s *Server) ResolveProfile(ctx context.Context, name string) (apitypes.Runt
 // connection closes; ResolveOwnerProfile always loads the current profile
 // revision rather than persisting a configuration snapshot.
 func (s *Server) BindOwnerProfile(ctx context.Context, owner, profileName string) error {
+	return s.BindOwnerProfileAndCommit(ctx, owner, profileName, nil)
+}
+
+// BindOwnerProfileAndCommit changes an owner's selected RuntimeProfile and
+// executes commit while the binding is isolated from concurrent readers. If
+// commit fails, the previous binding is restored before the method returns.
+func (s *Server) BindOwnerProfileAndCommit(ctx context.Context, owner, profileName string, commit func() error) error {
 	store, err := s.store()
 	if err != nil {
 		return err
@@ -100,10 +107,35 @@ func (s *Server) BindOwnerProfile(ctx context.Context, owner, profileName string
 	if owner == "" || profileName == "" {
 		return errors.New("runtime profile owner and name are required")
 	}
+	s.mutationMu.Lock()
+	defer s.mutationMu.Unlock()
 	if _, err := s.ResolveProfile(ctx, profileName); err != nil {
 		return err
 	}
-	return store.Set(ctx, ownerProfileKey(owner), []byte(profileName))
+	key := ownerProfileKey(owner)
+	previous, previousErr := store.Get(ctx, key)
+	if previousErr != nil && !errors.Is(previousErr, kv.ErrNotFound) {
+		return previousErr
+	}
+	if err := store.Set(ctx, key, []byte(profileName)); err != nil {
+		return err
+	}
+	if commit == nil {
+		return nil
+	}
+	if err := commit(); err != nil {
+		var rollbackErr error
+		if previousErr == nil {
+			rollbackErr = store.Set(ctx, key, previous)
+		} else {
+			rollbackErr = store.Delete(ctx, key)
+		}
+		if rollbackErr != nil {
+			return errors.Join(err, fmt.Errorf("restore owner RuntimeProfile binding: %w", rollbackErr))
+		}
+		return err
+	}
+	return nil
 }
 
 // ResolveOwnerProfile returns the current persisted revision of the profile
@@ -117,6 +149,8 @@ func (s *Server) ResolveOwnerProfile(ctx context.Context, owner string) (apitype
 	if owner == "" {
 		return apitypes.RuntimeProfile{}, errors.New("runtime profile owner is required")
 	}
+	s.mutationMu.Lock()
+	defer s.mutationMu.Unlock()
 	profileName, err := store.Get(ctx, ownerProfileKey(owner))
 	if err != nil {
 		return apitypes.RuntimeProfile{}, err
