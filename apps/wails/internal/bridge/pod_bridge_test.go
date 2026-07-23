@@ -1152,6 +1152,41 @@ func TestInvalidBootstrapEnvironmentRemainsEditable(t *testing.T) {
 	}
 }
 
+func TestUpdateBootstrapEnvironmentPersistsValuesWhenRaidsIsUnavailable(t *testing.T) {
+	paths := appconfig.NewPaths(t.TempDir())
+	if err := paths.Ensure(); err != nil {
+		t.Fatal(err)
+	}
+	b := &PodBridge{
+		Paths:                paths,
+		Store:                appconfig.Store{Paths: paths},
+		BootstrapEnvironment: appconfig.BootstrapEnvironmentStore{Path: paths.BootstrapEnvFile},
+		CatalogResolver: catalogResolverFunc(func(context.Context) (*localserver.Catalog, error) {
+			return nil, errors.New("Raids unavailable")
+		}),
+	}
+	state, err := b.UpdateBootstrapEnvironment(context.Background(), BootstrapEnvironmentUpdate{Content: "RAIDS_TOKEN=saved-token\n"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.Ready || !strings.Contains(state.Error, "Raids unavailable") {
+		t.Fatalf("bootstrap state = %+v", state)
+	}
+	values, err := b.BootstrapEnvironment.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if values["RAIDS_TOKEN"] != "saved-token" {
+		t.Fatalf("saved bootstrap environment = %v", values)
+	}
+}
+
+type catalogResolverFunc func(context.Context) (*localserver.Catalog, error)
+
+func (resolve catalogResolverFunc) Resolve(ctx context.Context) (*localserver.Catalog, error) {
+	return resolve(ctx)
+}
+
 func TestRecoverLocalServerRejectsMismatchedServerIdentity(t *testing.T) {
 	paths := appconfig.NewPaths(t.TempDir())
 	if err := paths.Ensure(); err != nil {

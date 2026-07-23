@@ -275,15 +275,14 @@ func (b *PodBridge) UpdateBootstrapEnvironment(ctx context.Context, update Boots
 	}
 	allowed := map[string]bool{}
 	catalog, err := b.catalog(ctx)
-	if err != nil {
-		return BootstrapEnvironmentState{}, err
-	}
-	for _, requirement := range catalog.Requirements {
-		allowed[requirement.Name] = true
-	}
-	for name := range values {
-		if !allowed[name] {
-			return BootstrapEnvironmentState{}, fmt.Errorf("desktop bridge: bootstrap environment %q is not used by the catalog", name)
+	if err == nil {
+		for _, requirement := range catalog.Requirements {
+			allowed[requirement.Name] = true
+		}
+		for name := range values {
+			if !allowed[name] {
+				return BootstrapEnvironmentState{}, fmt.Errorf("desktop bridge: bootstrap environment %q is not used by the catalog", name)
+			}
 		}
 	}
 	if err := b.BootstrapEnvironment.Replace(update.Content); err != nil {
