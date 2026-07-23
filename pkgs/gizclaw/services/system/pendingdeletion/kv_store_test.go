@@ -10,6 +10,25 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
+type storeWithoutCreateIfAbsent struct {
+	kv.Store
+}
+
+func TestCreateOrGetRejectsStoreWithoutAtomicCreate(t *testing.T) {
+	ctx := context.Background()
+	store := storeWithoutCreateIfAbsent{Store: kv.NewMemory(nil)}
+	record, err := New(KindWorkspace, "workspace-a", nil, ReasonResourceDelete, struct{}{}, time.Unix(1, 0))
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if _, created, err := CreateOrGet(ctx, store, record); !errors.Is(err, kv.ErrCreateIfAbsentUnsupported) || created {
+		t.Fatalf("CreateOrGet = (_, %v, %v), want unsupported error", created, err)
+	}
+	if _, err := store.Get(ctx, byIDKey(record.DeletionID)); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("Get(record) error = %v, want ErrNotFound", err)
+	}
+}
+
 func TestCreateOrGetMigratesLegacyLocator(t *testing.T) {
 	for _, fixture := range []struct {
 		name string

@@ -119,7 +119,7 @@ func (s *prefixedStore) CreateIfAbsent(ctx context.Context, guard Entry, entries
 		prefixedEntries[i] = Entry{Key: s.prefixedKey(entry.Key), Value: entry.Value, Deadline: entry.Deadline}
 	}
 	guard.Key = s.prefixedKey(guard.Key)
-	return s.base.CreateIfAbsent(ctx, guard, prefixedEntries)
+	return CreateIfAbsent(ctx, s.base, guard, prefixedEntries)
 }
 
 func (s *prefixedStore) Close() error {

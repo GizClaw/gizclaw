@@ -20,6 +20,9 @@ var (
 	ErrNotFound = errors.New("kv: not found")
 	// ErrInvalidDeadline is returned when an entry deadline is already expired.
 	ErrInvalidDeadline = errors.New("kv: invalid deadline")
+	// ErrCreateIfAbsentUnsupported is returned when a Store does not implement
+	// the optional atomic conditional-create capability.
+	ErrCreateIfAbsentUnsupported = errors.New("kv: atomic create-if-absent unsupported")
 )
 
 // Key is a hierarchical path represented as a slice of string segments.
@@ -70,14 +73,25 @@ type Store interface {
 	// If a key appears in both collections, the delete is applied last.
 	BatchMutate(ctx context.Context, entries []Entry, keys []Key) error
 
-	// CreateIfAbsent atomically stores guard and entries only when guard.Key is
-	// absent. When guard.Key already exists, it returns its stored value and
-	// leaves every key unchanged. The boolean reports whether this call created
-	// the guard and entries. If entries contains guard.Key, guard wins.
-	CreateIfAbsent(ctx context.Context, guard Entry, entries []Entry) (existing []byte, created bool, err error)
-
 	// Close releases any resources held by the store.
 	Close() error
+}
+
+type createIfAbsentStore interface {
+	CreateIfAbsent(ctx context.Context, guard Entry, entries []Entry) (existing []byte, created bool, err error)
+}
+
+// CreateIfAbsent atomically stores guard and entries through the Store's
+// optional conditional-create capability. When guard.Key already exists, it
+// returns its stored value and leaves every key unchanged. The boolean reports
+// whether this call created the guard and entries. If entries contains
+// guard.Key, guard wins.
+func CreateIfAbsent(ctx context.Context, store Store, guard Entry, entries []Entry) (existing []byte, created bool, err error) {
+	conditional, ok := store.(createIfAbsentStore)
+	if !ok {
+		return nil, false, ErrCreateIfAbsentUnsupported
+	}
+	return conditional.CreateIfAbsent(ctx, guard, entries)
 }
 
 type listAfterStore interface {

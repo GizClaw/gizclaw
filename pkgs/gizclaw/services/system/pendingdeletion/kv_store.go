@@ -67,7 +67,7 @@ func CreateOrGet(ctx context.Context, store kv.Store, record Record) (Record, bo
 	} else if found {
 		return existing, false, nil
 	}
-	existingID, created, err := store.CreateIfAbsent(ctx, kv.Entry{
+	existingID, created, err := kv.CreateIfAbsent(ctx, store, kv.Entry{
 		Key:   byLocatorKey(record.Kind, record.ResourceID),
 		Value: []byte(record.DeletionID),
 	}, entries)
@@ -132,7 +132,7 @@ func resolveExistingLocator(ctx context.Context, store kv.Store, kind Kind, reso
 		return Record{}, false, nil
 	}
 	deletionID := legacy.DeletionID
-	existingID, created, err := store.CreateIfAbsent(ctx, kv.Entry{
+	existingID, created, err := kv.CreateIfAbsent(ctx, store, kv.Entry{
 		Key:   byLocatorKey(kind, resourceID),
 		Value: []byte(deletionID),
 	}, nil)

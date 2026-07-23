@@ -200,7 +200,7 @@ func TestPrefixedStoreCreateIfAbsentScopesKeysAndForwardsResult(t *testing.T) {
 	guard := kv.Entry{Key: kv.Key{"locators", "peer-a"}, Value: []byte("deletion-a")}
 	record := kv.Entry{Key: kv.Key{"records", "deletion-a"}, Value: []byte("record-a")}
 
-	existing, created, err := store.CreateIfAbsent(ctx, guard, []kv.Entry{record})
+	existing, created, err := kv.CreateIfAbsent(ctx, store, guard, []kv.Entry{record})
 	if err != nil {
 		t.Fatalf("CreateIfAbsent(first): %v", err)
 	}
@@ -217,8 +217,9 @@ func TestPrefixedStoreCreateIfAbsentScopesKeysAndForwardsResult(t *testing.T) {
 		t.Fatalf("base Get(unprefixed guard) error = %v, want ErrNotFound", err)
 	}
 
-	existing, created, err = store.CreateIfAbsent(
+	existing, created, err = kv.CreateIfAbsent(
 		ctx,
+		store,
 		kv.Entry{Key: guard.Key, Value: []byte("deletion-b")},
 		[]kv.Entry{{Key: kv.Key{"records", "deletion-b"}, Value: []byte("record-b")}},
 	)
@@ -402,10 +403,6 @@ func (s listScriptStore) BatchDelete(context.Context, []kv.Key) error {
 
 func (s listScriptStore) BatchMutate(context.Context, []kv.Entry, []kv.Key) error {
 	return nil
-}
-
-func (s listScriptStore) CreateIfAbsent(context.Context, kv.Entry, []kv.Entry) ([]byte, bool, error) {
-	return nil, false, nil
 }
 
 func (s listScriptStore) Close() error {

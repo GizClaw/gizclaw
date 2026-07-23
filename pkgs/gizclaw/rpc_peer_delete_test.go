@@ -55,7 +55,7 @@ func (s *blockingCreateIfAbsentStore) CreateIfAbsent(ctx context.Context, guard 
 		close(s.entered)
 		<-s.release
 	})
-	return s.Store.CreateIfAbsent(ctx, guard, entries)
+	return kv.CreateIfAbsent(ctx, s.Store, guard, entries)
 }
 
 func (c *trackingGiznetConn) Close() error {

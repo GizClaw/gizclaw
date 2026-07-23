@@ -10,6 +10,24 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
+type storeWithoutCreateIfAbsent struct {
+	kv.Store
+}
+
+func TestCreateIfAbsentRejectsUnsupportedStore(t *testing.T) {
+	store := storeWithoutCreateIfAbsent{Store: kv.NewMemory(nil)}
+	var _ kv.Store = store
+	_, created, err := kv.CreateIfAbsent(
+		context.Background(),
+		store,
+		kv.Entry{Key: kv.Key{"guard"}, Value: []byte("guard")},
+		nil,
+	)
+	if !errors.Is(err, kv.ErrCreateIfAbsentUnsupported) || created {
+		t.Fatalf("CreateIfAbsent() = (_, %v, %v), want unsupported error", created, err)
+	}
+}
+
 func TestCreateIfAbsentCreatesOneAtomicRecord(t *testing.T) {
 	for _, fixture := range []struct {
 		name string
@@ -35,7 +53,7 @@ func TestCreateIfAbsentCreatesOneAtomicRecord(t *testing.T) {
 			for range callers {
 				group.Go(func() {
 					<-start
-					existing, created, err := store.CreateIfAbsent(ctx, guard, entries)
+					existing, created, err := kv.CreateIfAbsent(ctx, store, guard, entries)
 					results <- struct {
 						existing string
 						created  bool
@@ -90,8 +108,9 @@ func TestCreateIfAbsentExistingGuardSkipsWriteValidation(t *testing.T) {
 			}
 			expired := time.Now().Add(-time.Second)
 			extraKey := kv.Key{"records", "new"}
-			existing, created, err := store.CreateIfAbsent(
+			existing, created, err := kv.CreateIfAbsent(
 				ctx,
+				store,
 				kv.Entry{Key: guardKey, Value: []byte("replacement"), Deadline: expired},
 				[]kv.Entry{{Key: extraKey, Value: []byte("new"), Deadline: expired}},
 			)
@@ -126,8 +145,9 @@ func TestCreateIfAbsentGuardWinsEntryCollision(t *testing.T) {
 			store := fixture.new(t)
 			ctx := context.Background()
 			guard := kv.Entry{Key: kv.Key{"pending", "resource"}, Value: []byte("guard")}
-			existing, created, err := store.CreateIfAbsent(
+			existing, created, err := kv.CreateIfAbsent(
 				ctx,
+				store,
 				guard,
 				[]kv.Entry{{Key: guard.Key, Value: []byte("entry")}},
 			)
