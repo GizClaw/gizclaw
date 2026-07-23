@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:drift/native.dart';
 import 'package:flutter/widgets.dart';
@@ -15,6 +16,131 @@ import 'package:gizclaw_app/l10n/locale_resolution.dart';
 import 'package:gizclaw_app/prototype/prototype_models.dart';
 
 void main() {
+  test(
+    'localizes stable Chatroom EOS codes without changing their meaning',
+    () {
+      final removed = PeerStreamEvent(
+        type: 'eos',
+        streamId: 'turn-removed',
+        errorCode: 'CHATROOM_MEMBER_REMOVED',
+        errorMessage: 'server fallback',
+      );
+      final retryable = PeerStreamEvent(
+        type: 'eos',
+        streamId: 'turn-retryable',
+        errorCode: 'CHATROOM_ACCESS_CHECK_FAILED',
+        errorMessage: 'server English fallback',
+        errorRetryable: true,
+      );
+
+      expect(
+        localizedPeerEventErrorMessage(removed, const Locale('zh')),
+        '你已被移出这个群聊。',
+      );
+      expect(
+        localizedPeerEventErrorMessage(removed, const Locale('en')),
+        'You were removed from this group.',
+      );
+      expect(
+        localizedPeerEventErrorMessage(retryable, const Locale('zh')),
+        '暂时无法确认群聊权限，请重试。',
+      );
+    },
+  );
+
+  test('resolves group history senders to friend names or stable IDs', () {
+    final controller = MobileDataController(
+      database: AppDatabase.forTesting(NativeDatabase.memory()),
+    );
+    addTearDown(controller.close);
+    controller.chatroomWorkspaces = const [
+      ChatroomWorkspaceMetadata(
+        workspaceName: 'direct-a-b',
+        title: 'Avery',
+        kind: ChatroomWorkspaceKind.direct,
+        peerPublicKey: 'peer-public-key-a',
+      ),
+    ];
+
+    expect(
+      controller.chatSenderLabel('group-room', 'peer-public-key-a'),
+      'Avery',
+    );
+    expect(
+      controller.chatSenderLabel('group-room', '0123456789abcdefghijklmnop'),
+      '01234567…mnop',
+    );
+  });
+
+  test(
+    'coalesces history invalidations without losing one received in flight',
+    () async {
+      final client = _BlockingHistoryClient();
+      final controller = MobileDataController(
+        database: AppDatabase.forTesting(NativeDatabase.memory()),
+        connectionController: _RefreshTestConnection(
+          profile: _profile('gizclaw.local:9820'),
+          client: client,
+          serverId: 'server-a',
+        ),
+      );
+      final event = PeerStreamEvent(
+        type: 'workspace.history.updated',
+        workspaceHistoryUpdated: WorkspaceHistoryUpdated(
+          workspaceName: 'group-room',
+        ),
+      );
+
+      controller.handlePeerEventForTesting(event);
+      await client.waitForCallCount(1);
+      controller.handlePeerEventForTesting(event);
+      controller.handlePeerEventForTesting(event);
+
+      client.complete(0);
+      await client.waitForCallCount(2);
+      expect(client.calls, 2);
+
+      client.complete(1);
+      await controller.waitForPeerEventRefreshesForTesting();
+      expect(client.calls, 2);
+      await controller.close();
+    },
+  );
+
+  test(
+    'opening an inactive history viewer reuses the connection event session',
+    () async {
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      final client = _HistoryViewerClient();
+      final connection = _CountingEventConnection(
+        profile: _profile('gizclaw.local:9820'),
+        client: client,
+        serverId: 'server-a',
+      );
+      final controller = MobileDataController(
+        database: database,
+        connectionController: connection,
+        dataRepository: _ReconnectRepository(database),
+      );
+      addTearDown(controller.close);
+
+      await controller.start();
+      expect(connection.eventFactory.openCalls, 1);
+
+      final viewer = controller.createWorkspaceHistoryViewer(
+        workspaceName: 'inactive-room',
+      );
+      addTearDown(viewer.close);
+      expect(viewer.eventSession, isNotNull);
+      expect(viewer.dataChannelFactory, isNull);
+
+      await viewer.start(conversation: false);
+
+      expect(connection.eventFactory.openCalls, 1);
+      expect(client.historyCalls, 1);
+    },
+  );
+
   test('classifies only iOS LAN failures as local-network recovery', () {
     for (final endpoint in [
       'gizclaw.local:9820',
@@ -485,6 +611,71 @@ void main() {
     await controller.close();
   });
 
+  test(
+    'reconnects when the Peer Event Stream cannot open on a connected transport',
+    () async {
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      final client = _RunWorkspaceClient();
+      final connection = _EventRetryConnection(
+        profile: _profile('gizclaw.local:9820'),
+        client: client,
+        serverId: 'server-a',
+      );
+      final controller = MobileDataController(
+        database: database,
+        connectionController: connection,
+        dataRepository: _ReconnectRepository(database),
+        backgroundReconnectInitialDelay: Duration.zero,
+        backgroundReconnectMaxDelay: Duration.zero,
+      );
+
+      await controller.start();
+      await connection.eventFactory.opened.future;
+      for (
+        var attempts = 0;
+        attempts < 20 &&
+            controller.connectionState != MobileConnectionState.connected;
+        attempts += 1
+      ) {
+        await Future<void>.delayed(Duration.zero);
+      }
+
+      expect(connection.eventFactory.openCalls, 2);
+      expect(connection.reconnectCalls, 1);
+      expect(controller.connectionState, MobileConnectionState.connected);
+      await controller.close();
+    },
+  );
+
+  test(
+    'resuming immediately recovers a required Peer Event transport rebuild',
+    () async {
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      final client = _RunWorkspaceClient();
+      final connection = _EventRetryConnection(
+        profile: _profile('gizclaw.local:9820'),
+        client: client,
+        serverId: 'server-a',
+      );
+      final controller = MobileDataController(
+        database: database,
+        connectionController: connection,
+        dataRepository: _ReconnectRepository(database),
+        backgroundReconnectInitialDelay: const Duration(days: 1),
+        backgroundReconnectMaxDelay: const Duration(days: 1),
+      );
+
+      await controller.start();
+      expect(connection.reconnectCalls, 0);
+      controller.handleAppResumed();
+      await connection.eventFactory.opened.future;
+
+      expect(connection.eventFactory.openCalls, 2);
+      expect(connection.reconnectCalls, 1);
+      await controller.close();
+    },
+  );
+
   test('reconnects immediately when the app resumes offline', () async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
     final client = _RunWorkspaceClient();
@@ -656,6 +847,36 @@ void main() {
     expect(controller.connectionState, MobileConnectionState.connected);
     expect(controller.lastError, isNull);
   });
+
+  test(
+    'refresh keeps an inaccessible active Chatroom restricted without switching',
+    () async {
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      final client = _RestrictedChatroomClient();
+      final controller =
+          MobileDataController(
+              database: database,
+              connectionController: _RefreshTestConnection(
+                profile: _profile('gizclaw.local:9820'),
+                client: client,
+                serverId: 'server-a',
+              ),
+              dataRepository: _ReconnectRepository(database),
+            )
+            ..activeServerId = 'server-a'
+            ..connectionState = MobileConnectionState.connected;
+      addTearDown(controller.close);
+
+      await controller.refresh(client: client, serverId: 'server-a');
+
+      expect(controller.activeWorkspaceName, 'removed-chatroom');
+      expect(controller.activeWorkspaceDocument, isNull);
+      expect(controller.activeWorkspaceChat?.workspaceName, 'removed-chatroom');
+      expect(controller.activeWorkspaceChat?.messages, isEmpty);
+      expect(client.setRunWorkspaceCalls, 0);
+      expect(controller.lastError, isNull);
+    },
+  );
 
   test('switches cached server partitions after reconnect', () async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
@@ -1306,6 +1527,39 @@ class _BackgroundRetryConnection extends _RefreshTestConnection {
   }
 }
 
+class _EventRetryConnection extends _RefreshTestConnection {
+  _EventRetryConnection({
+    required super.profile,
+    required super.client,
+    required super.serverId,
+  });
+
+  final eventFactory = _FailFirstEventFactory();
+  int reconnectCalls = 0;
+
+  @override
+  GizClawDataChannelFactory get dataChannelFactory => eventFactory;
+
+  @override
+  Future<GizClawClient> reconnect() async {
+    reconnectCalls += 1;
+    return currentClient;
+  }
+}
+
+class _CountingEventConnection extends _RefreshTestConnection {
+  _CountingEventConnection({
+    required super.profile,
+    required super.client,
+    required super.serverId,
+  });
+
+  final eventFactory = _CountingEventFactory();
+
+  @override
+  GizClawDataChannelFactory get dataChannelFactory => eventFactory;
+}
+
 class _EndedMicrophoneConnection extends GizClawConnectionController {
   _EndedMicrophoneConnection({required GizClawConnectionProfile profile})
     : super(profile);
@@ -1460,6 +1714,78 @@ class _RunWorkspaceClient extends GizClawClient {
   @override
   Future<ServerGetRunWorkspaceResponse> getRunWorkspace() async {
     return ServerGetRunWorkspaceResponse(value: PeerRunWorkspaceState());
+  }
+}
+
+class _HistoryViewerClient extends _RunWorkspaceClient {
+  int historyCalls = 0;
+
+  @override
+  Future<WorkspaceHistoryListResponse> listWorkspaceHistory({
+    required String workspaceName,
+    String? cursor,
+    int? limit,
+  }) async {
+    historyCalls += 1;
+    return WorkspaceHistoryListResponse(
+      value: PeerRunHistoryListResponse(available: true),
+    );
+  }
+}
+
+class _BlockingHistoryClient extends _RunWorkspaceClient {
+  final List<Completer<WorkspaceHistoryListResponse>> _responses = [];
+  int calls = 0;
+
+  @override
+  Future<WorkspaceHistoryListResponse> listWorkspaceHistory({
+    required String workspaceName,
+    String? cursor,
+    int? limit,
+  }) {
+    calls += 1;
+    final response = Completer<WorkspaceHistoryListResponse>();
+    _responses.add(response);
+    return response.future;
+  }
+
+  Future<void> waitForCallCount(int count) async {
+    while (calls < count) {
+      await Future<void>.delayed(Duration.zero);
+    }
+  }
+
+  void complete(int index) {
+    _responses[index].complete(
+      WorkspaceHistoryListResponse(
+        value: PeerRunHistoryListResponse(available: true),
+      ),
+    );
+  }
+}
+
+class _RestrictedChatroomClient extends _RunWorkspaceClient {
+  int setRunWorkspaceCalls = 0;
+
+  @override
+  Future<ServerGetRunWorkspaceResponse> getRunWorkspace() async {
+    return ServerGetRunWorkspaceResponse(
+      value: PeerRunWorkspaceState(
+        activeWorkspaceName: 'removed-chatroom',
+        agentType: 'chatroom',
+      ),
+    );
+  }
+
+  @override
+  Future<WorkspaceGetResponse> getWorkspace(String name) async {
+    throw RpcError(403, 'chatroom relationship was removed');
+  }
+
+  @override
+  Future<ServerSetRunWorkspaceResponse> setRunWorkspace(String name) async {
+    setRunWorkspaceCalls += 1;
+    throw StateError('restricted Chatroom must not be selected again');
   }
 }
 
@@ -1630,4 +1956,63 @@ class _NeverDataChannelFactory implements GizClawDataChannelFactory {
   }) {
     throw UnsupportedError('No data channel is used by this test');
   }
+}
+
+class _FailFirstEventFactory implements GizClawDataChannelFactory {
+  final opened = Completer<void>();
+  int openCalls = 0;
+
+  @override
+  Future<GizClawDataChannel> createDataChannel(
+    String label, {
+    GizClawDataChannelOptions options = const GizClawDataChannelOptions(),
+  }) async {
+    openCalls += 1;
+    if (openCalls == 1) {
+      throw StateError('Peer Event Stream open failed');
+    }
+    if (!opened.isCompleted) opened.complete();
+    return _OpenDataChannel(label);
+  }
+}
+
+class _CountingEventFactory implements GizClawDataChannelFactory {
+  int openCalls = 0;
+
+  @override
+  Future<GizClawDataChannel> createDataChannel(
+    String label, {
+    GizClawDataChannelOptions options = const GizClawDataChannelOptions(),
+  }) async {
+    openCalls += 1;
+    return _OpenDataChannel(label);
+  }
+}
+
+class _OpenDataChannel implements GizClawDataChannel {
+  _OpenDataChannel(this.label);
+
+  final _messages = StreamController<Uint8List>();
+
+  @override
+  int get bufferedAmount => 0;
+
+  @override
+  final String label;
+
+  @override
+  Stream<Uint8List> get messages => _messages.stream;
+
+  @override
+  GizClawDataChannelState get state => GizClawDataChannelState.open;
+
+  @override
+  Stream<GizClawDataChannelState> get states =>
+      const Stream<GizClawDataChannelState>.empty();
+
+  @override
+  Future<void> close() => _messages.close();
+
+  @override
+  Future<void> send(Uint8List bytes) async {}
 }

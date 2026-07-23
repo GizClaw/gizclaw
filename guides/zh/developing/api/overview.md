@@ -32,7 +32,7 @@ api/
 | Public API | Server | HTTP / OpenAPI | [设计](./http/public) · [API Reference](/api/) |
 | OpenAI Compatible API | Server | HTTP / OpenAPI | [设计](./http/openai-compatible) · [API Reference](/api/) |
 | Peer RPC | Client、Server、Edge-node | Protobuf RPC over Giznet service stream | [设计](./proto/rpc/overview) · [Methods](/references/rpc) · [Streams](/references/streams#rpc-streams) |
-| Peer Events | Client、Server | JSON over Agent Event Stream | [Events](/references/events) · [Streams](/references/streams) |
+| Peer Events | Client、Server | Protobuf over Peer Event Stream | [Events](/references/events) · [Streams](/references/streams) |
 | Peer Telemetry | Client / Peer | Protobuf direct packet | [设计](./proto/telemetry) · [Transport](/references/streams#direct-packets) |
 
 ## 子文档

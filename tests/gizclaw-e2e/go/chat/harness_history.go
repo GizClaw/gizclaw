@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 )
 
@@ -84,7 +83,7 @@ func (d *personaDriver) verifyHistoryReplayWithOptions(ctx context.Context, item
 			if msg, ok := peerEventError(event); ok {
 				return stats, fmt.Errorf("peer event error: %s; recent events: %s", msg, trace.String())
 			}
-			if event.Type == apitypes.PeerStreamEventTypeEos {
+			if event.Type == peerStreamEventTypeEos {
 				audioDone = true
 				fmt.Printf("workspace_progress event=history_replay_audio_done workspace=%s stream=%s after_play=%s packets=%d bytes=%d\n", d.cfg.Workspace, eventStreamID(event), time.Since(start).Truncate(time.Millisecond), stats.DownlinkPackets, totalFrameBytes(frames))
 				continue
@@ -155,7 +154,7 @@ func (d *personaDriver) drainTransport() {
 	}
 }
 
-func acceptHistoryReplayStream(event apitypes.PeerStreamEvent, boundStreamID *string) bool {
+func acceptHistoryReplayStream(event peerStreamEvent, boundStreamID *string) bool {
 	if event.StreamId == nil || strings.TrimSpace(*event.StreamId) == "" {
 		return true
 	}

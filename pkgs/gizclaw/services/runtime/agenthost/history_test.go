@@ -642,6 +642,35 @@ func TestHistoryRecorderControlEOSFinalizesRouteOnce(t *testing.T) {
 	}
 }
 
+func TestHistoryRecorderNotifiesOnlyAfterDurableAppend(t *testing.T) {
+	history := workspace.NewHistoryStore(
+		failingHistoryObjectStore{ObjectStore: objectstore.Dir(t.TempDir())},
+		"demo",
+	)
+	notified := false
+	recorder := newHistoryRecorder(history, "", func(time.Time) {
+		notified = true
+	})
+	ctx := t.Context()
+	if err := recorder.ObserveOutput(ctx, &genx.MessageChunk{
+		Role: genx.RoleModel,
+		Name: "assistant",
+		Part: genx.Text("hello"),
+		Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant"},
+	}); err != nil {
+		t.Fatalf("ObserveOutput(text): %v", err)
+	}
+	err := recorder.ObserveOutput(ctx, &genx.MessageChunk{
+		Ctrl: &genx.StreamCtrl{StreamID: "s1", EndOfStream: true},
+	})
+	if err == nil || !strings.Contains(err.Error(), "forced history write failure") {
+		t.Fatalf("ObserveOutput(EOS) error = %v, want durable append failure", err)
+	}
+	if notified {
+		t.Fatal("history invalidation emitted before the append was durable")
+	}
+}
+
 func TestHistoryAgentMergesOutputHistoryAudioWithTranscript(t *testing.T) {
 	history := workspace.NewHistoryStore(objectstore.Dir(t.TempDir()), "demo")
 	agent := wrapHistoryAgent(historyTestAgent{output: historyStreamFromChunks(
@@ -1423,6 +1452,14 @@ func TestHistoryPCMFormatAndChunkNames(t *testing.T) {
 
 type historyTestAgent struct {
 	output genx.Stream
+}
+
+type failingHistoryObjectStore struct {
+	objectstore.ObjectStore
+}
+
+func (f failingHistoryObjectStore) Put(string, io.Reader) error {
+	return errors.New("forced history write failure")
 }
 
 func (a historyTestAgent) Transform(context.Context, genx.Stream) (genx.Stream, error) {

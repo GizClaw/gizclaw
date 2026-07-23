@@ -2,9 +2,11 @@ package friendgroup
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"iter"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -12,13 +14,20 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 	_ "modernc.org/sqlite"
 )
+
+type groupNotification struct {
+	recipient string
+	event     *eventpb.PeerEvent
+}
 
 func TestRolesAudioMessagesAndTTL(t *testing.T) {
 	ctx := context.Background()
@@ -100,6 +109,109 @@ func TestRolesAudioMessagesAndTTL(t *testing.T) {
 	}
 }
 
+func TestFriendGroupEventsReachCurrentAndFormerMembers(t *testing.T) {
+	ctx := t.Context()
+	s := newTestServer(t)
+	var notifications []groupNotification
+	s.NotifyPeer = func(_ context.Context, recipient string, event *eventpb.PeerEvent) {
+		notifications = append(notifications, groupNotification{recipient: recipient, event: event})
+	}
+
+	group, err := s.CreateFriendGroup(ctx, "peer-a", rpcapi.FriendGroupCreateRequest{Name: "room"})
+	if err != nil {
+		t.Fatalf("CreateFriendGroup: %v", err)
+	}
+	groupID := socialutil.StringValue(group.Id)
+	assertGroupNotifications(
+		t,
+		notifications,
+		map[string]struct{}{"peer-a": {}},
+		groupID,
+		eventpb.FriendGroupChange_FRIEND_GROUP_CHANGE_CREATED,
+	)
+
+	notifications = nil
+	if _, err := s.AddFriendGroupMember(ctx, "peer-a", rpcapi.FriendGroupMemberAddRequest{
+		FriendGroupId: groupID,
+		PeerPublicKey: "peer-b",
+		Role:          rpcapi.FriendGroupMemberMutableRole("member"),
+	}); err != nil {
+		t.Fatalf("AddFriendGroupMember: %v", err)
+	}
+	assertGroupNotifications(
+		t,
+		notifications,
+		map[string]struct{}{"peer-a": {}, "peer-b": {}},
+		groupID,
+		eventpb.FriendGroupChange_FRIEND_GROUP_CHANGE_MEMBER_ADDED,
+	)
+
+	notifications = nil
+	updatedName := "renamed room"
+	if _, err := s.PutFriendGroup(ctx, "peer-a", rpcapi.FriendGroupPutRequest{
+		Id:   groupID,
+		Name: &updatedName,
+	}); err != nil {
+		t.Fatalf("PutFriendGroup: %v", err)
+	}
+	assertGroupNotifications(
+		t,
+		notifications,
+		map[string]struct{}{"peer-a": {}, "peer-b": {}},
+		groupID,
+		eventpb.FriendGroupChange_FRIEND_GROUP_CHANGE_METADATA_UPDATED,
+	)
+
+	notifications = nil
+	if _, err := s.DeleteFriendGroupMember(ctx, "peer-a", rpcapi.FriendGroupMemberDeleteRequest{
+		FriendGroupId: groupID,
+		Id:            "peer-b",
+	}); err != nil {
+		t.Fatalf("DeleteFriendGroupMember: %v", err)
+	}
+	assertGroupNotifications(
+		t,
+		notifications,
+		map[string]struct{}{"peer-a": {}, "peer-b": {}},
+		groupID,
+		eventpb.FriendGroupChange_FRIEND_GROUP_CHANGE_MEMBER_REMOVED,
+	)
+	for _, notification := range notifications {
+		if got := notification.event.GetFriendGroupUpdated().GetAffectedPeerPublicKey(); got != "peer-b" {
+			t.Fatalf("removed member in notification = %q, want peer-b", got)
+		}
+	}
+}
+
+func assertGroupNotifications(
+	t *testing.T,
+	notifications []groupNotification,
+	wantRecipients map[string]struct{},
+	groupID string,
+	change eventpb.FriendGroupChange,
+) {
+	t.Helper()
+	if len(notifications) != len(wantRecipients) {
+		t.Fatalf("notifications = %#v, want recipients %#v", notifications, wantRecipients)
+	}
+	for _, notification := range notifications {
+		if _, ok := wantRecipients[notification.recipient]; !ok {
+			t.Fatalf("unexpected recipient %q in %#v", notification.recipient, notifications)
+		}
+		payload := notification.event.GetFriendGroupUpdated()
+		if notification.event.GetType() != eventpb.PeerEventType_PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED ||
+			payload == nil ||
+			payload.GetFriendGroupId() != groupID ||
+			payload.GetChange() != change {
+			t.Fatalf("notification = recipient=%q event=%+v", notification.recipient, notification.event)
+		}
+		delete(wantRecipients, notification.recipient)
+	}
+	if len(wantRecipients) != 0 {
+		t.Fatalf("missing recipients = %#v", wantRecipients)
+	}
+}
+
 func TestGroupWorkspaceBelongsToCreator(t *testing.T) {
 	workspaces := &recordingWorkspaceService{}
 	s := newTestServer(t)
@@ -119,6 +231,10 @@ func TestGroupWorkspaceBelongsToCreator(t *testing.T) {
 func TestAdminApplyExistingFriendGroupPreservesWorkspaceBinding(t *testing.T) {
 	s := newTestServer(t)
 	s.RuntimeProfileForOwner = testRuntimeProfileForOwner
+	var notifications []groupNotification
+	s.NotifyPeer = func(_ context.Context, recipient string, event *eventpb.PeerEvent) {
+		notifications = append(notifications, groupNotification{recipient: recipient, event: event})
+	}
 	if _, err := s.AdminApplyFriendGroup(t.Context(), "family01", "peer-a", "Family", nil); err != nil {
 		t.Fatal(err)
 	}
@@ -132,6 +248,13 @@ func TestAdminApplyExistingFriendGroupPreservesWorkspaceBinding(t *testing.T) {
 	if socialutil.StringValue(updated.Name) != "Family Updated" {
 		t.Fatalf("updated group = %#v", updated)
 	}
+	assertGroupNotifications(
+		t,
+		notifications,
+		map[string]struct{}{"peer-a": {}},
+		"family01",
+		eventpb.FriendGroupChange_FRIEND_GROUP_CHANGE_METADATA_UPDATED,
+	)
 }
 
 func TestConcurrentAdminApplyFriendGroupSerializesWorkspaceLifecycle(t *testing.T) {
@@ -208,6 +331,300 @@ func TestAdminDeleteFriendGroupMemberRollsBackWhenBelongsDeleteFails(t *testing.
 	}
 	if _, err := s.groupMember(ctx, friendGroupID, "peer-b"); err != nil {
 		t.Fatalf("groupMember after failed admin delete = %v, want restored", err)
+	}
+}
+
+func TestDeleteFriendGroupIsRelationshipFirstAndRetryable(t *testing.T) {
+	ctx := t.Context()
+	workspaces := &recordingWorkspaceService{
+		retiredOwner: "peer-a",
+		retireErr:    errors.New("forced retirement failure"),
+	}
+	s := newTestServer(t)
+	s.NewID = func() string { return "group-0001" }
+	group, err := s.CreateFriendGroup(ctx, "peer-a", rpcapi.FriendGroupCreateRequest{Name: "room"})
+	if err != nil {
+		t.Fatalf("CreateFriendGroup: %v", err)
+	}
+	groupID := socialutil.StringValue(group.Id)
+	if _, err := s.AddFriendGroupMember(ctx, "peer-a", rpcapi.FriendGroupMemberAddRequest{
+		FriendGroupId: groupID,
+		PeerPublicKey: "peer-b",
+		Role:          rpcapi.FriendGroupMemberMutableRole("member"),
+	}); err != nil {
+		t.Fatalf("AddFriendGroupMember: %v", err)
+	}
+	message, err := s.SendFriendGroupMessage(ctx, "peer-a", rpcapi.FriendGroupMessageSendRequest{
+		FriendGroupId:    groupID,
+		AudioBase64:      []byte("opus"),
+		AudioContentType: socialutil.DefaultAudioContentType,
+	})
+	if err != nil {
+		t.Fatalf("SendFriendGroupMessage: %v", err)
+	}
+	var notifications []groupNotification
+	s.NotifyPeer = func(_ context.Context, recipient string, event *eventpb.PeerEvent) {
+		notifications = append(notifications, groupNotification{recipient: recipient, event: event})
+	}
+	s.Workspaces = workspaces
+
+	if _, err := s.DeleteFriendGroup(ctx, "peer-a", rpcapi.FriendGroupDeleteRequest{Id: groupID}); !errors.Is(err, workspaces.retireErr) {
+		t.Fatalf("DeleteFriendGroup first error = %v, want retirement failure", err)
+	}
+	if _, err := s.AdminGetFriendGroup(ctx, groupID); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("AdminGetFriendGroup after committed relationship delete = %v, want not found", err)
+	}
+	if _, err := s.groupMember(ctx, groupID, "peer-b"); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("groupMember after committed relationship delete = %v, want not found", err)
+	}
+	if len(workspaces.deleted) != 0 || len(workspaces.retired) != 1 {
+		t.Fatalf("workspace calls after first delete: deleted=%v retired=%v", workspaces.deleted, workspaces.retired)
+	}
+	if len(notifications) != 0 {
+		t.Fatalf("notifications before durable PendingDeletion = %#v, want none", notifications)
+	}
+	pending, err := pendingdeletion.GetByLocator(
+		ctx,
+		s.RelationshipStore,
+		pendingdeletion.KindFriendGroup,
+		groupID,
+	)
+	if err != nil {
+		t.Fatalf("Friend Group data PendingDeletion after relationship commit: %v", err)
+	}
+	var descriptor retiredFriendGroupDataDescriptor
+	if err := json.Unmarshal(pending.Descriptor, &descriptor); err != nil {
+		t.Fatalf("decode Friend Group data PendingDeletion descriptor: %v", err)
+	}
+	if descriptor.FriendGroupID != groupID ||
+		len(descriptor.MessageStorePrefix) != 2 ||
+		descriptor.MessageStorePrefix[0] != socialutil.GroupMessagesRoot[0] ||
+		descriptor.MessageStorePrefix[1] != socialutil.EscapeStoreSegment(groupID) ||
+		descriptor.MessageAssetPrefix != socialutil.EscapeStoreSegment(groupID)+"/" {
+		t.Fatalf("Friend Group data PendingDeletion descriptor = %#v", descriptor)
+	}
+	if _, err := s.Messages.Get(
+		ctx,
+		socialutil.GroupMessageKey(groupID, socialutil.StringValue(message.Id)),
+	); err != nil {
+		t.Fatalf("message metadata removed during retirement: %v", err)
+	}
+	assets, err := s.MessageAssets.List(descriptor.MessageAssetPrefix)
+	if err != nil || len(assets) != 1 {
+		t.Fatalf("message assets after retirement = %#v, error = %v", assets, err)
+	}
+
+	workspaces.retireErr = nil
+	restarted := &Server{
+		Groups:                   s.Groups,
+		InviteTokens:             s.InviteTokens,
+		Members:                  s.Members,
+		Belongs:                  s.Belongs,
+		RelationshipStore:        s.RelationshipStore,
+		GroupRelationshipPrefix:  s.GroupRelationshipPrefix,
+		InviteRelationshipPrefix: s.InviteRelationshipPrefix,
+		MemberRelationshipPrefix: s.MemberRelationshipPrefix,
+		BelongRelationshipPrefix: s.BelongRelationshipPrefix,
+		Workspaces:               workspaces,
+		Now:                      s.Now,
+		NotifyPeer:               s.NotifyPeer,
+	}
+	if err := restarted.ReconcileRetirementIntents(ctx); err != nil {
+		t.Fatalf("ReconcileRetirementIntents after restart: %v", err)
+	}
+	if len(workspaces.retired) != 2 || workspaces.retired[0] != workspaces.retired[1] {
+		t.Fatalf("retirement retry targets = %v, want same Workspace twice", workspaces.retired)
+	}
+	assertGroupNotifications(
+		t,
+		notifications,
+		map[string]struct{}{"peer-a": {}, "peer-b": {}},
+		groupID,
+		eventpb.FriendGroupChange_FRIEND_GROUP_CHANGE_DELETED,
+	)
+	notificationCount := len(notifications)
+	retried, err := restarted.DeleteFriendGroup(
+		ctx,
+		"peer-a",
+		rpcapi.FriendGroupDeleteRequest{Id: groupID},
+	)
+	if err != nil {
+		t.Fatalf("DeleteFriendGroup retry after completed retirement: %v", err)
+	}
+	if socialutil.StringValue(retried.Id) != groupID ||
+		socialutil.StringValue(retried.WorkspaceName) != socialutil.StringValue(group.WorkspaceName) {
+		t.Fatalf("DeleteFriendGroup completed retry = %#v", retried)
+	}
+	if len(notifications) != notificationCount {
+		t.Fatalf("completed retry notifications = %d, want %d", len(notifications), notificationCount)
+	}
+	if _, err := restarted.AdminApplyFriendGroup(
+		ctx,
+		groupID,
+		"peer-a",
+		"replacement",
+		nil,
+	); err == nil || !strings.Contains(err.Error(), "pending deletion") {
+		t.Fatalf("AdminApplyFriendGroup while data cleanup is pending error = %v", err)
+	}
+}
+
+func TestDeleteFriendGroupRejectsUnauthorizedBeforePendingDeletion(t *testing.T) {
+	ctx := t.Context()
+	workspaces := &recordingWorkspaceService{}
+	s := newTestServer(t)
+	group, err := s.CreateFriendGroup(ctx, "peer-a", rpcapi.FriendGroupCreateRequest{Name: "room"})
+	if err != nil {
+		t.Fatalf("CreateFriendGroup: %v", err)
+	}
+	groupID := socialutil.StringValue(group.Id)
+	s.Workspaces = workspaces
+
+	if _, err := s.DeleteFriendGroup(
+		ctx,
+		"peer-b",
+		rpcapi.FriendGroupDeleteRequest{Id: groupID},
+	); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("DeleteFriendGroup unauthorized error = %v, want not found", err)
+	}
+	if len(workspaces.retired) != 0 || len(workspaces.deleted) != 0 {
+		t.Fatalf(
+			"workspace changed after unauthorized delete: retired=%v deleted=%v",
+			workspaces.retired,
+			workspaces.deleted,
+		)
+	}
+	if exists, err := pendingdeletion.HasLocator(
+		ctx,
+		s.RelationshipStore,
+		pendingdeletion.KindFriendGroup,
+		groupID,
+	); err != nil || exists {
+		t.Fatalf("Friend Group data PendingDeletion after unauthorized delete = %v, error = %v", exists, err)
+	}
+}
+
+func TestDeleteFriendGroupRejectsUnknownBeforePendingDeletion(t *testing.T) {
+	ctx := t.Context()
+	workspaces := &recordingWorkspaceService{}
+	s := newTestServer(t)
+	s.Workspaces = workspaces
+	const groupID = "unknown-group"
+
+	if _, err := s.DeleteFriendGroup(
+		ctx,
+		"peer-b",
+		rpcapi.FriendGroupDeleteRequest{Id: groupID},
+	); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("DeleteFriendGroup unknown error = %v, want not found", err)
+	}
+	if len(workspaces.retired) != 0 || len(workspaces.deleted) != 0 {
+		t.Fatalf(
+			"workspace changed after unknown delete: retired=%v deleted=%v",
+			workspaces.retired,
+			workspaces.deleted,
+		)
+	}
+	if exists, err := pendingdeletion.HasLocator(
+		ctx,
+		s.RelationshipStore,
+		pendingdeletion.KindFriendGroup,
+		groupID,
+	); err != nil || exists {
+		t.Fatalf("Friend Group data PendingDeletion after unknown delete = %v, error = %v", exists, err)
+	}
+}
+
+func TestDeleteFriendGroupWithoutWorkspaceRetirementKeepsRelationships(t *testing.T) {
+	ctx := t.Context()
+	s := newTestServer(t)
+	group, err := s.CreateFriendGroup(ctx, "peer-a", rpcapi.FriendGroupCreateRequest{Name: "room"})
+	if err != nil {
+		t.Fatalf("CreateFriendGroup: %v", err)
+	}
+	groupID := socialutil.StringValue(group.Id)
+
+	if _, err := s.DeleteFriendGroup(ctx, "peer-a", rpcapi.FriendGroupDeleteRequest{Id: groupID}); err == nil ||
+		!strings.Contains(err.Error(), "retirement service not configured") {
+		t.Fatalf("DeleteFriendGroup error = %v, want missing retirement service", err)
+	}
+	if _, err := s.AdminGetFriendGroup(ctx, groupID); err != nil {
+		t.Fatalf("AdminGetFriendGroup after rejected delete: %v", err)
+	}
+	if _, err := s.readRetirementIntent(ctx, groupID); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("readRetirementIntent after rejected delete error = %v, want not found", err)
+	}
+}
+
+func TestDeleteFriendGroupBatchFailureKeepsRelationshipsAndWorkspace(t *testing.T) {
+	ctx := t.Context()
+	workspaces := &recordingWorkspaceService{}
+	s := newTestServer(t)
+	group, err := s.CreateFriendGroup(ctx, "peer-a", rpcapi.FriendGroupCreateRequest{Name: "room"})
+	if err != nil {
+		t.Fatalf("CreateFriendGroup: %v", err)
+	}
+	groupID := socialutil.StringValue(group.Id)
+	if _, err := s.AddFriendGroupMember(ctx, "peer-a", rpcapi.FriendGroupMemberAddRequest{
+		FriendGroupId: groupID,
+		PeerPublicKey: "peer-b",
+		Role:          rpcapi.FriendGroupMemberMutableRole("member"),
+	}); err != nil {
+		t.Fatalf("AddFriendGroupMember: %v", err)
+	}
+	s.Workspaces = workspaces
+	s.RelationshipStore = failingBatchMutateStore{Store: s.RelationshipStore}
+
+	if _, err := s.DeleteFriendGroup(ctx, "peer-a", rpcapi.FriendGroupDeleteRequest{Id: groupID}); err == nil {
+		t.Fatal("DeleteFriendGroup with failing BatchMutate error = nil")
+	}
+	if _, err := s.AdminGetFriendGroup(ctx, groupID); err != nil {
+		t.Fatalf("AdminGetFriendGroup after batch failure: %v", err)
+	}
+	if _, err := s.groupMember(ctx, groupID, "peer-b"); err != nil {
+		t.Fatalf("groupMember after batch failure: %v", err)
+	}
+	if len(workspaces.retired) != 0 || len(workspaces.deleted) != 0 {
+		t.Fatalf("workspace changed after relationship batch failure: retired=%v deleted=%v", workspaces.retired, workspaces.deleted)
+	}
+	if exists, err := pendingdeletion.HasLocator(
+		ctx,
+		s.RelationshipStore,
+		pendingdeletion.KindFriendGroup,
+		groupID,
+	); err != nil || exists {
+		t.Fatalf("Friend Group data PendingDeletion after batch failure = %v, error = %v", exists, err)
+	}
+}
+
+func TestDeleteFriendGroupRequiresConditionalCreateBeforeRelationshipMutation(t *testing.T) {
+	ctx := t.Context()
+	workspaces := &recordingWorkspaceService{}
+	s := newTestServer(t)
+	group, err := s.CreateFriendGroup(ctx, "peer-a", rpcapi.FriendGroupCreateRequest{Name: "room"})
+	if err != nil {
+		t.Fatalf("CreateFriendGroup: %v", err)
+	}
+	groupID := socialutil.StringValue(group.Id)
+	s.Workspaces = workspaces
+	s.RelationshipStore = storeWithoutCreateIfAbsent{s.RelationshipStore}
+
+	if _, err := s.DeleteFriendGroup(
+		ctx,
+		"peer-a",
+		rpcapi.FriendGroupDeleteRequest{Id: groupID},
+	); !errors.Is(err, kv.ErrCreateIfAbsentUnsupported) {
+		t.Fatalf("DeleteFriendGroup without conditional create error = %v", err)
+	}
+	if _, err := s.AdminGetFriendGroup(ctx, groupID); err != nil {
+		t.Fatalf("AdminGetFriendGroup after capability rejection: %v", err)
+	}
+	if len(workspaces.retired) != 0 || len(workspaces.deleted) != 0 {
+		t.Fatalf(
+			"workspace changed after capability rejection: retired=%v deleted=%v",
+			workspaces.retired,
+			workspaces.deleted,
+		)
 	}
 }
 
@@ -521,13 +938,14 @@ func newTestServer(t *testing.T) *Server {
 	now := time.Date(2026, 6, 13, 0, 0, 0, 0, time.UTC)
 	nextID := 0
 	return &Server{
-		Groups:        store,
-		InviteTokens:  store,
-		Members:       store,
-		Belongs:       store,
-		Messages:      store,
-		MessageAssets: objectstore.Dir(t.TempDir()),
-		Now:           func() time.Time { return now },
+		Groups:            store,
+		InviteTokens:      store,
+		Members:           store,
+		Belongs:           store,
+		Messages:          store,
+		RelationshipStore: store,
+		MessageAssets:     objectstore.Dir(t.TempDir()),
+		Now:               func() time.Time { return now },
 		NewID: func() string {
 			nextID++
 			return "id-" + string(rune('a'+nextID-1))
@@ -605,10 +1023,61 @@ func (s failingDeletePrefixStore) DeletePrefix(string) error {
 	return errors.New("forced delete prefix failure")
 }
 
+type failingBatchMutateStore struct {
+	kv.Store
+}
+
+func (s failingBatchMutateStore) BatchMutate(context.Context, []kv.Entry, []kv.Key) error {
+	return errors.New("forced batch mutate failure")
+}
+
+type storeWithoutCreateIfAbsent struct {
+	store kv.Store
+}
+
+func (s storeWithoutCreateIfAbsent) Get(ctx context.Context, key kv.Key) ([]byte, error) {
+	return s.store.Get(ctx, key)
+}
+
+func (s storeWithoutCreateIfAbsent) Set(ctx context.Context, key kv.Key, value []byte) error {
+	return s.store.Set(ctx, key, value)
+}
+
+func (s storeWithoutCreateIfAbsent) Delete(ctx context.Context, key kv.Key) error {
+	return s.store.Delete(ctx, key)
+}
+
+func (s storeWithoutCreateIfAbsent) List(ctx context.Context, prefix kv.Key) iter.Seq2[kv.Entry, error] {
+	return s.store.List(ctx, prefix)
+}
+
+func (s storeWithoutCreateIfAbsent) BatchSet(ctx context.Context, entries []kv.Entry) error {
+	return s.store.BatchSet(ctx, entries)
+}
+
+func (s storeWithoutCreateIfAbsent) BatchDelete(ctx context.Context, keys []kv.Key) error {
+	return s.store.BatchDelete(ctx, keys)
+}
+
+func (s storeWithoutCreateIfAbsent) BatchMutate(
+	ctx context.Context,
+	entries []kv.Entry,
+	keys []kv.Key,
+) error {
+	return s.store.BatchMutate(ctx, entries, keys)
+}
+
+func (s storeWithoutCreateIfAbsent) Close() error {
+	return s.store.Close()
+}
+
 type recordingWorkspaceService struct {
-	created []adminhttp.WorkspaceUpsert
-	deleted []string
-	owners  []string
+	created      []adminhttp.WorkspaceUpsert
+	deleted      []string
+	retired      []string
+	owners       []string
+	retiredOwner string
+	retireErr    error
 }
 
 func (s *recordingWorkspaceService) CreateSystemWorkspace(ctx context.Context, body adminhttp.WorkspaceUpsert) (apitypes.Workspace, bool, error) {
@@ -628,6 +1097,28 @@ func (s *recordingWorkspaceService) CreateSystemWorkspace(ctx context.Context, b
 func (s *recordingWorkspaceService) DeleteSystemWorkspace(_ context.Context, name string) (apitypes.Workspace, error) {
 	s.deleted = append(s.deleted, name)
 	return apitypes.Workspace{Name: name}, nil
+}
+
+func (s *recordingWorkspaceService) RetireSystemWorkspace(_ context.Context, name string, _ apitypes.ChatRoomMode, _ string) (apitypes.Workspace, error) {
+	s.retired = append(s.retired, name)
+	owner := s.retiredOwner
+	var ownerPointer *string
+	if owner != "" {
+		ownerPointer = &owner
+	}
+	return apitypes.Workspace{Name: name, OwnerPublicKey: ownerPointer}, s.retireErr
+}
+
+func (s *recordingWorkspaceService) GetRetiredSystemWorkspace(_ context.Context, name string, _ apitypes.ChatRoomMode, _ string) (apitypes.Workspace, error) {
+	if len(s.retired) == 0 {
+		return apitypes.Workspace{}, kv.ErrNotFound
+	}
+	owner := s.retiredOwner
+	var ownerPointer *string
+	if owner != "" {
+		ownerPointer = &owner
+	}
+	return apitypes.Workspace{Name: name, OwnerPublicKey: ownerPointer}, nil
 }
 
 func (s *recordingWorkspaceService) CreateWorkspace(_ context.Context, req adminhttp.CreateWorkspaceRequestObject) (adminhttp.CreateWorkspaceResponseObject, error) {

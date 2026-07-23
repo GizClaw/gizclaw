@@ -90,6 +90,22 @@ func CreateOrGet(ctx context.Context, store kv.Store, record Record) (Record, bo
 	return existing, false, nil
 }
 
+// GetByLocator loads the PendingDeletion record for one logical resource.
+// Legacy locator entries are migrated to the fixed locator as part of lookup.
+func GetByLocator(ctx context.Context, store kv.Store, kind Kind, resourceID string) (Record, error) {
+	if store == nil {
+		return Record{}, errors.New("pending deletion: KV store not configured")
+	}
+	record, found, err := resolveExistingLocator(ctx, store, kind, resourceID)
+	if err != nil {
+		return Record{}, err
+	}
+	if !found {
+		return Record{}, kv.ErrNotFound
+	}
+	return record, nil
+}
+
 func resolveExistingLocator(ctx context.Context, store kv.Store, kind Kind, resourceID string) (Record, bool, error) {
 	prefix := legacyByLocatorPrefix(kind, resourceID)
 	if fixedID, err := store.Get(ctx, byLocatorKey(kind, resourceID)); err == nil {

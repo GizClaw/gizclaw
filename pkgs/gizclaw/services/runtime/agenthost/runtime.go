@@ -74,10 +74,12 @@ type Service struct {
 	PeerRun                    PeerRunStore
 	RuntimeProfile             func() *apitypes.RuntimeProfile
 	ValidateWorkspaceSelection WorkspaceSelectionValidatorFunc
+	AllowRestrictedReload      func(context.Context, string) bool
 	PublicKey                  giznet.PublicKey
 	Source                     StreamSource
 	Consumer                   StreamConsumer
 	OnConsumerError            func(context.Context, string, error)
+	OnWorkspaceHistoryUpdated  func(context.Context, string, time.Time)
 	Logger                     *slog.Logger
 	Now                        func() time.Time
 
@@ -130,9 +132,12 @@ func (s *Service) reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 	if s.ValidateWorkspaceSelection != nil {
 		canonicalName, err := s.ValidateWorkspaceSelection(ctx, selection.WorkspaceName)
 		if err != nil {
-			return s.setErrorStatus(selection.WorkspaceName, err), err
+			if s.AllowRestrictedReload == nil || !s.AllowRestrictedReload(ctx, selection.WorkspaceName) {
+				return s.setErrorStatus(selection.WorkspaceName, err), err
+			}
+		} else {
+			selection.WorkspaceName = canonicalName
 		}
-		selection.WorkspaceName = canonicalName
 	}
 	s.setStatus(apitypes.PeerRunStatusStateStarting, selection.WorkspaceName, nil, nil)
 	previous := s.swap(nil)
@@ -163,6 +168,7 @@ func (s *Service) reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 		}
 	}
 	baseCtx := WithResourceAccess(withHistoryGearID(context.WithoutCancel(ctx), s.PublicKey.String()), s.PublicKey.String(), profileToolBindings, profileWorkflowBindings, profileFingerprint)
+	baseCtx = withWorkspaceHistoryNotifier(baseCtx, s.OnWorkspaceHistoryUpdated)
 	runCtx, runCancel := context.WithCancel(baseCtx)
 	stopTransitionCancel := context.AfterFunc(ctx, runCancel)
 	stopLifecycleCancel := context.AfterFunc(s.lifecycleContext(), runCancel)

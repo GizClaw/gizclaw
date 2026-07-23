@@ -1,4 +1,6 @@
 export 'src/client.dart';
+export 'src/generated/events/peer_event.pb.dart';
+export 'src/generated/events/peer_event.pbenum.dart';
 export 'src/generated/rpc/payload.pb.dart';
 export 'src/generated/rpc/payload.pbenum.dart';
 export 'src/method_registry.dart';

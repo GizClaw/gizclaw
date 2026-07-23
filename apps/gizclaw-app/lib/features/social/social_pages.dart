@@ -14,8 +14,21 @@ import '../../l10n/l10n.dart';
 import '../../prototype/prototype_models.dart';
 import '../settings/language_selector.dart';
 
-class FriendsPage extends StatelessWidget {
+class FriendsPage extends StatefulWidget {
   const FriendsPage({super.key});
+
+  @override
+  State<FriendsPage> createState() => _FriendsPageState();
+}
+
+class _FriendsPageState extends State<FriendsPage> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(MobileDataScope.read(context).refresh());
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -102,6 +115,8 @@ class FriendsPage extends StatelessWidget {
     if (!context.mounted || friend == null) return;
     final workspaceName = friend.workspaceName.trim();
     if (workspaceName.isEmpty) return;
+    await WidgetsBinding.instance.endOfFrame;
+    if (!context.mounted) return;
     context.push('/workspaces/${Uri.encodeComponent(workspaceName)}');
   }
 
@@ -137,8 +152,21 @@ class FriendsPage extends StatelessWidget {
   }
 }
 
-class GroupsPage extends StatelessWidget {
+class GroupsPage extends StatefulWidget {
   const GroupsPage({super.key});
+
+  @override
+  State<GroupsPage> createState() => _GroupsPageState();
+}
+
+class _GroupsPageState extends State<GroupsPage> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(MobileDataScope.read(context).refresh());
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -237,9 +265,13 @@ class GroupsPage extends StatelessWidget {
       builder: (context) => _CreateGroupSheet(data: data),
     );
     if (!context.mounted || group == null) return;
+    final router = GoRouter.of(context);
     final workspaceName = group.workspaceName.trim();
     if (workspaceName.isEmpty) return;
-    context.push('/groups/${Uri.encodeComponent(workspaceName)}');
+    await WidgetsBinding.instance.endOfFrame;
+    await data.refresh();
+    await WidgetsBinding.instance.endOfFrame;
+    unawaited(router.push('/groups/${Uri.encodeComponent(workspaceName)}'));
   }
 }
 
@@ -321,7 +353,10 @@ class FriendRow extends StatelessWidget {
       ),
     );
     if (!context.mounted) return;
-    if (action == 'chat') _openChat(context);
+    if (action == 'chat') {
+      await WidgetsBinding.instance.endOfFrame;
+      if (context.mounted) _openChat(context);
+    }
     if (action == 'delete') onDelete();
   }
 }
@@ -359,6 +394,7 @@ class _CreateGroupSheetState extends State<_CreateGroupSheet> {
       final group = await widget.data.createFriendGroup(
         name: name,
         description: _descriptionController.text,
+        refreshAfterCreate: false,
       );
       if (mounted) Navigator.pop(context, group);
     } catch (error) {

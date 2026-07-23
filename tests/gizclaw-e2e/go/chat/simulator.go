@@ -24,12 +24,34 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/resampler"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/shared"
 )
+
+type peerStreamEventType = eventpb.PeerEventType
+
+const (
+	peerStreamEventTypeBos       = eventpb.PeerEventType_PEER_EVENT_TYPE_BOS
+	peerStreamEventTypeEos       = eventpb.PeerEventType_PEER_EVENT_TYPE_EOS
+	peerStreamEventTypeTextDelta = eventpb.PeerEventType_PEER_EVENT_TYPE_TEXT_DELTA
+	peerStreamEventTypeTextDone  = eventpb.PeerEventType_PEER_EVENT_TYPE_TEXT_DONE
+)
+
+// peerStreamEvent is the E2E harness projection of a generated PeerEvent. The
+// transport itself is Protobuf; this flat view keeps assertions focused on the
+// stream semantics produced after the SDK decodes the oneof payload.
+type peerStreamEvent struct {
+	V         int
+	Type      peerStreamEventType
+	StreamId  *string
+	Label     *string
+	Text      *string
+	Error     *string
+	Timestamp *int64
+}
 
 type personaDriver struct {
 	cfg                 config
@@ -422,7 +444,7 @@ func (d *personaDriver) runRound(ctx context.Context, index int, mode conversati
 			if msg, ok := peerEventError(event); ok {
 				return stat, fmt.Errorf("round %d: peer event error: %s; recent events: %s", index, msg, trace.String())
 			}
-			if event.Type == apitypes.PeerStreamEventTypeEos && label == "assistant" {
+			if event.Type == peerStreamEventTypeEos && label == "assistant" {
 				if stat.AssistantTextDone == 0 {
 					trace.add("assistant audio segment eos before text done stream=%s", eventStreamID(event))
 					continue
@@ -956,7 +978,7 @@ func (d *personaDriver) runInterruptScenario(ctx context.Context, index int, mod
 				}
 				secondTranscript = mergeTranscriptText(secondTranscript, *event.event.Text)
 			case "assistant":
-				if event.event.Type == apitypes.PeerStreamEventTypeEos {
+				if event.event.Type == peerStreamEventTypeEos {
 					if !secondAssistantTextDone {
 						trace.add("assistant audio segment eos before text done stream=%s", eventStreamID(event.event))
 						continue
@@ -1092,7 +1114,7 @@ func streamIDMatches(actual, expected string) bool {
 	return actual == expected || (expected != "" && strings.HasPrefix(actual, expected+":"))
 }
 
-func acceptRoundEventStream(event apitypes.PeerStreamEvent, inputStreamID string, boundStreamID *string) bool {
+func acceptRoundEventStream(event peerStreamEvent, inputStreamID string, boundStreamID *string) bool {
 	if event.StreamId == nil || strings.TrimSpace(*event.StreamId) == "" {
 		return true
 	}
@@ -1110,17 +1132,17 @@ func acceptRoundEventStream(event apitypes.PeerStreamEvent, inputStreamID string
 	return streamIDMatches(actual, *boundStreamID)
 }
 
-func isTranscriptDoneEvent(event apitypes.PeerStreamEvent) bool {
+func isTranscriptDoneEvent(event peerStreamEvent) bool {
 	switch event.Type {
-	case apitypes.PeerStreamEventTypeTextDone, apitypes.PeerStreamEventTypeEos:
+	case peerStreamEventTypeTextDone, peerStreamEventTypeEos:
 		return true
 	default:
 		return false
 	}
 }
 
-func isAssistantTextDoneEvent(event apitypes.PeerStreamEvent) bool {
-	return event.Type == apitypes.PeerStreamEventTypeTextDone
+func isAssistantTextDoneEvent(event peerStreamEvent) bool {
+	return event.Type == peerStreamEventTypeTextDone
 }
 
 func (d *personaDriver) nextUtterance(ctx context.Context, index int) (string, error) {
@@ -1591,21 +1613,21 @@ func removeAssistantXMLBlocks(text string) string {
 	}
 }
 
-func eventLabel(event apitypes.PeerStreamEvent) string {
+func eventLabel(event peerStreamEvent) string {
 	if event.Label == nil {
 		return ""
 	}
 	return strings.ToLower(strings.TrimSpace(*event.Label))
 }
 
-func eventStreamID(event apitypes.PeerStreamEvent) string {
+func eventStreamID(event peerStreamEvent) string {
 	if event.StreamId == nil {
 		return ""
 	}
 	return *event.StreamId
 }
 
-func eventText(event apitypes.PeerStreamEvent) string {
+func eventText(event peerStreamEvent) string {
 	if event.Text == nil {
 		return ""
 	}
@@ -1617,14 +1639,14 @@ func eventText(event apitypes.PeerStreamEvent) string {
 	return text
 }
 
-func eventError(event apitypes.PeerStreamEvent) string {
+func eventError(event peerStreamEvent) string {
 	if event.Error == nil {
 		return ""
 	}
 	return *event.Error
 }
 
-func peerEventError(event apitypes.PeerStreamEvent) (string, bool) {
+func peerEventError(event peerStreamEvent) (string, bool) {
 	if event.Error == nil {
 		return "", false
 	}
@@ -1787,11 +1809,11 @@ type peerChunkStream interface {
 }
 
 type timedPeerEvent struct {
-	event      apitypes.PeerStreamEvent
+	event      peerStreamEvent
 	receivedAt time.Time
 }
 
-func newTimedPeerEvent(event apitypes.PeerStreamEvent) timedPeerEvent {
+func newTimedPeerEvent(event peerStreamEvent) timedPeerEvent {
 	return timedPeerEvent{event: event, receivedAt: time.Now()}
 }
 
@@ -1983,31 +2005,31 @@ func (t *chatTransport) sendAudioTurnAudioAndEOSObserved(ctx context.Context, st
 	})
 }
 
-func transportEventsFromChunk(chunk *genx.MessageChunk) []apitypes.PeerStreamEvent {
+func transportEventsFromChunk(chunk *genx.MessageChunk) []peerStreamEvent {
 	if chunk == nil {
 		return nil
 	}
-	var out []apitypes.PeerStreamEvent
+	var out []peerStreamEvent
 	if chunk.IsBeginOfStream() {
-		out = append(out, transportEventFromChunk(chunk, apitypes.PeerStreamEventTypeBos, nil))
+		out = append(out, transportEventFromChunk(chunk, peerStreamEventTypeBos, nil))
 	}
 	if text, ok := chunk.Part.(genx.Text); ok {
 		value := string(text)
-		eventType := apitypes.PeerStreamEventTypeTextDelta
+		eventType := peerStreamEventTypeTextDelta
 		if chunk.IsEndOfStream() {
-			eventType = apitypes.PeerStreamEventTypeTextDone
+			eventType = peerStreamEventTypeTextDone
 		}
 		out = append(out, transportEventFromChunk(chunk, eventType, &value))
 		return out
 	}
 	if chunk.IsEndOfStream() {
-		out = append(out, transportEventFromChunk(chunk, apitypes.PeerStreamEventTypeEos, nil))
+		out = append(out, transportEventFromChunk(chunk, peerStreamEventTypeEos, nil))
 	}
 	return out
 }
 
-func transportEventFromChunk(chunk *genx.MessageChunk, eventType apitypes.PeerStreamEventType, text *string) apitypes.PeerStreamEvent {
-	event := apitypes.PeerStreamEvent{V: 1, Type: eventType, Text: text}
+func transportEventFromChunk(chunk *genx.MessageChunk, eventType peerStreamEventType, text *string) peerStreamEvent {
+	event := peerStreamEvent{V: 1, Type: eventType, Text: text}
 	if chunk == nil || chunk.Ctrl == nil {
 		return event
 	}

@@ -13,7 +13,7 @@
 
 ## 传输 contract
 
-Audio、direct packet、Agent Event Stream、RPC/HTTP service stream 的方向、可靠性、service ID、framing 与生命周期统一由 [Streams Reference](/references/streams) 定义；Event wire type 与字段统一由 [Events Reference](/references/events) 定义。本页只说明 `PeerConn` 如何实现这些 contract，不再复制协议表格。
+Audio、direct packet、Peer Event Stream、RPC/HTTP service stream 的方向、可靠性、service ID、framing 与生命周期统一由 [Streams Reference](/references/streams) 定义；Event wire type 与字段统一由 [Events Reference](/references/events) 定义。本页只说明 `PeerConn` 如何实现这些 contract，不再复制协议表格。
 
 ## Service stream 写入流控
 

@@ -7,7 +7,7 @@ flowchart LR
     Client["Client / Device"] --> MediaUp["Opus RTP 上行 track<br/>Client → Server"] --> Server["GizClaw Server"]
     Client --> MediaDown["Opus RTP 下行 track<br/>Server → Client"] --> Server
     Client --> Packet["Direct Packet<br/>Telemetry 等低延迟数据"] --> Server
-    Client --> Events["Agent Event Stream 0x20<br/>长期、双向"] --> Server
+    Client --> Events["Peer Event Stream 0x20<br/>长期、双向"] --> Server
     Client --> Services["RPC / HTTP Stream<br/>按请求动态创建（0 至 N 条）"] --> Server
 ```
 
@@ -18,11 +18,29 @@ flowchart LR
 | Opus media uplink | Client / Device → Server | WebRTC audio RTP | Peer connection 级别的一条 remote track | 麦克风实时 Opus packets。 |
 | Opus media downlink | Server → Client / Device | WebRTC audio RTP | Peer connection 级别的一条 remote track | Agent 输出经 mixer 合成后的实时 Opus packets。 |
 | Direct packet | 双向 | unordered、`maxRetransmits=0` DataChannel | 一条 connection 级长期 channel | 单字节 protocol 加 packet payload；适合允许丢包的高频数据。 |
-| Agent Event Stream | 双向 | reliable、ordered service DataChannel，ID `0x20` | Client 打开并通常长期保持 | BOS、EOS、文本和 Workspace history 通知；不含实时音频 bytes。 |
+| Peer Event Stream | 双向 | reliable、ordered service DataChannel，ID `0x20` | 每条 Peer connection 通常保持一条 | Protobuf BOS、EOS、文本和资源失效通知；不含实时音频 bytes。 |
 | RPC service stream | 双向 | reliable、ordered service DataChannel | 通常每次调用新建；Server 也接受同一 channel 上的顺序调用 | Protobuf request/response、有限 binary stream。 |
 | HTTP service stream | 请求方 ↔ Provider | reliable、ordered service DataChannel | 每次 HTTP round trip 动态打开 | HTTP request 与 response。 |
 
-因此 stream 数量不是常量。空闲的常见会话有双向 audio RTP、一个 packet DataChannel，并可选地保持一个 Agent Event Stream；每个并发 RPC 或 HTTP 请求都会再增加一条 service DataChannel。
+因此 stream 数量不是常量。空闲的常见会话有双向 audio RTP、一个 packet
+DataChannel，并可选地保持一个 Peer Event Stream；每个并发 RPC 或 HTTP
+请求都会再增加一条 service DataChannel。
+
+## 一条连接有多少个 stream
+
+| 类别 | 常见数量 | 说明 |
+| --- | ---: | --- |
+| Opus RTP uplink | 1 | Client / Device 麦克风上行。 |
+| Opus RTP downlink | 1 | Server 混音后的音频下行。 |
+| Direct packet DataChannel | 1 | Telemetry 等允许丢包的 connection-scoped packet。 |
+| Peer Event Stream | 0 或 1 | Client 打开后通常在整条 Peer connection 生命周期内保持。 |
+| RPC service stream | 0–N | 按调用动态创建。 |
+| HTTP service stream | 0–N | 按 HTTP round trip 动态创建。 |
+
+Peer Event Stream 是 connection-scoped transport，不属于某个 Workspace 或页面。
+一个 Client 应为一条 Peer connection 维护一个 session，再在本地把事件分发给
+当前 conversation、聊天 viewer 和资源 controller。页面 controller 不应各自打开
+新的 `0x20` stream。
 
 ## Audio streams
 
@@ -55,7 +73,7 @@ RPC 使用可靠、有序的 service DataChannel。Service ID 选择 Provider，
 | `0x01` | `ServicePeerHTTP` | Peer HTTP API。 |
 | `0x02` | `ServicePeerOpenAI` | OpenAI-compatible HTTP API。 |
 | `0x10` | `ServiceAdminHTTP` | Admin HTTP API。 |
-| `0x20` | `EventStreamAgent` | 长期双向 Agent Event Stream。 |
+| `0x20` | `EventStreamAgent` | 长期双向 Peer Event Stream；名称为兼容标识。 |
 | `0x30` | `ServiceEdgeHTTP` | Edge-node HTTP forwarding。 |
 | `0x31` | `ServiceEdgeRPC` | Edge-node control RPC。 |
 
@@ -68,9 +86,9 @@ RPC service stream 内使用统一的 4-byte little-endian header：前 2 bytes 
 | Type | 数值 | Payload | 作用 |
 | --- | ---: | --- | --- |
 | `FrameTypeEOS` | `0` | 必须为空 | 结束当前方向的一段 frame sequence。 |
-| `FrameTypeJSON` | `1` | JSON | 结构化 JSON frame；Event Stream 接收端也接受此类型。 |
-| `FrameTypeBinary` | `2` | bytes | Protobuf envelope 或业务 binary chunk。 |
-| `FrameTypeText` | `3` | text / continuation bytes | 文本 event；超大 Protobuf envelope 也使用连续 Text frames 后接 EOS。 |
+| `FrameTypeJSON` | `1` | JSON | RPC JSON payload；Peer Event Stream 不接受。 |
+| `FrameTypeBinary` | `2` | bytes | Protobuf envelope、PeerEvent 或业务 binary chunk。 |
+| `FrameTypeText` | `3` | text / continuation bytes | RPC text payload；Peer Event Stream 不接受。 |
 
 普通 unary RPC 的双方序列都是 `Protobuf envelope → EOS`。Binary RPC 在 request 或 response envelope 与 EOS 之间加入零个或多个 `FrameTypeBinary` chunks。`all.speed_test.run` 可以同时进行双向 binary frames；Firmware、history audio、Workspace icon、Badge PIXA 和 Pet PIXA 下载使用 Server → Client / Device binary frames。
 
@@ -78,7 +96,8 @@ RPC EOS 只结束当前 frame sequence，不等于 [Event `type=eos`](./events#f
 
 ### Binary streams
 
-以下都是 request-scoped RPC binary streams。Audio 只是其中一种业务 payload；这些数据不属于 WebRTC audio track，也不属于 Agent Event Stream。
+以下都是 request-scoped RPC binary streams。Audio 只是其中一种业务 payload；
+这些数据不属于 WebRTC audio track，也不属于 Peer Event Stream。
 
 | RPC method | Binary frames 方向 | Payload |
 | --- | --- | --- |

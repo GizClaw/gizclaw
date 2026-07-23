@@ -41,9 +41,11 @@ type MessageChunk struct {
 
 // StreamCtrl controls Stream routing and state.
 type StreamCtrl struct {
-	StreamID string `json:"stream_id,omitempty"`
-	Label    string `json:"label,omitempty"`
-	Error    string `json:"error,omitempty"`
+	StreamID       string `json:"stream_id,omitempty"`
+	Label          string `json:"label,omitempty"`
+	Error          string `json:"error,omitempty"`
+	ErrorCode      string `json:"error_code,omitempty"`
+	ErrorRetryable bool   `json:"error_retryable,omitempty"`
 
 	BeginOfStream bool  `json:"begin_of_stream,omitempty"`
 	EndOfStream   bool  `json:"end_of_stream,omitempty"`

@@ -83,6 +83,7 @@ class MobileDataRepository {
                   : row.id,
               emoji: info?.emoji ?? '',
               kind: ChatroomWorkspaceKind.direct,
+              peerPublicKey: row.peerPublicKey,
               resourceId: row.id,
             );
           })

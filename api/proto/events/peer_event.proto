@@ -1,0 +1,124 @@
+syntax = "proto3";
+
+package gizclaw.events.v1;
+
+option go_package = "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto;eventpb";
+
+enum PeerEventType {
+  PEER_EVENT_TYPE_UNSPECIFIED = 0;
+  PEER_EVENT_TYPE_BOS = 1;
+  PEER_EVENT_TYPE_EOS = 2;
+  PEER_EVENT_TYPE_TEXT_DELTA = 3;
+  PEER_EVENT_TYPE_TEXT_DONE = 4;
+  PEER_EVENT_TYPE_WORKSPACE_HISTORY_UPDATED = 5;
+  PEER_EVENT_TYPE_FRIEND_RELATIONSHIP_UPDATED = 6;
+  PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED = 7;
+}
+
+enum StreamKind {
+  STREAM_KIND_UNSPECIFIED = 0;
+  STREAM_KIND_TEXT = 1;
+  STREAM_KIND_AUDIO = 2;
+  STREAM_KIND_VIDEO = 3;
+  STREAM_KIND_MIXED = 4;
+}
+
+enum WorkspaceKind {
+  WORKSPACE_KIND_UNSPECIFIED = 0;
+  WORKSPACE_KIND_WORKFLOW = 1;
+  WORKSPACE_KIND_DIRECT_CHATROOM = 2;
+  WORKSPACE_KIND_GROUP_CHATROOM = 3;
+}
+
+enum FriendRelationshipChange {
+  FRIEND_RELATIONSHIP_CHANGE_UNSPECIFIED = 0;
+  FRIEND_RELATIONSHIP_CHANGE_CREATED = 1;
+  FRIEND_RELATIONSHIP_CHANGE_DELETED = 2;
+}
+
+enum FriendGroupChange {
+  FRIEND_GROUP_CHANGE_UNSPECIFIED = 0;
+  FRIEND_GROUP_CHANGE_CREATED = 1;
+  FRIEND_GROUP_CHANGE_DELETED = 2;
+  FRIEND_GROUP_CHANGE_MEMBER_ADDED = 3;
+  FRIEND_GROUP_CHANGE_MEMBER_REMOVED = 4;
+  FRIEND_GROUP_CHANGE_MEMBER_ROLE_CHANGED = 5;
+  FRIEND_GROUP_CHANGE_METADATA_UPDATED = 6;
+}
+
+message PeerEvent {
+  uint32 version = 1;
+  PeerEventType type = 2;
+
+  oneof payload {
+    StreamBegin bos = 10;
+    StreamEnd eos = 11;
+    TextDelta text_delta = 12;
+    TextDone text_done = 13;
+    WorkspaceHistoryUpdated workspace_history_updated = 14;
+    FriendRelationshipUpdated friend_relationship_updated = 15;
+    FriendGroupUpdated friend_group_updated = 16;
+  }
+}
+
+message StreamBegin {
+  string stream_id = 1;
+  uint64 sequence = 2;
+  int64 timestamp_unix_ms = 3;
+  StreamKind kind = 4;
+  string label = 5;
+  string mime_type = 6;
+}
+
+message StreamEnd {
+  string stream_id = 1;
+  uint64 sequence = 2;
+  int64 timestamp_unix_ms = 3;
+  StreamKind kind = 4;
+  string label = 5;
+  string mime_type = 6;
+  EventError error = 7;
+}
+
+message EventError {
+  string code = 1;
+  string message = 2;
+  bool retryable = 3;
+}
+
+message TextDelta {
+  string stream_id = 1;
+  uint64 sequence = 2;
+  int64 timestamp_unix_ms = 3;
+  string label = 4;
+  string text = 5;
+}
+
+message TextDone {
+  string stream_id = 1;
+  uint64 sequence = 2;
+  int64 timestamp_unix_ms = 3;
+  string label = 4;
+  string text = 5;
+}
+
+message WorkspaceHistoryUpdated {
+  string workspace_name = 1;
+  WorkspaceKind workspace_kind = 2;
+  int64 last_updated_at_unix_ms = 3;
+}
+
+message FriendRelationshipUpdated {
+  string peer_public_key = 1;
+  string workspace_name = 2;
+  FriendRelationshipChange change = 3;
+  int64 revision_unix_ms = 4;
+}
+
+message FriendGroupUpdated {
+  string friend_group_id = 1;
+  string workspace_name = 2;
+  FriendGroupChange change = 3;
+  int64 revision_unix_ms = 4;
+  string affected_peer_public_key = 5;
+}

@@ -193,7 +193,6 @@ func TestServerSystemWorkspaceLifecycle(t *testing.T) {
 	if wasCreated || existing.System == nil || !*existing.System {
 		t.Fatalf("CreateSystemWorkspace(existing) = %#v, created=%v", existing, wasCreated)
 	}
-
 	realtime := apitypes.WorkspaceInputModeRealtime
 	updatedParameters := apitypes.WorkspaceParameters{}
 	if err := updatedParameters.FromChatRoomWorkspaceParameters(apitypes.ChatRoomWorkspaceParameters{
@@ -372,6 +371,85 @@ func TestWorkspaceDeleteSerializesWithPut(t *testing.T) {
 	}
 	if pending, err := pendingdeletion.HasLocator(ctx, srv.Store, pendingdeletion.KindWorkspace, body.Name); err != nil || !pending {
 		t.Fatalf("workspace pending deletion = %v, error = %v", pending, err)
+	}
+}
+
+func TestCreateSystemWorkspaceRejectsRetiringWorkspace(t *testing.T) {
+	srv := newTestServer(t)
+	ctx := ownership.WithOwner(context.Background(), "peer-a")
+	seedWorkflow(t, srv, "chatroom")
+	directMode := apitypes.ChatRoomModeDirect
+	parameters := apitypes.WorkspaceParameters{}
+	if err := parameters.FromChatRoomWorkspaceParameters(apitypes.ChatRoomWorkspaceParameters{
+		Mode: &directMode,
+	}); err != nil {
+		t.Fatalf("encode Chatroom parameters: %v", err)
+	}
+	body := adminhttp.WorkspaceUpsert{
+		Name:         "friend-chat-retiring",
+		WorkflowName: "chatroom",
+		Parameters:   &parameters,
+	}
+	if _, _, err := srv.CreateSystemWorkspace(ctx, body); err != nil {
+		t.Fatalf("CreateSystemWorkspace() error = %v", err)
+	}
+	if _, err := srv.RetireSystemWorkspace(ctx, body.Name, directMode, "peer-a:peer-b"); err != nil {
+		t.Fatalf("RetireSystemWorkspace() error = %v", err)
+	}
+	if _, _, err := srv.CreateSystemWorkspace(ctx, body); err == nil ||
+		!strings.Contains(err.Error(), "pending deletion") {
+		t.Fatalf("CreateSystemWorkspace(retiring) error = %v, want pending deletion conflict", err)
+	}
+}
+
+func TestCreateSystemWorkspaceRejectsRetiringWorkspaceAfterRecordRemoval(t *testing.T) {
+	srv := newTestServer(t)
+	runtime := &recordingRuntimeStore{}
+	srv.RuntimeStore = runtime
+	ctx := ownership.WithOwner(context.Background(), "peer-a")
+	seedWorkflow(t, srv, "chatroom")
+	directMode := apitypes.ChatRoomModeDirect
+	parameters := apitypes.WorkspaceParameters{}
+	if err := parameters.FromChatRoomWorkspaceParameters(apitypes.ChatRoomWorkspaceParameters{
+		Mode: &directMode,
+	}); err != nil {
+		t.Fatalf("encode Chatroom parameters: %v", err)
+	}
+	body := adminhttp.WorkspaceUpsert{
+		Name:         "friend-chat-partially-cleaned",
+		WorkflowName: "chatroom",
+		Parameters:   &parameters,
+	}
+	if _, _, err := srv.CreateSystemWorkspace(ctx, body); err != nil {
+		t.Fatalf("CreateSystemWorkspace() error = %v", err)
+	}
+	if _, err := srv.RetireSystemWorkspace(ctx, body.Name, directMode, "peer-a:peer-b"); err != nil {
+		t.Fatalf("RetireSystemWorkspace() error = %v", err)
+	}
+	if err := srv.Store.Delete(ctx, workspaceKey(body.Name)); err != nil {
+		t.Fatalf("remove active Workspace record: %v", err)
+	}
+	preparedBefore := len(runtime.prepared)
+
+	if _, _, err := srv.CreateSystemWorkspace(ctx, body); err == nil ||
+		!strings.Contains(err.Error(), "pending deletion") {
+		t.Fatalf("CreateSystemWorkspace(partially cleaned) error = %v, want pending deletion conflict", err)
+	}
+	if len(runtime.prepared) != preparedBefore {
+		t.Fatalf("runtime prepared after pending conflict = %#v, want no new preparation", runtime.prepared)
+	}
+	retired, err := srv.RetireSystemWorkspace(ctx, body.Name, directMode, "peer-a:peer-b")
+	if err != nil {
+		t.Fatalf("RetireSystemWorkspace(retry after cleanup) error = %v", err)
+	}
+	if retired.Name != body.Name {
+		t.Fatalf("RetireSystemWorkspace(retry after cleanup) name = %q, want %q", retired.Name, body.Name)
+	}
+	if retired.OwnerPublicKey == nil || *retired.OwnerPublicKey != "peer-a" {
+		t.Fatalf("RetireSystemWorkspace(retry after cleanup) owner = %#v, want peer-a", retired.OwnerPublicKey)
+	}
+	if _, err := srv.RetireSystemWorkspace(ctx, body.Name, directMode, "peer-a:peer-c"); err == nil {
+		t.Fatal("RetireSystemWorkspace(mismatched completed retry) error = nil")
 	}
 }
 

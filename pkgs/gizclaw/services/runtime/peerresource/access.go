@@ -235,7 +235,11 @@ func (s *Server) effectiveModels(ctx context.Context) ([]apitypes.Model, error) 
 
 func (s *Server) ownedWorkspaces(ctx context.Context) ([]apitypes.Workspace, error) {
 	if lister, ok := s.Workspaces.(ownedWorkspaceLister); ok {
-		return lister.ListWorkspacesByOwner(ctx, s.Caller.String())
+		items, err := lister.ListWorkspacesByOwner(ctx, s.Caller.String())
+		if err != nil {
+			return nil, err
+		}
+		return excludeSocialWorkspaces(items), nil
 	}
 	items := make([]apitypes.Workspace, 0)
 	limit := int32(200)
@@ -255,7 +259,7 @@ func (s *Server) ownedWorkspaces(ctx context.Context) ([]apitypes.Workspace, err
 			return nil, fmt.Errorf("list Workspaces: %s", rpcResponse.Error.Message)
 		}
 		for _, item := range page.Items {
-			if s.owns(item.OwnerPublicKey) {
+			if s.owns(item.OwnerPublicKey) && !isSocialWorkspace(item) {
 				items = append(items, item)
 			}
 		}
@@ -439,7 +443,7 @@ func (s *Server) requireOwner(requestID string, owner *string) *rpcapi.RPCRespon
 }
 
 func (s *Server) canAccessWorkspace(ctx context.Context, item apitypes.Workspace) (bool, error) {
-	if s.owns(item.OwnerPublicKey) {
+	if s.owns(item.OwnerPublicKey) && !isSocialWorkspace(item) {
 		return true, nil
 	}
 	workspaceName := strings.TrimSpace(item.Name)
@@ -497,6 +501,26 @@ func (s *Server) canAccessWorkspace(ctx context.Context, item apitypes.Workspace
 		}
 	}
 	return false, nil
+}
+
+func excludeSocialWorkspaces(items []apitypes.Workspace) []apitypes.Workspace {
+	filtered := make([]apitypes.Workspace, 0, len(items))
+	for _, item := range items {
+		if !isSocialWorkspace(item) {
+			filtered = append(filtered, item)
+		}
+	}
+	return filtered
+}
+
+func isSocialWorkspace(item apitypes.Workspace) bool {
+	if item.System == nil || !*item.System || item.Parameters == nil {
+		return false
+	}
+	parameters, err := item.Parameters.AsChatRoomWorkspaceParameters()
+	return err == nil &&
+		parameters.Mode != nil &&
+		(*parameters.Mode == apitypes.ChatRoomModeDirect || *parameters.Mode == apitypes.ChatRoomModeGroup)
 }
 
 func (s *Server) requireWorkspaceAccess(ctx context.Context, requestID, name string) *rpcapi.RPCResponse {

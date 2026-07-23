@@ -74,17 +74,14 @@ GoRouter createAppRouter({required MobileDataController dataController}) {
             parentNavigatorKey: rootNavigatorKey,
             pageBuilder: (context, state) {
               final workspaceName = state.pathParameters['workspaceName']!;
-              final workspace = dataController.workspace(workspaceName);
-              final isChatroom =
-                  workspace.chatroomKind != null ||
-                  dataController.chatroomWorkspace(workspaceName) != null;
               return _page(
                 state,
                 GlobalConversationOverlay(
                   location: state.uri,
-                  child: isChatroom
-                      ? ChatroomWorkspacePage(workspaceName: workspaceName)
-                      : WorkspaceChatPage(workspaceName: workspaceName),
+                  child: ChatroomWorkspacePage(
+                    workspaceName: workspaceName,
+                    removedFallbackPath: '/friends',
+                  ),
                 ),
               );
             },
@@ -177,6 +174,7 @@ GoRouter createAppRouter({required MobileDataController dataController}) {
                           location: state.uri,
                           child: ChatroomWorkspacePage(
                             workspaceName: workspaceName,
+                            removedFallbackPath: '/groups',
                           ),
                         ),
                       );

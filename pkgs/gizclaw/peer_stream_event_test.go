@@ -3,26 +3,29 @@ package gizclaw
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/pcm"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestPeerStreamEventFrameRoundTrip(t *testing.T) {
-	text := "hello"
-	streamID := "s1"
-	event := apitypes.PeerStreamEvent{
-		V:        1,
-		Type:     apitypes.PeerStreamEventTypeTextDelta,
-		StreamId: &streamID,
-		Text:     &text,
+	event := &eventpb.PeerEvent{
+		Version: eventpb.Version,
+		Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_TEXT_DELTA,
+		Payload: &eventpb.PeerEvent_TextDelta{TextDelta: &eventpb.TextDelta{
+			StreamId: "s1",
+			Text:     "hello",
+		}},
 	}
 	var buf bytes.Buffer
 	if err := writePeerStreamEvent(&buf, event); err != nil {
@@ -32,39 +35,157 @@ func TestPeerStreamEventFrameRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("readPeerStreamEvent() error = %v", err)
 	}
-	if got.Type != event.Type || got.StreamId == nil || *got.StreamId != streamID || got.Text == nil || *got.Text != text {
+	if !proto.Equal(got, event) {
 		t.Fatalf("round trip event = %+v, want %+v", got, event)
 	}
 }
 
-func TestPeerStreamEventReadsJSONFrame(t *testing.T) {
+func TestPeerStreamEventRejectsJSONFrame(t *testing.T) {
 	payload := []byte(`{"v":1,"type":"text.delta","stream_id":"s1","text":"hello"}`)
 	var buf bytes.Buffer
 	if err := rpcapi.WriteFrame(&buf, rpcapi.Frame{Type: rpcapi.FrameTypeJSON, Payload: payload}); err != nil {
 		t.Fatalf("WriteFrame() error = %v", err)
 	}
-	got, err := readPeerStreamEvent(&buf)
-	if err != nil {
-		t.Fatalf("readPeerStreamEvent() error = %v", err)
-	}
-	if got.Type != apitypes.PeerStreamEventTypeTextDelta || got.Text == nil || *got.Text != "hello" {
-		t.Fatalf("readPeerStreamEvent() = %+v", got)
+	if _, err := readPeerStreamEvent(&buf); err == nil {
+		t.Fatal("readPeerStreamEvent() accepted legacy JSON frame")
 	}
 }
 
+func TestPeerStreamEventBrokerAllowsOneConnectionStream(t *testing.T) {
+	broker := newPeerStreamEventBroker()
+	first := &bytes.Buffer{}
+	unsubscribe, err := broker.Subscribe(first)
+	if err != nil {
+		t.Fatalf("Subscribe(first) error = %v", err)
+	}
+	defer unsubscribe()
+
+	if _, err := broker.Subscribe(&bytes.Buffer{}); !errors.Is(err, errPeerEventStreamAlreadyOpen) {
+		t.Fatalf("Subscribe(second) error = %v, want errPeerEventStreamAlreadyOpen", err)
+	}
+}
+
+func TestPeerStreamEventBrokerNotificationDoesNotWaitForPeerWrite(t *testing.T) {
+	writer := &peerStreamBlockingWriter{
+		started: make(chan struct{}),
+		release: make(chan struct{}),
+	}
+	broker := newPeerStreamEventBroker()
+	unsubscribe, err := broker.Subscribe(writer)
+	if err != nil {
+		t.Fatalf("Subscribe() error = %v", err)
+	}
+	defer unsubscribe()
+	t.Cleanup(func() { close(writer.release) })
+	event := &eventpb.PeerEvent{
+		Version: eventpb.Version,
+		Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_WORKSPACE_HISTORY_UPDATED,
+		Payload: &eventpb.PeerEvent_WorkspaceHistoryUpdated{
+			WorkspaceHistoryUpdated: &eventpb.WorkspaceHistoryUpdated{
+				WorkspaceName: "workspace-a",
+				WorkspaceKind: eventpb.WorkspaceKind_WORKSPACE_KIND_WORKFLOW,
+			},
+		},
+	}
+
+	returned := make(chan error, 1)
+	go func() { returned <- broker.Notify(event) }()
+	select {
+	case err := <-returned:
+		if err != nil {
+			t.Fatalf("Notify() error = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Notify() blocked on peer write")
+	}
+	select {
+	case <-writer.started:
+	case <-time.After(time.Second):
+		t.Fatal("subscriber writer did not receive notification")
+	}
+}
+
+func TestPeerStreamEventBrokerReliableBroadcastWaitsForQueueCapacity(t *testing.T) {
+	writer := &peerStreamBlockingWriter{
+		started: make(chan struct{}),
+		release: make(chan struct{}),
+	}
+	broker := newPeerStreamEventBroker()
+	unsubscribe, err := broker.Subscribe(writer)
+	if err != nil {
+		t.Fatalf("Subscribe() error = %v", err)
+	}
+	defer unsubscribe()
+	event := &eventpb.PeerEvent{
+		Version: eventpb.Version,
+		Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_WORKSPACE_HISTORY_UPDATED,
+		Payload: &eventpb.PeerEvent_WorkspaceHistoryUpdated{
+			WorkspaceHistoryUpdated: &eventpb.WorkspaceHistoryUpdated{
+				WorkspaceName: "workspace-a",
+				WorkspaceKind: eventpb.WorkspaceKind_WORKSPACE_KIND_WORKFLOW,
+			},
+		},
+	}
+	if err := broker.Notify(event); err != nil {
+		t.Fatalf("Notify(first) error = %v", err)
+	}
+	select {
+	case <-writer.started:
+	case <-time.After(time.Second):
+		t.Fatal("subscriber writer did not start")
+	}
+	for index := range peerStreamEventQueueSize {
+		if err := broker.Notify(event); err != nil {
+			t.Fatalf("Notify(%d) error = %v", index, err)
+		}
+	}
+
+	returned := make(chan error, 1)
+	go func() { returned <- broker.Broadcast(event) }()
+	select {
+	case err := <-returned:
+		t.Fatalf("Broadcast() returned before queue capacity was available: %v", err)
+	case <-time.After(25 * time.Millisecond):
+	}
+	close(writer.release)
+	select {
+	case err := <-returned:
+		if err != nil {
+			t.Fatalf("Broadcast() error = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Broadcast() did not resume after queue capacity became available")
+	}
+}
+
+type peerStreamBlockingWriter struct {
+	started chan struct{}
+	release chan struct{}
+	once    sync.Once
+}
+
+func (w *peerStreamBlockingWriter) Write(data []byte) (int, error) {
+	w.once.Do(func() { close(w.started) })
+	<-w.release
+	return len(data), nil
+}
+
 func TestPeerStreamEventChunkMapping(t *testing.T) {
-	label := "mic"
-	streamID := "s1"
-	text := "hello"
-	errorMessage := "mime changed"
-	timestamp := int64(123)
-	event := apitypes.PeerStreamEvent{
-		V:         1,
-		Type:      apitypes.PeerStreamEventTypeTextDelta,
-		StreamId:  &streamID,
-		Label:     &label,
-		Text:      &text,
-		Timestamp: &timestamp,
+	const (
+		label     = "mic"
+		streamID  = "s1"
+		text      = "hello"
+		timestamp = int64(123)
+	)
+	event := &eventpb.PeerEvent{
+		Version: eventpb.Version,
+		Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_TEXT_DELTA,
+		Payload: &eventpb.PeerEvent_TextDelta{TextDelta: &eventpb.TextDelta{
+			StreamId:        streamID,
+			Label:           label,
+			Text:            text,
+			TimestampUnixMs: timestamp,
+		}},
 	}
 	chunk, err := peerStreamEventToChunk(event)
 	if err != nil {
@@ -78,14 +199,22 @@ func TestPeerStreamEventChunkMapping(t *testing.T) {
 		t.Fatalf("events len = %d, want 1", len(events))
 	}
 	got := events[0]
-	if got.Type != apitypes.PeerStreamEventTypeTextDelta || got.Text == nil || *got.Text != text || got.StreamId == nil || *got.StreamId != streamID {
+	if got.Type != eventpb.PeerEventType_PEER_EVENT_TYPE_TEXT_DELTA || got.Text() != text || got.StreamID() != streamID {
 		t.Fatalf("event from chunk = %+v", got)
 	}
-	if got.Label == nil || *got.Label != label {
-		t.Fatalf("event label = %#v, want %q", got.Label, label)
+	if got.Label() != label {
+		t.Fatalf("event label = %q, want %q", got.Label(), label)
 	}
 
-	eos, err := peerStreamEventToChunk(apitypes.PeerStreamEvent{V: 1, Type: apitypes.PeerStreamEventTypeEos, StreamId: &streamID, Error: &errorMessage})
+	errorMessage := "mime changed"
+	eos, err := peerStreamEventToChunk(&eventpb.PeerEvent{
+		Version: eventpb.Version,
+		Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_EOS,
+		Payload: &eventpb.PeerEvent_Eos{Eos: &eventpb.StreamEnd{
+			StreamId: streamID,
+			Error:    &eventpb.EventError{Code: "MIME_CHANGED", Message: errorMessage},
+		}},
+	})
 	if err != nil {
 		t.Fatalf("eos peerStreamEventToChunk() error = %v", err)
 	}
@@ -93,12 +222,20 @@ func TestPeerStreamEventChunkMapping(t *testing.T) {
 		t.Fatalf("eos chunk = %#v, want end of stream", eos)
 	}
 	events = peerStreamEventsFromChunk(eos)
-	if len(events) != 1 || events[0].Error == nil || *events[0].Error != errorMessage {
+	if len(events) != 1 || events[0].StreamError().GetMessage() != errorMessage {
 		t.Fatalf("event error = %+v, want %q", events, errorMessage)
 	}
 
 	mimeType := "audio/opus"
-	audioEOS, err := peerStreamEventToChunk(apitypes.PeerStreamEvent{V: 1, Type: apitypes.PeerStreamEventTypeEos, StreamId: &streamID, MimeType: &mimeType})
+	audioEOS, err := peerStreamEventToChunk(&eventpb.PeerEvent{
+		Version: eventpb.Version,
+		Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_EOS,
+		Payload: &eventpb.PeerEvent_Eos{Eos: &eventpb.StreamEnd{
+			StreamId: streamID,
+			Kind:     eventpb.StreamKind_STREAM_KIND_AUDIO,
+			MimeType: mimeType,
+		}},
+	})
 	if err != nil {
 		t.Fatalf("audio eos peerStreamEventToChunk() error = %v", err)
 	}
@@ -108,35 +245,17 @@ func TestPeerStreamEventChunkMapping(t *testing.T) {
 	}
 
 	lastUpdated := time.Date(2026, 6, 22, 12, 0, 0, 123000000, time.UTC)
-	historyUpdated, err := peerStreamEventToChunk(apitypes.PeerStreamEvent{
-		V:             1,
-		Type:          apitypes.PeerStreamEventTypeWorkspaceHistoryUpdated,
-		LastUpdatedAt: &lastUpdated,
+	_, err = peerStreamEventToChunk(&eventpb.PeerEvent{
+		Version: eventpb.Version,
+		Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_WORKSPACE_HISTORY_UPDATED,
+		Payload: &eventpb.PeerEvent_WorkspaceHistoryUpdated{WorkspaceHistoryUpdated: &eventpb.WorkspaceHistoryUpdated{
+			WorkspaceName:       "demo",
+			WorkspaceKind:       eventpb.WorkspaceKind_WORKSPACE_KIND_WORKFLOW,
+			LastUpdatedAtUnixMs: lastUpdated.UnixMilli(),
+		}},
 	})
-	if err != nil {
-		t.Fatalf("history updated peerStreamEventToChunk() error = %v", err)
-	}
-	if historyUpdated.Ctrl == nil || historyUpdated.Ctrl.Label != peerStreamEventHistoryUpdatedLabel || historyUpdated.Ctrl.Timestamp != lastUpdated.UnixMilli() {
-		t.Fatalf("history updated chunk = %#v", historyUpdated)
-	}
-	events = peerStreamEventsFromChunk(historyUpdated)
-	if len(events) != 1 || events[0].Type != apitypes.PeerStreamEventTypeWorkspaceHistoryUpdated {
-		t.Fatalf("history updated events = %+v", events)
-	}
-	if events[0].LastUpdatedAt == nil || !events[0].LastUpdatedAt.Equal(time.UnixMilli(lastUpdated.UnixMilli()).UTC()) {
-		t.Fatalf("history updated last_updated_at = %#v", events[0].LastUpdatedAt)
-	}
-
-	historyUpdatedFromTimestamp, err := peerStreamEventToChunk(apitypes.PeerStreamEvent{
-		V:         1,
-		Type:      apitypes.PeerStreamEventTypeWorkspaceHistoryUpdated,
-		Timestamp: &timestamp,
-	})
-	if err != nil {
-		t.Fatalf("history updated timestamp peerStreamEventToChunk() error = %v", err)
-	}
-	if historyUpdatedFromTimestamp.Ctrl == nil || historyUpdatedFromTimestamp.Ctrl.Timestamp != timestamp {
-		t.Fatalf("history updated timestamp chunk = %#v, want timestamp %d", historyUpdatedFromTimestamp, timestamp)
+	if err == nil {
+		t.Fatal("resource invalidation was accepted as agent input")
 	}
 }
 

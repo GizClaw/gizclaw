@@ -1,15 +1,22 @@
 package gizclaw
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -382,6 +389,290 @@ func TestManagerSetPeerUpReplacesConnection(t *testing.T) {
 	if runtime := manager.PeerRuntime(context.Background(), key); runtime.Online || !runtime.LastSeenAt.IsZero() {
 		t.Fatalf("runtime after matching down = %+v", runtime)
 	}
+}
+
+func TestManagerPeerEventBrokerFollowsConnectionGeneration(t *testing.T) {
+	manager := NewManager(nil)
+	key := giznet.PublicKey{1}
+	oldConn := &testGiznetConn{publicKey: key}
+	newConn := &testGiznetConn{publicKey: key}
+	oldBroker := newPeerStreamEventBroker()
+	newBroker := newPeerStreamEventBroker()
+	var oldOutput, newOutput peerStreamLockedBuffer
+	if _, err := oldBroker.Subscribe(&oldOutput); err != nil {
+		t.Fatalf("oldBroker.Subscribe(): %v", err)
+	}
+	if _, err := newBroker.Subscribe(&newOutput); err != nil {
+		t.Fatalf("newBroker.Subscribe(): %v", err)
+	}
+	event := &eventpb.PeerEvent{
+		Version: eventpb.Version,
+		Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_WORKSPACE_HISTORY_UPDATED,
+		Payload: &eventpb.PeerEvent_WorkspaceHistoryUpdated{
+			WorkspaceHistoryUpdated: &eventpb.WorkspaceHistoryUpdated{
+				WorkspaceName: "workspace-a",
+				WorkspaceKind: eventpb.WorkspaceKind_WORKSPACE_KIND_WORKFLOW,
+			},
+		},
+	}
+
+	manager.SetPeerUp(key, oldConn)
+	if err := manager.SetPeerEventBroker(key, oldConn, oldBroker, nil); err != nil {
+		t.Fatalf("SetPeerEventBroker(old): %v", err)
+	}
+	if err := manager.BroadcastPeerEvent(key, event); err != nil {
+		t.Fatalf("BroadcastPeerEvent(old): %v", err)
+	}
+	waitForPeerStreamBytes(t, &oldOutput)
+	oldBytes := oldOutput.Len()
+	if oldBytes == 0 {
+		t.Fatal("old generation received no event")
+	}
+
+	manager.SetPeerUp(key, newConn)
+	if err := manager.SetPeerEventBroker(key, oldConn, oldBroker, nil); !errors.Is(err, ErrPeerConnNotActive) {
+		t.Fatalf("SetPeerEventBroker(stale) = %v, want ErrPeerConnNotActive", err)
+	}
+	if err := manager.BroadcastPeerEvent(key, event); err != nil {
+		t.Fatalf("BroadcastPeerEvent(without new broker): %v", err)
+	}
+	if oldOutput.Len() != oldBytes || newOutput.Len() != 0 {
+		t.Fatalf("event leaked after generation replacement: old=%d new=%d", oldOutput.Len(), newOutput.Len())
+	}
+
+	if err := manager.SetPeerEventBroker(key, newConn, newBroker, nil); err != nil {
+		t.Fatalf("SetPeerEventBroker(new): %v", err)
+	}
+	if err := manager.BroadcastPeerEvent(key, event); err != nil {
+		t.Fatalf("BroadcastPeerEvent(new): %v", err)
+	}
+	waitForPeerStreamBytes(t, &newOutput)
+	if oldOutput.Len() != oldBytes || newOutput.Len() == 0 {
+		t.Fatalf("event routed to wrong generation: old=%d new=%d", oldOutput.Len(), newOutput.Len())
+	}
+}
+
+func TestManagerWorkspaceHistoryEventsUseCurrentDirectChatAccess(t *testing.T) {
+	ctx := t.Context()
+	first := giznet.PublicKey{11}
+	second := giznet.PublicKey{12}
+	unrelated := giznet.PublicKey{13}
+	friends := &friend.Server{Friends: kv.NewMemory(nil)}
+	relation, err := friends.AdminCreateFriendResource(
+		ctx,
+		first.String(),
+		second.String(),
+	)
+	if err != nil {
+		t.Fatalf("AdminCreateFriendResource: %v", err)
+	}
+	owner := first.String()
+	manager := NewManager(nil)
+	manager.Friends = friends
+	manager.Workspaces = staticWorkspaceService{workspace: apitypes.Workspace{
+		Name:           relation.WorkspaceName,
+		OwnerPublicKey: &owner,
+		Parameters: socialutil.ChatRoomWorkspaceParameters(
+			apitypes.ChatRoomModeDirect,
+		),
+	}}
+	outputs := map[giznet.PublicKey]*peerStreamLockedBuffer{}
+	for _, key := range []giznet.PublicKey{first, second, unrelated} {
+		conn := &testGiznetConn{publicKey: key}
+		broker := newPeerStreamEventBroker()
+		output := &peerStreamLockedBuffer{}
+		unsubscribe, err := broker.Subscribe(output)
+		if err != nil {
+			t.Fatalf("Subscribe(%s): %v", key, err)
+		}
+		t.Cleanup(unsubscribe)
+		manager.SetPeerUp(key, conn)
+		if err := manager.SetPeerEventBroker(key, conn, broker, nil); err != nil {
+			t.Fatalf("SetPeerEventBroker(%s): %v", key, err)
+		}
+		outputs[key] = output
+	}
+
+	manager.broadcastWorkspaceHistoryUpdated(
+		ctx,
+		relation.WorkspaceName,
+		time.UnixMilli(1234),
+	)
+	for _, key := range []giznet.PublicKey{first, second} {
+		waitForPeerStreamBytes(t, outputs[key])
+		event := readLockedPeerStreamEvent(t, outputs[key])
+		if event.GetWorkspaceHistoryUpdated().GetWorkspaceKind() !=
+			eventpb.WorkspaceKind_WORKSPACE_KIND_DIRECT_CHATROOM {
+			t.Fatalf("history event for %s = %+v", key, event)
+		}
+	}
+	if outputs[unrelated].Len() != 0 {
+		t.Fatal("unrelated peer received Direct Chat history invalidation")
+	}
+
+	friends.Workspaces = &adminGameplayWorkspaceService{}
+	if _, err := friends.DeleteFriend(
+		ctx,
+		first.String(),
+		rpcapi.FriendDeleteRequest{Id: second.String()},
+	); err != nil {
+		t.Fatalf("DeleteFriend: %v", err)
+	}
+	manager.broadcastWorkspaceHistoryUpdated(
+		ctx,
+		relation.WorkspaceName,
+		time.UnixMilli(5678),
+	)
+	time.Sleep(10 * time.Millisecond)
+	if outputs[first].Len() != 0 || outputs[second].Len() != 0 {
+		t.Fatal("former Direct Chat participants received history invalidation")
+	}
+}
+
+func waitForPeerStreamBytes(t *testing.T, output *peerStreamLockedBuffer) {
+	t.Helper()
+	deadline := time.Now().Add(time.Second)
+	for output.Len() == 0 && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if output.Len() == 0 {
+		t.Fatal("timed out waiting for Peer Event Stream output")
+	}
+}
+
+type peerStreamLockedBuffer struct {
+	mu sync.Mutex
+	bytes.Buffer
+}
+
+func (b *peerStreamLockedBuffer) Write(data []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.Buffer.Write(data)
+}
+
+func (b *peerStreamLockedBuffer) Len() int {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.Buffer.Len()
+}
+
+func readLockedPeerStreamEvent(
+	t *testing.T,
+	output *peerStreamLockedBuffer,
+) *eventpb.PeerEvent {
+	t.Helper()
+	output.mu.Lock()
+	defer output.mu.Unlock()
+	event, err := readPeerStreamEvent(&output.Buffer)
+	if err != nil {
+		t.Fatalf("readPeerStreamEvent: %v", err)
+	}
+	return event
+}
+
+func TestManagerChatroomAccessUsesAuthoritativeRelationships(t *testing.T) {
+	ctx := t.Context()
+	caller := giznet.PublicKey{1}
+	other := giznet.PublicKey{2}
+
+	friends := &friend.Server{Friends: kv.NewMemory(nil)}
+	relation, err := friends.AdminCreateFriendResource(ctx, caller.String(), other.String())
+	if err != nil {
+		t.Fatalf("AdminCreateFriendResource: %v", err)
+	}
+	directWorkspace := apitypes.Workspace{
+		Name:       relation.WorkspaceName,
+		Parameters: socialutil.ChatRoomWorkspaceParameters(apitypes.ChatRoomModeDirect),
+	}
+	manager := &Manager{
+		Workspaces: staticWorkspaceService{workspace: directWorkspace},
+		Friends:    friends,
+	}
+	if denial := manager.chatroomAccessError(ctx, caller, directWorkspace.Name); denial != nil {
+		t.Fatalf("direct Chatroom access denied before relationship deletion: %+v", denial)
+	}
+	friends.Workspaces = &adminGameplayWorkspaceService{}
+	if _, err := friends.DeleteFriend(ctx, caller.String(), rpcapi.FriendDeleteRequest{Id: other.String()}); err != nil {
+		t.Fatalf("DeleteFriend: %v", err)
+	}
+	if denial := manager.chatroomAccessError(ctx, caller, directWorkspace.Name); denial.Code != "CHATROOM_FRIEND_REMOVED" || denial.Retryable {
+		t.Fatalf("direct Chatroom denial = %+v", denial)
+	}
+
+	groupStore := kv.NewMemory(nil)
+	groups := &friendgroup.Server{
+		Groups:            groupStore,
+		InviteTokens:      groupStore,
+		Members:           groupStore,
+		Belongs:           groupStore,
+		RelationshipStore: groupStore,
+		NewID:             func() string { return "group-a" },
+	}
+	group, err := groups.CreateFriendGroup(ctx, caller.String(), rpcapi.FriendGroupCreateRequest{Name: "room"})
+	if err != nil {
+		t.Fatalf("CreateFriendGroup: %v", err)
+	}
+	groupID := socialStringValue(group.Id)
+	if _, err := groups.AddFriendGroupMember(ctx, caller.String(), rpcapi.FriendGroupMemberAddRequest{
+		FriendGroupId: groupID,
+		PeerPublicKey: other.String(),
+		Role:          rpcapi.FriendGroupMemberMutableRole("member"),
+	}); err != nil {
+		t.Fatalf("AddFriendGroupMember: %v", err)
+	}
+	groupWorkspace := apitypes.Workspace{
+		Name:       socialStringValue(group.WorkspaceName),
+		Parameters: socialutil.ChatRoomWorkspaceParameters(apitypes.ChatRoomModeGroup),
+	}
+	manager.Workspaces = staticWorkspaceService{workspace: groupWorkspace}
+	manager.FriendGroups = groups
+	if denial := manager.chatroomAccessError(ctx, other, groupWorkspace.Name); denial != nil {
+		t.Fatalf("group Chatroom access denied before member deletion: %+v", denial)
+	}
+	if _, err := groups.DeleteFriendGroupMember(ctx, other.String(), rpcapi.FriendGroupMemberDeleteRequest{
+		FriendGroupId: groupID,
+		Id:            other.String(),
+	}); err != nil {
+		t.Fatalf("DeleteFriendGroupMember: %v", err)
+	}
+	if denial := manager.chatroomAccessError(ctx, other, groupWorkspace.Name); denial.Code != "CHATROOM_MEMBER_REMOVED" {
+		t.Fatalf("removed member denial = %+v", denial)
+	}
+	groups.Workspaces = &adminGameplayWorkspaceService{}
+	if _, err := groups.DeleteFriendGroup(ctx, caller.String(), rpcapi.FriendGroupDeleteRequest{Id: groupID}); err != nil {
+		t.Fatalf("DeleteFriendGroup: %v", err)
+	}
+	if denial := manager.chatroomAccessError(ctx, caller, groupWorkspace.Name); denial.Code != "CHATROOM_GROUP_DELETED" {
+		t.Fatalf("deleted group denial = %+v", denial)
+	}
+}
+
+type staticWorkspaceService struct {
+	workspace apitypes.Workspace
+}
+
+func (s staticWorkspaceService) ListWorkspaces(context.Context, adminhttp.ListWorkspacesRequestObject) (adminhttp.ListWorkspacesResponseObject, error) {
+	return adminhttp.ListWorkspaces200JSONResponse{}, nil
+}
+
+func (s staticWorkspaceService) CreateWorkspace(context.Context, adminhttp.CreateWorkspaceRequestObject) (adminhttp.CreateWorkspaceResponseObject, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s staticWorkspaceService) DeleteWorkspace(context.Context, adminhttp.DeleteWorkspaceRequestObject) (adminhttp.DeleteWorkspaceResponseObject, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s staticWorkspaceService) GetWorkspace(_ context.Context, request adminhttp.GetWorkspaceRequestObject) (adminhttp.GetWorkspaceResponseObject, error) {
+	if string(request.Name) != s.workspace.Name {
+		return adminhttp.GetWorkspace404JSONResponse{}, nil
+	}
+	return adminhttp.GetWorkspace200JSONResponse(s.workspace), nil
+}
+
+func (s staticWorkspaceService) PutWorkspace(context.Context, adminhttp.PutWorkspaceRequestObject) (adminhttp.PutWorkspaceResponseObject, error) {
+	return nil, errors.New("not implemented")
 }
 
 func TestManagerSetPeerUpSameConnectionDoesNotReplace(t *testing.T) {

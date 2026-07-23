@@ -20,6 +20,9 @@ typedef WorkspaceAccessErrorCallback =
       GizClawClient sourceClient,
       String sourceServerId,
     );
+typedef PeerEventErrorMessageResolver = String Function(PeerStreamEvent event);
+typedef TerminalWorkspaceAccessCallback = void Function();
+typedef SenderLabelResolver = String Function(String senderPublicKey);
 
 class WorkspaceChatMessage {
   const WorkspaceChatMessage({
@@ -29,12 +32,16 @@ class WorkspaceChatMessage {
     required this.state,
     this.replayAvailable = false,
     this.createdAt,
+    this.senderLabel,
+    this.senderPublicKey,
   });
 
   final DateTime? createdAt;
   final String id;
   final bool incoming;
   final bool replayAvailable;
+  final String? senderLabel;
+  final String? senderPublicKey;
   final WorkspaceMessageState state;
   final String text;
 
@@ -46,6 +53,8 @@ class WorkspaceChatMessage {
       text: text ?? this.text,
       state: state ?? this.state,
       createdAt: createdAt,
+      senderLabel: senderLabel,
+      senderPublicKey: senderPublicKey,
     );
   }
 }
@@ -55,35 +64,47 @@ class WorkspaceChatController extends ChangeNotifier {
     required this.workspaceName,
     required this.repository,
     required this.serverId,
+    this.localPeerPublicKey,
     this.client,
     this.dataChannelFactory,
+    this.eventSession,
     this.peerConnection,
     this.inputTrack,
     this.setInputSending,
     this.ownsInputTrack,
     this.onTransportClosed,
     this.onWorkspaceAccessError,
+    this.onTerminalWorkspaceAccess,
+    this.peerEventErrorMessageResolver,
+    this.senderLabelResolver,
     this.pcmAudioLevels,
   });
 
   final GizClawClient? client;
   final GizClawDataChannelFactory? dataChannelFactory;
+  final WorkspaceEventSession? eventSession;
   final rtc.RTCPeerConnection? peerConnection;
   final rtc.MediaStreamTrack? inputTrack;
   final SetInputSending? setInputSending;
   final bool Function()? ownsInputTrack;
   final Future<void> Function()? onTransportClosed;
   final WorkspaceAccessErrorCallback? onWorkspaceAccessError;
+  final TerminalWorkspaceAccessCallback? onTerminalWorkspaceAccess;
+  final PeerEventErrorMessageResolver? peerEventErrorMessageResolver;
+  final SenderLabelResolver? senderLabelResolver;
   final Stream<PcmAudioLevels>? pcmAudioLevels;
   final WorkspaceChatRepository repository;
   final String? serverId;
+  final String? localPeerPublicKey;
   final String workspaceName;
 
   StreamSubscription<List<CachedWorkspaceMessage>>? _historySubscription;
   StreamSubscription<PeerStreamEvent>? _eventSubscription;
   StreamSubscription<PcmAudioLevels>? _pcmLevelSubscription;
   WorkspaceEventSession? _session;
+  bool _ownsSession = false;
   String? _activeStreamId;
+  String? _latestInputStreamId;
   Timer? _historyRefreshTimer;
   Timer? _levelTimer;
   List<WorkspaceChatMessage> _cached = const [];
@@ -103,6 +124,8 @@ class WorkspaceChatController extends ChangeNotifier {
   String? replayingHistoryId;
   bool _disposed = false;
   bool _inputTrackReleased = false;
+  bool _historyRestricted = false;
+  bool _terminalAccessReported = false;
   Future<void>? _closeFuture;
   Future<void>? _finishInputInFlight;
   Future<void>? _startInputInFlight;
@@ -143,7 +166,7 @@ class WorkspaceChatController extends ChangeNotifier {
     final stableServerId = serverId;
     if (stableServerId != null) {
       _historySubscription = repository
-          .watchHistory(stableServerId, workspaceName)
+          .watchHistory(stableServerId, workspaceName, localPeerPublicKey)
           .listen((history) {
             _replaceCachedHistory(history);
             notifyListeners();
@@ -167,7 +190,7 @@ class WorkspaceChatController extends ChangeNotifier {
     }
     if (stableServerId == null ||
         activeClient == null ||
-        factory == null ||
+        (eventSession == null && factory == null) ||
         peerConnection == null) {
       state = WorkspaceChatState.offline;
       notifyListeners();
@@ -188,7 +211,9 @@ class WorkspaceChatController extends ChangeNotifier {
           throw StateError('start workspace: $error');
         }
       }
-      final session = await WorkspaceEventSession.open(factory);
+      final session =
+          eventSession ?? await WorkspaceEventSession.open(factory!);
+      _ownsSession = eventSession == null;
       _session = session;
       _eventSubscription = session.events.listen(
         _handleEvent,
@@ -246,6 +271,7 @@ class WorkspaceChatController extends ChangeNotifier {
       final streamId =
           'audio-${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}';
       _activeStreamId = streamId;
+      _latestInputStreamId = streamId;
       await session.beginAudio(streamId);
       if (!_ownsInputTrack) {
         await session.endAudio(streamId, error: 'interrupted');
@@ -431,7 +457,11 @@ class WorkspaceChatController extends ChangeNotifier {
 
   Future<void> replayHistory(String historyId) async {
     final activeClient = client;
-    if (activeClient == null || replayingHistoryId != null) return;
+    if (_historyRestricted ||
+        activeClient == null ||
+        replayingHistoryId != null) {
+      return;
+    }
     replayingHistoryId = historyId;
     lastError = null;
     notifyListeners();
@@ -450,8 +480,25 @@ class WorkspaceChatController extends ChangeNotifier {
   }
 
   void _handleEvent(PeerStreamEvent event) {
-    if (event.error?.isNotEmpty == true && event.error != 'interrupted') {
-      _handleError(StateError(event.error!), changeState: false);
+    final hasError =
+        event.errorCode?.trim().isNotEmpty == true ||
+        event.errorMessage?.trim().isNotEmpty == true;
+    if (hasError &&
+        _isChatroomAccessError(event.errorCode) &&
+        event.streamId?.trim().isNotEmpty == true &&
+        _latestInputStreamId?.isNotEmpty == true &&
+        event.streamId != _latestInputStreamId) {
+      return;
+    }
+    if (hasError && event.errorMessage != 'interrupted') {
+      _resetRecording();
+      _handleError(
+        StateError(
+          peerEventErrorMessageResolver?.call(event) ??
+              defaultPeerEventErrorMessage(event),
+        ),
+        changeState: false,
+      );
     }
     final assistantAudio =
         event.label?.toLowerCase() == 'assistant' &&
@@ -464,6 +511,11 @@ class WorkspaceChatController extends ChangeNotifier {
       notifyListeners();
     }
     if (event.type == 'workspace.history.updated') {
+      final updatedWorkspace =
+          event.workspaceHistoryUpdated?.workspaceName.trim() ?? '';
+      if (updatedWorkspace.isNotEmpty && updatedWorkspace != workspaceName) {
+        return;
+      }
       _historyRefreshTimer?.cancel();
       _historyRefreshTimer = Timer(
         const Duration(milliseconds: 500),
@@ -521,6 +573,7 @@ class WorkspaceChatController extends ChangeNotifier {
   void handleEventForTesting(PeerStreamEvent event) => _handleEvent(event);
 
   Future<void> _refreshHistory() async {
+    if (_historyRestricted) return;
     final activeClient = client;
     final stableServerId = serverId;
     if (activeClient == null || stableServerId == null) return;
@@ -529,6 +582,7 @@ class WorkspaceChatController extends ChangeNotifier {
         client: activeClient,
         serverId: stableServerId,
         workspaceName: workspaceName,
+        localPeerPublicKey: localPeerPublicKey,
       );
       if (_disposed) return;
       _replaceCachedHistory(history);
@@ -542,8 +596,33 @@ class WorkspaceChatController extends ChangeNotifier {
         sourceServerId: stableServerId,
       );
       if (_disposed) return;
+      if (error is RpcError && (error.code == 403 || error.code == 404)) {
+        await restrictHistory();
+        if (!_terminalAccessReported) {
+          _terminalAccessReported = true;
+          onTerminalWorkspaceAccess?.call();
+        }
+      }
+      if (_disposed) return;
       _handleError(error, changeState: _session == null && _cached.isEmpty);
     }
+  }
+
+  Future<void> refreshHistory() => _refreshHistory();
+
+  Future<void> restrictHistory() async {
+    if (_historyRestricted) return;
+    _historyRestricted = true;
+    _historyRefreshTimer?.cancel();
+    _historyRefreshTimer = null;
+    final historySubscription = _historySubscription;
+    _historySubscription = null;
+    await historySubscription?.cancel();
+    _cached = const [];
+    _transient.clear();
+    _historyIdsAtStreamStart.clear();
+    replayingHistoryId = null;
+    notifyListeners();
   }
 
   Future<void> _reconcileWorkspaceAccessError(
@@ -580,6 +659,11 @@ class WorkspaceChatController extends ChangeNotifier {
             state: WorkspaceMessageState.complete,
             replayAvailable: entry.replayAvailable,
             createdAt: entry.createdAt,
+            senderPublicKey: entry.senderPublicKey,
+            senderLabel:
+                entry.incoming && entry.senderPublicKey?.isNotEmpty == true
+                ? (senderLabelResolver?.call(entry.senderPublicKey!) ?? 'PEER')
+                : null,
           ),
         )
         .toList(growable: false);
@@ -678,7 +762,7 @@ class WorkspaceChatController extends ChangeNotifier {
       if (historySubscription != null) historySubscription.cancel(),
       if (eventSubscription != null) eventSubscription.cancel(),
       if (pcmLevelSubscription != null) pcmLevelSubscription.cancel(),
-      if (session != null) session.close(),
+      if (session != null && _ownsSession) session.close(),
     ]);
   }
 
@@ -687,6 +771,31 @@ class WorkspaceChatController extends ChangeNotifier {
     unawaited(close());
     super.dispose();
   }
+}
+
+bool _isChatroomAccessError(String? code) => switch (code) {
+  'CHATROOM_FRIEND_REMOVED' ||
+  'CHATROOM_MEMBER_REMOVED' ||
+  'CHATROOM_GROUP_DELETED' ||
+  'CHATROOM_ACCESS_CHECK_FAILED' => true,
+  _ => false,
+};
+
+String defaultPeerEventErrorMessage(PeerStreamEvent event) {
+  final serverMessage = event.errorMessage?.trim() ?? '';
+  return switch (event.errorCode) {
+    'CHATROOM_FRIEND_REMOVED' => 'You are no longer friends.',
+    'CHATROOM_MEMBER_REMOVED' => 'You were removed from this group.',
+    'CHATROOM_GROUP_DELETED' => 'This group was deleted.',
+    'CHATROOM_ACCESS_CHECK_FAILED' =>
+      'Chatroom access could not be verified. Try again.',
+    _ =>
+      serverMessage.isEmpty
+          ? (event.errorCode?.trim().isNotEmpty == true
+                ? event.errorCode!
+                : 'Workspace request failed')
+          : serverMessage,
+  };
 }
 
 @visibleForTesting

@@ -8,17 +8,21 @@
     "./rpc": "./rpc.ts",
     "./peerhttp": "./peerhttp.ts",
     "./signaling": "./signaling.ts",
+    "./events": "./events.ts",
     "./telemetry": "./telemetry.ts"
   },
   "scripts": {
-    "test": "node --test --experimental-strip-types index.test.ts"
+    "generate:events": "mkdir -p generated/events && protoc -I ../../../api/proto/events --plugin=protoc-gen-es=../../../node_modules/.bin/protoc-gen-es --es_out=generated/events --es_opt=target=js+dts,import_extension=js ../../../api/proto/events/peer_event.proto && prettier --write --ignore-path /dev/null generated/events/peer_event_pb.js generated/events/peer_event_pb.d.ts",
+    "test": "node --test --experimental-strip-types *.test.ts"
   },
   "dependencies": {
+    "@bufbuild/protobuf": "^2.13.0",
     "@noble/ciphers": "^2.2.0",
     "@noble/curves": "^2.2.0",
     "@noble/hashes": "^2.2.0"
   },
   "devDependencies": {
+    "@bufbuild/protoc-gen-es": "^2.13.0",
     "@roamhq/wrtc": "^0.10.0"
   }
 }

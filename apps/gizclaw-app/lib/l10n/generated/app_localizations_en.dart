@@ -361,7 +361,8 @@ class AppLocalizationsEn extends AppLocalizations {
       'friendUnavailable': 'Friend unavailable',
       'openChat': 'Open Chat',
       'removeFriend': 'Remove Friend',
-      'directChatRemoved': 'The direct chat workspace will also be removed.',
+      'directChatRemoved':
+          'The friendship is removed immediately; chat data is cleaned up later.',
       'curiousToday': 'Curious today',
       'mood': 'Mood',
       'streak': 'Streak',

@@ -13,7 +13,7 @@ Universal WebRTC, packet transport and service stream belong to `pkgs/giznet`; u
 
 ## Transport contract
 
-The [Streams Reference](/references/streams) owns the direction, reliability, service IDs, framing, and lifecycle of audio, direct packets, the Agent Event Stream, and RPC/HTTP service streams. The [Events Reference](/references/events) owns event wire types and fields. This page only explains how `PeerConn` implements those contracts and does not duplicate their protocol tables.
+The [Streams Reference](/references/streams) owns the direction, reliability, service IDs, framing, and lifecycle of audio, direct packets, the Peer Event Stream, and RPC/HTTP service streams. The [Events Reference](/references/events) owns event wire types and fields. This page only explains how `PeerConn` implements those contracts and does not duplicate their protocol tables.
 
 ## Service stream write flow control
 

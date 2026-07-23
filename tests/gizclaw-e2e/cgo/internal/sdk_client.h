@@ -12,6 +12,7 @@ typedef struct gzc_cgo_stream_frame {
   unsigned long len;
 } gzc_cgo_stream_frame_t;
 typedef struct gzc_service_channel gzc_service_channel_t;
+typedef struct gzc_event_stream gzc_event_stream_t;
 
 int gzc_cgo_session_open(
     const char *server_endpoint,
@@ -66,6 +67,26 @@ int gzc_cgo_session_open_service_channel(
     gzc_service_channel_t **out_channel,
     char *errbuf,
     unsigned long errbuf_len);
+int gzc_cgo_session_open_event_stream(
+    gzc_cgo_session_t *session,
+    int timeout_ms,
+    gzc_event_stream_t **out_stream,
+    char *errbuf,
+    unsigned long errbuf_len);
+int gzc_cgo_event_stream_send_audio_boundary(
+    gzc_event_stream_t *stream,
+    const char *stream_id,
+    int begin,
+    char *errbuf,
+    unsigned long errbuf_len);
+int gzc_cgo_event_stream_read_encoded(
+    gzc_event_stream_t *stream,
+    int timeout_ms,
+    unsigned char **out_data,
+    unsigned long *out_data_len,
+    char *errbuf,
+    unsigned long errbuf_len);
+void gzc_cgo_event_stream_close(gzc_event_stream_t *stream);
 int gzc_cgo_service_channel_send_json(
     gzc_service_channel_t *channel,
     const char *json,
