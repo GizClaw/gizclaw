@@ -91,6 +91,42 @@ func TestCreateOrGetReusesOneDeletionEvent(t *testing.T) {
 	}
 }
 
+func TestCreateOrGetSupportsSlashSeparator(t *testing.T) {
+	for _, fixture := range []struct {
+		name string
+		new  func(*testing.T) kv.Store
+	}{
+		{name: "memory", new: func(*testing.T) kv.Store {
+			return kv.NewMemory(&kv.Options{Separator: '/'})
+		}},
+		{name: "badger", new: func(t *testing.T) kv.Store {
+			store, err := kv.NewBadgerInMemory(&kv.Options{Separator: '/'})
+			if err != nil {
+				t.Fatalf("NewBadgerInMemory: %v", err)
+			}
+			t.Cleanup(func() { _ = store.Close() })
+			return store
+		}},
+	} {
+		t.Run(fixture.name, func(t *testing.T) {
+			ctx := context.Background()
+			store := fixture.new(t)
+			record, err := New(KindWorkspace, "workspace-a", nil, ReasonResourceDelete, struct{}{}, time.Unix(1, 0))
+			if err != nil {
+				t.Fatalf("New: %v", err)
+			}
+			got, created, err := CreateOrGet(ctx, store, record)
+			if err != nil || !created || got.DeletionID != record.DeletionID {
+				t.Fatalf("CreateOrGet = %#v, %v, %v", got, created, err)
+			}
+			stored, err := Get(ctx, store, record.DeletionID)
+			if err != nil || stored.DeletionID != record.DeletionID {
+				t.Fatalf("Get = %#v, %v", stored, err)
+			}
+		})
+	}
+}
+
 func TestKVSourceLookup(t *testing.T) {
 	ctx := context.Background()
 	store := kv.NewMemory(nil)

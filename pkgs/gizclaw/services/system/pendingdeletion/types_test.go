@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 func TestRecordValidateRejectsInvalidEnvelope(t *testing.T) {
@@ -90,8 +92,12 @@ func TestNewCanonicalizesLocator(t *testing.T) {
 	if record.ResourceID != "pet-a" || record.OwnerPublicKey == nil || *record.OwnerPublicKey != "peer-a" {
 		t.Fatalf("New locator = %q, %v", record.ResourceID, record.OwnerPublicKey)
 	}
-	if record.DeletionID != "pet/cGVlci1h/cGV0LWE" {
-		t.Fatalf("New deletion ID = %q, want stable resource locator ID", record.DeletionID)
+	deletionID, err := uuid.Parse(record.DeletionID)
+	if err != nil {
+		t.Fatalf("New deletion ID = %q, want name-based UUID: %v", record.DeletionID, err)
+	}
+	if deletionID.Version() != 5 {
+		t.Fatalf("New deletion ID version = %d, want 5", deletionID.Version())
 	}
 	if owner != " peer-a " {
 		t.Fatalf("New mutated owner input = %q", owner)
@@ -107,7 +113,7 @@ func TestNewReusesResourceDeletionID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New(second): %v", err)
 	}
-	if first.DeletionID != "workspace/d29ya3NwYWNlLWE" || second.DeletionID != first.DeletionID {
+	if second.DeletionID != first.DeletionID {
 		t.Fatalf("deletion IDs = %q and %q, want one stable resource ID", first.DeletionID, second.DeletionID)
 	}
 }

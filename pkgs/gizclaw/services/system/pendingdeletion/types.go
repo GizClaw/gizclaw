@@ -18,6 +18,11 @@ import (
 // DescriptorVersion is the schema version of descriptors produced by this package.
 const DescriptorVersion = 1
 
+var deletionIDNamespace = uuid.NewSHA1(
+	uuid.NameSpaceURL,
+	[]byte("https://github.com/GizClaw/gizclaw/pending-deletion"),
+)
+
 // Kind identifies the domain that owns cleanup for a resource pending deletion.
 type Kind string
 
@@ -169,12 +174,16 @@ func deletionIDForLocator(kind Kind, resourceID string, ownerPublicKey *string) 
 	}
 	encode := base64.RawURLEncoding.EncodeToString
 	if kind != KindPet {
-		return string(kind) + "/" + encode([]byte(resourceID)), nil
+		locator := string(kind) + "\x00" + encode([]byte(resourceID))
+		return uuid.NewSHA1(deletionIDNamespace, []byte(locator)).String(), nil
 	}
 	if ownerPublicKey == nil || strings.TrimSpace(*ownerPublicKey) == "" {
 		return "", errors.New("pending deletion: Pet requires owner public key")
 	}
-	return string(kind) + "/" + encode([]byte(strings.TrimSpace(*ownerPublicKey))) + "/" + encode([]byte(resourceID)), nil
+	locator := string(kind) + "\x00" +
+		encode([]byte(strings.TrimSpace(*ownerPublicKey))) + "\x00" +
+		encode([]byte(resourceID))
+	return uuid.NewSHA1(deletionIDNamespace, []byte(locator)).String(), nil
 }
 
 func (k Kind) valid() bool {
