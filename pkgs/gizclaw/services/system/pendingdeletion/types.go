@@ -31,6 +31,8 @@ const (
 	KindPeer Kind = "peer"
 	// KindWorkspace identifies a user Workspace pending deletion.
 	KindWorkspace Kind = "workspace"
+	// KindFriendGroup identifies retired Friend Group data pending deletion.
+	KindFriendGroup Kind = "friend_group"
 	// KindPet identifies a Pet row pending deletion.
 	KindPet Kind = "pet"
 )
@@ -45,6 +47,10 @@ const (
 	ReasonPeerDelete Reason = "peer_delete"
 	// ReasonResourceDelete identifies a domain resource deletion.
 	ReasonResourceDelete Reason = "resource_delete"
+	// ReasonFriendRelationshipDelete identifies Direct Chatroom retirement.
+	ReasonFriendRelationshipDelete Reason = "friend_relationship_delete"
+	// ReasonFriendGroupDelete identifies Group Chatroom retirement.
+	ReasonFriendGroupDelete Reason = "friend_group_delete"
 )
 
 // Record contains only immutable identifiers required by a later domain
@@ -188,7 +194,7 @@ func deletionIDForLocator(kind Kind, resourceID string, ownerPublicKey *string) 
 
 func (k Kind) valid() bool {
 	switch k {
-	case KindPeer, KindWorkspace, KindPet:
+	case KindPeer, KindWorkspace, KindFriendGroup, KindPet:
 		return true
 	default:
 		return false
@@ -197,7 +203,11 @@ func (k Kind) valid() bool {
 
 func (r Reason) valid() bool {
 	switch r {
-	case ReasonAdminDelete, ReasonPeerDelete, ReasonResourceDelete:
+	case ReasonAdminDelete,
+		ReasonPeerDelete,
+		ReasonResourceDelete,
+		ReasonFriendRelationshipDelete,
+		ReasonFriendGroupDelete:
 		return true
 	default:
 		return false

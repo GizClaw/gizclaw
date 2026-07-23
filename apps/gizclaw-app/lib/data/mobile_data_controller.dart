@@ -24,6 +24,27 @@ enum MobileWorkspaceSurface { raid, friend, group, pet }
 
 const _demoServerEndpoint = 'demo.gizclaw.local:9820';
 
+String localizedPeerEventErrorMessage(PeerStreamEvent event, Locale locale) {
+  final zh = locale.languageCode == 'zh';
+  final serverMessage = event.errorMessage?.trim() ?? '';
+  return switch (event.errorCode) {
+    'CHATROOM_FRIEND_REMOVED' => zh ? '你们已不是好友。' : 'You are no longer friends.',
+    'CHATROOM_MEMBER_REMOVED' =>
+      zh ? '你已被移出这个群聊。' : 'You were removed from this group.',
+    'CHATROOM_GROUP_DELETED' => zh ? '这个群聊已被删除。' : 'This group was deleted.',
+    'CHATROOM_ACCESS_CHECK_FAILED' =>
+      zh
+          ? '暂时无法确认群聊权限，请重试。'
+          : 'Chatroom access could not be verified. Try again.',
+    _ =>
+      serverMessage.isEmpty
+          ? (event.errorCode?.trim().isNotEmpty == true
+                ? event.errorCode!
+                : (zh ? '工作区请求失败。' : 'Workspace request failed'))
+          : serverMessage,
+  };
+}
+
 Future<T> _workspaceActivationStep<T>(
   String step,
   Future<T> Function() action,
@@ -122,6 +143,10 @@ class MobileDataController extends ChangeNotifier {
   StreamSubscription<List<ChatroomWorkspaceMetadata>>? _friendChatSubscription;
   StreamSubscription<List<ChatroomWorkspaceMetadata>>?
   _friendGroupChatSubscription;
+  StreamSubscription<PeerStreamEvent>? _peerEventSubscription;
+  WorkspaceEventSession? _peerEventSession;
+  final Map<String, Future<void>> _historyEventRefreshes = {};
+  final Set<String> _historyEventRefreshDirty = {};
   List<WorkflowCard> workflows = const [];
   List<Workflow> _workflowResources = const [];
   String runtimeProfileName = '';
@@ -139,6 +164,7 @@ class MobileDataController extends ChangeNotifier {
   Future<MicrophoneStatus>? _microphoneRecovery;
   Timer? _backgroundReconnectTimer;
   late Duration _backgroundReconnectDelay;
+  bool _backgroundReconnectRequired = false;
   bool _recoverMicrophoneAfterResume = false;
   Future<void>? _refreshInFlight;
   bool _refreshAgain = false;
@@ -148,6 +174,7 @@ class MobileDataController extends ChangeNotifier {
   Locale _effectiveLocale = appEnglishLocale;
   int _serverWatchGeneration = 0;
   int _startGeneration = 0;
+  int _peerEventGeneration = 0;
   Future<void>? _workspaceSwitch;
   WorkspaceChatController? _activeWorkspaceChat;
   Future<void>? _closeFuture;
@@ -281,6 +308,7 @@ class MobileDataController extends ChangeNotifier {
     _backgroundReconnectTimer?.cancel();
     _backgroundReconnectTimer = null;
     _backgroundReconnectDelay = backgroundReconnectInitialDelay;
+    final forceTransportRecovery = _backgroundReconnectRequired;
     final force = _recoverMicrophoneAfterResume;
     _recoverMicrophoneAfterResume = false;
     if (!kReleaseMode) {
@@ -290,7 +318,8 @@ class MobileDataController extends ChangeNotifier {
       );
     }
     if (connection.profile.isConfigured &&
-        (connectionState != MobileConnectionState.connected ||
+        (forceTransportRecovery ||
+            connectionState != MobileConnectionState.connected ||
             !connection.isConnected)) {
       unawaited(() async {
         try {
@@ -307,6 +336,12 @@ class MobileDataController extends ChangeNotifier {
         try {
           await _beginMicrophoneRecovery(force: force);
         } catch (_) {}
+      }());
+    }
+    if (connectionState == MobileConnectionState.connected) {
+      unawaited(() async {
+        await refresh();
+        await activeWorkspaceChat?.refreshHistory();
       }());
     }
   }
@@ -375,7 +410,9 @@ class MobileDataController extends ChangeNotifier {
       if (!_isCurrentStart(generation, endpoint)) return;
       connectionState = MobileConnectionState.connected;
       notifyListeners();
+      await _openPeerEventSession();
       await refresh(client: client, serverId: serverId);
+      _markTransportReady();
     } catch (error) {
       if (!_isCurrentStart(generation, endpoint)) return;
       final discoveredServerId = connection.serverId;
@@ -389,9 +426,7 @@ class MobileDataController extends ChangeNotifier {
       connectionState = connection.isConnected
           ? MobileConnectionState.connected
           : MobileConnectionState.offline;
-      if (connectionState == MobileConnectionState.offline) {
-        _scheduleReconnect();
-      }
+      _scheduleReconnect(force: connection.isConnected);
       notifyListeners();
     }
   }
@@ -494,6 +529,7 @@ class MobileDataController extends ChangeNotifier {
     _updatingConnectionProfile = true;
     try {
       await _replaceActiveWorkspaceChat(null);
+      await _closePeerEventSession();
       await connection.updateProfile(
         connection.profile.copyWith(
           endpoint: normalized,
@@ -560,6 +596,138 @@ class MobileDataController extends ChangeNotifier {
     _workspaceSubscription = null;
     _friendChatSubscription = null;
     _friendGroupChatSubscription = null;
+  }
+
+  Future<void> _openPeerEventSession() async {
+    await _closePeerEventSession();
+    final factory = connection.dataChannelFactory;
+    if (factory == null) return;
+    final generation = _peerEventGeneration;
+    final client = connection.client;
+    final session = await WorkspaceEventSession.open(factory);
+    if (_closing ||
+        generation != _peerEventGeneration ||
+        !connection.isConnected ||
+        !identical(connection.client, client)) {
+      await session.close();
+      return;
+    }
+    _peerEventSession = session;
+    _peerEventSubscription = session.events.listen(
+      _handlePeerEvent,
+      onError: (Object error) {
+        if (_closing || !identical(_peerEventSession, session)) return;
+        lastError = error;
+        notifyListeners();
+      },
+      onDone: () {
+        if (_closing || !identical(_peerEventSession, session)) return;
+        _peerEventGeneration += 1;
+        _peerEventSession = null;
+        _peerEventSubscription = null;
+        unawaited(_closeEndedPeerEventSession(session));
+      },
+    );
+  }
+
+  Future<void> _closeEndedPeerEventSession(
+    WorkspaceEventSession session,
+  ) async {
+    try {
+      await session.close();
+    } catch (error) {
+      if (!_closing) {
+        lastError = error;
+        notifyListeners();
+      }
+    }
+    if (_closing) return;
+    try {
+      await recoverTransport();
+    } catch (error) {
+      if (!_closing) {
+        lastError = error;
+        notifyListeners();
+      }
+    }
+  }
+
+  void _handlePeerEvent(PeerStreamEvent event) {
+    if (_closing) return;
+    if (event.type == 'friend.relationship.updated' ||
+        event.type == 'friend_group.updated') {
+      unawaited(refresh());
+      return;
+    }
+    if (event.type != 'workspace.history.updated') return;
+    final workspaceName =
+        event.workspaceHistoryUpdated?.workspaceName.trim() ?? '';
+    if (workspaceName.isEmpty ||
+        activeWorkspaceChat?.workspaceName == workspaceName) {
+      return;
+    }
+    if (_historyEventRefreshes.containsKey(workspaceName)) {
+      _historyEventRefreshDirty.add(workspaceName);
+      return;
+    }
+    late final Future<void> refreshHistory;
+    refreshHistory = _drainWorkspaceHistoryEvents(workspaceName).whenComplete(
+      () {
+        if (identical(_historyEventRefreshes[workspaceName], refreshHistory)) {
+          _historyEventRefreshes.remove(workspaceName);
+          _historyEventRefreshDirty.remove(workspaceName);
+        }
+      },
+    );
+    _historyEventRefreshes[workspaceName] = refreshHistory;
+  }
+
+  Future<void> _drainWorkspaceHistoryEvents(String workspaceName) async {
+    do {
+      _historyEventRefreshDirty.remove(workspaceName);
+      try {
+        await _refreshWorkspaceHistoryFromEvent(workspaceName);
+      } catch (error) {
+        if (!_closing) {
+          lastError = error;
+          notifyListeners();
+        }
+      }
+    } while (!_closing && _historyEventRefreshDirty.remove(workspaceName));
+  }
+
+  @visibleForTesting
+  void handlePeerEventForTesting(PeerStreamEvent event) {
+    _handlePeerEvent(event);
+  }
+
+  @visibleForTesting
+  Future<void> waitForPeerEventRefreshesForTesting() async {
+    while (_historyEventRefreshes.isNotEmpty) {
+      await Future.wait(_historyEventRefreshes.values.toList());
+    }
+  }
+
+  Future<void> _refreshWorkspaceHistoryFromEvent(String workspaceName) async {
+    final client = connection.client;
+    final serverId = activeServerId ?? connection.serverId;
+    if (_closing || client == null || serverId == null) return;
+    await workspaceChatRepository.refresh(
+      client: client,
+      serverId: serverId,
+      workspaceName: workspaceName,
+      localPeerPublicKey: clientPublicKey,
+    );
+  }
+
+  Future<void> _closePeerEventSession() async {
+    _peerEventGeneration += 1;
+    final subscription = _peerEventSubscription;
+    final session = _peerEventSession;
+    _peerEventSubscription = null;
+    _peerEventSession = null;
+    await subscription?.cancel();
+    await session?.close();
   }
 
   void _updateChatroomWorkspaces() {
@@ -791,13 +959,15 @@ class MobileDataController extends ChangeNotifier {
 
   void _clearReconnect(Future<GizClawClient> reconnecting) {
     if (identical(_reconnecting, reconnecting)) _reconnecting = null;
-    if (connectionState != MobileConnectionState.connected ||
+    if (_backgroundReconnectRequired ||
+        connectionState != MobileConnectionState.connected ||
         !connection.isConnected) {
-      _scheduleReconnect();
+      _scheduleReconnect(force: _backgroundReconnectRequired);
     }
   }
 
-  void _scheduleReconnect() {
+  void _scheduleReconnect({bool force = false}) {
+    if (force) _backgroundReconnectRequired = true;
     if (_closing ||
         !connection.profile.isConfigured ||
         _backgroundReconnectTimer != null ||
@@ -821,7 +991,10 @@ class MobileDataController extends ChangeNotifier {
     _backgroundReconnectTimer = Timer(delay, () {
       _backgroundReconnectTimer = null;
       if (_closing) return;
-      if (connectionState == MobileConnectionState.connected &&
+      final required = _backgroundReconnectRequired;
+      _backgroundReconnectRequired = false;
+      if (!required &&
+          connectionState == MobileConnectionState.connected &&
           connection.isConnected) {
         _backgroundReconnectDelay = backgroundReconnectInitialDelay;
         return;
@@ -850,6 +1023,7 @@ class MobileDataController extends ChangeNotifier {
 
   Future<GizClawClient> _performReconnect() async {
     await _replaceActiveWorkspaceChat(null);
+    await _closePeerEventSession();
     connectionState = MobileConnectionState.connecting;
     notifyListeners();
     try {
@@ -862,8 +1036,10 @@ class MobileDataController extends ChangeNotifier {
       if (serverId != activeServerId) {
         await _watchServer(serverId);
       }
+      await _openPeerEventSession();
       await refresh(client: client, serverId: serverId);
       connectionState = MobileConnectionState.connected;
+      _markTransportReady();
       notifyListeners();
       return client;
     } catch (error) {
@@ -871,15 +1047,20 @@ class MobileDataController extends ChangeNotifier {
           ? MobileConnectionState.connected
           : MobileConnectionState.offline;
       lastError = error;
-      if (connectionState == MobileConnectionState.offline) {
-        _scheduleReconnect();
-      }
+      _scheduleReconnect(force: connection.isConnected);
       if (!kReleaseMode) {
         debugPrint('GizClaw reconnect failed: $error');
       }
       notifyListeners();
       rethrow;
     }
+  }
+
+  void _markTransportReady() {
+    _backgroundReconnectRequired = false;
+    _backgroundReconnectTimer?.cancel();
+    _backgroundReconnectTimer = null;
+    _backgroundReconnectDelay = backgroundReconnectInitialDelay;
   }
 
   GizClawClient _friendClient() {
@@ -914,12 +1095,13 @@ class MobileDataController extends ChangeNotifier {
   Future<FriendGroupObject> createFriendGroup({
     required String name,
     String description = '',
+    bool refreshAfterCreate = true,
   }) async {
     final response = await _friendClient().createFriendGroup(
       name: name.trim(),
       description: description.trim(),
     );
-    await refresh();
+    if (refreshAfterCreate) await refresh();
     return response.value;
   }
 
@@ -989,6 +1171,38 @@ class MobileDataController extends ChangeNotifier {
       if (metadata.workspaceName == workspaceName) return metadata;
     }
     return null;
+  }
+
+  String chatSenderLabel(String workspaceName, String senderPublicKey) {
+    final normalizedSender = senderPublicKey.trim();
+    for (final metadata in chatroomWorkspaces) {
+      if (metadata.kind == ChatroomWorkspaceKind.direct &&
+          metadata.peerPublicKey.trim() == normalizedSender &&
+          metadata.title.trim().isNotEmpty) {
+        return metadata.title.trim();
+      }
+    }
+    if (normalizedSender.length <= 14) return normalizedSender;
+    return '${normalizedSender.substring(0, 8)}…'
+        '${normalizedSender.substring(normalizedSender.length - 4)}';
+  }
+
+  WorkspaceChatController createWorkspaceHistoryViewer({
+    required String workspaceName,
+    TerminalWorkspaceAccessCallback? onTerminalWorkspaceAccess,
+  }) {
+    return WorkspaceChatController(
+      workspaceName: workspaceName,
+      repository: workspaceChatRepository,
+      serverId: activeServerId,
+      client: connection.client,
+      eventSession: _peerEventSession,
+      localPeerPublicKey: clientPublicKey,
+      senderLabelResolver: (senderPublicKey) =>
+          chatSenderLabel(workspaceName, senderPublicKey),
+      onWorkspaceAccessError: reconcileWorkspaceFailure,
+      onTerminalWorkspaceAccess: onTerminalWorkspaceAccess,
+    );
   }
 
   Future<String> routeForWorkspace(String workspaceName) async {
@@ -1175,7 +1389,20 @@ class MobileDataController extends ChangeNotifier {
     var state = (await client.getRunWorkspace()).value;
     final workspaceName = state.activeWorkspaceName.trim();
     runWorkspaceState = state;
-    await _loadActiveWorkspaceDocument(client);
+    try {
+      await _loadActiveWorkspaceDocument(client);
+    } on RpcError catch (error) {
+      if (workspaceName.isEmpty ||
+          state.agentType.trim() != 'chatroom' ||
+          (error.code != 403 && error.code != 404)) {
+        rethrow;
+      }
+      activeWorkspaceDocument = null;
+      final chat = await _installActiveWorkspaceChat(workspaceName);
+      await chat.restrictHistory();
+      notifyListeners();
+      return;
+    }
     final repaired = await _ensureActiveWorkspaceParameters(client);
     if (workspaceName.isNotEmpty &&
         (_runWorkspaceNeedsReload(state) || repaired)) {
@@ -1256,14 +1483,19 @@ class MobileDataController extends ChangeNotifier {
       repository: workspaceChatRepository,
       serverId: activeServerId,
       client: connection.client,
-      dataChannelFactory: connection.dataChannelFactory,
+      eventSession: _peerEventSession,
       peerConnection: connection.peerConnection,
       inputTrack: connection.microphoneTrack,
       setInputSending: connection.setMicrophoneSending,
       ownsInputTrack: () => identical(_activeWorkspaceChat, chat),
       onTransportClosed: recoverTransport,
       onWorkspaceAccessError: reconcileWorkspaceFailure,
+      peerEventErrorMessageResolver: (event) =>
+          localizedPeerEventErrorMessage(event, _effectiveLocale),
       pcmAudioLevels: PcmAudioLevelSource.levels,
+      localPeerPublicKey: clientPublicKey,
+      senderLabelResolver: (senderPublicKey) =>
+          chatSenderLabel(workspaceName, senderPublicKey),
     );
     await _replaceActiveWorkspaceChat(chat);
     await chat.start(activate: false);
@@ -1338,6 +1570,7 @@ class MobileDataController extends ChangeNotifier {
     _recoverMicrophoneAfterResume = false;
     _backgroundReconnectTimer?.cancel();
     _backgroundReconnectTimer = null;
+    _backgroundReconnectRequired = false;
 
     Object? firstError;
     StackTrace? firstStackTrace;
@@ -1368,15 +1601,28 @@ class MobileDataController extends ChangeNotifier {
       _workspaceSubscription,
       _friendChatSubscription,
       _friendGroupChatSubscription,
+      _peerEventSubscription,
     ];
     _workspaceSubscription = null;
     _friendChatSubscription = null;
     _friendGroupChatSubscription = null;
+    _peerEventSubscription = null;
+    final peerEventSession = _peerEventSession;
+    _peerEventSession = null;
 
     await Future.wait([
       if (chat != null) attempt(chat.close),
       for (final subscription in subscriptions)
         if (subscription != null) attempt(subscription.cancel),
+    ]);
+    if (peerEventSession != null) {
+      await attempt(peerEventSession.close);
+    }
+    _historyEventRefreshDirty.clear();
+    final historyEventRefreshes = _historyEventRefreshes.values.toList();
+    await Future.wait([
+      for (final refresh in historyEventRefreshes)
+        attempt(() async => await refresh),
     ]);
     await attempt(connection.close);
     await attempt(database.close);
@@ -1669,6 +1915,14 @@ class MobileDataScope extends InheritedNotifier<MobileDataController> {
 
   static MobileDataController watch(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<MobileDataScope>();
+    assert(scope != null, 'MobileDataScope is missing');
+    return scope!.notifier!;
+  }
+
+  static MobileDataController read(BuildContext context) {
+    final element = context
+        .getElementForInheritedWidgetOfExactType<MobileDataScope>();
+    final scope = element?.widget as MobileDataScope?;
     assert(scope != null, 'MobileDataScope is missing');
     return scope!.notifier!;
   }

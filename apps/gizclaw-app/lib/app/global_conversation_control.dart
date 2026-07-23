@@ -560,7 +560,10 @@ class _PrimaryDockNavigationState extends State<_PrimaryDockNavigation> {
                 minimumSize: const Size.square(_itemSize),
                 padding: EdgeInsets.zero,
                 pressedOpacity: 0.68,
-                onPressed: () => context.go(item.$4),
+                onPressed: () {
+                  unawaited(MobileDataScope.read(context).refresh());
+                  context.go(item.$4);
+                },
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 240),
                   curve: Curves.easeOutCubic,

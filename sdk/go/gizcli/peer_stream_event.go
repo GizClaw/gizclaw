@@ -1,16 +1,14 @@
 package gizcli
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"net"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"google.golang.org/protobuf/proto"
 )
-
-const peerStreamEventVersion = 1
 
 // DialPeerEventStream opens the reliable bidirectional agent stream event channel.
 func (c *Client) DialPeerEventStream() (net.Conn, error) {
@@ -29,32 +27,42 @@ func (c *Client) DialPeerEventStream() (net.Conn, error) {
 }
 
 // ReadPeerStreamEvent reads one framed peer stream event.
-func ReadPeerStreamEvent(r io.Reader) (apitypes.PeerStreamEvent, error) {
+func ReadPeerStreamEvent(r io.Reader) (*eventpb.PeerEvent, error) {
 	frame, err := rpcapi.ReadFrame(r)
 	if err != nil {
-		return apitypes.PeerStreamEvent{}, err
+		return nil, err
 	}
 	if frame.Type == rpcapi.FrameTypeEOS {
-		return apitypes.PeerStreamEvent{}, io.EOF
+		return nil, io.EOF
 	}
-	if frame.Type != rpcapi.FrameTypeText && frame.Type != rpcapi.FrameTypeJSON {
-		return apitypes.PeerStreamEvent{}, fmt.Errorf("gizclaw: expected peer stream event text/json frame, got type %d", frame.Type)
+	if frame.Type != rpcapi.FrameTypeBinary {
+		return nil, fmt.Errorf("gizclaw: expected peer stream event binary frame, got type %d", frame.Type)
 	}
-	var event apitypes.PeerStreamEvent
-	if err := json.Unmarshal(frame.Payload, &event); err != nil {
-		return apitypes.PeerStreamEvent{}, fmt.Errorf("gizclaw: decode peer stream event: %w", err)
+	event := &eventpb.PeerEvent{}
+	if err := proto.Unmarshal(frame.Payload, event); err != nil {
+		return nil, fmt.Errorf("gizclaw: decode peer stream event: %w", err)
+	}
+	if err := event.ValidateReceived(); err != nil {
+		return nil, fmt.Errorf("gizclaw: validate peer stream event: %w", err)
 	}
 	return event, nil
 }
 
 // WritePeerStreamEvent writes one framed peer stream event.
-func WritePeerStreamEvent(w io.Writer, event apitypes.PeerStreamEvent) error {
-	if event.V == 0 {
-		event.V = peerStreamEventVersion
+func WritePeerStreamEvent(w io.Writer, event *eventpb.PeerEvent) error {
+	if event == nil {
+		return fmt.Errorf("gizclaw: peer stream event is nil")
 	}
-	data, err := json.Marshal(event)
+	if event.Version == 0 {
+		event = proto.Clone(event).(*eventpb.PeerEvent)
+		event.Version = eventpb.Version
+	}
+	if err := event.Validate(); err != nil {
+		return fmt.Errorf("gizclaw: validate peer stream event: %w", err)
+	}
+	data, err := proto.Marshal(event)
 	if err != nil {
-		return err
+		return fmt.Errorf("gizclaw: encode peer stream event: %w", err)
 	}
-	return rpcapi.WriteFrame(w, rpcapi.Frame{Type: rpcapi.FrameTypeText, Payload: data})
+	return rpcapi.WriteFrame(w, rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: data})
 }

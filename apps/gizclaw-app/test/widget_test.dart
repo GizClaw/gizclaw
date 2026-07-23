@@ -458,6 +458,24 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  appTestWidgets(
+    'opens a non-active workspace through the connection-owned viewer path',
+    (tester) async {
+      final controller = _HistoryViewerPathController();
+      await pumpApp(tester, controller: controller);
+
+      await tapPrimaryNav(tester, 'Translates');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Parser pass'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 700));
+
+      expect(controller.started, isTrue);
+      expect(controller.historyViewerCalls, 1);
+      expect(find.byType(WorkspaceChatPage), findsOneWidget);
+    },
+  );
+
   appTestWidgets('does not auto-scroll realtime messages during a user drag', (
     tester,
   ) async {
@@ -616,6 +634,22 @@ void main() {
     expect(find.byIcon(GizIcons.paw), findsOneWidget);
     expect(find.byKey(const ValueKey('primary-nav-scroll')), findsOneWidget);
     expect(find.byKey(const ValueKey('primary-nav-edge-fade')), findsOneWidget);
+  });
+
+  appTestWidgets('refreshes server data on every primary page switch', (
+    tester,
+  ) async {
+    final controller = _NavigationRefreshController();
+    await pumpApp(tester, controller: controller);
+    final initialCalls = controller.refreshCalls;
+
+    await tapPrimaryNav(tester, 'Pets');
+    await tester.pump();
+    expect(controller.refreshCalls, initialCalls + 1);
+
+    await tapPrimaryNav(tester, 'Identity');
+    await tester.pump();
+    expect(controller.refreshCalls, initialCalls + 2);
   });
 
   appTestWidgets('shows the global voice mode toggle and audio field', (
@@ -904,6 +938,43 @@ void main() {
     );
   });
 
+  for (final submitWithKeyboard in [false, true]) {
+    appTestWidgets('creates a group and navigates once with '
+        '${submitWithKeyboard ? 'keyboard Done' : 'the button'}', (
+      tester,
+    ) async {
+      final controller = _GroupCreationController();
+      await pumpApp(tester, controller: controller);
+
+      await tapPrimaryNav(tester, 'Groups');
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel('Create group'));
+      await tester.pumpAndSettle();
+
+      final fields = find.byType(CupertinoTextField);
+      await tester.enterText(fields.at(0), 'New Crew');
+      await tester.enterText(fields.at(1), 'One navigation');
+      final refreshCallsBeforeCreate = controller.refreshCalls;
+      if (submitWithKeyboard) {
+        await tester.tap(fields.at(1));
+        await tester.testTextInput.receiveAction(TextInputAction.done);
+      } else {
+        await tester.tap(find.widgetWithText(CupertinoButton, 'Create Group'));
+      }
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 700));
+      await tester.pump(const Duration(milliseconds: 700));
+      await tester.pump(const Duration(milliseconds: 700));
+
+      expect(controller.createCalls, 1);
+      expect(controller.refreshCalls, refreshCallsBeforeCreate + 1);
+      expect(find.byKey(const ValueKey('create-group-sheet')), findsNothing);
+      expect(find.byType(ChatroomWorkspacePage), findsOneWidget);
+      expect(find.byType(WorkspaceChatPage), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   appTestWidgets('shows friends, pet, and profile surfaces', (tester) async {
     final controller = _ServerListTestController();
     await pumpApp(tester, controller: controller);
@@ -1093,6 +1164,31 @@ void main() {
     expect(find.byType(CupertinoTabBar).hitTestable(), findsNothing);
   });
 
+  appTestWidgets(
+    'exits an ordinary direct-chat route when its projection disappears',
+    (tester) async {
+      final controller = _RemovedDirectChatController();
+      await pumpApp(tester, controller: controller);
+
+      await tapPrimaryNav(tester, 'Friends');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Avery'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 700));
+      expect(find.byType(ChatroomWorkspacePage), findsOneWidget);
+
+      controller.removeDirectChat();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 700));
+      await tester.pump(const Duration(milliseconds: 700));
+
+      expect(find.byType(FriendsPage), findsOneWidget);
+      expect(find.byType(ChatroomWorkspacePage), findsNothing);
+      expect(find.byType(WorkspaceChatPage), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   appTestWidgets('shows the specific workspace activation failure', (
     tester,
   ) async {
@@ -1201,6 +1297,134 @@ class _ModeSwitchController extends MobileDataController {
   Future<void> close() async {
     await chat.close();
     await super.close();
+  }
+}
+
+class _NavigationRefreshController extends MobileDataController {
+  _NavigationRefreshController()
+    : super(
+        database: _testDatabase(),
+        profile: const GizClawConnectionProfile(
+          endpoint: _testServerEndpoint,
+          clientPrivateKey: 'test-key',
+        ),
+        servers: const [
+          GizClawServer(name: 'Test', accessPoint: _testServerEndpoint),
+        ],
+      );
+
+  int refreshCalls = 0;
+
+  @override
+  Future<void> start() async {}
+
+  @override
+  Future<void> refresh({GizClawClient? client, String? serverId}) async {
+    refreshCalls += 1;
+  }
+}
+
+class _GroupCreationController extends MobileDataController {
+  _GroupCreationController()
+    : super(
+        database: _testDatabase(),
+        profile: const GizClawConnectionProfile(
+          endpoint: _testServerEndpoint,
+          clientPrivateKey: 'test-key',
+        ),
+        servers: const [
+          GizClawServer(name: 'Test', accessPoint: _testServerEndpoint),
+        ],
+      );
+
+  int createCalls = 0;
+  int refreshCalls = 0;
+
+  @override
+  Future<void> start() async {}
+
+  @override
+  Future<void> refresh({GizClawClient? client, String? serverId}) async {
+    refreshCalls += 1;
+    if (createCalls == 0) return;
+    chatroomWorkspaces = const [
+      ChatroomWorkspaceMetadata(
+        workspaceName: 'new-group-workspace',
+        title: 'New Crew',
+        kind: ChatroomWorkspaceKind.group,
+        resourceId: 'new-group',
+      ),
+    ];
+    workspaces = const [
+      WorkspaceCard(
+        name: 'new-group-workspace',
+        workflowAlias: 'chatroom',
+        collection: 'assistants',
+        lastActive: 'Now',
+        chatroomKind: ChatroomWorkspaceKind.group,
+      ),
+    ];
+    notifyListeners();
+  }
+
+  @override
+  Future<FriendGroupObject> createFriendGroup({
+    required String name,
+    String description = '',
+    bool refreshAfterCreate = true,
+  }) async {
+    createCalls += 1;
+    expect(refreshAfterCreate, isFalse);
+    return FriendGroupObject(
+      id: 'new-group',
+      name: name,
+      description: description,
+      workspaceName: 'new-group-workspace',
+    );
+  }
+}
+
+class _RemovedDirectChatController extends MobileDataController {
+  _RemovedDirectChatController()
+    : super(
+        database: _testDatabase(),
+        profile: const GizClawConnectionProfile(
+          endpoint: _testServerEndpoint,
+          clientPrivateKey: 'test-key',
+        ),
+        servers: const [
+          GizClawServer(name: 'Test', accessPoint: _testServerEndpoint),
+        ],
+      ) {
+    chatroomWorkspaces = const [
+      ChatroomWorkspaceMetadata(
+        workspaceName: 'direct-chat',
+        title: 'Avery',
+        kind: ChatroomWorkspaceKind.direct,
+        resourceId: 'peer-a',
+      ),
+    ];
+    workspaces = const [
+      WorkspaceCard(
+        name: 'direct-chat',
+        workflowAlias: 'chatroom',
+        collection: 'assistants',
+        lastActive: 'Now',
+        chatroomKind: ChatroomWorkspaceKind.direct,
+      ),
+    ];
+  }
+
+  @override
+  Future<void> start() async {}
+
+  @override
+  Future<void> refresh({GizClawClient? client, String? serverId}) async {}
+
+  void removeDirectChat() {
+    chatroomWorkspaces = const [];
+    workspaces = const [];
+    notifyListeners();
   }
 }
 
@@ -1334,6 +1558,29 @@ class _ServerListTestController extends MobileDataController {
   Future<void> start() async {
     connectionState = MobileConnectionState.offline;
     notifyListeners();
+  }
+}
+
+class _HistoryViewerPathController extends _ServerListTestController {
+  bool started = false;
+  int historyViewerCalls = 0;
+
+  @override
+  Future<void> start() async {
+    started = true;
+    await super.start();
+  }
+
+  @override
+  WorkspaceChatController createWorkspaceHistoryViewer({
+    required String workspaceName,
+    TerminalWorkspaceAccessCallback? onTerminalWorkspaceAccess,
+  }) {
+    historyViewerCalls += 1;
+    return super.createWorkspaceHistoryViewer(
+      workspaceName: workspaceName,
+      onTerminalWorkspaceAccess: onTerminalWorkspaceAccess,
+    );
   }
 }
 

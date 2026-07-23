@@ -13,6 +13,7 @@ void main() {
       [
         _entry(
           id: 'gear-1',
+          gearId: 'peer-a',
           text: '你好',
           replayAvailable: true,
           type: PeerRunHistoryEntryType.PEER_RUN_HISTORY_ENTRY_TYPE_GEAR,
@@ -31,14 +32,16 @@ void main() {
       client: client,
       serverId: 'server-a',
       workspaceName: 'workspace-a',
+      localPeerPublicKey: 'peer-a',
     );
     expect(refreshed.first.replayAvailable, isTrue);
 
     final messages = await repository
-        .watchHistory('server-a', 'workspace-a')
+        .watchHistory('server-a', 'workspace-a', 'peer-a')
         .first;
     expect(messages, hasLength(2));
     expect(messages.first.incoming, isFalse);
+    expect(messages.first.senderPublicKey, 'peer-a');
     expect(messages.first.replayAvailable, isTrue);
     expect(messages.last.incoming, isTrue);
     expect(messages.last.text, '你好，移动端。');
@@ -47,6 +50,70 @@ void main() {
       isEmpty,
     );
     expect(client.cursors, [null, 'page-1']);
+  });
+
+  test('attributes group gear history to the originating peer', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    final repository = WorkspaceChatRepository(database);
+    final client = _HistoryClient([
+      [
+        _entry(
+          id: 'mine',
+          gearId: 'peer-a',
+          text: 'mine',
+          type: PeerRunHistoryEntryType.PEER_RUN_HISTORY_ENTRY_TYPE_GEAR,
+        ),
+        _entry(
+          id: 'theirs',
+          gearId: 'peer-b',
+          text: 'theirs',
+          type: PeerRunHistoryEntryType.PEER_RUN_HISTORY_ENTRY_TYPE_GEAR,
+        ),
+      ],
+    ]);
+
+    final refreshed = await repository.refresh(
+      client: client,
+      serverId: 'server-a',
+      workspaceName: 'group-a',
+      localPeerPublicKey: 'peer-a',
+    );
+    expect(refreshed.map((entry) => entry.incoming), [isFalse, isTrue]);
+
+    final cached = await repository
+        .watchHistory('server-a', 'group-a', 'peer-a')
+        .first;
+    expect(cached.map((entry) => entry.incoming), [isFalse, isTrue]);
+    expect(cached.map((entry) => entry.senderPublicKey), ['peer-a', 'peer-b']);
+  });
+
+  test('keeps legacy gear history without an origin as local', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    final repository = WorkspaceChatRepository(database);
+    final client = _HistoryClient([
+      [
+        _entry(
+          id: 'legacy',
+          text: 'legacy local turn',
+          type: PeerRunHistoryEntryType.PEER_RUN_HISTORY_ENTRY_TYPE_GEAR,
+        ),
+      ],
+    ]);
+
+    final refreshed = await repository.refresh(
+      client: client,
+      serverId: 'server-a',
+      workspaceName: 'group-a',
+      localPeerPublicKey: 'peer-a',
+    );
+    expect(refreshed.single.incoming, isFalse);
+
+    final cached = await repository
+        .watchHistory('server-a', 'group-a', 'peer-a')
+        .first;
+    expect(cached.single.incoming, isFalse);
   });
 
   test('complete refresh removes history absent from the server', () async {
@@ -122,6 +189,7 @@ PeerRunHistoryEntry _entry({
   required String id,
   required String text,
   required PeerRunHistoryEntryType type,
+  String? gearId,
   bool replayAvailable = false,
 }) {
   return PeerRunHistoryEntry(
@@ -132,6 +200,7 @@ PeerRunHistoryEntry _entry({
     text: text,
     replayAvailable: replayAvailable,
     type: type,
+    gearId: gearId,
     createdAt:
         '2026-07-12T00:00:0${type == PeerRunHistoryEntryType.PEER_RUN_HISTORY_ENTRY_TYPE_GEAR ? '0' : '1'}Z',
   );

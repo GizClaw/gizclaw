@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -15,7 +16,9 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/pcm"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/chatroom"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
@@ -38,6 +41,7 @@ const (
 	peerConnOpusFrameDuration  = 20 * time.Millisecond
 	peerConnTelemetryQueueSize = 32
 	peerConnRuntimeStopTimeout = 2 * time.Second
+	maxDeniedInputStreams      = 256
 )
 
 var peerConnTelemetryShutdownTimeout = 2 * time.Second
@@ -48,20 +52,29 @@ type PeerConn struct {
 	Conn    giznet.Conn
 	Service *PeerService
 
-	closeOnce          sync.Once
-	agentHost          *agenthost.Service
-	agentInput         peerAgentInput
-	agentInputMu       sync.Mutex
-	events             *peerStreamEventBroker
-	telemetryStatusMu  *sync.Mutex
-	serverGenX         *peergenx.Service
-	mixer              *pcm.Mixer
-	rpc                *rpcServer
-	audioPacing        <-chan time.Time
-	runtimeStopTimeout time.Duration
-	closed             atomic.Bool
-	retiring           atomic.Bool
-	registration       atomic.Pointer[runtimeprofile.Registration]
+	closeOnce              sync.Once
+	agentHost              *agenthost.Service
+	agentInput             peerAgentInput
+	agentInputMu           sync.Mutex
+	events                 *peerStreamEventBroker
+	chatroomAccessMu       sync.Mutex
+	deniedInputStreams     map[string]struct{}
+	acceptedInputStreams   map[string]eventpb.StreamKind
+	deniedAudioInput       bool
+	deniedAudioStream      string
+	acceptedAudioInput     bool
+	acceptedAudioStream    string
+	acceptedAudioChatroom  bool
+	acceptedAudioWorkspace string
+	telemetryStatusMu      *sync.Mutex
+	serverGenX             *peergenx.Service
+	mixer                  *pcm.Mixer
+	rpc                    *rpcServer
+	audioPacing            <-chan time.Time
+	runtimeStopTimeout     time.Duration
+	closed                 atomic.Bool
+	retiring               atomic.Bool
+	registration           atomic.Pointer[runtimeprofile.Registration]
 }
 
 type peerAgentInput interface {
@@ -124,6 +137,14 @@ func (h *PeerConn) serve() error {
 		_ = oldConn.Close()
 	}
 	h.init()
+	if h.events != nil {
+		_ = h.Service.manager.SetPeerEventBroker(
+			h.Conn.PublicKey(),
+			h.Conn,
+			h.events,
+			h.observePeerEvent,
+		)
+	}
 
 	var g errgroup.Group
 	g.Go(h.serveService)
@@ -308,12 +329,14 @@ func (h *PeerConn) initAgentHost() {
 			}
 			return canonicalName, nil
 		},
-		Source: h.agentInput,
+		AllowRestrictedReload: manager.isChatroomWorkspace,
+		Source:                h.agentInput,
 		Consumer: peerAgentOutput{
 			Events: h.events,
 			Tracks: h,
 		},
-		OnConsumerError: h.broadcastAgentOutputError,
+		OnConsumerError:           h.broadcastAgentOutputError,
+		OnWorkspaceHistoryUpdated: manager.broadcastWorkspaceHistoryUpdated,
 	}
 	if h.rpc != nil {
 		h.rpc.peerRunRuntime = h.agentHost
@@ -522,7 +545,10 @@ func (h *PeerConn) handleEventStream(stream net.Conn) error {
 	if stream == nil {
 		return nil
 	}
-	unsubscribe := h.events.Subscribe(stream)
+	unsubscribe, err := h.events.Subscribe(stream)
+	if err != nil {
+		return err
+	}
 	defer unsubscribe()
 	defer func() { _ = stream.Close() }()
 	for {
@@ -539,6 +565,13 @@ func (h *PeerConn) handleEventStream(stream net.Conn) error {
 		if h.isRetiring() {
 			return ErrPeerConnRetiring
 		}
+		authorized, err := h.authorizeChatroomEvent(context.Background(), event)
+		if err != nil {
+			return err
+		}
+		if !authorized {
+			continue
+		}
 		chunk, err := peerStreamEventToChunk(event)
 		if err != nil {
 			return err
@@ -549,17 +582,338 @@ func (h *PeerConn) handleEventStream(stream net.Conn) error {
 	}
 }
 
+func (h *PeerConn) authorizeChatroomEvent(ctx context.Context, event *eventpb.PeerEvent) (bool, error) {
+	if h == nil || event == nil || h.Service == nil || h.Service.manager == nil || h.Conn == nil {
+		return true, nil
+	}
+	switch event.Type {
+	case eventpb.PeerEventType_PEER_EVENT_TYPE_BOS,
+		eventpb.PeerEventType_PEER_EVENT_TYPE_EOS,
+		eventpb.PeerEventType_PEER_EVENT_TYPE_TEXT_DELTA,
+		eventpb.PeerEventType_PEER_EVENT_TYPE_TEXT_DONE:
+	default:
+		return true, nil
+	}
+	streamID := event.StreamID()
+	if h.inputStreamDenied(streamID) {
+		if event.Type == eventpb.PeerEventType_PEER_EVENT_TYPE_EOS ||
+			event.Type == eventpb.PeerEventType_PEER_EVENT_TYPE_TEXT_DONE {
+			h.clearDeniedInputStream(streamID, event.StreamKindValue())
+		}
+		return false, nil
+	}
+	workspaceName, workspaceErr := h.currentInputWorkspace(ctx)
+	if workspaceErr != nil {
+		return h.rejectChatroomEvent(
+			event,
+			streamID,
+			chatroom.AccessCheckFailedError(),
+		)
+	}
+	if workspaceName == "" {
+		h.acceptInputEvent(event, streamID, "", false)
+		return true, nil
+	}
+	isChatroom, denial := h.Service.manager.chatroomAccessState(
+		ctx,
+		h.Conn.PublicKey(),
+		workspaceName,
+	)
+	if denial == nil {
+		h.acceptInputEvent(event, streamID, workspaceName, isChatroom)
+		return true, nil
+	}
+	return h.rejectChatroomEvent(event, streamID, denial)
+}
+
+func (h *PeerConn) rejectChatroomEvent(
+	event *eventpb.PeerEvent,
+	streamID string,
+	denial *chatroom.AccessError,
+) (bool, error) {
+	abortCurrentTurn := h.markDeniedInputStream(streamID, event.StreamKindValue())
+	terminal := event.Type == eventpb.PeerEventType_PEER_EVENT_TYPE_EOS ||
+		event.Type == eventpb.PeerEventType_PEER_EVENT_TYPE_TEXT_DONE
+	if terminal {
+		h.clearDeniedInputStream(streamID, event.StreamKindValue())
+	}
+	var abortErr error
+	if abortCurrentTurn {
+		abortErr = h.abortAgentInputTurn()
+	}
+	broadcastErr := h.events.Broadcast(&eventpb.PeerEvent{
+		Version: eventpb.Version,
+		Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_EOS,
+		Payload: &eventpb.PeerEvent_Eos{Eos: &eventpb.StreamEnd{
+			StreamId: streamID,
+			Kind:     event.StreamKindValue(),
+			Label:    "assistant",
+			Error:    chatroomEventError(denial),
+		}},
+	})
+	if err := errors.Join(abortErr, broadcastErr); err != nil {
+		return false, err
+	}
+	return false, nil
+}
+
+func (h *PeerConn) abortAgentInputTurn() error {
+	if h == nil || h.agentInput == nil {
+		return nil
+	}
+	h.agentInputMu.Lock()
+	defer h.agentInputMu.Unlock()
+	return h.agentInput.Close()
+}
+
+func chatroomEventError(err *chatroom.AccessError) *eventpb.EventError {
+	if err == nil {
+		return nil
+	}
+	return &eventpb.EventError{
+		Code:      err.Code,
+		Message:   err.Message,
+		Retryable: err.Retryable,
+	}
+}
+
+func (h *PeerConn) currentInputWorkspace(ctx context.Context) (string, error) {
+	if h == nil || h.Service == nil || h.Service.manager == nil || h.Service.manager.PeerRun == nil || h.Conn == nil {
+		return "", errors.New("gizclaw: Peer run state is unavailable")
+	}
+	run, err := h.Service.manager.PeerRun.GetRunAgent(ctx, h.Conn.PublicKey())
+	if err != nil {
+		return "", err
+	}
+	if run.Active != nil {
+		return strings.TrimSpace(run.Active.WorkspaceName), nil
+	}
+	if run.Pending != nil {
+		return strings.TrimSpace(run.Pending.WorkspaceName), nil
+	}
+	return "", nil
+}
+
+func (h *PeerConn) inputStreamDenied(streamID string) bool {
+	h.chatroomAccessMu.Lock()
+	defer h.chatroomAccessMu.Unlock()
+	if streamID == "audio" && h.deniedAudioInput {
+		return true
+	}
+	_, denied := h.deniedInputStreams[streamID]
+	return denied
+}
+
+func (h *PeerConn) markDeniedInputStream(streamID string, kind eventpb.StreamKind) bool {
+	h.chatroomAccessMu.Lock()
+	defer h.chatroomAccessMu.Unlock()
+	_, accepted := h.acceptedInputStreams[streamID]
+	delete(h.acceptedInputStreams, streamID)
+	if h.deniedInputStreams == nil {
+		h.deniedInputStreams = make(map[string]struct{})
+	}
+	if len(h.deniedInputStreams) >= maxDeniedInputStreams {
+		clear(h.deniedInputStreams)
+	}
+	h.deniedInputStreams[streamID] = struct{}{}
+	if kind == eventpb.StreamKind_STREAM_KIND_AUDIO {
+		h.deniedAudioInput = true
+		h.deniedAudioStream = streamID
+		h.acceptedAudioInput = false
+		h.acceptedAudioStream = ""
+		h.acceptedAudioChatroom = false
+		h.acceptedAudioWorkspace = ""
+	}
+	return accepted
+}
+
+func (h *PeerConn) clearDeniedInputStream(streamID string, kind eventpb.StreamKind) {
+	h.chatroomAccessMu.Lock()
+	defer h.chatroomAccessMu.Unlock()
+	delete(h.deniedInputStreams, streamID)
+	if kind == eventpb.StreamKind_STREAM_KIND_AUDIO || streamID == h.deniedAudioStream {
+		h.deniedAudioInput = false
+		h.deniedAudioStream = ""
+	}
+}
+
+func (h *PeerConn) acceptInputEvent(
+	event *eventpb.PeerEvent,
+	streamID string,
+	workspaceName string,
+	isChatroom bool,
+) {
+	if event == nil {
+		return
+	}
+	h.chatroomAccessMu.Lock()
+	defer h.chatroomAccessMu.Unlock()
+	if h.acceptedInputStreams == nil {
+		h.acceptedInputStreams = make(map[string]eventpb.StreamKind)
+	}
+	kind := event.StreamKindValue()
+	switch event.Type {
+	case eventpb.PeerEventType_PEER_EVENT_TYPE_BOS:
+		if len(h.acceptedInputStreams) >= maxDeniedInputStreams {
+			clear(h.acceptedInputStreams)
+		}
+		h.acceptedInputStreams[streamID] = kind
+		if kind == eventpb.StreamKind_STREAM_KIND_AUDIO {
+			h.deniedAudioInput = false
+			h.deniedAudioStream = ""
+			h.acceptedAudioInput = true
+			h.acceptedAudioStream = streamID
+			h.acceptedAudioChatroom = isChatroom
+			h.acceptedAudioWorkspace = strings.TrimSpace(workspaceName)
+		}
+	case eventpb.PeerEventType_PEER_EVENT_TYPE_TEXT_DELTA:
+		if len(h.acceptedInputStreams) >= maxDeniedInputStreams {
+			clear(h.acceptedInputStreams)
+		}
+		h.acceptedInputStreams[streamID] = kind
+	case eventpb.PeerEventType_PEER_EVENT_TYPE_EOS,
+		eventpb.PeerEventType_PEER_EVENT_TYPE_TEXT_DONE:
+		delete(h.acceptedInputStreams, streamID)
+		if streamID == "" || streamID == h.acceptedAudioStream {
+			h.acceptedAudioInput = false
+			h.acceptedAudioStream = ""
+			h.acceptedAudioChatroom = false
+			h.acceptedAudioWorkspace = ""
+		}
+	}
+}
+
+func (h *PeerConn) audioInputAccepted() bool {
+	h.chatroomAccessMu.Lock()
+	defer h.chatroomAccessMu.Unlock()
+	return h.acceptedAudioInput && !h.deniedAudioInput
+}
+
+func (h *PeerConn) authorizeChatroomAudioPacket(ctx context.Context) (bool, error) {
+	if h == nil {
+		return false, nil
+	}
+	h.chatroomAccessMu.Lock()
+	accepted := h.acceptedAudioInput && !h.deniedAudioInput
+	streamID := h.acceptedAudioStream
+	workspaceName := h.acceptedAudioWorkspace
+	h.chatroomAccessMu.Unlock()
+	if !accepted {
+		return false, nil
+	}
+	if workspaceName == "" {
+		return true, nil
+	}
+	currentWorkspace, err := h.currentInputWorkspace(ctx)
+	if err != nil {
+		return false, err
+	}
+	if strings.TrimSpace(currentWorkspace) == workspaceName {
+		return true, nil
+	}
+	h.chatroomAccessMu.Lock()
+	if h.acceptedAudioInput &&
+		h.acceptedAudioStream == streamID &&
+		h.acceptedAudioWorkspace == workspaceName {
+		delete(h.acceptedInputStreams, streamID)
+		h.acceptedAudioInput = false
+		h.acceptedAudioStream = ""
+		h.acceptedAudioChatroom = false
+		h.acceptedAudioWorkspace = ""
+	}
+	h.chatroomAccessMu.Unlock()
+	return false, nil
+}
+
+func (h *PeerConn) observePeerEvent(event *eventpb.PeerEvent) {
+	if h == nil || event == nil || h.Conn == nil {
+		return
+	}
+	h.chatroomAccessMu.Lock()
+	if !h.acceptedAudioInput || !h.acceptedAudioChatroom || h.deniedAudioInput {
+		h.chatroomAccessMu.Unlock()
+		return
+	}
+	streamID := h.acceptedAudioStream
+	workspaceName := h.acceptedAudioWorkspace
+	h.chatroomAccessMu.Unlock()
+
+	var denial *chatroom.AccessError
+	switch event.Type {
+	case eventpb.PeerEventType_PEER_EVENT_TYPE_FRIEND_RELATIONSHIP_UPDATED:
+		update := event.GetFriendRelationshipUpdated()
+		if update.GetWorkspaceName() == workspaceName &&
+			update.GetChange() == eventpb.FriendRelationshipChange_FRIEND_RELATIONSHIP_CHANGE_DELETED {
+			denial = chatroom.FriendRemovedError()
+		}
+	case eventpb.PeerEventType_PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED:
+		update := event.GetFriendGroupUpdated()
+		if update.GetWorkspaceName() != workspaceName {
+			break
+		}
+		switch update.GetChange() {
+		case eventpb.FriendGroupChange_FRIEND_GROUP_CHANGE_DELETED:
+			denial = chatroom.GroupDeletedError()
+		case eventpb.FriendGroupChange_FRIEND_GROUP_CHANGE_MEMBER_REMOVED:
+			if update.GetAffectedPeerPublicKey() == h.Conn.PublicKey().String() {
+				denial = chatroom.MemberRemovedError()
+			}
+		}
+	}
+	if denial == nil {
+		return
+	}
+	h.rejectChatroomAudioFromInvalidation(streamID, denial)
+}
+
+func (h *PeerConn) rejectChatroomAudioFromInvalidation(
+	streamID string,
+	denial *chatroom.AccessError,
+) {
+	event := audioEndEvent(streamID)
+	if !h.markDeniedInputStream(streamID, event.StreamKindValue()) {
+		return
+	}
+	if err := h.abortAgentInputTurn(); err != nil {
+		slog.Warn("gizclaw: abort invalid Chatroom audio turn", "error", err)
+	}
+	if h.events != nil {
+		_ = h.events.Notify(&eventpb.PeerEvent{
+			Version: eventpb.Version,
+			Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_EOS,
+			Payload: &eventpb.PeerEvent_Eos{Eos: &eventpb.StreamEnd{
+				StreamId: streamID,
+				Kind:     eventpb.StreamKind_STREAM_KIND_AUDIO,
+				Label:    "assistant",
+				Error:    chatroomEventError(denial),
+			}},
+		})
+	}
+}
+
+func audioEndEvent(streamID string) *eventpb.PeerEvent {
+	return &eventpb.PeerEvent{
+		Version: eventpb.Version,
+		Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_EOS,
+		Payload: &eventpb.PeerEvent_Eos{Eos: &eventpb.StreamEnd{
+			StreamId: streamID,
+			Kind:     eventpb.StreamKind_STREAM_KIND_AUDIO,
+		}},
+	}
+}
+
 func (h *PeerConn) broadcastAgentOutputError(_ context.Context, _ string, err error) {
 	if h == nil || h.events == nil || err == nil {
 		return
 	}
-	label := "agent"
-	message := err.Error()
-	_ = h.events.Broadcast(apitypes.PeerStreamEvent{
-		V:     peerStreamEventVersion,
-		Type:  apitypes.PeerStreamEventTypeEos,
-		Label: &label,
-		Error: &message,
+	_ = h.events.Broadcast(&eventpb.PeerEvent{
+		Version: eventpb.Version,
+		Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_EOS,
+		Payload: &eventpb.PeerEvent_Eos{Eos: &eventpb.StreamEnd{
+			StreamId: "agent-output-error",
+			Label:    "agent",
+			Error:    &eventpb.EventError{Code: "AGENT_OUTPUT_ERROR", Message: err.Error(), Retryable: true},
+		}},
 	})
 }
 
@@ -612,6 +966,13 @@ func (h *PeerConn) serveDirectPackets() error {
 		case giznet.ProtocolOpusPacket:
 			chunk, ok := opusPacketChunk(buf[:n])
 			if !ok {
+				continue
+			}
+			authorized, err := h.authorizeChatroomAudioPacket(context.Background())
+			if err != nil {
+				return err
+			}
+			if !authorized {
 				continue
 			}
 			if err := h.pushAgentInputChunk(context.Background(), chunk); err != nil {

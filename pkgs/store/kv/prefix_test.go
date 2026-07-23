@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"iter"
+	"reflect"
 	"slices"
 	"testing"
 	"time"
@@ -278,6 +279,44 @@ func TestPrefixedStoreEmptyPrefixActsAsTransparentView(t *testing.T) {
 	}
 	if !slices.Equal(keys, []string{"service:workspace"}) {
 		t.Fatalf("List = %v, want [service:workspace]", keys)
+	}
+}
+
+func TestSharedAtomicStoreResolvesNestedPrefixes(t *testing.T) {
+	base := kv.NewMemory(nil)
+	first := kv.Prefixed(
+		kv.Prefixed(base, kv.Key{"social"}),
+		kv.Key{"friend-groups"},
+	)
+	second := kv.Prefixed(base, kv.Key{"social", "friend-group-members"})
+
+	root, prefixes, ok := kv.SharedAtomicStore(first, second)
+	if !ok {
+		t.Fatal("SharedAtomicStore() ok = false, want true")
+	}
+	if root != base {
+		t.Fatalf("SharedAtomicStore() root = %T %p, want base %p", root, root, base)
+	}
+	want := []kv.Key{
+		{"social", "friend-groups"},
+		{"social", "friend-group-members"},
+	}
+	if !reflect.DeepEqual(prefixes, want) {
+		t.Fatalf("SharedAtomicStore() prefixes = %#v, want %#v", prefixes, want)
+	}
+}
+
+func TestSharedAtomicStoreRejectsDifferentRoots(t *testing.T) {
+	first := kv.Prefixed(kv.NewMemory(nil), kv.Key{"friend-groups"})
+	second := kv.Prefixed(kv.NewMemory(nil), kv.Key{"friend-group-members"})
+
+	if root, prefixes, ok := kv.SharedAtomicStore(first, second); ok || root != nil || prefixes != nil {
+		t.Fatalf(
+			"SharedAtomicStore() = (%T, %#v, %t), want (nil, nil, false)",
+			root,
+			prefixes,
+			ok,
+		)
 	}
 }
 

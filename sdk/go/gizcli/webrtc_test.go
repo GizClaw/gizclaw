@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/pion/webrtc/v4"
@@ -84,13 +84,7 @@ func TestIsWebRTCEventDataChannel(t *testing.T) {
 }
 
 func TestWebRTCPeerStreamEventFrameRoundTrip(t *testing.T) {
-	text := "hello"
-	streamID := "s1"
-	event := apitypes.PeerStreamEvent{
-		Type:     apitypes.PeerStreamEventTypeTextDelta,
-		StreamId: &streamID,
-		Text:     &text,
-	}
+	event := textEvent("s1", "assistant", "hello")
 	var buf bytes.Buffer
 	if err := writeWebRTCPeerStreamEvent(&buf, event); err != nil {
 		t.Fatalf("writeWebRTCPeerStreamEvent() error = %v", err)
@@ -99,8 +93,44 @@ func TestWebRTCPeerStreamEventFrameRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("readWebRTCPeerStreamEvent() error = %v", err)
 	}
-	if got.V != 1 || got.Type != event.Type || got.StreamId == nil || *got.StreamId != streamID || got.Text == nil || *got.Text != text {
+	if got.Version != eventpb.Version || got.Type != event.Type || got.StreamID() != "s1" || got.Text() != "hello" {
 		t.Fatalf("round trip event = %+v", got)
+	}
+}
+
+func TestAppendWebRTCPeerEventFramesReassemblesAndCoalesces(t *testing.T) {
+	first := textEvent("s1", "assistant", strings.Repeat("x", webRTCMessageChunkSize*2))
+	second := textEvent("s2", "assistant", "done")
+	var encoded bytes.Buffer
+	if err := WritePeerStreamEvent(&encoded, first); err != nil {
+		t.Fatalf("WritePeerStreamEvent(first) error = %v", err)
+	}
+	firstSize := encoded.Len()
+	if err := WritePeerStreamEvent(&encoded, second); err != nil {
+		t.Fatalf("WritePeerStreamEvent(second) error = %v", err)
+	}
+	data := encoded.Bytes()
+	var receive bytes.Buffer
+	events, err := appendWebRTCPeerEventFrames(&receive, data[:webRTCMessageChunkSize])
+	if err != nil {
+		t.Fatalf("appendWebRTCPeerEventFrames(first fragment) error = %v", err)
+	}
+	if len(events) != 0 {
+		t.Fatalf("first fragment events = %d, want 0", len(events))
+	}
+	events, err = appendWebRTCPeerEventFrames(&receive, data[webRTCMessageChunkSize:firstSize+2])
+	if err != nil {
+		t.Fatalf("appendWebRTCPeerEventFrames(second fragment) error = %v", err)
+	}
+	if len(events) != 1 || events[0].Text() != first.Text() {
+		t.Fatalf("reassembled events = %#v", events)
+	}
+	events, err = appendWebRTCPeerEventFrames(&receive, data[firstSize+2:])
+	if err != nil {
+		t.Fatalf("appendWebRTCPeerEventFrames(coalesced tail) error = %v", err)
+	}
+	if len(events) != 1 || events[0].StreamID() != "s2" {
+		t.Fatalf("coalesced tail events = %#v", events)
 	}
 }
 

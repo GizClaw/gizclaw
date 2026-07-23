@@ -4,7 +4,7 @@
 
 | Documentation | Features included |
 | --- | --- |
-| `peer_stream_event.go` | Maintain the Peer event subscriber/broadcast broker; convert bidirectionally between `PeerStreamEvent` and GenX message chunks; process text, control, and blob/audio events; broadcast Agent output events and push received events back to the Agent input source. |
+| `peer_stream_event.go` | Maintain the connection-scoped Peer event subscriber/broadcast broker; encode and validate `PeerEvent` Protobuf; convert stream payloads to and from GenX chunks; broadcast Agent output and resource invalidations; push valid upstream stream events to the Agent input source. |
 
 This prefix owns the product mapping between the GizClaw Peer event stream and GenX chunks. The underlying stream transport belongs to `pkgs/giznet`; domain state changes remain owned by the service that generated each event.
 
@@ -14,9 +14,9 @@ See the [Events Reference](/references/events) for event types, fields, directio
 
 | Symbol | Function |
 | --- | --- |
-| `peerStreamEventBroker` | Manage event stream subscribers and broadcast product events. |
+| `peerStreamEventBroker` | Manage the connection's single event stream subscriber and broadcast product events. |
 | `peerAgentOutput` | Consume Agent output, broadcast events, and pass audio to `MixerOutput`. |
-| `readPeerStreamEvent` / `writePeerStreamEvent` | Decode and encode Peer stream events. |
+| `readPeerStreamEvent` / `writePeerStreamEvent` | Accept only `FrameTypeBinary`, encode/decode `PeerEvent` Protobuf, and validate the `type`/`oneof payload` pair. |
 | `peerStreamEventToChunk` | Convert product events into GenX message chunks. |
 | `peerStreamEventsFromChunk` | Expand a GenX chunk into one or more product events. |
 | `pushAgentChunk` | Push the received event chunk into the Agent input source. |

@@ -321,23 +321,23 @@ func TestRetryableLiveWorkspaceError(t *testing.T) {
 func TestHistoryReplayStreamHelpers(t *testing.T) {
 	stream := "history-replay-1"
 	other := "assistant-live"
-	if !acceptHistoryReplayStream(apitypes.PeerStreamEvent{StreamId: &stream}, nil) {
+	if !acceptHistoryReplayStream(peerStreamEvent{StreamId: &stream}, nil) {
 		t.Fatal("history replay stream should be accepted without binding")
 	}
-	if acceptHistoryReplayStream(apitypes.PeerStreamEvent{StreamId: &other}, nil) {
+	if acceptHistoryReplayStream(peerStreamEvent{StreamId: &other}, nil) {
 		t.Fatal("non-history stream should not be accepted without binding")
 	}
 	var bound string
-	if !acceptHistoryReplayStream(apitypes.PeerStreamEvent{StreamId: &stream}, &bound) || bound != stream {
+	if !acceptHistoryReplayStream(peerStreamEvent{StreamId: &stream}, &bound) || bound != stream {
 		t.Fatalf("first bound stream = %q", bound)
 	}
-	if !acceptHistoryReplayStream(apitypes.PeerStreamEvent{StreamId: &stream}, &bound) {
+	if !acceptHistoryReplayStream(peerStreamEvent{StreamId: &stream}, &bound) {
 		t.Fatal("same bound stream should be accepted")
 	}
-	if acceptHistoryReplayStream(apitypes.PeerStreamEvent{StreamId: &other}, &bound) {
+	if acceptHistoryReplayStream(peerStreamEvent{StreamId: &other}, &bound) {
 		t.Fatal("different bound stream should be rejected")
 	}
-	if !acceptHistoryReplayStream(apitypes.PeerStreamEvent{}, &bound) {
+	if !acceptHistoryReplayStream(peerStreamEvent{}, &bound) {
 		t.Fatal("missing stream id should be accepted for compatibility")
 	}
 	if got := totalFrameBytes([][]byte{{1, 2}, nil, {3, 4, 5}}); got != 5 {

@@ -7,8 +7,10 @@ import (
 	"net"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
@@ -17,6 +19,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/providertenants"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/voice"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/chatroom"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
@@ -47,6 +50,8 @@ type activePeer struct {
 	conn         giznet.Conn
 	activating   giznet.Conn
 	registration *runtimeprofile.Registration
+	events       *peerStreamEventBroker
+	observeEvent func(*eventpb.PeerEvent)
 	deleting     bool
 }
 
@@ -184,6 +189,8 @@ func (m *Manager) setPeerUpLocked(publicKey giznet.PublicKey, conn giznet.Conn) 
 	oldConn := state.conn
 	if oldConn != conn {
 		state.registration = nil
+		state.events = nil
+		state.observeEvent = nil
 	}
 	state.conn = conn
 	state.activating = nil
@@ -245,9 +252,229 @@ func (m *Manager) activatePeer(ctx context.Context, conn giznet.Conn) (giznet.Co
 	oldConn := current.conn
 	if oldConn != conn {
 		current.registration = nil
+		current.events = nil
+		current.observeEvent = nil
 	}
 	current.conn = conn
 	return oldConn, nil
+}
+
+// SetPeerEventBroker associates a connection generation with its single
+// connection-level Peer Event Stream broker.
+func (m *Manager) SetPeerEventBroker(
+	publicKey giznet.PublicKey,
+	conn giznet.Conn,
+	broker *peerStreamEventBroker,
+	observe func(*eventpb.PeerEvent),
+) error {
+	if m == nil || conn == nil || broker == nil {
+		return ErrPeerConnNotActive
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	state := m.peers[publicKey]
+	if state == nil || state.conn != conn || state.deleting {
+		return ErrPeerConnNotActive
+	}
+	state.events = broker
+	state.observeEvent = observe
+	return nil
+}
+
+// BroadcastPeerEvent sends an invalidation to the currently active connection
+// generation. Delivery is best effort and never changes committed domain state.
+func (m *Manager) BroadcastPeerEvent(publicKey giznet.PublicKey, event *eventpb.PeerEvent) error {
+	if m == nil || event == nil {
+		return nil
+	}
+	m.mu.RLock()
+	state := m.peers[publicKey]
+	if state == nil || state.conn == nil || state.deleting || state.events == nil {
+		m.mu.RUnlock()
+		return nil
+	}
+	broker := state.events
+	observe := state.observeEvent
+	m.mu.RUnlock()
+	if observe != nil {
+		observe(event)
+	}
+	return broker.Notify(event)
+}
+
+func (m *Manager) broadcastWorkspaceHistoryUpdated(ctx context.Context, workspaceName string, lastUpdated time.Time) {
+	if m == nil || m.Workspaces == nil {
+		return
+	}
+	workspaceName = strings.TrimSpace(workspaceName)
+	if workspaceName == "" {
+		return
+	}
+	response, err := m.Workspaces.GetWorkspace(
+		ctx,
+		adminhttp.GetWorkspaceRequestObject{Name: workspaceName},
+	)
+	if err != nil {
+		return
+	}
+	workspaceResponse, ok := response.(adminhttp.GetWorkspace200JSONResponse)
+	if !ok {
+		return
+	}
+	workspace := apitypes.Workspace(workspaceResponse)
+	var recipients []string
+	kind := eventpb.WorkspaceKind_WORKSPACE_KIND_WORKFLOW
+	if workspace.Parameters != nil {
+		if parameters, decodeErr := workspace.Parameters.AsChatRoomWorkspaceParameters(); decodeErr == nil && parameters.Mode != nil {
+			switch *parameters.Mode {
+			case apitypes.ChatRoomModeDirect:
+				kind = eventpb.WorkspaceKind_WORKSPACE_KIND_DIRECT_CHATROOM
+				if m.Friends == nil {
+					return
+				}
+				recipients, err = m.Friends.WorkspaceRecipients(ctx, workspaceName)
+			case apitypes.ChatRoomModeGroup:
+				kind = eventpb.WorkspaceKind_WORKSPACE_KIND_GROUP_CHATROOM
+				if m.FriendGroups == nil {
+					return
+				}
+				recipients, err = m.FriendGroups.WorkspaceRecipients(ctx, workspaceName)
+			}
+		}
+	}
+	if kind == eventpb.WorkspaceKind_WORKSPACE_KIND_WORKFLOW {
+		owner := strings.TrimSpace(socialStringValue(workspace.OwnerPublicKey))
+		if owner != "" {
+			recipients = []string{owner}
+		}
+	}
+	if err != nil || len(recipients) == 0 {
+		return
+	}
+	event := &eventpb.PeerEvent{
+		Version: eventpb.Version,
+		Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_WORKSPACE_HISTORY_UPDATED,
+		Payload: &eventpb.PeerEvent_WorkspaceHistoryUpdated{
+			WorkspaceHistoryUpdated: &eventpb.WorkspaceHistoryUpdated{
+				WorkspaceName:       workspaceName,
+				WorkspaceKind:       kind,
+				LastUpdatedAtUnixMs: lastUpdated.UnixMilli(),
+			},
+		},
+	}
+	seen := make(map[string]struct{}, len(recipients))
+	for _, recipientText := range recipients {
+		recipientText = strings.TrimSpace(recipientText)
+		if _, exists := seen[recipientText]; recipientText == "" || exists {
+			continue
+		}
+		seen[recipientText] = struct{}{}
+		var recipient giznet.PublicKey
+		if err := recipient.UnmarshalText([]byte(recipientText)); err != nil || recipient.IsZero() {
+			continue
+		}
+		_ = m.BroadcastPeerEvent(recipient, event)
+	}
+}
+
+func socialStringValue(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
+}
+
+func (m *Manager) chatroomAccessError(ctx context.Context, caller giznet.PublicKey, workspaceName string) *chatroom.AccessError {
+	_, denial := m.chatroomAccessState(ctx, caller, workspaceName)
+	return denial
+}
+
+func (m *Manager) chatroomAccessState(
+	ctx context.Context,
+	caller giznet.PublicKey,
+	workspaceName string,
+) (bool, *chatroom.AccessError) {
+	if m == nil || m.Workspaces == nil {
+		return true, chatroom.AccessCheckFailedError()
+	}
+	response, err := m.Workspaces.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Name: workspaceName})
+	if err != nil {
+		return true, chatroom.AccessCheckFailedError()
+	}
+	workspaceResponse, ok := response.(adminhttp.GetWorkspace200JSONResponse)
+	if !ok {
+		return true, chatroom.AccessCheckFailedError()
+	}
+	workspace := apitypes.Workspace(workspaceResponse)
+	if workspace.Parameters == nil {
+		return false, nil
+	}
+	parameters, err := workspace.Parameters.AsChatRoomWorkspaceParameters()
+	if err != nil || parameters.Mode == nil {
+		return false, nil
+	}
+	callerText := caller.String()
+	switch *parameters.Mode {
+	case apitypes.ChatRoomModeDirect:
+		if m.Friends == nil {
+			return true, chatroom.AccessCheckFailedError()
+		}
+		recipients, err := m.Friends.WorkspaceRecipients(ctx, workspaceName)
+		if err != nil {
+			return true, chatroom.AccessCheckFailedError()
+		}
+		if containsPublicKey(recipients, callerText) {
+			return true, nil
+		}
+		return true, chatroom.FriendRemovedError()
+	case apitypes.ChatRoomModeGroup:
+		if m.FriendGroups == nil {
+			return true, chatroom.AccessCheckFailedError()
+		}
+		recipients, err := m.FriendGroups.WorkspaceRecipients(ctx, workspaceName)
+		if errors.Is(err, kv.ErrNotFound) {
+			return true, chatroom.GroupDeletedError()
+		}
+		if err != nil {
+			return true, chatroom.AccessCheckFailedError()
+		}
+		if containsPublicKey(recipients, callerText) {
+			return true, nil
+		}
+		return true, chatroom.MemberRemovedError()
+	default:
+		return false, nil
+	}
+}
+
+func (m *Manager) isChatroomWorkspace(ctx context.Context, workspaceName string) bool {
+	if m == nil || m.Workspaces == nil {
+		return false
+	}
+	response, err := m.Workspaces.GetWorkspace(ctx, adminhttp.GetWorkspaceRequestObject{Name: workspaceName})
+	if err != nil {
+		return false
+	}
+	workspaceResponse, ok := response.(adminhttp.GetWorkspace200JSONResponse)
+	if !ok {
+		return false
+	}
+	workspace := apitypes.Workspace(workspaceResponse)
+	if workspace.Parameters == nil {
+		return false
+	}
+	parameters, err := workspace.Parameters.AsChatRoomWorkspaceParameters()
+	return err == nil && parameters.Mode != nil && parameters.Mode.Valid()
+}
+
+func containsPublicKey(values []string, target string) bool {
+	target = strings.TrimSpace(target)
+	for _, value := range values {
+		if strings.TrimSpace(value) == target {
+			return true
+		}
+	}
+	return false
 }
 
 func (m *Manager) ensureActivatingPeer(ctx context.Context, publicKey giznet.PublicKey, state *activePeer, conn giznet.Conn) error {

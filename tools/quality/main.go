@@ -21,6 +21,7 @@ var generatedDirectories = []string{
 	"apps/gizclaw-app/lib/l10n/generated/",
 	"apps/wails/frontend/src/generated/",
 	"apps/wails/frontend/wailsjs/",
+	"guides/node_modules/",
 	"sdk/c/gizclaw/generated/",
 	"sdk/flutter/gizclaw/lib/src/generated/",
 	"sdk/js/gizclaw/generated/",

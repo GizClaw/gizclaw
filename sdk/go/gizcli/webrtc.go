@@ -3,7 +3,7 @@ package gizcli
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -16,7 +16,7 @@ import (
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v4"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
@@ -25,11 +25,12 @@ const (
 	WebRTCDataChannelRPCLabel   = "rpc"
 	WebRTCDataChannelEventLabel = "event"
 
-	webRTCAudioTrackID    = "gizclaw-audio"
-	webRTCAudioStreamID   = "gizclaw"
-	webRTCOpusClockRate   = 48000
-	webRTCOpusPayloadType = 111
-	webRTCRPCTimeout      = 30 * time.Second
+	webRTCAudioTrackID     = "gizclaw-audio"
+	webRTCAudioStreamID    = "gizclaw"
+	webRTCOpusClockRate    = 48000
+	webRTCOpusPayloadType  = 111
+	webRTCRPCTimeout       = 30 * time.Second
+	webRTCMessageChunkSize = 1400
 
 	webRTCRPCMaxEnvelopeSize = rpcapi.MaxFrameSize * 16
 )
@@ -151,7 +152,8 @@ func (r *ClientWebRTCRegistration) registerEventDataChannel(dc *webrtc.DataChann
 	var (
 		mu      sync.Mutex
 		stream  net.Conn
-		pending []apitypes.PeerStreamEvent
+		pending []*eventpb.PeerEvent
+		receive bytes.Buffer
 		once    sync.Once
 	)
 	closeStream := func() {
@@ -179,7 +181,7 @@ func (r *ClientWebRTCRegistration) registerEventDataChannel(dc *webrtc.DataChann
 		}
 		mu.Lock()
 		stream = eventStream
-		pendingEvents := append([]apitypes.PeerStreamEvent(nil), pending...)
+		pendingEvents := append([]*eventpb.PeerEvent(nil), pending...)
 		pending = nil
 		mu.Unlock()
 		for _, event := range pendingEvents {
@@ -199,28 +201,30 @@ func (r *ClientWebRTCRegistration) registerEventDataChannel(dc *webrtc.DataChann
 		}()
 	})
 	dc.OnMessage(func(msg webrtc.DataChannelMessage) {
-		var event apitypes.PeerStreamEvent
-		if err := json.Unmarshal(msg.Data, &event); err != nil {
+		mu.Lock()
+		events, err := appendWebRTCPeerEventFrames(&receive, msg.Data)
+		if err != nil {
+			mu.Unlock()
 			slog.Debug("gizclaw: decode webrtc event failed", "error", err)
+			closeStream()
+			_ = dc.Close()
 			return
 		}
-		if event.Timestamp == nil {
-			timestamp := time.Now().UnixMilli()
-			event.Timestamp = &timestamp
-		}
-		mu.Lock()
 		eventStream := stream
 		if eventStream == nil {
-			pending = append(pending, event)
+			pending = append(pending, events...)
 		}
 		mu.Unlock()
 		if eventStream == nil {
 			return
 		}
-		if err := writeWebRTCPeerStreamEvent(eventStream, event); err != nil {
-			slog.Debug("gizclaw: write webrtc event to peer failed", "error", err)
-			closeStream()
-			_ = dc.Close()
+		for _, event := range events {
+			if err := writeWebRTCPeerStreamEvent(eventStream, event); err != nil {
+				slog.Debug("gizclaw: write webrtc event to peer failed", "error", err)
+				closeStream()
+				_ = dc.Close()
+				return
+			}
 		}
 	})
 	dc.OnClose(closeStream)
@@ -239,23 +243,51 @@ func (r *ClientWebRTCRegistration) forwardPeerEventsToWebRTC(dc *webrtc.DataChan
 			slog.Debug("gizclaw: read peer event for webrtc failed", "error", err)
 			return
 		}
-		data, err := json.Marshal(event)
-		if err != nil {
-			slog.Debug("gizclaw: marshal peer event for webrtc failed", "error", err)
+		var frame bytes.Buffer
+		if err := WritePeerStreamEvent(&frame, event); err != nil {
+			slog.Debug("gizclaw: encode peer event for webrtc failed", "error", err)
 			return
 		}
-		if err := dc.SendText(string(data)); err != nil {
-			slog.Debug("gizclaw: send peer event to webrtc failed", "error", err)
-			return
+		data := frame.Bytes()
+		for offset := 0; offset < len(data); offset += webRTCMessageChunkSize {
+			end := min(offset+webRTCMessageChunkSize, len(data))
+			if err := dc.Send(data[offset:end]); err != nil {
+				slog.Debug("gizclaw: send peer event to webrtc failed", "error", err)
+				return
+			}
 		}
 	}
 }
 
-func writeWebRTCPeerStreamEvent(w io.Writer, event apitypes.PeerStreamEvent) error {
+func appendWebRTCPeerEventFrames(buffer *bytes.Buffer, chunk []byte) ([]*eventpb.PeerEvent, error) {
+	if buffer == nil {
+		return nil, errors.New("gizclaw: nil WebRTC event receive buffer")
+	}
+	if len(chunk) > 0 {
+		_, _ = buffer.Write(chunk)
+	}
+	var events []*eventpb.PeerEvent
+	for buffer.Len() >= 4 {
+		header := buffer.Bytes()[:4]
+		frameSize := 4 + int(binary.LittleEndian.Uint16(header[:2]))
+		if buffer.Len() < frameSize {
+			break
+		}
+		frame := append([]byte(nil), buffer.Next(frameSize)...)
+		event, err := ReadPeerStreamEvent(bytes.NewReader(frame))
+		if err != nil {
+			return nil, err
+		}
+		events = append(events, event)
+	}
+	return events, nil
+}
+
+func writeWebRTCPeerStreamEvent(w io.Writer, event *eventpb.PeerEvent) error {
 	return WritePeerStreamEvent(w, event)
 }
 
-func readWebRTCPeerStreamEvent(r io.Reader) (apitypes.PeerStreamEvent, error) {
+func readWebRTCPeerStreamEvent(r io.Reader) (*eventpb.PeerEvent, error) {
 	return ReadPeerStreamEvent(r)
 }
 

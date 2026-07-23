@@ -102,11 +102,13 @@ class ChatroomWorkspaceMetadata {
     this.description = '',
     this.resourceId = '',
     this.emoji = '',
+    this.peerPublicKey = '',
   });
 
   final String description;
   final String emoji;
   final ChatroomWorkspaceKind kind;
+  final String peerPublicKey;
   final String resourceId;
   final String title;
   final String workspaceName;

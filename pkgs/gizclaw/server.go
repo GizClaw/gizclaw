@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/observability"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/credential"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/model"
@@ -389,6 +390,19 @@ func (s *Server) init() error {
 	friendGroupMemberStore := moduleStore(s.FriendGroupMemberStore, s.PeerStore, "friend-group-members")
 	friendGroupBelongStore := moduleStore(s.FriendGroupBelongStore, s.PeerStore, "friend-group-belongs")
 	friendGroupMessageStore := moduleStore(s.FriendGroupMessageStore, s.PeerStore, "friend-group-messages")
+	friendGroupRelationshipStore, friendGroupRelationshipPrefixes, ok := kv.SharedAtomicStore(
+		friendGroupStore,
+		friendGroupInviteTokenStore,
+		friendGroupMemberStore,
+		friendGroupBelongStore,
+	)
+	if !ok {
+		return errors.New("gizclaw: friend group relationship stores must share one atomic transaction boundary")
+	}
+	friendGroupPrefix := friendGroupRelationshipPrefixes[0]
+	friendGroupInvitePrefix := friendGroupRelationshipPrefixes[1]
+	friendGroupMemberPrefix := friendGroupRelationshipPrefixes[2]
+	friendGroupBelongPrefix := friendGroupRelationshipPrefixes[3]
 	petDefStore := moduleStore(s.PetDefStore, s.PeerStore, "pet-defs")
 	badgeDefStore := moduleStore(s.BadgeDefStore, s.PeerStore, "badge-defs")
 	gameDefStore := moduleStore(s.GameDefStore, s.PeerStore, "game-defs")
@@ -398,6 +412,12 @@ func (s *Server) init() error {
 	}
 	if !kv.SupportsCreateIfAbsent(workspaceStore) {
 		return fmt.Errorf("gizclaw: workspace store: %w", kv.ErrCreateIfAbsentUnsupported)
+	}
+	if !kv.SupportsCreateIfAbsent(friendGroupRelationshipStore) {
+		return fmt.Errorf(
+			"gizclaw: friend group relationship store: %w",
+			kv.ErrCreateIfAbsentUnsupported,
+		)
 	}
 
 	publicLoginServer := publiclogin.NewServer(&s.LocalStatic, publicLoginStore)
@@ -413,6 +433,13 @@ func (s *Server) init() error {
 		ICEServers:      s.ICEServers,
 	}
 	manager := NewManager(peersServer)
+	notifyPeer := func(_ context.Context, publicKey string, event *eventpb.PeerEvent) {
+		var recipient giznet.PublicKey
+		if err := recipient.UnmarshalText([]byte(publicKey)); err != nil || recipient.IsZero() {
+			return
+		}
+		_ = manager.BroadcastPeerEvent(recipient, event)
+	}
 	manager.FlowcraftHistory = s.FlowcraftHistory
 	manager.FlowcraftState = s.FlowcraftState
 	if manager.FlowcraftState == nil {
@@ -457,19 +484,26 @@ func (s *Server) init() error {
 		Workspaces:             workspaceServer,
 		Profiles:               peersServer,
 		RuntimeProfileForOwner: manager.runtimeProfileForOwner,
+		NotifyPeer:             notifyPeer,
 	}
 	friendGroupServer := &friendgroup.Server{
-		Groups:                 friendGroupStore,
-		InviteTokens:           friendGroupInviteTokenStore,
-		Members:                friendGroupMemberStore,
-		Belongs:                friendGroupBelongStore,
-		Messages:               friendGroupMessageStore,
-		MessageAssets:          s.FriendGroupMessageAssets,
-		Workspaces:             workspaceServer,
-		RuntimeProfileForOwner: manager.runtimeProfileForOwner,
-		MessageDefaultTTL:      s.FriendGroupMessageDefaultTTL,
-		MessageMaxTTL:          s.FriendGroupMessageMaxTTL,
-		MessageMaxAudioBytes:   s.FriendGroupMessageMaxBytes,
+		Groups:                   friendGroupStore,
+		InviteTokens:             friendGroupInviteTokenStore,
+		Members:                  friendGroupMemberStore,
+		Belongs:                  friendGroupBelongStore,
+		RelationshipStore:        friendGroupRelationshipStore,
+		GroupRelationshipPrefix:  friendGroupPrefix,
+		InviteRelationshipPrefix: friendGroupInvitePrefix,
+		MemberRelationshipPrefix: friendGroupMemberPrefix,
+		BelongRelationshipPrefix: friendGroupBelongPrefix,
+		Messages:                 friendGroupMessageStore,
+		MessageAssets:            s.FriendGroupMessageAssets,
+		Workspaces:               workspaceServer,
+		RuntimeProfileForOwner:   manager.runtimeProfileForOwner,
+		NotifyPeer:               notifyPeer,
+		MessageDefaultTTL:        s.FriendGroupMessageDefaultTTL,
+		MessageMaxTTL:            s.FriendGroupMessageMaxTTL,
+		MessageMaxAudioBytes:     s.FriendGroupMessageMaxBytes,
 	}
 	providerTenantsServer := &providertenants.Server{
 		ModelStore:          modelStore,
@@ -524,6 +558,12 @@ func (s *Server) init() error {
 	manager.Contacts = contactServer
 	manager.Friends = friendServer
 	manager.FriendGroups = friendGroupServer
+	if err := friendServer.ReconcileRetirementIntents(context.Background()); err != nil {
+		return fmt.Errorf("gizclaw: reconcile Friend retirement intents: %w", err)
+	}
+	if err := friendGroupServer.ReconcileRetirementIntents(context.Background()); err != nil {
+		return fmt.Errorf("gizclaw: reconcile Friend Group retirement intents: %w", err)
+	}
 	manager.ProviderTenants = providerTenantsServer
 	manager.Gameplay = gameplayRuntime
 	manager.Metrics = s.MetricsStore

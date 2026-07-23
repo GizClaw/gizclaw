@@ -24,6 +24,7 @@ import (
 	"unsafe"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/ogg"
+	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 	_ "github.com/GizClaw/gizclaw-go/sdk/c/gizclaw/cgobackend"
 	"google.golang.org/protobuf/proto"
@@ -57,6 +58,10 @@ func (e *RPCError) Error() string {
 
 type ServiceChannel struct {
 	channel *C.gzc_service_channel_t
+}
+
+type EventStream struct {
+	stream *C.gzc_event_stream_t
 }
 
 var errCSDKTimeout = errors.New("C SDK timeout")
@@ -413,6 +418,86 @@ func (c *ServiceChannel) Close() {
 	c.channel = nil
 }
 
+func (c *Client) OpenEventStream(timeout time.Duration) (*EventStream, error) {
+	if c == nil || c.session == nil {
+		return nil, fmt.Errorf("closed C SDK client")
+	}
+	errbuf := make([]byte, 1024)
+	var stream *C.gzc_event_stream_t
+	rc := C.gzc_cgo_session_open_event_stream(
+		c.session,
+		C.int(timeout.Milliseconds()),
+		&stream,
+		(*C.char)(unsafe.Pointer(&errbuf[0])),
+		C.ulong(len(errbuf)),
+	)
+	if rc != C.GZC_OK {
+		return nil, fmt.Errorf("open C SDK event stream rc=%d: %s", int(rc), cString(errbuf))
+	}
+	return &EventStream{stream: stream}, nil
+}
+
+func (s *EventStream) Close() {
+	if s == nil || s.stream == nil {
+		return
+	}
+	C.gzc_cgo_event_stream_close(s.stream)
+	s.stream = nil
+}
+
+func (s *EventStream) SendAudioBoundary(streamID string, begin bool) error {
+	if s == nil || s.stream == nil {
+		return fmt.Errorf("closed C SDK event stream")
+	}
+	cStreamID := C.CString(streamID)
+	defer C.free(unsafe.Pointer(cStreamID))
+	errbuf := make([]byte, 1024)
+	var cBegin C.int
+	if begin {
+		cBegin = 1
+	}
+	rc := C.gzc_cgo_event_stream_send_audio_boundary(
+		s.stream,
+		cStreamID,
+		cBegin,
+		(*C.char)(unsafe.Pointer(&errbuf[0])),
+		C.ulong(len(errbuf)),
+	)
+	if rc != C.GZC_OK {
+		return fmt.Errorf("send C SDK event stream boundary rc=%d: %s", int(rc), cString(errbuf))
+	}
+	return nil
+}
+
+func (s *EventStream) ReadEvent(timeout time.Duration) (*eventpb.PeerEvent, error) {
+	if s == nil || s.stream == nil {
+		return nil, fmt.Errorf("closed C SDK event stream")
+	}
+	errbuf := make([]byte, 1024)
+	var data *C.uchar
+	var dataLen C.ulong
+	rc := C.gzc_cgo_event_stream_read_encoded(
+		s.stream,
+		C.int(timeout.Milliseconds()),
+		&data,
+		&dataLen,
+		(*C.char)(unsafe.Pointer(&errbuf[0])),
+		C.ulong(len(errbuf)),
+	)
+	if rc == C.GZC_ERR_TIMEOUT {
+		return nil, errCSDKTimeout
+	}
+	if rc != C.GZC_OK {
+		return nil, fmt.Errorf("read C SDK event stream rc=%d: %s", int(rc), cString(errbuf))
+	}
+	defer C.gzc_cgo_free(unsafe.Pointer(data))
+	event := &eventpb.PeerEvent{}
+	if err := proto.Unmarshal(C.GoBytes(unsafe.Pointer(data), C.int(dataLen)), event); err != nil {
+		return nil, fmt.Errorf("decode C SDK event stream payload: %w", err)
+	}
+	return event, nil
+}
+
 func (c *ServiceChannel) SendJSON(raw string) error {
 	if c == nil || c.channel == nil {
 		return fmt.Errorf("closed C SDK service channel")
@@ -660,12 +745,12 @@ func CSDKChatRoundtrip(t *testing.T, identityDir, registrationToken, workspaceNa
 	defer client.Close()
 	registerClient(t, client, registrationToken)
 	setChatWorkspace(t, client, workspaceName)
-	eventChannel, err := client.OpenServiceChannel(32, 15*time.Second)
+	eventStream, err := client.OpenEventStream(15 * time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer eventChannel.Close()
-	if err := eventChannel.SendJSON(`{"v":1,"type":"bos","stream_id":"cgo-chat","label":"cgo-chat","kind":"audio","mime_type":"audio/opus"}`); err != nil {
+	defer eventStream.Close()
+	if err := eventStream.SendAudioBoundary("cgo-chat", true); err != nil {
 		t.Fatalf("send chat BOS: %v", err)
 	}
 	for _, packet := range opusPacketsFromOgg(t, oggPath) {
@@ -676,7 +761,7 @@ func CSDKChatRoundtrip(t *testing.T, identityDir, registrationToken, workspaceNa
 			t.Fatalf("pace chat opus packet: %v", err)
 		}
 	}
-	if err := eventChannel.SendJSON(`{"v":1,"type":"eos","stream_id":"cgo-chat","label":"cgo-chat","kind":"audio","mime_type":"audio/opus"}`); err != nil {
+	if err := eventStream.SendAudioBoundary("cgo-chat", false); err != nil {
 		t.Fatalf("send chat EOS: %v", err)
 	}
 	deadline := time.Now().Add(90 * time.Second)
@@ -685,16 +770,16 @@ func CSDKChatRoundtrip(t *testing.T, identityDir, registrationToken, workspaceNa
 	var eventFrames int
 	var downlinkPackets int
 	for time.Now().Before(deadline) {
-		frame, err := eventChannel.ReadFrame(50 * time.Millisecond)
+		event, err := eventStream.ReadEvent(50 * time.Millisecond)
 		if err == nil {
 			eventFrames++
-			if frame.Type == int(C.GZC_RPC_FRAME_JSON) || frame.Type == int(C.GZC_RPC_FRAME_TEXT) {
-				if bytes.Contains(frame.Data, []byte(`"type":"text.`)) && bytes.Contains(frame.Data, []byte(`"text"`)) {
-					sawText = true
-				}
-				if bytes.Contains(frame.Data, []byte(`"type":"eos"`)) {
-					sawEventEOS = true
-				}
+			if (event.GetType() == eventpb.PeerEventType_PEER_EVENT_TYPE_TEXT_DELTA ||
+				event.GetType() == eventpb.PeerEventType_PEER_EVENT_TYPE_TEXT_DONE) &&
+				event.Text() != "" {
+				sawText = true
+			}
+			if event.GetType() == eventpb.PeerEventType_PEER_EVENT_TYPE_EOS {
+				sawEventEOS = true
 			}
 		} else if !errors.Is(err, errCSDKTimeout) {
 			t.Fatalf("read chat event frame: %v", err)

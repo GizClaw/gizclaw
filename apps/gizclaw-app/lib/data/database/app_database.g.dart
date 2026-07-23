@@ -1246,6 +1246,15 @@ class $WorkspaceChatEntriesTable extends WorkspaceChatEntries
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _gearIdMeta = const VerificationMeta('gearId');
+  @override
+  late final GeneratedColumn<String> gearId = GeneratedColumn<String>(
+    'gear_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _contentMeta = const VerificationMeta(
     'content',
   );
@@ -1294,6 +1303,7 @@ class $WorkspaceChatEntriesTable extends WorkspaceChatEntries
     workspaceName,
     historyId,
     role,
+    gearId,
     content,
     name,
     createdAt,
@@ -1345,6 +1355,12 @@ class $WorkspaceChatEntriesTable extends WorkspaceChatEntries
       );
     } else if (isInserting) {
       context.missing(_roleMeta);
+    }
+    if (data.containsKey('gear_id')) {
+      context.handle(
+        _gearIdMeta,
+        gearId.isAcceptableOrUnknown(data['gear_id']!, _gearIdMeta),
+      );
     }
     if (data.containsKey('content')) {
       context.handle(
@@ -1404,6 +1420,10 @@ class $WorkspaceChatEntriesTable extends WorkspaceChatEntries
         DriftSqlType.string,
         data['${effectivePrefix}role'],
       )!,
+      gearId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}gear_id'],
+      ),
       content: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}content'],
@@ -1435,6 +1455,7 @@ class WorkspaceChatEntry extends DataClass
   final String workspaceName;
   final String historyId;
   final String role;
+  final String? gearId;
   final String content;
   final String name;
   final DateTime? createdAt;
@@ -1444,6 +1465,7 @@ class WorkspaceChatEntry extends DataClass
     required this.workspaceName,
     required this.historyId,
     required this.role,
+    this.gearId,
     required this.content,
     required this.name,
     this.createdAt,
@@ -1456,6 +1478,9 @@ class WorkspaceChatEntry extends DataClass
     map['workspace_name'] = Variable<String>(workspaceName);
     map['history_id'] = Variable<String>(historyId);
     map['role'] = Variable<String>(role);
+    if (!nullToAbsent || gearId != null) {
+      map['gear_id'] = Variable<String>(gearId);
+    }
     map['content'] = Variable<String>(content);
     map['name'] = Variable<String>(name);
     if (!nullToAbsent || createdAt != null) {
@@ -1471,6 +1496,9 @@ class WorkspaceChatEntry extends DataClass
       workspaceName: Value(workspaceName),
       historyId: Value(historyId),
       role: Value(role),
+      gearId: gearId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(gearId),
       content: Value(content),
       name: Value(name),
       createdAt: createdAt == null && nullToAbsent
@@ -1490,6 +1518,7 @@ class WorkspaceChatEntry extends DataClass
       workspaceName: serializer.fromJson<String>(json['workspaceName']),
       historyId: serializer.fromJson<String>(json['historyId']),
       role: serializer.fromJson<String>(json['role']),
+      gearId: serializer.fromJson<String?>(json['gearId']),
       content: serializer.fromJson<String>(json['content']),
       name: serializer.fromJson<String>(json['name']),
       createdAt: serializer.fromJson<DateTime?>(json['createdAt']),
@@ -1504,6 +1533,7 @@ class WorkspaceChatEntry extends DataClass
       'workspaceName': serializer.toJson<String>(workspaceName),
       'historyId': serializer.toJson<String>(historyId),
       'role': serializer.toJson<String>(role),
+      'gearId': serializer.toJson<String?>(gearId),
       'content': serializer.toJson<String>(content),
       'name': serializer.toJson<String>(name),
       'createdAt': serializer.toJson<DateTime?>(createdAt),
@@ -1516,6 +1546,7 @@ class WorkspaceChatEntry extends DataClass
     String? workspaceName,
     String? historyId,
     String? role,
+    Value<String?> gearId = const Value.absent(),
     String? content,
     String? name,
     Value<DateTime?> createdAt = const Value.absent(),
@@ -1525,6 +1556,7 @@ class WorkspaceChatEntry extends DataClass
     workspaceName: workspaceName ?? this.workspaceName,
     historyId: historyId ?? this.historyId,
     role: role ?? this.role,
+    gearId: gearId.present ? gearId.value : this.gearId,
     content: content ?? this.content,
     name: name ?? this.name,
     createdAt: createdAt.present ? createdAt.value : this.createdAt,
@@ -1538,6 +1570,7 @@ class WorkspaceChatEntry extends DataClass
           : this.workspaceName,
       historyId: data.historyId.present ? data.historyId.value : this.historyId,
       role: data.role.present ? data.role.value : this.role,
+      gearId: data.gearId.present ? data.gearId.value : this.gearId,
       content: data.content.present ? data.content.value : this.content,
       name: data.name.present ? data.name.value : this.name,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
@@ -1554,6 +1587,7 @@ class WorkspaceChatEntry extends DataClass
           ..write('workspaceName: $workspaceName, ')
           ..write('historyId: $historyId, ')
           ..write('role: $role, ')
+          ..write('gearId: $gearId, ')
           ..write('content: $content, ')
           ..write('name: $name, ')
           ..write('createdAt: $createdAt, ')
@@ -1568,6 +1602,7 @@ class WorkspaceChatEntry extends DataClass
     workspaceName,
     historyId,
     role,
+    gearId,
     content,
     name,
     createdAt,
@@ -1581,6 +1616,7 @@ class WorkspaceChatEntry extends DataClass
           other.workspaceName == this.workspaceName &&
           other.historyId == this.historyId &&
           other.role == this.role &&
+          other.gearId == this.gearId &&
           other.content == this.content &&
           other.name == this.name &&
           other.createdAt == this.createdAt &&
@@ -1593,6 +1629,7 @@ class WorkspaceChatEntriesCompanion
   final Value<String> workspaceName;
   final Value<String> historyId;
   final Value<String> role;
+  final Value<String?> gearId;
   final Value<String> content;
   final Value<String> name;
   final Value<DateTime?> createdAt;
@@ -1603,6 +1640,7 @@ class WorkspaceChatEntriesCompanion
     this.workspaceName = const Value.absent(),
     this.historyId = const Value.absent(),
     this.role = const Value.absent(),
+    this.gearId = const Value.absent(),
     this.content = const Value.absent(),
     this.name = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -1614,6 +1652,7 @@ class WorkspaceChatEntriesCompanion
     required String workspaceName,
     required String historyId,
     required String role,
+    this.gearId = const Value.absent(),
     required String content,
     required String name,
     this.createdAt = const Value.absent(),
@@ -1631,6 +1670,7 @@ class WorkspaceChatEntriesCompanion
     Expression<String>? workspaceName,
     Expression<String>? historyId,
     Expression<String>? role,
+    Expression<String>? gearId,
     Expression<String>? content,
     Expression<String>? name,
     Expression<DateTime>? createdAt,
@@ -1642,6 +1682,7 @@ class WorkspaceChatEntriesCompanion
       if (workspaceName != null) 'workspace_name': workspaceName,
       if (historyId != null) 'history_id': historyId,
       if (role != null) 'role': role,
+      if (gearId != null) 'gear_id': gearId,
       if (content != null) 'content': content,
       if (name != null) 'name': name,
       if (createdAt != null) 'created_at': createdAt,
@@ -1655,6 +1696,7 @@ class WorkspaceChatEntriesCompanion
     Value<String>? workspaceName,
     Value<String>? historyId,
     Value<String>? role,
+    Value<String?>? gearId,
     Value<String>? content,
     Value<String>? name,
     Value<DateTime?>? createdAt,
@@ -1666,6 +1708,7 @@ class WorkspaceChatEntriesCompanion
       workspaceName: workspaceName ?? this.workspaceName,
       historyId: historyId ?? this.historyId,
       role: role ?? this.role,
+      gearId: gearId ?? this.gearId,
       content: content ?? this.content,
       name: name ?? this.name,
       createdAt: createdAt ?? this.createdAt,
@@ -1688,6 +1731,9 @@ class WorkspaceChatEntriesCompanion
     }
     if (role.present) {
       map['role'] = Variable<String>(role.value);
+    }
+    if (gearId.present) {
+      map['gear_id'] = Variable<String>(gearId.value);
     }
     if (content.present) {
       map['content'] = Variable<String>(content.value);
@@ -1714,6 +1760,7 @@ class WorkspaceChatEntriesCompanion
           ..write('workspaceName: $workspaceName, ')
           ..write('historyId: $historyId, ')
           ..write('role: $role, ')
+          ..write('gearId: $gearId, ')
           ..write('content: $content, ')
           ..write('name: $name, ')
           ..write('createdAt: $createdAt, ')
@@ -3314,6 +3361,7 @@ typedef $$WorkspaceChatEntriesTableCreateCompanionBuilder =
       required String workspaceName,
       required String historyId,
       required String role,
+      Value<String?> gearId,
       required String content,
       required String name,
       Value<DateTime?> createdAt,
@@ -3326,6 +3374,7 @@ typedef $$WorkspaceChatEntriesTableUpdateCompanionBuilder =
       Value<String> workspaceName,
       Value<String> historyId,
       Value<String> role,
+      Value<String?> gearId,
       Value<String> content,
       Value<String> name,
       Value<DateTime?> createdAt,
@@ -3359,6 +3408,11 @@ class $$WorkspaceChatEntriesTableFilterComposer
 
   ColumnFilters<String> get role => $composableBuilder(
     column: $table.role,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get gearId => $composableBuilder(
+    column: $table.gearId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3412,6 +3466,11 @@ class $$WorkspaceChatEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get gearId => $composableBuilder(
+    column: $table.gearId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get content => $composableBuilder(
     column: $table.content,
     builder: (column) => ColumnOrderings(column),
@@ -3455,6 +3514,9 @@ class $$WorkspaceChatEntriesTableAnnotationComposer
 
   GeneratedColumn<String> get role =>
       $composableBuilder(column: $table.role, builder: (column) => column);
+
+  GeneratedColumn<String> get gearId =>
+      $composableBuilder(column: $table.gearId, builder: (column) => column);
 
   GeneratedColumn<String> get content =>
       $composableBuilder(column: $table.content, builder: (column) => column);
@@ -3518,6 +3580,7 @@ class $$WorkspaceChatEntriesTableTableManager
                 Value<String> workspaceName = const Value.absent(),
                 Value<String> historyId = const Value.absent(),
                 Value<String> role = const Value.absent(),
+                Value<String?> gearId = const Value.absent(),
                 Value<String> content = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<DateTime?> createdAt = const Value.absent(),
@@ -3528,6 +3591,7 @@ class $$WorkspaceChatEntriesTableTableManager
                 workspaceName: workspaceName,
                 historyId: historyId,
                 role: role,
+                gearId: gearId,
                 content: content,
                 name: name,
                 createdAt: createdAt,
@@ -3540,6 +3604,7 @@ class $$WorkspaceChatEntriesTableTableManager
                 required String workspaceName,
                 required String historyId,
                 required String role,
+                Value<String?> gearId = const Value.absent(),
                 required String content,
                 required String name,
                 Value<DateTime?> createdAt = const Value.absent(),
@@ -3550,6 +3615,7 @@ class $$WorkspaceChatEntriesTableTableManager
                 workspaceName: workspaceName,
                 historyId: historyId,
                 role: role,
+                gearId: gearId,
                 content: content,
                 name: name,
                 createdAt: createdAt,

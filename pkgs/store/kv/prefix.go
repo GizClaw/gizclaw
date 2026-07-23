@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"iter"
+	"reflect"
 )
 
 // Prefixed returns a Store view that scopes all keys under prefix.
@@ -15,6 +16,57 @@ func Prefixed(base Store, prefix Key) Store {
 		base:   base,
 		prefix: cloneKey(prefix),
 	}
+}
+
+// SharedAtomicStore resolves stores to their common transaction boundary and
+// returns the prefix of each logical view relative to that boundary.
+//
+// The boolean is false when a store is nil, when the stores use different
+// transaction boundaries, or when their concrete roots cannot be compared
+// safely. Callers can then reject configurations that cannot provide one
+// atomic BatchMutate across all of the logical views.
+func SharedAtomicStore(stores ...Store) (Store, []Key, bool) {
+	if len(stores) == 0 {
+		return nil, nil, false
+	}
+	roots := make([]Store, len(stores))
+	prefixes := make([]Key, len(stores))
+	for i, store := range stores {
+		if store == nil {
+			return nil, nil, false
+		}
+		roots[i], prefixes[i] = atomicStoreView(store)
+	}
+	for _, root := range roots[1:] {
+		if !sameStore(roots[0], root) {
+			return nil, nil, false
+		}
+	}
+	return roots[0], prefixes, true
+}
+
+func atomicStoreView(store Store) (Store, Key) {
+	var prefix Key
+	for {
+		view, ok := store.(*prefixedStore)
+		if !ok {
+			return store, prefix
+		}
+		prefix = append(cloneKey(view.prefix), prefix...)
+		store = view.base
+	}
+}
+
+func sameStore(a, b Store) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	aValue := reflect.ValueOf(a)
+	bValue := reflect.ValueOf(b)
+	if aValue.Type() != bValue.Type() || !aValue.Type().Comparable() {
+		return false
+	}
+	return aValue.Interface() == bValue.Interface()
 }
 
 type prefixedStore struct {

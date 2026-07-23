@@ -1,9 +1,11 @@
 package gizclaw
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -16,14 +18,18 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/openaihttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	telemetrypb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/telemetry"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/openaiapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/chatroom"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
@@ -61,6 +67,458 @@ func TestPeerConnRetireDetachesOnlyItsActiveConnection(t *testing.T) {
 	peerConn.retire()
 	if got, ok := manager.Peer(key); !ok || got != replacement {
 		t.Fatalf("repeated retire removed replacement connection: %v, %v", got, ok)
+	}
+}
+
+func TestPeerConnBroadcastAgentOutputErrorUsesValidLogicalStream(t *testing.T) {
+	output := &peerStreamLockedBuffer{}
+	broker := newPeerStreamEventBroker()
+	unsubscribe, err := broker.Subscribe(output)
+	if err != nil {
+		t.Fatalf("Subscribe() error = %v", err)
+	}
+	defer unsubscribe()
+
+	(&PeerConn{events: broker}).broadcastAgentOutputError(
+		t.Context(),
+		"workspace-a",
+		errors.New("output failed"),
+	)
+	event := readLockedPeerStreamEvent(t, output)
+	if got := event.GetEos().GetStreamId(); got != "agent-output-error" {
+		t.Fatalf("agent output error stream id = %q", got)
+	}
+	if got := event.GetEos().GetError().GetCode(); got != "AGENT_OUTPUT_ERROR" {
+		t.Fatalf("agent output error code = %q", got)
+	}
+}
+
+func TestPeerConnRejectsRevokedChatroomTurnWithoutPushingAgentInput(t *testing.T) {
+	ctx := t.Context()
+	caller := giznet.PublicKey{31}
+	other := giznet.PublicKey{32}
+	friends := &friend.Server{Friends: kv.NewMemory(nil)}
+	relation, err := friends.AdminCreateFriendResource(ctx, caller.String(), other.String())
+	if err != nil {
+		t.Fatalf("AdminCreateFriendResource: %v", err)
+	}
+	friends.Workspaces = &adminGameplayWorkspaceService{}
+	if _, err := friends.DeleteFriend(ctx, caller.String(), rpcapi.FriendDeleteRequest{Id: other.String()}); err != nil {
+		t.Fatalf("DeleteFriend: %v", err)
+	}
+	runs := &peerrun.Server{Store: kv.NewMemory(nil)}
+	if _, err := runs.SetRunAgent(ctx, caller, apitypes.AgentSelection{WorkspaceName: relation.WorkspaceName}); err != nil {
+		t.Fatalf("SetRunAgent: %v", err)
+	}
+	manager := &Manager{
+		Workspaces: staticWorkspaceService{workspace: apitypes.Workspace{
+			Name:       relation.WorkspaceName,
+			Parameters: socialutil.ChatRoomWorkspaceParameters(apitypes.ChatRoomModeDirect),
+		}},
+		Friends: friends,
+		PeerRun: runs,
+	}
+	input := &countingPeerAgentInput{pushed: make(chan *genx.MessageChunk, 1)}
+	peer := &PeerConn{
+		Conn:       &testGiznetConn{publicKey: caller},
+		Service:    &PeerService{manager: manager},
+		agentInput: input,
+		events:     newPeerStreamEventBroker(),
+	}
+	serverSide, clientSide := net.Pipe()
+	defer clientSide.Close()
+	done := make(chan error, 1)
+	go func() {
+		done <- peer.handleEventStream(serverSide)
+	}()
+	if err := clientSide.SetDeadline(time.Now().Add(2 * time.Second)); err != nil {
+		t.Fatalf("SetDeadline: %v", err)
+	}
+
+	firstBOS := &eventpb.PeerEvent{
+		Version: eventpb.Version,
+		Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_BOS,
+		Payload: &eventpb.PeerEvent_Bos{Bos: &eventpb.StreamBegin{
+			StreamId: "turn-1",
+			Kind:     eventpb.StreamKind_STREAM_KIND_TEXT,
+		}},
+	}
+	if err := writePeerStreamEvent(clientSide, firstBOS); err != nil {
+		t.Fatalf("write revoked BOS: %v", err)
+	}
+	denial, err := readPeerStreamEvent(clientSide)
+	if err != nil {
+		t.Fatalf("read revoked EOS: %v", err)
+	}
+	if denial.GetType() != eventpb.PeerEventType_PEER_EVENT_TYPE_EOS ||
+		denial.GetEos().GetStreamId() != "turn-1" ||
+		denial.GetEos().GetError().GetCode() != "CHATROOM_FRIEND_REMOVED" {
+		t.Fatalf("denial = %+v", denial)
+	}
+	select {
+	case chunk := <-input.pushed:
+		t.Fatalf("revoked turn reached Agent input: %+v", chunk)
+	default:
+	}
+
+	if err := writePeerStreamEvent(clientSide, &eventpb.PeerEvent{
+		Version: eventpb.Version,
+		Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_EOS,
+		Payload: &eventpb.PeerEvent_Eos{Eos: &eventpb.StreamEnd{
+			StreamId: "turn-1",
+			Kind:     eventpb.StreamKind_STREAM_KIND_TEXT,
+		}},
+	}); err != nil {
+		t.Fatalf("write revoked input EOS: %v", err)
+	}
+	friends.Workspaces = nil
+	if _, err := friends.AdminCreateFriendResource(ctx, caller.String(), other.String()); err != nil {
+		t.Fatalf("restore friend relationship: %v", err)
+	}
+	secondBOS := proto.Clone(firstBOS).(*eventpb.PeerEvent)
+	secondBOS.GetBos().StreamId = "turn-2"
+	if err := writePeerStreamEvent(clientSide, secondBOS); err != nil {
+		t.Fatalf("write restored BOS: %v", err)
+	}
+	select {
+	case chunk := <-input.pushed:
+		if chunk == nil || chunk.Ctrl == nil || chunk.Ctrl.StreamID != "turn-2" || !chunk.Ctrl.BeginOfStream {
+			t.Fatalf("restored turn input = %+v", chunk)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("restored relationship did not admit the next turn")
+	}
+	if err := clientSide.Close(); err != nil {
+		t.Fatalf("close client stream: %v", err)
+	}
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("handleEventStream: %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("handleEventStream did not stop")
+	}
+}
+
+func TestPeerConnFailsClosedWhenActiveWorkspaceCannotBeRead(t *testing.T) {
+	caller := giznet.PublicKey{33}
+	storeErr := errors.New("forced Peer run read failure")
+	broker := newPeerStreamEventBroker()
+	var output bytes.Buffer
+	unsubscribe, err := broker.Subscribe(&output)
+	if err != nil {
+		t.Fatalf("Subscribe: %v", err)
+	}
+	defer unsubscribe()
+	peer := &PeerConn{
+		Conn: &testGiznetConn{publicKey: caller},
+		Service: &PeerService{manager: &Manager{
+			PeerRun: &peerrun.Server{
+				Store: &failingGetStore{Store: kv.NewMemory(nil), err: storeErr},
+			},
+		}},
+		events: broker,
+	}
+	input := &eventpb.PeerEvent{
+		Version: eventpb.Version,
+		Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_BOS,
+		Payload: &eventpb.PeerEvent_Bos{Bos: &eventpb.StreamBegin{
+			StreamId: "turn-read-failure",
+			Kind:     eventpb.StreamKind_STREAM_KIND_TEXT,
+		}},
+	}
+
+	authorized, err := peer.authorizeChatroomEvent(t.Context(), input)
+	if err != nil {
+		t.Fatalf("authorizeChatroomEvent: %v", err)
+	}
+	if authorized {
+		t.Fatal("Peer run read failure admitted the input turn")
+	}
+	denial, err := readPeerStreamEvent(&output)
+	if err != nil {
+		t.Fatalf("read denial: %v", err)
+	}
+	if denial.GetEos().GetError().GetCode() != "CHATROOM_ACCESS_CHECK_FAILED" ||
+		!denial.GetEos().GetError().GetRetryable() {
+		t.Fatalf("denial = %+v, want retryable access-check failure", denial)
+	}
+}
+
+func TestPeerConnBoundsDeniedInputStreamTracking(t *testing.T) {
+	peer := &PeerConn{}
+	peer.markDeniedInputStream("audio-turn", eventpb.StreamKind_STREAM_KIND_AUDIO)
+	for index := range maxDeniedInputStreams + 20 {
+		peer.markDeniedInputStream(string(rune(index+1)), eventpb.StreamKind_STREAM_KIND_TEXT)
+	}
+	if got := len(peer.deniedInputStreams); got > maxDeniedInputStreams {
+		t.Fatalf("denied input stream count = %d, want at most %d", got, maxDeniedInputStreams)
+	}
+	if !peer.inputStreamDenied("audio") {
+		t.Fatal("bounded text tracking cleared the denied audio gate")
+	}
+	peer.clearDeniedInputStream("audio-turn", eventpb.StreamKind_STREAM_KIND_UNSPECIFIED)
+	if peer.inputStreamDenied("audio") {
+		t.Fatal("matching EOS with omitted kind did not clear the denied audio gate")
+	}
+}
+
+func TestPeerConnReauthorizesAudioPacketsAfterChatroomAccessIsRevoked(t *testing.T) {
+	ctx := t.Context()
+	caller := giznet.PublicKey{34}
+	other := giznet.PublicKey{35}
+	friends := &friend.Server{Friends: kv.NewMemory(nil)}
+	relation, err := friends.AdminCreateFriendResource(ctx, caller.String(), other.String())
+	if err != nil {
+		t.Fatalf("AdminCreateFriendResource: %v", err)
+	}
+	runs := &peerrun.Server{Store: kv.NewMemory(nil)}
+	if _, err := runs.SetRunAgent(ctx, caller, apitypes.AgentSelection{WorkspaceName: relation.WorkspaceName}); err != nil {
+		t.Fatalf("SetRunAgent: %v", err)
+	}
+	broker := newPeerStreamEventBroker()
+	var output peerStreamLockedBuffer
+	unsubscribe, err := broker.Subscribe(&output)
+	if err != nil {
+		t.Fatalf("Subscribe: %v", err)
+	}
+	defer unsubscribe()
+	input := &countingPeerAgentInput{pushed: make(chan *genx.MessageChunk, 1)}
+	peer := &PeerConn{
+		Conn: &testGiznetConn{publicKey: caller},
+		Service: &PeerService{manager: &Manager{
+			Workspaces: staticWorkspaceService{workspace: apitypes.Workspace{
+				Name:       relation.WorkspaceName,
+				Parameters: socialutil.ChatRoomWorkspaceParameters(apitypes.ChatRoomModeDirect),
+			}},
+			Friends: friends,
+			PeerRun: runs,
+		}},
+		agentInput: input,
+		events:     broker,
+	}
+	bos := &eventpb.PeerEvent{
+		Version: eventpb.Version,
+		Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_BOS,
+		Payload: &eventpb.PeerEvent_Bos{Bos: &eventpb.StreamBegin{
+			StreamId: "turn-mid-revoke",
+			Kind:     eventpb.StreamKind_STREAM_KIND_AUDIO,
+		}},
+	}
+	authorized, err := peer.authorizeChatroomEvent(ctx, bos)
+	if err != nil {
+		t.Fatalf("authorize BOS: %v", err)
+	}
+	if !authorized {
+		t.Fatal("authorized BOS was rejected")
+	}
+	friends.Workspaces = &adminGameplayWorkspaceService{}
+	if _, err := friends.DeleteFriend(ctx, caller.String(), rpcapi.FriendDeleteRequest{Id: other.String()}); err != nil {
+		t.Fatalf("DeleteFriend: %v", err)
+	}
+	peer.observePeerEvent(&eventpb.PeerEvent{
+		Version: eventpb.Version,
+		Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_FRIEND_RELATIONSHIP_UPDATED,
+		Payload: &eventpb.PeerEvent_FriendRelationshipUpdated{
+			FriendRelationshipUpdated: &eventpb.FriendRelationshipUpdated{
+				PeerPublicKey: other.String(),
+				WorkspaceName: relation.WorkspaceName,
+				Change: eventpb.
+					FriendRelationshipChange_FRIEND_RELATIONSHIP_CHANGE_DELETED,
+			},
+		},
+	})
+	authorized, err = peer.authorizeChatroomAudioPacket(ctx)
+	if err != nil {
+		t.Fatalf("authorize Opus packet: %v", err)
+	}
+	if authorized {
+		t.Fatal("Opus packet after revocation was admitted")
+	}
+	if got := input.closeCount(); got != 1 {
+		t.Fatalf("Agent input close calls = %d, want 1", got)
+	}
+	waitForPeerStreamBytes(t, &output)
+	denial := readLockedPeerStreamEvent(t, &output)
+	if got := denial.GetEos().GetError().GetCode(); got != chatroom.AccessCodeFriendRemoved {
+		t.Fatalf("denial code = %q, want %q", got, chatroom.AccessCodeFriendRemoved)
+	}
+	friends.Workspaces = nil
+	if _, err := friends.AdminCreateFriendResource(ctx, caller.String(), other.String()); err != nil {
+		t.Fatalf("restore friend relationship: %v", err)
+	}
+	nextBOS := proto.Clone(bos).(*eventpb.PeerEvent)
+	nextBOS.GetBos().StreamId = "turn-after-revoke"
+	authorized, err = peer.authorizeChatroomEvent(ctx, nextBOS)
+	if err != nil {
+		t.Fatalf("authorize restored BOS: %v", err)
+	}
+	if !authorized || !peer.audioInputAccepted() {
+		t.Fatal("terminal denial left the next restored audio turn blocked")
+	}
+}
+
+func TestPeerConnRejectsAudioPacketsAfterWorkspaceSwitch(t *testing.T) {
+	ctx := t.Context()
+	caller := giznet.PublicKey{38}
+	runs := &peerrun.Server{Store: kv.NewMemory(nil)}
+	workspaceA := apitypes.AgentSelection{WorkspaceName: "workspace-a"}
+	if _, err := runs.SetRunAgent(ctx, caller, workspaceA); err != nil {
+		t.Fatalf("SetRunAgent(workspace-a): %v", err)
+	}
+	if _, err := runs.ActivateRunAgent(ctx, caller, workspaceA); err != nil {
+		t.Fatalf("ActivateRunAgent(workspace-a): %v", err)
+	}
+	peer := &PeerConn{
+		Conn: &testGiznetConn{publicKey: caller},
+		Service: &PeerService{manager: &Manager{
+			PeerRun: runs,
+		}},
+	}
+	peer.acceptInputEvent(&eventpb.PeerEvent{
+		Version: eventpb.Version,
+		Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_BOS,
+		Payload: &eventpb.PeerEvent_Bos{Bos: &eventpb.StreamBegin{
+			StreamId: "audio-workspace-a",
+			Kind:     eventpb.StreamKind_STREAM_KIND_AUDIO,
+		}},
+	}, "audio-workspace-a", workspaceA.WorkspaceName, false)
+
+	authorized, err := peer.authorizeChatroomAudioPacket(ctx)
+	if err != nil {
+		t.Fatalf("authorize packet in workspace-a: %v", err)
+	}
+	if !authorized {
+		t.Fatal("audio packet was rejected before the Workspace switch")
+	}
+
+	workspaceB := apitypes.AgentSelection{WorkspaceName: "workspace-b"}
+	if _, err := runs.SetRunAgent(ctx, caller, workspaceB); err != nil {
+		t.Fatalf("SetRunAgent(workspace-b): %v", err)
+	}
+	if _, err := runs.ActivateRunAgent(ctx, caller, workspaceB); err != nil {
+		t.Fatalf("ActivateRunAgent(workspace-b): %v", err)
+	}
+	authorized, err = peer.authorizeChatroomAudioPacket(ctx)
+	if err != nil {
+		t.Fatalf("authorize packet after Workspace switch: %v", err)
+	}
+	if authorized {
+		t.Fatal("audio packet authorized for workspace-a reached workspace-b")
+	}
+	if peer.audioInputAccepted() {
+		t.Fatal("Workspace switch retained the previous audio authorization gate")
+	}
+}
+
+func TestPeerConnKeepsGroupAudioWhenAnotherMemberIsRemoved(t *testing.T) {
+	caller := giznet.PublicKey{36}
+	other := giznet.PublicKey{37}
+	input := &countingPeerAgentInput{pushed: make(chan *genx.MessageChunk, 1)}
+	peer := &PeerConn{
+		Conn:       &testGiznetConn{publicKey: caller},
+		agentInput: input,
+	}
+	peer.acceptInputEvent(&eventpb.PeerEvent{
+		Version: eventpb.Version,
+		Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_BOS,
+		Payload: &eventpb.PeerEvent_Bos{Bos: &eventpb.StreamBegin{
+			StreamId: "group-turn",
+			Kind:     eventpb.StreamKind_STREAM_KIND_AUDIO,
+		}},
+	}, "group-turn", "group-room", true)
+	peer.observePeerEvent(&eventpb.PeerEvent{
+		Version: eventpb.Version,
+		Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED,
+		Payload: &eventpb.PeerEvent_FriendGroupUpdated{
+			FriendGroupUpdated: &eventpb.FriendGroupUpdated{
+				FriendGroupId:         "group-a",
+				WorkspaceName:         "group-room",
+				Change:                eventpb.FriendGroupChange_FRIEND_GROUP_CHANGE_MEMBER_REMOVED,
+				AffectedPeerPublicKey: other.String(),
+			},
+		},
+	})
+	if !peer.audioInputAccepted() {
+		t.Fatal("another member's removal revoked the caller's audio turn")
+	}
+	if got := input.closeCount(); got != 0 {
+		t.Fatalf("Agent input close calls = %d, want 0", got)
+	}
+}
+
+func TestPeerConnDropsOpusPacketsForDeniedChatroomTurn(t *testing.T) {
+	input := &countingPeerAgentInput{pushed: make(chan *genx.MessageChunk, 1)}
+	conn := &peerConnPacketConn{
+		packets: []peerConnTestPacket{{
+			protocol: giznet.ProtocolOpusPacket,
+			payload:  []byte{1, 2, 3},
+		}},
+	}
+	peer := &PeerConn{
+		Conn:       conn,
+		agentInput: input,
+	}
+	peer.markDeniedInputStream("turn-1", eventpb.StreamKind_STREAM_KIND_AUDIO)
+
+	if err := peer.serveDirectPackets(); err != nil {
+		t.Fatalf("serveDirectPackets() error = %v", err)
+	}
+	select {
+	case chunk := <-input.pushed:
+		t.Fatalf("denied Opus packet reached Agent input: %+v", chunk)
+	default:
+	}
+	if got := conn.reads; got != 2 {
+		t.Fatalf("direct packet reads = %d, want packet plus closed read", got)
+	}
+}
+
+func TestPeerConnAcceptsOpusPacketsOnlyAfterAuthorizedAudioBOS(t *testing.T) {
+	input := &countingPeerAgentInput{pushed: make(chan *genx.MessageChunk, 1)}
+	peer := &PeerConn{
+		Conn: &peerConnPacketConn{
+			packets: []peerConnTestPacket{{
+				protocol: giznet.ProtocolOpusPacket,
+				payload:  []byte{1, 2, 3},
+			}},
+		},
+		agentInput: input,
+	}
+	if err := peer.serveDirectPackets(); err != nil {
+		t.Fatalf("serveDirectPackets(before BOS) error = %v", err)
+	}
+	select {
+	case chunk := <-input.pushed:
+		t.Fatalf("Opus packet before BOS reached Agent input: %+v", chunk)
+	default:
+	}
+	peer.Conn = &peerConnPacketConn{
+		packets: []peerConnTestPacket{{
+			protocol: giznet.ProtocolOpusPacket,
+			payload:  []byte{1, 2, 3},
+		}},
+	}
+	peer.acceptInputEvent(&eventpb.PeerEvent{
+		Version: eventpb.Version,
+		Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_BOS,
+		Payload: &eventpb.PeerEvent_Bos{Bos: &eventpb.StreamBegin{
+			StreamId: "turn-1",
+			Kind:     eventpb.StreamKind_STREAM_KIND_AUDIO,
+		}},
+	}, "turn-1", "", false)
+
+	if err := peer.serveDirectPackets(); err != nil {
+		t.Fatalf("serveDirectPackets() error = %v", err)
+	}
+	select {
+	case chunk := <-input.pushed:
+		if chunk == nil || chunk.Ctrl == nil || chunk.Ctrl.StreamID != "audio" {
+			t.Fatalf("accepted Opus packet chunk = %+v", chunk)
+		}
+	default:
+		t.Fatal("authorized Opus packet did not reach Agent input")
 	}
 }
 
@@ -1155,6 +1613,34 @@ func TestPeerConnPCMChunkToInt16(t *testing.T) {
 
 type peerConnTestHost struct {
 	output genx.Stream
+}
+
+type countingPeerAgentInput struct {
+	mu         sync.Mutex
+	pushed     chan *genx.MessageChunk
+	closeCalls int
+}
+
+func (s *countingPeerAgentInput) OpenAgentInput(context.Context) (genx.Stream, error) {
+	return nil, nil
+}
+
+func (s *countingPeerAgentInput) Push(_ context.Context, chunk *genx.MessageChunk) error {
+	s.pushed <- chunk
+	return nil
+}
+
+func (s *countingPeerAgentInput) Close() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.closeCalls++
+	return nil
+}
+
+func (s *countingPeerAgentInput) closeCount() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.closeCalls
 }
 
 func (h peerConnTestHost) Transform(context.Context, string, genx.Stream) (genx.Stream, error) {

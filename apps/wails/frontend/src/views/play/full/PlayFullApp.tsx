@@ -150,6 +150,15 @@ import {
   type Workspace,
   type WorkspaceParameters,
 } from "./peer-rpc-adapter";
+import {
+  beginPeerStream,
+  encodePeerEventFrame,
+  endPeerStream,
+  PeerEventFrameDecoder,
+  StreamKind,
+  type DecodedPeerStreamEvent as PeerStreamEvent,
+  type PeerEvent,
+} from "@gizclaw/gizclaw/events";
 
 import { expectData, toMessage } from "@/dashboard";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -283,21 +292,6 @@ type SocialChatTarget = {
   kind: "friend" | "group";
   title: string;
   workspaceName: string;
-};
-
-type PeerStreamEvent = {
-  error?: string;
-  kind?: "text" | "audio" | "video" | "mixed";
-  label?: string;
-  last_updated_at?: string;
-  mime_type?: string;
-  seq?: number;
-  stream_id?: string;
-  text?: string;
-  timestamp?: number;
-  type:
-    "bos" | "eos" | "text.delta" | "text.done" | "workspace.history.updated";
-  v: number;
 };
 
 type WorkspaceVoiceSession = {
@@ -3809,12 +3803,12 @@ function WorkspaceChatPanel({
         patch: Partial<WorkspaceChatTurn>,
         status: WorkspaceChatTurnStatus = "responding",
       ): string => {
-        const targetID = turnIDForStream(event.stream_id, status);
+        const targetID = turnIDForStream(event.streamId, status);
         updateTurn(targetID, patch);
         return targetID;
       };
       if (event.type === "workspace.history.updated") {
-        notifyHistoryChange(event.last_updated_at);
+        notifyHistoryChange(event.lastUpdatedAt);
         return;
       }
       if (
@@ -3822,7 +3816,7 @@ function WorkspaceChatPanel({
         event.text != null
       ) {
         const label = (event.label ?? "").toLowerCase();
-        const key = `${event.stream_id ?? "default"}:${label}`;
+        const key = `${event.streamId ?? "default"}:${label}`;
         const current = streamTextRef.current.get(key) ?? "";
         const next =
           event.type === "text.done"
@@ -3835,7 +3829,8 @@ function WorkspaceChatPanel({
           updateEventTurn({ assistantText: next, status: "responding" });
         }
       }
-      const eventError = event.error?.trim() ?? "";
+      const eventError =
+        event.errorMessage?.trim() || event.errorCode?.trim() || "";
       if (eventError !== "") {
         if (eventError === "interrupted") {
           updateEventTurn({ status: "complete" }, "responding");
@@ -6917,6 +6912,8 @@ async function createWorkspaceVoiceSession({
   }
   const pc = new RTCPeerConnection();
   const eventChannel = pc.createDataChannel("event", { ordered: true });
+  eventChannel.binaryType = "arraybuffer";
+  const eventDecoder = new PeerEventFrameDecoder();
   const remote = new MediaStream();
   const audioTransceiver = pc.addTransceiver("audio", {
     direction: "sendrecv",
@@ -6936,9 +6933,10 @@ async function createWorkspaceVoiceSession({
       onRemoteStream(remote);
     };
     eventChannel.onmessage = (message) => {
-      const event = parsePeerStreamEvent(message.data);
-      if (event != null) {
-        onEvent(event);
+      if (message.data instanceof ArrayBuffer) {
+        for (const event of eventDecoder.push(message.data)) {
+          onEvent(event);
+        }
       }
     };
 
@@ -6960,11 +6958,11 @@ async function createWorkspaceVoiceSession({
     throw err;
   }
 
-  const sendEvent = (event: PeerStreamEvent): void => {
+  const sendEvent = (event: PeerEvent): void => {
     if (eventChannel.readyState !== "open") {
       return;
     }
-    eventChannel.send(JSON.stringify(event));
+    eventChannel.send(encodePeerEventFrame(event));
   };
   const ensureInputCapture = async (): Promise<MediaStreamTrack> => {
     if (inputTrack != null && inputTrack.readyState === "live") {
@@ -7039,14 +7037,22 @@ async function createWorkspaceVoiceSession({
       audioEOSSent = true;
       audioBOSSent = false;
       inputStreamID = "";
-      sendEvent({
-        ...(error != null && error !== "" ? { error } : {}),
-        kind: "audio",
-        mime_type: "audio/opus",
-        stream_id: streamID,
-        type: "eos",
-        v: 1,
-      });
+      sendEvent(
+        endPeerStream({
+          ...(error != null && error !== ""
+            ? {
+                error: {
+                  code: "CLIENT_AUDIO_ERROR",
+                  message: error,
+                  retryable: false,
+                },
+              }
+            : {}),
+          kind: StreamKind.AUDIO,
+          mimeType: "audio/opus",
+          streamId: streamID,
+        }),
+      );
       if (inputTrack != null) {
         inputTrack.enabled = false;
       }
@@ -7059,13 +7065,13 @@ async function createWorkspaceVoiceSession({
       inputStreamID = streamID;
       audioBOSSent = true;
       audioEOSSent = false;
-      sendEvent({
-        kind: "audio",
-        mime_type: "audio/opus",
-        stream_id: inputStreamID,
-        type: "bos",
-        v: 1,
-      });
+      sendEvent(
+        beginPeerStream({
+          kind: StreamKind.AUDIO,
+          mimeType: "audio/opus",
+          streamId: inputStreamID,
+        }),
+      );
       track.enabled = true;
     },
   };
@@ -7081,21 +7087,19 @@ function createInjectedWorkspaceVoiceSession(
     close: () => {},
     finishInputTurn: async (error?: string) => {
       onEvent({
-        ...(error != null && error !== "" ? { error } : {}),
+        ...(error != null && error !== "" ? { errorMessage: error } : {}),
         kind: "audio",
-        mime_type: "audio/opus",
-        stream_id: newWorkspaceAudioStreamID(),
+        mimeType: "audio/opus",
+        streamId: newWorkspaceAudioStreamID(),
         type: "eos",
-        v: 1,
       });
     },
     startInputTurn: async (streamID: string) => {
       onEvent({
         kind: "audio",
-        mime_type: "audio/opus",
-        stream_id: streamID,
+        mimeType: "audio/opus",
+        streamId: streamID,
         type: "bos",
-        v: 1,
       });
     },
   };
@@ -7103,27 +7107,6 @@ function createInjectedWorkspaceVoiceSession(
 
 function newWorkspaceAudioStreamID(): string {
   return `audio-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function parsePeerStreamEvent(data: unknown): PeerStreamEvent | null {
-  try {
-    const text =
-      typeof data === "string"
-        ? data
-        : data instanceof ArrayBuffer
-          ? new TextDecoder().decode(data)
-          : "";
-    if (text === "") {
-      return null;
-    }
-    const parsed = JSON.parse(text) as Partial<PeerStreamEvent>;
-    if (parsed.type == null) {
-      return null;
-    }
-    return parsed as PeerStreamEvent;
-  } catch {
-    return null;
-  }
 }
 
 function waitForICEGatheringComplete(pc: RTCPeerConnection): Promise<void> {

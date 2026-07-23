@@ -10,12 +10,14 @@ class CachedWorkspaceMessage {
     required this.text,
     required this.createdAt,
     required this.replayAvailable,
+    this.senderPublicKey,
   });
 
   final DateTime? createdAt;
   final String id;
   final bool incoming;
   final bool replayAvailable;
+  final String? senderPublicKey;
   final String text;
 }
 
@@ -27,8 +29,9 @@ class WorkspaceChatRepository {
 
   Stream<List<CachedWorkspaceMessage>> watchHistory(
     String serverId,
-    String workspaceName,
-  ) {
+    String workspaceName, [
+    String? localPeerPublicKey,
+  ]) {
     final query = database.select(database.workspaceChatEntries)
       ..where(
         (row) =>
@@ -44,7 +47,11 @@ class WorkspaceChatRepository {
           .map(
             (row) => CachedWorkspaceMessage(
               id: row.historyId,
-              incoming: row.role != 'gear',
+              incoming:
+                  row.role != 'gear' ||
+                  (localPeerPublicKey != null &&
+                      row.gearId?.trim().isNotEmpty == true &&
+                      row.gearId != localPeerPublicKey),
               replayAvailable:
                   _replayAvailability[_historyKey(
                     serverId,
@@ -52,6 +59,9 @@ class WorkspaceChatRepository {
                     row.historyId,
                   )] ??
                   false,
+              senderPublicKey: row.role == 'gear'
+                  ? _nonEmpty(row.gearId)
+                  : null,
               text: row.content,
               createdAt: row.createdAt,
             ),
@@ -64,6 +74,7 @@ class WorkspaceChatRepository {
     required GizClawClient client,
     required String serverId,
     required String workspaceName,
+    String? localPeerPublicKey,
   }) async {
     final items = <PeerRunHistoryEntry>[];
     String? cursor;
@@ -100,6 +111,11 @@ class WorkspaceChatRepository {
                   workspaceName: workspaceName,
                   historyId: entry.id,
                   role: entry.type.value == 1 ? 'gear' : 'agent',
+                  gearId: Value(
+                    entry.hasGearId() && entry.gearId.trim().isNotEmpty
+                        ? entry.gearId.trim()
+                        : null,
+                  ),
                   content: entry.text,
                   name: entry.name,
                   createdAt: Value(DateTime.tryParse(entry.createdAt)?.toUtc()),
@@ -131,10 +147,21 @@ class WorkspaceChatRepository {
         .map(
           (entry) => CachedWorkspaceMessage(
             id: entry.id,
-            incoming: entry.type.value != 1,
+            incoming:
+                entry.type.value != 1 ||
+                (localPeerPublicKey != null &&
+                    entry.hasGearId() &&
+                    entry.gearId.trim().isNotEmpty &&
+                    entry.gearId.trim() != localPeerPublicKey),
             text: entry.text,
             createdAt: DateTime.tryParse(entry.createdAt)?.toUtc(),
             replayAvailable: entry.replayAvailable,
+            senderPublicKey:
+                entry.type.value == 1 &&
+                    entry.hasGearId() &&
+                    entry.gearId.trim().isNotEmpty
+                ? entry.gearId.trim()
+                : null,
           ),
         )
         .toList(growable: false);
@@ -143,3 +170,8 @@ class WorkspaceChatRepository {
 
 String _historyKey(String serverId, String workspaceName, String historyId) =>
     '$serverId\u0000$workspaceName\u0000$historyId';
+
+String? _nonEmpty(String? value) {
+  final normalized = value?.trim() ?? '';
+  return normalized.isEmpty ? null : normalized;
+}

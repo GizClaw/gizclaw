@@ -422,15 +422,6 @@
       "PeerStatus": {
         "$ref": "./shared/peer_status.json#/components/schemas/PeerStatus"
       },
-      "PeerStreamEvent": {
-        "$ref": "./shared/peer_stream_event.json#/components/schemas/PeerStreamEvent"
-      },
-      "PeerStreamEventType": {
-        "$ref": "./shared/peer_stream_event.json#/components/schemas/PeerStreamEventType"
-      },
-      "PeerStreamKind": {
-        "$ref": "./shared/peer_stream_event.json#/components/schemas/PeerStreamKind"
-      },
       "FirmwareArtifactEntry": {
         "$ref": "./shared/firmware_artifact_entry.json#/components/schemas/FirmwareArtifactEntry"
       },

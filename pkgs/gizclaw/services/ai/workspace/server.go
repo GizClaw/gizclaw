@@ -103,11 +103,28 @@ type SystemWorkspaceService interface {
 	DeleteSystemWorkspace(context.Context, string) (apitypes.Workspace, error)
 }
 
+// SystemWorkspaceRetirementService is the relationship-owner handoff for
+// deferred cleanup. Keeping it separate avoids forcing unrelated system
+// workspace consumers to own social retirement behavior.
+type SystemWorkspaceRetirementService interface {
+	GetRetiredSystemWorkspace(context.Context, string, apitypes.ChatRoomMode, string) (apitypes.Workspace, error)
+	RetireSystemWorkspace(context.Context, string, apitypes.ChatRoomMode, string) (apitypes.Workspace, error)
+}
+
+type chatroomRetirementDescriptor struct {
+	Name             string                `json:"name"`
+	WorkspaceKind    apitypes.ChatRoomMode `json:"workspace_kind"`
+	SocialResourceID string                `json:"social_resource_id"`
+	OwnerPublicKey   *string               `json:"owner_public_key,omitempty"`
+	HasIcon          bool                  `json:"has_icon"`
+}
+
 // WorkspaceLifecycleService combines the public administration surface with
 // the domain-only system Workspace lifecycle surface.
 type WorkspaceLifecycleService interface {
 	WorkspaceAdminService
 	SystemWorkspaceService
+	SystemWorkspaceRetirementService
 }
 
 var _ WorkspaceAdminService = (*Server)(nil)
@@ -241,6 +258,21 @@ func (s *Server) CreateSystemWorkspace(ctx context.Context, body adminhttp.Works
 	}
 	unlock := s.IconLocks.LockRecord(string(normalized.Name))
 	defer unlock()
+	retiring, err := pendingdeletion.HasLocator(
+		ctx,
+		store,
+		pendingdeletion.KindWorkspace,
+		string(normalized.Name),
+	)
+	if err != nil {
+		return apitypes.Workspace{}, false, err
+	}
+	if retiring {
+		return apitypes.Workspace{}, false, fmt.Errorf(
+			"workspace %q is pending deletion and cannot be reused",
+			normalized.Name,
+		)
+	}
 	workflowStore, err := s.workflowStore()
 	if err != nil {
 		return apitypes.Workspace{}, false, err
@@ -346,6 +378,157 @@ func (s *Server) DeleteSystemWorkspace(ctx context.Context, name string) (apityp
 		return apitypes.Workspace{}, err
 	}
 	return workspace, nil
+}
+
+// RetireSystemWorkspace persists the asynchronous cleanup handoff for an
+// established Chatroom Workspace without deleting its record or artifacts.
+func (s *Server) RetireSystemWorkspace(ctx context.Context, name string, mode apitypes.ChatRoomMode, socialResourceID string) (apitypes.Workspace, error) {
+	store, err := s.store()
+	if err != nil {
+		return apitypes.Workspace{}, err
+	}
+	name = strings.TrimSpace(name)
+	socialResourceID = strings.TrimSpace(socialResourceID)
+	if !mode.Valid() || socialResourceID == "" {
+		return apitypes.Workspace{}, errors.New("workspace: Chatroom retirement mode and social resource id are required")
+	}
+	unlock := s.IconLocks.LockOwner(name)
+	defer unlock()
+	if item, err := s.getRetiredSystemWorkspace(ctx, store, name, mode, socialResourceID); err == nil {
+		return item, nil
+	} else if !errors.Is(err, kv.ErrNotFound) {
+		return apitypes.Workspace{}, err
+	}
+	item, err := getWorkspace(ctx, store, name)
+	if err != nil {
+		return apitypes.Workspace{}, err
+	}
+	if !workspaceIsSystem(item) {
+		return apitypes.Workspace{}, fmt.Errorf("workspace %q is not a system Workspace", name)
+	}
+	if item.Parameters == nil {
+		return apitypes.Workspace{}, fmt.Errorf("workspace %q has no Chatroom parameters", name)
+	}
+	parameters, err := item.Parameters.AsChatRoomWorkspaceParameters()
+	if err != nil || parameters.Mode == nil || *parameters.Mode != mode {
+		return apitypes.Workspace{}, fmt.Errorf("workspace %q is not a %s Chatroom Workspace", name, mode)
+	}
+	reason := pendingdeletion.ReasonFriendRelationshipDelete
+	if mode == apitypes.ChatRoomModeGroup {
+		reason = pendingdeletion.ReasonFriendGroupDelete
+	}
+	descriptor := chatroomRetirementDescriptor{
+		Name:             item.Name,
+		WorkspaceKind:    mode,
+		SocialResourceID: socialResourceID,
+		OwnerPublicKey:   cloneString(item.OwnerPublicKey),
+		HasIcon:          item.Icon != nil,
+	}
+	record, err := pendingdeletion.New(
+		pendingdeletion.KindWorkspace,
+		item.Name,
+		nil,
+		reason,
+		descriptor,
+		time.Now(),
+	)
+	if err != nil {
+		return apitypes.Workspace{}, err
+	}
+	if _, _, err := pendingdeletion.CreateOrGet(ctx, store, record); err != nil {
+		return apitypes.Workspace{}, err
+	}
+	return item, nil
+}
+
+// GetRetiredSystemWorkspace returns an existing Chatroom Workspace retirement
+// without creating one. Relationship services use this read-only check to
+// authorize idempotent delete retries before writing any additional handoff.
+func (s *Server) GetRetiredSystemWorkspace(ctx context.Context, name string, mode apitypes.ChatRoomMode, socialResourceID string) (apitypes.Workspace, error) {
+	store, err := s.store()
+	if err != nil {
+		return apitypes.Workspace{}, err
+	}
+	name = strings.TrimSpace(name)
+	socialResourceID = strings.TrimSpace(socialResourceID)
+	if !mode.Valid() || socialResourceID == "" {
+		return apitypes.Workspace{}, errors.New("workspace: Chatroom retirement mode and social resource id are required")
+	}
+	unlock := s.IconLocks.LockOwner(name)
+	defer unlock()
+	return s.getRetiredSystemWorkspace(ctx, store, name, mode, socialResourceID)
+}
+
+func (s *Server) getRetiredSystemWorkspace(
+	ctx context.Context,
+	store kv.Store,
+	name string,
+	mode apitypes.ChatRoomMode,
+	socialResourceID string,
+) (apitypes.Workspace, error) {
+	record, err := pendingdeletion.GetByLocator(
+		ctx,
+		store,
+		pendingdeletion.KindWorkspace,
+		name,
+	)
+	if err != nil {
+		return apitypes.Workspace{}, err
+	}
+	descriptor, err := validateChatroomRetirementRecord(record, name, mode, socialResourceID)
+	if err != nil {
+		return apitypes.Workspace{}, err
+	}
+	item, getErr := getWorkspace(ctx, store, name)
+	if getErr == nil {
+		return item, nil
+	}
+	if errors.Is(getErr, kv.ErrNotFound) {
+		return apitypes.Workspace{
+			Name:           name,
+			OwnerPublicKey: cloneString(descriptor.OwnerPublicKey),
+		}, nil
+	}
+	return apitypes.Workspace{}, getErr
+}
+
+func validateChatroomRetirementRecord(
+	record pendingdeletion.Record,
+	name string,
+	mode apitypes.ChatRoomMode,
+	socialResourceID string,
+) (chatroomRetirementDescriptor, error) {
+	expectedReason := pendingdeletion.ReasonFriendRelationshipDelete
+	if mode == apitypes.ChatRoomModeGroup {
+		expectedReason = pendingdeletion.ReasonFriendGroupDelete
+	}
+	if record.Reason != expectedReason {
+		return chatroomRetirementDescriptor{}, fmt.Errorf(
+			"workspace: PendingDeletion for %q has reason %q, want %q",
+			name,
+			record.Reason,
+			expectedReason,
+		)
+	}
+	var descriptor chatroomRetirementDescriptor
+	if err := json.Unmarshal(record.Descriptor, &descriptor); err != nil {
+		return chatroomRetirementDescriptor{}, fmt.Errorf(
+			"workspace: decode Chatroom retirement descriptor for %q: %w",
+			name,
+			err,
+		)
+	}
+	if strings.TrimSpace(descriptor.Name) != name ||
+		descriptor.WorkspaceKind != mode ||
+		strings.TrimSpace(descriptor.SocialResourceID) != socialResourceID {
+		return chatroomRetirementDescriptor{}, fmt.Errorf(
+			"workspace: PendingDeletion for %q does not match %s Chatroom resource %q",
+			name,
+			mode,
+			socialResourceID,
+		)
+	}
+	return descriptor, nil
 }
 
 func (s *Server) deleteWorkspaceRecord(ctx context.Context, store kv.Store, workspace apitypes.Workspace) error {

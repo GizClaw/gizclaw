@@ -20,7 +20,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/ogg"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/option"
@@ -133,11 +132,11 @@ func TestTextHelpers(t *testing.T) {
 	if err := assertTextSimilar("different", "你好测试", "天气不错", 0.9); err == nil {
 		t.Fatal("assertTextSimilar() succeeded for unrelated text")
 	}
-	if got := eventLabel(apitypes.PeerStreamEvent{}); got != "" {
+	if got := eventLabel(peerStreamEvent{}); got != "" {
 		t.Fatalf("eventLabel(nil) = %q", got)
 	}
 	label := " Assistant "
-	if got := eventLabel(apitypes.PeerStreamEvent{Label: &label}); got != "assistant" {
+	if got := eventLabel(peerStreamEvent{Label: &label}); got != "assistant" {
 		t.Fatalf("eventLabel() = %q", got)
 	}
 	if got := runeCount("猫a"); got != 2 {
@@ -193,19 +192,19 @@ func TestAcceptRoundEventStreamBindsResponseLocalID(t *testing.T) {
 	responseID := "response-1"
 	otherResponseID := "response-2"
 	var bound string
-	if !acceptRoundEventStream(apitypes.PeerStreamEvent{StreamId: &responseID}, inputID, &bound) {
+	if !acceptRoundEventStream(peerStreamEvent{StreamId: &responseID}, inputID, &bound) {
 		t.Fatal("first response-local StreamID was rejected")
 	}
 	if bound != responseID {
 		t.Fatalf("bound StreamID = %q, want %q", bound, responseID)
 	}
-	if !acceptRoundEventStream(apitypes.PeerStreamEvent{StreamId: &responseID}, inputID, &bound) {
+	if !acceptRoundEventStream(peerStreamEvent{StreamId: &responseID}, inputID, &bound) {
 		t.Fatal("bound response-local StreamID was rejected")
 	}
-	if acceptRoundEventStream(apitypes.PeerStreamEvent{StreamId: &otherResponseID}, inputID, &bound) {
+	if acceptRoundEventStream(peerStreamEvent{StreamId: &otherResponseID}, inputID, &bound) {
 		t.Fatal("different response-local StreamID was accepted")
 	}
-	if !acceptRoundEventStream(apitypes.PeerStreamEvent{StreamId: &inputID}, inputID, &bound) {
+	if !acceptRoundEventStream(peerStreamEvent{StreamId: &inputID}, inputID, &bound) {
 		t.Fatal("input-derived StreamID compatibility was rejected")
 	}
 }
@@ -291,8 +290,8 @@ func TestPrepareConversationDoesNotRequireHistoryForSelfStart(t *testing.T) {
 		events <- timedTextEvent("assistant", "你好")
 		opusPackets <- newTimedPeerPacket([]byte{0x01})
 		events <- timedTextDoneEvent("assistant")
-		events <- newTimedPeerEvent(apitypes.PeerStreamEvent{
-			Type:  apitypes.PeerStreamEventTypeEos,
+		events <- newTimedPeerEvent(peerStreamEvent{
+			Type:  peerStreamEventTypeEos,
 			Label: &assistantLabel,
 		})
 	}()
@@ -358,8 +357,8 @@ func TestPersonaDriverRunUsesPeerTransportContract(t *testing.T) {
 		for j := 0; j < 4; j++ {
 			opusPackets <- newTimedPeerPacket([]byte{0x44, byte(roundIndex), byte(j)})
 		}
-		events <- newTimedPeerEvent(apitypes.PeerStreamEvent{
-			Type:  apitypes.PeerStreamEventTypeEos,
+		events <- newTimedPeerEvent(peerStreamEvent{
+			Type:  peerStreamEventTypeEos,
 			Label: &assistantLabel,
 		})
 		roundIndex++
@@ -728,8 +727,8 @@ func TestPersonaDriverRunRoundVerifiesAssistantAudio(t *testing.T) {
 			events <- timedTranscriptDoneEvent()
 			events <- newTimedPeerEvent(labeledTextEventWithStream("assistant", responseStreamID, "回复文本"))
 			events <- timedTextDoneEventWithStream("assistant", responseStreamID)
-			events <- newTimedPeerEvent(apitypes.PeerStreamEvent{
-				Type:     apitypes.PeerStreamEventTypeEos,
+			events <- newTimedPeerEvent(peerStreamEvent{
+				Type:     peerStreamEventTypeEos,
 				Label:    &label,
 				StreamId: &responseStreamID,
 			})
@@ -854,8 +853,8 @@ func TestPersonaDriverRunRoundLightweightSkipsSemanticASR(t *testing.T) {
 			events <- timedTranscriptDoneEvent()
 			events <- newTimedPeerEvent(labeledTextEventWithStream("assistant", responseStreamID, "回复文本"))
 			events <- timedTextDoneEventWithStream("assistant", responseStreamID)
-			events <- newTimedPeerEvent(apitypes.PeerStreamEvent{
-				Type:     apitypes.PeerStreamEventTypeEos,
+			events <- newTimedPeerEvent(peerStreamEvent{
+				Type:     peerStreamEventTypeEos,
 				Label:    &label,
 				StreamId: &responseStreamID,
 			})
@@ -1126,7 +1125,7 @@ func TestChatTransportReadEventsAndSendAudioTurn(t *testing.T) {
 		t.Fatalf("forwarded eos packet = %+v", gotPacket)
 	}
 	got = <-transport.events
-	if got.event.Type != apitypes.PeerStreamEventTypeEos || eventLabel(got.event) != "assistant" {
+	if got.event.Type != peerStreamEventTypeEos || eventLabel(got.event) != "assistant" {
 		t.Fatalf("audio data eos event = %+v", got.event)
 	}
 }
@@ -1207,15 +1206,15 @@ func TestSendAudioTurnErrors(t *testing.T) {
 	}
 }
 
-func labeledTextEvent(label, text string) apitypes.PeerStreamEvent {
-	return apitypes.PeerStreamEvent{
-		Type:  apitypes.PeerStreamEventTypeTextDelta,
+func labeledTextEvent(label, text string) peerStreamEvent {
+	return peerStreamEvent{
+		Type:  peerStreamEventTypeTextDelta,
 		Label: &label,
 		Text:  &text,
 	}
 }
 
-func labeledTextEventWithStream(label, streamID, text string) apitypes.PeerStreamEvent {
+func labeledTextEventWithStream(label, streamID, text string) peerStreamEvent {
 	event := labeledTextEvent(label, text)
 	event.StreamId = &streamID
 	return event
@@ -1230,15 +1229,15 @@ func timedTranscriptDoneEvent() timedPeerEvent {
 }
 
 func timedTextDoneEvent(label string) timedPeerEvent {
-	return newTimedPeerEvent(apitypes.PeerStreamEvent{
-		Type:  apitypes.PeerStreamEventTypeTextDone,
+	return newTimedPeerEvent(peerStreamEvent{
+		Type:  peerStreamEventTypeTextDone,
 		Label: &label,
 	})
 }
 
 func timedTextDoneEventWithStream(label, streamID string) timedPeerEvent {
-	return newTimedPeerEvent(apitypes.PeerStreamEvent{
-		Type:     apitypes.PeerStreamEventTypeTextDone,
+	return newTimedPeerEvent(peerStreamEvent{
+		Type:     peerStreamEventTypeTextDone,
 		Label:    &label,
 		StreamId: &streamID,
 	})

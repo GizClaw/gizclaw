@@ -121,6 +121,14 @@ func (s *adminGameplayWorkspaceService) DeleteSystemWorkspace(_ context.Context,
 	return apitypes.Workspace{Name: name, System: &system}, nil
 }
 
+func (s *adminGameplayWorkspaceService) RetireSystemWorkspace(_ context.Context, name string, _ apitypes.ChatRoomMode, _ string) (apitypes.Workspace, error) {
+	return apitypes.Workspace{Name: name}, nil
+}
+
+func (s *adminGameplayWorkspaceService) GetRetiredSystemWorkspace(_ context.Context, _ string, _ apitypes.ChatRoomMode, _ string) (apitypes.Workspace, error) {
+	return apitypes.Workspace{}, kv.ErrNotFound
+}
+
 func TestAdminServiceResourceMethodsHandleValidationAndManagerErrors(t *testing.T) {
 	resource := mustPeerServiceResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
@@ -259,14 +267,15 @@ func TestAdminSocialHandlersUseDomainServices(t *testing.T) {
 	friendService := &friend.Server{Friends: kv.NewMemory(nil)}
 	groupStore := kv.NewMemory(nil)
 	groupService := &friendgroup.Server{
-		Groups:        groupStore,
-		InviteTokens:  groupStore,
-		Members:       groupStore,
-		Belongs:       groupStore,
-		Messages:      groupStore,
-		MessageAssets: objectstore.Dir(t.TempDir()),
-		Now:           func() time.Time { return time.Date(2026, 6, 13, 0, 0, 0, 0, time.UTC) },
-		NewID:         func() string { return "group-a" },
+		Groups:            groupStore,
+		InviteTokens:      groupStore,
+		Members:           groupStore,
+		Belongs:           groupStore,
+		Messages:          groupStore,
+		RelationshipStore: groupStore,
+		MessageAssets:     objectstore.Dir(t.TempDir()),
+		Now:               func() time.Time { return time.Date(2026, 6, 13, 0, 0, 0, 0, time.UTC) },
+		NewID:             func() string { return "group-a" },
 	}
 	app := fiber.New(fiber.Config{DisableStartupMessage: true})
 	adminhttp.RegisterHandlers(app, adminhttp.NewStrictHandler(&adminService{Friends: friendService, FriendGroups: groupService}, nil))
@@ -290,6 +299,7 @@ func TestAdminSocialHandlersUseDomainServices(t *testing.T) {
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"peer_public_key":"peer-a"`) {
 		t.Fatalf("GET peer-b friends status=%d body=%s", rec.Code, rec.Body.String())
 	}
+	friendService.Workspaces = &adminGameplayWorkspaceService{}
 	rec = serveAdminAsset(app, http.MethodDelete, "/social/friends/peer-a/peer-a:peer-b", "")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("DELETE friend status = %d body=%s", rec.Code, rec.Body.String())
@@ -331,6 +341,7 @@ func TestAdminSocialHandlersUseDomainServices(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("DELETE member status=%d body=%s", rec.Code, rec.Body.String())
 	}
+	groupService.Workspaces = &adminGameplayWorkspaceService{}
 	rec = serveAdminAsset(app, http.MethodDelete, "/social/friend-groups/group-a", "")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("DELETE group status=%d body=%s", rec.Code, rec.Body.String())

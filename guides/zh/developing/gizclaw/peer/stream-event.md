@@ -4,7 +4,7 @@
 
 | 文件 | 包含的功能 |
 | --- | --- |
-| `peer_stream_event.go` | 维护 Peer event subscriber/broadcast broker；在 `PeerStreamEvent` 与 GenX message chunk 之间双向转换；处理 text、control、blob/audio 事件；广播 Agent output event，并把收到的事件推回 Agent input source。 |
+| `peer_stream_event.go` | 维护连接级 Peer event subscriber/broadcast broker；编码、校验 `PeerEvent` Protobuf；在 stream payload 与 GenX message chunk 之间双向转换；广播 Agent output 与资源失效事件，并把合法的上行 stream event 推回 Agent input source。 |
 
 这个前缀拥有 GizClaw Peer event stream 与 GenX chunk 之间的产品映射。底层 stream transport 属于 `pkgs/giznet`；领域状态变化仍由产生事件的 service 拥有。
 
@@ -14,9 +14,9 @@ Event types、字段、方向和 BOS/EOS 边界见 [Events Reference](/reference
 
 | 符号 | 作用 |
 | --- | --- |
-| `peerStreamEventBroker` | 管理 event stream subscribers 并广播产品事件。 |
+| `peerStreamEventBroker` | 管理当前连接唯一的 event stream subscriber，并广播产品事件。 |
 | `peerAgentOutput` | 消费 Agent output，广播 events，并把 audio 交给 `MixerOutput`。 |
-| `readPeerStreamEvent` / `writePeerStreamEvent` | 解码和编码 Peer stream event。 |
+| `readPeerStreamEvent` / `writePeerStreamEvent` | 只接受 `FrameTypeBinary`，解码和编码 `PeerEvent` Protobuf，并校验 `type` 与 `oneof payload`。 |
 | `peerStreamEventToChunk` | 将产品事件转换为 GenX message chunk。 |
 | `peerStreamEventsFromChunk` | 将 GenX chunk 展开为一个或多个产品事件。 |
 | `pushAgentChunk` | 将收到的事件 chunk 推入 Agent input source。 |

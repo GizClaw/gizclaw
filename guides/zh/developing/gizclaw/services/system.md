@@ -21,7 +21,7 @@ services/system/
 
 ### pendingdeletion
 
-定义带版本的、backend-neutral `PendingDeletion` envelope。领域删除请求必须在资源自己的物理存储中原子创建或复用一条最小 cleanup descriptor，同时保留 active resource 及其 index。新记录的 deletion ID 由资源 locator 稳定派生，因此重试只会命中同一事件，不会再次分配 ID；升级期间仍可读取旧 UUID 记录。Peer 和用户 Workspace 使用 KV，Pet 使用 gameplay SQL database。KV locator lookup 支持 kind 与全局唯一 resource ID，并显式拒绝 owner-scoped filter；gameplay SQL source 支持包含 owner 的 locator。这个 package 不运行 worker、不删除 pending record，也不暴露资源内容；processing 与物理删除属于后续 managed cleanup service。
+定义带版本的、backend-neutral `PendingDeletion` envelope。领域删除请求必须在资源自己的物理存储中原子创建或复用一条最小 cleanup descriptor，同时保留 active resource 及其 index。新记录的 deletion ID 由资源 locator 稳定派生，因此重试只会命中同一事件，不会再次分配 ID；升级期间仍可读取旧 UUID 记录。Peer、用户 Workspace 和 Friend Group 数据 cleanup handoff 使用 KV，Pet 使用 gameplay SQL database。KV locator lookup 支持 kind 与全局唯一 resource ID，并显式拒绝 owner-scoped filter；gameplay SQL source 支持包含 owner 的 locator。这个 package 不运行 worker、不删除 pending record，也不暴露资源内容；processing 与物理删除属于后续 managed cleanup service。
 
 ### runtimeprofile
 

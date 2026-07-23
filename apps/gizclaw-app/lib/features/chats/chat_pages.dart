@@ -335,8 +335,13 @@ class _WorkflowIcon extends StatelessWidget {
 }
 
 class WorkspaceChatPage extends StatefulWidget {
-  const WorkspaceChatPage({super.key, required this.workspaceName});
+  const WorkspaceChatPage({
+    super.key,
+    required this.workspaceName,
+    this.removedFallbackPath,
+  });
 
+  final String? removedFallbackPath;
   final String workspaceName;
 
   @override
@@ -392,6 +397,8 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
   bool _stickToBottom = true;
   bool _userScrolling = false;
   bool _newMessagesBelow = false;
+  bool _knownChatroom = false;
+  bool _removedNavigationScheduled = false;
   int _chatRequest = 0;
 
   @override
@@ -399,6 +406,16 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
     super.didChangeDependencies();
     final data = MobileDataScope.watch(context);
     final active = data.activeWorkspaceChat;
+    final chatroom = data.chatroomWorkspace(widget.workspaceName);
+    final workspace = data.workspace(widget.workspaceName);
+    if (chatroom != null || workspace.chatroomKind != null) {
+      _knownChatroom = true;
+    } else if (_knownChatroom &&
+        active?.workspaceName != widget.workspaceName &&
+        widget.removedFallbackPath != null) {
+      _scheduleRemovedNavigation();
+      return;
+    }
     if (active?.workspaceName == widget.workspaceName) {
       _bindChat(active!, ownsChat: false, notify: false);
       return;
@@ -410,12 +427,16 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
 
   Future<void> _loadHistoryViewer(MobileDataController data) async {
     final request = ++_chatRequest;
-    final viewer = WorkspaceChatController(
+    final viewer = data.createWorkspaceHistoryViewer(
       workspaceName: widget.workspaceName,
-      repository: data.workspaceChatRepository,
-      serverId: data.activeServerId,
-      client: data.connection.client,
-      onWorkspaceAccessError: data.reconcileWorkspaceFailure,
+      onTerminalWorkspaceAccess: () {
+        if (!mounted ||
+            request != _chatRequest ||
+            data.activeWorkspaceName == widget.workspaceName) {
+          return;
+        }
+        _scheduleRemovedNavigation();
+      },
     );
     _bindChat(viewer, ownsChat: true, notify: true);
     await viewer.start(conversation: false);
@@ -426,6 +447,29 @@ class _WorkspaceChatPageState extends State<WorkspaceChatPage> {
     if (previousMessages != _chatViewSnapshot?.messages) {
       _scheduleMessageViewportUpdate();
     }
+  }
+
+  void _scheduleRemovedNavigation() {
+    final fallback = widget.removedFallbackPath;
+    if (fallback == null || _removedNavigationScheduled) return;
+    _removedNavigationScheduled = true;
+    final chat = _chat;
+    if (_ownsChat && chat != null) {
+      chat.removeListener(_handleChatChanged);
+      chat.dispose();
+      _chat = null;
+      _ownsChat = false;
+      _chatViewSnapshot = null;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final data = MobileDataScope.read(context);
+      if (data.activeWorkspaceName == widget.workspaceName) {
+        _removedNavigationScheduled = false;
+        return;
+      }
+      context.go(fallback);
+    });
   }
 
   void _bindChat(
@@ -1094,7 +1138,7 @@ class _WorkspaceSignalMessage extends StatelessWidget {
                   ),
                   const SizedBox(width: 7),
                   Text(
-                    incoming ? 'AGENT' : 'YOU',
+                    incoming ? (message.senderLabel ?? 'AGENT') : 'YOU',
                     style: GizText.label.copyWith(color: accent, fontSize: 8),
                   ),
                   const SizedBox(width: 8),
@@ -1210,12 +1254,20 @@ String _messageTime(DateTime? value) {
 }
 
 class ChatroomWorkspacePage extends StatelessWidget {
-  const ChatroomWorkspacePage({super.key, required this.workspaceName});
+  const ChatroomWorkspacePage({
+    super.key,
+    required this.workspaceName,
+    this.removedFallbackPath,
+  });
 
+  final String? removedFallbackPath;
   final String workspaceName;
 
   @override
   Widget build(BuildContext context) {
-    return WorkspaceChatPage(workspaceName: workspaceName);
+    return WorkspaceChatPage(
+      workspaceName: workspaceName,
+      removedFallbackPath: removedFallbackPath,
+    );
   }
 }

@@ -13,7 +13,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/ogg"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 )
 
@@ -177,7 +176,7 @@ type realtimeAutoSplitLiveTranscript struct {
 	doneStreams map[string]struct{}
 }
 
-func (c *realtimeAutoSplitLiveTranscript) observe(event apitypes.PeerStreamEvent) {
+func (c *realtimeAutoSplitLiveTranscript) observe(event peerStreamEvent) {
 	if c == nil || eventLabel(event) != "transcript" || !isTranscriptDoneEvent(event) {
 		return
 	}

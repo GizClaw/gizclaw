@@ -42,6 +42,7 @@ class WorkspaceChatEntries extends Table {
   TextColumn get workspaceName => text()();
   TextColumn get historyId => text()();
   TextColumn get role => text()();
+  TextColumn get gearId => text().nullable()();
   TextColumn get content => text()();
   TextColumn get name => text()();
   DateTimeColumn get createdAt => dateTime().nullable()();
@@ -92,7 +93,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -110,6 +111,14 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 8) {
         await migrator.addColumn(workspaceEntries, workspaceEntries.collection);
+      }
+      // A v1 migration creates WorkspaceChatEntries from the current table
+      // definition above, so gear_id already exists in that path.
+      if (from >= 2 && from < 9) {
+        await migrator.addColumn(
+          workspaceChatEntries,
+          workspaceChatEntries.gearId,
+        );
       }
     },
   );

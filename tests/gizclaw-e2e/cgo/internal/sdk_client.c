@@ -478,6 +478,131 @@ int gzc_cgo_session_open_service_channel(
   return GZC_OK;
 }
 
+int gzc_cgo_session_open_event_stream(
+    gzc_cgo_session_t *session,
+    int timeout_ms,
+    gzc_event_stream_t **out_stream,
+    char *errbuf,
+    unsigned long errbuf_len) {
+  if (session == NULL || out_stream == NULL) {
+    return fail(errbuf, errbuf_len, "open event stream", GZC_ERR_INVALID_ARGUMENT);
+  }
+  *out_stream = NULL;
+  int rc = gzc_event_stream_open(session->client, timeout_ms, out_stream);
+  if (rc != GZC_OK) {
+    return fail(errbuf, errbuf_len, "open event stream", rc);
+  }
+  if (errbuf != NULL && errbuf_len > 0) {
+    errbuf[0] = 0;
+  }
+  return GZC_OK;
+}
+
+int gzc_cgo_event_stream_send_audio_boundary(
+    gzc_event_stream_t *stream,
+    const char *stream_id,
+    int begin,
+    char *errbuf,
+    unsigned long errbuf_len) {
+  if (stream == NULL || stream_id == NULL || stream_id[0] == 0) {
+    return fail(errbuf, errbuf_len, "send event stream boundary", GZC_ERR_INVALID_ARGUMENT);
+  }
+  gzc_peer_event_t event = gizclaw_events_v1_PeerEvent_init_zero;
+  event.version = GZC_PEER_EVENT_VERSION;
+  if (begin) {
+    event.type = gizclaw_events_v1_PeerEventType_PEER_EVENT_TYPE_BOS;
+    event.which_payload = gizclaw_events_v1_PeerEvent_bos_tag;
+    event.payload.bos.kind = gizclaw_events_v1_StreamKind_STREAM_KIND_AUDIO;
+    (void)snprintf(
+        event.payload.bos.stream_id,
+        sizeof(event.payload.bos.stream_id),
+        "%s",
+        stream_id);
+    (void)snprintf(
+        event.payload.bos.label,
+        sizeof(event.payload.bos.label),
+        "%s",
+        "cgo-chat");
+    (void)snprintf(
+        event.payload.bos.mime_type,
+        sizeof(event.payload.bos.mime_type),
+        "%s",
+        "audio/opus");
+  } else {
+    event.type = gizclaw_events_v1_PeerEventType_PEER_EVENT_TYPE_EOS;
+    event.which_payload = gizclaw_events_v1_PeerEvent_eos_tag;
+    event.payload.eos.kind = gizclaw_events_v1_StreamKind_STREAM_KIND_AUDIO;
+    (void)snprintf(
+        event.payload.eos.stream_id,
+        sizeof(event.payload.eos.stream_id),
+        "%s",
+        stream_id);
+    (void)snprintf(
+        event.payload.eos.label,
+        sizeof(event.payload.eos.label),
+        "%s",
+        "cgo-chat");
+    (void)snprintf(
+        event.payload.eos.mime_type,
+        sizeof(event.payload.eos.mime_type),
+        "%s",
+        "audio/opus");
+  }
+  int rc = gzc_event_stream_send(stream, &event);
+  if (rc != GZC_OK) {
+    return fail(errbuf, errbuf_len, "send event stream boundary", rc);
+  }
+  if (errbuf != NULL && errbuf_len > 0) {
+    errbuf[0] = 0;
+  }
+  return GZC_OK;
+}
+
+int gzc_cgo_event_stream_read_encoded(
+    gzc_event_stream_t *stream,
+    int timeout_ms,
+    unsigned char **out_data,
+    unsigned long *out_data_len,
+    char *errbuf,
+    unsigned long errbuf_len) {
+  if (stream == NULL || out_data == NULL || out_data_len == NULL) {
+    return fail(errbuf, errbuf_len, "read event stream", GZC_ERR_INVALID_ARGUMENT);
+  }
+  *out_data = NULL;
+  *out_data_len = 0;
+  gzc_peer_event_t event = gizclaw_events_v1_PeerEvent_init_zero;
+  int rc = gzc_event_stream_read(stream, timeout_ms, &event);
+  if (rc != GZC_OK) {
+    return fail(errbuf, errbuf_len, "read event stream", rc);
+  }
+  size_t encoded_size = 0;
+  if (!pb_get_encoded_size(
+          &encoded_size,
+          gizclaw_events_v1_PeerEvent_fields,
+          &event)) {
+    return fail(errbuf, errbuf_len, "size event stream payload", GZC_ERR_RPC);
+  }
+  unsigned char *data = encoded_size == 0 ? NULL : (unsigned char *)malloc(encoded_size);
+  if (encoded_size > 0 && data == NULL) {
+    return fail(errbuf, errbuf_len, "allocate event stream payload", GZC_ERR_NO_MEMORY);
+  }
+  pb_ostream_t output = pb_ostream_from_buffer(data, encoded_size);
+  if (!pb_encode(&output, gizclaw_events_v1_PeerEvent_fields, &event)) {
+    free(data);
+    return fail(errbuf, errbuf_len, "encode event stream payload", GZC_ERR_RPC);
+  }
+  *out_data = data;
+  *out_data_len = (unsigned long)output.bytes_written;
+  if (errbuf != NULL && errbuf_len > 0) {
+    errbuf[0] = 0;
+  }
+  return GZC_OK;
+}
+
+void gzc_cgo_event_stream_close(gzc_event_stream_t *stream) {
+  gzc_event_stream_close(stream);
+}
+
 int gzc_cgo_service_channel_send_json(
     gzc_service_channel_t *channel,
     const char *json,

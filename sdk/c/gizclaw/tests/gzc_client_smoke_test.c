@@ -5,6 +5,10 @@
 #include <stdio.h>
 #include <string.h>
 
+_Static_assert(
+    sizeof(gzc_peer_event_t) < 10000,
+    "Peer Event must retain the Nanopb oneof union layout");
+
 struct gzc_rtc_peer {
   int unused;
 };
@@ -211,6 +215,27 @@ static int test_peer_create_data_channel(gzc_rtc_peer_t *peer, const gzc_rtc_cha
       info.ordered = true;
       info.reliable = true;
       fake->callbacks.on_channel_state(fake->callbacks.userdata, peer, &fake->edge_channel, &info, GZC_RTC_CHANNEL_OPEN);
+    }
+  } else if (config->label.len == strlen("giznet/v1/service/32") &&
+             strncmp(config->label.data, "giznet/v1/service/32", config->label.len) == 0) {
+    if (!config->ordered || !config->reliable) {
+      return GZC_ERR_INVALID_ARGUMENT;
+    }
+    gzc_rtc_channel_t *channel = &fake->service_channels[15];
+    *out_channel = channel;
+    if (fake->callbacks.on_channel_state != NULL) {
+      gzc_rtc_channel_info_t info;
+      memset(&info, 0, sizeof(info));
+      info.label = gzc_str_from_cstr("giznet/v1/service/32");
+      info.stream_id = 32;
+      info.ordered = true;
+      info.reliable = true;
+      fake->callbacks.on_channel_state(
+          fake->callbacks.userdata,
+          peer,
+          channel,
+          &info,
+          GZC_RTC_CHANNEL_OPEN);
     }
   } else {
     return GZC_ERR_INVALID_ARGUMENT;
@@ -854,7 +879,63 @@ static int expect(bool ok, const char *message) {
   return 0;
 }
 
+static int hex_nibble(char value) {
+  if (value >= '0' && value <= '9') {
+    return value - '0';
+  }
+  if (value >= 'a' && value <= 'f') {
+    return value - 'a' + 10;
+  }
+  return -1;
+}
+
+static int test_peer_event_golden_vectors(void) {
+  static const char *const vectors[] = {
+      "0801100152220a0873747265616d2d611001180220022a0475736572320a617564696f2f6f707573",
+      "080110025a4b0a0873747265616d2d611002180320022a09617373697374616e74320a617564696f2f6f7075733a220a1743484154524f4f4d5f4d454d4245525f52454d4f564544120772656d6f766564",
+      "08011003621e0a0873747265616d2d62100118022209617373697374616e742a0368656c",
+      "080110046a200a0873747265616d2d62100218032209617373697374616e742a0568656c6c6f",
+      "0801100572100a0a6469726563742d612d6210021804",
+      "080110067a180a06706565722d62120a6469726563742d612d6218022005",
+      "080110078201190a0767726f75702d61120a67726f75702d726f6f6d18042006",
+  };
+  for (size_t i = 0; i < sizeof(vectors) / sizeof(vectors[0]); ++i) {
+    const char *hex = vectors[i];
+    size_t hex_len = strlen(hex);
+    uint8_t expected[128];
+    if ((hex_len & 1u) != 0 || hex_len / 2u > sizeof(expected)) {
+      return 1;
+    }
+    size_t expected_len = hex_len / 2u;
+    for (size_t j = 0; j < expected_len; ++j) {
+      int high = hex_nibble(hex[j * 2u]);
+      int low = hex_nibble(hex[j * 2u + 1u]);
+      if (high < 0 || low < 0) {
+        return 1;
+      }
+      expected[j] = (uint8_t)((high << 4) | low);
+    }
+    gzc_peer_event_t event = gizclaw_events_v1_PeerEvent_init_zero;
+    pb_istream_t input = pb_istream_from_buffer(expected, expected_len);
+    if (!pb_decode(&input, gizclaw_events_v1_PeerEvent_fields, &event)) {
+      return 1;
+    }
+    uint8_t encoded[128];
+    pb_ostream_t output = pb_ostream_from_buffer(encoded, sizeof(encoded));
+    if (!pb_encode(&output, gizclaw_events_v1_PeerEvent_fields, &event) ||
+        output.bytes_written != expected_len ||
+        memcmp(encoded, expected, expected_len) != 0) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
 int main(void) {
+  if (expect(test_peer_event_golden_vectors() == 0,
+             "all Peer Event golden vectors match Nanopb") != 0) {
+    return 1;
+  }
   gizclaw_rpc_v1_Workspace workspace = gizclaw_rpc_v1_Workspace_init_default;
   workspace.has_owner_public_key = true;
   strcpy(workspace.owner_public_key, "peer-public-key");
@@ -1170,6 +1251,153 @@ int main(void) {
   }
   gzc_buf_free(&timeout_read, platform);
   gzc_service_channel_close(timeout_channel);
+
+  gzc_event_stream_t *event_stream = NULL;
+  rc = gzc_event_stream_open(client, 1000, &event_stream);
+  if (expect(rc == GZC_OK && event_stream != NULL,
+             "open Peer Event Stream") != 0) {
+    return 1;
+  }
+  gzc_peer_event_t outbound_event =
+      gizclaw_events_v1_PeerEvent_init_zero;
+  outbound_event.version = GZC_PEER_EVENT_VERSION;
+  outbound_event.type =
+      gizclaw_events_v1_PeerEventType_PEER_EVENT_TYPE_BOS;
+  outbound_event.which_payload = gizclaw_events_v1_PeerEvent_bos_tag;
+  outbound_event.payload.bos.kind =
+      gizclaw_events_v1_StreamKind_STREAM_KIND_AUDIO;
+  (void)snprintf(
+      outbound_event.payload.bos.stream_id,
+      sizeof(outbound_event.payload.bos.stream_id),
+      "%s",
+      "audio-c");
+  gzc_buf_reset(&fake_webrtc.sent);
+  rc = gzc_event_stream_send(event_stream, &outbound_event);
+  if (expect(rc == GZC_OK, "encode and send Nanopb Peer Event") != 0) {
+    return 1;
+  }
+  gzc_peer_event_t invalid_domain_event =
+      gizclaw_events_v1_PeerEvent_init_zero;
+  invalid_domain_event.version = GZC_PEER_EVENT_VERSION;
+  invalid_domain_event.type =
+      gizclaw_events_v1_PeerEventType_PEER_EVENT_TYPE_WORKSPACE_HISTORY_UPDATED;
+  invalid_domain_event.which_payload =
+      gizclaw_events_v1_PeerEvent_workspace_history_updated_tag;
+  (void)snprintf(
+      invalid_domain_event.payload.workspace_history_updated.workspace_name,
+      sizeof(invalid_domain_event.payload.workspace_history_updated.workspace_name),
+      "%s",
+      " ");
+  if (expect(
+          gzc_event_stream_send(event_stream, &invalid_domain_event) ==
+              GZC_ERR_RPC,
+          "reject Peer Event with missing resource identifier") != 0) {
+    return 1;
+  }
+  gzc_rpc_frame_t event_frame;
+  rc = gzc_rpc_frame_decode(
+      fake_webrtc.sent.data, fake_webrtc.sent.len, &event_frame);
+  if (expect(
+          rc == GZC_OK && event_frame.type == GZC_RPC_FRAME_BINARY,
+          "Peer Event uses binary frame") != 0) {
+    return 1;
+  }
+  gzc_peer_event_t sent_event =
+      gizclaw_events_v1_PeerEvent_init_zero;
+  pb_istream_t sent_event_input =
+      pb_istream_from_buffer(event_frame.data, event_frame.len);
+  if (expect(
+          pb_decode(
+              &sent_event_input,
+              gizclaw_events_v1_PeerEvent_fields,
+              &sent_event) &&
+              sent_event.type ==
+                  gizclaw_events_v1_PeerEventType_PEER_EVENT_TYPE_BOS &&
+              sent_event.which_payload ==
+                  gizclaw_events_v1_PeerEvent_bos_tag,
+          "sent Peer Event decodes with Nanopb") != 0) {
+    return 1;
+  }
+  gzc_event_stream_close(event_stream);
+
+  event_stream = NULL;
+  rc = gzc_event_stream_open(client, 1000, &event_stream);
+  if (expect(rc == GZC_OK && event_stream != NULL,
+             "reopen Peer Event Stream") != 0) {
+    return 1;
+  }
+  gzc_buf_t event_payload;
+  gzc_buf_t encoded_event_frame;
+  gzc_buf_init(&event_payload);
+  gzc_buf_init(&encoded_event_frame);
+  rc = encode_test_pb_message(
+      platform,
+      gizclaw_events_v1_PeerEvent_fields,
+      &outbound_event,
+      &event_payload);
+  if (rc == GZC_OK) {
+    rc = append_test_frame(
+        platform,
+        &encoded_event_frame,
+        GZC_RPC_FRAME_BINARY,
+        event_payload.data,
+        event_payload.len);
+  }
+  if (expect(rc == GZC_OK, "frame inbound Peer Event") != 0) {
+    return 1;
+  }
+  gzc_rtc_channel_info_t event_info;
+  memset(&event_info, 0, sizeof(event_info));
+  event_info.label = gzc_str_from_cstr("giznet/v1/service/32");
+  event_info.stream_id = 32;
+  event_info.ordered = true;
+  event_info.reliable = true;
+  fake_webrtc.callbacks.on_channel_message(
+      fake_webrtc.callbacks.userdata,
+      &fake_webrtc.peer,
+      &fake_webrtc.service_channels[15],
+      &event_info,
+      encoded_event_frame.data,
+      encoded_event_frame.len,
+      false);
+  gzc_peer_event_t inbound_event =
+      gizclaw_events_v1_PeerEvent_init_zero;
+  rc = gzc_event_stream_read(event_stream, 1000, &inbound_event);
+  if (expect(
+          rc == GZC_OK &&
+              inbound_event.which_payload ==
+                  gizclaw_events_v1_PeerEvent_bos_tag &&
+              strcmp(inbound_event.payload.bos.stream_id, "audio-c") == 0,
+          "read framed Nanopb Peer Event") != 0) {
+    return 1;
+  }
+  gzc_buf_reset(&encoded_event_frame);
+  rc = append_test_frame(
+      platform,
+      &encoded_event_frame,
+      GZC_RPC_FRAME_JSON,
+      NULL,
+      0);
+  if (rc == GZC_OK) {
+    fake_webrtc.callbacks.on_channel_message(
+        fake_webrtc.callbacks.userdata,
+        &fake_webrtc.peer,
+        &fake_webrtc.service_channels[15],
+        &event_info,
+        encoded_event_frame.data,
+        encoded_event_frame.len,
+        false);
+    inbound_event.version = 99;
+    rc = gzc_event_stream_read(event_stream, 1000, &inbound_event);
+  }
+  if (expect(
+          rc == GZC_ERR_RPC && inbound_event.version == 0,
+          "reject JSON Peer Event and reset output") != 0) {
+    return 1;
+  }
+  gzc_buf_free(&event_payload, platform);
+  gzc_buf_free(&encoded_event_frame, platform);
+  gzc_event_stream_close(event_stream);
 
   gzc_json_t malformed_json = {gzc_str_from_cstr("{\"public_key\":\"x\",}")};
   if (expect(gzc_json_validate_object(malformed_json.raw) == GZC_ERR_JSON, "malformed object rejected") != 0) {

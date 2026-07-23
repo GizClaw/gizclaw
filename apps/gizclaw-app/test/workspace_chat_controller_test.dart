@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:drift/native.dart';
@@ -204,7 +203,7 @@ void main() {
     addTearDown(controller.close);
 
     controller.handleEventForTesting(
-      const PeerStreamEvent(
+      PeerStreamEvent(
         type: 'text.delta',
         streamId: 'answer-1',
         label: 'assistant',
@@ -212,7 +211,7 @@ void main() {
       ),
     );
     controller.handleEventForTesting(
-      const PeerStreamEvent(
+      PeerStreamEvent(
         type: 'text.delta',
         streamId: 'answer-1',
         label: 'assistant',
@@ -220,7 +219,7 @@ void main() {
       ),
     );
     controller.handleEventForTesting(
-      const PeerStreamEvent(
+      PeerStreamEvent(
         type: 'text.done',
         streamId: 'answer-1',
         label: 'assistant',
@@ -230,6 +229,103 @@ void main() {
 
     expect(controller.messages.single.text, 'Hello world!');
     expect(controller.messages.single.state, WorkspaceMessageState.complete);
+  });
+
+  test(
+    'typed Chatroom EOS ends the turn and uses the injected presentation',
+    () async {
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(database.close);
+      final controller = WorkspaceChatController(
+        workspaceName: 'group-room',
+        repository: WorkspaceChatRepository(database),
+        serverId: null,
+        peerEventErrorMessageResolver: (_) => '你已被移出这个群聊。',
+      );
+      addTearDown(controller.close);
+
+      controller.handleEventForTesting(
+        PeerStreamEvent(
+          type: 'eos',
+          streamId: 'audio-1',
+          kind: 'audio',
+          label: 'assistant',
+          errorCode: 'CHATROOM_MEMBER_REMOVED',
+        ),
+      );
+
+      expect(controller.workspaceName, 'group-room');
+      expect(controller.recording, isFalse);
+      expect(controller.playingOutput, isFalse);
+      expect(controller.lastError.toString(), contains('你已被移出这个群聊。'));
+      expect(controller.messages, isEmpty);
+    },
+  );
+
+  test('applies a Chatroom denial only to its matching input turn', () async {
+    final harness = await _VoiceHarness.create();
+    addTearDown(harness.close);
+    await harness.controller.startInput();
+    final input = PeerStreamEvent.decode(
+      decodeFrames(harness.channel.sent.single).single.payload,
+    );
+
+    harness.controller.handleEventForTesting(
+      PeerStreamEvent(
+        type: 'eos',
+        streamId: 'stale-input',
+        kind: 'audio',
+        label: 'assistant',
+        errorCode: 'CHATROOM_MEMBER_REMOVED',
+      ),
+    );
+    expect(harness.controller.recording, isTrue);
+    expect(harness.controller.lastError, isNull);
+
+    harness.controller.handleEventForTesting(
+      PeerStreamEvent(
+        type: 'eos',
+        streamId: input.streamId,
+        kind: 'audio',
+        label: 'assistant',
+        errorCode: 'CHATROOM_MEMBER_REMOVED',
+      ),
+    );
+    expect(harness.controller.recording, isFalse);
+    expect(
+      harness.controller.lastError.toString(),
+      contains('removed from this group'),
+    );
+  });
+
+  test('maps cached sender identity to an incoming message label', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    final repository = _ControlledHistoryRepository(database)
+      ..history = const [
+        CachedWorkspaceMessage(
+          id: 'peer-turn',
+          incoming: true,
+          text: 'hello',
+          createdAt: null,
+          replayAvailable: false,
+          senderPublicKey: 'peer-b',
+        ),
+      ];
+    final controller = WorkspaceChatController(
+      workspaceName: 'group-room',
+      repository: repository,
+      serverId: 'server-a',
+      client: GizClawClient(_NeverDataChannelFactory()),
+      senderLabelResolver: (sender) => sender == 'peer-b' ? 'Avery' : sender,
+    );
+    addTearDown(controller.close);
+    addTearDown(repository.close);
+
+    await controller.start(conversation: false);
+
+    expect(controller.messages.single.senderPublicKey, 'peer-b');
+    expect(controller.messages.single.senderLabel, 'Avery');
   });
 
   test('accepts text.done containing the complete streamed text', () async {
@@ -243,7 +339,7 @@ void main() {
     addTearDown(controller.close);
 
     controller.handleEventForTesting(
-      const PeerStreamEvent(
+      PeerStreamEvent(
         type: 'text.delta',
         streamId: 'answer-2',
         label: 'assistant',
@@ -251,7 +347,7 @@ void main() {
       ),
     );
     controller.handleEventForTesting(
-      const PeerStreamEvent(
+      PeerStreamEvent(
         type: 'text.done',
         streamId: 'answer-2',
         label: 'assistant',
@@ -285,6 +381,7 @@ void main() {
       addTearDown(database.close);
       final error = RpcError(code, 'workspace unavailable');
       final client = GizClawClient(_NeverDataChannelFactory());
+      var terminalAccessCalls = 0;
       final calls =
           <
             ({
@@ -308,8 +405,21 @@ void main() {
                 sourceServerId: sourceServerId,
               ));
             },
+        onTerminalWorkspaceAccess: () {
+          terminalAccessCalls += 1;
+        },
       );
       addTearDown(controller.close);
+
+      controller.handleEventForTesting(
+        PeerStreamEvent(
+          type: 'text.delta',
+          streamId: 'stale-answer',
+          label: 'assistant',
+          text: 'must be purged',
+        ),
+      );
+      expect(controller.messages, hasLength(1));
 
       await controller.start(conversation: false);
 
@@ -318,6 +428,8 @@ void main() {
       expect(calls.single.error, same(error));
       expect(calls.single.sourceClient, same(client));
       expect(calls.single.sourceServerId, 'server-a');
+      expect(terminalAccessCalls, 1);
+      expect(controller.messages, isEmpty);
       expect(controller.lastError, same(error));
     });
   }
@@ -414,7 +526,7 @@ void main() {
     await controller.start(conversation: false);
 
     controller.handleEventForTesting(
-      const PeerStreamEvent(
+      PeerStreamEvent(
         type: 'text.done',
         streamId: 'answer-new',
         label: 'assistant',
@@ -441,6 +553,26 @@ void main() {
       'history-new',
     ]);
   });
+
+  test('refreshes history explicitly for lifecycle convergence', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    final repository = _ControlledHistoryRepository(database);
+    final controller = WorkspaceChatController(
+      workspaceName: 'translator',
+      repository: repository,
+      serverId: 'server-a',
+      client: GizClawClient(_NeverDataChannelFactory()),
+    );
+    addTearDown(controller.close);
+    addTearDown(repository.close);
+
+    await controller.start(conversation: false);
+    expect(repository.refreshCalls, 1);
+
+    await controller.refreshHistory();
+    expect(repository.refreshCalls, 2);
+  });
 }
 
 class _FailingHistoryRepository extends WorkspaceChatRepository {
@@ -451,6 +583,7 @@ class _FailingHistoryRepository extends WorkspaceChatRepository {
     required GizClawClient client,
     required String serverId,
     required String workspaceName,
+    String? localPeerPublicKey,
   }) async {
     throw StateError('history unavailable');
   }
@@ -466,6 +599,7 @@ class _ConfiguredFailingHistoryRepository extends WorkspaceChatRepository {
     required GizClawClient client,
     required String serverId,
     required String workspaceName,
+    String? localPeerPublicKey,
   }) async {
     throw error;
   }
@@ -482,6 +616,7 @@ class _DeferredHistoryRepository extends WorkspaceChatRepository {
     required GizClawClient client,
     required String serverId,
     required String workspaceName,
+    String? localPeerPublicKey,
   }) {
     started.complete();
     return result.future;
@@ -493,19 +628,25 @@ class _ControlledHistoryRepository extends WorkspaceChatRepository {
 
   final _controller = StreamController<List<CachedWorkspaceMessage>>();
   List<CachedWorkspaceMessage> history = const [];
+  int refreshCalls = 0;
 
   @override
   Stream<List<CachedWorkspaceMessage>> watchHistory(
     String serverId,
-    String workspaceName,
-  ) => _controller.stream;
+    String workspaceName, [
+    String? localPeerPublicKey,
+  ]) => _controller.stream;
 
   @override
   Future<List<CachedWorkspaceMessage>> refresh({
     required GizClawClient client,
     required String serverId,
     required String workspaceName,
-  }) async => history;
+    String? localPeerPublicKey,
+  }) async {
+    refreshCalls += 1;
+    return history;
+  }
 
   void emit(List<CachedWorkspaceMessage> value) {
     history = value;
@@ -527,15 +668,12 @@ class _NeverDataChannelFactory implements GizClawDataChannelFactory {
 
 List<String> _sentEventTypes(_MemoryDataChannel channel) => channel.sent
     .map((bytes) => decodeFrames(bytes).single.payload)
-    .map(utf8.decode)
-    .map(jsonDecode)
-    .map((value) => (value as Map<String, dynamic>)['type'] as String)
+    .map(PeerStreamEvent.decode)
+    .map((event) => event.type)
     .toList();
 
 String _eventType(Uint8List bytes) =>
-    (jsonDecode(utf8.decode(decodeFrames(bytes).single.payload))
-            as Map<String, dynamic>)['type']
-        as String;
+    PeerStreamEvent.decode(decodeFrames(bytes).single.payload).type;
 
 class _VoiceHarness {
   _VoiceHarness(
@@ -612,6 +750,7 @@ class _EmptyHistoryRepository extends WorkspaceChatRepository {
     required GizClawClient client,
     required String serverId,
     required String workspaceName,
+    String? localPeerPublicKey,
   }) async => const [];
 }
 

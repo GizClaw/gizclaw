@@ -903,57 +903,6 @@ func (e PeerRunStatusState) Valid() bool {
 	}
 }
 
-// Defines values for PeerStreamEventType.
-const (
-	PeerStreamEventTypeBos                     PeerStreamEventType = "bos"
-	PeerStreamEventTypeEos                     PeerStreamEventType = "eos"
-	PeerStreamEventTypeTextDelta               PeerStreamEventType = "text.delta"
-	PeerStreamEventTypeTextDone                PeerStreamEventType = "text.done"
-	PeerStreamEventTypeWorkspaceHistoryUpdated PeerStreamEventType = "workspace.history.updated"
-)
-
-// Valid indicates whether the value is a known member of the PeerStreamEventType enum.
-func (e PeerStreamEventType) Valid() bool {
-	switch e {
-	case PeerStreamEventTypeBos:
-		return true
-	case PeerStreamEventTypeEos:
-		return true
-	case PeerStreamEventTypeTextDelta:
-		return true
-	case PeerStreamEventTypeTextDone:
-		return true
-	case PeerStreamEventTypeWorkspaceHistoryUpdated:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for PeerStreamKind.
-const (
-	PeerStreamKindAudio PeerStreamKind = "audio"
-	PeerStreamKindMixed PeerStreamKind = "mixed"
-	PeerStreamKindText  PeerStreamKind = "text"
-	PeerStreamKindVideo PeerStreamKind = "video"
-)
-
-// Valid indicates whether the value is a known member of the PeerStreamKind enum.
-func (e PeerStreamKind) Valid() bool {
-	switch e {
-	case PeerStreamKindAudio:
-		return true
-	case PeerStreamKindMixed:
-		return true
-	case PeerStreamKindText:
-		return true
-	case PeerStreamKindVideo:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for PeerTelemetryAggregate.
 const (
 	PeerTelemetryAggregateAvg   PeerTelemetryAggregate = "avg"
@@ -3187,27 +3136,6 @@ type PeerStatus struct {
 	ReportedAt     *time.Time              `json:"reported_at,omitempty"`
 	Volume         *int                    `json:"volume,omitempty"`
 }
-
-// PeerStreamEvent defines model for PeerStreamEvent.
-type PeerStreamEvent struct {
-	Error         *string             `json:"error,omitempty"`
-	Kind          *PeerStreamKind     `json:"kind,omitempty"`
-	Label         *string             `json:"label,omitempty"`
-	LastUpdatedAt *time.Time          `json:"last_updated_at,omitempty"`
-	MimeType      *string             `json:"mime_type,omitempty"`
-	Seq           *int64              `json:"seq,omitempty"`
-	StreamId      *string             `json:"stream_id,omitempty"`
-	Text          *string             `json:"text,omitempty"`
-	Timestamp     *int64              `json:"timestamp,omitempty"`
-	Type          PeerStreamEventType `json:"type"`
-	V             int                 `json:"v"`
-}
-
-// PeerStreamEventType defines model for PeerStreamEventType.
-type PeerStreamEventType string
-
-// PeerStreamKind defines model for PeerStreamKind.
-type PeerStreamKind string
 
 // PeerTelemetryAggregate Bucket aggregate mode for peer telemetry range data.
 type PeerTelemetryAggregate string

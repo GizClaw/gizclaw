@@ -419,12 +419,8 @@ class _PetDetailPageState extends State<PetDetailPage> {
       return;
     }
     if (_ownsChat && _chatWorkspaceName == pet.workspaceName) return;
-    final viewer = WorkspaceChatController(
+    final viewer = data.createWorkspaceHistoryViewer(
       workspaceName: pet.workspaceName,
-      repository: data.workspaceChatRepository,
-      serverId: data.activeServerId,
-      client: data.connection.client,
-      onWorkspaceAccessError: data.reconcileWorkspaceFailure,
     );
     _replaceChat(viewer, pet.workspaceName, ownsChat: true);
     await viewer.start(conversation: false);

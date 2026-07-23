@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
@@ -660,23 +661,79 @@ func createFriendGroup(t *testing.T, manager *Manager, name string) {
 func newSocialResourceManager(t *testing.T) *Manager {
 	t.Helper()
 
+	friendGroupRelationships := kv.NewMemory(nil)
+	workspaces := socialWorkspaceService{}
 	return New(Services{
 		Contacts: &contact.Server{
 			Store: kv.NewMemory(nil),
 		},
 		Friends: &friend.Server{
-			InviteTokens: kv.NewMemory(nil),
-			Friends:      kv.NewMemory(nil),
+			InviteTokens:           kv.NewMemory(nil),
+			Friends:                kv.NewMemory(nil),
+			Workspaces:             workspaces,
+			RuntimeProfileForOwner: socialRuntimeProfile,
 		},
 		FriendGroups: &friendgroup.Server{
-			Groups:        kv.NewMemory(nil),
-			InviteTokens:  kv.NewMemory(nil),
-			Members:       kv.NewMemory(nil),
-			Belongs:       kv.NewMemory(nil),
-			Messages:      kv.NewMemory(nil),
-			MessageAssets: objectstore.Dir(t.TempDir()),
+			Groups:                 friendGroupRelationships,
+			InviteTokens:           friendGroupRelationships,
+			Members:                friendGroupRelationships,
+			Belongs:                friendGroupRelationships,
+			RelationshipStore:      friendGroupRelationships,
+			Messages:               kv.NewMemory(nil),
+			MessageAssets:          objectstore.Dir(t.TempDir()),
+			Workspaces:             workspaces,
+			RuntimeProfileForOwner: socialRuntimeProfile,
 		},
 	})
+}
+
+func socialRuntimeProfile(context.Context, string) (apitypes.RuntimeProfile, error) {
+	return apitypes.RuntimeProfile{Spec: apitypes.RuntimeProfileSpec{
+		Workflows: apitypes.RuntimeProfileWorkflows{
+			System: apitypes.RuntimeProfileSystemWorkflows{
+				FriendChatroom: "friend-chatroom",
+				GroupChatroom:  "group-chatroom",
+			},
+		},
+	}}, nil
+}
+
+type socialWorkspaceService struct{}
+
+func (socialWorkspaceService) CreateSystemWorkspace(
+	_ context.Context,
+	body adminhttp.WorkspaceUpsert,
+) (apitypes.Workspace, bool, error) {
+	return apitypes.Workspace{
+		Name:         body.Name,
+		WorkflowName: body.WorkflowName,
+		Parameters:   body.Parameters,
+	}, true, nil
+}
+
+func (socialWorkspaceService) DeleteSystemWorkspace(
+	_ context.Context,
+	name string,
+) (apitypes.Workspace, error) {
+	return apitypes.Workspace{Name: name}, nil
+}
+
+func (socialWorkspaceService) RetireSystemWorkspace(
+	_ context.Context,
+	name string,
+	_ apitypes.ChatRoomMode,
+	_ string,
+) (apitypes.Workspace, error) {
+	return apitypes.Workspace{Name: name}, nil
+}
+
+func (socialWorkspaceService) GetRetiredSystemWorkspace(
+	_ context.Context,
+	_ string,
+	_ apitypes.ChatRoomMode,
+	_ string,
+) (apitypes.Workspace, error) {
+	return apitypes.Workspace{}, kv.ErrNotFound
 }
 
 func socialTestString(v *string) string {

@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"strings"
 	"time"
-
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
 func (d *personaDriver) runPushToTalkRoundtrip(ctx context.Context) ([]roundStats, error) {
@@ -210,7 +208,7 @@ func (d *personaDriver) consumeSelfStart(ctx context.Context, skipAssistantAudio
 			if msg, ok := peerEventError(event); ok {
 				return stat, true, fmt.Errorf("self-start peer event error: %s; recent events: %s", msg, trace.String())
 			}
-			if event.Type == apitypes.PeerStreamEventTypeEos && label == "assistant" {
+			if event.Type == peerStreamEventTypeEos && label == "assistant" {
 				if !textDone {
 					trace.add("assistant audio segment eos before text done stream=%s", eventStreamID(event))
 					continue

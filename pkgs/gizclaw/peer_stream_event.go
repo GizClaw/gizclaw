@@ -2,73 +2,163 @@ package gizclaw
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
+	"google.golang.org/protobuf/proto"
 )
-
-const peerStreamEventVersion = 1
 
 const peerStreamEventHistoryUpdatedLabel = "workspace.history.updated"
 
+const peerStreamEventQueueSize = 256
+
+var (
+	errPeerEventStreamAlreadyOpen = errors.New("gizclaw: peer event stream already open")
+	errPeerEventStreamClosed      = errors.New("gizclaw: peer event stream closed")
+	errPeerEventQueueFull         = errors.New("gizclaw: peer event stream queue full")
+)
+
 type peerStreamEventBroker struct {
-	mu      sync.RWMutex
-	writers map[io.Writer]*sync.Mutex
+	mu         sync.Mutex
+	subscriber *peerStreamEventSubscriber
 }
 
 func newPeerStreamEventBroker() *peerStreamEventBroker {
-	return &peerStreamEventBroker{writers: make(map[io.Writer]*sync.Mutex)}
+	return &peerStreamEventBroker{}
 }
 
-func (b *peerStreamEventBroker) Subscribe(w io.Writer) func() {
+type peerStreamEventWrite struct {
+	event  *eventpb.PeerEvent
+	result chan error
+}
+
+type peerStreamEventSubscriber struct {
+	writer io.Writer
+	queue  chan peerStreamEventWrite
+	done   chan struct{}
+	once   sync.Once
+}
+
+func (b *peerStreamEventBroker) Subscribe(w io.Writer) (func(), error) {
 	if b == nil || w == nil {
-		return func() {}
+		return func() {}, errPeerEventStreamClosed
 	}
 	b.mu.Lock()
-	if b.writers == nil {
-		b.writers = make(map[io.Writer]*sync.Mutex)
+	if b.subscriber != nil {
+		b.mu.Unlock()
+		return func() {}, errPeerEventStreamAlreadyOpen
 	}
-	b.writers[w] = &sync.Mutex{}
+	subscriber := &peerStreamEventSubscriber{
+		writer: w,
+		queue:  make(chan peerStreamEventWrite, peerStreamEventQueueSize),
+		done:   make(chan struct{}),
+	}
+	b.subscriber = subscriber
 	b.mu.Unlock()
+	go b.serveSubscriber(subscriber)
 	var once sync.Once
 	return func() {
 		once.Do(func() {
-			b.mu.Lock()
-			delete(b.writers, w)
-			b.mu.Unlock()
+			b.removeSubscriber(subscriber)
 		})
+	}, nil
+}
+
+// Broadcast writes an ordered event and waits until the current stream accepts
+// it. Agent output uses this path so transport failures stop that output.
+func (b *peerStreamEventBroker) Broadcast(event *eventpb.PeerEvent) error {
+	return b.publish(event, true)
+}
+
+// Notify queues a best-effort invalidation without waiting on peer I/O.
+// Committed domain mutations must not be blocked by a stalled client.
+func (b *peerStreamEventBroker) Notify(event *eventpb.PeerEvent) error {
+	return b.publish(event, false)
+}
+
+func (b *peerStreamEventBroker) publish(event *eventpb.PeerEvent, wait bool) error {
+	if b == nil || event == nil {
+		return nil
+	}
+	b.mu.Lock()
+	subscriber := b.subscriber
+	b.mu.Unlock()
+	if subscriber == nil {
+		return nil
+	}
+	write := peerStreamEventWrite{event: proto.Clone(event).(*eventpb.PeerEvent)}
+	if wait {
+		write.result = make(chan error, 1)
+	}
+	if wait {
+		select {
+		case <-subscriber.done:
+			return errPeerEventStreamClosed
+		case subscriber.queue <- write:
+		}
+	} else {
+		select {
+		case <-subscriber.done:
+			return errPeerEventStreamClosed
+		case subscriber.queue <- write:
+		default:
+			return errPeerEventQueueFull
+		}
+	}
+	if write.result == nil {
+		return nil
+	}
+	select {
+	case err := <-write.result:
+		return err
+	case <-subscriber.done:
+		select {
+		case err := <-write.result:
+			return err
+		default:
+			return errPeerEventStreamClosed
+		}
 	}
 }
 
-func (b *peerStreamEventBroker) Broadcast(event apitypes.PeerStreamEvent) error {
-	if b == nil {
-		return nil
-	}
-	b.mu.RLock()
-	writers := make(map[io.Writer]*sync.Mutex, len(b.writers))
-	for w, mu := range b.writers {
-		writers[w] = mu
-	}
-	b.mu.RUnlock()
-	var errs error
-	for w, mu := range writers {
-		mu.Lock()
-		err := writePeerStreamEvent(w, event)
-		mu.Unlock()
-		if err != nil {
-			errs = errors.Join(errs, err)
+func (b *peerStreamEventBroker) serveSubscriber(subscriber *peerStreamEventSubscriber) {
+	for {
+		select {
+		case <-subscriber.done:
+			return
+		case write := <-subscriber.queue:
+			err := writePeerStreamEvent(subscriber.writer, write.event)
+			if write.result != nil {
+				write.result <- err
+			}
+			if err != nil {
+				b.removeSubscriber(subscriber)
+				if closer, ok := subscriber.writer.(io.Closer); ok {
+					_ = closer.Close()
+				}
+				return
+			}
 		}
 	}
-	return errs
+}
+
+func (b *peerStreamEventBroker) removeSubscriber(subscriber *peerStreamEventSubscriber) {
+	if b == nil || subscriber == nil {
+		return
+	}
+	b.mu.Lock()
+	if b.subscriber == subscriber {
+		b.subscriber = nil
+	}
+	subscriber.once.Do(func() { close(subscriber.done) })
+	b.mu.Unlock()
 }
 
 type peerAgentOutput struct {
@@ -91,84 +181,80 @@ func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Str
 	}).ConsumeAgentOutput(ctx, output)
 }
 
-func readPeerStreamEvent(r io.Reader) (apitypes.PeerStreamEvent, error) {
+func readPeerStreamEvent(r io.Reader) (*eventpb.PeerEvent, error) {
 	frame, err := rpcapi.ReadFrame(r)
 	if err != nil {
-		return apitypes.PeerStreamEvent{}, err
+		return nil, err
 	}
 	if frame.Type == rpcapi.FrameTypeEOS {
-		return apitypes.PeerStreamEvent{}, io.EOF
+		return nil, io.EOF
 	}
-	if frame.Type != rpcapi.FrameTypeText && frame.Type != rpcapi.FrameTypeJSON {
-		return apitypes.PeerStreamEvent{}, fmt.Errorf("gizclaw: expected peer stream event text frame, got type %d", frame.Type)
+	if frame.Type != rpcapi.FrameTypeBinary {
+		return nil, fmt.Errorf("gizclaw: expected peer stream event binary frame, got type %d", frame.Type)
 	}
-	var event apitypes.PeerStreamEvent
-	if err := json.Unmarshal(frame.Payload, &event); err != nil {
-		return apitypes.PeerStreamEvent{}, fmt.Errorf("gizclaw: decode peer stream event: %w", err)
+	event := &eventpb.PeerEvent{}
+	if err := proto.Unmarshal(frame.Payload, event); err != nil {
+		return nil, fmt.Errorf("gizclaw: decode peer stream event: %w", err)
+	}
+	if err := event.Validate(); err != nil {
+		return nil, fmt.Errorf("gizclaw: validate peer stream event: %w", err)
 	}
 	return event, nil
 }
 
-func writePeerStreamEvent(w io.Writer, event apitypes.PeerStreamEvent) error {
-	if event.V == 0 {
-		event.V = peerStreamEventVersion
+func writePeerStreamEvent(w io.Writer, event *eventpb.PeerEvent) error {
+	if event == nil {
+		return fmt.Errorf("gizclaw: peer stream event is nil")
 	}
-	data, err := json.Marshal(event)
+	if event.Version == 0 {
+		event = proto.Clone(event).(*eventpb.PeerEvent)
+		event.Version = eventpb.Version
+	}
+	if err := event.Validate(); err != nil {
+		return fmt.Errorf("gizclaw: validate peer stream event: %w", err)
+	}
+	data, err := proto.Marshal(event)
 	if err != nil {
-		return err
+		return fmt.Errorf("gizclaw: encode peer stream event: %w", err)
 	}
-	return rpcapi.WriteFrame(w, rpcapi.Frame{Type: rpcapi.FrameTypeText, Payload: data})
+	return rpcapi.WriteFrame(w, rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: data})
 }
 
-func peerStreamEventToChunk(event apitypes.PeerStreamEvent) (*genx.MessageChunk, error) {
-	ctrl := &genx.StreamCtrl{}
-	if event.StreamId != nil {
-		ctrl.StreamID = *event.StreamId
+func peerStreamEventToChunk(event *eventpb.PeerEvent) (*genx.MessageChunk, error) {
+	if err := event.Validate(); err != nil {
+		return nil, err
 	}
-	if event.Label != nil {
-		ctrl.Label = *event.Label
+	ctrl := &genx.StreamCtrl{
+		StreamID:  event.StreamID(),
+		Label:     event.Label(),
+		Timestamp: event.TimestampUnixMilli(),
 	}
-	if event.Error != nil {
-		ctrl.Error = *event.Error
-	}
-	if event.Timestamp != nil {
-		ctrl.Timestamp = *event.Timestamp
-	}
-
 	switch event.Type {
-	case apitypes.PeerStreamEventTypeBos:
+	case eventpb.PeerEventType_PEER_EVENT_TYPE_BOS:
 		ctrl.BeginOfStream = true
 		return peerStreamEventControlChunk(ctrl, event), nil
-	case apitypes.PeerStreamEventTypeEos:
+	case eventpb.PeerEventType_PEER_EVENT_TYPE_EOS:
 		ctrl.EndOfStream = true
+		if streamErr := event.StreamError(); streamErr != nil {
+			ctrl.Error = streamErr.GetMessage()
+			ctrl.ErrorCode = streamErr.GetCode()
+			ctrl.ErrorRetryable = streamErr.GetRetryable()
+			if ctrl.Error == "" {
+				ctrl.Error = ctrl.ErrorCode
+			}
+		}
 		return peerStreamEventControlChunk(ctrl, event), nil
-	case apitypes.PeerStreamEventTypeWorkspaceHistoryUpdated:
-		ctrl.Label = peerStreamEventHistoryUpdatedLabel
-		if event.LastUpdatedAt != nil {
-			ctrl.Timestamp = event.LastUpdatedAt.UTC().UnixMilli()
-		} else if event.Timestamp != nil {
-			ctrl.Timestamp = *event.Timestamp
-		}
-		return &genx.MessageChunk{Ctrl: ctrl}, nil
-	case apitypes.PeerStreamEventTypeTextDelta:
-		text := ""
-		if event.Text != nil {
-			text = *event.Text
-		}
-		return &genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text(text), Ctrl: ctrl}, nil
-	case apitypes.PeerStreamEventTypeTextDone:
+	case eventpb.PeerEventType_PEER_EVENT_TYPE_TEXT_DELTA:
+		return &genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text(event.Text()), Ctrl: ctrl}, nil
+	case eventpb.PeerEventType_PEER_EVENT_TYPE_TEXT_DONE:
 		ctrl.EndOfStream = true
-		text := ""
-		if event.Text != nil {
-			text = *event.Text
-		}
-		return &genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text(text), Ctrl: ctrl}, nil
+		return &genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text(event.Text()), Ctrl: ctrl}, nil
 	default:
-		return nil, fmt.Errorf("gizclaw: unsupported peer stream event type %q", event.Type)
+		return nil, fmt.Errorf("gizclaw: unsupported agent-input peer event type %s", event.Type)
 	}
 }
 
-func peerStreamEventControlChunk(ctrl *genx.StreamCtrl, event apitypes.PeerStreamEvent) *genx.MessageChunk {
+func peerStreamEventControlChunk(ctrl *genx.StreamCtrl, event *eventpb.PeerEvent) *genx.MessageChunk {
 	chunk := &genx.MessageChunk{Ctrl: ctrl}
 	if blob := peerStreamEventBlobPart(event); blob != nil {
 		chunk.Part = blob
@@ -176,12 +262,16 @@ func peerStreamEventControlChunk(ctrl *genx.StreamCtrl, event apitypes.PeerStrea
 	return chunk
 }
 
-func peerStreamEventBlobPart(event apitypes.PeerStreamEvent) *genx.Blob {
+func peerStreamEventBlobPart(event *eventpb.PeerEvent) *genx.Blob {
 	mimeType := ""
-	if event.MimeType != nil {
-		mimeType = strings.TrimSpace(*event.MimeType)
+	switch event.Type {
+	case eventpb.PeerEventType_PEER_EVENT_TYPE_BOS:
+		mimeType = event.GetBos().GetMimeType()
+	case eventpb.PeerEventType_PEER_EVENT_TYPE_EOS:
+		mimeType = event.GetEos().GetMimeType()
 	}
-	if mimeType == "" && event.Kind != nil && *event.Kind == apitypes.PeerStreamKindAudio {
+	mimeType = strings.TrimSpace(mimeType)
+	if mimeType == "" && event.StreamKindValue() == eventpb.StreamKind_STREAM_KIND_AUDIO {
 		mimeType = "audio/opus"
 	}
 	if mimeType == "" {
@@ -190,87 +280,132 @@ func peerStreamEventBlobPart(event apitypes.PeerStreamEvent) *genx.Blob {
 	return &genx.Blob{MIMEType: mimeType}
 }
 
-func peerStreamEventsFromChunk(chunk *genx.MessageChunk) []apitypes.PeerStreamEvent {
+func peerStreamEventsFromChunk(chunk *genx.MessageChunk) []*eventpb.PeerEvent {
 	if chunk == nil {
 		return nil
 	}
-	var out []apitypes.PeerStreamEvent
+	var out []*eventpb.PeerEvent
 	if chunk.IsBeginOfStream() {
-		out = append(out, peerStreamEventFromChunk(chunk, apitypes.PeerStreamEventTypeBos, nil))
+		out = append(out, peerStreamEventFromChunk(chunk, eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, nil))
 	}
 	if chunk.Ctrl != nil && chunk.Ctrl.Label == peerStreamEventHistoryUpdatedLabel {
-		out = append(out, peerStreamEventFromChunk(chunk, apitypes.PeerStreamEventTypeWorkspaceHistoryUpdated, nil))
 		return out
 	}
 	if text, ok := chunk.Part.(genx.Text); ok {
 		value := string(text)
-		eventType := apitypes.PeerStreamEventTypeTextDelta
+		eventType := eventpb.PeerEventType_PEER_EVENT_TYPE_TEXT_DELTA
 		if chunk.IsEndOfStream() {
-			eventType = apitypes.PeerStreamEventTypeTextDone
+			eventType = eventpb.PeerEventType_PEER_EVENT_TYPE_TEXT_DONE
 		}
 		out = append(out, peerStreamEventFromChunk(chunk, eventType, &value))
 		return out
 	}
 	if chunk.IsEndOfStream() {
-		out = append(out, peerStreamEventFromChunk(chunk, apitypes.PeerStreamEventTypeEos, nil))
+		out = append(out, peerStreamEventFromChunk(chunk, eventpb.PeerEventType_PEER_EVENT_TYPE_EOS, nil))
 	}
 	return out
 }
 
-func peerStreamEventFromChunk(chunk *genx.MessageChunk, eventType apitypes.PeerStreamEventType, text *string) apitypes.PeerStreamEvent {
-	event := apitypes.PeerStreamEvent{
-		V:    peerStreamEventVersion,
-		Type: eventType,
-		Text: text,
+func peerStreamEventFromChunk(chunk *genx.MessageChunk, eventType eventpb.PeerEventType, text *string) *eventpb.PeerEvent {
+	ctrl := &genx.StreamCtrl{}
+	if chunk != nil && chunk.Ctrl != nil {
+		ctrl = chunk.Ctrl
 	}
-	if chunk == nil || chunk.Ctrl == nil {
-		return event
-	}
-	if chunk.Ctrl.StreamID != "" {
-		event.StreamId = &chunk.Ctrl.StreamID
-	}
-	if chunk.Ctrl.Label != "" {
-		event.Label = &chunk.Ctrl.Label
-	}
-	if chunk.Ctrl.Error != "" {
-		event.Error = &chunk.Ctrl.Error
-	}
-	if chunk.Ctrl.Timestamp != 0 {
-		event.Timestamp = &chunk.Ctrl.Timestamp
-		if eventType == apitypes.PeerStreamEventTypeWorkspaceHistoryUpdated {
-			lastUpdated := time.UnixMilli(chunk.Ctrl.Timestamp).UTC()
-			event.LastUpdatedAt = &lastUpdated
+	switch eventType {
+	case eventpb.PeerEventType_PEER_EVENT_TYPE_BOS:
+		return &eventpb.PeerEvent{
+			Version: eventpb.Version,
+			Type:    eventType,
+			Payload: &eventpb.PeerEvent_Bos{Bos: &eventpb.StreamBegin{
+				StreamId:        ctrl.StreamID,
+				TimestampUnixMs: ctrl.Timestamp,
+				Kind:            peerStreamKindFromChunk(chunk),
+				Label:           ctrl.Label,
+				MimeType:        chunkMIMEType(chunk),
+			}},
 		}
-	}
-	if kind := peerStreamKindFromChunk(chunk); kind != nil {
-		event.Kind = kind
-	}
-	if blob, ok := chunk.Part.(*genx.Blob); ok && blob.MIMEType != "" {
-		event.MimeType = &blob.MIMEType
-	}
-	return event
-}
-
-func peerStreamKindFromChunk(chunk *genx.MessageChunk) *apitypes.PeerStreamKind {
-	if chunk == nil {
+	case eventpb.PeerEventType_PEER_EVENT_TYPE_EOS:
+		var eventErr *eventpb.EventError
+		if ctrl.Error != "" || ctrl.ErrorCode != "" {
+			code := ctrl.ErrorCode
+			if code == "" {
+				code = "STREAM_ERROR"
+			}
+			eventErr = &eventpb.EventError{Code: code, Message: ctrl.Error, Retryable: ctrl.ErrorRetryable}
+		}
+		return &eventpb.PeerEvent{
+			Version: eventpb.Version,
+			Type:    eventType,
+			Payload: &eventpb.PeerEvent_Eos{Eos: &eventpb.StreamEnd{
+				StreamId:        ctrl.StreamID,
+				TimestampUnixMs: ctrl.Timestamp,
+				Kind:            peerStreamKindFromChunk(chunk),
+				Label:           ctrl.Label,
+				MimeType:        chunkMIMEType(chunk),
+				Error:           eventErr,
+			}},
+		}
+	case eventpb.PeerEventType_PEER_EVENT_TYPE_TEXT_DELTA:
+		return &eventpb.PeerEvent{
+			Version: eventpb.Version,
+			Type:    eventType,
+			Payload: &eventpb.PeerEvent_TextDelta{TextDelta: &eventpb.TextDelta{
+				StreamId:        ctrl.StreamID,
+				TimestampUnixMs: ctrl.Timestamp,
+				Label:           ctrl.Label,
+				Text:            stringValue(text),
+			}},
+		}
+	case eventpb.PeerEventType_PEER_EVENT_TYPE_TEXT_DONE:
+		return &eventpb.PeerEvent{
+			Version: eventpb.Version,
+			Type:    eventType,
+			Payload: &eventpb.PeerEvent_TextDone{TextDone: &eventpb.TextDone{
+				StreamId:        ctrl.StreamID,
+				TimestampUnixMs: ctrl.Timestamp,
+				Label:           ctrl.Label,
+				Text:            stringValue(text),
+			}},
+		}
+	default:
 		return nil
 	}
+}
+
+func peerStreamKindFromChunk(chunk *genx.MessageChunk) eventpb.StreamKind {
+	if chunk == nil {
+		return eventpb.StreamKind_STREAM_KIND_UNSPECIFIED
+	}
 	if _, ok := chunk.Part.(genx.Text); ok {
-		kind := apitypes.PeerStreamKindText
-		return &kind
+		return eventpb.StreamKind_STREAM_KIND_TEXT
 	}
 	if blob, ok := chunk.Part.(*genx.Blob); ok {
 		mimeType := strings.ToLower(strings.TrimSpace(blob.MIMEType))
 		switch {
 		case strings.HasPrefix(mimeType, "audio/"):
-			kind := apitypes.PeerStreamKindAudio
-			return &kind
+			return eventpb.StreamKind_STREAM_KIND_AUDIO
 		case strings.HasPrefix(mimeType, "video/"):
-			kind := apitypes.PeerStreamKindVideo
-			return &kind
+			return eventpb.StreamKind_STREAM_KIND_VIDEO
 		}
 	}
-	return nil
+	return eventpb.StreamKind_STREAM_KIND_UNSPECIFIED
+}
+
+func chunkMIMEType(chunk *genx.MessageChunk) string {
+	if chunk == nil {
+		return ""
+	}
+	if blob, ok := chunk.Part.(*genx.Blob); ok && blob != nil {
+		return blob.MIMEType
+	}
+	return ""
+}
+
+func stringValue(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }
 
 func isOpusBlob(blob *genx.Blob) bool {

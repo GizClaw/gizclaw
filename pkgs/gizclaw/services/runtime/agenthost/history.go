@@ -36,6 +36,7 @@ const (
 )
 
 type historyGearIDContextKey struct{}
+type workspaceHistoryNotifierContextKey struct{}
 
 func withHistoryGearID(ctx context.Context, gearID string) context.Context {
 	gearID = strings.TrimSpace(gearID)
@@ -48,6 +49,23 @@ func withHistoryGearID(ctx context.Context, gearID string) context.Context {
 func historyGearID(ctx context.Context) string {
 	value, _ := ctx.Value(historyGearIDContextKey{}).(string)
 	return strings.TrimSpace(value)
+}
+
+func withWorkspaceHistoryNotifier(
+	ctx context.Context,
+	notify func(context.Context, string, time.Time),
+) context.Context {
+	if notify == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, workspaceHistoryNotifierContextKey{}, notify)
+}
+
+func notifyWorkspaceHistory(ctx context.Context, workspaceName string, lastUpdated time.Time) {
+	notify, _ := ctx.Value(workspaceHistoryNotifierContextKey{}).(func(context.Context, string, time.Time))
+	if notify != nil {
+		notify(ctx, workspaceName, lastUpdated)
+	}
 }
 
 func wrapHistoryAgent(agent Agent, history *workspace.HistoryStore) Agent {
@@ -123,7 +141,10 @@ func (a *historyAgent) Transform(ctx context.Context, input genx.Stream) (genx.S
 	}
 	a.outputs[outputKey] = outputState
 	a.outputMu.Unlock()
-	recorder := newHistoryRecorder(a.history, historyGearID(ctx), a.notifyHistoryUpdated)
+	recorder := newHistoryRecorder(a.history, historyGearID(ctx), func(lastUpdated time.Time) {
+		a.notifyHistoryUpdated(lastUpdated)
+		notifyWorkspaceHistory(ctx, a.history.Workspace, lastUpdated)
+	})
 	agentOutput, err := a.Agent.Transform(ctx, input)
 	if err != nil {
 		a.clearOutput(outputKey, outputState)

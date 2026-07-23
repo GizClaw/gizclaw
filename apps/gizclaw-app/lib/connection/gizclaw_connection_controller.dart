@@ -146,8 +146,7 @@ class GizClawConnectionController extends ChangeNotifier {
   bool _disposed = false;
 
   GizClawClient? get client => _client;
-  FlutterWebRtcDataChannelFactory? get dataChannelFactory =>
-      _dataChannelFactory;
+  GizClawDataChannelFactory? get dataChannelFactory => _dataChannelFactory;
   rtc.RTCPeerConnection? get peerConnection => _peerConnection;
   rtc.MediaStreamTrack? get microphoneTrack => _microphoneTrack;
   MicrophoneStatus get microphoneStatus => _microphoneStatus;
