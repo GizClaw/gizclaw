@@ -648,6 +648,9 @@ func (r *Runtime) OwnerHasPetWorkspace(ctx context.Context, owner, workspaceName
 	if r == nil || r.DB == nil {
 		return false, nil
 	}
+	if err := r.Migration(ctx); err != nil {
+		return false, err
+	}
 	profile, ok := runtimeProfileFromContext(ctx)
 	profileName := strings.TrimSpace(profile.Name)
 	if !ok || profileName == "" {
@@ -687,6 +690,9 @@ func (r *Runtime) PutPet(ctx context.Context, owner string, req apitypes.PetPutR
 }
 
 func (r *Runtime) DeletePet(ctx context.Context, owner, id string) (apitypes.Pet, error) {
+	if err := r.Migration(ctx); err != nil {
+		return apitypes.Pet{}, err
+	}
 	db, err := r.db()
 	if err != nil {
 		return apitypes.Pet{}, err

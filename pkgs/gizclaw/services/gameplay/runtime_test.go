@@ -48,6 +48,26 @@ func TestListPetWorkspaceNamesMigratesFreshDatabase(t *testing.T) {
 	}
 }
 
+func TestOwnerHasPetWorkspaceMigratesFreshDatabase(t *testing.T) {
+	runtime := &Runtime{DB: testDB(t)}
+	ctx := WithRuntimeProfile(context.Background(), apitypes.RuntimeProfile{Name: "profile-a"})
+	allowed, err := runtime.OwnerHasPetWorkspace(ctx, "peer-a", "pet-workspace")
+	if err != nil {
+		t.Fatalf("OwnerHasPetWorkspace() error = %v", err)
+	}
+	if allowed {
+		t.Fatal("OwnerHasPetWorkspace() = true, want false")
+	}
+}
+
+func TestDeletePetMigratesFreshDatabase(t *testing.T) {
+	runtime := &Runtime{DB: testDB(t)}
+	ctx := WithRuntimeProfile(context.Background(), apitypes.RuntimeProfile{Name: "profile-a"})
+	if _, err := runtime.DeletePet(ctx, "peer-a", "missing-pet"); !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("DeletePet() error = %v, want %v", err, sql.ErrNoRows)
+	}
+}
+
 func TestRuntimeAdoptDoesNotDeleteExistingSystemWorkspaceOnIDCollision(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 7, 5, 10, 0, 0, 0, time.UTC)

@@ -10,7 +10,7 @@ Gameplay 资源和状态属于 `services/gameplay`。
 
 | 函数组 | 作用 |
 | --- | --- |
-| `ListPeerPets` / `GetPeerPet` / `DeletePeerPet` | 查询或删除 Peer pet；删除时把 system Workspace 清理完整委托给 Gameplay。 |
+| `ListPeerPets` / `GetPeerPet` / `DeletePeerPet` | 查询或删除 Peer Pet；删除时只移除 active Pet，由 Gameplay 写入 PendingDeletion，并保留 system Workspace binding。 |
 | `ListPeerBadges` / `GetPeerBadge` | 查询 Peer badge。 |
 | `GetPeerPoints` | 查询 Peer points account。 |
 | `ListPeerPointsTransactions` / `GetPeerPointsTransaction` | 查询 points transactions。 |
