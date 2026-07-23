@@ -119,6 +119,13 @@ func TestServiceResolverUsesWorkspaceOwnerRuntimeProfile(t *testing.T) {
 	ws := systemWorkspace("shared", "chat", nil)
 	ws.OwnerPublicKey = &owner
 	ws.Labels = &labels
+	profile := apitypes.RuntimeProfile{
+		Name:     "owner-profile",
+		Revision: "revision-1",
+		Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{
+			Collections: apitypes.RuntimeProfileWorkflowCollections{"assistants": {"chat": {ResourceId: "owner-workflow"}}},
+		}},
+	}
 	resolver := ServiceResolver{
 		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{"shared": ws}},
 		Workflows: fakeWorkflowService{items: map[string]apitypes.Workflow{
@@ -129,9 +136,7 @@ func TestServiceResolverUsesWorkspaceOwnerRuntimeProfile(t *testing.T) {
 			if gotOwner != owner {
 				t.Fatalf("owner = %q, want %q", gotOwner, owner)
 			}
-			return apitypes.RuntimeProfile{Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{
-				Collections: apitypes.RuntimeProfileWorkflowCollections{"assistants": {"chat": {ResourceId: "owner-workflow"}}},
-			}}}, nil
+			return profile, nil
 		},
 	}
 	callerCtx := WithResourceAccess(context.Background(), "caller", nil, map[string]string{"chat": "caller-workflow"})
@@ -141,6 +146,16 @@ func TestServiceResolverUsesWorkspaceOwnerRuntimeProfile(t *testing.T) {
 	}
 	if spec.Workflow.Name != "owner-workflow" {
 		t.Fatalf("workflow = %q, want owner-workflow", spec.Workflow.Name)
+	}
+	ownerCtx, err := resolver.ownerRuntimeContext(callerCtx, ws)
+	if err != nil {
+		t.Fatalf("ownerRuntimeContext() error = %v", err)
+	}
+	if got := resourceAccessFingerprint(ownerCtx); got == resourceAccessFingerprint(callerCtx) {
+		t.Fatal("owner runtime context retained the caller RuntimeProfile fingerprint")
+	}
+	if spec.runtimeAccessFingerprint != resourceAccessFingerprint(ownerCtx) {
+		t.Fatal("resolved spec did not retain the owner RuntimeProfile fingerprint")
 	}
 }
 

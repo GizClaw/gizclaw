@@ -17,6 +17,7 @@ spec:
     metadata:
       name: family-circle
     spec:
+      owner_public_key: 6Ww6ANsXDCf91Yp7Tvi65hqpywjMmXqAoZDiq33kfCee
       name: Family Circle
       description: Shared family chat group.
   - apiVersion: gizclaw.admin/v1alpha1

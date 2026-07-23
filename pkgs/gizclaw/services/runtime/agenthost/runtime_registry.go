@@ -59,8 +59,13 @@ func runtimeKey(ctx context.Context, workspaceName string, spec Spec) string {
 	if spec.Workspace.OwnerPublicKey != nil {
 		workspaceOwner = strings.TrimSpace(*spec.Workspace.OwnerPublicKey)
 	}
-	if workspaceOwner == "" {
-		key += "#profile=" + resourceAccessFingerprint(ctx)
+	systemWorkspace := spec.Workspace.System != nil && *spec.Workspace.System
+	if workspaceOwner == "" || systemWorkspace {
+		fingerprint := spec.runtimeAccessFingerprint
+		if fingerprint == "" {
+			fingerprint = resourceAccessFingerprint(ctx)
+		}
+		key += "#profile=" + fingerprint
 	}
 	if spec.Toolkit == nil {
 		return key

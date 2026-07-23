@@ -954,6 +954,15 @@ func TestRuntimeKeyIsolatesOwnerlessRuntimeProfiles(t *testing.T) {
 	if runtimeKey(first, "system", spec) != runtimeKey(second, "system", spec) {
 		t.Fatal("owned workspace did not share the owner's runtime")
 	}
+	system := true
+	spec.Workspace.System = &system
+	firstSpec := spec
+	firstSpec.runtimeAccessFingerprint = resourceAccessFingerprint(WithResourceAccess(t.Context(), owner, nil, nil, "owner-profile-a"))
+	secondSpec := spec
+	secondSpec.runtimeAccessFingerprint = resourceAccessFingerprint(WithResourceAccess(t.Context(), owner, nil, nil, "owner-profile-b"))
+	if runtimeKey(first, "system", firstSpec) == runtimeKey(second, "system", secondSpec) {
+		t.Fatal("system workspace reused an old owner RuntimeProfile revision")
+	}
 }
 
 func TestServiceReloadSourceAndOutputErrors(t *testing.T) {

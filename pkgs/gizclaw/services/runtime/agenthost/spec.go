@@ -18,6 +18,10 @@ type Spec struct {
 	AgentType string
 	Runtime   workspace.Runtime
 	Toolkit   *ToolkitContext
+	// runtimeAccessFingerprint identifies the effective owner RuntimeProfile
+	// used while resolving this spec. System runtime cache keys use it so a
+	// profile revision change cannot reuse an agent built from stale aliases.
+	runtimeAccessFingerprint string
 	// BoardInputs supplies product-owned transient values to drivers that
 	// support a per-turn context board. The outer runtime also injects the same
 	// values into the Transform context for every nested driver. They are never

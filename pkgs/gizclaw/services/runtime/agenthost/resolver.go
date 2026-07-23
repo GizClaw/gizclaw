@@ -74,11 +74,12 @@ func (r ServiceResolver) Resolve(ctx context.Context, pattern string) (Spec, err
 		return Spec{}, err
 	}
 	return Spec{
-		Workspace: ws,
-		Workflow:  workflow,
-		AgentType: agentType,
-		Runtime:   runtime,
-		Toolkit:   tools,
+		Workspace:                ws,
+		Workflow:                 workflow,
+		AgentType:                agentType,
+		Runtime:                  runtime,
+		Toolkit:                  tools,
+		runtimeAccessFingerprint: resourceAccessFingerprint(resolutionCtx),
 	}, nil
 }
 
@@ -91,7 +92,13 @@ func (r ServiceResolver) ownerRuntimeContext(ctx context.Context, ws apitypes.Wo
 	if err != nil {
 		return nil, fmt.Errorf("agenthost: resolve workspace %q owner runtime profile: %w", ws.Name, err)
 	}
-	return WithResourceAccess(ctx, owner, runtimeProfileToolBindings(profile.Spec.Resources.Tools), runtimeProfileWorkflowBindings(profile)), nil
+	return WithResourceAccess(
+		ctx,
+		owner,
+		runtimeProfileToolBindings(profile.Spec.Resources.Tools),
+		runtimeProfileWorkflowBindings(profile),
+		runtimeProfileFingerprint(profile),
+	), nil
 }
 
 func resolveWorkspaceWorkflowName(ctx context.Context, ws apitypes.Workspace) (string, error) {

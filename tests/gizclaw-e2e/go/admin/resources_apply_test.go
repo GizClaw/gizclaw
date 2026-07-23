@@ -59,7 +59,7 @@ func TestAdminAPIApplySocialResources(t *testing.T) {
 	})
 
 	applyAndRequire(t, env, apitypes.ResourceKindFriend, relationID, friendResource(t, relationID, owner, peer))
-	applyAndRequire(t, env, apitypes.ResourceKindFriendGroup, groupID, friendGroupResource(t, groupID, "E2E Mut Social Group", "created by e2e apply"))
+	applyAndRequire(t, env, apitypes.ResourceKindFriendGroup, groupID, friendGroupResource(t, groupID, env.adminKey, "E2E Mut Social Group", "created by e2e apply"))
 	applyAndRequire(t, env, apitypes.ResourceKindFriendGroupMember, memberName, friendGroupMemberResource(t, memberName, groupID, env.peerKey, apitypes.FriendGroupMemberRoleMember))
 	applyAndRequire(t, env, apitypes.ResourceKindFriendGroupInviteToken, groupID, friendGroupInviteTokenResource(t, groupID, "e2e-mut-social-token", expiresAt))
 }
@@ -77,7 +77,7 @@ func TestAdminAPIApplyRejectsInvalidCustomIDResources(t *testing.T) {
 		},
 		{
 			name:     "friend group metadata.name",
-			resource: friendGroupResource(t, "family", "Family", "invalid short group id"),
+			resource: friendGroupResource(t, "family", env.adminKey, "Family", "invalid short group id"),
 		},
 		{
 			name:     "contact id segment",
@@ -164,7 +164,7 @@ func friendResource(t *testing.T, name, owner, peer string) apitypes.Resource {
 	return resource
 }
 
-func friendGroupResource(t *testing.T, id, name, description string) apitypes.Resource {
+func friendGroupResource(t *testing.T, id, owner, name, description string) apitypes.Resource {
 	t.Helper()
 
 	var resource apitypes.Resource
@@ -173,8 +173,9 @@ func friendGroupResource(t *testing.T, id, name, description string) apitypes.Re
 		Kind:       apitypes.FriendGroupResourceKindFriendGroup,
 		Metadata:   apitypes.ResourceMetadata{Name: id},
 		Spec: apitypes.FriendGroupSpec{
-			Name:        name,
-			Description: ptr(description),
+			OwnerPublicKey: owner,
+			Name:           name,
+			Description:    ptr(description),
 		},
 	}); err != nil {
 		t.Fatalf("build friend group resource: %v", err)
