@@ -391,6 +391,27 @@ func TestValidateVoiceProducingWorkflowsRequireRuntimeVoiceAliases(t *testing.T)
 	}
 }
 
+func TestValidatePetRuntimeAliases(t *testing.T) {
+	t.Parallel()
+	pet := apitypes.PetWorkflowSpec{}
+	workflow := apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverPet, Pet: &pet}
+	models := map[string]apitypes.ModelResource{
+		"pet-chat":    {Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindLlm}},
+		"pet-extract": {Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindLlm}},
+	}
+	if err := validateWorkflowRuntimeAliases("workflows.collections.pets.demo", workflow, models, nil); err == nil || !strings.Contains(err.Error(), "pet-asr") {
+		t.Fatalf("validateWorkflowRuntimeAliases(missing pet ASR) error = %v", err)
+	}
+	models["pet-asr"] = apitypes.ModelResource{Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindLlm}}
+	if err := validateWorkflowRuntimeAliases("workflows.collections.pets.demo", workflow, models, nil); err == nil || !strings.Contains(err.Error(), "want \"asr\"") {
+		t.Fatalf("validateWorkflowRuntimeAliases(wrong pet ASR kind) error = %v", err)
+	}
+	models["pet-asr"] = apitypes.ModelResource{Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindAsr}}
+	if err := validateWorkflowRuntimeAliases("workflows.collections.pets.demo", workflow, models, nil); err != nil {
+		t.Fatalf("validateWorkflowRuntimeAliases(valid pet aliases) error = %v", err)
+	}
+}
+
 func TestRuntimeProfileRejectsAliasesSharedAcrossResourceKinds(t *testing.T) {
 	t.Parallel()
 	s := &Server{Store: kv.NewMemory(nil)}

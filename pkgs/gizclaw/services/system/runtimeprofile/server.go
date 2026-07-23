@@ -663,6 +663,23 @@ func validateWorkflowRuntimeAliases(path string, workflow apitypes.WorkflowSpec,
 		if workflow.Chatroom != nil && workflow.Chatroom.Transcript != nil && workflow.Chatroom.Transcript.AsrModel != nil {
 			return requireModel("transcript.asr_model", *workflow.Chatroom.Transcript.AsrModel, apitypes.ModelKindAsr)
 		}
+	case apitypes.WorkflowDriverPet:
+		if workflow.Pet == nil {
+			return fmt.Errorf("%s has no pet spec", path)
+		}
+		for _, model := range []struct {
+			field string
+			alias string
+			kind  apitypes.ModelKind
+		}{
+			{field: "pet-chat", alias: "pet-chat", kind: apitypes.ModelKindLlm},
+			{field: "pet-extract", alias: "pet-extract", kind: apitypes.ModelKindLlm},
+			{field: "pet-asr", alias: "pet-asr", kind: apitypes.ModelKindAsr},
+		} {
+			if err := requireModel(model.field, model.alias, model.kind); err != nil {
+				return err
+			}
+		}
 	case apitypes.WorkflowDriverDoubaoRealtime:
 		if workflow.DoubaoRealtime == nil {
 			return fmt.Errorf("%s has no doubao_realtime spec", path)
