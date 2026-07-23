@@ -241,7 +241,16 @@ func (m *Memory) CreateIfAbsent(ctx context.Context, guard Entry, entries []Entr
 	if err := ctx.Err(); err != nil {
 		return nil, false, err
 	}
+	guardKey := string(m.opts.encode(guard.Key))
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return nil, false, err
+	}
 	now := time.Now()
+	if current, ok := m.data[guardKey]; ok && !current.expired(now) {
+		return append([]byte(nil), current.value...), false, nil
+	}
 	if !guard.Deadline.IsZero() && !guard.Deadline.After(now) {
 		return nil, false, ErrInvalidDeadline
 	}
@@ -259,16 +268,10 @@ func (m *Memory) CreateIfAbsent(ctx context.Context, guard Entry, entries []Entr
 			entry: memoryEntry{value: append([]byte(nil), item.Value...), expiresAt: item.Deadline},
 		})
 	}
-	guardKey := string(m.opts.encode(guard.Key))
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if current, ok := m.data[guardKey]; ok && !current.expired(now) {
-		return append([]byte(nil), current.value...), false, nil
-	}
-	m.data[guardKey] = memoryEntry{value: append([]byte(nil), guard.Value...), expiresAt: guard.Deadline}
 	for _, item := range prepared {
 		m.data[item.key] = item.entry
 	}
+	m.data[guardKey] = memoryEntry{value: append([]byte(nil), guard.Value...), expiresAt: guard.Deadline}
 	return nil, true, nil
 }
 

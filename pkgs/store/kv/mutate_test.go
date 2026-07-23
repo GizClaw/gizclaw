@@ -73,6 +73,77 @@ func TestCreateIfAbsentCreatesOneAtomicRecord(t *testing.T) {
 	}
 }
 
+func TestCreateIfAbsentExistingGuardSkipsWriteValidation(t *testing.T) {
+	for _, fixture := range []struct {
+		name string
+		new  func(*testing.T) kv.Store
+	}{
+		{name: "memory", new: func(*testing.T) kv.Store { return kv.NewMemory(nil) }},
+		{name: "badger", new: func(t *testing.T) kv.Store { return newTestStore(t, nil) }},
+	} {
+		t.Run(fixture.name, func(t *testing.T) {
+			store := fixture.new(t)
+			ctx := context.Background()
+			guardKey := kv.Key{"pending", "resource"}
+			if err := store.Set(ctx, guardKey, []byte("existing")); err != nil {
+				t.Fatalf("seed guard: %v", err)
+			}
+			expired := time.Now().Add(-time.Second)
+			extraKey := kv.Key{"records", "new"}
+			existing, created, err := store.CreateIfAbsent(
+				ctx,
+				kv.Entry{Key: guardKey, Value: []byte("replacement"), Deadline: expired},
+				[]kv.Entry{{Key: extraKey, Value: []byte("new"), Deadline: expired}},
+			)
+			if err != nil {
+				t.Fatalf("CreateIfAbsent() error = %v", err)
+			}
+			if created {
+				t.Fatal("CreateIfAbsent() created = true, want false")
+			}
+			if string(existing) != "existing" {
+				t.Fatalf("CreateIfAbsent() existing = %q, want existing", existing)
+			}
+			if value, err := store.Get(ctx, guardKey); err != nil || string(value) != "existing" {
+				t.Fatalf("Get(guard) = %q, %v", value, err)
+			}
+			if _, err := store.Get(ctx, extraKey); !errors.Is(err, kv.ErrNotFound) {
+				t.Fatalf("Get(extra) error = %v, want ErrNotFound", err)
+			}
+		})
+	}
+}
+
+func TestCreateIfAbsentGuardWinsEntryCollision(t *testing.T) {
+	for _, fixture := range []struct {
+		name string
+		new  func(*testing.T) kv.Store
+	}{
+		{name: "memory", new: func(*testing.T) kv.Store { return kv.NewMemory(nil) }},
+		{name: "badger", new: func(t *testing.T) kv.Store { return newTestStore(t, nil) }},
+	} {
+		t.Run(fixture.name, func(t *testing.T) {
+			store := fixture.new(t)
+			ctx := context.Background()
+			guard := kv.Entry{Key: kv.Key{"pending", "resource"}, Value: []byte("guard")}
+			existing, created, err := store.CreateIfAbsent(
+				ctx,
+				guard,
+				[]kv.Entry{{Key: guard.Key, Value: []byte("entry")}},
+			)
+			if err != nil {
+				t.Fatalf("CreateIfAbsent() error = %v", err)
+			}
+			if !created {
+				t.Fatalf("CreateIfAbsent() = (%q, false), want created", existing)
+			}
+			if value, err := store.Get(ctx, guard.Key); err != nil || string(value) != "guard" {
+				t.Fatalf("Get(guard) = %q, %v", value, err)
+			}
+		})
+	}
+}
+
 func TestBatchMutateSetAndDeleteAtomically(t *testing.T) {
 	for _, fixture := range []struct {
 		name string

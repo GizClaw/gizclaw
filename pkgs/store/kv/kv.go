@@ -73,7 +73,7 @@ type Store interface {
 	// CreateIfAbsent atomically stores guard and entries only when guard.Key is
 	// absent. When guard.Key already exists, it returns its stored value and
 	// leaves every key unchanged. The boolean reports whether this call created
-	// the guard and entries.
+	// the guard and entries. If entries contains guard.Key, guard wins.
 	CreateIfAbsent(ctx context.Context, guard Entry, entries []Entry) (existing []byte, created bool, err error)
 
 	// Close releases any resources held by the store.

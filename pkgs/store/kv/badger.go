@@ -292,7 +292,9 @@ func (b *Badger) CreateIfAbsent(ctx context.Context, guard Entry, entries []Entr
 				return err
 			}
 			now := time.Now()
-			all := append([]Entry{guard}, entries...)
+			all := make([]Entry, 0, len(entries)+1)
+			all = append(all, entries...)
+			all = append(all, guard)
 			for _, entry := range all {
 				item := badger.NewEntry(b.opts.encode(entry.Key), entry.Value)
 				if !entry.Deadline.IsZero() {
