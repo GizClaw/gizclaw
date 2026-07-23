@@ -699,7 +699,7 @@ func (h *PeerConn) pushAgentInputChunk(ctx context.Context, chunk *genx.MessageC
 	inputPusher := peerConnInputPusher{peer: h, input: input}
 	revision, pushed, err := host.PushInput(ctx, inputPusher, chunk)
 	if !pushed {
-		return nil
+		return err
 	}
 	if !errors.Is(err, agenthost.ErrNoActiveInput) {
 		return err

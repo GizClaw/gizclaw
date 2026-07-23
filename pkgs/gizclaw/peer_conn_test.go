@@ -856,6 +856,63 @@ func TestPeerConnPushSerializesWithRuntimeTransition(t *testing.T) {
 	}
 }
 
+func TestPeerConnPushReturnsTransitionWaitError(t *testing.T) {
+	ctx := context.Background()
+	keyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair error = %v", err)
+	}
+	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	if _, err := store.SetRunAgent(ctx, keyPair.Public, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
+		t.Fatalf("SetRunAgent() error = %v", err)
+	}
+	input := newBlockingPeerAgentInput()
+	runtime := &agenthost.Service{
+		Host:      peerConnTestHost{output: &peerConnBlockingStream{done: make(chan struct{})}},
+		PeerRun:   store,
+		PublicKey: keyPair.Public,
+		Source:    input,
+		Consumer: agenthost.StreamConsumerFunc(func(ctx context.Context, _ genx.Stream) error {
+			<-ctx.Done()
+			return nil
+		}),
+	}
+	if _, err := runtime.Reload(ctx); err != nil {
+		t.Fatalf("initial Reload() error = %v", err)
+	}
+	defer func() {
+		input.releasePush()
+		if _, err := runtime.Stop(ctx); err != nil {
+			t.Errorf("Stop() error = %v", err)
+		}
+	}()
+	peer := &PeerConn{agentHost: runtime, agentInput: input}
+	firstPushDone := make(chan error, 1)
+	go func() {
+		firstPushDone <- peer.pushAgentInputChunk(ctx, &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "audio", BeginOfStream: true}})
+	}()
+	select {
+	case <-input.pushEntered:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for first input push")
+	}
+	waitCtx, cancel := context.WithTimeout(ctx, 20*time.Millisecond)
+	defer cancel()
+	err = peer.pushAgentInputChunk(waitCtx, &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "audio", BeginOfStream: true}})
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("pushAgentInputChunk() error = %v, want deadline exceeded", err)
+	}
+	input.releasePush()
+	select {
+	case err := <-firstPushDone:
+		if err != nil {
+			t.Fatalf("first pushAgentInputChunk() error = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for first input push")
+	}
+}
+
 func TestPeerConnRestoresInactiveInputForSameWorkspaceSelection(t *testing.T) {
 	ctx := context.Background()
 	keyPair, err := giznet.GenerateKeyPair()
@@ -933,6 +990,7 @@ type blockingPeerAgentInput struct {
 	pushEntered chan struct{}
 	pushRelease chan struct{}
 	pushOnce    sync.Once
+	releaseOnce sync.Once
 	opens       int
 }
 
@@ -974,6 +1032,10 @@ func (s *blockingPeerAgentInput) Push(context.Context, *genx.MessageChunk) error
 	s.pushOnce.Do(func() { close(s.pushEntered) })
 	<-s.pushRelease
 	return nil
+}
+
+func (s *blockingPeerAgentInput) releasePush() {
+	s.releaseOnce.Do(func() { close(s.pushRelease) })
 }
 
 func (s *blockingPeerAgentInput) Close() error {
