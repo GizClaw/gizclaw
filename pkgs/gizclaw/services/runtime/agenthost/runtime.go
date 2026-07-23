@@ -278,9 +278,13 @@ func (s *Service) SetRunAgent(ctx context.Context, selection apitypes.AgentSelec
 	if s.activeWorkspace(run) == selection.WorkspaceName {
 		return store.SetRunAgent(ctx, s.PublicKey, selection)
 	}
+	updated, err := store.SetRunAgent(ctx, s.PublicKey, selection)
+	if err != nil {
+		return apitypes.PeerRunAgent{}, err
+	}
 	s.beginTransition()
-	defer s.finishTransition()
-	return store.SetRunAgent(ctx, s.PublicKey, selection)
+	s.finishTransition()
+	return updated, nil
 }
 
 // RuntimeRevision returns the current Peer runtime control-plane revision.

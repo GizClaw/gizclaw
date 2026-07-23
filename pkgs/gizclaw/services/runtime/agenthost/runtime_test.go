@@ -549,6 +549,28 @@ func TestServiceSameActiveSelectionAfterRuntimeStopsKeepsRevision(t *testing.T) 
 	}
 }
 
+func TestServiceSelectionPersistenceFailureKeepsRevision(t *testing.T) {
+	ctx := context.Background()
+	publicKey := testPublicKey(t)
+	wantErr := errors.New("persist selection")
+	store := selectionErrorStore{
+		PeerRunStore: fakePeerRunStore{},
+		run: apitypes.PeerRunAgent{
+			Active: &apitypes.AgentSelection{WorkspaceName: "demo"},
+		},
+		err: wantErr,
+	}
+	svc := &Service{PeerRun: store, PublicKey: publicKey}
+	observed := svc.RuntimeRevision()
+
+	if _, err := svc.SetRunAgent(ctx, apitypes.AgentSelection{WorkspaceName: "assistant"}); !errors.Is(err, wantErr) {
+		t.Fatalf("SetRunAgent() error = %v, want %v", err, wantErr)
+	}
+	if got := svc.RuntimeRevision(); got != observed {
+		t.Fatalf("RuntimeRevision() = %d, want %d", got, observed)
+	}
+}
+
 func TestRuntimeProfileToolBindingsPreserveAliases(t *testing.T) {
 	tools := map[string]apitypes.RuntimeProfileBinding{
 		"weather": {ResourceId: "tool-weather"},
@@ -1305,6 +1327,20 @@ func (nilOutputHost) Transform(context.Context, string, genx.Stream) (genx.Strea
 type fakePeerRunStore struct {
 	selection apitypes.AgentSelection
 	err       error
+}
+
+type selectionErrorStore struct {
+	PeerRunStore
+	run apitypes.PeerRunAgent
+	err error
+}
+
+func (s selectionErrorStore) GetRunAgent(context.Context, giznet.PublicKey) (apitypes.PeerRunAgent, error) {
+	return s.run, nil
+}
+
+func (s selectionErrorStore) SetRunAgent(context.Context, giznet.PublicKey, apitypes.AgentSelection) (apitypes.PeerRunAgent, error) {
+	return apitypes.PeerRunAgent{}, s.err
 }
 
 func (s fakePeerRunStore) ResolveRunAgent(context.Context, giznet.PublicKey) (apitypes.AgentSelection, error) {
