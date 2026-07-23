@@ -334,6 +334,12 @@ func TestInterruptibleTransformerBranches(t *testing.T) {
 	if _, err := (interruptibleTransformer{}).Transform(context.Background(), emptyStream{}); err == nil {
 		t.Fatalf("Transform() without inner transformer succeeded, want error")
 	}
+	if _, err := (interruptibleTransformer{Transformer: transformFunc(func(context.Context, genx.Stream) (genx.Stream, error) {
+		t.Fatal("inner transformer was called for a nil input stream")
+		return nil, nil
+	})}).Transform(context.Background(), nil); err == nil {
+		t.Fatalf("Transform() with nil input stream succeeded, want error")
+	}
 
 	expected := errors.New("inner failed")
 	failing := interruptibleTransformer{Transformer: transformFunc(func(context.Context, genx.Stream) (genx.Stream, error) {

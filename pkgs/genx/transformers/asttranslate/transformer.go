@@ -102,6 +102,9 @@ func (t interruptibleTransformer) Transform(ctx context.Context, input genx.Stre
 	if t.Transformer == nil {
 		return nil, fmt.Errorf("asttranslate: transformer is required")
 	}
+	if input == nil {
+		return nil, fmt.Errorf("asttranslate: input stream is required")
+	}
 	ctx, cancel := context.WithCancel(ctx)
 	out := newInterruptibleOutput(t.keepActiveAfterTextEOS)
 	observedInput := newObservedInputStream(ctx, input, out.interrupt)
