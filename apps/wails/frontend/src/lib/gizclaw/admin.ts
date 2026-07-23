@@ -326,7 +326,7 @@ const sectionSpecs: SectionSpec[] = [
     title: "Runtime Profiles",
   },
   {
-    description: "RuntimeProfile registration credentials.",
+    description: "Readable tokens that bind registrations to RuntimeProfiles.",
     key: "registration-tokens",
     list: listRegistrationTokens as ListFn,
     title: "Registration Tokens",

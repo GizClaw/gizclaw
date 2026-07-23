@@ -203,6 +203,7 @@ func registerAdminHistoryPeers(t *testing.T, env *adminAPIHarness, peers ...*giz
 	_, _ = env.api.DeleteRegistrationTokenWithResponse(env.ctx, tokenName)
 	token, err := env.api.CreateRegistrationTokenWithResponse(env.ctx, adminhttp.RegistrationTokenUpsert{
 		Name:               tokenName,
+		Token:              tokenName,
 		RuntimeProfileName: profileName,
 	})
 	if err != nil {

@@ -116,7 +116,7 @@ func (m *Manager) Get(ctx context.Context, kind apitypes.ResourceKind, name stri
 		if !exists {
 			return apitypes.Resource{}, notFound(kind, name)
 		}
-		return resourceFromRegistrationToken(item, nil)
+		return resourceFromRegistrationToken(item)
 	case apitypes.ResourceKindModel:
 		if m.services.Models == nil {
 			return apitypes.Resource{}, missingService("models")
@@ -749,7 +749,7 @@ func (m *Manager) Delete(ctx context.Context, kind apitypes.ResourceKind, name s
 		if !exists {
 			return apitypes.Resource{}, notFound(kind, name)
 		}
-		return resourceFromRegistrationToken(item, nil)
+		return resourceFromRegistrationToken(item)
 	case apitypes.ResourceKindModel:
 		if m.services.Models == nil {
 			return apitypes.Resource{}, missingService("models")

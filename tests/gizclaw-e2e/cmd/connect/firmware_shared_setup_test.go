@@ -63,7 +63,7 @@ func createRuntimeProfileRegistrationToken(t *testing.T, h *clitest.Harness) str
 	_, _ = api.DeleteRegistrationTokenWithResponse(ctx, tokenName)
 	firmwareID := "devkit-firmware-main"
 	tokenResp, err := api.CreateRegistrationTokenWithResponse(ctx, adminhttp.RegistrationTokenUpsert{
-		Name: tokenName, RuntimeProfileName: profileName, FirmwareId: &firmwareID,
+		Name: tokenName, Token: tokenName, RuntimeProfileName: profileName, FirmwareId: &firmwareID,
 	})
 	if err != nil {
 		t.Fatalf("create RegistrationToken: %v", err)

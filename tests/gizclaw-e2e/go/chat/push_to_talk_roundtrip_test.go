@@ -188,6 +188,7 @@ func createChatRegistrationToken(t *testing.T, selected workspaceCase) string {
 	_, _ = api.DeleteRegistrationTokenWithResponse(ctx, tokenName)
 	tokenResp, err := api.CreateRegistrationTokenWithResponse(ctx, adminhttp.RegistrationTokenUpsert{
 		Name:               tokenName,
+		Token:              tokenName,
 		RuntimeProfileName: profileName,
 	})
 	if err != nil {

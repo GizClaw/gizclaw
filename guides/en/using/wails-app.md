@@ -15,10 +15,11 @@ private key.
 
 - Local Pod: The desktop version maintains a local Server, and the port remains stable after creation; the Server
   LAN listening, Admin and Play are still connected from this machine. Front QR code is used in other GizClaw Apps
-  Add the Server and enroll with the local App registration credential. A new local Pod contains exactly one
+  Add the Server and enroll with the local App registration token. A new local Pod contains exactly one
   `RuntimeProfile/default`. Its Credential, Tenant, Model, Voice, Workflow, and PetDef dependencies are resolved from the
   fixed Raids `v0.2.1` archive, and the matching bundled PIXA binaries are uploaded before that profile is applied. Desktop creates
-  `RegistrationToken/app:com.gizclaw.opensource`; it does not create Firmware.
+  `RegistrationToken/app:com.gizclaw.opensource`, generates its configured token value locally, and binds it to
+  `RuntimeProfile/default`; it does not create Firmware.
   On the back you can start, stop, and restart the Server, and open Admin or Play.
 - Remote Pod: Configure zero or more Servers and an Access Point. Admin uses each server
   identity; Play uses Pod-level Client identity to connect to Access Point. Front QR code sharing

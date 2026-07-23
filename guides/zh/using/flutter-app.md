@@ -8,10 +8,10 @@ App 固定拥有 `assistants`、`translates`、`raids`、`story-teller` 和 `rol
 App 使用对应 `collection` 和 `workflow_alias` 创建新的 Workspace 并直接进入；不会再让
 用户选择具体 Model 或 Voice。
 
-扫描 Desktop 本地 Pod 二维码后，App 将 raw registration credential 按 Server 保存到
-安全存储，并把连接注册到 `RuntimeProfile/default`。App 使用固定的应用 token identity
+扫描 Desktop 本地 Pod 二维码后，App 将 registration token 按 Server 保存到应用存储，
+并把连接注册到 `RuntimeProfile/default`。App 使用固定的应用 token identity
 `app:com.gizclaw.opensource`，不提供任意 RegistrationToken 编辑或选择；同一 Server
-重新扫码时可以替换轮换后的 raw credential。
+重新扫码时可以替换 Desktop 更新资源后的 token。
 
 Flutter SDK 提供 Workspace 的 PNG/PIXA icon 下载方法。当前设备的
 Peer profile PNG icon 由 Identity 页头像入口上传或删除；self RPC 不接受 public key，

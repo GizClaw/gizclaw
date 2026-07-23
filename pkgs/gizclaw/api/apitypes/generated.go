@@ -1669,10 +1669,9 @@ type ApplyResult struct {
 	Items *[]ApplyResult `json:"items,omitempty"`
 
 	// Kind Declarative GizClaw resource kind.
-	Kind     ResourceKind `json:"kind"`
-	Message  *string      `json:"message,omitempty"`
-	Name     string       `json:"name"`
-	Resource *Resource    `json:"resource,omitempty"`
+	Kind    ResourceKind `json:"kind"`
+	Message *string      `json:"message,omitempty"`
+	Name    string       `json:"name"`
 }
 
 // Badge defines model for Badge.
@@ -3550,22 +3549,11 @@ type RegistrationToken struct {
 	CreatedAt time.Time `json:"created_at"`
 
 	// FirmwareId Optional Server-assigned Firmware release-line ID. The device selects its own channel.
-	FirmwareId         *string `json:"firmware_id,omitempty"`
-	Name               string  `json:"name"`
-	RuntimeProfileName string  `json:"runtime_profile_name"`
-}
-
-// RegistrationTokenCreateResult defines model for RegistrationTokenCreateResult.
-type RegistrationTokenCreateResult struct {
-	CreatedAt time.Time `json:"created_at"`
-
-	// FirmwareId Optional Server-assigned Firmware release-line ID. The device selects its own channel.
-	FirmwareId         *string `json:"firmware_id,omitempty"`
-	Name               string  `json:"name"`
-	RuntimeProfileName string  `json:"runtime_profile_name"`
-
-	// Token Raw registration token returned exactly once.
-	Token string `json:"token"`
+	FirmwareId         *string   `json:"firmware_id,omitempty"`
+	Name               string    `json:"name"`
+	RuntimeProfileName string    `json:"runtime_profile_name"`
+	Token              string    `json:"token"`
+	UpdatedAt          time.Time `json:"updated_at"`
 }
 
 // RegistrationTokenResource defines model for RegistrationTokenResource.
@@ -3578,10 +3566,8 @@ type RegistrationTokenResource struct {
 		// FirmwareId Optional Server-assigned Firmware release-line ID. The device selects its own channel.
 		FirmwareId         *string `json:"firmware_id,omitempty"`
 		RuntimeProfileName string  `json:"runtime_profile_name"`
+		Token              string  `json:"token"`
 	} `json:"spec"`
-
-	// Token Present only in a successful create/apply response.
-	Token *string `json:"token,omitempty"`
 }
 
 // RegistrationTokenResourceKind defines model for RegistrationTokenResource.Kind.

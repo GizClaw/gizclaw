@@ -2,6 +2,7 @@ package resourcemanager
 
 import (
 	"context"
+	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -19,19 +20,18 @@ func (m *Manager) applyRegistrationToken(ctx context.Context, resource apitypes.
 	if err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	if exists {
-		if !registrationTokenMappingMatches(previous, item.Spec.RuntimeProfileName, item.Spec.FirmwareId) {
-			return apitypes.ApplyResult{}, applyError(409, "REGISTRATION_TOKEN_IMMUTABLE", "RegistrationToken mappings are immutable")
-		}
+	if exists && registrationTokenMatches(previous, item.Spec.Token, item.Spec.RuntimeProfileName, item.Spec.FirmwareId) {
 		return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindRegistrationToken, item.Metadata.Name), nil
 	}
-	created, err := m.putRegistrationToken(ctx, item)
+	_, err = m.putRegistrationToken(ctx, item)
 	if err != nil {
 		return apitypes.ApplyResult{}, err
 	}
-	result := applyResult(apitypes.ApplyActionCreated, apitypes.ResourceKindRegistrationToken, item.Metadata.Name)
-	result.Resource = &created
-	return result, nil
+	action := apitypes.ApplyActionCreated
+	if exists {
+		action = apitypes.ApplyActionUpdated
+	}
+	return applyResult(action, apitypes.ResourceKindRegistrationToken, item.Metadata.Name), nil
 }
 
 func (m *Manager) getRegistrationToken(ctx context.Context, name string) (apitypes.RegistrationToken, bool, error) {
@@ -55,43 +55,30 @@ func (m *Manager) getRegistrationToken(ctx context.Context, name string) (apityp
 }
 
 func (m *Manager) putRegistrationToken(ctx context.Context, item apitypes.RegistrationTokenResource) (apitypes.Resource, error) {
-	previous, exists, err := m.getRegistrationToken(ctx, item.Metadata.Name)
-	if err != nil {
-		return apitypes.Resource{}, err
-	}
-	if exists {
-		if !registrationTokenMappingMatches(previous, item.Spec.RuntimeProfileName, item.Spec.FirmwareId) {
-			return apitypes.Resource{}, applyError(409, "REGISTRATION_TOKEN_IMMUTABLE", "RegistrationToken mappings are immutable")
-		}
-		return resourceFromRegistrationToken(previous, nil)
+	if m.services.RuntimeProfiles == nil {
+		return apitypes.Resource{}, missingService("registration tokens")
 	}
 	body := adminhttp.RegistrationTokenUpsert{
 		Name:               item.Metadata.Name,
+		Token:              item.Spec.Token,
 		RuntimeProfileName: item.Spec.RuntimeProfileName,
 		FirmwareId:         item.Spec.FirmwareId,
 	}
-	response, err := m.services.RuntimeProfiles.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{Body: &body})
+	response, err := m.services.RuntimeProfiles.PutRegistrationToken(ctx, adminhttp.PutRegistrationTokenRequestObject{Name: item.Metadata.Name, Body: &body})
 	if err != nil {
 		return apitypes.Resource{}, err
 	}
 	switch response := response.(type) {
-	case adminhttp.CreateRegistrationToken200JSONResponse:
-		stored := apitypes.RegistrationToken{
-			Name:               response.Name,
-			RuntimeProfileName: response.RuntimeProfileName,
-			FirmwareId:         response.FirmwareId,
-			CreatedAt:          response.CreatedAt,
-		}
-		token := response.Token
-		return resourceFromRegistrationToken(stored, &token)
-	case adminhttp.CreateRegistrationToken400JSONResponse:
-		return apitypes.Resource{}, responseError(400, "CREATE_REGISTRATION_TOKEN_FAILED", "failed to create RegistrationToken", response)
-	case adminhttp.CreateRegistrationToken409JSONResponse:
-		return apitypes.Resource{}, responseError(409, "CREATE_REGISTRATION_TOKEN_FAILED", "failed to create RegistrationToken", response)
-	case adminhttp.CreateRegistrationToken500JSONResponse:
-		return apitypes.Resource{}, responseError(500, "CREATE_REGISTRATION_TOKEN_FAILED", "failed to create RegistrationToken", response)
+	case adminhttp.PutRegistrationToken200JSONResponse:
+		return resourceFromRegistrationToken(apitypes.RegistrationToken(response))
+	case adminhttp.PutRegistrationToken400JSONResponse:
+		return apitypes.Resource{}, responseError(400, "PUT_REGISTRATION_TOKEN_FAILED", "failed to put RegistrationToken", response)
+	case adminhttp.PutRegistrationToken409JSONResponse:
+		return apitypes.Resource{}, responseError(409, "PUT_REGISTRATION_TOKEN_FAILED", "failed to put RegistrationToken", response)
+	case adminhttp.PutRegistrationToken500JSONResponse:
+		return apitypes.Resource{}, responseError(500, "PUT_REGISTRATION_TOKEN_FAILED", "failed to put RegistrationToken", response)
 	default:
-		return apitypes.Resource{}, unexpectedResponse("CreateRegistrationToken", response)
+		return apitypes.Resource{}, unexpectedResponse("PutRegistrationToken", response)
 	}
 }
 
@@ -115,24 +102,24 @@ func (m *Manager) deleteRegistrationToken(ctx context.Context, name string) (api
 	}
 }
 
-func resourceFromRegistrationToken(item apitypes.RegistrationToken, token *string) (apitypes.Resource, error) {
+func resourceFromRegistrationToken(item apitypes.RegistrationToken) (apitypes.Resource, error) {
 	resource := apitypes.RegistrationTokenResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.RegistrationTokenResourceKind(apitypes.ResourceKindRegistrationToken),
 		Metadata:   apitypes.ResourceMetadata{Name: item.Name},
-		Token:      token,
 	}
+	resource.Spec.Token = item.Token
 	resource.Spec.RuntimeProfileName = item.RuntimeProfileName
 	resource.Spec.FirmwareId = item.FirmwareId
 	return marshalResource(resource)
 }
 
-func registrationTokenMappingMatches(item apitypes.RegistrationToken, runtimeProfileName string, firmwareID *string) bool {
-	if item.RuntimeProfileName != runtimeProfileName {
+func registrationTokenMatches(item apitypes.RegistrationToken, token, runtimeProfileName string, firmwareID *string) bool {
+	if item.Token != strings.TrimSpace(token) || item.RuntimeProfileName != strings.TrimSpace(runtimeProfileName) {
 		return false
 	}
 	if item.FirmwareId == nil || firmwareID == nil {
 		return item.FirmwareId == nil && firmwareID == nil
 	}
-	return *item.FirmwareId == *firmwareID
+	return *item.FirmwareId == strings.TrimSpace(*firmwareID)
 }

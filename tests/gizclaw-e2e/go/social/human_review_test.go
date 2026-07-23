@@ -181,6 +181,7 @@ func registerSocialHumanReviewProfile(t *testing.T, api *adminhttp.ClientWithRes
 	_, _ = api.DeleteRegistrationTokenWithResponse(ctx, tokenName)
 	tokenResp, err := api.CreateRegistrationTokenWithResponse(ctx, adminhttp.RegistrationTokenUpsert{
 		Name:               tokenName,
+		Token:              tokenName,
 		RuntimeProfileName: socialHumanReviewRuntimeProfile,
 	})
 	if err != nil {

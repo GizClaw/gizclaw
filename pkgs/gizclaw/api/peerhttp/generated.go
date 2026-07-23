@@ -131,7 +131,7 @@ type LoginParams struct {
 	XPublicKey    string `json:"X-Public-Key"`
 	Authorization string `json:"Authorization"`
 
-	// XRegistrationToken Pre-provisioned RegistrationToken used to attach a RuntimeProfile snapshot to the new HTTP session.
+	// XRegistrationToken Configured RegistrationToken used to select a RuntimeProfile for the new HTTP session.
 	XRegistrationToken *string `json:"X-Registration-Token,omitempty"`
 }
 

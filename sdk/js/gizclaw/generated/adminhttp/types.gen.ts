@@ -337,6 +337,7 @@ export type RegistrationTokenList = {
 
 export type RegistrationTokenUpsert = {
     name: string;
+    token: string;
     runtime_profile_name: string;
     /**
      * Optional Server-assigned Firmware release-line ID. The device selects its own channel.
@@ -530,6 +531,7 @@ export type RegistrationTokenResource = {
     kind: 'RegistrationToken';
     metadata: ResourceMetadata;
     spec: {
+        token: string;
         runtime_profile_name: string;
         /**
          * Optional Server-assigned Firmware release-line ID. The device selects its own channel.
@@ -549,7 +551,6 @@ export type ApplyResult = {
     name: string;
     action: ApplyAction;
     message?: string;
-    resource?: Resource;
     /**
      * Nested apply results for ResourceList resources.
      */
@@ -1513,19 +1514,14 @@ export type Registration = {
 
 export type RegistrationToken = {
     name: string;
+    token: string;
     runtime_profile_name: string;
     /**
      * Optional Server-assigned Firmware release-line ID. The device selects its own channel.
      */
     firmware_id?: string;
     created_at: string;
-};
-
-export type RegistrationTokenCreateResult = RegistrationToken & {
-    /**
-     * Raw registration token returned exactly once.
-     */
-    token: string;
+    updated_at: string;
 };
 
 export type Runtime = {
@@ -2587,97 +2583,6 @@ export type WorkspaceListWritable = {
     items: Array<WorkspaceWritable>;
 };
 
-export type RegistrationTokenResourceWritable = {
-    apiVersion: ResourceApiVersion;
-    kind: 'RegistrationToken';
-    metadata: ResourceMetadata;
-    spec: {
-        runtime_profile_name: string;
-        /**
-         * Optional Server-assigned Firmware release-line ID. The device selects its own channel.
-         */
-        firmware_id?: string;
-    };
-    /**
-     * Present only in a successful create/apply response.
-     */
-    token?: string;
-};
-
-export type ApplyResultWritable = {
-    apiVersion: ResourceApiVersion;
-    kind: ResourceKind;
-    name: string;
-    action: ApplyAction;
-    message?: string;
-    resource?: ResourceWritable;
-    /**
-     * Nested apply results for ResourceList resources.
-     */
-    items?: Array<ApplyResultWritable>;
-};
-
-export type ResourceWritable = ({
-    kind: 'CredentialResource';
-} & CredentialResource) | ({
-    kind: 'FirmwareResource';
-} & FirmwareResource) | ({
-    kind: 'ContactResource';
-} & ContactResource) | ({
-    kind: 'FriendResource';
-} & FriendResource) | ({
-    kind: 'FriendGroupResource';
-} & FriendGroupResource) | ({
-    kind: 'FriendGroupInviteTokenResource';
-} & FriendGroupInviteTokenResource) | ({
-    kind: 'FriendGroupMemberResource';
-} & FriendGroupMemberResource) | ({
-    kind: 'ModelResource';
-} & ModelResource) | ({
-    kind: 'DashScopeTenantResource';
-} & DashScopeTenantResource) | ({
-    kind: 'DeepSeekTenantResource';
-} & DeepSeekTenantResource) | ({
-    kind: 'GeminiTenantResource';
-} & GeminiTenantResource) | ({
-    kind: 'MiniMaxTenantResource';
-} & MiniMaxTenantResource) | ({
-    kind: 'OpenAITenantResource';
-} & OpenAiTenantResource) | ({
-    kind: 'VolcTenantResource';
-} & VolcTenantResource) | ({
-    kind: 'VoiceResource';
-} & VoiceResource) | ({
-    kind: 'ToolResource';
-} & ToolResource) | ({
-    kind: 'WorkflowResource';
-} & WorkflowResource) | ({
-    kind: 'WorkspaceResource';
-} & WorkspaceResource) | ({
-    kind: 'PetDefResource';
-} & PetDefResource) | ({
-    kind: 'BadgeDefResource';
-} & BadgeDefResource) | ({
-    kind: 'GameDefResource';
-} & GameDefResource) | ({
-    kind: 'RuntimeProfileResource';
-} & RuntimeProfileResource) | ({
-    kind: 'RegistrationTokenResourceWritable';
-} & RegistrationTokenResourceWritable) | ({
-    kind: 'ResourceListResourceWritable';
-} & ResourceListResourceWritable);
-
-export type ResourceListResourceWritable = {
-    apiVersion: ResourceApiVersion;
-    kind: 'ResourceList';
-    metadata: ResourceMetadata;
-    spec: ResourceListSpecWritable;
-};
-
-export type ResourceListSpecWritable = {
-    items: Array<ResourceWritable>;
-};
-
 export type FriendGroupInviteTokenClearResponseWritable = {
     [key: string]: never;
 };
@@ -2786,7 +2691,7 @@ export type StreamServerLogsResponses = {
 export type StreamServerLogsResponse = StreamServerLogsResponses[keyof StreamServerLogsResponses];
 
 export type ApplyResourceData = {
-    body: ResourceWritable;
+    body: Resource;
     path?: never;
     query?: never;
     url: '/@apply';
@@ -2915,7 +2820,7 @@ export type GetResourceResponses = {
 export type GetResourceResponse = GetResourceResponses[keyof GetResourceResponses];
 
 export type PutResourceData = {
-    body: ResourceWritable;
+    body: Resource;
     path: {
         /**
          * Declarative resource kind
@@ -8720,7 +8625,7 @@ export type CreateRegistrationTokenResponses = {
     /**
      * Created RegistrationToken
      */
-    200: RegistrationTokenCreateResult;
+    200: RegistrationToken;
 };
 
 export type CreateRegistrationTokenResponse = CreateRegistrationTokenResponses[keyof CreateRegistrationTokenResponses];
@@ -8792,3 +8697,41 @@ export type GetRegistrationTokenResponses = {
 };
 
 export type GetRegistrationTokenResponse = GetRegistrationTokenResponses[keyof GetRegistrationTokenResponses];
+
+export type PutRegistrationTokenData = {
+    body: RegistrationTokenUpsert;
+    path: {
+        /**
+         * RegistrationToken identifier
+         */
+        name: string;
+    };
+    query?: never;
+    url: '/registration-tokens/{name}';
+};
+
+export type PutRegistrationTokenErrors = {
+    /**
+     * Invalid RegistrationToken
+     */
+    400: ErrorResponse;
+    /**
+     * RegistrationToken conflict
+     */
+    409: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type PutRegistrationTokenError = PutRegistrationTokenErrors[keyof PutRegistrationTokenErrors];
+
+export type PutRegistrationTokenResponses = {
+    /**
+     * Stored RegistrationToken
+     */
+    200: RegistrationToken;
+};
+
+export type PutRegistrationTokenResponse = PutRegistrationTokenResponses[keyof PutRegistrationTokenResponses];

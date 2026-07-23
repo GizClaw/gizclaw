@@ -3,6 +3,8 @@ package localserver
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,8 +22,8 @@ import (
 )
 
 const (
-	// RegistrationTokenFile is the private workspace file that hands the local
-	// Desktop client's registration credential to the Play surface.
+	// RegistrationTokenFile hands the local Desktop client's registration token
+	// to the Play surface.
 	RegistrationTokenFile       = "registration-token"
 	appRegistrationTokenName    = "app:com.gizclaw.opensource"
 	legacyRegistrationTokenName = "desktop-local"
@@ -30,11 +32,11 @@ const (
 
 // Bootstrapper applies a validated catalog through the packaged companion CLI.
 type Bootstrapper struct {
-	Catalog    *Catalog
-	Resolver   CatalogResolver
-	Executable func() (string, error)
-	Run        func(context.Context, string, []string, []string) error
-	RunOutput  func(context.Context, string, []string, []string) ([]byte, error)
+	Catalog              *Catalog
+	Resolver             CatalogResolver
+	Executable           func() (string, error)
+	Run                  func(context.Context, string, []string, []string) error
+	NewRegistrationToken func() (string, error)
 }
 
 // MigrateRuntimeContract installs the resolved Raids dependency closure for a
@@ -98,9 +100,6 @@ func (b *Bootstrapper) MigrateRuntimeContract(ctx context.Context, podDir string
 			return fmt.Errorf("local server bootstrap: migrate %s/%s: %w", entry.Kind, entry.Name, err)
 		}
 	}
-	// Retrying a partially completed migration must produce a raw token that
-	// matches the private handoff file written below.
-	_ = runBootstrapOperation(ctx, run, executable, []string{"admin", "registration-tokens", "delete", appRegistrationTokenName, "--context", "local"}, environment)
 	if err := b.createRegistrationToken(ctx, tempDir, podDir, executable, environment); err != nil {
 		return fmt.Errorf("local server bootstrap: migrate RegistrationToken/%s: %w", appRegistrationTokenName, err)
 	}
@@ -337,10 +336,6 @@ func (b *Bootstrapper) RecoverRegistrationToken(ctx context.Context, podDir stri
 	if run == nil {
 		run = runBootstrapCommand
 	}
-	// A missing token resource is the expected legacy case. Ignore deletion
-	// errors here; creation below still reports connection, authorization, or
-	// conflict failures without pretending recovery succeeded.
-	_ = runBootstrapOperation(ctx, run, executable, []string{"admin", "registration-tokens", "delete", appRegistrationTokenName, "--context", "local"}, environment)
 	if err := b.createRegistrationToken(ctx, tempDir, podDir, executable, environment); err != nil {
 		return fmt.Errorf("local server bootstrap: recover Play registration token: %w", err)
 	}
@@ -348,11 +343,17 @@ func (b *Bootstrapper) RecoverRegistrationToken(ctx context.Context, podDir stri
 }
 
 func (b *Bootstrapper) createRegistrationToken(ctx context.Context, tempDir, podDir, executable string, environment []string) error {
+	token, err := b.registrationToken()
+	if err != nil {
+		return fmt.Errorf("local server bootstrap: generate RegistrationToken: %w", err)
+	}
 	request := struct {
 		Name               string `json:"name"`
+		Token              string `json:"token"`
 		RuntimeProfileName string `json:"runtime_profile_name"`
 	}{
 		Name:               appRegistrationTokenName,
+		Token:              token,
 		RuntimeProfileName: defaultRuntimeProfileName,
 	}
 	data, err := json.Marshal(request)
@@ -363,26 +364,12 @@ func (b *Bootstrapper) createRegistrationToken(ctx context.Context, tempDir, pod
 	if err := os.WriteFile(requestFile, data, 0o600); err != nil {
 		return fmt.Errorf("local server bootstrap: write RegistrationToken request: %w", err)
 	}
-	runOutput := b.RunOutput
-	if runOutput == nil {
-		runOutput = runBootstrapCommandOutput
+	run := b.Run
+	if run == nil {
+		run = runBootstrapCommand
 	}
-	output, err := runOutput(ctx, executable, []string{"admin", "registration-tokens", "create", "--context", "local", "-f", requestFile}, environment)
-	if err != nil {
-		return fmt.Errorf("local server bootstrap: create RegistrationToken/%s: %w", appRegistrationTokenName, err)
-	}
-	var result struct {
-		Token *string `json:"token"`
-	}
-	if err := json.Unmarshal(output, &result); err != nil {
-		return fmt.Errorf("local server bootstrap: decode RegistrationToken response: %w", err)
-	}
-	token := ""
-	if result.Token != nil {
-		token = strings.TrimSpace(*result.Token)
-	}
-	if token == "" {
-		return fmt.Errorf("local server bootstrap: RegistrationToken response did not include a raw token")
+	if err := runBootstrapOperation(ctx, run, executable, []string{"admin", "registration-tokens", "put", appRegistrationTokenName, "--context", "local", "-f", requestFile}, environment); err != nil {
+		return fmt.Errorf("local server bootstrap: put RegistrationToken/%s: %w", appRegistrationTokenName, err)
 	}
 	workspaceDir := filepath.Join(podDir, "workspace")
 	if err := os.MkdirAll(workspaceDir, 0o700); err != nil {
@@ -396,6 +383,25 @@ func (b *Bootstrapper) createRegistrationToken(ctx context.Context, tempDir, pod
 		return fmt.Errorf("local server bootstrap: secure RegistrationToken: %w", err)
 	}
 	return nil
+}
+
+func (b *Bootstrapper) registrationToken() (string, error) {
+	if b != nil && b.NewRegistrationToken != nil {
+		token, err := b.NewRegistrationToken()
+		if err != nil {
+			return "", err
+		}
+		token = strings.TrimSpace(token)
+		if token == "" {
+			return "", errors.New("generated token is empty")
+		}
+		return token, nil
+	}
+	value := make([]byte, 32)
+	if _, err := rand.Read(value); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(value), nil
 }
 
 func (b *Bootstrapper) extractResourceList(catalog *Catalog, root, name string, entries []ResourceEntry) (string, error) {
@@ -516,25 +522,6 @@ func runBootstrapCommand(ctx context.Context, executable string, args, environme
 		return err
 	}
 	return nil
-}
-
-func runBootstrapCommandOutput(ctx context.Context, executable string, args, environment []string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, executable, args...)
-	cmd.Env = environment
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		if ctx.Err() != nil {
-			return nil, ctx.Err()
-		}
-		if detail := redactedBootstrapCommandError(stderr.String(), environment); detail != "" {
-			return nil, fmt.Errorf("%w: %s", err, detail)
-		}
-		return nil, err
-	}
-	return stdout.Bytes(), nil
 }
 
 func redactedBootstrapCommandError(stderr string, environment []string) string {

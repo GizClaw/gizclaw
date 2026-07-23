@@ -96,6 +96,51 @@ func TestAdminResourceCLIUserStoryApplyThenShow(t *testing.T) {
 	}
 }
 
+func TestAdminResourceShowRegistrationTokenRoundTripsThroughApply(t *testing.T) {
+	resource := mustResource(t, `{
+		"apiVersion": "gizclaw.admin/v1alpha1",
+		"kind": "RegistrationToken",
+		"metadata": {"name": "desktop-token"},
+		"spec": {
+			"token": "desktop-token",
+			"runtime_profile_name": "default"
+		}
+	}`)
+	fake := &fakeResourceClient{
+		applyResult: apitypes.ApplyResult{
+			Action:     apitypes.ApplyActionUnchanged,
+			ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
+			Kind:       apitypes.ResourceKindRegistrationToken,
+			Name:       "desktop-token",
+		},
+		getResource: resource,
+	}
+	restore := stubResourceClient(fake)
+	defer restore()
+
+	showCmd := NewCmd()
+	var shown bytes.Buffer
+	showCmd.SetOut(&shown)
+	showCmd.SetArgs([]string{"show", "RegistrationToken", "desktop-token"})
+	if err := showCmd.Execute(); err != nil {
+		t.Fatalf("admin show error: %v", err)
+	}
+
+	applyCmd := NewCmd()
+	applyCmd.SetIn(bytes.NewReader(shown.Bytes()))
+	applyCmd.SetArgs([]string{"apply", "-f", "-"})
+	if err := applyCmd.Execute(); err != nil {
+		t.Fatalf("admin apply shown resource error: %v", err)
+	}
+	applied, err := fake.appliedResource.AsRegistrationTokenResource()
+	if err != nil {
+		t.Fatalf("applied resource is not RegistrationToken: %v", err)
+	}
+	if applied.Spec.Token != "desktop-token" || applied.Spec.RuntimeProfileName != "default" {
+		t.Fatalf("applied RegistrationToken = %#v", applied)
+	}
+}
+
 func TestAdminResourceShowRejectsResourceList(t *testing.T) {
 	cmd := NewCmd()
 	cmd.SetArgs([]string{"show", "ResourceList", "bundle"})

@@ -10223,7 +10223,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./shared.json#/components/schemas/RegistrationTokenCreateResult"
+                  "$ref": "./shared.json#/components/schemas/RegistrationToken"
                 }
               }
             }
@@ -10292,6 +10292,76 @@
           },
           "404": {
             "description": "RegistrationToken not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "putRegistrationToken",
+        "summary": "Create or update a RegistrationToken",
+        "tags": [
+          "RegistrationTokens"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "description": "RegistrationToken identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegistrationTokenUpsert"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Stored RegistrationToken",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/RegistrationToken"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid RegistrationToken",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "RegistrationToken conflict",
             "content": {
               "application/json": {
                 "schema": {
@@ -11524,11 +11594,15 @@
         "type": "object",
         "required": [
           "name",
+          "token",
           "runtime_profile_name"
         ],
         "additionalProperties": false,
         "properties": {
           "name": {
+            "type": "string"
+          },
+          "token": {
             "type": "string"
           },
           "runtime_profile_name": {

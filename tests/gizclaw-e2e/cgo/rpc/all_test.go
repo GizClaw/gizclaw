@@ -167,7 +167,7 @@ func createCSDKRegistrationToken(t *testing.T, h *clitest.Harness, scenario stri
 	tokenName := "cgo-" + scenario
 	_, _ = api.DeleteRegistrationTokenWithResponse(ctx, tokenName)
 	tokenResp, err := api.CreateRegistrationTokenWithResponse(ctx, adminhttp.RegistrationTokenUpsert{
-		Name: tokenName, RuntimeProfileName: profileName, FirmwareId: firmwareID,
+		Name: tokenName, Token: tokenName, RuntimeProfileName: profileName, FirmwareId: firmwareID,
 	})
 	if err != nil {
 		t.Fatalf("create C SDK RegistrationToken: %v", err)

@@ -585,6 +585,7 @@ func TestServerServeHTTPLoginRegisterAndPeerAPI(t *testing.T) {
 	}
 	tokenResponse, err := server.manager.RuntimeProfiles.CreateRegistrationToken(context.Background(), adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
 		Name:               "public-http-token",
+		Token:              "public-http-registration",
 		RuntimeProfileName: "public-http-profile",
 	}})
 	if err != nil {

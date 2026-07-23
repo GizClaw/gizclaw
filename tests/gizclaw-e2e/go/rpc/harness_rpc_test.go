@@ -197,7 +197,7 @@ func registerRuntimeProfile(t *testing.T, h *clitest.Harness, peer *gizcli.Clien
 	_, _ = api.DeleteRegistrationTokenWithResponse(ctx, tokenName)
 	firmwareID := sharedFirmware
 	tokenResp, err := api.CreateRegistrationTokenWithResponse(ctx, adminhttp.RegistrationTokenUpsert{
-		Name: tokenName, RuntimeProfileName: profileName, FirmwareId: &firmwareID,
+		Name: tokenName, Token: tokenName, RuntimeProfileName: profileName, FirmwareId: &firmwareID,
 	})
 	if err != nil {
 		t.Fatalf("create RegistrationToken for %s: %v", contextName, err)

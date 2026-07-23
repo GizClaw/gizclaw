@@ -15,9 +15,10 @@ private key。
 
 - 本地 Pod：桌面版维护一个本地 Server，端口在创建后保持稳定；Server 对
   LAN 监听，Admin 和 Play 仍从本机连接。正面二维码用于在其他 GizClaw App
-  添加该 Server，并用本地 App registration credential 完成注册。新建本地 Pod 只包含
+  添加该 Server，并用本地 App registration token 完成注册。新建本地 Pod 只包含
   `RuntimeProfile/default`，动态创建 `RegistrationToken/app:com.gizclaw.opensource`，
-  不创建 Firmware。背面可启动、停止和重启 Server，并打开 Admin 或 Play。
+  由 Desktop 在本地生成配置值并绑定到 `RuntimeProfile/default`，不创建 Firmware。
+  背面可启动、停止和重启 Server，并打开 Admin 或 Play。
 - 远程 Pod：配置零个或多个 Server 和一个 Access Point。Admin 按 Server 使用各自
   identity；Play 使用 Pod 级 Client identity 连接 Access Point。正面二维码分享
   Access Point，背面维护 Server 列表。

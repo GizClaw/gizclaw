@@ -101,9 +101,13 @@ spec:
 
 ## RegistrationToken
 
-管理员创建 `RegistrationToken` 时必须指定一个 RuntimeProfile name，也可以独立指定一个 Firmware release-line ID。Raw token 只在创建时返回，Server 仅保存 SHA-256 hash。`server.register` 把连接关联到 RuntimeProfile，并持久化 owner 选择的 RuntimeProfile name 与可选 Firmware ID，再在响应中返回这两个选择。Owner-bound Workspace 即使在 owner 离线时，也会通过这个持久化 name 解析 RuntimeProfile 的当前 revision；owner 后续成功注册可替换该选择。RegistrationToken 和 Peer 都不保存 Firmware channel；stable、beta、develop 或 pending 由设备自行选择。更新或切换 RuntimeProfile 只改变后续操作使用的环境，不重写 Workspace context 或已经保存的 alias。
+`RegistrationToken` 是普通的 Admin binding 资源。必填的 `spec.token` 绑定一个必填 RuntimeProfile name，也可以独立绑定一个 Firmware release-line ID。Admin create、put、get、list、delete、apply 和 show 使用同一份可读状态。Server 持久化完整状态并维护 SHA-256 lookup index；修改 token 时会原子替换 index，重复 apply 相同配置则返回 unchanged。
 
-公开 HTTP login 也可以通过 `X-Registration-Token` 提交同一个 token。注册成功或失败会写日志，但业务数据不保存 raw token。
+RuntimeProfile 与 RegistrationToken 的部署 ownership 相互独立。Raids 可以提供可复用的基础资源和 default RuntimeProfile composition，每个产品也可以安装自己的 RuntimeProfile。每个平台或部署拥有自己的 RegistrationToken，并选择每个 token 绑定哪个已安装 profile。Desktop 拥有绑定 `RuntimeProfile/default` 的本地 token；其他部署可以独立安装 default 与产品专用 profile，并把自己的 token 绑定到任意一个。
+
+`server.register` 把连接关联到 RuntimeProfile，并持久化 owner 选择的 RuntimeProfile name 与可选 Firmware ID，再在响应中返回这两个选择。Owner-bound Workspace 即使在 owner 离线时，也会通过这个持久化 name 解析 RuntimeProfile 的当前 revision；owner 后续成功注册可替换该选择。RegistrationToken 和 Peer 都不保存 Firmware channel；stable、beta、develop 或 pending 由设备自行选择。更新或切换 RuntimeProfile 只改变后续操作使用的环境，不重写 Workspace context 或已经保存的 alias。
+
+公开 HTTP login 也可以通过 `X-Registration-Token` 提交同一个值。注册成功或失败日志不包含提交的 token 值。
 
 ## Peer surface 与 ownership
 

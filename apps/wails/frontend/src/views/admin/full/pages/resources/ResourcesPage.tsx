@@ -897,6 +897,7 @@ function resourceSpecTemplate(kind: ResourceKind): unknown {
       };
     case "RegistrationToken":
       return {
+        token: "registration-token-value",
         runtime_profile_name: "runtime-profile-default",
       };
     case "PetDef":
@@ -945,7 +946,7 @@ function resourceSummary(kind: ResourceKind): string {
     case "RuntimeProfile":
       return "Ordered server-managed resource access plus gameplay configuration for registered devices.";
     case "RegistrationToken":
-      return "Reusable registration credential mapped to one RuntimeProfile. The raw token is returned only when created.";
+      return "Readable binding resource that maps a configured token to one RuntimeProfile and optional Firmware.";
     case "PetDef":
       return "Admin-managed pet definition used by RuntimeProfile adoption pools.";
     case "BadgeDef":

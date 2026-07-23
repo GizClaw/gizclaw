@@ -194,7 +194,7 @@ func TestRPCRegistrationPersistsAndReturnsFirmwareReleaseLine(t *testing.T) {
 	}
 	firmwareID := "h106"
 	tokenResponse, err := registrations.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
-		Name: "h106-token", RuntimeProfileName: profileName, FirmwareId: &firmwareID,
+		Name: "h106-token", Token: "h106-registration", RuntimeProfileName: profileName, FirmwareId: &firmwareID,
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -239,7 +239,7 @@ func TestRPCRegistrationFirmwareBindingFailurePreservesSnapshot(t *testing.T) {
 	registrations := firmwareRegistrationServer(t, "h106-production", "h106")
 	firmwareID := "h106"
 	tokenResponse, err := registrations.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
-		Name: "h106-token", RuntimeProfileName: "h106-production", FirmwareId: &firmwareID,
+		Name: "h106-token", Token: "h106-registration", RuntimeProfileName: "h106-production", FirmwareId: &firmwareID,
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -287,7 +287,7 @@ func TestRPCRegistrationOwnerProfileBindingFailurePreservesFirmware(t *testing.T
 	}
 	firmwareID := "h106"
 	tokenResponse, err := registrations.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
-		Name: "h106-token", RuntimeProfileName: "h106-production", FirmwareId: &firmwareID,
+		Name: "h106-token", Token: "h106-registration", RuntimeProfileName: "h106-production", FirmwareId: &firmwareID,
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -438,6 +438,7 @@ func createRegistrationToken(t *testing.T, server *runtimeprofile.Server, profil
 	tokenResponse, err := server.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{
 		Body: &adminhttp.RegistrationTokenUpsert{
 			Name:               "token-" + profileName,
+			Token:              "registration-" + profileName,
 			RuntimeProfileName: profileName,
 		},
 	})

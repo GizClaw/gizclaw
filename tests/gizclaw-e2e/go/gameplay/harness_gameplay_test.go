@@ -75,6 +75,7 @@ func registerGameplayProfile(t *testing.T, h *clitest.Harness, peer *gizcli.Clie
 	_, _ = api.DeleteRegistrationTokenWithResponse(ctx, tokenName)
 	tokenResp, err := api.CreateRegistrationTokenWithResponse(ctx, adminhttp.RegistrationTokenUpsert{
 		Name:               tokenName,
+		Token:              tokenName,
 		RuntimeProfileName: "default-gameplay",
 	})
 	if err != nil {

@@ -627,6 +627,7 @@ type RegistrationTokenUpsert struct {
 	FirmwareId         *string `json:"firmware_id,omitempty"`
 	Name               string  `json:"name"`
 	RuntimeProfileName string  `json:"runtime_profile_name"`
+	Token              string  `json:"token"`
 }
 
 // RuntimeProfileList defines model for RuntimeProfileList.
@@ -1244,6 +1245,9 @@ type PutPetDefJSONRequestBody = PetDefUpsert
 // CreateRegistrationTokenJSONRequestBody defines body for CreateRegistrationToken for application/json ContentType.
 type CreateRegistrationTokenJSONRequestBody = RegistrationTokenUpsert
 
+// PutRegistrationTokenJSONRequestBody defines body for PutRegistrationToken for application/json ContentType.
+type PutRegistrationTokenJSONRequestBody = RegistrationTokenUpsert
+
 // PutResourceJSONRequestBody defines body for PutResource for application/json ContentType.
 type PutResourceJSONRequestBody = externalRef0.Resource
 
@@ -1751,6 +1755,11 @@ type ClientInterface interface {
 
 	// GetRegistrationToken request
 	GetRegistrationToken(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutRegistrationTokenWithBody request with any body
+	PutRegistrationTokenWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PutRegistrationToken(ctx context.Context, name string, body PutRegistrationTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteResource request
 	DeleteResource(ctx context.Context, kind ResourceKind, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -3569,6 +3578,30 @@ func (c *Client) DeleteRegistrationToken(ctx context.Context, name string, reqEd
 
 func (c *Client) GetRegistrationToken(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetRegistrationTokenRequest(c.Server, name)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutRegistrationTokenWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutRegistrationTokenRequestWithBody(c.Server, name, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutRegistrationToken(ctx context.Context, name string, body PutRegistrationTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutRegistrationTokenRequest(c.Server, name, body)
 	if err != nil {
 		return nil, err
 	}
@@ -9604,6 +9637,53 @@ func NewGetRegistrationTokenRequest(server string, name string) (*http.Request, 
 	return req, nil
 }
 
+// NewPutRegistrationTokenRequest calls the generic PutRegistrationToken builder with application/json body
+func NewPutRegistrationTokenRequest(server string, name string, body PutRegistrationTokenJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutRegistrationTokenRequestWithBody(server, name, "application/json", bodyReader)
+}
+
+// NewPutRegistrationTokenRequestWithBody generates requests for PutRegistrationToken with any type of body
+func NewPutRegistrationTokenRequestWithBody(server string, name string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/registration-tokens/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewDeleteResourceRequest generates requests for DeleteResource
 func NewDeleteResourceRequest(server string, kind ResourceKind, name string) (*http.Request, error) {
 	var err error
@@ -12647,6 +12727,11 @@ type ClientWithResponsesInterface interface {
 	// GetRegistrationTokenWithResponse request
 	GetRegistrationTokenWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetRegistrationTokenResponse, error)
 
+	// PutRegistrationTokenWithBodyWithResponse request with any body
+	PutRegistrationTokenWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutRegistrationTokenResponse, error)
+
+	PutRegistrationTokenWithResponse(ctx context.Context, name string, body PutRegistrationTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*PutRegistrationTokenResponse, error)
+
 	// DeleteResourceWithResponse request
 	DeleteResourceWithResponse(ctx context.Context, kind ResourceKind, name string, reqEditors ...RequestEditorFn) (*DeleteResourceResponse, error)
 
@@ -15386,7 +15471,7 @@ func (r ListRegistrationTokensResponse) StatusCode() int {
 type CreateRegistrationTokenResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *externalRef0.RegistrationTokenCreateResult
+	JSON200      *externalRef0.RegistrationToken
 	JSON400      *externalRef0.ErrorResponse
 	JSON409      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
@@ -15450,6 +15535,31 @@ func (r GetRegistrationTokenResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetRegistrationTokenResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PutRegistrationTokenResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.RegistrationToken
+	JSON400      *externalRef0.ErrorResponse
+	JSON409      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PutRegistrationTokenResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutRegistrationTokenResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -18022,6 +18132,23 @@ func (c *ClientWithResponses) GetRegistrationTokenWithResponse(ctx context.Conte
 		return nil, err
 	}
 	return ParseGetRegistrationTokenResponse(rsp)
+}
+
+// PutRegistrationTokenWithBodyWithResponse request with arbitrary body returning *PutRegistrationTokenResponse
+func (c *ClientWithResponses) PutRegistrationTokenWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutRegistrationTokenResponse, error) {
+	rsp, err := c.PutRegistrationTokenWithBody(ctx, name, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutRegistrationTokenResponse(rsp)
+}
+
+func (c *ClientWithResponses) PutRegistrationTokenWithResponse(ctx context.Context, name string, body PutRegistrationTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*PutRegistrationTokenResponse, error) {
+	rsp, err := c.PutRegistrationToken(ctx, name, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutRegistrationTokenResponse(rsp)
 }
 
 // DeleteResourceWithResponse request returning *DeleteResourceResponse
@@ -22958,7 +23085,7 @@ func ParseCreateRegistrationTokenResponse(rsp *http.Response) (*CreateRegistrati
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.RegistrationTokenCreateResult
+		var dest externalRef0.RegistrationToken
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -23057,6 +23184,53 @@ func ParseGetRegistrationTokenResponse(rsp *http.Response) (*GetRegistrationToke
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePutRegistrationTokenResponse parses an HTTP response from a PutRegistrationTokenWithResponse call
+func ParsePutRegistrationTokenResponse(rsp *http.Response) (*PutRegistrationTokenResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutRegistrationTokenResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.RegistrationToken
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
@@ -25888,6 +26062,9 @@ type ServerInterface interface {
 	// Get a RegistrationToken
 	// (GET /registration-tokens/{name})
 	GetRegistrationToken(c *fiber.Ctx, name string) error
+	// Create or update a RegistrationToken
+	// (PUT /registration-tokens/{name})
+	PutRegistrationToken(c *fiber.Ctx, name string) error
 	// Delete an admin resource
 	// (DELETE /resources/{kind}/{name})
 	DeleteResource(c *fiber.Ctx, kind ResourceKind, name string) error
@@ -28466,6 +28643,22 @@ func (siw *ServerInterfaceWrapper) GetRegistrationToken(c *fiber.Ctx) error {
 	return siw.Handler.GetRegistrationToken(c, name)
 }
 
+// PutRegistrationToken operation middleware
+func (siw *ServerInterfaceWrapper) PutRegistrationToken(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+	}
+
+	return siw.Handler.PutRegistrationToken(c, name)
+}
+
 // DeleteResource operation middleware
 func (siw *ServerInterfaceWrapper) DeleteResource(c *fiber.Ctx) error {
 
@@ -29846,6 +30039,8 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 	router.Delete(options.BaseURL+"/registration-tokens/:name", wrapper.DeleteRegistrationToken)
 
 	router.Get(options.BaseURL+"/registration-tokens/:name", wrapper.GetRegistrationToken)
+
+	router.Put(options.BaseURL+"/registration-tokens/:name", wrapper.PutRegistrationToken)
 
 	router.Delete(options.BaseURL+"/resources/:kind/:name", wrapper.DeleteResource)
 
@@ -33909,7 +34104,7 @@ type CreateRegistrationTokenResponseObject interface {
 	VisitCreateRegistrationTokenResponse(ctx *fiber.Ctx) error
 }
 
-type CreateRegistrationToken200JSONResponse externalRef0.RegistrationTokenCreateResult
+type CreateRegistrationToken200JSONResponse externalRef0.RegistrationToken
 
 func (response CreateRegistrationToken200JSONResponse) VisitCreateRegistrationTokenResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
@@ -34009,6 +34204,51 @@ func (response GetRegistrationToken404JSONResponse) VisitGetRegistrationTokenRes
 type GetRegistrationToken500JSONResponse externalRef0.ErrorResponse
 
 func (response GetRegistrationToken500JSONResponse) VisitGetRegistrationTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type PutRegistrationTokenRequestObject struct {
+	Name string `json:"name"`
+	Body *PutRegistrationTokenJSONRequestBody
+}
+
+type PutRegistrationTokenResponseObject interface {
+	VisitPutRegistrationTokenResponse(ctx *fiber.Ctx) error
+}
+
+type PutRegistrationToken200JSONResponse externalRef0.RegistrationToken
+
+func (response PutRegistrationToken200JSONResponse) VisitPutRegistrationTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type PutRegistrationToken400JSONResponse externalRef0.ErrorResponse
+
+func (response PutRegistrationToken400JSONResponse) VisitPutRegistrationTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type PutRegistrationToken409JSONResponse externalRef0.ErrorResponse
+
+func (response PutRegistrationToken409JSONResponse) VisitPutRegistrationTokenResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type PutRegistrationToken500JSONResponse externalRef0.ErrorResponse
+
+func (response PutRegistrationToken500JSONResponse) VisitPutRegistrationTokenResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(500)
 
@@ -36712,6 +36952,9 @@ type StrictServerInterface interface {
 	// Get a RegistrationToken
 	// (GET /registration-tokens/{name})
 	GetRegistrationToken(ctx context.Context, request GetRegistrationTokenRequestObject) (GetRegistrationTokenResponseObject, error)
+	// Create or update a RegistrationToken
+	// (PUT /registration-tokens/{name})
+	PutRegistrationToken(ctx context.Context, request PutRegistrationTokenRequestObject) (PutRegistrationTokenResponseObject, error)
 	// Delete an admin resource
 	// (DELETE /resources/{kind}/{name})
 	DeleteResource(ctx context.Context, request DeleteResourceRequestObject) (DeleteResourceResponseObject, error)
@@ -40006,6 +40249,39 @@ func (sh *strictHandler) GetRegistrationToken(ctx *fiber.Ctx, name string) error
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	} else if validResponse, ok := response.(GetRegistrationTokenResponseObject); ok {
 		if err := validResponse.VisitGetRegistrationTokenResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// PutRegistrationToken operation middleware
+func (sh *strictHandler) PutRegistrationToken(ctx *fiber.Ctx, name string) error {
+	var request PutRegistrationTokenRequestObject
+
+	request.Name = name
+
+	var body PutRegistrationTokenJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.PutRegistrationToken(ctx.UserContext(), request.(PutRegistrationTokenRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutRegistrationToken")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(PutRegistrationTokenResponseObject); ok {
+		if err := validResponse.VisitPutRegistrationTokenResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {

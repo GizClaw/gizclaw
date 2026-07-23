@@ -101,9 +101,13 @@ The normalized spec has an opaque deterministic revision. Catalog list/get respo
 
 ## RegistrationToken
 
-An administrator creates a `RegistrationToken` with one required RuntimeProfile name and, optionally, one Firmware release-line ID. The raw token is returned only on creation and the Server stores its SHA-256 hash. `server.register` associates the connection with the RuntimeProfile, persists the owner's selected RuntimeProfile name and optional Firmware ID, and returns both selections. Owner-bound Workspaces resolve the current revision of that persisted profile name even while the owner is offline; a later successful registration replaces the owner's selection. Neither RegistrationToken nor Peer stores a Firmware channel: stable, beta, develop, or pending selection remains device-owned. Updating or switching the profile changes the environment used by later operations; it does not rewrite Workspace context or persisted aliases.
+A `RegistrationToken` is an ordinary Admin-managed binding resource. Its required `spec.token` value selects one required RuntimeProfile name and, optionally, one Firmware release-line ID. Admin create, put, get, list, delete, apply, and show all use the same readable state. The Server persists that complete state and maintains a SHA-256 lookup index; changing the token atomically replaces the index, and identical apply input is unchanged.
 
-Public HTTP login may submit the same token through `X-Registration-Token`. Registration success and failure are logged without storing raw tokens in business data.
+RuntimeProfile and RegistrationToken have independent deployment ownership. Raids may provide reusable base resources and a default RuntimeProfile composition, while each product may install its own RuntimeProfile. Each platform or deployment owns its RegistrationTokens and chooses which installed profile each token binds. Desktop owns its local token for `RuntimeProfile/default`; another deployment can independently install default and product-specific profiles and bind its own tokens to either.
+
+`server.register` associates the connection with the RuntimeProfile, persists the owner's selected RuntimeProfile name and optional Firmware ID, and returns both selections. Owner-bound Workspaces resolve the current revision of that persisted profile name even while the owner is offline; a later successful registration replaces the owner's selection. Neither RegistrationToken nor Peer stores a Firmware channel: stable, beta, develop, or pending selection remains device-owned. Updating or switching the profile changes the environment used by later operations; it does not rewrite Workspace context or persisted aliases.
+
+Public HTTP login may submit the same value through `X-Registration-Token`. Registration success and failure logs do not include the submitted token value.
 
 ## Peer surface and ownership
 

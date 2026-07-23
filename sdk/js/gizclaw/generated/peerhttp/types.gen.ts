@@ -213,7 +213,7 @@ export type LoginData = {
         'X-Public-Key': string;
         Authorization: string;
         /**
-         * Pre-provisioned RegistrationToken used to attach a RuntimeProfile snapshot to the new HTTP session.
+         * Configured RegistrationToken used to select a RuntimeProfile for the new HTTP session.
          */
         'X-Registration-Token'?: string;
     };

@@ -21,6 +21,7 @@ func NewCmd() *cobra.Command {
 	cmd.AddCommand(
 		newListCmd(&ctxName),
 		newCreateCmd(&ctxName),
+		newPutCmd(&ctxName),
 		newGetCmd(&ctxName),
 		newDeleteCmd(&ctxName),
 	)
@@ -29,7 +30,7 @@ func NewCmd() *cobra.Command {
 
 func newListCmd(ctxName *string) *cobra.Command {
 	return &cobra.Command{
-		Use: "list", Short: "List RegistrationTokens without raw token values", Args: cobra.NoArgs,
+		Use: "list", Short: "List RegistrationTokens", Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			client, err := connection.ConnectFromContext(*ctxName)
 			if err != nil {
@@ -48,7 +49,7 @@ func newListCmd(ctxName *string) *cobra.Command {
 func newCreateCmd(ctxName *string) *cobra.Command {
 	var file string
 	cmd := &cobra.Command{
-		Use: "create -f <file>", Short: "Create a RegistrationToken and print its raw value once", Args: cobra.NoArgs,
+		Use: "create -f <file>", Short: "Create a RegistrationToken", Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			request, err := readUpsert(cmd, file)
 			if err != nil {
@@ -70,9 +71,34 @@ func newCreateCmd(ctxName *string) *cobra.Command {
 	return cmd
 }
 
+func newPutCmd(ctxName *string) *cobra.Command {
+	var file string
+	cmd := &cobra.Command{
+		Use: "put <name> -f <file>", Short: "Create or replace a RegistrationToken", Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			request, err := readUpsert(cmd, file)
+			if err != nil {
+				return err
+			}
+			client, err := connection.ConnectFromContext(*ctxName)
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+			item, err := adminapi.PutRegistrationToken(context.Background(), client, args[0], request)
+			if err != nil {
+				return err
+			}
+			return json.NewEncoder(cmd.OutOrStdout()).Encode(item)
+		},
+	}
+	cmd.Flags().StringVarP(&file, "file", "f", "", "RegistrationToken JSON file, or '-' for stdin")
+	return cmd
+}
+
 func newGetCmd(ctxName *string) *cobra.Command {
 	return &cobra.Command{
-		Use: "get <name>", Short: "Get RegistrationToken metadata", Args: cobra.ExactArgs(1),
+		Use: "get <name>", Short: "Get a RegistrationToken", Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := connection.ConnectFromContext(*ctxName)
 			if err != nil {

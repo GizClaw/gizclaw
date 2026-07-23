@@ -24,20 +24,16 @@
           },
           "spec": {
             "type": "object",
-            "required": ["runtime_profile_name"],
+            "required": ["token", "runtime_profile_name"],
             "additionalProperties": false,
             "properties": {
+              "token": { "type": "string" },
               "runtime_profile_name": { "type": "string" },
               "firmware_id": {
                 "type": "string",
                 "description": "Optional Server-assigned Firmware release-line ID. The device selects its own channel."
               }
             }
-          },
-          "token": {
-            "type": "string",
-            "writeOnly": true,
-            "description": "Present only in a successful create/apply response."
           }
         }
       }

@@ -1320,19 +1320,34 @@ func ListRegistrationTokens(ctx context.Context, c *gizcli.Client) ([]apitypes.R
 	})
 }
 
-func CreateRegistrationToken(ctx context.Context, c *gizcli.Client, req adminhttp.RegistrationTokenUpsert) (apitypes.RegistrationTokenCreateResult, error) {
+func CreateRegistrationToken(ctx context.Context, c *gizcli.Client, req adminhttp.RegistrationTokenUpsert) (apitypes.RegistrationToken, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
-		return apitypes.RegistrationTokenCreateResult{}, err
+		return apitypes.RegistrationToken{}, err
 	}
 	resp, err := api.CreateRegistrationTokenWithResponse(ctx, req)
 	if err != nil {
-		return apitypes.RegistrationTokenCreateResult{}, err
+		return apitypes.RegistrationToken{}, err
 	}
 	if resp.JSON200 != nil {
 		return *resp.JSON200, nil
 	}
-	return apitypes.RegistrationTokenCreateResult{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON409, resp.JSON500)
+	return apitypes.RegistrationToken{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON409, resp.JSON500)
+}
+
+func PutRegistrationToken(ctx context.Context, c *gizcli.Client, name string, req adminhttp.RegistrationTokenUpsert) (apitypes.RegistrationToken, error) {
+	api, err := c.ServerAdminClient()
+	if err != nil {
+		return apitypes.RegistrationToken{}, err
+	}
+	resp, err := api.PutRegistrationTokenWithResponse(ctx, name, req)
+	if err != nil {
+		return apitypes.RegistrationToken{}, err
+	}
+	if resp.JSON200 != nil {
+		return *resp.JSON200, nil
+	}
+	return apitypes.RegistrationToken{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON409, resp.JSON500)
 }
 
 func GetRegistrationToken(ctx context.Context, c *gizcli.Client, name string) (apitypes.RegistrationToken, error) {
