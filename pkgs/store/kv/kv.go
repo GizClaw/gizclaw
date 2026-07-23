@@ -81,6 +81,17 @@ type createIfAbsentStore interface {
 	CreateIfAbsent(ctx context.Context, guard Entry, entries []Entry) (existing []byte, created bool, err error)
 }
 
+// SupportsCreateIfAbsent reports whether store provides the atomic
+// conditional-create capability. Prefixed stores inherit support from their
+// underlying store.
+func SupportsCreateIfAbsent(store Store) bool {
+	if prefixed, ok := store.(*prefixedStore); ok {
+		return SupportsCreateIfAbsent(prefixed.base)
+	}
+	_, ok := store.(createIfAbsentStore)
+	return ok
+}
+
 // CreateIfAbsent atomically stores guard and entries through the Store's
 // optional conditional-create capability. When guard.Key already exists, it
 // returns its stored value and leaves every key unchanged. The boolean reports

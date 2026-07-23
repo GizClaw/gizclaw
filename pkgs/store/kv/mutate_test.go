@@ -14,6 +14,27 @@ type storeWithoutCreateIfAbsent struct {
 	kv.Store
 }
 
+func TestSupportsCreateIfAbsent(t *testing.T) {
+	supported := kv.NewMemory(nil)
+	unsupported := storeWithoutCreateIfAbsent{Store: supported}
+	for _, tc := range []struct {
+		name  string
+		store kv.Store
+		want  bool
+	}{
+		{name: "supported", store: supported, want: true},
+		{name: "unsupported", store: unsupported},
+		{name: "prefixed supported", store: kv.Prefixed(supported, kv.Key{"supported"}), want: true},
+		{name: "prefixed unsupported", store: kv.Prefixed(unsupported, kv.Key{"unsupported"})},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := kv.SupportsCreateIfAbsent(tc.store); got != tc.want {
+				t.Fatalf("SupportsCreateIfAbsent() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestCreateIfAbsentRejectsUnsupportedStore(t *testing.T) {
 	store := storeWithoutCreateIfAbsent{Store: kv.NewMemory(nil)}
 	var _ kv.Store = store
