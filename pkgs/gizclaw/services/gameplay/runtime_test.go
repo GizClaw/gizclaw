@@ -702,6 +702,15 @@ func TestRuntimeDeletePetRejectsDanglingPendingDeletionLocator(t *testing.T) {
 		pendingdeletion.KindPet, "peer-a", "pet-dangling", "missing-deletion"); err != nil {
 		t.Fatalf("insert dangling locator: %v", err)
 	}
+	owner := "peer-a"
+	source := PendingDeletionSource{DB: db}
+	if exists, err := source.HasLocator(ctx, pendingdeletion.Locator{
+		Kind:           pendingdeletion.KindPet,
+		ResourceID:     "pet-dangling",
+		OwnerPublicKey: &owner,
+	}); err == nil || exists || !strings.Contains(err.Error(), "missing or mismatched record") {
+		t.Fatalf("PendingDeletionSource.HasLocator() = %v, error = %v, want integrity error", exists, err)
+	}
 
 	if _, err := runtime.DeletePet(ctx, "peer-a", "pet-dangling"); err == nil || !strings.Contains(err.Error(), "missing or mismatched record") {
 		t.Fatalf("DeletePet() error = %v, want dangling locator error", err)
@@ -713,6 +722,37 @@ func TestRuntimeDeletePetRejectsDanglingPendingDeletionLocator(t *testing.T) {
 	}
 	if pendingCount != 0 {
 		t.Fatalf("pending deletion count = %d, want 0", pendingCount)
+	}
+}
+
+func TestPendingDeletionSourceHasLocatorRejectsMismatchedRecord(t *testing.T) {
+	ctx := context.Background()
+	db := testDB(t)
+	runtime := &Runtime{DB: db}
+	if err := runtime.Migration(ctx); err != nil {
+		t.Fatalf("Migration() error = %v", err)
+	}
+	now := time.Date(2026, 7, 22, 11, 12, 0, 0, time.UTC).Format(time.RFC3339Nano)
+	if _, err := db.ExecContext(ctx, `INSERT INTO gameplay_pending_deletions (
+		deletion_id, kind, owner_public_key, resource_id, reason, deleted_at, descriptor_version, descriptor_json
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		"mismatched-deletion", pendingdeletion.KindPet, "peer-a", "different-pet",
+		pendingdeletion.ReasonResourceDelete, now, 1, `{"owner_public_key":"peer-a","pet_id":"different-pet"}`,
+	); err != nil {
+		t.Fatalf("insert mismatched pending deletion: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO gameplay_pending_deletion_locators (kind, owner_public_key, resource_id, deletion_id) VALUES (?, ?, ?, ?)`,
+		pendingdeletion.KindPet, "peer-a", "pet-mismatched", "mismatched-deletion"); err != nil {
+		t.Fatalf("insert mismatched locator: %v", err)
+	}
+	owner := "peer-a"
+	source := PendingDeletionSource{DB: db}
+	if exists, err := source.HasLocator(ctx, pendingdeletion.Locator{
+		Kind:           pendingdeletion.KindPet,
+		ResourceID:     "pet-mismatched",
+		OwnerPublicKey: &owner,
+	}); err == nil || exists || !strings.Contains(err.Error(), "missing or mismatched record") {
+		t.Fatalf("PendingDeletionSource.HasLocator() = %v, error = %v, want integrity error", exists, err)
 	}
 }
 
