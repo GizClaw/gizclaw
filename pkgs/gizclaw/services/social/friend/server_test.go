@@ -176,6 +176,37 @@ func TestAddFriendWorkspaceBelongsToInviteTokenCreator(t *testing.T) {
 	}
 }
 
+func TestAdminCreateExistingFriendPreservesWorkspaceBinding(t *testing.T) {
+	ctx := context.Background()
+	workspaces := &recordingWorkspaceService{}
+	s := newTestServer()
+	s.Workspaces = workspaces
+	s.RuntimeProfileForOwner = func(_ context.Context, owner string) (apitypes.RuntimeProfile, error) {
+		return apitypes.RuntimeProfile{Spec: apitypes.RuntimeProfileSpec{
+			Workflows: apitypes.RuntimeProfileWorkflows{
+				System: apitypes.RuntimeProfileSystemWorkflows{FriendChatroom: owner + "-direct-chat"},
+			},
+		}}, nil
+	}
+	first, err := s.AdminCreateFriend(ctx, "peer-a", "peer-b")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.RuntimeProfileForOwner = func(context.Context, string) (apitypes.RuntimeProfile, error) {
+		return apitypes.RuntimeProfile{}, errors.New("existing relation must not resolve a new system Workflow")
+	}
+	existing, err := s.AdminCreateFriend(ctx, "peer-b", "peer-a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if socialutil.StringValue(existing.WorkspaceName) != socialutil.StringValue(first.WorkspaceName) {
+		t.Fatalf("existing Workspace = %q, want %q", socialutil.StringValue(existing.WorkspaceName), socialutil.StringValue(first.WorkspaceName))
+	}
+	if len(workspaces.created) != 1 || len(workspaces.owners) != 1 {
+		t.Fatalf("existing Admin create recreated Workspace: created=%#v owners=%#v", workspaces.created, workspaces.owners)
+	}
+}
+
 func TestInviteTokenExpiryAndClear(t *testing.T) {
 	ctx := context.Background()
 	s := newTestServer()

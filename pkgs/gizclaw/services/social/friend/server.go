@@ -171,14 +171,8 @@ func (s *Server) AdminCreateFriend(ctx context.Context, owner string, peerPublic
 	}
 	relationID := socialutil.RelationID(owner, peerPublicKey)
 	if existing, err := s.GetFriendRelation(ctx, owner, relationID); err == nil {
-		workspaceName, rollback, err := s.ensureDirectChatWorkspace(ctx, owner, peerPublicKey, owner)
-		if err != nil {
-			return rpcapi.FriendObject{}, err
-		}
+		workspaceName := socialutil.DirectWorkspaceName(relationID)
 		if socialutil.StringValue(existing.WorkspaceName) != workspaceName {
-			if rollback != nil {
-				rollback()
-			}
 			return rpcapi.FriendObject{}, errors.New("social: existing friend has a different Workspace domain binding")
 		}
 		return existing, nil
