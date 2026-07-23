@@ -429,6 +429,41 @@ func TestServiceSelectionChangeInvalidatesInputRecovery(t *testing.T) {
 	}
 }
 
+func TestServiceInputRecoveryDropsPendingWorkspaceAfterRuntimeStops(t *testing.T) {
+	ctx := context.Background()
+	publicKey := testPublicKey(t)
+	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	demo := apitypes.AgentSelection{WorkspaceName: "demo"}
+	assistant := apitypes.AgentSelection{WorkspaceName: "assistant"}
+	if _, err := store.SetRunAgent(ctx, publicKey, demo); err != nil {
+		t.Fatalf("SetRunAgent(demo) error = %v", err)
+	}
+	if _, err := store.ActivateRunAgent(ctx, publicKey, demo); err != nil {
+		t.Fatalf("ActivateRunAgent(demo) error = %v", err)
+	}
+	if _, err := store.SetRunAgent(ctx, publicKey, assistant); err != nil {
+		t.Fatalf("SetRunAgent(assistant) error = %v", err)
+	}
+	openCalls := 0
+	svc := &Service{
+		Host:      &fakeHost{},
+		PeerRun:   store,
+		PublicKey: publicKey,
+		Source: StreamSourceFunc(func(context.Context) (genx.Stream, error) {
+			openCalls++
+			return NewInputStream(1), nil
+		}),
+		Consumer: StreamConsumerFunc(func(context.Context, genx.Stream) error { return nil }),
+	}
+	reloaded, err := svc.ReloadIfCurrentRevision(ctx, svc.RuntimeRevision())
+	if err != nil || reloaded {
+		t.Fatalf("ReloadIfCurrentRevision() = (%v, %v), want (false, nil)", reloaded, err)
+	}
+	if openCalls != 0 {
+		t.Fatalf("OpenAgentInput calls = %d, want 0", openCalls)
+	}
+}
+
 func TestRuntimeProfileToolBindingsPreserveAliases(t *testing.T) {
 	tools := map[string]apitypes.RuntimeProfileBinding{
 		"weather": {ResourceId: "tool-weather"},

@@ -352,7 +352,7 @@ func (s *Service) reloadIfCurrentRevision(ctx context.Context, revision uint64) 
 	if err != nil {
 		return false, err
 	}
-	if run.Pending != nil && s.pendingSelectionChangesRuntime(*run.Pending) {
+	if s.pendingSelectionChangesRuntime(run) {
 		return false, nil
 	}
 	if _, err := s.reload(ctx); err != nil {
@@ -361,9 +361,17 @@ func (s *Service) reloadIfCurrentRevision(ctx context.Context, revision uint64) 
 	return true, nil
 }
 
-func (s *Service) pendingSelectionChangesRuntime(selection apitypes.AgentSelection) bool {
-	rt := s.currentRuntime()
-	return rt != nil && rt.workspace != selection.WorkspaceName
+func (s *Service) pendingSelectionChangesRuntime(run apitypes.PeerRunAgent) bool {
+	if run.Pending == nil {
+		return false
+	}
+	workspace := ""
+	if rt := s.currentRuntime(); rt != nil {
+		workspace = rt.workspace
+	} else if run.Active != nil {
+		workspace = run.Active.WorkspaceName
+	}
+	return workspace != "" && workspace != run.Pending.WorkspaceName
 }
 
 func runtimeProfileFingerprint(profile apitypes.RuntimeProfile) string {
