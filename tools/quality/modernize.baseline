@@ -148,8 +148,8 @@ pkgs/gizclaw/peer_conn_test.go:501:6: for loop can be modernized using range ove
 pkgs/gizclaw/peer_conn_test.go:591:119: call of peerConnIntPtr(x) can be simplified to new(x)
 pkgs/gizclaw/peer_conn_test.go:599:113: call of peerConnBoolPtr(x) can be simplified to new(x)
 pkgs/gizclaw/peer_conn_test.go:607:6: for loop can be modernized using range over int
-pkgs/gizclaw/peer_conn_test.go:754:6: peerConnBoolPtr can be an inlinable wrapper around new(expr)
-pkgs/gizclaw/peer_conn_test.go:758:6: peerConnIntPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/peer_conn_test.go:986:6: peerConnBoolPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/peer_conn_test.go:990:6: peerConnIntPtr can be an inlinable wrapper around new(expr)
 pkgs/gizclaw/peer_service.go:121:6: for loop can be modernized using range over int
 pkgs/gizclaw/peer_service_serve_admin_test.go:344:23: call of adminTestStringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/peer_service_serve_admin_test.go:394:73: call of adminTestStringPtr(x) can be simplified to new(x)
@@ -165,9 +165,9 @@ pkgs/gizclaw/rpc_server_service_test.go:40:26: call of boolPtr(x) can be simplif
 pkgs/gizclaw/rpc_server_service_test.go:41:26: call of boolPtr(x) can be simplified to new(x)
 pkgs/gizclaw/rpc_server_service_test.go:42:26: call of boolPtr(x) can be simplified to new(x)
 pkgs/gizclaw/rpc_server_service_test.go:73:105: call of stringPtr(x) can be simplified to new(x)
-pkgs/gizclaw/rpc_server_service_test.go:765:6: stringPtr can be an inlinable wrapper around new(expr)
-pkgs/gizclaw/rpc_server_service_test.go:769:6: intPtr can be an inlinable wrapper around new(expr)
-pkgs/gizclaw/rpc_server_service_test.go:773:6: boolPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/rpc_server_service_test.go:819:6: stringPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/rpc_server_service_test.go:823:6: intPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/rpc_server_service_test.go:827:6: boolPtr can be an inlinable wrapper around new(expr)
 pkgs/gizclaw/rpc_speech.go:398:2: Loop can be simplified using slices.Contains
 pkgs/gizclaw/services/ai/credential/credential_body_test.go:13:80: call of testStringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/ai/credential/credential_body_test.go:9:6: testStringPtr can be an inlinable wrapper around new(expr)
