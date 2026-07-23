@@ -23,7 +23,7 @@ require (
 	github.com/hajimehoshi/go-mp3 v0.3.4
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/kaptinlin/jsonrepair v0.4.8
-	github.com/kardianos/service v1.2.4
+	github.com/kardianos/service v1.3.0
 	github.com/lib/pq v1.12.3
 	github.com/oapi-codegen/runtime v1.3.1
 	github.com/openai/openai-go v1.12.0
