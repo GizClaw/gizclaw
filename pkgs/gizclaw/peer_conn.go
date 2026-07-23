@@ -48,7 +48,7 @@ type PeerConn struct {
 
 	closeOnce         sync.Once
 	agentHost         *agenthost.Service
-	agentInput        *peerRealtimeSource
+	agentInput        peerAgentInput
 	agentInputMu      sync.Mutex
 	events            *peerStreamEventBroker
 	telemetryStatusMu *sync.Mutex
@@ -59,6 +59,12 @@ type PeerConn struct {
 	closed            atomic.Bool
 	retiring          atomic.Bool
 	registration      atomic.Pointer[runtimeprofile.Registration]
+}
+
+type peerAgentInput interface {
+	agenthost.StreamSource
+	agenthost.InputPusher
+	Close() error
 }
 
 // CreateAudioTrack creates a writable audio track on the peer mixer.
@@ -673,12 +679,15 @@ func (h *PeerConn) pushAgentInputChunk(ctx context.Context, chunk *genx.MessageC
 	if h.agentHost != nil {
 		revision = h.agentHost.RuntimeRevision()
 	}
-	err := h.agentInput.Push(ctx, chunk)
+	if h.agentHost == nil {
+		return h.agentInput.Push(ctx, chunk)
+	}
+	pushed, err := h.agentHost.PushInputIfCurrentRevision(ctx, revision, h.agentInput, chunk)
+	if !pushed {
+		return nil
+	}
 	if !errors.Is(err, agenthost.ErrNoActiveInput) {
 		return err
-	}
-	if h.agentHost == nil {
-		return nil
 	}
 	reloaded, reloadErr := h.agentHost.ReloadIfCurrentRevision(ctx, revision)
 	if reloadErr != nil {
@@ -687,7 +696,11 @@ func (h *PeerConn) pushAgentInputChunk(ctx context.Context, chunk *genx.MessageC
 	if !reloaded {
 		return nil
 	}
-	err = h.agentInput.Push(ctx, chunk)
+	retryRevision := h.agentHost.RuntimeRevision()
+	pushed, err = h.agentHost.PushInputIfCurrentRevision(ctx, retryRevision, h.agentInput, chunk)
+	if !pushed {
+		return nil
+	}
 	if errors.Is(err, agenthost.ErrNoActiveInput) {
 		return nil
 	}

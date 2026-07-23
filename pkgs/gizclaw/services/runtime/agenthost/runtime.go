@@ -38,6 +38,11 @@ type StreamSource interface {
 	OpenAgentInput(context.Context) (genx.Stream, error)
 }
 
+// InputPusher writes a connection-scoped input chunk to the active source.
+type InputPusher interface {
+	Push(context.Context, *genx.MessageChunk) error
+}
+
 type StreamSourceFunc func(context.Context) (genx.Stream, error)
 
 func (f StreamSourceFunc) OpenAgentInput(ctx context.Context) (genx.Stream, error) {
@@ -203,6 +208,28 @@ func (s *Service) RuntimeRevision() uint64 {
 	return s.revision.Load()
 }
 
+// PushInputIfCurrentRevision writes an input chunk only while the caller's
+// observed revision is still stable. It keeps the push inside the same
+// transition boundary as selection, reload, and stop so a completed transition
+// cannot redirect an already-observed chunk to a new runtime.
+func (s *Service) PushInputIfCurrentRevision(ctx context.Context, revision uint64, input InputPusher, chunk *genx.MessageChunk) (bool, error) {
+	if s == nil {
+		return false, ErrNilService
+	}
+	if input == nil {
+		return false, ErrMissingSource
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	s.transitionMu.Lock()
+	defer s.transitionMu.Unlock()
+	if revision%2 != 0 || s.revision.Load() != revision {
+		return false, nil
+	}
+	return true, input.Push(ctx, chunk)
+}
+
 // ReloadIfCurrentRevision recovers a missing input only when the caller saw
 // the same stable runtime revision before its failed push. A changed revision
 // means the chunk belongs to a superseded runtime and must be dropped.
@@ -225,13 +252,18 @@ func (s *Service) ReloadIfCurrentRevision(ctx context.Context, revision uint64) 
 	if err != nil {
 		return false, err
 	}
-	if run.Pending != nil && s.currentRuntime() != nil {
+	if run.Pending != nil && s.pendingSelectionChangesRuntime(*run.Pending) {
 		return false, nil
 	}
 	if _, err := s.reload(ctx); err != nil {
 		return false, err
 	}
 	return true, nil
+}
+
+func (s *Service) pendingSelectionChangesRuntime(selection apitypes.AgentSelection) bool {
+	rt := s.currentRuntime()
+	return rt != nil && rt.workspace != selection.WorkspaceName
 }
 
 func runtimeProfileFingerprint(profile apitypes.RuntimeProfile) string {

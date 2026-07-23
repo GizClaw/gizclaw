@@ -221,6 +221,46 @@ func TestServiceInputRecoveryDropsSupersededTransition(t *testing.T) {
 	}
 }
 
+func TestServicePushInputDropsSupersededRevision(t *testing.T) {
+	ctx := context.Background()
+	publicKey := testPublicKey(t)
+	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	if _, err := store.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
+		t.Fatalf("SetRunAgent() error = %v", err)
+	}
+	svc := &Service{
+		Host:      &fakeHost{output: newBlockingStream()},
+		PeerRun:   store,
+		PublicKey: publicKey,
+		Source: StreamSourceFunc(func(context.Context) (genx.Stream, error) {
+			return NewInputStream(1), nil
+		}),
+		Consumer: StreamConsumerFunc(func(ctx context.Context, _ genx.Stream) error {
+			<-ctx.Done()
+			return nil
+		}),
+	}
+	if _, err := svc.Reload(ctx); err != nil {
+		t.Fatalf("initial Reload() error = %v", err)
+	}
+	defer func() {
+		if _, err := svc.Stop(ctx); err != nil {
+			t.Errorf("Stop() error = %v", err)
+		}
+	}()
+	observed := svc.RuntimeRevision()
+	if _, err := svc.Reload(ctx); err != nil {
+		t.Fatalf("superseding Reload() error = %v", err)
+	}
+	pushed, err := svc.PushInputIfCurrentRevision(ctx, observed, inputPusherFunc(func(context.Context, *genx.MessageChunk) error {
+		t.Fatal("Push() called for a superseded runtime revision")
+		return nil
+	}), &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "audio", BeginOfStream: true}})
+	if err != nil || pushed {
+		t.Fatalf("PushInputIfCurrentRevision() = (%v, %v), want (false, nil)", pushed, err)
+	}
+}
+
 func TestServiceSelectionChangeInvalidatesInputRecovery(t *testing.T) {
 	ctx := context.Background()
 	publicKey := testPublicKey(t)
@@ -894,6 +934,12 @@ type blockingOpenSource struct {
 	release chan struct{}
 	calls   int
 	once    sync.Once
+}
+
+type inputPusherFunc func(context.Context, *genx.MessageChunk) error
+
+func (f inputPusherFunc) Push(ctx context.Context, chunk *genx.MessageChunk) error {
+	return f(ctx, chunk)
 }
 
 type blockingSelectionStore struct {
