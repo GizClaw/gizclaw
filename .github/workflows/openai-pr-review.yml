@@ -32,4 +32,5 @@ jobs:
         Review only the pull-request diff and report actionable correctness,
         security, regression, cross-module contract, and test-coverage findings.
       pull_request_number: ${{ inputs.pull_request_number }}
-    secrets: inherit
+    secrets:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
