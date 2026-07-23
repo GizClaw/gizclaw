@@ -15,7 +15,7 @@
     "@gizclaw/pixa": "git+https://github.com/GizClaw/pixa.git#d4434dd217fa8e80e529da2a2dd1ed669cfbead7",
     "@radix-ui/react-slot": "^1.3.0",
     "@tailwindcss/vite": "^4.3.3",
-    "@vitejs/plugin-react": "6.0.3",
+    "@vitejs/plugin-react": "6.0.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
