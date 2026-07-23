@@ -131,6 +131,9 @@ func LoadCatalog(source fs.FS) (*Catalog, error) {
 	}
 	sort.Slice(catalog.Requirements, func(i, j int) bool { return catalog.Requirements[i].Name < catalog.Requirements[j].Name })
 	if len(catalog.Resources) == 1 && catalog.Resources[0].Kind == "RuntimeProfile" && catalog.Resources[0].Name == "default" {
+		if err := rejectLegacyBootstrapAssets(source); err != nil {
+			return nil, err
+		}
 		return catalog, nil
 	}
 
@@ -186,6 +189,17 @@ func LoadCatalog(source fs.FS) (*Catalog, error) {
 		return nil, err
 	}
 	return catalog, nil
+}
+
+func rejectLegacyBootstrapAssets(source fs.FS) error {
+	for _, name := range []string{"assets", "petdef-pixa.txt", "voice-sync.txt"} {
+		if _, err := fs.Stat(source, name); err == nil {
+			return fmt.Errorf("local server catalog: RuntimeProfile-only catalog must not include legacy %s", name)
+		} else if !errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("local server catalog: stat %s: %w", name, err)
+		}
+	}
+	return nil
 }
 
 func rejectUndeclaredAssets(source fs.FS, declared map[string]string) error {

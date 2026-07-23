@@ -79,3 +79,22 @@ func TestCatalogRejectsWorkspaceResource(t *testing.T) {
 		t.Fatal("LoadCatalog() error = nil")
 	}
 }
+
+func TestCatalogRejectsLegacyAssetsWithDefaultRuntimeProfile(t *testing.T) {
+	profile := []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: RuntimeProfile\nmetadata:\n  name: default\n")
+	for name, data := range map[string][]byte{
+		"assets/pets/a.pixa": []byte("asset"),
+		"petdef-pixa.txt":    []byte("pet-a assets/pets/a.pixa\n"),
+		"voice-sync.txt":     []byte("volc tenant-a\n"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := localserver.LoadCatalog(fstest.MapFS{
+				"resources/07-runtime-profiles/00-default.yaml": {Data: profile},
+				name: {Data: data},
+			})
+			if err == nil || !strings.Contains(err.Error(), "legacy") {
+				t.Fatalf("LoadCatalog() error = %v, want legacy asset rejection", err)
+			}
+		})
+	}
+}
