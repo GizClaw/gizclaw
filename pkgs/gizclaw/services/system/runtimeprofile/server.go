@@ -31,10 +31,11 @@ var (
 )
 
 const (
-	defaultListLimit = 50
-	maxListLimit     = 200
-	tokenBytes       = 32
-	tokenAttempts    = 8
+	defaultListLimit            = 50
+	maxListLimit                = 200
+	tokenBytes                  = 32
+	tokenAttempts               = 8
+	ownerBindingRollbackTimeout = 5 * time.Second
 )
 
 var runtimeAliasPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
@@ -124,11 +125,13 @@ func (s *Server) BindOwnerProfileAndCommit(ctx context.Context, owner, profileNa
 		return nil
 	}
 	if err := commit(); err != nil {
+		rollbackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), ownerBindingRollbackTimeout)
+		defer cancel()
 		var rollbackErr error
 		if previousErr == nil {
-			rollbackErr = store.Set(ctx, key, previous)
+			rollbackErr = store.Set(rollbackCtx, key, previous)
 		} else {
-			rollbackErr = store.Delete(ctx, key)
+			rollbackErr = store.Delete(rollbackCtx, key)
 		}
 		if rollbackErr != nil {
 			return errors.Join(err, fmt.Errorf("restore owner RuntimeProfile binding: %w", rollbackErr))

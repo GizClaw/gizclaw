@@ -7,6 +7,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -92,6 +93,69 @@ func TestRPCRegistrationSnapshotIsRaceSafe(t *testing.T) {
 	registerRPC(t, server, tokenA)
 	if got := snapshot.Load(); got == nil || got.RuntimeProfile.Name != "profile-a" {
 		t.Fatalf("last successful registration snapshot = %#v", got)
+	}
+}
+
+func TestRPCRegistrationSerializesOwnerBindingAndSnapshot(t *testing.T) {
+	registrations, tokenA := registrationServerAndToken(t, "profile-a")
+	tokenB := createRegistrationToken(t, registrations, "profile-b")
+	bPersisted := make(chan struct{})
+	registrations.Store = &ownerBindingObserver{
+		Store:       registrations.Store,
+		profileName: "profile-b",
+		persisted:   bPersisted,
+	}
+	var snapshot atomic.Pointer[runtimeprofile.Registration]
+	aPublishing := make(chan struct{})
+	releaseA := make(chan struct{})
+	publicKey := giznet.PublicKey{6}
+	server := &rpcServer{
+		registrations:   registrations,
+		callerPublicKey: publicKey,
+		onRegistration: func(registration runtimeprofile.Registration) {
+			if registration.RuntimeProfile.Name == "profile-a" {
+				close(aPublishing)
+				<-releaseA
+			}
+			snapshot.Store(&registration)
+		},
+	}
+	aDone := make(chan struct{})
+	go func() {
+		defer close(aDone)
+		response, err := server.dispatch(context.Background(), registrationRequest(tokenA))
+		if err != nil || response.Error != nil {
+			t.Errorf("register profile-a = %#v, %v", response, err)
+		}
+	}()
+	<-aPublishing
+	bDone := make(chan struct{})
+	bStarted := make(chan struct{})
+	go func() {
+		defer close(bDone)
+		close(bStarted)
+		response, err := server.dispatch(context.Background(), registrationRequest(tokenB))
+		if err != nil || response.Error != nil {
+			t.Errorf("register profile-b = %#v, %v", response, err)
+		}
+	}()
+	<-bStarted
+	select {
+	case <-bPersisted:
+		t.Fatal("profile-b owner binding crossed profile-a snapshot publication")
+	case <-time.After(50 * time.Millisecond):
+	}
+	close(releaseA)
+	<-aDone
+	<-bDone
+
+	bound, err := registrations.ResolveOwnerProfile(t.Context(), publicKey.String())
+	if err != nil {
+		t.Fatalf("ResolveOwnerProfile() error = %v", err)
+	}
+	active := snapshot.Load()
+	if active == nil || active.RuntimeProfile.Name != bound.Name {
+		t.Fatalf("snapshot = %#v, owner binding = %#v", active, bound)
 	}
 }
 
@@ -264,6 +328,25 @@ type rejectingFirmwarePeer struct{}
 
 type rejectingOwnerBindingStore struct {
 	kv.Store
+}
+
+type ownerBindingObserver struct {
+	kv.Store
+	profileName string
+	persisted   chan<- struct{}
+	once        sync.Once
+}
+
+func (s *ownerBindingObserver) Set(ctx context.Context, key kv.Key, value []byte) error {
+	if err := s.Store.Set(ctx, key, value); err != nil {
+		return err
+	}
+	if strings.Contains(key.String(), "by-owner") && string(value) == s.profileName {
+		s.once.Do(func() {
+			close(s.persisted)
+		})
+	}
+	return nil
 }
 
 func (s rejectingOwnerBindingStore) Set(ctx context.Context, key kv.Key, value []byte) error {

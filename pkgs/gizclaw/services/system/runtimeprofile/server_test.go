@@ -762,6 +762,29 @@ func TestBindOwnerProfileAndCommitRestoresPreviousBinding(t *testing.T) {
 	}
 }
 
+func TestBindOwnerProfileAndCommitRestoresBindingAfterRequestCancellation(t *testing.T) {
+	t.Parallel()
+	s := &Server{Store: kv.NewMemory(nil)}
+	createProfile(t, s, "profile-a", nil)
+	createProfile(t, s, "profile-b", nil)
+	if err := s.BindOwnerProfile(t.Context(), "peer-a", "profile-a"); err != nil {
+		t.Fatalf("BindOwnerProfile(profile-a) error = %v", err)
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	commitErr := errors.New("dependent commit canceled")
+	err := s.BindOwnerProfileAndCommit(ctx, "peer-a", "profile-b", func() error {
+		cancel()
+		return commitErr
+	})
+	if !errors.Is(err, commitErr) {
+		t.Fatalf("BindOwnerProfileAndCommit() error = %v, want %v", err, commitErr)
+	}
+	current, err := s.ResolveOwnerProfile(t.Context(), "peer-a")
+	if err != nil || current.Name != "profile-a" {
+		t.Fatalf("ResolveOwnerProfile() = %#v, %v, want profile-a", current, err)
+	}
+}
+
 func createProfile(t *testing.T, s *Server, name string, models map[string]string) {
 	t.Helper()
 	previousResolver := s.ResolveResource

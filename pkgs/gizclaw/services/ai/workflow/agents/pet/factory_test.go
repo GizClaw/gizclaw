@@ -179,10 +179,10 @@ func TestFactoryRefreshesNestedBoardInputsWithinLongLivedTransform(t *testing.T)
 	if _, err := agent.Transform(t.Context(), nil); err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
-	if pets.calls != 3 {
-		t.Fatalf("ResolvePetContext calls = %d, want 3", pets.calls)
+	if pets.calls != 2 {
+		t.Fatalf("ResolvePetContext calls = %d, want 2", pets.calls)
 	}
-	if got := nested.inputs["tmp_pet_attribute_prompt"]; !strings.Contains(got.(string), "当前名字：pet-3") {
+	if got := nested.inputs["tmp_pet_attribute_prompt"]; !strings.Contains(got.(string), "当前名字：pet-2") {
 		t.Fatalf("nested BoardInputs() = %#v", nested.inputs)
 	}
 }

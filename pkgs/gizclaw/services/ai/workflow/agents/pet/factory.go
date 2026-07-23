@@ -67,7 +67,12 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 		}
 		return turnInputs(pet, petDef), nil
 	}
-	spec.BoardInputs = provideInputs
+	spec.BoardInputs = func(turnCtx context.Context) (map[string]any, error) {
+		if inputs, ok := agenthost.BoardInputsFromContext(turnCtx); ok {
+			return inputs, nil
+		}
+		return provideInputs(turnCtx)
+	}
 	agent, err := factory.NewAgent(ctx, spec)
 	if err != nil {
 		return nil, err
