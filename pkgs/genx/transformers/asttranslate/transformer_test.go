@@ -585,7 +585,7 @@ func TestASTTranslateUtilityBranches(t *testing.T) {
 	if shouldGraceASTAssistantChunk(audioChunk) {
 		t.Fatalf("assistant audio chunk retained per-frame interrupt grace")
 	}
-	if !isStreamDone(genx.ErrDone) || !isStreamDone(io.EOF) || isStreamDone(errors.New("boom")) {
+	if isStreamDone(nil) || !isStreamDone(genx.ErrDone) || !isStreamDone(io.EOF) || isStreamDone(errors.New("boom")) {
 		t.Fatalf("isStreamDone returned unexpected values")
 	}
 	if err := normalizeLanguagePair(nil, true); err == nil {

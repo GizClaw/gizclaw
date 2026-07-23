@@ -670,7 +670,7 @@ func forwardASTTranslateTTS(ctx context.Context, ttsOutput genx.Stream, output *
 }
 
 func isStreamDone(err error) bool {
-	return err == nil || errors.Is(err, io.EOF) || errors.Is(err, genx.ErrDone)
+	return errors.Is(err, io.EOF) || errors.Is(err, genx.ErrDone)
 }
 
 func voicePattern(voice string) string {
