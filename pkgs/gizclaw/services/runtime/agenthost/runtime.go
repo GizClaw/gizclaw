@@ -246,6 +246,35 @@ func (s *Service) ReloadIfCurrentRevision(ctx context.Context, revision uint64) 
 	}
 	s.transitionMu.Lock()
 	defer s.transitionMu.Unlock()
+	return s.reloadIfCurrentRevision(ctx, revision)
+}
+
+// ReloadAndPushInputIfCurrentRevision restores a missing input and writes the
+// original chunk while one transition boundary remains held. The retry cannot
+// be redirected to a later workspace after recovery completes.
+func (s *Service) ReloadAndPushInputIfCurrentRevision(ctx context.Context, revision uint64, input InputPusher, chunk *genx.MessageChunk) (bool, error) {
+	if s == nil {
+		return false, ErrNilService
+	}
+	if input == nil {
+		return false, ErrMissingInputPusher
+	}
+	if err := s.validate(); err != nil {
+		return false, err
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	s.transitionMu.Lock()
+	defer s.transitionMu.Unlock()
+	reloaded, err := s.reloadIfCurrentRevision(ctx, revision)
+	if !reloaded || err != nil {
+		return reloaded, err
+	}
+	return true, input.Push(ctx, chunk)
+}
+
+func (s *Service) reloadIfCurrentRevision(ctx context.Context, revision uint64) (bool, error) {
 	if revision%2 != 0 || s.revision.Load() != revision {
 		return false, nil
 	}

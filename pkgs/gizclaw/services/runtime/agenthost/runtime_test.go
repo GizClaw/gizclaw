@@ -268,6 +268,81 @@ func TestServicePushInputRequiresPusher(t *testing.T) {
 	}
 }
 
+func TestServiceReloadAndPushKeepsRetryInsideTransition(t *testing.T) {
+	ctx := context.Background()
+	publicKey := testPublicKey(t)
+	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	if _, err := store.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
+		t.Fatalf("SetRunAgent() error = %v", err)
+	}
+	svc := &Service{
+		Host:      &fakeHost{output: newBlockingStream()},
+		PeerRun:   store,
+		PublicKey: publicKey,
+		Source: StreamSourceFunc(func(context.Context) (genx.Stream, error) {
+			return NewInputStream(1), nil
+		}),
+		Consumer: StreamConsumerFunc(func(ctx context.Context, _ genx.Stream) error {
+			<-ctx.Done()
+			return nil
+		}),
+	}
+	defer func() {
+		if _, err := svc.Stop(ctx); err != nil {
+			t.Errorf("Stop() error = %v", err)
+		}
+	}()
+	pushEntered := make(chan struct{})
+	pushRelease := make(chan struct{})
+	recoveryDone := make(chan struct {
+		reloaded bool
+		err      error
+	}, 1)
+	go func() {
+		reloaded, err := svc.ReloadAndPushInputIfCurrentRevision(ctx, svc.RuntimeRevision(), inputPusherFunc(func(context.Context, *genx.MessageChunk) error {
+			close(pushEntered)
+			<-pushRelease
+			return nil
+		}), &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "audio", BeginOfStream: true}})
+		recoveryDone <- struct {
+			reloaded bool
+			err      error
+		}{reloaded: reloaded, err: err}
+	}()
+	select {
+	case <-pushEntered:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for recovery retry")
+	}
+	selectionDone := make(chan error, 1)
+	go func() {
+		_, err := svc.SetRunAgent(ctx, apitypes.AgentSelection{WorkspaceName: "assistant"})
+		selectionDone <- err
+	}()
+	select {
+	case err := <-selectionDone:
+		t.Fatalf("SetRunAgent() completed while recovery retry held the transition boundary: %v", err)
+	case <-time.After(100 * time.Millisecond):
+	}
+	close(pushRelease)
+	select {
+	case result := <-recoveryDone:
+		if result.err != nil || !result.reloaded {
+			t.Fatalf("ReloadAndPushInputIfCurrentRevision() = (%v, %v), want (true, nil)", result.reloaded, result.err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for recovery retry")
+	}
+	select {
+	case err := <-selectionDone:
+		if err != nil {
+			t.Fatalf("SetRunAgent() error = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for selection")
+	}
+}
+
 func TestServiceSelectionChangeInvalidatesInputRecovery(t *testing.T) {
 	ctx := context.Background()
 	publicKey := testPublicKey(t)
