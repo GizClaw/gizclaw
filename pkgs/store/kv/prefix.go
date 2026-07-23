@@ -113,6 +113,15 @@ func (s *prefixedStore) BatchMutate(ctx context.Context, entries []Entry, keys [
 	return s.base.BatchMutate(ctx, prefixedEntries, prefixedKeys)
 }
 
+func (s *prefixedStore) CreateIfAbsent(ctx context.Context, guard Entry, entries []Entry) ([]byte, bool, error) {
+	prefixedEntries := make([]Entry, len(entries))
+	for i, entry := range entries {
+		prefixedEntries[i] = Entry{Key: s.prefixedKey(entry.Key), Value: entry.Value, Deadline: entry.Deadline}
+	}
+	guard.Key = s.prefixedKey(guard.Key)
+	return CreateIfAbsent(ctx, s.base, guard, prefixedEntries)
+}
+
 func (s *prefixedStore) Close() error {
 	return nil
 }

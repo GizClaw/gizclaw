@@ -114,7 +114,7 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 		t.Fatalf("DeleteWorkspace() response = %#v", deleteResp)
 	}
 	if len(runtime.deleted) != 0 {
-		t.Fatalf("runtime deleted during fast delete = %#v", runtime.deleted)
+		t.Fatalf("runtime deleted during pending-deletion request = %#v", runtime.deleted)
 	}
 	if pending, err := pendingdeletion.HasLocator(ctx, srv.Store, pendingdeletion.KindWorkspace, "alpha001"); err != nil || !pending {
 		t.Fatalf("workspace pending deletion = %v, error = %v", pending, err)
@@ -124,22 +124,30 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetWorkspace() after delete error = %v", err)
 	}
-	if _, ok := getAfterDelete.(adminhttp.GetWorkspace404JSONResponse); !ok {
+	if _, ok := getAfterDelete.(adminhttp.GetWorkspace200JSONResponse); !ok {
 		t.Fatalf("GetWorkspace() after delete response = %#v", getAfterDelete)
+	}
+	listAfterDelete, err := srv.ListWorkspaces(ctx, adminhttp.ListWorkspacesRequestObject{})
+	if err != nil {
+		t.Fatalf("ListWorkspaces() after delete error = %v", err)
+	}
+	listedAfterDelete, ok := listAfterDelete.(adminhttp.ListWorkspaces200JSONResponse)
+	if !ok || len(listedAfterDelete.Items) != 1 || listedAfterDelete.Items[0].Name != "alpha001" {
+		t.Fatalf("ListWorkspaces() after delete = %#v", listAfterDelete)
 	}
 	createAfterDelete, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &createBody})
 	if err != nil {
 		t.Fatalf("CreateWorkspace() while pending error = %v", err)
 	}
-	if response, ok := createAfterDelete.(adminhttp.CreateWorkspace409JSONResponse); !ok || response.Error.Code != WorkspacePendingDeletionCode {
-		t.Fatalf("CreateWorkspace() while pending response = %#v", createAfterDelete)
+	if _, ok := createAfterDelete.(adminhttp.CreateWorkspace409JSONResponse); !ok {
+		t.Fatalf("CreateWorkspace() while retained response = %#v", createAfterDelete)
 	}
 	putAfterDelete, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Name: "alpha001", Body: &updateBody})
 	if err != nil {
 		t.Fatalf("PutWorkspace() while pending error = %v", err)
 	}
-	if response, ok := putAfterDelete.(adminhttp.PutWorkspace409JSONResponse); !ok || response.Error.Code != WorkspacePendingDeletionCode {
-		t.Fatalf("PutWorkspace() while pending response = %#v", putAfterDelete)
+	if _, ok := putAfterDelete.(adminhttp.PutWorkspace200JSONResponse); !ok {
+		t.Fatalf("PutWorkspace() while marked response = %#v", putAfterDelete)
 	}
 	invalidPutBody := updateBody
 	invalidPutBody.Name = "other-workspace"
@@ -149,9 +157,6 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 	}
 	if _, ok := invalidPutAfterDelete.(adminhttp.PutWorkspace400JSONResponse); !ok {
 		t.Fatalf("PutWorkspace() invalid while pending response = %#v, want 400", invalidPutAfterDelete)
-	}
-	if _, _, err := srv.CreateSystemWorkspace(ctx, createBody); !errors.Is(err, ErrWorkspacePendingDeletion) {
-		t.Fatalf("CreateSystemWorkspace() while pending error = %v", err)
 	}
 }
 
@@ -254,7 +259,7 @@ func TestWorkspaceDeleteSerializesWithPut(t *testing.T) {
 		response, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Name: body.Name, Body: &body})
 		if err == nil {
 			switch response.(type) {
-			case adminhttp.PutWorkspace200JSONResponse, adminhttp.PutWorkspace409JSONResponse:
+			case adminhttp.PutWorkspace200JSONResponse:
 			default:
 				err = fmt.Errorf("PutWorkspace response = %#v", response)
 			}
@@ -267,8 +272,8 @@ func TestWorkspaceDeleteSerializesWithPut(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if _, err := getWorkspace(ctx, srv.Store, body.Name); !errors.Is(err, kv.ErrNotFound) {
-		t.Fatalf("workspace after concurrent delete/put error = %v, want kv.ErrNotFound", err)
+	if _, err := getWorkspace(ctx, srv.Store, body.Name); err != nil {
+		t.Fatalf("workspace after concurrent delete/put error = %v", err)
 	}
 	if pending, err := pendingdeletion.HasLocator(ctx, srv.Store, pendingdeletion.KindWorkspace, body.Name); err != nil || !pending {
 		t.Fatalf("workspace pending deletion = %v, error = %v", pending, err)

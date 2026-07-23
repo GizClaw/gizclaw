@@ -24,10 +24,9 @@ import (
 )
 
 var (
-	ErrPeerNotFound        = errors.New("peer: peer not found")
-	ErrPeerAlreadyExists   = errors.New("peer: peer already exists")
-	ErrInvalidInfo         = errors.New("peer: invalid device info")
-	ErrPeerPendingDeletion = errors.New("peer: pending deletion")
+	ErrPeerNotFound      = errors.New("peer: peer not found")
+	ErrPeerAlreadyExists = errors.New("peer: peer already exists")
+	ErrInvalidInfo       = errors.New("peer: invalid device info")
 )
 
 const (

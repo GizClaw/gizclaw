@@ -30,6 +30,10 @@ type testGiznetSecurityPolicy struct {
 	allowService func(giznet.PublicKey, uint64) bool
 }
 
+type storeWithoutAtomicCreate struct {
+	kv.Store
+}
+
 func (p testGiznetSecurityPolicy) AllowPeer(giznet.PublicKey) bool {
 	return true
 }
@@ -51,6 +55,43 @@ func TestServerListenRequiresPeerStore(t *testing.T) {
 	err = server.Listen()
 	if err == nil || !strings.Contains(err.Error(), "nil peer store") {
 		t.Fatalf("Listen error = %v, want nil peer store", err)
+	}
+}
+
+func TestServerInitRequiresPendingDeletionStoreCapabilities(t *testing.T) {
+	keyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair() error = %v", err)
+	}
+	for _, tc := range []struct {
+		name        string
+		server      *Server
+		wantMessage string
+	}{
+		{
+			name: "peer store",
+			server: &Server{
+				LocalStatic: *keyPair,
+				PeerStore:   storeWithoutAtomicCreate{Store: kv.NewMemory(nil)},
+			},
+			wantMessage: "peer store",
+		},
+		{
+			name: "workspace store",
+			server: &Server{
+				LocalStatic:    *keyPair,
+				PeerStore:      kv.NewMemory(nil),
+				WorkspaceStore: storeWithoutAtomicCreate{Store: kv.NewMemory(nil)},
+			},
+			wantMessage: "workspace store",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.server.init()
+			if !errors.Is(err, kv.ErrCreateIfAbsentUnsupported) || !strings.Contains(err.Error(), tc.wantMessage) {
+				t.Fatalf("init() error = %v, want %q wrapping ErrCreateIfAbsentUnsupported", err, tc.wantMessage)
+			}
+		})
 	}
 }
 

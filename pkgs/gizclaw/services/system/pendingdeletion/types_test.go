@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 func TestRecordValidateRejectsInvalidEnvelope(t *testing.T) {
@@ -75,6 +77,12 @@ func TestNewRejectsEmptyOwnerPublicKey(t *testing.T) {
 	}
 }
 
+func TestNewRejectsPetWithoutOwner(t *testing.T) {
+	if _, err := New(KindPet, "pet-a", nil, ReasonResourceDelete, struct{}{}, time.Time{}); err == nil {
+		t.Fatal("New error = nil")
+	}
+}
+
 func TestNewCanonicalizesLocator(t *testing.T) {
 	owner := " peer-a "
 	record, err := New(KindPet, " pet-a ", &owner, ReasonResourceDelete, struct{}{}, time.Time{})
@@ -84,8 +92,45 @@ func TestNewCanonicalizesLocator(t *testing.T) {
 	if record.ResourceID != "pet-a" || record.OwnerPublicKey == nil || *record.OwnerPublicKey != "peer-a" {
 		t.Fatalf("New locator = %q, %v", record.ResourceID, record.OwnerPublicKey)
 	}
+	deletionID, err := uuid.Parse(record.DeletionID)
+	if err != nil {
+		t.Fatalf("New deletion ID = %q, want name-based UUID: %v", record.DeletionID, err)
+	}
+	if deletionID.Version() != 5 {
+		t.Fatalf("New deletion ID version = %d, want 5", deletionID.Version())
+	}
 	if owner != " peer-a " {
 		t.Fatalf("New mutated owner input = %q", owner)
+	}
+}
+
+func TestNewReusesResourceDeletionID(t *testing.T) {
+	first, err := New(KindWorkspace, "workspace-a", nil, ReasonResourceDelete, struct{}{}, time.Unix(1, 0))
+	if err != nil {
+		t.Fatalf("New(first): %v", err)
+	}
+	second, err := New(KindWorkspace, "workspace-a", nil, ReasonAdminDelete, struct{}{}, time.Unix(2, 0))
+	if err != nil {
+		t.Fatalf("New(second): %v", err)
+	}
+	if second.DeletionID != first.DeletionID {
+		t.Fatalf("deletion IDs = %q and %q, want one stable resource ID", first.DeletionID, second.DeletionID)
+	}
+}
+
+func TestNewScopesPetDeletionIDByOwner(t *testing.T) {
+	firstOwner := "peer-a"
+	secondOwner := "peer-b"
+	first, err := New(KindPet, "shared-pet", &firstOwner, ReasonResourceDelete, struct{}{}, time.Unix(1, 0))
+	if err != nil {
+		t.Fatalf("New(first): %v", err)
+	}
+	second, err := New(KindPet, "shared-pet", &secondOwner, ReasonResourceDelete, struct{}{}, time.Unix(1, 0))
+	if err != nil {
+		t.Fatalf("New(second): %v", err)
+	}
+	if first.DeletionID == second.DeletionID {
+		t.Fatalf("owner-scoped Pet deletion IDs both = %q", first.DeletionID)
 	}
 }
 

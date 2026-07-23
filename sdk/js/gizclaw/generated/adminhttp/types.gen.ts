@@ -5906,7 +5906,7 @@ export type CreateWorkspaceErrors = {
      */
     400: ErrorResponse;
     /**
-     * Workspace already exists or is pending deletion
+     * Workspace already exists
      */
     409: ErrorResponse;
     /**
@@ -6015,10 +6015,6 @@ export type PutWorkspaceErrors = {
      * Invalid workspace payload
      */
     400: ErrorResponse;
-    /**
-     * Workspace name is pending deletion
-     */
-    409: ErrorResponse;
     /**
      * Internal error
      */

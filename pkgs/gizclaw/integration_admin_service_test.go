@@ -189,8 +189,8 @@ func TestIntegrationAdminServiceWorkspaceLifecycle(t *testing.T) {
 	if _, err := deleteWorkspace(context.Background(), admin, "demo-workspace"); err != nil {
 		t.Fatalf("DeleteWorkspace error: %v", err)
 	}
-	if _, err := getWorkspace(context.Background(), admin, "demo-workspace"); err == nil {
-		t.Fatal("GetWorkspace after delete expected error")
+	if _, err := getWorkspace(context.Background(), admin, "demo-workspace"); err != nil {
+		t.Fatalf("GetWorkspace after delete: %v", err)
 	}
 }
 

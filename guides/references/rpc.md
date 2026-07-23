@@ -17,7 +17,7 @@
 | 7 | `server.runtime.get` | 读取当前 Peer 的在线状态、最后地址、最后在线时间和传输字节统计。 |
 | 8 | `server.status.get` | 读取当前 Peer 最近上报的电量、充电、GNSS、音量、静音等状态。 |
 | 91 | `server.register` | 使用 RegistrationToken 为当前 Peer 选择 RuntimeProfile，持久化并返回可选 Firmware ID。 |
-| 94 | `server.peer.delete` | 原子删除当前 Peer 并写入 pending-deletion handoff；立即拒绝当前连接的新工作，尝试返回空 acknowledgement 与 EOS，随后无条件关闭完整连接。 |
+| 94 | `server.peer.delete` | 原子创建或复用当前 Peer 的 pending-deletion handoff，同时保留 Peer；立即拒绝当前连接的新工作，尝试返回空 acknowledgement 与 EOS，随后无条件关闭完整连接。 |
 
 ## Agent 与运行中的 Workspace
 
@@ -54,7 +54,7 @@ Firmware 不属于 RuntimeProfile catalog。RegistrationToken 可以为 Peer 绑
 | 25 | `server.workspace.get` | 按 name 读取一个 Workspace。 |
 | 26 | `server.workspace.create` | 使用 Collection 与 RuntimeProfile `workflow_alias` 创建当前 Peer 的 Workspace。 |
 | 27 | `server.workspace.put` | 更新当前 Peer 拥有的 Workspace 配置。 |
-| 28 | `server.workspace.delete` | 原子删除当前 Peer 拥有的用户 Workspace 并写入 pending-deletion handoff；system Workspace 不可删除。 |
+| 28 | `server.workspace.delete` | 为当前 Peer 拥有的用户 Workspace 原子创建或复用 pending-deletion handoff，同时保留 Workspace；system Workspace 不可删除。 |
 | 29 | `server.workspace.history.list` | 分页列出指定 Workspace 的 history。 |
 | 30 | `server.workspace.history.get` | 读取指定 Workspace 的一条 history。 |
 | 31 | `server.workspace.history.audio.get` | 返回 history 音频 metadata，并通过 binary frames 传输音频 bytes。 |
@@ -120,7 +120,7 @@ Workflow、Model 与 Voice 由当前 RuntimeProfile 投影为安全 alias catalo
 | 67 | `server.pet.get` | 按 ID 读取当前 Peer 的 Pet。 |
 | 68 | `runtime.adopt` | 按当前 connection 的 RuntimeProfile 领养 Pet；可提供 peer-scoped Pet ID，使重复请求返回已有 Pet 和原始 transaction 而不重复扣费。 |
 | 69 | `server.pet.put` | 修改当前 Peer 的 Pet display name。 |
-| 70 | `server.pet.delete` | 原子删除当前 Peer 的 Pet 并写入 Pet pending-deletion handoff；保留绑定的 system Workspace。 |
+| 70 | `server.pet.delete` | 为当前 Peer 的 Pet 原子创建或复用 pending-deletion handoff，同时保留 Pet 与绑定的 system Workspace。 |
 | 71 | `server.pet.drive` | 对 Pet 执行 action 或提交 game result，并原子返回 Pet、Points、Badge 与 reward 变化。 |
 | 72 | `server.points.get` | 读取当前 Peer 与 RuntimeProfile 的 Points account。 |
 | 73 | `server.points.transactions.list` | 分页列出 Points transactions。 |

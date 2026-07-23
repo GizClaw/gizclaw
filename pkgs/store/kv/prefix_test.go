@@ -193,6 +193,47 @@ func TestPrefixedStoreBatchSetPreservesDeadline(t *testing.T) {
 	}
 }
 
+func TestPrefixedStoreCreateIfAbsentScopesKeysAndForwardsResult(t *testing.T) {
+	ctx := context.Background()
+	base := kv.NewMemory(nil)
+	store := kv.Prefixed(base, kv.Key{"service", "pending"})
+	guard := kv.Entry{Key: kv.Key{"locators", "peer-a"}, Value: []byte("deletion-a")}
+	record := kv.Entry{Key: kv.Key{"records", "deletion-a"}, Value: []byte("record-a")}
+
+	existing, created, err := kv.CreateIfAbsent(ctx, store, guard, []kv.Entry{record})
+	if err != nil {
+		t.Fatalf("CreateIfAbsent(first): %v", err)
+	}
+	if !created || existing != nil {
+		t.Fatalf("CreateIfAbsent(first) = (%q, %v), want (nil, true)", existing, created)
+	}
+	if value, err := base.Get(ctx, kv.Key{"service", "pending", "locators", "peer-a"}); err != nil || string(value) != "deletion-a" {
+		t.Fatalf("base Get(guard) = %q, %v", value, err)
+	}
+	if value, err := base.Get(ctx, kv.Key{"service", "pending", "records", "deletion-a"}); err != nil || string(value) != "record-a" {
+		t.Fatalf("base Get(record) = %q, %v", value, err)
+	}
+	if _, err := base.Get(ctx, guard.Key); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("base Get(unprefixed guard) error = %v, want ErrNotFound", err)
+	}
+
+	existing, created, err = kv.CreateIfAbsent(
+		ctx,
+		store,
+		kv.Entry{Key: guard.Key, Value: []byte("deletion-b")},
+		[]kv.Entry{{Key: kv.Key{"records", "deletion-b"}, Value: []byte("record-b")}},
+	)
+	if err != nil {
+		t.Fatalf("CreateIfAbsent(second): %v", err)
+	}
+	if created || string(existing) != "deletion-a" {
+		t.Fatalf("CreateIfAbsent(second) = (%q, %v), want (deletion-a, false)", existing, created)
+	}
+	if _, err := base.Get(ctx, kv.Key{"service", "pending", "records", "deletion-b"}); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("base Get(second record) error = %v, want ErrNotFound", err)
+	}
+}
+
 func TestPrefixedStoreClonesPrefix(t *testing.T) {
 	ctx := context.Background()
 	base := kv.NewMemory(nil)
