@@ -261,6 +261,13 @@ func TestServicePushInputDropsSupersededRevision(t *testing.T) {
 	}
 }
 
+func TestServicePushInputRequiresPusher(t *testing.T) {
+	pushed, err := (&Service{}).PushInputIfCurrentRevision(context.Background(), 0, nil, nil)
+	if pushed || !errors.Is(err, ErrMissingInputPusher) {
+		t.Fatalf("PushInputIfCurrentRevision() = (%v, %v), want (false, %v)", pushed, err, ErrMissingInputPusher)
+	}
+}
+
 func TestServiceSelectionChangeInvalidatesInputRecovery(t *testing.T) {
 	ctx := context.Background()
 	publicKey := testPublicKey(t)

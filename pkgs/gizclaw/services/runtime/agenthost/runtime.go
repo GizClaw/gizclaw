@@ -18,13 +18,14 @@ import (
 )
 
 var (
-	ErrNilService        = errors.New("agenthost: nil service")
-	ErrMissingHost       = errors.New("agenthost: host is required")
-	ErrMissingPeerRun    = errors.New("agenthost: peer run store is required")
-	ErrMissingSource     = errors.New("agenthost: stream source is required")
-	ErrMissingConsumer   = errors.New("agenthost: stream consumer is required")
-	ErrInvalidPublicKey  = errors.New("agenthost: invalid public key")
-	ErrNoActiveWorkspace = errors.New("agenthost: no active workspace")
+	ErrNilService         = errors.New("agenthost: nil service")
+	ErrMissingHost        = errors.New("agenthost: host is required")
+	ErrMissingPeerRun     = errors.New("agenthost: peer run store is required")
+	ErrMissingSource      = errors.New("agenthost: stream source is required")
+	ErrMissingInputPusher = errors.New("agenthost: input pusher is required")
+	ErrMissingConsumer    = errors.New("agenthost: stream consumer is required")
+	ErrInvalidPublicKey   = errors.New("agenthost: invalid public key")
+	ErrNoActiveWorkspace  = errors.New("agenthost: no active workspace")
 )
 
 type PeerRunStore interface {
@@ -217,7 +218,7 @@ func (s *Service) PushInputIfCurrentRevision(ctx context.Context, revision uint6
 		return false, ErrNilService
 	}
 	if input == nil {
-		return false, ErrMissingSource
+		return false, ErrMissingInputPusher
 	}
 	if ctx == nil {
 		ctx = context.Background()
