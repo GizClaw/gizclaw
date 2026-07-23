@@ -464,6 +464,27 @@ func TestServiceInputRecoveryDropsPendingWorkspaceAfterRuntimeStops(t *testing.T
 	}
 }
 
+func TestServiceSameActiveSelectionAfterRuntimeStopsKeepsRevision(t *testing.T) {
+	ctx := context.Background()
+	publicKey := testPublicKey(t)
+	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	demo := apitypes.AgentSelection{WorkspaceName: "demo"}
+	if _, err := store.SetRunAgent(ctx, publicKey, demo); err != nil {
+		t.Fatalf("SetRunAgent(demo) error = %v", err)
+	}
+	if _, err := store.ActivateRunAgent(ctx, publicKey, demo); err != nil {
+		t.Fatalf("ActivateRunAgent(demo) error = %v", err)
+	}
+	svc := testService(t, publicKey, store, &fakeHost{})
+	observed := svc.RuntimeRevision()
+	if _, err := svc.SetRunAgent(ctx, demo); err != nil {
+		t.Fatalf("SetRunAgent(demo) error = %v", err)
+	}
+	if got := svc.RuntimeRevision(); got != observed {
+		t.Fatalf("RuntimeRevision() = %d, want %d", got, observed)
+	}
+}
+
 func TestRuntimeProfileToolBindingsPreserveAliases(t *testing.T) {
 	tools := map[string]apitypes.RuntimeProfileBinding{
 		"weather": {ResourceId: "tool-weather"},

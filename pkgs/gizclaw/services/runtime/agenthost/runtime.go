@@ -223,7 +223,11 @@ func (s *Service) SetRunAgent(ctx context.Context, selection apitypes.AgentSelec
 	defer s.unlockTransition()
 	ctx, finish := s.beginCancellableTransition(ctx)
 	defer finish()
-	if current := s.currentRuntime(); current != nil && current.workspace == selection.WorkspaceName {
+	run, err := s.PeerRun.GetRunAgent(ctx, s.PublicKey)
+	if err != nil {
+		return apitypes.PeerRunAgent{}, err
+	}
+	if s.activeWorkspace(run) == selection.WorkspaceName {
 		return s.PeerRun.SetRunAgent(ctx, s.PublicKey, selection)
 	}
 	s.beginTransition()
@@ -365,13 +369,18 @@ func (s *Service) pendingSelectionChangesRuntime(run apitypes.PeerRunAgent) bool
 	if run.Pending == nil {
 		return false
 	}
-	workspace := ""
-	if rt := s.currentRuntime(); rt != nil {
-		workspace = rt.workspace
-	} else if run.Active != nil {
-		workspace = run.Active.WorkspaceName
-	}
+	workspace := s.activeWorkspace(run)
 	return workspace != "" && workspace != run.Pending.WorkspaceName
+}
+
+func (s *Service) activeWorkspace(run apitypes.PeerRunAgent) string {
+	if rt := s.currentRuntime(); rt != nil {
+		return rt.workspace
+	}
+	if run.Active != nil {
+		return run.Active.WorkspaceName
+	}
+	return ""
 }
 
 func runtimeProfileFingerprint(profile apitypes.RuntimeProfile) string {
