@@ -92,12 +92,33 @@ test.beforeEach(async ({ page }) => {
       "/peers": pageResponse([
         {
           auto_registered: false,
+          created_at: "2026-07-01T00:00:00Z",
           public_key: "peer-public-key-1",
-          role: "peer",
-          status: "approved",
+          role: "client",
+          status: "active",
           updated_at: "2026-07-01T00:00:00Z",
         },
       ]),
+      "/peers/peer-public-key-1": {
+        approved_at: "2026-07-01T00:00:00Z",
+        auto_registered: false,
+        created_at: "2026-07-01T00:00:00Z",
+        public_key: "peer-public-key-1",
+        role: "client",
+        status: "active",
+        updated_at: "2026-07-01T00:00:00Z",
+      },
+      "/peers/peer-public-key-1/info": {
+        emoji: "📍",
+        name: "Telemetry Peer",
+      },
+      "/peers/peer-public-key-1/runtime": {
+        last_addr: "127.0.0.1:9820",
+        last_seen_at: "2026-07-01T00:00:00Z",
+        online: true,
+        rx_bytes: 1024,
+        tx_bytes: 2048,
+      },
       "/server-info": {
         build_commit: "test-build",
         public_key: "server-public-key",
@@ -170,6 +191,53 @@ test.beforeEach(async ({ page }) => {
       ) {
         return ogg();
       }
+      if (path === "/peers/peer-public-key-1/telemetry/latest") {
+        return json({
+          peer_public_key: "peer-public-key-1",
+          values: [
+            {
+              field: "battery.percent",
+              observed_at_unix_ms: 1782864000000,
+              value: 82,
+            },
+          ],
+        });
+      }
+      if (path === "/peers/peer-public-key-1/telemetry") {
+        const field = url.searchParams.get("field");
+        const points =
+          field === "gnss.latitude"
+            ? [
+                { observed_at_unix_ms: 1782864000000, value: 39.9042 },
+                { observed_at_unix_ms: 1782864060000, value: 39.9052 },
+              ]
+            : field === "gnss.longitude"
+              ? [
+                  { observed_at_unix_ms: 1782864000000, value: 116.4074 },
+                  { observed_at_unix_ms: 1782864060000, value: 116.4094 },
+                ]
+              : [
+                  { observed_at_unix_ms: 1782864000000, value: 80 },
+                  { observed_at_unix_ms: 1782864060000, value: 82 },
+                ];
+        return json({
+          end_time_ms: 1782864060000,
+          field,
+          peer_public_key: "peer-public-key-1",
+          points,
+          start_time_ms: 1782864000000,
+          step_ms: 60000,
+        });
+      }
+      if (path === "/peers/peer-public-key-1/telemetry/aggregate") {
+        return json({
+          aggregate: url.searchParams.get("aggregate"),
+          bucket_ms: Number(url.searchParams.get("bucket_ms")),
+          field: url.searchParams.get("field"),
+          peer_public_key: "peer-public-key-1",
+          points: [{ bucket_start_time_ms: 1782864000000, value: 81 }],
+        });
+      }
       return json(data[path] ?? pageResponse([]));
     };
   });
@@ -202,6 +270,29 @@ test("admin view renders full resource manager pages", async ({ page }) => {
   await page.getByRole("button", { name: "Friends" }).click();
   await expect(page.getByRole("heading", { name: "Friends" })).toBeVisible();
   await expect(page.getByText("peer-a <-> peer-b")).toBeVisible();
+});
+
+test("admin peer telemetry renders the MapLibre route", async ({ page }) => {
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+
+  await page.goto("/admin.html");
+  await page.getByRole("button", { name: "Peers" }).first().click();
+  await page.getByRole("link").filter({ hasText: "peer-public-key-1" }).click();
+  await page.getByRole("tab", { name: "Telemetry" }).click();
+
+  await expect(page.getByText("2 points")).toBeVisible();
+  await expect(page.getByText("2 sampled points")).toBeVisible();
+  await expect(page.locator("canvas.maplibregl-canvas")).toBeVisible();
+  await expect(page.locator(".maplibregl-ctrl-zoom-in")).toBeVisible();
+  await expect(page.locator(".maplibregl-ctrl-zoom-out")).toBeVisible();
+  await expect(page.getByText("Map unavailable", { exact: true })).toHaveCount(
+    0,
+  );
+  await expect(
+    page.getByText("Map rendering unavailable", { exact: true }),
+  ).toHaveCount(0);
+  expect(pageErrors).toEqual([]);
 });
 
 test("admin view covers provider, AI, social, and settings sections", async ({
