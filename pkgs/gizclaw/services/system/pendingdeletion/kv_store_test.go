@@ -14,6 +14,15 @@ type storeWithoutCreateIfAbsent struct {
 	kv.Store
 }
 
+type createIfAbsentWinnerStore struct {
+	kv.Store
+	existingID string
+}
+
+func (s createIfAbsentWinnerStore) CreateIfAbsent(context.Context, kv.Entry, []kv.Entry) ([]byte, bool, error) {
+	return []byte(s.existingID), false, nil
+}
+
 func TestCreateOrGetRejectsStoreWithoutAtomicCreate(t *testing.T) {
 	ctx := context.Background()
 	store := storeWithoutCreateIfAbsent{Store: kv.NewMemory(nil)}
@@ -26,6 +35,60 @@ func TestCreateOrGetRejectsStoreWithoutAtomicCreate(t *testing.T) {
 	}
 	if _, err := store.Get(ctx, byIDKey(record.DeletionID)); !errors.Is(err, kv.ErrNotFound) {
 		t.Fatalf("Get(record) error = %v, want ErrNotFound", err)
+	}
+}
+
+func TestCreateOrGetRejectsMismatchedFixedLocator(t *testing.T) {
+	ctx := context.Background()
+	store := kv.NewMemory(nil)
+	other, err := New(KindWorkspace, "workspace-b", nil, ReasonResourceDelete, struct{}{}, time.Unix(1, 0))
+	if err != nil {
+		t.Fatalf("New(other): %v", err)
+	}
+	entries, err := KVEntries(other)
+	if err != nil {
+		t.Fatalf("KVEntries(other): %v", err)
+	}
+	entries = append(entries, kv.Entry{
+		Key:   byLocatorKey(KindWorkspace, "workspace-a"),
+		Value: []byte(other.DeletionID),
+	})
+	if err := store.BatchSet(ctx, entries); err != nil {
+		t.Fatalf("BatchSet: %v", err)
+	}
+	record, err := New(KindWorkspace, "workspace-a", nil, ReasonResourceDelete, struct{}{}, time.Unix(2, 0))
+	if err != nil {
+		t.Fatalf("New(record): %v", err)
+	}
+	if _, _, err := CreateOrGet(ctx, store, record); err == nil {
+		t.Fatal("CreateOrGet error = nil")
+	}
+	if exists, err := HasLocator(ctx, store, KindWorkspace, record.ResourceID); err == nil || exists {
+		t.Fatalf("HasLocator = %v, %v, want integrity error", exists, err)
+	}
+}
+
+func TestCreateOrGetRejectsMismatchedConcurrentWinner(t *testing.T) {
+	ctx := context.Background()
+	base := kv.NewMemory(nil)
+	other, err := New(KindWorkspace, "workspace-b", nil, ReasonResourceDelete, struct{}{}, time.Unix(1, 0))
+	if err != nil {
+		t.Fatalf("New(other): %v", err)
+	}
+	entries, err := KVEntries(other)
+	if err != nil {
+		t.Fatalf("KVEntries(other): %v", err)
+	}
+	if err := base.BatchSet(ctx, entries); err != nil {
+		t.Fatalf("BatchSet(other): %v", err)
+	}
+	store := createIfAbsentWinnerStore{Store: base, existingID: other.DeletionID}
+	record, err := New(KindWorkspace, "workspace-a", nil, ReasonResourceDelete, struct{}{}, time.Unix(2, 0))
+	if err != nil {
+		t.Fatalf("New(record): %v", err)
+	}
+	if _, _, err := CreateOrGet(ctx, store, record); err == nil {
+		t.Fatal("CreateOrGet error = nil")
 	}
 }
 
@@ -187,6 +250,32 @@ func TestHasLocatorRejectsEmptyFixedLocator(t *testing.T) {
 	}
 }
 
+func TestHasLocatorRejectsMissingFixedRecord(t *testing.T) {
+	ctx := context.Background()
+	store := kv.NewMemory(nil)
+	if err := store.Set(ctx, byLocatorKey(KindPeer, "peer-a"), []byte("10000000-0000-4000-8000-000000000001")); err != nil {
+		t.Fatalf("Set(locator): %v", err)
+	}
+	exists, err := HasLocator(ctx, store, KindPeer, "peer-a")
+	if err == nil {
+		t.Fatalf("HasLocator(missing record) = %v, nil, want error", exists)
+	}
+}
+
+func TestHasLocatorRejectsMissingLegacyRecord(t *testing.T) {
+	ctx := context.Background()
+	store := kv.NewMemory(nil)
+	legacyID := "10000000-0000-4000-8000-000000000001"
+	key := append(legacyByLocatorPrefix(KindPeer, "peer-a"), legacyID)
+	if err := store.Set(ctx, key, nil); err != nil {
+		t.Fatalf("Set(legacy locator): %v", err)
+	}
+	exists, err := HasLocator(ctx, store, KindPeer, "peer-a")
+	if err == nil {
+		t.Fatalf("HasLocator(missing legacy record) = %v, nil, want error", exists)
+	}
+}
+
 func TestKVSourceRejectsMissingStore(t *testing.T) {
 	source := KVSource{}
 	if _, err := source.Get(context.Background(), "missing"); err == nil {
@@ -213,6 +302,26 @@ func TestGetRejectsInvalidStoredEnvelope(t *testing.T) {
 		t.Fatalf("Set: %v", err)
 	}
 	if _, err := Get(ctx, store, record.DeletionID); err == nil {
+		t.Fatal("Get error = nil")
+	}
+}
+
+func TestGetRejectsMismatchedStoredDeletionID(t *testing.T) {
+	ctx := context.Background()
+	store := kv.NewMemory(nil)
+	record, err := New(KindPeer, "peer-a", nil, ReasonPeerDelete, map[string]string{"public_key": "peer-a"}, time.Unix(1, 0))
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	data, err := json.Marshal(record)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	otherID := "10000000-0000-4000-8000-000000000001"
+	if err := store.Set(ctx, byIDKey(otherID), data); err != nil {
+		t.Fatalf("Set: %v", err)
+	}
+	if _, err := Get(ctx, store, otherID); err == nil {
 		t.Fatal("Get error = nil")
 	}
 }

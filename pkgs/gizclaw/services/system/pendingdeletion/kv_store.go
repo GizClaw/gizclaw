@@ -84,6 +84,9 @@ func CreateOrGet(ctx context.Context, store kv.Store, record Record) (Record, bo
 	if err != nil {
 		return Record{}, false, fmt.Errorf("pending deletion: get existing locator record: %w", err)
 	}
+	if err := validateLocatorRecord(existing, record.Kind, record.ResourceID); err != nil {
+		return Record{}, false, err
+	}
 	return existing, false, nil
 }
 
@@ -96,6 +99,9 @@ func resolveExistingLocator(ctx context.Context, store kv.Store, kind Kind, reso
 		existing, err := Get(ctx, store, string(fixedID))
 		if err != nil {
 			return Record{}, false, fmt.Errorf("pending deletion: get existing locator record: %w", err)
+		}
+		if err := validateLocatorRecord(existing, kind, resourceID); err != nil {
+			return Record{}, false, err
 		}
 		return existing, true, nil
 	} else if !errors.Is(err, kv.ErrNotFound) {
@@ -114,13 +120,8 @@ func resolveExistingLocator(ctx context.Context, store kv.Store, kind Kind, reso
 		if err != nil {
 			return Record{}, false, fmt.Errorf("pending deletion: get legacy locator record: %w", err)
 		}
-		if candidate.Kind != kind || candidate.ResourceID != resourceID {
-			return Record{}, false, fmt.Errorf(
-				"pending deletion: legacy locator %q references %s %q",
-				deletionID,
-				candidate.Kind,
-				candidate.ResourceID,
-			)
+		if err := validateLocatorRecord(candidate, kind, resourceID); err != nil {
+			return Record{}, false, err
 		}
 		if legacy == nil ||
 			candidate.DeletedAt.Before(legacy.DeletedAt) ||
@@ -149,7 +150,24 @@ func resolveExistingLocator(ctx context.Context, store kv.Store, kind Kind, reso
 	if err != nil {
 		return Record{}, false, fmt.Errorf("pending deletion: get migrated locator record: %w", err)
 	}
+	if err := validateLocatorRecord(existing, kind, resourceID); err != nil {
+		return Record{}, false, err
+	}
 	return existing, true, nil
+}
+
+func validateLocatorRecord(record Record, kind Kind, resourceID string) error {
+	if record.Kind == kind && record.ResourceID == resourceID {
+		return nil
+	}
+	return fmt.Errorf(
+		"pending deletion: %s %q locator references %s %q record %q",
+		kind,
+		resourceID,
+		record.Kind,
+		record.ResourceID,
+		record.DeletionID,
+	)
 }
 
 // Get loads and validates one KV-backed deletion event by ID.
@@ -164,6 +182,13 @@ func Get(ctx context.Context, store kv.Store, deletionID string) (Record, error)
 	var record Record
 	if err := json.Unmarshal(data, &record); err != nil {
 		return Record{}, fmt.Errorf("pending deletion: decode %s: %w", deletionID, err)
+	}
+	if record.DeletionID != deletionID {
+		return Record{}, fmt.Errorf(
+			"pending deletion: record key %q contains deletion id %q",
+			deletionID,
+			record.DeletionID,
+		)
 	}
 	if err := record.Validate(); err != nil {
 		return Record{}, fmt.Errorf("pending deletion: validate %s: %w", deletionID, err)
@@ -180,14 +205,33 @@ func HasLocator(ctx context.Context, store kv.Store, kind Kind, resourceID strin
 		if len(deletionID) == 0 {
 			return false, errors.New("pending deletion: empty KV locator record")
 		}
+		record, err := Get(ctx, store, string(deletionID))
+		if err != nil {
+			return false, fmt.Errorf("pending deletion: get locator record: %w", err)
+		}
+		if err := validateLocatorRecord(record, kind, resourceID); err != nil {
+			return false, err
+		}
 		return true, nil
 	} else if !errors.Is(err, kv.ErrNotFound) {
 		return false, err
 	}
 	// Legacy #469 entries used a deletion-ID suffix. Keep source lookup
 	// compatible until the cleanup processor consumes those records.
-	for _, err := range store.List(ctx, legacyByLocatorPrefix(kind, resourceID)) {
+	prefix := legacyByLocatorPrefix(kind, resourceID)
+	for entry, err := range store.List(ctx, prefix) {
 		if err != nil {
+			return false, err
+		}
+		if len(entry.Key) != len(prefix)+1 {
+			continue
+		}
+		deletionID := entry.Key[len(prefix)]
+		record, err := Get(ctx, store, deletionID)
+		if err != nil {
+			return false, fmt.Errorf("pending deletion: get legacy locator record: %w", err)
+		}
+		if err := validateLocatorRecord(record, kind, resourceID); err != nil {
 			return false, err
 		}
 		return true, nil
