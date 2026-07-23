@@ -295,7 +295,7 @@ pkgs/gizclaw/services/ai/workspace/server.go:595:6: boolPointer can be an inlina
 pkgs/gizclaw/services/ai/workspace/server.go:68:3: Replace m[k]=v loop with maps.Copy
 pkgs/gizclaw/services/ai/workspace/server.go:78:3: Replace m[k]=v loop with maps.Copy
 pkgs/gizclaw/services/ai/workspace/server.go:88:3: Replace m[k]=v loop with maps.Copy
-pkgs/gizclaw/services/ai/workspace/server.go:968:4: Replace m[k]=v loop with maps.Copy
+pkgs/gizclaw/services/ai/workspace/server.go:985:4: Replace m[k]=v loop with maps.Copy
 pkgs/gizclaw/services/device/firmware/artifact.go:574:23: Ranging over SplitSeq is more efficient
 pkgs/gizclaw/services/device/firmware/artifact.go:574:2: Loop can be simplified using slices.Contains
 pkgs/gizclaw/services/device/firmware/artifact_fuzz_test.go:78:23: Ranging over SplitSeq is more efficient
