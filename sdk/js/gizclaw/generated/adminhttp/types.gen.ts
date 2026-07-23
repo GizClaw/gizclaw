@@ -5906,7 +5906,7 @@ export type CreateWorkspaceErrors = {
      */
     400: ErrorResponse;
     /**
-     * Workspace already exists or is pending deletion
+     * Workspace already exists
      */
     409: ErrorResponse;
     /**
@@ -6016,7 +6016,7 @@ export type PutWorkspaceErrors = {
      */
     400: ErrorResponse;
     /**
-     * Workspace name is pending deletion
+     * Workspace name conflicts with an existing resource
      */
     409: ErrorResponse;
     /**

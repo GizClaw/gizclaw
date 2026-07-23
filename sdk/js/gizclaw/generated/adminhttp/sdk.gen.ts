@@ -699,7 +699,7 @@ export const createWorkspace = <ThrowOnError extends boolean = false>(options: O
 /**
  * Delete a workspace
  *
- * Immediately removes a user-created Workspace and writes a durable pending-deletion handoff. System Workspaces cannot be deleted through this operation; physical runtime, history, assets, objects, and files are retained for asynchronous cleanup.
+ * Writes or reuses a durable pending-deletion handoff for a user-created Workspace while retaining the active Workspace and its indexes. System Workspaces cannot be deleted through this operation; physical runtime, history, assets, objects, and files are retained for later cleanup.
  */
 export const deleteWorkspace = <ThrowOnError extends boolean = false>(options: Options<DeleteWorkspaceData, ThrowOnError>): RequestResult<DeleteWorkspaceResponses, DeleteWorkspaceErrors, ThrowOnError> => (options.client ?? client).delete<DeleteWorkspaceResponses, DeleteWorkspaceErrors, ThrowOnError>({ url: '/workspaces/{name}', ...options });
 
@@ -776,7 +776,7 @@ export const findPubKeyByImei = <ThrowOnError extends boolean = false>(options: 
 /**
  * Delete a peer
  *
- * Immediately removes the active Peer registration and writes a durable pending-deletion handoff. An existing online connection is not forcibly closed by this Admin operation.
+ * Writes or reuses a durable pending-deletion handoff for the active Peer registration while retaining the Peer and its indexes. An existing online connection is not forcibly closed by this Admin operation.
  */
 export const deletePeer = <ThrowOnError extends boolean = false>(options: Options<DeletePeerData, ThrowOnError>): RequestResult<DeletePeerResponses, DeletePeerErrors, ThrowOnError> => (options.client ?? client).delete<DeletePeerResponses, DeletePeerErrors, ThrowOnError>({ url: '/peers/{publicKey}', ...options });
 
@@ -1112,7 +1112,7 @@ export const listPeerPets = <ThrowOnError extends boolean = false>(options: Opti
 /**
  * Delete a peer Pet
  *
- * Immediately removes the Pet row and writes a durable pending-deletion handoff in the same transaction. The Pet's bound system Workspace is retained.
+ * Writes or reuses a durable pending-deletion handoff for the Pet in the same transaction while retaining the Pet row. The Pet's bound system Workspace is retained.
  */
 export const deletePeerPet = <ThrowOnError extends boolean = false>(options: Options<DeletePeerPetData, ThrowOnError>): RequestResult<DeletePeerPetResponses, DeletePeerPetErrors, ThrowOnError> => (options.client ?? client).delete<DeletePeerPetResponses, DeletePeerPetErrors, ThrowOnError>({ url: '/peers/{publicKey}/pets/{id}', ...options });
 
