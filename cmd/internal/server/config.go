@@ -141,6 +141,9 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 	if _, exists := topLevel["serving-public"]; exists {
 		return ConfigFile{}, fmt.Errorf("server: serving-public is not supported; use serve-to-clients")
 	}
+	if _, exists := topLevel["system_tasks"]; exists {
+		return ConfigFile{}, fmt.Errorf("server: system_tasks is not supported; configure Pet model aliases in the RuntimeProfile")
+	}
 	var raw struct {
 		Identity       *IdentityConfig           `yaml:"identity"`
 		Listen         string                    `yaml:"listen"`

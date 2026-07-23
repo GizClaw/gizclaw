@@ -126,6 +126,21 @@ func TestFactoryRejectsMissingOrAmbiguousPetBinding(t *testing.T) {
 	}
 }
 
+func TestFactoryRejectsMissingPetContextProvider(t *testing.T) {
+	petSpec := apitypes.PetWorkflowSpec{}
+	parameters := petParameters(t)
+	_, err := (Factory{}).NewAgent(context.Background(), agenthost.Spec{
+		Workspace: apitypes.Workspace{Name: "pet-123", Parameters: &parameters},
+		Workflow: apitypes.Workflow{Spec: apitypes.WorkflowSpec{
+			Driver: apitypes.WorkflowDriverPet,
+			Pet:    &petSpec,
+		}},
+	})
+	if err == nil || !strings.Contains(err.Error(), "gameplay context provider") {
+		t.Fatalf("NewAgent() error = %v", err)
+	}
+}
+
 func TestFactoryRequiresConfiguredModelResourcesToBeOperational(t *testing.T) {
 	petSpec := apitypes.PetWorkflowSpec{}
 	parameters := petParameters(t)

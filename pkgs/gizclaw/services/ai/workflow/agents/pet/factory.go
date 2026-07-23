@@ -81,6 +81,13 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 			return nil, fmt.Errorf("pet: resolve model alias %q: %w", alias, err)
 		}
 	}
+	asr, err := f.GenX.ResolveTransformer(ctx, modelPattern(petASRModelAlias))
+	if err != nil {
+		return nil, fmt.Errorf("pet: resolve ASR model alias %q: %w", petASRModelAlias, err)
+	}
+	if asr.Model == nil || asr.Model.Kind != apitypes.ModelKindAsr {
+		return nil, fmt.Errorf("pet: model alias %q must resolve to an ASR model", petASRModelAlias)
+	}
 	memoryConfig, err := fixedPetMemory()
 	if err != nil {
 		return nil, err

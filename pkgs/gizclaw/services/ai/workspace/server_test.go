@@ -817,6 +817,23 @@ func TestServerValidatesRuntimeFlowcraftModelAliases(t *testing.T) {
 	}
 }
 
+func TestValidateDoubaoRealtimeOverridesRejectsTools(t *testing.T) {
+	tools := []apitypes.DoubaoRealtimeFunctionTool{{
+		Type: apitypes.DoubaoRealtimeFunctionToolTypeFunction,
+		Name: "get_weather",
+	}}
+	var parameters apitypes.WorkspaceParameters
+	if err := parameters.FromDoubaoRealtimeWorkspaceParameters(apitypes.DoubaoRealtimeWorkspaceParameters{
+		AgentType: apitypes.DoubaoRealtimeWorkspaceParametersAgentTypeDoubaoRealtime,
+		Tools:     &tools,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateDoubaoRealtimeOverrides(&parameters); err == nil || !strings.Contains(err.Error(), "tools are unsupported") {
+		t.Fatalf("validateDoubaoRealtimeOverrides() error = %v", err)
+	}
+}
+
 func TestServerValidatesRuntimeASTTranslateAliases(t *testing.T) {
 	t.Parallel()
 	srv := newTestServer(t)

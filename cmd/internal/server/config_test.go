@@ -178,6 +178,17 @@ endpoint: 127.0.0.1:9820
 	}
 }
 
+func TestParseConfigRejectsLegacySystemTasks(t *testing.T) {
+	_, err := parseConfigData([]byte(`
+system_tasks:
+  pet_flowcraft_workflow:
+    generate_model: legacy
+`))
+	if err == nil || !strings.Contains(err.Error(), "system_tasks is not supported") {
+		t.Fatalf("parseConfigData() error = %v", err)
+	}
+}
+
 func TestAdminPublicKeySecurityPolicy(t *testing.T) {
 	allowed := testPublicKey(1)
 	other := testPublicKey(2)

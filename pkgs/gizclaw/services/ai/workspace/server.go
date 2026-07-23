@@ -744,6 +744,9 @@ func (s *Server) validateReferences(ctx context.Context, store kv.Store, workspa
 	if workflow.Spec.Driver == apitypes.WorkflowDriverAstTranslate && runtimeAlias {
 		return s.validateASTTranslateOverrides(ctx, workspace.Parameters)
 	}
+	if workflow.Spec.Driver == apitypes.WorkflowDriverDoubaoRealtime {
+		return validateDoubaoRealtimeOverrides(workspace.Parameters)
+	}
 	if workflow.Spec.Driver != apitypes.WorkflowDriverFlowcraft {
 		return nil
 	}
@@ -774,6 +777,20 @@ func (s *Server) validateReferences(ctx context.Context, store kv.Store, workspa
 		if err := s.validateModelKind(ctx, "flowcraft parameter", reference.Role, modelID, visibleModelID, reference.Kind); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func validateDoubaoRealtimeOverrides(workspaceParameters *apitypes.WorkspaceParameters) error {
+	if workspaceParameters == nil {
+		return nil
+	}
+	parameters, err := workspaceParameters.AsDoubaoRealtimeWorkspaceParameters()
+	if err != nil {
+		return invalidWorkspaceReference("doubao_realtime parameters are required: %v", err)
+	}
+	if parameters.Tools != nil && len(*parameters.Tools) != 0 {
+		return invalidWorkspaceReference("doubao_realtime parameters.tools are unsupported until ToolCall is implemented")
 	}
 	return nil
 }

@@ -162,6 +162,23 @@ func TestValidateDriverSpecRequiresPetConfig(t *testing.T) {
 	}
 }
 
+func TestValidateDriverSpecRejectsDoubaoRealtimeTools(t *testing.T) {
+	tools := []apitypes.DoubaoRealtimeFunctionTool{{
+		Type: apitypes.DoubaoRealtimeFunctionToolTypeFunction,
+		Name: "get_weather",
+	}}
+	err := validateDriverSpec(apitypes.WorkflowSpec{
+		Driver: apitypes.WorkflowDriverDoubaoRealtime,
+		DoubaoRealtime: &apitypes.DoubaoRealtimeWorkflowSpec{
+			Model: "doubao-realtime",
+			Tools: &tools,
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "tools are unsupported") {
+		t.Fatalf("validateDriverSpec() error = %v", err)
+	}
+}
+
 func TestServerRejectsEmptyFlowcraftSpec(t *testing.T) {
 	t.Parallel()
 

@@ -667,6 +667,9 @@ func validateWorkflowRuntimeAliases(path string, workflow apitypes.WorkflowSpec,
 		if workflow.DoubaoRealtime == nil {
 			return fmt.Errorf("%s has no doubao_realtime spec", path)
 		}
+		if workflow.DoubaoRealtime.Tools != nil && len(*workflow.DoubaoRealtime.Tools) != 0 {
+			return fmt.Errorf("%s.tools are unsupported until ToolCall is implemented", path)
+		}
 		if err := requireModel("model", workflow.DoubaoRealtime.Model, apitypes.ModelKindRealtime); err != nil {
 			return err
 		}

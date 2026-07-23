@@ -381,6 +381,14 @@ func TestValidateVoiceProducingWorkflowsRequireRuntimeVoiceAliases(t *testing.T)
 	if err := validateWorkflowRuntimeAliases("workflows.collections.assistants.demo", realtime, models, &voices); err != nil {
 		t.Fatalf("validateWorkflowRuntimeAliases(Doubao alias) error = %v", err)
 	}
+	tools := []apitypes.DoubaoRealtimeFunctionTool{{
+		Type: apitypes.DoubaoRealtimeFunctionToolTypeFunction,
+		Name: "get_weather",
+	}}
+	realtime.DoubaoRealtime.Tools = &tools
+	if err := validateWorkflowRuntimeAliases("workflows.collections.assistants.demo", realtime, models, &voices); err == nil || !strings.Contains(err.Error(), "tools are unsupported") {
+		t.Fatalf("validateWorkflowRuntimeAliases(Doubao tools) error = %v", err)
+	}
 }
 
 func TestRuntimeProfileRejectsAliasesSharedAcrossResourceKinds(t *testing.T) {
