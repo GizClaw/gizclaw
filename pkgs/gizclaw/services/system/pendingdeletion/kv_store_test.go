@@ -32,26 +32,34 @@ func TestCreateOrGetMigratesLegacyLocator(t *testing.T) {
 			if err != nil {
 				t.Fatalf("New(legacy): %v", err)
 			}
-			entries, err := KVEntries(legacy)
-			if err != nil {
-				t.Fatalf("KVEntries(legacy): %v", err)
+			legacy.DeletionID = "ffffffff-ffff-4fff-8fff-ffffffffffff"
+			sameTime := legacy
+			sameTime.DeletionID = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+			later := legacy
+			later.DeletionID = "00000000-0000-4000-8000-000000000000"
+			later.DeletedAt = time.Unix(2, 0).UTC()
+			for _, item := range []Record{later, legacy, sameTime} {
+				entries, err := KVEntries(item)
+				if err != nil {
+					t.Fatalf("KVEntries(%s): %v", item.DeletionID, err)
+				}
+				legacyLocator := append(legacyByLocatorPrefix(item.Kind, item.ResourceID), item.DeletionID)
+				entries = append(entries, kv.Entry{Key: legacyLocator})
+				if err := store.BatchSet(ctx, entries); err != nil {
+					t.Fatalf("BatchSet(%s): %v", item.DeletionID, err)
+				}
 			}
-			legacyLocator := append(legacyByLocatorPrefix(legacy.Kind, legacy.ResourceID), legacy.DeletionID)
-			entries = append(entries, kv.Entry{Key: legacyLocator})
-			if err := store.BatchSet(ctx, entries); err != nil {
-				t.Fatalf("BatchSet(legacy): %v", err)
-			}
-			retry, err := New(KindWorkspace, "workspace-a", nil, ReasonResourceDelete, map[string]string{"name": "workspace-a"}, time.Unix(2, 0))
+			retry, err := New(KindWorkspace, "workspace-a", nil, ReasonResourceDelete, map[string]string{"name": "workspace-a"}, time.Unix(3, 0))
 			if err != nil {
 				t.Fatalf("New(retry): %v", err)
 			}
 
 			got, created, err := CreateOrGet(ctx, store, retry)
-			if err != nil || created || got.DeletionID != legacy.DeletionID {
+			if err != nil || created || got.DeletionID != sameTime.DeletionID {
 				t.Fatalf("CreateOrGet(retry) = %#v, %v, %v", got, created, err)
 			}
 			fixedID, err := store.Get(ctx, byLocatorKey(legacy.Kind, legacy.ResourceID))
-			if err != nil || string(fixedID) != legacy.DeletionID {
+			if err != nil || string(fixedID) != sameTime.DeletionID {
 				t.Fatalf("Get(fixed locator) = %q, %v", fixedID, err)
 			}
 			if _, err := store.Get(ctx, byIDKey(retry.DeletionID)); !errors.Is(err, kv.ErrNotFound) {

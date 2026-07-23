@@ -21,7 +21,7 @@ Defines owner context and KV index conventions used by persisted resources. On t
 
 ### pendingdeletion
 
-Defines the versioned, backend-neutral `PendingDeletion` envelope. A domain deletion request atomically creates or reuses one minimal cleanup descriptor in that resource's physical store while retaining the active resource and its indexes. Peer and user Workspace producers use KV; Pet uses the gameplay SQL database. KV locator lookup supports kind and globally unique resource ID and explicitly rejects owner-scoped filters; the gameplay SQL source supports its owner-scoped locator. This package does not run workers, remove pending records, or expose resource payloads. Processing and physical removal belong to the managed cleanup service.
+Defines the versioned, backend-neutral `PendingDeletion` envelope. A domain deletion request atomically creates or reuses one minimal cleanup descriptor in that resource's physical store while retaining the active resource and its indexes. New records use a stable deletion ID derived from the resource locator, so retries address the same event instead of allocating another ID; legacy UUID records remain readable during upgrade. Peer and user Workspace producers use KV; Pet uses the gameplay SQL database. KV locator lookup supports kind and globally unique resource ID and explicitly rejects owner-scoped filters; the gameplay SQL source supports its owner-scoped locator. This package does not run workers, remove pending records, or expose resource payloads. Processing and physical removal belong to the managed cleanup service.
 
 ### runtimeprofile
 

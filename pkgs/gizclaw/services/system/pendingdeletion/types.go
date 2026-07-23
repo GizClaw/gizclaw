@@ -5,6 +5,7 @@ package pendingdeletion
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -68,7 +69,9 @@ type Source interface {
 	HasLocator(context.Context, Locator) (bool, error)
 }
 
-// New constructs a validated deletion event with a unique deletion ID.
+// New constructs a validated deletion event whose ID is stable for the
+// resource locator. Repeated requests for the same resource therefore address
+// the same deletion event.
 func New(kind Kind, resourceID string, ownerPublicKey *string, reason Reason, descriptor any, now time.Time) (Record, error) {
 	resourceID = strings.TrimSpace(resourceID)
 	ownerPublicKey = cloneString(ownerPublicKey)
@@ -91,8 +94,12 @@ func New(kind Kind, resourceID string, ownerPublicKey *string, reason Reason, de
 	if now.IsZero() {
 		now = time.Now().UTC()
 	}
+	deletionID, err := deletionIDForLocator(kind, resourceID, ownerPublicKey)
+	if err != nil {
+		return Record{}, err
+	}
 	record := Record{
-		DeletionID:        uuid.NewString(),
+		DeletionID:        deletionID,
 		Kind:              kind,
 		ResourceID:        resourceID,
 		Reason:            reason,
@@ -109,9 +116,6 @@ func New(kind Kind, resourceID string, ownerPublicKey *string, reason Reason, de
 
 // Validate checks the immutable envelope before it crosses a storage boundary.
 func (r Record) Validate() error {
-	if _, err := uuid.Parse(r.DeletionID); err != nil {
-		return fmt.Errorf("pending deletion: invalid deletion id %q: %w", r.DeletionID, err)
-	}
 	if !r.Kind.valid() {
 		return fmt.Errorf("pending deletion: invalid kind %q", r.Kind)
 	}
@@ -131,6 +135,15 @@ func (r Record) Validate() error {
 			return errors.New("pending deletion: non-canonical owner public key")
 		}
 	}
+	expectedDeletionID, err := deletionIDForLocator(r.Kind, resourceID, r.OwnerPublicKey)
+	if err != nil {
+		return err
+	}
+	if r.DeletionID != expectedDeletionID {
+		if _, err := uuid.Parse(r.DeletionID); err != nil {
+			return fmt.Errorf("pending deletion: invalid deletion id %q", r.DeletionID)
+		}
+	}
 	if !r.Reason.valid() {
 		return fmt.Errorf("pending deletion: invalid reason %q", r.Reason)
 	}
@@ -144,6 +157,24 @@ func (r Record) Validate() error {
 		return errors.New("pending deletion: invalid descriptor JSON")
 	}
 	return nil
+}
+
+func deletionIDForLocator(kind Kind, resourceID string, ownerPublicKey *string) (string, error) {
+	if !kind.valid() {
+		return "", fmt.Errorf("pending deletion: invalid kind %q", kind)
+	}
+	resourceID = strings.TrimSpace(resourceID)
+	if resourceID == "" {
+		return "", errors.New("pending deletion: empty resource id")
+	}
+	encode := base64.RawURLEncoding.EncodeToString
+	if kind != KindPet {
+		return string(kind) + "/" + encode([]byte(resourceID)), nil
+	}
+	if ownerPublicKey == nil || strings.TrimSpace(*ownerPublicKey) == "" {
+		return "", errors.New("pending deletion: Pet requires owner public key")
+	}
+	return string(kind) + "/" + encode([]byte(strings.TrimSpace(*ownerPublicKey))) + "/" + encode([]byte(resourceID)), nil
 }
 
 func (k Kind) valid() bool {

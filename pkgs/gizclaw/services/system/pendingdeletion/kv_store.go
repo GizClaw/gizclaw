@@ -101,7 +101,7 @@ func resolveExistingLocator(ctx context.Context, store kv.Store, kind Kind, reso
 	} else if !errors.Is(err, kv.ErrNotFound) {
 		return Record{}, false, err
 	}
-	var deletionID string
+	var legacy *Record
 	for entry, err := range store.List(ctx, prefix) {
 		if err != nil {
 			return Record{}, false, err
@@ -109,15 +109,29 @@ func resolveExistingLocator(ctx context.Context, store kv.Store, kind Kind, reso
 		if len(entry.Key) != len(prefix)+1 {
 			continue
 		}
-		deletionID = entry.Key[len(prefix)]
-		break
+		deletionID := entry.Key[len(prefix)]
+		candidate, err := Get(ctx, store, deletionID)
+		if err != nil {
+			return Record{}, false, fmt.Errorf("pending deletion: get legacy locator record: %w", err)
+		}
+		if candidate.Kind != kind || candidate.ResourceID != resourceID {
+			return Record{}, false, fmt.Errorf(
+				"pending deletion: legacy locator %q references %s %q",
+				deletionID,
+				candidate.Kind,
+				candidate.ResourceID,
+			)
+		}
+		if legacy == nil ||
+			candidate.DeletedAt.Before(legacy.DeletedAt) ||
+			(candidate.DeletedAt.Equal(legacy.DeletedAt) && candidate.DeletionID < legacy.DeletionID) {
+			legacy = &candidate
+		}
 	}
-	if deletionID == "" {
+	if legacy == nil {
 		return Record{}, false, nil
 	}
-	if _, err := Get(ctx, store, deletionID); err != nil {
-		return Record{}, false, fmt.Errorf("pending deletion: get legacy locator record: %w", err)
-	}
+	deletionID := legacy.DeletionID
 	existingID, created, err := store.CreateIfAbsent(ctx, kv.Entry{
 		Key:   byLocatorKey(kind, resourceID),
 		Value: []byte(deletionID),
