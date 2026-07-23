@@ -376,7 +376,7 @@ func (h *PeerConn) currentRuntimeProfile() *apitypes.RuntimeProfile {
 	if registration == nil {
 		return nil
 	}
-	profile, err := h.Service.manager.RuntimeProfiles.ResolveProfile(context.Background(), registration.RuntimeProfile.Name)
+	profile, err := h.Service.manager.RuntimeProfiles.ResolveOwnerProfile(context.Background(), h.Conn.PublicKey().String())
 	if err != nil {
 		return nil
 	}

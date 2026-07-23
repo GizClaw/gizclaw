@@ -454,6 +454,48 @@ func TestRuntimeAdoptCallerIDDoesNotReserveUnaffordableID(t *testing.T) {
 	}
 }
 
+func TestRuntimeAdoptCallerIDDeletesNewWorkspaceAfterDatabaseFailure(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 7, 22, 9, 47, 0, 0, time.UTC)
+	catalog := testCatalog(t, now)
+	profile := seedGameplayCatalog(t, ctx, catalog)
+	ctx = WithRuntimeProfile(ctx, profile)
+	workspaces := &recordingWorkspaceService{}
+	runtime := &Runtime{
+		DB:         testDB(t),
+		Catalog:    catalog,
+		Workflows:  petWorkflowService{},
+		Workspaces: workspaces,
+		Now:        func() time.Time { return now },
+		NewID:      sequentialIDs("adopt-txn"),
+		PickWeight: func(int64) int64 { return 0 },
+	}
+	if err := runtime.Migration(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runtime.DB.ExecContext(ctx, `CREATE TRIGGER fail_pet_insert BEFORE INSERT ON gameplay_pets BEGIN SELECT RAISE(ABORT, 'injected pet failure'); END`); err != nil {
+		t.Fatal(err)
+	}
+	petID := "device-pet-database-failure"
+	if _, err := runtime.AdoptPet(ctx, "peer-a", apitypes.PetAdoptRequest{DisplayName: "Pet", Id: &petID}); err == nil || !strings.Contains(err.Error(), "injected pet failure") {
+		t.Fatalf("AdoptPet() error = %v, want injected database failure", err)
+	}
+	workspaceName := petWorkspaceName("peer-a", petID)
+	if len(workspaces.created) != 1 || len(workspaces.deleted) != 1 || workspaces.deleted[0] != workspaceName {
+		t.Fatalf("Workspace compensation: created=%#v deleted=%#v, want one create and delete of %q", workspaces.created, workspaces.deleted, workspaceName)
+	}
+	var pets, transactions int
+	if err := runtime.DB.QueryRow(`SELECT
+		(SELECT count(*) FROM gameplay_pets WHERE owner_public_key = ? AND id = ?),
+		(SELECT count(*) FROM gameplay_points_transactions WHERE owner_public_key = ? AND source_type = 'pet' AND source_id = ? AND reason = 'pet.adopt')`,
+		"peer-a", petID, "peer-a", petID).Scan(&pets, &transactions); err != nil {
+		t.Fatal(err)
+	}
+	if pets != 0 || transactions != 0 {
+		t.Fatalf("rows after failed adoption: Pets=%d transactions=%d, want zero", pets, transactions)
+	}
+}
+
 func TestRuntimeAdoptCallerIDPreservesExistingReservationWhenUnfunded(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 7, 22, 9, 50, 0, 0, time.UTC)

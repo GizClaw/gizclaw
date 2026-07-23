@@ -318,8 +318,8 @@ pkgs/gizclaw/services/device/firmware/server_test.go:556:6: int64Ptr can be an i
 pkgs/gizclaw/services/device/firmware/server_test.go:78:81: call of ptr(x) can be simplified to new(x)
 pkgs/gizclaw/services/gameplay/pixa.go:165:6: for loop can be modernized using range over int
 pkgs/gizclaw/services/gameplay/reward.go:207:6: stringPtr can be an inlinable wrapper around new(expr)
-pkgs/gizclaw/services/gameplay/runtime.go:1073:12: call of stringPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/gameplay/runtime.go:1087:12: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/gameplay/runtime.go:1081:12: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/gameplay/runtime.go:1095:12: call of stringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/runtime/agent/resolver.go:63:5: HasPrefix + TrimPrefix can be simplified to CutPrefix
 pkgs/gizclaw/services/runtime/agenthost/context.go:43:3: Replace m[k]=v loop with maps.Copy
 pkgs/gizclaw/services/runtime/peer/store_ops.go:398:5: if statement can be modernized using min
@@ -408,16 +408,16 @@ pkgs/gizclaw/services/social/contact/server_test.go:43:16: call of strPtr(x) can
 pkgs/gizclaw/services/social/contact/server_test.go:53:16: call of strPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/social/contact/server_test.go:63:16: call of strPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/social/contact/server_test.go:64:16: call of strPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/social/friend/server_test.go:262:39: call of stringPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/social/friend/server_test.go:262:76: call of IntPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/social/friend/server_test.go:355:6: stringPtr can be an inlinable wrapper around new(expr)
-pkgs/gizclaw/services/social/friendgroup/server_test.go:250:110: call of strPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/social/friendgroup/server_test.go:280:46: call of strPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/social/friendgroup/server_test.go:337:21: call of IntPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/social/friendgroup/server_test.go:437:94: call of IntPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/social/friendgroup/server_test.go:461:129: call of IntPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/social/friendgroup/server_test.go:468:128: call of IntPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/social/friendgroup/server_test.go:641:6: strPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/services/social/friend/server_test.go:308:39: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/friend/server_test.go:308:76: call of IntPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/friend/server_test.go:401:6: stringPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/services/social/friendgroup/server_test.go:291:110: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/friendgroup/server_test.go:321:46: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/friendgroup/server_test.go:378:21: call of IntPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/friendgroup/server_test.go:478:94: call of IntPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/friendgroup/server_test.go:502:129: call of IntPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/friendgroup/server_test.go:509:128: call of IntPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/social/friendgroup/server_test.go:682:6: strPtr can be an inlinable wrapper around new(expr)
 pkgs/gizclaw/services/system/publiclogin/server_test.go:118:10: Replace []byte(fmt.Sprintf...) with fmt.Appendf
 pkgs/gizclaw/services/system/publiclogin/server_test.go:455:10: Replace []byte(fmt.Sprintf...) with fmt.Appendf
 pkgs/gizclaw/services/system/resourcemanager/common_test.go:115:6: ptr can be an inlinable wrapper around new(expr)

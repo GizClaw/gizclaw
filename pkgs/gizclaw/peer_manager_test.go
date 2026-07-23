@@ -537,9 +537,19 @@ func TestPeerResourcesForHTTPSessionDoesNotInheritActiveConnectionRegistration(t
 		},
 	}
 	createRegistrationToken(t, profiles, "profile-session")
+	if err := profiles.BindOwnerProfile(t.Context(), key.String(), sessionRegistration.RuntimeProfile.Name); err != nil {
+		t.Fatalf("BindOwnerProfile(session) error = %v", err)
+	}
 	registered := service.peerResourcesForHTTPSession(key, &sessionRegistration)
 	if profile := registered.RuntimeProfile(); profile == nil || profile.Name != "profile-session" {
 		t.Fatalf("registered HTTP RuntimeProfile = %#v", profile)
+	}
+	createRegistrationToken(t, profiles, "profile-current")
+	if err := profiles.BindOwnerProfile(t.Context(), key.String(), "profile-current"); err != nil {
+		t.Fatalf("BindOwnerProfile(current) error = %v", err)
+	}
+	if profile := registered.RuntimeProfile(); profile == nil || profile.Name != "profile-current" {
+		t.Fatalf("stale HTTP session RuntimeProfile = %#v, want current owner binding", profile)
 	}
 }
 

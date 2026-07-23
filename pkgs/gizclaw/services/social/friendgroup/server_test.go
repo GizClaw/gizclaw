@@ -134,6 +134,47 @@ func TestAdminApplyExistingFriendGroupPreservesWorkspaceBinding(t *testing.T) {
 	}
 }
 
+func TestConcurrentAdminApplyFriendGroupSerializesWorkspaceLifecycle(t *testing.T) {
+	workspaces := &recordingWorkspaceService{}
+	s := newTestServer(t)
+	s.Workspaces = workspaces
+	resolverCalls := make(chan string, 2)
+	releaseResolver := make(chan struct{})
+	s.RuntimeProfileForOwner = func(_ context.Context, owner string) (apitypes.RuntimeProfile, error) {
+		resolverCalls <- owner
+		<-releaseResolver
+		return testRuntimeProfileForOwner(t.Context(), owner)
+	}
+	firstDone := make(chan error, 1)
+	go func() {
+		_, err := s.AdminApplyFriendGroup(t.Context(), "family01", "peer-a", "Family", nil)
+		firstDone <- err
+	}()
+	if owner := <-resolverCalls; owner != "peer-a" {
+		t.Fatalf("first resolver owner = %q, want peer-a", owner)
+	}
+	secondDone := make(chan error, 1)
+	go func() {
+		_, err := s.AdminApplyFriendGroup(t.Context(), "family01", "peer-a", "Family Updated", nil)
+		secondDone <- err
+	}()
+	select {
+	case owner := <-resolverCalls:
+		t.Fatalf("concurrent apply resolved another Workspace binding for %q", owner)
+	case <-time.After(50 * time.Millisecond):
+	}
+	close(releaseResolver)
+	if err := <-firstDone; err != nil {
+		t.Fatal(err)
+	}
+	if err := <-secondDone; err != nil {
+		t.Fatal(err)
+	}
+	if len(workspaces.created) != 1 || len(workspaces.owners) != 1 {
+		t.Fatalf("concurrent Admin apply Workspaces: created=%#v owners=%#v", workspaces.created, workspaces.owners)
+	}
+}
+
 func TestAdminApplyFriendGroupRollsBackWorkspaceOnGroupWriteFailure(t *testing.T) {
 	ctx := context.Background()
 	workspaces := &recordingWorkspaceService{}

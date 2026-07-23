@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"hash/fnv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
@@ -35,6 +37,8 @@ type Server struct {
 	Now   func() time.Time
 	NewID func() string
 }
+
+var relationMutationMu [64]sync.Mutex
 
 func (s *Server) GetFriendInfo(ctx context.Context, owner string, req rpcapi.FriendInfoGetRequest) (rpcapi.FriendInfoGetResponse, error) {
 	relation, err := s.GetFriendRelation(ctx, owner, req.Id)
@@ -137,6 +141,8 @@ func (s *Server) AddFriend(ctx context.Context, owner string, req rpcapi.FriendA
 		return rpcapi.FriendAddResponse{}, errors.New("social: cannot friend self")
 	}
 	relationID := socialutil.RelationID(owner, to)
+	unlock := s.lockRelation(relationID)
+	defer unlock()
 	if existing, err := s.GetFriendRelation(ctx, owner, relationID); err == nil {
 		workspaceName := socialutil.DirectWorkspaceName(relationID)
 		if socialutil.StringValue(existing.WorkspaceName) != workspaceName {
@@ -170,6 +176,8 @@ func (s *Server) AdminCreateFriend(ctx context.Context, owner string, peerPublic
 		return rpcapi.FriendObject{}, errors.New("social: cannot friend self")
 	}
 	relationID := socialutil.RelationID(owner, peerPublicKey)
+	unlock := s.lockRelation(relationID)
+	defer unlock()
 	if existing, err := s.GetFriendRelation(ctx, owner, relationID); err == nil {
 		workspaceName := socialutil.DirectWorkspaceName(relationID)
 		if socialutil.StringValue(existing.WorkspaceName) != workspaceName {
@@ -191,6 +199,14 @@ func (s *Server) AdminCreateFriend(ctx context.Context, owner string, peerPublic
 		return rpcapi.FriendObject{}, err
 	}
 	return friend, nil
+}
+
+func (s *Server) lockRelation(relationID string) func() {
+	hash := fnv.New32a()
+	_, _ = hash.Write([]byte(relationID))
+	mu := &relationMutationMu[hash.Sum32()%uint32(len(relationMutationMu))]
+	mu.Lock()
+	return mu.Unlock
 }
 
 func (s *Server) AdminListFriends(ctx context.Context, cursor *string, limit *int) (adminhttp.AdminFriendListResponse, error) {

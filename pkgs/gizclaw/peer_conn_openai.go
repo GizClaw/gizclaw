@@ -106,14 +106,14 @@ func (s *PeerService) peerResourcesWithRegistration(publicKey giznet.PublicKey, 
 		Gameplay:     manager.Gameplay,
 		Tools:        manager.Tools,
 		RuntimeProfile: func() *apitypes.RuntimeProfile {
-			registration, ok := registration()
+			_, ok := registration()
 			if !ok {
 				return nil
 			}
 			if manager.RuntimeProfiles == nil {
 				return nil
 			}
-			profile, err := manager.RuntimeProfiles.ResolveProfile(context.Background(), registration.RuntimeProfile.Name)
+			profile, err := manager.RuntimeProfiles.ResolveOwnerProfile(context.Background(), publicKey.String())
 			if err != nil {
 				return nil
 			}

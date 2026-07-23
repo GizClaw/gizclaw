@@ -207,6 +207,52 @@ func TestAdminCreateExistingFriendPreservesWorkspaceBinding(t *testing.T) {
 	}
 }
 
+func TestConcurrentAdminCreateFriendSerializesWorkspaceLifecycle(t *testing.T) {
+	ctx := context.Background()
+	workspaces := &recordingWorkspaceService{}
+	s := newTestServer()
+	s.Workspaces = workspaces
+	resolverCalls := make(chan string, 2)
+	releaseResolver := make(chan struct{})
+	s.RuntimeProfileForOwner = func(_ context.Context, owner string) (apitypes.RuntimeProfile, error) {
+		resolverCalls <- owner
+		<-releaseResolver
+		return apitypes.RuntimeProfile{Spec: apitypes.RuntimeProfileSpec{
+			Workflows: apitypes.RuntimeProfileWorkflows{
+				System: apitypes.RuntimeProfileSystemWorkflows{FriendChatroom: "direct-chat"},
+			},
+		}}, nil
+	}
+	firstDone := make(chan error, 1)
+	go func() {
+		_, err := s.AdminCreateFriend(ctx, "peer-a", "peer-b")
+		firstDone <- err
+	}()
+	if owner := <-resolverCalls; owner != "peer-a" {
+		t.Fatalf("first resolver owner = %q, want peer-a", owner)
+	}
+	secondDone := make(chan error, 1)
+	go func() {
+		_, err := s.AdminCreateFriend(ctx, "peer-b", "peer-a")
+		secondDone <- err
+	}()
+	select {
+	case owner := <-resolverCalls:
+		t.Fatalf("concurrent create resolved another Workspace binding for %q", owner)
+	case <-time.After(50 * time.Millisecond):
+	}
+	close(releaseResolver)
+	if err := <-firstDone; err != nil {
+		t.Fatal(err)
+	}
+	if err := <-secondDone; err != nil {
+		t.Fatal(err)
+	}
+	if len(workspaces.created) != 1 || len(workspaces.owners) != 1 {
+		t.Fatalf("concurrent Admin create Workspaces: created=%#v owners=%#v", workspaces.created, workspaces.owners)
+	}
+}
+
 func TestInviteTokenExpiryAndClear(t *testing.T) {
 	ctx := context.Background()
 	s := newTestServer()

@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
@@ -42,6 +44,8 @@ type Server struct {
 	Now   func() time.Time
 	NewID func() string
 }
+
+var groupMutationMu [64]sync.Mutex
 
 type inviteTokenRecord struct {
 	FriendGroupID string    `json:"friend_group_id"`
@@ -142,6 +146,8 @@ func (s *Server) AdminApplyFriendGroup(ctx context.Context, friendGroupID, owner
 	if owner == "" || name == "" {
 		return rpcapi.FriendGroupObject{}, errors.New("social: friend group owner and name are required")
 	}
+	unlock := s.lockGroup(friendGroupID)
+	defer unlock()
 	existing, err := socialutil.ReadJSONValue[rpcapi.FriendGroupObject](ctx, friendGroups, socialutil.GroupKey(friendGroupID))
 	if err == nil {
 		if strings.TrimSpace(socialutil.StringValue(existing.CreatedByPeerPublicKey)) != owner {
@@ -178,6 +184,14 @@ func (s *Server) AdminApplyFriendGroup(ctx context.Context, friendGroupID, owner
 		return rpcapi.FriendGroupObject{}, err
 	}
 	return group, nil
+}
+
+func (s *Server) lockGroup(friendGroupID string) func() {
+	hash := fnv.New32a()
+	_, _ = hash.Write([]byte(friendGroupID))
+	mu := &groupMutationMu[hash.Sum32()%uint32(len(groupMutationMu))]
+	mu.Lock()
+	return mu.Unlock
 }
 
 func (s *Server) GetFriendGroup(ctx context.Context, owner string, req rpcapi.FriendGroupGetRequest) (rpcapi.FriendGroupObject, error) {
