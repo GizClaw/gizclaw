@@ -5551,16 +5551,6 @@
               }
             }
           },
-          "409": {
-            "description": "Workspace name conflicts with an existing resource",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
           "500": {
             "description": "Internal error",
             "content": {

@@ -16669,7 +16669,6 @@ type PutWorkspaceResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.Workspace
 	JSON400      *externalRef0.ErrorResponse
-	JSON409      *externalRef0.ErrorResponse
 	JSON500      *externalRef0.ErrorResponse
 }
 
@@ -25281,13 +25280,6 @@ func ParsePutWorkspaceResponse(rsp *http.Response) (*PutWorkspaceResponse, error
 			return nil, err
 		}
 		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.ErrorResponse
@@ -36063,15 +36055,6 @@ type PutWorkspace400JSONResponse externalRef0.ErrorResponse
 func (response PutWorkspace400JSONResponse) VisitPutWorkspaceResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type PutWorkspace409JSONResponse externalRef0.ErrorResponse
-
-func (response PutWorkspace409JSONResponse) VisitPutWorkspaceResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
 
 	return ctx.JSON(&response)
 }

@@ -6016,10 +6016,6 @@ export type PutWorkspaceErrors = {
      */
     400: ErrorResponse;
     /**
-     * Workspace name conflicts with an existing resource
-     */
-    409: ErrorResponse;
-    /**
      * Internal error
      */
     500: ErrorResponse;
