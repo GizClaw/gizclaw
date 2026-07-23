@@ -40,11 +40,22 @@ func (s *Server) BindFirmware(ctx context.Context, publicKey giznet.PublicKey, f
 // EnsureConnectedPeer creates a default active peer record for a connected peer
 // when the peer has not been registered yet. Existing records are preserved.
 func (s *Server) EnsureConnectedPeer(ctx context.Context, publicKey giznet.PublicKey) (apitypes.Peer, error) {
+	return s.EnsureConnectedPeerGuarded(ctx, publicKey, nil)
+}
+
+// EnsureConnectedPeerGuarded runs guard while holding the per-Peer record lock
+// and creates the connected Peer only when the guard still accepts it.
+func (s *Server) EnsureConnectedPeerGuarded(ctx context.Context, publicKey giznet.PublicKey, guard func() error) (apitypes.Peer, error) {
 	if publicKey.IsZero() {
 		return apitypes.Peer{}, fmt.Errorf("peer: empty public key")
 	}
 	recordUnlock := s.IconLocks.LockRecord(publicKey.String())
 	defer recordUnlock()
+	if guard != nil {
+		if err := guard(); err != nil {
+			return apitypes.Peer{}, err
+		}
+	}
 	existing, err := s.get(ctx, publicKey)
 	if err == nil {
 		return existing, nil

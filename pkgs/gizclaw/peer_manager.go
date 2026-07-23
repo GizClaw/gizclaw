@@ -219,7 +219,7 @@ func (m *Manager) activatePeer(ctx context.Context, conn giznet.Conn) (giznet.Co
 	state.activating = conn
 	m.mu.Unlock()
 
-	if _, err := m.Peers.EnsureConnectedPeer(ctx, publicKey); err != nil {
+	if err := m.ensureActivatingPeer(ctx, publicKey, state, conn); err != nil {
 		m.mu.Lock()
 		if current, currentOK := m.peers[publicKey]; currentOK && current == state && current.activating == conn {
 			current.activating = nil
@@ -246,6 +246,22 @@ func (m *Manager) activatePeer(ctx context.Context, conn giznet.Conn) (giznet.Co
 	}
 	current.conn = conn
 	return oldConn, nil
+}
+
+func (m *Manager) ensureActivatingPeer(ctx context.Context, publicKey giznet.PublicKey, state *activePeer, conn giznet.Conn) error {
+	_, err := m.Peers.EnsureConnectedPeerGuarded(ctx, publicKey, func() error {
+		m.mu.RLock()
+		defer m.mu.RUnlock()
+		current, currentOK := m.peers[publicKey]
+		if !currentOK || current != state || current.activating != conn {
+			return ErrPeerConnNotActive
+		}
+		if current.deleting {
+			return ErrPeerConnRetiring
+		}
+		return nil
+	})
+	return err
 }
 
 func (m *Manager) deleteActivePeer(ctx context.Context, publicKey giznet.PublicKey, conn giznet.Conn, beginRetiring func() func()) error {

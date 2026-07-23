@@ -10,6 +10,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
@@ -245,6 +246,58 @@ func TestManagerPeerDownPreservesDeletingReservation(t *testing.T) {
 				t.Fatalf("deleteActivePeer: %v", err)
 			}
 		})
+	}
+}
+
+func TestManagerDeletingReservationRejectsBlockedReplacementEnsure(t *testing.T) {
+	store := kv.NewMemory(nil)
+	peers := &peer.Server{Store: store}
+	key := giznet.PublicKey{7, 7}
+	if _, err := peers.EnsureConnectedPeer(context.Background(), key); err != nil {
+		t.Fatalf("EnsureConnectedPeer: %v", err)
+	}
+	blockingStore := &blockingBatchMutateStore{
+		Store:   store,
+		entered: make(chan struct{}),
+		release: make(chan struct{}),
+	}
+	peers.Store = blockingStore
+	manager := NewManager(peers)
+	oldConn := &testGiznetConn{publicKey: key}
+	newConn := &testGiznetConn{publicKey: key}
+	manager.SetPeerUp(key, oldConn)
+	manager.mu.Lock()
+	state := manager.peers[key]
+	state.activating = newConn
+	manager.mu.Unlock()
+
+	deleteErr := make(chan error, 1)
+	go func() {
+		deleteErr <- manager.deleteActivePeer(context.Background(), key, oldConn, nil)
+	}()
+	<-blockingStore.entered
+	ensureErr := make(chan error, 1)
+	go func() {
+		ensureErr <- manager.ensureActivatingPeer(context.Background(), key, state, newConn)
+	}()
+	select {
+	case err := <-ensureErr:
+		t.Fatalf("replacement ensure returned before delete released record lock: %v", err)
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	close(blockingStore.release)
+	if err := <-deleteErr; err != nil {
+		t.Fatalf("deleteActivePeer: %v", err)
+	}
+	if err := <-ensureErr; !errors.Is(err, ErrPeerConnRetiring) && !errors.Is(err, ErrPeerConnNotActive) {
+		t.Fatalf("blocked replacement ensure error = %v, want retiring or inactive", err)
+	}
+	if _, err := peers.LoadPeer(context.Background(), key); !errors.Is(err, peer.ErrPeerNotFound) {
+		t.Fatalf("LoadPeer after delete and rejected replacement = %v, want %v", err, peer.ErrPeerNotFound)
+	}
+	if pending, err := pendingdeletion.HasLocator(context.Background(), store, pendingdeletion.KindPeer, key.String()); err != nil || !pending {
+		t.Fatalf("pending deletion after rejected replacement = %v, error = %v", pending, err)
 	}
 }
 
