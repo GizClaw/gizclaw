@@ -22,8 +22,8 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(catalog.Resources) != 42 {
-		t.Fatalf("resources = %d, want 42", len(catalog.Resources))
+	if len(catalog.Resources) != 43 {
+		t.Fatalf("resources = %d, want 43", len(catalog.Resources))
 	}
 	if len(catalog.PetDefPIXAs) != 9 || len(catalog.VoiceSyncs) != 2 {
 		t.Fatalf("assets = pets:%d voice-sync:%d", len(catalog.PetDefPIXAs), len(catalog.VoiceSyncs))
@@ -43,7 +43,7 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 			t.Fatalf("bundled client-created resource: %+v", resource)
 		}
 	}
-	for _, identity := range []string{"RuntimeProfile/default"} {
+	for _, identity := range []string{"RuntimeProfile/default", "RuntimeProfile/showcase"} {
 		if !identities[identity] {
 			t.Fatalf("missing local Play registration dependency %s", identity)
 		}
@@ -51,7 +51,7 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 	for kind, want := range map[string]int{
 		"Credential": 6, "VolcTenant": 2, "MiniMaxTenant": 1,
 		"DeepSeekTenant": 1, "DashScopeTenant": 1, "Model": 10,
-		"Workflow": 10, "Voice": 1, "PetDef": 9, "RuntimeProfile": 1,
+		"Workflow": 10, "Voice": 1, "PetDef": 9, "RuntimeProfile": 2,
 	} {
 		if kinds[kind] != want {
 			t.Fatalf("%s resources = %d, want %d", kind, kinds[kind], want)

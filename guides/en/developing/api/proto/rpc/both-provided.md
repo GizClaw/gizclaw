@@ -2,12 +2,7 @@
 
 Both Provided RPC is implemented by both sides of the connection. Either Client or Server can be used as caller or provider, which is used for connection diagnosis and transport measurement without reading the unique product resources of one end.
 
-## Methods
-
-| Method | Function | Implementation requirements |
-| --- | --- | --- |
-| `all.ping` | Verify that the RPC request/response path is available | Both Client and Server return Ping response |
-| `all.speed_test.run` | Perform throughput test on RPC stream | Both Client and Server process speed-test stream |
+The [RPC API Reference](/references/rpc#连接诊断与设备信息) is the single list of exact method IDs, names, and purposes. This page only explains the `all.*` provider direction and implementation constraints.
 
 ## Calling relationship
 

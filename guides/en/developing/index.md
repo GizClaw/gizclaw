@@ -168,6 +168,8 @@ Follow [Observability](observability) for log fields, metric names, labels, and 
 
 Further entry point:
 
+- [Testing and E2E](testing)
+- [Development Tools and Examples](tooling)
 - [Review Guidelines](/en/reviewing/)
 - [Coding Standards](/en/coding-styles/)
 - [Usage Guide](/en/using/)

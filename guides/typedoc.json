@@ -6,7 +6,7 @@
   "exclude": ["../sdk/js/gizclaw/**/*.test.ts"],
   "out": "references/typescript",
   "name": "GizClaw TypeScript SDK",
-  "readme": "../sdk/js/gizclaw/README.md",
+  "readme": "none",
   "externalSymbolLinkMappings": {
     "typescript": {
       "Body": "https://developer.mozilla.org/docs/Web/API/Request/body",

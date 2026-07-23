@@ -2,13 +2,7 @@
 
 这一组能力由 Client/Device 实现，由 Server 在 Peer connection 上调用。Server 使用它读取设备自身信息或请求设备执行本地能力。
 
-## Methods
-
-| Method | 作用 |
-| --- | --- |
-| `client.info.get` | 读取 Client 当前 device information |
-| `client.identifiers.get` | 读取 Client hardware/device identifiers |
-| `client.tool.invoke` | 请求 Client 执行其本地提供的 Tool |
+准确的 method ID、名称与用途由 [RPC API Reference](/references/rpc) 统一维护。本页只说明 `client.*` 的 provider 方向与 ownership。
 
 ## 调用关系
 

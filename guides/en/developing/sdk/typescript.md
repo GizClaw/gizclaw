@@ -11,3 +11,19 @@ sdk/js/
 ```
 
 The source of truth of the generated content is located in [API Design](../api/overview), and the generated output cannot be directly maintained as a handwritten implementation.
+
+Browser and Desktop clients connect through encrypted `/webrtc/v1/offer`
+signaling and carry protobuf RPC envelopes, body frames, and EOS on the ordered
+`giznet/v1/service/0` DataChannel. Before creating the offer,
+`connectGiznetWebRTC` creates the packet DataChannel and an Opus-capable audio
+transceiver; callers inject runtime-specific identity, crypto, and fetch
+primitives.
+
+`createWebRTCFetch` is the generated-client fetch adapter boundary. The current
+WebRTC bridge maps HTTP requests to GizClaw RPC methods; it is not an arbitrary
+HTTP proxy. Validate SDK changes with at least:
+
+```sh
+npm --prefix sdk/js test
+npm --prefix sdk/js run gen:sdk
+```

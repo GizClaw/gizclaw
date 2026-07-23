@@ -20,6 +20,9 @@
 
 ## 组织方式
 
+- 根目录 `README.md` 是仓库唯一的 first-party README。模块、SDK、App、example、
+  test harness 和 tool 的稳定说明必须进入 `guides/` 对应页面，不能在子目录维护第二份
+  README。Third-party submodule 内由 upstream 拥有的 README 不属于此限制。
 - 有子页面的目录入口只负责导航，具体说明放在“总览”页面。
 - 模块文档按能力和职责组织，不机械照抄文件名；需要定位实现时可列出对应文件、主要结构和函数。
 - 独立 Go package 在页面顶部提供一个 Go API Reference 链接；同一 package 内的模块直接把公开 symbol 链接放进“核心结构与主函数”。

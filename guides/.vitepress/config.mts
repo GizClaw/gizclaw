@@ -225,6 +225,8 @@ const zhDevelopingSidebar = [
         ],
       },
       { text: "CLI", link: "/zh/developing/cli/" },
+      { text: "测试与 E2E", link: "/zh/developing/testing" },
+      { text: "开发工具与示例", link: "/zh/developing/tooling" },
       { text: "Wails App", link: "/zh/developing/apps/wails" },
       { text: "Flutter App", link: "/zh/developing/apps/flutter" },
       {
@@ -252,6 +254,8 @@ const englishSidebarLabels: Record<string, string> = {
   "总览": "Overview",
   "Shared 与 Resources": "Shared and Resources",
   "依赖规则": "Dependency Rules",
+  "测试与 E2E": "Testing and E2E",
+  "开发工具与示例": "Development Tools and Examples",
 };
 
 function englishSidebar(items: SidebarEntry[]): SidebarEntry[] {
@@ -352,6 +356,8 @@ export default withMermaid(
             items: [
               { text: "总览", link: "/references/" },
               { text: "RPC Methods", link: "/references/rpc" },
+              { text: "Events", link: "/references/events" },
+              { text: "Streams", link: "/references/streams" },
             ],
           },
         ],

@@ -168,6 +168,8 @@ sequenceDiagram
 
 进一步入口：
 
+- [测试与 E2E](testing)
+- [开发工具与示例](tooling)
 - [审核指引](/zh/reviewing/)
 - [编码规范](/zh/coding-styles/)
 - [使用说明](/zh/using/)

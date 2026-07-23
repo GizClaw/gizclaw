@@ -2,22 +2,7 @@
 
 These methods are implemented by Server and called by a Client/Device through its Peer connection.
 
-## Method groups
-
-| Prefix | Main capabilities |
-| --- | --- |
-| `server.info.*`, `server.runtime.*`, `server.status.*`, `server.peer.delete` | Peer information, runtime status, and caller-scoped retirement |
-| `server.run.*` | Workspace selection, history, memory, speech output, reload and stop |
-| `server.workspace.*` | Peer-owned Workspace CRUD and history; list requires Collection |
-| `server.workflow.*` | RuntimeProfile Workflow alias list/get; list requires Collection |
-| `server.model.*`, `server.voice.*`, `server.tool.*` | Safe RuntimeProfile alias list/get |
-| `server.speech.*` | Standalone streaming transcription and synthesis |
-| `server.register` | Select the required RuntimeProfile and persist/return the RegistrationToken's optional Firmware release-line ID; channel selection remains device-owned |
-| `runtime.adopt`, `server.pet.*`, `server.badge.*`, `server.points.*` | Gameplay and Peer-owned Pet state |
-| `server.friend.*`, `server.friend_group.*`, `server.contact.*` | Social state |
-| `server.firmware.*` | Get the Peer's bound Firmware and download a file from a device-selected channel; no list method |
-
-`server.peer.lookup`, `server.peer.assign`, and `server.route.resolve` belong only to Edge-node RPC.
+The [RPC API Reference](/references/rpc) is the single list of exact method IDs, names, groups, and purposes. This page only explains Server-provided resource projection, call flow, and implementation ownership. See [Server Provided to Edge-node](./server-provided-to-edge-node) for the authorization boundary of Edge-node-only methods.
 
 ## RuntimeProfile resource projection
 

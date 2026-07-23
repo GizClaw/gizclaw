@@ -2,6 +2,8 @@
 
 `api/proto/telemetry/peer_telemetry.proto` Defines the telemetry event wire format sent by Peer to Server. It is a high-frequency one-way event stream, not an RPC method, and not an Admin HTTP resource.
 
+See the [Streams Reference](/references/streams#direct-packets) for the direct-packet protocol, reliability, and transport boundary.
+
 ## Data path
 
 ```mermaid

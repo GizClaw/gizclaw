@@ -113,3 +113,36 @@ The macOS distribution is built by `apps/wails/scripts/package-darwin.sh`. Scrip
 application, and then compile the existing `cmd/gizclaw` in the repository into
 `Contents/Resources/gizclaw` companion. The desktop process first resolves the file from the application resource directory.
 Program; environment variables and `PATH` are only used for development and testing, and are not a prerequisite for the distribution package to run.
+
+## Development and validation
+
+```sh
+npm ci
+npm --prefix apps/wails/frontend run build
+npm --prefix apps/wails/frontend test
+npm --prefix apps/wails/frontend run test:e2e
+cd apps/wails && go test ./...
+./scripts/package-darwin.sh
+```
+
+`api/http/desktop.json` is the Desktop OpenAPI source. Update the committed
+TypeScript surface with `npm --prefix sdk/js run gen:sdk`.
+
+## Admin UI conventions
+
+Admin is a dense operator console. Use `PageHeader` for breadcrumbs and
+page-level actions. `PageSummaryCard` only presents identity, description, and
+compact metadata. Create and refresh actions belong in the list-page header;
+creation uses a Dialog with a title and description.
+
+The first table column shows the copyable stable unique ID. Clicking a row
+opens its detail page, so do not add Open or Actions columns; the final column
+is Updated. Bound and truncate long IDs while retaining tooltip/copy access.
+Tables must fit the default content width without relying on horizontal scroll.
+Buttons inside clickable rows stop event propagation.
+
+Back, Reload, and destructive detail actions remain in the header; summary
+cards contain no actions. Use tabs for distinct resource surfaces and put edit
+forms in the corresponding tab or a dialog. Sensitive and destructive actions
+require confirmation. A create dialog closes only after successful creation or
+resolution to an existing resource.

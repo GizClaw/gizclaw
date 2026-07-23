@@ -20,6 +20,11 @@ This specification applies to Guides, README, configuration instructions, archit
 
 ## Organization
 
+- The root `README.md` is the repository's only first-party README. Stable
+  documentation for modules, SDKs, Apps, examples, test harnesses, and tools
+  belongs in the corresponding `guides/` page instead of a second README in a
+  subdirectory. Upstream-owned README files inside third-party submodules are
+  exempt.
 - The directory entry with sub-pages is only responsible for navigation, and specific instructions are placed on the "Overview" page.
 - Module documents are organized according to capabilities and responsibilities, and file names are not copied mechanically; the corresponding files, main structures and functions can be listed when positioning and implementation are required.
 - Independent Go packages provide a Go API Reference link at the top of the page; modules within the same package directly put public symbol links into "Core Structure and Main Function".

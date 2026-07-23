@@ -5,19 +5,7 @@ Public API is an HTTP contract that Server exposes to Public/Peer caller before 
 Source:`api/http/peer.json`
 Go generated output: `pkgs/gizclaw/api/peerhttp`
 
-## Endpoints
-
-| Endpoint | Function |
-| --- | --- |
-| `POST /login` | Establish a primary session or exchange a device token for a Side Control session |
-| `GET /server-info` | Query Server public information |
-| `POST /webrtc/v1/offer` | Submit signed Offer and get WebRTC Answer |
-| `GET /me` | Query the current Peer registration/self view |
-| `GET /me/status` | Query current Peer status |
-| `PUT /me/status` | Update current Peer status |
-| `GET /me/runtime` | Query the current Peer runtime |
-| `/me/side-control/*` | Manage primary-device grants and Side Control sessions |
-| `/side-control/*` | Query or control the target bound to a Side Control session |
+See the [API Reference](/api/) for exact endpoints, parameters, requests, and responses. This page only explains the Public/Peer surface design boundary.
 
 `/webrtc/v1/offer` Occurs before the Peer connection is established, HTTP signaling must be preserved. The Peer capability after establishing a connection can use reliable HTTP-over-service-stream or Peer RPC; when choosing a transport, avoid maintaining two sets of contracts for the same capability.
 

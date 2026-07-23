@@ -1,12 +1,13 @@
 # Reference
 
-这里汇总 GizClaw 的 Schema、RPC 与 SDK Reference。HTTP/OpenAPI 使用独立的 API Portal；VitePress 不生成或承载 Flutter Dartdoc 和 TypeScript TypeDoc。
+这里汇总 GizClaw 的 Schema、RPC、Event、Stream 与 SDK Reference。HTTP/OpenAPI 使用独立的 API Portal；VitePress 不生成或承载 Flutter Dartdoc 和 TypeScript TypeDoc。
 
 ## API Reference
 
 - [Admin API](/api/)：使用 Scalar 浏览 Admin、Peer HTTP、Desktop Pod 与 OpenAI-compatible API。
 - [RPC API Reference](./rpc)：全部 RPC method ID、method name 与用途。
-- [Stream Reference](./streams)：Service DataChannel 的分片、背压、完成与终止语义。
+- [Events](./events)：Peer Event Stream 的事件类型、字段和业务边界。
+- [Streams](./streams)：实时音频、direct packet、Event Stream、RPC 与 HTTP service stream 的传输约定。
 
 ## SDK Reference
 
