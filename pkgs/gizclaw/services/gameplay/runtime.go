@@ -202,7 +202,7 @@ func (r *Runtime) Migration(ctx context.Context) error {
 	if _, err := db.ExecContext(ctx, `INSERT INTO gameplay_pending_deletion_locators (kind, owner_public_key, resource_id, deletion_id)
 		SELECT kind, owner_public_key, resource_id, MIN(deletion_id)
 		FROM gameplay_pending_deletions
-		WHERE true
+		WHERE NOT EXISTS (SELECT 1 FROM gameplay_pending_deletion_locators LIMIT 1)
 		GROUP BY kind, owner_public_key, resource_id
 		ON CONFLICT (kind, owner_public_key, resource_id) DO NOTHING`); err != nil {
 		return err

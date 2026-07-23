@@ -122,7 +122,7 @@ func TestDeletePetMigratesFreshDatabase(t *testing.T) {
 	}
 }
 
-func TestMigrationBackfillsLegacyPendingDeletionLocator(t *testing.T) {
+func TestMigrationStopsPendingDeletionBackfillAfterLocatorTableIsPopulated(t *testing.T) {
 	ctx := context.Background()
 	db := testDB(t)
 	if _, err := db.ExecContext(ctx, `CREATE TABLE gameplay_pending_deletions (
@@ -161,6 +161,29 @@ func TestMigrationBackfillsLegacyPendingDeletionLocator(t *testing.T) {
 	}
 	if deletionID != record.DeletionID {
 		t.Fatalf("backfilled deletion ID = %q, want %q", deletionID, record.DeletionID)
+	}
+
+	laterRecord, err := pendingdeletion.New(pendingdeletion.KindPet, "pet-b", &owner, pendingdeletion.ReasonResourceDelete, map[string]string{
+		"owner_public_key": owner,
+		"pet_id":           "pet-b",
+	}, time.Unix(2, 0))
+	if err != nil {
+		t.Fatalf("New later record: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO gameplay_pending_deletions (deletion_id, kind, owner_public_key, resource_id, reason, deleted_at, descriptor_version, descriptor_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		laterRecord.DeletionID, laterRecord.Kind, owner, laterRecord.ResourceID, laterRecord.Reason, formatTime(laterRecord.DeletedAt), laterRecord.DescriptorVersion, string(laterRecord.Descriptor)); err != nil {
+		t.Fatalf("insert later pending record: %v", err)
+	}
+	if err := runtime.Migration(ctx); err != nil {
+		t.Fatalf("second Migration: %v", err)
+	}
+	var laterLocatorCount int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM gameplay_pending_deletion_locators WHERE kind = ? AND owner_public_key = ? AND resource_id = ?`,
+		laterRecord.Kind, owner, laterRecord.ResourceID).Scan(&laterLocatorCount); err != nil {
+		t.Fatalf("count later locator: %v", err)
+	}
+	if laterLocatorCount != 0 {
+		t.Fatalf("later locator count = %d, want 0 after completed backfill", laterLocatorCount)
 	}
 }
 
