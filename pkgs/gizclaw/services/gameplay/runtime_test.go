@@ -61,6 +61,21 @@ func TestOwnerHasPetWorkspaceMigratesFreshDatabase(t *testing.T) {
 	}
 }
 
+func TestMigrationCreatesFreshReservationSchemaWithoutVoiceAlias(t *testing.T) {
+	ctx := context.Background()
+	runtime := &Runtime{DB: testDB(t)}
+	if err := runtime.Migration(ctx); err != nil {
+		t.Fatalf("Migration() error = %v", err)
+	}
+	exists, err := sqlColumnExists(ctx, runtime.DB, "gameplay_pet_adoption_reservations", "voice_alias")
+	if err != nil {
+		t.Fatalf("sqlColumnExists() error = %v", err)
+	}
+	if exists {
+		t.Fatal("fresh gameplay_pet_adoption_reservations contains voice_alias")
+	}
+}
+
 func TestPetWorkspaceBindingCanonicalizesNames(t *testing.T) {
 	ctx := context.Background()
 	runtime := &Runtime{DB: testDB(t)}
