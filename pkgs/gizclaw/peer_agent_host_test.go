@@ -39,9 +39,8 @@ func (*peerAgentHostHistoryStore) Close() error { return nil }
 
 func TestNewPeerAgentHostRegistersBuiltInAgents(t *testing.T) {
 	base := agenthost.New(peerAgentHostTestResolver{})
-	petConfig := petagent.Config{GenerateModel: "chat", ExtractModel: "extract", ASRModel: "asr"}
 	history := &peerAgentHostHistoryStore{}
-	got := newPeerAgentHost(base, nil, nil, nil, petConfig, history, nil, nil)
+	got := newPeerAgentHost(base, nil, nil, nil, history, nil, nil)
 	if got == nil {
 		t.Fatal("newPeerAgentHost() = nil")
 	}
@@ -69,9 +68,6 @@ func TestNewPeerAgentHostRegistersBuiltInAgents(t *testing.T) {
 	if !ok {
 		t.Fatalf("pet factory = %T, want pet.Factory", registered)
 	}
-	if petFactory.Config != petConfig {
-		t.Fatalf("pet factory config = %#v, want %#v", petFactory.Config, petConfig)
-	}
 	if petFactory.History != history {
 		t.Fatal("pet factory did not receive Flowcraft history store")
 	}
@@ -89,7 +85,7 @@ func TestNewPeerAgentHostRegistersBuiltInAgents(t *testing.T) {
 }
 
 func TestNewPeerAgentHostNilBase(t *testing.T) {
-	if got := newPeerAgentHost(nil, nil, nil, nil, petagent.Config{}, nil, nil, nil); got != nil {
+	if got := newPeerAgentHost(nil, nil, nil, nil, nil, nil, nil); got != nil {
 		t.Fatalf("newPeerAgentHost(nil) = %#v, want nil", got)
 	}
 }

@@ -20,11 +20,6 @@ func TestMaterializeLocalServerWorkspaceUsesEmbeddedTemplateAndPreservesIdentity
 	if first.Identity.PrivateKey.IsZero() || first.Listen != "0.0.0.0:19820" {
 		t.Fatalf("first workspace = %+v", first)
 	}
-	if first.SystemTasks.PetFlowcraftWorkflow.GenerateModel != "chat" ||
-		first.SystemTasks.PetFlowcraftWorkflow.ExtractModel != "extraction" ||
-		first.SystemTasks.PetFlowcraftWorkflow.ASRModel != "asr" {
-		t.Fatalf("pet Flowcraft system task = %+v", first.SystemTasks.PetFlowcraftWorkflow)
-	}
 
 	pod.LocalServer.Port = 19821
 	if err := materializeLocalServerWorkspace(pod, path); err != nil {
@@ -56,14 +51,7 @@ func readRenderedWorkspace(t *testing.T, path string) struct {
 	Identity struct {
 		PrivateKey giznet.Key `yaml:"private-key"`
 	} `yaml:"identity"`
-	Listen      string `yaml:"listen"`
-	SystemTasks struct {
-		PetFlowcraftWorkflow struct {
-			GenerateModel string `yaml:"generate_model"`
-			ExtractModel  string `yaml:"extract_model"`
-			ASRModel      string `yaml:"asr_model"`
-		} `yaml:"pet_flowcraft_workflow"`
-	} `yaml:"system_tasks"`
+	Listen string `yaml:"listen"`
 } {
 	t.Helper()
 	data, err := os.ReadFile(path)
@@ -74,14 +62,7 @@ func readRenderedWorkspace(t *testing.T, path string) struct {
 		Identity struct {
 			PrivateKey giznet.Key `yaml:"private-key"`
 		} `yaml:"identity"`
-		Listen      string `yaml:"listen"`
-		SystemTasks struct {
-			PetFlowcraftWorkflow struct {
-				GenerateModel string `yaml:"generate_model"`
-				ExtractModel  string `yaml:"extract_model"`
-				ASRModel      string `yaml:"asr_model"`
-			} `yaml:"pet_flowcraft_workflow"`
-		} `yaml:"system_tasks"`
+		Listen string `yaml:"listen"`
 	}
 	if err := yaml.Unmarshal(data, &config); err != nil {
 		t.Fatal(err)

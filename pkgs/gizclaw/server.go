@@ -13,7 +13,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/providertenants"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/voice"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
-	petagent "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/pet"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
@@ -100,7 +99,6 @@ type Server struct {
 	ICEServers                   []gizwebrtc.ICEServer
 	WebRTCSignalingHandler       http.Handler
 	EdgeNodes                    []giznet.PublicKey
-	PetWorkflow                  petagent.Config
 
 	manager     *Manager
 	peerService *PeerService
@@ -408,7 +406,6 @@ func (s *Server) init() error {
 		ICEServers:      s.ICEServers,
 	}
 	manager := NewManager(peersServer)
-	manager.PetWorkflow = s.PetWorkflow
 	manager.FlowcraftHistory = s.FlowcraftHistory
 	manager.FlowcraftState = s.FlowcraftState
 	if manager.FlowcraftState == nil {

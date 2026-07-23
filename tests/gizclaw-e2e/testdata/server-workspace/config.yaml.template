@@ -162,8 +162,3 @@ friend_groups:
   message_max_ttl: 7d
   message_cleanup_interval: 100ms
   message_max_audio_bytes: 67108864
-system_tasks:
-  pet_flowcraft_workflow:
-    generate_model: pet-flowcraft-workflow-chat
-    extract_model: pet-flowcraft-workflow-extract
-    asr_model: pet-flowcraft-workflow-asr

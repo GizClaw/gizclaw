@@ -59,6 +59,10 @@ The public `FlowcraftWorkflowSpec` requires an explicit `agent.graph` with at le
 
 Workflow configuration retains `conversation`, Graph, Memory policy, and `voice_adapter`. It does not accept local directories, History drivers, Memory scope/retrieval backends, `settings`/`models` indirection, a parallel switch, implicit single-model Agents, or Tool configuration. The factory derives a compact deterministic Owner/Workspace/Agent scope; hashing each identity keeps Flowcraft retrieval and ObjectStore keys within filesystem limits without weakening isolation. Reload releases only the caller's reference; while another reference remains, the live Agent is reused. A new Agent reads current construction-time configuration only after the reference count reaches zero and a later acquire reconstructs it.
 
+#### Pet composition boundary
+
+The built-in `pet` driver remains in GizClaw: for every completed turn it resolves the Workspace Pet, PetDef, and current Gameplay into transient `tmp_*` Board inputs. Its fixed Graph directly uses the RuntimeProfile aliases `pet-chat`, `pet-extract`, and `pet-asr`; speech uses the Workspace voice alias. Pet constructs the reusable Flowcraft Transformer and Audio Dock directly and reuses the same LogStore, KV Store, and ObjectStore-backed Memory assembly. There is no server `system_tasks` model-role configuration, Claw, local Workspace, `config.yaml`, or BBH dependency.
+
 ### [workspace](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/workspace)
 
 Has workspace resources, workspace runtime storage and history. The Workspace is the persistence boundary for instantiating the Agent environment; the running Agent, input and output, and connection streams are the responsibility of the Runtime domain.

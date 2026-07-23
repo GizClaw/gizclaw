@@ -30,7 +30,6 @@ type Config struct {
 	Friends        FriendsConfig
 	FriendGroups   FriendGroupsConfig
 	Speech         SpeechConfig
-	SystemTasks    SystemTasksConfig
 }
 
 type FriendsConfig struct{}
@@ -72,17 +71,6 @@ type speechFileConfig struct {
 	} `yaml:"synthesis"`
 }
 
-type SystemTasksConfig struct {
-	PetFlowcraftWorkflow PetFlowcraftWorkflowTaskConfig `yaml:"pet_flowcraft_workflow"`
-}
-
-type PetFlowcraftWorkflowTaskConfig struct {
-	GenerateModel  string `yaml:"generate_model"`
-	ExtractModel   string `yaml:"extract_model"`
-	EmbeddingModel string `yaml:"embedding_model"`
-	ASRModel       string `yaml:"asr_model"`
-}
-
 type IdentityConfig struct {
 	PrivateKey giznet.Key `yaml:"private-key"`
 }
@@ -101,7 +89,6 @@ type ConfigFile struct {
 	Friends        FriendsConfig             `yaml:"friends"`
 	FriendGroups   FriendGroupsConfig        `yaml:"friend_groups"`
 	Speech         SpeechConfig              `yaml:"speech"`
-	SystemTasks    SystemTasksConfig         `yaml:"system_tasks"`
 }
 
 const (
@@ -168,7 +155,6 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		Friends        FriendsConfig             `yaml:"friends"`
 		FriendGroups   FriendGroupsConfig        `yaml:"friend_groups"`
 		Speech         speechFileConfig          `yaml:"speech"`
-		SystemTasks    SystemTasksConfig         `yaml:"system_tasks"`
 	}
 	if err := yaml.Unmarshal(data, &raw); err != nil {
 		return ConfigFile{}, err
@@ -212,7 +198,6 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		Friends:        raw.Friends,
 		FriendGroups:   raw.FriendGroups,
 		Speech:         speech,
-		SystemTasks:    raw.SystemTasks,
 	}
 	return cfg, nil
 }
@@ -314,7 +299,6 @@ func mergeFileConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 	cfg.Friends = mergeFriendsConfig(cfg.Friends, fileCfg.Friends)
 	cfg.FriendGroups = mergeFriendGroupsConfig(cfg.FriendGroups, fileCfg.FriendGroups)
 	cfg.Speech = mergeSpeechConfig(cfg.Speech, fileCfg.Speech)
-	cfg.SystemTasks = mergeSystemTasksConfig(cfg.SystemTasks, fileCfg.SystemTasks)
 	return cfg, nil
 }
 
@@ -357,27 +341,6 @@ func mergeSpeechConfig(runtime SpeechConfig, file SpeechConfig) SpeechConfig {
 	}
 	if runtime.Synthesis.RequestTimeout == "" {
 		runtime.Synthesis.RequestTimeout = file.Synthesis.RequestTimeout
-	}
-	return runtime
-}
-
-func mergeSystemTasksConfig(runtime SystemTasksConfig, file SystemTasksConfig) SystemTasksConfig {
-	runtime.PetFlowcraftWorkflow = mergePetFlowcraftWorkflowTaskConfig(runtime.PetFlowcraftWorkflow, file.PetFlowcraftWorkflow)
-	return runtime
-}
-
-func mergePetFlowcraftWorkflowTaskConfig(runtime PetFlowcraftWorkflowTaskConfig, file PetFlowcraftWorkflowTaskConfig) PetFlowcraftWorkflowTaskConfig {
-	if runtime.GenerateModel == "" {
-		runtime.GenerateModel = file.GenerateModel
-	}
-	if runtime.ExtractModel == "" {
-		runtime.ExtractModel = file.ExtractModel
-	}
-	if runtime.EmbeddingModel == "" {
-		runtime.EmbeddingModel = file.EmbeddingModel
-	}
-	if runtime.ASRModel == "" {
-		runtime.ASRModel = file.ASRModel
 	}
 	return runtime
 }

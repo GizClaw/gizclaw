@@ -3,14 +3,19 @@ package pet
 import (
 	"context"
 	"fmt"
+	"io"
 	"strings"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/agentkit/audiodock"
+	genxflowcraft "github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/flowcraft"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/flowcraft"
+	flowcraftagent "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/flowcraft"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
@@ -23,18 +28,12 @@ type ContextProvider interface {
 	ResolvePetContext(context.Context, string) (apitypes.Pet, apitypes.PetDef, error)
 }
 
-// Config supplies the server-level model resources used by Pet workflows.
-type Config struct {
-	GenerateModel  string
-	ExtractModel   string
-	EmbeddingModel string
-	ASRModel       string
-}
-
+// Factory owns only Pet-specific configuration, Store assembly, and current
+// Gameplay Board inputs. Flowcraft execution and audio stream composition are
+// delegated to reusable GenX packages.
 type Factory struct {
 	GenX          *peergenx.Service
 	Pets          ContextProvider
-	Config        Config
 	History       logstore.MutableStore
 	State         kv.Store
 	MemoryObjects objectstore.ObjectStore
@@ -70,25 +69,35 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if _, _, err := f.Pets.ResolvePetContext(ctx, workspaceName); err != nil {
 		return nil, fmt.Errorf("pet: resolve workspace %q: %w", workspaceName, err)
 	}
+	if f.GenX == nil {
+		return nil, fmt.Errorf("pet: peergenx service is required")
+	}
 	voiceID := strings.TrimSpace(parameters.Voice.VoiceId)
 	if voiceID == "" {
 		return nil, fmt.Errorf("pet: workspace voice.voice_id is required")
 	}
-	models, err := resolveModels(f.Config)
+	for _, alias := range []string{petChatModelAlias, petExtractModelAlias} {
+		if _, err := f.GenX.ResolveGenerator(ctx, modelPattern(alias)); err != nil {
+			return nil, fmt.Errorf("pet: resolve model alias %q: %w", alias, err)
+		}
+	}
+	memoryConfig, err := fixedPetMemory()
 	if err != nil {
 		return nil, err
 	}
-	starts := "peer"
-	if parameters.Conversation != nil && parameters.Conversation.Initiative != nil && *parameters.Conversation.Initiative == apitypes.PetConversationParametersInitiativeAgent {
-		starts = "agent"
+	scope := flowcraftagent.WorkspaceAgentScope("", workspaceName, petAgentID)
+	memoryBuild, err := (flowcraftagent.Factory{GenX: f.GenX, MemoryObjects: f.MemoryObjects}).BuildMemory(ctx, "", workspaceName, petAgentID, memoryConfig)
+	if err != nil {
+		return nil, fmt.Errorf("pet: build memory: %w", err)
 	}
-	configured := flowcraft.ConfiguredAgentOptions{
-		Flowcraft:     fixedFlowcraftConfig(models.GenerateModel, models.ExtractModel, models.EmbeddingModel, starts),
-		ASRModel:      models.ASRModel,
-		DefaultVoice:  voiceID,
-		NodeVoices:    map[string]string{"answer": voiceID},
-		WorkspaceName: workspaceName,
-		InputProvider: func(turnCtx context.Context) (map[string]any, error) {
+	config := genxflowcraft.Config{
+		ID: petAgentID, Name: "Pet", Description: "An adopted GizClaw pet.",
+		Graph: fixedPetGraph(), MaxIterations: 6, PublishNodes: []string{"answer"},
+		Models: f.GenX.Generator(), History: f.History, HistoryScope: scope, ContextID: scope,
+		Memory: memoryBuild.Store, MemoryScope: memory.Scope(scope),
+		RecallProfiles: memoryBuild.RecallProfiles, ObserveEnabled: memoryBuild.ObserveEnabled,
+		ObserveWaitForCompletion: memoryBuild.ObserveWaitForCompletion, ObservationBuilder: memoryBuild.ObservationBuilder,
+		BoardInputs: func(turnCtx context.Context) (map[string]any, error) {
 			pet, petDef, err := f.Pets.ResolvePetContext(turnCtx, workspaceName)
 			if err != nil {
 				return nil, fmt.Errorf("resolve workspace %q: %w", workspaceName, err)
@@ -96,27 +105,53 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 			return turnInputs(pet, petDef, parameters), nil
 		},
 	}
-	return (flowcraft.Factory{GenX: f.GenX, History: f.History, State: f.State, MemoryObjects: f.MemoryObjects}).NewConfiguredAgent(ctx, configured)
+	if parameters.Conversation != nil && parameters.Conversation.Initiative != nil && *parameters.Conversation.Initiative == apitypes.PetConversationParametersInitiativeAgent {
+		config.Initiative = genxflowcraft.InitiativeOnReload
+	}
+	if f.State != nil {
+		config.State = kv.Prefixed(f.State, kv.Key{"flowcraft", workspaceName, petAgentID})
+	}
+	core, err := genxflowcraft.New(config)
+	if err != nil {
+		_ = memoryBuild.Closer.Close()
+		return nil, fmt.Errorf("pet: build Flowcraft transformer: %w", err)
+	}
+	transformer, err := audiodock.New(audiodock.Config{
+		Agent: core,
+		ASR:   patternTransformer{mux: f.GenX.Transformer(), pattern: modelPattern(petASRModelAlias)},
+		TTS:   f.GenX.Transformer(),
+		ResolveVoice: func(context.Context, audiodock.VoiceRequest) (string, error) {
+			return voicePattern(voiceID), nil
+		},
+	})
+	if err != nil {
+		_ = memoryBuild.Closer.Close()
+		return nil, fmt.Errorf("pet: build audio dock: %w", err)
+	}
+	return flowcraftagent.NewManagedAgent(transformer, []io.Closer{memoryBuild.Closer}, memoryBuild.Store, memory.Scope(scope)), nil
 }
 
-func resolveModels(server Config) (Config, error) {
-	models := Config{
-		GenerateModel:  strings.TrimSpace(server.GenerateModel),
-		ExtractModel:   strings.TrimSpace(server.ExtractModel),
-		EmbeddingModel: strings.TrimSpace(server.EmbeddingModel),
-		ASRModel:       strings.TrimSpace(server.ASRModel),
+type patternTransformer struct {
+	mux     genx.TransformerMux
+	pattern string
+}
+
+func (t patternTransformer) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
+	return t.mux.Transform(ctx, t.pattern, input)
+}
+
+func modelPattern(alias string) string {
+	alias = strings.Trim(strings.TrimSpace(alias), "/")
+	if strings.Contains(alias, "/") {
+		return alias
 	}
-	for _, required := range []struct {
-		field string
-		value string
-	}{
-		{field: "generate_model", value: models.GenerateModel},
-		{field: "extract_model", value: models.ExtractModel},
-		{field: "asr_model", value: models.ASRModel},
-	} {
-		if required.value == "" {
-			return Config{}, fmt.Errorf("pet: %s is not configured in server system_tasks.pet_flowcraft_workflow", required.field)
-		}
+	return "model/" + alias
+}
+
+func voicePattern(alias string) string {
+	alias = strings.Trim(strings.TrimSpace(alias), "/")
+	if strings.Contains(alias, "/") {
+		return alias
 	}
-	return models, nil
+	return "voice/" + alias
 }

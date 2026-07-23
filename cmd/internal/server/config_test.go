@@ -178,29 +178,6 @@ endpoint: 127.0.0.1:9820
 	}
 }
 
-func TestParseConfigPetFlowcraftWorkflowModels(t *testing.T) {
-	cfg, err := parseConfigData([]byte(`
-system_tasks:
-  pet_flowcraft_workflow:
-    generate_model: pet-chat
-    extract_model: pet-extract
-    embedding_model: pet-embedding
-    asr_model: pet-asr
-`))
-	if err != nil {
-		t.Fatalf("parseConfigData error = %v", err)
-	}
-	want := PetFlowcraftWorkflowTaskConfig{
-		GenerateModel:  "pet-chat",
-		ExtractModel:   "pet-extract",
-		EmbeddingModel: "pet-embedding",
-		ASRModel:       "pet-asr",
-	}
-	if cfg.SystemTasks.PetFlowcraftWorkflow != want {
-		t.Fatalf("PetFlowcraftWorkflow = %#v, want %#v", cfg.SystemTasks.PetFlowcraftWorkflow, want)
-	}
-}
-
 func TestAdminPublicKeySecurityPolicy(t *testing.T) {
 	allowed := testPublicKey(1)
 	other := testPublicKey(2)
@@ -245,9 +222,6 @@ func TestNewWithLayeredStorageConfig(t *testing.T) {
 	}
 	if srv.FriendGroupMessageDefaultTTL != 24*time.Hour || srv.FriendGroupMessageMaxTTL != 7*24*time.Hour || srv.FriendGroupMessageCleanup != 5*time.Minute || srv.FriendGroupMessageMaxBytes != 2097152 {
 		t.Fatalf("social timing config not wired: default=%v max=%v cleanup=%v bytes=%d", srv.FriendGroupMessageDefaultTTL, srv.FriendGroupMessageMaxTTL, srv.FriendGroupMessageCleanup, srv.FriendGroupMessageMaxBytes)
-	}
-	if srv.PetWorkflow.GenerateModel != "pet-chat" || srv.PetWorkflow.ExtractModel != "pet-extract" || srv.PetWorkflow.EmbeddingModel != "pet-embedding" || srv.PetWorkflow.ASRModel != "pet-asr" {
-		t.Fatalf("PetWorkflow config not wired: %#v", srv.PetWorkflow)
 	}
 }
 
@@ -970,11 +944,5 @@ func validLayeredConfig(dir string) Config {
 			MessageCleanupInterval: "5m",
 			MessageMaxAudioBytes:   2097152,
 		},
-		SystemTasks: SystemTasksConfig{PetFlowcraftWorkflow: PetFlowcraftWorkflowTaskConfig{
-			GenerateModel:  "pet-chat",
-			ExtractModel:   "pet-extract",
-			EmbeddingModel: "pet-embedding",
-			ASRModel:       "pet-asr",
-		}},
 	}
 }

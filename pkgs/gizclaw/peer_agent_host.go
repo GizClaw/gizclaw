@@ -16,7 +16,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
-func newPeerAgentHost(base *agenthost.Host, peerGenX *peergenx.Service, ownerGenX func(context.Context, string) (*peergenx.Service, error), pets petagent.ContextProvider, petConfig petagent.Config, history logstore.MutableStore, state kv.Store, memoryObjects objectstore.ObjectStore) *agenthost.Host {
+func newPeerAgentHost(base *agenthost.Host, peerGenX *peergenx.Service, ownerGenX func(context.Context, string) (*peergenx.Service, error), pets petagent.ContextProvider, history logstore.MutableStore, state kv.Store, memoryObjects objectstore.ObjectStore) *agenthost.Host {
 	if base == nil {
 		return nil
 	}
@@ -32,6 +32,6 @@ func newPeerAgentHost(base *agenthost.Host, peerGenX *peergenx.Service, ownerGen
 	_ = host.Register(chatroom.Type, chatroom.Factory{Transformer: transformer})
 	_ = host.Register(doubaorealtime.Type, doubaorealtime.Factory{Transformer: transformer})
 	_ = host.Register(flowcraft.Type, flowcraft.Factory{GenX: peerGenX, GenXForOwner: ownerGenX, History: history, State: state, MemoryObjects: memoryObjects})
-	_ = host.Register(petagent.Type, petagent.Factory{GenX: peerGenX, Pets: pets, Config: petConfig, History: history, State: state, MemoryObjects: memoryObjects})
+	_ = host.Register(petagent.Type, petagent.Factory{GenX: peerGenX, Pets: pets, History: history, State: state, MemoryObjects: memoryObjects})
 	return host
 }

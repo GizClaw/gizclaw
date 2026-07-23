@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"reflect"
 	"strings"
 	"testing"
 
@@ -46,13 +45,25 @@ func TestTurnInputsComposeWorkspacePromptsAndDefinedAttributes(t *testing.T) {
 	}
 }
 
-func TestFixedFlowcraftConfigOwnsPetGraphAndAsyncMemoryLayout(t *testing.T) {
-	cfg := fixedFlowcraftConfig("chat-model", "extract-model", "", "peer")
-	memory := cfg["memory"].(map[string]any)
-	for _, legacy := range []string{"workspace", "history", "settings"} {
-		if _, exists := cfg[legacy]; exists {
-			t.Fatalf("fixed config contains legacy %q: %#v", legacy, cfg[legacy])
-		}
+func TestFixedPetGraphAndMemoryUseRuntimeProfileAliases(t *testing.T) {
+	graph := fixedPetGraph()
+	if err := graph.Validate(); err != nil {
+		t.Fatalf("fixedPetGraph().Validate() error = %v", err)
+	}
+	if graph.Entry != "prepare_pet_context" || len(graph.Nodes) != 2 || graph.Nodes[1].Config["model"] != petChatModelAlias || graph.Nodes[1].Config["max_tokens"] != 2048 {
+		t.Fatalf("fixed graph = %#v", graph)
+	}
+	memoryConfig, err := fixedPetMemory()
+	if err != nil {
+		t.Fatalf("fixedPetMemory() error = %v", err)
+	}
+	raw, err := json.Marshal(memoryConfig)
+	if err != nil {
+		t.Fatalf("json.Marshal(memory) error = %v", err)
+	}
+	var memory map[string]any
+	if err := json.Unmarshal(raw, &memory); err != nil {
+		t.Fatalf("json.Unmarshal(memory) error = %v", err)
 	}
 	for _, legacy := range []string{"scope", "retrieval"} {
 		if _, exists := memory[legacy]; exists {
@@ -93,36 +104,8 @@ func TestFixedFlowcraftConfigOwnsPetGraphAndAsyncMemoryLayout(t *testing.T) {
 	if len(wantKinds) != 0 {
 		t.Fatalf("missing memory lanes: %#v", wantKinds)
 	}
-	agent := cfg["agent"].(map[string]any)
-	graph := agent["graph"].(map[string]any)
-	if graph["entry"] != "prepare_pet_context" {
-		t.Fatalf("graph entry = %#v", graph["entry"])
-	}
-	nodes := graph["nodes"].([]any)
-	answer := nodes[1].(map[string]any)["config"].(map[string]any)
-	if answer["model"] != "chat-model" {
-		t.Fatalf("answer model = %#v", answer["model"])
-	}
-	if answer["max_tokens"] != 2048 {
-		t.Fatalf("answer max_tokens = %#v, want 2048", answer["max_tokens"])
-	}
-	if _, ok := cfg["tools"]; ok {
-		t.Fatalf("pet config unexpectedly contains tools: %#v", cfg["tools"])
-	}
-}
-
-func TestFixedFlowcraftConfigLoadsAsPublicSpec(t *testing.T) {
-	cfg := fixedFlowcraftConfig("chat-model", "extract-model", "embedding-model", "agent")
-	raw, err := json.Marshal(cfg)
-	if err != nil {
-		t.Fatalf("json.Marshal() error = %v", err)
-	}
-	var spec apitypes.FlowcraftWorkflowSpec
-	if err := json.Unmarshal(raw, &spec); err != nil {
-		t.Fatalf("public Flowcraft config rejected fixed Pet config: %v", err)
-	}
-	if spec.Conversation == nil || spec.Conversation.Starts == nil || *spec.Conversation.Starts != apitypes.FlowcraftConversationStartsAgent {
-		t.Fatalf("conversation = %#v", spec.Conversation)
+	if extract["model"] != petExtractModelAlias {
+		t.Fatalf("extract model = %#v", extract["model"])
 	}
 }
 
@@ -159,54 +142,9 @@ func TestFactoryRequiresConfiguredModelResourcesToBeOperational(t *testing.T) {
 			pet:    apitypes.Pet{DisplayName: "Spark"},
 			petDef: apitypes.PetDef{},
 		},
-		Config: Config{GenerateModel: "server-chat", ExtractModel: "server-extract", ASRModel: "server-asr"},
 	}).NewAgent(context.Background(), spec)
-	if err == nil || !strings.Contains(err.Error(), "server-chat") || !strings.Contains(err.Error(), "resolve model alias") || !strings.Contains(err.Error(), "not found") {
-		t.Fatalf("NewAgent() error = %v, want missing configured model %q", err, "server-chat")
-	}
-}
-
-func TestFactoryRejectsMissingServerModelConfig(t *testing.T) {
-	petSpec := apitypes.PetWorkflowSpec{}
-	parameters := petParameters(t)
-	spec := agenthost.Spec{
-		Workspace: apitypes.Workspace{Name: "pet-123", Parameters: &parameters},
-		Workflow: apitypes.Workflow{Spec: apitypes.WorkflowSpec{
-			Driver: apitypes.WorkflowDriverPet,
-			Pet:    &petSpec,
-		}},
-	}
-	_, err := (Factory{Pets: staticPetProvider{}}).NewAgent(context.Background(), spec)
-	if err == nil || !strings.Contains(err.Error(), "generate_model") || !strings.Contains(err.Error(), "system_tasks.pet_flowcraft_workflow") {
-		t.Fatalf("NewAgent() error = %v", err)
-	}
-}
-
-func TestResolveModelsUsesOnlyServerConfig(t *testing.T) {
-	models, err := resolveModels(Config{
-		GenerateModel:  "  server-chat  ",
-		ExtractModel:   " server-extract ",
-		EmbeddingModel: " server-embedding ",
-		ASRModel:       " server-asr ",
-	})
-	if err != nil {
-		t.Fatalf("resolveModels() error = %v", err)
-	}
-	want := Config{
-		GenerateModel:  "server-chat",
-		ExtractModel:   "server-extract",
-		EmbeddingModel: "server-embedding",
-		ASRModel:       "server-asr",
-	}
-	if !reflect.DeepEqual(models, want) {
-		t.Fatalf("resolveModels() = %#v, want %#v", models, want)
-	}
-}
-
-func TestResolveModelsRejectsMissingServerConfig(t *testing.T) {
-	_, err := resolveModels(Config{})
-	if err == nil || !strings.Contains(err.Error(), "generate_model") || !strings.Contains(err.Error(), "system_tasks.pet_flowcraft_workflow") {
-		t.Fatalf("resolveModels() error = %v", err)
+	if err == nil || !strings.Contains(err.Error(), petChatModelAlias) || !strings.Contains(err.Error(), "resolve model alias") || !strings.Contains(err.Error(), "not found") {
+		t.Fatalf("NewAgent() error = %v, want missing RuntimeProfile alias %q", err, petChatModelAlias)
 	}
 }
 

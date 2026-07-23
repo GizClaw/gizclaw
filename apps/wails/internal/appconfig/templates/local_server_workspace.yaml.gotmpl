@@ -6,11 +6,6 @@ serve-to-clients: {{ .ServeToClients }}
 {{ if .AdminPublicKey }}
 admin-public-key: {{ quote .AdminPublicKey }}
 {{ end }}
-system_tasks:
-  pet_flowcraft_workflow:
-    generate_model: chat
-    extract_model: extraction
-    asr_model: asr
 system_log:
   level: info
   sinks:

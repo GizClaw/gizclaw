@@ -3,7 +3,6 @@ package flowcraft
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -49,43 +48,8 @@ type Factory struct {
 	MemoryLoader  memoryflowcraft.ModelLoader
 }
 
-// InputProvider supplies product-owned transient Board values. It remains for
-// the Pet factory until #464 moves that assembly into the Pet package.
+// InputProvider supplies product-owned transient Board values.
 type InputProvider func(context.Context) (map[string]any, error)
-
-// ConfiguredAgentOptions is the temporary typed boundary used by Pet. Generic
-// Flowcraft workflows use the public OpenAPI type directly.
-type ConfiguredAgentOptions struct {
-	Flowcraft     map[string]any
-	ASRModel      string
-	DefaultVoice  string
-	NodeVoices    map[string]string
-	WorkspaceName string
-	InputProvider InputProvider
-}
-
-// NewConfiguredAgent keeps the product-owned Pet graph working while #464
-// moves it to direct construction. It removes the former Claw-only fields and
-// still runs through the reusable Transformer.
-func (f Factory) NewConfiguredAgent(ctx context.Context, options ConfiguredAgentOptions) (agenthost.Agent, error) {
-	workspaceName := strings.TrimSpace(options.WorkspaceName)
-	if workspaceName == "" {
-		return nil, fmt.Errorf("flowcraft: workspace name is required")
-	}
-	config := maps.Clone(options.Flowcraft)
-	config["voice_adapter"] = map[string]any{
-		"asr_model": options.ASRModel, "default_voice": options.DefaultVoice, "node_voices": maps.Clone(options.NodeVoices),
-	}
-	data, err := json.Marshal(config)
-	if err != nil {
-		return nil, fmt.Errorf("flowcraft: encode configured agent: %w", err)
-	}
-	var public apitypes.FlowcraftWorkflowSpec
-	if err := json.Unmarshal(data, &public); err != nil {
-		return nil, fmt.Errorf("flowcraft: decode configured agent: %w", err)
-	}
-	return f.newAgent(ctx, "", workspaceName, public, options.InputProvider, "")
-}
 
 func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.Agent, error) {
 	if spec.Workflow.Spec.Flowcraft == nil {
@@ -148,7 +112,7 @@ func (f Factory) newAgent(ctx context.Context, owner, workspaceName string, publ
 	if agentID == "" {
 		return nil, fmt.Errorf("flowcraft: agent.id is required")
 	}
-	scope := workspaceAgentScope(owner, workspaceName, agentID)
+	scope := WorkspaceAgentScope(owner, workspaceName, agentID)
 	config := genxflowcraft.Config{
 		ID: agentID, Name: strings.TrimSpace(public.Agent.Name), Graph: graph,
 		MaxIterations: intValue(public.Agent.MaxIterations), PublishNodes: publishNodes,
@@ -166,18 +130,18 @@ func (f Factory) newAgent(ctx context.Context, owner, workspaceName string, publ
 	var owned []io.Closer
 	var agentMemory memory.Store
 	if public.Memory != nil && public.Memory.Enabled {
-		memoryStore, closer, memoryConfig, err := f.buildMemory(ctx, owner, workspaceName, agentID, *public.Memory)
+		memoryBuild, err := f.BuildMemory(ctx, owner, workspaceName, agentID, *public.Memory)
 		if err != nil {
 			return nil, err
 		}
-		owned = append(owned, closer)
-		config.Memory = memoryStore
-		agentMemory = memoryStore
+		owned = append(owned, memoryBuild.Closer)
+		config.Memory = memoryBuild.Store
+		agentMemory = memoryBuild.Store
 		config.MemoryScope = memory.Scope(scope)
-		config.RecallProfiles = memoryConfig.recallProfiles
-		config.ObserveEnabled = memoryConfig.observe
-		config.ObserveWaitForCompletion = memoryConfig.observeWait
-		config.ObservationBuilder = memoryConfig.observationBuilder
+		config.RecallProfiles = memoryBuild.RecallProfiles
+		config.ObserveEnabled = memoryBuild.ObserveEnabled
+		config.ObserveWaitForCompletion = memoryBuild.ObserveWaitForCompletion
+		config.ObservationBuilder = memoryBuild.ObservationBuilder
 	}
 
 	core, err := genxflowcraft.New(config)
@@ -191,10 +155,7 @@ func (f Factory) newAgent(ctx context.Context, owner, workspaceName string, publ
 			return nil, errors.Join(err, closeAll(owned))
 		}
 	}
-	return &managedAgent{
-		Agent: agenthost.NewTransformerAgent(transformer), owned: owned,
-		memory: agentMemory, memoryScope: memory.Scope(scope),
-	}, nil
+	return NewManagedAgent(transformer, owned, agentMemory, memory.Scope(scope)), nil
 }
 
 func mapInitiative(conversation *apitypes.FlowcraftConversation, policy string) genxflowcraft.InitiativePolicy {
@@ -272,29 +233,35 @@ func llmNodeConfig(source apitypes.FlowcraftLLMNodeConfig) map[string]any {
 	return result
 }
 
-type builtMemoryConfig struct {
-	recallProfiles     []genxflowcraft.MemoryRecallProfile
-	observe            bool
-	observeWait        bool
-	observationBuilder genxflowcraft.ObservationBuilder
+// MemoryBuild is the product-owned Store assembly shared by Flowcraft-backed
+// workflow drivers. It never owns Graph execution or stream lifecycle.
+type MemoryBuild struct {
+	Store                    memory.Store
+	Closer                   io.Closer
+	RecallProfiles           []genxflowcraft.MemoryRecallProfile
+	ObserveEnabled           bool
+	ObserveWaitForCompletion bool
+	ObservationBuilder       genxflowcraft.ObservationBuilder
 }
 
-func (f Factory) buildMemory(ctx context.Context, owner, workspaceName, agentID string, public apitypes.FlowcraftMemory) (memory.Store, io.Closer, builtMemoryConfig, error) {
+// BuildMemory maps public Flowcraft Memory configuration to the provider-neutral
+// Store used by a particular owner, Workspace, and Agent scope.
+func (f Factory) BuildMemory(ctx context.Context, owner, workspaceName, agentID string, public apitypes.FlowcraftMemory) (MemoryBuild, error) {
 	if f.MemoryObjects == nil {
-		return nil, nil, builtMemoryConfig{}, fmt.Errorf("flowcraft: workspace %q memory requires a server object store", workspaceName)
+		return MemoryBuild{}, fmt.Errorf("flowcraft: workspace %q memory requires a server object store", workspaceName)
 	}
 	workspace, err := newObjectWorkspace(f.MemoryObjects, memoryObjectPrefix(owner, workspaceName, agentID))
 	if err != nil {
-		return nil, nil, builtMemoryConfig{}, err
+		return MemoryBuild{}, err
 	}
 	backend, err := flowmemorystore.New(workspace)
 	if err != nil {
-		return nil, nil, builtMemoryConfig{}, fmt.Errorf("flowcraft: workspace %q memory backend: %w", workspaceName, err)
+		return MemoryBuild{}, fmt.Errorf("flowcraft: workspace %q memory backend: %w", workspaceName, err)
 	}
 	retrievalIndex, err := flowretrievalstore.New(workspace)
 	if err != nil {
 		_ = backend.Close()
-		return nil, nil, builtMemoryConfig{}, fmt.Errorf("flowcraft: workspace %q retrieval index: %w", workspaceName, err)
+		return MemoryBuild{}, fmt.Errorf("flowcraft: workspace %q retrieval index: %w", workspaceName, err)
 	}
 	loader := f.MemoryLoader
 	if loader == nil {
@@ -304,17 +271,34 @@ func (f Factory) buildMemory(ctx context.Context, owner, workspaceName, agentID 
 	if err != nil {
 		_ = retrievalIndex.Close()
 		_ = backend.Close()
-		return nil, nil, builtMemoryConfig{}, fmt.Errorf("flowcraft: workspace %q memory: %w", workspaceName, err)
+		return MemoryBuild{}, fmt.Errorf("flowcraft: workspace %q memory: %w", workspaceName, err)
 	}
 	store, err := memoryflowcraft.New(ctx, runtimeConfig)
 	if err != nil {
 		_ = retrievalIndex.Close()
 		_ = backend.Close()
-		return nil, nil, builtMemoryConfig{}, fmt.Errorf("flowcraft: workspace %q memory: %w", workspaceName, err)
+		return MemoryBuild{}, fmt.Errorf("flowcraft: workspace %q memory: %w", workspaceName, err)
 	}
 	// closeAll reverses this construction-order slice: Store first, then its
 	// retrieval and persistence dependencies.
-	return store, multiCloser{backend, retrievalIndex, store}, mapped, nil
+	return MemoryBuild{
+		Store: store, Closer: multiCloser{backend, retrievalIndex, store},
+		RecallProfiles: mapped.recallProfiles, ObserveEnabled: mapped.observe,
+		ObserveWaitForCompletion: mapped.observeWait, ObservationBuilder: mapped.observationBuilder,
+	}, nil
+}
+
+// buildMemory retains the package-local test seam while callers outside this
+// package use the explicit MemoryBuild result.
+func (f Factory) buildMemory(ctx context.Context, owner, workspaceName, agentID string, public apitypes.FlowcraftMemory) (memory.Store, io.Closer, mappedMemoryConfig, error) {
+	built, err := f.BuildMemory(ctx, owner, workspaceName, agentID, public)
+	if err != nil {
+		return nil, nil, mappedMemoryConfig{}, err
+	}
+	return built.Store, built.Closer, mappedMemoryConfig{
+		recallProfiles: built.RecallProfiles, observe: built.ObserveEnabled,
+		observeWait: built.ObserveWaitForCompletion, observationBuilder: built.ObservationBuilder,
+	}, nil
 }
 
 // memoryObjectPrefix keeps the physical object key independent from public
@@ -328,7 +312,14 @@ func memoryObjectPrefix(owner, workspaceName, agentID string) string {
 	return fmt.Sprintf("fc/%x", digest[:16])
 }
 
-func mapMemoryConfig(public apitypes.FlowcraftMemory, loader memoryflowcraft.ModelLoader, backend *flowmemorystore.Backend, retrievalIndex *flowretrievalstore.Index) (memoryflowcraft.Config, builtMemoryConfig, error) {
+type mappedMemoryConfig struct {
+	recallProfiles     []genxflowcraft.MemoryRecallProfile
+	observe            bool
+	observeWait        bool
+	observationBuilder genxflowcraft.ObservationBuilder
+}
+
+func mapMemoryConfig(public apitypes.FlowcraftMemory, loader memoryflowcraft.ModelLoader, backend *flowmemorystore.Backend, retrievalIndex *flowretrievalstore.Index) (memoryflowcraft.Config, mappedMemoryConfig, error) {
 	config := memoryflowcraft.Config{
 		Loader: loader, RetrievalIndex: retrievalIndex, TemporalStore: backend.TemporalStore(), EvidenceStore: backend.EvidenceStore(), SideEffectOutbox: backend.SideEffectOutbox(),
 	}
@@ -344,7 +335,7 @@ func mapMemoryConfig(public apitypes.FlowcraftMemory, loader memoryflowcraft.Mod
 		if value := stringValue(public.Extract.StageTimeout); value != "" {
 			duration, err := time.ParseDuration(value)
 			if err != nil {
-				return memoryflowcraft.Config{}, builtMemoryConfig{}, fmt.Errorf("extract.stage_timeout: %w", err)
+				return memoryflowcraft.Config{}, mappedMemoryConfig{}, fmt.Errorf("extract.stage_timeout: %w", err)
 			}
 			config.Extraction.StageTimeout = duration
 		}
@@ -352,13 +343,13 @@ func mapMemoryConfig(public apitypes.FlowcraftMemory, loader memoryflowcraft.Mod
 	if public.Embedding != nil && boolValue(public.Embedding.Enabled) {
 		config.Embedding.Model = stringValue(public.Embedding.Model)
 		if config.Embedding.Model == "" {
-			return memoryflowcraft.Config{}, builtMemoryConfig{}, fmt.Errorf("embedding.model is required when embedding is enabled")
+			return memoryflowcraft.Config{}, mappedMemoryConfig{}, fmt.Errorf("embedding.model is required when embedding is enabled")
 		}
 	}
 	if public.Rerank != nil && boolValue(public.Rerank.Enabled) {
 		config.Rerank.Model = stringValue(public.Rerank.Model)
 		if config.Rerank.Model == "" {
-			return memoryflowcraft.Config{}, builtMemoryConfig{}, fmt.Errorf("rerank.model is required when rerank is enabled")
+			return memoryflowcraft.Config{}, mappedMemoryConfig{}, fmt.Errorf("rerank.model is required when rerank is enabled")
 		}
 	}
 	if public.Recall != nil {
@@ -377,7 +368,7 @@ func mapMemoryConfig(public apitypes.FlowcraftMemory, loader memoryflowcraft.Mod
 		config.AsyncQueue = backend.AsyncSemanticQueue()
 	}
 	observe := memoryObserveEnabled(public)
-	mapped := builtMemoryConfig{
+	mapped := mappedMemoryConfig{
 		recallProfiles: mapRecallProfiles(public),
 		observe:        observe,
 		observeWait:    observe && writeMode == "sync",
@@ -729,6 +720,15 @@ type managedAgent struct {
 	closeErr    error
 }
 
+// NewManagedAgent exposes the product runtime surface for a direct reusable
+// Flowcraft Transformer while retaining ownership of its Store resources.
+func NewManagedAgent(transformer genx.Transformer, owned []io.Closer, agentMemory memory.Store, scope memory.Scope) agenthost.Agent {
+	return &managedAgent{
+		Agent: agenthost.NewTransformerAgent(transformer), owned: owned,
+		memory: agentMemory, memoryScope: scope,
+	}
+}
+
 func (a *managedAgent) Status(ctx context.Context) (apitypes.PeerRunWorkspaceState, error) {
 	status, err := a.Agent.Status(ctx)
 	if err != nil {
@@ -833,12 +833,18 @@ func genxflowcraftBoardInputs(provider InputProvider) func(context.Context) (map
 	return func(ctx context.Context) (map[string]any, error) { return provider(ctx) }
 }
 
-func workspaceAgentScope(owner, workspaceName, agentID string) string {
+// WorkspaceAgentScope is the stable owner/Workspace/Agent namespace shared by
+// History, State, and Flowcraft Memory for product-owned fixed Graphs.
+func WorkspaceAgentScope(owner, workspaceName, agentID string) string {
 	parts := make([]string, 0, 6)
 	if owner = strings.TrimSpace(owner); owner != "" {
 		parts = append(parts, "o", scopeToken(owner))
 	}
 	return strings.Join(append(parts, "w", scopeToken(workspaceName), "a", scopeToken(agentID)), "/")
+}
+
+func workspaceAgentScope(owner, workspaceName, agentID string) string {
+	return WorkspaceAgentScope(owner, workspaceName, agentID)
 }
 
 // scopeToken keeps the product-owned owner/Workspace/Agent namespace short.

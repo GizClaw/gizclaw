@@ -16,7 +16,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/cmd/internal/stores"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	petagent "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/pet"
 	runtimepeer "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizmetrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -190,12 +189,6 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 		PublicICETCP:   newOpts.ICETCPListener != nil,
 		EdgeNodes:      cfg.EdgeNodes,
 		ICEServers:     cfg.ICEServers,
-		PetWorkflow: petagent.Config{
-			GenerateModel:  cfg.SystemTasks.PetFlowcraftWorkflow.GenerateModel,
-			ExtractModel:   cfg.SystemTasks.PetFlowcraftWorkflow.ExtractModel,
-			EmbeddingModel: cfg.SystemTasks.PetFlowcraftWorkflow.EmbeddingModel,
-			ASRModel:       cfg.SystemTasks.PetFlowcraftWorkflow.ASRModel,
-		},
 		PeerListenerFactories: []gizclaw.PeerListenerFactory{
 			func(opts gizclaw.PeerListenerOptions) (giznet.Listener, error) {
 				listenConfig := webRTCListenConfig(cfg, opts, newOpts.ICETCPListener)

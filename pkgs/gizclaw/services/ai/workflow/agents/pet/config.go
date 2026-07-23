@@ -1,16 +1,49 @@
 package pet
 
-func fixedFlowcraftConfig(generateModel, extractModel, embeddingModel, starts string) map[string]any {
-	return map[string]any{
-		"conversation": map[string]any{
-			"starts": starts,
+import (
+	"encoding/json"
+	"fmt"
+
+	flowgraph "github.com/GizClaw/flowcraft/sdk/graph"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+)
+
+const (
+	petAgentID           = "pet"
+	petChatModelAlias    = "pet-chat"
+	petExtractModelAlias = "pet-extract"
+	petASRModelAlias     = "pet-asr"
+)
+
+func fixedPetGraph() flowgraph.GraphDefinition {
+	return flowgraph.GraphDefinition{
+		Name: "pet", Entry: "prepare_pet_context",
+		Edges: []flowgraph.EdgeDefinition{
+			{From: "prepare_pet_context", To: "answer"},
+			{From: "answer", To: "__end__"},
 		},
-		"memory": petMemoryConfig(extractModel, embeddingModel),
-		"agent":  petAgentConfig(generateModel),
+		Nodes: []flowgraph.NodeDefinition{
+			{ID: "prepare_pet_context", Type: "script", Config: map[string]any{"source": petPromptScript}},
+			{ID: "answer", Type: "llm", Config: map[string]any{
+				"model": petChatModelAlias, "max_tokens": 2048, "system_prompt": "${board.system_prompt}", "track_steps": true,
+			}},
+		},
 	}
 }
 
-func petMemoryConfig(extractModel, embeddingModel string) map[string]any {
+func fixedPetMemory() (apitypes.FlowcraftMemory, error) {
+	raw, err := json.Marshal(petMemoryConfig())
+	if err != nil {
+		return apitypes.FlowcraftMemory{}, fmt.Errorf("encode fixed memory: %w", err)
+	}
+	var memory apitypes.FlowcraftMemory
+	if err := json.Unmarshal(raw, &memory); err != nil {
+		return apitypes.FlowcraftMemory{}, fmt.Errorf("decode fixed memory: %w", err)
+	}
+	return memory, nil
+}
+
+func petMemoryConfig() map[string]any {
 	memory := map[string]any{
 		"enabled": true,
 		"write": map[string]any{
@@ -20,7 +53,7 @@ func petMemoryConfig(extractModel, embeddingModel string) map[string]any {
 		},
 		"extract": map[string]any{
 			"enabled":     true,
-			"model":       extractModel,
+			"model":       petExtractModelAlias,
 			"mode":        "two_pass",
 			"temperature": 0,
 			"schema_name": "pet_memory",
@@ -54,11 +87,6 @@ Do not store current Gameplay life/progression numbers, hidden prompts, implemen
 			},
 		},
 	}
-	embedding := map[string]any{"enabled": embeddingModel != ""}
-	if embeddingModel != "" {
-		embedding["model"] = embeddingModel
-	}
-	memory["embedding"] = embedding
 	return memory
 }
 
@@ -76,33 +104,6 @@ func recallProfile(output string, lanes, kinds []any, header string) map[string]
 			"kinds": kinds,
 		},
 		"render": map[string]any{"header": header, "item_prefix": "- ", "max_items": 6},
-	}
-}
-
-func petAgentConfig(generateModel string) map[string]any {
-	return map[string]any{
-		"id":             "pet",
-		"name":           "Pet",
-		"description":    "An adopted GizClaw pet.",
-		"max_iterations": 6,
-		"graph": map[string]any{
-			"name":  "pet",
-			"entry": "prepare_pet_context",
-			"edges": []any{
-				map[string]any{"from": "prepare_pet_context", "to": "answer"},
-				map[string]any{"from": "answer", "to": "__end__"},
-			},
-			"nodes": []any{
-				map[string]any{
-					"id": "prepare_pet_context", "type": "script",
-					"config": map[string]any{"source": petPromptScript},
-				},
-				map[string]any{
-					"id": "answer", "type": "llm", "publish": true,
-					"config": map[string]any{"model": generateModel, "max_tokens": 2048, "system_prompt": "${board.system_prompt}", "track_steps": true},
-				},
-			},
-		},
 	}
 }
 
