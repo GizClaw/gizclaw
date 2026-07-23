@@ -18,22 +18,28 @@ import (
 )
 
 var (
-	ErrNilService         = errors.New("agenthost: nil service")
-	ErrMissingHost        = errors.New("agenthost: host is required")
-	ErrMissingPeerRun     = errors.New("agenthost: peer run store is required")
-	ErrMissingSource      = errors.New("agenthost: stream source is required")
-	ErrMissingInputPusher = errors.New("agenthost: input pusher is required")
-	ErrMissingConsumer    = errors.New("agenthost: stream consumer is required")
-	ErrInvalidPublicKey   = errors.New("agenthost: invalid public key")
-	ErrNoActiveWorkspace  = errors.New("agenthost: no active workspace")
-	ErrServiceClosed      = errors.New("agenthost: service is closed")
+	ErrNilService            = errors.New("agenthost: nil service")
+	ErrMissingHost           = errors.New("agenthost: host is required")
+	ErrMissingPeerRun        = errors.New("agenthost: peer run store is required")
+	ErrMissingSource         = errors.New("agenthost: stream source is required")
+	ErrMissingInputPusher    = errors.New("agenthost: input pusher is required")
+	ErrMissingConsumer       = errors.New("agenthost: stream consumer is required")
+	ErrInvalidPublicKey      = errors.New("agenthost: invalid public key")
+	ErrNoActiveWorkspace     = errors.New("agenthost: no active workspace")
+	ErrServiceClosed         = errors.New("agenthost: service is closed")
+	ErrMissingSelectionStore = errors.New("agenthost: peer run selection store is required")
 )
 
 type PeerRunStore interface {
-	GetRunAgent(context.Context, giznet.PublicKey) (apitypes.PeerRunAgent, error)
-	SetRunAgent(context.Context, giznet.PublicKey, apitypes.AgentSelection) (apitypes.PeerRunAgent, error)
 	ResolveRunAgent(context.Context, giznet.PublicKey) (apitypes.AgentSelection, error)
 	ActivateRunAgent(context.Context, giznet.PublicKey, apitypes.AgentSelection) (apitypes.PeerRunAgent, error)
+}
+
+// PeerRunSelectionStore is the optional selection persistence capability used
+// by SetRunAgent and revision-aware input recovery.
+type PeerRunSelectionStore interface {
+	GetRunAgent(context.Context, giznet.PublicKey) (apitypes.PeerRunAgent, error)
+	SetRunAgent(context.Context, giznet.PublicKey, apitypes.AgentSelection) (apitypes.PeerRunAgent, error)
 }
 
 type StreamSource interface {
@@ -255,22 +261,26 @@ func (s *Service) SetRunAgent(ctx context.Context, selection apitypes.AgentSelec
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	store, ok := s.PeerRun.(PeerRunSelectionStore)
+	if !ok {
+		return apitypes.PeerRunAgent{}, ErrMissingSelectionStore
+	}
 	if err := s.lockTransition(ctx); err != nil {
 		return apitypes.PeerRunAgent{}, err
 	}
 	defer s.unlockTransition()
 	ctx, finish := s.beginCancellableTransition(ctx)
 	defer finish()
-	run, err := s.PeerRun.GetRunAgent(ctx, s.PublicKey)
+	run, err := store.GetRunAgent(ctx, s.PublicKey)
 	if err != nil {
 		return apitypes.PeerRunAgent{}, err
 	}
 	if s.activeWorkspace(run) == selection.WorkspaceName {
-		return s.PeerRun.SetRunAgent(ctx, s.PublicKey, selection)
+		return store.SetRunAgent(ctx, s.PublicKey, selection)
 	}
 	s.beginTransition()
 	defer s.finishTransition()
-	return s.PeerRun.SetRunAgent(ctx, s.PublicKey, selection)
+	return store.SetRunAgent(ctx, s.PublicKey, selection)
 }
 
 // RuntimeRevision returns the current Peer runtime control-plane revision.
@@ -390,7 +400,11 @@ func (s *Service) reloadIfCurrentRevision(ctx context.Context, revision uint64) 
 	if revision%2 != 0 || s.revision.Load() != revision {
 		return false, nil
 	}
-	run, err := s.PeerRun.GetRunAgent(ctx, s.PublicKey)
+	store, ok := s.PeerRun.(PeerRunSelectionStore)
+	if !ok {
+		return false, ErrMissingSelectionStore
+	}
+	run, err := store.GetRunAgent(ctx, s.PublicKey)
 	if err != nil {
 		return false, err
 	}

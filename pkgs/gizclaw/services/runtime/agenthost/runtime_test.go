@@ -1307,14 +1307,6 @@ type fakePeerRunStore struct {
 	err       error
 }
 
-func (s fakePeerRunStore) GetRunAgent(context.Context, giznet.PublicKey) (apitypes.PeerRunAgent, error) {
-	return apitypes.PeerRunAgent{}, s.err
-}
-
-func (s fakePeerRunStore) SetRunAgent(context.Context, giznet.PublicKey, apitypes.AgentSelection) (apitypes.PeerRunAgent, error) {
-	return apitypes.PeerRunAgent{}, s.err
-}
-
 func (s fakePeerRunStore) ResolveRunAgent(context.Context, giznet.PublicKey) (apitypes.AgentSelection, error) {
 	return s.selection, nil
 }

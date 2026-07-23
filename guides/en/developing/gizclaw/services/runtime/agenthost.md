@@ -25,7 +25,7 @@ flowchart TD
 | --- | --- |
 | `Service.Reload` | Stop the old runtime and create a new runtime based on the current Peer run selection. |
 | `Service.Status` / `Stop` / `Shutdown` | Query or terminate the current Agent runtime; connection teardown permanently shuts down the service. |
-| `Service.SetRunAgent` | Persist a pending Peer selection through the same transition boundary as reload and stop; only a selection that changes the active workspace advances the runtime revision. |
+| `Service.SetRunAgent` | When `PeerRun` provides the optional `PeerRunSelectionStore` capability, persist a pending selection through the same transition boundary as reload and stop; only a selection that changes the active workspace advances the runtime revision. |
 | `Service.RuntimeRevision` / `PushInput` / `ReloadAndPushInputIfCurrentRevision` | Let connection-scoped input write or atomically recover-and-write only when it still belongs to the current stable runtime revision. |
 | `Service.WorkspaceState` | Returns the running status of the current workspace. |
 | `RuntimeRegistry` | Maintain the current online runtime. |

@@ -25,7 +25,7 @@ flowchart TD
 | --- | --- |
 | `Service.Reload` | 停止旧 runtime，并按当前 Peer run selection 创建新 runtime。 |
 | `Service.Status` / `Stop` / `Shutdown` | 查询或终止当前 Agent runtime；连接 teardown 会永久关闭该 service。 |
-| `Service.SetRunAgent` | 在与 reload、stop 相同的 transition 边界内持久化 pending Peer selection；只有改变 active workspace 的 selection 才推进 runtime revision。 |
+| `Service.SetRunAgent` | 当 `PeerRun` 提供可选 `PeerRunSelectionStore` capability 时，在与 reload、stop 相同的 transition 边界内持久化 pending selection；只有改变 active workspace 的 selection 才推进 runtime revision。 |
 | `Service.RuntimeRevision` / `PushInput` / `ReloadAndPushInputIfCurrentRevision` | 仅当 connection-scoped input 仍属于当前稳定 runtime revision 时允许写入或原子化地恢复后写入。 |
 | `Service.WorkspaceState` | 返回当前 workspace 的运行状态。 |
 | `RuntimeRegistry` | 维护当前在线 runtime。 |
