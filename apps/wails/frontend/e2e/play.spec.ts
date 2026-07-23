@@ -516,7 +516,13 @@ test("play gameplay panel adopts and drives pets through peer RPC", async ({
   await expect(page.getByText("Starter Pet").first()).toBeVisible();
   await expect(page.getByText("badge-basic").first()).toBeVisible();
 
+  await expect(
+    page.getByRole("button", { name: "Adopt Pet" }),
+  ).toBeDisabled();
   await page.getByPlaceholder("Display name").fill("Test Pet");
+  await expect(
+    page.getByRole("button", { name: "Adopt Pet" }),
+  ).toBeEnabled();
   await page.getByRole("button", { name: "Adopt Pet" }).click();
   await expect(page.getByText("Test Pet")).toBeVisible();
   await expect

@@ -600,8 +600,7 @@ function GameplayPanel(): JSX.Element {
     try {
       await expectData(
         adoptPeerPet({
-          body:
-            adoptName.trim() !== "" ? { display_name: adoptName.trim() } : {},
+          body: { display_name: adoptName.trim() },
         }),
       );
       setAdoptName("");
@@ -756,7 +755,7 @@ function GameplayPanel(): JSX.Element {
               value={adoptName}
             />
             <Button
-              disabled={busy !== ""}
+              disabled={busy !== "" || adoptName.trim() === ""}
               onClick={() => void adopt()}
               type="button"
             >
