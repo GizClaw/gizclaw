@@ -424,6 +424,64 @@ func TestPeerConnCloseStopsAgentRuntime(t *testing.T) {
 	}
 }
 
+func TestPeerConnCloseDoesNotWaitForBlockedRuntimeTransition(t *testing.T) {
+	ctx := context.Background()
+	keyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair error = %v", err)
+	}
+	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	if _, err := store.SetRunAgent(ctx, keyPair.Public, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
+		t.Fatalf("SetRunAgent() error = %v", err)
+	}
+	source := newPeerConnBlockingOpenInput()
+	runtime := &agenthost.Service{
+		Host:      peerConnTestHost{output: newPeerConnBlockingStream()},
+		PeerRun:   store,
+		PublicKey: keyPair.Public,
+		Source:    source,
+		Consumer: agenthost.StreamConsumerFunc(func(ctx context.Context, _ genx.Stream) error {
+			<-ctx.Done()
+			return nil
+		}),
+	}
+	reloadDone := make(chan error, 1)
+	go func() {
+		_, err := runtime.Reload(ctx)
+		reloadDone <- err
+	}()
+	select {
+	case <-source.openEntered:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for blocked Reload")
+	}
+	peer := &PeerConn{agentHost: runtime, agentInput: source, runtimeStopTimeout: 50 * time.Millisecond}
+	startedAt := time.Now()
+	err = peer.close()
+	if err != nil {
+		t.Fatalf("close() error = %v", err)
+	}
+	if elapsed := time.Since(startedAt); elapsed > time.Second {
+		t.Fatalf("close() waited %s for blocked runtime transition", elapsed)
+	}
+	close(source.openRelease)
+	select {
+	case err := <-reloadDone:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("Reload() error = %v, want context canceled", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for Reload after close")
+	}
+	status, statusErr := runtime.Status(ctx)
+	if statusErr != nil {
+		t.Fatalf("Status() error = %v", statusErr)
+	}
+	if status.State == apitypes.PeerRunStatusStateRunning {
+		t.Fatalf("runtime status after canceled Reload = %+v", status)
+	}
+}
+
 func TestPeerConnHandleTelemetryPacket(t *testing.T) {
 	ctx := context.Background()
 	keyPair, err := giznet.GenerateKeyPair()
@@ -664,6 +722,328 @@ func TestPeerConnReloadsRuntimeWhenInputIsInactive(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for pushed chunk")
 	}
+}
+
+func TestPeerConnDropsInactiveInputAfterWorkspaceSelectionChanges(t *testing.T) {
+	ctx := context.Background()
+	keyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair error = %v", err)
+	}
+	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	if _, err := store.SetRunAgent(ctx, keyPair.Public, apitypes.AgentSelection{WorkspaceName: "realtime"}); err != nil {
+		t.Fatalf("SetRunAgent(realtime) error = %v", err)
+	}
+	source := newPeerRealtimeSource(genx.WithRealtimeStreamDelay(0))
+	runtime := &agenthost.Service{
+		Host:      peerConnTestHost{output: &peerConnBlockingStream{done: make(chan struct{})}},
+		PeerRun:   store,
+		PublicKey: keyPair.Public,
+		Source:    source,
+		Consumer: agenthost.StreamConsumerFunc(func(ctx context.Context, _ genx.Stream) error {
+			<-ctx.Done()
+			return nil
+		}),
+	}
+	if _, err := runtime.Reload(ctx); err != nil {
+		t.Fatalf("Reload() error = %v", err)
+	}
+	defer func() {
+		if _, err := runtime.Stop(ctx); err != nil {
+			t.Errorf("Stop() error = %v", err)
+		}
+	}()
+	if _, err := runtime.SetRunAgent(ctx, apitypes.AgentSelection{WorkspaceName: "assistant"}); err != nil {
+		t.Fatalf("SetRunAgent(assistant) error = %v", err)
+	}
+	if err := source.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
+	peer := &PeerConn{agentHost: runtime, agentInput: source}
+	chunk := &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "audio", BeginOfStream: true}}
+	if err := peer.pushAgentInputChunk(ctx, chunk); err != nil {
+		t.Fatalf("pushAgentInputChunk() error = %v", err)
+	}
+	source.mu.RLock()
+	input := source.current
+	source.mu.RUnlock()
+	if input != nil {
+		t.Fatal("stale Realtime chunk reopened the pending Assistant workspace")
+	}
+	agent, err := store.GetRunAgent(ctx, keyPair.Public)
+	if err != nil {
+		t.Fatalf("GetRunAgent() error = %v", err)
+	}
+	if agent.Pending == nil || agent.Pending.WorkspaceName != "assistant" {
+		t.Fatalf("run agent = %+v, want pending assistant", agent)
+	}
+}
+
+func TestPeerConnPushSerializesWithRuntimeTransition(t *testing.T) {
+	ctx := context.Background()
+	keyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair error = %v", err)
+	}
+	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	if _, err := store.SetRunAgent(ctx, keyPair.Public, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
+		t.Fatalf("SetRunAgent() error = %v", err)
+	}
+	input := newBlockingPeerAgentInput()
+	runtime := &agenthost.Service{
+		Host:      peerConnTestHost{output: &peerConnBlockingStream{done: make(chan struct{})}},
+		PeerRun:   store,
+		PublicKey: keyPair.Public,
+		Source:    input,
+		Consumer: agenthost.StreamConsumerFunc(func(ctx context.Context, _ genx.Stream) error {
+			<-ctx.Done()
+			return nil
+		}),
+	}
+	if _, err := runtime.Reload(ctx); err != nil {
+		t.Fatalf("initial Reload() error = %v", err)
+	}
+	defer func() {
+		if _, err := runtime.Stop(ctx); err != nil {
+			t.Errorf("Stop() error = %v", err)
+		}
+	}()
+	peer := &PeerConn{agentHost: runtime, agentInput: input}
+	pushDone := make(chan error, 1)
+	go func() {
+		pushDone <- peer.pushAgentInputChunk(ctx, &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "audio", BeginOfStream: true}})
+	}()
+	select {
+	case <-input.pushEntered:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for input push")
+	}
+	reloadDone := make(chan error, 1)
+	go func() {
+		_, err := runtime.Reload(ctx)
+		reloadDone <- err
+	}()
+	select {
+	case err := <-reloadDone:
+		t.Fatalf("Reload() completed while the input write held the transition boundary: %v", err)
+	case <-time.After(100 * time.Millisecond):
+	}
+	if got := input.openCalls(); got != 1 {
+		t.Fatalf("OpenAgentInput calls during push = %d, want 1", got)
+	}
+	close(input.pushRelease)
+	select {
+	case err := <-pushDone:
+		if err != nil {
+			t.Fatalf("pushAgentInputChunk() error = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for input push")
+	}
+	select {
+	case err := <-reloadDone:
+		if err != nil {
+			t.Fatalf("Reload() error = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for Reload")
+	}
+	if got := input.openCalls(); got != 2 {
+		t.Fatalf("OpenAgentInput calls after push = %d, want 2", got)
+	}
+}
+
+func TestPeerConnPushReturnsTransitionWaitError(t *testing.T) {
+	ctx := context.Background()
+	keyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair error = %v", err)
+	}
+	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	if _, err := store.SetRunAgent(ctx, keyPair.Public, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
+		t.Fatalf("SetRunAgent() error = %v", err)
+	}
+	input := newBlockingPeerAgentInput()
+	runtime := &agenthost.Service{
+		Host:      peerConnTestHost{output: &peerConnBlockingStream{done: make(chan struct{})}},
+		PeerRun:   store,
+		PublicKey: keyPair.Public,
+		Source:    input,
+		Consumer: agenthost.StreamConsumerFunc(func(ctx context.Context, _ genx.Stream) error {
+			<-ctx.Done()
+			return nil
+		}),
+	}
+	if _, err := runtime.Reload(ctx); err != nil {
+		t.Fatalf("initial Reload() error = %v", err)
+	}
+	defer func() {
+		input.releasePush()
+		if _, err := runtime.Stop(ctx); err != nil {
+			t.Errorf("Stop() error = %v", err)
+		}
+	}()
+	peer := &PeerConn{agentHost: runtime, agentInput: input}
+	firstPushDone := make(chan error, 1)
+	go func() {
+		firstPushDone <- peer.pushAgentInputChunk(ctx, &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "audio", BeginOfStream: true}})
+	}()
+	select {
+	case <-input.pushEntered:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for first input push")
+	}
+	waitCtx, cancel := context.WithTimeout(ctx, 20*time.Millisecond)
+	defer cancel()
+	err = peer.pushAgentInputChunk(waitCtx, &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "audio", BeginOfStream: true}})
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("pushAgentInputChunk() error = %v, want deadline exceeded", err)
+	}
+	input.releasePush()
+	select {
+	case err := <-firstPushDone:
+		if err != nil {
+			t.Fatalf("first pushAgentInputChunk() error = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for first input push")
+	}
+}
+
+func TestPeerConnRestoresInactiveInputForSameWorkspaceSelection(t *testing.T) {
+	ctx := context.Background()
+	keyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair error = %v", err)
+	}
+	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	if _, err := store.SetRunAgent(ctx, keyPair.Public, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
+		t.Fatalf("SetRunAgent(demo) error = %v", err)
+	}
+	source := newPeerRealtimeSource(genx.WithRealtimeStreamDelay(0))
+	runtime := &agenthost.Service{
+		Host:      peerConnTestHost{output: &peerConnBlockingStream{done: make(chan struct{})}},
+		PeerRun:   store,
+		PublicKey: keyPair.Public,
+		Source:    source,
+		Consumer: agenthost.StreamConsumerFunc(func(ctx context.Context, _ genx.Stream) error {
+			<-ctx.Done()
+			return nil
+		}),
+	}
+	if _, err := runtime.Reload(ctx); err != nil {
+		t.Fatalf("Reload() error = %v", err)
+	}
+	defer func() {
+		if _, err := runtime.Stop(ctx); err != nil {
+			t.Errorf("Stop() error = %v", err)
+		}
+	}()
+	observedRevision := runtime.RuntimeRevision()
+	if _, err := runtime.SetRunAgent(ctx, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
+		t.Fatalf("SetRunAgent(demo) error = %v", err)
+	}
+	if got := runtime.RuntimeRevision(); got != observedRevision {
+		t.Fatalf("RuntimeRevision() after same-workspace selection = %d, want %d", got, observedRevision)
+	}
+	if err := source.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
+	peer := &PeerConn{agentHost: runtime, agentInput: source}
+	chunk := &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "audio", BeginOfStream: true}}
+	if err := peer.pushAgentInputChunk(ctx, chunk); err != nil {
+		t.Fatalf("pushAgentInputChunk() error = %v", err)
+	}
+	source.mu.RLock()
+	input := source.current
+	source.mu.RUnlock()
+	if input == nil {
+		t.Fatal("same-workspace selection did not restore the inactive source")
+	}
+	received := make(chan *genx.MessageChunk, 1)
+	go func() {
+		got, _ := input.Next()
+		received <- got
+	}()
+	select {
+	case got := <-received:
+		if got != chunk {
+			t.Fatalf("received chunk = %p, want %p", got, chunk)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for restored input")
+	}
+	agent, err := store.GetRunAgent(ctx, keyPair.Public)
+	if err != nil {
+		t.Fatalf("GetRunAgent() error = %v", err)
+	}
+	if agent.Pending != nil || agent.Active == nil || agent.Active.WorkspaceName != "demo" {
+		t.Fatalf("run agent after same-workspace recovery = %+v", agent)
+	}
+}
+
+type blockingPeerAgentInput struct {
+	mu          sync.Mutex
+	pushEntered chan struct{}
+	pushRelease chan struct{}
+	pushOnce    sync.Once
+	releaseOnce sync.Once
+	opens       int
+}
+
+type peerConnBlockingOpenInput struct {
+	openEntered chan struct{}
+	openRelease chan struct{}
+	openOnce    sync.Once
+}
+
+func newPeerConnBlockingOpenInput() *peerConnBlockingOpenInput {
+	return &peerConnBlockingOpenInput{openEntered: make(chan struct{}), openRelease: make(chan struct{})}
+}
+
+func (s *peerConnBlockingOpenInput) OpenAgentInput(context.Context) (genx.Stream, error) {
+	s.openOnce.Do(func() { close(s.openEntered) })
+	<-s.openRelease
+	return agenthost.NewInputStream(1), nil
+}
+
+func (s *peerConnBlockingOpenInput) Push(context.Context, *genx.MessageChunk) error {
+	return agenthost.ErrNoActiveInput
+}
+
+func (s *peerConnBlockingOpenInput) Close() error {
+	return nil
+}
+
+func newBlockingPeerAgentInput() *blockingPeerAgentInput {
+	return &blockingPeerAgentInput{pushEntered: make(chan struct{}), pushRelease: make(chan struct{})}
+}
+
+func (s *blockingPeerAgentInput) OpenAgentInput(context.Context) (genx.Stream, error) {
+	s.mu.Lock()
+	s.opens++
+	s.mu.Unlock()
+	return agenthost.NewInputStream(1), nil
+}
+
+func (s *blockingPeerAgentInput) Push(context.Context, *genx.MessageChunk) error {
+	s.pushOnce.Do(func() { close(s.pushEntered) })
+	<-s.pushRelease
+	return nil
+}
+
+func (s *blockingPeerAgentInput) releasePush() {
+	s.releaseOnce.Do(func() { close(s.pushRelease) })
+}
+
+func (s *blockingPeerAgentInput) Close() error {
+	return nil
+}
+
+func (s *blockingPeerAgentInput) openCalls() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.opens
 }
 
 type peerConnFakeMetrics struct {

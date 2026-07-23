@@ -33,10 +33,12 @@ var (
 	ErrPeerConnRetiring     = errors.New("gizclaw: peer conn retiring")
 )
 
-const peerConnMixerFormat = pcm.L16Mono16K
-
-const peerConnOpusFrameDuration = 20 * time.Millisecond
-const peerConnTelemetryQueueSize = 32
+const (
+	peerConnMixerFormat        = pcm.L16Mono16K
+	peerConnOpusFrameDuration  = 20 * time.Millisecond
+	peerConnTelemetryQueueSize = 32
+	peerConnRuntimeStopTimeout = 2 * time.Second
+)
 
 var peerConnTelemetryShutdownTimeout = 2 * time.Second
 
@@ -46,19 +48,43 @@ type PeerConn struct {
 	Conn    giznet.Conn
 	Service *PeerService
 
-	closeOnce         sync.Once
-	agentHost         *agenthost.Service
-	agentInput        *peerRealtimeSource
-	agentInputMu      sync.Mutex
-	events            *peerStreamEventBroker
-	telemetryStatusMu *sync.Mutex
-	serverGenX        *peergenx.Service
-	mixer             *pcm.Mixer
-	rpc               *rpcServer
-	audioPacing       <-chan time.Time
-	closed            atomic.Bool
-	retiring          atomic.Bool
-	registration      atomic.Pointer[runtimeprofile.Registration]
+	closeOnce          sync.Once
+	agentHost          *agenthost.Service
+	agentInput         peerAgentInput
+	agentInputMu       sync.Mutex
+	events             *peerStreamEventBroker
+	telemetryStatusMu  *sync.Mutex
+	serverGenX         *peergenx.Service
+	mixer              *pcm.Mixer
+	rpc                *rpcServer
+	audioPacing        <-chan time.Time
+	runtimeStopTimeout time.Duration
+	closed             atomic.Bool
+	retiring           atomic.Bool
+	registration       atomic.Pointer[runtimeprofile.Registration]
+}
+
+type peerAgentInput interface {
+	agenthost.StreamSource
+	agenthost.InputPusher
+	Close() error
+}
+
+type peerConnInputPusher struct {
+	peer  *PeerConn
+	input peerAgentInput
+}
+
+func (p peerConnInputPusher) Push(ctx context.Context, chunk *genx.MessageChunk) error {
+	if p.peer == nil || p.input == nil {
+		return agenthost.ErrNoActiveInput
+	}
+	p.peer.agentInputMu.Lock()
+	defer p.peer.agentInputMu.Unlock()
+	if p.peer.isRetiring() {
+		return ErrPeerConnRetiring
+	}
+	return p.input.Push(ctx, chunk)
 }
 
 // CreateAudioTrack creates a writable audio track on the peer mixer.
@@ -411,17 +437,23 @@ func (h *PeerConn) close() error {
 	var closeErr error
 	h.closeOnce.Do(func() {
 		h.closed.Store(true)
-		if h.agentHost != nil {
-			_, err := h.agentHost.Stop(context.Background())
-			closeErr = errors.Join(closeErr, err)
-		}
-		if h.agentInput != nil {
-			closeErr = errors.Join(closeErr, h.agentInput.Close())
-		}
 		if h.Conn != nil {
 			if err := h.Conn.Close(); err != nil && !errors.Is(err, giznet.ErrConnClosed) {
 				closeErr = errors.Join(closeErr, err)
 			}
+		}
+		if h.agentInput != nil {
+			closeErr = errors.Join(closeErr, h.agentInput.Close())
+		}
+		if h.agentHost != nil {
+			timeout := h.runtimeStopTimeout
+			if timeout <= 0 {
+				timeout = peerConnRuntimeStopTimeout
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			defer cancel()
+			_, err := h.agentHost.Shutdown(ctx)
+			closeErr = errors.Join(closeErr, err)
 		}
 		mx := h.mixer
 		if mx != nil {
@@ -661,25 +693,26 @@ func (h *PeerConn) pushAgentInputChunk(ctx context.Context, chunk *genx.MessageC
 	if h.isRetiring() {
 		return ErrPeerConnRetiring
 	}
-	h.agentInputMu.Lock()
-	defer h.agentInputMu.Unlock()
-	if h.isRetiring() {
-		return ErrPeerConnRetiring
-	}
-	if h.agentInput == nil {
+	host := h.agentHost
+	input := h.agentInput
+	if input == nil {
 		return nil
 	}
-	err := h.agentInput.Push(ctx, chunk)
+	if host == nil {
+		return peerConnInputPusher{peer: h, input: input}.Push(ctx, chunk)
+	}
+	inputPusher := peerConnInputPusher{peer: h, input: input}
+	revision, pushed, err := host.PushInput(ctx, inputPusher, chunk)
+	if !pushed {
+		return err
+	}
 	if !errors.Is(err, agenthost.ErrNoActiveInput) {
 		return err
 	}
-	if h.agentHost == nil {
-		return nil
+	reloaded, err := host.ReloadAndPushInputIfCurrentRevision(ctx, revision, inputPusher, chunk)
+	if !reloaded {
+		return err
 	}
-	if _, reloadErr := h.agentHost.Reload(ctx); reloadErr != nil {
-		return reloadErr
-	}
-	err = h.agentInput.Push(ctx, chunk)
 	if errors.Is(err, agenthost.ErrNoActiveInput) {
 		return nil
 	}

@@ -90,6 +90,487 @@ func TestServiceReloadAppliesPendingAndStop(t *testing.T) {
 	}
 }
 
+func TestServiceReloadAndStopSerializeTransitions(t *testing.T) {
+	ctx := context.Background()
+	publicKey := testPublicKey(t)
+	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	if _, err := store.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
+		t.Fatalf("SetRunAgent() error = %v", err)
+	}
+	source := newBlockingOpenSource()
+	svc := &Service{
+		Host:      &fakeHost{output: newBlockingStream()},
+		PeerRun:   store,
+		PublicKey: publicKey,
+		Source:    source,
+		Consumer: StreamConsumerFunc(func(ctx context.Context, _ genx.Stream) error {
+			<-ctx.Done()
+			return nil
+		}),
+	}
+
+	reloadDone := make(chan error, 1)
+	go func() {
+		_, err := svc.Reload(ctx)
+		reloadDone <- err
+	}()
+	select {
+	case <-source.entered:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for Reload to open input")
+	}
+
+	stopDone := make(chan error, 1)
+	go func() {
+		_, err := svc.Stop(ctx)
+		stopDone <- err
+	}()
+	secondReloadDone := make(chan error, 1)
+	go func() {
+		_, err := svc.Reload(ctx)
+		secondReloadDone <- err
+	}()
+	for name, done := range map[string]<-chan error{"Stop": stopDone, "second Reload": secondReloadDone} {
+		select {
+		case err := <-done:
+			t.Fatalf("%s completed before the first transition released: %v", name, err)
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+	if got := source.openCalls(); got != 1 {
+		t.Fatalf("OpenAgentInput calls while first transition blocked = %d, want 1", got)
+	}
+	close(source.release)
+	for name, done := range map[string]<-chan error{"first Reload": reloadDone, "Stop": stopDone, "second Reload": secondReloadDone} {
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Fatalf("%s error = %v", name, err)
+			}
+		case <-time.After(time.Second):
+			t.Fatalf("timed out waiting for %s", name)
+		}
+	}
+	if _, err := svc.Stop(ctx); err != nil {
+		t.Fatalf("final Stop() error = %v", err)
+	}
+}
+
+func TestServiceShutdownPreventsConcurrentReloadPublication(t *testing.T) {
+	ctx := context.Background()
+	publicKey := testPublicKey(t)
+	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	if _, err := store.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
+		t.Fatalf("SetRunAgent() error = %v", err)
+	}
+	blockingStore := newBlockingActivateStore(store)
+	input := NewInputStream(1)
+	output := newBlockingStream()
+	svc := &Service{
+		Host:      &fakeHost{output: output},
+		PeerRun:   blockingStore,
+		PublicKey: publicKey,
+		Source: StreamSourceFunc(func(context.Context) (genx.Stream, error) {
+			return input, nil
+		}),
+		Consumer: StreamConsumerFunc(func(ctx context.Context, _ genx.Stream) error {
+			<-ctx.Done()
+			return nil
+		}),
+	}
+
+	reloadDone := make(chan error, 1)
+	go func() {
+		_, err := svc.Reload(ctx)
+		reloadDone <- err
+	}()
+	select {
+	case <-blockingStore.activateEntered:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for Reload activation")
+	}
+	status, err := svc.Shutdown(ctx)
+	if err != nil {
+		t.Fatalf("Shutdown() error = %v", err)
+	}
+	if status.State != apitypes.PeerRunStatusStateStopped {
+		t.Fatalf("Shutdown() status = %+v", status)
+	}
+	close(blockingStore.activateRelease)
+	select {
+	case err := <-reloadDone:
+		if !errors.Is(err, ErrServiceClosed) {
+			t.Fatalf("Reload() error = %v, want service closed", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for Reload after Shutdown")
+	}
+	if !input.closed() || !output.closed() {
+		t.Fatalf("streams closed after Shutdown: input=%v output=%v", input.closed(), output.closed())
+	}
+	status, err = svc.Status(ctx)
+	if err != nil {
+		t.Fatalf("Status() error = %v", err)
+	}
+	if status.State != apitypes.PeerRunStatusStateStopped {
+		t.Fatalf("Status() after Shutdown = %+v", status)
+	}
+	if _, err := svc.Reload(ctx); !errors.Is(err, ErrServiceClosed) {
+		t.Fatalf("Reload() after Shutdown error = %v, want service closed", err)
+	}
+}
+
+func TestServiceReloadCanceledWhileWaitingKeepsPublishedStatus(t *testing.T) {
+	ctx := context.Background()
+	publicKey := testPublicKey(t)
+	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	svc := testService(t, publicKey, store, &fakeHost{})
+	if err := svc.lockTransition(ctx); err != nil {
+		t.Fatalf("lockTransition() error = %v", err)
+	}
+	defer svc.unlockTransition()
+
+	waitCtx, cancel := context.WithTimeout(ctx, 20*time.Millisecond)
+	defer cancel()
+	status, err := svc.Reload(waitCtx)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("Reload() error = %v, want deadline exceeded", err)
+	}
+	if status.State != apitypes.PeerRunStatusStateStopped {
+		t.Fatalf("Reload() status = %+v, want stopped", status)
+	}
+	published, statusErr := svc.Status(ctx)
+	if statusErr != nil {
+		t.Fatalf("Status() error = %v", statusErr)
+	}
+	if published.State != apitypes.PeerRunStatusStateStopped {
+		t.Fatalf("published status = %+v, want stopped", published)
+	}
+}
+
+func TestServiceInputRecoveryDropsSupersededTransition(t *testing.T) {
+	ctx := context.Background()
+	publicKey := testPublicKey(t)
+	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	if _, err := store.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
+		t.Fatalf("SetRunAgent() error = %v", err)
+	}
+	source := newBlockingOpenSource()
+	svc := &Service{
+		Host:      &fakeHost{output: newBlockingStream()},
+		PeerRun:   store,
+		PublicKey: publicKey,
+		Source:    source,
+		Consumer: StreamConsumerFunc(func(ctx context.Context, _ genx.Stream) error {
+			<-ctx.Done()
+			return nil
+		}),
+	}
+	observed := svc.RuntimeRevision()
+	reloadDone := make(chan error, 1)
+	go func() {
+		_, err := svc.Reload(ctx)
+		reloadDone <- err
+	}()
+	select {
+	case <-source.entered:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for Reload to open input")
+	}
+	recoverDone := make(chan struct {
+		reloaded bool
+		err      error
+	}, 1)
+	go func() {
+		reloaded, err := svc.ReloadIfCurrentRevision(ctx, observed)
+		recoverDone <- struct {
+			reloaded bool
+			err      error
+		}{reloaded: reloaded, err: err}
+	}()
+	close(source.release)
+	select {
+	case err := <-reloadDone:
+		if err != nil {
+			t.Fatalf("Reload() error = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for Reload")
+	}
+	select {
+	case result := <-recoverDone:
+		if result.err != nil || result.reloaded {
+			t.Fatalf("ReloadIfCurrentRevision() = (%v, %v), want (false, nil)", result.reloaded, result.err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for input recovery")
+	}
+	if got := source.openCalls(); got != 1 {
+		t.Fatalf("OpenAgentInput calls = %d, want 1", got)
+	}
+	if _, err := svc.Stop(ctx); err != nil {
+		t.Fatalf("Stop() error = %v", err)
+	}
+}
+
+func TestServicePushInputDropsSupersededRevision(t *testing.T) {
+	ctx := context.Background()
+	publicKey := testPublicKey(t)
+	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	if _, err := store.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
+		t.Fatalf("SetRunAgent() error = %v", err)
+	}
+	svc := &Service{
+		Host:      &fakeHost{output: newBlockingStream()},
+		PeerRun:   store,
+		PublicKey: publicKey,
+		Source: StreamSourceFunc(func(context.Context) (genx.Stream, error) {
+			return NewInputStream(1), nil
+		}),
+		Consumer: StreamConsumerFunc(func(ctx context.Context, _ genx.Stream) error {
+			<-ctx.Done()
+			return nil
+		}),
+	}
+	if _, err := svc.Reload(ctx); err != nil {
+		t.Fatalf("initial Reload() error = %v", err)
+	}
+	defer func() {
+		if _, err := svc.Stop(ctx); err != nil {
+			t.Errorf("Stop() error = %v", err)
+		}
+	}()
+	observed := svc.RuntimeRevision()
+	if _, err := svc.Reload(ctx); err != nil {
+		t.Fatalf("superseding Reload() error = %v", err)
+	}
+	pushed, err := svc.PushInputIfCurrentRevision(ctx, observed, inputPusherFunc(func(context.Context, *genx.MessageChunk) error {
+		t.Fatal("Push() called for a superseded runtime revision")
+		return nil
+	}), &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "audio", BeginOfStream: true}})
+	if err != nil || pushed {
+		t.Fatalf("PushInputIfCurrentRevision() = (%v, %v), want (false, nil)", pushed, err)
+	}
+}
+
+func TestServicePushInputRequiresPusher(t *testing.T) {
+	pushed, err := (&Service{}).PushInputIfCurrentRevision(context.Background(), 0, nil, nil)
+	if pushed || !errors.Is(err, ErrMissingInputPusher) {
+		t.Fatalf("PushInputIfCurrentRevision() = (%v, %v), want (false, %v)", pushed, err, ErrMissingInputPusher)
+	}
+	revision, pushed, err := (&Service{}).PushInput(context.Background(), nil, nil)
+	if revision != 0 || pushed || !errors.Is(err, ErrMissingInputPusher) {
+		t.Fatalf("PushInput() = (%d, %v, %v), want (0, false, %v)", revision, pushed, err, ErrMissingInputPusher)
+	}
+}
+
+func TestServiceReloadAndPushKeepsRetryInsideTransition(t *testing.T) {
+	ctx := context.Background()
+	publicKey := testPublicKey(t)
+	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	if _, err := store.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
+		t.Fatalf("SetRunAgent() error = %v", err)
+	}
+	svc := &Service{
+		Host:      &fakeHost{output: newBlockingStream()},
+		PeerRun:   store,
+		PublicKey: publicKey,
+		Source: StreamSourceFunc(func(context.Context) (genx.Stream, error) {
+			return NewInputStream(1), nil
+		}),
+		Consumer: StreamConsumerFunc(func(ctx context.Context, _ genx.Stream) error {
+			<-ctx.Done()
+			return nil
+		}),
+	}
+	defer func() {
+		if _, err := svc.Stop(ctx); err != nil {
+			t.Errorf("Stop() error = %v", err)
+		}
+	}()
+	pushEntered := make(chan struct{})
+	pushRelease := make(chan struct{})
+	recoveryDone := make(chan struct {
+		reloaded bool
+		err      error
+	}, 1)
+	go func() {
+		reloaded, err := svc.ReloadAndPushInputIfCurrentRevision(ctx, svc.RuntimeRevision(), inputPusherFunc(func(context.Context, *genx.MessageChunk) error {
+			close(pushEntered)
+			<-pushRelease
+			return nil
+		}), &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "audio", BeginOfStream: true}})
+		recoveryDone <- struct {
+			reloaded bool
+			err      error
+		}{reloaded: reloaded, err: err}
+	}()
+	select {
+	case <-pushEntered:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for recovery retry")
+	}
+	selectionDone := make(chan error, 1)
+	go func() {
+		_, err := svc.SetRunAgent(ctx, apitypes.AgentSelection{WorkspaceName: "assistant"})
+		selectionDone <- err
+	}()
+	select {
+	case err := <-selectionDone:
+		t.Fatalf("SetRunAgent() completed while recovery retry held the transition boundary: %v", err)
+	case <-time.After(100 * time.Millisecond):
+	}
+	close(pushRelease)
+	select {
+	case result := <-recoveryDone:
+		if result.err != nil || !result.reloaded {
+			t.Fatalf("ReloadAndPushInputIfCurrentRevision() = (%v, %v), want (true, nil)", result.reloaded, result.err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for recovery retry")
+	}
+	select {
+	case err := <-selectionDone:
+		if err != nil {
+			t.Fatalf("SetRunAgent() error = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for selection")
+	}
+}
+
+func TestServiceSelectionChangeInvalidatesInputRecovery(t *testing.T) {
+	ctx := context.Background()
+	publicKey := testPublicKey(t)
+	store := newBlockingSelectionStore()
+	svc := &Service{
+		Host:      &fakeHost{},
+		PeerRun:   store,
+		PublicKey: publicKey,
+		Source: StreamSourceFunc(func(context.Context) (genx.Stream, error) {
+			return NewInputStream(1), nil
+		}),
+		Consumer: StreamConsumerFunc(func(context.Context, genx.Stream) error { return nil }),
+	}
+	observed := svc.RuntimeRevision()
+	setDone := make(chan error, 1)
+	go func() {
+		_, err := svc.SetRunAgent(ctx, apitypes.AgentSelection{WorkspaceName: "assistant"})
+		setDone <- err
+	}()
+	select {
+	case <-store.setEntered:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for selection write")
+	}
+	recoverDone := make(chan struct {
+		reloaded bool
+		err      error
+	}, 1)
+	go func() {
+		reloaded, err := svc.ReloadIfCurrentRevision(ctx, observed)
+		recoverDone <- struct {
+			reloaded bool
+			err      error
+		}{reloaded: reloaded, err: err}
+	}()
+	close(store.setRelease)
+	select {
+	case err := <-setDone:
+		if err != nil {
+			t.Fatalf("SetRunAgent() error = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for selection write")
+	}
+	select {
+	case result := <-recoverDone:
+		if result.err != nil || result.reloaded {
+			t.Fatalf("ReloadIfCurrentRevision() = (%v, %v), want (false, nil)", result.reloaded, result.err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for input recovery")
+	}
+}
+
+func TestServiceInputRecoveryDropsPendingWorkspaceAfterRuntimeStops(t *testing.T) {
+	ctx := context.Background()
+	publicKey := testPublicKey(t)
+	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	demo := apitypes.AgentSelection{WorkspaceName: "demo"}
+	assistant := apitypes.AgentSelection{WorkspaceName: "assistant"}
+	if _, err := store.SetRunAgent(ctx, publicKey, demo); err != nil {
+		t.Fatalf("SetRunAgent(demo) error = %v", err)
+	}
+	if _, err := store.ActivateRunAgent(ctx, publicKey, demo); err != nil {
+		t.Fatalf("ActivateRunAgent(demo) error = %v", err)
+	}
+	if _, err := store.SetRunAgent(ctx, publicKey, assistant); err != nil {
+		t.Fatalf("SetRunAgent(assistant) error = %v", err)
+	}
+	openCalls := 0
+	svc := &Service{
+		Host:      &fakeHost{},
+		PeerRun:   store,
+		PublicKey: publicKey,
+		Source: StreamSourceFunc(func(context.Context) (genx.Stream, error) {
+			openCalls++
+			return NewInputStream(1), nil
+		}),
+		Consumer: StreamConsumerFunc(func(context.Context, genx.Stream) error { return nil }),
+	}
+	reloaded, err := svc.ReloadIfCurrentRevision(ctx, svc.RuntimeRevision())
+	if err != nil || reloaded {
+		t.Fatalf("ReloadIfCurrentRevision() = (%v, %v), want (false, nil)", reloaded, err)
+	}
+	if openCalls != 0 {
+		t.Fatalf("OpenAgentInput calls = %d, want 0", openCalls)
+	}
+}
+
+func TestServiceSameActiveSelectionAfterRuntimeStopsKeepsRevision(t *testing.T) {
+	ctx := context.Background()
+	publicKey := testPublicKey(t)
+	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	demo := apitypes.AgentSelection{WorkspaceName: "demo"}
+	if _, err := store.SetRunAgent(ctx, publicKey, demo); err != nil {
+		t.Fatalf("SetRunAgent(demo) error = %v", err)
+	}
+	if _, err := store.ActivateRunAgent(ctx, publicKey, demo); err != nil {
+		t.Fatalf("ActivateRunAgent(demo) error = %v", err)
+	}
+	svc := testService(t, publicKey, store, &fakeHost{})
+	observed := svc.RuntimeRevision()
+	if _, err := svc.SetRunAgent(ctx, demo); err != nil {
+		t.Fatalf("SetRunAgent(demo) error = %v", err)
+	}
+	if got := svc.RuntimeRevision(); got != observed {
+		t.Fatalf("RuntimeRevision() = %d, want %d", got, observed)
+	}
+}
+
+func TestServiceSelectionPersistenceFailureKeepsRevision(t *testing.T) {
+	ctx := context.Background()
+	publicKey := testPublicKey(t)
+	wantErr := errors.New("persist selection")
+	store := selectionErrorStore{
+		PeerRunStore: fakePeerRunStore{},
+		run: apitypes.PeerRunAgent{
+			Active: &apitypes.AgentSelection{WorkspaceName: "demo"},
+		},
+		err: wantErr,
+	}
+	svc := &Service{PeerRun: store, PublicKey: publicKey}
+	observed := svc.RuntimeRevision()
+
+	if _, err := svc.SetRunAgent(ctx, apitypes.AgentSelection{WorkspaceName: "assistant"}); !errors.Is(err, wantErr) {
+		t.Fatalf("SetRunAgent() error = %v, want %v", err, wantErr)
+	}
+	if got := svc.RuntimeRevision(); got != observed {
+		t.Fatalf("RuntimeRevision() = %d, want %d", got, observed)
+	}
+}
+
 func TestRuntimeProfileToolBindingsPreserveAliases(t *testing.T) {
 	tools := map[string]apitypes.RuntimeProfileBinding{
 		"weather": {ResourceId: "tool-weather"},
@@ -703,6 +1184,93 @@ func TestInputStreamPushNextAndNil(t *testing.T) {
 	}
 }
 
+type blockingOpenSource struct {
+	mu      sync.Mutex
+	entered chan struct{}
+	release chan struct{}
+	calls   int
+	once    sync.Once
+}
+
+type inputPusherFunc func(context.Context, *genx.MessageChunk) error
+
+func (f inputPusherFunc) Push(ctx context.Context, chunk *genx.MessageChunk) error {
+	return f(ctx, chunk)
+}
+
+type blockingSelectionStore struct {
+	selection  apitypes.AgentSelection
+	setEntered chan struct{}
+	setRelease chan struct{}
+	once       sync.Once
+}
+
+type blockingActivateStore struct {
+	PeerRunStore
+	activateEntered chan struct{}
+	activateRelease chan struct{}
+	once            sync.Once
+}
+
+func newBlockingActivateStore(store PeerRunStore) *blockingActivateStore {
+	return &blockingActivateStore{
+		PeerRunStore:    store,
+		activateEntered: make(chan struct{}),
+		activateRelease: make(chan struct{}),
+	}
+}
+
+func (s *blockingActivateStore) ActivateRunAgent(_ context.Context, publicKey giznet.PublicKey, selection apitypes.AgentSelection) (apitypes.PeerRunAgent, error) {
+	s.once.Do(func() { close(s.activateEntered) })
+	<-s.activateRelease
+	return s.PeerRunStore.ActivateRunAgent(context.Background(), publicKey, selection)
+}
+
+func newBlockingSelectionStore() *blockingSelectionStore {
+	return &blockingSelectionStore{setEntered: make(chan struct{}), setRelease: make(chan struct{})}
+}
+
+func (s *blockingSelectionStore) GetRunAgent(context.Context, giznet.PublicKey) (apitypes.PeerRunAgent, error) {
+	return apitypes.PeerRunAgent{}, nil
+}
+
+func (s *blockingSelectionStore) SetRunAgent(_ context.Context, _ giznet.PublicKey, selection apitypes.AgentSelection) (apitypes.PeerRunAgent, error) {
+	s.once.Do(func() { close(s.setEntered) })
+	<-s.setRelease
+	s.selection = selection
+	return apitypes.PeerRunAgent{Pending: &selection}, nil
+}
+
+func (s *blockingSelectionStore) ResolveRunAgent(context.Context, giznet.PublicKey) (apitypes.AgentSelection, error) {
+	return s.selection, nil
+}
+
+func (s *blockingSelectionStore) ActivateRunAgent(context.Context, giznet.PublicKey, apitypes.AgentSelection) (apitypes.PeerRunAgent, error) {
+	return apitypes.PeerRunAgent{}, nil
+}
+
+func newBlockingOpenSource() *blockingOpenSource {
+	return &blockingOpenSource{entered: make(chan struct{}), release: make(chan struct{})}
+}
+
+func (s *blockingOpenSource) OpenAgentInput(context.Context) (genx.Stream, error) {
+	s.mu.Lock()
+	s.calls++
+	call := s.calls
+	s.mu.Unlock()
+	if call == 1 {
+		s.once.Do(func() { close(s.entered) })
+		<-s.release
+	}
+	return NewInputStream(1), nil
+}
+
+func (s *blockingOpenSource) openCalls() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.calls
+}
+
 func testService(t *testing.T, publicKey giznet.PublicKey, store *peerrun.Server, host genx.TransformerMux) *Service {
 	t.Helper()
 	return &Service{
@@ -759,6 +1327,20 @@ func (nilOutputHost) Transform(context.Context, string, genx.Stream) (genx.Strea
 type fakePeerRunStore struct {
 	selection apitypes.AgentSelection
 	err       error
+}
+
+type selectionErrorStore struct {
+	PeerRunStore
+	run apitypes.PeerRunAgent
+	err error
+}
+
+func (s selectionErrorStore) GetRunAgent(context.Context, giznet.PublicKey) (apitypes.PeerRunAgent, error) {
+	return s.run, nil
+}
+
+func (s selectionErrorStore) SetRunAgent(context.Context, giznet.PublicKey, apitypes.AgentSelection) (apitypes.PeerRunAgent, error) {
+	return apitypes.PeerRunAgent{}, s.err
 }
 
 func (s fakePeerRunStore) ResolveRunAgent(context.Context, giznet.PublicKey) (apitypes.AgentSelection, error) {
