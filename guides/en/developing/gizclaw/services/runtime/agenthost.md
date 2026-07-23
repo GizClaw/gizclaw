@@ -25,7 +25,7 @@ flowchart TD
 | --- | --- |
 | `Service.Reload` | Stop the old runtime and create a new runtime based on the current Peer run selection. |
 | `Service.Status` / `Stop` | Query or terminate the current Agent runtime. |
-| `Service.SetRunAgent` | Persist a pending Peer selection through the same transition boundary as reload and stop. |
+| `Service.SetRunAgent` | Persist a pending Peer selection through the same transition boundary as reload and stop; only a selection that changes the active workspace advances the runtime revision. |
 | `Service.RuntimeRevision` / `PushInputIfCurrentRevision` / `ReloadAndPushInputIfCurrentRevision` | Let connection-scoped input write or atomically recover-and-write only when it still belongs to the current stable runtime revision. |
 | `Service.WorkspaceState` | Returns the running status of the current workspace. |
 | `RuntimeRegistry` | Maintain the current online runtime. |
@@ -37,7 +37,7 @@ flowchart TD
 
 All runtime creation paths must have symmetric cancel, stream close, lease release, and registry cleanup. The persistence of Agent definition, Workflow, and Workspace still belongs to AI services.
 
-Each `Service` serializes selection writes, reload, stop, and each Realtime input push for its one Peer. A transition changes the runtime revision before and after lifecycle work; a Realtime chunk that observes a changed or in-progress revision is stale and is discarded instead of reopening or entering the new workspace. Input recovery reloads and writes the original chunk while one unchanged, stable revision remains gated. A pending selection suppresses recovery only when it changes the current workspace, so a same-workspace selection can still restore an inactive source. This boundary does not serialize unrelated Peers or replace the shared `RuntimeRegistry` ownership of workspace agents.
+Each `Service` serializes selection writes, reload, stop, and each Realtime input push for its one Peer. A transition changes the runtime revision before and after lifecycle work; only a selection that changes the active workspace is a revision-changing transition. A Realtime chunk samples that revision before it can wait behind another input write, so a chunk that observes a changed or in-progress revision is stale and is discarded instead of reopening or entering the new workspace. Input recovery reloads and writes the original chunk while one unchanged, stable revision remains gated. A pending selection suppresses recovery only when it changes the current workspace, so a same-workspace selection can still restore an inactive source. This boundary does not serialize unrelated Peers or replace the shared `RuntimeRegistry` ownership of workspace agents.
 
 `RuntimeRegistry` reuses one constructed Agent per Workspace and returns an independent release function for every attachment. Reloading one Peer releases only that reference; remaining users keep the same Agent without interruption or repeated initiative. The final release removes the Agent, closes factory-owned per-Agent adapters, and releases the Workspace lease. Construction-time configuration is resolved again only on a later acquire.
 

@@ -181,7 +181,9 @@ func (s *Service) reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 }
 
 // SetRunAgent persists a pending selection without allowing input recovery to
-// observe a partial selection transition.
+// observe a workspace-changing selection transition. Repeating the active
+// workspace remains serialized but keeps its stable revision, so recovery can
+// restore an inactive input source for that workspace.
 func (s *Service) SetRunAgent(ctx context.Context, selection apitypes.AgentSelection) (apitypes.PeerRunAgent, error) {
 	if s == nil {
 		return apitypes.PeerRunAgent{}, ErrNilService
@@ -194,6 +196,9 @@ func (s *Service) SetRunAgent(ctx context.Context, selection apitypes.AgentSelec
 	}
 	s.transitionMu.Lock()
 	defer s.transitionMu.Unlock()
+	if current := s.currentRuntime(); current != nil && current.workspace == selection.WorkspaceName {
+		return s.PeerRun.SetRunAgent(ctx, s.PublicKey, selection)
+	}
 	s.beginTransition()
 	defer s.finishTransition()
 	return s.PeerRun.SetRunAgent(ctx, s.PublicKey, selection)

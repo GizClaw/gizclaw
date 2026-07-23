@@ -667,6 +667,13 @@ func (h *PeerConn) pushAgentInputChunk(ctx context.Context, chunk *genx.MessageC
 	if h.isRetiring() {
 		return ErrPeerConnRetiring
 	}
+	host := h.agentHost
+	revision := uint64(0)
+	if host != nil {
+		// Capture the revision before waiting behind another input write. A
+		// queued chunk must retain the runtime it observed when it arrived.
+		revision = host.RuntimeRevision()
+	}
 	h.agentInputMu.Lock()
 	defer h.agentInputMu.Unlock()
 	if h.isRetiring() {
@@ -675,21 +682,17 @@ func (h *PeerConn) pushAgentInputChunk(ctx context.Context, chunk *genx.MessageC
 	if h.agentInput == nil {
 		return nil
 	}
-	revision := uint64(0)
-	if h.agentHost != nil {
-		revision = h.agentHost.RuntimeRevision()
-	}
-	if h.agentHost == nil {
+	if host == nil {
 		return h.agentInput.Push(ctx, chunk)
 	}
-	pushed, err := h.agentHost.PushInputIfCurrentRevision(ctx, revision, h.agentInput, chunk)
+	pushed, err := host.PushInputIfCurrentRevision(ctx, revision, h.agentInput, chunk)
 	if !pushed {
 		return nil
 	}
 	if !errors.Is(err, agenthost.ErrNoActiveInput) {
 		return err
 	}
-	reloaded, err := h.agentHost.ReloadAndPushInputIfCurrentRevision(ctx, revision, h.agentInput, chunk)
+	reloaded, err := host.ReloadAndPushInputIfCurrentRevision(ctx, revision, h.agentInput, chunk)
 	if !reloaded {
 		return err
 	}

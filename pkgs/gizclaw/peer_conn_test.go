@@ -824,8 +824,12 @@ func TestPeerConnRestoresInactiveInputForSameWorkspaceSelection(t *testing.T) {
 			t.Errorf("Stop() error = %v", err)
 		}
 	}()
+	observedRevision := runtime.RuntimeRevision()
 	if _, err := runtime.SetRunAgent(ctx, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
 		t.Fatalf("SetRunAgent(demo) error = %v", err)
+	}
+	if got := runtime.RuntimeRevision(); got != observedRevision {
+		t.Fatalf("RuntimeRevision() after same-workspace selection = %d, want %d", got, observedRevision)
 	}
 	if err := source.Close(); err != nil {
 		t.Fatalf("Close() error = %v", err)
