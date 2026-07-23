@@ -303,7 +303,7 @@ func (s *adminService) CreateFriendGroup(ctx context.Context, request adminhttp.
 	if request.Body == nil {
 		return adminhttp.CreateFriendGroup400JSONResponse(apitypes.NewErrorResponse("INVALID_FRIEND_GROUP", "request body is required")), nil
 	}
-	item, err := s.FriendGroups.AdminCreateFriendGroup(ctx, request.Body.Name, request.Body.Description)
+	item, err := s.FriendGroups.AdminCreateFriendGroup(ctx, request.Body.OwnerPublicKey, request.Body.Name, request.Body.Description)
 	if err != nil {
 		status, body := adminSocialError(err)
 		switch status {

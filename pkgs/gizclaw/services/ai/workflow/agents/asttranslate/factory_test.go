@@ -51,6 +51,32 @@ func TestFactoryMergesWorkflowAndWorkspaceParams(t *testing.T) {
 	}
 }
 
+func TestFactoryUsesWorkspaceOwnerTransformer(t *testing.T) {
+	owner := "owner-public-key"
+	called := false
+	workflow := astWorkflow("ast-model", nil)
+	workflow.Spec.AstTranslate.LangPair = new("auto")
+	agent, err := (Factory{
+		Transformer: recordingTransformer{},
+		TransformerForOwner: func(_ context.Context, gotOwner string) (genx.TransformerMux, error) {
+			called = true
+			if gotOwner != owner {
+				t.Fatalf("owner = %q, want %q", gotOwner, owner)
+			}
+			return recordingTransformer{}, nil
+		},
+	}).NewAgent(t.Context(), agenthost.Spec{
+		Workspace: apitypes.Workspace{Name: "pet-ast", OwnerPublicKey: &owner},
+		Workflow:  workflow,
+	})
+	if err != nil {
+		t.Fatalf("NewAgent() error = %v", err)
+	}
+	if agent == nil || !called {
+		t.Fatalf("NewAgent() = %#v, owner resolver called = %t", agent, called)
+	}
+}
+
 func TestResolveConfigExternalVoice(t *testing.T) {
 	var voice apitypes.ASTTranslateVoiceParameters
 	if err := voice.FromASTTranslateExternalVoiceParameters(apitypes.ASTTranslateExternalVoiceParameters{TtsVoice: "volc-tenant:e2e-volc-tenant:voice-a"}); err != nil {

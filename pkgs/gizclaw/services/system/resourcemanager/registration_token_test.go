@@ -17,15 +17,21 @@ func TestApplyRegistrationTokenReturnsOneTimeToken(t *testing.T) {
 		Firmwares:       &firmware.Server{Store: kv.NewMemory(nil)},
 		RuntimeProfiles: profiles,
 	})
-	profiles.ResolveResource = manager.Get
 	if _, err := manager.Apply(ctx, mustResource(t, `{
 		"apiVersion":"gizclaw.admin/v1alpha1",
 		"kind":"RuntimeProfile",
 		"metadata":{"name":"profile-a"},
-		"spec":{"resources":{}}
+		"spec":{
+			"workflows":{
+				"system":{"friend_chatroom":"chatroom","group_chatroom":"chatroom","pet":"pet-care"},
+				"collections":{}
+			},
+			"resources":{}
+		}
 	}`)); err != nil {
 		t.Fatalf("Apply(RuntimeProfile) error = %v", err)
 	}
+	profiles.ResolveResource = manager.Get
 	firmwareResource, err := marshalResource(apitypes.FirmwareResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.FirmwareResourceKind(apitypes.ResourceKindFirmware),

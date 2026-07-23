@@ -444,22 +444,24 @@ func (s *Server) init() error {
 		Store: contactStore,
 	}
 	friendServer := &friend.Server{
-		InviteTokens: friendInviteTokenStore,
-		Friends:      friendStore,
-		Workspaces:   workspaceServer,
-		Profiles:     peersServer,
+		InviteTokens:           friendInviteTokenStore,
+		Friends:                friendStore,
+		Workspaces:             workspaceServer,
+		Profiles:               peersServer,
+		RuntimeProfileForOwner: manager.runtimeProfileForOwner,
 	}
 	friendGroupServer := &friendgroup.Server{
-		Groups:               friendGroupStore,
-		InviteTokens:         friendGroupInviteTokenStore,
-		Members:              friendGroupMemberStore,
-		Belongs:              friendGroupBelongStore,
-		Messages:             friendGroupMessageStore,
-		MessageAssets:        s.FriendGroupMessageAssets,
-		Workspaces:           workspaceServer,
-		MessageDefaultTTL:    s.FriendGroupMessageDefaultTTL,
-		MessageMaxTTL:        s.FriendGroupMessageMaxTTL,
-		MessageMaxAudioBytes: s.FriendGroupMessageMaxBytes,
+		Groups:                 friendGroupStore,
+		InviteTokens:           friendGroupInviteTokenStore,
+		Members:                friendGroupMemberStore,
+		Belongs:                friendGroupBelongStore,
+		Messages:               friendGroupMessageStore,
+		MessageAssets:          s.FriendGroupMessageAssets,
+		Workspaces:             workspaceServer,
+		RuntimeProfileForOwner: manager.runtimeProfileForOwner,
+		MessageDefaultTTL:      s.FriendGroupMessageDefaultTTL,
+		MessageMaxTTL:          s.FriendGroupMessageMaxTTL,
+		MessageMaxAudioBytes:   s.FriendGroupMessageMaxBytes,
 	}
 	providerTenantsServer := &providertenants.Server{
 		ModelStore:          modelStore,

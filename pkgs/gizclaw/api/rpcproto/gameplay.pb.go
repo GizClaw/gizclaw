@@ -1094,7 +1094,7 @@ func (x *Pet) GetUpdatedAt() string {
 
 type PetAdoptRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	DisplayName   *string                `protobuf:"bytes,1,opt,name=display_name,json=displayName,proto3,oneof" json:"display_name,omitempty"`
+	DisplayName   string                 `protobuf:"bytes,1,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
 	Id            *string                `protobuf:"bytes,2,opt,name=id,proto3,oneof" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1131,8 +1131,8 @@ func (*PetAdoptRequest) Descriptor() ([]byte, []int) {
 }
 
 func (x *PetAdoptRequest) GetDisplayName() string {
-	if x != nil && x.DisplayName != nil {
-		return *x.DisplayName
+	if x != nil {
+		return x.DisplayName
 	}
 	return ""
 }
@@ -4018,11 +4018,10 @@ const file_payload_gameplay_proto_rawDesc = "" +
 	"\n" +
 	"updated_at\x18\x0e \x01(\tR\tupdatedAtB\n" +
 	"\n" +
-	"\b_died_at\"f\n" +
-	"\x0fPetAdoptRequest\x12&\n" +
-	"\fdisplay_name\x18\x01 \x01(\tH\x00R\vdisplayName\x88\x01\x01\x12\x13\n" +
-	"\x02id\x18\x02 \x01(\tH\x01R\x02id\x88\x01\x01B\x0f\n" +
-	"\r_display_nameB\x05\n" +
+	"\b_died_at\"P\n" +
+	"\x0fPetAdoptRequest\x12!\n" +
+	"\fdisplay_name\x18\x01 \x01(\tR\vdisplayName\x12\x13\n" +
+	"\x02id\x18\x02 \x01(\tH\x00R\x02id\x88\x01\x01B\x05\n" +
 	"\x03_id\"\xb5\x01\n" +
 	"\x10PetAdoptResponse\x12%\n" +
 	"\x03pet\x18\x01 \x01(\v2\x13.gizclaw.rpc.v1.PetR\x03pet\x125\n" +

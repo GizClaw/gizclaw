@@ -41,7 +41,17 @@ func createRuntimeProfileRegistrationToken(t *testing.T, h *clitest.Harness) str
 	profileName := "e2e-firmware-main"
 	profileResp, err := api.PutRuntimeProfileWithResponse(ctx, profileName, adminhttp.RuntimeProfileUpsert{
 		Name: profileName,
-		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{}},
+		Spec: apitypes.RuntimeProfileSpec{
+			Resources: apitypes.RuntimeProfileResources{},
+			Workflows: apitypes.RuntimeProfileWorkflows{
+				System: apitypes.RuntimeProfileSystemWorkflows{
+					FriendChatroom: "chatroom-direct",
+					GroupChatroom:  "chatroom-direct",
+					Pet:            "pet-chatroom",
+				},
+				Collections: apitypes.RuntimeProfileWorkflowCollections{},
+			},
+		},
 	})
 	if err != nil {
 		t.Fatalf("put RuntimeProfile: %v", err)

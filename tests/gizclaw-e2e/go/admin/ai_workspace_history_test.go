@@ -184,6 +184,11 @@ func registerAdminHistoryPeers(t *testing.T, env *adminAPIHarness, peers ...*giz
 		Spec: apitypes.RuntimeProfileSpec{
 			Resources: apitypes.RuntimeProfileResources{},
 			Workflows: apitypes.RuntimeProfileWorkflows{
+				System: apitypes.RuntimeProfileSystemWorkflows{
+					FriendChatroom: "chatroom-direct",
+					GroupChatroom:  "chatroom-direct",
+					Pet:            "pet-chatroom",
+				},
 				Collections: apitypes.RuntimeProfileWorkflowCollections{
 					"social": {"direct": binding},
 				},

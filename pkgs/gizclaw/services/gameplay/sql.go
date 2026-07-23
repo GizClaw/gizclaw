@@ -30,7 +30,6 @@ type petAdoptionReservation struct {
 	DisplayName        string
 	WorkspaceName      string
 	WorkflowName       string
-	VoiceAlias         string
 	AdoptionCost       int64
 	CreatedAt          time.Time
 }
@@ -38,10 +37,9 @@ type petAdoptionReservation struct {
 func findPetAdoptionReservation(ctx context.Context, db queryRebinder, owner, petID string) (petAdoptionReservation, error) {
 	var reservation petAdoptionReservation
 	var createdAt string
-	err := db.QueryRowContext(ctx, db.Rebind(`SELECT owner_public_key, pet_id, runtime_profile_name, petdef_id, display_name, workspace_name, workflow_name, voice_alias, adoption_cost, created_at FROM gameplay_pet_adoption_reservations WHERE owner_public_key = ? AND pet_id = ?`), owner, petID).Scan(
+	err := db.QueryRowContext(ctx, db.Rebind(`SELECT owner_public_key, pet_id, runtime_profile_name, petdef_id, display_name, workspace_name, workflow_name, adoption_cost, created_at FROM gameplay_pet_adoption_reservations WHERE owner_public_key = ? AND pet_id = ?`), owner, petID).Scan(
 		&reservation.OwnerPublicKey, &reservation.PetID, &reservation.RuntimeProfileName, &reservation.PetDefID,
-		&reservation.DisplayName, &reservation.WorkspaceName, &reservation.WorkflowName, &reservation.VoiceAlias,
-		&reservation.AdoptionCost, &createdAt,
+		&reservation.DisplayName, &reservation.WorkspaceName, &reservation.WorkflowName, &reservation.AdoptionCost, &createdAt,
 	)
 	if err != nil {
 		return petAdoptionReservation{}, err
@@ -56,10 +54,9 @@ func insertPetAdoptionReservation(ctx context.Context, tx *sqlx.Tx, reservation 
 }
 
 func insertPetAdoptionReservationIfAbsent(ctx context.Context, tx *sqlx.Tx, reservation petAdoptionReservation) (bool, error) {
-	result, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_pet_adoption_reservations (owner_public_key, pet_id, runtime_profile_name, petdef_id, display_name, workspace_name, workflow_name, voice_alias, adoption_cost, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(owner_public_key, pet_id) DO NOTHING`),
+	result, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_pet_adoption_reservations (owner_public_key, pet_id, runtime_profile_name, petdef_id, display_name, workspace_name, workflow_name, adoption_cost, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(owner_public_key, pet_id) DO NOTHING`),
 		reservation.OwnerPublicKey, reservation.PetID, reservation.RuntimeProfileName, reservation.PetDefID,
-		reservation.DisplayName, reservation.WorkspaceName, reservation.WorkflowName, reservation.VoiceAlias,
-		reservation.AdoptionCost, formatTime(reservation.CreatedAt))
+		reservation.DisplayName, reservation.WorkspaceName, reservation.WorkflowName, reservation.AdoptionCost, formatTime(reservation.CreatedAt))
 	if err != nil {
 		return false, err
 	}

@@ -4,15 +4,17 @@
 
 ## Ownership
 
-Gameplay owns PetDef, BadgeDef, GameDef, Pet, points accounts, transactions, reward grants, badge progression, and game results. RuntimeProfile `resources.pet_defs`, `resources.voices`, `resources.game_defs`, and `resources.badge_defs` maps provide profile-local aliases. Each `gameplay.adoption.pool` entry references both a PetDef and Voice alias, while `gameplay.pet.games` uses GameDef aliases as direct keys.
+Gameplay owns PetDef, BadgeDef, GameDef, Pet, points accounts, transactions, reward grants, badge progression, and game results. RuntimeProfile `resources.pet_defs`, `resources.game_defs`, and `resources.badge_defs` maps provide profile-local aliases. Each `gameplay.adoption.pool` entry references only a PetDef alias, while `gameplay.pet.games` uses GameDef aliases as direct keys.
 
-Pet adoption resolves rules from the current connection's RuntimeProfile snapshot, stores the selected pool entry's Voice alias in the system Workspace, and records the RuntimeProfile name on the Pet and related state. PetDef contains no Voice ID or alias; it retains character/speaking style, PIXA, and behavior-to-animation bindings. The Pet system Workspace uses the built-in `pet-care` Workflow; `pet-care` does not need to appear in the RuntimeProfile `workflows` map.
+Pet adoption first validates the current connection's RuntimeProfile and the canonical Workflow named by `workflows.system.pet`, then creates an owner-bound system Workspace and records the RuntimeProfile name on the Pet and related state. A Pet Workspace stores no persona, conversation, model, voice, or other execution parameters and cannot be rewritten through generic Workspace put. PetDef contains no Voice ID/alias or local i18n; it retains character/speaking style, PIXA, and behavior-to-animation bindings. Presentation text comes from the RuntimeProfile `pet_defs` binding.
+
+`driver: pet` is a domain wrapper with no built-in execution graph. Its `pet` field contains a same-shaped Workflow spec that may select `flowcraft`, `chatroom`, `doubao-realtime`, or `ast-translate`, but cannot recursively select `pet`. The wrapper injects current Pet context only; the nested driver owns graph, memory, voice, model, and toolkit configuration. Every alias resolves through the system Workspace owner's RuntimeProfile, so replacing the nested driver does not require changing Pet or Workspace data.
 
 A profile with no valid PetDef cannot adopt a Pet, and a GameDef not allowed by the current profile cannot submit a game result. Invalid aliases and reward references fail RuntimeProfile validation. Deleting a definition or RuntimeProfile does not cascade into existing Gameplay history.
 
 ## Pet identity and adoption retries
 
-`runtime.adopt` accepts an optional caller-provided `id`. The ID is a durable Pet resource identity, not a separate operation-level idempotency key. A device that needs retry-safe adoption generates and persists a valid GizClaw custom ID before the first request, then reuses it after a timeout, disconnect, or other uncertain response.
+`runtime.adopt` requires a non-empty `display_name` and accepts an optional caller-provided `id`. The ID is a durable Pet resource identity, not a separate operation-level idempotency key. A device that needs retry-safe adoption generates and persists a valid GizClaw custom ID before the first request, then reuses it after a timeout, disconnect, or other uncertain response.
 
 Pet IDs are scoped by the authenticated Peer. The first successful adoption of `(peer, id)` creates one Pet, one system Workspace, one adoption transaction, and one points charge. An unaffordable attempt fails before reserving the ID or creating a Pet, Workspace, or transaction. Repeating a successful adoption under the same active RuntimeProfile returns the existing Pet, the current Points account, and the original adoption transaction without selecting another PetDef or writing again. A different `display_name` on the retry does not rename the Pet; callers use `server.pet.put` for that operation.
 

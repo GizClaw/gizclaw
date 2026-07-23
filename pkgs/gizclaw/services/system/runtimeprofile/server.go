@@ -24,9 +24,10 @@ import (
 )
 
 var (
-	profilesRoot     = kv.Key{"runtime-profiles", "by-name"}
-	tokensRoot       = kv.Key{"registration-tokens", "by-name"}
-	tokensByHashRoot = kv.Key{"registration-tokens", "by-token-hash"}
+	profilesRoot        = kv.Key{"runtime-profiles", "by-name"}
+	profilesByOwnerRoot = kv.Key{"runtime-profiles", "by-owner"}
+	tokensRoot          = kv.Key{"registration-tokens", "by-name"}
+	tokensByHashRoot    = kv.Key{"registration-tokens", "by-token-hash"}
 )
 
 const (
@@ -75,7 +76,52 @@ func (s *Server) ResolveProfile(ctx context.Context, name string) (apitypes.Runt
 	if err != nil {
 		return apitypes.RuntimeProfile{}, err
 	}
-	return GetProfile(ctx, store, strings.TrimSpace(name))
+	profile, err := GetProfile(ctx, store, strings.TrimSpace(name))
+	if err != nil {
+		return apitypes.RuntimeProfile{}, err
+	}
+	if err := s.validateResources(ctx, profile.Spec); err != nil {
+		return apitypes.RuntimeProfile{}, fmt.Errorf("runtime profile %q dependencies are invalid: %w", profile.Name, err)
+	}
+	return profile, nil
+}
+
+// BindOwnerProfile records the RuntimeProfile name selected by an authenticated
+// owner's successful registration. The name remains resolvable after that
+// connection closes; ResolveOwnerProfile always loads the current profile
+// revision rather than persisting a configuration snapshot.
+func (s *Server) BindOwnerProfile(ctx context.Context, owner, profileName string) error {
+	store, err := s.store()
+	if err != nil {
+		return err
+	}
+	owner = strings.TrimSpace(owner)
+	profileName = strings.TrimSpace(profileName)
+	if owner == "" || profileName == "" {
+		return errors.New("runtime profile owner and name are required")
+	}
+	if _, err := s.ResolveProfile(ctx, profileName); err != nil {
+		return err
+	}
+	return store.Set(ctx, ownerProfileKey(owner), []byte(profileName))
+}
+
+// ResolveOwnerProfile returns the current persisted revision of the profile
+// most recently selected by an authenticated owner registration.
+func (s *Server) ResolveOwnerProfile(ctx context.Context, owner string) (apitypes.RuntimeProfile, error) {
+	store, err := s.store()
+	if err != nil {
+		return apitypes.RuntimeProfile{}, err
+	}
+	owner = strings.TrimSpace(owner)
+	if owner == "" {
+		return apitypes.RuntimeProfile{}, errors.New("runtime profile owner is required")
+	}
+	profileName, err := store.Get(ctx, ownerProfileKey(owner))
+	if err != nil {
+		return apitypes.RuntimeProfile{}, err
+	}
+	return s.ResolveProfile(ctx, string(profileName))
 }
 
 type tokenRecord struct {
@@ -405,6 +451,18 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedName string) (a
 	spec := in.Spec
 	allAliases := make(map[string]string)
 	workflowAliases := make(map[string]string)
+	spec.Workflows.System.FriendChatroom = strings.TrimSpace(spec.Workflows.System.FriendChatroom)
+	spec.Workflows.System.GroupChatroom = strings.TrimSpace(spec.Workflows.System.GroupChatroom)
+	spec.Workflows.System.Pet = strings.TrimSpace(spec.Workflows.System.Pet)
+	for path, workflowID := range map[string]string{
+		"workflows.system.friend_chatroom": spec.Workflows.System.FriendChatroom,
+		"workflows.system.group_chatroom":  spec.Workflows.System.GroupChatroom,
+		"workflows.system.pet":             spec.Workflows.System.Pet,
+	} {
+		if workflowID == "" {
+			return apitypes.RuntimeProfile{}, fmt.Errorf("%s requires a Workflow resource ID", path)
+		}
+	}
 	collections := make(apitypes.RuntimeProfileWorkflowCollections, len(spec.Workflows.Collections))
 	for collection, bindings := range spec.Workflows.Collections {
 		collection = strings.TrimSpace(collection)
@@ -466,18 +524,14 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedName string) (a
 		for i := range *spec.Gameplay.Adoption.Pool {
 			entry := &(*spec.Gameplay.Adoption.Pool)[i]
 			entry.PetDef = strings.TrimSpace(entry.PetDef)
-			entry.Voice = strings.TrimSpace(entry.Voice)
-			if entry.PetDef == "" || entry.Voice == "" || entry.Weight <= 0 {
-				return apitypes.RuntimeProfile{}, fmt.Errorf("gameplay.adoption.pool[%d] requires pet_def, voice, and positive weight", i)
+			if entry.PetDef == "" || entry.Weight <= 0 {
+				return apitypes.RuntimeProfile{}, fmt.Errorf("gameplay.adoption.pool[%d] requires pet_def and positive weight", i)
 			}
 			if entry.AdoptionCost != nil && *entry.AdoptionCost < 0 {
 				return apitypes.RuntimeProfile{}, fmt.Errorf("gameplay.adoption.pool[%d].adoption_cost must not be negative", i)
 			}
 			if _, ok := bindingByAlias(spec.Resources.PetDefs, entry.PetDef); !ok {
 				return apitypes.RuntimeProfile{}, fmt.Errorf("gameplay.adoption.pool[%d].pet_def %q is not declared in resources.pet_defs", i, entry.PetDef)
-			}
-			if _, ok := bindingByAlias(spec.Resources.Voices, entry.Voice); !ok {
-				return apitypes.RuntimeProfile{}, fmt.Errorf("gameplay.adoption.pool[%d].voice %q is not declared in resources.voices", i, entry.Voice)
 			}
 		}
 	}
@@ -532,7 +586,31 @@ func (s *Server) validateResources(ctx context.Context, spec apitypes.RuntimePro
 		path     string
 		resource apitypes.WorkflowResource
 	}
-	workflows := make([]resolvedWorkflow, 0)
+	workflows := make([]resolvedWorkflow, 0, 3)
+	resolveSystemWorkflow := func(path, resourceID string, wantDriver apitypes.WorkflowDriver) error {
+		resource, err := resolve(path, apitypes.ResourceKindWorkflow, apitypes.RuntimeProfileBinding{ResourceId: resourceID})
+		if err != nil {
+			return err
+		}
+		workflow, err := resource.AsWorkflowResource()
+		if err != nil {
+			return fmt.Errorf("%s %q returned an invalid Workflow: %w", path, resourceID, err)
+		}
+		if workflow.Spec.Driver != wantDriver {
+			return fmt.Errorf("%s %q has driver %q, want %q", path, resourceID, workflow.Spec.Driver, wantDriver)
+		}
+		workflows = append(workflows, resolvedWorkflow{path: path, resource: workflow})
+		return nil
+	}
+	if err := resolveSystemWorkflow("workflows.system.friend_chatroom", spec.Workflows.System.FriendChatroom, apitypes.WorkflowDriverChatroom); err != nil {
+		return err
+	}
+	if err := resolveSystemWorkflow("workflows.system.group_chatroom", spec.Workflows.System.GroupChatroom, apitypes.WorkflowDriverChatroom); err != nil {
+		return err
+	}
+	if err := resolveSystemWorkflow("workflows.system.pet", spec.Workflows.System.Pet, apitypes.WorkflowDriverPet); err != nil {
+		return err
+	}
 	for collection, bindings := range spec.Workflows.Collections {
 		for alias, binding := range bindings {
 			path := "workflows.collections." + collection + "." + alias
@@ -601,9 +679,6 @@ func (s *Server) validateResources(ctx context.Context, spec apitypes.RuntimePro
 		}
 	}
 	if spec.Gameplay != nil && spec.Gameplay.Pet != nil {
-		if err := requirePetRuntimeAliases("gameplay.pet", models); err != nil {
-			return err
-		}
 		if err := validatePetRewardModels(*spec.Gameplay.Pet, models); err != nil {
 			return err
 		}
@@ -616,28 +691,6 @@ func validatePetRewardModels(pet apitypes.RuntimeProfilePetGameplaySpec, models 
 		model := models[game.Reward.Model]
 		if model.Spec.Kind != apitypes.ModelKindLlm {
 			return fmt.Errorf("gameplay.pet.games.%s.reward.model alias %q has kind %q, want %q", alias, game.Reward.Model, model.Spec.Kind, apitypes.ModelKindLlm)
-		}
-	}
-	return nil
-}
-
-func requirePetRuntimeAliases(path string, models map[string]apitypes.ModelResource) error {
-	for _, model := range []struct {
-		field string
-		alias string
-		kind  apitypes.ModelKind
-	}{
-		{field: "pet-chat", alias: "pet-chat", kind: apitypes.ModelKindLlm},
-		{field: "pet-extract", alias: "pet-extract", kind: apitypes.ModelKindLlm},
-		{field: "pet-asr", alias: "pet-asr", kind: apitypes.ModelKindAsr},
-	} {
-		alias := strings.TrimSpace(model.alias)
-		resource, ok := models[alias]
-		if !ok {
-			return fmt.Errorf("%s.%s model alias %q is not declared in resources.models", path, model.field, alias)
-		}
-		if resource.Spec.Kind != model.kind {
-			return fmt.Errorf("%s.%s model alias %q has kind %q, want %q", path, model.field, alias, resource.Spec.Kind, model.kind)
 		}
 	}
 	return nil
@@ -685,14 +738,29 @@ func validateWorkflowRuntimeAliases(path string, workflow apitypes.WorkflowSpec,
 		}
 		return requireVoice("voice.tts_voice", external.TtsVoice)
 	case apitypes.WorkflowDriverChatroom:
-		if workflow.Chatroom != nil && workflow.Chatroom.Transcript != nil && workflow.Chatroom.Transcript.AsrModel != nil {
-			return requireModel("transcript.asr_model", *workflow.Chatroom.Transcript.AsrModel, apitypes.ModelKindAsr)
+		if workflow.Chatroom == nil || workflow.Chatroom.Transcript == nil {
+			break
+		}
+		transcript := workflow.Chatroom.Transcript
+		if transcript.Enabled != nil && *transcript.Enabled && (transcript.AsrModel == nil || strings.TrimSpace(*transcript.AsrModel) == "") {
+			return fmt.Errorf("%s.transcript.asr_model is required when transcription is enabled", path)
+		}
+		if transcript.AsrModel != nil && strings.TrimSpace(*transcript.AsrModel) != "" {
+			return requireModel("transcript.asr_model", *transcript.AsrModel, apitypes.ModelKindAsr)
 		}
 	case apitypes.WorkflowDriverPet:
 		if workflow.Pet == nil {
 			return fmt.Errorf("%s has no pet spec", path)
 		}
-		return requirePetRuntimeAliases(path, models)
+		nested := apitypes.WorkflowSpec{
+			Driver:         apitypes.WorkflowDriver(workflow.Pet.Driver),
+			Toolkit:        workflow.Pet.Toolkit,
+			Flowcraft:      workflow.Pet.Flowcraft,
+			DoubaoRealtime: workflow.Pet.DoubaoRealtime,
+			AstTranslate:   workflow.Pet.AstTranslate,
+			Chatroom:       workflow.Pet.Chatroom,
+		}
+		return validateWorkflowRuntimeAliases(path+".pet", nested, models, voices)
 	case apitypes.WorkflowDriverDoubaoRealtime:
 		if workflow.DoubaoRealtime == nil {
 			return fmt.Errorf("%s has no doubao_realtime spec", path)
@@ -1047,7 +1115,10 @@ func tokenDigest(raw string) string {
 	return hex.EncodeToString(digest[:])
 }
 
-func profileKey(name string) kv.Key   { return append(append(kv.Key{}, profilesRoot...), escape(name)) }
+func profileKey(name string) kv.Key { return append(append(kv.Key{}, profilesRoot...), escape(name)) }
+func ownerProfileKey(owner string) kv.Key {
+	return append(append(kv.Key{}, profilesByOwnerRoot...), escape(owner))
+}
 func tokenKey(name string) kv.Key     { return append(append(kv.Key{}, tokensRoot...), escape(name)) }
 func tokenHashKey(hash string) kv.Key { return append(append(kv.Key{}, tokensByHashRoot...), hash) }
 

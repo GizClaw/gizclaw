@@ -131,7 +131,7 @@ Workflow、Model 与 Voice 由当前 RuntimeProfile 投影为安全 alias catalo
 | 78 | `server.game_result.get` | 按 ID 读取一条 Game Result。 |
 | 79 | `server.reward_grant.list` | 分页列出当前 Peer 的 Reward Grant。 |
 | 80 | `server.reward_grant.get` | 按 ID 读取一条 Reward Grant。 |
-| 87 | `server.pet.actions.get` | 读取指定 Pet 当前可用的 actions、效果、clip 映射和 i18n catalog。 |
+| 87 | `server.pet.actions.get` | 读取指定 Pet 当前可用的 actions、效果和 clip 映射。 |
 | 88 | `server.pet.pixa.download` | 返回指定 Pet 对应的 PIXA metadata，并通过 binary frames 传输素材 bytes。 |
 
 ## Tool

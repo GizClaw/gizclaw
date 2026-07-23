@@ -22,19 +22,19 @@
           "name": {
             "type": "string"
           },
-        "owner_public_key": {
+          "owner_public_key": {
             "type": "string",
             "readOnly": true,
-          "description": "Immutable Public Key of the Client that created this Workspace. System and Admin-created Workspaces may omit it."
-        },
-        "labels": {
-          "type": "object",
-          "maxProperties": 32,
-          "description": "Stored Workspace labels used by Admin and internal exact-match filtering. Peer RPC does not project this map.",
-          "additionalProperties": {
-            "type": "string"
-          }
-        },
+            "description": "Immutable owner Peer public key. Domain-created system Workspaces always persist it."
+          },
+          "labels": {
+            "type": "object",
+            "maxProperties": 32,
+            "description": "Stored Workspace labels used by Admin and internal exact-match filtering. Peer RPC does not project this map.",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
           "workflow_name": {
             "type": "string"
           },

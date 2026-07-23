@@ -311,40 +311,6 @@ final $typed_data.Uint8List flowcraftWorkspaceParametersAgentTypeDescriptor =
         'JLU1BBQ0VfUEFSQU1FVEVSU19BR0VOVF9UWVBFX1VOU1BFQ0lGSUVEEAASNwozRkxPV0NSQUZU'
         'X1dPUktTUEFDRV9QQVJBTUVURVJTX0FHRU5UX1RZUEVfRkxPV0NSQUZUEAE=');
 
-@$core.Deprecated('Use petConversationParametersInitiativeDescriptor instead')
-const PetConversationParametersInitiative$json = {
-  '1': 'PetConversationParametersInitiative',
-  '2': [
-    {'1': 'PET_CONVERSATION_PARAMETERS_INITIATIVE_UNSPECIFIED', '2': 0},
-    {'1': 'PET_CONVERSATION_PARAMETERS_INITIATIVE_PEER', '2': 1},
-    {'1': 'PET_CONVERSATION_PARAMETERS_INITIATIVE_AGENT', '2': 2},
-  ],
-};
-
-/// Descriptor for `PetConversationParametersInitiative`. Decode as a `google.protobuf.EnumDescriptorProto`.
-final $typed_data.Uint8List petConversationParametersInitiativeDescriptor =
-    $convert.base64Decode(
-        'CiNQZXRDb252ZXJzYXRpb25QYXJhbWV0ZXJzSW5pdGlhdGl2ZRI2CjJQRVRfQ09OVkVSU0FUSU'
-        '9OX1BBUkFNRVRFUlNfSU5JVElBVElWRV9VTlNQRUNJRklFRBAAEi8KK1BFVF9DT05WRVJTQVRJ'
-        'T05fUEFSQU1FVEVSU19JTklUSUFUSVZFX1BFRVIQARIwCixQRVRfQ09OVkVSU0FUSU9OX1BBUk'
-        'FNRVRFUlNfSU5JVElBVElWRV9BR0VOVBAC');
-
-@$core.Deprecated('Use petWorkspaceParametersAgentTypeDescriptor instead')
-const PetWorkspaceParametersAgentType$json = {
-  '1': 'PetWorkspaceParametersAgentType',
-  '2': [
-    {'1': 'PET_WORKSPACE_PARAMETERS_AGENT_TYPE_UNSPECIFIED', '2': 0},
-    {'1': 'PET_WORKSPACE_PARAMETERS_AGENT_TYPE_PET', '2': 1},
-  ],
-};
-
-/// Descriptor for `PetWorkspaceParametersAgentType`. Decode as a `google.protobuf.EnumDescriptorProto`.
-final $typed_data.Uint8List petWorkspaceParametersAgentTypeDescriptor =
-    $convert.base64Decode(
-        'Ch9QZXRXb3Jrc3BhY2VQYXJhbWV0ZXJzQWdlbnRUeXBlEjMKL1BFVF9XT1JLU1BBQ0VfUEFSQU'
-        '1FVEVSU19BR0VOVF9UWVBFX1VOU1BFQ0lGSUVEEAASKwonUEVUX1dPUktTUEFDRV9QQVJBTUVU'
-        'RVJTX0FHRU5UX1RZUEVfUEVUEAE=');
-
 @$core.Deprecated('Use friendGroupMemberMutableRoleDescriptor instead')
 const FriendGroupMemberMutableRole$json = {
   '1': 'FriendGroupMemberMutableRole',
@@ -518,6 +484,26 @@ final $typed_data.Uint8List workflowDriverDescriptor = $convert.base64Decode(
     'JLRkxPV19EUklWRVJfRkxPV0NSQUZUEAESIwofV09SS0ZMT1dfRFJJVkVSX0RPVUJBT19SRUFM'
     'VElNRRACEiEKHVdPUktGTE9XX0RSSVZFUl9BU1RfVFJBTlNMQVRFEAMSHAoYV09SS0ZMT1dfRF'
     'JJVkVSX0NIQVRST09NEAQSFwoTV09SS0ZMT1dfRFJJVkVSX1BFVBAF');
+
+@$core.Deprecated('Use reusableWorkflowDriverDescriptor instead')
+const ReusableWorkflowDriver$json = {
+  '1': 'ReusableWorkflowDriver',
+  '2': [
+    {'1': 'REUSABLE_WORKFLOW_DRIVER_UNSPECIFIED', '2': 0},
+    {'1': 'REUSABLE_WORKFLOW_DRIVER_FLOWCRAFT', '2': 1},
+    {'1': 'REUSABLE_WORKFLOW_DRIVER_DOUBAO_REALTIME', '2': 2},
+    {'1': 'REUSABLE_WORKFLOW_DRIVER_AST_TRANSLATE', '2': 3},
+    {'1': 'REUSABLE_WORKFLOW_DRIVER_CHATROOM', '2': 4},
+  ],
+};
+
+/// Descriptor for `ReusableWorkflowDriver`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List reusableWorkflowDriverDescriptor = $convert.base64Decode(
+    'ChZSZXVzYWJsZVdvcmtmbG93RHJpdmVyEigKJFJFVVNBQkxFX1dPUktGTE9XX0RSSVZFUl9VTl'
+    'NQRUNJRklFRBAAEiYKIlJFVVNBQkxFX1dPUktGTE9XX0RSSVZFUl9GTE9XQ1JBRlQQARIsCihS'
+    'RVVTQUJMRV9XT1JLRkxPV19EUklWRVJfRE9VQkFPX1JFQUxUSU1FEAISKgomUkVVU0FCTEVfV0'
+    '9SS0ZMT1dfRFJJVkVSX0FTVF9UUkFOU0xBVEUQAxIlCiFSRVVTQUJMRV9XT1JLRkxPV19EUklW'
+    'RVJfQ0hBVFJPT00QBA==');
 
 @$core.Deprecated('Use workspaceHistoryListRequestOrderDescriptor instead')
 const WorkspaceHistoryListRequestOrder$json = {

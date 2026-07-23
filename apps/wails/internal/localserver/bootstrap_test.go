@@ -186,13 +186,15 @@ func TestBootstrapperMigratesReferencedWorkflowsBeforeDefaultRuntimeContract(t *
 			"resources/00-credentials/a.yaml":               {Data: []byte("kind: Credential\nmetadata: {name: a}\n")},
 			"resources/04-workflows/00-referenced.yaml":     {Data: []byte("kind: Workflow\nmetadata: {name: referenced}\n")},
 			"resources/04-workflows/01-chatroom.yaml":       {Data: []byte("kind: Workflow\nmetadata: {name: chatroom}\n")},
+			"resources/04-workflows/02-pet-care.yaml":       {Data: []byte("kind: Workflow\nmetadata: {name: pet-care}\n")},
 			"resources/04-workflows/02-unreferenced.yaml":   {Data: []byte("kind: Workflow\nmetadata: {name: unreferenced}\n")},
-			"resources/07-runtime-profiles/00-default.yaml": {Data: []byte("kind: RuntimeProfile\nmetadata: {name: default}\nspec:\n  workflows:\n    collections:\n      assistants:\n        demo: {resource_id: referenced}\n")},
+			"resources/07-runtime-profiles/00-default.yaml": {Data: []byte("kind: RuntimeProfile\nmetadata: {name: default}\nspec:\n  workflows:\n    system:\n      friend_chatroom: chatroom\n      group_chatroom: chatroom\n      pet: pet-care\n    collections:\n      assistants:\n        demo: {resource_id: referenced}\n")},
 		},
 		Resources: []ResourceEntry{
 			{Path: "resources/00-credentials/a.yaml", Kind: "Credential", Name: "a"},
 			{Path: "resources/04-workflows/00-referenced.yaml", Kind: "Workflow", Name: "referenced"},
 			{Path: "resources/04-workflows/01-chatroom.yaml", Kind: "Workflow", Name: "chatroom"},
+			{Path: "resources/04-workflows/02-pet-care.yaml", Kind: "Workflow", Name: "pet-care"},
 			{Path: "resources/04-workflows/02-unreferenced.yaml", Kind: "Workflow", Name: "unreferenced"},
 			{Path: "resources/07-runtime-profiles/00-default.yaml", Kind: "RuntimeProfile", Name: "default"},
 		},
@@ -218,6 +220,8 @@ func TestBootstrapperMigratesReferencedWorkflowsBeforeDefaultRuntimeContract(t *
 					applied = append(applied, "Workflow/referenced")
 				case strings.Contains(string(data), "name: chatroom"):
 					applied = append(applied, "Workflow/chatroom")
+				case strings.Contains(string(data), "name: pet-care"):
+					applied = append(applied, "Workflow/pet-care")
 				case strings.Contains(string(data), "name: default"):
 					applied = append(applied, "RuntimeProfile/default")
 				default:
@@ -234,10 +238,10 @@ func TestBootstrapperMigratesReferencedWorkflowsBeforeDefaultRuntimeContract(t *
 	if err := bootstrapper.MigrateRuntimeContract(context.Background(), podDir); err != nil {
 		t.Fatal(err)
 	}
-	if got := strings.Join(applied, ","); got != "Workflow/referenced,Workflow/chatroom,RuntimeProfile/default" {
+	if got := strings.Join(applied, ","); got != "Workflow/referenced,Workflow/chatroom,Workflow/pet-care,RuntimeProfile/default" {
 		t.Fatalf("migration applied = %s", got)
 	}
-	if len(commands) != 8 || !strings.Contains(commands[0], "admin apply") || !strings.Contains(commands[1], "admin apply") || !strings.Contains(commands[2], "volc-tenants sync-voices volc-main") || !strings.Contains(commands[3], "runtime-profiles delete default") || !strings.Contains(commands[4], "admin apply") || !strings.Contains(commands[5], "registration-tokens delete app:com.gizclaw.opensource") || !strings.Contains(commands[6], "registration-tokens create") || !strings.Contains(commands[7], "registration-tokens delete desktop-local") {
+	if len(commands) != 9 || !strings.Contains(commands[0], "admin apply") || !strings.Contains(commands[1], "admin apply") || !strings.Contains(commands[2], "admin apply") || !strings.Contains(commands[3], "volc-tenants sync-voices volc-main") || !strings.Contains(commands[4], "runtime-profiles delete default") || !strings.Contains(commands[5], "admin apply") || !strings.Contains(commands[6], "registration-tokens delete app:com.gizclaw.opensource") || !strings.Contains(commands[7], "registration-tokens create") || !strings.Contains(commands[8], "registration-tokens delete desktop-local") {
 		t.Fatalf("migration commands = %v", commands)
 	}
 	token, err := os.ReadFile(filepath.Join(podDir, "workspace", RegistrationTokenFile))
@@ -269,18 +273,23 @@ func TestRuntimeContractEntriesUseBundledProfileReferences(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(entries) != 10 || entries[len(entries)-1] != profile {
+	if len(entries) != 11 || entries[len(entries)-1] != profile {
 		t.Fatalf("runtime contract entries = %#v", entries)
 	}
 	for _, entry := range entries[:len(entries)-1] {
-		if entry.Kind != "Workflow" || entry.Name == "pet-care" {
+		if entry.Kind != "Workflow" {
 			t.Fatalf("runtime contract entry = %+v", entry)
 		}
 	}
 	if !slices.ContainsFunc(entries, func(entry ResourceEntry) bool {
-		return entry.Kind == "Workflow" && entry.Name == systemRuntimeWorkflowName
+		return entry.Kind == "Workflow" && entry.Name == "chatroom"
 	}) {
 		t.Fatal("runtime contract entries omit Workflow/chatroom")
+	}
+	if !slices.ContainsFunc(entries, func(entry ResourceEntry) bool {
+		return entry.Kind == "Workflow" && entry.Name == "pet-care"
+	}) {
+		t.Fatal("runtime contract entries omit Workflow/pet-care")
 	}
 }
 

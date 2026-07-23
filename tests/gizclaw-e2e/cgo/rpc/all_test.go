@@ -148,7 +148,14 @@ func createCSDKRegistrationToken(t *testing.T, h *clitest.Harness, scenario stri
 		Name: profileName,
 		Spec: apitypes.RuntimeProfileSpec{
 			Resources: apitypes.RuntimeProfileResources{},
-			Workflows: apitypes.RuntimeProfileWorkflows{Collections: apitypes.RuntimeProfileWorkflowCollections{}},
+			Workflows: apitypes.RuntimeProfileWorkflows{
+				System: apitypes.RuntimeProfileSystemWorkflows{
+					FriendChatroom: "chatroom-direct",
+					GroupChatroom:  "chatroom-direct",
+					Pet:            "pet-chatroom",
+				},
+				Collections: apitypes.RuntimeProfileWorkflowCollections{},
+			},
 		},
 	})
 	if err != nil {

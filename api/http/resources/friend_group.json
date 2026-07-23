@@ -42,9 +42,15 @@
       "FriendGroupSpec": {
         "type": "object",
         "required": [
+          "owner_public_key",
           "name"
         ],
         "properties": {
+          "owner_public_key": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Immutable owner Peer public key used to resolve the system Workflow."
+          },
           "name": {
             "type": "string",
             "description": "Display name for the friend group. metadata.name is the stable group id."

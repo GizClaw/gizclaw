@@ -508,37 +508,6 @@ test("RPC payload codec selects workspace oneofs from discriminators", () => {
   assert.equal(decoded.parameters?.agent_type, "doubao-realtime");
 });
 
-test("RPC payload codec round-trips pet workspace parameters", () => {
-  const payload = encodeRPCRequestPayload("server.workspace.create", {
-    created_at: "now",
-    last_active_at: "now",
-    name: "pet-a",
-    parameters: {
-      agent_type: "pet",
-      input: "push-to-talk",
-      voice: { voice_id: "voice-a", prompt: "warm" },
-    },
-    updated_at: "now",
-    workflow_name: "pet-care",
-  });
-
-  const decoded = decodeRPCRequestPayload(
-    "server.workspace.create",
-    payload,
-  ) as {
-    parameters?: {
-      agent_type?: string;
-      voice?: { voice_id?: string; prompt?: string };
-    };
-  };
-
-  assert.deepEqual(decoded.parameters, {
-    agent_type: "pet",
-    input: "push-to-talk",
-    voice: { voice_id: "voice-a", prompt: "warm" },
-  });
-});
-
 test("RPC payload codec round-trips system workspace classification", () => {
   const payload = encodeRPCResponsePayload("server.workspace.get", {
     runtime_profile_name: "default",

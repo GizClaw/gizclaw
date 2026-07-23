@@ -337,12 +337,14 @@ message WorkspaceListResponse {
 }
 
 message WorkspaceParameters {
+  reserved 5;
+  reserved "pet_workspace_parameters";
+
   oneof value {
     FlowcraftWorkspaceParameters flowcraft_workspace_parameters = 1;
     DoubaoRealtimeWorkspaceParameters doubao_realtime_workspace_parameters = 2;
     ASTTranslateWorkspaceParameters asttranslate_workspace_parameters = 3;
     ChatRoomWorkspaceParameters chat_room_workspace_parameters = 4;
-    PetWorkspaceParameters pet_workspace_parameters = 5;
   }
 }
 

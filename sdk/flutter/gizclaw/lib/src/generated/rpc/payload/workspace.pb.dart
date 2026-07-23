@@ -4473,7 +4473,6 @@ enum WorkspaceParameters_Value {
   doubaoRealtimeWorkspaceParameters,
   asttranslateWorkspaceParameters,
   chatRoomWorkspaceParameters,
-  petWorkspaceParameters,
   notSet
 }
 
@@ -4483,7 +4482,6 @@ class WorkspaceParameters extends $pb.GeneratedMessage {
     $2.DoubaoRealtimeWorkspaceParameters? doubaoRealtimeWorkspaceParameters,
     $2.ASTTranslateWorkspaceParameters? asttranslateWorkspaceParameters,
     $2.ChatRoomWorkspaceParameters? chatRoomWorkspaceParameters,
-    $2.PetWorkspaceParameters? petWorkspaceParameters,
   }) {
     final result = create();
     if (flowcraftWorkspaceParameters != null)
@@ -4495,8 +4493,6 @@ class WorkspaceParameters extends $pb.GeneratedMessage {
       result.asttranslateWorkspaceParameters = asttranslateWorkspaceParameters;
     if (chatRoomWorkspaceParameters != null)
       result.chatRoomWorkspaceParameters = chatRoomWorkspaceParameters;
-    if (petWorkspaceParameters != null)
-      result.petWorkspaceParameters = petWorkspaceParameters;
     return result;
   }
 
@@ -4515,14 +4511,13 @@ class WorkspaceParameters extends $pb.GeneratedMessage {
     2: WorkspaceParameters_Value.doubaoRealtimeWorkspaceParameters,
     3: WorkspaceParameters_Value.asttranslateWorkspaceParameters,
     4: WorkspaceParameters_Value.chatRoomWorkspaceParameters,
-    5: WorkspaceParameters_Value.petWorkspaceParameters,
     0: WorkspaceParameters_Value.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'WorkspaceParameters',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..oo(0, [1, 2, 3, 4, 5])
+    ..oo(0, [1, 2, 3, 4])
     ..aOM<$2.FlowcraftWorkspaceParameters>(
         1, _omitFieldNames ? '' : 'flowcraftWorkspaceParameters',
         subBuilder: $2.FlowcraftWorkspaceParameters.create)
@@ -4535,9 +4530,6 @@ class WorkspaceParameters extends $pb.GeneratedMessage {
     ..aOM<$2.ChatRoomWorkspaceParameters>(
         4, _omitFieldNames ? '' : 'chatRoomWorkspaceParameters',
         subBuilder: $2.ChatRoomWorkspaceParameters.create)
-    ..aOM<$2.PetWorkspaceParameters>(
-        5, _omitFieldNames ? '' : 'petWorkspaceParameters',
-        subBuilder: $2.PetWorkspaceParameters.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -4563,14 +4555,12 @@ class WorkspaceParameters extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   @$pb.TagNumber(3)
   @$pb.TagNumber(4)
-  @$pb.TagNumber(5)
   WorkspaceParameters_Value whichValue() =>
       _WorkspaceParameters_ValueByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(1)
   @$pb.TagNumber(2)
   @$pb.TagNumber(3)
   @$pb.TagNumber(4)
-  @$pb.TagNumber(5)
   void clearValue() => $_clearField($_whichOneof(0));
 
   @$pb.TagNumber(1)
@@ -4628,18 +4618,6 @@ class WorkspaceParameters extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   $2.ChatRoomWorkspaceParameters ensureChatRoomWorkspaceParameters() =>
       $_ensure(3);
-
-  @$pb.TagNumber(5)
-  $2.PetWorkspaceParameters get petWorkspaceParameters => $_getN(4);
-  @$pb.TagNumber(5)
-  set petWorkspaceParameters($2.PetWorkspaceParameters value) =>
-      $_setField(5, value);
-  @$pb.TagNumber(5)
-  $core.bool hasPetWorkspaceParameters() => $_has(4);
-  @$pb.TagNumber(5)
-  void clearPetWorkspaceParameters() => $_clearField(5);
-  @$pb.TagNumber(5)
-  $2.PetWorkspaceParameters ensurePetWorkspaceParameters() => $_ensure(4);
 }
 
 class WorkspacePutRequest extends $pb.GeneratedMessage {

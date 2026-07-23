@@ -14,6 +14,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 	_ "modernc.org/sqlite"
@@ -99,14 +100,31 @@ func TestRolesAudioMessagesAndTTL(t *testing.T) {
 	}
 }
 
+func TestGroupWorkspaceBelongsToCreator(t *testing.T) {
+	workspaces := &recordingWorkspaceService{}
+	s := newTestServer(t)
+	s.Workspaces = workspaces
+	s.RuntimeProfileForOwner = testRuntimeProfileForOwner
+	if _, err := s.CreateFriendGroup(t.Context(), "peer-a", rpcapi.FriendGroupCreateRequest{Name: "room"}); err != nil {
+		t.Fatal(err)
+	}
+	if len(workspaces.created) != 1 || workspaces.created[0].WorkflowName != "group-chatroom" {
+		t.Fatalf("created Workspaces = %#v", workspaces.created)
+	}
+	if len(workspaces.owners) != 1 || workspaces.owners[0] != "peer-a" {
+		t.Fatalf("Workspace owners = %#v, want peer-a", workspaces.owners)
+	}
+}
+
 func TestAdminApplyFriendGroupRollsBackWorkspaceOnGroupWriteFailure(t *testing.T) {
 	ctx := context.Background()
 	workspaces := &recordingWorkspaceService{}
 	s := newTestServer(t)
 	s.Workspaces = workspaces
+	s.RuntimeProfileForOwner = testRuntimeProfileForOwner
 	s.Groups = failingSetStore{Store: kv.NewMemory(nil)}
 
-	if _, err := s.AdminApplyFriendGroup(ctx, "family01", "Family", nil); err == nil {
+	if _, err := s.AdminApplyFriendGroup(ctx, "family01", "peer-a", "Family", nil); err == nil {
 		t.Fatal("AdminApplyFriendGroup with failing group store error = nil")
 	}
 	if len(workspaces.deleted) != 1 || workspaces.deleted[0] != socialutil.GroupWorkspaceName("family01") {
@@ -117,7 +135,7 @@ func TestAdminApplyFriendGroupRollsBackWorkspaceOnGroupWriteFailure(t *testing.T
 func TestAdminDeleteFriendGroupMemberRollsBackWhenBelongsDeleteFails(t *testing.T) {
 	ctx := context.Background()
 	s := newTestServer(t)
-	group, err := s.AdminApplyFriendGroup(ctx, "family01", "Family", nil)
+	group, err := s.AdminApplyFriendGroup(ctx, "family01", "peer-a", "Family", nil)
 	if err != nil {
 		t.Fatalf("AdminApplyFriendGroup: %v", err)
 	}
@@ -217,7 +235,7 @@ func TestConfigurationErrorsAndHelpers(t *testing.T) {
 	if _, err := empty.SendFriendGroupMessage(ctx, "peer-a", rpcapi.FriendGroupMessageSendRequest{FriendGroupId: "group-a", AudioContentType: "audio/opus"}); err == nil {
 		t.Fatal("SendFriendGroupMessage without store error = nil")
 	}
-	if _, err := empty.AdminApplyFriendGroup(ctx, "group-a", "Group A", nil); err == nil {
+	if _, err := empty.AdminApplyFriendGroup(ctx, "group-a", "peer-a", "Group A", nil); err == nil {
 		t.Fatal("AdminApplyFriendGroup without store error = nil")
 	}
 	if _, err := empty.AdminGetFriendGroupMember(ctx, "group-a", "peer-a"); err == nil {
@@ -352,6 +370,7 @@ func TestCreateRollsBackPartialWrites(t *testing.T) {
 	s = newTestServer(t)
 	s.Groups = failingSetStore{Store: kv.NewMemory(nil)}
 	s.Workspaces = workspaces
+	s.RuntimeProfileForOwner = testRuntimeProfileForOwner
 	if _, err := s.CreateFriendGroup(ctx, "peer-a", rpcapi.FriendGroupCreateRequest{Name: "room"}); err == nil {
 		t.Fatal("CreateFriendGroup with failing group store error = nil")
 	}
@@ -530,18 +549,21 @@ func (s failingDeletePrefixStore) DeletePrefix(string) error {
 type recordingWorkspaceService struct {
 	created []adminhttp.WorkspaceUpsert
 	deleted []string
+	owners  []string
 }
 
-func (s *recordingWorkspaceService) CreateSystemWorkspace(_ context.Context, body adminhttp.WorkspaceUpsert) (apitypes.Workspace, bool, error) {
+func (s *recordingWorkspaceService) CreateSystemWorkspace(ctx context.Context, body adminhttp.WorkspaceUpsert) (apitypes.Workspace, bool, error) {
+	owner, _ := ownership.FromContext(ctx)
+	s.owners = append(s.owners, owner)
 	for _, existing := range s.created {
 		if existing.Name == body.Name {
 			system := true
-			return apitypes.Workspace{Name: body.Name, WorkflowName: body.WorkflowName, Parameters: body.Parameters, System: &system}, false, nil
+			return apitypes.Workspace{Name: body.Name, WorkflowName: body.WorkflowName, Parameters: body.Parameters, OwnerPublicKey: &owner, System: &system}, false, nil
 		}
 	}
 	s.created = append(s.created, body)
 	system := true
-	return apitypes.Workspace{Name: body.Name, WorkflowName: body.WorkflowName, Parameters: body.Parameters, System: &system}, true, nil
+	return apitypes.Workspace{Name: body.Name, WorkflowName: body.WorkflowName, Parameters: body.Parameters, OwnerPublicKey: &owner, System: &system}, true, nil
 }
 
 func (s *recordingWorkspaceService) DeleteSystemWorkspace(_ context.Context, name string) (apitypes.Workspace, error) {
@@ -600,4 +622,16 @@ func (s failingWorkspaceService) DeleteWorkspace(context.Context, adminhttp.Dele
 
 func strPtr(v string) *string {
 	return &v
+}
+
+func testRuntimeProfileForOwner(context.Context, string) (apitypes.RuntimeProfile, error) {
+	return apitypes.RuntimeProfile{Spec: apitypes.RuntimeProfileSpec{
+		Workflows: apitypes.RuntimeProfileWorkflows{
+			System: apitypes.RuntimeProfileSystemWorkflows{
+				FriendChatroom: "friend-chatroom",
+				GroupChatroom:  "group-chatroom",
+				Pet:            "pet-care",
+			},
+		},
+	}}, nil
 }

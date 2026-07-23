@@ -27,7 +27,6 @@ const (
 	DefaultCleanupInterval  = 5 * time.Minute
 	DefaultMaxAudioBytes    = 2 * 1024 * 1024
 	DefaultAudioContentType = "audio/opus"
-	ChatRoomWorkflowName    = "chatroom"
 )
 
 var (

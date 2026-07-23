@@ -3356,7 +3356,6 @@ type WorkspaceParameters struct {
 	//	*WorkspaceParameters_DoubaoRealtimeWorkspaceParameters
 	//	*WorkspaceParameters_AsttranslateWorkspaceParameters
 	//	*WorkspaceParameters_ChatRoomWorkspaceParameters
-	//	*WorkspaceParameters_PetWorkspaceParameters
 	Value         isWorkspaceParameters_Value `protobuf_oneof:"value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -3435,15 +3434,6 @@ func (x *WorkspaceParameters) GetChatRoomWorkspaceParameters() *ChatRoomWorkspac
 	return nil
 }
 
-func (x *WorkspaceParameters) GetPetWorkspaceParameters() *PetWorkspaceParameters {
-	if x != nil {
-		if x, ok := x.Value.(*WorkspaceParameters_PetWorkspaceParameters); ok {
-			return x.PetWorkspaceParameters
-		}
-	}
-	return nil
-}
-
 type isWorkspaceParameters_Value interface {
 	isWorkspaceParameters_Value()
 }
@@ -3464,10 +3454,6 @@ type WorkspaceParameters_ChatRoomWorkspaceParameters struct {
 	ChatRoomWorkspaceParameters *ChatRoomWorkspaceParameters `protobuf:"bytes,4,opt,name=chat_room_workspace_parameters,json=chatRoomWorkspaceParameters,proto3,oneof"`
 }
 
-type WorkspaceParameters_PetWorkspaceParameters struct {
-	PetWorkspaceParameters *PetWorkspaceParameters `protobuf:"bytes,5,opt,name=pet_workspace_parameters,json=petWorkspaceParameters,proto3,oneof"`
-}
-
 func (*WorkspaceParameters_FlowcraftWorkspaceParameters) isWorkspaceParameters_Value() {}
 
 func (*WorkspaceParameters_DoubaoRealtimeWorkspaceParameters) isWorkspaceParameters_Value() {}
@@ -3475,8 +3461,6 @@ func (*WorkspaceParameters_DoubaoRealtimeWorkspaceParameters) isWorkspaceParamet
 func (*WorkspaceParameters_AsttranslateWorkspaceParameters) isWorkspaceParameters_Value() {}
 
 func (*WorkspaceParameters_ChatRoomWorkspaceParameters) isWorkspaceParameters_Value() {}
-
-func (*WorkspaceParameters_PetWorkspaceParameters) isWorkspaceParameters_Value() {}
 
 type WorkspacePutRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -3880,14 +3864,13 @@ const file_payload_workspace_proto_rawDesc = "" +
 	"nextCursor\x88\x01\x01\x120\n" +
 	"\x14runtime_profile_name\x18\x04 \x01(\tR\x12runtimeProfileName\x128\n" +
 	"\x18runtime_profile_revision\x18\x05 \x01(\tR\x16runtimeProfileRevisionB\x0e\n" +
-	"\f_next_cursor\"\xf2\x04\n" +
+	"\f_next_cursor\"\xae\x04\n" +
 	"\x13WorkspaceParameters\x12t\n" +
 	"\x1eflowcraft_workspace_parameters\x18\x01 \x01(\v2,.gizclaw.rpc.v1.FlowcraftWorkspaceParametersH\x00R\x1cflowcraftWorkspaceParameters\x12\x84\x01\n" +
 	"$doubao_realtime_workspace_parameters\x18\x02 \x01(\v21.gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParametersH\x00R!doubaoRealtimeWorkspaceParameters\x12}\n" +
 	"!asttranslate_workspace_parameters\x18\x03 \x01(\v2/.gizclaw.rpc.v1.ASTTranslateWorkspaceParametersH\x00R\x1fasttranslateWorkspaceParameters\x12r\n" +
-	"\x1echat_room_workspace_parameters\x18\x04 \x01(\v2+.gizclaw.rpc.v1.ChatRoomWorkspaceParametersH\x00R\x1bchatRoomWorkspaceParameters\x12b\n" +
-	"\x18pet_workspace_parameters\x18\x05 \x01(\v2&.gizclaw.rpc.v1.PetWorkspaceParametersH\x00R\x16petWorkspaceParametersB\a\n" +
-	"\x05value\"_\n" +
+	"\x1echat_room_workspace_parameters\x18\x04 \x01(\v2+.gizclaw.rpc.v1.ChatRoomWorkspaceParametersH\x00R\x1bchatRoomWorkspaceParametersB\a\n" +
+	"\x05valueJ\x04\b\x05\x10\x06R\x18pet_workspace_parameters\"_\n" +
 	"\x13WorkspacePutRequest\x124\n" +
 	"\x04body\x18\x01 \x01(\v2 .gizclaw.rpc.v1.WorkspacePutBodyR\x04body\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\"G\n" +
@@ -3985,7 +3968,6 @@ var file_payload_workspace_proto_goTypes = []any{
 	(*DoubaoRealtimeWorkspaceParameters)(nil),        // 74: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters
 	(*ASTTranslateWorkspaceParameters)(nil),          // 75: gizclaw.rpc.v1.ASTTranslateWorkspaceParameters
 	(*ChatRoomWorkspaceParameters)(nil),              // 76: gizclaw.rpc.v1.ChatRoomWorkspaceParameters
-	(*PetWorkspaceParameters)(nil),                   // 77: gizclaw.rpc.v1.PetWorkspaceParameters
 }
 var file_payload_workspace_proto_depIdxs = []int32{
 	0,  // 0: gizclaw.rpc.v1.PeerRunAgent.active:type_name -> gizclaw.rpc.v1.AgentSelection
@@ -4039,14 +4021,13 @@ var file_payload_workspace_proto_depIdxs = []int32{
 	74, // 48: gizclaw.rpc.v1.WorkspaceParameters.doubao_realtime_workspace_parameters:type_name -> gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters
 	75, // 49: gizclaw.rpc.v1.WorkspaceParameters.asttranslate_workspace_parameters:type_name -> gizclaw.rpc.v1.ASTTranslateWorkspaceParameters
 	76, // 50: gizclaw.rpc.v1.WorkspaceParameters.chat_room_workspace_parameters:type_name -> gizclaw.rpc.v1.ChatRoomWorkspaceParameters
-	77, // 51: gizclaw.rpc.v1.WorkspaceParameters.pet_workspace_parameters:type_name -> gizclaw.rpc.v1.PetWorkspaceParameters
-	44, // 52: gizclaw.rpc.v1.WorkspacePutRequest.body:type_name -> gizclaw.rpc.v1.WorkspacePutBody
-	42, // 53: gizclaw.rpc.v1.WorkspacePutResponse.value:type_name -> gizclaw.rpc.v1.Workspace
-	54, // [54:54] is the sub-list for method output_type
-	54, // [54:54] is the sub-list for method input_type
-	54, // [54:54] is the sub-list for extension type_name
-	54, // [54:54] is the sub-list for extension extendee
-	0,  // [0:54] is the sub-list for field type_name
+	44, // 51: gizclaw.rpc.v1.WorkspacePutRequest.body:type_name -> gizclaw.rpc.v1.WorkspacePutBody
+	42, // 52: gizclaw.rpc.v1.WorkspacePutResponse.value:type_name -> gizclaw.rpc.v1.Workspace
+	53, // [53:53] is the sub-list for method output_type
+	53, // [53:53] is the sub-list for method input_type
+	53, // [53:53] is the sub-list for extension type_name
+	53, // [53:53] is the sub-list for extension extendee
+	0,  // [0:53] is the sub-list for field type_name
 }
 
 func init() { file_payload_workspace_proto_init() }
@@ -4080,7 +4061,6 @@ func file_payload_workspace_proto_init() {
 		(*WorkspaceParameters_DoubaoRealtimeWorkspaceParameters)(nil),
 		(*WorkspaceParameters_AsttranslateWorkspaceParameters)(nil),
 		(*WorkspaceParameters_ChatRoomWorkspaceParameters)(nil),
-		(*WorkspaceParameters_PetWorkspaceParameters)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

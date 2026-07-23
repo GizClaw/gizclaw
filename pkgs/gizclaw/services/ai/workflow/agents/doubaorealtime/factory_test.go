@@ -108,6 +108,30 @@ func TestFactoryUsesWorkflowDuplexConfig(t *testing.T) {
 	}
 }
 
+func TestFactoryUsesWorkspaceOwnerTransformer(t *testing.T) {
+	owner := "owner-public-key"
+	called := false
+	agent, err := (Factory{
+		Transformer: recordingTransformer{},
+		TransformerForOwner: func(_ context.Context, gotOwner string) (genx.TransformerMux, error) {
+			called = true
+			if gotOwner != owner {
+				t.Fatalf("owner = %q, want %q", gotOwner, owner)
+			}
+			return recordingTransformer{}, nil
+		},
+	}).NewAgent(t.Context(), agenthost.Spec{
+		Workspace: apitypes.Workspace{Name: "pet-realtime", OwnerPublicKey: &owner},
+		Workflow:  testDoubaoRealtimeWorkflow(apitypes.DoubaoRealtimeWorkflowSpec{Model: "owner-model"}),
+	})
+	if err != nil {
+		t.Fatalf("NewAgent() error = %v", err)
+	}
+	if agent == nil || !called {
+		t.Fatalf("NewAgent() = %#v, owner resolver called = %t", agent, called)
+	}
+}
+
 func TestFactoryRejectsToolCallConfiguration(t *testing.T) {
 	tools := []apitypes.DoubaoRealtimeFunctionTool{{
 		Type: apitypes.DoubaoRealtimeFunctionToolTypeFunction,

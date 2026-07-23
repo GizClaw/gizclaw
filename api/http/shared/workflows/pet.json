@@ -9,8 +9,7 @@
   "components": {
     "schemas": {
       "PetWorkflowSpec": {
-        "type": "object",
-        "additionalProperties": false
+        "$ref": "../workflow_spec.json#/components/schemas/ReusableWorkflowSpec"
       }
     }
   }

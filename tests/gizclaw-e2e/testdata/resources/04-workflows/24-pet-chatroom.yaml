@@ -1,0 +1,12 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: Workflow
+metadata:
+  name: pet-chatroom
+spec:
+  driver: pet
+  pet:
+    driver: chatroom
+    chatroom:
+      history:
+        ttl: 168h

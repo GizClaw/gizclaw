@@ -63,6 +63,7 @@ void main() {
       ),
     );
     expect((await adoptFuture).value.pet.id, 'pet-b');
+    expect(() => client.adoptPet(displayName: '   '), throwsArgumentError);
 
     final driveFuture = client.drivePet(
       'pet-b',

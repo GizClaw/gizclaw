@@ -280,33 +280,24 @@ func (e FlowcraftWorkspaceParametersAgentType) Valid() bool {
 	}
 }
 
-// Defines values for PetConversationParametersInitiative.
+// Defines values for ReusableWorkflowDriver.
 const (
-	PetConversationParametersInitiativeAgent PetConversationParametersInitiative = "agent"
-	PetConversationParametersInitiativePeer  PetConversationParametersInitiative = "peer"
+	ReusableWorkflowDriverAstTranslate   ReusableWorkflowDriver = "ast-translate"
+	ReusableWorkflowDriverChatroom       ReusableWorkflowDriver = "chatroom"
+	ReusableWorkflowDriverDoubaoRealtime ReusableWorkflowDriver = "doubao-realtime"
+	ReusableWorkflowDriverFlowcraft      ReusableWorkflowDriver = "flowcraft"
 )
 
-// Valid indicates whether the value is a known member of the PetConversationParametersInitiative enum.
-func (e PetConversationParametersInitiative) Valid() bool {
+// Valid indicates whether the value is a known member of the ReusableWorkflowDriver enum.
+func (e ReusableWorkflowDriver) Valid() bool {
 	switch e {
-	case PetConversationParametersInitiativeAgent:
+	case ReusableWorkflowDriverAstTranslate:
 		return true
-	case PetConversationParametersInitiativePeer:
+	case ReusableWorkflowDriverChatroom:
 		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for PetWorkspaceParametersAgentType.
-const (
-	PetWorkspaceParametersAgentTypePet PetWorkspaceParametersAgentType = "pet"
-)
-
-// Valid indicates whether the value is a known member of the PetWorkspaceParametersAgentType enum.
-func (e PetWorkspaceParametersAgentType) Valid() bool {
-	switch e {
-	case PetWorkspaceParametersAgentTypePet:
+	case ReusableWorkflowDriverDoubaoRealtime:
+		return true
+	case ReusableWorkflowDriverFlowcraft:
 		return true
 	default:
 		return false
@@ -2429,7 +2420,7 @@ type Pet struct {
 
 // PetAdoptRequest defines model for PetAdoptRequest.
 type PetAdoptRequest struct {
-	DisplayName *string `json:"display_name,omitempty"`
+	DisplayName string  `json:"display_name"`
 	Id          *string `json:"id,omitempty"`
 }
 
@@ -2449,27 +2440,10 @@ type PetDef struct {
 	UpdatedAt time.Time  `json:"updated_at"`
 }
 
-// PetConversationParameters defines model for PetConversationParameters.
-type PetConversationParameters struct {
-	Initiative *PetConversationParametersInitiative `json:"initiative,omitempty"`
-}
-
-// PetConversationParametersInitiative defines who starts the conversation.
-type PetConversationParametersInitiative string
-
 // PetDefCharacterSpec defines model for PetDefCharacterSpec.
 type PetDefCharacterSpec struct {
 	Prompt string `json:"prompt"`
 }
-
-// PetDefI18nCatalog defines model for PetDefI18nCatalog.
-type PetDefI18nCatalog struct {
-	Description *string `json:"description,omitempty"`
-	DisplayName *string `json:"display_name,omitempty"`
-}
-
-// PetDefI18nSpec defines model for PetDefI18nSpec.
-type PetDefI18nSpec map[string]PetDefI18nCatalog
 
 // PetDefPixaCanvasMetadata defines model for PetDefPixaCanvasMetadata.
 type PetDefPixaCanvasMetadata struct {
@@ -2957,31 +2931,18 @@ const (
 	PetLifecycleDead  PetLifecycle = "dead"
 )
 
-// PetPersonaParameters defines model for PetPersonaParameters.
-type PetPersonaParameters struct {
-	Prompt *string `json:"prompt,omitempty"`
-}
-
-// PetVoiceParameters defines model for PetVoiceParameters.
-type PetVoiceParameters struct {
-	Prompt  *string `json:"prompt,omitempty"`
-	VoiceId string  `json:"voice_id"`
-}
-
 // PetWorkflowSpec defines model for PetWorkflowSpec.
-type PetWorkflowSpec = map[string]any
-
-// PetWorkspaceParameters defines model for PetWorkspaceParameters.
-type PetWorkspaceParameters struct {
-	AgentType    PetWorkspaceParametersAgentType `json:"agent_type"`
-	Conversation *PetConversationParameters      `json:"conversation,omitempty"`
-	Input        *WorkspaceInputMode             `json:"input,omitempty"`
-	Persona      *PetPersonaParameters           `json:"persona,omitempty"`
-	Voice        PetVoiceParameters              `json:"voice"`
+type PetWorkflowSpec struct {
+	AstTranslate   *ASTTranslateWorkflowSpec   `json:"ast_translate,omitempty"`
+	Chatroom       *ChatRoomWorkflowSpec       `json:"chatroom,omitempty"`
+	DoubaoRealtime *DoubaoRealtimeWorkflowSpec `json:"doubao_realtime,omitempty"`
+	Driver         ReusableWorkflowDriver      `json:"driver"`
+	Flowcraft      *FlowcraftWorkflowSpec      `json:"flowcraft,omitempty"`
+	Toolkit        *ToolkitPolicy              `json:"toolkit,omitempty"`
 }
 
-// PetWorkspaceParametersAgentType defines model for PetWorkspaceParameters.AgentType.
-type PetWorkspaceParametersAgentType string
+// ReusableWorkflowDriver defines a non-Pet Workflow driver allowed inside a Pet wrapper.
+type ReusableWorkflowDriver string
 
 // Voice defines model for Voice.
 type Voice struct {
@@ -6775,25 +6736,6 @@ func (t *WorkspaceParameters) MergeChatRoomWorkspaceParameters(v ChatRoomWorkspa
 	return nil
 }
 
-// AsPetWorkspaceParameters returns the union data inside the WorkspaceParameters as PetWorkspaceParameters.
-func (t WorkspaceParameters) AsPetWorkspaceParameters() (PetWorkspaceParameters, error) {
-	return rpcUnionAs[PetWorkspaceParameters](t.Value, "WorkspaceParameters", "PetWorkspaceParameters")
-}
-
-// FromPetWorkspaceParameters overwrites any union data inside the WorkspaceParameters as the provided PetWorkspaceParameters.
-func (t *WorkspaceParameters) FromPetWorkspaceParameters(v PetWorkspaceParameters) error {
-	v.AgentType = "pet"
-	t.Value = v
-	return nil
-}
-
-// MergePetWorkspaceParameters performs a merge with any union data inside the WorkspaceParameters.
-func (t *WorkspaceParameters) MergePetWorkspaceParameters(v PetWorkspaceParameters) error {
-	v.AgentType = "pet"
-	t.Value = v
-	return nil
-}
-
 func (t WorkspaceParameters) Discriminator() (string, error) {
 	switch v := t.Value.(type) {
 	case FlowcraftWorkspaceParameters:
@@ -6803,8 +6745,6 @@ func (t WorkspaceParameters) Discriminator() (string, error) {
 	case ASTTranslateWorkspaceParameters:
 		return string(v.AgentType), nil
 	case ChatRoomWorkspaceParameters:
-		return string(v.AgentType), nil
-	case PetWorkspaceParameters:
 		return string(v.AgentType), nil
 	case nil:
 		return "", errors.New("rpc: WorkspaceParameters is empty")
@@ -6827,8 +6767,6 @@ func (t WorkspaceParameters) ValueByDiscriminator() (any, error) {
 		return t.AsDoubaoRealtimeWorkspaceParameters()
 	case "flowcraft":
 		return t.AsFlowcraftWorkspaceParameters()
-	case "pet":
-		return t.AsPetWorkspaceParameters()
 	default:
 		return nil, errors.New("unknown discriminator value: " + discriminator)
 	}

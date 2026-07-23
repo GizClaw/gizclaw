@@ -628,12 +628,6 @@
       },
       "PetDefVisualSpec": {
         "$ref": "./shared/gameplay.json#/components/schemas/PetDefVisualSpec"
-      },
-      "PetDefI18nCatalog": {
-        "$ref": "./shared/gameplay.json#/components/schemas/PetDefI18nCatalog"
-      },
-      "PetDefI18nSpec": {
-        "$ref": "./shared/gameplay.json#/components/schemas/PetDefI18nSpec"
       }
     }
   }

@@ -124,7 +124,7 @@ message Pet {
 }
 
 message PetAdoptRequest {
-  optional string display_name = 1;
+  string display_name = 1;
   optional string id = 2;
 }
 

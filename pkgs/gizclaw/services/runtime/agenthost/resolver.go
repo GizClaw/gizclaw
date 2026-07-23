@@ -110,7 +110,8 @@ func resolveWorkspaceWorkflowName(ctx context.Context, ws apitypes.Workspace) (s
 }
 
 func (r ServiceResolver) resolveToolkit(ctx context.Context, ws apitypes.Workspace, workflow apitypes.Workflow) (*ToolkitContext, error) {
-	if ws.Toolkit == nil && workflow.Spec.Toolkit == nil {
+	workflowPolicies := workflowToolkitPolicies(workflow.Spec)
+	if ws.Toolkit == nil && len(workflowPolicies) == 0 {
 		return nil, nil
 	}
 	if r.ToolBuilder == nil || r.ToolExecutors == nil {
@@ -120,15 +121,28 @@ func (r ServiceResolver) resolveToolkit(ctx context.Context, ws apitypes.Workspa
 	if !ok {
 		return nil, fmt.Errorf("agenthost: resource access context is required for toolkit")
 	}
-	workflowIDs, workflowRestrict, err := policyToolIDs(workflow.Spec.Toolkit)
-	if err != nil {
-		return nil, fmt.Errorf("agenthost: workflow toolkit policy: %w", err)
+	var workflowIDs []string
+	workflowRestrict := false
+	for _, policy := range workflowPolicies {
+		ids, restrict, err := policyToolIDs(policy)
+		if err != nil {
+			return nil, fmt.Errorf("agenthost: workflow toolkit policy: %w", err)
+		}
+		if !restrict {
+			continue
+		}
+		ids = resolveToolAliases(ids, access.profileToolBindings)
+		if workflowRestrict {
+			workflowIDs = intersectToolIDs(workflowIDs, ids)
+		} else {
+			workflowIDs = ids
+			workflowRestrict = true
+		}
 	}
 	workspaceIDs, workspaceRestrict, err := policyToolIDs(ws.Toolkit)
 	if err != nil {
 		return nil, fmt.Errorf("agenthost: workspace toolkit policy: %w", err)
 	}
-	workflowIDs = resolveToolAliases(workflowIDs, access.profileToolBindings)
 	workspaceIDs = resolveToolAliases(workspaceIDs, access.profileToolBindings)
 	restrict := workflowRestrict || workspaceRestrict
 	ids := workflowIDs
@@ -148,6 +162,17 @@ func (r ServiceResolver) resolveToolkit(ctx context.Context, ws apitypes.Workspa
 			RestrictToolIDs: restrict,
 		},
 	}, nil
+}
+
+func workflowToolkitPolicies(spec apitypes.WorkflowSpec) []*apitypes.ToolkitPolicy {
+	policies := make([]*apitypes.ToolkitPolicy, 0, 2)
+	if spec.Toolkit != nil {
+		policies = append(policies, spec.Toolkit)
+	}
+	if spec.Pet != nil && spec.Pet.Toolkit != nil {
+		policies = append(policies, spec.Pet.Toolkit)
+	}
+	return policies
 }
 
 func resolveToolAliases(ids []string, bindings map[string]string) []string {
@@ -199,8 +224,8 @@ func ParseWorkspacePattern(pattern string) (string, error) {
 	if pattern == "workspaces" {
 		return "", fmt.Errorf("agenthost: workspace pattern is required")
 	}
-	if strings.HasPrefix(pattern, "workspaces/") {
-		pattern = strings.TrimPrefix(pattern, "workspaces/")
+	if workspaceName, ok := strings.CutPrefix(pattern, "workspaces/"); ok {
+		pattern = workspaceName
 	}
 	if strings.Contains(pattern, "/") {
 		return "", fmt.Errorf("agenthost: workspace pattern %q must identify one workspace", pattern)

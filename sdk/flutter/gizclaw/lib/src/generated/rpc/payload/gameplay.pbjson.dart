@@ -477,27 +477,18 @@ final $typed_data.Uint8List petDescriptor = $convert.base64Decode(
 const PetAdoptRequest$json = {
   '1': 'PetAdoptRequest',
   '2': [
-    {
-      '1': 'display_name',
-      '3': 1,
-      '4': 1,
-      '5': 9,
-      '9': 0,
-      '10': 'displayName',
-      '17': true
-    },
-    {'1': 'id', '3': 2, '4': 1, '5': 9, '9': 1, '10': 'id', '17': true},
+    {'1': 'display_name', '3': 1, '4': 1, '5': 9, '10': 'displayName'},
+    {'1': 'id', '3': 2, '4': 1, '5': 9, '9': 0, '10': 'id', '17': true},
   ],
   '8': [
-    {'1': '_display_name'},
     {'1': '_id'},
   ],
 };
 
 /// Descriptor for `PetAdoptRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List petAdoptRequestDescriptor = $convert.base64Decode(
-    'Cg9QZXRBZG9wdFJlcXVlc3QSJgoMZGlzcGxheV9uYW1lGAEgASgJSABSC2Rpc3BsYXlOYW1liA'
-    'EBEhMKAmlkGAIgASgJSAFSAmlkiAEBQg8KDV9kaXNwbGF5X25hbWVCBQoDX2lk');
+    'Cg9QZXRBZG9wdFJlcXVlc3QSIQoMZGlzcGxheV9uYW1lGAEgASgJUgtkaXNwbGF5TmFtZRITCg'
+    'JpZBgCIAEoCUgAUgJpZIgBAUIFCgNfaWQ=');
 
 @$core.Deprecated('Use petAdoptResponseDescriptor instead')
 const PetAdoptResponse$json = {

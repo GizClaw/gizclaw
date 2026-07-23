@@ -52,9 +52,9 @@ func (r *RuntimeRegistry) Acquire(ctx context.Context, host *Host, workspaceName
 func runtimeKey(ctx context.Context, workspaceName string, spec Spec) string {
 	key := workspaceName
 	// Owned workspaces deliberately share their owner's runtime across callers.
-	// System workspaces have no owner runtime, so their construction depends on
-	// the caller's RuntimeProfile snapshot and must not reuse another caller's
-	// model/voice bindings.
+	// Admin-created workspaces without an owner depend on the caller's
+	// RuntimeProfile snapshot and must not reuse another caller's model/voice
+	// bindings.
 	workspaceOwner := ""
 	if spec.Workspace.OwnerPublicKey != nil {
 		workspaceOwner = strings.TrimSpace(*spec.Workspace.OwnerPublicKey)

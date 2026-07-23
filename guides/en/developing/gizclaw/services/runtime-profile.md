@@ -11,6 +11,10 @@ metadata:
   name: default
 spec:
   workflows:
+    system:
+      friend_chatroom: chatroom
+      group_chatroom: chatroom
+      pet: pet-care
     collections:
       assistants:
         doubao-realtime:
@@ -63,7 +67,7 @@ spec:
       initial_balance: 100
     adoption:
       pool:
-        - {pet_def: codex, voice: cute-pet, weight: 100, rarity: common, adoption_cost: 10}
+        - {pet_def: codex, weight: 100, rarity: common, adoption_cost: 10}
     pet:
       time:
         care_decay_per_hour: {health: 0.5, satiety: 1.3888888889, hygiene: 0.7, mood: 1}
@@ -83,11 +87,13 @@ spec:
       games: {}
 ```
 
-Workflow aliases live under `workflows.collections.<collection>.<alias>`. Alias IDs are globally unique across Collections, while the client owns its fixed Collection navigation, ordering, icons, and Collection translations. RuntimeProfile supplies dynamic Workflow membership and alias-level `en` and `zh-CN` display text; it has no top-level locale or Collection presentation section.
+The three `workflows.system` values are canonical Admin-created Workflow IDs, not Collection aliases. Direct and group chats use `friend_chatroom` and `group_chatroom`; Pet adoption uses `pet`. RuntimeProfile create and update validate these IDs, their expected outer drivers, and the Model, Voice, and Tool aliases used inside those Workflows.
+
+Optional Workflow aliases live under `workflows.collections.<collection>.<alias>`. Alias IDs are globally unique across Collections, while the client owns its fixed Collection navigation, ordering, icons, and Collection translations. RuntimeProfile supplies dynamic Workflow membership and alias-level `en` and `zh-CN` display text; it has no top-level locale or Collection presentation section.
 
 The maps under `resources` bind environment aliases to canonical Admin resource IDs. Model aliases name semantic roles such as `chat`, `extraction`, `embedding`, `asr`, `realtime`, and `translation`; they do not contain provider or canonical Model names. Model and Voice aliases are independent environment variables, not Workflow members. Workflow specs and Workspace parameters store symbolic aliases, so each Workspace reload resolves the latest active binding. The same binary can therefore use production or debug RuntimeProfiles without rebuilding.
 
-Every `gameplay.adoption.pool` entry references both a `pet_defs` alias and a `voices` alias. PetDef stores the Pet character/speaking style, PIXA metadata, and fixed behavior-to-animation bindings, but no Voice ID or Voice alias. On adoption, the Server writes the pool entry's Voice alias into the system Workspace; rebinding that alias later changes the canonical voice without editing PetDef.
+Each `gameplay.adoption.pool` entry references only a `pet_defs` alias. The localized PetDef name also comes from that RuntimeProfile binding rather than duplicated i18n in PetDef. PetDef stores only character/speaking style, PIXA metadata, and fixed behavior-to-animation bindings. Models, Voices, and Tools used by a Pet Workflow are symbolic aliases in the canonical Workflow spec and resolve through the system Workspace owner's RuntimeProfile.
 
 `gameplay.pet` completely configures fixed-Pet time decay, passive energy recovery, leveling, and all four standard behaviors. `games` has no default. Each key must also exist in `resources.game_defs` and independently configures energy/points cost plus reward model, prompt, and maxima. Driving an unconfigured GameDef is a no-write no-op.
 
@@ -95,7 +101,7 @@ The normalized spec has an opaque deterministic revision. Catalog list/get respo
 
 ## RegistrationToken
 
-An administrator creates a `RegistrationToken` with one required RuntimeProfile name and, optionally, one Firmware release-line ID. The raw token is returned only on creation and the Server stores its SHA-256 hash. `server.register` associates the connection with the RuntimeProfile, persists the optional Firmware ID on the Peer, and returns both selections. Neither RegistrationToken nor Peer stores a Firmware channel: stable, beta, develop, or pending selection remains device-owned. Updating or switching the profile changes the environment used by later operations; it does not rewrite Workspace context or persisted aliases.
+An administrator creates a `RegistrationToken` with one required RuntimeProfile name and, optionally, one Firmware release-line ID. The raw token is returned only on creation and the Server stores its SHA-256 hash. `server.register` associates the connection with the RuntimeProfile, persists the owner's selected RuntimeProfile name and optional Firmware ID, and returns both selections. Owner-bound Workspaces resolve the current revision of that persisted profile name even while the owner is offline; a later successful registration replaces the owner's selection. Neither RegistrationToken nor Peer stores a Firmware channel: stable, beta, develop, or pending selection remains device-owned. Updating or switching the profile changes the environment used by later operations; it does not rewrite Workspace context or persisted aliases.
 
 Public HTTP login may submit the same token through `X-Registration-Token`. Registration success and failure are logged without storing raw tokens in business data.
 

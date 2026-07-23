@@ -2,6 +2,7 @@ package gizclaw
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
@@ -28,10 +29,23 @@ func newPeerAgentHost(base *agenthost.Host, peerGenX *peergenx.Service, ownerGen
 	if peerGenX != nil {
 		transformer = peerGenX.Transformer()
 	}
-	_ = host.Register(asttranslate.Type, asttranslate.Factory{Transformer: transformer})
-	_ = host.Register(chatroom.Type, chatroom.Factory{Transformer: transformer})
-	_ = host.Register(doubaorealtime.Type, doubaorealtime.Factory{Transformer: transformer})
+	transformerForOwner := func(ctx context.Context, owner string) (genx.TransformerMux, error) {
+		if ownerGenX == nil {
+			return nil, fmt.Errorf("owner GenX resolver is not configured")
+		}
+		service, err := ownerGenX(ctx, owner)
+		if err != nil {
+			return nil, err
+		}
+		if service == nil {
+			return nil, fmt.Errorf("owner GenX resolver returned no service")
+		}
+		return service.Transformer(), nil
+	}
+	_ = host.Register(asttranslate.Type, asttranslate.Factory{Transformer: transformer, TransformerForOwner: transformerForOwner})
+	_ = host.Register(chatroom.Type, chatroom.Factory{Transformer: transformer, TransformerForOwner: transformerForOwner})
+	_ = host.Register(doubaorealtime.Type, doubaorealtime.Factory{Transformer: transformer, TransformerForOwner: transformerForOwner})
 	_ = host.Register(flowcraft.Type, flowcraft.Factory{GenX: peerGenX, GenXForOwner: ownerGenX, History: history, State: state, MemoryObjects: memoryObjects})
-	_ = host.Register(petagent.Type, petagent.Factory{GenX: peerGenX, Pets: pets, History: history, State: state, MemoryObjects: memoryObjects})
+	_ = host.Register(petagent.Type, petagent.Factory{Pets: pets, Factories: host.Registry})
 	return host
 }

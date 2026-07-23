@@ -22,9 +22,6 @@
           },
           {
             "$ref": "#/components/schemas/ChatRoomWorkspaceParameters"
-          },
-          {
-            "$ref": "#/components/schemas/PetWorkspaceParameters"
           }
         ],
         "discriminator": {
@@ -33,8 +30,7 @@
             "flowcraft": "#/components/schemas/FlowcraftWorkspaceParameters",
             "doubao-realtime": "#/components/schemas/DoubaoRealtimeWorkspaceParameters",
             "ast-translate": "#/components/schemas/ASTTranslateWorkspaceParameters",
-            "chatroom": "#/components/schemas/ChatRoomWorkspaceParameters",
-            "pet": "#/components/schemas/PetWorkspaceParameters"
+            "chatroom": "#/components/schemas/ChatRoomWorkspaceParameters"
           }
         }
       },
@@ -97,75 +93,6 @@
           "conversation": {
             "initiative": "agent",
             "agent_initiative_policy": "once_when_empty"
-          }
-        }
-      },
-      "PetConversationParameters": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "initiative": {
-            "type": "string",
-            "enum": [
-              "peer",
-              "agent"
-            ],
-            "description": "Who starts the conversation when the workspace runtime opens."
-          }
-        }
-      },
-      "PetPersonaParameters": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "prompt": {
-            "type": "string",
-            "description": "Workspace-specific personality prompt appended to the PetDef character prompt."
-          }
-        }
-      },
-      "PetVoiceParameters": {
-        "type": "object",
-        "required": [
-          "voice_id"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "voice_id": {
-            "type": "string",
-            "description": "RuntimeProfile Voice alias used for this pet."
-          },
-          "prompt": {
-            "type": "string",
-            "description": "Workspace-specific speaking style prompt appended to the PetDef voice prompt."
-          }
-        }
-      },
-      "PetWorkspaceParameters": {
-        "type": "object",
-        "required": [
-          "agent_type",
-          "voice"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "agent_type": {
-            "type": "string",
-            "enum": [
-              "pet"
-            ]
-          },
-          "input": {
-            "$ref": "#/components/schemas/WorkspaceInputMode"
-          },
-          "conversation": {
-            "$ref": "#/components/schemas/PetConversationParameters"
-          },
-          "persona": {
-            "$ref": "#/components/schemas/PetPersonaParameters"
-          },
-          "voice": {
-            "$ref": "#/components/schemas/PetVoiceParameters"
           }
         }
       },

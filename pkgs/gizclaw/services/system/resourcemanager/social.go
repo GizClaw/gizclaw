@@ -104,7 +104,7 @@ func (m *Manager) applyFriendGroup(ctx context.Context, resource apitypes.Resour
 			return applyResult(apitypes.ApplyActionUnchanged, apitypes.ResourceKindFriendGroup, item.Metadata.Name), nil
 		}
 	}
-	if _, err := m.services.FriendGroups.AdminApplyFriendGroup(ctx, item.Metadata.Name, item.Spec.Name, item.Spec.Description); err != nil {
+	if _, err := m.services.FriendGroups.AdminApplyFriendGroup(ctx, item.Metadata.Name, item.Spec.OwnerPublicKey, item.Spec.Name, item.Spec.Description); err != nil {
 		return apitypes.ApplyResult{}, err
 	}
 	if exists {
@@ -313,8 +313,9 @@ func contactSpec(item adminhttp.AdminContactObject) apitypes.ContactSpec {
 
 func friendGroupSpec(item rpcapi.FriendGroupObject) apitypes.FriendGroupSpec {
 	return apitypes.FriendGroupSpec{
-		Name:        socialutil.StringValue(item.Name),
-		Description: socialutil.OptionalString(strings.TrimSpace(socialutil.StringValue(item.Description))),
+		OwnerPublicKey: socialutil.StringValue(item.CreatedByPeerPublicKey),
+		Name:           socialutil.StringValue(item.Name),
+		Description:    socialutil.OptionalString(strings.TrimSpace(socialutil.StringValue(item.Description))),
 	}
 }
 
@@ -377,6 +378,9 @@ func validateFriendGroupResource(item apitypes.FriendGroupResource) error {
 	}
 	if strings.TrimSpace(item.Spec.Name) == "" {
 		return applyError(400, "INVALID_FRIEND_GROUP_RESOURCE", "spec.name is required")
+	}
+	if strings.TrimSpace(item.Spec.OwnerPublicKey) == "" {
+		return applyError(400, "INVALID_FRIEND_GROUP_RESOURCE", "spec.owner_public_key is required")
 	}
 	return nil
 }

@@ -17,18 +17,41 @@ import (
 const Type = "doubao-realtime"
 
 type Factory struct {
-	Transformer genx.TransformerMux
+	Transformer         genx.TransformerMux
+	TransformerForOwner func(context.Context, string) (genx.TransformerMux, error)
 }
 
-func (f Factory) NewAgent(_ context.Context, spec agenthost.Spec) (agenthost.Agent, error) {
-	if f.Transformer == nil {
+func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.Agent, error) {
+	transformer, err := resolveOwnerTransformer(ctx, spec.Workspace, f.Transformer, f.TransformerForOwner)
+	if err != nil {
+		return nil, err
+	}
+	if transformer == nil {
 		return nil, fmt.Errorf("doubaorealtime: transformer is required")
 	}
 	pattern, err := resolveRealtimeModelPattern(spec)
 	if err != nil {
 		return nil, err
 	}
-	return agenthost.NewTransformerAgent(patternTransformer{Transformer: f.Transformer, Pattern: pattern}), nil
+	return agenthost.NewTransformerAgent(patternTransformer{Transformer: transformer, Pattern: pattern}), nil
+}
+
+func resolveOwnerTransformer(ctx context.Context, workspace apitypes.Workspace, fallback genx.TransformerMux, resolve func(context.Context, string) (genx.TransformerMux, error)) (genx.TransformerMux, error) {
+	if workspace.OwnerPublicKey == nil || strings.TrimSpace(*workspace.OwnerPublicKey) == "" {
+		return fallback, nil
+	}
+	owner := strings.TrimSpace(*workspace.OwnerPublicKey)
+	if resolve == nil {
+		return nil, fmt.Errorf("doubaorealtime: workspace %q owner transformer resolver is required", workspace.Name)
+	}
+	transformer, err := resolve(ctx, owner)
+	if err != nil {
+		return nil, fmt.Errorf("doubaorealtime: workspace %q owner runtime: %w", workspace.Name, err)
+	}
+	if transformer == nil {
+		return nil, fmt.Errorf("doubaorealtime: workspace %q owner runtime returned no transformer", workspace.Name)
+	}
+	return transformer, nil
 }
 
 type patternTransformer struct {

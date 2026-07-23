@@ -261,32 +261,6 @@
           }
         }
       },
-      "PetDefI18nCatalog": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "display_name": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          }
-        }
-      },
-      "PetDefI18nSpec": {
-        "type": "object",
-        "required": [
-          "default_locale"
-        ],
-        "properties": {
-          "default_locale": {
-            "type": "string"
-          }
-        },
-        "additionalProperties": {
-          "$ref": "#/components/schemas/PetDefI18nCatalog"
-        }
-      },
       "GameRewardSpec": {
         "type": "object",
         "required": [
@@ -339,7 +313,6 @@
         "required": [
           "id",
           "spec",
-          "i18n",
           "created_at",
           "updated_at"
         ],
@@ -361,9 +334,6 @@
           "updated_at": {
             "type": "string",
             "format": "date-time"
-          },
-          "i18n": {
-            "$ref": "#/components/schemas/PetDefI18nSpec"
           }
         }
       },
@@ -933,10 +903,14 @@
       },
       "PetAdoptRequest": {
         "type": "object",
+        "required": [
+          "display_name"
+        ],
         "additionalProperties": false,
         "properties": {
           "display_name": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1
           },
           "id": {
             "type": "string",

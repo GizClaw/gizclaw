@@ -567,7 +567,10 @@ func TestPeerServiceEdgeOpenAIRequiresActiveClientPeer(t *testing.T) {
 		Name: "edge-runtime",
 		Body: &adminhttp.RuntimeProfileUpsert{
 			Name: "edge-runtime",
-			Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{Models: &profileModels}},
+			Spec: apitypes.RuntimeProfileSpec{
+				Workflows: testRuntimeProfileWorkflows(),
+				Resources: apitypes.RuntimeProfileResources{Models: &profileModels},
+			},
 		},
 	})
 	if err != nil {
@@ -584,7 +587,10 @@ func TestPeerServiceEdgeOpenAIRequiresActiveClientPeer(t *testing.T) {
 			TokenName: "edge-runtime",
 			RuntimeProfile: apitypes.RuntimeProfile{
 				Name: "edge-runtime",
-				Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{Models: &profileModels}},
+				Spec: apitypes.RuntimeProfileSpec{
+					Workflows: testRuntimeProfileWorkflows(),
+					Resources: apitypes.RuntimeProfileResources{Models: &profileModels},
+				},
 			},
 		}, nil
 	}

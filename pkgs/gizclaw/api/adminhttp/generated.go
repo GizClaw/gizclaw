@@ -352,8 +352,9 @@ type AdminFriendCreateRequest struct {
 
 // AdminFriendGroupCreateRequest defines model for AdminFriendGroupCreateRequest.
 type AdminFriendGroupCreateRequest struct {
-	Description *string `json:"description,omitempty"`
-	Name        string  `json:"name"`
+	Description    *string `json:"description,omitempty"`
+	Name           string  `json:"name"`
+	OwnerPublicKey string  `json:"owner_public_key"`
 }
 
 // AdminFriendGroupInviteTokenPutRequest defines model for AdminFriendGroupInviteTokenPutRequest.
@@ -590,9 +591,8 @@ type PetDefList struct {
 
 // PetDefUpsert defines model for PetDefUpsert.
 type PetDefUpsert struct {
-	I18n *externalRef0.PetDefI18nSpec `json:"i18n,omitempty"`
-	Id   string                       `json:"id"`
-	Spec externalRef0.PetDefSpec      `json:"spec"`
+	Id   string                  `json:"id"`
+	Spec externalRef0.PetDefSpec `json:"spec"`
 }
 
 // PublicKeyResponse defines model for PublicKeyResponse.

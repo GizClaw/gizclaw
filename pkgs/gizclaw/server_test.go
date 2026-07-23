@@ -526,11 +526,15 @@ func TestServerServeHTTPLoginRegisterAndPeerAPI(t *testing.T) {
 			"en": {DisplayName: "Primary"}, "zh-CN": {DisplayName: "主要模型"},
 		}},
 	}
+	installTestSystemWorkflowResolver(server.manager.RuntimeProfiles)
 	profileResponse, err := server.manager.RuntimeProfiles.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
 		Name: "public-http-profile",
-		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{
-			Models: &models,
-		}},
+		Spec: apitypes.RuntimeProfileSpec{
+			Workflows: testRuntimeProfileWorkflows(),
+			Resources: apitypes.RuntimeProfileResources{
+				Models: &models,
+			},
+		},
 	}})
 	if err != nil {
 		t.Fatalf("CreateRuntimeProfile error = %v", err)

@@ -160,9 +160,16 @@ func registerSocialHumanReviewProfile(t *testing.T, api *adminhttp.ClientWithRes
 		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{
 			Models: &modelBindings,
 			Voices: &voiceBindings,
-		}, Workflows: apitypes.RuntimeProfileWorkflows{Collections: apitypes.RuntimeProfileWorkflowCollections{
-			"social": socialRuntimeBindings(workflows),
-		}}},
+		}, Workflows: apitypes.RuntimeProfileWorkflows{
+			System: apitypes.RuntimeProfileSystemWorkflows{
+				FriendChatroom: "chatroom-direct",
+				GroupChatroom:  "chatroom-direct",
+				Pet:            "pet-chatroom",
+			},
+			Collections: apitypes.RuntimeProfileWorkflowCollections{
+				"social": socialRuntimeBindings(workflows),
+			},
+		}},
 	})
 	if err != nil {
 		t.Fatalf("put social human-review RuntimeProfile: %v", err)

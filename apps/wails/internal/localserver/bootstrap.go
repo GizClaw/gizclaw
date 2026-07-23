@@ -25,7 +25,6 @@ const (
 	appRegistrationTokenName    = "app:com.gizclaw.opensource"
 	legacyRegistrationTokenName = "desktop-local"
 	defaultRuntimeProfileName   = "default"
-	systemRuntimeWorkflowName   = "chatroom"
 )
 
 // Bootstrapper applies a validated catalog through the packaged companion CLI.
@@ -38,8 +37,8 @@ type Bootstrapper struct {
 
 // MigrateRuntimeContract installs the fixed App runtime contract for a
 // completed legacy Pod. It reapplies the bundled Workflows referenced by
-// RuntimeProfile/default plus the Server-owned chatroom Workflow before
-// replacing that Profile; unrelated resources and Workflows remain untouched.
+// RuntimeProfile/default before replacing that Profile; unrelated resources
+// and Workflows remain untouched.
 func (b *Bootstrapper) MigrateRuntimeContract(ctx context.Context, podDir string) error {
 	if b == nil || b.Catalog == nil || b.Executable == nil {
 		return fmt.Errorf("local server bootstrap: bootstrapper is not configured")
@@ -116,6 +115,11 @@ func (b *Bootstrapper) runtimeContractEntries(profile ResourceEntry) ([]Resource
 	var document struct {
 		Spec struct {
 			Workflows struct {
+				System struct {
+					FriendChatroom string `yaml:"friend_chatroom"`
+					GroupChatroom  string `yaml:"group_chatroom"`
+					Pet            string `yaml:"pet"`
+				} `yaml:"system"`
 				Collections map[string]map[string]struct {
 					ResourceID string `yaml:"resource_id"`
 				} `yaml:"collections"`
@@ -134,10 +138,16 @@ func (b *Bootstrapper) runtimeContractEntries(profile ResourceEntry) ([]Resource
 			}
 		}
 	}
-	// Chatroom is a Server-owned system Workflow rather than a selectable
-	// RuntimeProfile alias, but its ASR input follows the same runtime alias
-	// contract and must be refreshed with the selectable Workflows.
-	referenced[systemRuntimeWorkflowName] = true
+	for _, name := range []string{
+		document.Spec.Workflows.System.FriendChatroom,
+		document.Spec.Workflows.System.GroupChatroom,
+		document.Spec.Workflows.System.Pet,
+	} {
+		name = strings.TrimSpace(name)
+		if name != "" {
+			referenced[name] = true
+		}
+	}
 	entries := make([]ResourceEntry, 0, len(referenced)+1)
 	for _, entry := range b.Catalog.Resources {
 		if entry.Kind == "Workflow" && referenced[entry.Name] {

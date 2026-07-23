@@ -62,7 +62,10 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	public := *spec.Workflow.Spec.Flowcraft
 	owner := stringValue(spec.Workspace.OwnerPublicKey)
 	initiativePolicy := ""
-	if owner != "" && f.GenXForOwner != nil {
+	if owner != "" {
+		if f.GenXForOwner == nil {
+			return nil, fmt.Errorf("flowcraft: workspace %q owner GenX resolver is required", workspaceName)
+		}
 		ownerGenX, err := f.GenXForOwner(ctx, owner)
 		if err != nil {
 			return nil, fmt.Errorf("flowcraft: workspace %q owner runtime: %w", workspaceName, err)
@@ -85,7 +88,7 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 			}
 		}
 	}
-	return f.newAgent(ctx, owner, workspaceName, public, nil, initiativePolicy)
+	return f.newAgent(ctx, owner, workspaceName, public, spec.BoardInputs, initiativePolicy)
 }
 
 func (f Factory) newAgent(ctx context.Context, owner, workspaceName string, public apitypes.FlowcraftWorkflowSpec, inputs InputProvider, initiativePolicy string) (agenthost.Agent, error) {

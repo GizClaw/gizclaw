@@ -75,9 +75,16 @@ func createCSDKChatRegistrationToken(t *testing.T, h *clitest.Harness, scenario 
 		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{
 			Models: ptr(runtimeBindings(modelResources)),
 			Voices: ptr(runtimeBindings(voiceResources)),
-		}, Workflows: apitypes.RuntimeProfileWorkflows{Collections: apitypes.RuntimeProfileWorkflowCollections{
-			"assistants": runtimeBindings(workflowResources),
-		}}},
+		}, Workflows: apitypes.RuntimeProfileWorkflows{
+			System: apitypes.RuntimeProfileSystemWorkflows{
+				FriendChatroom: "chatroom-direct",
+				GroupChatroom:  "chatroom-direct",
+				Pet:            "pet-chatroom",
+			},
+			Collections: apitypes.RuntimeProfileWorkflowCollections{
+				"assistants": runtimeBindings(workflowResources),
+			},
+		}},
 	})
 	if err != nil {
 		t.Fatalf("put C SDK chat RuntimeProfile: %v", err)

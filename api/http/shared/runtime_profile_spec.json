@@ -41,11 +41,36 @@
           }
         }
       },
-      "RuntimeProfileWorkflows": {
+      "RuntimeProfileSystemWorkflows": {
         "type": "object",
-        "required": ["collections"],
+        "required": ["friend_chatroom", "group_chatroom", "pet"],
         "additionalProperties": false,
         "properties": {
+          "friend_chatroom": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Persisted Workflow resource ID for direct friend chat Workspaces."
+          },
+          "group_chatroom": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Persisted Workflow resource ID for friend-group chat Workspaces."
+          },
+          "pet": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Persisted Workflow resource ID for adopted Pet Workspaces."
+          }
+        }
+      },
+      "RuntimeProfileWorkflows": {
+        "type": "object",
+        "required": ["system", "collections"],
+        "additionalProperties": false,
+        "properties": {
+          "system": {
+            "$ref": "#/components/schemas/RuntimeProfileSystemWorkflows"
+          },
           "collections": {
             "$ref": "#/components/schemas/RuntimeProfileWorkflowCollections"
           }
@@ -90,11 +115,10 @@
       },
       "RuntimeProfilePetPoolEntry": {
         "type": "object",
-        "required": ["pet_def", "voice", "weight"],
+        "required": ["pet_def", "weight"],
         "additionalProperties": false,
         "properties": {
           "pet_def": { "type": "string" },
-          "voice": { "type": "string" },
           "weight": { "type": "integer", "format": "int64", "minimum": 1 },
           "rarity": { "type": "string" },
           "adoption_cost": { "type": "integer", "format": "int64", "default": 0 }

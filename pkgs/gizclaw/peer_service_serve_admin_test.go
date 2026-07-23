@@ -293,12 +293,12 @@ func TestAdminSocialHandlersUseDomainServices(t *testing.T) {
 		t.Fatalf("GET deleted friend status = %d body=%s", rec.Code, rec.Body.String())
 	}
 
-	rec = serveAdminJSON(app, http.MethodPost, "/social/friend-groups", `{"name":"Room"}`)
+	rec = serveAdminJSON(app, http.MethodPost, "/social/friend-groups", `{"name":"Room","owner_public_key":"peer-a"}`)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("POST group status = %d body=%s", rec.Code, rec.Body.String())
 	}
-	if strings.Contains(rec.Body.String(), "created_by_peer_public_key") || strings.Contains(rec.Body.String(), "my_role") {
-		t.Fatalf("admin-created group should not include peer role fields: %s", rec.Body.String())
+	if !strings.Contains(rec.Body.String(), `"created_by_peer_public_key":"peer-a"`) || strings.Contains(rec.Body.String(), "my_role") {
+		t.Fatalf("admin-created group owner projection is invalid: %s", rec.Body.String())
 	}
 	rec = serveAdminJSON(app, http.MethodPost, "/social/friend-groups/group-a/members", `{"peer_public_key":"peer-a","role":"owner"}`)
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"role":"owner"`) {

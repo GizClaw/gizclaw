@@ -251,17 +251,16 @@ function workflowDisplayName(workflow: Workflow): string {
 }
 
 function workflowSpecLabel(workflow: Workflow): string {
-  if (workflow.spec.ast_translate !== undefined) {
-    return "ast_translate";
+  switch (workflow.spec.driver) {
+    case "ast-translate":
+      return "ast_translate";
+    case "doubao-realtime":
+      return "doubao_realtime";
+    case "flowcraft":
+      return "flowcraft";
+    case "chatroom":
+      return "chatroom";
+    case "pet":
+      return "pet";
   }
-  if (workflow.spec.doubao_realtime !== undefined) {
-    return "doubao_realtime";
-  }
-  if (workflow.spec.flowcraft !== undefined) {
-    return "flowcraft";
-  }
-  if (workflow.spec.chatroom !== undefined) {
-    return "chatroom";
-  }
-  return "—";
 }

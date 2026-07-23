@@ -47,7 +47,7 @@ Resource data is first divided into two categories according to semantics:- Core
 
 Resources that require general display metadata have their own optional `display` fields, and define their own strongly typed Display schema in the corresponding `resources/<kind>.json`. Even if two Resources currently require the same fields, this does not create a common `ResourceDisplay`, `ResourceDisplayData` or common catalog schema.
 
-If a Resource only needs a localized catalog and does not require additional display metadata, it can directly have an `i18n` field with more accurate semantics. PetDef owns `PetDefI18n`: `i18n.default_locale` specifies the default language, and locale keys such as `i18n.en` and `i18n.zh-CN` directly store the corresponding catalog without adding `catalogs` or `display` intermediate layers. Workflow and Workspace do not carry catalog-style i18n.
+PetDef, Workflow, and Workspace do not own localized catalog-style i18n. PetDef and selectable Workflow presentation comes from RuntimeProfile binding `i18n`, allowing one canonical Resource to have different text in different RuntimeProfiles. Workspace has no RuntimeProfile catalog binding; clients derive its presentation from the owning product surface and stable Workspace data.
 
 Workflow contains only its stable identity, execution spec, and ownership metadata. The RuntimeProfile alias is the client-facing presentation key for a runtime Workflow; firmware or an App maps that alias to its own localized name and icon. The Server does not persist or expose Workflow display metadata.
 
@@ -63,7 +63,7 @@ Use the following rules when determining field ownership:
 
 Machine-readable fields such as `category`, association ID, workflow reference, provider kind, etc. belong to core data. The localized name and description belong to owner `display` or `i18n`; icon and cover belong to Display. The client can fall back to a stable ID when display data is missing, but the server should not persist the fallback text as core data.
 
-"Visual content" does not automatically equal `display`. If an asset, clip, animation graph, or behavior/state-to-clip mapping is consumed directly by the device, runtime, or domain logic, it is core Resource content or associated data. For example, PetDef's PIXA, canvas, clips, visual refs, and `visual.bindings` belong to the PetDef spec; `i18n` stores only localized text for management interfaces or readers.
+"Visual content" does not automatically equal `display`. If an asset, clip, animation graph, or behavior/state-to-clip mapping is consumed directly by the device, runtime, or domain logic, it is core Resource content or associated data. For example, PetDef's PIXA, canvas, clips, visual refs, and `visual.bindings` belong to the PetDef spec; user-facing localized text belongs to its RuntimeProfile binding.
 
 A new Spec used by only one Resource should be defined in the same file as that Resource. For a Spec that already lives under `shared/`, inspect every actual consumer and compatibility impact before moving it. Do not infer ownership from its name alone or create a parallel schema.
 

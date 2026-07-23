@@ -45,7 +45,7 @@ func TestPostgresGameplayContract(t *testing.T) {
 		t.Fatalf("Migration() second run error = %v", err)
 	}
 
-	adopted, err := runtime.AdoptPet(ctx, "peer-postgres", apitypes.PetAdoptRequest{})
+	adopted, err := runtime.AdoptPet(ctx, "peer-postgres", apitypes.PetAdoptRequest{DisplayName: "Pet"})
 	if err != nil {
 		t.Fatalf("AdoptPet() error = %v", err)
 	}
@@ -125,7 +125,7 @@ func TestPostgresGameplayContract(t *testing.T) {
 	}
 
 	runtime.NewID = sequentialIDs("pet-postgres-2", "adopt-txn-2")
-	if _, err := runtime.AdoptPet(ctx, "peer-postgres", apitypes.PetAdoptRequest{}); err != nil {
+	if _, err := runtime.AdoptPet(ctx, "peer-postgres", apitypes.PetAdoptRequest{DisplayName: "Pet"}); err != nil {
 		t.Fatalf("AdoptPet(second) error = %v", err)
 	}
 	limit := 1
@@ -194,12 +194,10 @@ func TestPostgresGameplayConcurrentMigration(t *testing.T) {
 	errs := make(chan error, workers)
 	var wg sync.WaitGroup
 	for range workers {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			<-start
 			errs <- runtime.Migration(ctx)
-		}()
+		})
 	}
 	close(start)
 	wg.Wait()
@@ -228,11 +226,8 @@ func TestPostgresCallerAssignedAdoptionIsConcurrent(t *testing.T) {
 	now := time.Date(2026, 7, 22, 11, 0, 0, 0, time.UTC)
 	catalog := testCatalog(t, now)
 	profile := seedGameplayCatalog(t, ctx, catalog)
-	voices := *profile.Spec.Resources.Voices
-	voices["pet-voice-alt"] = gameplayTestBinding("voice-alt")
 	pool := *profile.Spec.Gameplay.Adoption.Pool
 	alternate := pool[0]
-	alternate.Voice = "pet-voice-alt"
 	pool = append(pool, alternate)
 	profile.Spec.Gameplay.Adoption.Pool = &pool
 	ctx = WithRuntimeProfile(ctx, profile)
@@ -264,7 +259,7 @@ func TestPostgresCallerAssignedAdoptionIsConcurrent(t *testing.T) {
 		runtime := runtimes[i%len(runtimes)]
 		wg.Go(func() {
 			<-start
-			response, err := runtime.AdoptPet(ctx, "peer-postgres", apitypes.PetAdoptRequest{Id: &petID})
+			response, err := runtime.AdoptPet(ctx, "peer-postgres", apitypes.PetAdoptRequest{DisplayName: "Pet", Id: &petID})
 			responses <- response
 			errs <- err
 		})
@@ -302,16 +297,8 @@ func TestPostgresCallerAssignedAdoptionIsConcurrent(t *testing.T) {
 	if len(workspaces.created) != 1 || len(workspaces.deleted) != 0 {
 		t.Fatalf("workspace mutations: created=%d deleted=%d, want 1 and 0", len(workspaces.created), len(workspaces.deleted))
 	}
-	var reservedVoice string
-	if err := db.QueryRowContext(ctx, `SELECT voice_alias FROM gameplay_pet_adoption_reservations WHERE owner_public_key = $1 AND pet_id = $2`, "peer-postgres", petID).Scan(&reservedVoice); err != nil {
-		t.Fatalf("load adoption reservation voice: %v", err)
-	}
-	parameters, err := workspaces.created[0].Parameters.AsPetWorkspaceParameters()
-	if err != nil {
-		t.Fatalf("decode winning Pet Workspace parameters: %v", err)
-	}
-	if parameters.Voice.VoiceId != reservedVoice {
-		t.Fatalf("winning Pet Workspace voice = %q, want reserved voice %q", parameters.Voice.VoiceId, reservedVoice)
+	if workspaces.created[0].Parameters != nil || workspaces.created[0].WorkflowName != profile.Spec.Workflows.System.Pet {
+		t.Fatalf("winning Pet Workspace = %#v", workspaces.created[0])
 	}
 }
 
@@ -348,7 +335,7 @@ func TestPostgresDifferentPetAdoptionsDebitPointsAtomically(t *testing.T) {
 		runtime := runtimes[i]
 		wg.Go(func() {
 			<-start
-			response, err := runtime.AdoptPet(ctx, "peer-postgres", apitypes.PetAdoptRequest{Id: &petID})
+			response, err := runtime.AdoptPet(ctx, "peer-postgres", apitypes.PetAdoptRequest{DisplayName: "Pet", Id: &petID})
 			responses <- response
 			errs <- err
 		})
@@ -415,7 +402,7 @@ func TestPostgresDifferentPetAdoptionsReleaseFailedReservation(t *testing.T) {
 	for i, petID := range petIDs {
 		runtime := runtimes[i]
 		go func() {
-			_, err := runtime.AdoptPet(ctx, "peer-postgres", apitypes.PetAdoptRequest{Id: &petID})
+			_, err := runtime.AdoptPet(ctx, "peer-postgres", apitypes.PetAdoptRequest{DisplayName: "Pet", Id: &petID})
 			errs <- err
 		}()
 	}

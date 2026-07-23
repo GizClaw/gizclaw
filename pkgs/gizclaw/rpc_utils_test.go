@@ -117,7 +117,9 @@ func TestRPCServerLogsDomainFailureOnce(t *testing.T) {
 				workflows := apitypes.RuntimeProfileWorkflowCollections{"assistants": {
 					"chat": {ResourceId: "workflow-a", I18n: map[string]apitypes.RuntimeProfileI18nText{"en": {DisplayName: "Chat"}, "zh-CN": {DisplayName: "聊天"}}},
 				}}
-				return &apitypes.RuntimeProfile{Name: "default", Revision: "revision", Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{Collections: workflows}}}
+				profileWorkflows := testRuntimeProfileWorkflows()
+				profileWorkflows.Collections = workflows
+				return &apitypes.RuntimeProfile{Name: "default", Revision: "revision", Spec: apitypes.RuntimeProfileSpec{Workflows: profileWorkflows}}
 			},
 			Workspaces: invalidWorkspaceAdminService{},
 			Workflows: fixedWorkflowAdminService{value: apitypes.Workflow{

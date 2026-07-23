@@ -11,6 +11,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
@@ -128,6 +129,36 @@ func TestInviteTokenLifecycleAndAddFriend(t *testing.T) {
 		if socialutil.StringValue(friends.Items[0].WorkspaceName) != workspaceName {
 			t.Fatalf("ListFriends(%s) workspace_name = %#v, want %q", tc.owner, friends.Items[0].WorkspaceName, workspaceName)
 		}
+	}
+}
+
+func TestAddFriendWorkspaceBelongsToInviteTokenCreator(t *testing.T) {
+	ctx := context.Background()
+	workspaces := &recordingWorkspaceService{}
+	s := newTestServer()
+	s.Workspaces = workspaces
+	s.RuntimeProfileForOwner = func(_ context.Context, owner string) (apitypes.RuntimeProfile, error) {
+		if owner != "peer-b" {
+			t.Fatalf("RuntimeProfileForOwner owner = %q, want peer-b", owner)
+		}
+		return apitypes.RuntimeProfile{Spec: apitypes.RuntimeProfileSpec{
+			Workflows: apitypes.RuntimeProfileWorkflows{
+				System: apitypes.RuntimeProfileSystemWorkflows{FriendChatroom: "owner-direct-chat"},
+			},
+		}}, nil
+	}
+	token, err := s.CreateFriendInviteToken(ctx, "peer-b", rpcapi.FriendInviteTokenCreateRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.AddFriend(ctx, "peer-a", rpcapi.FriendAddRequest{InviteToken: token.InviteToken}); err != nil {
+		t.Fatal(err)
+	}
+	if len(workspaces.created) != 1 || workspaces.created[0].WorkflowName != "owner-direct-chat" {
+		t.Fatalf("created Workspaces = %#v", workspaces.created)
+	}
+	if len(workspaces.owners) != 1 || workspaces.owners[0] != "peer-b" {
+		t.Fatalf("Workspace owners = %#v, want peer-b", workspaces.owners)
 	}
 }
 
@@ -301,18 +332,21 @@ func (s failingGetStore) List(context.Context, kv.Key) iter.Seq2[kv.Entry, error
 type recordingWorkspaceService struct {
 	created []adminhttp.WorkspaceUpsert
 	deleted []string
+	owners  []string
 }
 
-func (s *recordingWorkspaceService) CreateSystemWorkspace(_ context.Context, body adminhttp.WorkspaceUpsert) (apitypes.Workspace, bool, error) {
+func (s *recordingWorkspaceService) CreateSystemWorkspace(ctx context.Context, body adminhttp.WorkspaceUpsert) (apitypes.Workspace, bool, error) {
+	owner, _ := ownership.FromContext(ctx)
+	s.owners = append(s.owners, owner)
 	for _, existing := range s.created {
 		if existing.Name == body.Name {
 			system := true
-			return apitypes.Workspace{Name: body.Name, WorkflowName: body.WorkflowName, Parameters: body.Parameters, System: &system}, false, nil
+			return apitypes.Workspace{Name: body.Name, WorkflowName: body.WorkflowName, Parameters: body.Parameters, OwnerPublicKey: &owner, System: &system}, false, nil
 		}
 	}
 	s.created = append(s.created, body)
 	system := true
-	return apitypes.Workspace{Name: body.Name, WorkflowName: body.WorkflowName, Parameters: body.Parameters, System: &system}, true, nil
+	return apitypes.Workspace{Name: body.Name, WorkflowName: body.WorkflowName, Parameters: body.Parameters, OwnerPublicKey: &owner, System: &system}, true, nil
 }
 
 func (s *recordingWorkspaceService) DeleteSystemWorkspace(_ context.Context, name string) (apitypes.Workspace, error) {

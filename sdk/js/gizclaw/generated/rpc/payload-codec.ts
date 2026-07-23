@@ -47,9 +47,8 @@ export type PeerRunHistoryEntryType = "" | "agent" | "gear" | "unspecified" | nu
 export type PeerRunHistoryListRequestOrder = "" | "asc" | "desc" | "unspecified" | number;
 export type PeerRunStatusState = "" | "error" | "running" | "starting" | "stopped" | "stopping" | "unspecified" | number;
 export type PetBehavior = "" | "bathe" | "feed" | "heal" | "play" | "unspecified" | number;
-export type PetConversationParametersInitiative = "" | "agent" | "peer" | "unspecified" | number;
 export type PetLifecycle = "" | "alive" | "dead" | "unspecified" | number;
-export type PetWorkspaceParametersAgentType = "" | "pet" | "unspecified" | number;
+export type ReusableWorkflowDriver = "" | "ast-translate" | "chatroom" | "doubao-realtime" | "flowcraft" | "unspecified" | number;
 export type VolcTenantModelProviderDataApiMode = "" | "asr" | "chat_completions" | "embedding" | "realtime" | "translation" | "tts" | "unspecified" | number;
 export type WorkflowDriver = "" | "ast-translate" | "chatroom" | "doubao-realtime" | "flowcraft" | "pet" | "unspecified" | number;
 export type WorkspaceHistoryListRequestOrder = "" | "asc" | "desc" | "unspecified" | number;
@@ -830,16 +829,13 @@ export type PetActions = {
   "clip_names": Record<string, string>;
 };
 export type PetAdoptRequest = {
-  "display_name"?: string;
+  "display_name": string;
   "id"?: string;
 };
 export type PetAdoptResponse = {
   "pet": Pet;
   "points": PointsAccount;
   "transaction": PointsTransaction;
-};
-export type PetConversationParameters = {
-  "initiative"?: PetConversationParametersInitiative;
 };
 export type PetDeleteRequest = {
   "id": string;
@@ -877,9 +873,6 @@ export type PetListResponse = {
   "items": Pet[];
   "next_cursor"?: string;
 };
-export type PetPersonaParameters = {
-  "prompt"?: string;
-};
 export type PetPixaDownloadRequest = {
   "pet_id": string;
 };
@@ -915,17 +908,13 @@ export type PetVisualBindings = {
   "dead": string;
   "sleep"?: string;
 };
-export type PetVoiceParameters = {
-  "prompt"?: string;
-  "voice_id": string;
-};
-export type PetWorkflowSpec = Record<string, never>;
-export type PetWorkspaceParameters = {
-  "agent_type": string;
-  "conversation"?: PetConversationParameters;
-  "input"?: WorkspaceInputMode;
-  "persona"?: PetPersonaParameters;
-  "voice": PetVoiceParameters;
+export type PetWorkflowSpec = {
+  "driver": ReusableWorkflowDriver;
+  "toolkit"?: ToolkitPolicy;
+  "flowcraft"?: FlowcraftWorkflowSpec;
+  "doubao_realtime"?: DoubaoRealtimeWorkflowSpec;
+  "ast_translate"?: ASTTranslateWorkflowSpec;
+  "chatroom"?: ChatRoomWorkflowSpec;
 };
 export type PingRequest = {
   "client_send_time": number;
@@ -1293,7 +1282,7 @@ export type WorkspaceListResponse = {
   "runtime_profile_name": string;
   "runtime_profile_revision": string;
 };
-export type WorkspaceParameters = FlowcraftWorkspaceParameters | DoubaoRealtimeWorkspaceParameters | ASTTranslateWorkspaceParameters | ChatRoomWorkspaceParameters | PetWorkspaceParameters;
+export type WorkspaceParameters = FlowcraftWorkspaceParameters | DoubaoRealtimeWorkspaceParameters | ASTTranslateWorkspaceParameters | ChatRoomWorkspaceParameters;
 export type WorkspacePutBody = {
   "parameters"?: WorkspaceParameters;
   "toolkit"?: ToolkitPolicy;
@@ -5023,7 +5012,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "display_name",
         "number": 1,
-        "optional": true,
         "type": "string"
       },
       {
@@ -5050,16 +5038,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "transaction",
         "number": 3,
         "type": "PointsTransaction"
-      }
-    ]
-  },
-  "PetConversationParameters": {
-    "fields": [
-      {
-        "name": "initiative",
-        "number": 1,
-        "optional": true,
-        "type": "PetConversationParametersInitiative"
       }
     ]
   },
@@ -5224,16 +5202,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
-  "PetPersonaParameters": {
-    "fields": [
-      {
-        "name": "prompt",
-        "number": 1,
-        "optional": true,
-        "type": "string"
-      }
-    ]
-  },
   "PetPixaDownloadRequest": {
     "fields": [
       {
@@ -5375,53 +5343,42 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
-  "PetVoiceParameters": {
-    "fields": [
-      {
-        "name": "prompt",
-        "number": 1,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "voice_id",
-        "number": 2,
-        "type": "string"
-      }
-    ]
-  },
   "PetWorkflowSpec": {
-    "fields": []
-  },
-  "PetWorkspaceParameters": {
     "fields": [
       {
-        "name": "agent_type",
+        "name": "driver",
         "number": 1,
-        "type": "PetWorkspaceParametersAgentType"
+        "type": "ReusableWorkflowDriver"
       },
       {
-        "name": "conversation",
+        "name": "toolkit",
         "number": 2,
         "optional": true,
-        "type": "PetConversationParameters"
+        "type": "ToolkitPolicy"
       },
       {
-        "name": "input",
+        "name": "flowcraft",
         "number": 3,
         "optional": true,
-        "type": "WorkspaceInputMode"
+        "type": "FlowcraftWorkflowSpec"
       },
       {
-        "name": "persona",
+        "name": "doubao_realtime",
         "number": 4,
         "optional": true,
-        "type": "PetPersonaParameters"
+        "type": "DoubaoRealtimeWorkflowSpec"
       },
       {
-        "name": "voice",
+        "name": "ast_translate",
         "number": 5,
-        "type": "PetVoiceParameters"
+        "optional": true,
+        "type": "ASTTranslateWorkflowSpec"
+      },
+      {
+        "name": "chatroom",
+        "number": 6,
+        "optional": true,
+        "type": "ChatRoomWorkflowSpec"
       }
     ]
   },
@@ -7238,13 +7195,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "oneof": true,
         "oneofGroup": "value",
         "type": "ChatRoomWorkspaceParameters"
-      },
-      {
-        "name": "pet_workspace_parameters",
-        "number": 5,
-        "oneof": true,
-        "oneofGroup": "value",
-        "type": "PetWorkspaceParameters"
       }
     ]
   },
@@ -7609,18 +7559,6 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "4": "heal"
     }
   },
-  "PetConversationParametersInitiative": {
-    "byName": {
-      "agent": 2,
-      "peer": 1,
-      "unspecified": 0
-    },
-    "byNumber": {
-      "0": "",
-      "1": "peer",
-      "2": "agent"
-    }
-  },
   "PetLifecycle": {
     "byName": {
       "alive": 1,
@@ -7633,14 +7571,20 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "2": "dead"
     }
   },
-  "PetWorkspaceParametersAgentType": {
+  "ReusableWorkflowDriver": {
     "byName": {
-      "pet": 1,
+      "ast-translate": 3,
+      "chatroom": 4,
+      "doubao-realtime": 2,
+      "flowcraft": 1,
       "unspecified": 0
     },
     "byNumber": {
       "0": "",
-      "1": "pet"
+      "1": "flowcraft",
+      "2": "doubao-realtime",
+      "3": "ast-translate",
+      "4": "chatroom"
     }
   },
   "VolcTenantModelProviderDataApiMode": {
@@ -8176,7 +8120,6 @@ function oneofDiscriminatorFieldName(type: string, discriminator: string): strin
         "doubao-realtime": "doubao_realtime_workspace_parameters",
         "ast-translate": "asttranslate_workspace_parameters",
         "chatroom": "chat_room_workspace_parameters",
-        "pet": "pet_workspace_parameters",
       } as Record<string, string>)[discriminator];
     default:
       return undefined;

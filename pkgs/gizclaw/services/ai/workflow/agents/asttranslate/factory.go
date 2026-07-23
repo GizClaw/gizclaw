@@ -16,20 +16,42 @@ const Type = "ast-translate"
 // Factory converts GizClaw workflow and workspace configuration into the
 // reusable GenX AST Translate Transformer. Stream execution belongs to GenX.
 type Factory struct {
-	Transformer genx.TransformerMux
+	Transformer         genx.TransformerMux
+	TransformerForOwner func(context.Context, string) (genx.TransformerMux, error)
 }
 
-func (f Factory) NewAgent(_ context.Context, spec agenthost.Spec) (agenthost.Agent, error) {
+func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.Agent, error) {
 	config, err := resolveConfig(spec)
 	if err != nil {
 		return nil, err
 	}
-	config.Transformer = f.Transformer
+	config.Transformer, err = resolveOwnerTransformer(ctx, spec.Workspace, f.Transformer, f.TransformerForOwner)
+	if err != nil {
+		return nil, err
+	}
 	transformer, err := genxast.New(config)
 	if err != nil {
 		return nil, err
 	}
 	return agenthost.NewTransformerAgent(transformer), nil
+}
+
+func resolveOwnerTransformer(ctx context.Context, workspace apitypes.Workspace, fallback genx.TransformerMux, resolve func(context.Context, string) (genx.TransformerMux, error)) (genx.TransformerMux, error) {
+	if workspace.OwnerPublicKey == nil || strings.TrimSpace(*workspace.OwnerPublicKey) == "" {
+		return fallback, nil
+	}
+	owner := strings.TrimSpace(*workspace.OwnerPublicKey)
+	if resolve == nil {
+		return nil, fmt.Errorf("asttranslate: workspace %q owner transformer resolver is required", workspace.Name)
+	}
+	transformer, err := resolve(ctx, owner)
+	if err != nil {
+		return nil, fmt.Errorf("asttranslate: workspace %q owner runtime: %w", workspace.Name, err)
+	}
+	if transformer == nil {
+		return nil, fmt.Errorf("asttranslate: workspace %q owner runtime returned no transformer", workspace.Name)
+	}
+	return transformer, nil
 }
 
 func resolveConfig(spec agenthost.Spec) (genxast.Config, error) {
@@ -58,6 +80,9 @@ func resolveConfig(spec agenthost.Spec) (genxast.Config, error) {
 
 func workflowParams(ast apitypes.ASTTranslateWorkflowSpec) map[string]any {
 	params := make(map[string]any)
+	if ast.LangPair != nil {
+		setParam(params, "lang_pair", *ast.LangPair)
+	}
 	if ast.Mode != nil {
 		setParam(params, "mode", string(*ast.Mode))
 	}

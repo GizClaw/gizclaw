@@ -123,19 +123,7 @@ PB_BIND(gizclaw_rpc_v1_FlowcraftWorkflowSpec, gizclaw_rpc_v1_FlowcraftWorkflowSp
 PB_BIND(gizclaw_rpc_v1_FlowcraftWorkspaceParameters, gizclaw_rpc_v1_FlowcraftWorkspaceParameters, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_PetConversationParameters, gizclaw_rpc_v1_PetConversationParameters, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_PetPersonaParameters, gizclaw_rpc_v1_PetPersonaParameters, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_PetVoiceParameters, gizclaw_rpc_v1_PetVoiceParameters, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_PetWorkflowSpec, gizclaw_rpc_v1_PetWorkflowSpec, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_PetWorkspaceParameters, gizclaw_rpc_v1_PetWorkspaceParameters, AUTO)
+PB_BIND(gizclaw_rpc_v1_PetWorkflowSpec, gizclaw_rpc_v1_PetWorkflowSpec, 2)
 
 
 PB_BIND(gizclaw_rpc_v1_Model, gizclaw_rpc_v1_Model, 2)

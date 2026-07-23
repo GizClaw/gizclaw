@@ -138,11 +138,9 @@ class _PetPageState extends State<PetPage> {
       _error = null;
     });
     try {
-      final response = await MobileDataScope.watch(context).runRpc(
-        (client) => client.adoptPet(
-          displayName: name.trim().isEmpty ? null : name.trim(),
-        ),
-      );
+      final response = await MobileDataScope.watch(
+        context,
+      ).runRpc((client) => client.adoptPet(displayName: name));
       await _loadPets();
       if (mounted) context.push('/pets/${response.value.pet.id}');
     } catch (error) {
@@ -2415,29 +2413,39 @@ Future<String?> _askPetName(BuildContext context) async {
   try {
     return await showCupertinoDialog<String>(
       context: context,
-      builder: (context) => CupertinoAlertDialog(
-        title: Text(context.l10n.actionText(key: 'namePet')),
-        content: Padding(
-          padding: const EdgeInsets.only(top: 12),
-          child: CupertinoTextField(
-            controller: controller,
-            autofocus: true,
-            placeholder: context.l10n.actionText(key: 'optionalName'),
-            textInputAction: TextInputAction.done,
-            onSubmitted: (value) => Navigator.pop(context, value),
-          ),
-        ),
-        actions: [
-          CupertinoDialogAction(
-            onPressed: () => Navigator.pop(context),
-            child: Text(context.l10n.commonCancel),
-          ),
-          CupertinoDialogAction(
-            isDefaultAction: true,
-            onPressed: () => Navigator.pop(context, controller.text),
-            child: Text(context.l10n.actionText(key: 'adopt')),
-          ),
-        ],
+      builder: (context) => ValueListenableBuilder<TextEditingValue>(
+        valueListenable: controller,
+        builder: (context, value, _) {
+          final name = value.text.trim();
+          return CupertinoAlertDialog(
+            title: Text(context.l10n.actionText(key: 'namePet')),
+            content: Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: CupertinoTextField(
+                controller: controller,
+                autofocus: true,
+                placeholder: context.l10n.actionText(key: 'namePet'),
+                textInputAction: TextInputAction.done,
+                onSubmitted: name.isEmpty
+                    ? null
+                    : (_) => Navigator.pop(context, name),
+              ),
+            ),
+            actions: [
+              CupertinoDialogAction(
+                onPressed: () => Navigator.pop(context),
+                child: Text(context.l10n.commonCancel),
+              ),
+              CupertinoDialogAction(
+                isDefaultAction: true,
+                onPressed: name.isEmpty
+                    ? null
+                    : () => Navigator.pop(context, name),
+                child: Text(context.l10n.actionText(key: 'adopt')),
+              ),
+            ],
+          );
+        },
       ),
     );
   } finally {

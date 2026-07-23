@@ -61,13 +61,15 @@ Workflow 保留 `conversation`、Graph、Memory policy 与 `voice_adapter`。它
 
 #### Pet 组合边界
 
-内置 `pet` driver 保留在 GizClaw：它为每个 Workspace 解析 Pet、PetDef 与当前 Gameplay，并在每个 completed turn 写入瞬态 `tmp_*` Board input。固定 Graph 直接使用 RuntimeProfile 的 `pet-chat`、`pet-extract` 与 `pet-asr` alias；语音使用 Workspace 配置的 voice alias。Pet 直接构造通用 Flowcraft Transformer 和 Audio Dock，并复用同一套 LogStore、KV Store、ObjectStore-backed Memory assembly；不存在 server `system_tasks` 模型角色配置、Claw、本地 Workspace、`config.yaml` 或 BBH 依赖。
+`pet` driver 只作为 GizClaw 的领域 wrapper 保留。它在每个 turn 解析 Workspace 对应的 Pet、PetDef 与当前 Gameplay，并把瞬态 `tmp_*` Board input 提供给嵌套 Workflow。`spec.pet` 与普通非 Pet Workflow 使用相同的 `driver` 加对应 payload 结构；它可以选择 Flowcraft、Chatroom、AST translation 或 realtime execution，但不能递归选择 `pet`。
+
+内层 driver 拥有 Graph、conversation、Memory、model、voice 与 toolkit 配置，并通过普通注册 factory 构造。所有符号引用都从不可变的 system Workspace owner RuntimeProfile 解析。GizClaw 不再合成 Pet Graph、固定 model alias、Workspace voice 或内层 driver fallback。
 
 ### [workspace](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/workspace)
 
 拥有 workspace 资源、workspace runtime storage 和 history。Workspace 是实例化 Agent 环境的持久化边界；运行中的 Agent、输入输出和 connection stream 由 Runtime 领域负责。
 
-Workspace 还拥有不可变的 `system` 生命周期分类。通用创建写入 `system: false`，领域拥有的创建写入 `system: true`；通用删除始终拒绝 system Workspace。删除用户 Workspace 时，会原子删除 active record 与 owner index，并写入一条 `kind=workspace` PendingDeletion；runtime、history、icon、object 和 file 留给异步清理。pending record 存在期间不能重新 create/put 同名 Workspace。内部 system lifecycle surface 仍只提供给拥有该 Workspace 的 Social 或 Gameplay service，且不会在这里改成 pending-deletion producer。
+Workspace 还拥有不可变的 `system` 生命周期分类。通用创建写入 `system: false`；领域拥有的创建同时写入 `system: true` 与唯一且不可变的 `owner_public_key`。通用 put 只能修改 Chatroom system Workspace 的 input mode；owner、Workflow、领域 mode、history/transcript policy、labels 或 toolkit 的变化都会被拒绝，因此 Pet system Workspace 没有可变的执行配置。通用 delete 始终拒绝 system Workspace。删除用户 Workspace 时，会原子删除 active record 与 owner index，并写入一条 `kind=workspace` PendingDeletion；runtime、history、icon、object 和 file 留给异步清理。pending record 存在期间不能重新 create/put 同名 Workspace。内部 system lifecycle surface 仍只提供给拥有该 Workspace 的 Social 或 Gameplay service，且不会在这里改成 pending-deletion producer。
 
 ## 依赖与边界
 

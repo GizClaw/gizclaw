@@ -278,6 +278,9 @@ test("admin view covers provider, AI, social, and settings sections", async ({
   await page.getByRole("combobox").click();
   await page.getByRole("option", { name: "RuntimeProfile" }).click();
   await expect(resourceJSON).toHaveValue(/"kind": "RuntimeProfile"/);
+  await expect(resourceJSON).toHaveValue(/"friend_chatroom": "chatroom"/);
+  await expect(resourceJSON).toHaveValue(/"group_chatroom": "chatroom"/);
+  await expect(resourceJSON).toHaveValue(/"pet": "pet-care"/);
   await expect(resourceJSON).toHaveValue(/"collections"/);
   await expect(resourceJSON).toHaveValue(/"resource_id": "general-chat"/);
   await expect(resourceJSON).toHaveValue(/"resource_id": "petdef-starter"/);
@@ -292,7 +295,8 @@ test("admin view covers provider, AI, social, and settings sections", async ({
   await page.getByRole("combobox").click();
   await page.getByRole("option", { name: "PetDef" }).click();
   await expect(resourceJSON).toHaveValue(/"kind": "PetDef"/);
-  await expect(resourceJSON).toHaveValue(/"default_locale"/);
+  await expect(resourceJSON).not.toHaveValue(/"default_locale"/);
+  await expect(resourceJSON).not.toHaveValue(/"i18n"/);
 });
 
 test("admin social friend detail loads workspace history and downloads audio", async ({

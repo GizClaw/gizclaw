@@ -5,6 +5,10 @@ metadata:
   name: default
 spec:
   workflows:
+    system:
+      friend_chatroom: chatroom
+      group_chatroom: chatroom
+      pet: pet-care
     collections:
       assistants:
         doubao-realtime:
@@ -169,15 +173,15 @@ spec:
       initial_balance: 100
     adoption:
       pool:
-        - {pet_def: bsod, voice: cute-pet, weight: 100, rarity: common, adoption_cost: 10}
-        - {pet_def: codex, voice: cute-pet, weight: 100, rarity: common, adoption_cost: 10}
-        - {pet_def: dewey, voice: cute-pet, weight: 100, rarity: common, adoption_cost: 10}
-        - {pet_def: fireball, voice: cute-pet, weight: 100, rarity: common, adoption_cost: 10}
-        - {pet_def: hoots, voice: cute-pet, weight: 100, rarity: common, adoption_cost: 10}
-        - {pet_def: null-signal, voice: cute-pet, weight: 100, rarity: common, adoption_cost: 10}
-        - {pet_def: rocky, voice: cute-pet, weight: 100, rarity: common, adoption_cost: 10}
-        - {pet_def: seedy, voice: cute-pet, weight: 100, rarity: common, adoption_cost: 10}
-        - {pet_def: stacky, voice: cute-pet, weight: 100, rarity: common, adoption_cost: 10}
+        - {pet_def: bsod, weight: 100, rarity: common, adoption_cost: 10}
+        - {pet_def: codex, weight: 100, rarity: common, adoption_cost: 10}
+        - {pet_def: dewey, weight: 100, rarity: common, adoption_cost: 10}
+        - {pet_def: fireball, weight: 100, rarity: common, adoption_cost: 10}
+        - {pet_def: hoots, weight: 100, rarity: common, adoption_cost: 10}
+        - {pet_def: null-signal, weight: 100, rarity: common, adoption_cost: 10}
+        - {pet_def: rocky, weight: 100, rarity: common, adoption_cost: 10}
+        - {pet_def: seedy, weight: 100, rarity: common, adoption_cost: 10}
+        - {pet_def: stacky, weight: 100, rarity: common, adoption_cost: 10}
     pet:
       time:
         care_decay_per_hour:

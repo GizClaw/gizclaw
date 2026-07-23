@@ -316,13 +316,19 @@ class GizClawClient {
 
   Future<payload.RuntimeAdoptResponse> adoptPet({
     String? id,
-    String? displayName,
+    required String displayName,
   }) {
+    final normalizedDisplayName = displayName.trim();
+    if (normalizedDisplayName.isEmpty) {
+      throw ArgumentError.value(
+        displayName,
+        'displayName',
+        'must not be empty',
+      );
+    }
     final value = payload.PetAdoptRequest();
     if (id != null) value.id = id;
-    if (displayName != null && displayName.isNotEmpty) {
-      value.displayName = displayName;
-    }
+    value.displayName = normalizedDisplayName;
     return rpc.call<payload.RuntimeAdoptResponse>(
       'runtime.adopt',
       payload.RuntimeAdoptRequest(value: value),

@@ -37,13 +37,6 @@ func rpcWorkspaceParametersToAPI(in rpcapi.WorkspaceParameters) (apitypes.Worksp
 		}
 		return out, out.FromChatRoomWorkspaceParameters(converted)
 	}
-	if typed, err := in.AsPetWorkspaceParameters(); err == nil {
-		converted, err := convertType[apitypes.PetWorkspaceParameters](typed)
-		if err != nil {
-			return out, err
-		}
-		return out, out.FromPetWorkspaceParameters(converted)
-	}
 	return out, fmt.Errorf("workspace parameters are empty or unsupported")
 }
 
@@ -78,12 +71,6 @@ func apiWorkspaceParametersToRPC(in apitypes.WorkspaceParameters) (rpcapi.Worksp
 			return out, err
 		}
 		return out, out.FromChatRoomWorkspaceParameters(converted)
-	case apitypes.PetWorkspaceParameters:
-		converted, err := convertType[rpcapi.PetWorkspaceParameters](typed)
-		if err != nil {
-			return out, err
-		}
-		return out, out.FromPetWorkspaceParameters(converted)
 	}
 	return out, fmt.Errorf("workspace parameters are empty or unsupported")
 }

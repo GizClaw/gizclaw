@@ -39,6 +39,30 @@ func TestFactoryCreatesChatRoomAgent(t *testing.T) {
 	}
 }
 
+func TestFactoryUsesWorkspaceOwnerTransformer(t *testing.T) {
+	owner := "owner-public-key"
+	called := false
+	agent, err := (Factory{
+		Transformer: errorTransformer{err: errors.New("caller transformer")},
+		TransformerForOwner: func(_ context.Context, gotOwner string) (genx.TransformerMux, error) {
+			called = true
+			if gotOwner != owner {
+				t.Fatalf("owner = %q, want %q", gotOwner, owner)
+			}
+			return errorTransformer{err: errors.New("owner transformer")}, nil
+		},
+	}).NewAgent(t.Context(), agenthost.Spec{
+		Workspace: apitypes.Workspace{Name: "direct-chat", OwnerPublicKey: &owner},
+		Workflow:  validWorkflow(),
+	})
+	if err != nil {
+		t.Fatalf("NewAgent() error = %v", err)
+	}
+	if agent == nil || !called {
+		t.Fatalf("NewAgent() = %#v, owner resolver called = %t", agent, called)
+	}
+}
+
 func TestFactoryRejectsInvalidSpec(t *testing.T) {
 	for name, tc := range map[string]struct {
 		spec    agenthost.Spec
@@ -692,7 +716,7 @@ func TestAgentTransformRealtimeTranscribesASRSegmentStreams(t *testing.T) {
 	}
 
 	input := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 8)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	output, err := agent.Transform(ctx, input.Stream())
 	if err != nil {

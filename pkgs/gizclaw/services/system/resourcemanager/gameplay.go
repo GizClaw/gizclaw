@@ -272,7 +272,7 @@ func putGameplayResponse(operation string, response any, err error) error {
 }
 
 func petDefUpsert(resource apitypes.PetDefResource) adminhttp.PetDefUpsert {
-	return adminhttp.PetDefUpsert{Id: resource.Metadata.Name, Spec: resource.Spec, I18n: resource.I18n}
+	return adminhttp.PetDefUpsert{Id: resource.Metadata.Name, Spec: resource.Spec}
 }
 
 func badgeDefUpsert(resource apitypes.BadgeDefResource) adminhttp.BadgeDefUpsert {
@@ -284,13 +284,11 @@ func gameDefUpsert(resource apitypes.GameDefResource) adminhttp.GameDefUpsert {
 }
 
 func resourceFromPetDef(item apitypes.PetDef) (apitypes.Resource, error) {
-	i18n := item.I18n
 	return marshalResource(apitypes.PetDefResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.PetDefResourceKind(apitypes.ResourceKindPetDef),
 		Metadata:   apitypes.ResourceMetadata{Name: item.Id},
 		Spec:       item.Spec,
-		I18n:       &i18n,
 	})
 }
 

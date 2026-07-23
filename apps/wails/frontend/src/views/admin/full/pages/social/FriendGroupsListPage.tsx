@@ -68,6 +68,7 @@ export function FriendGroupsListPage(): JSX.Element {
       nextCursor: result.next_cursor ?? null,
     };
   });
+  const [ownerPublicKey, setOwnerPublicKey] = useState("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -111,13 +112,19 @@ export function FriendGroupsListPage(): JSX.Element {
   const create = async (): Promise<void> => {
     setBusy("create");
     setNotice(null);
+    const owner = ownerPublicKey.trim();
     const groupID = name.trim();
     try {
       const group = await expectData(
         createFriendGroup({
-          body: { name: groupID, description: description.trim() || undefined },
+          body: {
+            name: groupID,
+            description: description.trim() || undefined,
+            owner_public_key: owner,
+          },
         }),
       );
+      setOwnerPublicKey("");
       setName("");
       setDescription("");
       setCreateDialogOpen(false);
@@ -127,6 +134,7 @@ export function FriendGroupsListPage(): JSX.Element {
         const group = await expectData(
           getFriendGroup({ path: { id: groupID } }),
         );
+        setOwnerPublicKey("");
         setName("");
         setDescription("");
         setCreateDialogOpen(false);
@@ -191,8 +199,8 @@ export function FriendGroupsListPage(): JSX.Element {
           <DialogHeader>
             <DialogTitle>New Friend Group</DialogTitle>
             <DialogDescription>
-              Create group metadata and a backing chatroom workspace. Members
-              are added separately.
+              Create group metadata and an owner-bound backing chatroom
+              workspace. Members are added separately.
             </DialogDescription>
           </DialogHeader>
           <form
@@ -202,6 +210,13 @@ export function FriendGroupsListPage(): JSX.Element {
               void create();
             }}
           >
+            <FormField label="Owner public key">
+              <Input
+                onChange={(event) => setOwnerPublicKey(event.target.value)}
+                placeholder="base58 peer public key"
+                value={ownerPublicKey}
+              />
+            </FormField>
             <FormField label="Name">
               <Input
                 onChange={(event) => setName(event.target.value)}
@@ -227,7 +242,11 @@ export function FriendGroupsListPage(): JSX.Element {
                 Cancel
               </Button>
               <Button
-                disabled={busy !== "" || name.trim() === ""}
+                disabled={
+                  busy !== "" ||
+                  ownerPublicKey.trim() === "" ||
+                  name.trim() === ""
+                }
                 onClick={() => void create()}
                 type="button"
               >

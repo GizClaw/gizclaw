@@ -19,12 +19,11 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/jmoiron/sqlx"
 )
-
-const defaultPetWorkflowName = "pet-care"
 
 var (
 	// ErrPetDead is returned when a Drive targets a terminal Pet.
@@ -89,7 +88,6 @@ func (r *Runtime) Migration(ctx context.Context) error {
 			display_name TEXT NOT NULL,
 			workspace_name TEXT NOT NULL,
 			workflow_name TEXT NOT NULL,
-			voice_alias TEXT NOT NULL,
 			adoption_cost INTEGER NOT NULL,
 			created_at TEXT NOT NULL,
 			PRIMARY KEY(owner_public_key, pet_id)
@@ -214,14 +212,21 @@ func (r *Runtime) AdoptPet(ctx context.Context, owner string, req apitypes.PetAd
 	if err := requireOwner(owner); err != nil {
 		return apitypes.PetAdoptResponse{}, err
 	}
+	req.DisplayName = strings.TrimSpace(req.DisplayName)
+	if req.DisplayName == "" {
+		return apitypes.PetAdoptResponse{}, errors.New("gameplay: pet display_name is required")
+	}
+	ruleset, err := r.resolveProfileRules(ctx, "")
+	if err != nil {
+		return apitypes.PetAdoptResponse{}, err
+	}
+	if err := r.validatePetWorkflow(ctx, ruleset.Spec.PetWorkflowID); err != nil {
+		return apitypes.PetAdoptResponse{}, err
+	}
 	if err := r.Migration(ctx); err != nil {
 		return apitypes.PetAdoptResponse{}, err
 	}
 	if req.Id == nil {
-		ruleset, err := r.resolveProfileRules(ctx, "")
-		if err != nil {
-			return apitypes.PetAdoptResponse{}, err
-		}
 		petID := r.newID()
 		response, workspaceCreated, err := r.createPetAdoption(ctx, owner, req, ruleset, petID, "pet-"+petID, false)
 		if err != nil && workspaceCreated && r.Workspaces != nil {
@@ -234,33 +239,25 @@ func (r *Runtime) AdoptPet(ctx context.Context, owner string, req apitypes.PetAd
 	if err := customid.ValidateField("id", petID); err != nil {
 		return apitypes.PetAdoptResponse{}, fmt.Errorf("%w: %w", ErrInvalidPetID, err)
 	}
-	profileRules, err := pointsRulesFromContext(ctx, "")
-	if err != nil {
-		return apitypes.PetAdoptResponse{}, err
-	}
 	mu := r.adoptionMutex(owner + "\x00" + petID)
 	mu.Lock()
 	defer mu.Unlock()
-	if response, found, err := r.completedAdoptionResponse(ctx, owner, profileRules.Name, petID); found || err != nil {
+	if response, found, err := r.completedAdoptionResponse(ctx, owner, ruleset.Name, ruleset.Spec.PetWorkflowID, petID); found || err != nil {
 		return response, err
-	}
-	ruleset, err := r.resolveProfileRules(ctx, profileRules.Name)
-	if err != nil {
-		return apitypes.PetAdoptResponse{}, err
 	}
 	reservation, reservationCreated, err := r.reservePetAdoption(ctx, owner, req, ruleset, petID)
 	if err != nil {
 		return apitypes.PetAdoptResponse{}, err
 	}
-	if reservation.RuntimeProfileName != ruleset.Name {
-		return apitypes.PetAdoptResponse{}, fmt.Errorf("%w: %q belongs to RuntimeProfile %q", ErrPetIDConflict, petID, reservation.RuntimeProfileName)
+	if err := validatePetAdoptionReservationBinding(reservation, owner, petID, ruleset); err != nil {
+		return apitypes.PetAdoptResponse{}, err
 	}
 	response, createErr := r.createReservedPetAdoption(ctx, reservation, ruleset)
 	if createErr == nil {
 		return response, nil
 	}
 	recoveryCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
-	response, found, recoveryErr := r.awaitCompletedAdoptionResponse(recoveryCtx, owner, profileRules.Name, petID)
+	response, found, recoveryErr := r.awaitCompletedAdoptionResponse(recoveryCtx, owner, ruleset.Name, ruleset.Spec.PetWorkflowID, petID)
 	cancel()
 	if found {
 		return response, recoveryErr
@@ -298,14 +295,10 @@ func (r *Runtime) reservePetAdoption(ctx context.Context, owner string, req apit
 	if err != nil {
 		return petAdoptionReservation{}, false, err
 	}
-	displayName := strings.TrimSpace(valueOrZero(req.DisplayName))
-	if displayName == "" {
-		displayName = petDefDisplayName(petDef)
-	}
 	reservation := petAdoptionReservation{
 		OwnerPublicKey: owner, PetID: petID, RuntimeProfileName: ruleset.Name,
-		PetDefID: petDef.Id, DisplayName: displayName, WorkspaceName: petWorkspaceName(owner, petID),
-		WorkflowName: defaultPetWorkflowName, VoiceAlias: poolEntry.VoiceAlias,
+		PetDefID: petDef.Id, DisplayName: req.DisplayName, WorkspaceName: petWorkspaceName(owner, petID),
+		WorkflowName: ruleset.Spec.PetWorkflowID,
 		AdoptionCost: int64Value(poolEntry.AdoptionCost), CreatedAt: r.now(),
 	}
 	tx, err := db.BeginTxx(ctx, nil)
@@ -321,8 +314,8 @@ func (r *Runtime) reservePetAdoption(ctx context.Context, owner string, req apit
 	if err != nil {
 		return petAdoptionReservation{}, false, err
 	}
-	if reserved.RuntimeProfileName != ruleset.Name {
-		return reserved, inserted, nil
+	if err := validatePetAdoptionReservationBinding(reserved, owner, petID, ruleset); err != nil {
+		return reserved, inserted, err
 	}
 	if err := r.preflightPetAdoptionTx(ctx, tx, owner, ruleset, reserved.AdoptionCost); err != nil {
 		return petAdoptionReservation{}, false, err
@@ -353,7 +346,7 @@ func (r *Runtime) createReservedPetAdoption(ctx context.Context, reservation pet
 	if account.Balance < reservation.AdoptionCost {
 		return apitypes.PetAdoptResponse{}, errInsufficientPoints
 	}
-	if _, err := r.createPetWorkspace(ctx, reservation.WorkspaceName, reservation.WorkflowName, reservation.VoiceAlias); err != nil {
+	if _, err := r.createPetWorkspace(ctx, reservation.OwnerPublicKey, reservation.WorkspaceName, reservation.WorkflowName); err != nil {
 		return apitypes.PetAdoptResponse{}, err
 	}
 	now := r.now()
@@ -397,12 +390,8 @@ func (r *Runtime) createPetAdoption(ctx context.Context, owner string, req apity
 	if err != nil {
 		return apitypes.PetAdoptResponse{}, false, err
 	}
-	workflowName := defaultPetWorkflowName
-	displayName := strings.TrimSpace(valueOrZero(req.DisplayName))
-	if displayName == "" {
-		displayName = petDefDisplayName(petDef)
-	}
-	workspaceCreated, err := r.createPetWorkspace(ctx, workspaceName, workflowName, poolEntry.VoiceAlias)
+	workflowName := ruleset.Spec.PetWorkflowID
+	workspaceCreated, err := r.createPetWorkspace(ctx, owner, workspaceName, workflowName)
 	if err != nil {
 		return apitypes.PetAdoptResponse{}, false, err
 	}
@@ -415,7 +404,7 @@ func (r *Runtime) createPetAdoption(ctx context.Context, owner string, req apity
 		OwnerPublicKey:     owner,
 		RuntimeProfileName: ruleset.Name,
 		PetdefId:           petDef.Id,
-		DisplayName:        displayName,
+		DisplayName:        req.DisplayName,
 		WorkspaceName:      workspaceName,
 		Stats:              initialPetStats(),
 		Progression:        initialPetProgression(),
@@ -456,9 +445,9 @@ func (r *Runtime) commitPetAdoption(ctx context.Context, pet apitypes.Pet, rules
 	return apitypes.PetAdoptResponse{Pet: pet, Points: account, Transaction: txn}, nil
 }
 
-func (r *Runtime) awaitCompletedAdoptionResponse(ctx context.Context, owner, runtimeProfileName, petID string) (apitypes.PetAdoptResponse, bool, error) {
+func (r *Runtime) awaitCompletedAdoptionResponse(ctx context.Context, owner, runtimeProfileName, workflowName, petID string) (apitypes.PetAdoptResponse, bool, error) {
 	for {
-		response, found, err := r.completedAdoptionResponse(ctx, owner, runtimeProfileName, petID)
+		response, found, err := r.completedAdoptionResponse(ctx, owner, runtimeProfileName, workflowName, petID)
 		if err != nil && ctx.Err() != nil {
 			return apitypes.PetAdoptResponse{}, false, nil
 		}
@@ -475,7 +464,7 @@ func (r *Runtime) awaitCompletedAdoptionResponse(ctx context.Context, owner, run
 	}
 }
 
-func (r *Runtime) completedAdoptionResponse(ctx context.Context, owner, runtimeProfileName, petID string) (apitypes.PetAdoptResponse, bool, error) {
+func (r *Runtime) completedAdoptionResponse(ctx context.Context, owner, runtimeProfileName, workflowName, petID string) (apitypes.PetAdoptResponse, bool, error) {
 	db, err := r.db()
 	if err != nil {
 		return apitypes.PetAdoptResponse{}, false, err
@@ -506,6 +495,12 @@ func (r *Runtime) completedAdoptionResponse(ctx context.Context, owner, runtimeP
 	if pet.RuntimeProfileName != runtimeProfileName {
 		return apitypes.PetAdoptResponse{}, true, fmt.Errorf("%w: %q belongs to RuntimeProfile %q", ErrPetIDConflict, petID, pet.RuntimeProfileName)
 	}
+	if pet.WorkspaceName != petWorkspaceName(owner, petID) {
+		return apitypes.PetAdoptResponse{}, true, fmt.Errorf("%w: %q has a different Workspace domain binding", ErrPetIDConflict, petID)
+	}
+	if _, err := r.createPetWorkspace(ctx, owner, pet.WorkspaceName, workflowName); err != nil {
+		return apitypes.PetAdoptResponse{}, true, fmt.Errorf("%w: %q has a different Workspace binding: %v", ErrPetIDConflict, petID, err)
+	}
 	if txnErr != nil {
 		return apitypes.PetAdoptResponse{}, true, fmt.Errorf("load adoption transaction for Pet %q: %w", petID, txnErr)
 	}
@@ -517,6 +512,17 @@ func (r *Runtime) completedAdoptionResponse(ctx context.Context, owner, runtimeP
 		return apitypes.PetAdoptResponse{}, true, fmt.Errorf("load points account for Pet %q: %w", petID, err)
 	}
 	return apitypes.PetAdoptResponse{Pet: pet, Points: account, Transaction: txn}, true, nil
+}
+
+func validatePetAdoptionReservationBinding(reservation petAdoptionReservation, owner, petID string, ruleset ProfileRules) error {
+	if reservation.OwnerPublicKey != owner ||
+		reservation.PetID != petID ||
+		reservation.RuntimeProfileName != ruleset.Name ||
+		reservation.WorkflowName != ruleset.Spec.PetWorkflowID ||
+		reservation.WorkspaceName != petWorkspaceName(owner, petID) {
+		return fmt.Errorf("%w: %q has a different owner, Workflow, or domain binding", ErrPetIDConflict, petID)
+	}
+	return nil
 }
 
 func petWorkspaceName(owner, petID string) string {
@@ -1440,54 +1446,35 @@ func (r *Runtime) pickWeight(total int64) int64 {
 	return n.Int64()
 }
 
-func (r *Runtime) createPetWorkspace(ctx context.Context, name, workflowName, voiceAlias string) (bool, error) {
+func (r *Runtime) createPetWorkspace(ctx context.Context, owner, name, workflowName string) (bool, error) {
 	if r == nil || r.Workspaces == nil {
 		return false, errors.New("gameplay: workspace service is not configured")
 	}
 	if err := r.validatePetWorkflow(ctx, workflowName); err != nil {
 		return false, err
 	}
-	voiceAlias = strings.TrimSpace(voiceAlias)
-	if voiceAlias == "" {
-		return false, errors.New("gameplay: pet voice alias is required")
-	}
-	input := apitypes.WorkspaceInputModePushToTalk
-	var parameters apitypes.WorkspaceParameters
-	if err := parameters.FromPetWorkspaceParameters(apitypes.PetWorkspaceParameters{
-		AgentType: apitypes.PetWorkspaceParametersAgentTypePet,
-		Input:     &input,
-		Voice: apitypes.PetVoiceParameters{
-			VoiceId: voiceAlias,
-		},
-	}); err != nil {
-		return false, err
-	}
-	body := adminhttp.WorkspaceUpsert{Name: name, WorkflowName: workflowName, Parameters: &parameters}
-	workspace, created, err := r.Workspaces.CreateSystemWorkspace(ctx, body)
+	body := adminhttp.WorkspaceUpsert{Name: name, WorkflowName: workflowName}
+	workspace, created, err := r.Workspaces.CreateSystemWorkspace(ownership.WithOwner(ctx, owner), body)
 	if err != nil {
 		return false, err
 	}
 	if !created {
-		if err := validateExistingPetWorkspace(workspace, workflowName, input, voiceAlias); err != nil {
+		if err := validateExistingPetWorkspace(workspace, owner, workflowName); err != nil {
 			return false, fmt.Errorf("create pet workspace %q: %w", name, err)
 		}
 	}
 	return created, nil
 }
 
-func validateExistingPetWorkspace(workspace apitypes.Workspace, workflowName string, input apitypes.WorkspaceInputMode, voiceAlias string) error {
+func validateExistingPetWorkspace(workspace apitypes.Workspace, owner, workflowName string) error {
 	if workspace.WorkflowName != workflowName {
 		return fmt.Errorf("existing system Workspace uses workflow %q, want %q", workspace.WorkflowName, workflowName)
 	}
-	if workspace.Parameters == nil {
-		return errors.New("existing system Workspace has no Pet parameters")
+	if workspace.OwnerPublicKey == nil || strings.TrimSpace(*workspace.OwnerPublicKey) != strings.TrimSpace(owner) {
+		return errors.New("existing system Workspace has a different owner")
 	}
-	parameters, err := workspace.Parameters.AsPetWorkspaceParameters()
-	if err != nil {
-		return fmt.Errorf("decode existing system Workspace Pet parameters: %w", err)
-	}
-	if parameters.AgentType != apitypes.PetWorkspaceParametersAgentTypePet || parameters.Input == nil || *parameters.Input != input || parameters.Voice.VoiceId != voiceAlias {
-		return errors.New("existing system Workspace parameters do not match the adoption selection")
+	if workspace.Parameters != nil {
+		return errors.New("existing system Workspace has Pet execution parameters")
 	}
 	return nil
 }
@@ -1495,6 +1482,10 @@ func validateExistingPetWorkspace(workspace apitypes.Workspace, workflowName str
 func (r *Runtime) validatePetWorkflow(ctx context.Context, name string) error {
 	if r == nil || r.Workflows == nil {
 		return errors.New("gameplay: workflow service is not configured")
+	}
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return errors.New("gameplay: system Pet Workflow is required")
 	}
 	resp, err := r.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Name: name})
 	if err != nil {
@@ -1625,18 +1616,6 @@ func (r *Runtime) newID() string {
 		return r.NewID()
 	}
 	return socialutil.NewID()
-}
-
-func petDefDisplayName(petDef apitypes.PetDef) string {
-	if catalog, ok := petDef.I18n.AdditionalProperties[petDef.I18n.DefaultLocale]; ok && catalog.DisplayName != nil && strings.TrimSpace(*catalog.DisplayName) != "" {
-		return strings.TrimSpace(*catalog.DisplayName)
-	}
-	for _, catalog := range petDef.I18n.AdditionalProperties {
-		if catalog.DisplayName != nil && strings.TrimSpace(*catalog.DisplayName) != "" {
-			return strings.TrimSpace(*catalog.DisplayName)
-		}
-	}
-	return petDef.Id
 }
 
 func requireOwner(owner string) error {

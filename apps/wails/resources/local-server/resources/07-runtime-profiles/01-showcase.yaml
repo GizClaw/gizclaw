@@ -5,6 +5,10 @@ metadata:
   name: showcase
 spec:
   workflows:
+    system:
+      friend_chatroom: chatroom
+      group_chatroom: chatroom
+      pet: pet-care
     collections:
       assistants:
         showcase-chat:
@@ -24,9 +28,29 @@ spec:
         i18n:
           en: {display_name: Speech Recognition}
           zh-CN: {display_name: 语音识别}
+      pet-chat:
+        resource_id: doubao-seed-2-0-lite
+        i18n:
+          en: {display_name: Pet Chat}
+          zh-CN: {display_name: 宠物对话}
+      pet-extract:
+        resource_id: deepseek-v4-flash
+        i18n:
+          en: {display_name: Pet Memory Extraction}
+          zh-CN: {display_name: 宠物记忆提取}
+      pet-asr:
+        resource_id: volc-bigasr-sauc
+        i18n:
+          en: {display_name: Pet Speech Recognition}
+          zh-CN: {display_name: 宠物语音识别}
     voices:
       doubao-assistant:
         resource_id: volc-tenant:volc-main:zh_female_vv_jupiter_bigtts
         i18n:
           en: {display_name: Showcase Assistant}
           zh-CN: {display_name: Showcase 助手}
+      cute-pet:
+        resource_id: volc-tenant:volc-main:zh_male_naiqimengwa_mars_bigtts
+        i18n:
+          en: {display_name: Cute Pet}
+          zh-CN: {display_name: 奶气萌宠}

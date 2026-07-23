@@ -49,7 +49,7 @@ Resource 的数据首先按语义分为两类：
 
 需要展示 metadata 的 Resource 只增加自身确实需要的 typed 字段。即使两个 Resource 当前需要相同的字段，也不能因此建立公共 `ResourceDisplay`、`ResourceDisplayData` 或通用 catalog schema。跨多个实际 owner 复用的独立 value object（例如 `Icon`）可以位于 `shared/`，但不会因此自动出现在所有 Resource 上。
 
-如果某个 Resource 只需要本地化 catalog，不需要额外的展示 metadata，可以直接拥有语义更准确的 `i18n` 字段。PetDef 使用自己的 `PetDefI18n`：`i18n.default_locale` 指定默认语言，`i18n.en`、`i18n.zh-CN` 等 locale key 直接保存对应 catalog，不增加 `catalogs` 或 `display` 中间层。Workflow 与 Workspace 不拥有 catalog 型 i18n。
+PetDef、Workflow 与 Workspace 都不拥有本地 catalog 型 i18n。PetDef 与可选择 Workflow 的展示文本来自 RuntimeProfile binding 的 `i18n`，因此同一个真实 Resource 可以在不同 RuntimeProfile 中拥有不同文案。Workspace 没有 RuntimeProfile catalog binding；客户端根据拥有它的产品 surface 与稳定 Workspace 数据决定展示方式。
 
 Workflow 只包含稳定 identity、执行 spec 和 ownership metadata。RuntimeProfile alias 是 runtime Workflow 面向客户端的展示 key；固件或 App 自行把 alias 映射为本地化名称和 icon，Server 不保存也不暴露 Workflow 展示 metadata。
 
@@ -65,7 +65,7 @@ Display 的共同命名是一项结构约定，不代表公共领域模型。不
 
 `category`、关联 ID、workflow reference、provider kind 等机器可读字段属于核心数据。本地化名称、说明、icon 和 cover 的位置由 owner schema 决定。客户端在展示数据缺失时可以回退到稳定 ID，但 Server 不应把 fallback 文本持久化为核心数据。
 
-“视觉内容”不自动等于 `display`。如果 asset、clip、animation graph 或 behavior/state-to-clip mapping 被设备、runtime 或领域逻辑直接消费，它就是 Resource 的核心内容或关联数据。例如 PetDef 的 PIXA、canvas、clips、visual refs 和 `visual.bindings` 属于 PetDef spec；`i18n` 只保存管理界面或用户阅读所需的本地化文本。
+“视觉内容”不自动等于 `display`。如果 asset、clip、animation graph 或 behavior/state-to-clip mapping 被设备、runtime 或领域逻辑直接消费，它就是 Resource 的核心内容或关联数据。例如 PetDef 的 PIXA、canvas、clips、visual refs 和 `visual.bindings` 属于 PetDef spec；面向用户的本地化文本属于 RuntimeProfile binding。
 
 新 Spec 如果只被一个 Resource 使用，应与该 Resource 定义在同一文件。对于已经位于 `shared/` 的 Spec，必须先核对所有实际 consumers 和兼容性影响，再决定是否迁移；不能只根据名称推断所有权，也不能再建立一份平行 schema。
 

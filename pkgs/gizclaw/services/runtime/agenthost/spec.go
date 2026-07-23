@@ -1,6 +1,7 @@
 package agenthost
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -17,6 +18,11 @@ type Spec struct {
 	AgentType string
 	Runtime   workspace.Runtime
 	Toolkit   *ToolkitContext
+	// BoardInputs supplies product-owned transient values to drivers that
+	// support a per-turn context board. The outer runtime also injects the same
+	// values into the Transform context for every nested driver. They are never
+	// persisted in the Workspace.
+	BoardInputs func(context.Context) (map[string]any, error)
 }
 
 func resolveAgentType(workspace apitypes.Workspace, workflow apitypes.Workflow) (string, error) {

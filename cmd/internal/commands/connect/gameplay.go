@@ -151,13 +151,17 @@ func newPetAdoptCmd() *cobra.Command {
 		Short: "Adopt a pet",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			displayName = strings.TrimSpace(displayName)
+			if displayName == "" {
+				return fmt.Errorf("name must not be empty")
+			}
 			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
 				var id *string
 				if cmd.Flags().Changed("id") {
 					id = &petID
 				}
 				return c.AdoptPet(ctx, "runtime.adopt", rpcapi.RuntimeAdoptRequest{
-					DisplayName: optionalString(displayName),
+					DisplayName: displayName,
 					Id:          id,
 				})
 			})

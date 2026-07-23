@@ -342,36 +342,6 @@ typedef struct _gizclaw_rpc_v1_FlowcraftWorkspaceParameters {
     gizclaw_rpc_v1_WorkspaceInputMode input;
 } gizclaw_rpc_v1_FlowcraftWorkspaceParameters;
 
-typedef struct _gizclaw_rpc_v1_PetConversationParameters {
-    bool has_initiative;
-    gizclaw_rpc_v1_PetConversationParametersInitiative initiative;
-} gizclaw_rpc_v1_PetConversationParameters;
-
-typedef struct _gizclaw_rpc_v1_PetPersonaParameters {
-    pb_callback_t prompt;
-} gizclaw_rpc_v1_PetPersonaParameters;
-
-typedef struct _gizclaw_rpc_v1_PetVoiceParameters {
-    pb_callback_t prompt;
-    pb_callback_t voice_id;
-} gizclaw_rpc_v1_PetVoiceParameters;
-
-typedef struct _gizclaw_rpc_v1_PetWorkflowSpec {
-    char dummy_field;
-} gizclaw_rpc_v1_PetWorkflowSpec;
-
-typedef struct _gizclaw_rpc_v1_PetWorkspaceParameters {
-    gizclaw_rpc_v1_PetWorkspaceParametersAgentType agent_type;
-    bool has_conversation;
-    gizclaw_rpc_v1_PetConversationParameters conversation;
-    bool has_input;
-    gizclaw_rpc_v1_WorkspaceInputMode input;
-    bool has_persona;
-    gizclaw_rpc_v1_PetPersonaParameters persona;
-    bool has_voice;
-    gizclaw_rpc_v1_PetVoiceParameters voice;
-} gizclaw_rpc_v1_PetWorkspaceParameters;
-
 typedef struct _gizclaw_rpc_v1_Model_I18nEntry {
     pb_callback_t key;
     bool has_value;
@@ -629,6 +599,20 @@ typedef struct _gizclaw_rpc_v1_ToolkitPolicy {
     gizclaw_rpc_v1_ToolkitPolicyToolIds tool_ids;
 } gizclaw_rpc_v1_ToolkitPolicy;
 
+typedef struct _gizclaw_rpc_v1_PetWorkflowSpec {
+    gizclaw_rpc_v1_ReusableWorkflowDriver driver;
+    bool has_toolkit;
+    gizclaw_rpc_v1_ToolkitPolicy toolkit;
+    bool has_flowcraft;
+    gizclaw_rpc_v1_FlowcraftWorkflowSpec flowcraft;
+    bool has_doubao_realtime;
+    gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec doubao_realtime;
+    bool has_ast_translate;
+    gizclaw_rpc_v1_ASTTranslateWorkflowSpec ast_translate;
+    bool has_chatroom;
+    gizclaw_rpc_v1_ChatRoomWorkflowSpec chatroom;
+} gizclaw_rpc_v1_PetWorkflowSpec;
+
 typedef struct _gizclaw_rpc_v1_Tool {
     pb_callback_t alias;
     pb_callback_t i18n;
@@ -746,13 +730,7 @@ extern "C" {
 #define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_agent_type_ENUMTYPE gizclaw_rpc_v1_FlowcraftWorkspaceParametersAgentType
 #define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_input_ENUMTYPE gizclaw_rpc_v1_WorkspaceInputMode
 
-#define gizclaw_rpc_v1_PetConversationParameters_initiative_ENUMTYPE gizclaw_rpc_v1_PetConversationParametersInitiative
-
-
-
-
-#define gizclaw_rpc_v1_PetWorkspaceParameters_agent_type_ENUMTYPE gizclaw_rpc_v1_PetWorkspaceParametersAgentType
-#define gizclaw_rpc_v1_PetWorkspaceParameters_input_ENUMTYPE gizclaw_rpc_v1_WorkspaceInputMode
+#define gizclaw_rpc_v1_PetWorkflowSpec_driver_ENUMTYPE gizclaw_rpc_v1_ReusableWorkflowDriver
 
 #define gizclaw_rpc_v1_Model_kind_ENUMTYPE gizclaw_rpc_v1_ModelKind
 #define gizclaw_rpc_v1_Model_provider_kind_ENUMTYPE gizclaw_rpc_v1_ModelProviderKind
@@ -832,11 +810,7 @@ extern "C" {
 #define gizclaw_rpc_v1_FlowcraftConversationParameters_init_default {false, _gizclaw_rpc_v1_FlowcraftConversationParametersAgentInitiativePolicy_MIN, false, _gizclaw_rpc_v1_FlowcraftConversationParametersInitiative_MIN}
 #define gizclaw_rpc_v1_FlowcraftWorkflowSpec_init_default {false, google_protobuf_Struct_init_default}
 #define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_init_default {_gizclaw_rpc_v1_FlowcraftWorkspaceParametersAgentType_MIN, false, gizclaw_rpc_v1_FlowcraftConversationParameters_init_default, false, 0, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN}
-#define gizclaw_rpc_v1_PetConversationParameters_init_default {false, _gizclaw_rpc_v1_PetConversationParametersInitiative_MIN}
-#define gizclaw_rpc_v1_PetPersonaParameters_init_default {{{NULL}, NULL}}
-#define gizclaw_rpc_v1_PetVoiceParameters_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_PetWorkflowSpec_init_default {0}
-#define gizclaw_rpc_v1_PetWorkspaceParameters_init_default {_gizclaw_rpc_v1_PetWorkspaceParametersAgentType_MIN, false, gizclaw_rpc_v1_PetConversationParameters_init_default, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, gizclaw_rpc_v1_PetPersonaParameters_init_default, false, gizclaw_rpc_v1_PetVoiceParameters_init_default}
+#define gizclaw_rpc_v1_PetWorkflowSpec_init_default {_gizclaw_rpc_v1_ReusableWorkflowDriver_MIN, false, gizclaw_rpc_v1_ToolkitPolicy_init_default, false, gizclaw_rpc_v1_FlowcraftWorkflowSpec_init_default, false, gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_init_default, false, gizclaw_rpc_v1_ASTTranslateWorkflowSpec_init_default, false, gizclaw_rpc_v1_ChatRoomWorkflowSpec_init_default}
 #define gizclaw_rpc_v1_Model_init_default        {{{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_ModelKind_MIN, 0, {gizclaw_rpc_v1_OpenAITenantModelProviderData_init_default}, _gizclaw_rpc_v1_ModelProviderKind_MIN}
 #define gizclaw_rpc_v1_Model_I18nEntry_init_default {{{NULL}, NULL}, false, gizclaw_rpc_v1_AliasI18nText_init_default}
 #define gizclaw_rpc_v1_OpenAITenantModelProviderData_init_default {{{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
@@ -910,11 +884,7 @@ extern "C" {
 #define gizclaw_rpc_v1_FlowcraftConversationParameters_init_zero {false, _gizclaw_rpc_v1_FlowcraftConversationParametersAgentInitiativePolicy_MIN, false, _gizclaw_rpc_v1_FlowcraftConversationParametersInitiative_MIN}
 #define gizclaw_rpc_v1_FlowcraftWorkflowSpec_init_zero {false, google_protobuf_Struct_init_zero}
 #define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_init_zero {_gizclaw_rpc_v1_FlowcraftWorkspaceParametersAgentType_MIN, false, gizclaw_rpc_v1_FlowcraftConversationParameters_init_zero, false, 0, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN}
-#define gizclaw_rpc_v1_PetConversationParameters_init_zero {false, _gizclaw_rpc_v1_PetConversationParametersInitiative_MIN}
-#define gizclaw_rpc_v1_PetPersonaParameters_init_zero {{{NULL}, NULL}}
-#define gizclaw_rpc_v1_PetVoiceParameters_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_PetWorkflowSpec_init_zero {0}
-#define gizclaw_rpc_v1_PetWorkspaceParameters_init_zero {_gizclaw_rpc_v1_PetWorkspaceParametersAgentType_MIN, false, gizclaw_rpc_v1_PetConversationParameters_init_zero, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, gizclaw_rpc_v1_PetPersonaParameters_init_zero, false, gizclaw_rpc_v1_PetVoiceParameters_init_zero}
+#define gizclaw_rpc_v1_PetWorkflowSpec_init_zero {_gizclaw_rpc_v1_ReusableWorkflowDriver_MIN, false, gizclaw_rpc_v1_ToolkitPolicy_init_zero, false, gizclaw_rpc_v1_FlowcraftWorkflowSpec_init_zero, false, gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_init_zero, false, gizclaw_rpc_v1_ASTTranslateWorkflowSpec_init_zero, false, gizclaw_rpc_v1_ChatRoomWorkflowSpec_init_zero}
 #define gizclaw_rpc_v1_Model_init_zero           {{{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_ModelKind_MIN, 0, {gizclaw_rpc_v1_OpenAITenantModelProviderData_init_zero}, _gizclaw_rpc_v1_ModelProviderKind_MIN}
 #define gizclaw_rpc_v1_Model_I18nEntry_init_zero {{{NULL}, NULL}, false, gizclaw_rpc_v1_AliasI18nText_init_zero}
 #define gizclaw_rpc_v1_OpenAITenantModelProviderData_init_zero {{{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
@@ -1085,15 +1055,6 @@ extern "C" {
 #define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_conversation_tag 2
 #define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_e2e_tag 3
 #define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_input_tag 7
-#define gizclaw_rpc_v1_PetConversationParameters_initiative_tag 1
-#define gizclaw_rpc_v1_PetPersonaParameters_prompt_tag 1
-#define gizclaw_rpc_v1_PetVoiceParameters_prompt_tag 1
-#define gizclaw_rpc_v1_PetVoiceParameters_voice_id_tag 2
-#define gizclaw_rpc_v1_PetWorkspaceParameters_agent_type_tag 1
-#define gizclaw_rpc_v1_PetWorkspaceParameters_conversation_tag 2
-#define gizclaw_rpc_v1_PetWorkspaceParameters_input_tag 3
-#define gizclaw_rpc_v1_PetWorkspaceParameters_persona_tag 4
-#define gizclaw_rpc_v1_PetWorkspaceParameters_voice_tag 5
 #define gizclaw_rpc_v1_Model_I18nEntry_key_tag   1
 #define gizclaw_rpc_v1_Model_I18nEntry_value_tag 2
 #define gizclaw_rpc_v1_OpenAITenantModelProviderData_upstream_model_tag 1
@@ -1224,6 +1185,12 @@ extern "C" {
 #define gizclaw_rpc_v1_WorkflowListResponse_runtime_profile_revision_tag 5
 #define gizclaw_rpc_v1_ToolkitPolicyToolIds_value_tag 1
 #define gizclaw_rpc_v1_ToolkitPolicy_tool_ids_tag 1
+#define gizclaw_rpc_v1_PetWorkflowSpec_driver_tag 1
+#define gizclaw_rpc_v1_PetWorkflowSpec_toolkit_tag 2
+#define gizclaw_rpc_v1_PetWorkflowSpec_flowcraft_tag 3
+#define gizclaw_rpc_v1_PetWorkflowSpec_doubao_realtime_tag 4
+#define gizclaw_rpc_v1_PetWorkflowSpec_ast_translate_tag 5
+#define gizclaw_rpc_v1_PetWorkflowSpec_chatroom_tag 6
 #define gizclaw_rpc_v1_Tool_alias_tag            1
 #define gizclaw_rpc_v1_Tool_i18n_tag             2
 #define gizclaw_rpc_v1_Tool_input_schema_tag     3
@@ -1573,38 +1540,20 @@ X(a, STATIC,   OPTIONAL, UENUM,    input,             7)
 #define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_DEFAULT NULL
 #define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_conversation_MSGTYPE gizclaw_rpc_v1_FlowcraftConversationParameters
 
-#define gizclaw_rpc_v1_PetConversationParameters_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, UENUM,    initiative,        1)
-#define gizclaw_rpc_v1_PetConversationParameters_CALLBACK NULL
-#define gizclaw_rpc_v1_PetConversationParameters_DEFAULT NULL
-
-#define gizclaw_rpc_v1_PetPersonaParameters_FIELDLIST(X, a) \
-X(a, CALLBACK, OPTIONAL, STRING,   prompt,            1)
-#define gizclaw_rpc_v1_PetPersonaParameters_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_PetPersonaParameters_DEFAULT NULL
-
-#define gizclaw_rpc_v1_PetVoiceParameters_FIELDLIST(X, a) \
-X(a, CALLBACK, OPTIONAL, STRING,   prompt,            1) \
-X(a, CALLBACK, SINGULAR, STRING,   voice_id,          2)
-#define gizclaw_rpc_v1_PetVoiceParameters_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_PetVoiceParameters_DEFAULT NULL
-
 #define gizclaw_rpc_v1_PetWorkflowSpec_FIELDLIST(X, a) \
-
+X(a, STATIC,   SINGULAR, UENUM,    driver,            1) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  toolkit,           2) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  flowcraft,         3) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  doubao_realtime,   4) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  ast_translate,     5) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  chatroom,          6)
 #define gizclaw_rpc_v1_PetWorkflowSpec_CALLBACK NULL
 #define gizclaw_rpc_v1_PetWorkflowSpec_DEFAULT NULL
-
-#define gizclaw_rpc_v1_PetWorkspaceParameters_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, UENUM,    agent_type,        1) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  conversation,      2) \
-X(a, STATIC,   OPTIONAL, UENUM,    input,             3) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  persona,           4) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  voice,             5)
-#define gizclaw_rpc_v1_PetWorkspaceParameters_CALLBACK NULL
-#define gizclaw_rpc_v1_PetWorkspaceParameters_DEFAULT NULL
-#define gizclaw_rpc_v1_PetWorkspaceParameters_conversation_MSGTYPE gizclaw_rpc_v1_PetConversationParameters
-#define gizclaw_rpc_v1_PetWorkspaceParameters_persona_MSGTYPE gizclaw_rpc_v1_PetPersonaParameters
-#define gizclaw_rpc_v1_PetWorkspaceParameters_voice_MSGTYPE gizclaw_rpc_v1_PetVoiceParameters
+#define gizclaw_rpc_v1_PetWorkflowSpec_toolkit_MSGTYPE gizclaw_rpc_v1_ToolkitPolicy
+#define gizclaw_rpc_v1_PetWorkflowSpec_flowcraft_MSGTYPE gizclaw_rpc_v1_FlowcraftWorkflowSpec
+#define gizclaw_rpc_v1_PetWorkflowSpec_doubao_realtime_MSGTYPE gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec
+#define gizclaw_rpc_v1_PetWorkflowSpec_ast_translate_MSGTYPE gizclaw_rpc_v1_ASTTranslateWorkflowSpec
+#define gizclaw_rpc_v1_PetWorkflowSpec_chatroom_MSGTYPE gizclaw_rpc_v1_ChatRoomWorkflowSpec
 
 #define gizclaw_rpc_v1_Model_FIELDLIST(X, a) \
 X(a, CALLBACK, SINGULAR, STRING,   alias,             1) \
@@ -1959,11 +1908,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_FlowcraftConversationParameters_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_FlowcraftWorkflowSpec_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_FlowcraftWorkspaceParameters_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_PetConversationParameters_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_PetPersonaParameters_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_PetVoiceParameters_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_PetWorkflowSpec_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_PetWorkspaceParameters_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_Model_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_Model_I18nEntry_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_OpenAITenantModelProviderData_msg;
@@ -2039,11 +1984,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ToolInvokeResponse_msg;
 #define gizclaw_rpc_v1_FlowcraftConversationParameters_fields &gizclaw_rpc_v1_FlowcraftConversationParameters_msg
 #define gizclaw_rpc_v1_FlowcraftWorkflowSpec_fields &gizclaw_rpc_v1_FlowcraftWorkflowSpec_msg
 #define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_fields &gizclaw_rpc_v1_FlowcraftWorkspaceParameters_msg
-#define gizclaw_rpc_v1_PetConversationParameters_fields &gizclaw_rpc_v1_PetConversationParameters_msg
-#define gizclaw_rpc_v1_PetPersonaParameters_fields &gizclaw_rpc_v1_PetPersonaParameters_msg
-#define gizclaw_rpc_v1_PetVoiceParameters_fields &gizclaw_rpc_v1_PetVoiceParameters_msg
 #define gizclaw_rpc_v1_PetWorkflowSpec_fields &gizclaw_rpc_v1_PetWorkflowSpec_msg
-#define gizclaw_rpc_v1_PetWorkspaceParameters_fields &gizclaw_rpc_v1_PetWorkspaceParameters_msg
 #define gizclaw_rpc_v1_Model_fields &gizclaw_rpc_v1_Model_msg
 #define gizclaw_rpc_v1_Model_I18nEntry_fields &gizclaw_rpc_v1_Model_I18nEntry_msg
 #define gizclaw_rpc_v1_OpenAITenantModelProviderData_fields &gizclaw_rpc_v1_OpenAITenantModelProviderData_msg
@@ -2110,9 +2051,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ToolInvokeResponse_msg;
 /* gizclaw_rpc_v1_DoubaoRealtimeTTSExtra_size depends on runtime parameters */
 /* gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_size depends on runtime parameters */
 /* gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_size depends on runtime parameters */
-/* gizclaw_rpc_v1_PetPersonaParameters_size depends on runtime parameters */
-/* gizclaw_rpc_v1_PetVoiceParameters_size depends on runtime parameters */
-/* gizclaw_rpc_v1_PetWorkspaceParameters_size depends on runtime parameters */
+/* gizclaw_rpc_v1_PetWorkflowSpec_size depends on runtime parameters */
 /* gizclaw_rpc_v1_Model_size depends on runtime parameters */
 /* gizclaw_rpc_v1_Model_I18nEntry_size depends on runtime parameters */
 /* gizclaw_rpc_v1_OpenAITenantModelProviderData_size depends on runtime parameters */
@@ -2152,8 +2091,6 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ToolInvokeResponse_msg;
 #define gizclaw_rpc_v1_DoubaoRealtimeAudioInput_size 15
 #define gizclaw_rpc_v1_FlowcraftConversationParameters_size 4
 #define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_size 12
-#define gizclaw_rpc_v1_PetConversationParameters_size 2
-#define gizclaw_rpc_v1_PetWorkflowSpec_size      0
 #define gizclaw_rpc_v1_SpeechSynthesizeRequest_size 5212
 #define gizclaw_rpc_v1_SpeechSynthesizeResponse_size 153
 #define gizclaw_rpc_v1_SpeechTranscribeRequest_size 230

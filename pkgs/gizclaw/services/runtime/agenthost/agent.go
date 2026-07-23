@@ -9,6 +9,16 @@ import (
 
 const unsupportedMessage = "workspace runtime feature is not supported by this agent"
 
+type boardInputsContextKey struct{}
+
+// BoardInputsFromContext returns product-owned transient inputs injected for
+// the current turn. Drivers that support contextual execution can consume
+// these values without persisting them in a Workflow or Workspace.
+func BoardInputsFromContext(ctx context.Context) (map[string]any, bool) {
+	inputs, ok := ctx.Value(boardInputsContextKey{}).(map[string]any)
+	return inputs, ok
+}
+
 // Agent is the active workspace runtime surface.
 type Agent interface {
 	genx.Transformer
@@ -31,6 +41,28 @@ func asAgent(transformer genx.Transformer) Agent {
 
 func NewTransformerAgent(transformer genx.Transformer) Agent {
 	return asAgent(transformer)
+}
+
+// NewBoardInputsAgent resolves transient product context for every Transform
+// call and makes it available to any nested driver through the turn context.
+func NewBoardInputsAgent(agent Agent, provider func(context.Context) (map[string]any, error)) Agent {
+	if agent == nil || provider == nil {
+		return agent
+	}
+	return boardInputsAgent{Agent: agent, provider: provider}
+}
+
+type boardInputsAgent struct {
+	Agent
+	provider func(context.Context) (map[string]any, error)
+}
+
+func (a boardInputsAgent) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
+	inputs, err := a.provider(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return a.Agent.Transform(context.WithValue(ctx, boardInputsContextKey{}, inputs), input)
 }
 
 type transformerAgent struct {

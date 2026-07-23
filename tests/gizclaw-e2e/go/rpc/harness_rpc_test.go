@@ -153,7 +153,14 @@ func sharedRuntimeProfileSpec() apitypes.RuntimeProfileSpec {
 		"pet-action":   e2eRuntimeBinding("pet-action"),
 	}
 	return apitypes.RuntimeProfileSpec{
-		Workflows: apitypes.RuntimeProfileWorkflows{Collections: workflows},
+		Workflows: apitypes.RuntimeProfileWorkflows{
+			System: apitypes.RuntimeProfileSystemWorkflows{
+				FriendChatroom: "chatroom-direct",
+				GroupChatroom:  "chatroom-direct",
+				Pet:            "pet-chatroom",
+			},
+			Collections: workflows,
+		},
 		Resources: apitypes.RuntimeProfileResources{Models: &models},
 	}
 }

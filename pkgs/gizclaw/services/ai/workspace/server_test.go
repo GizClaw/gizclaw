@@ -150,7 +150,7 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 	if _, ok := invalidPutAfterDelete.(adminhttp.PutWorkspace400JSONResponse); !ok {
 		t.Fatalf("PutWorkspace() invalid while pending response = %#v, want 400", invalidPutAfterDelete)
 	}
-	if _, _, err := srv.CreateSystemWorkspace(ctx, createBody); !errors.Is(err, ErrWorkspacePendingDeletion) {
+	if _, _, err := srv.CreateSystemWorkspace(ownership.WithOwner(ctx, "peer-a"), createBody); !errors.Is(err, ErrWorkspacePendingDeletion) {
 		t.Fatalf("CreateSystemWorkspace() while pending error = %v", err)
 	}
 }
@@ -161,15 +161,24 @@ func TestServerSystemWorkspaceLifecycle(t *testing.T) {
 	srv := newTestServer(t)
 	runtime := &recordingRuntimeStore{}
 	srv.RuntimeStore = runtime
-	ctx := context.Background()
+	ctx := ownership.WithOwner(context.Background(), " peer-a ")
 	seedWorkflow(t, srv, "chatroom")
-	body := adminhttp.WorkspaceUpsert{Name: "friend-chat", WorkflowName: "chatroom"}
+	directMode := apitypes.ChatRoomModeDirect
+	pushToTalk := apitypes.WorkspaceInputModePushToTalk
+	parameters := apitypes.WorkspaceParameters{}
+	if err := parameters.FromChatRoomWorkspaceParameters(apitypes.ChatRoomWorkspaceParameters{
+		Mode:  &directMode,
+		Input: &pushToTalk,
+	}); err != nil {
+		t.Fatalf("encode initial chatroom parameters: %v", err)
+	}
+	body := adminhttp.WorkspaceUpsert{Name: "friend-chat", WorkflowName: "chatroom", Parameters: &parameters}
 
 	created, wasCreated, err := srv.CreateSystemWorkspace(ctx, body)
 	if err != nil {
 		t.Fatalf("CreateSystemWorkspace() error = %v", err)
 	}
-	if !wasCreated || created.System == nil || !*created.System {
+	if !wasCreated || created.System == nil || !*created.System || created.OwnerPublicKey == nil || *created.OwnerPublicKey != "peer-a" {
 		t.Fatalf("CreateSystemWorkspace() = %#v, created=%v", created, wasCreated)
 	}
 	existing, wasCreated, err := srv.CreateSystemWorkspace(ctx, body)
@@ -180,14 +189,99 @@ func TestServerSystemWorkspaceLifecycle(t *testing.T) {
 		t.Fatalf("CreateSystemWorkspace(existing) = %#v, created=%v", existing, wasCreated)
 	}
 
-	putBody := adminhttp.WorkspaceUpsert{Name: "friend-chat", WorkflowName: "chatroom"}
+	realtime := apitypes.WorkspaceInputModeRealtime
+	updatedParameters := apitypes.WorkspaceParameters{}
+	if err := updatedParameters.FromChatRoomWorkspaceParameters(apitypes.ChatRoomWorkspaceParameters{
+		Mode:  &directMode,
+		Input: &realtime,
+	}); err != nil {
+		t.Fatalf("encode updated chatroom parameters: %v", err)
+	}
+	putBody := adminhttp.WorkspaceUpsert{
+		Name:         "friend-chat",
+		WorkflowName: "chatroom",
+		Parameters:   &updatedParameters,
+	}
 	putResp, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Name: "friend-chat", Body: &putBody})
 	if err != nil {
 		t.Fatalf("PutWorkspace(system) error = %v", err)
 	}
 	updated, ok := putResp.(adminhttp.PutWorkspace200JSONResponse)
-	if !ok || updated.System == nil || !*updated.System {
-		t.Fatalf("PutWorkspace(system) response = %#v", putResp)
+	if !ok {
+		t.Fatalf("PutWorkspace(system parameters) response = %#v", putResp)
+	}
+	chatroom, err := updated.Parameters.AsChatRoomWorkspaceParameters()
+	if err != nil || chatroom.Input == nil || *chatroom.Input != realtime {
+		t.Fatalf("PutWorkspace(system parameters) = %#v, error = %v", updated, err)
+	}
+	labels := map[string]string{"domain": "changed"}
+	conflictingLabelsBody := putBody
+	conflictingLabelsBody.Labels = &labels
+	conflictingLabels, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Name: "friend-chat", Body: &conflictingLabelsBody})
+	if err != nil {
+		t.Fatalf("PutWorkspace(system conflicting labels) error = %v", err)
+	}
+	blockedUpdate, ok := conflictingLabels.(adminhttp.PutWorkspace409JSONResponse)
+	if !ok || blockedUpdate.Error.Code != SystemWorkspaceUpdateForbiddenCode {
+		t.Fatalf("PutWorkspace(system conflicting labels) response = %#v", conflictingLabels)
+	}
+	toolIDs := []string{"tool-a"}
+	conflictingToolkitBody := putBody
+	conflictingToolkitBody.Toolkit = &apitypes.ToolkitPolicy{ToolIds: &toolIDs}
+	conflictingToolkit, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Name: "friend-chat", Body: &conflictingToolkitBody})
+	if err != nil {
+		t.Fatalf("PutWorkspace(system conflicting toolkit) error = %v", err)
+	}
+	blockedUpdate, ok = conflictingToolkit.(adminhttp.PutWorkspace409JSONResponse)
+	if !ok || blockedUpdate.Error.Code != SystemWorkspaceUpdateForbiddenCode {
+		t.Fatalf("PutWorkspace(system conflicting toolkit) response = %#v", conflictingToolkit)
+	}
+	transcriptEnabled := true
+	conflictingTranscriptParameters := apitypes.WorkspaceParameters{}
+	if err := conflictingTranscriptParameters.FromChatRoomWorkspaceParameters(apitypes.ChatRoomWorkspaceParameters{
+		Mode:       &directMode,
+		Input:      &realtime,
+		Transcript: &apitypes.ChatRoomWorkspaceTranscriptParameters{Enabled: &transcriptEnabled},
+	}); err != nil {
+		t.Fatalf("encode conflicting chatroom transcript parameters: %v", err)
+	}
+	conflictingTranscriptBody := putBody
+	conflictingTranscriptBody.Parameters = &conflictingTranscriptParameters
+	conflictingTranscript, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Name: "friend-chat", Body: &conflictingTranscriptBody})
+	if err != nil {
+		t.Fatalf("PutWorkspace(system conflicting transcript) error = %v", err)
+	}
+	blockedUpdate, ok = conflictingTranscript.(adminhttp.PutWorkspace409JSONResponse)
+	if !ok || blockedUpdate.Error.Code != SystemWorkspaceUpdateForbiddenCode {
+		t.Fatalf("PutWorkspace(system conflicting transcript) response = %#v", conflictingTranscript)
+	}
+	groupMode := apitypes.ChatRoomModeGroup
+	conflictingParameters := apitypes.WorkspaceParameters{}
+	if err := conflictingParameters.FromChatRoomWorkspaceParameters(apitypes.ChatRoomWorkspaceParameters{
+		Mode:  &groupMode,
+		Input: &realtime,
+	}); err != nil {
+		t.Fatalf("encode conflicting chatroom parameters: %v", err)
+	}
+	conflictingPutBody := putBody
+	conflictingPutBody.Parameters = &conflictingParameters
+	conflictingPut, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Name: "friend-chat", Body: &conflictingPutBody})
+	if err != nil {
+		t.Fatalf("PutWorkspace(system conflicting mode) error = %v", err)
+	}
+	blockedUpdate, ok = conflictingPut.(adminhttp.PutWorkspace409JSONResponse)
+	if !ok || blockedUpdate.Error.Code != SystemWorkspaceUpdateForbiddenCode {
+		t.Fatalf("PutWorkspace(system conflicting mode) response = %#v", conflictingPut)
+	}
+	conflictingWorkflowBody := putBody
+	conflictingWorkflowBody.WorkflowName = "other-workflow"
+	conflictingWorkflow, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Name: "friend-chat", Body: &conflictingWorkflowBody})
+	if err != nil {
+		t.Fatalf("PutWorkspace(system conflicting Workflow) error = %v", err)
+	}
+	blockedUpdate, ok = conflictingWorkflow.(adminhttp.PutWorkspace409JSONResponse)
+	if !ok || blockedUpdate.Error.Code != SystemWorkspaceUpdateForbiddenCode {
+		t.Fatalf("PutWorkspace(system conflicting Workflow) response = %#v", conflictingWorkflow)
 	}
 
 	deleteResp, err := srv.DeleteWorkspace(ctx, adminhttp.DeleteWorkspaceRequestObject{Name: "friend-chat"})

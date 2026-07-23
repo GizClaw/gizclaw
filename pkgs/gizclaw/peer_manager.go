@@ -357,13 +357,9 @@ func (m *Manager) runtimeProfileForOwner(ctx context.Context, owner string) (api
 	if err := publicKey.UnmarshalText([]byte(strings.TrimSpace(owner))); err != nil || publicKey.IsZero() {
 		return apitypes.RuntimeProfile{}, fmt.Errorf("gizclaw: invalid workspace owner public key %q", owner)
 	}
-	registration, ok := m.PeerRegistration(publicKey)
-	if !ok {
-		return apitypes.RuntimeProfile{}, fmt.Errorf("gizclaw: workspace owner %q has no active runtime registration", owner)
-	}
-	profile, err := m.RuntimeProfiles.ResolveProfile(ctx, registration.RuntimeProfile.Name)
+	profile, err := m.RuntimeProfiles.ResolveOwnerProfile(ctx, publicKey.String())
 	if err != nil {
-		return apitypes.RuntimeProfile{}, fmt.Errorf("gizclaw: resolve runtime profile %q: %w", registration.RuntimeProfile.Name, err)
+		return apitypes.RuntimeProfile{}, fmt.Errorf("gizclaw: resolve workspace owner %q runtime profile: %w", owner, err)
 	}
 	return profile, nil
 }

@@ -34,7 +34,7 @@ func TestPetTimeSettlementIsFrequencyIndependent(t *testing.T) {
 
 func TestEmptyPetDriveSettlesAndPersistsTime(t *testing.T) {
 	ctx, runtime, now := newPetRuntime(t)
-	adopted, err := runtime.AdoptPet(ctx, "peer-empty-drive", apitypes.PetAdoptRequest{})
+	adopted, err := runtime.AdoptPet(ctx, "peer-empty-drive", apitypes.PetAdoptRequest{DisplayName: "Pet"})
 	if err != nil {
 		t.Fatalf("AdoptPet() error = %v", err)
 	}
@@ -85,11 +85,11 @@ func TestEmptyPetDriveSettlesAndPersistsTime(t *testing.T) {
 
 func TestEmptyPetDriveTimeSettlementIsFrequencyIndependent(t *testing.T) {
 	ctx, runtime, now := newPetRuntime(t)
-	first, err := runtime.AdoptPet(ctx, "peer-empty-frequency", apitypes.PetAdoptRequest{})
+	first, err := runtime.AdoptPet(ctx, "peer-empty-frequency", apitypes.PetAdoptRequest{DisplayName: "Pet"})
 	if err != nil {
 		t.Fatalf("AdoptPet(first) error = %v", err)
 	}
-	second, err := runtime.AdoptPet(ctx, "peer-empty-frequency", apitypes.PetAdoptRequest{})
+	second, err := runtime.AdoptPet(ctx, "peer-empty-frequency", apitypes.PetAdoptRequest{DisplayName: "Pet"})
 	if err != nil {
 		t.Fatalf("AdoptPet(second) error = %v", err)
 	}
@@ -121,11 +121,11 @@ func TestEmptyPetDriveTimeSettlementIsFrequencyIndependent(t *testing.T) {
 func TestEmptyPetDriveDeathSettlementIsFrequencyIndependent(t *testing.T) {
 	ctx, runtime, now := newPetRuntime(t)
 	start := *now
-	first, err := runtime.AdoptPet(ctx, "peer-empty-death", apitypes.PetAdoptRequest{})
+	first, err := runtime.AdoptPet(ctx, "peer-empty-death", apitypes.PetAdoptRequest{DisplayName: "Pet"})
 	if err != nil {
 		t.Fatalf("AdoptPet(first) error = %v", err)
 	}
-	second, err := runtime.AdoptPet(ctx, "peer-empty-death", apitypes.PetAdoptRequest{})
+	second, err := runtime.AdoptPet(ctx, "peer-empty-death", apitypes.PetAdoptRequest{DisplayName: "Pet"})
 	if err != nil {
 		t.Fatalf("AdoptPet(second) error = %v", err)
 	}
@@ -163,11 +163,11 @@ func TestEmptyPetDriveDeathSettlementIsFrequencyIndependent(t *testing.T) {
 
 func TestEmptyPetDriveIdempotencyKeyPreventsRepeatedTick(t *testing.T) {
 	ctx, runtime, now := newPetRuntime(t)
-	first, err := runtime.AdoptPet(ctx, "peer-empty-key", apitypes.PetAdoptRequest{})
+	first, err := runtime.AdoptPet(ctx, "peer-empty-key", apitypes.PetAdoptRequest{DisplayName: "Pet"})
 	if err != nil {
 		t.Fatalf("AdoptPet(first) error = %v", err)
 	}
-	second, err := runtime.AdoptPet(ctx, "peer-empty-key", apitypes.PetAdoptRequest{})
+	second, err := runtime.AdoptPet(ctx, "peer-empty-key", apitypes.PetAdoptRequest{DisplayName: "Pet"})
 	if err != nil {
 		t.Fatalf("AdoptPet(second) error = %v", err)
 	}
@@ -214,7 +214,7 @@ func TestEmptyPetDriveIdempotencyKeyPreventsRepeatedTick(t *testing.T) {
 
 func TestEmptyPetDriveFailureDoesNotConsumeIdempotencyKey(t *testing.T) {
 	ctx, runtime, now := newPetRuntime(t)
-	adopted, err := runtime.AdoptPet(ctx, "peer-empty-failure", apitypes.PetAdoptRequest{})
+	adopted, err := runtime.AdoptPet(ctx, "peer-empty-failure", apitypes.PetAdoptRequest{DisplayName: "Pet"})
 	if err != nil {
 		t.Fatalf("AdoptPet() error = %v", err)
 	}
@@ -258,7 +258,7 @@ func TestEmptyPetDriveFailureDoesNotConsumeIdempotencyKey(t *testing.T) {
 
 func TestPetDriveRejectsBehaviorAndGameResultTogether(t *testing.T) {
 	ctx, runtime, _ := newPetRuntime(t)
-	adopted, err := runtime.AdoptPet(ctx, "peer-invalid-drive", apitypes.PetAdoptRequest{})
+	adopted, err := runtime.AdoptPet(ctx, "peer-invalid-drive", apitypes.PetAdoptRequest{DisplayName: "Pet"})
 	if err != nil {
 		t.Fatalf("AdoptPet() error = %v", err)
 	}
@@ -274,7 +274,7 @@ func TestPetDriveRejectsBehaviorAndGameResultTogether(t *testing.T) {
 
 func TestPetCareBehaviorUsesDeltaCapEnergyAndExperience(t *testing.T) {
 	ctx, runtime, _ := newPetRuntime(t)
-	adopted, err := runtime.AdoptPet(ctx, "peer-care", apitypes.PetAdoptRequest{})
+	adopted, err := runtime.AdoptPet(ctx, "peer-care", apitypes.PetAdoptRequest{DisplayName: "Pet"})
 	if err != nil {
 		t.Fatalf("AdoptPet() error = %v", err)
 	}
@@ -321,7 +321,7 @@ func TestPetLevelIsBoundedForMaximumExperience(t *testing.T) {
 
 func TestUnconfiguredGameIsExactNoOp(t *testing.T) {
 	ctx, runtime, now := newPetRuntime(t)
-	adopted, err := runtime.AdoptPet(ctx, "peer-noop", apitypes.PetAdoptRequest{})
+	adopted, err := runtime.AdoptPet(ctx, "peer-noop", apitypes.PetAdoptRequest{DisplayName: "Pet"})
 	if err != nil {
 		t.Fatalf("AdoptPet() error = %v", err)
 	}
@@ -356,7 +356,7 @@ func TestUnconfiguredGameIsExactNoOp(t *testing.T) {
 
 func TestGameRewardFailureIsAtomicAndDeathIsTerminal(t *testing.T) {
 	ctx, runtime, now := newPetRuntime(t)
-	adopted, err := runtime.AdoptPet(ctx, "peer-atomic", apitypes.PetAdoptRequest{})
+	adopted, err := runtime.AdoptPet(ctx, "peer-atomic", apitypes.PetAdoptRequest{DisplayName: "Pet"})
 	if err != nil {
 		t.Fatalf("AdoptPet() error = %v", err)
 	}
@@ -423,11 +423,11 @@ func TestGameRewardFailureIsAtomicAndDeathIsTerminal(t *testing.T) {
 
 func TestGameIdempotencyKeyCannotCrossPets(t *testing.T) {
 	ctx, runtime, _ := newPetRuntime(t)
-	first, err := runtime.AdoptPet(ctx, "peer-game-idempotency", apitypes.PetAdoptRequest{})
+	first, err := runtime.AdoptPet(ctx, "peer-game-idempotency", apitypes.PetAdoptRequest{DisplayName: "Pet"})
 	if err != nil {
 		t.Fatalf("AdoptPet(first) error = %v", err)
 	}
-	second, err := runtime.AdoptPet(ctx, "peer-game-idempotency", apitypes.PetAdoptRequest{})
+	second, err := runtime.AdoptPet(ctx, "peer-game-idempotency", apitypes.PetAdoptRequest{DisplayName: "Pet"})
 	if err != nil {
 		t.Fatalf("AdoptPet(second) error = %v", err)
 	}
@@ -450,7 +450,7 @@ func TestGameIdempotencyKeyCannotCrossPets(t *testing.T) {
 
 func TestGameRewardDropsZeroBadgeDeltaBeforeIdempotentReplay(t *testing.T) {
 	ctx, runtime, _ := newPetRuntime(t)
-	adopted, err := runtime.AdoptPet(ctx, "peer-zero-badge", apitypes.PetAdoptRequest{})
+	adopted, err := runtime.AdoptPet(ctx, "peer-zero-badge", apitypes.PetAdoptRequest{DisplayName: "Pet"})
 	if err != nil {
 		t.Fatalf("AdoptPet() error = %v", err)
 	}
@@ -476,7 +476,7 @@ func TestGameRewardDropsZeroBadgeDeltaBeforeIdempotentReplay(t *testing.T) {
 
 func TestRewardEvaluationIncludesConfiguredGameDefinition(t *testing.T) {
 	ctx, runtime, _ := newPetRuntime(t)
-	adopted, err := runtime.AdoptPet(ctx, "peer-reward-context", apitypes.PetAdoptRequest{})
+	adopted, err := runtime.AdoptPet(ctx, "peer-reward-context", apitypes.PetAdoptRequest{DisplayName: "Pet"})
 	if err != nil {
 		t.Fatalf("AdoptPet() error = %v", err)
 	}

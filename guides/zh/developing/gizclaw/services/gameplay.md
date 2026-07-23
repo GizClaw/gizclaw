@@ -4,15 +4,17 @@
 
 ## Ownership
 
-Gameplay 拥有 PetDef、BadgeDef、GameDef、Pet、points account、transaction、reward grant、badge progression 和 game result。RuntimeProfile 的 `resources.pet_defs`、`resources.voices`、`resources.game_defs` 和 `resources.badge_defs` map 提供 profile-local alias；`gameplay.adoption.pool` 同时引用 PetDef 与 Voice alias，`gameplay.pet.games` 以 GameDef alias 为直接 key。
+Gameplay 拥有 PetDef、BadgeDef、GameDef、Pet、points account、transaction、reward grant、badge progression 和 game result。RuntimeProfile 的 `resources.pet_defs`、`resources.game_defs` 和 `resources.badge_defs` map 提供 profile-local alias；`gameplay.adoption.pool` 只引用 PetDef alias，`gameplay.pet.games` 以 GameDef alias 为直接 key。
 
-领养 Pet 时，服务从当前 connection 的 RuntimeProfile snapshot 解析规则，把池条目的 Voice alias 保存到 system Workspace，并把 RuntimeProfile 名写入 Pet 和相关状态。PetDef 不保存 Voice ID/alias；它保留角色/说话风格、PIXA 和行为到动画的绑定。Pet 创建的 system Workspace 使用内置 `pet-care` Workflow；`pet-care` 不需要出现在 RuntimeProfile 的 `workflows` map 中。
+领养 Pet 时，服务先验证当前 connection 的 RuntimeProfile 和 `workflows.system.pet` 指向的真实 Workflow，再创建归该 Peer 所有的 system Workspace，并把 RuntimeProfile 名写入 Pet 和相关状态。Pet Workspace 不保存 persona、conversation、model、voice 或其他执行参数，也不能通过通用 Workspace put 改写。PetDef 不保存 Voice ID/alias 或本地 i18n；它保留角色/说话风格、PIXA 和行为到动画的绑定，展示文本来自 RuntimeProfile 的 `pet_defs` binding。
+
+`driver: pet` 是领域 wrapper，不内置执行图。它的 `pet` 字段嵌套一个相同形状、但禁止再次选择 `pet` 的 Workflow spec，例如 `flowcraft`、`chatroom`、`doubao-realtime` 或 `ast-translate`。Pet wrapper 只向内层 Workflow 注入当前 Pet 上下文；内层 driver 拥有 graph、memory、voice、model 和 toolkit 配置。所有 alias 都从 system Workspace owner 的 RuntimeProfile 解析，因此替换嵌套 driver 不需要修改 Pet 或 Workspace 数据。
 
 没有有效 PetDef 的 profile 不能领养 Pet；未在当前 profile 中允许的 GameDef 不能提交 game result。非法 alias 和 reward reference 会使 RuntimeProfile validation 失败。删除定义或 RuntimeProfile 不级联删除已有 Gameplay 历史。
 
 ## Pet 身份与领养重试
 
-`runtime.adopt` 接受可选的调用方 `id`。这个 ID 是长期存在的 Pet resource identity，不是独立的 operation-level idempotency key。需要安全重试领养的设备在第一次请求前生成并持久化一个有效的 GizClaw custom ID；发生 timeout、断线或无法确认响应结果时，继续使用同一个 ID。
+`runtime.adopt` 要求非空 `display_name`，并接受可选的调用方 `id`。这个 ID 是长期存在的 Pet resource identity，不是独立的 operation-level idempotency key。需要安全重试领养的设备在第一次请求前生成并持久化一个有效的 GizClaw custom ID；发生 timeout、断线或无法确认响应结果时，继续使用同一个 ID。
 
 Pet ID 由已认证 Peer 限定 scope。第一次成功创建 `(peer, id)` 时只产生一个 Pet、一个 system Workspace、一条 adoption transaction 和一次 points 扣减；Points 不足的尝试会在占用该 ID 或创建 Pet、Workspace、transaction 前失败。同一 active RuntimeProfile 下的成功领养重试返回已有 Pet、当前 Points account 和原始 adoption transaction，不重新选择 PetDef 或产生写入。重试携带不同 `display_name` 也不会重命名已有 Pet；重命名使用 `server.pet.put`。
 

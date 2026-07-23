@@ -216,32 +216,27 @@ func validateWorkflow(item apitypes.Workflow, expectedName string) (apitypes.Wor
 }
 
 func validateDriverSpec(spec apitypes.WorkflowSpec) error {
+	if err := validateDriverPayloads(
+		spec.Driver,
+		spec.Flowcraft != nil,
+		spec.DoubaoRealtime != nil,
+		spec.AstTranslate != nil,
+		spec.Chatroom != nil,
+		spec.Pet != nil,
+	); err != nil {
+		return err
+	}
 	switch spec.Driver {
 	case apitypes.WorkflowDriverFlowcraft:
-		if spec.Flowcraft == nil {
-			return errors.New("spec.flowcraft is required")
-		}
 		if err := spec.Flowcraft.Validate(); err != nil {
 			return fmt.Errorf("spec.flowcraft: %w", err)
 		}
 		return nil
 	case apitypes.WorkflowDriverChatroom:
-		if spec.Chatroom == nil {
-			return errors.New("spec.chatroom is required")
-		}
 		return nil
 	case apitypes.WorkflowDriverPet:
-		if spec.Pet == nil {
-			return errors.New("spec.pet is required")
-		}
-		if len(*spec.Pet) != 0 {
-			return errors.New("spec.pet does not accept Flowcraft graph or memory configuration")
-		}
-		return nil
+		return validateNestedPetWorkflow(*spec.Pet)
 	case apitypes.WorkflowDriverDoubaoRealtime:
-		if spec.DoubaoRealtime == nil {
-			return errors.New("spec.doubao_realtime is required")
-		}
 		if strings.TrimSpace(spec.DoubaoRealtime.Model) == "" {
 			return errors.New("spec.doubao_realtime.model is required")
 		}
@@ -249,9 +244,55 @@ func validateDriverSpec(spec apitypes.WorkflowSpec) error {
 			return errors.New("spec.doubao_realtime.tools are unsupported until ToolCall is implemented")
 		}
 		return nil
-	default:
+	case apitypes.WorkflowDriverAstTranslate:
 		return nil
+	default:
+		return fmt.Errorf("unsupported spec.driver %q", spec.Driver)
 	}
+}
+
+func validateNestedPetWorkflow(spec apitypes.PetWorkflowSpec) error {
+	if !spec.Driver.Valid() {
+		return fmt.Errorf("spec.pet.driver %q is not a reusable Workflow driver", spec.Driver)
+	}
+	nested := apitypes.WorkflowSpec{
+		Driver:         apitypes.WorkflowDriver(spec.Driver),
+		Toolkit:        spec.Toolkit,
+		Flowcraft:      spec.Flowcraft,
+		DoubaoRealtime: spec.DoubaoRealtime,
+		AstTranslate:   spec.AstTranslate,
+		Chatroom:       spec.Chatroom,
+	}
+	if err := validateDriverSpec(nested); err != nil {
+		return fmt.Errorf("spec.pet: %w", err)
+	}
+	return nil
+}
+
+func validateDriverPayloads(driver apitypes.WorkflowDriver, flowcraft, doubaoRealtime, astTranslate, chatroom, pet bool) error {
+	payloads := []struct {
+		driver  apitypes.WorkflowDriver
+		field   string
+		present bool
+	}{
+		{apitypes.WorkflowDriverFlowcraft, "flowcraft", flowcraft},
+		{apitypes.WorkflowDriverDoubaoRealtime, "doubao_realtime", doubaoRealtime},
+		{apitypes.WorkflowDriverAstTranslate, "ast_translate", astTranslate},
+		{apitypes.WorkflowDriverChatroom, "chatroom", chatroom},
+		{apitypes.WorkflowDriverPet, "pet", pet},
+	}
+	for _, payload := range payloads {
+		if payload.driver == driver {
+			if !payload.present {
+				return fmt.Errorf("spec.%s is required", payload.field)
+			}
+			continue
+		}
+		if payload.present {
+			return fmt.Errorf("spec.%s does not match driver %q", payload.field, driver)
+		}
+	}
+	return nil
 }
 
 func decodeWorkflow(data []byte) (apitypes.Workflow, error) {

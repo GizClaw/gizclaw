@@ -13,36 +13,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
-func TestCatalogAcceptsOptionalDefaultLocaleI18nText(t *testing.T) {
-	ctx := context.Background()
-	catalog := testCatalog(t, time.Date(2026, 7, 5, 11, 0, 0, 0, time.UTC))
-	spec := testPetDefSpec("Schema Valid Pet")
-	i18n := apitypes.PetDefI18nSpec{DefaultLocale: "en", AdditionalProperties: map[string]apitypes.PetDefI18nCatalog{"en": {}}}
-	resp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{Body: &adminhttp.PetDefUpsert{
-		Id:   "schema-valid-pet",
-		Spec: spec,
-		I18n: &i18n,
-	}})
-	if err != nil {
-		t.Fatalf("CreatePetDef() optional i18n error = %v", err)
-	}
-	requireResponse[adminhttp.CreatePetDef200JSONResponse](t, resp)
-
-	missingDefaultLocaleSpec := testPetDefSpec("Bad Locale Pet")
-	missingDefaultLocaleI18n := testPetDefI18n("Bad Locale Pet")
-	missingDefaultLocaleI18n.DefaultLocale = "zh"
-	missingDefaultLocaleResp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{Body: &adminhttp.PetDefUpsert{
-		Id:   "bad-locale-pet",
-		Spec: missingDefaultLocaleSpec,
-		I18n: &missingDefaultLocaleI18n,
-	}})
-	if err != nil {
-		t.Fatalf("CreatePetDef() missing default locale error = %v", err)
-	}
-	requireResponse[adminhttp.CreatePetDef400JSONResponse](t, missingDefaultLocaleResp)
-}
-
-func TestCatalogAcceptsPetDefWithoutI18n(t *testing.T) {
+func TestCatalogStoresPetDefWithoutLocalI18n(t *testing.T) {
 	catalog := &Catalog{PetDefs: kv.NewMemory(nil)}
 	ctx := context.Background()
 	spec := testPetDefSpec("No I18n")
@@ -54,9 +25,6 @@ func TestCatalogAcceptsPetDefWithoutI18n(t *testing.T) {
 		t.Fatalf("CreatePetDef() error = %v", err)
 	}
 	created := requireResponse[adminhttp.CreatePetDef200JSONResponse](t, resp)
-	if created.I18n.DefaultLocale != "" || len(created.I18n.AdditionalProperties) != 0 {
-		t.Fatalf("CreatePetDef() i18n = %#v, want empty", created.I18n)
-	}
 	if !reflect.DeepEqual(created.Spec, spec) {
 		t.Fatalf("CreatePetDef() changed core spec\n got: %#v\nwant: %#v", created.Spec, spec)
 	}
@@ -122,7 +90,7 @@ func testCatalog(t *testing.T, now time.Time) *Catalog {
 func seedGameplayCatalog(t *testing.T, ctx context.Context, catalog *Catalog) apitypes.RuntimeProfile {
 	t.Helper()
 	petResp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{Body: &adminhttp.PetDefUpsert{
-		Id: "petdef-basic", Spec: testPetDefSpec("Spark"), I18n: petDefI18nPtr("Spark"),
+		Id: "petdef-basic", Spec: testPetDefSpec("Spark"),
 	}})
 	if err != nil {
 		t.Fatalf("CreatePetDef() error = %v", err)
@@ -148,10 +116,18 @@ func seedGameplayCatalog(t *testing.T, ctx context.Context, catalog *Catalog) ap
 	models := map[string]apitypes.RuntimeProfileBinding{"reward": gameplayTestBinding("model-reward")}
 	gameDefs := map[string]apitypes.RuntimeProfileBinding{"basic": gameplayTestBinding("game-basic")}
 	badgeDefs := map[string]apitypes.RuntimeProfileBinding{"basic": gameplayTestBinding("badge-basic")}
-	pool := []apitypes.RuntimeProfilePetPoolEntry{{PetDef: "basic", Voice: "pet-voice", Weight: 10, AdoptionCost: &adoptionCost}}
+	pool := []apitypes.RuntimeProfilePetPoolEntry{{PetDef: "basic", Weight: 10, AdoptionCost: &adoptionCost}}
 	return apitypes.RuntimeProfile{
 		Name: "default",
 		Spec: apitypes.RuntimeProfileSpec{
+			Workflows: apitypes.RuntimeProfileWorkflows{
+				System: apitypes.RuntimeProfileSystemWorkflows{
+					FriendChatroom: "chatroom",
+					GroupChatroom:  "chatroom",
+					Pet:            "pet-care",
+				},
+				Collections: apitypes.RuntimeProfileWorkflowCollections{},
+			},
 			Resources: apitypes.RuntimeProfileResources{Models: &models, PetDefs: &petDefs, Voices: &voices, GameDefs: &gameDefs, BadgeDefs: &badgeDefs},
 			Gameplay: &apitypes.RuntimeProfileGameplaySpec{
 				Points:   &apitypes.RuntimeProfilePointsSpec{InitialBalance: &initialBalance},
@@ -201,24 +177,6 @@ type rewardEvaluatorFunc func(context.Context, RewardEvaluationRequest) (apitype
 
 func (fn rewardEvaluatorFunc) Evaluate(ctx context.Context, request RewardEvaluationRequest) (apitypes.GameRewardSpec, error) {
 	return fn(ctx, request)
-}
-
-func testPetDefI18n(displayName string) apitypes.PetDefI18nSpec {
-	description := "Test pet."
-	return apitypes.PetDefI18nSpec{
-		DefaultLocale: "en",
-		AdditionalProperties: map[string]apitypes.PetDefI18nCatalog{
-			"en": {
-				DisplayName: &displayName,
-				Description: &description,
-			},
-		},
-	}
-}
-
-func petDefI18nPtr(displayName string) *apitypes.PetDefI18nSpec {
-	value := testPetDefI18n(displayName)
-	return &value
 }
 
 func makeTestPixa(t *testing.T, clips []string, width uint16, height uint16) []byte {

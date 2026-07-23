@@ -6,10 +6,6 @@ metadata:
 spec:
   items:
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 000
     kind: Workflow
     metadata:
       name: flowcraft-scenario-000
@@ -30,10 +26,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 001
     kind: Workflow
     metadata:
       name: flowcraft-scenario-001
@@ -54,10 +46,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 002
     kind: Workflow
     metadata:
       name: flowcraft-scenario-002
@@ -78,10 +66,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 003
     kind: Workflow
     metadata:
       name: flowcraft-scenario-003
@@ -102,10 +86,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 004
     kind: Workflow
     metadata:
       name: flowcraft-scenario-004
@@ -126,10 +106,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 005
     kind: Workflow
     metadata:
       name: flowcraft-scenario-005
@@ -150,10 +126,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 006
     kind: Workflow
     metadata:
       name: flowcraft-scenario-006
@@ -174,10 +146,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 007
     kind: Workflow
     metadata:
       name: flowcraft-scenario-007
@@ -198,10 +166,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 008
     kind: Workflow
     metadata:
       name: flowcraft-scenario-008
@@ -222,10 +186,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 009
     kind: Workflow
     metadata:
       name: flowcraft-scenario-009
@@ -246,10 +206,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 010
     kind: Workflow
     metadata:
       name: flowcraft-scenario-010
@@ -270,10 +226,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 011
     kind: Workflow
     metadata:
       name: flowcraft-scenario-011
@@ -294,10 +246,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 012
     kind: Workflow
     metadata:
       name: flowcraft-scenario-012
@@ -318,10 +266,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 013
     kind: Workflow
     metadata:
       name: flowcraft-scenario-013
@@ -342,10 +286,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 014
     kind: Workflow
     metadata:
       name: flowcraft-scenario-014
@@ -366,10 +306,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 015
     kind: Workflow
     metadata:
       name: flowcraft-scenario-015
@@ -390,10 +326,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 016
     kind: Workflow
     metadata:
       name: flowcraft-scenario-016
@@ -414,10 +346,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 017
     kind: Workflow
     metadata:
       name: flowcraft-scenario-017
@@ -438,10 +366,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 018
     kind: Workflow
     metadata:
       name: flowcraft-scenario-018
@@ -462,10 +386,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 019
     kind: Workflow
     metadata:
       name: flowcraft-scenario-019
@@ -486,10 +406,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 020
     kind: Workflow
     metadata:
       name: flowcraft-scenario-020
@@ -510,10 +426,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 021
     kind: Workflow
     metadata:
       name: flowcraft-scenario-021
@@ -534,10 +446,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 022
     kind: Workflow
     metadata:
       name: flowcraft-scenario-022
@@ -558,10 +466,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 023
     kind: Workflow
     metadata:
       name: flowcraft-scenario-023
@@ -582,10 +486,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 024
     kind: Workflow
     metadata:
       name: flowcraft-scenario-024
@@ -606,10 +506,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 025
     kind: Workflow
     metadata:
       name: flowcraft-scenario-025
@@ -630,10 +526,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 026
     kind: Workflow
     metadata:
       name: flowcraft-scenario-026
@@ -654,10 +546,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 027
     kind: Workflow
     metadata:
       name: flowcraft-scenario-027
@@ -678,10 +566,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 028
     kind: Workflow
     metadata:
       name: flowcraft-scenario-028
@@ -702,10 +586,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 029
     kind: Workflow
     metadata:
       name: flowcraft-scenario-029
@@ -726,10 +606,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 030
     kind: Workflow
     metadata:
       name: flowcraft-scenario-030
@@ -750,10 +626,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 031
     kind: Workflow
     metadata:
       name: flowcraft-scenario-031
@@ -774,10 +646,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 032
     kind: Workflow
     metadata:
       name: flowcraft-scenario-032
@@ -798,10 +666,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 033
     kind: Workflow
     metadata:
       name: flowcraft-scenario-033
@@ -822,10 +686,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 034
     kind: Workflow
     metadata:
       name: flowcraft-scenario-034
@@ -846,10 +706,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 035
     kind: Workflow
     metadata:
       name: flowcraft-scenario-035
@@ -870,10 +726,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 036
     kind: Workflow
     metadata:
       name: flowcraft-scenario-036
@@ -894,10 +746,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 037
     kind: Workflow
     metadata:
       name: flowcraft-scenario-037
@@ -918,10 +766,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 038
     kind: Workflow
     metadata:
       name: flowcraft-scenario-038
@@ -942,10 +786,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 039
     kind: Workflow
     metadata:
       name: flowcraft-scenario-039
@@ -966,10 +806,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 040
     kind: Workflow
     metadata:
       name: flowcraft-scenario-040
@@ -990,10 +826,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 041
     kind: Workflow
     metadata:
       name: flowcraft-scenario-041
@@ -1014,10 +846,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 042
     kind: Workflow
     metadata:
       name: flowcraft-scenario-042
@@ -1038,10 +866,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 043
     kind: Workflow
     metadata:
       name: flowcraft-scenario-043
@@ -1062,10 +886,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 044
     kind: Workflow
     metadata:
       name: flowcraft-scenario-044
@@ -1086,10 +906,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 045
     kind: Workflow
     metadata:
       name: flowcraft-scenario-045
@@ -1110,10 +926,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 046
     kind: Workflow
     metadata:
       name: flowcraft-scenario-046
@@ -1134,10 +946,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 047
     kind: Workflow
     metadata:
       name: flowcraft-scenario-047
@@ -1158,10 +966,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 048
     kind: Workflow
     metadata:
       name: flowcraft-scenario-048
@@ -1182,10 +986,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 049
     kind: Workflow
     metadata:
       name: flowcraft-scenario-049
@@ -1206,10 +1006,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 050
     kind: Workflow
     metadata:
       name: flowcraft-scenario-050
@@ -1230,10 +1026,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 051
     kind: Workflow
     metadata:
       name: flowcraft-scenario-051
@@ -1254,10 +1046,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 052
     kind: Workflow
     metadata:
       name: flowcraft-scenario-052
@@ -1278,10 +1066,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 053
     kind: Workflow
     metadata:
       name: flowcraft-scenario-053
@@ -1302,10 +1086,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 054
     kind: Workflow
     metadata:
       name: flowcraft-scenario-054
@@ -1326,10 +1106,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 055
     kind: Workflow
     metadata:
       name: flowcraft-scenario-055
@@ -1350,10 +1126,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 056
     kind: Workflow
     metadata:
       name: flowcraft-scenario-056
@@ -1374,10 +1146,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 057
     kind: Workflow
     metadata:
       name: flowcraft-scenario-057
@@ -1398,10 +1166,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 058
     kind: Workflow
     metadata:
       name: flowcraft-scenario-058
@@ -1422,10 +1186,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 059
     kind: Workflow
     metadata:
       name: flowcraft-scenario-059
@@ -1446,10 +1206,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 060
     kind: Workflow
     metadata:
       name: flowcraft-scenario-060
@@ -1470,10 +1226,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 061
     kind: Workflow
     metadata:
       name: flowcraft-scenario-061
@@ -1494,10 +1246,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 062
     kind: Workflow
     metadata:
       name: flowcraft-scenario-062
@@ -1518,10 +1266,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 063
     kind: Workflow
     metadata:
       name: flowcraft-scenario-063
@@ -1542,10 +1286,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 064
     kind: Workflow
     metadata:
       name: flowcraft-scenario-064
@@ -1566,10 +1306,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 065
     kind: Workflow
     metadata:
       name: flowcraft-scenario-065
@@ -1590,10 +1326,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 066
     kind: Workflow
     metadata:
       name: flowcraft-scenario-066
@@ -1614,10 +1346,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 067
     kind: Workflow
     metadata:
       name: flowcraft-scenario-067
@@ -1638,10 +1366,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 068
     kind: Workflow
     metadata:
       name: flowcraft-scenario-068
@@ -1662,10 +1386,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 069
     kind: Workflow
     metadata:
       name: flowcraft-scenario-069
@@ -1686,10 +1406,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 070
     kind: Workflow
     metadata:
       name: flowcraft-scenario-070
@@ -1710,10 +1426,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 071
     kind: Workflow
     metadata:
       name: flowcraft-scenario-071
@@ -1734,10 +1446,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 072
     kind: Workflow
     metadata:
       name: flowcraft-scenario-072
@@ -1758,10 +1466,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 073
     kind: Workflow
     metadata:
       name: flowcraft-scenario-073
@@ -1782,10 +1486,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 074
     kind: Workflow
     metadata:
       name: flowcraft-scenario-074
@@ -1806,10 +1506,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 075
     kind: Workflow
     metadata:
       name: flowcraft-scenario-075
@@ -1830,10 +1526,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 076
     kind: Workflow
     metadata:
       name: flowcraft-scenario-076
@@ -1854,10 +1546,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 077
     kind: Workflow
     metadata:
       name: flowcraft-scenario-077
@@ -1878,10 +1566,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 078
     kind: Workflow
     metadata:
       name: flowcraft-scenario-078
@@ -1902,10 +1586,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 079
     kind: Workflow
     metadata:
       name: flowcraft-scenario-079
@@ -1926,10 +1606,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 080
     kind: Workflow
     metadata:
       name: flowcraft-scenario-080
@@ -1950,10 +1626,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 081
     kind: Workflow
     metadata:
       name: flowcraft-scenario-081
@@ -1974,10 +1646,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 082
     kind: Workflow
     metadata:
       name: flowcraft-scenario-082
@@ -1998,10 +1666,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 083
     kind: Workflow
     metadata:
       name: flowcraft-scenario-083
@@ -2022,10 +1686,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 084
     kind: Workflow
     metadata:
       name: flowcraft-scenario-084
@@ -2046,10 +1706,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 085
     kind: Workflow
     metadata:
       name: flowcraft-scenario-085
@@ -2070,10 +1726,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 086
     kind: Workflow
     metadata:
       name: flowcraft-scenario-086
@@ -2094,10 +1746,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 087
     kind: Workflow
     metadata:
       name: flowcraft-scenario-087
@@ -2118,10 +1766,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 088
     kind: Workflow
     metadata:
       name: flowcraft-scenario-088
@@ -2142,10 +1786,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 089
     kind: Workflow
     metadata:
       name: flowcraft-scenario-089
@@ -2166,10 +1806,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 090
     kind: Workflow
     metadata:
       name: flowcraft-scenario-090
@@ -2190,10 +1826,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 091
     kind: Workflow
     metadata:
       name: flowcraft-scenario-091
@@ -2214,10 +1846,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 092
     kind: Workflow
     metadata:
       name: flowcraft-scenario-092
@@ -2238,10 +1866,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 093
     kind: Workflow
     metadata:
       name: flowcraft-scenario-093
@@ -2262,10 +1886,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 094
     kind: Workflow
     metadata:
       name: flowcraft-scenario-094
@@ -2286,10 +1906,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 095
     kind: Workflow
     metadata:
       name: flowcraft-scenario-095
@@ -2310,10 +1926,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 096
     kind: Workflow
     metadata:
       name: flowcraft-scenario-096
@@ -2334,10 +1946,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 097
     kind: Workflow
     metadata:
       name: flowcraft-scenario-097
@@ -2358,10 +1966,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 098
     kind: Workflow
     metadata:
       name: flowcraft-scenario-098
@@ -2382,10 +1986,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 099
     kind: Workflow
     metadata:
       name: flowcraft-scenario-099
@@ -2406,10 +2006,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 100
     kind: Workflow
     metadata:
       name: flowcraft-scenario-100
@@ -2430,10 +2026,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 101
     kind: Workflow
     metadata:
       name: flowcraft-scenario-101
@@ -2454,10 +2046,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 102
     kind: Workflow
     metadata:
       name: flowcraft-scenario-102
@@ -2478,10 +2066,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 103
     kind: Workflow
     metadata:
       name: flowcraft-scenario-103
@@ -2502,10 +2086,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 104
     kind: Workflow
     metadata:
       name: flowcraft-scenario-104
@@ -2526,10 +2106,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 105
     kind: Workflow
     metadata:
       name: flowcraft-scenario-105
@@ -2550,10 +2126,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 106
     kind: Workflow
     metadata:
       name: flowcraft-scenario-106
@@ -2574,10 +2146,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 107
     kind: Workflow
     metadata:
       name: flowcraft-scenario-107
@@ -2598,10 +2166,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 108
     kind: Workflow
     metadata:
       name: flowcraft-scenario-108
@@ -2622,10 +2186,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 109
     kind: Workflow
     metadata:
       name: flowcraft-scenario-109
@@ -2646,10 +2206,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 110
     kind: Workflow
     metadata:
       name: flowcraft-scenario-110
@@ -2670,10 +2226,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 111
     kind: Workflow
     metadata:
       name: flowcraft-scenario-111
@@ -2694,10 +2246,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 112
     kind: Workflow
     metadata:
       name: flowcraft-scenario-112
@@ -2718,10 +2266,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 113
     kind: Workflow
     metadata:
       name: flowcraft-scenario-113
@@ -2742,10 +2286,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 114
     kind: Workflow
     metadata:
       name: flowcraft-scenario-114
@@ -2766,10 +2306,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 115
     kind: Workflow
     metadata:
       name: flowcraft-scenario-115
@@ -2790,10 +2326,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 116
     kind: Workflow
     metadata:
       name: flowcraft-scenario-116
@@ -2814,10 +2346,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 117
     kind: Workflow
     metadata:
       name: flowcraft-scenario-117
@@ -2838,10 +2366,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 118
     kind: Workflow
     metadata:
       name: flowcraft-scenario-118
@@ -2862,10 +2386,6 @@ spec:
             - from: passthrough
               to: __end__
   - apiVersion: gizclaw.admin/v1alpha1
-    i18n:
-      default_locale: en
-      en:
-        description: Flowcraft scenario 119
     kind: Workflow
     metadata:
       name: flowcraft-scenario-119

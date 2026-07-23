@@ -25,13 +25,14 @@ type ProfileRules struct {
 }
 
 type ProfileRulesSpec struct {
-	Actions    map[apitypes.PetBehavior]apitypes.RuntimeProfilePetActionSpec
-	BadgeDefs  map[string]string
-	Experience apitypes.RuntimeProfilePetExperienceSpec
-	Games      map[string]ProfileGameRule
-	PetPool    []ProfilePetPoolEntry
-	Points     *apitypes.RuntimeProfilePointsSpec
-	Time       apitypes.RuntimeProfilePetTimeSpec
+	Actions       map[apitypes.PetBehavior]apitypes.RuntimeProfilePetActionSpec
+	BadgeDefs     map[string]string
+	Experience    apitypes.RuntimeProfilePetExperienceSpec
+	Games         map[string]ProfileGameRule
+	PetPool       []ProfilePetPoolEntry
+	PetWorkflowID string
+	Points        *apitypes.RuntimeProfilePointsSpec
+	Time          apitypes.RuntimeProfilePetTimeSpec
 }
 
 type ProfileGameRule struct {
@@ -43,7 +44,6 @@ type ProfilePetPoolEntry struct {
 	AdoptionCost *int64
 	PetDefID     string
 	Rarity       *string
-	VoiceAlias   string
 	Weight       int64
 }
 
@@ -55,6 +55,10 @@ func profileRulesFromContext(ctx context.Context, requestedName string) (Profile
 	if gameplay.Pet == nil {
 		return ProfileRules{}, errors.New("gameplay: active RuntimeProfile has no pet gameplay configuration")
 	}
+	petWorkflowID := strings.TrimSpace(profile.Spec.Workflows.System.Pet)
+	if petWorkflowID == "" {
+		return ProfileRules{}, errors.New("gameplay: active RuntimeProfile has no system Pet Workflow")
+	}
 	pool := []ProfilePetPoolEntry{}
 	if gameplay.Adoption != nil && gameplay.Adoption.Pool != nil {
 		for _, entry := range *gameplay.Adoption.Pool {
@@ -62,14 +66,10 @@ func profileRulesFromContext(ctx context.Context, requestedName string) (Profile
 			if !exists {
 				continue
 			}
-			if _, exists := resourceAlias(profile.Spec.Resources.Voices, entry.Voice); !exists {
-				continue
-			}
 			pool = append(pool, ProfilePetPoolEntry{
 				AdoptionCost: entry.AdoptionCost,
 				PetDefID:     petDefID,
 				Rarity:       entry.Rarity,
-				VoiceAlias:   entry.Voice,
 				Weight:       entry.Weight,
 			})
 		}
@@ -95,12 +95,13 @@ func profileRulesFromContext(ctx context.Context, requestedName string) (Profile
 				apitypes.PetBehaviorPlay:  pet.Actions.Play,
 				apitypes.PetBehaviorHeal:  pet.Actions.Heal,
 			},
-			BadgeDefs:  resourceAliasMap(profile.Spec.Resources.BadgeDefs),
-			Experience: pet.Experience,
-			Games:      games,
-			PetPool:    pool,
-			Points:     gameplay.Points,
-			Time:       pet.Time,
+			BadgeDefs:     resourceAliasMap(profile.Spec.Resources.BadgeDefs),
+			Experience:    pet.Experience,
+			Games:         games,
+			PetPool:       pool,
+			PetWorkflowID: petWorkflowID,
+			Points:        gameplay.Points,
+			Time:          pet.Time,
 		},
 	}, nil
 }

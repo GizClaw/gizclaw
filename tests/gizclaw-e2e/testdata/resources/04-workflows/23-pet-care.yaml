@@ -5,4 +5,34 @@ metadata:
   name: pet-care
 spec:
   driver: pet
-  pet: {}
+  pet:
+    driver: flowcraft
+    flowcraft:
+      agent:
+        id: pet-e2e
+        name: Pet E2E
+        description: Response-producing Pet Workflow used by E2E coverage.
+        max_iterations: 4
+        graph:
+          name: pet-e2e
+          entry: answer
+          edges:
+          - from: answer
+            to: __end__
+          nodes:
+          - id: answer
+            type: llm
+            publish: true
+            config:
+              model: pet-chat
+              max_tokens: 256
+              system_prompt: 你是用户领养的宠物。用一句简短自然的中文回复，不要使用列表或解释测试流程。
+      conversation:
+        starts: peer
+      memory:
+        enabled: false
+      voice_adapter:
+        asr_model: pet-asr
+        default_voice: pet
+        node_voices:
+          answer: pet

@@ -262,6 +262,7 @@ export type AdminFriendCreateRequest = {
 export type AdminFriendGroupCreateRequest = {
     name: string;
     description?: string;
+    owner_public_key: string;
 };
 
 export type AdminFriendGroupPutRequest = {
@@ -304,7 +305,6 @@ export type GameDefList = {
 export type PetDefUpsert = {
     id: string;
     spec: PetDefSpec;
-    i18n?: PetDefI18nSpec;
 };
 
 export type BadgeDefUpsert = {
@@ -432,6 +432,10 @@ export type FriendGroupResource = {
 
 export type FriendGroupSpec = {
     /**
+     * Immutable owner Peer public key used to resolve the system Workflow.
+     */
+    owner_public_key: string;
+    /**
      * Display name for the friend group. metadata.name is the stable group id.
      */
     name: string;
@@ -519,7 +523,6 @@ export type PetDefResource = {
     kind: 'PetDef';
     metadata: ResourceMetadata;
     spec: PetDefSpec;
-    i18n?: PetDefI18nSpec;
 };
 
 export type RegistrationTokenResource = {
@@ -1020,7 +1023,6 @@ export type PetDef = {
     pixa_path?: string;
     created_at: string;
     updated_at: string;
-    i18n: PetDefI18nSpec;
 };
 
 export type PetDefBehaviorBindingsSpec = {
@@ -1032,16 +1034,6 @@ export type PetDefBehaviorBindingsSpec = {
 
 export type PetDefCharacterSpec = {
     prompt: string;
-};
-
-export type PetDefI18nCatalog = {
-    display_name?: string;
-    description?: string;
-};
-
-export type PetDefI18nSpec = {
-    default_locale: string;
-    [key: string]: PetDefI18nCatalog | string;
 };
 
 export type PetDefPixaCanvasMetadata = {
@@ -1643,7 +1635,6 @@ export type RuntimeProfilePetGameplaySpec = {
 
 export type RuntimeProfilePetPoolEntry = {
     pet_def: string;
-    voice: string;
     weight: number;
     rarity?: string;
     adoption_cost?: number;
@@ -1686,6 +1677,21 @@ export type RuntimeProfileSpec = {
     gameplay?: RuntimeProfileGameplaySpec;
 };
 
+export type RuntimeProfileSystemWorkflows = {
+    /**
+     * Persisted Workflow resource ID for direct friend chat Workspaces.
+     */
+    friend_chatroom: string;
+    /**
+     * Persisted Workflow resource ID for friend-group chat Workspaces.
+     */
+    group_chatroom: string;
+    /**
+     * Persisted Workflow resource ID for adopted Pet Workspaces.
+     */
+    pet: string;
+};
+
 export type RuntimeProfileWorkflowCollections = {
     [key: string]: {
         [key: string]: RuntimeProfileBinding;
@@ -1693,6 +1699,7 @@ export type RuntimeProfileWorkflowCollections = {
 };
 
 export type RuntimeProfileWorkflows = {
+    system: RuntimeProfileSystemWorkflows;
     collections: RuntimeProfileWorkflowCollections;
 };
 
@@ -2005,17 +2012,45 @@ export type Workflow = {
     spec: WorkflowSpec;
 };
 
-export type WorkflowDriver = 'flowcraft' | 'doubao-realtime' | 'ast-translate' | 'chatroom' | 'pet';
-
-export type WorkflowSpec = {
-    driver: WorkflowDriver;
+export type PetWorkflowVariant = {
+    driver: 'pet';
     toolkit?: ToolkitPolicy;
-    flowcraft?: FlowcraftWorkflowSpec;
-    doubao_realtime?: DoubaoRealtimeWorkflowSpec;
-    ast_translate?: AstTranslateWorkflowSpec;
-    chatroom?: ChatRoomWorkflowSpec;
-    pet?: PetWorkflowSpec;
+    pet: ReusableWorkflowSpec;
 };
+
+export type ReusableAstTranslateWorkflowVariant = {
+    driver: 'ast-translate';
+    toolkit?: ToolkitPolicy;
+    ast_translate: AstTranslateWorkflowSpec;
+};
+
+export type ReusableChatroomWorkflowVariant = {
+    driver: 'chatroom';
+    toolkit?: ToolkitPolicy;
+    chatroom: ChatRoomWorkflowSpec;
+};
+
+export type ReusableDoubaoRealtimeWorkflowVariant = {
+    driver: 'doubao-realtime';
+    toolkit?: ToolkitPolicy;
+    doubao_realtime: DoubaoRealtimeWorkflowSpec;
+};
+
+export type ReusableFlowcraftWorkflowVariant = {
+    driver: 'flowcraft';
+    toolkit?: ToolkitPolicy;
+    flowcraft: FlowcraftWorkflowSpec;
+};
+
+/**
+ * Reusable non-Pet Workflow union used directly and below the Pet domain wrapper.
+ */
+export type ReusableWorkflowSpec = ReusableFlowcraftWorkflowVariant | ReusableDoubaoRealtimeWorkflowVariant | ReusableAstTranslateWorkflowVariant | ReusableChatroomWorkflowVariant;
+
+/**
+ * Workflow union: one reusable non-Pet variant or the Pet domain wrapper.
+ */
+export type WorkflowSpec = ReusableWorkflowSpec | PetWorkflowVariant;
 
 export type AstTranslateExternalVoiceParameters = {
     /**
@@ -2391,14 +2426,10 @@ export type FlowcraftWorkflowSpec = {
     voice_adapter?: FlowcraftVoiceAdapter;
 };
 
-export type PetWorkflowSpec = {
-    [key: string]: never;
-};
-
 export type Workspace = {
     name: string;
     /**
-     * Immutable Public Key of the Client that created this Workspace. System and Admin-created Workspaces may omit it.
+     * Immutable owner Peer public key. Domain-created system Workspaces always persist it.
      */
     readonly owner_public_key?: string;
     /**
@@ -2526,39 +2557,6 @@ export type FlowcraftWorkspaceParameters = {
     e2e?: boolean;
 };
 
-export type PetConversationParameters = {
-    /**
-     * Who starts the conversation when the workspace runtime opens.
-     */
-    initiative?: 'peer' | 'agent';
-};
-
-export type PetPersonaParameters = {
-    /**
-     * Workspace-specific personality prompt appended to the PetDef character prompt.
-     */
-    prompt?: string;
-};
-
-export type PetVoiceParameters = {
-    /**
-     * RuntimeProfile Voice alias used for this pet.
-     */
-    voice_id: string;
-    /**
-     * Workspace-specific speaking style prompt appended to the PetDef voice prompt.
-     */
-    prompt?: string;
-};
-
-export type PetWorkspaceParameters = {
-    agent_type: 'pet';
-    input?: WorkspaceInputMode;
-    conversation?: PetConversationParameters;
-    persona?: PetPersonaParameters;
-    voice: PetVoiceParameters;
-};
-
 export type WorkspaceInputMode = 'push-to-talk' | 'realtime';
 
 /**
@@ -2572,9 +2570,7 @@ export type WorkspaceParameters = ({
     agent_type: 'ast-translate';
 } & AstTranslateWorkspaceParameters) | ({
     agent_type: 'chatroom';
-} & ChatRoomWorkspaceParameters) | ({
-    agent_type: 'pet';
-} & PetWorkspaceParameters);
+} & ChatRoomWorkspaceParameters);
 
 export type WorkspaceSpec = {
     /**

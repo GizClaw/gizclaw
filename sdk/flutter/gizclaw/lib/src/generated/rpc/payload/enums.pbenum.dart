@@ -494,65 +494,6 @@ class FlowcraftWorkspaceParametersAgentType extends $pb.ProtobufEnum {
   const FlowcraftWorkspaceParametersAgentType._(super.value, super.name);
 }
 
-class PetConversationParametersInitiative extends $pb.ProtobufEnum {
-  static const PetConversationParametersInitiative
-      PET_CONVERSATION_PARAMETERS_INITIATIVE_UNSPECIFIED =
-      PetConversationParametersInitiative._(
-          0,
-          _omitEnumNames
-              ? ''
-              : 'PET_CONVERSATION_PARAMETERS_INITIATIVE_UNSPECIFIED');
-  static const PetConversationParametersInitiative
-      PET_CONVERSATION_PARAMETERS_INITIATIVE_PEER =
-      PetConversationParametersInitiative._(1,
-          _omitEnumNames ? '' : 'PET_CONVERSATION_PARAMETERS_INITIATIVE_PEER');
-  static const PetConversationParametersInitiative
-      PET_CONVERSATION_PARAMETERS_INITIATIVE_AGENT =
-      PetConversationParametersInitiative._(2,
-          _omitEnumNames ? '' : 'PET_CONVERSATION_PARAMETERS_INITIATIVE_AGENT');
-
-  static const $core.List<PetConversationParametersInitiative> values =
-      <PetConversationParametersInitiative>[
-    PET_CONVERSATION_PARAMETERS_INITIATIVE_UNSPECIFIED,
-    PET_CONVERSATION_PARAMETERS_INITIATIVE_PEER,
-    PET_CONVERSATION_PARAMETERS_INITIATIVE_AGENT,
-  ];
-
-  static final $core.List<PetConversationParametersInitiative?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 2);
-  static PetConversationParametersInitiative? valueOf($core.int value) =>
-      value < 0 || value >= _byValue.length ? null : _byValue[value];
-
-  const PetConversationParametersInitiative._(super.value, super.name);
-}
-
-class PetWorkspaceParametersAgentType extends $pb.ProtobufEnum {
-  static const PetWorkspaceParametersAgentType
-      PET_WORKSPACE_PARAMETERS_AGENT_TYPE_UNSPECIFIED =
-      PetWorkspaceParametersAgentType._(
-          0,
-          _omitEnumNames
-              ? ''
-              : 'PET_WORKSPACE_PARAMETERS_AGENT_TYPE_UNSPECIFIED');
-  static const PetWorkspaceParametersAgentType
-      PET_WORKSPACE_PARAMETERS_AGENT_TYPE_PET =
-      PetWorkspaceParametersAgentType._(
-          1, _omitEnumNames ? '' : 'PET_WORKSPACE_PARAMETERS_AGENT_TYPE_PET');
-
-  static const $core.List<PetWorkspaceParametersAgentType> values =
-      <PetWorkspaceParametersAgentType>[
-    PET_WORKSPACE_PARAMETERS_AGENT_TYPE_UNSPECIFIED,
-    PET_WORKSPACE_PARAMETERS_AGENT_TYPE_PET,
-  ];
-
-  static final $core.List<PetWorkspaceParametersAgentType?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 1);
-  static PetWorkspaceParametersAgentType? valueOf($core.int value) =>
-      value < 0 || value >= _byValue.length ? null : _byValue[value];
-
-  const PetWorkspaceParametersAgentType._(super.value, super.name);
-}
-
 class FriendGroupMemberMutableRole extends $pb.ProtobufEnum {
   static const FriendGroupMemberMutableRole
       FRIEND_GROUP_MEMBER_MUTABLE_ROLE_UNSPECIFIED =
@@ -861,6 +802,40 @@ class WorkflowDriver extends $pb.ProtobufEnum {
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 
   const WorkflowDriver._(super.value, super.name);
+}
+
+class ReusableWorkflowDriver extends $pb.ProtobufEnum {
+  static const ReusableWorkflowDriver REUSABLE_WORKFLOW_DRIVER_UNSPECIFIED =
+      ReusableWorkflowDriver._(
+          0, _omitEnumNames ? '' : 'REUSABLE_WORKFLOW_DRIVER_UNSPECIFIED');
+  static const ReusableWorkflowDriver REUSABLE_WORKFLOW_DRIVER_FLOWCRAFT =
+      ReusableWorkflowDriver._(
+          1, _omitEnumNames ? '' : 'REUSABLE_WORKFLOW_DRIVER_FLOWCRAFT');
+  static const ReusableWorkflowDriver REUSABLE_WORKFLOW_DRIVER_DOUBAO_REALTIME =
+      ReusableWorkflowDriver._(
+          2, _omitEnumNames ? '' : 'REUSABLE_WORKFLOW_DRIVER_DOUBAO_REALTIME');
+  static const ReusableWorkflowDriver REUSABLE_WORKFLOW_DRIVER_AST_TRANSLATE =
+      ReusableWorkflowDriver._(
+          3, _omitEnumNames ? '' : 'REUSABLE_WORKFLOW_DRIVER_AST_TRANSLATE');
+  static const ReusableWorkflowDriver REUSABLE_WORKFLOW_DRIVER_CHATROOM =
+      ReusableWorkflowDriver._(
+          4, _omitEnumNames ? '' : 'REUSABLE_WORKFLOW_DRIVER_CHATROOM');
+
+  static const $core.List<ReusableWorkflowDriver> values =
+      <ReusableWorkflowDriver>[
+    REUSABLE_WORKFLOW_DRIVER_UNSPECIFIED,
+    REUSABLE_WORKFLOW_DRIVER_FLOWCRAFT,
+    REUSABLE_WORKFLOW_DRIVER_DOUBAO_REALTIME,
+    REUSABLE_WORKFLOW_DRIVER_AST_TRANSLATE,
+    REUSABLE_WORKFLOW_DRIVER_CHATROOM,
+  ];
+
+  static final $core.List<ReusableWorkflowDriver?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 4);
+  static ReusableWorkflowDriver? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const ReusableWorkflowDriver._(super.value, super.name);
 }
 
 class WorkspaceHistoryListRequestOrder extends $pb.ProtobufEnum {

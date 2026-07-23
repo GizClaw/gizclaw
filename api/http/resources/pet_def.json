@@ -31,9 +31,6 @@
           },
           "spec": {
             "$ref": "../shared/gameplay.json#/components/schemas/PetDefSpec"
-          },
-          "i18n": {
-            "$ref": "../shared/gameplay.json#/components/schemas/PetDefI18nSpec"
           }
         }
       }

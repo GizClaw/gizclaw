@@ -256,7 +256,7 @@ func TestDanglingRuntimeProfileResourceNamesAreRejected(t *testing.T) {
 	response, err := s.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
 		Name: "pet-runtime",
 		Spec: apitypes.RuntimeProfileSpec{
-			Workflows: apitypes.RuntimeProfileWorkflows{Collections: apitypes.RuntimeProfileWorkflowCollections{
+			Workflows: apitypes.RuntimeProfileWorkflows{System: runtimeProfileTestSystemWorkflows(), Collections: apitypes.RuntimeProfileWorkflowCollections{
 				"assistants": {"missing": runtimeProfileTestBinding("missing-workflow")},
 			}},
 			Resources: apitypes.RuntimeProfileResources{Models: new(map[string]apitypes.RuntimeProfileBinding{"missing": runtimeProfileTestBinding("missing-model")})},
@@ -267,6 +267,44 @@ func TestDanglingRuntimeProfileResourceNamesAreRejected(t *testing.T) {
 	}
 	if _, ok := response.(adminhttp.CreateRuntimeProfile400JSONResponse); !ok {
 		t.Fatalf("response = %#v, want invalid resource", response)
+	}
+}
+
+func TestNormalizeProfileRequiresAndTrimsSystemWorkflowIDs(t *testing.T) {
+	t.Parallel()
+	base := adminhttp.RuntimeProfileUpsert{
+		Name: "test-profile",
+		Spec: apitypes.RuntimeProfileSpec{
+			Workflows: apitypes.RuntimeProfileWorkflows{
+				System: apitypes.RuntimeProfileSystemWorkflows{
+					FriendChatroom: " chatroom ",
+					GroupChatroom:  " chatroom ",
+					Pet:            " pet-care ",
+				},
+				Collections: apitypes.RuntimeProfileWorkflowCollections{},
+			},
+		},
+	}
+	normalized, err := normalizeProfile(base, "")
+	if err != nil {
+		t.Fatalf("normalizeProfile() error = %v", err)
+	}
+	if got := normalized.Spec.Workflows.System; got.FriendChatroom != "chatroom" || got.GroupChatroom != "chatroom" || got.Pet != "pet-care" {
+		t.Fatalf("normalized system Workflows = %#v", got)
+	}
+	for _, field := range []string{"friend_chatroom", "group_chatroom", "pet"} {
+		invalid := base
+		switch field {
+		case "friend_chatroom":
+			invalid.Spec.Workflows.System.FriendChatroom = " "
+		case "group_chatroom":
+			invalid.Spec.Workflows.System.GroupChatroom = " "
+		case "pet":
+			invalid.Spec.Workflows.System.Pet = " "
+		}
+		if _, err := normalizeProfile(invalid, ""); err == nil || !strings.Contains(err.Error(), "workflows.system."+field) {
+			t.Fatalf("normalizeProfile(empty %s) error = %v", field, err)
+		}
 	}
 }
 
@@ -288,7 +326,7 @@ func TestRuntimeProfileRejectsResolverReturningWrongResourceKind(t *testing.T) {
 	response, err := s.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
 		Name: "test-profile",
 		Spec: apitypes.RuntimeProfileSpec{
-			Workflows: apitypes.RuntimeProfileWorkflows{Collections: apitypes.RuntimeProfileWorkflowCollections{}},
+			Workflows: apitypes.RuntimeProfileWorkflows{System: runtimeProfileTestSystemWorkflows(), Collections: apitypes.RuntimeProfileWorkflowCollections{}},
 			Resources: apitypes.RuntimeProfileResources{Models: &models},
 		},
 	}})
@@ -318,6 +356,31 @@ func TestValidateFlowcraftRuntimeAliasesRejectsWrongModelKindAndMissingVoice(t *
 	workflow.Flowcraft = runtimeProfileTestFlowcraftSpec(t, "generate-model", "missing-voice")
 	if err := validateWorkflowRuntimeAliases("workflows.collections.raids.demo", workflow, models, &voices); err == nil || !strings.Contains(err.Error(), "not declared in resources.voices") {
 		t.Fatalf("validateWorkflowRuntimeAliases(missing voice) error = %v", err)
+	}
+}
+
+func TestValidateChatroomRuntimeAliasesRequiresASRWhenTranscriptionIsEnabled(t *testing.T) {
+	t.Parallel()
+	enabled := true
+	workflow := apitypes.WorkflowSpec{
+		Driver: apitypes.WorkflowDriverChatroom,
+		Chatroom: &apitypes.ChatRoomWorkflowSpec{
+			History:    apitypes.ChatRoomWorkflowHistorySpec{},
+			Transcript: &apitypes.ChatRoomWorkflowTranscriptSpec{Enabled: &enabled},
+		},
+	}
+	if err := validateWorkflowRuntimeAliases("workflows.system.friend_chatroom", workflow, nil, nil); err == nil || !strings.Contains(err.Error(), "asr_model is required") {
+		t.Fatalf("validateWorkflowRuntimeAliases(missing ASR alias) error = %v", err)
+	}
+	asr := "asr"
+	workflow.Chatroom.Transcript.AsrModel = &asr
+	models := map[string]apitypes.ModelResource{"asr": {Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindLlm}}}
+	if err := validateWorkflowRuntimeAliases("workflows.system.friend_chatroom", workflow, models, nil); err == nil || !strings.Contains(err.Error(), `want "asr"`) {
+		t.Fatalf("validateWorkflowRuntimeAliases(wrong ASR kind) error = %v", err)
+	}
+	models["asr"] = apitypes.ModelResource{Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindAsr}}
+	if err := validateWorkflowRuntimeAliases("workflows.system.friend_chatroom", workflow, models, nil); err != nil {
+		t.Fatalf("validateWorkflowRuntimeAliases(valid ASR alias) error = %v", err)
 	}
 }
 
@@ -393,39 +456,27 @@ func TestValidateVoiceProducingWorkflowsRequireRuntimeVoiceAliases(t *testing.T)
 
 func TestValidatePetRuntimeAliases(t *testing.T) {
 	t.Parallel()
-	pet := apitypes.PetWorkflowSpec{}
+	pet := apitypes.PetWorkflowSpec{
+		Driver:    apitypes.ReusableWorkflowDriverFlowcraft,
+		Flowcraft: runtimeProfileTestFlowcraftSpec(t, "pet-chat", "pet-voice"),
+	}
 	workflow := apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverPet, Pet: &pet}
 	models := map[string]apitypes.ModelResource{
-		"pet-chat":    {Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindLlm}},
-		"pet-extract": {Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindLlm}},
+		"pet-chat": {Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindLlm}},
 	}
-	if err := validateWorkflowRuntimeAliases("workflows.collections.pets.demo", workflow, models, nil); err == nil || !strings.Contains(err.Error(), "pet-asr") {
-		t.Fatalf("validateWorkflowRuntimeAliases(missing pet ASR) error = %v", err)
+	if err := validateWorkflowRuntimeAliases("workflows.system.pet", workflow, models, nil); err == nil || !strings.Contains(err.Error(), "pet-voice") {
+		t.Fatalf("validateWorkflowRuntimeAliases(missing nested voice) error = %v", err)
 	}
-	models["pet-asr"] = apitypes.ModelResource{Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindLlm}}
-	if err := validateWorkflowRuntimeAliases("workflows.collections.pets.demo", workflow, models, nil); err == nil || !strings.Contains(err.Error(), "want \"asr\"") {
-		t.Fatalf("validateWorkflowRuntimeAliases(wrong pet ASR kind) error = %v", err)
-	}
-	models["pet-asr"] = apitypes.ModelResource{Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindAsr}}
-	if err := validateWorkflowRuntimeAliases("workflows.collections.pets.demo", workflow, models, nil); err != nil {
-		t.Fatalf("validateWorkflowRuntimeAliases(valid pet aliases) error = %v", err)
+	voices := map[string]apitypes.RuntimeProfileBinding{"pet-voice": runtimeProfileTestBinding("voice-a")}
+	if err := validateWorkflowRuntimeAliases("workflows.system.pet", workflow, models, &voices); err != nil {
+		t.Fatalf("validateWorkflowRuntimeAliases(valid nested aliases) error = %v", err)
 	}
 }
 
-func TestPetGameplayRequiresRuntimeAliases(t *testing.T) {
+func TestPetGameplayValidatesConfiguredRewardModels(t *testing.T) {
 	t.Parallel()
 	pet := validPetGameplaySpecForTest()
-	models := map[string]apitypes.ModelResource{
-		"pet-chat":    {Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindLlm}},
-		"pet-extract": {Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindLlm}},
-	}
-	if err := requirePetRuntimeAliases("gameplay.pet", models); err == nil || !strings.Contains(err.Error(), "pet-asr") {
-		t.Fatalf("requirePetRuntimeAliases(missing pet ASR) error = %v", err)
-	}
-	models["pet-asr"] = apitypes.ModelResource{Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindAsr}}
-	if err := requirePetRuntimeAliases("gameplay.pet", models); err != nil {
-		t.Fatalf("requirePetRuntimeAliases(valid aliases) error = %v", err)
-	}
+	models := map[string]apitypes.ModelResource{}
 	if err := validatePetRewardModels(pet, models); err != nil {
 		t.Fatalf("validatePetRewardModels() error = %v", err)
 	}
@@ -439,7 +490,7 @@ func TestRuntimeProfileRejectsAliasesSharedAcrossResourceKinds(t *testing.T) {
 	response, err := s.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
 		Name: "test-profile",
 		Spec: apitypes.RuntimeProfileSpec{
-			Workflows: apitypes.RuntimeProfileWorkflows{Collections: apitypes.RuntimeProfileWorkflowCollections{}},
+			Workflows: apitypes.RuntimeProfileWorkflows{System: runtimeProfileTestSystemWorkflows(), Collections: apitypes.RuntimeProfileWorkflowCollections{}},
 			Resources: apitypes.RuntimeProfileResources{Models: &models, Voices: &voices},
 		},
 	}})
@@ -456,6 +507,7 @@ func TestRuntimeProfileRejectsWorkflowCollectionsDuplicatedAfterNormalization(t 
 	_, err := normalizeProfile(adminhttp.RuntimeProfileUpsert{
 		Name: "test-profile",
 		Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{
+			System: runtimeProfileTestSystemWorkflows(),
 			Collections: apitypes.RuntimeProfileWorkflowCollections{
 				"assistants":   {},
 				" assistants ": {},
@@ -470,11 +522,11 @@ func TestRuntimeProfileRejectsInvalidGameplayReferences(t *testing.T) {
 	t.Parallel()
 	s := &Server{Store: kv.NewMemory(nil)}
 	petDefs := map[string]apitypes.RuntimeProfileBinding{"pet": runtimeProfileTestBinding("petdef-basic")}
-	pool := []apitypes.RuntimeProfilePetPoolEntry{{PetDef: "pet", Voice: "missing", Weight: 1}}
+	pool := []apitypes.RuntimeProfilePetPoolEntry{{PetDef: "missing", Weight: 1}}
 	response, err := s.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
 		Name: "test-profile",
 		Spec: apitypes.RuntimeProfileSpec{
-			Workflows: apitypes.RuntimeProfileWorkflows{Collections: apitypes.RuntimeProfileWorkflowCollections{}},
+			Workflows: apitypes.RuntimeProfileWorkflows{System: runtimeProfileTestSystemWorkflows(), Collections: apitypes.RuntimeProfileWorkflowCollections{}},
 			Resources: apitypes.RuntimeProfileResources{PetDefs: &petDefs},
 			Gameplay:  &apitypes.RuntimeProfileGameplaySpec{Adoption: &apitypes.RuntimeProfileAdoptionSpec{Pool: &pool}},
 		},
@@ -483,17 +535,17 @@ func TestRuntimeProfileRejectsInvalidGameplayReferences(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, ok := response.(adminhttp.CreateRuntimeProfile400JSONResponse); !ok {
-		t.Fatalf("response = %#v, want undeclared adoption voice rejection", response)
+		t.Fatalf("response = %#v, want undeclared adoption PetDef rejection", response)
 	}
 }
 
 func TestRuntimeProfileRequiresPetPolicyForAdoption(t *testing.T) {
 	t.Parallel()
-	pool := []apitypes.RuntimeProfilePetPoolEntry{{PetDef: "pet", Voice: "voice", Weight: 1}}
+	pool := []apitypes.RuntimeProfilePetPoolEntry{{PetDef: "pet", Weight: 1}}
 	_, err := normalizeProfile(adminhttp.RuntimeProfileUpsert{
 		Name: "test-profile",
 		Spec: apitypes.RuntimeProfileSpec{
-			Workflows: apitypes.RuntimeProfileWorkflows{Collections: apitypes.RuntimeProfileWorkflowCollections{}},
+			Workflows: apitypes.RuntimeProfileWorkflows{System: runtimeProfileTestSystemWorkflows(), Collections: apitypes.RuntimeProfileWorkflowCollections{}},
 			Gameplay:  &apitypes.RuntimeProfileGameplaySpec{Adoption: &apitypes.RuntimeProfileAdoptionSpec{Pool: &pool}},
 		},
 	}, "")
@@ -577,7 +629,12 @@ func TestRuntimeProfileAcceptsDefaultName(t *testing.T) {
 	s := &Server{Store: kv.NewMemory(nil)}
 	response, err := s.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
 		Name: "default",
-		Spec: apitypes.RuntimeProfileSpec{},
+		Spec: apitypes.RuntimeProfileSpec{
+			Workflows: apitypes.RuntimeProfileWorkflows{
+				System:      runtimeProfileTestSystemWorkflows(),
+				Collections: apitypes.RuntimeProfileWorkflowCollections{},
+			},
+		},
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -588,8 +645,133 @@ func TestRuntimeProfileAcceptsDefaultName(t *testing.T) {
 	}
 }
 
+func TestResolveProfileRevalidatesCurrentSystemWorkflows(t *testing.T) {
+	t.Parallel()
+	s := &Server{Store: kv.NewMemory(nil)}
+	createProfile(t, s, "owner-profile", nil)
+	s.ResolveResource = func(_ context.Context, kind apitypes.ResourceKind, resourceName string) (apitypes.Resource, error) {
+		if kind != apitypes.ResourceKindWorkflow {
+			return apitypes.Resource{}, kv.ErrNotFound
+		}
+		spec := apitypes.WorkflowSpec{
+			Driver:   apitypes.WorkflowDriverChatroom,
+			Chatroom: &apitypes.ChatRoomWorkflowSpec{History: apitypes.ChatRoomWorkflowHistorySpec{}},
+		}
+		if resourceName == "chatroom" {
+			spec = apitypes.WorkflowSpec{
+				Driver: apitypes.WorkflowDriverPet,
+				Pet: &apitypes.PetWorkflowSpec{
+					Driver:   apitypes.ReusableWorkflowDriverChatroom,
+					Chatroom: &apitypes.ChatRoomWorkflowSpec{History: apitypes.ChatRoomWorkflowHistorySpec{}},
+				},
+			}
+		}
+		var resource apitypes.Resource
+		if err := resource.FromWorkflowResource(apitypes.WorkflowResource{
+			ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
+			Kind:       apitypes.WorkflowResourceKindWorkflow,
+			Metadata:   apitypes.ResourceMetadata{Name: resourceName},
+			Spec:       spec,
+		}); err != nil {
+			t.Fatal(err)
+		}
+		return resource, nil
+	}
+	if _, err := s.ResolveProfile(t.Context(), "owner-profile"); err == nil || !strings.Contains(err.Error(), `workflows.system.friend_chatroom "chatroom" has driver "pet"`) {
+		t.Fatalf("ResolveProfile() error = %v, want current system Workflow validation", err)
+	}
+}
+
+func TestOwnerProfileBindingSurvivesConnectionLifetimeAndLoadsCurrentRevision(t *testing.T) {
+	t.Parallel()
+	s := &Server{Store: kv.NewMemory(nil)}
+	createProfile(t, s, "owner-profile", nil)
+	if err := s.BindOwnerProfile(t.Context(), " peer-a ", " owner-profile "); err != nil {
+		t.Fatalf("BindOwnerProfile() error = %v", err)
+	}
+	first, err := s.ResolveOwnerProfile(t.Context(), "peer-a")
+	if err != nil || first.Name != "owner-profile" {
+		t.Fatalf("ResolveOwnerProfile() = %#v, %v", first, err)
+	}
+	updated := adminhttp.RuntimeProfileUpsert{Name: first.Name, Spec: first.Spec}
+	updated.Spec.Workflows.System.Pet = "pet-care-v2"
+	previousResolver := s.ResolveResource
+	s.ResolveResource = func(ctx context.Context, kind apitypes.ResourceKind, name string) (apitypes.Resource, error) {
+		if kind == apitypes.ResourceKindWorkflow && name == "pet-care-v2" {
+			var resource apitypes.Resource
+			err := resource.FromWorkflowResource(apitypes.WorkflowResource{
+				ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
+				Kind:       apitypes.WorkflowResourceKindWorkflow,
+				Metadata:   apitypes.ResourceMetadata{Name: name},
+				Spec: apitypes.WorkflowSpec{
+					Driver: apitypes.WorkflowDriverPet,
+					Pet: &apitypes.PetWorkflowSpec{
+						Driver:   apitypes.ReusableWorkflowDriverChatroom,
+						Chatroom: &apitypes.ChatRoomWorkflowSpec{History: apitypes.ChatRoomWorkflowHistorySpec{}},
+					},
+				},
+			})
+			return resource, err
+		}
+		return previousResolver(ctx, kind, name)
+	}
+	response, err := s.PutRuntimeProfile(t.Context(), adminhttp.PutRuntimeProfileRequestObject{Name: first.Name, Body: &updated})
+	if err != nil {
+		t.Fatalf("PutRuntimeProfile() error = %v", err)
+	}
+	if _, ok := response.(adminhttp.PutRuntimeProfile200JSONResponse); !ok {
+		t.Fatalf("PutRuntimeProfile() response = %#v", response)
+	}
+	current, err := s.ResolveOwnerProfile(t.Context(), "peer-a")
+	if err != nil {
+		t.Fatalf("ResolveOwnerProfile(updated) error = %v", err)
+	}
+	if current.Spec.Workflows.System.Pet != "pet-care-v2" || current.Revision == first.Revision {
+		t.Fatalf("ResolveOwnerProfile(updated) = %#v, initial revision %q", current, first.Revision)
+	}
+}
+
 func createProfile(t *testing.T, s *Server, name string, models map[string]string) {
 	t.Helper()
+	previousResolver := s.ResolveResource
+	s.ResolveResource = func(ctx context.Context, kind apitypes.ResourceKind, resourceName string) (apitypes.Resource, error) {
+		if kind == apitypes.ResourceKindWorkflow {
+			driver := apitypes.WorkflowDriverChatroom
+			spec := apitypes.WorkflowSpec{Driver: driver, Chatroom: &apitypes.ChatRoomWorkflowSpec{History: apitypes.ChatRoomWorkflowHistorySpec{}}}
+			if resourceName == "pet-care" {
+				driver = apitypes.WorkflowDriverPet
+				spec = apitypes.WorkflowSpec{
+					Driver: driver,
+					Pet: &apitypes.PetWorkflowSpec{
+						Driver:   apitypes.ReusableWorkflowDriverChatroom,
+						Chatroom: &apitypes.ChatRoomWorkflowSpec{History: apitypes.ChatRoomWorkflowHistorySpec{}},
+					},
+				}
+			}
+			var resource apitypes.Resource
+			err := resource.FromWorkflowResource(apitypes.WorkflowResource{
+				ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
+				Kind:       apitypes.WorkflowResourceKindWorkflow,
+				Metadata:   apitypes.ResourceMetadata{Name: resourceName},
+				Spec:       spec,
+			})
+			return resource, err
+		}
+		if kind == apitypes.ResourceKindModel {
+			var resource apitypes.Resource
+			err := resource.FromModelResource(apitypes.ModelResource{
+				ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
+				Kind:       apitypes.ModelResourceKindModel,
+				Metadata:   apitypes.ResourceMetadata{Name: resourceName},
+				Spec:       apitypes.ModelSpec{Kind: apitypes.ModelKindLlm},
+			})
+			return resource, err
+		}
+		if previousResolver != nil {
+			return previousResolver(ctx, kind, resourceName)
+		}
+		return apitypes.Resource{}, kv.ErrNotFound
+	}
 	resources := apitypes.RuntimeProfileResources{}
 	if models != nil {
 		bindings := make(map[string]apitypes.RuntimeProfileBinding, len(models))
@@ -599,7 +781,13 @@ func createProfile(t *testing.T, s *Server, name string, models map[string]strin
 		resources.Models = &bindings
 	}
 	response, err := s.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
-		Name: name, Spec: apitypes.RuntimeProfileSpec{Resources: resources},
+		Name: name, Spec: apitypes.RuntimeProfileSpec{
+			Workflows: apitypes.RuntimeProfileWorkflows{
+				System:      runtimeProfileTestSystemWorkflows(),
+				Collections: apitypes.RuntimeProfileWorkflowCollections{},
+			},
+			Resources: resources,
+		},
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -613,6 +801,14 @@ func runtimeProfileTestBinding(resourceID string) apitypes.RuntimeProfileBinding
 	return apitypes.RuntimeProfileBinding{ResourceId: resourceID, I18n: map[string]apitypes.RuntimeProfileI18nText{
 		"en": {DisplayName: "Test"}, "zh-CN": {DisplayName: "测试"},
 	}}
+}
+
+func runtimeProfileTestSystemWorkflows() apitypes.RuntimeProfileSystemWorkflows {
+	return apitypes.RuntimeProfileSystemWorkflows{
+		FriendChatroom: "chatroom",
+		GroupChatroom:  "chatroom",
+		Pet:            "pet-care",
+	}
 }
 
 func runtimeProfileTestFlowcraftSpec(t *testing.T, modelAlias, voiceAlias string) *apitypes.FlowcraftWorkflowSpec {

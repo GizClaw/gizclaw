@@ -15,6 +15,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
@@ -25,13 +26,14 @@ type WorkspaceService interface {
 }
 
 type Server struct {
-	Groups        kv.Store
-	InviteTokens  kv.Store
-	Members       kv.Store
-	Belongs       kv.Store
-	Messages      kv.Store
-	MessageAssets objectstore.ObjectStore
-	Workspaces    WorkspaceService
+	Groups                 kv.Store
+	InviteTokens           kv.Store
+	Members                kv.Store
+	Belongs                kv.Store
+	Messages               kv.Store
+	MessageAssets          objectstore.ObjectStore
+	Workspaces             WorkspaceService
+	RuntimeProfileForOwner func(context.Context, string) (apitypes.RuntimeProfile, error)
 
 	MessageDefaultTTL    time.Duration
 	MessageMaxTTL        time.Duration
@@ -71,7 +73,7 @@ func (s *Server) CreateFriendGroup(ctx context.Context, owner string, req rpcapi
 		CreatedAt:              &now,
 		UpdatedAt:              &now,
 	}
-	createdWorkspace, err := s.ensureGroupWorkspace(ctx, workspaceName)
+	createdWorkspace, err := s.ensureGroupWorkspace(ctx, workspaceName, owner)
 	if err != nil {
 		return rpcapi.FriendGroupObject{}, err
 	}
@@ -92,27 +94,29 @@ func (s *Server) CreateFriendGroup(ctx context.Context, owner string, req rpcapi
 	return group, nil
 }
 
-func (s *Server) AdminCreateFriendGroup(ctx context.Context, name string, description *string) (rpcapi.FriendGroupObject, error) {
+func (s *Server) AdminCreateFriendGroup(ctx context.Context, owner, name string, description *string) (rpcapi.FriendGroupObject, error) {
 	friendGroups, err := s.groupsStore()
 	if err != nil {
 		return rpcapi.FriendGroupObject{}, err
 	}
+	owner = strings.TrimSpace(owner)
 	name = strings.TrimSpace(name)
-	if name == "" {
-		return rpcapi.FriendGroupObject{}, errors.New("social: friend group name is required")
+	if owner == "" || name == "" {
+		return rpcapi.FriendGroupObject{}, errors.New("social: friend group owner and name are required")
 	}
 	now := s.now()
 	id := s.newID()
 	workspaceName := socialutil.GroupWorkspaceName(id)
 	group := rpcapi.FriendGroupObject{
-		Id:            &id,
-		Name:          &name,
-		Description:   socialutil.OptionalString(strings.TrimSpace(socialutil.StringValue(description))),
-		WorkspaceName: &workspaceName,
-		CreatedAt:     &now,
-		UpdatedAt:     &now,
+		Id:                     &id,
+		Name:                   &name,
+		Description:            socialutil.OptionalString(strings.TrimSpace(socialutil.StringValue(description))),
+		CreatedByPeerPublicKey: &owner,
+		WorkspaceName:          &workspaceName,
+		CreatedAt:              &now,
+		UpdatedAt:              &now,
 	}
-	createdWorkspace, err := s.ensureGroupWorkspace(ctx, workspaceName)
+	createdWorkspace, err := s.ensureGroupWorkspace(ctx, workspaceName, owner)
 	if err != nil {
 		return rpcapi.FriendGroupObject{}, err
 	}
@@ -125,7 +129,7 @@ func (s *Server) AdminCreateFriendGroup(ctx context.Context, name string, descri
 	return group, nil
 }
 
-func (s *Server) AdminApplyFriendGroup(ctx context.Context, friendGroupID, name string, description *string) (rpcapi.FriendGroupObject, error) {
+func (s *Server) AdminApplyFriendGroup(ctx context.Context, friendGroupID, owner, name string, description *string) (rpcapi.FriendGroupObject, error) {
 	friendGroups, err := s.groupsStore()
 	if err != nil {
 		return rpcapi.FriendGroupObject{}, err
@@ -133,26 +137,44 @@ func (s *Server) AdminApplyFriendGroup(ctx context.Context, friendGroupID, name 
 	if err := customid.ValidateField("friend group id", friendGroupID); err != nil {
 		return rpcapi.FriendGroupObject{}, err
 	}
+	owner = strings.TrimSpace(owner)
 	name = strings.TrimSpace(name)
-	if name == "" {
-		return rpcapi.FriendGroupObject{}, errors.New("social: friend group name is required")
+	if owner == "" || name == "" {
+		return rpcapi.FriendGroupObject{}, errors.New("social: friend group owner and name are required")
 	}
-	if _, err := socialutil.ReadJSONValue[rpcapi.FriendGroupObject](ctx, friendGroups, socialutil.GroupKey(friendGroupID)); err == nil {
-		return s.putFriendGroup(ctx, friendGroupID, &name, description)
+	existing, err := socialutil.ReadJSONValue[rpcapi.FriendGroupObject](ctx, friendGroups, socialutil.GroupKey(friendGroupID))
+	if err == nil {
+		if strings.TrimSpace(socialutil.StringValue(existing.CreatedByPeerPublicKey)) != owner {
+			return rpcapi.FriendGroupObject{}, errors.New("social: friend group owner is immutable")
+		}
+		workspaceName := socialutil.GroupWorkspaceName(friendGroupID)
+		if strings.TrimSpace(socialutil.StringValue(existing.WorkspaceName)) != workspaceName {
+			return rpcapi.FriendGroupObject{}, errors.New("social: existing friend group has a different Workspace domain binding")
+		}
+		createdWorkspace, err := s.ensureGroupWorkspace(ctx, workspaceName, owner)
+		if err != nil {
+			return rpcapi.FriendGroupObject{}, err
+		}
+		group, err := s.putFriendGroup(ctx, friendGroupID, &name, description)
+		if err != nil && createdWorkspace {
+			_ = s.deleteWorkspace(ctx, workspaceName)
+		}
+		return group, err
 	} else if !errors.Is(err, kv.ErrNotFound) {
 		return rpcapi.FriendGroupObject{}, err
 	}
 	now := s.now()
 	workspaceName := socialutil.GroupWorkspaceName(friendGroupID)
 	group := rpcapi.FriendGroupObject{
-		Id:            &friendGroupID,
-		Name:          &name,
-		Description:   socialutil.OptionalString(strings.TrimSpace(socialutil.StringValue(description))),
-		WorkspaceName: &workspaceName,
-		CreatedAt:     &now,
-		UpdatedAt:     &now,
+		Id:                     &friendGroupID,
+		Name:                   &name,
+		Description:            socialutil.OptionalString(strings.TrimSpace(socialutil.StringValue(description))),
+		CreatedByPeerPublicKey: &owner,
+		WorkspaceName:          &workspaceName,
+		CreatedAt:              &now,
+		UpdatedAt:              &now,
 	}
-	createdWorkspace, err := s.ensureGroupWorkspace(ctx, workspaceName)
+	createdWorkspace, err := s.ensureGroupWorkspace(ctx, workspaceName, owner)
 	if err != nil {
 		return rpcapi.FriendGroupObject{}, err
 	}
@@ -929,15 +951,22 @@ func (s *Server) requireRole(ctx context.Context, owner, friendGroupID string, r
 	return nil
 }
 
-func (s *Server) ensureGroupWorkspace(ctx context.Context, workspaceName string) (bool, error) {
+func (s *Server) ensureGroupWorkspace(ctx context.Context, workspaceName, owner string) (bool, error) {
 	created := false
 	if s.Workspaces != nil {
+		if s.RuntimeProfileForOwner == nil {
+			return false, errors.New("social: runtime profile resolver is not configured")
+		}
+		profile, err := s.RuntimeProfileForOwner(ctx, owner)
+		if err != nil {
+			return false, err
+		}
 		body := adminhttp.WorkspaceUpsert{
 			Name:         workspaceName,
-			WorkflowName: socialutil.ChatRoomWorkflowName,
+			WorkflowName: profile.Spec.Workflows.System.GroupChatroom,
 			Parameters:   socialutil.ChatRoomWorkspaceParameters(apitypes.ChatRoomModeGroup),
 		}
-		_, wasCreated, err := s.Workspaces.CreateSystemWorkspace(ctx, body)
+		_, wasCreated, err := s.Workspaces.CreateSystemWorkspace(ownership.WithOwner(ctx, owner), body)
 		if err != nil {
 			return false, err
 		}

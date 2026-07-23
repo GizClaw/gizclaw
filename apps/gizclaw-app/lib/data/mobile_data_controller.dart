@@ -324,6 +324,11 @@ class MobileDataController extends ChangeNotifier {
   WorkspaceInputMode get activeInputMode =>
       _workspaceInputMode(activeWorkspaceDocument);
 
+  bool get canSetActiveInputMode {
+    final workspace = activeWorkspaceDocument;
+    return workspace != null && _workspaceExposesInputMode(workspace);
+  }
+
   ({String title, String workspaceName})? petRouteContext(String petId) =>
       _petRouteContexts[petId];
 
@@ -1277,6 +1282,9 @@ class MobileDataController extends ChangeNotifier {
     if (client == null || workspace == null || workspaceName == null) {
       throw StateError('No active workspace is available');
     }
+    if (!_workspaceExposesInputMode(workspace)) {
+      throw StateError('The active workspace does not expose an input mode');
+    }
     if (_workspaceInputMode(workspace) == mode) return;
     final currentChat = _activeWorkspaceChat;
     if (currentChat != null &&
@@ -1489,9 +1497,6 @@ WorkspaceInputMode _workspaceInputMode(Workspace? workspace) {
   if (parameters.hasFlowcraftWorkspaceParameters()) {
     return parameters.flowcraftWorkspaceParameters.input;
   }
-  if (parameters.hasPetWorkspaceParameters()) {
-    return parameters.petWorkspaceParameters.input;
-  }
   return WorkspaceInputMode.WORKSPACE_INPUT_MODE_UNSPECIFIED;
 }
 
@@ -1501,8 +1506,7 @@ bool _workspaceExposesInputMode(Workspace workspace) {
   return parameters.hasAsttranslateWorkspaceParameters() ||
       parameters.hasChatRoomWorkspaceParameters() ||
       parameters.hasDoubaoRealtimeWorkspaceParameters() ||
-      parameters.hasFlowcraftWorkspaceParameters() ||
-      parameters.hasPetWorkspaceParameters();
+      parameters.hasFlowcraftWorkspaceParameters();
 }
 
 void _setWorkspaceInputMode(Workspace workspace, WorkspaceInputMode mode) {
@@ -1521,10 +1525,6 @@ void _setWorkspaceInputMode(Workspace workspace, WorkspaceInputMode mode) {
   }
   if (parameters.hasFlowcraftWorkspaceParameters()) {
     parameters.flowcraftWorkspaceParameters.input = mode;
-    return;
-  }
-  if (parameters.hasPetWorkspaceParameters()) {
-    parameters.petWorkspaceParameters.input = mode;
     return;
   }
   throw StateError('The active workspace does not expose an input mode');

@@ -687,6 +687,22 @@ void main() {
     expect(controller.modeSelectionCalls, 2);
   });
 
+  appTestWidgets('does not switch modes for a parameter-free Pet workspace', (
+    tester,
+  ) async {
+    final controller = _FixedInputModeController();
+    await pumpApp(tester, controller: controller);
+
+    await tester.tap(find.byKey(const ValueKey('voice-mode-realtime')));
+    await tester.pump();
+
+    expect(
+      controller.mode,
+      WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK,
+    );
+    expect(controller.modeSelectionCalls, 0);
+  });
+
   appTestWidgets('holds and releases one PTT turn without switching mode', (
     tester,
   ) async {
@@ -1166,6 +1182,9 @@ class _ModeSwitchController extends MobileDataController {
   WorkspaceInputMode get activeInputMode => mode;
 
   @override
+  bool get canSetActiveInputMode => true;
+
+  @override
   WorkspaceChatController? get activeWorkspaceChat => chat;
 
   @override
@@ -1200,6 +1219,11 @@ class _ScrollableMessagesController extends _ModeSwitchController {
     await scrollChat.close();
     await super.close();
   }
+}
+
+class _FixedInputModeController extends _ModeSwitchController {
+  @override
+  bool get canSetActiveInputMode => false;
 }
 
 class _ScrollableMessagesChatController extends _ModeSwitchChatController {

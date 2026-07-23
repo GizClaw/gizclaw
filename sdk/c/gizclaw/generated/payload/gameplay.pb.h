@@ -1009,7 +1009,7 @@ X(a, CALLBACK, SINGULAR, STRING,   updated_at,       14)
 #define gizclaw_rpc_v1_Pet_progression_MSGTYPE gizclaw_rpc_v1_PetProgression
 
 #define gizclaw_rpc_v1_PetAdoptRequest_FIELDLIST(X, a) \
-X(a, CALLBACK, OPTIONAL, STRING,   display_name,      1) \
+X(a, CALLBACK, SINGULAR, STRING,   display_name,      1) \
 X(a, CALLBACK, OPTIONAL, STRING,   id,                2)
 #define gizclaw_rpc_v1_PetAdoptRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_PetAdoptRequest_DEFAULT NULL

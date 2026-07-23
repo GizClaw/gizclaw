@@ -18,7 +18,149 @@
           "pet"
         ]
       },
-      "WorkflowSpec": {
+      "ReusableWorkflowDriver": {
+        "type": "string",
+        "enum": [
+          "flowcraft",
+          "doubao-realtime",
+          "ast-translate",
+          "chatroom"
+        ]
+      },
+      "ReusableWorkflowSpecObject": {
+        "type": "object",
+        "required": [
+          "driver"
+        ],
+        "properties": {
+          "driver": {
+            "$ref": "#/components/schemas/ReusableWorkflowDriver"
+          },
+          "toolkit": {
+            "$ref": "./toolkit_policy.json#/components/schemas/ToolkitPolicy"
+          },
+          "flowcraft": {
+            "$ref": "./workflows/flowcraft.json#/components/schemas/FlowcraftWorkflowSpec"
+          },
+          "doubao_realtime": {
+            "$ref": "./workflows/doubao_realtime.json#/components/schemas/DoubaoRealtimeWorkflowSpec"
+          },
+          "ast_translate": {
+            "$ref": "./workflows/ast_translate.json#/components/schemas/ASTTranslateWorkflowSpec"
+          },
+          "chatroom": {
+            "$ref": "./workflows/chatroom.json#/components/schemas/ChatRoomWorkflowSpec"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReusableFlowcraftWorkflowVariant": {
+        "type": "object",
+        "required": [
+          "driver",
+          "flowcraft"
+        ],
+        "properties": {
+          "driver": {
+            "type": "string",
+            "enum": [
+              "flowcraft"
+            ]
+          },
+          "toolkit": {
+            "$ref": "./toolkit_policy.json#/components/schemas/ToolkitPolicy"
+          },
+          "flowcraft": {
+            "$ref": "./workflows/flowcraft.json#/components/schemas/FlowcraftWorkflowSpec"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReusableDoubaoRealtimeWorkflowVariant": {
+        "type": "object",
+        "required": [
+          "driver",
+          "doubao_realtime"
+        ],
+        "properties": {
+          "driver": {
+            "type": "string",
+            "enum": [
+              "doubao-realtime"
+            ]
+          },
+          "toolkit": {
+            "$ref": "./toolkit_policy.json#/components/schemas/ToolkitPolicy"
+          },
+          "doubao_realtime": {
+            "$ref": "./workflows/doubao_realtime.json#/components/schemas/DoubaoRealtimeWorkflowSpec"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReusableASTTranslateWorkflowVariant": {
+        "type": "object",
+        "required": [
+          "driver",
+          "ast_translate"
+        ],
+        "properties": {
+          "driver": {
+            "type": "string",
+            "enum": [
+              "ast-translate"
+            ]
+          },
+          "toolkit": {
+            "$ref": "./toolkit_policy.json#/components/schemas/ToolkitPolicy"
+          },
+          "ast_translate": {
+            "$ref": "./workflows/ast_translate.json#/components/schemas/ASTTranslateWorkflowSpec"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReusableChatroomWorkflowVariant": {
+        "type": "object",
+        "required": [
+          "driver",
+          "chatroom"
+        ],
+        "properties": {
+          "driver": {
+            "type": "string",
+            "enum": [
+              "chatroom"
+            ]
+          },
+          "toolkit": {
+            "$ref": "./toolkit_policy.json#/components/schemas/ToolkitPolicy"
+          },
+          "chatroom": {
+            "$ref": "./workflows/chatroom.json#/components/schemas/ChatRoomWorkflowSpec"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReusableWorkflowSpec": {
+        "description": "Reusable non-Pet Workflow union used directly and below the Pet domain wrapper.",
+        "x-go-type": "ReusableWorkflowSpecObject",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ReusableFlowcraftWorkflowVariant"
+          },
+          {
+            "$ref": "#/components/schemas/ReusableDoubaoRealtimeWorkflowVariant"
+          },
+          {
+            "$ref": "#/components/schemas/ReusableASTTranslateWorkflowVariant"
+          },
+          {
+            "$ref": "#/components/schemas/ReusableChatroomWorkflowVariant"
+          }
+        ]
+      },
+      "WorkflowSpecObject": {
         "type": "object",
         "required": [
           "driver"
@@ -47,6 +189,40 @@
           }
         },
         "additionalProperties": false
+      },
+      "PetWorkflowVariant": {
+        "type": "object",
+        "required": [
+          "driver",
+          "pet"
+        ],
+        "properties": {
+          "driver": {
+            "type": "string",
+            "enum": [
+              "pet"
+            ]
+          },
+          "toolkit": {
+            "$ref": "./toolkit_policy.json#/components/schemas/ToolkitPolicy"
+          },
+          "pet": {
+            "$ref": "./workflows/pet.json#/components/schemas/PetWorkflowSpec"
+          }
+        },
+        "additionalProperties": false
+      },
+      "WorkflowSpec": {
+        "description": "Workflow union: one reusable non-Pet variant or the Pet domain wrapper.",
+        "x-go-type": "WorkflowSpecObject",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ReusableWorkflowSpec"
+          },
+          {
+            "$ref": "#/components/schemas/PetWorkflowVariant"
+          }
+        ]
       }
     }
   }

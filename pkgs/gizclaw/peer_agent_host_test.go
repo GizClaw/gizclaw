@@ -68,8 +68,8 @@ func TestNewPeerAgentHostRegistersBuiltInAgents(t *testing.T) {
 	if !ok {
 		t.Fatalf("pet factory = %T, want pet.Factory", registered)
 	}
-	if petFactory.History != history {
-		t.Fatal("pet factory did not receive Flowcraft history store")
+	if petFactory.Factories != got.Registry {
+		t.Fatal("pet factory did not receive the shared driver registry")
 	}
 	registered, ok = got.Registry.Get(flowcraft.Type)
 	if !ok {

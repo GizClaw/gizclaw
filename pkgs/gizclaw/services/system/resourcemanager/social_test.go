@@ -145,7 +145,7 @@ func TestApplyFriendGroupResourceCreatesUpdatesAndDeletes(t *testing.T) {
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "FriendGroup",
 		"metadata": {"name": "family01"},
-		"spec": {"name": "Family", "description": "voice room"}
+		"spec": {"owner_public_key": "peer-a", "name": "Family", "description": "voice room"}
 	}`))
 	if err != nil {
 		t.Fatalf("Apply(create) returned error: %v", err)
@@ -158,7 +158,7 @@ func TestApplyFriendGroupResourceCreatesUpdatesAndDeletes(t *testing.T) {
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "FriendGroup",
 		"metadata": {"name": "family01"},
-		"spec": {"name": "Family", "description": "voice room"}
+		"spec": {"owner_public_key": "peer-a", "name": "Family", "description": "voice room"}
 	}`))
 	if err != nil {
 		t.Fatalf("Apply(unchanged) returned error: %v", err)
@@ -171,7 +171,7 @@ func TestApplyFriendGroupResourceCreatesUpdatesAndDeletes(t *testing.T) {
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "FriendGroup",
 		"metadata": {"name": "family01"},
-		"spec": {"name": "Family+", "description": "updated"}
+		"spec": {"owner_public_key": "peer-a", "name": "Family+", "description": "updated"}
 	}`))
 	if err != nil {
 		t.Fatalf("Put returned error: %v", err)
@@ -387,7 +387,7 @@ func TestSocialResourceValidationRejectsMismatchedNames(t *testing.T) {
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "FriendGroup",
 		"metadata": {"name": "family01"},
-		"spec": {"name": " "}
+		"spec": {"owner_public_key": "peer-a", "name": " "}
 	}`))
 	assertResourceError(t, err, 400, "INVALID_FRIEND_GROUP_RESOURCE")
 
@@ -439,7 +439,7 @@ func TestSocialResourceValidationRejectsInvalidCustomIDs(t *testing.T) {
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "FriendGroup",
 		"metadata": {"name": "family"},
-		"spec": {"name": "Family"}
+		"spec": {"owner_public_key": "peer-a", "name": "Family"}
 	}`))
 	assertResourceError(t, err, 400, "INVALID_FRIEND_GROUP_RESOURCE")
 
@@ -483,7 +483,7 @@ func TestSocialResourcesRequireConfiguredServices(t *testing.T) {
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "FriendGroup",
 		"metadata": {"name": "family01"},
-		"spec": {"name": "Family"}
+		"spec": {"owner_public_key": "peer-a", "name": "Family"}
 	}`))
 	assertResourceError(t, err, 500, "RESOURCE_SERVICE_NOT_CONFIGURED")
 
@@ -518,7 +518,7 @@ func TestSocialResourcesRequireConfiguredServices(t *testing.T) {
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "FriendGroup",
 		"metadata": {"name": "family01"},
-		"spec": {"name": "Family"}
+		"spec": {"owner_public_key": "peer-a", "name": "Family"}
 	}`))
 	assertResourceError(t, err, 500, "RESOURCE_SERVICE_NOT_CONFIGURED")
 
@@ -591,7 +591,7 @@ func TestSocialResourcePutAndDeleteBranches(t *testing.T) {
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "FriendGroup",
 		"metadata": {"name": "family01"},
-		"spec": {"name": "Family", "description": "room"}
+		"spec": {"owner_public_key": "peer-a", "name": "Family", "description": "room"}
 	}`))
 	if err != nil {
 		t.Fatalf("Put group returned error: %v", err)
@@ -651,7 +651,7 @@ func createFriendGroup(t *testing.T, manager *Manager, name string) {
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "FriendGroup",
 		"metadata": {"name": "`+name+`"},
-		"spec": {"name": "`+name+`"}
+		"spec": {"owner_public_key": "peer-a", "name": "`+name+`"}
 	}`)); err != nil {
 		t.Fatalf("create friend group %s: %v", name, err)
 	}

@@ -660,7 +660,7 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 		if err := validateFriendGroupResource(item); err != nil {
 			return apitypes.Resource{}, err
 		}
-		if _, err := m.services.FriendGroups.AdminApplyFriendGroup(ctx, item.Metadata.Name, item.Spec.Name, item.Spec.Description); err != nil {
+		if _, err := m.services.FriendGroups.AdminApplyFriendGroup(ctx, item.Metadata.Name, item.Spec.OwnerPublicKey, item.Spec.Name, item.Spec.Description); err != nil {
 			return apitypes.Resource{}, err
 		}
 		return m.Get(ctx, apitypes.ResourceKindFriendGroup, item.Metadata.Name)

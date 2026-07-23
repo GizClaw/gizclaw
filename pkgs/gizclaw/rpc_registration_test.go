@@ -37,6 +37,10 @@ func TestRPCRegistrationReplacesSnapshotAndRejectedTokenPreservesIt(t *testing.T
 	if got := snapshot.Load(); got == nil || got.RuntimeProfile.Name != "profile-a" {
 		t.Fatalf("first snapshot = %#v", got)
 	}
+	bound, err := registrations.ResolveOwnerProfile(t.Context(), server.callerPublicKey.String())
+	if err != nil || bound.Name != "profile-a" {
+		t.Fatalf("ResolveOwnerProfile() = %#v, %v", bound, err)
+	}
 
 	rejected, err := server.dispatch(context.Background(), registrationRequest("invalid-token"))
 	if err != nil {
@@ -55,6 +59,10 @@ func TestRPCRegistrationReplacesSnapshotAndRejectedTokenPreservesIt(t *testing.T
 	}
 	if got := snapshot.Load(); got == nil || got.RuntimeProfile.Name != "profile-b" {
 		t.Fatalf("second snapshot = %#v", got)
+	}
+	bound, err = registrations.ResolveOwnerProfile(t.Context(), server.callerPublicKey.String())
+	if err != nil || bound.Name != "profile-b" {
+		t.Fatalf("ResolveOwnerProfile(updated) = %#v, %v", bound, err)
 	}
 }
 
@@ -105,10 +113,14 @@ func TestRPCRegistrationPersistsAndReturnsFirmwareReleaseLine(t *testing.T) {
 			return resource, err
 		},
 	}
+	installTestSystemWorkflowResolver(registrations)
 	profileName := "h106-production"
 	profileResponse, err := registrations.PutRuntimeProfile(ctx, adminhttp.PutRuntimeProfileRequestObject{
 		Name: profileName,
-		Body: &adminhttp.RuntimeProfileUpsert{Name: profileName, Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{}}},
+		Body: &adminhttp.RuntimeProfileUpsert{Name: profileName, Spec: apitypes.RuntimeProfileSpec{
+			Workflows: testRuntimeProfileWorkflows(),
+			Resources: apitypes.RuntimeProfileResources{},
+		}},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -179,6 +191,10 @@ func TestRPCRegistrationFirmwareBindingFailurePreservesSnapshot(t *testing.T) {
 			snapshot.Store(&registration)
 		},
 	}
+	_ = createRegistrationToken(t, registrations, "previous-profile")
+	if err := registrations.BindOwnerProfile(ctx, server.callerPublicKey.String(), "previous-profile"); err != nil {
+		t.Fatalf("BindOwnerProfile(previous) error = %v", err)
+	}
 
 	response, err := server.dispatch(ctx, registrationRequest(created.Token))
 	if err != nil {
@@ -189,6 +205,10 @@ func TestRPCRegistrationFirmwareBindingFailurePreservesSnapshot(t *testing.T) {
 	}
 	if active := snapshot.Load(); active == nil || active.RuntimeProfile.Name != "previous-profile" {
 		t.Fatalf("failed firmware binding replaced snapshot: %#v", active)
+	}
+	bound, err := registrations.ResolveOwnerProfile(ctx, server.callerPublicKey.String())
+	if err != nil || bound.Name != "previous-profile" {
+		t.Fatalf("failed firmware binding replaced owner profile: %#v, %v", bound, err)
 	}
 }
 
@@ -231,9 +251,13 @@ func firmwareRegistrationServer(t *testing.T, profileName, firmwareID string) *r
 			return resource, err
 		},
 	}
+	installTestSystemWorkflowResolver(server)
 	response, err := server.PutRuntimeProfile(context.Background(), adminhttp.PutRuntimeProfileRequestObject{
 		Name: profileName,
-		Body: &adminhttp.RuntimeProfileUpsert{Name: profileName, Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{}}},
+		Body: &adminhttp.RuntimeProfileUpsert{Name: profileName, Spec: apitypes.RuntimeProfileSpec{
+			Workflows: testRuntimeProfileWorkflows(),
+			Resources: apitypes.RuntimeProfileResources{},
+		}},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -257,7 +281,10 @@ func createRegistrationToken(t *testing.T, server *runtimeprofile.Server, profil
 		Name: profileName,
 		Body: &adminhttp.RuntimeProfileUpsert{
 			Name: profileName,
-			Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{}},
+			Spec: apitypes.RuntimeProfileSpec{
+				Workflows: testRuntimeProfileWorkflows(),
+				Resources: apitypes.RuntimeProfileResources{},
+			},
 		},
 	})
 	if err != nil {
@@ -280,6 +307,50 @@ func createRegistrationToken(t *testing.T, server *runtimeprofile.Server, profil
 		t.Fatalf("create RegistrationToken = %#v", tokenResponse)
 	}
 	return created.Token
+}
+
+func testRuntimeProfileWorkflows() apitypes.RuntimeProfileWorkflows {
+	return apitypes.RuntimeProfileWorkflows{
+		System: apitypes.RuntimeProfileSystemWorkflows{
+			FriendChatroom: "chatroom",
+			GroupChatroom:  "chatroom",
+			Pet:            "pet-care",
+		},
+		Collections: apitypes.RuntimeProfileWorkflowCollections{},
+	}
+}
+
+func installTestSystemWorkflowResolver(server *runtimeprofile.Server) {
+	fallback := server.ResolveResource
+	server.ResolveResource = func(ctx context.Context, kind apitypes.ResourceKind, name string) (apitypes.Resource, error) {
+		if kind == apitypes.ResourceKindWorkflow && (name == "chatroom" || name == "pet-care") {
+			spec := apitypes.WorkflowSpec{
+				Driver:   apitypes.WorkflowDriverChatroom,
+				Chatroom: &apitypes.ChatRoomWorkflowSpec{History: apitypes.ChatRoomWorkflowHistorySpec{}},
+			}
+			if name == "pet-care" {
+				spec = apitypes.WorkflowSpec{
+					Driver: apitypes.WorkflowDriverPet,
+					Pet: &apitypes.PetWorkflowSpec{
+						Driver:   apitypes.ReusableWorkflowDriverChatroom,
+						Chatroom: &apitypes.ChatRoomWorkflowSpec{History: apitypes.ChatRoomWorkflowHistorySpec{}},
+					},
+				}
+			}
+			var resource apitypes.Resource
+			err := resource.FromWorkflowResource(apitypes.WorkflowResource{
+				ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
+				Kind:       apitypes.WorkflowResourceKindWorkflow,
+				Metadata:   apitypes.ResourceMetadata{Name: name},
+				Spec:       spec,
+			})
+			return resource, err
+		}
+		if fallback != nil {
+			return fallback(ctx, kind, name)
+		}
+		return apitypes.Resource{}, kv.ErrNotFound
+	}
 }
 
 func registerRPC(t *testing.T, server *rpcServer, token string) rpcapi.ServerRegisterResponse {

@@ -1041,7 +1041,10 @@ class _GlobalConversationControlState extends State<GlobalConversationControl> {
       recording: chat?.recording ?? false,
       preparing: chat?.startingInput ?? false,
       playingOutput: chat?.playingOutput ?? false,
-      onSelectMode: workspaceName == null || microphoneBlocked
+      onSelectMode:
+          workspaceName == null ||
+              microphoneBlocked ||
+              !data.canSetActiveInputMode
           ? null
           : (target) => _setMode(data, target),
       onPttStart: enabled ? () => _startInput(chat!) : null,

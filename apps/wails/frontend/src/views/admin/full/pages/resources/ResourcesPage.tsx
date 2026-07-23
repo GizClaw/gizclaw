@@ -765,6 +765,11 @@ function resourceSpecTemplate(kind: ResourceKind): unknown {
     case "RuntimeProfile":
       return {
         workflows: {
+          system: {
+            friend_chatroom: "chatroom",
+            group_chatroom: "chatroom",
+            pet: "pet-care",
+          },
           collections: {
             assistants: {
               "general-assistant": {
@@ -839,7 +844,6 @@ function resourceSpecTemplate(kind: ResourceKind): unknown {
             pool: [
               {
                 pet_def: "starter-pet",
-                voice: "pet-voice",
                 weight: 100,
                 adoption_cost: 10,
               },
@@ -920,13 +924,6 @@ function resourceSpecTemplate(kind: ResourceKind): unknown {
                 { id: "bath", pixa_clip_name: "bath" },
               ],
             },
-          },
-        },
-        i18n: {
-          default_locale: "en",
-          en: {
-            display_name: "Starter Pet",
-            description: "Starter pet for gameplay resource editing.",
           },
         },
       };

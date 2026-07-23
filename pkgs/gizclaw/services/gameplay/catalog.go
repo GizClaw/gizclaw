@@ -94,7 +94,7 @@ func (c *Catalog) CreatePetDef(ctx context.Context, request adminhttp.CreatePetD
 		return adminhttp.CreatePetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	id := strings.TrimSpace(request.Body.Id)
-	item, err := c.buildPetDef(id, request.Body.Spec, valueOrZero(request.Body.I18n), nil, time.Time{})
+	item, err := c.buildPetDef(id, request.Body.Spec, nil, time.Time{})
 	if err != nil {
 		return adminhttp.CreatePetDef400JSONResponse(apitypes.NewErrorResponse("INVALID_PET_DEF", err.Error())), nil
 	}
@@ -170,7 +170,7 @@ func (c *Catalog) PutPetDef(ctx context.Context, request adminhttp.PutPetDefRequ
 			pixaPath = nil
 		}
 	}
-	item, err := c.buildPetDefForUpdate(id, request.Body.Spec, valueOrZero(request.Body.I18n), previous, err == nil, pixaPath, createdAt)
+	item, err := c.buildPetDefForUpdate(id, request.Body.Spec, previous, err == nil, pixaPath, createdAt)
 	if err != nil {
 		return adminhttp.PutPetDef400JSONResponse(apitypes.NewErrorResponse("INVALID_PET_DEF", err.Error())), nil
 	}
@@ -552,30 +552,30 @@ func (c *Catalog) GetGameDefByID(ctx context.Context, id string) (apitypes.GameD
 	return item, err
 }
 
-func (c *Catalog) buildPetDef(id string, spec apitypes.PetDefSpec, i18n apitypes.PetDefI18nSpec, pixaPath *string, createdAt time.Time) (apitypes.PetDef, error) {
-	return c.buildPetDefWithValidator(id, spec, i18n, pixaPath, createdAt, validatePetDef)
+func (c *Catalog) buildPetDef(id string, spec apitypes.PetDefSpec, pixaPath *string, createdAt time.Time) (apitypes.PetDef, error) {
+	return c.buildPetDefWithValidator(id, spec, pixaPath, createdAt, validatePetDef)
 }
 
-func (c *Catalog) buildPetDefForUpdate(id string, spec apitypes.PetDefSpec, i18n apitypes.PetDefI18nSpec, _ apitypes.PetDef, _ bool, pixaPath *string, createdAt time.Time) (apitypes.PetDef, error) {
-	return c.buildPetDef(id, spec, i18n, pixaPath, createdAt)
+func (c *Catalog) buildPetDefForUpdate(id string, spec apitypes.PetDefSpec, _ apitypes.PetDef, _ bool, pixaPath *string, createdAt time.Time) (apitypes.PetDef, error) {
+	return c.buildPetDef(id, spec, pixaPath, createdAt)
 }
 
-func (c *Catalog) buildPetDefWithValidator(id string, spec apitypes.PetDefSpec, i18n apitypes.PetDefI18nSpec, pixaPath *string, createdAt time.Time, validate func(apitypes.PetDefSpec, apitypes.PetDefI18nSpec) error) (apitypes.PetDef, error) {
+func (c *Catalog) buildPetDefWithValidator(id string, spec apitypes.PetDefSpec, pixaPath *string, createdAt time.Time, validate func(apitypes.PetDefSpec) error) (apitypes.PetDef, error) {
 	id = strings.TrimSpace(id)
 	if id == "" {
 		return apitypes.PetDef{}, errors.New("id is required")
 	}
-	if err := validate(spec, i18n); err != nil {
+	if err := validate(spec); err != nil {
 		return apitypes.PetDef{}, err
 	}
 	now := c.now()
 	if createdAt.IsZero() {
 		createdAt = now
 	}
-	return apitypes.PetDef{Id: id, Spec: spec, I18n: i18n, PixaPath: pixaPath, CreatedAt: createdAt, UpdatedAt: now}, nil
+	return apitypes.PetDef{Id: id, Spec: spec, PixaPath: pixaPath, CreatedAt: createdAt, UpdatedAt: now}, nil
 }
 
-func validatePetDef(spec apitypes.PetDefSpec, i18n apitypes.PetDefI18nSpec) error {
+func validatePetDef(spec apitypes.PetDefSpec) error {
 	if strings.TrimSpace(spec.Character.Prompt) == "" {
 		return errors.New("character.prompt is required")
 	}
@@ -586,9 +586,6 @@ func validatePetDef(spec apitypes.PetDefSpec, i18n apitypes.PetDefI18nSpec) erro
 		return err
 	}
 	if err := validatePetDefBindings(spec.Visual); err != nil {
-		return err
-	}
-	if err := validatePetDefI18n(spec, i18n); err != nil {
 		return err
 	}
 	return nil
@@ -669,34 +666,6 @@ func validatePetDefBindings(visual apitypes.PetDefVisualSpec) error {
 		}
 		if _, ok := clipIDs[clipID]; !ok {
 			return fmt.Errorf("%s %q is not in visual.pixa.metadata.clips", path, clipID)
-		}
-	}
-	return nil
-}
-
-func validatePetDefI18n(_ apitypes.PetDefSpec, i18n apitypes.PetDefI18nSpec) error {
-	if strings.TrimSpace(i18n.DefaultLocale) == "" && len(i18n.AdditionalProperties) == 0 {
-		return nil
-	}
-	if strings.TrimSpace(i18n.DefaultLocale) == "" {
-		return errors.New("i18n.default_locale is required")
-	}
-	if strings.TrimSpace(i18n.DefaultLocale) != i18n.DefaultLocale {
-		return errors.New("i18n.default_locale must not contain leading or trailing whitespace")
-	}
-	locales := i18n.AdditionalProperties
-	if _, ok := locales[i18n.DefaultLocale]; !ok {
-		return fmt.Errorf("i18n.%s is required", i18n.DefaultLocale)
-	}
-	for localeName := range locales {
-		if strings.TrimSpace(localeName) == "" {
-			return errors.New("i18n contains an empty locale")
-		}
-		if localeName == "default_locale" {
-			return errors.New("i18n.default_locale is reserved")
-		}
-		if strings.TrimSpace(localeName) != localeName {
-			return fmt.Errorf("i18n.%s must not contain leading or trailing whitespace", localeName)
 		}
 	}
 	return nil

@@ -21,13 +21,13 @@ Owns peer's contact resources and contact lifecycle. Contact is the address book
 
 Owns friend-request creation, acceptance, rejection, and friend-relationship reads and deletion. A Friend relationship directly grants both peers access to its system Workspace without creating a generic access role.
 
-Each direct-friend chat lifecycle owns a system Workspace and uses the internal Workspace create/delete capability for creation, rollback, and relationship deletion.
+Each direct-friend chat lifecycle owns a system Workspace and uses the internal Workspace create/delete capability for creation, rollback, and relationship deletion. The peer who creates the invite token is the initiator and immutable Workspace owner; the accepting peer receives access without sharing ownership. Admin creation uses its explicit owner. The owner's RuntimeProfile `workflows.system.friend_chatroom` selects the persisted Chatroom Workflow.
 
 ### friendgroup
 
 Owns friend groups, members, messages, invites, and message assets. Group membership directly grants access to the group system Workspace.
 
-Each Friend Group lifecycle owns a system Workspace and uses the internal Workspace create/delete capability for creation, rollback, and group deletion.
+Each Friend Group lifecycle owns a system Workspace and uses the internal Workspace create/delete capability for creation, rollback, and group deletion. A peer-created group belongs to its creator; Admin creation requires an explicit owner. Membership grants data access without changing ownership. The owner's RuntimeProfile `workflows.system.group_chatroom` selects the persisted Chatroom Workflow.
 
 ## Dependencies and boundaries
 
@@ -47,7 +47,7 @@ Should be placed at `services/social`:
 Shouldn't be placed here:
 
 -Giznet peer connection or signaling contact.
-- RuntimeProfile, owner indexes, or generic registration logic.
+- RuntimeProfile persistence, owner indexes, or generic registration logic. Social only resolves an owner's current profile to select the configured system Workflow before creating domain state.
 - Chat Agent, workspace runtime, or generic messaging transport.
 - Admin/Peer route registration.
 

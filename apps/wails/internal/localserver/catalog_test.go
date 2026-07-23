@@ -66,12 +66,14 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(profile), "pet-care") {
-		t.Fatalf("built-in pet-care Workflow must not be exposed by RuntimeProfile:\n%s", profile)
-	}
 	var parsed struct {
 		Spec struct {
 			Workflows struct {
+				System struct {
+					FriendChatroom string `yaml:"friend_chatroom"`
+					GroupChatroom  string `yaml:"group_chatroom"`
+					Pet            string `yaml:"pet"`
+				} `yaml:"system"`
 				Collections map[string]map[string]struct {
 					ResourceID string `yaml:"resource_id"`
 				} `yaml:"collections"`
@@ -88,7 +90,6 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 				Adoption struct {
 					Pool []struct {
 						PetDef string `yaml:"pet_def"`
-						Voice  string `yaml:"voice"`
 					} `yaml:"pool"`
 				} `yaml:"adoption"`
 			} `yaml:"gameplay"`
@@ -96,6 +97,11 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 	}
 	if err := yaml.Unmarshal(profile, &parsed); err != nil {
 		t.Fatal(err)
+	}
+	if parsed.Spec.Workflows.System.FriendChatroom != "chatroom" ||
+		parsed.Spec.Workflows.System.GroupChatroom != "chatroom" ||
+		parsed.Spec.Workflows.System.Pet != "pet-care" {
+		t.Fatalf("RuntimeProfile/default system Workflows = %#v", parsed.Spec.Workflows.System)
 	}
 	wantWorkflows := map[string]string{
 		"translate-zh-en-auto": "ast-translate-zh-en-auto",
@@ -165,8 +171,8 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 		t.Fatalf("RuntimeProfile/default adoption pool entries = %d, want 9", len(got))
 	} else {
 		for _, entry := range got {
-			if strings.TrimSpace(entry.PetDef) == "" || entry.Voice != "cute-pet" {
-				t.Fatalf("RuntimeProfile/default adoption entry = %#v, want PetDef plus cute-pet voice alias", entry)
+			if strings.TrimSpace(entry.PetDef) == "" {
+				t.Fatalf("RuntimeProfile/default adoption entry = %#v, want PetDef alias", entry)
 			}
 		}
 	}
@@ -179,6 +185,7 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 			t.Fatal(err)
 		}
 		var petDef struct {
+			I18n map[string]any `yaml:"i18n"`
 			Spec struct {
 				Voice map[string]any `yaml:"voice"`
 			} `yaml:"spec"`
@@ -186,8 +193,11 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 		if err := yaml.Unmarshal(data, &petDef); err != nil {
 			t.Fatal(err)
 		}
+		if len(petDef.I18n) != 0 {
+			t.Fatalf("%s stores local i18n instead of RuntimeProfile binding metadata", resource.Name)
+		}
 		if _, exists := petDef.Spec.Voice["voice_id"]; exists {
-			t.Fatalf("%s stores voice_id in PetDef instead of RuntimeProfile adoption policy", resource.Name)
+			t.Fatalf("%s stores voice_id in PetDef instead of the configured Pet Workflow", resource.Name)
 		}
 		prompt, _ := petDef.Spec.Voice["prompt"].(string)
 		if strings.TrimSpace(prompt) == "" {

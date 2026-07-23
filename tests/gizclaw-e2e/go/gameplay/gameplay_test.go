@@ -16,7 +16,7 @@ func TestGameplayAdoptDriveAndPetWorkspace(t *testing.T) {
 	petID := "e2e-pet-" + strconv.FormatInt(time.Now().UnixNano(), 10)
 
 	adopted, err := env.peer.AdoptPet(env.ctx, "gameplay.pet.adopt", rpcapi.RuntimeAdoptRequest{
-		DisplayName: testStringPtr("E2E Pet"),
+		DisplayName: "E2E Pet",
 		Id:          &petID,
 	})
 	if err != nil {
@@ -30,7 +30,7 @@ func TestGameplayAdoptDriveAndPetWorkspace(t *testing.T) {
 		t.Fatalf("pet.adopt points/transaction = %#v %#v", adopted.Points, adopted.Transaction)
 	}
 	replayed, err := env.peer.AdoptPet(env.ctx, "gameplay.pet.adopt.replay", rpcapi.RuntimeAdoptRequest{
-		DisplayName: testStringPtr("Ignored Replay Name"),
+		DisplayName: "Ignored Replay Name",
 		Id:          &petID,
 	})
 	if err != nil {
@@ -46,15 +46,8 @@ func TestGameplayAdoptDriveAndPetWorkspace(t *testing.T) {
 	if workspace.Value.Name != adopted.Pet.WorkspaceName || workspace.Value.WorkflowAlias != "pet-care" {
 		t.Fatalf("pet workspace = %#v", workspace)
 	}
-	if workspace.Value.Parameters == nil {
-		t.Fatalf("pet workspace parameters = nil")
-	}
-	petParameters, err := workspace.Value.Parameters.AsPetWorkspaceParameters()
-	if err != nil {
-		t.Fatalf("pet workspace parameters: %v", err)
-	}
-	if petParameters.AgentType != rpcapi.PetWorkspaceParametersAgentTypePet || petParameters.Voice.VoiceId != "pet" {
-		t.Fatalf("pet workspace parameters = %#v", petParameters)
+	if workspace.Value.Parameters != nil {
+		t.Fatalf("pet workspace parameters = %#v, want nil", workspace.Value.Parameters)
 	}
 	tickKey := "gameplay-empty-tick-1"
 	tick, err := env.peer.DrivePet(env.ctx, "gameplay.pet.drive.empty", rpcapi.ServerPetDriveRequest{
@@ -169,7 +162,7 @@ func TestGameplayPetWorkspaceAudioHistory(t *testing.T) {
 	env := newSetupGameplayHarness(t, "client-gameplay-chat")
 
 	adopted, err := env.peer.AdoptPet(env.ctx, "gameplay.chat.pet.adopt", rpcapi.RuntimeAdoptRequest{
-		DisplayName: testStringPtr("Chat Pet"),
+		DisplayName: "Chat Pet",
 	})
 	if err != nil {
 		t.Fatalf("pet.adopt for chat: %v", err)
@@ -185,12 +178,8 @@ func TestGameplayPetWorkspaceAudioHistory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get pet audio workspace: %v", err)
 	}
-	if workspace.Value.Parameters == nil {
-		t.Fatal("pet audio workspace parameters are missing")
-	}
-	petParameters, err := workspace.Value.Parameters.AsPetWorkspaceParameters()
-	if err != nil {
-		t.Fatalf("decode pet audio workspace parameters: %v", err)
+	if workspace.Value.Parameters != nil {
+		t.Fatalf("pet audio workspace parameters = %#v, want nil", workspace.Value.Parameters)
 	}
 
 	if err := selectGameplayWorkspace(env.ctx, env.peer, adopted.Pet.WorkspaceName); err != nil {
@@ -208,7 +197,7 @@ func TestGameplayPetWorkspaceAudioHistory(t *testing.T) {
 	for round, utterance := range utterances {
 		var responseErr error
 		for attempt := 1; attempt <= 3; attempt++ {
-			packets := synthesizeGameplayOpus(t, env, "volc-bigtts", petParameters.Voice.VoiceId, utterance)
+			packets := synthesizeGameplayOpus(t, env, "volc-bigtts", "pet", utterance)
 			streamID := "gameplay-pet-audio-" + strconv.Itoa(round+1) + "-" + strconv.Itoa(attempt)
 			sendGameplayAudioTurn(t, env.ctx, stream, streamID, packets)
 			responseErr = waitForGameplayAssistantResponse(env.ctx, stream, streamID)

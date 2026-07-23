@@ -78,7 +78,6 @@ func LoadCatalog(source fs.FS) (*Catalog, error) {
 			Metadata struct {
 				Name string `yaml:"name"`
 			} `yaml:"metadata"`
-			I18n map[string]any `yaml:"i18n"`
 			Spec map[string]any `yaml:"spec"`
 		}
 		if err := yaml.Unmarshal(data, &header); err != nil {
@@ -94,11 +93,6 @@ func LoadCatalog(source fs.FS) (*Catalog, error) {
 		}
 		if header.Kind == "Workspace" {
 			return fmt.Errorf("local server catalog: %s must not bundle client-created Workspace data", name)
-		}
-		if header.Kind == "PetDef" {
-			if err := validateCatalogI18n(name, header.Kind, header.I18n); err != nil {
-				return err
-			}
 		}
 		if identities[header.Kind] == nil {
 			identities[header.Kind] = map[string]bool{}
@@ -204,51 +198,6 @@ func rejectUndeclaredAssets(source fs.FS, declared map[string]string) error {
 		}
 		return nil
 	})
-}
-
-func validateCatalogI18n(name, kind string, catalog map[string]any) error {
-	defaultLocale, _ := catalog["default_locale"].(string)
-	if defaultLocale != "en" {
-		return fmt.Errorf("local server catalog: %s %s i18n.default_locale must be en", name, kind)
-	}
-	for _, locale := range []string{"en", "zh-CN"} {
-		item, ok := stringMap(catalog[locale])
-		if !ok {
-			return fmt.Errorf("local server catalog: %s %s must define i18n.%s", name, kind, locale)
-		}
-		nameField := "name"
-		if kind == "PetDef" {
-			nameField = "display_name"
-		}
-		if !nonEmptyString(item[nameField]) || !nonEmptyString(item["description"]) {
-			return fmt.Errorf("local server catalog: %s %s i18n.%s is incomplete", name, kind, locale)
-		}
-	}
-	return nil
-}
-
-func stringMap(value any) (map[string]any, bool) {
-	switch item := value.(type) {
-	case map[string]any:
-		return item, true
-	case map[any]any:
-		converted := make(map[string]any, len(item))
-		for key, value := range item {
-			name, ok := key.(string)
-			if !ok {
-				return nil, false
-			}
-			converted[name] = value
-		}
-		return converted, true
-	default:
-		return nil, false
-	}
-}
-
-func nonEmptyString(value any) bool {
-	text, ok := value.(string)
-	return ok && strings.TrimSpace(text) != ""
 }
 
 func sameRequirement(left, right EnvironmentRequirement) bool {

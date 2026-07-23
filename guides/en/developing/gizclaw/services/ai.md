@@ -61,13 +61,15 @@ Workflow configuration retains `conversation`, Graph, Memory policy, and `voice_
 
 #### Pet composition boundary
 
-The built-in `pet` driver remains in GizClaw: for every completed turn it resolves the Workspace Pet, PetDef, and current Gameplay into transient `tmp_*` Board inputs. Its fixed Graph directly uses the RuntimeProfile aliases `pet-chat`, `pet-extract`, and `pet-asr`; speech uses the Workspace voice alias. Pet constructs the reusable Flowcraft Transformer and Audio Dock directly and reuses the same LogStore, KV Store, and ObjectStore-backed Memory assembly. There is no server `system_tasks` model-role configuration, Claw, local Workspace, `config.yaml`, or BBH dependency.
+The `pet` driver remains in GizClaw only as a domain wrapper. It resolves the Workspace Pet, PetDef, and current Gameplay on every turn and provides transient `tmp_*` Board inputs to the nested Workflow. `spec.pet` uses the same `driver` plus matching payload shape as an ordinary non-Pet Workflow; it may select Flowcraft, Chatroom, AST translation, or realtime execution, but cannot select `pet` recursively.
+
+The nested driver owns Graph, conversation, Memory, model, voice, and toolkit configuration and is constructed through the normal registered factory. All symbolic references resolve through the immutable system Workspace owner's RuntimeProfile. GizClaw does not synthesize a Pet Graph, fixed model aliases, a Workspace voice, or another nested-driver fallback.
 
 ### [workspace](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/workspace)
 
 Has workspace resources, workspace runtime storage and history. The Workspace is the persistence boundary for instantiating the Agent environment; the running Agent, input and output, and connection streams are the responsibility of the Runtime domain.
 
-Workspace also owns the immutable `system` lifecycle classification. Generic creation stores `system: false`; domain-owned creation stores `system: true`. Generic deletion always rejects system Workspaces. Deleting a user Workspace atomically removes its active record and owner index and writes one `kind=workspace` PendingDeletion; runtime, history, icons, objects, and files remain for asynchronous cleanup. The name cannot be created or put again while that pending record exists. The internal system lifecycle surface remains restricted to the owning Social or Gameplay service and is not changed into a pending-deletion producer.
+Workspace also owns the immutable `system` lifecycle classification. Generic creation stores `system: false`; domain-owned creation stores `system: true` together with one immutable `owner_public_key`. Generic put may change only a Chatroom system Workspace's input mode; it rejects changes to the owner, Workflow, domain mode, history/transcript policy, labels, or toolkit, and Pet system Workspaces therefore have no mutable execution configuration. Generic delete always rejects system Workspaces. Deleting a user Workspace atomically removes its active record and owner index and writes one `kind=workspace` PendingDeletion; runtime, history, icons, objects, and files remain for asynchronous cleanup. The name cannot be created or put again while that pending record exists. The internal system lifecycle surface remains restricted to the owning Social or Gameplay service and is not changed into a pending-deletion producer.
 
 ## Dependencies and boundaries
 

@@ -6,7 +6,6 @@ package apitypes
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"time"
 
 	jsonschema "github.com/google/jsonschema-go/jsonschema"
@@ -1078,24 +1077,6 @@ func (e PetBehavior) Valid() bool {
 	}
 }
 
-// Defines values for PetConversationParametersInitiative.
-const (
-	PetConversationParametersInitiativeAgent PetConversationParametersInitiative = "agent"
-	PetConversationParametersInitiativePeer  PetConversationParametersInitiative = "peer"
-)
-
-// Valid indicates whether the value is a known member of the PetConversationParametersInitiative enum.
-func (e PetConversationParametersInitiative) Valid() bool {
-	switch e {
-	case PetConversationParametersInitiativeAgent:
-		return true
-	case PetConversationParametersInitiativePeer:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for PetDefResourceKind.
 const (
 	PetDefResourceKindPetDef PetDefResourceKind = "PetDef"
@@ -1129,15 +1110,15 @@ func (e PetLifecycle) Valid() bool {
 	}
 }
 
-// Defines values for PetWorkspaceParametersAgentType.
+// Defines values for PetWorkflowVariantDriver.
 const (
-	PetWorkspaceParametersAgentTypePet PetWorkspaceParametersAgentType = "pet"
+	PetWorkflowVariantDriverPet PetWorkflowVariantDriver = "pet"
 )
 
-// Valid indicates whether the value is a known member of the PetWorkspaceParametersAgentType enum.
-func (e PetWorkspaceParametersAgentType) Valid() bool {
+// Valid indicates whether the value is a known member of the PetWorkflowVariantDriver enum.
+func (e PetWorkflowVariantDriver) Valid() bool {
 	switch e {
-	case PetWorkspaceParametersAgentTypePet:
+	case PetWorkflowVariantDriverPet:
 		return true
 	default:
 		return false
@@ -1267,6 +1248,90 @@ const (
 func (e ResourceListResourceKind) Valid() bool {
 	switch e {
 	case ResourceListResourceKindResourceList:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReusableASTTranslateWorkflowVariantDriver.
+const (
+	ReusableASTTranslateWorkflowVariantDriverAstTranslate ReusableASTTranslateWorkflowVariantDriver = "ast-translate"
+)
+
+// Valid indicates whether the value is a known member of the ReusableASTTranslateWorkflowVariantDriver enum.
+func (e ReusableASTTranslateWorkflowVariantDriver) Valid() bool {
+	switch e {
+	case ReusableASTTranslateWorkflowVariantDriverAstTranslate:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReusableChatroomWorkflowVariantDriver.
+const (
+	ReusableChatroomWorkflowVariantDriverChatroom ReusableChatroomWorkflowVariantDriver = "chatroom"
+)
+
+// Valid indicates whether the value is a known member of the ReusableChatroomWorkflowVariantDriver enum.
+func (e ReusableChatroomWorkflowVariantDriver) Valid() bool {
+	switch e {
+	case ReusableChatroomWorkflowVariantDriverChatroom:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReusableDoubaoRealtimeWorkflowVariantDriver.
+const (
+	ReusableDoubaoRealtimeWorkflowVariantDriverDoubaoRealtime ReusableDoubaoRealtimeWorkflowVariantDriver = "doubao-realtime"
+)
+
+// Valid indicates whether the value is a known member of the ReusableDoubaoRealtimeWorkflowVariantDriver enum.
+func (e ReusableDoubaoRealtimeWorkflowVariantDriver) Valid() bool {
+	switch e {
+	case ReusableDoubaoRealtimeWorkflowVariantDriverDoubaoRealtime:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReusableFlowcraftWorkflowVariantDriver.
+const (
+	ReusableFlowcraftWorkflowVariantDriverFlowcraft ReusableFlowcraftWorkflowVariantDriver = "flowcraft"
+)
+
+// Valid indicates whether the value is a known member of the ReusableFlowcraftWorkflowVariantDriver enum.
+func (e ReusableFlowcraftWorkflowVariantDriver) Valid() bool {
+	switch e {
+	case ReusableFlowcraftWorkflowVariantDriverFlowcraft:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReusableWorkflowDriver.
+const (
+	ReusableWorkflowDriverAstTranslate   ReusableWorkflowDriver = "ast-translate"
+	ReusableWorkflowDriverChatroom       ReusableWorkflowDriver = "chatroom"
+	ReusableWorkflowDriverDoubaoRealtime ReusableWorkflowDriver = "doubao-realtime"
+	ReusableWorkflowDriverFlowcraft      ReusableWorkflowDriver = "flowcraft"
+)
+
+// Valid indicates whether the value is a known member of the ReusableWorkflowDriver enum.
+func (e ReusableWorkflowDriver) Valid() bool {
+	switch e {
+	case ReusableWorkflowDriverAstTranslate:
+		return true
+	case ReusableWorkflowDriverChatroom:
+		return true
+	case ReusableWorkflowDriverDoubaoRealtime:
+		return true
+	case ReusableWorkflowDriverFlowcraft:
 		return true
 	default:
 		return false
@@ -2541,6 +2606,9 @@ type FriendGroupSpec struct {
 
 	// Name Display name for the friend group. metadata.name is the stable group id.
 	Name string `json:"name"`
+
+	// OwnerPublicKey Immutable owner Peer public key used to resolve the system Workflow.
+	OwnerPublicKey string `json:"owner_public_key"`
 }
 
 // FriendResource defines model for FriendResource.
@@ -3220,7 +3288,7 @@ type Pet struct {
 
 // PetAdoptRequest defines model for PetAdoptRequest.
 type PetAdoptRequest struct {
-	DisplayName *string `json:"display_name,omitempty"`
+	DisplayName string  `json:"display_name"`
 	Id          *string `json:"id,omitempty"`
 }
 
@@ -3234,23 +3302,13 @@ type PetAdoptResponse struct {
 // PetBehavior defines model for PetBehavior.
 type PetBehavior string
 
-// PetConversationParameters defines model for PetConversationParameters.
-type PetConversationParameters struct {
-	// Initiative Who starts the conversation when the workspace runtime opens.
-	Initiative *PetConversationParametersInitiative `json:"initiative,omitempty"`
-}
-
-// PetConversationParametersInitiative Who starts the conversation when the workspace runtime opens.
-type PetConversationParametersInitiative string
-
 // PetDef defines model for PetDef.
 type PetDef struct {
-	CreatedAt time.Time      `json:"created_at"`
-	I18n      PetDefI18nSpec `json:"i18n"`
-	Id        string         `json:"id"`
-	PixaPath  *string        `json:"pixa_path,omitempty"`
-	Spec      PetDefSpec     `json:"spec"`
-	UpdatedAt time.Time      `json:"updated_at"`
+	CreatedAt time.Time  `json:"created_at"`
+	Id        string     `json:"id"`
+	PixaPath  *string    `json:"pixa_path,omitempty"`
+	Spec      PetDefSpec `json:"spec"`
+	UpdatedAt time.Time  `json:"updated_at"`
 }
 
 // PetDefBehaviorBindingsSpec defines model for PetDefBehaviorBindingsSpec.
@@ -3264,18 +3322,6 @@ type PetDefBehaviorBindingsSpec struct {
 // PetDefCharacterSpec defines model for PetDefCharacterSpec.
 type PetDefCharacterSpec struct {
 	Prompt string `json:"prompt"`
-}
-
-// PetDefI18nCatalog defines model for PetDefI18nCatalog.
-type PetDefI18nCatalog struct {
-	Description *string `json:"description,omitempty"`
-	DisplayName *string `json:"display_name,omitempty"`
-}
-
-// PetDefI18nSpec defines model for PetDefI18nSpec.
-type PetDefI18nSpec struct {
-	DefaultLocale        string                       `json:"default_locale"`
-	AdditionalProperties map[string]PetDefI18nCatalog `json:"-"`
 }
 
 // PetDefPixaCanvasMetadata defines model for PetDefPixaCanvasMetadata.
@@ -3307,7 +3353,6 @@ type PetDefPixaSpec struct {
 type PetDefResource struct {
 	// ApiVersion API version for declarative GizClaw resources.
 	ApiVersion ResourceAPIVersion `json:"apiVersion"`
-	I18n       *PetDefI18nSpec    `json:"i18n,omitempty"`
 	Kind       PetDefResourceKind `json:"kind"`
 	Metadata   ResourceMetadata   `json:"metadata"`
 	Spec       PetDefSpec         `json:"spec"`
@@ -3414,12 +3459,6 @@ type PetListResponse struct {
 	NextCursor *string `json:"next_cursor,omitempty"`
 }
 
-// PetPersonaParameters defines model for PetPersonaParameters.
-type PetPersonaParameters struct {
-	// Prompt Workspace-specific personality prompt appended to the PetDef character prompt.
-	Prompt *string `json:"prompt,omitempty"`
-}
-
 // PetProgression defines model for PetProgression.
 type PetProgression struct {
 	Experience int64 `json:"experience"`
@@ -3442,29 +3481,22 @@ type PetStats struct {
 	Satiety float64 `json:"satiety"`
 }
 
-// PetVoiceParameters defines model for PetVoiceParameters.
-type PetVoiceParameters struct {
-	// Prompt Workspace-specific speaking style prompt appended to the PetDef voice prompt.
-	Prompt *string `json:"prompt,omitempty"`
+// PetWorkflowSpec Reusable non-Pet Workflow union used directly and below the Pet domain wrapper.
+type PetWorkflowSpec = ReusableWorkflowSpec
 
-	// VoiceId RuntimeProfile Voice alias used for this pet.
-	VoiceId string `json:"voice_id"`
+// PetWorkflowVariant defines model for PetWorkflowVariant.
+type PetWorkflowVariant struct {
+	Driver PetWorkflowVariantDriver `json:"driver"`
+
+	// Pet Reusable non-Pet Workflow union used directly and below the Pet domain wrapper.
+	Pet PetWorkflowSpec `json:"pet"`
+
+	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
+	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
 }
 
-// PetWorkflowSpec defines model for PetWorkflowSpec.
-type PetWorkflowSpec = map[string]interface{}
-
-// PetWorkspaceParameters defines model for PetWorkspaceParameters.
-type PetWorkspaceParameters struct {
-	AgentType    PetWorkspaceParametersAgentType `json:"agent_type"`
-	Conversation *PetConversationParameters      `json:"conversation,omitempty"`
-	Input        *WorkspaceInputMode             `json:"input,omitempty"`
-	Persona      *PetPersonaParameters           `json:"persona,omitempty"`
-	Voice        PetVoiceParameters              `json:"voice"`
-}
-
-// PetWorkspaceParametersAgentType defines model for PetWorkspaceParameters.AgentType.
-type PetWorkspaceParametersAgentType string
+// PetWorkflowVariantDriver defines model for PetWorkflowVariant.Driver.
+type PetWorkflowVariantDriver string
 
 // PointsAccount defines model for PointsAccount.
 type PointsAccount struct {
@@ -3596,6 +3628,72 @@ type ResourceMetadata struct {
 
 	// OwnerPublicKey Immutable owner Public Key for Client-created resources. Admin-owned resources omit this field.
 	OwnerPublicKey *string `json:"owner_public_key,omitempty"`
+}
+
+// ReusableASTTranslateWorkflowVariant defines model for ReusableASTTranslateWorkflowVariant.
+type ReusableASTTranslateWorkflowVariant struct {
+	AstTranslate ASTTranslateWorkflowSpec                  `json:"ast_translate"`
+	Driver       ReusableASTTranslateWorkflowVariantDriver `json:"driver"`
+
+	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
+	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
+}
+
+// ReusableASTTranslateWorkflowVariantDriver defines model for ReusableASTTranslateWorkflowVariant.Driver.
+type ReusableASTTranslateWorkflowVariantDriver string
+
+// ReusableChatroomWorkflowVariant defines model for ReusableChatroomWorkflowVariant.
+type ReusableChatroomWorkflowVariant struct {
+	Chatroom ChatRoomWorkflowSpec                  `json:"chatroom"`
+	Driver   ReusableChatroomWorkflowVariantDriver `json:"driver"`
+
+	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
+	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
+}
+
+// ReusableChatroomWorkflowVariantDriver defines model for ReusableChatroomWorkflowVariant.Driver.
+type ReusableChatroomWorkflowVariantDriver string
+
+// ReusableDoubaoRealtimeWorkflowVariant defines model for ReusableDoubaoRealtimeWorkflowVariant.
+type ReusableDoubaoRealtimeWorkflowVariant struct {
+	DoubaoRealtime DoubaoRealtimeWorkflowSpec                  `json:"doubao_realtime"`
+	Driver         ReusableDoubaoRealtimeWorkflowVariantDriver `json:"driver"`
+
+	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
+	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
+}
+
+// ReusableDoubaoRealtimeWorkflowVariantDriver defines model for ReusableDoubaoRealtimeWorkflowVariant.Driver.
+type ReusableDoubaoRealtimeWorkflowVariantDriver string
+
+// ReusableFlowcraftWorkflowVariant defines model for ReusableFlowcraftWorkflowVariant.
+type ReusableFlowcraftWorkflowVariant struct {
+	Driver    ReusableFlowcraftWorkflowVariantDriver `json:"driver"`
+	Flowcraft FlowcraftWorkflowSpec                  `json:"flowcraft"`
+
+	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
+	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
+}
+
+// ReusableFlowcraftWorkflowVariantDriver defines model for ReusableFlowcraftWorkflowVariant.Driver.
+type ReusableFlowcraftWorkflowVariantDriver string
+
+// ReusableWorkflowDriver defines model for ReusableWorkflowDriver.
+type ReusableWorkflowDriver string
+
+// ReusableWorkflowSpec Reusable non-Pet Workflow union used directly and below the Pet domain wrapper.
+type ReusableWorkflowSpec = ReusableWorkflowSpecObject
+
+// ReusableWorkflowSpecObject defines model for ReusableWorkflowSpecObject.
+type ReusableWorkflowSpecObject struct {
+	AstTranslate   *ASTTranslateWorkflowSpec   `json:"ast_translate,omitempty"`
+	Chatroom       *ChatRoomWorkflowSpec       `json:"chatroom,omitempty"`
+	DoubaoRealtime *DoubaoRealtimeWorkflowSpec `json:"doubao_realtime,omitempty"`
+	Driver         ReusableWorkflowDriver      `json:"driver"`
+	Flowcraft      *FlowcraftWorkflowSpec      `json:"flowcraft,omitempty"`
+
+	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
+	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
 }
 
 // RewardGrant defines model for RewardGrant.
@@ -3742,7 +3840,6 @@ type RuntimeProfilePetPoolEntry struct {
 	AdoptionCost *int64  `json:"adoption_cost,omitempty"`
 	PetDef       string  `json:"pet_def"`
 	Rarity       *string `json:"rarity,omitempty"`
-	Voice        string  `json:"voice"`
 	Weight       int64   `json:"weight"`
 }
 
@@ -3787,12 +3884,25 @@ type RuntimeProfileSpec struct {
 	Workflows RuntimeProfileWorkflows     `json:"workflows"`
 }
 
+// RuntimeProfileSystemWorkflows defines model for RuntimeProfileSystemWorkflows.
+type RuntimeProfileSystemWorkflows struct {
+	// FriendChatroom Persisted Workflow resource ID for direct friend chat Workspaces.
+	FriendChatroom string `json:"friend_chatroom"`
+
+	// GroupChatroom Persisted Workflow resource ID for friend-group chat Workspaces.
+	GroupChatroom string `json:"group_chatroom"`
+
+	// Pet Persisted Workflow resource ID for adopted Pet Workspaces.
+	Pet string `json:"pet"`
+}
+
 // RuntimeProfileWorkflowCollections defines model for RuntimeProfileWorkflowCollections.
 type RuntimeProfileWorkflowCollections map[string]map[string]RuntimeProfileBinding
 
 // RuntimeProfileWorkflows defines model for RuntimeProfileWorkflows.
 type RuntimeProfileWorkflows struct {
 	Collections RuntimeProfileWorkflowCollections `json:"collections"`
+	System      RuntimeProfileSystemWorkflows     `json:"system"`
 }
 
 // ServerInfo defines model for ServerInfo.
@@ -4081,7 +4191,9 @@ type VolcTenantVoiceProviderData struct {
 // Workflow defines model for Workflow.
 type Workflow struct {
 	// Name Stable workflow ID used by storage, paths, RuntimeProfiles, and workspace references.
-	Name string       `json:"name"`
+	Name string `json:"name"`
+
+	// Spec Workflow union: one reusable non-Pet variant or the Pet domain wrapper.
 	Spec WorkflowSpec `json:"spec"`
 }
 
@@ -4096,20 +4208,27 @@ type WorkflowResource struct {
 
 	// Metadata metadata.name is the workflow custom ID.
 	Metadata ResourceMetadata `json:"metadata"`
-	Spec     WorkflowSpec     `json:"spec"`
+
+	// Spec Workflow union: one reusable non-Pet variant or the Pet domain wrapper.
+	Spec WorkflowSpec `json:"spec"`
 }
 
 // WorkflowResourceKind defines model for WorkflowResource.Kind.
 type WorkflowResourceKind string
 
-// WorkflowSpec defines model for WorkflowSpec.
-type WorkflowSpec struct {
+// WorkflowSpec Workflow union: one reusable non-Pet variant or the Pet domain wrapper.
+type WorkflowSpec = WorkflowSpecObject
+
+// WorkflowSpecObject defines model for WorkflowSpecObject.
+type WorkflowSpecObject struct {
 	AstTranslate   *ASTTranslateWorkflowSpec   `json:"ast_translate,omitempty"`
 	Chatroom       *ChatRoomWorkflowSpec       `json:"chatroom,omitempty"`
 	DoubaoRealtime *DoubaoRealtimeWorkflowSpec `json:"doubao_realtime,omitempty"`
 	Driver         WorkflowDriver              `json:"driver"`
 	Flowcraft      *FlowcraftWorkflowSpec      `json:"flowcraft,omitempty"`
-	Pet            *PetWorkflowSpec            `json:"pet,omitempty"`
+
+	// Pet Reusable non-Pet Workflow union used directly and below the Pet domain wrapper.
+	Pet *PetWorkflowSpec `json:"pet,omitempty"`
 
 	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
 	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
@@ -4127,7 +4246,7 @@ type Workspace struct {
 	LastActiveAt time.Time `json:"last_active_at"`
 	Name         string    `json:"name"`
 
-	// OwnerPublicKey Immutable Public Key of the Client that created this Workspace. System and Admin-created Workspaces may omit it.
+	// OwnerPublicKey Immutable owner Peer public key. Domain-created system Workspaces always persist it.
 	OwnerPublicKey *string `json:"owner_public_key,omitempty"`
 
 	// Parameters Agent-specific workspace parameters. The shape is selected by agent_type.
@@ -4175,72 +4294,6 @@ type WorkspaceSpec struct {
 
 	// WorkflowName Referenced workflow custom ID.
 	WorkflowName string `json:"workflow_name"`
-}
-
-// Getter for additional properties for PetDefI18nSpec. Returns the specified
-// element and whether it was found
-func (a PetDefI18nSpec) Get(fieldName string) (value PetDefI18nCatalog, found bool) {
-	if a.AdditionalProperties != nil {
-		value, found = a.AdditionalProperties[fieldName]
-	}
-	return
-}
-
-// Setter for additional properties for PetDefI18nSpec
-func (a *PetDefI18nSpec) Set(fieldName string, value PetDefI18nCatalog) {
-	if a.AdditionalProperties == nil {
-		a.AdditionalProperties = make(map[string]PetDefI18nCatalog)
-	}
-	a.AdditionalProperties[fieldName] = value
-}
-
-// Override default JSON handling for PetDefI18nSpec to handle AdditionalProperties
-func (a *PetDefI18nSpec) UnmarshalJSON(b []byte) error {
-	object := make(map[string]json.RawMessage)
-	err := json.Unmarshal(b, &object)
-	if err != nil {
-		return err
-	}
-
-	if raw, found := object["default_locale"]; found {
-		err = json.Unmarshal(raw, &a.DefaultLocale)
-		if err != nil {
-			return fmt.Errorf("error reading 'default_locale': %w", err)
-		}
-		delete(object, "default_locale")
-	}
-
-	if len(object) != 0 {
-		a.AdditionalProperties = make(map[string]PetDefI18nCatalog)
-		for fieldName, fieldBuf := range object {
-			var fieldVal PetDefI18nCatalog
-			err := json.Unmarshal(fieldBuf, &fieldVal)
-			if err != nil {
-				return fmt.Errorf("error unmarshaling field %s: %w", fieldName, err)
-			}
-			a.AdditionalProperties[fieldName] = fieldVal
-		}
-	}
-	return nil
-}
-
-// Override default JSON handling for PetDefI18nSpec to handle AdditionalProperties
-func (a PetDefI18nSpec) MarshalJSON() ([]byte, error) {
-	var err error
-	object := make(map[string]json.RawMessage)
-
-	object["default_locale"], err = json.Marshal(a.DefaultLocale)
-	if err != nil {
-		return nil, fmt.Errorf("error marshaling 'default_locale': %w", err)
-	}
-
-	for fieldName, field := range a.AdditionalProperties {
-		object[fieldName], err = json.Marshal(field)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling '%s': %w", fieldName, err)
-		}
-	}
-	return json.Marshal(object)
 }
 
 // AsASTTranslateInternalSpeakerParameters returns the union data inside the ASTTranslateVoiceParameters as a ASTTranslateInternalSpeakerParameters
@@ -5757,34 +5810,6 @@ func (t *WorkspaceParameters) MergeChatRoomWorkspaceParameters(v ChatRoomWorkspa
 	return err
 }
 
-// AsPetWorkspaceParameters returns the union data inside the WorkspaceParameters as a PetWorkspaceParameters
-func (t WorkspaceParameters) AsPetWorkspaceParameters() (PetWorkspaceParameters, error) {
-	var body PetWorkspaceParameters
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromPetWorkspaceParameters overwrites any union data inside the WorkspaceParameters as the provided PetWorkspaceParameters
-func (t *WorkspaceParameters) FromPetWorkspaceParameters(v PetWorkspaceParameters) error {
-	v.AgentType = "pet"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergePetWorkspaceParameters performs a merge with any union data inside the WorkspaceParameters, using the provided PetWorkspaceParameters
-func (t *WorkspaceParameters) MergePetWorkspaceParameters(v PetWorkspaceParameters) error {
-	v.AgentType = "pet"
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
 func (t WorkspaceParameters) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"agent_type"`
@@ -5807,8 +5832,6 @@ func (t WorkspaceParameters) ValueByDiscriminator() (interface{}, error) {
 		return t.AsDoubaoRealtimeWorkspaceParameters()
 	case "flowcraft":
 		return t.AsFlowcraftWorkspaceParameters()
-	case "pet":
-		return t.AsPetWorkspaceParameters()
 	default:
 		return nil, errors.New("unknown discriminator value: " + discriminator)
 	}
