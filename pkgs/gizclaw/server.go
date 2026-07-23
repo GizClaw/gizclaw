@@ -3,6 +3,7 @@ package gizclaw
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -392,6 +393,12 @@ func (s *Server) init() error {
 	badgeDefStore := moduleStore(s.BadgeDefStore, s.PeerStore, "badge-defs")
 	gameDefStore := moduleStore(s.GameDefStore, s.PeerStore, "game-defs")
 	peerRouteStore := moduleStore(nil, peerStore, "routes")
+	if !kv.SupportsCreateIfAbsent(peerStore) {
+		return fmt.Errorf("gizclaw: peer store: %w", kv.ErrCreateIfAbsentUnsupported)
+	}
+	if !kv.SupportsCreateIfAbsent(workspaceStore) {
+		return fmt.Errorf("gizclaw: workspace store: %w", kv.ErrCreateIfAbsentUnsupported)
+	}
 
 	publicLoginServer := publiclogin.NewServer(&s.LocalStatic, publicLoginStore)
 	publicLoginServer.SessionAuthorizer = s.PublicLoginAuthorizer

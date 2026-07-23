@@ -150,9 +150,9 @@ pkgs/gizclaw/peer_conn_test.go:649:119: call of peerConnIntPtr(x) can be simplif
 pkgs/gizclaw/peer_conn_test.go:657:113: call of peerConnBoolPtr(x) can be simplified to new(x)
 pkgs/gizclaw/peer_conn_test.go:665:6: for loop can be modernized using range over int
 pkgs/gizclaw/peer_service.go:121:6: for loop can be modernized using range over int
-pkgs/gizclaw/peer_service_serve_admin_test.go:344:23: call of adminTestStringPtr(x) can be simplified to new(x)
-pkgs/gizclaw/peer_service_serve_admin_test.go:394:73: call of adminTestStringPtr(x) can be simplified to new(x)
-pkgs/gizclaw/peer_service_serve_admin_test.go:648:6: adminTestStringPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/peer_service_serve_admin_test.go:350:23: call of adminTestStringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/peer_service_serve_admin_test.go:400:73: call of adminTestStringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/peer_service_serve_admin_test.go:654:6: adminTestStringPtr can be an inlinable wrapper around new(expr)
 pkgs/gizclaw/peer_stream_event.go:59:3: Replace m[k]=v loop with maps.Copy
 pkgs/gizclaw/rpc_server_service_test.go:156:151: call of intPtr(x) can be simplified to new(x)
 pkgs/gizclaw/rpc_server_service_test.go:29:46: call of stringPtr(x) can be simplified to new(x)
@@ -286,14 +286,14 @@ pkgs/gizclaw/services/ai/workflow/agents/flowcraft/credential_body_test.go:35:3:
 pkgs/gizclaw/services/ai/workflow/agents/flowcraft/credential_body_test.go:60:80: call of testStringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/ai/workflow/agents/flowcraft/credential_body_test.go:68:86: call of testStringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/ai/workflow/agents/flowcraft/credential_body_test.go:77:3: copying variable is unneeded
-pkgs/gizclaw/services/ai/workspace/server.go:1031:4: Replace m[k]=v loop with maps.Copy
-pkgs/gizclaw/services/ai/workspace/server.go:291:17: call of boolPointer(x) can be simplified to new(x)
-pkgs/gizclaw/services/ai/workspace/server.go:502:17: call of boolPointer(x) can be simplified to new(x)
-pkgs/gizclaw/services/ai/workspace/server.go:625:22: call of boolPointer(x) can be simplified to new(x)
-pkgs/gizclaw/services/ai/workspace/server.go:641:6: boolPointer can be an inlinable wrapper around new(expr)
-pkgs/gizclaw/services/ai/workspace/server.go:70:3: Replace m[k]=v loop with maps.Copy
-pkgs/gizclaw/services/ai/workspace/server.go:80:3: Replace m[k]=v loop with maps.Copy
-pkgs/gizclaw/services/ai/workspace/server.go:90:3: Replace m[k]=v loop with maps.Copy
+pkgs/gizclaw/services/ai/workspace/server.go:1012:4: Replace m[k]=v loop with maps.Copy
+pkgs/gizclaw/services/ai/workspace/server.go:276:17: call of boolPointer(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/workspace/server.go:474:17: call of boolPointer(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/workspace/server.go:610:22: call of boolPointer(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/workspace/server.go:626:6: boolPointer can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/services/ai/workspace/server.go:65:3: Replace m[k]=v loop with maps.Copy
+pkgs/gizclaw/services/ai/workspace/server.go:75:3: Replace m[k]=v loop with maps.Copy
+pkgs/gizclaw/services/ai/workspace/server.go:85:3: Replace m[k]=v loop with maps.Copy
 pkgs/gizclaw/services/device/firmware/artifact.go:574:23: Ranging over SplitSeq is more efficient
 pkgs/gizclaw/services/device/firmware/artifact.go:574:2: Loop can be simplified using slices.Contains
 pkgs/gizclaw/services/device/firmware/artifact_fuzz_test.go:78:23: Ranging over SplitSeq is more efficient
@@ -318,11 +318,11 @@ pkgs/gizclaw/services/device/firmware/server_test.go:556:6: int64Ptr can be an i
 pkgs/gizclaw/services/device/firmware/server_test.go:78:81: call of ptr(x) can be simplified to new(x)
 pkgs/gizclaw/services/gameplay/pixa.go:165:6: for loop can be modernized using range over int
 pkgs/gizclaw/services/gameplay/reward.go:207:6: stringPtr can be an inlinable wrapper around new(expr)
-pkgs/gizclaw/services/gameplay/runtime.go:1024:12: call of stringPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/gameplay/runtime.go:1038:12: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/gameplay/runtime.go:1073:12: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/gameplay/runtime.go:1087:12: call of stringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/runtime/agent/resolver.go:63:5: HasPrefix + TrimPrefix can be simplified to CutPrefix
 pkgs/gizclaw/services/runtime/agenthost/context.go:43:3: Replace m[k]=v loop with maps.Copy
-pkgs/gizclaw/services/runtime/peer/store_ops.go:422:5: if statement can be modernized using min
+pkgs/gizclaw/services/runtime/peer/store_ops.go:398:5: if statement can be modernized using min
 pkgs/gizclaw/services/runtime/peerresource/access.go:605:6: ptr can be an inlinable wrapper around new(expr)
 pkgs/gizclaw/services/runtime/peerresource/server.go:1215:19: reflect.TypeOf call can be simplified using TypeFor
 pkgs/gizclaw/services/runtime/peerresource/server.go:1215:83: reflect.TypeOf call can be simplified using TypeFor
@@ -436,7 +436,7 @@ pkgs/gizclaw/services/system/resourcemanager/minimax_test.go:273:19: call of str
 pkgs/gizclaw/services/system/resourcemanager/minimax_test.go:305:19: call of stringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/system/resourcemanager/minimax_test.go:337:14: call of ptr(x) can be simplified to new(x)
 pkgs/gizclaw/services/system/resourcemanager/minimax_test.go:76:19: call of stringPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/system/resourcemanager/workspace.go:162:3: Replace m[k]=v loop with maps.Copy
+pkgs/gizclaw/services/system/resourcemanager/workspace.go:160:3: Replace m[k]=v loop with maps.Copy
 pkgs/gizclaw/test_credential_body_external_test.go:31:6: stringPtr can be an inlinable wrapper around new(expr)
 pkgs/gizedge/config_test.go:249:6: for loop can be modernized using range over int
 pkgs/gizedge/config_test.go:468:17: context.WithCancel can be modernized using t.Context

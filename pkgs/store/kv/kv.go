@@ -20,6 +20,9 @@ var (
 	ErrNotFound = errors.New("kv: not found")
 	// ErrInvalidDeadline is returned when an entry deadline is already expired.
 	ErrInvalidDeadline = errors.New("kv: invalid deadline")
+	// ErrCreateIfAbsentUnsupported is returned when a Store does not implement
+	// the optional atomic conditional-create capability.
+	ErrCreateIfAbsentUnsupported = errors.New("kv: atomic create-if-absent unsupported")
 )
 
 // Key is a hierarchical path represented as a slice of string segments.
@@ -72,6 +75,34 @@ type Store interface {
 
 	// Close releases any resources held by the store.
 	Close() error
+}
+
+type createIfAbsentStore interface {
+	CreateIfAbsent(ctx context.Context, guard Entry, entries []Entry) (existing []byte, created bool, err error)
+}
+
+// SupportsCreateIfAbsent reports whether store provides the atomic
+// conditional-create capability. Prefixed stores inherit support from their
+// underlying store.
+func SupportsCreateIfAbsent(store Store) bool {
+	if prefixed, ok := store.(*prefixedStore); ok {
+		return SupportsCreateIfAbsent(prefixed.base)
+	}
+	_, ok := store.(createIfAbsentStore)
+	return ok
+}
+
+// CreateIfAbsent atomically stores guard and entries through the Store's
+// optional conditional-create capability. When guard.Key already exists, it
+// returns its stored value and leaves every key unchanged. The boolean reports
+// whether this call created the guard and entries. If entries contains
+// guard.Key, guard wins.
+func CreateIfAbsent(ctx context.Context, store Store, guard Entry, entries []Entry) (existing []byte, created bool, err error) {
+	conditional, ok := store.(createIfAbsentStore)
+	if !ok {
+		return nil, false, ErrCreateIfAbsentUnsupported
+	}
+	return conditional.CreateIfAbsent(ctx, guard, entries)
 }
 
 type listAfterStore interface {

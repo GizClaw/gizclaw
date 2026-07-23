@@ -69,7 +69,7 @@ Workflow 保留 `conversation`、Graph、Memory policy 与 `voice_adapter`。它
 
 拥有 workspace 资源、workspace runtime storage 和 history。Workspace 是实例化 Agent 环境的持久化边界；运行中的 Agent、输入输出和 connection stream 由 Runtime 领域负责。
 
-Workspace 还拥有不可变的 `system` 生命周期分类。通用创建写入 `system: false`；领域拥有的创建同时写入 `system: true` 与唯一且不可变的 `owner_public_key`。通用 put 只能修改 Chatroom system Workspace 的 input mode；owner、Workflow、领域 mode、history/transcript policy、labels 或 toolkit 的变化都会被拒绝，因此 Pet system Workspace 没有可变的执行配置。通用 delete 始终拒绝 system Workspace。删除用户 Workspace 时，会原子删除 active record 与 owner index，并写入一条 `kind=workspace` PendingDeletion；runtime、history、icon、object 和 file 留给异步清理。pending record 存在期间不能重新 create/put 同名 Workspace。内部 system lifecycle surface 仍只提供给拥有该 Workspace 的 Social 或 Gameplay service，且不会在这里改成 pending-deletion producer。
+Workspace 还拥有不可变的 `system` 生命周期分类。通用创建写入 `system: false`；领域拥有的创建同时写入 `system: true` 与唯一且不可变的 `owner_public_key`。通用 put 只能修改 Chatroom system Workspace 的 input mode；owner、Workflow、领域 mode、history/transcript policy、labels 或 toolkit 的变化都会被拒绝，因此 Pet system Workspace 没有可变的执行配置。通用 delete 始终拒绝 system Workspace。删除用户 Workspace 时，会原子创建或复用一条 `kind=workspace` PendingDeletion，同时保留 active record 与 owner index；runtime、history、icon、object 和 file 也留给后续清理。该标记不影响 Workspace 的读取、list、authorization、create 或 put。内部 system lifecycle surface 仍只提供给拥有该 Workspace 的 Social 或 Gameplay service，且不会在这里改成 pending-deletion producer。
 
 ## 依赖与边界
 

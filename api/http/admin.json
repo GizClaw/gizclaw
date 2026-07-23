@@ -5430,7 +5430,7 @@
             }
           },
           "409": {
-            "description": "Workspace already exists or is pending deletion",
+            "description": "Workspace already exists",
             "content": {
               "application/json": {
                 "schema": {
@@ -5552,7 +5552,7 @@
             }
           },
           "409": {
-            "description": "Workspace name is pending deletion",
+            "description": "System workspace update is forbidden",
             "content": {
               "application/json": {
                 "schema": {
@@ -5576,7 +5576,7 @@
       "delete": {
         "operationId": "deleteWorkspace",
         "summary": "Delete a workspace",
-        "description": "Immediately removes a user-created Workspace and writes a durable pending-deletion handoff. System Workspaces cannot be deleted through this operation; physical runtime, history, assets, objects, and files are retained for asynchronous cleanup.",
+        "description": "Writes or reuses a durable pending-deletion handoff for a user-created Workspace while retaining the active Workspace and its indexes. System Workspaces cannot be deleted through this operation; physical runtime, history, assets, objects, and files are retained for later cleanup.",
         "tags": [
           "Workspaces"
         ],
@@ -6285,7 +6285,7 @@
       "delete": {
         "operationId": "deletePeer",
         "summary": "Delete a peer",
-        "description": "Immediately removes the active Peer registration and writes a durable pending-deletion handoff. An existing online connection is not forcibly closed by this Admin operation.",
+        "description": "Writes or reuses a durable pending-deletion handoff for the active Peer registration while retaining the Peer and its indexes. An existing online connection is not forcibly closed by this Admin operation.",
         "tags": [
           "Resource"
         ],
@@ -9164,7 +9164,7 @@
       "delete": {
         "operationId": "deletePeerPet",
         "summary": "Delete a peer Pet",
-        "description": "Immediately removes the Pet row and writes a durable pending-deletion handoff in the same transaction. The Pet's bound system Workspace is retained.",
+        "description": "Writes or reuses a durable pending-deletion handoff for the Pet in the same transaction while retaining the Pet row. The Pet's bound system Workspace is retained.",
         "tags": [
           "GameplayDebug"
         ],

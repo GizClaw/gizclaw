@@ -48,4 +48,4 @@ life 到 0 时，Pet 在公式计算出的死亡 checkpoint 原子进入 `dead` 
 
 每个游戏必须在 `resources.game_defs` 和 `gameplay.pet.games` 中显式配置，不存在 default。未配置游戏的提交是精确 no-op：不结算时间、不扣 points/energy、不写 game result、不调用奖励模型、不增加 EXP/badge。已配置游戏先验证资源，再调用当前连接允许的模型；模型只能在配置上限内发放 Pet EXP 和 eligible badge EXP，失败或非法输出不会产生任何 gameplay 写入。idempotency key 保证成功结果不会重复扣费、调用模型或发奖。
 
-Gameplay 使用 Workspace owner 和 Pet 领域关系，不创建额外 role 或 policy binding。领养时会独立于 active Pet row 持久化 Pet-to-Workspace binding。Pet 删除在同一个 gameplay SQL database transaction 中只删除 active Pet row，并写入一条 `kind=pet` PendingDeletion；binding 会继续保留，因此即使 pending 清理完成，owner 仍可在原 RuntimeProfile 下列出并访问该 system Workspace。不创建 Workspace pending record；points、badge、result、transaction 和 reward grant 历史全部保留。
+Gameplay 使用 Workspace owner 和 Pet 领域关系，不创建额外 role 或 policy binding。领养时会独立于 active Pet row 持久化 Pet-to-Workspace binding。Pet 删除在同一个 gameplay SQL database transaction 中创建或复用一条 `kind=pet` PendingDeletion，同时保留 Pet row 及其 binding；该标记不影响 Pet 的读取、list、authorization 或 mutation。不创建 Workspace pending record；points、badge、result、transaction 和 reward grant 历史全部保留。

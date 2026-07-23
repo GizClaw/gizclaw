@@ -24,13 +24,17 @@ func (s PendingDeletionSource) Get(ctx context.Context, deletionID string) (pend
 	if s.DB == nil {
 		return pendingdeletion.Record{}, errors.New("gameplay: database not configured")
 	}
+	return getPendingDeletion(ctx, s.DB, deletionID)
+}
+
+func getPendingDeletion(ctx context.Context, db queryRebinder, deletionID string) (pendingdeletion.Record, error) {
 	var (
 		record         pendingdeletion.Record
 		owner          string
 		deletedAt      string
 		descriptorJSON string
 	)
-	err := s.DB.QueryRowContext(ctx, s.DB.Rebind(`SELECT deletion_id, kind, owner_public_key, resource_id, reason, deleted_at, descriptor_version, descriptor_json FROM gameplay_pending_deletions WHERE deletion_id = ?`), deletionID).Scan(
+	err := db.QueryRowContext(ctx, db.Rebind(`SELECT deletion_id, kind, owner_public_key, resource_id, reason, deleted_at, descriptor_version, descriptor_json FROM gameplay_pending_deletions WHERE deletion_id = ?`), deletionID).Scan(
 		&record.DeletionID,
 		&record.Kind,
 		&owner,
@@ -68,14 +72,53 @@ func (s PendingDeletionSource) HasLocator(ctx context.Context, locator pendingde
 	if owner == "" {
 		return false, errors.New("gameplay: pending deletion locator owner is empty")
 	}
-	query := `SELECT 1 FROM gameplay_pending_deletions WHERE kind = ? AND resource_id = ? AND owner_public_key = ? LIMIT 1`
-	var exists int
-	err := s.DB.QueryRowContext(ctx, s.DB.Rebind(query), locator.Kind, locator.ResourceID, owner).Scan(&exists)
+	query := `SELECT deletion_id
+		FROM gameplay_pending_deletion_locators
+		WHERE kind = ? AND resource_id = ? AND owner_public_key = ?
+		LIMIT 1`
+	var deletionID string
+	err := s.DB.QueryRowContext(ctx, s.DB.Rebind(query), locator.Kind, locator.ResourceID, owner).Scan(&deletionID)
+	if err == nil {
+		return s.validateLocatorRecord(ctx, deletionID, locator, owner)
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return false, fmt.Errorf("gameplay: lookup pending deletion: %w", err)
+	}
+
+	// Legacy #469 records predate the fixed locator table.
+	query = `SELECT deletion_id
+		FROM gameplay_pending_deletions
+		WHERE kind = ? AND resource_id = ? AND owner_public_key = ?
+		ORDER BY deleted_at, deletion_id
+		LIMIT 1`
+	err = s.DB.QueryRowContext(ctx, s.DB.Rebind(query), locator.Kind, locator.ResourceID, owner).Scan(&deletionID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return false, nil
 	}
 	if err != nil {
 		return false, fmt.Errorf("gameplay: lookup pending deletion: %w", err)
+	}
+	return s.validateLocatorRecord(ctx, deletionID, locator, owner)
+}
+
+func (s PendingDeletionSource) validateLocatorRecord(
+	ctx context.Context,
+	deletionID string,
+	locator pendingdeletion.Locator,
+	owner string,
+) (bool, error) {
+	record, err := s.Get(ctx, deletionID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, fmt.Errorf("gameplay: pending deletion locator %q references a missing or mismatched record", deletionID)
+		}
+		return false, fmt.Errorf("gameplay: validate pending deletion locator %q: %w", deletionID, err)
+	}
+	if record.Kind != locator.Kind ||
+		record.ResourceID != locator.ResourceID ||
+		record.OwnerPublicKey == nil ||
+		*record.OwnerPublicKey != owner {
+		return false, fmt.Errorf("gameplay: pending deletion locator %q references a missing or mismatched record", deletionID)
 	}
 	return true, nil
 }

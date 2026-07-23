@@ -3,11 +3,187 @@ package kv_test
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
+
+type storeWithoutCreateIfAbsent struct {
+	kv.Store
+}
+
+func TestSupportsCreateIfAbsent(t *testing.T) {
+	supported := kv.NewMemory(nil)
+	unsupported := storeWithoutCreateIfAbsent{Store: supported}
+	for _, tc := range []struct {
+		name  string
+		store kv.Store
+		want  bool
+	}{
+		{name: "supported", store: supported, want: true},
+		{name: "unsupported", store: unsupported},
+		{name: "prefixed supported", store: kv.Prefixed(supported, kv.Key{"supported"}), want: true},
+		{name: "prefixed unsupported", store: kv.Prefixed(unsupported, kv.Key{"unsupported"})},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := kv.SupportsCreateIfAbsent(tc.store); got != tc.want {
+				t.Fatalf("SupportsCreateIfAbsent() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestCreateIfAbsentRejectsUnsupportedStore(t *testing.T) {
+	store := storeWithoutCreateIfAbsent{Store: kv.NewMemory(nil)}
+	var _ kv.Store = store
+	_, created, err := kv.CreateIfAbsent(
+		context.Background(),
+		store,
+		kv.Entry{Key: kv.Key{"guard"}, Value: []byte("guard")},
+		nil,
+	)
+	if !errors.Is(err, kv.ErrCreateIfAbsentUnsupported) || created {
+		t.Fatalf("CreateIfAbsent() = (_, %v, %v), want unsupported error", created, err)
+	}
+}
+
+func TestCreateIfAbsentCreatesOneAtomicRecord(t *testing.T) {
+	for _, fixture := range []struct {
+		name string
+		new  func(*testing.T) kv.Store
+	}{
+		{name: "memory", new: func(*testing.T) kv.Store { return kv.NewMemory(nil) }},
+		{name: "badger", new: func(t *testing.T) kv.Store { return newTestStore(t, nil) }},
+	} {
+		t.Run(fixture.name, func(t *testing.T) {
+			store := fixture.new(t)
+			ctx := context.Background()
+			guard := kv.Entry{Key: kv.Key{"pending", "resource"}, Value: []byte("winner")}
+			entries := []kv.Entry{{Key: kv.Key{"records", "winner"}, Value: []byte("record")}}
+
+			const callers = 16
+			start := make(chan struct{})
+			results := make(chan struct {
+				existing string
+				created  bool
+				err      error
+			}, callers)
+			var group sync.WaitGroup
+			for range callers {
+				group.Go(func() {
+					<-start
+					existing, created, err := kv.CreateIfAbsent(ctx, store, guard, entries)
+					results <- struct {
+						existing string
+						created  bool
+						err      error
+					}{existing: string(existing), created: created, err: err}
+				})
+			}
+			close(start)
+			group.Wait()
+			close(results)
+
+			created := 0
+			for result := range results {
+				if result.err != nil {
+					t.Fatalf("CreateIfAbsent() error = %v", result.err)
+				}
+				if result.created {
+					created++
+					continue
+				}
+				if result.existing != "winner" {
+					t.Fatalf("CreateIfAbsent() existing = %q, want winner", result.existing)
+				}
+			}
+			if created != 1 {
+				t.Fatalf("CreateIfAbsent() creators = %d, want 1", created)
+			}
+			if value, err := store.Get(ctx, guard.Key); err != nil || string(value) != "winner" {
+				t.Fatalf("Get(guard) = %q, %v", value, err)
+			}
+			if value, err := store.Get(ctx, entries[0].Key); err != nil || string(value) != "record" {
+				t.Fatalf("Get(record) = %q, %v", value, err)
+			}
+		})
+	}
+}
+
+func TestCreateIfAbsentExistingGuardSkipsWriteValidation(t *testing.T) {
+	for _, fixture := range []struct {
+		name string
+		new  func(*testing.T) kv.Store
+	}{
+		{name: "memory", new: func(*testing.T) kv.Store { return kv.NewMemory(nil) }},
+		{name: "badger", new: func(t *testing.T) kv.Store { return newTestStore(t, nil) }},
+	} {
+		t.Run(fixture.name, func(t *testing.T) {
+			store := fixture.new(t)
+			ctx := context.Background()
+			guardKey := kv.Key{"pending", "resource"}
+			if err := store.Set(ctx, guardKey, []byte("existing")); err != nil {
+				t.Fatalf("seed guard: %v", err)
+			}
+			expired := time.Now().Add(-time.Second)
+			extraKey := kv.Key{"records", "new"}
+			existing, created, err := kv.CreateIfAbsent(
+				ctx,
+				store,
+				kv.Entry{Key: guardKey, Value: []byte("replacement"), Deadline: expired},
+				[]kv.Entry{{Key: extraKey, Value: []byte("new"), Deadline: expired}},
+			)
+			if err != nil {
+				t.Fatalf("CreateIfAbsent() error = %v", err)
+			}
+			if created {
+				t.Fatal("CreateIfAbsent() created = true, want false")
+			}
+			if string(existing) != "existing" {
+				t.Fatalf("CreateIfAbsent() existing = %q, want existing", existing)
+			}
+			if value, err := store.Get(ctx, guardKey); err != nil || string(value) != "existing" {
+				t.Fatalf("Get(guard) = %q, %v", value, err)
+			}
+			if _, err := store.Get(ctx, extraKey); !errors.Is(err, kv.ErrNotFound) {
+				t.Fatalf("Get(extra) error = %v, want ErrNotFound", err)
+			}
+		})
+	}
+}
+
+func TestCreateIfAbsentGuardWinsEntryCollision(t *testing.T) {
+	for _, fixture := range []struct {
+		name string
+		new  func(*testing.T) kv.Store
+	}{
+		{name: "memory", new: func(*testing.T) kv.Store { return kv.NewMemory(nil) }},
+		{name: "badger", new: func(t *testing.T) kv.Store { return newTestStore(t, nil) }},
+	} {
+		t.Run(fixture.name, func(t *testing.T) {
+			store := fixture.new(t)
+			ctx := context.Background()
+			guard := kv.Entry{Key: kv.Key{"pending", "resource"}, Value: []byte("guard")}
+			existing, created, err := kv.CreateIfAbsent(
+				ctx,
+				store,
+				guard,
+				[]kv.Entry{{Key: guard.Key, Value: []byte("entry")}},
+			)
+			if err != nil {
+				t.Fatalf("CreateIfAbsent() error = %v", err)
+			}
+			if !created {
+				t.Fatalf("CreateIfAbsent() = (%q, false), want created", existing)
+			}
+			if value, err := store.Get(ctx, guard.Key); err != nil || string(value) != "guard" {
+				t.Fatalf("Get(guard) = %q, %v", value, err)
+			}
+		})
+	}
+}
 
 func TestBatchMutateSetAndDeleteAtomically(t *testing.T) {
 	for _, fixture := range []struct {

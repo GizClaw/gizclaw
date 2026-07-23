@@ -1167,7 +1167,11 @@ function GameplayPixaSprite({
     const startedAt = performance.now();
     const tick = (now: number): void => {
       try {
-        drawPixaFrame(ctx, asset, pixaClipFrameIndex(clip, now - startedAt));
+        drawPixaFrame(
+          ctx,
+          asset,
+          pixaClipFrameIndex(asset, clip, now - startedAt),
+        );
         setError("");
       } catch (err) {
         setError(toMessage(err));

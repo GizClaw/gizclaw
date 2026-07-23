@@ -458,6 +458,7 @@ func openGameplayPostgresTestDB(t *testing.T) *sqlx.DB {
 func dropGameplayPostgresTables(t *testing.T, ctx context.Context, db *sqlx.DB) {
 	t.Helper()
 	for _, table := range []string{
+		"gameplay_pending_deletion_locators",
 		"gameplay_pending_deletions",
 		"gameplay_pet_drive_ticks",
 		"gameplay_pet_workspace_bindings",

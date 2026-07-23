@@ -218,7 +218,7 @@ func TestManagerPeerDownPreservesDeletingReservation(t *testing.T) {
 			if _, err := peers.EnsureConnectedPeer(context.Background(), key); err != nil {
 				t.Fatalf("EnsureConnectedPeer: %v", err)
 			}
-			blockingStore := &blockingBatchMutateStore{
+			blockingStore := &blockingCreateIfAbsentStore{
 				Store:   store,
 				entered: make(chan struct{}),
 				release: make(chan struct{}),
@@ -256,7 +256,7 @@ func TestManagerDeletingReservationRejectsBlockedReplacementEnsure(t *testing.T)
 	if _, err := peers.EnsureConnectedPeer(context.Background(), key); err != nil {
 		t.Fatalf("EnsureConnectedPeer: %v", err)
 	}
-	blockingStore := &blockingBatchMutateStore{
+	blockingStore := &blockingCreateIfAbsentStore{
 		Store:   store,
 		entered: make(chan struct{}),
 		release: make(chan struct{}),
@@ -293,8 +293,8 @@ func TestManagerDeletingReservationRejectsBlockedReplacementEnsure(t *testing.T)
 	if err := <-ensureErr; !errors.Is(err, ErrPeerConnRetiring) && !errors.Is(err, ErrPeerConnNotActive) {
 		t.Fatalf("blocked replacement ensure error = %v, want retiring or inactive", err)
 	}
-	if _, err := peers.LoadPeer(context.Background(), key); !errors.Is(err, peer.ErrPeerNotFound) {
-		t.Fatalf("LoadPeer after delete and rejected replacement = %v, want %v", err, peer.ErrPeerNotFound)
+	if _, err := peers.LoadPeer(context.Background(), key); err != nil {
+		t.Fatalf("LoadPeer after delete and rejected replacement: %v", err)
 	}
 	if pending, err := pendingdeletion.HasLocator(context.Background(), store, pendingdeletion.KindPeer, key.String()); err != nil || !pending {
 		t.Fatalf("pending deletion after rejected replacement = %v, error = %v", pending, err)

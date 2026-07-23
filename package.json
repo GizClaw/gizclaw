@@ -3,7 +3,6 @@
   "private": true,
   "workspaces": [
     "apps/wails/frontend",
-    "js/packages/*",
     "sdk/js",
     "sdk/js/gizclaw"
   ],
@@ -12,8 +11,8 @@
     "prettier": "3.9.6"
   },
   "scripts": {
-    "quality:typescript": "tsc --noEmit -p apps/wails/frontend/tsconfig.json && tsc --noEmit -p sdk/js/gizclaw/tsconfig.json && tsc --noEmit -p js/packages/pixa/tsconfig.json",
-	"quality:lint": "oxlint --deny-warnings --ignore-path .prettierignore apps/wails/frontend sdk/js js/packages tests/gizclaw-e2e/js",
-    "quality:format": "prettier --check apps/wails/frontend sdk/js js/packages tests/gizclaw-e2e/js"
+    "quality:typescript": "tsc --noEmit -p apps/wails/frontend/tsconfig.json && tsc --noEmit -p sdk/js/gizclaw/tsconfig.json",
+    "quality:lint": "oxlint --deny-warnings --ignore-path .prettierignore apps/wails/frontend sdk/js tests/gizclaw-e2e/js",
+    "quality:format": "prettier --check apps/wails/frontend sdk/js tests/gizclaw-e2e/js"
   }
 }

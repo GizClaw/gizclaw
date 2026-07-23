@@ -53,20 +53,15 @@ updates:
     directory: /
     schedule:
       interval: weekly
-
-  - package-ecosystem: npm
-    directory: /apps/wails/frontend
-    schedule:
-      interval: weekly
     open-pull-requests-limit: 5
     groups:
-      wails-frontend-tooling:
-        dependency-type: development
+      workspace-tooling:
         patterns:
           - typescript
           - vite
           - "@vitejs/*"
-      wails-frontend-ui:
+          - "@hey-api/*"
+      workspace-ui:
         patterns:
           - lucide-react
           - react
@@ -74,35 +69,11 @@ updates:
           - react-router-dom
           - "@radix-ui/*"
           - radix-ui
-
-  - package-ecosystem: npm
-    directory: /sdk/js
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 5
-    groups:
-      sdk-js-tooling:
-        dependency-type: development
-        patterns:
-          - typescript
-          - "@hey-api/*"
-
-  - package-ecosystem: npm
-    directory: /sdk/js/gizclaw
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 5
-    groups:
-      sdk-js-noble:
+      workspace-noble:
         patterns:
           - "@noble/curves"
           - "@noble/hashes"
           - "@noble/ciphers"
-
-  - package-ecosystem: npm
-    directory: /js/packages/pixa
-    schedule:
-      interval: weekly
 
   - package-ecosystem: npm
     directory: /tests/gizclaw-e2e/js

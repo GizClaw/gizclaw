@@ -185,10 +185,32 @@ func (r *Runtime) Migration(ctx context.Context) error {
 			descriptor_version INTEGER NOT NULL,
 			descriptor_json TEXT NOT NULL
 		)`,
+		`CREATE TABLE IF NOT EXISTS gameplay_pending_deletion_locators (
+			kind TEXT NOT NULL,
+			owner_public_key TEXT NOT NULL,
+			resource_id TEXT NOT NULL,
+			deletion_id TEXT NOT NULL,
+			PRIMARY KEY(kind, owner_public_key, resource_id)
+		)`,
 	} {
 		if _, err := db.ExecContext(ctx, stmt); err != nil {
 			return err
 		}
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO gameplay_pending_deletion_locators (kind, owner_public_key, resource_id, deletion_id)
+		SELECT kind, owner_public_key, resource_id, deletion_id
+		FROM (
+			SELECT kind, owner_public_key, resource_id, deletion_id,
+				ROW_NUMBER() OVER (
+					PARTITION BY kind, owner_public_key, resource_id
+					ORDER BY deleted_at, deletion_id
+				) AS locator_rank
+			FROM gameplay_pending_deletions
+		) AS ranked
+		WHERE locator_rank = 1
+			AND NOT EXISTS (SELECT 1 FROM gameplay_pending_deletion_locators LIMIT 1)
+		ON CONFLICT (kind, owner_public_key, resource_id) DO NOTHING`); err != nil {
+		return err
 	}
 	if _, err := db.ExecContext(ctx, `CREATE UNIQUE INDEX IF NOT EXISTS gameplay_game_results_idempotency_idx ON gameplay_game_results(owner_public_key, runtime_profile_name, idempotency_key) WHERE idempotency_key IS NOT NULL AND idempotency_key <> ''`); err != nil {
 		return err
@@ -730,22 +752,49 @@ func (r *Runtime) DeletePet(ctx context.Context, owner, id string) (apitypes.Pet
 	if err != nil {
 		return apitypes.Pet{}, err
 	}
-	if err := ensurePetWorkspaceBinding(ctx, tx, pet); err != nil {
-		return apitypes.Pet{}, fmt.Errorf("delete pet %q Workspace binding: %w", pet.Id, err)
+	if _, err := tx.ExecContext(ctx, db.Rebind(`INSERT INTO gameplay_pending_deletion_locators (kind, owner_public_key, resource_id, deletion_id)
+		SELECT kind, owner_public_key, resource_id, deletion_id
+		FROM gameplay_pending_deletions
+		WHERE kind = ? AND owner_public_key = ? AND resource_id = ?
+		ORDER BY deleted_at, deletion_id
+		LIMIT 1
+		ON CONFLICT (kind, owner_public_key, resource_id) DO NOTHING`), record.Kind, pet.OwnerPublicKey, record.ResourceID); err != nil {
+		return apitypes.Pet{}, fmt.Errorf("delete pet %q legacy pending deletion locator: %w", pet.Id, err)
+	}
+	result, err := tx.ExecContext(ctx, db.Rebind(`INSERT INTO gameplay_pending_deletion_locators (kind, owner_public_key, resource_id, deletion_id) VALUES (?, ?, ?, ?) ON CONFLICT (kind, owner_public_key, resource_id) DO NOTHING`), record.Kind, pet.OwnerPublicKey, record.ResourceID, record.DeletionID)
+	if err != nil {
+		return apitypes.Pet{}, fmt.Errorf("delete pet %q pending deletion locator: %w", pet.Id, err)
+	}
+	created, err := result.RowsAffected()
+	if err != nil {
+		return apitypes.Pet{}, fmt.Errorf("delete pet %q pending deletion locator rows affected: %w", pet.Id, err)
+	}
+	if created == 0 {
+		var existingDeletionID string
+		if err := tx.QueryRowContext(ctx, db.Rebind(`SELECT pending.deletion_id
+			FROM gameplay_pending_deletion_locators AS locator
+			JOIN gameplay_pending_deletions AS pending
+				ON pending.deletion_id = locator.deletion_id
+				AND pending.kind = locator.kind
+				AND pending.owner_public_key = locator.owner_public_key
+				AND pending.resource_id = locator.resource_id
+			WHERE locator.kind = ? AND locator.owner_public_key = ? AND locator.resource_id = ?`),
+			record.Kind, pet.OwnerPublicKey, record.ResourceID).Scan(&existingDeletionID); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return apitypes.Pet{}, fmt.Errorf("delete pet %q pending deletion locator references a missing or mismatched record", pet.Id)
+			}
+			return apitypes.Pet{}, fmt.Errorf("delete pet %q validate pending deletion locator: %w", pet.Id, err)
+		}
+		if _, err := getPendingDeletion(ctx, tx, existingDeletionID); err != nil {
+			return apitypes.Pet{}, fmt.Errorf("delete pet %q validate pending deletion locator record %q: %w", pet.Id, existingDeletionID, err)
+		}
+		if err := tx.Commit(); err != nil {
+			return apitypes.Pet{}, fmt.Errorf("delete pet %q reuse pending deletion commit: %w", pet.Id, err)
+		}
+		return pet, nil
 	}
 	if _, err := tx.ExecContext(ctx, db.Rebind(`INSERT INTO gameplay_pending_deletions (deletion_id, kind, owner_public_key, resource_id, reason, deleted_at, descriptor_version, descriptor_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`), record.DeletionID, record.Kind, pet.OwnerPublicKey, record.ResourceID, record.Reason, formatTime(record.DeletedAt), record.DescriptorVersion, string(record.Descriptor)); err != nil {
 		return apitypes.Pet{}, fmt.Errorf("delete pet %q pending deletion: %w", pet.Id, err)
-	}
-	result, err := tx.ExecContext(ctx, db.Rebind(`DELETE FROM gameplay_pets WHERE owner_public_key = ? AND id = ? AND runtime_profile_name = ?`), pet.OwnerPublicKey, pet.Id, pet.RuntimeProfileName)
-	if err != nil {
-		return apitypes.Pet{}, fmt.Errorf("delete pet %q row: %w", pet.Id, err)
-	}
-	affected, err := result.RowsAffected()
-	if err != nil {
-		return apitypes.Pet{}, fmt.Errorf("delete pet %q rows affected: %w", pet.Id, err)
-	}
-	if affected != 1 {
-		return apitypes.Pet{}, sql.ErrNoRows
 	}
 	if err := tx.Commit(); err != nil {
 		return apitypes.Pet{}, fmt.Errorf("delete pet %q commit: %w", pet.Id, err)

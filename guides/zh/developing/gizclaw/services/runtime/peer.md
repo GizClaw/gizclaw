@@ -15,8 +15,8 @@
 | `Server.EnsureConnectedPeer` / `EnsureConnectedPeerGuarded` | 为已认证 public key 创建默认 active Peer；guarded 形式会在 per-record lock 内先重新校验 connection lifecycle state，再读取或创建记录。 |
 | `Server.LoadPeer` / `SavePeer` | 按 public key 读取或保存完整 Peer。 |
 | `Server.BootstrapEdgeNodes` | 将配置中的 Edge Node identity 同步为 Peer 资源。 |
-| `Server.DeleteSelf` | 原子删除 authenticated Peer，并写入 durable pending-deletion handoff。 |
+| `Server.DeleteSelf` | 为 authenticated Peer 原子创建或复用 durable pending-deletion handoff。 |
 
 Public key 是 Peer identity，不应和数据库 ID、connection ID 或 Edge assignment 混用。WebRTC connection lifecycle 属于 `giznet` 与根 `PeerManager`，不属于本 package。
 
-Peer 删除会在同一个 KV transaction 中删除 active record 和全部 Peer indexes，并写入一条 `kind=peer` PendingDeletion；它不级联删除 Workspace、Pet、social、gameplay 或 RegistrationToken resource。Admin 删除不会强制关闭在线 connection。`server.peer.delete` 同时按 caller 与 connection generation 约束：已被替换的旧 connection 会在删除新 generation 前被拒绝。持久删除提交后，根 connection runtime 立即进入 retiring、摘除当前在线 connection 和 registration、拒绝新工作，然后尝试写入 acknowledgement 和 EOS；无论任一写入是否失败，都会关闭完整 Giznet connection。丢失 acknowledgement 后的 Client reconnect 可以创建新一代 active record，但不能覆盖旧 pending event；删除重试的 pending lookup 与 reconnect create 由同一把 per-record lock 串行化，已经排在删除后等待的 activation 也必须在该锁内通过 Manager reservation guard，才能创建记录。configured Edge bootstrap 和 generic write 在 locator pending 期间保持 blocked，但 registration 拥有的 firmware binding 可以更新已 active 的重连 generation。
+Peer 删除会在同一个 KV transaction 中创建或复用一条 `kind=peer` PendingDeletion，同时保留 active record 和全部 Peer index；该标记不级联删除或改变 Workspace、Pet、social、gameplay 或 RegistrationToken resource，也不影响 Peer 的读取、authorization 或 mutation。Admin 删除不会强制关闭在线 connection。`server.peer.delete` 同时按 caller 与 connection generation 约束：已被替换的旧 connection 会在 retiring 新 generation 前被拒绝。持久 marker 写入提交后，根 connection runtime 立即进入 retiring、摘除当前在线 connection 和 registration、拒绝新工作，然后尝试写入 acknowledgement 和 EOS；无论任一写入是否失败，都会关闭完整 Giznet connection。丢失 acknowledgement 后的 Client reconnect 会复用保留的 Peer，且不会创建另一条 pending event。configured Edge bootstrap、generic write 和 registration 拥有的 firmware binding 在 locator pending 期间仍可用。
