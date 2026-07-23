@@ -24,7 +24,11 @@ concurrency:
 
 jobs:
   review:
-    uses: GizClaw/github-workflows/.github/workflows/codex-openai-review.yml@0.1.2
+    if: >-
+      github.actor != 'dependabot[bot]' &&
+      (github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository)
+    uses: GizClaw/github-workflows/.github/workflows/codex-openai-review.yml@73b65594a0ba26838bf428ce16fb058924d95f4b
     with:
       model: gpt-5.6-terra
       effort: medium
