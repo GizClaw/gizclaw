@@ -37,7 +37,7 @@ require (
 	github.com/prometheus/prometheus v0.313.0
 	github.com/spf13/cobra v1.10.2
 	github.com/tphakala/go-audio-resampling v0.0.0-20251123212058-a9dde25e8eea
-	github.com/valyala/fasthttp v1.51.0
+	github.com/valyala/fasthttp v1.72.0
 	github.com/volcengine/volc-sdk-golang v1.0.246
 	github.com/volcengine/volcengine-go-sdk v1.2.43
 	golang.org/x/crypto v0.53.0
@@ -157,7 +157,6 @@ require (
 	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/tphakala/simd v1.0.12 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	github.com/valyala/tcplisten v1.0.0 // indirect
 	github.com/viterin/partial v1.1.0 // indirect
 	github.com/viterin/vek v0.4.2 // indirect
 	github.com/vmware-labs/yaml-jsonpath v0.3.2 // indirect
