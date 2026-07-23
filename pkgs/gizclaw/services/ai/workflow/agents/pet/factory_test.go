@@ -2,6 +2,8 @@ package pet
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
@@ -150,6 +152,41 @@ func TestFactoryInjectsPetContextForEveryReusableDriver(t *testing.T) {
 	}
 }
 
+func TestFactoryRefreshesNestedBoardInputsWithinLongLivedTransform(t *testing.T) {
+	registry := agenthost.NewRegistry()
+	nested := &boardInputsCaptureFactory{}
+	if err := registry.Register("flowcraft", nested); err != nil {
+		t.Fatal(err)
+	}
+	pets := &sequencedPetContext{}
+	agent, err := (Factory{
+		Pets:      pets,
+		Factories: registry,
+	}).NewAgent(t.Context(), agenthost.Spec{
+		Workspace: apitypes.Workspace{Name: "pet-demo"},
+		Workflow: apitypes.Workflow{Spec: apitypes.WorkflowSpec{
+			Driver: apitypes.WorkflowDriverPet,
+			Pet: &apitypes.PetWorkflowSpec{
+				Driver:    apitypes.ReusableWorkflowDriverFlowcraft,
+				Flowcraft: &apitypes.FlowcraftWorkflowSpec{},
+			},
+		}},
+		AgentType: Type,
+	})
+	if err != nil {
+		t.Fatalf("NewAgent() error = %v", err)
+	}
+	if _, err := agent.Transform(t.Context(), nil); err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	if pets.calls != 3 {
+		t.Fatalf("ResolvePetContext calls = %d, want 3", pets.calls)
+	}
+	if got := nested.inputs["tmp_pet_attribute_prompt"]; !strings.Contains(got.(string), "当前名字：pet-3") {
+		t.Fatalf("nested BoardInputs() = %#v", nested.inputs)
+	}
+}
+
 type staticPetContext struct {
 	pet    apitypes.Pet
 	petDef apitypes.PetDef
@@ -157,6 +194,15 @@ type staticPetContext struct {
 
 func (s staticPetContext) ResolvePetContext(context.Context, string) (apitypes.Pet, apitypes.PetDef, error) {
 	return s.pet, s.petDef, nil
+}
+
+type sequencedPetContext struct {
+	calls int
+}
+
+func (s *sequencedPetContext) ResolvePetContext(context.Context, string) (apitypes.Pet, apitypes.PetDef, error) {
+	s.calls++
+	return apitypes.Pet{DisplayName: fmt.Sprintf("pet-%d", s.calls)}, apitypes.PetDef{}, nil
 }
 
 type captureFactory struct {
@@ -176,4 +222,25 @@ type contextCaptureTransformer struct {
 func (t *contextCaptureTransformer) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
 	t.inputs, _ = agenthost.BoardInputsFromContext(ctx)
 	return input, nil
+}
+
+type boardInputsCaptureFactory struct {
+	inputs map[string]any
+}
+
+func (f *boardInputsCaptureFactory) NewAgent(_ context.Context, spec agenthost.Spec) (agenthost.Agent, error) {
+	return agenthost.NewTransformerAgent(transformerFunc(func(ctx context.Context, input genx.Stream) (genx.Stream, error) {
+		inputs, err := spec.BoardInputs(ctx)
+		if err != nil {
+			return nil, err
+		}
+		f.inputs = inputs
+		return input, nil
+	})), nil
+}
+
+type transformerFunc func(context.Context, genx.Stream) (genx.Stream, error)
+
+func (f transformerFunc) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
+	return f(ctx, input)
 }
