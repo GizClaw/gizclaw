@@ -2,6 +2,8 @@
 
 #include "../../../../sdk/c/gizclaw/cgobackend/gzc_cgo_backend.h"
 #include "gzc.h"
+#include "pb_decode.h"
+#include "pb_encode.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,6 +22,71 @@ static int fail(char *errbuf, unsigned long errbuf_len, const char *message, int
     (void)snprintf(errbuf, errbuf_len, "%s: %s (%d)", message, gzc_status_string((gzc_status_t)rc), rc);
   }
   return rc == GZC_OK ? GZC_ERR_RPC : rc;
+}
+
+static int rpc_fail(
+    char *errbuf,
+    unsigned long errbuf_len,
+    gzc_str_t message,
+    int code,
+    int *out_rpc_error_code) {
+  if (out_rpc_error_code != NULL) {
+    *out_rpc_error_code = code;
+  }
+  if (errbuf != NULL && errbuf_len > 0) {
+    size_t count = message.len;
+    if (count >= errbuf_len) {
+      count = errbuf_len - 1;
+    }
+    if (count > 0 && message.data != NULL) {
+      memcpy(errbuf, message.data, count);
+    }
+    errbuf[count] = 0;
+  }
+  return GZC_ERR_RPC;
+}
+
+static int copy_c_string(
+    char *out,
+    unsigned long out_len,
+    const char *value,
+    char *errbuf,
+    unsigned long errbuf_len,
+    const char *field) {
+  if (out == NULL || out_len == 0 || value == NULL) {
+    return fail(errbuf, errbuf_len, field, GZC_ERR_INVALID_ARGUMENT);
+  }
+  size_t value_len = strlen(value);
+  if (value_len >= out_len) {
+    return fail(errbuf, errbuf_len, field, GZC_ERR_INVALID_ARGUMENT);
+  }
+  memcpy(out, value, value_len + 1);
+  return GZC_OK;
+}
+
+typedef struct {
+  char *out;
+  unsigned long out_len;
+  bool present;
+} decode_c_string_state_t;
+
+static bool decode_c_string(
+    pb_istream_t *stream,
+    const pb_field_t *field,
+    void **arg) {
+  (void)field;
+  decode_c_string_state_t *state = (decode_c_string_state_t *)(*arg);
+  if (state == NULL || state->out == NULL || state->out_len == 0 ||
+      stream->bytes_left >= state->out_len) {
+    return false;
+  }
+  size_t count = stream->bytes_left;
+  if (!pb_read(stream, (pb_byte_t *)state->out, count)) {
+    return false;
+  }
+  state->out[count] = 0;
+  state->present = true;
+  return true;
 }
 
 typedef struct {
@@ -142,6 +209,7 @@ int gzc_cgo_session_call_rpc_payload(
     unsigned long params_payload_len,
     unsigned char **out_result_payload,
     unsigned long *out_result_payload_len,
+    int *out_rpc_error_code,
     char *errbuf,
     unsigned long errbuf_len) {
   if (session == NULL || method_id == 0 || (params_payload == NULL && params_payload_len != 0) || out_result_payload == NULL || out_result_payload_len == NULL) {
@@ -149,6 +217,9 @@ int gzc_cgo_session_call_rpc_payload(
   }
   *out_result_payload = NULL;
   *out_result_payload_len = 0;
+  if (out_rpc_error_code != NULL) {
+    *out_rpc_error_code = 0;
+  }
 
   gzc_rpc_response_t response;
   memset(&response, 0, sizeof(response));
@@ -161,7 +232,12 @@ int gzc_cgo_session_call_rpc_payload(
     return fail(errbuf, errbuf_len, "call rpc payload", rc);
   }
   if (response.has_error) {
-    return fail(errbuf, errbuf_len, "rpc error", GZC_ERR_RPC);
+    return rpc_fail(
+        errbuf,
+        errbuf_len,
+        response.error.message,
+        response.error.code,
+        out_rpc_error_code);
   }
 
   unsigned char *result = (unsigned char *)malloc(response.result_payload.len == 0 ? 1 : response.result_payload.len);
@@ -171,6 +247,166 @@ int gzc_cgo_session_call_rpc_payload(
   memcpy(result, response.result_payload.data, response.result_payload.len);
   *out_result_payload = result;
   *out_result_payload_len = (unsigned long)response.result_payload.len;
+  if (errbuf != NULL && errbuf_len > 0) {
+    errbuf[0] = 0;
+  }
+  return GZC_OK;
+}
+
+int gzc_cgo_session_register(
+    gzc_cgo_session_t *session,
+    const char *token,
+    char *out_runtime_profile_name,
+    unsigned long out_runtime_profile_name_len,
+    int *out_has_firmware_id,
+    char *out_firmware_id,
+    unsigned long out_firmware_id_len,
+    int *out_rpc_error_code,
+    char *errbuf,
+    unsigned long errbuf_len) {
+  if (session == NULL || token == NULL || out_has_firmware_id == NULL) {
+    return fail(errbuf, errbuf_len, "register", GZC_ERR_INVALID_ARGUMENT);
+  }
+  *out_has_firmware_id = 0;
+  if (out_rpc_error_code != NULL) {
+    *out_rpc_error_code = 0;
+  }
+
+  gizclaw_rpc_v1_ServerRegisterRequest request =
+      gizclaw_rpc_v1_ServerRegisterRequest_init_zero;
+  int rc = copy_c_string(
+      request.token,
+      sizeof(request.token),
+      token,
+      errbuf,
+      errbuf_len,
+      "registration token");
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  unsigned char request_payload[gizclaw_rpc_v1_ServerRegisterRequest_size];
+  pb_ostream_t request_stream =
+      pb_ostream_from_buffer(request_payload, sizeof(request_payload));
+  if (!pb_encode(
+          &request_stream,
+          gizclaw_rpc_v1_ServerRegisterRequest_fields,
+          &request)) {
+    return fail(errbuf, errbuf_len, "encode registration request", GZC_ERR_RPC);
+  }
+
+  unsigned char *result_payload = NULL;
+  unsigned long result_payload_len = 0;
+  rc = gzc_cgo_session_call_rpc_payload(
+      session,
+      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_REGISTER,
+      request_payload,
+      (unsigned long)request_stream.bytes_written,
+      &result_payload,
+      &result_payload_len,
+      out_rpc_error_code,
+      errbuf,
+      errbuf_len);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+
+  gizclaw_rpc_v1_ServerRegisterResponse response =
+      gizclaw_rpc_v1_ServerRegisterResponse_init_zero;
+  pb_istream_t response_stream =
+      pb_istream_from_buffer(result_payload, (size_t)result_payload_len);
+  bool decoded = pb_decode(
+      &response_stream,
+      gizclaw_rpc_v1_ServerRegisterResponse_fields,
+      &response);
+  free(result_payload);
+  if (!decoded) {
+    return fail(errbuf, errbuf_len, "decode registration response", GZC_ERR_RPC);
+  }
+  rc = copy_c_string(
+      out_runtime_profile_name,
+      out_runtime_profile_name_len,
+      response.runtime_profile_name,
+      errbuf,
+      errbuf_len,
+      "registration runtime profile");
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  *out_has_firmware_id = response.has_firmware_id ? 1 : 0;
+  if (response.has_firmware_id) {
+    rc = copy_c_string(
+        out_firmware_id,
+        out_firmware_id_len,
+        response.firmware_id,
+        errbuf,
+        errbuf_len,
+        "registration firmware id");
+    if (rc != GZC_OK) {
+      return rc;
+    }
+  } else if (out_firmware_id != NULL && out_firmware_id_len > 0) {
+    out_firmware_id[0] = 0;
+  }
+  if (errbuf != NULL && errbuf_len > 0) {
+    errbuf[0] = 0;
+  }
+  return GZC_OK;
+}
+
+int gzc_cgo_session_firmware_get(
+    gzc_cgo_session_t *session,
+    char *out_name,
+    unsigned long out_name_len,
+    int *out_has_slots,
+    int *out_rpc_error_code,
+    char *errbuf,
+    unsigned long errbuf_len) {
+  if (session == NULL || out_name == NULL || out_name_len == 0 ||
+      out_has_slots == NULL) {
+    return fail(errbuf, errbuf_len, "firmware get", GZC_ERR_INVALID_ARGUMENT);
+  }
+  out_name[0] = 0;
+  *out_has_slots = 0;
+  if (out_rpc_error_code != NULL) {
+    *out_rpc_error_code = 0;
+  }
+
+  unsigned char *result_payload = NULL;
+  unsigned long result_payload_len = 0;
+  int rc = gzc_cgo_session_call_rpc_payload(
+      session,
+      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FIRMWARE_GET,
+      NULL,
+      0,
+      &result_payload,
+      &result_payload_len,
+      out_rpc_error_code,
+      errbuf,
+      errbuf_len);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+
+  decode_c_string_state_t name_state = {
+      .out = out_name,
+      .out_len = out_name_len,
+      .present = false,
+  };
+  gizclaw_rpc_v1_FirmwareGetResponse response =
+      gizclaw_rpc_v1_FirmwareGetResponse_init_zero;
+  response.value.name.funcs.decode = decode_c_string;
+  response.value.name.arg = &name_state;
+  pb_istream_t response_stream =
+      pb_istream_from_buffer(result_payload, (size_t)result_payload_len);
+  bool decoded = pb_decode(
+      &response_stream,
+      gizclaw_rpc_v1_FirmwareGetResponse_fields,
+      &response);
+  free(result_payload);
+  if (!decoded || !response.has_value || !name_state.present) {
+    return fail(errbuf, errbuf_len, "decode firmware get response", GZC_ERR_RPC);
+  }
+  *out_has_slots = response.value.has_slots ? 1 : 0;
   if (errbuf != NULL && errbuf_len > 0) {
     errbuf[0] = 0;
   }

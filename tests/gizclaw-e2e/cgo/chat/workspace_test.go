@@ -37,6 +37,9 @@ func TestCSDKChatRoundtrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("prepare cgo chat workspace: %v", err)
 	}
+	if workspaceName != "realtime-workflow-ptt" {
+		t.Fatalf("C SDK chat workspace = %q, want isolated runtime alias", workspaceName)
+	}
 	fixture := filepath.Join(h.RepoRoot, "tests", "genx-e2e", "transformer", "testdata", "doubao_realtime_duplex_prompt.ogg")
 	cgointernal.CSDKChatRoundtrip(t, identityDir, registrationToken, workspaceName, fixture)
 }

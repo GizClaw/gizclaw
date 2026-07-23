@@ -15,15 +15,15 @@ func PrepareCgoPushToTalkWorkspace(ctx context.Context, configPath, contextConfi
 	if err != nil {
 		return "", err
 	}
-	cfg, err = workspaceCasePushToTalkRoundtrip.applyConfig(cfg)
-	if err != nil {
-		return "", err
-	}
 	runtimeWorkflowAlias = strings.TrimSpace(runtimeWorkflowAlias)
 	if runtimeWorkflowAlias == "" {
 		return "", fmt.Errorf("runtime workflow alias is required")
 	}
 	cfg.Workflow.Name = runtimeWorkflowAlias
+	cfg, err = workspaceCasePushToTalkRoundtrip.applyConfig(cfg)
+	if err != nil {
+		return "", err
+	}
 	client, serveDone, err := dialClient(cfg)
 	if err != nil {
 		return "", err

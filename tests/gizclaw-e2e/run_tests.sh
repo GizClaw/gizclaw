@@ -279,6 +279,7 @@ set +a
 run_timed "javascript" run_js_rpc_tests
 run_timed "desktop" run_desktop_tests
 run_timed "cgo:rpc" run_pkg "./tests/gizclaw-e2e/cgo/rpc"
+run_timed "cgo:telemetry" run_pkg "./tests/gizclaw-e2e/cgo/telemetry"
 run_timed "cgo:chat" run_pkg "./tests/gizclaw-e2e/cgo/chat"
 run_timed "cgo:social" run_pkg "./tests/gizclaw-e2e/cgo/social"
 run_timed "go:admin" run_pkg "./tests/gizclaw-e2e/go/admin"

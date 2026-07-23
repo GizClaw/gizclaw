@@ -12,6 +12,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 )
@@ -129,6 +130,8 @@ func createAdminSocialConversationHistory(t *testing.T, env *adminAPIHarness) (s
 
 	writer := env.h.ConnectClientFromContext(writerContext)
 	defer writer.Close()
+	env.reconnectAdminAPI(t)
+	registerAdminHistoryPeers(t, env, writer, reader)
 	friend, err := writer.AddFriend(ctx, "admin.history.friend.add", rpcapi.FriendAddRequest{InviteToken: token.InviteToken})
 	if err != nil {
 		t.Fatalf("add friend by invite token: %v", err)
@@ -160,6 +163,59 @@ func createAdminSocialConversationHistory(t *testing.T, env *adminAPIHarness) (s
 		_ = out.Close()
 	}
 	return workspaceName, texts
+}
+
+func registerAdminHistoryPeers(t *testing.T, env *adminAPIHarness, peers ...*gizcli.Client) {
+	t.Helper()
+
+	const (
+		profileName = "admin-workspace-history"
+		tokenName   = "admin-workspace-history"
+	)
+	binding := apitypes.RuntimeProfileBinding{
+		ResourceId: "chatroom-direct",
+		I18n: map[string]apitypes.RuntimeProfileI18nText{
+			"en":    {DisplayName: "Direct chat"},
+			"zh-CN": {DisplayName: "私聊"},
+		},
+	}
+	profile, err := env.api.PutRuntimeProfileWithResponse(env.ctx, profileName, adminhttp.RuntimeProfileUpsert{
+		Name: profileName,
+		Spec: apitypes.RuntimeProfileSpec{
+			Resources: apitypes.RuntimeProfileResources{},
+			Workflows: apitypes.RuntimeProfileWorkflows{
+				Collections: apitypes.RuntimeProfileWorkflowCollections{
+					"social": {"direct": binding},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("put workspace history RuntimeProfile: %v", err)
+	}
+	requireStatusOK(t, profile, profile.Body)
+
+	_, _ = env.api.DeleteRegistrationTokenWithResponse(env.ctx, tokenName)
+	token, err := env.api.CreateRegistrationTokenWithResponse(env.ctx, adminhttp.RegistrationTokenUpsert{
+		Name:               tokenName,
+		RuntimeProfileName: profileName,
+	})
+	if err != nil {
+		t.Fatalf("create workspace history RegistrationToken: %v", err)
+	}
+	requireStatusOK(t, token, token.Body)
+	if token.JSON200 == nil || token.JSON200.Token == "" {
+		t.Fatalf("workspace history RegistrationToken = %#v", token.JSON200)
+	}
+	for i, peer := range peers {
+		registered, err := peer.Register(env.ctx, "admin.history.server.register", token.JSON200.Token)
+		if err != nil {
+			t.Fatalf("register workspace history peer %d: %v", i, err)
+		}
+		if registered.RuntimeProfileName != profileName {
+			t.Fatalf("register workspace history peer %d = %#v", i, registered)
+		}
+	}
 }
 
 func sendAdminChatText(t *testing.T, ctx context.Context, client *gizcli.Client, text string) genx.Stream {
