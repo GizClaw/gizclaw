@@ -272,21 +272,13 @@ func (b *Bootstrapper) catalog(ctx context.Context) (*Catalog, error) {
 // RecoverRegistrationToken replaces the local Desktop token when an existing
 // Pod predates token handoff or its private handoff file has been lost. The raw
 // token cannot be recovered from server storage, so replacement is required.
-func (b *Bootstrapper) RecoverRegistrationToken(ctx context.Context, podDir string, savedEnvironment map[string]string) error {
+func (b *Bootstrapper) RecoverRegistrationToken(ctx context.Context, podDir string, _ map[string]string) error {
 	if b == nil || b.Executable == nil {
 		return fmt.Errorf("local server bootstrap: bootstrapper is not configured")
-	}
-	catalog, err := b.catalog(ctx)
-	if err != nil {
-		return err
 	}
 	executable, err := b.Executable()
 	if err != nil {
 		return err
-	}
-	resolved, missing := catalog.ResolveEnvironment(savedEnvironment, os.LookupEnv)
-	if len(missing) != 0 {
-		return fmt.Errorf("local server bootstrap: missing environment: %s", strings.Join(missing, ", "))
 	}
 	tempDir, err := os.MkdirTemp(podDir, ".registration-token-")
 	if err != nil {
@@ -309,7 +301,10 @@ func (b *Bootstrapper) RecoverRegistrationToken(ctx context.Context, podDir stri
 		return fmt.Errorf("local server bootstrap: materialize Admin context: %w", err)
 	}
 
-	environment := mergedCommandEnvironment(resolved)
+	// A Pod that is already running has its Raids resource closure applied.
+	// Token replacement only uses its local Admin context, so it must remain
+	// possible when the Raids archive or its provider secrets are unavailable.
+	environment := mergedCommandEnvironment(nil)
 	environment = setCommandEnvironment(environment, "XDG_CONFIG_HOME", configHome)
 	environment = setCommandEnvironment(environment, "AppData", configHome)
 	run := b.Run

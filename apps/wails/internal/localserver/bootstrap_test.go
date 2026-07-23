@@ -142,8 +142,12 @@ func TestBootstrapperRecoversRegistrationTokenWithoutReapplyingCatalog(t *testin
 		t.Fatal(err)
 	}
 	var commands []string
+	resolverCalled := false
 	bootstrapper := &Bootstrapper{
-		Resolver:   catalogResolverFunc(func(context.Context) (*Catalog, error) { return &Catalog{}, nil }),
+		Resolver: catalogResolverFunc(func(context.Context) (*Catalog, error) {
+			resolverCalled = true
+			return nil, errors.New("Raids archive is unavailable")
+		}),
 		Executable: func() (string, error) { return "/fake/gizclaw", nil },
 		Run: func(_ context.Context, _ string, args, _ []string) error {
 			commands = append(commands, strings.Join(args, " "))
@@ -156,6 +160,9 @@ func TestBootstrapperRecoversRegistrationTokenWithoutReapplyingCatalog(t *testin
 	}
 	if err := bootstrapper.RecoverRegistrationToken(context.Background(), podDir, nil); err != nil {
 		t.Fatal(err)
+	}
+	if resolverCalled {
+		t.Fatal("token recovery resolved the Raids catalog")
 	}
 	if len(commands) != 2 || !strings.Contains(commands[0], "registration-tokens delete app:com.gizclaw.opensource") || !strings.Contains(commands[1], "registration-tokens create") {
 		t.Fatalf("recovery commands = %v", commands)
