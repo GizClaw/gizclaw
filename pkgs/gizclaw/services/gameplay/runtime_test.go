@@ -951,6 +951,20 @@ func TestRuntimeDeletePetDoesNotMutateWorkspaceBinding(t *testing.T) {
 	if pets != 1 || pending != 1 {
 		t.Fatalf("after marked delete Pets=%d pending=%d, want 1 and 1", pets, pending)
 	}
+	var bindingProfile, bindingWorkspace, bindingCreatedAt string
+	if err := db.QueryRowContext(ctx, `SELECT runtime_profile_name, workspace_name, created_at
+		FROM gameplay_pet_workspace_bindings
+		WHERE owner_public_key = ? AND pet_id = ?`, "peer-a", "pet-conflict").Scan(
+		&bindingProfile,
+		&bindingWorkspace,
+		&bindingCreatedAt,
+	); err != nil {
+		t.Fatalf("query Pet Workspace binding after delete: %v", err)
+	}
+	if bindingProfile != "other-profile" || bindingWorkspace != "other-workspace" || bindingCreatedAt != now {
+		t.Fatalf("Pet Workspace binding after delete = (%q, %q, %q), want (%q, %q, %q)",
+			bindingProfile, bindingWorkspace, bindingCreatedAt, "other-profile", "other-workspace", now)
+	}
 }
 
 func TestRuntimeAdoptCallerIDSerializesConcurrentRetries(t *testing.T) {
