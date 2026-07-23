@@ -147,7 +147,28 @@ func (r *RaidsResolver) writeCache(data []byte) error {
 	if err := temporary.Close(); err != nil {
 		return fmt.Errorf("raids catalog: close cache candidate: %w", err)
 	}
-	if err := os.Rename(temporaryName, r.cacheFile()); err != nil {
+	cacheFile := r.cacheFile()
+	backupName := temporaryName + ".backup"
+	hadPrevious := false
+	if info, err := os.Lstat(cacheFile); err == nil {
+		if !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
+			return errors.New("raids catalog: cache archive must be a regular file")
+		}
+		if err := os.Rename(cacheFile, backupName); err != nil {
+			return fmt.Errorf("raids catalog: back up cache archive: %w", err)
+		}
+		hadPrevious = true
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("raids catalog: inspect cache archive: %w", err)
+	}
+	defer os.Remove(backupName)
+	if err := os.Rename(temporaryName, cacheFile); err != nil {
+		if hadPrevious {
+			return errors.Join(
+				fmt.Errorf("raids catalog: activate cache candidate: %w", err),
+				os.Rename(backupName, cacheFile),
+			)
+		}
 		return fmt.Errorf("raids catalog: activate cache candidate: %w", err)
 	}
 	return nil

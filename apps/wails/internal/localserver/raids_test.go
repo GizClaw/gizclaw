@@ -107,6 +107,25 @@ func TestRaidsResolverCachesValidatedArchive(t *testing.T) {
 	}
 }
 
+func TestRaidsResolverReplacesExistingCacheArchive(t *testing.T) {
+	cacheDir := t.TempDir()
+	resolver := &RaidsResolver{cacheDir: cacheDir}
+	if err := os.WriteFile(resolver.cacheFile(), []byte("invalid archive"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	archive := []byte("replacement archive")
+	if err := resolver.writeCache(archive); err != nil {
+		t.Fatal(err)
+	}
+	actual, err := os.ReadFile(resolver.cacheFile())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(actual) != string(archive) {
+		t.Fatalf("cache archive = %q, want %q", actual, archive)
+	}
+}
+
 func TestRaidsResolverRejectsSymlinkedCacheDirectory(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("symlink creation requires additional Windows privileges")
