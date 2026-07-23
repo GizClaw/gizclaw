@@ -213,7 +213,7 @@ func TestInterruptibleOutputDropsASTSegmentFamily(t *testing.T) {
 
 	output.interrupt("turn-2")
 
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		chunk, err := output.Next()
 		if err != nil {
 			t.Fatalf("Next interrupt chunk %d: %v", i, err)
@@ -315,7 +315,7 @@ func TestInterruptibleOutputKeepsExternalTTSPendingAfterTextEOS(t *testing.T) {
 		t.Fatalf("push completed audio eos: %v", err)
 	}
 	output.interrupt("turn-2")
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		chunk, err := output.Next()
 		if err != nil {
 			t.Fatalf("Next completed chunk %d: %v", i, err)

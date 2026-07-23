@@ -4,7 +4,7 @@ apps/wails/internal/endpointhealth/prober.go:76:3: Goroutine creation can be sim
 cmd/internal/commands/admin/resource.go:368:6: for loop can be modernized using range over int
 cmd/internal/commands/connect/command.go:995:6: stringPtr can be an inlinable wrapper around new(expr)
 cmd/internal/connection/connection.go:100:6: for loop can be modernized using range over int
-cmd/internal/server/config.go:677:5: HasSuffix + TrimSuffix can be simplified to CutSuffix
+cmd/internal/server/config.go:640:5: HasSuffix + TrimSuffix can be simplified to CutSuffix
 cmd/internal/server/tcp_mux.go:32:2: Goroutine creation can be simplified using WaitGroup.Go
 cmd/internal/server/tcp_mux.go:67:3: Goroutine creation can be simplified using WaitGroup.Go
 cmd/internal/server/workspace_test.go:114:72: Replace []byte(fmt.Sprintf...) with fmt.Appendf
@@ -271,23 +271,16 @@ pkgs/gizclaw/services/ai/voice/server.go:654:4: Replace m[k]=v loop with maps.Co
 pkgs/gizclaw/services/ai/voice/server_test.go:172:24: call of stringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/ai/voice/server_test.go:378:32: call of stringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/ai/voice/server_test.go:426:6: stringPtr can be an inlinable wrapper around new(expr)
-pkgs/gizclaw/services/ai/workflow/agents/asttranslate/factory.go:478:10: strings.Index can be simplified using strings.Cut
-pkgs/gizclaw/services/ai/workflow/agents/asttranslate/factory_test.go:276:6: for loop can be modernized using range over int
-pkgs/gizclaw/services/ai/workflow/agents/asttranslate/factory_test.go:378:6: for loop can be modernized using range over int
-pkgs/gizclaw/services/ai/workflow/agents/asttranslate/factory_test.go:601:20: call of stringPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/ai/workflow/agents/asttranslate/factory_test.go:607:13: call of stringPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/ai/workflow/agents/asttranslate/factory_test.go:787:6: stringPtr can be an inlinable wrapper around new(expr)
-pkgs/gizclaw/services/ai/workflow/agents/asttranslate/factory_test.go:791:6: astModePtr can be an inlinable wrapper around new(expr)
-pkgs/gizclaw/services/ai/workflow/agents/chatroom/factory_test.go:755:17: context.WithCancel can be modernized using t.Context
-pkgs/gizclaw/services/ai/workflow/agents/doubaorealtime/factory_test.go:132:10: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/workflow/agents/asttranslate/factory_test.go:127:6: stringPtr can be an inlinable wrapper around new(expr)
+pkgs/gizclaw/services/ai/workflow/agents/asttranslate/factory_test.go:81:75: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/workflow/agents/asttranslate/factory_test.go:85:89: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/workflow/agents/chatroom/factory_test.go:695:17: context.WithCancel can be modernized using t.Context
+pkgs/gizclaw/services/ai/workflow/agents/doubaorealtime/factory_test.go:150:10: call of stringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/ai/workflow/agents/doubaorealtime/factory_test.go:16:6: stringPtr can be an inlinable wrapper around new(expr)
 pkgs/gizclaw/services/ai/workflow/agents/doubaorealtime/factory_test.go:47:17: call of stringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/ai/workflow/agents/doubaorealtime/factory_test.go:55:13: call of stringPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/ai/workflow/agents/doubaorealtime/factory_test.go:62:17: call of stringPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/ai/workflow/agents/doubaorealtime/factory_test.go:65:11: call of stringPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/ai/workflow/agents/doubaorealtime/factory_test.go:67:21: call of stringPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/ai/workflow/agents/doubaorealtime/factory_test.go:74:84: call of stringPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/ai/workflow/agents/doubaorealtime/factory_test.go:85:15: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/workflow/agents/doubaorealtime/factory_test.go:60:84: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/ai/workflow/agents/doubaorealtime/factory_test.go:71:15: call of stringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/ai/workflow/agents/flowcraft/credential_body_test.go:10:6: testStringPtr can be an inlinable wrapper around new(expr)
 pkgs/gizclaw/services/ai/workflow/agents/flowcraft/credential_body_test.go:116:78: call of testStringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/ai/workflow/agents/flowcraft/credential_body_test.go:14:80: call of testStringPtr(x) can be simplified to new(x)
