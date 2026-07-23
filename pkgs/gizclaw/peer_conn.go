@@ -446,14 +446,13 @@ func (h *PeerConn) close() error {
 			closeErr = errors.Join(closeErr, h.agentInput.Close())
 		}
 		if h.agentHost != nil {
-			h.agentHost.CancelTransition()
 			timeout := h.runtimeStopTimeout
 			if timeout <= 0 {
 				timeout = peerConnRuntimeStopTimeout
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), timeout)
 			defer cancel()
-			_, err := h.agentHost.Stop(ctx)
+			_, err := h.agentHost.Shutdown(ctx)
 			closeErr = errors.Join(closeErr, err)
 		}
 		mx := h.mixer

@@ -156,6 +156,70 @@ func TestServiceReloadAndStopSerializeTransitions(t *testing.T) {
 	}
 }
 
+func TestServiceShutdownPreventsConcurrentReloadPublication(t *testing.T) {
+	ctx := context.Background()
+	publicKey := testPublicKey(t)
+	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	if _, err := store.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
+		t.Fatalf("SetRunAgent() error = %v", err)
+	}
+	blockingStore := newBlockingActivateStore(store)
+	input := NewInputStream(1)
+	output := newBlockingStream()
+	svc := &Service{
+		Host:      &fakeHost{output: output},
+		PeerRun:   blockingStore,
+		PublicKey: publicKey,
+		Source: StreamSourceFunc(func(context.Context) (genx.Stream, error) {
+			return input, nil
+		}),
+		Consumer: StreamConsumerFunc(func(ctx context.Context, _ genx.Stream) error {
+			<-ctx.Done()
+			return nil
+		}),
+	}
+
+	reloadDone := make(chan error, 1)
+	go func() {
+		_, err := svc.Reload(ctx)
+		reloadDone <- err
+	}()
+	select {
+	case <-blockingStore.activateEntered:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for Reload activation")
+	}
+	status, err := svc.Shutdown(ctx)
+	if err != nil {
+		t.Fatalf("Shutdown() error = %v", err)
+	}
+	if status.State != apitypes.PeerRunStatusStateStopped {
+		t.Fatalf("Shutdown() status = %+v", status)
+	}
+	close(blockingStore.activateRelease)
+	select {
+	case err := <-reloadDone:
+		if !errors.Is(err, ErrServiceClosed) {
+			t.Fatalf("Reload() error = %v, want service closed", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for Reload after Shutdown")
+	}
+	if !input.closed() || !output.closed() {
+		t.Fatalf("streams closed after Shutdown: input=%v output=%v", input.closed(), output.closed())
+	}
+	status, err = svc.Status(ctx)
+	if err != nil {
+		t.Fatalf("Status() error = %v", err)
+	}
+	if status.State != apitypes.PeerRunStatusStateStopped {
+		t.Fatalf("Status() after Shutdown = %+v", status)
+	}
+	if _, err := svc.Reload(ctx); !errors.Is(err, ErrServiceClosed) {
+		t.Fatalf("Reload() after Shutdown error = %v, want service closed", err)
+	}
+}
+
 func TestServiceReloadCanceledWhileWaitingKeepsPublishedStatus(t *testing.T) {
 	ctx := context.Background()
 	publicKey := testPublicKey(t)
@@ -1117,6 +1181,27 @@ type blockingSelectionStore struct {
 	setEntered chan struct{}
 	setRelease chan struct{}
 	once       sync.Once
+}
+
+type blockingActivateStore struct {
+	PeerRunStore
+	activateEntered chan struct{}
+	activateRelease chan struct{}
+	once            sync.Once
+}
+
+func newBlockingActivateStore(store PeerRunStore) *blockingActivateStore {
+	return &blockingActivateStore{
+		PeerRunStore:    store,
+		activateEntered: make(chan struct{}),
+		activateRelease: make(chan struct{}),
+	}
+}
+
+func (s *blockingActivateStore) ActivateRunAgent(_ context.Context, publicKey giznet.PublicKey, selection apitypes.AgentSelection) (apitypes.PeerRunAgent, error) {
+	s.once.Do(func() { close(s.activateEntered) })
+	<-s.activateRelease
+	return s.PeerRunStore.ActivateRunAgent(context.Background(), publicKey, selection)
 }
 
 func newBlockingSelectionStore() *blockingSelectionStore {

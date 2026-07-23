@@ -26,6 +26,7 @@ var (
 	ErrMissingConsumer    = errors.New("agenthost: stream consumer is required")
 	ErrInvalidPublicKey   = errors.New("agenthost: invalid public key")
 	ErrNoActiveWorkspace  = errors.New("agenthost: no active workspace")
+	ErrServiceClosed      = errors.New("agenthost: service is closed")
 )
 
 type PeerRunStore interface {
@@ -78,9 +79,13 @@ type Service struct {
 	transitionGate     chan struct{}
 	transitionCancelMu sync.Mutex
 	transitionCancel   context.CancelFunc
+	lifecycleOnce      sync.Once
+	lifecycleCtx       context.Context
+	lifecycleCancel    context.CancelFunc
 	revision           atomic.Uint64
 
 	mu      sync.Mutex
+	closed  bool
 	runtime *runtime
 	status  apitypes.PeerRunStatus
 }
@@ -152,7 +157,14 @@ func (s *Service) reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 		}
 	}
 	baseCtx := WithResourceAccess(withHistoryGearID(context.WithoutCancel(ctx), s.PublicKey.String()), s.PublicKey.String(), profileToolBindings, profileWorkflowBindings, profileFingerprint)
-	runCtx, cancel := context.WithCancel(baseCtx)
+	runCtx, runCancel := context.WithCancel(baseCtx)
+	stopTransitionCancel := context.AfterFunc(ctx, runCancel)
+	stopLifecycleCancel := context.AfterFunc(s.lifecycleContext(), runCancel)
+	cancel := func() {
+		stopTransitionCancel()
+		stopLifecycleCancel()
+		runCancel()
+	}
 	pattern := workspacePattern(selection.WorkspaceName)
 	agent, release, output, err := s.openAgentOutput(runCtx, pattern, input)
 	if err != nil {
@@ -185,6 +197,25 @@ func (s *Service) reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 		_ = errors.Join(output.CloseWithError(err), input.CloseWithError(err))
 		return s.setErrorStatus(selection.WorkspaceName, err), err
 	}
+	transitionDetached := stopTransitionCancel()
+	if !transitionDetached || ctx.Err() != nil || runCtx.Err() != nil {
+		err := ctx.Err()
+		if err == nil {
+			err = context.Cause(runCtx)
+		}
+		if err == nil {
+			err = context.Canceled
+		}
+		if s.isClosed() {
+			err = ErrServiceClosed
+		}
+		cancel()
+		if release != nil {
+			release()
+		}
+		_ = errors.Join(output.CloseWithError(err), input.CloseWithError(err))
+		return s.setErrorStatus(selection.WorkspaceName, err), err
+	}
 
 	now := s.now()
 	next := &runtime{
@@ -197,8 +228,15 @@ func (s *Service) reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 		workspace: selection.WorkspaceName,
 		startedAt: now,
 	}
-	_ = s.swap(next)
-	status := s.setStatus(apitypes.PeerRunStatusStateRunning, selection.WorkspaceName, nil, &now)
+	status, published := s.publish(next, now)
+	if !published {
+		cancel()
+		if release != nil {
+			release()
+		}
+		_ = errors.Join(output.CloseWithError(ErrServiceClosed), input.CloseWithError(ErrServiceClosed))
+		return status, ErrServiceClosed
+	}
 	go s.consume(runCtx, next)
 	return status, nil
 }
@@ -490,6 +528,34 @@ func (s *Service) Stop(ctx context.Context) (apitypes.PeerRunStatus, error) {
 	return s.setStatus(apitypes.PeerRunStatusStateStopped, current.workspace, nil, nil), nil
 }
 
+// Shutdown permanently closes the connection-scoped service. It prevents an
+// in-flight reload from publishing a runtime after peer teardown has begun.
+func (s *Service) Shutdown(ctx context.Context) (apitypes.PeerRunStatus, error) {
+	if s == nil {
+		return stoppedStatus(time.Now()), nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	now := s.now()
+	status := stoppedStatus(now)
+	s.mu.Lock()
+	s.closed = true
+	current := s.runtime
+	s.runtime = nil
+	if current != nil && current.workspace != "" {
+		status.WorkspaceName = &current.workspace
+	}
+	s.status = status
+	s.mu.Unlock()
+	s.cancelLifecycle()
+	s.CancelTransition()
+	if current == nil {
+		return status, nil
+	}
+	return status, current.stop(ctx)
+}
+
 func (s *Service) beginTransition() {
 	s.revision.Add(1)
 }
@@ -498,8 +564,20 @@ func (s *Service) finishTransition() {
 	s.revision.Add(1)
 }
 
+func (s *Service) lifecycleContext() context.Context {
+	s.lifecycleOnce.Do(func() {
+		s.lifecycleCtx, s.lifecycleCancel = context.WithCancel(context.Background())
+	})
+	return s.lifecycleCtx
+}
+
+func (s *Service) cancelLifecycle() {
+	_ = s.lifecycleContext()
+	s.lifecycleCancel()
+}
+
 // CancelTransition asks the currently running lifecycle or input operation to
-// stop. It is used by peer teardown before it waits for Stop.
+// stop. Shutdown uses it to interrupt work still holding the transition gate.
 func (s *Service) CancelTransition() {
 	if s == nil {
 		return
@@ -516,6 +594,9 @@ func (s *Service) lockTransition(ctx context.Context) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	if s.isClosed() {
+		return ErrServiceClosed
+	}
 	s.transitionGateOnce.Do(func() {
 		s.transitionGate = make(chan struct{}, 1)
 		s.transitionGate <- struct{}{}
@@ -524,6 +605,10 @@ func (s *Service) lockTransition(ctx context.Context) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	case <-s.transitionGate:
+		if s.isClosed() {
+			s.unlockTransition()
+			return ErrServiceClosed
+		}
 		return nil
 	}
 }
@@ -537,6 +622,9 @@ func (s *Service) beginCancellableTransition(ctx context.Context) (context.Conte
 	s.transitionCancelMu.Lock()
 	s.transitionCancel = cancel
 	s.transitionCancelMu.Unlock()
+	if s.isClosed() {
+		cancel()
+	}
 	return ctx, func() {
 		s.transitionCancelMu.Lock()
 		s.transitionCancel = nil
@@ -654,6 +742,24 @@ func (s *Service) swap(next *runtime) *runtime {
 	return previous
 }
 
+func (s *Service) publish(next *runtime, now time.Time) (apitypes.PeerRunStatus, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return s.status, false
+	}
+	s.runtime = next
+	status := runningStatus(next.workspace, next.startedAt, now)
+	s.status = status
+	return status, true
+}
+
+func (s *Service) isClosed() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.closed
+}
+
 func (s *Service) currentRuntime() *runtime {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -739,6 +845,9 @@ func (s *Service) setStatus(state apitypes.PeerRunStatusState, workspace string,
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.closed && state != apitypes.PeerRunStatusStateStopped {
+		return s.status
+	}
 	s.status = status
 	return status
 }

@@ -458,8 +458,8 @@ func TestPeerConnCloseDoesNotWaitForBlockedRuntimeTransition(t *testing.T) {
 	peer := &PeerConn{agentHost: runtime, agentInput: source, runtimeStopTimeout: 50 * time.Millisecond}
 	startedAt := time.Now()
 	err = peer.close()
-	if !errors.Is(err, context.DeadlineExceeded) {
-		t.Fatalf("close() error = %v, want deadline exceeded", err)
+	if err != nil {
+		t.Fatalf("close() error = %v", err)
 	}
 	if elapsed := time.Since(startedAt); elapsed > time.Second {
 		t.Fatalf("close() waited %s for blocked runtime transition", elapsed)
