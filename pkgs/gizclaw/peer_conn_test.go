@@ -666,6 +666,61 @@ func TestPeerConnReloadsRuntimeWhenInputIsInactive(t *testing.T) {
 	}
 }
 
+func TestPeerConnDropsInactiveInputAfterWorkspaceSelectionChanges(t *testing.T) {
+	ctx := context.Background()
+	keyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair error = %v", err)
+	}
+	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	if _, err := store.SetRunAgent(ctx, keyPair.Public, apitypes.AgentSelection{WorkspaceName: "realtime"}); err != nil {
+		t.Fatalf("SetRunAgent(realtime) error = %v", err)
+	}
+	source := newPeerRealtimeSource(genx.WithRealtimeStreamDelay(0))
+	runtime := &agenthost.Service{
+		Host:      peerConnTestHost{output: &peerConnBlockingStream{done: make(chan struct{})}},
+		PeerRun:   store,
+		PublicKey: keyPair.Public,
+		Source:    source,
+		Consumer: agenthost.StreamConsumerFunc(func(ctx context.Context, _ genx.Stream) error {
+			<-ctx.Done()
+			return nil
+		}),
+	}
+	if _, err := runtime.Reload(ctx); err != nil {
+		t.Fatalf("Reload() error = %v", err)
+	}
+	defer func() {
+		if _, err := runtime.Stop(ctx); err != nil {
+			t.Errorf("Stop() error = %v", err)
+		}
+	}()
+	if _, err := runtime.SetRunAgent(ctx, apitypes.AgentSelection{WorkspaceName: "assistant"}); err != nil {
+		t.Fatalf("SetRunAgent(assistant) error = %v", err)
+	}
+	if err := source.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
+	peer := &PeerConn{agentHost: runtime, agentInput: source}
+	chunk := &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "audio", BeginOfStream: true}}
+	if err := peer.pushAgentInputChunk(ctx, chunk); err != nil {
+		t.Fatalf("pushAgentInputChunk() error = %v", err)
+	}
+	source.mu.RLock()
+	input := source.current
+	source.mu.RUnlock()
+	if input != nil {
+		t.Fatal("stale Realtime chunk reopened the pending Assistant workspace")
+	}
+	agent, err := store.GetRunAgent(ctx, keyPair.Public)
+	if err != nil {
+		t.Fatalf("GetRunAgent() error = %v", err)
+	}
+	if agent.Pending == nil || agent.Pending.WorkspaceName != "assistant" {
+		t.Fatalf("run agent = %+v, want pending assistant", agent)
+	}
+}
+
 type peerConnFakeMetrics struct {
 	samples []metrics.Sample
 }

@@ -44,6 +44,10 @@ type rpcPeerRunRuntime interface {
 	WorkspaceRecall(context.Context, apitypes.PeerRunRecallRequest) (apitypes.PeerRunRecallResponse, error)
 }
 
+type rpcPeerRunSelectionRuntime interface {
+	SetRunAgent(context.Context, apitypes.AgentSelection) (apitypes.PeerRunAgent, error)
+}
+
 type rpcServerResourceService interface {
 	Dispatch(context.Context, *rpcapi.RPCRequest) (*rpcapi.RPCResponse, bool, error)
 }
@@ -391,7 +395,7 @@ func (s *rpcServer) handleSetRunAgent(ctx context.Context, req *rpcapi.RPCReques
 	if validationResp != nil {
 		return validationResp, nil
 	}
-	resp, err := s.peerRun.SetRunAgent(ctx, s.callerPublicKey, selection)
+	resp, err := s.setRunAgent(ctx, selection)
 	if err != nil {
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeBadRequest, Message: err.Error()}.RPCResponse(), nil
 	}
@@ -436,7 +440,7 @@ func (s *rpcServer) handleSetRunWorkspace(ctx context.Context, req *rpcapi.RPCRe
 	if validationResp != nil {
 		return validationResp, nil
 	}
-	agent, err := s.peerRun.SetRunAgent(ctx, s.callerPublicKey, selection)
+	agent, err := s.setRunAgent(ctx, selection)
 	if err != nil {
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeBadRequest, Message: err.Error()}.RPCResponse(), nil
 	}
@@ -449,6 +453,13 @@ func (s *rpcServer) handleSetRunWorkspace(ctx context.Context, req *rpcapi.RPCRe
 		return nil, err
 	}
 	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCPayload).FromServerSetRunWorkspaceResponse)
+}
+
+func (s *rpcServer) setRunAgent(ctx context.Context, selection apitypes.AgentSelection) (apitypes.PeerRunAgent, error) {
+	if runtime, ok := s.peerRunRuntime.(rpcPeerRunSelectionRuntime); ok {
+		return runtime.SetRunAgent(ctx, selection)
+	}
+	return s.peerRun.SetRunAgent(ctx, s.callerPublicKey, selection)
 }
 
 func (s *rpcServer) validateRunWorkspaceSelection(ctx context.Context, requestID string, selection apitypes.AgentSelection) (apitypes.AgentSelection, *rpcapi.RPCResponse) {

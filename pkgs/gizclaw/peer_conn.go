@@ -669,6 +669,10 @@ func (h *PeerConn) pushAgentInputChunk(ctx context.Context, chunk *genx.MessageC
 	if h.agentInput == nil {
 		return nil
 	}
+	revision := uint64(0)
+	if h.agentHost != nil {
+		revision = h.agentHost.RuntimeRevision()
+	}
 	err := h.agentInput.Push(ctx, chunk)
 	if !errors.Is(err, agenthost.ErrNoActiveInput) {
 		return err
@@ -676,8 +680,12 @@ func (h *PeerConn) pushAgentInputChunk(ctx context.Context, chunk *genx.MessageC
 	if h.agentHost == nil {
 		return nil
 	}
-	if _, reloadErr := h.agentHost.Reload(ctx); reloadErr != nil {
+	reloaded, reloadErr := h.agentHost.ReloadIfCurrentRevision(ctx, revision)
+	if reloadErr != nil {
 		return reloadErr
+	}
+	if !reloaded {
+		return nil
 	}
 	err = h.agentInput.Push(ctx, chunk)
 	if errors.Is(err, agenthost.ErrNoActiveInput) {

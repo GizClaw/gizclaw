@@ -213,6 +213,48 @@ func TestRPCServerSetRunWorkspaceDoesNotRequireRuntime(t *testing.T) {
 	}
 }
 
+func TestRPCServerSetRunSelectionUsesRuntimeGate(t *testing.T) {
+	publicKey := giznet.PublicKey{1, 2, 3}
+	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	runtime := &fakeRPCPeerRunSelectionRuntime{
+		fakeRPCPeerRunRuntime: &fakeRPCPeerRunRuntime{workspaceState: apitypes.PeerRunWorkspaceState{RuntimeState: apitypes.PeerRunStatusStateStopped}},
+		store:                 store,
+		publicKey:             publicKey,
+	}
+	server := &rpcServer{
+		peerRun:         store,
+		peerRunRuntime:  runtime,
+		serverResources: &fakeRPCRunWorkspaceResources{},
+		callerPublicKey: publicKey,
+	}
+	for _, test := range []struct {
+		name   string
+		method rpcapi.RPCMethod
+		params *rpcapi.RPCPayload
+	}{
+		{
+			name:   "agent",
+			method: rpcapi.RPCMethodServerRunAgentSet,
+			params: mustRPCParams(rpcapi.ServerSetRunAgentRequest{WorkspaceName: "agent"}, (*rpcapi.RPCPayload).FromServerSetRunAgentRequest),
+		},
+		{
+			name:   "workspace",
+			method: rpcapi.RPCMethodServerRunWorkspaceSet,
+			params: mustRPCParams(rpcapi.ServerSetRunWorkspaceRequest{WorkspaceName: "workspace"}, (*rpcapi.RPCPayload).FromServerSetRunWorkspaceRequest),
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			resp, err := server.dispatch(context.Background(), newRPCRequest("set", test.method, test.params))
+			if err != nil || resp.Error != nil {
+				t.Fatalf("dispatch() = %+v, %v", resp, err)
+			}
+		})
+	}
+	if got, want := runtime.selections, []apitypes.AgentSelection{{WorkspaceName: "agent"}, {WorkspaceName: "workspace"}}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("runtime selections = %#v, want %#v", got, want)
+	}
+}
+
 func TestRPCServerSetRunSelectionPersistsCanonicalWorkspace(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -680,6 +722,18 @@ type fakeRPCPeerRunRuntime struct {
 	lastHistoryLimit  *int
 	lastHistoryPlayID string
 	lastRecallQuery   string
+}
+
+type fakeRPCPeerRunSelectionRuntime struct {
+	*fakeRPCPeerRunRuntime
+	store      *peerrun.Server
+	publicKey  giznet.PublicKey
+	selections []apitypes.AgentSelection
+}
+
+func (f *fakeRPCPeerRunSelectionRuntime) SetRunAgent(ctx context.Context, selection apitypes.AgentSelection) (apitypes.PeerRunAgent, error) {
+	f.selections = append(f.selections, selection)
+	return f.store.SetRunAgent(ctx, f.publicKey, selection)
 }
 
 func (f *fakeRPCPeerRunRuntime) Reload(context.Context) (apitypes.PeerRunStatus, error) {

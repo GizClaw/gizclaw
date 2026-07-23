@@ -6,7 +6,7 @@
 | --- | --- |
 | `peer_realtime_source.go` | 实现 Peer realtime input source；打开和关闭 GenX stream、推送 message chunk，并为连续音频 chunk 绑定稳定 stream ID。 |
 
-这里负责将 connection-scoped input 转换为 Agent runtime 可消费的 realtime source，不拥有通用 GenX stream contract 或 Agent 实例生命周期。
+这里负责将 connection-scoped input 转换为 Agent runtime 可消费的 realtime source，不拥有通用 GenX stream contract 或 Agent 实例生命周期。恢复逻辑由 `PeerConn` 与 AgentHost 拥有：workspace transition 中观察到 runtime revision 已变化的 chunk 必须丢弃，不能重试进入新的 source。
 
 ## 核心结构与主函数
 

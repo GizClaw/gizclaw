@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/url"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
@@ -27,6 +28,8 @@ var (
 )
 
 type PeerRunStore interface {
+	GetRunAgent(context.Context, giznet.PublicKey) (apitypes.PeerRunAgent, error)
+	SetRunAgent(context.Context, giznet.PublicKey, apitypes.AgentSelection) (apitypes.PeerRunAgent, error)
 	ResolveRunAgent(context.Context, giznet.PublicKey) (apitypes.AgentSelection, error)
 	ActivateRunAgent(context.Context, giznet.PublicKey, apitypes.AgentSelection) (apitypes.PeerRunAgent, error)
 }
@@ -65,6 +68,9 @@ type Service struct {
 	Logger                     *slog.Logger
 	Now                        func() time.Time
 
+	transitionMu sync.Mutex
+	revision     atomic.Uint64
+
 	mu      sync.Mutex
 	runtime *runtime
 	status  apitypes.PeerRunStatus
@@ -80,6 +86,14 @@ func (s *Service) Reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	s.transitionMu.Lock()
+	defer s.transitionMu.Unlock()
+	return s.reload(ctx)
+}
+
+func (s *Service) reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
+	s.beginTransition()
+	defer s.finishTransition()
 
 	selection, err := s.PeerRun.ResolveRunAgent(ctx, s.PublicKey)
 	if err != nil {
@@ -158,6 +172,66 @@ func (s *Service) Reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 	status := s.setStatus(apitypes.PeerRunStatusStateRunning, selection.WorkspaceName, nil, &now)
 	go s.consume(runCtx, next)
 	return status, nil
+}
+
+// SetRunAgent persists a pending selection without allowing input recovery to
+// observe a partial selection transition.
+func (s *Service) SetRunAgent(ctx context.Context, selection apitypes.AgentSelection) (apitypes.PeerRunAgent, error) {
+	if s == nil {
+		return apitypes.PeerRunAgent{}, ErrNilService
+	}
+	if err := s.validateRunSelection(); err != nil {
+		return apitypes.PeerRunAgent{}, err
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	s.transitionMu.Lock()
+	defer s.transitionMu.Unlock()
+	s.beginTransition()
+	defer s.finishTransition()
+	return s.PeerRun.SetRunAgent(ctx, s.PublicKey, selection)
+}
+
+// RuntimeRevision returns the current Peer runtime control-plane revision.
+// Even revisions are stable; odd revisions have a selection, reload, or stop
+// transition in progress.
+func (s *Service) RuntimeRevision() uint64 {
+	if s == nil {
+		return 0
+	}
+	return s.revision.Load()
+}
+
+// ReloadIfCurrentRevision recovers a missing input only when the caller saw
+// the same stable runtime revision before its failed push. A changed revision
+// means the chunk belongs to a superseded runtime and must be dropped.
+func (s *Service) ReloadIfCurrentRevision(ctx context.Context, revision uint64) (bool, error) {
+	if s == nil {
+		return false, ErrNilService
+	}
+	if err := s.validate(); err != nil {
+		return false, err
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	s.transitionMu.Lock()
+	defer s.transitionMu.Unlock()
+	if revision%2 != 0 || s.revision.Load() != revision {
+		return false, nil
+	}
+	run, err := s.PeerRun.GetRunAgent(ctx, s.PublicKey)
+	if err != nil {
+		return false, err
+	}
+	if run.Pending != nil && s.currentRuntime() != nil {
+		return false, nil
+	}
+	if _, err := s.reload(ctx); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func runtimeProfileFingerprint(profile apitypes.RuntimeProfile) string {
@@ -247,6 +321,10 @@ func (s *Service) Stop(ctx context.Context) (apitypes.PeerRunStatus, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	s.transitionMu.Lock()
+	defer s.transitionMu.Unlock()
+	s.beginTransition()
+	defer s.finishTransition()
 	current := s.swap(nil)
 	if current == nil {
 		return s.setStatus(apitypes.PeerRunStatusStateStopped, "", nil, nil), nil
@@ -256,6 +334,14 @@ func (s *Service) Stop(ctx context.Context) (apitypes.PeerRunStatus, error) {
 		return s.setErrorStatus(current.workspace, err), err
 	}
 	return s.setStatus(apitypes.PeerRunStatusStateStopped, current.workspace, nil, nil), nil
+}
+
+func (s *Service) beginTransition() {
+	s.revision.Add(1)
+}
+
+func (s *Service) finishTransition() {
+	s.revision.Add(1)
 }
 
 func (s *Service) WorkspaceState(ctx context.Context) (apitypes.PeerRunWorkspaceState, error) {
@@ -336,6 +422,17 @@ func (s *Service) validate() error {
 		return ErrMissingSource
 	case s.Consumer == nil:
 		return ErrMissingConsumer
+	default:
+		return nil
+	}
+}
+
+func (s *Service) validateRunSelection() error {
+	switch {
+	case s.PeerRun == nil:
+		return ErrMissingPeerRun
+	case s.PublicKey.IsZero():
+		return ErrInvalidPublicKey
 	default:
 		return nil
 	}
