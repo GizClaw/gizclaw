@@ -4,7 +4,7 @@ apps/wails/internal/endpointhealth/prober.go:76:3: Goroutine creation can be sim
 cmd/internal/commands/admin/resource.go:368:6: for loop can be modernized using range over int
 cmd/internal/commands/connect/command.go:995:6: stringPtr can be an inlinable wrapper around new(expr)
 cmd/internal/connection/connection.go:100:6: for loop can be modernized using range over int
-cmd/internal/server/config.go:640:5: HasSuffix + TrimSuffix can be simplified to CutSuffix
+cmd/internal/server/config.go:643:5: HasSuffix + TrimSuffix can be simplified to CutSuffix
 cmd/internal/server/tcp_mux.go:32:2: Goroutine creation can be simplified using WaitGroup.Go
 cmd/internal/server/tcp_mux.go:67:3: Goroutine creation can be simplified using WaitGroup.Go
 cmd/internal/server/workspace_test.go:114:72: Replace []byte(fmt.Sprintf...) with fmt.Appendf

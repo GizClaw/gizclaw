@@ -526,7 +526,11 @@ func (a *Transformer) transcribeInput(ctx context.Context, input genx.Stream, ou
 func (a *Transformer) asrPattern() string {
 	pattern := a.config.ASRPattern
 	if a.config.InputMode == InputModeRealtime {
-		pattern += "?emit_interim=true"
+		separator := "?"
+		if strings.Contains(pattern, "?") {
+			separator = "&"
+		}
+		pattern += separator + "emit_interim=true"
 	}
 	return pattern
 }

@@ -36,6 +36,13 @@ func TestNewValidatesTranscriptDependencies(t *testing.T) {
 	}
 }
 
+func TestASRPatternPreservesExistingQuery(t *testing.T) {
+	transformer := &Transformer{config: Config{ASRPattern: "model/asr?language=zh-CN", InputMode: InputModeRealtime}}
+	if got, want := transformer.asrPattern(), "model/asr?language=zh-CN&emit_interim=true"; got != want {
+		t.Fatalf("asrPattern() = %q, want %q", got, want)
+	}
+}
+
 func TestTransformerForwardsTextWithOneTranscriptRoute(t *testing.T) {
 	transformer, err := New(Config{})
 	if err != nil {
