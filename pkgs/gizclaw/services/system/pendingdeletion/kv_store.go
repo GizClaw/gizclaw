@@ -62,6 +62,11 @@ func CreateOrGet(ctx context.Context, store kv.Store, record Record) (Record, bo
 	if err != nil {
 		return Record{}, false, err
 	}
+	if existing, found, err := resolveExistingLocator(ctx, store, record.Kind, record.ResourceID); err != nil {
+		return Record{}, false, err
+	} else if found {
+		return existing, false, nil
+	}
 	existingID, created, err := store.CreateIfAbsent(ctx, kv.Entry{
 		Key:   byLocatorKey(record.Kind, record.ResourceID),
 		Value: []byte(record.DeletionID),
@@ -80,6 +85,57 @@ func CreateOrGet(ctx context.Context, store kv.Store, record Record) (Record, bo
 		return Record{}, false, fmt.Errorf("pending deletion: get existing locator record: %w", err)
 	}
 	return existing, false, nil
+}
+
+func resolveExistingLocator(ctx context.Context, store kv.Store, kind Kind, resourceID string) (Record, bool, error) {
+	prefix := legacyByLocatorPrefix(kind, resourceID)
+	if fixedID, err := store.Get(ctx, byLocatorKey(kind, resourceID)); err == nil {
+		if len(fixedID) == 0 {
+			return Record{}, false, errors.New("pending deletion: empty KV locator record")
+		}
+		existing, err := Get(ctx, store, string(fixedID))
+		if err != nil {
+			return Record{}, false, fmt.Errorf("pending deletion: get existing locator record: %w", err)
+		}
+		return existing, true, nil
+	} else if !errors.Is(err, kv.ErrNotFound) {
+		return Record{}, false, err
+	}
+	var deletionID string
+	for entry, err := range store.List(ctx, prefix) {
+		if err != nil {
+			return Record{}, false, err
+		}
+		if len(entry.Key) != len(prefix)+1 {
+			continue
+		}
+		deletionID = entry.Key[len(prefix)]
+		break
+	}
+	if deletionID == "" {
+		return Record{}, false, nil
+	}
+	if _, err := Get(ctx, store, deletionID); err != nil {
+		return Record{}, false, fmt.Errorf("pending deletion: get legacy locator record: %w", err)
+	}
+	existingID, created, err := store.CreateIfAbsent(ctx, kv.Entry{
+		Key:   byLocatorKey(kind, resourceID),
+		Value: []byte(deletionID),
+	}, nil)
+	if err != nil {
+		return Record{}, false, err
+	}
+	if !created {
+		if len(existingID) == 0 {
+			return Record{}, false, errors.New("pending deletion: empty KV locator record")
+		}
+		deletionID = string(existingID)
+	}
+	existing, err := Get(ctx, store, deletionID)
+	if err != nil {
+		return Record{}, false, fmt.Errorf("pending deletion: get migrated locator record: %w", err)
+	}
+	return existing, true, nil
 }
 
 // Get loads and validates one KV-backed deletion event by ID.

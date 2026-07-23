@@ -122,6 +122,48 @@ func TestDeletePetMigratesFreshDatabase(t *testing.T) {
 	}
 }
 
+func TestMigrationBackfillsLegacyPendingDeletionLocator(t *testing.T) {
+	ctx := context.Background()
+	db := testDB(t)
+	if _, err := db.ExecContext(ctx, `CREATE TABLE gameplay_pending_deletions (
+		deletion_id TEXT NOT NULL PRIMARY KEY,
+		kind TEXT NOT NULL,
+		owner_public_key TEXT NOT NULL,
+		resource_id TEXT NOT NULL,
+		reason TEXT NOT NULL,
+		deleted_at TEXT NOT NULL,
+		descriptor_version INTEGER NOT NULL,
+		descriptor_json TEXT NOT NULL
+	)`); err != nil {
+		t.Fatalf("create legacy pending table: %v", err)
+	}
+	owner := "peer-a"
+	record, err := pendingdeletion.New(pendingdeletion.KindPet, "pet-a", &owner, pendingdeletion.ReasonResourceDelete, map[string]string{
+		"owner_public_key": owner,
+		"pet_id":           "pet-a",
+	}, time.Unix(1, 0))
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO gameplay_pending_deletions (deletion_id, kind, owner_public_key, resource_id, reason, deleted_at, descriptor_version, descriptor_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		record.DeletionID, record.Kind, owner, record.ResourceID, record.Reason, formatTime(record.DeletedAt), record.DescriptorVersion, string(record.Descriptor)); err != nil {
+		t.Fatalf("insert legacy pending record: %v", err)
+	}
+
+	runtime := &Runtime{DB: db}
+	if err := runtime.Migration(ctx); err != nil {
+		t.Fatalf("Migration: %v", err)
+	}
+	var deletionID string
+	if err := db.QueryRowContext(ctx, `SELECT deletion_id FROM gameplay_pending_deletion_locators WHERE kind = ? AND owner_public_key = ? AND resource_id = ?`,
+		record.Kind, owner, record.ResourceID).Scan(&deletionID); err != nil {
+		t.Fatalf("query backfilled locator: %v", err)
+	}
+	if deletionID != record.DeletionID {
+		t.Fatalf("backfilled deletion ID = %q, want %q", deletionID, record.DeletionID)
+	}
+}
+
 func TestRuntimeAdoptDoesNotDeleteExistingSystemWorkspaceOnIDCollision(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 7, 5, 10, 0, 0, 0, time.UTC)

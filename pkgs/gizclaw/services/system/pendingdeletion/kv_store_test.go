@@ -3,11 +3,63 @@ package pendingdeletion
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
+
+func TestCreateOrGetMigratesLegacyLocator(t *testing.T) {
+	for _, fixture := range []struct {
+		name string
+		new  func(*testing.T) kv.Store
+	}{
+		{name: "memory", new: func(*testing.T) kv.Store { return kv.NewMemory(nil) }},
+		{name: "badger", new: func(t *testing.T) kv.Store {
+			store, err := kv.NewBadgerInMemory(nil)
+			if err != nil {
+				t.Fatalf("NewBadgerInMemory: %v", err)
+			}
+			t.Cleanup(func() { _ = store.Close() })
+			return store
+		}},
+	} {
+		t.Run(fixture.name, func(t *testing.T) {
+			ctx := context.Background()
+			store := fixture.new(t)
+			legacy, err := New(KindWorkspace, "workspace-a", nil, ReasonResourceDelete, map[string]string{"name": "workspace-a"}, time.Unix(1, 0))
+			if err != nil {
+				t.Fatalf("New(legacy): %v", err)
+			}
+			entries, err := KVEntries(legacy)
+			if err != nil {
+				t.Fatalf("KVEntries(legacy): %v", err)
+			}
+			legacyLocator := append(legacyByLocatorPrefix(legacy.Kind, legacy.ResourceID), legacy.DeletionID)
+			entries = append(entries, kv.Entry{Key: legacyLocator})
+			if err := store.BatchSet(ctx, entries); err != nil {
+				t.Fatalf("BatchSet(legacy): %v", err)
+			}
+			retry, err := New(KindWorkspace, "workspace-a", nil, ReasonResourceDelete, map[string]string{"name": "workspace-a"}, time.Unix(2, 0))
+			if err != nil {
+				t.Fatalf("New(retry): %v", err)
+			}
+
+			got, created, err := CreateOrGet(ctx, store, retry)
+			if err != nil || created || got.DeletionID != legacy.DeletionID {
+				t.Fatalf("CreateOrGet(retry) = %#v, %v, %v", got, created, err)
+			}
+			fixedID, err := store.Get(ctx, byLocatorKey(legacy.Kind, legacy.ResourceID))
+			if err != nil || string(fixedID) != legacy.DeletionID {
+				t.Fatalf("Get(fixed locator) = %q, %v", fixedID, err)
+			}
+			if _, err := store.Get(ctx, byIDKey(retry.DeletionID)); !errors.Is(err, kv.ErrNotFound) {
+				t.Fatalf("Get(retry record) error = %v, want ErrNotFound", err)
+			}
+		})
+	}
+}
 
 func TestCreateOrGetReusesOneDeletionEvent(t *testing.T) {
 	ctx := context.Background()

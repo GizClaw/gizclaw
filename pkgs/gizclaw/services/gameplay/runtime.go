@@ -199,6 +199,14 @@ func (r *Runtime) Migration(ctx context.Context) error {
 			return err
 		}
 	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO gameplay_pending_deletion_locators (kind, owner_public_key, resource_id, deletion_id)
+		SELECT kind, owner_public_key, resource_id, MIN(deletion_id)
+		FROM gameplay_pending_deletions
+		WHERE true
+		GROUP BY kind, owner_public_key, resource_id
+		ON CONFLICT (kind, owner_public_key, resource_id) DO NOTHING`); err != nil {
+		return err
+	}
 	if _, err := db.ExecContext(ctx, `CREATE UNIQUE INDEX IF NOT EXISTS gameplay_game_results_idempotency_idx ON gameplay_game_results(owner_public_key, runtime_profile_name, idempotency_key) WHERE idempotency_key IS NOT NULL AND idempotency_key <> ''`); err != nil {
 		return err
 	}
