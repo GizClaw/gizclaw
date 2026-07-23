@@ -80,6 +80,9 @@ func (r *RaidsResolver) Resolve(ctx context.Context) (*Catalog, error) {
 	if r.cached != nil {
 		return r.cached, nil
 	}
+	if err := r.secureCacheDir(); err != nil {
+		return nil, err
+	}
 	archive, err := r.readCache()
 	if err == nil {
 		catalog, catalogErr := buildRaidsCatalog(r.profile, archive)
@@ -120,11 +123,8 @@ func (r *RaidsResolver) readCache() ([]byte, error) {
 }
 
 func (r *RaidsResolver) writeCache(data []byte) error {
-	if err := os.MkdirAll(r.cacheDir, 0o700); err != nil {
-		return fmt.Errorf("raids catalog: create cache directory: %w", err)
-	}
-	if err := os.Chmod(r.cacheDir, 0o700); err != nil {
-		return fmt.Errorf("raids catalog: secure cache directory: %w", err)
+	if err := r.secureCacheDir(); err != nil {
+		return err
 	}
 	temporary, err := os.CreateTemp(r.cacheDir, "."+RaidsVersion+"-*.tmp")
 	if err != nil {
@@ -149,6 +149,37 @@ func (r *RaidsResolver) writeCache(data []byte) error {
 	}
 	if err := os.Rename(temporaryName, r.cacheFile()); err != nil {
 		return fmt.Errorf("raids catalog: activate cache candidate: %w", err)
+	}
+	return nil
+}
+
+func (r *RaidsResolver) secureCacheDir() error {
+	info, err := os.Lstat(r.cacheDir)
+	if err == nil {
+		if info.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("raids catalog: cache directory %q must not be a symbolic link", r.cacheDir)
+		}
+		if !info.IsDir() {
+			return fmt.Errorf("raids catalog: cache path %q is not a directory", r.cacheDir)
+		}
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("raids catalog: inspect cache directory: %w", err)
+	}
+	if err := os.MkdirAll(r.cacheDir, 0o700); err != nil {
+		return fmt.Errorf("raids catalog: create cache directory: %w", err)
+	}
+	info, err = os.Lstat(r.cacheDir)
+	if err != nil {
+		return fmt.Errorf("raids catalog: inspect cache directory: %w", err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("raids catalog: cache directory %q must not be a symbolic link", r.cacheDir)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("raids catalog: cache path %q is not a directory", r.cacheDir)
+	}
+	if err := os.Chmod(r.cacheDir, 0o700); err != nil {
+		return fmt.Errorf("raids catalog: secure cache directory: %w", err)
 	}
 	return nil
 }

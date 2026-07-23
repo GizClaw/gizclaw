@@ -7,6 +7,10 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"testing/fstest"
@@ -100,6 +104,40 @@ func TestRaidsResolverCachesValidatedArchive(t *testing.T) {
 	}
 	if got := downloads.Load(); got != 1 {
 		t.Fatalf("downloads = %d, want 1", got)
+	}
+}
+
+func TestRaidsResolverRejectsSymlinkedCacheDirectory(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink creation requires additional Windows privileges")
+	}
+	profile := fstest.MapFS{
+		"resources/07-runtime-profiles/00-default.yaml": {
+			Data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: RuntimeProfile\nmetadata:\n  name: default\nspec:\n  workflows: {collections: {}}\n  resources: {}\n"),
+		},
+	}
+	root := t.TempDir()
+	target := filepath.Join(root, "target")
+	if err := os.Mkdir(target, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	cacheDir := filepath.Join(root, "cache")
+	if err := os.Symlink(target, cacheDir); err != nil {
+		t.Fatal(err)
+	}
+	resolver, err := NewRaidsResolver(profile, cacheDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := resolver.Resolve(context.Background()); err == nil || !strings.Contains(err.Error(), "must not be a symbolic link") {
+		t.Fatalf("Resolve() error = %v, want cache directory symlink rejection", err)
+	}
+	entries, err := os.ReadDir(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("symlink target received cache files: %v", entries)
 	}
 }
 
