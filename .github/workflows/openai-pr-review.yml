@@ -46,9 +46,11 @@ jobs:
 
             const repository = `${context.repo.owner}/${context.repo.repo}`;
             if (context.eventName === "pull_request") {
-              return context.payload.pull_request.head.repo.full_name === repository
-                ? "true"
-                : "false";
+              const pullRequest = context.payload.pull_request;
+              return pullRequest.user.login !== "dependabot[bot]" &&
+                pullRequest.head.repo.full_name === repository
+                  ? "true"
+                  : "false";
             }
 
             if (
@@ -59,9 +61,10 @@ jobs:
                 ...context.repo,
                 pull_number: context.issue.number,
               });
-              return pullRequest.head.repo?.full_name === repository
-                ? "true"
-                : "false";
+              return pullRequest.user?.login !== "dependabot[bot]" &&
+                pullRequest.head.repo?.full_name === repository
+                  ? "true"
+                  : "false";
             }
 
             return "false";
