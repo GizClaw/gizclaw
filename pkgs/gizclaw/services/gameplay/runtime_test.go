@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -663,6 +664,41 @@ func TestRuntimeDeletePetRollsBackWhenPendingInsertFails(t *testing.T) {
 	}
 	if pets != 1 || pending != 0 || bindings != 0 {
 		t.Fatalf("after rollback Pets=%d pending=%d bindings=%d, want 1, 0 and 0", pets, pending, bindings)
+	}
+}
+
+func TestRuntimeDeletePetRejectsDanglingPendingDeletionLocator(t *testing.T) {
+	ctx := context.Background()
+	db := testDB(t)
+	runtime := &Runtime{DB: db}
+	if err := runtime.Migration(ctx); err != nil {
+		t.Fatalf("Migration() error = %v", err)
+	}
+	now := time.Date(2026, 7, 22, 11, 10, 0, 0, time.UTC).Format(time.RFC3339Nano)
+	if _, err := db.ExecContext(ctx, `INSERT INTO gameplay_pets (
+		owner_public_key, id, runtime_profile_name, petdef_id, display_name, workspace_name,
+		stats_json, progression_json, lifecycle, died_at, state_settled_at, last_active_at, created_at, updated_at
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"peer-a", "pet-dangling", "default", "petdef-a", "Pet", "pet-pet-dangling",
+		`{"life":100,"health":100,"satiety":100,"hygiene":100,"mood":100,"energy":100}`, `{"experience":0,"level":1}`, "alive", nil, now, now, now, now,
+	); err != nil {
+		t.Fatalf("insert Pet: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO gameplay_pending_deletion_locators (kind, owner_public_key, resource_id, deletion_id) VALUES (?, ?, ?, ?)`,
+		pendingdeletion.KindPet, "peer-a", "pet-dangling", "missing-deletion"); err != nil {
+		t.Fatalf("insert dangling locator: %v", err)
+	}
+
+	if _, err := runtime.DeletePet(ctx, "peer-a", "pet-dangling"); err == nil || !strings.Contains(err.Error(), "missing or mismatched record") {
+		t.Fatalf("DeletePet() error = %v, want dangling locator error", err)
+	}
+	var pendingCount int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM gameplay_pending_deletions WHERE kind = ? AND owner_public_key = ? AND resource_id = ?`,
+		pendingdeletion.KindPet, "peer-a", "pet-dangling").Scan(&pendingCount); err != nil {
+		t.Fatalf("count pending deletions: %v", err)
+	}
+	if pendingCount != 0 {
+		t.Fatalf("pending deletion count = %d, want 0", pendingCount)
 	}
 }
 

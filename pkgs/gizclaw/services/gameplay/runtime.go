@@ -757,6 +757,21 @@ func (r *Runtime) DeletePet(ctx context.Context, owner, id string) (apitypes.Pet
 		return apitypes.Pet{}, fmt.Errorf("delete pet %q pending deletion locator rows affected: %w", pet.Id, err)
 	}
 	if created == 0 {
+		var existingDeletionID string
+		if err := tx.QueryRowContext(ctx, db.Rebind(`SELECT pending.deletion_id
+			FROM gameplay_pending_deletion_locators AS locator
+			JOIN gameplay_pending_deletions AS pending
+				ON pending.deletion_id = locator.deletion_id
+				AND pending.kind = locator.kind
+				AND pending.owner_public_key = locator.owner_public_key
+				AND pending.resource_id = locator.resource_id
+			WHERE locator.kind = ? AND locator.owner_public_key = ? AND locator.resource_id = ?`),
+			record.Kind, pet.OwnerPublicKey, record.ResourceID).Scan(&existingDeletionID); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return apitypes.Pet{}, fmt.Errorf("delete pet %q pending deletion locator references a missing or mismatched record", pet.Id)
+			}
+			return apitypes.Pet{}, fmt.Errorf("delete pet %q validate pending deletion locator: %w", pet.Id, err)
+		}
 		if err := tx.Commit(); err != nil {
 			return apitypes.Pet{}, fmt.Errorf("delete pet %q reuse pending deletion commit: %w", pet.Id, err)
 		}
