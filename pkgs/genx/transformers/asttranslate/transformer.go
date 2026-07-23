@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net/url"
 	"sort"
 	"strconv"
@@ -76,9 +77,7 @@ func cloneParams(params map[string]any) map[string]any {
 		return make(map[string]any)
 	}
 	cloned := make(map[string]any, len(params))
-	for key, value := range params {
-		cloned[key] = value
-	}
+	maps.Copy(cloned, params)
 	return cloned
 }
 
@@ -506,8 +505,8 @@ func removeASTAssistantStreamChunks(chunks []*genx.MessageChunk, streamID string
 
 func astAssistantResponseStreamID(streamID string) string {
 	streamID = strings.TrimSpace(streamID)
-	if i := strings.Index(streamID, ":ast:"); i >= 0 {
-		return streamID[:i]
+	if responseID, _, ok := strings.Cut(streamID, ":ast:"); ok {
+		return responseID
 	}
 	return streamID
 }
