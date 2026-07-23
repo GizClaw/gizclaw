@@ -23,14 +23,14 @@ require (
 	github.com/hajimehoshi/go-mp3 v0.3.4
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/kaptinlin/jsonrepair v0.4.8
-	github.com/kardianos/service v1.2.4
+	github.com/kardianos/service v1.3.0
 	github.com/lib/pq v1.12.3
 	github.com/oapi-codegen/runtime v1.3.1
 	github.com/openai/openai-go v1.12.0
 	github.com/pion/datachannel v1.6.2
 	github.com/pion/ice/v4 v4.3.0
 	github.com/pion/logging v0.2.4
-	github.com/pion/rtp v1.10.4
+	github.com/pion/rtp v1.10.5
 	github.com/pion/sdp/v3 v3.0.19
 	github.com/pion/turn/v4 v4.1.4
 	github.com/pion/webrtc/v4 v4.2.17
@@ -41,7 +41,7 @@ require (
 	github.com/volcengine/volc-sdk-golang v1.0.246
 	github.com/volcengine/volcengine-go-sdk v1.2.43
 	golang.org/x/crypto v0.53.0
-	golang.org/x/sync v0.21.0
+	golang.org/x/sync v0.22.0
 	gonum.org/v1/gonum v0.17.0
 	google.golang.org/genai v1.42.0
 	google.golang.org/protobuf v1.36.11
