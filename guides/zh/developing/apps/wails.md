@@ -27,10 +27,11 @@ Desktop App 不复制 `pkgs/gizclaw` 的服务端业务。`api/http/desktop.json
 ## 本地 Server Bootstrap
 
 `resources/local-server` 只内嵌一个由 Desktop 拥有的声明式资源：
-`RuntimeProfile/default`。固定的 Raids `v0.1` GitHub archive 提供该 Profile 所引用的
-Credential、Tenant、Model、Voice 与 Workflow。Desktop 在配置根目录下私有缓存并校验
+`RuntimeProfile/default`。固定的 Raids `v0.2.1` GitHub archive 提供该 Profile 所引用的
+Credential、Tenant、Model、Voice、Workflow 与 PetDef。Desktop 在配置根目录下私有缓存并校验
 archive，只解析 Profile 的依赖闭包，再在应用本地 Profile 前 apply 这些资源；Raids 的
-示例 RuntimeProfile 永不应用。
+示例 RuntimeProfile 永不应用。Desktop 只保留产品 PIXA 二进制，不保留本地 PetDef 配置；
+它会校验并上传每个 Raids PetDef 选择的 PIXA，再 apply `RuntimeProfile/default`。
 
 Credential 模板来自 Raids，具体 secret 值仍只来自 Desktop 私有 `bootstrap.env` 或进程
 环境。archive cache、RuntimeProfile、`pod.json`、URL、Web Storage 和日志均不得包含

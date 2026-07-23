@@ -26,8 +26,8 @@ import (
 )
 
 const (
-	RaidsVersion    = "v0.1"
-	RaidsArchiveURL = "https://github.com/GizClaw/raids/archive/refs/tags/v0.1.tar.gz"
+	RaidsVersion    = "v0.2.1"
+	RaidsArchiveURL = "https://github.com/GizClaw/raids/archive/refs/tags/v0.2.1.tar.gz"
 
 	maxRaidsArchiveBytes  = 8 << 20
 	maxRaidsExpandedBytes = 16 << 20
@@ -302,13 +302,67 @@ func buildRaidsCatalog(profileFS fs.FS, archive []byte) (*Catalog, error) {
 			return nil, fmt.Errorf("raids catalog: collect environment requirements from %s/%s: %w", candidate.kind, candidate.name, err)
 		}
 	}
+	petDefPIXAs, err := selectPetDefPIXAs(profileFS, selected, mapFS)
+	if err != nil {
+		return nil, err
+	}
 	resources = append(resources, ResourceEntry{Path: "resources/07-runtime-profiles/00-default.yaml", Kind: "RuntimeProfile", Name: "default"})
 	sort.Slice(resources, func(i, j int) bool { return resources[i].Path < resources[j].Path })
-	result := &Catalog{FS: mapFS, Resources: resources}
+	result := &Catalog{FS: mapFS, Resources: resources, PetDefPIXAs: petDefPIXAs}
 	for _, requirement := range requirements {
 		result.Requirements = append(result.Requirements, requirement)
 	}
 	sort.Slice(result.Requirements, func(i, j int) bool { return result.Requirements[i].Name < result.Requirements[j].Name })
+	return result, nil
+}
+
+func selectPetDefPIXAs(source fs.FS, selected map[string]raidsCandidate, target fstest.MapFS) ([]PetDefPIXA, error) {
+	names := make([]string, 0)
+	for _, candidate := range selected {
+		if candidate.kind == "PetDef" {
+			names = append(names, candidate.name)
+		}
+	}
+	if len(names) == 0 {
+		return nil, nil
+	}
+	sort.Strings(names)
+
+	result := make([]PetDefPIXA, 0, len(names))
+	for _, name := range names {
+		candidate := selected["PetDef/"+name]
+		resource, _, err := decodeResource(candidate.data)
+		if err != nil {
+			return nil, fmt.Errorf("raids catalog: decode selected PetDef/%s: %w", name, err)
+		}
+		petDef, err := resource.AsPetDefResource()
+		if err != nil {
+			return nil, fmt.Errorf("raids catalog: decode selected PetDef/%s: %w", name, err)
+		}
+		const assetPrefix = "asset://codex/pets/"
+		assetName := strings.TrimPrefix(petDef.Spec.Visual.Pixa.AssetRef, assetPrefix)
+		if assetName == petDef.Spec.Visual.Pixa.AssetRef ||
+			assetName != path.Base(assetName) ||
+			path.Ext(assetName) != ".pixa" {
+			return nil, fmt.Errorf("raids catalog: PetDef/%s has unsupported PIXA asset_ref %q", name, petDef.Spec.Visual.Pixa.AssetRef)
+		}
+		assetPath := path.Join("assets/pet-defs", assetName)
+		data, err := readAsset(source, assetPath)
+		if err != nil {
+			return nil, fmt.Errorf("raids catalog: load local PIXA for PetDef/%s: %w", name, err)
+		}
+		target[assetPath] = &fstest.MapFile{Data: data, Mode: 0o444}
+
+		width := petDef.Spec.Visual.Pixa.Metadata.Canvas.Width
+		height := petDef.Spec.Visual.Pixa.Metadata.Canvas.Height
+		if width <= 0 || width > 1<<16-1 || height <= 0 || height > 1<<16-1 {
+			return nil, fmt.Errorf("raids catalog: PetDef/%s has unsupported PIXA dimensions %dx%d", name, width, height)
+		}
+		if err := validatePIXAAsset(target, assetPath, uint16(width), uint16(height)); err != nil {
+			return nil, fmt.Errorf("raids catalog: validate local PIXA for PetDef/%s: %w", name, err)
+		}
+		result = append(result, PetDefPIXA{PetDef: name, PIXA: assetPath})
+	}
 	return result, nil
 }
 
@@ -434,7 +488,11 @@ func allowedRaidsPath(name string) bool {
 	case ".env.example", "LICENSE", "README.md", "runtime-profile.example.yaml":
 		return true
 	}
-	for _, directory := range []string{"credentials/", "tenants/", "models/", "voices/", "workflows/"} {
+	if strings.HasPrefix(name, ".github/workflows/") &&
+		(strings.HasSuffix(name, ".yaml") || strings.HasSuffix(name, ".yml")) {
+		return true
+	}
+	for _, directory := range []string{"credentials/", "tenants/", "models/", "voices/", "workflows/", "petdefs/"} {
 		if strings.HasPrefix(name, directory) && (strings.HasSuffix(name, ".yaml") || strings.HasSuffix(name, ".yml")) {
 			return true
 		}
@@ -454,6 +512,8 @@ func raidsResourceKind(name string) (string, bool) {
 		return "Voice", true
 	case strings.HasPrefix(name, "workflows/"):
 		return "Workflow", true
+	case strings.HasPrefix(name, "petdefs/"):
+		return "PetDef", true
 	default:
 		return "", false
 	}
@@ -501,7 +561,7 @@ func parseRaidsCandidate(data []byte) (raidsCandidate, error) {
 	}
 	candidate := raidsCandidate{kind: header.Kind, name: header.Name, data: data}
 	switch header.Kind {
-	case "Credential", "Workflow":
+	case "Credential", "Workflow", "PetDef":
 	case "Model", "Voice":
 		var spec struct {
 			Provider struct {
@@ -557,6 +617,8 @@ func validateResourceKind(resource apitypes.Resource, kind string) error {
 		_, err = resource.AsVoiceResource()
 	case "Workflow":
 		_, err = resource.AsWorkflowResource()
+	case "PetDef":
+		_, err = resource.AsPetDefResource()
 	case "RuntimeProfile":
 		_, err = resource.AsRuntimeProfileResource()
 	default:
@@ -573,6 +635,13 @@ func selectRaidsDependencies(profile apitypes.RuntimeProfileResource, index map[
 			pending = append(pending, struct{ kind, name string }{"Workflow", binding.ResourceId})
 		}
 	}
+	for _, resourceID := range []string{
+		profile.Spec.Workflows.System.FriendChatroom,
+		profile.Spec.Workflows.System.GroupChatroom,
+		profile.Spec.Workflows.System.Pet,
+	} {
+		pending = append(pending, struct{ kind, name string }{"Workflow", resourceID})
+	}
 	if profile.Spec.Resources.Models != nil {
 		for _, binding := range *profile.Spec.Resources.Models {
 			pending = append(pending, struct{ kind, name string }{"Model", binding.ResourceId})
@@ -581,6 +650,11 @@ func selectRaidsDependencies(profile apitypes.RuntimeProfileResource, index map[
 	if profile.Spec.Resources.Voices != nil {
 		for _, binding := range *profile.Spec.Resources.Voices {
 			pending = append(pending, struct{ kind, name string }{"Voice", binding.ResourceId})
+		}
+	}
+	if profile.Spec.Resources.PetDefs != nil {
+		for _, binding := range *profile.Spec.Resources.PetDefs {
+			pending = append(pending, struct{ kind, name string }{"PetDef", binding.ResourceId})
 		}
 	}
 	for len(pending) != 0 {
@@ -650,16 +724,15 @@ func validateWorkflowAliases(profile apitypes.RuntimeProfileResource, selected m
 
 func workflowAliases(data []byte) ([]string, []string, error) {
 	var document struct {
-		Spec struct {
-			Driver         string         `yaml:"driver"`
-			DoubaoRealtime map[string]any `yaml:"doubao_realtime"`
-			ASTTranslate   map[string]any `yaml:"ast_translate"`
-			Flowcraft      map[string]any `yaml:"flowcraft"`
-		} `yaml:"spec"`
+		Spec map[string]any `yaml:"spec"`
 	}
 	if err := yaml.Unmarshal(data, &document); err != nil {
 		return nil, nil, err
 	}
+	return workflowSpecAliases(document.Spec)
+}
+
+func workflowSpecAliases(spec map[string]any) ([]string, []string, error) {
 	models := map[string]bool{}
 	voices := map[string]bool{}
 	add := func(set map[string]bool, value any) {
@@ -667,25 +740,38 @@ func workflowAliases(data []byte) ([]string, []string, error) {
 			set[text] = true
 		}
 	}
-	switch document.Spec.Driver {
+	driver, _ := spec["driver"].(string)
+	switch driver {
 	case "doubao-realtime":
-		add(models, document.Spec.DoubaoRealtime["model"])
-		if audio, ok := anyMap(document.Spec.DoubaoRealtime["audio"]); ok {
+		config, ok := anyMap(spec["doubao_realtime"])
+		if !ok {
+			return nil, nil, errors.New("doubao-realtime workflow has no configuration")
+		}
+		add(models, config["model"])
+		if audio, ok := anyMap(config["audio"]); ok {
 			if output, ok := anyMap(audio["output"]); ok {
 				add(voices, output["voice"])
 			}
 		}
 	case "ast-translate":
-		add(models, document.Spec.ASTTranslate["translation_model"])
-		if voice, ok := anyMap(document.Spec.ASTTranslate["voice"]); ok {
+		config, ok := anyMap(spec["ast_translate"])
+		if !ok {
+			return nil, nil, errors.New("ast-translate workflow has no configuration")
+		}
+		add(models, config["translation_model"])
+		if voice, ok := anyMap(config["voice"]); ok {
 			add(voices, voice["tts_voice"])
 		}
 	case "flowcraft":
-		if settings, ok := anyMap(document.Spec.Flowcraft["settings"]); ok {
+		config, ok := anyMap(spec["flowcraft"])
+		if !ok {
+			return nil, nil, errors.New("flowcraft workflow has no configuration")
+		}
+		if settings, ok := anyMap(config["settings"]); ok {
 			add(models, settings["extract_model"])
 			add(models, settings["generate_model"])
 		}
-		if agent, ok := anyMap(document.Spec.Flowcraft["agent"]); ok {
+		if agent, ok := anyMap(config["agent"]); ok {
 			if graph, ok := anyMap(agent["graph"]); ok {
 				for _, node := range anySlice(graph["nodes"]) {
 					if node, ok := anyMap(node); ok {
@@ -696,12 +782,12 @@ func workflowAliases(data []byte) ([]string, []string, error) {
 				}
 			}
 		}
-		if memory, ok := anyMap(document.Spec.Flowcraft["memory"]); ok {
+		if memory, ok := anyMap(config["memory"]); ok {
 			if extract, ok := anyMap(memory["extract"]); ok {
 				add(models, extract["model"])
 			}
 		}
-		if adapter, ok := anyMap(document.Spec.Flowcraft["voice_adapter"]); ok {
+		if adapter, ok := anyMap(config["voice_adapter"]); ok {
 			add(models, adapter["asr_model"])
 			add(voices, adapter["default_voice"])
 			if nodeVoices, ok := anyMap(adapter["node_voices"]); ok {
@@ -710,8 +796,22 @@ func workflowAliases(data []byte) ([]string, []string, error) {
 				}
 			}
 		}
+	case "chatroom":
+		config, ok := anyMap(spec["chatroom"])
+		if !ok {
+			return nil, nil, errors.New("chatroom workflow has no configuration")
+		}
+		if transcript, ok := anyMap(config["transcript"]); ok {
+			add(models, transcript["asr_model"])
+		}
+	case "pet":
+		nested, ok := anyMap(spec["pet"])
+		if !ok {
+			return nil, nil, errors.New("pet workflow has no nested workflow")
+		}
+		return workflowSpecAliases(nested)
 	default:
-		return nil, nil, fmt.Errorf("unsupported workflow driver %q", document.Spec.Driver)
+		return nil, nil, fmt.Errorf("unsupported workflow driver %q", driver)
 	}
 	return sortedAliases(models), sortedAliases(voices), nil
 }
@@ -780,6 +880,7 @@ func raidsCatalogPath(candidate raidsCandidate, key string) string {
 		"Model":           "02-models",
 		"Voice":           "03-voices",
 		"Workflow":        "04-workflows",
+		"PetDef":          "05-pet-defs",
 	}[candidate.kind]
 	digest := sha256.Sum256([]byte(key))
 	return path.Join("resources", directory, fmt.Sprintf("%x.yaml", digest[:]))

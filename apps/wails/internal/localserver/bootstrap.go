@@ -82,6 +82,9 @@ func (b *Bootstrapper) MigrateRuntimeContract(ctx context.Context, podDir string
 	}
 	for _, entry := range contractEntries {
 		if entry.Kind == "RuntimeProfile" {
+			if err := b.uploadPetDefPIXAs(ctx, catalog, tempDir, executable, environment, run); err != nil {
+				return err
+			}
 			err := runBootstrapOperation(ctx, run, executable, []string{"admin", "runtime-profiles", "delete", entry.Name, "--context", "local"}, environment)
 			if err != nil && !strings.Contains(err.Error(), "RESOURCE_NOT_FOUND:") {
 				return fmt.Errorf("local server bootstrap: replace %s/%s: %w", entry.Kind, entry.Name, err)
@@ -246,11 +249,34 @@ func (b *Bootstrapper) Apply(ctx context.Context, podDir string, savedEnvironmen
 	if err := applyEntries("desktop-bootstrap-resources", resources); err != nil {
 		return err
 	}
+	if err := b.uploadPetDefPIXAs(ctx, catalog, tempDir, executable, environment, run); err != nil {
+		return err
+	}
 	if err := applyEntries("desktop-bootstrap-runtime-profiles", runtimeProfiles); err != nil {
 		return err
 	}
 	if err := b.createRegistrationToken(ctx, tempDir, podDir, executable, environment); err != nil {
 		return err
+	}
+	return nil
+}
+
+func (b *Bootstrapper) uploadPetDefPIXAs(
+	ctx context.Context,
+	catalog *Catalog,
+	tempDir, executable string,
+	environment []string,
+	run func(context.Context, string, []string, []string) error,
+) error {
+	for _, asset := range catalog.PetDefPIXAs {
+		file, err := b.extract(catalog, tempDir, asset.PIXA)
+		if err != nil {
+			return err
+		}
+		args := []string{"admin", "pet-defs", "upload-pixa", asset.PetDef, "--context", "local", "-f", file}
+		if err := runBootstrapOperation(ctx, run, executable, args, environment); err != nil {
+			return fmt.Errorf("local server bootstrap: upload PetDef/%s PIXA: %w", asset.PetDef, err)
+		}
 	}
 	return nil
 }

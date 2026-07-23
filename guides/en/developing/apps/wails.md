@@ -26,10 +26,12 @@ Schema source of desktop bridge DTO; generated through `gen:sdk` of `sdk/js` aft
 ## Local Server bootstrap
 
 `resources/local-server` embeds exactly one Desktop-owned declarative resource:
-`RuntimeProfile/default`. The fixed public Raids `v0.1` GitHub archive supplies the Credential,
-Tenant, Model, Voice, and Workflow resources referenced by that profile. Desktop validates and
+`RuntimeProfile/default`. The fixed public Raids `v0.2.1` GitHub archive supplies the Credential,
+Tenant, Model, Voice, Workflow, and PetDef resources referenced by that profile. Desktop validates and
 caches the archive privately below its config root, resolves only the profile's dependency closure,
-and applies it before the local profile. The Raids example RuntimeProfile is never applied.
+and applies it before the local profile. The Raids example RuntimeProfile is never applied. Desktop
+retains the product PIXA binaries, but no local PetDef configuration; it validates and uploads the
+PIXA selected by each Raids PetDef before applying `RuntimeProfile/default`.
 
 Credential templates come from Raids; credential values remain in Desktop's private
 `bootstrap.env` or the process environment. The archive cache, RuntimeProfile, `pod.json`, URLs,

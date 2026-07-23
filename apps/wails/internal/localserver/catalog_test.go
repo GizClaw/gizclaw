@@ -2,12 +2,14 @@ package localserver_test
 
 import (
 	"io/fs"
+	"path"
 	"strings"
 	"testing"
 	"testing/fstest"
 
 	"github.com/GizClaw/gizclaw-go/apps/wails/internal/localserver"
 	desktopresources "github.com/GizClaw/gizclaw-go/apps/wails/resources"
+	"github.com/goccy/go-yaml"
 )
 
 func TestBundledCatalogContainsOnlyDefaultRuntimeProfile(t *testing.T) {
@@ -15,24 +17,88 @@ func TestBundledCatalogContainsOnlyDefaultRuntimeProfile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	catalog, err := localserver.LoadCatalog(source)
+	var resources []string
+	err = fs.WalkDir(source, "resources", func(name string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if !entry.IsDir() && (path.Ext(name) == ".yaml" || path.Ext(name) == ".yml") {
+			resources = append(resources, name)
+		}
+		return nil
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := catalog.Resources; len(got) != 1 || got[0].Kind != "RuntimeProfile" || got[0].Name != "default" {
-		t.Fatalf("resources = %#v, want RuntimeProfile/default only", got)
+	if len(resources) != 1 || resources[0] != "resources/07-runtime-profiles/00-default.yaml" {
+		t.Fatalf("bundled declarative resources = %v, want RuntimeProfile/default only", resources)
 	}
-	if len(catalog.PetDefPIXAs) != 0 || len(catalog.VoiceSyncs) != 0 || len(catalog.Requirements) != 0 {
-		t.Fatalf("embedded assets or requirements remain: %#v %#v %#v", catalog.PetDefPIXAs, catalog.VoiceSyncs, catalog.Requirements)
+	var assetCount int
+	err = fs.WalkDir(source, "assets/pet-defs", func(name string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if !entry.IsDir() && path.Ext(name) == ".pixa" {
+			assetCount++
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
-	profile, err := fs.ReadFile(catalog.FS, "resources/07-runtime-profiles/00-default.yaml")
+	if assetCount != 9 {
+		t.Fatalf("bundled PetDef PIXA assets = %d, want 9", assetCount)
+	}
+	profile, err := fs.ReadFile(source, resources[0])
 	if err != nil {
 		t.Fatal(err)
 	}
 	text := string(profile)
-	for _, forbidden := range []string{"volc-main", "pet_defs:", "adoption:", "pet-care", "chatroom"} {
+	for _, forbidden := range []string{"volc-main"} {
 		if strings.Contains(text, forbidden) {
 			t.Fatalf("RuntimeProfile/default retains %q", forbidden)
+		}
+	}
+	var parsed struct {
+		Spec struct {
+			Workflows struct {
+				System struct {
+					FriendChatroom string `yaml:"friend_chatroom"`
+					GroupChatroom  string `yaml:"group_chatroom"`
+					Pet            string `yaml:"pet"`
+				} `yaml:"system"`
+			} `yaml:"workflows"`
+			Resources struct {
+				PetDefs map[string]struct {
+					ResourceID string `yaml:"resource_id"`
+				} `yaml:"pet_defs"`
+			} `yaml:"resources"`
+			Gameplay struct {
+				Adoption struct {
+					Pool []struct {
+						PetDef string `yaml:"pet_def"`
+					} `yaml:"pool"`
+				} `yaml:"adoption"`
+			} `yaml:"gameplay"`
+		} `yaml:"spec"`
+	}
+	if err := yaml.Unmarshal(profile, &parsed); err != nil {
+		t.Fatal(err)
+	}
+	if parsed.Spec.Workflows.System.FriendChatroom != "chatroom" ||
+		parsed.Spec.Workflows.System.GroupChatroom != "chatroom" ||
+		parsed.Spec.Workflows.System.Pet != "pet-care" {
+		t.Fatalf("RuntimeProfile/default system Workflows = %#v", parsed.Spec.Workflows.System)
+	}
+	if len(parsed.Spec.Resources.PetDefs) != 9 {
+		t.Fatalf("RuntimeProfile/default PetDef bindings = %d, want 9", len(parsed.Spec.Resources.PetDefs))
+	}
+	if len(parsed.Spec.Gameplay.Adoption.Pool) != 9 {
+		t.Fatalf("RuntimeProfile/default adoption pool = %d, want 9", len(parsed.Spec.Gameplay.Adoption.Pool))
+	}
+	for alias, binding := range parsed.Spec.Resources.PetDefs {
+		if binding.ResourceID != "petdef-"+alias {
+			t.Fatalf("RuntimeProfile/default PetDef %s = %s", alias, binding.ResourceID)
 		}
 	}
 	for alias, resourceID := range map[string]string{
