@@ -59,7 +59,7 @@ export function PixaPreviewDialog({
   const frameIndex =
     selectedClip == null
       ? 0
-      : pixaClipFrameIndex({ ...selectedClip, loop }, elapsedMs);
+      : pixaClipFrameIndex(asset, { ...selectedClip, loop }, elapsedMs);
 
   useEffect(() => {
     setClipName(selectPixaClip(asset)?.name ?? "");
