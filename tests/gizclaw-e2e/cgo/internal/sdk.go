@@ -38,6 +38,23 @@ type StreamFrame struct {
 	Data []byte
 }
 
+// Registration is the typed result decoded by the C server.register helper.
+type Registration struct {
+	RuntimeProfileName string
+	FirmwareID         *string
+}
+
+// RPCError preserves a server RPC error returned through the C test bridge.
+type RPCError struct {
+	Method  rpcpb.RpcMethod
+	Code    rpcpb.RpcErrorCode
+	Message string
+}
+
+func (e *RPCError) Error() string {
+	return fmt.Sprintf("%s: RPC error %d: %s", e.Method, e.Code, e.Message)
+}
+
 type ServiceChannel struct {
 	channel *C.gzc_service_channel_t
 }
@@ -95,6 +112,7 @@ func (c *Client) CallRPC(method rpcpb.RpcMethod, request proto.Message, response
 	errbuf := make([]byte, 1024)
 	var result *C.uchar
 	var resultLen C.ulong
+	var rpcErrorCode C.int
 	rc := C.gzc_cgo_session_call_rpc_payload(
 		c.session,
 		C.uint(method),
@@ -102,9 +120,17 @@ func (c *Client) CallRPC(method rpcpb.RpcMethod, request proto.Message, response
 		C.ulong(len(paramsPayload)),
 		&result,
 		&resultLen,
+		&rpcErrorCode,
 		(*C.char)(unsafe.Pointer(&errbuf[0])),
 		C.ulong(len(errbuf)),
 	)
+	if rc == C.GZC_ERR_RPC && rpcErrorCode != 0 {
+		return &RPCError{
+			Method:  method,
+			Code:    rpcpb.RpcErrorCode(rpcErrorCode),
+			Message: cString(errbuf),
+		}
+	}
 	if rc != C.GZC_OK {
 		return fmt.Errorf("call %s rc=%d: %s", method, int(rc), cString(errbuf))
 	}
@@ -156,7 +182,98 @@ func (c *Client) CallStream(method rpcpb.RpcMethod, request proto.Message) ([]St
 		}
 		out = append(out, StreamFrame{Type: int(frame._type), Data: data})
 	}
+	if rpcErr := streamRPCError(method, out); rpcErr != nil {
+		return nil, rpcErr
+	}
 	return out, nil
+}
+
+// Register encodes the request and decodes the response with C nanopb.
+func (c *Client) Register(token string) (Registration, error) {
+	if c == nil || c.session == nil {
+		return Registration{}, fmt.Errorf("closed C SDK client")
+	}
+	cToken := C.CString(token)
+	defer C.free(unsafe.Pointer(cToken))
+	runtimeProfileName := make([]byte, 256)
+	firmwareID := make([]byte, 256)
+	errbuf := make([]byte, 1024)
+	var hasFirmwareID C.int
+	var rpcErrorCode C.int
+	rc := C.gzc_cgo_session_register(
+		c.session,
+		cToken,
+		(*C.char)(unsafe.Pointer(&runtimeProfileName[0])),
+		C.ulong(len(runtimeProfileName)),
+		&hasFirmwareID,
+		(*C.char)(unsafe.Pointer(&firmwareID[0])),
+		C.ulong(len(firmwareID)),
+		&rpcErrorCode,
+		(*C.char)(unsafe.Pointer(&errbuf[0])),
+		C.ulong(len(errbuf)),
+	)
+	if rc == C.GZC_ERR_RPC && rpcErrorCode != 0 {
+		return Registration{}, &RPCError{
+			Method:  rpcpb.RpcMethod_RPC_METHOD_SERVER_REGISTER,
+			Code:    rpcpb.RpcErrorCode(rpcErrorCode),
+			Message: cString(errbuf),
+		}
+	}
+	if rc != C.GZC_OK {
+		return Registration{}, fmt.Errorf("register C SDK client rc=%d: %s", int(rc), cString(errbuf))
+	}
+	result := Registration{RuntimeProfileName: cString(runtimeProfileName)}
+	if hasFirmwareID != 0 {
+		value := cString(firmwareID)
+		result.FirmwareID = &value
+	}
+	return result, nil
+}
+
+// GetFirmware decodes the bound firmware response with C nanopb.
+func (c *Client) GetFirmware() (string, bool, error) {
+	if c == nil || c.session == nil {
+		return "", false, fmt.Errorf("closed C SDK client")
+	}
+	name := make([]byte, 256)
+	errbuf := make([]byte, 1024)
+	var hasSlots C.int
+	var rpcErrorCode C.int
+	rc := C.gzc_cgo_session_firmware_get(
+		c.session,
+		(*C.char)(unsafe.Pointer(&name[0])),
+		C.ulong(len(name)),
+		&hasSlots,
+		&rpcErrorCode,
+		(*C.char)(unsafe.Pointer(&errbuf[0])),
+		C.ulong(len(errbuf)),
+	)
+	if rc == C.GZC_ERR_RPC && rpcErrorCode != 0 {
+		return "", false, &RPCError{
+			Method:  rpcpb.RpcMethod_RPC_METHOD_SERVER_FIRMWARE_GET,
+			Code:    rpcpb.RpcErrorCode(rpcErrorCode),
+			Message: cString(errbuf),
+		}
+	}
+	if rc != C.GZC_OK {
+		return "", false, fmt.Errorf("get firmware with C SDK rc=%d: %s", int(rc), cString(errbuf))
+	}
+	return cString(name), hasSlots != 0, nil
+}
+
+func streamRPCError(method rpcpb.RpcMethod, frames []StreamFrame) error {
+	if len(frames) == 0 || frames[0].Type != int(C.GZC_RPC_FRAME_BINARY) {
+		return nil
+	}
+	var envelope rpcpb.RpcResponse
+	if err := proto.Unmarshal(frames[0].Data, &envelope); err != nil {
+		return nil
+	}
+	rpcErr := envelope.GetError()
+	if rpcErr == nil {
+		return nil
+	}
+	return &RPCError{Method: method, Code: rpcErr.GetCode(), Message: rpcErr.GetMessage()}
 }
 
 func (c *Client) OpenServiceChannel(service uint64, timeout time.Duration) (*ServiceChannel, error) {
@@ -438,12 +555,14 @@ func CSDKFirmwareRPC(t *testing.T, identityDir, registrationToken string) {
 	t.Helper()
 	client := newTestClient(t, identityDir)
 	defer client.Close()
-	registerClient(t, client, registrationToken)
-	var getResponse rpcpb.FirmwareGetResponse
-	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_FIRMWARE_GET, &rpcpb.FirmwareGetRequest{}, &getResponse)
-	firmware := getResponse.GetValue()
-	if firmware == nil || firmware.GetName() != "devkit-firmware-main" || firmware.GetSlots() == nil {
-		t.Fatalf("invalid server.firmware.get: %s", getResponse.String())
+	registration := registerClient(t, client, registrationToken)
+	requireFirmwareRegistration(t, registration, "devkit-firmware-main")
+	name, hasSlots, err := client.GetFirmware()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if name != "devkit-firmware-main" || !hasSlots {
+		t.Fatalf("invalid server.firmware.get: name=%q has_slots=%v", name, hasSlots)
 	}
 }
 
@@ -451,7 +570,8 @@ func CSDKFirmwareDownload(t *testing.T, identityDir, registrationToken string) {
 	t.Helper()
 	client := newTestClient(t, identityDir)
 	defer client.Close()
-	registerClient(t, client, registrationToken)
+	registration := registerClient(t, client, registrationToken)
+	requireFirmwareRegistration(t, registration, "devkit-firmware-main")
 	frames, err := client.CallStream(rpcpb.RpcMethod_RPC_METHOD_SERVER_FIRMWARE_FILES_DOWNLOAD, &rpcpb.FirmwareFilesDownloadRequest{
 		Channel: rpcpb.FirmwareChannelName_FIRMWARE_CHANNEL_NAME_STABLE,
 		Path:    "firmware/main.bin",
@@ -756,14 +876,22 @@ func newTestClient(t *testing.T, identityDir string) *Client {
 	return client
 }
 
-func registerClient(t *testing.T, client *Client, registrationToken string) {
+func registerClient(t *testing.T, client *Client, registrationToken string) Registration {
 	t.Helper()
-	var response rpcpb.ServerRegisterResponse
-	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_REGISTER, &rpcpb.ServerRegisterRequest{
-		Token: registrationToken,
-	}, &response)
-	if response.GetRuntimeProfileName() == "" {
-		t.Fatalf("invalid server.register response: %s", response.String())
+	response, err := client.Register(registrationToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.RuntimeProfileName == "" {
+		t.Fatalf("invalid server.register response: %+v", response)
+	}
+	return response
+}
+
+func requireFirmwareRegistration(t *testing.T, registration Registration, firmwareID string) {
+	t.Helper()
+	if registration.FirmwareID == nil || *registration.FirmwareID != firmwareID {
+		t.Fatalf("server.register firmware = %+v, want %q", registration.FirmwareID, firmwareID)
 	}
 }
 

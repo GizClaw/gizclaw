@@ -27,6 +27,26 @@ int gzc_cgo_session_call_rpc_payload(
     unsigned long params_payload_len,
     unsigned char **out_result_payload,
     unsigned long *out_result_payload_len,
+    int *out_rpc_error_code,
+    char *errbuf,
+    unsigned long errbuf_len);
+int gzc_cgo_session_register(
+    gzc_cgo_session_t *session,
+    const char *token,
+    char *out_runtime_profile_name,
+    unsigned long out_runtime_profile_name_len,
+    int *out_has_firmware_id,
+    char *out_firmware_id,
+    unsigned long out_firmware_id_len,
+    int *out_rpc_error_code,
+    char *errbuf,
+    unsigned long errbuf_len);
+int gzc_cgo_session_firmware_get(
+    gzc_cgo_session_t *session,
+    char *out_name,
+    unsigned long out_name_len,
+    int *out_has_slots,
+    int *out_rpc_error_code,
     char *errbuf,
     unsigned long errbuf_len);
 int gzc_cgo_session_call_stream_collect(
