@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -126,6 +127,30 @@ func TestRaidsResolverReplacesExistingCacheArchive(t *testing.T) {
 	}
 }
 
+func TestRaidsResolverReportsInvalidCacheWhenDownloadFails(t *testing.T) {
+	profile := fstest.MapFS{
+		"resources/07-runtime-profiles/00-default.yaml": {
+			Data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: RuntimeProfile\nmetadata:\n  name: default\nspec:\n  workflows: {collections: {}}\n  resources: {}\n"),
+		},
+	}
+	cacheDir := t.TempDir()
+	resolver, err := NewRaidsResolver(profile, cacheDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(resolver.cacheFile(), []byte("invalid archive"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	offline := errors.New("offline")
+	resolver.httpClient = &http.Client{Transport: roundTripperFunc(func(*http.Request) (*http.Response, error) {
+		return nil, offline
+	})}
+	_, err = resolver.Resolve(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "validate cached archive") || !errors.Is(err, offline) {
+		t.Fatalf("Resolve() error = %v, want invalid cache and download failures", err)
+	}
+}
+
 func TestRaidsResolverRejectsSymlinkedCacheDirectory(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("symlink creation requires additional Windows privileges")
@@ -198,6 +223,12 @@ func TestCollectEnvironmentRequirementsRejectsConflictingDefaults(t *testing.T) 
 	if err := collectEnvironmentRequirements([]byte("two: ${RAIDS_TOKEN:-second}"), requirements); err == nil {
 		t.Fatal("collectEnvironmentRequirements() error = nil")
 	}
+}
+
+type roundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (roundTrip roundTripperFunc) RoundTrip(request *http.Request) (*http.Response, error) {
+	return roundTrip(request)
 }
 
 func testRaidsArchive(t *testing.T, headers []tar.Header, contents [][]byte) []byte {

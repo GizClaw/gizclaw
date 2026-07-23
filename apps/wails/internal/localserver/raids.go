@@ -83,16 +83,23 @@ func (r *RaidsResolver) Resolve(ctx context.Context) (*Catalog, error) {
 	if err := r.secureCacheDir(); err != nil {
 		return nil, err
 	}
-	archive, err := r.readCache()
-	if err == nil {
+	archive, cacheReadErr := r.readCache()
+	var cacheErr error
+	if cacheReadErr == nil {
 		catalog, catalogErr := buildRaidsCatalog(r.profile, archive)
 		if catalogErr == nil {
 			r.cached = catalog
 			return catalog, nil
 		}
+		cacheErr = fmt.Errorf("validate cached archive: %w", catalogErr)
+	} else if !os.IsNotExist(cacheReadErr) {
+		cacheErr = fmt.Errorf("read cached archive: %w", cacheReadErr)
 	}
 	candidate, downloadErr := r.download(ctx)
 	if downloadErr != nil {
+		if cacheErr != nil {
+			return nil, fmt.Errorf("raids catalog: load %s: %w", RaidsVersion, errors.Join(cacheErr, downloadErr))
+		}
 		return nil, fmt.Errorf("raids catalog: load %s: %w", RaidsVersion, downloadErr)
 	}
 	catalog, validateErr := buildRaidsCatalog(r.profile, candidate)
