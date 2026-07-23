@@ -200,10 +200,17 @@ func (r *Runtime) Migration(ctx context.Context) error {
 		}
 	}
 	if _, err := db.ExecContext(ctx, `INSERT INTO gameplay_pending_deletion_locators (kind, owner_public_key, resource_id, deletion_id)
-		SELECT kind, owner_public_key, resource_id, MIN(deletion_id)
-		FROM gameplay_pending_deletions
-		WHERE NOT EXISTS (SELECT 1 FROM gameplay_pending_deletion_locators LIMIT 1)
-		GROUP BY kind, owner_public_key, resource_id
+		SELECT kind, owner_public_key, resource_id, deletion_id
+		FROM (
+			SELECT kind, owner_public_key, resource_id, deletion_id,
+				ROW_NUMBER() OVER (
+					PARTITION BY kind, owner_public_key, resource_id
+					ORDER BY deleted_at, deletion_id
+				) AS locator_rank
+			FROM gameplay_pending_deletions
+		) AS ranked
+		WHERE locator_rank = 1
+			AND NOT EXISTS (SELECT 1 FROM gameplay_pending_deletion_locators LIMIT 1)
 		ON CONFLICT (kind, owner_public_key, resource_id) DO NOTHING`); err != nil {
 		return err
 	}
@@ -743,7 +750,7 @@ func (r *Runtime) DeletePet(ctx context.Context, owner, id string) (apitypes.Pet
 		SELECT kind, owner_public_key, resource_id, deletion_id
 		FROM gameplay_pending_deletions
 		WHERE kind = ? AND owner_public_key = ? AND resource_id = ?
-		ORDER BY deletion_id
+		ORDER BY deleted_at, deletion_id
 		LIMIT 1
 		ON CONFLICT (kind, owner_public_key, resource_id) DO NOTHING`), record.Kind, pet.OwnerPublicKey, record.ResourceID); err != nil {
 		return apitypes.Pet{}, fmt.Errorf("delete pet %q legacy pending deletion locator: %w", pet.Id, err)

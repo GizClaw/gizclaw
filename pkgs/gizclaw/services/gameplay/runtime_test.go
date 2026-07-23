@@ -146,10 +146,22 @@ func TestMigrationStopsPendingDeletionBackfillAfterLocatorTableIsPopulated(t *te
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO gameplay_pending_deletions (deletion_id, kind, owner_public_key, resource_id, reason, deleted_at, descriptor_version, descriptor_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		record.DeletionID, record.Kind, owner, record.ResourceID, record.Reason, formatTime(record.DeletedAt), record.DescriptorVersion, string(record.Descriptor)); err != nil {
-		t.Fatalf("insert legacy pending record: %v", err)
+	record.DeletionID = "10000000-0000-4000-8000-000000000002"
+	insertPending := func(label string, item pendingdeletion.Record) {
+		t.Helper()
+		if _, err := db.ExecContext(ctx, `INSERT INTO gameplay_pending_deletions (deletion_id, kind, owner_public_key, resource_id, reason, deleted_at, descriptor_version, descriptor_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+			item.DeletionID, item.Kind, owner, item.ResourceID, item.Reason, formatTime(item.DeletedAt), item.DescriptorVersion, string(item.Descriptor)); err != nil {
+			t.Fatalf("insert %s pending record: %v", label, err)
+		}
 	}
+	insertPending("earliest legacy", record)
+	sameTimeRecord := record
+	sameTimeRecord.DeletionID = "10000000-0000-4000-8000-000000000003"
+	insertPending("same-time legacy", sameTimeRecord)
+	laterSameResource := record
+	laterSameResource.DeletionID = "10000000-0000-4000-8000-000000000001"
+	laterSameResource.DeletedAt = time.Unix(2, 0).UTC()
+	insertPending("later legacy", laterSameResource)
 
 	runtime := &Runtime{DB: db}
 	if err := runtime.Migration(ctx); err != nil {
@@ -171,10 +183,12 @@ func TestMigrationStopsPendingDeletionBackfillAfterLocatorTableIsPopulated(t *te
 	if err != nil {
 		t.Fatalf("New later record: %v", err)
 	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO gameplay_pending_deletions (deletion_id, kind, owner_public_key, resource_id, reason, deleted_at, descriptor_version, descriptor_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		laterRecord.DeletionID, laterRecord.Kind, owner, laterRecord.ResourceID, laterRecord.Reason, formatTime(laterRecord.DeletedAt), laterRecord.DescriptorVersion, string(laterRecord.Descriptor)); err != nil {
-		t.Fatalf("insert later pending record: %v", err)
-	}
+	laterRecord.DeletionID = "20000000-0000-4000-8000-000000000002"
+	insertPending("late-added earliest legacy", laterRecord)
+	laterRetryRecord := laterRecord
+	laterRetryRecord.DeletionID = "20000000-0000-4000-8000-000000000001"
+	laterRetryRecord.DeletedAt = time.Unix(3, 0).UTC()
+	insertPending("late-added retry legacy", laterRetryRecord)
 	if err := runtime.Migration(ctx); err != nil {
 		t.Fatalf("second Migration: %v", err)
 	}
@@ -214,8 +228,8 @@ func TestMigrationStopsPendingDeletionBackfillAfterLocatorTableIsPopulated(t *te
 		laterRecord.Kind, owner, laterRecord.ResourceID).Scan(&laterPendingCount); err != nil {
 		t.Fatalf("count later pending deletions: %v", err)
 	}
-	if laterPendingCount != 1 {
-		t.Fatalf("later pending deletion count = %d, want 1", laterPendingCount)
+	if laterPendingCount != 2 {
+		t.Fatalf("later pending deletion count = %d, want 2 legacy records and no new record", laterPendingCount)
 	}
 }
 

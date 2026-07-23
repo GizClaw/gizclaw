@@ -320,8 +320,8 @@ pkgs/gizclaw/services/device/firmware/server_test.go:556:6: int64Ptr can be an i
 pkgs/gizclaw/services/device/firmware/server_test.go:78:81: call of ptr(x) can be simplified to new(x)
 pkgs/gizclaw/services/gameplay/pixa.go:165:6: for loop can be modernized using range over int
 pkgs/gizclaw/services/gameplay/reward.go:207:6: stringPtr can be an inlinable wrapper around new(expr)
-pkgs/gizclaw/services/gameplay/runtime.go:1057:12: call of stringPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/gameplay/runtime.go:1071:12: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/gameplay/runtime.go:1064:12: call of stringPtr(x) can be simplified to new(x)
+pkgs/gizclaw/services/gameplay/runtime.go:1078:12: call of stringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/runtime/agent/resolver.go:63:5: HasPrefix + TrimPrefix can be simplified to CutPrefix
 pkgs/gizclaw/services/runtime/agenthost/context.go:43:3: Replace m[k]=v loop with maps.Copy
 pkgs/gizclaw/services/runtime/agenthost/resolver.go:202:5: HasPrefix + TrimPrefix can be simplified to CutPrefix
