@@ -320,6 +320,50 @@ func TestServerRejectsInvalidToolkitPolicy(t *testing.T) {
 	}
 }
 
+func TestServerNormalizesNestedPetToolkitPolicy(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(t)
+	ctx := context.Background()
+	toolIDs := []string{" tool-b ", "tool-a", "tool-a"}
+	doc := apitypes.Workflow{
+		Name: "pet-care",
+		Spec: apitypes.WorkflowSpec{
+			Driver: apitypes.WorkflowDriverPet,
+			Pet: &apitypes.PetWorkflowSpec{
+				Driver:   apitypes.ReusableWorkflowDriverChatroom,
+				Chatroom: &apitypes.ChatRoomWorkflowSpec{},
+				Toolkit:  &apitypes.ToolkitPolicy{ToolIds: &toolIDs},
+			},
+		},
+	}
+
+	createResp, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &doc})
+	if err != nil {
+		t.Fatalf("CreateWorkflow() error = %v", err)
+	}
+	created, ok := createResp.(adminhttp.CreateWorkflow200JSONResponse)
+	if !ok {
+		t.Fatalf("CreateWorkflow() response = %#v", createResp)
+	}
+	if created.Spec.Pet == nil || created.Spec.Pet.Toolkit == nil || created.Spec.Pet.Toolkit.ToolIds == nil {
+		t.Fatalf("CreateWorkflow() nested toolkit = %#v", created.Spec.Pet)
+	}
+	if got := *created.Spec.Pet.Toolkit.ToolIds; len(got) != 2 || got[0] != "tool-a" || got[1] != "tool-b" {
+		t.Fatalf("CreateWorkflow() nested tool IDs = %#v", got)
+	}
+
+	invalidIDs := []string{" "}
+	doc.Spec.Pet.Toolkit = &apitypes.ToolkitPolicy{ToolIds: &invalidIDs}
+	invalidResp, err := srv.PutWorkflow(ctx, adminhttp.PutWorkflowRequestObject{Name: doc.Name, Body: &doc})
+	if err != nil {
+		t.Fatalf("PutWorkflow() error = %v", err)
+	}
+	if _, ok := invalidResp.(adminhttp.PutWorkflow400JSONResponse); !ok {
+		t.Fatalf("PutWorkflow() response = %#v", invalidResp)
+	}
+}
+
 func TestServerCreateWorkflowRequiresName(t *testing.T) {
 	t.Parallel()
 

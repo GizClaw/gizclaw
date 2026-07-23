@@ -205,6 +205,13 @@ func validateWorkflow(item apitypes.Workflow, expectedName string) (apitypes.Wor
 	if err != nil {
 		return apitypes.Workflow{}, nil, fmt.Errorf("spec.toolkit: %w", err)
 	}
+	if item.Spec.Pet != nil {
+		nestedPolicy, err := toolkit.NormalizePolicy(item.Spec.Pet.Toolkit)
+		if err != nil {
+			return apitypes.Workflow{}, nil, fmt.Errorf("spec.pet.toolkit: %w", err)
+		}
+		item.Spec.Pet.Toolkit = nestedPolicy
+	}
 
 	item.Name = env.Name
 	item.Spec.Toolkit = policy

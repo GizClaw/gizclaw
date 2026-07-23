@@ -3,6 +3,7 @@ package publiclogin
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -186,6 +187,7 @@ func TestServerLoginStoresRegistrationSnapshot(t *testing.T) {
 	}
 
 	server := NewServer(serverKey, kv.NewMemory(nil))
+	var boundOwner, boundProfile string
 	server.RegistrationResolver = func(_ context.Context, token string) (runtimeprofile.Registration, error) {
 		if token != "registration-secret" {
 			return runtimeprofile.Registration{}, fmt.Errorf("invalid token")
@@ -194,6 +196,11 @@ func TestServerLoginStoresRegistrationSnapshot(t *testing.T) {
 			TokenName:      "app-token",
 			RuntimeProfile: apitypes.RuntimeProfile{Name: "app-profile"},
 		}, nil
+	}
+	server.OwnerProfileBinder = func(_ context.Context, owner, profileName string) error {
+		boundOwner = owner
+		boundProfile = profileName
+		return nil
 	}
 	token := "registration-secret"
 	resp, err := server.Login(context.Background(), peerhttp.LoginRequestObject{
@@ -216,6 +223,64 @@ func TestServerLoginStoresRegistrationSnapshot(t *testing.T) {
 	}
 	if authenticated.Registration == nil || authenticated.Registration.RuntimeProfile.Name != "app-profile" {
 		t.Fatalf("registration = %#v", authenticated.Registration)
+	}
+	if boundOwner != deviceKey.Public.String() || boundProfile != "app-profile" {
+		t.Fatalf("owner binding = (%q, %q)", boundOwner, boundProfile)
+	}
+}
+
+func TestServerLoginOwnerProfileBindingFailureIsRetryable(t *testing.T) {
+	serverKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(server) error = %v", err)
+	}
+	deviceKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair(device) error = %v", err)
+	}
+	assertion, err := NewLoginAssertion(deviceKey, serverKey.Public, time.Minute)
+	if err != nil {
+		t.Fatalf("NewLoginAssertion error = %v", err)
+	}
+
+	server := NewServer(serverKey, kv.NewMemory(nil))
+	server.RegistrationResolver = func(context.Context, string) (runtimeprofile.Registration, error) {
+		return runtimeprofile.Registration{
+			TokenName:      "app-token",
+			RuntimeProfile: apitypes.RuntimeProfile{Name: "app-profile"},
+		}, nil
+	}
+	bindCalls := 0
+	server.OwnerProfileBinder = func(context.Context, string, string) error {
+		bindCalls++
+		return errors.New("store unavailable")
+	}
+	token := "registration-secret"
+	request := peerhttp.LoginRequestObject{
+		Params: peerhttp.LoginParams{
+			XPublicKey:         deviceKey.Public.String(),
+			Authorization:      "Bearer " + assertion,
+			XRegistrationToken: &token,
+		},
+	}
+
+	resp, err := server.Login(context.Background(), request)
+	if err == nil || resp != nil {
+		t.Fatalf("Login(binding failure) = (%#v, %v), want internal error", resp, err)
+	}
+	server.OwnerProfileBinder = func(context.Context, string, string) error {
+		bindCalls++
+		return nil
+	}
+	resp, err = server.Login(context.Background(), request)
+	if err != nil {
+		t.Fatalf("Login(retry) error = %v", err)
+	}
+	if _, ok := resp.(peerhttp.Login200JSONResponse); !ok {
+		t.Fatalf("Login(retry) response = %#v", resp)
+	}
+	if bindCalls != 2 {
+		t.Fatalf("owner profile bind calls = %d, want 2", bindCalls)
 	}
 }
 

@@ -418,8 +418,8 @@ pkgs/gizclaw/services/social/friendgroup/server_test.go:419:94: call of IntPtr(x
 pkgs/gizclaw/services/social/friendgroup/server_test.go:443:129: call of IntPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/social/friendgroup/server_test.go:450:128: call of IntPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/social/friendgroup/server_test.go:623:6: strPtr can be an inlinable wrapper around new(expr)
-pkgs/gizclaw/services/system/publiclogin/server_test.go:117:10: Replace []byte(fmt.Sprintf...) with fmt.Appendf
-pkgs/gizclaw/services/system/publiclogin/server_test.go:343:10: Replace []byte(fmt.Sprintf...) with fmt.Appendf
+pkgs/gizclaw/services/system/publiclogin/server_test.go:118:10: Replace []byte(fmt.Sprintf...) with fmt.Appendf
+pkgs/gizclaw/services/system/publiclogin/server_test.go:408:10: Replace []byte(fmt.Sprintf...) with fmt.Appendf
 pkgs/gizclaw/services/system/resourcemanager/common_test.go:115:6: ptr can be an inlinable wrapper around new(expr)
 pkgs/gizclaw/services/system/resourcemanager/credential_body_test.go:13:80: call of testStringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/system/resourcemanager/credential_body_test.go:9:6: testStringPtr can be an inlinable wrapper around new(expr)
