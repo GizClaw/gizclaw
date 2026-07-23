@@ -210,8 +210,23 @@ func (s *Server) deleteLocked(ctx context.Context, publicKey giznet.PublicKey, r
 func (s *Server) DeleteSelf(ctx context.Context, publicKey giznet.PublicKey) error {
 	unlock := s.IconLocks.LockRecord(publicKey.String())
 	defer unlock()
-	_, err := s.deleteLocked(ctx, publicKey, pendingdeletion.ReasonPeerDelete)
-	return err
+	if _, err := s.deleteLocked(ctx, publicKey, pendingdeletion.ReasonPeerDelete); err == nil {
+		return nil
+	} else if !errors.Is(err, ErrPeerNotFound) {
+		return err
+	}
+	store, err := s.store()
+	if err != nil {
+		return err
+	}
+	exists, err := pendingdeletion.HasLocator(ctx, store, pendingdeletion.KindPeer, publicKey.String())
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return ErrPeerNotFound
+	}
+	return nil
 }
 
 func (s *Server) get(ctx context.Context, publicKey giznet.PublicKey) (apitypes.Peer, error) {

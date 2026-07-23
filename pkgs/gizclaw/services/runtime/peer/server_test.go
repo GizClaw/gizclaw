@@ -2,6 +2,7 @@ package peer
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"testing"
@@ -82,6 +83,39 @@ func TestDeleteSelfRetryPreservesPeerForReconnect(t *testing.T) {
 	}
 	if _, err := server.LoadPeer(ctx, publicKey); err != nil {
 		t.Fatalf("LoadPeer(reconnected): %v", err)
+	}
+}
+
+func TestDeleteSelfLegacyMarkerAllowsRetryAfterRemovedPeer(t *testing.T) {
+	ctx := context.Background()
+	server := &Server{Store: mustBadgerInMemory(t, nil)}
+	publicKey := giznet.PublicKey{11}
+	publicKeyText := publicKey.String()
+	record, err := pendingdeletion.New(
+		pendingdeletion.KindPeer,
+		publicKeyText,
+		&publicKeyText,
+		pendingdeletion.ReasonPeerDelete,
+		map[string]string{"public_key": publicKeyText},
+		time.Unix(1, 0),
+	)
+	if err != nil {
+		t.Fatalf("New legacy marker: %v", err)
+	}
+	entries, err := pendingdeletion.KVEntries(record)
+	if err != nil {
+		t.Fatalf("KVEntries legacy marker: %v", err)
+	}
+	encodedPublicKey := base64.RawURLEncoding.EncodeToString([]byte(publicKeyText))
+	entries = append(entries, kv.Entry{Key: kv.Key{
+		"pending-deletion", "by-locator", string(record.Kind), encodedPublicKey, record.DeletionID,
+	}})
+	if err := server.Store.BatchSet(ctx, entries); err != nil {
+		t.Fatalf("seed legacy marker: %v", err)
+	}
+
+	if err := server.DeleteSelf(ctx, publicKey); err != nil {
+		t.Fatalf("DeleteSelf(legacy removed Peer retry): %v", err)
 	}
 }
 
