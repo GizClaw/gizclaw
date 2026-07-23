@@ -56,20 +56,6 @@ func TestFactoryUsesWorkflowDuplexConfig(t *testing.T) {
 				Speed:  &speed,
 			},
 		},
-		Tools: &[]apitypes.DoubaoRealtimeFunctionTool{{
-			Type:        apitypes.DoubaoRealtimeFunctionToolType("function"),
-			Name:        "get_weather",
-			Description: stringPtr("查询天气"),
-			Strict:      &strict,
-			Parameters: &apitypes.DoubaoRealtimeJSONSchema{
-				Type: stringPtr("object"),
-				Properties: &map[string]apitypes.DoubaoRealtimeJSONSchema{
-					"city": {Type: stringPtr("string")},
-				},
-				Required:             &[]string{"city"},
-				AdditionalProperties: &strict,
-			},
-		}},
 		Extension: &apitypes.DoubaoRealtimeExtension{Dialog: &apitypes.DoubaoRealtimeDialogExtension{
 			Extra: &apitypes.DoubaoRealtimeDialogExtra{EnableMusic: &strict, AuditResponse: stringPtr("audit")},
 		}},
@@ -114,14 +100,46 @@ func TestFactoryUsesWorkflowDuplexConfig(t *testing.T) {
 			t.Fatalf("query[%s] = %q, want %q; pattern=%s", key, got, want, got)
 		}
 	}
-	if query.Get("tools") == "" || !strings.Contains(query.Get("tools"), "get_weather") {
-		t.Fatalf("tools query = %q, want tool JSON", query.Get("tools"))
-	}
 	if query.Get("extension") == "" || !strings.Contains(query.Get("extension"), "enable_music") {
 		t.Fatalf("extension query = %q, want extension JSON", query.Get("extension"))
 	}
 	if strings.Contains(got, "realtime_model") || strings.Contains(got, "vad_window_ms") || strings.Contains(got, "bot_name") {
 		t.Fatalf("pattern contains old realtime params: %q", got)
+	}
+}
+
+func TestFactoryRejectsToolCallConfiguration(t *testing.T) {
+	tools := []apitypes.DoubaoRealtimeFunctionTool{{
+		Type: apitypes.DoubaoRealtimeFunctionToolTypeFunction,
+		Name: "get_weather",
+	}}
+	for _, tt := range []struct {
+		name string
+		spec agenthost.Spec
+	}{
+		{
+			name: "workflow",
+			spec: agenthost.Spec{Workflow: testDoubaoRealtimeWorkflow(apitypes.DoubaoRealtimeWorkflowSpec{
+				Model: "doubao-dialog",
+				Tools: &tools,
+			})},
+		},
+		{
+			name: "workspace",
+			spec: agenthost.Spec{
+				Workflow: testDoubaoRealtimeWorkflow(apitypes.DoubaoRealtimeWorkflowSpec{Model: "doubao-dialog"}),
+				Workspace: apitypes.Workspace{Parameters: testDoubaoRealtimeWorkspaceParameters(t, apitypes.DoubaoRealtimeWorkspaceParameters{
+					Tools: &tools,
+				})},
+			},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := (Factory{Transformer: recordingTransformer{}}).NewAgent(context.Background(), tt.spec)
+			if err == nil || !strings.Contains(err.Error(), "tools are unsupported") {
+				t.Fatalf("NewAgent() error = %v, want tools unsupported", err)
+			}
+		})
 	}
 }
 

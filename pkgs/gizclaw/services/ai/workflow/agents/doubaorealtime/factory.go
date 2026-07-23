@@ -48,6 +48,9 @@ func resolveRealtimeModelPattern(spec agenthost.Spec) (string, error) {
 	if workflowSpec == nil {
 		return "", fmt.Errorf("doubaorealtime: workflow doubao_realtime spec is required")
 	}
+	if err := rejectTools("workflow", workflowSpec.Tools); err != nil {
+		return "", err
+	}
 
 	model := strings.TrimSpace(workflowSpec.Model)
 	params := realtimeWorkflowParams(*workflowSpec)
@@ -58,6 +61,9 @@ func resolveRealtimeModelPattern(spec agenthost.Spec) (string, error) {
 		}
 		if typed.Model != nil && strings.TrimSpace(*typed.Model) != "" {
 			model = strings.TrimSpace(*typed.Model)
+		}
+		if err := rejectTools("workspace", typed.Tools); err != nil {
+			return "", err
 		}
 		params = mergeDoubaoRealtimeWorkspaceParams(params, typed)
 	}
@@ -89,9 +95,6 @@ func realtimeWorkflowParams(spec apitypes.DoubaoRealtimeWorkflowSpec) map[string
 	if spec.Audio != nil {
 		mergeDoubaoRealtimeAudioParams(params, *spec.Audio)
 	}
-	if spec.Tools != nil {
-		params["tools"] = *spec.Tools
-	}
 	if spec.Extension != nil {
 		params["extension"] = *spec.Extension
 	}
@@ -119,9 +122,6 @@ func mergeDoubaoRealtimeWorkspaceParams(params map[string]any, typed apitypes.Do
 	if typed.Audio != nil {
 		mergeDoubaoRealtimeAudioParams(params, *typed.Audio)
 	}
-	if typed.Tools != nil {
-		params["tools"] = *typed.Tools
-	}
 	if typed.Extension != nil {
 		params["extension"] = *typed.Extension
 	}
@@ -129,6 +129,13 @@ func mergeDoubaoRealtimeWorkspaceParams(params map[string]any, typed apitypes.Do
 		return nil
 	}
 	return params
+}
+
+func rejectTools(scope string, tools *[]apitypes.DoubaoRealtimeFunctionTool) error {
+	if tools == nil || len(*tools) == 0 {
+		return nil
+	}
+	return fmt.Errorf("doubaorealtime: %s tools are unsupported until ToolCall is implemented", scope)
 }
 
 func mergeDoubaoRealtimeAudioParams(params map[string]any, audio apitypes.DoubaoRealtimeAudio) {
