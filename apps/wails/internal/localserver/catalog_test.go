@@ -123,6 +123,9 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 		"chat":        "doubao-seed-2-0-lite",
 		"extraction":  "deepseek-v4-flash",
 		"embedding":   "qwen3.7-text-embedding",
+		"pet-chat":    "doubao-seed-2-0-lite",
+		"pet-extract": "deepseek-v4-flash",
+		"pet-asr":     "volc-bigasr-sauc",
 	}
 	gotModels := make(map[string]string, len(parsed.Spec.Resources.Models))
 	for alias, binding := range parsed.Spec.Resources.Models {

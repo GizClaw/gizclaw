@@ -83,6 +83,21 @@ spec:
         i18n:
           en: {display_name: Text Embedding}
           zh-CN: {display_name: 文本向量}
+      pet-chat:
+        resource_id: doubao-seed-2-0-lite
+        i18n:
+          en: {display_name: Pet Chat}
+          zh-CN: {display_name: 宠物对话}
+      pet-extract:
+        resource_id: deepseek-v4-flash
+        i18n:
+          en: {display_name: Pet Memory Extraction}
+          zh-CN: {display_name: 宠物记忆提取}
+      pet-asr:
+        resource_id: volc-bigasr-sauc
+        i18n:
+          en: {display_name: Pet Speech Recognition}
+          zh-CN: {display_name: 宠物语音识别}
     voices:
       doubao-assistant:
         resource_id: volc-tenant:volc-main:zh_female_vv_jupiter_bigtts
