@@ -162,7 +162,10 @@ func HasLocator(ctx context.Context, store kv.Store, kind Kind, resourceID strin
 	if store == nil {
 		return false, errors.New("pending deletion: KV store not configured")
 	}
-	if _, err := store.Get(ctx, byLocatorKey(kind, resourceID)); err == nil {
+	if deletionID, err := store.Get(ctx, byLocatorKey(kind, resourceID)); err == nil {
+		if len(deletionID) == 0 {
+			return false, errors.New("pending deletion: empty KV locator record")
+		}
 		return true, nil
 	} else if !errors.Is(err, kv.ErrNotFound) {
 		return false, err

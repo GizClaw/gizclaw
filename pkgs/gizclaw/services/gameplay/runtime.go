@@ -739,6 +739,15 @@ func (r *Runtime) DeletePet(ctx context.Context, owner, id string) (apitypes.Pet
 	if err != nil {
 		return apitypes.Pet{}, err
 	}
+	if _, err := tx.ExecContext(ctx, db.Rebind(`INSERT INTO gameplay_pending_deletion_locators (kind, owner_public_key, resource_id, deletion_id)
+		SELECT kind, owner_public_key, resource_id, deletion_id
+		FROM gameplay_pending_deletions
+		WHERE kind = ? AND owner_public_key = ? AND resource_id = ?
+		ORDER BY deletion_id
+		LIMIT 1
+		ON CONFLICT (kind, owner_public_key, resource_id) DO NOTHING`), record.Kind, pet.OwnerPublicKey, record.ResourceID); err != nil {
+		return apitypes.Pet{}, fmt.Errorf("delete pet %q legacy pending deletion locator: %w", pet.Id, err)
+	}
 	result, err := tx.ExecContext(ctx, db.Rebind(`INSERT INTO gameplay_pending_deletion_locators (kind, owner_public_key, resource_id, deletion_id) VALUES (?, ?, ?, ?) ON CONFLICT (kind, owner_public_key, resource_id) DO NOTHING`), record.Kind, pet.OwnerPublicKey, record.ResourceID, record.DeletionID)
 	if err != nil {
 		return apitypes.Pet{}, fmt.Errorf("delete pet %q pending deletion locator: %w", pet.Id, err)

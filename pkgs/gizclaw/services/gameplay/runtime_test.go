@@ -185,6 +185,37 @@ func TestMigrationStopsPendingDeletionBackfillAfterLocatorTableIsPopulated(t *te
 	if laterLocatorCount != 0 {
 		t.Fatalf("later locator count = %d, want 0 after completed backfill", laterLocatorCount)
 	}
+
+	now := time.Unix(3, 0).UTC()
+	if _, err := db.ExecContext(ctx, `INSERT INTO gameplay_pets (
+		owner_public_key, id, runtime_profile_name, petdef_id, display_name, workspace_name,
+		stats_json, progression_json, lifecycle, died_at, state_settled_at, last_active_at, created_at, updated_at
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		owner, laterRecord.ResourceID, "default", "petdef-a", "Pet B", "pet-pet-b",
+		`{"life":100,"health":100,"satiety":100,"hygiene":100,"mood":100,"energy":100}`, `{"experience":0,"level":1}`, "alive", nil,
+		formatTime(now), formatTime(now), formatTime(now), formatTime(now),
+	); err != nil {
+		t.Fatalf("insert later Pet: %v", err)
+	}
+	if _, err := runtime.DeletePet(ctx, owner, laterRecord.ResourceID); err != nil {
+		t.Fatalf("DeletePet(later legacy record): %v", err)
+	}
+	var reusedDeletionID string
+	if err := db.QueryRowContext(ctx, `SELECT deletion_id FROM gameplay_pending_deletion_locators WHERE kind = ? AND owner_public_key = ? AND resource_id = ?`,
+		laterRecord.Kind, owner, laterRecord.ResourceID).Scan(&reusedDeletionID); err != nil {
+		t.Fatalf("query reused later locator: %v", err)
+	}
+	if reusedDeletionID != laterRecord.DeletionID {
+		t.Fatalf("reused later deletion ID = %q, want %q", reusedDeletionID, laterRecord.DeletionID)
+	}
+	var laterPendingCount int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM gameplay_pending_deletions WHERE kind = ? AND owner_public_key = ? AND resource_id = ?`,
+		laterRecord.Kind, owner, laterRecord.ResourceID).Scan(&laterPendingCount); err != nil {
+		t.Fatalf("count later pending deletions: %v", err)
+	}
+	if laterPendingCount != 1 {
+		t.Fatalf("later pending deletion count = %d, want 1", laterPendingCount)
+	}
 }
 
 func TestRuntimeAdoptDoesNotDeleteExistingSystemWorkspaceOnIDCollision(t *testing.T) {

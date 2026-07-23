@@ -112,6 +112,18 @@ func TestKVSourceLookup(t *testing.T) {
 	}
 }
 
+func TestHasLocatorRejectsEmptyFixedLocator(t *testing.T) {
+	ctx := context.Background()
+	store := kv.NewMemory(nil)
+	if err := store.Set(ctx, byLocatorKey(KindPeer, "peer-a"), nil); err != nil {
+		t.Fatalf("Set(empty locator): %v", err)
+	}
+	exists, err := HasLocator(ctx, store, KindPeer, "peer-a")
+	if err == nil {
+		t.Fatalf("HasLocator(empty locator) = %v, nil, want error", exists)
+	}
+}
+
 func TestKVSourceRejectsMissingStore(t *testing.T) {
 	source := KVSource{}
 	if _, err := source.Get(context.Background(), "missing"); err == nil {
