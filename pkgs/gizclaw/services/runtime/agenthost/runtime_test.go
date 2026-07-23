@@ -156,6 +156,34 @@ func TestServiceReloadAndStopSerializeTransitions(t *testing.T) {
 	}
 }
 
+func TestServiceReloadCanceledWhileWaitingKeepsPublishedStatus(t *testing.T) {
+	ctx := context.Background()
+	publicKey := testPublicKey(t)
+	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	svc := testService(t, publicKey, store, &fakeHost{})
+	if err := svc.lockTransition(ctx); err != nil {
+		t.Fatalf("lockTransition() error = %v", err)
+	}
+	defer svc.unlockTransition()
+
+	waitCtx, cancel := context.WithTimeout(ctx, 20*time.Millisecond)
+	defer cancel()
+	status, err := svc.Reload(waitCtx)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("Reload() error = %v, want deadline exceeded", err)
+	}
+	if status.State != apitypes.PeerRunStatusStateStopped {
+		t.Fatalf("Reload() status = %+v, want stopped", status)
+	}
+	published, statusErr := svc.Status(ctx)
+	if statusErr != nil {
+		t.Fatalf("Status() error = %v", statusErr)
+	}
+	if published.State != apitypes.PeerRunStatusStateStopped {
+		t.Fatalf("published status = %+v, want stopped", published)
+	}
+}
+
 func TestServiceInputRecoveryDropsSupersededTransition(t *testing.T) {
 	ctx := context.Background()
 	publicKey := testPublicKey(t)

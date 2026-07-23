@@ -96,7 +96,8 @@ func (s *Service) Reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 		ctx = context.Background()
 	}
 	if err := s.lockTransition(ctx); err != nil {
-		return s.setErrorStatus("", err), err
+		status, statusErr := s.Status(context.Background())
+		return status, errors.Join(err, statusErr)
 	}
 	defer s.unlockTransition()
 	ctx, finish := s.beginCancellableTransition(ctx)
