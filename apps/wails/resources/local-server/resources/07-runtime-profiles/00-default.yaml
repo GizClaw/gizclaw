@@ -104,60 +104,81 @@ spec:
           zh-CN: {display_name: 宠物语音识别}
     voices:
       doubao-assistant:
-        resource_id: volc-tenant:volc-main:zh_female_vv_jupiter_bigtts
+        resource_id: volc-tenant:volc-cn-beijing:zh_female_vv_jupiter_bigtts
         i18n:
           en: {display_name: Doubao Assistant}
           zh-CN: {display_name: 豆包助手}
       assistant-voice:
-        resource_id: volc-tenant:volc-main:zh_female_qingxinnvsheng_mars_bigtts
+        resource_id: volc-tenant:volc-cn-beijing:zh_female_qingxinnvsheng_mars_bigtts
         i18n:
           en: {display_name: General Assistant}
           zh-CN: {display_name: 通用助手}
       cute-pet:
-        resource_id: volc-tenant:volc-main:zh_male_naiqimengwa_mars_bigtts
+        resource_id: volc-tenant:volc-cn-beijing:zh_male_naiqimengwa_mars_bigtts
         i18n:
           en: {display_name: Cute Pet}
           zh-CN: {display_name: 奶气萌宠}
       translator:
-        resource_id: volc-tenant:volc-main:zh_female_sophie_conversation_wvae_bigtts
+        resource_id: volc-tenant:volc-cn-beijing:zh_female_sophie_conversation_wvae_bigtts
         i18n:
           en: {display_name: Translator}
           zh-CN: {display_name: 翻译员}
       narrator:
-        resource_id: volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts
+        resource_id: volc-tenant:volc-cn-beijing:zh_female_shaoergushi_mars_bigtts
         i18n:
           en: {display_name: Narrator}
           zh-CN: {display_name: 旁白}
       game-master:
-        resource_id: volc-tenant:volc-main:zh_male_changtianyi_mars_bigtts
+        resource_id: volc-tenant:volc-cn-beijing:zh_male_changtianyi_mars_bigtts
         i18n:
           en: {display_name: Game Master}
           zh-CN: {display_name: 游戏主持人}
       detective:
-        resource_id: volc-tenant:volc-main:ICL_zh_male_lengjungaozhi_tob
+        resource_id: volc-tenant:volc-cn-beijing:ICL_zh_male_lengjungaozhi_tob
         i18n:
           en: {display_name: Detective}
           zh-CN: {display_name: 侦探}
       police-officer:
-        resource_id: volc-tenant:volc-main:ICL_zh_male_zhengzhiqingnian_tob
+        resource_id: volc-tenant:volc-cn-beijing:ICL_zh_male_zhengzhiqingnian_tob
         i18n:
           en: {display_name: Police Officer}
           zh-CN: {display_name: 警察}
       sun-wukong:
-        resource_id: volc-tenant:volc-main:zh_male_sunwukong_mars_bigtts
+        resource_id: volc-tenant:volc-cn-beijing:zh_male_sunwukong_mars_bigtts
         i18n:
           en: {display_name: Sun Wukong}
           zh-CN: {display_name: 孙悟空}
       tang-sanzang:
-        resource_id: volc-tenant:volc-main:zh_male_tangseng_mars_bigtts
+        resource_id: volc-tenant:volc-cn-beijing:zh_male_tangseng_mars_bigtts
         i18n:
           en: {display_name: Tang Sanzang}
           zh-CN: {display_name: 唐僧}
       zhu-bajie:
-        resource_id: volc-tenant:volc-main:zh_male_zhubajie_mars_bigtts
+        resource_id: volc-tenant:volc-cn-beijing:zh_male_zhubajie_mars_bigtts
         i18n:
           en: {display_name: Zhu Bajie}
           zh-CN: {display_name: 猪八戒}
+      journey-narrator:
+        resource_id: volc-tenant:volc-cn-beijing:zh_female_shaoergushi_mars_bigtts
+        i18n: {en: {display_name: Journey Narrator}, zh-CN: {display_name: 西游记旁白}}
+      journey-origin-narrator:
+        resource_id: volc-tenant:volc-cn-beijing:zh_female_shaoergushi_mars_bigtts
+        i18n: {en: {display_name: Origin Narrator}, zh-CN: {display_name: 石猴出世篇旁白}}
+      journey-heaven-narrator:
+        resource_id: volc-tenant:volc-cn-beijing:zh_male_sunwukong_mars_bigtts
+        i18n: {en: {display_name: Heavenly Court Narrator}, zh-CN: {display_name: 大闹天宫篇旁白}}
+      journey-pilgrimage-narrator:
+        resource_id: volc-tenant:volc-cn-beijing:zh_male_tangseng_mars_bigtts
+        i18n: {en: {display_name: Pilgrimage Narrator}, zh-CN: {display_name: 师徒集结篇旁白}}
+      journey-trials-narrator:
+        resource_id: volc-tenant:volc-cn-beijing:zh_male_changtianyi_mars_bigtts
+        i18n: {en: {display_name: Trials Narrator}, zh-CN: {display_name: 三打白骨精篇旁白}}
+      journey-kingdoms-narrator:
+        resource_id: volc-tenant:volc-cn-beijing:zh_female_qingxinnvsheng_mars_bigtts
+        i18n: {en: {display_name: Kingdoms Narrator}, zh-CN: {display_name: 女儿国篇旁白}}
+      journey-arrival-narrator:
+        resource_id: volc-tenant:volc-cn-beijing:zh_female_shaoergushi_mars_bigtts
+        i18n: {en: {display_name: Journey Completion Narrator}, zh-CN: {display_name: 灵山功成篇旁白}}
     pet_defs:
       bsod: {resource_id: petdef-bsod, i18n: {en: {display_name: BSOD}, zh-CN: {display_name: 蓝屏}}}
       codex: {resource_id: petdef-codex, i18n: {en: {display_name: Codex}, zh-CN: {display_name: Codex}}}

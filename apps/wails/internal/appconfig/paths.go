@@ -15,6 +15,7 @@ type Paths struct {
 	ConfigRoot       string `json:"config_root"`
 	PodsDir          string `json:"pods_dir"`
 	BootstrapEnvFile string `json:"bootstrap_env_file"`
+	RaidsCacheDir    string `json:"raids_cache_dir"`
 }
 
 func DefaultPaths() (Paths, error) {
@@ -33,15 +34,19 @@ func NewPaths(root string) Paths {
 		ConfigRoot:       root,
 		PodsDir:          filepath.Join(root, "pods"),
 		BootstrapEnvFile: filepath.Join(root, "bootstrap.env"),
+		RaidsCacheDir:    filepath.Join(root, "raids"),
 	}
 }
 
 func (p Paths) Ensure() error {
-	if p.ConfigRoot == "" || p.PodsDir == "" || p.BootstrapEnvFile == "" {
+	if p.ConfigRoot == "" || p.PodsDir == "" || p.BootstrapEnvFile == "" || p.RaidsCacheDir == "" {
 		return fmt.Errorf("appconfig: incomplete paths")
 	}
 	if err := secureDir(p.PodsDir); err != nil {
 		return fmt.Errorf("appconfig: mkdir pods: %w", err)
+	}
+	if err := secureDir(p.RaidsCacheDir); err != nil {
+		return fmt.Errorf("appconfig: mkdir raids cache: %w", err)
 	}
 	return nil
 }

@@ -1,9 +1,0 @@
----
-apiVersion: gizclaw.admin/v1alpha1
-kind: DashScopeTenant
-metadata:
-  name: qwen-dashscope-main
-spec:
-  credential_name: qwen-dashscope-credential
-  base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
-  description: Qwen models through DashScope

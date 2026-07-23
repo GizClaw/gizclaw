@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -677,6 +678,7 @@ type fakeLocalPodBootstrapper struct {
 	migrationCalled atomic.Bool
 	migrationErr    error
 	migrationToken  string
+	migrationEnv    map[string]string
 	recoveryCalled  atomic.Bool
 	recoveryErr     error
 	recoveryToken   string
@@ -685,8 +687,9 @@ type fakeLocalPodBootstrapper struct {
 	once            sync.Once
 }
 
-func (f *fakeLocalPodBootstrapper) MigrateRuntimeContract(_ context.Context, podDir string) error {
+func (f *fakeLocalPodBootstrapper) MigrateRuntimeContract(_ context.Context, podDir string, environment map[string]string) error {
 	f.migrationCalled.Store(true)
+	f.migrationEnv = maps.Clone(environment)
 	if f.migrationToken != "" {
 		workspaceDir := filepath.Join(podDir, "workspace")
 		if err := os.MkdirAll(workspaceDir, 0o700); err != nil {
@@ -832,14 +835,19 @@ func TestStartingLegacyLocalPodMigratesRuntimeContractOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 	bootstrapper := &fakeLocalPodBootstrapper{}
+	environment := appconfig.BootstrapEnvironmentStore{Path: paths.BootstrapEnvFile}
+	if err := environment.Replace("RAIDS_TOKEN=saved-token\n"); err != nil {
+		t.Fatal(err)
+	}
 	b := &PodBridge{
-		Paths:          paths,
-		Store:          store,
-		Bootstrapper:   bootstrapper,
-		WaitLocalReady: func(context.Context, string, int) error { return nil },
-		Health:         endpointhealth.New(),
-		Local:          local,
-		WebUI:          webui.New(fstest.MapFS{}),
+		Paths:                paths,
+		Store:                store,
+		BootstrapEnvironment: environment,
+		Bootstrapper:         bootstrapper,
+		WaitLocalReady:       func(context.Context, string, int) error { return nil },
+		Health:               endpointhealth.New(),
+		Local:                local,
+		WebUI:                webui.New(fstest.MapFS{}),
 	}
 	defer b.WebUI.Shutdown()
 	if _, err := b.StartLocal(context.Background(), pod.ID); err != nil {
@@ -847,6 +855,9 @@ func TestStartingLegacyLocalPodMigratesRuntimeContractOnce(t *testing.T) {
 	}
 	if !bootstrapper.migrationCalled.Load() {
 		t.Fatal("legacy local Pod did not migrate its runtime contract")
+	}
+	if bootstrapper.migrationEnv["RAIDS_TOKEN"] != "saved-token" {
+		t.Fatalf("migration environment = %v", bootstrapper.migrationEnv)
 	}
 	loaded, err := store.Load(pod.ID)
 	if err != nil {
@@ -1139,6 +1150,41 @@ func TestInvalidBootstrapEnvironmentRemainsEditable(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(paths.PodsDir, "invalid-env")); !os.IsNotExist(err) {
 		t.Fatalf("Pod was reserved with invalid bootstrap.env: %v", err)
 	}
+}
+
+func TestUpdateBootstrapEnvironmentPersistsValuesWhenRaidsIsUnavailable(t *testing.T) {
+	paths := appconfig.NewPaths(t.TempDir())
+	if err := paths.Ensure(); err != nil {
+		t.Fatal(err)
+	}
+	b := &PodBridge{
+		Paths:                paths,
+		Store:                appconfig.Store{Paths: paths},
+		BootstrapEnvironment: appconfig.BootstrapEnvironmentStore{Path: paths.BootstrapEnvFile},
+		CatalogResolver: catalogResolverFunc(func(context.Context) (*localserver.Catalog, error) {
+			return nil, errors.New("Raids unavailable")
+		}),
+	}
+	state, err := b.UpdateBootstrapEnvironment(context.Background(), BootstrapEnvironmentUpdate{Content: "RAIDS_TOKEN=saved-token\n"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.Ready || !strings.Contains(state.Error, "Raids unavailable") {
+		t.Fatalf("bootstrap state = %+v", state)
+	}
+	values, err := b.BootstrapEnvironment.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if values["RAIDS_TOKEN"] != "saved-token" {
+		t.Fatalf("saved bootstrap environment = %v", values)
+	}
+}
+
+type catalogResolverFunc func(context.Context) (*localserver.Catalog, error)
+
+func (resolve catalogResolverFunc) Resolve(ctx context.Context) (*localserver.Catalog, error) {
+	return resolve(ctx)
 }
 
 func TestRecoverLocalServerRejectsMismatchedServerIdentity(t *testing.T) {

@@ -1,9 +1,0 @@
----
-apiVersion: gizclaw.admin/v1alpha1
-kind: DeepSeekTenant
-metadata:
-  name: deepseek-main
-spec:
-  credential_name: deepseek-main-credential
-  base_url: https://api.deepseek.com
-  description: DeepSeek tenant

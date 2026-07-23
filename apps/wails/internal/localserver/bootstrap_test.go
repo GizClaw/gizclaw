@@ -14,7 +14,7 @@ import (
 	desktopresources "github.com/GizClaw/gizclaw-go/apps/wails/resources"
 )
 
-func TestBootstrapperAppliesResourcesSyncsVoicesUploadsPetAssetsAndCreatesRegistrationToken(t *testing.T) {
+func TestBootstrapperAppliesResourcesThenRuntimeProfileAndCreatesRegistrationToken(t *testing.T) {
 	podDir := t.TempDir()
 	contextDir := filepath.Join(podDir, "admin_context", "local")
 	if err := os.MkdirAll(contextDir, 0o700); err != nil {
@@ -26,19 +26,20 @@ func TestBootstrapperAppliesResourcesSyncsVoicesUploadsPetAssetsAndCreatesRegist
 	defaultValue := "default"
 	catalog := &Catalog{
 		FS: fstest.MapFS{
-			"resources/00-credentials/a.yaml": {Data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: Credential\nmetadata:\n  name: a\n")},
-			"resources/00-credentials/b.yaml": {Data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: Credential\nmetadata:\n  name: b\n")},
-			"assets/pets/a.pixa":              {Data: []byte("pet")},
+			"resources/00-credentials/a.yaml":               {Data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: Credential\nmetadata:\n  name: a\n")},
+			"resources/00-credentials/b.yaml":               {Data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: Credential\nmetadata:\n  name: b\n")},
+			"resources/07-runtime-profiles/00-default.yaml": {Data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: RuntimeProfile\nmetadata:\n  name: default\n")},
+			"assets/pets/a.pixa":                            {Data: []byte("pet")},
 		},
 		Resources: []ResourceEntry{
 			{Path: "resources/00-credentials/a.yaml", Kind: "Credential", Name: "a"},
 			{Path: "resources/00-credentials/b.yaml", Kind: "Credential", Name: "b"},
+			{Path: "resources/07-runtime-profiles/00-default.yaml", Kind: "RuntimeProfile", Name: "default"},
 		},
 		Requirements: []EnvironmentRequirement{
 			{Name: "BOOTSTRAP_SAVED"},
 			{Name: "BOOTSTRAP_DEFAULT", Default: &defaultValue},
 		},
-		VoiceSyncs:  []VoiceSync{{Provider: "volc", Tenant: "volc-main"}},
 		PetDefPIXAs: []PetDefPIXA{{PetDef: "pet-a", PIXA: "assets/pets/a.pixa"}},
 	}
 	t.Setenv("BOOTSTRAP_SAVED", "process")
@@ -109,11 +110,14 @@ func TestBootstrapperAppliesResourcesSyncsVoicesUploadsPetAssetsAndCreatesRegist
 	if len(commands) != 4 {
 		t.Fatalf("commands = %d: %v", len(commands), commands)
 	}
-	if !strings.Contains(commands[0], "admin apply") || !strings.Contains(commands[1], "volc-tenants sync-voices volc-main") {
-		t.Fatalf("resource/sync order = %v", commands[:2])
+	if !strings.Contains(commands[0], "admin apply") {
+		t.Fatalf("resource apply = %v", commands)
 	}
-	if !strings.Contains(commands[2], "upload-pixa pet-a") {
-		t.Fatalf("asset command = %v", commands[2])
+	if !strings.Contains(commands[1], "admin pet-defs upload-pixa pet-a") {
+		t.Fatalf("PetDef PIXA upload = %q", commands[1])
+	}
+	if !strings.Contains(commands[2], "admin apply") {
+		t.Fatalf("RuntimeProfile apply = %q", commands[2])
 	}
 	if !strings.Contains(commands[3], "registration-tokens create --context local") {
 		t.Fatalf("RegistrationToken command = %q", commands[3])
@@ -145,8 +149,12 @@ func TestBootstrapperRecoversRegistrationTokenWithoutReapplyingCatalog(t *testin
 		t.Fatal(err)
 	}
 	var commands []string
+	resolverCalled := false
 	bootstrapper := &Bootstrapper{
-		Catalog:    &Catalog{},
+		Resolver: catalogResolverFunc(func(context.Context) (*Catalog, error) {
+			resolverCalled = true
+			return nil, errors.New("Raids archive is unavailable")
+		}),
 		Executable: func() (string, error) { return "/fake/gizclaw", nil },
 		Run: func(_ context.Context, _ string, args, _ []string) error {
 			commands = append(commands, strings.Join(args, " "))
@@ -160,6 +168,9 @@ func TestBootstrapperRecoversRegistrationTokenWithoutReapplyingCatalog(t *testin
 	if err := bootstrapper.RecoverRegistrationToken(context.Background(), podDir, nil); err != nil {
 		t.Fatal(err)
 	}
+	if resolverCalled {
+		t.Fatal("token recovery resolved the Raids catalog")
+	}
 	if len(commands) != 2 || !strings.Contains(commands[0], "registration-tokens delete app:com.gizclaw.opensource") || !strings.Contains(commands[1], "registration-tokens create") {
 		t.Fatalf("recovery commands = %v", commands)
 	}
@@ -172,7 +183,13 @@ func TestBootstrapperRecoversRegistrationTokenWithoutReapplyingCatalog(t *testin
 	}
 }
 
-func TestBootstrapperMigratesReferencedWorkflowsBeforeDefaultRuntimeContract(t *testing.T) {
+type catalogResolverFunc func(context.Context) (*Catalog, error)
+
+func (resolve catalogResolverFunc) Resolve(ctx context.Context) (*Catalog, error) {
+	return resolve(ctx)
+}
+
+func TestBootstrapperMigratesDependencyClosureBeforeDefaultRuntimeProfile(t *testing.T) {
 	podDir := t.TempDir()
 	contextDir := filepath.Join(podDir, "admin_context", "local")
 	if err := os.MkdirAll(contextDir, 0o700); err != nil {
@@ -185,20 +202,16 @@ func TestBootstrapperMigratesReferencedWorkflowsBeforeDefaultRuntimeContract(t *
 		FS: fstest.MapFS{
 			"resources/00-credentials/a.yaml":               {Data: []byte("kind: Credential\nmetadata: {name: a}\n")},
 			"resources/04-workflows/00-referenced.yaml":     {Data: []byte("kind: Workflow\nmetadata: {name: referenced}\n")},
-			"resources/04-workflows/01-chatroom.yaml":       {Data: []byte("kind: Workflow\nmetadata: {name: chatroom}\n")},
-			"resources/04-workflows/02-pet-care.yaml":       {Data: []byte("kind: Workflow\nmetadata: {name: pet-care}\n")},
-			"resources/04-workflows/02-unreferenced.yaml":   {Data: []byte("kind: Workflow\nmetadata: {name: unreferenced}\n")},
-			"resources/07-runtime-profiles/00-default.yaml": {Data: []byte("kind: RuntimeProfile\nmetadata: {name: default}\nspec:\n  workflows:\n    system:\n      friend_chatroom: chatroom\n      group_chatroom: chatroom\n      pet: pet-care\n    collections:\n      assistants:\n        demo: {resource_id: referenced}\n")},
+			"resources/07-runtime-profiles/00-default.yaml": {Data: []byte("kind: RuntimeProfile\nmetadata: {name: default}\nspec:\n  workflows:\n    collections:\n      assistants:\n        demo: {resource_id: referenced}\n")},
+			"assets/pets/a.pixa":                            {Data: []byte("pet")},
 		},
 		Resources: []ResourceEntry{
 			{Path: "resources/00-credentials/a.yaml", Kind: "Credential", Name: "a"},
 			{Path: "resources/04-workflows/00-referenced.yaml", Kind: "Workflow", Name: "referenced"},
-			{Path: "resources/04-workflows/01-chatroom.yaml", Kind: "Workflow", Name: "chatroom"},
-			{Path: "resources/04-workflows/02-pet-care.yaml", Kind: "Workflow", Name: "pet-care"},
-			{Path: "resources/04-workflows/02-unreferenced.yaml", Kind: "Workflow", Name: "unreferenced"},
 			{Path: "resources/07-runtime-profiles/00-default.yaml", Kind: "RuntimeProfile", Name: "default"},
 		},
-		VoiceSyncs: []VoiceSync{{Provider: "volc", Tenant: "volc-main"}},
+		Requirements: []EnvironmentRequirement{{Name: "RAIDS_TOKEN"}},
+		PetDefPIXAs:  []PetDefPIXA{{PetDef: "pet-a", PIXA: "assets/pets/a.pixa"}},
 	}
 	var commands []string
 	var applied []string
@@ -209,6 +222,9 @@ func TestBootstrapperMigratesReferencedWorkflowsBeforeDefaultRuntimeContract(t *
 			if !slices.Contains(environment, "input=${input}") {
 				t.Fatalf("migration environment does not preserve input placeholder: %v", environment)
 			}
+			if !slices.Contains(environment, "RAIDS_TOKEN=saved-token") {
+				t.Fatalf("migration environment does not contain saved value: %v", environment)
+			}
 			commands = append(commands, strings.Join(args, " "))
 			if args[1] == "apply" {
 				data, err := os.ReadFile(args[len(args)-1])
@@ -216,12 +232,10 @@ func TestBootstrapperMigratesReferencedWorkflowsBeforeDefaultRuntimeContract(t *
 					t.Fatal(err)
 				}
 				switch {
+				case strings.Contains(string(data), "name: a"):
+					applied = append(applied, "Credential/a")
 				case strings.Contains(string(data), "name: referenced"):
 					applied = append(applied, "Workflow/referenced")
-				case strings.Contains(string(data), "name: chatroom"):
-					applied = append(applied, "Workflow/chatroom")
-				case strings.Contains(string(data), "name: pet-care"):
-					applied = append(applied, "Workflow/pet-care")
 				case strings.Contains(string(data), "name: default"):
 					applied = append(applied, "RuntimeProfile/default")
 				default:
@@ -235,13 +249,13 @@ func TestBootstrapperMigratesReferencedWorkflowsBeforeDefaultRuntimeContract(t *
 			return []byte(`{"token":"migrated-secret"}`), nil
 		},
 	}
-	if err := bootstrapper.MigrateRuntimeContract(context.Background(), podDir); err != nil {
+	if err := bootstrapper.MigrateRuntimeContract(context.Background(), podDir, map[string]string{"RAIDS_TOKEN": "saved-token"}); err != nil {
 		t.Fatal(err)
 	}
-	if got := strings.Join(applied, ","); got != "Workflow/referenced,Workflow/chatroom,Workflow/pet-care,RuntimeProfile/default" {
+	if got := strings.Join(applied, ","); got != "Credential/a,Workflow/referenced,RuntimeProfile/default" {
 		t.Fatalf("migration applied = %s", got)
 	}
-	if len(commands) != 9 || !strings.Contains(commands[0], "admin apply") || !strings.Contains(commands[1], "admin apply") || !strings.Contains(commands[2], "admin apply") || !strings.Contains(commands[3], "volc-tenants sync-voices volc-main") || !strings.Contains(commands[4], "runtime-profiles delete default") || !strings.Contains(commands[5], "admin apply") || !strings.Contains(commands[6], "registration-tokens delete app:com.gizclaw.opensource") || !strings.Contains(commands[7], "registration-tokens create") || !strings.Contains(commands[8], "registration-tokens delete desktop-local") {
+	if len(commands) != 8 || !strings.Contains(commands[0], "admin apply") || !strings.Contains(commands[1], "admin apply") || !strings.Contains(commands[2], "admin pet-defs upload-pixa pet-a") || !strings.Contains(commands[3], "runtime-profiles delete default") || !strings.Contains(commands[4], "admin apply") || !strings.Contains(commands[5], "registration-tokens delete app:com.gizclaw.opensource") || !strings.Contains(commands[6], "registration-tokens create") || !strings.Contains(commands[7], "registration-tokens delete desktop-local") {
 		t.Fatalf("migration commands = %v", commands)
 	}
 	token, err := os.ReadFile(filepath.Join(podDir, "workspace", RegistrationTokenFile))
@@ -258,38 +272,18 @@ func TestRuntimeContractEntriesUseBundledProfileReferences(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	catalog, err := LoadCatalog(source)
-	if err != nil {
-		t.Fatal(err)
+	profile := ResourceEntry{
+		Path: "resources/07-runtime-profiles/00-default.yaml",
+		Kind: "RuntimeProfile",
+		Name: defaultRuntimeProfileName,
 	}
-	var profile ResourceEntry
-	for _, entry := range catalog.Resources {
-		if entry.Kind == "RuntimeProfile" && entry.Name == defaultRuntimeProfileName {
-			profile = entry
-			break
-		}
-	}
+	catalog := &Catalog{FS: source, Resources: []ResourceEntry{profile}}
 	entries, err := (&Bootstrapper{Catalog: catalog}).runtimeContractEntries(profile)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(entries) != 11 || entries[len(entries)-1] != profile {
+	if len(entries) != 1 || entries[len(entries)-1] != profile {
 		t.Fatalf("runtime contract entries = %#v", entries)
-	}
-	for _, entry := range entries[:len(entries)-1] {
-		if entry.Kind != "Workflow" {
-			t.Fatalf("runtime contract entry = %+v", entry)
-		}
-	}
-	if !slices.ContainsFunc(entries, func(entry ResourceEntry) bool {
-		return entry.Kind == "Workflow" && entry.Name == "chatroom"
-	}) {
-		t.Fatal("runtime contract entries omit Workflow/chatroom")
-	}
-	if !slices.ContainsFunc(entries, func(entry ResourceEntry) bool {
-		return entry.Kind == "Workflow" && entry.Name == "pet-care"
-	}) {
-		t.Fatal("runtime contract entries omit Workflow/pet-care")
 	}
 }
 

@@ -2,8 +2,7 @@ package localserver_test
 
 import (
 	"io/fs"
-	"maps"
-	"path/filepath"
+	"path"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -13,58 +12,52 @@ import (
 	"github.com/goccy/go-yaml"
 )
 
-func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
+func TestBundledCatalogContainsOnlyDefaultRuntimeProfile(t *testing.T) {
 	source, err := desktopresources.LocalServer()
 	if err != nil {
 		t.Fatal(err)
 	}
-	catalog, err := localserver.LoadCatalog(source)
+	var resources []string
+	err = fs.WalkDir(source, "resources", func(name string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if !entry.IsDir() && (path.Ext(name) == ".yaml" || path.Ext(name) == ".yml") {
+			resources = append(resources, name)
+		}
+		return nil
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(catalog.Resources) != 43 {
-		t.Fatalf("resources = %d, want 43", len(catalog.Resources))
+	if len(resources) != 1 || resources[0] != "resources/07-runtime-profiles/00-default.yaml" {
+		t.Fatalf("bundled declarative resources = %v, want RuntimeProfile/default only", resources)
 	}
-	if len(catalog.PetDefPIXAs) != 9 || len(catalog.VoiceSyncs) != 2 {
-		t.Fatalf("assets = pets:%d voice-sync:%d", len(catalog.PetDefPIXAs), len(catalog.VoiceSyncs))
-	}
-	if got := catalog.VoiceSyncs; got[0] != (localserver.VoiceSync{Provider: "minimax", Tenant: "minimax-cn"}) || got[1] != (localserver.VoiceSync{Provider: "volc", Tenant: "volc-main"}) {
-		t.Fatalf("voice syncs = %#v", got)
-	}
-	if len(catalog.Requirements) != 11 {
-		t.Fatalf("environment requirements = %d, want 11", len(catalog.Requirements))
-	}
-	kinds := map[string]int{}
-	identities := map[string]bool{}
-	for _, resource := range catalog.Resources {
-		kinds[resource.Kind]++
-		identities[resource.Kind+"/"+resource.Name] = true
-		if resource.Kind == "Workspace" {
-			t.Fatalf("bundled client-created resource: %+v", resource)
+	var assetCount int
+	err = fs.WalkDir(source, "assets/pet-defs", func(name string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
 		}
-	}
-	for _, identity := range []string{"RuntimeProfile/default", "RuntimeProfile/showcase"} {
-		if !identities[identity] {
-			t.Fatalf("missing local Play registration dependency %s", identity)
+		if !entry.IsDir() && path.Ext(name) == ".pixa" {
+			assetCount++
 		}
-	}
-	for kind, want := range map[string]int{
-		"Credential": 6, "VolcTenant": 2, "MiniMaxTenant": 1,
-		"DeepSeekTenant": 1, "DashScopeTenant": 1, "Model": 10,
-		"Workflow": 10, "Voice": 1, "PetDef": 9, "RuntimeProfile": 2,
-	} {
-		if kinds[kind] != want {
-			t.Fatalf("%s resources = %d, want %d", kind, kinds[kind], want)
-		}
-	}
-	for _, removed := range []string{"ACLRole", "ACLView", "ACLPolicyBinding", "GameRuleset", "Firmware"} {
-		if kinds[removed] != 0 {
-			t.Fatalf("legacy %s resources = %d, want 0", removed, kinds[removed])
-		}
-	}
-	profile, err := fs.ReadFile(catalog.FS, "resources/07-runtime-profiles/00-default.yaml")
+		return nil
+	})
 	if err != nil {
 		t.Fatal(err)
+	}
+	if assetCount != 9 {
+		t.Fatalf("bundled PetDef PIXA assets = %d, want 9", assetCount)
+	}
+	profile, err := fs.ReadFile(source, resources[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(profile)
+	for _, forbidden := range []string{"volc-main"} {
+		if strings.Contains(text, forbidden) {
+			t.Fatalf("RuntimeProfile/default retains %q", forbidden)
+		}
 	}
 	var parsed struct {
 		Spec struct {
@@ -74,17 +67,11 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 					GroupChatroom  string `yaml:"group_chatroom"`
 					Pet            string `yaml:"pet"`
 				} `yaml:"system"`
-				Collections map[string]map[string]struct {
-					ResourceID string `yaml:"resource_id"`
-				} `yaml:"collections"`
 			} `yaml:"workflows"`
 			Resources struct {
-				Models map[string]struct {
+				PetDefs map[string]struct {
 					ResourceID string `yaml:"resource_id"`
-				} `yaml:"models"`
-				Voices map[string]struct {
-					ResourceID string `yaml:"resource_id"`
-				} `yaml:"voices"`
+				} `yaml:"pet_defs"`
 			} `yaml:"resources"`
 			Gameplay struct {
 				Adoption struct {
@@ -103,168 +90,30 @@ func TestBundledCatalogIsCompleteAndNeutral(t *testing.T) {
 		parsed.Spec.Workflows.System.Pet != "pet-care" {
 		t.Fatalf("RuntimeProfile/default system Workflows = %#v", parsed.Spec.Workflows.System)
 	}
-	wantWorkflows := map[string]string{
-		"translate-zh-en-auto": "ast-translate-zh-en-auto",
-		"translate-zh-ja":      "ast-translate-zh-ja",
-		"translate-zh-ko":      "ast-translate-zh-ko",
-		"translate-zh-es":      "ast-translate-zh-es",
-		"doubao-realtime":      "doubao-realtime-conversation",
-		"general-assistant":    "flowcraft-chat-assistant",
-		"journey":              "flowcraft-journey-guide",
-		"murder-mystery":       "flowcraft-murder-mystery",
+	if len(parsed.Spec.Resources.PetDefs) != 9 {
+		t.Fatalf("RuntimeProfile/default PetDef bindings = %d, want 9", len(parsed.Spec.Resources.PetDefs))
 	}
-	gotWorkflows := map[string]string{}
-	for _, workflows := range parsed.Spec.Workflows.Collections {
-		for alias, binding := range workflows {
-			gotWorkflows[alias] = binding.ResourceID
+	if len(parsed.Spec.Gameplay.Adoption.Pool) != 9 {
+		t.Fatalf("RuntimeProfile/default adoption pool = %d, want 9", len(parsed.Spec.Gameplay.Adoption.Pool))
+	}
+	for alias, binding := range parsed.Spec.Resources.PetDefs {
+		if binding.ResourceID != "petdef-"+alias {
+			t.Fatalf("RuntimeProfile/default PetDef %s = %s", alias, binding.ResourceID)
 		}
 	}
-	if !maps.Equal(gotWorkflows, wantWorkflows) {
-		t.Fatalf("RuntimeProfile/default Workflows = %#v, want %#v", gotWorkflows, wantWorkflows)
-	}
-	wantModels := map[string]string{
-		"asr":         "volc-bigasr-sauc",
-		"realtime":    "doubao-realtime-dialog",
-		"translation": "volc-ast-translate",
-		"chat":        "doubao-seed-2-0-lite",
-		"extraction":  "deepseek-v4-flash",
-		"embedding":   "qwen3.7-text-embedding",
-		"pet-chat":    "doubao-seed-2-0-lite",
-		"pet-extract": "deepseek-v4-flash",
-		"pet-asr":     "volc-bigasr-sauc",
-	}
-	gotModels := make(map[string]string, len(parsed.Spec.Resources.Models))
-	for alias, binding := range parsed.Spec.Resources.Models {
-		gotModels[alias] = binding.ResourceID
-	}
-	if !maps.Equal(gotModels, wantModels) {
-		t.Fatalf("RuntimeProfile/default Models = %#v, want semantic role aliases %#v", gotModels, wantModels)
-	}
-	wantVoices := map[string]string{
-		"doubao-assistant": "volc-tenant:volc-main:zh_female_vv_jupiter_bigtts",
-		"assistant-voice":  "volc-tenant:volc-main:zh_female_qingxinnvsheng_mars_bigtts",
-		"cute-pet":         "volc-tenant:volc-main:zh_male_naiqimengwa_mars_bigtts",
-		"translator":       "volc-tenant:volc-main:zh_female_sophie_conversation_wvae_bigtts",
-		"narrator":         "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
-		"game-master":      "volc-tenant:volc-main:zh_male_changtianyi_mars_bigtts",
-		"detective":        "volc-tenant:volc-main:ICL_zh_male_lengjungaozhi_tob",
-		"police-officer":   "volc-tenant:volc-main:ICL_zh_male_zhengzhiqingnian_tob",
-		"sun-wukong":       "volc-tenant:volc-main:zh_male_sunwukong_mars_bigtts",
-		"tang-sanzang":     "volc-tenant:volc-main:zh_male_tangseng_mars_bigtts",
-		"zhu-bajie":        "volc-tenant:volc-main:zh_male_zhubajie_mars_bigtts",
-	}
-	gotVoices := make(map[string]string, len(parsed.Spec.Resources.Voices))
-	for alias, binding := range parsed.Spec.Resources.Voices {
-		gotVoices[alias] = binding.ResourceID
-	}
-	if !maps.Equal(gotVoices, wantVoices) {
-		t.Fatalf("RuntimeProfile/default Voices = %#v, want %#v", gotVoices, wantVoices)
-	}
-	resourceIDs := map[string]struct{}{}
-	for _, resourceID := range gotVoices {
-		resourceIDs[resourceID] = struct{}{}
-	}
-	if len(resourceIDs) != len(gotVoices) {
-		t.Fatalf("RuntimeProfile/default Voices reuse resource IDs: %#v", gotVoices)
-	}
-	if got := parsed.Spec.Gameplay.Adoption.Pool; len(got) != 9 {
-		t.Fatalf("RuntimeProfile/default adoption pool entries = %d, want 9", len(got))
-	} else {
-		for _, entry := range got {
-			if strings.TrimSpace(entry.PetDef) == "" {
-				t.Fatalf("RuntimeProfile/default adoption entry = %#v, want PetDef alias", entry)
-			}
+	for alias, resourceID := range map[string]string{
+		"journey-narrator":            "volc-tenant:volc-cn-beijing:zh_female_shaoergushi_mars_bigtts",
+		"journey-origin-narrator":     "volc-tenant:volc-cn-beijing:zh_female_shaoergushi_mars_bigtts",
+		"journey-heaven-narrator":     "volc-tenant:volc-cn-beijing:zh_male_sunwukong_mars_bigtts",
+		"journey-pilgrimage-narrator": "volc-tenant:volc-cn-beijing:zh_male_tangseng_mars_bigtts",
+		"journey-trials-narrator":     "volc-tenant:volc-cn-beijing:zh_male_changtianyi_mars_bigtts",
+		"journey-kingdoms-narrator":   "volc-tenant:volc-cn-beijing:zh_female_qingxinnvsheng_mars_bigtts",
+		"journey-arrival-narrator":    "volc-tenant:volc-cn-beijing:zh_female_shaoergushi_mars_bigtts",
+	} {
+		binding := alias + ":\n        resource_id: " + resourceID
+		if !strings.Contains(text, binding) {
+			t.Fatalf("RuntimeProfile/default mapping %s = %s is missing", alias, resourceID)
 		}
-	}
-	for _, resource := range catalog.Resources {
-		if resource.Kind != "PetDef" {
-			continue
-		}
-		data, err := fs.ReadFile(catalog.FS, resource.Path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		var petDef struct {
-			I18n map[string]any `yaml:"i18n"`
-			Spec struct {
-				Voice map[string]any `yaml:"voice"`
-			} `yaml:"spec"`
-		}
-		if err := yaml.Unmarshal(data, &petDef); err != nil {
-			t.Fatal(err)
-		}
-		if len(petDef.I18n) != 0 {
-			t.Fatalf("%s stores local i18n instead of RuntimeProfile binding metadata", resource.Name)
-		}
-		if _, exists := petDef.Spec.Voice["voice_id"]; exists {
-			t.Fatalf("%s stores voice_id in PetDef instead of the configured Pet Workflow", resource.Name)
-		}
-		prompt, _ := petDef.Spec.Voice["prompt"].(string)
-		if strings.TrimSpace(prompt) == "" {
-			t.Fatalf("%s voice prompt is empty", resource.Name)
-		}
-	}
-	for _, requirement := range catalog.Requirements {
-		if requirement.Name == "input" {
-			t.Fatal("Flowcraft runtime placeholder was exposed as Desktop environment")
-		}
-		if requirement.Name == "GIZCLAW_MINIMAX_CN_VOICE_BASE_URL" || requirement.Name == "GIZCLAW_MINIMAX_GLOBAL_VOICE_BASE_URL" {
-			t.Fatalf("fixed MiniMax endpoint was exposed as Desktop environment %s", requirement.Name)
-		}
-	}
-	if identities["Credential/minimax-global-credential"] {
-		t.Fatal("bundled unused MiniMax Global credential")
-	}
-	miniMaxTenant, err := fs.ReadFile(catalog.FS, "resources/01-tenants/02-minimax-cn.yaml")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(miniMaxTenant), "base_url: https://api.minimaxi.com") {
-		t.Fatal("MiniMax CN tenant does not use the fixed CN endpoint")
-	}
-}
-
-func TestBundledFlowcraftGeneratorsUseProductionTokenBudget(t *testing.T) {
-	source, err := desktopresources.LocalServer()
-	if err != nil {
-		t.Fatal(err)
-	}
-	paths, err := fs.Glob(source, "resources/04-workflows/*-flowcraft-*.yaml")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, path := range paths {
-		t.Run(strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)), func(t *testing.T) {
-			raw, err := fs.ReadFile(source, path)
-			if err != nil {
-				t.Fatal(err)
-			}
-			var resource struct {
-				Spec struct {
-					Flowcraft struct {
-						Agent struct {
-							Graph struct {
-								Nodes []struct {
-									ID     string `yaml:"id"`
-									Type   string `yaml:"type"`
-									Config struct {
-										MaxTokens int `yaml:"max_tokens"`
-									} `yaml:"config"`
-								} `yaml:"nodes"`
-							} `yaml:"graph"`
-						} `yaml:"agent"`
-					} `yaml:"flowcraft"`
-				} `yaml:"spec"`
-			}
-			if err := yaml.Unmarshal(raw, &resource); err != nil {
-				t.Fatal(err)
-			}
-			for _, node := range resource.Spec.Flowcraft.Agent.Graph.Nodes {
-				if node.Type == "llm" && node.Config.MaxTokens != 2048 {
-					t.Errorf("generator node %q max_tokens = %d, want 2048", node.ID, node.Config.MaxTokens)
-				}
-			}
-		})
 	}
 }
 
@@ -290,9 +139,28 @@ func TestCatalogEnvironmentUsesSavedThenProcessThenDefault(t *testing.T) {
 
 func TestCatalogRejectsWorkspaceResource(t *testing.T) {
 	_, err := localserver.LoadCatalog(fstest.MapFS{
-		"resources/05-workspaces/00-invalid.yaml": {Data: []byte("kind: Workspace\nmetadata:\n  name: invalid\n")},
+		"resources/05-workspaces/00-invalid.yaml": {Data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: Workspace\nmetadata:\n  name: invalid\n")},
 	})
 	if err == nil {
 		t.Fatal("LoadCatalog() error = nil")
+	}
+}
+
+func TestCatalogRejectsLegacyAssetsWithDefaultRuntimeProfile(t *testing.T) {
+	profile := []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: RuntimeProfile\nmetadata:\n  name: default\n")
+	for name, data := range map[string][]byte{
+		"assets/pets/a.pixa": []byte("asset"),
+		"petdef-pixa.txt":    []byte("pet-a assets/pets/a.pixa\n"),
+		"voice-sync.txt":     []byte("volc tenant-a\n"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := localserver.LoadCatalog(fstest.MapFS{
+				"resources/07-runtime-profiles/00-default.yaml": {Data: profile},
+				name: {Data: data},
+			})
+			if err == nil || !strings.Contains(err.Error(), "legacy") {
+				t.Fatalf("LoadCatalog() error = %v, want legacy asset rejection", err)
+			}
+		})
 	}
 }

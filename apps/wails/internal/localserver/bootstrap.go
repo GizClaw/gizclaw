@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"maps"
@@ -30,22 +31,29 @@ const (
 // Bootstrapper applies a validated catalog through the packaged companion CLI.
 type Bootstrapper struct {
 	Catalog    *Catalog
+	Resolver   CatalogResolver
 	Executable func() (string, error)
 	Run        func(context.Context, string, []string, []string) error
 	RunOutput  func(context.Context, string, []string, []string) ([]byte, error)
 }
 
-// MigrateRuntimeContract installs the fixed App runtime contract for a
-// completed legacy Pod. It reapplies the bundled Workflows referenced by
-// RuntimeProfile/default before replacing that Profile; unrelated resources
-// and Workflows remain untouched.
-func (b *Bootstrapper) MigrateRuntimeContract(ctx context.Context, podDir string) error {
-	if b == nil || b.Catalog == nil || b.Executable == nil {
+// MigrateRuntimeContract installs the resolved Raids dependency closure for a
+// completed legacy Pod before replacing RuntimeProfile/default.
+func (b *Bootstrapper) MigrateRuntimeContract(ctx context.Context, podDir string, savedEnvironment map[string]string) error {
+	if b == nil || b.Executable == nil {
 		return fmt.Errorf("local server bootstrap: bootstrapper is not configured")
 	}
+	catalog, err := b.catalog(ctx)
+	if err != nil {
+		return err
+	}
+	resolved, missing := catalog.ResolveEnvironment(savedEnvironment, os.LookupEnv)
+	if len(missing) != 0 {
+		return fmt.Errorf("local server bootstrap: missing environment: %s", strings.Join(missing, ", "))
+	}
 	var profile *ResourceEntry
-	for i := range b.Catalog.Resources {
-		entry := &b.Catalog.Resources[i]
+	for i := range catalog.Resources {
+		entry := &catalog.Resources[i]
 		if entry.Kind == "RuntimeProfile" && entry.Name == defaultRuntimeProfileName {
 			profile = entry
 			break
@@ -54,10 +62,7 @@ func (b *Bootstrapper) MigrateRuntimeContract(ctx context.Context, podDir string
 	if profile == nil {
 		return fmt.Errorf("local server bootstrap: RuntimeProfile/%s is missing from the catalog", defaultRuntimeProfileName)
 	}
-	contractEntries, err := b.runtimeContractEntries(*profile)
-	if err != nil {
-		return err
-	}
+	contractEntries := runtimeContractEntries(catalog, *profile)
 	executable, err := b.Executable()
 	if err != nil {
 		return err
@@ -67,6 +72,9 @@ func (b *Bootstrapper) MigrateRuntimeContract(ctx context.Context, podDir string
 		return err
 	}
 	defer os.RemoveAll(tempDir)
+	for name, value := range resolved {
+		environment = setCommandEnvironment(environment, name, value)
+	}
 	environment = setCommandEnvironment(environment, "input", "${input}")
 	run := b.Run
 	if run == nil {
@@ -74,20 +82,15 @@ func (b *Bootstrapper) MigrateRuntimeContract(ctx context.Context, podDir string
 	}
 	for _, entry := range contractEntries {
 		if entry.Kind == "RuntimeProfile" {
-			for _, item := range b.Catalog.VoiceSyncs {
-				args := []string{"admin", item.Provider + "-tenants", "sync-voices", item.Tenant, "--context", "local"}
-				if err := runBootstrapOperation(ctx, run, executable, args, environment); err != nil {
-					return fmt.Errorf("local server bootstrap: sync %s voices for %s during runtime migration: %w", item.Provider, item.Tenant, err)
-				}
+			if err := b.uploadPetDefPIXAs(ctx, catalog, tempDir, executable, environment, run); err != nil {
+				return err
 			}
-		}
-		if entry.Kind == "RuntimeProfile" {
 			err := runBootstrapOperation(ctx, run, executable, []string{"admin", "runtime-profiles", "delete", entry.Name, "--context", "local"}, environment)
 			if err != nil && !strings.Contains(err.Error(), "RESOURCE_NOT_FOUND:") {
 				return fmt.Errorf("local server bootstrap: replace %s/%s: %w", entry.Kind, entry.Name, err)
 			}
 		}
-		file, err := b.extract(tempDir, entry.Path)
+		file, err := b.extract(catalog, tempDir, entry.Path)
 		if err != nil {
 			return err
 		}
@@ -107,63 +110,22 @@ func (b *Bootstrapper) MigrateRuntimeContract(ctx context.Context, podDir string
 	return nil
 }
 
-func (b *Bootstrapper) runtimeContractEntries(profile ResourceEntry) ([]ResourceEntry, error) {
-	data, err := fs.ReadFile(b.Catalog.FS, profile.Path)
-	if err != nil {
-		return nil, fmt.Errorf("local server bootstrap: read %s: %w", profile.Path, err)
-	}
-	var document struct {
-		Spec struct {
-			Workflows struct {
-				System struct {
-					FriendChatroom string `yaml:"friend_chatroom"`
-					GroupChatroom  string `yaml:"group_chatroom"`
-					Pet            string `yaml:"pet"`
-				} `yaml:"system"`
-				Collections map[string]map[string]struct {
-					ResourceID string `yaml:"resource_id"`
-				} `yaml:"collections"`
-			} `yaml:"workflows"`
-		} `yaml:"spec"`
-	}
-	if err := yaml.Unmarshal(data, &document); err != nil {
-		return nil, fmt.Errorf("local server bootstrap: parse %s: %w", profile.Path, err)
-	}
-	referenced := make(map[string]bool)
-	for _, bindings := range document.Spec.Workflows.Collections {
-		for _, binding := range bindings {
-			name := strings.TrimSpace(binding.ResourceID)
-			if name != "" {
-				referenced[name] = true
-			}
-		}
-	}
-	for _, name := range []string{
-		document.Spec.Workflows.System.FriendChatroom,
-		document.Spec.Workflows.System.GroupChatroom,
-		document.Spec.Workflows.System.Pet,
-	} {
-		name = strings.TrimSpace(name)
-		if name != "" {
-			referenced[name] = true
-		}
-	}
-	entries := make([]ResourceEntry, 0, len(referenced)+1)
-	for _, entry := range b.Catalog.Resources {
-		if entry.Kind == "Workflow" && referenced[entry.Name] {
+func runtimeContractEntries(catalog *Catalog, profile ResourceEntry) []ResourceEntry {
+	entries := make([]ResourceEntry, 0, len(catalog.Resources))
+	for _, entry := range catalog.Resources {
+		if entry.Kind != "RuntimeProfile" {
 			entries = append(entries, entry)
-			delete(referenced, entry.Name)
 		}
 	}
-	if len(referenced) != 0 {
-		missing := make([]string, 0, len(referenced))
-		for name := range referenced {
-			missing = append(missing, name)
-		}
-		sort.Strings(missing)
-		return nil, fmt.Errorf("local server bootstrap: RuntimeProfile/%s references Workflows missing from the catalog: %s", profile.Name, strings.Join(missing, ", "))
+	return append(entries, profile)
+}
+
+func (b *Bootstrapper) runtimeContractEntries(profile ResourceEntry) ([]ResourceEntry, error) {
+	catalog, err := b.catalog(context.Background())
+	if err != nil {
+		return nil, err
 	}
-	return append(entries, profile), nil
+	return runtimeContractEntries(catalog, profile), nil
 }
 
 func prepareAdminWorkspace(podDir string) (string, []string, error) {
@@ -196,17 +158,20 @@ func prepareAdminWorkspace(podDir string) (string, []string, error) {
 	return tempDir, environment, nil
 }
 
-// Apply creates every declarative resource, synchronizes dynamic voice
-// resources, and uploads PetDef assets to one newly started local Server.
+// Apply creates the resolved Raids resources followed by the local RuntimeProfile.
 func (b *Bootstrapper) Apply(ctx context.Context, podDir string, savedEnvironment map[string]string) error {
-	if b == nil || b.Catalog == nil || b.Executable == nil {
+	if b == nil || b.Executable == nil {
 		return fmt.Errorf("local server bootstrap: bootstrapper is not configured")
+	}
+	catalog, err := b.catalog(ctx)
+	if err != nil {
+		return err
 	}
 	executable, err := b.Executable()
 	if err != nil {
 		return err
 	}
-	resolved, missing := b.Catalog.ResolveEnvironment(savedEnvironment, os.LookupEnv)
+	resolved, missing := catalog.ResolveEnvironment(savedEnvironment, os.LookupEnv)
 	if len(missing) != 0 {
 		return fmt.Errorf("local server bootstrap: missing environment: %s", strings.Join(missing, ", "))
 	}
@@ -240,7 +205,7 @@ func (b *Bootstrapper) Apply(ctx context.Context, podDir string, savedEnvironmen
 		run = runBootstrapCommand
 	}
 	apply := func(entry ResourceEntry) error {
-		file, err := b.extract(tempDir, entry.Path)
+		file, err := b.extract(catalog, tempDir, entry.Path)
 		if err != nil {
 			return err
 		}
@@ -254,7 +219,7 @@ func (b *Bootstrapper) Apply(ctx context.Context, podDir string, savedEnvironmen
 		if len(entries) == 0 {
 			return nil
 		}
-		file, err := b.extractResourceList(tempDir, listName, entries)
+		file, err := b.extractResourceList(catalog, tempDir, listName, entries)
 		if err != nil {
 			return err
 		}
@@ -272,9 +237,9 @@ func (b *Bootstrapper) Apply(ctx context.Context, podDir string, savedEnvironmen
 		}
 		return nil
 	}
-	resources := make([]ResourceEntry, 0, len(b.Catalog.Resources))
+	resources := make([]ResourceEntry, 0, len(catalog.Resources))
 	runtimeProfiles := make([]ResourceEntry, 0, 1)
-	for _, entry := range b.Catalog.Resources {
+	for _, entry := range catalog.Resources {
 		if entry.Kind == "RuntimeProfile" {
 			runtimeProfiles = append(runtimeProfiles, entry)
 			continue
@@ -284,17 +249,27 @@ func (b *Bootstrapper) Apply(ctx context.Context, podDir string, savedEnvironmen
 	if err := applyEntries("desktop-bootstrap-resources", resources); err != nil {
 		return err
 	}
-	for _, item := range b.Catalog.VoiceSyncs {
-		args := []string{"admin", item.Provider + "-tenants", "sync-voices", item.Tenant, "--context", "local"}
-		if err := runBootstrapOperation(ctx, run, executable, args, environment); err != nil {
-			return fmt.Errorf("local server bootstrap: sync %s voices for %s: %w", item.Provider, item.Tenant, err)
-		}
+	if err := b.uploadPetDefPIXAs(ctx, catalog, tempDir, executable, environment, run); err != nil {
+		return err
 	}
 	if err := applyEntries("desktop-bootstrap-runtime-profiles", runtimeProfiles); err != nil {
 		return err
 	}
-	for _, asset := range b.Catalog.PetDefPIXAs {
-		file, err := b.extract(tempDir, asset.PIXA)
+	if err := b.createRegistrationToken(ctx, tempDir, podDir, executable, environment); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (b *Bootstrapper) uploadPetDefPIXAs(
+	ctx context.Context,
+	catalog *Catalog,
+	tempDir, executable string,
+	environment []string,
+	run func(context.Context, string, []string, []string) error,
+) error {
+	for _, asset := range catalog.PetDefPIXAs {
+		file, err := b.extract(catalog, tempDir, asset.PIXA)
 		if err != nil {
 			return err
 		}
@@ -303,26 +278,33 @@ func (b *Bootstrapper) Apply(ctx context.Context, podDir string, savedEnvironmen
 			return fmt.Errorf("local server bootstrap: upload PetDef/%s PIXA: %w", asset.PetDef, err)
 		}
 	}
-	if err := b.createRegistrationToken(ctx, tempDir, podDir, executable, environment); err != nil {
-		return err
-	}
 	return nil
+}
+
+func (b *Bootstrapper) catalog(ctx context.Context) (*Catalog, error) {
+	if b.Catalog != nil {
+		return b.Catalog, nil
+	}
+	if b.Resolver == nil {
+		return nil, errors.New("local server bootstrap: catalog is not configured")
+	}
+	catalog, err := b.Resolver.Resolve(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("local server bootstrap: resolve catalog: %w", err)
+	}
+	return catalog, nil
 }
 
 // RecoverRegistrationToken replaces the local Desktop token when an existing
 // Pod predates token handoff or its private handoff file has been lost. The raw
 // token cannot be recovered from server storage, so replacement is required.
-func (b *Bootstrapper) RecoverRegistrationToken(ctx context.Context, podDir string, savedEnvironment map[string]string) error {
-	if b == nil || b.Catalog == nil || b.Executable == nil {
+func (b *Bootstrapper) RecoverRegistrationToken(ctx context.Context, podDir string, _ map[string]string) error {
+	if b == nil || b.Executable == nil {
 		return fmt.Errorf("local server bootstrap: bootstrapper is not configured")
 	}
 	executable, err := b.Executable()
 	if err != nil {
 		return err
-	}
-	resolved, missing := b.Catalog.ResolveEnvironment(savedEnvironment, os.LookupEnv)
-	if len(missing) != 0 {
-		return fmt.Errorf("local server bootstrap: missing environment: %s", strings.Join(missing, ", "))
 	}
 	tempDir, err := os.MkdirTemp(podDir, ".registration-token-")
 	if err != nil {
@@ -345,7 +327,10 @@ func (b *Bootstrapper) RecoverRegistrationToken(ctx context.Context, podDir stri
 		return fmt.Errorf("local server bootstrap: materialize Admin context: %w", err)
 	}
 
-	environment := mergedCommandEnvironment(resolved)
+	// A Pod that is already running has its Raids resource closure applied.
+	// Token replacement only uses its local Admin context, so it must remain
+	// possible when the Raids archive or its provider secrets are unavailable.
+	environment := mergedCommandEnvironment(nil)
 	environment = setCommandEnvironment(environment, "XDG_CONFIG_HOME", configHome)
 	environment = setCommandEnvironment(environment, "AppData", configHome)
 	run := b.Run
@@ -413,10 +398,10 @@ func (b *Bootstrapper) createRegistrationToken(ctx context.Context, tempDir, pod
 	return nil
 }
 
-func (b *Bootstrapper) extractResourceList(root, name string, entries []ResourceEntry) (string, error) {
+func (b *Bootstrapper) extractResourceList(catalog *Catalog, root, name string, entries []ResourceEntry) (string, error) {
 	items := make([]any, 0, len(entries))
 	for _, entry := range entries {
-		data, err := fs.ReadFile(b.Catalog.FS, entry.Path)
+		data, err := fs.ReadFile(catalog.FS, entry.Path)
 		if err != nil {
 			return "", fmt.Errorf("local server bootstrap: read bundled %s: %w", entry.Path, err)
 		}
@@ -501,8 +486,8 @@ func (c *Catalog) ResolveEnvironment(saved map[string]string, lookup func(string
 	return resolved, missing
 }
 
-func (b *Bootstrapper) extract(root, name string) (string, error) {
-	data, err := fs.ReadFile(b.Catalog.FS, name)
+func (b *Bootstrapper) extract(catalog *Catalog, root, name string) (string, error) {
+	data, err := fs.ReadFile(catalog.FS, name)
 	if err != nil {
 		return "", fmt.Errorf("local server bootstrap: read bundled %s: %w", name, err)
 	}

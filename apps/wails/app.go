@@ -68,21 +68,21 @@ func NewAppWithPathsAndAssets(paths appconfig.Paths, assets fs.FS) (*App, error)
 	if err != nil {
 		return nil, fmt.Errorf("desktop app: local server resources: %w", err)
 	}
-	catalog, err := localserver.LoadCatalog(catalogFS)
+	resolver, err := localserver.NewRaidsResolver(catalogFS, paths.RaidsCacheDir)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("desktop app: local RuntimeProfile: %w", err)
 	}
 	messages := appmessages.System()
 	app := &App{messages: messages, bridge: &bridge.PodBridge{
 		Paths:                paths,
 		Store:                store,
 		BootstrapEnvironment: appconfig.BootstrapEnvironmentStore{Path: paths.BootstrapEnvFile},
-		Catalog:              catalog,
+		CatalogResolver:      resolver,
 		Health:               health,
 		Local:                local,
 		WebUI:                webui.New(assets),
 	}}
-	app.bridge.Bootstrapper = &localserver.Bootstrapper{Catalog: catalog, Executable: local.ExecutablePath}
+	app.bridge.Bootstrapper = &localserver.Bootstrapper{Resolver: resolver, Executable: local.ExecutablePath}
 	if err := app.bridge.RecoverLocalServers(context.Background()); err != nil {
 		return nil, fmt.Errorf("desktop app: recover local servers: %w", err)
 	}
