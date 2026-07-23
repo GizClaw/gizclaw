@@ -179,6 +179,26 @@ func TestValidateDriverSpecRejectsDoubaoRealtimeTools(t *testing.T) {
 	}
 }
 
+func TestValidateDriverSpecRequiresDoubaoRealtimeConfigAndModel(t *testing.T) {
+	if err := validateDriverSpec(apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverDoubaoRealtime}); err == nil || !strings.Contains(err.Error(), "spec.doubao_realtime is required") {
+		t.Fatalf("validateDriverSpec(missing config) error = %v", err)
+	}
+	if err := validateDriverSpec(apitypes.WorkflowSpec{
+		Driver:         apitypes.WorkflowDriverDoubaoRealtime,
+		DoubaoRealtime: &apitypes.DoubaoRealtimeWorkflowSpec{},
+	}); err == nil || !strings.Contains(err.Error(), "spec.doubao_realtime.model is required") {
+		t.Fatalf("validateDriverSpec(missing model) error = %v", err)
+	}
+	if err := validateDriverSpec(apitypes.WorkflowSpec{
+		Driver: apitypes.WorkflowDriverDoubaoRealtime,
+		DoubaoRealtime: &apitypes.DoubaoRealtimeWorkflowSpec{
+			Model: "doubao-realtime",
+		},
+	}); err != nil {
+		t.Fatalf("validateDriverSpec(valid config) error = %v", err)
+	}
+}
+
 func TestServerRejectsEmptyFlowcraftSpec(t *testing.T) {
 	t.Parallel()
 
