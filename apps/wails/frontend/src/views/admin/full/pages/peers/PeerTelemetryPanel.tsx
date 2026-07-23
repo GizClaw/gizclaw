@@ -10,8 +10,14 @@ import {
   Route,
   Sigma,
 } from "lucide-react";
-import maplibregl from "maplibre-gl";
-import type { StyleSpecification } from "maplibre-gl";
+import {
+  LngLatBounds,
+  Map as MapLibreMap,
+  NavigationControl,
+  setWorkerUrl,
+  type StyleSpecification,
+} from "maplibre-gl";
+import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import { expectData, toMessage } from "@/dashboard";
@@ -148,6 +154,8 @@ const offlineRouteMapStyle: StyleSpecification = {
     },
   ],
 };
+
+setWorkerUrl(workerUrl);
 
 export function PeerTelemetryPanel({
   publicKey,
@@ -600,9 +608,9 @@ function TelemetryRouteMap({ points }: { points: RoutePoint[] }): JSX.Element {
       return;
     }
     setMapError("");
-    let map: maplibregl.Map;
+    let map: MapLibreMap;
     try {
-      map = new maplibregl.Map({
+      map = new MapLibreMap({
         container,
         style: offlineRouteMapStyle,
         center: [points[0].lng, points[0].lat],
@@ -613,10 +621,7 @@ function TelemetryRouteMap({ points }: { points: RoutePoint[] }): JSX.Element {
       setMapError("Map unavailable");
       return;
     }
-    map.addControl(
-      new maplibregl.NavigationControl({ showCompass: false }),
-      "top-right",
-    );
+    map.addControl(new NavigationControl({ showCompass: false }), "top-right");
     map.on("error", () => setMapError("Map rendering unavailable"));
     map.on("load", () => {
       const coordinates = points.map((point) => [point.lng, point.lat]);
@@ -663,7 +668,7 @@ function TelemetryRouteMap({ points }: { points: RoutePoint[] }): JSX.Element {
         },
       });
       if (points.length > 1) {
-        const bounds = new maplibregl.LngLatBounds(
+        const bounds = new LngLatBounds(
           [points[0].lng, points[0].lat],
           [points[0].lng, points[0].lat],
         );
