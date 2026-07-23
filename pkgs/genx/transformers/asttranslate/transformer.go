@@ -24,6 +24,11 @@ import (
 // paced at its frame duration and must not pay this delay per frame.
 const interruptibleAssistantChunkGrace = 160 * time.Millisecond
 
+// observedInputQueueCapacity keeps a stalled AST provider from accumulating
+// unbounded peer audio while still allowing a short scheduling window for BOS
+// to interrupt stale translated output.
+const observedInputQueueCapacity = 256
+
 // Config configures an AST Translate Transformer. Model is a RuntimeProfile
 // model alias; Params contain provider-supported AST parameters such as
 // lang_pair, mode, input, and the internal-speaker fields. ExternalVoice asks
@@ -151,6 +156,7 @@ type observedInputStream struct {
 	queue    []*genx.MessageChunk
 	closed   bool
 	closeErr error
+	stopCtx  func() bool
 }
 
 func newObservedInputStream(ctx context.Context, source genx.Stream, onBOS func(string)) *observedInputStream {
@@ -159,6 +165,9 @@ func newObservedInputStream(ctx context.Context, source genx.Stream, onBOS func(
 		onBOS:  onBOS,
 	}
 	stream.cond = sync.NewCond(&stream.mu)
+	stream.stopCtx = context.AfterFunc(ctx, func() {
+		_ = stream.CloseWithError(ctx.Err())
+	})
 	go stream.copy(ctx)
 	return stream
 }
@@ -166,18 +175,21 @@ func newObservedInputStream(ctx context.Context, source genx.Stream, onBOS func(
 func (s *observedInputStream) Next() (*genx.MessageChunk, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	for len(s.queue) == 0 {
+	for {
 		if s.closeErr != nil {
 			return nil, s.closeErr
+		}
+		if len(s.queue) != 0 {
+			chunk := s.queue[0]
+			s.queue = s.queue[1:]
+			s.cond.Signal()
+			return chunk, nil
 		}
 		if s.closed {
 			return nil, io.EOF
 		}
 		s.cond.Wait()
 	}
-	chunk := s.queue[0]
-	s.queue = s.queue[1:]
-	return chunk, nil
 }
 
 func (s *observedInputStream) Close() error {
@@ -197,6 +209,7 @@ func (s *observedInputStream) CloseWithError(err error) error {
 }
 
 func (s *observedInputStream) copy(ctx context.Context) {
+	defer s.stopCtx()
 	defer s.source.Close()
 	for {
 		if err := ctx.Err(); err != nil {
@@ -231,6 +244,9 @@ func (s *observedInputStream) copy(ctx context.Context) {
 func (s *observedInputStream) push(chunk *genx.MessageChunk) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	for len(s.queue) >= observedInputQueueCapacity && !s.closed && s.closeErr == nil {
+		s.cond.Wait()
+	}
 	if s.closed || s.closeErr != nil {
 		return io.ErrClosedPipe
 	}
@@ -257,6 +273,7 @@ func (s *observedInputStream) closeWithError(err error) {
 	if s.closeErr == nil {
 		s.closeErr = err
 		s.closed = true
+		s.queue = nil
 		s.cond.Broadcast()
 	}
 }

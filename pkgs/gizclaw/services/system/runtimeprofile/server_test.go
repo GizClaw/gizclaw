@@ -412,6 +412,25 @@ func TestValidatePetRuntimeAliases(t *testing.T) {
 	}
 }
 
+func TestPetGameplayRequiresRuntimeAliases(t *testing.T) {
+	t.Parallel()
+	pet := validPetGameplaySpecForTest()
+	models := map[string]apitypes.ModelResource{
+		"pet-chat":    {Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindLlm}},
+		"pet-extract": {Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindLlm}},
+	}
+	if err := requirePetRuntimeAliases("gameplay.pet", models); err == nil || !strings.Contains(err.Error(), "pet-asr") {
+		t.Fatalf("requirePetRuntimeAliases(missing pet ASR) error = %v", err)
+	}
+	models["pet-asr"] = apitypes.ModelResource{Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindAsr}}
+	if err := requirePetRuntimeAliases("gameplay.pet", models); err != nil {
+		t.Fatalf("requirePetRuntimeAliases(valid aliases) error = %v", err)
+	}
+	if err := validatePetRewardModels(pet, models); err != nil {
+		t.Fatalf("validatePetRewardModels() error = %v", err)
+	}
+}
+
 func TestRuntimeProfileRejectsAliasesSharedAcrossResourceKinds(t *testing.T) {
 	t.Parallel()
 	s := &Server{Store: kv.NewMemory(nil)}

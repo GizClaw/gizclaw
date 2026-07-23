@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -417,6 +418,40 @@ func TestInterruptibleTransformerObservesInputBeforeInnerReads(t *testing.T) {
 	}
 }
 
+func TestObservedInputBoundsQueueAndCancellationUnblocksProducer(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	source := &repeatingInputStream{}
+	observed := newObservedInputStream(ctx, source, nil)
+	deadline := time.Now().Add(time.Second)
+	for {
+		observed.mu.Lock()
+		queued := len(observed.queue)
+		observed.mu.Unlock()
+		if queued == observedInputQueueCapacity {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("observed input queue = %d, want %d", queued, observedInputQueueCapacity)
+		}
+		time.Sleep(time.Millisecond)
+	}
+	if got, want := source.nexts.Load(), int32(observedInputQueueCapacity+1); got != want {
+		t.Fatalf("source.Next() calls = %d, want one in-flight chunk beyond capacity %d", got, want)
+	}
+	cancel()
+	deadline = time.Now().Add(time.Second)
+	for !source.closed.Load() {
+		if time.Now().After(deadline) {
+			t.Fatal("source was not closed after cancellation")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	if _, err := observed.Next(); !errors.Is(err, context.Canceled) {
+		t.Fatalf("observed.Next() after cancellation = %v, want context canceled", err)
+	}
+}
+
 func TestInterruptibleOutputCloseBranches(t *testing.T) {
 	output := newInterruptibleOutput()
 	output.interrupt("unused")
@@ -615,6 +650,26 @@ type emptyStream struct{}
 func (emptyStream) Next() (*genx.MessageChunk, error) { return nil, io.EOF }
 func (emptyStream) Close() error                      { return nil }
 func (emptyStream) CloseWithError(error) error        { return nil }
+
+type repeatingInputStream struct {
+	nexts  atomic.Int32
+	closed atomic.Bool
+}
+
+func (s *repeatingInputStream) Next() (*genx.MessageChunk, error) {
+	s.nexts.Add(1)
+	return &genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}}}, nil
+}
+
+func (s *repeatingInputStream) Close() error {
+	s.closed.Store(true)
+	return nil
+}
+
+func (s *repeatingInputStream) CloseWithError(err error) error {
+	s.closed.Store(true)
+	return nil
+}
 
 func streamFromChunks(chunks ...*genx.MessageChunk) genx.Stream {
 	builder := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), len(chunks)+1)
