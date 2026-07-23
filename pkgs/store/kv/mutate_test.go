@@ -3,11 +3,75 @@ package kv_test
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
+
+func TestCreateIfAbsentCreatesOneAtomicRecord(t *testing.T) {
+	for _, fixture := range []struct {
+		name string
+		new  func(*testing.T) kv.Store
+	}{
+		{name: "memory", new: func(*testing.T) kv.Store { return kv.NewMemory(nil) }},
+		{name: "badger", new: func(t *testing.T) kv.Store { return newTestStore(t, nil) }},
+	} {
+		t.Run(fixture.name, func(t *testing.T) {
+			store := fixture.new(t)
+			ctx := context.Background()
+			guard := kv.Entry{Key: kv.Key{"pending", "resource"}, Value: []byte("winner")}
+			entries := []kv.Entry{{Key: kv.Key{"records", "winner"}, Value: []byte("record")}}
+
+			const callers = 16
+			start := make(chan struct{})
+			results := make(chan struct {
+				existing string
+				created  bool
+				err      error
+			}, callers)
+			var group sync.WaitGroup
+			for range callers {
+				group.Go(func() {
+					<-start
+					existing, created, err := store.CreateIfAbsent(ctx, guard, entries)
+					results <- struct {
+						existing string
+						created  bool
+						err      error
+					}{existing: string(existing), created: created, err: err}
+				})
+			}
+			close(start)
+			group.Wait()
+			close(results)
+
+			created := 0
+			for result := range results {
+				if result.err != nil {
+					t.Fatalf("CreateIfAbsent() error = %v", result.err)
+				}
+				if result.created {
+					created++
+					continue
+				}
+				if result.existing != "winner" {
+					t.Fatalf("CreateIfAbsent() existing = %q, want winner", result.existing)
+				}
+			}
+			if created != 1 {
+				t.Fatalf("CreateIfAbsent() creators = %d, want 1", created)
+			}
+			if value, err := store.Get(ctx, guard.Key); err != nil || string(value) != "winner" {
+				t.Fatalf("Get(guard) = %q, %v", value, err)
+			}
+			if value, err := store.Get(ctx, entries[0].Key); err != nil || string(value) != "record" {
+				t.Fatalf("Get(record) = %q, %v", value, err)
+			}
+		})
+	}
+}
 
 func TestBatchMutateSetAndDeleteAtomically(t *testing.T) {
 	for _, fixture := range []struct {

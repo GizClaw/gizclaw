@@ -70,6 +70,12 @@ type Store interface {
 	// If a key appears in both collections, the delete is applied last.
 	BatchMutate(ctx context.Context, entries []Entry, keys []Key) error
 
+	// CreateIfAbsent atomically stores guard and entries only when guard.Key is
+	// absent. When guard.Key already exists, it returns its stored value and
+	// leaves every key unchanged. The boolean reports whether this call created
+	// the guard and entries.
+	CreateIfAbsent(ctx context.Context, guard Entry, entries []Entry) (existing []byte, created bool, err error)
+
 	// Close releases any resources held by the store.
 	Close() error
 }

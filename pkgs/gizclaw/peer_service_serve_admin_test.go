@@ -93,10 +93,16 @@ func TestAdminServiceDeletePeerPetUsesGameplayLifecycle(t *testing.T) {
 	}
 	resp, err = service.DeletePeerPet(ctx, adminhttp.DeletePeerPetRequestObject{PublicKey: "peer-a", Id: "pet-a"})
 	if err != nil {
-		t.Fatalf("DeletePeerPet(missing) error = %v", err)
+		t.Fatalf("DeletePeerPet(retry) error = %v", err)
 	}
-	if _, ok := resp.(adminhttp.DeletePeerPet404JSONResponse); !ok {
-		t.Fatalf("DeletePeerPet(missing) response = %#v", resp)
+	if _, ok := resp.(adminhttp.DeletePeerPet200JSONResponse); !ok {
+		t.Fatalf("DeletePeerPet(retry) response = %#v", resp)
+	}
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM gameplay_pending_deletions WHERE kind = 'pet' AND owner_public_key = ? AND resource_id = ?`, "peer-a", "pet-a").Scan(&pendingCount); err != nil {
+		t.Fatalf("query repeated Pet pending deletion: %v", err)
+	}
+	if pendingCount != 1 {
+		t.Fatalf("repeated Pet pending deletion count = %d, want 1", pendingCount)
 	}
 }
 

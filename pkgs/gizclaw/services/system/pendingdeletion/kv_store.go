@@ -38,7 +38,8 @@ func (s KVSource) HasLocator(ctx context.Context, locator Locator) (bool, error)
 
 var _ Source = KVSource{}
 
-// KVEntries returns the durable record and its multi-value locator index.
+// KVEntries returns the durable record entry. CreateOrGet adds the unique
+// locator entry atomically with this record.
 func KVEntries(record Record) ([]kv.Entry, error) {
 	if err := record.Validate(); err != nil {
 		return nil, err
@@ -47,10 +48,38 @@ func KVEntries(record Record) ([]kv.Entry, error) {
 	if err != nil {
 		return nil, fmt.Errorf("pending deletion: encode record: %w", err)
 	}
-	return []kv.Entry{
-		{Key: byIDKey(record.DeletionID), Value: data},
-		{Key: byLocatorKey(record.Kind, record.ResourceID, record.DeletionID), Value: []byte{}},
-	}, nil
+	return []kv.Entry{{Key: byIDKey(record.DeletionID), Value: data}}, nil
+}
+
+// CreateOrGet persists one record for a locator, or returns the record that
+// won an earlier concurrent create. It is the only KV producer write path for
+// PendingDeletion records.
+func CreateOrGet(ctx context.Context, store kv.Store, record Record) (Record, bool, error) {
+	if store == nil {
+		return Record{}, false, errors.New("pending deletion: KV store not configured")
+	}
+	entries, err := KVEntries(record)
+	if err != nil {
+		return Record{}, false, err
+	}
+	existingID, created, err := store.CreateIfAbsent(ctx, kv.Entry{
+		Key:   byLocatorKey(record.Kind, record.ResourceID),
+		Value: []byte(record.DeletionID),
+	}, entries)
+	if err != nil {
+		return Record{}, false, err
+	}
+	if created {
+		return record, true, nil
+	}
+	if len(existingID) == 0 {
+		return Record{}, false, errors.New("pending deletion: empty KV locator record")
+	}
+	existing, err := Get(ctx, store, string(existingID))
+	if err != nil {
+		return Record{}, false, fmt.Errorf("pending deletion: get existing locator record: %w", err)
+	}
+	return existing, false, nil
 }
 
 // Get loads and validates one KV-backed deletion event by ID.
@@ -77,7 +106,14 @@ func HasLocator(ctx context.Context, store kv.Store, kind Kind, resourceID strin
 	if store == nil {
 		return false, errors.New("pending deletion: KV store not configured")
 	}
-	for _, err := range store.List(ctx, byLocatorPrefix(kind, resourceID)) {
+	if _, err := store.Get(ctx, byLocatorKey(kind, resourceID)); err == nil {
+		return true, nil
+	} else if !errors.Is(err, kv.ErrNotFound) {
+		return false, err
+	}
+	// Legacy #469 entries used a deletion-ID suffix. Keep source lookup
+	// compatible until the cleanup processor consumes those records.
+	for _, err := range store.List(ctx, legacyByLocatorPrefix(kind, resourceID)) {
 		if err != nil {
 			return false, err
 		}
@@ -90,11 +126,11 @@ func byIDKey(deletionID string) kv.Key {
 	return append(append(kv.Key{}, root...), "by-id", deletionID)
 }
 
-func byLocatorKey(kind Kind, resourceID, deletionID string) kv.Key {
-	return append(byLocatorPrefix(kind, resourceID), deletionID)
-}
-
-func byLocatorPrefix(kind Kind, resourceID string) kv.Key {
+func byLocatorKey(kind Kind, resourceID string) kv.Key {
 	encoded := base64.RawURLEncoding.EncodeToString([]byte(resourceID))
 	return append(append(kv.Key{}, root...), "by-locator", string(kind), encoded)
+}
+
+func legacyByLocatorPrefix(kind Kind, resourceID string) kv.Key {
+	return byLocatorKey(kind, resourceID)
 }

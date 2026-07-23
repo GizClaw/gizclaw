@@ -4,9 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"iter"
-	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -20,37 +17,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
-type blockingPendingLookupStore struct {
-	kv.Store
-	listOnce  sync.Once
-	entered   chan struct{}
-	release   chan struct{}
-	getCount  atomic.Int32
-	secondGet chan struct{}
-}
-
-func (s *blockingPendingLookupStore) Get(ctx context.Context, key kv.Key) ([]byte, error) {
-	if s.getCount.Add(1) == 2 {
-		close(s.secondGet)
-	}
-	return s.Store.Get(ctx, key)
-}
-
-func (s *blockingPendingLookupStore) List(ctx context.Context, prefix kv.Key) iter.Seq2[kv.Entry, error] {
-	next := s.Store.List(ctx, prefix)
-	return func(yield func(kv.Entry, error) bool) {
-		s.listOnce.Do(func() {
-			close(s.entered)
-			<-s.release
-		})
-		for entry, err := range next {
-			if !yield(entry, err) {
-				return
-			}
-		}
-	}
-}
-
 func saveTestPeer(t *testing.T, server *Server, publicKey giznet.PublicKey, device apitypes.DeviceInfo) {
 	t.Helper()
 	if _, err := server.SavePeer(context.Background(), apitypes.Peer{
@@ -63,7 +29,7 @@ func saveTestPeer(t *testing.T, server *Server, publicKey giznet.PublicKey, devi
 	}
 }
 
-func TestDeleteSelfReconnectCreatesDistinctDeletionEvents(t *testing.T) {
+func TestDeleteSelfRetainsPeerAndReusesDeletionEvent(t *testing.T) {
 	ctx := context.Background()
 	server := &Server{Store: mustBadgerInMemory(t, nil)}
 	publicKey := giznet.PublicKey{9}
@@ -71,22 +37,19 @@ func TestDeleteSelfReconnectCreatesDistinctDeletionEvents(t *testing.T) {
 	if err := server.DeleteSelf(ctx, publicKey); err != nil {
 		t.Fatalf("DeleteSelf(first): %v", err)
 	}
-	if _, err := server.EnsureConnectedPeer(ctx, publicKey); err != nil {
-		t.Fatalf("EnsureConnectedPeer: %v", err)
-	}
 	if _, err := server.BindFirmware(ctx, publicKey, "firmware-reconnected"); err != nil {
-		t.Fatalf("BindFirmware(reconnected pending): %v", err)
+		t.Fatalf("BindFirmware(marked): %v", err)
 	}
 	if _, err := server.SavePeer(ctx, apitypes.Peer{
 		PublicKey: publicKey.String(),
 		Role:      apitypes.PeerRoleClient,
 		Status:    apitypes.PeerRegistrationStatusActive,
 		Device:    apitypes.DeviceInfo{},
-	}); !errors.Is(err, ErrPeerPendingDeletion) {
-		t.Fatalf("SavePeer(reconnected pending): %v, want ErrPeerPendingDeletion", err)
+	}); err != nil {
+		t.Fatalf("SavePeer(marked): %v", err)
 	}
-	if err := server.BootstrapEdgeNodes(ctx, []giznet.PublicKey{publicKey}); !errors.Is(err, ErrPeerPendingDeletion) {
-		t.Fatalf("BootstrapEdgeNodes(reconnected pending): %v, want ErrPeerPendingDeletion", err)
+	if err := server.BootstrapEdgeNodes(ctx, []giznet.PublicKey{publicKey}); err != nil {
+		t.Fatalf("BootstrapEdgeNodes(marked): %v", err)
 	}
 	if err := server.DeleteSelf(ctx, publicKey); err != nil {
 		t.Fatalf("DeleteSelf(second): %v", err)
@@ -98,46 +61,23 @@ func TestDeleteSelfReconnectCreatesDistinctDeletionEvents(t *testing.T) {
 		}
 		count++
 	}
-	if count != 2 {
-		t.Fatalf("pending deletion events = %d, want 2", count)
+	if count != 1 {
+		t.Fatalf("pending deletion events = %d, want 1", count)
 	}
 }
 
-func TestDeleteSelfRetrySerializesPendingLookupWithReconnect(t *testing.T) {
+func TestDeleteSelfRetryPreservesPeerForReconnect(t *testing.T) {
 	ctx := context.Background()
-	base := mustBadgerInMemory(t, nil)
-	server := &Server{Store: base}
+	server := &Server{Store: mustBadgerInMemory(t, nil)}
 	publicKey := giznet.PublicKey{10}
 	saveTestPeer(t, server, publicKey, apitypes.DeviceInfo{})
 	if err := server.DeleteSelf(ctx, publicKey); err != nil {
 		t.Fatalf("DeleteSelf(first): %v", err)
 	}
-	blocking := &blockingPendingLookupStore{
-		Store:     base,
-		entered:   make(chan struct{}),
-		release:   make(chan struct{}),
-		secondGet: make(chan struct{}),
-	}
-	server.Store = blocking
-
-	retryErr := make(chan error, 1)
-	go func() { retryErr <- server.DeleteSelf(ctx, publicKey) }()
-	<-blocking.entered
-	reconnectErr := make(chan error, 1)
-	go func() {
-		_, err := server.EnsureConnectedPeer(ctx, publicKey)
-		reconnectErr <- err
-	}()
-	select {
-	case <-blocking.secondGet:
-		t.Fatal("reconnect entered the store while DeleteSelf held the record lock")
-	case <-time.After(50 * time.Millisecond):
-	}
-	close(blocking.release)
-	if err := <-retryErr; err != nil {
+	if err := server.DeleteSelf(ctx, publicKey); err != nil {
 		t.Fatalf("DeleteSelf(retry): %v", err)
 	}
-	if err := <-reconnectErr; err != nil {
+	if _, err := server.EnsureConnectedPeer(ctx, publicKey); err != nil {
 		t.Fatalf("EnsureConnectedPeer: %v", err)
 	}
 	if _, err := server.LoadPeer(ctx, publicKey); err != nil {
@@ -313,20 +253,28 @@ func TestServerAdminPeerHandlers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetPeer after DeletePeer error: %v", err)
 	}
-	if _, ok := getDeletedResp.(adminhttp.GetPeer404JSONResponse); !ok {
+	if _, ok := getDeletedResp.(adminhttp.GetPeer200JSONResponse); !ok {
 		t.Fatalf("GetPeer after DeletePeer response type = %T", getDeletedResp)
+	}
+	listDeletedResp, err := server.ListPeers(ctx, adminhttp.ListPeersRequestObject{})
+	if err != nil {
+		t.Fatalf("ListPeers after DeletePeer error: %v", err)
+	}
+	listedDeleted, ok := listDeletedResp.(adminhttp.ListPeers200JSONResponse)
+	if !ok || len(listedDeleted.Items) != 1 || listedDeleted.Items[0].PublicKey != peerPublicKey {
+		t.Fatalf("ListPeers after DeletePeer response = %#v", listDeletedResp)
 	}
 	if pending, err := pendingdeletion.HasLocator(ctx, server.Store, pendingdeletion.KindPeer, peerPublicKey); err != nil || !pending {
 		t.Fatalf("peer pending deletion = %v, error = %v", pending, err)
 	}
 	if response, err := server.FindPubKeyBySN(ctx, adminhttp.FindPubKeyBySNRequestObject{Sn: sn}); err != nil {
 		t.Fatalf("FindPubKeyBySN after delete error: %v", err)
-	} else if _, ok := response.(adminhttp.FindPubKeyBySN404JSONResponse); !ok {
+	} else if _, ok := response.(adminhttp.FindPubKeyBySN200JSONResponse); !ok {
 		t.Fatalf("FindPubKeyBySN after delete response = %T", response)
 	}
 	if response, err := server.FindPubKeyByIMEI(ctx, adminhttp.FindPubKeyByIMEIRequestObject{Tac: tac, Serial: serial}); err != nil {
 		t.Fatalf("FindPubKeyByIMEI after delete error: %v", err)
-	} else if _, ok := response.(adminhttp.FindPubKeyByIMEI404JSONResponse); !ok {
+	} else if _, ok := response.(adminhttp.FindPubKeyByIMEI200JSONResponse); !ok {
 		t.Fatalf("FindPubKeyByIMEI after delete response = %T", response)
 	}
 	var pendingRecord pendingdeletion.Record
@@ -349,8 +297,8 @@ func TestServerAdminPeerHandlers(t *testing.T) {
 	if err := server.DeleteSelf(ctx, peerKey); err != nil {
 		t.Fatalf("DeleteSelf() retry error = %v", err)
 	}
-	if err := server.BootstrapEdgeNodes(ctx, []giznet.PublicKey{peerKey}); !errors.Is(err, ErrPeerPendingDeletion) {
-		t.Fatalf("BootstrapEdgeNodes() while pending error = %v, want ErrPeerPendingDeletion", err)
+	if err := server.BootstrapEdgeNodes(ctx, []giznet.PublicKey{peerKey}); err != nil {
+		t.Fatalf("BootstrapEdgeNodes() while marked error = %v", err)
 	}
 }
 

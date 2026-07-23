@@ -68,11 +68,16 @@ func (s PendingDeletionSource) HasLocator(ctx context.Context, locator pendingde
 	if owner == "" {
 		return false, errors.New("gameplay: pending deletion locator owner is empty")
 	}
-	query := `SELECT 1 FROM gameplay_pending_deletions WHERE kind = ? AND resource_id = ? AND owner_public_key = ? LIMIT 1`
+	query := `SELECT 1 FROM gameplay_pending_deletion_locators WHERE kind = ? AND resource_id = ? AND owner_public_key = ? LIMIT 1`
 	var exists int
 	err := s.DB.QueryRowContext(ctx, s.DB.Rebind(query), locator.Kind, locator.ResourceID, owner).Scan(&exists)
 	if errors.Is(err, sql.ErrNoRows) {
-		return false, nil
+		// Legacy #469 records predate the fixed locator table.
+		query = `SELECT 1 FROM gameplay_pending_deletions WHERE kind = ? AND resource_id = ? AND owner_public_key = ? LIMIT 1`
+		err = s.DB.QueryRowContext(ctx, s.DB.Rebind(query), locator.Kind, locator.ResourceID, owner).Scan(&exists)
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
 	}
 	if err != nil {
 		return false, fmt.Errorf("gameplay: lookup pending deletion: %w", err)

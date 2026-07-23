@@ -9,7 +9,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
-func TestKVEntriesPreserveMultipleDeletionEvents(t *testing.T) {
+func TestCreateOrGetReusesOneDeletionEvent(t *testing.T) {
 	ctx := context.Background()
 	store := kv.NewMemory(nil)
 	owner := "peer-a"
@@ -21,36 +21,13 @@ func TestKVEntriesPreserveMultipleDeletionEvents(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New(second): %v", err)
 	}
-	for _, record := range []Record{first, second} {
-		entries, err := KVEntries(record)
-		if err != nil {
-			t.Fatalf("KVEntries(%s): %v", record.DeletionID, err)
-		}
-		if err := store.BatchSet(ctx, entries); err != nil {
-			t.Fatalf("BatchSet(%s): %v", record.DeletionID, err)
-		}
+	got, created, err := CreateOrGet(ctx, store, first)
+	if err != nil || !created || got.DeletionID != first.DeletionID {
+		t.Fatalf("CreateOrGet(first) = %#v, %v, %v", got, created, err)
 	}
-	if first.DeletionID == second.DeletionID {
-		t.Fatal("deletion IDs collided")
-	}
-	for _, want := range []Record{first, second} {
-		got, err := Get(ctx, store, want.DeletionID)
-		if err != nil {
-			t.Fatalf("Get(%s): %v", want.DeletionID, err)
-		}
-		if got.ResourceID != owner || got.Kind != KindPeer || got.DescriptorVersion != DescriptorVersion {
-			t.Fatalf("Get(%s) = %#v", want.DeletionID, got)
-		}
-	}
-	count := 0
-	for _, err := range store.List(ctx, byLocatorPrefix(KindPeer, owner)) {
-		if err != nil {
-			t.Fatalf("List locator: %v", err)
-		}
-		count++
-	}
-	if count != 2 {
-		t.Fatalf("locator entries = %d, want 2", count)
+	got, created, err = CreateOrGet(ctx, store, second)
+	if err != nil || created || got.DeletionID != first.DeletionID {
+		t.Fatalf("CreateOrGet(second) = %#v, %v, %v", got, created, err)
 	}
 }
 
@@ -62,12 +39,8 @@ func TestKVSourceLookup(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	entries, err := KVEntries(record)
-	if err != nil {
-		t.Fatalf("KVEntries: %v", err)
-	}
-	if err := store.BatchSet(ctx, entries); err != nil {
-		t.Fatalf("BatchSet: %v", err)
+	if _, _, err := CreateOrGet(ctx, store, record); err != nil {
+		t.Fatalf("CreateOrGet: %v", err)
 	}
 	got, err := source.Get(ctx, record.DeletionID)
 	if err != nil || got.DeletionID != record.DeletionID {

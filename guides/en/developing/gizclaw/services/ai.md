@@ -67,7 +67,7 @@ The built-in `pet` driver remains in GizClaw: for every completed turn it resolv
 
 Has workspace resources, workspace runtime storage and history. The Workspace is the persistence boundary for instantiating the Agent environment; the running Agent, input and output, and connection streams are the responsibility of the Runtime domain.
 
-Workspace also owns the immutable `system` lifecycle classification. Generic creation stores `system: false`; domain-owned creation stores `system: true`. Generic deletion always rejects system Workspaces. Deleting a user Workspace atomically removes its active record and owner index and writes one `kind=workspace` PendingDeletion; runtime, history, icons, objects, and files remain for asynchronous cleanup. The name cannot be created or put again while that pending record exists. The internal system lifecycle surface remains restricted to the owning Social or Gameplay service and is not changed into a pending-deletion producer.
+Workspace also owns the immutable `system` lifecycle classification. Generic creation stores `system: false`; domain-owned creation stores `system: true`. Generic deletion always rejects system Workspaces. Deleting a user Workspace atomically creates or reuses one `kind=workspace` PendingDeletion while retaining its active record and owner index; runtime, history, icons, objects, and files also remain for later cleanup. The marker does not affect Workspace reads, lists, authorization, create, or put. The internal system lifecycle surface remains restricted to the owning Social or Gameplay service and is not changed into a pending-deletion producer.
 
 ## Dependencies and boundaries
 

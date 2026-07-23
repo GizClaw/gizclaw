@@ -34,7 +34,7 @@ func (s *Server) BindFirmware(ctx context.Context, publicKey giznet.PublicKey, f
 		return apitypes.Peer{}, err
 	}
 	peer.FirmwareId = &firmwareID
-	return s.putRecordAllowPending(ctx, peer)
+	return s.putRecord(ctx, peer)
 }
 
 // EnsureConnectedPeer creates a default active peer record for a connected peer
@@ -199,39 +199,19 @@ func (s *Server) deleteLocked(ctx context.Context, publicKey giznet.PublicKey, r
 	if err != nil {
 		return apitypes.Peer{}, err
 	}
-	entries, err := pendingdeletion.KVEntries(record)
-	if err != nil {
-		return apitypes.Peer{}, err
-	}
-	deletes := append([]kv.Key{peerKey(peer.PublicKey)}, indexKeys(peer)...)
-	if err := store.BatchMutate(ctx, entries, deletes); err != nil {
+	if _, _, err := pendingdeletion.CreateOrGet(ctx, store, record); err != nil {
 		return apitypes.Peer{}, fmt.Errorf("peer: delete %s: %w", peer.PublicKey, err)
 	}
 	return peer, nil
 }
 
-// DeleteSelf retires the authenticated Peer. A retry after a lost response is
-// successful when a durable pending record already exists for the public key.
+// DeleteSelf records a deletion request for the authenticated Peer. A retry
+// after a lost response reuses the durable pending record for the public key.
 func (s *Server) DeleteSelf(ctx context.Context, publicKey giznet.PublicKey) error {
 	unlock := s.IconLocks.LockRecord(publicKey.String())
 	defer unlock()
-	if _, err := s.deleteLocked(ctx, publicKey, pendingdeletion.ReasonPeerDelete); err == nil {
-		return nil
-	} else if !errors.Is(err, ErrPeerNotFound) {
-		return err
-	}
-	store, err := s.store()
-	if err != nil {
-		return err
-	}
-	exists, err := pendingdeletion.HasLocator(ctx, store, pendingdeletion.KindPeer, publicKey.String())
-	if err != nil {
-		return err
-	}
-	if !exists {
-		return ErrPeerNotFound
-	}
-	return nil
+	_, err := s.deleteLocked(ctx, publicKey, pendingdeletion.ReasonPeerDelete)
+	return err
 }
 
 func (s *Server) get(ctx context.Context, publicKey giznet.PublicKey) (apitypes.Peer, error) {
@@ -327,14 +307,6 @@ func (s *Server) put(ctx context.Context, peer apitypes.Peer) (apitypes.Peer, er
 }
 
 func (s *Server) putRecord(ctx context.Context, peer apitypes.Peer) (apitypes.Peer, error) {
-	return s.putRecordWithPending(ctx, peer, false)
-}
-
-func (s *Server) putRecordAllowPending(ctx context.Context, peer apitypes.Peer) (apitypes.Peer, error) {
-	return s.putRecordWithPending(ctx, peer, true)
-}
-
-func (s *Server) putRecordWithPending(ctx context.Context, peer apitypes.Peer, allowPending bool) (apitypes.Peer, error) {
 	if err := validatePeer(peer); err != nil {
 		return apitypes.Peer{}, err
 	}
@@ -349,17 +321,6 @@ func (s *Server) putRecordWithPending(ctx context.Context, peer apitypes.Peer, a
 	old, err := s.get(ctx, publicKey)
 	if err != nil && !errors.Is(err, ErrPeerNotFound) {
 		return apitypes.Peer{}, err
-	}
-	store, storeErr := s.store()
-	if storeErr != nil {
-		return apitypes.Peer{}, storeErr
-	}
-	pending, pendingErr := pendingdeletion.HasLocator(ctx, store, pendingdeletion.KindPeer, publicKey.String())
-	if pendingErr != nil {
-		return apitypes.Peer{}, pendingErr
-	}
-	if pending && !allowPending {
-		return apitypes.Peer{}, ErrPeerPendingDeletion
 	}
 	if peer.CreatedAt.IsZero() {
 		if errors.Is(err, ErrPeerNotFound) {

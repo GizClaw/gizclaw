@@ -194,12 +194,10 @@ func TestPostgresGameplayConcurrentMigration(t *testing.T) {
 	errs := make(chan error, workers)
 	var wg sync.WaitGroup
 	for range workers {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			<-start
 			errs <- runtime.Migration(ctx)
-		}()
+		})
 	}
 	close(start)
 	wg.Wait()
@@ -471,6 +469,7 @@ func openGameplayPostgresTestDB(t *testing.T) *sqlx.DB {
 func dropGameplayPostgresTables(t *testing.T, ctx context.Context, db *sqlx.DB) {
 	t.Helper()
 	for _, table := range []string{
+		"gameplay_pending_deletion_locators",
 		"gameplay_pending_deletions",
 		"gameplay_pet_drive_ticks",
 		"gameplay_pet_workspace_bindings",

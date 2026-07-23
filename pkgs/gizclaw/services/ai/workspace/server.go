@@ -36,12 +36,7 @@ const (
 	maxWorkspaceLabelKeyBytes          = 63
 	maxWorkspaceLabelValueBytes        = 128
 	SystemWorkspaceDeleteForbiddenCode = "SYSTEM_WORKSPACE_DELETE_FORBIDDEN"
-	WorkspacePendingDeletionCode       = "WORKSPACE_PENDING_DELETION"
 )
-
-// ErrWorkspacePendingDeletion prevents initialization from reusing a name
-// whose physical artifacts have not been cleaned yet.
-var ErrWorkspacePendingDeletion = errors.New("workspace: pending deletion")
 
 type Server struct {
 	Store         kv.Store
@@ -205,11 +200,6 @@ func (s *Server) CreateWorkspace(ctx context.Context, request adminhttp.CreateWo
 	}
 	unlock := s.IconLocks.LockRecord(string(normalized.Name))
 	defer unlock()
-	if pending, err := workspacePending(ctx, store, string(normalized.Name)); err != nil {
-		return adminhttp.CreateWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	} else if pending {
-		return adminhttp.CreateWorkspace409JSONResponse(apitypes.NewErrorResponse(WorkspacePendingDeletionCode, "workspace pending deletion")), nil
-	}
 	workflowStore, err := s.workflowStore()
 	if err != nil {
 		return adminhttp.CreateWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
@@ -243,11 +233,6 @@ func (s *Server) CreateSystemWorkspace(ctx context.Context, body adminhttp.Works
 	}
 	unlock := s.IconLocks.LockRecord(string(normalized.Name))
 	defer unlock()
-	if pending, err := workspacePending(ctx, store, string(normalized.Name)); err != nil {
-		return apitypes.Workspace{}, false, err
-	} else if pending {
-		return apitypes.Workspace{}, false, ErrWorkspacePendingDeletion
-	}
 	workflowStore, err := s.workflowStore()
 	if err != nil {
 		return apitypes.Workspace{}, false, err
@@ -396,15 +381,8 @@ func (s *Server) fastDeleteWorkspaceRecord(ctx context.Context, store kv.Store, 
 	if err != nil {
 		return err
 	}
-	entries, err := pendingdeletion.KVEntries(record)
-	if err != nil {
-		return err
-	}
-	keys := []kv.Key{workspaceKey(string(workspace.Name))}
-	if workspace.OwnerPublicKey != nil {
-		keys = append(keys, workspaceByOwnerKey(*workspace.OwnerPublicKey, workspace.Name))
-	}
-	return store.BatchMutate(ctx, entries, keys)
+	_, _, err = pendingdeletion.CreateOrGet(ctx, store, record)
+	return err
 }
 
 func (s *Server) GetWorkspace(ctx context.Context, request adminhttp.GetWorkspaceRequestObject) (adminhttp.GetWorkspaceResponseObject, error) {
@@ -451,11 +429,6 @@ func (s *Server) PutWorkspace(ctx context.Context, request adminhttp.PutWorkspac
 	}
 	unlock := s.IconLocks.LockRecord(name)
 	defer unlock()
-	if pending, err := workspacePending(ctx, store, name); err != nil {
-		return adminhttp.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	} else if pending {
-		return adminhttp.PutWorkspace409JSONResponse(apitypes.NewErrorResponse(WorkspacePendingDeletionCode, "workspace pending deletion")), nil
-	}
 	workflowStore, err := s.workflowStore()
 	if err != nil {
 		return adminhttp.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
@@ -963,10 +936,6 @@ func workspaceByOwnerKey(owner, name string) kv.Key {
 
 func workspaceByOwnerPrefix(owner string) kv.Key {
 	return append(append(kv.Key{}, workspacesByOwnerRoot...), escapeStoreSegment(owner))
-}
-
-func workspacePending(ctx context.Context, store kv.Store, name string) (bool, error) {
-	return pendingdeletion.HasLocator(ctx, store, pendingdeletion.KindWorkspace, name)
 }
 
 func cloneString(value *string) *string {

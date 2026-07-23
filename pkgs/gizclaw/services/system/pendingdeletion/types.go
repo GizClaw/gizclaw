@@ -1,6 +1,6 @@
-// Package pendingdeletion defines the durable handoff written when an active
-// resource is removed. Processing and cleanup are intentionally owned by the
-// follow-up cleanup service.
+// Package pendingdeletion defines the durable handoff written when deletion is
+// requested for an active resource. Physical removal is intentionally owned by
+// the follow-up cleanup service.
 package pendingdeletion
 
 import (
@@ -17,15 +17,15 @@ import (
 // DescriptorVersion is the schema version of descriptors produced by this package.
 const DescriptorVersion = 1
 
-// Kind identifies the domain that owns cleanup for a deleted resource.
+// Kind identifies the domain that owns cleanup for a resource pending deletion.
 type Kind string
 
 const (
-	// KindPeer identifies a deleted Peer registration.
+	// KindPeer identifies a Peer registration pending deletion.
 	KindPeer Kind = "peer"
-	// KindWorkspace identifies a deleted user Workspace.
+	// KindWorkspace identifies a user Workspace pending deletion.
 	KindWorkspace Kind = "workspace"
-	// KindPet identifies a deleted Pet row.
+	// KindPet identifies a Pet row pending deletion.
 	KindPet Kind = "pet"
 )
 
@@ -42,7 +42,7 @@ const (
 )
 
 // Record contains only immutable identifiers required by a later domain
-// cleaner. Descriptor must not contain secrets or deleted resource content.
+// cleaner. Descriptor must not contain secrets or resource content.
 type Record struct {
 	DeletionID        string          `json:"deletion_id"`
 	Kind              Kind            `json:"kind"`

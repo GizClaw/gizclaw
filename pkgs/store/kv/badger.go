@@ -3,6 +3,7 @@ package kv
 import (
 	"bytes"
 	"context"
+	"errors"
 	"iter"
 	"time"
 
@@ -268,6 +269,51 @@ func (b *Badger) BatchMutate(ctx context.Context, entries []Entry, keys []Key) e
 		}
 		return nil
 	})
+}
+
+func (b *Badger) CreateIfAbsent(ctx context.Context, guard Entry, entries []Entry) ([]byte, bool, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, false, err
+	}
+	guardKey := b.opts.encode(guard.Key)
+	for {
+		var existing []byte
+		created := false
+		err := b.db.Update(func(txn *badger.Txn) error {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			item, err := txn.Get(guardKey)
+			if err == nil {
+				existing, err = item.ValueCopy(nil)
+				return err
+			}
+			if !errors.Is(err, badger.ErrKeyNotFound) {
+				return err
+			}
+			now := time.Now()
+			all := append([]Entry{guard}, entries...)
+			for _, entry := range all {
+				item := badger.NewEntry(b.opts.encode(entry.Key), entry.Value)
+				if !entry.Deadline.IsZero() {
+					ttl := entry.Deadline.Sub(now)
+					if ttl <= 0 {
+						return ErrInvalidDeadline
+					}
+					item = item.WithTTL(ttl)
+				}
+				if err := txn.SetEntry(item); err != nil {
+					return err
+				}
+			}
+			created = true
+			return nil
+		})
+		if errors.Is(err, badger.ErrConflict) && ctx.Err() == nil {
+			continue
+		}
+		return existing, created, err
+	}
 }
 
 func (b *Badger) Close() error {

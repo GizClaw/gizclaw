@@ -364,6 +364,10 @@ func (s listScriptStore) BatchMutate(context.Context, []kv.Entry, []kv.Key) erro
 	return nil
 }
 
+func (s listScriptStore) CreateIfAbsent(context.Context, kv.Entry, []kv.Entry) ([]byte, bool, error) {
+	return nil, false, nil
+}
+
 func (s listScriptStore) Close() error {
 	return nil
 }

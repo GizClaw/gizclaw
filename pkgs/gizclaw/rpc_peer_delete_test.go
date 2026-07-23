@@ -35,27 +35,27 @@ type trackingGiznetConn struct {
 	dialCount atomic.Int32
 }
 
-type blockingBatchMutateStore struct {
+type blockingCreateIfAbsentStore struct {
 	kv.Store
 	entered chan struct{}
 	release chan struct{}
 	once    sync.Once
 }
 
-type failingBatchMutateStore struct {
+type failingCreateIfAbsentStore struct {
 	kv.Store
 }
 
-func (s *failingBatchMutateStore) BatchMutate(context.Context, []kv.Entry, []kv.Key) error {
-	return errTestPeerDelete
+func (s *failingCreateIfAbsentStore) CreateIfAbsent(context.Context, kv.Entry, []kv.Entry) ([]byte, bool, error) {
+	return nil, false, errTestPeerDelete
 }
 
-func (s *blockingBatchMutateStore) BatchMutate(ctx context.Context, entries []kv.Entry, keys []kv.Key) error {
+func (s *blockingCreateIfAbsentStore) CreateIfAbsent(ctx context.Context, guard kv.Entry, entries []kv.Entry) ([]byte, bool, error) {
 	s.once.Do(func() {
 		close(s.entered)
 		<-s.release
 	})
-	return s.Store.BatchMutate(ctx, entries, keys)
+	return s.Store.CreateIfAbsent(ctx, guard, entries)
 }
 
 func (c *trackingGiznetConn) Close() error {
@@ -234,8 +234,8 @@ func TestRPCPeerDeleteAcknowledgesBeforeTerminalAction(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("terminal action was not called after response")
 	}
-	if _, err := peers.LoadPeer(context.Background(), publicKey); err == nil {
-		t.Fatal("Peer remains active after self-delete")
+	if _, err := peers.LoadPeer(context.Background(), publicKey); err != nil {
+		t.Fatalf("LoadPeer after self-delete: %v", err)
 	}
 	if pending, err := pendingdeletion.HasLocator(context.Background(), store, pendingdeletion.KindPeer, publicKey.String()); err != nil || !pending {
 		t.Fatalf("peer pending deletion = %v, error = %v", pending, err)
@@ -352,7 +352,7 @@ func TestRPCPeerDeleteRejectsNewWorkBeforeDurableDeleteCommits(t *testing.T) {
 	if _, err := peers.EnsureConnectedPeer(context.Background(), otherPublicKey); err != nil {
 		t.Fatalf("EnsureConnectedPeer(other): %v", err)
 	}
-	blockingStore := &blockingBatchMutateStore{
+	blockingStore := &blockingCreateIfAbsentStore{
 		Store:   store,
 		entered: make(chan struct{}),
 		release: make(chan struct{}),
@@ -431,7 +431,7 @@ func TestManagerDeleteActivePeerRestoresConnectionAfterDeleteFailure(t *testing.
 	if _, err := peers.EnsureConnectedPeer(context.Background(), publicKey); err != nil {
 		t.Fatalf("EnsureConnectedPeer: %v", err)
 	}
-	peers.Store = &failingBatchMutateStore{Store: store}
+	peers.Store = &failingCreateIfAbsentStore{Store: store}
 	manager := NewManager(peers)
 	transport := &testGiznetConn{publicKey: publicKey}
 	manager.SetPeerUp(publicKey, transport)

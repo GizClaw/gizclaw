@@ -237,6 +237,41 @@ func (m *Memory) BatchMutate(ctx context.Context, entries []Entry, keys []Key) e
 	return nil
 }
 
+func (m *Memory) CreateIfAbsent(ctx context.Context, guard Entry, entries []Entry) ([]byte, bool, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, false, err
+	}
+	now := time.Now()
+	if !guard.Deadline.IsZero() && !guard.Deadline.After(now) {
+		return nil, false, ErrInvalidDeadline
+	}
+	type preparedEntry struct {
+		key   string
+		entry memoryEntry
+	}
+	prepared := make([]preparedEntry, 0, len(entries))
+	for _, item := range entries {
+		if !item.Deadline.IsZero() && !item.Deadline.After(now) {
+			return nil, false, ErrInvalidDeadline
+		}
+		prepared = append(prepared, preparedEntry{
+			key:   string(m.opts.encode(item.Key)),
+			entry: memoryEntry{value: append([]byte(nil), item.Value...), expiresAt: item.Deadline},
+		})
+	}
+	guardKey := string(m.opts.encode(guard.Key))
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if current, ok := m.data[guardKey]; ok && !current.expired(now) {
+		return append([]byte(nil), current.value...), false, nil
+	}
+	m.data[guardKey] = memoryEntry{value: append([]byte(nil), guard.Value...), expiresAt: guard.Deadline}
+	for _, item := range prepared {
+		m.data[item.key] = item.entry
+	}
+	return nil, true, nil
+}
+
 func (m *Memory) Close() error {
 	return nil
 }
