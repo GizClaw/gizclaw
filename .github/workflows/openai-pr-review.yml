@@ -2,7 +2,7 @@ name: OpenAI PR review
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [opened]
   issue_comment:
     types: [created]
   workflow_dispatch:
