@@ -23,11 +23,52 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  authorize:
+    permissions:
+      pull-requests: read
+    runs-on: ubuntu-latest
+    outputs:
+      allowed: ${{ steps.check.outputs.result }}
+    steps:
+      - id: check
+        name: Check whether the pull request is trusted
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
+        with:
+          result-encoding: string
+          script: |
+            if (context.actor === "dependabot[bot]") {
+              return "false";
+            }
+
+            if (context.eventName === "workflow_dispatch") {
+              return "true";
+            }
+
+            const repository = `${context.repo.owner}/${context.repo.repo}`;
+            if (context.eventName === "pull_request") {
+              return context.payload.pull_request.head.repo.full_name === repository
+                ? "true"
+                : "false";
+            }
+
+            if (
+              context.eventName === "issue_comment" &&
+              context.payload.issue.pull_request
+            ) {
+              const { data: pullRequest } = await github.rest.pulls.get({
+                ...context.repo,
+                pull_number: context.issue.number,
+              });
+              return pullRequest.head.repo?.full_name === repository
+                ? "true"
+                : "false";
+            }
+
+            return "false";
+
   review:
-    if: >-
-      github.actor != 'dependabot[bot]' &&
-      (github.event_name != 'pull_request' ||
-      github.event.pull_request.head.repo.full_name == github.repository)
+    needs: authorize
+    if: needs.authorize.outputs.allowed == 'true'
     uses: GizClaw/github-workflows/.github/workflows/codex-openai-review.yml@73b65594a0ba26838bf428ce16fb058924d95f4b
     with:
       model: gpt-5.6-terra
