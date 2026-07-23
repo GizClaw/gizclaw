@@ -732,20 +732,36 @@ func TestPendingDeletionSourceHasLocatorRejectsMismatchedRecord(t *testing.T) {
 	if err := runtime.Migration(ctx); err != nil {
 		t.Fatalf("Migration() error = %v", err)
 	}
-	now := time.Date(2026, 7, 22, 11, 12, 0, 0, time.UTC).Format(time.RFC3339Nano)
+	owner := "peer-a"
+	record, err := pendingdeletion.New(
+		pendingdeletion.KindPet,
+		"different-pet",
+		&owner,
+		pendingdeletion.ReasonResourceDelete,
+		map[string]string{"pet_id": "different-pet"},
+		time.Date(2026, 7, 22, 11, 12, 0, 0, time.UTC),
+	)
+	if err != nil {
+		t.Fatalf("pendingdeletion.New() error = %v", err)
+	}
 	if _, err := db.ExecContext(ctx, `INSERT INTO gameplay_pending_deletions (
 		deletion_id, kind, owner_public_key, resource_id, reason, deleted_at, descriptor_version, descriptor_json
 	) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		"mismatched-deletion", pendingdeletion.KindPet, "peer-a", "different-pet",
-		pendingdeletion.ReasonResourceDelete, now, 1, `{"owner_public_key":"peer-a","pet_id":"different-pet"}`,
+		record.DeletionID,
+		record.Kind,
+		owner,
+		record.ResourceID,
+		record.Reason,
+		formatTime(record.DeletedAt),
+		record.DescriptorVersion,
+		string(record.Descriptor),
 	); err != nil {
 		t.Fatalf("insert mismatched pending deletion: %v", err)
 	}
 	if _, err := db.ExecContext(ctx, `INSERT INTO gameplay_pending_deletion_locators (kind, owner_public_key, resource_id, deletion_id) VALUES (?, ?, ?, ?)`,
-		pendingdeletion.KindPet, "peer-a", "pet-mismatched", "mismatched-deletion"); err != nil {
+		pendingdeletion.KindPet, owner, "pet-mismatched", record.DeletionID); err != nil {
 		t.Fatalf("insert mismatched locator: %v", err)
 	}
-	owner := "peer-a"
 	source := PendingDeletionSource{DB: db}
 	if exists, err := source.HasLocator(ctx, pendingdeletion.Locator{
 		Kind:           pendingdeletion.KindPet,
@@ -753,6 +769,68 @@ func TestPendingDeletionSourceHasLocatorRejectsMismatchedRecord(t *testing.T) {
 		OwnerPublicKey: &owner,
 	}); err == nil || exists || !strings.Contains(err.Error(), "missing or mismatched record") {
 		t.Fatalf("PendingDeletionSource.HasLocator() = %v, error = %v, want integrity error", exists, err)
+	}
+}
+
+func TestPendingDeletionSourceHasLocatorRejectsInvalidEnvelope(t *testing.T) {
+	for _, tc := range []struct {
+		name          string
+		createLocator bool
+	}{
+		{name: "fixed locator", createLocator: true},
+		{name: "legacy record"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.Background()
+			db := testDB(t)
+			runtime := &Runtime{DB: db}
+			if err := runtime.Migration(ctx); err != nil {
+				t.Fatalf("Migration() error = %v", err)
+			}
+			owner := "peer-a"
+			record, err := pendingdeletion.New(
+				pendingdeletion.KindPet,
+				"pet-invalid-envelope",
+				&owner,
+				pendingdeletion.ReasonResourceDelete,
+				map[string]string{"pet_id": "pet-invalid-envelope"},
+				time.Date(2026, 7, 22, 11, 13, 0, 0, time.UTC),
+			)
+			if err != nil {
+				t.Fatalf("pendingdeletion.New() error = %v", err)
+			}
+			if _, err := db.ExecContext(ctx, `INSERT INTO gameplay_pending_deletions (
+				deletion_id, kind, owner_public_key, resource_id, reason, deleted_at, descriptor_version, descriptor_json
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+				record.DeletionID,
+				record.Kind,
+				owner,
+				record.ResourceID,
+				record.Reason,
+				formatTime(record.DeletedAt),
+				pendingdeletion.DescriptorVersion+1,
+				string(record.Descriptor),
+			); err != nil {
+				t.Fatalf("insert invalid pending deletion: %v", err)
+			}
+			if tc.createLocator {
+				if _, err := db.ExecContext(ctx, `INSERT INTO gameplay_pending_deletion_locators (
+					kind, owner_public_key, resource_id, deletion_id
+				) VALUES (?, ?, ?, ?)`, record.Kind, owner, record.ResourceID, record.DeletionID); err != nil {
+					t.Fatalf("insert pending deletion locator: %v", err)
+				}
+			}
+
+			source := PendingDeletionSource{DB: db}
+			exists, err := source.HasLocator(ctx, pendingdeletion.Locator{
+				Kind:           record.Kind,
+				ResourceID:     record.ResourceID,
+				OwnerPublicKey: &owner,
+			})
+			if err == nil || exists || !strings.Contains(err.Error(), "unsupported descriptor version") {
+				t.Fatalf("PendingDeletionSource.HasLocator() = %v, error = %v, want invalid envelope error", exists, err)
+			}
+		})
 	}
 }
 
