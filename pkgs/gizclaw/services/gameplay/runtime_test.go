@@ -834,6 +834,89 @@ func TestPendingDeletionSourceHasLocatorRejectsInvalidEnvelope(t *testing.T) {
 	}
 }
 
+func TestRuntimeDeletePetRejectsInvalidPendingDeletionEnvelope(t *testing.T) {
+	for _, tc := range []struct {
+		name          string
+		createLocator bool
+	}{
+		{name: "fixed locator", createLocator: true},
+		{name: "legacy record"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.Background()
+			db := testDB(t)
+			runtime := &Runtime{DB: db}
+			if err := runtime.Migration(ctx); err != nil {
+				t.Fatalf("Migration() error = %v", err)
+			}
+			owner := "peer-a"
+			petID := "pet-invalid-delete"
+			now := time.Date(2026, 7, 22, 11, 14, 0, 0, time.UTC)
+			if _, err := db.ExecContext(ctx, `INSERT INTO gameplay_pets (
+				owner_public_key, id, runtime_profile_name, petdef_id, display_name, workspace_name,
+				stats_json, progression_json, lifecycle, died_at, state_settled_at, last_active_at, created_at, updated_at
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				owner, petID, "default", "petdef-a", "Pet", "pet-"+petID,
+				`{"life":100,"health":100,"satiety":100,"hygiene":100,"mood":100,"energy":100}`, `{"experience":0,"level":1}`, "alive", nil,
+				formatTime(now), formatTime(now), formatTime(now), formatTime(now),
+			); err != nil {
+				t.Fatalf("insert Pet: %v", err)
+			}
+			record, err := pendingdeletion.New(
+				pendingdeletion.KindPet,
+				petID,
+				&owner,
+				pendingdeletion.ReasonResourceDelete,
+				map[string]string{"pet_id": petID},
+				now,
+			)
+			if err != nil {
+				t.Fatalf("pendingdeletion.New() error = %v", err)
+			}
+			if _, err := db.ExecContext(ctx, `INSERT INTO gameplay_pending_deletions (
+				deletion_id, kind, owner_public_key, resource_id, reason, deleted_at, descriptor_version, descriptor_json
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+				record.DeletionID,
+				record.Kind,
+				owner,
+				record.ResourceID,
+				record.Reason,
+				formatTime(record.DeletedAt),
+				pendingdeletion.DescriptorVersion+1,
+				string(record.Descriptor),
+			); err != nil {
+				t.Fatalf("insert invalid pending deletion: %v", err)
+			}
+			if tc.createLocator {
+				if _, err := db.ExecContext(ctx, `INSERT INTO gameplay_pending_deletion_locators (
+					kind, owner_public_key, resource_id, deletion_id
+				) VALUES (?, ?, ?, ?)`, record.Kind, owner, record.ResourceID, record.DeletionID); err != nil {
+					t.Fatalf("insert pending deletion locator: %v", err)
+				}
+			}
+
+			if _, err := runtime.DeletePet(ctx, owner, petID); err == nil || !strings.Contains(err.Error(), "unsupported descriptor version") {
+				t.Fatalf("DeletePet() error = %v, want invalid envelope error", err)
+			}
+			var pets, pending, locators int
+			if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM gameplay_pets WHERE owner_public_key = ? AND id = ?`, owner, petID).Scan(&pets); err != nil {
+				t.Fatalf("count Pets: %v", err)
+			}
+			if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM gameplay_pending_deletions WHERE kind = ? AND owner_public_key = ? AND resource_id = ?`,
+				record.Kind, owner, petID).Scan(&pending); err != nil {
+				t.Fatalf("count pending deletions: %v", err)
+			}
+			if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM gameplay_pending_deletion_locators WHERE kind = ? AND owner_public_key = ? AND resource_id = ?`,
+				record.Kind, owner, petID).Scan(&locators); err != nil {
+				t.Fatalf("count pending deletion locators: %v", err)
+			}
+			if pets != 1 || pending != 1 || locators != 1 {
+				t.Fatalf("after rejection Pets=%d pending=%d locators=%d, want 1, 1 and 1", pets, pending, locators)
+			}
+		})
+	}
+}
+
 func TestRuntimeDeletePetDoesNotMutateWorkspaceBinding(t *testing.T) {
 	ctx := context.Background()
 	db := testDB(t)

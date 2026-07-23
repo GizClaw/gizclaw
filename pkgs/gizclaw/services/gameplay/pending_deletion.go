@@ -24,13 +24,17 @@ func (s PendingDeletionSource) Get(ctx context.Context, deletionID string) (pend
 	if s.DB == nil {
 		return pendingdeletion.Record{}, errors.New("gameplay: database not configured")
 	}
+	return getPendingDeletion(ctx, s.DB, deletionID)
+}
+
+func getPendingDeletion(ctx context.Context, db queryRebinder, deletionID string) (pendingdeletion.Record, error) {
 	var (
 		record         pendingdeletion.Record
 		owner          string
 		deletedAt      string
 		descriptorJSON string
 	)
-	err := s.DB.QueryRowContext(ctx, s.DB.Rebind(`SELECT deletion_id, kind, owner_public_key, resource_id, reason, deleted_at, descriptor_version, descriptor_json FROM gameplay_pending_deletions WHERE deletion_id = ?`), deletionID).Scan(
+	err := db.QueryRowContext(ctx, db.Rebind(`SELECT deletion_id, kind, owner_public_key, resource_id, reason, deleted_at, descriptor_version, descriptor_json FROM gameplay_pending_deletions WHERE deletion_id = ?`), deletionID).Scan(
 		&record.DeletionID,
 		&record.Kind,
 		&owner,

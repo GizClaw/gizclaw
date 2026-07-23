@@ -779,6 +779,9 @@ func (r *Runtime) DeletePet(ctx context.Context, owner, id string) (apitypes.Pet
 			}
 			return apitypes.Pet{}, fmt.Errorf("delete pet %q validate pending deletion locator: %w", pet.Id, err)
 		}
+		if _, err := getPendingDeletion(ctx, tx, existingDeletionID); err != nil {
+			return apitypes.Pet{}, fmt.Errorf("delete pet %q validate pending deletion locator record %q: %w", pet.Id, existingDeletionID, err)
+		}
 		if err := tx.Commit(); err != nil {
 			return apitypes.Pet{}, fmt.Errorf("delete pet %q reuse pending deletion commit: %w", pet.Id, err)
 		}
