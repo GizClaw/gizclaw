@@ -116,6 +116,24 @@ func TestGroupWorkspaceBelongsToCreator(t *testing.T) {
 	}
 }
 
+func TestAdminApplyExistingFriendGroupPreservesWorkspaceBinding(t *testing.T) {
+	s := newTestServer(t)
+	s.RuntimeProfileForOwner = testRuntimeProfileForOwner
+	if _, err := s.AdminApplyFriendGroup(t.Context(), "family01", "peer-a", "Family", nil); err != nil {
+		t.Fatal(err)
+	}
+	s.RuntimeProfileForOwner = func(context.Context, string) (apitypes.RuntimeProfile, error) {
+		return apitypes.RuntimeProfile{}, errors.New("existing group update must not resolve a new system Workflow")
+	}
+	updated, err := s.AdminApplyFriendGroup(t.Context(), "family01", "peer-a", "Family Updated", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if socialutil.StringValue(updated.Name) != "Family Updated" {
+		t.Fatalf("updated group = %#v", updated)
+	}
+}
+
 func TestAdminApplyFriendGroupRollsBackWorkspaceOnGroupWriteFailure(t *testing.T) {
 	ctx := context.Background()
 	workspaces := &recordingWorkspaceService{}

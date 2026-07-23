@@ -160,6 +160,20 @@ func TestAddFriendWorkspaceBelongsToInviteTokenCreator(t *testing.T) {
 	if len(workspaces.owners) != 1 || workspaces.owners[0] != "peer-b" {
 		t.Fatalf("Workspace owners = %#v, want peer-b", workspaces.owners)
 	}
+	reciprocalToken, err := s.CreateFriendInviteToken(ctx, "peer-a", rpcapi.FriendInviteTokenCreateRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	reciprocal, err := s.AddFriend(ctx, "peer-b", rpcapi.FriendAddRequest{InviteToken: reciprocalToken.InviteToken})
+	if err != nil {
+		t.Fatalf("AddFriend existing relation through reciprocal invite: %v", err)
+	}
+	if socialutil.StringValue(reciprocal.PeerPublicKey) != "peer-a" {
+		t.Fatalf("reciprocal friend = %#v, want peer-a", reciprocal)
+	}
+	if len(workspaces.created) != 1 || len(workspaces.owners) != 1 {
+		t.Fatalf("reciprocal invite recreated Workspace: created=%#v owners=%#v", workspaces.created, workspaces.owners)
+	}
 }
 
 func TestInviteTokenExpiryAndClear(t *testing.T) {

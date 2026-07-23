@@ -151,14 +151,7 @@ func (s *Server) AdminApplyFriendGroup(ctx context.Context, friendGroupID, owner
 		if strings.TrimSpace(socialutil.StringValue(existing.WorkspaceName)) != workspaceName {
 			return rpcapi.FriendGroupObject{}, errors.New("social: existing friend group has a different Workspace domain binding")
 		}
-		createdWorkspace, err := s.ensureGroupWorkspace(ctx, workspaceName, owner)
-		if err != nil {
-			return rpcapi.FriendGroupObject{}, err
-		}
 		group, err := s.putFriendGroup(ctx, friendGroupID, &name, description)
-		if err != nil && createdWorkspace {
-			_ = s.deleteWorkspace(ctx, workspaceName)
-		}
 		return group, err
 	} else if !errors.Is(err, kv.ErrNotFound) {
 		return rpcapi.FriendGroupObject{}, err
