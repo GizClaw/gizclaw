@@ -1018,6 +1018,31 @@ void main() {
     expect(find.text('group-invite-token'), findsOneWidget);
   });
 
+  appTestWidgets('clears an invalidated invite when rotation creation fails', (
+    tester,
+  ) async {
+    final controller = _GroupInviteController(
+      initialInviteToken: 'old-group-invite',
+      failCreateInvite: true,
+    );
+    await pumpApp(tester, controller: controller);
+
+    await tapPrimaryNav(tester, 'Groups');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(GizIcons.ellipsis));
+    await tester.pumpAndSettle();
+    expect(find.text('old-group-invite'), findsOneWidget);
+
+    await tester.tap(find.byIcon(GizIcons.refresh));
+    await tester.pumpAndSettle();
+
+    expect(controller.clearInviteCalls, 1);
+    expect(controller.createInviteCalls, 1);
+    expect(find.text('old-group-invite'), findsNothing);
+    expect(find.text('No active invite'), findsOneWidget);
+    expect(find.text('invite creation failed'), findsOneWidget);
+  });
+
   appTestWidgets('shows friends, pet, and profile surfaces', (tester) async {
     final controller = _ServerListTestController();
     await pumpApp(tester, controller: controller);
@@ -1433,17 +1458,19 @@ class _GroupCreationController extends MobileDataController {
 }
 
 class _GroupInviteController extends MobileDataController {
-  _GroupInviteController()
-    : super(
-        database: _testDatabase(),
-        profile: const GizClawConnectionProfile(
-          endpoint: _testServerEndpoint,
-          clientPrivateKey: 'test-key',
-        ),
-        servers: const [
-          GizClawServer(name: 'Test', accessPoint: _testServerEndpoint),
-        ],
-      ) {
+  _GroupInviteController({
+    this.initialInviteToken = '',
+    this.failCreateInvite = false,
+  }) : super(
+         database: _testDatabase(),
+         profile: const GizClawConnectionProfile(
+           endpoint: _testServerEndpoint,
+           clientPrivateKey: 'test-key',
+         ),
+         servers: const [
+           GizClawServer(name: 'Test', accessPoint: _testServerEndpoint),
+         ],
+       ) {
     chatroomWorkspaces = const [
       ChatroomWorkspaceMetadata(
         workspaceName: 'owner-group-workspace',
@@ -1465,6 +1492,9 @@ class _GroupInviteController extends MobileDataController {
   }
 
   int createInviteCalls = 0;
+  int clearInviteCalls = 0;
+  final bool failCreateInvite;
+  final String initialInviteToken;
   String? inviteGroupId;
   String? joinedInviteToken;
 
@@ -1476,7 +1506,10 @@ class _GroupInviteController extends MobileDataController {
     String friendGroupId,
   ) async {
     inviteGroupId = friendGroupId;
-    return FriendGroupInviteTokenGetResponse();
+    return FriendGroupInviteTokenGetResponse(
+      inviteToken: initialInviteToken,
+      expiresAt: initialInviteToken.isEmpty ? '' : '2026-07-24T06:00:00Z',
+    );
   }
 
   @override
@@ -1485,10 +1518,17 @@ class _GroupInviteController extends MobileDataController {
   ) async {
     inviteGroupId = friendGroupId;
     createInviteCalls += 1;
+    if (failCreateInvite) throw StateError('invite creation failed');
     return FriendGroupInviteTokenCreateResponse(
       inviteToken: 'group-invite-token',
       expiresAt: '2026-07-24T06:00:00Z',
     );
+  }
+
+  @override
+  Future<void> clearFriendGroupInviteToken(String friendGroupId) async {
+    inviteGroupId = friendGroupId;
+    clearInviteCalls += 1;
   }
 
   @override

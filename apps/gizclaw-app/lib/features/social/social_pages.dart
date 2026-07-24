@@ -719,6 +719,8 @@ class _GroupInviteSheetState extends State<_GroupInviteSheet> {
     _setBusy();
     try {
       await widget.data.clearFriendGroupInviteToken(widget.group.resourceId);
+      if (!mounted) return;
+      _setToken(loaded: true);
       final response = await widget.data.createFriendGroupInviteToken(
         widget.group.resourceId,
       );
