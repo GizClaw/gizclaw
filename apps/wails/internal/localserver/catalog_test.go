@@ -9,16 +9,15 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/apps/wails/internal/localserver"
 	desktopresources "github.com/GizClaw/gizclaw-go/apps/wails/resources"
-	"github.com/goccy/go-yaml"
 )
 
-func TestBundledCatalogContainsOnlyDefaultRuntimeProfile(t *testing.T) {
+func TestBundledCatalogContainsOnlyDesktopOwnedAssets(t *testing.T) {
 	source, err := desktopresources.LocalServer()
 	if err != nil {
 		t.Fatal(err)
 	}
 	var resources []string
-	err = fs.WalkDir(source, "resources", func(name string, entry fs.DirEntry, walkErr error) error {
+	err = fs.WalkDir(source, ".", func(name string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
@@ -30,8 +29,8 @@ func TestBundledCatalogContainsOnlyDefaultRuntimeProfile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(resources) != 1 || resources[0] != "resources/07-runtime-profiles/00-default.yaml" {
-		t.Fatalf("bundled declarative resources = %v, want RuntimeProfile/default only", resources)
+	if len(resources) != 0 {
+		t.Fatalf("bundled declarative resources = %v, want none", resources)
 	}
 	var assetCount int
 	err = fs.WalkDir(source, "assets/pet-defs", func(name string, entry fs.DirEntry, walkErr error) error {
@@ -48,72 +47,6 @@ func TestBundledCatalogContainsOnlyDefaultRuntimeProfile(t *testing.T) {
 	}
 	if assetCount != 9 {
 		t.Fatalf("bundled PetDef PIXA assets = %d, want 9", assetCount)
-	}
-	profile, err := fs.ReadFile(source, resources[0])
-	if err != nil {
-		t.Fatal(err)
-	}
-	text := string(profile)
-	for _, forbidden := range []string{"volc-main"} {
-		if strings.Contains(text, forbidden) {
-			t.Fatalf("RuntimeProfile/default retains %q", forbidden)
-		}
-	}
-	var parsed struct {
-		Spec struct {
-			Workflows struct {
-				System struct {
-					FriendChatroom string `yaml:"friend_chatroom"`
-					GroupChatroom  string `yaml:"group_chatroom"`
-					Pet            string `yaml:"pet"`
-				} `yaml:"system"`
-			} `yaml:"workflows"`
-			Resources struct {
-				PetDefs map[string]struct {
-					ResourceID string `yaml:"resource_id"`
-				} `yaml:"pet_defs"`
-			} `yaml:"resources"`
-			Gameplay struct {
-				Adoption struct {
-					Pool []struct {
-						PetDef string `yaml:"pet_def"`
-					} `yaml:"pool"`
-				} `yaml:"adoption"`
-			} `yaml:"gameplay"`
-		} `yaml:"spec"`
-	}
-	if err := yaml.Unmarshal(profile, &parsed); err != nil {
-		t.Fatal(err)
-	}
-	if parsed.Spec.Workflows.System.FriendChatroom != "chatroom" ||
-		parsed.Spec.Workflows.System.GroupChatroom != "chatroom" ||
-		parsed.Spec.Workflows.System.Pet != "pet-care" {
-		t.Fatalf("RuntimeProfile/default system Workflows = %#v", parsed.Spec.Workflows.System)
-	}
-	if len(parsed.Spec.Resources.PetDefs) != 9 {
-		t.Fatalf("RuntimeProfile/default PetDef bindings = %d, want 9", len(parsed.Spec.Resources.PetDefs))
-	}
-	if len(parsed.Spec.Gameplay.Adoption.Pool) != 9 {
-		t.Fatalf("RuntimeProfile/default adoption pool = %d, want 9", len(parsed.Spec.Gameplay.Adoption.Pool))
-	}
-	for alias, binding := range parsed.Spec.Resources.PetDefs {
-		if binding.ResourceID != "petdef-"+alias {
-			t.Fatalf("RuntimeProfile/default PetDef %s = %s", alias, binding.ResourceID)
-		}
-	}
-	for alias, resourceID := range map[string]string{
-		"journey-narrator":            "volc-tenant:volc-cn-beijing:zh_female_shaoergushi_mars_bigtts",
-		"journey-origin-narrator":     "volc-tenant:volc-cn-beijing:zh_female_shaoergushi_mars_bigtts",
-		"journey-heaven-narrator":     "volc-tenant:volc-cn-beijing:zh_male_sunwukong_mars_bigtts",
-		"journey-pilgrimage-narrator": "volc-tenant:volc-cn-beijing:zh_male_tangseng_mars_bigtts",
-		"journey-trials-narrator":     "volc-tenant:volc-cn-beijing:zh_male_changtianyi_mars_bigtts",
-		"journey-kingdoms-narrator":   "volc-tenant:volc-cn-beijing:zh_female_qingxinnvsheng_mars_bigtts",
-		"journey-arrival-narrator":    "volc-tenant:volc-cn-beijing:zh_female_shaoergushi_mars_bigtts",
-	} {
-		binding := alias + ":\n        resource_id: " + resourceID
-		if !strings.Contains(text, binding) {
-			t.Fatalf("RuntimeProfile/default mapping %s = %s is missing", alias, resourceID)
-		}
 	}
 }
 

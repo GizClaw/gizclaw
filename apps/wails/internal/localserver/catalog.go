@@ -51,6 +51,8 @@ type Catalog struct {
 	Requirements []EnvironmentRequirement
 	PetDefPIXAs  []PetDefPIXA
 	VoiceSyncs   []VoiceSync
+	// DefaultRegistrationToken is decoded from the validated Raids manifest.
+	DefaultRegistrationToken string
 }
 
 // LoadCatalog validates the embedded catalog structure and returns its ordered

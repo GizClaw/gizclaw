@@ -3,9 +3,6 @@ package localserver
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
-	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -22,9 +19,7 @@ import (
 )
 
 const (
-	// RegistrationTokenFile hands the local Desktop client's registration token
-	// to the Play surface.
-	RegistrationTokenFile       = "registration-token"
+	legacyRegistrationTokenFile = "registration-token"
 	appRegistrationTokenName    = "app:com.gizclaw.opensource"
 	legacyRegistrationTokenName = "desktop-local"
 	defaultRuntimeProfileName   = "default"
@@ -32,11 +27,10 @@ const (
 
 // Bootstrapper applies a validated catalog through the packaged companion CLI.
 type Bootstrapper struct {
-	Catalog              *Catalog
-	Resolver             CatalogResolver
-	Executable           func() (string, error)
-	Run                  func(context.Context, string, []string, []string) error
-	NewRegistrationToken func() (string, error)
+	Catalog    *Catalog
+	Resolver   CatalogResolver
+	Executable func() (string, error)
+	Run        func(context.Context, string, []string, []string) error
 }
 
 // MigrateRuntimeContract installs the resolved Raids dependency closure for a
@@ -54,17 +48,23 @@ func (b *Bootstrapper) MigrateRuntimeContract(ctx context.Context, podDir string
 		return fmt.Errorf("local server bootstrap: missing environment: %s", strings.Join(missing, ", "))
 	}
 	var profile *ResourceEntry
+	var registrationToken *ResourceEntry
 	for i := range catalog.Resources {
 		entry := &catalog.Resources[i]
 		if entry.Kind == "RuntimeProfile" && entry.Name == defaultRuntimeProfileName {
 			profile = entry
-			break
+		}
+		if entry.Kind == "RegistrationToken" && entry.Name == defaultRegistrationTokenName {
+			registrationToken = entry
 		}
 	}
 	if profile == nil {
 		return fmt.Errorf("local server bootstrap: RuntimeProfile/%s is missing from the catalog", defaultRuntimeProfileName)
 	}
-	contractEntries := runtimeContractEntries(catalog, *profile)
+	if registrationToken == nil {
+		return fmt.Errorf("local server bootstrap: RegistrationToken/%s is missing from the catalog", defaultRegistrationTokenName)
+	}
+	contractEntries := runtimeContractEntries(catalog, *profile, *registrationToken)
 	executable, err := b.Executable()
 	if err != nil {
 		return err
@@ -100,31 +100,33 @@ func (b *Bootstrapper) MigrateRuntimeContract(ctx context.Context, podDir string
 			return fmt.Errorf("local server bootstrap: migrate %s/%s: %w", entry.Kind, entry.Name, err)
 		}
 	}
-	if err := b.createRegistrationToken(ctx, tempDir, podDir, executable, environment); err != nil {
-		return fmt.Errorf("local server bootstrap: migrate RegistrationToken/%s: %w", appRegistrationTokenName, err)
+	for _, name := range []string{appRegistrationTokenName, legacyRegistrationTokenName} {
+		if err := runBootstrapOperation(ctx, run, executable, []string{"admin", "registration-tokens", "delete", name, "--context", "local"}, environment); err != nil && !strings.Contains(err.Error(), "RESOURCE_NOT_FOUND:") {
+			return fmt.Errorf("local server bootstrap: retire RegistrationToken/%s: %w", name, err)
+		}
 	}
-	if err := runBootstrapOperation(ctx, run, executable, []string{"admin", "registration-tokens", "delete", legacyRegistrationTokenName, "--context", "local"}, environment); err != nil && !strings.Contains(err.Error(), "RESOURCE_NOT_FOUND:") {
-		return fmt.Errorf("local server bootstrap: retire RegistrationToken/%s: %w", legacyRegistrationTokenName, err)
+	if err := removeLegacyRegistrationTokenFile(podDir); err != nil {
+		return err
 	}
 	return nil
 }
 
-func runtimeContractEntries(catalog *Catalog, profile ResourceEntry) []ResourceEntry {
+func runtimeContractEntries(catalog *Catalog, profile, registrationToken ResourceEntry) []ResourceEntry {
 	entries := make([]ResourceEntry, 0, len(catalog.Resources))
 	for _, entry := range catalog.Resources {
-		if entry.Kind != "RuntimeProfile" {
+		if entry.Kind != "RuntimeProfile" && entry.Kind != "RegistrationToken" {
 			entries = append(entries, entry)
 		}
 	}
-	return append(entries, profile)
+	return append(entries, profile, registrationToken)
 }
 
-func (b *Bootstrapper) runtimeContractEntries(profile ResourceEntry) ([]ResourceEntry, error) {
+func (b *Bootstrapper) runtimeContractEntries(profile, registrationToken ResourceEntry) ([]ResourceEntry, error) {
 	catalog, err := b.catalog(context.Background())
 	if err != nil {
 		return nil, err
 	}
-	return runtimeContractEntries(catalog, profile), nil
+	return runtimeContractEntries(catalog, profile, registrationToken), nil
 }
 
 func prepareAdminWorkspace(podDir string) (string, []string, error) {
@@ -157,7 +159,8 @@ func prepareAdminWorkspace(podDir string) (string, []string, error) {
 	return tempDir, environment, nil
 }
 
-// Apply creates the resolved Raids resources followed by the local RuntimeProfile.
+// Apply creates the resolved Raids dependencies, RuntimeProfile, and
+// RegistrationToken in dependency order.
 func (b *Bootstrapper) Apply(ctx context.Context, podDir string, savedEnvironment map[string]string) error {
 	if b == nil || b.Executable == nil {
 		return fmt.Errorf("local server bootstrap: bootstrapper is not configured")
@@ -238,9 +241,14 @@ func (b *Bootstrapper) Apply(ctx context.Context, podDir string, savedEnvironmen
 	}
 	resources := make([]ResourceEntry, 0, len(catalog.Resources))
 	runtimeProfiles := make([]ResourceEntry, 0, 1)
+	registrationTokens := make([]ResourceEntry, 0, 1)
 	for _, entry := range catalog.Resources {
 		if entry.Kind == "RuntimeProfile" {
 			runtimeProfiles = append(runtimeProfiles, entry)
+			continue
+		}
+		if entry.Kind == "RegistrationToken" {
+			registrationTokens = append(registrationTokens, entry)
 			continue
 		}
 		resources = append(resources, entry)
@@ -254,7 +262,13 @@ func (b *Bootstrapper) Apply(ctx context.Context, podDir string, savedEnvironmen
 	if err := applyEntries("desktop-bootstrap-runtime-profiles", runtimeProfiles); err != nil {
 		return err
 	}
-	if err := b.createRegistrationToken(ctx, tempDir, podDir, executable, environment); err != nil {
+	if len(registrationTokens) != 1 || registrationTokens[0].Name != defaultRegistrationTokenName {
+		return fmt.Errorf("local server bootstrap: expected exactly one RegistrationToken/%s", defaultRegistrationTokenName)
+	}
+	if err := apply(registrationTokens[0]); err != nil {
+		return err
+	}
+	if err := removeLegacyRegistrationTokenFile(podDir); err != nil {
 		return err
 	}
 	return nil
@@ -294,114 +308,12 @@ func (b *Bootstrapper) catalog(ctx context.Context) (*Catalog, error) {
 	return catalog, nil
 }
 
-// RecoverRegistrationToken replaces the local Desktop token when an existing
-// Pod predates token handoff or its private handoff file has been lost. The raw
-// token cannot be recovered from server storage, so replacement is required.
-func (b *Bootstrapper) RecoverRegistrationToken(ctx context.Context, podDir string, _ map[string]string) error {
-	if b == nil || b.Executable == nil {
-		return fmt.Errorf("local server bootstrap: bootstrapper is not configured")
-	}
-	executable, err := b.Executable()
-	if err != nil {
-		return err
-	}
-	tempDir, err := os.MkdirTemp(podDir, ".registration-token-")
-	if err != nil {
-		return fmt.Errorf("local server bootstrap: create private token workspace: %w", err)
-	}
-	defer os.RemoveAll(tempDir)
-	if err := os.Chmod(tempDir, 0o700); err != nil {
-		return fmt.Errorf("local server bootstrap: secure private token workspace: %w", err)
-	}
-	configHome := filepath.Join(tempDir, "config")
-	contextDir := filepath.Join(configHome, "gizclaw", "local")
-	if err := os.MkdirAll(contextDir, 0o700); err != nil {
-		return fmt.Errorf("local server bootstrap: create Admin context: %w", err)
-	}
-	contextData, err := os.ReadFile(filepath.Join(podDir, "admin_context", "local", "config.yaml"))
-	if err != nil {
-		return fmt.Errorf("local server bootstrap: read generated Admin context: %w", err)
-	}
-	if err := os.WriteFile(filepath.Join(contextDir, "config.yaml"), contextData, 0o600); err != nil {
-		return fmt.Errorf("local server bootstrap: materialize Admin context: %w", err)
-	}
-
-	// A Pod that is already running has its Raids resource closure applied.
-	// Token replacement only uses its local Admin context, so it must remain
-	// possible when the Raids archive or its provider secrets are unavailable.
-	environment := mergedCommandEnvironment(nil)
-	environment = setCommandEnvironment(environment, "XDG_CONFIG_HOME", configHome)
-	environment = setCommandEnvironment(environment, "AppData", configHome)
-	run := b.Run
-	if run == nil {
-		run = runBootstrapCommand
-	}
-	if err := b.createRegistrationToken(ctx, tempDir, podDir, executable, environment); err != nil {
-		return fmt.Errorf("local server bootstrap: recover Play registration token: %w", err)
+func removeLegacyRegistrationTokenFile(podDir string) error {
+	tokenFile := filepath.Join(podDir, "workspace", legacyRegistrationTokenFile)
+	if err := os.Remove(tokenFile); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("local server bootstrap: remove obsolete RegistrationToken handoff: %w", err)
 	}
 	return nil
-}
-
-func (b *Bootstrapper) createRegistrationToken(ctx context.Context, tempDir, podDir, executable string, environment []string) error {
-	token, err := b.registrationToken()
-	if err != nil {
-		return fmt.Errorf("local server bootstrap: generate RegistrationToken: %w", err)
-	}
-	request := struct {
-		Name               string `json:"name"`
-		Token              string `json:"token"`
-		RuntimeProfileName string `json:"runtime_profile_name"`
-	}{
-		Name:               appRegistrationTokenName,
-		Token:              token,
-		RuntimeProfileName: defaultRuntimeProfileName,
-	}
-	data, err := json.Marshal(request)
-	if err != nil {
-		return fmt.Errorf("local server bootstrap: encode RegistrationToken request: %w", err)
-	}
-	requestFile := filepath.Join(tempDir, "registration-token.json")
-	if err := os.WriteFile(requestFile, data, 0o600); err != nil {
-		return fmt.Errorf("local server bootstrap: write RegistrationToken request: %w", err)
-	}
-	run := b.Run
-	if run == nil {
-		run = runBootstrapCommand
-	}
-	if err := runBootstrapOperation(ctx, run, executable, []string{"admin", "registration-tokens", "put", appRegistrationTokenName, "--context", "local", "-f", requestFile}, environment); err != nil {
-		return fmt.Errorf("local server bootstrap: put RegistrationToken/%s: %w", appRegistrationTokenName, err)
-	}
-	workspaceDir := filepath.Join(podDir, "workspace")
-	if err := os.MkdirAll(workspaceDir, 0o700); err != nil {
-		return fmt.Errorf("local server bootstrap: create private token directory: %w", err)
-	}
-	tokenFile := filepath.Join(workspaceDir, RegistrationTokenFile)
-	if err := os.WriteFile(tokenFile, []byte(token), 0o600); err != nil {
-		return fmt.Errorf("local server bootstrap: persist RegistrationToken: %w", err)
-	}
-	if err := os.Chmod(tokenFile, 0o600); err != nil {
-		return fmt.Errorf("local server bootstrap: secure RegistrationToken: %w", err)
-	}
-	return nil
-}
-
-func (b *Bootstrapper) registrationToken() (string, error) {
-	if b != nil && b.NewRegistrationToken != nil {
-		token, err := b.NewRegistrationToken()
-		if err != nil {
-			return "", err
-		}
-		token = strings.TrimSpace(token)
-		if token == "" {
-			return "", errors.New("generated token is empty")
-		}
-		return token, nil
-	}
-	value := make([]byte, 32)
-	if _, err := rand.Read(value); err != nil {
-		return "", err
-	}
-	return base64.RawURLEncoding.EncodeToString(value), nil
 }
 
 func (b *Bootstrapper) extractResourceList(catalog *Catalog, root, name string, entries []ResourceEntry) (string, error) {

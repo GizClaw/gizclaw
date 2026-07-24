@@ -128,7 +128,7 @@ func TestRemotePodPreservesWriteOnlyKeysAndHandsAdminAllServers(t *testing.T) {
 	}
 }
 
-func TestLocalPlayRuntimeHandsOffRegistrationTokenWithoutPuttingItInURL(t *testing.T) {
+func TestLocalPlayRuntimeUsesResolvedRegistrationTokenWithoutPuttingItInURL(t *testing.T) {
 	paths := appconfig.NewPaths(t.TempDir())
 	if err := paths.Ensure(); err != nil {
 		t.Fatal(err)
@@ -148,19 +148,22 @@ func TestLocalPlayRuntimeHandsOffRegistrationTokenWithoutPuttingItInURL(t *testi
 	if err := store.Save(pod); err != nil {
 		t.Fatal(err)
 	}
-	tokenPath := filepath.Join(paths.PodsDir, pod.ID, "workspace", localserver.RegistrationTokenFile)
-	if err := os.WriteFile(tokenPath, []byte("local-registration-secret"), 0o600); err != nil {
-		t.Fatal(err)
+	bridge := &PodBridge{
+		Paths:   paths,
+		Store:   store,
+		Catalog: &localserver.Catalog{DefaultRegistrationToken: "public-registration-token"},
+		Health:  endpointhealth.New(),
+		Local:   localserver.New(),
+		WebUI:   web,
 	}
-	bridge := &PodBridge{Paths: paths, Store: store, Health: endpointhealth.New(), Local: localserver.New(), WebUI: web}
-	if summary := bridge.summary(pod); summary.RegistrationToken != "local-registration-secret" {
+	if summary := bridge.summary(pod); summary.RegistrationToken != "public-registration-token" {
 		t.Fatalf("local share RegistrationToken = %q", summary.RegistrationToken)
 	}
 	launch, err := bridge.PlayURL(context.Background(), pod.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(launch, "local-registration-secret") {
+	if strings.Contains(launch, "public-registration-token") {
 		t.Fatal("Play URL contains the RegistrationToken")
 	}
 	parsed, _ := url.Parse(launch)
@@ -176,12 +179,15 @@ func TestLocalPlayRuntimeHandsOffRegistrationTokenWithoutPuttingItInURL(t *testi
 	if err := json.NewDecoder(response.Body).Decode(&runtime); err != nil {
 		t.Fatal(err)
 	}
-	if runtime.RegistrationToken != "local-registration-secret" {
+	if runtime.RegistrationToken != "public-registration-token" {
 		t.Fatalf("Play RegistrationToken = %q", runtime.RegistrationToken)
+	}
+	if _, err := os.Stat(filepath.Join(paths.PodsDir, pod.ID, "workspace", "registration-token")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("local Play persisted a RegistrationToken handoff: %v", err)
 	}
 }
 
-func TestLocalPlayRuntimeRecoversMissingRegistrationToken(t *testing.T) {
+func TestLocalPlayRuntimeRejectsMissingResolvedRegistrationToken(t *testing.T) {
 	paths := appconfig.NewPaths(t.TempDir())
 	if err := paths.Ensure(); err != nil {
 		t.Fatal(err)
@@ -201,29 +207,16 @@ func TestLocalPlayRuntimeRecoversMissingRegistrationToken(t *testing.T) {
 	if err := store.Save(pod); err != nil {
 		t.Fatal(err)
 	}
-	bootstrapper := &fakeLocalPodBootstrapper{recoveryToken: "recovered-registration-secret"}
 	bridge := &PodBridge{
-		Paths:                paths,
-		Store:                store,
-		BootstrapEnvironment: appconfig.BootstrapEnvironmentStore{Path: paths.BootstrapEnvFile},
-		Bootstrapper:         bootstrapper,
-		Health:               endpointhealth.New(),
-		Local:                localserver.New(),
-		WebUI:                web,
+		Paths:   paths,
+		Store:   store,
+		Catalog: &localserver.Catalog{},
+		Health:  endpointhealth.New(),
+		Local:   localserver.New(),
+		WebUI:   web,
 	}
-	if _, err := bridge.PlayURL(context.Background(), pod.ID); err != nil {
-		t.Fatal(err)
-	}
-	if !bootstrapper.recoveryCalled.Load() {
-		t.Fatal("PlayURL did not recover the missing RegistrationToken")
-	}
-	tokenPath := filepath.Join(paths.PodsDir, pod.ID, "workspace", localserver.RegistrationTokenFile)
-	token, err := os.ReadFile(tokenPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(token) != "recovered-registration-secret" {
-		t.Fatalf("recovered RegistrationToken = %q", token)
+	if _, err := bridge.PlayURL(context.Background(), pod.ID); err == nil || !strings.Contains(err.Error(), "resolved local RegistrationToken is empty") {
+		t.Fatalf("PlayURL() error = %v", err)
 	}
 }
 
@@ -254,19 +247,21 @@ func TestLegacyStoppedLocalPlayMigratesBeforeTokenHandoff(t *testing.T) {
 		IdentitiesInitialized: true,
 		LocalServer:           &appconfig.LocalServer{Port: port, AdminPrivateKey: bridgeTestKey(t, 0x78)},
 		ClientPrivateKey:      bridgeTestKey(t, 0x79),
+		RegistrationToken:     "legacy-persisted-token",
 	}
 	store := appconfig.Store{Paths: paths}
 	if err := store.Save(pod); err != nil {
 		t.Fatal(err)
 	}
-	tokenPath := filepath.Join(paths.PodsDir, pod.ID, "workspace", localserver.RegistrationTokenFile)
+	tokenPath := filepath.Join(paths.PodsDir, pod.ID, "workspace", "registration-token")
 	if err := os.WriteFile(tokenPath, []byte("legacy-registration-secret"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	bootstrapper := &fakeLocalPodBootstrapper{migrationToken: "migrated-registration-secret"}
+	bootstrapper := &fakeLocalPodBootstrapper{}
 	b := &PodBridge{
 		Paths:          paths,
 		Store:          store,
+		Catalog:        &localserver.Catalog{DefaultRegistrationToken: "public-registration-token"},
 		Bootstrapper:   bootstrapper,
 		WaitLocalReady: func(context.Context, string, int) error { return nil },
 		Health:         endpointhealth.New(),
@@ -290,12 +285,14 @@ func TestLegacyStoppedLocalPlayMigratesBeforeTokenHandoff(t *testing.T) {
 	if loaded.LocalCatalogVersion != appconfig.LocalCatalogVersion {
 		t.Fatalf("local catalog version = %d", loaded.LocalCatalogVersion)
 	}
-	token, err := os.ReadFile(tokenPath)
-	if err != nil {
-		t.Fatal(err)
+	if loaded.RegistrationToken != "" {
+		t.Fatalf("migrated local pod retained RegistrationToken in pod.json")
 	}
-	if string(token) != "migrated-registration-secret" || strings.Contains(launch, string(token)) {
-		t.Fatalf("migrated token = %q, launch = %q", token, launch)
+	if _, err := os.Stat(tokenPath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("obsolete token handoff still exists: %v", err)
+	}
+	if strings.Contains(launch, "public-registration-token") {
+		t.Fatalf("launch URL contains public RegistrationToken: %q", launch)
 	}
 	stopCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -677,41 +674,56 @@ type fakeLocalPodBootstrapper struct {
 	err             error
 	migrationCalled atomic.Bool
 	migrationErr    error
-	migrationToken  string
 	migrationEnv    map[string]string
-	recoveryCalled  atomic.Bool
-	recoveryErr     error
-	recoveryToken   string
 	started         chan struct{}
 	release         chan struct{}
 	once            sync.Once
 }
 
+func TestFailedLocalRuntimeMigrationKeepsOldCatalogVersion(t *testing.T) {
+	paths := appconfig.NewPaths(t.TempDir())
+	if err := paths.Ensure(); err != nil {
+		t.Fatal(err)
+	}
+	pod := appconfig.Pod{
+		Version:             appconfig.PodVersion,
+		ID:                  "failed-runtime-migration",
+		Name:                "Failed Migration",
+		LocalCatalogVersion: appconfig.LocalCatalogVersion - 1,
+		LocalServer:         &appconfig.LocalServer{Port: 19822},
+		RegistrationToken:   "legacy-persisted-token",
+	}
+	store := appconfig.Store{Paths: paths}
+	if err := store.Save(pod); err != nil {
+		t.Fatal(err)
+	}
+	bridge := &PodBridge{
+		Paths:        paths,
+		Store:        store,
+		Bootstrapper: &fakeLocalPodBootstrapper{migrationErr: errors.New("cleanup failed")},
+	}
+	if err := bridge.migrateLocalRuntimeContract(context.Background(), pod.ID); err == nil {
+		t.Fatal("migrateLocalRuntimeContract() error = nil")
+	}
+	loaded, err := store.Load(pod.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.LocalCatalogVersion != appconfig.LocalCatalogVersion-1 {
+		t.Fatalf("failed migration catalog version = %d", loaded.LocalCatalogVersion)
+	}
+	if loaded.RegistrationToken != "legacy-persisted-token" {
+		t.Fatalf("failed migration changed persisted token = %q", loaded.RegistrationToken)
+	}
+}
+
 func (f *fakeLocalPodBootstrapper) MigrateRuntimeContract(_ context.Context, podDir string, environment map[string]string) error {
 	f.migrationCalled.Store(true)
 	f.migrationEnv = maps.Clone(environment)
-	if f.migrationToken != "" {
-		workspaceDir := filepath.Join(podDir, "workspace")
-		if err := os.MkdirAll(workspaceDir, 0o700); err != nil {
-			return err
-		}
-		if err := os.WriteFile(filepath.Join(workspaceDir, localserver.RegistrationTokenFile), []byte(f.migrationToken), 0o600); err != nil {
-			return err
-		}
-	}
-	return f.migrationErr
-}
-
-func (f *fakeLocalPodBootstrapper) RecoverRegistrationToken(_ context.Context, podDir string, _ map[string]string) error {
-	f.recoveryCalled.Store(true)
-	if f.recoveryErr != nil {
-		return f.recoveryErr
-	}
-	workspaceDir := filepath.Join(podDir, "workspace")
-	if err := os.MkdirAll(workspaceDir, 0o700); err != nil {
+	if err := os.Remove(filepath.Join(podDir, "workspace", "registration-token")); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
-	return os.WriteFile(filepath.Join(workspaceDir, localserver.RegistrationTokenFile), []byte(f.recoveryToken), 0o600)
+	return f.migrationErr
 }
 
 func (f *fakeLocalPodBootstrapper) Apply(ctx context.Context, _ string, _ map[string]string) error {

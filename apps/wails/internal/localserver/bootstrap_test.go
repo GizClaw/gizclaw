@@ -2,7 +2,6 @@ package localserver
 
 import (
 	"context"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"os"
@@ -11,25 +10,9 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
-
-	desktopresources "github.com/GizClaw/gizclaw-go/apps/wails/resources"
 )
 
-func TestBootstrapperGeneratesURLSafeRegistrationTokenFrom32Bytes(t *testing.T) {
-	token, err := (&Bootstrapper{}).registrationToken()
-	if err != nil {
-		t.Fatal(err)
-	}
-	decoded, err := base64.RawURLEncoding.DecodeString(token)
-	if err != nil {
-		t.Fatalf("registration token is not raw URL-safe base64: %v", err)
-	}
-	if len(decoded) != 32 {
-		t.Fatalf("registration token bytes = %d, want 32", len(decoded))
-	}
-}
-
-func TestBootstrapperAppliesResourcesThenRuntimeProfileAndConfiguresRegistrationToken(t *testing.T) {
+func TestBootstrapperAppliesResourcesThenRuntimeProfileAndRegistrationToken(t *testing.T) {
 	podDir := t.TempDir()
 	contextDir := filepath.Join(podDir, "admin_context", "local")
 	if err := os.MkdirAll(contextDir, 0o700); err != nil {
@@ -44,12 +27,14 @@ func TestBootstrapperAppliesResourcesThenRuntimeProfileAndConfiguresRegistration
 			"resources/00-credentials/a.yaml":               {Data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: Credential\nmetadata:\n  name: a\n")},
 			"resources/00-credentials/b.yaml":               {Data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: Credential\nmetadata:\n  name: b\n")},
 			"resources/07-runtime-profiles/00-default.yaml": {Data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: RuntimeProfile\nmetadata:\n  name: default\n")},
+			"resources/08-registration-tokens/default.yaml": {Data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: RegistrationToken\nmetadata:\n  name: default-runtime\nspec:\n  token: public-token\n  runtime_profile_name: default\n")},
 			"assets/pets/a.pixa":                            {Data: []byte("pet")},
 		},
 		Resources: []ResourceEntry{
 			{Path: "resources/00-credentials/a.yaml", Kind: "Credential", Name: "a"},
 			{Path: "resources/00-credentials/b.yaml", Kind: "Credential", Name: "b"},
 			{Path: "resources/07-runtime-profiles/00-default.yaml", Kind: "RuntimeProfile", Name: "default"},
+			{Path: "resources/08-registration-tokens/default.yaml", Kind: "RegistrationToken", Name: "default-runtime"},
 		},
 		Requirements: []EnvironmentRequirement{
 			{Name: "BOOTSTRAP_SAVED"},
@@ -94,7 +79,7 @@ func TestBootstrapperAppliesResourcesThenRuntimeProfileAndConfiguresRegistration
 				if err != nil {
 					t.Fatal(err)
 				}
-				if !strings.Contains(string(data), "kind: ResourceList") {
+				if !strings.Contains(string(data), "kind: ResourceList") && !strings.Contains(string(data), "kind: RegistrationToken") {
 					t.Fatalf("batched apply document = %s", data)
 				}
 				if strings.Contains(args[len(args)-1], "desktop-bootstrap-resources") {
@@ -104,19 +89,17 @@ func TestBootstrapperAppliesResourcesThenRuntimeProfileAndConfiguresRegistration
 					}
 				}
 			}
-			if len(args) >= 3 && args[0] == "admin" && args[1] == "registration-tokens" && args[2] == "put" {
-				request, err := os.ReadFile(args[len(args)-1])
-				if err != nil {
-					t.Fatal(err)
-				}
-				if got := string(request); !strings.Contains(got, `"name":"app:com.gizclaw.opensource"`) || !strings.Contains(got, `"token":"registration-token"`) || strings.Contains(got, `"firmware_name"`) || !strings.Contains(got, `"runtime_profile_name":"default"`) {
-					t.Fatalf("RegistrationToken request = %s", got)
-				}
-			}
 			checkCommand(executable, args, environment)
 			return nil
 		},
-		NewRegistrationToken: func() (string, error) { return "registration-token", nil },
+	}
+	workspaceDir := filepath.Join(podDir, "workspace")
+	if err := os.MkdirAll(workspaceDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	tokenPath := filepath.Join(workspaceDir, legacyRegistrationTokenFile)
+	if err := os.WriteFile(tokenPath, []byte("legacy-token"), 0o600); err != nil {
+		t.Fatal(err)
 	}
 	if err := bootstrapper.Apply(context.Background(), podDir, map[string]string{"BOOTSTRAP_SAVED": "desktop"}); err != nil {
 		t.Fatal(err)
@@ -133,100 +116,11 @@ func TestBootstrapperAppliesResourcesThenRuntimeProfileAndConfiguresRegistration
 	if !strings.Contains(commands[2], "admin apply") {
 		t.Fatalf("RuntimeProfile apply = %q", commands[2])
 	}
-	if !strings.Contains(commands[3], "registration-tokens put app:com.gizclaw.opensource --context local") {
+	if !strings.Contains(commands[3], "admin apply") {
 		t.Fatalf("RegistrationToken command = %q", commands[3])
 	}
-	tokenPath := filepath.Join(podDir, "workspace", RegistrationTokenFile)
-	token, err := os.ReadFile(tokenPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(token) != "registration-token" {
-		t.Fatalf("registration token = %q", token)
-	}
-	info, err := os.Stat(tokenPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if info.Mode().Perm() != 0o600 {
-		t.Fatalf("registration token mode = %o", info.Mode().Perm())
-	}
-}
-
-func TestBootstrapperRecoversRegistrationTokenWithoutReapplyingCatalog(t *testing.T) {
-	podDir := t.TempDir()
-	contextDir := filepath.Join(podDir, "admin_context", "local")
-	if err := os.MkdirAll(contextDir, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(contextDir, "config.yaml"), []byte("context"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	var commands []string
-	resolverCalled := false
-	bootstrapper := &Bootstrapper{
-		Resolver: catalogResolverFunc(func(context.Context) (*Catalog, error) {
-			resolverCalled = true
-			return nil, errors.New("Raids archive is unavailable")
-		}),
-		Executable: func() (string, error) { return "/fake/gizclaw", nil },
-		Run: func(_ context.Context, _ string, args, _ []string) error {
-			commands = append(commands, strings.Join(args, " "))
-			return nil
-		},
-		NewRegistrationToken: func() (string, error) { return "replacement-token", nil },
-	}
-	if err := bootstrapper.RecoverRegistrationToken(context.Background(), podDir, nil); err != nil {
-		t.Fatal(err)
-	}
-	if resolverCalled {
-		t.Fatal("token recovery resolved the Raids catalog")
-	}
-	if len(commands) != 1 || !strings.Contains(commands[0], "registration-tokens put app:com.gizclaw.opensource") {
-		t.Fatalf("recovery commands = %v", commands)
-	}
-	token, err := os.ReadFile(filepath.Join(podDir, "workspace", RegistrationTokenFile))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(token) != "replacement-token" {
-		t.Fatalf("replacement token = %q", token)
-	}
-}
-
-func TestBootstrapperFailedRegistrationTokenPutPreservesHandoffFile(t *testing.T) {
-	podDir := t.TempDir()
-	contextDir := filepath.Join(podDir, "admin_context", "local")
-	if err := os.MkdirAll(contextDir, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(contextDir, "config.yaml"), []byte("context"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	workspaceDir := filepath.Join(podDir, "workspace")
-	if err := os.MkdirAll(workspaceDir, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	tokenFile := filepath.Join(workspaceDir, RegistrationTokenFile)
-	if err := os.WriteFile(tokenFile, []byte("existing-token"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	bootstrapper := &Bootstrapper{
-		Executable: func() (string, error) { return "/fake/gizclaw", nil },
-		Run: func(context.Context, string, []string, []string) error {
-			return errors.New("INVALID_RESOURCE")
-		},
-		NewRegistrationToken: func() (string, error) { return "replacement-token", nil },
-	}
-	if err := bootstrapper.RecoverRegistrationToken(context.Background(), podDir, nil); err == nil {
-		t.Fatal("RecoverRegistrationToken() error = nil")
-	}
-	token, err := os.ReadFile(tokenFile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(token) != "existing-token" {
-		t.Fatalf("handoff token = %q, want existing-token", token)
+	if _, err := os.Stat(tokenPath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("obsolete RegistrationToken handoff still exists: %v", err)
 	}
 }
 
@@ -250,12 +144,14 @@ func TestBootstrapperMigratesDependencyClosureBeforeDefaultRuntimeProfile(t *tes
 			"resources/00-credentials/a.yaml":               {Data: []byte("kind: Credential\nmetadata: {name: a}\n")},
 			"resources/04-workflows/00-referenced.yaml":     {Data: []byte("kind: Workflow\nmetadata: {name: referenced}\n")},
 			"resources/07-runtime-profiles/00-default.yaml": {Data: []byte("kind: RuntimeProfile\nmetadata: {name: default}\nspec:\n  workflows:\n    collections:\n      assistants:\n        demo: {resource_id: referenced}\n")},
+			"resources/08-registration-tokens/default.yaml": {Data: []byte("kind: RegistrationToken\nmetadata: {name: default-runtime}\nspec: {token: public-token, runtime_profile_name: default}\n")},
 			"assets/pets/a.pixa":                            {Data: []byte("pet")},
 		},
 		Resources: []ResourceEntry{
 			{Path: "resources/00-credentials/a.yaml", Kind: "Credential", Name: "a"},
 			{Path: "resources/04-workflows/00-referenced.yaml", Kind: "Workflow", Name: "referenced"},
 			{Path: "resources/07-runtime-profiles/00-default.yaml", Kind: "RuntimeProfile", Name: "default"},
+			{Path: "resources/08-registration-tokens/default.yaml", Kind: "RegistrationToken", Name: "default-runtime"},
 		},
 		Requirements: []EnvironmentRequirement{{Name: "RAIDS_TOKEN"}},
 		PetDefPIXAs:  []PetDefPIXA{{PetDef: "pet-a", PIXA: "assets/pets/a.pixa"}},
@@ -283,6 +179,8 @@ func TestBootstrapperMigratesDependencyClosureBeforeDefaultRuntimeProfile(t *tes
 					applied = append(applied, "Credential/a")
 				case strings.Contains(string(data), "name: referenced"):
 					applied = append(applied, "Workflow/referenced")
+				case strings.Contains(string(data), "name: default-runtime"):
+					applied = append(applied, "RegistrationToken/default-runtime")
 				case strings.Contains(string(data), "name: default"):
 					applied = append(applied, "RuntimeProfile/default")
 				default:
@@ -291,42 +189,47 @@ func TestBootstrapperMigratesDependencyClosureBeforeDefaultRuntimeProfile(t *tes
 			}
 			return nil
 		},
-		NewRegistrationToken: func() (string, error) { return "migrated-token", nil },
+	}
+	workspaceDir := filepath.Join(podDir, "workspace")
+	if err := os.MkdirAll(workspaceDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	tokenPath := filepath.Join(workspaceDir, legacyRegistrationTokenFile)
+	if err := os.WriteFile(tokenPath, []byte("legacy-token"), 0o600); err != nil {
+		t.Fatal(err)
 	}
 	if err := bootstrapper.MigrateRuntimeContract(context.Background(), podDir, map[string]string{"RAIDS_TOKEN": "saved-token"}); err != nil {
 		t.Fatal(err)
 	}
-	if got := strings.Join(applied, ","); got != "Credential/a,Workflow/referenced,RuntimeProfile/default" {
+	if got := strings.Join(applied, ","); got != "Credential/a,Workflow/referenced,RuntimeProfile/default,RegistrationToken/default-runtime" {
 		t.Fatalf("migration applied = %s", got)
 	}
-	if len(commands) != 7 || !strings.Contains(commands[0], "admin apply") || !strings.Contains(commands[1], "admin apply") || !strings.Contains(commands[2], "admin pet-defs upload-pixa pet-a") || !strings.Contains(commands[3], "runtime-profiles delete default") || !strings.Contains(commands[4], "admin apply") || !strings.Contains(commands[5], "registration-tokens put app:com.gizclaw.opensource") || !strings.Contains(commands[6], "registration-tokens delete desktop-local") {
+	if len(commands) != 8 || !strings.Contains(commands[0], "admin apply") || !strings.Contains(commands[1], "admin apply") || !strings.Contains(commands[2], "admin pet-defs upload-pixa pet-a") || !strings.Contains(commands[3], "runtime-profiles delete default") || !strings.Contains(commands[4], "admin apply") || !strings.Contains(commands[5], "admin apply") || !strings.Contains(commands[6], "registration-tokens delete app:com.gizclaw.opensource") || !strings.Contains(commands[7], "registration-tokens delete desktop-local") {
 		t.Fatalf("migration commands = %v", commands)
 	}
-	token, err := os.ReadFile(filepath.Join(podDir, "workspace", RegistrationTokenFile))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(token) != "migrated-token" {
-		t.Fatalf("migration token = %q", token)
+	if _, err := os.Stat(tokenPath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("obsolete RegistrationToken handoff still exists: %v", err)
 	}
 }
 
-func TestRuntimeContractEntriesUseBundledProfileReferences(t *testing.T) {
-	source, err := desktopresources.LocalServer()
-	if err != nil {
-		t.Fatal(err)
-	}
+func TestRuntimeContractEntriesPutProfileAndTokenLast(t *testing.T) {
 	profile := ResourceEntry{
 		Path: "resources/07-runtime-profiles/00-default.yaml",
 		Kind: "RuntimeProfile",
 		Name: defaultRuntimeProfileName,
 	}
-	catalog := &Catalog{FS: source, Resources: []ResourceEntry{profile}}
-	entries, err := (&Bootstrapper{Catalog: catalog}).runtimeContractEntries(profile)
+	token := ResourceEntry{
+		Path: "resources/08-registration-tokens/default.yaml",
+		Kind: "RegistrationToken",
+		Name: defaultRegistrationTokenName,
+	}
+	dependency := ResourceEntry{Path: "resources/04-workflows/example.yaml", Kind: "Workflow", Name: "example"}
+	catalog := &Catalog{FS: fstest.MapFS{}, Resources: []ResourceEntry{token, profile, dependency}}
+	entries, err := (&Bootstrapper{Catalog: catalog}).runtimeContractEntries(profile, token)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(entries) != 1 || entries[len(entries)-1] != profile {
+	if len(entries) != 3 || entries[0] != dependency || entries[1] != profile || entries[2] != token {
 		t.Fatalf("runtime contract entries = %#v", entries)
 	}
 }

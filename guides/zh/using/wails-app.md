@@ -16,8 +16,10 @@ private key。
 - 本地 Pod：桌面版维护一个本地 Server，端口在创建后保持稳定；Server 对
   LAN 监听，Admin 和 Play 仍从本机连接。正面二维码用于在其他 GizClaw App
   添加该 Server，并用本地 App registration token 完成注册。新建本地 Pod 只包含
-  `RuntimeProfile/default`，动态创建 `RegistrationToken/app:com.gizclaw.opensource`，
-  由 Desktop 在本地生成配置值并绑定到 `RuntimeProfile/default`，不创建 Firmware。
+  Raids `v0.2.2` 的 `RuntimeProfile/default` 与
+  `RegistrationToken/default-runtime`，Desktop 不再生成另一份本地 token，也不创建
+  Firmware。任何能访问 LAN endpoint 并知道公开 UUID 的 Peer 都可以尝试注册到 default
+  profile；Admin 访问仍需要独立 Admin identity。
   背面可启动、停止和重启 Server，并打开 Admin 或 Play。
 - 远程 Pod：配置零个或多个 Server 和一个 Access Point。Admin 按 Server 使用各自
   identity；Play 使用 Pod 级 Client identity 连接 Access Point。正面二维码分享
@@ -43,16 +45,16 @@ Renderer/WebView 可以读取文件全文和已保存值；只来自启动进程
 缺少必填值时仍可管理现有 Pod 或创建远程 Pod，但不能创建本地 Pod。补齐后创建
 本地 Pod 会在 manifest 和投影保存后立即回到首页。Pod 卡片显示“正在初始化数据”；
 点开后可查看持续更新的初始化状态，也可以关闭详情稍后再看。后台任务会启动新的
-Server、下载或复用私有缓存的 Raids `v0.2.1` archive，apply 当前 RuntimeProfile 所选的
+Server、下载或复用私有缓存的 Raids `v0.2.2` archive，apply 当前 RuntimeProfile 所选的
 Credential/Tenant/Model/Voice/Workflow/PetDef，上传匹配的内置 PIXA 二进制，再 apply
-唯一的 `RuntimeProfile/default`。全部完成后详情自动切换为正常界面。
+唯一的 `RuntimeProfile/default` 与 `RegistrationToken/default-runtime`。全部完成后详情自动切换为正常界面。
 
 初始化失败会停止 Server，并在 Pod 详情中保留脱敏错误、目录入口和删除操作。退出
 Desktop 或崩溃时仍在初始化的 Pod 会在下次启动时清理；已经成功创建的 Pod 在
 Desktop 或 Server 重启时不会重放完整 catalog，因此用户后续修改和删除的资源会保留。
-旧版 local Pod 会在 Server ready 后执行一次兼容迁移，只安装
-`RuntimeProfile/default`、轮换固定 App RegistrationToken 并删除旧 Desktop token，不改动
-其他资源。若 Desktop 恢复到旧版 Server 进程，会先使用当前 companion 重启；旧翻译
+旧版 local Pod 会在 Server ready 后执行一次兼容迁移：安装 Raids 依赖与 PIXA、替换
+`RuntimeProfile/default`、apply `RegistrationToken/default-runtime`，再删除两个旧
+Desktop token 与 workspace handoff 文件，不改动其他资源。若 Desktop 恢复到旧版 Server 进程，会先使用当前 companion 重启；旧翻译
 alias 会继续保留，已有 Workspace 不需要重建。
 迁移完成前分享页不会展示旧 token 的二维码；点击打开 Play 会自动启动当前 Server、
 完成迁移并交付新 token。

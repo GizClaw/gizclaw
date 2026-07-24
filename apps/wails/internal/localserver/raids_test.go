@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -149,8 +150,11 @@ func TestRaidsResolverCachesValidatedArchive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(first.Resources) != 2 || first.Resources[0].Kind != "Workflow" || first.Resources[1].Kind != "RuntimeProfile" {
+	if len(first.Resources) != 3 || first.Resources[0].Kind != "Workflow" || first.Resources[1].Kind != "RuntimeProfile" || first.Resources[2].Kind != "RegistrationToken" {
 		t.Fatalf("first catalog = %#v", first.Resources)
+	}
+	if first.DefaultRegistrationToken != expectedDefaultRegistrationToken {
+		t.Fatalf("default RegistrationToken = %q", first.DefaultRegistrationToken)
 	}
 	server.Close()
 
@@ -164,6 +168,60 @@ func TestRaidsResolverCachesValidatedArchive(t *testing.T) {
 	}
 	if got := downloads.Load(); got != 1 {
 		t.Fatalf("downloads = %d, want 1", got)
+	}
+}
+
+func TestBuildRaidsCatalogRejectsInvalidDefaultContract(t *testing.T) {
+	validProfile := testRuntimeProfileFS()["resources/07-runtime-profiles/00-default.yaml"].Data
+	validToken := []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: RegistrationToken\nmetadata:\n  name: default-runtime\nspec:\n  token: " + expectedDefaultRegistrationToken + "\n  runtime_profile_name: default\n")
+	tests := []struct {
+		name    string
+		profile []byte
+		token   []byte
+		extra   map[string][]byte
+		want    string
+	}{
+		{name: "missing profile", token: validToken, want: "RuntimeProfile/default is missing"},
+		{name: "missing token", profile: validProfile, want: "RegistrationToken/default-runtime is missing"},
+		{
+			name:    "wrong token identity",
+			profile: validProfile,
+			token:   bytes.ReplaceAll(validToken, []byte("name: default-runtime"), []byte("name: another-runtime")),
+			want:    "RegistrationToken/default-runtime is missing",
+		},
+		{
+			name:    "wrong token value",
+			profile: validProfile,
+			token:   bytes.ReplaceAll(validToken, []byte(expectedDefaultRegistrationToken), []byte("wrong-token")),
+			want:    "unexpected public token",
+		},
+		{
+			name:    "wrong profile target",
+			profile: validProfile,
+			token:   bytes.ReplaceAll(validToken, []byte("runtime_profile_name: default"), []byte("runtime_profile_name: another")),
+			want:    "targets RuntimeProfile/another",
+		},
+		{
+			name:    "unresolved profile dependency",
+			profile: bytes.ReplaceAll(validProfile, []byte(": chatroom"), []byte(": missing-workflow")),
+			token:   validToken,
+			want:    "references missing Raids Workflow/missing-workflow",
+		},
+		{
+			name:    "duplicate token identity",
+			profile: validProfile,
+			token:   validToken,
+			extra:   map[string][]byte{"registration-tokens/duplicate.yaml": validToken},
+			want:    "duplicate RegistrationToken/default-runtime",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			archive := testMinimalRaidsArchiveWithRoots(t, test.profile, test.token, test.extra)
+			if _, err := buildRaidsCatalog(testRuntimeProfileFS(), archive); err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("buildRaidsCatalog() error = %v, want %q", err, test.want)
+			}
+		})
 	}
 }
 
@@ -335,12 +393,39 @@ func testRuntimeProfileFS() fstest.MapFS {
 
 func testMinimalRaidsArchive(t *testing.T) []byte {
 	t.Helper()
+	profile := testRuntimeProfileFS()["resources/07-runtime-profiles/00-default.yaml"].Data
+	token := []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: RegistrationToken\nmetadata:\n  name: default-runtime\nspec:\n  token: " + expectedDefaultRegistrationToken + "\n  runtime_profile_name: default\n")
+	return testMinimalRaidsArchiveWithRoots(t, profile, token, nil)
+}
+
+func testMinimalRaidsArchiveWithRoots(t *testing.T, profile, token []byte, extra map[string][]byte) []byte {
+	t.Helper()
 	workflow := []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: Workflow\nmetadata:\n  name: chatroom\nspec:\n  driver: chatroom\n  chatroom:\n    history: {}\n")
-	return testRaidsArchive(t, []tar.Header{
+	headers := []tar.Header{
 		{Name: "raids-0.2/", Typeflag: tar.TypeDir},
 		{Name: "raids-0.2/README.md", Mode: 0o600, Size: 4},
 		{Name: "raids-0.2/workflows/chatroom/social.yaml", Mode: 0o600, Size: int64(len(workflow))},
-	}, [][]byte{nil, []byte("test"), workflow})
+	}
+	contents := [][]byte{nil, []byte("test"), workflow}
+	if profile != nil {
+		headers = append(headers, tar.Header{Name: "raids-0.2/runtime-profiles/default.yaml", Mode: 0o600, Size: int64(len(profile))})
+		contents = append(contents, profile)
+	}
+	if token != nil {
+		headers = append(headers, tar.Header{Name: "raids-0.2/registration-tokens/default.yaml", Mode: 0o600, Size: int64(len(token))})
+		contents = append(contents, token)
+	}
+	names := make([]string, 0, len(extra))
+	for name := range extra {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		data := extra[name]
+		headers = append(headers, tar.Header{Name: "raids-0.2/" + name, Mode: 0o600, Size: int64(len(data))})
+		contents = append(contents, data)
+	}
+	return testRaidsArchive(t, headers, contents)
 }
 
 func testRaidsArchive(t *testing.T, headers []tar.Header, contents [][]byte) []byte {
