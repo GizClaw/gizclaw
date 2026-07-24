@@ -1093,7 +1093,7 @@ void main() {
 
     expect(
       find.byKey(const ValueKey('server-registration-token-field')),
-      findsNothing,
+      findsOneWidget,
     );
     await tester.enterText(
       find.byKey(const ValueKey('server-name-field')),
@@ -1103,6 +1103,10 @@ void main() {
       find.byKey(const ValueKey('server-access-point-field')),
       'office.local:9820',
     );
+    await tester.enterText(
+      find.byKey(const ValueKey('server-registration-token-field')),
+      'registration-secret',
+    );
     tester
         .widget<CupertinoButton>(find.byKey(const ValueKey('add-server')))
         .onPressed!();
@@ -1111,6 +1115,7 @@ void main() {
     expect(find.byType(ServerListPage), findsOneWidget);
     expect(controller.addedName, 'Office');
     expect(controller.addedAccessPoint, 'office.local:9820');
+    expect(controller.addedRegistrationToken, 'registration-secret');
   });
 
   appTestWidgets('opens real friend connection controls', (tester) async {
@@ -1647,6 +1652,7 @@ class _OnboardingServerController extends MobileDataController {
 class _ImmediateAddServerController extends _ServerListTestController {
   String? addedName;
   String? addedAccessPoint;
+  String? addedRegistrationToken;
 
   @override
   Future<void> addServer({
@@ -1656,6 +1662,7 @@ class _ImmediateAddServerController extends _ServerListTestController {
   }) async {
     addedName = name;
     addedAccessPoint = accessPoint;
+    addedRegistrationToken = registrationToken;
   }
 }
 

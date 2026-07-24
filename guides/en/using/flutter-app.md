@@ -8,7 +8,8 @@ renders the compatible dynamic Workflow aliases supplied by the active RuntimePr
 Workflow creates a Workspace with that `collection` and `workflow_alias`, then enters it directly;
 the App does not ask the user to select a concrete Model or Voice.
 
-Scanning a Desktop local Pod QR stores its registration token in per-Server application storage
-and registers the connection into `RuntimeProfile/default`. The App uses the fixed application token
-identity `app:com.gizclaw.opensource`; it does not expose arbitrary RegistrationToken editing or
-selection. Rescanning the same Server may replace the stored token after Desktop updates the resource.
+When adding a Server, users can enter an optional registration token or scan a Desktop local Pod QR
+that contains one. The App stores tokens per Server in secure storage and registers the connection
+into `RuntimeProfile/default`. The App uses the fixed application token identity
+`app:com.gizclaw.opensource`. Rescanning the same Server may replace the stored token after Desktop
+updates the resource.
