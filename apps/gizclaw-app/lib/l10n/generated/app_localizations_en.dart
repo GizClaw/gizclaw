@@ -300,6 +300,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'scanQr': 'Scan QR Code',
       'serverDetails': 'SERVER DETAILS',
       'name': 'Name',
+      'registrationTokenOptional': 'Registration token (optional)',
       'scanServer': 'Scan Server',
       'pointCamera': 'Point the camera at a GizClaw server QR code.',
       'cameraRequired':
