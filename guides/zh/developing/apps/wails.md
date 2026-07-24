@@ -26,12 +26,12 @@ Desktop App 不复制 `pkgs/gizclaw` 的服务端业务。`api/http/desktop.json
 
 ## 本地 Server Bootstrap
 
-`resources/local-server` 只内嵌一个由 Desktop 拥有的声明式资源：
-`RuntimeProfile/default`。固定的 Raids `v0.2.1` GitHub archive 提供该 Profile 所引用的
-Credential、Tenant、Model、Voice、Workflow 与 PetDef。Desktop 在配置根目录下私有缓存并校验
-archive，只解析 Profile 的依赖闭包，再在应用本地 Profile 前 apply 这些资源；Raids 的
-示例 RuntimeProfile 永不应用。Desktop 只保留产品 PIXA 二进制，不保留本地 PetDef 配置；
-它会校验并上传每个 Raids PetDef 选择的 PIXA，再 apply `RuntimeProfile/default`。
+`resources/local-server` 只内嵌 Desktop 拥有的 PIXA 二进制。Raids `v0.2.2` release
+通过 commit-addressed GitHub archive 获取，是 `RuntimeProfile/default`、
+`RegistrationToken/default-runtime` 及该
+Profile 所引用 Credential、Tenant、Model、Voice、Workflow 与 PetDef 的声明式来源。
+Desktop 在配置根目录下私有缓存并校验 archive，只解析 Profile 的依赖闭包，再依次
+apply 依赖、上传 PIXA、apply Profile 和 token；`runtime-profile.example.yaml` 仅作说明。
 
 Credential 模板来自 Raids，具体 secret 值仍只来自 Desktop 私有 `bootstrap.env` 或进程
 环境。archive cache、RuntimeProfile、`pod.json`、URL、Web Storage 和日志均不得包含
@@ -54,10 +54,8 @@ Pod 创建保持禁用。
 
 本地 `CreatePod` 在保留目录前完成环境 preflight，同步生成 manifest 和投影并写入
 `.initializing` 状态后立即返回。可取消的后台任务随后启动 companion、等待 Admin
-readiness、按依赖顺序 apply 选中的 Raids 资源和本地 Profile。
-最后创建只映射到 `RuntimeProfile/default` 的
-`RegistrationToken/app:com.gizclaw.opensource`，
-将 raw token 以 `0600` 仅写入 Pod 的私有 workspace。Bridge 在初始化期间拒绝 update、start、stop、
+readiness、按依赖顺序 apply 选中的 Raids 资源、上传 PIXA，再 apply
+`RuntimeProfile/default` 与 `RegistrationToken/default-runtime`。Bridge 在初始化期间拒绝 update、start、stop、
 restart、Admin 和 Play 操作；delete 会先取消并等待后台任务。
 
 `.initializing` 是 `0600` 的持久化 JSON 状态：`initializing` 会出现在 Pod 列表和
@@ -65,19 +63,27 @@ restart、Admin 和 Play 操作；delete 会先取消并等待后台任务。
 目录或删除。启动 Desktop 时只清理被退出或崩溃中断的 `initializing` 目录，保留
 `failed` Pod。状态清除后的 Pod 不会在普通 start、restart 或 Desktop upgrade 时重放
 完整 catalog。旧版 local Pod 在 Server ready 后只执行一次 runtime contract 迁移：apply
-解析后的 Raids 依赖闭包，再替换 `RuntimeProfile/default`、创建新的
-`RegistrationToken/app:com.gizclaw.opensource`、删除旧
-`RegistrationToken/desktop-local`，并把 catalog version 记录到 `pod.json`。若恢复到
+解析后的 Raids 依赖闭包与 PIXA，再替换 `RuntimeProfile/default`、apply
+`RegistrationToken/default-runtime`、删除旧
+`RegistrationToken/app:com.gizclaw.opensource` 与 `RegistrationToken/desktop-local`，
+移除 workspace 中废弃的 token handoff 文件，并把 catalog version 记录到 `pod.json`。若恢复到
 旧版遗留进程，Desktop 会先用当前 companion 重启；default profile 同时保留已有
 Workspace 所需的旧翻译 alias。未被该 Profile 引用的 Workflow 与其他可能已被用户修改的资源保持不变。
-迁移完成前 Desktop 不展示旧 token 的二维码；打开本地 Play 会先启动当前 companion
-并完成迁移，再交付新 token。
+迁移完成前 Desktop 不展示二维码，也不向本地 Play 交付 token。apply 或清理失败会保留旧
+catalog version，后续重试可继续收敛。
 
-本地 Play 打开时，Bridge 通过每次 launch 独立保护的 Browser Runtime handoff 传递 raw RegistrationToken；
+Raids 发布的 `RegistrationToken/default-runtime` 绑定 `RuntimeProfile/default`，其确定性
+公开 UUID 为 `28c4e4e9-a05f-5a7e-815e-9cf9afb6878f`。Desktop 只解码并校验清单中的值，
+不自行推导 UUID，也不生成另一份本地 token。本地 Play 打开时，Bridge 通过每次 launch
+独立保护的 Browser Runtime handoff 传递该值；
 Play 在同一条持久 WebRTC 连接上先调用 `server.register`，再加载 RuntimeProfile 资源。
-本地 Pod 分享二维码通过既有 `registration_token` 字段携带 raw token，GizClaw App 扫码后
-即可完成注册。RegistrationToken 不进入 URL、`pod.json`、Web Storage 或日志。远程 Pod 不由 Desktop
-生成 RegistrationToken。
+本地 Pod 分享二维码通过既有 `registration_token` 字段携带该值。它不进入 URL、
+`pod.json`、workspace handoff 文件、Web Storage 或日志。远程 Pod 仍只使用部署显式配置的
+token，绝不回退到 Raids 公共 token。
+
+该 Raids token 是公开、可复用的注册标识，不是 Admin 凭证。任何能访问 Desktop 本地
+Server LAN 监听地址并知道该 UUID 的 Peer 都可以尝试注册到 `RuntimeProfile/default`；
+Admin 访问仍需独立 Admin identity。每个本地 Server 只持久化自己的资源实例。
 
 每个运行中的本地 Server 在自己的 `workspace/server.pid` 保存 PID，文件以 `0600`
 原子写入。正常停止、退出或 Desktop 的 Quit 会清除该文件；Desktop 异常退出时

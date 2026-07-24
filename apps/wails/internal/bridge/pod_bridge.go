@@ -35,7 +35,6 @@ type PodBridge struct {
 
 	mutationMu   sync.Mutex
 	contractMu   sync.Mutex
-	tokenMu      sync.Mutex
 	creating     sync.Map
 	initializing sync.Map
 	refreshMu    sync.Mutex
@@ -45,7 +44,6 @@ type PodBridge struct {
 type LocalPodBootstrapper interface {
 	Apply(context.Context, string, map[string]string) error
 	MigrateRuntimeContract(context.Context, string, map[string]string) error
-	RecoverRegistrationToken(context.Context, string, map[string]string) error
 }
 
 type podRefresh struct {
@@ -463,6 +461,7 @@ func (b *PodBridge) initializeLocalPod(ctx context.Context, pod appconfig.Pod, d
 		return err
 	}
 	pod.LocalCatalogVersion = appconfig.LocalCatalogVersion
+	pod.RegistrationToken = ""
 	if err := b.Store.Save(pod); err != nil {
 		return fmt.Errorf("desktop bridge: record local catalog version: %w", err)
 	}
@@ -833,6 +832,7 @@ func (b *PodBridge) migrateLocalRuntimeContract(ctx context.Context, id string) 
 		return fmt.Errorf("desktop bridge: migrate local runtime contract: %w", err)
 	}
 	pod.LocalCatalogVersion = appconfig.LocalCatalogVersion
+	pod.RegistrationToken = ""
 	if err := b.Store.Save(pod); err != nil {
 		return fmt.Errorf("desktop bridge: record local catalog version: %w", err)
 	}
@@ -973,33 +973,9 @@ func (b *PodBridge) PlayURL(ctx context.Context, podID string) (string, error) {
 		return "", err
 	}
 	if pod.LocalServer != nil {
-		podDir := filepath.Join(b.Paths.PodsDir, podID)
-		tokenPath := filepath.Join(podDir, "workspace", localserver.RegistrationTokenFile)
-		b.tokenMu.Lock()
-		token, err := func() ([]byte, error) {
-			defer b.tokenMu.Unlock()
-			token, err := os.ReadFile(tokenPath)
-			if !errors.Is(err, os.ErrNotExist) {
-				return token, err
-			}
-			if b.Bootstrapper == nil {
-				return nil, fmt.Errorf("recover local Play registration token: bootstrapper is not configured")
-			}
-			savedEnvironment, loadErr := b.BootstrapEnvironment.Load()
-			if loadErr != nil {
-				return nil, fmt.Errorf("load bootstrap environment for local Play registration token: %w", loadErr)
-			}
-			if recoverErr := b.Bootstrapper.RecoverRegistrationToken(ctx, podDir, savedEnvironment); recoverErr != nil {
-				return nil, fmt.Errorf("recover local Play registration token: %w", recoverErr)
-			}
-			return os.ReadFile(tokenPath)
-		}()
+		runtime.RegistrationToken, err = b.localRegistrationToken(ctx, pod)
 		if err != nil {
-			return "", fmt.Errorf("desktop bridge: read local Play registration token: %w", err)
-		}
-		runtime.RegistrationToken = strings.TrimSpace(string(token))
-		if runtime.RegistrationToken == "" {
-			return "", fmt.Errorf("desktop bridge: local Play registration token is empty")
+			return "", err
 		}
 	} else {
 		runtime.RegistrationToken = strings.TrimSpace(pod.RegistrationToken)
@@ -1039,14 +1015,29 @@ func (b *PodBridge) shareRegistrationToken(pod appconfig.Pod) string {
 	if pod.LocalServer == nil {
 		return strings.TrimSpace(pod.RegistrationToken)
 	}
-	if pod.LocalCatalogVersion < appconfig.LocalCatalogVersion {
-		return ""
-	}
-	data, err := os.ReadFile(filepath.Join(b.Paths.PodsDir, pod.ID, "workspace", localserver.RegistrationTokenFile))
+	token, err := b.localRegistrationToken(context.Background(), pod)
 	if err != nil {
 		return ""
 	}
-	return strings.TrimSpace(string(data))
+	return token
+}
+
+func (b *PodBridge) localRegistrationToken(ctx context.Context, pod appconfig.Pod) (string, error) {
+	if pod.LocalServer == nil {
+		return "", fmt.Errorf("desktop bridge: pod %q is remote", pod.ID)
+	}
+	if pod.LocalCatalogVersion < appconfig.LocalCatalogVersion {
+		return "", fmt.Errorf("desktop bridge: local Play catalog migration is incomplete")
+	}
+	catalog, err := b.catalog(ctx)
+	if err != nil {
+		return "", err
+	}
+	token := strings.TrimSpace(catalog.DefaultRegistrationToken)
+	if token == "" {
+		return "", fmt.Errorf("desktop bridge: resolved local RegistrationToken is empty")
+	}
+	return token, nil
 }
 
 func ensurePodIdentities(pod *appconfig.Pod) (bool, error) {
@@ -1166,7 +1157,9 @@ func (b *PodBridge) inputToPod(input PodInput, existing *appconfig.Pod) (appconf
 		oldRegistrationToken = existing.RegistrationToken
 	}
 	pod.ClientPrivateKey = secretValue(input.ClientPrivateKey, oldClient)
-	pod.RegistrationToken = secretValue(input.RegistrationToken, oldRegistrationToken)
+	if pod.LocalServer == nil {
+		pod.RegistrationToken = secretValue(input.RegistrationToken, oldRegistrationToken)
+	}
 	return pod, nil
 }
 

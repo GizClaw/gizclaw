@@ -48,7 +48,7 @@ test.beforeEach(async ({ page }) => {
         valid: true,
         play_configured: true,
         play_public_key: "local-play-public-key",
-        registration_token: "local-registration-token",
+        registration_token: "28c4e4e9-a05f-5a7e-815e-9cf9afb6878f",
         local: {
           port: 9820,
           lan_addresses: [
@@ -165,7 +165,7 @@ test.beforeEach(async ({ page }) => {
               valid: true,
               play_configured: true,
               play_public_key: "generated-local-play-public-key",
-              registration_token: "generated-local-registration-token",
+              registration_token: "28c4e4e9-a05f-5a7e-815e-9cf9afb6878f",
               local: {
                 port: input.local_server.port || 9820,
                 lan_addresses: ["192.168.1.6:9820"],
@@ -532,7 +532,7 @@ test("local share stays simple and switches to focused controls", async ({
     "local-server-public-key",
   );
   expect(payload.searchParams.get("registration_token")).toBe(
-    "local-registration-token",
+    "28c4e4e9-a05f-5a7e-815e-9cf9afb6878f",
   );
   await page.evaluate(() => {
     (window as any).__GIZCLAW_SET_LOCAL_TOKEN__("");
@@ -540,7 +540,9 @@ test("local share stays simple and switches to focused controls", async ({
   });
   await expect(qr).toContainText("Start the server to prepare sharing");
   await page.evaluate(() => {
-    (window as any).__GIZCLAW_SET_LOCAL_TOKEN__("local-registration-token");
+    (window as any).__GIZCLAW_SET_LOCAL_TOKEN__(
+      "28c4e4e9-a05f-5a7e-815e-9cf9afb6878f",
+    );
     window.dispatchEvent(new Event("focus"));
   });
   await expect(qr.getByRole("img", { name: "Server QR code" })).toBeVisible();

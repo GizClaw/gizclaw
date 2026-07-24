@@ -70,7 +70,7 @@ func NewAppWithPathsAndAssets(paths appconfig.Paths, assets fs.FS) (*App, error)
 	}
 	resolver, err := localserver.NewRaidsResolver(catalogFS, paths.RaidsCacheDir)
 	if err != nil {
-		return nil, fmt.Errorf("desktop app: local RuntimeProfile: %w", err)
+		return nil, fmt.Errorf("desktop app: local Raids assets: %w", err)
 	}
 	messages := appmessages.System()
 	app := &App{messages: messages, bridge: &bridge.PodBridge{

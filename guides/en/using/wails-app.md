@@ -16,14 +16,22 @@ private key.
 - Local Pod: The desktop version maintains a local Server, and the port remains stable after creation; the Server
   LAN listening, Admin and Play are still connected from this machine. Front QR code is used in other GizClaw Apps
   Add the Server and enroll with the local App registration token. A new local Pod contains exactly one
-  `RuntimeProfile/default`. Its Credential, Tenant, Model, Voice, Workflow, and PetDef dependencies are resolved from the
-  fixed Raids `v0.2.1` archive, and the matching bundled PIXA binaries are uploaded before that profile is applied. Desktop creates
-  `RegistrationToken/app:com.gizclaw.opensource`, generates its configured token value locally, and binds it to
-  `RuntimeProfile/default`; it does not create Firmware.
+  `RuntimeProfile/default` and `RegistrationToken/default-runtime`. Both come from the fixed Raids
+  `v0.2.2` archive together with the profile's Credential, Tenant, Model, Voice, Workflow, and PetDef
+  dependencies. Desktop uploads the matching PIXA binaries, then applies the profile and its public
+  deterministic enrollment token; it does not create Firmware or generate another local token.
+  Anyone who can reach the LAN endpoint and knows the public UUID can attempt registration into the
+  default profile, while Admin access still requires the separate Admin identity.
   On the back you can start, stop, and restart the Server, and open Admin or Play.
 - Remote Pod: Configure zero or more Servers and an Access Point. Admin uses each server
   identity; Play uses Pod-level Client identity to connect to Access Point. Front QR code sharing
   Access Point, on the back maintains the Server list.
+
+Local Play and the local share QR expose the validated Raids public token only after the current
+catalog contract has completed. Existing local Pods migrate once by applying the Raids dependency
+closure, PIXA assets, profile, and token before retiring the two legacy Desktop tokens and workspace
+handoff file. A failed apply or cleanup keeps Play and QR unavailable until a retry succeeds. Remote
+Pods continue to use only their explicitly configured deployment token.
 
 The Admin and Play identity of the local Pod are automatically generated. Admin private key of the remote server
 The existing configuration from the target server is only retained on the local machine; if it is not filled in, the corresponding Admin remains unconfigured.

@@ -23,7 +23,7 @@ const (
 	PodManifestFile         = "pod.json"
 	PodInitializationMarker = ".initializing"
 	PodVersion              = 1
-	LocalCatalogVersion     = 4
+	LocalCatalogVersion     = 5
 )
 
 var (

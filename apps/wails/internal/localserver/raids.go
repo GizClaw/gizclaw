@@ -26,8 +26,12 @@ import (
 )
 
 const (
-	RaidsVersion    = "v0.2.1"
-	RaidsArchiveURL = "https://github.com/GizClaw/raids/archive/refs/tags/v0.2.1.tar.gz"
+	RaidsVersion    = "v0.2.2"
+	RaidsCommit     = "be5b2eca681b080d2cb6a90fa0195ab652f49d26"
+	RaidsArchiveURL = "https://github.com/GizClaw/raids/archive/" + RaidsCommit + ".tar.gz"
+
+	defaultRegistrationTokenName     = "default-runtime"
+	expectedDefaultRegistrationToken = "28c4e4e9-a05f-5a7e-815e-9cf9afb6878f"
 
 	maxRaidsArchiveBytes  = 8 << 20
 	maxRaidsExpandedBytes = 16 << 20
@@ -42,9 +46,9 @@ type CatalogResolver interface {
 }
 
 // RaidsResolver loads the fixed public Raids archive and combines its selected
-// resources with the one Desktop-owned RuntimeProfile.
+// resources with Desktop-owned binary assets.
 type RaidsResolver struct {
-	profile    fs.FS
+	assets     fs.FS
 	cacheDir   string
 	archiveURL string
 	httpClient *http.Client
@@ -54,15 +58,12 @@ type RaidsResolver struct {
 }
 
 // NewRaidsResolver constructs a resolver without contacting the network.
-func NewRaidsResolver(profile fs.FS, cacheDir string) (*RaidsResolver, error) {
-	if profile == nil {
-		return nil, errors.New("raids catalog: local RuntimeProfile filesystem is required")
-	}
-	if _, _, err := loadDefaultRuntimeProfile(profile); err != nil {
-		return nil, err
+func NewRaidsResolver(assets fs.FS, cacheDir string) (*RaidsResolver, error) {
+	if assets == nil {
+		return nil, errors.New("raids catalog: local asset filesystem is required")
 	}
 	return &RaidsResolver{
-		profile:    profile,
+		assets:     assets,
 		cacheDir:   cacheDir,
 		archiveURL: RaidsArchiveURL,
 		httpClient: &http.Client{Timeout: 20 * time.Second},
@@ -72,7 +73,7 @@ func NewRaidsResolver(profile fs.FS, cacheDir string) (*RaidsResolver, error) {
 // Resolve returns a cache-backed, immutable catalog. A failed candidate never
 // replaces a previously valid archive.
 func (r *RaidsResolver) Resolve(ctx context.Context) (*Catalog, error) {
-	if r == nil || r.profile == nil || strings.TrimSpace(r.cacheDir) == "" {
+	if r == nil || r.assets == nil || strings.TrimSpace(r.cacheDir) == "" {
 		return nil, errors.New("raids catalog: resolver is not configured")
 	}
 	r.mu.Lock()
@@ -86,7 +87,7 @@ func (r *RaidsResolver) Resolve(ctx context.Context) (*Catalog, error) {
 	archive, cacheReadErr := r.readCache()
 	var cacheErr error
 	if cacheReadErr == nil {
-		catalog, catalogErr := buildRaidsCatalog(r.profile, archive)
+		catalog, catalogErr := buildRaidsCatalog(r.assets, archive)
 		if catalogErr == nil {
 			r.cached = catalog
 			return catalog, nil
@@ -102,7 +103,7 @@ func (r *RaidsResolver) Resolve(ctx context.Context) (*Catalog, error) {
 		}
 		return nil, fmt.Errorf("raids catalog: load %s: %w", RaidsVersion, downloadErr)
 	}
-	catalog, validateErr := buildRaidsCatalog(r.profile, candidate)
+	catalog, validateErr := buildRaidsCatalog(r.assets, candidate)
 	if validateErr != nil {
 		return nil, fmt.Errorf("raids catalog: validate %s: %w", RaidsVersion, validateErr)
 	}
@@ -252,11 +253,7 @@ type raidsCandidate struct {
 	credentialName string
 }
 
-func buildRaidsCatalog(profileFS fs.FS, archive []byte) (*Catalog, error) {
-	profileData, profile, err := loadDefaultRuntimeProfile(profileFS)
-	if err != nil {
-		return nil, err
-	}
+func buildRaidsCatalog(assetFS fs.FS, archive []byte) (*Catalog, error) {
 	files, err := readRaidsArchive(archive)
 	if err != nil {
 		return nil, err
@@ -282,6 +279,36 @@ func buildRaidsCatalog(profileFS fs.FS, archive []byte) (*Catalog, error) {
 		}
 		index[candidate.kind][candidate.name] = candidate
 	}
+	profileCandidate, ok := index["RuntimeProfile"][defaultRuntimeProfileName]
+	if !ok {
+		return nil, fmt.Errorf("Raids RuntimeProfile/%s is missing", defaultRuntimeProfileName)
+	}
+	profileResource, _, err := decodeResource(profileCandidate.data)
+	if err != nil {
+		return nil, fmt.Errorf("decode RuntimeProfile/%s: %w", defaultRuntimeProfileName, err)
+	}
+	profile, err := profileResource.AsRuntimeProfileResource()
+	if err != nil {
+		return nil, fmt.Errorf("decode RuntimeProfile/%s: %w", defaultRuntimeProfileName, err)
+	}
+	tokenCandidate, ok := index["RegistrationToken"][defaultRegistrationTokenName]
+	if !ok {
+		return nil, fmt.Errorf("Raids RegistrationToken/%s is missing", defaultRegistrationTokenName)
+	}
+	tokenResource, _, err := decodeResource(tokenCandidate.data)
+	if err != nil {
+		return nil, fmt.Errorf("decode RegistrationToken/%s: %w", defaultRegistrationTokenName, err)
+	}
+	token, err := tokenResource.AsRegistrationTokenResource()
+	if err != nil {
+		return nil, fmt.Errorf("decode RegistrationToken/%s: %w", defaultRegistrationTokenName, err)
+	}
+	if token.Spec.RuntimeProfileName != defaultRuntimeProfileName {
+		return nil, fmt.Errorf("RegistrationToken/%s targets RuntimeProfile/%s, want %s", defaultRegistrationTokenName, token.Spec.RuntimeProfileName, defaultRuntimeProfileName)
+	}
+	if token.Spec.Token != expectedDefaultRegistrationToken {
+		return nil, fmt.Errorf("RegistrationToken/%s has unexpected public token", defaultRegistrationTokenName)
+	}
 	selected, err := selectRaidsDependencies(profile, index)
 	if err != nil {
 		return nil, err
@@ -289,10 +316,8 @@ func buildRaidsCatalog(profileFS fs.FS, archive []byte) (*Catalog, error) {
 	if err := validateWorkflowAliases(profile, selected); err != nil {
 		return nil, err
 	}
-	mapFS := fstest.MapFS{
-		"resources/07-runtime-profiles/00-default.yaml": &fstest.MapFile{Data: profileData, Mode: 0o444},
-	}
-	resources := make([]ResourceEntry, 0, len(selected)+1)
+	mapFS := fstest.MapFS{}
+	resources := make([]ResourceEntry, 0, len(selected)+2)
 	requirements := map[string]EnvironmentRequirement{}
 	for key, candidate := range selected {
 		resourcePath := raidsCatalogPath(candidate, key)
@@ -302,13 +327,26 @@ func buildRaidsCatalog(profileFS fs.FS, archive []byte) (*Catalog, error) {
 			return nil, fmt.Errorf("raids catalog: collect environment requirements from %s/%s: %w", candidate.kind, candidate.name, err)
 		}
 	}
-	petDefPIXAs, err := selectPetDefPIXAs(profileFS, selected, mapFS)
+	petDefPIXAs, err := selectPetDefPIXAs(assetFS, selected, mapFS)
 	if err != nil {
 		return nil, err
 	}
-	resources = append(resources, ResourceEntry{Path: "resources/07-runtime-profiles/00-default.yaml", Kind: "RuntimeProfile", Name: "default"})
+	for _, candidate := range []raidsCandidate{profileCandidate, tokenCandidate} {
+		key := candidate.kind + "/" + candidate.name
+		resourcePath := raidsCatalogPath(candidate, key)
+		mapFS[resourcePath] = &fstest.MapFile{Data: candidate.data, Mode: 0o444}
+		resources = append(resources, ResourceEntry{Path: resourcePath, Kind: candidate.kind, Name: candidate.name})
+		if err := collectEnvironmentRequirements(candidate.data, requirements); err != nil {
+			return nil, fmt.Errorf("raids catalog: collect environment requirements from %s/%s: %w", candidate.kind, candidate.name, err)
+		}
+	}
 	sort.Slice(resources, func(i, j int) bool { return resources[i].Path < resources[j].Path })
-	result := &Catalog{FS: mapFS, Resources: resources, PetDefPIXAs: petDefPIXAs}
+	result := &Catalog{
+		FS:                       mapFS,
+		Resources:                resources,
+		PetDefPIXAs:              petDefPIXAs,
+		DefaultRegistrationToken: token.Spec.Token,
+	}
 	for _, requirement := range requirements {
 		result.Requirements = append(result.Requirements, requirement)
 	}
@@ -364,26 +402,6 @@ func selectPetDefPIXAs(source fs.FS, selected map[string]raidsCandidate, target 
 		result = append(result, PetDefPIXA{PetDef: name, PIXA: assetPath})
 	}
 	return result, nil
-}
-
-func loadDefaultRuntimeProfile(source fs.FS) ([]byte, apitypes.RuntimeProfileResource, error) {
-	const profilePath = "resources/07-runtime-profiles/00-default.yaml"
-	data, err := fs.ReadFile(source, profilePath)
-	if err != nil {
-		return nil, apitypes.RuntimeProfileResource{}, fmt.Errorf("raids catalog: read local RuntimeProfile: %w", err)
-	}
-	resource, header, err := decodeResource(data)
-	if err != nil {
-		return nil, apitypes.RuntimeProfileResource{}, fmt.Errorf("raids catalog: parse local RuntimeProfile: %w", err)
-	}
-	if header.Kind != "RuntimeProfile" || header.Name != "default" {
-		return nil, apitypes.RuntimeProfileResource{}, fmt.Errorf("raids catalog: local resource must be RuntimeProfile/default, got %s/%s", header.Kind, header.Name)
-	}
-	profile, err := resource.AsRuntimeProfileResource()
-	if err != nil {
-		return nil, apitypes.RuntimeProfileResource{}, fmt.Errorf("raids catalog: decode local RuntimeProfile: %w", err)
-	}
-	return data, profile, nil
 }
 
 func readRaidsArchive(archive []byte) (map[string][]byte, error) {
@@ -492,7 +510,7 @@ func allowedRaidsPath(name string) bool {
 		(strings.HasSuffix(name, ".yaml") || strings.HasSuffix(name, ".yml")) {
 		return true
 	}
-	for _, directory := range []string{"credentials/", "tenants/", "models/", "voices/", "workflows/", "petdefs/"} {
+	for _, directory := range []string{"credentials/", "tenants/", "models/", "voices/", "workflows/", "petdefs/", "runtime-profiles/", "registration-tokens/"} {
 		if strings.HasPrefix(name, directory) && (strings.HasSuffix(name, ".yaml") || strings.HasSuffix(name, ".yml")) {
 			return true
 		}
@@ -514,6 +532,10 @@ func raidsResourceKind(name string) (string, bool) {
 		return "Workflow", true
 	case strings.HasPrefix(name, "petdefs/"):
 		return "PetDef", true
+	case strings.HasPrefix(name, "runtime-profiles/"):
+		return "RuntimeProfile", true
+	case strings.HasPrefix(name, "registration-tokens/"):
+		return "RegistrationToken", true
 	default:
 		return "", false
 	}
@@ -561,7 +583,7 @@ func parseRaidsCandidate(data []byte) (raidsCandidate, error) {
 	}
 	candidate := raidsCandidate{kind: header.Kind, name: header.Name, data: data}
 	switch header.Kind {
-	case "Credential", "Workflow", "PetDef":
+	case "Credential", "Workflow", "PetDef", "RuntimeProfile", "RegistrationToken":
 	case "Model", "Voice":
 		var spec struct {
 			Provider struct {
@@ -621,6 +643,8 @@ func validateResourceKind(resource apitypes.Resource, kind string) error {
 		_, err = resource.AsPetDefResource()
 	case "RuntimeProfile":
 		_, err = resource.AsRuntimeProfileResource()
+	case "RegistrationToken":
+		_, err = resource.AsRegistrationTokenResource()
 	default:
 		return fmt.Errorf("unsupported resource kind %q", kind)
 	}
@@ -870,17 +894,19 @@ func tenantResourceKind(providerKind string) (string, bool) {
 
 func raidsCatalogPath(candidate raidsCandidate, key string) string {
 	directory := map[string]string{
-		"Credential":      "00-credentials",
-		"DashScopeTenant": "01-tenants",
-		"DeepSeekTenant":  "01-tenants",
-		"GeminiTenant":    "01-tenants",
-		"MiniMaxTenant":   "01-tenants",
-		"OpenAITenant":    "01-tenants",
-		"VolcTenant":      "01-tenants",
-		"Model":           "02-models",
-		"Voice":           "03-voices",
-		"Workflow":        "04-workflows",
-		"PetDef":          "05-pet-defs",
+		"Credential":        "00-credentials",
+		"DashScopeTenant":   "01-tenants",
+		"DeepSeekTenant":    "01-tenants",
+		"GeminiTenant":      "01-tenants",
+		"MiniMaxTenant":     "01-tenants",
+		"OpenAITenant":      "01-tenants",
+		"VolcTenant":        "01-tenants",
+		"Model":             "02-models",
+		"Voice":             "03-voices",
+		"Workflow":          "04-workflows",
+		"PetDef":            "05-pet-defs",
+		"RuntimeProfile":    "07-runtime-profiles",
+		"RegistrationToken": "08-registration-tokens",
 	}[candidate.kind]
 	digest := sha256.Sum256([]byte(key))
 	return path.Join("resources", directory, fmt.Sprintf("%x.yaml", digest[:]))
