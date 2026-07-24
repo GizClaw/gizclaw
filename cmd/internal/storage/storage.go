@@ -48,6 +48,18 @@ type Config struct {
 	DSN      string        `yaml:"dsn"`     // legacy sql connection string field
 }
 
+// ConfigError identifies the physical storage entry whose construction failed.
+type ConfigError struct {
+	Name string
+	Err  error
+}
+
+// Error preserves the underlying construction error text.
+func (e *ConfigError) Error() string { return e.Err.Error() }
+
+// Unwrap exposes the underlying construction error.
+func (e *ConfigError) Unwrap() error { return e.Err }
+
 type MemoryConfig struct{}
 
 type BadgerConfig struct {
@@ -199,7 +211,7 @@ func (s *Storage) build(name string, configs map[string]Config, states map[strin
 		err = fmt.Errorf("storage: %q has unknown kind %q", name, cfg.Kind)
 	}
 	if err != nil {
-		return err
+		return &ConfigError{Name: name, Err: err}
 	}
 	states[name] = built
 	return nil

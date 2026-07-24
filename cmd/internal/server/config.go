@@ -26,10 +26,26 @@ type Config struct {
 	AdminPublicKey giznet.PublicKey
 	Storage        map[string]storage.Config
 	Stores         map[string]stores.Config
+	AgentHost      *AgentHostConfig
 	SystemLog      logging.Config
 	Friends        FriendsConfig
 	FriendGroups   FriendGroupsConfig
 	Speech         SpeechConfig
+}
+
+// AgentHostConfig binds AgentHost persistence capabilities to logical Stores.
+// A non-nil value selects explicit mode, including when every field is omitted.
+type AgentHostConfig struct {
+	RuntimeStore string                    `yaml:"runtime_store"`
+	Flowcraft    *AgentHostFlowcraftConfig `yaml:"flowcraft"`
+}
+
+// AgentHostFlowcraftConfig binds Flowcraft persistence capabilities to logical
+// Stores owned by the command-layer Store Registry.
+type AgentHostFlowcraftConfig struct {
+	StateStore         string `yaml:"state_store"`
+	HistoryStore       string `yaml:"history_store"`
+	MemoryObjectsStore string `yaml:"memory_objects_store"`
 }
 
 type FriendsConfig struct{}
@@ -85,6 +101,7 @@ type ConfigFile struct {
 	AdminPublicKey giznet.PublicKey          `yaml:"admin-public-key"`
 	Storage        map[string]storage.Config `yaml:"storage"`
 	Stores         map[string]stores.Config  `yaml:"stores"`
+	AgentHost      *AgentHostConfig          `yaml:"agent_host"`
 	SystemLog      logging.Config            `yaml:"system_log"`
 	Friends        FriendsConfig             `yaml:"friends"`
 	FriendGroups   FriendGroupsConfig        `yaml:"friend_groups"`
@@ -154,6 +171,7 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		AdminPublicKey *giznet.PublicKey         `yaml:"admin-public-key"`
 		Storage        map[string]storage.Config `yaml:"storage"`
 		Stores         map[string]stores.Config  `yaml:"stores"`
+		AgentHost      *AgentHostConfig          `yaml:"agent_host"`
 		SystemLog      logging.Config            `yaml:"system_log"`
 		Friends        FriendsConfig             `yaml:"friends"`
 		FriendGroups   FriendGroupsConfig        `yaml:"friend_groups"`
@@ -197,6 +215,7 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		AdminPublicKey: adminPublicKey,
 		Storage:        raw.Storage,
 		Stores:         raw.Stores,
+		AgentHost:      raw.AgentHost,
 		SystemLog:      logCfg,
 		Friends:        raw.Friends,
 		FriendGroups:   raw.FriendGroups,
@@ -295,6 +314,9 @@ func mergeFileConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 	}
 	if len(cfg.Storage) == 0 {
 		cfg.Storage = fileCfg.Storage
+	}
+	if cfg.AgentHost == nil {
+		cfg.AgentHost = fileCfg.AgentHost
 	}
 	if cfg.SystemLog.IsZero() {
 		cfg.SystemLog = fileCfg.SystemLog
@@ -426,6 +448,35 @@ func (cfg Config) validate() error {
 	if _, err := parsePositiveConfigDuration(cfg.Speech.Synthesis.RequestTimeout); err != nil {
 		return fmt.Errorf("server: speech.synthesis.request_timeout: %w", err)
 	}
+	if err := validateAgentHostConfig(cfg.AgentHost); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateAgentHostConfig(cfg *AgentHostConfig) error {
+	if cfg == nil {
+		return nil
+	}
+	if err := validateStoreReference("agent_host.runtime_store", cfg.RuntimeStore); err != nil {
+		return err
+	}
+	if cfg.Flowcraft == nil {
+		return nil
+	}
+	if err := validateStoreReference("agent_host.flowcraft.state_store", cfg.Flowcraft.StateStore); err != nil {
+		return err
+	}
+	if err := validateStoreReference("agent_host.flowcraft.history_store", cfg.Flowcraft.HistoryStore); err != nil {
+		return err
+	}
+	return validateStoreReference("agent_host.flowcraft.memory_objects_store", cfg.Flowcraft.MemoryObjectsStore)
+}
+
+func validateStoreReference(path, value string) error {
+	if value != "" && strings.TrimSpace(value) == "" {
+		return fmt.Errorf("server: %s must not be whitespace-only", path)
+	}
 	return nil
 }
 
@@ -447,6 +498,11 @@ func validateConfigShape(data []byte) error {
 	}
 	if _, legacy := document["log"]; legacy {
 		return fmt.Errorf("server: top-level log configuration was removed; configure stores and system_log instead")
+	}
+	if agentHostValue, exists := document["agent_host"]; exists {
+		if err := validateAgentHostConfigShape(agentHostValue); err != nil {
+			return err
+		}
 	}
 	if systemLogValue, exists := document["system_log"]; exists {
 		mapping, ok := systemLogValue.(map[string]any)
@@ -535,6 +591,59 @@ func validateConfigShape(data []byte) error {
 				return fmt.Errorf("server: stores.%s.clickhouse has unknown field %q", name, field)
 			}
 		}
+	}
+	return nil
+}
+
+func validateAgentHostConfigShape(value any) error {
+	agentHost, ok := value.(map[string]any)
+	if !ok {
+		return fmt.Errorf("server: agent_host must be a mapping")
+	}
+	for field := range agentHost {
+		switch field {
+		case "runtime_store", "flowcraft":
+		default:
+			return fmt.Errorf("server: agent_host has unknown field %q", field)
+		}
+	}
+	if runtimeStore, exists := agentHost["runtime_store"]; exists {
+		if err := validateFileStoreReference("agent_host.runtime_store", runtimeStore); err != nil {
+			return err
+		}
+	}
+	flowcraftValue, exists := agentHost["flowcraft"]
+	if !exists {
+		return nil
+	}
+	flowcraft, ok := flowcraftValue.(map[string]any)
+	if !ok {
+		return fmt.Errorf("server: agent_host.flowcraft must be a mapping")
+	}
+	for field := range flowcraft {
+		switch field {
+		case "state_store", "history_store", "memory_objects_store":
+		default:
+			return fmt.Errorf("server: agent_host.flowcraft has unknown field %q", field)
+		}
+	}
+	for _, field := range []string{"state_store", "history_store", "memory_objects_store"} {
+		if reference, exists := flowcraft[field]; exists {
+			if err := validateFileStoreReference("agent_host.flowcraft."+field, reference); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func validateFileStoreReference(path string, value any) error {
+	reference, ok := value.(string)
+	if !ok {
+		return fmt.Errorf("server: %s must be a string", path)
+	}
+	if strings.TrimSpace(reference) == "" {
+		return fmt.Errorf("server: %s must not be empty", path)
 	}
 	return nil
 }

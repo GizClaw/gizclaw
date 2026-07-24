@@ -3,6 +3,7 @@ package flowcraft
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"reflect"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	memorystore "github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
@@ -406,6 +408,35 @@ func TestWorkspaceAgentScopeIncludesOwnerWhenAvailable(t *testing.T) {
 	}
 	if got := workspaceAgentScope(strings.Repeat("owner", 100), strings.Repeat("workspace", 100), strings.Repeat("agent", 100)); len(got) != len("o/")+16+len("/w/")+16+len("/a/")+16 {
 		t.Fatalf("workspaceAgentScope() length = %d for long identities, got %q", len(got), got)
+	}
+}
+
+func TestFlowcraftStateStoreUsesCanonicalIsolatedScope(t *testing.T) {
+	base := kv.NewMemory(nil)
+	scope := workspaceAgentScope("owner-a", "workspace-a", "assistant")
+	state := flowcraftStateStore(base, scope)
+	if err := state.Set(t.Context(), kv.Key{"checkpoint"}, []byte("private")); err != nil {
+		t.Fatalf("Set() error = %v", err)
+	}
+
+	expectedKey := append(kv.Key{"flowcraft"}, strings.Split(scope, "/")...)
+	expectedKey = append(expectedKey, "checkpoint")
+	value, err := base.Get(t.Context(), expectedKey)
+	if err != nil {
+		t.Fatalf("base.Get(%v) error = %v", expectedKey, err)
+	}
+	if string(value) != "private" {
+		t.Fatalf("base.Get(%v) = %q", expectedKey, value)
+	}
+
+	for _, otherScope := range []string{
+		workspaceAgentScope("owner-b", "workspace-a", "assistant"),
+		workspaceAgentScope("owner-a", "workspace-b", "assistant"),
+		workspaceAgentScope("owner-a", "workspace-a", "other-agent"),
+	} {
+		if _, err := flowcraftStateStore(base, otherScope).Get(t.Context(), kv.Key{"checkpoint"}); !errors.Is(err, kv.ErrNotFound) {
+			t.Fatalf("scope %q Get() error = %v, want ErrNotFound", otherScope, err)
+		}
 	}
 }
 

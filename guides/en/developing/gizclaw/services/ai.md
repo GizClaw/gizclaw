@@ -53,7 +53,7 @@ Workflow describes how to run an Agent, but does not own the online state and st
 
 The Flowcraft workflow factory only composes typed Workflow configuration with the Workspace owner's RuntimeProfile aliases, LogStore, KV Store, ObjectStore, and Audio Dock into the generic Flowcraft Transformer. It does not construct Claw, a local Flowcraft Workspace, `config.yaml`, or BBH.
 
-History uses the AgentHost-injected `logstore.MutableStore`; State uses a Workspace/Agent-prefixed `kv.Store`. When long-term Memory is enabled, the factory constructs `memoryflowcraft.Store` with an ObjectStore-backed Flowcraft persistence interface. Workflows configure extraction, recall, and write policy, not physical Stores. Releasing the final Workspace Agent reference closes only per-Agent adapters, never Server-owned backing Stores or durable data.
+History uses the AgentHost-injected `logstore.MutableStore`; State uses an Owner/Workspace/Agent-prefixed `kv.Store`. When long-term Memory is enabled, the factory constructs `memoryflowcraft.Store` with an ObjectStore-backed Flowcraft persistence interface. Server Config selects these dependencies by logical Store name; Workflow and Workspace resources configure extraction, recall, write, and state policy but cannot select a Store or backend. Releasing the final Workspace Agent reference closes only per-Agent adapters, never Server-owned backing Stores or durable data.
 
 The public `FlowcraftWorkflowSpec` requires an explicit `agent.graph` with at least one node and an `entry` that names a defined node. Supported nodes are `llm`, inline `script`, and `passthrough`; `publish: true` selects the node output exposed through the GenX Stream. Graph, Memory extraction/rerank/embedding, ASR, and voice fields directly reference aliases exposed by the Workspace owner's RuntimeProfile.
 
@@ -63,7 +63,7 @@ Workflow configuration retains `conversation`, Graph, Memory policy, and `voice_
 
 The `pet` driver remains in GizClaw only as a domain wrapper. It resolves the Workspace Pet, PetDef, and current Gameplay on every turn and provides transient `tmp_*` Board inputs to the nested Workflow. `spec.pet` uses the same `driver` plus matching payload shape as an ordinary non-Pet Workflow; it may select Flowcraft, Chatroom, AST translation, or realtime execution, but cannot select `pet` recursively.
 
-The nested driver owns Graph, conversation, Memory, model, voice, and toolkit configuration and is constructed through the normal registered factory. All symbolic references resolve through the immutable system Workspace owner's RuntimeProfile. GizClaw does not synthesize a Pet Graph, fixed model aliases, a Workspace voice, or another nested-driver fallback.
+The nested driver owns Graph, conversation, Memory, model, voice, and toolkit configuration and is constructed through the normal registered factory. A nested Flowcraft driver receives the same AgentHost-injected State, internal History, and Memory-object Stores as an ordinary Flowcraft Workflow. All symbolic references resolve through the immutable system Workspace owner's RuntimeProfile. GizClaw does not synthesize a Pet Graph, fixed model aliases, a Workspace voice, or another nested-driver fallback.
 
 ### [workspace](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/workspace)
 

@@ -127,7 +127,7 @@ func (f Factory) newAgent(ctx context.Context, owner, workspaceName string, publ
 		config.Description = *public.Agent.Description
 	}
 	if f.State != nil {
-		config.State = kv.Prefixed(f.State, kv.Key{"flowcraft", workspaceName, agentID})
+		config.State = flowcraftStateStore(f.State, scope)
 	}
 
 	var owned []io.Closer
@@ -848,6 +848,10 @@ func WorkspaceAgentScope(owner, workspaceName, agentID string) string {
 
 func workspaceAgentScope(owner, workspaceName, agentID string) string {
 	return WorkspaceAgentScope(owner, workspaceName, agentID)
+}
+
+func flowcraftStateStore(base kv.Store, scope string) kv.Store {
+	return kv.Prefixed(base, append(kv.Key{"flowcraft"}, strings.Split(scope, "/")...))
 }
 
 // scopeToken keeps the product-owned owner/Workspace/Agent namespace short.

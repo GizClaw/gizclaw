@@ -52,13 +52,16 @@ type Server struct {
 	PeerListeners         []giznet.Listener
 	PeerListenerFactories []PeerListenerFactory
 
-	PeerStore                    kv.Store
-	PeerRunStore                 kv.Store
-	CredentialStore              kv.Store
-	FirmwareStore                kv.Store
-	FirmwareAssets               objectstore.ObjectStore
-	RuntimeProfileStore          kv.Store
-	AgentHostStore               objectstore.ObjectStore
+	PeerStore           kv.Store
+	PeerRunStore        kv.Store
+	CredentialStore     kv.Store
+	FirmwareStore       kv.Store
+	FirmwareAssets      objectstore.ObjectStore
+	RuntimeProfileStore kv.Store
+	AgentHostStore      objectstore.ObjectStore
+	// AgentHostStoresExplicit prevents legacy Flowcraft Store fallbacks even
+	// when an explicitly configured capability is nil.
+	AgentHostStoresExplicit      bool
 	MiniMaxCredentialStore       kv.Store
 	MiniMaxTenantStore           kv.Store
 	DeepSeekTenantStore          kv.Store
@@ -319,7 +322,8 @@ func (s *Server) EffectivePeerStore() kv.Store {
 }
 
 func (s *Server) usesLegacySharedStore() bool {
-	return s.CredentialStore == nil &&
+	return !s.AgentHostStoresExplicit &&
+		s.CredentialStore == nil &&
 		s.FirmwareStore == nil &&
 		s.AgentHostStore == nil &&
 		s.FlowcraftState == nil &&
@@ -442,11 +446,11 @@ func (s *Server) init() error {
 	}
 	manager.FlowcraftHistory = s.FlowcraftHistory
 	manager.FlowcraftState = s.FlowcraftState
-	if manager.FlowcraftState == nil {
+	if manager.FlowcraftState == nil && !s.AgentHostStoresExplicit {
 		manager.FlowcraftState = moduleStore(nil, s.PeerStore, "flowcraft-state")
 	}
 	manager.FlowcraftMemoryObjects = s.FlowcraftMemoryObjects
-	if manager.FlowcraftMemoryObjects == nil {
+	if manager.FlowcraftMemoryObjects == nil && !s.AgentHostStoresExplicit {
 		manager.FlowcraftMemoryObjects = s.AgentHostStore
 	}
 	manager.SpeechLimits = s.SpeechLimits

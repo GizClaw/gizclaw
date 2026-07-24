@@ -190,8 +190,13 @@ func TestNewRejectsMissingDriverBlock(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			if _, err := New(map[string]Config{"bad": tc.cfg}); err == nil {
+			_, err := New(map[string]Config{"bad": tc.cfg})
+			if err == nil {
 				t.Fatal("expected error for missing driver")
+			}
+			var configErr *ConfigError
+			if !errors.As(err, &configErr) || configErr.Name != "bad" {
+				t.Fatalf("error = %v, ConfigError = %+v", err, configErr)
 			}
 		})
 	}

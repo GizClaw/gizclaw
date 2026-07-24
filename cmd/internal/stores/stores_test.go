@@ -165,6 +165,11 @@ func TestMutableLogRejectsImmutableDriver(t *testing.T) {
 func TestLogStoreRegistryValidatesBackendsAndClosesPartialConstruction(t *testing.T) {
 	if _, err := NewWithStorage(nil, map[string]Config{"logs": {Kind: KindLog}}); err == nil {
 		t.Fatal("missing Volc backend was accepted")
+	} else {
+		var configErr *ConfigError
+		if !errors.As(err, &configErr) || configErr.Name != "logs" {
+			t.Fatalf("error = %v, ConfigError = %+v", err, configErr)
+		}
 	}
 	if _, err := NewWithStorage(nil, map[string]Config{"logs": {Kind: KindLog, Volc: &logstore.VolcConfig{}, Memory: &struct{}{}}}); err == nil {
 		t.Fatal("mixed backend fields were accepted")
@@ -218,6 +223,30 @@ func TestLogStoreRegistryExpandsVolcEnvironment(t *testing.T) {
 	}
 	if _, exists := legacyStorageConfigs(map[string]Config{"logs": {Kind: KindLog}})["logs"]; exists {
 		t.Fatal("logical LogStore was projected as physical storage")
+	}
+}
+
+func TestLegacyStorageConfigsProjectsFilesystemObjectStore(t *testing.T) {
+	dir := t.TempDir()
+	projected := legacyStorageConfigs(map[string]Config{
+		"objects": {Kind: KindObjectStore, Backend: "fs", Dir: dir},
+	})["objects"]
+	if projected.Kind != physicalstorage.KindObjectStore || projected.FS == nil || projected.FS.Dir != dir {
+		t.Fatalf("legacyStorageConfigs() = %+v", projected)
+	}
+	if projected.Backend != "" || projected.Dir != "" {
+		t.Fatalf("legacyStorageConfigs() retained legacy object fields: %+v", projected)
+	}
+
+	registry, err := New(map[string]Config{
+		"objects": {Kind: KindObjectStore, Backend: "fs", Dir: dir},
+	})
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	t.Cleanup(func() { _ = registry.Close() })
+	if _, err := registry.ObjectStore("objects"); err != nil {
+		t.Fatalf("ObjectStore() error = %v", err)
 	}
 }
 
@@ -953,6 +982,37 @@ func TestSharedObjectStorePrefixesMustBeNonEmptyAndDisjoint(t *testing.T) {
 		t.Fatalf("NewWithStorage(disjoint): %v", err)
 	}
 	defer reg.Close()
+}
+
+func TestSharedObjectStorePrefixErrorNamesEveryOverlappingStore(t *testing.T) {
+	err := validateObjectStorePrefixes(map[string]Config{
+		"a-runtime": {
+			Kind: KindObjectStore, Storage: "objects", Prefix: "shared",
+		},
+		"z-memory": {
+			Kind: KindObjectStore, Storage: "objects", Prefix: "shared/memory",
+		},
+	})
+	if err == nil {
+		t.Fatal("overlapping prefixes were accepted")
+	}
+	for _, name := range []string{"a-runtime", "z-memory"} {
+		found := false
+		for current := err; current != nil; {
+			var configError *ConfigError
+			if !errors.As(current, &configError) {
+				break
+			}
+			if configError.Name == name {
+				found = true
+				break
+			}
+			current = configError.Err
+		}
+		if !found {
+			t.Fatalf("error %v does not identify logical store %q", err, name)
+		}
+	}
 }
 
 func TestObjectStoreNotFound(t *testing.T) {

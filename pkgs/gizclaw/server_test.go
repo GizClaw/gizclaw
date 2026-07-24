@@ -274,6 +274,54 @@ func TestServerInitPreservesExistingModularPeerLayout(t *testing.T) {
 	}
 }
 
+func TestServerInitExplicitAgentHostStoresDisableFallbacks(t *testing.T) {
+	keyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair() error = %v", err)
+	}
+	peerStore := kv.NewMemory(nil)
+	server := &Server{
+		LocalStatic:             *keyPair,
+		PeerStore:               peerStore,
+		AgentHostStore:          objectstore.Dir(t.TempDir()),
+		AgentHostStoresExplicit: true,
+	}
+	if err := server.init(); err != nil {
+		t.Fatalf("init() error = %v", err)
+	}
+	if server.EffectivePeerStore() != peerStore {
+		t.Fatal("explicit AgentHost mode activated the legacy shared Peer KV layout")
+	}
+	if server.manager.FlowcraftState != nil {
+		t.Fatalf("FlowcraftState = %T, want nil", server.manager.FlowcraftState)
+	}
+	if server.manager.FlowcraftMemoryObjects != nil {
+		t.Fatalf("FlowcraftMemoryObjects = %T, want nil", server.manager.FlowcraftMemoryObjects)
+	}
+}
+
+func TestServerInitLegacyAgentHostStoresRetainFallbacks(t *testing.T) {
+	keyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair() error = %v", err)
+	}
+	objects := objectstore.Dir(t.TempDir())
+	server := &Server{
+		LocalStatic:    *keyPair,
+		PeerStore:      kv.NewMemory(nil),
+		AgentHostStore: objects,
+	}
+	if err := server.init(); err != nil {
+		t.Fatalf("init() error = %v", err)
+	}
+	if server.manager.FlowcraftState == nil {
+		t.Fatal("legacy Flowcraft State fallback was not installed")
+	}
+	if server.manager.FlowcraftMemoryObjects != objects {
+		t.Fatalf("FlowcraftMemoryObjects = %T, want legacy AgentHostStore", server.manager.FlowcraftMemoryObjects)
+	}
+}
+
 func TestServerServeReturnsNilAfterClose(t *testing.T) {
 	keyPair, err := giznet.GenerateKeyPair()
 	if err != nil {

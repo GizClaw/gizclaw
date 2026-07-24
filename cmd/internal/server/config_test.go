@@ -82,6 +82,150 @@ func TestDefaultConfig(t *testing.T) {
 	}
 }
 
+func TestParseConfigAgentHostPresence(t *testing.T) {
+	tests := []struct {
+		name  string
+		yaml  string
+		check func(*testing.T, *AgentHostConfig)
+	}{
+		{
+			name: "absent",
+			yaml: "{}",
+			check: func(t *testing.T, cfg *AgentHostConfig) {
+				t.Helper()
+				if cfg != nil {
+					t.Fatalf("AgentHost = %+v, want nil", cfg)
+				}
+			},
+		},
+		{
+			name: "present empty",
+			yaml: "agent_host: {}",
+			check: func(t *testing.T, cfg *AgentHostConfig) {
+				t.Helper()
+				if cfg == nil {
+					t.Fatal("AgentHost = nil, want present block")
+				}
+				if cfg.RuntimeStore != "" || cfg.Flowcraft != nil {
+					t.Fatalf("AgentHost = %+v, want empty block", cfg)
+				}
+			},
+		},
+		{
+			name: "present partial",
+			yaml: "agent_host:\n  flowcraft:\n    state_store: state\n",
+			check: func(t *testing.T, cfg *AgentHostConfig) {
+				t.Helper()
+				if cfg == nil || cfg.Flowcraft == nil || cfg.Flowcraft.StateStore != "state" {
+					t.Fatalf("AgentHost = %+v", cfg)
+				}
+				if cfg.RuntimeStore != "" || cfg.Flowcraft.HistoryStore != "" || cfg.Flowcraft.MemoryObjectsStore != "" {
+					t.Fatalf("AgentHost partial fields = %+v", cfg)
+				}
+			},
+		},
+		{
+			name: "complete",
+			yaml: `
+agent_host:
+  runtime_store: runtime
+  flowcraft:
+    state_store: state
+    history_store: history
+    memory_objects_store: memory-objects
+`,
+			check: func(t *testing.T, cfg *AgentHostConfig) {
+				t.Helper()
+				if cfg == nil || cfg.Flowcraft == nil {
+					t.Fatalf("AgentHost = %+v", cfg)
+				}
+				if cfg.RuntimeStore != "runtime" ||
+					cfg.Flowcraft.StateStore != "state" ||
+					cfg.Flowcraft.HistoryStore != "history" ||
+					cfg.Flowcraft.MemoryObjectsStore != "memory-objects" {
+					t.Fatalf("AgentHost = %+v", cfg)
+				}
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			cfg, err := parseConfigData([]byte(test.yaml))
+			if err != nil {
+				t.Fatalf("parseConfigData() error = %v", err)
+			}
+			test.check(t, cfg.AgentHost)
+		})
+	}
+}
+
+func TestParseConfigRejectsInvalidAgentHost(t *testing.T) {
+	tests := []struct {
+		name string
+		yaml string
+		want string
+	}{
+		{"null block", "agent_host:\n", "agent_host must be a mapping"},
+		{"sequence block", "agent_host: []\n", "agent_host must be a mapping"},
+		{"unknown field", "agent_host:\n  runtime: store\n", `agent_host has unknown field "runtime"`},
+		{"non-string runtime", "agent_host:\n  runtime_store: 42\n", "agent_host.runtime_store must be a string"},
+		{"empty runtime", "agent_host:\n  runtime_store: \"\"\n", "agent_host.runtime_store must not be empty"},
+		{"whitespace runtime", "agent_host:\n  runtime_store: \"  \"\n", "agent_host.runtime_store must not be empty"},
+		{"non-mapping flowcraft", "agent_host:\n  flowcraft: false\n", "agent_host.flowcraft must be a mapping"},
+		{"unknown flowcraft field", "agent_host:\n  flowcraft:\n    memory_store: memory\n", `agent_host.flowcraft has unknown field "memory_store"`},
+		{"non-string state", "agent_host:\n  flowcraft:\n    state_store: {}\n", "agent_host.flowcraft.state_store must be a string"},
+		{"empty history", "agent_host:\n  flowcraft:\n    history_store: \"\"\n", "agent_host.flowcraft.history_store must not be empty"},
+		{"whitespace memory", "agent_host:\n  flowcraft:\n    memory_objects_store: \"\\t\"\n", "agent_host.flowcraft.memory_objects_store must not be empty"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := parseConfigData([]byte(test.yaml))
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("parseConfigData() error = %v, want %q", err, test.want)
+			}
+		})
+	}
+}
+
+func TestMergeFileConfigAgentHostBlock(t *testing.T) {
+	fileBlock := &AgentHostConfig{
+		RuntimeStore: "file-runtime",
+		Flowcraft: &AgentHostFlowcraftConfig{
+			StateStore:         "file-state",
+			HistoryStore:       "file-history",
+			MemoryObjectsStore: "file-memory",
+		},
+	}
+	retained, err := mergeFileConfig(Config{}, ConfigFile{AgentHost: fileBlock})
+	if err != nil {
+		t.Fatalf("mergeFileConfig(retain) error = %v", err)
+	}
+	if retained.AgentHost != fileBlock {
+		t.Fatalf("mergeFileConfig(retain) AgentHost = %+v", retained.AgentHost)
+	}
+
+	runtimeBlock := &AgentHostConfig{Flowcraft: &AgentHostFlowcraftConfig{StateStore: "runtime-state"}}
+	replaced, err := mergeFileConfig(Config{AgentHost: runtimeBlock}, ConfigFile{AgentHost: fileBlock})
+	if err != nil {
+		t.Fatalf("mergeFileConfig(replace) error = %v", err)
+	}
+	if replaced.AgentHost != runtimeBlock {
+		t.Fatalf("mergeFileConfig(replace) AgentHost = %+v, want runtime block", replaced.AgentHost)
+	}
+	if replaced.AgentHost.RuntimeStore != "" || replaced.AgentHost.Flowcraft.HistoryStore != "" {
+		t.Fatalf("mergeFileConfig(replace) field-merged blocks: %+v", replaced.AgentHost)
+	}
+}
+
+func TestValidateAgentHostRejectsProgrammaticWhitespaceReference(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.AgentHost = &AgentHostConfig{Flowcraft: &AgentHostFlowcraftConfig{StateStore: " "}}
+	err := cfg.validate()
+	if err == nil || !strings.Contains(err.Error(), "agent_host.flowcraft.state_store must not be whitespace-only") {
+		t.Fatalf("validate() error = %v", err)
+	}
+}
+
 func TestParseConfigSpeechLimits(t *testing.T) {
 	cfg, err := parseConfigData([]byte(`
 speech:
@@ -911,6 +1055,238 @@ func TestNewRejectsNonMutableFlowcraftHistoryStore(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "flowcraft history store") {
 		t.Fatalf("New error = %v", err)
+	}
+}
+
+func TestNewResolvesExplicitAgentHostStoresInOneLayerConfig(t *testing.T) {
+	root := t.TempDir()
+	srv, err := New(Config{
+		Stores: map[string]stores.Config{
+			defaultPeersStore: {Kind: stores.KindKeyValue, Backend: "memory"},
+			"runtime":         {Kind: stores.KindObjectStore, Backend: "fs", Dir: filepath.Join(root, "runtime")},
+			"state":           {Kind: stores.KindKeyValue, Backend: "memory"},
+			"memory-objects":  {Kind: stores.KindObjectStore, Backend: "fs", Dir: filepath.Join(root, "memory")},
+		},
+		AgentHost: &AgentHostConfig{
+			RuntimeStore: "runtime",
+			Flowcraft: &AgentHostFlowcraftConfig{
+				StateStore:         "state",
+				MemoryObjectsStore: "memory-objects",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	t.Cleanup(func() { _ = srv.Close() })
+	if !srv.AgentHostStoresExplicit || srv.AgentHostStore == nil || srv.FlowcraftState == nil || srv.FlowcraftMemoryObjects == nil {
+		t.Fatalf("explicit stores not wired: %+v", srv.Server)
+	}
+	if srv.FlowcraftHistory != nil {
+		t.Fatalf("FlowcraftHistory = %T, want nil", srv.FlowcraftHistory)
+	}
+}
+
+func TestNewResolvesExplicitAgentHostStoresInLayeredConfig(t *testing.T) {
+	root := t.TempDir()
+	cfg := validLayeredConfig(root)
+	cfg.Stores["runtime-explicit"] = stores.Config{Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "runtime-explicit"}
+	cfg.Stores["state-explicit"] = stores.Config{Kind: stores.KindKeyValue, Storage: "memory", Prefix: "state-explicit"}
+	cfg.Stores["memory-explicit"] = stores.Config{Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "memory-explicit"}
+	cfg.AgentHost = &AgentHostConfig{
+		RuntimeStore: "runtime-explicit",
+		Flowcraft: &AgentHostFlowcraftConfig{
+			StateStore:         "state-explicit",
+			MemoryObjectsStore: "memory-explicit",
+		},
+	}
+	srv, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	t.Cleanup(func() { _ = srv.Close() })
+	if !srv.AgentHostStoresExplicit || srv.AgentHostStore == nil || srv.FlowcraftState == nil || srv.FlowcraftMemoryObjects == nil {
+		t.Fatalf("explicit layered stores not wired: %+v", srv.Server)
+	}
+}
+
+func TestNewExplicitAgentHostPartialBlockDisablesReservedFallbacks(t *testing.T) {
+	root := t.TempDir()
+	srv, err := New(Config{
+		Stores: map[string]stores.Config{
+			defaultPeersStore:            {Kind: stores.KindKeyValue, Backend: "memory"},
+			defaultAgentHostStore:        {Kind: stores.KindObjectStore, Backend: "fs", Dir: filepath.Join(root, "legacy-runtime")},
+			defaultFlowcraftHistoryStore: {Kind: stores.KindKeyValue, Backend: "memory"},
+			"state":                      {Kind: stores.KindKeyValue, Backend: "memory"},
+		},
+		AgentHost: &AgentHostConfig{
+			Flowcraft: &AgentHostFlowcraftConfig{StateStore: "state"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	t.Cleanup(func() { _ = srv.Close() })
+	if !srv.AgentHostStoresExplicit || srv.FlowcraftState == nil {
+		t.Fatalf("explicit partial block not wired: %+v", srv.Server)
+	}
+	if srv.AgentHostStore != nil || srv.FlowcraftHistory != nil || srv.FlowcraftMemoryObjects != nil {
+		t.Fatalf("explicit partial block used reserved fallbacks: %+v", srv.Server)
+	}
+}
+
+func TestNewLegacyOneLayerConfigRetainsReservedAgentHostStore(t *testing.T) {
+	srv, err := New(Config{
+		Stores: map[string]stores.Config{
+			defaultPeersStore:     {Kind: stores.KindKeyValue, Backend: "memory"},
+			defaultAgentHostStore: {Kind: stores.KindObjectStore, Backend: "fs", Dir: t.TempDir()},
+		},
+	})
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	t.Cleanup(func() { _ = srv.Close() })
+	if srv.AgentHostStoresExplicit || srv.AgentHostStore == nil {
+		t.Fatalf("legacy agenthost store not retained: %+v", srv.Server)
+	}
+}
+
+func TestNewRejectsInvalidExplicitAgentHostStoreReferences(t *testing.T) {
+	tests := []struct {
+		name      string
+		agentHost *AgentHostConfig
+		want      string
+	}{
+		{
+			name:      "missing runtime",
+			agentHost: &AgentHostConfig{RuntimeStore: "missing"},
+			want:      `agent_host.runtime_store "missing" requires objectstore.ObjectStore`,
+		},
+		{
+			name:      "wrong runtime kind",
+			agentHost: &AgentHostConfig{RuntimeStore: defaultPeersStore},
+			want:      `agent_host.runtime_store "peers" requires objectstore.ObjectStore`,
+		},
+		{
+			name:      "missing state",
+			agentHost: &AgentHostConfig{Flowcraft: &AgentHostFlowcraftConfig{StateStore: "missing"}},
+			want:      `agent_host.flowcraft.state_store "missing" requires kv.Store`,
+		},
+		{
+			name:      "wrong state kind",
+			agentHost: &AgentHostConfig{Flowcraft: &AgentHostFlowcraftConfig{StateStore: "objects"}},
+			want:      `agent_host.flowcraft.state_store "objects" requires kv.Store`,
+		},
+		{
+			name:      "missing history",
+			agentHost: &AgentHostConfig{Flowcraft: &AgentHostFlowcraftConfig{HistoryStore: "missing"}},
+			want:      `agent_host.flowcraft.history_store "missing" requires logstore.MutableStore`,
+		},
+		{
+			name:      "wrong history kind",
+			agentHost: &AgentHostConfig{Flowcraft: &AgentHostFlowcraftConfig{HistoryStore: defaultPeersStore}},
+			want:      `agent_host.flowcraft.history_store "peers" requires logstore.MutableStore`,
+		},
+		{
+			name:      "missing memory objects",
+			agentHost: &AgentHostConfig{Flowcraft: &AgentHostFlowcraftConfig{MemoryObjectsStore: "missing"}},
+			want:      `agent_host.flowcraft.memory_objects_store "missing" requires objectstore.ObjectStore`,
+		},
+		{
+			name:      "wrong memory objects kind",
+			agentHost: &AgentHostConfig{Flowcraft: &AgentHostFlowcraftConfig{MemoryObjectsStore: defaultPeersStore}},
+			want:      `agent_host.flowcraft.memory_objects_store "peers" requires objectstore.ObjectStore`,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := New(Config{
+				Stores: map[string]stores.Config{
+					defaultPeersStore: {Kind: stores.KindKeyValue, Backend: "memory"},
+					"objects":         {Kind: stores.KindObjectStore, Backend: "fs", Dir: t.TempDir()},
+				},
+				AgentHost: test.agentHost,
+			})
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("New() error = %v, want %q", err, test.want)
+			}
+		})
+	}
+}
+
+func TestNewContextualizesExplicitAgentHostStoreBuildFailures(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  Config
+		want string
+	}{
+		{
+			name: "one-layer physical runtime backend",
+			cfg: Config{
+				Stores: map[string]stores.Config{
+					defaultPeersStore: {Kind: stores.KindKeyValue, Backend: "memory"},
+					"runtime":         {Kind: stores.KindObjectStore, Backend: "fs"},
+				},
+				AgentHost: &AgentHostConfig{RuntimeStore: "runtime"},
+			},
+			want: `agent_host.runtime_store "runtime" requires objectstore.ObjectStore`,
+		},
+		{
+			name: "layered physical memory backend",
+			cfg: Config{
+				Storage: map[string]storage.Config{
+					"peer-kv":        {Kind: storage.KindKeyValue, Memory: &storage.MemoryConfig{}},
+					"broken-objects": {Kind: storage.KindObjectStore, FS: &storage.FSConfig{}},
+				},
+				Stores: map[string]stores.Config{
+					defaultPeersStore: {Kind: stores.KindKeyValue, Storage: "peer-kv"},
+					"memory-objects":  {Kind: stores.KindObjectStore, Storage: "broken-objects"},
+				},
+				AgentHost: &AgentHostConfig{
+					Flowcraft: &AgentHostFlowcraftConfig{MemoryObjectsStore: "memory-objects"},
+				},
+			},
+			want: `agent_host.flowcraft.memory_objects_store "memory-objects" requires objectstore.ObjectStore`,
+		},
+		{
+			name: "logical history backend",
+			cfg: Config{
+				Stores: map[string]stores.Config{
+					defaultPeersStore: {Kind: stores.KindKeyValue, Backend: "memory"},
+					"history":         {Kind: stores.KindLog},
+				},
+				AgentHost: &AgentHostConfig{
+					Flowcraft: &AgentHostFlowcraftConfig{HistoryStore: "history"},
+				},
+			},
+			want: `agent_host.flowcraft.history_store "history" requires logstore.MutableStore`,
+		},
+		{
+			name: "layered overlapping memory object prefix",
+			cfg: Config{
+				Storage: map[string]storage.Config{
+					"peer-kv": {Kind: storage.KindKeyValue, Memory: &storage.MemoryConfig{}},
+					"objects": {Kind: storage.KindObjectStore, FS: &storage.FSConfig{Dir: t.TempDir()}},
+				},
+				Stores: map[string]stores.Config{
+					defaultPeersStore: {Kind: stores.KindKeyValue, Storage: "peer-kv"},
+					"a-runtime":       {Kind: stores.KindObjectStore, Storage: "objects", Prefix: "shared"},
+					"z-memory":        {Kind: stores.KindObjectStore, Storage: "objects", Prefix: "shared/memory"},
+				},
+				AgentHost: &AgentHostConfig{
+					Flowcraft: &AgentHostFlowcraftConfig{MemoryObjectsStore: "z-memory"},
+				},
+			},
+			want: `agent_host.flowcraft.memory_objects_store "z-memory" requires objectstore.ObjectStore`,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := New(test.cfg)
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("New() error = %v, want %q", err, test.want)
+			}
+		})
 	}
 }
 
