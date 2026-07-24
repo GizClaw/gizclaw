@@ -274,23 +274,22 @@ func TestServerInitPreservesExistingModularPeerLayout(t *testing.T) {
 	}
 }
 
-func TestServerInitExplicitAgentHostStoresDisableFallbacks(t *testing.T) {
+func TestServerInitAgentHostStoresDoNotInferFlowcraftBindings(t *testing.T) {
 	keyPair, err := giznet.GenerateKeyPair()
 	if err != nil {
 		t.Fatalf("GenerateKeyPair() error = %v", err)
 	}
 	peerStore := kv.NewMemory(nil)
 	server := &Server{
-		LocalStatic:             *keyPair,
-		PeerStore:               peerStore,
-		AgentHostStore:          objectstore.Dir(t.TempDir()),
-		AgentHostStoresExplicit: true,
+		LocalStatic:    *keyPair,
+		PeerStore:      peerStore,
+		AgentHostStore: objectstore.Dir(t.TempDir()),
 	}
 	if err := server.init(); err != nil {
 		t.Fatalf("init() error = %v", err)
 	}
 	if server.EffectivePeerStore() != peerStore {
-		t.Fatal("explicit AgentHost mode activated the legacy shared Peer KV layout")
+		t.Fatal("AgentHost Store activated the legacy shared Peer KV layout")
 	}
 	if server.manager.FlowcraftState != nil {
 		t.Fatalf("FlowcraftState = %T, want nil", server.manager.FlowcraftState)
@@ -300,25 +299,23 @@ func TestServerInitExplicitAgentHostStoresDisableFallbacks(t *testing.T) {
 	}
 }
 
-func TestServerInitLegacyAgentHostStoresRetainFallbacks(t *testing.T) {
+func TestServerInitDoesNotInstallImplicitFlowcraftStores(t *testing.T) {
 	keyPair, err := giznet.GenerateKeyPair()
 	if err != nil {
 		t.Fatalf("GenerateKeyPair() error = %v", err)
 	}
-	objects := objectstore.Dir(t.TempDir())
 	server := &Server{
-		LocalStatic:    *keyPair,
-		PeerStore:      kv.NewMemory(nil),
-		AgentHostStore: objects,
+		LocalStatic: *keyPair,
+		PeerStore:   kv.NewMemory(nil),
 	}
 	if err := server.init(); err != nil {
 		t.Fatalf("init() error = %v", err)
 	}
-	if server.manager.FlowcraftState == nil {
-		t.Fatal("legacy Flowcraft State fallback was not installed")
+	if server.manager.FlowcraftState != nil {
+		t.Fatalf("FlowcraftState = %T, want nil", server.manager.FlowcraftState)
 	}
-	if server.manager.FlowcraftMemoryObjects != objects {
-		t.Fatalf("FlowcraftMemoryObjects = %T, want legacy AgentHostStore", server.manager.FlowcraftMemoryObjects)
+	if server.manager.FlowcraftMemoryObjects != nil {
+		t.Fatalf("FlowcraftMemoryObjects = %T, want nil", server.manager.FlowcraftMemoryObjects)
 	}
 }
 

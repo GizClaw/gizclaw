@@ -447,7 +447,7 @@ func TestNewWithLayeredStorageReportsStoreErrors(t *testing.T) {
 
 	badAgentHostCfg := validLayeredConfig(dir)
 	badAgentHostCfg.Stores["agenthost"] = stores.Config{Kind: stores.KindKeyValue, Storage: "memory", Prefix: "agenthost"}
-	if _, err := New(badAgentHostCfg); err == nil || !strings.Contains(err.Error(), "server: agenthost store:") {
+	if _, err := New(badAgentHostCfg); err == nil || !strings.Contains(err.Error(), `agent_host.runtime_store "agenthost" requires objectstore.ObjectStore`) {
 		t.Fatalf("New(bad agenthost store) = %v", err)
 	}
 
@@ -716,7 +716,7 @@ stores:
 	if err != nil {
 		t.Fatal(err)
 	}
-	store := cfg.Stores[defaultFlowcraftHistoryStore]
+	store := cfg.Stores["flowcraft-history"]
 	if store.Kind != stores.KindLog || store.ClickHouse == nil {
 		t.Fatalf("flowcraft history store = %+v", store)
 	}
@@ -1049,11 +1049,14 @@ func TestNewRejectsMissingDefaultPeerStore(t *testing.T) {
 func TestNewRejectsNonMutableFlowcraftHistoryStore(t *testing.T) {
 	_, err := New(Config{
 		Stores: map[string]stores.Config{
-			defaultPeersStore:            {Kind: stores.KindKeyValue, Backend: "memory"},
-			defaultFlowcraftHistoryStore: {Kind: stores.KindKeyValue, Backend: "memory"},
+			defaultPeersStore:   {Kind: stores.KindKeyValue, Backend: "memory"},
+			"flowcraft-history": {Kind: stores.KindKeyValue, Backend: "memory"},
+		},
+		AgentHost: &AgentHostConfig{
+			Flowcraft: &AgentHostFlowcraftConfig{HistoryStore: "flowcraft-history"},
 		},
 	})
-	if err == nil || !strings.Contains(err.Error(), "flowcraft history store") {
+	if err == nil || !strings.Contains(err.Error(), `agent_host.flowcraft.history_store "flowcraft-history" requires logstore.MutableStore`) {
 		t.Fatalf("New error = %v", err)
 	}
 }
@@ -1079,7 +1082,7 @@ func TestNewResolvesExplicitAgentHostStoresInOneLayerConfig(t *testing.T) {
 		t.Fatalf("New() error = %v", err)
 	}
 	t.Cleanup(func() { _ = srv.Close() })
-	if !srv.AgentHostStoresExplicit || srv.AgentHostStore == nil || srv.FlowcraftState == nil || srv.FlowcraftMemoryObjects == nil {
+	if srv.AgentHostStore == nil || srv.FlowcraftState == nil || srv.FlowcraftMemoryObjects == nil {
 		t.Fatalf("explicit stores not wired: %+v", srv.Server)
 	}
 	if srv.FlowcraftHistory != nil {
@@ -1105,19 +1108,19 @@ func TestNewResolvesExplicitAgentHostStoresInLayeredConfig(t *testing.T) {
 		t.Fatalf("New() error = %v", err)
 	}
 	t.Cleanup(func() { _ = srv.Close() })
-	if !srv.AgentHostStoresExplicit || srv.AgentHostStore == nil || srv.FlowcraftState == nil || srv.FlowcraftMemoryObjects == nil {
+	if srv.AgentHostStore == nil || srv.FlowcraftState == nil || srv.FlowcraftMemoryObjects == nil {
 		t.Fatalf("explicit layered stores not wired: %+v", srv.Server)
 	}
 }
 
-func TestNewExplicitAgentHostPartialBlockDisablesReservedFallbacks(t *testing.T) {
+func TestNewAgentHostBindsOnlyReferencedStores(t *testing.T) {
 	root := t.TempDir()
 	srv, err := New(Config{
 		Stores: map[string]stores.Config{
-			defaultPeersStore:            {Kind: stores.KindKeyValue, Backend: "memory"},
-			defaultAgentHostStore:        {Kind: stores.KindObjectStore, Backend: "fs", Dir: filepath.Join(root, "legacy-runtime")},
-			defaultFlowcraftHistoryStore: {Kind: stores.KindKeyValue, Backend: "memory"},
-			"state":                      {Kind: stores.KindKeyValue, Backend: "memory"},
+			defaultPeersStore:   {Kind: stores.KindKeyValue, Backend: "memory"},
+			"agenthost":         {Kind: stores.KindObjectStore, Backend: "fs", Dir: filepath.Join(root, "unbound-runtime")},
+			"flowcraft-history": {Kind: stores.KindKeyValue, Backend: "memory"},
+			"state":             {Kind: stores.KindKeyValue, Backend: "memory"},
 		},
 		AgentHost: &AgentHostConfig{
 			Flowcraft: &AgentHostFlowcraftConfig{StateStore: "state"},
@@ -1127,27 +1130,27 @@ func TestNewExplicitAgentHostPartialBlockDisablesReservedFallbacks(t *testing.T)
 		t.Fatalf("New() error = %v", err)
 	}
 	t.Cleanup(func() { _ = srv.Close() })
-	if !srv.AgentHostStoresExplicit || srv.FlowcraftState == nil {
+	if srv.FlowcraftState == nil {
 		t.Fatalf("explicit partial block not wired: %+v", srv.Server)
 	}
 	if srv.AgentHostStore != nil || srv.FlowcraftHistory != nil || srv.FlowcraftMemoryObjects != nil {
-		t.Fatalf("explicit partial block used reserved fallbacks: %+v", srv.Server)
+		t.Fatalf("unreferenced stores were bound: %+v", srv.Server)
 	}
 }
 
-func TestNewLegacyOneLayerConfigRetainsReservedAgentHostStore(t *testing.T) {
+func TestNewDoesNotBindAgentHostStoreWithoutConfig(t *testing.T) {
 	srv, err := New(Config{
 		Stores: map[string]stores.Config{
-			defaultPeersStore:     {Kind: stores.KindKeyValue, Backend: "memory"},
-			defaultAgentHostStore: {Kind: stores.KindObjectStore, Backend: "fs", Dir: t.TempDir()},
+			defaultPeersStore: {Kind: stores.KindKeyValue, Backend: "memory"},
+			"agenthost":       {Kind: stores.KindObjectStore, Backend: "fs", Dir: t.TempDir()},
 		},
 	})
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
 	t.Cleanup(func() { _ = srv.Close() })
-	if srv.AgentHostStoresExplicit || srv.AgentHostStore == nil {
-		t.Fatalf("legacy agenthost store not retained: %+v", srv.Server)
+	if srv.AgentHostStore != nil {
+		t.Fatalf("AgentHostStore = %T, want nil", srv.AgentHostStore)
 	}
 }
 
@@ -1325,6 +1328,7 @@ func validLayeredConfig(dir string) Config {
 			"workspace-assets":            {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "workspaces"},
 			"gameplay-db":                 {Kind: stores.KindSQL, Storage: "gameplay-db"},
 		},
+		AgentHost: &AgentHostConfig{RuntimeStore: "agenthost"},
 		FriendGroups: FriendGroupsConfig{
 			MessageDefaultTTL:      "24h",
 			MessageMaxTTL:          "7d",

@@ -28,9 +28,7 @@ The references work with both the layered `storage` plus `stores` layout and the
 | `agent_host.flowcraft.history_store` | `logstore.MutableStore` | ClickHouse LogStore; immutable Volc LogStore is rejected |
 | `agent_host.flowcraft.memory_objects_store` | `objectstore.ObjectStore` | filesystem ObjectStore |
 
-When `agent_host` is present, it is authoritative. An omitted nested reference disables that optional capability; an unknown name, wrong Store kind, immutable History Store, unknown field, or empty reference fails Server construction instead of falling back. A Flowcraft or Pet Workflow that enables long-term Memory then requires `memory_objects_store` when its Agent is constructed. State and internal Flowcraft History remain optional.
-
-When the whole block is absent, compatibility mode retains the reserved `agenthost` ObjectStore, the `flowcraft-state` Peer KV prefix, the reserved mutable `flowcraft-history` LogStore, and the AgentHost ObjectStore as Flowcraft Memory-object storage.
+`agent_host` is the only source of these bindings. Omitting the whole block or a nested reference disables that optional capability; Store names have no reserved binding semantics. An unknown name, wrong Store kind, immutable History Store, unknown field, or empty reference fails Server construction instead of falling back. A Flowcraft or Pet Workflow that enables long-term Memory then requires `memory_objects_store` when its Agent is constructed. State and internal Flowcraft History remain optional.
 
 Changing a reference requires a process restart. GizClaw does not migrate, merge, copy, or delete data when a binding changes. The Store Registry owns every shared backend and closes it once during Server shutdown; Workspace reload and Agent teardown close only per-Agent adapters.
 

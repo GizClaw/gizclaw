@@ -451,24 +451,9 @@ func storeExists(cfg Config, name string) bool {
 
 func configureAgentHostStores(server *gizclaw.Server, registry *stores.Stores, cfg Config) error {
 	if cfg.AgentHost == nil {
-		if storeExists(cfg, defaultAgentHostStore) {
-			runtimeStore, err := registry.ObjectStore(defaultAgentHostStore)
-			if err != nil {
-				return fmt.Errorf("server: agenthost store: %w", err)
-			}
-			server.AgentHostStore = runtimeStore
-		}
-		if storeExists(cfg, defaultFlowcraftHistoryStore) {
-			historyStore, err := registry.MutableLog(defaultFlowcraftHistoryStore)
-			if err != nil {
-				return fmt.Errorf("server: flowcraft history store %q: %w", defaultFlowcraftHistoryStore, err)
-			}
-			server.FlowcraftHistory = historyStore
-		}
 		return nil
 	}
 
-	server.AgentHostStoresExplicit = true
 	if name := cfg.AgentHost.RuntimeStore; name != "" {
 		runtimeStore, err := registry.ObjectStore(name)
 		if err != nil {

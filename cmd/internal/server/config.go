@@ -114,7 +114,6 @@ const (
 	defaultFirmwaresStore                = "firmwares"
 	defaultFirmwareAssetsStore           = "firmware-assets"
 	defaultRuntimeProfilesStore          = "runtime-profiles"
-	defaultAgentHostStore                = "agenthost"
 	defaultMiniMaxTenantsStore           = "minimax-tenants"
 	defaultDeepSeekTenantsStore          = "deepseek-tenants"
 	defaultVoicesStore                   = "voices"
@@ -136,7 +135,6 @@ const (
 	defaultWorkspaceAssetsStore          = "workspace-assets"
 	defaultGameplayDBStore               = "gameplay-db"
 	defaultMetricsStore                  = "metrics"
-	defaultFlowcraftHistoryStore         = "flowcraft-history"
 )
 
 func LoadConfig(path string) (ConfigFile, error) {
