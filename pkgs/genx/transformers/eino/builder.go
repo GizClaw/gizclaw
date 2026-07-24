@@ -254,7 +254,7 @@ func addNativeComponentNode(
 			return nil, err
 		}
 		finish := compose.InvokableLambda(func(_ context.Context, _ []*schema.Message) (map[string]any, error) {
-			return map[string]any{"done": true}, nil
+			return map[string]any{node.ID: true}, nil
 		})
 		if err := graph.AddLambdaNode("finish", finish); err != nil {
 			return nil, err
@@ -330,7 +330,7 @@ func addNativeComponentNode(
 			return nil, err
 		}
 		finish := compose.InvokableLambda(func(_ context.Context, _ *schema.Message) (map[string]any, error) {
-			return map[string]any{"done": true}, nil
+			return map[string]any{node.ID: true}, nil
 		})
 		if err := graph.AddLambdaNode("finish", finish); err != nil {
 			return nil, err
@@ -386,7 +386,7 @@ func addNativeComponentNode(
 			return nil, err
 		}
 		finish := compose.InvokableLambda(func(_ context.Context, _ []*schema.Document) (map[string]any, error) {
-			return map[string]any{"done": true}, nil
+			return map[string]any{node.ID: true}, nil
 		})
 		if err := graph.AddLambdaNode("finish", finish); err != nil {
 			return nil, err

@@ -146,12 +146,12 @@ func TestEinoTransformerOpenAICompatibleGraph(t *testing.T) {
 			}},
 			Outputs: []einotransformer.OutputDefinition{
 				{
-					Node: "primary", Field: "primary", Name: "assistant",
-					MIMEType: "text/plain", Primary: true,
+					Node: "primary", Field: "primary", Name: "primary",
+					MIMEType: "text/plain",
 				},
 				{
-					Node: "join", Field: "joined", Name: "joined",
-					MIMEType: "text/plain",
+					Node: "join", Field: "joined", Name: "assistant",
+					MIMEType: "text/plain", Primary: true,
 				},
 			},
 		},
@@ -179,8 +179,8 @@ func TestEinoTransformerOpenAICompatibleGraph(t *testing.T) {
 	if err := input.Close(); err != nil {
 		t.Fatalf("close Eino input: %v", err)
 	}
-	var primary strings.Builder
-	var primaryDataChunks int
+	var assistant strings.Builder
+	var assistantDataChunks int
 	for {
 		chunk, nextErr := output.Next()
 		if nextErr != nil {
@@ -193,14 +193,14 @@ func TestEinoTransformerOpenAICompatibleGraph(t *testing.T) {
 			t.Fatalf("Eino output error: %s", chunk.Ctrl.Error)
 		}
 		if text, ok := chunk.Part.(genx.Text); ok && chunk.Name == "assistant" && !chunk.IsEndOfStream() {
-			primary.WriteString(string(text))
-			primaryDataChunks++
+			assistant.WriteString(string(text))
+			assistantDataChunks++
 		}
 	}
-	if primaryDataChunks == 0 || !strings.Contains(primary.String(), "EINO_TOOL_OK") {
-		t.Fatalf("streamed primary response = %q in %d chunks", primary.String(), primaryDataChunks)
+	if assistantDataChunks == 0 || !strings.Contains(assistant.String(), "EINO_TOOL_OK") {
+		t.Fatalf("streamed assistant response = %q in %d chunks", assistant.String(), assistantDataChunks)
 	}
-	t.Logf("streamed_primary_chunks=%d response=%q", primaryDataChunks, primary.String())
+	t.Logf("streamed_assistant_chunks=%d response=%q", assistantDataChunks, assistant.String())
 }
 
 type einoE2EResolver struct {
@@ -327,7 +327,7 @@ func (chat *genxChatModel) Stream(
 		for {
 			chunk, nextErr := stream.Next()
 			if nextErr != nil {
-				if !errors.Is(nextErr, io.EOF) {
+				if !errors.Is(nextErr, io.EOF) && !errors.Is(nextErr, genx.ErrDone) {
 					writer.Send(nil, nextErr)
 				}
 				return
