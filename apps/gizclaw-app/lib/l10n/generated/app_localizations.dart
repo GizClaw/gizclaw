@@ -638,6 +638,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Add friend'**
   String get addFriendA11y;
+
+  /// Title and submit action for joining a group with an invite token.
+  ///
+  /// In en, this message translates to:
+  /// **'Join Group'**
+  String get groupJoinTitle;
+
+  /// Accessibility label for joining a group.
+  ///
+  /// In en, this message translates to:
+  /// **'Join group'**
+  String get groupJoinA11y;
+
+  /// Action for a group owner to manage an invite token.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage Invite'**
+  String get groupManageInvite;
+
+  /// Action for creating a group invite token.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Invite'**
+  String get groupCreateInvite;
+
+  /// Action for copying a group invite token.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy Invite'**
+  String get groupCopyInvite;
+
+  /// Temporary confirmation after copying a group invite token.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied'**
+  String get groupCopied;
+
+  /// Placeholder when a group has no active invite token.
+  ///
+  /// In en, this message translates to:
+  /// **'No active invite'**
+  String get groupNoActiveInvite;
+
+  /// Expiration time for a group invite token.
+  ///
+  /// In en, this message translates to:
+  /// **'Expires {expiresAt}'**
+  String groupInviteExpiresAt({required String expiresAt});
 }
 
 class _AppLocalizationsDelegate

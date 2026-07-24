@@ -13,3 +13,7 @@ that contains one. The App stores tokens per Server in secure storage and regist
 into `RuntimeProfile/default`. The App uses the fixed application token identity
 `app:com.gizclaw.opensource`. Rescanning the same Server may replace the stored token after Desktop
 updates the resource.
+
+On the Groups page, users can join a group by entering an invite token. Group
+owners can create, copy, rotate, or revoke the current token from the group's
+actions menu. Invite tokens expire according to the Server policy.

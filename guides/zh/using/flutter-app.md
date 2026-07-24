@@ -13,6 +13,9 @@ App 使用对应 `collection` 和 `workflow_alias` 创建新的 Workspace 并直
 `RuntimeProfile/default`。App 使用固定的应用 token identity
 `app:com.gizclaw.opensource`；同一 Server 重新扫码时可以替换 Desktop 更新资源后的 token。
 
+在“群组”页面，用户可输入邀请码加入群组。群主可从群组操作菜单创建、复制、轮换或
+撤销当前邀请码；邀请码的有效期由 Server 策略决定。
+
 Flutter SDK 提供 Workspace 的 PNG/PIXA icon 下载方法。当前设备的
 Peer profile PNG icon 由 Identity 页头像入口上传或删除；self RPC 不接受 public key，
 因此只能修改当前连接 identity 自己的 icon。PNG 与 PIXA 单个文件上限均为 2 MiB。

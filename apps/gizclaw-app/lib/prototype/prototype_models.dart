@@ -103,10 +103,12 @@ class ChatroomWorkspaceMetadata {
     this.resourceId = '',
     this.emoji = '',
     this.peerPublicKey = '',
+    this.isGroupOwner = false,
   });
 
   final String description;
   final String emoji;
+  final bool isGroupOwner;
   final ChatroomWorkspaceKind kind;
   final String peerPublicKey;
   final String resourceId;

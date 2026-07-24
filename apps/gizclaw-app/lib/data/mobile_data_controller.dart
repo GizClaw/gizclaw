@@ -1063,13 +1063,19 @@ class MobileDataController extends ChangeNotifier {
     _backgroundReconnectDelay = backgroundReconnectInitialDelay;
   }
 
-  GizClawClient _friendClient() {
+  GizClawClient _socialClient(String unavailableMessage) {
     final client = connection.client;
     if (connectionState != MobileConnectionState.connected || client == null) {
-      throw StateError('Connect to GizClaw to manage friends');
+      throw StateError(unavailableMessage);
     }
     return client;
   }
+
+  GizClawClient _friendClient() =>
+      _socialClient('Connect to GizClaw to manage friends');
+
+  GizClawClient _groupClient() =>
+      _socialClient('Connect to GizClaw to manage groups');
 
   Future<FriendInviteTokenGetResponse> getFriendInviteToken() =>
       _friendClient().getFriendInviteToken();
@@ -1103,6 +1109,24 @@ class MobileDataController extends ChangeNotifier {
     );
     if (refreshAfterCreate) await refresh();
     return response.value;
+  }
+
+  Future<FriendGroupInviteTokenGetResponse> getFriendGroupInviteToken(
+    String friendGroupId,
+  ) => _groupClient().getFriendGroupInviteToken(friendGroupId.trim());
+
+  Future<FriendGroupInviteTokenCreateResponse> createFriendGroupInviteToken(
+    String friendGroupId,
+  ) => _groupClient().createFriendGroupInviteToken(friendGroupId.trim());
+
+  Future<void> clearFriendGroupInviteToken(String friendGroupId) async {
+    await _groupClient().clearFriendGroupInviteToken(friendGroupId.trim());
+  }
+
+  Future<FriendGroupObject> joinFriendGroup(String inviteToken) async {
+    final response = await _groupClient().joinFriendGroup(inviteToken.trim());
+    await refresh();
+    return response.group;
   }
 
   Future<Workspace> createWorkspace({

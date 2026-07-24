@@ -389,4 +389,30 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get addFriendA11y => 'Add friend';
+
+  @override
+  String get groupJoinTitle => 'Join Group';
+
+  @override
+  String get groupJoinA11y => 'Join group';
+
+  @override
+  String get groupManageInvite => 'Manage Invite';
+
+  @override
+  String get groupCreateInvite => 'Create Invite';
+
+  @override
+  String get groupCopyInvite => 'Copy Invite';
+
+  @override
+  String get groupCopied => 'Copied';
+
+  @override
+  String get groupNoActiveInvite => 'No active invite';
+
+  @override
+  String groupInviteExpiresAt({required String expiresAt}) {
+    return 'Expires $expiresAt';
+  }
 }

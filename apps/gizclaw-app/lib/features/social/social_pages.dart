@@ -193,6 +193,12 @@ class _GroupsPageState extends State<GroupsPage> {
                       ),
                     ),
                     GizPageActionButton(
+                      icon: GizIcons.person_add,
+                      semanticLabel: context.l10n.groupJoinA11y,
+                      onPressed: () => _showJoinGroup(context, data),
+                    ),
+                    const SizedBox(width: 8),
+                    GizPageActionButton(
                       icon: GizIcons.person_3_fill,
                       semanticLabel: context.l10n.actionText(
                         key: 'createGroupA11y',
@@ -243,6 +249,19 @@ class _GroupsPageState extends State<GroupsPage> {
                           '/groups/'
                           '${Uri.encodeComponent(group.workspaceName)}',
                         ),
+                        trailing: group.isGroupOwner
+                            ? CupertinoButton(
+                                minimumSize: const Size.square(40),
+                                padding: EdgeInsets.zero,
+                                onPressed: () =>
+                                    _showGroupInvite(context, data, group),
+                                child: const Icon(
+                                  GizIcons.ellipsis,
+                                  size: 20,
+                                  color: GizColors.secondaryInk,
+                                ),
+                              )
+                            : null,
                       )
                       .animate(delay: (index * 45).ms)
                       .fadeIn(duration: 280.ms)
@@ -272,6 +291,34 @@ class _GroupsPageState extends State<GroupsPage> {
     await data.refresh();
     await WidgetsBinding.instance.endOfFrame;
     unawaited(router.push('/groups/${Uri.encodeComponent(workspaceName)}'));
+  }
+
+  Future<void> _showJoinGroup(
+    BuildContext context,
+    MobileDataController data,
+  ) async {
+    final group = await showCupertinoModalPopup<FriendGroupObject>(
+      context: context,
+      builder: (context) => _JoinGroupSheet(data: data),
+    );
+    if (!context.mounted || group == null) return;
+    final workspaceName = group.workspaceName.trim();
+    if (workspaceName.isEmpty) return;
+    await WidgetsBinding.instance.endOfFrame;
+    if (!context.mounted) return;
+    context.push('/groups/${Uri.encodeComponent(workspaceName)}');
+  }
+
+  Future<void> _showGroupInvite(
+    BuildContext context,
+    MobileDataController data,
+    ChatroomWorkspaceMetadata group,
+  ) async {
+    if (group.resourceId.trim().isEmpty) return;
+    await showCupertinoModalPopup<void>(
+      context: context,
+      builder: (context) => _GroupInviteSheet(data: data, group: group),
+    );
   }
 }
 
@@ -468,6 +515,367 @@ class _CreateGroupSheetState extends State<_CreateGroupSheet> {
                 ? const CupertinoActivityIndicator()
                 : Text(context.l10n.actionText(key: 'createGroup')),
           ),
+          SizedBox(height: MediaQuery.viewInsetsOf(context).bottom),
+        ],
+      ),
+    );
+  }
+}
+
+class _JoinGroupSheet extends StatefulWidget {
+  const _JoinGroupSheet({required this.data});
+
+  final MobileDataController data;
+
+  @override
+  State<_JoinGroupSheet> createState() => _JoinGroupSheetState();
+}
+
+class _JoinGroupSheetState extends State<_JoinGroupSheet> {
+  final _inviteController = TextEditingController();
+  bool _busy = false;
+  Object? _error;
+
+  @override
+  void dispose() {
+    _inviteController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _join() async {
+    final token = _inviteController.text.trim();
+    if (_busy || token.isEmpty) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final group = await widget.data.joinFriendGroup(token);
+      if (mounted) Navigator.pop(context, group);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _error = error;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final background = CupertinoColors.systemBackground.resolveFrom(context);
+    final safeBottom = MediaQuery.viewPaddingOf(context).bottom;
+    return Container(
+      key: const ValueKey('join-group-sheet'),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + safeBottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 36,
+              height: 5,
+              decoration: BoxDecoration(
+                color: CupertinoColors.systemGrey4.resolveFrom(context),
+                borderRadius: BorderRadius.circular(3),
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text(context.l10n.groupJoinTitle, style: GizText.sectionTitle),
+          const SizedBox(height: 16),
+          CupertinoTextField(
+            key: const ValueKey('group-invite-token-field'),
+            controller: _inviteController,
+            placeholder: context.l10n.actionText(key: 'inviteToken'),
+            autocorrect: false,
+            enableSuggestions: false,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _join(),
+            padding: const EdgeInsets.all(14),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              _friendErrorMessage(_error!),
+              textAlign: TextAlign.center,
+              style: GizText.body.copyWith(
+                color: CupertinoColors.systemRed.resolveFrom(context),
+              ),
+            ),
+          ],
+          const SizedBox(height: 14),
+          CupertinoButton.filled(
+            onPressed: _busy ? null : _join,
+            child: _busy
+                ? const CupertinoActivityIndicator()
+                : Text(context.l10n.groupJoinTitle),
+          ),
+          SizedBox(height: MediaQuery.viewInsetsOf(context).bottom),
+        ],
+      ),
+    );
+  }
+}
+
+class _GroupInviteSheet extends StatefulWidget {
+  const _GroupInviteSheet({required this.data, required this.group});
+
+  final MobileDataController data;
+  final ChatroomWorkspaceMetadata group;
+
+  @override
+  State<_GroupInviteSheet> createState() => _GroupInviteSheetState();
+}
+
+class _GroupInviteSheetState extends State<_GroupInviteSheet> {
+  final _tokenController = TextEditingController();
+  bool _busy = false;
+  bool _copied = false;
+  bool _tokenLoaded = false;
+  String _token = '';
+  String _expiresAt = '';
+  Object? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadToken());
+  }
+
+  @override
+  void dispose() {
+    _tokenController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadToken() async {
+    if (_busy) return;
+    _setBusy();
+    try {
+      final response = await widget.data.getFriendGroupInviteToken(
+        widget.group.resourceId,
+      );
+      if (!mounted) return;
+      _setToken(
+        token: response.inviteToken,
+        expiresAt: response.expiresAt,
+        loaded: true,
+      );
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+          _tokenLoaded = true;
+          _tokenController.text = context.l10n.groupNoActiveInvite;
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _createToken() async {
+    if (_busy) return;
+    _setBusy();
+    try {
+      final response = await widget.data.createFriendGroupInviteToken(
+        widget.group.resourceId,
+      );
+      if (!mounted) return;
+      _setToken(
+        token: response.inviteToken,
+        expiresAt: response.expiresAt,
+        loaded: true,
+      );
+    } catch (error) {
+      if (mounted) setState(() => _error = error);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _clearToken() async {
+    if (_busy || _token.isEmpty) return;
+    _setBusy();
+    try {
+      await widget.data.clearFriendGroupInviteToken(widget.group.resourceId);
+      if (!mounted) return;
+      _setToken(loaded: true);
+    } catch (error) {
+      if (mounted) setState(() => _error = error);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _rotateToken() async {
+    if (_busy || _token.isEmpty) return;
+    _setBusy();
+    try {
+      await widget.data.clearFriendGroupInviteToken(widget.group.resourceId);
+      final response = await widget.data.createFriendGroupInviteToken(
+        widget.group.resourceId,
+      );
+      if (!mounted) return;
+      _setToken(
+        token: response.inviteToken,
+        expiresAt: response.expiresAt,
+        loaded: true,
+      );
+    } catch (error) {
+      if (mounted) setState(() => _error = error);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _copyToken() async {
+    await Clipboard.setData(ClipboardData(text: _token));
+    if (!mounted) return;
+    setState(() => _copied = true);
+    await Future<void>.delayed(const Duration(milliseconds: 1200));
+    if (mounted) setState(() => _copied = false);
+  }
+
+  void _setBusy() {
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+  }
+
+  void _setToken({
+    String token = '',
+    String expiresAt = '',
+    required bool loaded,
+  }) {
+    setState(() {
+      _token = token.trim();
+      _expiresAt = expiresAt.trim();
+      _tokenLoaded = loaded;
+      _tokenController.text = _token.isEmpty
+          ? context.l10n.groupNoActiveInvite
+          : _token;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final background = CupertinoColors.systemBackground.resolveFrom(context);
+    final secondary = CupertinoColors.secondarySystemBackground.resolveFrom(
+      context,
+    );
+    final safeBottom = MediaQuery.viewPaddingOf(context).bottom;
+    return Container(
+      key: const ValueKey('group-invite-sheet'),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + safeBottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 36,
+              height: 5,
+              decoration: BoxDecoration(
+                color: CupertinoColors.systemGrey4.resolveFrom(context),
+                borderRadius: BorderRadius.circular(3),
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text(context.l10n.groupManageInvite, style: GizText.sectionTitle),
+          const SizedBox(height: 16),
+          GizSquircle(
+            borderRadius: GizCorners.compactCard,
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 74),
+              padding: const EdgeInsets.all(14),
+              color: secondary,
+              child: _busy && !_tokenLoaded
+                  ? const Center(child: CupertinoActivityIndicator())
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        CupertinoTextField(
+                          controller: _tokenController,
+                          readOnly: true,
+                          padding: EdgeInsets.zero,
+                          decoration: null,
+                          style: GizText.title,
+                        ),
+                        if (_expiresAt.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            context.l10n.groupInviteExpiresAt(
+                              expiresAt: _formatInviteExpiry(_expiresAt),
+                            ),
+                            style: GizText.label.copyWith(
+                              color: GizColors.secondaryInk,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              if (_token.isNotEmpty) ...[
+                CupertinoButton(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  onPressed: _busy ? null : _clearToken,
+                  child: Text(context.l10n.actionText(key: 'revoke')),
+                ),
+                const SizedBox(width: 8),
+              ],
+              Expanded(
+                child: CupertinoButton.filled(
+                  onPressed: _busy
+                      ? null
+                      : _token.isEmpty
+                      ? _createToken
+                      : _copyToken,
+                  child: Text(
+                    _token.isEmpty
+                        ? context.l10n.groupCreateInvite
+                        : _copied
+                        ? context.l10n.groupCopied
+                        : context.l10n.groupCopyInvite,
+                  ),
+                ),
+              ),
+              if (_token.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                CupertinoButton(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  onPressed: _busy ? null : _rotateToken,
+                  child: const Icon(GizIcons.refresh),
+                ),
+              ],
+            ],
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              _friendErrorMessage(_error!),
+              textAlign: TextAlign.center,
+              style: GizText.body.copyWith(
+                color: CupertinoColors.systemRed.resolveFrom(context),
+              ),
+            ),
+          ],
           SizedBox(height: MediaQuery.viewInsetsOf(context).bottom),
         ],
       ),
