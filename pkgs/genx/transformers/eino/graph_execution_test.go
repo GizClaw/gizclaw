@@ -572,6 +572,23 @@ func TestGraphExecutionRaceFirstOutputCancelsLoserImmediately(t *testing.T) {
 	}
 }
 
+func TestGraphExecutionRaceFirstOutputPreservesEmissionOrder(t *testing.T) {
+	t.Parallel()
+	started := make(chan int, 2)
+	started <- 1
+	started <- 0
+	allDone := make(chan struct{})
+	close(allDone)
+
+	winner, err := firstRaceOutput(t.Context(), started, allDone)
+	if err != nil {
+		t.Fatalf("firstRaceOutput() error = %v", err)
+	}
+	if winner != 1 {
+		t.Fatalf("firstRaceOutput() winner = %d, want first emitted branch 1", winner)
+	}
+}
+
 func TestGraphExecutionBatchBoundsConcurrencyAndPreservesOrder(t *testing.T) {
 	t.Parallel()
 	tracker := newBatchTracker(2)

@@ -20,6 +20,26 @@ type raceCapture struct {
 	started chan<- int
 }
 
+func firstRaceOutput(
+	ctx context.Context,
+	started <-chan int,
+	allDone <-chan struct{},
+) (int, error) {
+	select {
+	case first := <-started:
+		return first, nil
+	case <-allDone:
+		select {
+		case first := <-started:
+			return first, nil
+		default:
+			return -1, nil
+		}
+	case <-ctx.Done():
+		return -1, context.Cause(ctx)
+	}
+}
+
 func (capture *raceCapture) Emit(output OutputDefinition, value any) error {
 	if err := capture.captureEmitter.Emit(output, value); err != nil {
 		return err
@@ -105,33 +125,10 @@ func compileRace(
 			close(allDone)
 		}()
 
-		firstOutputWinner := func() (int, error) {
-			select {
-			case first := <-started:
-				winner := first
-				for {
-					select {
-					case candidate := <-started:
-						winner = min(winner, candidate)
-					default:
-						return winner, nil
-					}
-				}
-			case <-allDone:
-				select {
-				case winner := <-started:
-					return winner, nil
-				default:
-					return -1, nil
-				}
-			case <-ctx.Done():
-				return -1, context.Cause(ctx)
-			}
-		}
 		var winner int = -1
 		switch node.Race.Winner.Mode {
 		case RaceFirstOutput:
-			winner, err = firstOutputWinner()
+			winner, err = firstRaceOutput(ctx, started, allDone)
 			if err != nil {
 				return nil, nil, err
 			}
