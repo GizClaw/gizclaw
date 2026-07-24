@@ -120,7 +120,9 @@ type Stream interface {
 
 [`Tool`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#Tool) 是受限的工具类型集合。当前由 [`FuncTool`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#FuncTool) 和 `SearchWebTool` 实现。
 
-`FuncTool` 保存工具名称、说明、JSON Schema 和 typed invoke function；Generator 只负责产生 `FuncCall`，实际调用仍由拥有该工具的上层执行。
+`FuncTool` 保存工具名称、说明、JSON Schema 和 typed invoke function。`Toolkit` 校验并快照一组有序的可执行 `FuncTool` 声明；`Tools` 返回 defensive copy，`Invoke` 则按快照 schema 校验带 ID 的调用、执行绑定函数，并把结果序列化成 JSON。
+
+同一个 Toolkit 可以由多个 runtime 并发共享；它既不全局占用 call ID，也不串行化 executor。每个 Transformer invocation 自己管理 call-ID 唯一性和调用额度。nil error 对应的可序列化值会成为 model-visible result；executor 返回非 nil error、参数非法或结果不可序列化时，当前 runtime turn 失败。
 
 ## 核心数据结构
 

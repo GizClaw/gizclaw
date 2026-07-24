@@ -130,6 +130,61 @@ func TestGraphExecutionNativeParallelJoin(t *testing.T) {
 	}
 }
 
+func TestGraphExecutionNativeChatModelsFanInWithDistinctCompletionKeys(t *testing.T) {
+	t.Parallel()
+	resolver := &namedComponentResolver{chat: map[string]model.BaseChatModel{
+		"left":  &fakeChatModel{chunks: []*schema.Message{schema.AssistantMessage("left", nil)}},
+		"right": &fakeChatModel{chunks: []*schema.Message{schema.AssistantMessage("right", nil)}},
+	}}
+	config := textConfig()
+	config.Components = resolver
+	config.Graph.Compile.NodeTriggerMode = NodeTriggerAllPredecessor
+	config.Graph.Compile.FanIn = map[string]FanInConfig{
+		"join": {StreamMergeWithSourceEOF: true},
+	}
+	config.Graph.State.Fields = []StateField{
+		{Name: "left", Type: StateString, Merge: MergeReplace},
+		{Name: "right", Type: StateString, Merge: MergeReplace},
+		{Name: "answer", Type: StateString, Merge: MergeReplace},
+	}
+	config.Graph.Nodes = []NodeDefinition{
+		{
+			ID: "left", Inputs: map[string]Binding{"messages": {From: "input.messages"}},
+			Outputs: map[string]string{"text": "left"}, ChatModel: &ChatModelNode{Model: "left"},
+		},
+		{
+			ID: "right", Inputs: map[string]Binding{"messages": {From: "input.messages"}},
+			Outputs: map[string]string{"text": "right"}, ChatModel: &ChatModelNode{Model: "right"},
+		},
+		{
+			ID: "join",
+			Inputs: map[string]Binding{
+				"left": {From: "left"}, "right": {From: "right"},
+			},
+			Outputs: map[string]string{"text": "answer"},
+			Transform: &TransformNode{
+				Operation: TransformConcatText, Order: []string{"left", "right"}, Separator: "|",
+			},
+		},
+	}
+	config.Graph.Edges = []EdgeDefinition{
+		{From: "start", To: "left"}, {From: "start", To: "right"},
+		{From: "left", To: "join"}, {From: "right", To: "join"}, {From: "join", To: "end"},
+	}
+	config.Graph.Outputs[0].Node = "join"
+	transformer, err := New(t.Context(), config)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	output, err := transformer.Transform(t.Context(), textInput("fan-in"))
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	if got := joinedText(drain(t, output)); got != "left|right" {
+		t.Fatalf("output = %q, want left|right", got)
+	}
+}
+
 func TestGraphExecutionMultiDestinationBranchAndFanIn(t *testing.T) {
 	t.Parallel()
 	barrier := newParallelBarrier(2)

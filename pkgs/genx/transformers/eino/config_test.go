@@ -20,6 +20,8 @@ func TestNewValidatesGraphContract(t *testing.T) {
 		mutate func(*Config)
 	}{
 		{name: "agent", mutate: func(config *Config) { config.Agent.ID = "" }},
+		{name: "negative tool call limit", mutate: func(config *Config) { config.MaxToolCalls = -1 }},
+		{name: "tool call limit without Toolkit", mutate: func(config *Config) { config.MaxToolCalls = 1 }},
 		{name: "node union", mutate: func(config *Config) { config.Graph.Nodes[0].Passthrough = &PassthroughNode{} }},
 		{name: "unknown binding", mutate: func(config *Config) {
 			config.Graph.Nodes[0].Inputs["input"] = Binding{From: "missing"}
