@@ -95,7 +95,7 @@ ChatModel 调用解析后的 Eino streaming interface。model node 直接拥有 
 
 ## Starlark Script
 
-Script source 在 `New` 中只 compile 和 initialize 一次。默认 entrypoint 是 `run`，接收一个 frozen dictionary：
+Script source 在 `New` 中只 compile 一次并校验 initialization。每次 run 都会在配置的 step、timeout 与 cancellation 限制内初始化独立 module globals，再调用 entrypoint，因此 mutable global 不会跨 turn 泄漏。默认 entrypoint 是 `run`，接收一个 frozen dictionary：
 
 ```go
 eino.ScriptNode{
@@ -151,7 +151,7 @@ eino.RaceNode{
 }
 ```
 
-Winner mode 包括 `first_output`、`first_success` 和 `predicate`。Predicate mode 对每个已完成 child State 计算 predicate。Child State 与 output buffer 相互隔离；winner 的 named Graph output 会复制到 parent，loser context 会被取消。
+Winner mode 包括 `first_output`、`first_success` 和 `predicate`。`first_output` 在第一个 declared output 发出时立即选定 winner 并取消 loser branch context，同时允许 winner 完成自己的 output。Predicate mode 对每个已完成 child State 计算 predicate。Child State 与 output buffer 相互隔离；winner 的 named Graph output 会复制到 parent。
 
 Batch 对有序 list 执行 nested Graph：
 

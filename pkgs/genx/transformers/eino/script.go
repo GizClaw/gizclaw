@@ -12,11 +12,12 @@ import (
 )
 
 type compiledScript struct {
-	config ScriptNode
-	entry  starlark.Callable
+	config     ScriptNode
+	program    *starlark.Program
+	entrypoint string
 }
 
-func compileScript(config ScriptNode) (*compiledScript, error) {
+func compileScript(ctx context.Context, config ScriptNode) (*compiledScript, error) {
 	_, program, err := starlark.SourceProgram("eino.star", config.Source, func(string) bool { return false })
 	if err != nil {
 		return nil, fmt.Errorf("eino: compile Script: %w", err)
@@ -24,21 +25,14 @@ func compileScript(config ScriptNode) (*compiledScript, error) {
 	if strings.TrimSpace(config.Entrypoint) == "" {
 		config.Entrypoint = "run"
 	}
-	thread := &starlark.Thread{Name: "eino-script-init"}
-	thread.SetMaxExecutionSteps(config.Limits.MaxExecutionSteps)
-	globals, err := program.Init(thread, nil)
+	script := &compiledScript{config: config, program: program, entrypoint: config.Entrypoint}
+	thread, cleanup := script.newThread(ctx, "eino-script-init")
+	defer cleanup()
+	_, err = script.initialize(thread)
 	if err != nil {
 		return nil, fmt.Errorf("eino: initialize Script: %w", err)
 	}
-	entry, ok := globals[config.Entrypoint]
-	if !ok {
-		return nil, fmt.Errorf("eino: Script entrypoint %q not found", config.Entrypoint)
-	}
-	callable, ok := entry.(starlark.Callable)
-	if !ok {
-		return nil, fmt.Errorf("eino: Script entrypoint %q is not callable", config.Entrypoint)
-	}
-	return &compiledScript{config: config, entry: callable}, nil
+	return script, nil
 }
 
 func (script *compiledScript) run(
@@ -49,25 +43,17 @@ func (script *compiledScript) run(
 	if err := encodeBounded(inputs, script.config.Limits.MaxInputBytes); err != nil {
 		return nil, fmt.Errorf("eino: Script input: %w", err)
 	}
-	thread := &starlark.Thread{Name: "eino-script"}
-	thread.SetMaxExecutionSteps(script.config.Limits.MaxExecutionSteps)
-	runCtx, cancel := context.WithTimeout(ctx, script.config.Limits.Timeout)
-	defer cancel()
-	done := make(chan struct{})
-	go func() {
-		select {
-		case <-runCtx.Done():
-			thread.Cancel(context.Cause(runCtx).Error())
-		case <-done:
-		}
-	}()
+	thread, cleanup := script.newThread(ctx, "eino-script")
+	defer cleanup()
+	entry, err := script.initialize(thread)
+	if err != nil {
+		return nil, fmt.Errorf("eino: initialize Script run: %w", err)
+	}
 	input, err := toStarlark(inputs)
 	if err != nil {
-		close(done)
 		return nil, fmt.Errorf("eino: convert Script input: %w", err)
 	}
-	value, err := starlark.Call(thread, script.entry, starlark.Tuple{input}, nil)
-	close(done)
+	value, err := starlark.Call(thread, entry, starlark.Tuple{input}, nil)
 	if err != nil {
 		return nil, fmt.Errorf("eino: run Script: %w", err)
 	}
@@ -100,6 +86,43 @@ func (script *compiledScript) run(
 		return nil, fmt.Errorf("eino: Script output: %w", err)
 	}
 	return object, nil
+}
+
+func (script *compiledScript) initialize(thread *starlark.Thread) (starlark.Callable, error) {
+	globals, err := script.program.Init(thread, nil)
+	if err != nil {
+		return nil, err
+	}
+	entry, ok := globals[script.entrypoint]
+	if !ok {
+		return nil, fmt.Errorf("Script entrypoint %q not found", script.entrypoint)
+	}
+	callable, ok := entry.(starlark.Callable)
+	if !ok {
+		return nil, fmt.Errorf("Script entrypoint %q is not callable", script.entrypoint)
+	}
+	return callable, nil
+}
+
+func (script *compiledScript) newThread(
+	ctx context.Context,
+	name string,
+) (*starlark.Thread, func()) {
+	runCtx, cancel := context.WithTimeout(ctx, script.config.Limits.Timeout)
+	thread := &starlark.Thread{Name: name}
+	thread.SetMaxExecutionSteps(script.config.Limits.MaxExecutionSteps)
+	done := make(chan struct{})
+	go func() {
+		select {
+		case <-runCtx.Done():
+			thread.Cancel(context.Cause(runCtx).Error())
+		case <-done:
+		}
+	}()
+	return thread, func() {
+		close(done)
+		cancel()
+	}
 }
 
 func convertScriptOutput(value any, stateType StateType) (any, error) {

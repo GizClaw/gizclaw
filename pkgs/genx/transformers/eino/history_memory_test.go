@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -117,6 +118,49 @@ func TestHistoryAndMemoryUseStableScopesAndDeliveryOrder(t *testing.T) {
 	}
 }
 
+func TestMemoryWaitRequiresTerminalSuccess(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name    string
+		result  memory.ObserveResult
+		wantErr string
+	}{
+		{name: "success", result: memory.ObserveResult{
+			Operation: &memory.Operation{ID: "operation-1", Status: memory.OperationSucceeded},
+		}},
+		{name: "missing operation", wantErr: "returned no operation"},
+		{name: "pending", result: memory.ObserveResult{
+			Operation: &memory.Operation{ID: "operation-1", Status: memory.OperationPending},
+		}, wantErr: "remained pending"},
+		{name: "failed", result: memory.ObserveResult{
+			Operation: &memory.Operation{ID: "operation-1", Status: memory.OperationFailed, Error: "failed"},
+		}, wantErr: "failed"},
+		{name: "unsupported", result: memory.ObserveResult{
+			Operation: &memory.Operation{ID: "operation-1", Status: "unknown"},
+		}, wantErr: "unsupported status"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			store := &waitingMemoryStore{waitResult: test.result}
+			state, err := newRunState(nil, graphInput{}, nil, nil)
+			if err != nil {
+				t.Fatalf("newRunState() error = %v", err)
+			}
+			err = observeMemory(t.Context(), &MemoryConfig{
+				Store: store, Scope: "scope",
+				Observe: ObservePolicy{Enabled: true, WaitForCompletion: true},
+			}, state, "stream-1", "user", "assistant", false)
+			if test.wantErr == "" {
+				if err != nil {
+					t.Fatalf("observeMemory() error = %v", err)
+				}
+			} else if err == nil || !strings.Contains(err.Error(), test.wantErr) {
+				t.Fatalf("observeMemory() error = %v, want containing %q", err, test.wantErr)
+			}
+		})
+	}
+}
+
 type eventRecorder struct {
 	mu     sync.Mutex
 	events []string
@@ -178,6 +222,27 @@ type recordingMemoryStore struct {
 	events       *eventRecorder
 	queries      []memory.Query
 	observations []memory.Observation
+}
+
+type waitingMemoryStore struct {
+	recordingMemoryStore
+	waitResult memory.ObserveResult
+}
+
+func (*waitingMemoryStore) Observe(
+	context.Context,
+	memory.Observation,
+) (memory.ObserveResult, error) {
+	return memory.ObserveResult{
+		Operation: &memory.Operation{ID: "operation-1", Status: memory.OperationPending},
+	}, nil
+}
+
+func (store *waitingMemoryStore) Wait(
+	context.Context,
+	string,
+) (memory.ObserveResult, error) {
+	return store.waitResult, nil
 }
 
 func (store *recordingMemoryStore) Recall(

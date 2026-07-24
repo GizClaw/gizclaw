@@ -2,7 +2,9 @@ package eino
 
 import (
 	"context"
+	"fmt"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -135,7 +137,7 @@ func TestScriptEnforcesStepTimeoutAndByteLimits(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			script, err := compileScript(ScriptNode{
+			script, err := compileScript(t.Context(), ScriptNode{
 				Language: ScriptStarlark, Source: test.source, Limits: test.limits,
 			})
 			if err != nil {
@@ -151,7 +153,7 @@ func TestScriptEnforcesStepTimeoutAndByteLimits(t *testing.T) {
 
 func TestScriptHonorsCancellation(t *testing.T) {
 	t.Parallel()
-	script, err := compileScript(ScriptNode{
+	script, err := compileScript(t.Context(), ScriptNode{
 		Language: ScriptStarlark,
 		Source: "def run(input):\n  total = 0\n  for i in range(100000000):\n" +
 			"    total += i\n  return {\"text\": str(total)}\n",
@@ -168,5 +170,84 @@ func TestScriptHonorsCancellation(t *testing.T) {
 	_, err = script.run(ctx, map[string]any{}, map[string]StateType{"text": StateString})
 	if err == nil || !strings.Contains(strings.ToLower(err.Error()), "cancel") {
 		t.Fatalf("run() error = %v, want cancellation", err)
+	}
+}
+
+func TestScriptInitializesMutableGlobalsPerRun(t *testing.T) {
+	t.Parallel()
+	config := textConfig()
+	config.Graph.Nodes[0] = NodeDefinition{
+		ID: "answer", Inputs: map[string]Binding{"value": {From: "input.text"}},
+		Outputs: map[string]string{"text": "answer"},
+		Script: &ScriptNode{
+			Language: ScriptStarlark,
+			Source: "values = []\n" +
+				"def run(input):\n" +
+				"  values.append(input[\"value\"])\n" +
+				"  return {\"text\": \"|\".join(values)}\n",
+			Limits: ScriptLimits{
+				MaxExecutionSteps: 10_000, Timeout: time.Second,
+				MaxInputBytes: 1 << 10, MaxOutputBytes: 1 << 10,
+			},
+		},
+	}
+	transformer, err := New(t.Context(), config)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	const count = 32
+	var wait sync.WaitGroup
+	failures := make(chan error, count)
+	for index := range count {
+		wait.Go(func() {
+			input := fmt.Sprintf("turn-%d", index)
+			output, transformErr := transformer.Transform(t.Context(), textInput(input))
+			if transformErr != nil {
+				failures <- transformErr
+				return
+			}
+			if got := joinedText(drain(t, output)); got != input {
+				failures <- fmt.Errorf("Script global leaked: output %q, want %q", got, input)
+			}
+		})
+	}
+	wait.Wait()
+	close(failures)
+	for failure := range failures {
+		t.Fatal(failure)
+	}
+}
+
+func TestScriptInitializationHonorsCancellationAndTimeout(t *testing.T) {
+	t.Parallel()
+	config := textConfig()
+	config.Graph.Nodes[0] = NodeDefinition{
+		ID: "answer", Inputs: map[string]Binding{"value": {From: "input.text"}},
+		Outputs: map[string]string{"text": "answer"},
+		Script: &ScriptNode{
+			Language: ScriptStarlark,
+			Source: "def initialize():\n" +
+				"  value = 0\n" +
+				"  for i in range(1000000000):\n" +
+				"    value += i\n" +
+				"initialize()\n" +
+				"def run(input):\n" +
+				"  return {\"text\": input[\"value\"]}\n",
+			Limits: ScriptLimits{
+				MaxExecutionSteps: ^uint64(0), Timeout: time.Nanosecond,
+				MaxInputBytes: 1 << 10, MaxOutputBytes: 1 << 10,
+			},
+		},
+	}
+	if _, err := New(t.Context(), config); err == nil ||
+		(!strings.Contains(err.Error(), "deadline") && !strings.Contains(err.Error(), "cancel")) {
+		t.Fatalf("New() initialization error = %v, want timeout cancellation", err)
+	}
+
+	config.Graph.Nodes[0].Script.Limits.Timeout = time.Second
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	if _, err := New(ctx, config); err == nil || !strings.Contains(err.Error(), "cancel") {
+		t.Fatalf("New() canceled initialization error = %v", err)
 	}
 }

@@ -52,20 +52,33 @@ func compileRace(
 		if err != nil {
 			return nil, nil, err
 		}
-		raceCtx, cancel := context.WithCancel(ctx)
-		defer cancel()
+		raceCtx, cancelAll := context.WithCancel(ctx)
+		defer cancelAll()
 		results := make(chan raceCandidate, len(graphs))
 		started := make(chan int, len(graphs))
 		sem := make(chan struct{}, node.Race.MaxConcurrency)
+		branchContexts := make([]context.Context, len(graphs))
+		branchCancels := make([]context.CancelFunc, len(graphs))
+		for index := range graphs {
+			branchContexts[index], branchCancels[index] = context.WithCancel(raceCtx)
+		}
+		cancelLosers := func(winner int) {
+			for index, cancel := range branchCancels {
+				if index != winner {
+					cancel()
+				}
+			}
+		}
 		var wait sync.WaitGroup
 		for index, graph := range graphs {
 			wait.Add(1)
 			go func(index int, graph *compiledGraph) {
 				defer wait.Done()
+				branchCtx := branchContexts[index]
 				select {
 				case sem <- struct{}{}:
-				case <-raceCtx.Done():
-					results <- raceCandidate{index: index, err: context.Cause(raceCtx)}
+				case <-branchCtx.Done():
+					results <- raceCandidate{index: index, err: context.Cause(branchCtx)}
 					return
 				}
 				defer func() { <-sem }()
@@ -75,7 +88,7 @@ func compileRace(
 				}
 				childState, childErr := newRunState(graph.fields, graphInputFromNodeInputs(inputs), inputs, capture)
 				if childErr == nil {
-					childErr = graph.execute(raceCtx, childState)
+					childErr = graph.execute(branchCtx, childState)
 				}
 				var snapshot map[string]any
 				if childErr == nil {
@@ -92,14 +105,38 @@ func compileRace(
 			close(allDone)
 		}()
 
+		firstOutputWinner := func() (int, error) {
+			select {
+			case first := <-started:
+				winner := first
+				for {
+					select {
+					case candidate := <-started:
+						winner = min(winner, candidate)
+					default:
+						return winner, nil
+					}
+				}
+			case <-allDone:
+				select {
+				case winner := <-started:
+					return winner, nil
+				default:
+					return -1, nil
+				}
+			case <-ctx.Done():
+				return -1, context.Cause(ctx)
+			}
+		}
 		var winner int = -1
 		switch node.Race.Winner.Mode {
 		case RaceFirstOutput:
-			select {
-			case winner = <-started:
-			case <-allDone:
-			case <-ctx.Done():
-				return nil, nil, context.Cause(ctx)
+			winner, err = firstOutputWinner()
+			if err != nil {
+				return nil, nil, err
+			}
+			if winner >= 0 {
+				cancelLosers(winner)
 			}
 		case RaceFirstSuccess, RacePredicate:
 			// Selection happens from completed candidates below.
@@ -127,6 +164,7 @@ func compileRace(
 				case RaceFirstSuccess:
 					winnerResult = candidate
 					winner = candidate.index
+					cancelLosers(winner)
 					remaining = 0
 				case RacePredicate:
 					if node.Race.Winner.When == nil {
@@ -140,16 +178,17 @@ func compileRace(
 					if matched {
 						winnerResult = candidate
 						winner = candidate.index
+						cancelLosers(winner)
 						remaining = 0
 					}
 				}
 			case <-ctx.Done():
-				cancel()
+				cancelAll()
 				<-allDone
 				return nil, nil, context.Cause(ctx)
 			}
 		}
-		cancel()
+		cancelAll()
 		<-allDone
 		if winner < 0 || winnerResult.values == nil {
 			return nil, nil, fmt.Errorf("Race has no winner: %v", failures)

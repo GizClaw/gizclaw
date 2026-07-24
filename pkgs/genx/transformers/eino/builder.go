@@ -574,7 +574,7 @@ func compileNode(
 			return outputs, nil, err
 		}
 	case node.Script != nil:
-		script, err := compileScript(*node.Script)
+		script, err := compileScript(ctx, *node.Script)
 		if err != nil {
 			return nil, err
 		}

@@ -179,10 +179,23 @@ func observeMemory(
 		if err != nil {
 			return fmt.Errorf("eino: wait Memory operation %q: %w", result.Operation.ID, err)
 		}
-		if completed.Operation != nil && completed.Operation.Status == memory.OperationFailed {
-			return fmt.Errorf("eino: Memory operation %q failed: %s", completed.Operation.ID, completed.Operation.Error)
+		if completed.Operation == nil {
+			return fmt.Errorf("eino: Memory operation %q wait returned no operation", result.Operation.ID)
 		}
-		return nil
+		switch completed.Operation.Status {
+		case memory.OperationSucceeded:
+			return nil
+		case memory.OperationFailed:
+			return fmt.Errorf("eino: Memory operation %q failed: %s", completed.Operation.ID, completed.Operation.Error)
+		case memory.OperationPending:
+			return fmt.Errorf("eino: Memory operation %q remained pending after wait", completed.Operation.ID)
+		default:
+			return fmt.Errorf(
+				"eino: Memory operation %q wait returned unsupported status %q",
+				completed.Operation.ID,
+				completed.Operation.Status,
+			)
+		}
 	default:
 		return fmt.Errorf("eino: unsupported Memory operation status %q", result.Operation.Status)
 	}

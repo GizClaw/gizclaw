@@ -11,6 +11,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/cloudwego/eino/components/model"
+	"github.com/cloudwego/eino/components/retriever"
 	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
 )
@@ -508,6 +509,69 @@ func TestGraphExecutionRaceCancelsLosingBranch(t *testing.T) {
 	}
 }
 
+func TestGraphExecutionRaceFirstOutputCancelsLoserImmediately(t *testing.T) {
+	t.Parallel()
+	loserStarted := make(chan struct{})
+	loserCancelled := make(chan struct{})
+	winnerRelease := make(chan struct{})
+	resolver := &namedComponentResolver{chat: map[string]model.BaseChatModel{
+		"winner": &firstOutputWinnerModel{
+			loserStarted: loserStarted,
+			release:      winnerRelease,
+		},
+		"loser": &firstOutputLoserModel{
+			started: loserStarted, cancelled: loserCancelled,
+		},
+	}}
+	child := func(name string) GraphDefinition {
+		return GraphDefinition{
+			Name: name,
+			State: StateDefinition{Fields: []StateField{{
+				Name: "answer", Type: StateString, Merge: MergeReplace,
+			}}},
+			Nodes: []NodeDefinition{{
+				ID: "model", Inputs: map[string]Binding{"messages": {From: "input.messages"}},
+				Outputs:   map[string]string{"text": "answer"},
+				ChatModel: &ChatModelNode{Model: name},
+			}},
+			Edges: []EdgeDefinition{{From: "start", To: "model"}, {From: "model", To: "end"}},
+			Outputs: []OutputDefinition{{
+				Node: "model", Field: "answer", Name: "answer", MIMEType: "text/plain", Primary: true,
+			}},
+		}
+	}
+	config := textConfig()
+	config.Components = resolver
+	config.Graph.Nodes[0] = NodeDefinition{
+		ID: "answer", Inputs: map[string]Binding{"messages": {From: "input.messages"}},
+		Outputs: map[string]string{"answer": "answer"},
+		Race: &RaceNode{
+			Branches: []RaceBranch{
+				{ID: "winner", Graph: child("winner")},
+				{ID: "loser", Graph: child("loser")},
+			},
+			Winner: RaceWinnerDefinition{Mode: RaceFirstOutput}, MaxConcurrency: 2,
+		},
+	}
+	transformer, err := New(t.Context(), config)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	output, err := transformer.Transform(t.Context(), textInput("race"))
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	select {
+	case <-loserCancelled:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Race loser remained active after winner's first output")
+	}
+	close(winnerRelease)
+	if got := joinedText(drain(t, output)); got != "first" {
+		t.Fatalf("output = %q", got)
+	}
+}
+
 func TestGraphExecutionBatchBoundsConcurrencyAndPreservesOrder(t *testing.T) {
 	t.Parallel()
 	tracker := newBatchTracker(2)
@@ -639,6 +703,28 @@ type lambdaMapResolver struct {
 	lambdas map[string]*compose.Lambda
 }
 
+type namedComponentResolver struct {
+	chat map[string]model.BaseChatModel
+}
+
+func (resolver *namedComponentResolver) ResolveChatModel(
+	_ context.Context,
+	name string,
+) (model.BaseChatModel, error) {
+	component := resolver.chat[name]
+	if component == nil {
+		return nil, fmt.Errorf("missing %s", name)
+	}
+	return component, nil
+}
+
+func (*namedComponentResolver) ResolveRetriever(
+	context.Context,
+	string,
+) (retriever.Retriever, error) {
+	return nil, errors.New("not supported")
+}
+
 func (resolver *lambdaMapResolver) ResolveLambda(_ context.Context, name string) (ResolvedLambda, error) {
 	lambda := resolver.lambdas[name]
 	if lambda == nil {
@@ -722,6 +808,71 @@ type blockingChatModel struct {
 	release   chan struct{}
 	cancelled chan struct{}
 	once      sync.Once
+}
+
+type firstOutputWinnerModel struct {
+	loserStarted <-chan struct{}
+	release      <-chan struct{}
+}
+
+func (*firstOutputWinnerModel) Generate(
+	context.Context,
+	[]*schema.Message,
+	...model.Option,
+) (*schema.Message, error) {
+	return nil, errors.New("not supported")
+}
+
+func (winner *firstOutputWinnerModel) Stream(
+	ctx context.Context,
+	_ []*schema.Message,
+	_ ...model.Option,
+) (*schema.StreamReader[*schema.Message], error) {
+	reader, writer := schema.Pipe[*schema.Message](0)
+	go func() {
+		defer writer.Close()
+		select {
+		case <-winner.loserStarted:
+		case <-ctx.Done():
+			return
+		}
+		if writer.Send(schema.AssistantMessage("first", nil), nil) {
+			return
+		}
+		select {
+		case <-winner.release:
+		case <-ctx.Done():
+		}
+	}()
+	return reader, nil
+}
+
+type firstOutputLoserModel struct {
+	started   chan<- struct{}
+	cancelled chan<- struct{}
+}
+
+func (*firstOutputLoserModel) Generate(
+	context.Context,
+	[]*schema.Message,
+	...model.Option,
+) (*schema.Message, error) {
+	return nil, errors.New("not supported")
+}
+
+func (loser *firstOutputLoserModel) Stream(
+	ctx context.Context,
+	_ []*schema.Message,
+	_ ...model.Option,
+) (*schema.StreamReader[*schema.Message], error) {
+	reader, writer := schema.Pipe[*schema.Message](0)
+	go func() {
+		defer writer.Close()
+		close(loser.started)
+		<-ctx.Done()
+		close(loser.cancelled)
+	}()
+	return reader, nil
 }
 
 func newBlockingChatModel() *blockingChatModel {

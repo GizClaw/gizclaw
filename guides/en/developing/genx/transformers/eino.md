@@ -95,7 +95,7 @@ The built-in Transform operations are:
 
 ## Starlark Script
 
-Script source is compiled and initialized once in `New`. The entrypoint defaults to `run` and receives one frozen dictionary:
+Script source is compiled once and its initialization is validated in `New`. Every run initializes fresh module globals under the configured step, timeout, and cancellation limits before calling the entrypoint, so mutable globals cannot cross turn boundaries. The entrypoint defaults to `run` and receives one frozen dictionary:
 
 ```go
 eino.ScriptNode{
@@ -151,7 +151,7 @@ eino.RaceNode{
 }
 ```
 
-Winner modes are `first_output`, `first_success`, and `predicate`. Predicate mode evaluates the configured predicate against each completed child State. Child State and output buffers are isolated; the winning named Graph outputs are copied to the parent and losing contexts are cancelled.
+Winner modes are `first_output`, `first_success`, and `predicate`. `first_output` selects a winner and cancels losing branch contexts as soon as the first declared output is emitted, while the winner finishes its owned output. Predicate mode evaluates the configured predicate against each completed child State. Child State and output buffers are isolated; the winning named Graph outputs are copied to the parent.
 
 Batch applies one nested Graph to an ordered list:
 
