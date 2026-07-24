@@ -355,8 +355,8 @@ func (config *normalizedConfig) validateGraph(graph GraphDefinition, path string
 	if len(nodes) == 0 {
 		return fmt.Errorf("eino: %s requires Nodes", path)
 	}
-	adjacency := make(map[string][]string, len(nodes)+1)
-	reverse := make(map[string][]string, len(nodes)+1)
+	adjacency := make(map[string][]string)
+	reverse := make(map[string][]string)
 	for index, edge := range graph.Edges {
 		if !validEndpoint(edge.From, nodes, true) || !validEndpoint(edge.To, nodes, false) {
 			return fmt.Errorf("eino: %s Edges[%d] has unknown or invalid endpoint", path, index)
@@ -889,7 +889,7 @@ func validateCompositeInputs(
 	graph GraphDefinition,
 ) error {
 	childFields := stateTypes(graph.State.Fields)
-	allowed := make(map[string]StateType, len(childFields)+3)
+	allowed := make(map[string]StateType)
 	maps.Copy(allowed, childFields)
 	allowed["text"] = StateString
 	allowed["messages"] = StateMessages
