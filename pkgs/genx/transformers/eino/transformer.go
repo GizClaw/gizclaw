@@ -12,6 +12,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/buffer"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/streamkit"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/toolkitrun"
 	"github.com/cloudwego/eino/schema"
 )
 
@@ -488,7 +489,11 @@ func (run *turnRun) runGraph() (*runState, string, error) {
 	if err := recallMemory(run.ctx, config.Memory, state); err != nil {
 		return nil, "", err
 	}
-	if err := run.session.transformer.graph.execute(run.ctx, state); err != nil {
+	runContext := toolkitrun.WithContext(
+		run.ctx,
+		toolkitrun.New(config.Toolkit, config.MaxToolCalls),
+	)
+	if err := run.session.transformer.graph.execute(runContext, state); err != nil {
 		return state, version, err
 	}
 	if _, err := state.value(run.session.transformer.graph.primary.Field); err != nil {

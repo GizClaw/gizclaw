@@ -4,6 +4,7 @@ package transformer
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/components/retriever"
 	"github.com/cloudwego/eino/schema"
+	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/option"
 )
@@ -29,13 +31,31 @@ func TestEinoTransformerOpenAICompatibleGraph(t *testing.T) {
 	}
 	client := openai.NewClient(option.WithAPIKey(apiKey))
 	generator := &genx.OpenAIGenerator{Client: &client, Model: "gpt-4o-mini", TextOnly: true}
+	tool, err := genx.NewFuncTool[struct{}](
+		"eino_token",
+		"Returns the required Eino verification token.",
+		genx.InvokeFunc[struct{}](func(context.Context, *genx.FuncCall, struct{}) (any, error) {
+			return map[string]string{"token": "EINO_TOOL_OK"}, nil
+		}),
+	)
+	if err != nil {
+		t.Fatalf("create Eino tool: %v", err)
+	}
+	toolkit, err := genx.NewToolkit(tool)
+	if err != nil {
+		t.Fatalf("create Eino Toolkit: %v", err)
+	}
 	resolver := &einoE2EResolver{models: map[string]model.BaseChatModel{
-		"primary": &genxChatModel{generator: generator, instruction: "Include the exact token EINO_PRIMARY."},
-		"peer":    &genxChatModel{generator: generator, instruction: "Include the exact token EINO_PEER."},
+		"primary": &genxChatModel{
+			generator:   generator,
+			instruction: "You must call eino_token exactly once. Then include its exact returned token in one short sentence.",
+		},
+		"peer": &genxChatModel{generator: generator, instruction: "Include the exact token EINO_PEER."},
 	}}
 	transformer, err := einotransformer.New(t.Context(), einotransformer.Config{
 		Agent:      einotransformer.AgentConfig{ID: "eino-e2e", Name: "Eino E2E"},
 		Components: resolver,
+		Toolkit:    toolkit,
 		Limits:     einotransformer.Limits{MaxOutputBytes: 1 << 20},
 		Graph: einotransformer.GraphDefinition{
 			Name: "provider-graph",
@@ -175,7 +195,7 @@ func TestEinoTransformerOpenAICompatibleGraph(t *testing.T) {
 			primaryDataChunks++
 		}
 	}
-	if primaryDataChunks == 0 || !strings.Contains(primary.String(), "EINO_PRIMARY") {
+	if primaryDataChunks == 0 || !strings.Contains(primary.String(), "EINO_TOOL_OK") {
 		t.Fatalf("streamed primary response = %q in %d chunks", primary.String(), primaryDataChunks)
 	}
 	t.Logf("streamed_primary_chunks=%d response=%q", primaryDataChunks, primary.String())
@@ -234,10 +254,31 @@ func (chat *genxChatModel) Generate(
 func (chat *genxChatModel) Stream(
 	ctx context.Context,
 	input []*schema.Message,
-	_ ...model.Option,
+	options ...model.Option,
 ) (*schema.StreamReader[*schema.Message], error) {
 	builder := &genx.ModelContextBuilder{}
 	builder.PromptText("eino-e2e-alias", chat.instruction)
+	modelOptions := model.GetCommonOptions(nil, options...)
+	for _, tool := range modelOptions.Tools {
+		if tool == nil {
+			continue
+		}
+		params, err := tool.ParamsOneOf.ToJSONSchema()
+		if err != nil {
+			return nil, err
+		}
+		encoded, err := json.Marshal(params)
+		if err != nil {
+			return nil, err
+		}
+		var converted jsonschema.Schema
+		if err := json.Unmarshal(encoded, &converted); err != nil {
+			return nil, err
+		}
+		builder.AddTool(&genx.FuncTool{
+			Name: tool.Name, Description: tool.Desc, Argument: &converted,
+		})
+	}
 	for _, message := range input {
 		if message == nil {
 			continue
@@ -248,7 +289,27 @@ func (chat *genxChatModel) Stream(
 		case schema.User:
 			builder.UserText("", message.Content)
 		case schema.Assistant:
-			builder.ModelText("", message.Content)
+			if message.Content != "" {
+				builder.ModelText("", message.Content)
+			}
+			for _, call := range message.ToolCalls {
+				builder.AddMessage(&genx.Message{
+					Role: genx.RoleModel,
+					Payload: &genx.ToolCall{
+						ID: call.ID,
+						FuncCall: &genx.FuncCall{
+							Name: call.Function.Name, Arguments: call.Function.Arguments,
+						},
+					},
+				})
+			}
+		case schema.Tool:
+			builder.AddMessage(&genx.Message{
+				Role: genx.RoleTool,
+				Payload: &genx.ToolResult{
+					ID: message.ToolCallID, Result: message.Content,
+				},
+			})
 		default:
 			return nil, errors.New("unsupported Eino message role")
 		}
@@ -273,10 +334,23 @@ func (chat *genxChatModel) Stream(
 				writer.Send(nil, errors.New(chunk.Ctrl.Error))
 				return
 			}
+			message := &schema.Message{Role: schema.Assistant}
 			if text, ok := chunk.Part.(genx.Text); ok && !chunk.IsEndOfStream() {
-				if writer.Send(schema.AssistantMessage(string(text), nil), nil) {
-					return
-				}
+				message.Content = string(text)
+			}
+			if chunk.ToolCall != nil && chunk.ToolCall.FuncCall != nil {
+				message.ToolCalls = []schema.ToolCall{{
+					ID: chunk.ToolCall.ID, Type: "function",
+					Function: schema.FunctionCall{
+						Name: chunk.ToolCall.FuncCall.Name, Arguments: chunk.ToolCall.FuncCall.Arguments,
+					},
+				}}
+			}
+			if message.Content == "" && len(message.ToolCalls) == 0 {
+				continue
+			}
+			if writer.Send(message, nil) {
+				return
 			}
 		}
 	}()

@@ -2,10 +2,12 @@ package flowcraft
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -77,6 +79,154 @@ func TestGraphExecutionConcurrentRunIsolation(t *testing.T) {
 	for failure := range failures {
 		t.Fatal(failure)
 	}
+}
+
+func TestGraphExecutionConcurrentToolkitIsolation(t *testing.T) {
+	t.Parallel()
+	var active atomic.Int32
+	var maximum atomic.Int32
+	release := make(chan struct{})
+	var releaseOnce sync.Once
+	tool, err := genx.NewFuncTool[map[string]string](
+		"echo",
+		"echo one invocation value",
+		genx.InvokeFunc[map[string]string](func(ctx context.Context, _ *genx.FuncCall, input map[string]string) (any, error) {
+			current := active.Add(1)
+			defer active.Add(-1)
+			for {
+				seen := maximum.Load()
+				if current <= seen || maximum.CompareAndSwap(seen, current) {
+					break
+				}
+			}
+			if current >= 2 {
+				releaseOnce.Do(func() { close(release) })
+			}
+			select {
+			case <-release:
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
+			return map[string]string{"value": input["value"]}, nil
+		}),
+	)
+	if err != nil {
+		t.Fatalf("NewFuncTool() error = %v", err)
+	}
+	toolkit, err := genx.NewToolkit(tool)
+	if err != nil {
+		t.Fatalf("NewToolkit() error = %v", err)
+	}
+	generator := &concurrentToolGenerator{}
+	config := testConfig(generator)
+	config.Toolkit = toolkit
+	transformer, err := New(config)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+
+	const count = 8
+	var wait sync.WaitGroup
+	failures := make(chan error, count)
+	for index := range count {
+		wait.Go(func() {
+			input := fmt.Sprintf("tool-run-%d", index)
+			output, transformErr := transformer.Transform(t.Context(), textInput(input))
+			if transformErr != nil {
+				failures <- transformErr
+				return
+			}
+			if got := joinedText(drain(t, output)); got != input {
+				failures <- fmt.Errorf("output %q does not belong to %q", got, input)
+			}
+		})
+	}
+	wait.Wait()
+	close(failures)
+	for failure := range failures {
+		t.Fatal(failure)
+	}
+	if maximum.Load() < 2 {
+		t.Fatalf("maximum concurrent tool calls = %d", maximum.Load())
+	}
+	if generator.missingTools.Load() != 0 {
+		t.Fatalf("model rounds without Toolkit = %d", generator.missingTools.Load())
+	}
+}
+
+type concurrentToolGenerator struct {
+	missingTools atomic.Int32
+}
+
+func (generator *concurrentToolGenerator) GenerateStream(
+	_ context.Context,
+	_ string,
+	modelContext genx.ModelContext,
+) (genx.Stream, error) {
+	toolCount := 0
+	for range modelContext.Tools() {
+		toolCount++
+	}
+	if toolCount != 1 {
+		generator.missingTools.Add(1)
+	}
+	var userText string
+	var result *genx.ToolResult
+	for message := range modelContext.Messages() {
+		switch payload := message.Payload.(type) {
+		case genx.Contents:
+			if message.Role != genx.RoleUser {
+				continue
+			}
+			userText = ""
+			for _, part := range payload {
+				if text, ok := part.(genx.Text); ok {
+					userText += string(text)
+				}
+			}
+		case *genx.ToolResult:
+			result = payload
+		}
+	}
+	builder := genx.NewGrowableStreamBuilder(modelContext, 2)
+	if result == nil {
+		arguments, err := json.Marshal(map[string]string{"value": userText})
+		if err != nil {
+			return nil, err
+		}
+		if err := builder.Add(&genx.MessageChunk{
+			Role: genx.RoleModel,
+			ToolCall: &genx.ToolCall{
+				ID:       "same-provider-id",
+				FuncCall: &genx.FuncCall{Name: "echo", Arguments: string(arguments)},
+			},
+		}); err != nil {
+			return nil, err
+		}
+	} else {
+		var decoded map[string]string
+		if err := json.Unmarshal([]byte(result.Result), &decoded); err != nil {
+			return nil, err
+		}
+		if err := builder.Add(&genx.MessageChunk{
+			Role: genx.RoleModel, Part: genx.Text(decoded["value"]),
+		}); err != nil {
+			return nil, err
+		}
+	}
+	if err := builder.Done(genx.Usage{}); err != nil {
+		return nil, err
+	}
+	return builder.Stream(), nil
+}
+
+func (*concurrentToolGenerator) Invoke(
+	context.Context,
+	string,
+	genx.ModelContext,
+	*genx.FuncTool,
+) (genx.Usage, *genx.FuncCall, error) {
+	return genx.Usage{}, nil, errors.New("Invoke must not be used")
 }
 
 func TestGraphExecutionConditionalAndDefaultRouting(t *testing.T) {

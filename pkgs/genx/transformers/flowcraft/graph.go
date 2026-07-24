@@ -17,7 +17,10 @@ import (
 
 func buildRuntime(config Config) (flowagent.Agent, engine.Engine, error) {
 	factory := node.NewFactory()
-	llmnode.Register(factory, &modelResolver{generator: config.Models}, nil)
+	llmnode.Register(factory, &modelResolver{
+		generator: config.Models,
+		toolkit:   config.Toolkit,
+	}, nil)
 	// Inline scripts are supported, while a nil Workspace deliberately leaves
 	// filesystem operations unavailable.
 	scriptnode.Register(factory, scriptnode.Deps{ScriptRuntime: jsrt.New()})

@@ -21,7 +21,10 @@ import (
 // history and memory while satisfying providers that reject empty user input.
 const providerSafeEmptyUserText = "\u200b"
 
-type modelResolver struct{ generator genx.Generator }
+type modelResolver struct {
+	generator genx.Generator
+	toolkit   *genx.Toolkit
+}
 
 // ResolveLLM adapts one RuntimeProfile model alias to Flowcraft's LLM
 // interface. It uses the same GenX generator path as Graph LLM nodes.
@@ -37,7 +40,7 @@ func (r *modelResolver) Resolve(_ context.Context, alias string) (flowllm.LLM, e
 	if alias == "" || strings.Contains(alias, "/") {
 		return nil, fmt.Errorf("flowcraft: invalid model alias %q", alias)
 	}
-	return &genXLLM{generator: r.generator, pattern: "model/" + alias}, nil
+	return &genXLLM{generator: r.generator, pattern: "model/" + alias, toolkit: r.toolkit}, nil
 }
 
 func (*modelResolver) InvalidateCache(...flowllm.InvalidateOption) {}
@@ -45,6 +48,7 @@ func (*modelResolver) InvalidateCache(...flowllm.InvalidateOption) {}
 type genXLLM struct {
 	generator genx.Generator
 	pattern   string
+	toolkit   *genx.Toolkit
 }
 
 func (l *genXLLM) Generate(ctx context.Context, messages []flowmodel.Message, opts ...flowllm.GenerateOption) (flowmodel.Message, flowmodel.TokenUsage, error) {
@@ -93,6 +97,9 @@ func (l *genXLLM) GenerateStream(ctx context.Context, messages []flowmodel.Messa
 				OutputTokens:      usage.GeneratedTokenCount,
 			},
 		}, nil
+	}
+	if l.toolkit != nil {
+		return newGenXToolStream(ctx, l.generator, l.pattern, modelContext, l.toolkit)
 	}
 	stream, err := l.generator.GenerateStream(ctx, l.pattern, modelContext)
 	if err != nil {

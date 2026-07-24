@@ -1,6 +1,6 @@
 # Flowcraft Transformer
 
-`pkgs/genx/transformers/flowcraft` 将 Flowcraft Graph 包装为可并发复用的 `genx.Transformer`。它只依赖 GenX 与通用 Store，不依赖 GizClaw Workspace、Workflow、AgentHost、Claw 或 Toolkit。
+`pkgs/genx/transformers/flowcraft` 将 Flowcraft Graph 包装为可并发复用的 `genx.Transformer`。它只依赖 GenX 与通用 Store，不依赖 GizClaw Workspace、Workflow、AgentHost、Claw 或产品层 Toolkit 类型。
 
 ## 构造
 
@@ -14,6 +14,8 @@ transformer, err := flowcraft.New(flowcraft.Config{
     MaxIterations: 32,
     PublishNodes: []string{"answer"},
     Models:       runtimeGenerator,
+    Toolkit:      executableToolkit,
+    MaxToolCalls: 32,
 
     History: historyLogStore,
     Memory:  longTermMemoryStore,
@@ -33,7 +35,7 @@ transformer, err := flowcraft.New(flowcraft.Config{
 
 LLM node 的 `model` 字段填写 alias，例如 `chat`。Transformer 在内部把它解析为 `Models.GenerateStream(ctx, "model/chat", modelContext)`；Graph 不能直接填写 provider model ID 或绕过 Runtime 提供的 alias。
 
-模型适配传递 GenX 已定义的 max tokens、temperature、top-p、top-k、penalty、thinking 和 extra fields。Flowcraft 的 stop words、structured/image output 与 ToolCall 没有对应的通用 GenX text contract，因此会返回明确错误，不做 provider-specific 猜测。
+模型适配传递 GenX 已定义的 max tokens、temperature、top-p、top-k、penalty、thinking 和 extra fields。Flowcraft 的 stop words，以及没有现有 typed path 的 structured/image output，会返回明确错误，不做 provider-specific 猜测。
 
 并行 Graph 始终开启 Flowcraft SDK 默认策略：最多 10 个 branch、最多 3 层嵌套、`last_wins` merge。Graph 本身没有 fork 时不会产生额外 branch。Publisher 缓存 speculative candidate，只输出最终 accept 的 branch，cancel 的 branch 不进入 GenX Stream。
 
@@ -59,4 +61,6 @@ GizClaw workflow Factory 会在这个 reusable 默认值之外处理公开配置
 
 `ObserveWaitForCompletion=false` 时，EOS 和下一轮只等待 `Observe` 接受数据，不等待异步 operation materialize；实现 `memory.AsyncOperationProcessor` 的 Store 会在后台完成该 operation。设为 `true` 时，Memory 必须实现 `memory.OperationWaiter`，当前 EOS 和下一轮 Graph 都等待 operation 完成。输入 pump 在两种模式下都继续读取，不依赖输出消费者提供背压。
 
-Toolkit continuation 不属于这个 Transformer 的当前 contract。
+`Toolkit` 非空时，每个 LLM model context 都会 advertise defensive copy 后的 function declaration。ToolCall 按模型给出的顺序执行，JSON result 被追加到同一 model turn，再继续生成，直到模型不再返回调用。工具轮次前后的文本继续流式输出；ToolCall 与 ToolResult control data 不会进入公开 GenX output。
+
+同一 `Transform` invocation 的所有 node 共用 `MaxToolCalls`。零值采用 32，负数非法；同一 invocation 内重复 call ID 会失败，而不同并发 invocation 可以复用相同 provider call ID。Executor error、非法参数、额度耗尽、取消和 result serialization error 只终止受影响的 invocation。
