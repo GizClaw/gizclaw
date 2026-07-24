@@ -14,7 +14,6 @@ pkgs/genx/
 ├── segmentors/    # conversation segmentation and entity-relation extraction
 ├── profilers/     # entity profile updates
 ├── labelers/      # Recall query-label selection
-├── modelloader/   # load and register model capabilities from configuration
 └── match/         # rule- and model-based message matching
 ```
 
@@ -129,9 +128,6 @@ type Stream interface {
 ```mermaid
 flowchart LR
     Product["Agent / GizClaw service"] --> AgentKit["agentkit"]
-    Product --> Loader["modelloader"]
-    Loader --> Generators["generators"]
-    Loader --> Transformers["transformers"]
     Product --> Context["ModelContext"]
     Context --> Generators
     Generators --> Stream["genx.Stream"]
@@ -147,7 +143,7 @@ flowchart LR
     Labelers --> Generators
 ```
 
-`genx.Stream` is the common data boundary of capability combination. Generators generate streams; Transformers rewrite streams; Segmentors, Profilers, and Labelers use Generators to complete structured reasoning; Model Loader is responsible for parsing configurations into registration relationships for these capabilities.
+`genx.Stream` is the common data boundary of capability combination. Generators generate streams; Transformers rewrite streams; Segmentors, Profilers, and Labelers use Generators to complete structured reasoning.
 
 ## Placement rules
 

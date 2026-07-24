@@ -14,7 +14,6 @@ pkgs/genx/
 ├── segmentors/    # 对话内容分段与实体关系抽取
 ├── profilers/     # 实体画像更新
 ├── labelers/      # Recall 查询标签选择
-├── modelloader/   # 从配置装载并注册模型能力
 └── match/         # 基于规则和模型的消息匹配
 ```
 
@@ -137,9 +136,6 @@ type Stream interface {
 ```mermaid
 flowchart LR
     Product["Agent / GizClaw service"] --> AgentKit["agentkit"]
-    Product --> Loader["modelloader"]
-    Loader --> Generators["generators"]
-    Loader --> Transformers["transformers"]
     Product --> Context["ModelContext"]
     Context --> Generators
     Generators --> Stream["genx.Stream"]
@@ -155,7 +151,7 @@ flowchart LR
     Labelers --> Generators
 ```
 
-`genx.Stream` 是能力组合的公共数据边界。Generators 产生流；Transformers 改写流；Segmentors、Profilers 和 Labelers 使用 Generator 完成结构化推理；Model Loader 负责把配置解析成这些能力的注册关系。
+`genx.Stream` 是能力组合的公共数据边界。Generators 产生流；Transformers 改写流；Segmentors、Profilers 和 Labelers 使用 Generator 完成结构化推理。
 
 ## 放置规则
 
