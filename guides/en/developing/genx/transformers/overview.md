@@ -12,6 +12,7 @@
 | [DashScope](./dashscope) | Realtime multimodal conversation. |
 | [MiniMax](./minimax) | Streaming TTS. |
 | [Flowcraft](./flowcraft) | Flowcraft Graph runtime driven by text Streams. |
+| [Eino](./eino) | Typed, stateful Eino Graph runtime driven by text Streams. |
 | [Stream Processing](./stream-processing) | Provider-neutral mux, Stream lifecycle, audio-byte stream filtering, and text segmentation. |
 
 Provider implementations and the shared internal Stream lifecycle use independent packages:
@@ -21,6 +22,7 @@ pkgs/genx/transformers/
 ├── audiostream/
 ├── internal/streamkit/
 ├── flowcraft/
+├── eino/
 ├── doubaoasr/
 ├── doubaotts/
 ├── minimaxtts/
@@ -42,11 +44,13 @@ flowchart LR
     Mux --> MiniMax["MiniMax Adapter"]
     Mux --> Processing["Stream Processing"]
     Mux --> Flowcraft["Flowcraft Graph"]
+    Mux --> Eino["Eino Graph"]
     Doubao --> Output["Output Stream"]
     DashScope --> Output
     MiniMax --> Output
     Processing --> Output
     Flowcraft --> Output
+    Eino --> Output
 ```
 
 ## Core structure and main function
