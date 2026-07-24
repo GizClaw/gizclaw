@@ -127,6 +127,56 @@ func TestTransformerTranscribesAudioInput(t *testing.T) {
 	}
 }
 
+func TestTransformerConsumesEmptyASRCompletionWithoutError(t *testing.T) {
+	asr := &recordingASR{}
+	transformer, err := New(Config{
+		ASR:               asr,
+		TranscriptEnabled: true,
+		ASRPattern:        "model/asr",
+	})
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	output, err := transformer.Transform(context.Background(), &testStream{chunks: []*genx.MessageChunk{
+		{
+			Role: genx.RoleUser,
+			Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1, 2, 3}},
+			Ctrl: &genx.StreamCtrl{StreamID: "empty-turn"},
+		},
+		{
+			Role: genx.RoleUser,
+			Part: &genx.Blob{MIMEType: "audio/opus"},
+			Ctrl: &genx.StreamCtrl{StreamID: "empty-turn", EndOfStream: true},
+		},
+	}})
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	defer output.Close()
+
+	var chunks []*genx.MessageChunk
+	for {
+		chunk, err := output.Next()
+		if isStreamDone(err) {
+			break
+		}
+		if err != nil {
+			t.Fatalf("output.Next() error = %v", err)
+		}
+		chunks = append(chunks, chunk)
+	}
+	if len(chunks) != 1 {
+		t.Fatalf("output chunks = %d, want one terminal boundary: %#v", len(chunks), chunks)
+	}
+	chunk := chunks[0]
+	if !chunk.IsEndOfStream() || chunk.Ctrl == nil || chunk.Ctrl.StreamID != "empty-turn" || chunk.Ctrl.Error != "" {
+		t.Fatalf("terminal chunk = %#v, want successful empty-turn EOS", chunk)
+	}
+	if text, ok := chunk.Part.(genx.Text); !ok || strings.TrimSpace(string(text)) != "" {
+		t.Fatalf("terminal part = %#v, want empty text", chunk.Part)
+	}
+}
+
 func TestTransformerRealtimeEnablesASRInterimOutput(t *testing.T) {
 	asr := &recordingASR{text: "hello"}
 	transformer, err := New(Config{

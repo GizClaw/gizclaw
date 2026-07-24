@@ -43,13 +43,13 @@ pkgs/genx/transformers/dashscoperealtime/implementation.go:695:8: if statement c
 pkgs/genx/transformers/dashscoperealtime/implementation.go:711:8: if statement can be modernized using min
 pkgs/genx/transformers/dashscoperealtime/transformer_test.go:24:3: Goroutine creation can be simplified using WaitGroup.Go
 pkgs/genx/transformers/doubaoasr/history.go:91:6: if statement can be modernized using max
-pkgs/genx/transformers/doubaoasr/transformer_test.go:238:70: call of boolPointer(x) can be simplified to new(x)
-pkgs/genx/transformers/doubaoasr/transformer_test.go:443:70: call of boolPointer(x) can be simplified to new(x)
-pkgs/genx/transformers/doubaoasr/transformer_test.go:530:21: call of boolPointer(x) can be simplified to new(x)
-pkgs/genx/transformers/doubaoasr/transformer_test.go:597:19: call of boolPointer(x) can be simplified to new(x)
-pkgs/genx/transformers/doubaoasr/transformer_test.go:712:19: call of boolPointer(x) can be simplified to new(x)
-pkgs/genx/transformers/doubaoasr/transformer_test.go:802:19: call of boolPointer(x) can be simplified to new(x)
-pkgs/genx/transformers/doubaoasr/transformer_test.go:95:6: boolPointer can be an inlinable wrapper around new(expr)
+pkgs/genx/transformers/doubaoasr/transformer_test.go:428:70: call of boolPointer(x) can be simplified to new(x)
+pkgs/genx/transformers/doubaoasr/transformer_test.go:633:70: call of boolPointer(x) can be simplified to new(x)
+pkgs/genx/transformers/doubaoasr/transformer_test.go:720:21: call of boolPointer(x) can be simplified to new(x)
+pkgs/genx/transformers/doubaoasr/transformer_test.go:787:19: call of boolPointer(x) can be simplified to new(x)
+pkgs/genx/transformers/doubaoasr/transformer_test.go:902:19: call of boolPointer(x) can be simplified to new(x)
+pkgs/genx/transformers/doubaoasr/transformer_test.go:96:6: boolPointer can be an inlinable wrapper around new(expr)
+pkgs/genx/transformers/doubaoasr/transformer_test.go:992:19: call of boolPointer(x) can be simplified to new(x)
 pkgs/genx/transformers/doubaoast/implementation_test.go:116:3: Goroutine creation can be simplified using WaitGroup.Go
 pkgs/genx/transformers/doubaoast/implementation_test.go:1408:4: using string += string in a loop is inefficient
 pkgs/genx/transformers/doubaorealtime/implementation_test.go:96:3: Goroutine creation can be simplified using WaitGroup.Go
