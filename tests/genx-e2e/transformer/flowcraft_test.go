@@ -26,7 +26,9 @@ func TestFlowcraftTransformerOpenAICompatibleModel(t *testing.T) {
 		t.Skipf("set %s in tests/genx-e2e/.env", flowcraftAPIKeyEnv)
 	}
 	client := openai.NewClient(option.WithAPIKey(apiKey))
-	generator := &genx.OpenAIGenerator{Client: &client, Model: "gpt-4o-mini", TextOnly: true}
+	generator := &genx.OpenAIGenerator{
+		Client: &client, Model: "gpt-4o-mini", TextOnly: true, SupportToolCalls: true,
+	}
 	tool, err := genx.NewFuncTool[struct{}](
 		"flowcraft_token",
 		"Returns the required Flowcraft verification token.",
