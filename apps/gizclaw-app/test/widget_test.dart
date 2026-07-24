@@ -975,6 +975,74 @@ void main() {
     });
   }
 
+  appTestWidgets('joins a group with an invite token', (tester) async {
+    final controller = _GroupInviteController();
+    await pumpApp(tester, controller: controller);
+
+    await tapPrimaryNav(tester, 'Groups');
+    await tester.pumpAndSettle();
+    await tester.tap(find.bySemanticsLabel('Join group'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('group-invite-token-field')),
+      ' group-invite ',
+    );
+    await tester.tap(find.widgetWithText(CupertinoButton, 'Join Group'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pump(const Duration(milliseconds: 700));
+
+    expect(controller.joinedInviteToken, 'group-invite');
+    expect(find.byKey(const ValueKey('join-group-sheet')), findsNothing);
+    expect(find.byType(ChatroomWorkspacePage), findsOneWidget);
+  });
+
+  appTestWidgets('lets a group owner create an invite token', (tester) async {
+    final controller = _GroupInviteController();
+    await pumpApp(tester, controller: controller);
+
+    await tapPrimaryNav(tester, 'Groups');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(GizIcons.ellipsis));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('group-invite-sheet')), findsOneWidget);
+    expect(find.text('No active invite'), findsOneWidget);
+    await tester.tap(find.widgetWithText(CupertinoButton, 'Create Invite'));
+    await tester.pumpAndSettle();
+
+    expect(controller.inviteGroupId, 'group-owner');
+    expect(controller.createInviteCalls, 1);
+    expect(find.text('group-invite-token'), findsOneWidget);
+  });
+
+  appTestWidgets('clears an invalidated invite when rotation creation fails', (
+    tester,
+  ) async {
+    final controller = _GroupInviteController(
+      initialInviteToken: 'old-group-invite',
+      failCreateInvite: true,
+    );
+    await pumpApp(tester, controller: controller);
+
+    await tapPrimaryNav(tester, 'Groups');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(GizIcons.ellipsis));
+    await tester.pumpAndSettle();
+    expect(find.text('old-group-invite'), findsOneWidget);
+
+    await tester.tap(find.byIcon(GizIcons.refresh));
+    await tester.pumpAndSettle();
+
+    expect(controller.clearInviteCalls, 1);
+    expect(controller.createInviteCalls, 1);
+    expect(find.text('old-group-invite'), findsNothing);
+    expect(find.text('No active invite'), findsOneWidget);
+    expect(find.text('invite creation failed'), findsOneWidget);
+  });
+
   appTestWidgets('shows friends, pet, and profile surfaces', (tester) async {
     final controller = _ServerListTestController();
     await pumpApp(tester, controller: controller);
@@ -1385,6 +1453,123 @@ class _GroupCreationController extends MobileDataController {
       name: name,
       description: description,
       workspaceName: 'new-group-workspace',
+    );
+  }
+}
+
+class _GroupInviteController extends MobileDataController {
+  _GroupInviteController({
+    this.initialInviteToken = '',
+    this.failCreateInvite = false,
+  }) : super(
+         database: _testDatabase(),
+         profile: const GizClawConnectionProfile(
+           endpoint: _testServerEndpoint,
+           clientPrivateKey: 'test-key',
+         ),
+         servers: const [
+           GizClawServer(name: 'Test', accessPoint: _testServerEndpoint),
+         ],
+       ) {
+    chatroomWorkspaces = const [
+      ChatroomWorkspaceMetadata(
+        workspaceName: 'owner-group-workspace',
+        title: 'Owner Crew',
+        kind: ChatroomWorkspaceKind.group,
+        resourceId: 'group-owner',
+        isGroupOwner: true,
+      ),
+    ];
+    workspaces = const [
+      WorkspaceCard(
+        name: 'owner-group-workspace',
+        workflowAlias: 'chatroom',
+        collection: 'assistants',
+        lastActive: 'Now',
+        chatroomKind: ChatroomWorkspaceKind.group,
+      ),
+    ];
+  }
+
+  int createInviteCalls = 0;
+  int clearInviteCalls = 0;
+  final bool failCreateInvite;
+  final String initialInviteToken;
+  String? inviteGroupId;
+  String? joinedInviteToken;
+
+  @override
+  Future<void> start() async {}
+
+  @override
+  Future<FriendGroupInviteTokenGetResponse> getFriendGroupInviteToken(
+    String friendGroupId,
+  ) async {
+    inviteGroupId = friendGroupId;
+    return FriendGroupInviteTokenGetResponse(
+      inviteToken: initialInviteToken,
+      expiresAt: initialInviteToken.isEmpty ? '' : '2026-07-24T06:00:00Z',
+    );
+  }
+
+  @override
+  Future<FriendGroupInviteTokenCreateResponse> createFriendGroupInviteToken(
+    String friendGroupId,
+  ) async {
+    inviteGroupId = friendGroupId;
+    createInviteCalls += 1;
+    if (failCreateInvite) throw StateError('invite creation failed');
+    return FriendGroupInviteTokenCreateResponse(
+      inviteToken: 'group-invite-token',
+      expiresAt: '2026-07-24T06:00:00Z',
+    );
+  }
+
+  @override
+  Future<void> clearFriendGroupInviteToken(String friendGroupId) async {
+    inviteGroupId = friendGroupId;
+    clearInviteCalls += 1;
+  }
+
+  @override
+  Future<FriendGroupObject> joinFriendGroup(String inviteToken) async {
+    joinedInviteToken = inviteToken;
+    chatroomWorkspaces = const [
+      ChatroomWorkspaceMetadata(
+        workspaceName: 'owner-group-workspace',
+        title: 'Owner Crew',
+        kind: ChatroomWorkspaceKind.group,
+        resourceId: 'group-owner',
+        isGroupOwner: true,
+      ),
+      ChatroomWorkspaceMetadata(
+        workspaceName: 'joined-group-workspace',
+        title: 'Joined Crew',
+        kind: ChatroomWorkspaceKind.group,
+        resourceId: 'joined-group',
+      ),
+    ];
+    workspaces = const [
+      WorkspaceCard(
+        name: 'owner-group-workspace',
+        workflowAlias: 'chatroom',
+        collection: 'assistants',
+        lastActive: 'Now',
+        chatroomKind: ChatroomWorkspaceKind.group,
+      ),
+      WorkspaceCard(
+        name: 'joined-group-workspace',
+        workflowAlias: 'chatroom',
+        collection: 'assistants',
+        lastActive: 'Now',
+        chatroomKind: ChatroomWorkspaceKind.group,
+      ),
+    ];
+    notifyListeners();
+    return FriendGroupObject(
+      id: 'joined-group',
+      name: 'Joined Crew',
+      workspaceName: 'joined-group-workspace',
     );
   }
 }

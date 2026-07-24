@@ -164,6 +164,88 @@ void main() {
     );
     await clearFuture;
   });
+
+  test('manages friend group invite lifecycle and joining', () async {
+    final factory = FakeDataChannelFactory();
+    final client = GizClawClient(factory);
+
+    final getFuture = client.getFriendGroupInviteToken('group-a');
+    final getRequest = await _request(factory, 0);
+    final getPayload =
+        decodeRpcRequestPayload(
+              'server.friend_group.invite_token.get',
+              getRequest.payload,
+            )
+            as payload.FriendGroupInviteTokenGetRequest;
+    expect(getPayload.friendGroupId, 'group-a');
+    _respond(
+      factory.channels[0],
+      getRequest.id,
+      'server.friend_group.invite_token.get',
+      payload.FriendGroupInviteTokenGetResponse(inviteToken: 'invite-a'),
+    );
+    expect((await getFuture).inviteToken, 'invite-a');
+
+    final createFuture = client.createFriendGroupInviteToken('group-a');
+    final createRequest = await _request(factory, 1);
+    final createPayload =
+        decodeRpcRequestPayload(
+              'server.friend_group.invite_token.create',
+              createRequest.payload,
+            )
+            as payload.FriendGroupInviteTokenCreateRequest;
+    expect(createPayload.friendGroupId, 'group-a');
+    _respond(
+      factory.channels[1],
+      createRequest.id,
+      'server.friend_group.invite_token.create',
+      payload.FriendGroupInviteTokenCreateResponse(
+        inviteToken: 'invite-b',
+        expiresAt: '2026-07-13T00:00:00Z',
+      ),
+    );
+    expect((await createFuture).inviteToken, 'invite-b');
+
+    final joinFuture = client.joinFriendGroup('invite-group');
+    final joinRequest = await _request(factory, 2);
+    final joinPayload =
+        decodeRpcRequestPayload('server.friend_group.join', joinRequest.payload)
+            as payload.FriendGroupJoinRequest;
+    expect(joinPayload.inviteToken, 'invite-group');
+    _respond(
+      factory.channels[2],
+      joinRequest.id,
+      'server.friend_group.join',
+      payload.FriendGroupJoinResponse(
+        group: payload.FriendGroupObject(
+          id: 'group-a',
+          workspaceName: 'social-group-a',
+        ),
+        member: payload.FriendGroupMemberObject(
+          friendGroupId: 'group-a',
+          peerPublicKey: 'peer-b',
+        ),
+      ),
+    );
+    expect((await joinFuture).group.workspaceName, 'social-group-a');
+
+    final clearFuture = client.clearFriendGroupInviteToken('group-a');
+    final clearRequest = await _request(factory, 3);
+    final clearPayload =
+        decodeRpcRequestPayload(
+              'server.friend_group.invite_token.clear',
+              clearRequest.payload,
+            )
+            as payload.FriendGroupInviteTokenClearRequest;
+    expect(clearPayload.friendGroupId, 'group-a');
+    _respond(
+      factory.channels[3],
+      clearRequest.id,
+      'server.friend_group.invite_token.clear',
+      payload.FriendGroupInviteTokenClearResponse(),
+    );
+    await clearFuture;
+  });
 }
 
 Future<rpc.RpcRequest> _request(

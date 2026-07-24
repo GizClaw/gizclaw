@@ -370,6 +370,32 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get addFriendA11y => '添加好友';
+
+  @override
+  String get groupJoinTitle => '加入群组';
+
+  @override
+  String get groupJoinA11y => '加入群组';
+
+  @override
+  String get groupManageInvite => '管理邀请';
+
+  @override
+  String get groupCreateInvite => '创建邀请';
+
+  @override
+  String get groupCopyInvite => '复制邀请';
+
+  @override
+  String get groupCopied => '已复制';
+
+  @override
+  String get groupNoActiveInvite => '暂无有效邀请';
+
+  @override
+  String groupInviteExpiresAt({required String expiresAt}) {
+    return '有效期至 $expiresAt';
+  }
 }
 
 /// The translations for Chinese, as used in China (`zh_CN`).
@@ -738,4 +764,30 @@ class AppLocalizationsZhCn extends AppLocalizationsZh {
 
   @override
   String get addFriendA11y => '添加好友';
+
+  @override
+  String get groupJoinTitle => '加入群组';
+
+  @override
+  String get groupJoinA11y => '加入群组';
+
+  @override
+  String get groupManageInvite => '管理邀请';
+
+  @override
+  String get groupCreateInvite => '创建邀请';
+
+  @override
+  String get groupCopyInvite => '复制邀请';
+
+  @override
+  String get groupCopied => '已复制';
+
+  @override
+  String get groupNoActiveInvite => '暂无有效邀请';
+
+  @override
+  String groupInviteExpiresAt({required String expiresAt}) {
+    return '有效期至 $expiresAt';
+  }
 }

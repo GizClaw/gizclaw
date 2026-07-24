@@ -100,15 +100,19 @@ class MobileDataRepository {
     return query.watch().map(
       (rows) => rows
           .where((row) => row.workspaceName?.isNotEmpty ?? false)
-          .map(
-            (row) => ChatroomWorkspaceMetadata(
+          .map((row) {
+            final group = FriendGroupObject.fromBuffer(row.rawProtobuf);
+            return ChatroomWorkspaceMetadata(
               workspaceName: row.workspaceName!,
               title: row.name.trim().isEmpty ? 'Group chat' : row.name,
               description: row.description,
               kind: ChatroomWorkspaceKind.group,
               resourceId: row.id,
-            ),
-          )
+              isGroupOwner:
+                  group.myRole ==
+                  FriendGroupMemberRole.FRIEND_GROUP_MEMBER_ROLE_OWNER,
+            );
+          })
           .toList(growable: false),
     );
   }

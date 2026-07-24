@@ -218,6 +218,38 @@ class GizClawClient {
     );
   }
 
+  Future<payload.FriendGroupInviteTokenGetResponse> getFriendGroupInviteToken(
+    String friendGroupId,
+  ) {
+    return rpc.call<payload.FriendGroupInviteTokenGetResponse>(
+      'server.friend_group.invite_token.get',
+      payload.FriendGroupInviteTokenGetRequest(friendGroupId: friendGroupId),
+    );
+  }
+
+  Future<payload.FriendGroupInviteTokenCreateResponse>
+  createFriendGroupInviteToken(String friendGroupId) {
+    return rpc.call<payload.FriendGroupInviteTokenCreateResponse>(
+      'server.friend_group.invite_token.create',
+      payload.FriendGroupInviteTokenCreateRequest(friendGroupId: friendGroupId),
+    );
+  }
+
+  Future<payload.FriendGroupInviteTokenClearResponse>
+  clearFriendGroupInviteToken(String friendGroupId) {
+    return rpc.call<payload.FriendGroupInviteTokenClearResponse>(
+      'server.friend_group.invite_token.clear',
+      payload.FriendGroupInviteTokenClearRequest(friendGroupId: friendGroupId),
+    );
+  }
+
+  Future<payload.FriendGroupJoinResponse> joinFriendGroup(String inviteToken) {
+    return rpc.call<payload.FriendGroupJoinResponse>(
+      'server.friend_group.join',
+      payload.FriendGroupJoinRequest(inviteToken: inviteToken),
+    );
+  }
+
   Future<payload.WorkspaceGetResponse> getWorkspace(String name) {
     return rpc.call<payload.WorkspaceGetResponse>(
       'server.workspace.get',

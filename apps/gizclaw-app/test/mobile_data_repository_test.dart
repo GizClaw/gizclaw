@@ -42,6 +42,7 @@ void main() {
             name: 'Builder Crew',
             description: 'Shipping together',
             workspaceName: 'social-group-a',
+            myRole: FriendGroupMemberRole.FRIEND_GROUP_MEMBER_ROLE_OWNER,
           ),
         ],
       );
@@ -88,6 +89,7 @@ void main() {
       expect(groupChats.single.workspaceName, 'social-group-a');
       expect(groupChats.single.title, 'Builder Crew');
       expect(groupChats.single.description, 'Shipping together');
+      expect(groupChats.single.isGroupOwner, isTrue);
     },
   );
 
