@@ -8,6 +8,7 @@ import (
 	"io"
 	"iter"
 	"slices"
+	"strings"
 	"testing"
 
 	doubaospeech "github.com/GizClaw/doubao-speech-go"
@@ -189,6 +190,195 @@ func TestTransformerSendsLastNonEmptyAudioFrame(t *testing.T) {
 	}
 	if got := string(session.sends[1].data); got != "second" || !session.sends[1].isLast {
 		t.Fatalf("second SendAudio = data %q last %t, want second/true", got, session.sends[1].isLast)
+	}
+}
+
+func TestTransformerTreatsZeroTextAsEmptyRecognition(t *testing.T) {
+	tests := []struct {
+		name        string
+		emitInterim bool
+		results     []*doubaospeech.ASRV2Result
+	}{
+		{name: "zero results"},
+		{name: "zero results with interim output", emitInterim: true},
+		{
+			name: "whitespace final result",
+			results: []*doubaospeech.ASRV2Result{
+				{Text: " \t\n ", IsFinal: true},
+			},
+		},
+		{
+			name: "whitespace definite utterance",
+			results: []*doubaospeech.ASRV2Result{
+				{
+					Utterances: []doubaospeech.ASRV2Utterance{
+						{Text: " \t\n ", Definite: true},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			session := newFakeDoubaoASRSession()
+			session.sendAudio = func(_ context.Context, _ []byte, isLast bool) error {
+				if isLast {
+					for _, result := range tt.results {
+						session.result <- result
+					}
+					close(session.result)
+				}
+				return nil
+			}
+			transformer := newTransformer(Config{
+				Format:         "pcm",
+				EmitInterim:    tt.emitInterim,
+				RealtimePacing: new(false),
+			})
+			transformer.newSession = func(context.Context, doubaoASRSessionConfig) (doubaoASRSession, error) {
+				return session, nil
+			}
+
+			input := newBufferStream(2)
+			output, err := transformer.Transform(context.Background(), input)
+			if err != nil {
+				t.Fatalf("Transform() error = %v", err)
+			}
+			if err := input.Push(&genx.MessageChunk{
+				Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 2}},
+				Ctrl: &genx.StreamCtrl{StreamID: "empty-turn"},
+			}); err != nil {
+				t.Fatalf("push audio = %v", err)
+			}
+			if err := input.Close(); err != nil {
+				t.Fatalf("close input = %v", err)
+			}
+
+			chunks := nonHistoryChunks(collectTransformerChunks(t, output))
+			if tt.emitInterim {
+				if len(chunks) != 0 {
+					t.Fatalf("non-history chunks = %d, want no unopened transcript route: %#v", len(chunks), chunks)
+				}
+				return
+			}
+			if len(chunks) != 1 {
+				t.Fatalf("non-history chunks = %d, want one terminal boundary: %#v", len(chunks), chunks)
+			}
+			chunk := chunks[0]
+			if !chunk.IsEndOfStream() || chunk.Ctrl == nil || chunk.Ctrl.StreamID != "empty-turn" || chunk.Ctrl.Error != "" {
+				t.Fatalf("terminal chunk = %#v, want successful empty-turn EOS", chunk)
+			}
+			if text, ok := chunk.Part.(genx.Text); !ok || strings.TrimSpace(string(text)) != "" {
+				t.Fatalf("terminal part = %#v, want empty text", chunk.Part)
+			}
+		})
+	}
+}
+
+func TestTransformerRecognizesTurnAfterEmptyRecognition(t *testing.T) {
+	emptySession := newFakeDoubaoASRSession()
+	emptySession.sendAudio = func(_ context.Context, _ []byte, isLast bool) error {
+		if isLast {
+			close(emptySession.result)
+		}
+		return nil
+	}
+	recognizedSession := newFakeDoubaoASRSession()
+	sessions := []doubaoASRSession{emptySession, recognizedSession}
+	transformer := newTransformer(Config{
+		Format:         "pcm",
+		RealtimePacing: new(false),
+	})
+	transformer.newSession = func(context.Context, doubaoASRSessionConfig) (doubaoASRSession, error) {
+		session := sessions[0]
+		sessions = sessions[1:]
+		return session, nil
+	}
+
+	input := newBufferStream(4)
+	output, err := transformer.Transform(context.Background(), input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	for _, streamID := range []string{"empty-turn", "recognized-turn"} {
+		if err := input.Push(&genx.MessageChunk{
+			Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 2}},
+			Ctrl: &genx.StreamCtrl{StreamID: streamID, BeginOfStream: true},
+		}); err != nil {
+			t.Fatalf("push %s audio = %v", streamID, err)
+		}
+		if err := input.Push(&genx.MessageChunk{
+			Part: &genx.Blob{MIMEType: "audio/pcm"},
+			Ctrl: &genx.StreamCtrl{StreamID: streamID, EndOfStream: true},
+		}); err != nil {
+			t.Fatalf("push %s EOS = %v", streamID, err)
+		}
+	}
+	if err := input.Close(); err != nil {
+		t.Fatalf("close input = %v", err)
+	}
+
+	chunks := nonHistoryChunks(collectTransformerChunks(t, output))
+	if len(chunks) != 3 {
+		t.Fatalf("non-history chunks = %d, want empty EOS then recognized text/EOS: %#v", len(chunks), chunks)
+	}
+	if !chunks[0].IsEndOfStream() || chunks[0].Ctrl == nil || chunks[0].Ctrl.StreamID != "empty-turn" || chunks[0].Ctrl.Error != "" {
+		t.Fatalf("empty turn terminal chunk = %#v", chunks[0])
+	}
+	if chunks[1].Ctrl == nil || chunks[1].Ctrl.StreamID != "recognized-turn" || chunks[1].Part != genx.Text("recognized text") {
+		t.Fatalf("recognized turn text = %#v", chunks[1])
+	}
+	if !chunks[2].IsEndOfStream() || chunks[2].Ctrl == nil || chunks[2].Ctrl.StreamID != "recognized-turn" {
+		t.Fatalf("recognized turn terminal chunk = %#v", chunks[2])
+	}
+}
+
+func TestTransformerRejectsInterimOnlyRecognition(t *testing.T) {
+	session := newFakeDoubaoASRSession()
+	session.sendAudio = func(_ context.Context, _ []byte, isLast bool) error {
+		if isLast {
+			session.result <- &doubaospeech.ASRV2Result{
+				Text: "partial text",
+				Utterances: []doubaospeech.ASRV2Utterance{
+					{Text: "partial text"},
+				},
+			}
+			close(session.result)
+		}
+		return nil
+	}
+	transformer := newTransformer(Config{
+		Format:         "pcm",
+		EmitInterim:    true,
+		RealtimePacing: new(false),
+	})
+	transformer.newSession = func(context.Context, doubaoASRSessionConfig) (doubaoASRSession, error) {
+		return session, nil
+	}
+
+	input := newBufferStream(2)
+	output, err := transformer.Transform(context.Background(), input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	if err := input.Push(&genx.MessageChunk{
+		Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 2}},
+		Ctrl: &genx.StreamCtrl{StreamID: "partial-turn"},
+	}); err != nil {
+		t.Fatalf("push audio = %v", err)
+	}
+	if err := input.Close(); err != nil {
+		t.Fatalf("close input = %v", err)
+	}
+
+	for {
+		_, err := output.Next()
+		if err != nil {
+			if !strings.Contains(err.Error(), "doubao asr returned no text") {
+				t.Fatalf("output.Next() error = %v, want interim-only error", err)
+			}
+			break
+		}
 	}
 }
 

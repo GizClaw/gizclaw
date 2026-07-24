@@ -28,6 +28,12 @@ doubaorealtimeduplex.New(doubaorealtimeduplex.Config{Client: client})
 
 每个 Transformer 的 typed Config 定义稳定配置；调用方通过 `Transform` 的 context 控制单次请求的生命周期。Adapter 必须在内部完成豆包事件、音频格式、usage、终态和错误到 GenX Stream 的转换。
 
+### ASR 空识别
+
+豆包 ASR provider session 正常结束，但 final result text 和 definite utterance text 均不包含非空白内容时，`doubaoasr.Transformer` 将本次识别作为成功的空结果结束，不发送已识别 transcript text。现有 Stream route 所需的零内容 terminal chunk 仍是成功的内部边界，不表示用户产生了已识别文本。
+
+已经打开 interim transcript route、但始终没有 definite result 的 session 仍是错误。Provider、protocol、timeout、cancellation、interrupted-input、malformed-audio 和 unsupported-format failure 也继续按原有路径传播错误。
+
 ## AST Translate 输入模式
 
 `doubaoast.Transformer` 支持 realtime 和 Push-to-Talk 音频输入，同时保持 provider 上传与事件接收并发执行：

@@ -28,6 +28,12 @@ Constructors do not open provider sessions; each concurrent `Transform` call own
 
 Each Transformer's typed Config defines stable configuration, while the context passed to `Transform` controls one request's lifecycle. The Adapter must internally convert provider events, audio formats, usage, terminal states, and errors to GenX Stream.
 
+### ASR empty recognition
+
+When a Doubao ASR provider session completes normally without non-whitespace final result text or definite utterance text, `doubaoasr.Transformer` completes that recognition successfully without emitting recognized transcript text. A zero-content terminal chunk required by the existing Stream route remains a successful internal boundary rather than recognized user text.
+
+An interim transcript route that never receives a definite result remains an error. Provider, protocol, timeout, cancellation, interrupted-input, malformed-audio, and unsupported-format failures also retain their normal error propagation.
+
 ## AST Translate input modes
 
 `doubaoast.Transformer` supports realtime and Push-to-Talk audio input while keeping provider upload and event reception concurrent:

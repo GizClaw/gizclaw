@@ -815,6 +815,7 @@ func (t *Transformer) receiveResults(session doubaoASRSession, lastChunk *genx.M
 	lastInterimText := ""
 	lastUtteranceCount := 0
 	lastFinal := false
+	sawInterimText := false
 	transcriptOpen := false
 	transcriptDefinite := false
 	transcriptSegment := 1
@@ -915,7 +916,10 @@ func (t *Transformer) receiveResults(session doubaoASRSession, lastChunk *genx.M
 		emittedResultText := false
 		if len(result.Utterances) > 0 {
 			for _, utt := range result.Utterances {
-				if utt.Definite && utt.Text != "" {
+				if !utt.Definite && strings.TrimSpace(utt.Text) != "" {
+					sawInterimText = true
+				}
+				if utt.Definite && strings.TrimSpace(utt.Text) != "" {
 					key := fmt.Sprintf("%d:%d:%s", utt.StartTime, utt.EndTime, utt.Text)
 					if _, ok := seenUtterances[key]; ok {
 						continue
@@ -927,6 +931,9 @@ func (t *Transformer) receiveResults(session doubaoASRSession, lastChunk *genx.M
 					closeTranscript("")
 				}
 			}
+		}
+		if !result.IsFinal && strings.TrimSpace(result.Text) != "" {
+			sawInterimText = true
 		}
 		if !emittedResultText && t.emitInterim && !result.IsFinal {
 			interimText := strings.TrimSpace(result.Text)
@@ -943,13 +950,17 @@ func (t *Transformer) receiveResults(session doubaoASRSession, lastChunk *genx.M
 				emitTranscriptText(interimText, false)
 			}
 		}
-		if !emittedResultText && result.IsFinal && result.Text != "" && textCount == 0 {
+		if !emittedResultText && result.IsFinal && strings.TrimSpace(result.Text) != "" && textCount == 0 {
 			emitTranscriptText(result.Text, true)
 			textCount++
 			closeTranscript("")
 		}
 	}
 	if textCount == 0 {
+		if !sawInterimText {
+			done <- nil
+			return
+		}
 		err := fmt.Errorf("doubao asr returned no text: results=%d last_final=%t last_text=%q last_utterances=%d", resultCount, lastFinal, lastText, lastUtteranceCount)
 		closeTranscript(err.Error())
 		done <- err
