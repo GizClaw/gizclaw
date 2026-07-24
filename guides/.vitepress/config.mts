@@ -217,7 +217,6 @@ const zhDevelopingSidebar = [
           { text: "Segmentors", link: "/zh/developing/genx/segmentors" },
           { text: "Profilers", link: "/zh/developing/genx/profilers" },
           { text: "Labelers", link: "/zh/developing/genx/labelers" },
-          { text: "Model Loader", link: "/zh/developing/genx/model-loader" },
           { text: "Match", link: "/zh/developing/genx/match" },
         ],
       },
