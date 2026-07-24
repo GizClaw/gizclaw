@@ -43,6 +43,15 @@ func TestReadRaidsArchiveRejectsUnsafeAndAcceptsPackageFiles(t *testing.T) {
 	}
 }
 
+func TestRaidsReleaseUsesCommitAddressedArchive(t *testing.T) {
+	if RaidsVersion != "v0.2.2" {
+		t.Fatalf("RaidsVersion = %q", RaidsVersion)
+	}
+	if len(RaidsCommit) != 40 || RaidsArchiveURL != "https://github.com/GizClaw/raids/archive/"+RaidsCommit+".tar.gz" {
+		t.Fatalf("Raids archive pin = %q at %q", RaidsCommit, RaidsArchiveURL)
+	}
+}
+
 func TestSelectRaidsDependenciesIncludesOnlyProfileClosure(t *testing.T) {
 	models := map[string]apitypes.RuntimeProfileBinding{"chat": {ResourceId: "chat-model"}}
 	voices := map[string]apitypes.RuntimeProfileBinding{"narrator": {ResourceId: "story-voice"}}

@@ -27,7 +27,8 @@ import (
 
 const (
 	RaidsVersion    = "v0.2.2"
-	RaidsArchiveURL = "https://github.com/GizClaw/raids/archive/refs/tags/v0.2.2.tar.gz"
+	RaidsCommit     = "be5b2eca681b080d2cb6a90fa0195ab652f49d26"
+	RaidsArchiveURL = "https://github.com/GizClaw/raids/archive/" + RaidsCommit + ".tar.gz"
 
 	defaultRegistrationTokenName     = "default-runtime"
 	expectedDefaultRegistrationToken = "28c4e4e9-a05f-5a7e-815e-9cf9afb6878f"
