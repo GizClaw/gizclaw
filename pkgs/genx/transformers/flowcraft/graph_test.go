@@ -2,10 +2,13 @@ package flowcraft
 
 import (
 	"context"
+	"errors"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/GizClaw/flowcraft/sdk/engine"
+	"github.com/GizClaw/flowcraft/sdk/event"
 )
 
 func TestRunHostPublishesOnlyAcceptedCandidateFromAllowedNode(t *testing.T) {
@@ -64,5 +67,44 @@ func TestRunHostPublishesOnlyAcceptedCandidateFromAllowedNode(t *testing.T) {
 	}
 	if len(host.buffers) != 0 {
 		t.Fatalf("late terminal events recreated buffers: %#v", host.buffers)
+	}
+}
+
+func TestRunHostRejectsMalformedDeltasAndEmitterFailures(t *testing.T) {
+	t.Parallel()
+	emitErr := errors.New("downstream failed")
+	host := &runHost{
+		publish: map[string]struct{}{"answer": {}},
+		emit: func(string, string) error {
+			return emitErr
+		},
+		buffers: make(map[string][]bufferedDelta), terminal: make(map[string]struct{}),
+	}
+	if err := host.Publish(t.Context(), event.Envelope{
+		Subject: engine.SubjectStreamDelta("run", "agent.node.answer"),
+		Payload: []byte("{"),
+	}); err == nil {
+		t.Fatal("Publish(malformed delta) succeeded")
+	}
+	if err := host.emitLocked("answer", engine.StreamDeltaPayload{
+		Type: engine.StreamDeltaToken, Content: "visible",
+	}); err == nil || !strings.Contains(err.Error(), emitErr.Error()) {
+		t.Fatalf("emitLocked() error = %v", err)
+	}
+	for _, delta := range []engine.StreamDeltaPayload{
+		{Type: engine.StreamDeltaToolCall, Content: "ignored"},
+		{Type: engine.StreamDeltaToken},
+		{Type: engine.StreamDeltaToken, Content: "hidden"},
+	} {
+		nodeID := "answer"
+		if delta.Content == "hidden" {
+			nodeID = "hidden"
+		}
+		if err := host.emitLocked(nodeID, delta); err != nil {
+			t.Fatalf("emitLocked(ignored) error = %v", err)
+		}
+	}
+	if host.tokenCount() != 0 {
+		t.Fatalf("ignored deltas changed token count to %d", host.tokenCount())
 	}
 }
