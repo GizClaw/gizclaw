@@ -7,7 +7,10 @@ import (
 	"io"
 	"maps"
 	"slices"
+	"strings"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/toolkitrun"
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/components/prompt"
 	"github.com/cloudwego/eino/components/retriever"
@@ -296,6 +299,7 @@ func addNativeComponentNode(
 		}
 		adapted := &streamingChatModel{
 			component: component, options: options, node: node, published: published,
+			toolkit: config.Toolkit,
 		}
 		post := compose.WithStatePostHandler(func(
 			_ context.Context,
@@ -415,6 +419,7 @@ type streamingChatModel struct {
 	options   []model.Option
 	node      NodeDefinition
 	published []OutputDefinition
+	toolkit   *genx.Toolkit
 }
 
 func (chatModel *streamingChatModel) Generate(
@@ -422,35 +427,91 @@ func (chatModel *streamingChatModel) Generate(
 	input []*schema.Message,
 	options ...model.Option,
 ) (*schema.Message, error) {
-	reader, err := chatModel.component.Stream(ctx, input, append(slices.Clone(chatModel.options), options...)...)
-	if err != nil {
-		return nil, err
-	}
-	defer reader.Close()
 	state, err := graphState(ctx)
 	if err != nil {
 		return nil, err
 	}
-	var chunks []*schema.Message
+	callState := toolkitrun.FromContext(ctx)
+	if callState == nil {
+		callState = toolkitrun.New(chatModel.toolkit, 0)
+	}
+	messages := cloneMessages(input)
+	var content strings.Builder
 	textField := chatModel.node.Outputs["text"]
 	for {
-		chunk, recvErr := reader.Recv()
-		if errors.Is(recvErr, io.EOF) {
-			break
+		tools, toolErr := einoToolInfos(chatModel.toolkit)
+		if toolErr != nil {
+			return nil, toolErr
 		}
-		if recvErr != nil {
-			return nil, recvErr
+		callOptions := append(slices.Clone(chatModel.options), options...)
+		if chatModel.toolkit != nil {
+			callOptions = append(callOptions, model.WithTools(tools))
+		}
+		reader, streamErr := chatModel.component.Stream(ctx, messages, callOptions...)
+		if streamErr != nil {
+			return nil, streamErr
+		}
+		chunks, streamErr := chatModel.receiveRound(reader, state, textField, &content)
+		reader.Close()
+		if streamErr != nil {
+			return nil, streamErr
+		}
+		message, concatErr := schema.ConcatMessages(chunks)
+		if concatErr != nil {
+			return nil, concatErr
+		}
+		if message == nil {
+			return nil, fmt.Errorf("eino: ChatModel returned no message")
+		}
+		if len(message.ToolCalls) == 0 {
+			message.Content = content.String()
+			return message, nil
+		}
+		if callState == nil {
+			return nil, fmt.Errorf("eino: ChatModel returned ToolCalls but Toolkit is not configured")
+		}
+		messages = append(messages, message)
+		for _, call := range message.ToolCalls {
+			result, invokeErr := callState.Invoke(ctx, genx.ToolCall{
+				ID: call.ID,
+				FuncCall: &genx.FuncCall{
+					Name: call.Function.Name, Arguments: call.Function.Arguments,
+				},
+			})
+			if invokeErr != nil {
+				return nil, invokeErr
+			}
+			messages = append(messages, &schema.Message{
+				Role: schema.Tool, Content: result.Result,
+				ToolCallID: result.ID, ToolName: call.Function.Name,
+			})
+		}
+	}
+}
+
+func (chatModel *streamingChatModel) receiveRound(
+	reader *schema.StreamReader[*schema.Message],
+	state *runState,
+	textField string,
+	content *strings.Builder,
+) ([]*schema.Message, error) {
+	var chunks []*schema.Message
+	for {
+		chunk, err := reader.Recv()
+		if errors.Is(err, io.EOF) {
+			return chunks, nil
+		}
+		if err != nil {
+			return nil, err
 		}
 		if chunk == nil {
 			continue
-		}
-		if len(chunk.ToolCalls) > 0 {
-			return nil, fmt.Errorf("eino: ToolCalls are not supported")
 		}
 		chunks = append(chunks, chunk)
 		if chunk.Content == "" {
 			continue
 		}
+		content.WriteString(chunk.Content)
 		for _, output := range chatModel.published {
 			if output.Field == textField {
 				if err := state.emit(output, chunk.Content); err != nil {
@@ -459,7 +520,6 @@ func (chatModel *streamingChatModel) Generate(
 			}
 		}
 	}
-	return schema.ConcatMessages(chunks)
 }
 
 func (chatModel *streamingChatModel) Stream(
@@ -467,7 +527,18 @@ func (chatModel *streamingChatModel) Stream(
 	input []*schema.Message,
 	options ...model.Option,
 ) (*schema.StreamReader[*schema.Message], error) {
-	return chatModel.component.Stream(ctx, input, append(slices.Clone(chatModel.options), options...)...)
+	if chatModel.toolkit == nil {
+		return chatModel.component.Stream(
+			ctx,
+			input,
+			append(slices.Clone(chatModel.options), options...)...,
+		)
+	}
+	message, err := chatModel.Generate(ctx, input, options...)
+	if err != nil {
+		return nil, err
+	}
+	return schema.StreamReaderFromArray([]*schema.Message{message}), nil
 }
 
 type configuredRetriever struct {

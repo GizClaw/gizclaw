@@ -1,6 +1,6 @@
 # Eino Transformer
 
-`pkgs/genx/transformers/eino` builds a typed Eino Graph and exposes it as a concurrently reusable `genx.Transformer`. The package owns Graph construction, state, streaming, History, Memory, and turn lifecycle. It depends on GenX, Eino core, Starlark, and generic Stores; it does not import GizClaw Workspace, Workflow, Resource, AgentHost, or Toolkit types.
+`pkgs/genx/transformers/eino` builds a typed Eino Graph and exposes it as a concurrently reusable `genx.Transformer`. The package owns Graph construction, state, streaming, History, Memory, and turn lifecycle. It depends on GenX, Eino core, Starlark, and generic Stores; it does not import GizClaw Workspace, Workflow, Resource, AgentHost, or product Toolkit types.
 
 ## Construction and ownership
 
@@ -14,6 +14,8 @@ transformer, err := eino.New(ctx, eino.Config{
     Graph:      graph,
     Components: components,
     Lambdas:    lambdas,
+    Toolkit:    executableToolkit,
+    MaxToolCalls: 32,
     Limits:     eino.Limits{MaxOutputBytes: 4 << 20},
 })
 ```
@@ -84,7 +86,7 @@ Native parallelism executes sibling Graph paths and joins them through Eino sche
 
 Prompt, ChatModel, and Retriever components are added through Eino's native `AddChatTemplateNode`, `AddChatModelNode`, and `AddRetrieverNode` paths inside typed nested Graphs. Package-owned Transform, Script, Race, Batch, and State adapters use Eino Lambdas when no serializable native component contract exists.
 
-ChatModel uses the resolved Eino streaming interface. Text chunks are published incrementally when the model node owns a declared text output. ToolCalls are rejected. A requested text port fails when the model response contains no text.
+ChatModel uses the resolved Eino streaming interface. Text chunks are published incrementally when the model node owns a declared text output. When a Toolkit is configured, its schemas are supplied through Eino model options; correlated ToolCalls execute in model order, native tool messages are appended, and the same model node continues. Internal calls and results are not published. A requested text port fails when the completed model turn contains no text.
 
 The built-in Transform operations are:
 
@@ -203,4 +205,4 @@ When `WaitForCompletion` is true, the Store must implement `memory.OperationWait
 
 Runtime provider, Store, Script, component, cancellation, byte-limit, and optimistic-concurrency failures terminate every active route with an error EOS. No failed Graph run commits persistent State.
 
-The Eino Transformer does not define a Toolkit, advertise tools, execute ToolCalls, or continue a model after tool results.
+The Eino Transformer consumes but does not redefine the GenX Toolkit. One root `Transform` invocation shares its call-ID set and `MaxToolCalls` budget across nested Graphs. Zero uses 32 and negative values are rejected. Independent invocations may execute the shared Toolkit concurrently and reuse provider call IDs; executor, validation, serialization, cancellation, duplicate-ID, and exhaustion failures remain local to one invocation.

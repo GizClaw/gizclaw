@@ -112,7 +112,9 @@ type Stream interface {
 
 [`Tool`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#Tool) is a restricted collection of tool types. Currently implemented by [`FuncTool`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#FuncTool) and `SearchWebTool`.
 
-`FuncTool` Saves the tool name, description, JSON Schema and typed invoke function; Generator is only responsible for generating `FuncCall`, and the actual call is still performed by the upper layer that owns the tool.
+`FuncTool` stores the tool name, description, JSON Schema, and typed invoke function. `Toolkit` validates and snapshots an ordered set of executable `FuncTool` declarations. `Tools` returns defensive declaration copies, while `Invoke` validates one identified call against the snapshotted schema, executes its paired function, and serializes the result as JSON.
+
+Toolkit itself is safe to share across concurrent runtimes and does not globally reserve call IDs or serialize executors. The consuming Transformer owns call-ID uniqueness and the call budget for one invocation. A serializable value with a nil error becomes a model-visible result; a non-nil executor error, invalid arguments, or an unserializable result terminates that runtime turn.
 
 ## Core data structures
 

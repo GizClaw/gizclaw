@@ -13,6 +13,7 @@ require (
 	github.com/cloudwego/eino v0.9.13
 	github.com/coder/websocket v1.8.15
 	github.com/dgraph-io/badger/v4 v4.9.4
+	github.com/eino-contrib/jsonschema v1.0.3
 	github.com/felixge/httpsnoop v1.1.0
 	github.com/goccy/go-yaml v1.19.2
 	github.com/gofiber/fiber/v2 v2.52.14
@@ -94,7 +95,6 @@ require (
 	github.com/dop251/goja v0.0.0-20260219130522-0ba9a5494a59 // indirect
 	github.com/dprotaso/go-yit v0.0.0-20220510233725-9ba8df137936 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
-	github.com/eino-contrib/jsonschema v1.0.3 // indirect
 	github.com/expr-lang/expr v1.17.8 // indirect
 	github.com/getkin/kin-openapi v0.133.0 // indirect
 	github.com/go-faster/city v1.0.1 // indirect

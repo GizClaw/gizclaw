@@ -27,11 +27,26 @@ func TestFlowcraftTransformerOpenAICompatibleModel(t *testing.T) {
 	}
 	client := openai.NewClient(option.WithAPIKey(apiKey))
 	generator := &genx.OpenAIGenerator{Client: &client, Model: "gpt-4o-mini", TextOnly: true}
+	tool, err := genx.NewFuncTool[struct{}](
+		"flowcraft_token",
+		"Returns the required Flowcraft verification token.",
+		genx.InvokeFunc[struct{}](func(context.Context, *genx.FuncCall, struct{}) (any, error) {
+			return map[string]string{"token": "FLOWCRAFT_TOOL_OK"}, nil
+		}),
+	)
+	if err != nil {
+		t.Fatalf("create Flowcraft tool: %v", err)
+	}
+	toolkit, err := genx.NewToolkit(tool)
+	if err != nil {
+		t.Fatalf("create Flowcraft Toolkit: %v", err)
+	}
 	transformer, err := flowcrafttransformer.New(flowcrafttransformer.Config{
-		ID: "flowcraft-e2e", Name: "Flowcraft E2E", Models: generator,
+		ID: "flowcraft-e2e", Name: "Flowcraft E2E", Models: generator, Toolkit: toolkit,
 		Graph: flowgraph.GraphDefinition{Name: "chat", Entry: "chat", Nodes: []flowgraph.NodeDefinition{{
 			ID: "chat", Type: "llm", Config: map[string]any{
-				"model": "chat", "system_prompt": "Reply with one short sentence that contains the exact token FLOWCRAFT_OK.",
+				"model":         "chat",
+				"system_prompt": "You must call flowcraft_token exactly once. Then reply with one short sentence containing the exact token returned by the tool.",
 			},
 		}}},
 		PublishNodes: []string{"chat"},
@@ -90,8 +105,8 @@ func TestFlowcraftTransformerOpenAICompatibleModel(t *testing.T) {
 	if outputStreamID == "" || !seenBOS || !seenEOS {
 		t.Fatalf("incomplete lifecycle: stream_id=%q BOS=%v EOS=%v", outputStreamID, seenBOS, seenEOS)
 	}
-	if !strings.Contains(response.String(), "FLOWCRAFT_OK") {
-		t.Fatalf("response = %q, want FLOWCRAFT_OK", response.String())
+	if !strings.Contains(response.String(), "FLOWCRAFT_TOOL_OK") {
+		t.Fatalf("response = %q, want FLOWCRAFT_TOOL_OK", response.String())
 	}
 	t.Logf("stream_id=%s response=%q", outputStreamID, response.String())
 }
