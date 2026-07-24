@@ -37,6 +37,14 @@ flowchart TD
 
 All runtime creation paths must have symmetric cancel, stream close, lease release, and registry cleanup. The persistence of Agent definition, Workflow, and Workspace still belongs to AI services.
 
+## Store dependency ownership
+
+The host process resolves `agent_host` Server Config references once at startup and injects borrowed Store interfaces into the GizClaw Server, Peer Manager, and registered Workflow factories. The Store Registry remains the only owner of those shared backends. AgentHost, Workspace reload, Flowcraft, Pet, and per-Agent adapters must not close them.
+
+`runtime_store` persists Workspace runtime metadata, history, and runtime objects. Flowcraft receives separate optional State, internal History, and Memory-object capabilities. State, History, and Memory use the canonical Owner/Workspace/Agent scope; Workspace runtime history is distinct from Flowcraft's internal graph History. Pet delegates to the same registered Flowcraft factory and therefore uses the same dependencies and scope rules.
+
+These bindings are process-start configuration. Reload reconstructs an Agent from current Workflow and Workspace resources but does not hot-swap shared Store dependencies. Changing a binding requires a Server restart and does not move existing data.
+
 Each `Service` serializes selection writes, reload, stop, and each Realtime input push for its one Peer. A transition changes the runtime revision before and after lifecycle work; only a selection that changes the active workspace is a revision-changing transition. A Realtime chunk enters the runtime transition gate before its per-input queue and samples its stable revision inside that gate, so input and control-plane operations share one ordering point. A chunk that observes a changed or in-progress revision is stale and is discarded instead of reopening or entering the new workspace. Input recovery reloads and writes the original chunk while one unchanged, stable revision remains gated. A pending selection suppresses recovery only when it changes the current workspace, so a same-workspace selection can still restore an inactive source. Peer teardown permanently shuts down the connection-scoped service, cancels an active gated operation, atomically prevents any in-flight reload from publishing a new runtime, and uses a bounded context to stop an already published runtime. This boundary does not serialize unrelated Peers or replace the shared `RuntimeRegistry` ownership of workspace agents.
 
 `RuntimeRegistry` reuses one constructed Agent per Workspace and returns an independent release function for every attachment. Reloading one Peer releases only that reference; remaining users keep the same Agent without interruption or repeated initiative. The final release removes the Agent, closes factory-owned per-Agent adapters, and releases the Workspace lease. Construction-time configuration is resolved again only on a later acquire.

@@ -10,7 +10,9 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/flowcraft"
 	petagent "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/pet"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
 type peerAgentHostTestResolver struct{}
@@ -40,7 +42,9 @@ func (*peerAgentHostHistoryStore) Close() error { return nil }
 func TestNewPeerAgentHostRegistersBuiltInAgents(t *testing.T) {
 	base := agenthost.New(peerAgentHostTestResolver{})
 	history := &peerAgentHostHistoryStore{}
-	got := newPeerAgentHost(base, nil, nil, nil, history, nil, nil)
+	state := kv.NewMemory(nil)
+	memoryObjects := objectstore.Dir(t.TempDir())
+	got := newPeerAgentHost(base, nil, nil, nil, history, state, memoryObjects)
 	if got == nil {
 		t.Fatal("newPeerAgentHost() = nil")
 	}
@@ -81,6 +85,12 @@ func TestNewPeerAgentHostRegistersBuiltInAgents(t *testing.T) {
 	}
 	if flowcraftFactory.History != history {
 		t.Fatal("flowcraft factory did not receive history store")
+	}
+	if flowcraftFactory.State != state {
+		t.Fatal("flowcraft factory did not receive state store")
+	}
+	if flowcraftFactory.MemoryObjects != memoryObjects {
+		t.Fatal("flowcraft factory did not receive memory object store")
 	}
 }
 

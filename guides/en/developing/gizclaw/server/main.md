@@ -6,6 +6,32 @@ Define a reusable `Server` composition root: receive identity, Peer listener, st
 
 It can combine multiple fields, but single field resource, validation, storage and lifecycle should stay in `services/<domain>`. Process configuration and startup belong to `cmd/internal/server`.
 
+## AgentHost store bindings
+
+Server Config binds AgentHost persistence capabilities to logical names from `stores`:
+
+```yaml
+agent_host:
+  runtime_store: agenthost
+  flowcraft:
+    state_store: flowcraft-state
+    history_store: flowcraft-history
+    memory_objects_store: flowcraft-memory-objects
+```
+
+The references work with both the layered `storage` plus `stores` layout and the supported one-layer `stores` layout. Backend configuration remains on the referenced Store; `agent_host` never contains a directory, DSN, credential, prefix, scope, or inline backend.
+
+| Field | Required capability | Supported backend |
+| --- | --- | --- |
+| `agent_host.runtime_store` | `objectstore.ObjectStore` | filesystem ObjectStore |
+| `agent_host.flowcraft.state_store` | `kv.Store` | Memory or Badger KV |
+| `agent_host.flowcraft.history_store` | `logstore.MutableStore` | ClickHouse LogStore; immutable Volc LogStore is rejected |
+| `agent_host.flowcraft.memory_objects_store` | `objectstore.ObjectStore` | filesystem ObjectStore |
+
+`agent_host` is the only source of these bindings. Omitting the whole block or a nested reference disables that optional capability; Store names have no reserved binding semantics. An unknown name, wrong Store kind, immutable History Store, unknown field, or empty reference fails Server construction instead of falling back. A Flowcraft or Pet Workflow that enables long-term Memory then requires `memory_objects_store` when its Agent is constructed. State and internal Flowcraft History remain optional.
+
+Changing a reference requires a process restart. GizClaw does not migrate, merge, copy, or delete data when a binding changes. The Store Registry owns every shared backend and closes it once during Server shutdown; Workspace reload and Agent teardown close only per-Agent adapters.
+
 ## Core structure and main function
 
 | Symbol | Function |

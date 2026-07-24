@@ -71,6 +71,18 @@ type Config struct {
 	VolcMemory *VolcMemoryConfig         `yaml:"volc_memory"`
 }
 
+// ConfigError identifies the logical Store entry whose construction failed.
+type ConfigError struct {
+	Name string
+	Err  error
+}
+
+// Error preserves the underlying construction error text.
+func (e *ConfigError) Error() string { return e.Err.Error() }
+
+// Unwrap exposes the underlying construction error.
+func (e *ConfigError) Unwrap() error { return e.Err }
+
 // Options supplies runtime dependencies that cannot be represented in YAML.
 type Options struct {
 	FlowcraftModelLoader memoryflowcraft.ModelLoader
@@ -227,25 +239,25 @@ func NewWithStorageOptions(ctx context.Context, physical *storage.Storage, confi
 		case KindKeyValue:
 			st, err := s.newKV(name, cfg)
 			if err != nil {
-				return nil, err
+				return nil, &ConfigError{Name: name, Err: err}
 			}
 			s.kvs[name] = st
 		case KindVecStore:
 			st, err := s.newVecStore(name, cfg)
 			if err != nil {
-				return nil, err
+				return nil, &ConfigError{Name: name, Err: err}
 			}
 			s.vecs[name] = st
 		case KindSQL:
 			st, err := s.newSQL(name, cfg)
 			if err != nil {
-				return nil, err
+				return nil, &ConfigError{Name: name, Err: err}
 			}
 			s.sqls[name] = st
 		case KindObjectStore:
 			st, err := s.newObjectStore(name, cfg)
 			if err != nil {
-				return nil, err
+				return nil, &ConfigError{Name: name, Err: err}
 			}
 			s.objects[name] = st
 		case KindGraph:
@@ -256,35 +268,35 @@ func NewWithStorageOptions(ctx context.Context, physical *storage.Storage, confi
 		case KindMetrics:
 			st, err := s.newMetrics(name, cfg)
 			if err != nil {
-				return nil, err
+				return nil, &ConfigError{Name: name, Err: err}
 			}
 			s.metrics[name] = st
 			s.logicClosers = append(s.logicClosers, st)
 		case KindLog:
 			st, err := s.newLog(name, cfg)
 			if err != nil {
-				return nil, err
+				return nil, &ConfigError{Name: name, Err: err}
 			}
 			s.logs[name] = st
 			s.logicClosers = append(s.logicClosers, st)
 		case KindMemoryStore:
 			st, closer, err := s.newMemory(ctx, name, cfg, options)
 			if err != nil {
-				return nil, err
+				return nil, &ConfigError{Name: name, Err: err}
 			}
 			s.memories[name] = st
 			if closer != nil {
 				s.logicClosers = append(s.logicClosers, closer)
 			}
 		default:
-			return nil, fmt.Errorf("stores: %q has unknown kind %q", name, cfg.Kind)
+			return nil, &ConfigError{Name: name, Err: fmt.Errorf("stores: %q has unknown kind %q", name, cfg.Kind)}
 		}
 	}
 
 	for _, g := range graphCfgs {
 		st, err := s.newGraph(g.name, g.cfg)
 		if err != nil {
-			return nil, err
+			return nil, &ConfigError{Name: g.name, Err: err}
 		}
 		s.graphs[g.name] = st
 		s.logicClosers = append(s.logicClosers, st)
@@ -301,7 +313,10 @@ func hasMemoryProviderConfig(cfg Config) bool {
 func validateMemoryProviderOwnership(configs map[string]Config) error {
 	for name, cfg := range configs {
 		if cfg.Kind != KindMemoryStore && hasMemoryProviderConfig(cfg) {
-			return fmt.Errorf("stores: %q kind %q contains memory provider fields", name, cfg.Kind)
+			return &ConfigError{
+				Name: name,
+				Err:  fmt.Errorf("stores: %q kind %q contains memory provider fields", name, cfg.Kind),
+			}
 		}
 	}
 	return nil
@@ -319,10 +334,16 @@ func validateObjectStorePrefixes(configs map[string]Config) error {
 		}
 		prefix, err := parseObjectPrefix(cfg.Prefix)
 		if err != nil {
-			return fmt.Errorf("stores: objectstore %q prefix: %w", name, err)
+			return &ConfigError{
+				Name: name,
+				Err:  fmt.Errorf("stores: objectstore %q prefix: %w", name, err),
+			}
 		}
 		if cfg.Prefix != prefix {
-			return fmt.Errorf("stores: objectstore %q prefix %q is not clean; use %q", name, cfg.Prefix, prefix)
+			return &ConfigError{
+				Name: name,
+				Err:  fmt.Errorf("stores: objectstore %q prefix %q is not clean; use %q", name, cfg.Prefix, prefix),
+			}
 		}
 		groups[cfg.Storage] = append(groups[cfg.Storage], logicalStore{name: name, prefix: prefix})
 	}
@@ -333,14 +354,21 @@ func validateObjectStorePrefixes(configs map[string]Config) error {
 		slices.SortFunc(logical, func(a, b logicalStore) int { return strings.Compare(a.name, b.name) })
 		for _, store := range logical {
 			if store.prefix == "" {
-				return fmt.Errorf("stores: physical objectstore %q is shared; logical store %q requires a non-empty prefix", physical, store.name)
+				return &ConfigError{
+					Name: store.name,
+					Err:  fmt.Errorf("stores: physical objectstore %q is shared; logical store %q requires a non-empty prefix", physical, store.name),
+				}
 			}
 		}
 		for i := range logical {
 			for j := i + 1; j < len(logical); j++ {
 				a, b := logical[i], logical[j]
 				if a.prefix == b.prefix || strings.HasPrefix(a.prefix, b.prefix+"/") || strings.HasPrefix(b.prefix, a.prefix+"/") {
-					return fmt.Errorf("stores: physical objectstore %q has overlapping prefixes for logical stores %q (%q) and %q (%q)", physical, a.name, a.prefix, b.name, b.prefix)
+					err := fmt.Errorf(
+						"stores: physical objectstore %q has overlapping prefixes for logical stores %q (%q) and %q (%q)",
+						physical, a.name, a.prefix, b.name, b.prefix,
+					)
+					return &ConfigError{Name: a.name, Err: &ConfigError{Name: b.name, Err: err}}
 				}
 			}
 		}
@@ -841,13 +869,19 @@ func legacyStorageConfigs(configs map[string]Config) map[string]storage.Config {
 		if cfg.Kind == KindGraph || cfg.Kind == KindMetrics || cfg.Kind == KindLog || cfg.Kind == KindMemoryStore {
 			continue
 		}
-		out[name] = storage.Config{
+		physical := storage.Config{
 			Kind:    cfg.Kind,
 			Backend: cfg.Backend,
 			Dir:     cfg.Dir,
 			Dim:     cfg.Dim,
 			DSN:     cfg.DSN,
 		}
+		if cfg.Kind == KindObjectStore && cfg.Dir != "" && (cfg.Backend == "" || cfg.Backend == "fs") {
+			physical.FS = &storage.FSConfig{Dir: cfg.Dir}
+			physical.Backend = ""
+			physical.Dir = ""
+		}
+		out[name] = physical
 	}
 	return out
 }

@@ -155,7 +155,7 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 	if ss == nil {
 		ss, err = newStoreRegistryWithOptions(cfg, newOpts.StoreOptions)
 		if err != nil {
-			return nil, fmt.Errorf("server: stores: %w", err)
+			return nil, fmt.Errorf("server: stores: %w", contextualizeAgentHostStoreBuildError(cfg, err))
 		}
 		ownsStores = true
 	}
@@ -211,11 +211,8 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 			return nil, fmt.Errorf("server: initialize log query service: %w", err)
 		}
 	}
-	if storeExists(cfg, defaultFlowcraftHistoryStore) {
-		gizServer.FlowcraftHistory, err = ss.MutableLog(defaultFlowcraftHistoryStore)
-		if err != nil {
-			return nil, fmt.Errorf("server: flowcraft history store %q: %w", defaultFlowcraftHistoryStore, err)
-		}
+	if err := configureAgentHostStores(gizServer, ss, cfg); err != nil {
+		return nil, err
 	}
 	cmdSrv.Server = gizServer
 	if cfg.FriendGroups.MessageDefaultTTL != "" {
@@ -274,11 +271,6 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 		if storeExists(cfg, defaultFirmwareAssetsStore) {
 			if gizServer.FirmwareAssets, err = ss.ObjectStore(defaultFirmwareAssetsStore); err != nil {
 				return nil, fmt.Errorf("server: firmwares assets store: %w", err)
-			}
-		}
-		if storeExists(cfg, defaultAgentHostStore) {
-			if gizServer.AgentHostStore, err = ss.ObjectStore(defaultAgentHostStore); err != nil {
-				return nil, fmt.Errorf("server: agenthost store: %w", err)
 			}
 		}
 		if gizServer.MiniMaxCredentialStore, err = ss.KV(defaultCredentialsStore); err != nil {
@@ -455,6 +447,127 @@ func publicICEAddr(cfg Config) string {
 func storeExists(cfg Config, name string) bool {
 	_, ok := cfg.Stores[name]
 	return ok
+}
+
+func configureAgentHostStores(server *gizclaw.Server, registry *stores.Stores, cfg Config) error {
+	if cfg.AgentHost == nil {
+		return nil
+	}
+
+	if name := cfg.AgentHost.RuntimeStore; name != "" {
+		runtimeStore, err := registry.ObjectStore(name)
+		if err != nil {
+			return agentHostStoreReferenceError("agent_host.runtime_store", name, "objectstore.ObjectStore", err)
+		}
+		server.AgentHostStore = runtimeStore
+	}
+	if cfg.AgentHost.Flowcraft == nil {
+		return nil
+	}
+	if name := cfg.AgentHost.Flowcraft.StateStore; name != "" {
+		stateStore, err := registry.KV(name)
+		if err != nil {
+			return agentHostStoreReferenceError("agent_host.flowcraft.state_store", name, "kv.Store", err)
+		}
+		server.FlowcraftState = stateStore
+	}
+	if name := cfg.AgentHost.Flowcraft.HistoryStore; name != "" {
+		historyStore, err := registry.MutableLog(name)
+		if err != nil {
+			return agentHostStoreReferenceError("agent_host.flowcraft.history_store", name, "logstore.MutableStore", err)
+		}
+		server.FlowcraftHistory = historyStore
+	}
+	if name := cfg.AgentHost.Flowcraft.MemoryObjectsStore; name != "" {
+		memoryStore, err := registry.ObjectStore(name)
+		if err != nil {
+			return agentHostStoreReferenceError("agent_host.flowcraft.memory_objects_store", name, "objectstore.ObjectStore", err)
+		}
+		server.FlowcraftMemoryObjects = memoryStore
+	}
+	return nil
+}
+
+type agentHostStoreBinding struct {
+	path       string
+	name       string
+	capability string
+}
+
+func explicitAgentHostStoreBindings(cfg Config) []agentHostStoreBinding {
+	if cfg.AgentHost == nil {
+		return nil
+	}
+	bindings := make([]agentHostStoreBinding, 0, 4)
+	if name := cfg.AgentHost.RuntimeStore; name != "" {
+		bindings = append(bindings, agentHostStoreBinding{
+			path: "agent_host.runtime_store", name: name, capability: "objectstore.ObjectStore",
+		})
+	}
+	if cfg.AgentHost.Flowcraft == nil {
+		return bindings
+	}
+	if name := cfg.AgentHost.Flowcraft.StateStore; name != "" {
+		bindings = append(bindings, agentHostStoreBinding{
+			path: "agent_host.flowcraft.state_store", name: name, capability: "kv.Store",
+		})
+	}
+	if name := cfg.AgentHost.Flowcraft.HistoryStore; name != "" {
+		bindings = append(bindings, agentHostStoreBinding{
+			path: "agent_host.flowcraft.history_store", name: name, capability: "logstore.MutableStore",
+		})
+	}
+	if name := cfg.AgentHost.Flowcraft.MemoryObjectsStore; name != "" {
+		bindings = append(bindings, agentHostStoreBinding{
+			path: "agent_host.flowcraft.memory_objects_store", name: name, capability: "objectstore.ObjectStore",
+		})
+	}
+	return bindings
+}
+
+func contextualizeAgentHostStoreBuildError(cfg Config, err error) error {
+	bindings := explicitAgentHostStoreBindings(cfg)
+	for _, binding := range bindings {
+		if logicalStoreErrorReferences(err, binding.name) {
+			return agentHostStoreReferenceError(binding.path, binding.name, binding.capability, err)
+		}
+	}
+
+	var physicalError *storage.ConfigError
+	if !errors.As(err, &physicalError) {
+		return err
+	}
+	for _, binding := range bindings {
+		storeConfig, ok := cfg.Stores[binding.name]
+		if !ok {
+			continue
+		}
+		physicalName := storeConfig.Storage
+		if physicalName == "" && len(cfg.Storage) == 0 {
+			physicalName = binding.name
+		}
+		if physicalName == physicalError.Name {
+			return agentHostStoreReferenceError(binding.path, binding.name, binding.capability, err)
+		}
+	}
+	return err
+}
+
+func logicalStoreErrorReferences(err error, name string) bool {
+	for {
+		var configError *stores.ConfigError
+		if !errors.As(err, &configError) {
+			return false
+		}
+		if configError.Name == name {
+			return true
+		}
+		err = configError.Err
+	}
+}
+
+func agentHostStoreReferenceError(path, name, capability string, err error) error {
+	return fmt.Errorf("server: %s %q requires %s: %w", path, name, capability, err)
 }
 
 type adminPublicKeySecurityPolicy struct {

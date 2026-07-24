@@ -442,13 +442,7 @@ func (s *Server) init() error {
 	}
 	manager.FlowcraftHistory = s.FlowcraftHistory
 	manager.FlowcraftState = s.FlowcraftState
-	if manager.FlowcraftState == nil {
-		manager.FlowcraftState = moduleStore(nil, s.PeerStore, "flowcraft-state")
-	}
 	manager.FlowcraftMemoryObjects = s.FlowcraftMemoryObjects
-	if manager.FlowcraftMemoryObjects == nil {
-		manager.FlowcraftMemoryObjects = s.AgentHostStore
-	}
 	manager.SpeechLimits = s.SpeechLimits
 	manager.PeerRoutes = &peerroute.Server{
 		Store:           peerRouteStore,
