@@ -109,7 +109,15 @@ typedef struct {
   int (*peer_set_remote_sdp)(gzc_rtc_peer_t *peer, gzc_rtc_sdp_type_t type, gzc_str_t sdp);
   int (*peer_create_data_channel)(gzc_rtc_peer_t *peer, const gzc_rtc_channel_config_t *config, gzc_rtc_channel_t **out_channel);
   int (*peer_poll)(gzc_rtc_peer_t *peer, int timeout_ms);
+  /*
+   * Returns GZC_ERR_WOULD_BLOCK without consuming data when the transport's
+   * bounded send queue cannot accept the complete message.
+   */
   int (*channel_send)(gzc_rtc_channel_t *channel, const uint8_t *data, size_t len, bool is_text);
+  /*
+   * Optional browser-style flow-control pair. Implementations that omit both
+   * operations use channel_send's GZC_ERR_WOULD_BLOCK backpressure instead.
+   */
   int (*channel_buffered_amount)(gzc_rtc_channel_t *channel, uint64_t *out_bytes);
   int (*channel_set_buffered_amount_low_threshold)(gzc_rtc_channel_t *channel, uint64_t bytes);
   void (*channel_close)(gzc_rtc_channel_t *channel);

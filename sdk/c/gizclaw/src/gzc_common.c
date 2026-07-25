@@ -24,6 +24,8 @@ const char *gzc_status_string(gzc_status_t status) {
     return "unsupported";
   case GZC_ERR_JSON:
     return "json error";
+  case GZC_ERR_WOULD_BLOCK:
+    return "would block";
   default:
     return "unknown";
   }
