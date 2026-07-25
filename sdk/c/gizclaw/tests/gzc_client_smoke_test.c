@@ -1692,10 +1692,10 @@ int main(void) {
     return 1;
   }
   if (expect(
-      stream_error.frame_count == 1 && stream_error.eos_count == 1 &&
-          stream_error.has_error && stream_error.code == 7 &&
-          stream_error.message_ok,
-      "stream error envelope and terminal eos delivered to callback") != 0) {
+          stream_error.frame_count == 1 && stream_error.eos_count == 1 &&
+              stream_error.has_error && stream_error.code == 7 &&
+              stream_error.message_ok,
+          "stream error envelope and terminal eos delivered to callback") != 0) {
     return 1;
   }
   fake_webrtc.response_mode = FAKE_RESPONSE_PROTO;
