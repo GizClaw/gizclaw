@@ -166,7 +166,7 @@ pkgs/gizclaw/rpc_server_service_test.go:73:105: call of stringPtr(x) can be simp
 pkgs/gizclaw/rpc_server_service_test.go:819:6: stringPtr can be an inlinable wrapper around new(expr)
 pkgs/gizclaw/rpc_server_service_test.go:823:6: intPtr can be an inlinable wrapper around new(expr)
 pkgs/gizclaw/rpc_server_service_test.go:827:6: boolPtr can be an inlinable wrapper around new(expr)
-pkgs/gizclaw/rpc_speech.go:530:2: Loop can be simplified using slices.Contains
+pkgs/gizclaw/rpc_speech.go:531:2: Loop can be simplified using slices.Contains
 pkgs/gizclaw/services/ai/credential/credential_body_test.go:13:80: call of testStringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/ai/credential/credential_body_test.go:9:6: testStringPtr can be an inlinable wrapper around new(expr)
 pkgs/gizclaw/services/ai/model/server_test.go:26:15: call of stringPtr(x) can be simplified to new(x)

@@ -119,6 +119,78 @@ func TestRPCSpeechExtractStreamsUploadAndReturnsValidatedResult(t *testing.T) {
 	readSpeechEOS(t, stream)
 }
 
+func TestRPCSpeechExtractSplitResponseUsesEnvelopeEOSAsTerminal(t *testing.T) {
+	service := speechServiceFuncs{
+		extract: func(_ context.Context, request peergenx.SpeechExtractionRequest) (peergenx.SpeechExtraction, error) {
+			for {
+				chunk, err := request.Input.Next()
+				if errors.Is(err, genx.ErrDone) || errors.Is(err, io.EOF) {
+					break
+				}
+				if err != nil {
+					return peergenx.SpeechExtraction{}, err
+				}
+				if chunk != nil && chunk.IsEndOfStream() {
+					break
+				}
+			}
+			return peergenx.SpeechExtraction{
+				Transcript: "Alice",
+				ResultJSON: `{"name":"Alice"}`,
+			}, nil
+		},
+	}
+	client, serverDone := startSpeechRPCServer(t, service, SpeechLimits{})
+	defer finishSpeechRPCServer(t, client, serverDone)
+
+	stream := newSpeechClientStream(t, client)
+	defer stream.Close()
+	params, err := newRPCRequestParams(rpcapi.SpeechExtractRequest{
+		ASRModelAlias:     "asr-main",
+		ExtractModelAlias: "extract-main",
+		ContentType:       "audio/L16;rate=16000;channels=1",
+		SchemaJSON:        `{"type":"object","properties":{"name":{"type":"string"}}}`,
+	}, (*rpcapi.RPCPayload).FromSpeechExtractRequest)
+	if err != nil {
+		t.Fatalf("newRPCRequestParams() error = %v", err)
+	}
+	largeID := string(bytes.Repeat([]byte("r"), rpcapi.MaxFrameSize+1024))
+	if err := stream.WriteRequestEnvelope(newRPCRequest(largeID, rpcapi.RPCMethodServerSpeechExtract, params)); err != nil {
+		t.Fatalf("WriteRequestEnvelope() error = %v", err)
+	}
+	if err := stream.WriteEOS(); err != nil {
+		t.Fatalf("WriteEOS(request envelope) error = %v", err)
+	}
+	if err := stream.WriteFrame(rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: []byte{1, 2}}); err != nil {
+		t.Fatalf("WriteFrame(audio) error = %v", err)
+	}
+	if err := stream.WriteEOS(); err != nil {
+		t.Fatalf("WriteEOS(audio) error = %v", err)
+	}
+
+	response, responseEOS, err := stream.ReadResponseEnvelopeForMethod(rpcapi.RPCMethodServerSpeechExtract)
+	if err != nil {
+		t.Fatalf("ReadResponseEnvelopeForMethod() error = %v", err)
+	}
+	if !responseEOS {
+		t.Fatal("split response did not consume its terminal EOS")
+	}
+	if response.Id != largeID || response.Error != nil {
+		t.Fatalf("response = %+v", response)
+	}
+	if err := client.SetReadDeadline(time.Now().Add(100 * time.Millisecond)); err != nil {
+		t.Fatalf("SetReadDeadline() error = %v", err)
+	}
+	_, err = stream.ReadFrame()
+	var netErr net.Error
+	if !errors.As(err, &netErr) || !netErr.Timeout() {
+		t.Fatalf("unexpected frame after split response terminal EOS: %v", err)
+	}
+	if err := client.SetReadDeadline(time.Time{}); err != nil {
+		t.Fatalf("clear read deadline error = %v", err)
+	}
+}
+
 func TestRPCSpeechExtractMapsAndSanitizesTerminalErrors(t *testing.T) {
 	tests := []struct {
 		name    string

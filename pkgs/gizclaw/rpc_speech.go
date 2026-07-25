@@ -290,6 +290,7 @@ func (s *rpcServer) handleSpeechExtract(ctx context.Context, stream *rpcStream, 
 		if err := callStream.WriteEOS(); err != nil {
 			return err
 		}
+		return nil
 	}
 	return callStream.WriteEOS()
 }
