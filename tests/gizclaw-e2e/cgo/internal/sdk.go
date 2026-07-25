@@ -614,6 +614,7 @@ func CSDKSpeedTest(t *testing.T, identityDir string) {
 	}
 	var sawAck bool
 	var binaryBytes int
+	var sawEOS bool
 	for _, frame := range frames {
 		switch frame.Type {
 		case int(C.GZC_RPC_FRAME_BINARY):
@@ -627,12 +628,17 @@ func CSDKSpeedTest(t *testing.T, identityDir string) {
 				continue
 			}
 			binaryBytes += len(frame.Data)
+		case int(C.GZC_RPC_FRAME_EOS):
+			if len(frame.Data) != 0 {
+				t.Fatalf("speed test EOS has %d payload bytes", len(frame.Data))
+			}
+			sawEOS = true
 		default:
 			t.Fatalf("unexpected speed test frame type %d", frame.Type)
 		}
 	}
-	if !sawAck || binaryBytes != 4096 {
-		t.Fatalf("invalid speed test stream: saw_ack=%v binary_bytes=%d", sawAck, binaryBytes)
+	if !sawAck || binaryBytes != 4096 || !sawEOS {
+		t.Fatalf("invalid speed test stream: saw_ack=%v binary_bytes=%d saw_eos=%v", sawAck, binaryBytes, sawEOS)
 	}
 }
 
@@ -667,6 +673,7 @@ func CSDKFirmwareDownload(t *testing.T, identityDir, registrationToken string) {
 	var sawMetadata bool
 	var binaryBytes int
 	var sawMarker bool
+	var sawEOS bool
 	for _, frame := range frames {
 		switch frame.Type {
 		case int(C.GZC_RPC_FRAME_BINARY):
@@ -683,12 +690,17 @@ func CSDKFirmwareDownload(t *testing.T, identityDir, registrationToken string) {
 			if bytes.Contains(frame.Data, []byte("GIZCLAW_MAIN_FIRMWARE_V1")) {
 				sawMarker = true
 			}
+		case int(C.GZC_RPC_FRAME_EOS):
+			if len(frame.Data) != 0 {
+				t.Fatalf("firmware download EOS has %d payload bytes", len(frame.Data))
+			}
+			sawEOS = true
 		default:
 			t.Fatalf("unexpected firmware download frame type %d", frame.Type)
 		}
 	}
-	if !sawMetadata || binaryBytes == 0 || !sawMarker {
-		t.Fatalf("invalid firmware download stream: saw_metadata=%v binary_bytes=%d saw_marker=%v", sawMetadata, binaryBytes, sawMarker)
+	if !sawMetadata || binaryBytes == 0 || !sawMarker || !sawEOS {
+		t.Fatalf("invalid firmware download stream: saw_metadata=%v binary_bytes=%d saw_marker=%v saw_eos=%v", sawMetadata, binaryBytes, sawMarker, sawEOS)
 	}
 }
 
