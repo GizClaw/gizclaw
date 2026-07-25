@@ -1323,22 +1323,22 @@ static int inbound_finish_provider(struct gzc_rpc_inbound *inbound) {
   if (provider_response.has_error) {
     gizclaw_rpc_v1_RpcErrorCode error_code;
     switch (provider_response.error_code) {
-      case gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_PARSE_ERROR:
-      case gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INVALID_REQUEST:
-      case gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_METHOD_NOT_FOUND:
-      case gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INVALID_PARAMS:
-      case gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INTERNAL_ERROR:
-      case gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_BAD_REQUEST:
-      case gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_FORBIDDEN:
-      case gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_NOT_FOUND:
-      case gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_CONFLICT:
-        error_code =
-            (gizclaw_rpc_v1_RpcErrorCode)provider_response.error_code;
-        break;
-      default:
-        error_code =
-            gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INTERNAL_ERROR;
-        break;
+    case gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_PARSE_ERROR:
+    case gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INVALID_REQUEST:
+    case gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_METHOD_NOT_FOUND:
+    case gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INVALID_PARAMS:
+    case gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INTERNAL_ERROR:
+    case gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_BAD_REQUEST:
+    case gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_FORBIDDEN:
+    case gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_NOT_FOUND:
+    case gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_CONFLICT:
+      error_code =
+          (gizclaw_rpc_v1_RpcErrorCode)provider_response.error_code;
+      break;
+    default:
+      error_code =
+          gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INTERNAL_ERROR;
+      break;
     }
     gzc_buf_free(&provider_response.encoded_response, inbound->platform);
     return inbound_error(
