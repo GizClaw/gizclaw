@@ -1,6 +1,6 @@
 # Flowcraft Transformer
 
-`pkgs/genx/transformers/flowcraft` wraps a Flowcraft Graph as a concurrently reusable `genx.Transformer`. It depends only on GenX and generic Stores, not on GizClaw Workspace, Workflow, AgentHost, Claw, or Toolkit.
+`pkgs/genx/transformers/flowcraft` wraps a Flowcraft Graph as a concurrently reusable `genx.Transformer`. It depends only on GenX and generic Stores, not on GizClaw Workspace, Workflow, AgentHost, Claw, or product Toolkit types.
 
 ## Construction
 
@@ -14,6 +14,8 @@ transformer, err := flowcraft.New(flowcraft.Config{
     MaxIterations: 32,
     PublishNodes: []string{"answer"},
     Models:       runtimeGenerator,
+    ToolInvoker:  runtimeTools,
+    MaxToolCalls: 32,
 
     History: historyLogStore,
     Memory:  longTermMemoryStore,
@@ -33,7 +35,7 @@ transformer, err := flowcraft.New(flowcraft.Config{
 
 An LLM node's `model` field is an alias such as `chat`. The Transformer resolves it internally as `Models.GenerateStream(ctx, "model/chat", modelContext)`; a Graph cannot supply a raw provider model ID or bypass the runtime alias.
 
-The model adapter carries the GenX-defined max tokens, temperature, top-p, top-k, penalties, thinking, and extra fields. Flowcraft stop words, structured/image output, and ToolCall have no matching generic GenX text contract, so they return an explicit error instead of applying provider-specific guesses.
+The model adapter carries the GenX-defined max tokens, temperature, top-p, top-k, penalties, thinking, and extra fields. Flowcraft stop words and structured/image output without their existing typed path return an explicit error instead of applying provider-specific guesses.
 
 Parallel Graph execution always uses the Flowcraft SDK defaults: up to 10 branches, three nesting levels, and `last_wins` merge. A Graph without a fork creates no extra branches. The Publisher buffers speculative candidates, exposes only the accepted branch, and drops cancelled branches.
 
@@ -59,4 +61,6 @@ On top of that reusable default, the GizClaw workflow Factory handles public `me
 
 With `ObserveWaitForCompletion=false`, EOS and the next turn wait for `Observe` acceptance but not for an asynchronous operation to materialize. Stores that implement `memory.AsyncOperationProcessor` materialize that operation in the background. When true, Memory must implement `memory.OperationWaiter`, and both the current EOS and next Graph turn wait for operation completion. The input pump continues reading in either mode and does not use downstream output as backpressure.
 
-Toolkit continuation is outside this Transformer's current contract.
+When `ToolInvoker` is non-nil, every LLM model call obtains the available function names, descriptions, and schemas through `ResolveTools`. ToolCalls execute in model order through `InvokeTool(name, arguments)`, their JSON results are appended to the same model turn, and generation continues until the model returns no calls. Text produced before and after tool rounds remains streamable; ToolCall and ToolResult control data never enters the public GenX output.
+
+Flowcraft does not receive RuntimeProfile, Toolkit policy, resource, or executor-registry details. The injected `ToolInvoker` owns resolution and execution; Flowcraft owns provider call IDs, ordering, continuation, and its `MaxToolCalls` guard. The limit is shared by all nodes in one `Transform` invocation: zero uses 32, negative values are rejected, repeated call IDs fail within the invocation, and independent concurrent invocations may reuse the same provider call ID. Resolution, invocation, invalid-result JSON, exhaustion, and cancellation errors terminate only the affected invocation.

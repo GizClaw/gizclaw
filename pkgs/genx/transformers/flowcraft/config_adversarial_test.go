@@ -24,6 +24,20 @@ func TestNormalizeConfigRejectsAdversarialContracts(t *testing.T) {
 			wantErr: "cannot be negative",
 		},
 		{
+			name: "negative tool call limit",
+			mutate: func(config *Config) {
+				config.MaxToolCalls = -1
+			},
+			wantErr: "MaxToolCalls cannot be negative",
+		},
+		{
+			name: "tool call limit without ToolInvoker",
+			mutate: func(config *Config) {
+				config.MaxToolCalls = 1
+			},
+			wantErr: "MaxToolCalls requires ToolInvoker",
+		},
+		{
 			name: "unknown initiative",
 			mutate: func(config *Config) {
 				config.Initiative = "whenever"

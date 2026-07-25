@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
@@ -18,14 +19,16 @@ const defaultMaxOutputBytes = 4 << 20
 
 // Config declares one reusable Eino-backed Transformer.
 type Config struct {
-	Agent      AgentConfig
-	Graph      GraphDefinition
-	Components ComponentResolver
-	Lambdas    LambdaResolver
-	State      *StatePersistenceConfig
-	History    *HistoryConfig
-	Memory     *MemoryConfig
-	Limits     Limits
+	Agent        AgentConfig
+	Graph        GraphDefinition
+	Components   ComponentResolver
+	Lambdas      LambdaResolver
+	State        *StatePersistenceConfig
+	History      *HistoryConfig
+	Memory       *MemoryConfig
+	ToolInvoker  genx.ToolInvoker
+	MaxToolCalls int
+	Limits       Limits
 }
 
 // AgentConfig declares stable Transformer and conversation identity.
@@ -128,6 +131,12 @@ func normalizeConfig(source Config) (*normalizedConfig, error) {
 	}
 	if config.Limits.MaxOutputBytes < 0 {
 		return nil, fmt.Errorf("eino: Limits.MaxOutputBytes cannot be negative")
+	}
+	if config.MaxToolCalls < 0 {
+		return nil, fmt.Errorf("eino: MaxToolCalls cannot be negative")
+	}
+	if config.MaxToolCalls > 0 && config.ToolInvoker == nil {
+		return nil, fmt.Errorf("eino: MaxToolCalls requires ToolInvoker")
 	}
 	graph, err := cloneGraph(source.Graph)
 	if err != nil {

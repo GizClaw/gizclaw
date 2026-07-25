@@ -2,12 +2,18 @@ package flowcraft
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"slices"
 	"strings"
+	"sync"
 	"testing"
 
 	flowllm "github.com/GizClaw/flowcraft/sdk/llm"
 	flowmodel "github.com/GizClaw/flowcraft/sdk/model"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/toolrun"
+	"github.com/google/jsonschema-go/jsonschema"
 )
 
 type structuredOutputGenerator struct {
@@ -130,4 +136,216 @@ func TestGenXStreamPreservesTextOnEOS(t *testing.T) {
 			}
 		})
 	}
+}
+
+type toolRoundGenerator struct {
+	mu         sync.Mutex
+	rounds     [][]*genx.MessageChunk
+	contexts   []genx.ModelContext
+	mutateTool bool
+}
+
+type recordingToolInvoker struct {
+	mu         sync.Mutex
+	calls      []string
+	resolveErr error
+}
+
+func (invoker *recordingToolInvoker) ResolveTools(context.Context) ([]genx.ToolDefinition, error) {
+	if invoker.resolveErr != nil {
+		return nil, invoker.resolveErr
+	}
+	return []genx.ToolDefinition{{
+		Name: "lookup", Description: "lookup a value",
+		Argument: &jsonschema.Schema{
+			Type:                 "object",
+			Required:             []string{"key"},
+			Properties:           map[string]*jsonschema.Schema{"key": {Type: "string"}},
+			AdditionalProperties: &jsonschema.Schema{Not: &jsonschema.Schema{}},
+		},
+	}}, nil
+}
+
+func (invoker *recordingToolInvoker) InvokeTool(
+	_ context.Context,
+	name string,
+	arguments json.RawMessage,
+) (json.RawMessage, error) {
+	var input struct {
+		Key string `json:"key"`
+	}
+	if err := json.Unmarshal(arguments, &input); err != nil {
+		return nil, err
+	}
+	invoker.mu.Lock()
+	invoker.calls = append(invoker.calls, name+":"+input.Key)
+	invoker.mu.Unlock()
+	return json.RawMessage(`{"answer":"found"}`), nil
+}
+
+func (generator *toolRoundGenerator) GenerateStream(_ context.Context, _ string, modelContext genx.ModelContext) (genx.Stream, error) {
+	generator.mu.Lock()
+	defer generator.mu.Unlock()
+	generator.contexts = append(generator.contexts, modelContext)
+	if generator.mutateTool && len(generator.contexts) == 1 {
+		for declared := range modelContext.Tools() {
+			if tool, ok := declared.(*genx.FuncTool); ok {
+				tool.Name = "mutated"
+				tool.Argument.Type = "boolean"
+			}
+		}
+	}
+	if len(generator.rounds) == 0 {
+		return nil, errors.New("no model round")
+	}
+	chunks := generator.rounds[0]
+	generator.rounds = generator.rounds[1:]
+	builder := genx.NewGrowableStreamBuilder(modelContext, len(chunks)+1)
+	for _, chunk := range chunks {
+		if err := builder.Add(chunk); err != nil {
+			return nil, err
+		}
+	}
+	if err := builder.Done(genx.Usage{}); err != nil {
+		return nil, err
+	}
+	return builder.Stream(), nil
+}
+
+func (*toolRoundGenerator) Invoke(context.Context, string, genx.ModelContext, *genx.FuncTool) (genx.Usage, *genx.FuncCall, error) {
+	return genx.Usage{}, nil, errors.New("Invoke must not be used")
+}
+
+func TestGenXLLMPropagatesToolResolutionError(t *testing.T) {
+	resolveErr := errors.New("resolve failed")
+	model := &genXLLM{
+		generator:   &toolRoundGenerator{},
+		pattern:     "model/chat",
+		toolInvoker: &recordingToolInvoker{resolveErr: resolveErr},
+	}
+	_, err := model.GenerateStream(t.Context(), []flowmodel.Message{
+		flowmodel.NewTextMessage(flowmodel.RoleUser, "question"),
+	})
+	if !errors.Is(err, resolveErr) {
+		t.Fatalf("GenerateStream() error = %v", err)
+	}
+}
+
+func TestGenXLLMUsesToolInvokerAndContinuesModelTurn(t *testing.T) {
+	invoker := &recordingToolInvoker{}
+	generator := &toolRoundGenerator{mutateTool: true, rounds: [][]*genx.MessageChunk{
+		{
+			{Role: genx.RoleModel, Part: genx.Text("before ")},
+			{Role: genx.RoleModel, ToolCall: &genx.ToolCall{
+				ID: "call-1", FuncCall: &genx.FuncCall{Name: "lookup", Arguments: `{"key":"first"}`},
+			}},
+			{Role: genx.RoleModel, ToolCall: &genx.ToolCall{
+				ID: "call-2", FuncCall: &genx.FuncCall{Name: "lookup", Arguments: `{"key":"second"}`},
+			}},
+		},
+		{{Role: genx.RoleModel, Part: genx.Text("after")}},
+	}}
+	model := &genXLLM{
+		generator: generator, pattern: "model/chat", toolInvoker: invoker,
+	}
+	ctx := toolrun.WithContext(t.Context(), toolrun.New(invoker, 2))
+	message, _, err := model.Generate(ctx, []flowmodel.Message{
+		flowmodel.NewTextMessage(flowmodel.RoleUser, "question"),
+	})
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+	if got := message.Content(); got != "before after" {
+		t.Fatalf("message.Content() = %q", got)
+	}
+	invoker.mu.Lock()
+	calls := slices.Clone(invoker.calls)
+	invoker.mu.Unlock()
+	if !slices.Equal(calls, []string{"lookup:first", "lookup:second"}) {
+		t.Fatalf("calls = %v", calls)
+	}
+	if len(generator.contexts) != 2 {
+		t.Fatalf("model rounds = %d", len(generator.contexts))
+	}
+	if got := countModelTools(generator.contexts[0]); got != 1 {
+		t.Fatalf("first round tools = %d", got)
+	}
+	for declared := range generator.contexts[1].Tools() {
+		tool, ok := declared.(*genx.FuncTool)
+		if !ok || tool.Name != "lookup" || tool.Argument.Type != "object" {
+			t.Fatalf("second round tool = %#v", declared)
+		}
+	}
+	var toolCallIDs, toolResultIDs, toolResults []string
+	for message := range generator.contexts[1].Messages() {
+		switch payload := message.Payload.(type) {
+		case *genx.ToolCall:
+			toolCallIDs = append(toolCallIDs, payload.ID)
+		case *genx.ToolResult:
+			toolResultIDs = append(toolResultIDs, payload.ID)
+			toolResults = append(toolResults, payload.Result)
+		}
+	}
+	if !slices.Equal(toolCallIDs, []string{"call-1", "call-2"}) ||
+		!slices.Equal(toolResultIDs, []string{"call-1", "call-2"}) ||
+		!slices.Equal(toolResults, []string{`{"answer":"found"}`, `{"answer":"found"}`}) {
+		t.Fatalf("continuation calls=%v result IDs=%v results=%v", toolCallIDs, toolResultIDs, toolResults)
+	}
+}
+
+func TestGenXLLMRejectsInvocationLocalDuplicateAndLimit(t *testing.T) {
+	tool, err := genx.NewFuncTool[struct{}](
+		"echo",
+		"echo",
+		genx.InvokeFunc[struct{}](func(context.Context, *genx.FuncCall, struct{}) (any, error) {
+			return map[string]bool{"ok": true}, nil
+		}),
+	)
+	if err != nil {
+		t.Fatalf("NewFuncTool() error = %v", err)
+	}
+	toolkit, err := genx.NewToolkit(tool)
+	if err != nil {
+		t.Fatalf("NewToolkit() error = %v", err)
+	}
+	for _, test := range []struct {
+		name     string
+		secondID string
+		maximum  int
+		want     error
+	}{
+		{name: "duplicate", secondID: "same", maximum: 2, want: toolrun.ErrDuplicateCallID},
+		{name: "limit", secondID: "second", maximum: 1, want: toolrun.ErrCallLimit},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			generator := &toolRoundGenerator{rounds: [][]*genx.MessageChunk{
+				{{ToolCall: &genx.ToolCall{ID: "same", FuncCall: &genx.FuncCall{Name: "echo", Arguments: `{}`}}}},
+				{{ToolCall: &genx.ToolCall{ID: test.secondID, FuncCall: &genx.FuncCall{Name: "echo", Arguments: `{}`}}}},
+			}}
+			model := &genXLLM{
+				generator: generator, pattern: "model/chat", toolInvoker: toolkit,
+			}
+			ctx := toolrun.WithContext(t.Context(), toolrun.New(toolkit, test.maximum))
+			stream, err := model.GenerateStream(ctx, []flowmodel.Message{
+				flowmodel.NewTextMessage(flowmodel.RoleUser, "question"),
+			})
+			if err != nil {
+				t.Fatalf("GenerateStream() error = %v", err)
+			}
+			defer stream.Close()
+			for stream.Next() {
+			}
+			if !errors.Is(stream.Err(), test.want) {
+				t.Fatalf("stream.Err() = %v, want %v", stream.Err(), test.want)
+			}
+		})
+	}
+}
+
+func countModelTools(modelContext genx.ModelContext) int {
+	count := 0
+	for range modelContext.Tools() {
+		count++
+	}
+	return count
 }

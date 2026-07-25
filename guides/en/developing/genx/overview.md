@@ -111,7 +111,9 @@ type Stream interface {
 
 [`Tool`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#Tool) is a restricted collection of tool types. Currently implemented by [`FuncTool`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#FuncTool) and `SearchWebTool`.
 
-`FuncTool` Saves the tool name, description, JSON Schema and typed invoke function; Generator is only responsible for generating `FuncCall`, and the actual call is still performed by the upper layer that owns the tool.
+`ToolInvoker` is the two-method runtime boundary used by Transformers. `ResolveTools` returns the currently available function names, descriptions, and JSON Schemas, while `InvokeTool` accepts only a function name and raw JSON arguments and returns raw JSON. RuntimeProfile lookup, authorization, availability, argument validation, and executor dispatch remain implementation details of the injected invoker.
+
+Provider call IDs never cross the `ToolInvoker` boundary. The consuming Transformer owns correlation, ordering, duplicate-ID rejection, and the call budget for one invocation. `Toolkit` is an immutable standalone implementation backed by executable `FuncTool` values; it snapshots declarations, validates arguments, executes the paired function, and serializes the result. Other implementations may resolve tools from product resources without exposing those internals to GenX Transformers.
 
 ## Core data structures
 

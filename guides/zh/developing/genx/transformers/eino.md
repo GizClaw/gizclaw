@@ -1,6 +1,6 @@
 # Eino Transformer
 
-`pkgs/genx/transformers/eino` 将 typed Eino Graph 封装为可并发复用的 `genx.Transformer`。该 package 自己负责 Graph 构造、State、streaming、History、Memory 与 turn lifecycle；它只依赖 GenX、Eino core、Starlark 和通用 Store，不导入 GizClaw Workspace、Workflow、Resource、AgentHost 或 Toolkit 类型。
+`pkgs/genx/transformers/eino` 将 typed Eino Graph 封装为可并发复用的 `genx.Transformer`。该 package 自己负责 Graph 构造、State、streaming、History、Memory 与 turn lifecycle；它只依赖 GenX、Eino core、Starlark 和通用 Store，不导入 GizClaw Workspace、Workflow、Resource、AgentHost 或产品层 Toolkit 类型。
 
 ## 构造与所有权
 
@@ -14,6 +14,8 @@ transformer, err := eino.New(ctx, eino.Config{
     Graph:      graph,
     Components: components,
     Lambdas:    lambdas,
+    ToolInvoker: runtimeTools,
+    MaxToolCalls: 32,
     Limits:     eino.Limits{MaxOutputBytes: 4 << 20},
 })
 ```
@@ -84,7 +86,7 @@ Edge 映射到 Eino `AddEdge`。`first_match` 选择第一个命中的 route，�
 
 Prompt、ChatModel 和 Retriever 通过 Eino 原生 `AddChatTemplateNode`、`AddChatModelNode`、`AddRetrieverNode` 路径加入 typed nested Graph。没有 serializable native component contract 的 Transform、Script、Race、Batch 与 State adapter 使用 Eino Lambda。
 
-ChatModel 调用解析后的 Eino streaming interface。model node 直接拥有 declared text output 时，文本 chunk 会增量发布。ToolCall 会失败；请求 `text` port 但 response 没有文本时也会失败。
+ChatModel 调用解析后的 Eino streaming interface。model node 直接拥有 declared text output 时，文本 chunk 会增量发布。配置 `ToolInvoker` 后，`ResolveTools` 取得的函数名、说明和 schema 会通过 Eino model option 传入；带关联 ID 的 ToolCall 按模型顺序通过 `InvokeTool(name, arguments)` 执行，native tool message 被追加后继续同一个 model node。内部 call/result 不公开输出；完成的 model turn 没有文本时，请求 `text` port 仍会失败。
 
 内置 Transform operation：
 
@@ -203,4 +205,4 @@ Memory 使用可选的 provider-neutral `memory.Store`。每个 Recall 在 Graph
 
 Provider、Store、Script、component、cancellation、byte limit 和 optimistic-concurrency runtime error 都会让所有 active route 以 error EOS 终止。失败的 Graph run 不提交 persistent State。
 
-Eino Transformer 不定义 Toolkit、不 advertise tool、不执行 ToolCall，也不在 tool result 后继续 model。
+Eino Transformer 只依赖 GenX `ToolInvoker` interface，不接收 RuntimeProfile、Toolkit policy、resource 或 Executor registry 细节。一个 root `Transform` invocation 的 nested Graph 共用 call-ID set 与 `MaxToolCalls` budget；provider call ID 留在 Eino 内部，并与 `InvokeTool` 返回的 raw JSON result 关联。零值采用 32，负数非法。独立 invocation 可以并发执行同一 invoker 并复用 provider call ID；解析、执行、非法 result JSON、cancellation、重复 ID 和额度耗尽错误只影响当前 invocation。
