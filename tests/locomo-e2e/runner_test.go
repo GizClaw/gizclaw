@@ -185,7 +185,7 @@ func runBenchmark(ctx context.Context, options benchmarkOptions, store memorysto
 	runID := configFingerprint(options.Profile, started.Format(time.RFC3339Nano))[:16]
 	scopes := make(map[string]memorystore.Scope, len(dataset.Conversations))
 	for _, conversation := range dataset.Conversations {
-		scope := memorystore.Scope("locomo:" + runID + ":" + conversation.ID)
+		scope := memorystore.Scope{AppID: "locomo-" + runID + "-" + conversation.ID}
 		scopes[conversation.ID] = scope
 		result, err := ingestConversation(ctx, store, scope, conversation, options.IngestTimeout, options.Logf)
 		envelope.Ingest = append(envelope.Ingest, result)
@@ -224,7 +224,7 @@ func ingestConversation(ctx context.Context, store memorystore.Store, scope memo
 		operationCtx, cancel := context.WithTimeout(ctx, timeout)
 		observed, err := store.Observe(operationCtx, observation)
 		if err == nil {
-			observed, err = awaitObservation(operationCtx, store, observed)
+			observed, err = awaitObservation(operationCtx, store, observation.Scope, observed)
 		}
 		cancel()
 		if err != nil {
@@ -265,7 +265,7 @@ func sessionObservations(scope memorystore.Scope, conversation benchmarkConversa
 	return observations
 }
 
-func awaitObservation(ctx context.Context, store memorystore.Store, result memorystore.ObserveResult) (memorystore.ObserveResult, error) {
+func awaitObservation(ctx context.Context, store memorystore.Store, scope memorystore.Scope, result memorystore.ObserveResult) (memorystore.ObserveResult, error) {
 	if result.Operation == nil {
 		return result, nil
 	}
@@ -279,7 +279,7 @@ func awaitObservation(ctx context.Context, store memorystore.Store, result memor
 	if !ok {
 		return result, errors.New("memory store returned a pending operation without OperationWaiter")
 	}
-	result, err := waiter.Wait(ctx, result.Operation.ID)
+	result, err := waiter.Wait(ctx, memorystore.OperationRequest{Scope: scope, ID: result.Operation.ID})
 	if err != nil {
 		return result, err
 	}

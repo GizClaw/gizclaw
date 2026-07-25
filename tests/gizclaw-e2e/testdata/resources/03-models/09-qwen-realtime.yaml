@@ -1,0 +1,16 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: Model
+metadata:
+  name: qwen-realtime-dialog
+spec:
+  kind: realtime
+  source: manual
+  provider:
+    kind: dashscope-tenant
+    name: qwen-dashscope-main
+  name: Qwen Realtime Dialog
+  description: Qwen realtime speech dialog model
+  provider_data:
+    api_mode: realtime
+    upstream_model: qwen3-omni-flash-realtime

@@ -60,6 +60,38 @@ void main() {
     expect(card.driver, WorkflowDriverKind.astTranslate);
   });
 
+  test('projects newly supported voice workflow drivers', () {
+    final drivers = {
+      WorkflowDriver.WORKFLOW_DRIVER_DASH_SCOPE_REALTIME:
+          WorkflowDriverKind.dashScopeRealtime,
+      WorkflowDriver.WORKFLOW_DRIVER_DOUBAO_REALTIME_DUPLEX:
+          WorkflowDriverKind.doubaoRealtimeDuplex,
+    };
+    for (final entry in drivers.entries) {
+      final card = appWorkflowCard(
+        Workflow(
+          alias: entry.value.routeKey,
+          collection: 'assistants',
+          driver: entry.key,
+        ),
+        const Locale('en'),
+      );
+      expect(card.driver, entry.value);
+    }
+  });
+
+  test('keeps text-only Eino unavailable in the voice-only app', () {
+    final card = appWorkflowCard(
+      Workflow(
+        alias: 'eino',
+        collection: 'assistants',
+        driver: WorkflowDriver.WORKFLOW_DRIVER_EINO,
+      ),
+      const Locale('en'),
+    );
+    expect(card.driver, WorkflowDriverKind.unsupported);
+  });
+
   test('falls back to English and marks unknown drivers unavailable', () {
     final card = appWorkflowCard(
       Workflow(

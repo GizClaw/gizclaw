@@ -4,11 +4,14 @@
 
 ## Contract
 
-`Observation.Scope` and `Query.Scope` are opaque product-owned namespaces. Callers decide which product context shares a memory namespace, but they do not provide provider-native fields such as runtime, user, agent, run, project, or worker IDs. Each adapter privately maps the opaque scope to its backend protocol.
+Every operation carries a structured `Scope`. `AppID`, `UserID`, `AgentID`, and `RunID` are four independent optional routing dimensions. The common contract does not define an App→User→Agent→Run hierarchy and does not interpret `RunID` as a universal Conversation. An empty field means that dimension was not selected; it is not a wildcard, inherited value, or global-visibility marker.
 
 ```go
 result, err := store.Observe(ctx, memory.Observation{
-	Scope: memory.Scope("player:42"),
+	Scope: memory.Scope{
+		AppID:  "game",
+		UserID: "player-42",
+	},
 	Turns: turns,
 	Facts: []memory.FactCandidate{{
 		Text: "story_progress: current_beat=origin",
@@ -17,17 +20,33 @@ result, err := store.Observe(ctx, memory.Observation{
 })
 
 recalled, err := store.Recall(ctx, memory.Query{
-	Scope: memory.Scope("player:42"),
+	Scope: memory.Scope{
+		AppID:  "game",
+		UserID: "player-42",
+	},
 	Text:  "What does the player prefer?",
 	Limit: 10,
 })
 ```
 
+Adapters preserve only dimensions and combinations that their native provider can represent exactly; otherwise they return `ErrUnsupported`:
+
+| Common field | Flowcraft Recall | Mem0 / Volc Memory |
+| --- | --- | --- |
+| `AppID` | `RuntimeID` | `app_id` |
+| `UserID` | `UserID` | `user_id` |
+| `AgentID` | `AgentID` | `agent_id` |
+| `RunID` | unsupported | `run_id` |
+
+Flowcraft requires a non-empty `AppID`, allows an empty `UserID` for runtime-global Memory, and preserves an optional `AgentID`. Mem0/Volc supports app-only, user-only, agent-only, and run-only scopes as well as combinations of those independent dimensions. The adapter sends every selected dimension and uses an `AND` filter for recall and mutation verification.
+
 `Text` and `Turns` are raw extraction material; `Facts` are candidates already structured by the caller. A provider must preserve candidate text and supported attributes or return `ErrUnsupported`; it must not silently send candidates through model extraction again. The Flowcraft adapter supports direct ingestion and maps `kind`, `subject`, `predicate`, `object`, and `entities` to native fact fields.
 
-`Update` and `Delete` take only the opaque fact ID previously returned by the store, plus an optional opaque revision. `Wait` takes only the opaque operation ID. Callers must not resubmit a scope for identity-based operations; adapters encode any routing state they need in those opaque locators.
+`UpdateRequest`, `DeleteRequest`, and `OperationRequest` resubmit the caller's `Scope` together with an opaque fact, revision, or operation locator returned by the Store. A locator is not an authorization source: before a mutation or asynchronous completion is accepted, the adapter verifies that the requested Scope matches the locator and provider record. A raw provider ID cannot bypass an App boundary.
 
 Asynchronous `Observe` calls return an operation. Stores implementing `OperationWaiter` wait using the caller's `context.Context`; constructors do not start background goroutines. Flowcraft can recover durable operation locators after the adapter is reconstructed with the same injected stores.
+
+`memory.BindApp(store, appID)` returns a borrowed Store view. It only fills or verifies `Scope.AppID`; it never generates, clears, concatenates, hashes, or rewrites caller-supplied `UserID`, `AgentID`, or `RunID`. A conflicting AppID returns `ErrInvalidInput`. The view does not own or close the underlying Store, and it exposes `OperationWaiter`, `AsyncOperationProcessor`, and `StatisticsProvider` only when the underlying Store provides the same capability.
 
 ## Provider construction
 
@@ -45,7 +64,7 @@ store, err := flowcraft.New(ctx, flowcraft.Config{
 })
 ```
 
-Mem0 is constructed with one `mem0.Config`. `FlavorPlatform` uses `Authorization: Token`; `FlavorSelfHosted` uses `X-API-Key` when a key is supplied. The adapter maps an operation scope to Mem0's native `user_id` internally. Update and delete use the returned memory ID directly.
+Mem0 is constructed with one `mem0.Config`. `FlavorPlatform` uses `Authorization: Token` and maps every selected dimension to the matching `app_id`, `user_id`, `agent_id`, or `run_id`. Mem0 OSS does not expose `app_id`, so `FlavorSelfHosted` encodes the complete four-dimensional Scope into one reserved native `user_id`; it uses `X-API-Key` when a key is supplied. This keeps Workspace App isolation exact without overwriting the caller's logical User, Agent, or Run dimensions. Update and delete retrieve the provider record and verify its complete encoded scope before performing the ID mutation.
 
 Volcengine AgentKit/Viking MEM0 is constructed with one `volc.Config`. It accepts either an explicit Mem0 data-plane key or a credential resolver. The adapter resolves credentials and delegates fact operations to the Mem0 adapter; a data-plane endpoint is mandatory.
 
@@ -95,6 +114,8 @@ stores:
 ```
 
 A logical memory store selects exactly one provider. Unknown YAML fields are rejected. Scope and backend-native routing fields are not valid server configuration.
+
+Current Flowcraft fact and operation locators contain the complete App/User/Agent scope. Legacy `flowcraft:v1` locators and development data are incompatible and must be cleared and recreated; there is no compatibility decoder, dual read, or background migration.
 
 ## Ownership and errors
 

@@ -577,6 +577,29 @@ test("RPC payload codec enforces typed model provider-data oneof", () => {
     dashScopeResponse,
   );
 
+  const duplexResponse = {
+    ...response,
+    value: {
+      alias: "duplex",
+      i18n: {},
+      kind: "realtime-duplex",
+      provider_kind: "volc-tenant",
+      volc_tenant: {
+        api_mode: "realtime_duplex",
+        thinking_levels: [],
+        upstream_model: "1.2.6.0",
+      },
+    },
+  };
+  const duplexPayload = encodeRPCResponsePayload(
+    "server.model.get",
+    duplexResponse,
+  );
+  assert.deepEqual(
+    decodeRPCResponsePayload("server.model.get", duplexPayload),
+    duplexResponse,
+  );
+
   assert.throws(
     () =>
       encodeRPCResponsePayload("server.model.get", {
@@ -636,6 +659,45 @@ test("RPC payload codec rejects ambiguous numeric workspace discriminators", () 
       }),
     /no protobuf oneof candidate for WorkspaceParameters/,
   );
+});
+
+test("RPC payload codec selects every new workflow workspace discriminator", () => {
+  for (const agentType of [
+    "dashscope-realtime",
+    "doubao-realtime-duplex",
+    "eino",
+  ]) {
+    const request = {
+      collection: "assistants",
+      name: `workspace-${agentType}`,
+      parameters: { agent_type: agentType },
+      workflow_alias: `workflow-${agentType}`,
+    };
+    const payload = encodeRPCRequestPayload("server.workspace.create", request);
+    const decoded = decodeRPCRequestPayload(
+      "server.workspace.create",
+      payload,
+    ) as { parameters?: { agent_type?: string } };
+    assert.equal(decoded.parameters?.agent_type, agentType);
+  }
+});
+
+test("RPC payload codec round-trips DashScope float options", () => {
+  const request = {
+    collection: "assistants",
+    name: "workspace-dashscope",
+    parameters: {
+      agent_type: "dashscope-realtime",
+      temperature: 0.7,
+    },
+    workflow_alias: "workflow-dashscope",
+  };
+  const payload = encodeRPCRequestPayload("server.workspace.create", request);
+  const decoded = decodeRPCRequestPayload(
+    "server.workspace.create",
+    payload,
+  ) as { parameters?: { temperature?: number } };
+  assert.ok(Math.abs((decoded.parameters?.temperature ?? 0) - 0.7) < 0.000001);
 });
 
 test("RPC payload codec excludes peer resource mutation methods", () => {

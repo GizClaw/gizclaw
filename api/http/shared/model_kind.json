@@ -16,6 +16,7 @@
           "tts",
           "asr",
           "realtime",
+          "realtime-duplex",
           "translation",
           "embedding"
         ],

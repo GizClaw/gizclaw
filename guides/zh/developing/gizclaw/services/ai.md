@@ -45,7 +45,7 @@ services/ai/
 
 ### [workflow](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/workflow)
 
-拥有 workflow definition、driver 选择和 workflow 资源持久化。`workflow/agents` 保存具体 workflow engine 与 GizClaw Agent Host 之间的 integration，例如 Flowcraft、chatroom、AST translation 和 realtime workflow。
+拥有 workflow definition、driver 选择和 workflow 资源持久化。`workflow/agents` 保存具体 workflow engine 与 GizClaw Agent Host 之间的 integration，包括 Flowcraft、Chatroom、AST Translate、DashScope Realtime、Doubao Realtime、Doubao Realtime Duplex 和 Eino。
 
 Workflow 描述如何运行 Agent，但不拥有 Agent instance 的在线状态和 stream lifecycle。
 
@@ -53,17 +53,23 @@ Workflow 描述如何运行 Agent，但不拥有 Agent instance 的在线状态�
 
 Flowcraft workflow factory 只负责把 typed Workflow 配置与 Workspace owner 的 RuntimeProfile alias、LogStore、KV Store、ObjectStore 和 Audio Dock 组装成通用 Flowcraft Transformer。它不创建 Claw、本地 Flowcraft Workspace、`config.yaml` 或 BBH。
 
-History 使用 AgentHost 注入的 `logstore.MutableStore`，State 使用按 Owner/Workspace/Agent prefix 的 `kv.Store`。启用长期 Memory 时，factory 使用 ObjectStore-backed Flowcraft persistence interface 构造 `memoryflowcraft.Store`；Server Config 通过逻辑 Store 名称选择这些依赖，Workflow 与 Workspace resource 只配置 extraction、recall、write 与 state policy，不能选择 Store 或 backend。最后一个 Workspace Agent 引用释放时，只关闭本 Agent 构造的 adapter，不关闭 Server 拥有的底层 Store，也不删除持久数据。
+History 使用 AgentHost 注入的 `logstore.MutableStore`，State 使用按 Owner/Workspace/Agent prefix 的 `kv.Store`。启用长期 Memory 时，`agent_host.flowcraft.memory_store` 优先选择借用的 provider-neutral Store；未配置时，factory 仍可通过 Memory object persistence 构造内嵌 Flowcraft Store。Workflow 与 Workspace resource 只配置 policy，不能选择 Store 或 backend。最后一个 Workspace Agent 引用释放时，只关闭本 Agent 构造的 adapter，不关闭 Server 拥有的底层 Store，也不删除持久数据。
 
 Public `FlowcraftWorkflowSpec` 要求显式 `agent.graph`，Graph 至少有一个 node，且 `entry` 必须引用已定义 node。支持 `llm`、inline `script` 与 `passthrough`；`publish: true` 决定哪些 node 输出进入 GenX Stream。Graph、Memory extraction/rerank/embedding、ASR 和 voice 都直接填写 Workspace owner RuntimeProfile 暴露的 alias。
 
-Workflow 保留 `conversation`、Graph、Memory policy 与 `voice_adapter`。它不接受本地目录、History driver、Memory scope/retrieval backend、`settings`/`models` 二级映射、parallel switch、隐式单模型 Agent 或 Tool 配置。Factory 为 Owner/Workspace/Agent 的每层 identity 推导紧凑且稳定的 scope digest，在保持隔离的同时避免 Flowcraft retrieval 与 ObjectStore key 超出文件系统限制；reload 仅释放当前引用，仍有其他引用时复用现有 Agent。引用归零后再次 acquire 才会按最新构造期配置建立新 Agent。
+Workflow 保留 `conversation`、Graph、Memory policy 与 `voice_adapter`。它不接受本地目录、History driver、Memory Store alias、`settings`/`models` 二级映射、parallel switch、隐式单模型 Agent 或 Tool 配置。选择外部 Store 时，专用于内嵌 provider 的 extraction、embedding、rerank、graph 与 layout 配置会被拒绝而不是静默忽略。App-bound Store view 只强制把 Workspace ID 写入 `memory.Scope.AppID`，不会推导或改写 UserID、AgentID、RunID；Flowcraft 自身会把 `agent.id` 作为 AgentID 提交，因此同一 Workspace 中不同 Agent 默认不会共享 Memory。reload 仅释放当前引用，仍有其他引用时复用现有 Agent。
+
+#### DashScope、Doubao Duplex 与 Eino 边界
+
+`dashscope-realtime`、`doubao-realtime-duplex` 和 `eino` 都是持久化 Workflow 与 Workspace driver。对应 factory 解析 typed RuntimeProfile Model/Voice alias，并构造既有 GenX Transformer。DashScope 要求 DashScope realtime Model；Doubao Duplex 要求 Volc `realtime-duplex` Model；Eino 分别解析每个 `chat_model` node。
+
+Eino 暴露 invocation-local graph state 以及 provider-neutral recall/observe policy。没有 Memory 的 Workflow 不需要 Memory Store；声明 Memory 后必须配置 `agent_host.eino.memory_store`，借用只绑定 App 的 view，并把 Workflow identity 作为 AgentID 提交。产品层不暴露持久化 Eino State 或 History。三个 driver 都不依赖 ToolCall，也不会把 Toolkit policy 映射成 provider-native tool。
 
 #### Pet 组合边界
 
-`pet` driver 只作为 GizClaw 的领域 wrapper 保留。它在每个 turn 解析 Workspace 对应的 Pet、PetDef 与当前 Gameplay，并把瞬态 `tmp_*` Board input 提供给嵌套 Workflow。`spec.pet` 与普通非 Pet Workflow 使用相同的 `driver` 加对应 payload 结构；它可以选择 Flowcraft、Chatroom、AST translation 或 realtime execution，但不能递归选择 `pet`。
+`pet` driver 只作为 GizClaw 的领域 wrapper 保留。它在每个 turn 解析 Workspace 对应的 Pet、PetDef 与当前 Gameplay，并把瞬态 `tmp_*` Board input 提供给嵌套 Workflow。`spec.pet` 与普通非 Pet Workflow 使用相同的 reusable driver 加对应 payload 结构，也包含三个新增 driver，但不能递归选择 `pet`。
 
-内层 driver 拥有 Graph、conversation、Memory、model、voice 与 toolkit 配置，并通过普通注册 factory 构造。内层 Flowcraft driver 与普通 Flowcraft Workflow 接收相同的 AgentHost-injected State、内部 History 与 Memory-object Store。所有符号引用都从不可变的 system Workspace owner RuntimeProfile 解析。GizClaw 不再合成 Pet Graph、固定 model alias、Workspace voice 或内层 driver fallback。
+内层 driver 拥有 Graph、conversation、Memory、model、voice 与 toolkit 配置，并通过普通注册 factory 构造。内层 Flowcraft driver 与普通 Flowcraft Workflow 接收相同的 AgentHost-injected State、内部 History、Memory-object Store 与可选 provider-neutral Memory Store。所有符号引用都从不可变的 system Workspace owner RuntimeProfile 解析。GizClaw 不再合成 Pet Graph、固定 model alias、Workspace voice 或内层 driver fallback。
 
 ### [workspace](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/workspace)
 

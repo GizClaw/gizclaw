@@ -44,6 +44,9 @@ func TestAdminAPIApplyResource(t *testing.T) {
 
 func TestAdminAPIApplySocialResources(t *testing.T) {
 	env := newAdminAPIHarness(t)
+	peerClient := env.h.ConnectClientFromContext("admin-api-peer")
+	defer peerClient.Close()
+	registerAdminHistoryPeers(t, env, env.admin, peerClient)
 
 	owner, peer := sortedPublicKeys(env.adminKey, env.peerKey)
 	relationID := owner + ":" + peer

@@ -736,6 +736,521 @@ final $typed_data.Uint8List chatRoomWorkspaceTranscriptParametersDescriptor =
         'EoCUgAUghhc3JNb2RlbIgBARIdCgdlbmFibGVkGAIgASgISAFSB2VuYWJsZWSIAQFCDAoKX2Fz'
         'cl9tb2RlbEIKCghfZW5hYmxlZA==');
 
+@$core.Deprecated('Use dashScopeRealtimeWorkflowSpecDescriptor instead')
+const DashScopeRealtimeWorkflowSpec$json = {
+  '1': 'DashScopeRealtimeWorkflowSpec',
+  '2': [
+    {
+      '1': 'asr_model',
+      '3': 1,
+      '4': 1,
+      '5': 9,
+      '9': 0,
+      '10': 'asrModel',
+      '17': true
+    },
+    {
+      '1': 'enable_asr',
+      '3': 2,
+      '4': 1,
+      '5': 8,
+      '9': 1,
+      '10': 'enableAsr',
+      '17': true
+    },
+    {
+      '1': 'input_audio_format',
+      '3': 3,
+      '4': 1,
+      '5': 9,
+      '9': 2,
+      '10': 'inputAudioFormat',
+      '17': true
+    },
+    {
+      '1': 'instructions',
+      '3': 4,
+      '4': 1,
+      '5': 9,
+      '9': 3,
+      '10': 'instructions',
+      '17': true
+    },
+    {
+      '1': 'max_output_tokens',
+      '3': 5,
+      '4': 1,
+      '5': 3,
+      '9': 4,
+      '10': 'maxOutputTokens',
+      '17': true
+    },
+    {'1': 'modalities', '3': 6, '4': 3, '5': 9, '10': 'modalities'},
+    {'1': 'model', '3': 7, '4': 1, '5': 9, '10': 'model'},
+    {
+      '1': 'output_audio_format',
+      '3': 8,
+      '4': 1,
+      '5': 9,
+      '9': 5,
+      '10': 'outputAudioFormat',
+      '17': true
+    },
+    {
+      '1': 'temperature',
+      '3': 9,
+      '4': 1,
+      '5': 2,
+      '9': 6,
+      '10': 'temperature',
+      '17': true
+    },
+    {'1': 'vad', '3': 10, '4': 1, '5': 9, '9': 7, '10': 'vad', '17': true},
+    {'1': 'voice', '3': 11, '4': 1, '5': 9, '9': 8, '10': 'voice', '17': true},
+  ],
+  '8': [
+    {'1': '_asr_model'},
+    {'1': '_enable_asr'},
+    {'1': '_input_audio_format'},
+    {'1': '_instructions'},
+    {'1': '_max_output_tokens'},
+    {'1': '_output_audio_format'},
+    {'1': '_temperature'},
+    {'1': '_vad'},
+    {'1': '_voice'},
+  ],
+};
+
+/// Descriptor for `DashScopeRealtimeWorkflowSpec`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List dashScopeRealtimeWorkflowSpecDescriptor = $convert.base64Decode(
+    'Ch1EYXNoU2NvcGVSZWFsdGltZVdvcmtmbG93U3BlYxIgCglhc3JfbW9kZWwYASABKAlIAFIIYX'
+    'NyTW9kZWyIAQESIgoKZW5hYmxlX2FzchgCIAEoCEgBUgllbmFibGVBc3KIAQESMQoSaW5wdXRf'
+    'YXVkaW9fZm9ybWF0GAMgASgJSAJSEGlucHV0QXVkaW9Gb3JtYXSIAQESJwoMaW5zdHJ1Y3Rpb2'
+    '5zGAQgASgJSANSDGluc3RydWN0aW9uc4gBARIvChFtYXhfb3V0cHV0X3Rva2VucxgFIAEoA0gE'
+    'Ug9tYXhPdXRwdXRUb2tlbnOIAQESHgoKbW9kYWxpdGllcxgGIAMoCVIKbW9kYWxpdGllcxIUCg'
+    'Vtb2RlbBgHIAEoCVIFbW9kZWwSMwoTb3V0cHV0X2F1ZGlvX2Zvcm1hdBgIIAEoCUgFUhFvdXRw'
+    'dXRBdWRpb0Zvcm1hdIgBARIlCgt0ZW1wZXJhdHVyZRgJIAEoAkgGUgt0ZW1wZXJhdHVyZYgBAR'
+    'IVCgN2YWQYCiABKAlIB1IDdmFkiAEBEhkKBXZvaWNlGAsgASgJSAhSBXZvaWNliAEBQgwKCl9h'
+    'c3JfbW9kZWxCDQoLX2VuYWJsZV9hc3JCFQoTX2lucHV0X2F1ZGlvX2Zvcm1hdEIPCg1faW5zdH'
+    'J1Y3Rpb25zQhQKEl9tYXhfb3V0cHV0X3Rva2Vuc0IWChRfb3V0cHV0X2F1ZGlvX2Zvcm1hdEIO'
+    'CgxfdGVtcGVyYXR1cmVCBgoEX3ZhZEIICgZfdm9pY2U=');
+
+@$core.Deprecated('Use dashScopeRealtimeWorkspaceParametersDescriptor instead')
+const DashScopeRealtimeWorkspaceParameters$json = {
+  '1': 'DashScopeRealtimeWorkspaceParameters',
+  '2': [
+    {
+      '1': 'agent_type',
+      '3': 1,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.DashScopeRealtimeWorkspaceParametersAgentType',
+      '10': 'agentType'
+    },
+    {
+      '1': 'asr_model',
+      '3': 2,
+      '4': 1,
+      '5': 9,
+      '9': 0,
+      '10': 'asrModel',
+      '17': true
+    },
+    {'1': 'e2e', '3': 3, '4': 1, '5': 8, '9': 1, '10': 'e2e', '17': true},
+    {
+      '1': 'enable_asr',
+      '3': 4,
+      '4': 1,
+      '5': 8,
+      '9': 2,
+      '10': 'enableAsr',
+      '17': true
+    },
+    {
+      '1': 'input_audio_format',
+      '3': 5,
+      '4': 1,
+      '5': 9,
+      '9': 3,
+      '10': 'inputAudioFormat',
+      '17': true
+    },
+    {
+      '1': 'instructions',
+      '3': 6,
+      '4': 1,
+      '5': 9,
+      '9': 4,
+      '10': 'instructions',
+      '17': true
+    },
+    {
+      '1': 'max_output_tokens',
+      '3': 7,
+      '4': 1,
+      '5': 3,
+      '9': 5,
+      '10': 'maxOutputTokens',
+      '17': true
+    },
+    {'1': 'modalities', '3': 8, '4': 3, '5': 9, '10': 'modalities'},
+    {'1': 'model', '3': 9, '4': 1, '5': 9, '9': 6, '10': 'model', '17': true},
+    {
+      '1': 'output_audio_format',
+      '3': 10,
+      '4': 1,
+      '5': 9,
+      '9': 7,
+      '10': 'outputAudioFormat',
+      '17': true
+    },
+    {
+      '1': 'temperature',
+      '3': 11,
+      '4': 1,
+      '5': 2,
+      '9': 8,
+      '10': 'temperature',
+      '17': true
+    },
+    {'1': 'vad', '3': 12, '4': 1, '5': 9, '9': 9, '10': 'vad', '17': true},
+    {'1': 'voice', '3': 13, '4': 1, '5': 9, '9': 10, '10': 'voice', '17': true},
+  ],
+  '8': [
+    {'1': '_asr_model'},
+    {'1': '_e2e'},
+    {'1': '_enable_asr'},
+    {'1': '_input_audio_format'},
+    {'1': '_instructions'},
+    {'1': '_max_output_tokens'},
+    {'1': '_model'},
+    {'1': '_output_audio_format'},
+    {'1': '_temperature'},
+    {'1': '_vad'},
+    {'1': '_voice'},
+  ],
+};
+
+/// Descriptor for `DashScopeRealtimeWorkspaceParameters`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List dashScopeRealtimeWorkspaceParametersDescriptor = $convert.base64Decode(
+    'CiREYXNoU2NvcGVSZWFsdGltZVdvcmtzcGFjZVBhcmFtZXRlcnMSXAoKYWdlbnRfdHlwZRgBIA'
+    'EoDjI9LmdpemNsYXcucnBjLnYxLkRhc2hTY29wZVJlYWx0aW1lV29ya3NwYWNlUGFyYW1ldGVy'
+    'c0FnZW50VHlwZVIJYWdlbnRUeXBlEiAKCWFzcl9tb2RlbBgCIAEoCUgAUghhc3JNb2RlbIgBAR'
+    'IVCgNlMmUYAyABKAhIAVIDZTJliAEBEiIKCmVuYWJsZV9hc3IYBCABKAhIAlIJZW5hYmxlQXNy'
+    'iAEBEjEKEmlucHV0X2F1ZGlvX2Zvcm1hdBgFIAEoCUgDUhBpbnB1dEF1ZGlvRm9ybWF0iAEBEi'
+    'cKDGluc3RydWN0aW9ucxgGIAEoCUgEUgxpbnN0cnVjdGlvbnOIAQESLwoRbWF4X291dHB1dF90'
+    'b2tlbnMYByABKANIBVIPbWF4T3V0cHV0VG9rZW5ziAEBEh4KCm1vZGFsaXRpZXMYCCADKAlSCm'
+    '1vZGFsaXRpZXMSGQoFbW9kZWwYCSABKAlIBlIFbW9kZWyIAQESMwoTb3V0cHV0X2F1ZGlvX2Zv'
+    'cm1hdBgKIAEoCUgHUhFvdXRwdXRBdWRpb0Zvcm1hdIgBARIlCgt0ZW1wZXJhdHVyZRgLIAEoAk'
+    'gIUgt0ZW1wZXJhdHVyZYgBARIVCgN2YWQYDCABKAlICVIDdmFkiAEBEhkKBXZvaWNlGA0gASgJ'
+    'SApSBXZvaWNliAEBQgwKCl9hc3JfbW9kZWxCBgoEX2UyZUINCgtfZW5hYmxlX2FzckIVChNfaW'
+    '5wdXRfYXVkaW9fZm9ybWF0Qg8KDV9pbnN0cnVjdGlvbnNCFAoSX21heF9vdXRwdXRfdG9rZW5z'
+    'QggKBl9tb2RlbEIWChRfb3V0cHV0X2F1ZGlvX2Zvcm1hdEIOCgxfdGVtcGVyYXR1cmVCBgoEX3'
+    'ZhZEIICgZfdm9pY2U=');
+
+@$core.Deprecated('Use doubaoRealtimeDuplexWorkflowSpecDescriptor instead')
+const DoubaoRealtimeDuplexWorkflowSpec$json = {
+  '1': 'DoubaoRealtimeDuplexWorkflowSpec',
+  '2': [
+    {'1': 'format', '3': 1, '4': 1, '5': 9, '9': 0, '10': 'format', '17': true},
+    {
+      '1': 'input_channels',
+      '3': 2,
+      '4': 1,
+      '5': 3,
+      '9': 1,
+      '10': 'inputChannels',
+      '17': true
+    },
+    {
+      '1': 'input_format',
+      '3': 3,
+      '4': 1,
+      '5': 9,
+      '9': 2,
+      '10': 'inputFormat',
+      '17': true
+    },
+    {
+      '1': 'input_sample_rate',
+      '3': 4,
+      '4': 1,
+      '5': 3,
+      '9': 3,
+      '10': 'inputSampleRate',
+      '17': true
+    },
+    {
+      '1': 'input_transcode',
+      '3': 5,
+      '4': 1,
+      '5': 8,
+      '9': 4,
+      '10': 'inputTranscode',
+      '17': true
+    },
+    {
+      '1': 'instructions',
+      '3': 6,
+      '4': 1,
+      '5': 9,
+      '9': 5,
+      '10': 'instructions',
+      '17': true
+    },
+    {'1': 'model', '3': 7, '4': 1, '5': 9, '10': 'model'},
+    {
+      '1': 'output_loudness',
+      '3': 8,
+      '4': 1,
+      '5': 3,
+      '9': 6,
+      '10': 'outputLoudness',
+      '17': true
+    },
+    {
+      '1': 'output_speed',
+      '3': 9,
+      '4': 1,
+      '5': 3,
+      '9': 7,
+      '10': 'outputSpeed',
+      '17': true
+    },
+    {
+      '1': 'sample_rate',
+      '3': 10,
+      '4': 1,
+      '5': 3,
+      '9': 8,
+      '10': 'sampleRate',
+      '17': true
+    },
+    {'1': 'voice', '3': 11, '4': 1, '5': 9, '9': 9, '10': 'voice', '17': true},
+  ],
+  '8': [
+    {'1': '_format'},
+    {'1': '_input_channels'},
+    {'1': '_input_format'},
+    {'1': '_input_sample_rate'},
+    {'1': '_input_transcode'},
+    {'1': '_instructions'},
+    {'1': '_output_loudness'},
+    {'1': '_output_speed'},
+    {'1': '_sample_rate'},
+    {'1': '_voice'},
+  ],
+};
+
+/// Descriptor for `DoubaoRealtimeDuplexWorkflowSpec`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List doubaoRealtimeDuplexWorkflowSpecDescriptor = $convert.base64Decode(
+    'CiBEb3ViYW9SZWFsdGltZUR1cGxleFdvcmtmbG93U3BlYxIbCgZmb3JtYXQYASABKAlIAFIGZm'
+    '9ybWF0iAEBEioKDmlucHV0X2NoYW5uZWxzGAIgASgDSAFSDWlucHV0Q2hhbm5lbHOIAQESJgoM'
+    'aW5wdXRfZm9ybWF0GAMgASgJSAJSC2lucHV0Rm9ybWF0iAEBEi8KEWlucHV0X3NhbXBsZV9yYX'
+    'RlGAQgASgDSANSD2lucHV0U2FtcGxlUmF0ZYgBARIsCg9pbnB1dF90cmFuc2NvZGUYBSABKAhI'
+    'BFIOaW5wdXRUcmFuc2NvZGWIAQESJwoMaW5zdHJ1Y3Rpb25zGAYgASgJSAVSDGluc3RydWN0aW'
+    '9uc4gBARIUCgVtb2RlbBgHIAEoCVIFbW9kZWwSLAoPb3V0cHV0X2xvdWRuZXNzGAggASgDSAZS'
+    'Dm91dHB1dExvdWRuZXNziAEBEiYKDG91dHB1dF9zcGVlZBgJIAEoA0gHUgtvdXRwdXRTcGVlZI'
+    'gBARIkCgtzYW1wbGVfcmF0ZRgKIAEoA0gIUgpzYW1wbGVSYXRliAEBEhkKBXZvaWNlGAsgASgJ'
+    'SAlSBXZvaWNliAEBQgkKB19mb3JtYXRCEQoPX2lucHV0X2NoYW5uZWxzQg8KDV9pbnB1dF9mb3'
+    'JtYXRCFAoSX2lucHV0X3NhbXBsZV9yYXRlQhIKEF9pbnB1dF90cmFuc2NvZGVCDwoNX2luc3Ry'
+    'dWN0aW9uc0ISChBfb3V0cHV0X2xvdWRuZXNzQg8KDV9vdXRwdXRfc3BlZWRCDgoMX3NhbXBsZV'
+    '9yYXRlQggKBl92b2ljZQ==');
+
+@$core
+    .Deprecated('Use doubaoRealtimeDuplexWorkspaceParametersDescriptor instead')
+const DoubaoRealtimeDuplexWorkspaceParameters$json = {
+  '1': 'DoubaoRealtimeDuplexWorkspaceParameters',
+  '2': [
+    {
+      '1': 'agent_type',
+      '3': 1,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.DoubaoRealtimeDuplexWorkspaceParametersAgentType',
+      '10': 'agentType'
+    },
+    {'1': 'e2e', '3': 2, '4': 1, '5': 8, '9': 0, '10': 'e2e', '17': true},
+    {'1': 'format', '3': 3, '4': 1, '5': 9, '9': 1, '10': 'format', '17': true},
+    {
+      '1': 'input_channels',
+      '3': 4,
+      '4': 1,
+      '5': 3,
+      '9': 2,
+      '10': 'inputChannels',
+      '17': true
+    },
+    {
+      '1': 'input_format',
+      '3': 5,
+      '4': 1,
+      '5': 9,
+      '9': 3,
+      '10': 'inputFormat',
+      '17': true
+    },
+    {
+      '1': 'input_sample_rate',
+      '3': 6,
+      '4': 1,
+      '5': 3,
+      '9': 4,
+      '10': 'inputSampleRate',
+      '17': true
+    },
+    {
+      '1': 'input_transcode',
+      '3': 7,
+      '4': 1,
+      '5': 8,
+      '9': 5,
+      '10': 'inputTranscode',
+      '17': true
+    },
+    {
+      '1': 'instructions',
+      '3': 8,
+      '4': 1,
+      '5': 9,
+      '9': 6,
+      '10': 'instructions',
+      '17': true
+    },
+    {'1': 'model', '3': 9, '4': 1, '5': 9, '9': 7, '10': 'model', '17': true},
+    {
+      '1': 'output_loudness',
+      '3': 10,
+      '4': 1,
+      '5': 3,
+      '9': 8,
+      '10': 'outputLoudness',
+      '17': true
+    },
+    {
+      '1': 'output_speed',
+      '3': 11,
+      '4': 1,
+      '5': 3,
+      '9': 9,
+      '10': 'outputSpeed',
+      '17': true
+    },
+    {
+      '1': 'sample_rate',
+      '3': 12,
+      '4': 1,
+      '5': 3,
+      '9': 10,
+      '10': 'sampleRate',
+      '17': true
+    },
+    {'1': 'voice', '3': 13, '4': 1, '5': 9, '9': 11, '10': 'voice', '17': true},
+  ],
+  '8': [
+    {'1': '_e2e'},
+    {'1': '_format'},
+    {'1': '_input_channels'},
+    {'1': '_input_format'},
+    {'1': '_input_sample_rate'},
+    {'1': '_input_transcode'},
+    {'1': '_instructions'},
+    {'1': '_model'},
+    {'1': '_output_loudness'},
+    {'1': '_output_speed'},
+    {'1': '_sample_rate'},
+    {'1': '_voice'},
+  ],
+};
+
+/// Descriptor for `DoubaoRealtimeDuplexWorkspaceParameters`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List doubaoRealtimeDuplexWorkspaceParametersDescriptor = $convert.base64Decode(
+    'CidEb3ViYW9SZWFsdGltZUR1cGxleFdvcmtzcGFjZVBhcmFtZXRlcnMSXwoKYWdlbnRfdHlwZR'
+    'gBIAEoDjJALmdpemNsYXcucnBjLnYxLkRvdWJhb1JlYWx0aW1lRHVwbGV4V29ya3NwYWNlUGFy'
+    'YW1ldGVyc0FnZW50VHlwZVIJYWdlbnRUeXBlEhUKA2UyZRgCIAEoCEgAUgNlMmWIAQESGwoGZm'
+    '9ybWF0GAMgASgJSAFSBmZvcm1hdIgBARIqCg5pbnB1dF9jaGFubmVscxgEIAEoA0gCUg1pbnB1'
+    'dENoYW5uZWxziAEBEiYKDGlucHV0X2Zvcm1hdBgFIAEoCUgDUgtpbnB1dEZvcm1hdIgBARIvCh'
+    'FpbnB1dF9zYW1wbGVfcmF0ZRgGIAEoA0gEUg9pbnB1dFNhbXBsZVJhdGWIAQESLAoPaW5wdXRf'
+    'dHJhbnNjb2RlGAcgASgISAVSDmlucHV0VHJhbnNjb2RliAEBEicKDGluc3RydWN0aW9ucxgIIA'
+    'EoCUgGUgxpbnN0cnVjdGlvbnOIAQESGQoFbW9kZWwYCSABKAlIB1IFbW9kZWyIAQESLAoPb3V0'
+    'cHV0X2xvdWRuZXNzGAogASgDSAhSDm91dHB1dExvdWRuZXNziAEBEiYKDG91dHB1dF9zcGVlZB'
+    'gLIAEoA0gJUgtvdXRwdXRTcGVlZIgBARIkCgtzYW1wbGVfcmF0ZRgMIAEoA0gKUgpzYW1wbGVS'
+    'YXRliAEBEhkKBXZvaWNlGA0gASgJSAtSBXZvaWNliAEBQgYKBF9lMmVCCQoHX2Zvcm1hdEIRCg'
+    '9faW5wdXRfY2hhbm5lbHNCDwoNX2lucHV0X2Zvcm1hdEIUChJfaW5wdXRfc2FtcGxlX3JhdGVC'
+    'EgoQX2lucHV0X3RyYW5zY29kZUIPCg1faW5zdHJ1Y3Rpb25zQggKBl9tb2RlbEISChBfb3V0cH'
+    'V0X2xvdWRuZXNzQg8KDV9vdXRwdXRfc3BlZWRCDgoMX3NhbXBsZV9yYXRlQggKBl92b2ljZQ==');
+
+@$core.Deprecated('Use einoWorkflowSpecDescriptor instead')
+const EinoWorkflowSpec$json = {
+  '1': 'EinoWorkflowSpec',
+  '2': [
+    {
+      '1': 'graph',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Struct',
+      '10': 'graph'
+    },
+    {
+      '1': 'limits',
+      '3': 2,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Struct',
+      '9': 0,
+      '10': 'limits',
+      '17': true
+    },
+    {
+      '1': 'memory',
+      '3': 3,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Struct',
+      '9': 1,
+      '10': 'memory',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_limits'},
+    {'1': '_memory'},
+  ],
+};
+
+/// Descriptor for `EinoWorkflowSpec`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List einoWorkflowSpecDescriptor = $convert.base64Decode(
+    'ChBFaW5vV29ya2Zsb3dTcGVjEi0KBWdyYXBoGAEgASgLMhcuZ29vZ2xlLnByb3RvYnVmLlN0cn'
+    'VjdFIFZ3JhcGgSNAoGbGltaXRzGAIgASgLMhcuZ29vZ2xlLnByb3RvYnVmLlN0cnVjdEgAUgZs'
+    'aW1pdHOIAQESNAoGbWVtb3J5GAMgASgLMhcuZ29vZ2xlLnByb3RvYnVmLlN0cnVjdEgBUgZtZW'
+    '1vcnmIAQFCCQoHX2xpbWl0c0IJCgdfbWVtb3J5');
+
+@$core.Deprecated('Use einoWorkspaceParametersDescriptor instead')
+const EinoWorkspaceParameters$json = {
+  '1': 'EinoWorkspaceParameters',
+  '2': [
+    {
+      '1': 'agent_type',
+      '3': 1,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.EinoWorkspaceParametersAgentType',
+      '10': 'agentType'
+    },
+    {'1': 'e2e', '3': 2, '4': 1, '5': 8, '9': 0, '10': 'e2e', '17': true},
+  ],
+  '8': [
+    {'1': '_e2e'},
+  ],
+};
+
+/// Descriptor for `EinoWorkspaceParameters`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List einoWorkspaceParametersDescriptor = $convert.base64Decode(
+    'ChdFaW5vV29ya3NwYWNlUGFyYW1ldGVycxJPCgphZ2VudF90eXBlGAEgASgOMjAuZ2l6Y2xhdy'
+    '5ycGMudjEuRWlub1dvcmtzcGFjZVBhcmFtZXRlcnNBZ2VudFR5cGVSCWFnZW50VHlwZRIVCgNl'
+    'MmUYAiABKAhIAFIDZTJliAEBQgYKBF9lMmU=');
+
 @$core.Deprecated('Use doubaoRealtimeAIGCMetadataDescriptor instead')
 const DoubaoRealtimeAIGCMetadata$json = {
   '1': 'DoubaoRealtimeAIGCMetadata',
@@ -1895,6 +2410,36 @@ const PetWorkflowSpec$json = {
       '10': 'chatroom',
       '17': true
     },
+    {
+      '1': 'dashscope_realtime',
+      '3': 7,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.DashScopeRealtimeWorkflowSpec',
+      '9': 5,
+      '10': 'dashscopeRealtime',
+      '17': true
+    },
+    {
+      '1': 'doubao_realtime_duplex',
+      '3': 8,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.DoubaoRealtimeDuplexWorkflowSpec',
+      '9': 6,
+      '10': 'doubaoRealtimeDuplex',
+      '17': true
+    },
+    {
+      '1': 'eino',
+      '3': 9,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.EinoWorkflowSpec',
+      '9': 7,
+      '10': 'eino',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_toolkit'},
@@ -1902,6 +2447,9 @@ const PetWorkflowSpec$json = {
     {'1': '_doubao_realtime'},
     {'1': '_ast_translate'},
     {'1': '_chatroom'},
+    {'1': '_dashscope_realtime'},
+    {'1': '_doubao_realtime_duplex'},
+    {'1': '_eino'},
   ],
 };
 
@@ -1915,8 +2463,14 @@ final $typed_data.Uint8List petWorkflowSpecDescriptor = $convert.base64Decode(
     'tmbG93U3BlY0gCUg5kb3ViYW9SZWFsdGltZYgBARJSCg1hc3RfdHJhbnNsYXRlGAUgASgLMigu'
     'Z2l6Y2xhdy5ycGMudjEuQVNUVHJhbnNsYXRlV29ya2Zsb3dTcGVjSANSDGFzdFRyYW5zbGF0ZY'
     'gBARJFCghjaGF0cm9vbRgGIAEoCzIkLmdpemNsYXcucnBjLnYxLkNoYXRSb29tV29ya2Zsb3dT'
-    'cGVjSARSCGNoYXRyb29tiAEBQgoKCF90b29sa2l0QgwKCl9mbG93Y3JhZnRCEgoQX2RvdWJhb1'
-    '9yZWFsdGltZUIQCg5fYXN0X3RyYW5zbGF0ZUILCglfY2hhdHJvb20=');
+    'cGVjSARSCGNoYXRyb29tiAEBEmEKEmRhc2hzY29wZV9yZWFsdGltZRgHIAEoCzItLmdpemNsYX'
+    'cucnBjLnYxLkRhc2hTY29wZVJlYWx0aW1lV29ya2Zsb3dTcGVjSAVSEWRhc2hzY29wZVJlYWx0'
+    'aW1liAEBEmsKFmRvdWJhb19yZWFsdGltZV9kdXBsZXgYCCABKAsyMC5naXpjbGF3LnJwYy52MS'
+    '5Eb3ViYW9SZWFsdGltZUR1cGxleFdvcmtmbG93U3BlY0gGUhRkb3ViYW9SZWFsdGltZUR1cGxl'
+    'eIgBARI5CgRlaW5vGAkgASgLMiAuZ2l6Y2xhdy5ycGMudjEuRWlub1dvcmtmbG93U3BlY0gHUg'
+    'RlaW5viAEBQgoKCF90b29sa2l0QgwKCl9mbG93Y3JhZnRCEgoQX2RvdWJhb19yZWFsdGltZUIQ'
+    'Cg5fYXN0X3RyYW5zbGF0ZUILCglfY2hhdHJvb21CFQoTX2Rhc2hzY29wZV9yZWFsdGltZUIZCh'
+    'dfZG91YmFvX3JlYWx0aW1lX2R1cGxleEIHCgVfZWlubw==');
 
 @$core.Deprecated('Use modelDescriptor instead')
 const Model$json = {

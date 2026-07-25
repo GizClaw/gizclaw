@@ -3,11 +3,15 @@ package dashscoperealtime
 import (
 	"context"
 	"iter"
+	"strings"
 	"sync"
 	"testing"
 
 	dashscope "github.com/GizClaw/dashscope-realtime-go"
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/pcm"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/doubaorealtime"
 )
 
 func TestTransformerConcurrentCallsOwnSessions(t *testing.T) {
@@ -20,16 +24,14 @@ func TestTransformerConcurrentCallsOwnSessions(t *testing.T) {
 	errs := make(chan error, calls)
 	var wg sync.WaitGroup
 	for range calls {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			stream, err := transformer.Transform(context.Background(), emptyDashScopeStream{})
 			if err != nil {
 				errs <- err
 				return
 			}
 			streams <- stream.(*Stream)
-		}()
+		})
 	}
 	wg.Wait()
 	close(errs)
@@ -97,6 +99,56 @@ func TestDashScopeStreamIDsSeparateInputAndResponseRoutes(t *testing.T) {
 	responseInputID, routedSecondResponseID := ids.bindResponse("provider-response-2")
 	if responseInputID != "turn-2" || routedSecondResponseID != secondResponseID {
 		t.Fatalf("second response binding = (%q, %q), want (turn-2, %q)", responseInputID, routedSecondResponseID, secondResponseID)
+	}
+}
+
+func TestPrepareInputAudioDecodesPeerOpusToPCM16(t *testing.T) {
+	encoder, err := opus.NewEncoder(16000, 1, opus.ApplicationAudio)
+	if err != nil {
+		t.Fatalf("create Opus encoder: %v", err)
+	}
+	defer encoder.Close()
+	samples := make([]int16, 320)
+	for index := range samples {
+		samples[index] = int16(index * 50)
+	}
+	packet, err := encoder.Encode(samples, len(samples))
+	if err != nil {
+		t.Fatalf("encode Opus packet: %v", err)
+	}
+
+	transformer := newTransformer(nil, withInputAudioFormat(dashscope.AudioFormatPCM16))
+	inputs := doubaorealtime.NewSharedAudioInputs("pcm", 16000, 1, true)
+	defer inputs.Close()
+	data, err := transformer.prepareInputAudio(inputs, &genx.MessageChunk{
+		Part: &genx.Blob{MIMEType: "audio/opus; rate=16000", Data: packet},
+		Ctrl: &genx.StreamCtrl{StreamID: "turn-1"},
+	}, &genx.Blob{MIMEType: "audio/opus; rate=16000", Data: packet})
+	if err != nil {
+		t.Fatalf("prepareInputAudio() error = %v", err)
+	}
+	if len(data) == 0 || len(data)%2 != 0 || string(data) == string(packet) {
+		t.Fatalf("prepareInputAudio() returned %d bytes, want decoded PCM16", len(data))
+	}
+}
+
+func TestPrepareInputAudioRejectsOggOpusContainer(t *testing.T) {
+	transformer := newTransformer(nil, withInputAudioFormat(dashscope.AudioFormatPCM16))
+	inputs := doubaorealtime.NewSharedAudioInputs("pcm", 16000, 1, true)
+	defer inputs.Close()
+	_, err := transformer.prepareInputAudio(inputs, &genx.MessageChunk{
+		Part: &genx.Blob{MIMEType: "audio/ogg; codecs=opus", Data: []byte("OggS")},
+		Ctrl: &genx.StreamCtrl{StreamID: "turn-1"},
+	}, &genx.Blob{MIMEType: "audio/ogg; codecs=opus", Data: []byte("OggS")})
+	if err == nil || !strings.Contains(err.Error(), "Ogg/Opus input is unsupported") {
+		t.Fatalf("prepareInputAudio() error = %v, want explicit Ogg/Opus rejection", err)
+	}
+}
+
+func TestPCMOutputCarriesProviderSampleRate(t *testing.T) {
+	transformer := newTransformer(nil, withOutputAudioFormat(dashscope.AudioFormatPCM16))
+	if got := transformer.getOutputAudioMIMEType(); got != pcm.L16Mono24K.String() {
+		t.Fatalf("getOutputAudioMIMEType() = %q, want %q", got, pcm.L16Mono24K.String())
 	}
 }
 

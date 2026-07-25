@@ -45,6 +45,8 @@ type Factory struct {
 	History       logstore.MutableStore
 	State         kv.Store
 	MemoryObjects objectstore.ObjectStore
+	Memory        memory.Store
+	MemoryKind    string
 	MemoryLoader  memoryflowcraft.ModelLoader
 }
 
@@ -116,6 +118,7 @@ func (f Factory) newAgent(ctx context.Context, owner, workspaceName string, publ
 		return nil, fmt.Errorf("flowcraft: agent.id is required")
 	}
 	scope := WorkspaceAgentScope(owner, workspaceName, agentID)
+	memoryScope := memory.Scope{AppID: strings.TrimSpace(workspaceName), AgentID: agentID}
 	config := genxflowcraft.Config{
 		ID: agentID, Name: strings.TrimSpace(public.Agent.Name), Graph: graph,
 		MaxIterations: intValue(public.Agent.MaxIterations), PublishNodes: publishNodes,
@@ -137,10 +140,12 @@ func (f Factory) newAgent(ctx context.Context, owner, workspaceName string, publ
 		if err != nil {
 			return nil, err
 		}
-		owned = append(owned, memoryBuild.Closer)
+		if memoryBuild.Closer != nil {
+			owned = append(owned, memoryBuild.Closer)
+		}
 		config.Memory = memoryBuild.Store
 		agentMemory = memoryBuild.Store
-		config.MemoryScope = memory.Scope(scope)
+		config.MemoryScope = memoryScope
 		config.RecallProfiles = memoryBuild.RecallProfiles
 		config.ObserveEnabled = memoryBuild.ObserveEnabled
 		config.ObserveWaitForCompletion = memoryBuild.ObserveWaitForCompletion
@@ -158,7 +163,11 @@ func (f Factory) newAgent(ctx context.Context, owner, workspaceName string, publ
 			return nil, errors.Join(err, closeAll(owned))
 		}
 	}
-	return NewManagedAgent(transformer, owned, agentMemory, memory.Scope(scope)), nil
+	backend := "flowcraft"
+	if f.Memory != nil {
+		backend = strings.TrimSpace(f.MemoryKind)
+	}
+	return NewManagedAgentWithBackend(transformer, owned, agentMemory, memoryScope, backend), nil
 }
 
 func mapInitiative(conversation *apitypes.FlowcraftConversation, policy string) genxflowcraft.InitiativePolicy {
@@ -250,6 +259,24 @@ type MemoryBuild struct {
 // BuildMemory maps public Flowcraft Memory configuration to the provider-neutral
 // Store used by a particular owner, Workspace, and Agent scope.
 func (f Factory) BuildMemory(ctx context.Context, owner, workspaceName, agentID string, public apitypes.FlowcraftMemory) (MemoryBuild, error) {
+	if f.Memory != nil {
+		if err := validateExternalMemoryConfig(public, f.MemoryKind); err != nil {
+			return MemoryBuild{}, fmt.Errorf("flowcraft: workspace %q memory: %w", workspaceName, err)
+		}
+		// Workspace names are globally unique resource IDs. Owner identity
+		// controls resource access, but it is deliberately not part of the
+		// provider-neutral Memory AppID contract.
+		store, err := memory.BindApp(f.Memory, workspaceName)
+		if err != nil {
+			return MemoryBuild{}, fmt.Errorf("flowcraft: workspace %q memory: %w", workspaceName, err)
+		}
+		return MemoryBuild{
+			Store: store, RecallProfiles: mapRecallProfiles(public),
+			ObserveEnabled:           memoryObserveEnabled(public),
+			ObserveWaitForCompletion: externalMemoryObserveWait(public),
+			ObservationBuilder:       observationBuilder(public.Write),
+		}, nil
+	}
 	if f.MemoryObjects == nil {
 		return MemoryBuild{}, fmt.Errorf("flowcraft: workspace %q memory requires a server object store", workspaceName)
 	}
@@ -289,6 +316,42 @@ func (f Factory) BuildMemory(ctx context.Context, owner, workspaceName, agentID 
 		RecallProfiles: mapped.recallProfiles, ObserveEnabled: mapped.observe,
 		ObserveWaitForCompletion: mapped.observeWait, ObservationBuilder: mapped.observationBuilder,
 	}, nil
+}
+
+func validateExternalMemoryConfig(public apitypes.FlowcraftMemory, backend string) error {
+	switch {
+	case public.Extract != nil:
+		return fmt.Errorf("extract is only supported by embedded Flowcraft memory")
+	case public.Embedding != nil:
+		return fmt.Errorf("embedding is only supported by embedded Flowcraft memory")
+	case public.Rerank != nil:
+		return fmt.Errorf("rerank is only supported by embedded Flowcraft memory")
+	case public.Layout != nil:
+		return fmt.Errorf("layout is only supported by embedded Flowcraft memory")
+	case public.Recall != nil && public.Recall.GraphEnabled != nil:
+		return fmt.Errorf("recall.graph_enabled is only supported by embedded Flowcraft memory")
+	case public.Write != nil && public.Write.Tier != nil:
+		return fmt.Errorf("write.tier is only supported by embedded Flowcraft memory")
+	case public.Write != nil && len(valueOrZero(public.Write.BoardFacts)) > 0 &&
+		strings.TrimSpace(backend) != "flowcraft":
+		return fmt.Errorf("%s memory does not support write.board_facts", externalMemoryBackend(backend))
+	default:
+		return nil
+	}
+}
+
+func externalMemoryBackend(backend string) string {
+	if backend = strings.TrimSpace(backend); backend != "" {
+		return backend
+	}
+	return "configured external"
+}
+
+func externalMemoryObserveWait(public apitypes.FlowcraftMemory) bool {
+	if !memoryObserveEnabled(public) {
+		return false
+	}
+	return public.Write == nil || public.Write.Mode == nil || *public.Write.Mode != apitypes.FlowcraftMemoryWriteModeAsyncSemantic
 }
 
 // buildMemory retains the package-local test seam while callers outside this
@@ -716,95 +779,24 @@ func buildRuntimeEmbedder(config peergenx.EmbeddingConfig) (flowembedding.Embedd
 
 type managedAgent struct {
 	agenthost.Agent
-	owned       []io.Closer
-	memory      memory.Store
-	memoryScope memory.Scope
-	closeOnce   sync.Once
-	closeErr    error
+	owned     []io.Closer
+	closeOnce sync.Once
+	closeErr  error
 }
 
 // NewManagedAgent exposes the product runtime surface for a direct reusable
 // Flowcraft Transformer while retaining ownership of its Store resources.
 func NewManagedAgent(transformer genx.Transformer, owned []io.Closer, agentMemory memory.Store, scope memory.Scope) agenthost.Agent {
+	return NewManagedAgentWithBackend(transformer, owned, agentMemory, scope, "flowcraft")
+}
+
+// NewManagedAgentWithBackend retains command-owned provider identity without
+// inferring it from a concrete Store implementation.
+func NewManagedAgentWithBackend(transformer genx.Transformer, owned []io.Closer, agentMemory memory.Store, scope memory.Scope, backend string) agenthost.Agent {
 	return &managedAgent{
-		Agent: agenthost.NewTransformerAgent(transformer), owned: owned,
-		memory: agentMemory, memoryScope: scope,
+		Agent: agenthost.NewMemoryAgent(agenthost.NewTransformerAgent(transformer), agentMemory, scope, backend),
+		owned: owned,
 	}
-}
-
-func (a *managedAgent) Status(ctx context.Context) (apitypes.PeerRunWorkspaceState, error) {
-	status, err := a.Agent.Status(ctx)
-	if err != nil {
-		return status, err
-	}
-	available := a.memory != nil
-	status.MemoryStatsAvailable = &available
-	status.RecallAvailable = &available
-	return status, nil
-}
-
-func (a *managedAgent) MemoryStats(ctx context.Context, _ apitypes.PeerRunMemoryStatsRequest) (apitypes.PeerRunMemoryStatsResponse, error) {
-	if a == nil || a.memory == nil {
-		message := "workspace memory is not enabled"
-		return apitypes.PeerRunMemoryStatsResponse{Available: true, Enabled: false, Message: &message}, nil
-	}
-	backend := "flowcraft"
-	metadata := map[string]any{"scope": string(a.memoryScope)}
-	response := apitypes.PeerRunMemoryStatsResponse{
-		Available: true, Enabled: true, Backend: &backend, Metadata: &metadata,
-	}
-	if provider, ok := a.memory.(memory.StatisticsProvider); ok {
-		stats, err := provider.Stats(ctx, a.memoryScope)
-		if err != nil {
-			return apitypes.PeerRunMemoryStatsResponse{}, err
-		}
-		response.ItemCount = stats.ItemCount
-		if !stats.LastUpdatedAt.IsZero() {
-			response.LastUpdatedAt = &stats.LastUpdatedAt
-		}
-	}
-	return response, nil
-}
-
-func (a *managedAgent) Recall(ctx context.Context, req apitypes.PeerRunRecallRequest) (apitypes.PeerRunRecallResponse, error) {
-	if a == nil || a.memory == nil {
-		message := "workspace memory is not enabled"
-		return apitypes.PeerRunRecallResponse{Available: true, Hits: []apitypes.PeerRunRecallHit{}, Message: &message}, nil
-	}
-	limit := 10
-	if req.Limit != nil && *req.Limit > 0 {
-		limit = *req.Limit
-	}
-	filters := make([]memory.Filter, 0)
-	if req.Filters != nil {
-		keys := make([]string, 0, len(*req.Filters))
-		for key := range *req.Filters {
-			keys = append(keys, key)
-		}
-		slices.Sort(keys)
-		for _, key := range keys {
-			filters = append(filters, memory.Filter{Field: key, Operator: memory.FilterEqual, Value: (*req.Filters)[key]})
-		}
-	}
-	result, err := a.memory.Recall(ctx, memory.Query{Scope: a.memoryScope, Text: req.Query, Limit: limit, Filters: filters})
-	if err != nil {
-		return apitypes.PeerRunRecallResponse{}, err
-	}
-	hits := make([]apitypes.PeerRunRecallHit, 0, len(result.Matches))
-	for _, match := range result.Matches {
-		metadata := maps.Clone(match.Fact.Attributes)
-		hit := apitypes.PeerRunRecallHit{
-			Id: match.Fact.ID, Score: match.Score, Snippet: match.Fact.Text,
-			CreatedAt: &match.Fact.CreatedAt, Metadata: &metadata,
-		}
-		if len(match.Fact.Sources) > 0 && strings.TrimSpace(match.Fact.Sources[0].ObservationID) != "" {
-			hit.SourceId = &match.Fact.Sources[0].ObservationID
-			sourceType := "observation"
-			hit.SourceType = &sourceType
-		}
-		hits = append(hits, hit)
-	}
-	return apitypes.PeerRunRecallResponse{Available: true, Hits: hits}, nil
 }
 
 func (a *managedAgent) Close() error {

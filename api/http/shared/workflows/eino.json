@@ -1,0 +1,470 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Eino Workflow Type",
+    "description": "Strict public projection of the reusable Eino graph transformer.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "EinoWorkflowSpec": {
+        "type": "object",
+        "required": ["graph"],
+        "additionalProperties": false,
+        "properties": {
+          "graph": { "$ref": "#/components/schemas/EinoGraph" },
+          "memory": { "$ref": "#/components/schemas/EinoMemory" },
+          "limits": { "$ref": "#/components/schemas/EinoLimits" }
+        }
+      },
+      "EinoLimits": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "max_output_bytes": { "type": "integer", "minimum": 1 }
+        }
+      },
+      "EinoMemory": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "recall": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/EinoMemoryRecall" }
+          },
+          "observe": { "$ref": "#/components/schemas/EinoMemoryObserve" }
+        }
+      },
+      "EinoMemoryRecall": {
+        "type": "object",
+        "required": ["query_from", "output", "top_k"],
+        "additionalProperties": false,
+        "properties": {
+          "query_from": { "type": "string", "minLength": 1 },
+          "output": { "type": "string", "minLength": 1 },
+          "top_k": { "type": "integer", "minimum": 1 }
+        }
+      },
+      "EinoMemoryObserve": {
+        "type": "object",
+        "required": ["enabled"],
+        "additionalProperties": false,
+        "properties": {
+          "enabled": { "type": "boolean" },
+          "wait_for_completion": { "type": "boolean" },
+          "facts": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/EinoMemoryFact" }
+          }
+        }
+      },
+      "EinoMemoryFact": {
+        "type": "object",
+        "required": ["text_from"],
+        "additionalProperties": false,
+        "properties": {
+          "text_from": { "type": "string", "minLength": 1 },
+          "attributes": {
+            "type": "object",
+            "additionalProperties": { "type": "string", "minLength": 1 }
+          }
+        }
+      },
+      "EinoGraph": {
+        "type": "object",
+        "required": ["name", "compile", "state", "nodes", "edges", "branches", "outputs"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "compile": { "$ref": "#/components/schemas/EinoGraphCompile" },
+          "state": { "$ref": "#/components/schemas/EinoState" },
+          "nodes": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "$ref": "#/components/schemas/EinoNode" }
+          },
+          "edges": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/EinoEdge" }
+          },
+          "branches": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/EinoBranch" }
+          },
+          "outputs": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "$ref": "#/components/schemas/EinoOutput" }
+          }
+        }
+      },
+      "EinoGraphCompile": {
+        "type": "object",
+        "required": ["node_trigger_mode"],
+        "additionalProperties": false,
+        "properties": {
+          "max_run_steps": { "type": "integer", "minimum": 1 },
+          "node_trigger_mode": {
+            "type": "string",
+            "enum": ["any_predecessor", "all_predecessor"]
+          },
+          "fan_in": {
+            "type": "object",
+            "additionalProperties": { "$ref": "#/components/schemas/EinoFanIn" }
+          }
+        }
+      },
+      "EinoFanIn": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "stream_merge_with_source_eof": { "type": "boolean" }
+        }
+      },
+      "EinoState": {
+        "type": "object",
+        "required": ["fields"],
+        "additionalProperties": false,
+        "properties": {
+          "fields": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "$ref": "#/components/schemas/EinoStateField" }
+          }
+        }
+      },
+      "EinoStateField": {
+        "type": "object",
+        "required": ["name", "type", "merge"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "type": {
+            "type": "string",
+            "enum": ["string", "boolean", "integer", "number", "object", "list", "messages", "documents", "blob"]
+          },
+          "required": { "type": "boolean" },
+          "merge": {
+            "type": "string",
+            "enum": ["replace", "append", "object_merge"]
+          }
+        }
+      },
+      "EinoBinding": {
+        "type": "object",
+        "required": ["from"],
+        "additionalProperties": false,
+        "properties": {
+          "from": { "type": "string", "minLength": 1 }
+        }
+      },
+      "EinoNodeBase": {
+        "type": "object",
+        "required": ["id", "type"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "type": { "type": "string" },
+          "inputs": {
+            "type": "object",
+            "additionalProperties": { "$ref": "#/components/schemas/EinoBinding" }
+          },
+          "outputs": {
+            "type": "object",
+            "additionalProperties": { "type": "string", "minLength": 1 }
+          }
+        }
+      },
+      "EinoNode": {
+        "oneOf": [
+          { "$ref": "#/components/schemas/EinoPromptNode" },
+          { "$ref": "#/components/schemas/EinoChatModelNode" },
+          { "$ref": "#/components/schemas/EinoTransformNode" },
+          { "$ref": "#/components/schemas/EinoScriptNode" },
+          { "$ref": "#/components/schemas/EinoRaceNode" },
+          { "$ref": "#/components/schemas/EinoBatchNode" },
+          { "$ref": "#/components/schemas/EinoPassthroughNode" },
+          { "$ref": "#/components/schemas/EinoSubgraphNode" }
+        ],
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "prompt": "#/components/schemas/EinoPromptNode",
+            "chat_model": "#/components/schemas/EinoChatModelNode",
+            "transform": "#/components/schemas/EinoTransformNode",
+            "script": "#/components/schemas/EinoScriptNode",
+            "race": "#/components/schemas/EinoRaceNode",
+            "batch": "#/components/schemas/EinoBatchNode",
+            "passthrough": "#/components/schemas/EinoPassthroughNode",
+            "subgraph": "#/components/schemas/EinoSubgraphNode"
+          }
+        }
+      },
+      "EinoPromptNode": {
+        "allOf": [
+          { "$ref": "#/components/schemas/EinoNodeBase" },
+          {
+            "type": "object",
+            "required": ["id", "type", "format", "messages"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "type": { "type": "string", "enum": ["prompt"] },
+              "inputs": { "type": "object", "additionalProperties": { "$ref": "#/components/schemas/EinoBinding" } },
+              "outputs": { "type": "object", "additionalProperties": { "type": "string", "minLength": 1 } },
+              "format": { "type": "string", "enum": ["f_string", "go_template", "jinja2"] },
+              "messages": {
+                "type": "array",
+                "minItems": 1,
+                "items": { "$ref": "#/components/schemas/EinoPromptMessage" }
+              }
+            }
+          }
+        ]
+      },
+      "EinoPromptMessage": {
+        "type": "object",
+        "required": ["role"],
+        "additionalProperties": false,
+        "properties": {
+          "role": { "type": "string", "enum": ["system", "user", "assistant"] },
+          "template": { "type": "string" },
+          "placeholder": { "type": "string" },
+          "optional": { "type": "boolean" }
+        }
+      },
+      "EinoChatModelNode": {
+        "allOf": [
+          { "$ref": "#/components/schemas/EinoNodeBase" },
+          {
+            "type": "object",
+            "required": ["id", "type", "model"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "type": { "type": "string", "enum": ["chat_model"] },
+              "inputs": { "type": "object", "additionalProperties": { "$ref": "#/components/schemas/EinoBinding" } },
+              "outputs": { "type": "object", "additionalProperties": { "type": "string", "minLength": 1 } },
+              "model": { "type": "string", "minLength": 1 },
+              "temperature": { "type": "number", "minimum": 0, "maximum": 2 },
+              "max_tokens": { "type": "integer", "minimum": 1 }
+            }
+          }
+        ]
+      },
+      "EinoTransformNode": {
+        "allOf": [
+          { "$ref": "#/components/schemas/EinoNodeBase" },
+          {
+            "type": "object",
+            "required": ["id", "type", "operation"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "type": { "type": "string", "enum": ["transform"] },
+              "inputs": { "type": "object", "additionalProperties": { "$ref": "#/components/schemas/EinoBinding" } },
+              "outputs": { "type": "object", "additionalProperties": { "type": "string", "minLength": 1 } },
+              "operation": { "type": "string", "enum": ["select", "concat_text", "decode_json", "build_messages"] },
+              "order": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+              "separator": { "type": "string" },
+              "messages": { "type": "array", "items": { "$ref": "#/components/schemas/EinoTransformMessage" } },
+              "max_input_bytes": { "type": "integer", "minimum": 1 },
+              "max_output_bytes": { "type": "integer", "minimum": 1 }
+            }
+          }
+        ]
+      },
+      "EinoTransformMessage": {
+        "type": "object",
+        "required": ["role"],
+        "additionalProperties": false,
+        "properties": {
+          "role": { "type": "string", "enum": ["system", "user", "assistant"] },
+          "input": { "type": "string" },
+          "text": { "type": "string" }
+        }
+      },
+      "EinoScriptNode": {
+        "allOf": [
+          { "$ref": "#/components/schemas/EinoNodeBase" },
+          {
+            "type": "object",
+            "required": ["id", "type", "language", "entrypoint", "source", "limits"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "type": { "type": "string", "enum": ["script"] },
+              "inputs": { "type": "object", "additionalProperties": { "$ref": "#/components/schemas/EinoBinding" } },
+              "outputs": { "type": "object", "additionalProperties": { "type": "string", "minLength": 1 } },
+              "language": { "type": "string", "enum": ["starlark"] },
+              "entrypoint": { "type": "string", "minLength": 1 },
+              "source": { "type": "string", "minLength": 1 },
+              "limits": { "$ref": "#/components/schemas/EinoScriptLimits" }
+            }
+          }
+        ]
+      },
+      "EinoScriptLimits": {
+        "type": "object",
+        "required": ["max_execution_steps", "timeout", "max_input_bytes", "max_output_bytes"],
+        "additionalProperties": false,
+        "properties": {
+          "max_execution_steps": { "type": "integer", "format": "int64", "minimum": 1 },
+          "timeout": { "type": "string", "minLength": 1 },
+          "max_input_bytes": { "type": "integer", "minimum": 1 },
+          "max_output_bytes": { "type": "integer", "minimum": 1 }
+        }
+      },
+      "EinoRaceNode": {
+        "allOf": [
+          { "$ref": "#/components/schemas/EinoNodeBase" },
+          {
+            "type": "object",
+            "required": ["id", "type", "branches", "winner"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "type": { "type": "string", "enum": ["race"] },
+              "inputs": { "type": "object", "additionalProperties": { "$ref": "#/components/schemas/EinoBinding" } },
+              "outputs": { "type": "object", "additionalProperties": { "type": "string", "minLength": 1 } },
+              "branches": {
+                "type": "array",
+                "minItems": 1,
+                "items": { "$ref": "#/components/schemas/EinoRaceBranch" }
+              },
+              "winner": { "$ref": "#/components/schemas/EinoRaceWinner" },
+              "max_concurrency": { "type": "integer", "minimum": 1 }
+            }
+          }
+        ]
+      },
+      "EinoRaceBranch": {
+        "type": "object",
+        "required": ["id", "graph"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "graph": { "$ref": "#/components/schemas/EinoGraph" }
+        }
+      },
+      "EinoRaceWinner": {
+        "type": "object",
+        "required": ["mode"],
+        "additionalProperties": false,
+        "properties": {
+          "mode": { "type": "string", "enum": ["first_output", "first_success", "predicate"] },
+          "when": { "$ref": "#/components/schemas/EinoPredicate" }
+        }
+      },
+      "EinoBatchNode": {
+        "allOf": [
+          { "$ref": "#/components/schemas/EinoNodeBase" },
+          {
+            "type": "object",
+            "required": ["id", "type", "items", "graph"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "type": { "type": "string", "enum": ["batch"] },
+              "inputs": { "type": "object", "additionalProperties": { "$ref": "#/components/schemas/EinoBinding" } },
+              "outputs": { "type": "object", "additionalProperties": { "type": "string", "minLength": 1 } },
+              "items": { "$ref": "#/components/schemas/EinoBinding" },
+              "graph": { "$ref": "#/components/schemas/EinoGraph" },
+              "max_concurrency": { "type": "integer", "minimum": 1 }
+            }
+          }
+        ]
+      },
+      "EinoPassthroughNode": {
+        "allOf": [
+          { "$ref": "#/components/schemas/EinoNodeBase" },
+          {
+            "type": "object",
+            "required": ["id", "type"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "type": { "type": "string", "enum": ["passthrough"] },
+              "inputs": { "type": "object", "additionalProperties": { "$ref": "#/components/schemas/EinoBinding" } },
+              "outputs": { "type": "object", "additionalProperties": { "type": "string", "minLength": 1 } }
+            }
+          }
+        ]
+      },
+      "EinoSubgraphNode": {
+        "allOf": [
+          { "$ref": "#/components/schemas/EinoNodeBase" },
+          {
+            "type": "object",
+            "required": ["id", "type", "graph"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "type": { "type": "string", "enum": ["subgraph"] },
+              "inputs": { "type": "object", "additionalProperties": { "$ref": "#/components/schemas/EinoBinding" } },
+              "outputs": { "type": "object", "additionalProperties": { "type": "string", "minLength": 1 } },
+              "graph": { "$ref": "#/components/schemas/EinoGraph" }
+            }
+          }
+        ]
+      },
+      "EinoEdge": {
+        "type": "object",
+        "required": ["from", "to"],
+        "additionalProperties": false,
+        "properties": {
+          "from": { "type": "string", "minLength": 1 },
+          "to": { "type": "string", "minLength": 1 }
+        }
+      },
+      "EinoBranch": {
+        "type": "object",
+        "required": ["from", "mode", "routes", "default"],
+        "additionalProperties": false,
+        "properties": {
+          "from": { "type": "string", "minLength": 1 },
+          "mode": { "type": "string", "enum": ["first_match", "all_match"] },
+          "routes": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "$ref": "#/components/schemas/EinoBranchRoute" }
+          },
+          "default": { "type": "string", "minLength": 1 }
+        }
+      },
+      "EinoBranchRoute": {
+        "type": "object",
+        "required": ["when", "to"],
+        "additionalProperties": false,
+        "properties": {
+          "when": { "$ref": "#/components/schemas/EinoPredicate" },
+          "to": { "type": "string", "minLength": 1 }
+        }
+      },
+      "EinoPredicate": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "all": { "type": "array", "minItems": 1, "items": { "$ref": "#/components/schemas/EinoPredicate" } },
+          "any": { "type": "array", "minItems": 1, "items": { "$ref": "#/components/schemas/EinoPredicate" } },
+          "not": { "$ref": "#/components/schemas/EinoPredicate" },
+          "field": { "type": "string", "minLength": 1 },
+          "op": { "type": "string", "enum": ["eq", "ne", "exists", "not_exists", "contains", "not_contains", "lt", "lte", "gt", "gte"] },
+          "value": {}
+        }
+      },
+      "EinoOutput": {
+        "type": "object",
+        "required": ["node", "field", "name", "mime_type"],
+        "additionalProperties": false,
+        "properties": {
+          "node": { "type": "string", "minLength": 1 },
+          "field": { "type": "string", "minLength": 1 },
+          "name": { "type": "string", "minLength": 1 },
+          "mime_type": { "type": "string", "minLength": 1 },
+          "primary": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

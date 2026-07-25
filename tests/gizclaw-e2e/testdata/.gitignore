@@ -3,6 +3,9 @@
 !resources/
 !resources/**/
 !resources/**/*.yaml
+!fixtures/
+!fixtures/social/
+!fixtures/social/*.yaml
 !assets/
 !assets/firmware/
 !assets/firmware/*.tar

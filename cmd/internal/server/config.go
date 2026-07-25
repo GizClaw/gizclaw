@@ -38,6 +38,7 @@ type Config struct {
 type AgentHostConfig struct {
 	RuntimeStore string                    `yaml:"runtime_store"`
 	Flowcraft    *AgentHostFlowcraftConfig `yaml:"flowcraft"`
+	Eino         *AgentHostEinoConfig      `yaml:"eino"`
 }
 
 // AgentHostFlowcraftConfig binds Flowcraft persistence capabilities to logical
@@ -46,6 +47,12 @@ type AgentHostFlowcraftConfig struct {
 	StateStore         string `yaml:"state_store"`
 	HistoryStore       string `yaml:"history_store"`
 	MemoryObjectsStore string `yaml:"memory_objects_store"`
+	MemoryStore        string `yaml:"memory_store"`
+}
+
+// AgentHostEinoConfig binds optional Eino capabilities to registry-owned Stores.
+type AgentHostEinoConfig struct {
+	MemoryStore string `yaml:"memory_store"`
 }
 
 type FriendsConfig struct{}
@@ -562,16 +569,24 @@ func validateAgentHostConfig(cfg *AgentHostConfig) error {
 	if err := validateStoreReference("agent_host.runtime_store", cfg.RuntimeStore); err != nil {
 		return err
 	}
-	if cfg.Flowcraft == nil {
+	if cfg.Flowcraft != nil {
+		if err := validateStoreReference("agent_host.flowcraft.state_store", cfg.Flowcraft.StateStore); err != nil {
+			return err
+		}
+		if err := validateStoreReference("agent_host.flowcraft.history_store", cfg.Flowcraft.HistoryStore); err != nil {
+			return err
+		}
+		if err := validateStoreReference("agent_host.flowcraft.memory_objects_store", cfg.Flowcraft.MemoryObjectsStore); err != nil {
+			return err
+		}
+		if err := validateStoreReference("agent_host.flowcraft.memory_store", cfg.Flowcraft.MemoryStore); err != nil {
+			return err
+		}
+	}
+	if cfg.Eino == nil {
 		return nil
 	}
-	if err := validateStoreReference("agent_host.flowcraft.state_store", cfg.Flowcraft.StateStore); err != nil {
-		return err
-	}
-	if err := validateStoreReference("agent_host.flowcraft.history_store", cfg.Flowcraft.HistoryStore); err != nil {
-		return err
-	}
-	return validateStoreReference("agent_host.flowcraft.memory_objects_store", cfg.Flowcraft.MemoryObjectsStore)
+	return validateStoreReference("agent_host.eino.memory_store", cfg.Eino.MemoryStore)
 }
 
 func validateStoreReference(path, value string) error {
@@ -703,7 +718,7 @@ func validateAgentHostConfigShape(value any) error {
 	}
 	for field := range agentHost {
 		switch field {
-		case "runtime_store", "flowcraft":
+		case "runtime_store", "flowcraft", "eino":
 		default:
 			return fmt.Errorf("server: agent_host has unknown field %q", field)
 		}
@@ -713,26 +728,38 @@ func validateAgentHostConfigShape(value any) error {
 			return err
 		}
 	}
-	flowcraftValue, exists := agentHost["flowcraft"]
-	if !exists {
-		return nil
-	}
-	flowcraft, ok := flowcraftValue.(map[string]any)
-	if !ok {
-		return fmt.Errorf("server: agent_host.flowcraft must be a mapping")
-	}
-	for field := range flowcraft {
-		switch field {
-		case "state_store", "history_store", "memory_objects_store":
-		default:
-			return fmt.Errorf("server: agent_host.flowcraft has unknown field %q", field)
+	if flowcraftValue, exists := agentHost["flowcraft"]; exists {
+		flowcraft, ok := flowcraftValue.(map[string]any)
+		if !ok {
+			return fmt.Errorf("server: agent_host.flowcraft must be a mapping")
+		}
+		for field := range flowcraft {
+			switch field {
+			case "state_store", "history_store", "memory_objects_store", "memory_store":
+			default:
+				return fmt.Errorf("server: agent_host.flowcraft has unknown field %q", field)
+			}
+		}
+		for _, field := range []string{"state_store", "history_store", "memory_objects_store", "memory_store"} {
+			if reference, exists := flowcraft[field]; exists {
+				if err := validateFileStoreReference("agent_host.flowcraft."+field, reference); err != nil {
+					return err
+				}
+			}
 		}
 	}
-	for _, field := range []string{"state_store", "history_store", "memory_objects_store"} {
-		if reference, exists := flowcraft[field]; exists {
-			if err := validateFileStoreReference("agent_host.flowcraft."+field, reference); err != nil {
-				return err
+	if einoValue, exists := agentHost["eino"]; exists {
+		eino, ok := einoValue.(map[string]any)
+		if !ok {
+			return fmt.Errorf("server: agent_host.eino must be a mapping")
+		}
+		for field := range eino {
+			if field != "memory_store" {
+				return fmt.Errorf("server: agent_host.eino has unknown field %q", field)
 			}
+		}
+		if reference, exists := eino["memory_store"]; exists {
+			return validateFileStoreReference("agent_host.eino.memory_store", reference)
 		}
 	}
 	return nil
@@ -850,8 +877,8 @@ func (cfg Config) ICEListenAddr() string {
 
 func parseConfigDuration(value string) (time.Duration, error) {
 	value = strings.TrimSpace(value)
-	if strings.HasSuffix(value, "d") {
-		days, err := time.ParseDuration(strings.TrimSuffix(value, "d") + "h")
+	if before, ok := strings.CutSuffix(value, "d"); ok {
+		days, err := time.ParseDuration(before + "h")
 		if err != nil {
 			return 0, err
 		}

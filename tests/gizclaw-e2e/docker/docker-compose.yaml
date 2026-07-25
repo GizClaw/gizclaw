@@ -1,4 +1,23 @@
 services:
+  mem0:
+    profiles: ["memory"]
+    build:
+      context: ../../..
+      dockerfile: tests/gizclaw-e2e/docker/Dockerfile.mem0
+    volumes:
+      - type: bind
+        source: ../.env
+        target: /run/gizclaw-e2e.env
+        read_only: true
+        bind:
+          create_host_path: false
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=1).read()"]
+      interval: 2s
+      timeout: 2s
+      retries: 60
+      start_period: 30s
+
   server:
     build:
       context: ../../..
@@ -13,6 +32,11 @@ services:
       GIZCLAW_E2E_TURN_USERNAME: ${GIZCLAW_E2E_TURN_USERNAME:?set by docker-compose-up.sh}
       GIZCLAW_E2E_TURN_CREDENTIAL: ${GIZCLAW_E2E_TURN_CREDENTIAL:?set by docker-compose-up.sh}
       GIZCLAW_E2E_SKIP_PROVIDER_SYNC: ${GIZCLAW_E2E_SKIP_PROVIDER_SYNC:-0}
+      GIZCLAW_E2E_MEMORY_STORES: ${GIZCLAW_E2E_MEMORY_STORES:-0}
+    depends_on:
+      mem0:
+        condition: service_healthy
+        required: false
     volumes:
       - type: bind
         source: ../.env

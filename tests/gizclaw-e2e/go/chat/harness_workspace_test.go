@@ -61,6 +61,15 @@ func TestWorkspaceCaseAppliesInputMode(t *testing.T) {
 	if got.Workspace != "demo-workflow-rt" {
 		t.Fatalf("realtime workspace = %q", got.Workspace)
 	}
+	got.workspaceSuffix = "retry-2"
+	got, err = workspaceCaseRealtimeRoundtrip.applyConfig(got)
+	if err != nil {
+		t.Fatalf("applyConfig(realtime retry) error = %v", err)
+	}
+	if got.Workspace != "demo-workflow-rt-retry-2" {
+		t.Fatalf("realtime retry workspace = %q", got.Workspace)
+	}
+	got.workspaceSuffix = ""
 	got, err = workspaceCaseRealtimeAutoSplit.applyConfig(got)
 	if err != nil {
 		t.Fatalf("applyConfig(realtime-auto-split-history) error = %v", err)
@@ -146,6 +155,14 @@ func TestWorkspaceNameForCaseFitsCustomIDLimit(t *testing.T) {
 	if len(name) > 48 {
 		t.Fatalf("workspace name length = %d, want <= 48: %q", len(name), name)
 	}
+	first := compactWorkspaceName("doubao-realtime-duplex-conversation-rt-run-61354-retry-2")
+	second := compactWorkspaceName("doubao-realtime-duplex-conversation-rt-run-61354-retry-3")
+	if len(first) > 48 {
+		t.Fatalf("retry workspace name length = %d, want <= 48: %q", len(first), first)
+	}
+	if first == second {
+		t.Fatalf("distinct retry names collided: %q", first)
+	}
 }
 
 func TestRealtimeAutoSplitHistoryReplayPolicy(t *testing.T) {
@@ -178,6 +195,19 @@ func TestRealtimeAutoSplitHistoryReplayPolicy(t *testing.T) {
 	}
 	if isRealtimeAutoSplitIgnoredEventError("other") {
 		t.Fatal("realtime auto split ignored a non-interrupt error")
+	}
+}
+
+func TestRealtimeConversationModeKeepsDashScopeOpusTransport(t *testing.T) {
+	mode := configureRealtimeConversationMode("dashscope-realtime", conversationMode{})
+	if !mode.Realtime {
+		t.Fatal("DashScope realtime mode is not realtime")
+	}
+	if mode.InputAudioMIME != "audio/opus" {
+		t.Fatalf("DashScope input audio MIME = %q, want raw Opus for transformer conversion", mode.InputAudioMIME)
+	}
+	if !mode.AllowSplitAssistantStreams || !mode.AllowMissingInputTranscript {
+		t.Fatalf("DashScope realtime allowances = %+v, want split streams and optional input transcript", mode)
 	}
 }
 
@@ -914,6 +944,16 @@ func TestSelectAndReloadAgentErrors(t *testing.T) {
 				t.Fatalf("selectAndReloadAgent() error = %v, want %q", err, tt.want)
 			}
 		})
+	}
+}
+
+func TestIsRetryableAgentReloadError(t *testing.T) {
+	t.Parallel()
+	if !isRetryableAgentReloadError(errors.New("dashscope: ServiceBusy - websocket dial failed (http_status=503)")) {
+		t.Fatal("DashScope transient connection failure was not retryable")
+	}
+	if isRetryableAgentReloadError(errors.New("invalid API key")) {
+		t.Fatal("credential failure was retryable")
 	}
 }
 

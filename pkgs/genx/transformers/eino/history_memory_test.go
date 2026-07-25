@@ -22,8 +22,9 @@ func TestHistoryAndMemoryUseStableScopesAndDeliveryOrder(t *testing.T) {
 	config := textConfig()
 	config.Agent.ContextID = "conversation-7"
 	config.History = &HistoryConfig{Store: history, Scope: "history-scope", Limit: 20}
+	memoryScope := memory.Scope{AppID: "app", UserID: "memory-scope", AgentID: "assistant"}
 	config.Memory = &MemoryConfig{
-		Store: memories, Scope: "memory-scope",
+		Store: memories, Scope: memoryScope,
 		Recall: []RecallDefinition{{
 			QueryFrom: "input.text", Output: "recalled", TopK: 2,
 		}},
@@ -98,14 +99,14 @@ func TestHistoryAndMemoryUseStableScopesAndDeliveryOrder(t *testing.T) {
 		t.Fatalf("Memory queries = %#v", memories.queries)
 	}
 	query := memories.queries[0]
-	if query.Scope != "memory-scope" || query.Text != "hello" || query.Limit != 2 {
+	if query.Scope != memoryScope || query.Text != "hello" || query.Limit != 2 {
 		t.Fatalf("Memory query = %#v", query)
 	}
 	if len(memories.observations) != 1 {
 		t.Fatalf("Memory observations = %#v", memories.observations)
 	}
 	observation := memories.observations[0]
-	if observation.Scope != "memory-scope" || observation.ID == "" || len(observation.Turns) != 2 {
+	if observation.Scope != memoryScope || observation.ID == "" || len(observation.Turns) != 2 {
 		t.Fatalf("Memory observation = %#v", observation)
 	}
 	if observation.Turns[0].Text != "hello" || observation.Turns[1].Text != "hello|- remembered" {
@@ -147,7 +148,7 @@ func TestMemoryWaitRequiresTerminalSuccess(t *testing.T) {
 				t.Fatalf("newRunState() error = %v", err)
 			}
 			err = observeMemory(t.Context(), &MemoryConfig{
-				Store: store, Scope: "scope",
+				Store: store, Scope: memory.Scope{AppID: "app"},
 				Observe: ObservePolicy{Enabled: true, WaitForCompletion: true},
 			}, state, "stream-1", "user", "assistant", false)
 			if test.wantErr == "" {
@@ -240,7 +241,7 @@ func (*waitingMemoryStore) Observe(
 
 func (store *waitingMemoryStore) Wait(
 	context.Context,
-	string,
+	memory.OperationRequest,
 ) (memory.ObserveResult, error) {
 	return store.waitResult, nil
 }

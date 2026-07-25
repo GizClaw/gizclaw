@@ -56,7 +56,7 @@ func TestNormalizeConfigRejectsAdversarialContracts(t *testing.T) {
 		{
 			name: "memory setting without store",
 			mutate: func(config *Config) {
-				config.MemoryScope = "scope"
+				config.MemoryScope = memory.Scope{AppID: "app"}
 			},
 			wantErr: "settings require Memory",
 		},
@@ -71,7 +71,7 @@ func TestNormalizeConfigRejectsAdversarialContracts(t *testing.T) {
 			name: "wait without observe",
 			mutate: func(config *Config) {
 				config.Memory = &waitingMemoryStore{}
-				config.MemoryScope = "scope"
+				config.MemoryScope = memory.Scope{AppID: "app"}
 				config.ObserveWaitForCompletion = true
 			},
 			wantErr: "requires ObserveEnabled",
@@ -80,7 +80,7 @@ func TestNormalizeConfigRejectsAdversarialContracts(t *testing.T) {
 			name: "wait without waiter",
 			mutate: func(config *Config) {
 				config.Memory = memoryOnlyStore{Store: &waitingMemoryStore{}}
-				config.MemoryScope = "scope"
+				config.MemoryScope = memory.Scope{AppID: "app"}
 				config.ObserveEnabled = true
 				config.ObserveWaitForCompletion = true
 			},
@@ -90,7 +90,7 @@ func TestNormalizeConfigRejectsAdversarialContracts(t *testing.T) {
 			name: "invalid recall profile",
 			mutate: func(config *Config) {
 				config.Memory = &waitingMemoryStore{}
-				config.MemoryScope = "scope"
+				config.MemoryScope = memory.Scope{AppID: "app"}
 				config.RecallProfiles = []MemoryRecallProfile{{BoardVariable: " ", Limit: 0}}
 			},
 			wantErr: "requires BoardVariable and positive Limit",
@@ -99,7 +99,7 @@ func TestNormalizeConfigRejectsAdversarialContracts(t *testing.T) {
 			name: "duplicate recall board variable",
 			mutate: func(config *Config) {
 				config.Memory = &waitingMemoryStore{}
-				config.MemoryScope = "scope"
+				config.MemoryScope = memory.Scope{AppID: "app"}
 				config.RecallProfiles = []MemoryRecallProfile{
 					{BoardVariable: "facts", Limit: 1},
 					{BoardVariable: " facts ", Limit: 2},
@@ -111,7 +111,7 @@ func TestNormalizeConfigRejectsAdversarialContracts(t *testing.T) {
 			name: "uncloneable recall filter",
 			mutate: func(config *Config) {
 				config.Memory = &waitingMemoryStore{}
-				config.MemoryScope = "scope"
+				config.MemoryScope = memory.Scope{AppID: "app"}
 				config.RecallProfiles = []MemoryRecallProfile{{
 					BoardVariable: "facts", Limit: 1,
 					Filters: []memory.Filter{{
@@ -125,7 +125,7 @@ func TestNormalizeConfigRejectsAdversarialContracts(t *testing.T) {
 			name: "invalid recall filter",
 			mutate: func(config *Config) {
 				config.Memory = &waitingMemoryStore{}
-				config.MemoryScope = "scope"
+				config.MemoryScope = memory.Scope{AppID: "app"}
 				config.RecallProfiles = []MemoryRecallProfile{{
 					BoardVariable: "facts", Limit: 1,
 					Filters: []memory.Filter{{

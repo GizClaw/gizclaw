@@ -170,13 +170,13 @@ func TestMatchesDescending(t *testing.T) {
 
 func TestAwaitObservationWaitsForTerminalResult(t *testing.T) {
 	t.Parallel()
-	store := &waitingStore{wait: func(context.Context, string) (memorystore.ObserveResult, error) {
+	store := &waitingStore{wait: func(context.Context, memorystore.OperationRequest) (memorystore.ObserveResult, error) {
 		return memorystore.ObserveResult{
 			Facts:     []memorystore.Fact{{ID: "fact"}},
 			Operation: &memorystore.Operation{ID: "operation", Status: memorystore.OperationSucceeded},
 		}, nil
 	}}
-	result, err := awaitObservation(context.Background(), store, memorystore.ObserveResult{
+	result, err := awaitObservation(context.Background(), store, memorystore.Scope{AppID: "test"}, memorystore.ObserveResult{
 		Operation: &memorystore.Operation{ID: "operation", Status: memorystore.OperationPending},
 	})
 	if err != nil || len(result.Facts) != 1 || store.waitCalls != 1 {
@@ -186,12 +186,12 @@ func TestAwaitObservationWaitsForTerminalResult(t *testing.T) {
 
 func TestAwaitObservationReturnsOperationFailure(t *testing.T) {
 	t.Parallel()
-	store := &waitingStore{wait: func(context.Context, string) (memorystore.ObserveResult, error) {
+	store := &waitingStore{wait: func(context.Context, memorystore.OperationRequest) (memorystore.ObserveResult, error) {
 		return memorystore.ObserveResult{
 			Operation: &memorystore.Operation{ID: "operation", Status: memorystore.OperationFailed, Error: "extract failed"},
 		}, nil
 	}}
-	_, err := awaitObservation(context.Background(), store, memorystore.ObserveResult{
+	_, err := awaitObservation(context.Background(), store, memorystore.Scope{AppID: "test"}, memorystore.ObserveResult{
 		Operation: &memorystore.Operation{ID: "operation", Status: memorystore.OperationPending},
 	})
 	if err == nil || !strings.Contains(err.Error(), "extract failed") {
@@ -203,10 +203,10 @@ func TestAwaitObservationHonorsCancellation(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	store := &waitingStore{wait: func(ctx context.Context, _ string) (memorystore.ObserveResult, error) {
+	store := &waitingStore{wait: func(ctx context.Context, _ memorystore.OperationRequest) (memorystore.ObserveResult, error) {
 		return memorystore.ObserveResult{}, ctx.Err()
 	}}
-	_, err := awaitObservation(ctx, store, memorystore.ObserveResult{
+	_, err := awaitObservation(ctx, store, memorystore.Scope{AppID: "test"}, memorystore.ObserveResult{
 		Operation: &memorystore.Operation{ID: "operation", Status: memorystore.OperationPending},
 	})
 	if !errors.Is(err, context.Canceled) {
@@ -217,11 +217,12 @@ func TestAwaitObservationHonorsCancellation(t *testing.T) {
 func TestRunQuestionReportsRecallAndAnswerFailures(t *testing.T) {
 	t.Parallel()
 	question := benchmarkQuestion{ID: "question", ConversationID: "conversation", Query: "drink?", GoldAnswers: []string{"tea"}}
-	recallFailure := runQuestion(context.Background(), &failingRecallStore{}, staticAnswerer("tea"), "scope", question, 1, time.Second)
+	scope := memorystore.Scope{AppID: "test"}
+	recallFailure := runQuestion(context.Background(), &failingRecallStore{}, staticAnswerer("tea"), scope, question, 1, time.Second)
 	if !strings.Contains(recallFailure.Error, "recall failed") {
 		t.Fatalf("recall result=%+v", recallFailure)
 	}
-	answerFailure := runQuestion(context.Background(), &recordingStore{}, errorAnswerer{}, "scope", question, 1, time.Second)
+	answerFailure := runQuestion(context.Background(), &recordingStore{}, errorAnswerer{}, scope, question, 1, time.Second)
 	if !strings.Contains(answerFailure.Error, "answer failed") {
 		t.Fatalf("answer result=%+v", answerFailure)
 	}
@@ -230,7 +231,7 @@ func TestRunQuestionReportsRecallAndAnswerFailures(t *testing.T) {
 func TestRunQuestionHandlesEmptyMatches(t *testing.T) {
 	t.Parallel()
 	question := benchmarkQuestion{ID: "question", ConversationID: "conversation", Query: "drink?", GoldAnswers: []string{"tea"}}
-	result := runQuestion(context.Background(), &emptyRecallStore{}, staticAnswerer("unknown"), "scope", question, 1, time.Second)
+	result := runQuestion(context.Background(), &emptyRecallStore{}, staticAnswerer("unknown"), memorystore.Scope{AppID: "test"}, question, 1, time.Second)
 	if result.Error != "" || result.EvidenceHit != nil || len(result.Recalled) != 0 || result.F1 != 0 {
 		t.Fatalf("result=%+v", result)
 	}
@@ -303,7 +304,7 @@ func TestSessionObservationsPreserveEvidenceIDs(t *testing.T) {
 		{Role: "assistant", Speaker: "Gina", Content: "hi", EvidenceID: "dia-2", SessionID: "session-1", ObservedAt: observedAt},
 		{Role: "user", Speaker: "Jon", Content: "later", EvidenceID: "dia-3", SessionID: "session-2", ObservedAt: observedAt.Add(time.Hour)},
 	}}
-	observations := sessionObservations("scope", conversation)
+	observations := sessionObservations(memorystore.Scope{AppID: "test"}, conversation)
 	if len(observations) != 2 || observations[0].ID != "session-1" || !observations[0].ObservedAt.Equal(observedAt) || len(observations[0].Turns) != 2 || observations[0].Turns[0].ID != "dia-1" || observations[0].Turns[0].Speaker != "Jon" || !observations[0].Turns[0].ObservedAt.Equal(observedAt) || observations[1].Turns[0].ID != "dia-3" {
 		t.Fatalf("observations=%+v", observations)
 	}
@@ -336,7 +337,7 @@ func TestRunBenchmarkUsesConversationSpecificScopes(t *testing.T) {
 
 func TestAwaitObservationRequiresWaiter(t *testing.T) {
 	t.Parallel()
-	_, err := awaitObservation(context.Background(), &recordingStore{}, memorystore.ObserveResult{
+	_, err := awaitObservation(context.Background(), &recordingStore{}, memorystore.Scope{AppID: "test"}, memorystore.ObserveResult{
 		Operation: &memorystore.Operation{ID: "pending", Status: memorystore.OperationPending},
 	})
 	if err == nil || !strings.Contains(err.Error(), "OperationWaiter") {
@@ -363,13 +364,13 @@ type emptyObservationStore struct {
 
 type waitingStore struct {
 	recordingStore
-	wait      func(context.Context, string) (memorystore.ObserveResult, error)
+	wait      func(context.Context, memorystore.OperationRequest) (memorystore.ObserveResult, error)
 	waitCalls int
 }
 
-func (s *waitingStore) Wait(ctx context.Context, operationID string) (memorystore.ObserveResult, error) {
+func (s *waitingStore) Wait(ctx context.Context, request memorystore.OperationRequest) (memorystore.ObserveResult, error) {
 	s.waitCalls++
-	return s.wait(ctx, operationID)
+	return s.wait(ctx, request)
 }
 
 type failingRecallStore struct {

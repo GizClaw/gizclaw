@@ -954,6 +954,138 @@ void main() {
     expect(doubao.input, WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK);
   });
 
+  test('creates typed defaults for every newly supported voice workspace', () {
+    final dash = newWorkspaceParametersForDriver(
+      WorkflowDriverKind.dashScopeRealtime,
+    ).dashScopeRealtimeWorkspaceParameters;
+    expect(
+      dash.agentType,
+      DashScopeRealtimeWorkspaceParametersAgentType
+          .DASH_SCOPE_REALTIME_WORKSPACE_PARAMETERS_AGENT_TYPE_DASH_SCOPE_REALTIME,
+    );
+
+    final duplex = newWorkspaceParametersForDriver(
+      WorkflowDriverKind.doubaoRealtimeDuplex,
+    ).doubaoRealtimeDuplexWorkspaceParameters;
+    expect(
+      duplex.agentType,
+      DoubaoRealtimeDuplexWorkspaceParametersAgentType
+          .DOUBAO_REALTIME_DUPLEX_WORKSPACE_PARAMETERS_AGENT_TYPE_DOUBAO_REALTIME_DUPLEX,
+    );
+  });
+
+  test('treats new speech workspaces as inherently realtime', () {
+    final dash = Workspace(
+      parameters: WorkspaceParameters(
+        dashScopeRealtimeWorkspaceParameters: DashScopeRealtimeWorkspaceParameters(
+          agentType: DashScopeRealtimeWorkspaceParametersAgentType
+              .DASH_SCOPE_REALTIME_WORKSPACE_PARAMETERS_AGENT_TYPE_DASH_SCOPE_REALTIME,
+        ),
+      ),
+    );
+    expect(
+      workspaceInputModeForTest(dash),
+      WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME,
+    );
+
+    final duplex = Workspace(
+      parameters: WorkspaceParameters(
+        doubaoRealtimeDuplexWorkspaceParameters:
+            DoubaoRealtimeDuplexWorkspaceParameters(
+              agentType: DoubaoRealtimeDuplexWorkspaceParametersAgentType
+                  .DOUBAO_REALTIME_DUPLEX_WORKSPACE_PARAMETERS_AGENT_TYPE_DOUBAO_REALTIME_DUPLEX,
+            ),
+      ),
+    );
+    expect(
+      workspaceInputModeForTest(duplex),
+      WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME,
+    );
+  });
+
+  test('repairs parameterless new realtime workspaces', () {
+    for (final driver in [
+      WorkflowDriverKind.dashScopeRealtime,
+      WorkflowDriverKind.doubaoRealtimeDuplex,
+    ]) {
+      final repaired = workspaceWithDefaultInputParameters(
+        Workspace(name: '${driver.routeKey}-workspace'),
+        driver,
+      );
+      expect(repaired, isNotNull, reason: driver.routeKey);
+      expect(
+        workspaceInputModeForTest(repaired),
+        WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME,
+        reason: driver.routeKey,
+      );
+    }
+  });
+
+  test('preserves configured fixed realtime workspace overrides', () {
+    final dash = Workspace(
+      parameters: WorkspaceParameters(
+        dashScopeRealtimeWorkspaceParameters: DashScopeRealtimeWorkspaceParameters(
+          agentType: DashScopeRealtimeWorkspaceParametersAgentType
+              .DASH_SCOPE_REALTIME_WORKSPACE_PARAMETERS_AGENT_TYPE_DASH_SCOPE_REALTIME,
+          model: 'dash-model',
+          voice: 'dash-voice',
+          instructions: 'dash instructions',
+        ),
+      ),
+    );
+    expect(
+      workspaceWithDefaultInputParameters(
+        dash,
+        WorkflowDriverKind.dashScopeRealtime,
+      ),
+      isNull,
+    );
+    expect(
+      dash.parameters.dashScopeRealtimeWorkspaceParameters.model,
+      'dash-model',
+    );
+    expect(
+      dash.parameters.dashScopeRealtimeWorkspaceParameters.voice,
+      'dash-voice',
+    );
+    expect(
+      dash.parameters.dashScopeRealtimeWorkspaceParameters.instructions,
+      'dash instructions',
+    );
+
+    final duplex = Workspace(
+      parameters: WorkspaceParameters(
+        doubaoRealtimeDuplexWorkspaceParameters:
+            DoubaoRealtimeDuplexWorkspaceParameters(
+              agentType: DoubaoRealtimeDuplexWorkspaceParametersAgentType
+                  .DOUBAO_REALTIME_DUPLEX_WORKSPACE_PARAMETERS_AGENT_TYPE_DOUBAO_REALTIME_DUPLEX,
+              model: 'duplex-model',
+              voice: 'duplex-voice',
+              instructions: 'duplex instructions',
+            ),
+      ),
+    );
+    expect(
+      workspaceWithDefaultInputParameters(
+        duplex,
+        WorkflowDriverKind.doubaoRealtimeDuplex,
+      ),
+      isNull,
+    );
+    expect(
+      duplex.parameters.doubaoRealtimeDuplexWorkspaceParameters.model,
+      'duplex-model',
+    );
+    expect(
+      duplex.parameters.doubaoRealtimeDuplexWorkspaceParameters.voice,
+      'duplex-voice',
+    );
+    expect(
+      duplex.parameters.doubaoRealtimeDuplexWorkspaceParameters.instructions,
+      'duplex instructions',
+    );
+  });
+
   test('keeps FlowCraft model aliases in the workflow', () {
     final defaults = newWorkspaceParametersForDriver(
       WorkflowDriverKind.flowcraft,

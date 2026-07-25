@@ -88,6 +88,16 @@ func (c Config) normalized() Config {
 	return c
 }
 
-func nativeScope(scope scope) recall.Scope {
-	return recall.Scope{RuntimeID: "gizclaw", UserID: string(scope)}
+func nativeScope(input scope) (recall.Scope, error) {
+	input.AppID = strings.TrimSpace(input.AppID)
+	input.UserID = strings.TrimSpace(input.UserID)
+	input.AgentID = strings.TrimSpace(input.AgentID)
+	input.RunID = strings.TrimSpace(input.RunID)
+	if input.AppID == "" {
+		return recall.Scope{}, fmt.Errorf("%w: flowcraft memory app id is required", errInvalidInput)
+	}
+	if input.RunID != "" {
+		return recall.Scope{}, fmt.Errorf("%w: flowcraft memory does not support run id", errUnsupported)
+	}
+	return recall.Scope{RuntimeID: input.AppID, UserID: input.UserID, AgentID: input.AgentID}, nil
 }

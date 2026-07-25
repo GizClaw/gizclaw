@@ -147,6 +147,255 @@ func (e CredentialResourceKind) Valid() bool {
 	}
 }
 
+// Defines values for DashScopeRealtimeOptionsInputAudioFormat.
+const (
+	DashScopeRealtimeOptionsInputAudioFormatMp3   DashScopeRealtimeOptionsInputAudioFormat = "mp3"
+	DashScopeRealtimeOptionsInputAudioFormatPcm16 DashScopeRealtimeOptionsInputAudioFormat = "pcm16"
+	DashScopeRealtimeOptionsInputAudioFormatWav   DashScopeRealtimeOptionsInputAudioFormat = "wav"
+)
+
+// Valid indicates whether the value is a known member of the DashScopeRealtimeOptionsInputAudioFormat enum.
+func (e DashScopeRealtimeOptionsInputAudioFormat) Valid() bool {
+	switch e {
+	case DashScopeRealtimeOptionsInputAudioFormatMp3:
+		return true
+	case DashScopeRealtimeOptionsInputAudioFormatPcm16:
+		return true
+	case DashScopeRealtimeOptionsInputAudioFormatWav:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DashScopeRealtimeOptionsModalities.
+const (
+	DashScopeRealtimeOptionsModalitiesAudio DashScopeRealtimeOptionsModalities = "audio"
+	DashScopeRealtimeOptionsModalitiesText  DashScopeRealtimeOptionsModalities = "text"
+)
+
+// Valid indicates whether the value is a known member of the DashScopeRealtimeOptionsModalities enum.
+func (e DashScopeRealtimeOptionsModalities) Valid() bool {
+	switch e {
+	case DashScopeRealtimeOptionsModalitiesAudio:
+		return true
+	case DashScopeRealtimeOptionsModalitiesText:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DashScopeRealtimeOptionsOutputAudioFormat.
+const (
+	DashScopeRealtimeOptionsOutputAudioFormatMp3   DashScopeRealtimeOptionsOutputAudioFormat = "mp3"
+	DashScopeRealtimeOptionsOutputAudioFormatPcm16 DashScopeRealtimeOptionsOutputAudioFormat = "pcm16"
+	DashScopeRealtimeOptionsOutputAudioFormatWav   DashScopeRealtimeOptionsOutputAudioFormat = "wav"
+)
+
+// Valid indicates whether the value is a known member of the DashScopeRealtimeOptionsOutputAudioFormat enum.
+func (e DashScopeRealtimeOptionsOutputAudioFormat) Valid() bool {
+	switch e {
+	case DashScopeRealtimeOptionsOutputAudioFormatMp3:
+		return true
+	case DashScopeRealtimeOptionsOutputAudioFormatPcm16:
+		return true
+	case DashScopeRealtimeOptionsOutputAudioFormatWav:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DashScopeRealtimeOptionsVad.
+const (
+	DashScopeRealtimeOptionsVadDisabled  DashScopeRealtimeOptionsVad = "disabled"
+	DashScopeRealtimeOptionsVadServerVad DashScopeRealtimeOptionsVad = "server_vad"
+)
+
+// Valid indicates whether the value is a known member of the DashScopeRealtimeOptionsVad enum.
+func (e DashScopeRealtimeOptionsVad) Valid() bool {
+	switch e {
+	case DashScopeRealtimeOptionsVadDisabled:
+		return true
+	case DashScopeRealtimeOptionsVadServerVad:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DashScopeRealtimeWorkflowSpecInputAudioFormat.
+const (
+	DashScopeRealtimeWorkflowSpecInputAudioFormatMp3   DashScopeRealtimeWorkflowSpecInputAudioFormat = "mp3"
+	DashScopeRealtimeWorkflowSpecInputAudioFormatPcm16 DashScopeRealtimeWorkflowSpecInputAudioFormat = "pcm16"
+	DashScopeRealtimeWorkflowSpecInputAudioFormatWav   DashScopeRealtimeWorkflowSpecInputAudioFormat = "wav"
+)
+
+// Valid indicates whether the value is a known member of the DashScopeRealtimeWorkflowSpecInputAudioFormat enum.
+func (e DashScopeRealtimeWorkflowSpecInputAudioFormat) Valid() bool {
+	switch e {
+	case DashScopeRealtimeWorkflowSpecInputAudioFormatMp3:
+		return true
+	case DashScopeRealtimeWorkflowSpecInputAudioFormatPcm16:
+		return true
+	case DashScopeRealtimeWorkflowSpecInputAudioFormatWav:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DashScopeRealtimeWorkflowSpecModalities.
+const (
+	DashScopeRealtimeWorkflowSpecModalitiesAudio DashScopeRealtimeWorkflowSpecModalities = "audio"
+	DashScopeRealtimeWorkflowSpecModalitiesText  DashScopeRealtimeWorkflowSpecModalities = "text"
+)
+
+// Valid indicates whether the value is a known member of the DashScopeRealtimeWorkflowSpecModalities enum.
+func (e DashScopeRealtimeWorkflowSpecModalities) Valid() bool {
+	switch e {
+	case DashScopeRealtimeWorkflowSpecModalitiesAudio:
+		return true
+	case DashScopeRealtimeWorkflowSpecModalitiesText:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DashScopeRealtimeWorkflowSpecOutputAudioFormat.
+const (
+	DashScopeRealtimeWorkflowSpecOutputAudioFormatMp3   DashScopeRealtimeWorkflowSpecOutputAudioFormat = "mp3"
+	DashScopeRealtimeWorkflowSpecOutputAudioFormatPcm16 DashScopeRealtimeWorkflowSpecOutputAudioFormat = "pcm16"
+	DashScopeRealtimeWorkflowSpecOutputAudioFormatWav   DashScopeRealtimeWorkflowSpecOutputAudioFormat = "wav"
+)
+
+// Valid indicates whether the value is a known member of the DashScopeRealtimeWorkflowSpecOutputAudioFormat enum.
+func (e DashScopeRealtimeWorkflowSpecOutputAudioFormat) Valid() bool {
+	switch e {
+	case DashScopeRealtimeWorkflowSpecOutputAudioFormatMp3:
+		return true
+	case DashScopeRealtimeWorkflowSpecOutputAudioFormatPcm16:
+		return true
+	case DashScopeRealtimeWorkflowSpecOutputAudioFormatWav:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DashScopeRealtimeWorkflowSpecVad.
+const (
+	DashScopeRealtimeWorkflowSpecVadDisabled  DashScopeRealtimeWorkflowSpecVad = "disabled"
+	DashScopeRealtimeWorkflowSpecVadServerVad DashScopeRealtimeWorkflowSpecVad = "server_vad"
+)
+
+// Valid indicates whether the value is a known member of the DashScopeRealtimeWorkflowSpecVad enum.
+func (e DashScopeRealtimeWorkflowSpecVad) Valid() bool {
+	switch e {
+	case DashScopeRealtimeWorkflowSpecVadDisabled:
+		return true
+	case DashScopeRealtimeWorkflowSpecVadServerVad:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DashScopeRealtimeWorkspaceParametersAgentType.
+const (
+	DashScopeRealtimeWorkspaceParametersAgentTypeDashscopeRealtime DashScopeRealtimeWorkspaceParametersAgentType = "dashscope-realtime"
+)
+
+// Valid indicates whether the value is a known member of the DashScopeRealtimeWorkspaceParametersAgentType enum.
+func (e DashScopeRealtimeWorkspaceParametersAgentType) Valid() bool {
+	switch e {
+	case DashScopeRealtimeWorkspaceParametersAgentTypeDashscopeRealtime:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DashScopeRealtimeWorkspaceParametersInputAudioFormat.
+const (
+	DashScopeRealtimeWorkspaceParametersInputAudioFormatMp3   DashScopeRealtimeWorkspaceParametersInputAudioFormat = "mp3"
+	DashScopeRealtimeWorkspaceParametersInputAudioFormatPcm16 DashScopeRealtimeWorkspaceParametersInputAudioFormat = "pcm16"
+	DashScopeRealtimeWorkspaceParametersInputAudioFormatWav   DashScopeRealtimeWorkspaceParametersInputAudioFormat = "wav"
+)
+
+// Valid indicates whether the value is a known member of the DashScopeRealtimeWorkspaceParametersInputAudioFormat enum.
+func (e DashScopeRealtimeWorkspaceParametersInputAudioFormat) Valid() bool {
+	switch e {
+	case DashScopeRealtimeWorkspaceParametersInputAudioFormatMp3:
+		return true
+	case DashScopeRealtimeWorkspaceParametersInputAudioFormatPcm16:
+		return true
+	case DashScopeRealtimeWorkspaceParametersInputAudioFormatWav:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DashScopeRealtimeWorkspaceParametersModalities.
+const (
+	DashScopeRealtimeWorkspaceParametersModalitiesAudio DashScopeRealtimeWorkspaceParametersModalities = "audio"
+	DashScopeRealtimeWorkspaceParametersModalitiesText  DashScopeRealtimeWorkspaceParametersModalities = "text"
+)
+
+// Valid indicates whether the value is a known member of the DashScopeRealtimeWorkspaceParametersModalities enum.
+func (e DashScopeRealtimeWorkspaceParametersModalities) Valid() bool {
+	switch e {
+	case DashScopeRealtimeWorkspaceParametersModalitiesAudio:
+		return true
+	case DashScopeRealtimeWorkspaceParametersModalitiesText:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DashScopeRealtimeWorkspaceParametersOutputAudioFormat.
+const (
+	DashScopeRealtimeWorkspaceParametersOutputAudioFormatMp3   DashScopeRealtimeWorkspaceParametersOutputAudioFormat = "mp3"
+	DashScopeRealtimeWorkspaceParametersOutputAudioFormatPcm16 DashScopeRealtimeWorkspaceParametersOutputAudioFormat = "pcm16"
+	DashScopeRealtimeWorkspaceParametersOutputAudioFormatWav   DashScopeRealtimeWorkspaceParametersOutputAudioFormat = "wav"
+)
+
+// Valid indicates whether the value is a known member of the DashScopeRealtimeWorkspaceParametersOutputAudioFormat enum.
+func (e DashScopeRealtimeWorkspaceParametersOutputAudioFormat) Valid() bool {
+	switch e {
+	case DashScopeRealtimeWorkspaceParametersOutputAudioFormatMp3:
+		return true
+	case DashScopeRealtimeWorkspaceParametersOutputAudioFormatPcm16:
+		return true
+	case DashScopeRealtimeWorkspaceParametersOutputAudioFormatWav:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DashScopeRealtimeWorkspaceParametersVad.
+const (
+	DashScopeRealtimeWorkspaceParametersVadDisabled  DashScopeRealtimeWorkspaceParametersVad = "disabled"
+	DashScopeRealtimeWorkspaceParametersVadServerVad DashScopeRealtimeWorkspaceParametersVad = "server_vad"
+)
+
+// Valid indicates whether the value is a known member of the DashScopeRealtimeWorkspaceParametersVad enum.
+func (e DashScopeRealtimeWorkspaceParametersVad) Valid() bool {
+	switch e {
+	case DashScopeRealtimeWorkspaceParametersVadDisabled:
+		return true
+	case DashScopeRealtimeWorkspaceParametersVadServerVad:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DashScopeTenantModelProviderDataApiMode.
 const (
 	DashScopeTenantModelProviderDataApiModeChatCompletions DashScopeTenantModelProviderDataApiMode = "chat_completions"
@@ -255,6 +504,156 @@ func (e DoubaoRealtimeDialogExtraVolcWebsearchType) Valid() bool {
 	}
 }
 
+// Defines values for DoubaoRealtimeDuplexOptionsFormat.
+const (
+	DoubaoRealtimeDuplexOptionsFormatOggOpus DoubaoRealtimeDuplexOptionsFormat = "ogg_opus"
+)
+
+// Valid indicates whether the value is a known member of the DoubaoRealtimeDuplexOptionsFormat enum.
+func (e DoubaoRealtimeDuplexOptionsFormat) Valid() bool {
+	switch e {
+	case DoubaoRealtimeDuplexOptionsFormatOggOpus:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DoubaoRealtimeDuplexOptionsInputFormat.
+const (
+	DoubaoRealtimeDuplexOptionsInputFormatSpeechOpus DoubaoRealtimeDuplexOptionsInputFormat = "speech_opus"
+)
+
+// Valid indicates whether the value is a known member of the DoubaoRealtimeDuplexOptionsInputFormat enum.
+func (e DoubaoRealtimeDuplexOptionsInputFormat) Valid() bool {
+	switch e {
+	case DoubaoRealtimeDuplexOptionsInputFormatSpeechOpus:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DoubaoRealtimeDuplexOptionsSampleRate.
+const (
+	DoubaoRealtimeDuplexOptionsSampleRateN24000 DoubaoRealtimeDuplexOptionsSampleRate = 24000
+)
+
+// Valid indicates whether the value is a known member of the DoubaoRealtimeDuplexOptionsSampleRate enum.
+func (e DoubaoRealtimeDuplexOptionsSampleRate) Valid() bool {
+	switch e {
+	case DoubaoRealtimeDuplexOptionsSampleRateN24000:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DoubaoRealtimeDuplexWorkflowSpecFormat.
+const (
+	DoubaoRealtimeDuplexWorkflowSpecFormatOggOpus DoubaoRealtimeDuplexWorkflowSpecFormat = "ogg_opus"
+)
+
+// Valid indicates whether the value is a known member of the DoubaoRealtimeDuplexWorkflowSpecFormat enum.
+func (e DoubaoRealtimeDuplexWorkflowSpecFormat) Valid() bool {
+	switch e {
+	case DoubaoRealtimeDuplexWorkflowSpecFormatOggOpus:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DoubaoRealtimeDuplexWorkflowSpecInputFormat.
+const (
+	DoubaoRealtimeDuplexWorkflowSpecInputFormatSpeechOpus DoubaoRealtimeDuplexWorkflowSpecInputFormat = "speech_opus"
+)
+
+// Valid indicates whether the value is a known member of the DoubaoRealtimeDuplexWorkflowSpecInputFormat enum.
+func (e DoubaoRealtimeDuplexWorkflowSpecInputFormat) Valid() bool {
+	switch e {
+	case DoubaoRealtimeDuplexWorkflowSpecInputFormatSpeechOpus:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DoubaoRealtimeDuplexWorkflowSpecSampleRate.
+const (
+	DoubaoRealtimeDuplexWorkflowSpecSampleRateN24000 DoubaoRealtimeDuplexWorkflowSpecSampleRate = 24000
+)
+
+// Valid indicates whether the value is a known member of the DoubaoRealtimeDuplexWorkflowSpecSampleRate enum.
+func (e DoubaoRealtimeDuplexWorkflowSpecSampleRate) Valid() bool {
+	switch e {
+	case DoubaoRealtimeDuplexWorkflowSpecSampleRateN24000:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DoubaoRealtimeDuplexWorkspaceParametersAgentType.
+const (
+	DoubaoRealtimeDuplexWorkspaceParametersAgentTypeDoubaoRealtimeDuplex DoubaoRealtimeDuplexWorkspaceParametersAgentType = "doubao-realtime-duplex"
+)
+
+// Valid indicates whether the value is a known member of the DoubaoRealtimeDuplexWorkspaceParametersAgentType enum.
+func (e DoubaoRealtimeDuplexWorkspaceParametersAgentType) Valid() bool {
+	switch e {
+	case DoubaoRealtimeDuplexWorkspaceParametersAgentTypeDoubaoRealtimeDuplex:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DoubaoRealtimeDuplexWorkspaceParametersFormat.
+const (
+	DoubaoRealtimeDuplexWorkspaceParametersFormatOggOpus DoubaoRealtimeDuplexWorkspaceParametersFormat = "ogg_opus"
+)
+
+// Valid indicates whether the value is a known member of the DoubaoRealtimeDuplexWorkspaceParametersFormat enum.
+func (e DoubaoRealtimeDuplexWorkspaceParametersFormat) Valid() bool {
+	switch e {
+	case DoubaoRealtimeDuplexWorkspaceParametersFormatOggOpus:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DoubaoRealtimeDuplexWorkspaceParametersInputFormat.
+const (
+	DoubaoRealtimeDuplexWorkspaceParametersInputFormatSpeechOpus DoubaoRealtimeDuplexWorkspaceParametersInputFormat = "speech_opus"
+)
+
+// Valid indicates whether the value is a known member of the DoubaoRealtimeDuplexWorkspaceParametersInputFormat enum.
+func (e DoubaoRealtimeDuplexWorkspaceParametersInputFormat) Valid() bool {
+	switch e {
+	case DoubaoRealtimeDuplexWorkspaceParametersInputFormatSpeechOpus:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DoubaoRealtimeDuplexWorkspaceParametersSampleRate.
+const (
+	DoubaoRealtimeDuplexWorkspaceParametersSampleRateN24000 DoubaoRealtimeDuplexWorkspaceParametersSampleRate = 24000
+)
+
+// Valid indicates whether the value is a known member of the DoubaoRealtimeDuplexWorkspaceParametersSampleRate enum.
+func (e DoubaoRealtimeDuplexWorkspaceParametersSampleRate) Valid() bool {
+	switch e {
+	case DoubaoRealtimeDuplexWorkspaceParametersSampleRateN24000:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DoubaoRealtimeFunctionToolType.
 const (
 	DoubaoRealtimeFunctionToolTypeFunction DoubaoRealtimeFunctionToolType = "function"
@@ -279,6 +678,402 @@ const (
 func (e DoubaoRealtimeWorkspaceParametersAgentType) Valid() bool {
 	switch e {
 	case DoubaoRealtimeWorkspaceParametersAgentTypeDoubaoRealtime:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EinoBatchNodeType.
+const (
+	EinoBatchNodeTypeBatch EinoBatchNodeType = "batch"
+)
+
+// Valid indicates whether the value is a known member of the EinoBatchNodeType enum.
+func (e EinoBatchNodeType) Valid() bool {
+	switch e {
+	case EinoBatchNodeTypeBatch:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EinoBranchMode.
+const (
+	EinoBranchModeAllMatch   EinoBranchMode = "all_match"
+	EinoBranchModeFirstMatch EinoBranchMode = "first_match"
+)
+
+// Valid indicates whether the value is a known member of the EinoBranchMode enum.
+func (e EinoBranchMode) Valid() bool {
+	switch e {
+	case EinoBranchModeAllMatch:
+		return true
+	case EinoBranchModeFirstMatch:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EinoChatModelNodeType.
+const (
+	EinoChatModelNodeTypeChatModel EinoChatModelNodeType = "chat_model"
+)
+
+// Valid indicates whether the value is a known member of the EinoChatModelNodeType enum.
+func (e EinoChatModelNodeType) Valid() bool {
+	switch e {
+	case EinoChatModelNodeTypeChatModel:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EinoGraphCompileNodeTriggerMode.
+const (
+	EinoGraphCompileNodeTriggerModeAllPredecessor EinoGraphCompileNodeTriggerMode = "all_predecessor"
+	EinoGraphCompileNodeTriggerModeAnyPredecessor EinoGraphCompileNodeTriggerMode = "any_predecessor"
+)
+
+// Valid indicates whether the value is a known member of the EinoGraphCompileNodeTriggerMode enum.
+func (e EinoGraphCompileNodeTriggerMode) Valid() bool {
+	switch e {
+	case EinoGraphCompileNodeTriggerModeAllPredecessor:
+		return true
+	case EinoGraphCompileNodeTriggerModeAnyPredecessor:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EinoPassthroughNodeType.
+const (
+	EinoPassthroughNodeTypePassthrough EinoPassthroughNodeType = "passthrough"
+)
+
+// Valid indicates whether the value is a known member of the EinoPassthroughNodeType enum.
+func (e EinoPassthroughNodeType) Valid() bool {
+	switch e {
+	case EinoPassthroughNodeTypePassthrough:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EinoPredicateOp.
+const (
+	EinoPredicateOpContains    EinoPredicateOp = "contains"
+	EinoPredicateOpEq          EinoPredicateOp = "eq"
+	EinoPredicateOpExists      EinoPredicateOp = "exists"
+	EinoPredicateOpGt          EinoPredicateOp = "gt"
+	EinoPredicateOpGte         EinoPredicateOp = "gte"
+	EinoPredicateOpLt          EinoPredicateOp = "lt"
+	EinoPredicateOpLte         EinoPredicateOp = "lte"
+	EinoPredicateOpNe          EinoPredicateOp = "ne"
+	EinoPredicateOpNotContains EinoPredicateOp = "not_contains"
+	EinoPredicateOpNotExists   EinoPredicateOp = "not_exists"
+)
+
+// Valid indicates whether the value is a known member of the EinoPredicateOp enum.
+func (e EinoPredicateOp) Valid() bool {
+	switch e {
+	case EinoPredicateOpContains:
+		return true
+	case EinoPredicateOpEq:
+		return true
+	case EinoPredicateOpExists:
+		return true
+	case EinoPredicateOpGt:
+		return true
+	case EinoPredicateOpGte:
+		return true
+	case EinoPredicateOpLt:
+		return true
+	case EinoPredicateOpLte:
+		return true
+	case EinoPredicateOpNe:
+		return true
+	case EinoPredicateOpNotContains:
+		return true
+	case EinoPredicateOpNotExists:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EinoPromptMessageRole.
+const (
+	EinoPromptMessageRoleAssistant EinoPromptMessageRole = "assistant"
+	EinoPromptMessageRoleSystem    EinoPromptMessageRole = "system"
+	EinoPromptMessageRoleUser      EinoPromptMessageRole = "user"
+)
+
+// Valid indicates whether the value is a known member of the EinoPromptMessageRole enum.
+func (e EinoPromptMessageRole) Valid() bool {
+	switch e {
+	case EinoPromptMessageRoleAssistant:
+		return true
+	case EinoPromptMessageRoleSystem:
+		return true
+	case EinoPromptMessageRoleUser:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EinoPromptNodeFormat.
+const (
+	EinoPromptNodeFormatFString    EinoPromptNodeFormat = "f_string"
+	EinoPromptNodeFormatGoTemplate EinoPromptNodeFormat = "go_template"
+	EinoPromptNodeFormatJinja2     EinoPromptNodeFormat = "jinja2"
+)
+
+// Valid indicates whether the value is a known member of the EinoPromptNodeFormat enum.
+func (e EinoPromptNodeFormat) Valid() bool {
+	switch e {
+	case EinoPromptNodeFormatFString:
+		return true
+	case EinoPromptNodeFormatGoTemplate:
+		return true
+	case EinoPromptNodeFormatJinja2:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EinoPromptNodeType.
+const (
+	EinoPromptNodeTypePrompt EinoPromptNodeType = "prompt"
+)
+
+// Valid indicates whether the value is a known member of the EinoPromptNodeType enum.
+func (e EinoPromptNodeType) Valid() bool {
+	switch e {
+	case EinoPromptNodeTypePrompt:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EinoRaceNodeType.
+const (
+	EinoRaceNodeTypeRace EinoRaceNodeType = "race"
+)
+
+// Valid indicates whether the value is a known member of the EinoRaceNodeType enum.
+func (e EinoRaceNodeType) Valid() bool {
+	switch e {
+	case EinoRaceNodeTypeRace:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EinoRaceWinnerMode.
+const (
+	EinoRaceWinnerModeFirstOutput  EinoRaceWinnerMode = "first_output"
+	EinoRaceWinnerModeFirstSuccess EinoRaceWinnerMode = "first_success"
+	EinoRaceWinnerModePredicate    EinoRaceWinnerMode = "predicate"
+)
+
+// Valid indicates whether the value is a known member of the EinoRaceWinnerMode enum.
+func (e EinoRaceWinnerMode) Valid() bool {
+	switch e {
+	case EinoRaceWinnerModeFirstOutput:
+		return true
+	case EinoRaceWinnerModeFirstSuccess:
+		return true
+	case EinoRaceWinnerModePredicate:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EinoScriptNodeLanguage.
+const (
+	EinoScriptNodeLanguageStarlark EinoScriptNodeLanguage = "starlark"
+)
+
+// Valid indicates whether the value is a known member of the EinoScriptNodeLanguage enum.
+func (e EinoScriptNodeLanguage) Valid() bool {
+	switch e {
+	case EinoScriptNodeLanguageStarlark:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EinoScriptNodeType.
+const (
+	EinoScriptNodeTypeScript EinoScriptNodeType = "script"
+)
+
+// Valid indicates whether the value is a known member of the EinoScriptNodeType enum.
+func (e EinoScriptNodeType) Valid() bool {
+	switch e {
+	case EinoScriptNodeTypeScript:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EinoStateFieldMerge.
+const (
+	EinoStateFieldMergeAppend      EinoStateFieldMerge = "append"
+	EinoStateFieldMergeObjectMerge EinoStateFieldMerge = "object_merge"
+	EinoStateFieldMergeReplace     EinoStateFieldMerge = "replace"
+)
+
+// Valid indicates whether the value is a known member of the EinoStateFieldMerge enum.
+func (e EinoStateFieldMerge) Valid() bool {
+	switch e {
+	case EinoStateFieldMergeAppend:
+		return true
+	case EinoStateFieldMergeObjectMerge:
+		return true
+	case EinoStateFieldMergeReplace:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EinoStateFieldType.
+const (
+	EinoStateFieldTypeBlob      EinoStateFieldType = "blob"
+	EinoStateFieldTypeBoolean   EinoStateFieldType = "boolean"
+	EinoStateFieldTypeDocuments EinoStateFieldType = "documents"
+	EinoStateFieldTypeInteger   EinoStateFieldType = "integer"
+	EinoStateFieldTypeList      EinoStateFieldType = "list"
+	EinoStateFieldTypeMessages  EinoStateFieldType = "messages"
+	EinoStateFieldTypeNumber    EinoStateFieldType = "number"
+	EinoStateFieldTypeObject    EinoStateFieldType = "object"
+	EinoStateFieldTypeString    EinoStateFieldType = "string"
+)
+
+// Valid indicates whether the value is a known member of the EinoStateFieldType enum.
+func (e EinoStateFieldType) Valid() bool {
+	switch e {
+	case EinoStateFieldTypeBlob:
+		return true
+	case EinoStateFieldTypeBoolean:
+		return true
+	case EinoStateFieldTypeDocuments:
+		return true
+	case EinoStateFieldTypeInteger:
+		return true
+	case EinoStateFieldTypeList:
+		return true
+	case EinoStateFieldTypeMessages:
+		return true
+	case EinoStateFieldTypeNumber:
+		return true
+	case EinoStateFieldTypeObject:
+		return true
+	case EinoStateFieldTypeString:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EinoSubgraphNodeType.
+const (
+	EinoSubgraphNodeTypeSubgraph EinoSubgraphNodeType = "subgraph"
+)
+
+// Valid indicates whether the value is a known member of the EinoSubgraphNodeType enum.
+func (e EinoSubgraphNodeType) Valid() bool {
+	switch e {
+	case EinoSubgraphNodeTypeSubgraph:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EinoTransformMessageRole.
+const (
+	EinoTransformMessageRoleAssistant EinoTransformMessageRole = "assistant"
+	EinoTransformMessageRoleSystem    EinoTransformMessageRole = "system"
+	EinoTransformMessageRoleUser      EinoTransformMessageRole = "user"
+)
+
+// Valid indicates whether the value is a known member of the EinoTransformMessageRole enum.
+func (e EinoTransformMessageRole) Valid() bool {
+	switch e {
+	case EinoTransformMessageRoleAssistant:
+		return true
+	case EinoTransformMessageRoleSystem:
+		return true
+	case EinoTransformMessageRoleUser:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EinoTransformNodeOperation.
+const (
+	EinoTransformNodeOperationBuildMessages EinoTransformNodeOperation = "build_messages"
+	EinoTransformNodeOperationConcatText    EinoTransformNodeOperation = "concat_text"
+	EinoTransformNodeOperationDecodeJson    EinoTransformNodeOperation = "decode_json"
+	EinoTransformNodeOperationSelect        EinoTransformNodeOperation = "select"
+)
+
+// Valid indicates whether the value is a known member of the EinoTransformNodeOperation enum.
+func (e EinoTransformNodeOperation) Valid() bool {
+	switch e {
+	case EinoTransformNodeOperationBuildMessages:
+		return true
+	case EinoTransformNodeOperationConcatText:
+		return true
+	case EinoTransformNodeOperationDecodeJson:
+		return true
+	case EinoTransformNodeOperationSelect:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EinoTransformNodeType.
+const (
+	EinoTransformNodeTypeTransform EinoTransformNodeType = "transform"
+)
+
+// Valid indicates whether the value is a known member of the EinoTransformNodeType enum.
+func (e EinoTransformNodeType) Valid() bool {
+	switch e {
+	case EinoTransformNodeTypeTransform:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EinoWorkspaceParametersAgentType.
+const (
+	EinoWorkspaceParametersAgentTypeEino EinoWorkspaceParametersAgentType = "eino"
+)
+
+// Valid indicates whether the value is a known member of the EinoWorkspaceParametersAgentType enum.
+func (e EinoWorkspaceParametersAgentType) Valid() bool {
+	switch e {
+	case EinoWorkspaceParametersAgentTypeEino:
 		return true
 	default:
 		return false
@@ -650,12 +1445,13 @@ func (e MiniMaxTenantResourceKind) Valid() bool {
 
 // Defines values for ModelKind.
 const (
-	ModelKindAsr         ModelKind = "asr"
-	ModelKindEmbedding   ModelKind = "embedding"
-	ModelKindLlm         ModelKind = "llm"
-	ModelKindRealtime    ModelKind = "realtime"
-	ModelKindTranslation ModelKind = "translation"
-	ModelKindTts         ModelKind = "tts"
+	ModelKindAsr            ModelKind = "asr"
+	ModelKindEmbedding      ModelKind = "embedding"
+	ModelKindLlm            ModelKind = "llm"
+	ModelKindRealtime       ModelKind = "realtime"
+	ModelKindRealtimeDuplex ModelKind = "realtime-duplex"
+	ModelKindTranslation    ModelKind = "translation"
+	ModelKindTts            ModelKind = "tts"
 )
 
 // Valid indicates whether the value is a known member of the ModelKind enum.
@@ -668,6 +1464,8 @@ func (e ModelKind) Valid() bool {
 	case ModelKindLlm:
 		return true
 	case ModelKindRealtime:
+		return true
+	case ModelKindRealtimeDuplex:
 		return true
 	case ModelKindTranslation:
 		return true
@@ -1233,6 +2031,36 @@ func (e ReusableChatroomWorkflowVariantDriver) Valid() bool {
 	}
 }
 
+// Defines values for ReusableDashScopeRealtimeWorkflowVariantDriver.
+const (
+	ReusableDashScopeRealtimeWorkflowVariantDriverDashscopeRealtime ReusableDashScopeRealtimeWorkflowVariantDriver = "dashscope-realtime"
+)
+
+// Valid indicates whether the value is a known member of the ReusableDashScopeRealtimeWorkflowVariantDriver enum.
+func (e ReusableDashScopeRealtimeWorkflowVariantDriver) Valid() bool {
+	switch e {
+	case ReusableDashScopeRealtimeWorkflowVariantDriverDashscopeRealtime:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReusableDoubaoRealtimeDuplexWorkflowVariantDriver.
+const (
+	ReusableDoubaoRealtimeDuplexWorkflowVariantDriverDoubaoRealtimeDuplex ReusableDoubaoRealtimeDuplexWorkflowVariantDriver = "doubao-realtime-duplex"
+)
+
+// Valid indicates whether the value is a known member of the ReusableDoubaoRealtimeDuplexWorkflowVariantDriver enum.
+func (e ReusableDoubaoRealtimeDuplexWorkflowVariantDriver) Valid() bool {
+	switch e {
+	case ReusableDoubaoRealtimeDuplexWorkflowVariantDriverDoubaoRealtimeDuplex:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ReusableDoubaoRealtimeWorkflowVariantDriver.
 const (
 	ReusableDoubaoRealtimeWorkflowVariantDriverDoubaoRealtime ReusableDoubaoRealtimeWorkflowVariantDriver = "doubao-realtime"
@@ -1242,6 +2070,21 @@ const (
 func (e ReusableDoubaoRealtimeWorkflowVariantDriver) Valid() bool {
 	switch e {
 	case ReusableDoubaoRealtimeWorkflowVariantDriverDoubaoRealtime:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReusableEinoWorkflowVariantDriver.
+const (
+	ReusableEinoWorkflowVariantDriverEino ReusableEinoWorkflowVariantDriver = "eino"
+)
+
+// Valid indicates whether the value is a known member of the ReusableEinoWorkflowVariantDriver enum.
+func (e ReusableEinoWorkflowVariantDriver) Valid() bool {
+	switch e {
+	case ReusableEinoWorkflowVariantDriverEino:
 		return true
 	default:
 		return false
@@ -1265,10 +2108,13 @@ func (e ReusableFlowcraftWorkflowVariantDriver) Valid() bool {
 
 // Defines values for ReusableWorkflowDriver.
 const (
-	ReusableWorkflowDriverAstTranslate   ReusableWorkflowDriver = "ast-translate"
-	ReusableWorkflowDriverChatroom       ReusableWorkflowDriver = "chatroom"
-	ReusableWorkflowDriverDoubaoRealtime ReusableWorkflowDriver = "doubao-realtime"
-	ReusableWorkflowDriverFlowcraft      ReusableWorkflowDriver = "flowcraft"
+	ReusableWorkflowDriverAstTranslate         ReusableWorkflowDriver = "ast-translate"
+	ReusableWorkflowDriverChatroom             ReusableWorkflowDriver = "chatroom"
+	ReusableWorkflowDriverDashscopeRealtime    ReusableWorkflowDriver = "dashscope-realtime"
+	ReusableWorkflowDriverDoubaoRealtime       ReusableWorkflowDriver = "doubao-realtime"
+	ReusableWorkflowDriverDoubaoRealtimeDuplex ReusableWorkflowDriver = "doubao-realtime-duplex"
+	ReusableWorkflowDriverEino                 ReusableWorkflowDriver = "eino"
+	ReusableWorkflowDriverFlowcraft            ReusableWorkflowDriver = "flowcraft"
 )
 
 // Valid indicates whether the value is a known member of the ReusableWorkflowDriver enum.
@@ -1278,7 +2124,13 @@ func (e ReusableWorkflowDriver) Valid() bool {
 		return true
 	case ReusableWorkflowDriverChatroom:
 		return true
+	case ReusableWorkflowDriverDashscopeRealtime:
+		return true
 	case ReusableWorkflowDriverDoubaoRealtime:
+		return true
+	case ReusableWorkflowDriverDoubaoRealtimeDuplex:
+		return true
+	case ReusableWorkflowDriverEino:
 		return true
 	case ReusableWorkflowDriverFlowcraft:
 		return true
@@ -1422,6 +2274,7 @@ const (
 	VolcTenantModelProviderDataApiModeChatCompletions VolcTenantModelProviderDataApiMode = "chat_completions"
 	VolcTenantModelProviderDataApiModeEmbedding       VolcTenantModelProviderDataApiMode = "embedding"
 	VolcTenantModelProviderDataApiModeRealtime        VolcTenantModelProviderDataApiMode = "realtime"
+	VolcTenantModelProviderDataApiModeRealtimeDuplex  VolcTenantModelProviderDataApiMode = "realtime_duplex"
 	VolcTenantModelProviderDataApiModeTranslation     VolcTenantModelProviderDataApiMode = "translation"
 	VolcTenantModelProviderDataApiModeTts             VolcTenantModelProviderDataApiMode = "tts"
 )
@@ -1436,6 +2289,8 @@ func (e VolcTenantModelProviderDataApiMode) Valid() bool {
 	case VolcTenantModelProviderDataApiModeEmbedding:
 		return true
 	case VolcTenantModelProviderDataApiModeRealtime:
+		return true
+	case VolcTenantModelProviderDataApiModeRealtimeDuplex:
 		return true
 	case VolcTenantModelProviderDataApiModeTranslation:
 		return true
@@ -1463,11 +2318,14 @@ func (e VolcTenantResourceKind) Valid() bool {
 
 // Defines values for WorkflowDriver.
 const (
-	WorkflowDriverAstTranslate   WorkflowDriver = "ast-translate"
-	WorkflowDriverChatroom       WorkflowDriver = "chatroom"
-	WorkflowDriverDoubaoRealtime WorkflowDriver = "doubao-realtime"
-	WorkflowDriverFlowcraft      WorkflowDriver = "flowcraft"
-	WorkflowDriverPet            WorkflowDriver = "pet"
+	WorkflowDriverAstTranslate         WorkflowDriver = "ast-translate"
+	WorkflowDriverChatroom             WorkflowDriver = "chatroom"
+	WorkflowDriverDashscopeRealtime    WorkflowDriver = "dashscope-realtime"
+	WorkflowDriverDoubaoRealtime       WorkflowDriver = "doubao-realtime"
+	WorkflowDriverDoubaoRealtimeDuplex WorkflowDriver = "doubao-realtime-duplex"
+	WorkflowDriverEino                 WorkflowDriver = "eino"
+	WorkflowDriverFlowcraft            WorkflowDriver = "flowcraft"
+	WorkflowDriverPet                  WorkflowDriver = "pet"
 )
 
 // Valid indicates whether the value is a known member of the WorkflowDriver enum.
@@ -1477,7 +2335,13 @@ func (e WorkflowDriver) Valid() bool {
 		return true
 	case WorkflowDriverChatroom:
 		return true
+	case WorkflowDriverDashscopeRealtime:
+		return true
 	case WorkflowDriverDoubaoRealtime:
+		return true
+	case WorkflowDriverDoubaoRealtimeDuplex:
+		return true
+	case WorkflowDriverEino:
 		return true
 	case WorkflowDriverFlowcraft:
 		return true
@@ -1792,6 +2656,92 @@ type DashScopeCredentialBody struct {
 	Token   *string `json:"token,omitempty"`
 }
 
+// DashScopeRealtimeOptions defines model for DashScopeRealtimeOptions.
+type DashScopeRealtimeOptions struct {
+	AsrModel          *string                                    `json:"asr_model,omitempty"`
+	EnableAsr         *bool                                      `json:"enable_asr,omitempty"`
+	InputAudioFormat  *DashScopeRealtimeOptionsInputAudioFormat  `json:"input_audio_format,omitempty"`
+	Instructions      *string                                    `json:"instructions,omitempty"`
+	MaxOutputTokens   *int                                       `json:"max_output_tokens,omitempty"`
+	Modalities        *[]DashScopeRealtimeOptionsModalities      `json:"modalities,omitempty"`
+	Model             *string                                    `json:"model,omitempty"`
+	OutputAudioFormat *DashScopeRealtimeOptionsOutputAudioFormat `json:"output_audio_format,omitempty"`
+	Temperature       *float32                                   `json:"temperature,omitempty"`
+	Vad               *DashScopeRealtimeOptionsVad               `json:"vad,omitempty"`
+	Voice             *string                                    `json:"voice,omitempty"`
+}
+
+// DashScopeRealtimeOptionsInputAudioFormat defines model for DashScopeRealtimeOptions.InputAudioFormat.
+type DashScopeRealtimeOptionsInputAudioFormat string
+
+// DashScopeRealtimeOptionsModalities defines model for DashScopeRealtimeOptions.Modalities.
+type DashScopeRealtimeOptionsModalities string
+
+// DashScopeRealtimeOptionsOutputAudioFormat defines model for DashScopeRealtimeOptions.OutputAudioFormat.
+type DashScopeRealtimeOptionsOutputAudioFormat string
+
+// DashScopeRealtimeOptionsVad defines model for DashScopeRealtimeOptions.Vad.
+type DashScopeRealtimeOptionsVad string
+
+// DashScopeRealtimeWorkflowSpec defines model for DashScopeRealtimeWorkflowSpec.
+type DashScopeRealtimeWorkflowSpec struct {
+	AsrModel          *string                                         `json:"asr_model,omitempty"`
+	EnableAsr         *bool                                           `json:"enable_asr,omitempty"`
+	InputAudioFormat  *DashScopeRealtimeWorkflowSpecInputAudioFormat  `json:"input_audio_format,omitempty"`
+	Instructions      *string                                         `json:"instructions,omitempty"`
+	MaxOutputTokens   *int                                            `json:"max_output_tokens,omitempty"`
+	Modalities        *[]DashScopeRealtimeWorkflowSpecModalities      `json:"modalities,omitempty"`
+	Model             string                                          `json:"model"`
+	OutputAudioFormat *DashScopeRealtimeWorkflowSpecOutputAudioFormat `json:"output_audio_format,omitempty"`
+	Temperature       *float32                                        `json:"temperature,omitempty"`
+	Vad               *DashScopeRealtimeWorkflowSpecVad               `json:"vad,omitempty"`
+	Voice             *string                                         `json:"voice,omitempty"`
+}
+
+// DashScopeRealtimeWorkflowSpecInputAudioFormat defines model for DashScopeRealtimeWorkflowSpec.InputAudioFormat.
+type DashScopeRealtimeWorkflowSpecInputAudioFormat string
+
+// DashScopeRealtimeWorkflowSpecModalities defines model for DashScopeRealtimeWorkflowSpec.Modalities.
+type DashScopeRealtimeWorkflowSpecModalities string
+
+// DashScopeRealtimeWorkflowSpecOutputAudioFormat defines model for DashScopeRealtimeWorkflowSpec.OutputAudioFormat.
+type DashScopeRealtimeWorkflowSpecOutputAudioFormat string
+
+// DashScopeRealtimeWorkflowSpecVad defines model for DashScopeRealtimeWorkflowSpec.Vad.
+type DashScopeRealtimeWorkflowSpecVad string
+
+// DashScopeRealtimeWorkspaceParameters defines model for DashScopeRealtimeWorkspaceParameters.
+type DashScopeRealtimeWorkspaceParameters struct {
+	AgentType         DashScopeRealtimeWorkspaceParametersAgentType          `json:"agent_type"`
+	AsrModel          *string                                                `json:"asr_model,omitempty"`
+	E2e               *bool                                                  `json:"e2e,omitempty"`
+	EnableAsr         *bool                                                  `json:"enable_asr,omitempty"`
+	InputAudioFormat  *DashScopeRealtimeWorkspaceParametersInputAudioFormat  `json:"input_audio_format,omitempty"`
+	Instructions      *string                                                `json:"instructions,omitempty"`
+	MaxOutputTokens   *int                                                   `json:"max_output_tokens,omitempty"`
+	Modalities        *[]DashScopeRealtimeWorkspaceParametersModalities      `json:"modalities,omitempty"`
+	Model             *string                                                `json:"model,omitempty"`
+	OutputAudioFormat *DashScopeRealtimeWorkspaceParametersOutputAudioFormat `json:"output_audio_format,omitempty"`
+	Temperature       *float32                                               `json:"temperature,omitempty"`
+	Vad               *DashScopeRealtimeWorkspaceParametersVad               `json:"vad,omitempty"`
+	Voice             *string                                                `json:"voice,omitempty"`
+}
+
+// DashScopeRealtimeWorkspaceParametersAgentType defines model for DashScopeRealtimeWorkspaceParameters.AgentType.
+type DashScopeRealtimeWorkspaceParametersAgentType string
+
+// DashScopeRealtimeWorkspaceParametersInputAudioFormat defines model for DashScopeRealtimeWorkspaceParameters.InputAudioFormat.
+type DashScopeRealtimeWorkspaceParametersInputAudioFormat string
+
+// DashScopeRealtimeWorkspaceParametersModalities defines model for DashScopeRealtimeWorkspaceParameters.Modalities.
+type DashScopeRealtimeWorkspaceParametersModalities string
+
+// DashScopeRealtimeWorkspaceParametersOutputAudioFormat defines model for DashScopeRealtimeWorkspaceParameters.OutputAudioFormat.
+type DashScopeRealtimeWorkspaceParametersOutputAudioFormat string
+
+// DashScopeRealtimeWorkspaceParametersVad defines model for DashScopeRealtimeWorkspaceParameters.Vad.
+type DashScopeRealtimeWorkspaceParametersVad string
+
 // DashScopeTenant defines model for DashScopeTenant.
 type DashScopeTenant struct {
 	BaseUrl        *string   `json:"base_url,omitempty"`
@@ -2008,6 +2958,83 @@ type DoubaoRealtimeDialogExtra struct {
 // DoubaoRealtimeDialogExtraVolcWebsearchType defines model for DoubaoRealtimeDialogExtra.VolcWebsearchType.
 type DoubaoRealtimeDialogExtraVolcWebsearchType string
 
+// DoubaoRealtimeDuplexOptions defines model for DoubaoRealtimeDuplexOptions.
+type DoubaoRealtimeDuplexOptions struct {
+	Format          *DoubaoRealtimeDuplexOptionsFormat      `json:"format,omitempty"`
+	InputChannels   *int                                    `json:"input_channels,omitempty"`
+	InputFormat     *DoubaoRealtimeDuplexOptionsInputFormat `json:"input_format,omitempty"`
+	InputSampleRate *int                                    `json:"input_sample_rate,omitempty"`
+	InputTranscode  *bool                                   `json:"input_transcode,omitempty"`
+	Instructions    *string                                 `json:"instructions,omitempty"`
+	Model           *string                                 `json:"model,omitempty"`
+	OutputLoudness  *int                                    `json:"output_loudness,omitempty"`
+	OutputSpeed     *int                                    `json:"output_speed,omitempty"`
+	SampleRate      *DoubaoRealtimeDuplexOptionsSampleRate  `json:"sample_rate,omitempty"`
+	Voice           *string                                 `json:"voice,omitempty"`
+}
+
+// DoubaoRealtimeDuplexOptionsFormat defines model for DoubaoRealtimeDuplexOptions.Format.
+type DoubaoRealtimeDuplexOptionsFormat string
+
+// DoubaoRealtimeDuplexOptionsInputFormat defines model for DoubaoRealtimeDuplexOptions.InputFormat.
+type DoubaoRealtimeDuplexOptionsInputFormat string
+
+// DoubaoRealtimeDuplexOptionsSampleRate defines model for DoubaoRealtimeDuplexOptions.SampleRate.
+type DoubaoRealtimeDuplexOptionsSampleRate int
+
+// DoubaoRealtimeDuplexWorkflowSpec defines model for DoubaoRealtimeDuplexWorkflowSpec.
+type DoubaoRealtimeDuplexWorkflowSpec struct {
+	Format          *DoubaoRealtimeDuplexWorkflowSpecFormat      `json:"format,omitempty"`
+	InputChannels   *int                                         `json:"input_channels,omitempty"`
+	InputFormat     *DoubaoRealtimeDuplexWorkflowSpecInputFormat `json:"input_format,omitempty"`
+	InputSampleRate *int                                         `json:"input_sample_rate,omitempty"`
+	InputTranscode  *bool                                        `json:"input_transcode,omitempty"`
+	Instructions    *string                                      `json:"instructions,omitempty"`
+	Model           string                                       `json:"model"`
+	OutputLoudness  *int                                         `json:"output_loudness,omitempty"`
+	OutputSpeed     *int                                         `json:"output_speed,omitempty"`
+	SampleRate      *DoubaoRealtimeDuplexWorkflowSpecSampleRate  `json:"sample_rate,omitempty"`
+	Voice           *string                                      `json:"voice,omitempty"`
+}
+
+// DoubaoRealtimeDuplexWorkflowSpecFormat defines model for DoubaoRealtimeDuplexWorkflowSpec.Format.
+type DoubaoRealtimeDuplexWorkflowSpecFormat string
+
+// DoubaoRealtimeDuplexWorkflowSpecInputFormat defines model for DoubaoRealtimeDuplexWorkflowSpec.InputFormat.
+type DoubaoRealtimeDuplexWorkflowSpecInputFormat string
+
+// DoubaoRealtimeDuplexWorkflowSpecSampleRate defines model for DoubaoRealtimeDuplexWorkflowSpec.SampleRate.
+type DoubaoRealtimeDuplexWorkflowSpecSampleRate int
+
+// DoubaoRealtimeDuplexWorkspaceParameters defines model for DoubaoRealtimeDuplexWorkspaceParameters.
+type DoubaoRealtimeDuplexWorkspaceParameters struct {
+	AgentType       DoubaoRealtimeDuplexWorkspaceParametersAgentType    `json:"agent_type"`
+	E2e             *bool                                               `json:"e2e,omitempty"`
+	Format          *DoubaoRealtimeDuplexWorkspaceParametersFormat      `json:"format,omitempty"`
+	InputChannels   *int                                                `json:"input_channels,omitempty"`
+	InputFormat     *DoubaoRealtimeDuplexWorkspaceParametersInputFormat `json:"input_format,omitempty"`
+	InputSampleRate *int                                                `json:"input_sample_rate,omitempty"`
+	InputTranscode  *bool                                               `json:"input_transcode,omitempty"`
+	Instructions    *string                                             `json:"instructions,omitempty"`
+	Model           *string                                             `json:"model,omitempty"`
+	OutputLoudness  *int                                                `json:"output_loudness,omitempty"`
+	OutputSpeed     *int                                                `json:"output_speed,omitempty"`
+	SampleRate      *DoubaoRealtimeDuplexWorkspaceParametersSampleRate  `json:"sample_rate,omitempty"`
+	Voice           *string                                             `json:"voice,omitempty"`
+}
+
+// DoubaoRealtimeDuplexWorkspaceParametersAgentType defines model for DoubaoRealtimeDuplexWorkspaceParameters.AgentType.
+type DoubaoRealtimeDuplexWorkspaceParametersAgentType string
+
+// DoubaoRealtimeDuplexWorkspaceParametersFormat defines model for DoubaoRealtimeDuplexWorkspaceParameters.Format.
+type DoubaoRealtimeDuplexWorkspaceParametersFormat string
+
+// DoubaoRealtimeDuplexWorkspaceParametersInputFormat defines model for DoubaoRealtimeDuplexWorkspaceParameters.InputFormat.
+type DoubaoRealtimeDuplexWorkspaceParametersInputFormat string
+
+// DoubaoRealtimeDuplexWorkspaceParametersSampleRate defines model for DoubaoRealtimeDuplexWorkspaceParameters.SampleRate.
+type DoubaoRealtimeDuplexWorkspaceParametersSampleRate int
+
 // DoubaoRealtimeExtension defines model for DoubaoRealtimeExtension.
 type DoubaoRealtimeExtension struct {
 	Asr    *DoubaoRealtimeASRExtension    `json:"asr,omitempty"`
@@ -2084,6 +3111,324 @@ type DoubaoRealtimeWorkspaceParameters struct {
 
 // DoubaoRealtimeWorkspaceParametersAgentType defines model for DoubaoRealtimeWorkspaceParameters.AgentType.
 type DoubaoRealtimeWorkspaceParametersAgentType string
+
+// EinoBatchNode defines model for EinoBatchNode.
+type EinoBatchNode struct {
+	Graph          EinoGraph               `json:"graph"`
+	Id             string                  `json:"id"`
+	Inputs         *map[string]EinoBinding `json:"inputs,omitempty"`
+	Items          EinoBinding             `json:"items"`
+	MaxConcurrency *int                    `json:"max_concurrency,omitempty"`
+	Outputs        *map[string]string      `json:"outputs,omitempty"`
+	Type           EinoBatchNodeType       `json:"type"`
+}
+
+// EinoBatchNodeType defines model for EinoBatchNode.Type.
+type EinoBatchNodeType string
+
+// EinoBinding defines model for EinoBinding.
+type EinoBinding struct {
+	From string `json:"from"`
+}
+
+// EinoBranch defines model for EinoBranch.
+type EinoBranch struct {
+	Default string            `json:"default"`
+	From    string            `json:"from"`
+	Mode    EinoBranchMode    `json:"mode"`
+	Routes  []EinoBranchRoute `json:"routes"`
+}
+
+// EinoBranchMode defines model for EinoBranch.Mode.
+type EinoBranchMode string
+
+// EinoBranchRoute defines model for EinoBranchRoute.
+type EinoBranchRoute struct {
+	To   string        `json:"to"`
+	When EinoPredicate `json:"when"`
+}
+
+// EinoChatModelNode defines model for EinoChatModelNode.
+type EinoChatModelNode struct {
+	Id          string                  `json:"id"`
+	Inputs      *map[string]EinoBinding `json:"inputs,omitempty"`
+	MaxTokens   *int                    `json:"max_tokens,omitempty"`
+	Model       string                  `json:"model"`
+	Outputs     *map[string]string      `json:"outputs,omitempty"`
+	Temperature *float32                `json:"temperature,omitempty"`
+	Type        EinoChatModelNodeType   `json:"type"`
+}
+
+// EinoChatModelNodeType defines model for EinoChatModelNode.Type.
+type EinoChatModelNodeType string
+
+// EinoEdge defines model for EinoEdge.
+type EinoEdge struct {
+	From string `json:"from"`
+	To   string `json:"to"`
+}
+
+// EinoFanIn defines model for EinoFanIn.
+type EinoFanIn struct {
+	StreamMergeWithSourceEof *bool `json:"stream_merge_with_source_eof,omitempty"`
+}
+
+// EinoGraph defines model for EinoGraph.
+type EinoGraph struct {
+	Branches []EinoBranch     `json:"branches"`
+	Compile  EinoGraphCompile `json:"compile"`
+	Edges    []EinoEdge       `json:"edges"`
+	Name     string           `json:"name"`
+	Nodes    []EinoNode       `json:"nodes"`
+	Outputs  []EinoOutput     `json:"outputs"`
+	State    EinoState        `json:"state"`
+}
+
+// EinoGraphCompile defines model for EinoGraphCompile.
+type EinoGraphCompile struct {
+	FanIn           *map[string]EinoFanIn           `json:"fan_in,omitempty"`
+	MaxRunSteps     *int                            `json:"max_run_steps,omitempty"`
+	NodeTriggerMode EinoGraphCompileNodeTriggerMode `json:"node_trigger_mode"`
+}
+
+// EinoGraphCompileNodeTriggerMode defines model for EinoGraphCompile.NodeTriggerMode.
+type EinoGraphCompileNodeTriggerMode string
+
+// EinoLimits defines model for EinoLimits.
+type EinoLimits struct {
+	MaxOutputBytes *int `json:"max_output_bytes,omitempty"`
+}
+
+// EinoMemory defines model for EinoMemory.
+type EinoMemory struct {
+	Observe *EinoMemoryObserve  `json:"observe,omitempty"`
+	Recall  *[]EinoMemoryRecall `json:"recall,omitempty"`
+}
+
+// EinoMemoryFact defines model for EinoMemoryFact.
+type EinoMemoryFact struct {
+	Attributes *map[string]string `json:"attributes,omitempty"`
+	TextFrom   string             `json:"text_from"`
+}
+
+// EinoMemoryObserve defines model for EinoMemoryObserve.
+type EinoMemoryObserve struct {
+	Enabled           bool              `json:"enabled"`
+	Facts             *[]EinoMemoryFact `json:"facts,omitempty"`
+	WaitForCompletion *bool             `json:"wait_for_completion,omitempty"`
+}
+
+// EinoMemoryRecall defines model for EinoMemoryRecall.
+type EinoMemoryRecall struct {
+	Output    string `json:"output"`
+	QueryFrom string `json:"query_from"`
+	TopK      int    `json:"top_k"`
+}
+
+// EinoNode defines model for EinoNode.
+type EinoNode struct {
+	union json.RawMessage
+}
+
+// EinoNodeBase defines model for EinoNodeBase.
+type EinoNodeBase struct {
+	Id      string                  `json:"id"`
+	Inputs  *map[string]EinoBinding `json:"inputs,omitempty"`
+	Outputs *map[string]string      `json:"outputs,omitempty"`
+	Type    string                  `json:"type"`
+}
+
+// EinoOutput defines model for EinoOutput.
+type EinoOutput struct {
+	Field    string `json:"field"`
+	MimeType string `json:"mime_type"`
+	Name     string `json:"name"`
+	Node     string `json:"node"`
+	Primary  *bool  `json:"primary,omitempty"`
+}
+
+// EinoPassthroughNode defines model for EinoPassthroughNode.
+type EinoPassthroughNode struct {
+	Id      string                  `json:"id"`
+	Inputs  *map[string]EinoBinding `json:"inputs,omitempty"`
+	Outputs *map[string]string      `json:"outputs,omitempty"`
+	Type    EinoPassthroughNodeType `json:"type"`
+}
+
+// EinoPassthroughNodeType defines model for EinoPassthroughNode.Type.
+type EinoPassthroughNodeType string
+
+// EinoPredicate defines model for EinoPredicate.
+type EinoPredicate struct {
+	All   *[]EinoPredicate `json:"all,omitempty"`
+	Any   *[]EinoPredicate `json:"any,omitempty"`
+	Field *string          `json:"field,omitempty"`
+	Not   *EinoPredicate   `json:"not,omitempty"`
+	Op    *EinoPredicateOp `json:"op,omitempty"`
+	Value interface{}      `json:"value,omitempty"`
+}
+
+// EinoPredicateOp defines model for EinoPredicate.Op.
+type EinoPredicateOp string
+
+// EinoPromptMessage defines model for EinoPromptMessage.
+type EinoPromptMessage struct {
+	Optional    *bool                 `json:"optional,omitempty"`
+	Placeholder *string               `json:"placeholder,omitempty"`
+	Role        EinoPromptMessageRole `json:"role"`
+	Template    *string               `json:"template,omitempty"`
+}
+
+// EinoPromptMessageRole defines model for EinoPromptMessage.Role.
+type EinoPromptMessageRole string
+
+// EinoPromptNode defines model for EinoPromptNode.
+type EinoPromptNode struct {
+	Format   EinoPromptNodeFormat    `json:"format"`
+	Id       string                  `json:"id"`
+	Inputs   *map[string]EinoBinding `json:"inputs,omitempty"`
+	Messages []EinoPromptMessage     `json:"messages"`
+	Outputs  *map[string]string      `json:"outputs,omitempty"`
+	Type     EinoPromptNodeType      `json:"type"`
+}
+
+// EinoPromptNodeFormat defines model for EinoPromptNode.Format.
+type EinoPromptNodeFormat string
+
+// EinoPromptNodeType defines model for EinoPromptNode.Type.
+type EinoPromptNodeType string
+
+// EinoRaceBranch defines model for EinoRaceBranch.
+type EinoRaceBranch struct {
+	Graph EinoGraph `json:"graph"`
+	Id    string    `json:"id"`
+}
+
+// EinoRaceNode defines model for EinoRaceNode.
+type EinoRaceNode struct {
+	Branches       []EinoRaceBranch        `json:"branches"`
+	Id             string                  `json:"id"`
+	Inputs         *map[string]EinoBinding `json:"inputs,omitempty"`
+	MaxConcurrency *int                    `json:"max_concurrency,omitempty"`
+	Outputs        *map[string]string      `json:"outputs,omitempty"`
+	Type           EinoRaceNodeType        `json:"type"`
+	Winner         EinoRaceWinner          `json:"winner"`
+}
+
+// EinoRaceNodeType defines model for EinoRaceNode.Type.
+type EinoRaceNodeType string
+
+// EinoRaceWinner defines model for EinoRaceWinner.
+type EinoRaceWinner struct {
+	Mode EinoRaceWinnerMode `json:"mode"`
+	When *EinoPredicate     `json:"when,omitempty"`
+}
+
+// EinoRaceWinnerMode defines model for EinoRaceWinner.Mode.
+type EinoRaceWinnerMode string
+
+// EinoScriptLimits defines model for EinoScriptLimits.
+type EinoScriptLimits struct {
+	MaxExecutionSteps int64  `json:"max_execution_steps"`
+	MaxInputBytes     int    `json:"max_input_bytes"`
+	MaxOutputBytes    int    `json:"max_output_bytes"`
+	Timeout           string `json:"timeout"`
+}
+
+// EinoScriptNode defines model for EinoScriptNode.
+type EinoScriptNode struct {
+	Entrypoint string                  `json:"entrypoint"`
+	Id         string                  `json:"id"`
+	Inputs     *map[string]EinoBinding `json:"inputs,omitempty"`
+	Language   EinoScriptNodeLanguage  `json:"language"`
+	Limits     EinoScriptLimits        `json:"limits"`
+	Outputs    *map[string]string      `json:"outputs,omitempty"`
+	Source     string                  `json:"source"`
+	Type       EinoScriptNodeType      `json:"type"`
+}
+
+// EinoScriptNodeLanguage defines model for EinoScriptNode.Language.
+type EinoScriptNodeLanguage string
+
+// EinoScriptNodeType defines model for EinoScriptNode.Type.
+type EinoScriptNodeType string
+
+// EinoState defines model for EinoState.
+type EinoState struct {
+	Fields []EinoStateField `json:"fields"`
+}
+
+// EinoStateField defines model for EinoStateField.
+type EinoStateField struct {
+	Merge    EinoStateFieldMerge `json:"merge"`
+	Name     string              `json:"name"`
+	Required *bool               `json:"required,omitempty"`
+	Type     EinoStateFieldType  `json:"type"`
+}
+
+// EinoStateFieldMerge defines model for EinoStateField.Merge.
+type EinoStateFieldMerge string
+
+// EinoStateFieldType defines model for EinoStateField.Type.
+type EinoStateFieldType string
+
+// EinoSubgraphNode defines model for EinoSubgraphNode.
+type EinoSubgraphNode struct {
+	Graph   EinoGraph               `json:"graph"`
+	Id      string                  `json:"id"`
+	Inputs  *map[string]EinoBinding `json:"inputs,omitempty"`
+	Outputs *map[string]string      `json:"outputs,omitempty"`
+	Type    EinoSubgraphNodeType    `json:"type"`
+}
+
+// EinoSubgraphNodeType defines model for EinoSubgraphNode.Type.
+type EinoSubgraphNodeType string
+
+// EinoTransformMessage defines model for EinoTransformMessage.
+type EinoTransformMessage struct {
+	Input *string                  `json:"input,omitempty"`
+	Role  EinoTransformMessageRole `json:"role"`
+	Text  *string                  `json:"text,omitempty"`
+}
+
+// EinoTransformMessageRole defines model for EinoTransformMessage.Role.
+type EinoTransformMessageRole string
+
+// EinoTransformNode defines model for EinoTransformNode.
+type EinoTransformNode struct {
+	Id             string                     `json:"id"`
+	Inputs         *map[string]EinoBinding    `json:"inputs,omitempty"`
+	MaxInputBytes  *int                       `json:"max_input_bytes,omitempty"`
+	MaxOutputBytes *int                       `json:"max_output_bytes,omitempty"`
+	Messages       *[]EinoTransformMessage    `json:"messages,omitempty"`
+	Operation      EinoTransformNodeOperation `json:"operation"`
+	Order          *[]string                  `json:"order,omitempty"`
+	Outputs        *map[string]string         `json:"outputs,omitempty"`
+	Separator      *string                    `json:"separator,omitempty"`
+	Type           EinoTransformNodeType      `json:"type"`
+}
+
+// EinoTransformNodeOperation defines model for EinoTransformNode.Operation.
+type EinoTransformNodeOperation string
+
+// EinoTransformNodeType defines model for EinoTransformNode.Type.
+type EinoTransformNodeType string
+
+// EinoWorkflowSpec defines model for EinoWorkflowSpec.
+type EinoWorkflowSpec struct {
+	Graph  EinoGraph   `json:"graph"`
+	Limits *EinoLimits `json:"limits,omitempty"`
+	Memory *EinoMemory `json:"memory,omitempty"`
+}
+
+// EinoWorkspaceParameters defines model for EinoWorkspaceParameters.
+type EinoWorkspaceParameters struct {
+	AgentType EinoWorkspaceParametersAgentType `json:"agent_type"`
+	E2e       *bool                            `json:"e2e,omitempty"`
+}
+
+// EinoWorkspaceParametersAgentType defines model for EinoWorkspaceParameters.AgentType.
+type EinoWorkspaceParametersAgentType string
 
 // ErrorPayload defines model for ErrorPayload.
 type ErrorPayload struct {
@@ -3568,6 +4913,30 @@ type ReusableChatroomWorkflowVariant struct {
 // ReusableChatroomWorkflowVariantDriver defines model for ReusableChatroomWorkflowVariant.Driver.
 type ReusableChatroomWorkflowVariantDriver string
 
+// ReusableDashScopeRealtimeWorkflowVariant defines model for ReusableDashScopeRealtimeWorkflowVariant.
+type ReusableDashScopeRealtimeWorkflowVariant struct {
+	DashscopeRealtime DashScopeRealtimeWorkflowSpec                  `json:"dashscope_realtime"`
+	Driver            ReusableDashScopeRealtimeWorkflowVariantDriver `json:"driver"`
+
+	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
+	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
+}
+
+// ReusableDashScopeRealtimeWorkflowVariantDriver defines model for ReusableDashScopeRealtimeWorkflowVariant.Driver.
+type ReusableDashScopeRealtimeWorkflowVariantDriver string
+
+// ReusableDoubaoRealtimeDuplexWorkflowVariant defines model for ReusableDoubaoRealtimeDuplexWorkflowVariant.
+type ReusableDoubaoRealtimeDuplexWorkflowVariant struct {
+	DoubaoRealtimeDuplex DoubaoRealtimeDuplexWorkflowSpec                  `json:"doubao_realtime_duplex"`
+	Driver               ReusableDoubaoRealtimeDuplexWorkflowVariantDriver `json:"driver"`
+
+	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
+	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
+}
+
+// ReusableDoubaoRealtimeDuplexWorkflowVariantDriver defines model for ReusableDoubaoRealtimeDuplexWorkflowVariant.Driver.
+type ReusableDoubaoRealtimeDuplexWorkflowVariantDriver string
+
 // ReusableDoubaoRealtimeWorkflowVariant defines model for ReusableDoubaoRealtimeWorkflowVariant.
 type ReusableDoubaoRealtimeWorkflowVariant struct {
 	DoubaoRealtime DoubaoRealtimeWorkflowSpec                  `json:"doubao_realtime"`
@@ -3579,6 +4948,18 @@ type ReusableDoubaoRealtimeWorkflowVariant struct {
 
 // ReusableDoubaoRealtimeWorkflowVariantDriver defines model for ReusableDoubaoRealtimeWorkflowVariant.Driver.
 type ReusableDoubaoRealtimeWorkflowVariantDriver string
+
+// ReusableEinoWorkflowVariant defines model for ReusableEinoWorkflowVariant.
+type ReusableEinoWorkflowVariant struct {
+	Driver ReusableEinoWorkflowVariantDriver `json:"driver"`
+	Eino   EinoWorkflowSpec                  `json:"eino"`
+
+	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
+	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
+}
+
+// ReusableEinoWorkflowVariantDriver defines model for ReusableEinoWorkflowVariant.Driver.
+type ReusableEinoWorkflowVariantDriver string
 
 // ReusableFlowcraftWorkflowVariant defines model for ReusableFlowcraftWorkflowVariant.
 type ReusableFlowcraftWorkflowVariant struct {
@@ -3600,11 +4981,14 @@ type ReusableWorkflowSpec = ReusableWorkflowSpecObject
 
 // ReusableWorkflowSpecObject defines model for ReusableWorkflowSpecObject.
 type ReusableWorkflowSpecObject struct {
-	AstTranslate   *ASTTranslateWorkflowSpec   `json:"ast_translate,omitempty"`
-	Chatroom       *ChatRoomWorkflowSpec       `json:"chatroom,omitempty"`
-	DoubaoRealtime *DoubaoRealtimeWorkflowSpec `json:"doubao_realtime,omitempty"`
-	Driver         ReusableWorkflowDriver      `json:"driver"`
-	Flowcraft      *FlowcraftWorkflowSpec      `json:"flowcraft,omitempty"`
+	AstTranslate         *ASTTranslateWorkflowSpec         `json:"ast_translate,omitempty"`
+	Chatroom             *ChatRoomWorkflowSpec             `json:"chatroom,omitempty"`
+	DashscopeRealtime    *DashScopeRealtimeWorkflowSpec    `json:"dashscope_realtime,omitempty"`
+	DoubaoRealtime       *DoubaoRealtimeWorkflowSpec       `json:"doubao_realtime,omitempty"`
+	DoubaoRealtimeDuplex *DoubaoRealtimeDuplexWorkflowSpec `json:"doubao_realtime_duplex,omitempty"`
+	Driver               ReusableWorkflowDriver            `json:"driver"`
+	Eino                 *EinoWorkflowSpec                 `json:"eino,omitempty"`
+	Flowcraft            *FlowcraftWorkflowSpec            `json:"flowcraft,omitempty"`
 
 	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
 	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
@@ -4135,11 +5519,14 @@ type WorkflowSpec = WorkflowSpecObject
 
 // WorkflowSpecObject defines model for WorkflowSpecObject.
 type WorkflowSpecObject struct {
-	AstTranslate   *ASTTranslateWorkflowSpec   `json:"ast_translate,omitempty"`
-	Chatroom       *ChatRoomWorkflowSpec       `json:"chatroom,omitempty"`
-	DoubaoRealtime *DoubaoRealtimeWorkflowSpec `json:"doubao_realtime,omitempty"`
-	Driver         WorkflowDriver              `json:"driver"`
-	Flowcraft      *FlowcraftWorkflowSpec      `json:"flowcraft,omitempty"`
+	AstTranslate         *ASTTranslateWorkflowSpec         `json:"ast_translate,omitempty"`
+	Chatroom             *ChatRoomWorkflowSpec             `json:"chatroom,omitempty"`
+	DashscopeRealtime    *DashScopeRealtimeWorkflowSpec    `json:"dashscope_realtime,omitempty"`
+	DoubaoRealtime       *DoubaoRealtimeWorkflowSpec       `json:"doubao_realtime,omitempty"`
+	DoubaoRealtimeDuplex *DoubaoRealtimeDuplexWorkflowSpec `json:"doubao_realtime_duplex,omitempty"`
+	Driver               WorkflowDriver                    `json:"driver"`
+	Eino                 *EinoWorkflowSpec                 `json:"eino,omitempty"`
+	Flowcraft            *FlowcraftWorkflowSpec            `json:"flowcraft,omitempty"`
 
 	// Pet Reusable non-Pet Workflow union used directly and below the Pet domain wrapper.
 	Pet *PetWorkflowSpec `json:"pet,omitempty"`
@@ -4434,6 +5821,275 @@ func (t CredentialBody) MarshalJSON() ([]byte, error) {
 }
 
 func (t *CredentialBody) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsEinoPromptNode returns the union data inside the EinoNode as a EinoPromptNode
+func (t EinoNode) AsEinoPromptNode() (EinoPromptNode, error) {
+	var body EinoPromptNode
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromEinoPromptNode overwrites any union data inside the EinoNode as the provided EinoPromptNode
+func (t *EinoNode) FromEinoPromptNode(v EinoPromptNode) error {
+	v.Type = "prompt"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeEinoPromptNode performs a merge with any union data inside the EinoNode, using the provided EinoPromptNode
+func (t *EinoNode) MergeEinoPromptNode(v EinoPromptNode) error {
+	v.Type = "prompt"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsEinoChatModelNode returns the union data inside the EinoNode as a EinoChatModelNode
+func (t EinoNode) AsEinoChatModelNode() (EinoChatModelNode, error) {
+	var body EinoChatModelNode
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromEinoChatModelNode overwrites any union data inside the EinoNode as the provided EinoChatModelNode
+func (t *EinoNode) FromEinoChatModelNode(v EinoChatModelNode) error {
+	v.Type = "chat_model"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeEinoChatModelNode performs a merge with any union data inside the EinoNode, using the provided EinoChatModelNode
+func (t *EinoNode) MergeEinoChatModelNode(v EinoChatModelNode) error {
+	v.Type = "chat_model"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsEinoTransformNode returns the union data inside the EinoNode as a EinoTransformNode
+func (t EinoNode) AsEinoTransformNode() (EinoTransformNode, error) {
+	var body EinoTransformNode
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromEinoTransformNode overwrites any union data inside the EinoNode as the provided EinoTransformNode
+func (t *EinoNode) FromEinoTransformNode(v EinoTransformNode) error {
+	v.Type = "transform"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeEinoTransformNode performs a merge with any union data inside the EinoNode, using the provided EinoTransformNode
+func (t *EinoNode) MergeEinoTransformNode(v EinoTransformNode) error {
+	v.Type = "transform"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsEinoScriptNode returns the union data inside the EinoNode as a EinoScriptNode
+func (t EinoNode) AsEinoScriptNode() (EinoScriptNode, error) {
+	var body EinoScriptNode
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromEinoScriptNode overwrites any union data inside the EinoNode as the provided EinoScriptNode
+func (t *EinoNode) FromEinoScriptNode(v EinoScriptNode) error {
+	v.Type = "script"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeEinoScriptNode performs a merge with any union data inside the EinoNode, using the provided EinoScriptNode
+func (t *EinoNode) MergeEinoScriptNode(v EinoScriptNode) error {
+	v.Type = "script"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsEinoRaceNode returns the union data inside the EinoNode as a EinoRaceNode
+func (t EinoNode) AsEinoRaceNode() (EinoRaceNode, error) {
+	var body EinoRaceNode
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromEinoRaceNode overwrites any union data inside the EinoNode as the provided EinoRaceNode
+func (t *EinoNode) FromEinoRaceNode(v EinoRaceNode) error {
+	v.Type = "race"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeEinoRaceNode performs a merge with any union data inside the EinoNode, using the provided EinoRaceNode
+func (t *EinoNode) MergeEinoRaceNode(v EinoRaceNode) error {
+	v.Type = "race"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsEinoBatchNode returns the union data inside the EinoNode as a EinoBatchNode
+func (t EinoNode) AsEinoBatchNode() (EinoBatchNode, error) {
+	var body EinoBatchNode
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromEinoBatchNode overwrites any union data inside the EinoNode as the provided EinoBatchNode
+func (t *EinoNode) FromEinoBatchNode(v EinoBatchNode) error {
+	v.Type = "batch"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeEinoBatchNode performs a merge with any union data inside the EinoNode, using the provided EinoBatchNode
+func (t *EinoNode) MergeEinoBatchNode(v EinoBatchNode) error {
+	v.Type = "batch"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsEinoPassthroughNode returns the union data inside the EinoNode as a EinoPassthroughNode
+func (t EinoNode) AsEinoPassthroughNode() (EinoPassthroughNode, error) {
+	var body EinoPassthroughNode
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromEinoPassthroughNode overwrites any union data inside the EinoNode as the provided EinoPassthroughNode
+func (t *EinoNode) FromEinoPassthroughNode(v EinoPassthroughNode) error {
+	v.Type = "passthrough"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeEinoPassthroughNode performs a merge with any union data inside the EinoNode, using the provided EinoPassthroughNode
+func (t *EinoNode) MergeEinoPassthroughNode(v EinoPassthroughNode) error {
+	v.Type = "passthrough"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsEinoSubgraphNode returns the union data inside the EinoNode as a EinoSubgraphNode
+func (t EinoNode) AsEinoSubgraphNode() (EinoSubgraphNode, error) {
+	var body EinoSubgraphNode
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromEinoSubgraphNode overwrites any union data inside the EinoNode as the provided EinoSubgraphNode
+func (t *EinoNode) FromEinoSubgraphNode(v EinoSubgraphNode) error {
+	v.Type = "subgraph"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeEinoSubgraphNode performs a merge with any union data inside the EinoNode, using the provided EinoSubgraphNode
+func (t *EinoNode) MergeEinoSubgraphNode(v EinoSubgraphNode) error {
+	v.Type = "subgraph"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t EinoNode) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"type"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t EinoNode) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "batch":
+		return t.AsEinoBatchNode()
+	case "chat_model":
+		return t.AsEinoChatModelNode()
+	case "passthrough":
+		return t.AsEinoPassthroughNode()
+	case "prompt":
+		return t.AsEinoPromptNode()
+	case "race":
+		return t.AsEinoRaceNode()
+	case "script":
+		return t.AsEinoScriptNode()
+	case "subgraph":
+		return t.AsEinoSubgraphNode()
+	case "transform":
+		return t.AsEinoTransformNode()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t EinoNode) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *EinoNode) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }
@@ -5668,6 +7324,90 @@ func (t *WorkspaceParameters) MergeDoubaoRealtimeWorkspaceParameters(v DoubaoRea
 	return err
 }
 
+// AsDashScopeRealtimeWorkspaceParameters returns the union data inside the WorkspaceParameters as a DashScopeRealtimeWorkspaceParameters
+func (t WorkspaceParameters) AsDashScopeRealtimeWorkspaceParameters() (DashScopeRealtimeWorkspaceParameters, error) {
+	var body DashScopeRealtimeWorkspaceParameters
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDashScopeRealtimeWorkspaceParameters overwrites any union data inside the WorkspaceParameters as the provided DashScopeRealtimeWorkspaceParameters
+func (t *WorkspaceParameters) FromDashScopeRealtimeWorkspaceParameters(v DashScopeRealtimeWorkspaceParameters) error {
+	v.AgentType = "dashscope-realtime"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDashScopeRealtimeWorkspaceParameters performs a merge with any union data inside the WorkspaceParameters, using the provided DashScopeRealtimeWorkspaceParameters
+func (t *WorkspaceParameters) MergeDashScopeRealtimeWorkspaceParameters(v DashScopeRealtimeWorkspaceParameters) error {
+	v.AgentType = "dashscope-realtime"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsDoubaoRealtimeDuplexWorkspaceParameters returns the union data inside the WorkspaceParameters as a DoubaoRealtimeDuplexWorkspaceParameters
+func (t WorkspaceParameters) AsDoubaoRealtimeDuplexWorkspaceParameters() (DoubaoRealtimeDuplexWorkspaceParameters, error) {
+	var body DoubaoRealtimeDuplexWorkspaceParameters
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDoubaoRealtimeDuplexWorkspaceParameters overwrites any union data inside the WorkspaceParameters as the provided DoubaoRealtimeDuplexWorkspaceParameters
+func (t *WorkspaceParameters) FromDoubaoRealtimeDuplexWorkspaceParameters(v DoubaoRealtimeDuplexWorkspaceParameters) error {
+	v.AgentType = "doubao-realtime-duplex"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDoubaoRealtimeDuplexWorkspaceParameters performs a merge with any union data inside the WorkspaceParameters, using the provided DoubaoRealtimeDuplexWorkspaceParameters
+func (t *WorkspaceParameters) MergeDoubaoRealtimeDuplexWorkspaceParameters(v DoubaoRealtimeDuplexWorkspaceParameters) error {
+	v.AgentType = "doubao-realtime-duplex"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsEinoWorkspaceParameters returns the union data inside the WorkspaceParameters as a EinoWorkspaceParameters
+func (t WorkspaceParameters) AsEinoWorkspaceParameters() (EinoWorkspaceParameters, error) {
+	var body EinoWorkspaceParameters
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromEinoWorkspaceParameters overwrites any union data inside the WorkspaceParameters as the provided EinoWorkspaceParameters
+func (t *WorkspaceParameters) FromEinoWorkspaceParameters(v EinoWorkspaceParameters) error {
+	v.AgentType = "eino"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeEinoWorkspaceParameters performs a merge with any union data inside the WorkspaceParameters, using the provided EinoWorkspaceParameters
+func (t *WorkspaceParameters) MergeEinoWorkspaceParameters(v EinoWorkspaceParameters) error {
+	v.AgentType = "eino"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsASTTranslateWorkspaceParameters returns the union data inside the WorkspaceParameters as a ASTTranslateWorkspaceParameters
 func (t WorkspaceParameters) AsASTTranslateWorkspaceParameters() (ASTTranslateWorkspaceParameters, error) {
 	var body ASTTranslateWorkspaceParameters
@@ -5742,8 +7482,14 @@ func (t WorkspaceParameters) ValueByDiscriminator() (interface{}, error) {
 		return t.AsASTTranslateWorkspaceParameters()
 	case "chatroom":
 		return t.AsChatRoomWorkspaceParameters()
+	case "dashscope-realtime":
+		return t.AsDashScopeRealtimeWorkspaceParameters()
 	case "doubao-realtime":
 		return t.AsDoubaoRealtimeWorkspaceParameters()
+	case "doubao-realtime-duplex":
+		return t.AsDoubaoRealtimeDuplexWorkspaceParameters()
+	case "eino":
+		return t.AsEinoWorkspaceParameters()
 	case "flowcraft":
 		return t.AsFlowcraftWorkspaceParameters()
 	default:

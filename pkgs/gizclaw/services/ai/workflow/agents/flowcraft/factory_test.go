@@ -168,6 +168,49 @@ func TestFactoryRequiresDurableBackendForEnabledMemory(t *testing.T) {
 	}
 }
 
+func TestFactoryExternalMemoryBindsOnlyGlobalWorkspaceID(t *testing.T) {
+	backing := &recordingExternalMemoryStore{}
+	built, err := (Factory{Memory: backing}).BuildMemory(
+		t.Context(),
+		"owner-public-key",
+		"workspace-a",
+		"workflow-agent",
+		apitypes.FlowcraftMemory{Enabled: true},
+	)
+	if err != nil {
+		t.Fatalf("BuildMemory() error = %v", err)
+	}
+	inner := memorystore.Scope{UserID: "agent-user", AgentID: "agent-id", RunID: "agent-run"}
+	if _, err := built.Store.Observe(t.Context(), memorystore.Observation{Scope: inner, Text: "remember"}); err != nil {
+		t.Fatalf("Observe() error = %v", err)
+	}
+	want := inner
+	want.AppID = "workspace-a"
+	if got := backing.observation.Scope; got != want {
+		t.Fatalf("Observe() scope = %#v, want globally unique Workspace AppID and unchanged inner scope %#v", got, want)
+	}
+}
+
+func TestFactoryRejectsBoardFactsUnsupportedByConfiguredMemory(t *testing.T) {
+	t.Parallel()
+	facts := []apitypes.FlowcraftMemoryBoardFact{{BoardVar: "profile"}}
+	public := apitypes.FlowcraftMemory{
+		Enabled: true,
+		Write:   &apitypes.FlowcraftMemoryWrite{BoardFacts: &facts},
+	}
+	for _, backend := range []string{"mem0", "volc_memory", ""} {
+		t.Run(backend, func(t *testing.T) {
+			_, err := (Factory{
+				Memory:     &recordingExternalMemoryStore{},
+				MemoryKind: backend,
+			}).BuildMemory(t.Context(), "owner", "workspace-a", "agent-a", public)
+			if err == nil || !strings.Contains(err.Error(), "does not support write.board_facts") {
+				t.Fatalf("BuildMemory(%q board facts) error = %v", backend, err)
+			}
+		})
+	}
+}
+
 func TestFactoryExposesEnabledMemoryRuntimeAPI(t *testing.T) {
 	spec := decodeFlowcraftSpec(t, `{
 		"agent":{"id":"assistant","name":"Assistant","graph":{"name":"graph","entry":"route","nodes":[{"id":"route","type":"passthrough","publish":true}]}},
@@ -323,7 +366,7 @@ func TestFactoryMemoryRetrievalSurvivesAgentReload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("buildMemory() error = %v", err)
 	}
-	scope := memorystore.Scope(workspaceAgentScope("", "workspace-a", "assistant"))
+	scope := memorystore.Scope{AppID: "workspace-a", AgentID: "assistant"}
 	if _, err := store.Observe(t.Context(), memorystore.Observation{
 		ID: "turn-1", Scope: scope, Text: "the persistent lantern is blue", ObservedAt: time.Now(),
 	}); err != nil {
@@ -364,13 +407,13 @@ func TestFactoryMemoryIsolatesWorkspaces(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = closeB.Close() })
 
-	scopeA := memorystore.Scope(workspaceAgentScope("", "workspace-a", "assistant"))
+	scopeA := memorystore.Scope{AppID: "workspace-a", AgentID: "assistant"}
 	if _, err := workspaceA.Observe(t.Context(), memorystore.Observation{
 		ID: "turn-a", Scope: scopeA, Text: "the private compass is silver", ObservedAt: time.Now(),
 	}); err != nil {
 		t.Fatalf("observe workspace A error = %v", err)
 	}
-	scopeB := memorystore.Scope(workspaceAgentScope("", "workspace-b", "assistant"))
+	scopeB := memorystore.Scope{AppID: "workspace-b", AgentID: "assistant"}
 	result, err := workspaceB.Recall(t.Context(), memorystore.Query{Scope: scopeB, Text: "compass", Limit: 5})
 	if err != nil {
 		t.Fatalf("recall workspace B error = %v", err)
@@ -469,6 +512,27 @@ func decodeFlowcraftSpec(t *testing.T, raw string) apitypes.FlowcraftWorkflowSpe
 type countingCloser struct {
 	mu    sync.Mutex
 	calls int
+}
+
+type recordingExternalMemoryStore struct {
+	observation memorystore.Observation
+}
+
+func (s *recordingExternalMemoryStore) Observe(_ context.Context, observation memorystore.Observation) (memorystore.ObserveResult, error) {
+	s.observation = observation
+	return memorystore.ObserveResult{}, nil
+}
+
+func (*recordingExternalMemoryStore) Recall(context.Context, memorystore.Query) (memorystore.RecallResult, error) {
+	return memorystore.RecallResult{}, nil
+}
+
+func (*recordingExternalMemoryStore) Update(context.Context, memorystore.UpdateRequest) (memorystore.Fact, error) {
+	return memorystore.Fact{}, nil
+}
+
+func (*recordingExternalMemoryStore) Delete(context.Context, memorystore.DeleteRequest) error {
+	return nil
 }
 
 func (c *countingCloser) Close() error {

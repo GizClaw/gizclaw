@@ -141,6 +141,12 @@ stores:
   metrics:
     kind: metrics
     memory: {}
+# GIZCLAW_E2E_MEMORY_STORE
+agent_host:
+  runtime_store: agenthost
+  flowcraft:
+    memory_objects_store: agenthost
+# GIZCLAW_E2E_MEMORY_BINDINGS
 peers:
   store: peers
 credentials:

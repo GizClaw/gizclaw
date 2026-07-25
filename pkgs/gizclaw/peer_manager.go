@@ -35,6 +35,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
@@ -80,6 +81,10 @@ type Manager struct {
 	FlowcraftHistory       logstore.MutableStore
 	FlowcraftState         kv.Store
 	FlowcraftMemoryObjects objectstore.ObjectStore
+	FlowcraftMemory        memory.Store
+	FlowcraftMemoryKind    string
+	EinoMemory             memory.Store
+	EinoMemoryKind         string
 	SpeechLimits           SpeechLimits
 	Tools                  *toolkit.Server
 	ToolBuilder            *toolkit.Builder

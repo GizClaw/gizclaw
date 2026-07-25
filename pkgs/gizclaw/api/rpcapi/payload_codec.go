@@ -220,32 +220,35 @@ func newRPCPayloadMessage(messageName string) (*dynamicpb.Message, error) {
 	return dynamicpb.NewMessage(mt.Descriptor()), nil
 }
 
-var timeType = reflect.TypeOf(time.Time{})
+var timeType = reflect.TypeFor[time.Time]()
 
 var rpcPayloadUnionValueTypes = map[protoreflect.Name]reflect.Type{
-	"ASTTranslateInternalSpeakerParameters": reflect.TypeOf(ASTTranslateInternalSpeakerParameters{}),
-	"ASTTranslateExternalVoiceParameters":   reflect.TypeOf(ASTTranslateExternalVoiceParameters{}),
-	"OpenAICredentialBody":                  reflect.TypeOf(OpenAICredentialBody{}),
-	"GeminiCredentialBody":                  reflect.TypeOf(GeminiCredentialBody{}),
-	"DashScopeCredentialBody":               reflect.TypeOf(DashScopeCredentialBody{}),
-	"DeepSeekCredentialBody":                reflect.TypeOf(DeepSeekCredentialBody{}),
-	"MiniMaxCredentialBody":                 reflect.TypeOf(MiniMaxCredentialBody{}),
-	"VolcCredentialBody":                    reflect.TypeOf(VolcCredentialBody{}),
-	"GeminiTenantModelProviderData":         reflect.TypeOf(GeminiTenantModelProviderData{}),
-	"DashScopeTenantModelProviderData":      reflect.TypeOf(DashScopeTenantModelProviderData{}),
-	"DeepSeekTenantModelProviderData":       reflect.TypeOf(DeepSeekTenantModelProviderData{}),
-	"OpenAITenantModelProviderData":         reflect.TypeOf(OpenAITenantModelProviderData{}),
-	"MiniMaxTenantModelProviderData":        reflect.TypeOf(MiniMaxTenantModelProviderData{}),
-	"VolcTenantModelProviderData":           reflect.TypeOf(VolcTenantModelProviderData{}),
-	"GeminiTenantVoiceProviderData":         reflect.TypeOf(GeminiTenantVoiceProviderData{}),
-	"DashScopeTenantVoiceProviderData":      reflect.TypeOf(DashScopeTenantVoiceProviderData{}),
-	"OpenAITenantVoiceProviderData":         reflect.TypeOf(OpenAITenantVoiceProviderData{}),
-	"MiniMaxTenantVoiceProviderData":        reflect.TypeOf(MiniMaxTenantVoiceProviderData{}),
-	"VolcTenantVoiceProviderData":           reflect.TypeOf(VolcTenantVoiceProviderData{}),
-	"FlowcraftWorkspaceParameters":          reflect.TypeOf(FlowcraftWorkspaceParameters{}),
-	"DoubaoRealtimeWorkspaceParameters":     reflect.TypeOf(DoubaoRealtimeWorkspaceParameters{}),
-	"ASTTranslateWorkspaceParameters":       reflect.TypeOf(ASTTranslateWorkspaceParameters{}),
-	"ChatRoomWorkspaceParameters":           reflect.TypeOf(ChatRoomWorkspaceParameters{}),
+	"ASTTranslateInternalSpeakerParameters":   reflect.TypeFor[ASTTranslateInternalSpeakerParameters](),
+	"ASTTranslateExternalVoiceParameters":     reflect.TypeFor[ASTTranslateExternalVoiceParameters](),
+	"OpenAICredentialBody":                    reflect.TypeFor[OpenAICredentialBody](),
+	"GeminiCredentialBody":                    reflect.TypeFor[GeminiCredentialBody](),
+	"DashScopeCredentialBody":                 reflect.TypeFor[DashScopeCredentialBody](),
+	"DeepSeekCredentialBody":                  reflect.TypeFor[DeepSeekCredentialBody](),
+	"MiniMaxCredentialBody":                   reflect.TypeFor[MiniMaxCredentialBody](),
+	"VolcCredentialBody":                      reflect.TypeFor[VolcCredentialBody](),
+	"GeminiTenantModelProviderData":           reflect.TypeFor[GeminiTenantModelProviderData](),
+	"DashScopeTenantModelProviderData":        reflect.TypeFor[DashScopeTenantModelProviderData](),
+	"DeepSeekTenantModelProviderData":         reflect.TypeFor[DeepSeekTenantModelProviderData](),
+	"OpenAITenantModelProviderData":           reflect.TypeFor[OpenAITenantModelProviderData](),
+	"MiniMaxTenantModelProviderData":          reflect.TypeFor[MiniMaxTenantModelProviderData](),
+	"VolcTenantModelProviderData":             reflect.TypeFor[VolcTenantModelProviderData](),
+	"GeminiTenantVoiceProviderData":           reflect.TypeFor[GeminiTenantVoiceProviderData](),
+	"DashScopeTenantVoiceProviderData":        reflect.TypeFor[DashScopeTenantVoiceProviderData](),
+	"OpenAITenantVoiceProviderData":           reflect.TypeFor[OpenAITenantVoiceProviderData](),
+	"MiniMaxTenantVoiceProviderData":          reflect.TypeFor[MiniMaxTenantVoiceProviderData](),
+	"VolcTenantVoiceProviderData":             reflect.TypeFor[VolcTenantVoiceProviderData](),
+	"FlowcraftWorkspaceParameters":            reflect.TypeFor[FlowcraftWorkspaceParameters](),
+	"DoubaoRealtimeWorkspaceParameters":       reflect.TypeFor[DoubaoRealtimeWorkspaceParameters](),
+	"DashScopeRealtimeWorkspaceParameters":    reflect.TypeFor[DashScopeRealtimeWorkspaceParameters](),
+	"DoubaoRealtimeDuplexWorkspaceParameters": reflect.TypeFor[DoubaoRealtimeDuplexWorkspaceParameters](),
+	"EinoWorkspaceParameters":                 reflect.TypeFor[EinoWorkspaceParameters](),
+	"ASTTranslateWorkspaceParameters":         reflect.TypeFor[ASTTranslateWorkspaceParameters](),
+	"ChatRoomWorkspaceParameters":             reflect.TypeFor[ChatRoomWorkspaceParameters](),
 }
 
 func fillProtoMessageFromGo(msg protoreflect.Message, value reflect.Value, parent reflect.Value) error {
@@ -824,8 +827,8 @@ func goStructHasJSONField(value reflect.Value, name string) bool {
 		return false
 	}
 	valueType := value.Type()
-	for i := 0; i < valueType.NumField(); i++ {
-		fieldName, ok := goJSONFieldName(valueType.Field(i))
+	for field := range valueType.Fields() {
+		fieldName, ok := goJSONFieldName(field)
 		if ok && fieldName == name {
 			return true
 		}
@@ -986,7 +989,7 @@ func structFromGoValue(value reflect.Value) (*structpb.Struct, error) {
 	if !value.IsValid() {
 		return structpb.NewStruct(map[string]any{})
 	}
-	if value.Type() == reflect.TypeOf(structpb.Struct{}) {
+	if value.Type() == reflect.TypeFor[structpb.Struct]() {
 		st := value.Interface().(structpb.Struct)
 		return &st, nil
 	}
@@ -1119,7 +1122,7 @@ func setGoStructValue(target reflect.Value, msg protoreflect.Message) error {
 		}
 		return nil
 	}
-	if target.Type() == reflect.TypeOf(structpb.Struct{}) {
+	if target.Type() == reflect.TypeFor[structpb.Struct]() {
 		target.Set(reflect.ValueOf(*st))
 		return nil
 	}
@@ -1228,6 +1231,12 @@ func oneofDiscriminatorFieldName(desc protoreflect.Name, discriminator string) s
 			return "flowcraft_workspace_parameters"
 		case "doubao-realtime":
 			return "doubao_realtime_workspace_parameters"
+		case "dashscope-realtime":
+			return "dash_scope_realtime_workspace_parameters"
+		case "doubao-realtime-duplex":
+			return "doubao_realtime_duplex_workspace_parameters"
+		case "eino":
+			return "eino_workspace_parameters"
 		case "ast-translate":
 			return "asttranslate_workspace_parameters"
 		case "chatroom":
@@ -1257,8 +1266,8 @@ func protoEnumNumber(desc protoreflect.EnumDescriptor, value string) (protorefle
 func enumJSONName(desc protoreflect.EnumDescriptor, value protoreflect.EnumValueDescriptor) string {
 	name := string(value.Name())
 	prefix := enumValuePrefix(desc)
-	if strings.HasPrefix(name, prefix) {
-		return strings.TrimPrefix(name, prefix)
+	if after, ok := strings.CutPrefix(name, prefix); ok {
+		return after
 	}
 	return name
 }
@@ -1453,6 +1462,9 @@ func defaultProtoJSONName(name string) string {
 
 func enumValueJSONString(desc protoreflect.EnumDescriptor, value protoreflect.EnumValueDescriptor) string {
 	name := enumJSONName(desc, value)
+	if desc.FullName() == "gizclaw.rpc.v1.ModelKind" && name == "REALTIME_DUPLEX" {
+		return "realtime-duplex"
+	}
 	if mapped, ok := enumJSONValueOverrides[name]; ok {
 		return mapped
 	}
@@ -1460,19 +1472,21 @@ func enumValueJSONString(desc protoreflect.EnumDescriptor, value protoreflect.En
 }
 
 var enumJSONValueOverrides = map[string]string{
-	"AST_TRANSLATE":     "ast-translate",
-	"DASHSCOPE_TENANT":  "dashscope-tenant",
-	"DASH_SCOPE_TENANT": "dashscope-tenant",
-	"DEEPSEEK_TENANT":   "deepseek-tenant",
-	"DOUBAO_REALTIME":   "doubao-realtime",
-	"EDGE_NODE":         "edge-node",
-	"GEMINI_TENANT":     "gemini-tenant",
-	"MINI_MAX":          "minimax",
-	"MINIMAX_TENANT":    "minimax-tenant",
-	"OPENAI_TENANT":     "openai-tenant",
-	"PUSH_TO_TALK":      "push-to-talk",
-	"VOLC_TENANT":       "volc-tenant",
-	"ZH_CN":             "zh-CN",
+	"AST_TRANSLATE":          "ast-translate",
+	"DASHSCOPE_TENANT":       "dashscope-tenant",
+	"DASH_SCOPE_TENANT":      "dashscope-tenant",
+	"DASH_SCOPE_REALTIME":    "dashscope-realtime",
+	"DEEPSEEK_TENANT":        "deepseek-tenant",
+	"DOUBAO_REALTIME":        "doubao-realtime",
+	"DOUBAO_REALTIME_DUPLEX": "doubao-realtime-duplex",
+	"EDGE_NODE":              "edge-node",
+	"GEMINI_TENANT":          "gemini-tenant",
+	"MINI_MAX":               "minimax",
+	"MINIMAX_TENANT":         "minimax-tenant",
+	"OPENAI_TENANT":          "openai-tenant",
+	"PUSH_TO_TALK":           "push-to-talk",
+	"VOLC_TENANT":            "volc-tenant",
+	"ZH_CN":                  "zh-CN",
 }
 
 func protoValueIsZero(fd protoreflect.FieldDescriptor, value protoreflect.Value) bool {

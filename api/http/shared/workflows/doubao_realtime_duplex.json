@@ -1,0 +1,42 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Doubao Realtime Duplex Workflow Type",
+    "description": "DoubaoRealtimeDuplexWorkflowSpec schema.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "DoubaoRealtimeDuplexOptions": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "model": { "type": "string", "minLength": 1 },
+          "voice": { "type": "string", "minLength": 1 },
+          "instructions": { "type": "string" },
+          "format": { "type": "string", "enum": ["ogg_opus"] },
+          "sample_rate": { "type": "integer", "enum": [24000] },
+          "input_format": { "type": "string", "enum": ["speech_opus"] },
+          "input_sample_rate": { "type": "integer", "minimum": 8000, "maximum": 48000 },
+          "input_channels": { "type": "integer", "minimum": 1, "maximum": 2 },
+          "input_transcode": { "type": "boolean" },
+          "output_speed": { "type": "integer", "minimum": -50, "maximum": 100 },
+          "output_loudness": { "type": "integer", "minimum": -50, "maximum": 100 }
+        }
+      },
+      "DoubaoRealtimeDuplexWorkflowSpec": {
+        "allOf": [
+          { "$ref": "#/components/schemas/DoubaoRealtimeDuplexOptions" },
+          {
+            "type": "object",
+            "required": ["model"],
+            "properties": {
+              "model": { "type": "string", "minLength": 1 }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

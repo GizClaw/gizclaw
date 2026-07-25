@@ -39,6 +39,7 @@ type config struct {
 
 	ClientPrivateKey string        `json:"-"`
 	timeout          time.Duration `json:"-"`
+	workspaceSuffix  string        `json:"-"`
 }
 
 type interruptConfig struct {
@@ -54,26 +55,30 @@ type serverConfig struct {
 }
 
 type modelConfig struct {
-	LLM         string `json:"llm" yaml:"llm"`
-	TTS         string `json:"tts" yaml:"tts"`
-	ASR         string `json:"asr" yaml:"asr"`
-	Realtime    string `json:"realtime" yaml:"realtime"`
-	Translation string `json:"translation" yaml:"translation"`
+	LLM            string `json:"llm" yaml:"llm"`
+	TTS            string `json:"tts" yaml:"tts"`
+	ASR            string `json:"asr" yaml:"asr"`
+	Realtime       string `json:"realtime" yaml:"realtime"`
+	RealtimeDuplex string `json:"realtime_duplex" yaml:"realtime_duplex"`
+	Translation    string `json:"translation" yaml:"translation"`
 }
 
 type workflowConfig struct {
-	Name         string                               `json:"name"`
-	Description  string                               `json:"description,omitempty"`
-	Model        string                               `json:"model"`
-	Instructions string                               `json:"instructions,omitempty"`
-	Audio        *rpcapi.DoubaoRealtimeAudio          `json:"audio,omitempty"`
-	Tools        *[]rpcapi.DoubaoRealtimeFunctionTool `json:"tools,omitempty"`
-	Extension    *rpcapi.DoubaoRealtimeExtension      `json:"extension,omitempty"`
-	Translation  string                               `json:"translation_model,omitempty"`
-	Parameters   workspaceParameterConfig             `json:"parameters,omitempty"`
-	Flowcraft    map[string]any                       `json:"flowcraft,omitempty"`
-	VoiceAdapter voiceAdapterConfig                   `json:"voice_adapter,omitempty"`
-	ASTTranslate astTranslateConfig                   `json:"ast_translate,omitempty"`
+	Name                 string                                   `json:"name"`
+	Description          string                                   `json:"description,omitempty"`
+	Model                string                                   `json:"model"`
+	Instructions         string                                   `json:"instructions,omitempty"`
+	Audio                *rpcapi.DoubaoRealtimeAudio              `json:"audio,omitempty"`
+	Tools                *[]rpcapi.DoubaoRealtimeFunctionTool     `json:"tools,omitempty"`
+	Extension            *rpcapi.DoubaoRealtimeExtension          `json:"extension,omitempty"`
+	Translation          string                                   `json:"translation_model,omitempty"`
+	Parameters           workspaceParameterConfig                 `json:"parameters,omitempty"`
+	Flowcraft            map[string]any                           `json:"flowcraft,omitempty"`
+	VoiceAdapter         voiceAdapterConfig                       `json:"voice_adapter,omitempty"`
+	ASTTranslate         astTranslateConfig                       `json:"ast_translate,omitempty"`
+	DashScopeRealtime    *rpcapi.DashScopeRealtimeWorkflowSpec    `json:"dashscope_realtime,omitempty"`
+	DoubaoRealtimeDuplex *rpcapi.DoubaoRealtimeDuplexWorkflowSpec `json:"doubao_realtime_duplex,omitempty"`
+	Eino                 *rpcapi.EinoWorkflowSpec                 `json:"eino,omitempty"`
 }
 
 type workspaceParameterConfig struct {
@@ -263,6 +268,7 @@ func (c *config) validate() error {
 	c.Models.TTS = strings.TrimSpace(c.Models.TTS)
 	c.Models.ASR = strings.TrimSpace(c.Models.ASR)
 	c.Models.Realtime = strings.TrimSpace(c.Models.Realtime)
+	c.Models.RealtimeDuplex = strings.TrimSpace(c.Models.RealtimeDuplex)
 	c.Models.Translation = strings.TrimSpace(c.Models.Translation)
 	c.Workflow.Name = strings.TrimSpace(c.Workflow.Name)
 	c.Workflow.Description = strings.TrimSpace(c.Workflow.Description)
@@ -329,6 +335,12 @@ func (c *config) validate() error {
 	if c.isDoubaoRealtimeAgent() && c.Models.Realtime == "" {
 		return fmt.Errorf("models.realtime is required")
 	}
+	if c.isDashScopeRealtimeAgent() && c.Models.Realtime == "" {
+		return fmt.Errorf("models.realtime is required")
+	}
+	if c.isDoubaoRealtimeDuplexAgent() && c.Models.RealtimeDuplex == "" {
+		return fmt.Errorf("models.realtime_duplex is required")
+	}
 	if c.isASTTranslateAgent() && c.Models.Translation == "" {
 		return fmt.Errorf("models.translation is required")
 	}
@@ -345,6 +357,27 @@ func (c *config) validate() error {
 		if c.Workflow.Audio == nil {
 			c.Workflow.Audio = defaultDoubaoRealtimeAudio()
 		}
+	}
+	if c.isDashScopeRealtimeAgent() {
+		if c.Workflow.DashScopeRealtime == nil {
+			c.Workflow.DashScopeRealtime = &rpcapi.DashScopeRealtimeWorkflowSpec{Model: c.Models.Realtime}
+		}
+		c.Workflow.DashScopeRealtime.Model = strings.TrimSpace(c.Workflow.DashScopeRealtime.Model)
+		if c.Workflow.DashScopeRealtime.Model == "" {
+			c.Workflow.DashScopeRealtime.Model = c.Models.Realtime
+		}
+	}
+	if c.isDoubaoRealtimeDuplexAgent() {
+		if c.Workflow.DoubaoRealtimeDuplex == nil {
+			c.Workflow.DoubaoRealtimeDuplex = &rpcapi.DoubaoRealtimeDuplexWorkflowSpec{Model: c.Models.RealtimeDuplex}
+		}
+		c.Workflow.DoubaoRealtimeDuplex.Model = strings.TrimSpace(c.Workflow.DoubaoRealtimeDuplex.Model)
+		if c.Workflow.DoubaoRealtimeDuplex.Model == "" {
+			c.Workflow.DoubaoRealtimeDuplex.Model = c.Models.RealtimeDuplex
+		}
+	}
+	if c.isEinoAgent() && c.Workflow.Eino == nil {
+		return fmt.Errorf("workflow.eino is required")
 	}
 	if c.isFlowcraftAgent() {
 		if c.Workflow.VoiceAdapter.ASRModel == "" {
@@ -408,6 +441,18 @@ func (c config) isFlowcraftAgent() bool {
 
 func (c config) isDoubaoRealtimeAgent() bool {
 	return c.Agent == "doubao-realtime"
+}
+
+func (c config) isDashScopeRealtimeAgent() bool {
+	return c.Agent == "dashscope-realtime"
+}
+
+func (c config) isDoubaoRealtimeDuplexAgent() bool {
+	return c.Agent == "doubao-realtime-duplex"
+}
+
+func (c config) isEinoAgent() bool {
+	return c.Agent == "eino"
 }
 
 func (c config) isASTTranslateAgent() bool {

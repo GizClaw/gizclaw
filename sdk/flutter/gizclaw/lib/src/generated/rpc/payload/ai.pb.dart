@@ -1565,6 +1565,921 @@ class ChatRoomWorkspaceTranscriptParameters extends $pb.GeneratedMessage {
   void clearEnabled() => $_clearField(2);
 }
 
+class DashScopeRealtimeWorkflowSpec extends $pb.GeneratedMessage {
+  factory DashScopeRealtimeWorkflowSpec({
+    $core.String? asrModel,
+    $core.bool? enableAsr,
+    $core.String? inputAudioFormat,
+    $core.String? instructions,
+    $fixnum.Int64? maxOutputTokens,
+    $core.Iterable<$core.String>? modalities,
+    $core.String? model,
+    $core.String? outputAudioFormat,
+    $core.double? temperature,
+    $core.String? vad,
+    $core.String? voice,
+  }) {
+    final result = create();
+    if (asrModel != null) result.asrModel = asrModel;
+    if (enableAsr != null) result.enableAsr = enableAsr;
+    if (inputAudioFormat != null) result.inputAudioFormat = inputAudioFormat;
+    if (instructions != null) result.instructions = instructions;
+    if (maxOutputTokens != null) result.maxOutputTokens = maxOutputTokens;
+    if (modalities != null) result.modalities.addAll(modalities);
+    if (model != null) result.model = model;
+    if (outputAudioFormat != null) result.outputAudioFormat = outputAudioFormat;
+    if (temperature != null) result.temperature = temperature;
+    if (vad != null) result.vad = vad;
+    if (voice != null) result.voice = voice;
+    return result;
+  }
+
+  DashScopeRealtimeWorkflowSpec._();
+
+  factory DashScopeRealtimeWorkflowSpec.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DashScopeRealtimeWorkflowSpec.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DashScopeRealtimeWorkflowSpec',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'asrModel')
+    ..aOB(2, _omitFieldNames ? '' : 'enableAsr')
+    ..aOS(3, _omitFieldNames ? '' : 'inputAudioFormat')
+    ..aOS(4, _omitFieldNames ? '' : 'instructions')
+    ..aInt64(5, _omitFieldNames ? '' : 'maxOutputTokens')
+    ..pPS(6, _omitFieldNames ? '' : 'modalities')
+    ..aOS(7, _omitFieldNames ? '' : 'model')
+    ..aOS(8, _omitFieldNames ? '' : 'outputAudioFormat')
+    ..aD(9, _omitFieldNames ? '' : 'temperature', fieldType: $pb.PbFieldType.OF)
+    ..aOS(10, _omitFieldNames ? '' : 'vad')
+    ..aOS(11, _omitFieldNames ? '' : 'voice')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DashScopeRealtimeWorkflowSpec clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DashScopeRealtimeWorkflowSpec copyWith(
+          void Function(DashScopeRealtimeWorkflowSpec) updates) =>
+      super.copyWith(
+              (message) => updates(message as DashScopeRealtimeWorkflowSpec))
+          as DashScopeRealtimeWorkflowSpec;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DashScopeRealtimeWorkflowSpec create() =>
+      DashScopeRealtimeWorkflowSpec._();
+  @$core.override
+  DashScopeRealtimeWorkflowSpec createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DashScopeRealtimeWorkflowSpec getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DashScopeRealtimeWorkflowSpec>(create);
+  static DashScopeRealtimeWorkflowSpec? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get asrModel => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set asrModel($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasAsrModel() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearAsrModel() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.bool get enableAsr => $_getBF(1);
+  @$pb.TagNumber(2)
+  set enableAsr($core.bool value) => $_setBool(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasEnableAsr() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearEnableAsr() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get inputAudioFormat => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set inputAudioFormat($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasInputAudioFormat() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearInputAudioFormat() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get instructions => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set instructions($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasInstructions() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearInstructions() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $fixnum.Int64 get maxOutputTokens => $_getI64(4);
+  @$pb.TagNumber(5)
+  set maxOutputTokens($fixnum.Int64 value) => $_setInt64(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasMaxOutputTokens() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearMaxOutputTokens() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $pb.PbList<$core.String> get modalities => $_getList(5);
+
+  @$pb.TagNumber(7)
+  $core.String get model => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set model($core.String value) => $_setString(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasModel() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearModel() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.String get outputAudioFormat => $_getSZ(7);
+  @$pb.TagNumber(8)
+  set outputAudioFormat($core.String value) => $_setString(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasOutputAudioFormat() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearOutputAudioFormat() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.double get temperature => $_getN(8);
+  @$pb.TagNumber(9)
+  set temperature($core.double value) => $_setFloat(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasTemperature() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearTemperature() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $core.String get vad => $_getSZ(9);
+  @$pb.TagNumber(10)
+  set vad($core.String value) => $_setString(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasVad() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearVad() => $_clearField(10);
+
+  @$pb.TagNumber(11)
+  $core.String get voice => $_getSZ(10);
+  @$pb.TagNumber(11)
+  set voice($core.String value) => $_setString(10, value);
+  @$pb.TagNumber(11)
+  $core.bool hasVoice() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearVoice() => $_clearField(11);
+}
+
+class DashScopeRealtimeWorkspaceParameters extends $pb.GeneratedMessage {
+  factory DashScopeRealtimeWorkspaceParameters({
+    $1.DashScopeRealtimeWorkspaceParametersAgentType? agentType,
+    $core.String? asrModel,
+    $core.bool? e2e,
+    $core.bool? enableAsr,
+    $core.String? inputAudioFormat,
+    $core.String? instructions,
+    $fixnum.Int64? maxOutputTokens,
+    $core.Iterable<$core.String>? modalities,
+    $core.String? model,
+    $core.String? outputAudioFormat,
+    $core.double? temperature,
+    $core.String? vad,
+    $core.String? voice,
+  }) {
+    final result = create();
+    if (agentType != null) result.agentType = agentType;
+    if (asrModel != null) result.asrModel = asrModel;
+    if (e2e != null) result.e2e = e2e;
+    if (enableAsr != null) result.enableAsr = enableAsr;
+    if (inputAudioFormat != null) result.inputAudioFormat = inputAudioFormat;
+    if (instructions != null) result.instructions = instructions;
+    if (maxOutputTokens != null) result.maxOutputTokens = maxOutputTokens;
+    if (modalities != null) result.modalities.addAll(modalities);
+    if (model != null) result.model = model;
+    if (outputAudioFormat != null) result.outputAudioFormat = outputAudioFormat;
+    if (temperature != null) result.temperature = temperature;
+    if (vad != null) result.vad = vad;
+    if (voice != null) result.voice = voice;
+    return result;
+  }
+
+  DashScopeRealtimeWorkspaceParameters._();
+
+  factory DashScopeRealtimeWorkspaceParameters.fromBuffer(
+          $core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DashScopeRealtimeWorkspaceParameters.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DashScopeRealtimeWorkspaceParameters',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aE<$1.DashScopeRealtimeWorkspaceParametersAgentType>(
+        1, _omitFieldNames ? '' : 'agentType',
+        enumValues: $1.DashScopeRealtimeWorkspaceParametersAgentType.values)
+    ..aOS(2, _omitFieldNames ? '' : 'asrModel')
+    ..aOB(3, _omitFieldNames ? '' : 'e2e')
+    ..aOB(4, _omitFieldNames ? '' : 'enableAsr')
+    ..aOS(5, _omitFieldNames ? '' : 'inputAudioFormat')
+    ..aOS(6, _omitFieldNames ? '' : 'instructions')
+    ..aInt64(7, _omitFieldNames ? '' : 'maxOutputTokens')
+    ..pPS(8, _omitFieldNames ? '' : 'modalities')
+    ..aOS(9, _omitFieldNames ? '' : 'model')
+    ..aOS(10, _omitFieldNames ? '' : 'outputAudioFormat')
+    ..aD(11, _omitFieldNames ? '' : 'temperature',
+        fieldType: $pb.PbFieldType.OF)
+    ..aOS(12, _omitFieldNames ? '' : 'vad')
+    ..aOS(13, _omitFieldNames ? '' : 'voice')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DashScopeRealtimeWorkspaceParameters clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DashScopeRealtimeWorkspaceParameters copyWith(
+          void Function(DashScopeRealtimeWorkspaceParameters) updates) =>
+      super.copyWith((message) =>
+              updates(message as DashScopeRealtimeWorkspaceParameters))
+          as DashScopeRealtimeWorkspaceParameters;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DashScopeRealtimeWorkspaceParameters create() =>
+      DashScopeRealtimeWorkspaceParameters._();
+  @$core.override
+  DashScopeRealtimeWorkspaceParameters createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DashScopeRealtimeWorkspaceParameters getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<
+          DashScopeRealtimeWorkspaceParameters>(create);
+  static DashScopeRealtimeWorkspaceParameters? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $1.DashScopeRealtimeWorkspaceParametersAgentType get agentType => $_getN(0);
+  @$pb.TagNumber(1)
+  set agentType($1.DashScopeRealtimeWorkspaceParametersAgentType value) =>
+      $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasAgentType() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearAgentType() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get asrModel => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set asrModel($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasAsrModel() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearAsrModel() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.bool get e2e => $_getBF(2);
+  @$pb.TagNumber(3)
+  set e2e($core.bool value) => $_setBool(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasE2e() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearE2e() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.bool get enableAsr => $_getBF(3);
+  @$pb.TagNumber(4)
+  set enableAsr($core.bool value) => $_setBool(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasEnableAsr() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearEnableAsr() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get inputAudioFormat => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set inputAudioFormat($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasInputAudioFormat() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearInputAudioFormat() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get instructions => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set instructions($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasInstructions() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearInstructions() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $fixnum.Int64 get maxOutputTokens => $_getI64(6);
+  @$pb.TagNumber(7)
+  set maxOutputTokens($fixnum.Int64 value) => $_setInt64(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasMaxOutputTokens() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearMaxOutputTokens() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $pb.PbList<$core.String> get modalities => $_getList(7);
+
+  @$pb.TagNumber(9)
+  $core.String get model => $_getSZ(8);
+  @$pb.TagNumber(9)
+  set model($core.String value) => $_setString(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasModel() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearModel() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $core.String get outputAudioFormat => $_getSZ(9);
+  @$pb.TagNumber(10)
+  set outputAudioFormat($core.String value) => $_setString(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasOutputAudioFormat() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearOutputAudioFormat() => $_clearField(10);
+
+  @$pb.TagNumber(11)
+  $core.double get temperature => $_getN(10);
+  @$pb.TagNumber(11)
+  set temperature($core.double value) => $_setFloat(10, value);
+  @$pb.TagNumber(11)
+  $core.bool hasTemperature() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearTemperature() => $_clearField(11);
+
+  @$pb.TagNumber(12)
+  $core.String get vad => $_getSZ(11);
+  @$pb.TagNumber(12)
+  set vad($core.String value) => $_setString(11, value);
+  @$pb.TagNumber(12)
+  $core.bool hasVad() => $_has(11);
+  @$pb.TagNumber(12)
+  void clearVad() => $_clearField(12);
+
+  @$pb.TagNumber(13)
+  $core.String get voice => $_getSZ(12);
+  @$pb.TagNumber(13)
+  set voice($core.String value) => $_setString(12, value);
+  @$pb.TagNumber(13)
+  $core.bool hasVoice() => $_has(12);
+  @$pb.TagNumber(13)
+  void clearVoice() => $_clearField(13);
+}
+
+class DoubaoRealtimeDuplexWorkflowSpec extends $pb.GeneratedMessage {
+  factory DoubaoRealtimeDuplexWorkflowSpec({
+    $core.String? format,
+    $fixnum.Int64? inputChannels,
+    $core.String? inputFormat,
+    $fixnum.Int64? inputSampleRate,
+    $core.bool? inputTranscode,
+    $core.String? instructions,
+    $core.String? model,
+    $fixnum.Int64? outputLoudness,
+    $fixnum.Int64? outputSpeed,
+    $fixnum.Int64? sampleRate,
+    $core.String? voice,
+  }) {
+    final result = create();
+    if (format != null) result.format = format;
+    if (inputChannels != null) result.inputChannels = inputChannels;
+    if (inputFormat != null) result.inputFormat = inputFormat;
+    if (inputSampleRate != null) result.inputSampleRate = inputSampleRate;
+    if (inputTranscode != null) result.inputTranscode = inputTranscode;
+    if (instructions != null) result.instructions = instructions;
+    if (model != null) result.model = model;
+    if (outputLoudness != null) result.outputLoudness = outputLoudness;
+    if (outputSpeed != null) result.outputSpeed = outputSpeed;
+    if (sampleRate != null) result.sampleRate = sampleRate;
+    if (voice != null) result.voice = voice;
+    return result;
+  }
+
+  DoubaoRealtimeDuplexWorkflowSpec._();
+
+  factory DoubaoRealtimeDuplexWorkflowSpec.fromBuffer(
+          $core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DoubaoRealtimeDuplexWorkflowSpec.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DoubaoRealtimeDuplexWorkflowSpec',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'format')
+    ..aInt64(2, _omitFieldNames ? '' : 'inputChannels')
+    ..aOS(3, _omitFieldNames ? '' : 'inputFormat')
+    ..aInt64(4, _omitFieldNames ? '' : 'inputSampleRate')
+    ..aOB(5, _omitFieldNames ? '' : 'inputTranscode')
+    ..aOS(6, _omitFieldNames ? '' : 'instructions')
+    ..aOS(7, _omitFieldNames ? '' : 'model')
+    ..aInt64(8, _omitFieldNames ? '' : 'outputLoudness')
+    ..aInt64(9, _omitFieldNames ? '' : 'outputSpeed')
+    ..aInt64(10, _omitFieldNames ? '' : 'sampleRate')
+    ..aOS(11, _omitFieldNames ? '' : 'voice')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DoubaoRealtimeDuplexWorkflowSpec clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DoubaoRealtimeDuplexWorkflowSpec copyWith(
+          void Function(DoubaoRealtimeDuplexWorkflowSpec) updates) =>
+      super.copyWith(
+              (message) => updates(message as DoubaoRealtimeDuplexWorkflowSpec))
+          as DoubaoRealtimeDuplexWorkflowSpec;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DoubaoRealtimeDuplexWorkflowSpec create() =>
+      DoubaoRealtimeDuplexWorkflowSpec._();
+  @$core.override
+  DoubaoRealtimeDuplexWorkflowSpec createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DoubaoRealtimeDuplexWorkflowSpec getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DoubaoRealtimeDuplexWorkflowSpec>(
+          create);
+  static DoubaoRealtimeDuplexWorkflowSpec? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get format => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set format($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasFormat() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearFormat() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get inputChannels => $_getI64(1);
+  @$pb.TagNumber(2)
+  set inputChannels($fixnum.Int64 value) => $_setInt64(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasInputChannels() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearInputChannels() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get inputFormat => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set inputFormat($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasInputFormat() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearInputFormat() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $fixnum.Int64 get inputSampleRate => $_getI64(3);
+  @$pb.TagNumber(4)
+  set inputSampleRate($fixnum.Int64 value) => $_setInt64(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasInputSampleRate() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearInputSampleRate() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.bool get inputTranscode => $_getBF(4);
+  @$pb.TagNumber(5)
+  set inputTranscode($core.bool value) => $_setBool(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasInputTranscode() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearInputTranscode() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get instructions => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set instructions($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasInstructions() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearInstructions() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.String get model => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set model($core.String value) => $_setString(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasModel() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearModel() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $fixnum.Int64 get outputLoudness => $_getI64(7);
+  @$pb.TagNumber(8)
+  set outputLoudness($fixnum.Int64 value) => $_setInt64(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasOutputLoudness() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearOutputLoudness() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $fixnum.Int64 get outputSpeed => $_getI64(8);
+  @$pb.TagNumber(9)
+  set outputSpeed($fixnum.Int64 value) => $_setInt64(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasOutputSpeed() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearOutputSpeed() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $fixnum.Int64 get sampleRate => $_getI64(9);
+  @$pb.TagNumber(10)
+  set sampleRate($fixnum.Int64 value) => $_setInt64(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasSampleRate() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearSampleRate() => $_clearField(10);
+
+  @$pb.TagNumber(11)
+  $core.String get voice => $_getSZ(10);
+  @$pb.TagNumber(11)
+  set voice($core.String value) => $_setString(10, value);
+  @$pb.TagNumber(11)
+  $core.bool hasVoice() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearVoice() => $_clearField(11);
+}
+
+class DoubaoRealtimeDuplexWorkspaceParameters extends $pb.GeneratedMessage {
+  factory DoubaoRealtimeDuplexWorkspaceParameters({
+    $1.DoubaoRealtimeDuplexWorkspaceParametersAgentType? agentType,
+    $core.bool? e2e,
+    $core.String? format,
+    $fixnum.Int64? inputChannels,
+    $core.String? inputFormat,
+    $fixnum.Int64? inputSampleRate,
+    $core.bool? inputTranscode,
+    $core.String? instructions,
+    $core.String? model,
+    $fixnum.Int64? outputLoudness,
+    $fixnum.Int64? outputSpeed,
+    $fixnum.Int64? sampleRate,
+    $core.String? voice,
+  }) {
+    final result = create();
+    if (agentType != null) result.agentType = agentType;
+    if (e2e != null) result.e2e = e2e;
+    if (format != null) result.format = format;
+    if (inputChannels != null) result.inputChannels = inputChannels;
+    if (inputFormat != null) result.inputFormat = inputFormat;
+    if (inputSampleRate != null) result.inputSampleRate = inputSampleRate;
+    if (inputTranscode != null) result.inputTranscode = inputTranscode;
+    if (instructions != null) result.instructions = instructions;
+    if (model != null) result.model = model;
+    if (outputLoudness != null) result.outputLoudness = outputLoudness;
+    if (outputSpeed != null) result.outputSpeed = outputSpeed;
+    if (sampleRate != null) result.sampleRate = sampleRate;
+    if (voice != null) result.voice = voice;
+    return result;
+  }
+
+  DoubaoRealtimeDuplexWorkspaceParameters._();
+
+  factory DoubaoRealtimeDuplexWorkspaceParameters.fromBuffer(
+          $core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DoubaoRealtimeDuplexWorkspaceParameters.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DoubaoRealtimeDuplexWorkspaceParameters',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aE<$1.DoubaoRealtimeDuplexWorkspaceParametersAgentType>(
+        1, _omitFieldNames ? '' : 'agentType',
+        enumValues: $1.DoubaoRealtimeDuplexWorkspaceParametersAgentType.values)
+    ..aOB(2, _omitFieldNames ? '' : 'e2e')
+    ..aOS(3, _omitFieldNames ? '' : 'format')
+    ..aInt64(4, _omitFieldNames ? '' : 'inputChannels')
+    ..aOS(5, _omitFieldNames ? '' : 'inputFormat')
+    ..aInt64(6, _omitFieldNames ? '' : 'inputSampleRate')
+    ..aOB(7, _omitFieldNames ? '' : 'inputTranscode')
+    ..aOS(8, _omitFieldNames ? '' : 'instructions')
+    ..aOS(9, _omitFieldNames ? '' : 'model')
+    ..aInt64(10, _omitFieldNames ? '' : 'outputLoudness')
+    ..aInt64(11, _omitFieldNames ? '' : 'outputSpeed')
+    ..aInt64(12, _omitFieldNames ? '' : 'sampleRate')
+    ..aOS(13, _omitFieldNames ? '' : 'voice')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DoubaoRealtimeDuplexWorkspaceParameters clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DoubaoRealtimeDuplexWorkspaceParameters copyWith(
+          void Function(DoubaoRealtimeDuplexWorkspaceParameters) updates) =>
+      super.copyWith((message) =>
+              updates(message as DoubaoRealtimeDuplexWorkspaceParameters))
+          as DoubaoRealtimeDuplexWorkspaceParameters;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DoubaoRealtimeDuplexWorkspaceParameters create() =>
+      DoubaoRealtimeDuplexWorkspaceParameters._();
+  @$core.override
+  DoubaoRealtimeDuplexWorkspaceParameters createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DoubaoRealtimeDuplexWorkspaceParameters getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<
+          DoubaoRealtimeDuplexWorkspaceParameters>(create);
+  static DoubaoRealtimeDuplexWorkspaceParameters? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $1.DoubaoRealtimeDuplexWorkspaceParametersAgentType get agentType =>
+      $_getN(0);
+  @$pb.TagNumber(1)
+  set agentType($1.DoubaoRealtimeDuplexWorkspaceParametersAgentType value) =>
+      $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasAgentType() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearAgentType() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.bool get e2e => $_getBF(1);
+  @$pb.TagNumber(2)
+  set e2e($core.bool value) => $_setBool(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasE2e() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearE2e() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get format => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set format($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasFormat() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearFormat() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $fixnum.Int64 get inputChannels => $_getI64(3);
+  @$pb.TagNumber(4)
+  set inputChannels($fixnum.Int64 value) => $_setInt64(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasInputChannels() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearInputChannels() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get inputFormat => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set inputFormat($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasInputFormat() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearInputFormat() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $fixnum.Int64 get inputSampleRate => $_getI64(5);
+  @$pb.TagNumber(6)
+  set inputSampleRate($fixnum.Int64 value) => $_setInt64(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasInputSampleRate() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearInputSampleRate() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.bool get inputTranscode => $_getBF(6);
+  @$pb.TagNumber(7)
+  set inputTranscode($core.bool value) => $_setBool(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasInputTranscode() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearInputTranscode() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.String get instructions => $_getSZ(7);
+  @$pb.TagNumber(8)
+  set instructions($core.String value) => $_setString(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasInstructions() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearInstructions() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.String get model => $_getSZ(8);
+  @$pb.TagNumber(9)
+  set model($core.String value) => $_setString(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasModel() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearModel() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $fixnum.Int64 get outputLoudness => $_getI64(9);
+  @$pb.TagNumber(10)
+  set outputLoudness($fixnum.Int64 value) => $_setInt64(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasOutputLoudness() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearOutputLoudness() => $_clearField(10);
+
+  @$pb.TagNumber(11)
+  $fixnum.Int64 get outputSpeed => $_getI64(10);
+  @$pb.TagNumber(11)
+  set outputSpeed($fixnum.Int64 value) => $_setInt64(10, value);
+  @$pb.TagNumber(11)
+  $core.bool hasOutputSpeed() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearOutputSpeed() => $_clearField(11);
+
+  @$pb.TagNumber(12)
+  $fixnum.Int64 get sampleRate => $_getI64(11);
+  @$pb.TagNumber(12)
+  set sampleRate($fixnum.Int64 value) => $_setInt64(11, value);
+  @$pb.TagNumber(12)
+  $core.bool hasSampleRate() => $_has(11);
+  @$pb.TagNumber(12)
+  void clearSampleRate() => $_clearField(12);
+
+  @$pb.TagNumber(13)
+  $core.String get voice => $_getSZ(12);
+  @$pb.TagNumber(13)
+  set voice($core.String value) => $_setString(12, value);
+  @$pb.TagNumber(13)
+  $core.bool hasVoice() => $_has(12);
+  @$pb.TagNumber(13)
+  void clearVoice() => $_clearField(13);
+}
+
+class EinoWorkflowSpec extends $pb.GeneratedMessage {
+  factory EinoWorkflowSpec({
+    $0.Struct? graph,
+    $0.Struct? limits,
+    $0.Struct? memory,
+  }) {
+    final result = create();
+    if (graph != null) result.graph = graph;
+    if (limits != null) result.limits = limits;
+    if (memory != null) result.memory = memory;
+    return result;
+  }
+
+  EinoWorkflowSpec._();
+
+  factory EinoWorkflowSpec.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory EinoWorkflowSpec.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'EinoWorkflowSpec',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOM<$0.Struct>(1, _omitFieldNames ? '' : 'graph',
+        subBuilder: $0.Struct.create)
+    ..aOM<$0.Struct>(2, _omitFieldNames ? '' : 'limits',
+        subBuilder: $0.Struct.create)
+    ..aOM<$0.Struct>(3, _omitFieldNames ? '' : 'memory',
+        subBuilder: $0.Struct.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  EinoWorkflowSpec clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  EinoWorkflowSpec copyWith(void Function(EinoWorkflowSpec) updates) =>
+      super.copyWith((message) => updates(message as EinoWorkflowSpec))
+          as EinoWorkflowSpec;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static EinoWorkflowSpec create() => EinoWorkflowSpec._();
+  @$core.override
+  EinoWorkflowSpec createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static EinoWorkflowSpec getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<EinoWorkflowSpec>(create);
+  static EinoWorkflowSpec? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $0.Struct get graph => $_getN(0);
+  @$pb.TagNumber(1)
+  set graph($0.Struct value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasGraph() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearGraph() => $_clearField(1);
+  @$pb.TagNumber(1)
+  $0.Struct ensureGraph() => $_ensure(0);
+
+  @$pb.TagNumber(2)
+  $0.Struct get limits => $_getN(1);
+  @$pb.TagNumber(2)
+  set limits($0.Struct value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasLimits() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearLimits() => $_clearField(2);
+  @$pb.TagNumber(2)
+  $0.Struct ensureLimits() => $_ensure(1);
+
+  @$pb.TagNumber(3)
+  $0.Struct get memory => $_getN(2);
+  @$pb.TagNumber(3)
+  set memory($0.Struct value) => $_setField(3, value);
+  @$pb.TagNumber(3)
+  $core.bool hasMemory() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearMemory() => $_clearField(3);
+  @$pb.TagNumber(3)
+  $0.Struct ensureMemory() => $_ensure(2);
+}
+
+class EinoWorkspaceParameters extends $pb.GeneratedMessage {
+  factory EinoWorkspaceParameters({
+    $1.EinoWorkspaceParametersAgentType? agentType,
+    $core.bool? e2e,
+  }) {
+    final result = create();
+    if (agentType != null) result.agentType = agentType;
+    if (e2e != null) result.e2e = e2e;
+    return result;
+  }
+
+  EinoWorkspaceParameters._();
+
+  factory EinoWorkspaceParameters.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory EinoWorkspaceParameters.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'EinoWorkspaceParameters',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aE<$1.EinoWorkspaceParametersAgentType>(
+        1, _omitFieldNames ? '' : 'agentType',
+        enumValues: $1.EinoWorkspaceParametersAgentType.values)
+    ..aOB(2, _omitFieldNames ? '' : 'e2e')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  EinoWorkspaceParameters clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  EinoWorkspaceParameters copyWith(
+          void Function(EinoWorkspaceParameters) updates) =>
+      super.copyWith((message) => updates(message as EinoWorkspaceParameters))
+          as EinoWorkspaceParameters;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static EinoWorkspaceParameters create() => EinoWorkspaceParameters._();
+  @$core.override
+  EinoWorkspaceParameters createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static EinoWorkspaceParameters getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<EinoWorkspaceParameters>(create);
+  static EinoWorkspaceParameters? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $1.EinoWorkspaceParametersAgentType get agentType => $_getN(0);
+  @$pb.TagNumber(1)
+  set agentType($1.EinoWorkspaceParametersAgentType value) =>
+      $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasAgentType() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearAgentType() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.bool get e2e => $_getBF(1);
+  @$pb.TagNumber(2)
+  set e2e($core.bool value) => $_setBool(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasE2e() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearE2e() => $_clearField(2);
+}
+
 class DoubaoRealtimeAIGCMetadata extends $pb.GeneratedMessage {
   factory DoubaoRealtimeAIGCMetadata({
     $core.String? contentProducer,
@@ -3541,6 +4456,9 @@ class PetWorkflowSpec extends $pb.GeneratedMessage {
     DoubaoRealtimeWorkflowSpec? doubaoRealtime,
     ASTTranslateWorkflowSpec? astTranslate,
     ChatRoomWorkflowSpec? chatroom,
+    DashScopeRealtimeWorkflowSpec? dashscopeRealtime,
+    DoubaoRealtimeDuplexWorkflowSpec? doubaoRealtimeDuplex,
+    EinoWorkflowSpec? eino,
   }) {
     final result = create();
     if (driver != null) result.driver = driver;
@@ -3549,6 +4467,10 @@ class PetWorkflowSpec extends $pb.GeneratedMessage {
     if (doubaoRealtime != null) result.doubaoRealtime = doubaoRealtime;
     if (astTranslate != null) result.astTranslate = astTranslate;
     if (chatroom != null) result.chatroom = chatroom;
+    if (dashscopeRealtime != null) result.dashscopeRealtime = dashscopeRealtime;
+    if (doubaoRealtimeDuplex != null)
+      result.doubaoRealtimeDuplex = doubaoRealtimeDuplex;
+    if (eino != null) result.eino = eino;
     return result;
   }
 
@@ -3578,6 +4500,14 @@ class PetWorkflowSpec extends $pb.GeneratedMessage {
         subBuilder: ASTTranslateWorkflowSpec.create)
     ..aOM<ChatRoomWorkflowSpec>(6, _omitFieldNames ? '' : 'chatroom',
         subBuilder: ChatRoomWorkflowSpec.create)
+    ..aOM<DashScopeRealtimeWorkflowSpec>(
+        7, _omitFieldNames ? '' : 'dashscopeRealtime',
+        subBuilder: DashScopeRealtimeWorkflowSpec.create)
+    ..aOM<DoubaoRealtimeDuplexWorkflowSpec>(
+        8, _omitFieldNames ? '' : 'doubaoRealtimeDuplex',
+        subBuilder: DoubaoRealtimeDuplexWorkflowSpec.create)
+    ..aOM<EinoWorkflowSpec>(9, _omitFieldNames ? '' : 'eino',
+        subBuilder: EinoWorkflowSpec.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3662,6 +4592,41 @@ class PetWorkflowSpec extends $pb.GeneratedMessage {
   void clearChatroom() => $_clearField(6);
   @$pb.TagNumber(6)
   ChatRoomWorkflowSpec ensureChatroom() => $_ensure(5);
+
+  @$pb.TagNumber(7)
+  DashScopeRealtimeWorkflowSpec get dashscopeRealtime => $_getN(6);
+  @$pb.TagNumber(7)
+  set dashscopeRealtime(DashScopeRealtimeWorkflowSpec value) =>
+      $_setField(7, value);
+  @$pb.TagNumber(7)
+  $core.bool hasDashscopeRealtime() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearDashscopeRealtime() => $_clearField(7);
+  @$pb.TagNumber(7)
+  DashScopeRealtimeWorkflowSpec ensureDashscopeRealtime() => $_ensure(6);
+
+  @$pb.TagNumber(8)
+  DoubaoRealtimeDuplexWorkflowSpec get doubaoRealtimeDuplex => $_getN(7);
+  @$pb.TagNumber(8)
+  set doubaoRealtimeDuplex(DoubaoRealtimeDuplexWorkflowSpec value) =>
+      $_setField(8, value);
+  @$pb.TagNumber(8)
+  $core.bool hasDoubaoRealtimeDuplex() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearDoubaoRealtimeDuplex() => $_clearField(8);
+  @$pb.TagNumber(8)
+  DoubaoRealtimeDuplexWorkflowSpec ensureDoubaoRealtimeDuplex() => $_ensure(7);
+
+  @$pb.TagNumber(9)
+  EinoWorkflowSpec get eino => $_getN(8);
+  @$pb.TagNumber(9)
+  set eino(EinoWorkflowSpec value) => $_setField(9, value);
+  @$pb.TagNumber(9)
+  $core.bool hasEino() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearEino() => $_clearField(9);
+  @$pb.TagNumber(9)
+  EinoWorkflowSpec ensureEino() => $_ensure(8);
 }
 
 enum Model_ProviderData {

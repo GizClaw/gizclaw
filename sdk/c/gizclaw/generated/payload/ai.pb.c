@@ -60,6 +60,24 @@ PB_BIND(gizclaw_rpc_v1_ChatRoomWorkspaceParameters, gizclaw_rpc_v1_ChatRoomWorks
 PB_BIND(gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters, gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters, AUTO)
 
 
+PB_BIND(gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec, gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters, gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkflowSpec, gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkflowSpec, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParameters, gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParameters, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_EinoWorkflowSpec, gizclaw_rpc_v1_EinoWorkflowSpec, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_EinoWorkspaceParameters, gizclaw_rpc_v1_EinoWorkspaceParameters, AUTO)
+
+
 PB_BIND(gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata, gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata, AUTO)
 
 

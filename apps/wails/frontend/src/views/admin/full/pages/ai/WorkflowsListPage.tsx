@@ -254,8 +254,14 @@ function workflowSpecLabel(workflow: Workflow): string {
   switch (workflow.spec.driver) {
     case "ast-translate":
       return "ast_translate";
+    case "dashscope-realtime":
+      return "dashscope_realtime";
     case "doubao-realtime":
       return "doubao_realtime";
+    case "doubao-realtime-duplex":
+      return "doubao_realtime_duplex";
+    case "eino":
+      return "eino";
     case "flowcraft":
       return "flowcraft";
     case "chatroom":

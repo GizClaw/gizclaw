@@ -1,0 +1,35 @@
+{
+  "agent": "dashscope-realtime",
+  "models": {
+    "llm": "llm",
+    "tts": "tts",
+    "asr": "asr",
+    "realtime": "dash-realtime"
+  },
+  "workflow": {
+    "name": "dashscope-realtime-conversation",
+    "description": "DashScope realtime conversation workflow",
+    "dashscope_realtime": {
+      "model": "dash-realtime",
+      "instructions": "你是一个简短、自然的中文语音聊天助手。直接回答用户，不要解释测试流程。",
+      "modalities": [
+        "text",
+        "audio"
+      ],
+      "enable_asr": true,
+      "asr_model": "qwen3-asr-flash-realtime",
+      "input_audio_format": "pcm16",
+      "output_audio_format": "pcm16"
+    },
+    "parameters": {
+      "input": "realtime"
+    }
+  },
+  "voice": "assistant-voice",
+  "rounds": 1,
+  "timeout": "60s",
+  "persona": "You are a concise Chinese voice chat test user. Keep every utterance short and speech friendly.",
+  "utterances": [
+    "请用一句话确认你能听清楚我说话"
+  ]
+}

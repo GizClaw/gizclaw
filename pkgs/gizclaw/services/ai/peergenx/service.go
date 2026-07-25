@@ -96,6 +96,20 @@ func (s *Service) Transformer() genx.TransformerMux {
 	return &Transformer{service: s}
 }
 
+// BuildTransformer resolves and validates a transformer without starting a
+// provider session. Workflow factories use it to reject invalid persisted
+// resources and credentials during AgentHost initialization.
+func (s *Service) BuildTransformer(ctx context.Context, pattern string) (genx.Transformer, error) {
+	if s == nil {
+		return nil, ErrNotConfigured
+	}
+	cfg, err := s.ResolveTransformer(ctx, pattern)
+	if err != nil {
+		return nil, err
+	}
+	return s.builder().BuildTransformer(ctx, cfg)
+}
+
 func (g *Generator) GenerateStream(ctx context.Context, pattern string, mctx genx.ModelContext) (genx.Stream, error) {
 	if g == nil || g.service == nil {
 		return nil, ErrNotConfigured
@@ -138,11 +152,7 @@ func (t *Transformer) Transform(ctx context.Context, pattern string, input genx.
 	if t == nil || t.service == nil {
 		return nil, ErrNotConfigured
 	}
-	cfg, err := t.service.ResolveTransformer(ctx, pattern)
-	if err != nil {
-		return nil, err
-	}
-	impl, err := t.service.builder().BuildTransformer(ctx, cfg)
+	impl, err := t.service.BuildTransformer(ctx, pattern)
 	if err != nil {
 		return nil, err
 	}

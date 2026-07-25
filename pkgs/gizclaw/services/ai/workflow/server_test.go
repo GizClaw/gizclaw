@@ -210,6 +210,43 @@ func TestValidateDriverSpecRequiresDoubaoRealtimeConfigAndModel(t *testing.T) {
 	}
 }
 
+func TestValidateDriverSpecRejectsInvalidEinoGraph(t *testing.T) {
+	err := validateDriverSpec(apitypes.WorkflowSpec{
+		Driver: apitypes.WorkflowDriverEino,
+		Eino:   &apitypes.EinoWorkflowSpec{},
+	})
+	if err == nil || !strings.Contains(err.Error(), "spec.eino") ||
+		!strings.Contains(err.Error(), "requires Nodes") {
+		t.Fatalf("validateDriverSpec(invalid Eino graph) error = %v", err)
+	}
+}
+
+func TestValidateDriverSpecRejectsInvalidRealtimeOptions(t *testing.T) {
+	temperature := float32(3)
+	err := validateDriverSpec(apitypes.WorkflowSpec{
+		Driver: apitypes.WorkflowDriverDashscopeRealtime,
+		DashscopeRealtime: &apitypes.DashScopeRealtimeWorkflowSpec{
+			Model:       "dashscope-realtime",
+			Temperature: &temperature,
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "temperature") {
+		t.Fatalf("validateDriverSpec(DashScope temperature) error = %v", err)
+	}
+
+	sampleRate := apitypes.DoubaoRealtimeDuplexWorkflowSpecSampleRate(16000)
+	err = validateDriverSpec(apitypes.WorkflowSpec{
+		Driver: apitypes.WorkflowDriverDoubaoRealtimeDuplex,
+		DoubaoRealtimeDuplex: &apitypes.DoubaoRealtimeDuplexWorkflowSpec{
+			Model:      "doubao-realtime-duplex",
+			SampleRate: &sampleRate,
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "sample_rate") {
+		t.Fatalf("validateDriverSpec(Doubao sample rate) error = %v", err)
+	}
+}
+
 func TestServerRejectsEmptyFlowcraftSpec(t *testing.T) {
 	t.Parallel()
 

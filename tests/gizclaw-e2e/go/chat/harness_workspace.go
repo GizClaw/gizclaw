@@ -4,6 +4,7 @@ package chat
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -45,6 +46,7 @@ const (
 	workspaceCaseRealtimeAutoSplit   workspaceCase = "realtime-auto-split-history"
 	workspaceCaseHistoryReplay       workspaceCase = "history-replay"
 	workspaceCaseHumanReview         workspaceCase = "human-review"
+	workspaceCaseTextRoundtrip       workspaceCase = "text-roundtrip"
 )
 
 type workspaceCaseResult struct {
@@ -86,9 +88,27 @@ func runConfig(configPath, contextConfigPath string, selectedCase workspaceCase)
 	if err != nil {
 		return err
 	}
+	return runLoadedConfig(cfg, selectedCase)
+}
+
+func runLoadedConfig(cfg config, selectedCase workspaceCase) error {
+	_, err := runLoadedConfigWithResult(cfg, selectedCase)
+	return err
+}
+
+func runLoadedConfigWithResult(cfg config, selectedCase workspaceCase) (workspaceCaseResult, error) {
+	return runLoadedConfigWithResultAndInspect(cfg, selectedCase, nil)
+}
+
+func runLoadedConfigWithResultAndInspect(
+	cfg config,
+	selectedCase workspaceCase,
+	inspect func(context.Context, *gizcli.Client, config) error,
+) (workspaceCaseResult, error) {
+	var err error
 	cfg, err = selectedCase.applyConfig(cfg)
 	if err != nil {
-		return err
+		return workspaceCaseResult{}, err
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.timeout)
@@ -96,7 +116,7 @@ func runConfig(configPath, contextConfigPath string, selectedCase workspaceCase)
 
 	client, serveDone, err := dialClientForRun(cfg)
 	if err != nil {
-		return err
+		return workspaceCaseResult{}, err
 	}
 	defer func() {
 		_ = client.Close()
@@ -104,14 +124,14 @@ func runConfig(configPath, contextConfigPath string, selectedCase workspaceCase)
 	}()
 	if token := strings.TrimSpace(os.Getenv("GIZCLAW_E2E_CHAT_REGISTRATION_TOKEN")); token != "" {
 		if _, err := client.Register(ctx, "workspacetest.register", token); err != nil {
-			return fmt.Errorf("register chat client: %w", err)
+			return workspaceCaseResult{}, fmt.Errorf("register chat client: %w", err)
 		}
 	}
 
 	if cfg.shouldEnsureWorkspace() {
 		ensured, err := ensureWorkspaceForRun(ctx, client, cfg)
 		if err != nil {
-			return err
+			return workspaceCaseResult{}, err
 		}
 		cfg = ensured
 	}
@@ -143,16 +163,23 @@ func runConfig(configPath, contextConfigPath string, selectedCase workspaceCase)
 		printInterruptSummary(interrupt)
 	}
 	if err != nil {
-		return err
+		return result, err
 	}
-	if selectedCase == workspaceCaseRealtimeAutoSplit {
-		return nil
+	if selectedCase != workspaceCaseRealtimeAutoSplit && selectedCase != workspaceCaseTextRoundtrip {
+		report, err := validateWorkspaceRuntimeForRun(ctx, driver, client, cfg, result.Rounds, selectedCase.runtimeValidationOptions())
+		if report != nil {
+			printWorkspaceRuntimeReport(*report)
+		}
+		if err != nil {
+			return result, err
+		}
 	}
-	report, err := validateWorkspaceRuntimeForRun(ctx, driver, client, cfg, result.Rounds, selectedCase.runtimeValidationOptions())
-	if report != nil {
-		printWorkspaceRuntimeReport(*report)
+	if inspect != nil {
+		if err := inspect(ctx, client, cfg); err != nil {
+			return result, err
+		}
 	}
-	return err
+	return result, nil
 }
 
 func (c workspaceCase) applyConfig(cfg config) (config, error) {
@@ -160,6 +187,9 @@ func (c workspaceCase) applyConfig(cfg config) (config, error) {
 		return config{}, fmt.Errorf("workflow.name is required")
 	}
 	cfg.Workspace = workspaceNameForCase(cfg.Workflow.Name, c)
+	if cfg.workspaceSuffix != "" {
+		cfg.Workspace = compactWorkspaceName(cfg.Workspace + "-" + cfg.workspaceSuffix)
+	}
 	switch c {
 	case workspaceCasePushToTalkRoundtrip, workspaceCasePushToTalkInterrupt, workspaceCaseHistoryReplay, workspaceCaseHumanReview:
 		cfg.Workflow.Parameters.Input = string(rpcapi.WorkspaceInputModePushToTalk)
@@ -174,6 +204,8 @@ func (c workspaceCase) applyConfig(cfg config) (config, error) {
 		}
 	case workspaceCaseRealtimeRoundtrip, workspaceCaseRealtimeInterrupt, workspaceCaseRealtimeAutoSplit:
 		cfg.Workflow.Parameters.Input = string(rpcapi.WorkspaceInputModeRealtime)
+	case workspaceCaseTextRoundtrip:
+		cfg.Rounds = 1
 	default:
 		return config{}, fmt.Errorf("unsupported workspace case %q", c)
 	}
@@ -202,12 +234,16 @@ func (c workspaceCase) workspaceIDSuffix() string {
 		return "hist"
 	case workspaceCaseHumanReview:
 		return "review"
+	case workspaceCaseTextRoundtrip:
+		return "text"
 	default:
 		return string(c)
 	}
 }
 
 func compactWorkspaceName(name string) string {
+	const maxWorkspaceNameLength = 48
+
 	var b strings.Builder
 	lastDash := false
 	for _, r := range name {
@@ -222,7 +258,14 @@ func compactWorkspaceName(name string) string {
 			}
 		}
 	}
-	return strings.Trim(b.String(), "-")
+	normalized := strings.Trim(b.String(), "-")
+	if len(normalized) <= maxWorkspaceNameLength {
+		return normalized
+	}
+	digest := sha256.Sum256([]byte(normalized))
+	hash := fmt.Sprintf("%x", digest[:4])
+	prefix := strings.TrimRight(normalized[:maxWorkspaceNameLength-len(hash)-1], "-")
+	return prefix + "-" + hash
 }
 
 func (d *personaDriver) runCase(ctx context.Context, selected workspaceCase) (workspaceCaseResult, error) {
@@ -247,6 +290,9 @@ func (d *personaDriver) runCase(ctx context.Context, selected workspaceCase) (wo
 	case workspaceCaseHumanReview:
 		rounds, err := d.runHumanReview(ctx)
 		return workspaceCaseResult{Rounds: rounds}, err
+	case workspaceCaseTextRoundtrip:
+		round, err := d.runTextRoundtrip(ctx)
+		return workspaceCaseResult{Rounds: []roundStats{round}}, err
 	default:
 		return workspaceCaseResult{}, fmt.Errorf("unsupported workspace case %q", selected)
 	}
@@ -447,6 +493,24 @@ func workflowSpec(cfg config) rpcapi.WorkflowSpec {
 			AstTranslate: &spec,
 		}
 	}
+	if cfg.isDashScopeRealtimeAgent() {
+		return rpcapi.WorkflowSpec{
+			Driver:            rpcapi.WorkflowDriverDashscopeRealtime,
+			DashscopeRealtime: cfg.Workflow.DashScopeRealtime,
+		}
+	}
+	if cfg.isDoubaoRealtimeDuplexAgent() {
+		return rpcapi.WorkflowSpec{
+			Driver:               rpcapi.WorkflowDriverDoubaoRealtimeDuplex,
+			DoubaoRealtimeDuplex: cfg.Workflow.DoubaoRealtimeDuplex,
+		}
+	}
+	if cfg.isEinoAgent() {
+		return rpcapi.WorkflowSpec{
+			Driver: rpcapi.WorkflowDriverEino,
+			Eino:   cfg.Workflow.Eino,
+		}
+	}
 	return rpcapi.WorkflowSpec{
 		Driver: rpcapi.WorkflowDriver("doubao-realtime"),
 		DoubaoRealtime: &rpcapi.DoubaoRealtimeWorkflowSpec{
@@ -491,6 +555,27 @@ func workspaceDocument(cfg config) (rpcapi.WorkspaceCreateRequest, error) {
 		}
 		if err := parameters.FromASTTranslateWorkspaceParameters(typed); err != nil {
 			return rpcapi.WorkspaceCreateRequest{}, fmt.Errorf("encode ast translate workspace parameters: %w", err)
+		}
+	case cfg.isDashScopeRealtimeAgent():
+		typed := rpcapi.DashScopeRealtimeWorkspaceParameters{
+			AgentType: rpcapi.DashScopeRealtimeWorkspaceParametersAgentTypeDashscopeRealtime,
+		}
+		if err := parameters.FromDashScopeRealtimeWorkspaceParameters(typed); err != nil {
+			return rpcapi.WorkspaceCreateRequest{}, fmt.Errorf("encode dashscope realtime workspace parameters: %w", err)
+		}
+	case cfg.isDoubaoRealtimeDuplexAgent():
+		typed := rpcapi.DoubaoRealtimeDuplexWorkspaceParameters{
+			AgentType: rpcapi.DoubaoRealtimeDuplexWorkspaceParametersAgentTypeDoubaoRealtimeDuplex,
+		}
+		if err := parameters.FromDoubaoRealtimeDuplexWorkspaceParameters(typed); err != nil {
+			return rpcapi.WorkspaceCreateRequest{}, fmt.Errorf("encode doubao realtime duplex workspace parameters: %w", err)
+		}
+	case cfg.isEinoAgent():
+		typed := rpcapi.EinoWorkspaceParameters{
+			AgentType: rpcapi.EinoWorkspaceParametersAgentTypeEino,
+		}
+		if err := parameters.FromEinoWorkspaceParameters(typed); err != nil {
+			return rpcapi.WorkspaceCreateRequest{}, fmt.Errorf("encode eino workspace parameters: %w", err)
 		}
 	default:
 		typed := rpcapi.DoubaoRealtimeWorkspaceParameters{
@@ -585,7 +670,7 @@ func selectAndReloadAgent(ctx context.Context, client runControlClient, cfg conf
 			return fmt.Errorf("select workspace %q: %w", cfg.Workspace, err)
 		}
 		if _, err := client.ReloadServerRunWorkspace(ctx, "workspacetest.run.workspace.reload"); err != nil {
-			if !isAgentAlreadyRunning(err) || time.Now().After(deadline) {
+			if (!isAgentAlreadyRunning(err) && !isRetryableAgentReloadError(err)) || time.Now().After(deadline) {
 				return fmt.Errorf("reload workspace %q: %w", cfg.Workspace, err)
 			}
 			select {
@@ -621,6 +706,16 @@ func selectAndReloadAgent(ctx context.Context, client runControlClient, cfg conf
 		case <-time.After(500 * time.Millisecond):
 		}
 	}
+}
+
+func isRetryableAgentReloadError(err error) bool {
+	if err == nil {
+		return false
+	}
+	text := err.Error()
+	return strings.Contains(text, "ServiceBusy") ||
+		strings.Contains(text, "http_status=503") ||
+		strings.Contains(text, "websocket dial failed")
 }
 
 type workspaceRuntimeReport struct {

@@ -64,11 +64,12 @@ spec:
         collections: {}
       resources:
         models:
+          asr: {resource_id: volc-bigasr-sauc, i18n: {en: {display_name: Chat ASR}, zh-CN: {display_name: 聊天语音识别}}}
           pet-chat: {resource_id: pet-flowcraft-workflow-chat, i18n: {en: {display_name: Pet chat}, zh-CN: {display_name: 宠物对话}}}
           pet-extract: {resource_id: pet-flowcraft-workflow-extract, i18n: {en: {display_name: Pet extraction}, zh-CN: {display_name: 宠物提取}}}
           pet-asr: {resource_id: pet-flowcraft-workflow-asr, i18n: {en: {display_name: Pet ASR}, zh-CN: {display_name: 宠物语音识别}}}
         voices:
-          tragon-voice: {resource_id: "volc-tenant:volc-main:zh_male_sunwukong_mars_bigtts", i18n: {en: {display_name: Tragon voice}, zh-CN: {display_name: 小蓝龙音色}}}
+          pet: {resource_id: "volc-tenant:volc-main:zh_male_sunwukong_mars_bigtts", i18n: {en: {display_name: Tragon voice}, zh-CN: {display_name: 小蓝龙音色}}}
         pet_defs:
           tragon-pet: {resource_id: petdef-tragon, i18n: {en: {display_name: Tragon}, zh-CN: {display_name: 小蓝龙}}}
       gameplay:

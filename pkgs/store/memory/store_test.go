@@ -10,16 +10,16 @@ func TestRequestValidation(t *testing.T) {
 	if err := validateObservation(Observation{}); !errors.Is(err, ErrInvalidInput) {
 		t.Fatalf("validateObservation() error = %v, want ErrInvalidInput", err)
 	}
-	if err := validateObservation(Observation{Scope: "scope", Turns: []Turn{{Role: RoleUser, Text: "remember", Attributes: map[string]any{"channel": "voice"}}}}); !errors.Is(err, ErrUnsupported) {
+	if err := validateObservation(Observation{Turns: []Turn{{Role: RoleUser, Text: "remember", Attributes: map[string]any{"channel": "voice"}}}}); !errors.Is(err, ErrUnsupported) {
 		t.Fatalf("validateObservation() turn attributes error = %v, want ErrUnsupported", err)
 	}
-	if err := validateObservation(Observation{Scope: "scope", Facts: []FactCandidate{{Text: "remember", Attributes: map[string]any{"kind": "fact"}}}}); err != nil {
+	if err := validateObservation(Observation{Facts: []FactCandidate{{Text: "remember", Attributes: map[string]any{"kind": "fact"}}}}); err != nil {
 		t.Fatalf("validateObservation() fact candidate error = %v", err)
 	}
-	if err := validateObservation(Observation{Scope: "scope", Facts: []FactCandidate{{Text: " "}}}); !errors.Is(err, ErrInvalidInput) {
+	if err := validateObservation(Observation{Facts: []FactCandidate{{Text: " "}}}); !errors.Is(err, ErrInvalidInput) {
 		t.Fatalf("validateObservation() empty fact candidate error = %v, want ErrInvalidInput", err)
 	}
-	if err := validateQuery(Query{Scope: "scope", Text: "where", Limit: 0}); !errors.Is(err, ErrInvalidInput) {
+	if err := validateQuery(Query{Text: "where", Limit: 0}); !errors.Is(err, ErrInvalidInput) {
 		t.Fatalf("validateQuery() error = %v, want ErrInvalidInput", err)
 	}
 	if err := validateFilter(Filter{Field: "kind", Operator: FilterIn, Value: []string{}}); !errors.Is(err, ErrInvalidInput) {
@@ -28,6 +28,29 @@ func TestRequestValidation(t *testing.T) {
 	text := "updated"
 	if err := validateUpdate(UpdateRequest{ID: "fact", Text: &text, Attributes: AttributePatch{Set: map[string]any{"lane": "clues"}, Delete: []string{"lane"}}}); !errors.Is(err, ErrInvalidInput) {
 		t.Fatalf("validateUpdate() error = %v, want ErrInvalidInput", err)
+	}
+}
+
+func TestCommonValidationDoesNotInventScopeHierarchy(t *testing.T) {
+	t.Parallel()
+
+	for name, scope := range map[string]Scope{
+		"empty":      {},
+		"app only":   {AppID: "app"},
+		"user only":  {UserID: "user"},
+		"agent only": {AgentID: "agent"},
+		"run only":   {RunID: "run"},
+		"all":        {AppID: "app", UserID: "user", AgentID: "agent", RunID: "run"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			if err := ValidateObservation(Observation{Scope: scope, Text: "remember"}); err != nil {
+				t.Fatalf("ValidateObservation() error = %v", err)
+			}
+			if err := ValidateQuery(Query{Scope: scope, Text: "remember", Limit: 1}); err != nil {
+				t.Fatalf("ValidateQuery() error = %v", err)
+			}
+		})
 	}
 }
 

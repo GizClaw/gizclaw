@@ -333,6 +333,30 @@ spec:
 	}
 }
 
+func TestWorkflowAliasesIncludesRealtimeVoices(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name   string
+		driver string
+		field  string
+	}{
+		{name: "dashscope", driver: "dashscope-realtime", field: "dashscope_realtime"},
+		{name: "doubao duplex", driver: "doubao-realtime-duplex", field: "doubao_realtime_duplex"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			models, voices, err := workflowAliases([]byte("spec:\n  driver: " + test.driver +
+				"\n  " + test.field + ":\n    model: realtime\n    voice: assistant\n"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(models) != 1 || models[0] != "realtime" ||
+				len(voices) != 1 || voices[0] != "assistant" {
+				t.Fatalf("aliases = models:%v voices:%v", models, voices)
+			}
+		})
+	}
+}
+
 func TestWorkflowAliasesIncludesChatroomAndNestedPetAliases(t *testing.T) {
 	t.Run("chatroom", func(t *testing.T) {
 		models, voices, err := workflowAliases([]byte(`

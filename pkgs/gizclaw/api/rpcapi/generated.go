@@ -74,6 +74,30 @@ func (e ChatRoomWorkspaceParametersAgentType) Valid() bool {
 	}
 }
 
+const (
+	DashScopeRealtimeWorkspaceParametersAgentTypeDashscopeRealtime DashScopeRealtimeWorkspaceParametersAgentType = "dashscope-realtime"
+)
+
+func (e DashScopeRealtimeWorkspaceParametersAgentType) Valid() bool {
+	return e == DashScopeRealtimeWorkspaceParametersAgentTypeDashscopeRealtime
+}
+
+const (
+	DoubaoRealtimeDuplexWorkspaceParametersAgentTypeDoubaoRealtimeDuplex DoubaoRealtimeDuplexWorkspaceParametersAgentType = "doubao-realtime-duplex"
+)
+
+func (e DoubaoRealtimeDuplexWorkspaceParametersAgentType) Valid() bool {
+	return e == DoubaoRealtimeDuplexWorkspaceParametersAgentTypeDoubaoRealtimeDuplex
+}
+
+const (
+	EinoWorkspaceParametersAgentTypeEino EinoWorkspaceParametersAgentType = "eino"
+)
+
+func (e EinoWorkspaceParametersAgentType) Valid() bool {
+	return e == EinoWorkspaceParametersAgentTypeEino
+}
+
 // Defines values for DashScopeTenantModelProviderDataApiMode.
 const (
 	DashScopeTenantModelProviderDataApiModeChatCompletions DashScopeTenantModelProviderDataApiMode = "chat_completions"
@@ -282,10 +306,13 @@ func (e FlowcraftWorkspaceParametersAgentType) Valid() bool {
 
 // Defines values for ReusableWorkflowDriver.
 const (
-	ReusableWorkflowDriverAstTranslate   ReusableWorkflowDriver = "ast-translate"
-	ReusableWorkflowDriverChatroom       ReusableWorkflowDriver = "chatroom"
-	ReusableWorkflowDriverDoubaoRealtime ReusableWorkflowDriver = "doubao-realtime"
-	ReusableWorkflowDriverFlowcraft      ReusableWorkflowDriver = "flowcraft"
+	ReusableWorkflowDriverAstTranslate         ReusableWorkflowDriver = "ast-translate"
+	ReusableWorkflowDriverChatroom             ReusableWorkflowDriver = "chatroom"
+	ReusableWorkflowDriverDashscopeRealtime    ReusableWorkflowDriver = "dashscope-realtime"
+	ReusableWorkflowDriverDoubaoRealtime       ReusableWorkflowDriver = "doubao-realtime"
+	ReusableWorkflowDriverDoubaoRealtimeDuplex ReusableWorkflowDriver = "doubao-realtime-duplex"
+	ReusableWorkflowDriverEino                 ReusableWorkflowDriver = "eino"
+	ReusableWorkflowDriverFlowcraft            ReusableWorkflowDriver = "flowcraft"
 )
 
 // Valid indicates whether the value is a known member of the ReusableWorkflowDriver enum.
@@ -295,7 +322,13 @@ func (e ReusableWorkflowDriver) Valid() bool {
 		return true
 	case ReusableWorkflowDriverChatroom:
 		return true
+	case ReusableWorkflowDriverDashscopeRealtime:
+		return true
 	case ReusableWorkflowDriverDoubaoRealtime:
+		return true
+	case ReusableWorkflowDriverDoubaoRealtimeDuplex:
+		return true
+	case ReusableWorkflowDriverEino:
 		return true
 	case ReusableWorkflowDriverFlowcraft:
 		return true
@@ -345,12 +378,13 @@ func (e FriendGroupMemberRole) Valid() bool {
 
 // Defines values for ModelKind.
 const (
-	ModelKindAsr         ModelKind = "asr"
-	ModelKindEmbedding   ModelKind = "embedding"
-	ModelKindLlm         ModelKind = "llm"
-	ModelKindRealtime    ModelKind = "realtime"
-	ModelKindTranslation ModelKind = "translation"
-	ModelKindTts         ModelKind = "tts"
+	ModelKindAsr            ModelKind = "asr"
+	ModelKindEmbedding      ModelKind = "embedding"
+	ModelKindLlm            ModelKind = "llm"
+	ModelKindRealtime       ModelKind = "realtime"
+	ModelKindRealtimeDuplex ModelKind = "realtime-duplex"
+	ModelKindTranslation    ModelKind = "translation"
+	ModelKindTts            ModelKind = "tts"
 )
 
 // Valid indicates whether the value is a known member of the ModelKind enum.
@@ -363,6 +397,8 @@ func (e ModelKind) Valid() bool {
 	case ModelKindLlm:
 		return true
 	case ModelKindRealtime:
+		return true
+	case ModelKindRealtimeDuplex:
 		return true
 	case ModelKindTranslation:
 		return true
@@ -910,6 +946,7 @@ const (
 	VolcTenantModelProviderDataApiModeChatCompletions VolcTenantModelProviderDataApiMode = "chat_completions"
 	VolcTenantModelProviderDataApiModeEmbedding       VolcTenantModelProviderDataApiMode = "embedding"
 	VolcTenantModelProviderDataApiModeRealtime        VolcTenantModelProviderDataApiMode = "realtime"
+	VolcTenantModelProviderDataApiModeRealtimeDuplex  VolcTenantModelProviderDataApiMode = "realtime_duplex"
 	VolcTenantModelProviderDataApiModeTranslation     VolcTenantModelProviderDataApiMode = "translation"
 	VolcTenantModelProviderDataApiModeTts             VolcTenantModelProviderDataApiMode = "tts"
 )
@@ -925,6 +962,8 @@ func (e VolcTenantModelProviderDataApiMode) Valid() bool {
 		return true
 	case VolcTenantModelProviderDataApiModeRealtime:
 		return true
+	case VolcTenantModelProviderDataApiModeRealtimeDuplex:
+		return true
 	case VolcTenantModelProviderDataApiModeTranslation:
 		return true
 	case VolcTenantModelProviderDataApiModeTts:
@@ -936,11 +975,14 @@ func (e VolcTenantModelProviderDataApiMode) Valid() bool {
 
 // Defines values for WorkflowDriver.
 const (
-	WorkflowDriverAstTranslate   WorkflowDriver = "ast-translate"
-	WorkflowDriverChatroom       WorkflowDriver = "chatroom"
-	WorkflowDriverDoubaoRealtime WorkflowDriver = "doubao-realtime"
-	WorkflowDriverFlowcraft      WorkflowDriver = "flowcraft"
-	WorkflowDriverPet            WorkflowDriver = "pet"
+	WorkflowDriverAstTranslate         WorkflowDriver = "ast-translate"
+	WorkflowDriverChatroom             WorkflowDriver = "chatroom"
+	WorkflowDriverDashscopeRealtime    WorkflowDriver = "dashscope-realtime"
+	WorkflowDriverDoubaoRealtime       WorkflowDriver = "doubao-realtime"
+	WorkflowDriverDoubaoRealtimeDuplex WorkflowDriver = "doubao-realtime-duplex"
+	WorkflowDriverEino                 WorkflowDriver = "eino"
+	WorkflowDriverFlowcraft            WorkflowDriver = "flowcraft"
+	WorkflowDriverPet                  WorkflowDriver = "pet"
 )
 
 // Valid indicates whether the value is a known member of the WorkflowDriver enum.
@@ -950,7 +992,13 @@ func (e WorkflowDriver) Valid() bool {
 		return true
 	case WorkflowDriverChatroom:
 		return true
+	case WorkflowDriverDashscopeRealtime:
+		return true
 	case WorkflowDriverDoubaoRealtime:
+		return true
+	case WorkflowDriverDoubaoRealtimeDuplex:
+		return true
+	case WorkflowDriverEino:
 		return true
 	case WorkflowDriverFlowcraft:
 		return true
@@ -1539,6 +1587,83 @@ type DoubaoRealtimeWorkspaceParameters struct {
 
 // DoubaoRealtimeWorkspaceParametersAgentType defines model for DoubaoRealtimeWorkspaceParameters.AgentType.
 type DoubaoRealtimeWorkspaceParametersAgentType string
+
+type DashScopeRealtimeWorkflowSpec struct {
+	AsrModel          *string   `json:"asr_model,omitempty"`
+	EnableAsr         *bool     `json:"enable_asr,omitempty"`
+	InputAudioFormat  *string   `json:"input_audio_format,omitempty"`
+	Instructions      *string   `json:"instructions,omitempty"`
+	MaxOutputTokens   *int      `json:"max_output_tokens,omitempty"`
+	Modalities        *[]string `json:"modalities,omitempty"`
+	Model             string    `json:"model"`
+	OutputAudioFormat *string   `json:"output_audio_format,omitempty"`
+	Temperature       *float32  `json:"temperature,omitempty"`
+	Vad               *string   `json:"vad,omitempty"`
+	Voice             *string   `json:"voice,omitempty"`
+}
+
+type DashScopeRealtimeWorkspaceParameters struct {
+	AgentType         DashScopeRealtimeWorkspaceParametersAgentType `json:"agent_type"`
+	AsrModel          *string                                       `json:"asr_model,omitempty"`
+	E2e               *bool                                         `json:"e2e,omitempty"`
+	EnableAsr         *bool                                         `json:"enable_asr,omitempty"`
+	InputAudioFormat  *string                                       `json:"input_audio_format,omitempty"`
+	Instructions      *string                                       `json:"instructions,omitempty"`
+	MaxOutputTokens   *int                                          `json:"max_output_tokens,omitempty"`
+	Modalities        *[]string                                     `json:"modalities,omitempty"`
+	Model             *string                                       `json:"model,omitempty"`
+	OutputAudioFormat *string                                       `json:"output_audio_format,omitempty"`
+	Temperature       *float32                                      `json:"temperature,omitempty"`
+	Vad               *string                                       `json:"vad,omitempty"`
+	Voice             *string                                       `json:"voice,omitempty"`
+}
+
+type DashScopeRealtimeWorkspaceParametersAgentType string
+
+type DoubaoRealtimeDuplexWorkflowSpec struct {
+	Format          *string `json:"format,omitempty"`
+	InputChannels   *int    `json:"input_channels,omitempty"`
+	InputFormat     *string `json:"input_format,omitempty"`
+	InputSampleRate *int    `json:"input_sample_rate,omitempty"`
+	InputTranscode  *bool   `json:"input_transcode,omitempty"`
+	Instructions    *string `json:"instructions,omitempty"`
+	Model           string  `json:"model"`
+	OutputLoudness  *int    `json:"output_loudness,omitempty"`
+	OutputSpeed     *int    `json:"output_speed,omitempty"`
+	SampleRate      *int    `json:"sample_rate,omitempty"`
+	Voice           *string `json:"voice,omitempty"`
+}
+
+type DoubaoRealtimeDuplexWorkspaceParameters struct {
+	AgentType       DoubaoRealtimeDuplexWorkspaceParametersAgentType `json:"agent_type"`
+	E2e             *bool                                            `json:"e2e,omitempty"`
+	Format          *string                                          `json:"format,omitempty"`
+	InputChannels   *int                                             `json:"input_channels,omitempty"`
+	InputFormat     *string                                          `json:"input_format,omitempty"`
+	InputSampleRate *int                                             `json:"input_sample_rate,omitempty"`
+	InputTranscode  *bool                                            `json:"input_transcode,omitempty"`
+	Instructions    *string                                          `json:"instructions,omitempty"`
+	Model           *string                                          `json:"model,omitempty"`
+	OutputLoudness  *int                                             `json:"output_loudness,omitempty"`
+	OutputSpeed     *int                                             `json:"output_speed,omitempty"`
+	SampleRate      *int                                             `json:"sample_rate,omitempty"`
+	Voice           *string                                          `json:"voice,omitempty"`
+}
+
+type DoubaoRealtimeDuplexWorkspaceParametersAgentType string
+
+type EinoWorkflowSpec struct {
+	Graph  map[string]any  `json:"graph"`
+	Limits *map[string]any `json:"limits,omitempty"`
+	Memory *map[string]any `json:"memory,omitempty"`
+}
+
+type EinoWorkspaceParameters struct {
+	AgentType EinoWorkspaceParametersAgentType `json:"agent_type"`
+	E2e       *bool                            `json:"e2e,omitempty"`
+}
+
+type EinoWorkspaceParametersAgentType string
 
 // Firmware defines model for Firmware.
 type Firmware struct {
@@ -2936,12 +3061,15 @@ const (
 
 // PetWorkflowSpec defines model for PetWorkflowSpec.
 type PetWorkflowSpec struct {
-	AstTranslate   *ASTTranslateWorkflowSpec   `json:"ast_translate,omitempty"`
-	Chatroom       *ChatRoomWorkflowSpec       `json:"chatroom,omitempty"`
-	DoubaoRealtime *DoubaoRealtimeWorkflowSpec `json:"doubao_realtime,omitempty"`
-	Driver         ReusableWorkflowDriver      `json:"driver"`
-	Flowcraft      *FlowcraftWorkflowSpec      `json:"flowcraft,omitempty"`
-	Toolkit        *ToolkitPolicy              `json:"toolkit,omitempty"`
+	AstTranslate         *ASTTranslateWorkflowSpec         `json:"ast_translate,omitempty"`
+	Chatroom             *ChatRoomWorkflowSpec             `json:"chatroom,omitempty"`
+	DashscopeRealtime    *DashScopeRealtimeWorkflowSpec    `json:"dashscope_realtime,omitempty"`
+	DoubaoRealtime       *DoubaoRealtimeWorkflowSpec       `json:"doubao_realtime,omitempty"`
+	DoubaoRealtimeDuplex *DoubaoRealtimeDuplexWorkflowSpec `json:"doubao_realtime_duplex,omitempty"`
+	Driver               ReusableWorkflowDriver            `json:"driver"`
+	Eino                 *EinoWorkflowSpec                 `json:"eino,omitempty"`
+	Flowcraft            *FlowcraftWorkflowSpec            `json:"flowcraft,omitempty"`
+	Toolkit              *ToolkitPolicy                    `json:"toolkit,omitempty"`
 }
 
 // ReusableWorkflowDriver defines a non-Pet Workflow driver allowed inside a Pet wrapper.
@@ -3083,13 +3211,16 @@ type ToolkitPolicy struct {
 
 // WorkflowSpec defines model for WorkflowSpec.
 type WorkflowSpec struct {
-	AstTranslate   *ASTTranslateWorkflowSpec   `json:"ast_translate,omitempty"`
-	Chatroom       *ChatRoomWorkflowSpec       `json:"chatroom,omitempty"`
-	DoubaoRealtime *DoubaoRealtimeWorkflowSpec `json:"doubao_realtime,omitempty"`
-	Driver         WorkflowDriver              `json:"driver"`
-	Flowcraft      *FlowcraftWorkflowSpec      `json:"flowcraft,omitempty"`
-	Pet            *PetWorkflowSpec            `json:"pet,omitempty"`
-	Toolkit        *ToolkitPolicy              `json:"toolkit,omitempty"`
+	AstTranslate         *ASTTranslateWorkflowSpec         `json:"ast_translate,omitempty"`
+	Chatroom             *ChatRoomWorkflowSpec             `json:"chatroom,omitempty"`
+	DashscopeRealtime    *DashScopeRealtimeWorkflowSpec    `json:"dashscope_realtime,omitempty"`
+	DoubaoRealtime       *DoubaoRealtimeWorkflowSpec       `json:"doubao_realtime,omitempty"`
+	DoubaoRealtimeDuplex *DoubaoRealtimeDuplexWorkflowSpec `json:"doubao_realtime_duplex,omitempty"`
+	Driver               WorkflowDriver                    `json:"driver"`
+	Eino                 *EinoWorkflowSpec                 `json:"eino,omitempty"`
+	Flowcraft            *FlowcraftWorkflowSpec            `json:"flowcraft,omitempty"`
+	Pet                  *PetWorkflowSpec                  `json:"pet,omitempty"`
+	Toolkit              *ToolkitPolicy                    `json:"toolkit,omitempty"`
 }
 
 // Workspace defines model for Workspace.
@@ -6701,6 +6832,54 @@ func (t *WorkspaceParameters) MergeDoubaoRealtimeWorkspaceParameters(v DoubaoRea
 	return nil
 }
 
+func (t WorkspaceParameters) AsDashScopeRealtimeWorkspaceParameters() (DashScopeRealtimeWorkspaceParameters, error) {
+	return rpcUnionAs[DashScopeRealtimeWorkspaceParameters](t.Value, "WorkspaceParameters", "DashScopeRealtimeWorkspaceParameters")
+}
+
+func (t *WorkspaceParameters) FromDashScopeRealtimeWorkspaceParameters(v DashScopeRealtimeWorkspaceParameters) error {
+	v.AgentType = DashScopeRealtimeWorkspaceParametersAgentTypeDashscopeRealtime
+	t.Value = v
+	return nil
+}
+
+func (t *WorkspaceParameters) MergeDashScopeRealtimeWorkspaceParameters(v DashScopeRealtimeWorkspaceParameters) error {
+	v.AgentType = DashScopeRealtimeWorkspaceParametersAgentTypeDashscopeRealtime
+	t.Value = v
+	return nil
+}
+
+func (t WorkspaceParameters) AsDoubaoRealtimeDuplexWorkspaceParameters() (DoubaoRealtimeDuplexWorkspaceParameters, error) {
+	return rpcUnionAs[DoubaoRealtimeDuplexWorkspaceParameters](t.Value, "WorkspaceParameters", "DoubaoRealtimeDuplexWorkspaceParameters")
+}
+
+func (t *WorkspaceParameters) FromDoubaoRealtimeDuplexWorkspaceParameters(v DoubaoRealtimeDuplexWorkspaceParameters) error {
+	v.AgentType = DoubaoRealtimeDuplexWorkspaceParametersAgentTypeDoubaoRealtimeDuplex
+	t.Value = v
+	return nil
+}
+
+func (t *WorkspaceParameters) MergeDoubaoRealtimeDuplexWorkspaceParameters(v DoubaoRealtimeDuplexWorkspaceParameters) error {
+	v.AgentType = DoubaoRealtimeDuplexWorkspaceParametersAgentTypeDoubaoRealtimeDuplex
+	t.Value = v
+	return nil
+}
+
+func (t WorkspaceParameters) AsEinoWorkspaceParameters() (EinoWorkspaceParameters, error) {
+	return rpcUnionAs[EinoWorkspaceParameters](t.Value, "WorkspaceParameters", "EinoWorkspaceParameters")
+}
+
+func (t *WorkspaceParameters) FromEinoWorkspaceParameters(v EinoWorkspaceParameters) error {
+	v.AgentType = EinoWorkspaceParametersAgentTypeEino
+	t.Value = v
+	return nil
+}
+
+func (t *WorkspaceParameters) MergeEinoWorkspaceParameters(v EinoWorkspaceParameters) error {
+	v.AgentType = EinoWorkspaceParametersAgentTypeEino
+	t.Value = v
+	return nil
+}
+
 // AsASTTranslateWorkspaceParameters returns the union data inside the WorkspaceParameters as a ASTTranslateWorkspaceParameters
 func (t WorkspaceParameters) AsASTTranslateWorkspaceParameters() (ASTTranslateWorkspaceParameters, error) {
 	return rpcUnionAs[ASTTranslateWorkspaceParameters](t.Value, "WorkspaceParameters", "ASTTranslateWorkspaceParameters")
@@ -6745,6 +6924,12 @@ func (t WorkspaceParameters) Discriminator() (string, error) {
 		return string(v.AgentType), nil
 	case DoubaoRealtimeWorkspaceParameters:
 		return string(v.AgentType), nil
+	case DashScopeRealtimeWorkspaceParameters:
+		return string(v.AgentType), nil
+	case DoubaoRealtimeDuplexWorkspaceParameters:
+		return string(v.AgentType), nil
+	case EinoWorkspaceParameters:
+		return string(v.AgentType), nil
 	case ASTTranslateWorkspaceParameters:
 		return string(v.AgentType), nil
 	case ChatRoomWorkspaceParameters:
@@ -6766,8 +6951,14 @@ func (t WorkspaceParameters) ValueByDiscriminator() (any, error) {
 		return t.AsASTTranslateWorkspaceParameters()
 	case "chatroom":
 		return t.AsChatRoomWorkspaceParameters()
+	case "dashscope-realtime":
+		return t.AsDashScopeRealtimeWorkspaceParameters()
 	case "doubao-realtime":
 		return t.AsDoubaoRealtimeWorkspaceParameters()
+	case "doubao-realtime-duplex":
+		return t.AsDoubaoRealtimeDuplexWorkspaceParameters()
+	case "eino":
+		return t.AsEinoWorkspaceParameters()
 	case "flowcraft":
 		return t.AsFlowcraftWorkspaceParameters()
 	default:

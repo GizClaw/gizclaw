@@ -24,6 +24,24 @@ func TestPushToTalkRoundtrip(t *testing.T) {
 
 func allWorkspaceConfigPaths(t testing.TB) []string {
 	t.Helper()
+	paths := workspaceConfigCatalogPaths(t)
+	specialized := map[string]struct{}{
+		"dashscope-realtime.json":          {},
+		"doubao-realtime-duplex.json":      {},
+		"eino-memory.json":                 {},
+		"flowcraft-configured-memory.json": {},
+	}
+	defaults := make([]string, 0, len(paths)-len(specialized))
+	for _, path := range paths {
+		if _, ok := specialized[filepath.Base(path)]; !ok {
+			defaults = append(defaults, path)
+		}
+	}
+	return defaults
+}
+
+func workspaceConfigCatalogPaths(t testing.TB) []string {
+	t.Helper()
 	paths, err := filepath.Glob(filepath.Join("..", "..", "testdata", "workspaces", "*.json"))
 	if err != nil {
 		t.Fatalf("glob workspace configs: %v", err)
@@ -63,7 +81,7 @@ func historyReplayWorkspaceConfigPaths(t testing.TB) []string {
 func selectedWorkspaceConfigPaths(t testing.TB, names ...string) []string {
 	t.Helper()
 	available := make(map[string]string)
-	for _, path := range allWorkspaceConfigPaths(t) {
+	for _, path := range workspaceConfigCatalogPaths(t) {
 		available[filepath.Base(path)] = path
 	}
 	paths := make([]string, 0, len(names))
@@ -104,6 +122,22 @@ func runLiveWorkspaceCase(t *testing.T, selected workspaceCase, paths []string) 
 	}
 }
 
+func runRequiredLiveWorkspaceCase(t *testing.T, selected workspaceCase, paths []string) {
+	t.Helper()
+	if err := probeLiveWorkspaceSetup(); err != nil {
+		t.Fatalf("required e2e setup server is not available: %v", err)
+	}
+	t.Setenv("GIZCLAW_E2E_CHAT_REGISTRATION_TOKEN", createChatRegistrationToken(t, selected))
+	for _, path := range paths {
+		path := path
+		t.Run(strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)), func(t *testing.T) {
+			if err := runConfigWithLiveRetry(path, clientContextConfigPath(), selected); err != nil {
+				t.Fatalf("%s %s: %v", selected, path, err)
+			}
+		})
+	}
+}
+
 func createChatRegistrationToken(t *testing.T, selected workspaceCase) string {
 	t.Helper()
 	h := clitest.NewSetupHarness(t, "go-chat-"+string(selected))
@@ -124,25 +158,31 @@ func createChatRegistrationToken(t *testing.T, selected workspaceCase) string {
 	}
 
 	workflowResources := map[string]string{
-		"volc-ast-translate":                "volc-ast-translate",
-		"volc-ast-translate-tts":            "volc-ast-translate-tts",
-		"volc-ast-translate-zh-en":          "volc-ast-translate-zh-en",
-		"volc-ast-translate-zh-jp":          "volc-ast-translate-zh-jp",
-		"doubao-realtime-conversation":      "doubao-realtime-conversation",
-		"flowcraft-voice-assistant":         "flowcraft-voice-assistant",
-		"flowcraft-chat-assistant":          "flowcraft-chat-assistant",
-		"flowcraft-journey-guide":           "flowcraft-journey-guide",
-		"flowcraft-multi-role-storyteller":  "flowcraft-multi-role-storyteller",
-		"flowcraft-murder-mystery":          "flowcraft-murder-mystery",
-		"flowcraft-poetry-adventure-li-bai": "flowcraft-poetry-adventure-li-bai",
-		"flowcraft-werewolf-game":           "flowcraft-werewolf-game",
+		"dashscope-realtime-conversation":     "dashscope-realtime-conversation",
+		"volc-ast-translate":                  "volc-ast-translate",
+		"volc-ast-translate-tts":              "volc-ast-translate-tts",
+		"volc-ast-translate-zh-en":            "volc-ast-translate-zh-en",
+		"volc-ast-translate-zh-jp":            "volc-ast-translate-zh-jp",
+		"doubao-realtime-conversation":        "doubao-realtime-conversation",
+		"doubao-realtime-duplex-conversation": "doubao-realtime-duplex-conversation",
+		"eino-memory-assistant":               "eino-memory-assistant",
+		"flowcraft-configured-memory":         "flowcraft-configured-memory",
+		"flowcraft-voice-assistant":           "flowcraft-voice-assistant",
+		"flowcraft-chat-assistant":            "flowcraft-chat-assistant",
+		"flowcraft-journey-guide":             "flowcraft-journey-guide",
+		"flowcraft-multi-role-storyteller":    "flowcraft-multi-role-storyteller",
+		"flowcraft-murder-mystery":            "flowcraft-murder-mystery",
+		"flowcraft-poetry-adventure-li-bai":   "flowcraft-poetry-adventure-li-bai",
+		"flowcraft-werewolf-game":             "flowcraft-werewolf-game",
 	}
 	modelResources := map[string]string{
-		"llm":         "doubao-lite-chat",
-		"tts":         "volc-bigtts",
-		"asr":         "volc-bigasr-sauc",
-		"realtime":    "doubao-realtime-dialog",
-		"translation": "volc-ast-translate",
+		"llm":             "doubao-lite-chat",
+		"tts":             "volc-bigtts",
+		"asr":             "volc-bigasr-sauc",
+		"realtime":        "doubao-realtime-dialog",
+		"dash-realtime":   "qwen-realtime-dialog",
+		"realtime-duplex": "doubao-realtime-duplex-dialog",
+		"translation":     "volc-ast-translate",
 	}
 	voiceResources := map[string]string{
 		"assistant-voice":  "volc-tenant:volc-main:zh_female_vv_mars_bigtts",
@@ -221,7 +261,15 @@ func runConfigWithLiveRetry(path, contextConfigPath string, selected workspaceCa
 	for attempt := 1; attempt <= 5; attempt++ {
 		started := time.Now()
 		fmt.Printf("workspace_case_attempt case=%s config=%s attempt=%d\n", selected, filepath.Base(path), attempt)
-		err = runConfig(path, contextConfigPath, selected)
+		cfg, loadErr := loadConfig(path, contextConfigPath)
+		if loadErr != nil {
+			return loadErr
+		}
+		cfg.workspaceSuffix = fmt.Sprintf("run-%d", os.Getpid())
+		if attempt > 1 {
+			cfg.workspaceSuffix += fmt.Sprintf("-retry-%d", attempt)
+		}
+		err = runLoadedConfig(cfg, selected)
 		retryable := isRetryableLiveWorkspaceError(err)
 		result := "pass"
 		if err != nil {
@@ -249,6 +297,8 @@ func isRetryableLiveWorkspaceError(err error) bool {
 		strings.Contains(text, "transport: timeout") ||
 		strings.Contains(text, "response incomplete: length") ||
 		strings.Contains(text, "doubaospeech: [Server processing timeout] node execution timeout") ||
+		strings.Contains(text, "stream idle timeout") ||
+		strings.Contains(text, "doubaospeech: sami error") ||
 		strings.Contains(text, "doubaospeech: [Server-side generic error]") && strings.Contains(text, "big asr recv err") ||
 		strings.Contains(text, "send tts stream request:") && strings.Contains(text, "Client.Timeout exceeded while awaiting headers") ||
 		strings.Contains(text, "assistant audio asr") && (strings.Contains(text, "400 Bad Request") || strings.Contains(text, "status code 400")) ||

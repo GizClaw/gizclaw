@@ -21,6 +21,9 @@ func (s *WorkflowSpecObject) UnmarshalJSON(data []byte) error {
 		string(value.Driver),
 		value.Flowcraft != nil,
 		value.DoubaoRealtime != nil,
+		value.DashscopeRealtime != nil,
+		value.DoubaoRealtimeDuplex != nil,
+		value.Eino != nil,
 		value.AstTranslate != nil,
 		value.Chatroom != nil,
 		value.Pet != nil,
@@ -47,6 +50,9 @@ func (s *ReusableWorkflowSpecObject) UnmarshalJSON(data []byte) error {
 		string(value.Driver),
 		value.Flowcraft != nil,
 		value.DoubaoRealtime != nil,
+		value.DashscopeRealtime != nil,
+		value.DoubaoRealtimeDuplex != nil,
+		value.Eino != nil,
 		value.AstTranslate != nil,
 		value.Chatroom != nil,
 		false,
@@ -57,7 +63,7 @@ func (s *ReusableWorkflowSpecObject) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func validateWorkflowDriverPayloads(driver string, flowcraft, doubaoRealtime, astTranslate, chatroom, pet bool) error {
+func validateWorkflowDriverPayloads(driver string, flowcraft, doubaoRealtime, dashscopeRealtime, doubaoRealtimeDuplex, eino, astTranslate, chatroom, pet bool) error {
 	payloads := []struct {
 		driver  string
 		field   string
@@ -65,6 +71,9 @@ func validateWorkflowDriverPayloads(driver string, flowcraft, doubaoRealtime, as
 	}{
 		{driver: "flowcraft", field: "flowcraft", present: flowcraft},
 		{driver: "doubao-realtime", field: "doubao_realtime", present: doubaoRealtime},
+		{driver: "dashscope-realtime", field: "dashscope_realtime", present: dashscopeRealtime},
+		{driver: "doubao-realtime-duplex", field: "doubao_realtime_duplex", present: doubaoRealtimeDuplex},
+		{driver: "eino", field: "eino", present: eino},
 		{driver: "ast-translate", field: "ast_translate", present: astTranslate},
 		{driver: "chatroom", field: "chatroom", present: chatroom},
 		{driver: "pet", field: "pet", present: pet},

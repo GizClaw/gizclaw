@@ -316,7 +316,19 @@ func (h *PeerConn) initAgentHost() {
 	resources := h.peerResources()
 	h.agentInput = newPeerRealtimeSource()
 	h.events = newPeerStreamEventBroker()
-	host := newPeerAgentHost(manager.AgentHost, h.serverGenX, h.ownerGenX, manager.Gameplay, manager.FlowcraftHistory, manager.FlowcraftState, manager.FlowcraftMemoryObjects)
+	host := newPeerAgentHost(
+		manager.AgentHost,
+		h.serverGenX,
+		h.ownerGenX,
+		manager.Gameplay,
+		manager.FlowcraftHistory,
+		manager.FlowcraftState,
+		manager.FlowcraftMemoryObjects,
+		manager.FlowcraftMemory,
+		manager.FlowcraftMemoryKind,
+		manager.EinoMemory,
+		manager.EinoMemoryKind,
+	)
 	h.agentHost = &agenthost.Service{
 		Host:           host,
 		PeerRun:        manager.PeerRun,

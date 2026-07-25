@@ -115,7 +115,7 @@ func TestModelProviderDataOneofRoundTripAndRejectsMultipleValues(t *testing.T) {
 		ProviderKind: ModelProviderKindDashscopeTenant,
 		DashScopeTenant: &DashScopeTenantModelProviderData{
 			ApiMode:       &dashScopeMode,
-			UpstreamModel: stringPtr("qwen-plus"),
+			UpstreamModel: new("qwen-plus"),
 		},
 	}}
 	if err := payload.FromModelGetResponse(dashScopeResponse); err != nil {
@@ -129,7 +129,7 @@ func TestModelProviderDataOneofRoundTripAndRejectsMultipleValues(t *testing.T) {
 		t.Fatalf("AsModelGetResponse(DashScope) lost api_mode: %#v", dashScopeDecoded)
 	}
 
-	response.Value.OpenAITenant = &OpenAITenantModelProviderData{UpstreamModel: stringPtr("gpt-test")}
+	response.Value.OpenAITenant = &OpenAITenantModelProviderData{UpstreamModel: new("gpt-test")}
 	if err := payload.FromModelGetResponse(response); err == nil {
 		t.Fatal("FromModelGetResponse() accepted multiple provider_data oneof values")
 	}
@@ -143,7 +143,7 @@ func TestModelProviderDataOneofRoundTripAndRejectsMultipleValues(t *testing.T) {
 	mismatchedProto := &rpcpb.Model{
 		ProviderKind: rpcpb.ModelProviderKind_MODEL_PROVIDER_KIND_DEEPSEEK_TENANT,
 		ProviderData: &rpcpb.Model_OpenaiTenant{
-			OpenaiTenant: &rpcpb.OpenAITenantModelProviderData{UpstreamModel: stringPtr("gpt-test")},
+			OpenaiTenant: &rpcpb.OpenAITenantModelProviderData{UpstreamModel: new("gpt-test")},
 		},
 	}
 	if err := fillGoValueFromProto(reflect.ValueOf(&decodedModel), mismatchedProto.ProtoReflect(), decodeRPCPayloadOptions{}); err == nil {
@@ -209,7 +209,7 @@ func TestRPCUnionTypes(t *testing.T) {
 		t.Fatalf("AsPingRequest() = %+v, %v", got, err)
 	}
 
-	assertRequestUnion(t, "ServerPutInfo", ServerPutInfoRequest{Name: stringPtr("peer-1")}, (*RPCPayload).FromServerPutInfoRequest, RPCPayload.AsServerPutInfoRequest, (*RPCPayload).MergeServerPutInfoRequest)
+	assertRequestUnion(t, "ServerPutInfo", ServerPutInfoRequest{Name: new("peer-1")}, (*RPCPayload).FromServerPutInfoRequest, RPCPayload.AsServerPutInfoRequest, (*RPCPayload).MergeServerPutInfoRequest)
 	assertRequestUnion(t, "ServerGetRuntime", ServerGetRuntimeRequest{}, (*RPCPayload).FromServerGetRuntimeRequest, RPCPayload.AsServerGetRuntimeRequest, (*RPCPayload).MergeServerGetRuntimeRequest)
 	assertRequestUnion(t, "ClientGetInfo", ClientGetInfoRequest{}, (*RPCPayload).FromClientGetInfoRequest, RPCPayload.AsClientGetInfoRequest, (*RPCPayload).MergeClientGetInfoRequest)
 	assertRequestUnion(t, "ClientGetIdentifiers", ClientGetIdentifiersRequest{}, (*RPCPayload).FromClientGetIdentifiersRequest, RPCPayload.AsClientGetIdentifiersRequest, (*RPCPayload).MergeClientGetIdentifiersRequest)
@@ -224,11 +224,11 @@ func TestRPCUnionTypes(t *testing.T) {
 	}
 
 	now := time.Unix(100, 0).UTC()
-	assertResponseUnion(t, "ServerGetInfo", ServerGetInfoResponse{Name: stringPtr("peer-1")}, (*RPCPayload).FromServerGetInfoResponse, RPCPayload.AsServerGetInfoResponse, (*RPCPayload).MergeServerGetInfoResponse)
-	assertResponseUnion(t, "ServerPutInfo", ServerPutInfoResponse{Name: stringPtr("peer-2")}, (*RPCPayload).FromServerPutInfoResponse, RPCPayload.AsServerPutInfoResponse, (*RPCPayload).MergeServerPutInfoResponse)
+	assertResponseUnion(t, "ServerGetInfo", ServerGetInfoResponse{Name: new("peer-1")}, (*RPCPayload).FromServerGetInfoResponse, RPCPayload.AsServerGetInfoResponse, (*RPCPayload).MergeServerGetInfoResponse)
+	assertResponseUnion(t, "ServerPutInfo", ServerPutInfoResponse{Name: new("peer-2")}, (*RPCPayload).FromServerPutInfoResponse, RPCPayload.AsServerPutInfoResponse, (*RPCPayload).MergeServerPutInfoResponse)
 	assertResponseUnion(t, "ServerGetRuntime", ServerGetRuntimeResponse{Online: true, LastSeenAt: now}, (*RPCPayload).FromServerGetRuntimeResponse, RPCPayload.AsServerGetRuntimeResponse, (*RPCPayload).MergeServerGetRuntimeResponse)
-	assertResponseUnion(t, "ClientGetInfo", ClientGetInfoResponse{Model: stringPtr("model-1")}, (*RPCPayload).FromClientGetInfoResponse, RPCPayload.AsClientGetInfoResponse, (*RPCPayload).MergeClientGetInfoResponse)
-	assertResponseUnion(t, "ClientGetIdentifiers", ClientGetIdentifiersResponse{Sn: stringPtr("sn-1")}, (*RPCPayload).FromClientGetIdentifiersResponse, RPCPayload.AsClientGetIdentifiersResponse, (*RPCPayload).MergeClientGetIdentifiersResponse)
+	assertResponseUnion(t, "ClientGetInfo", ClientGetInfoResponse{Model: new("model-1")}, (*RPCPayload).FromClientGetInfoResponse, RPCPayload.AsClientGetInfoResponse, (*RPCPayload).MergeClientGetInfoResponse)
+	assertResponseUnion(t, "ClientGetIdentifiers", ClientGetIdentifiersResponse{Sn: new("sn-1")}, (*RPCPayload).FromClientGetIdentifiersResponse, RPCPayload.AsClientGetIdentifiersResponse, (*RPCPayload).MergeClientGetIdentifiersResponse)
 }
 
 func TestMethodPayloadsUseProtobufBytes(t *testing.T) {
@@ -296,7 +296,7 @@ func TestServerPeerRoutePayloadsUseRPCProtoMessages(t *testing.T) {
 	var params RPCPayload
 	if err := params.FromServerPeerAssignRequest(rpcpb.ServerPeerAssignRequest{
 		PeerPublicKey:   "peer-a",
-		ExpectedVersion: int64Ptr(7),
+		ExpectedVersion: new(int64(7)),
 	}); err != nil {
 		t.Fatalf("FromServerPeerAssignRequest() error = %v", err)
 	}
@@ -473,7 +473,7 @@ func TestPayloadCodecMapsGoDTOsDirectlyToProtobuf(t *testing.T) {
 	}
 
 	var chatParams RPCPayload
-	if err := chatParams.encode("ChatRoomWorkspaceParameters", ChatRoomWorkspaceParameters{Input: ptr(WorkspaceInputModePushToTalk)}); err != nil {
+	if err := chatParams.encode("ChatRoomWorkspaceParameters", ChatRoomWorkspaceParameters{Input: new(WorkspaceInputModePushToTalk)}); err != nil {
 		t.Fatalf("encode ChatRoomWorkspaceParameters error = %v", err)
 	}
 	var chatProto rpcpb.ChatRoomWorkspaceParameters
@@ -535,6 +535,130 @@ func TestPayloadCodecMapsGoDTOsDirectlyToProtobuf(t *testing.T) {
 	}
 }
 
+func TestPayloadCodecRoundTripsNewWorkflowContracts(t *testing.T) {
+	t.Parallel()
+	var modelPayload RPCPayload
+	model := Model{
+		Alias:        "duplex",
+		I18n:         map[string]AliasI18nText{},
+		Kind:         ModelKindRealtimeDuplex,
+		ProviderKind: ModelProviderKindVolcTenant,
+		VolcTenant: &VolcTenantModelProviderData{
+			ApiMode:       new(VolcTenantModelProviderDataApiModeRealtimeDuplex),
+			UpstreamModel: new("1.2.6.0"),
+		},
+	}
+	if err := modelPayload.encode("Model", model); err != nil {
+		t.Fatalf("encode Model: %v", err)
+	}
+	var decodedModel Model
+	if err := modelPayload.decode("Model", &decodedModel); err != nil {
+		t.Fatalf("decode Model: %v", err)
+	}
+	if decodedModel.Kind != ModelKindRealtimeDuplex || decodedModel.ProviderKind != ModelProviderKindVolcTenant {
+		t.Fatalf("Model round trip = %#v", decodedModel)
+	}
+
+	dash := DashScopeRealtimeWorkflowSpec{Model: "dash-realtime"}
+	var dashPayload RPCPayload
+	if err := dashPayload.encode("DashScopeRealtimeWorkflowSpec", dash); err != nil {
+		t.Fatalf("encode DashScope workflow: %v", err)
+	}
+	var decodedDash DashScopeRealtimeWorkflowSpec
+	if err := dashPayload.decode("DashScopeRealtimeWorkflowSpec", &decodedDash); err != nil {
+		t.Fatalf("decode DashScope workflow: %v", err)
+	}
+	if decodedDash.Model != dash.Model {
+		t.Fatalf("DashScope workflow round trip = %#v", decodedDash)
+	}
+
+	duplex := DoubaoRealtimeDuplexWorkflowSpec{Model: "realtime-duplex"}
+	var duplexPayload RPCPayload
+	if err := duplexPayload.encode("DoubaoRealtimeDuplexWorkflowSpec", duplex); err != nil {
+		t.Fatalf("encode Duplex workflow: %v", err)
+	}
+	var decodedDuplex DoubaoRealtimeDuplexWorkflowSpec
+	if err := duplexPayload.decode("DoubaoRealtimeDuplexWorkflowSpec", &decodedDuplex); err != nil {
+		t.Fatalf("decode Duplex workflow: %v", err)
+	}
+	if decodedDuplex.Model != duplex.Model {
+		t.Fatalf("Duplex workflow round trip = %#v", decodedDuplex)
+	}
+
+	eino := EinoWorkflowSpec{Graph: map[string]any{
+		"name":    "rpc-eino",
+		"compile": map[string]any{"node_trigger_mode": "any_predecessor"},
+		"state": map[string]any{"fields": []any{
+			map[string]any{"name": "answer", "type": "string", "merge": "replace"},
+		}},
+		"nodes": []any{
+			map[string]any{
+				"id": "answer", "type": "passthrough",
+				"inputs":  map[string]any{"value": map[string]any{"from": "input.text"}},
+				"outputs": map[string]any{"value": "answer"},
+			},
+		},
+		"edges": []any{
+			map[string]any{"from": "start", "to": "answer"},
+			map[string]any{"from": "answer", "to": "end"},
+		},
+		"branches": []any{},
+		"outputs": []any{
+			map[string]any{
+				"node": "answer", "field": "answer", "name": "assistant",
+				"mime_type": "text/plain", "primary": true,
+			},
+		},
+	}}
+	var einoPayload RPCPayload
+	if err := einoPayload.encode("EinoWorkflowSpec", eino); err != nil {
+		t.Fatalf("encode Eino workflow: %v", err)
+	}
+	var decodedEino EinoWorkflowSpec
+	if err := einoPayload.decode("EinoWorkflowSpec", &decodedEino); err != nil {
+		t.Fatalf("decode Eino workflow: %v", err)
+	}
+	if decodedEino.Graph["name"] != eino.Graph["name"] {
+		t.Fatalf("Eino workflow round trip = %#v", decodedEino)
+	}
+
+	pet := PetWorkflowSpec{
+		Driver:               ReusableWorkflowDriverDoubaoRealtimeDuplex,
+		DoubaoRealtimeDuplex: &duplex,
+	}
+	var petPayload RPCPayload
+	if err := petPayload.encode("PetWorkflowSpec", pet); err != nil {
+		t.Fatalf("encode Pet workflow: %v", err)
+	}
+	var decodedPet PetWorkflowSpec
+	if err := petPayload.decode("PetWorkflowSpec", &decodedPet); err != nil {
+		t.Fatalf("decode Pet workflow: %v", err)
+	}
+	if decodedPet.Driver != ReusableWorkflowDriverDoubaoRealtimeDuplex ||
+		decodedPet.DoubaoRealtimeDuplex == nil ||
+		decodedPet.DoubaoRealtimeDuplex.Model != duplex.Model {
+		t.Fatalf("Pet workflow round trip = %#v", decodedPet)
+	}
+
+	var parameters WorkspaceParameters
+	if err := parameters.FromEinoWorkspaceParameters(EinoWorkspaceParameters{
+		AgentType: EinoWorkspaceParametersAgentTypeEino,
+	}); err != nil {
+		t.Fatalf("encode Eino workspace parameters union: %v", err)
+	}
+	var parametersPayload RPCPayload
+	if err := parametersPayload.encode("WorkspaceParameters", parameters); err != nil {
+		t.Fatalf("encode WorkspaceParameters: %v", err)
+	}
+	var decodedParameters WorkspaceParameters
+	if err := parametersPayload.decode("WorkspaceParameters", &decodedParameters); err != nil {
+		t.Fatalf("decode WorkspaceParameters: %v", err)
+	}
+	if _, err := decodedParameters.AsEinoWorkspaceParameters(); err != nil {
+		t.Fatalf("Eino WorkspaceParameters round trip: %v", err)
+	}
+}
+
 func TestPayloadCodecMapsProtobufDirectlyToGoDTOs(t *testing.T) {
 	firmwareData, err := proto.Marshal(&rpcpb.FirmwareGetRequest{})
 	if err != nil {
@@ -547,12 +671,12 @@ func TestPayloadCodecMapsProtobufDirectlyToGoDTOs(t *testing.T) {
 	}
 
 	schemaData, err := proto.Marshal(&rpcpb.DoubaoRealtimeJSONSchema{
-		AdditionalProperties: ptr(false),
+		AdditionalProperties: new(false),
 		AnyOf: []*rpcpb.DoubaoRealtimeJSONSchema{
-			{Type: ptr("string")},
+			{Type: new("string")},
 		},
 		EnumValues: []string{"red", "green"},
-		MinLength:  ptr(int64(2)),
+		MinLength:  new(int64(2)),
 	})
 	if err != nil {
 		t.Fatalf("marshal JSON schema payload error = %v", err)
@@ -714,18 +838,6 @@ func assertResponseUnion[T any](
 	if err := merge(&result, value); err != nil {
 		t.Fatalf("Merge%sResponse() error = %v", name, err)
 	}
-}
-
-func stringPtr(value string) *string {
-	return &value
-}
-
-func int64Ptr(value int64) *int64 {
-	return &value
-}
-
-func ptr[T any](value T) *T {
-	return &value
 }
 
 func TestWriteFramePropagatesHeaderWriteError(t *testing.T) {

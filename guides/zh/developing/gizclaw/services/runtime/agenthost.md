@@ -39,9 +39,11 @@ flowchart TD
 
 ## Store 依赖 ownership
 
-Host process 在启动时解析一次 `agent_host` Server Config 引用，并把 borrowed Store interface 注入 GizClaw Server、Peer Manager 与已注册 Workflow factory。Store Registry 仍是这些共享 backend 的唯一 owner；AgentHost、Workspace reload、Flowcraft、Pet 和 per-Agent adapter 都不能关闭它们。
+Host process 在启动时解析一次 `agent_host` Server Config 引用，并把 borrowed Store interface 注入 GizClaw Server、Peer Manager 与已注册 Workflow factory。Store Registry 仍是这些共享 backend 的唯一 owner；AgentHost、Workspace reload、Flowcraft、Pet、Eino 和 per-Agent adapter 都不能关闭它们。
 
-`runtime_store` 持久化 Workspace runtime metadata、history 与 runtime object。Flowcraft 接收相互独立且可选的 State、内部 History 与 Memory-object capability。State、History 与 Memory 使用 canonical Owner/Workspace/Agent scope；Workspace runtime history 与 Flowcraft 的 graph 内部 History 是两套不同数据。Pet 委托给相同的已注册 Flowcraft factory，因此使用同一组依赖与 scope 规则。
+`runtime_store` 持久化 Workspace runtime metadata、history 与 runtime object。Flowcraft 接收相互独立且可选的 State、内部 History、Memory-object 与 provider-neutral Memory capability。Pet 委托给相同的已注册 inner-driver factory。Eino 只接收可选的 provider-neutral Memory capability；产品层不暴露持久化 Eino State 与 History。
+
+Flowcraft 与 Eino 在已配置的 Memory Store 上只绑定 Workspace 这一层 App 边界。通用 Scope 的各维度仍然独立：Agent 逻辑可以保留自己的 User、Agent 与 Run 值，AgentHost 绝不会用 Peer public key 替代 UserID。Flowcraft 优先选择已配置 Store，而不是内嵌 provider；Eino 只有在 Workflow 声明 Memory policy 时才强制要求该 Store。
 
 这些绑定属于 process-start configuration。Reload 会根据当前 Workflow 与 Workspace resource 重建 Agent，但不会 hot-swap 共享 Store 依赖。修改绑定后必须重启 Server，已有数据不会自动移动。
 

@@ -766,6 +766,13 @@ func workflowSpecAliases(spec map[string]any) ([]string, []string, error) {
 	}
 	driver, _ := spec["driver"].(string)
 	switch driver {
+	case "dashscope-realtime":
+		config, ok := anyMap(spec["dashscope_realtime"])
+		if !ok {
+			return nil, nil, errors.New("dashscope-realtime workflow has no configuration")
+		}
+		add(models, config["model"])
+		add(voices, config["voice"])
 	case "doubao-realtime":
 		config, ok := anyMap(spec["doubao_realtime"])
 		if !ok {
@@ -776,6 +783,21 @@ func workflowSpecAliases(spec map[string]any) ([]string, []string, error) {
 			if output, ok := anyMap(audio["output"]); ok {
 				add(voices, output["voice"])
 			}
+		}
+	case "doubao-realtime-duplex":
+		config, ok := anyMap(spec["doubao_realtime_duplex"])
+		if !ok {
+			return nil, nil, errors.New("doubao-realtime-duplex workflow has no configuration")
+		}
+		add(models, config["model"])
+		add(voices, config["voice"])
+	case "eino":
+		config, ok := anyMap(spec["eino"])
+		if !ok {
+			return nil, nil, errors.New("eino workflow has no configuration")
+		}
+		if graph, ok := anyMap(config["graph"]); ok {
+			collectEinoGraphModelAliases(graph, models)
 		}
 	case "ast-translate":
 		config, ok := anyMap(spec["ast_translate"])
@@ -838,6 +860,33 @@ func workflowSpecAliases(spec map[string]any) ([]string, []string, error) {
 		return nil, nil, fmt.Errorf("unsupported workflow driver %q", driver)
 	}
 	return sortedAliases(models), sortedAliases(voices), nil
+}
+
+func collectEinoGraphModelAliases(graph map[string]any, models map[string]bool) {
+	for _, value := range anySlice(graph["nodes"]) {
+		node, ok := anyMap(value)
+		if !ok {
+			continue
+		}
+		switch node["type"] {
+		case "chat_model":
+			if alias, ok := node["model"].(string); ok && strings.TrimSpace(alias) != "" {
+				models[alias] = true
+			}
+		case "batch", "subgraph":
+			if nested, ok := anyMap(node["graph"]); ok {
+				collectEinoGraphModelAliases(nested, models)
+			}
+		case "race":
+			for _, branchValue := range anySlice(node["branches"]) {
+				if branch, ok := anyMap(branchValue); ok {
+					if nested, ok := anyMap(branch["graph"]); ok {
+						collectEinoGraphModelAliases(nested, models)
+					}
+				}
+			}
+		}
+	}
 }
 
 func anySlice(value any) []any {

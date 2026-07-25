@@ -59,9 +59,9 @@ func TestServerWorkflowRuntimeAliases(t *testing.T) {
 	if _, err := env.peer.GetWorkflow(env.ctx, "workflow.get.runtime.missing", rpcapi.WorkflowGetRequest{
 		Alias: "mutation",
 	}); err == nil {
-		t.Fatal("runtime Workflow get resolved an alias whose target is missing")
+		t.Fatal("runtime Workflow get resolved an alias that is not in the profile")
 	}
-	// The mutation target is intentionally absent until the Workspace mutation
-	// test creates it. RuntimeProfile references that resolve to 404 are ignored.
+	// The mutation alias is added only by the Workspace mutation test after its
+	// concrete Workflow exists.
 	assertWorkflowPagination(t, env.ctx, env.peer, "shared", "chatroom")
 }

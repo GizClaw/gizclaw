@@ -8,26 +8,36 @@ import (
 	"github.com/GizClaw/flowcraft/memory/recall"
 )
 
-const locatorPrefix = "flowcraft:v1:"
+const locatorPrefix = "flowcraft:v2:"
 
 func encodeLocator(scope recall.Scope, nativeID string) string {
-	return locatorPrefix + base64.RawURLEncoding.EncodeToString([]byte(scope.UserID)) + ":" + base64.RawURLEncoding.EncodeToString([]byte(nativeID))
+	parts := []string{scope.RuntimeID, scope.UserID, scope.AgentID, nativeID}
+	for index := range parts {
+		parts[index] = base64.RawURLEncoding.EncodeToString([]byte(parts[index]))
+	}
+	return locatorPrefix + strings.Join(parts, ":")
 }
 
 func decodeLocator(value string) (recall.Scope, string, error) {
 	parts := strings.Split(strings.TrimPrefix(value, locatorPrefix), ":")
-	if !strings.HasPrefix(value, locatorPrefix) || len(parts) != 2 {
+	if !strings.HasPrefix(value, locatorPrefix) || len(parts) != 4 {
 		return recall.Scope{}, "", fmt.Errorf("%w: invalid flowcraft locator", errInvalidInput)
 	}
-	scopeValue, err := base64.RawURLEncoding.DecodeString(parts[0])
-	if err != nil || len(scopeValue) == 0 {
+	decoded := make([]string, len(parts))
+	for index, part := range parts {
+		value, err := base64.RawURLEncoding.DecodeString(part)
+		if err != nil {
+			return recall.Scope{}, "", fmt.Errorf("%w: invalid flowcraft locator", errInvalidInput)
+		}
+		decoded[index] = string(value)
+	}
+	if decoded[0] == "" {
 		return recall.Scope{}, "", fmt.Errorf("%w: invalid flowcraft locator scope", errInvalidInput)
 	}
-	nativeID, err := base64.RawURLEncoding.DecodeString(parts[1])
-	if err != nil || len(nativeID) == 0 {
+	if decoded[3] == "" {
 		return recall.Scope{}, "", fmt.Errorf("%w: invalid flowcraft locator id", errInvalidInput)
 	}
-	return recall.Scope{RuntimeID: "gizclaw", UserID: string(scopeValue)}, string(nativeID), nil
+	return recall.Scope{RuntimeID: decoded[0], UserID: decoded[1], AgentID: decoded[2]}, decoded[3], nil
 }
 
 func sameScope(left, right recall.Scope) bool {

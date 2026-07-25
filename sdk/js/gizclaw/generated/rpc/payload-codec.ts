@@ -27,11 +27,14 @@ export type ASTTranslateMode = "" | "s2s" | "s2t" | "unspecified" | number;
 export type ASTTranslateWorkspaceParametersAgentType = "" | "ast-translate" | "unspecified" | number;
 export type ChatRoomMode = "" | "direct" | "group" | "unspecified" | number;
 export type ChatRoomWorkspaceParametersAgentType = "" | "chatroom" | "unspecified" | number;
+export type DashScopeRealtimeWorkspaceParametersAgentType = "" | "dashscope-realtime" | "unspecified" | number;
 export type DashScopeTenantModelProviderDataApiMode = "" | "chat_completions" | "realtime" | "unspecified" | number;
 export type DoubaoRealtimeAudioFormatType = "" | "ogg_opus" | "pcm" | "pcm_s16le" | "speech_opus" | "unspecified" | number;
 export type DoubaoRealtimeDialogExtraVolcWebsearchType = "" | "unspecified" | "web" | "web_agent" | "web_summary" | number;
+export type DoubaoRealtimeDuplexWorkspaceParametersAgentType = "" | "doubao-realtime-duplex" | "unspecified" | number;
 export type DoubaoRealtimeFunctionToolType = "" | "function" | "unspecified" | number;
 export type DoubaoRealtimeWorkspaceParametersAgentType = "" | "doubao-realtime" | "unspecified" | number;
+export type EinoWorkspaceParametersAgentType = "" | "eino" | "unspecified" | number;
 export type FirmwareArtifactEntryType = "" | "dir" | "file" | "unspecified" | number;
 export type FirmwareChannelName = "" | "beta" | "develop" | "pending" | "stable" | "unspecified" | number;
 export type FlowcraftConversationParametersAgentInitiativePolicy = "" | "on_reload" | "once_when_empty" | "unspecified" | number;
@@ -40,7 +43,7 @@ export type FlowcraftWorkspaceParametersAgentType = "" | "flowcraft" | "unspecif
 export type FriendGroupMemberMutableRole = "" | "admin" | "member" | "unspecified" | number;
 export type FriendGroupMemberRole = "" | "admin" | "member" | "owner" | "unspecified" | number;
 export type IconFormat = "" | "pixa" | "png" | "unspecified" | number;
-export type ModelKind = "" | "asr" | "embedding" | "llm" | "realtime" | "translation" | "tts" | "unspecified" | number;
+export type ModelKind = "" | "asr" | "embedding" | "llm" | "realtime" | "realtime-duplex" | "translation" | "tts" | "unspecified" | number;
 export type ModelProviderKind = "" | "dashscope-tenant" | "deepseek-tenant" | "gemini-tenant" | "minimax-tenant" | "openai-tenant" | "unspecified" | "volc-tenant" | number;
 export type PeerRole = "" | "admin" | "client" | "edge-node" | "server" | "unspecified" | number;
 export type PeerRunHistoryEntryType = "" | "agent" | "gear" | "unspecified" | number;
@@ -48,9 +51,9 @@ export type PeerRunHistoryListRequestOrder = "" | "asc" | "desc" | "unspecified"
 export type PeerRunStatusState = "" | "error" | "running" | "starting" | "stopped" | "stopping" | "unspecified" | number;
 export type PetBehavior = "" | "bathe" | "feed" | "heal" | "play" | "unspecified" | number;
 export type PetLifecycle = "" | "alive" | "dead" | "unspecified" | number;
-export type ReusableWorkflowDriver = "" | "ast-translate" | "chatroom" | "doubao-realtime" | "flowcraft" | "unspecified" | number;
-export type VolcTenantModelProviderDataApiMode = "" | "asr" | "chat_completions" | "embedding" | "realtime" | "translation" | "tts" | "unspecified" | number;
-export type WorkflowDriver = "" | "ast-translate" | "chatroom" | "doubao-realtime" | "flowcraft" | "pet" | "unspecified" | number;
+export type ReusableWorkflowDriver = "" | "ast-translate" | "chatroom" | "dashscope-realtime" | "doubao-realtime" | "doubao-realtime-duplex" | "eino" | "flowcraft" | "unspecified" | number;
+export type VolcTenantModelProviderDataApiMode = "" | "asr" | "chat_completions" | "embedding" | "realtime" | "realtime_duplex" | "translation" | "tts" | "unspecified" | number;
+export type WorkflowDriver = "" | "ast-translate" | "chatroom" | "dashscope-realtime" | "doubao-realtime" | "doubao-realtime-duplex" | "eino" | "flowcraft" | "pet" | "unspecified" | number;
 export type WorkspaceHistoryListRequestOrder = "" | "asc" | "desc" | "unspecified" | number;
 export type WorkspaceInputMode = "" | "push-to-talk" | "realtime" | "unspecified" | number;
 export type ASTTranslateExternalVoiceParameters = {
@@ -178,6 +181,34 @@ export type ContactPutRequest = {
   "phone_number"?: string;
 };
 export type ContactPutResponse = ContactObject;
+export type DashScopeRealtimeWorkflowSpec = {
+  "asr_model"?: string;
+  "enable_asr"?: boolean;
+  "input_audio_format"?: string;
+  "instructions"?: string;
+  "max_output_tokens"?: number;
+  "modalities": string[];
+  "model": string;
+  "output_audio_format"?: string;
+  "temperature"?: number;
+  "vad"?: string;
+  "voice"?: string;
+};
+export type DashScopeRealtimeWorkspaceParameters = {
+  "agent_type": DashScopeRealtimeWorkspaceParametersAgentType;
+  "asr_model"?: string;
+  "e2e"?: boolean;
+  "enable_asr"?: boolean;
+  "input_audio_format"?: string;
+  "instructions"?: string;
+  "max_output_tokens"?: number;
+  "modalities": string[];
+  "model"?: string;
+  "output_audio_format"?: string;
+  "temperature"?: number;
+  "vad"?: string;
+  "voice"?: string;
+};
 export type DashScopeTenantModelProviderData = {
   "upstream_model"?: string;
   "api_mode"?: string;
@@ -281,6 +312,34 @@ export type DoubaoRealtimeDialogExtra = {
   "volc_websearch_result_count"?: number;
   "volc_websearch_type"?: DoubaoRealtimeDialogExtraVolcWebsearchType;
 };
+export type DoubaoRealtimeDuplexWorkflowSpec = {
+  "format"?: string;
+  "input_channels"?: number;
+  "input_format"?: string;
+  "input_sample_rate"?: number;
+  "input_transcode"?: boolean;
+  "instructions"?: string;
+  "model": string;
+  "output_loudness"?: number;
+  "output_speed"?: number;
+  "sample_rate"?: number;
+  "voice"?: string;
+};
+export type DoubaoRealtimeDuplexWorkspaceParameters = {
+  "agent_type": DoubaoRealtimeDuplexWorkspaceParametersAgentType;
+  "e2e"?: boolean;
+  "format"?: string;
+  "input_channels"?: number;
+  "input_format"?: string;
+  "input_sample_rate"?: number;
+  "input_transcode"?: boolean;
+  "instructions"?: string;
+  "model"?: string;
+  "output_loudness"?: number;
+  "output_speed"?: number;
+  "sample_rate"?: number;
+  "voice"?: string;
+};
 export type DoubaoRealtimeExtension = {
   "asr"?: DoubaoRealtimeASRExtension;
   "dialog"?: DoubaoRealtimeDialogExtension;
@@ -331,6 +390,15 @@ export type DoubaoRealtimeWorkspaceParameters = {
   "instructions"?: string;
   "model"?: string;
   "tools": DoubaoRealtimeFunctionTool[];
+};
+export type EinoWorkflowSpec = {
+  "graph": Record<string, unknown>;
+  "limits"?: Record<string, unknown>;
+  "memory"?: Record<string, unknown>;
+};
+export type EinoWorkspaceParameters = {
+  "agent_type": EinoWorkspaceParametersAgentType;
+  "e2e"?: boolean;
 };
 export type Firmware = {
   "created_at": string;
@@ -915,6 +983,9 @@ export type PetWorkflowSpec = {
   "doubao_realtime"?: DoubaoRealtimeWorkflowSpec;
   "ast_translate"?: ASTTranslateWorkflowSpec;
   "chatroom"?: ChatRoomWorkflowSpec;
+  "dashscope_realtime"?: DashScopeRealtimeWorkflowSpec;
+  "doubao_realtime_duplex"?: DoubaoRealtimeDuplexWorkflowSpec;
+  "eino"?: EinoWorkflowSpec;
 };
 export type PingRequest = {
   "client_send_time": number;
@@ -1294,7 +1365,7 @@ export type WorkspaceListResponse = {
   "runtime_profile_name": string;
   "runtime_profile_revision": string;
 };
-export type WorkspaceParameters = FlowcraftWorkspaceParameters | DoubaoRealtimeWorkspaceParameters | ASTTranslateWorkspaceParameters | ChatRoomWorkspaceParameters;
+export type WorkspaceParameters = FlowcraftWorkspaceParameters | DoubaoRealtimeWorkspaceParameters | ASTTranslateWorkspaceParameters | ChatRoomWorkspaceParameters | DashScopeRealtimeWorkspaceParameters | DoubaoRealtimeDuplexWorkspaceParameters | EinoWorkspaceParameters;
 export type WorkspacePutBody = {
   "parameters"?: WorkspaceParameters;
   "toolkit"?: ToolkitPolicy;
@@ -2065,6 +2136,156 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "DashScopeRealtimeWorkflowSpec": {
+    "fields": [
+      {
+        "name": "asr_model",
+        "number": 1,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "enable_asr",
+        "number": 2,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "input_audio_format",
+        "number": 3,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "instructions",
+        "number": 4,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "max_output_tokens",
+        "number": 5,
+        "optional": true,
+        "type": "int64"
+      },
+      {
+        "name": "modalities",
+        "number": 6,
+        "repeated": true,
+        "type": "string"
+      },
+      {
+        "name": "model",
+        "number": 7,
+        "type": "string"
+      },
+      {
+        "name": "output_audio_format",
+        "number": 8,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "temperature",
+        "number": 9,
+        "optional": true,
+        "type": "float"
+      },
+      {
+        "name": "vad",
+        "number": 10,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "voice",
+        "number": 11,
+        "optional": true,
+        "type": "string"
+      }
+    ]
+  },
+  "DashScopeRealtimeWorkspaceParameters": {
+    "fields": [
+      {
+        "name": "agent_type",
+        "number": 1,
+        "type": "DashScopeRealtimeWorkspaceParametersAgentType"
+      },
+      {
+        "name": "asr_model",
+        "number": 2,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "e2e",
+        "number": 3,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "enable_asr",
+        "number": 4,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "input_audio_format",
+        "number": 5,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "instructions",
+        "number": 6,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "max_output_tokens",
+        "number": 7,
+        "optional": true,
+        "type": "int64"
+      },
+      {
+        "name": "modalities",
+        "number": 8,
+        "repeated": true,
+        "type": "string"
+      },
+      {
+        "name": "model",
+        "number": 9,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "output_audio_format",
+        "number": 10,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "temperature",
+        "number": 11,
+        "optional": true,
+        "type": "float"
+      },
+      {
+        "name": "vad",
+        "number": 12,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "voice",
+        "number": 13,
+        "optional": true,
+        "type": "string"
+      }
+    ]
+  },
   "DashScopeTenantModelProviderData": {
     "fields": [
       {
@@ -2550,6 +2771,156 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "DoubaoRealtimeDuplexWorkflowSpec": {
+    "fields": [
+      {
+        "name": "format",
+        "number": 1,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "input_channels",
+        "number": 2,
+        "optional": true,
+        "type": "int64"
+      },
+      {
+        "name": "input_format",
+        "number": 3,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "input_sample_rate",
+        "number": 4,
+        "optional": true,
+        "type": "int64"
+      },
+      {
+        "name": "input_transcode",
+        "number": 5,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "instructions",
+        "number": 6,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "model",
+        "number": 7,
+        "type": "string"
+      },
+      {
+        "name": "output_loudness",
+        "number": 8,
+        "optional": true,
+        "type": "int64"
+      },
+      {
+        "name": "output_speed",
+        "number": 9,
+        "optional": true,
+        "type": "int64"
+      },
+      {
+        "name": "sample_rate",
+        "number": 10,
+        "optional": true,
+        "type": "int64"
+      },
+      {
+        "name": "voice",
+        "number": 11,
+        "optional": true,
+        "type": "string"
+      }
+    ]
+  },
+  "DoubaoRealtimeDuplexWorkspaceParameters": {
+    "fields": [
+      {
+        "name": "agent_type",
+        "number": 1,
+        "type": "DoubaoRealtimeDuplexWorkspaceParametersAgentType"
+      },
+      {
+        "name": "e2e",
+        "number": 2,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "format",
+        "number": 3,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "input_channels",
+        "number": 4,
+        "optional": true,
+        "type": "int64"
+      },
+      {
+        "name": "input_format",
+        "number": 5,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "input_sample_rate",
+        "number": 6,
+        "optional": true,
+        "type": "int64"
+      },
+      {
+        "name": "input_transcode",
+        "number": 7,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "instructions",
+        "number": 8,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "model",
+        "number": 9,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "output_loudness",
+        "number": 10,
+        "optional": true,
+        "type": "int64"
+      },
+      {
+        "name": "output_speed",
+        "number": 11,
+        "optional": true,
+        "type": "int64"
+      },
+      {
+        "name": "sample_rate",
+        "number": 12,
+        "optional": true,
+        "type": "int64"
+      },
+      {
+        "name": "voice",
+        "number": 13,
+        "optional": true,
+        "type": "string"
+      }
+    ]
+  },
   "DoubaoRealtimeExtension": {
     "fields": [
       {
@@ -2796,6 +3167,42 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 8,
         "repeated": true,
         "type": "DoubaoRealtimeFunctionTool"
+      }
+    ]
+  },
+  "EinoWorkflowSpec": {
+    "fields": [
+      {
+        "name": "graph",
+        "number": 1,
+        "type": "google.protobuf.Struct"
+      },
+      {
+        "name": "limits",
+        "number": 2,
+        "optional": true,
+        "type": "google.protobuf.Struct"
+      },
+      {
+        "name": "memory",
+        "number": 3,
+        "optional": true,
+        "type": "google.protobuf.Struct"
+      }
+    ]
+  },
+  "EinoWorkspaceParameters": {
+    "fields": [
+      {
+        "name": "agent_type",
+        "number": 1,
+        "type": "EinoWorkspaceParametersAgentType"
+      },
+      {
+        "name": "e2e",
+        "number": 2,
+        "optional": true,
+        "type": "bool"
       }
     ]
   },
@@ -5393,6 +5800,24 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 6,
         "optional": true,
         "type": "ChatRoomWorkflowSpec"
+      },
+      {
+        "name": "dashscope_realtime",
+        "number": 7,
+        "optional": true,
+        "type": "DashScopeRealtimeWorkflowSpec"
+      },
+      {
+        "name": "doubao_realtime_duplex",
+        "number": 8,
+        "optional": true,
+        "type": "DoubaoRealtimeDuplexWorkflowSpec"
+      },
+      {
+        "name": "eino",
+        "number": 9,
+        "optional": true,
+        "type": "EinoWorkflowSpec"
       }
     ]
   },
@@ -7259,6 +7684,27 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "oneof": true,
         "oneofGroup": "value",
         "type": "ChatRoomWorkspaceParameters"
+      },
+      {
+        "name": "dash_scope_realtime_workspace_parameters",
+        "number": 6,
+        "oneof": true,
+        "oneofGroup": "value",
+        "type": "DashScopeRealtimeWorkspaceParameters"
+      },
+      {
+        "name": "doubao_realtime_duplex_workspace_parameters",
+        "number": 7,
+        "oneof": true,
+        "oneofGroup": "value",
+        "type": "DoubaoRealtimeDuplexWorkspaceParameters"
+      },
+      {
+        "name": "eino_workspace_parameters",
+        "number": 8,
+        "oneof": true,
+        "oneofGroup": "value",
+        "type": "EinoWorkspaceParameters"
       }
     ]
   },
@@ -7347,6 +7793,16 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "1": "chatroom"
     }
   },
+  "DashScopeRealtimeWorkspaceParametersAgentType": {
+    "byName": {
+      "dashscope-realtime": 1,
+      "unspecified": 0
+    },
+    "byNumber": {
+      "0": "",
+      "1": "dashscope-realtime"
+    }
+  },
   "DashScopeTenantModelProviderDataApiMode": {
     "byName": {
       "chat_completions": 1,
@@ -7389,6 +7845,16 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "3": "web_agent"
     }
   },
+  "DoubaoRealtimeDuplexWorkspaceParametersAgentType": {
+    "byName": {
+      "doubao-realtime-duplex": 1,
+      "unspecified": 0
+    },
+    "byNumber": {
+      "0": "",
+      "1": "doubao-realtime-duplex"
+    }
+  },
   "DoubaoRealtimeFunctionToolType": {
     "byName": {
       "function": 1,
@@ -7407,6 +7873,16 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
     "byNumber": {
       "0": "",
       "1": "doubao-realtime"
+    }
+  },
+  "EinoWorkspaceParametersAgentType": {
+    "byName": {
+      "eino": 1,
+      "unspecified": 0
+    },
+    "byNumber": {
+      "0": "",
+      "1": "eino"
     }
   },
   "FirmwareArtifactEntryType": {
@@ -7515,6 +7991,7 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "embedding": 6,
       "llm": 1,
       "realtime": 4,
+      "realtime-duplex": 7,
       "translation": 5,
       "tts": 2,
       "unspecified": 0
@@ -7526,7 +8003,8 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "3": "asr",
       "4": "realtime",
       "5": "translation",
-      "6": "embedding"
+      "6": "embedding",
+      "7": "realtime-duplex"
     }
   },
   "ModelProviderKind": {
@@ -7639,7 +8117,10 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
     "byName": {
       "ast-translate": 3,
       "chatroom": 4,
+      "dashscope-realtime": 5,
       "doubao-realtime": 2,
+      "doubao-realtime-duplex": 6,
+      "eino": 7,
       "flowcraft": 1,
       "unspecified": 0
     },
@@ -7648,7 +8129,10 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "1": "flowcraft",
       "2": "doubao-realtime",
       "3": "ast-translate",
-      "4": "chatroom"
+      "4": "chatroom",
+      "5": "dashscope-realtime",
+      "6": "doubao-realtime-duplex",
+      "7": "eino"
     }
   },
   "VolcTenantModelProviderDataApiMode": {
@@ -7657,6 +8141,7 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "chat_completions": 4,
       "embedding": 6,
       "realtime": 3,
+      "realtime_duplex": 7,
       "translation": 5,
       "tts": 2,
       "unspecified": 0
@@ -7668,14 +8153,18 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "3": "realtime",
       "4": "chat_completions",
       "5": "translation",
-      "6": "embedding"
+      "6": "embedding",
+      "7": "realtime_duplex"
     }
   },
   "WorkflowDriver": {
     "byName": {
       "ast-translate": 3,
       "chatroom": 4,
+      "dashscope-realtime": 6,
       "doubao-realtime": 2,
+      "doubao-realtime-duplex": 7,
+      "eino": 8,
       "flowcraft": 1,
       "pet": 5,
       "unspecified": 0
@@ -7686,7 +8175,10 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "2": "doubao-realtime",
       "3": "ast-translate",
       "4": "chatroom",
-      "5": "pet"
+      "5": "pet",
+      "6": "dashscope-realtime",
+      "7": "doubao-realtime-duplex",
+      "8": "eino"
     }
   },
   "WorkspaceHistoryListRequestOrder": {
@@ -7906,6 +8398,9 @@ function encodeType(writer: ProtoWriter, number: number, type: string, value: un
     case "double":
       writer.double(number, Number(value));
       return;
+    case "float":
+      writer.float(number, Number(value));
+      return;
     case "int32":
       writer.int32(number, Number(value));
       return;
@@ -7965,6 +8460,8 @@ function decodeType(reader: ProtoReader, tag: ProtoField, type: string): unknown
       return encodeBase64(reader.bytes(tag));
     case "double":
       return reader.double(tag);
+    case "float":
+      return reader.float(tag);
     case "int32":
       return reader.int32(tag);
     case "int64":
@@ -8043,6 +8540,7 @@ function isScalarType(type: string): boolean {
     case "bool":
     case "bytes":
     case "double":
+    case "float":
     case "int32":
     case "int64":
     case "string":
@@ -8184,6 +8682,9 @@ function oneofDiscriminatorFieldName(type: string, discriminator: string): strin
         "doubao-realtime": "doubao_realtime_workspace_parameters",
         "ast-translate": "asttranslate_workspace_parameters",
         "chatroom": "chat_room_workspace_parameters",
+        "dashscope-realtime": "dash_scope_realtime_workspace_parameters",
+        "doubao-realtime-duplex": "doubao_realtime_duplex_workspace_parameters",
+        "eino": "eino_workspace_parameters",
       } as Record<string, string>)[discriminator];
     default:
       return undefined;
@@ -8336,6 +8837,7 @@ function emptyTypeValue(type: string): unknown {
     case "string":
       return "";
     case "double":
+    case "float":
     case "int32":
     case "int64":
     case "uint32":
@@ -8412,6 +8914,13 @@ class ProtoWriter {
     this.tag(field, 1);
     const buf = new ArrayBuffer(8);
     new DataView(buf).setFloat64(0, value, true);
+    this.pushBytes(new Uint8Array(buf));
+  }
+
+  float(field: number, value: number): void {
+    this.tag(field, 5);
+    const buf = new ArrayBuffer(4);
+    new DataView(buf).setFloat32(0, value, true);
     this.pushBytes(new Uint8Array(buf));
   }
 
@@ -8498,6 +9007,20 @@ class ProtoReader {
     }
     const out = new DataView(this.data.buffer, this.data.byteOffset + this.offset, 8).getFloat64(0, true);
     this.offset += 8;
+    return out;
+  }
+
+  float(field: ProtoField): number {
+    this.expect(field, 5);
+    if (this.data.length - this.offset < 4) {
+      throw new Error("truncated protobuf float");
+    }
+    const out = new DataView(
+      this.data.buffer,
+      this.data.byteOffset + this.offset,
+      4,
+    ).getFloat32(0, true);
+    this.offset += 4;
     return out;
   }
 

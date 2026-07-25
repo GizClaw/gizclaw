@@ -1712,6 +1712,33 @@ const WorkspaceParameters$json = {
       '9': 0,
       '10': 'chatRoomWorkspaceParameters'
     },
+    {
+      '1': 'dash_scope_realtime_workspace_parameters',
+      '3': 6,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.DashScopeRealtimeWorkspaceParameters',
+      '9': 0,
+      '10': 'dashScopeRealtimeWorkspaceParameters'
+    },
+    {
+      '1': 'doubao_realtime_duplex_workspace_parameters',
+      '3': 7,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.DoubaoRealtimeDuplexWorkspaceParameters',
+      '9': 0,
+      '10': 'doubaoRealtimeDuplexWorkspaceParameters'
+    },
+    {
+      '1': 'eino_workspace_parameters',
+      '3': 8,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.EinoWorkspaceParameters',
+      '9': 0,
+      '10': 'einoWorkspaceParameters'
+    },
   ],
   '8': [
     {'1': 'value'},
@@ -1733,8 +1760,15 @@ final $typed_data.Uint8List workspaceParametersDescriptor = $convert.base64Decod
     'MS5BU1RUcmFuc2xhdGVXb3Jrc3BhY2VQYXJhbWV0ZXJzSABSH2FzdHRyYW5zbGF0ZVdvcmtzcG'
     'FjZVBhcmFtZXRlcnMScgoeY2hhdF9yb29tX3dvcmtzcGFjZV9wYXJhbWV0ZXJzGAQgASgLMisu'
     'Z2l6Y2xhdy5ycGMudjEuQ2hhdFJvb21Xb3Jrc3BhY2VQYXJhbWV0ZXJzSABSG2NoYXRSb29tV2'
-    '9ya3NwYWNlUGFyYW1ldGVyc0IHCgV2YWx1ZUoECAUQBlIYcGV0X3dvcmtzcGFjZV9wYXJhbWV0'
-    'ZXJz');
+    '9ya3NwYWNlUGFyYW1ldGVycxKOAQooZGFzaF9zY29wZV9yZWFsdGltZV93b3Jrc3BhY2VfcGFy'
+    'YW1ldGVycxgGIAEoCzI0LmdpemNsYXcucnBjLnYxLkRhc2hTY29wZVJlYWx0aW1lV29ya3NwYW'
+    'NlUGFyYW1ldGVyc0gAUiRkYXNoU2NvcGVSZWFsdGltZVdvcmtzcGFjZVBhcmFtZXRlcnMSlwEK'
+    'K2RvdWJhb19yZWFsdGltZV9kdXBsZXhfd29ya3NwYWNlX3BhcmFtZXRlcnMYByABKAsyNy5naX'
+    'pjbGF3LnJwYy52MS5Eb3ViYW9SZWFsdGltZUR1cGxleFdvcmtzcGFjZVBhcmFtZXRlcnNIAFIn'
+    'ZG91YmFvUmVhbHRpbWVEdXBsZXhXb3Jrc3BhY2VQYXJhbWV0ZXJzEmUKGWVpbm9fd29ya3NwYW'
+    'NlX3BhcmFtZXRlcnMYCCABKAsyJy5naXpjbGF3LnJwYy52MS5FaW5vV29ya3NwYWNlUGFyYW1l'
+    'dGVyc0gAUhdlaW5vV29ya3NwYWNlUGFyYW1ldGVyc0IHCgV2YWx1ZUoECAUQBlIYcGV0X3dvcm'
+    'tzcGFjZV9wYXJhbWV0ZXJz');
 
 @$core.Deprecated('Use workspacePutRequestDescriptor instead')
 const WorkspacePutRequest$json = {

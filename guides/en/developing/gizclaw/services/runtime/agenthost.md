@@ -39,9 +39,11 @@ All runtime creation paths must have symmetric cancel, stream close, lease relea
 
 ## Store dependency ownership
 
-The host process resolves `agent_host` Server Config references once at startup and injects borrowed Store interfaces into the GizClaw Server, Peer Manager, and registered Workflow factories. The Store Registry remains the only owner of those shared backends. AgentHost, Workspace reload, Flowcraft, Pet, and per-Agent adapters must not close them.
+The host process resolves `agent_host` Server Config references once at startup and injects borrowed Store interfaces into the GizClaw Server, Peer Manager, and registered Workflow factories. The Store Registry remains the only owner of those shared backends. AgentHost, Workspace reload, Flowcraft, Pet, Eino, and per-Agent adapters must not close them.
 
-`runtime_store` persists Workspace runtime metadata, history, and runtime objects. Flowcraft receives separate optional State, internal History, and Memory-object capabilities. State, History, and Memory use the canonical Owner/Workspace/Agent scope; Workspace runtime history is distinct from Flowcraft's internal graph History. Pet delegates to the same registered Flowcraft factory and therefore uses the same dependencies and scope rules.
+`runtime_store` persists Workspace runtime metadata, history, and runtime objects. Flowcraft receives separate optional State, internal History, Memory-object, and provider-neutral Memory capabilities. Pet delegates to the same registered inner-driver factories. Eino receives only its optional provider-neutral Memory capability; persistent Eino State and History are not exposed.
+
+Flowcraft and Eino bind only the Workspace App boundary on a configured Memory Store. The common Scope dimensions remain independent: Agent logic can retain its own User, Agent, and Run values, and AgentHost never substitutes the Peer public key for UserID. A configured Store is preferred by Flowcraft over its embedded provider; Eino requires it only when its Workflow declares a Memory policy.
 
 These bindings are process-start configuration. Reload reconstructs an Agent from current Workflow and Workspace resources but does not hot-swap shared Store dependencies. Changing a binding requires a Server restart and does not move existing data.
 

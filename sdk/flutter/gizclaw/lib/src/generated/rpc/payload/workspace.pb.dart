@@ -4473,6 +4473,9 @@ enum WorkspaceParameters_Value {
   doubaoRealtimeWorkspaceParameters,
   asttranslateWorkspaceParameters,
   chatRoomWorkspaceParameters,
+  dashScopeRealtimeWorkspaceParameters,
+  doubaoRealtimeDuplexWorkspaceParameters,
+  einoWorkspaceParameters,
   notSet
 }
 
@@ -4482,6 +4485,11 @@ class WorkspaceParameters extends $pb.GeneratedMessage {
     $2.DoubaoRealtimeWorkspaceParameters? doubaoRealtimeWorkspaceParameters,
     $2.ASTTranslateWorkspaceParameters? asttranslateWorkspaceParameters,
     $2.ChatRoomWorkspaceParameters? chatRoomWorkspaceParameters,
+    $2.DashScopeRealtimeWorkspaceParameters?
+        dashScopeRealtimeWorkspaceParameters,
+    $2.DoubaoRealtimeDuplexWorkspaceParameters?
+        doubaoRealtimeDuplexWorkspaceParameters,
+    $2.EinoWorkspaceParameters? einoWorkspaceParameters,
   }) {
     final result = create();
     if (flowcraftWorkspaceParameters != null)
@@ -4493,6 +4501,14 @@ class WorkspaceParameters extends $pb.GeneratedMessage {
       result.asttranslateWorkspaceParameters = asttranslateWorkspaceParameters;
     if (chatRoomWorkspaceParameters != null)
       result.chatRoomWorkspaceParameters = chatRoomWorkspaceParameters;
+    if (dashScopeRealtimeWorkspaceParameters != null)
+      result.dashScopeRealtimeWorkspaceParameters =
+          dashScopeRealtimeWorkspaceParameters;
+    if (doubaoRealtimeDuplexWorkspaceParameters != null)
+      result.doubaoRealtimeDuplexWorkspaceParameters =
+          doubaoRealtimeDuplexWorkspaceParameters;
+    if (einoWorkspaceParameters != null)
+      result.einoWorkspaceParameters = einoWorkspaceParameters;
     return result;
   }
 
@@ -4511,13 +4527,16 @@ class WorkspaceParameters extends $pb.GeneratedMessage {
     2: WorkspaceParameters_Value.doubaoRealtimeWorkspaceParameters,
     3: WorkspaceParameters_Value.asttranslateWorkspaceParameters,
     4: WorkspaceParameters_Value.chatRoomWorkspaceParameters,
+    6: WorkspaceParameters_Value.dashScopeRealtimeWorkspaceParameters,
+    7: WorkspaceParameters_Value.doubaoRealtimeDuplexWorkspaceParameters,
+    8: WorkspaceParameters_Value.einoWorkspaceParameters,
     0: WorkspaceParameters_Value.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'WorkspaceParameters',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..oo(0, [1, 2, 3, 4])
+    ..oo(0, [1, 2, 3, 4, 6, 7, 8])
     ..aOM<$2.FlowcraftWorkspaceParameters>(
         1, _omitFieldNames ? '' : 'flowcraftWorkspaceParameters',
         subBuilder: $2.FlowcraftWorkspaceParameters.create)
@@ -4530,6 +4549,15 @@ class WorkspaceParameters extends $pb.GeneratedMessage {
     ..aOM<$2.ChatRoomWorkspaceParameters>(
         4, _omitFieldNames ? '' : 'chatRoomWorkspaceParameters',
         subBuilder: $2.ChatRoomWorkspaceParameters.create)
+    ..aOM<$2.DashScopeRealtimeWorkspaceParameters>(
+        6, _omitFieldNames ? '' : 'dashScopeRealtimeWorkspaceParameters',
+        subBuilder: $2.DashScopeRealtimeWorkspaceParameters.create)
+    ..aOM<$2.DoubaoRealtimeDuplexWorkspaceParameters>(
+        7, _omitFieldNames ? '' : 'doubaoRealtimeDuplexWorkspaceParameters',
+        subBuilder: $2.DoubaoRealtimeDuplexWorkspaceParameters.create)
+    ..aOM<$2.EinoWorkspaceParameters>(
+        8, _omitFieldNames ? '' : 'einoWorkspaceParameters',
+        subBuilder: $2.EinoWorkspaceParameters.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -4555,12 +4583,18 @@ class WorkspaceParameters extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   @$pb.TagNumber(3)
   @$pb.TagNumber(4)
+  @$pb.TagNumber(6)
+  @$pb.TagNumber(7)
+  @$pb.TagNumber(8)
   WorkspaceParameters_Value whichValue() =>
       _WorkspaceParameters_ValueByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(1)
   @$pb.TagNumber(2)
   @$pb.TagNumber(3)
   @$pb.TagNumber(4)
+  @$pb.TagNumber(6)
+  @$pb.TagNumber(7)
+  @$pb.TagNumber(8)
   void clearValue() => $_clearField($_whichOneof(0));
 
   @$pb.TagNumber(1)
@@ -4618,6 +4652,48 @@ class WorkspaceParameters extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   $2.ChatRoomWorkspaceParameters ensureChatRoomWorkspaceParameters() =>
       $_ensure(3);
+
+  @$pb.TagNumber(6)
+  $2.DashScopeRealtimeWorkspaceParameters
+      get dashScopeRealtimeWorkspaceParameters => $_getN(4);
+  @$pb.TagNumber(6)
+  set dashScopeRealtimeWorkspaceParameters(
+          $2.DashScopeRealtimeWorkspaceParameters value) =>
+      $_setField(6, value);
+  @$pb.TagNumber(6)
+  $core.bool hasDashScopeRealtimeWorkspaceParameters() => $_has(4);
+  @$pb.TagNumber(6)
+  void clearDashScopeRealtimeWorkspaceParameters() => $_clearField(6);
+  @$pb.TagNumber(6)
+  $2.DashScopeRealtimeWorkspaceParameters
+      ensureDashScopeRealtimeWorkspaceParameters() => $_ensure(4);
+
+  @$pb.TagNumber(7)
+  $2.DoubaoRealtimeDuplexWorkspaceParameters
+      get doubaoRealtimeDuplexWorkspaceParameters => $_getN(5);
+  @$pb.TagNumber(7)
+  set doubaoRealtimeDuplexWorkspaceParameters(
+          $2.DoubaoRealtimeDuplexWorkspaceParameters value) =>
+      $_setField(7, value);
+  @$pb.TagNumber(7)
+  $core.bool hasDoubaoRealtimeDuplexWorkspaceParameters() => $_has(5);
+  @$pb.TagNumber(7)
+  void clearDoubaoRealtimeDuplexWorkspaceParameters() => $_clearField(7);
+  @$pb.TagNumber(7)
+  $2.DoubaoRealtimeDuplexWorkspaceParameters
+      ensureDoubaoRealtimeDuplexWorkspaceParameters() => $_ensure(5);
+
+  @$pb.TagNumber(8)
+  $2.EinoWorkspaceParameters get einoWorkspaceParameters => $_getN(6);
+  @$pb.TagNumber(8)
+  set einoWorkspaceParameters($2.EinoWorkspaceParameters value) =>
+      $_setField(8, value);
+  @$pb.TagNumber(8)
+  $core.bool hasEinoWorkspaceParameters() => $_has(6);
+  @$pb.TagNumber(8)
+  void clearEinoWorkspaceParameters() => $_clearField(8);
+  @$pb.TagNumber(8)
+  $2.EinoWorkspaceParameters ensureEinoWorkspaceParameters() => $_ensure(6);
 }
 
 class WorkspacePutRequest extends $pb.GeneratedMessage {

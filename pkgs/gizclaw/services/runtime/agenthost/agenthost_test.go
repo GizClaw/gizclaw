@@ -253,6 +253,9 @@ func TestAgentTypeFromWorkflowDriver(t *testing.T) {
 		{driver: "flowcraft", want: "flowcraft"},
 		{driver: "chatroom", want: "chatroom"},
 		{driver: "doubao-realtime", want: "doubao-realtime"},
+		{driver: "dashscope-realtime", want: "dashscope-realtime"},
+		{driver: "doubao-realtime-duplex", want: "doubao-realtime-duplex"},
+		{driver: "eino", want: "eino"},
 	} {
 		doc := rawWorkflow(t, tc.driver)
 		got, err := agentTypeFromWorkflow(doc)

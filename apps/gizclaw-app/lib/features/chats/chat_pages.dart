@@ -656,10 +656,19 @@ Color _driverAccent(WorkflowDriverKind driver, Brightness brightness) =>
         GizColors.primaryShadow,
       (WorkflowDriverKind.astTranslate, Brightness.dark) =>
         GizColors.primaryHighlight,
+      (WorkflowDriverKind.dashScopeRealtime, Brightness.light) =>
+        GizColors.primaryShadow,
+      (WorkflowDriverKind.dashScopeRealtime, Brightness.dark) =>
+        GizColors.primaryHighlight,
       (WorkflowDriverKind.doubaoRealtime, Brightness.light) => GizColors.coral,
+      (WorkflowDriverKind.doubaoRealtimeDuplex, Brightness.light) =>
+        GizColors.coral,
       (WorkflowDriverKind.flowcraft, Brightness.light) => GizColors.blue,
       (WorkflowDriverKind.chatroom, Brightness.light) => GizColors.lavender,
       (WorkflowDriverKind.doubaoRealtime, Brightness.dark) => const Color(
+        0xFFE9A08A,
+      ),
+      (WorkflowDriverKind.doubaoRealtimeDuplex, Brightness.dark) => const Color(
         0xFFE9A08A,
       ),
       (WorkflowDriverKind.flowcraft, Brightness.dark) => const Color(

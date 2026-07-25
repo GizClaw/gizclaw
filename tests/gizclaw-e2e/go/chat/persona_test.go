@@ -209,6 +209,42 @@ func TestAcceptRoundEventStreamBindsResponseLocalID(t *testing.T) {
 	}
 }
 
+func TestAcceptAssistantRoundEventStreamAllowsSplitProviderRoutes(t *testing.T) {
+	inputID := "input-1"
+	audioID := "response-audio"
+	textID := "response-transcript"
+	var bound string
+	if !acceptAssistantRoundEventStream(peerStreamEvent{StreamId: &audioID}, inputID, &bound, true) {
+		t.Fatal("split assistant audio StreamID was rejected")
+	}
+	if !acceptAssistantRoundEventStream(peerStreamEvent{StreamId: &textID}, inputID, &bound, true) {
+		t.Fatal("split assistant text StreamID was rejected")
+	}
+}
+
+func TestRoundEventLabelClassifiesUnlabeledSplitAssistantAudio(t *testing.T) {
+	inputID := "input-1"
+	responseID := "response-audio"
+	if got := roundEventLabel(peerStreamEvent{
+		Type:     peerStreamEventTypeEos,
+		StreamId: &responseID,
+	}, inputID, true); got != "assistant" {
+		t.Fatalf("response audio label = %q, want assistant", got)
+	}
+	if got := roundEventLabel(peerStreamEvent{
+		Type:     peerStreamEventTypeTextDelta,
+		StreamId: &responseID,
+	}, inputID, true); got != "assistant" {
+		t.Fatalf("response transcript label = %q, want assistant", got)
+	}
+	if got := roundEventLabel(peerStreamEvent{
+		Type:     peerStreamEventTypeEos,
+		StreamId: &inputID,
+	}, inputID, true); got != "" {
+		t.Fatalf("input EOS label = %q, want empty", got)
+	}
+}
+
 func TestWaitFlowcraftHistoryProgressAllowsAvailableHistoryWithoutAdvance(t *testing.T) {
 	items := testHistoryEntries("已有回复")
 	driver := &personaDriver{
@@ -983,6 +1019,30 @@ func TestTranscribeAssistantAudioFramesSkipsSilence(t *testing.T) {
 	}
 }
 
+func TestRealtimePacketsWithContinuousTailSilence(t *testing.T) {
+	if !opus.IsRuntimeSupported() {
+		t.Skip("requires native opus runtime")
+	}
+	const sourceDuration = 400 * time.Millisecond
+	const tailDuration = 2100 * time.Millisecond
+	source, err := opusPacketsFromPCM16LE(
+		testSignalPCM16Mono16K(sourceDuration),
+		realtimeAutoSplitSampleRate,
+		realtimeAutoSplitChannels,
+	)
+	if err != nil {
+		t.Fatalf("encode source Opus: %v", err)
+	}
+	got, err := realtimePacketsWithContinuousTailSilence(source, tailDuration)
+	if err != nil {
+		t.Fatalf("realtimePacketsWithContinuousTailSilence() error = %v", err)
+	}
+	wantPackets := int((sourceDuration + tailDuration) / (20 * time.Millisecond))
+	if len(got) != wantPackets {
+		t.Fatalf("packets = %d, want %d", len(got), wantPackets)
+	}
+}
+
 func TestVerifyAssistantAudioASRSplitsFailedLargeChunk(t *testing.T) {
 	if !opus.IsRuntimeSupported() {
 		t.Skip("requires native opus runtime")
@@ -1157,6 +1217,23 @@ func TestSendAudioTurnFramesEvents(t *testing.T) {
 	blob := stream.pushed[1].Part.(*genx.Blob)
 	if blob.MIMEType != "audio/opus" || !bytes.Equal(blob.Data, []byte{1, 2, 3}) {
 		t.Fatalf("audio chunk = %#v", stream.pushed[1])
+	}
+}
+
+func TestSendAudioTurnFramesConfiguredMIME(t *testing.T) {
+	stream := newFakePeerStream()
+	transport := &chatTransport{stream: stream}
+	const mimeType = "audio/pcm; rate=16000; channels=1"
+	if err := transport.sendAudioTurnObservedMIME(
+		context.Background(), "s1", mimeType, [][]byte{{1, 0, 2, 0}}, nil,
+	); err != nil {
+		t.Fatalf("sendAudioTurnObservedMIME() error = %v", err)
+	}
+	for index, chunk := range stream.pushed {
+		blob, ok := chunk.Part.(*genx.Blob)
+		if !ok || blob.MIMEType != mimeType {
+			t.Fatalf("pushed[%d] = %#v, want MIME %q", index, chunk, mimeType)
+		}
 	}
 }
 

@@ -345,6 +345,9 @@ typedef struct _gizclaw_rpc_v1_WorkspaceParameters {
         gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters doubao_realtime_workspace_parameters;
         gizclaw_rpc_v1_ASTTranslateWorkspaceParameters asttranslate_workspace_parameters;
         gizclaw_rpc_v1_ChatRoomWorkspaceParameters chat_room_workspace_parameters;
+        gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters dash_scope_realtime_workspace_parameters;
+        gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParameters doubao_realtime_duplex_workspace_parameters;
+        gizclaw_rpc_v1_EinoWorkspaceParameters eino_workspace_parameters;
     } value;
 } gizclaw_rpc_v1_WorkspaceParameters;
 
@@ -673,6 +676,9 @@ extern "C" {
 #define gizclaw_rpc_v1_WorkspaceParameters_doubao_realtime_workspace_parameters_tag 2
 #define gizclaw_rpc_v1_WorkspaceParameters_asttranslate_workspace_parameters_tag 3
 #define gizclaw_rpc_v1_WorkspaceParameters_chat_room_workspace_parameters_tag 4
+#define gizclaw_rpc_v1_WorkspaceParameters_dash_scope_realtime_workspace_parameters_tag 6
+#define gizclaw_rpc_v1_WorkspaceParameters_doubao_realtime_duplex_workspace_parameters_tag 7
+#define gizclaw_rpc_v1_WorkspaceParameters_eino_workspace_parameters_tag 8
 #define gizclaw_rpc_v1_Workspace_created_at_tag  1
 #define gizclaw_rpc_v1_Workspace_last_active_at_tag 2
 #define gizclaw_rpc_v1_Workspace_name_tag        3
@@ -1139,13 +1145,19 @@ X(a, CALLBACK, SINGULAR, STRING,   runtime_profile_revision,   5)
 X(a, STATIC,   ONEOF,    MESSAGE,  (value,flowcraft_workspace_parameters,value.flowcraft_workspace_parameters),   1) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (value,doubao_realtime_workspace_parameters,value.doubao_realtime_workspace_parameters),   2) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (value,asttranslate_workspace_parameters,value.asttranslate_workspace_parameters),   3) \
-X(a, STATIC,   ONEOF,    MESSAGE,  (value,chat_room_workspace_parameters,value.chat_room_workspace_parameters),   4)
+X(a, STATIC,   ONEOF,    MESSAGE,  (value,chat_room_workspace_parameters,value.chat_room_workspace_parameters),   4) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (value,dash_scope_realtime_workspace_parameters,value.dash_scope_realtime_workspace_parameters),   6) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (value,doubao_realtime_duplex_workspace_parameters,value.doubao_realtime_duplex_workspace_parameters),   7) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (value,eino_workspace_parameters,value.eino_workspace_parameters),   8)
 #define gizclaw_rpc_v1_WorkspaceParameters_CALLBACK NULL
 #define gizclaw_rpc_v1_WorkspaceParameters_DEFAULT NULL
 #define gizclaw_rpc_v1_WorkspaceParameters_value_flowcraft_workspace_parameters_MSGTYPE gizclaw_rpc_v1_FlowcraftWorkspaceParameters
 #define gizclaw_rpc_v1_WorkspaceParameters_value_doubao_realtime_workspace_parameters_MSGTYPE gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters
 #define gizclaw_rpc_v1_WorkspaceParameters_value_asttranslate_workspace_parameters_MSGTYPE gizclaw_rpc_v1_ASTTranslateWorkspaceParameters
 #define gizclaw_rpc_v1_WorkspaceParameters_value_chat_room_workspace_parameters_MSGTYPE gizclaw_rpc_v1_ChatRoomWorkspaceParameters
+#define gizclaw_rpc_v1_WorkspaceParameters_value_dash_scope_realtime_workspace_parameters_MSGTYPE gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters
+#define gizclaw_rpc_v1_WorkspaceParameters_value_doubao_realtime_duplex_workspace_parameters_MSGTYPE gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParameters
+#define gizclaw_rpc_v1_WorkspaceParameters_value_eino_workspace_parameters_MSGTYPE gizclaw_rpc_v1_EinoWorkspaceParameters
 
 #define gizclaw_rpc_v1_WorkspacePutRequest_FIELDLIST(X, a) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  body,              1) \
@@ -1292,8 +1304,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_WorkspacePutResponse_msg;
 #define gizclaw_rpc_v1_WorkspacePutResponse_fields &gizclaw_rpc_v1_WorkspacePutResponse_msg
 
 /* Maximum encoded size of messages (where known) */
-#if defined(gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_size) && defined(gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_size) && defined(gizclaw_rpc_v1_ChatRoomWorkspaceParameters_size)
-union gizclaw_rpc_v1_WorkspaceParameters_value_size_union {char f2[(6 + gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_size)]; char f3[(6 + gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_size)]; char f4[(6 + gizclaw_rpc_v1_ChatRoomWorkspaceParameters_size)]; char f0[14];};
+#if defined(gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_size) && defined(gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_size) && defined(gizclaw_rpc_v1_ChatRoomWorkspaceParameters_size) && defined(gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters_size) && defined(gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParameters_size)
+union gizclaw_rpc_v1_WorkspaceParameters_value_size_union {char f2[(6 + gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_size)]; char f3[(6 + gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_size)]; char f4[(6 + gizclaw_rpc_v1_ChatRoomWorkspaceParameters_size)]; char f6[(6 + gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters_size)]; char f7[(6 + gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParameters_size)]; char f0[14];};
 #endif
 /* gizclaw_rpc_v1_AgentSelection_size depends on runtime parameters */
 /* gizclaw_rpc_v1_PeerRunAgent_size depends on runtime parameters */
@@ -1360,10 +1372,10 @@ union gizclaw_rpc_v1_WorkspaceParameters_value_size_union {char f2[(6 + gizclaw_
 #if defined(gizclaw_rpc_v1_Runtime_size)
 #define gizclaw_rpc_v1_ServerGetRuntimeResponse_size (6 + gizclaw_rpc_v1_Runtime_size)
 #endif
-#if defined(gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_size) && defined(gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_size) && defined(gizclaw_rpc_v1_ChatRoomWorkspaceParameters_size) && defined(gizclaw_rpc_v1_ToolkitPolicy_size)
+#if defined(gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_size) && defined(gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_size) && defined(gizclaw_rpc_v1_ChatRoomWorkspaceParameters_size) && defined(gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters_size) && defined(gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParameters_size) && defined(gizclaw_rpc_v1_ToolkitPolicy_size)
 #define gizclaw_rpc_v1_WorkspacePutBody_size     (12 + sizeof(union gizclaw_rpc_v1_WorkspaceParameters_value_size_union) + gizclaw_rpc_v1_ToolkitPolicy_size)
 #endif
-#if defined(gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_size) && defined(gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_size) && defined(gizclaw_rpc_v1_ChatRoomWorkspaceParameters_size)
+#if defined(gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_size) && defined(gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_size) && defined(gizclaw_rpc_v1_ChatRoomWorkspaceParameters_size) && defined(gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters_size) && defined(gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParameters_size)
 #define gizclaw_rpc_v1_WorkspaceParameters_size  (0 + sizeof(union gizclaw_rpc_v1_WorkspaceParameters_value_size_union))
 #endif
 
