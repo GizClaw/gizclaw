@@ -23,7 +23,7 @@ func TestServerModelCRUDListFiltersAndIndexes(t *testing.T) {
 		Now:   func() time.Time { return now },
 	}
 	first := modelUpsert("qwen-flash", "openai-tenant", "dashscope")
-	first.Name = stringPtr("Qwen Flash")
+	first.Name = new("Qwen Flash")
 	first.ProviderData = openAIProviderData("qwen-flash")
 	second := modelUpsert("speech", "openai-tenant", "global")
 
@@ -269,15 +269,15 @@ func TestServerValidatesProviderKindAgainstProviderData(t *testing.T) {
 		modelUpsert("openai-chat", string(apitypes.ModelProviderKindOpenaiTenant), "openai-main"),
 		modelUpsertWithProviderData("openai-thinking-toggle", apitypes.ModelProviderKindOpenaiTenant, modelProviderData(t, apitypes.OpenAITenantModelProviderData{UpstreamModel: "gpt-thinking", SupportJsonOutput: &falseValue, SupportToolCalls: &falseValue, SupportTextOnly: &falseValue, UseSystemRole: &falseValue, SupportTemperature: &falseValue, SupportThinking: &trueValue, ThinkingParam: &booleanThinkingParam})),
 		modelUpsertWithProviderData("gemini-chat", apitypes.ModelProviderKindGeminiTenant, modelProviderData(t, apitypes.GeminiTenantModelProviderData{UpstreamModel: "gemini-pro", SupportJsonOutput: &falseValue, SupportToolCalls: &falseValue, SupportTextOnly: &falseValue, UseSystemRole: &falseValue, SupportTemperature: &falseValue, SupportThinking: &falseValue})),
-		modelUpsertWithProviderData("qwen-chat", apitypes.ModelProviderKindDashscopeTenant, modelProviderData(t, apitypes.DashScopeTenantModelProviderData{ApiMode: &dashScopeMode, UpstreamModel: stringPtr("qwen-max"), SupportJsonOutput: &falseValue, SupportToolCalls: &falseValue, SupportTextOnly: &falseValue, UseSystemRole: &falseValue, SupportTemperature: &falseValue, SupportThinking: &falseValue})),
-		modelUpsertWithProviderData("volc-chat", apitypes.ModelProviderKindVolcTenant, modelProviderData(t, apitypes.VolcTenantModelProviderData{ApiMode: volcMode, UpstreamModel: stringPtr("doubao-pro"), SupportJsonOutput: &falseValue, SupportToolCalls: &falseValue, SupportTextOnly: &falseValue, UseSystemRole: &falseValue, SupportTemperature: &falseValue, SupportThinking: &falseValue})),
+		modelUpsertWithProviderData("qwen-chat", apitypes.ModelProviderKindDashscopeTenant, modelProviderData(t, apitypes.DashScopeTenantModelProviderData{ApiMode: &dashScopeMode, UpstreamModel: new("qwen-max"), SupportJsonOutput: &falseValue, SupportToolCalls: &falseValue, SupportTextOnly: &falseValue, UseSystemRole: &falseValue, SupportTemperature: &falseValue, SupportThinking: &falseValue})),
+		modelUpsertWithProviderData("volc-chat", apitypes.ModelProviderKindVolcTenant, modelProviderData(t, apitypes.VolcTenantModelProviderData{ApiMode: volcMode, UpstreamModel: new("doubao-pro"), SupportJsonOutput: &falseValue, SupportToolCalls: &falseValue, SupportTextOnly: &falseValue, UseSystemRole: &falseValue, SupportTemperature: &falseValue, SupportThinking: &falseValue})),
 		modelUpsertWithProviderData("minimax-m2", apitypes.ModelProviderKindMinimaxTenant, miniMaxProviderData("MiniMax-M2")),
 		modelUpsertWithProviderData("deepseek-chat", apitypes.ModelProviderKindDeepseekTenant, deepSeekProviderData("deepseek-chat")),
 	}
-	dashRealtime := modelUpsertWithProviderData("qwen-realtime", apitypes.ModelProviderKindDashscopeTenant, modelProviderData(t, apitypes.DashScopeTenantModelProviderData{ApiMode: &dashScopeRealtimeMode, UpstreamModel: stringPtr("qwen3-omni-flash-realtime")}))
+	dashRealtime := modelUpsertWithProviderData("qwen-realtime", apitypes.ModelProviderKindDashscopeTenant, modelProviderData(t, apitypes.DashScopeTenantModelProviderData{ApiMode: &dashScopeRealtimeMode, UpstreamModel: new("qwen3-omni-flash-realtime")}))
 	dashRealtime.Kind = apitypes.ModelKindRealtime
 	valid = append(valid, dashRealtime)
-	volcRealtimeDuplex := modelUpsertWithProviderData("doubao-realtime-duplex", apitypes.ModelProviderKindVolcTenant, modelProviderData(t, apitypes.VolcTenantModelProviderData{ApiMode: volcRealtimeDuplexMode, UpstreamModel: stringPtr("doubao-realtime-duplex")}))
+	volcRealtimeDuplex := modelUpsertWithProviderData("doubao-realtime-duplex", apitypes.ModelProviderKindVolcTenant, modelProviderData(t, apitypes.VolcTenantModelProviderData{ApiMode: volcRealtimeDuplexMode, UpstreamModel: new("doubao-realtime-duplex")}))
 	volcRealtimeDuplex.Kind = apitypes.ModelKindRealtimeDuplex
 	valid = append(valid, volcRealtimeDuplex)
 	for _, body := range valid {
@@ -658,8 +658,4 @@ func requireModelList(t *testing.T, resp adminhttp.ListModelsResponseObject) adm
 		t.Fatalf("ListModels() response = %#v", resp)
 	}
 	return adminhttp.ModelList(list)
-}
-
-func stringPtr(value string) *string {
-	return &value
 }

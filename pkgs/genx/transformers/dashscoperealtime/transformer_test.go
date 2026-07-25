@@ -24,16 +24,14 @@ func TestTransformerConcurrentCallsOwnSessions(t *testing.T) {
 	errs := make(chan error, calls)
 	var wg sync.WaitGroup
 	for range calls {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			stream, err := transformer.Transform(context.Background(), emptyDashScopeStream{})
 			if err != nil {
 				errs <- err
 				return
 			}
 			streams <- stream.(*Stream)
-		}()
+		})
 	}
 	wg.Wait()
 	close(errs)

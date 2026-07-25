@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
 	"strconv"
 	"strings"
@@ -649,9 +650,7 @@ func doubaoRealtimeASRExtra(extension *apitypes.DoubaoRealtimeExtension) *doubao
 		}
 		if extra.Context.CorrectWords != nil {
 			out.Context.CorrectWords = make(map[string]string, len(*extra.Context.CorrectWords))
-			for key, value := range *extra.Context.CorrectWords {
-				out.Context.CorrectWords[key] = value
-			}
+			maps.Copy(out.Context.CorrectWords, *extra.Context.CorrectWords)
 		}
 	}
 	return out
@@ -1063,12 +1062,8 @@ func mergeParams(base, overrides map[string]any) map[string]any {
 		return nil
 	}
 	out := make(map[string]any, len(base)+len(overrides))
-	for key, value := range base {
-		out[key] = value
-	}
-	for key, value := range overrides {
-		out[key] = value
-	}
+	maps.Copy(out, base)
+	maps.Copy(out, overrides)
 	return out
 }
 

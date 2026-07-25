@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/url"
 	"reflect"
 	"strings"
@@ -66,9 +67,7 @@ type runtimeVoiceBindingsContextKey struct{}
 // RuntimeProfile Workflow alias snapshot to Workspace validation.
 func WithRuntimeWorkflowBindings(ctx context.Context, bindings map[string]string) context.Context {
 	cloned := make(map[string]string, len(bindings))
-	for alias, name := range bindings {
-		cloned[alias] = name
-	}
+	maps.Copy(cloned, bindings)
 	return context.WithValue(ctx, runtimeWorkflowBindingsContextKey{}, cloned)
 }
 
@@ -76,9 +75,7 @@ func WithRuntimeWorkflowBindings(ctx context.Context, bindings map[string]string
 // alias bindings so Workspace overrides can be validated before persistence.
 func WithRuntimeModelBindings(ctx context.Context, bindings map[string]string) context.Context {
 	cloned := make(map[string]string, len(bindings))
-	for alias, name := range bindings {
-		cloned[alias] = name
-	}
+	maps.Copy(cloned, bindings)
 	return context.WithValue(ctx, runtimeModelBindingsContextKey{}, cloned)
 }
 
@@ -86,9 +83,7 @@ func WithRuntimeModelBindings(ctx context.Context, bindings map[string]string) c
 // alias bindings so Workspace overrides can be validated before persistence.
 func WithRuntimeVoiceBindings(ctx context.Context, bindings map[string]string) context.Context {
 	cloned := make(map[string]string, len(bindings))
-	for alias, name := range bindings {
-		cloned[alias] = name
-	}
+	maps.Copy(cloned, bindings)
 	return context.WithValue(ctx, runtimeVoiceBindingsContextKey{}, cloned)
 }
 
@@ -310,7 +305,7 @@ func (s *Server) createWorkspaceRecord(ctx context.Context, store kv.Store, norm
 		Labels:       cloneLabelsOrEmpty(normalized.Labels),
 		Name:         normalized.Name,
 		Parameters:   cloneParameters(normalized.Parameters),
-		System:       boolPointer(system),
+		System:       new(system),
 		Toolkit:      cloneToolkitPolicy(normalized.Toolkit),
 		UpdatedAt:    now,
 		WorkflowName: normalized.WorkflowName,
@@ -659,7 +654,7 @@ func (s *Server) PutWorkspace(ctx context.Context, request adminhttp.PutWorkspac
 		Labels:       cloneLabelsOrEmpty(normalized.Labels),
 		Name:         normalized.Name,
 		Parameters:   cloneParameters(normalized.Parameters),
-		System:       boolPointer(false),
+		System:       new(false),
 		Toolkit:      cloneToolkitPolicy(normalized.Toolkit),
 		UpdatedAt:    now,
 		WorkflowName: normalized.WorkflowName,
@@ -795,7 +790,7 @@ func listWorkspacePage(ctx context.Context, store kv.Store, prefix kv.Key, curso
 
 func normalizeWorkspaceTimestamps(workspace apitypes.Workspace) apitypes.Workspace {
 	if workspace.System == nil {
-		workspace.System = boolPointer(false)
+		workspace.System = new(false)
 	}
 	workspace.Labels = cloneLabelsOrEmpty(workspace.Labels)
 	if workspace.LastActiveAt.IsZero() {
@@ -809,10 +804,6 @@ func normalizeWorkspaceTimestamps(workspace apitypes.Workspace) apitypes.Workspa
 
 func workspaceIsSystem(workspace apitypes.Workspace) bool {
 	return workspace.System != nil && *workspace.System
-}
-
-func boolPointer(value bool) *bool {
-	return &value
 }
 
 func normalizeWorkspaceUpsert(in adminhttp.WorkspaceUpsert, expectedName string) (adminhttp.WorkspaceUpsert, error) {
@@ -1449,9 +1440,7 @@ func cloneLabelsOrEmpty(labels *map[string]string) *map[string]string {
 	cloned := make(map[string]string)
 	if labels != nil {
 		cloned = make(map[string]string, len(*labels))
-		for key, value := range *labels {
-			cloned[key] = value
-		}
+		maps.Copy(cloned, *labels)
 	}
 	return &cloned
 }

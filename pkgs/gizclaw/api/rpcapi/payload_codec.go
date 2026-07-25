@@ -827,8 +827,8 @@ func goStructHasJSONField(value reflect.Value, name string) bool {
 		return false
 	}
 	valueType := value.Type()
-	for i := 0; i < valueType.NumField(); i++ {
-		fieldName, ok := goJSONFieldName(valueType.Field(i))
+	for field := range valueType.Fields() {
+		fieldName, ok := goJSONFieldName(field)
 		if ok && fieldName == name {
 			return true
 		}
@@ -989,7 +989,7 @@ func structFromGoValue(value reflect.Value) (*structpb.Struct, error) {
 	if !value.IsValid() {
 		return structpb.NewStruct(map[string]any{})
 	}
-	if value.Type() == reflect.TypeOf(structpb.Struct{}) {
+	if value.Type() == reflect.TypeFor[structpb.Struct]() {
 		st := value.Interface().(structpb.Struct)
 		return &st, nil
 	}
@@ -1122,7 +1122,7 @@ func setGoStructValue(target reflect.Value, msg protoreflect.Message) error {
 		}
 		return nil
 	}
-	if target.Type() == reflect.TypeOf(structpb.Struct{}) {
+	if target.Type() == reflect.TypeFor[structpb.Struct]() {
 		target.Set(reflect.ValueOf(*st))
 		return nil
 	}
@@ -1266,8 +1266,8 @@ func protoEnumNumber(desc protoreflect.EnumDescriptor, value string) (protorefle
 func enumJSONName(desc protoreflect.EnumDescriptor, value protoreflect.EnumValueDescriptor) string {
 	name := string(value.Name())
 	prefix := enumValuePrefix(desc)
-	if strings.HasPrefix(name, prefix) {
-		return strings.TrimPrefix(name, prefix)
+	if after, ok := strings.CutPrefix(name, prefix); ok {
+		return after
 	}
 	return name
 }

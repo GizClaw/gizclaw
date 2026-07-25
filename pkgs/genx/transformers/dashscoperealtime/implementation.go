@@ -697,10 +697,7 @@ func (t *Transformer) processLoop(input genx.Stream, output *bufferStream, sessi
 
 			// Flush remaining audio buffer
 			for len(audioBuffer) > 0 {
-				sendSize := chunkSize
-				if sendSize > len(audioBuffer) {
-					sendSize = len(audioBuffer)
-				}
+				sendSize := min(chunkSize, len(audioBuffer))
 				if err := session.AppendAudio(audioBuffer[:sendSize]); err != nil {
 					output.CloseWithError(err)
 					return
@@ -713,10 +710,7 @@ func (t *Transformer) processLoop(input genx.Stream, output *bufferStream, sessi
 			// 2 seconds of silence at 16kHz PCM16 = 64000 bytes
 			trailingSilence := make([]byte, 64000)
 			for i := 0; i < len(trailingSilence); i += chunkSize {
-				end := i + chunkSize
-				if end > len(trailingSilence) {
-					end = len(trailingSilence)
-				}
+				end := min(i+chunkSize, len(trailingSilence))
 				if err := session.AppendAudio(trailingSilence[i:end]); err != nil {
 					output.CloseWithError(err)
 					return

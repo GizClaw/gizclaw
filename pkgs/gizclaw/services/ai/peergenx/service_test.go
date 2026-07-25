@@ -175,8 +175,8 @@ func TestDefaultBuilderBuildsOpenAIGenerator(t *testing.T) {
 				SupportToolCalls:     &trueValue,
 				SupportTextOnly:      &trueValue,
 				UseSystemRole:        &trueValue,
-				ThinkingParam:        stringPtr("thinking.type"),
-				DefaultThinkingLevel: stringPtr("disabled"),
+				ThinkingParam:        new("thinking.type"),
+				DefaultThinkingLevel: new("disabled"),
 			}),
 		},
 		Tenant: Tenant{
@@ -348,8 +348,8 @@ func TestDefaultBuilderBuildsVolcArkGenerator(t *testing.T) {
 				SupportToolCalls:     &trueValue,
 				SupportTextOnly:      &trueValue,
 				UseSystemRole:        &trueValue,
-				ThinkingParam:        stringPtr("thinking.type"),
-				DefaultThinkingLevel: stringPtr("disabled"),
+				ThinkingParam:        new("thinking.type"),
+				DefaultThinkingLevel: new("disabled"),
 			}),
 		},
 		Tenant: Tenant{
@@ -398,13 +398,13 @@ func TestModelThinkingExtraFieldsUsesProviderDataParameter(t *testing.T) {
 	}{
 		{
 			name:    "volc nested thinking",
-			config:  modelThinkingConfig{supported: true, param: stringPtr("thinking.type")},
+			config:  modelThinkingConfig{supported: true, param: new("thinking.type")},
 			request: &genx.ThinkingParams{Enabled: &disabled, Level: "disabled"},
 			want:    map[string]any{"thinking": map[string]any{"type": "disabled"}},
 		},
 		{
 			name:    "separate enable and reasoning fields",
-			config:  modelThinkingConfig{supported: true, param: stringPtr("enable_thinking"), levelParam: stringPtr("reasoning_effort")},
+			config:  modelThinkingConfig{supported: true, param: new("enable_thinking"), levelParam: new("reasoning_effort")},
 			request: &genx.ThinkingParams{Enabled: &disabled, Level: "medium"},
 			want: map[string]any{
 				"enable_thinking":  false,
@@ -413,7 +413,7 @@ func TestModelThinkingExtraFieldsUsesProviderDataParameter(t *testing.T) {
 		},
 		{
 			name:    "disabled is not a reasoning effort",
-			config:  modelThinkingConfig{supported: true, param: stringPtr("reasoning_effort")},
+			config:  modelThinkingConfig{supported: true, param: new("reasoning_effort")},
 			request: &genx.ThinkingParams{Enabled: &disabled, Level: "disabled"},
 			want:    map[string]any{},
 		},
@@ -438,8 +438,8 @@ func TestModelContextForGeneratorMapsThinkingWithoutMutatingInput(t *testing.T) 
 		Provider: apitypes.ModelProvider{Kind: apitypes.ModelProviderKindOpenaiTenant, Name: "main"},
 		ProviderData: mustOpenAIModelProviderData(t, apitypes.OpenAITenantModelProviderData{
 			UpstreamModel:   "gpt-test",
-			SupportThinking: boolPtr(true),
-			ThinkingParam:   stringPtr("thinking.type"),
+			SupportThinking: new(true),
+			ThinkingParam:   new("thinking.type"),
 		}),
 	}}
 
@@ -513,7 +513,7 @@ func TestDefaultBuilderRejectsWrongVolcServiceKey(t *testing.T) {
 			Id:   "dialog",
 			Kind: apitypes.ModelKindRealtime,
 			ProviderData: mustVolcModelProviderData(t, apitypes.VolcTenantModelProviderData{
-				UpstreamModel: stringPtr("O"),
+				UpstreamModel: new("O"),
 			}),
 		},
 		Tenant: Tenant{
@@ -542,7 +542,7 @@ func TestDefaultBuilderBuildsVolcASRTransformer(t *testing.T) {
 			Id:   "asr",
 			Kind: apitypes.ModelKindAsr,
 			ProviderData: mustVolcModelProviderData(t, apitypes.VolcTenantModelProviderData{
-				ResourceId: stringPtr("volc.bigasr.sauc.duration"),
+				ResourceId: new("volc.bigasr.sauc.duration"),
 			}),
 		},
 		Tenant: Tenant{
@@ -595,7 +595,7 @@ func TestDefaultBuilderBuildsVolcASRTransformerFromParams(t *testing.T) {
 			Id:   "asr",
 			Kind: apitypes.ModelKindAsr,
 			ProviderData: mustVolcModelProviderData(t, apitypes.VolcTenantModelProviderData{
-				ResourceId: stringPtr("volc.bigasr.sauc.duration"),
+				ResourceId: new("volc.bigasr.sauc.duration"),
 			}),
 		},
 		Tenant: Tenant{
@@ -649,7 +649,7 @@ func TestDefaultBuilderBuildsVolcRealtimeTransformer(t *testing.T) {
 			Id:   "dialog",
 			Kind: apitypes.ModelKindRealtime,
 			ProviderData: mustVolcModelProviderData(t, apitypes.VolcTenantModelProviderData{
-				UpstreamModel: stringPtr("O"),
+				UpstreamModel: new("O"),
 			}),
 		},
 		Tenant: Tenant{
@@ -693,8 +693,8 @@ func TestDefaultBuilderBuildsVolcRealtimeTransformerUsesSpeechAPIKey(t *testing.
 			Id:   "dialog",
 			Kind: apitypes.ModelKindRealtime,
 			ProviderData: mustVolcModelProviderData(t, apitypes.VolcTenantModelProviderData{
-				ResourceId:    stringPtr("volc.speech.dialog"),
-				UpstreamModel: stringPtr("O"),
+				ResourceId:    new("volc.speech.dialog"),
+				UpstreamModel: new("O"),
 			}),
 		},
 		Tenant: Tenant{
@@ -720,8 +720,8 @@ func TestDefaultBuilderBuildsVolcRealtimeTransformerFromWorkflowParams(t *testin
 			Id:   "dialog",
 			Kind: apitypes.ModelKindRealtime,
 			ProviderData: mustVolcModelProviderData(t, apitypes.VolcTenantModelProviderData{
-				ResourceId:    stringPtr("volc.speech.dialog"),
-				UpstreamModel: stringPtr("O"),
+				ResourceId:    new("volc.speech.dialog"),
+				UpstreamModel: new("O"),
 			}),
 		},
 		Tenant: Tenant{
@@ -853,7 +853,7 @@ func TestDefaultBuilderRejectsUnsupportedVolcRealtimeMode(t *testing.T) {
 			Id:   "dialog",
 			Kind: apitypes.ModelKindRealtime,
 			ProviderData: mustVolcModelProviderData(t, apitypes.VolcTenantModelProviderData{
-				UpstreamModel: stringPtr("O"),
+				UpstreamModel: new("O"),
 			}),
 		},
 		Tenant: Tenant{
@@ -896,7 +896,7 @@ func TestDefaultBuilderRejectsVolcRealtimeMissingUpstreamModel(t *testing.T) {
 			Id:   "dialog",
 			Kind: apitypes.ModelKindRealtime,
 			ProviderData: mustVolcModelProviderData(t, apitypes.VolcTenantModelProviderData{
-				ResourceId: stringPtr("volc.speech.dialog"),
+				ResourceId: new("volc.speech.dialog"),
 			}),
 		},
 		Tenant: Tenant{
@@ -964,8 +964,8 @@ func TestDefaultBuilderBuildsVoiceTransformers(t *testing.T) {
 				Voice: &apitypes.Voice{
 					Id: "volc-voice",
 					ProviderData: mustVolcVoiceProviderData(t, apitypes.VolcTenantVoiceProviderData{
-						VoiceId:    stringPtr("voice-id"),
-						ResourceId: stringPtr("seed-icl-2.0"),
+						VoiceId:    new("voice-id"),
+						ResourceId: new("seed-icl-2.0"),
 					}),
 				},
 				Tenant: Tenant{
@@ -984,8 +984,8 @@ func TestDefaultBuilderBuildsVoiceTransformers(t *testing.T) {
 				Voice: &apitypes.Voice{
 					Id: "minimax-voice",
 					ProviderData: mustMiniMaxVoiceProviderData(t, apitypes.MiniMaxTenantVoiceProviderData{
-						VoiceId: stringPtr("voice-id"),
-						Model:   stringPtr("speech-02-hd"),
+						VoiceId: new("voice-id"),
+						Model:   new("speech-02-hd"),
 					}),
 				},
 				Tenant: Tenant{
@@ -1005,7 +1005,7 @@ func TestDefaultBuilderBuildsVoiceTransformers(t *testing.T) {
 				Voice: &apitypes.Voice{
 					Id: "minimax-voice",
 					ProviderData: mustMiniMaxVoiceProviderData(t, apitypes.MiniMaxTenantVoiceProviderData{
-						VoiceId: stringPtr("voice-id"),
+						VoiceId: new("voice-id"),
 					}),
 				},
 				Tenant: Tenant{
@@ -1178,7 +1178,7 @@ func TestDefaultBuilderRejectsInvalidTransformerConfigs(t *testing.T) {
 				Voice: &apitypes.Voice{
 					Id: "voice",
 					ProviderData: mustMiniMaxVoiceProviderData(t, apitypes.MiniMaxTenantVoiceProviderData{
-						VoiceId: stringPtr("voice-id"),
+						VoiceId: new("voice-id"),
 					}),
 				},
 				Tenant: Tenant{
@@ -1512,10 +1512,10 @@ func TestBuilderBooleanHelperBranches(t *testing.T) {
 	if got, ok := mapBool(map[string]any{"a": "maybe"}); ok || got {
 		t.Fatalf("mapBool(maybe) = %t, %t; want false, false", got, ok)
 	}
-	if boolValue(nil, boolPtr(true)) != true || boolValue(nil) != false {
+	if boolValue(nil, new(true)) != true || boolValue(nil) != false {
 		t.Fatal("boolValue() returned unexpected result")
 	}
-	if openAIPromptRole(boolPtr(true)) != genx.PromptRoleSystem || openAIPromptRole(boolPtr(false)) != "" {
+	if openAIPromptRole(new(true)) != genx.PromptRoleSystem || openAIPromptRole(new(false)) != "" {
 		t.Fatal("openAIPromptRole() returned unexpected result")
 	}
 	if got := openAIThinkingValue("enable_thinking", "off"); got != false {
@@ -1712,18 +1712,6 @@ func testModel(id string, kind apitypes.ModelKind) apitypes.Model {
 			Name: "main",
 		},
 	}
-}
-
-func boolPtr(value bool) *bool {
-	return &value
-}
-
-func stringPtr(value string) *string {
-	return &value
-}
-
-func intPtr(value int) *int {
-	return &value
 }
 
 func mustOpenAIModelProviderData(t *testing.T, data apitypes.OpenAITenantModelProviderData) apitypes.ModelProviderData {

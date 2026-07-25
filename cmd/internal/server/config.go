@@ -877,8 +877,8 @@ func (cfg Config) ICEListenAddr() string {
 
 func parseConfigDuration(value string) (time.Duration, error) {
 	value = strings.TrimSpace(value)
-	if strings.HasSuffix(value, "d") {
-		days, err := time.ParseDuration(strings.TrimSuffix(value, "d") + "h")
+	if before, ok := strings.CutSuffix(value, "d"); ok {
+		days, err := time.ParseDuration(before + "h")
 		if err != nil {
 			return 0, err
 		}
