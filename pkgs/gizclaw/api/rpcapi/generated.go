@@ -601,6 +601,7 @@ const (
 	RPCMethodServerRunWorkspaceSet              RPCMethod = "server.run.workspace.set"
 	RPCMethodServerRuntimeGet                   RPCMethod = "server.runtime.get"
 	RPCMethodServerStatusGet                    RPCMethod = "server.status.get"
+	RPCMethodServerSpeechExtract                RPCMethod = "server.speech.extract"
 	RPCMethodServerSpeechSynthesize             RPCMethod = "server.speech.synthesize"
 	RPCMethodServerSpeechTranscribe             RPCMethod = "server.speech.transcribe"
 	RPCMethodServerVoiceGet                     RPCMethod = "server.voice.get"
@@ -774,6 +775,8 @@ func (e RPCMethod) Valid() bool {
 	case RPCMethodServerRuntimeGet:
 		return true
 	case RPCMethodServerStatusGet:
+		return true
+	case RPCMethodServerSpeechExtract:
 		return true
 	case RPCMethodServerSpeechSynthesize:
 		return true

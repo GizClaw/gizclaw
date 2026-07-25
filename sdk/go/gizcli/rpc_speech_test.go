@@ -40,6 +40,17 @@ func TestClientSpeechUsesSpeechSpecificStreamDeadlines(t *testing.T) {
 				return err
 			},
 		},
+		{
+			name: "extraction", timeout: 125 * time.Second,
+			call: func(client *Client) error {
+				_, err := client.ExtractSpeech(context.Background(), "deadline", rpcapi.SpeechExtractRequest{
+					ASRModelAlias: "asr", ExtractModelAlias: "extract",
+					ContentType: "audio/L16;rate=16000;channels=1",
+					SchemaJSON:  `{"type":"object"}`,
+				}, bytes.NewReader([]byte{1}))
+				return err
+			},
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -102,6 +113,83 @@ func (c *deadlineRecordingConn) firstNonZeroDeadline() (time.Time, bool) {
 		}
 	}
 	return time.Time{}, false
+}
+
+func TestExtractSpeechStreamsReaderBeforeEOF(t *testing.T) {
+	serverSide, clientSide := net.Pipe()
+	defer serverSide.Close()
+	defer clientSide.Close()
+	release := make(chan struct{})
+	serverDone := make(chan error, 1)
+	go func() {
+		stream, err := newRPCStream(context.Background(), serverSide)
+		if err != nil {
+			serverDone <- err
+			return
+		}
+		defer stream.Close()
+		request, requestEOS, err := stream.ReadRequestEnvelope()
+		if err != nil {
+			serverDone <- err
+			return
+		}
+		if request.Method != rpcapi.RPCMethodServerSpeechExtract || requestEOS {
+			serverDone <- io.ErrUnexpectedEOF
+			return
+		}
+		first, err := stream.ReadFrame()
+		if err != nil {
+			serverDone <- err
+			return
+		}
+		if first.Type != rpcapi.FrameTypeBinary || !bytes.Equal(first.Payload, []byte{1, 2}) {
+			serverDone <- io.ErrUnexpectedEOF
+			return
+		}
+		close(release)
+		second, err := stream.ReadFrame()
+		if err != nil {
+			serverDone <- err
+			return
+		}
+		if second.Type != rpcapi.FrameTypeBinary || !bytes.Equal(second.Payload, []byte{3, 4}) {
+			serverDone <- io.ErrUnexpectedEOF
+			return
+		}
+		if err := stream.ReadEOS(); err != nil {
+			serverDone <- err
+			return
+		}
+		response, err := newRPCResultResponse(request.Id, rpcapi.SpeechExtractResponse{
+			Transcript: "Alice",
+			ResultJSON: `{"name":"Alice"}`,
+		}, (*rpcapi.RPCPayload).FromSpeechExtractResponse)
+		if err == nil {
+			_, err = stream.WriteResponseEnvelopeForMethod(request.Method, response)
+		}
+		if err == nil {
+			err = stream.WriteEOS()
+		}
+		serverDone <- err
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	result, err := (&rpcClient{}).ExtractSpeech(ctx, clientSide, "extract", rpcapi.SpeechExtractRequest{
+		ASRModelAlias:     "asr-main",
+		ExtractModelAlias: "extract-main",
+		ContentType:       "audio/L16;rate=16000;channels=1",
+		SchemaJSON:        `{"type":"object","properties":{"name":{"type":"string"}}}`,
+	}, &gatedSpeechReader{release: release})
+	if err != nil {
+		t.Fatalf("ExtractSpeech() error = %v", err)
+	}
+	if result.Transcript != "Alice" || result.ResultJSON != `{"name":"Alice"}` {
+		t.Fatalf("ExtractSpeech() = %+v", result)
+	}
+	if err := <-serverDone; err != nil {
+		t.Fatalf("server error = %v", err)
+	}
 }
 
 func TestTranscribeSpeechStreamsReaderBeforeEOF(t *testing.T) {
@@ -275,6 +363,115 @@ func TestTranscribeSpeechReturnsEarlyServerErrorBeforeAudioEOF(t *testing.T) {
 	}
 	if err := <-serverDone; err != nil {
 		t.Fatalf("server error = %v", err)
+	}
+}
+
+func TestExtractSpeechReturnsEarlyServerErrorBeforeAudioEOF(t *testing.T) {
+	serverSide, clientSide := net.Pipe()
+	defer serverSide.Close()
+	defer clientSide.Close()
+	serverDone := make(chan error, 1)
+	go func() {
+		stream, err := newRPCStream(context.Background(), serverSide)
+		if err != nil {
+			serverDone <- err
+			return
+		}
+		defer stream.Close()
+		request, requestEOS, err := stream.ReadRequestEnvelope()
+		if err == nil && requestEOS {
+			err = io.ErrUnexpectedEOF
+		}
+		if err == nil {
+			_, err = stream.WriteResponseEnvelopeForMethod(request.Method, rpcapi.Error{
+				RequestID: request.Id,
+				Code:      rpcapi.RPCErrorCodeNotFound,
+				Message:   "speech alias not found",
+			}.RPCResponse())
+		}
+		if err == nil {
+			err = stream.WriteEOS()
+		}
+		serverDone <- err
+	}()
+
+	audio, writer := io.Pipe()
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	result, err := (&rpcClient{}).ExtractSpeech(ctx, clientSide, "invalid", rpcapi.SpeechExtractRequest{
+		ASRModelAlias:     "asr-main",
+		ExtractModelAlias: "missing",
+		ContentType:       "audio/L16;rate=16000;channels=1",
+		SchemaJSON:        `{"type":"object"}`,
+	}, audio)
+	if result != nil || err == nil || !strings.Contains(err.Error(), "speech alias not found") {
+		t.Fatalf("ExtractSpeech() = (%+v, %v)", result, err)
+	}
+	if _, err := writer.Write([]byte{1}); !errors.Is(err, io.ErrClosedPipe) {
+		t.Fatalf("audio writer error = %v, want closed pipe", err)
+	}
+	if err := <-serverDone; err != nil {
+		t.Fatalf("server error = %v", err)
+	}
+}
+
+func TestExtractSpeechCancellationStopsLiveUpload(t *testing.T) {
+	serverSide, clientSide := net.Pipe()
+	defer serverSide.Close()
+	defer clientSide.Close()
+	requestSeen := make(chan struct{})
+	serverDone := make(chan struct{})
+	go func() {
+		defer close(serverDone)
+		stream, err := newRPCStream(context.Background(), serverSide)
+		if err != nil {
+			return
+		}
+		defer stream.Close()
+		_, _, err = stream.ReadRequestEnvelope()
+		if err != nil {
+			return
+		}
+		close(requestSeen)
+		_, _ = stream.ReadFrame()
+	}()
+
+	audio, writer := io.Pipe()
+	ctx, cancel := context.WithCancel(context.Background())
+	resultDone := make(chan error, 1)
+	go func() {
+		_, err := (&rpcClient{}).ExtractSpeech(ctx, clientSide, "cancel", rpcapi.SpeechExtractRequest{
+			ASRModelAlias:     "asr-main",
+			ExtractModelAlias: "extract-main",
+			ContentType:       "audio/L16;rate=16000;channels=1",
+			SchemaJSON:        `{"type":"object"}`,
+		}, audio)
+		resultDone <- err
+	}()
+	select {
+	case <-requestSeen:
+	case <-time.After(time.Second):
+		t.Fatal("server did not receive extraction request")
+	}
+	cancel()
+	select {
+	case err := <-resultDone:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("ExtractSpeech() error = %v, want context.Canceled", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("ExtractSpeech() did not stop after cancellation")
+	}
+	if _, err := writer.Write([]byte{1}); !errors.Is(err, io.ErrClosedPipe) {
+		t.Fatalf("audio writer error = %v, want closed pipe", err)
+	}
+	if err := clientSide.Close(); err != nil {
+		t.Fatalf("client connection Close() error = %v", err)
+	}
+	select {
+	case <-serverDone:
+	case <-time.After(time.Second):
+		t.Fatal("server upload read did not stop after cancellation")
 	}
 }
 

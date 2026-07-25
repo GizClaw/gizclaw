@@ -14,6 +14,7 @@ import {
   RPC_FRAME_TYPE_EOS,
   RPC_FRAME_TYPE_BINARY,
   RPC_FRAME_TYPE_TEXT,
+  SPEECH_EXTRACTION_REQUEST_TIMEOUT_MS,
   SPEECH_SYNTHESIS_REQUEST_TIMEOUT_MS,
   SPEECH_TRANSCRIPTION_REQUEST_TIMEOUT_MS,
   WebRTCRPCClient,
@@ -986,6 +987,69 @@ test("WebRTCRPCClient streams transcription audio before request EOS", async () 
   assert.equal(channel.closed, true);
 });
 
+test("WebRTCRPCClient streams extraction audio before request EOS", async () => {
+  const pc = new FakePeerConnection();
+  const client = new WebRTCRPCClient(pc, {
+    createID: () => "speech-extract",
+  });
+  let releaseUpload!: () => void;
+  const uploadGate = new Promise<void>((resolve) => {
+    releaseUpload = resolve;
+  });
+  async function* audio(): AsyncIterable<Uint8Array> {
+    yield new Uint8Array([1, 2]);
+    await uploadGate;
+    yield new Uint8Array([3, 4]);
+  }
+
+  const promise = client.extractSpeech(
+    {
+      asr_model_alias: "asr-main",
+      extract_model_alias: "extract-main",
+      content_type: "audio/L16;rate=16000;channels=1",
+      schema_json:
+        '{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}',
+    },
+    audio(),
+  );
+  const channel = pc.lastChannel();
+  channel.open();
+  await channel.waitForSentCount(2);
+
+  assert.equal(
+    decodeFrames(channel.sent[0] ?? new ArrayBuffer(0))[0]?.type,
+    RPC_FRAME_TYPE_BINARY,
+  );
+  assert.deepEqual(decodeFrames(channel.sent[1] ?? new ArrayBuffer(0)), [
+    { payload: new Uint8Array([1, 2]), type: RPC_FRAME_TYPE_BINARY },
+  ]);
+  releaseUpload();
+  await channel.waitForSentCount(4);
+  assert.equal(
+    decodeFrames(channel.sent[3] ?? new ArrayBuffer(0))[0]?.type,
+    RPC_FRAME_TYPE_EOS,
+  );
+  channel.receive(
+    encodeRPCResponse(
+      {
+        id: "speech-extract",
+        result: {
+          transcript: "name is GizClaw",
+          result_json: '{"name":"GizClaw"}',
+        },
+        v: 1,
+      },
+      "server.speech.extract",
+    ),
+  );
+
+  assert.deepEqual(await promise, {
+    result_json: '{"name":"GizClaw"}',
+    transcript: "name is GizClaw",
+  });
+  assert.equal(channel.closed, true);
+});
+
 test("WebRTCRPCClient delimits a split transcription envelope before audio", async () => {
   const largeID = "r".repeat(0xffff + 1024);
   const pc = new FakePeerConnection();
@@ -1074,6 +1138,104 @@ test("WebRTCRPCClient stops a live transcription upload on an early response", a
   assert.equal(channel.closed, true);
 });
 
+test("WebRTCRPCClient stops a live extraction upload on an early response", async () => {
+  const pc = new FakePeerConnection();
+  const client = new WebRTCRPCClient(pc, {
+    createID: () => "speech-extract-early-error",
+  });
+  let reads = 0;
+  let returned = false;
+  const audio: AsyncIterable<Uint8Array> = {
+    [Symbol.asyncIterator]() {
+      return {
+        next: async () => {
+          reads += 1;
+          if (reads === 1)
+            return { done: false, value: new Uint8Array([1, 2]) };
+          return await new Promise<IteratorResult<Uint8Array>>(() => {});
+        },
+        return: async () => {
+          returned = true;
+          return { done: true, value: undefined };
+        },
+      };
+    },
+  };
+
+  const promise = client.extractSpeech(
+    {
+      asr_model_alias: "asr-main",
+      extract_model_alias: "missing",
+      content_type: "audio/L16;rate=16000;channels=1",
+      schema_json: '{"type":"object"}',
+    },
+    audio,
+  );
+  const channel = pc.lastChannel();
+  channel.open();
+  await channel.waitForSentCount(2);
+  channel.receive(
+    encodeRPCResponse(
+      {
+        error: { code: 5, message: "speech alias not found" },
+        id: "speech-extract-early-error",
+        v: 1,
+      },
+      "server.speech.extract",
+    ),
+  );
+
+  await assert.rejects(promise, /speech alias not found/);
+  assert.equal(returned, true);
+  assert.equal(channel.closed, true);
+});
+
+test("WebRTCRPCClient cancels a live extraction upload with AbortSignal", async () => {
+  const pc = new FakePeerConnection();
+  const client = new WebRTCRPCClient(pc, {
+    createID: () => "speech-extract-cancel",
+  });
+  const controller = new AbortController();
+  let returned = false;
+  const audio: AsyncIterable<Uint8Array> = {
+    [Symbol.asyncIterator]() {
+      let first = true;
+      return {
+        next: async () => {
+          if (first) {
+            first = false;
+            return { done: false, value: new Uint8Array([1, 2]) };
+          }
+          return await new Promise<IteratorResult<Uint8Array>>(() => {});
+        },
+        return: async () => {
+          returned = true;
+          return { done: true, value: undefined };
+        },
+      };
+    },
+  };
+
+  const promise = client.extractSpeech(
+    {
+      asr_model_alias: "asr-main",
+      extract_model_alias: "extract-main",
+      content_type: "audio/L16;rate=16000;channels=1",
+      schema_json: '{"type":"object"}',
+    },
+    audio,
+    { signal: controller.signal },
+  );
+  const channel = pc.lastChannel();
+  channel.open();
+  await channel.waitForSentCount(2);
+  controller.abort();
+
+  await assert.rejects(promise, { name: "AbortError" });
+  assert.equal(returned, true);
+  assert.equal(channel.closed, true);
+});
+
 test("WebRTCRPCClient exposes synthesized audio before response EOS", async () => {
   const pc = new FakePeerConnection();
   const client = new WebRTCRPCClient(pc, {
@@ -1128,6 +1290,7 @@ test("WebRTCRPCClient exposes synthesized audio before response EOS", async () =
 });
 
 test("WebRTCRPCClient gives speech calls speech-specific default timeouts", async () => {
+  assert.equal(SPEECH_EXTRACTION_REQUEST_TIMEOUT_MS, 125000);
   assert.equal(SPEECH_TRANSCRIPTION_REQUEST_TIMEOUT_MS, 80000);
   assert.equal(SPEECH_SYNTHESIS_REQUEST_TIMEOUT_MS, 125000);
 
@@ -1368,6 +1531,9 @@ test("createPeerRPCClient calls generated typed RPC methods", async () => {
     transcribeSpeech: async () => {
       throw new Error("unexpected transcription call");
     },
+    extractSpeech: async () => {
+      throw new Error("unexpected extraction call");
+    },
     synthesizeSpeech: async () => {
       throw new Error("unexpected synthesis call");
     },
@@ -1410,7 +1576,7 @@ test("createPeerRPCClient rejects legacy callers without speech methods", () => 
 
   assert.throws(
     () => createPeerRPCClient(legacyCaller as never),
-    /must implement call, callBinary, transcribeSpeech, and synthesizeSpeech/,
+    /must implement call, callBinary, extractSpeech, transcribeSpeech, and synthesizeSpeech/,
   );
 });
 
@@ -1500,6 +1666,18 @@ test("createPeerRPCClient forwards dedicated streaming speech methods", async ()
       );
       return { transcript: "hello" };
     },
+    extractSpeech: async (
+      params: { extract_model_alias: string },
+      input: Iterable<Uint8Array>,
+    ) => {
+      calls.push(
+        `extract:${params.extract_model_alias}:${Array.from(input)[0]?.byteLength ?? 0}`,
+      );
+      return {
+        transcript: "name is GizClaw",
+        result_json: '{"name":"GizClaw"}',
+      };
+    },
     synthesizeSpeech: async (params: { voice_alias: string }) => {
       calls.push(`synthesize:${params.voice_alias}`);
       return {
@@ -1525,6 +1703,21 @@ test("createPeerRPCClient forwards dedicated streaming speech methods", async ()
     ).transcript,
     "hello",
   );
+  assert.equal(
+    (
+      await rpc.extractSpeech(
+        {
+          asr_model_alias: "2fa-asr",
+          extract_model_alias: "2fa-extract",
+          content_type: "audio/L16;rate=16000;channels=1",
+          schema_json:
+            '{"type":"object","properties":{"name":{"type":"string"}}}',
+        },
+        audio,
+      )
+    ).result_json,
+    '{"name":"GizClaw"}',
+  );
   const synthesis = await rpc.synthesizeSpeech({
     voice_alias: "2fa-voice",
     text: "hello",
@@ -1534,7 +1727,11 @@ test("createPeerRPCClient forwards dedicated streaming speech methods", async ()
   for await (const chunk of synthesis.body)
     synthesizedBytes += chunk.byteLength;
   assert.equal(synthesizedBytes, 2);
-  assert.deepEqual(calls, ["transcribe:2fa-asr:2", "synthesize:2fa-voice"]);
+  assert.deepEqual(calls, [
+    "transcribe:2fa-asr:2",
+    "extract:2fa-extract:2",
+    "synthesize:2fa-voice",
+  ]);
 });
 
 test("createWebRTCFetch turns generated-client fetch calls into RPC calls", async () => {

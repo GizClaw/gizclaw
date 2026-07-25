@@ -19,6 +19,14 @@ gizclaw.rpc.v1.SpeechTranscribeRequest.model_alias max_size:64
 gizclaw.rpc.v1.SpeechTranscribeRequest.content_type max_size:129
 gizclaw.rpc.v1.SpeechTranscribeRequest.language max_size:33
 gizclaw.rpc.v1.SpeechTranscribeResponse.transcript max_size:8193
+gizclaw.rpc.v1.SpeechExtractRequest.asr_model_alias max_size:64
+gizclaw.rpc.v1.SpeechExtractRequest.extract_model_alias max_size:64
+gizclaw.rpc.v1.SpeechExtractRequest.content_type max_size:129
+gizclaw.rpc.v1.SpeechExtractRequest.language max_size:33
+gizclaw.rpc.v1.SpeechExtractRequest.schema_json max_size:16385
+gizclaw.rpc.v1.SpeechExtractRequest.instruction max_size:4097
+gizclaw.rpc.v1.SpeechExtractResponse.transcript max_size:8193
+gizclaw.rpc.v1.SpeechExtractResponse.result_json max_size:16385
 gizclaw.rpc.v1.SpeechSynthesizeRequest.voice_alias max_size:64
 gizclaw.rpc.v1.SpeechSynthesizeRequest.text max_size:4097
 gizclaw.rpc.v1.SpeechSynthesizeRequest.accepted_content_types max_count:8 max_size:129

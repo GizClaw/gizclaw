@@ -13,6 +13,7 @@ The RPC module is responsible for client/server, dispatch, stream framing and do
 | [Gameplay Assets](./gameplay-pixa) | Gameplay pixa asset streaming. | `rpc_gameplay_pixa.go` |
 | [Workspace History](./workspace-history) | History audio streaming. | `rpc_workspace_history.go` |
 | [Speech Transcription](./transcription) | Standalone streaming audio-to-text. | `rpc_speech.go` |
+| [Speech Extraction](./extraction) | Standalone streaming audio-to-schema-constrained JSON. | `rpc_speech.go` |
 | [Speech Synthesis](./synthesis) | Standalone streaming text-to-audio. | `rpc_speech.go` |
 | [Speed Test](./speed) | Bidirectional RPC/DataChannel throughput test. | `rpc_speed.go` |
 | [Streaming](./stream) | Frame, protobuf envelope and EOS. | `rpc_stream.go` |

@@ -10,6 +10,24 @@ void main() {
     expect(rpcMethodByName('server.run.say').id, 21);
     expect(rpcMethodByName('all.ping').id, 1);
     expect(rpcMethodByName('server.route.resolve').id, 86);
+    expect(rpcMethodByName('server.speech.extract').id, 95);
+  });
+
+  test('encodes and decodes structured speech extraction payloads', () {
+    final request = SpeechExtractRequest(
+      asrModelAlias: 'asr-main',
+      extractModelAlias: 'extract-main',
+      contentType: 'audio/L16;rate=16000;channels=1',
+      schemaJson: '{"type":"object"}',
+    );
+    final encoded = encodeRpcRequestPayload('server.speech.extract', request);
+    final decoded =
+        decodeRpcRequestPayload('server.speech.extract', encoded)
+            as SpeechExtractRequest;
+
+    expect(decoded.asrModelAlias, 'asr-main');
+    expect(decoded.extractModelAlias, 'extract-main');
+    expect(decoded.schemaJson, '{"type":"object"}');
   });
 
   test('encodes and decodes typed payloads by method metadata', () {

@@ -59,6 +59,7 @@ type FriendGroupsConfig struct {
 
 type SpeechConfig struct {
 	Transcription SpeechTranscriptionConfig `yaml:"transcription"`
+	Extraction    SpeechExtractionConfig    `yaml:"extraction"`
 	Synthesis     SpeechSynthesisConfig     `yaml:"synthesis"`
 }
 
@@ -74,12 +75,29 @@ type SpeechSynthesisConfig struct {
 	RequestTimeout string `yaml:"request_timeout"`
 }
 
+type SpeechExtractionConfig struct {
+	MaxSchemaBytes      int64  `yaml:"max_schema_bytes"`
+	MaxSchemaDepth      int64  `yaml:"max_schema_depth"`
+	MaxSchemaProperties int64  `yaml:"max_schema_properties"`
+	MaxInstructionBytes int64  `yaml:"max_instruction_bytes"`
+	MaxResultBytes      int64  `yaml:"max_result_bytes"`
+	RequestTimeout      string `yaml:"request_timeout"`
+}
+
 type speechFileConfig struct {
 	Transcription struct {
 		MaxAudioBytes    *int64  `yaml:"max_audio_bytes"`
 		MaxAudioDuration *string `yaml:"max_audio_duration"`
 		RequestTimeout   *string `yaml:"request_timeout"`
 	} `yaml:"transcription"`
+	Extraction struct {
+		MaxSchemaBytes      *int64  `yaml:"max_schema_bytes"`
+		MaxSchemaDepth      *int64  `yaml:"max_schema_depth"`
+		MaxSchemaProperties *int64  `yaml:"max_schema_properties"`
+		MaxInstructionBytes *int64  `yaml:"max_instruction_bytes"`
+		MaxResultBytes      *int64  `yaml:"max_result_bytes"`
+		RequestTimeout      *string `yaml:"request_timeout"`
+	} `yaml:"extraction"`
 	Synthesis struct {
 		MaxTextBytes   *int64  `yaml:"max_text_bytes"`
 		MaxOutputBytes *int64  `yaml:"max_output_bytes"`
@@ -135,6 +153,7 @@ const (
 	defaultWorkspaceAssetsStore          = "workspace-assets"
 	defaultGameplayDBStore               = "gameplay-db"
 	defaultMetricsStore                  = "metrics"
+	maxSpeechExtractionRequestTimeout    = 120 * time.Second
 )
 
 func LoadConfig(path string) (ConfigFile, error) {
@@ -242,6 +261,46 @@ func (cfg speechFileConfig) runtimeConfig() (SpeechConfig, error) {
 		}
 		out.Transcription.RequestTimeout = *value
 	}
+	if value := cfg.Extraction.MaxSchemaBytes; value != nil {
+		if *value <= 0 || *value > 16384 {
+			return SpeechConfig{}, fmt.Errorf("server: speech.extraction.max_schema_bytes must be between 1 and 16384")
+		}
+		out.Extraction.MaxSchemaBytes = *value
+	}
+	if value := cfg.Extraction.MaxSchemaDepth; value != nil {
+		if *value <= 0 || *value > 16 {
+			return SpeechConfig{}, fmt.Errorf("server: speech.extraction.max_schema_depth must be between 1 and 16")
+		}
+		out.Extraction.MaxSchemaDepth = *value
+	}
+	if value := cfg.Extraction.MaxSchemaProperties; value != nil {
+		if *value <= 0 || *value > 128 {
+			return SpeechConfig{}, fmt.Errorf("server: speech.extraction.max_schema_properties must be between 1 and 128")
+		}
+		out.Extraction.MaxSchemaProperties = *value
+	}
+	if value := cfg.Extraction.MaxInstructionBytes; value != nil {
+		if *value <= 0 || *value > 4096 {
+			return SpeechConfig{}, fmt.Errorf("server: speech.extraction.max_instruction_bytes must be between 1 and 4096")
+		}
+		out.Extraction.MaxInstructionBytes = *value
+	}
+	if value := cfg.Extraction.MaxResultBytes; value != nil {
+		if *value <= 0 || *value > 16384 {
+			return SpeechConfig{}, fmt.Errorf("server: speech.extraction.max_result_bytes must be between 1 and 16384")
+		}
+		out.Extraction.MaxResultBytes = *value
+	}
+	if value := cfg.Extraction.RequestTimeout; value != nil {
+		timeout, err := parsePositiveConfigDuration(*value)
+		if err != nil {
+			return SpeechConfig{}, fmt.Errorf("server: speech.extraction.request_timeout: %w", err)
+		}
+		if timeout > maxSpeechExtractionRequestTimeout {
+			return SpeechConfig{}, fmt.Errorf("server: speech.extraction.request_timeout must be at most 2m0s")
+		}
+		out.Extraction.RequestTimeout = *value
+	}
 	if value := cfg.Synthesis.MaxTextBytes; value != nil {
 		if *value <= 0 {
 			return SpeechConfig{}, fmt.Errorf("server: speech.synthesis.max_text_bytes must be > 0")
@@ -280,7 +339,11 @@ func DefaultConfig() Config {
 		SystemLog: logging.DefaultConfig(),
 		Speech: SpeechConfig{
 			Transcription: SpeechTranscriptionConfig{MaxAudioBytes: 2097152, MaxAudioDuration: "60s", RequestTimeout: "75s"},
-			Synthesis:     SpeechSynthesisConfig{MaxTextBytes: 4096, MaxOutputBytes: 4194304, RequestTimeout: "120s"},
+			Extraction: SpeechExtractionConfig{
+				MaxSchemaBytes: 16384, MaxSchemaDepth: 16, MaxSchemaProperties: 128,
+				MaxInstructionBytes: 4096, MaxResultBytes: 16384, RequestTimeout: "120s",
+			},
+			Synthesis: SpeechSynthesisConfig{MaxTextBytes: 4096, MaxOutputBytes: 4194304, RequestTimeout: "120s"},
 		},
 	}
 }
@@ -355,6 +418,24 @@ func mergeSpeechConfig(runtime SpeechConfig, file SpeechConfig) SpeechConfig {
 	}
 	if runtime.Transcription.RequestTimeout == "" {
 		runtime.Transcription.RequestTimeout = file.Transcription.RequestTimeout
+	}
+	if runtime.Extraction.MaxSchemaBytes == 0 {
+		runtime.Extraction.MaxSchemaBytes = file.Extraction.MaxSchemaBytes
+	}
+	if runtime.Extraction.MaxSchemaDepth == 0 {
+		runtime.Extraction.MaxSchemaDepth = file.Extraction.MaxSchemaDepth
+	}
+	if runtime.Extraction.MaxSchemaProperties == 0 {
+		runtime.Extraction.MaxSchemaProperties = file.Extraction.MaxSchemaProperties
+	}
+	if runtime.Extraction.MaxInstructionBytes == 0 {
+		runtime.Extraction.MaxInstructionBytes = file.Extraction.MaxInstructionBytes
+	}
+	if runtime.Extraction.MaxResultBytes == 0 {
+		runtime.Extraction.MaxResultBytes = file.Extraction.MaxResultBytes
+	}
+	if runtime.Extraction.RequestTimeout == "" {
+		runtime.Extraction.RequestTimeout = file.Extraction.RequestTimeout
 	}
 	if runtime.Synthesis.MaxTextBytes == 0 {
 		runtime.Synthesis.MaxTextBytes = file.Synthesis.MaxTextBytes
@@ -436,6 +517,28 @@ func (cfg Config) validate() error {
 	}
 	if _, err := parsePositiveConfigDuration(cfg.Speech.Transcription.RequestTimeout); err != nil {
 		return fmt.Errorf("server: speech.transcription.request_timeout: %w", err)
+	}
+	if cfg.Speech.Extraction.MaxSchemaBytes <= 0 || cfg.Speech.Extraction.MaxSchemaBytes > 16384 {
+		return fmt.Errorf("server: speech.extraction.max_schema_bytes must be between 1 and 16384")
+	}
+	if cfg.Speech.Extraction.MaxSchemaDepth <= 0 || cfg.Speech.Extraction.MaxSchemaDepth > 16 {
+		return fmt.Errorf("server: speech.extraction.max_schema_depth must be between 1 and 16")
+	}
+	if cfg.Speech.Extraction.MaxSchemaProperties <= 0 || cfg.Speech.Extraction.MaxSchemaProperties > 128 {
+		return fmt.Errorf("server: speech.extraction.max_schema_properties must be between 1 and 128")
+	}
+	if cfg.Speech.Extraction.MaxInstructionBytes <= 0 || cfg.Speech.Extraction.MaxInstructionBytes > 4096 {
+		return fmt.Errorf("server: speech.extraction.max_instruction_bytes must be between 1 and 4096")
+	}
+	if cfg.Speech.Extraction.MaxResultBytes <= 0 || cfg.Speech.Extraction.MaxResultBytes > 16384 {
+		return fmt.Errorf("server: speech.extraction.max_result_bytes must be between 1 and 16384")
+	}
+	extractionTimeout, err := parsePositiveConfigDuration(cfg.Speech.Extraction.RequestTimeout)
+	if err != nil {
+		return fmt.Errorf("server: speech.extraction.request_timeout: %w", err)
+	}
+	if extractionTimeout > maxSpeechExtractionRequestTimeout {
+		return fmt.Errorf("server: speech.extraction.request_timeout must be at most 2m0s")
 	}
 	if cfg.Speech.Synthesis.MaxTextBytes <= 0 {
 		return fmt.Errorf("server: speech.synthesis.max_text_bytes must be > 0")

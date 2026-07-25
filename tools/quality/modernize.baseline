@@ -4,7 +4,7 @@ apps/wails/internal/endpointhealth/prober.go:76:3: Goroutine creation can be sim
 cmd/internal/commands/admin/resource.go:368:6: for loop can be modernized using range over int
 cmd/internal/commands/connect/command.go:995:6: stringPtr can be an inlinable wrapper around new(expr)
 cmd/internal/connection/connection.go:100:6: for loop can be modernized using range over int
-cmd/internal/server/config.go:750:5: HasSuffix + TrimSuffix can be simplified to CutSuffix
+cmd/internal/server/config.go:853:5: HasSuffix + TrimSuffix can be simplified to CutSuffix
 cmd/internal/server/tcp_mux.go:32:2: Goroutine creation can be simplified using WaitGroup.Go
 cmd/internal/server/tcp_mux.go:67:3: Goroutine creation can be simplified using WaitGroup.Go
 cmd/internal/server/workspace_test.go:114:72: Replace []byte(fmt.Sprintf...) with fmt.Appendf
@@ -166,7 +166,7 @@ pkgs/gizclaw/rpc_server_service_test.go:73:105: call of stringPtr(x) can be simp
 pkgs/gizclaw/rpc_server_service_test.go:819:6: stringPtr can be an inlinable wrapper around new(expr)
 pkgs/gizclaw/rpc_server_service_test.go:823:6: intPtr can be an inlinable wrapper around new(expr)
 pkgs/gizclaw/rpc_server_service_test.go:827:6: boolPtr can be an inlinable wrapper around new(expr)
-pkgs/gizclaw/rpc_speech.go:398:2: Loop can be simplified using slices.Contains
+pkgs/gizclaw/rpc_speech.go:531:2: Loop can be simplified using slices.Contains
 pkgs/gizclaw/services/ai/credential/credential_body_test.go:13:80: call of testStringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/ai/credential/credential_body_test.go:9:6: testStringPtr can be an inlinable wrapper around new(expr)
 pkgs/gizclaw/services/ai/model/server_test.go:26:15: call of stringPtr(x) can be simplified to new(x)

@@ -83,6 +83,23 @@ int gzc_rpc_speech_transcribe_finish(
     gzc_rpc_error_t *out_error);
 void gzc_rpc_speech_transcribe_cancel(gzc_rpc_speech_upload_t *upload);
 
+/* Opens an incremental schema-constrained extraction upload. */
+int gzc_rpc_speech_extract_open(
+    gzc_client_t *client,
+    const gizclaw_rpc_v1_SpeechExtractRequest *request,
+    gzc_rpc_speech_upload_t **out_upload);
+/* data is borrowed until this synchronous call returns. */
+int gzc_rpc_speech_extract_write(
+    gzc_rpc_speech_upload_t *upload,
+    const uint8_t *data,
+    size_t len);
+/* Sends request EOS, reads the typed response and consumes upload. */
+int gzc_rpc_speech_extract_finish(
+    gzc_rpc_speech_upload_t *upload,
+    gizclaw_rpc_v1_SpeechExtractResponse *out_response,
+    gzc_rpc_error_t *out_error);
+void gzc_rpc_speech_extract_cancel(gzc_rpc_speech_upload_t *upload);
+
 /* Streams synthesis frames to on_audio after decoding response metadata. */
 int gzc_rpc_speech_synthesize(
     gzc_client_t *client,

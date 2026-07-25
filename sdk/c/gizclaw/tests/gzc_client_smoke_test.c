@@ -24,7 +24,8 @@ typedef enum {
   FAKE_RESPONSE_BINARY_STREAM = 3,
   FAKE_RESPONSE_PROTO_ERROR = 4,
   FAKE_RESPONSE_SPEECH_TRANSCRIBE = 5,
-  FAKE_RESPONSE_SPEECH_SYNTHESIZE = 6
+  FAKE_RESPONSE_SPEECH_SYNTHESIZE = 6,
+  FAKE_RESPONSE_SPEECH_EXTRACT = 7
 } fake_response_mode_t;
 
 typedef struct {
@@ -487,10 +488,13 @@ static int test_channel_send_frame(gzc_rtc_channel_t *channel, const uint8_t *da
   gzc_rpc_frame_t request_frame;
   bool is_eos = gzc_rpc_frame_decode(data, len, &request_frame) == GZC_OK &&
                 request_frame.type == GZC_RPC_FRAME_EOS;
-  if (fake->response_mode == FAKE_RESPONSE_SPEECH_TRANSCRIBE && !is_eos) {
+  if ((fake->response_mode == FAKE_RESPONSE_SPEECH_TRANSCRIBE ||
+       fake->response_mode == FAKE_RESPONSE_SPEECH_EXTRACT) &&
+      !is_eos) {
     return gzc_buf_append(&fake->sent, fake->platform, data, len);
   }
-  if (is_eos && fake->response_mode != FAKE_RESPONSE_SPEECH_TRANSCRIBE) {
+  if (is_eos && fake->response_mode != FAKE_RESPONSE_SPEECH_TRANSCRIBE &&
+      fake->response_mode != FAKE_RESPONSE_SPEECH_EXTRACT) {
     return GZC_OK;
   }
   gzc_buf_reset(&fake->sent);
@@ -604,6 +608,21 @@ static int test_channel_send_frame(gzc_rtc_channel_t *channel, const uint8_t *da
         1,
         (const uint8_t *)"hello",
         strlen("hello"));
+  } else if (fake->response_mode == FAKE_RESPONSE_SPEECH_EXTRACT) {
+    rc = append_test_proto_bytes(
+        fake->platform,
+        &response_result,
+        1,
+        (const uint8_t *)"name is GizClaw",
+        strlen("name is GizClaw"));
+    if (rc == GZC_OK) {
+      rc = append_test_proto_bytes(
+          fake->platform,
+          &response_result,
+          2,
+          (const uint8_t *)"{\"name\":\"GizClaw\"}",
+          strlen("{\"name\":\"GizClaw\"}"));
+    }
   } else {
     rc = append_test_proto_varint(fake->platform, &response_result, 1, 99);
   }
@@ -1665,6 +1684,53 @@ int main(void) {
     return 1;
   }
 
+  gizclaw_rpc_v1_SpeechExtractRequest extract_request =
+      gizclaw_rpc_v1_SpeechExtractRequest_init_zero;
+  strcpy(extract_request.asr_model_alias, "asr-main");
+  strcpy(extract_request.extract_model_alias, "extract-main");
+  strcpy(
+      extract_request.content_type,
+      "audio/L16;rate=16000;channels=1");
+  strcpy(
+      extract_request.schema_json,
+      "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}}}");
+  upload = NULL;
+  fake_webrtc.response_mode = FAKE_RESPONSE_SPEECH_EXTRACT;
+  rc = gzc_rpc_speech_extract_open(client, &extract_request, &upload);
+  if (expect(rc == GZC_OK && upload != NULL, "speech extract open") != 0) {
+    return 1;
+  }
+  rc = gzc_rpc_speech_extract_write(upload, speech_input, sizeof(speech_input));
+  if (expect(rc == GZC_OK, "speech extract write") != 0) {
+    gzc_rpc_speech_extract_cancel(upload);
+    return 1;
+  }
+  gizclaw_rpc_v1_SpeechExtractResponse extraction =
+      gizclaw_rpc_v1_SpeechExtractResponse_init_zero;
+  rc = gzc_rpc_speech_extract_finish(upload, &extraction, &speech_error);
+  if (expect(
+          rc == GZC_OK &&
+              strcmp(extraction.transcript, "name is GizClaw") == 0 &&
+              strcmp(extraction.result_json, "{\"name\":\"GizClaw\"}") == 0,
+          "speech extract finish") != 0) {
+    return 1;
+  }
+
+  upload = NULL;
+  fake_webrtc.response_mode = FAKE_RESPONSE_PROTO_ERROR;
+  rc = gzc_rpc_speech_extract_open(client, &extract_request, &upload);
+  if (expect(rc == GZC_OK && upload != NULL, "speech extract error open") != 0) {
+    return 1;
+  }
+  memset(&speech_error, 0, sizeof(speech_error));
+  rc = gzc_rpc_speech_extract_finish(upload, &extraction, &speech_error);
+  if (expect(
+          rc == GZC_ERR_RPC && speech_error.code == 7 &&
+              str_eq_cstr(speech_error.message, "denied"),
+          "speech extract preserves early RPC error") != 0) {
+    return 1;
+  }
+
   gizclaw_rpc_v1_SpeechSynthesizeRequest synthesize_request =
       gizclaw_rpc_v1_SpeechSynthesizeRequest_init_zero;
   strcpy(synthesize_request.voice_alias, "narrator");
@@ -1712,6 +1778,17 @@ int main(void) {
   if (expect(rc == GZC_ERR_INVALID_ARGUMENT, "speech transcribe public API") != 0) {
     return 1;
   }
+  rc = gzc_rpc_speech_extract_open(NULL, &extract_request, &upload);
+  if (expect(rc == GZC_ERR_INVALID_ARGUMENT, "speech extract public API") != 0) {
+    return 1;
+  }
+  fake_webrtc.response_mode = FAKE_RESPONSE_SPEECH_EXTRACT;
+  rc = gzc_rpc_speech_extract_open(client, &extract_request, &upload);
+  if (expect(rc == GZC_OK && upload != NULL, "speech extract cancel open") != 0) {
+    return 1;
+  }
+  gzc_rpc_speech_extract_cancel(upload);
+  upload = NULL;
   rc = gzc_rpc_speech_synthesize(
       NULL,
       &synthesize_request,

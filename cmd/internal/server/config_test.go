@@ -233,6 +233,13 @@ speech:
     max_audio_bytes: 1024
     max_audio_duration: 3s
     request_timeout: 4s
+  extraction:
+    max_schema_bytes: 4096
+    max_schema_depth: 8
+    max_schema_properties: 32
+    max_instruction_bytes: 1024
+    max_result_bytes: 4096
+    request_timeout: 6s
   synthesis:
     max_text_bytes: 512
     max_output_bytes: 2048
@@ -244,6 +251,12 @@ speech:
 	if cfg.Speech.Transcription.MaxAudioBytes != 1024 ||
 		cfg.Speech.Transcription.MaxAudioDuration != "3s" ||
 		cfg.Speech.Transcription.RequestTimeout != "4s" ||
+		cfg.Speech.Extraction.MaxSchemaBytes != 4096 ||
+		cfg.Speech.Extraction.MaxSchemaDepth != 8 ||
+		cfg.Speech.Extraction.MaxSchemaProperties != 32 ||
+		cfg.Speech.Extraction.MaxInstructionBytes != 1024 ||
+		cfg.Speech.Extraction.MaxResultBytes != 4096 ||
+		cfg.Speech.Extraction.RequestTimeout != "6s" ||
 		cfg.Speech.Synthesis.MaxTextBytes != 512 ||
 		cfg.Speech.Synthesis.MaxOutputBytes != 2048 ||
 		cfg.Speech.Synthesis.RequestTimeout != "5s" {
@@ -260,6 +273,13 @@ func TestValidateSpeechLimits(t *testing.T) {
 		{"audio bytes", func(c *Config) { c.Speech.Transcription.MaxAudioBytes = -1 }, "server: speech.transcription.max_audio_bytes must be > 0"},
 		{"audio duration", func(c *Config) { c.Speech.Transcription.MaxAudioDuration = "0s" }, "server: speech.transcription.max_audio_duration: must be > 0"},
 		{"transcription timeout", func(c *Config) { c.Speech.Transcription.RequestTimeout = "later" }, "server: speech.transcription.request_timeout: time: invalid duration \"later\""},
+		{"schema bytes", func(c *Config) { c.Speech.Extraction.MaxSchemaBytes = 16385 }, "server: speech.extraction.max_schema_bytes must be between 1 and 16384"},
+		{"schema depth", func(c *Config) { c.Speech.Extraction.MaxSchemaDepth = 17 }, "server: speech.extraction.max_schema_depth must be between 1 and 16"},
+		{"schema properties", func(c *Config) { c.Speech.Extraction.MaxSchemaProperties = 129 }, "server: speech.extraction.max_schema_properties must be between 1 and 128"},
+		{"instruction bytes", func(c *Config) { c.Speech.Extraction.MaxInstructionBytes = 4097 }, "server: speech.extraction.max_instruction_bytes must be between 1 and 4096"},
+		{"result bytes", func(c *Config) { c.Speech.Extraction.MaxResultBytes = 0 }, "server: speech.extraction.max_result_bytes must be between 1 and 16384"},
+		{"extraction timeout", func(c *Config) { c.Speech.Extraction.RequestTimeout = "later" }, "server: speech.extraction.request_timeout: time: invalid duration \"later\""},
+		{"extraction timeout maximum", func(c *Config) { c.Speech.Extraction.RequestTimeout = "121s" }, "server: speech.extraction.request_timeout must be at most 2m0s"},
 		{"text bytes", func(c *Config) { c.Speech.Synthesis.MaxTextBytes = 0 }, "server: speech.synthesis.max_text_bytes must be > 0"},
 		{"output bytes", func(c *Config) { c.Speech.Synthesis.MaxOutputBytes = -1 }, "server: speech.synthesis.max_output_bytes must be > 0"},
 		{"synthesis timeout", func(c *Config) { c.Speech.Synthesis.RequestTimeout = "0s" }, "server: speech.synthesis.request_timeout: must be > 0"},
@@ -283,6 +303,10 @@ func TestParseConfigRejectsExplicitInvalidSpeechLimits(t *testing.T) {
 		want string
 	}{
 		{"zero audio bytes", "speech:\n  transcription:\n    max_audio_bytes: 0\n", "server: speech.transcription.max_audio_bytes must be > 0"},
+		{"zero schema bytes", "speech:\n  extraction:\n    max_schema_bytes: 0\n", "server: speech.extraction.max_schema_bytes must be between 1 and 16384"},
+		{"oversized result", "speech:\n  extraction:\n    max_result_bytes: 16385\n", "server: speech.extraction.max_result_bytes must be between 1 and 16384"},
+		{"zero extraction timeout", "speech:\n  extraction:\n    request_timeout: 0s\n", "server: speech.extraction.request_timeout: must be > 0"},
+		{"oversized extraction timeout", "speech:\n  extraction:\n    request_timeout: 121s\n", "server: speech.extraction.request_timeout must be at most 2m0s"},
 		{"zero text bytes", "speech:\n  synthesis:\n    max_text_bytes: 0\n", "server: speech.synthesis.max_text_bytes must be > 0"},
 		{"empty transcription timeout", "speech:\n  transcription:\n    request_timeout: \"\"\n", "server: speech.transcription.request_timeout: time: invalid duration \"\""},
 		{"zero synthesis timeout", "speech:\n  synthesis:\n    request_timeout: 0s\n", "server: speech.synthesis.request_timeout: must be > 0"},

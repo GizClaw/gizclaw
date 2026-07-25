@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,6 +14,435 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 )
+
+func TestNormalizedSpeechLimitsCannotRaiseExtractionWireBounds(t *testing.T) {
+	server := rpcServer{speechLimits: SpeechLimits{
+		ExtractionMaxSchemaBytes:      rpcSpeechMaxSchemaBytes + 1,
+		ExtractionMaxSchemaDepth:      rpcSpeechMaxSchemaDepth + 1,
+		ExtractionMaxSchemaProperties: rpcSpeechMaxSchemaProperties + 1,
+		ExtractionMaxInstructionBytes: rpcSpeechMaxInstructionBytes + 1,
+		ExtractionMaxResultBytes:      rpcSpeechMaxResultBytes + 1,
+		ExtractionRequestTimeout:      rpcSpeechExtractTimeout + time.Second,
+	}}
+	limits := server.normalizedSpeechLimits()
+	if limits.ExtractionMaxSchemaBytes != rpcSpeechMaxSchemaBytes ||
+		limits.ExtractionMaxSchemaDepth != rpcSpeechMaxSchemaDepth ||
+		limits.ExtractionMaxSchemaProperties != rpcSpeechMaxSchemaProperties ||
+		limits.ExtractionMaxInstructionBytes != rpcSpeechMaxInstructionBytes ||
+		limits.ExtractionMaxResultBytes != rpcSpeechMaxResultBytes ||
+		limits.ExtractionRequestTimeout != rpcSpeechExtractTimeout {
+		t.Fatalf("normalized extraction wire limits = %+v", limits)
+	}
+}
+
+func TestRPCSpeechExtractStreamsUploadAndReturnsValidatedResult(t *testing.T) {
+	firstAudio := make(chan []byte, 1)
+	service := speechServiceFuncs{
+		extract: func(_ context.Context, request peergenx.SpeechExtractionRequest) (peergenx.SpeechExtraction, error) {
+			if request.ASRModelAlias != "asr-main" ||
+				request.ExtractModelAlias != "extract-main" ||
+				request.Language != "zh-CN" ||
+				request.SchemaJSON != `{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}` ||
+				request.Instruction != "extract the contact" {
+				t.Fatalf("extraction request = %+v", request)
+			}
+			chunk, err := request.Input.Next()
+			if err != nil {
+				return peergenx.SpeechExtraction{}, err
+			}
+			blob, ok := chunk.Part.(*genx.Blob)
+			if !ok {
+				return peergenx.SpeechExtraction{}, errors.New("first input is not audio")
+			}
+			firstAudio <- append([]byte(nil), blob.Data...)
+			for {
+				chunk, err = request.Input.Next()
+				if errors.Is(err, genx.ErrDone) || errors.Is(err, io.EOF) {
+					break
+				}
+				if err != nil {
+					return peergenx.SpeechExtraction{}, err
+				}
+				if chunk != nil && chunk.IsEndOfStream() {
+					break
+				}
+			}
+			return peergenx.SpeechExtraction{
+				Transcript: "Alice",
+				ResultJSON: `{"name":"Alice"}`,
+			}, nil
+		},
+	}
+	client, serverDone := startSpeechRPCServer(t, service, SpeechLimits{})
+	defer finishSpeechRPCServer(t, client, serverDone)
+
+	stream := newSpeechClientStream(t, client)
+	defer stream.Close()
+	writeSpeechRequest(t, stream, "extract", rpcapi.RPCMethodServerSpeechExtract,
+		rpcapi.SpeechExtractRequest{
+			ASRModelAlias:     "asr-main",
+			ExtractModelAlias: "extract-main",
+			ContentType:       "audio/L16;rate=16000;channels=1",
+			Language:          new("zh-CN"),
+			SchemaJSON:        `{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}`,
+			Instruction:       new("extract the contact"),
+		},
+		(*rpcapi.RPCPayload).FromSpeechExtractRequest)
+	if err := stream.WriteFrame(rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: []byte{1, 2}}); err != nil {
+		t.Fatalf("WriteFrame(first audio) error = %v", err)
+	}
+	select {
+	case got := <-firstAudio:
+		if !bytes.Equal(got, []byte{1, 2}) {
+			t.Fatalf("first audio = %v", got)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("provider did not receive audio before request EOS")
+	}
+	if err := stream.WriteFrame(rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: []byte{3, 4}}); err != nil {
+		t.Fatalf("WriteFrame(second audio) error = %v", err)
+	}
+	if err := stream.WriteEOS(); err != nil {
+		t.Fatalf("WriteEOS() error = %v", err)
+	}
+	response, err := stream.ReadResponseForMethod(rpcapi.RPCMethodServerSpeechExtract)
+	if err != nil {
+		t.Fatalf("ReadResponse() error = %v", err)
+	}
+	if response.Error != nil {
+		t.Fatalf("response error = %+v", response.Error)
+	}
+	result, err := response.Result.AsSpeechExtractResponse()
+	if err != nil || result.Transcript != "Alice" || result.ResultJSON != `{"name":"Alice"}` {
+		t.Fatalf("extraction = (%+v, %v)", result, err)
+	}
+	readSpeechEOS(t, stream)
+}
+
+func TestRPCSpeechExtractSplitResponseUsesEnvelopeEOSAsTerminal(t *testing.T) {
+	service := speechServiceFuncs{
+		extract: func(_ context.Context, request peergenx.SpeechExtractionRequest) (peergenx.SpeechExtraction, error) {
+			for {
+				chunk, err := request.Input.Next()
+				if errors.Is(err, genx.ErrDone) || errors.Is(err, io.EOF) {
+					break
+				}
+				if err != nil {
+					return peergenx.SpeechExtraction{}, err
+				}
+				if chunk != nil && chunk.IsEndOfStream() {
+					break
+				}
+			}
+			return peergenx.SpeechExtraction{
+				Transcript: "Alice",
+				ResultJSON: `{"name":"Alice"}`,
+			}, nil
+		},
+	}
+	client, serverDone := startSpeechRPCServer(t, service, SpeechLimits{})
+	defer finishSpeechRPCServer(t, client, serverDone)
+
+	stream := newSpeechClientStream(t, client)
+	defer stream.Close()
+	params, err := newRPCRequestParams(rpcapi.SpeechExtractRequest{
+		ASRModelAlias:     "asr-main",
+		ExtractModelAlias: "extract-main",
+		ContentType:       "audio/L16;rate=16000;channels=1",
+		SchemaJSON:        `{"type":"object","properties":{"name":{"type":"string"}}}`,
+	}, (*rpcapi.RPCPayload).FromSpeechExtractRequest)
+	if err != nil {
+		t.Fatalf("newRPCRequestParams() error = %v", err)
+	}
+	largeID := string(bytes.Repeat([]byte("r"), rpcapi.MaxFrameSize+1024))
+	if err := stream.WriteRequestEnvelope(newRPCRequest(largeID, rpcapi.RPCMethodServerSpeechExtract, params)); err != nil {
+		t.Fatalf("WriteRequestEnvelope() error = %v", err)
+	}
+	if err := stream.WriteEOS(); err != nil {
+		t.Fatalf("WriteEOS(request envelope) error = %v", err)
+	}
+	if err := stream.WriteFrame(rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: []byte{1, 2}}); err != nil {
+		t.Fatalf("WriteFrame(audio) error = %v", err)
+	}
+	if err := stream.WriteEOS(); err != nil {
+		t.Fatalf("WriteEOS(audio) error = %v", err)
+	}
+
+	response, responseEOS, err := stream.ReadResponseEnvelopeForMethod(rpcapi.RPCMethodServerSpeechExtract)
+	if err != nil {
+		t.Fatalf("ReadResponseEnvelopeForMethod() error = %v", err)
+	}
+	if !responseEOS {
+		t.Fatal("split response did not consume its terminal EOS")
+	}
+	if response.Id != largeID || response.Error != nil {
+		t.Fatalf("response = %+v", response)
+	}
+	if err := client.SetReadDeadline(time.Now().Add(100 * time.Millisecond)); err != nil {
+		t.Fatalf("SetReadDeadline() error = %v", err)
+	}
+	_, err = stream.ReadFrame()
+	var netErr net.Error
+	if !errors.As(err, &netErr) || !netErr.Timeout() {
+		t.Fatalf("unexpected frame after split response terminal EOS: %v", err)
+	}
+	if err := client.SetReadDeadline(time.Time{}); err != nil {
+		t.Fatalf("clear read deadline error = %v", err)
+	}
+}
+
+func TestRPCSpeechExtractMapsAndSanitizesTerminalErrors(t *testing.T) {
+	tests := []struct {
+		name    string
+		service error
+		code    rpcapi.RPCErrorCode
+		message string
+	}{
+		{name: "unknown alias", service: peergenx.ErrNotFound, code: rpcapi.RPCErrorCodeNotFound, message: "speech alias not found"},
+		{name: "wrong model kind", service: peergenx.ErrInvalid, code: rpcapi.RPCErrorCodeBadRequest, message: "speech extraction request is not supported"},
+		{name: "invalid invocation output", service: peergenx.ErrInvalidOutput, code: rpcapi.RPCErrorCodeInternalError, message: "speech extraction failed"},
+		{name: "provider failure", service: errors.New("secret upstream credential"), code: rpcapi.RPCErrorCodeInternalError, message: "speech extraction provider failed"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			service := speechServiceFuncs{
+				extract: func(context.Context, peergenx.SpeechExtractionRequest) (peergenx.SpeechExtraction, error) {
+					return peergenx.SpeechExtraction{}, test.service
+				},
+			}
+			client, serverDone := startSpeechRPCServer(t, service, SpeechLimits{})
+			defer finishSpeechRPCServer(t, client, serverDone)
+
+			stream := newSpeechClientStream(t, client)
+			defer stream.Close()
+			writeStandardSpeechExtractRequest(t, stream, "terminal-error")
+			response, err := stream.ReadResponseForMethod(rpcapi.RPCMethodServerSpeechExtract)
+			if err != nil {
+				t.Fatalf("ReadResponse() error = %v", err)
+			}
+			if response.Error == nil ||
+				response.Error.Code != test.code ||
+				response.Error.Message != test.message {
+				t.Fatalf("response = %+v", response)
+			}
+			if strings.Contains(response.Error.Message, "credential") {
+				t.Fatalf("response leaked provider details: %+v", response.Error)
+			}
+			readSpeechEOS(t, stream)
+		})
+	}
+}
+
+func TestRPCSpeechExtractTimeoutCancelsUploadAndInvocation(t *testing.T) {
+	tests := []struct {
+		name    string
+		extract func(context.Context, peergenx.SpeechExtractionRequest) (peergenx.SpeechExtraction, error)
+		upload  bool
+	}{
+		{
+			name: "stalled upload",
+			extract: func(_ context.Context, request peergenx.SpeechExtractionRequest) (peergenx.SpeechExtraction, error) {
+				_, err := request.Input.Next()
+				return peergenx.SpeechExtraction{}, err
+			},
+		},
+		{
+			name: "stalled invocation",
+			extract: func(ctx context.Context, request peergenx.SpeechExtractionRequest) (peergenx.SpeechExtraction, error) {
+				for {
+					chunk, err := request.Input.Next()
+					if err != nil {
+						return peergenx.SpeechExtraction{}, err
+					}
+					if chunk != nil && chunk.IsEndOfStream() {
+						break
+					}
+				}
+				<-ctx.Done()
+				return peergenx.SpeechExtraction{}, ctx.Err()
+			},
+			upload: true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			client, serverDone := startSpeechRPCServer(t, speechServiceFuncs{extract: test.extract}, SpeechLimits{
+				ExtractionRequestTimeout: 25 * time.Millisecond,
+			})
+			defer finishSpeechRPCServer(t, client, serverDone)
+
+			stream := newSpeechClientStream(t, client)
+			defer stream.Close()
+			writeStandardSpeechExtractRequest(t, stream, "timeout")
+			if test.upload {
+				if err := stream.WriteFrame(rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: []byte{1, 2}}); err != nil {
+					t.Fatalf("WriteFrame() error = %v", err)
+				}
+				if err := stream.WriteEOS(); err != nil {
+					t.Fatalf("WriteEOS() error = %v", err)
+				}
+			}
+			response, err := stream.ReadResponseForMethod(rpcapi.RPCMethodServerSpeechExtract)
+			if err != nil {
+				t.Fatalf("ReadResponse() error = %v", err)
+			}
+			if response.Error == nil ||
+				response.Error.Code != rpcapi.RPCErrorCodeInternalError ||
+				response.Error.Message != "speech extraction timed out" {
+				t.Fatalf("response = %+v", response)
+			}
+			readSpeechEOS(t, stream)
+		})
+	}
+}
+
+func TestRPCSpeechExtractRejectsInputAndOutputLimits(t *testing.T) {
+	t.Run("empty audio", func(t *testing.T) {
+		service := speechServiceFuncs{
+			extract: func(_ context.Context, request peergenx.SpeechExtractionRequest) (peergenx.SpeechExtraction, error) {
+				_, err := request.Input.Next()
+				return peergenx.SpeechExtraction{}, err
+			},
+		}
+		client, serverDone := startSpeechRPCServer(t, service, SpeechLimits{})
+		defer finishSpeechRPCServer(t, client, serverDone)
+		stream := newSpeechClientStream(t, client)
+		defer stream.Close()
+		writeStandardSpeechExtractRequest(t, stream, "empty")
+		if err := stream.WriteEOS(); err != nil {
+			t.Fatalf("WriteEOS() error = %v", err)
+		}
+		response, err := stream.ReadResponseForMethod(rpcapi.RPCMethodServerSpeechExtract)
+		if err != nil {
+			t.Fatalf("ReadResponse() error = %v", err)
+		}
+		if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeBadRequest {
+			t.Fatalf("response = %+v", response)
+		}
+		readSpeechEOS(t, stream)
+	})
+
+	t.Run("oversized audio", func(t *testing.T) {
+		service := speechServiceFuncs{
+			extract: func(_ context.Context, request peergenx.SpeechExtractionRequest) (peergenx.SpeechExtraction, error) {
+				for {
+					if _, err := request.Input.Next(); err != nil {
+						return peergenx.SpeechExtraction{}, err
+					}
+				}
+			},
+		}
+		client, serverDone := startSpeechRPCServer(t, service, SpeechLimits{TranscriptionMaxAudioBytes: 2})
+		defer finishSpeechRPCServer(t, client, serverDone)
+		stream := newSpeechClientStream(t, client)
+		defer stream.Close()
+		writeStandardSpeechExtractRequest(t, stream, "audio-limit")
+		if err := stream.WriteFrame(rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: []byte{1, 2, 3, 4}}); err != nil {
+			t.Fatalf("WriteFrame() error = %v", err)
+		}
+		response, err := stream.ReadResponseForMethod(rpcapi.RPCMethodServerSpeechExtract)
+		if err != nil {
+			t.Fatalf("ReadResponse() error = %v", err)
+		}
+		if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeBadRequest {
+			t.Fatalf("response = %+v", response)
+		}
+		readSpeechEOS(t, stream)
+	})
+
+	t.Run("oversized result", func(t *testing.T) {
+		service := speechServiceFuncs{
+			extract: func(_ context.Context, request peergenx.SpeechExtractionRequest) (peergenx.SpeechExtraction, error) {
+				for {
+					chunk, err := request.Input.Next()
+					if err != nil {
+						return peergenx.SpeechExtraction{}, err
+					}
+					if chunk != nil && chunk.IsEndOfStream() {
+						return peergenx.SpeechExtraction{
+							Transcript: "Alice",
+							ResultJSON: `{"name":"Alice"}`,
+						}, nil
+					}
+				}
+			},
+		}
+		client, serverDone := startSpeechRPCServer(t, service, SpeechLimits{ExtractionMaxResultBytes: 4})
+		defer finishSpeechRPCServer(t, client, serverDone)
+		stream := newSpeechClientStream(t, client)
+		defer stream.Close()
+		writeStandardSpeechExtractRequest(t, stream, "result-limit")
+		if err := stream.WriteFrame(rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: []byte{1, 2}}); err != nil {
+			t.Fatalf("WriteFrame() error = %v", err)
+		}
+		if err := stream.WriteEOS(); err != nil {
+			t.Fatalf("WriteEOS() error = %v", err)
+		}
+		response, err := stream.ReadResponseForMethod(rpcapi.RPCMethodServerSpeechExtract)
+		if err != nil {
+			t.Fatalf("ReadResponse() error = %v", err)
+		}
+		if response.Error == nil ||
+			response.Error.Code != rpcapi.RPCErrorCodeInternalError ||
+			response.Error.Message != "speech extraction returned an invalid result" {
+			t.Fatalf("response = %+v", response)
+		}
+		readSpeechEOS(t, stream)
+	})
+}
+
+func TestValidateSpeechExtractRequestRejectsBoundedMetadata(t *testing.T) {
+	tests := []struct {
+		name    string
+		request rpcapi.SpeechExtractRequest
+	}{
+		{
+			name: "oversized schema",
+			request: rpcapi.SpeechExtractRequest{
+				ASRModelAlias: "asr", ExtractModelAlias: "extract",
+				ContentType: "audio/L16;rate=16000;channels=1",
+				SchemaJSON:  strings.Repeat("x", rpcSpeechMaxSchemaBytes+1),
+			},
+		},
+		{
+			name: "oversized instruction",
+			request: rpcapi.SpeechExtractRequest{
+				ASRModelAlias: "asr", ExtractModelAlias: "extract",
+				ContentType: "audio/L16;rate=16000;channels=1",
+				SchemaJSON:  `{"type":"object"}`,
+				Instruction: new(strings.Repeat("x", rpcSpeechMaxInstructionBytes+1)),
+			},
+		},
+		{
+			name: "invalid UTF-8 schema",
+			request: rpcapi.SpeechExtractRequest{
+				ASRModelAlias: "asr", ExtractModelAlias: "extract",
+				ContentType: "audio/L16;rate=16000;channels=1",
+				SchemaJSON:  string([]byte{0xff}),
+			},
+		},
+		{
+			name: "invalid UTF-8 instruction",
+			request: rpcapi.SpeechExtractRequest{
+				ASRModelAlias: "asr", ExtractModelAlias: "extract",
+				ContentType: "audio/L16;rate=16000;channels=1",
+				SchemaJSON:  `{"type":"object"}`,
+				Instruction: new(string([]byte{0xff})),
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, _, _, err := validateSpeechExtractRequest(test.request, DefaultSpeechLimits())
+			if !errors.Is(err, errSpeechBadRequest) {
+				t.Fatalf("validateSpeechExtractRequest() error = %v, want BAD_REQUEST", err)
+			}
+			if code, _ := speechExtractRPCError(err); code != rpcapi.RPCErrorCodeBadRequest {
+				t.Fatalf("speechExtractRPCError() code = %v, want BAD_REQUEST", code)
+			}
+		})
+	}
+}
 
 func TestRPCSpeechTranscribeStreamsUploadBeforeEOS(t *testing.T) {
 	firstAudio := make(chan []byte, 1)
@@ -521,6 +951,7 @@ func TestValidateSpeechSynthesizeRequestRejectsDuplicateMediaTypes(t *testing.T)
 
 type speechServiceFuncs struct {
 	transcribe func(context.Context, string, string, genx.Stream) (string, error)
+	extract    func(context.Context, peergenx.SpeechExtractionRequest) (peergenx.SpeechExtraction, error)
 	synthesize func(context.Context, string, string, []string) (peergenx.SpeechSynthesis, error)
 }
 
@@ -529,6 +960,13 @@ func (s speechServiceFuncs) Transcribe(ctx context.Context, alias, language stri
 		return "", errors.New("unexpected transcription")
 	}
 	return s.transcribe(ctx, alias, language, input)
+}
+
+func (s speechServiceFuncs) Extract(ctx context.Context, request peergenx.SpeechExtractionRequest) (peergenx.SpeechExtraction, error) {
+	if s.extract == nil {
+		return peergenx.SpeechExtraction{}, errors.New("unexpected extraction")
+	}
+	return s.extract(ctx, request)
 }
 
 func (s speechServiceFuncs) Synthesize(ctx context.Context, alias, text string, accepted []string) (peergenx.SpeechSynthesis, error) {
@@ -625,6 +1063,18 @@ func writeSpeechRequest[T any](t *testing.T, stream *rpcStream, id string, metho
 	if err := stream.WriteRequest(newRPCRequest(id, method, params)); err != nil {
 		t.Fatalf("WriteRequest() error = %v", err)
 	}
+}
+
+func writeStandardSpeechExtractRequest(t *testing.T, stream *rpcStream, id string) {
+	t.Helper()
+	writeSpeechRequest(t, stream, id, rpcapi.RPCMethodServerSpeechExtract,
+		rpcapi.SpeechExtractRequest{
+			ASRModelAlias:     "asr-main",
+			ExtractModelAlias: "extract-main",
+			ContentType:       "audio/L16;rate=16000;channels=1",
+			SchemaJSON:        `{"type":"object","properties":{"name":{"type":"string"}}}`,
+		},
+		(*rpcapi.RPCPayload).FromSpeechExtractRequest)
 }
 
 func readSpeechEOS(t *testing.T, stream *rpcStream) {
