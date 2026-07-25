@@ -719,11 +719,13 @@ typedef struct {
   size_t envelope_count;
   size_t frame_count;
   size_t binary_bytes;
+  size_t eos_count;
 } stream_count_t;
 
 typedef struct {
   int code;
   size_t frame_count;
+  size_t eos_count;
   bool has_error;
   bool message_ok;
 } stream_error_t;
@@ -732,6 +734,13 @@ static int count_stream_frame(void *userdata, const gzc_rpc_frame_t *frame) {
   stream_count_t *count = (stream_count_t *)userdata;
   if (count == NULL || frame == NULL) {
     return GZC_ERR_RPC;
+  }
+  if (frame->type == GZC_RPC_FRAME_EOS) {
+    if (frame->len != 0u) {
+      return GZC_ERR_RPC;
+    }
+    count->eos_count++;
+    return GZC_OK;
   }
   if (frame->type != GZC_RPC_FRAME_BINARY) {
     return GZC_ERR_RPC;
@@ -757,7 +766,17 @@ static int count_speech_audio(void *userdata, const uint8_t *data, size_t len) {
 
 static int capture_stream_error_frame(void *userdata, const gzc_rpc_frame_t *frame) {
   stream_error_t *captured = (stream_error_t *)userdata;
-  if (captured == NULL || frame == NULL || frame->type != GZC_RPC_FRAME_BINARY) {
+  if (captured == NULL || frame == NULL) {
+    return GZC_ERR_RPC;
+  }
+  if (frame->type == GZC_RPC_FRAME_EOS) {
+    if (frame->len != 0u) {
+      return GZC_ERR_RPC;
+    }
+    captured->eos_count++;
+    return GZC_OK;
+  }
+  if (frame->type != GZC_RPC_FRAME_BINARY) {
     return GZC_ERR_RPC;
   }
   gzc_rpc_response_t response;
@@ -1555,7 +1574,11 @@ int main(void) {
   if (expect(rc == GZC_OK, "rpc call stream") != 0) {
     return 1;
   }
-  if (expect(stream_count.envelope_count == 1 && stream_count.frame_count == 2 && stream_count.binary_bytes == 3, "stream frames counted") != 0) {
+  if (expect(stream_count.envelope_count == 1 &&
+                 stream_count.frame_count == 2 &&
+                 stream_count.binary_bytes == 3 &&
+                 stream_count.eos_count == 1,
+             "stream frames and terminal eos counted") != 0) {
     return 1;
   }
 
@@ -1669,8 +1692,10 @@ int main(void) {
     return 1;
   }
   if (expect(
-          stream_error.frame_count == 1 && stream_error.has_error && stream_error.code == 7 && stream_error.message_ok,
-          "stream error envelope delivered to callback") != 0) {
+          stream_error.frame_count == 1 && stream_error.eos_count == 1 &&
+              stream_error.has_error && stream_error.code == 7 &&
+              stream_error.message_ok,
+          "stream error envelope and terminal eos delivered to callback") != 0) {
     return 1;
   }
   fake_webrtc.response_mode = FAKE_RESPONSE_PROTO;

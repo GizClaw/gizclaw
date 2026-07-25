@@ -547,10 +547,16 @@ static int gzc_rpc_call_stream_with_timeout(
           break;
         }
         if (response.has_error) {
-          rc = GZC_OK;
+          rc = on_frame(userdata, &frame);
           break;
         }
         continue;
+      }
+      if (saw_response) {
+        rc = on_frame(userdata, &frame);
+        if (rc != GZC_OK) {
+          break;
+        }
       }
       rc = saw_response ? GZC_OK : GZC_ERR_RPC;
       break;
@@ -807,6 +813,9 @@ typedef struct {
 static int speech_synthesis_frame(void *userdata, const gzc_rpc_frame_t *frame) {
   gzc_speech_synthesis_context_t *context =
       (gzc_speech_synthesis_context_t *)userdata;
+  if (frame->type == GZC_RPC_FRAME_EOS) {
+    return context->saw_metadata ? GZC_OK : GZC_ERR_RPC;
+  }
   if (!context->saw_metadata) {
     gzc_str_t response_payload;
     int rc = gzc_client_store_rpc_response_internal(

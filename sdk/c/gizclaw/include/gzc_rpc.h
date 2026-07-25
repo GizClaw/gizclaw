@@ -31,6 +31,11 @@ typedef struct {
   gzc_rpc_error_t error;
 } gzc_rpc_response_t;
 
+/*
+ * Receives the response envelope, streamed binary frames, and the terminating
+ * RPC EOS frame synchronously. frame and frame->data are borrowed until the
+ * callback returns.
+ */
 typedef int (*gzc_rpc_frame_cb)(void *userdata, const gzc_rpc_frame_t *frame);
 typedef int (*gzc_rpc_speech_audio_cb)(
     void *userdata,
