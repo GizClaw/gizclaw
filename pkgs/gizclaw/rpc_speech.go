@@ -21,6 +21,12 @@ const (
 	rpcSpeechMaxAudioDuration    = 60 * time.Second
 	rpcSpeechTranscribeTimeout   = 75 * time.Second
 	rpcSpeechMaxTranscriptBytes  = 8192
+	rpcSpeechMaxSchemaBytes      = 16 * 1024
+	rpcSpeechMaxSchemaDepth      = 16
+	rpcSpeechMaxSchemaProperties = 128
+	rpcSpeechMaxInstructionBytes = 4096
+	rpcSpeechMaxResultBytes      = 16 * 1024
+	rpcSpeechExtractTimeout      = 120 * time.Second
 	rpcSpeechMaxTextBytes        = 4096
 	rpcSpeechMaxOutputBytes      = 4 * 1024 * 1024
 	rpcSpeechSynthesizeTimeout   = 120 * time.Second
@@ -33,6 +39,7 @@ var errSpeechBadRequest = errors.New("invalid speech request")
 
 type rpcSpeechService interface {
 	Transcribe(context.Context, string, string, genx.Stream) (string, error)
+	Extract(context.Context, peergenx.SpeechExtractionRequest) (peergenx.SpeechExtraction, error)
 	Synthesize(context.Context, string, string, []string) (peergenx.SpeechSynthesis, error)
 }
 
@@ -40,6 +47,12 @@ type SpeechLimits struct {
 	TranscriptionMaxAudioBytes    int64
 	TranscriptionMaxAudioDuration time.Duration
 	TranscriptionRequestTimeout   time.Duration
+	ExtractionMaxSchemaBytes      int
+	ExtractionMaxSchemaDepth      int
+	ExtractionMaxSchemaProperties int
+	ExtractionMaxInstructionBytes int
+	ExtractionMaxResultBytes      int
+	ExtractionRequestTimeout      time.Duration
 	SynthesisMaxTextBytes         int
 	SynthesisMaxOutputBytes       int64
 	SynthesisRequestTimeout       time.Duration
@@ -50,6 +63,12 @@ func DefaultSpeechLimits() SpeechLimits {
 		TranscriptionMaxAudioBytes:    rpcSpeechMaxAudioBytes,
 		TranscriptionMaxAudioDuration: rpcSpeechMaxAudioDuration,
 		TranscriptionRequestTimeout:   rpcSpeechTranscribeTimeout,
+		ExtractionMaxSchemaBytes:      rpcSpeechMaxSchemaBytes,
+		ExtractionMaxSchemaDepth:      rpcSpeechMaxSchemaDepth,
+		ExtractionMaxSchemaProperties: rpcSpeechMaxSchemaProperties,
+		ExtractionMaxInstructionBytes: rpcSpeechMaxInstructionBytes,
+		ExtractionMaxResultBytes:      rpcSpeechMaxResultBytes,
+		ExtractionRequestTimeout:      rpcSpeechExtractTimeout,
 		SynthesisMaxTextBytes:         rpcSpeechMaxTextBytes,
 		SynthesisMaxOutputBytes:       rpcSpeechMaxOutputBytes,
 		SynthesisRequestTimeout:       rpcSpeechSynthesizeTimeout,
@@ -67,6 +86,32 @@ func (s *rpcServer) normalizedSpeechLimits() SpeechLimits {
 	}
 	if limits.TranscriptionRequestTimeout <= 0 {
 		limits.TranscriptionRequestTimeout = defaults.TranscriptionRequestTimeout
+	}
+	if limits.ExtractionMaxSchemaBytes <= 0 ||
+		limits.ExtractionMaxSchemaBytes > defaults.ExtractionMaxSchemaBytes {
+		limits.ExtractionMaxSchemaBytes = defaults.ExtractionMaxSchemaBytes
+	}
+	if limits.ExtractionMaxSchemaDepth <= 0 ||
+		limits.ExtractionMaxSchemaDepth > defaults.ExtractionMaxSchemaDepth {
+		limits.ExtractionMaxSchemaDepth = defaults.ExtractionMaxSchemaDepth
+	}
+	if limits.ExtractionMaxSchemaProperties <= 0 ||
+		limits.ExtractionMaxSchemaProperties > defaults.ExtractionMaxSchemaProperties {
+		limits.ExtractionMaxSchemaProperties = defaults.ExtractionMaxSchemaProperties
+	}
+	if limits.ExtractionMaxInstructionBytes <= 0 ||
+		limits.ExtractionMaxInstructionBytes > defaults.ExtractionMaxInstructionBytes {
+		limits.ExtractionMaxInstructionBytes = defaults.ExtractionMaxInstructionBytes
+	}
+	if limits.ExtractionMaxResultBytes <= 0 ||
+		limits.ExtractionMaxResultBytes > defaults.ExtractionMaxResultBytes {
+		limits.ExtractionMaxResultBytes = defaults.ExtractionMaxResultBytes
+	}
+	if limits.ExtractionRequestTimeout <= 0 {
+		limits.ExtractionRequestTimeout = defaults.ExtractionRequestTimeout
+	}
+	if limits.ExtractionRequestTimeout > defaults.ExtractionRequestTimeout {
+		limits.ExtractionRequestTimeout = defaults.ExtractionRequestTimeout
 	}
 	if limits.SynthesisMaxTextBytes <= 0 {
 		limits.SynthesisMaxTextBytes = defaults.SynthesisMaxTextBytes
@@ -147,6 +192,93 @@ func (s *rpcServer) handleSpeechTranscribe(ctx context.Context, stream *rpcStrea
 		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeBadRequest, "speech provider returned an oversized transcript")
 	}
 	response, err := newRPCResultResponse(req.Id, rpcapi.SpeechTranscribeResponse{Transcript: transcript}, (*rpcapi.RPCPayload).FromSpeechTranscribeResponse)
+	if err != nil {
+		return err
+	}
+	metadataEOS, err := callStream.WriteResponseEnvelopeForMethod(req.Method, response)
+	if err != nil {
+		return err
+	}
+	if metadataEOS {
+		if err := callStream.WriteEOS(); err != nil {
+			return err
+		}
+	}
+	return callStream.WriteEOS()
+}
+
+func (s *rpcServer) handleSpeechExtract(ctx context.Context, stream *rpcStream, req *rpcapi.RPCRequest) error {
+	if req.Params == nil {
+		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInvalidParams, "missing params")
+	}
+	params, err := req.Params.AsSpeechExtractRequest()
+	if err != nil {
+		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInvalidParams, "invalid params")
+	}
+	limits := s.normalizedSpeechLimits()
+	contentType, language, instruction, err := validateSpeechExtractRequest(params, limits)
+	if err != nil {
+		if errors.Is(err, errSpeechBadRequest) {
+			code, message := speechRPCError(err)
+			return writeRPCErrorResponse(stream, req.Id, code, message)
+		}
+		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInvalidParams, err.Error())
+	}
+	service := s.speechService()
+	if service == nil {
+		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInternalError, "speech service not configured")
+	}
+
+	callCtx, cancel := context.WithTimeout(ctx, limits.ExtractionRequestTimeout)
+	defer cancel()
+	callStream, err := newSpeechCallStream(callCtx, stream)
+	if err != nil {
+		return err
+	}
+	defer callStream.Close()
+	builder := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), rpcSpeechInputBufferChunks)
+	uploadDone := make(chan error, 1)
+	go func() {
+		uploadDone <- readSpeechAudio(callStream, builder, contentType, limits)
+	}()
+
+	extraction, callErr := service.Extract(callCtx, peergenx.SpeechExtractionRequest{
+		ASRModelAlias:       strings.TrimSpace(params.ASRModelAlias),
+		ExtractModelAlias:   strings.TrimSpace(params.ExtractModelAlias),
+		Language:            language,
+		SchemaJSON:          params.SchemaJSON,
+		Instruction:         instruction,
+		Input:               builder.Stream(),
+		MaxSchemaDepth:      limits.ExtractionMaxSchemaDepth,
+		MaxSchemaProperties: limits.ExtractionMaxSchemaProperties,
+		MaxTranscriptBytes:  rpcSpeechMaxTranscriptBytes,
+		MaxResultBytes:      limits.ExtractionMaxResultBytes,
+	})
+	if callErr != nil {
+		cancel()
+		_ = builder.Abort(callErr)
+	}
+	uploadErr := <-uploadDone
+	if callErr == nil {
+		callErr = uploadErr
+	}
+	if callErr != nil {
+		if closeErr := callStream.Close(); closeErr != nil {
+			return closeErr
+		}
+		code, message := speechExtractRPCError(callErr)
+		return writeRPCErrorResponse(stream, req.Id, code, message)
+	}
+	if !utf8.ValidString(extraction.Transcript) || len(extraction.Transcript) > rpcSpeechMaxTranscriptBytes {
+		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInternalError, "speech extraction returned an invalid transcript")
+	}
+	if !utf8.ValidString(extraction.ResultJSON) || len(extraction.ResultJSON) > limits.ExtractionMaxResultBytes {
+		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInternalError, "speech extraction returned an invalid result")
+	}
+	response, err := newRPCResultResponse(req.Id, rpcapi.SpeechExtractResponse{
+		Transcript: extraction.Transcript,
+		ResultJSON: extraction.ResultJSON,
+	}, (*rpcapi.RPCPayload).FromSpeechExtractResponse)
 	if err != nil {
 		return err
 	}
@@ -432,6 +564,39 @@ func validateSpeechTranscribeRequest(request rpcapi.SpeechTranscribeRequest) (st
 	return "audio/L16;rate=16000;channels=1", nil
 }
 
+func validateSpeechExtractRequest(request rpcapi.SpeechExtractRequest, limits SpeechLimits) (contentType, language, instruction string, err error) {
+	contentType, err = validateSpeechTranscribeRequest(rpcapi.SpeechTranscribeRequest{
+		ModelAlias:  request.ASRModelAlias,
+		ContentType: request.ContentType,
+		Language:    request.Language,
+	})
+	if err != nil {
+		return "", "", "", err
+	}
+	if !validRuntimeAlias(strings.TrimSpace(request.ExtractModelAlias)) {
+		return "", "", "", errors.New("extract_model_alias is invalid")
+	}
+	if !utf8.ValidString(request.SchemaJSON) {
+		return "", "", "", fmt.Errorf("%w: schema_json must be valid UTF-8", errSpeechBadRequest)
+	}
+	if strings.TrimSpace(request.SchemaJSON) == "" || len(request.SchemaJSON) > limits.ExtractionMaxSchemaBytes {
+		return "", "", "", fmt.Errorf("%w: schema_json must contain 1 to %d UTF-8 bytes", errSpeechBadRequest, limits.ExtractionMaxSchemaBytes)
+	}
+	if request.Instruction != nil {
+		if !utf8.ValidString(*request.Instruction) {
+			return "", "", "", fmt.Errorf("%w: instruction must be valid UTF-8", errSpeechBadRequest)
+		}
+		if len(*request.Instruction) > limits.ExtractionMaxInstructionBytes {
+			return "", "", "", fmt.Errorf("%w: instruction exceeds %d UTF-8 bytes", errSpeechBadRequest, limits.ExtractionMaxInstructionBytes)
+		}
+		instruction = *request.Instruction
+	}
+	if request.Language != nil {
+		language = strings.TrimSpace(*request.Language)
+	}
+	return contentType, language, instruction, nil
+}
+
 func validateSpeechSynthesizeRequest(request rpcapi.SpeechSynthesizeRequest, maxTextBytes int) ([]string, error) {
 	if !validRuntimeAlias(strings.TrimSpace(request.VoiceAlias)) {
 		return nil, errors.New("voice_alias is invalid")
@@ -487,5 +652,22 @@ func speechRPCError(err error) (rpcapi.RPCErrorCode, string) {
 		return rpcapi.RPCErrorCodeInternalError, "speech request timed out"
 	default:
 		return rpcapi.RPCErrorCodeInternalError, "speech provider failed"
+	}
+}
+
+func speechExtractRPCError(err error) (rpcapi.RPCErrorCode, string) {
+	switch {
+	case errors.Is(err, errSpeechBadRequest):
+		return rpcapi.RPCErrorCodeBadRequest, err.Error()
+	case errors.Is(err, peergenx.ErrNotFound):
+		return rpcapi.RPCErrorCodeNotFound, "speech alias not found"
+	case errors.Is(err, peergenx.ErrInvalidOutput):
+		return rpcapi.RPCErrorCodeInternalError, "speech extraction failed"
+	case errors.Is(err, peergenx.ErrInvalid), errors.Is(err, peergenx.ErrUnsupported):
+		return rpcapi.RPCErrorCodeBadRequest, "speech extraction request is not supported"
+	case errors.Is(err, context.DeadlineExceeded):
+		return rpcapi.RPCErrorCodeInternalError, "speech extraction timed out"
+	default:
+		return rpcapi.RPCErrorCodeInternalError, "speech extraction provider failed"
 	}
 }

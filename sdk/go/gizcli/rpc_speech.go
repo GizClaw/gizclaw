@@ -18,6 +18,7 @@ type SpeechSynthesisResult struct {
 const (
 	speechStreamDeadlineGrace               = 5 * time.Second
 	defaultSpeechTranscriptionStreamTimeout = 75*time.Second + speechStreamDeadlineGrace
+	defaultSpeechExtractionStreamTimeout    = 120*time.Second + speechStreamDeadlineGrace
 	defaultSpeechSynthesisStreamTimeout     = 120*time.Second + speechStreamDeadlineGrace
 )
 
@@ -31,6 +32,13 @@ func (c *Client) SynthesizeSpeech(ctx context.Context, id string, request rpcapi
 	return callClientServiceRPCWithTimeout(c, ServicePeerRPC, defaultSpeechSynthesisStreamTimeout, func(client *rpcClient, conn net.Conn) (*SpeechSynthesisResult, error) {
 		result, err := client.SynthesizeSpeech(ctx, conn, id, request, out)
 		return &result, err
+	})
+}
+
+// ExtractSpeech uploads audio and returns a transcript plus schema-constrained JSON.
+func (c *Client) ExtractSpeech(ctx context.Context, id string, request rpcapi.SpeechExtractRequest, audio io.Reader) (*rpcapi.SpeechExtractResponse, error) {
+	return callClientServiceRPCWithTimeout(c, ServicePeerRPC, defaultSpeechExtractionStreamTimeout, func(client *rpcClient, conn net.Conn) (*rpcapi.SpeechExtractResponse, error) {
+		return client.ExtractSpeech(ctx, conn, id, request, audio)
 	})
 }
 
@@ -69,7 +77,7 @@ func (c *rpcClient) TranscribeSpeech(ctx context.Context, conn net.Conn, id stri
 	uploadDone := make(chan struct{})
 	go func() {
 		defer close(uploadDone)
-		uploads <- writeSpeechTranscriptionAudio(stream, audio)
+		uploads <- writeSpeechUploadAudio(stream, audio)
 	}()
 
 	for {
@@ -100,7 +108,73 @@ func (c *rpcClient) TranscribeSpeech(ctx context.Context, conn net.Conn, id stri
 	}
 }
 
-func writeSpeechTranscriptionAudio(stream *rpcStream, audio io.Reader) error {
+func (c *rpcClient) ExtractSpeech(ctx context.Context, conn net.Conn, id string, request rpcapi.SpeechExtractRequest, audio io.Reader) (*rpcapi.SpeechExtractResponse, error) {
+	if audio == nil {
+		return nil, fmt.Errorf("speech extraction audio is required")
+	}
+	params, err := newRPCRequestParams(request, (*rpcapi.RPCPayload).FromSpeechExtractRequest)
+	if err != nil {
+		return nil, err
+	}
+	stream, err := newRPCStream(ctx, conn)
+	if err != nil {
+		return nil, err
+	}
+	defer stream.Close()
+	requestEnvelopeSplit, err := stream.writeRequestEnvelope(newRPCRequest(id, rpcapi.RPCMethodServerSpeechExtract, params))
+	if err != nil {
+		return nil, err
+	}
+	if requestEnvelopeSplit {
+		if err := stream.WriteEOS(); err != nil {
+			return nil, err
+		}
+	}
+	type responseResult struct {
+		value *rpcapi.SpeechExtractResponse
+		err   error
+	}
+	responses := make(chan responseResult, 1)
+	go func() {
+		value, err := readSpeechExtractionResponse(stream)
+		responses <- responseResult{value: value, err: err}
+	}()
+	uploads := make(chan error, 1)
+	uploadDone := make(chan struct{})
+	go func() {
+		defer close(uploadDone)
+		uploads <- writeSpeechUploadAudio(stream, audio)
+	}()
+
+	for {
+		select {
+		case response := <-responses:
+			interruptSpeechUpload(stream, audio, uploadDone)
+			return response.value, response.err
+		case err := <-uploads:
+			if err != nil {
+				select {
+				case response := <-responses:
+					return response.value, response.err
+				default:
+					return nil, err
+				}
+			}
+			select {
+			case response := <-responses:
+				return response.value, response.err
+			case <-ctx.Done():
+				interruptSpeechUpload(stream, audio, uploadDone)
+				return nil, ctx.Err()
+			}
+		case <-ctx.Done():
+			interruptSpeechUpload(stream, audio, uploadDone)
+			return nil, ctx.Err()
+		}
+	}
+}
+
+func writeSpeechUploadAudio(stream *rpcStream, audio io.Reader) error {
 	buf := make([]byte, rpcapi.MaxFrameSize)
 	for {
 		n, readErr := audio.Read(buf)
@@ -151,6 +225,32 @@ func readSpeechTranscriptionResponse(stream *rpcStream) (*rpcapi.SpeechTranscrib
 	result, err := resp.Result.AsSpeechTranscribeResponse()
 	if err != nil {
 		return nil, wrapRPCResultError("speech transcribe", err)
+	}
+	if !responseEOS {
+		if err := stream.ReadEOS(); err != nil {
+			return nil, err
+		}
+	}
+	return &result, nil
+}
+
+func readSpeechExtractionResponse(stream *rpcStream) (*rpcapi.SpeechExtractResponse, error) {
+	resp, responseEOS, err := stream.ReadResponseEnvelopeForMethod(rpcapi.RPCMethodServerSpeechExtract)
+	if err != nil {
+		return nil, err
+	}
+	if resp.Error != nil {
+		if !responseEOS {
+			_ = stream.ReadEOS()
+		}
+		return nil, fmt.Errorf("rpc: %w", rpcapi.Error{RequestID: resp.Id, Code: resp.Error.Code, Message: resp.Error.Message})
+	}
+	if resp.Result == nil {
+		return nil, errRPCMissingResult
+	}
+	result, err := resp.Result.AsSpeechExtractResponse()
+	if err != nil {
+		return nil, wrapRPCResultError("speech extract", err)
 	}
 	if !responseEOS {
 		if err := stream.ReadEOS(); err != nil {

@@ -6,6 +6,8 @@ import {
   encodeRPCRequestPayload,
   encodeRPCResponsePayload,
   type PingRequest,
+  type SpeechExtractRequest,
+  type SpeechExtractResponse,
   type SpeechSynthesizeRequest,
   type SpeechSynthesizeResponse,
   type SpeechTranscribeRequest,
@@ -37,6 +39,7 @@ export const RPC_FRAME_TYPE_EOS = 0;
 export const RPC_FRAME_TYPE_JSON = 1;
 export const RPC_FRAME_TYPE_BINARY = 2;
 export const RPC_FRAME_TYPE_TEXT = 3;
+export const SPEECH_EXTRACTION_REQUEST_TIMEOUT_MS = 125000;
 export const SPEECH_TRANSCRIPTION_REQUEST_TIMEOUT_MS = 80000;
 export const SPEECH_SYNTHESIS_REQUEST_TIMEOUT_MS = 125000;
 const RPC_MAX_FRAME_PAYLOAD_SIZE = 0xffff;
@@ -284,6 +287,27 @@ export class WebRTCRPCClient {
             this.requestTimeoutMs,
             SPEECH_TRANSCRIPTION_REQUEST_TIMEOUT_MS,
           ),
+      },
+    );
+  }
+
+  extractSpeech(
+    params: SpeechExtractRequest,
+    audio: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
+    options: RPCCallOptions = {},
+  ): Promise<SpeechExtractResponse> {
+    return rpcUploadCall<SpeechExtractResponse>(
+      this.pc,
+      this.channelLabel,
+      "server.speech.extract",
+      params,
+      audio,
+      {
+        ...options,
+        id: options.id ?? this.createID(),
+        timeoutMs:
+          options.timeoutMs ??
+          Math.max(this.requestTimeoutMs, SPEECH_EXTRACTION_REQUEST_TIMEOUT_MS),
       },
     );
   }

@@ -103,6 +103,7 @@ RPC EOS 只结束当前 frame sequence，不等于 [Event `type=eos`](./events#f
 | --- | --- | --- |
 | `all.speed_test.run` | 双向 | 指定长度的测速 bytes。 |
 | `server.speech.transcribe` | Client / Device → Server | Request envelope 后上传的有界音频；Server 返回最终 transcript。 |
+| `server.speech.extract` | Client / Device → Server | Request envelope 后上传的有界音频；Server 返回 transcript 与 schema-constrained JSON。 |
 | `server.speech.synthesize` | Server → Client / Device | Response metadata 后返回的有界合成音频。 |
 | `server.workspace.history.audio.get` | Server → Client / Device | Workspace history 音频。 |
 | `server.firmware.files.download` | Server → Client / Device | Firmware artifact 文件。 |

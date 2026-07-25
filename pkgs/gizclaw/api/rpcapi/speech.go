@@ -10,6 +10,20 @@ type SpeechTranscribeResponse struct {
 	Transcript string `json:"transcript"`
 }
 
+type SpeechExtractRequest struct {
+	ASRModelAlias     string  `json:"asr_model_alias"`
+	ExtractModelAlias string  `json:"extract_model_alias"`
+	ContentType       string  `json:"content_type"`
+	Language          *string `json:"language,omitempty"`
+	SchemaJSON        string  `json:"schema_json"`
+	Instruction       *string `json:"instruction,omitempty"`
+}
+
+type SpeechExtractResponse struct {
+	Transcript string `json:"transcript"`
+	ResultJSON string `json:"result_json"`
+}
+
 type SpeechSynthesizeRequest struct {
 	VoiceAlias           string   `json:"voice_alias"`
 	Text                 string   `json:"text"`
@@ -40,6 +54,26 @@ func (p RPCPayload) AsSpeechTranscribeResponse() (SpeechTranscribeResponse, erro
 
 func (p *RPCPayload) FromSpeechTranscribeResponse(value SpeechTranscribeResponse) error {
 	return p.encode("SpeechTranscribeResponse", value)
+}
+
+func (p RPCPayload) AsSpeechExtractRequest() (SpeechExtractRequest, error) {
+	var out SpeechExtractRequest
+	err := p.decode("SpeechExtractRequest", &out)
+	return out, err
+}
+
+func (p *RPCPayload) FromSpeechExtractRequest(value SpeechExtractRequest) error {
+	return p.encode("SpeechExtractRequest", value)
+}
+
+func (p RPCPayload) AsSpeechExtractResponse() (SpeechExtractResponse, error) {
+	var out SpeechExtractResponse
+	err := p.decode("SpeechExtractResponse", &out)
+	return out, err
+}
+
+func (p *RPCPayload) FromSpeechExtractResponse(value SpeechExtractResponse) error {
+	return p.encode("SpeechExtractResponse", value)
 }
 
 func (p RPCPayload) AsSpeechSynthesizeRequest() (SpeechSynthesizeRequest, error) {

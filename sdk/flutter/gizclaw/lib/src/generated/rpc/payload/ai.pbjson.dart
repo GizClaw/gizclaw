@@ -104,6 +104,68 @@ final $typed_data.Uint8List speechTranscribeResponseDescriptor =
         'ChhTcGVlY2hUcmFuc2NyaWJlUmVzcG9uc2USHgoKdHJhbnNjcmlwdBgBIAEoCVIKdHJhbnNjcm'
         'lwdA==');
 
+@$core.Deprecated('Use speechExtractRequestDescriptor instead')
+const SpeechExtractRequest$json = {
+  '1': 'SpeechExtractRequest',
+  '2': [
+    {'1': 'asr_model_alias', '3': 1, '4': 1, '5': 9, '10': 'asrModelAlias'},
+    {
+      '1': 'extract_model_alias',
+      '3': 2,
+      '4': 1,
+      '5': 9,
+      '10': 'extractModelAlias'
+    },
+    {'1': 'content_type', '3': 3, '4': 1, '5': 9, '10': 'contentType'},
+    {
+      '1': 'language',
+      '3': 4,
+      '4': 1,
+      '5': 9,
+      '9': 0,
+      '10': 'language',
+      '17': true
+    },
+    {'1': 'schema_json', '3': 5, '4': 1, '5': 9, '10': 'schemaJson'},
+    {
+      '1': 'instruction',
+      '3': 6,
+      '4': 1,
+      '5': 9,
+      '9': 1,
+      '10': 'instruction',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_language'},
+    {'1': '_instruction'},
+  ],
+};
+
+/// Descriptor for `SpeechExtractRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List speechExtractRequestDescriptor = $convert.base64Decode(
+    'ChRTcGVlY2hFeHRyYWN0UmVxdWVzdBImCg9hc3JfbW9kZWxfYWxpYXMYASABKAlSDWFzck1vZG'
+    'VsQWxpYXMSLgoTZXh0cmFjdF9tb2RlbF9hbGlhcxgCIAEoCVIRZXh0cmFjdE1vZGVsQWxpYXMS'
+    'IQoMY29udGVudF90eXBlGAMgASgJUgtjb250ZW50VHlwZRIfCghsYW5ndWFnZRgEIAEoCUgAUg'
+    'hsYW5ndWFnZYgBARIfCgtzY2hlbWFfanNvbhgFIAEoCVIKc2NoZW1hSnNvbhIlCgtpbnN0cnVj'
+    'dGlvbhgGIAEoCUgBUgtpbnN0cnVjdGlvbogBAUILCglfbGFuZ3VhZ2VCDgoMX2luc3RydWN0aW'
+    '9u');
+
+@$core.Deprecated('Use speechExtractResponseDescriptor instead')
+const SpeechExtractResponse$json = {
+  '1': 'SpeechExtractResponse',
+  '2': [
+    {'1': 'transcript', '3': 1, '4': 1, '5': 9, '10': 'transcript'},
+    {'1': 'result_json', '3': 2, '4': 1, '5': 9, '10': 'resultJson'},
+  ],
+};
+
+/// Descriptor for `SpeechExtractResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List speechExtractResponseDescriptor = $convert.base64Decode(
+    'ChVTcGVlY2hFeHRyYWN0UmVzcG9uc2USHgoKdHJhbnNjcmlwdBgBIAEoCVIKdHJhbnNjcmlwdB'
+    'IfCgtyZXN1bHRfanNvbhgCIAEoCVIKcmVzdWx0SnNvbg==');
+
 @$core.Deprecated('Use speechSynthesizeRequestDescriptor instead')
 const SpeechSynthesizeRequest$json = {
   '1': 'SpeechSynthesizeRequest',

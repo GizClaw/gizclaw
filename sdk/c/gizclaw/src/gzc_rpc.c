@@ -9,6 +9,7 @@
 #define GZC_RPC_MAX_ENVELOPE_SIZE (GZC_RPC_MAX_FRAME_SIZE * 16u)
 #define GZC_RPC_DOWNLOAD_FRAMES_PER_POLL 16u
 /* Keep client reads beyond the default server deadlines by a transport grace window. */
+#define GZC_RPC_SPEECH_EXTRACTION_TIMEOUT_MS 125000
 #define GZC_RPC_SPEECH_TRANSCRIPTION_TIMEOUT_MS 80000
 #define GZC_RPC_SPEECH_SYNTHESIS_TIMEOUT_MS 125000
 #define GZC_SERVICE_PEER_RPC 0x00u
@@ -50,6 +51,7 @@ struct gzc_rpc_speech_upload {
   gzc_client_t *client;
   const gzc_platform_t *platform;
   gzc_service_channel_t *channel;
+  int timeout_ms;
 };
 
 static int append_envelope_continuation(gzc_buf_t *envelope, const gzc_platform_t *platform, const gzc_rpc_frame_t *frame) {
@@ -617,9 +619,12 @@ int gzc_rpc_call_stream(
       client, method, params_payload, on_frame, userdata, 5000);
 }
 
-int gzc_rpc_speech_transcribe_open(
+static int speech_upload_open(
     gzc_client_t *client,
-    const gizclaw_rpc_v1_SpeechTranscribeRequest *request,
+    const pb_msgdesc_t *request_fields,
+    const void *request,
+    gizclaw_rpc_v1_RpcMethod method,
+    int timeout_ms,
     gzc_rpc_speech_upload_t **out_upload) {
   if (client == NULL || request == NULL || out_upload == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
@@ -637,12 +642,13 @@ int gzc_rpc_speech_transcribe_open(
   memset(upload, 0, sizeof(*upload));
   upload->client = client;
   upload->platform = platform;
+  upload->timeout_ms = timeout_ms;
 
   gzc_buf_t payload;
   gzc_buf_init(&payload);
   int rc = encode_pb_message(
       platform,
-      gizclaw_rpc_v1_SpeechTranscribeRequest_fields,
+      request_fields,
       request,
       &payload);
   if (rc == GZC_OK) {
@@ -656,7 +662,7 @@ int gzc_rpc_speech_transcribe_open(
     rc = send_request_envelope_service(
         upload->channel,
         platform,
-        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_SPEECH_TRANSCRIBE,
+        method,
         gzc_str_from_parts((const char *)payload.data, payload.len),
         false);
   }
@@ -670,6 +676,32 @@ int gzc_rpc_speech_transcribe_open(
   }
   *out_upload = upload;
   return GZC_OK;
+}
+
+int gzc_rpc_speech_transcribe_open(
+    gzc_client_t *client,
+    const gizclaw_rpc_v1_SpeechTranscribeRequest *request,
+    gzc_rpc_speech_upload_t **out_upload) {
+  return speech_upload_open(
+      client,
+      gizclaw_rpc_v1_SpeechTranscribeRequest_fields,
+      request,
+      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_SPEECH_TRANSCRIBE,
+      GZC_RPC_SPEECH_TRANSCRIPTION_TIMEOUT_MS,
+      out_upload);
+}
+
+int gzc_rpc_speech_extract_open(
+    gzc_client_t *client,
+    const gizclaw_rpc_v1_SpeechExtractRequest *request,
+    gzc_rpc_speech_upload_t **out_upload) {
+  return speech_upload_open(
+      client,
+      gizclaw_rpc_v1_SpeechExtractRequest_fields,
+      request,
+      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_SPEECH_EXTRACT,
+      GZC_RPC_SPEECH_EXTRACTION_TIMEOUT_MS,
+      out_upload);
 }
 
 int gzc_rpc_speech_transcribe_write(
@@ -710,14 +742,16 @@ static void speech_upload_destroy(gzc_rpc_speech_upload_t *upload) {
   upload->platform->free(upload->platform->userdata, upload);
 }
 
-int gzc_rpc_speech_transcribe_finish(
+static int speech_upload_finish(
     gzc_rpc_speech_upload_t *upload,
-    gizclaw_rpc_v1_SpeechTranscribeResponse *out_response,
+    const pb_msgdesc_t *response_fields,
+    void *out_response,
+    size_t response_size,
     gzc_rpc_error_t *out_error) {
   if (upload == NULL || upload->channel == NULL || out_response == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  memset(out_response, 0, sizeof(*out_response));
+  memset(out_response, 0, response_size);
   if (out_error != NULL) {
     memset(out_error, 0, sizeof(*out_error));
   }
@@ -737,7 +771,7 @@ int gzc_rpc_speech_transcribe_finish(
     gzc_rpc_frame_t frame;
     rc = read_service_frame(
         upload->channel,
-        GZC_RPC_SPEECH_TRANSCRIPTION_TIMEOUT_MS,
+        upload->timeout_ms,
         &frame_bytes,
         &frame);
     if (rc != GZC_OK) {
@@ -791,7 +825,7 @@ int gzc_rpc_speech_transcribe_finish(
         response.result_payload.len);
     if (!pb_decode(
             &stream,
-            gizclaw_rpc_v1_SpeechTranscribeResponse_fields,
+            response_fields,
             out_response)) {
       rc = GZC_ERR_RPC;
     }
@@ -802,7 +836,42 @@ int gzc_rpc_speech_transcribe_finish(
   return rc;
 }
 
+int gzc_rpc_speech_transcribe_finish(
+    gzc_rpc_speech_upload_t *upload,
+    gizclaw_rpc_v1_SpeechTranscribeResponse *out_response,
+    gzc_rpc_error_t *out_error) {
+  return speech_upload_finish(
+      upload,
+      gizclaw_rpc_v1_SpeechTranscribeResponse_fields,
+      out_response,
+      sizeof(*out_response),
+      out_error);
+}
+
 void gzc_rpc_speech_transcribe_cancel(gzc_rpc_speech_upload_t *upload) {
+  speech_upload_destroy(upload);
+}
+
+int gzc_rpc_speech_extract_write(
+    gzc_rpc_speech_upload_t *upload,
+    const uint8_t *data,
+    size_t len) {
+  return gzc_rpc_speech_transcribe_write(upload, data, len);
+}
+
+int gzc_rpc_speech_extract_finish(
+    gzc_rpc_speech_upload_t *upload,
+    gizclaw_rpc_v1_SpeechExtractResponse *out_response,
+    gzc_rpc_error_t *out_error) {
+  return speech_upload_finish(
+      upload,
+      gizclaw_rpc_v1_SpeechExtractResponse_fields,
+      out_response,
+      sizeof(*out_response),
+      out_error);
+}
+
+void gzc_rpc_speech_extract_cancel(gzc_rpc_speech_upload_t *upload) {
   speech_upload_destroy(upload);
 }
 

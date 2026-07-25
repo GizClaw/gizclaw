@@ -15,6 +15,12 @@ PB_BIND(gizclaw_rpc_v1_SpeechTranscribeRequest, gizclaw_rpc_v1_SpeechTranscribeR
 PB_BIND(gizclaw_rpc_v1_SpeechTranscribeResponse, gizclaw_rpc_v1_SpeechTranscribeResponse, 4)
 
 
+PB_BIND(gizclaw_rpc_v1_SpeechExtractRequest, gizclaw_rpc_v1_SpeechExtractRequest, 4)
+
+
+PB_BIND(gizclaw_rpc_v1_SpeechExtractResponse, gizclaw_rpc_v1_SpeechExtractResponse, 4)
+
+
 PB_BIND(gizclaw_rpc_v1_SpeechSynthesizeRequest, gizclaw_rpc_v1_SpeechSynthesizeRequest, 4)
 
 

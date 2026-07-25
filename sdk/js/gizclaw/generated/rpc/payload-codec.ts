@@ -1075,6 +1075,18 @@ export type ServerSetRunWorkspaceRequest = AgentSelection;
 export type ServerSetRunWorkspaceResponse = PeerRunWorkspaceState;
 export type ServerStopRunRequest = Record<string, never>;
 export type ServerStopRunResponse = PeerRunStatus;
+export type SpeechExtractRequest = {
+  "asr_model_alias": string;
+  "extract_model_alias": string;
+  "content_type": string;
+  "language"?: string;
+  "schema_json": string;
+  "instruction"?: string;
+};
+export type SpeechExtractResponse = {
+  "transcript": string;
+  "result_json": string;
+};
 export type SpeechSynthesizeRequest = {
   "voice_alias": string;
   "text": string;
@@ -1370,6 +1382,7 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.run.workspace.reload": "ServerReloadRunWorkspaceRequest",
   "server.run.workspace.set": "ServerSetRunWorkspaceRequest",
   "server.runtime.get": "ServerGetRuntimeRequest",
+  "server.speech.extract": "SpeechExtractRequest",
   "server.speech.synthesize": "SpeechSynthesizeRequest",
   "server.speech.transcribe": "SpeechTranscribeRequest",
   "server.status.get": "ServerGetStatusRequest",
@@ -1466,6 +1479,7 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.run.workspace.reload": "ServerReloadRunWorkspaceResponse",
   "server.run.workspace.set": "ServerSetRunWorkspaceResponse",
   "server.runtime.get": "ServerGetRuntimeResponse",
+  "server.speech.extract": "SpeechExtractResponse",
   "server.speech.synthesize": "SpeechSynthesizeResponse",
   "server.speech.transcribe": "SpeechTranscribeResponse",
   "server.status.get": "ServerGetStatusResponse",
@@ -6282,6 +6296,56 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "value",
         "number": 1,
         "type": "PeerRunStatus"
+      }
+    ]
+  },
+  "SpeechExtractRequest": {
+    "fields": [
+      {
+        "name": "asr_model_alias",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "extract_model_alias",
+        "number": 2,
+        "type": "string"
+      },
+      {
+        "name": "content_type",
+        "number": 3,
+        "type": "string"
+      },
+      {
+        "name": "language",
+        "number": 4,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "schema_json",
+        "number": 5,
+        "type": "string"
+      },
+      {
+        "name": "instruction",
+        "number": 6,
+        "optional": true,
+        "type": "string"
+      }
+    ]
+  },
+  "SpeechExtractResponse": {
+    "fields": [
+      {
+        "name": "transcript",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "result_json",
+        "number": 2,
+        "type": "string"
       }
     ]
   },

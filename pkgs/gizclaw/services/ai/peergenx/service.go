@@ -17,6 +17,7 @@ var (
 	ErrDenied        = errors.New("peergenx: denied")
 	ErrNotFound      = errors.New("peergenx: not found")
 	ErrInvalid       = errors.New("peergenx: invalid resource")
+	ErrInvalidOutput = errors.New("peergenx: invalid provider output")
 	ErrUnsupported   = errors.New("peergenx: unsupported resource")
 	ErrNotConfigured = errors.New("peergenx: service not configured")
 )

@@ -13,6 +13,7 @@ RPC 模块负责 GizClaw RPC 的 client/server、dispatch、stream framing 和�
 | [Gameplay Assets](./gameplay-pixa) | Gameplay pixa asset streaming。 | `rpc_gameplay_pixa.go` |
 | [Workspace History](./workspace-history) | History audio streaming。 | `rpc_workspace_history.go` |
 | [Speech Transcription](./transcription) | 独立流式 audio-to-text。 | `rpc_speech.go` |
+| [Speech Extraction](./extraction) | 独立流式 audio-to-schema-constrained JSON。 | `rpc_speech.go` |
 | [Speech Synthesis](./synthesis) | 独立流式 text-to-audio。 | `rpc_speech.go` |
 | [Speed Test](./speed) | 双向 RPC/DataChannel throughput test。 | `rpc_speed.go` |
 | [Streaming](./stream) | Frame、protobuf envelope 与 EOS。 | `rpc_stream.go` |

@@ -223,6 +223,187 @@ class SpeechTranscribeResponse extends $pb.GeneratedMessage {
   void clearTranscript() => $_clearField(1);
 }
 
+class SpeechExtractRequest extends $pb.GeneratedMessage {
+  factory SpeechExtractRequest({
+    $core.String? asrModelAlias,
+    $core.String? extractModelAlias,
+    $core.String? contentType,
+    $core.String? language,
+    $core.String? schemaJson,
+    $core.String? instruction,
+  }) {
+    final result = create();
+    if (asrModelAlias != null) result.asrModelAlias = asrModelAlias;
+    if (extractModelAlias != null) result.extractModelAlias = extractModelAlias;
+    if (contentType != null) result.contentType = contentType;
+    if (language != null) result.language = language;
+    if (schemaJson != null) result.schemaJson = schemaJson;
+    if (instruction != null) result.instruction = instruction;
+    return result;
+  }
+
+  SpeechExtractRequest._();
+
+  factory SpeechExtractRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory SpeechExtractRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SpeechExtractRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'asrModelAlias')
+    ..aOS(2, _omitFieldNames ? '' : 'extractModelAlias')
+    ..aOS(3, _omitFieldNames ? '' : 'contentType')
+    ..aOS(4, _omitFieldNames ? '' : 'language')
+    ..aOS(5, _omitFieldNames ? '' : 'schemaJson')
+    ..aOS(6, _omitFieldNames ? '' : 'instruction')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SpeechExtractRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SpeechExtractRequest copyWith(void Function(SpeechExtractRequest) updates) =>
+      super.copyWith((message) => updates(message as SpeechExtractRequest))
+          as SpeechExtractRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SpeechExtractRequest create() => SpeechExtractRequest._();
+  @$core.override
+  SpeechExtractRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static SpeechExtractRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SpeechExtractRequest>(create);
+  static SpeechExtractRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get asrModelAlias => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set asrModelAlias($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasAsrModelAlias() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearAsrModelAlias() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get extractModelAlias => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set extractModelAlias($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasExtractModelAlias() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearExtractModelAlias() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get contentType => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set contentType($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasContentType() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearContentType() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get language => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set language($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasLanguage() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearLanguage() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get schemaJson => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set schemaJson($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasSchemaJson() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearSchemaJson() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get instruction => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set instruction($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasInstruction() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearInstruction() => $_clearField(6);
+}
+
+class SpeechExtractResponse extends $pb.GeneratedMessage {
+  factory SpeechExtractResponse({
+    $core.String? transcript,
+    $core.String? resultJson,
+  }) {
+    final result = create();
+    if (transcript != null) result.transcript = transcript;
+    if (resultJson != null) result.resultJson = resultJson;
+    return result;
+  }
+
+  SpeechExtractResponse._();
+
+  factory SpeechExtractResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory SpeechExtractResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SpeechExtractResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'transcript')
+    ..aOS(2, _omitFieldNames ? '' : 'resultJson')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SpeechExtractResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SpeechExtractResponse copyWith(
+          void Function(SpeechExtractResponse) updates) =>
+      super.copyWith((message) => updates(message as SpeechExtractResponse))
+          as SpeechExtractResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SpeechExtractResponse create() => SpeechExtractResponse._();
+  @$core.override
+  SpeechExtractResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static SpeechExtractResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SpeechExtractResponse>(create);
+  static SpeechExtractResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get transcript => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set transcript($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasTranscript() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearTranscript() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get resultJson => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set resultJson($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasResultJson() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearResultJson() => $_clearField(2);
+}
+
 class SpeechSynthesizeRequest extends $pb.GeneratedMessage {
   factory SpeechSynthesizeRequest({
     $core.String? voiceAlias,

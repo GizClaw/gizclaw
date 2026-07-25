@@ -239,11 +239,18 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 	gizServer.FriendGroupMessageMaxBytes = cfg.FriendGroups.MessageMaxAudioBytes
 	transcriptionDuration, _ := parsePositiveConfigDuration(cfg.Speech.Transcription.MaxAudioDuration)
 	transcriptionTimeout, _ := parsePositiveConfigDuration(cfg.Speech.Transcription.RequestTimeout)
+	extractionTimeout, _ := parsePositiveConfigDuration(cfg.Speech.Extraction.RequestTimeout)
 	synthesisTimeout, _ := parsePositiveConfigDuration(cfg.Speech.Synthesis.RequestTimeout)
 	gizServer.SpeechLimits = gizclaw.SpeechLimits{
 		TranscriptionMaxAudioBytes:    cfg.Speech.Transcription.MaxAudioBytes,
 		TranscriptionMaxAudioDuration: transcriptionDuration,
 		TranscriptionRequestTimeout:   transcriptionTimeout,
+		ExtractionMaxSchemaBytes:      int(cfg.Speech.Extraction.MaxSchemaBytes),
+		ExtractionMaxSchemaDepth:      int(cfg.Speech.Extraction.MaxSchemaDepth),
+		ExtractionMaxSchemaProperties: int(cfg.Speech.Extraction.MaxSchemaProperties),
+		ExtractionMaxInstructionBytes: int(cfg.Speech.Extraction.MaxInstructionBytes),
+		ExtractionMaxResultBytes:      int(cfg.Speech.Extraction.MaxResultBytes),
+		ExtractionRequestTimeout:      extractionTimeout,
 		SynthesisMaxTextBytes:         int(cfg.Speech.Synthesis.MaxTextBytes),
 		SynthesisMaxOutputBytes:       cfg.Speech.Synthesis.MaxOutputBytes,
 		SynthesisRequestTimeout:       synthesisTimeout,

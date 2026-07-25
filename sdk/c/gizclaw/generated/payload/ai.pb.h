@@ -39,6 +39,22 @@ typedef struct _gizclaw_rpc_v1_SpeechTranscribeResponse {
     char transcript[8193];
 } gizclaw_rpc_v1_SpeechTranscribeResponse;
 
+typedef struct _gizclaw_rpc_v1_SpeechExtractRequest {
+    char asr_model_alias[64];
+    char extract_model_alias[64];
+    char content_type[129];
+    bool has_language;
+    char language[33];
+    char schema_json[16385];
+    bool has_instruction;
+    char instruction[4097];
+} gizclaw_rpc_v1_SpeechExtractRequest;
+
+typedef struct _gizclaw_rpc_v1_SpeechExtractResponse {
+    char transcript[8193];
+    char result_json[16385];
+} gizclaw_rpc_v1_SpeechExtractResponse;
+
 typedef struct _gizclaw_rpc_v1_SpeechSynthesizeRequest {
     char voice_alias[64];
     char text[4097];
@@ -683,6 +699,8 @@ extern "C" {
 
 
 
+
+
 #define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_mode_ENUMTYPE gizclaw_rpc_v1_ASTTranslateMode
 
 #define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_agent_type_ENUMTYPE gizclaw_rpc_v1_ASTTranslateWorkspaceParametersAgentType
@@ -774,6 +792,8 @@ extern "C" {
 #define gizclaw_rpc_v1_AliasI18nText_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_SpeechTranscribeRequest_init_default {"", "", false, ""}
 #define gizclaw_rpc_v1_SpeechTranscribeResponse_init_default {""}
+#define gizclaw_rpc_v1_SpeechExtractRequest_init_default {"", "", "", false, "", "", false, ""}
+#define gizclaw_rpc_v1_SpeechExtractResponse_init_default {"", ""}
 #define gizclaw_rpc_v1_SpeechSynthesizeRequest_init_default {"", "", 0, {"", "", "", "", "", "", "", ""}}
 #define gizclaw_rpc_v1_SpeechSynthesizeResponse_init_default {"", false, 0, false, 0}
 #define gizclaw_rpc_v1_ASTTranslateExternalVoiceParameters_init_default {{{NULL}, NULL}}
@@ -848,6 +868,8 @@ extern "C" {
 #define gizclaw_rpc_v1_AliasI18nText_init_zero   {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_SpeechTranscribeRequest_init_zero {"", "", false, ""}
 #define gizclaw_rpc_v1_SpeechTranscribeResponse_init_zero {""}
+#define gizclaw_rpc_v1_SpeechExtractRequest_init_zero {"", "", "", false, "", "", false, ""}
+#define gizclaw_rpc_v1_SpeechExtractResponse_init_zero {"", ""}
 #define gizclaw_rpc_v1_SpeechSynthesizeRequest_init_zero {"", "", 0, {"", "", "", "", "", "", "", ""}}
 #define gizclaw_rpc_v1_SpeechSynthesizeResponse_init_zero {"", false, 0, false, 0}
 #define gizclaw_rpc_v1_ASTTranslateExternalVoiceParameters_init_zero {{{NULL}, NULL}}
@@ -927,6 +949,14 @@ extern "C" {
 #define gizclaw_rpc_v1_SpeechTranscribeRequest_content_type_tag 2
 #define gizclaw_rpc_v1_SpeechTranscribeRequest_language_tag 3
 #define gizclaw_rpc_v1_SpeechTranscribeResponse_transcript_tag 1
+#define gizclaw_rpc_v1_SpeechExtractRequest_asr_model_alias_tag 1
+#define gizclaw_rpc_v1_SpeechExtractRequest_extract_model_alias_tag 2
+#define gizclaw_rpc_v1_SpeechExtractRequest_content_type_tag 3
+#define gizclaw_rpc_v1_SpeechExtractRequest_language_tag 4
+#define gizclaw_rpc_v1_SpeechExtractRequest_schema_json_tag 5
+#define gizclaw_rpc_v1_SpeechExtractRequest_instruction_tag 6
+#define gizclaw_rpc_v1_SpeechExtractResponse_transcript_tag 1
+#define gizclaw_rpc_v1_SpeechExtractResponse_result_json_tag 2
 #define gizclaw_rpc_v1_SpeechSynthesizeRequest_voice_alias_tag 1
 #define gizclaw_rpc_v1_SpeechSynthesizeRequest_text_tag 2
 #define gizclaw_rpc_v1_SpeechSynthesizeRequest_accepted_content_types_tag 3
@@ -1232,6 +1262,22 @@ X(a, STATIC,   OPTIONAL, STRING,   language,          3)
 X(a, STATIC,   SINGULAR, STRING,   transcript,        1)
 #define gizclaw_rpc_v1_SpeechTranscribeResponse_CALLBACK NULL
 #define gizclaw_rpc_v1_SpeechTranscribeResponse_DEFAULT NULL
+
+#define gizclaw_rpc_v1_SpeechExtractRequest_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, STRING,   asr_model_alias,   1) \
+X(a, STATIC,   SINGULAR, STRING,   extract_model_alias,   2) \
+X(a, STATIC,   SINGULAR, STRING,   content_type,      3) \
+X(a, STATIC,   OPTIONAL, STRING,   language,          4) \
+X(a, STATIC,   SINGULAR, STRING,   schema_json,       5) \
+X(a, STATIC,   OPTIONAL, STRING,   instruction,       6)
+#define gizclaw_rpc_v1_SpeechExtractRequest_CALLBACK NULL
+#define gizclaw_rpc_v1_SpeechExtractRequest_DEFAULT NULL
+
+#define gizclaw_rpc_v1_SpeechExtractResponse_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, STRING,   transcript,        1) \
+X(a, STATIC,   SINGULAR, STRING,   result_json,       2)
+#define gizclaw_rpc_v1_SpeechExtractResponse_CALLBACK NULL
+#define gizclaw_rpc_v1_SpeechExtractResponse_DEFAULT NULL
 
 #define gizclaw_rpc_v1_SpeechSynthesizeRequest_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, STRING,   voice_alias,       1) \
@@ -1872,6 +1918,8 @@ X(a, CALLBACK, SINGULAR, STRING,   data_json,         1)
 extern const pb_msgdesc_t gizclaw_rpc_v1_AliasI18nText_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_SpeechTranscribeRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_SpeechTranscribeResponse_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_SpeechExtractRequest_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_SpeechExtractResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_SpeechSynthesizeRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_SpeechSynthesizeResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ASTTranslateExternalVoiceParameters_msg;
@@ -1948,6 +1996,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ToolInvokeResponse_msg;
 #define gizclaw_rpc_v1_AliasI18nText_fields &gizclaw_rpc_v1_AliasI18nText_msg
 #define gizclaw_rpc_v1_SpeechTranscribeRequest_fields &gizclaw_rpc_v1_SpeechTranscribeRequest_msg
 #define gizclaw_rpc_v1_SpeechTranscribeResponse_fields &gizclaw_rpc_v1_SpeechTranscribeResponse_msg
+#define gizclaw_rpc_v1_SpeechExtractRequest_fields &gizclaw_rpc_v1_SpeechExtractRequest_msg
+#define gizclaw_rpc_v1_SpeechExtractResponse_fields &gizclaw_rpc_v1_SpeechExtractResponse_msg
 #define gizclaw_rpc_v1_SpeechSynthesizeRequest_fields &gizclaw_rpc_v1_SpeechSynthesizeRequest_msg
 #define gizclaw_rpc_v1_SpeechSynthesizeResponse_fields &gizclaw_rpc_v1_SpeechSynthesizeResponse_msg
 #define gizclaw_rpc_v1_ASTTranslateExternalVoiceParameters_fields &gizclaw_rpc_v1_ASTTranslateExternalVoiceParameters_msg
@@ -2086,11 +2136,13 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ToolInvokeResponse_msg;
 /* gizclaw_rpc_v1_ToolGetResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ToolInvokeRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ToolInvokeResponse_size depends on runtime parameters */
-#define GIZCLAW_RPC_V1_PAYLOAD_AI_PB_H_MAX_SIZE  gizclaw_rpc_v1_SpeechTranscribeResponse_size
+#define GIZCLAW_RPC_V1_PAYLOAD_AI_PB_H_MAX_SIZE  gizclaw_rpc_v1_SpeechExtractResponse_size
 #define gizclaw_rpc_v1_DoubaoRealtimeAudioFormat_size 13
 #define gizclaw_rpc_v1_DoubaoRealtimeAudioInput_size 15
 #define gizclaw_rpc_v1_FlowcraftConversationParameters_size 4
 #define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_size 12
+#define gizclaw_rpc_v1_SpeechExtractRequest_size 20782
+#define gizclaw_rpc_v1_SpeechExtractResponse_size 24583
 #define gizclaw_rpc_v1_SpeechSynthesizeRequest_size 5212
 #define gizclaw_rpc_v1_SpeechSynthesizeResponse_size 153
 #define gizclaw_rpc_v1_SpeechTranscribeRequest_size 230

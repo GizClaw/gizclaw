@@ -77,7 +77,9 @@ export type EdgeRPCMethodName = Extract<
 >;
 export type StreamingPeerRPCMethodName = Extract<
   RPCMethodName,
-  "server.speech.transcribe" | "server.speech.synthesize"
+  | "server.speech.extract"
+  | "server.speech.transcribe"
+  | "server.speech.synthesize"
 >;
 export type PeerRPCMethodName = Exclude<
   RPCMethodName,
@@ -87,7 +89,11 @@ export type PeerRPCMethodName = Exclude<
 export type PeerRPCClientOptions = Omit<WebRTCRPCClientOptions, "service">;
 export type PeerRPCCaller = Pick<
   WebRTCRPCClient,
-  "call" | "callBinary" | "transcribeSpeech" | "synthesizeSpeech"
+  | "call"
+  | "callBinary"
+  | "extractSpeech"
+  | "transcribeSpeech"
+  | "synthesizeSpeech"
 >;
 export type EdgeRPCClientOptions = Omit<WebRTCRPCClientOptions, "service">;
 export type EdgeRPCCaller = Pick<WebRTCRPCClient, "call" | "callBinary">;
@@ -101,7 +107,7 @@ export class PeerRPCClient {
   ) {
     if (looksLikeRPCCaller(pc) && !isPeerRPCCaller(pc)) {
       throw new TypeError(
-        "Peer RPC caller must implement call, callBinary, transcribeSpeech, and synthesizeSpeech.",
+        "Peer RPC caller must implement call, callBinary, extractSpeech, transcribeSpeech, and synthesizeSpeech.",
       );
     }
     this.client = isPeerRPCCaller(pc)
@@ -140,6 +146,14 @@ export class PeerRPCClient {
     options?: RPCCallOptions,
   ): Promise<RPCPayload.SpeechTranscribeResponse> {
     return this.client.transcribeSpeech(params, audio, options);
+  }
+
+  extractSpeech(
+    params: RPCPayload.SpeechExtractRequest,
+    audio: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
+    options?: RPCCallOptions,
+  ): Promise<RPCPayload.SpeechExtractResponse> {
+    return this.client.extractSpeech(params, audio, options);
   }
 
   synthesizeSpeech(
@@ -207,6 +221,8 @@ function isPeerRPCCaller(
 ): value is PeerRPCCaller {
   return (
     looksLikeRPCCaller(value) &&
+    "extractSpeech" in value &&
+    typeof value.extractSpeech === "function" &&
     "transcribeSpeech" in value &&
     typeof value.transcribeSpeech === "function" &&
     "synthesizeSpeech" in value &&

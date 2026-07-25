@@ -24,6 +24,20 @@ message SpeechTranscribeResponse {
   string transcript = 1;
 }
 
+message SpeechExtractRequest {
+  string asr_model_alias = 1;
+  string extract_model_alias = 2;
+  string content_type = 3;
+  optional string language = 4;
+  string schema_json = 5;
+  optional string instruction = 6;
+}
+
+message SpeechExtractResponse {
+  string transcript = 1;
+  string result_json = 2;
+}
+
 message SpeechSynthesizeRequest {
   string voice_alias = 1;
   string text = 2;

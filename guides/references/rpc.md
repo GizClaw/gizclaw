@@ -146,12 +146,13 @@ Tool 同样由当前 RuntimeProfile 投影为安全 alias catalog；Peer 不能�
 
 ## 独立流式语音
 
-这两个 method 不创建或选择 Workspace。Transcribe 通过 request binary frames 增量上传音频；Synthesize 先返回音频 metadata，再通过 response binary frames 增量下载音频。Model 与 Voice 都使用当前 RuntimeProfile alias 解析。
+这些 method 不创建或选择 Workspace。Transcribe 与 Extract 通过 request binary frames 增量上传音频；Extract 在转写后按调用方提供的 JSON Schema 返回结构化 JSON；Synthesize 先返回音频 metadata，再通过 response binary frames 增量下载音频。Model 与 Voice 都使用当前 RuntimeProfile alias 解析。
 
 | ID | Method | 作用 |
 | ---: | --- | --- |
 | 92 | `server.speech.transcribe` | 使用 `model_alias` 将有界音频流转换为最终 transcript。 |
 | 93 | `server.speech.synthesize` | 使用 `voice_alias` 将文本合成为客户端接受格式的音频流。 |
+| 95 | `server.speech.extract` | 使用 ASR 与 LLM alias，将有界音频转换为符合调用方 JSON Schema 的结果。 |
 
 ## Edge RPC
 

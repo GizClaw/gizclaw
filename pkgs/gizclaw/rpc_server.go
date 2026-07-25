@@ -102,6 +102,8 @@ func (s *rpcServer) dispatchStream(ctx context.Context, stream *rpcStream, req *
 		return true, s.handleSpeedTest(ctx, stream, req)
 	case rpcapi.RPCMethodServerSpeechTranscribe:
 		return true, s.handleSpeechTranscribe(ctx, stream, req)
+	case rpcapi.RPCMethodServerSpeechExtract:
+		return true, s.handleSpeechExtract(ctx, stream, req)
 	case rpcapi.RPCMethodServerSpeechSynthesize:
 		return true, s.handleSpeechSynthesize(ctx, stream, req)
 	case rpcapi.RPCMethodServerFirmwareFilesDownload:
