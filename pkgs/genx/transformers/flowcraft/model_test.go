@@ -2,6 +2,7 @@ package flowcraft
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"slices"
 	"strings"
@@ -11,7 +12,8 @@ import (
 	flowllm "github.com/GizClaw/flowcraft/sdk/llm"
 	flowmodel "github.com/GizClaw/flowcraft/sdk/model"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
-	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/toolkitrun"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/toolrun"
+	"github.com/google/jsonschema-go/jsonschema"
 )
 
 type structuredOutputGenerator struct {
@@ -143,6 +145,44 @@ type toolRoundGenerator struct {
 	mutateTool bool
 }
 
+type recordingToolInvoker struct {
+	mu         sync.Mutex
+	calls      []string
+	resolveErr error
+}
+
+func (invoker *recordingToolInvoker) ResolveTools(context.Context) ([]genx.ToolDefinition, error) {
+	if invoker.resolveErr != nil {
+		return nil, invoker.resolveErr
+	}
+	return []genx.ToolDefinition{{
+		Name: "lookup", Description: "lookup a value",
+		Argument: &jsonschema.Schema{
+			Type:                 "object",
+			Required:             []string{"key"},
+			Properties:           map[string]*jsonschema.Schema{"key": {Type: "string"}},
+			AdditionalProperties: &jsonschema.Schema{Not: &jsonschema.Schema{}},
+		},
+	}}, nil
+}
+
+func (invoker *recordingToolInvoker) InvokeTool(
+	_ context.Context,
+	name string,
+	arguments json.RawMessage,
+) (json.RawMessage, error) {
+	var input struct {
+		Key string `json:"key"`
+	}
+	if err := json.Unmarshal(arguments, &input); err != nil {
+		return nil, err
+	}
+	invoker.mu.Lock()
+	invoker.calls = append(invoker.calls, name+":"+input.Key)
+	invoker.mu.Unlock()
+	return json.RawMessage(`{"answer":"found"}`), nil
+}
+
 func (generator *toolRoundGenerator) GenerateStream(_ context.Context, _ string, modelContext genx.ModelContext) (genx.Stream, error) {
 	generator.mu.Lock()
 	defer generator.mu.Unlock()
@@ -176,23 +216,23 @@ func (*toolRoundGenerator) Invoke(context.Context, string, genx.ModelContext, *g
 	return genx.Usage{}, nil, errors.New("Invoke must not be used")
 }
 
-func TestGenXLLMExecutesToolkitAndContinuesModelTurn(t *testing.T) {
-	var calls []string
-	tool, err := genx.NewFuncTool[map[string]string](
-		"lookup",
-		"lookup a value",
-		genx.InvokeFunc[map[string]string](func(_ context.Context, call *genx.FuncCall, arguments map[string]string) (any, error) {
-			calls = append(calls, call.Name+":"+arguments["key"])
-			return map[string]string{"answer": "found"}, nil
-		}),
-	)
-	if err != nil {
-		t.Fatalf("NewFuncTool() error = %v", err)
+func TestGenXLLMPropagatesToolResolutionError(t *testing.T) {
+	resolveErr := errors.New("resolve failed")
+	model := &genXLLM{
+		generator:   &toolRoundGenerator{},
+		pattern:     "model/chat",
+		toolInvoker: &recordingToolInvoker{resolveErr: resolveErr},
 	}
-	toolkit, err := genx.NewToolkit(tool)
-	if err != nil {
-		t.Fatalf("NewToolkit() error = %v", err)
+	_, err := model.GenerateStream(t.Context(), []flowmodel.Message{
+		flowmodel.NewTextMessage(flowmodel.RoleUser, "question"),
+	})
+	if !errors.Is(err, resolveErr) {
+		t.Fatalf("GenerateStream() error = %v", err)
 	}
+}
+
+func TestGenXLLMUsesToolInvokerAndContinuesModelTurn(t *testing.T) {
+	invoker := &recordingToolInvoker{}
 	generator := &toolRoundGenerator{mutateTool: true, rounds: [][]*genx.MessageChunk{
 		{
 			{Role: genx.RoleModel, Part: genx.Text("before ")},
@@ -205,8 +245,10 @@ func TestGenXLLMExecutesToolkitAndContinuesModelTurn(t *testing.T) {
 		},
 		{{Role: genx.RoleModel, Part: genx.Text("after")}},
 	}}
-	model := &genXLLM{generator: generator, pattern: "model/chat", toolkit: toolkit}
-	ctx := toolkitrun.WithContext(t.Context(), toolkitrun.New(toolkit, 2))
+	model := &genXLLM{
+		generator: generator, pattern: "model/chat", toolInvoker: invoker,
+	}
+	ctx := toolrun.WithContext(t.Context(), toolrun.New(invoker, 2))
 	message, _, err := model.Generate(ctx, []flowmodel.Message{
 		flowmodel.NewTextMessage(flowmodel.RoleUser, "question"),
 	})
@@ -216,7 +258,10 @@ func TestGenXLLMExecutesToolkitAndContinuesModelTurn(t *testing.T) {
 	if got := message.Content(); got != "before after" {
 		t.Fatalf("message.Content() = %q", got)
 	}
-	if len(calls) != 2 || calls[0] != "lookup:first" || calls[1] != "lookup:second" {
+	invoker.mu.Lock()
+	calls := slices.Clone(invoker.calls)
+	invoker.mu.Unlock()
+	if !slices.Equal(calls, []string{"lookup:first", "lookup:second"}) {
 		t.Fatalf("calls = %v", calls)
 	}
 	if len(generator.contexts) != 2 {
@@ -269,16 +314,18 @@ func TestGenXLLMRejectsInvocationLocalDuplicateAndLimit(t *testing.T) {
 		maximum  int
 		want     error
 	}{
-		{name: "duplicate", secondID: "same", maximum: 2, want: toolkitrun.ErrDuplicateCallID},
-		{name: "limit", secondID: "second", maximum: 1, want: toolkitrun.ErrCallLimit},
+		{name: "duplicate", secondID: "same", maximum: 2, want: toolrun.ErrDuplicateCallID},
+		{name: "limit", secondID: "second", maximum: 1, want: toolrun.ErrCallLimit},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			generator := &toolRoundGenerator{rounds: [][]*genx.MessageChunk{
 				{{ToolCall: &genx.ToolCall{ID: "same", FuncCall: &genx.FuncCall{Name: "echo", Arguments: `{}`}}}},
 				{{ToolCall: &genx.ToolCall{ID: test.secondID, FuncCall: &genx.FuncCall{Name: "echo", Arguments: `{}`}}}},
 			}}
-			model := &genXLLM{generator: generator, pattern: "model/chat", toolkit: toolkit}
-			ctx := toolkitrun.WithContext(t.Context(), toolkitrun.New(toolkit, test.maximum))
+			model := &genXLLM{
+				generator: generator, pattern: "model/chat", toolInvoker: toolkit,
+			}
+			ctx := toolrun.WithContext(t.Context(), toolrun.New(toolkit, test.maximum))
 			stream, err := model.GenerateStream(ctx, []flowmodel.Message{
 				flowmodel.NewTextMessage(flowmodel.RoleUser, "question"),
 			})

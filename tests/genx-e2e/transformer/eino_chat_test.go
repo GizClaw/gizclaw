@@ -59,9 +59,9 @@ func TestEinoWorkflowOpenAICompatibleConversation(t *testing.T) {
 		Agent: einotransformer.AgentConfig{
 			ID: "eino-chat-e2e", Name: "Eino Chat E2E", ContextID: "eino-chat-e2e",
 		},
-		Components: resolver,
-		Toolkit:    toolkit,
-		Limits:     einotransformer.Limits{MaxOutputBytes: 1 << 20},
+		Components:  resolver,
+		ToolInvoker: toolkit,
+		Limits:      einotransformer.Limits{MaxOutputBytes: 1 << 20},
 		Graph: einotransformer.GraphDefinition{
 			Name: "chat-workflow",
 			State: einotransformer.StateDefinition{Fields: []einotransformer.StateField{

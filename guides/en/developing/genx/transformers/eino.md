@@ -14,7 +14,7 @@ transformer, err := eino.New(ctx, eino.Config{
     Graph:      graph,
     Components: components,
     Lambdas:    lambdas,
-    Toolkit:    executableToolkit,
+    ToolInvoker: runtimeTools,
     MaxToolCalls: 32,
     Limits:     eino.Limits{MaxOutputBytes: 4 << 20},
 })
@@ -86,7 +86,7 @@ Native parallelism executes sibling Graph paths and joins them through Eino sche
 
 Prompt, ChatModel, and Retriever components are added through Eino's native `AddChatTemplateNode`, `AddChatModelNode`, and `AddRetrieverNode` paths inside typed nested Graphs. Package-owned Transform, Script, Race, Batch, and State adapters use Eino Lambdas when no serializable native component contract exists.
 
-ChatModel uses the resolved Eino streaming interface. Text chunks are published incrementally when the model node owns a declared text output. When a Toolkit is configured, its schemas are supplied through Eino model options; correlated ToolCalls execute in model order, native tool messages are appended, and the same model node continues. Internal calls and results are not published. A requested text port fails when the completed model turn contains no text.
+ChatModel uses the resolved Eino streaming interface. Text chunks are published incrementally when the model node owns a declared text output. When a `ToolInvoker` is configured, `ResolveTools` supplies function names, descriptions, and schemas through Eino model options. Correlated ToolCalls execute in model order through `InvokeTool(name, arguments)`, native tool messages are appended, and the same model node continues. Internal calls and results are not published. A requested text port fails when the completed model turn contains no text.
 
 The built-in Transform operations are:
 
@@ -205,4 +205,4 @@ When `WaitForCompletion` is true, the Store must implement `memory.OperationWait
 
 Runtime provider, Store, Script, component, cancellation, byte-limit, and optimistic-concurrency failures terminate every active route with an error EOS. No failed Graph run commits persistent State.
 
-The Eino Transformer consumes but does not redefine the GenX Toolkit. One root `Transform` invocation shares its call-ID set and `MaxToolCalls` budget across nested Graphs. Zero uses 32 and negative values are rejected. Independent invocations may execute the shared Toolkit concurrently and reuse provider call IDs; executor, validation, serialization, cancellation, duplicate-ID, and exhaustion failures remain local to one invocation.
+The Eino Transformer depends only on the GenX `ToolInvoker` interface and does not receive RuntimeProfile, Toolkit policy, resource, or executor-registry details. One root `Transform` invocation shares its call-ID set and `MaxToolCalls` budget across nested Graphs. Provider call IDs remain inside Eino and are associated with the raw JSON result returned by `InvokeTool`. Zero uses 32 and negative values are rejected. Independent invocations may execute the shared invoker concurrently and reuse provider call IDs; resolution, invocation, invalid-result JSON, cancellation, duplicate-ID, and exhaustion failures remain local to one invocation.

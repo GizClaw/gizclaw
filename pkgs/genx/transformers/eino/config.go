@@ -26,7 +26,7 @@ type Config struct {
 	State        *StatePersistenceConfig
 	History      *HistoryConfig
 	Memory       *MemoryConfig
-	Toolkit      *genx.Toolkit
+	ToolInvoker  genx.ToolInvoker
 	MaxToolCalls int
 	Limits       Limits
 }
@@ -135,8 +135,8 @@ func normalizeConfig(source Config) (*normalizedConfig, error) {
 	if config.MaxToolCalls < 0 {
 		return nil, fmt.Errorf("eino: MaxToolCalls cannot be negative")
 	}
-	if config.MaxToolCalls > 0 && config.Toolkit == nil {
-		return nil, fmt.Errorf("eino: MaxToolCalls requires Toolkit")
+	if config.MaxToolCalls > 0 && config.ToolInvoker == nil {
+		return nil, fmt.Errorf("eino: MaxToolCalls requires ToolInvoker")
 	}
 	graph, err := cloneGraph(source.Graph)
 	if err != nil {

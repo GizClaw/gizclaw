@@ -55,10 +55,10 @@ func TestEinoTransformerOpenAICompatibleGraph(t *testing.T) {
 		"peer": &genxChatModel{generator: generator, instruction: "Include the exact token EINO_PEER."},
 	}}
 	transformer, err := einotransformer.New(t.Context(), einotransformer.Config{
-		Agent:      einotransformer.AgentConfig{ID: "eino-e2e", Name: "Eino E2E"},
-		Components: resolver,
-		Toolkit:    toolkit,
-		Limits:     einotransformer.Limits{MaxOutputBytes: 1 << 20},
+		Agent:       einotransformer.AgentConfig{ID: "eino-e2e", Name: "Eino E2E"},
+		Components:  resolver,
+		ToolInvoker: toolkit,
+		Limits:      einotransformer.Limits{MaxOutputBytes: 1 << 20},
 		Graph: einotransformer.GraphDefinition{
 			Name: "provider-graph",
 			Compile: einotransformer.GraphCompileConfig{

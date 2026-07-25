@@ -10,16 +10,16 @@ import (
 	flowmodel "github.com/GizClaw/flowcraft/sdk/model"
 	"github.com/GizClaw/gizclaw-go/pkgs/buffer"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
-	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/toolkitrun"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/toolrun"
 )
 
 type genXToolStream struct {
 	ctx       context.Context
 	generator genx.Generator
 	pattern   string
-	state     *toolkitrun.State
+	state     *toolrun.State
 	builder   *genx.ModelContextBuilder
-	toolkit   *genx.Toolkit
+	invoker   genx.ToolInvoker
 	stream    genx.Stream
 
 	current      flowmodel.StreamChunk
@@ -36,20 +36,24 @@ func newGenXToolStream(
 	generator genx.Generator,
 	pattern string,
 	modelContext genx.ModelContext,
-	toolkit *genx.Toolkit,
+	invoker genx.ToolInvoker,
 ) (*genXToolStream, error) {
 	builder := cloneModelContext(modelContext)
-	stream, err := generator.GenerateStream(ctx, pattern, modelContextWithToolkit(builder, toolkit))
+	resolved, err := modelContextWithTools(ctx, builder, invoker)
 	if err != nil {
 		return nil, err
 	}
-	state := toolkitrun.FromContext(ctx)
+	stream, err := generator.GenerateStream(ctx, pattern, resolved)
+	if err != nil {
+		return nil, err
+	}
+	state := toolrun.FromContext(ctx)
 	if state == nil {
-		state = toolkitrun.New(toolkit, 0)
+		state = toolrun.New(invoker, 0)
 	}
 	return &genXToolStream{
 		ctx: ctx, generator: generator, pattern: pattern,
-		state: state, builder: builder, toolkit: toolkit, stream: stream,
+		state: state, builder: builder, invoker: invoker, stream: stream,
 	}, nil
 }
 
@@ -143,11 +147,11 @@ func (s *genXToolStream) continueAfterTools() error {
 			Role: genx.RoleTool, Payload: &genx.ToolResult{ID: result.ID, Result: result.Result},
 		})
 	}
-	stream, err := s.generator.GenerateStream(
-		s.ctx,
-		s.pattern,
-		modelContextWithToolkit(s.builder, s.toolkit),
-	)
+	resolved, err := modelContextWithTools(s.ctx, s.builder, s.invoker)
+	if err != nil {
+		return err
+	}
+	stream, err := s.generator.GenerateStream(s.ctx, s.pattern, resolved)
 	if err != nil {
 		return err
 	}
@@ -193,15 +197,27 @@ func cloneModelContext(source genx.ModelContext) *genx.ModelContextBuilder {
 	return builder
 }
 
-func modelContextWithToolkit(
+func modelContextWithTools(
+	ctx context.Context,
 	source *genx.ModelContextBuilder,
-	toolkit *genx.Toolkit,
-) genx.ModelContext {
+	invoker genx.ToolInvoker,
+) (genx.ModelContext, error) {
 	builder := cloneModelContext(source.Build())
-	for tool := range toolkit.Tools() {
-		builder.AddTool(tool)
+	if invoker == nil {
+		return builder.Build(), nil
 	}
-	return builder.Build()
+	definitions, err := toolrun.ResolveTools(ctx, invoker)
+	if err != nil {
+		return nil, fmt.Errorf("flowcraft: %w", err)
+	}
+	for _, definition := range definitions {
+		builder.AddTool(&genx.FuncTool{
+			Name:        definition.Name,
+			Description: definition.Description,
+			Argument:    definition.Argument,
+		})
+	}
+	return builder.Build(), nil
 }
 
 func cloneToolCall(source genx.ToolCall) genx.ToolCall {

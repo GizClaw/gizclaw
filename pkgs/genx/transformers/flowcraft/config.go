@@ -34,9 +34,9 @@ type Config struct {
 	PublishNodes []string
 	// Models resolves every LLM node alias through model/<alias>.
 	Models genx.Generator
-	// Toolkit advertises and executes function tools inside model turns. The
+	// ToolInvoker resolves and executes function tools inside model turns. The
 	// caller owns its lifecycle.
-	Toolkit *genx.Toolkit
+	ToolInvoker genx.ToolInvoker
 	// MaxToolCalls bounds ToolCalls across one Transform invocation. Zero uses
 	// genx.DefaultMaxToolCalls.
 	MaxToolCalls int
@@ -171,8 +171,8 @@ func normalizeConfig(source Config) (Config, error) {
 	if config.MaxToolCalls < 0 {
 		return Config{}, fmt.Errorf("flowcraft: MaxToolCalls cannot be negative")
 	}
-	if config.Toolkit == nil && config.MaxToolCalls > 0 {
-		return Config{}, fmt.Errorf("flowcraft: MaxToolCalls requires Toolkit")
+	if config.ToolInvoker == nil && config.MaxToolCalls > 0 {
+		return Config{}, fmt.Errorf("flowcraft: MaxToolCalls requires ToolInvoker")
 	}
 	switch config.Initiative {
 	case InitiativeDisabled, InitiativeOnceWhenEmpty, InitiativeOnReload:

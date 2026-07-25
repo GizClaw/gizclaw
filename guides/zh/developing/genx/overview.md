@@ -119,9 +119,9 @@ type Stream interface {
 
 [`Tool`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#Tool) 是受限的工具类型集合。当前由 [`FuncTool`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#FuncTool) 和 `SearchWebTool` 实现。
 
-`FuncTool` 保存工具名称、说明、JSON Schema 和 typed invoke function。`Toolkit` 校验并快照一组有序的可执行 `FuncTool` 声明；`Tools` 返回 defensive copy，`Invoke` 则按快照 schema 校验带 ID 的调用、执行绑定函数，并把结果序列化成 JSON。
+`ToolInvoker` 是 Transformer 使用的双方法 runtime 边界。`ResolveTools` 返回当前可用函数的名称、说明和 JSON Schema；`InvokeTool` 只接收函数名与 raw JSON 参数并返回 raw JSON。RuntimeProfile 解析、权限、availability、参数校验和 Executor dispatch 都是注入实现的内部职责。
 
-同一个 Toolkit 可以由多个 runtime 并发共享；它既不全局占用 call ID，也不串行化 executor。每个 Transformer invocation 自己管理 call-ID 唯一性和调用额度。nil error 对应的可序列化值会成为 model-visible result；executor 返回非 nil error、参数非法或结果不可序列化时，当前 runtime turn 失败。
+Provider call ID 不会越过 `ToolInvoker` 边界。消费它的 Transformer 自己管理 invocation 内的关联、顺序、重复 ID 和调用额度。`Toolkit` 是基于可执行 `FuncTool` 的不可变 standalone 实现：它快照声明、校验参数、执行配对函数并序列化结果；其他实现可以从产品资源解析工具，而不向 GenX Transformer 暴露内部机制。
 
 ## 核心数据结构
 

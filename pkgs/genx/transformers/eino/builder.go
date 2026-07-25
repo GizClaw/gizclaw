@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
-	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/toolkitrun"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/toolrun"
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/components/prompt"
 	"github.com/cloudwego/eino/components/retriever"
@@ -299,7 +299,7 @@ func addNativeComponentNode(
 		}
 		adapted := &streamingChatModel{
 			component: component, options: options, node: node, published: published,
-			toolkit: config.Toolkit,
+			toolInvoker: config.ToolInvoker,
 		}
 		post := compose.WithStatePostHandler(func(
 			_ context.Context,
@@ -415,11 +415,11 @@ func addNativeEdges(graph *compose.Graph[map[string]any, map[string]any]) error 
 }
 
 type streamingChatModel struct {
-	component model.BaseChatModel
-	options   []model.Option
-	node      NodeDefinition
-	published []OutputDefinition
-	toolkit   *genx.Toolkit
+	component   model.BaseChatModel
+	options     []model.Option
+	node        NodeDefinition
+	published   []OutputDefinition
+	toolInvoker genx.ToolInvoker
 }
 
 func (chatModel *streamingChatModel) Generate(
@@ -431,20 +431,20 @@ func (chatModel *streamingChatModel) Generate(
 	if err != nil {
 		return nil, err
 	}
-	callState := toolkitrun.FromContext(ctx)
+	callState := toolrun.FromContext(ctx)
 	if callState == nil {
-		callState = toolkitrun.New(chatModel.toolkit, 0)
+		callState = toolrun.New(chatModel.toolInvoker, 0)
 	}
 	messages := cloneMessages(input)
 	var content strings.Builder
 	textField := chatModel.node.Outputs["text"]
 	for {
-		tools, toolErr := einoToolInfos(chatModel.toolkit)
+		tools, toolErr := einoToolInfos(ctx, chatModel.toolInvoker)
 		if toolErr != nil {
 			return nil, toolErr
 		}
 		callOptions := append(slices.Clone(chatModel.options), options...)
-		if chatModel.toolkit != nil {
+		if chatModel.toolInvoker != nil {
 			callOptions = append(callOptions, model.WithTools(tools))
 		}
 		reader, streamErr := chatModel.component.Stream(ctx, messages, callOptions...)
@@ -468,7 +468,7 @@ func (chatModel *streamingChatModel) Generate(
 			return message, nil
 		}
 		if callState == nil {
-			return nil, fmt.Errorf("eino: ChatModel returned ToolCalls but Toolkit is not configured")
+			return nil, fmt.Errorf("eino: ChatModel returned ToolCalls but ToolInvoker is not configured")
 		}
 		messages = append(messages, message)
 		for _, call := range message.ToolCalls {
@@ -527,7 +527,7 @@ func (chatModel *streamingChatModel) Stream(
 	input []*schema.Message,
 	options ...model.Option,
 ) (*schema.StreamReader[*schema.Message], error) {
-	if chatModel.toolkit == nil {
+	if chatModel.toolInvoker == nil {
 		return chatModel.component.Stream(
 			ctx,
 			input,

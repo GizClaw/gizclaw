@@ -119,7 +119,7 @@ func TestGraphExecutionConcurrentToolkitIsolation(t *testing.T) {
 	}
 	generator := &concurrentToolGenerator{}
 	config := testConfig(generator)
-	config.Toolkit = toolkit
+	config.ToolInvoker = toolkit
 	transformer, err := New(config)
 	if err != nil {
 		t.Fatalf("New() error = %v", err)

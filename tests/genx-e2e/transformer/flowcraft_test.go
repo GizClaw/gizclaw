@@ -44,7 +44,7 @@ func TestFlowcraftTransformerOpenAICompatibleModel(t *testing.T) {
 		t.Fatalf("create Flowcraft Toolkit: %v", err)
 	}
 	transformer, err := flowcrafttransformer.New(flowcrafttransformer.Config{
-		ID: "flowcraft-e2e", Name: "Flowcraft E2E", Models: generator, Toolkit: toolkit,
+		ID: "flowcraft-e2e", Name: "Flowcraft E2E", Models: generator, ToolInvoker: toolkit,
 		Graph: flowgraph.GraphDefinition{Name: "chat", Entry: "chat", Nodes: []flowgraph.NodeDefinition{{
 			ID: "chat", Type: "llm", Config: map[string]any{
 				"model":         "chat",

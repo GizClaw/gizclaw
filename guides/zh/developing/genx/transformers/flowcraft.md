@@ -14,7 +14,7 @@ transformer, err := flowcraft.New(flowcraft.Config{
     MaxIterations: 32,
     PublishNodes: []string{"answer"},
     Models:       runtimeGenerator,
-    Toolkit:      executableToolkit,
+    ToolInvoker:  runtimeTools,
     MaxToolCalls: 32,
 
     History: historyLogStore,
@@ -61,6 +61,6 @@ GizClaw workflow Factory 会在这个 reusable 默认值之外处理公开配置
 
 `ObserveWaitForCompletion=false` 时，EOS 和下一轮只等待 `Observe` 接受数据，不等待异步 operation materialize；实现 `memory.AsyncOperationProcessor` 的 Store 会在后台完成该 operation。设为 `true` 时，Memory 必须实现 `memory.OperationWaiter`，当前 EOS 和下一轮 Graph 都等待 operation 完成。输入 pump 在两种模式下都继续读取，不依赖输出消费者提供背压。
 
-`Toolkit` 非空时，每个 LLM model context 都会 advertise defensive copy 后的 function declaration。ToolCall 按模型给出的顺序执行，JSON result 被追加到同一 model turn，再继续生成，直到模型不再返回调用。工具轮次前后的文本继续流式输出；ToolCall 与 ToolResult control data 不会进入公开 GenX output。
+`ToolInvoker` 非空时，每次 LLM model 调用都会通过 `ResolveTools` 取得可用函数的名称、说明和 schema。ToolCall 按模型给出的顺序通过 `InvokeTool(name, arguments)` 执行，JSON result 被追加到同一 model turn，再继续生成，直到模型不再返回调用。工具轮次前后的文本继续流式输出；ToolCall 与 ToolResult control data 不会进入公开 GenX output。
 
-同一 `Transform` invocation 的所有 node 共用 `MaxToolCalls`。零值采用 32，负数非法；同一 invocation 内重复 call ID 会失败，而不同并发 invocation 可以复用相同 provider call ID。Executor error、非法参数、额度耗尽、取消和 result serialization error 只终止受影响的 invocation。
+Flowcraft 不接收 RuntimeProfile、Toolkit policy、resource 或 Executor registry 细节。注入的 `ToolInvoker` 负责解析与执行；Flowcraft 只拥有 provider call ID、顺序、续跑和 `MaxToolCalls` guard。同一 `Transform` invocation 的所有 node 共用该额度：零值采用 32，负数非法；同一 invocation 内重复 call ID 会失败，而不同并发 invocation 可以复用相同 provider call ID。解析、执行、非法 result JSON、额度耗尽和取消错误只终止受影响的 invocation。

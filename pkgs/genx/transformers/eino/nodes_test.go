@@ -255,7 +255,7 @@ func TestRaceSelectsPredicateWinner(t *testing.T) {
 	}
 }
 
-func TestChatModelRejectsToolCallsWithoutToolkit(t *testing.T) {
+func TestChatModelRejectsToolCallsWithoutToolInvoker(t *testing.T) {
 	t.Parallel()
 	chat := &fakeChatModel{chunks: []*schema.Message{{
 		Role: schema.Assistant,
@@ -277,7 +277,31 @@ func TestChatModelRejectsToolCallsWithoutToolkit(t *testing.T) {
 			terminalError = chunk.Ctrl.Error
 		}
 	}
-	if !strings.Contains(terminalError, "ToolCalls but Toolkit is not configured") {
+	if !strings.Contains(terminalError, "ToolCalls but ToolInvoker is not configured") {
+		t.Fatalf("terminal error = %q", terminalError)
+	}
+}
+
+func TestChatModelPropagatesToolResolutionError(t *testing.T) {
+	t.Parallel()
+	resolveErr := errors.New("resolve failed")
+	config := chatConfig(&componentMapResolver{chat: &fakeChatModel{}})
+	config.ToolInvoker = &einoToolInvoker{resolveErr: resolveErr}
+	transformer, err := New(t.Context(), config)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	output, err := transformer.Transform(t.Context(), textInput("tool"))
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	var terminalError string
+	for _, chunk := range drain(t, output) {
+		if chunk.IsEndOfStream() && chunk.Ctrl != nil {
+			terminalError = chunk.Ctrl.Error
+		}
+	}
+	if !strings.Contains(terminalError, resolveErr.Error()) {
 		t.Fatalf("terminal error = %q", terminalError)
 	}
 }
@@ -285,7 +309,7 @@ func TestChatModelRejectsToolCallsWithoutToolkit(t *testing.T) {
 func TestChatModelExecutesToolsAndContinues(t *testing.T) {
 	t.Parallel()
 	var invoked atomic.Int32
-	toolkit := einoTestToolkit(t, func(value string) (any, error) {
+	invoker := einoTestToolInvoker(func(value string) (any, error) {
 		invoked.Add(1)
 		return map[string]string{"found": value}, nil
 	})
@@ -300,7 +324,7 @@ func TestChatModelExecutesToolsAndContinues(t *testing.T) {
 		{{Role: schema.Assistant, Content: "done"}},
 	}}
 	config := chatConfig(&componentMapResolver{chat: chat})
-	config.Toolkit = toolkit
+	config.ToolInvoker = invoker
 	transformer, err := New(t.Context(), config)
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
@@ -378,14 +402,14 @@ func TestChatModelToolCallGuards(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			toolkit := einoTestToolkit(t, func(value string) (any, error) {
+			invoker := einoTestToolInvoker(func(value string) (any, error) {
 				return value, nil
 			})
 			chat := &scriptedChatModel{rounds: [][]*schema.Message{{{
 				Role: schema.Assistant, ToolCalls: test.calls,
 			}}}}
 			config := chatConfig(&componentMapResolver{chat: chat})
-			config.Toolkit = toolkit
+			config.ToolInvoker = invoker
 			config.MaxToolCalls = test.maximum
 			transformer, err := New(t.Context(), config)
 			if err != nil {
@@ -408,13 +432,13 @@ func TestChatModelToolCallGuards(t *testing.T) {
 	}
 }
 
-func TestChatModelConcurrentToolkitIsolation(t *testing.T) {
+func TestChatModelConcurrentToolInvokerIsolation(t *testing.T) {
 	t.Parallel()
 	var active atomic.Int32
 	var maximum atomic.Int32
 	release := make(chan struct{})
 	var releaseOnce sync.Once
-	toolkit := einoTestToolkit(t, func(value string) (any, error) {
+	invoker := einoTestToolInvoker(func(value string) (any, error) {
 		current := active.Add(1)
 		defer active.Add(-1)
 		for {
@@ -435,7 +459,7 @@ func TestChatModelConcurrentToolkitIsolation(t *testing.T) {
 	})
 	chat := &concurrentToolChatModel{}
 	config := chatConfig(&componentMapResolver{chat: chat})
-	config.Toolkit = toolkit
+	config.ToolInvoker = invoker
 	transformer, err := New(t.Context(), config)
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
@@ -466,7 +490,7 @@ func TestChatModelConcurrentToolkitIsolation(t *testing.T) {
 		t.Fatalf("maximum concurrent tool calls = %d", maximum.Load())
 	}
 	if chat.missingTools.Load() != 0 {
-		t.Fatalf("model rounds without Toolkit = %d", chat.missingTools.Load())
+		t.Fatalf("model rounds without tools = %d", chat.missingTools.Load())
 	}
 }
 
@@ -660,12 +684,16 @@ func (chat *scriptedChatModel) Stream(
 	return schema.StreamReaderFromArray(cloneMessages(chat.rounds[index])), nil
 }
 
-func einoTestToolkit(
-	t *testing.T,
-	invoke func(string) (any, error),
-) *genx.Toolkit {
-	t.Helper()
-	tool := &genx.FuncTool{
+type einoToolInvoker struct {
+	invoke     func(string) (any, error)
+	resolveErr error
+}
+
+func (invoker *einoToolInvoker) ResolveTools(context.Context) ([]genx.ToolDefinition, error) {
+	if invoker.resolveErr != nil {
+		return nil, invoker.resolveErr
+	}
+	return []genx.ToolDefinition{{
 		Name: "lookup", Description: "looks up a value",
 		Argument: &jsonschema.Schema{
 			Type:                 "object",
@@ -673,21 +701,32 @@ func einoTestToolkit(
 			Properties:           map[string]*jsonschema.Schema{"value": {Type: "string"}},
 			AdditionalProperties: &jsonschema.Schema{Not: &jsonschema.Schema{}},
 		},
-		Invoke: func(_ context.Context, _ *genx.FuncCall, arguments string) (any, error) {
-			var input struct {
-				Value string `json:"value"`
-			}
-			if err := json.Unmarshal([]byte(arguments), &input); err != nil {
-				return nil, err
-			}
-			return invoke(input.Value)
-		},
+	}}, nil
+}
+
+func (invoker *einoToolInvoker) InvokeTool(
+	_ context.Context,
+	name string,
+	arguments json.RawMessage,
+) (json.RawMessage, error) {
+	if name != "lookup" {
+		return nil, fmt.Errorf("unexpected tool %q", name)
 	}
-	toolkit, err := genx.NewToolkit(tool)
+	var input struct {
+		Value string `json:"value"`
+	}
+	if err := json.Unmarshal(arguments, &input); err != nil {
+		return nil, err
+	}
+	result, err := invoker.invoke(input.Value)
 	if err != nil {
-		t.Fatalf("NewToolkit() error = %v", err)
+		return nil, err
 	}
-	return toolkit
+	return json.Marshal(result)
+}
+
+func einoTestToolInvoker(invoke func(string) (any, error)) genx.ToolInvoker {
+	return &einoToolInvoker{invoke: invoke}
 }
 
 func (chat *fakeChatModel) Generate(ctx context.Context, input []*schema.Message, opts ...model.Option) (*schema.Message, error) {

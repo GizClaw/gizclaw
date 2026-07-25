@@ -18,8 +18,8 @@ import (
 func buildRuntime(config Config) (flowagent.Agent, engine.Engine, error) {
 	factory := node.NewFactory()
 	llmnode.Register(factory, &modelResolver{
-		generator: config.Models,
-		toolkit:   config.Toolkit,
+		generator:   config.Models,
+		toolInvoker: config.ToolInvoker,
 	}, nil)
 	// Inline scripts are supported, while a nil Workspace deliberately leaves
 	// filesystem operations unavailable.

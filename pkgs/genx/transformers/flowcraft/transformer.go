@@ -14,7 +14,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/buffer"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/streamkit"
-	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/toolkitrun"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/toolrun"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
@@ -566,7 +566,10 @@ func (r *turnRun) runGraph() (*flowagent.Result, error) {
 		}
 		return board, nil
 	})
-	runContext := toolkitrun.WithContext(r.ctx, toolkitrun.New(config.Toolkit, config.MaxToolCalls))
+	runContext := toolrun.WithContext(
+		r.ctx,
+		toolrun.New(config.ToolInvoker, config.MaxToolCalls),
+	)
 	result, err := flowagent.Run(runContext, r.session.transformer.agent, r.session.transformer.engine, flowagent.Request{
 		ContextID: r.session.contextID, RunID: r.response.StreamID(),
 		Message: flowmodel.NewTextMessage(flowmodel.RoleUser, r.user),

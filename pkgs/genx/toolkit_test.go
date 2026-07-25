@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"iter"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -13,6 +12,32 @@ import (
 
 	"github.com/google/jsonschema-go/jsonschema"
 )
+
+var _ ToolInvoker = (*Toolkit)(nil)
+
+func TestToolkitHandlesNilReceiverAndResolutionContext(t *testing.T) {
+	var toolkit *Toolkit
+	if _, err := toolkit.ResolveTools(t.Context()); !errors.Is(err, ErrInvalidToolkit) {
+		t.Fatalf("nil ResolveTools() error = %v", err)
+	}
+	if _, err := toolkit.InvokeTool(
+		t.Context(), "lookup", json.RawMessage(`{}`),
+	); !errors.Is(err, ErrInvalidToolkit) {
+		t.Fatalf("nil InvokeTool() error = %v", err)
+	}
+	empty, err := NewToolkit()
+	if err != nil {
+		t.Fatalf("NewToolkit() error = %v", err)
+	}
+	if definitions, err := empty.ResolveTools(nil); err != nil || len(definitions) != 0 {
+		t.Fatalf("ResolveTools(nil) = %#v, %v", definitions, err)
+	}
+	cancelled, cancel := context.WithCancel(t.Context())
+	cancel()
+	if _, err := empty.ResolveTools(cancelled); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled ResolveTools() error = %v", err)
+	}
+}
 
 func TestToolkitSnapshotsDeclarationsAndPreservesOrder(t *testing.T) {
 	first := executableTestTool(t, " first ", func(_ context.Context, _ *FuncCall, arguments map[string]any) (any, error) {
@@ -31,20 +56,27 @@ func TestToolkitSnapshotsDeclarationsAndPreservesOrder(t *testing.T) {
 	first.Invoke = func(context.Context, *FuncCall, string) (any, error) {
 		return nil, errors.New("mutated executor")
 	}
-	got := collectTools(toolkit.Tools())
+	got, err := toolkit.ResolveTools(t.Context())
+	if err != nil {
+		t.Fatalf("ResolveTools() error = %v", err)
+	}
 	if len(got) != 2 || got[0].Name != "first" || got[1].Name != "second" {
 		t.Fatalf("Tools() = %#v", got)
 	}
 	got[0].Name = "changed"
 	got[0].Argument.Properties["value"].Type = "boolean"
-	got[0].Invoke = first.Invoke
-	again := collectTools(toolkit.Tools())
+	again, err := toolkit.ResolveTools(t.Context())
+	if err != nil {
+		t.Fatalf("second ResolveTools() error = %v", err)
+	}
 	if again[0].Name != "first" || again[0].Argument.Properties["value"].Type != "string" {
 		t.Fatalf("Tools() leaked caller mutation: %#v", again[0])
 	}
-	if _, err := toolkit.Invoke(t.Context(), ToolCall{
-		ID: "owned", FuncCall: &FuncCall{Name: "first", Arguments: `{"value":"still-owned"}`},
-	}); err != nil {
+	if _, err := toolkit.InvokeTool(
+		t.Context(),
+		"first",
+		json.RawMessage(`{"value":"still-owned"}`),
+	); err != nil {
 		t.Fatalf("Invoke() used a mutated executor: %v", err)
 	}
 }
@@ -87,18 +119,17 @@ func TestToolkitInvokeValidatesAndSerializes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewToolkit() error = %v", err)
 	}
-	result, err := toolkit.Invoke(t.Context(), ToolCall{
-		ID: " call-1 ", FuncCall: &FuncCall{Name: " lookup ", Arguments: `{"value":"x"}`},
-	})
+	result, err := toolkit.InvokeTool(
+		t.Context(),
+		" lookup ",
+		json.RawMessage(`{"value":"x"}`),
+	)
 	if err != nil {
 		t.Fatalf("Invoke() error = %v", err)
 	}
-	if result.ID != "call-1" {
-		t.Fatalf("result.ID = %q", result.ID)
-	}
 	var decoded map[string]any
-	if err := json.Unmarshal([]byte(result.Result), &decoded); err != nil {
-		t.Fatalf("result JSON = %q: %v", result.Result, err)
+	if err := json.Unmarshal(result, &decoded); err != nil {
+		t.Fatalf("result JSON = %q: %v", result, err)
 	}
 	if decoded["value"] != "x" || decoded["ok"] != true {
 		t.Fatalf("result = %#v", decoded)
@@ -107,16 +138,18 @@ func TestToolkitInvokeValidatesAndSerializes(t *testing.T) {
 		t.Fatalf("invocations = %d", invoked.Load())
 	}
 
-	invalid := []ToolCall{
-		{FuncCall: &FuncCall{Name: "lookup", Arguments: `{"value":"x"}`}},
-		{ID: "call", FuncCall: nil},
-		{ID: "call", FuncCall: &FuncCall{Name: "missing", Arguments: `{}`}},
-		{ID: "call", FuncCall: &FuncCall{Name: "lookup", Arguments: `{`}},
-		{ID: "call", FuncCall: &FuncCall{Name: "lookup", Arguments: `{"value":1}`}},
-		{ID: "call", FuncCall: &FuncCall{Name: "lookup", Arguments: `{"value":"x"} {}`}},
+	invalid := []struct {
+		name      string
+		arguments json.RawMessage
+	}{
+		{arguments: json.RawMessage(`{"value":"x"}`)},
+		{name: "missing", arguments: json.RawMessage(`{}`)},
+		{name: "lookup", arguments: json.RawMessage(`{`)},
+		{name: "lookup", arguments: json.RawMessage(`{"value":1}`)},
+		{name: "lookup", arguments: json.RawMessage(`{"value":"x"} {}`)},
 	}
 	for index, call := range invalid {
-		if _, err := toolkit.Invoke(t.Context(), call); err == nil {
+		if _, err := toolkit.InvokeTool(t.Context(), call.name, call.arguments); err == nil {
 			t.Fatalf("invalid call %d succeeded", index)
 		}
 	}
@@ -137,10 +170,18 @@ func TestToolkitInvokePropagatesExecutorAndSerializationErrors(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewToolkit() error = %v", err)
 	}
-	if _, err := toolkit.Invoke(t.Context(), ToolCall{ID: "one", FuncCall: &FuncCall{Name: "failing", Arguments: `{"value":"x"}`}}); !errors.Is(err, executorErr) {
+	if _, err := toolkit.InvokeTool(
+		t.Context(),
+		"failing",
+		json.RawMessage(`{"value":"x"}`),
+	); !errors.Is(err, executorErr) {
 		t.Fatalf("executor error = %v", err)
 	}
-	if _, err := toolkit.Invoke(t.Context(), ToolCall{ID: "two", FuncCall: &FuncCall{Name: "unserializable", Arguments: `{"value":"x"}`}}); err == nil {
+	if _, err := toolkit.InvokeTool(
+		t.Context(),
+		"unserializable",
+		json.RawMessage(`{"value":"x"}`),
+	); err == nil {
 		t.Fatal("serialization error = nil")
 	}
 }
@@ -161,28 +202,34 @@ func TestToolkitInvokePreservesBusinessValuesAndContextErrors(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewToolkit() error = %v", err)
 	}
-	result, err := toolkit.Invoke(t.Context(), ToolCall{
-		ID: "business-1", FuncCall: &FuncCall{Name: "business", Arguments: `{"value":"x"}`},
-	})
+	result, err := toolkit.InvokeTool(
+		t.Context(),
+		"business",
+		json.RawMessage(`{"value":"x"}`),
+	)
 	if err != nil {
 		t.Fatalf("business Invoke() error = %v", err)
 	}
-	if result.Result != `{"code":"denied","allowed":false}` {
-		t.Fatalf("business result = %q", result.Result)
+	if string(result) != `{"code":"denied","allowed":false}` {
+		t.Fatalf("business result = %q", result)
 	}
 
 	cancelled, cancel := context.WithCancel(t.Context())
 	cancel()
-	if _, err := toolkit.Invoke(cancelled, ToolCall{
-		ID: "cancelled", FuncCall: &FuncCall{Name: "blocked", Arguments: `{"value":"x"}`},
-	}); !errors.Is(err, context.Canceled) {
+	if _, err := toolkit.InvokeTool(
+		cancelled,
+		"blocked",
+		json.RawMessage(`{"value":"x"}`),
+	); !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancelled Invoke() error = %v", err)
 	}
 	timed, stop := context.WithTimeout(t.Context(), time.Millisecond)
 	defer stop()
-	if _, err := toolkit.Invoke(timed, ToolCall{
-		ID: "timed", FuncCall: &FuncCall{Name: "blocked", Arguments: `{"value":"x"}`},
-	}); !errors.Is(err, context.DeadlineExceeded) {
+	if _, err := toolkit.InvokeTool(
+		timed,
+		"blocked",
+		json.RawMessage(`{"value":"x"}`),
+	); !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("timed Invoke() error = %v", err)
 	}
 }
@@ -202,9 +249,11 @@ func TestToolkitInvokeRejectsLateResultAfterCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	result := make(chan error, 1)
 	go func() {
-		_, invokeErr := toolkit.Invoke(ctx, ToolCall{
-			ID: "late-1", FuncCall: &FuncCall{Name: "late", Arguments: `{"value":"x"}`},
-		})
+		_, invokeErr := toolkit.InvokeTool(
+			ctx,
+			"late",
+			json.RawMessage(`{"value":"x"}`),
+		)
 		result <- invokeErr
 	}()
 	<-started
@@ -216,7 +265,7 @@ func TestToolkitInvokeRejectsLateResultAfterCancellation(t *testing.T) {
 	}
 }
 
-func TestToolkitAllowsSameCallIDAcrossConcurrentInvocations(t *testing.T) {
+func TestToolkitAllowsConcurrentInvocations(t *testing.T) {
 	var active atomic.Int32
 	var maximum atomic.Int32
 	release := make(chan struct{})
@@ -245,9 +294,11 @@ func TestToolkitAllowsSameCallIDAcrossConcurrentInvocations(t *testing.T) {
 	errs := make(chan error, 2)
 	for range 2 {
 		wg.Go(func() {
-			_, invokeErr := toolkit.Invoke(t.Context(), ToolCall{
-				ID: "same-provider-id", FuncCall: &FuncCall{Name: "parallel", Arguments: `{"value":"x"}`},
-			})
+			_, invokeErr := toolkit.InvokeTool(
+				t.Context(),
+				"parallel",
+				json.RawMessage(`{"value":"x"}`),
+			)
 			errs <- invokeErr
 		})
 	}
@@ -291,12 +342,4 @@ func executableTestTool(
 			return invoke(ctx, call, decoded)
 		},
 	}
-}
-
-func collectTools(sequence iter.Seq[*FuncTool]) []*FuncTool {
-	var tools []*FuncTool
-	for tool := range sequence {
-		tools = append(tools, tool)
-	}
-	return tools
 }
