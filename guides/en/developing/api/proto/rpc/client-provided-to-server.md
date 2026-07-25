@@ -17,4 +17,4 @@ sequenceDiagram
 
 A Client provider can only return data that is owned or executable by the Client. Server resource-access decisions, cross-peer lookup, and persistence management cannot be implemented as `client.*`.
 
-Go Client's provider dispatch is located at `sdk/go/gizcli`'s RPC Client implementation; the server side calls these methods through online Peer connection.
+Go Client's provider dispatch is located in the `sdk/go/gizcli` RPC Client implementation. A C Client registers the same provider direction through `gzc_client_config_t.rpc_provider`; the callback supplies borrowed Protobuf response bytes or a stable RPC error before returning. The server side calls these methods through the online Peer connection.
