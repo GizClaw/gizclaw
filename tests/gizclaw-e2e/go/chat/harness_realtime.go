@@ -13,16 +13,24 @@ func (d *personaDriver) runRealtimeRoundtrip(ctx context.Context) ([]roundStats,
 
 func (d *personaDriver) runRealtimeRoundtripWithMode(ctx context.Context, mode conversationMode) ([]roundStats, error) {
 	d.useRoundtripUtterances()
+	mode = configureRealtimeConversationMode(d.cfg.Agent, mode)
+	return d.runConversation(ctx, mode)
+}
+
+func configureRealtimeConversationMode(agent string, mode conversationMode) conversationMode {
 	mode.Realtime = true
-	if d.cfg.Agent == "dashscope-realtime" {
+	if agent == "dashscope-realtime" {
+		// Keep the peer transport as raw Opus. The transformer decodes it to the
+		// provider input format declared by the workflow.
+		mode.InputAudioMIME = "audio/opus"
 		mode.AllowSplitAssistantStreams = true
 		mode.AllowMissingInputTranscript = true
 	}
-	if d.cfg.Agent == "doubao-realtime-duplex" {
+	if agent == "doubao-realtime-duplex" {
 		mode.AllowSplitAssistantStreams = true
 		mode.RealtimeTailSilence = 2100 * time.Millisecond
 		mode.ReencodeRealtimeTailSilence = true
 		mode.KeepRealtimeInputOpen = true
 	}
-	return d.runConversation(ctx, mode)
+	return mode
 }

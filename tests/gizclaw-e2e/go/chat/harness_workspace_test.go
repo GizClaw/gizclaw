@@ -198,6 +198,19 @@ func TestRealtimeAutoSplitHistoryReplayPolicy(t *testing.T) {
 	}
 }
 
+func TestRealtimeConversationModeKeepsDashScopeOpusTransport(t *testing.T) {
+	mode := configureRealtimeConversationMode("dashscope-realtime", conversationMode{})
+	if !mode.Realtime {
+		t.Fatal("DashScope realtime mode is not realtime")
+	}
+	if mode.InputAudioMIME != "audio/opus" {
+		t.Fatalf("DashScope input audio MIME = %q, want raw Opus for transformer conversion", mode.InputAudioMIME)
+	}
+	if !mode.AllowSplitAssistantStreams || !mode.AllowMissingInputTranscript {
+		t.Fatalf("DashScope realtime allowances = %+v, want split streams and optional input transcript", mode)
+	}
+}
+
 func TestMatchRealtimeAutoSplitHistoryRequiresOrder(t *testing.T) {
 	items := []rpcapi.PeerRunHistoryEntry{
 		{Id: "2", Text: "klmnopqrst"},
