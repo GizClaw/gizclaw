@@ -259,7 +259,9 @@ func TestServerValidatesProviderKindAgainstProviderData(t *testing.T) {
 	srv := &Server{Store: kv.NewMemory(nil)}
 
 	dashScopeMode := apitypes.DashScopeTenantModelProviderDataApiModeChatCompletions
+	dashScopeRealtimeMode := apitypes.DashScopeTenantModelProviderDataApiModeRealtime
 	volcMode := apitypes.VolcTenantModelProviderDataApiModeChatCompletions
+	volcRealtimeDuplexMode := apitypes.VolcTenantModelProviderDataApiModeRealtimeDuplex
 	falseValue := false
 	trueValue := true
 	booleanThinkingParam := "enable_thinking"
@@ -272,6 +274,12 @@ func TestServerValidatesProviderKindAgainstProviderData(t *testing.T) {
 		modelUpsertWithProviderData("minimax-m2", apitypes.ModelProviderKindMinimaxTenant, miniMaxProviderData("MiniMax-M2")),
 		modelUpsertWithProviderData("deepseek-chat", apitypes.ModelProviderKindDeepseekTenant, deepSeekProviderData("deepseek-chat")),
 	}
+	dashRealtime := modelUpsertWithProviderData("qwen-realtime", apitypes.ModelProviderKindDashscopeTenant, modelProviderData(t, apitypes.DashScopeTenantModelProviderData{ApiMode: &dashScopeRealtimeMode, UpstreamModel: stringPtr("qwen3-omni-flash-realtime")}))
+	dashRealtime.Kind = apitypes.ModelKindRealtime
+	valid = append(valid, dashRealtime)
+	volcRealtimeDuplex := modelUpsertWithProviderData("doubao-realtime-duplex", apitypes.ModelProviderKindVolcTenant, modelProviderData(t, apitypes.VolcTenantModelProviderData{ApiMode: volcRealtimeDuplexMode, UpstreamModel: stringPtr("doubao-realtime-duplex")}))
+	volcRealtimeDuplex.Kind = apitypes.ModelKindRealtimeDuplex
+	valid = append(valid, volcRealtimeDuplex)
 	for _, body := range valid {
 		resp, err := srv.CreateModel(ctx, adminhttp.CreateModelRequestObject{Body: &body})
 		if err != nil {
@@ -314,7 +322,14 @@ func TestServerValidatesProviderKindAgainstProviderData(t *testing.T) {
 		t.Fatalf("CreateModel(default-behavior) response = %#v, want 200", resp)
 	}
 
-	for _, body := range []adminhttp.ModelUpsert{wrongKind, unknownField, wrongModelKind} {
+	missingDashRealtimeUpstream := dashRealtime
+	missingDashRealtimeUpstream.Id = "qwen-realtime-missing-upstream"
+	missingDashRealtimeUpstream.ProviderData = modelProviderData(t, apitypes.DashScopeTenantModelProviderData{ApiMode: &dashScopeRealtimeMode})
+	missingVolcRealtimeDuplexUpstream := volcRealtimeDuplex
+	missingVolcRealtimeDuplexUpstream.Id = "doubao-realtime-duplex-missing-upstream"
+	missingVolcRealtimeDuplexUpstream.ProviderData = modelProviderData(t, apitypes.VolcTenantModelProviderData{ApiMode: volcRealtimeDuplexMode})
+
+	for _, body := range []adminhttp.ModelUpsert{wrongKind, unknownField, wrongModelKind, missingDashRealtimeUpstream, missingVolcRealtimeDuplexUpstream} {
 		resp, err := srv.CreateModel(ctx, adminhttp.CreateModelRequestObject{Body: &body})
 		if err != nil {
 			t.Fatalf("CreateModel(%s) error = %v", body.Id, err)
@@ -417,6 +432,7 @@ func TestVolcProviderDataRequiresTheAPIModeForEachModelRole(t *testing.T) {
 		{kind: apitypes.ModelKindTts, mode: apitypes.VolcTenantModelProviderDataApiModeTts},
 		{kind: apitypes.ModelKindAsr, mode: apitypes.VolcTenantModelProviderDataApiModeAsr},
 		{kind: apitypes.ModelKindRealtime, mode: apitypes.VolcTenantModelProviderDataApiModeRealtime},
+		{kind: apitypes.ModelKindRealtimeDuplex, mode: apitypes.VolcTenantModelProviderDataApiModeRealtimeDuplex},
 		{kind: apitypes.ModelKindTranslation, mode: apitypes.VolcTenantModelProviderDataApiModeTranslation},
 		{kind: apitypes.ModelKindEmbedding, mode: apitypes.VolcTenantModelProviderDataApiModeEmbedding},
 	}
@@ -433,7 +449,10 @@ func TestVolcProviderDataRequiresTheAPIModeForEachModelRole(t *testing.T) {
 				value.SupportTemperature = &falseValue
 				value.SupportThinking = &falseValue
 			}
-			if tt.kind == apitypes.ModelKindLlm || tt.kind == apitypes.ModelKindEmbedding {
+			if tt.kind == apitypes.ModelKindLlm ||
+				tt.kind == apitypes.ModelKindEmbedding ||
+				tt.kind == apitypes.ModelKindRealtime ||
+				tt.kind == apitypes.ModelKindRealtimeDuplex {
 				value.UpstreamModel = &upstream
 			}
 			if err := data.FromVolcTenantModelProviderData(value); err != nil {
@@ -441,6 +460,17 @@ func TestVolcProviderDataRequiresTheAPIModeForEachModelRole(t *testing.T) {
 			}
 			if err := ValidateProviderData(tt.kind, apitypes.ModelProviderKindVolcTenant, data); err != nil {
 				t.Fatalf("ValidateProviderData() error = %v", err)
+			}
+
+			if tt.kind == apitypes.ModelKindRealtime || tt.kind == apitypes.ModelKindRealtimeDuplex {
+				value.UpstreamModel = nil
+				if err := data.FromVolcTenantModelProviderData(value); err != nil {
+					t.Fatalf("FromVolcTenantModelProviderData(missing upstream model) error = %v", err)
+				}
+				if err := ValidateProviderData(tt.kind, apitypes.ModelProviderKindVolcTenant, data); err == nil {
+					t.Fatalf("ValidateProviderData(%s) accepted missing upstream_model", tt.kind)
+				}
+				value.UpstreamModel = &upstream
 			}
 
 			wrongMode := apitypes.VolcTenantModelProviderDataApiModeRealtime

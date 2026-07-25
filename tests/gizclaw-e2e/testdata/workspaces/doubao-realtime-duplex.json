@@ -1,0 +1,35 @@
+{
+  "agent": "doubao-realtime-duplex",
+  "models": {
+    "llm": "llm",
+    "tts": "tts",
+    "asr": "asr",
+    "realtime_duplex": "realtime-duplex"
+  },
+  "workflow": {
+    "name": "doubao-realtime-duplex-conversation",
+    "description": "Doubao realtime duplex conversation workflow",
+    "doubao_realtime_duplex": {
+      "model": "realtime-duplex",
+      "instructions": "Reply with exactly: Hello.",
+      "format": "ogg_opus",
+      "sample_rate": 24000,
+      "input_format": "speech_opus",
+      "input_sample_rate": 16000,
+      "input_channels": 1,
+      "input_transcode": false,
+      "output_speed": 0,
+      "output_loudness": 0
+    },
+    "parameters": {
+      "input": "realtime"
+    }
+  },
+  "voice": "assistant-voice",
+  "rounds": 1,
+  "timeout": "60s",
+  "persona": "You are a concise Chinese voice chat test user. Keep every utterance short and speech friendly.",
+  "utterances": [
+    "Please say hello"
+  ]
+}

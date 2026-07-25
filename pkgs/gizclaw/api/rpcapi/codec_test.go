@@ -535,6 +535,130 @@ func TestPayloadCodecMapsGoDTOsDirectlyToProtobuf(t *testing.T) {
 	}
 }
 
+func TestPayloadCodecRoundTripsNewWorkflowContracts(t *testing.T) {
+	t.Parallel()
+	var modelPayload RPCPayload
+	model := Model{
+		Alias:        "duplex",
+		I18n:         map[string]AliasI18nText{},
+		Kind:         ModelKindRealtimeDuplex,
+		ProviderKind: ModelProviderKindVolcTenant,
+		VolcTenant: &VolcTenantModelProviderData{
+			ApiMode:       ptr(VolcTenantModelProviderDataApiModeRealtimeDuplex),
+			UpstreamModel: ptr("1.2.6.0"),
+		},
+	}
+	if err := modelPayload.encode("Model", model); err != nil {
+		t.Fatalf("encode Model: %v", err)
+	}
+	var decodedModel Model
+	if err := modelPayload.decode("Model", &decodedModel); err != nil {
+		t.Fatalf("decode Model: %v", err)
+	}
+	if decodedModel.Kind != ModelKindRealtimeDuplex || decodedModel.ProviderKind != ModelProviderKindVolcTenant {
+		t.Fatalf("Model round trip = %#v", decodedModel)
+	}
+
+	dash := DashScopeRealtimeWorkflowSpec{Model: "dash-realtime"}
+	var dashPayload RPCPayload
+	if err := dashPayload.encode("DashScopeRealtimeWorkflowSpec", dash); err != nil {
+		t.Fatalf("encode DashScope workflow: %v", err)
+	}
+	var decodedDash DashScopeRealtimeWorkflowSpec
+	if err := dashPayload.decode("DashScopeRealtimeWorkflowSpec", &decodedDash); err != nil {
+		t.Fatalf("decode DashScope workflow: %v", err)
+	}
+	if decodedDash.Model != dash.Model {
+		t.Fatalf("DashScope workflow round trip = %#v", decodedDash)
+	}
+
+	duplex := DoubaoRealtimeDuplexWorkflowSpec{Model: "realtime-duplex"}
+	var duplexPayload RPCPayload
+	if err := duplexPayload.encode("DoubaoRealtimeDuplexWorkflowSpec", duplex); err != nil {
+		t.Fatalf("encode Duplex workflow: %v", err)
+	}
+	var decodedDuplex DoubaoRealtimeDuplexWorkflowSpec
+	if err := duplexPayload.decode("DoubaoRealtimeDuplexWorkflowSpec", &decodedDuplex); err != nil {
+		t.Fatalf("decode Duplex workflow: %v", err)
+	}
+	if decodedDuplex.Model != duplex.Model {
+		t.Fatalf("Duplex workflow round trip = %#v", decodedDuplex)
+	}
+
+	eino := EinoWorkflowSpec{Graph: map[string]any{
+		"name":    "rpc-eino",
+		"compile": map[string]any{"node_trigger_mode": "any_predecessor"},
+		"state": map[string]any{"fields": []any{
+			map[string]any{"name": "answer", "type": "string", "merge": "replace"},
+		}},
+		"nodes": []any{
+			map[string]any{
+				"id": "answer", "type": "passthrough",
+				"inputs":  map[string]any{"value": map[string]any{"from": "input.text"}},
+				"outputs": map[string]any{"value": "answer"},
+			},
+		},
+		"edges": []any{
+			map[string]any{"from": "start", "to": "answer"},
+			map[string]any{"from": "answer", "to": "end"},
+		},
+		"branches": []any{},
+		"outputs": []any{
+			map[string]any{
+				"node": "answer", "field": "answer", "name": "assistant",
+				"mime_type": "text/plain", "primary": true,
+			},
+		},
+	}}
+	var einoPayload RPCPayload
+	if err := einoPayload.encode("EinoWorkflowSpec", eino); err != nil {
+		t.Fatalf("encode Eino workflow: %v", err)
+	}
+	var decodedEino EinoWorkflowSpec
+	if err := einoPayload.decode("EinoWorkflowSpec", &decodedEino); err != nil {
+		t.Fatalf("decode Eino workflow: %v", err)
+	}
+	if decodedEino.Graph["name"] != eino.Graph["name"] {
+		t.Fatalf("Eino workflow round trip = %#v", decodedEino)
+	}
+
+	pet := PetWorkflowSpec{
+		Driver:               ReusableWorkflowDriverDoubaoRealtimeDuplex,
+		DoubaoRealtimeDuplex: &duplex,
+	}
+	var petPayload RPCPayload
+	if err := petPayload.encode("PetWorkflowSpec", pet); err != nil {
+		t.Fatalf("encode Pet workflow: %v", err)
+	}
+	var decodedPet PetWorkflowSpec
+	if err := petPayload.decode("PetWorkflowSpec", &decodedPet); err != nil {
+		t.Fatalf("decode Pet workflow: %v", err)
+	}
+	if decodedPet.Driver != ReusableWorkflowDriverDoubaoRealtimeDuplex ||
+		decodedPet.DoubaoRealtimeDuplex == nil ||
+		decodedPet.DoubaoRealtimeDuplex.Model != duplex.Model {
+		t.Fatalf("Pet workflow round trip = %#v", decodedPet)
+	}
+
+	var parameters WorkspaceParameters
+	if err := parameters.FromEinoWorkspaceParameters(EinoWorkspaceParameters{
+		AgentType: EinoWorkspaceParametersAgentTypeEino,
+	}); err != nil {
+		t.Fatalf("encode Eino workspace parameters union: %v", err)
+	}
+	var parametersPayload RPCPayload
+	if err := parametersPayload.encode("WorkspaceParameters", parameters); err != nil {
+		t.Fatalf("encode WorkspaceParameters: %v", err)
+	}
+	var decodedParameters WorkspaceParameters
+	if err := parametersPayload.decode("WorkspaceParameters", &decodedParameters); err != nil {
+		t.Fatalf("decode WorkspaceParameters: %v", err)
+	}
+	if _, err := decodedParameters.AsEinoWorkspaceParameters(); err != nil {
+		t.Fatalf("Eino WorkspaceParameters round trip: %v", err)
+	}
+}
+
 func TestPayloadCodecMapsProtobufDirectlyToGoDTOs(t *testing.T) {
 	firmwareData, err := proto.Marshal(&rpcpb.FirmwareGetRequest{})
 	if err != nil {

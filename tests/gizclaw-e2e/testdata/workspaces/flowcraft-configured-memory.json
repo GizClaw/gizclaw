@@ -1,0 +1,77 @@
+{
+  "agent": "flowcraft",
+  "models": {
+    "llm": "llm",
+    "tts": "tts",
+    "asr": "asr"
+  },
+  "workflow": {
+    "name": "flowcraft-configured-memory",
+    "description": "Flowcraft workflow using the configured provider-neutral memory store",
+    "flowcraft": {
+      "agent": {
+        "graph": {
+          "edges": [
+            {
+              "from": "answer",
+              "to": "__end__"
+            }
+          ],
+          "entry": "answer",
+          "name": "Configured Memory Assistant",
+          "nodes": [
+            {
+              "config": {
+                "max_tokens": 2048,
+                "model": "llm",
+                "system_prompt": "你是一个简短、准确的中文语音助手。\n相关长期记忆如下；如果为空就忽略：\n${board.recalled_memory}\n"
+              },
+              "id": "answer",
+              "publish": true,
+              "type": "llm"
+            }
+          ]
+        },
+        "id": "configured-memory",
+        "max_iterations": 4,
+        "name": "Configured Memory Assistant"
+      },
+      "conversation": {
+        "starts": "peer"
+      },
+      "memory": {
+        "enabled": true,
+        "recall": {
+          "enabled": true,
+          "profiles": {
+            "recalled_memory": {
+              "output": "recalled_memory",
+              "query": {
+                "text": "input"
+              },
+              "top_k": 5
+            }
+          }
+        },
+        "write": {
+          "mode": "sync",
+          "save_conversation": true
+        }
+      }
+    },
+    "parameters": {
+      "input": "push-to-talk"
+    },
+    "voice_adapter": {
+      "asr_model": "asr",
+      "default_voice": "narrator",
+      "node_voices": {
+        "answer": "narrator"
+      }
+    }
+  },
+  "voice": "assistant-voice",
+  "rounds": 1,
+  "timeout": "300s",
+  "persona": "You are a concise Chinese voice chat test user. Keep every utterance short and speech friendly."
+}

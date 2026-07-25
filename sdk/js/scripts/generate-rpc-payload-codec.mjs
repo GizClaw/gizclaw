@@ -269,6 +269,9 @@ function encodeType(writer: ProtoWriter, number: number, type: string, value: un
     case "double":
       writer.double(number, Number(value));
       return;
+    case "float":
+      writer.float(number, Number(value));
+      return;
     case "int32":
       writer.int32(number, Number(value));
       return;
@@ -328,6 +331,8 @@ function decodeType(reader: ProtoReader, tag: ProtoField, type: string): unknown
       return encodeBase64(reader.bytes(tag));
     case "double":
       return reader.double(tag);
+    case "float":
+      return reader.float(tag);
     case "int32":
       return reader.int32(tag);
     case "int64":
@@ -406,6 +411,7 @@ function isScalarType(type: string): boolean {
     case "bool":
     case "bytes":
     case "double":
+    case "float":
     case "int32":
     case "int64":
     case "string":
@@ -547,6 +553,9 @@ function oneofDiscriminatorFieldName(type: string, discriminator: string): strin
         "doubao-realtime": "doubao_realtime_workspace_parameters",
         "ast-translate": "asttranslate_workspace_parameters",
         "chatroom": "chat_room_workspace_parameters",
+        "dashscope-realtime": "dash_scope_realtime_workspace_parameters",
+        "doubao-realtime-duplex": "doubao_realtime_duplex_workspace_parameters",
+        "eino": "eino_workspace_parameters",
       } as Record<string, string>)[discriminator];
     default:
       return undefined;
@@ -699,6 +708,7 @@ function emptyTypeValue(type: string): unknown {
     case "string":
       return "";
     case "double":
+    case "float":
     case "int32":
     case "int64":
     case "uint32":
@@ -775,6 +785,13 @@ class ProtoWriter {
     this.tag(field, 1);
     const buf = new ArrayBuffer(8);
     new DataView(buf).setFloat64(0, value, true);
+    this.pushBytes(new Uint8Array(buf));
+  }
+
+  float(field: number, value: number): void {
+    this.tag(field, 5);
+    const buf = new ArrayBuffer(4);
+    new DataView(buf).setFloat32(0, value, true);
     this.pushBytes(new Uint8Array(buf));
   }
 
@@ -861,6 +878,20 @@ class ProtoReader {
     }
     const out = new DataView(this.data.buffer, this.data.byteOffset + this.offset, 8).getFloat64(0, true);
     this.offset += 8;
+    return out;
+  }
+
+  float(field: ProtoField): number {
+    this.expect(field, 5);
+    if (this.data.length - this.offset < 4) {
+      throw new Error("truncated protobuf float");
+    }
+    const out = new DataView(
+      this.data.buffer,
+      this.data.byteOffset + this.offset,
+      4,
+    ).getFloat32(0, true);
+    this.offset += 4;
     return out;
   }
 
@@ -1189,6 +1220,7 @@ function tsType(type, parsed) {
     case "string":
       return "string";
     case "double":
+    case "float":
     case "int32":
     case "int64":
     case "uint32":
@@ -1206,7 +1238,7 @@ function tsType(type, parsed) {
   }
 }
 
-function buildEnumDesc(_name, values) {
+function buildEnumDesc(name, values) {
   const prefix = enumValuePrefix(values.map((item) => item.name));
   const byName = {};
   const byNumber = {};
@@ -1215,21 +1247,26 @@ function buildEnumDesc(_name, values) {
     if (prefix !== "" && jsonName.startsWith(prefix)) {
       jsonName = jsonName.slice(prefix.length);
     }
-    jsonName = enumJSONValue(jsonName);
+    jsonName = enumJSONValue(name, jsonName);
     byName[jsonName] = item.number;
     byNumber[item.number] = item.number === 0 ? "" : jsonName;
   }
   return { byName, byNumber };
 }
 
-function enumJSONValue(name) {
+function enumJSONValue(enumName, name) {
+  if (enumName === "ModelKind" && name === "REALTIME_DUPLEX") {
+    return "realtime-duplex";
+  }
   return (
     {
       AST_TRANSLATE: "ast-translate",
+      DASH_SCOPE_REALTIME: "dashscope-realtime",
       DASH_SCOPE_TENANT: "dashscope-tenant",
       DASHSCOPE_TENANT: "dashscope-tenant",
       DEEPSEEK_TENANT: "deepseek-tenant",
       DOUBAO_REALTIME: "doubao-realtime",
+      DOUBAO_REALTIME_DUPLEX: "doubao-realtime-duplex",
       EDGE_NODE: "edge-node",
       GEMINI_TENANT: "gemini-tenant",
       MINI_MAX: "minimax",

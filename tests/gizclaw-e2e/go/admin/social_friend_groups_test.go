@@ -12,16 +12,20 @@ import (
 
 func TestAdminAPIFriendGroupsMembersAndInviteToken(t *testing.T) {
 	env := newAdminAPIHarness(t)
+	registerAdminHistoryPeers(t, env, env.admin)
 
 	created, err := env.api.CreateFriendGroupWithResponse(env.ctx, adminhttp.AdminFriendGroupCreateRequest{
-		Name:        mutationName("friend-group"),
-		Description: ptr("Admin API friend group"),
+		Name:           mutationName("friend-group"),
+		Description:    ptr("Admin API friend group"),
+		OwnerPublicKey: env.adminKey,
 	})
 	if err != nil {
 		t.Fatalf("create friend group: %v", err)
 	}
 	requireStatusOK(t, created, created.Body)
-	if created.JSON200 == nil || created.JSON200.Id == nil || *created.JSON200.Id == "" || created.JSON200.CreatedByPeerPublicKey != nil || created.JSON200.MyRole != nil {
+	if created.JSON200 == nil || created.JSON200.Id == nil || *created.JSON200.Id == "" ||
+		created.JSON200.CreatedByPeerPublicKey == nil || *created.JSON200.CreatedByPeerPublicKey != env.adminKey ||
+		created.JSON200.MyRole != nil {
 		t.Fatalf("created friend group = %#v", created.JSON200)
 	}
 	groupID := *created.JSON200.Id

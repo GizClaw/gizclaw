@@ -187,7 +187,7 @@ func TestMemoryAdversarialRecallAndObserveFailures(t *testing.T) {
 
 	observeConfig := func(store memory.Store) *MemoryConfig {
 		return &MemoryConfig{
-			Store: store, Scope: "scope",
+			Store: store, Scope: memory.Scope{AppID: "app"},
 			Observe: ObservePolicy{
 				Enabled: true,
 				Facts: []ObserveDefinition{{
@@ -214,7 +214,7 @@ func TestMemoryAdversarialRecallAndObserveFailures(t *testing.T) {
 	} {
 		store := &adversarialMemoryStore{observeResult: memory.ObserveResult{Operation: operation}}
 		err := observeMemory(t.Context(), &MemoryConfig{
-			Store: store, Scope: "scope", Observe: ObservePolicy{Enabled: true},
+			Store: store, Scope: memory.Scope{AppID: "app"}, Observe: ObservePolicy{Enabled: true},
 		}, state, "id", "user", "answer", false)
 		if operation == nil {
 			if err != nil {
@@ -228,12 +228,12 @@ func TestMemoryAdversarialRecallAndObserveFailures(t *testing.T) {
 		t.Fatalf("observeMemory(nil) error = %v", err)
 	}
 	if err := observeMemory(t.Context(), &MemoryConfig{
-		Store: &adversarialMemoryStore{}, Scope: "scope", Observe: ObservePolicy{Enabled: false},
+		Store: &adversarialMemoryStore{}, Scope: memory.Scope{AppID: "app"}, Observe: ObservePolicy{Enabled: false},
 	}, state, "", "", "", false); err != nil {
 		t.Fatalf("observeMemory(disabled) error = %v", err)
 	}
 	if err := observeMemory(t.Context(), &MemoryConfig{
-		Store: &adversarialMemoryStore{}, Scope: "scope", Observe: ObservePolicy{Enabled: true},
+		Store: &adversarialMemoryStore{}, Scope: memory.Scope{AppID: "app"}, Observe: ObservePolicy{Enabled: true},
 	}, state, "", "", "", true); err != nil {
 		t.Fatalf("observeMemory(empty interrupted) error = %v", err)
 	}

@@ -84,6 +84,7 @@ func newSocialRPCHarness(t *testing.T) *socialRPCHarness {
 	registerRuntimeProfile(t, h, a, "peer-a", sharedRuntimeProfileSpec())
 	registerRuntimeProfile(t, h, b, "peer-b", sharedRuntimeProfileSpec())
 	c := h.ConnectClientFromContext("peer-c")
+	registerRuntimeProfile(t, h, c, "peer-c", sharedRuntimeProfileSpec())
 	d := h.ConnectClientFromContext("peer-d")
 	t.Cleanup(func() { a.Close() })
 	t.Cleanup(func() { b.Close() })
@@ -144,13 +145,15 @@ func sharedRuntimeProfileSpec() apitypes.RuntimeProfileSpec {
 		"assistants": {
 			"shared":   e2eRuntimeBinding(sharedWorkflow),
 			"chatroom": e2eRuntimeBinding(sharedChatroomWorkflow),
-			"mutation": e2eRuntimeBinding(mutationWorkflow),
 		},
 	}
 	models := map[string]apitypes.RuntimeProfileBinding{
-		"llm":          e2eRuntimeBinding(sharedModel),
-		"reward-claim": e2eRuntimeBinding("reward-claim"),
-		"pet-action":   e2eRuntimeBinding("pet-action"),
+		"llm":      e2eRuntimeBinding(sharedModel),
+		"llm-page": e2eRuntimeBinding("fake-openai-chat-001"),
+		"asr":      e2eRuntimeBinding("volc-bigasr-sauc"),
+	}
+	voices := map[string]apitypes.RuntimeProfileBinding{
+		"narrator": e2eRuntimeBinding("volc-tenant:volc-main:zh_female_vv_jupiter_bigtts"),
 	}
 	return apitypes.RuntimeProfileSpec{
 		Workflows: apitypes.RuntimeProfileWorkflows{
@@ -161,8 +164,14 @@ func sharedRuntimeProfileSpec() apitypes.RuntimeProfileSpec {
 			},
 			Collections: workflows,
 		},
-		Resources: apitypes.RuntimeProfileResources{Models: &models},
+		Resources: apitypes.RuntimeProfileResources{Models: &models, Voices: &voices},
 	}
+}
+
+func sharedRuntimeProfileSpecWithMutation() apitypes.RuntimeProfileSpec {
+	spec := sharedRuntimeProfileSpec()
+	spec.Workflows.Collections["assistants"]["mutation"] = e2eRuntimeBinding(mutationWorkflow)
+	return spec
 }
 
 func e2eRuntimeBinding(resourceID string) apitypes.RuntimeProfileBinding {
@@ -173,7 +182,12 @@ func e2eRuntimeBinding(resourceID string) apitypes.RuntimeProfileBinding {
 
 func registerRuntimeProfile(t *testing.T, h *clitest.Harness, peer *gizcli.Client, contextName string, spec apitypes.RuntimeProfileSpec) {
 	t.Helper()
+	profileName, token := provisionRuntimeProfile(t, h, contextName, spec)
+	registerWithRuntimeProfile(t, peer, contextName, profileName, token)
+}
 
+func provisionRuntimeProfile(t *testing.T, h *clitest.Harness, contextName string, spec apitypes.RuntimeProfileSpec) (string, string) {
+	t.Helper()
 	admin := h.ConnectClientFromContext("admin-a")
 	defer admin.Close()
 	api, err := admin.ServerAdminClient()
@@ -205,7 +219,14 @@ func registerRuntimeProfile(t *testing.T, h *clitest.Harness, peer *gizcli.Clien
 	if tokenResp.JSON200 == nil || tokenResp.JSON200.Token == "" {
 		t.Fatalf("create RegistrationToken for %s status %d: %s", contextName, tokenResp.StatusCode(), strings.TrimSpace(string(tokenResp.Body)))
 	}
-	registered, err := peer.Register(ctx, "server.register."+contextName, tokenResp.JSON200.Token)
+	return profileName, tokenResp.JSON200.Token
+}
+
+func registerWithRuntimeProfile(t *testing.T, peer *gizcli.Client, contextName, profileName, token string) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	registered, err := peer.Register(ctx, "server.register."+contextName, token)
 	if err != nil {
 		t.Fatalf("server.register for %s: %v", contextName, err)
 	}
@@ -466,29 +487,17 @@ func assertModelPagination(t *testing.T, ctx context.Context, peer *gizcli.Clien
 	t.Fatalf("model list pagination got ids %#v, want %q and %q", got, wantA, wantB)
 }
 
-func assertDeniedListsAreEmpty(t *testing.T, ctx context.Context, denied *gizcli.Client) {
+func assertDeniedListsRejectMissingProfile(t *testing.T, ctx context.Context, denied *gizcli.Client) {
 	t.Helper()
 
-	workflows, err := denied.ListWorkflows(ctx, "workflow.list.denied", rpcapi.WorkflowListRequest{Collection: "assistants"})
-	if err != nil {
-		t.Fatalf("denied workflow.list: %v", err)
+	if _, err := denied.ListWorkflows(ctx, "workflow.list.denied", rpcapi.WorkflowListRequest{Collection: "assistants"}); err == nil || !strings.Contains(err.Error(), "runtime profile not configured") {
+		t.Fatalf("denied workflow.list error = %v, want runtime profile not configured", err)
 	}
-	if len(workflows.Items) != 0 {
-		t.Fatalf("denied workflow.list items = %#v", workflows.Items)
+	if _, err := denied.ListWorkspaces(ctx, "workspace.list.denied", rpcapi.WorkspaceListRequest{Collection: "assistants"}); err == nil || !strings.Contains(err.Error(), "runtime profile not configured") {
+		t.Fatalf("denied workspace.list error = %v, want runtime profile not configured", err)
 	}
-	workspaces, err := denied.ListWorkspaces(ctx, "workspace.list.denied", rpcapi.WorkspaceListRequest{Collection: "assistants"})
-	if err != nil {
-		t.Fatalf("denied workspace.list: %v", err)
-	}
-	if len(workspaces.Items) != 0 {
-		t.Fatalf("denied workspace.list items = %#v", workspaces.Items)
-	}
-	models, err := denied.ListModels(ctx, "model.list.denied", rpcapi.ModelListRequest{})
-	if err != nil {
-		t.Fatalf("denied model.list: %v", err)
-	}
-	if len(models.Items) != 0 {
-		t.Fatalf("denied model.list items = %#v", models.Items)
+	if _, err := denied.ListModels(ctx, "model.list.denied", rpcapi.ModelListRequest{}); err == nil || !strings.Contains(err.Error(), "runtime profile not configured") {
+		t.Fatalf("denied model.list error = %v, want runtime profile not configured", err)
 	}
 }
 

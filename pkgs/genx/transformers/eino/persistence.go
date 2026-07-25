@@ -169,13 +169,13 @@ func observeMemory(
 		if !config.Observe.WaitForCompletion {
 			if processor, ok := config.Store.(memory.AsyncOperationProcessor); ok {
 				go func(operationID string) {
-					_, _ = processor.ProcessAsync(context.WithoutCancel(ctx), operationID)
+					_, _ = processor.ProcessAsync(context.WithoutCancel(ctx), memory.OperationRequest{Scope: config.Scope, ID: operationID})
 				}(result.Operation.ID)
 			}
 			return nil
 		}
 		waiter := config.Store.(memory.OperationWaiter)
-		completed, err := waiter.Wait(ctx, result.Operation.ID)
+		completed, err := waiter.Wait(ctx, memory.OperationRequest{Scope: config.Scope, ID: result.Operation.ID})
 		if err != nil {
 			return fmt.Errorf("eino: wait Memory operation %q: %w", result.Operation.ID, err)
 		}

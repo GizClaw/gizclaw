@@ -765,12 +765,26 @@ func (s *Server) validateResources(ctx context.Context, spec apitypes.RuntimePro
 			models[alias] = model
 		}
 	}
+	voices := make(map[string]apitypes.VoiceResource)
+	if spec.Resources.Voices != nil {
+		for alias, binding := range *spec.Resources.Voices {
+			path := "resources.voices." + alias
+			resource, err := resolve(path, apitypes.ResourceKindVoice, binding)
+			if err != nil {
+				return err
+			}
+			voice, err := resource.AsVoiceResource()
+			if err != nil {
+				return fmt.Errorf("%s.resource_id %q returned an invalid Voice: %w", path, binding.ResourceId, err)
+			}
+			voices[alias] = voice
+		}
+	}
 	groups := []struct {
 		path   string
 		kind   apitypes.ResourceKind
 		values *map[string]apitypes.RuntimeProfileBinding
 	}{
-		{path: "resources.voices", kind: apitypes.ResourceKindVoice, values: spec.Resources.Voices},
 		{path: "resources.tools", kind: apitypes.ResourceKindTool, values: spec.Resources.Tools},
 		{path: "resources.game_defs", kind: apitypes.ResourceKindGameDef, values: spec.Resources.GameDefs},
 		{path: "resources.badge_defs", kind: apitypes.ResourceKindBadgeDef, values: spec.Resources.BadgeDefs},
@@ -799,7 +813,7 @@ func (s *Server) validateResources(ctx context.Context, spec apitypes.RuntimePro
 		}
 	}
 	for _, workflow := range workflows {
-		if err := validateWorkflowRuntimeAliases(workflow.path, workflow.resource.Spec, models, spec.Resources.Voices); err != nil {
+		if err := validateWorkflowRuntimeAliases(workflow.path, workflow.resource.Spec, models, voices); err != nil {
 			return err
 		}
 	}
@@ -821,7 +835,7 @@ func validatePetRewardModels(pet apitypes.RuntimeProfilePetGameplaySpec, models 
 	return nil
 }
 
-func validateWorkflowRuntimeAliases(path string, workflow apitypes.WorkflowSpec, models map[string]apitypes.ModelResource, voices *map[string]apitypes.RuntimeProfileBinding) error {
+func validateWorkflowRuntimeAliases(path string, workflow apitypes.WorkflowSpec, models map[string]apitypes.ModelResource, voices map[string]apitypes.VoiceResource) error {
 	requireModel := func(field, alias string, kind apitypes.ModelKind) error {
 		alias = strings.TrimSpace(alias)
 		model, ok := models[alias]
@@ -833,10 +847,56 @@ func validateWorkflowRuntimeAliases(path string, workflow apitypes.WorkflowSpec,
 		}
 		return nil
 	}
+	requireDashScopeRealtimeModel := func(field, alias string) error {
+		if err := requireModel(field, alias, apitypes.ModelKindRealtime); err != nil {
+			return err
+		}
+		model := models[strings.TrimSpace(alias)]
+		if model.Spec.Provider.Kind != apitypes.ModelProviderKindDashscopeTenant {
+			return fmt.Errorf("%s.%s model alias %q has provider %q, want %q", path, field, alias, model.Spec.Provider.Kind, apitypes.ModelProviderKindDashscopeTenant)
+		}
+		data, err := model.Spec.ProviderData.AsDashScopeTenantModelProviderData()
+		if err != nil || data.ApiMode == nil || *data.ApiMode != apitypes.DashScopeTenantModelProviderDataApiModeRealtime {
+			return fmt.Errorf("%s.%s model alias %q must use dashscope-tenant api_mode %q", path, field, alias, apitypes.DashScopeTenantModelProviderDataApiModeRealtime)
+		}
+		return nil
+	}
+	requireDoubaoRealtimeDuplexModel := func(field, alias string) error {
+		if err := requireModel(field, alias, apitypes.ModelKindRealtimeDuplex); err != nil {
+			return err
+		}
+		model := models[strings.TrimSpace(alias)]
+		if model.Spec.Provider.Kind != apitypes.ModelProviderKindVolcTenant {
+			return fmt.Errorf("%s.%s model alias %q has provider %q, want %q", path, field, alias, model.Spec.Provider.Kind, apitypes.ModelProviderKindVolcTenant)
+		}
+		data, err := model.Spec.ProviderData.AsVolcTenantModelProviderData()
+		if err != nil || data.ApiMode != apitypes.VolcTenantModelProviderDataApiModeRealtimeDuplex {
+			return fmt.Errorf("%s.%s model alias %q must use volc-tenant api_mode %q", path, field, alias, apitypes.VolcTenantModelProviderDataApiModeRealtimeDuplex)
+		}
+		return nil
+	}
 	requireVoice := func(field, alias string) error {
 		alias = strings.TrimSpace(alias)
-		if _, ok := bindingByAlias(voices, alias); !ok {
+		if _, ok := voices[alias]; !ok {
 			return fmt.Errorf("%s.%s voice alias %q is not declared in resources.voices", path, field, alias)
+		}
+		return nil
+	}
+	requireCompatibleVoice := func(field, voiceAlias, modelAlias string) error {
+		if err := requireVoice(field, voiceAlias); err != nil {
+			return err
+		}
+		voice := voices[strings.TrimSpace(voiceAlias)]
+		model := models[strings.TrimSpace(modelAlias)]
+		if voice.Spec.Provider.Kind != apitypes.VoiceProviderKind(model.Spec.Provider.Kind) ||
+			voice.Spec.Provider.Name != model.Spec.Provider.Name {
+			return fmt.Errorf(
+				"%s.%s voice alias %q uses provider %q/%q, want %q/%q to match model alias %q",
+				path, field, voiceAlias,
+				voice.Spec.Provider.Kind, voice.Spec.Provider.Name,
+				model.Spec.Provider.Kind, model.Spec.Provider.Name,
+				modelAlias,
+			)
 		}
 		return nil
 	}
@@ -878,12 +938,15 @@ func validateWorkflowRuntimeAliases(path string, workflow apitypes.WorkflowSpec,
 			return fmt.Errorf("%s has no pet spec", path)
 		}
 		nested := apitypes.WorkflowSpec{
-			Driver:         apitypes.WorkflowDriver(workflow.Pet.Driver),
-			Toolkit:        workflow.Pet.Toolkit,
-			Flowcraft:      workflow.Pet.Flowcraft,
-			DoubaoRealtime: workflow.Pet.DoubaoRealtime,
-			AstTranslate:   workflow.Pet.AstTranslate,
-			Chatroom:       workflow.Pet.Chatroom,
+			Driver:               apitypes.WorkflowDriver(workflow.Pet.Driver),
+			Toolkit:              workflow.Pet.Toolkit,
+			Flowcraft:            workflow.Pet.Flowcraft,
+			DoubaoRealtime:       workflow.Pet.DoubaoRealtime,
+			DashscopeRealtime:    workflow.Pet.DashscopeRealtime,
+			DoubaoRealtimeDuplex: workflow.Pet.DoubaoRealtimeDuplex,
+			Eino:                 workflow.Pet.Eino,
+			AstTranslate:         workflow.Pet.AstTranslate,
+			Chatroom:             workflow.Pet.Chatroom,
 		}
 		return validateWorkflowRuntimeAliases(path+".pet", nested, models, voices)
 	case apitypes.WorkflowDriverDoubaoRealtime:
@@ -899,7 +962,32 @@ func validateWorkflowRuntimeAliases(path string, workflow apitypes.WorkflowSpec,
 		if workflow.DoubaoRealtime.Audio == nil || workflow.DoubaoRealtime.Audio.Output.Voice == nil || strings.TrimSpace(*workflow.DoubaoRealtime.Audio.Output.Voice) == "" {
 			return fmt.Errorf("%s.audio.output.voice requires a RuntimeProfile Voice alias", path)
 		}
-		return requireVoice("audio.output.voice", *workflow.DoubaoRealtime.Audio.Output.Voice)
+		return requireCompatibleVoice("audio.output.voice", *workflow.DoubaoRealtime.Audio.Output.Voice, workflow.DoubaoRealtime.Model)
+	case apitypes.WorkflowDriverDashscopeRealtime:
+		if workflow.DashscopeRealtime == nil {
+			return fmt.Errorf("%s has no dashscope_realtime spec", path)
+		}
+		if err := requireDashScopeRealtimeModel("model", workflow.DashscopeRealtime.Model); err != nil {
+			return err
+		}
+		if workflow.DashscopeRealtime.Voice != nil && strings.TrimSpace(*workflow.DashscopeRealtime.Voice) != "" {
+			return requireCompatibleVoice("voice", *workflow.DashscopeRealtime.Voice, workflow.DashscopeRealtime.Model)
+		}
+	case apitypes.WorkflowDriverDoubaoRealtimeDuplex:
+		if workflow.DoubaoRealtimeDuplex == nil {
+			return fmt.Errorf("%s has no doubao_realtime_duplex spec", path)
+		}
+		if err := requireDoubaoRealtimeDuplexModel("model", workflow.DoubaoRealtimeDuplex.Model); err != nil {
+			return err
+		}
+		if workflow.DoubaoRealtimeDuplex.Voice != nil && strings.TrimSpace(*workflow.DoubaoRealtimeDuplex.Voice) != "" {
+			return requireCompatibleVoice("voice", *workflow.DoubaoRealtimeDuplex.Voice, workflow.DoubaoRealtimeDuplex.Model)
+		}
+	case apitypes.WorkflowDriverEino:
+		if workflow.Eino == nil {
+			return fmt.Errorf("%s has no eino spec", path)
+		}
+		return validateEinoRuntimeAliases(path, workflow.Eino.Graph, requireModel)
 	case apitypes.WorkflowDriverFlowcraft:
 		if workflow.Flowcraft == nil {
 			return fmt.Errorf("%s has no flowcraft spec", path)
@@ -989,6 +1077,54 @@ func validateWorkflowRuntimeAliases(path string, workflow apitypes.WorkflowSpec,
 		}
 		if !entryFound {
 			return fmt.Errorf("%s.agent.graph.entry %q is not a defined node", path, flowcraft.Agent.Graph.Entry)
+		}
+	}
+	return nil
+}
+
+func validateEinoRuntimeAliases(path string, graph apitypes.EinoGraph, requireModel func(string, string, apitypes.ModelKind) error) error {
+	for index, raw := range graph.Nodes {
+		discriminator, err := raw.Discriminator()
+		if err != nil {
+			return fmt.Errorf("%s.graph.nodes[%d]: %w", path, index, err)
+		}
+		nodePath := fmt.Sprintf("graph.nodes[%d]", index)
+		switch discriminator {
+		case "chat_model":
+			node, err := raw.AsEinoChatModelNode()
+			if err != nil {
+				return fmt.Errorf("%s.%s: %w", path, nodePath, err)
+			}
+			if err := requireModel(nodePath+".model", node.Model, apitypes.ModelKindLlm); err != nil {
+				return err
+			}
+		case "batch":
+			node, err := raw.AsEinoBatchNode()
+			if err != nil {
+				return fmt.Errorf("%s.%s: %w", path, nodePath, err)
+			}
+			if err := validateEinoRuntimeAliases(path+"."+nodePath+".graph", node.Graph, requireModel); err != nil {
+				return err
+			}
+		case "subgraph":
+			node, err := raw.AsEinoSubgraphNode()
+			if err != nil {
+				return fmt.Errorf("%s.%s: %w", path, nodePath, err)
+			}
+			if err := validateEinoRuntimeAliases(path+"."+nodePath+".graph", node.Graph, requireModel); err != nil {
+				return err
+			}
+		case "race":
+			node, err := raw.AsEinoRaceNode()
+			if err != nil {
+				return fmt.Errorf("%s.%s: %w", path, nodePath, err)
+			}
+			for branchIndex, branch := range node.Branches {
+				branchPath := fmt.Sprintf("%s.%s.branches[%d].graph", path, nodePath, branchIndex)
+				if err := validateEinoRuntimeAliases(branchPath, branch.Graph, requireModel); err != nil {
+					return err
+				}
+			}
 		}
 	}
 	return nil

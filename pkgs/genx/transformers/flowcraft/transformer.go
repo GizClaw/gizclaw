@@ -648,12 +648,12 @@ func (r *turnRun) finalize(ctx context.Context, delivered string, interrupted bo
 			// recall it without extending the current response lifecycle.
 			if processor, ok := config.Memory.(memory.AsyncOperationProcessor); ok {
 				go func(operationID string) {
-					_, _ = processor.ProcessAsync(context.WithoutCancel(ctx), operationID)
+					_, _ = processor.ProcessAsync(context.WithoutCancel(ctx), memory.OperationRequest{Scope: config.MemoryScope, ID: operationID})
 				}(observed.Operation.ID)
 			}
 			return nil
 		}
-		completed, err := waiter.Wait(ctx, observed.Operation.ID)
+		completed, err := waiter.Wait(ctx, memory.OperationRequest{Scope: config.MemoryScope, ID: observed.Operation.ID})
 		if err != nil {
 			return fmt.Errorf("flowcraft: wait Memory operation %q: %w", observed.Operation.ID, err)
 		}

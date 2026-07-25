@@ -12,6 +12,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/model"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/voice"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
@@ -1012,6 +1013,37 @@ func TestValidateDoubaoRealtimeOverridesRejectsTools(t *testing.T) {
 	}
 }
 
+func TestValidateRealtimeOverridesRejectInvalidOptions(t *testing.T) {
+	temperature := float32(3)
+	var dashParameters apitypes.WorkspaceParameters
+	if err := dashParameters.FromDashScopeRealtimeWorkspaceParameters(apitypes.DashScopeRealtimeWorkspaceParameters{
+		AgentType:   apitypes.DashScopeRealtimeWorkspaceParametersAgentTypeDashscopeRealtime,
+		Temperature: &temperature,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	srv := newTestServer(t)
+	if err := srv.validateDashScopeRealtimeOverrides(
+		context.Background(), nil, &dashParameters, false,
+	); err == nil || !strings.Contains(err.Error(), "temperature") {
+		t.Fatalf("validateDashScopeRealtimeOverrides() error = %v", err)
+	}
+
+	sampleRate := apitypes.DoubaoRealtimeDuplexWorkspaceParametersSampleRate(16000)
+	var duplexParameters apitypes.WorkspaceParameters
+	if err := duplexParameters.FromDoubaoRealtimeDuplexWorkspaceParameters(apitypes.DoubaoRealtimeDuplexWorkspaceParameters{
+		AgentType:  apitypes.DoubaoRealtimeDuplexWorkspaceParametersAgentTypeDoubaoRealtimeDuplex,
+		SampleRate: &sampleRate,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := srv.validateDoubaoRealtimeDuplexOverrides(
+		context.Background(), nil, &duplexParameters, false,
+	); err == nil || !strings.Contains(err.Error(), "sample_rate") {
+		t.Fatalf("validateDoubaoRealtimeDuplexOverrides() error = %v", err)
+	}
+}
+
 func TestServerValidatesRuntimeASTTranslateAliases(t *testing.T) {
 	t.Parallel()
 	srv := newTestServer(t)
@@ -1066,6 +1098,170 @@ func TestServerValidatesRuntimeASTTranslateAliases(t *testing.T) {
 	}
 }
 
+func TestServerValidatesNewRealtimeWorkspaceOverrides(t *testing.T) {
+	t.Parallel()
+	srv := newTestServer(t)
+	store, err := srv.workflowStore()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, body := range map[string]string{
+		"dash-workflow":   `{"name":"dash-workflow","spec":{"driver":"dashscope-realtime","dashscope_realtime":{"model":"dash-default","voice":"dash-default-voice"}}}`,
+		"duplex-workflow": `{"name":"duplex-workflow","spec":{"driver":"doubao-realtime-duplex","doubao_realtime_duplex":{"model":"duplex-default","voice":"duplex-default-voice"}}}`,
+	} {
+		if err := store.Set(t.Context(), workflowReferenceKey(name), []byte(body)); err != nil {
+			t.Fatalf("seed workflow %q: %v", name, err)
+		}
+	}
+	seedProviderModel(t, srv, "dash-resource", apitypes.ModelKindRealtime, apitypes.ModelProviderKindDashscopeTenant, "dash-tenant")
+	seedProviderModel(t, srv, "duplex-resource", apitypes.ModelKindRealtimeDuplex, apitypes.ModelProviderKindVolcTenant, "volc-tenant")
+	seedProviderModel(t, srv, "wrong-kind-resource", apitypes.ModelKindLlm, apitypes.ModelProviderKindDashscopeTenant, "dash-tenant")
+	seedProviderVoice(t, srv, "dash-voice-resource", apitypes.VoiceProviderKindDashscopeTenant, "dash-tenant")
+	seedProviderVoice(t, srv, "duplex-voice-resource", apitypes.VoiceProviderKindVolcTenant, "volc-tenant")
+	seedProviderVoice(t, srv, "wrong-voice-resource", apitypes.VoiceProviderKindVolcTenant, "other-tenant")
+
+	baseContext := WithRuntimeVoiceBindings(
+		WithRuntimeModelBindings(
+			WithRuntimeWorkflowBindings(t.Context(), map[string]string{
+				"dash": "dash-workflow", "duplex": "duplex-workflow",
+			}),
+			map[string]string{
+				"dash-default":      "dash-resource",
+				"dash-override":     "dash-resource",
+				"duplex-default":    "duplex-resource",
+				"duplex-override":   "duplex-resource",
+				"wrong-kind":        "wrong-kind-resource",
+				"wrong-kind-duplex": "wrong-kind-resource",
+			},
+		),
+		map[string]string{
+			"dash-default-voice":    "dash-voice-resource",
+			"dash-override-voice":   "dash-voice-resource",
+			"duplex-default-voice":  "duplex-voice-resource",
+			"duplex-override-voice": "duplex-voice-resource",
+			"wrong-voice":           "wrong-voice-resource",
+		},
+	)
+	tests := []struct {
+		name string
+		body string
+		want string
+		ok   bool
+	}{
+		{
+			name: "dash valid",
+			body: `{"name":"dash-valid","workflow_name":"dash","parameters":{"agent_type":"dashscope-realtime","model":"dash-override","voice":"dash-override-voice"}}`,
+			ok:   true,
+		},
+		{
+			name: "dash wrong parameter variant",
+			body: `{"name":"dash-wrong-variant","workflow_name":"dash","parameters":{"agent_type":"eino"}}`,
+			want: "dashscope_realtime parameters are required",
+		},
+		{
+			name: "dash missing model",
+			body: `{"name":"dash-missing-model","workflow_name":"dash","parameters":{"agent_type":"dashscope-realtime","model":"missing"}}`,
+			want: `missing runtime Model alias "missing"`,
+		},
+		{
+			name: "dash wrong model kind",
+			body: `{"name":"dash-wrong-kind","workflow_name":"dash","parameters":{"agent_type":"dashscope-realtime","model":"wrong-kind"}}`,
+			want: `has kind "llm", want "realtime"`,
+		},
+		{
+			name: "dash missing voice",
+			body: `{"name":"dash-missing-voice","workflow_name":"dash","parameters":{"agent_type":"dashscope-realtime","voice":"missing"}}`,
+			want: `missing runtime Voice alias "missing"`,
+		},
+		{
+			name: "dash incompatible voice",
+			body: `{"name":"dash-wrong-voice","workflow_name":"dash","parameters":{"agent_type":"dashscope-realtime","voice":"wrong-voice"}}`,
+			want: "uses provider",
+		},
+		{
+			name: "duplex valid",
+			body: `{"name":"duplex-valid","workflow_name":"duplex","parameters":{"agent_type":"doubao-realtime-duplex","model":"duplex-override","voice":"duplex-override-voice"}}`,
+			ok:   true,
+		},
+		{
+			name: "duplex wrong parameter variant",
+			body: `{"name":"duplex-wrong-variant","workflow_name":"duplex","parameters":{"agent_type":"eino"}}`,
+			want: "doubao_realtime_duplex parameters are required",
+		},
+		{
+			name: "duplex missing model",
+			body: `{"name":"duplex-missing-model","workflow_name":"duplex","parameters":{"agent_type":"doubao-realtime-duplex","model":"missing"}}`,
+			want: `missing runtime Model alias "missing"`,
+		},
+		{
+			name: "duplex wrong model kind",
+			body: `{"name":"duplex-wrong-kind","workflow_name":"duplex","parameters":{"agent_type":"doubao-realtime-duplex","model":"wrong-kind-duplex"}}`,
+			want: `has kind "llm", want "realtime-duplex"`,
+		},
+		{
+			name: "duplex missing voice",
+			body: `{"name":"duplex-missing-voice","workflow_name":"duplex","parameters":{"agent_type":"doubao-realtime-duplex","voice":"missing"}}`,
+			want: `missing runtime Voice alias "missing"`,
+		},
+		{
+			name: "duplex incompatible voice",
+			body: `{"name":"duplex-wrong-voice","workflow_name":"duplex","parameters":{"agent_type":"doubao-realtime-duplex","voice":"wrong-voice"}}`,
+			want: "uses provider",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			body := mustWorkspaceUpsert(t, test.body)
+			response, err := srv.CreateWorkspace(baseContext, adminhttp.CreateWorkspaceRequestObject{Body: &body})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if test.ok {
+				if _, ok := response.(adminhttp.CreateWorkspace200JSONResponse); !ok {
+					t.Fatalf("CreateWorkspace() = %#v, want 200", response)
+				}
+				return
+			}
+			invalid, ok := response.(adminhttp.CreateWorkspace400JSONResponse)
+			if !ok || !strings.Contains(invalid.Error.Message, test.want) {
+				t.Fatalf("CreateWorkspace() = %#v, want %q", response, test.want)
+			}
+			for _, hidden := range []string{
+				"dash-resource", "duplex-resource", "wrong-kind-resource",
+				"dash-voice-resource", "duplex-voice-resource", "wrong-voice-resource",
+			} {
+				if strings.Contains(invalid.Error.Message, hidden) {
+					t.Fatalf("CreateWorkspace() exposes canonical resource ID %q: %q", hidden, invalid.Error.Message)
+				}
+			}
+		})
+	}
+}
+
+func TestServerRejectsWrongEinoWorkspaceParameterVariant(t *testing.T) {
+	t.Parallel()
+	srv := newTestServer(t)
+	store, err := srv.workflowStore()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Set(t.Context(), workflowReferenceKey("eino-workflow"), []byte(
+		`{"name":"eino-workflow","spec":{"driver":"eino","eino":{"graph":{"name":"eino","compile":{"node_trigger_mode":"any_predecessor"},"state":{"fields":[]},"nodes":[],"edges":[],"branches":[],"outputs":[]}}}}`,
+	)); err != nil {
+		t.Fatal(err)
+	}
+	ctx := WithRuntimeWorkflowBindings(t.Context(), map[string]string{"eino": "eino-workflow"})
+	body := mustWorkspaceUpsert(t, `{"name":"eino-wrong-variant","workflow_name":"eino","parameters":{"agent_type":"dashscope-realtime"}}`)
+	response, err := srv.CreateWorkspace(ctx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
+	if err != nil {
+		t.Fatal(err)
+	}
+	invalid, ok := response.(adminhttp.CreateWorkspace400JSONResponse)
+	if !ok || !strings.Contains(invalid.Error.Message, "eino parameters are required") {
+		t.Fatalf("CreateWorkspace() = %#v", response)
+	}
+}
+
 func TestServerStoreHelpers(t *testing.T) {
 	t.Parallel()
 
@@ -1105,6 +1301,7 @@ func newTestServer(t *testing.T) *Server {
 		Store:         kv.Prefixed(store, kv.Key{"workspaces"}),
 		WorkflowStore: kv.Prefixed(store, kv.Key{"workflows"}),
 		Models:        &model.Server{Store: kv.Prefixed(store, kv.Key{"models"})},
+		Voices:        &voice.Server{Store: kv.Prefixed(store, kv.Key{"voices"})},
 	}
 }
 
@@ -1157,6 +1354,77 @@ func seedModel(t *testing.T, srv *Server, id string, kind apitypes.ModelKind) {
 	}
 	if err := modelServer.Store.Set(context.Background(), kv.Key{"by-id", id}, data); err != nil {
 		t.Fatalf("seed model %q: %v", id, err)
+	}
+}
+
+func seedProviderModel(
+	t *testing.T,
+	srv *Server,
+	id string,
+	kind apitypes.ModelKind,
+	providerKind apitypes.ModelProviderKind,
+	providerName string,
+) {
+	t.Helper()
+	var providerData apitypes.ModelProviderData
+	switch providerKind {
+	case apitypes.ModelProviderKindDashscopeTenant:
+		mode := apitypes.DashScopeTenantModelProviderDataApiModeRealtime
+		if err := providerData.FromDashScopeTenantModelProviderData(
+			apitypes.DashScopeTenantModelProviderData{ApiMode: &mode},
+		); err != nil {
+			t.Fatal(err)
+		}
+	case apitypes.ModelProviderKindVolcTenant:
+		if err := providerData.FromVolcTenantModelProviderData(
+			apitypes.VolcTenantModelProviderData{
+				ApiMode: apitypes.VolcTenantModelProviderDataApiModeRealtimeDuplex,
+			},
+		); err != nil {
+			t.Fatal(err)
+		}
+	default:
+		t.Fatalf("unsupported test Model provider %q", providerKind)
+	}
+	modelServer, ok := srv.Models.(*model.Server)
+	if !ok {
+		t.Fatalf("Models = %T", srv.Models)
+	}
+	data, err := json.Marshal(apitypes.Model{
+		Id: id, Kind: kind,
+		Provider:     apitypes.ModelProvider{Kind: providerKind, Name: providerName},
+		ProviderData: providerData,
+		Source:       apitypes.ModelSourceManual,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := modelServer.Store.Set(t.Context(), kv.Key{"by-id", id}, data); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func seedProviderVoice(
+	t *testing.T,
+	srv *Server,
+	id string,
+	providerKind apitypes.VoiceProviderKind,
+	providerName string,
+) {
+	t.Helper()
+	voiceServer, ok := srv.Voices.(*voice.Server)
+	if !ok {
+		t.Fatalf("Voices = %T", srv.Voices)
+	}
+	if err := voice.Write(t.Context(), voiceServer.Store, apitypes.Voice{
+		Id: id,
+		Provider: apitypes.VoiceProvider{
+			Kind: providerKind,
+			Name: providerName,
+		},
+		Source: apitypes.VoiceSourceManual,
+	}, nil); err != nil {
+		t.Fatal(err)
 	}
 }
 

@@ -367,7 +367,10 @@ func validateModelProviderData(modelKind apitypes.ModelKind, providerKind apityp
 	default:
 		return fmt.Errorf("unsupported provider.kind %q", providerKind)
 	}
-	if (modelKind == apitypes.ModelKindLlm || modelKind == apitypes.ModelKindEmbedding) && upstream == "" {
+	if (modelKind == apitypes.ModelKindLlm ||
+		modelKind == apitypes.ModelKindEmbedding ||
+		modelKind == apitypes.ModelKindRealtime ||
+		modelKind == apitypes.ModelKindRealtimeDuplex) && upstream == "" {
 		return fmt.Errorf("provider_data for %s/%s requires upstream_model", providerKind, modelKind)
 	}
 	return nil
@@ -414,6 +417,8 @@ func volcAPIModeForModelKind(modelKind apitypes.ModelKind) (apitypes.VolcTenantM
 		return apitypes.VolcTenantModelProviderDataApiModeAsr, true
 	case apitypes.ModelKindRealtime:
 		return apitypes.VolcTenantModelProviderDataApiModeRealtime, true
+	case apitypes.ModelKindRealtimeDuplex:
+		return apitypes.VolcTenantModelProviderDataApiModeRealtimeDuplex, true
 	case apitypes.ModelKindTranslation:
 		return apitypes.VolcTenantModelProviderDataApiModeTranslation, true
 	case apitypes.ModelKindEmbedding:

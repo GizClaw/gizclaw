@@ -34,6 +34,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 	"github.com/jmoiron/sqlx"
@@ -89,6 +90,10 @@ type Server struct {
 	FlowcraftHistory             logstore.MutableStore
 	FlowcraftState               kv.Store
 	FlowcraftMemoryObjects       objectstore.ObjectStore
+	FlowcraftMemory              memory.Store
+	FlowcraftMemoryKind          string
+	EinoMemory                   memory.Store
+	EinoMemoryKind               string
 	FriendGroupMessageDefaultTTL time.Duration
 	FriendGroupMessageMaxTTL     time.Duration
 	FriendGroupMessageCleanup    time.Duration
@@ -443,6 +448,10 @@ func (s *Server) init() error {
 	manager.FlowcraftHistory = s.FlowcraftHistory
 	manager.FlowcraftState = s.FlowcraftState
 	manager.FlowcraftMemoryObjects = s.FlowcraftMemoryObjects
+	manager.FlowcraftMemory = s.FlowcraftMemory
+	manager.FlowcraftMemoryKind = s.FlowcraftMemoryKind
+	manager.EinoMemory = s.EinoMemory
+	manager.EinoMemoryKind = s.EinoMemoryKind
 	manager.SpeechLimits = s.SpeechLimits
 	manager.PeerRoutes = &peerroute.Server{
 		Store:           peerRouteStore,
@@ -457,8 +466,12 @@ func (s *Server) init() error {
 	}
 
 	modelServer := &model.Server{Store: modelStore}
+	voiceServer := &voice.Server{Store: voiceStore}
 	workflowServer := &workflow.Server{Store: workflowStore}
-	workspaceServer := &workspace.Server{Store: workspaceStore, WorkflowStore: workflowStore, Models: modelServer, Assets: s.WorkspaceAssets}
+	workspaceServer := &workspace.Server{
+		Store: workspaceStore, WorkflowStore: workflowStore,
+		Models: modelServer, Voices: voiceServer, Assets: s.WorkspaceAssets,
+	}
 	if s.AgentHostStore != nil {
 		workspaceServer.RuntimeStore = workspace.NewObjectRuntimeStore(s.AgentHostStore)
 	}
@@ -467,7 +480,6 @@ func (s *Server) init() error {
 	runtimeProfileServer := &runtimeprofile.Server{Store: runtimeProfileStore}
 	publicLoginServer.RegistrationResolver = runtimeProfileServer.ResolveRegistration
 	publicLoginServer.OwnerProfileBinder = runtimeProfileServer.BindOwnerProfileAndCommit
-	voiceServer := &voice.Server{Store: voiceStore}
 	toolServer := &toolkit.Server{Store: toolStore}
 	contactServer := &contact.Server{
 		Store: contactStore,

@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
+	dashscope "github.com/GizClaw/dashscope-realtime-go"
 	doubaospeech "github.com/GizClaw/doubao-speech-go"
 	"github.com/GizClaw/minimax-go"
 	"github.com/openai/openai-go"
@@ -14,9 +16,11 @@ import (
 	"google.golang.org/genai"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/dashscoperealtime"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/doubaoasr"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/doubaoast"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/doubaorealtime"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/doubaorealtimeduplex"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/doubaotts"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/minimaxtts"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -155,8 +159,17 @@ func (b DefaultBuilder) BuildTransformer(_ context.Context, cfg TransformerConfi
 			switch cfg.Tenant.Kind {
 			case string(apitypes.VoiceProviderKindVolcTenant):
 				return b.buildVolcRealtime(cfg)
+			case string(apitypes.ModelProviderKindDashscopeTenant):
+				return b.buildDashScopeRealtime(cfg)
 			default:
 				return nil, fmt.Errorf("%w: realtime transformer provider %q", ErrUnsupported, cfg.Tenant.Kind)
+			}
+		case apitypes.ModelKindRealtimeDuplex:
+			switch cfg.Tenant.Kind {
+			case string(apitypes.ModelProviderKindVolcTenant):
+				return b.buildVolcRealtimeDuplex(cfg)
+			default:
+				return nil, fmt.Errorf("%w: realtime duplex transformer provider %q", ErrUnsupported, cfg.Tenant.Kind)
 			}
 		case apitypes.ModelKindTranslation:
 			switch cfg.Tenant.Kind {
@@ -170,6 +183,127 @@ func (b DefaultBuilder) BuildTransformer(_ context.Context, cfg TransformerConfi
 		}
 	}
 	return nil, fmt.Errorf("%w: transformer config has no model or voice", ErrInvalid)
+}
+
+func (b DefaultBuilder) buildDashScopeRealtime(cfg TransformerConfig) (genx.Transformer, error) {
+	if cfg.Tenant.DashScope == nil || cfg.Model == nil {
+		return nil, fmt.Errorf("%w: dashscope tenant and model are required", ErrInvalid)
+	}
+	providerData, err := cfg.Model.ProviderData.AsDashScopeTenantModelProviderData()
+	if err != nil {
+		return nil, fmt.Errorf("%w: decode dashscope realtime model provider_data: %w", ErrInvalid, err)
+	}
+	credentialBody, err := cfg.Credential.Body.AsDashScopeCredentialBody()
+	if err != nil {
+		return nil, err
+	}
+	apiKey := firstString(credentialBody.ApiKey, credentialBody.Token)
+	if apiKey == "" {
+		return nil, fmt.Errorf("%w: credential %q missing api_key for dashscope realtime", ErrInvalid, cfg.Credential.Name)
+	}
+	clientOptions := make([]dashscope.Option, 0, 2)
+	if baseURL := dashScopeRealtimeBaseURL(firstString(cfg.Tenant.DashScope.BaseUrl, credentialBody.BaseUrl)); baseURL != "" {
+		clientOptions = append(clientOptions, dashscope.WithBaseURL(baseURL))
+	}
+	if b.HTTPClient != nil {
+		clientOptions = append(clientOptions, dashscope.WithHTTPClient(b.HTTPClient))
+	}
+	data := mergeParams(nil, cfg.Params)
+	config := dashscoperealtime.Config{
+		Client:       dashscope.NewClient(apiKey, clientOptions...),
+		Model:        firstString(providerData.UpstreamModel),
+		Voice:        mapString(data, "voice", "output_voice"),
+		Instructions: mapString(data, "instructions"),
+		VAD:          mapString(data, "vad"),
+		ASRModel:     mapString(data, "asr_model"),
+	}
+	if config.Model == "" {
+		return nil, fmt.Errorf("%w: model %q missing upstream_model for dashscope realtime", ErrInvalid, cfg.Model.Id)
+	}
+	if value := mapString(data, "modalities"); value != "" {
+		for modality := range strings.SplitSeq(value, ",") {
+			if modality = strings.TrimSpace(modality); modality != "" {
+				config.Modalities = append(config.Modalities, modality)
+			}
+		}
+	}
+	if value, ok := mapFloat64(data, "temperature"); ok {
+		config.Temperature = &value
+	}
+	if value, ok := mapInt(data, "max_output_tokens"); ok {
+		config.MaxOutputTokens = &value
+	}
+	if value, ok := mapBool(data, "enable_asr"); ok {
+		config.EnableASR = &value
+	}
+	config.InputAudioFormat = mapString(data, "input_audio_format")
+	config.OutputAudioFormat = mapString(data, "output_audio_format")
+	return dashscoperealtime.New(config)
+}
+
+func dashScopeRealtimeBaseURL(value string) string {
+	value = strings.TrimSpace(value)
+	if strings.HasPrefix(value, "ws://") || strings.HasPrefix(value, "wss://") {
+		return value
+	}
+	return ""
+}
+
+func (b DefaultBuilder) buildVolcRealtimeDuplex(cfg TransformerConfig) (genx.Transformer, error) {
+	if cfg.Tenant.Volc == nil || cfg.Model == nil {
+		return nil, fmt.Errorf("%w: volc tenant and model are required", ErrInvalid)
+	}
+	providerData, err := cfg.Model.ProviderData.AsVolcTenantModelProviderData()
+	if err != nil {
+		return nil, fmt.Errorf("%w: decode volc realtime duplex model provider_data: %w", ErrInvalid, err)
+	}
+	credentialBody, err := cfg.Credential.Body.AsVolcCredentialBody()
+	if err != nil {
+		return nil, err
+	}
+	apiKey := firstString(credentialBody.SpeechApiKey)
+	if apiKey == "" {
+		return nil, fmt.Errorf("%w: credential %q missing speech_api_key for doubao realtime duplex", ErrInvalid, cfg.Credential.Name)
+	}
+	appID := firstString(credentialBody.SpeechAppId)
+	if appID == "" {
+		return nil, fmt.Errorf("%w: credential %q missing speech_app_id for doubao realtime duplex", ErrInvalid, cfg.Credential.Name)
+	}
+	clientOptions := []doubaospeech.Option{doubaospeech.WithAPIKey(apiKey)}
+	if resourceID := firstString(providerData.ResourceId); resourceID != "" {
+		clientOptions = append(clientOptions, doubaospeech.WithResourceID(resourceID))
+	}
+	data := mergeParams(nil, cfg.Params)
+	config := doubaorealtimeduplex.Config{
+		Client:       doubaospeech.NewClient(appID, clientOptions...),
+		Model:        firstString(providerData.UpstreamModel),
+		Speaker:      mapString(data, "voice", "output_voice", "speaker"),
+		Instructions: mapString(data, "instructions"),
+		Format:       mapString(data, "format"),
+		InputFormat:  mapString(data, "input_format"),
+	}
+	if config.Model == "" {
+		return nil, fmt.Errorf("%w: model %q missing upstream_model for doubao realtime duplex", ErrInvalid, cfg.Model.Id)
+	}
+	if value, ok := mapInt(data, "sample_rate"); ok {
+		config.SampleRate = value
+	}
+	if value, ok := mapInt(data, "input_sample_rate"); ok {
+		config.InputSampleRate = value
+	}
+	if value, ok := mapInt(data, "input_channels"); ok {
+		config.InputChannels = value
+	}
+	if value, ok := mapBool(data, "input_transcode"); ok {
+		config.InputTranscode = &value
+	}
+	if value, ok := mapInt(data, "output_speed"); ok {
+		config.OutputSpeed = &value
+	}
+	if value, ok := mapInt(data, "output_loudness"); ok {
+		config.OutputLoudness = &value
+	}
+	return doubaorealtimeduplex.New(config)
 }
 
 func (b DefaultBuilder) buildOpenAIGenerator(cfg GeneratorConfig) (genx.Generator, error) {
@@ -899,6 +1033,26 @@ func mapInt(values map[string]any, keys ...string) (int, bool) {
 		case json.Number:
 			n, err := value.Int64()
 			return int(n), err == nil
+		}
+	}
+	return 0, false
+}
+
+func mapFloat64(values map[string]any, keys ...string) (float64, bool) {
+	for _, key := range keys {
+		switch value := values[key].(type) {
+		case float64:
+			return value, true
+		case float32:
+			return float64(value), true
+		case int:
+			return float64(value), true
+		case json.Number:
+			n, err := value.Float64()
+			return n, err == nil
+		case string:
+			n, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
+			return n, err == nil
 		}
 	}
 	return 0, false

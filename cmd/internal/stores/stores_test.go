@@ -1193,7 +1193,7 @@ func TestMemoryRegistryFlowcraft(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := store.Observe(context.Background(), memorystore.Observation{Scope: "test", Text: "Remember the north gate."})
+	result, err := store.Observe(context.Background(), memorystore.Observation{Scope: memorystore.Scope{AppID: "test"}, Text: "Remember the north gate."})
 	if err != nil || len(result.Facts) != 1 {
 		t.Fatalf("Observe() result = %+v, error = %v", result, err)
 	}
@@ -1248,7 +1248,7 @@ func TestMemoryRegistryMem0ExpandsEnvironment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.Recall(context.Background(), memorystore.Query{Scope: "test", Text: "x", Limit: 1}); err != nil {
+	if _, err := store.Recall(context.Background(), memorystore.Query{Scope: memorystore.Scope{AppID: "test"}, Text: "x", Limit: 1}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -1273,7 +1273,7 @@ func TestMemoryRegistryVolcUsesResolver(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.Recall(context.Background(), memorystore.Query{Scope: "test", Text: "x", Limit: 1}); err != nil {
+	if _, err := store.Recall(context.Background(), memorystore.Query{Scope: memorystore.Scope{AppID: "test"}, Text: "x", Limit: 1}); err != nil {
 		t.Fatal(err)
 	}
 }

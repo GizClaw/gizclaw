@@ -179,11 +179,12 @@ func (s *Service) ResolveTransformer(ctx context.Context, pattern string) (Trans
 		return TransformerConfig{}, err
 	}
 	switch model.Kind {
-	case apitypes.ModelKindAsr, apitypes.ModelKindTts, apitypes.ModelKindRealtime, apitypes.ModelKindTranslation:
+	case apitypes.ModelKindAsr, apitypes.ModelKindTts, apitypes.ModelKindRealtime,
+		apitypes.ModelKindRealtimeDuplex, apitypes.ModelKindTranslation:
 	default:
 		return TransformerConfig{}, fmt.Errorf("%w: model %q kind %q is not a transformer", ErrInvalid, model.Id, model.Kind)
 	}
-	if model.Kind == apitypes.ModelKindRealtime {
+	if model.Kind == apitypes.ModelKindRealtime || model.Kind == apitypes.ModelKindRealtimeDuplex {
 		if err := s.resolveRealtimeVoiceAlias(ctx, model, params); err != nil {
 			return TransformerConfig{}, err
 		}
@@ -217,15 +218,28 @@ func (s *Service) resolveRealtimeVoiceAlias(ctx context.Context, model apitypes.
 	if voice.ProviderData == nil {
 		return fmt.Errorf("%w: realtime voice alias %q has no provider data", ErrInvalid, alias)
 	}
-	providerData, err := voice.ProviderData.AsVolcTenantVoiceProviderData()
-	if err != nil {
-		return fmt.Errorf("%w: decode realtime voice alias %q: %v", ErrInvalid, alias, err)
+	var voiceName string
+	switch model.Provider.Kind {
+	case apitypes.ModelProviderKindDashscopeTenant:
+		providerData, err := voice.ProviderData.AsDashScopeTenantVoiceProviderData()
+		if err != nil {
+			return fmt.Errorf("%w: decode realtime voice alias %q: %v", ErrInvalid, alias, err)
+		}
+		voiceName = strings.TrimSpace(valueOrEmpty(providerData.VoiceId))
+	case apitypes.ModelProviderKindVolcTenant:
+		providerData, err := voice.ProviderData.AsVolcTenantVoiceProviderData()
+		if err != nil {
+			return fmt.Errorf("%w: decode realtime voice alias %q: %v", ErrInvalid, alias, err)
+		}
+		voiceName = strings.TrimSpace(valueOrEmpty(providerData.VoiceId))
+	default:
+		return fmt.Errorf("%w: realtime voice alias %q uses unsupported provider %q", ErrInvalid, alias, model.Provider.Kind)
 	}
-	voiceName := strings.TrimSpace(valueOrEmpty(providerData.VoiceId))
 	if voiceName == "" {
 		return fmt.Errorf("%w: realtime voice alias %q has no provider voice_id", ErrInvalid, alias)
 	}
 	params["output_voice"] = voiceName
+	params["voice"] = voiceName
 	return nil
 }
 
@@ -560,18 +574,33 @@ func splitPatternParams(pattern string) (string, map[string]any, error) {
 		if len(value) == 0 {
 			continue
 		}
-		params[key] = parsePatternParamValue(value[len(value)-1])
+		params[key] = parsePatternParamValue(key, value[len(value)-1])
 	}
 	return strings.TrimSpace(base), params, nil
 }
 
-func parsePatternParamValue(value string) any {
+func parsePatternParamValue(key, value string) any {
 	text := strings.TrimSpace(value)
-	if boolValue, err := strconv.ParseBool(text); err == nil {
-		return boolValue
-	}
-	if intValue, err := strconv.Atoi(text); err == nil {
-		return intValue
+	switch key {
+	case "input_transcode", "enable_asr", "emit_interim", "emitInterim", "interim",
+		"realtime_pacing", "realtimePacing", "is_custom_speaker",
+		"custom_speaker", "enable_source_language_detect",
+		"source_language_detect", "denoise":
+		if boolValue, err := strconv.ParseBool(text); err == nil {
+			return boolValue
+		}
+	case "max_output_tokens", "output_sample_rate", "sample_rate",
+		"sampleRate", "rate", "input_sample_rate", "input_channels",
+		"output_speed", "output_loudness", "speech_rate", "speed",
+		"loudness_rate", "loudness", "vad_window_ms", "channels",
+		"channel", "bits":
+		if intValue, err := strconv.Atoi(text); err == nil {
+			return intValue
+		}
+	case "temperature":
+		if floatValue, err := strconv.ParseFloat(text, 64); err == nil {
+			return floatValue
+		}
 	}
 	return text
 }

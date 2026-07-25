@@ -107,6 +107,10 @@ WorkflowDriverKind _workflowDriver(WorkflowDriver driver) => switch (driver) {
   WorkflowDriver.WORKFLOW_DRIVER_FLOWCRAFT => WorkflowDriverKind.flowcraft,
   WorkflowDriver.WORKFLOW_DRIVER_DOUBAO_REALTIME =>
     WorkflowDriverKind.doubaoRealtime,
+  WorkflowDriver.WORKFLOW_DRIVER_DASH_SCOPE_REALTIME =>
+    WorkflowDriverKind.dashScopeRealtime,
+  WorkflowDriver.WORKFLOW_DRIVER_DOUBAO_REALTIME_DUPLEX =>
+    WorkflowDriverKind.doubaoRealtimeDuplex,
   WorkflowDriver.WORKFLOW_DRIVER_AST_TRANSLATE =>
     WorkflowDriverKind.astTranslate,
   WorkflowDriver.WORKFLOW_DRIVER_CHATROOM => WorkflowDriverKind.chatroom,

@@ -1707,6 +1707,19 @@ WorkspaceParameters newWorkspaceParametersForDriver(
       input: WorkspaceInputMode.WORKSPACE_INPUT_MODE_PUSH_TO_TALK,
     ),
   ),
+  WorkflowDriverKind.dashScopeRealtime => WorkspaceParameters(
+    dashScopeRealtimeWorkspaceParameters: DashScopeRealtimeWorkspaceParameters(
+      agentType: DashScopeRealtimeWorkspaceParametersAgentType
+          .DASH_SCOPE_REALTIME_WORKSPACE_PARAMETERS_AGENT_TYPE_DASH_SCOPE_REALTIME,
+    ),
+  ),
+  WorkflowDriverKind.doubaoRealtimeDuplex => WorkspaceParameters(
+    doubaoRealtimeDuplexWorkspaceParameters:
+        DoubaoRealtimeDuplexWorkspaceParameters(
+          agentType: DoubaoRealtimeDuplexWorkspaceParametersAgentType
+              .DOUBAO_REALTIME_DUPLEX_WORKSPACE_PARAMETERS_AGENT_TYPE_DOUBAO_REALTIME_DUPLEX,
+        ),
+  ),
   WorkflowDriverKind.astTranslate => WorkspaceParameters(
     asttranslateWorkspaceParameters: ASTTranslateWorkspaceParameters(
       agentType: ASTTranslateWorkspaceParametersAgentType
@@ -1732,14 +1745,37 @@ Workspace? workspaceWithDefaultInputParameters(
   Workspace workspace,
   WorkflowDriverKind driver,
 ) {
-  if (_workspaceExposesInputMode(workspace)) return null;
+  if (_workspaceHasParametersForDriver(workspace, driver)) return null;
   if (driver != WorkflowDriverKind.flowcraft &&
       driver != WorkflowDriverKind.doubaoRealtime &&
+      driver != WorkflowDriverKind.dashScopeRealtime &&
+      driver != WorkflowDriverKind.doubaoRealtimeDuplex &&
       driver != WorkflowDriverKind.astTranslate) {
     return null;
   }
   return workspace.deepCopy()
     ..parameters = newWorkspaceParametersForDriver(driver);
+}
+
+bool _workspaceHasParametersForDriver(
+  Workspace workspace,
+  WorkflowDriverKind driver,
+) {
+  if (!workspace.hasParameters()) return false;
+  final parameters = workspace.parameters;
+  return switch (driver) {
+    WorkflowDriverKind.flowcraft =>
+      parameters.hasFlowcraftWorkspaceParameters(),
+    WorkflowDriverKind.doubaoRealtime =>
+      parameters.hasDoubaoRealtimeWorkspaceParameters(),
+    WorkflowDriverKind.dashScopeRealtime =>
+      parameters.hasDashScopeRealtimeWorkspaceParameters(),
+    WorkflowDriverKind.doubaoRealtimeDuplex =>
+      parameters.hasDoubaoRealtimeDuplexWorkspaceParameters(),
+    WorkflowDriverKind.astTranslate =>
+      parameters.hasAsttranslateWorkspaceParameters(),
+    _ => false,
+  };
 }
 
 bool _runWorkspaceNeedsReload(PeerRunWorkspaceState state) {
@@ -1764,11 +1800,19 @@ WorkspaceInputMode _workspaceInputMode(Workspace? workspace) {
   if (parameters.hasDoubaoRealtimeWorkspaceParameters()) {
     return parameters.doubaoRealtimeWorkspaceParameters.input;
   }
+  if (parameters.hasDashScopeRealtimeWorkspaceParameters() ||
+      parameters.hasDoubaoRealtimeDuplexWorkspaceParameters()) {
+    return WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME;
+  }
   if (parameters.hasFlowcraftWorkspaceParameters()) {
     return parameters.flowcraftWorkspaceParameters.input;
   }
   return WorkspaceInputMode.WORKSPACE_INPUT_MODE_UNSPECIFIED;
 }
+
+@visibleForTesting
+WorkspaceInputMode workspaceInputModeForTest(Workspace? workspace) =>
+    _workspaceInputMode(workspace);
 
 bool _workspaceExposesInputMode(Workspace workspace) {
   if (!workspace.hasParameters()) return false;

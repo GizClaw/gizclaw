@@ -12,6 +12,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/einoconfig"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
@@ -227,6 +228,9 @@ func validateDriverSpec(spec apitypes.WorkflowSpec) error {
 		spec.Driver,
 		spec.Flowcraft != nil,
 		spec.DoubaoRealtime != nil,
+		spec.DashscopeRealtime != nil,
+		spec.DoubaoRealtimeDuplex != nil,
+		spec.Eino != nil,
 		spec.AstTranslate != nil,
 		spec.Chatroom != nil,
 		spec.Pet != nil,
@@ -251,6 +255,21 @@ func validateDriverSpec(spec apitypes.WorkflowSpec) error {
 			return errors.New("spec.doubao_realtime.tools are unsupported until ToolCall is implemented")
 		}
 		return nil
+	case apitypes.WorkflowDriverDashscopeRealtime:
+		if err := spec.DashscopeRealtime.Validate(); err != nil {
+			return fmt.Errorf("spec.dashscope_realtime: %w", err)
+		}
+		return nil
+	case apitypes.WorkflowDriverDoubaoRealtimeDuplex:
+		if err := spec.DoubaoRealtimeDuplex.Validate(); err != nil {
+			return fmt.Errorf("spec.doubao_realtime_duplex: %w", err)
+		}
+		return nil
+	case apitypes.WorkflowDriverEino:
+		if err := einoconfig.Validate(*spec.Eino); err != nil {
+			return fmt.Errorf("spec.eino: %w", err)
+		}
+		return nil
 	case apitypes.WorkflowDriverAstTranslate:
 		return nil
 	default:
@@ -263,12 +282,15 @@ func validateNestedPetWorkflow(spec apitypes.PetWorkflowSpec) error {
 		return fmt.Errorf("spec.pet.driver %q is not a reusable Workflow driver", spec.Driver)
 	}
 	nested := apitypes.WorkflowSpec{
-		Driver:         apitypes.WorkflowDriver(spec.Driver),
-		Toolkit:        spec.Toolkit,
-		Flowcraft:      spec.Flowcraft,
-		DoubaoRealtime: spec.DoubaoRealtime,
-		AstTranslate:   spec.AstTranslate,
-		Chatroom:       spec.Chatroom,
+		Driver:               apitypes.WorkflowDriver(spec.Driver),
+		Toolkit:              spec.Toolkit,
+		Flowcraft:            spec.Flowcraft,
+		DoubaoRealtime:       spec.DoubaoRealtime,
+		DashscopeRealtime:    spec.DashscopeRealtime,
+		DoubaoRealtimeDuplex: spec.DoubaoRealtimeDuplex,
+		Eino:                 spec.Eino,
+		AstTranslate:         spec.AstTranslate,
+		Chatroom:             spec.Chatroom,
 	}
 	if err := validateDriverSpec(nested); err != nil {
 		return fmt.Errorf("spec.pet: %w", err)
@@ -276,7 +298,7 @@ func validateNestedPetWorkflow(spec apitypes.PetWorkflowSpec) error {
 	return nil
 }
 
-func validateDriverPayloads(driver apitypes.WorkflowDriver, flowcraft, doubaoRealtime, astTranslate, chatroom, pet bool) error {
+func validateDriverPayloads(driver apitypes.WorkflowDriver, flowcraft, doubaoRealtime, dashscopeRealtime, doubaoRealtimeDuplex, eino, astTranslate, chatroom, pet bool) error {
 	payloads := []struct {
 		driver  apitypes.WorkflowDriver
 		field   string
@@ -284,6 +306,9 @@ func validateDriverPayloads(driver apitypes.WorkflowDriver, flowcraft, doubaoRea
 	}{
 		{apitypes.WorkflowDriverFlowcraft, "flowcraft", flowcraft},
 		{apitypes.WorkflowDriverDoubaoRealtime, "doubao_realtime", doubaoRealtime},
+		{apitypes.WorkflowDriverDashscopeRealtime, "dashscope_realtime", dashscopeRealtime},
+		{apitypes.WorkflowDriverDoubaoRealtimeDuplex, "doubao_realtime_duplex", doubaoRealtimeDuplex},
+		{apitypes.WorkflowDriverEino, "eino", eino},
 		{apitypes.WorkflowDriverAstTranslate, "ast_translate", astTranslate},
 		{apitypes.WorkflowDriverChatroom, "chatroom", chatroom},
 		{apitypes.WorkflowDriverPet, "pet", pet},

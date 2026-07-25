@@ -51,12 +51,15 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 		return nil, fmt.Errorf("pet: nested workflow factory not found for %q", driver)
 	}
 	spec.Workflow.Spec = apitypes.WorkflowSpec{
-		Driver:         apitypes.WorkflowDriver(nested.Driver),
-		Toolkit:        nested.Toolkit,
-		Flowcraft:      nested.Flowcraft,
-		DoubaoRealtime: nested.DoubaoRealtime,
-		AstTranslate:   nested.AstTranslate,
-		Chatroom:       nested.Chatroom,
+		Driver:               apitypes.WorkflowDriver(nested.Driver),
+		Toolkit:              nested.Toolkit,
+		Flowcraft:            nested.Flowcraft,
+		DoubaoRealtime:       nested.DoubaoRealtime,
+		DashscopeRealtime:    nested.DashscopeRealtime,
+		DoubaoRealtimeDuplex: nested.DoubaoRealtimeDuplex,
+		Eino:                 nested.Eino,
+		AstTranslate:         nested.AstTranslate,
+		Chatroom:             nested.Chatroom,
 	}
 	spec.AgentType = driver
 	spec.Workspace.Parameters = nil

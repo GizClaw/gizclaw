@@ -74,6 +74,10 @@ func (s *Store) Observe(ctx context.Context, observation memorystore.Observation
 	if err := validateObservation(observation); err != nil {
 		return observeResult{}, err
 	}
+	scope, err := normalizeEntityScope(observation.Scope)
+	if err != nil {
+		return observeResult{}, err
+	}
 	if len(observation.Facts) > 0 {
 		return observeResult{}, fmt.Errorf("%w: mem0 does not expose direct structured fact ingestion", errUnsupported)
 	}
@@ -101,7 +105,7 @@ func (s *Store) Observe(ctx context.Context, observation memorystore.Observation
 		"metadata": metadata,
 		"infer":    true,
 	}
-	for key, value := range s.entityFields(observation.Scope) {
+	for key, value := range s.entityFields(scope) {
 		payload[key] = value
 	}
 	path := "/memories"
@@ -113,9 +117,14 @@ func (s *Store) Observe(ctx context.Context, observation memorystore.Observation
 		return observeResult{}, err
 	}
 	if response.EventID != "" {
-		return observeResult{Operation: &memorystore.Operation{ID: response.EventID, Status: operationPending}}, nil
+		operationID := encodeOperationLocator(scope, response.EventID)
+		return observeResult{Operation: &memorystore.Operation{ID: operationID, Status: operationPending}}, nil
 	}
-	return observeResult{Facts: response.facts()}, nil
+	facts, err := s.scopedFacts(response.entries(), scope)
+	if err != nil {
+		return observeResult{}, err
+	}
+	return observeResult{Facts: facts}, nil
 }
 
 func validateMem0Metadata(metadata map[string]any) error {
@@ -132,7 +141,11 @@ func (s *Store) Recall(ctx context.Context, query memorystore.Query) (memorystor
 	if err := validateQuery(query); err != nil {
 		return recallResult{}, err
 	}
-	filters, err := s.mem0Filters(query.Scope, query.Filters)
+	scope, err := normalizeEntityScope(query.Scope)
+	if err != nil {
+		return recallResult{}, err
+	}
+	filters, err := s.mem0Filters(scope, query.Filters)
 	if err != nil {
 		return recallResult{}, err
 	}
@@ -148,7 +161,11 @@ func (s *Store) Recall(ctx context.Context, query memorystore.Query) (memorystor
 	entries := response.entries()
 	result := recallResult{Matches: make([]match, len(entries))}
 	for index, entry := range entries {
-		result.Matches[index] = match{Fact: entry.fact(), Score: entry.Score}
+		fact, err := s.scopedFact(entry, scope)
+		if err != nil {
+			return recallResult{}, err
+		}
+		result.Matches[index] = match{Fact: fact, Score: entry.Score}
 	}
 	return result, nil
 }
@@ -157,6 +174,17 @@ func (s *Store) Recall(ctx context.Context, query memorystore.Query) (memorystor
 func (s *Store) Update(ctx context.Context, request memorystore.UpdateRequest) (memorystore.Fact, error) {
 	if err := validateUpdate(request); err != nil {
 		return fact{}, err
+	}
+	scope, err := normalizeEntityScope(request.Scope)
+	if err != nil {
+		return fact{}, err
+	}
+	locatorScope, nativeID, err := decodeFactLocator(request.ID)
+	if err != nil {
+		return fact{}, err
+	}
+	if locatorScope != scope {
+		return fact{}, fmt.Errorf("%w: fact locator scope does not match update scope", errInvalidInput)
 	}
 	if request.ExpectedRevision != "" {
 		return fact{}, fmt.Errorf("%w: mem0 does not expose conditional updates", errUnsupported)
@@ -169,18 +197,25 @@ func (s *Store) Update(ctx context.Context, request memorystore.UpdateRequest) (
 		payload["text"] = *request.Text
 	}
 	var response mem0Envelope
-	path := "/v1/memories/" + url.PathEscape(request.ID) + "/"
+	if _, err := s.getScopedFact(ctx, scope, nativeID); err != nil {
+		return fact{}, err
+	}
+	path := "/v1/memories/" + url.PathEscape(nativeID) + "/"
 	if s.config.Flavor == SelfHosted {
-		path = "/memories/" + url.PathEscape(request.ID)
+		path = "/memories/" + url.PathEscape(nativeID)
 	}
 	if err := s.client.do(ctx, http.MethodPut, path, payload, &response); err != nil {
 		return fact{}, err
 	}
 	facts := response.facts()
 	if len(facts) > 0 {
-		return facts[0], nil
+		return s.scopedFact(response.entries()[0], scope)
 	}
-	return fact{ID: request.ID, Text: *request.Text}, nil
+	updated, err := s.getScopedFact(ctx, scope, nativeID)
+	if err != nil {
+		return fact{}, err
+	}
+	return updated, nil
 }
 
 // Delete removes one Mem0 memory. Mem0 does not expose conditional deletes.
@@ -188,20 +223,45 @@ func (s *Store) Delete(ctx context.Context, request memorystore.DeleteRequest) e
 	if err := validateDelete(request); err != nil {
 		return err
 	}
+	scope, err := normalizeEntityScope(request.Scope)
+	if err != nil {
+		return err
+	}
+	locatorScope, nativeID, err := decodeFactLocator(request.ID)
+	if err != nil {
+		return err
+	}
+	if locatorScope != scope {
+		return fmt.Errorf("%w: fact locator scope does not match delete scope", errInvalidInput)
+	}
 	if request.ExpectedRevision != "" {
 		return fmt.Errorf("%w: mem0 does not expose conditional deletes", errUnsupported)
 	}
-	path := "/v1/memories/" + url.PathEscape(request.ID) + "/"
+	if _, err := s.getScopedFact(ctx, scope, nativeID); err != nil {
+		return err
+	}
+	path := "/v1/memories/" + url.PathEscape(nativeID) + "/"
 	if s.config.Flavor == SelfHosted {
-		path = "/memories/" + url.PathEscape(request.ID)
+		path = "/memories/" + url.PathEscape(nativeID)
 	}
 	return s.client.do(ctx, http.MethodDelete, path, nil, nil)
 }
 
 // Wait polls an asynchronous Mem0 Platform event.
-func (s *Store) Wait(ctx context.Context, operationID string) (memorystore.ObserveResult, error) {
-	if strings.TrimSpace(operationID) == "" {
-		return observeResult{}, fmt.Errorf("%w: mem0 operation id is required", errInvalidInput)
+func (s *Store) Wait(ctx context.Context, request memorystore.OperationRequest) (memorystore.ObserveResult, error) {
+	if err := validateOperationRequest(request); err != nil {
+		return observeResult{}, err
+	}
+	scope, err := normalizeEntityScope(request.Scope)
+	if err != nil {
+		return observeResult{}, err
+	}
+	locatorScope, nativeID, err := decodeOperationLocator(request.ID)
+	if err != nil {
+		return observeResult{}, err
+	}
+	if locatorScope != scope {
+		return observeResult{}, fmt.Errorf("%w: operation locator scope does not match wait scope", errInvalidInput)
 	}
 	if s.config.Flavor != Platform {
 		return observeResult{}, fmt.Errorf("%w: self-hosted mem0 has no event API", errUnsupported)
@@ -212,15 +272,19 @@ func (s *Store) Wait(ctx context.Context, operationID string) (memorystore.Obser
 	}
 	for {
 		var response mem0Envelope
-		if err := s.client.do(ctx, http.MethodGet, "/v1/event/"+url.PathEscape(operationID)+"/", nil, &response); err != nil {
+		if err := s.client.do(ctx, http.MethodGet, "/v1/event/"+url.PathEscape(nativeID)+"/", nil, &response); err != nil {
 			return observeResult{}, err
 		}
 		status := strings.ToLower(response.Status)
 		switch status {
 		case "completed", "complete", "succeeded", "success":
-			return observeResult{Facts: response.resultFacts(), Operation: &memorystore.Operation{ID: operationID, Status: operationSucceeded}}, nil
+			facts, err := s.loadScopedFacts(ctx, scope, response.resultEntries())
+			if err != nil {
+				return observeResult{}, err
+			}
+			return observeResult{Facts: facts, Operation: &memorystore.Operation{ID: request.ID, Status: operationSucceeded}}, nil
 		case "failed", "error":
-			return observeResult{Operation: &memorystore.Operation{ID: operationID, Status: operationFailed, Error: "mem0 operation failed"}}, nil
+			return observeResult{Operation: &memorystore.Operation{ID: request.ID, Status: operationFailed, Error: "mem0 operation failed"}}, nil
 		}
 		timer := time.NewTimer(interval)
 		select {
@@ -232,8 +296,34 @@ func (s *Store) Wait(ctx context.Context, operationID string) (memorystore.Obser
 	}
 }
 
+func normalizeEntityScope(input scope) (scope, error) {
+	input.AppID = strings.TrimSpace(input.AppID)
+	input.UserID = strings.TrimSpace(input.UserID)
+	input.AgentID = strings.TrimSpace(input.AgentID)
+	input.RunID = strings.TrimSpace(input.RunID)
+	if input == (scope{}) {
+		return scope{}, fmt.Errorf("%w: mem0 requires one entity scope", errInvalidInput)
+	}
+	return input, nil
+}
+
+func platformEntityFields(scope scope) map[string]string {
+	fields := make(map[string]string, 1)
+	for key, value := range map[string]string{
+		"app_id": scope.AppID, "user_id": scope.UserID, "agent_id": scope.AgentID, "run_id": scope.RunID,
+	} {
+		if value != "" {
+			fields[key] = value
+		}
+	}
+	return fields
+}
+
 func (s *Store) entityFields(scope scope) map[string]string {
-	return map[string]string{"user_id": string(scope)}
+	if s.config.Flavor == SelfHosted {
+		return map[string]string{"user_id": encodeSelfHostedScope(scope)}
+	}
+	return platformEntityFields(scope)
 }
 
 func (s *Store) mem0Filters(scope scope, input []filter) (map[string]any, error) {
@@ -252,7 +342,148 @@ func (s *Store) mem0Filters(scope scope, input []filter) (map[string]any, error)
 }
 
 func (s *Store) mem0ScopeFilter(scope scope) map[string]any {
-	return map[string]any{"user_id": string(scope)}
+	if s.config.Flavor == SelfHosted {
+		return map[string]any{"user_id": encodeSelfHostedScope(scope)}
+	}
+	clauses := make([]any, 0, 4)
+	for _, field := range []struct {
+		name  string
+		value string
+	}{
+		{name: "app_id", value: scope.AppID},
+		{name: "user_id", value: scope.UserID},
+		{name: "agent_id", value: scope.AgentID},
+		{name: "run_id", value: scope.RunID},
+	} {
+		if field.value != "" {
+			clauses = append(clauses, map[string]any{field.name: field.value})
+		}
+	}
+	if len(clauses) == 1 {
+		return clauses[0].(map[string]any)
+	}
+	return map[string]any{"AND": clauses}
+}
+
+func (s *Store) getScopedFact(ctx context.Context, scope scope, nativeID string) (fact, error) {
+	path := "/v1/memories/" + url.PathEscape(nativeID) + "/"
+	if s.config.Flavor == SelfHosted {
+		path = "/memories/" + url.PathEscape(nativeID)
+	}
+	var response mem0Envelope
+	if err := s.client.do(ctx, http.MethodGet, path, nil, &response); err != nil {
+		return fact{}, err
+	}
+	if err := validateEnvelopeScope(response, scope, s.config.Flavor); err != nil {
+		return fact{}, err
+	}
+	return s.scopedFact(response, scope)
+}
+
+func (s *Store) loadScopedFacts(ctx context.Context, scope scope, entries []mem0Envelope) ([]fact, error) {
+	facts := make([]fact, 0, len(entries))
+	for _, entry := range entries {
+		if strings.TrimSpace(entry.ID) == "" {
+			return nil, fmt.Errorf("%w: mem0 operation returned a fact without an id", errUnavailable)
+		}
+		fact, err := s.getScopedFact(ctx, scope, entry.ID)
+		if err != nil {
+			return nil, err
+		}
+		facts = append(facts, fact)
+	}
+	return facts, nil
+}
+
+func validateEnvelopeScope(entry mem0Envelope, expected scope, flavor Flavor) error {
+	if flavor == SelfHosted {
+		actual, err := decodeSelfHostedScope(strings.TrimSpace(entry.UserID))
+		if err != nil {
+			return fmt.Errorf("%w: self-hosted mem0 memory does not expose its encoded scope", errUnsupported)
+		}
+		if actual != expected {
+			return fmt.Errorf("%w: mem0 memory entity scope does not match request", errInvalidInput)
+		}
+		if strings.TrimSpace(entry.AppID) != "" ||
+			strings.TrimSpace(entry.AgentID) != "" ||
+			strings.TrimSpace(entry.RunID) != "" {
+			return fmt.Errorf("%w: self-hosted mem0 memory exposes conflicting entity fields", errInvalidInput)
+		}
+		return nil
+	}
+	actual := scope{
+		AppID: strings.TrimSpace(entry.AppID), UserID: strings.TrimSpace(entry.UserID),
+		AgentID: strings.TrimSpace(entry.AgentID), RunID: strings.TrimSpace(entry.RunID),
+	}
+	if actual == (scope{}) {
+		return fmt.Errorf("%w: mem0 memory does not expose its entity scope", errUnsupported)
+	}
+	if actual != expected {
+		return fmt.Errorf("%w: mem0 memory entity scope does not match request", errInvalidInput)
+	}
+	return nil
+}
+
+func (s *Store) scopedFacts(entries []mem0Envelope, scope scope) ([]fact, error) {
+	facts := make([]fact, len(entries))
+	for index, entry := range entries {
+		fact, err := s.scopedFact(entry, scope)
+		if err != nil {
+			return nil, err
+		}
+		facts[index] = fact
+	}
+	return facts, nil
+}
+
+func (s *Store) scopedFact(entry mem0Envelope, scope scope) (fact, error) {
+	if strings.TrimSpace(entry.ID) == "" {
+		return fact{}, fmt.Errorf("%w: mem0 response returned a fact without an id", errUnavailable)
+	}
+	if err := validateReturnedEnvelopeScope(entry, scope, s.config.Flavor); err != nil {
+		return fact{}, err
+	}
+	result := entry.fact()
+	result.ID = encodeFactLocator(scope, result.ID)
+	return result, nil
+}
+
+func validateReturnedEnvelopeScope(entry mem0Envelope, expected scope, flavor Flavor) error {
+	if flavor == SelfHosted {
+		userID := strings.TrimSpace(entry.UserID)
+		if userID == "" {
+			return nil
+		}
+		actual, err := decodeSelfHostedScope(userID)
+		if err != nil || actual != expected {
+			return fmt.Errorf("%w: self-hosted mem0 response scope does not match request", errInvalidInput)
+		}
+		if strings.TrimSpace(entry.AppID) != "" ||
+			strings.TrimSpace(entry.AgentID) != "" ||
+			strings.TrimSpace(entry.RunID) != "" {
+			return fmt.Errorf("%w: self-hosted mem0 response exposes conflicting entity fields", errInvalidInput)
+		}
+		return nil
+	}
+	for _, field := range []struct {
+		name     string
+		actual   string
+		expected string
+	}{
+		{name: "app_id", actual: entry.AppID, expected: expected.AppID},
+		{name: "user_id", actual: entry.UserID, expected: expected.UserID},
+		{name: "agent_id", actual: entry.AgentID, expected: expected.AgentID},
+		{name: "run_id", actual: entry.RunID, expected: expected.RunID},
+	} {
+		actual := strings.TrimSpace(field.actual)
+		if actual != "" && actual != field.expected {
+			return fmt.Errorf(
+				"%w: mem0 response %s does not match request scope",
+				errInvalidInput, field.name,
+			)
+		}
+	}
+	return nil
 }
 
 func (s *Store) mem0FilterClause(filter filter) (map[string]any, error) {
@@ -360,6 +591,10 @@ type mem0Envelope struct {
 	Metadata   map[string]any  `json:"metadata"`
 	CreatedAt  time.Time       `json:"created_at"`
 	UpdatedAt  time.Time       `json:"updated_at"`
+	UserID     string          `json:"user_id"`
+	AgentID    string          `json:"agent_id"`
+	AppID      string          `json:"app_id"`
+	RunID      string          `json:"run_id"`
 	Results    json.RawMessage `json:"results"`
 	Data       json.RawMessage `json:"data"`
 }
@@ -396,13 +631,7 @@ func (e mem0Envelope) resultEntries() []mem0Envelope {
 		}
 		var items []mem0Envelope
 		if json.Unmarshal(raw, &items) == nil {
-			entries := make([]mem0Envelope, 0, len(items))
-			for _, item := range items {
-				if item.ID != "" {
-					entries = append(entries, item)
-				}
-			}
-			return entries
+			return items
 		}
 		var nested mem0Envelope
 		if json.Unmarshal(raw, &nested) == nil {

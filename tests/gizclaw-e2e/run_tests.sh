@@ -22,14 +22,24 @@ chat_live_tests=(
   TestRealtimeInterrupt
   TestRealtimeAutoSplitHistory
   TestPushToTalkInterrupt
+  TestDashScopeRealtimeWorkflowRoundtrip
+  TestDoubaoRealtimeDuplexWorkflowRoundtrip
+  TestEinoWorkflowRoundtrip
+  TestFlowcraftConfiguredMemoryStoreRoundtrip
 )
-chat_default_live_patterns=(
+chat_standard_live_patterns=(
   '^TestPushToTalkRoundtrip$'
   '^TestRealtimeRoundtrip$'
   '^TestHistoryReplay$'
   '^TestRealtimeInterrupt$'
   '^TestRealtimeAutoSplitHistory$'
   '^TestPushToTalkInterrupt$'
+  '^TestDashScopeRealtimeWorkflowRoundtrip$'
+  '^TestDoubaoRealtimeDuplexWorkflowRoundtrip$'
+)
+chat_memory_live_patterns=(
+  '^TestEinoWorkflowRoundtrip$'
+  '^TestFlowcraftConfiguredMemoryStoreRoundtrip$'
 )
 
 unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy
@@ -237,8 +247,17 @@ run_chat_pkg() {
   (cd "$repo_root" && go test -v -tags gizclaw_e2e -count=1 -timeout "$go_test_timeout" -skip "$chat_skip_regexp" "$chat_pkg") || status=$?
 
 	local test_regex
-	for test_regex in "${chat_default_live_patterns[@]}"; do
+	for test_regex in "${chat_standard_live_patterns[@]}"; do
 		run_timed "chat:$test_regex" run_pkg_test_regex "$chat_pkg" "$test_regex" || status=$?
+	done
+	return "$status"
+}
+
+run_memory_chat_pkg() {
+	local status=0
+	local test_regex
+	for test_regex in "${chat_memory_live_patterns[@]}"; do
+		run_timed "chat-memory:$test_regex" run_pkg_test_regex "$chat_pkg" "$test_regex" || status=$?
 	done
 	return "$status"
 }
@@ -288,5 +307,14 @@ run_timed "go:gameplay" run_pkg "./tests/gizclaw-e2e/go/gameplay"
 run_timed "go:rpc" run_pkg "./tests/gizclaw-e2e/go/rpc"
 run_timed "go:social" run_pkg "./tests/gizclaw-e2e/go/social"
 run_timed "cli" run_pkg_serial "./tests/gizclaw-e2e/cmd/..."
+
+run_timed "docker:standard-cleanup" bash "$setup_dir/docker-compose-down.sh"
+export GIZCLAW_E2E_MEMORY_STORES=1
+run_timed "docker:memory-setup" start_docker_stack
+set -a
+# shellcheck disable=SC1090
+source "$docker_env_path"
+set +a
+run_timed "go:chat-memory" run_memory_chat_pkg
 
 echo "==> e2e run completed"

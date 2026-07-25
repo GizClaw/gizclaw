@@ -468,31 +468,61 @@ func configureAgentHostStores(server *gizclaw.Server, registry *stores.Stores, c
 		}
 		server.AgentHostStore = runtimeStore
 	}
-	if cfg.AgentHost.Flowcraft == nil {
-		return nil
-	}
-	if name := cfg.AgentHost.Flowcraft.StateStore; name != "" {
-		stateStore, err := registry.KV(name)
-		if err != nil {
-			return agentHostStoreReferenceError("agent_host.flowcraft.state_store", name, "kv.Store", err)
+	if flowcraft := cfg.AgentHost.Flowcraft; flowcraft != nil {
+		if name := flowcraft.StateStore; name != "" {
+			stateStore, err := registry.KV(name)
+			if err != nil {
+				return agentHostStoreReferenceError("agent_host.flowcraft.state_store", name, "kv.Store", err)
+			}
+			server.FlowcraftState = stateStore
 		}
-		server.FlowcraftState = stateStore
-	}
-	if name := cfg.AgentHost.Flowcraft.HistoryStore; name != "" {
-		historyStore, err := registry.MutableLog(name)
-		if err != nil {
-			return agentHostStoreReferenceError("agent_host.flowcraft.history_store", name, "logstore.MutableStore", err)
+		if name := flowcraft.HistoryStore; name != "" {
+			historyStore, err := registry.MutableLog(name)
+			if err != nil {
+				return agentHostStoreReferenceError("agent_host.flowcraft.history_store", name, "logstore.MutableStore", err)
+			}
+			server.FlowcraftHistory = historyStore
 		}
-		server.FlowcraftHistory = historyStore
-	}
-	if name := cfg.AgentHost.Flowcraft.MemoryObjectsStore; name != "" {
-		memoryStore, err := registry.ObjectStore(name)
-		if err != nil {
-			return agentHostStoreReferenceError("agent_host.flowcraft.memory_objects_store", name, "objectstore.ObjectStore", err)
+		if name := flowcraft.MemoryObjectsStore; name != "" {
+			memoryObjects, err := registry.ObjectStore(name)
+			if err != nil {
+				return agentHostStoreReferenceError("agent_host.flowcraft.memory_objects_store", name, "objectstore.ObjectStore", err)
+			}
+			server.FlowcraftMemoryObjects = memoryObjects
 		}
-		server.FlowcraftMemoryObjects = memoryStore
+		if name := flowcraft.MemoryStore; name != "" {
+			memoryStore, err := registry.Memory(name)
+			if err != nil {
+				return agentHostStoreReferenceError("agent_host.flowcraft.memory_store", name, "memory.Store", err)
+			}
+			server.FlowcraftMemory = memoryStore
+			server.FlowcraftMemoryKind = configuredMemoryProviderKind(cfg.Stores[name])
+		}
+	}
+	if eino := cfg.AgentHost.Eino; eino != nil {
+		if name := eino.MemoryStore; name != "" {
+			memoryStore, err := registry.Memory(name)
+			if err != nil {
+				return agentHostStoreReferenceError("agent_host.eino.memory_store", name, "memory.Store", err)
+			}
+			server.EinoMemory = memoryStore
+			server.EinoMemoryKind = configuredMemoryProviderKind(cfg.Stores[name])
+		}
 	}
 	return nil
+}
+
+func configuredMemoryProviderKind(cfg stores.Config) string {
+	switch {
+	case cfg.Flowcraft != nil:
+		return "flowcraft"
+	case cfg.Mem0 != nil:
+		return "mem0"
+	case cfg.VolcMemory != nil:
+		return "volc_memory"
+	default:
+		return "unknown"
+	}
 }
 
 type agentHostStoreBinding struct {
@@ -505,28 +535,37 @@ func explicitAgentHostStoreBindings(cfg Config) []agentHostStoreBinding {
 	if cfg.AgentHost == nil {
 		return nil
 	}
-	bindings := make([]agentHostStoreBinding, 0, 4)
+	bindings := make([]agentHostStoreBinding, 0, 6)
 	if name := cfg.AgentHost.RuntimeStore; name != "" {
 		bindings = append(bindings, agentHostStoreBinding{
 			path: "agent_host.runtime_store", name: name, capability: "objectstore.ObjectStore",
 		})
 	}
-	if cfg.AgentHost.Flowcraft == nil {
-		return bindings
+	if flowcraft := cfg.AgentHost.Flowcraft; flowcraft != nil {
+		if name := flowcraft.StateStore; name != "" {
+			bindings = append(bindings, agentHostStoreBinding{
+				path: "agent_host.flowcraft.state_store", name: name, capability: "kv.Store",
+			})
+		}
+		if name := flowcraft.HistoryStore; name != "" {
+			bindings = append(bindings, agentHostStoreBinding{
+				path: "agent_host.flowcraft.history_store", name: name, capability: "logstore.MutableStore",
+			})
+		}
+		if name := flowcraft.MemoryObjectsStore; name != "" {
+			bindings = append(bindings, agentHostStoreBinding{
+				path: "agent_host.flowcraft.memory_objects_store", name: name, capability: "objectstore.ObjectStore",
+			})
+		}
+		if name := flowcraft.MemoryStore; name != "" {
+			bindings = append(bindings, agentHostStoreBinding{
+				path: "agent_host.flowcraft.memory_store", name: name, capability: "memory.Store",
+			})
+		}
 	}
-	if name := cfg.AgentHost.Flowcraft.StateStore; name != "" {
+	if eino := cfg.AgentHost.Eino; eino != nil && eino.MemoryStore != "" {
 		bindings = append(bindings, agentHostStoreBinding{
-			path: "agent_host.flowcraft.state_store", name: name, capability: "kv.Store",
-		})
-	}
-	if name := cfg.AgentHost.Flowcraft.HistoryStore; name != "" {
-		bindings = append(bindings, agentHostStoreBinding{
-			path: "agent_host.flowcraft.history_store", name: name, capability: "logstore.MutableStore",
-		})
-	}
-	if name := cfg.AgentHost.Flowcraft.MemoryObjectsStore; name != "" {
-		bindings = append(bindings, agentHostStoreBinding{
-			path: "agent_host.flowcraft.memory_objects_store", name: name, capability: "objectstore.ObjectStore",
+			path: "agent_host.eino.memory_store", name: eino.MemoryStore, capability: "memory.Store",
 		})
 	}
 	return bindings

@@ -1,0 +1,24 @@
+FROM python:3.12.11-slim-bookworm@sha256:519591d6871b7bc437060736b9f7456b8731f1499a57e22e6c285135ae657bf7
+
+WORKDIR /app
+
+RUN pip install --no-cache-dir \
+    fastapi==0.116.1 \
+    mem0ai==2.0.3 \
+    python-dotenv==1.1.1 \
+    uvicorn==0.35.0
+
+COPY tests/gizclaw-e2e/docker/mem0_server.py /app/mem0_server.py
+COPY tests/gizclaw-e2e/docker/mem0_server_test.py /app/mem0_server_test.py
+COPY tests/gizclaw-e2e/docker/entrypoint-mem0.sh /app/entrypoint-mem0.sh
+
+RUN python -m unittest -v mem0_server_test.py
+RUN chmod 0555 /app/entrypoint-mem0.sh
+
+ENV MEM0_TELEMETRY=false
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+EXPOSE 8000
+
+ENTRYPOINT ["/app/entrypoint-mem0.sh"]

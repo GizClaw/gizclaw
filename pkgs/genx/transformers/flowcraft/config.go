@@ -152,7 +152,7 @@ func normalizeConfig(source Config) (Config, error) {
 	config.Name = strings.TrimSpace(config.Name)
 	config.ContextID = strings.TrimSpace(config.ContextID)
 	config.HistoryScope = strings.TrimSpace(config.HistoryScope)
-	config.MemoryScope = memory.Scope(strings.TrimSpace(string(config.MemoryScope)))
+	config.MemoryScope = normalizeMemoryScope(config.MemoryScope)
 	if config.ID == "" {
 		return Config{}, fmt.Errorf("flowcraft: ID is required")
 	}
@@ -222,10 +222,10 @@ func normalizeConfig(source Config) (Config, error) {
 		config.PublishNodes = append(config.PublishNodes, nodeID)
 	}
 	if config.Memory == nil {
-		if config.MemoryScope != "" || len(config.RecallProfiles) != 0 || config.ObserveEnabled || config.ObserveWaitForCompletion {
+		if config.MemoryScope != (memory.Scope{}) || len(config.RecallProfiles) != 0 || config.ObserveEnabled || config.ObserveWaitForCompletion {
 			return Config{}, fmt.Errorf("flowcraft: Memory settings require Memory")
 		}
-	} else if config.MemoryScope == "" {
+	} else if config.MemoryScope == (memory.Scope{}) {
 		return Config{}, fmt.Errorf("flowcraft: MemoryScope is required when Memory is configured")
 	}
 	if config.ObserveWaitForCompletion {
@@ -268,6 +268,14 @@ func normalizeConfig(source Config) (Config, error) {
 		config.ObservationBuilder = DefaultObservationBuilder
 	}
 	return config, nil
+}
+
+func normalizeMemoryScope(scope memory.Scope) memory.Scope {
+	scope.AppID = strings.TrimSpace(scope.AppID)
+	scope.UserID = strings.TrimSpace(scope.UserID)
+	scope.AgentID = strings.TrimSpace(scope.AgentID)
+	scope.RunID = strings.TrimSpace(scope.RunID)
+	return scope
 }
 
 func cloneConfigValue(source any) (any, error) {

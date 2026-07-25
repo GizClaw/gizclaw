@@ -21,14 +21,25 @@ const (
 
 // Wait drains caller-owned Flowcraft async work until the requested operation
 // reaches a terminal state or the context ends.
-func (s *Store) Wait(ctx context.Context, operationID string) (memorystore.ObserveResult, error) {
+func (s *Store) Wait(ctx context.Context, request memorystore.OperationRequest) (memorystore.ObserveResult, error) {
 	if err := ctx.Err(); err != nil {
 		return observeResult{}, err
 	}
-	scope, _, err := decodeLocator(operationID)
+	if err := memorystore.ValidateOperationRequest(request); err != nil {
+		return observeResult{}, err
+	}
+	requestedScope, err := nativeScope(request.Scope)
 	if err != nil {
 		return observeResult{}, err
 	}
+	locatorScope, _, err := decodeLocator(request.ID)
+	if err != nil {
+		return observeResult{}, err
+	}
+	if !sameScope(requestedScope, locatorScope) {
+		return observeResult{}, fmt.Errorf("%w: operation locator scope does not match wait scope", errInvalidInput)
+	}
+	operationID := request.ID
 	select {
 	case <-ctx.Done():
 		return observeResult{}, ctx.Err()
@@ -40,7 +51,7 @@ func (s *Store) Wait(ctx context.Context, operationID string) (memorystore.Obser
 	known, ok := s.operations[operationID]
 	s.mu.Unlock()
 	if !ok {
-		if err := s.rehydrateScopeOperations(ctx, scope); err != nil {
+		if err := s.rehydrateScopeOperations(ctx, requestedScope); err != nil {
 			return observeResult{}, err
 		}
 		s.mu.Lock()
@@ -75,7 +86,7 @@ func (s *Store) Wait(ctx context.Context, operationID string) (memorystore.Obser
 	for {
 		s.queue.resetClaims()
 		result, err := processor.ProcessAsyncSemantic(ctx, recall.AsyncSemanticProcessOptions{
-			Scope: scope, WorkerID: "gizclaw-memory", Limit: 1,
+			Scope: requestedScope, WorkerID: "gizclaw-memory", Limit: 1,
 		})
 		claimedIDs := s.queue.takeClaims()
 		if err != nil {
@@ -128,7 +139,7 @@ func (s *Store) Wait(ctx context.Context, operationID string) (memorystore.Obser
 
 // ProcessAsync drains one queued semantic operation. It is distinct from Wait
 // so streaming callers can opt into background materialization explicitly.
-func (s *Store) ProcessAsync(ctx context.Context, operationID string) (memorystore.ObserveResult, error) {
+func (s *Store) ProcessAsync(ctx context.Context, request memorystore.OperationRequest) (memorystore.ObserveResult, error) {
 	s.mu.Lock()
 	if s.closing {
 		s.mu.Unlock()
@@ -145,7 +156,7 @@ func (s *Store) ProcessAsync(ctx context.Context, operationID string) (memorysto
 		stop()
 		cancel()
 	}()
-	return s.Wait(processCtx, operationID)
+	return s.Wait(processCtx, request)
 }
 
 func (s *Store) rehydrateOperations(ctx context.Context) error {
@@ -153,7 +164,7 @@ func (s *Store) rehydrateOperations(ctx context.Context) error {
 	if !ok {
 		return nil
 	}
-	scopes, err := enumerator.ListScopes(ctx, recall.ScopeListQuery{RuntimeID: "gizclaw"})
+	scopes, err := enumerator.ListScopes(ctx, recall.ScopeListQuery{})
 	if err != nil {
 		return mapFlowcraftError("rehydrate async operations", err)
 	}

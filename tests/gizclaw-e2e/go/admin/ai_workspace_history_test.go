@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -67,6 +68,10 @@ func TestAdminAPIWorkspaceHistoryListAndGetFromSocialConversation(t *testing.T) 
 
 func TestAdminAPISocialWorkspaceHistoryStartsEmptyUntilConversation(t *testing.T) {
 	env := newAdminAPIHarness(t)
+	peer := env.h.ConnectClientFromContext("admin-api-peer")
+	defer peer.Close()
+	registerAdminHistoryPeers(t, env, env.admin, peer)
+	applyAdminSocialFixtures(t, env)
 
 	friend, err := env.api.GetPeerFriendWithResponse(env.ctx, e2eSocialAdminPublicKey, e2eSocialRelationID)
 	if err != nil {
@@ -151,16 +156,20 @@ func createAdminSocialConversationHistory(t *testing.T, env *adminAPIHarness) (s
 	if state.RuntimeState != rpcapi.PeerRunStatusStateRunning {
 		t.Fatalf("workspace runtime state = %#v, want running", state)
 	}
+	chat, err := writer.OpenPeerStream(64)
+	if err != nil {
+		t.Fatalf("open chat stream: %v", err)
+	}
+	defer chat.Close()
 
 	texts := []string{
 		"admin history social round one",
 		"admin history social round two",
 		"admin history social round three",
 	}
-	for _, text := range texts {
-		out := sendAdminChatText(t, ctx, writer, text)
+	for i, text := range texts {
+		sendAdminChatText(t, ctx, chat, "admin-chat-text-"+strconv.Itoa(i+1), text)
 		waitForAdminWorkspaceHistoryText(t, env, workspaceName, text)
-		_ = out.Close()
 	}
 	return workspaceName, texts
 }
@@ -224,27 +233,20 @@ func registerAdminHistoryPeers(t *testing.T, env *adminAPIHarness, peers ...*giz
 	}
 }
 
-func sendAdminChatText(t *testing.T, ctx context.Context, client *gizcli.Client, text string) genx.Stream {
+func sendAdminChatText(t *testing.T, ctx context.Context, stream *gizcli.PeerStream, streamID, text string) {
 	t.Helper()
-	out, err := client.OpenPeerStream(64)
-	if err != nil {
-		t.Fatalf("open chat text stream %q: %v", text, err)
-	}
-
-	input := adminChatTextStream(text)
+	input := adminChatTextStream(streamID, text)
 	defer input.Close()
 	for {
 		chunk, err := input.Next()
 		switch {
 		case err == nil:
-			if err := out.Push(ctx, chunk); err != nil {
-				_ = out.CloseWithError(err)
+			if err := stream.Push(ctx, chunk); err != nil {
 				t.Fatalf("push chat text %q: %v", text, err)
 			}
 		case errors.Is(err, io.EOF) || errors.Is(err, genx.ErrDone):
-			return out
+			return
 		default:
-			_ = out.CloseWithError(err)
 			t.Fatalf("read chat text %q: %v", text, err)
 		}
 	}
@@ -255,6 +257,7 @@ func waitForAdminWorkspaceHistoryText(t *testing.T, env *adminAPIHarness, worksp
 	deadline := time.Now().Add(15 * time.Second)
 	limit := 20
 	reconnects := 0
+	var lastResponse string
 	for {
 		history, err := env.api.ListWorkspaceHistoryWithResponse(env.ctx, workspaceName, &adminhttp.ListWorkspaceHistoryParams{Limit: &limit})
 		if err == nil && history.JSON200 != nil {
@@ -263,6 +266,9 @@ func waitForAdminWorkspaceHistoryText(t *testing.T, env *adminAPIHarness, worksp
 					return
 				}
 			}
+		}
+		if err == nil && history != nil {
+			lastResponse = strings.TrimSpace(string(history.Body))
 		}
 		if isAdminAPIConnClosed(err) && reconnects < 2 {
 			reconnects++
@@ -274,7 +280,7 @@ func waitForAdminWorkspaceHistoryText(t *testing.T, env *adminAPIHarness, worksp
 			if err != nil {
 				t.Fatalf("list workspace history while waiting for %q: %v", text, err)
 			}
-			t.Fatalf("workspace history text %q not found in %q", text, workspaceName)
+			t.Fatalf("workspace history text %q not found in %q; last response: %s", text, workspaceName, lastResponse)
 		}
 		time.Sleep(250 * time.Millisecond)
 	}
@@ -289,10 +295,10 @@ func isAdminAPIConnClosed(err error) bool {
 		strings.Contains(msg, "use of closed network connection")
 }
 
-func adminChatTextStream(text string) genx.Stream {
+func adminChatTextStream(streamID, text string) genx.Stream {
 	return &adminSliceStream{chunks: []*genx.MessageChunk{
-		{Role: genx.RoleUser, Name: "transcript", Part: genx.Text(text), Ctrl: &genx.StreamCtrl{StreamID: "admin-chat-text", Label: "transcript"}},
-		{Role: genx.RoleUser, Name: "transcript", Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "admin-chat-text", Label: "transcript", EndOfStream: true}},
+		{Role: genx.RoleUser, Name: "transcript", Part: genx.Text(text), Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: "transcript"}},
+		{Role: genx.RoleUser, Name: "transcript", Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: "transcript", EndOfStream: true}},
 	}}
 }
 

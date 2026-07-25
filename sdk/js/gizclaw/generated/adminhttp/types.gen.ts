@@ -1244,7 +1244,7 @@ export type Model = {
 /**
  * Runtime role of a model.
  */
-export type ModelKind = 'llm' | 'tts' | 'asr' | 'realtime' | 'translation' | 'embedding';
+export type ModelKind = 'llm' | 'tts' | 'asr' | 'realtime' | 'realtime-duplex' | 'translation' | 'embedding';
 
 export type ModelProvider = {
     kind: ModelProviderKind;
@@ -1331,7 +1331,7 @@ export type OpenAiTenantModelProviderData = {
 
 export type VolcTenantModelProviderData = {
     upstream_model?: string;
-    api_mode: 'asr' | 'tts' | 'realtime' | 'translation' | 'chat_completions' | 'embedding';
+    api_mode: 'asr' | 'tts' | 'realtime' | 'realtime_duplex' | 'translation' | 'chat_completions' | 'embedding';
     resource_id?: string;
     support_json_output?: boolean;
     support_tool_calls?: boolean;
@@ -2026,10 +2026,28 @@ export type ReusableChatroomWorkflowVariant = {
     chatroom: ChatRoomWorkflowSpec;
 };
 
+export type ReusableDashScopeRealtimeWorkflowVariant = {
+    driver: 'dashscope-realtime';
+    toolkit?: ToolkitPolicy;
+    dashscope_realtime: DashScopeRealtimeWorkflowSpec;
+};
+
+export type ReusableDoubaoRealtimeDuplexWorkflowVariant = {
+    driver: 'doubao-realtime-duplex';
+    toolkit?: ToolkitPolicy;
+    doubao_realtime_duplex: DoubaoRealtimeDuplexWorkflowSpec;
+};
+
 export type ReusableDoubaoRealtimeWorkflowVariant = {
     driver: 'doubao-realtime';
     toolkit?: ToolkitPolicy;
     doubao_realtime: DoubaoRealtimeWorkflowSpec;
+};
+
+export type ReusableEinoWorkflowVariant = {
+    driver: 'eino';
+    toolkit?: ToolkitPolicy;
+    eino: EinoWorkflowSpec;
 };
 
 export type ReusableFlowcraftWorkflowVariant = {
@@ -2041,7 +2059,7 @@ export type ReusableFlowcraftWorkflowVariant = {
 /**
  * Reusable non-Pet Workflow union used directly and below the Pet domain wrapper.
  */
-export type ReusableWorkflowSpec = ReusableFlowcraftWorkflowVariant | ReusableDoubaoRealtimeWorkflowVariant | ReusableAstTranslateWorkflowVariant | ReusableChatroomWorkflowVariant;
+export type ReusableWorkflowSpec = ReusableFlowcraftWorkflowVariant | ReusableDoubaoRealtimeWorkflowVariant | ReusableDashScopeRealtimeWorkflowVariant | ReusableDoubaoRealtimeDuplexWorkflowVariant | ReusableEinoWorkflowVariant | ReusableAstTranslateWorkflowVariant | ReusableChatroomWorkflowVariant;
 
 /**
  * Workflow union: one reusable non-Pet variant or the Pet domain wrapper.
@@ -2106,6 +2124,24 @@ export type ChatRoomWorkflowTranscriptSpec = {
      * RuntimeProfile ASR Model alias resolved when the Workspace reloads.
      */
     asr_model?: string;
+};
+
+export type DashScopeRealtimeOptions = {
+    model?: string;
+    voice?: string;
+    instructions?: string;
+    modalities?: Array<'text' | 'audio'>;
+    vad?: 'server_vad' | 'disabled';
+    temperature?: number;
+    max_output_tokens?: number;
+    enable_asr?: boolean;
+    asr_model?: string;
+    input_audio_format?: 'pcm16' | 'mp3' | 'wav';
+    output_audio_format?: 'pcm16' | 'mp3' | 'wav';
+};
+
+export type DashScopeRealtimeWorkflowSpec = DashScopeRealtimeOptions & {
+    model: string;
 };
 
 export type DoubaoRealtimeAigcMetadata = {
@@ -2231,6 +2267,298 @@ export type DoubaoRealtimeWorkflowSpec = {
     audio?: DoubaoRealtimeAudio;
     tools?: Array<DoubaoRealtimeFunctionTool>;
     extension?: DoubaoRealtimeExtension;
+};
+
+export type DoubaoRealtimeDuplexOptions = {
+    model?: string;
+    voice?: string;
+    instructions?: string;
+    format?: 'ogg_opus';
+    sample_rate?: 24000;
+    input_format?: 'speech_opus';
+    input_sample_rate?: number;
+    input_channels?: number;
+    input_transcode?: boolean;
+    output_speed?: number;
+    output_loudness?: number;
+};
+
+export type DoubaoRealtimeDuplexWorkflowSpec = DoubaoRealtimeDuplexOptions & {
+    model: string;
+};
+
+export type EinoBatchNode = EinoNodeBase & {
+    id: string;
+    type: 'batch';
+    inputs?: {
+        [key: string]: EinoBinding;
+    };
+    outputs?: {
+        [key: string]: string;
+    };
+    items: EinoBinding;
+    graph: EinoGraph;
+    max_concurrency?: number;
+};
+
+export type EinoBinding = {
+    from: string;
+};
+
+export type EinoBranch = {
+    from: string;
+    mode: 'first_match' | 'all_match';
+    routes: Array<EinoBranchRoute>;
+    default: string;
+};
+
+export type EinoBranchRoute = {
+    when: EinoPredicate;
+    to: string;
+};
+
+export type EinoChatModelNode = EinoNodeBase & {
+    id: string;
+    type: 'chat_model';
+    inputs?: {
+        [key: string]: EinoBinding;
+    };
+    outputs?: {
+        [key: string]: string;
+    };
+    model: string;
+    temperature?: number;
+    max_tokens?: number;
+};
+
+export type EinoEdge = {
+    from: string;
+    to: string;
+};
+
+export type EinoFanIn = {
+    stream_merge_with_source_eof?: boolean;
+};
+
+export type EinoGraph = {
+    name: string;
+    compile: EinoGraphCompile;
+    state: EinoState;
+    nodes: Array<EinoNode>;
+    edges: Array<EinoEdge>;
+    branches: Array<EinoBranch>;
+    outputs: Array<EinoOutput>;
+};
+
+export type EinoGraphCompile = {
+    max_run_steps?: number;
+    node_trigger_mode: 'any_predecessor' | 'all_predecessor';
+    fan_in?: {
+        [key: string]: EinoFanIn;
+    };
+};
+
+export type EinoLimits = {
+    max_output_bytes?: number;
+};
+
+export type EinoMemory = {
+    recall?: Array<EinoMemoryRecall>;
+    observe?: EinoMemoryObserve;
+};
+
+export type EinoMemoryFact = {
+    text_from: string;
+    attributes?: {
+        [key: string]: string;
+    };
+};
+
+export type EinoMemoryObserve = {
+    enabled: boolean;
+    wait_for_completion?: boolean;
+    facts?: Array<EinoMemoryFact>;
+};
+
+export type EinoMemoryRecall = {
+    query_from: string;
+    output: string;
+    top_k: number;
+};
+
+export type EinoNode = ({
+    type: 'prompt';
+} & EinoPromptNode) | ({
+    type: 'chat_model';
+} & EinoChatModelNode) | ({
+    type: 'transform';
+} & EinoTransformNode) | ({
+    type: 'script';
+} & EinoScriptNode) | ({
+    type: 'race';
+} & EinoRaceNode) | ({
+    type: 'batch';
+} & EinoBatchNode) | ({
+    type: 'passthrough';
+} & EinoPassthroughNode) | ({
+    type: 'subgraph';
+} & EinoSubgraphNode);
+
+export type EinoNodeBase = {
+    id: string;
+    type: string;
+    inputs?: {
+        [key: string]: EinoBinding;
+    };
+    outputs?: {
+        [key: string]: string;
+    };
+};
+
+export type EinoOutput = {
+    node: string;
+    field: string;
+    name: string;
+    mime_type: string;
+    primary?: boolean;
+};
+
+export type EinoPassthroughNode = EinoNodeBase & {
+    id: string;
+    type: 'passthrough';
+    inputs?: {
+        [key: string]: EinoBinding;
+    };
+    outputs?: {
+        [key: string]: string;
+    };
+};
+
+export type EinoPredicate = {
+    all?: Array<EinoPredicate>;
+    any?: Array<EinoPredicate>;
+    not?: EinoPredicate;
+    field?: string;
+    op?: 'eq' | 'ne' | 'exists' | 'not_exists' | 'contains' | 'not_contains' | 'lt' | 'lte' | 'gt' | 'gte';
+    value?: unknown;
+};
+
+export type EinoPromptMessage = {
+    role: 'system' | 'user' | 'assistant';
+    template?: string;
+    placeholder?: string;
+    optional?: boolean;
+};
+
+export type EinoPromptNode = EinoNodeBase & {
+    id: string;
+    type: 'prompt';
+    inputs?: {
+        [key: string]: EinoBinding;
+    };
+    outputs?: {
+        [key: string]: string;
+    };
+    format: 'f_string' | 'go_template' | 'jinja2';
+    messages: Array<EinoPromptMessage>;
+};
+
+export type EinoRaceBranch = {
+    id: string;
+    graph: EinoGraph;
+};
+
+export type EinoRaceNode = EinoNodeBase & {
+    id: string;
+    type: 'race';
+    inputs?: {
+        [key: string]: EinoBinding;
+    };
+    outputs?: {
+        [key: string]: string;
+    };
+    branches: Array<EinoRaceBranch>;
+    winner: EinoRaceWinner;
+    max_concurrency?: number;
+};
+
+export type EinoRaceWinner = {
+    mode: 'first_output' | 'first_success' | 'predicate';
+    when?: EinoPredicate;
+};
+
+export type EinoScriptLimits = {
+    max_execution_steps: number;
+    timeout: string;
+    max_input_bytes: number;
+    max_output_bytes: number;
+};
+
+export type EinoScriptNode = EinoNodeBase & {
+    id: string;
+    type: 'script';
+    inputs?: {
+        [key: string]: EinoBinding;
+    };
+    outputs?: {
+        [key: string]: string;
+    };
+    language: 'starlark';
+    entrypoint: string;
+    source: string;
+    limits: EinoScriptLimits;
+};
+
+export type EinoState = {
+    fields: Array<EinoStateField>;
+};
+
+export type EinoStateField = {
+    name: string;
+    type: 'string' | 'boolean' | 'integer' | 'number' | 'object' | 'list' | 'messages' | 'documents' | 'blob';
+    required?: boolean;
+    merge: 'replace' | 'append' | 'object_merge';
+};
+
+export type EinoSubgraphNode = EinoNodeBase & {
+    id: string;
+    type: 'subgraph';
+    inputs?: {
+        [key: string]: EinoBinding;
+    };
+    outputs?: {
+        [key: string]: string;
+    };
+    graph: EinoGraph;
+};
+
+export type EinoTransformMessage = {
+    role: 'system' | 'user' | 'assistant';
+    input?: string;
+    text?: string;
+};
+
+export type EinoTransformNode = EinoNodeBase & {
+    id: string;
+    type: 'transform';
+    inputs?: {
+        [key: string]: EinoBinding;
+    };
+    outputs?: {
+        [key: string]: string;
+    };
+    operation: 'select' | 'concat_text' | 'decode_json' | 'build_messages';
+    order?: Array<string>;
+    separator?: string;
+    messages?: Array<EinoTransformMessage>;
+    max_input_bytes?: number;
+    max_output_bytes?: number;
+};
+
+export type EinoWorkflowSpec = {
+    graph: EinoGraph;
+    memory?: EinoMemory;
+    limits?: EinoLimits;
 };
 
 export type FlowcraftAgent = {
@@ -2515,6 +2843,38 @@ export type ChatRoomWorkspaceTranscriptParameters = {
     asr_model?: string;
 };
 
+export type DashScopeRealtimeWorkspaceParameters = {
+    agent_type: 'dashscope-realtime';
+    model?: string;
+    voice?: string;
+    instructions?: string;
+    modalities?: Array<'text' | 'audio'>;
+    vad?: 'server_vad' | 'disabled';
+    temperature?: number;
+    max_output_tokens?: number;
+    enable_asr?: boolean;
+    asr_model?: string;
+    input_audio_format?: 'pcm16' | 'mp3' | 'wav';
+    output_audio_format?: 'pcm16' | 'mp3' | 'wav';
+    e2e?: boolean;
+};
+
+export type DoubaoRealtimeDuplexWorkspaceParameters = {
+    agent_type: 'doubao-realtime-duplex';
+    model?: string;
+    voice?: string;
+    instructions?: string;
+    format?: 'ogg_opus';
+    sample_rate?: 24000;
+    input_format?: 'speech_opus';
+    input_sample_rate?: number;
+    input_channels?: number;
+    input_transcode?: boolean;
+    output_speed?: number;
+    output_loudness?: number;
+    e2e?: boolean;
+};
+
 export type DoubaoRealtimeWorkspaceParameters = {
     agent_type: 'doubao-realtime';
     /**
@@ -2529,6 +2889,11 @@ export type DoubaoRealtimeWorkspaceParameters = {
     /**
      * Marks seed resources used by the local e2e harness.
      */
+    e2e?: boolean;
+};
+
+export type EinoWorkspaceParameters = {
+    agent_type: 'eino';
     e2e?: boolean;
 };
 
@@ -2563,6 +2928,12 @@ export type WorkspaceParameters = ({
 } & FlowcraftWorkspaceParameters) | ({
     agent_type: 'doubao-realtime';
 } & DoubaoRealtimeWorkspaceParameters) | ({
+    agent_type: 'dashscope-realtime';
+} & DashScopeRealtimeWorkspaceParameters) | ({
+    agent_type: 'doubao-realtime-duplex';
+} & DoubaoRealtimeDuplexWorkspaceParameters) | ({
+    agent_type: 'eino';
+} & EinoWorkspaceParameters) | ({
     agent_type: 'ast-translate';
 } & AstTranslateWorkspaceParameters) | ({
     agent_type: 'chatroom';

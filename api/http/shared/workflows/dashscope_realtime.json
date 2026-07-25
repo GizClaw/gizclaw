@@ -1,0 +1,47 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "DashScope Realtime Workflow Type",
+    "description": "DashScopeRealtimeWorkflowSpec schema.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "DashScopeRealtimeOptions": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "model": { "type": "string", "minLength": 1 },
+          "voice": { "type": "string", "minLength": 1 },
+          "instructions": { "type": "string" },
+          "modalities": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "type": "string", "enum": ["text", "audio"] }
+          },
+          "vad": { "type": "string", "enum": ["server_vad", "disabled"] },
+          "temperature": { "type": "number", "minimum": 0, "maximum": 2 },
+          "max_output_tokens": { "type": "integer", "minimum": 1 },
+          "enable_asr": { "type": "boolean" },
+          "asr_model": { "type": "string", "minLength": 1 },
+          "input_audio_format": { "type": "string", "enum": ["pcm16", "mp3", "wav"] },
+          "output_audio_format": { "type": "string", "enum": ["pcm16", "mp3", "wav"] }
+        }
+      },
+      "DashScopeRealtimeWorkflowSpec": {
+        "allOf": [
+          { "$ref": "#/components/schemas/DashScopeRealtimeOptions" },
+          {
+            "type": "object",
+            "required": ["model"],
+            "properties": {
+              "model": { "type": "string", "minLength": 1 }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

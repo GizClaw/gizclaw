@@ -34,14 +34,14 @@ type Store interface {
 // pending operation. Wait blocks until the operation reaches a terminal state
 // or ctx is cancelled. The returned result is authoritative for the operation.
 type OperationWaiter interface {
-	Wait(context.Context, string) (ObserveResult, error)
+	Wait(context.Context, OperationRequest) (ObserveResult, error)
 }
 
 // AsyncOperationProcessor is implemented by caller-owned stores that can
 // materialize a pending Observe operation without blocking the response that
 // submitted it.
 type AsyncOperationProcessor interface {
-	ProcessAsync(context.Context, string) (ObserveResult, error)
+	ProcessAsync(context.Context, OperationRequest) (ObserveResult, error)
 }
 
 // Statistics summarizes one product-owned memory scope when a provider can

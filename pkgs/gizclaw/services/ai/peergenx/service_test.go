@@ -874,6 +874,22 @@ func TestDefaultBuilderRejectsUnsupportedVolcRealtimeMode(t *testing.T) {
 	}
 }
 
+func TestDashScopeRealtimeBaseURLUsesOnlyWebSocketOverrides(t *testing.T) {
+	t.Parallel()
+	if got := dashScopeRealtimeBaseURL("wss://example.test/realtime"); got != "wss://example.test/realtime" {
+		t.Fatalf("dashScopeRealtimeBaseURL(websocket) = %q", got)
+	}
+	for _, value := range []string{
+		"https://dashscope.aliyuncs.com/compatible-mode/v1",
+		"http://example.test/api-ws/v1/realtime",
+		"",
+	} {
+		if got := dashScopeRealtimeBaseURL(value); got != "" {
+			t.Fatalf("dashScopeRealtimeBaseURL(%q) = %q, want empty", value, got)
+		}
+	}
+}
+
 func TestDefaultBuilderRejectsVolcRealtimeMissingUpstreamModel(t *testing.T) {
 	_, err := (DefaultBuilder{}).BuildTransformer(context.Background(), TransformerConfig{
 		Model: &apitypes.Model{
@@ -1450,7 +1466,7 @@ func TestBuilderHelpersHandleJSONNumberAndInvalidVoiceData(t *testing.T) {
 	if got, ok := parsePattern("model/realtime?output_sample_rate=24000", "model"); !ok || got != "realtime" {
 		t.Fatalf("parsePattern(query) = %q, %v; want realtime, true", got, ok)
 	}
-	base, params, err := splitPatternParams("model/realtime?input_transcode=true&output_sample_rate=24000&instructions=%E7%AE%80%E7%9F%AD")
+	base, params, err := splitPatternParams("model/realtime?input_transcode=true&interim=true&max_output_tokens=1&temperature=1.5&output_sample_rate=24000&instructions=1.5&output_voice=1.5")
 	if err != nil {
 		t.Fatalf("splitPatternParams() error = %v", err)
 	}
@@ -1460,11 +1476,23 @@ func TestBuilderHelpersHandleJSONNumberAndInvalidVoiceData(t *testing.T) {
 	if got, ok := params["input_transcode"].(bool); !ok || !got {
 		t.Fatalf("input_transcode param = %#v", params["input_transcode"])
 	}
+	if got, ok := params["interim"].(bool); !ok || !got {
+		t.Fatalf("interim param = %#v", params["interim"])
+	}
 	if got, ok := params["output_sample_rate"].(int); !ok || got != 24000 {
 		t.Fatalf("output_sample_rate param = %#v", params["output_sample_rate"])
 	}
-	if got, ok := params["instructions"].(string); !ok || got != "简短" {
+	if got, ok := params["max_output_tokens"].(int); !ok || got != 1 {
+		t.Fatalf("max_output_tokens param = %#v", params["max_output_tokens"])
+	}
+	if got, ok := params["temperature"].(float64); !ok || got != 1.5 {
+		t.Fatalf("temperature param = %#v", params["temperature"])
+	}
+	if got, ok := params["instructions"].(string); !ok || got != "1.5" {
 		t.Fatalf("instructions param = %#v", params["instructions"])
+	}
+	if got, ok := params["output_voice"].(string); !ok || got != "1.5" {
+		t.Fatalf("output_voice param = %#v", params["output_voice"])
 	}
 	if !isDenied(fmt.Errorf("wrapped: %w", ErrDenied)) {
 		t.Fatal("isDenied(wrapped ErrDenied) = false, want true")

@@ -106,7 +106,7 @@ func TestParseConfigAgentHostPresence(t *testing.T) {
 				if cfg == nil {
 					t.Fatal("AgentHost = nil, want present block")
 				}
-				if cfg.RuntimeStore != "" || cfg.Flowcraft != nil {
+				if cfg.RuntimeStore != "" || cfg.Flowcraft != nil || cfg.Eino != nil {
 					t.Fatalf("AgentHost = %+v, want empty block", cfg)
 				}
 			},
@@ -133,6 +133,9 @@ agent_host:
     state_store: state
     history_store: history
     memory_objects_store: memory-objects
+    memory_store: flowcraft-memory
+  eino:
+    memory_store: eino-memory
 `,
 			check: func(t *testing.T, cfg *AgentHostConfig) {
 				t.Helper()
@@ -142,7 +145,10 @@ agent_host:
 				if cfg.RuntimeStore != "runtime" ||
 					cfg.Flowcraft.StateStore != "state" ||
 					cfg.Flowcraft.HistoryStore != "history" ||
-					cfg.Flowcraft.MemoryObjectsStore != "memory-objects" {
+					cfg.Flowcraft.MemoryObjectsStore != "memory-objects" ||
+					cfg.Flowcraft.MemoryStore != "flowcraft-memory" ||
+					cfg.Eino == nil ||
+					cfg.Eino.MemoryStore != "eino-memory" {
 					t.Fatalf("AgentHost = %+v", cfg)
 				}
 			},
@@ -172,10 +178,14 @@ func TestParseConfigRejectsInvalidAgentHost(t *testing.T) {
 		{"empty runtime", "agent_host:\n  runtime_store: \"\"\n", "agent_host.runtime_store must not be empty"},
 		{"whitespace runtime", "agent_host:\n  runtime_store: \"  \"\n", "agent_host.runtime_store must not be empty"},
 		{"non-mapping flowcraft", "agent_host:\n  flowcraft: false\n", "agent_host.flowcraft must be a mapping"},
-		{"unknown flowcraft field", "agent_host:\n  flowcraft:\n    memory_store: memory\n", `agent_host.flowcraft has unknown field "memory_store"`},
+		{"unknown flowcraft field", "agent_host:\n  flowcraft:\n    memories: memory\n", `agent_host.flowcraft has unknown field "memories"`},
 		{"non-string state", "agent_host:\n  flowcraft:\n    state_store: {}\n", "agent_host.flowcraft.state_store must be a string"},
 		{"empty history", "agent_host:\n  flowcraft:\n    history_store: \"\"\n", "agent_host.flowcraft.history_store must not be empty"},
 		{"whitespace memory", "agent_host:\n  flowcraft:\n    memory_objects_store: \"\\t\"\n", "agent_host.flowcraft.memory_objects_store must not be empty"},
+		{"empty flowcraft memory store", "agent_host:\n  flowcraft:\n    memory_store: \"\"\n", "agent_host.flowcraft.memory_store must not be empty"},
+		{"non-mapping eino", "agent_host:\n  eino: false\n", "agent_host.eino must be a mapping"},
+		{"unknown eino field", "agent_host:\n  eino:\n    state_store: state\n", `agent_host.eino has unknown field "state_store"`},
+		{"empty eino memory store", "agent_host:\n  eino:\n    memory_store: \"\"\n", "agent_host.eino.memory_store must not be empty"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -1093,21 +1103,28 @@ func TestNewResolvesExplicitAgentHostStoresInOneLayerConfig(t *testing.T) {
 			"runtime":         {Kind: stores.KindObjectStore, Backend: "fs", Dir: filepath.Join(root, "runtime")},
 			"state":           {Kind: stores.KindKeyValue, Backend: "memory"},
 			"memory-objects":  {Kind: stores.KindObjectStore, Backend: "fs", Dir: filepath.Join(root, "memory")},
+			"agent-memory":    {Kind: stores.KindMemoryStore, Flowcraft: &stores.FlowcraftConfig{Dir: filepath.Join(root, "agent-memory")}},
 		},
 		AgentHost: &AgentHostConfig{
 			RuntimeStore: "runtime",
 			Flowcraft: &AgentHostFlowcraftConfig{
 				StateStore:         "state",
 				MemoryObjectsStore: "memory-objects",
+				MemoryStore:        "agent-memory",
 			},
+			Eino: &AgentHostEinoConfig{MemoryStore: "agent-memory"},
 		},
 	})
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
 	t.Cleanup(func() { _ = srv.Close() })
-	if srv.AgentHostStore == nil || srv.FlowcraftState == nil || srv.FlowcraftMemoryObjects == nil {
+	if srv.AgentHostStore == nil || srv.FlowcraftState == nil || srv.FlowcraftMemoryObjects == nil ||
+		srv.FlowcraftMemory == nil || srv.EinoMemory == nil {
 		t.Fatalf("explicit stores not wired: %+v", srv.Server)
+	}
+	if srv.FlowcraftMemoryKind != "flowcraft" || srv.EinoMemoryKind != "flowcraft" {
+		t.Fatalf("memory provider kinds = %q, %q", srv.FlowcraftMemoryKind, srv.EinoMemoryKind)
 	}
 	if srv.FlowcraftHistory != nil {
 		t.Fatalf("FlowcraftHistory = %T, want nil", srv.FlowcraftHistory)
@@ -1223,6 +1240,26 @@ func TestNewRejectsInvalidExplicitAgentHostStoreReferences(t *testing.T) {
 			name:      "wrong memory objects kind",
 			agentHost: &AgentHostConfig{Flowcraft: &AgentHostFlowcraftConfig{MemoryObjectsStore: defaultPeersStore}},
 			want:      `agent_host.flowcraft.memory_objects_store "peers" requires objectstore.ObjectStore`,
+		},
+		{
+			name:      "missing flowcraft memory",
+			agentHost: &AgentHostConfig{Flowcraft: &AgentHostFlowcraftConfig{MemoryStore: "missing"}},
+			want:      `agent_host.flowcraft.memory_store "missing" requires memory.Store`,
+		},
+		{
+			name:      "wrong flowcraft memory kind",
+			agentHost: &AgentHostConfig{Flowcraft: &AgentHostFlowcraftConfig{MemoryStore: defaultPeersStore}},
+			want:      `agent_host.flowcraft.memory_store "peers" requires memory.Store`,
+		},
+		{
+			name:      "missing eino memory",
+			agentHost: &AgentHostConfig{Eino: &AgentHostEinoConfig{MemoryStore: "missing"}},
+			want:      `agent_host.eino.memory_store "missing" requires memory.Store`,
+		},
+		{
+			name:      "wrong eino memory kind",
+			agentHost: &AgentHostConfig{Eino: &AgentHostEinoConfig{MemoryStore: defaultPeersStore}},
+			want:      `agent_host.eino.memory_store "peers" requires memory.Store`,
 		},
 	}
 	for _, test := range tests {

@@ -3,6 +3,7 @@ package flowcraft
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 
 	"github.com/GizClaw/flowcraft/memory/recall"
@@ -110,6 +111,53 @@ func TestConfigValidation(t *testing.T) {
 			t.Parallel()
 			if err := config.validate(); !errors.Is(err, ErrInvalidInput) {
 				t.Fatalf("validate() error = %v, want ErrInvalidInput", err)
+			}
+		})
+	}
+}
+
+func TestNativeScopeMapsIndependentDimensions(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		scope Scope
+		want  recall.Scope
+		err   error
+	}{
+		{
+			name:  "app only",
+			scope: Scope{AppID: " app "},
+			want:  recall.Scope{RuntimeID: "app"},
+		},
+		{
+			name:  "app user agent",
+			scope: Scope{AppID: " app ", UserID: " user ", AgentID: " agent "},
+			want:  recall.Scope{RuntimeID: "app", UserID: "user", AgentID: "agent"},
+		},
+		{
+			name:  "missing app",
+			scope: Scope{UserID: "user"},
+			err:   ErrInvalidInput,
+		},
+		{
+			name:  "run unsupported",
+			scope: Scope{AppID: "app", RunID: "run"},
+			err:   ErrUnsupported,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := nativeScope(test.scope)
+			if test.err != nil {
+				if !errors.Is(err, test.err) {
+					t.Fatalf("nativeScope() error = %v, want %v", err, test.err)
+				}
+				return
+			}
+			if err != nil || !reflect.DeepEqual(got, test.want) {
+				t.Fatalf("nativeScope() = %#v, %v, want %#v", got, err, test.want)
 			}
 		})
 	}

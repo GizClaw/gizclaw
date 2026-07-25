@@ -27,9 +27,16 @@ type Turn struct {
 	Attributes map[string]any
 }
 
-// Scope is an opaque product-owned memory namespace. Provider adapters map it
-// to their native routing fields without exposing those fields to callers.
-type Scope string
+// Scope selects independent provider-neutral memory routing dimensions.
+// Empty fields are unselected; they do not imply wildcard or inheritance
+// semantics. Provider adapters return ErrUnsupported when they cannot preserve
+// a requested dimension or combination.
+type Scope struct {
+	AppID   string
+	UserID  string
+	AgentID string
+	RunID   string
+}
 
 // FactCandidate is an already-structured fact submitted together with an
 // observation. Providers must preserve Text and supported Attributes or return
@@ -149,6 +156,7 @@ type AttributePatch struct {
 // ExpectedRevision is optional; providers without conditional writes return
 // ErrUnsupported when it is supplied.
 type UpdateRequest struct {
+	Scope            Scope
 	ID               string
 	ExpectedRevision string
 	Text             *string
@@ -159,15 +167,20 @@ type UpdateRequest struct {
 // optional; providers without conditional deletes return ErrUnsupported when
 // it is supplied.
 type DeleteRequest struct {
+	Scope            Scope
 	ID               string
 	ExpectedRevision string
 }
 
+// OperationRequest identifies provider work within the same Scope that
+// created it. Operation IDs are opaque provider locators.
+type OperationRequest struct {
+	Scope Scope
+	ID    string
+}
+
 // ValidateObservation validates provider-neutral observation fields.
 func ValidateObservation(observation Observation) error {
-	if strings.TrimSpace(string(observation.Scope)) == "" {
-		return fmt.Errorf("%w: observation scope is required", ErrInvalidInput)
-	}
 	if strings.TrimSpace(observation.Text) == "" && len(observation.Turns) == 0 && len(observation.Facts) == 0 {
 		return fmt.Errorf("%w: observation requires text, turns, or facts", ErrInvalidInput)
 	}
@@ -197,9 +210,6 @@ func ValidateObservation(observation Observation) error {
 
 // ValidateQuery validates provider-neutral recall fields.
 func ValidateQuery(query Query) error {
-	if strings.TrimSpace(string(query.Scope)) == "" {
-		return fmt.Errorf("%w: query scope is required", ErrInvalidInput)
-	}
 	if strings.TrimSpace(query.Text) == "" {
 		return fmt.Errorf("%w: query text is required", ErrInvalidInput)
 	}
@@ -272,6 +282,15 @@ func ValidateUpdate(request UpdateRequest) error {
 func ValidateDelete(request DeleteRequest) error {
 	if strings.TrimSpace(request.ID) == "" {
 		return fmt.Errorf("%w: delete fact id is required", ErrInvalidInput)
+	}
+	return nil
+}
+
+// ValidateOperationRequest validates a provider-neutral asynchronous
+// operation lookup.
+func ValidateOperationRequest(request OperationRequest) error {
+	if strings.TrimSpace(request.ID) == "" {
+		return fmt.Errorf("%w: operation id is required", ErrInvalidInput)
 	}
 	return nil
 }

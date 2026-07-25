@@ -6,11 +6,15 @@ import (
 	"io"
 	"iter"
 	"log/slog"
+	"mime"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/GizClaw/dashscope-realtime-go"
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/pcm"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/doubaorealtime"
 )
 
 // Transformer is a realtime transformer using DashScope Qwen-Omni-Realtime.
@@ -341,7 +345,7 @@ func (t *Transformer) getOutputAudioMIMEType() string {
 	case dashscope.AudioFormatWAV:
 		return "audio/wav"
 	default:
-		return "audio/pcm"
+		return pcm.L16Mono24K.String()
 	}
 }
 
@@ -502,6 +506,8 @@ func (t *Transformer) Transform(ctx context.Context, input genx.Stream) (genx.St
 func (t *Transformer) processLoop(input genx.Stream, output *bufferStream, session dashScopeRealtimeSession) {
 	defer output.Close()
 	defer session.Close()
+	audioInputs := doubaorealtime.NewSharedAudioInputs("pcm", 16000, 1, true)
+	defer audioInputs.Close()
 
 	// Input IDs correlate ASR output to the caller's route. Every model
 	// response receives a fresh ID so its text/audio routes cannot collide with
@@ -751,7 +757,12 @@ func (t *Transformer) processLoop(input genx.Stream, output *bufferStream, sessi
 
 		// Collect audio blob into buffer
 		if blob, ok := chunk.Part.(*genx.Blob); ok {
-			audioBuffer = append(audioBuffer, blob.Data...)
+			audio, err := t.prepareInputAudio(audioInputs, chunk, blob)
+			if err != nil {
+				output.CloseWithError(err)
+				return
+			}
+			audioBuffer = append(audioBuffer, audio...)
 
 			// Send audio in chunks with rate limiting
 			for len(audioBuffer) >= chunkSize {
@@ -765,6 +776,7 @@ func (t *Transformer) processLoop(input genx.Stream, output *bufferStream, sessi
 
 			// On audio EOS, flush buffer and trigger response
 			if chunk.Ctrl != nil && chunk.Ctrl.EndOfStream {
+				audioInputs.CloseStream(chunk.Ctrl.StreamID)
 				// Flush remaining audio
 				if len(audioBuffer) > 0 {
 					if err := session.AppendAudio(audioBuffer); err != nil {
@@ -786,4 +798,43 @@ func (t *Transformer) processLoop(input genx.Stream, output *bufferStream, sessi
 			}
 		}
 	}
+}
+
+func (t *Transformer) prepareInputAudio(inputs *doubaorealtime.SharedAudioInputs, chunk *genx.MessageChunk, blob *genx.Blob) ([]byte, error) {
+	if isDashScopeOggOpusMIME(blob.MIMEType) {
+		return nil, fmt.Errorf("dashscope realtime: peer Ogg/Opus input is unsupported; send raw audio/opus packets")
+	}
+	if !isDashScopeOpusMIME(blob.MIMEType) {
+		return blob.Data, nil
+	}
+	if t.inputAudioFormat != "" && t.inputAudioFormat != dashscope.AudioFormatPCM16 {
+		return nil, fmt.Errorf("dashscope realtime: input format %q cannot accept peer Opus audio", t.inputAudioFormat)
+	}
+	streamID := ""
+	if chunk.Ctrl != nil {
+		streamID = chunk.Ctrl.StreamID
+	}
+	input, err := inputs.StreamForBlob(streamID, blob)
+	if err != nil {
+		return nil, fmt.Errorf("dashscope realtime: select Opus input stream: %w", err)
+	}
+	audio, err := input.Prepare(blob)
+	if err != nil {
+		return nil, fmt.Errorf("dashscope realtime: decode peer Opus audio: %w", err)
+	}
+	return audio, nil
+}
+
+func isDashScopeOpusMIME(value string) bool {
+	mediaType, _, err := mime.ParseMediaType(value)
+	return err == nil && strings.EqualFold(mediaType, "audio/opus")
+}
+
+func isDashScopeOggOpusMIME(value string) bool {
+	mediaType, params, err := mime.ParseMediaType(value)
+	if err != nil || (!strings.EqualFold(mediaType, "audio/ogg") && !strings.EqualFold(mediaType, "application/ogg")) {
+		return false
+	}
+	codecs := strings.TrimSpace(params["codecs"])
+	return codecs == "" || strings.EqualFold(codecs, "opus")
 }

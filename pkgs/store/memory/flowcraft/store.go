@@ -57,7 +57,10 @@ func (s *Store) Observe(ctx context.Context, observation memorystore.Observation
 	if err := validateFlowcraftFactCandidates(observation.Facts); err != nil {
 		return observeResult{}, err
 	}
-	scope := nativeScope(observation.Scope)
+	scope, err := nativeScope(observation.Scope)
+	if err != nil {
+		return observeResult{}, err
+	}
 	if s.config.Extraction.Model != "" && len(observation.Context) > 0 {
 		return observeResult{}, fmt.Errorf("%w: flowcraft model extraction does not support observation context", errUnsupported)
 	}
@@ -128,10 +131,11 @@ func (s *Store) Observe(ctx context.Context, observation memorystore.Observation
 
 // Stats reports materialized, non-internal facts for one scope.
 func (s *Store) Stats(ctx context.Context, scope memorystore.Scope) (memorystore.Statistics, error) {
-	if strings.TrimSpace(string(scope)) == "" {
-		return memorystore.Statistics{}, fmt.Errorf("%w: stats scope is required", errInvalidInput)
+	native, err := nativeScope(scope)
+	if err != nil {
+		return memorystore.Statistics{}, err
 	}
-	facts, err := s.temporal.List(ctx, nativeScope(scope), recall.ListQuery{})
+	facts, err := s.temporal.List(ctx, native, recall.ListQuery{})
 	if err != nil {
 		return memorystore.Statistics{}, mapFlowcraftError("stats", err)
 	}
@@ -262,7 +266,10 @@ func (s *Store) Recall(ctx context.Context, query memorystore.Query) (memorystor
 			return recallResult{}, fmt.Errorf("%w: flowcraft filter field %q", errUnsupported, filter.Field)
 		}
 	}
-	scope := nativeScope(query.Scope)
+	scope, err := nativeScope(query.Scope)
+	if err != nil {
+		return recallResult{}, err
+	}
 	hits, err := s.memory.Recall(ctx, scope, flowQuery)
 	if err != nil {
 		return recallResult{}, mapFlowcraftError("recall", err)
@@ -289,17 +296,24 @@ func (s *Store) Update(ctx context.Context, request memorystore.UpdateRequest) (
 	if err := validateFlowcraftAttributePatch(request.Attributes); err != nil {
 		return fact{}, err
 	}
-	scope, nativeID, err := decodeLocator(request.ID)
+	requestedScope, err := nativeScope(request.Scope)
 	if err != nil {
 		return fact{}, err
 	}
-	current, err := s.currentFact(ctx, scope, nativeID)
+	locatorScope, nativeID, err := decodeLocator(request.ID)
+	if err != nil {
+		return fact{}, err
+	}
+	if !sameScope(requestedScope, locatorScope) {
+		return fact{}, fmt.Errorf("%w: fact locator scope does not match update scope", errInvalidInput)
+	}
+	current, err := s.currentFact(ctx, requestedScope, nativeID)
 	if err != nil {
 		return fact{}, err
 	}
 	if request.ExpectedRevision != "" {
 		revisionScope, revisionID, decodeErr := decodeLocator(request.ExpectedRevision)
-		if decodeErr != nil || !sameScope(revisionScope, scope) || revisionID != current.ID {
+		if decodeErr != nil || !sameScope(revisionScope, requestedScope) || revisionID != current.ID {
 			return fact{}, fmt.Errorf("%w: fact revision changed", errConflict)
 		}
 	}
@@ -323,17 +337,17 @@ func (s *Store) Update(ctx context.Context, request memorystore.UpdateRequest) (
 	for _, key := range request.Attributes.Delete {
 		delete(next.Metadata, key)
 	}
-	result, err := s.memory.Save(ctx, scope, recall.SaveRequest{Facts: []recall.TemporalFact{next}, ObservedAt: next.ObservedAt})
+	result, err := s.memory.Save(ctx, requestedScope, recall.SaveRequest{Facts: []recall.TemporalFact{next}, ObservedAt: next.ObservedAt})
 	if err != nil {
 		return fact{}, mapFlowcraftError("update", err)
 	}
-	if err := s.drainSideEffects(ctx, scope); err != nil {
+	if err := s.drainSideEffects(ctx, requestedScope); err != nil {
 		return fact{}, err
 	}
 	if len(result.FactIDs) != 1 {
 		return fact{}, fmt.Errorf("%w: flowcraft update returned %d facts", errUnavailable, len(result.FactIDs))
 	}
-	return s.factByID(ctx, scope, result.FactIDs[0])
+	return s.factByID(ctx, requestedScope, result.FactIDs[0])
 }
 
 // Delete soft-retires a Flowcraft fact while preserving its audit history.
@@ -341,21 +355,28 @@ func (s *Store) Delete(ctx context.Context, request memorystore.DeleteRequest) e
 	if err := validateDelete(request); err != nil {
 		return err
 	}
-	scope, nativeID, err := decodeLocator(request.ID)
+	requestedScope, err := nativeScope(request.Scope)
 	if err != nil {
 		return err
 	}
-	current, err := s.currentFact(ctx, scope, nativeID)
+	locatorScope, nativeID, err := decodeLocator(request.ID)
+	if err != nil {
+		return err
+	}
+	if !sameScope(requestedScope, locatorScope) {
+		return fmt.Errorf("%w: fact locator scope does not match delete scope", errInvalidInput)
+	}
+	current, err := s.currentFact(ctx, requestedScope, nativeID)
 	if err != nil {
 		return err
 	}
 	if request.ExpectedRevision != "" {
 		revisionScope, revisionID, decodeErr := decodeLocator(request.ExpectedRevision)
-		if decodeErr != nil || !sameScope(revisionScope, scope) || revisionID != current.ID {
+		if decodeErr != nil || !sameScope(revisionScope, requestedScope) || revisionID != current.ID {
 			return fmt.Errorf("%w: fact revision changed", errConflict)
 		}
 	}
-	if err := s.memory.Forget(ctx, scope, current.ID, recall.ForgetSoft); err != nil {
+	if err := s.memory.Forget(ctx, requestedScope, current.ID, recall.ForgetSoft); err != nil {
 		return mapFlowcraftError("delete", err)
 	}
 	return nil

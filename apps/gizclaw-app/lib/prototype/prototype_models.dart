@@ -5,6 +5,8 @@ import '../giz_ui/giz_ui.dart';
 enum WorkflowDriverKind {
   flowcraft('flowcraft', 'Flowcraft'),
   doubaoRealtime('doubao-realtime', 'Doubao Realtime'),
+  dashScopeRealtime('dashscope-realtime', 'DashScope Realtime'),
+  doubaoRealtimeDuplex('doubao-realtime-duplex', 'Doubao Realtime Duplex'),
   astTranslate('ast-translate', 'AST Translate'),
   chatroom('chatroom', 'Chatroom'),
   unsupported('unsupported', 'Unavailable');

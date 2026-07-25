@@ -11,6 +11,8 @@ import (
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/components/retriever"
 	"github.com/cloudwego/eino/compose"
+
+	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
 func TestNewValidatesGraphContract(t *testing.T) {
@@ -221,7 +223,7 @@ func TestNewRejectsInvalidRoutingAndOptionalConfig(t *testing.T) {
 			config.History = &HistoryConfig{Limit: 0}
 		}},
 		{name: "Memory store", mutate: func(config *Config) {
-			config.Memory = &MemoryConfig{Scope: "scope"}
+			config.Memory = &MemoryConfig{Scope: memory.Scope{AppID: "app"}}
 		}},
 	}
 	for _, test := range tests {
@@ -345,25 +347,25 @@ func TestNewRejectsAdditionalGraphContractViolations(t *testing.T) {
 		}},
 		{name: "invalid recall", mutate: func(config *Config) {
 			config.Memory = &MemoryConfig{
-				Store: &recordingMemoryStore{}, Scope: "scope",
+				Store: &recordingMemoryStore{}, Scope: memory.Scope{AppID: "app"},
 				Recall: []RecallDefinition{{QueryFrom: "input.text", Output: "answer"}},
 			}
 		}},
 		{name: "wait without enabled", mutate: func(config *Config) {
 			config.Memory = &MemoryConfig{
-				Store: &recordingMemoryStore{}, Scope: "scope",
+				Store: &recordingMemoryStore{}, Scope: memory.Scope{AppID: "app"},
 				Observe: ObservePolicy{WaitForCompletion: true},
 			}
 		}},
 		{name: "wait without waiter", mutate: func(config *Config) {
 			config.Memory = &MemoryConfig{
-				Store: &recordingMemoryStore{}, Scope: "scope",
+				Store: &recordingMemoryStore{}, Scope: memory.Scope{AppID: "app"},
 				Observe: ObservePolicy{Enabled: true, WaitForCompletion: true},
 			}
 		}},
 		{name: "invalid observe fact", mutate: func(config *Config) {
 			config.Memory = &MemoryConfig{
-				Store: &recordingMemoryStore{}, Scope: "scope",
+				Store: &recordingMemoryStore{}, Scope: memory.Scope{AppID: "app"},
 				Observe: ObservePolicy{
 					Enabled: true, Facts: []ObserveDefinition{{TextFrom: "missing"}},
 				},

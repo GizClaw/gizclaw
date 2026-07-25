@@ -737,7 +737,7 @@ func TestEarlyInterruptionDoesNotPersistEmptyAssistant(t *testing.T) {
 	memoryStore := &waitingMemoryStore{}
 	config := testConfig(generator)
 	config.Memory = memoryStore
-	config.MemoryScope = "runtime/user/agent"
+	config.MemoryScope = memory.Scope{AppID: "runtime", UserID: "user", AgentID: "agent"}
 	config.ObserveEnabled = true
 	agent, err := New(config)
 	if err != nil {
@@ -880,7 +880,7 @@ func TestObservationBuilderReceivesTransientBoardSnapshot(t *testing.T) {
 	store := &waitingMemoryStore{}
 	config := testConfig(&echoGenerator{})
 	config.Memory = store
-	config.MemoryScope = "runtime/user/agent"
+	config.MemoryScope = memory.Scope{AppID: "runtime", UserID: "user", AgentID: "agent"}
 	config.ObserveEnabled = true
 	config.Graph = flowgraph.GraphDefinition{Name: "script", Entry: "script", Nodes: []flowgraph.NodeDefinition{{
 		ID: "script", Type: "script", Config: map[string]any{
@@ -948,7 +948,7 @@ func TestRecallProfileExpandsInputQueryTemplate(t *testing.T) {
 	store := &waitingMemoryStore{}
 	config := testConfig(&echoGenerator{})
 	config.Memory = store
-	config.MemoryScope = "runtime/user/agent"
+	config.MemoryScope = memory.Scope{AppID: "runtime", UserID: "user", AgentID: "agent"}
 	config.RecallProfiles = []MemoryRecallProfile{{
 		BoardVariable: "memory", QueryText: "${input} durable facts", Limit: 3,
 	}}
@@ -973,7 +973,7 @@ func TestAgentInitiativeSkipsInputRecallWhenQueryIsEmpty(t *testing.T) {
 	config := testConfig(&echoGenerator{})
 	config.Initiative = InitiativeOnReload
 	config.Memory = store
-	config.MemoryScope = "runtime/user/agent"
+	config.MemoryScope = memory.Scope{AppID: "runtime", UserID: "user", AgentID: "agent"}
 	config.RecallProfiles = []MemoryRecallProfile{{
 		BoardVariable: "memory", QueryText: "input", Limit: 3,
 	}}
@@ -997,7 +997,7 @@ func TestNewClonesNilRecallFilterValues(t *testing.T) {
 	t.Parallel()
 	config := testConfig(&echoGenerator{})
 	config.Memory = &waitingMemoryStore{}
-	config.MemoryScope = "runtime/user/agent"
+	config.MemoryScope = memory.Scope{AppID: "runtime", UserID: "user", AgentID: "agent"}
 	config.RecallProfiles = []MemoryRecallProfile{{
 		BoardVariable: "memory", Limit: 1,
 		Filters: []memory.Filter{{Field: "kind", Operator: memory.FilterIn, Value: []any{nil}}},
@@ -1013,7 +1013,7 @@ func TestObserveWaitOrdersTurnsWithoutBlockingInputPump(t *testing.T) {
 	generator := &echoGenerator{}
 	config := testConfig(generator)
 	config.Memory = store
-	config.MemoryScope = "runtime/user/agent"
+	config.MemoryScope = memory.Scope{AppID: "runtime", UserID: "user", AgentID: "agent"}
 	config.ObserveEnabled = true
 	config.ObserveWaitForCompletion = true
 	transformer, err := New(config)
@@ -1189,13 +1189,13 @@ func (*waitingMemoryStore) Delete(_ context.Context, _ memory.DeleteRequest) err
 	return errors.New("not supported")
 }
 
-func (s *waitingMemoryStore) Wait(ctx context.Context, operationID string) (memory.ObserveResult, error) {
+func (s *waitingMemoryStore) Wait(ctx context.Context, request memory.OperationRequest) (memory.ObserveResult, error) {
 	s.once.Do(func() { close(s.waitStarted) })
 	select {
 	case <-ctx.Done():
 		return memory.ObserveResult{}, ctx.Err()
 	case <-s.release:
-		return memory.ObserveResult{Operation: &memory.Operation{ID: operationID, Status: memory.OperationSucceeded}}, nil
+		return memory.ObserveResult{Operation: &memory.Operation{ID: request.ID, Status: memory.OperationSucceeded}}, nil
 	}
 }
 

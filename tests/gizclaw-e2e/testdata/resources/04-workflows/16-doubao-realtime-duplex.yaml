@@ -1,0 +1,18 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: Workflow
+metadata:
+  name: doubao-realtime-duplex-conversation
+spec:
+  driver: doubao-realtime-duplex
+  doubao_realtime_duplex:
+    model: realtime-duplex
+    instructions: "Reply with exactly: Hello."
+    format: ogg_opus
+    sample_rate: 24000
+    input_format: speech_opus
+    input_sample_rate: 16000
+    input_channels: 1
+    input_transcode: false
+    output_speed: 0
+    output_loudness: 0

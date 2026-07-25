@@ -86,8 +86,9 @@ func TestFactoryDelegatesNestedWorkflowToRegisteredFactory(t *testing.T) {
 
 func TestFactoryInjectsPetContextForEveryReusableDriver(t *testing.T) {
 	testCases := []struct {
-		name string
-		spec apitypes.PetWorkflowSpec
+		name           string
+		spec           apitypes.PetWorkflowSpec
+		payloadPresent func(apitypes.WorkflowSpec) bool
 	}{
 		{
 			name: "flowcraft",
@@ -95,6 +96,7 @@ func TestFactoryInjectsPetContextForEveryReusableDriver(t *testing.T) {
 				Driver:    apitypes.ReusableWorkflowDriverFlowcraft,
 				Flowcraft: &apitypes.FlowcraftWorkflowSpec{},
 			},
+			payloadPresent: func(spec apitypes.WorkflowSpec) bool { return spec.Flowcraft != nil },
 		},
 		{
 			name: "doubao-realtime",
@@ -102,6 +104,31 @@ func TestFactoryInjectsPetContextForEveryReusableDriver(t *testing.T) {
 				Driver:         apitypes.ReusableWorkflowDriverDoubaoRealtime,
 				DoubaoRealtime: &apitypes.DoubaoRealtimeWorkflowSpec{},
 			},
+			payloadPresent: func(spec apitypes.WorkflowSpec) bool { return spec.DoubaoRealtime != nil },
+		},
+		{
+			name: "dashscope-realtime",
+			spec: apitypes.PetWorkflowSpec{
+				Driver:            apitypes.ReusableWorkflowDriverDashscopeRealtime,
+				DashscopeRealtime: &apitypes.DashScopeRealtimeWorkflowSpec{},
+			},
+			payloadPresent: func(spec apitypes.WorkflowSpec) bool { return spec.DashscopeRealtime != nil },
+		},
+		{
+			name: "doubao-realtime-duplex",
+			spec: apitypes.PetWorkflowSpec{
+				Driver:               apitypes.ReusableWorkflowDriverDoubaoRealtimeDuplex,
+				DoubaoRealtimeDuplex: &apitypes.DoubaoRealtimeDuplexWorkflowSpec{},
+			},
+			payloadPresent: func(spec apitypes.WorkflowSpec) bool { return spec.DoubaoRealtimeDuplex != nil },
+		},
+		{
+			name: "eino",
+			spec: apitypes.PetWorkflowSpec{
+				Driver: apitypes.ReusableWorkflowDriverEino,
+				Eino:   &apitypes.EinoWorkflowSpec{},
+			},
+			payloadPresent: func(spec apitypes.WorkflowSpec) bool { return spec.Eino != nil },
 		},
 		{
 			name: "ast-translate",
@@ -109,6 +136,7 @@ func TestFactoryInjectsPetContextForEveryReusableDriver(t *testing.T) {
 				Driver:       apitypes.ReusableWorkflowDriverAstTranslate,
 				AstTranslate: &apitypes.ASTTranslateWorkflowSpec{},
 			},
+			payloadPresent: func(spec apitypes.WorkflowSpec) bool { return spec.AstTranslate != nil },
 		},
 		{
 			name: "chatroom",
@@ -116,6 +144,7 @@ func TestFactoryInjectsPetContextForEveryReusableDriver(t *testing.T) {
 				Driver:   apitypes.ReusableWorkflowDriverChatroom,
 				Chatroom: &apitypes.ChatRoomWorkflowSpec{},
 			},
+			payloadPresent: func(spec apitypes.WorkflowSpec) bool { return spec.Chatroom != nil },
 		},
 	}
 	for _, testCase := range testCases {
@@ -141,6 +170,9 @@ func TestFactoryInjectsPetContextForEveryReusableDriver(t *testing.T) {
 			})
 			if err != nil {
 				t.Fatalf("NewAgent() error = %v", err)
+			}
+			if !testCase.payloadPresent(nested.spec.Workflow.Spec) {
+				t.Fatalf("nested Workflow payload was not forwarded: %#v", nested.spec.Workflow.Spec)
 			}
 			if _, err := agent.Transform(t.Context(), nil); err != nil {
 				t.Fatalf("Transform() error = %v", err)

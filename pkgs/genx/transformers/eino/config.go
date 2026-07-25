@@ -105,6 +105,13 @@ type normalizedConfig struct {
 	graphCopy GraphDefinition
 }
 
+// ValidateConfig validates one Config without resolving or compiling its
+// runtime components. Callers can use it at declarative write boundaries.
+func ValidateConfig(source Config) error {
+	_, err := normalizeConfig(source)
+	return err
+}
+
 func normalizeConfig(source Config) (*normalizedConfig, error) {
 	config := source
 	config.State = cloneStateConfig(source.State)
@@ -1086,8 +1093,8 @@ func (config *normalizedConfig) validateOptionalConfig() error {
 		}
 	}
 	if config.Memory != nil {
-		config.Memory.Scope = memory.Scope(strings.TrimSpace(string(config.Memory.Scope)))
-		if config.Memory.Store == nil || config.Memory.Scope == "" {
+		config.Memory.Scope = normalizeMemoryScope(config.Memory.Scope)
+		if config.Memory.Store == nil || config.Memory.Scope == (memory.Scope{}) {
 			return fmt.Errorf("eino: Memory requires Store and Scope")
 		}
 		for index, recall := range config.Memory.Recall {
@@ -1121,6 +1128,14 @@ func (config *normalizedConfig) validateOptionalConfig() error {
 		}
 	}
 	return nil
+}
+
+func normalizeMemoryScope(scope memory.Scope) memory.Scope {
+	scope.AppID = strings.TrimSpace(scope.AppID)
+	scope.UserID = strings.TrimSpace(scope.UserID)
+	scope.AgentID = strings.TrimSpace(scope.AgentID)
+	scope.RunID = strings.TrimSpace(scope.RunID)
+	return scope
 }
 
 func validateBinding(binding Binding, fields map[string]StateType) error {

@@ -345,6 +345,9 @@ message WorkspaceParameters {
     DoubaoRealtimeWorkspaceParameters doubao_realtime_workspace_parameters = 2;
     ASTTranslateWorkspaceParameters asttranslate_workspace_parameters = 3;
     ChatRoomWorkspaceParameters chat_room_workspace_parameters = 4;
+    DashScopeRealtimeWorkspaceParameters dash_scope_realtime_workspace_parameters = 6;
+    DoubaoRealtimeDuplexWorkspaceParameters doubao_realtime_duplex_workspace_parameters = 7;
+    EinoWorkspaceParameters eino_workspace_parameters = 8;
   }
 }
 

@@ -13,6 +13,9 @@
         "enum": [
           "flowcraft",
           "doubao-realtime",
+          "dashscope-realtime",
+          "doubao-realtime-duplex",
+          "eino",
           "ast-translate",
           "chatroom",
           "pet"
@@ -23,6 +26,9 @@
         "enum": [
           "flowcraft",
           "doubao-realtime",
+          "dashscope-realtime",
+          "doubao-realtime-duplex",
+          "eino",
           "ast-translate",
           "chatroom"
         ]
@@ -44,6 +50,15 @@
           },
           "doubao_realtime": {
             "$ref": "./workflows/doubao_realtime.json#/components/schemas/DoubaoRealtimeWorkflowSpec"
+          },
+          "dashscope_realtime": {
+            "$ref": "./workflows/dashscope_realtime.json#/components/schemas/DashScopeRealtimeWorkflowSpec"
+          },
+          "doubao_realtime_duplex": {
+            "$ref": "./workflows/doubao_realtime_duplex.json#/components/schemas/DoubaoRealtimeDuplexWorkflowSpec"
+          },
+          "eino": {
+            "$ref": "./workflows/eino.json#/components/schemas/EinoWorkflowSpec"
           },
           "ast_translate": {
             "$ref": "./workflows/ast_translate.json#/components/schemas/ASTTranslateWorkflowSpec"
@@ -95,6 +110,36 @@
           "doubao_realtime": {
             "$ref": "./workflows/doubao_realtime.json#/components/schemas/DoubaoRealtimeWorkflowSpec"
           }
+        },
+        "additionalProperties": false
+      },
+      "ReusableDashScopeRealtimeWorkflowVariant": {
+        "type": "object",
+        "required": ["driver", "dashscope_realtime"],
+        "properties": {
+          "driver": { "type": "string", "enum": ["dashscope-realtime"] },
+          "toolkit": { "$ref": "./toolkit_policy.json#/components/schemas/ToolkitPolicy" },
+          "dashscope_realtime": { "$ref": "./workflows/dashscope_realtime.json#/components/schemas/DashScopeRealtimeWorkflowSpec" }
+        },
+        "additionalProperties": false
+      },
+      "ReusableDoubaoRealtimeDuplexWorkflowVariant": {
+        "type": "object",
+        "required": ["driver", "doubao_realtime_duplex"],
+        "properties": {
+          "driver": { "type": "string", "enum": ["doubao-realtime-duplex"] },
+          "toolkit": { "$ref": "./toolkit_policy.json#/components/schemas/ToolkitPolicy" },
+          "doubao_realtime_duplex": { "$ref": "./workflows/doubao_realtime_duplex.json#/components/schemas/DoubaoRealtimeDuplexWorkflowSpec" }
+        },
+        "additionalProperties": false
+      },
+      "ReusableEinoWorkflowVariant": {
+        "type": "object",
+        "required": ["driver", "eino"],
+        "properties": {
+          "driver": { "type": "string", "enum": ["eino"] },
+          "toolkit": { "$ref": "./toolkit_policy.json#/components/schemas/ToolkitPolicy" },
+          "eino": { "$ref": "./workflows/eino.json#/components/schemas/EinoWorkflowSpec" }
         },
         "additionalProperties": false
       },
@@ -153,6 +198,15 @@
             "$ref": "#/components/schemas/ReusableDoubaoRealtimeWorkflowVariant"
           },
           {
+            "$ref": "#/components/schemas/ReusableDashScopeRealtimeWorkflowVariant"
+          },
+          {
+            "$ref": "#/components/schemas/ReusableDoubaoRealtimeDuplexWorkflowVariant"
+          },
+          {
+            "$ref": "#/components/schemas/ReusableEinoWorkflowVariant"
+          },
+          {
             "$ref": "#/components/schemas/ReusableASTTranslateWorkflowVariant"
           },
           {
@@ -177,6 +231,15 @@
           },
           "doubao_realtime": {
             "$ref": "./workflows/doubao_realtime.json#/components/schemas/DoubaoRealtimeWorkflowSpec"
+          },
+          "dashscope_realtime": {
+            "$ref": "./workflows/dashscope_realtime.json#/components/schemas/DashScopeRealtimeWorkflowSpec"
+          },
+          "doubao_realtime_duplex": {
+            "$ref": "./workflows/doubao_realtime_duplex.json#/components/schemas/DoubaoRealtimeDuplexWorkflowSpec"
+          },
+          "eino": {
+            "$ref": "./workflows/eino.json#/components/schemas/EinoWorkflowSpec"
           },
           "ast_translate": {
             "$ref": "./workflows/ast_translate.json#/components/schemas/ASTTranslateWorkflowSpec"

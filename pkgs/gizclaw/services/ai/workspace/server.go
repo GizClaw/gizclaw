@@ -44,6 +44,7 @@ type Server struct {
 	Store         kv.Store
 	WorkflowStore kv.Store
 	Models        ModelService
+	Voices        VoiceService
 	RuntimeStore  RuntimeStore
 	Assets        objectstore.ObjectStore
 	IconLocks     iconasset.Locker
@@ -51,6 +52,10 @@ type Server struct {
 
 type ModelService interface {
 	GetModel(context.Context, adminhttp.GetModelRequestObject) (adminhttp.GetModelResponseObject, error)
+}
+
+type VoiceService interface {
+	GetVoice(context.Context, adminhttp.GetVoiceRequestObject) (adminhttp.GetVoiceResponseObject, error)
 }
 
 type runtimeWorkflowBindingsContextKey struct{}
@@ -961,6 +966,15 @@ func (s *Server) validateReferences(ctx context.Context, store kv.Store, workspa
 	if workflow.Spec.Driver == apitypes.WorkflowDriverDoubaoRealtime {
 		return validateDoubaoRealtimeOverrides(workspace.Parameters)
 	}
+	if workflow.Spec.Driver == apitypes.WorkflowDriverDashscopeRealtime {
+		return s.validateDashScopeRealtimeOverrides(ctx, workflow.Spec.DashscopeRealtime, workspace.Parameters, runtimeAlias)
+	}
+	if workflow.Spec.Driver == apitypes.WorkflowDriverDoubaoRealtimeDuplex {
+		return s.validateDoubaoRealtimeDuplexOverrides(ctx, workflow.Spec.DoubaoRealtimeDuplex, workspace.Parameters, runtimeAlias)
+	}
+	if workflow.Spec.Driver == apitypes.WorkflowDriverEino {
+		return validateEinoOverrides(workspace.Parameters)
+	}
 	if workflow.Spec.Driver != apitypes.WorkflowDriverFlowcraft {
 		return nil
 	}
@@ -999,6 +1013,9 @@ func validateDoubaoRealtimeOverrides(workspaceParameters *apitypes.WorkspacePara
 	if workspaceParameters == nil {
 		return nil
 	}
+	if err := requireWorkspaceParametersVariant(workspaceParameters, "doubao-realtime"); err != nil {
+		return invalidWorkspaceReference("doubao_realtime parameters are required: %v", err)
+	}
 	parameters, err := workspaceParameters.AsDoubaoRealtimeWorkspaceParameters()
 	if err != nil {
 		return invalidWorkspaceReference("doubao_realtime parameters are required: %v", err)
@@ -1009,9 +1026,244 @@ func validateDoubaoRealtimeOverrides(workspaceParameters *apitypes.WorkspacePara
 	return nil
 }
 
+func (s *Server) validateDashScopeRealtimeOverrides(
+	ctx context.Context,
+	workflow *apitypes.DashScopeRealtimeWorkflowSpec,
+	workspaceParameters *apitypes.WorkspaceParameters,
+	runtimeAlias bool,
+) error {
+	var parameters apitypes.DashScopeRealtimeWorkspaceParameters
+	if workspaceParameters != nil {
+		if err := requireWorkspaceParametersVariant(workspaceParameters, "dashscope-realtime"); err != nil {
+			return invalidWorkspaceReference("dashscope_realtime parameters are required: %v", err)
+		}
+		var err error
+		parameters, err = workspaceParameters.AsDashScopeRealtimeWorkspaceParameters()
+		if err != nil {
+			return invalidWorkspaceReference("dashscope_realtime parameters are required: %v", err)
+		}
+		if err := parameters.Validate(); err != nil {
+			return invalidWorkspaceReference("dashscope_realtime parameters: %v", err)
+		}
+	}
+	if !runtimeAlias {
+		return nil
+	}
+	if workflow == nil {
+		return invalidWorkspaceReference("dashscope_realtime workflow spec is required")
+	}
+	modelAlias := strings.TrimSpace(workflow.Model)
+	if parameters.Model != nil && strings.TrimSpace(*parameters.Model) != "" {
+		modelAlias = strings.TrimSpace(*parameters.Model)
+	}
+	model, err := s.validateRuntimeModelAlias(
+		ctx, "dashscope_realtime parameter", "model", modelAlias, apitypes.ModelKindRealtime,
+	)
+	if err != nil {
+		return err
+	}
+	if model.Provider.Kind != apitypes.ModelProviderKindDashscopeTenant {
+		return invalidWorkspaceReference(
+			"dashscope_realtime parameter %q Model %q has provider %q, want %q",
+			"model", modelAlias, model.Provider.Kind, apitypes.ModelProviderKindDashscopeTenant,
+		)
+	}
+	data, err := model.ProviderData.AsDashScopeTenantModelProviderData()
+	if err != nil || data.ApiMode == nil ||
+		*data.ApiMode != apitypes.DashScopeTenantModelProviderDataApiModeRealtime {
+		return invalidWorkspaceReference(
+			"dashscope_realtime parameter %q Model %q must use dashscope-tenant api_mode %q",
+			"model", modelAlias, apitypes.DashScopeTenantModelProviderDataApiModeRealtime,
+		)
+	}
+	voiceAlias := stringPointerValue(workflow.Voice)
+	if parameters.Voice != nil {
+		voiceAlias = strings.TrimSpace(*parameters.Voice)
+	}
+	return s.validateRuntimeVoiceCompatibility(
+		ctx, "dashscope_realtime parameter", "voice", voiceAlias, modelAlias, model,
+	)
+}
+
+func (s *Server) validateDoubaoRealtimeDuplexOverrides(
+	ctx context.Context,
+	workflow *apitypes.DoubaoRealtimeDuplexWorkflowSpec,
+	workspaceParameters *apitypes.WorkspaceParameters,
+	runtimeAlias bool,
+) error {
+	var parameters apitypes.DoubaoRealtimeDuplexWorkspaceParameters
+	if workspaceParameters != nil {
+		if err := requireWorkspaceParametersVariant(workspaceParameters, "doubao-realtime-duplex"); err != nil {
+			return invalidWorkspaceReference("doubao_realtime_duplex parameters are required: %v", err)
+		}
+		var err error
+		parameters, err = workspaceParameters.AsDoubaoRealtimeDuplexWorkspaceParameters()
+		if err != nil {
+			return invalidWorkspaceReference("doubao_realtime_duplex parameters are required: %v", err)
+		}
+		if err := parameters.Validate(); err != nil {
+			return invalidWorkspaceReference("doubao_realtime_duplex parameters: %v", err)
+		}
+	}
+	if !runtimeAlias {
+		return nil
+	}
+	if workflow == nil {
+		return invalidWorkspaceReference("doubao_realtime_duplex workflow spec is required")
+	}
+	modelAlias := strings.TrimSpace(workflow.Model)
+	if parameters.Model != nil && strings.TrimSpace(*parameters.Model) != "" {
+		modelAlias = strings.TrimSpace(*parameters.Model)
+	}
+	model, err := s.validateRuntimeModelAlias(
+		ctx, "doubao_realtime_duplex parameter", "model", modelAlias, apitypes.ModelKindRealtimeDuplex,
+	)
+	if err != nil {
+		return err
+	}
+	if model.Provider.Kind != apitypes.ModelProviderKindVolcTenant {
+		return invalidWorkspaceReference(
+			"doubao_realtime_duplex parameter %q Model %q has provider %q, want %q",
+			"model", modelAlias, model.Provider.Kind, apitypes.ModelProviderKindVolcTenant,
+		)
+	}
+	data, err := model.ProviderData.AsVolcTenantModelProviderData()
+	if err != nil || data.ApiMode != apitypes.VolcTenantModelProviderDataApiModeRealtimeDuplex {
+		return invalidWorkspaceReference(
+			"doubao_realtime_duplex parameter %q Model %q must use volc-tenant api_mode %q",
+			"model", modelAlias, apitypes.VolcTenantModelProviderDataApiModeRealtimeDuplex,
+		)
+	}
+	voiceAlias := stringPointerValue(workflow.Voice)
+	if parameters.Voice != nil {
+		voiceAlias = strings.TrimSpace(*parameters.Voice)
+	}
+	return s.validateRuntimeVoiceCompatibility(
+		ctx, "doubao_realtime_duplex parameter", "voice", voiceAlias, modelAlias, model,
+	)
+}
+
+func validateEinoOverrides(workspaceParameters *apitypes.WorkspaceParameters) error {
+	if workspaceParameters == nil {
+		return nil
+	}
+	if err := requireWorkspaceParametersVariant(workspaceParameters, "eino"); err != nil {
+		return invalidWorkspaceReference("eino parameters are required: %v", err)
+	}
+	if _, err := workspaceParameters.AsEinoWorkspaceParameters(); err != nil {
+		return invalidWorkspaceReference("eino parameters are required: %v", err)
+	}
+	return nil
+}
+
+func requireWorkspaceParametersVariant(parameters *apitypes.WorkspaceParameters, want string) error {
+	discriminator, err := parameters.Discriminator()
+	if err != nil {
+		return err
+	}
+	if discriminator != want {
+		return fmt.Errorf("agent_type is %q, want %q", discriminator, want)
+	}
+	return nil
+}
+
+func (s *Server) validateRuntimeModelAlias(
+	ctx context.Context,
+	subject, role, alias string,
+	want apitypes.ModelKind,
+) (apitypes.Model, error) {
+	bindings, present := ctx.Value(runtimeModelBindingsContextKey{}).(map[string]string)
+	if !present {
+		return apitypes.Model{}, errors.New("runtime model bindings not configured")
+	}
+	modelID := strings.TrimSpace(bindings[alias])
+	if modelID == "" {
+		return apitypes.Model{}, invalidWorkspaceReference(
+			"%s %q references missing runtime Model alias %q", subject, role, alias,
+		)
+	}
+	if s == nil || s.Models == nil {
+		return apitypes.Model{}, errors.New("model service not configured")
+	}
+	response, err := s.Models.GetModel(ctx, adminhttp.GetModelRequestObject{Id: modelID})
+	if err != nil {
+		return apitypes.Model{}, err
+	}
+	model, ok := response.(adminhttp.GetModel200JSONResponse)
+	if _, missing := response.(adminhttp.GetModel404JSONResponse); missing {
+		return apitypes.Model{}, invalidWorkspaceReference(
+			"%s %q references missing Model %q", subject, role, alias,
+		)
+	}
+	if !ok {
+		return apitypes.Model{}, fmt.Errorf(
+			"validate %s %q Model %q: model service returned %T", subject, role, alias, response,
+		)
+	}
+	if model.Kind != want {
+		return apitypes.Model{}, invalidWorkspaceReference(
+			"%s %q Model %q has kind %q, want %q", subject, role, alias, model.Kind, want,
+		)
+	}
+	return apitypes.Model(model), nil
+}
+
+func (s *Server) validateRuntimeVoiceCompatibility(
+	ctx context.Context,
+	subject, role, alias, modelAlias string,
+	model apitypes.Model,
+) error {
+	alias = strings.TrimSpace(alias)
+	if alias == "" {
+		return nil
+	}
+	bindings, present := ctx.Value(runtimeVoiceBindingsContextKey{}).(map[string]string)
+	if !present {
+		return errors.New("runtime voice bindings not configured")
+	}
+	voiceID := strings.TrimSpace(bindings[alias])
+	if voiceID == "" {
+		return invalidWorkspaceReference(
+			"%s %q references missing runtime Voice alias %q", subject, role, alias,
+		)
+	}
+	if s == nil || s.Voices == nil {
+		return errors.New("voice service not configured")
+	}
+	response, err := s.Voices.GetVoice(ctx, adminhttp.GetVoiceRequestObject{Id: voiceID})
+	if err != nil {
+		return err
+	}
+	voice, ok := response.(adminhttp.GetVoice200JSONResponse)
+	if _, missing := response.(adminhttp.GetVoice404JSONResponse); missing {
+		return invalidWorkspaceReference(
+			"%s %q references missing Voice %q", subject, role, alias,
+		)
+	}
+	if !ok {
+		return fmt.Errorf(
+			"validate %s %q Voice %q: voice service returned %T", subject, role, alias, response,
+		)
+	}
+	if voice.Provider.Kind != apitypes.VoiceProviderKind(model.Provider.Kind) ||
+		voice.Provider.Name != model.Provider.Name {
+		return invalidWorkspaceReference(
+			"%s %q Voice %q uses provider %q/%q, want %q/%q to match Model %q",
+			subject, role, alias,
+			voice.Provider.Kind, voice.Provider.Name,
+			model.Provider.Kind, model.Provider.Name,
+			modelAlias,
+		)
+	}
+	return nil
+}
+
 func (s *Server) validateASTTranslateOverrides(ctx context.Context, workspaceParameters *apitypes.WorkspaceParameters) error {
 	if workspaceParameters == nil {
 		return nil
+	}
+	if err := requireWorkspaceParametersVariant(workspaceParameters, "ast-translate"); err != nil {
+		return invalidWorkspaceReference("ast-translate parameters are required: %v", err)
 	}
 	parameters, err := workspaceParameters.AsASTTranslateWorkspaceParameters()
 	if err != nil {
@@ -1083,6 +1335,9 @@ func ResolveFlowcraftModelReferences(workflow apitypes.Workflow, workspaceParame
 		return nil, nil
 	}
 	if workspaceParameters != nil {
+		if err := requireWorkspaceParametersVariant(workspaceParameters, "flowcraft"); err != nil {
+			return nil, invalidWorkspaceReference("flowcraft parameters are required: %v", err)
+		}
 		_, err := workspaceParameters.AsFlowcraftWorkspaceParameters()
 		if err != nil {
 			return nil, invalidWorkspaceReference("flowcraft parameters are required: %v", err)

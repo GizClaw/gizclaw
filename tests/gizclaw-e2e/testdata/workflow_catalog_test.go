@@ -37,6 +37,10 @@ var workflowFixtureFiles = []string{
 	"12-flowcraft-poetry-adventure-li-bai.yaml",
 	"13-flowcraft-werewolf.yaml",
 	"14-ast-translate-zh-en.yaml",
+	"15-dashscope-realtime.yaml",
+	"16-doubao-realtime-duplex.yaml",
+	"17-eino-memory.yaml",
+	"18-flowcraft-configured-memory.yaml",
 	"22-chatroom-direct.yaml",
 	"23-pet-care.yaml",
 	"30-family-circle-chatroom.yaml",
@@ -68,6 +72,36 @@ func TestWorkflowCatalogFixtures(t *testing.T) {
 			}
 			if fixture.Icon != nil || fixture.I18n != nil {
 				t.Fatalf("Workflow display metadata must be client-owned: icon=%#v i18n=%#v", fixture.Icon, fixture.I18n)
+			}
+		})
+	}
+}
+
+func TestSocialFixtures(t *testing.T) {
+	for _, filename := range []string{"00-family-circle.yaml", "10-contacts.yaml"} {
+		t.Run(filename, func(t *testing.T) {
+			raw, err := os.ReadFile(filepath.Join("fixtures", "social", filename))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var fixture struct {
+				Kind string `yaml:"kind"`
+				Spec struct {
+					Items []struct {
+						Kind string `yaml:"kind"`
+					} `yaml:"items"`
+				} `yaml:"spec"`
+			}
+			if err := yaml.Unmarshal(raw, &fixture); err != nil {
+				t.Fatal(err)
+			}
+			if fixture.Kind != "ResourceList" || len(fixture.Spec.Items) == 0 {
+				t.Fatalf("social fixture = kind %q items %d", fixture.Kind, len(fixture.Spec.Items))
+			}
+			for i, item := range fixture.Spec.Items {
+				if item.Kind == "" {
+					t.Fatalf("social fixture item %d has no kind", i)
+				}
 			}
 		})
 	}

@@ -1,0 +1,17 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: Workflow
+metadata:
+  name: dashscope-realtime-conversation
+spec:
+  driver: dashscope-realtime
+  dashscope_realtime:
+    model: dash-realtime
+    instructions: 你是一个简短、自然的中文语音聊天助手。直接回答用户，不要解释测试流程。
+    modalities:
+    - text
+    - audio
+    enable_asr: true
+    asr_model: qwen3-asr-flash-realtime
+    input_audio_format: pcm16
+    output_audio_format: pcm16

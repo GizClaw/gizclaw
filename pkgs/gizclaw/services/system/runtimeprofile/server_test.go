@@ -482,7 +482,7 @@ func TestRuntimeProfileRejectsResolverReturningWrongResourceKind(t *testing.T) {
 
 func TestValidateFlowcraftRuntimeAliasesRejectsWrongModelKindAndMissingVoice(t *testing.T) {
 	t.Parallel()
-	voices := map[string]apitypes.RuntimeProfileBinding{"narrator": runtimeProfileTestBinding("voice-a")}
+	voices := map[string]apitypes.VoiceResource{"narrator": {}}
 	models := map[string]apitypes.ModelResource{
 		"generate-model": {Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindEmbedding}},
 	}
@@ -490,13 +490,13 @@ func TestValidateFlowcraftRuntimeAliasesRejectsWrongModelKindAndMissingVoice(t *
 		Driver:    apitypes.WorkflowDriverFlowcraft,
 		Flowcraft: runtimeProfileTestFlowcraftSpec(t, "generate-model", "narrator"),
 	}
-	if err := validateWorkflowRuntimeAliases("workflows.collections.raids.demo", workflow, models, &voices); err == nil || !strings.Contains(err.Error(), "want \"llm\"") {
+	if err := validateWorkflowRuntimeAliases("workflows.collections.raids.demo", workflow, models, voices); err == nil || !strings.Contains(err.Error(), "want \"llm\"") {
 		t.Fatalf("validateWorkflowRuntimeAliases(wrong model kind) error = %v", err)
 	}
 
 	models["generate-model"] = apitypes.ModelResource{Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindLlm}}
 	workflow.Flowcraft = runtimeProfileTestFlowcraftSpec(t, "generate-model", "missing-voice")
-	if err := validateWorkflowRuntimeAliases("workflows.collections.raids.demo", workflow, models, &voices); err == nil || !strings.Contains(err.Error(), "not declared in resources.voices") {
+	if err := validateWorkflowRuntimeAliases("workflows.collections.raids.demo", workflow, models, voices); err == nil || !strings.Contains(err.Error(), "not declared in resources.voices") {
 		t.Fatalf("validateWorkflowRuntimeAliases(missing voice) error = %v", err)
 	}
 }
@@ -528,9 +528,9 @@ func TestValidateChatroomRuntimeAliasesRequiresASRWhenTranscriptionIsEnabled(t *
 
 func TestValidateVoiceProducingWorkflowsRequireRuntimeVoiceAliases(t *testing.T) {
 	t.Parallel()
-	voices := map[string]apitypes.RuntimeProfileBinding{
-		"assistant":  runtimeProfileTestBinding("voice-assistant"),
-		"translator": runtimeProfileTestBinding("voice-translator"),
+	voices := map[string]apitypes.VoiceResource{
+		"assistant":  {},
+		"translator": {},
 	}
 	models := map[string]apitypes.ModelResource{
 		"realtime-model":    {Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindRealtime}},
@@ -545,11 +545,11 @@ func TestValidateVoiceProducingWorkflowsRequireRuntimeVoiceAliases(t *testing.T)
 		},
 	}
 	translation.AstTranslate.LangPair = nil
-	if err := validateWorkflowRuntimeAliases("workflows.collections.translates.demo", translation, models, &voices); err == nil || !strings.Contains(err.Error(), "lang_pair is required") {
+	if err := validateWorkflowRuntimeAliases("workflows.collections.translates.demo", translation, models, voices); err == nil || !strings.Contains(err.Error(), "lang_pair is required") {
 		t.Fatalf("validateWorkflowRuntimeAliases(AST without lang_pair) error = %v", err)
 	}
 	translation.AstTranslate.LangPair = &langPair
-	if err := validateWorkflowRuntimeAliases("workflows.collections.translates.demo", translation, models, &voices); err == nil || !strings.Contains(err.Error(), "RuntimeProfile Voice alias") {
+	if err := validateWorkflowRuntimeAliases("workflows.collections.translates.demo", translation, models, voices); err == nil || !strings.Contains(err.Error(), "RuntimeProfile Voice alias") {
 		t.Fatalf("validateWorkflowRuntimeAliases(AST without voice) error = %v", err)
 	}
 	internal := apitypes.ASTTranslateVoiceParameters{}
@@ -557,7 +557,7 @@ func TestValidateVoiceProducingWorkflowsRequireRuntimeVoiceAliases(t *testing.T)
 		t.Fatal(err)
 	}
 	translation.AstTranslate.Voice = &internal
-	if err := validateWorkflowRuntimeAliases("workflows.collections.translates.demo", translation, models, &voices); err == nil || !strings.Contains(err.Error(), "voice.tts_voice") {
+	if err := validateWorkflowRuntimeAliases("workflows.collections.translates.demo", translation, models, voices); err == nil || !strings.Contains(err.Error(), "voice.tts_voice") {
 		t.Fatalf("validateWorkflowRuntimeAliases(AST provider speaker) error = %v", err)
 	}
 	external := apitypes.ASTTranslateVoiceParameters{}
@@ -565,7 +565,7 @@ func TestValidateVoiceProducingWorkflowsRequireRuntimeVoiceAliases(t *testing.T)
 		t.Fatal(err)
 	}
 	translation.AstTranslate.Voice = &external
-	if err := validateWorkflowRuntimeAliases("workflows.collections.translates.demo", translation, models, &voices); err != nil {
+	if err := validateWorkflowRuntimeAliases("workflows.collections.translates.demo", translation, models, voices); err != nil {
 		t.Fatalf("validateWorkflowRuntimeAliases(AST alias) error = %v", err)
 	}
 
@@ -575,7 +575,7 @@ func TestValidateVoiceProducingWorkflowsRequireRuntimeVoiceAliases(t *testing.T)
 			Model: "realtime-model",
 		},
 	}
-	if err := validateWorkflowRuntimeAliases("workflows.collections.assistants.demo", realtime, models, &voices); err == nil || !strings.Contains(err.Error(), "RuntimeProfile Voice alias") {
+	if err := validateWorkflowRuntimeAliases("workflows.collections.assistants.demo", realtime, models, voices); err == nil || !strings.Contains(err.Error(), "RuntimeProfile Voice alias") {
 		t.Fatalf("validateWorkflowRuntimeAliases(Doubao without voice) error = %v", err)
 	}
 	voice := "assistant"
@@ -583,16 +583,145 @@ func TestValidateVoiceProducingWorkflowsRequireRuntimeVoiceAliases(t *testing.T)
 		Input:  apitypes.DoubaoRealtimeAudioInput{Format: apitypes.DoubaoRealtimeAudioFormat{Rate: 16000, Type: apitypes.DoubaoRealtimeAudioFormatTypePcm}},
 		Output: apitypes.DoubaoRealtimeAudioOutput{Format: apitypes.DoubaoRealtimeAudioFormat{Rate: 24000, Type: apitypes.DoubaoRealtimeAudioFormatTypePcm}, Voice: &voice},
 	}
-	if err := validateWorkflowRuntimeAliases("workflows.collections.assistants.demo", realtime, models, &voices); err != nil {
+	if err := validateWorkflowRuntimeAliases("workflows.collections.assistants.demo", realtime, models, voices); err != nil {
 		t.Fatalf("validateWorkflowRuntimeAliases(Doubao alias) error = %v", err)
 	}
+	voices[voice] = apitypes.VoiceResource{
+		Spec: apitypes.VoiceSpec{
+			Provider: apitypes.VoiceProvider{
+				Kind: apitypes.VoiceProviderKindVolcTenant,
+				Name: "other-tenant",
+			},
+		},
+	}
+	if err := validateWorkflowRuntimeAliases("workflows.collections.assistants.demo", realtime, models, voices); err == nil || !strings.Contains(err.Error(), "to match model alias") {
+		t.Fatalf("validateWorkflowRuntimeAliases(Doubao incompatible voice) error = %v", err)
+	}
+	voices[voice] = apitypes.VoiceResource{}
 	tools := []apitypes.DoubaoRealtimeFunctionTool{{
 		Type: apitypes.DoubaoRealtimeFunctionToolTypeFunction,
 		Name: "get_weather",
 	}}
 	realtime.DoubaoRealtime.Tools = &tools
-	if err := validateWorkflowRuntimeAliases("workflows.collections.assistants.demo", realtime, models, &voices); err == nil || !strings.Contains(err.Error(), "tools are unsupported") {
+	if err := validateWorkflowRuntimeAliases("workflows.collections.assistants.demo", realtime, models, voices); err == nil || !strings.Contains(err.Error(), "tools are unsupported") {
 		t.Fatalf("validateWorkflowRuntimeAliases(Doubao tools) error = %v", err)
+	}
+}
+
+func TestValidateNewWorkflowRuntimeAliases(t *testing.T) {
+	t.Parallel()
+	dashMode := apitypes.DashScopeTenantModelProviderDataApiModeRealtime
+	dashData := apitypes.ModelProviderData{}
+	if err := dashData.FromDashScopeTenantModelProviderData(apitypes.DashScopeTenantModelProviderData{
+		ApiMode: &dashMode,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	duplexData := apitypes.ModelProviderData{}
+	if err := duplexData.FromVolcTenantModelProviderData(apitypes.VolcTenantModelProviderData{
+		ApiMode: apitypes.VolcTenantModelProviderDataApiModeRealtimeDuplex,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	models := map[string]apitypes.ModelResource{
+		"dash": {
+			Spec: apitypes.ModelSpec{
+				Kind:         apitypes.ModelKindRealtime,
+				Provider:     apitypes.ModelProvider{Kind: apitypes.ModelProviderKindDashscopeTenant, Name: "dash-main"},
+				ProviderData: dashData,
+			},
+		},
+		"duplex": {
+			Spec: apitypes.ModelSpec{
+				Kind:         apitypes.ModelKindRealtimeDuplex,
+				Provider:     apitypes.ModelProvider{Kind: apitypes.ModelProviderKindVolcTenant, Name: "volc-main"},
+				ProviderData: duplexData,
+			},
+		},
+		"llm": {Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindLlm}},
+	}
+	voice := "assistant"
+	voices := map[string]apitypes.VoiceResource{
+		voice: {
+			Spec: apitypes.VoiceSpec{
+				Provider: apitypes.VoiceProvider{
+					Kind: apitypes.VoiceProviderKindDashscopeTenant,
+					Name: "dash-main",
+				},
+			},
+		},
+	}
+	dash := apitypes.WorkflowSpec{
+		Driver: apitypes.WorkflowDriverDashscopeRealtime,
+		DashscopeRealtime: &apitypes.DashScopeRealtimeWorkflowSpec{
+			Model: "dash",
+			Voice: &voice,
+		},
+	}
+	if err := validateWorkflowRuntimeAliases("workflows.collections.assistants.dash", dash, models, voices); err != nil {
+		t.Fatalf("validate DashScope realtime aliases: %v", err)
+	}
+	if err := validateWorkflowRuntimeAliases("workflows.collections.assistants.dash", dash, models, nil); err == nil || !strings.Contains(err.Error(), ".voice") {
+		t.Fatalf("validate DashScope missing voice alias error = %v", err)
+	}
+	voices[voice] = apitypes.VoiceResource{
+		Spec: apitypes.VoiceSpec{
+			Provider: apitypes.VoiceProvider{
+				Kind: apitypes.VoiceProviderKindVolcTenant,
+				Name: "volc-main",
+			},
+		},
+	}
+	if err := validateWorkflowRuntimeAliases("workflows.collections.assistants.dash", dash, models, voices); err == nil || !strings.Contains(err.Error(), "to match model alias") {
+		t.Fatalf("validate DashScope incompatible voice error = %v", err)
+	}
+
+	duplex := apitypes.WorkflowSpec{
+		Driver: apitypes.WorkflowDriverDoubaoRealtimeDuplex,
+		DoubaoRealtimeDuplex: &apitypes.DoubaoRealtimeDuplexWorkflowSpec{
+			Model: "duplex",
+			Voice: &voice,
+		},
+	}
+	if err := validateWorkflowRuntimeAliases("workflows.collections.assistants.duplex", duplex, models, voices); err != nil {
+		t.Fatalf("validate Doubao duplex aliases: %v", err)
+	}
+	voices[voice] = apitypes.VoiceResource{
+		Spec: apitypes.VoiceSpec{
+			Provider: apitypes.VoiceProvider{
+				Kind: apitypes.VoiceProviderKindVolcTenant,
+				Name: "other-volc-tenant",
+			},
+		},
+	}
+	if err := validateWorkflowRuntimeAliases("workflows.collections.assistants.duplex", duplex, models, voices); err == nil || !strings.Contains(err.Error(), "to match model alias") {
+		t.Fatalf("validate Doubao duplex incompatible voice error = %v", err)
+	}
+
+	chatModel := apitypes.EinoNode{}
+	if err := chatModel.FromEinoChatModelNode(apitypes.EinoChatModelNode{
+		Id:    "model",
+		Type:  apitypes.EinoChatModelNodeTypeChatModel,
+		Model: "llm",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	eino := apitypes.WorkflowSpec{
+		Driver: apitypes.WorkflowDriverEino,
+		Eino: &apitypes.EinoWorkflowSpec{
+			Graph: apitypes.EinoGraph{
+				Name:     "nested-model",
+				Compile:  apitypes.EinoGraphCompile{NodeTriggerMode: apitypes.EinoGraphCompileNodeTriggerModeAnyPredecessor},
+				State:    apitypes.EinoState{Fields: []apitypes.EinoStateField{}},
+				Nodes:    []apitypes.EinoNode{chatModel},
+				Edges:    []apitypes.EinoEdge{},
+				Branches: []apitypes.EinoBranch{},
+				Outputs:  []apitypes.EinoOutput{},
+			},
+		},
+	}
+	if err := validateWorkflowRuntimeAliases("workflows.collections.assistants.eino", eino, models, voices); err != nil {
+		t.Fatalf("validate Eino aliases: %v", err)
 	}
 }
 
@@ -609,8 +738,8 @@ func TestValidatePetRuntimeAliases(t *testing.T) {
 	if err := validateWorkflowRuntimeAliases("workflows.system.pet", workflow, models, nil); err == nil || !strings.Contains(err.Error(), "pet-voice") {
 		t.Fatalf("validateWorkflowRuntimeAliases(missing nested voice) error = %v", err)
 	}
-	voices := map[string]apitypes.RuntimeProfileBinding{"pet-voice": runtimeProfileTestBinding("voice-a")}
-	if err := validateWorkflowRuntimeAliases("workflows.system.pet", workflow, models, &voices); err != nil {
+	voices := map[string]apitypes.VoiceResource{"pet-voice": {}}
+	if err := validateWorkflowRuntimeAliases("workflows.system.pet", workflow, models, voices); err != nil {
 		t.Fatalf("validateWorkflowRuntimeAliases(valid nested aliases) error = %v", err)
 	}
 }

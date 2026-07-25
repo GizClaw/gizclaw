@@ -51,7 +51,7 @@ func TestOpenUsesInjectedResolverAndMem0Client(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, scope := range []memorystore.Scope{"conversation", "other-conversation"} {
+	for _, scope := range []memorystore.Scope{{UserID: "conversation"}, {UserID: "other-conversation"}} {
 		if _, err := store.Observe(context.Background(), memorystore.Observation{Scope: scope, Text: "remember"}); err != nil {
 			t.Fatal(err)
 		}

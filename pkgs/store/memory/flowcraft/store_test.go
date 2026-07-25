@@ -17,7 +17,7 @@ import (
 	memorystore "github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
-const testScope Scope = "conversation-a"
+var testScope = Scope{AppID: "app-a", UserID: "conversation-a", AgentID: "assistant"}
 
 type recallMemoryWithHits struct {
 	recall.Memory
@@ -34,8 +34,8 @@ func TestStoreScopesAreIsolated(t *testing.T) {
 	t.Parallel()
 	store := newTestStore(t, Config{})
 	for _, observation := range []Observation{
-		{Scope: "conversation-a", Text: "Alice prefers tea."},
-		{Scope: "conversation-b", Text: "Bob prefers coffee."},
+		{Scope: Scope{AppID: "app-a", UserID: "conversation-a"}, Text: "Alice prefers tea."},
+		{Scope: Scope{AppID: "app-a", UserID: "conversation-b"}, Text: "Bob prefers coffee."},
 	} {
 		if _, err := store.Observe(context.Background(), observation); err != nil {
 			t.Fatal(err)
@@ -45,7 +45,10 @@ func TestStoreScopesAreIsolated(t *testing.T) {
 		scope Scope
 		want  string
 		not   string
-	}{{"conversation-a", "tea", "coffee"}, {"conversation-b", "coffee", "tea"}} {
+	}{
+		{Scope{AppID: "app-a", UserID: "conversation-a"}, "tea", "coffee"},
+		{Scope{AppID: "app-a", UserID: "conversation-b"}, "coffee", "tea"},
+	} {
 		result, err := store.Recall(context.Background(), Query{Scope: test.scope, Text: "preference", Limit: 10})
 		if err != nil {
 			t.Fatal(err)
@@ -127,18 +130,58 @@ func TestStoreUpdateDeleteUseOpaqueFactLocator(t *testing.T) {
 	}
 	fact := observed.Facts[0]
 	updatedText := "Alice prefers coffee."
-	updated, err := store.Update(context.Background(), UpdateRequest{ID: fact.ID, ExpectedRevision: fact.Revision, Text: &updatedText})
+	updated, err := store.Update(context.Background(), UpdateRequest{Scope: testScope, ID: fact.ID, ExpectedRevision: fact.Revision, Text: &updatedText})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if updated.ID != fact.ID || updated.Text != updatedText || updated.Revision == fact.Revision {
 		t.Fatalf("Update() = %+v, original = %+v", updated, fact)
 	}
-	if err := store.Delete(context.Background(), DeleteRequest{ID: updated.ID, ExpectedRevision: updated.Revision}); err != nil {
+	if err := store.Delete(context.Background(), DeleteRequest{Scope: testScope, ID: updated.ID, ExpectedRevision: updated.Revision}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.Update(context.Background(), UpdateRequest{ID: "native-id", Text: &updatedText}); !errors.Is(err, ErrInvalidInput) {
+	if _, err := store.Update(context.Background(), UpdateRequest{Scope: testScope, ID: "native-id", Text: &updatedText}); !errors.Is(err, ErrInvalidInput) {
 		t.Fatalf("raw native id error = %v", err)
+	}
+}
+
+func TestStoreRejectsCrossScopeFactAndOperationLocators(t *testing.T) {
+	t.Parallel()
+	store := newTestStore(t, Config{})
+	scopeA := Scope{AppID: "app-a", UserID: "user", AgentID: "agent"}
+	scopeB := Scope{AppID: "app-b", UserID: "user", AgentID: "agent"}
+	observed, err := store.Observe(context.Background(), Observation{Scope: scopeA, Text: "private"})
+	if err != nil || len(observed.Facts) != 1 {
+		t.Fatalf("Observe() = %+v, %v", observed, err)
+	}
+	text := "changed"
+	if _, err := store.Update(context.Background(), UpdateRequest{Scope: scopeB, ID: observed.Facts[0].ID, Text: &text}); !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("cross-scope Update() error = %v, want ErrInvalidInput", err)
+	}
+	if err := store.Delete(context.Background(), DeleteRequest{Scope: scopeB, ID: observed.Facts[0].ID}); !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("cross-scope Delete() error = %v, want ErrInvalidInput", err)
+	}
+
+	nativeA, err := nativeScope(scopeA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	operationID := encodeLocator(nativeA, "operation")
+	if _, err := store.Wait(context.Background(), memorystore.OperationRequest{Scope: scopeB, ID: operationID}); !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("cross-scope Wait() error = %v, want ErrInvalidInput", err)
+	}
+}
+
+func TestLocatorRoundTripsCompleteScopeAndRejectsLegacyV1(t *testing.T) {
+	t.Parallel()
+	scope := recall.Scope{RuntimeID: "app", UserID: "user", AgentID: "agent"}
+	locator := encodeLocator(scope, "native")
+	gotScope, gotID, err := decodeLocator(locator)
+	if err != nil || !reflect.DeepEqual(gotScope, scope) || gotID != "native" {
+		t.Fatalf("decodeLocator() = %#v, %q, %v", gotScope, gotID, err)
+	}
+	if _, _, err := decodeLocator("flowcraft:v1:dXNlcg:bmF0aXZl"); !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("legacy locator error = %v, want ErrInvalidInput", err)
 	}
 }
 
@@ -156,7 +199,7 @@ func TestStoreAsyncWaitAndRestart(t *testing.T) {
 	if err != nil || observed.Operation == nil || observed.Operation.Status != OperationPending {
 		t.Fatalf("Observe() = %+v, %v", observed, err)
 	}
-	completed, err := store.Wait(context.Background(), observed.Operation.ID)
+	completed, err := store.Wait(context.Background(), memorystore.OperationRequest{Scope: testScope, ID: observed.Operation.ID})
 	if err != nil || completed.Operation == nil || completed.Operation.Status != OperationSucceeded || len(completed.Facts) != 1 {
 		t.Fatalf("Wait() = %+v, %v", completed, err)
 	}
@@ -168,7 +211,7 @@ func TestStoreAsyncWaitAndRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = reopened.Close() })
-	rehydrated, err := reopened.Wait(context.Background(), observed.Operation.ID)
+	rehydrated, err := reopened.Wait(context.Background(), memorystore.OperationRequest{Scope: testScope, ID: observed.Operation.ID})
 	if err != nil || rehydrated.Operation == nil || rehydrated.Operation.Status != OperationSucceeded || len(rehydrated.Facts) != 1 {
 		t.Fatalf("reopened Wait() = %+v, %v", rehydrated, err)
 	}
@@ -202,7 +245,7 @@ func TestStoreWaitRehydratesDecodedScopeWithoutEnumerator(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = reopened.Close() })
-	result, err := reopened.Wait(context.Background(), observed.Operation.ID)
+	result, err := reopened.Wait(context.Background(), memorystore.OperationRequest{Scope: testScope, ID: observed.Operation.ID})
 	if err != nil || result.Operation == nil || result.Operation.Status != OperationSucceeded || len(result.Facts) != 1 {
 		t.Fatalf("Wait() = %+v, %v", result, err)
 	}
@@ -216,14 +259,17 @@ func TestStoreAsyncOperationsAreIsolatedAcrossScopes(t *testing.T) {
 		AsyncQueue: recall.NewInMemoryAsyncSemanticQueue(),
 	})
 	operations := make(map[Scope]string)
-	for _, scope := range []Scope{"conversation-a", "conversation-b"} {
+	for _, scope := range []Scope{
+		{AppID: "app-a", UserID: "conversation-a"},
+		{AppID: "app-b", UserID: "conversation-b"},
+	} {
 		result, err := store.Observe(context.Background(), Observation{Scope: scope, Text: "remember separately"})
 		if err != nil || result.Operation == nil || result.Operation.Status != OperationPending {
 			t.Fatalf("Observe(%q) = %+v, %v", scope, result, err)
 		}
 		operations[scope] = result.Operation.ID
 	}
-	if operations["conversation-a"] == operations["conversation-b"] {
+	if operations[Scope{AppID: "app-a", UserID: "conversation-a"}] == operations[Scope{AppID: "app-b", UserID: "conversation-b"}] {
 		t.Fatal("operations across scopes share an opaque locator")
 	}
 
@@ -233,7 +279,7 @@ func TestStoreAsyncOperationsAreIsolatedAcrossScopes(t *testing.T) {
 		wg.Add(1)
 		go func(scope Scope, operationID string) {
 			defer wg.Done()
-			result, err := store.Wait(context.Background(), operationID)
+			result, err := store.Wait(context.Background(), memorystore.OperationRequest{Scope: scope, ID: operationID})
 			if err != nil {
 				errorsByScope <- fmt.Errorf("Wait(%q): %w", scope, err)
 				return
@@ -243,7 +289,7 @@ func TestStoreAsyncOperationsAreIsolatedAcrossScopes(t *testing.T) {
 				return
 			}
 			factScope, _, err := decodeLocator(result.Facts[0].ID)
-			if err != nil || factScope.UserID != string(scope) {
+			if err != nil || factScope.RuntimeID != scope.AppID || factScope.UserID != scope.UserID || factScope.AgentID != scope.AgentID {
 				errorsByScope <- fmt.Errorf("Wait(%q) fact locator scope = %+v, %v", scope, factScope, err)
 			}
 		}(scope, operationID)
@@ -276,7 +322,11 @@ func TestStoreWaitHonorsCancellation(t *testing.T) {
 	store := newTestStore(t, Config{})
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if _, err := store.Wait(ctx, encodeLocator(nativeScope(testScope), "operation")); !errors.Is(err, context.Canceled) {
+	native, err := nativeScope(testScope)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Wait(ctx, memorystore.OperationRequest{Scope: testScope, ID: encodeLocator(native, "operation")}); !errors.Is(err, context.Canceled) {
 		t.Fatalf("Wait() error = %v", err)
 	}
 }

@@ -45,7 +45,7 @@ Have voice resources and provider voice mappings available to Agent/GenX for sel
 
 ### [workflow](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/workflow)
 
-Owns workflow definition, driver selection, and workflow resource persistence. `workflow/agents` Stores integration between specific workflow engines and GizClaw Agent Host, such as Flowcraft, chatroom, AST translation and realtime workflow.
+Owns workflow definition, driver selection, and workflow resource persistence. `workflow/agents` stores the integration between specific workflow engines and GizClaw Agent Host, including Flowcraft, Chatroom, AST Translate, DashScope Realtime, Doubao Realtime, Doubao Realtime Duplex, and Eino.
 
 Workflow describes how to run an Agent, but does not own the online state and stream lifecycle of the Agent instance.
 
@@ -53,17 +53,23 @@ Workflow describes how to run an Agent, but does not own the online state and st
 
 The Flowcraft workflow factory only composes typed Workflow configuration with the Workspace owner's RuntimeProfile aliases, LogStore, KV Store, ObjectStore, and Audio Dock into the generic Flowcraft Transformer. It does not construct Claw, a local Flowcraft Workspace, `config.yaml`, or BBH.
 
-History uses the AgentHost-injected `logstore.MutableStore`; State uses an Owner/Workspace/Agent-prefixed `kv.Store`. When long-term Memory is enabled, the factory constructs `memoryflowcraft.Store` with an ObjectStore-backed Flowcraft persistence interface. Server Config selects these dependencies by logical Store name; Workflow and Workspace resources configure extraction, recall, write, and state policy but cannot select a Store or backend. Releasing the final Workspace Agent reference closes only per-Agent adapters, never Server-owned backing Stores or durable data.
+History uses the AgentHost-injected `logstore.MutableStore`; State uses an Owner/Workspace/Agent-prefixed `kv.Store`. When long-term Memory is enabled, `agent_host.flowcraft.memory_store` takes precedence and selects a borrowed provider-neutral Store. If it is absent, the factory can construct the embedded Flowcraft Store with the configured Memory object persistence. Workflow and Workspace resources configure policy but cannot select a Store or backend. Releasing the final Workspace Agent reference closes only per-Agent adapters, never Server-owned backing Stores or durable data.
 
 The public `FlowcraftWorkflowSpec` requires an explicit `agent.graph` with at least one node and an `entry` that names a defined node. Supported nodes are `llm`, inline `script`, and `passthrough`; `publish: true` selects the node output exposed through the GenX Stream. Graph, Memory extraction/rerank/embedding, ASR, and voice fields directly reference aliases exposed by the Workspace owner's RuntimeProfile.
 
-Workflow configuration retains `conversation`, Graph, Memory policy, and `voice_adapter`. It does not accept local directories, History drivers, Memory scope/retrieval backends, `settings`/`models` indirection, a parallel switch, implicit single-model Agents, or Tool configuration. The factory derives a compact deterministic Owner/Workspace/Agent scope; hashing each identity keeps Flowcraft retrieval and ObjectStore keys within filesystem limits without weakening isolation. Reload releases only the caller's reference; while another reference remains, the live Agent is reused. A new Agent reads current construction-time configuration only after the reference count reaches zero and a later acquire reconstructs it.
+Workflow configuration retains `conversation`, Graph, Memory policy, and `voice_adapter`. It does not accept local directories, History drivers, Memory Store aliases, `settings`/`models` indirection, a parallel switch, implicit single-model Agents, or Tool configuration. With an external Store, embedded-provider-only extraction, embedding, rerank, graph, and layout settings are rejected instead of ignored. The App-bound Store view forces only the Workspace ID into `memory.Scope.AppID`; it never derives or rewrites UserID, AgentID, or RunID. Flowcraft itself submits `agent.id` as `AgentID`, so agents in one Workspace retain independent Memory unless they deliberately use the same Agent identity. Reload releases only the caller's reference; while another reference remains, the live Agent is reused.
+
+#### DashScope, Doubao Duplex, and Eino boundaries
+
+`dashscope-realtime`, `doubao-realtime-duplex`, and `eino` are persisted Workflow and Workspace drivers. Their factories resolve typed RuntimeProfile Model and Voice aliases and construct the existing GenX Transformers. DashScope requires a DashScope realtime Model; Doubao Duplex requires a Volc `realtime-duplex` Model; Eino resolves each `chat_model` node independently.
+
+Eino exposes invocation-local graph state plus provider-neutral recall and observe policy. A Workflow without Memory needs no Memory Store. A Workflow with Memory requires `agent_host.eino.memory_store`, borrows an App-bound view, and submits the Workflow identity as `AgentID`; it never exposes persistent Eino State or History bindings. None of the three drivers depends on ToolCall or maps Toolkit policy into provider-native tools.
 
 #### Pet composition boundary
 
-The `pet` driver remains in GizClaw only as a domain wrapper. It resolves the Workspace Pet, PetDef, and current Gameplay on every turn and provides transient `tmp_*` Board inputs to the nested Workflow. `spec.pet` uses the same `driver` plus matching payload shape as an ordinary non-Pet Workflow; it may select Flowcraft, Chatroom, AST translation, or realtime execution, but cannot select `pet` recursively.
+The `pet` driver remains in GizClaw only as a domain wrapper. It resolves the Workspace Pet, PetDef, and current Gameplay on every turn and provides transient `tmp_*` Board inputs to the nested Workflow. `spec.pet` uses the same reusable driver plus matching payload shape as an ordinary non-Pet Workflow, including the three new drivers, but cannot select `pet` recursively.
 
-The nested driver owns Graph, conversation, Memory, model, voice, and toolkit configuration and is constructed through the normal registered factory. A nested Flowcraft driver receives the same AgentHost-injected State, internal History, and Memory-object Stores as an ordinary Flowcraft Workflow. All symbolic references resolve through the immutable system Workspace owner's RuntimeProfile. GizClaw does not synthesize a Pet Graph, fixed model aliases, a Workspace voice, or another nested-driver fallback.
+The nested driver owns Graph, conversation, Memory, model, voice, and toolkit configuration and is constructed through the normal registered factory. A nested Flowcraft driver receives the same AgentHost-injected State, internal History, Memory-object Store, and optional provider-neutral Memory Store as an ordinary Flowcraft Workflow. All symbolic references resolve through the immutable system Workspace owner's RuntimeProfile. GizClaw does not synthesize a Pet Graph, fixed model aliases, a Workspace voice, or another nested-driver fallback.
 
 ### [workspace](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/workspace)
 

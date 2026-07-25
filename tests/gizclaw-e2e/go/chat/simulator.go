@@ -261,12 +261,18 @@ func appendStringPtr(b *strings.Builder, v *string) {
 }
 
 type conversationMode struct {
-	Realtime                 bool
-	SkipInputASR             bool
-	SkipTranscriptSimilarity bool
-	SkipAssistantAudioASR    bool
-	AssistantAudioASRReason  string
-	LightweightInterrupt     bool
+	Realtime                    bool
+	InputAudioMIME              string
+	SkipInputASR                bool
+	SkipTranscriptSimilarity    bool
+	SkipAssistantAudioASR       bool
+	AssistantAudioASRReason     string
+	LightweightInterrupt        bool
+	AllowSplitAssistantStreams  bool
+	AllowMissingInputTranscript bool
+	RealtimeTailSilence         time.Duration
+	ReencodeRealtimeTailSilence bool
+	KeepRealtimeInputOpen       bool
 }
 
 const assistantAudioASRMinRatio = 0.35
@@ -295,9 +301,27 @@ func (d *personaDriver) runRound(ctx context.Context, index int, mode conversati
 	}
 	sendPackets := packets
 	if mode.Realtime {
-		sendPackets, err = realtimePacketsWithTailSilence(packets)
+		tailSilence := realtimeInputTailSilence
+		if mode.RealtimeTailSilence > 0 {
+			tailSilence = mode.RealtimeTailSilence
+		}
+		if mode.ReencodeRealtimeTailSilence {
+			sendPackets, err = realtimePacketsWithContinuousTailSilence(packets, tailSilence)
+		} else {
+			sendPackets, err = realtimePacketsWithTailSilenceDuration(packets, tailSilence)
+		}
 		if err != nil {
 			return stat, fmt.Errorf("round %d: prepare realtime tail silence: %w", index, err)
+		}
+	}
+	inputAudioMIME := strings.TrimSpace(mode.InputAudioMIME)
+	if inputAudioMIME == "" {
+		inputAudioMIME = "audio/opus"
+	}
+	if dashScopeBaseMIME(inputAudioMIME) == "audio/pcm" {
+		sendPackets, err = rawOpusPacketsToPCM16(sendPackets, 16000, 1)
+		if err != nil {
+			return stat, fmt.Errorf("round %d: decode DashScope PCM16 input: %w", index, err)
 		}
 	}
 
@@ -340,7 +364,7 @@ func (d *personaDriver) runRound(ctx context.Context, index int, mode conversati
 		defer historyGateTicker.Stop()
 	}
 	go func() {
-		sendDone <- d.transport.sendAudioTurnObserved(ctx, streamID, sendPackets, func(sentAt time.Time) {
+		sendDone <- d.transport.sendAudioTurnObservedMIMEWithEnd(ctx, streamID, inputAudioMIME, sendPackets, !mode.KeepRealtimeInputOpen, func(sentAt time.Time) {
 			inputEOSSentAt.Store(sentAt.UnixNano())
 		})
 	}()
@@ -356,7 +380,9 @@ func (d *personaDriver) runRound(ctx context.Context, index int, mode conversati
 	responseTimeout := d.roundResponseTimeout()
 	responseDeadline := time.NewTimer(responseTimeout)
 	defer responseDeadline.Stop()
-	for sendDone != nil || transcriptText == "" || stat.TranscriptDone == 0 || stat.AssistantTextDone == 0 || stat.DownlinkPackets == 0 || !assistantAudioDone || settle != nil {
+	for sendDone != nil ||
+		(!mode.AllowMissingInputTranscript && (transcriptText == "" || stat.TranscriptDone == 0)) ||
+		stat.AssistantTextDone == 0 || stat.DownlinkPackets == 0 || !assistantAudioDone || settle != nil {
 		select {
 		case <-ctx.Done():
 			return stat, fmt.Errorf("round %d: wait response: %w; recent events: %s", index, ctx.Err(), trace.String())
@@ -377,9 +403,9 @@ func (d *personaDriver) runRound(ctx context.Context, index int, mode conversati
 		case <-settle:
 			settle = nil
 			switch {
-			case transcriptText == "":
+			case !mode.AllowMissingInputTranscript && transcriptText == "":
 				return stat, fmt.Errorf("round %d: missing transcript text after assistant audio EOS; recent events: %s", index, trace.String())
-			case stat.TranscriptDone == 0:
+			case !mode.AllowMissingInputTranscript && stat.TranscriptDone == 0:
 				return stat, fmt.Errorf("round %d: missing transcript EOS after assistant audio EOS; recent events: %s", index, trace.String())
 			case stat.AssistantTextDone == 0:
 				return stat, fmt.Errorf("round %d: missing assistant text EOS after assistant audio EOS; recent events: %s", index, trace.String())
@@ -418,7 +444,7 @@ func (d *personaDriver) runRound(ctx context.Context, index int, mode conversati
 			}
 		case received := <-d.transport.events:
 			event := received.event
-			label := eventLabel(event)
+			label := roundEventLabel(event, streamID, mode.AllowSplitAssistantStreams)
 			if astPushToTalkGate && (label == "transcript" || label == "assistant") && receivedBeforeInputEOS(received.receivedAt, inputEOSSentAt.Load()) {
 				return stat, fmt.Errorf("round %d: AST push-to-talk published %s %s before input EOS", index, label, event.Type)
 			}
@@ -429,7 +455,7 @@ func (d *personaDriver) runRound(ctx context.Context, index int, mode conversati
 					continue
 				}
 			case "assistant":
-				if !acceptRoundEventStream(event, streamID, &assistantStreamID) {
+				if !acceptAssistantRoundEventStream(event, streamID, &assistantStreamID, mode.AllowSplitAssistantStreams) {
 					trace.add("skip event stream=%s want=%s bound=%s label=%s type=%s text=%q error=%s", eventStreamID(event), streamID, assistantStreamID, label, event.Type, eventText(event), eventError(event))
 					continue
 				}
@@ -439,11 +465,11 @@ func (d *personaDriver) runRound(ctx context.Context, index int, mode conversati
 					continue
 				}
 			}
-			stat.EventCount++
-			trace.add("event stream=%s label=%s type=%s text=%q error=%s", eventStreamID(event), label, event.Type, eventText(event), eventError(event))
 			if msg, ok := peerEventError(event); ok {
 				return stat, fmt.Errorf("round %d: peer event error: %s; recent events: %s", index, msg, trace.String())
 			}
+			stat.EventCount++
+			trace.add("event stream=%s label=%s type=%s text=%q error=%s", eventStreamID(event), label, event.Type, eventText(event), eventError(event))
 			if event.Type == peerStreamEventTypeEos && label == "assistant" {
 				if stat.AssistantTextDone == 0 {
 					trace.add("assistant audio segment eos before text done stream=%s", eventStreamID(event))
@@ -519,7 +545,7 @@ func (d *personaDriver) runRound(ctx context.Context, index int, mode conversati
 	responseStart = observedResponseStart(responseStart, inputEOSSentAt.Load())
 	stat.ResponseTotal = time.Since(responseStart)
 	stat.WorkspaceTotal = time.Since(uplinkStart)
-	if stat.Transcript == "" {
+	if stat.Transcript == "" && !mode.AllowMissingInputTranscript {
 		return stat, fmt.Errorf("round %d: missing transcript text; recent events: %s", index, trace.String())
 	}
 	if stat.Transcript != "" && !mode.SkipTranscriptSimilarity {
@@ -1027,8 +1053,12 @@ func (d *personaDriver) runInterruptScenario(ctx context.Context, index int, mod
 }
 
 func realtimePacketsWithTailSilence(packets [][]byte) ([][]byte, error) {
+	return realtimePacketsWithTailSilenceDuration(packets, realtimeInputTailSilence)
+}
+
+func realtimePacketsWithTailSilenceDuration(packets [][]byte, duration time.Duration) ([][]byte, error) {
 	silence, err := opusPacketsFromPCM16LE(
-		silencePCM16Mono16K(realtimeInputTailSilence),
+		silencePCM16Mono16K(duration),
 		realtimeAutoSplitSampleRate,
 		realtimeAutoSplitChannels,
 	)
@@ -1039,6 +1069,28 @@ func realtimePacketsWithTailSilence(packets [][]byte) ([][]byte, error) {
 	out = append(out, packets...)
 	out = append(out, silence...)
 	return out, nil
+}
+
+func realtimePacketsWithContinuousTailSilence(packets [][]byte, duration time.Duration) ([][]byte, error) {
+	frames, err := rawOpusPacketsToPCM16(packets, realtimeAutoSplitSampleRate, realtimeAutoSplitChannels)
+	if err != nil {
+		return nil, fmt.Errorf("decode realtime Opus input: %w", err)
+	}
+	pcmBytes := 0
+	for _, frame := range frames {
+		pcmBytes += len(frame)
+	}
+	silence := silencePCM16Mono16K(duration)
+	pcm := make([]byte, 0, pcmBytes+len(silence))
+	for _, frame := range frames {
+		pcm = append(pcm, frame...)
+	}
+	pcm = append(pcm, silence...)
+	encoded, err := opusPacketsFromPCM16LE(pcm, realtimeAutoSplitSampleRate, realtimeAutoSplitChannels)
+	if err != nil {
+		return nil, fmt.Errorf("encode continuous realtime Opus input: %w", err)
+	}
+	return encoded, nil
 }
 
 func workspaceAudioStreamID(index int) string {
@@ -1130,6 +1182,28 @@ func acceptRoundEventStream(event peerStreamEvent, inputStreamID string, boundSt
 		return true
 	}
 	return streamIDMatches(actual, *boundStreamID)
+}
+
+func acceptAssistantRoundEventStream(event peerStreamEvent, inputStreamID string, boundStreamID *string, allowSplit bool) bool {
+	if allowSplit {
+		return true
+	}
+	return acceptRoundEventStream(event, inputStreamID, boundStreamID)
+}
+
+func roundEventLabel(event peerStreamEvent, inputStreamID string, allowSplitAssistantStreams bool) string {
+	label := eventLabel(event)
+	if !allowSplitAssistantStreams || label != "" || event.StreamId == nil ||
+		streamIDMatches(*event.StreamId, inputStreamID) {
+		return label
+	}
+	switch event.Type {
+	case peerStreamEventTypeBos, peerStreamEventTypeEos,
+		peerStreamEventTypeTextDelta, peerStreamEventTypeTextDone:
+		return "assistant"
+	default:
+		return label
+	}
 }
 
 func isTranscriptDoneEvent(event peerStreamEvent) bool {
@@ -1949,16 +2023,28 @@ func (t *chatTransport) sendAudioTurn(ctx context.Context, streamID string, pack
 }
 
 func (t *chatTransport) sendAudioTurnObserved(ctx context.Context, streamID string, packets [][]byte, onEOSBoundary func(time.Time)) error {
-	if err := t.sendAudioTurnBOS(ctx, streamID); err != nil {
+	return t.sendAudioTurnObservedMIME(ctx, streamID, "audio/opus", packets, onEOSBoundary)
+}
+
+func (t *chatTransport) sendAudioTurnObservedMIME(ctx context.Context, streamID, mimeType string, packets [][]byte, onEOSBoundary func(time.Time)) error {
+	return t.sendAudioTurnObservedMIMEWithEnd(ctx, streamID, mimeType, packets, true, onEOSBoundary)
+}
+
+func (t *chatTransport) sendAudioTurnObservedMIMEWithEnd(ctx context.Context, streamID, mimeType string, packets [][]byte, endOfStream bool, onEOSBoundary func(time.Time)) error {
+	if err := t.sendAudioTurnBOSMIME(ctx, streamID, mimeType); err != nil {
 		return err
 	}
-	return t.sendAudioTurnAudioAndEOSObserved(ctx, streamID, packets, onEOSBoundary)
+	return t.sendAudioTurnAudioObservedMIME(ctx, streamID, mimeType, packets, endOfStream, onEOSBoundary)
 }
 
 func (t *chatTransport) sendAudioTurnBOS(ctx context.Context, streamID string) error {
+	return t.sendAudioTurnBOSMIME(ctx, streamID, "audio/opus")
+}
+
+func (t *chatTransport) sendAudioTurnBOSMIME(ctx context.Context, streamID, mimeType string) error {
 	label := "workspacetest"
 	return t.stream.Push(ctx, &genx.MessageChunk{
-		Part: &genx.Blob{MIMEType: "audio/opus"},
+		Part: &genx.Blob{MIMEType: mimeType},
 		Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: label, BeginOfStream: true},
 	})
 }
@@ -1968,6 +2054,14 @@ func (t *chatTransport) sendAudioTurnAudioAndEOS(ctx context.Context, streamID s
 }
 
 func (t *chatTransport) sendAudioTurnAudioAndEOSObserved(ctx context.Context, streamID string, packets [][]byte, onEOSBoundary func(time.Time)) error {
+	return t.sendAudioTurnAudioAndEOSObservedMIME(ctx, streamID, "audio/opus", packets, onEOSBoundary)
+}
+
+func (t *chatTransport) sendAudioTurnAudioAndEOSObservedMIME(ctx context.Context, streamID, mimeType string, packets [][]byte, onEOSBoundary func(time.Time)) error {
+	return t.sendAudioTurnAudioObservedMIME(ctx, streamID, mimeType, packets, true, onEOSBoundary)
+}
+
+func (t *chatTransport) sendAudioTurnAudioObservedMIME(ctx context.Context, streamID, mimeType string, packets [][]byte, endOfStream bool, onEOSBoundary func(time.Time)) error {
 	label := "workspacetest"
 	timestamp := time.Now().UnixMilli()
 	for i, packet := range packets {
@@ -1975,12 +2069,12 @@ func (t *chatTransport) sendAudioTurnAudioAndEOSObserved(ctx context.Context, st
 			return err
 		}
 		if err := t.stream.Push(ctx, &genx.MessageChunk{
-			Part: &genx.Blob{MIMEType: "audio/opus", Data: packet},
+			Part: &genx.Blob{MIMEType: mimeType, Data: packet},
 			Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: label, Timestamp: timestamp},
 		}); err != nil {
 			return err
 		}
-		if t.audioTap != nil {
+		if t.audioTap != nil && dashScopeBaseMIME(mimeType) == "audio/opus" {
 			if err := t.audioTap.TapInputPacket(ctx, "simulator input", packet); err != nil {
 				return err
 			}
@@ -1999,10 +2093,45 @@ func (t *chatTransport) sendAudioTurnAudioAndEOSObserved(ctx context.Context, st
 	if onEOSBoundary != nil {
 		onEOSBoundary(time.Now())
 	}
+	if !endOfStream {
+		return nil
+	}
 	return t.stream.Push(ctx, &genx.MessageChunk{
-		Part: &genx.Blob{MIMEType: "audio/opus"},
+		Part: &genx.Blob{MIMEType: mimeType},
 		Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: label, EndOfStream: true},
 	})
+}
+
+func rawOpusPacketsToPCM16(packets [][]byte, sampleRate, channels int) ([][]byte, error) {
+	decoder, err := opus.NewDecoder(sampleRate, channels)
+	if err != nil {
+		return nil, fmt.Errorf("create Opus decoder: %w", err)
+	}
+	defer func() {
+		_ = decoder.Close()
+	}()
+	frameSize := sampleRate * 3 / 50
+	frames := make([][]byte, 0, len(packets))
+	for index, packet := range packets {
+		samples, err := decoder.Decode(packet, frameSize, false)
+		if err != nil {
+			return nil, fmt.Errorf("decode packet %d: %w", index, err)
+		}
+		frame := make([]byte, len(samples)*2)
+		for sampleIndex, sample := range samples {
+			binary.LittleEndian.PutUint16(frame[sampleIndex*2:], uint16(sample))
+		}
+		frames = append(frames, frame)
+	}
+	return frames, nil
+}
+
+func dashScopeBaseMIME(mimeType string) string {
+	mimeType = strings.ToLower(strings.TrimSpace(mimeType))
+	if index := strings.IndexByte(mimeType, ';'); index >= 0 {
+		mimeType = strings.TrimSpace(mimeType[:index])
+	}
+	return mimeType
 }
 
 func transportEventsFromChunk(chunk *genx.MessageChunk) []peerStreamEvent {

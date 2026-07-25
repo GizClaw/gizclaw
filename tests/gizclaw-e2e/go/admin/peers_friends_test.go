@@ -12,6 +12,9 @@ import (
 
 func TestAdminAPIPeerFriendsListGetCreateDelete(t *testing.T) {
 	env := newAdminAPIHarness(t)
+	peer := env.h.ConnectClientFromContext("admin-api-peer")
+	defer peer.Close()
+	registerAdminHistoryPeers(t, env, env.admin, peer)
 	relationID := adminAPIRelationID(env.adminKey, env.peerKey)
 
 	_, _ = env.api.DeletePeerFriendWithResponse(env.ctx, env.adminKey, relationID)

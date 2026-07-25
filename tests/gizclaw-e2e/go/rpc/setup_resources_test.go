@@ -42,7 +42,22 @@ func newSharedSetupRPCHarness(t *testing.T) *sharedSetupRPCHarness {
 	peer := h.ConnectClientFromContext("gear1")
 	t.Cleanup(func() { peer.Close() })
 	registerRuntimeProfile(t, h, peer, "shared-resources", sharedRuntimeProfileSpec())
+	profileName, token := provisionRuntimeProfile(t, h, "shared-social-admin", sharedRuntimeProfileSpec())
+	admin := h.ConnectClientFromContext("admin-a")
+	t.Cleanup(func() { admin.Close() })
+	registerWithRuntimeProfile(t, admin, "shared-social-admin", profileName, token)
+	applySharedSocialFixtures(t, h)
 	return &sharedSetupRPCHarness{ctx: ctx, h: h, peer: peer}
+}
+
+func applySharedSocialFixtures(t *testing.T, h *clitest.Harness) {
+	t.Helper()
+	const contextName = "shared-social-apply-admin"
+	h.InstallFixedAdminContext(contextName).MustSucceed(t)
+	for _, name := range []string{"00-family-circle.yaml", "10-contacts.yaml"} {
+		path := filepath.Join(h.RepoRoot, "tests", "gizclaw-e2e", "testdata", "fixtures", "social", name)
+		h.RunCLI("admin", "apply", "--context", contextName, "-f", path).MustSucceed(t)
+	}
 }
 
 func TestSharedSetupRPCResourcesPagination(t *testing.T) {
@@ -53,7 +68,7 @@ func TestSharedSetupRPCResourcesPagination(t *testing.T) {
 	requireName(t, workflowNames, "chatroom")
 
 	modelIDs := collectModelIDs(t, env.ctx, env.peer, 25)
-	requireName(t, modelIDs, "chat")
+	requireName(t, modelIDs, "llm")
 }
 
 func TestSharedSetupRPCSocialFixtures(t *testing.T) {

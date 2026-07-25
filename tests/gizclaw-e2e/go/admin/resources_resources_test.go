@@ -3,6 +3,7 @@
 package admin_test
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -38,6 +39,8 @@ func TestAdminAPIResourcesGet(t *testing.T) {
 
 func TestAdminAPIResourcesGetSocialFixtures(t *testing.T) {
 	env := newAdminAPIHarness(t)
+	registerAdminHistoryPeers(t, env, env.admin)
+	applyAdminSocialFixtures(t, env)
 
 	friendResp, err := env.api.GetResourceWithResponse(env.ctx, apitypes.ResourceKindFriend, e2eSocialRelationID)
 	if err != nil {
@@ -90,4 +93,15 @@ func TestAdminAPIResourcesGetSocialFixtures(t *testing.T) {
 	if token.Spec.InviteToken != "family-circle-token" || token.Spec.FriendGroupId != e2eSocialGroupID {
 		t.Fatalf("friend group invite token spec = %+v", token.Spec)
 	}
+}
+
+func applyAdminSocialFixtures(t *testing.T, env *adminAPIHarness) {
+	t.Helper()
+	for _, name := range []string{"00-family-circle.yaml", "10-contacts.yaml"} {
+		path := filepath.Join(env.h.RepoRoot, "tests", "gizclaw-e2e", "testdata", "fixtures", "social", name)
+		env.h.RunCLI("admin", "apply", "--context", env.adminContext, "-f", path).MustSucceed(t)
+	}
+	// The CLI uses the same fixed admin identity, so its connection replaces the
+	// harness connection. Reconnect before reading the resources it applied.
+	env.reconnectAdminAPI(t)
 }

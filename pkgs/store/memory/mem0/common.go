@@ -16,6 +16,7 @@ type (
 	observation             = memorystore.Observation
 	observeResult           = memorystore.ObserveResult
 	operation               = memorystore.Operation
+	operationRequest        = memorystore.OperationRequest
 	query                   = memorystore.Query
 	recallResult            = memorystore.RecallResult
 	role                    = memorystore.Role
@@ -59,6 +60,9 @@ func validateObservation(observation observation) error {
 func validateQuery(query query) error            { return memorystore.ValidateQuery(query) }
 func validateUpdate(request updateRequest) error { return memorystore.ValidateUpdate(request) }
 func validateDelete(request deleteRequest) error { return memorystore.ValidateDelete(request) }
+func validateOperationRequest(request operationRequest) error {
+	return memorystore.ValidateOperationRequest(request)
+}
 
 func cloneMap(input map[string]any) map[string]any {
 	if input == nil {

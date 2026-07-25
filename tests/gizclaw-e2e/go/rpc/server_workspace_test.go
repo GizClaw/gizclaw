@@ -22,6 +22,16 @@ func TestServerWorkspaceRPC(t *testing.T) {
 		t.Fatalf("create workflow for workspace test: %v", err)
 	}
 	t.Cleanup(func() { _, _ = admin.DeleteWorkflowWithResponse(env.ctx, mutationWorkflow) })
+	profile, err := admin.PutRuntimeProfileWithResponse(env.ctx, "e2e-peer-a", adminhttp.RuntimeProfileUpsert{
+		Name: "e2e-peer-a",
+		Spec: sharedRuntimeProfileSpecWithMutation(),
+	})
+	if err != nil {
+		t.Fatalf("put RuntimeProfile with mutation Workflow: %v", err)
+	}
+	if profile.JSON200 == nil {
+		t.Fatalf("put RuntimeProfile with mutation Workflow status %d: %s", profile.StatusCode(), profile.Body)
+	}
 	createInput := rpcapi.WorkspaceInputModePushToTalk
 	workspace, err := env.peer.CreateWorkspace(env.ctx, "workspace.create", rpcapi.WorkspaceCreateRequest{
 		Name:          mutationWorkspace,
@@ -102,7 +112,7 @@ func TestServerResourceUnavailableWithoutProfileOrOwnership(t *testing.T) {
 	if _, err := denied.GetModel(env.ctx, "model.get.denied", rpcapi.ModelGetRequest{Alias: "chat"}); err == nil {
 		t.Fatalf("denied peer model.get error = %v", err)
 	}
-	assertDeniedListsAreEmpty(t, env.ctx, denied)
+	assertDeniedListsRejectMissingProfile(t, env.ctx, denied)
 }
 
 func TestServerResourceCreatorOwnsConcreteResources(t *testing.T) {

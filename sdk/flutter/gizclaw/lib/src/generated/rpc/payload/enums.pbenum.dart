@@ -179,6 +179,71 @@ class DashScopeTenantModelProviderDataApiMode extends $pb.ProtobufEnum {
   const DashScopeTenantModelProviderDataApiMode._(super.value, super.name);
 }
 
+class DashScopeRealtimeWorkspaceParametersAgentType extends $pb.ProtobufEnum {
+  static const DashScopeRealtimeWorkspaceParametersAgentType
+      DASH_SCOPE_REALTIME_WORKSPACE_PARAMETERS_AGENT_TYPE_UNSPECIFIED =
+      DashScopeRealtimeWorkspaceParametersAgentType._(
+          0,
+          _omitEnumNames
+              ? ''
+              : 'DASH_SCOPE_REALTIME_WORKSPACE_PARAMETERS_AGENT_TYPE_UNSPECIFIED');
+  static const DashScopeRealtimeWorkspaceParametersAgentType
+      DASH_SCOPE_REALTIME_WORKSPACE_PARAMETERS_AGENT_TYPE_DASH_SCOPE_REALTIME =
+      DashScopeRealtimeWorkspaceParametersAgentType._(
+          1,
+          _omitEnumNames
+              ? ''
+              : 'DASH_SCOPE_REALTIME_WORKSPACE_PARAMETERS_AGENT_TYPE_DASH_SCOPE_REALTIME');
+
+  static const $core.List<DashScopeRealtimeWorkspaceParametersAgentType>
+      values = <DashScopeRealtimeWorkspaceParametersAgentType>[
+    DASH_SCOPE_REALTIME_WORKSPACE_PARAMETERS_AGENT_TYPE_UNSPECIFIED,
+    DASH_SCOPE_REALTIME_WORKSPACE_PARAMETERS_AGENT_TYPE_DASH_SCOPE_REALTIME,
+  ];
+
+  static final $core.List<DashScopeRealtimeWorkspaceParametersAgentType?>
+      _byValue = $pb.ProtobufEnum.$_initByValueList(values, 1);
+  static DashScopeRealtimeWorkspaceParametersAgentType? valueOf(
+          $core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const DashScopeRealtimeWorkspaceParametersAgentType._(
+      super.value, super.name);
+}
+
+class DoubaoRealtimeDuplexWorkspaceParametersAgentType
+    extends $pb.ProtobufEnum {
+  static const DoubaoRealtimeDuplexWorkspaceParametersAgentType
+      DOUBAO_REALTIME_DUPLEX_WORKSPACE_PARAMETERS_AGENT_TYPE_UNSPECIFIED =
+      DoubaoRealtimeDuplexWorkspaceParametersAgentType._(
+          0,
+          _omitEnumNames
+              ? ''
+              : 'DOUBAO_REALTIME_DUPLEX_WORKSPACE_PARAMETERS_AGENT_TYPE_UNSPECIFIED');
+  static const DoubaoRealtimeDuplexWorkspaceParametersAgentType
+      DOUBAO_REALTIME_DUPLEX_WORKSPACE_PARAMETERS_AGENT_TYPE_DOUBAO_REALTIME_DUPLEX =
+      DoubaoRealtimeDuplexWorkspaceParametersAgentType._(
+          1,
+          _omitEnumNames
+              ? ''
+              : 'DOUBAO_REALTIME_DUPLEX_WORKSPACE_PARAMETERS_AGENT_TYPE_DOUBAO_REALTIME_DUPLEX');
+
+  static const $core.List<DoubaoRealtimeDuplexWorkspaceParametersAgentType>
+      values = <DoubaoRealtimeDuplexWorkspaceParametersAgentType>[
+    DOUBAO_REALTIME_DUPLEX_WORKSPACE_PARAMETERS_AGENT_TYPE_UNSPECIFIED,
+    DOUBAO_REALTIME_DUPLEX_WORKSPACE_PARAMETERS_AGENT_TYPE_DOUBAO_REALTIME_DUPLEX,
+  ];
+
+  static final $core.List<DoubaoRealtimeDuplexWorkspaceParametersAgentType?>
+      _byValue = $pb.ProtobufEnum.$_initByValueList(values, 1);
+  static DoubaoRealtimeDuplexWorkspaceParametersAgentType? valueOf(
+          $core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const DoubaoRealtimeDuplexWorkspaceParametersAgentType._(
+      super.value, super.name);
+}
+
 class DoubaoRealtimeAudioFormatType extends $pb.ProtobufEnum {
   static const DoubaoRealtimeAudioFormatType
       DOUBAO_REALTIME_AUDIO_FORMAT_TYPE_UNSPECIFIED =
@@ -494,6 +559,33 @@ class FlowcraftWorkspaceParametersAgentType extends $pb.ProtobufEnum {
   const FlowcraftWorkspaceParametersAgentType._(super.value, super.name);
 }
 
+class EinoWorkspaceParametersAgentType extends $pb.ProtobufEnum {
+  static const EinoWorkspaceParametersAgentType
+      EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_UNSPECIFIED =
+      EinoWorkspaceParametersAgentType._(
+          0,
+          _omitEnumNames
+              ? ''
+              : 'EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_UNSPECIFIED');
+  static const EinoWorkspaceParametersAgentType
+      EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO =
+      EinoWorkspaceParametersAgentType._(
+          1, _omitEnumNames ? '' : 'EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO');
+
+  static const $core.List<EinoWorkspaceParametersAgentType> values =
+      <EinoWorkspaceParametersAgentType>[
+    EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_UNSPECIFIED,
+    EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO,
+  ];
+
+  static final $core.List<EinoWorkspaceParametersAgentType?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 1);
+  static EinoWorkspaceParametersAgentType? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const EinoWorkspaceParametersAgentType._(super.value, super.name);
+}
+
 class FriendGroupMemberMutableRole extends $pb.ProtobufEnum {
   static const FriendGroupMemberMutableRole
       FRIEND_GROUP_MEMBER_MUTABLE_ROLE_UNSPECIFIED =
@@ -594,6 +686,8 @@ class ModelKind extends $pb.ProtobufEnum {
       ModelKind._(5, _omitEnumNames ? '' : 'MODEL_KIND_TRANSLATION');
   static const ModelKind MODEL_KIND_EMBEDDING =
       ModelKind._(6, _omitEnumNames ? '' : 'MODEL_KIND_EMBEDDING');
+  static const ModelKind MODEL_KIND_REALTIME_DUPLEX =
+      ModelKind._(7, _omitEnumNames ? '' : 'MODEL_KIND_REALTIME_DUPLEX');
 
   static const $core.List<ModelKind> values = <ModelKind>[
     MODEL_KIND_UNSPECIFIED,
@@ -603,10 +697,11 @@ class ModelKind extends $pb.ProtobufEnum {
     MODEL_KIND_REALTIME,
     MODEL_KIND_TRANSLATION,
     MODEL_KIND_EMBEDDING,
+    MODEL_KIND_REALTIME_DUPLEX,
   ];
 
   static final $core.List<ModelKind?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 6);
+      $pb.ProtobufEnum.$_initByValueList(values, 7);
   static ModelKind? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 
@@ -752,6 +847,13 @@ class VolcTenantModelProviderDataApiMode extends $pb.ProtobufEnum {
           _omitEnumNames
               ? ''
               : 'VOLC_TENANT_MODEL_PROVIDER_DATA_API_MODE_EMBEDDING');
+  static const VolcTenantModelProviderDataApiMode
+      VOLC_TENANT_MODEL_PROVIDER_DATA_API_MODE_REALTIME_DUPLEX =
+      VolcTenantModelProviderDataApiMode._(
+          7,
+          _omitEnumNames
+              ? ''
+              : 'VOLC_TENANT_MODEL_PROVIDER_DATA_API_MODE_REALTIME_DUPLEX');
 
   static const $core.List<VolcTenantModelProviderDataApiMode> values =
       <VolcTenantModelProviderDataApiMode>[
@@ -762,10 +864,11 @@ class VolcTenantModelProviderDataApiMode extends $pb.ProtobufEnum {
     VOLC_TENANT_MODEL_PROVIDER_DATA_API_MODE_CHAT_COMPLETIONS,
     VOLC_TENANT_MODEL_PROVIDER_DATA_API_MODE_TRANSLATION,
     VOLC_TENANT_MODEL_PROVIDER_DATA_API_MODE_EMBEDDING,
+    VOLC_TENANT_MODEL_PROVIDER_DATA_API_MODE_REALTIME_DUPLEX,
   ];
 
   static final $core.List<VolcTenantModelProviderDataApiMode?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 6);
+      $pb.ProtobufEnum.$_initByValueList(values, 7);
   static VolcTenantModelProviderDataApiMode? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 
@@ -786,6 +889,14 @@ class WorkflowDriver extends $pb.ProtobufEnum {
       WorkflowDriver._(4, _omitEnumNames ? '' : 'WORKFLOW_DRIVER_CHATROOM');
   static const WorkflowDriver WORKFLOW_DRIVER_PET =
       WorkflowDriver._(5, _omitEnumNames ? '' : 'WORKFLOW_DRIVER_PET');
+  static const WorkflowDriver WORKFLOW_DRIVER_DASH_SCOPE_REALTIME =
+      WorkflowDriver._(
+          6, _omitEnumNames ? '' : 'WORKFLOW_DRIVER_DASH_SCOPE_REALTIME');
+  static const WorkflowDriver WORKFLOW_DRIVER_DOUBAO_REALTIME_DUPLEX =
+      WorkflowDriver._(
+          7, _omitEnumNames ? '' : 'WORKFLOW_DRIVER_DOUBAO_REALTIME_DUPLEX');
+  static const WorkflowDriver WORKFLOW_DRIVER_EINO =
+      WorkflowDriver._(8, _omitEnumNames ? '' : 'WORKFLOW_DRIVER_EINO');
 
   static const $core.List<WorkflowDriver> values = <WorkflowDriver>[
     WORKFLOW_DRIVER_UNSPECIFIED,
@@ -794,10 +905,13 @@ class WorkflowDriver extends $pb.ProtobufEnum {
     WORKFLOW_DRIVER_AST_TRANSLATE,
     WORKFLOW_DRIVER_CHATROOM,
     WORKFLOW_DRIVER_PET,
+    WORKFLOW_DRIVER_DASH_SCOPE_REALTIME,
+    WORKFLOW_DRIVER_DOUBAO_REALTIME_DUPLEX,
+    WORKFLOW_DRIVER_EINO,
   ];
 
   static final $core.List<WorkflowDriver?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 5);
+      $pb.ProtobufEnum.$_initByValueList(values, 8);
   static WorkflowDriver? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 
@@ -820,6 +934,19 @@ class ReusableWorkflowDriver extends $pb.ProtobufEnum {
   static const ReusableWorkflowDriver REUSABLE_WORKFLOW_DRIVER_CHATROOM =
       ReusableWorkflowDriver._(
           4, _omitEnumNames ? '' : 'REUSABLE_WORKFLOW_DRIVER_CHATROOM');
+  static const ReusableWorkflowDriver
+      REUSABLE_WORKFLOW_DRIVER_DASH_SCOPE_REALTIME = ReusableWorkflowDriver._(5,
+          _omitEnumNames ? '' : 'REUSABLE_WORKFLOW_DRIVER_DASH_SCOPE_REALTIME');
+  static const ReusableWorkflowDriver
+      REUSABLE_WORKFLOW_DRIVER_DOUBAO_REALTIME_DUPLEX =
+      ReusableWorkflowDriver._(
+          6,
+          _omitEnumNames
+              ? ''
+              : 'REUSABLE_WORKFLOW_DRIVER_DOUBAO_REALTIME_DUPLEX');
+  static const ReusableWorkflowDriver REUSABLE_WORKFLOW_DRIVER_EINO =
+      ReusableWorkflowDriver._(
+          7, _omitEnumNames ? '' : 'REUSABLE_WORKFLOW_DRIVER_EINO');
 
   static const $core.List<ReusableWorkflowDriver> values =
       <ReusableWorkflowDriver>[
@@ -828,10 +955,13 @@ class ReusableWorkflowDriver extends $pb.ProtobufEnum {
     REUSABLE_WORKFLOW_DRIVER_DOUBAO_REALTIME,
     REUSABLE_WORKFLOW_DRIVER_AST_TRANSLATE,
     REUSABLE_WORKFLOW_DRIVER_CHATROOM,
+    REUSABLE_WORKFLOW_DRIVER_DASH_SCOPE_REALTIME,
+    REUSABLE_WORKFLOW_DRIVER_DOUBAO_REALTIME_DUPLEX,
+    REUSABLE_WORKFLOW_DRIVER_EINO,
   ];
 
   static final $core.List<ReusableWorkflowDriver?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 4);
+      $pb.ProtobufEnum.$_initByValueList(values, 7);
   static ReusableWorkflowDriver? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

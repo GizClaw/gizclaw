@@ -41,10 +41,41 @@ export GIZCLAW_E2E_TURN_CREDENTIAL="$container_turn_credential"
 : "${GIZCLAW_E2E_VOLC_LOG_TOPIC_ID:=}"
 : "${GIZCLAW_E2E_VOLC_LOG_ACCESS_KEY_ID:=}"
 : "${GIZCLAW_E2E_VOLC_LOG_ACCESS_KEY_SECRET:=}"
+: "${GIZCLAW_E2E_MEMORY_STORES:=0}"
+
+case "$GIZCLAW_E2E_MEMORY_STORES" in
+  0 | 1) ;;
+  *)
+    echo "GIZCLAW_E2E_MEMORY_STORES must be 0 or 1, got: $GIZCLAW_E2E_MEMORY_STORES" >&2
+    exit 2
+    ;;
+esac
 
 envsubst '${GIZCLAW_E2E_SERVER_ENDPOINT} ${GIZCLAW_E2E_TURN_ENDPOINT} ${GIZCLAW_E2E_TURN_USERNAME} ${GIZCLAW_E2E_TURN_CREDENTIAL}' \
   < "$repo_root/tests/gizclaw-e2e/testdata/server-workspace/config.yaml.template" \
-  > "$workspace_dir/config.yaml"
+  > "$workspace_dir/config.yaml.tmp"
+awk -v memory_stores="$GIZCLAW_E2E_MEMORY_STORES" '
+/^# GIZCLAW_E2E_MEMORY_STORE$/ {
+  if (memory_stores == "1") {
+    print "  agent-memory:"
+    print "    kind: memory"
+    print "    mem0:"
+    print "      endpoint: http://mem0:8000"
+    print "      flavor: self_hosted"
+  }
+  next
+}
+/^# GIZCLAW_E2E_MEMORY_BINDINGS$/ {
+  if (memory_stores == "1") {
+    print "    memory_store: agent-memory"
+    print "  eino:"
+    print "    memory_store: agent-memory"
+  }
+  next
+}
+{ print }
+' "$workspace_dir/config.yaml.tmp" > "$workspace_dir/config.yaml"
+rm -f "$workspace_dir/config.yaml.tmp"
 if [[ "$GIZCLAW_E2E_VOLC_LOG_ENABLED" == "true" ]]; then
   : "${GIZCLAW_E2E_VOLC_LOG_ENDPOINT:?missing GIZCLAW_E2E_VOLC_LOG_ENDPOINT}"
   : "${GIZCLAW_E2E_VOLC_LOG_REGION:?missing GIZCLAW_E2E_VOLC_LOG_REGION}"
