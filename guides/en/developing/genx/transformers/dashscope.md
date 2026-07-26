@@ -13,7 +13,7 @@ transformer, err := dashscoperealtime.New(dashscoperealtime.Config{
 })
 ```
 
-Select a DashScope Qwen 3.5 Omni Realtime model when enabling function tools; legacy Qwen Omni Turbo Realtime and Qwen 3 Omni Flash Realtime models do not support provider Function Calling.
+Select a DashScope Qwen 3.5 Omni Realtime model when enabling function tools; legacy Qwen Omni Turbo Realtime and Qwen 3 Omni Flash Realtime models do not support provider Function Calling. When `ToolInvoker` is configured and `Model` is empty, the constructor selects `ModelQwen35OmniFlashRealtime`; it rejects an explicitly configured unsupported model.
 
 ## Core structure and main function
 

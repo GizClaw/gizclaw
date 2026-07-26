@@ -13,7 +13,7 @@ transformer, err := dashscoperealtime.New(dashscoperealtime.Config{
 })
 ```
 
-启用 function tools 时应选择 DashScope Qwen 3.5 Omni Realtime model；旧版 Qwen Omni Turbo Realtime 和 Qwen 3 Omni Flash Realtime model 不支持 provider Function Calling。
+启用 function tools 时应选择 DashScope Qwen 3.5 Omni Realtime model；旧版 Qwen Omni Turbo Realtime 和 Qwen 3 Omni Flash Realtime model 不支持 provider Function Calling。配置 `ToolInvoker` 且 `Model` 为空时，constructor 自动选择 `ModelQwen35OmniFlashRealtime`；显式配置不支持的 model 会被拒绝。
 
 ## 核心结构与主函数
 

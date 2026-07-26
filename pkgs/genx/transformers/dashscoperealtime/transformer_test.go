@@ -261,11 +261,37 @@ func TestNew(t *testing.T) {
 	if transformer == nil {
 		t.Fatal("New() returned nil")
 	}
+	if transformer.model != dashscope.ModelQwenOmniTurboRealtimeLatest {
+		t.Fatalf("model without tools = %q, want legacy default", transformer.model)
+	}
 	if _, err := New(Config{
 		Client:       dashscope.NewClient(""),
 		MaxToolCalls: -1,
 	}); err == nil {
 		t.Fatal("New() succeeded with negative MaxToolCalls")
+	}
+	invoker := &dashScopeTestToolInvoker{definitions: dashScopeToolDefinitions()}
+	withTools, err := New(Config{
+		Client:      dashscope.NewClient(""),
+		ToolInvoker: invoker,
+	})
+	if err != nil {
+		t.Fatalf("New() with default tool model error = %v", err)
+	}
+	if withTools.model != dashscope.ModelQwen35OmniFlashRealtime {
+		t.Fatalf("default tool model = %q", withTools.model)
+	}
+	for _, model := range []string{
+		dashscope.ModelQwenOmniTurboRealtimeLatest,
+		dashscope.ModelQwen3OmniFlashRealtimeLatest,
+	} {
+		if _, err := New(Config{
+			Client:      dashscope.NewClient(""),
+			Model:       model,
+			ToolInvoker: invoker,
+		}); err == nil || !strings.Contains(err.Error(), "does not support function calling") {
+			t.Fatalf("New() unsupported tool model %q error = %v", model, err)
+		}
 	}
 }
 
@@ -278,7 +304,7 @@ func TestNewCopiesConfigAndBuildsConfiguredDelegate(t *testing.T) {
 	invoker := &dashScopeTestToolInvoker{definitions: dashScopeToolDefinitions()}
 	transformer, err := New(Config{
 		Client:            dashscope.NewClient(""),
-		Model:             "model",
+		Model:             dashscope.ModelQwen35OmniPlusRealtime,
 		Voice:             "voice",
 		Instructions:      "instructions",
 		Modalities:        modalities,
@@ -308,7 +334,7 @@ func TestNewCopiesConfigAndBuildsConfiguredDelegate(t *testing.T) {
 	if transformer.turnDetection == nil || transformer.turnDetection.Type != "server_vad" {
 		t.Fatal("New() retained caller-owned TurnDetection pointer")
 	}
-	if transformer.model != "model" || transformer.voice != "voice" ||
+	if transformer.model != dashscope.ModelQwen35OmniPlusRealtime || transformer.voice != "voice" ||
 		transformer.instructions != "instructions" || transformer.vadType != "server_vad" ||
 		transformer.maxOutputTokens == nil || *transformer.maxOutputTokens != 10 ||
 		transformer.enableInputAudioTranscription || transformer.inputAudioTranscriptionModel != "asr-model" ||

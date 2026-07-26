@@ -12,6 +12,7 @@ import (
 
 	doubaospeech "github.com/GizClaw/doubao-speech-go"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/toolrun"
 	"github.com/google/jsonschema-go/jsonschema"
 )
 
@@ -242,6 +243,29 @@ func TestDoubaoRealtimeDuplexRejectsInvalidToolResultJSON(t *testing.T) {
 	}
 	if outputs := session.functionOutputs(); len(outputs) != 0 {
 		t.Fatalf("function outputs = %#v, want none", outputs)
+	}
+}
+
+func TestDoubaoRealtimeDuplexReturnsFunctionCallOutputError(t *testing.T) {
+	wantErr := errors.New("send function output failed")
+	session := &fakeDoubaoRealtimeDuplexSession{
+		events:          doubaoSingleToolEvents("call-1"),
+		functionCallErr: wantErr,
+	}
+	invoker := &doubaoTestToolInvoker{definitions: doubaoToolDefinitions()}
+	transformer := newTransformer(nil, withToolInvoker(invoker))
+	_, err := transformer.processLoop(
+		t.Context(),
+		emptyRealtimeStream{},
+		newBufferStream(1),
+		session,
+		toolrun.New(invoker, 0),
+	)
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("processLoop() error = %v, want %v", err, wantErr)
+	}
+	if !session.waitClosed(time.Second) {
+		t.Fatal("session was not closed")
 	}
 }
 

@@ -18,7 +18,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/ogg"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
-	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/toolrun"
 )
 
 func TestDoubaoRealtimeDuplexAudioInputDecodesOpusToPCM(t *testing.T) {
@@ -72,7 +71,9 @@ func TestTransformerConcurrentCallsOwnSessions(t *testing.T) {
 	errs := make(chan error, calls)
 	var wg sync.WaitGroup
 	for range calls {
-		wg.Go(func() {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
 			ctx, cancel := context.WithCancel(context.Background())
 			cancels <- cancel
 			input := newBufferStream(1)
@@ -83,7 +84,7 @@ func TestTransformerConcurrentCallsOwnSessions(t *testing.T) {
 			}
 			inputs <- input
 			outputs <- output
-		})
+		}()
 	}
 	wg.Wait()
 	close(errs)
@@ -568,37 +569,6 @@ func TestDoubaoRealtimeDuplexRejectsFunctionCallWithoutInvoker(t *testing.T) {
 	}
 	if outputs := session.functionOutputs(); len(outputs) != 0 {
 		t.Fatalf("function call outputs = %#v, want none", outputs)
-	}
-	if !session.waitClosed(time.Second) {
-		t.Fatal("session was not closed")
-	}
-}
-
-func TestDoubaoRealtimeDuplexReturnsFunctionCallOutputError(t *testing.T) {
-	wantErr := errors.New("send function output failed")
-	session := &fakeDoubaoRealtimeDuplexSession{
-		events: []*doubaospeech.RealtimeDuplexEvent{
-			{
-				Type: doubaospeech.RealtimeDuplexEventResponseFunctionCallArgumentsDone,
-				FunctionCalls: []doubaospeech.RealtimeDuplexFunctionCall{{
-					CallID: "call-1",
-					Name:   "get_weather",
-				}},
-			},
-		},
-		functionCallErr: wantErr,
-	}
-	invoker := &doubaoTestToolInvoker{definitions: doubaoToolDefinitions()}
-	tfr := newTransformer(nil, withToolInvoker(invoker))
-	_, err := tfr.processLoop(
-		context.Background(),
-		emptyRealtimeStream{},
-		newBufferStream(1),
-		session,
-		toolrun.New(invoker, 0),
-	)
-	if !errors.Is(err, wantErr) {
-		t.Fatalf("processLoop() error = %v, want %v", err, wantErr)
 	}
 	if !session.waitClosed(time.Second) {
 		t.Fatal("session was not closed")
