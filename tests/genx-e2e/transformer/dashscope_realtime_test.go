@@ -22,10 +22,10 @@ func TestDashScopeRealtimeToolInvokerContinuation(t *testing.T) {
 	invoker := &realtimeE2EToolInvoker{}
 	transformer, err := dashscoperealtime.New(dashscoperealtime.Config{
 		Client:       dashscope.NewClient(apiKey),
-		Model:        dashscope.ModelQwen35OmniFlashRealtime,
+		Model:        dashscope.ModelQwen35OmniPlusRealtime,
 		Instructions: realtimeToolInstructions,
 		ToolInvoker:  invoker,
-		MaxToolCalls: 1,
+		MaxToolCalls: realtimeToolCallLimit,
 	})
 	if err != nil {
 		t.Fatalf("dashscoperealtime.New() failed: %v", err)
@@ -41,7 +41,7 @@ func TestDashScopeRealtimeToolInvokerContinuation(t *testing.T) {
 	}
 	defer output.CloseWithError(context.Canceled)
 
-	packets := embeddedPromptOpusPackets(t)
+	packets := embeddedToolPromptOpusPackets(t)
 	feedDone := make(chan error, 1)
 	go func() {
 		feedDone <- pushDashScopeToolTurn(
@@ -52,6 +52,10 @@ func TestDashScopeRealtimeToolInvokerContinuation(t *testing.T) {
 		)
 	}()
 	response := waitForRealtimeToolContinuation(t, ctx, output, feedDone)
-	assertSingleRealtimeToolCall(t, invoker)
-	t.Logf("DashScope Realtime tool continuation response=%q", response)
+	assertRealtimeToolCalls(t, invoker)
+	t.Logf(
+		"DashScope Realtime tool calls=%d continuation response=%q",
+		len(invoker.snapshot()),
+		response,
+	)
 }

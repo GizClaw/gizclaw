@@ -7,6 +7,8 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
 
+const dashScopeQwen35DefaultVoice = "Tina"
+
 // Config contains immutable DashScope realtime dependencies and session options.
 type Config struct {
 	Client            *dashscope.Client
@@ -48,6 +50,9 @@ func New(config Config) (*Transformer, error) {
 				config.Model,
 			)
 		}
+	}
+	if config.Voice == "" && dashScopeModelIsQwen35Realtime(config.Model) {
+		config.Voice = dashScopeQwen35DefaultVoice
 	}
 	config.Modalities = append([]string(nil), config.Modalities...)
 	config.Temperature = cloneFloat64(config.Temperature)
@@ -104,6 +109,10 @@ func New(config Config) (*Transformer, error) {
 }
 
 func dashScopeModelSupportsFunctionCalling(model string) bool {
+	return dashScopeModelIsQwen35Realtime(model)
+}
+
+func dashScopeModelIsQwen35Realtime(model string) bool {
 	switch model {
 	case dashscope.ModelQwen35OmniPlusRealtime,
 		dashscope.ModelQwen35OmniPlusRealtime20260315,

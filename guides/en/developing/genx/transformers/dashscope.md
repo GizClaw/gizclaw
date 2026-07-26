@@ -15,6 +15,10 @@ transformer, err := dashscoperealtime.New(dashscoperealtime.Config{
 
 Select a DashScope Qwen 3.5 Omni Realtime model when enabling function tools; legacy Qwen Omni Turbo Realtime and Qwen 3 Omni Flash Realtime models do not support provider Function Calling. When `ToolInvoker` is configured and `Model` is empty, the constructor selects `ModelQwen35OmniFlashRealtime`; it rejects an explicitly configured unsupported model.
 
+The default output voice follows the selected model family. Qwen 3.5 Omni Realtime uses `Tina`; the legacy Qwen Omni Turbo Realtime default remains `Chelsie`. An explicitly configured `Voice` is preserved.
+
+An empty VAD configuration is explicit manual mode: the Adapter sends `VADModeDisabled`, commits audio at the GenX input EOS, and creates exactly one initial response. This prevents provider-default VAD from racing the EOS-triggered commit. An explicit `VAD` or `TurnDetection` value is sent to the provider unchanged.
+
 ## Core structure and main function
 
 | Symbol | Function |

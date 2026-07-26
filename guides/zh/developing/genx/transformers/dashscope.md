@@ -15,6 +15,10 @@ transformer, err := dashscoperealtime.New(dashscoperealtime.Config{
 
 启用 function tools 时应选择 DashScope Qwen 3.5 Omni Realtime model；旧版 Qwen Omni Turbo Realtime 和 Qwen 3 Omni Flash Realtime model 不支持 provider Function Calling。配置 `ToolInvoker` 且 `Model` 为空时，constructor 自动选择 `ModelQwen35OmniFlashRealtime`；显式配置不支持的 model 会被拒绝。
 
+默认输出音色随所选 model family 变化：Qwen 3.5 Omni Realtime 使用 `Tina`，旧版 Qwen Omni Turbo Realtime 仍使用 `Chelsie`。显式配置的 `Voice` 保持不变。
+
+空 VAD 配置表示显式 manual mode：Adapter 发送 `VADModeDisabled`，在 GenX 输入 EOS 时提交音频，并且只创建一次初始 response，避免 provider 默认 VAD 与 EOS commit 竞争。显式 `VAD` 或 `TurnDetection` 值会原样发送给 provider。
+
 ## 核心结构与主函数
 
 | 符号 | 作用 |

@@ -264,6 +264,9 @@ func TestNew(t *testing.T) {
 	if transformer.model != dashscope.ModelQwenOmniTurboRealtimeLatest {
 		t.Fatalf("model without tools = %q, want legacy default", transformer.model)
 	}
+	if transformer.voice != dashscope.VoiceChelsie {
+		t.Fatalf("voice without tools = %q, want legacy default", transformer.voice)
+	}
 	if _, err := New(Config{
 		Client:       dashscope.NewClient(""),
 		MaxToolCalls: -1,
@@ -280,6 +283,26 @@ func TestNew(t *testing.T) {
 	}
 	if withTools.model != dashscope.ModelQwen35OmniFlashRealtime {
 		t.Fatalf("default tool model = %q", withTools.model)
+	}
+	if withTools.voice != dashScopeQwen35DefaultVoice {
+		t.Fatalf("default tool voice = %q, want Tina", withTools.voice)
+	}
+	for _, model := range []string{
+		dashscope.ModelQwen35OmniPlusRealtime,
+		dashscope.ModelQwen35OmniPlusRealtime20260315,
+		dashscope.ModelQwen35OmniFlashRealtime,
+		dashscope.ModelQwen35OmniFlashRealtime20260315,
+	} {
+		transformer, err := New(Config{
+			Client: dashscope.NewClient(""),
+			Model:  model,
+		})
+		if err != nil {
+			t.Fatalf("New() Qwen 3.5 model %q error = %v", model, err)
+		}
+		if transformer.voice != dashScopeQwen35DefaultVoice {
+			t.Fatalf("Qwen 3.5 model %q default voice = %q, want Tina", model, transformer.voice)
+		}
 	}
 	for _, model := range []string{
 		dashscope.ModelQwenOmniTurboRealtimeLatest,
