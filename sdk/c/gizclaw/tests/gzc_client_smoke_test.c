@@ -54,6 +54,7 @@ typedef struct {
   size_t threshold_count;
   int send_calls;
   int fail_send_call;
+  int would_block_send_call;
   int poll_count;
   int last_poll_timeout_ms;
   int create_channel_count;
@@ -700,6 +701,9 @@ static int test_channel_send(gzc_rtc_channel_t *channel, const uint8_t *data, si
   if (fake->fail_send_call == fake->send_calls) {
     return GZC_ERR_WEBRTC;
   }
+  if (fake->would_block_send_call == fake->send_calls) {
+    return GZC_ERR_WOULD_BLOCK;
+  }
   if (len > fake->max_send_len) {
     fake->max_send_len = len;
   }
@@ -1156,10 +1160,22 @@ int main(void) {
   invalid_config = config;
   invalid_config.webrtc = &incomplete_webrtc;
   rc = gzc_client_create(&invalid_config, &client);
-  if (expect(rc == GZC_ERR_UNSUPPORTED && client == NULL,
-             "incomplete v2 flow control is unsupported") != 0) {
+  if (expect(rc == GZC_ERR_INVALID_ARGUMENT && client == NULL,
+             "flow-control callbacks are supplied as a pair") != 0) {
     return 1;
   }
+  gzc_webrtc_vtable_t backpressure_webrtc = webrtc;
+  backpressure_webrtc.channel_buffered_amount = NULL;
+  backpressure_webrtc.channel_set_buffered_amount_low_threshold = NULL;
+  gzc_client_t *backpressure_client = NULL;
+  invalid_config = config;
+  invalid_config.webrtc = &backpressure_webrtc;
+  rc = gzc_client_create(&invalid_config, &backpressure_client);
+  if (expect(rc == GZC_OK && backpressure_client != NULL,
+             "send backpressure can replace buffered-amount callbacks") != 0) {
+    return 1;
+  }
+  gzc_client_destroy(backpressure_client);
   gzc_platform_t platform_without_instant = *platform;
   platform_without_instant.time_instant_ms = NULL;
   invalid_config = config;
@@ -1206,6 +1222,26 @@ int main(void) {
   rc = gzc_client_open_service_channel(client, 49, 1000, &bounded_channel);
   if (expect(rc == GZC_OK && bounded_channel != NULL,
              "open bounded service channel") != 0) {
+    return 1;
+  }
+  int (*buffered_amount_fn)(gzc_rtc_channel_t *, uint64_t *) =
+      webrtc.channel_buffered_amount;
+  int (*set_low_threshold_fn)(gzc_rtc_channel_t *, uint64_t) =
+      webrtc.channel_set_buffered_amount_low_threshold;
+  webrtc.channel_buffered_amount = NULL;
+  webrtc.channel_set_buffered_amount_low_threshold = NULL;
+  fake_webrtc.would_block_send_call = fake_webrtc.send_calls + 1;
+  gzc_buf_reset(&fake_webrtc.native_sent);
+  int backpressure_poll_count = fake_webrtc.poll_count;
+  rc = gzc_service_channel_send_frame(bounded_channel, &(gzc_rpc_frame_t){
+                                                           .type = GZC_RPC_FRAME_EOS,
+                                                       });
+  fake_webrtc.would_block_send_call = 0;
+  webrtc.channel_buffered_amount = buffered_amount_fn;
+  webrtc.channel_set_buffered_amount_low_threshold = set_low_threshold_fn;
+  if (expect(rc == GZC_OK && fake_webrtc.poll_count > backpressure_poll_count &&
+                 fake_webrtc.native_sent.len == 4u,
+             "would-block send retries without consuming the service bytes") != 0) {
     return 1;
   }
   uint8_t *large_payload =
