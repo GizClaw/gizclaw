@@ -65,6 +65,53 @@ func TestDoubaoRealtimeDuplexConversation(t *testing.T) {
 	})
 }
 
+func TestDoubaoRealtimeDuplexToolInvokerContinuation(t *testing.T) {
+	loadGenXE2EEnv(t)
+	appID := firstEnv(doubaoAppIDEnv, "GIZCLAW_E2E_DOUBAO_APP_ID")
+	apiKey := firstEnv(doubaoAPIKeyEnv, "GIZCLAW_E2E_DOUBAO_API_KEY")
+	if appID == "" || apiKey == "" {
+		t.Skipf("set %s and %s in tests/genx-e2e/.env", doubaoAppIDEnv, doubaoAPIKeyEnv)
+	}
+
+	invoker := &realtimeE2EToolInvoker{}
+	client := doubaospeech.NewClient(appID, doubaospeech.WithAPIKey(apiKey))
+	transcode := false
+	transformer, err := doubaorealtimeduplex.New(doubaorealtimeduplex.Config{
+		Client:         client,
+		Instructions:   realtimeToolInstructions,
+		InputTranscode: &transcode,
+		ToolInvoker:    invoker,
+		MaxToolCalls:   1,
+	})
+	if err != nil {
+		t.Fatalf("doubaorealtimeduplex.New() failed: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	input := genx.NewRealtimeStream(genx.WithRealtimeStreamDelay(0))
+	defer input.CloseWithError(context.Canceled)
+	output, err := transformer.Transform(ctx, input)
+	if err != nil {
+		t.Fatalf("Doubao Transform() failed: %v", err)
+	}
+	defer output.CloseWithError(context.Canceled)
+
+	packets := embeddedPromptOpusPackets(t)
+	feedDone := make(chan error, 1)
+	go func() {
+		feedDone <- pushDuplexTurn(
+			ctx,
+			input,
+			"doubao-tool-invoker-e2e",
+			packets,
+		)
+	}()
+	response := waitForRealtimeToolContinuation(t, ctx, output, feedDone)
+	assertSingleRealtimeToolCall(t, invoker)
+	t.Logf("Doubao Realtime Duplex tool continuation response=%q", response)
+}
+
 func runDuplexConversation(t *testing.T, tfr genx.Transformer, packets [][]byte) []duplexRoundResult {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)

@@ -60,6 +60,22 @@ Push-to-Talk 的输入音频 EOS 按原始顺序一次性提交未发布 chunks�
 
 这两个 Adapter 可以共用 GenX Stream、audio conversion、StreamID 和 lifecycle 基础设施，但不能合并 provider session interface 或 event mapping。Push-to-Talk 只属于 Realtime Dialogue API，不应由 Realtime Duplex Adapter 模拟。
 
+## Realtime Duplex function-tool 续跑
+
+```go
+transformer, err := doubaorealtimeduplex.New(doubaorealtimeduplex.Config{
+    Client:       client,
+    ToolInvoker: runtimeTools,
+    MaxToolCalls: 32,
+})
+```
+
+`ToolInvoker` 非空时，每次 `Transform` 都会在打开 provider session 前解析当次可用函数的名称、说明和 JSON Schema。Realtime Duplex function call 按 provider 顺序通过 `InvokeTool(name, arguments)` 执行；每个 raw JSON result 都立即使用原 provider call ID 发回，使 provider 继续同一段会话。ToolCall 和 ToolResult control data 始终留在内部，不进入公开 GenX Stream。
+
+Transformer 自己管理 provider call ID、顺序、重复 ID 拒绝和 invocation 级 `MaxToolCalls` 额度。零值采用 32，负数非法。独立的并发 `Transform` 即使共用同一个 invoker，也各自拥有 call-ID set 和额度。nil invoker 不声明工具；此时 provider 如果仍返回 function call，该 Transform 会失败。
+
+解析、执行、非法 result JSON、提交 result、取消、重复 ID 和额度耗尽错误只终止受影响的 Transform。注入的 invoker 负责 runtime resource lookup、权限、参数校验和 Executor dispatch。Realtime Dialogue 不变，因为它的 session contract 没有 function-result continuation 操作。
+
 ## Realtime Dialogue 输入模式
 
 `doubaorealtime.Transformer` 支持三种输入模式：

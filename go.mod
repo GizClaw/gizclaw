@@ -4,7 +4,7 @@ go 1.26.4
 
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.47.0
-	github.com/GizClaw/dashscope-realtime-go v0.0.0-20260512045013-1d5b538966ad
+	github.com/GizClaw/dashscope-realtime-go v0.0.0-20260719062052-bf38cd23188e
 	github.com/GizClaw/doubao-speech-go v0.0.0-20260627203027-6f08ce8eb502
 	github.com/GizClaw/flowcraft/memory v0.1.7
 	github.com/GizClaw/flowcraft/sdk v0.4.8

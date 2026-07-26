@@ -60,6 +60,22 @@ Unpublished assistant TTS output is limited to two minutes of normalized Opus pa
 
 The two Adapters can share GenX Stream, audio conversion, StreamID, and lifecycle infrastructure, but cannot merge provider session interface or event mapping. Push-to-Talk belongs only to the Realtime Dialogue API and should not be emulated by the Realtime Duplex Adapter.
 
+## Realtime Duplex function-tool continuation
+
+```go
+transformer, err := doubaorealtimeduplex.New(doubaorealtimeduplex.Config{
+    Client:       client,
+    ToolInvoker: runtimeTools,
+    MaxToolCalls: 32,
+})
+```
+
+When `ToolInvoker` is non-nil, every `Transform` resolves the current function names, descriptions, and JSON Schemas before opening its provider session. Realtime Duplex function calls execute in provider order through `InvokeTool(name, arguments)`. Each raw JSON result is sent immediately with the original provider call ID so the provider can continue the conversation. ToolCall and ToolResult control data remain internal and never enter the public GenX Stream.
+
+The Transformer owns provider call IDs, ordering, duplicate-ID rejection, and the per-invocation `MaxToolCalls` budget. Zero uses 32 and negative values are rejected. Independent concurrent `Transform` calls have separate call-ID sets and budgets, even when they share one invoker. A nil invoker advertises no tools; a provider function call in that state is a transform error.
+
+Resolution, invocation, invalid result JSON, result submission, cancellation, duplicate-ID, and budget errors terminate only the affected Transform. The injected invoker owns runtime resource lookup, authorization, argument validation, and executor dispatch. Realtime Dialogue remains unchanged because its session contract has no function-result continuation operation.
+
 ## Realtime Dialogue input mode
 
 `doubaorealtime.Transformer` supports three input modes:

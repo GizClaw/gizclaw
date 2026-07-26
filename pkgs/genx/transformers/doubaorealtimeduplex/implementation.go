@@ -18,6 +18,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/streamkit"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/toolrun"
 )
 
 // Transformer is a realtime-only transformer backed by the Doubao
@@ -38,7 +39,8 @@ type Transformer struct {
 	outputVoice      string
 	outputSpeed      *int
 	outputLoudness   *int
-	tools            []doubaospeech.RealtimeDuplexFunctionTool
+	toolInvoker      genx.ToolInvoker
+	maxToolCalls     int
 	extension        *doubaospeech.RealtimeDuplexExtension
 }
 
@@ -166,9 +168,15 @@ func withOutputLoudness(loudness int) option {
 	}
 }
 
-func withTools(tools []doubaospeech.RealtimeDuplexFunctionTool) option {
+func withToolInvoker(invoker genx.ToolInvoker) option {
 	return func(t *Transformer) {
-		t.tools = append([]doubaospeech.RealtimeDuplexFunctionTool(nil), tools...)
+		t.toolInvoker = invoker
+	}
+}
+
+func withMaxToolCalls(maximum int) option {
+	return func(t *Transformer) {
+		t.maxToolCalls = maximum
 	}
 }
 
@@ -222,7 +230,11 @@ func (t *Transformer) transform(ctx context.Context, input genx.Stream) (genx.St
 	if input == nil {
 		return nil, fmt.Errorf("doubao realtime duplex: input stream is required")
 	}
-	config := t.realtimeConfig()
+	tools, err := resolveDoubaoRealtimeDuplexTools(ctx, t.toolInvoker)
+	if err != nil {
+		return nil, err
+	}
+	config := t.realtimeConfig(tools)
 	slog.Info(
 		"doubao: realtime duplex session config",
 		"model", config.Session.Model,
@@ -237,12 +249,14 @@ func (t *Transformer) transform(ctx context.Context, input genx.Stream) (genx.St
 	)
 
 	output := newBufferStream(16)
-	go t.sessionLoop(ctx, input, output)
+	go t.sessionLoop(ctx, input, output, tools, toolrun.New(t.toolInvoker, t.maxToolCalls))
 
 	return output, nil
 }
 
-func (t *Transformer) realtimeConfig() *doubaospeech.RealtimeDuplexConfig {
+func (t *Transformer) realtimeConfig(
+	tools []doubaospeech.RealtimeDuplexFunctionTool,
+) *doubaospeech.RealtimeDuplexConfig {
 	config := &doubaospeech.RealtimeDuplexConfig{
 		Session: doubaospeech.RealtimeDuplexSessionConfig{
 			ID:           strings.TrimSpace(t.sessionID),
@@ -263,7 +277,7 @@ func (t *Transformer) realtimeConfig() *doubaospeech.RealtimeDuplexConfig {
 					Voice: strings.TrimSpace(t.outputVoice),
 				},
 			},
-			Tools: append([]doubaospeech.RealtimeDuplexFunctionTool(nil), t.tools...),
+			Tools: append([]doubaospeech.RealtimeDuplexFunctionTool(nil), tools...),
 		},
 		Extension: t.extension,
 	}
@@ -276,7 +290,13 @@ func (t *Transformer) realtimeConfig() *doubaospeech.RealtimeDuplexConfig {
 	return config
 }
 
-func (t *Transformer) sessionLoop(ctx context.Context, input genx.Stream, output *bufferStream) {
+func (t *Transformer) sessionLoop(
+	ctx context.Context,
+	input genx.Stream,
+	output *bufferStream,
+	tools []doubaospeech.RealtimeDuplexFunctionTool,
+	toolState *toolrun.State,
+) {
 	defer output.Close()
 	input = newDoubaoRealtimeDuplexInputReader(input)
 	defer input.Close()
@@ -286,13 +306,19 @@ func (t *Transformer) sessionLoop(ctx context.Context, input genx.Stream, output
 			output.CloseWithError(err)
 			return
 		}
-		config := t.realtimeConfig()
+		config := t.realtimeConfig(tools)
 		session, err := t.duplex.OpenSession(ctx, config)
 		if err != nil {
 			output.CloseWithError(fmt.Errorf("doubao realtime duplex open session: %w", err))
 			return
 		}
-		next, err := t.processLoop(ctx, withDoubaoRealtimeDuplexPendingChunk(input, pending), output, session)
+		next, err := t.processLoop(
+			ctx,
+			withDoubaoRealtimeDuplexPendingChunk(input, pending),
+			output,
+			session,
+			toolState,
+		)
 		if err != nil {
 			output.CloseWithError(err)
 			return
@@ -304,7 +330,13 @@ func (t *Transformer) sessionLoop(ctx context.Context, input genx.Stream, output
 	}
 }
 
-func (t *Transformer) processLoop(ctx context.Context, input genx.Stream, output *bufferStream, session doubaoRealtimeDuplexSession) (*genx.MessageChunk, error) {
+func (t *Transformer) processLoop(
+	ctx context.Context,
+	input genx.Stream,
+	output *bufferStream,
+	session doubaoRealtimeDuplexSession,
+	toolState *toolrun.State,
+) (*genx.MessageChunk, error) {
 	defer session.Close()
 	var restarting atomic.Bool
 	assistant := newRealtimeAssistantLifecycle()
@@ -648,16 +680,26 @@ func (t *Transformer) processLoop(ctx context.Context, input genx.Stream, output
 					completeAssistantStream(streamID)
 				}
 			case doubaospeech.RealtimeDuplexEventResponseFunctionCallArgumentsDone:
-				outputs := make([]doubaospeech.RealtimeDuplexFunctionCallOutput, 0, len(event.FunctionCalls))
 				for _, call := range event.FunctionCalls {
-					outputs = append(outputs, doubaospeech.RealtimeDuplexFunctionCallOutput{
-						CallID: call.CallID,
-						Output: doubaoRealtimeDuplexFakeToolOutput(call),
+					result, err := toolState.Invoke(ctx, genx.ToolCall{
+						ID: call.CallID,
+						FuncCall: &genx.FuncCall{
+							Name:      call.Name,
+							Arguments: call.Arguments,
+						},
 					})
-				}
-				if len(outputs) > 0 {
-					if err := session.SendFunctionCallOutputs(ctx, outputs...); err != nil {
-						finishEventError(err)
+					if err != nil {
+						finishEventError(fmt.Errorf("doubao realtime duplex invoke tool: %w", err))
+						return
+					}
+					if err := session.SendFunctionCallOutputs(ctx, doubaospeech.RealtimeDuplexFunctionCallOutput{
+						CallID: result.ID,
+						Output: result.Result,
+					}); err != nil {
+						finishEventError(fmt.Errorf(
+							"doubao realtime duplex submit tool result: %w",
+							err,
+						))
 						return
 					}
 				}
@@ -1014,17 +1056,42 @@ func firstNonEmptyString(values ...string) string {
 	return ""
 }
 
-func doubaoRealtimeDuplexFakeToolOutput(call doubaospeech.RealtimeDuplexFunctionCall) string {
-	data, err := json.Marshal(map[string]string{
-		"status":  "ok",
-		"source":  "gizclaw-internal-fake",
-		"tool":    call.Name,
-		"call_id": call.CallID,
-	})
+func resolveDoubaoRealtimeDuplexTools(
+	ctx context.Context,
+	invoker genx.ToolInvoker,
+) ([]doubaospeech.RealtimeDuplexFunctionTool, error) {
+	definitions, err := toolrun.ResolveTools(ctx, invoker)
 	if err != nil {
-		return `{"status":"ok","source":"gizclaw-internal-fake"}`
+		return nil, fmt.Errorf("doubao realtime duplex: %w", err)
 	}
-	return string(data)
+	tools := make([]doubaospeech.RealtimeDuplexFunctionTool, 0, len(definitions))
+	for _, definition := range definitions {
+		encoded, err := json.Marshal(definition.Argument)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"doubao realtime duplex: encode tool %q schema: %w",
+				definition.Name,
+				err,
+			)
+		}
+		var parameters doubaospeech.RealtimeDuplexJSONSchema
+		decoder := json.NewDecoder(bytes.NewReader(encoded))
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&parameters); err != nil {
+			return nil, fmt.Errorf(
+				"doubao realtime duplex: convert tool %q schema: %w",
+				definition.Name,
+				err,
+			)
+		}
+		tools = append(tools, doubaospeech.RealtimeDuplexFunctionTool{
+			Type:        "function",
+			Name:        definition.Name,
+			Description: definition.Description,
+			Parameters:  &parameters,
+		})
+	}
+	return tools, nil
 }
 
 func realtimeDuplexASRText(payload []byte) string {

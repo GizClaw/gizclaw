@@ -1,7 +1,9 @@
 package dashscoperealtime
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"iter"
@@ -14,6 +16,7 @@ import (
 	"github.com/GizClaw/dashscope-realtime-go"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/pcm"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/toolrun"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/doubaorealtime"
 )
 
@@ -43,6 +46,8 @@ type Transformer struct {
 	turnDetection                 *dashscope.TurnDetection
 	inputAudioFormat              string // pcm16, mp3, wav
 	outputAudioFormat             string // pcm16, mp3, wav
+	toolInvoker                   genx.ToolInvoker
+	maxToolCalls                  int
 }
 
 type dashScopeRealtimeOpener interface {
@@ -55,6 +60,7 @@ type dashScopeRealtimeSession interface {
 	CommitInput() error
 	ClearInput() error
 	CreateResponse(*dashscope.ResponseCreateOptions) error
+	SubmitFunctionCallOutput(string, string) error
 	CancelResponse() error
 	Events() iter.Seq2[*dashscope.RealtimeEvent, error]
 	Close() error
@@ -316,6 +322,18 @@ func withOutputAudioFormat(format string) option {
 	}
 }
 
+func withToolInvoker(invoker genx.ToolInvoker) option {
+	return func(t *Transformer) {
+		t.toolInvoker = invoker
+	}
+}
+
+func withMaxToolCalls(maximum int) option {
+	return func(t *Transformer) {
+		t.maxToolCalls = maximum
+	}
+}
+
 // newTransformer creates a Transformer.
 //
 // Parameters:
@@ -437,6 +455,10 @@ func (t *Transformer) Transform(ctx context.Context, input genx.Stream) (genx.St
 	if input == nil {
 		return nil, fmt.Errorf("dashscope realtime: input stream is required")
 	}
+	tools, err := resolveDashScopeTools(ctx, t.toolInvoker)
+	if err != nil {
+		return nil, err
+	}
 	// Connect to realtime service
 	session, err := t.realtime.Connect(ctx, &dashscope.RealtimeConfig{
 		Model: t.model,
@@ -474,6 +496,7 @@ func (t *Transformer) Transform(ctx context.Context, input genx.Stream) (genx.St
 		MaxOutputTokens:               t.maxOutputTokens,
 		InputAudioFormat:              t.inputAudioFormat,
 		OutputAudioFormat:             t.outputAudioFormat,
+		Tools:                         tools,
 	}
 
 	// Configure turn detection (VAD)
@@ -498,14 +521,31 @@ func (t *Transformer) Transform(ctx context.Context, input genx.Stream) (genx.St
 	}
 
 	// Start background processing
-	go t.processLoop(input, output, session)
+	go t.processLoop(
+		ctx,
+		input,
+		output,
+		session,
+		toolrun.New(t.toolInvoker, t.maxToolCalls),
+	)
 
 	return stream, nil
 }
 
-func (t *Transformer) processLoop(input genx.Stream, output *bufferStream, session dashScopeRealtimeSession) {
+func (t *Transformer) processLoop(
+	ctx context.Context,
+	input genx.Stream,
+	output *bufferStream,
+	session dashScopeRealtimeSession,
+	toolState *toolrun.State,
+) {
 	defer output.Close()
 	defer session.Close()
+	stopCancel := context.AfterFunc(ctx, func() {
+		_ = input.CloseWithError(ctx.Err())
+		_ = session.Close()
+	})
+	defer stopCancel()
 	audioInputs := doubaorealtime.NewSharedAudioInputs("pcm", 16000, 1, true)
 	defer audioInputs.Close()
 
@@ -516,6 +556,10 @@ func (t *Transformer) processLoop(input genx.Stream, output *bufferStream, sessi
 
 	// Start goroutine to receive events
 	eventsDone := make(chan struct{})
+	fail := func(err error) {
+		_ = output.CloseWithError(err)
+		_ = input.CloseWithError(err)
+	}
 	go func() {
 		defer close(eventsDone)
 		for event, err := range session.Events() {
@@ -662,6 +706,27 @@ func (t *Transformer) processLoop(input genx.Stream, output *bufferStream, sessi
 					}
 				}
 
+			case dashscope.EventTypeResponseFunctionCallArgumentsDone:
+				result, err := toolState.Invoke(ctx, genx.ToolCall{
+					ID: event.CallID,
+					FuncCall: &genx.FuncCall{
+						Name:      event.Name,
+						Arguments: event.Arguments,
+					},
+				})
+				if err != nil {
+					fail(fmt.Errorf("dashscope realtime invoke tool: %w", err))
+					return
+				}
+				if err := session.SubmitFunctionCallOutput(result.ID, result.Result); err != nil {
+					fail(fmt.Errorf("dashscope realtime submit tool result: %w", err))
+					return
+				}
+				if err := session.CreateResponse(nil); err != nil {
+					fail(fmt.Errorf("dashscope realtime continue after tool: %w", err))
+					return
+				}
+
 			case dashscope.EventTypeError:
 				// Business error event - log but don't close session
 				// Examples: "Conversation has none active response" when CancelResponse
@@ -691,7 +756,12 @@ func (t *Transformer) processLoop(input genx.Stream, output *bufferStream, sessi
 
 		chunk, err := input.Next()
 		if err != nil {
-			if err != io.EOF {
+			select {
+			case <-eventsDone:
+				return
+			default:
+			}
+			if err != io.EOF && err != genx.ErrDone {
 				output.CloseWithError(err)
 			}
 
@@ -831,4 +901,44 @@ func isDashScopeOggOpusMIME(value string) bool {
 	}
 	codecs := strings.TrimSpace(params["codecs"])
 	return codecs == "" || strings.EqualFold(codecs, "opus")
+}
+
+func resolveDashScopeTools(
+	ctx context.Context,
+	invoker genx.ToolInvoker,
+) ([]dashscope.FunctionTool, error) {
+	definitions, err := toolrun.ResolveTools(ctx, invoker)
+	if err != nil {
+		return nil, fmt.Errorf("dashscope realtime: %w", err)
+	}
+	tools := make([]dashscope.FunctionTool, 0, len(definitions))
+	for _, definition := range definitions {
+		encoded, err := json.Marshal(definition.Argument)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"dashscope realtime: encode tool %q schema: %w",
+				definition.Name,
+				err,
+			)
+		}
+		var parameters dashscope.JSONSchema
+		decoder := json.NewDecoder(bytes.NewReader(encoded))
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&parameters); err != nil {
+			return nil, fmt.Errorf(
+				"dashscope realtime: convert tool %q schema: %w",
+				definition.Name,
+				err,
+			)
+		}
+		tools = append(tools, dashscope.FunctionTool{
+			Type: dashscope.ToolTypeFunction,
+			Function: dashscope.FunctionDefinition{
+				Name:        definition.Name,
+				Description: definition.Description,
+				Parameters:  &parameters,
+			},
+		})
+	}
+	return tools, nil
 }

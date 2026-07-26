@@ -178,15 +178,44 @@ func (o *fakeDashScopeOpener) count() int {
 }
 
 type fakeDashScopeSession struct {
-	mu         sync.Mutex
-	eventCalls int
+	mu              sync.Mutex
+	eventCalls      int
+	events          []*dashscope.RealtimeEvent
+	eventsDrained   chan struct{}
+	eventsDrainOnce sync.Once
+	updateConfig    *dashscope.SessionConfig
+	submitted       []dashScopeSubmittedToolResult
+	submitErr       error
+	createErr       error
+	responseCreates int
 }
 
-func (s *fakeDashScopeSession) UpdateSession(*dashscope.SessionConfig) error { return nil }
-func (s *fakeDashScopeSession) AppendAudio([]byte) error                     { return nil }
-func (s *fakeDashScopeSession) CommitInput() error                           { return nil }
-func (s *fakeDashScopeSession) ClearInput() error                            { return nil }
+func (s *fakeDashScopeSession) UpdateSession(config *dashscope.SessionConfig) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	clone := *config
+	if config.Tools != nil {
+		clone.Tools = append(make([]dashscope.FunctionTool, 0, len(config.Tools)), config.Tools...)
+	}
+	s.updateConfig = &clone
+	return nil
+}
+func (s *fakeDashScopeSession) AppendAudio([]byte) error { return nil }
+func (s *fakeDashScopeSession) CommitInput() error       { return nil }
+func (s *fakeDashScopeSession) ClearInput() error        { return nil }
 func (s *fakeDashScopeSession) CreateResponse(*dashscope.ResponseCreateOptions) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.responseCreates++
+	return s.createErr
+}
+func (s *fakeDashScopeSession) SubmitFunctionCallOutput(callID, output string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.submitErr != nil {
+		return s.submitErr
+	}
+	s.submitted = append(s.submitted, dashScopeSubmittedToolResult{callID: callID, output: output})
 	return nil
 }
 func (s *fakeDashScopeSession) CancelResponse() error { return nil }
@@ -199,8 +228,26 @@ func (s *fakeDashScopeSession) Events() iter.Seq2[*dashscope.RealtimeEvent, erro
 	return func(yield func(*dashscope.RealtimeEvent, error) bool) {
 		if call == 1 {
 			yield(&dashscope.RealtimeEvent{Type: dashscope.EventTypeSessionCreated}, nil)
+			return
+		}
+		defer func() {
+			if s.eventsDrained != nil {
+				s.eventsDrainOnce.Do(func() {
+					close(s.eventsDrained)
+				})
+			}
+		}()
+		for _, event := range s.events {
+			if !yield(event, nil) {
+				return
+			}
 		}
 	}
+}
+
+type dashScopeSubmittedToolResult struct {
+	callID string
+	output string
 }
 
 func TestNew(t *testing.T) {
@@ -214,6 +261,12 @@ func TestNew(t *testing.T) {
 	if transformer == nil {
 		t.Fatal("New() returned nil")
 	}
+	if _, err := New(Config{
+		Client:       dashscope.NewClient(""),
+		MaxToolCalls: -1,
+	}); err == nil {
+		t.Fatal("New() succeeded with negative MaxToolCalls")
+	}
 }
 
 func TestNewCopiesConfigAndBuildsConfiguredDelegate(t *testing.T) {
@@ -222,6 +275,7 @@ func TestNewCopiesConfigAndBuildsConfiguredDelegate(t *testing.T) {
 	enableASR := false
 	modalities := []string{"text", "audio"}
 	turnDetection := &dashscope.TurnDetection{Type: "server_vad"}
+	invoker := &dashScopeTestToolInvoker{definitions: dashScopeToolDefinitions()}
 	transformer, err := New(Config{
 		Client:            dashscope.NewClient(""),
 		Model:             "model",
@@ -236,6 +290,8 @@ func TestNewCopiesConfigAndBuildsConfiguredDelegate(t *testing.T) {
 		TurnDetection:     turnDetection,
 		InputAudioFormat:  "pcm16",
 		OutputAudioFormat: "pcm16",
+		ToolInvoker:       invoker,
+		MaxToolCalls:      7,
 	})
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
@@ -256,7 +312,8 @@ func TestNewCopiesConfigAndBuildsConfiguredDelegate(t *testing.T) {
 		transformer.instructions != "instructions" || transformer.vadType != "server_vad" ||
 		transformer.maxOutputTokens == nil || *transformer.maxOutputTokens != 10 ||
 		transformer.enableInputAudioTranscription || transformer.inputAudioTranscriptionModel != "asr-model" ||
-		transformer.inputAudioFormat != "pcm16" || transformer.outputAudioFormat != "pcm16" {
+		transformer.inputAudioFormat != "pcm16" || transformer.outputAudioFormat != "pcm16" ||
+		transformer.toolInvoker != invoker || transformer.maxToolCalls != 7 {
 		t.Fatalf("configured transformer = %#v", transformer)
 	}
 }
