@@ -110,7 +110,7 @@ func TestResolveDashScopeToolsRejectsUnsupportedSchema(t *testing.T) {
 	}
 }
 
-func TestDashScopeRealtimeConfiguresManualModeAndClearsToolsWithoutInvoker(t *testing.T) {
+func TestDashScopeRealtimeExplicitlyClearsToolsWithoutInvoker(t *testing.T) {
 	session := &fakeDashScopeSession{}
 	transformer := newTransformer(nil)
 	transformer.realtime = &dashScopeFixedOpener{session: session}
@@ -122,13 +122,6 @@ func TestDashScopeRealtimeConfiguresManualModeAndClearsToolsWithoutInvoker(t *te
 	config, _, _ := session.toolState()
 	if config == nil || config.Tools == nil || len(config.Tools) != 0 {
 		t.Fatalf("session tools = %#v, want explicit empty slice", config)
-	}
-	if config.TurnDetection == nil ||
-		config.TurnDetection.Type != dashscope.VADModeDisabled {
-		t.Fatalf(
-			"session turn detection = %#v, want explicit manual mode",
-			config.TurnDetection,
-		)
 	}
 }
 

@@ -506,10 +506,6 @@ func (t *Transformer) Transform(ctx context.Context, input genx.Stream) (genx.St
 		sessionConfig.TurnDetection = &dashscope.TurnDetection{
 			Type: t.vadType,
 		}
-	} else {
-		sessionConfig.TurnDetection = &dashscope.TurnDetection{
-			Type: dashscope.VADModeDisabled,
-		}
 	}
 
 	if err := session.UpdateSession(sessionConfig); err != nil {

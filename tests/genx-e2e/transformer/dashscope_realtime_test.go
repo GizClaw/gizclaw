@@ -23,6 +23,7 @@ func TestDashScopeRealtimeToolInvokerContinuation(t *testing.T) {
 	transformer, err := dashscoperealtime.New(dashscoperealtime.Config{
 		Client:       dashscope.NewClient(apiKey),
 		Model:        dashscope.ModelQwen35OmniPlusRealtime,
+		VAD:          dashscope.VADModeDisabled,
 		Instructions: realtimeToolInstructions,
 		ToolInvoker:  invoker,
 		MaxToolCalls: realtimeToolCallLimit,
