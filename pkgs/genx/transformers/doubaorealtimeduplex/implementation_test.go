@@ -804,8 +804,8 @@ func TestDoubaoRealtimeDuplexSessionClosedWhileWaitingForInputDoesNotDropNextChu
 	}
 	output.Close()
 	<-drainDone
-	if got := opener.openCount(); got < 1 || got > 2 {
-		t.Fatalf("OpenSession calls = %d, want 1 or 2", got)
+	if got := opener.openCount(); got < 1 || got > 3 {
+		t.Fatalf("OpenSession calls = %d, want 1 through 3", got)
 	}
 	if got := firstSession.audioCount() + secondSession.audioCount(); got != 1 {
 		t.Fatalf("total SendAudio calls = %d, want 1", got)

@@ -26,8 +26,11 @@ func TestReadRaidsArchiveRejectsUnsafeAndAcceptsPackageFiles(t *testing.T) {
 		{Name: "raids-0.2/", Typeflag: tar.TypeDir},
 		{Name: "raids-0.2/credentials/example.yaml", Mode: 0o600, Size: 4},
 		{Name: "raids-0.2/memory-layouts/default.yaml", Mode: 0o600, Size: 4},
+		{Name: "raids-0.2/.gitignore", Mode: 0o600, Size: 4},
 		{Name: "raids-0.2/.github/workflows/validate.yml", Mode: 0o600, Size: 4},
-	}, [][]byte{nil, []byte("test"), []byte("test"), []byte("test")})
+		{Name: "raids-0.2/scripts/validate_catalog.py", Mode: 0o600, Size: 4},
+		{Name: "raids-0.2/tests/test_validate_catalog.py", Mode: 0o600, Size: 4},
+	}, [][]byte{nil, []byte("test"), []byte("test"), []byte("test"), []byte("test"), []byte("test"), []byte("test")})
 	files, err := readRaidsArchive(archive)
 	if err != nil {
 		t.Fatal(err)
@@ -35,11 +38,20 @@ func TestReadRaidsArchiveRejectsUnsafeAndAcceptsPackageFiles(t *testing.T) {
 	if got := string(files["credentials/example.yaml"]); got != "test" {
 		t.Fatalf("resource data = %q", got)
 	}
+	if got := string(files[".gitignore"]); got != "test" {
+		t.Fatalf("root metadata = %q", got)
+	}
 	if got := string(files[".github/workflows/validate.yml"]); got != "test" {
 		t.Fatalf("workflow metadata = %q", got)
 	}
 	if got := string(files["memory-layouts/default.yaml"]); got != "test" {
 		t.Fatalf("MemoryLayout data = %q", got)
+	}
+	if got := string(files["scripts/validate_catalog.py"]); got != "test" {
+		t.Fatalf("validation script = %q", got)
+	}
+	if got := string(files["tests/test_validate_catalog.py"]); got != "test" {
+		t.Fatalf("validation test = %q", got)
 	}
 	unsafe := testRaidsArchive(t, []tar.Header{{Name: "raids-0.2/../escape.yaml", Mode: 0o600, Size: 4}}, [][]byte{[]byte("test")})
 	if _, err := readRaidsArchive(unsafe); err == nil {
