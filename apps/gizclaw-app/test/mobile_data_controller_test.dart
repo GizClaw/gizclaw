@@ -1260,6 +1260,7 @@ void main() {
     )..connectionState = MobileConnectionState.connected;
     addTearDown(controller.close);
 
+    await controller.start();
     final chat = await controller.activateWorkspaceChat('workspace-realtime');
 
     expect(chat.recording, isTrue);
