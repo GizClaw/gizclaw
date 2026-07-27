@@ -117,13 +117,15 @@ fi
 
 touch "$http_ready_file"
 for _ in {1..600}; do
-  if curl -fsS --max-time 1 "http://edge:9821/server-info" >/dev/null 2>&1; then
+  if curl -fsS --max-time 1 "http://edge:9821/server-info" >/dev/null 2>&1 &&
+    curl -fsS --max-time 1 "http://edge2:9821/server-info" >/dev/null 2>&1; then
     break
   fi
   sleep 0.5
 done
-if ! curl -fsS --max-time 1 "http://edge:9821/server-info" >/dev/null 2>&1; then
-  echo "gizclaw edge did not become reachable from server before data init; log=$log_file" >&2
+if ! curl -fsS --max-time 1 "http://edge:9821/server-info" >/dev/null 2>&1 ||
+  ! curl -fsS --max-time 1 "http://edge2:9821/server-info" >/dev/null 2>&1; then
+  echo "gizclaw gateway edges did not become reachable from server before data init; log=$log_file" >&2
   tail -80 "$log_file" >&2 || true
   exit 1
 fi

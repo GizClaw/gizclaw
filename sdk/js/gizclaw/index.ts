@@ -164,6 +164,12 @@ export type GiznetServerInfo = {
   protocol?: string;
   public_key: string;
   signaling_path?: string;
+  transport?: {
+    endpoint: string;
+    mode: "edge-gateway";
+    public_key: string;
+    signaling_path: string;
+  };
 };
 
 export type ServerInfoBootstrapOptions = {
@@ -1149,8 +1155,9 @@ export async function connectGiznetWebRTCFromEndpoint(
   options: ConnectGiznetWebRTCFromEndpointOptions,
 ): Promise<RTCPeerConnection> {
   const serverInfo = await fetchGiznetServerInfo(options);
+  const transport = serverInfo.transport;
   const signalingPath = normalizeServerInfoSignalingPath(
-    serverInfo.signaling_path,
+    transport?.signaling_path ?? serverInfo.signaling_path,
   );
   applyGiznetServerInfoICEServers(options.pc, serverInfo);
   return connectGiznetWebRTC({
@@ -1160,22 +1167,27 @@ export async function connectGiznetWebRTCFromEndpoint(
         {
           clientPrivateKey: options.clientPrivateKey,
           clientPublicKey: options.clientPublicKey,
-          serverPublicKey: serverInfo.public_key,
+          serverPublicKey: transport?.public_key ?? serverInfo.public_key,
         },
         offerSDP,
       );
       return {
         ...prepared,
         openAnswer: async (encryptedAnswer) =>
-          rewriteGiznetWebRTCAnswerForEndpoint(
-            await prepared.openAnswer(encryptedAnswer),
-            options.endpoint,
-          ),
+          transport == null
+            ? rewriteGiznetWebRTCAnswerForEndpoint(
+                await prepared.openAnswer(encryptedAnswer),
+                options.endpoint,
+              )
+            : prepared.openAnswer(encryptedAnswer),
       };
     },
     sendOffer: (offer, signal) =>
       sendGiznetWebRTCOffer(offer, {
-        baseUrl: serverInfoBaseURL(options),
+        baseUrl:
+          transport == null
+            ? serverInfoBaseURL(options)
+            : `http://${transport.endpoint}`,
         fetch: options.fetch,
         signal,
         url: signalingPath,
@@ -1277,14 +1289,89 @@ export async function fetchGiznetServerInfo(
   if (publicKey.length !== 32 || publicKey.every((byte) => byte === 0)) {
     throw new Error("server-info invalid public_key");
   }
+  const transport = normalizeServerInfoTransport(
+    (serverInfo as { transport?: unknown }).transport,
+    serverInfo.public_key.trim(),
+  );
   return {
     ...serverInfo,
-    ice_servers: normalizeServerInfoICEServers(
-      (serverInfo as { ice_servers?: unknown }).ice_servers,
-    ),
+    ice_servers:
+      transport == null
+        ? normalizeServerInfoICEServers(
+            (serverInfo as { ice_servers?: unknown }).ice_servers,
+          )
+        : undefined,
     public_key: serverInfo.public_key.trim(),
     signaling_path: normalizeServerInfoSignalingPath(serverInfo.signaling_path),
+    transport,
   };
+}
+
+function normalizeServerInfoTransport(
+  value: unknown,
+  authoritativePublicKey: string,
+): GiznetServerInfo["transport"] {
+  if (value == null) {
+    return undefined;
+  }
+  if (typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("server-info invalid transport: expected an object");
+  }
+  const transport = value as Record<string, unknown>;
+  if (transport.mode !== "edge-gateway") {
+    throw new Error(`server-info unsupported transport mode ${transport.mode}`);
+  }
+  if (
+    typeof transport.endpoint !== "string" ||
+    !validServerInfoEndpoint(transport.endpoint)
+  ) {
+    throw new Error("server-info invalid transport.endpoint");
+  }
+  if (
+    typeof transport.public_key !== "string" ||
+    transport.public_key.trim() === ""
+  ) {
+    throw new Error("server-info missing transport.public_key");
+  }
+  const publicKey = base58Decode(transport.public_key.trim());
+  if (publicKey.length !== 32 || publicKey.every((byte) => byte === 0)) {
+    throw new Error("server-info invalid transport.public_key");
+  }
+  const authoritativeKey = base58Decode(authoritativePublicKey);
+  if (publicKey.every((byte, index) => byte === authoritativeKey[index])) {
+    throw new Error(
+      "server-info transport.public_key conflicts with authoritative public_key",
+    );
+  }
+  if (typeof transport.signaling_path !== "string") {
+    throw new Error("server-info invalid transport.signaling_path");
+  }
+  return {
+    endpoint: transport.endpoint.trim(),
+    mode: "edge-gateway",
+    public_key: transport.public_key.trim(),
+    signaling_path: normalizeServerInfoSignalingPath(transport.signaling_path),
+  };
+}
+
+function validServerInfoEndpoint(endpoint: string): boolean {
+  const value = endpoint.trim();
+  if (value === "" || value.includes("://")) {
+    return false;
+  }
+  try {
+    const parsed = new URL(`http://${value}`);
+    return (
+      parsed.hostname !== "" &&
+      parsed.username === "" &&
+      parsed.password === "" &&
+      parsed.pathname === "/" &&
+      parsed.search === "" &&
+      parsed.hash === ""
+    );
+  } catch {
+    return false;
+  }
 }
 
 function normalizeServerInfoICEServers(

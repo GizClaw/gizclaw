@@ -49,6 +49,7 @@ type ListenConfig struct {
 
 	SecurityPolicy     giznet.SecurityPolicy
 	PeerEventHandler   giznet.PeerEventHandler
+	AggregateServices  bool
 	ICEServers         []ICEServer
 	ICETransportPolicy webrtc.ICETransportPolicy
 	CipherMode         CipherMode

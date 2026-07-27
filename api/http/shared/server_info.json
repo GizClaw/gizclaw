@@ -78,8 +78,39 @@
               },
               "additionalProperties": false
             }
+          },
+          "transport": {
+            "$ref": "#/components/schemas/ServerInfoTransport"
           }
-        }
+        },
+        "additionalProperties": false
+      },
+      "ServerInfoTransport": {
+        "type": "object",
+        "required": [
+          "mode",
+          "endpoint",
+          "public_key",
+          "signaling_path"
+        ],
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "edge-gateway"
+            ]
+          },
+          "endpoint": {
+            "type": "string"
+          },
+          "public_key": {
+            "type": "string"
+          },
+          "signaling_path": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
       }
     }
   }

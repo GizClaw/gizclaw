@@ -69,6 +69,7 @@ typedef struct {
 typedef struct {
   const gzc_platform_t *platform;
   const char *server_info_body;
+  const char *expected_post_url;
   int get_count;
   int post_count;
 } fake_http_t;
@@ -880,8 +881,11 @@ static int test_http_request(void *userdata, const gzc_http_request_t *request, 
     return gzc_buf_append_cstr(&out_response->body, fake->platform, body);
   }
   fake->post_count++;
+  const char *expected_post_url = fake->expected_post_url == NULL
+                                      ? "http://example.invalid:9820/custom/offer"
+                                      : fake->expected_post_url;
   if (request->method != GZC_HTTP_METHOD_POST ||
-      !str_eq_cstr(request->url, "http://example.invalid:9820/custom/offer") ||
+      !str_eq_cstr(request->url, expected_post_url) ||
       request->body == NULL || request->body_len == 0 ||
       request->header_count != GZC_SIGNALING_HEADER_COUNT) {
     return GZC_ERR_INVALID_ARGUMENT;
@@ -2714,5 +2718,55 @@ int main(void) {
   gzc_buf_free(&fake_webrtc_no_ice_hook.sent, platform);
   gzc_buf_free(&fake_webrtc_no_ice_hook.outgoing, platform);
   gzc_buf_free(&fake_webrtc_no_ice_hook.native_sent, platform);
+
+  fake_webrtc_t fake_webrtc_gateway;
+  memset(&fake_webrtc_gateway, 0, sizeof(fake_webrtc_gateway));
+  fake_webrtc_gateway.platform = platform;
+  fake_webrtc_gateway.clock = &clock;
+  fake_webrtc_gateway.drain_on_poll = true;
+  fake_webrtc_gateway.emit_low_event = true;
+  gzc_buf_init(&fake_webrtc_gateway.sent);
+  gzc_buf_init(&fake_webrtc_gateway.outgoing);
+  gzc_buf_init(&fake_webrtc_gateway.native_sent);
+
+  fake_http_t fake_http_gateway;
+  memset(&fake_http_gateway, 0, sizeof(fake_http_gateway));
+  fake_http_gateway.platform = platform;
+  fake_http_gateway.expected_post_url = "http://edge.invalid:9821/edge/offer";
+  fake_http_gateway.server_info_body =
+      "{\"protocol\":\"gizclaw-webrtc\","
+      "\"public_key\":\"8mfzTdZB1JA43QmNAMWfTfkj5GC9TJxJFveThi9tvK6J\","
+      "\"ice_servers\":[{\"urls\":[\"turn:server.invalid:3478\"]}],"
+      "\"transport\":{\"mode\":\"edge-gateway\","
+      "\"endpoint\":\"edge.invalid:9821\","
+      "\"public_key\":\"FNSseo3ePDEyJR27qEbDCSKBX4baMg826xXcanV4Huqs\","
+      "\"signaling_path\":\"/edge/offer\"}}";
+
+  gzc_webrtc_vtable_t webrtc_gateway = webrtc;
+  webrtc_gateway.userdata = &fake_webrtc_gateway;
+  gzc_http_vtable_t http_gateway = http;
+  http_gateway.userdata = &fake_http_gateway;
+  gzc_client_config_t config_gateway = config;
+  config_gateway.http = &http_gateway;
+  config_gateway.webrtc = &webrtc_gateway;
+
+  gzc_client_t *client_gateway = NULL;
+  rc = gzc_client_create(&config_gateway, &client_gateway);
+  if (rc == GZC_OK) {
+    rc = gzc_client_connect(client_gateway);
+  }
+  if (expect(rc == GZC_OK, "gateway client connects without authoritative ICE hook") != 0 ||
+      expect(fake_http_gateway.post_count == 1, "gateway offer uses Edge endpoint") != 0 ||
+      expect(fake_webrtc_gateway.ice_server_count == 0, "gateway ignores authoritative ICE servers") != 0) {
+    gzc_client_destroy(client_gateway);
+    gzc_buf_free(&fake_webrtc_gateway.sent, platform);
+    gzc_buf_free(&fake_webrtc_gateway.outgoing, platform);
+    gzc_buf_free(&fake_webrtc_gateway.native_sent, platform);
+    return 1;
+  }
+  gzc_client_destroy(client_gateway);
+  gzc_buf_free(&fake_webrtc_gateway.sent, platform);
+  gzc_buf_free(&fake_webrtc_gateway.outgoing, platform);
+  gzc_buf_free(&fake_webrtc_gateway.native_sent, platform);
   return 0;
 }

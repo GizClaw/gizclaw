@@ -25,6 +25,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet/giztunnel"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -49,8 +50,9 @@ var peerConnTelemetryShutdownTimeout = 2 * time.Second
 // PeerConn is the in-memory runtime for one active peer connection.
 // It wraps the existing PeerService bundle and serves one live conn at a time.
 type PeerConn struct {
-	Conn    giznet.Conn
-	Service *PeerService
+	Conn            giznet.Conn
+	Service         *PeerService
+	ServerPublicKey giznet.PublicKey
 
 	closeOnce              sync.Once
 	agentHost              *agenthost.Service
@@ -75,6 +77,8 @@ type PeerConn struct {
 	closed                 atomic.Bool
 	retiring               atomic.Bool
 	registration           atomic.Pointer[runtimeprofile.Registration]
+	tunnelMuxOnce          sync.Once
+	tunnelMux              *giztunnel.PacketMux
 }
 
 type peerAgentInput interface {
@@ -127,6 +131,13 @@ func (h *PeerConn) serve() error {
 	if err := h.Service.validateServices(); err != nil {
 		return err
 	}
+	if h.Service.manager.allowActivePeerRole(
+		context.Background(),
+		h.Conn.PublicKey(),
+		apitypes.PeerRoleEdgeNode,
+	) {
+		return h.serveEdgeNode()
+	}
 	oldConn, err := h.Service.activateConn(context.Background(), h.Conn)
 	if err != nil {
 		_ = h.close()
@@ -151,6 +162,7 @@ func (h *PeerConn) serve() error {
 	g.Go(h.servePackets)
 	g.Go(h.serveRPC)
 	g.Go(h.serveEdgeRPC)
+	g.Go(h.serveEdgeTunnel)
 	g.Go(h.serveOpenAI)
 	g.Go(h.serveEvents)
 	err = g.Wait()
@@ -158,6 +170,43 @@ func (h *PeerConn) serve() error {
 		_ = h.close()
 	}
 	return err
+}
+
+func (h *PeerConn) serveEdgeNode() error {
+	if err := h.Service.manager.activateEdgeTransport(context.Background(), h.Conn); err != nil {
+		_ = h.close()
+		return err
+	}
+	defer h.Service.manager.setEdgeTransportDown(h.Conn.PublicKey(), h.Conn)
+	var g errgroup.Group
+	g.Go(func() error {
+		defer func() { _ = h.close() }()
+		return h.Service.serveEdgePublicWithRetiring(h.Conn, h.isRetiring)
+	})
+	g.Go(h.serveEdgeRPC)
+	g.Go(h.serveEdgeTunnel)
+	g.Go(h.serveEdgePackets)
+	return g.Wait()
+}
+
+func (h *PeerConn) serveEdgePackets() error {
+	buf := make([]byte, 64*1024)
+	for {
+		protocol, n, err := h.Conn.Read(buf)
+		if err != nil {
+			if isPeerServiceClosed(err) || errors.Is(err, io.EOF) {
+				return nil
+			}
+			return err
+		}
+		if protocol != giznet.ProtocolTunnelPacket {
+			continue
+		}
+		if err := h.tunnelPacketMux().HandlePacket(buf[:n]); err != nil &&
+			!errors.Is(err, giztunnel.ErrSessionNotFound) {
+			slog.Warn("gizclaw: edge tunnel packet ignored", "error", err)
+		}
+	}
 }
 
 func (h *PeerConn) serveService() error {
@@ -176,7 +225,10 @@ func (h *PeerConn) servePackets() error {
 		h.streamMixedAudioLoop()
 		return nil
 	})
-	g.Go(h.serveDirectPackets)
+	g.Go(func() error {
+		defer func() { _ = h.close() }()
+		return h.serveDirectPackets()
+	})
 	return g.Wait()
 }
 
@@ -474,6 +526,10 @@ func (h *PeerConn) close() error {
 				closeErr = errors.Join(closeErr, err)
 			}
 		}
+		h.tunnelMuxOnce.Do(func() {
+			h.tunnelMux = giztunnel.NewPacketMux(h.Conn)
+		})
+		closeErr = errors.Join(closeErr, h.tunnelMux.Close())
 		if h.agentInput != nil {
 			closeErr = errors.Join(closeErr, h.agentInput.Close())
 		}
@@ -993,6 +1049,11 @@ func (h *PeerConn) serveDirectPackets() error {
 			case telemetryPackets <- payload:
 			default:
 				slog.Warn("gizclaw: peer telemetry packet dropped", "reason", "queue_full")
+			}
+		case giznet.ProtocolTunnelPacket:
+			if err := h.tunnelPacketMux().HandlePacket(buf[:n]); err != nil &&
+				!errors.Is(err, giztunnel.ErrSessionNotFound) {
+				slog.Warn("gizclaw: edge tunnel packet ignored", "error", err)
 			}
 		default:
 			// Unknown direct packets are ignored by the echo slice; service

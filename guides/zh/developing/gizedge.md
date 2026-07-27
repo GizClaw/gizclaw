@@ -2,7 +2,7 @@
 
 `pkgs/gizedge` 提供 GizClaw 的 Edge Node ingress runtime。它在公网接收 browser 或 device 的 HTTP 请求，通过 `giznet` WebRTC connection 将请求转发到配置的 authoritative GizClaw Server。
 
-Edge Node 是入口和转发节点，不是业务数据的 owner。身份验证、最终授权、领域服务和资源存储仍由上游 GizClaw Server 负责。
+启用 gateway 后，Edge 也是客户端 WebRTC transport 的终点，并把逻辑连接复用到有界的 Server upstream pool。Edge Node 仍不是业务数据的 owner；客户端 identity、最终授权、领域服务和资源存储均由上游 GizClaw Server 负责。
 
 [Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizedge)
 
@@ -10,9 +10,10 @@ Edge Node 是入口和转发节点，不是业务数据的 owner。身份验证�
 
 ```text
 pkgs/gizedge/
-├── config.go    # Edge workspace 配置与边界检查
-├── edge.go      # Public ingress、上游连接和请求转发 runtime
-└── turn.go      # 可选 TURN server runtime
+├── config.go     # Edge workspace 配置与边界检查
+├── edge.go       # Public ingress、上游连接和请求转发 runtime
+├── gateway.go    # Client 终止、逻辑连接与有界 upstream pool
+└── turn.go       # 可选 TURN server runtime
 ```
 
 `pkgs/gizedge` 当前是一个扁平 package。这里的代码共同构成单个 Edge Node runtime，还没有需要拆成独立公共子 package 的内部模块。
@@ -29,29 +30,28 @@ sequenceDiagram
 
     Device->>Edge: GET /server-info
     Edge->>Server: GET /server-info over ServiceEdgeHTTP
-    Server-->>Edge: Server public key, ICE config, signaling path
-    Edge-->>Device: Server info with public Edge endpoint
+    Server-->>Edge: Authoritative Server identity
+    Edge-->>Device: Server identity and Edge transport metadata
 
-    Note over Device: Device creates and encrypts SDP offer
+    Note over Device: Offer is authenticated to the Edge transport identity
     Device->>Edge: POST /webrtc/v1/offer
-    Edge->>Server: Forward offer over ServiceEdgeHTTP
-    Note over Server: Validate client and create SDP answer
-    Server-->>Edge: Encrypted SDP answer
-    Edge-->>Device: Encrypted SDP answer
-
-    Device->>Server: Establish WebRTC ICE path
-    Server-->>Device: DataChannel / media traffic
-    Note over Device,Server: ICE traffic may use the optional TURN relay
+    Edge-->>Device: Edge SDP answer
+    Device->>Edge: WebRTC service, packet and Opus lanes
+    Edge->>Server: Delegated client identity over ServiceEdgeTunnel
+    Edge->>Server: Multiplexed service frames
+    Edge->>Server: Session-tagged packet and Opus frames
+    Note over Server: Normal Peer lifecycle and authorization use the client identity
 ```
 
 这条链路中的 ownership 是：
 
-- Device 创建 SDP offer。
-- Edge 代理 `/server-info` 和 `/webrtc/v1/offer`，不解析 SDP，也不创建 Device 的 WebRTC PeerConnection。
-- Authoritative Server 校验 offer、创建 SDP answer，并拥有最终的 GizClaw peer connection。
-- TURN 只在 ICE 无法直连时转发网络流量，不拥有 GizClaw connection 或业务身份。
+- `/server-info.public_key` 始终是 authoritative Server identity；`transport.public_key`、`transport.endpoint` 和 `transport.signaling_path` 只选择本次 Edge WebRTC transport。客户端不能把 transport identity 当作业务 Server identity。
+- Edge 校验 signaling 并创建客户端 PeerConnection，但不会以 Edge identity 代替客户端。它向 Server 发送短时、不可重放的 delegated envelope，包含物理 Edge identity、逻辑客户端 public key、目标 Server identity、有效期和远端地址。
+- Server 只接受 active `edge-node` 打开的 `ServiceEdgeTunnel`，验证 delegated envelope 后，再以逻辑客户端 public key 进入正常 Peer lifecycle、service policy 和领域授权。
+- 可靠 service stream 走每个逻辑会话的一条 tunnel control DataChannel；direct packet 与 Opus 保持独立的不可靠 session-tagged packet lane，避免可靠有序隧道产生 head-of-line blocking 或改变媒体语义。
+- Gateway transport 不把 authoritative Server 的 ICE/TURN server 列表返回给客户端，因此正常 gateway 路径不会为每个客户端创建 Server TURN allocation。
 
-因此 Edge Node 是 signaling ingress 和可选 relay，不是 Device WebRTC session 的终点。Edge 也不在本地执行 GizClaw domain handler 或建立第二套业务权限模型。
+Edge 不在本地执行 GizClaw domain handler，也不建立第二套业务权限模型。
 
 ## 目录职责
 
@@ -64,6 +64,7 @@ Edge workspace 配置描述当前节点运行所需的基础信息：
 - 单个 upstream Server 的 endpoint 与 public key。
 - TLS certificate source 的选择。
 - 可选 TURN listener、public endpoint、relay address、credential 和 relay port range。
+- 可选 gateway ICE UDP listener、public UDP endpoint、容量、upstream pool、buffer、idle 和 drain 边界。
 
 配置属于 Edge runtime，不复用 GizClaw Server 的 storage、service 或 domain 配置。Server config 也不应承担 Edge 进程的 public ingress 和 TURN 参数。
 
@@ -83,9 +84,32 @@ Edge ingress 不拥有 Peer HTTP、OpenAI-compatible HTTP 或其他 product rout
 
 ### Upstream Connection
 
-Edge Node 使用 `pkgs/giznet/gizwebrtc` 连接配置的 authoritative Server，并使用 `pkgs/giznet/gizhttp` 在 `ServiceEdgeHTTP` stream 上承载转发请求。
+Edge Node 使用 `pkgs/giznet/gizwebrtc` 连接配置的 authoritative Server。`ServiceEdgeHTTP` 承载 public HTTP forwarding，`ServiceEdgeTunnel` 承载 gateway logical sessions。
 
-上游连接属于长生命周期 runtime 状态。连接失败后可以重新建立；只有适合安全重试的请求会在重连后自动再次发送。Edge package 不应通过自行复制 GizClaw handler 来规避上游不可用。
+Gateway 使用 least-active 选择的有界 upstream pool。默认每条 upstream 最多保持 2048 个 active logical sessions；一条 upstream 累计打开 8192 个 tunnel streams 后进入 draining，不再接收新会话，现有会话结束后关闭并由新 upstream 替换。单条 upstream 失败只关闭固定在该连接上的会话，其他 upstream 和其他 Edge 不受影响。
+
+HTTP forwarding 和 gateway upstream 都属于长生命周期 runtime 状态。Edge package 不应通过自行复制 GizClaw handler 来规避上游不可用。
+
+### Gateway 容量与生命周期
+
+Gateway 的默认总容量为 30,000 sessions，最多 16 条 upstream。信令进入时先同时预留 handshake、总 session 和 upstream stream 容量；没有容量时返回稳定的 `503` JSON error `gateway_over_capacity` 和 `Retry-After: 1`，不会先在 Server 创建半连接。
+
+每个 session 默认最多缓冲 1 MiB tunnel bytes；队列或 frame 越界会关闭该 session，而不是无限增长。5 分钟无 activity 的 session 默认被回收。进程关闭时先停止新 admission，在 30 秒 drain deadline 内保留现有 session，超时后强制关闭。
+
+30,000 是可配置 harness 在具体主机上的验收目标，不是每条 upstream、每个 Edge 或任意硬件的无条件保证。harness 为每个 logical session 创建一个真实客户端 WebRTC PeerConnection；因此 load driver 本身也有显著内存、goroutine、FD 和 CPU 成本。达到 30,000 前必须为 load driver、各 Edge 和 Server 分别制定资源预算；单机不足时应在多个 load-driver 进程或主机间分片总 session 数，不能把降低 activity 或改用 synthetic session 当作通过。Docker topology 暴露两个独立身份的 Edge；可运行：
+
+```bash
+source tests/gizclaw-e2e/testdata/docker/current.env
+GIZCLAW_E2E_RUN_EDGE_FAILURE=1 \
+  go test -tags gizclaw_e2e ./tests/gizclaw-e2e/go/edge
+
+go run ./tests/giznet-e2e/gateway \
+  -edges "$GIZCLAW_E2E_EDGE_ENDPOINT,$GIZCLAW_E2E_EDGE2_ENDPOINT" \
+  -sessions 30000 \
+  -artifact gateway-capacity.json
+```
+
+容量 artifact 记录 load-driver 的 GOOS、GOARCH、Go version 和 logical CPU，并包含建立失败、周期 ping RTT、unexpected disconnect、identity crossover、RSS、CPU、FD、heap、收发 bytes，以及 Edge/upstream 分布。平台无法读取 FD 时该值为 `-1`。达到 crossover、unexpected disconnect 或配置阈值时命令以非零状态退出。
 
 ### TURN
 
@@ -98,7 +122,7 @@ TURN runtime 只负责 relay listener、认证和 relay port range。它不负�
 ```mermaid
 flowchart TB
     Command["cmd/internal/commands/edge<br/>进程入口"] --> GizEdge["pkgs/gizedge<br/>Edge runtime"]
-    GizEdge --> GizClaw["pkgs/gizclaw<br/>ServiceEdgeHTTP contract"]
+    GizEdge --> GizClaw["pkgs/gizclaw<br/>Edge HTTP / Tunnel contracts"]
     GizEdge --> Giznet["pkgs/giznet<br/>连接 contract"]
     GizEdge --> GizHTTP["pkgs/giznet/gizhttp<br/>HTTP adapter"]
     GizEdge --> GizWebRTC["pkgs/giznet/gizwebrtc<br/>WebRTC transport"]
@@ -119,6 +143,7 @@ flowchart TB
 - Edge workspace 配置和 Edge-specific validation。
 - Public ingress listener、proxy 和 Edge response rewrite。
 - Edge 到 authoritative Server 的连接、登录、重连和转发生命周期。
+- Client WebRTC termination、logical session admission、upstream pool 和 gateway shutdown。
 - Edge Node 自己运行的 TURN relay。
 - 只属于 Edge process 的 shutdown 和 cleanup 行为。
 
@@ -135,12 +160,13 @@ flowchart TB
 
 ## 当前边界
 
-当前 `pkgs/gizedge` 实现的是连接单个 authoritative Server 的 experimental Edge HTTP ingress，并可选运行 TURN relay。
+当前 `pkgs/gizedge` 连接一个 authoritative Server，并同时支持 Edge HTTP ingress、可选 gateway termination 和可选 TURN relay。
 
 它不等同于完整 server mesh：
 
 - Edge Node 当前按配置连接一个 upstream Server。
 - `ServiceEdgeHTTP` 已用于 public request forwarding。
+- `ServiceEdgeTunnel` 已用于有界 upstream pool 上的 logical client sessions。
 - Edge control-plane RPC、certificate distribution 和 TLS certificate source 尚未完整实现。
 - Edge Node 不维护 mesh membership 或全局 peer/resource route registry。
 - Server 之间不存在由这个 package 提供的数据复制和事件同步。

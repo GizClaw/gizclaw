@@ -2525,6 +2525,87 @@ test("fetchGiznetServerInfo validates server metadata", async () => {
   ]);
 });
 
+test("fetchGiznetServerInfo preserves Server identity and selects Edge transport", async () => {
+  const serverPublicKey = base58Encode(
+    x25519.getPublicKey(new Uint8Array(32).fill(2)),
+  );
+  const edgePublicKey = base58Encode(
+    x25519.getPublicKey(new Uint8Array(32).fill(3)),
+  );
+  const info = await fetchGiznetServerInfo({
+    baseUrl: "http://server.example:9820",
+    fetch: async () =>
+      Response.json({
+        ice_servers: [{ urls: ["turn:server.example:3478"] }],
+        public_key: serverPublicKey,
+        transport: {
+          endpoint: "edge.example:9821",
+          mode: "edge-gateway",
+          public_key: edgePublicKey,
+          signaling_path: "/edge/offer",
+        },
+      }),
+  });
+  assert.equal(info.public_key, serverPublicKey);
+  assert.deepEqual(info.transport, {
+    endpoint: "edge.example:9821",
+    mode: "edge-gateway",
+    public_key: edgePublicKey,
+    signaling_path: "/edge/offer",
+  });
+  assert.equal(info.ice_servers, undefined);
+});
+
+test("fetchGiznetServerInfo rejects invalid Edge transport metadata", async () => {
+  const serverPublicKey = base58Encode(
+    x25519.getPublicKey(new Uint8Array(32).fill(2)),
+  );
+  const edgePublicKey = base58Encode(
+    x25519.getPublicKey(new Uint8Array(32).fill(3)),
+  );
+  for (const transport of [
+    "bad",
+    {
+      endpoint: "edge.example:9821",
+      mode: "future",
+      public_key: edgePublicKey,
+      signaling_path: "/offer",
+    },
+    {
+      endpoint: "https://edge.example",
+      mode: "edge-gateway",
+      public_key: edgePublicKey,
+      signaling_path: "/offer",
+    },
+    {
+      endpoint: "edge.example:9821",
+      mode: "edge-gateway",
+      public_key: "bad",
+      signaling_path: "/offer",
+    },
+    {
+      endpoint: "edge.example:9821",
+      mode: "edge-gateway",
+      public_key: serverPublicKey,
+      signaling_path: "/offer",
+    },
+    {
+      endpoint: "edge.example:9821",
+      mode: "edge-gateway",
+      public_key: edgePublicKey,
+      signaling_path: "offer",
+    },
+  ]) {
+    await assert.rejects(
+      fetchGiznetServerInfo({
+        fetch: async () =>
+          Response.json({ public_key: serverPublicKey, transport }),
+      }),
+      /transport|signaling_path|base58/,
+    );
+  }
+});
+
 test("fetchGiznetServerInfo rejects invalid ICE server metadata", async () => {
   const serverPublicKey = base58Encode(
     x25519.getPublicKey(new Uint8Array(32).fill(2)),

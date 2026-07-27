@@ -23,6 +23,8 @@ type dataChannelConn struct {
 	flow   dataChannelFlow
 	local  net.Addr
 	remote net.Addr
+	rx     *atomic.Uint64
+	tx     *atomic.Uint64
 
 	readMu  sync.Mutex
 	pending []byte
@@ -80,6 +82,9 @@ func (c *dataChannelConn) Read(p []byte) (int, error) {
 	if n == 0 {
 		return 0, nil
 	}
+	if c.rx != nil {
+		c.rx.Add(uint64(n))
+	}
 	copied := copy(p, buf[:n])
 	if copied < n {
 		c.readMu.Lock()
@@ -101,12 +106,12 @@ func (c *dataChannelConn) Write(p []byte) (int, error) {
 		if err := c.waitWriteBudget(); err != nil {
 			return written, err
 		}
-		chunk := len(p)
-		if chunk > streamChunkSize {
-			chunk = streamChunkSize
-		}
+		chunk := min(len(p), streamChunkSize)
 		n, err := c.raw.WriteDataChannel(p[:chunk], false)
 		written += n
+		if c.tx != nil && n > 0 {
+			c.tx.Add(uint64(n))
+		}
 		if err != nil {
 			return written, err
 		}

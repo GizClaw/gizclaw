@@ -34,6 +34,7 @@ struct gzc_client {
   gzc_rtc_channel_t *packet_channel;
   gzc_rtc_channel_t *rpc_channel;
   gzc_service_channel_t *service_channel;
+  gzc_public_key_t server_public_key;
   gzc_buf_t local_sdp;
   gzc_buf_t packet_rx;
   gzc_buf_t rpc_rx;
@@ -260,8 +261,22 @@ static bool valid_packet_protocol(uint8_t protocol) {
   return protocol == gzc_protocol_stamped_opus_packet || protocol >= gzc_protocol_custom_start;
 }
 
-static int build_endpoint_url(gzc_client_t *client, gzc_str_t path, gzc_buf_t *out_url) {
-  if (client == NULL || out_url == NULL || str_empty(client->config.server_endpoint) ||
+static bool valid_endpoint(gzc_str_t endpoint) {
+  if (str_empty(endpoint)) {
+    return false;
+  }
+  for (size_t i = 0; i < endpoint.len; i++) {
+    char ch = endpoint.data[i];
+    if (ch == '/' || ch == '?' || ch == '#' || ch == '@' ||
+        ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n') {
+      return false;
+    }
+  }
+  return true;
+}
+
+static int build_url(gzc_client_t *client, gzc_str_t endpoint, gzc_str_t path, gzc_buf_t *out_url) {
+  if (client == NULL || out_url == NULL || !valid_endpoint(endpoint) ||
       str_empty(path) || path.data[0] != '/' || (path.len >= 2 && path.data[1] == '/')) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
@@ -270,11 +285,18 @@ static int build_endpoint_url(gzc_client_t *client, gzc_str_t path, gzc_buf_t *o
   if (rc != GZC_OK) {
     return rc;
   }
-  rc = gzc_buf_append_str(out_url, client->config.platform, client->config.server_endpoint);
+  rc = gzc_buf_append_str(out_url, client->config.platform, endpoint);
   if (rc != GZC_OK) {
     return rc;
   }
   return gzc_buf_append_str(out_url, client->config.platform, path);
+}
+
+static int build_endpoint_url(gzc_client_t *client, gzc_str_t path, gzc_buf_t *out_url) {
+  if (client == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  return build_url(client, client->config.server_endpoint, path, out_url);
 }
 
 static void free_http_response(gzc_client_t *client, gzc_http_response_t *response) {
@@ -555,9 +577,9 @@ static int load_server_info(gzc_client_t *client, int timeout_ms, gzc_signaling_
     gzc_str_t public_key;
     rc = gzc_json_parse_string(raw, &public_key);
     if (rc == GZC_OK) {
-      rc = gzc_key_from_text(public_key, &signaling->remote_public_key);
+      rc = gzc_key_from_text(public_key, &client->server_public_key);
     }
-    if (rc == GZC_OK && gzc_key_is_zero(&signaling->remote_public_key)) {
+    if (rc == GZC_OK && gzc_key_is_zero(&client->server_public_key)) {
       rc = GZC_ERR_INVALID_ARGUMENT;
     }
   }
@@ -576,22 +598,65 @@ static int load_server_info(gzc_client_t *client, int timeout_ms, gzc_signaling_
     }
   }
 
-  rc = apply_ice_servers(client, body);
-  if (rc != GZC_OK) {
-    free_http_response(client, &response);
-    return rc;
-  }
-
+  signaling->remote_public_key = client->server_public_key;
+  gzc_str_t signaling_endpoint = client->config.server_endpoint;
   gzc_str_t signaling_path = gzc_str_from_cstr(GZC_SIGNALING_PATH);
-  rc = gzc_json_find_field(body, "signaling_path", &raw);
-  if (rc == GZC_OK) {
+  bool gateway_transport = false;
+  gzc_str_t transport_raw;
+  if (gzc_json_find_field(body, "transport", &transport_raw) == GZC_OK) {
+    gateway_transport = true;
+    if (gzc_json_validate_object(transport_raw) != GZC_OK) {
+      free_http_response(client, &response);
+      return GZC_ERR_JSON;
+    }
+    gzc_str_t mode_raw;
+    gzc_str_t mode;
+    if (gzc_json_find_field(transport_raw, "mode", &mode_raw) != GZC_OK ||
+        gzc_json_parse_string(mode_raw, &mode) != GZC_OK ||
+        !str_eq_cstr(mode, "edge-gateway")) {
+      free_http_response(client, &response);
+      return GZC_ERR_UNSUPPORTED;
+    }
+    gzc_str_t endpoint_raw;
+    if (gzc_json_find_field(transport_raw, "endpoint", &endpoint_raw) != GZC_OK ||
+        gzc_json_parse_string(endpoint_raw, &signaling_endpoint) != GZC_OK ||
+        !valid_endpoint(signaling_endpoint)) {
+      free_http_response(client, &response);
+      return GZC_ERR_INVALID_ARGUMENT;
+    }
+    gzc_str_t public_key_raw;
+    gzc_str_t public_key;
+    if (gzc_json_find_field(transport_raw, "public_key", &public_key_raw) != GZC_OK ||
+        gzc_json_parse_string(public_key_raw, &public_key) != GZC_OK ||
+        gzc_key_from_text(public_key, &signaling->remote_public_key) != GZC_OK ||
+        gzc_key_is_zero(&signaling->remote_public_key) ||
+        memcmp(signaling->remote_public_key.bytes,
+               client->server_public_key.bytes,
+               GZC_KEY_SIZE) == 0) {
+      free_http_response(client, &response);
+      return GZC_ERR_INVALID_ARGUMENT;
+    }
+    gzc_str_t path_raw;
+    if (gzc_json_find_field(transport_raw, "signaling_path", &path_raw) != GZC_OK ||
+        gzc_json_parse_string(path_raw, &signaling_path) != GZC_OK) {
+      free_http_response(client, &response);
+      return GZC_ERR_INVALID_ARGUMENT;
+    }
+  } else if (gzc_json_find_field(body, "signaling_path", &raw) == GZC_OK) {
     rc = gzc_json_parse_string(raw, &signaling_path);
     if (rc != GZC_OK) {
       free_http_response(client, &response);
       return rc;
     }
   }
-  rc = build_endpoint_url(client, signaling_path, signaling_url);
+  if (!gateway_transport) {
+    rc = apply_ice_servers(client, body);
+    if (rc != GZC_OK) {
+      free_http_response(client, &response);
+      return rc;
+    }
+  }
+  rc = build_url(client, signaling_endpoint, signaling_path, signaling_url);
   free_http_response(client, &response);
   if (rc != GZC_OK) {
     return rc;

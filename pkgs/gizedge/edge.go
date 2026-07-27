@@ -26,8 +26,8 @@ import (
 
 const edgeShutdownTimeout = 5 * time.Second
 
-// Serve starts an experimental edge-node HTTP ingress and forwards requests to
-// the configured upstream server through a giznet service stream.
+// Serve starts the Edge HTTP ingress and optional client gateway, forwarding
+// authoritative work to the configured Server over giznet.
 func Serve(root string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -55,14 +55,36 @@ func ServeContext(ctx context.Context, root string) error {
 	}
 	defer upstreamTransport.Close()
 
+	var gateway *Gateway
+	if cfg.Gateway.Enabled {
+		gateway, err = newGateway(ctx, cfg, upstreamURL)
+		if err != nil {
+			return err
+		}
+		defer gateway.Close()
+	}
+
 	listener, err := net.Listen("tcp", cfg.Listen)
 	if err != nil {
 		return fmt.Errorf("edge: listen public http: %w", err)
 	}
 	defer listener.Close()
 
-	proxy := newPeerHTTPProxy(cfg.Endpoint, upstreamTransport)
-	server := &http.Server{Handler: proxy}
+	var transport *serverInfoTransport
+	if gateway != nil {
+		transport = &serverInfoTransport{
+			Mode:          "edge-gateway",
+			Endpoint:      cfg.Endpoint,
+			PublicKey:     cfg.KeyPair.Public.String(),
+			SignalingPath: gizwebrtc.SignalingPath,
+		}
+	}
+	proxy := newPeerHTTPProxy(cfg.Endpoint, upstreamTransport, transport)
+	handler := http.Handler(proxy)
+	if gateway != nil {
+		handler = gateway.Handler(proxy)
+	}
+	server := &http.Server{Handler: handler}
 	errCh := make(chan error, 1)
 	go func() {
 		err := server.Serve(listener)
@@ -229,7 +251,18 @@ func canRetryUpstreamRequest(method string) bool {
 	}
 }
 
-func newPeerHTTPProxy(edgeEndpoint string, transport http.RoundTripper) http.Handler {
+type serverInfoTransport struct {
+	Mode          string `json:"mode"`
+	Endpoint      string `json:"endpoint"`
+	PublicKey     string `json:"public_key"`
+	SignalingPath string `json:"signaling_path"`
+}
+
+func newPeerHTTPProxy(edgeEndpoint string, transport http.RoundTripper, gatewayTransport ...*serverInfoTransport) http.Handler {
+	var infoTransport *serverInfoTransport
+	if len(gatewayTransport) > 0 {
+		infoTransport = gatewayTransport[0]
+	}
 	proxy := &httputil.ReverseProxy{
 		Director: func(req *http.Request) {
 			req.URL.Scheme = "http"
@@ -240,7 +273,7 @@ func newPeerHTTPProxy(edgeEndpoint string, transport http.RoundTripper) http.Han
 		ModifyResponse: func(resp *http.Response) error {
 			setEdgeCORSHeaders(resp.Header)
 			if resp.Request != nil && resp.Request.URL != nil && resp.Request.URL.Path == "/server-info" && resp.StatusCode >= 200 && resp.StatusCode < 300 {
-				return rewriteServerInfoEndpoint(resp, edgeEndpoint)
+				return rewriteServerInfo(resp, edgeEndpoint, infoTransport)
 			}
 			return nil
 		},
@@ -249,6 +282,10 @@ func newPeerHTTPProxy(edgeEndpoint string, transport http.RoundTripper) http.Han
 }
 
 func rewriteServerInfoEndpoint(resp *http.Response, edgeEndpoint string) error {
+	return rewriteServerInfo(resp, edgeEndpoint, nil)
+}
+
+func rewriteServerInfo(resp *http.Response, edgeEndpoint string, transport *serverInfoTransport) error {
 	if resp == nil || resp.Body == nil || edgeEndpoint == "" {
 		return nil
 	}
@@ -266,6 +303,11 @@ func rewriteServerInfoEndpoint(resp *http.Response, edgeEndpoint string) error {
 	}
 	body["endpoint"] = edgeEndpoint
 	body["signaling_path"] = gizwebrtc.SignalingPath
+	if transport != nil {
+		body["transport"] = transport
+		body["ice"] = map[string]bool{"udp": true, "tcp": false}
+		delete(body, "ice_servers")
+	}
 	rewritten, err := json.Marshal(body)
 	if err != nil {
 		return err
@@ -292,7 +334,7 @@ func setEdgeCORSHeaders(header http.Header) {
 	header.Set("Access-Control-Allow-Origin", "*")
 	header.Set("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
 	header.Set("Access-Control-Allow-Headers", "Authorization,Content-Type,X-Public-Key,X-Giznet-Nonce,X-Giznet-Public-Key,X-Giznet-Timestamp")
-	header.Set("Access-Control-Expose-Headers", "Content-Length,Content-Type")
+	header.Set("Access-Control-Expose-Headers", "Content-Length,Content-Type,X-GizClaw-Gateway-Upstream")
 }
 
 func isEdgePeerHTTPPath(path string) bool {

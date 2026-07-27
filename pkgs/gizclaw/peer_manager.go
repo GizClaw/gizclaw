@@ -47,12 +47,70 @@ var (
 )
 
 type activePeer struct {
-	conn         giznet.Conn
-	activating   giznet.Conn
-	registration *runtimeprofile.Registration
-	events       *peerStreamEventBroker
-	observeEvent func(*eventpb.PeerEvent)
-	deleting     bool
+	conn           giznet.Conn
+	edgeTransports map[giznet.Conn]struct{}
+	activating     giznet.Conn
+	registration   *runtimeprofile.Registration
+	events         *peerStreamEventBroker
+	observeEvent   func(*eventpb.PeerEvent)
+	deleting       bool
+}
+
+func (m *Manager) activateEdgeTransport(ctx context.Context, conn giznet.Conn) error {
+	if m == nil || m.Peers == nil {
+		return errors.New("gizclaw: peers service not configured")
+	}
+	if conn == nil {
+		return errors.New("gizclaw: nil conn")
+	}
+	publicKey := conn.PublicKey()
+	if !m.allowActivePeerRole(ctx, publicKey, apitypes.PeerRoleEdgeNode) {
+		return ErrPeerConnNotActive
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.peers == nil {
+		m.peers = make(map[giznet.PublicKey]*activePeer)
+	}
+	state := m.peers[publicKey]
+	if state == nil {
+		state = &activePeer{}
+		m.peers[publicKey] = state
+	}
+	if state.deleting {
+		return ErrPeerConnRetiring
+	}
+	if state.edgeTransports == nil {
+		state.edgeTransports = make(map[giznet.Conn]struct{})
+	}
+	state.edgeTransports[conn] = struct{}{}
+	if state.conn == nil {
+		state.conn = conn
+	}
+	return nil
+}
+
+func (m *Manager) setEdgeTransportDown(publicKey giznet.PublicKey, conn giznet.Conn) {
+	if m == nil || conn == nil {
+		return
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	state := m.peers[publicKey]
+	if state == nil {
+		return
+	}
+	delete(state.edgeTransports, conn)
+	if state.conn == conn {
+		state.conn = nil
+		for next := range state.edgeTransports {
+			state.conn = next
+			break
+		}
+	}
+	if len(state.edgeTransports) == 0 && state.conn == nil && state.activating == nil {
+		delete(m.peers, publicKey)
+	}
 }
 
 type telemetryStatusLock struct {
@@ -154,7 +212,7 @@ func (m *Manager) allowService(ctx context.Context, publicKey giznet.PublicKey, 
 	switch service {
 	case ServiceAdminHTTP:
 		return m.allowActivePeerRole(ctx, publicKey, apitypes.PeerRoleAdmin)
-	case ServiceEdgeHTTP, ServiceEdgeRPC:
+	case ServiceEdgeHTTP, ServiceEdgeRPC, ServiceEdgeTunnel:
 		return m.allowActivePeerRole(ctx, publicKey, apitypes.PeerRoleEdgeNode)
 	default:
 		return false

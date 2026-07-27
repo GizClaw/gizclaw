@@ -3,7 +3,6 @@ apps/wails/internal/endpointhealth/prober.go:74:3: copying variable is unneeded
 apps/wails/internal/endpointhealth/prober.go:76:3: Goroutine creation can be simplified using WaitGroup.Go
 cmd/internal/commands/admin/resource.go:379:6: for loop can be modernized using range over int
 cmd/internal/commands/connect/command.go:995:6: stringPtr can be an inlinable wrapper around new(expr)
-cmd/internal/connection/connection.go:100:6: for loop can be modernized using range over int
 cmd/internal/server/tcp_mux.go:32:2: Goroutine creation can be simplified using WaitGroup.Go
 cmd/internal/server/tcp_mux.go:67:3: Goroutine creation can be simplified using WaitGroup.Go
 cmd/internal/server/workspace_test.go:114:72: Replace []byte(fmt.Sprintf...) with fmt.Appendf
@@ -102,7 +101,7 @@ pkgs/gizclaw/peer_conn_test.go:1115:113: call of peerConnBoolPtr(x) can be simpl
 pkgs/gizclaw/peer_conn_test.go:1123:6: for loop can be modernized using range over int
 pkgs/gizclaw/peer_conn_test.go:1592:6: peerConnBoolPtr can be an inlinable wrapper around new(expr)
 pkgs/gizclaw/peer_conn_test.go:1596:6: peerConnIntPtr can be an inlinable wrapper around new(expr)
-pkgs/gizclaw/peer_service.go:121:6: for loop can be modernized using range over int
+pkgs/gizclaw/peer_service.go:128:6: for loop can be modernized using range over int
 pkgs/gizclaw/peer_service_serve_admin_test.go:361:23: call of adminTestStringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/peer_service_serve_admin_test.go:411:73: call of adminTestStringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/peer_service_serve_admin_test.go:665:6: adminTestStringPtr can be an inlinable wrapper around new(expr)
@@ -343,11 +342,10 @@ pkgs/gizclaw/services/system/resourcemanager/minimax_test.go:337:14: call of ptr
 pkgs/gizclaw/services/system/resourcemanager/minimax_test.go:76:19: call of stringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/system/resourcemanager/workspace.go:160:3: Replace m[k]=v loop with maps.Copy
 pkgs/gizclaw/test_credential_body_external_test.go:31:6: stringPtr can be an inlinable wrapper around new(expr)
-pkgs/gizedge/config_test.go:249:6: for loop can be modernized using range over int
-pkgs/gizedge/config_test.go:468:17: context.WithCancel can be modernized using t.Context
+pkgs/gizedge/config_test.go:306:6: for loop can be modernized using range over int
+pkgs/gizedge/config_test.go:525:17: context.WithCancel can be modernized using t.Context
 pkgs/giznet/gizhttp/server_test.go:121:17: context.WithCancel can be modernized using t.Context
 pkgs/giznet/gizhttp/server_test.go:45:17: context.WithCancel can be modernized using t.Context
-pkgs/giznet/gizwebrtc/stream.go:105:6: if statement can be modernized using min
 pkgs/store/graph/kvgraph.go:179:3: Replace m[k]=v loop with maps.Copy
 pkgs/store/vecstore/hnsw.go:375:5: if statement can be modernized using min
 pkgs/store/vecstore/hnsw.go:447:5: if statement can be modernized using max

@@ -2466,6 +2466,21 @@ func (e RuntimeProfileVolcMem0ConnectionType) Valid() bool {
 	}
 }
 
+// Defines values for ServerInfoTransportMode.
+const (
+	ServerInfoTransportModeEdgeGateway ServerInfoTransportMode = "edge-gateway"
+)
+
+// Valid indicates whether the value is a known member of the ServerInfoTransportMode enum.
+func (e ServerInfoTransportMode) Valid() bool {
+	switch e {
+	case ServerInfoTransportModeEdgeGateway:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ToolExecutorKind.
 const (
 	ToolExecutorKindBuiltin   ToolExecutorKind = "builtin"
@@ -5737,11 +5752,23 @@ type ServerInfo struct {
 		Urls       []string `json:"urls"`
 		Username   *string  `json:"username,omitempty"`
 	} `json:"ice_servers,omitempty"`
-	Protocol      string `json:"protocol"`
-	PublicKey     string `json:"public_key"`
-	ServerTime    int64  `json:"server_time"`
-	SignalingPath string `json:"signaling_path"`
+	Protocol      string               `json:"protocol"`
+	PublicKey     string               `json:"public_key"`
+	ServerTime    int64                `json:"server_time"`
+	SignalingPath string               `json:"signaling_path"`
+	Transport     *ServerInfoTransport `json:"transport,omitempty"`
 }
+
+// ServerInfoTransport defines model for ServerInfoTransport.
+type ServerInfoTransport struct {
+	Endpoint      string                  `json:"endpoint"`
+	Mode          ServerInfoTransportMode `json:"mode"`
+	PublicKey     string                  `json:"public_key"`
+	SignalingPath string                  `json:"signaling_path"`
+}
+
+// ServerInfoTransportMode defines model for ServerInfoTransport.Mode.
+type ServerInfoTransportMode string
 
 // ServerLogEntry defines model for ServerLogEntry.
 type ServerLogEntry struct {

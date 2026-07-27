@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -145,6 +146,30 @@ func TestRPCClientCallValidatesRequest(t *testing.T) {
 	}
 	if _, err := callRPC(context.Background(), clientSide, &rpcapi.RPCRequest{Method: rpcapi.RPCMethodAllPing}); err == nil || err.Error() != "rpc: request id required" {
 		t.Fatalf("call(empty id) err = %v", err)
+	}
+}
+
+func TestRPCClientRejectsMismatchedResponseID(t *testing.T) {
+	serverSide, clientSide := net.Pipe()
+	defer serverSide.Close()
+	defer clientSide.Close()
+	go func() {
+		req, err := readRPCRequestWithEOS(serverSide)
+		if err != nil {
+			return
+		}
+		_ = writeRPCResponseWithEOS(serverSide, req.Method, &rpcapi.RPCResponse{
+			V:  rpcapi.RPCVersionV1,
+			Id: "another-session",
+		})
+	}()
+	_, err := callRPC(context.Background(), clientSide, &rpcapi.RPCRequest{
+		V:      rpcapi.RPCVersionV1,
+		Id:     "expected-session",
+		Method: rpcapi.RPCMethodAllPing,
+	})
+	if err == nil || !strings.Contains(err.Error(), "does not match") {
+		t.Fatalf("mismatched response id error = %v", err)
 	}
 }
 

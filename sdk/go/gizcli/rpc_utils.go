@@ -161,6 +161,9 @@ func callRPC(ctx context.Context, conn net.Conn, req *rpcapi.RPCRequest) (*rpcap
 	if err != nil {
 		return nil, err
 	}
+	if resp.Id != req.Id {
+		return nil, fmt.Errorf("rpc: response id %q does not match request id %q", resp.Id, req.Id)
+	}
 	if !responseEOS {
 		if err := stream.ReadEOS(); err != nil {
 			return nil, err
