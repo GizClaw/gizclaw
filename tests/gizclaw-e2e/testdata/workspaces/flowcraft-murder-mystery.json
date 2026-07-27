@@ -57,7 +57,7 @@
           },
           {
             "from": "solved_chat",
-            "to": "observe_case_audit"
+            "to": "write_case_audit"
           },
           {
             "from": "observe_case_audit",

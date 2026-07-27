@@ -16,6 +16,11 @@ type workflowNodePublication struct {
 	Publish *bool  `json:"publish" yaml:"publish"`
 }
 
+type workflowEdge struct {
+	From string `json:"from" yaml:"from"`
+	To   string `json:"to" yaml:"to"`
+}
+
 type flowcraftGeneratorNode struct {
 	ID     string `json:"id" yaml:"id"`
 	Type   string `json:"type" yaml:"type"`
@@ -244,6 +249,61 @@ func assertFlowcraftGeneratorTokenBudget(t *testing.T, nodes []flowcraftGenerato
 			t.Errorf("generator node %q max_tokens = %d, want 2048", node.ID, node.Config.MaxTokens)
 		}
 	}
+}
+
+func TestMurderMysterySolvedChatRefreshesAuditBeforeObservation(t *testing.T) {
+	assertSolvedChatAuditEdge := func(t *testing.T, edges []workflowEdge) {
+		t.Helper()
+		for _, edge := range edges {
+			if edge.From == "solved_chat" {
+				if edge.To != "write_case_audit" {
+					t.Fatalf("solved_chat edge targets %q, want write_case_audit", edge.To)
+				}
+				return
+			}
+		}
+		t.Fatal("solved_chat edge is missing")
+	}
+
+	t.Run("resource", func(t *testing.T) {
+		var resource struct {
+			Spec struct {
+				Flowcraft struct {
+					Graph struct {
+						Edges []workflowEdge `yaml:"edges"`
+					} `yaml:"graph"`
+				} `yaml:"flowcraft"`
+			} `yaml:"spec"`
+		}
+		raw, err := os.ReadFile(filepath.Join("resources", "04-workflows", "11-flowcraft-murder-mystery.yaml"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := yaml.Unmarshal(raw, &resource); err != nil {
+			t.Fatal(err)
+		}
+		assertSolvedChatAuditEdge(t, resource.Spec.Flowcraft.Graph.Edges)
+	})
+
+	t.Run("workspace", func(t *testing.T) {
+		var workspace struct {
+			Workflow struct {
+				Flowcraft struct {
+					Graph struct {
+						Edges []workflowEdge `json:"edges"`
+					} `json:"graph"`
+				} `json:"flowcraft"`
+			} `json:"workflow"`
+		}
+		raw, err := os.ReadFile(filepath.Join("workspaces", "flowcraft-murder-mystery.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := json.Unmarshal(raw, &workspace); err != nil {
+			t.Fatal(err)
+		}
+		assertSolvedChatAuditEdge(t, workspace.Workflow.Flowcraft.Graph.Edges)
+	})
 }
 
 func TestWerewolfLifecycleToolNodesAreRemoved(t *testing.T) {

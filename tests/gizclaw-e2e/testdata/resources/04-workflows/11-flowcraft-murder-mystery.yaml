@@ -33,7 +33,7 @@ spec:
       - from: write_case_audit
         to: observe_case_audit
       - from: solved_chat
-        to: observe_case_audit
+        to: write_case_audit
       - from: observe_case_audit
         to: __end__
       - condition: case_status == "solved"
