@@ -5,10 +5,13 @@ metadata:
   name: flowcraft-voice-assistant
 spec:
   driver: flowcraft
+  memory: voice-assistant-memory
   flowcraft:
     graph:
       edges:
       - from: answer
+        to: observe-conversation
+      - from: observe-conversation
         to: __end__
       entry: answer
       name: Assistant
@@ -20,6 +23,12 @@ spec:
         id: answer
         publish: true
         type: llm
+      - config:
+          observations:
+          - turns_from: conversation
+          wait_for_completion: false
+        id: observe-conversation
+        type: memory_observe
     max_iterations: 4
     conversation:
       starts: peer

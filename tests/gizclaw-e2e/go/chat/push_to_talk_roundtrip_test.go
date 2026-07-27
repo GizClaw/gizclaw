@@ -266,6 +266,7 @@ func runtimeMemoryBindings(t *testing.T) map[string]apitypes.RuntimeProfileMemor
 	result := make(map[string]apitypes.RuntimeProfileMemoryBinding)
 	for _, alias := range []string{
 		"default-memory",
+		"voice-assistant-memory",
 		"chat-memory",
 		"journey-memory",
 		"storyteller-memory",

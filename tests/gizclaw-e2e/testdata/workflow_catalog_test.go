@@ -85,6 +85,7 @@ func TestWorkflowCatalogFixtures(t *testing.T) {
 
 func TestMemoryMigratedFlowcraftFixturesDecodeTypedGraph(t *testing.T) {
 	for _, filename := range []string{
+		"05-flowcraft-basic.yaml",
 		"06-flowcraft-chat.yaml",
 		"08-flowcraft-journey.yaml",
 		"10-flowcraft-multi-role-storyteller.yaml",
@@ -117,6 +118,17 @@ func TestMemoryMigratedFlowcraftFixturesDecodeTypedGraph(t *testing.T) {
 			}
 			if err := workflow.Spec.Flowcraft.Validate(); err != nil {
 				t.Fatalf("Flowcraft config: %v", err)
+			}
+			hasObserve := false
+			for _, node := range workflow.Spec.Flowcraft.Graph.Nodes {
+				discriminator, err := node.Discriminator()
+				if err != nil {
+					t.Fatalf("Flowcraft node discriminator: %v", err)
+				}
+				hasObserve = hasObserve || discriminator == "memory_observe"
+			}
+			if !hasObserve {
+				t.Fatal("explicit memory_observe node is required")
 			}
 		})
 	}

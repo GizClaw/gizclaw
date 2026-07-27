@@ -19,6 +19,10 @@
         "edges": [
           {
             "from": "answer",
+            "to": "observe-conversation"
+          },
+          {
+            "from": "observe-conversation",
             "to": "__end__"
           }
         ],
@@ -34,6 +38,18 @@
             "id": "answer",
             "publish": true,
             "type": "llm"
+          },
+          {
+            "config": {
+              "observations": [
+                {
+                  "turns_from": "conversation"
+                }
+              ],
+              "wait_for_completion": false
+            },
+            "id": "observe-conversation",
+            "type": "memory_observe"
           }
         ]
       },
@@ -43,6 +59,7 @@
     "parameters": {
       "input": "push-to-talk"
     },
+    "memory": "voice-assistant-memory",
     "voice_adapter": {
       "asr_model": "asr",
       "default_voice": "narrator",
