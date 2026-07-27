@@ -617,6 +617,9 @@ func (config *normalizedConfig) validateNode(node NodeDefinition, fields map[str
 		if len(node.MemoryObserve.Facts) == 0 {
 			return fmt.Errorf("eino: %s requires MemoryObserve Facts", nodePath)
 		}
+		if config.Memory != nil && !memory.SupportsDirectFactObservation(config.Memory.Store) {
+			return fmt.Errorf("eino: %s requires direct Fact observation support", nodePath)
+		}
 		for index, fact := range node.MemoryObserve.Facts {
 			if field, ok := fields[fact.TextFrom]; !ok || field != StateString {
 				return fmt.Errorf("eino: %s MemoryObserve Fact[%d] TextFrom must be a string State field", nodePath, index)
@@ -1189,14 +1192,32 @@ func (config *normalizedConfig) validateOptionalConfig() error {
 			}
 		}
 	}
-	usesMemory := false
-	for _, node := range config.nodes {
-		usesMemory = usesMemory || node.MemoryRecall != nil || node.MemoryObserve != nil
-	}
-	if usesMemory && config.Memory == nil {
+	if graphUsesMemory(config.Graph) && config.Memory == nil {
 		return fmt.Errorf("eino: Graph Memory nodes require Memory")
 	}
 	return nil
+}
+
+func graphUsesMemory(graph GraphDefinition) bool {
+	for _, node := range graph.Nodes {
+		if node.MemoryRecall != nil || node.MemoryObserve != nil {
+			return true
+		}
+		if node.Subgraph != nil && graphUsesMemory(node.Subgraph.Graph) {
+			return true
+		}
+		if node.Batch != nil && graphUsesMemory(node.Batch.Graph) {
+			return true
+		}
+		if node.Race != nil {
+			for _, branch := range node.Race.Branches {
+				if graphUsesMemory(branch.Graph) {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 func normalizeMemoryScope(scope memory.Scope) memory.Scope {

@@ -68,6 +68,40 @@ func TestProjectionSignatureExcludesExtractionAndWritePolicy(t *testing.T) {
 	}
 }
 
+func TestFlowcraftConfigIncludesLaneExtractionInstructions(t *testing.T) {
+	policy := testFlowcraftPolicy()
+	policy.Lanes[0].Description = new("Durable story facts.")
+	policy.Lanes[0].Extract = new("Capture only facts already narrated.")
+	policy.Lanes[0].Recall = new("Use only after the Graph selects this lane.")
+	config, err := flowcraftConfig(policy, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(config.Extraction.SystemPrompt, "Extract: Capture only facts already narrated.") {
+		t.Fatalf("extraction prompt = %q", config.Extraction.SystemPrompt)
+	}
+	if strings.Contains(config.Extraction.SystemPrompt, "Use only after the Graph") {
+		t.Fatalf("recall guidance leaked into extraction prompt = %q", config.Extraction.SystemPrompt)
+	}
+}
+
+func TestFlowcraftConfigCanDisableModelExtraction(t *testing.T) {
+	policy := testFlowcraftPolicy()
+	policy.Extraction.Model = "extraction"
+	policy.Extraction.Enabled = new(false)
+
+	config, err := flowcraftConfig(policy, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if config.Extraction.Model != "" {
+		t.Fatalf("extraction model = %q, want disabled", config.Extraction.Model)
+	}
+	if len(config.LaneNames) == 0 {
+		t.Fatal("disabling model extraction removed direct-Fact lane policy")
+	}
+}
+
 func TestBuildManagedFlowcraftStoreKeepsWorkspaceScopesIsolated(t *testing.T) {
 	request := managedTestRequest(t)
 	request.WorkspaceName = "workspace-a"

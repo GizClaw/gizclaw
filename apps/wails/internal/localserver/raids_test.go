@@ -309,13 +309,14 @@ func TestRaidsResolverRejectsSymlinkedCacheDirectory(t *testing.T) {
 	}
 }
 
-func TestWorkflowAliasesIncludesFlattenedFlowcraftGraphAndVoiceModels(t *testing.T) {
-	models, voices, err := workflowAliases([]byte(`
+func TestWorkflowAliasesIncludesFlattenedFlowcraftGraphVoiceAndMemoryAliases(t *testing.T) {
+	models, voices, memoryAlias, err := workflowAliases([]byte(`
 apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
 metadata: {name: flowcraft-example}
 spec:
   driver: flowcraft
+  memory: pet-memory
   flowcraft:
     graph:
       nodes:
@@ -333,6 +334,9 @@ spec:
 	if got := voices; len(got) != 1 || got[0] != "narrator" {
 		t.Fatalf("voices = %v", got)
 	}
+	if memoryAlias != "pet-memory" {
+		t.Fatalf("memory alias = %q", memoryAlias)
+	}
 }
 
 func TestWorkflowAliasesIncludesRealtimeVoices(t *testing.T) {
@@ -346,14 +350,14 @@ func TestWorkflowAliasesIncludesRealtimeVoices(t *testing.T) {
 		{name: "doubao duplex", driver: "doubao-realtime-duplex", field: "doubao_realtime_duplex"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			models, voices, err := workflowAliases([]byte("spec:\n  driver: " + test.driver +
+			models, voices, memoryAlias, err := workflowAliases([]byte("spec:\n  driver: " + test.driver +
 				"\n  " + test.field + ":\n    model: realtime\n    voice: assistant\n"))
 			if err != nil {
 				t.Fatal(err)
 			}
 			if len(models) != 1 || models[0] != "realtime" ||
-				len(voices) != 1 || voices[0] != "assistant" {
-				t.Fatalf("aliases = models:%v voices:%v", models, voices)
+				len(voices) != 1 || voices[0] != "assistant" || memoryAlias != "" {
+				t.Fatalf("aliases = models:%v voices:%v memory:%q", models, voices, memoryAlias)
 			}
 		})
 	}
@@ -401,7 +405,7 @@ spec:
 
 func TestWorkflowAliasesIncludesChatroomAndNestedPetAliases(t *testing.T) {
 	t.Run("chatroom", func(t *testing.T) {
-		models, voices, err := workflowAliases([]byte(`
+		models, voices, memoryAlias, err := workflowAliases([]byte(`
 spec:
   driver: chatroom
   chatroom:
@@ -410,14 +414,15 @@ spec:
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(models) != 1 || models[0] != "asr" || len(voices) != 0 {
-			t.Fatalf("aliases = models:%v voices:%v", models, voices)
+		if len(models) != 1 || models[0] != "asr" || len(voices) != 0 || memoryAlias != "" {
+			t.Fatalf("aliases = models:%v voices:%v memory:%q", models, voices, memoryAlias)
 		}
 	})
 	t.Run("pet", func(t *testing.T) {
-		models, voices, err := workflowAliases([]byte(`
+		models, voices, memoryAlias, err := workflowAliases([]byte(`
 spec:
   driver: pet
+  memory: pet-memory
   pet:
     driver: flowcraft
     flowcraft:
@@ -436,7 +441,31 @@ spec:
 		if len(voices) != 1 || voices[0] != "cute-pet" {
 			t.Fatalf("voices = %v", voices)
 		}
+		if memoryAlias != "pet-memory" {
+			t.Fatalf("memory alias = %q", memoryAlias)
+		}
 	})
+}
+
+func TestValidateWorkflowAliasesRejectsMissingMemoryBinding(t *testing.T) {
+	profile := apitypes.RuntimeProfileResource{}
+	selected := map[string]raidsCandidate{
+		"Workflow/assistant": {
+			kind: "Workflow",
+			name: "assistant",
+			data: []byte(`
+spec:
+  driver: flowcraft
+  memory: missing-memory
+  flowcraft:
+    graph: {nodes: []}
+`),
+		},
+	}
+	err := validateWorkflowAliases(profile, selected)
+	if err == nil || !strings.Contains(err.Error(), `missing memory alias "missing-memory"`) {
+		t.Fatalf("validateWorkflowAliases() error = %v", err)
+	}
 }
 
 func TestCollectEnvironmentRequirementsRejectsConflictingDefaults(t *testing.T) {

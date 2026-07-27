@@ -5,9 +5,20 @@ metadata:
   name: flowcraft-journey-guide
 spec:
   driver: flowcraft
+  memory: journey-memory
   flowcraft:
     graph:
       edges:
+      - from: recall_story_progress
+        to: recall_story_memory
+      - from: recall_story_memory
+        to: recall_user_memory
+      - from: recall_user_memory
+        to: recall_question_memory
+      - from: recall_question_memory
+        to: recall_story_recent
+      - from: recall_story_recent
+        to: start
       - from: start
         to: prepare_match_route
       - from: prepare_match_route
@@ -89,12 +100,61 @@ spec:
       - from: prepare_story_progress
         to: write_story_progress
       - from: write_story_progress
+        to: observe_story_memory
+      - from: observe_story_memory
         to: reroute_state_after
       - from: reroute_state_after
         to: __end__
-      entry: start
+      entry: recall_story_progress
       name: journey-story
       nodes:
+      - config:
+          query:
+            text_from: input
+            kinds: [state]
+            lanes: [story-progress]
+          output: story_progress
+          render: {header: 'Story progress controller:', item_prefix: "- ", max_items: 4}
+          top_k: 4
+        id: recall_story_progress
+        type: memory_recall
+      - config:
+          query:
+            text_from: input
+            lanes: [story-facts]
+          output: story_memory
+          render: {header: 'Supporting story memory:', item_prefix: "- ", max_items: 6}
+          top_k: 6
+        id: recall_story_memory
+        type: memory_recall
+      - config:
+          query:
+            text_from: input
+            kinds: [preference]
+            lanes: [user-preferences]
+          output: user_memory
+          render: {header: 'Relevant user preferences:', item_prefix: "- ", max_items: 4}
+          top_k: 4
+        id: recall_user_memory
+        type: memory_recall
+      - config:
+          query:
+            text_from: input
+            kinds: [note]
+            lanes: [story-questions]
+          output: question_memory
+          render: {header: 'Relevant prior questions:', item_prefix: "- ", max_items: 4}
+          top_k: 4
+        id: recall_question_memory
+        type: memory_recall
+      - config:
+          query:
+            text_from: input
+          output: story_recent
+          render: {header: 'Recent story context:', item_prefix: "- ", max_items: 6}
+          top_k: 6
+        id: recall_story_recent
+        type: memory_recall
       - config:
           source: |
             board.setVar("tmp_selected_arc", "");
@@ -1696,6 +1756,19 @@ spec:
             board.setVar("last_arc", arc);
         id: reroute_state_after
         type: script
+      - config:
+          observations:
+          - turns_from: conversation
+          - facts:
+            - text_from: tmp_story_progress_line
+              attributes:
+                lane: story-progress
+                kind: state
+                predicate: progress
+                subject: story_progress
+          wait_for_completion: true
+        id: observe_story_memory
+        type: memory_observe
     max_iterations: 16
     conversation:
       starts: peer

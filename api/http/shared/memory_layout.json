@@ -77,6 +77,10 @@
         "required": ["model", "mode"],
         "additionalProperties": false,
         "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether Flowcraft extracts Facts from raw observations. Defaults to true; direct Graph Facts remain writable when false."
+          },
           "model": {
             "type": "string",
             "minLength": 1,

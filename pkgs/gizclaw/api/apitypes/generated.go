@@ -4003,6 +4003,8 @@ type FlowcraftMemoryBlevePolicyAnalyzer string
 
 // FlowcraftMemoryExtractionPolicy defines model for FlowcraftMemoryExtractionPolicy.
 type FlowcraftMemoryExtractionPolicy struct {
+	// Enabled Whether Flowcraft extracts Facts from raw observations. Defaults to true; direct Graph Facts remain writable when false.
+	Enabled      *bool                               `json:"enabled,omitempty"`
 	Mode         FlowcraftMemoryExtractionPolicyMode `json:"mode"`
 	Model        string                              `json:"model"`
 	SchemaName   *string                             `json:"schema_name,omitempty"`

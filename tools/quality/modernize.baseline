@@ -9,8 +9,8 @@ cmd/internal/server/tcp_mux.go:67:3: Goroutine creation can be simplified using 
 cmd/internal/server/workspace_test.go:114:72: Replace []byte(fmt.Sprintf...) with fmt.Appendf
 cmd/internal/server/workspace_test.go:150:72: Replace []byte(fmt.Sprintf...) with fmt.Appendf
 cmd/internal/server/workspace_test.go:26:72: Replace []byte(fmt.Sprintf...) with fmt.Appendf
-cmd/internal/server/workspace_test.go:606:69: Replace []byte(fmt.Sprintf...) with fmt.Appendf
-cmd/internal/server/workspace_test.go:655:34: Replace []byte(fmt.Sprintf...) with fmt.Appendf
+cmd/internal/server/workspace_test.go:564:69: Replace []byte(fmt.Sprintf...) with fmt.Appendf
+cmd/internal/server/workspace_test.go:613:34: Replace []byte(fmt.Sprintf...) with fmt.Appendf
 cmd/internal/service/service_test.go:823:2: Loop can be simplified using slices.Contains
 cmd/internal/storage/storage_test.go:465:3: Goroutine creation can be simplified using WaitGroup.Go
 examples/genx/main.go:382:24: Ranging over SplitSeq is more efficient
@@ -58,10 +58,10 @@ pkgs/gizclaw/api/openaihttp/generated_test.go:80:19: call of stringPtr(x) can be
 pkgs/gizclaw/credential_body_test.go:10:6: testStringPtr can be an inlinable wrapper around new(expr)
 pkgs/gizclaw/credential_body_test.go:14:80: call of testStringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/credential_body_test.go:34:78: call of testStringPtr(x) can be simplified to new(x)
-pkgs/gizclaw/integration_admin_service_test.go:116:58: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/integration_admin_service_test.go:108:58: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/integration_admin_service_test.go:189:58: call of strPtr(x) can be simplified to new(x)
 pkgs/gizclaw/integration_admin_service_test.go:19:58: call of strPtr(x) can be simplified to new(x)
-pkgs/gizclaw/integration_admin_service_test.go:201:58: call of strPtr(x) can be simplified to new(x)
-pkgs/gizclaw/integration_admin_service_test.go:91:58: call of strPtr(x) can be simplified to new(x)
+pkgs/gizclaw/integration_admin_service_test.go:83:58: call of strPtr(x) can be simplified to new(x)
 pkgs/gizclaw/integration_peer_http_test.go:18:16: call of strPtr(x) can be simplified to new(x)
 pkgs/gizclaw/integration_peer_http_test.go:19:48: call of strPtr(x) can be simplified to new(x)
 pkgs/gizclaw/integration_peer_http_test.go:21:18: call of strPtr(x) can be simplified to new(x)

@@ -81,9 +81,7 @@ func TestServerConcurrentCreateHasSingleWinner(t *testing.T) {
 	responses := make(chan adminhttp.CreateMemoryLayoutResponseObject, 2)
 	var workers sync.WaitGroup
 	for range 2 {
-		workers.Add(1)
-		go func() {
-			defer workers.Done()
+		workers.Go(func() {
 			<-start
 			response, err := server.CreateMemoryLayout(t.Context(), adminhttp.CreateMemoryLayoutRequestObject{Body: &layout})
 			if err != nil {
@@ -91,7 +89,7 @@ func TestServerConcurrentCreateHasSingleWinner(t *testing.T) {
 				return
 			}
 			responses <- response
-		}()
+		})
 	}
 	close(start)
 	workers.Wait()

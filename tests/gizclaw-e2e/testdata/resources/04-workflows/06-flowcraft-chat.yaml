@@ -5,16 +5,32 @@ metadata:
   name: flowcraft-chat-assistant
 spec:
   driver: flowcraft
+  memory: chat-memory
   flowcraft:
     graph:
       edges:
+      - from: recall_memory
+        to: style_prompt
       - from: style_prompt
         to: answer
       - from: answer
+        to: observe_conversation
+      - from: observe_conversation
         to: __end__
-      entry: style_prompt
+      entry: recall_memory
       name: claw-chat
       nodes:
+      - config:
+          query:
+            text_from: input
+          output: memory_context
+          render:
+            header: 'Relevant memory:'
+            item_prefix: "- "
+            max_items: 5
+          top_k: 5
+        id: recall_memory
+        type: memory_recall
       - config:
           source: "const memoryContext = board.getVar(\"memory_context\") || \"\";\nconst
             commonStyle = [\n  \"This is a spoken voice conversation. Output only
@@ -47,6 +63,12 @@ spec:
         id: answer
         publish: true
         type: llm
+      - config:
+          observations:
+          - turns_from: conversation
+          wait_for_completion: false
+        id: observe_conversation
+        type: memory_observe
     max_iterations: 8
     conversation: {}
     voice_adapter:

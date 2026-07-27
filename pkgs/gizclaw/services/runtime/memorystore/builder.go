@@ -219,15 +219,20 @@ func flowcraftConfig(policy apitypes.FlowcraftMemoryLayoutPolicy, loader memoryf
 		}
 		systemPrompt += lanes
 	}
+	extractionModel := policy.Extraction.Model
+	if policy.Extraction.Enabled != nil && !*policy.Extraction.Enabled {
+		extractionModel = ""
+	}
 	config := memoryflowcraft.Config{
 		Loader: loader,
 		Extraction: memoryflowcraft.ExtractionConfig{
-			Model: policy.Extraction.Model, Mode: flowrecall.LLMExtractionMode(policy.Extraction.Mode),
+			Model: extractionModel, Mode: flowrecall.LLMExtractionMode(policy.Extraction.Mode),
 			SystemPrompt: systemPrompt, SchemaName: valueOrEmpty(policy.Extraction.SchemaName),
 			Temperature: temperature, StageTimeout: stageTimeout,
 		},
 		GraphEnabled: boolValue(policy.GraphEnabled),
 		Tier:         string(policy.Write.Tier),
+		LaneNames:    flowcraftLaneNames(policy.Lanes),
 	}
 	if policy.Embedding != nil {
 		config.Embedding.Model = policy.Embedding.Model
@@ -236,6 +241,16 @@ func flowcraftConfig(policy apitypes.FlowcraftMemoryLayoutPolicy, loader memoryf
 		config.Rerank.Model = policy.Rerank.Model
 	}
 	return config, nil
+}
+
+func flowcraftLaneNames(lanes []apitypes.FlowcraftMemoryLanePolicy) []string {
+	result := make([]string, 0, len(lanes))
+	for _, lane := range lanes {
+		if name := strings.TrimSpace(lane.Name); name != "" {
+			result = append(result, name)
+		}
+	}
+	return result
 }
 
 func openFlowcraftLocal(ctx context.Context, dir, workspaceName string, policy apitypes.FlowcraftMemoryLayoutPolicy, config memoryflowcraft.Config) (*memoryflowcraft.Store, io.Closer, error) {
@@ -545,11 +560,14 @@ func layoutLanePrompt(lanes []apitypes.FlowcraftMemoryLanePolicy) string {
 		return ""
 	}
 	var result strings.Builder
-	result.WriteString("Classify extracted facts into these memory lanes:\n")
+	result.WriteString("Classify extracted facts into these memory lanes. Begin every extracted fact with the exact lane name followed by a colon and space (\"<lane>: ...\"):\n")
 	for _, lane := range lanes {
 		fmt.Fprintf(&result, "- %s (%s)", lane.Name, lane.Kind)
 		if lane.Description != nil && strings.TrimSpace(*lane.Description) != "" {
 			fmt.Fprintf(&result, ": %s", strings.TrimSpace(*lane.Description))
+		}
+		if lane.Extract != nil && strings.TrimSpace(*lane.Extract) != "" {
+			fmt.Fprintf(&result, " Extract: %s", strings.TrimSpace(*lane.Extract))
 		}
 		result.WriteByte('\n')
 	}

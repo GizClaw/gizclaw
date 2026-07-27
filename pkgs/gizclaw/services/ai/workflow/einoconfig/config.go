@@ -54,6 +54,8 @@ func (validationComponents) ResolveRetriever(context.Context, string) (retriever
 
 type validationMemoryStore struct{}
 
+func (validationMemoryStore) SupportsDirectFactObservation() bool { return true }
+
 func (validationMemoryStore) Observe(context.Context, memory.Observation) (memory.ObserveResult, error) {
 	return memory.ObserveResult{}, memory.ErrUnavailable
 }

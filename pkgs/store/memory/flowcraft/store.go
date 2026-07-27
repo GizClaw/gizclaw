@@ -46,6 +46,8 @@ func newStore(config Config, memory recall.Memory, temporal recall.TemporalStore
 	}
 }
 
+func (*Store) SupportsDirectFactObservation() bool { return true }
+
 // Observe extracts and persists facts from raw text or turns.
 func (s *Store) Observe(ctx context.Context, observation memorystore.Observation) (memorystore.ObserveResult, error) {
 	if err := validateObservation(observation); err != nil {
@@ -549,6 +551,11 @@ func (s *Store) factFromFlowcraft(ctx context.Context, scope recall.Scope, input
 	}
 	observationID, _ := attributes["observation_id"].(string)
 	delete(attributes, "observation_id")
+	if _, exists := attributes["lane"]; !exists {
+		if lane := extractedLane(input.Content, s.config.LaneNames); lane != "" {
+			attributes["lane"] = lane
+		}
+	}
 	if observationID == "" && s.config.Extraction.Model != "" {
 		resolvedObservationID, err := s.observationIDForFact(ctx, scope, input)
 		if err != nil {
@@ -561,6 +568,16 @@ func (s *Store) factFromFlowcraft(ctx context.Context, scope recall.Scope, input
 		sources = []sourceRef{{ObservationID: observationID, TurnIDs: turnIDs}}
 	}
 	return fact{ID: encodeLocator(scope, rootID), Revision: encodeLocator(scope, input.ID), Text: input.Content, Attributes: attributes, Sources: sources, CreatedAt: createdAt, UpdatedAt: input.ObservedAt}, nil
+}
+
+func extractedLane(content string, laneNames []string) string {
+	content = strings.TrimSpace(content)
+	for _, lane := range laneNames {
+		if strings.HasPrefix(content, lane+":") {
+			return lane
+		}
+	}
+	return ""
 }
 
 func (s *Store) persistObservationProvenance(ctx context.Context, scope recall.Scope, observationID string, result recall.SaveResult) error {

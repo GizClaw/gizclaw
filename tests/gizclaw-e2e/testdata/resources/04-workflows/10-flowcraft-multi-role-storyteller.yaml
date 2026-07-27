@@ -5,6 +5,7 @@ metadata:
   name: flowcraft-multi-role-storyteller
 spec:
   driver: flowcraft
+  memory: storyteller-memory
   flowcraft:
     graph:
       edges:
@@ -48,6 +49,8 @@ spec:
         to: select_story_step
       - condition: continue_story == false
         from: continue_check
+        to: observe_story_audit
+      - from: observe_story_audit
         to: __end__
       entry: start
       name: multi-role-storyteller
@@ -585,6 +588,19 @@ spec:
             board.setVar("continue_story", shouldContinue);
         id: continue_check
         type: script
+      - config:
+          observations:
+          - turns_from: conversation
+          - facts:
+            - {text_from: tmp_story_state_line, attributes: {lane: story-state, kind: state, predicate: progress, subject: story_state}}
+            - {text_from: tmp_blueprint_state_line, attributes: {lane: blueprint-state, kind: state, predicate: arc, subject: blueprint_state}}
+            - {text_from: tmp_cast_state_line, attributes: {lane: cast-state, kind: state, predicate: status, subject: cast_state}}
+            - {text_from: tmp_user_state_line, attributes: {lane: user-state, kind: state, predicate: participation, subject: user_state}}
+            - {text_from: tmp_continuity_state_line, attributes: {lane: continuity-state, kind: state, predicate: facts, subject: continuity_state}}
+            - {text_from: tmp_ending_state_line, attributes: {lane: ending-state, kind: state, predicate: closure, subject: ending_state}}
+          wait_for_completion: true
+        id: observe_story_audit
+        type: memory_observe
     max_iterations: 40
     conversation:
       starts: agent

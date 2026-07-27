@@ -84,6 +84,7 @@ metadata:
 spec:
   flowcraft:
     extraction:
+      enabled: true
       model: memory-extractor
       mode: two_pass
     embedding:
@@ -105,7 +106,7 @@ spec:
       custom_instructions: Extract durable pet and owner facts.
 ```
 
-`MemoryLayout` 的三个 provider block 都必须存在。Flowcraft block 中的 extraction、embedding 和 rerank model 是 RuntimeProfile model alias；只有实际选择 `driver: flowcraft` 时才解析这些 alias。
+`MemoryLayout` 的三个 provider block 都必须存在。Flowcraft block 中的 extraction、embedding 和 rerank model 是 RuntimeProfile model alias；只有实际选择 `driver: flowcraft` 时才解析这些 alias。`extraction.enabled` 默认为 `true`；设为 `false` 时不运行模型提取，但 Graph 写入的 direct Facts 仍然可用。
 
 ```yaml
 spec:

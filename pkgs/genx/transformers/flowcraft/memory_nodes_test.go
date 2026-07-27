@@ -2,12 +2,40 @@ package flowcraft
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	flowgraph "github.com/GizClaw/flowcraft/sdk/graph"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
+
+func TestMemoryObserveNodeRejectsStoreWithoutDirectFactCapability(t *testing.T) {
+	t.Parallel()
+	config := testConfig(&echoGenerator{})
+	config.Memory = memoryOnlyStore{Store: &memoryNodeStore{}}
+	config.MemoryScope = memory.Scope{AppID: "workspace"}
+	config.Graph.Entry = "observe"
+	config.Graph.Nodes = append([]flowgraph.NodeDefinition{{
+		ID: "observe", Type: "memory_observe",
+		Config: map[string]any{
+			"observations": []any{map[string]any{
+				"facts": []any{map[string]any{
+					"text_from":  "fact",
+					"attributes": map[string]string{"lane": "facts"},
+				}},
+			}},
+		},
+	}}, config.Graph.Nodes...)
+	config.Graph.Edges = []flowgraph.EdgeDefinition{
+		{From: "observe", To: "chat"},
+		{From: "chat", To: flowgraph.END},
+	}
+	_, err := New(config)
+	if err == nil || !strings.Contains(err.Error(), "requires direct Fact observation support") {
+		t.Fatalf("New() error = %v", err)
+	}
+}
 
 func TestMemoryRecallNodeMapsBoardToStoreAndBack(t *testing.T) {
 	t.Parallel()
@@ -37,6 +65,9 @@ func TestMemoryRecallNodeMapsBoardToStoreAndBack(t *testing.T) {
 			Output: "memory_context",
 			TopK:   2,
 		},
+		laneRecall: map[string]string{
+			"clues": "Use confirmed clues to maintain continuity.",
+		},
 	}
 
 	if err := node.ExecuteBoard(flowgraph.ExecutionContext{
@@ -54,7 +85,7 @@ func TestMemoryRecallNodeMapsBoardToStoreAndBack(t *testing.T) {
 		t.Fatalf("Recall filters = %#v", store.recallQuery.Filters)
 	}
 	rendered, _ := board.GetVar("memory_context")
-	if rendered != "Relevant memory:\n- first\n- second" {
+	if rendered != "Recall policy:\nUse confirmed clues to maintain continuity.\nRelevant memory:\n- first\n- second" {
 		t.Fatalf("Board memory_context = %#v", rendered)
 	}
 }
@@ -112,6 +143,8 @@ type memoryNodeStore struct {
 	recallQuery   memory.Query
 	observation   memory.Observation
 }
+
+func (*memoryNodeStore) SupportsDirectFactObservation() bool { return true }
 
 func (store *memoryNodeStore) Observe(
 	_ context.Context,

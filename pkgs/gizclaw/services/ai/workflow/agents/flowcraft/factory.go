@@ -36,14 +36,15 @@ const Type = "flowcraft"
 // Factory maps the public GizClaw Workflow plus AgentHost-owned dependencies
 // into the reusable GenX Flowcraft Transformer and Audio Dock.
 type Factory struct {
-	GenX         *peergenx.Service
-	GenXForOwner func(context.Context, string) (*peergenx.Service, error)
-	History      logstore.MutableStore
-	State        kv.Store
-	Memory       memory.Store
-	MemoryKind   string
-	MemoryStores *memorystore.Registry
-	ServerRoot   string
+	GenX             *peergenx.Service
+	GenXForOwner     func(context.Context, string) (*peergenx.Service, error)
+	History          logstore.MutableStore
+	State            kv.Store
+	Memory           memory.Store
+	MemoryKind       string
+	MemoryLaneRecall map[string]string
+	MemoryStores     *memorystore.Registry
+	ServerRoot       string
 }
 
 // InputProvider supplies product-owned transient Board values.
@@ -119,6 +120,9 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 		f.MemoryKind = result.Driver
 		memoryCloser = joinClosers(memoryCloser, result.Closer)
 	}
+	if f.Memory != nil && f.MemoryKind == string(apitypes.RuntimeProfileMemoryDriverFlowcraft) && spec.MemoryLayout != nil {
+		f.MemoryLaneRecall = flowcraftLaneRecall(spec.MemoryLayout.Spec.Flowcraft.Lanes)
+	}
 	return f.newAgent(ctx, owner, workspaceName, spec.Workflow.Name, public, spec.BoardInputs, initiativePolicy, memoryCloser)
 }
 
@@ -165,6 +169,7 @@ func (f Factory) newAgent(ctx context.Context, owner, workspaceName, workflowNam
 		config.Memory = f.Memory
 		agentMemory = f.Memory
 		config.MemoryScope = memoryScope
+		config.MemoryLaneRecall = maps.Clone(f.MemoryLaneRecall)
 	}
 
 	core, err := genxflowcraft.New(config)
@@ -184,6 +189,18 @@ func (f Factory) newAgent(ctx context.Context, owner, workspaceName, workflowNam
 		backend = strings.TrimSpace(f.MemoryKind)
 	}
 	return NewManagedAgentWithBackend(transformer, owned, agentMemory, memoryScope, backend), nil
+}
+
+func flowcraftLaneRecall(lanes []apitypes.FlowcraftMemoryLanePolicy) map[string]string {
+	result := make(map[string]string)
+	for _, lane := range lanes {
+		name := strings.TrimSpace(lane.Name)
+		recall := stringValue(lane.Recall)
+		if name != "" && recall != "" {
+			result[name] = recall
+		}
+	}
+	return result
 }
 
 func mapInitiative(conversation *apitypes.FlowcraftConversation, policy string) genxflowcraft.InitiativePolicy {

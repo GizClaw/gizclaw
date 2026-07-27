@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/goccy/go-yaml"
 )
 
@@ -72,6 +73,81 @@ func TestWorkflowCatalogFixtures(t *testing.T) {
 			}
 			if fixture.Icon != nil || fixture.I18n != nil {
 				t.Fatalf("Workflow display metadata must be client-owned: icon=%#v i18n=%#v", fixture.Icon, fixture.I18n)
+			}
+		})
+	}
+}
+
+func TestMemoryMigratedFlowcraftFixturesDecodeTypedGraph(t *testing.T) {
+	for _, filename := range []string{
+		"06-flowcraft-chat.yaml",
+		"08-flowcraft-journey.yaml",
+		"10-flowcraft-multi-role-storyteller.yaml",
+		"11-flowcraft-murder-mystery.yaml",
+		"12-flowcraft-poetry-adventure-li-bai.yaml",
+		"13-flowcraft-werewolf.yaml",
+	} {
+		t.Run(filename, func(t *testing.T) {
+			raw, err := os.ReadFile(filepath.Join("resources", "04-workflows", filename))
+			if err != nil {
+				t.Fatal(err)
+			}
+			jsonRaw, err := yaml.YAMLToJSON(raw)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var resource apitypes.Resource
+			if err := json.Unmarshal(jsonRaw, &resource); err != nil {
+				t.Fatal(err)
+			}
+			workflow, err := resource.AsWorkflowResource()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if workflow.Spec.Memory == nil || strings.TrimSpace(string(*workflow.Spec.Memory)) == "" {
+				t.Fatal("memory alias is required")
+			}
+			if workflow.Spec.Flowcraft == nil {
+				t.Fatal("flowcraft config is required")
+			}
+			if err := workflow.Spec.Flowcraft.Validate(); err != nil {
+				t.Fatalf("Flowcraft config: %v", err)
+			}
+		})
+	}
+}
+
+func TestMemoryLayoutCatalogFixturesDecodeAllProviders(t *testing.T) {
+	paths, err := filepath.Glob(filepath.Join("resources", "04-memory-layouts", "*.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(paths) < 7 {
+		t.Fatalf("MemoryLayout fixture count = %d, want at least 7", len(paths))
+	}
+	for _, path := range paths {
+		t.Run(filepath.Base(path), func(t *testing.T) {
+			raw, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			jsonRaw, err := yaml.YAMLToJSON(raw)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var resource apitypes.Resource
+			if err := json.Unmarshal(jsonRaw, &resource); err != nil {
+				t.Fatal(err)
+			}
+			layout, err := resource.AsMemoryLayoutResource()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if layout.Spec.Flowcraft.Extraction.Model == "" ||
+				layout.Spec.Mem0.CustomInstructions == nil ||
+				strings.TrimSpace(*layout.Spec.Mem0.CustomInstructions) == "" ||
+				len(layout.Spec.VolcMem0.Strategies) == 0 {
+				t.Fatalf("incomplete provider blocks: %#v", layout.Spec)
 			}
 		})
 	}

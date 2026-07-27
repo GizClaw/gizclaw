@@ -5,6 +5,7 @@ metadata:
   name: flowcraft-poetry-adventure-li-bai
 spec:
   driver: flowcraft
+  memory: poetry-memory
   flowcraft:
     graph:
       edges:
@@ -60,6 +61,8 @@ spec:
       - from: finished_roleplay_chat
         to: write_poetry_audit
       - from: write_poetry_audit
+        to: observe_poetry_audit
+      - from: observe_poetry_audit
         to: __end__
       - condition: poetry_award_route == "tang_award_badge"
         from: checkpoint_clear
@@ -539,6 +542,16 @@ spec:
               "; score=" + (state.score || 0));
         id: write_poetry_audit
         type: script
+      - config:
+          observations:
+          - turns_from: conversation
+          - facts:
+            - {text_from: tmp_checkpoint_progress_line, attributes: {lane: checkpoint-progress, kind: state, predicate: status, subject: checkpoint_progress}}
+            - {text_from: tmp_achievement_log_line, attributes: {lane: achievement-log, kind: event, predicate: recitation, subject: achievement_log}}
+            - {text_from: tmp_badge_events_line, attributes: {lane: badge-events, kind: event, predicate: badge, subject: badge_events}}
+          wait_for_completion: true
+        id: observe_poetry_audit
+        type: memory_observe
     max_iterations: 16
     conversation:
       starts: agent

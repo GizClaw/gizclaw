@@ -84,6 +84,7 @@ metadata:
 spec:
   flowcraft:
     extraction:
+      enabled: true
       model: memory-extractor
       mode: two_pass
     embedding:
@@ -105,7 +106,7 @@ spec:
       custom_instructions: Extract durable pet and owner facts.
 ```
 
-All three provider blocks are required. Flowcraft extraction, embedding, and rerank models are RuntimeProfile model aliases; they are resolved only when the binding selects `driver: flowcraft`.
+All three provider blocks are required. Flowcraft extraction, embedding, and rerank models are RuntimeProfile model aliases; they are resolved only when the binding selects `driver: flowcraft`. `extraction.enabled` defaults to `true`; setting it to `false` disables model extraction while Graph-authored direct Facts remain writable.
 
 ```yaml
 spec:

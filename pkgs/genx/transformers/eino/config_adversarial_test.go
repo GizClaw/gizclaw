@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 	"github.com/cloudwego/eino/schema"
 )
 
@@ -496,6 +497,67 @@ func TestGraphValidationRejectsAdversarialTopologyAndMetadata(t *testing.T) {
 				t.Fatalf("New() error = %v, want containing %q", err, test.want)
 			}
 		})
+	}
+}
+
+func TestNestedMemoryNodeRequiresMemoryConfiguration(t *testing.T) {
+	t.Parallel()
+	child := childTextGraph("child-memory", nil)
+	child.Nodes[0] = NodeDefinition{
+		ID: "recall",
+		MemoryRecall: &MemoryRecallNode{
+			QueryFrom: "input.text",
+			Output:    "answer",
+			TopK:      3,
+		},
+	}
+	child.Nodes = append(child.Nodes, NodeDefinition{
+		ID:          "answer",
+		Inputs:      map[string]Binding{"value": {From: "answer"}},
+		Outputs:     map[string]string{"value": "answer"},
+		Passthrough: &PassthroughNode{},
+	})
+	child.Edges = []EdgeDefinition{
+		{From: "start", To: "recall"},
+		{From: "recall", To: "answer"},
+		{From: "answer", To: "end"},
+	}
+	config := textConfig()
+	config.Graph.Nodes[0] = NodeDefinition{
+		ID:      "answer",
+		Inputs:  map[string]Binding{"text": {From: "input.text"}},
+		Outputs: map[string]string{"answer": "answer"},
+		Subgraph: &SubgraphNode{
+			Graph: child,
+		},
+	}
+	_, err := New(t.Context(), config)
+	if err == nil || !strings.Contains(err.Error(), "Graph Memory nodes require Memory") {
+		t.Fatalf("New() error = %v", err)
+	}
+}
+
+func TestMemoryObserveNodeRejectsStoreWithoutDirectFactCapability(t *testing.T) {
+	t.Parallel()
+	config := textConfig()
+	config.Memory = &MemoryConfig{
+		Store: struct{ memory.Store }{Store: &recordingMemoryStore{}},
+		Scope: memory.Scope{AppID: "app"},
+	}
+	config.Graph.Nodes = append(config.Graph.Nodes, NodeDefinition{
+		ID: "observe",
+		MemoryObserve: &MemoryObserveNode{Facts: []ObserveDefinition{{
+			TextFrom: "answer",
+		}}},
+	})
+	config.Graph.Edges = []EdgeDefinition{
+		{From: "start", To: "answer"},
+		{From: "answer", To: "observe"},
+		{From: "observe", To: "end"},
+	}
+	_, err := New(t.Context(), config)
+	if err == nil || !strings.Contains(err.Error(), "requires direct Fact observation support") {
+		t.Fatalf("New() error = %v", err)
 	}
 }
 

@@ -30,6 +30,27 @@ type Store interface {
 	Delete(context.Context, DeleteRequest) error
 }
 
+// DirectFactObserver is implemented by Stores that accept already-structured
+// Observation.Facts without passing them through provider extraction.
+type DirectFactObserver interface {
+	SupportsDirectFactObservation() bool
+}
+
+// SupportsDirectFactObservation reports whether store accepts direct Facts.
+// It unwraps borrowed scope views so capability checks remain stable after
+// BindApp.
+func SupportsDirectFactObservation(store Store) bool {
+	for {
+		bound, ok := store.(interface{ underlyingMemoryStore() Store })
+		if !ok {
+			break
+		}
+		store = bound.underlyingMemoryStore()
+	}
+	provider, ok := store.(DirectFactObserver)
+	return ok && provider.SupportsDirectFactObservation()
+}
+
 // OperationWaiter is implemented by stores whose Observe method can return a
 // pending operation. Wait blocks until the operation reaches a terminal state
 // or ctx is cancelled. The returned result is authoritative for the operation.

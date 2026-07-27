@@ -62,6 +62,7 @@ func registerMemoryNodes(factory *flownode.Factory, config Config) {
 		}
 		return &memoryRecallNode{
 			id: def.ID, store: config.Memory, scope: config.MemoryScope, config: nodeConfig,
+			laneRecall: config.MemoryLaneRecall,
 		}, nil
 	})
 	factory.RegisterBuilder("memory_observe", func(def flowgraph.NodeDefinition) (flowgraph.Node, error) {
@@ -74,6 +75,11 @@ func registerMemoryNodes(factory *flownode.Factory, config Config) {
 		}
 		if len(nodeConfig.Observations) == 0 {
 			return nil, fmt.Errorf("flowcraft: memory_observe node %q requires observations", def.ID)
+		}
+		for _, observation := range nodeConfig.Observations {
+			if len(observation.Facts) > 0 && !memory.SupportsDirectFactObservation(config.Memory) {
+				return nil, fmt.Errorf("flowcraft: memory_observe node %q requires direct Fact observation support", def.ID)
+			}
 		}
 		if nodeConfig.WaitForCompletion {
 			if _, ok := config.Memory.(memory.OperationWaiter); !ok {
@@ -98,10 +104,11 @@ func decodeNodeConfig(source map[string]any, target any) error {
 }
 
 type memoryRecallNode struct {
-	id     string
-	store  memory.Store
-	scope  memory.Scope
-	config memoryRecallNodeConfig
+	id         string
+	store      memory.Store
+	scope      memory.Scope
+	config     memoryRecallNodeConfig
+	laneRecall map[string]string
 }
 
 func (n *memoryRecallNode) ID() string { return n.id }
@@ -127,8 +134,18 @@ func (n *memoryRecallNode) ExecuteBoard(ctx flowgraph.ExecutionContext, board *f
 		return fmt.Errorf("flowcraft: memory_recall node %q: %w", n.id, err)
 	}
 	matches := selectMemoryMatches(result.Matches, n.config.Query.Kinds, n.config.Query.Lanes, n.config.TopK)
-	board.SetVar(n.config.Output, renderMemoryMatches(matches, n.config.Render))
+	board.SetVar(n.config.Output, renderMemoryMatches(matches, n.config.Render, memoryRecallGuidance(n.config.Query.Lanes, n.laneRecall)))
 	return nil
+}
+
+func memoryRecallGuidance(lanes []string, policies map[string]string) []string {
+	guidance := make([]string, 0, len(lanes))
+	for _, lane := range lanes {
+		if text := strings.TrimSpace(policies[strings.TrimSpace(lane)]); text != "" {
+			guidance = append(guidance, text)
+		}
+	}
+	return guidance
 }
 
 func memoryRecallCandidateLimit(topK int, selectsAttributes bool) int {
@@ -195,7 +212,7 @@ func renderMemoryMatches(matches []memory.Match, config *struct {
 	Header     string `json:"header"`
 	ItemPrefix string `json:"item_prefix"`
 	MaxItems   int    `json:"max_items"`
-}) string {
+}, guidance []string) string {
 	header := "Relevant memory:"
 	itemPrefix := "- "
 	maxItems := len(matches)
@@ -207,6 +224,11 @@ func renderMemoryMatches(matches []memory.Match, config *struct {
 		}
 	}
 	var rendered strings.Builder
+	if len(guidance) > 0 && maxItems > 0 {
+		rendered.WriteString("Recall policy:\n")
+		rendered.WriteString(strings.Join(guidance, "\n"))
+		rendered.WriteByte('\n')
+	}
 	if header != "" && maxItems > 0 {
 		rendered.WriteString(header)
 		rendered.WriteByte('\n')

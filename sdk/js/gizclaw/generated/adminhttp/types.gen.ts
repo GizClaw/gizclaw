@@ -1235,6 +1235,10 @@ export type FlowcraftMemoryBlevePolicy = {
 };
 
 export type FlowcraftMemoryExtractionPolicy = {
+    /**
+     * Whether Flowcraft extracts Facts from raw observations. Defaults to true; direct Graph Facts remain writable when false.
+     */
+    enabled?: boolean;
     model: string;
     mode: 'single_pass' | 'two_pass';
     system_prompt?: string;

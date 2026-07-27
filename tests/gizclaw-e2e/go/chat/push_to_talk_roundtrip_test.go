@@ -263,13 +263,21 @@ func runtimeMemoryBindings(t *testing.T) map[string]apitypes.RuntimeProfileMemor
 	}); err != nil {
 		t.Fatal(err)
 	}
-	return map[string]apitypes.RuntimeProfileMemoryBinding{
-		"default-memory": {
-			LayoutId:   "default-memory",
-			Driver:     apitypes.RuntimeProfileMemoryDriverFlowcraft,
-			Connection: connection,
-		},
+	result := make(map[string]apitypes.RuntimeProfileMemoryBinding)
+	for _, alias := range []string{
+		"default-memory",
+		"chat-memory",
+		"journey-memory",
+		"storyteller-memory",
+		"murder-mystery-memory",
+		"poetry-memory",
+		"werewolf-memory",
+	} {
+		result[alias] = apitypes.RuntimeProfileMemoryBinding{
+			LayoutId: alias, Driver: apitypes.RuntimeProfileMemoryDriverFlowcraft, Connection: connection,
+		}
 	}
+	return result
 }
 
 func ptr[T any](value T) *T { return &value }

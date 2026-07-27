@@ -5,9 +5,14 @@ metadata:
   name: flowcraft-werewolf-game
 spec:
   driver: flowcraft
+  memory: werewolf-memory
   flowcraft:
     graph:
       edges:
+      - from: recall_game_memory
+        to: recall_public_memory
+      - from: recall_public_memory
+        to: load_game_state
       - from: load_game_state
         to: route_setup
       - condition: werewolf_route == "setup_game"
@@ -58,9 +63,9 @@ spec:
       - from: prepare_vote_phase
         to: host_vote_prompt
       - from: user_speech_retry
-        to: __end__
+        to: observe_game_conversation
       - from: host_vote_prompt
-        to: __end__
+        to: observe_game_conversation
       - condition: vote_valid != "true"
         from: apply_vote
         to: vote_retry
@@ -68,7 +73,7 @@ spec:
         from: apply_vote
         to: host_vote_result
       - from: vote_retry
-        to: __end__
+        to: observe_game_conversation
       - condition: werewolf_phase == "night_open"
         from: host_vote_result
         to: host_night_begin
@@ -76,16 +81,18 @@ spec:
         from: host_vote_result
         to: write_game_audit
       - condition: werewolf_phase == "day_open"
-        from: write_game_audit
+        from: observe_game_audit
         to: host_day_announce
       - condition: werewolf_phase != "day_open"
-        from: write_game_audit
-        to: __end__
+        from: observe_game_audit
+        to: observe_game_conversation
+      - from: write_game_audit
+        to: observe_game_audit
       - from: prepare_user_speech
         to: user_speech_prompt
       - condition: werewolf_pending_tool_event == ""
         from: user_speech_prompt
-        to: __end__
+        to: observe_game_conversation
       - from: post_game_seat_1_free_chat
         to: post_game_seat_2_free_chat
       - from: post_game_seat_2_free_chat
@@ -101,6 +108,8 @@ spec:
       - from: post_game_seat_8_free_chat
         to: post_game_host_wrap
       - from: post_game_host_wrap
+        to: observe_game_conversation
+      - from: observe_game_conversation
         to: __end__
       - condition: speech_valid == "true"
         from: validate_user_speech
@@ -161,9 +170,29 @@ spec:
       - condition: werewolf_pending_tool_event == "game_over"
         from: host_vote_result
         to: write_game_audit
-      entry: load_game_state
+      entry: recall_game_memory
       name: werewolf
       nodes:
+      - config:
+          query:
+            text_from: input
+            kinds: [state]
+            lanes: [game-progress]
+          output: game_memory
+          render: {header: 'Game memory:', item_prefix: "- ", max_items: 2}
+          top_k: 2
+        id: recall_game_memory
+        type: memory_recall
+      - config:
+          query:
+            text_from: input
+            kinds: [event]
+            lanes: [public-timeline]
+          output: public_memory
+          render: {header: 'Public memory:', item_prefix: "- ", max_items: 3}
+          top_k: 3
+        id: recall_public_memory
+        type: memory_recall
       - config:
           source: |
             function latestUserText() {
@@ -1965,6 +1994,29 @@ spec:
             board.setVar("werewolf_phase", state.phase || "");
         id: write_game_audit
         type: script
+      - config:
+          observations:
+          - facts:
+            - {text_from: tmp_game_progress_line, attributes: {lane: game-progress, kind: state, predicate: status, subject: game_progress}}
+            - {text_from: tmp_public_timeline_line, attributes: {lane: public-timeline, kind: event, predicate: event, subject: public_timeline}}
+            - {text_from: tmp_resolution_log_line, attributes: {lane: resolution-log, kind: event, predicate: decision, subject: resolution_log}}
+            - {text_from: tmp_seat_1_memory_line, attributes: {lane: seat-1-memory, kind: state, predicate: role_context, subject: seat_1_memory}}
+            - {text_from: tmp_seat_2_memory_line, attributes: {lane: seat-2-memory, kind: state, predicate: role_context, subject: seat_2_memory}}
+            - {text_from: tmp_seat_3_memory_line, attributes: {lane: seat-3-memory, kind: state, predicate: role_context, subject: seat_3_memory}}
+            - {text_from: tmp_seat_4_memory_line, attributes: {lane: seat-4-memory, kind: state, predicate: role_context, subject: seat_4_memory}}
+            - {text_from: tmp_seat_5_memory_line, attributes: {lane: seat-5-memory, kind: state, predicate: role_context, subject: seat_5_memory}}
+            - {text_from: tmp_seat_6_memory_line, attributes: {lane: seat-6-memory, kind: state, predicate: role_context, subject: seat_6_memory}}
+            - {text_from: tmp_seat_7_memory_line, attributes: {lane: seat-7-memory, kind: state, predicate: role_context, subject: seat_7_memory}}
+            - {text_from: tmp_seat_8_memory_line, attributes: {lane: seat-8-memory, kind: state, predicate: role_context, subject: seat_8_memory}}
+          wait_for_completion: true
+        id: observe_game_audit
+        type: memory_observe
+      - config:
+          observations:
+          - turns_from: conversation
+          wait_for_completion: true
+        id: observe_game_conversation
+        type: memory_observe
       - config:
           source: |
             const state = board.getVar("werewolf_game_state") || {};

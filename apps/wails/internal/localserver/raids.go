@@ -736,11 +736,17 @@ func validateWorkflowAliases(profile apitypes.RuntimeProfileResource, selected m
 			voices[alias] = true
 		}
 	}
+	memories := map[string]bool{}
+	if profile.Spec.Resources.Memories != nil {
+		for alias := range *profile.Spec.Resources.Memories {
+			memories[alias] = true
+		}
+	}
 	for _, candidate := range selected {
 		if candidate.kind != "Workflow" {
 			continue
 		}
-		modelAliases, voiceAliases, err := workflowAliases(candidate.data)
+		modelAliases, voiceAliases, memoryAlias, err := workflowAliases(candidate.data)
 		if err != nil {
 			return fmt.Errorf("parse Workflow/%s aliases: %w", candidate.name, err)
 		}
@@ -753,6 +759,9 @@ func validateWorkflowAliases(profile apitypes.RuntimeProfileResource, selected m
 			if !voices[alias] {
 				return fmt.Errorf("Workflow/%s references missing Voice alias %q", candidate.name, alias)
 			}
+		}
+		if memoryAlias != "" && !memories[memoryAlias] {
+			return fmt.Errorf("Workflow/%s references missing memory alias %q", candidate.name, memoryAlias)
 		}
 	}
 	return nil
@@ -820,19 +829,21 @@ func validateMemoryLayoutAliases(profile apitypes.RuntimeProfileResource, select
 	return nil
 }
 
-func workflowAliases(data []byte) ([]string, []string, error) {
+func workflowAliases(data []byte) ([]string, []string, string, error) {
 	var document struct {
 		Spec map[string]any `yaml:"spec"`
 	}
 	if err := yaml.Unmarshal(data, &document); err != nil {
-		return nil, nil, err
+		return nil, nil, "", err
 	}
 	return workflowSpecAliases(document.Spec)
 }
 
-func workflowSpecAliases(spec map[string]any) ([]string, []string, error) {
+func workflowSpecAliases(spec map[string]any) ([]string, []string, string, error) {
 	models := map[string]bool{}
 	voices := map[string]bool{}
+	memoryAlias, _ := spec["memory"].(string)
+	memoryAlias = strings.TrimSpace(memoryAlias)
 	add := func(set map[string]bool, value any) {
 		if text, ok := value.(string); ok && strings.TrimSpace(text) != "" {
 			set[text] = true
@@ -843,14 +854,14 @@ func workflowSpecAliases(spec map[string]any) ([]string, []string, error) {
 	case "dashscope-realtime":
 		config, ok := anyMap(spec["dashscope_realtime"])
 		if !ok {
-			return nil, nil, errors.New("dashscope-realtime workflow has no configuration")
+			return nil, nil, "", errors.New("dashscope-realtime workflow has no configuration")
 		}
 		add(models, config["model"])
 		add(voices, config["voice"])
 	case "doubao-realtime":
 		config, ok := anyMap(spec["doubao_realtime"])
 		if !ok {
-			return nil, nil, errors.New("doubao-realtime workflow has no configuration")
+			return nil, nil, "", errors.New("doubao-realtime workflow has no configuration")
 		}
 		add(models, config["model"])
 		if audio, ok := anyMap(config["audio"]); ok {
@@ -861,14 +872,14 @@ func workflowSpecAliases(spec map[string]any) ([]string, []string, error) {
 	case "doubao-realtime-duplex":
 		config, ok := anyMap(spec["doubao_realtime_duplex"])
 		if !ok {
-			return nil, nil, errors.New("doubao-realtime-duplex workflow has no configuration")
+			return nil, nil, "", errors.New("doubao-realtime-duplex workflow has no configuration")
 		}
 		add(models, config["model"])
 		add(voices, config["voice"])
 	case "eino":
 		config, ok := anyMap(spec["eino"])
 		if !ok {
-			return nil, nil, errors.New("eino workflow has no configuration")
+			return nil, nil, "", errors.New("eino workflow has no configuration")
 		}
 		if graph, ok := anyMap(config["graph"]); ok {
 			collectEinoGraphModelAliases(graph, models)
@@ -876,7 +887,7 @@ func workflowSpecAliases(spec map[string]any) ([]string, []string, error) {
 	case "ast-translate":
 		config, ok := anyMap(spec["ast_translate"])
 		if !ok {
-			return nil, nil, errors.New("ast-translate workflow has no configuration")
+			return nil, nil, "", errors.New("ast-translate workflow has no configuration")
 		}
 		add(models, config["translation_model"])
 		if voice, ok := anyMap(config["voice"]); ok {
@@ -885,7 +896,7 @@ func workflowSpecAliases(spec map[string]any) ([]string, []string, error) {
 	case "flowcraft":
 		config, ok := anyMap(spec["flowcraft"])
 		if !ok {
-			return nil, nil, errors.New("flowcraft workflow has no configuration")
+			return nil, nil, "", errors.New("flowcraft workflow has no configuration")
 		}
 		if graph, ok := anyMap(config["graph"]); ok {
 			for _, node := range anySlice(graph["nodes"]) {
@@ -908,7 +919,7 @@ func workflowSpecAliases(spec map[string]any) ([]string, []string, error) {
 	case "chatroom":
 		config, ok := anyMap(spec["chatroom"])
 		if !ok {
-			return nil, nil, errors.New("chatroom workflow has no configuration")
+			return nil, nil, "", errors.New("chatroom workflow has no configuration")
 		}
 		if transcript, ok := anyMap(config["transcript"]); ok {
 			add(models, transcript["asr_model"])
@@ -916,13 +927,20 @@ func workflowSpecAliases(spec map[string]any) ([]string, []string, error) {
 	case "pet":
 		nested, ok := anyMap(spec["pet"])
 		if !ok {
-			return nil, nil, errors.New("pet workflow has no nested workflow")
+			return nil, nil, "", errors.New("pet workflow has no nested workflow")
 		}
-		return workflowSpecAliases(nested)
+		nestedModels, nestedVoices, nestedMemory, err := workflowSpecAliases(nested)
+		if err != nil {
+			return nil, nil, "", err
+		}
+		if nestedMemory != "" {
+			return nil, nil, "", errors.New("pet nested workflow must not declare memory")
+		}
+		return nestedModels, nestedVoices, memoryAlias, nil
 	default:
-		return nil, nil, fmt.Errorf("unsupported workflow driver %q", driver)
+		return nil, nil, "", fmt.Errorf("unsupported workflow driver %q", driver)
 	}
-	return sortedAliases(models), sortedAliases(voices), nil
+	return sortedAliases(models), sortedAliases(voices), memoryAlias, nil
 }
 
 func collectEinoGraphModelAliases(graph map[string]any, models map[string]bool) {

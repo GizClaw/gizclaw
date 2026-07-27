@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"reflect"
 	"strings"
 
@@ -52,6 +53,9 @@ type Config struct {
 
 	// MemoryScope is the fixed opaque scope used by every Recall and Observe.
 	MemoryScope memory.Scope
+	// MemoryLaneRecall maps portable Layout lane names to guidance rendered
+	// when a Graph memory_recall node explicitly selects those lanes.
+	MemoryLaneRecall map[string]string
 
 	// RecallProfiles populate Board variables before each Graph run.
 	RecallProfiles []MemoryRecallProfile
@@ -161,6 +165,21 @@ func normalizeConfig(source Config) (Config, error) {
 	config.ContextID = strings.TrimSpace(config.ContextID)
 	config.HistoryScope = strings.TrimSpace(config.HistoryScope)
 	config.MemoryScope = normalizeMemoryScope(config.MemoryScope)
+	config.MemoryLaneRecall = maps.Clone(config.MemoryLaneRecall)
+	for lane, guidance := range config.MemoryLaneRecall {
+		normalizedLane := strings.TrimSpace(lane)
+		normalizedGuidance := strings.TrimSpace(guidance)
+		if normalizedLane == "" || normalizedGuidance == "" {
+			delete(config.MemoryLaneRecall, lane)
+			continue
+		}
+		if normalizedLane != lane {
+			delete(config.MemoryLaneRecall, lane)
+			config.MemoryLaneRecall[normalizedLane] = normalizedGuidance
+			continue
+		}
+		config.MemoryLaneRecall[lane] = normalizedGuidance
+	}
 	if config.ID == "" {
 		return Config{}, fmt.Errorf("flowcraft: ID is required")
 	}
@@ -215,9 +234,25 @@ func normalizeConfig(source Config) (Config, error) {
 			if len(node.Config) != 0 {
 				return Config{}, fmt.Errorf("flowcraft: passthrough node %q does not accept config", node.ID)
 			}
-		case "memory_recall", "memory_observe":
+		case "memory_recall":
 			if config.Memory == nil {
 				return Config{}, fmt.Errorf("flowcraft: %s node %q requires Memory", node.Type, node.ID)
+			}
+		case "memory_observe":
+			if config.Memory == nil {
+				return Config{}, fmt.Errorf("flowcraft: %s node %q requires Memory", node.Type, node.ID)
+			}
+			var nodeConfig memoryObserveNodeConfig
+			if err := decodeNodeConfig(node.Config, &nodeConfig); err != nil {
+				return Config{}, fmt.Errorf("flowcraft: memory_observe node %q: %w", node.ID, err)
+			}
+			for _, observation := range nodeConfig.Observations {
+				if len(observation.Facts) > 0 && !memory.SupportsDirectFactObservation(config.Memory) {
+					return Config{}, fmt.Errorf(
+						"flowcraft: memory_observe node %q requires direct Fact observation support",
+						node.ID,
+					)
+				}
 			}
 		default:
 			return Config{}, fmt.Errorf("flowcraft: unsupported node type %q for node %q", node.Type, node.ID)

@@ -30,6 +30,19 @@ func (m *recallMemoryWithHits) Recall(_ context.Context, _ recall.Scope, query r
 	return m.hits, nil
 }
 
+func TestExtractedLaneRecognizesOnlyConfiguredExactPrefix(t *testing.T) {
+	t.Parallel()
+	lanes := []string{"story-facts", "story-questions"}
+	if got := extractedLane("story-facts: Monkey found the cave.", lanes); got != "story-facts" {
+		t.Fatalf("extractedLane() = %q", got)
+	}
+	for _, content := range []string{"story-fact: wrong", "prefix story-facts: wrong", "story-facts wrong"} {
+		if got := extractedLane(content, lanes); got != "" {
+			t.Fatalf("extractedLane(%q) = %q", content, got)
+		}
+	}
+}
+
 func TestStoreScopesAreIsolated(t *testing.T) {
 	t.Parallel()
 	store := newTestStore(t, Config{})

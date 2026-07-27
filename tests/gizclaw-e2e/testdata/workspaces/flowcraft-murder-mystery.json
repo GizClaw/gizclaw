@@ -12,9 +12,6 @@
   "workflow": {
     "description": "Flowcraft raid: Murder Mystery",
     "flowcraft": {
-      "conversation": {
-        "starts": "agent"
-      },
       "graph": {
         "edges": [
           {
@@ -56,10 +53,14 @@
           },
           {
             "from": "write_case_audit",
-            "to": "__end__"
+            "to": "observe_case_audit"
           },
           {
             "from": "solved_chat",
+            "to": "observe_case_audit"
+          },
+          {
+            "from": "observe_case_audit",
             "to": "__end__"
           },
           {
@@ -138,10 +139,47 @@
             "id": "solved_chat",
             "publish": true,
             "type": "llm"
+          },
+          {
+            "config": {
+              "observations": [
+                {
+                  "turns_from": "conversation"
+                },
+                {
+                  "facts": [
+                    {
+                      "text_from": "tmp_case_state_line",
+                      "attributes": {
+                        "lane": "case-state",
+                        "kind": "state",
+                        "predicate": "status",
+                        "subject": "case_state"
+                      }
+                    },
+                    {
+                      "text_from": "tmp_progress_badges_line",
+                      "attributes": {
+                        "lane": "progress-badges",
+                        "kind": "state",
+                        "predicate": "progress",
+                        "subject": "progress_badges"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "wait_for_completion": true
+            },
+            "id": "observe_case_audit",
+            "type": "memory_observe"
           }
         ]
       },
-      "max_iterations": 10
+      "max_iterations": 10,
+      "conversation": {
+        "starts": "agent"
+      }
     },
     "name": "flowcraft-murder-mystery",
     "parameters": {
@@ -154,6 +192,7 @@
         "generate_game_master": "narrator",
         "solved_chat": "narrator"
       }
-    }
+    },
+    "memory": "murder-mystery-memory"
   }
 }
