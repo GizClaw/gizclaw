@@ -46,8 +46,8 @@ github.com/ClickHouse/ch-go v0.73.0/go.mod h1:wkFIxrqlXeRJ9cn3r5Fz5Qen9jl5aTMPuG
 github.com/ClickHouse/clickhouse-go/v2 v2.47.0 h1:ZDAzrnKSOPTIsm4tdUNfrii2yc8dk4SVRLC77BR7Z5Q=
 github.com/ClickHouse/clickhouse-go/v2 v2.47.0/go.mod h1:sPj7C7UYQ2MWHcfX+4eGN6nwnCqwUKfgO6PcwKpd6K8=
 github.com/DataDog/datadog-go v3.2.0+incompatible/go.mod h1:LButxg5PwREeZtORoXG3tL4fMGNddJ+vMq1mwgfaqoQ=
-github.com/GizClaw/dashscope-realtime-go v0.0.0-20260512045013-1d5b538966ad h1:ehJCestDMwyxNZPfBGWZuYAD9Zget+QWLpN7s2iJ73k=
-github.com/GizClaw/dashscope-realtime-go v0.0.0-20260512045013-1d5b538966ad/go.mod h1:9J5t3V2iMH+OZD1kSoJxRQHEaNTU1L2T7KQwCxKjhfE=
+github.com/GizClaw/dashscope-realtime-go v0.0.0-20260719062052-bf38cd23188e h1:plKnkpVjjmVxNhVgsMmORZPmAmQ2xCTvfzAV5UySYrI=
+github.com/GizClaw/dashscope-realtime-go v0.0.0-20260719062052-bf38cd23188e/go.mod h1:9J5t3V2iMH+OZD1kSoJxRQHEaNTU1L2T7KQwCxKjhfE=
 github.com/GizClaw/doubao-speech-go v0.0.0-20260627203027-6f08ce8eb502 h1:QulUP2Ld22hJCH065bezQq3z9g/cgU2I6KwghzbHq48=
 github.com/GizClaw/doubao-speech-go v0.0.0-20260627203027-6f08ce8eb502/go.mod h1:4R3wUAZkYk1BSgzv+QVF+2SZPu3VDy8NvaQdNRYGgBs=
 github.com/GizClaw/flowcraft/memory v0.1.7 h1:dGxDjnH4W/DtaQNv9IkkNhP5QyDQ8gTF/h7Oun9KARQ=

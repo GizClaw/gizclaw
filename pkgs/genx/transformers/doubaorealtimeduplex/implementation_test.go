@@ -370,6 +370,15 @@ func TestDoubaoRealtimeDuplexAudioInputsRejectMIMEChange(t *testing.T) {
 func TestDoubaoRealtimeDuplexConfigSetsDuplexSession(t *testing.T) {
 	strict := true
 	enableMusic := true
+	tools := []doubaospeech.RealtimeDuplexFunctionTool{{
+		Type:   "function",
+		Name:   "get_weather",
+		Strict: &strict,
+		Parameters: &doubaospeech.RealtimeDuplexJSONSchema{
+			Type:                 "object",
+			AdditionalProperties: &strict,
+		},
+	}}
 	tfr := newTransformer(nil,
 		withModel("1.2.6.0"),
 		withSessionID("workspace-dialog-id"),
@@ -381,22 +390,13 @@ func TestDoubaoRealtimeDuplexConfigSetsDuplexSession(t *testing.T) {
 		withInputSampleRate(16000),
 		withOutputSpeed(1),
 		withOutputLoudness(-1),
-		withTools([]doubaospeech.RealtimeDuplexFunctionTool{{
-			Type:   "function",
-			Name:   "get_weather",
-			Strict: &strict,
-			Parameters: &doubaospeech.RealtimeDuplexJSONSchema{
-				Type:                 "object",
-				AdditionalProperties: &strict,
-			},
-		}}),
 		withExtension(&doubaospeech.RealtimeDuplexExtension{
 			Dialog: &doubaospeech.RealtimeDuplexDialogExtension{
 				Extra: &doubaospeech.RealtimeDuplexDialogExtra{EnableMusic: &enableMusic},
 			},
 		}),
 	)
-	cfg := tfr.realtimeConfig()
+	cfg := tfr.realtimeConfig(tools)
 	if cfg.Session.ID != "workspace-dialog-id" {
 		t.Fatalf("session id = %q, want workspace-dialog-id", cfg.Session.ID)
 	}
@@ -537,7 +537,7 @@ func TestDoubaoRealtimeDuplexOutputAudioBlobsExtractsOggOpusPackets(t *testing.T
 	}
 }
 
-func TestDoubaoRealtimeDuplexSendsFakeFunctionCallOutputs(t *testing.T) {
+func TestDoubaoRealtimeDuplexRejectsFunctionCallWithoutInvoker(t *testing.T) {
 	session := &fakeDoubaoRealtimeDuplexSession{
 		events: []*doubaospeech.RealtimeDuplexEvent{
 			{
@@ -557,52 +557,20 @@ func TestDoubaoRealtimeDuplexSendsFakeFunctionCallOutputs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
-	for {
-		_, err := stream.Next()
-		if err == io.EOF || err == genx.ErrDone {
-			break
-		}
-		if err != nil {
-			t.Fatalf("Next() error = %v", err)
-		}
+	_, streamErr := collectDoubaoToolOutput(stream)
+	if streamErr == nil || !strings.Contains(streamErr.Error(), "ToolInvoker is not configured") {
+		t.Fatalf("Next() error = %v, want missing ToolInvoker", streamErr)
 	}
 	if opener.config == nil {
 		t.Fatal("OpenSession was not called")
 	}
-	if len(session.outputs) != 1 {
-		t.Fatalf("function call outputs len = %d, want 1", len(session.outputs))
+	if len(opener.config.Session.Tools) != 0 {
+		t.Fatalf("provider tools = %#v, want none", opener.config.Session.Tools)
 	}
-	output := session.outputs[0]
-	if output.CallID != "call-1" ||
-		!strings.Contains(output.Output, `"source":"gizclaw-internal-fake"`) ||
-		!strings.Contains(output.Output, `"tool":"get_weather"`) {
-		t.Fatalf("function call output = %#v", output)
+	if outputs := session.functionOutputs(); len(outputs) != 0 {
+		t.Fatalf("function call outputs = %#v, want none", outputs)
 	}
-	if !session.closed {
-		t.Fatal("session was not closed")
-	}
-}
-
-func TestDoubaoRealtimeDuplexReturnsFunctionCallOutputError(t *testing.T) {
-	wantErr := errors.New("send function output failed")
-	session := &fakeDoubaoRealtimeDuplexSession{
-		events: []*doubaospeech.RealtimeDuplexEvent{
-			{
-				Type: doubaospeech.RealtimeDuplexEventResponseFunctionCallArgumentsDone,
-				FunctionCalls: []doubaospeech.RealtimeDuplexFunctionCall{{
-					CallID: "call-1",
-					Name:   "get_weather",
-				}},
-			},
-		},
-		functionCallErr: wantErr,
-	}
-	tfr := newTransformer(nil)
-	_, err := tfr.processLoop(context.Background(), emptyRealtimeStream{}, newBufferStream(1), session)
-	if !errors.Is(err, wantErr) {
-		t.Fatalf("processLoop() error = %v, want %v", err, wantErr)
-	}
-	if !session.closed {
+	if !session.waitClosed(time.Second) {
 		t.Fatal("session was not closed")
 	}
 }
@@ -615,11 +583,11 @@ func TestDoubaoRealtimeDuplexReturnsDuplexErrorEvent(t *testing.T) {
 		},
 	}
 	tfr := newTransformer(nil)
-	_, err := tfr.processLoop(context.Background(), emptyRealtimeStream{}, newBufferStream(1), session)
+	_, err := tfr.processLoop(context.Background(), emptyRealtimeStream{}, newBufferStream(1), session, nil)
 	if !errors.Is(err, wantErr) {
 		t.Fatalf("processLoop() error = %v, want %v", err, wantErr)
 	}
-	if !session.closed {
+	if !session.waitClosed(time.Second) {
 		t.Fatal("session was not closed")
 	}
 }
@@ -637,7 +605,7 @@ func TestDoubaoRealtimeDuplexErrorEventClosesBlockedInput(t *testing.T) {
 
 	done := make(chan error, 1)
 	go func() {
-		_, err := tfr.processLoop(context.Background(), input, newBufferStream(1), session)
+		_, err := tfr.processLoop(context.Background(), input, newBufferStream(1), session, nil)
 		done <- err
 	}()
 
@@ -652,7 +620,7 @@ func TestDoubaoRealtimeDuplexErrorEventClosesBlockedInput(t *testing.T) {
 	if got := input.closeErr(); !errors.Is(got, wantErr) {
 		t.Fatalf("input close error = %v, want %v", got, wantErr)
 	}
-	if !session.closed {
+	if !session.waitClosed(time.Second) {
 		t.Fatal("session was not closed")
 	}
 }
@@ -819,7 +787,7 @@ func TestDoubaoRealtimeDuplexSessionClosedWhileWaitingForInputDoesNotDropNextChu
 	}()
 	done := make(chan struct{})
 	go func() {
-		tfr.sessionLoop(ctx, input, output)
+		tfr.sessionLoop(ctx, input, output, nil, nil)
 		close(done)
 	}()
 
@@ -953,7 +921,7 @@ func TestDoubaoRealtimeDuplexTextDoneAfterAudioDoneAllowsNextTurn(t *testing.T) 
 	}()
 	errCh := make(chan error, 1)
 	go func() {
-		_, err := tfr.processLoop(ctx, input, output, session)
+		_, err := tfr.processLoop(ctx, input, output, session, nil)
 		errCh <- err
 	}()
 
@@ -1042,7 +1010,7 @@ func runDoubaoRealtimeDuplexProcessLoop(t *testing.T, tfr *Transformer, input ge
 	defer cancel()
 	errCh := make(chan error, 1)
 	go func() {
-		_, err := tfr.processLoop(ctx, input, newBufferStream(16), session)
+		_, err := tfr.processLoop(ctx, input, newBufferStream(16), session, nil)
 		errCh <- err
 	}()
 	select {
@@ -1137,6 +1105,8 @@ func (s *fakeDoubaoRealtimeDuplexSession) SendFunctionCallOutputs(_ context.Cont
 	if s.functionCallErr != nil {
 		return s.functionCallErr
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.outputs = append(s.outputs, outputs...)
 	return nil
 }
@@ -1168,8 +1138,24 @@ func (s *fakeDoubaoRealtimeDuplexSession) Recv() iter.Seq2[*doubaospeech.Realtim
 }
 
 func (s *fakeDoubaoRealtimeDuplexSession) Close() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.closed = true
 	return nil
+}
+
+func (s *fakeDoubaoRealtimeDuplexSession) isClosed() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.closed
+}
+
+func (s *fakeDoubaoRealtimeDuplexSession) waitClosed(timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for !s.isClosed() && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	return s.isClosed()
 }
 
 func (s *fakeDoubaoRealtimeDuplexSession) audioCount() int {
@@ -1182,6 +1168,12 @@ func (s *fakeDoubaoRealtimeDuplexSession) cancelCount() int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.cancels
+}
+
+func (s *fakeDoubaoRealtimeDuplexSession) functionOutputs() []doubaospeech.RealtimeDuplexFunctionCallOutput {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]doubaospeech.RealtimeDuplexFunctionCallOutput(nil), s.outputs...)
 }
 
 type emptyRealtimeStream struct{}

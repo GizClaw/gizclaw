@@ -36,6 +36,12 @@ const (
 //go:embed testdata/doubao_realtime_duplex_prompt.ogg
 var doubaoRealtimeDuplexPromptOgg []byte
 
+// realtimeToolPromptOgg asks the model to use its required tool. The session
+// instructions supply the exact tool and key; trailing silence closes VAD.
+//
+//go:embed testdata/realtime_tool_prompt.ogg
+var realtimeToolPromptOgg []byte
+
 func TestDoubaoRealtimeDuplexConversation(t *testing.T) {
 	loadGenXE2EEnv(t)
 	appID := firstEnv(doubaoAppIDEnv, "GIZCLAW_E2E_DOUBAO_APP_ID")
@@ -63,6 +69,57 @@ func TestDoubaoRealtimeDuplexConversation(t *testing.T) {
 			assertDuplexRound(t, i+1, result)
 		}
 	})
+}
+
+func TestDoubaoRealtimeDuplexToolInvokerContinuation(t *testing.T) {
+	loadGenXE2EEnv(t)
+	appID := firstEnv(doubaoAppIDEnv, "GIZCLAW_E2E_DOUBAO_APP_ID")
+	apiKey := firstEnv(doubaoAPIKeyEnv, "GIZCLAW_E2E_DOUBAO_API_KEY")
+	if appID == "" || apiKey == "" {
+		t.Skipf("set %s and %s in tests/genx-e2e/.env", doubaoAppIDEnv, doubaoAPIKeyEnv)
+	}
+
+	invoker := &realtimeE2EToolInvoker{}
+	client := doubaospeech.NewClient(appID, doubaospeech.WithAPIKey(apiKey))
+	transcode := false
+	transformer, err := doubaorealtimeduplex.New(doubaorealtimeduplex.Config{
+		Client:         client,
+		Instructions:   realtimeToolInstructions,
+		InputTranscode: &transcode,
+		ToolInvoker:    invoker,
+		MaxToolCalls:   realtimeToolCallLimit,
+	})
+	if err != nil {
+		t.Fatalf("doubaorealtimeduplex.New() failed: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	input := genx.NewRealtimeStream(genx.WithRealtimeStreamDelay(0))
+	defer input.CloseWithError(context.Canceled)
+	output, err := transformer.Transform(ctx, input)
+	if err != nil {
+		t.Fatalf("Doubao Transform() failed: %v", err)
+	}
+	defer output.CloseWithError(context.Canceled)
+
+	packets := embeddedToolPromptOpusPackets(t)
+	feedDone := make(chan error, 1)
+	go func() {
+		feedDone <- pushDuplexTurn(
+			ctx,
+			input,
+			"doubao-tool-invoker-e2e",
+			packets,
+		)
+	}()
+	response := waitForRealtimeToolContinuation(t, ctx, output, feedDone)
+	assertRealtimeToolCalls(t, invoker)
+	t.Logf(
+		"Doubao Realtime Duplex tool calls=%d continuation response=%q",
+		len(invoker.snapshot()),
+		response,
+	)
 }
 
 func runDuplexConversation(t *testing.T, tfr genx.Transformer, packets [][]byte) []duplexRoundResult {
@@ -324,8 +381,18 @@ func duplexChunkError(chunk *genx.MessageChunk) error {
 
 func embeddedPromptOpusPackets(t *testing.T) [][]byte {
 	t.Helper()
+	return opusPacketsFromOgg(t, doubaoRealtimeDuplexPromptOgg)
+}
+
+func embeddedToolPromptOpusPackets(t *testing.T) [][]byte {
+	t.Helper()
+	return opusPacketsFromOgg(t, realtimeToolPromptOgg)
+}
+
+func opusPacketsFromOgg(t *testing.T, ogg []byte) [][]byte {
+	t.Helper()
 	var packets [][]byte
-	for packet, err := range codecconv.OggOpusPackets(bytes.NewReader(doubaoRealtimeDuplexPromptOgg)) {
+	for packet, err := range codecconv.OggOpusPackets(bytes.NewReader(ogg)) {
 		if err != nil {
 			t.Fatalf("read embedded ogg opus packets: %v", err)
 		}

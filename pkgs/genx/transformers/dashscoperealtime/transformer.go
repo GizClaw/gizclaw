@@ -4,7 +4,10 @@ import (
 	"fmt"
 
 	dashscope "github.com/GizClaw/dashscope-realtime-go"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
+
+const dashScopeQwen35DefaultVoice = "Tina"
 
 // Config contains immutable DashScope realtime dependencies and session options.
 type Config struct {
@@ -21,12 +24,35 @@ type Config struct {
 	TurnDetection     *dashscope.TurnDetection
 	InputAudioFormat  string
 	OutputAudioFormat string
+	// ToolInvoker resolves and executes function tools for each Transform call.
+	// Provider call identifiers remain private to the Transformer.
+	ToolInvoker genx.ToolInvoker
+	// MaxToolCalls limits function calls per Transform call. Zero uses
+	// genx.DefaultMaxToolCalls.
+	MaxToolCalls int
 }
 
 // New constructs a DashScope realtime transformer without opening a WebSocket.
 func New(config Config) (*Transformer, error) {
 	if config.Client == nil {
 		return nil, fmt.Errorf("dashscope realtime: client is required")
+	}
+	if config.MaxToolCalls < 0 {
+		return nil, fmt.Errorf("dashscope realtime: MaxToolCalls cannot be negative")
+	}
+	if config.ToolInvoker != nil {
+		if config.Model == "" {
+			config.Model = dashscope.ModelQwen35OmniFlashRealtime
+		}
+		if !dashScopeModelSupportsFunctionCalling(config.Model) {
+			return nil, fmt.Errorf(
+				"dashscope realtime: model %q does not support function calling",
+				config.Model,
+			)
+		}
+	}
+	if config.Voice == "" && dashScopeModelIsQwen35Realtime(config.Model) {
+		config.Voice = dashScopeQwen35DefaultVoice
 	}
 	config.Modalities = append([]string(nil), config.Modalities...)
 	config.Temperature = cloneFloat64(config.Temperature)
@@ -36,7 +62,7 @@ func New(config Config) (*Transformer, error) {
 		turnDetection := *config.TurnDetection
 		config.TurnDetection = &turnDetection
 	}
-	opts := make([]option, 0, 12)
+	opts := make([]option, 0, 14)
 	if config.Model != "" {
 		opts = append(opts, withModel(config.Model))
 	}
@@ -73,7 +99,29 @@ func New(config Config) (*Transformer, error) {
 	if config.OutputAudioFormat != "" {
 		opts = append(opts, withOutputAudioFormat(config.OutputAudioFormat))
 	}
+	if config.ToolInvoker != nil {
+		opts = append(opts, withToolInvoker(config.ToolInvoker))
+	}
+	if config.MaxToolCalls != 0 {
+		opts = append(opts, withMaxToolCalls(config.MaxToolCalls))
+	}
 	return newTransformer(config.Client, opts...), nil
+}
+
+func dashScopeModelSupportsFunctionCalling(model string) bool {
+	return dashScopeModelIsQwen35Realtime(model)
+}
+
+func dashScopeModelIsQwen35Realtime(model string) bool {
+	switch model {
+	case dashscope.ModelQwen35OmniPlusRealtime,
+		dashscope.ModelQwen35OmniPlusRealtime20260315,
+		dashscope.ModelQwen35OmniFlashRealtime,
+		dashscope.ModelQwen35OmniFlashRealtime20260315:
+		return true
+	default:
+		return false
+	}
 }
 
 func cloneFloat64(value *float64) *float64 {
