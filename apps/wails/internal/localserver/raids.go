@@ -503,7 +503,8 @@ func matchesRaidsCategory(category, kind string) bool {
 
 func allowedRaidsPath(name string) bool {
 	switch name {
-	case ".env.example", "LICENSE", "README.md", "runtime-profile.example.yaml":
+	case ".env.example", ".gitignore", "LICENSE", "README.md", "runtime-profile.example.yaml",
+		"scripts/validate_catalog.py", "tests/test_validate_catalog.py":
 		return true
 	}
 	if strings.HasPrefix(name, ".github/workflows/") &&
