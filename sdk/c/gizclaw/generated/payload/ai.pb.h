@@ -737,8 +737,7 @@ typedef struct _gizclaw_rpc_v1_Tool {
     pb_callback_t i18n;
     bool has_input_schema;
     google_protobuf_Struct input_schema;
-    bool has_output_schema;
-    google_protobuf_Struct output_schema;
+    pb_callback_t name;
 } gizclaw_rpc_v1_Tool;
 
 typedef struct _gizclaw_rpc_v1_Tool_I18nEntry {
@@ -773,15 +772,13 @@ typedef struct _gizclaw_rpc_v1_ToolGetResponse {
 } gizclaw_rpc_v1_ToolGetResponse;
 
 typedef struct _gizclaw_rpc_v1_ToolInvokeRequest {
-    pb_callback_t call_id;
-    pb_callback_t tool_id;
-    pb_callback_t method;
     bool has_args;
     google_protobuf_Struct args;
+    char name[65];
 } gizclaw_rpc_v1_ToolInvokeRequest;
 
 typedef struct _gizclaw_rpc_v1_ToolInvokeResponse {
-    pb_callback_t data_json;
+    char data_json[65400];
 } gizclaw_rpc_v1_ToolInvokeResponse;
 
 
@@ -975,14 +972,14 @@ extern "C" {
 #define gizclaw_rpc_v1_WorkflowListResponse_init_default {0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolkitPolicyToolIds_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolkitPolicy_init_default {false, gizclaw_rpc_v1_ToolkitPolicyToolIds_init_default}
-#define gizclaw_rpc_v1_Tool_init_default         {{{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_default, false, google_protobuf_Struct_init_default}
+#define gizclaw_rpc_v1_Tool_init_default         {{{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_default, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_Tool_I18nEntry_init_default {{{NULL}, NULL}, false, gizclaw_rpc_v1_AliasI18nText_init_default}
 #define gizclaw_rpc_v1_ToolListRequest_init_default {{{NULL}, NULL}, false, 0}
 #define gizclaw_rpc_v1_ToolListResponse_init_default {{{NULL}, NULL}, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolGetRequest_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolGetResponse_init_default {false, gizclaw_rpc_v1_Tool_init_default, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_ToolInvokeRequest_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_default}
-#define gizclaw_rpc_v1_ToolInvokeResponse_init_default {{{NULL}, NULL}}
+#define gizclaw_rpc_v1_ToolInvokeRequest_init_default {false, google_protobuf_Struct_init_default, ""}
+#define gizclaw_rpc_v1_ToolInvokeResponse_init_default {""}
 #define gizclaw_rpc_v1_AliasI18nText_init_zero   {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_SpeechTranscribeRequest_init_zero {"", "", false, ""}
 #define gizclaw_rpc_v1_SpeechTranscribeResponse_init_zero {""}
@@ -1057,14 +1054,14 @@ extern "C" {
 #define gizclaw_rpc_v1_WorkflowListResponse_init_zero {0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolkitPolicyToolIds_init_zero {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolkitPolicy_init_zero   {false, gizclaw_rpc_v1_ToolkitPolicyToolIds_init_zero}
-#define gizclaw_rpc_v1_Tool_init_zero            {{{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_zero, false, google_protobuf_Struct_init_zero}
+#define gizclaw_rpc_v1_Tool_init_zero            {{{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_zero, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_Tool_I18nEntry_init_zero  {{{NULL}, NULL}, false, gizclaw_rpc_v1_AliasI18nText_init_zero}
 #define gizclaw_rpc_v1_ToolListRequest_init_zero {{{NULL}, NULL}, false, 0}
 #define gizclaw_rpc_v1_ToolListResponse_init_zero {{{NULL}, NULL}, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolGetRequest_init_zero  {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolGetResponse_init_zero {false, gizclaw_rpc_v1_Tool_init_zero, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_ToolInvokeRequest_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_zero}
-#define gizclaw_rpc_v1_ToolInvokeResponse_init_zero {{{NULL}, NULL}}
+#define gizclaw_rpc_v1_ToolInvokeRequest_init_zero {false, google_protobuf_Struct_init_zero, ""}
+#define gizclaw_rpc_v1_ToolInvokeResponse_init_zero {""}
 
 /* Field tags (for use in manual encoding/decoding) */
 #define gizclaw_rpc_v1_AliasI18nText_display_name_tag 1
@@ -1405,7 +1402,7 @@ extern "C" {
 #define gizclaw_rpc_v1_Tool_alias_tag            1
 #define gizclaw_rpc_v1_Tool_i18n_tag             2
 #define gizclaw_rpc_v1_Tool_input_schema_tag     3
-#define gizclaw_rpc_v1_Tool_output_schema_tag    4
+#define gizclaw_rpc_v1_Tool_name_tag             5
 #define gizclaw_rpc_v1_Tool_I18nEntry_key_tag    1
 #define gizclaw_rpc_v1_Tool_I18nEntry_value_tag  2
 #define gizclaw_rpc_v1_ToolListRequest_cursor_tag 1
@@ -1419,10 +1416,8 @@ extern "C" {
 #define gizclaw_rpc_v1_ToolGetResponse_value_tag 1
 #define gizclaw_rpc_v1_ToolGetResponse_runtime_profile_name_tag 2
 #define gizclaw_rpc_v1_ToolGetResponse_runtime_profile_revision_tag 3
-#define gizclaw_rpc_v1_ToolInvokeRequest_call_id_tag 1
-#define gizclaw_rpc_v1_ToolInvokeRequest_tool_id_tag 2
-#define gizclaw_rpc_v1_ToolInvokeRequest_method_tag 3
 #define gizclaw_rpc_v1_ToolInvokeRequest_args_tag 4
+#define gizclaw_rpc_v1_ToolInvokeRequest_name_tag 5
 #define gizclaw_rpc_v1_ToolInvokeResponse_data_json_tag 1
 
 /* Struct field encoding specification for nanopb */
@@ -2127,12 +2122,11 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  tool_ids,          1)
 X(a, CALLBACK, SINGULAR, STRING,   alias,             1) \
 X(a, CALLBACK, REPEATED, MESSAGE,  i18n,              2) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  input_schema,      3) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  output_schema,     4)
+X(a, CALLBACK, SINGULAR, STRING,   name,              5)
 #define gizclaw_rpc_v1_Tool_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_Tool_DEFAULT NULL
 #define gizclaw_rpc_v1_Tool_i18n_MSGTYPE gizclaw_rpc_v1_Tool_I18nEntry
 #define gizclaw_rpc_v1_Tool_input_schema_MSGTYPE google_protobuf_Struct
-#define gizclaw_rpc_v1_Tool_output_schema_MSGTYPE google_protobuf_Struct
 
 #define gizclaw_rpc_v1_Tool_I18nEntry_FIELDLIST(X, a) \
 X(a, CALLBACK, SINGULAR, STRING,   key,               1) \
@@ -2171,17 +2165,15 @@ X(a, CALLBACK, SINGULAR, STRING,   runtime_profile_revision,   3)
 #define gizclaw_rpc_v1_ToolGetResponse_value_MSGTYPE gizclaw_rpc_v1_Tool
 
 #define gizclaw_rpc_v1_ToolInvokeRequest_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   call_id,           1) \
-X(a, CALLBACK, SINGULAR, STRING,   tool_id,           2) \
-X(a, CALLBACK, SINGULAR, STRING,   method,            3) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  args,              4)
-#define gizclaw_rpc_v1_ToolInvokeRequest_CALLBACK pb_default_field_callback
+X(a, STATIC,   OPTIONAL, MESSAGE,  args,              4) \
+X(a, STATIC,   SINGULAR, STRING,   name,              5)
+#define gizclaw_rpc_v1_ToolInvokeRequest_CALLBACK NULL
 #define gizclaw_rpc_v1_ToolInvokeRequest_DEFAULT NULL
 #define gizclaw_rpc_v1_ToolInvokeRequest_args_MSGTYPE google_protobuf_Struct
 
 #define gizclaw_rpc_v1_ToolInvokeResponse_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   data_json,         1)
-#define gizclaw_rpc_v1_ToolInvokeResponse_CALLBACK pb_default_field_callback
+X(a, STATIC,   SINGULAR, STRING,   data_json,         1)
+#define gizclaw_rpc_v1_ToolInvokeResponse_CALLBACK NULL
 #define gizclaw_rpc_v1_ToolInvokeResponse_DEFAULT NULL
 
 extern const pb_msgdesc_t gizclaw_rpc_v1_AliasI18nText_msg;
@@ -2419,9 +2411,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ToolInvokeResponse_msg;
 /* gizclaw_rpc_v1_ToolListResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ToolGetRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ToolGetResponse_size depends on runtime parameters */
-/* gizclaw_rpc_v1_ToolInvokeRequest_size depends on runtime parameters */
-/* gizclaw_rpc_v1_ToolInvokeResponse_size depends on runtime parameters */
-#define GIZCLAW_RPC_V1_PAYLOAD_AI_PB_H_MAX_SIZE  gizclaw_rpc_v1_SpeechExtractResponse_size
+#define GIZCLAW_RPC_V1_PAYLOAD_AI_PB_H_MAX_SIZE  gizclaw_rpc_v1_ToolInvokeResponse_size
 #define gizclaw_rpc_v1_DoubaoRealtimeAudioFormat_size 13
 #define gizclaw_rpc_v1_DoubaoRealtimeAudioInput_size 15
 #define gizclaw_rpc_v1_EinoWorkspaceParameters_size 10
@@ -2433,11 +2423,13 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ToolInvokeResponse_msg;
 #define gizclaw_rpc_v1_SpeechSynthesizeResponse_size 153
 #define gizclaw_rpc_v1_SpeechTranscribeRequest_size 230
 #define gizclaw_rpc_v1_SpeechTranscribeResponse_size 8195
+#define gizclaw_rpc_v1_ToolInvokeResponse_size   65403
 #if defined(google_protobuf_Struct_size) && defined(google_protobuf_Struct_size) && defined(google_protobuf_Struct_size)
 #define gizclaw_rpc_v1_EinoWorkflowSpec_size     (18 + google_protobuf_Struct_size + google_protobuf_Struct_size + google_protobuf_Struct_size)
 #endif
 #if defined(google_protobuf_Struct_size)
 #define gizclaw_rpc_v1_FlowcraftWorkflowSpec_size (6 + google_protobuf_Struct_size)
+#define gizclaw_rpc_v1_ToolInvokeRequest_size    (72 + google_protobuf_Struct_size)
 #endif
 
 #ifdef __cplusplus

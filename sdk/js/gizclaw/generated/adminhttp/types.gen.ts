@@ -571,55 +571,55 @@ export type ApplyResult = {
 };
 
 export type Resource = ({
-    kind: 'CredentialResource';
+    kind: 'Credential';
 } & CredentialResource) | ({
-    kind: 'FirmwareResource';
+    kind: 'Firmware';
 } & FirmwareResource) | ({
-    kind: 'ContactResource';
+    kind: 'Contact';
 } & ContactResource) | ({
-    kind: 'FriendResource';
+    kind: 'Friend';
 } & FriendResource) | ({
-    kind: 'FriendGroupResource';
+    kind: 'FriendGroup';
 } & FriendGroupResource) | ({
-    kind: 'FriendGroupInviteTokenResource';
+    kind: 'FriendGroupInviteToken';
 } & FriendGroupInviteTokenResource) | ({
-    kind: 'FriendGroupMemberResource';
+    kind: 'FriendGroupMember';
 } & FriendGroupMemberResource) | ({
-    kind: 'ModelResource';
+    kind: 'Model';
 } & ModelResource) | ({
-    kind: 'DashScopeTenantResource';
+    kind: 'DashScopeTenant';
 } & DashScopeTenantResource) | ({
-    kind: 'DeepSeekTenantResource';
+    kind: 'DeepSeekTenant';
 } & DeepSeekTenantResource) | ({
-    kind: 'GeminiTenantResource';
+    kind: 'GeminiTenant';
 } & GeminiTenantResource) | ({
-    kind: 'MiniMaxTenantResource';
+    kind: 'MiniMaxTenant';
 } & MiniMaxTenantResource) | ({
-    kind: 'OpenAITenantResource';
+    kind: 'OpenAITenant';
 } & OpenAiTenantResource) | ({
-    kind: 'VolcTenantResource';
+    kind: 'VolcTenant';
 } & VolcTenantResource) | ({
-    kind: 'VoiceResource';
+    kind: 'Voice';
 } & VoiceResource) | ({
-    kind: 'ToolResource';
+    kind: 'Tool';
 } & ToolResource) | ({
-    kind: 'WorkflowResource';
+    kind: 'Workflow';
 } & WorkflowResource) | ({
-    kind: 'WorkspaceResource';
+    kind: 'Workspace';
 } & WorkspaceResource) | ({
-    kind: 'PetDefResource';
+    kind: 'PetDef';
 } & PetDefResource) | ({
-    kind: 'BadgeDefResource';
+    kind: 'BadgeDef';
 } & BadgeDefResource) | ({
-    kind: 'GameDefResource';
+    kind: 'GameDef';
 } & GameDefResource) | ({
-    kind: 'MemoryLayoutResource';
+    kind: 'MemoryLayout';
 } & MemoryLayoutResource) | ({
-    kind: 'RuntimeProfileResource';
+    kind: 'RuntimeProfile';
 } & RuntimeProfileResource) | ({
-    kind: 'RegistrationTokenResource';
+    kind: 'RegistrationToken';
 } & RegistrationTokenResource) | ({
-    kind: 'ResourceListResource';
+    kind: 'ResourceList';
 } & ResourceListResource);
 
 /**
@@ -671,7 +671,7 @@ export type ToolResource = {
     apiVersion: ResourceApiVersion;
     kind: 'Tool';
     /**
-     * metadata.name is the stable Tool ID and must not contain a colon.
+     * metadata.name is the canonical Tool name. It must match ^[A-Za-z_][A-Za-z0-9_-]{0,63}$ and is the only execution identity.
      */
     metadata: ResourceMetadata;
     spec: ToolSpec;
@@ -721,10 +721,17 @@ export type Credential = {
     updated_at: string;
 };
 
+export type AliyunCredentialBody = {
+    app_code?: string;
+    access_key_id?: string;
+    access_key_secret?: string;
+    security_token?: string;
+};
+
 /**
  * Provider-specific credential payload. The shape is selected by Credential.provider.
  */
-export type CredentialBody = OpenAiCredentialBody | GeminiCredentialBody | DashScopeCredentialBody | DeepSeekCredentialBody | MiniMaxCredentialBody | VolcCredentialBody;
+export type CredentialBody = OpenAiCredentialBody | GeminiCredentialBody | DashScopeCredentialBody | DeepSeekCredentialBody | MiniMaxCredentialBody | VolcCredentialBody | AliyunCredentialBody;
 
 export type DashScopeCredentialBody = {
     api_key?: string;
@@ -765,6 +772,7 @@ export type VolcCredentialBody = {
     search_api_key?: string;
     openapi_access_key_id?: string;
     openapi_access_key?: string;
+    openapi_session_token?: string;
 };
 
 export type CredentialSpec = {
@@ -1976,18 +1984,6 @@ export type ServerLogStreamEnd = {
     next_cursor?: string;
 };
 
-export type ToolExecutor = {
-    kind: ToolExecutorKind;
-    name?: string;
-    method?: string;
-    peer_id?: string;
-    config?: {
-        [key: string]: unknown;
-    };
-};
-
-export type ToolExecutorKind = 'builtin' | 'device_rpc';
-
 /**
  * JSON Schema draft-07 or 2020-12 object. Provider adapters decide which keywords they can preserve.
  */
@@ -2024,23 +2020,122 @@ export type ToolJsonSchema = {
     [key: string]: unknown;
 };
 
-export type ToolSource = 'builtin' | 'device' | 'admin';
-
-export type ToolSpec = {
-    name?: string;
+export type ClientRpcToolSpec = {
+    type: 'client_rpc';
     description?: string;
-    source: ToolSource;
     enabled?: boolean;
-    owner_peer?: string;
     version?: string;
     input_schema: ToolJsonSchema;
-    output_schema?: ToolJsonSchema;
     triggers?: Array<ToolTrigger>;
-    executor: ToolExecutor;
     metadata?: {
         [key: string]: unknown;
     };
 };
+
+export type HttpToolSpec = {
+    type: 'http_request';
+    description?: string;
+    enabled?: boolean;
+    version?: string;
+    input_schema: ToolJsonSchema;
+    triggers?: Array<ToolTrigger>;
+    metadata?: {
+        [key: string]: unknown;
+    };
+    http: ToolHttpRequest;
+};
+
+export type ToolHttpArgumentBinding = {
+    argument_pointer: string;
+    target: string;
+    required?: boolean;
+};
+
+export type ToolHttpAuth = ({
+    method: 'none';
+} & ToolHttpAuthNone) | ({
+    method: 'bearer';
+} & ToolHttpAuthBearer) | ({
+    method: 'header_api_key';
+} & ToolHttpAuthHeaderApiKey) | ({
+    method: 'volc_ark';
+} & ToolHttpAuthVolcArk) | ({
+    method: 'volc_search';
+} & ToolHttpAuthVolcSearch) | ({
+    method: 'volc_openapi';
+} & ToolHttpAuthVolcOpenApi) | ({
+    method: 'aliyun_app_code';
+} & ToolHttpAuthAliyunAppCode) | ({
+    method: 'aliyun_openapi_v3';
+} & ToolHttpAuthAliyunOpenApiv3);
+
+export type ToolHttpAuthAliyunAppCode = {
+    method: 'aliyun_app_code';
+    credential: string;
+};
+
+export type ToolHttpAuthAliyunOpenApiv3 = {
+    method: 'aliyun_openapi_v3';
+    credential: string;
+    action: string;
+    version: string;
+};
+
+export type ToolHttpAuthBearer = {
+    method: 'bearer';
+};
+
+export type ToolHttpAuthHeaderApiKey = {
+    method: 'header_api_key';
+    header: string;
+};
+
+export type ToolHttpAuthNone = {
+    method: 'none';
+};
+
+export type ToolHttpAuthVolcArk = {
+    method: 'volc_ark';
+    credential: string;
+};
+
+export type ToolHttpAuthVolcOpenApi = {
+    method: 'volc_openapi';
+    credential: string;
+    region: string;
+    service: string;
+};
+
+export type ToolHttpAuthVolcSearch = {
+    method: 'volc_search';
+    credential: string;
+};
+
+export type ToolHttpMethod = 'GET' | 'POST';
+
+export type ToolHttpRequest = {
+    url: string;
+    method: ToolHttpMethod;
+    auth: ToolHttpAuth;
+    headers?: {
+        [key: string]: string;
+    };
+    query?: Array<ToolHttpArgumentBinding>;
+    body?: Array<ToolHttpArgumentBinding>;
+    response_pointer?: string;
+    success_status_codes?: Array<number>;
+    timeout: string;
+    max_response_bytes: number;
+};
+
+/**
+ * Strict Tool declaration selected by type. metadata.name is the only Tool identity.
+ */
+export type ToolSpec = ({
+    type: 'http_request';
+} & HttpToolSpec) | ({
+    type: 'client_rpc';
+} & ClientRpcToolSpec);
 
 export type ToolTrigger = {
     name: string;
@@ -2065,7 +2160,7 @@ export type ToolTriggerExample = {
  */
 export type ToolkitPolicy = {
     /**
-     * Allowed persisted Tool IDs.
+     * Allowed canonical Tool Resource names. RuntimeProfile aliases are not accepted.
      */
     tool_ids?: Array<string>;
 };
@@ -3122,9 +3217,148 @@ export type WorkspaceListWritable = {
     items: Array<WorkspaceWritable>;
 };
 
+export type ResourceWritable = ({
+    kind: 'Credential';
+} & CredentialResource) | ({
+    kind: 'Firmware';
+} & FirmwareResource) | ({
+    kind: 'Contact';
+} & ContactResource) | ({
+    kind: 'Friend';
+} & FriendResource) | ({
+    kind: 'FriendGroup';
+} & FriendGroupResource) | ({
+    kind: 'FriendGroupInviteToken';
+} & FriendGroupInviteTokenResource) | ({
+    kind: 'FriendGroupMember';
+} & FriendGroupMemberResource) | ({
+    kind: 'Model';
+} & ModelResource) | ({
+    kind: 'DashScopeTenant';
+} & DashScopeTenantResource) | ({
+    kind: 'DeepSeekTenant';
+} & DeepSeekTenantResource) | ({
+    kind: 'GeminiTenant';
+} & GeminiTenantResource) | ({
+    kind: 'MiniMaxTenant';
+} & MiniMaxTenantResource) | ({
+    kind: 'OpenAITenant';
+} & OpenAiTenantResource) | ({
+    kind: 'VolcTenant';
+} & VolcTenantResource) | ({
+    kind: 'Voice';
+} & VoiceResource) | ({
+    kind: 'Tool';
+} & ToolResourceWritable) | ({
+    kind: 'Workflow';
+} & WorkflowResource) | ({
+    kind: 'Workspace';
+} & WorkspaceResource) | ({
+    kind: 'PetDef';
+} & PetDefResource) | ({
+    kind: 'BadgeDef';
+} & BadgeDefResource) | ({
+    kind: 'GameDef';
+} & GameDefResource) | ({
+    kind: 'MemoryLayout';
+} & MemoryLayoutResource) | ({
+    kind: 'RuntimeProfile';
+} & RuntimeProfileResource) | ({
+    kind: 'RegistrationToken';
+} & RegistrationTokenResource) | ({
+    kind: 'ResourceList';
+} & ResourceListResourceWritable);
+
+export type ResourceListResourceWritable = {
+    apiVersion: ResourceApiVersion;
+    kind: 'ResourceList';
+    metadata: ResourceMetadata;
+    spec: ResourceListSpecWritable;
+};
+
+export type ResourceListSpecWritable = {
+    items: Array<ResourceWritable>;
+};
+
+export type ToolResourceWritable = {
+    apiVersion: ResourceApiVersion;
+    kind: 'Tool';
+    /**
+     * metadata.name is the canonical Tool name. It must match ^[A-Za-z_][A-Za-z0-9_-]{0,63}$ and is the only execution identity.
+     */
+    metadata: ResourceMetadata;
+    spec: ToolSpecWritable;
+};
+
 export type FriendGroupInviteTokenClearResponseWritable = {
     [key: string]: never;
 };
+
+export type HttpToolSpecWritable = {
+    type: 'http_request';
+    description?: string;
+    enabled?: boolean;
+    version?: string;
+    input_schema: ToolJsonSchema;
+    triggers?: Array<ToolTrigger>;
+    metadata?: {
+        [key: string]: unknown;
+    };
+    http: ToolHttpRequestWritable;
+};
+
+export type ToolHttpAuthWritable = ({
+    method: 'none';
+} & ToolHttpAuthNone) | ({
+    method: 'bearer';
+} & ToolHttpAuthBearerWritable) | ({
+    method: 'header_api_key';
+} & ToolHttpAuthHeaderApiKeyWritable) | ({
+    method: 'volc_ark';
+} & ToolHttpAuthVolcArk) | ({
+    method: 'volc_search';
+} & ToolHttpAuthVolcSearch) | ({
+    method: 'volc_openapi';
+} & ToolHttpAuthVolcOpenApi) | ({
+    method: 'aliyun_app_code';
+} & ToolHttpAuthAliyunAppCode) | ({
+    method: 'aliyun_openapi_v3';
+} & ToolHttpAuthAliyunOpenApiv3);
+
+export type ToolHttpAuthBearerWritable = {
+    method: 'bearer';
+    bearer_token?: string;
+};
+
+export type ToolHttpAuthHeaderApiKeyWritable = {
+    method: 'header_api_key';
+    header: string;
+    api_key?: string;
+};
+
+export type ToolHttpRequestWritable = {
+    url: string;
+    method: ToolHttpMethod;
+    auth: ToolHttpAuthWritable;
+    headers?: {
+        [key: string]: string;
+    };
+    query?: Array<ToolHttpArgumentBinding>;
+    body?: Array<ToolHttpArgumentBinding>;
+    response_pointer?: string;
+    success_status_codes?: Array<number>;
+    timeout: string;
+    max_response_bytes: number;
+};
+
+/**
+ * Strict Tool declaration selected by type. metadata.name is the only Tool identity.
+ */
+export type ToolSpecWritable = ({
+    type: 'http_request';
+} & HttpToolSpecWritable) | ({
+    type: 'client_rpc';
+} & ClientRpcToolSpec);
 
 export type WorkspaceWritable = {
     name: string;
@@ -3230,7 +3464,7 @@ export type StreamServerLogsResponses = {
 export type StreamServerLogsResponse = StreamServerLogsResponses[keyof StreamServerLogsResponses];
 
 export type ApplyResourceData = {
-    body: Resource;
+    body: ResourceWritable;
     path?: never;
     query?: never;
     url: '/@apply';
@@ -3359,7 +3593,7 @@ export type GetResourceResponses = {
 export type GetResourceResponse = GetResourceResponses[keyof GetResourceResponses];
 
 export type PutResourceData = {
-    body: Resource;
+    body: ResourceWritable;
     path: {
         /**
          * Declarative resource kind

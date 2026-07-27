@@ -388,7 +388,16 @@ func validateCredentialBody(provider string, body apitypes.CredentialBody) error
 		if err := decodeCredentialBody(body, &typed); err != nil {
 			return err
 		}
-		if allEmpty(typed.SpeechAppId, typed.SpeechApiKey, typed.ArkApiKey, typed.SearchApiKey, typed.OpenapiAccessKeyId, typed.OpenapiAccessKey) {
+		if allEmpty(typed.SpeechAppId, typed.SpeechApiKey, typed.ArkApiKey, typed.SearchApiKey, typed.OpenapiAccessKeyId, typed.OpenapiAccessKey, typed.OpenapiSessionToken) {
+			return errors.New("body must include at least one non-empty credential field")
+		}
+		return nil
+	case "aliyun":
+		var typed apitypes.AliyunCredentialBody
+		if err := decodeCredentialBody(body, &typed); err != nil {
+			return err
+		}
+		if allEmpty(typed.AppCode, typed.AccessKeyId, typed.AccessKeySecret, typed.SecurityToken) {
 			return errors.New("body must include at least one non-empty credential field")
 		}
 		return nil

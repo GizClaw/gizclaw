@@ -34,6 +34,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
+	"github.com/GizClaw/gizclaw-go/pkgs/giztools"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
@@ -97,6 +98,8 @@ type Server struct {
 	FriendGroupMessageCleanup    time.Duration
 	FriendGroupMessageMaxBytes   int64
 	SpeechLimits                 SpeechLimits
+	ClientToolTimeout            time.Duration
+	ToolHTTPExecutor             giztools.HTTPExecutor
 	BuildCommit                  string
 	PublicEndpoint               string
 	PublicICETCP                 bool
@@ -536,24 +539,17 @@ func (s *Server) init() error {
 			return err
 		}
 	}
-	deviceToolExecutor := &toolkit.DeviceRPCExecutor{Client: manager}
-	toolExecutors := toolkit.NewExecutorRegistry()
-	if err := toolExecutors.RegisterDevice(deviceToolExecutor, deviceToolExecutor); err != nil {
-		return err
-	}
-	if err := toolExecutors.Register(toolkit.EchoExecutorName, toolkit.EchoExecutor{}); err != nil {
-		return err
-	}
 	manager.Tools = toolServer
-	manager.ToolExecutors = toolExecutors
-	manager.ToolBuilder = &toolkit.Builder{Tools: toolServer, Availability: toolExecutors}
+	manager.ToolBuilder = &toolkit.Builder{Tools: toolServer}
 	manager.AgentHost = agenthost.New(agenthost.ServiceResolver{
 		Workspaces:             workspaceServer,
 		Workflows:              workflowServer,
 		MemoryLayouts:          memoryLayoutServer,
 		RuntimeProfileForOwner: manager.runtimeProfileForOwner,
 		ToolBuilder:            manager.ToolBuilder,
-		ToolExecutors:          toolExecutors,
+		ToolCredentials:        credentialServer,
+		ClientToolTimeout:      s.ClientToolTimeout,
+		HTTPTools:              s.ToolHTTPExecutor,
 	})
 	manager.Workspaces = workspaceServer
 	manager.Workflows = workflowServer

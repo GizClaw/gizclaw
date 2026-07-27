@@ -1189,7 +1189,7 @@ export type Tool = {
   "alias": string;
   "i18n": Record<string, AliasI18nText>;
   "input_schema": Record<string, unknown>;
-  "output_schema"?: Record<string, unknown>;
+  "name": string;
 };
 export type ToolGetRequest = {
   "alias": string;
@@ -1200,10 +1200,8 @@ export type ToolGetResponse = {
   "runtime_profile_revision": string;
 };
 export type ToolInvokeRequest = {
-  "call_id": string;
-  "tool_id": string;
-  "method": string;
   "args": Record<string, unknown>;
+  "name": string;
 };
 export type ToolInvokeResponse = {
   "data_json": string;
@@ -6898,10 +6896,9 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "google.protobuf.Struct"
       },
       {
-        "name": "output_schema",
-        "number": 4,
-        "optional": true,
-        "type": "google.protobuf.Struct"
+        "name": "name",
+        "number": 5,
+        "type": "string"
       }
     ]
   },
@@ -6936,24 +6933,14 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "ToolInvokeRequest": {
     "fields": [
       {
-        "name": "call_id",
-        "number": 1,
-        "type": "string"
-      },
-      {
-        "name": "tool_id",
-        "number": 2,
-        "type": "string"
-      },
-      {
-        "name": "method",
-        "number": 3,
-        "type": "string"
-      },
-      {
         "name": "args",
         "number": 4,
         "type": "google.protobuf.Struct"
+      },
+      {
+        "name": "name",
+        "number": 5,
+        "type": "string"
       }
     ]
   },

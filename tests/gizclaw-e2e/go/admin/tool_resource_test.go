@@ -17,19 +17,29 @@ func TestAdminAPIToolResourceLifecycle(t *testing.T) {
 		_, _ = env.api.DeleteResourceWithResponse(env.ctx, apitypes.ResourceKindTool, id)
 	})
 
-	name := "lookup_weather"
-	executorName := "weather.lookup"
+	auth := apitypes.ToolHTTPAuth{}
+	if err := auth.FromToolHTTPAuthNone(apitypes.ToolHTTPAuthNone{
+		Method: apitypes.ToolHTTPAuthNoneMethodNone,
+	}); err != nil {
+		t.Fatalf("build Tool auth: %v", err)
+	}
+	spec := apitypes.ToolSpec{}
+	if err := spec.FromHTTPToolSpec(apitypes.HTTPToolSpec{
+		Type:        apitypes.HTTPToolSpecTypeHttpRequest,
+		InputSchema: jsonschema.Schema{Type: "object", Required: []string{"city"}, Properties: map[string]*jsonschema.Schema{"city": {Type: "string"}}},
+		Http: apitypes.ToolHTTPRequest{
+			Url: "https://weather.example/v1", Method: apitypes.ToolHTTPMethodGET,
+			Auth: auth, Timeout: "5s", MaxResponseBytes: 4096,
+		},
+	}); err != nil {
+		t.Fatalf("build Tool spec: %v", err)
+	}
 	var resource apitypes.Resource
 	if err := resource.FromToolResource(apitypes.ToolResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.ToolResourceKindTool,
 		Metadata:   apitypes.ResourceMetadata{Name: id},
-		Spec: apitypes.ToolSpec{
-			Name:        &name,
-			Source:      apitypes.ToolSourceAdmin,
-			InputSchema: jsonschema.Schema{Type: "object", Required: []string{"city"}, Properties: map[string]*jsonschema.Schema{"city": {Type: "string"}}},
-			Executor:    apitypes.ToolExecutor{Kind: apitypes.ToolExecutorKindBuiltin, Name: &executorName},
-		},
+		Spec:       spec,
 	}); err != nil {
 		t.Fatalf("build Tool resource: %v", err)
 	}
@@ -52,11 +62,18 @@ func TestAdminAPIToolResourceLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("decode Tool resource: %v", err)
 	}
-	if tool.Spec.Enabled == nil || !*tool.Spec.Enabled || tool.Spec.InputSchema.Properties["city"].Type != "string" {
+	httpSpec, err := tool.Spec.AsHTTPToolSpec()
+	if err != nil {
+		t.Fatalf("decode HTTP Tool spec: %v", err)
+	}
+	if httpSpec.Enabled == nil || !*httpSpec.Enabled || httpSpec.InputSchema.Properties["city"].Type != "string" {
 		t.Fatalf("Tool resource round trip = %#v", tool)
 	}
 	description := "updated by admin e2e"
-	tool.Spec.Description = &description
+	httpSpec.Description = &description
+	if err := tool.Spec.FromHTTPToolSpec(httpSpec); err != nil {
+		t.Fatalf("update HTTP Tool spec: %v", err)
+	}
 	tool.Kind = apitypes.ToolResourceKindTool
 	data, err := json.Marshal(tool)
 	if err != nil {
@@ -71,7 +88,11 @@ func TestAdminAPIToolResourceLifecycle(t *testing.T) {
 	}
 	requireStatusOK(t, updated, updated.Body)
 	updatedTool, err := updated.JSON200.AsToolResource()
-	if err != nil || updatedTool.Spec.Description == nil || *updatedTool.Spec.Description != description {
+	if err != nil {
+		t.Fatalf("decode updated Tool resource: %v", err)
+	}
+	updatedSpec, err := updatedTool.Spec.AsHTTPToolSpec()
+	if err != nil || updatedSpec.Description == nil || *updatedSpec.Description != description {
 		t.Fatalf("put Tool resource = %#v, %v", updatedTool, err)
 	}
 

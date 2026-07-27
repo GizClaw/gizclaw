@@ -2,7 +2,7 @@
 
 [Go API Reference](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost)
 
-`agenthost` Owns the online life cycle of Agent instance. It parses running specifications, obtains workspace lease, creates input and output streams, accesses history and ToolKit, and maintains the current runtime registry.
+`agenthost` owns the online life cycle of Agent instances. It parses running specifications, obtains Workspace leases, creates input and output streams, accesses History and Memory, composes the context-scoped ToolInvoker, and maintains the current runtime registry.
 
 ## Run process
 
@@ -14,7 +14,8 @@ flowchart TD
     Agent --> Input["StreamSource"]
     Agent --> Output["StreamConsumer"]
     Output --> History["Workspace history / audio output"]
-    Agent --> Toolkit["ToolkitContext"]
+    Agent --> Toolkit["genx.ToolInvoker"]
+    Toolkit --> Profile["Current-Peer RuntimeProfile scope"]
     Input --> Stop["Stop / cancel / release"]
     Output --> Stop
 ```
@@ -33,9 +34,31 @@ flowchart TD
 | `Host` / `Registry` | Select and create an Agent based on the parsed `Spec`. |
 | `InputStream` / `PushSource` | Convert continuous input into a GenX Stream consumed by the Agent. |
 | `MixerOutput` | Decode Agent audio into PCM on one mixer track per `(StreamID, canonical MIME)`; MIME EOS closes only that track, while control-only EOS closes every track on the route. |
-| `ToolkitContext` | ToolKit after authorization for a runtime combination. |
+| `ToolkitInvoker` | Re-resolve, authorize, and dispatch canonical Tools in the current Transform's Peer scope. |
 
 All runtime creation paths must have symmetric cancel, stream close, lease release, and registry cleanup. The persistence of Agent definition, Workflow, and Workspace still belongs to AI services.
+
+## Current-Peer Tool scope
+
+Tool execution has a separate context from Workspace-owner Resource access. The
+Workspace owner continues to select Workspace, Workflow, Model, and Memory
+resources, but it cannot replace the current connected Peer's Tool set.
+`Service.Reload` snapshots that Peer's RuntimeProfile Tool bindings and attaches
+the exact connection execution handle to the run context.
+
+`Spec` exposes only `genx.ToolInvoker`. Flowcraft, Eino, DashScope Realtime, and
+Doubao Realtime Duplex receive that interface and never receive Resource,
+RuntimeProfile, Credential, policy, alias, or Peer-transport internals.
+`ResolveTools` and `InvokeTool` read the Transform context on every call, so one
+Workspace Agent remains safely shared by concurrent Peers with different
+Profiles and handlers. The invoker never captures construction-time Peer state.
+
+Workspace and Workflow policies contain canonical Tool Resource names and can
+only narrow the current-Peer Profile set. A missing Tool scope is an explicit
+configuration error. Disconnect, reload, stop, or connection replacement
+cancels the old context; a late invocation cannot route to a replacement or
+another online Peer. Resource declarations and provider Credentials are read at
+invocation time, and non-idempotent Tool execution is never retried.
 
 ## Store dependency ownership
 

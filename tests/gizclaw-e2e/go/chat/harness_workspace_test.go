@@ -49,6 +49,33 @@ func TestFetchChatServerInfoIncludesICEServers(t *testing.T) {
 	}
 }
 
+func TestFetchChatServerInfoUsesEdgeGatewayTransport(t *testing.T) {
+	originKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	edgeKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var edgeEndpoint string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprintf(w,
+			`{"protocol":"gizclaw-webrtc","public_key":%q,"transport":{"mode":"edge-gateway","endpoint":%q,"public_key":%q,"signaling_path":"/edge/offer"}}`,
+			originKey.Public.String(), edgeEndpoint, edgeKey.Public.String())
+	}))
+	defer server.Close()
+	edgeEndpoint = strings.TrimPrefix(server.URL, "http://")
+	info, err := fetchChatServerInfo(strings.TrimPrefix(server.URL, "http://"))
+	if err != nil {
+		t.Fatalf("fetchChatServerInfo error = %v", err)
+	}
+	if !info.PublicKey.Equal(edgeKey.Public) || info.SignalingURL != server.URL+"/edge/offer" {
+		t.Fatalf("edge server info = %+v", info)
+	}
+}
+
 func TestWorkspaceCaseAppliesInputMode(t *testing.T) {
 	cfg := config{Workflow: workflowConfig{Name: "demo.workflow", Parameters: workspaceParameterConfig{Input: "push-to-talk"}}}
 	got, err := workspaceCaseRealtimeRoundtrip.applyConfig(cfg)

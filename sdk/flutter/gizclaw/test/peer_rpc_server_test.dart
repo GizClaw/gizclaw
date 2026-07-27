@@ -166,14 +166,16 @@ void main() {
   test('serves configured client tool invocations', () async {
     final channel = FakeDataChannel('giznet/v1/service/0');
     addTearDown(channel.close);
-    ToolInvokeRequest? invoked;
+    Map<String, Object?>? invoked;
     serveGizClawPeerRpcChannel(
       channel,
       handlers: GizClawPeerRpcHandlers(
         deviceInfo: () => device,
-        invokeTool: (request) {
-          invoked = request;
-          return ToolInvokeResponse(dataJson: '{"ok":true}');
+        tools: {
+          'music_play': (arguments) {
+            invoked = arguments;
+            return {'ok': true};
+          },
         },
       ),
     );
@@ -183,16 +185,12 @@ void main() {
       id: 'tool-1',
       method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_INVOKE,
       methodName: 'client.tool.invoke',
-      request: ToolInvokeRequest(
-        callId: 'call-1',
-        toolId: 'tool-1',
-        method: 'run',
-      ),
+      request: ToolInvokeRequest(name: 'music_play'),
     );
     final result =
         decodeRpcResponsePayload('client.tool.invoke', response.payload)
             as ToolInvokeResponse;
-    expect(invoked?.callId, 'call-1');
+    expect(invoked, isEmpty);
     expect(result.dataJson, '{"ok":true}');
   });
 
@@ -204,9 +202,11 @@ void main() {
       channel,
       handlers: GizClawPeerRpcHandlers(
         deviceInfo: () => device,
-        invokeTool: (request) {
-          invocationCount++;
-          return ToolInvokeResponse(dataJson: '{"ok":true}');
+        tools: {
+          'music_play': (arguments) {
+            invocationCount++;
+            return {'ok': true};
+          },
         },
       ),
     );
@@ -217,7 +217,7 @@ void main() {
         method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_INVOKE,
         payloadBytes: encodeRpcRequestPayload(
           'client.tool.invoke',
-          ToolInvokeRequest(callId: 'call-wait-eos'),
+          ToolInvokeRequest(name: 'music_play'),
         ),
       ),
     );
@@ -243,9 +243,11 @@ void main() {
       channel,
       handlers: GizClawPeerRpcHandlers(
         deviceInfo: () => device,
-        invokeTool: (request) {
-          invocationCount++;
-          return ToolInvokeResponse();
+        tools: {
+          'music_play': (arguments) {
+            invocationCount++;
+            return null;
+          },
         },
       ),
     );
@@ -257,7 +259,7 @@ void main() {
           method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_INVOKE,
           payloadBytes: encodeRpcRequestPayload(
             'client.tool.invoke',
-            ToolInvokeRequest(callId: 'call-body'),
+            ToolInvokeRequest(name: 'music_play'),
           ),
         ),
         encodeFrame(rpcFrameTypeBinary, [1]),
@@ -283,13 +285,13 @@ void main() {
       id: 'tool-missing',
       method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_INVOKE,
       methodName: 'client.tool.invoke',
-      request: ToolInvokeRequest(callId: 'call-missing'),
+      request: ToolInvokeRequest(name: 'missing_tool'),
     );
     expect(
       response.error.code,
       rpc.RpcErrorCode.RPC_ERROR_CODE_METHOD_NOT_FOUND,
     );
-    expect(response.error.message, contains('handler not configured'));
+    expect(response.error.message, 'Tool unavailable');
   });
 }
 

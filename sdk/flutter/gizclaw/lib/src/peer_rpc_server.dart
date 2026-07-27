@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:fixnum/fixnum.dart' as fixnum;
@@ -15,16 +16,17 @@ const _rpcSpeedTestFrameSize = 32 * 1024;
 const _rpcSpeedTestMaxContentLength = 1 << 30;
 
 typedef GizClawDeviceInfoProvider = FutureOr<payload.DeviceInfo> Function();
-typedef GizClawToolInvoker =
-    FutureOr<payload.ToolInvokeResponse> Function(
-      payload.ToolInvokeRequest request,
-    );
+typedef GizClawToolHandler =
+    FutureOr<Object?> Function(Map<String, Object?> arguments);
 
 class GizClawPeerRpcHandlers {
-  const GizClawPeerRpcHandlers({required this.deviceInfo, this.invokeTool});
+  GizClawPeerRpcHandlers({
+    required this.deviceInfo,
+    Map<String, GizClawToolHandler> tools = const {},
+  }) : tools = Map.unmodifiable(tools);
 
   final GizClawDeviceInfoProvider deviceInfo;
-  final GizClawToolInvoker? invokeTool;
+  final Map<String, GizClawToolHandler> tools;
 }
 
 void serveGizClawPeerRpcChannel(
@@ -309,16 +311,48 @@ class _InboundPeerRpcChannel {
         'invalid params',
       );
     }
-    final invokeTool = handlers?.invokeTool;
-    if (invokeTool == null) {
+    final name = params.name.trim();
+    if (!RegExp(r'^[A-Za-z_][A-Za-z0-9_-]{0,63}$').hasMatch(name)) {
+      return _rpcErrorResponse(
+        request.id,
+        rpc.RpcErrorCode.RPC_ERROR_CODE_INVALID_PARAMS,
+        'invalid Tool name',
+      );
+    }
+    final handler = handlers?.tools[name];
+    if (handler == null) {
       return _rpcErrorResponse(
         request.id,
         rpc.RpcErrorCode.RPC_ERROR_CODE_METHOD_NOT_FOUND,
-        'client.tool.invoke handler not configured',
+        'Tool unavailable',
       );
     }
-    final result = await invokeTool(params);
-    return _rpcPayloadResponse(request.id, 'client.tool.invoke', result);
+    try {
+      final rawArguments = params.hasArgs()
+          ? params.args.toProto3Json()
+          : <String, Object?>{};
+      if (rawArguments is! Map) {
+        throw const FormatException('Tool arguments must be an object');
+      }
+      final arguments = rawArguments.map(
+        (key, value) => MapEntry(key.toString(), value),
+      );
+      final encoded = jsonEncode(await handler(arguments));
+      if (utf8.encode(encoded).length > 64 * 1024) {
+        throw const FormatException('Tool result is too large');
+      }
+      return _rpcPayloadResponse(
+        request.id,
+        'client.tool.invoke',
+        payload.ToolInvokeResponse(dataJson: encoded),
+      );
+    } catch (_) {
+      return _rpcErrorResponse(
+        request.id,
+        rpc.RpcErrorCode.RPC_ERROR_CODE_INTERNAL_ERROR,
+        'Tool handler failed',
+      );
+    }
   }
 
   rpc.RpcResponse? _validateClientRequest(

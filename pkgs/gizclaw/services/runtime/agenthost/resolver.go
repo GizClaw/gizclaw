@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -13,6 +14,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
+	"github.com/GizClaw/gizclaw-go/pkgs/giztools"
 )
 
 type Resolver interface {
@@ -25,7 +27,9 @@ type ServiceResolver struct {
 	MemoryLayouts          memorylayout.MemoryLayoutAdminService
 	RuntimeProfileForOwner func(context.Context, string) (apitypes.RuntimeProfile, error)
 	ToolBuilder            *toolkit.Builder
-	ToolExecutors          *toolkit.ExecutorRegistry
+	ToolCredentials        toolCredentialResolver
+	HTTPTools              giztools.HTTPExecutor
+	ClientToolTimeout      time.Duration
 }
 
 type workspaceRuntimeProvider interface {
@@ -90,7 +94,7 @@ func (r ServiceResolver) Resolve(ctx context.Context, pattern string) (Spec, err
 		Workflow:              workflow,
 		AgentType:             agentType,
 		Runtime:               runtime,
-		Toolkit:               tools,
+		ToolInvoker:           tools,
 		MemoryName:            memoryName,
 		MemoryProfileName:     memoryProfileName,
 		MemoryProfileRevision: memoryProfileRevision,
@@ -179,17 +183,13 @@ func resolveWorkspaceWorkflowName(ctx context.Context, ws apitypes.Workspace) (s
 	return string(ws.WorkflowName), nil
 }
 
-func (r ServiceResolver) resolveToolkit(ctx context.Context, ws apitypes.Workspace, workflow apitypes.Workflow) (*ToolkitContext, error) {
+func (r ServiceResolver) resolveToolkit(_ context.Context, ws apitypes.Workspace, workflow apitypes.Workflow) (*ToolkitInvoker, error) {
 	workflowPolicies := workflowToolkitPolicies(workflow.Spec)
-	if ws.Toolkit == nil && len(workflowPolicies) == 0 {
-		return nil, nil
-	}
-	if r.ToolBuilder == nil || r.ToolExecutors == nil {
+	if r.ToolBuilder == nil {
+		if ws.Toolkit == nil && len(workflowPolicies) == 0 {
+			return nil, nil
+		}
 		return nil, fmt.Errorf("agenthost: toolkit services are required")
-	}
-	access, ok := resourceAccessFromContext(ctx)
-	if !ok {
-		return nil, fmt.Errorf("agenthost: resource access context is required for toolkit")
 	}
 	var workflowIDs []string
 	workflowRestrict := false
@@ -201,7 +201,6 @@ func (r ServiceResolver) resolveToolkit(ctx context.Context, ws apitypes.Workspa
 		if !restrict {
 			continue
 		}
-		ids = resolveToolAliases(ids, access.profileToolBindings)
 		if workflowRestrict {
 			workflowIDs = intersectToolIDs(workflowIDs, ids)
 		} else {
@@ -213,7 +212,6 @@ func (r ServiceResolver) resolveToolkit(ctx context.Context, ws apitypes.Workspa
 	if err != nil {
 		return nil, fmt.Errorf("agenthost: workspace toolkit policy: %w", err)
 	}
-	workspaceIDs = resolveToolAliases(workspaceIDs, access.profileToolBindings)
 	restrict := workflowRestrict || workspaceRestrict
 	ids := workflowIDs
 	switch {
@@ -222,14 +220,14 @@ func (r ServiceResolver) resolveToolkit(ctx context.Context, ws apitypes.Workspa
 	case workspaceRestrict:
 		ids = workspaceIDs
 	}
-	return &ToolkitContext{
-		Builder:   r.ToolBuilder,
-		Executors: r.ToolExecutors,
-		BuildRequest: toolkit.BuildRequest{
-			CallerPublicKey: access.ownerPublicKey,
-			ProfileToolIDs:  append([]string(nil), access.profileToolIDs...),
-			AllowedToolIDs:  ids,
-			RestrictToolIDs: restrict,
+	return &ToolkitInvoker{
+		Builder:       r.ToolBuilder,
+		Credentials:   r.ToolCredentials,
+		HTTP:          r.HTTPTools,
+		ClientTimeout: r.ClientToolTimeout,
+		Request: toolkit.BuildRequest{
+			AllowedTools:  ids,
+			RestrictTools: restrict,
 		},
 	}, nil
 }
@@ -243,18 +241,6 @@ func workflowToolkitPolicies(spec apitypes.WorkflowSpec) []*apitypes.ToolkitPoli
 		policies = append(policies, spec.Pet.Toolkit)
 	}
 	return policies
-}
-
-func resolveToolAliases(ids []string, bindings map[string]string) []string {
-	out := make([]string, 0, len(ids))
-	for _, id := range ids {
-		if resourceID := strings.TrimSpace(bindings[id]); resourceID != "" {
-			out = append(out, resourceID)
-			continue
-		}
-		out = append(out, id)
-	}
-	return out
 }
 
 func policyToolIDs(policy *apitypes.ToolkitPolicy) ([]string, bool, error) {

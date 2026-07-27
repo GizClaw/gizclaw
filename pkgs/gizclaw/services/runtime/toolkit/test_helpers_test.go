@@ -1,38 +1,37 @@
 package toolkit
 
-import "github.com/google/jsonschema-go/jsonschema"
+import (
+	"time"
 
-func testBuiltinTool(id string) Tool {
+	"github.com/google/jsonschema-go/jsonschema"
+)
+
+func testClientTool(name string) Tool {
 	return Tool{
-		ID:          id,
-		Name:        stringPtr(id),
-		Description: stringPtr("test tool"),
-		Source:      ToolSourceBuiltin,
+		Name:        name,
+		Type:        ToolTypeClientRPC,
+		Description: new("test client tool"),
 		Enabled:     true,
-		InputSchema: jsonschema.Schema{Type: "object"},
-		Executor: ToolExecutor{
-			Kind: ToolExecutorKindBuiltin,
-			Name: stringPtr("music.play"),
+		InputSchema: jsonschema.Schema{
+			Type:                 "object",
+			AdditionalProperties: &jsonschema.Schema{Not: &jsonschema.Schema{}},
 		},
 	}
 }
 
-func testDeviceTool(id, peer string) Tool {
+func testHTTPTool(name string) Tool {
 	return Tool{
-		ID:          id,
-		Name:        stringPtr(id),
-		Description: stringPtr("device tool"),
-		Source:      ToolSourceDevice,
+		Name:        name,
+		Type:        ToolTypeHTTPRequest,
+		Description: new("test HTTP tool"),
 		Enabled:     true,
-		OwnerPeer:   stringPtr(peer),
 		InputSchema: jsonschema.Schema{Type: "object"},
-		Executor: ToolExecutor{
-			Kind:   ToolExecutorKindDeviceRPC,
-			Method: stringPtr("music.play"),
+		HTTP: &HTTPRequest{
+			URL:              "https://example.com/weather",
+			Method:           "GET",
+			Auth:             HTTPAuth{Method: "none"},
+			Timeout:          5 * time.Second,
+			MaxResponseBytes: 4096,
 		},
 	}
-}
-
-func stringPtr(value string) *string {
-	return &value
 }

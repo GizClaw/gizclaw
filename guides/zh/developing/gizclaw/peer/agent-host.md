@@ -22,9 +22,17 @@ identity 和 public key 不会替换成 `Scope.UserID`。
 
 Runtime Registry 只以 Workspace 为 live Agent identity。同一 Workspace 的多个
 stream 共用一个可并发 Agent；最后一个引用释放后关闭 generation，reload 后按新
-Workflow 与 RuntimeProfile snapshot 构造。Caller-specific toolkit 和 model
-resolution 发生在构造当前 snapshot 或每次 invocation 的既有上下文中，不增加
-第二个 Workspace Agent identity。
+Workflow 与 RuntimeProfile snapshot 构造。
 
-新增 Workflow factory 都是相互独立的配置 adapter。它们不依赖 ToolCall，
-也不会把 Workspace Toolkit policy 翻译成 provider-native tool。
+Peer connection 还会为每次 run 附加一套独立的 current-Peer Tool execution
+scope，其中只包含该 Peer 的 RuntimeProfile Tool binding snapshot，以及执行
+`client_rpc` 的准确 accepted connection。Workspace-owner Resource access 不能覆盖
+它。共享 Agent 只接收一个 `genx.ToolInvoker`；每次 Transform 都从自己的 context
+解析 Tool，因此多个并发 Peer 即使共享 Agent，也不会共享 Tool definition、
+handler、argument、result 或 connection。
+
+Flowcraft、Eino、DashScope Realtime 与豆包 Realtime Duplex factory 都把同一个
+接口注入已有 Transformer config。Provider ToolCall ID 与 continuation 始终留在
+Transformer 内部；AgentHost 只按 canonical Resource name 分发到 `http_request`
+或当前 connection 的 `client.tool.invoke`，不会把 Tool control traffic 投影到
+public assistant stream。

@@ -10,47 +10,6 @@ const (
 	RPCMethodServerToolList   RPCMethod = "server.tool.list"
 )
 
-type ToolSource string
-
-const (
-	ToolSourceAdmin   ToolSource = "admin"
-	ToolSourceBuiltin ToolSource = "builtin"
-	ToolSourceDevice  ToolSource = "device"
-)
-
-func (e ToolSource) Valid() bool {
-	switch e {
-	case ToolSourceAdmin, ToolSourceBuiltin, ToolSourceDevice:
-		return true
-	default:
-		return false
-	}
-}
-
-type ToolExecutorKind string
-
-const (
-	ToolExecutorKindBuiltin   ToolExecutorKind = "builtin"
-	ToolExecutorKindDeviceRpc ToolExecutorKind = "device_rpc"
-)
-
-func (e ToolExecutorKind) Valid() bool {
-	switch e {
-	case ToolExecutorKindBuiltin, ToolExecutorKindDeviceRpc:
-		return true
-	default:
-		return false
-	}
-}
-
-type ToolExecutor struct {
-	Kind   ToolExecutorKind        `json:"kind"`
-	Name   *string                 `json:"name,omitempty"`
-	Method *string                 `json:"method,omitempty"`
-	PeerId *string                 `json:"peer_id,omitempty"`
-	Config *map[string]interface{} `json:"config,omitempty"`
-}
-
 type ToolTriggerExample struct {
 	Input  string                  `json:"input"`
 	Args   *map[string]interface{} `json:"args,omitempty"`
@@ -66,10 +25,10 @@ type ToolTrigger struct {
 }
 
 type Tool struct {
-	Alias        string                   `json:"alias"`
-	I18n         map[string]AliasI18nText `json:"i18n"`
-	InputSchema  jsonschema.Schema        `json:"input_schema"`
-	OutputSchema *jsonschema.Schema       `json:"output_schema,omitempty"`
+	Alias       string                   `json:"alias"`
+	I18n        map[string]AliasI18nText `json:"i18n"`
+	InputSchema jsonschema.Schema        `json:"input_schema"`
+	Name        string                   `json:"name"`
 }
 
 type ToolListRequest struct {
@@ -96,10 +55,8 @@ type ToolGetResponse struct {
 }
 
 type ToolInvokeRequest struct {
-	CallId string                 `json:"call_id"`
-	ToolId string                 `json:"tool_id"`
-	Method string                 `json:"method"`
-	Args   map[string]interface{} `json:"args"`
+	Name string                 `json:"name"`
+	Args map[string]interface{} `json:"args"`
 }
 
 type ToolInvokeResponse struct {

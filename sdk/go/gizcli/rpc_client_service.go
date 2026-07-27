@@ -2,10 +2,44 @@ package gizcli
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"net"
+	"regexp"
+	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 )
+
+const (
+	maxClientToolArgumentsBytes = 64 << 10
+	maxClientToolResultBytes    = 64 << 10
+)
+
+var clientToolNamePattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_-]{0,63}$`)
+
+type ToolHandler func(context.Context, json.RawMessage) (json.RawMessage, error)
+
+// HandleTool mounts one current-Client Tool handler by canonical Resource name.
+func (c *Client) HandleTool(name string, handler ToolHandler) error {
+	if c == nil {
+		return errors.New("gizclaw: nil client")
+	}
+	if !clientToolNamePattern.MatchString(name) {
+		return fmt.Errorf("gizclaw: invalid Tool name %q", name)
+	}
+	if handler == nil {
+		return errors.New("gizclaw: Tool handler is required")
+	}
+	c.toolMu.Lock()
+	defer c.toolMu.Unlock()
+	if c.toolHandlers == nil {
+		c.toolHandlers = make(map[string]ToolHandler)
+	}
+	c.toolHandlers[name] = handler
+	return nil
+}
 
 func (c *rpcClient) GetClientInfo(ctx context.Context, conn net.Conn, id string) (*rpcapi.ClientGetInfoResponse, error) {
 	params, err := newRPCRequestParams(rpcapi.ClientGetInfoRequest{}, (*rpcapi.RPCPayload).FromClientGetInfoRequest)
@@ -76,12 +110,29 @@ func (c *rpcClient) handleInvokeTool(ctx context.Context, req *rpcapi.RPCRequest
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	if c.peer == nil || c.peer.ToolInvoker == nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeMethodNotFound, Message: "client.tool.invoke handler not configured"}.RPCResponse(), nil
+	name := strings.TrimSpace(params.Name)
+	if c.peer == nil || !clientToolNamePattern.MatchString(name) {
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInvalidParams, Message: "invalid Tool name"}.RPCResponse(), nil
 	}
-	result, err := c.peer.ToolInvoker(ctx, params)
+	c.peer.toolMu.RLock()
+	handler := c.peer.toolHandlers[name]
+	c.peer.toolMu.RUnlock()
+	if handler == nil {
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeMethodNotFound, Message: "Tool unavailable"}.RPCResponse(), nil
+	}
+	args, err := json.Marshal(params.Args)
+	if err != nil || len(args) > maxClientToolArgumentsBytes {
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInvalidParams, Message: "invalid Tool arguments"}.RPCResponse(), nil
+	}
+	result, err := handler(ctx, json.RawMessage(args))
 	if err != nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: err.Error()}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "Tool handler failed"}.RPCResponse(), nil
 	}
-	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCPayload).FromToolInvokeResponse)
+	if len(result) == 0 {
+		result = json.RawMessage(`null`)
+	}
+	if len(result) > maxClientToolResultBytes || !json.Valid(result) {
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "Tool handler returned invalid JSON"}.RPCResponse(), nil
+	}
+	return newRPCResultResponse(req.Id, rpcapi.ToolInvokeResponse{DataJson: string(result)}, (*rpcapi.RPCPayload).FromToolInvokeResponse)
 }

@@ -22,7 +22,7 @@ func NormalizePolicy(policy *apitypes.ToolkitPolicy) (*apitypes.ToolkitPolicy, e
 	for _, raw := range *policy.ToolIds {
 		id := strings.TrimSpace(raw)
 		if id == "" {
-			return nil, fmt.Errorf("%w: tool_ids contains an empty Tool ID", ErrInvalidTool)
+			return nil, fmt.Errorf("%w: tool_ids contains an empty Tool name", ErrInvalidTool)
 		}
 		if seen[id] {
 			continue

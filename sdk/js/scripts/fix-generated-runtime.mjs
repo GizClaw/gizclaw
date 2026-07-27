@@ -26,6 +26,10 @@ async function rewriteTree(url) {
     await rewriteSseRuntime(url);
     return;
   }
+  if (url.pathname.endsWith("/adminhttp/types.gen.ts")) {
+    await rewriteResourceDiscriminators(url);
+    return;
+  }
   if (!url.pathname.endsWith("/client/client.gen.ts")) {
     return;
   }
@@ -44,6 +48,48 @@ async function rewriteTree(url) {
     "      if (resolvedOptions) {\n        for (const fn of interceptors.error.fns) {\n          if (fn) {\n            finalError = await fn(finalError, response, request, resolvedOptions);\n          }\n        }\n      }",
   );
 
+  if (after !== before) {
+    await writeFile(url, after);
+  }
+}
+
+async function rewriteResourceDiscriminators(url) {
+  const before = await readFile(url, "utf8");
+  const resourceKinds = new Map();
+  const resourceType =
+    /export type ([A-Za-z0-9]+Resource(?:Writable)?) = \{\n([\s\S]*?)\n\};/g;
+  for (const match of before.matchAll(resourceType)) {
+    const kind = match[2].match(/^\s+kind: '([^']+)';$/m)?.[1];
+    if (kind != null) {
+      resourceKinds.set(match[1], kind);
+    }
+  }
+
+  let rewriteCount = 0;
+  const after = before.replace(
+    /kind: '[^']+';\n} & ([A-Za-z0-9]+Resource(?:Writable)?)\)/g,
+    (intersection, typeName) => {
+      const kind = resourceKinds.get(typeName);
+      if (kind == null) {
+        return intersection;
+      }
+      rewriteCount++;
+      return intersection.replace(/kind: '[^']+';/, `kind: '${kind}';`);
+    },
+  );
+  if (resourceKinds.size > 0 && rewriteCount === 0) {
+    throw new Error(`failed to rewrite resource discriminators in ${url}`);
+  }
+  for (const [typeName, kind] of resourceKinds) {
+    const invalid = new RegExp(
+      `kind: '(?!${escapeRegExp(kind)}')[^']+';\\n} & ${escapeRegExp(typeName)}\\)`,
+    );
+    if (invalid.test(after)) {
+      throw new Error(
+        `generated discriminator for ${typeName} does not match ${kind}`,
+      );
+    }
+  }
   if (after !== before) {
     await writeFile(url, after);
   }
@@ -88,6 +134,10 @@ async function rewriteSseRuntime(url) {
   if (after !== before) {
     await writeFile(url, after);
   }
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function ensureDirURL(url) {

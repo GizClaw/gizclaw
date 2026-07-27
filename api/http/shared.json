@@ -128,14 +128,8 @@
       "Tool": {
         "$ref": "./shared/tool.json#/components/schemas/Tool"
       },
-      "ToolSource": {
-        "$ref": "./shared/tool_source.json#/components/schemas/ToolSource"
-      },
-      "ToolExecutorKind": {
-        "$ref": "./shared/tool_executor.json#/components/schemas/ToolExecutorKind"
-      },
-      "ToolExecutor": {
-        "$ref": "./shared/tool_executor.json#/components/schemas/ToolExecutor"
+      "ToolType": {
+        "$ref": "./shared/tool_type.json#/components/schemas/ToolType"
       },
       "ToolTrigger": {
         "$ref": "./shared/tool_trigger.json#/components/schemas/ToolTrigger"

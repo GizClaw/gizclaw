@@ -35,8 +35,7 @@ type Client struct {
 	KeyPair       *giznet.KeyPair
 	DialTransport DialTransportFunc
 
-	Device      apitypes.DeviceInfo
-	ToolInvoker func(context.Context, rpcapi.ToolInvokeRequest) (rpcapi.ToolInvokeResponse, error)
+	Device apitypes.DeviceInfo
 
 	mu       sync.RWMutex
 	listener giznet.Listener
@@ -47,6 +46,9 @@ type Client struct {
 	packetMu          sync.RWMutex
 	packetSubscribers map[byte]map[chan []byte]struct{}
 	openPeerStream    func(int) (*PeerStream, error)
+
+	toolMu       sync.RWMutex
+	toolHandlers map[string]ToolHandler
 }
 
 type DialTransportFunc func(key *giznet.KeyPair, serverPK giznet.PublicKey, serverAddr string, securityPolicy giznet.SecurityPolicy) (giznet.Listener, giznet.Conn, error)

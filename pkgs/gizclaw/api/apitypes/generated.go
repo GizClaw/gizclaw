@@ -117,6 +117,21 @@ func (e ChatRoomWorkspaceParametersAgentType) Valid() bool {
 	}
 }
 
+// Defines values for ClientRPCToolSpecType.
+const (
+	ClientRPCToolSpecTypeClientRpc ClientRPCToolSpecType = "client_rpc"
+)
+
+// Valid indicates whether the value is a known member of the ClientRPCToolSpecType enum.
+func (e ClientRPCToolSpecType) Valid() bool {
+	switch e {
+	case ClientRPCToolSpecTypeClientRpc:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ContactResourceKind.
 const (
 	ContactResourceKindContact ContactResourceKind = "Contact"
@@ -1611,6 +1626,21 @@ func (e GeminiTenantResourceKind) Valid() bool {
 	}
 }
 
+// Defines values for HTTPToolSpecType.
+const (
+	HTTPToolSpecTypeHttpRequest HTTPToolSpecType = "http_request"
+)
+
+// Valid indicates whether the value is a known member of the HTTPToolSpecType enum.
+func (e HTTPToolSpecType) Valid() bool {
+	switch e {
+	case HTTPToolSpecTypeHttpRequest:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MemoryLayoutResourceKind.
 const (
 	MemoryLayoutResourceKindMemoryLayout MemoryLayoutResourceKind = "MemoryLayout"
@@ -2481,18 +2511,138 @@ func (e ServerInfoTransportMode) Valid() bool {
 	}
 }
 
-// Defines values for ToolExecutorKind.
+// Defines values for ToolHTTPAuthAliyunAppCodeMethod.
 const (
-	ToolExecutorKindBuiltin   ToolExecutorKind = "builtin"
-	ToolExecutorKindDeviceRpc ToolExecutorKind = "device_rpc"
+	ToolHTTPAuthAliyunAppCodeMethodAliyunAppCode ToolHTTPAuthAliyunAppCodeMethod = "aliyun_app_code"
 )
 
-// Valid indicates whether the value is a known member of the ToolExecutorKind enum.
-func (e ToolExecutorKind) Valid() bool {
+// Valid indicates whether the value is a known member of the ToolHTTPAuthAliyunAppCodeMethod enum.
+func (e ToolHTTPAuthAliyunAppCodeMethod) Valid() bool {
 	switch e {
-	case ToolExecutorKindBuiltin:
+	case ToolHTTPAuthAliyunAppCodeMethodAliyunAppCode:
 		return true
-	case ToolExecutorKindDeviceRpc:
+	default:
+		return false
+	}
+}
+
+// Defines values for ToolHTTPAuthAliyunOpenAPIV3Method.
+const (
+	ToolHTTPAuthAliyunOpenAPIV3MethodAliyunOpenapiV3 ToolHTTPAuthAliyunOpenAPIV3Method = "aliyun_openapi_v3"
+)
+
+// Valid indicates whether the value is a known member of the ToolHTTPAuthAliyunOpenAPIV3Method enum.
+func (e ToolHTTPAuthAliyunOpenAPIV3Method) Valid() bool {
+	switch e {
+	case ToolHTTPAuthAliyunOpenAPIV3MethodAliyunOpenapiV3:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ToolHTTPAuthBearerMethod.
+const (
+	ToolHTTPAuthBearerMethodBearer ToolHTTPAuthBearerMethod = "bearer"
+)
+
+// Valid indicates whether the value is a known member of the ToolHTTPAuthBearerMethod enum.
+func (e ToolHTTPAuthBearerMethod) Valid() bool {
+	switch e {
+	case ToolHTTPAuthBearerMethodBearer:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ToolHTTPAuthHeaderAPIKeyMethod.
+const (
+	ToolHTTPAuthHeaderAPIKeyMethodHeaderApiKey ToolHTTPAuthHeaderAPIKeyMethod = "header_api_key"
+)
+
+// Valid indicates whether the value is a known member of the ToolHTTPAuthHeaderAPIKeyMethod enum.
+func (e ToolHTTPAuthHeaderAPIKeyMethod) Valid() bool {
+	switch e {
+	case ToolHTTPAuthHeaderAPIKeyMethodHeaderApiKey:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ToolHTTPAuthNoneMethod.
+const (
+	ToolHTTPAuthNoneMethodNone ToolHTTPAuthNoneMethod = "none"
+)
+
+// Valid indicates whether the value is a known member of the ToolHTTPAuthNoneMethod enum.
+func (e ToolHTTPAuthNoneMethod) Valid() bool {
+	switch e {
+	case ToolHTTPAuthNoneMethodNone:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ToolHTTPAuthVolcArkMethod.
+const (
+	ToolHTTPAuthVolcArkMethodVolcArk ToolHTTPAuthVolcArkMethod = "volc_ark"
+)
+
+// Valid indicates whether the value is a known member of the ToolHTTPAuthVolcArkMethod enum.
+func (e ToolHTTPAuthVolcArkMethod) Valid() bool {
+	switch e {
+	case ToolHTTPAuthVolcArkMethodVolcArk:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ToolHTTPAuthVolcOpenAPIMethod.
+const (
+	ToolHTTPAuthVolcOpenAPIMethodVolcOpenapi ToolHTTPAuthVolcOpenAPIMethod = "volc_openapi"
+)
+
+// Valid indicates whether the value is a known member of the ToolHTTPAuthVolcOpenAPIMethod enum.
+func (e ToolHTTPAuthVolcOpenAPIMethod) Valid() bool {
+	switch e {
+	case ToolHTTPAuthVolcOpenAPIMethodVolcOpenapi:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ToolHTTPAuthVolcSearchMethod.
+const (
+	ToolHTTPAuthVolcSearchMethodVolcSearch ToolHTTPAuthVolcSearchMethod = "volc_search"
+)
+
+// Valid indicates whether the value is a known member of the ToolHTTPAuthVolcSearchMethod enum.
+func (e ToolHTTPAuthVolcSearchMethod) Valid() bool {
+	switch e {
+	case ToolHTTPAuthVolcSearchMethodVolcSearch:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ToolHTTPMethod.
+const (
+	ToolHTTPMethodGET  ToolHTTPMethod = "GET"
+	ToolHTTPMethodPOST ToolHTTPMethod = "POST"
+)
+
+// Valid indicates whether the value is a known member of the ToolHTTPMethod enum.
+func (e ToolHTTPMethod) Valid() bool {
+	switch e {
+	case ToolHTTPMethodGET:
+		return true
+	case ToolHTTPMethodPOST:
 		return true
 	default:
 		return false
@@ -2514,21 +2664,18 @@ func (e ToolResourceKind) Valid() bool {
 	}
 }
 
-// Defines values for ToolSource.
+// Defines values for ToolType.
 const (
-	ToolSourceAdmin   ToolSource = "admin"
-	ToolSourceBuiltin ToolSource = "builtin"
-	ToolSourceDevice  ToolSource = "device"
+	ToolTypeClientRpc   ToolType = "client_rpc"
+	ToolTypeHttpRequest ToolType = "http_request"
 )
 
-// Valid indicates whether the value is a known member of the ToolSource enum.
-func (e ToolSource) Valid() bool {
+// Valid indicates whether the value is a known member of the ToolType enum.
+func (e ToolType) Valid() bool {
 	switch e {
-	case ToolSourceAdmin:
+	case ToolTypeClientRpc:
 		return true
-	case ToolSourceBuiltin:
-		return true
-	case ToolSourceDevice:
+	case ToolTypeHttpRequest:
 		return true
 	default:
 		return false
@@ -2812,6 +2959,14 @@ type AgentSelection struct {
 	WorkspaceName string `json:"workspace_name"`
 }
 
+// AliyunCredentialBody defines model for AliyunCredentialBody.
+type AliyunCredentialBody struct {
+	AccessKeyId     *string `json:"access_key_id,omitempty"`
+	AccessKeySecret *string `json:"access_key_secret,omitempty"`
+	AppCode         *string `json:"app_code,omitempty"`
+	SecurityToken   *string `json:"security_token,omitempty"`
+}
+
 // ApplyAction Result of applying the resource.
 type ApplyAction string
 
@@ -2934,6 +3089,22 @@ type ChatRoomWorkspaceTranscriptParameters struct {
 	// Enabled Whether gear audio should be transcribed and written as text in workspace history.
 	Enabled *bool `json:"enabled,omitempty"`
 }
+
+// ClientRPCToolSpec defines model for ClientRPCToolSpec.
+type ClientRPCToolSpec struct {
+	Description *string `json:"description,omitempty"`
+	Enabled     *bool   `json:"enabled,omitempty"`
+
+	// InputSchema JSON Schema draft-07 or 2020-12 object. Provider adapters decide which keywords they can preserve.
+	InputSchema ToolJSONSchema          `json:"input_schema"`
+	Metadata    *map[string]interface{} `json:"metadata,omitempty"`
+	Triggers    *[]ToolTrigger          `json:"triggers,omitempty"`
+	Type        ClientRPCToolSpecType   `json:"type"`
+	Version     *string                 `json:"version,omitempty"`
+}
+
+// ClientRPCToolSpecType defines model for ClientRPCToolSpec.Type.
+type ClientRPCToolSpecType string
 
 // ContactResource defines model for ContactResource.
 type ContactResource struct {
@@ -4471,6 +4642,23 @@ type GeminiTenantVoiceProviderData struct {
 	VoiceId *string                 `json:"voice_id,omitempty"`
 }
 
+// HTTPToolSpec defines model for HTTPToolSpec.
+type HTTPToolSpec struct {
+	Description *string         `json:"description,omitempty"`
+	Enabled     *bool           `json:"enabled,omitempty"`
+	Http        ToolHTTPRequest `json:"http"`
+
+	// InputSchema JSON Schema draft-07 or 2020-12 object. Provider adapters decide which keywords they can preserve.
+	InputSchema ToolJSONSchema          `json:"input_schema"`
+	Metadata    *map[string]interface{} `json:"metadata,omitempty"`
+	Triggers    *[]ToolTrigger          `json:"triggers,omitempty"`
+	Type        HTTPToolSpecType        `json:"type"`
+	Version     *string                 `json:"version,omitempty"`
+}
+
+// HTTPToolSpecType defines model for HTTPToolSpec.Type.
+type HTTPToolSpecType string
+
 // HardwareInfo defines model for HardwareInfo.
 type HardwareInfo struct {
 	HardwareRevision *string `json:"hardware_revision,omitempty"`
@@ -5808,37 +5996,124 @@ type ServerLogStreamEnd struct {
 
 // Tool defines model for Tool.
 type Tool struct {
-	CreatedAt   time.Time    `json:"created_at"`
-	Description *string      `json:"description,omitempty"`
-	Enabled     bool         `json:"enabled"`
-	Executor    ToolExecutor `json:"executor"`
-	Id          string       `json:"id"`
+	CreatedAt   time.Time `json:"created_at"`
+	Description *string   `json:"description,omitempty"`
+	Enabled     bool      `json:"enabled"`
 
 	// InputSchema JSON Schema draft-07 or 2020-12 object. Provider adapters decide which keywords they can preserve.
 	InputSchema ToolJSONSchema          `json:"input_schema"`
 	Metadata    *map[string]interface{} `json:"metadata,omitempty"`
-	Name        *string                 `json:"name,omitempty"`
-
-	// OutputSchema JSON Schema draft-07 or 2020-12 object. Provider adapters decide which keywords they can preserve.
-	OutputSchema *ToolJSONSchema `json:"output_schema,omitempty"`
-	OwnerPeer    *string         `json:"owner_peer,omitempty"`
-	Source       ToolSource      `json:"source"`
-	Triggers     *[]ToolTrigger  `json:"triggers,omitempty"`
-	UpdatedAt    time.Time       `json:"updated_at"`
-	Version      *string         `json:"version,omitempty"`
+	Name        string                  `json:"name"`
+	Triggers    *[]ToolTrigger          `json:"triggers,omitempty"`
+	Type        ToolType                `json:"type"`
+	UpdatedAt   time.Time               `json:"updated_at"`
+	Version     *string                 `json:"version,omitempty"`
 }
 
-// ToolExecutor defines model for ToolExecutor.
-type ToolExecutor struct {
-	Config *map[string]interface{} `json:"config,omitempty"`
-	Kind   ToolExecutorKind        `json:"kind"`
-	Method *string                 `json:"method,omitempty"`
-	Name   *string                 `json:"name,omitempty"`
-	PeerId *string                 `json:"peer_id,omitempty"`
+// ToolHTTPArgumentBinding defines model for ToolHTTPArgumentBinding.
+type ToolHTTPArgumentBinding struct {
+	ArgumentPointer string `json:"argument_pointer"`
+	Required        *bool  `json:"required,omitempty"`
+	Target          string `json:"target"`
 }
 
-// ToolExecutorKind defines model for ToolExecutorKind.
-type ToolExecutorKind string
+// ToolHTTPAuth defines model for ToolHTTPAuth.
+type ToolHTTPAuth struct {
+	union json.RawMessage
+}
+
+// ToolHTTPAuthAliyunAppCode defines model for ToolHTTPAuthAliyunAppCode.
+type ToolHTTPAuthAliyunAppCode struct {
+	Credential string                          `json:"credential"`
+	Method     ToolHTTPAuthAliyunAppCodeMethod `json:"method"`
+}
+
+// ToolHTTPAuthAliyunAppCodeMethod defines model for ToolHTTPAuthAliyunAppCode.Method.
+type ToolHTTPAuthAliyunAppCodeMethod string
+
+// ToolHTTPAuthAliyunOpenAPIV3 defines model for ToolHTTPAuthAliyunOpenAPIV3.
+type ToolHTTPAuthAliyunOpenAPIV3 struct {
+	Action     string                            `json:"action"`
+	Credential string                            `json:"credential"`
+	Method     ToolHTTPAuthAliyunOpenAPIV3Method `json:"method"`
+	Version    string                            `json:"version"`
+}
+
+// ToolHTTPAuthAliyunOpenAPIV3Method defines model for ToolHTTPAuthAliyunOpenAPIV3.Method.
+type ToolHTTPAuthAliyunOpenAPIV3Method string
+
+// ToolHTTPAuthBearer defines model for ToolHTTPAuthBearer.
+type ToolHTTPAuthBearer struct {
+	BearerToken *string                  `json:"bearer_token,omitempty"`
+	Method      ToolHTTPAuthBearerMethod `json:"method"`
+}
+
+// ToolHTTPAuthBearerMethod defines model for ToolHTTPAuthBearer.Method.
+type ToolHTTPAuthBearerMethod string
+
+// ToolHTTPAuthHeaderAPIKey defines model for ToolHTTPAuthHeaderAPIKey.
+type ToolHTTPAuthHeaderAPIKey struct {
+	ApiKey *string                        `json:"api_key,omitempty"`
+	Header string                         `json:"header"`
+	Method ToolHTTPAuthHeaderAPIKeyMethod `json:"method"`
+}
+
+// ToolHTTPAuthHeaderAPIKeyMethod defines model for ToolHTTPAuthHeaderAPIKey.Method.
+type ToolHTTPAuthHeaderAPIKeyMethod string
+
+// ToolHTTPAuthNone defines model for ToolHTTPAuthNone.
+type ToolHTTPAuthNone struct {
+	Method ToolHTTPAuthNoneMethod `json:"method"`
+}
+
+// ToolHTTPAuthNoneMethod defines model for ToolHTTPAuthNone.Method.
+type ToolHTTPAuthNoneMethod string
+
+// ToolHTTPAuthVolcArk defines model for ToolHTTPAuthVolcArk.
+type ToolHTTPAuthVolcArk struct {
+	Credential string                    `json:"credential"`
+	Method     ToolHTTPAuthVolcArkMethod `json:"method"`
+}
+
+// ToolHTTPAuthVolcArkMethod defines model for ToolHTTPAuthVolcArk.Method.
+type ToolHTTPAuthVolcArkMethod string
+
+// ToolHTTPAuthVolcOpenAPI defines model for ToolHTTPAuthVolcOpenAPI.
+type ToolHTTPAuthVolcOpenAPI struct {
+	Credential string                        `json:"credential"`
+	Method     ToolHTTPAuthVolcOpenAPIMethod `json:"method"`
+	Region     string                        `json:"region"`
+	Service    string                        `json:"service"`
+}
+
+// ToolHTTPAuthVolcOpenAPIMethod defines model for ToolHTTPAuthVolcOpenAPI.Method.
+type ToolHTTPAuthVolcOpenAPIMethod string
+
+// ToolHTTPAuthVolcSearch defines model for ToolHTTPAuthVolcSearch.
+type ToolHTTPAuthVolcSearch struct {
+	Credential string                       `json:"credential"`
+	Method     ToolHTTPAuthVolcSearchMethod `json:"method"`
+}
+
+// ToolHTTPAuthVolcSearchMethod defines model for ToolHTTPAuthVolcSearch.Method.
+type ToolHTTPAuthVolcSearchMethod string
+
+// ToolHTTPMethod defines model for ToolHTTPMethod.
+type ToolHTTPMethod string
+
+// ToolHTTPRequest defines model for ToolHTTPRequest.
+type ToolHTTPRequest struct {
+	Auth               ToolHTTPAuth               `json:"auth"`
+	Body               *[]ToolHTTPArgumentBinding `json:"body,omitempty"`
+	Headers            *map[string]string         `json:"headers,omitempty"`
+	MaxResponseBytes   int                        `json:"max_response_bytes"`
+	Method             ToolHTTPMethod             `json:"method"`
+	Query              *[]ToolHTTPArgumentBinding `json:"query,omitempty"`
+	ResponsePointer    *string                    `json:"response_pointer,omitempty"`
+	SuccessStatusCodes *[]int                     `json:"success_status_codes,omitempty"`
+	Timeout            string                     `json:"timeout"`
+	Url                string                     `json:"url"`
+}
 
 // ToolJSONSchema JSON Schema draft-07 or 2020-12 object. Provider adapters decide which keywords they can preserve.
 type ToolJSONSchema = jsonschema.Schema
@@ -5849,34 +6124,19 @@ type ToolResource struct {
 	ApiVersion ResourceAPIVersion `json:"apiVersion"`
 	Kind       ToolResourceKind   `json:"kind"`
 
-	// Metadata metadata.name is the stable Tool ID and must not contain a colon.
+	// Metadata metadata.name is the canonical Tool name. It must match ^[A-Za-z_][A-Za-z0-9_-]{0,63}$ and is the only execution identity.
 	Metadata ResourceMetadata `json:"metadata"`
-	Spec     ToolSpec         `json:"spec"`
+
+	// Spec Strict Tool declaration selected by type. metadata.name is the only Tool identity.
+	Spec ToolSpec `json:"spec"`
 }
 
 // ToolResourceKind defines model for ToolResource.Kind.
 type ToolResourceKind string
 
-// ToolSource defines model for ToolSource.
-type ToolSource string
-
-// ToolSpec defines model for ToolSpec.
+// ToolSpec Strict Tool declaration selected by type. metadata.name is the only Tool identity.
 type ToolSpec struct {
-	Description *string      `json:"description,omitempty"`
-	Enabled     *bool        `json:"enabled,omitempty"`
-	Executor    ToolExecutor `json:"executor"`
-
-	// InputSchema JSON Schema draft-07 or 2020-12 object. Provider adapters decide which keywords they can preserve.
-	InputSchema ToolJSONSchema          `json:"input_schema"`
-	Metadata    *map[string]interface{} `json:"metadata,omitempty"`
-	Name        *string                 `json:"name,omitempty"`
-
-	// OutputSchema JSON Schema draft-07 or 2020-12 object. Provider adapters decide which keywords they can preserve.
-	OutputSchema *ToolJSONSchema `json:"output_schema,omitempty"`
-	OwnerPeer    *string         `json:"owner_peer,omitempty"`
-	Source       ToolSource      `json:"source"`
-	Triggers     *[]ToolTrigger  `json:"triggers,omitempty"`
-	Version      *string         `json:"version,omitempty"`
+	union json.RawMessage
 }
 
 // ToolTrigger defines model for ToolTrigger.
@@ -5895,9 +6155,12 @@ type ToolTriggerExample struct {
 	Output *string                 `json:"output,omitempty"`
 }
 
+// ToolType defines model for ToolType.
+type ToolType string
+
 // ToolkitPolicy Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
 type ToolkitPolicy struct {
-	// ToolIds Allowed persisted Tool IDs.
+	// ToolIds Allowed canonical Tool Resource names. RuntimeProfile aliases are not accepted.
 	ToolIds *[]string `json:"tool_ids,omitempty"`
 }
 
@@ -5963,12 +6226,13 @@ type VoiceSpec struct {
 
 // VolcCredentialBody defines model for VolcCredentialBody.
 type VolcCredentialBody struct {
-	ArkApiKey          *string `json:"ark_api_key,omitempty"`
-	OpenapiAccessKey   *string `json:"openapi_access_key,omitempty"`
-	OpenapiAccessKeyId *string `json:"openapi_access_key_id,omitempty"`
-	SearchApiKey       *string `json:"search_api_key,omitempty"`
-	SpeechApiKey       *string `json:"speech_api_key,omitempty"`
-	SpeechAppId        *string `json:"speech_app_id,omitempty"`
+	ArkApiKey           *string `json:"ark_api_key,omitempty"`
+	OpenapiAccessKey    *string `json:"openapi_access_key,omitempty"`
+	OpenapiAccessKeyId  *string `json:"openapi_access_key_id,omitempty"`
+	OpenapiSessionToken *string `json:"openapi_session_token,omitempty"`
+	SearchApiKey        *string `json:"search_api_key,omitempty"`
+	SpeechApiKey        *string `json:"speech_api_key,omitempty"`
+	SpeechAppId         *string `json:"speech_app_id,omitempty"`
 }
 
 // VolcMem0MemoryLayoutPolicy defines model for VolcMem0MemoryLayoutPolicy.
@@ -6372,6 +6636,32 @@ func (t *CredentialBody) FromVolcCredentialBody(v VolcCredentialBody) error {
 
 // MergeVolcCredentialBody performs a merge with any union data inside the CredentialBody, using the provided VolcCredentialBody
 func (t *CredentialBody) MergeVolcCredentialBody(v VolcCredentialBody) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsAliyunCredentialBody returns the union data inside the CredentialBody as a AliyunCredentialBody
+func (t CredentialBody) AsAliyunCredentialBody() (AliyunCredentialBody, error) {
+	var body AliyunCredentialBody
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromAliyunCredentialBody overwrites any union data inside the CredentialBody as the provided AliyunCredentialBody
+func (t *CredentialBody) FromAliyunCredentialBody(v AliyunCredentialBody) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeAliyunCredentialBody performs a merge with any union data inside the CredentialBody, using the provided AliyunCredentialBody
+func (t *CredentialBody) MergeAliyunCredentialBody(v AliyunCredentialBody) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -8020,6 +8310,364 @@ func (t RuntimeProfileMemoryConnection) MarshalJSON() ([]byte, error) {
 }
 
 func (t *RuntimeProfileMemoryConnection) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsToolHTTPAuthNone returns the union data inside the ToolHTTPAuth as a ToolHTTPAuthNone
+func (t ToolHTTPAuth) AsToolHTTPAuthNone() (ToolHTTPAuthNone, error) {
+	var body ToolHTTPAuthNone
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromToolHTTPAuthNone overwrites any union data inside the ToolHTTPAuth as the provided ToolHTTPAuthNone
+func (t *ToolHTTPAuth) FromToolHTTPAuthNone(v ToolHTTPAuthNone) error {
+	v.Method = "none"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeToolHTTPAuthNone performs a merge with any union data inside the ToolHTTPAuth, using the provided ToolHTTPAuthNone
+func (t *ToolHTTPAuth) MergeToolHTTPAuthNone(v ToolHTTPAuthNone) error {
+	v.Method = "none"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsToolHTTPAuthBearer returns the union data inside the ToolHTTPAuth as a ToolHTTPAuthBearer
+func (t ToolHTTPAuth) AsToolHTTPAuthBearer() (ToolHTTPAuthBearer, error) {
+	var body ToolHTTPAuthBearer
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromToolHTTPAuthBearer overwrites any union data inside the ToolHTTPAuth as the provided ToolHTTPAuthBearer
+func (t *ToolHTTPAuth) FromToolHTTPAuthBearer(v ToolHTTPAuthBearer) error {
+	v.Method = "bearer"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeToolHTTPAuthBearer performs a merge with any union data inside the ToolHTTPAuth, using the provided ToolHTTPAuthBearer
+func (t *ToolHTTPAuth) MergeToolHTTPAuthBearer(v ToolHTTPAuthBearer) error {
+	v.Method = "bearer"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsToolHTTPAuthHeaderAPIKey returns the union data inside the ToolHTTPAuth as a ToolHTTPAuthHeaderAPIKey
+func (t ToolHTTPAuth) AsToolHTTPAuthHeaderAPIKey() (ToolHTTPAuthHeaderAPIKey, error) {
+	var body ToolHTTPAuthHeaderAPIKey
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromToolHTTPAuthHeaderAPIKey overwrites any union data inside the ToolHTTPAuth as the provided ToolHTTPAuthHeaderAPIKey
+func (t *ToolHTTPAuth) FromToolHTTPAuthHeaderAPIKey(v ToolHTTPAuthHeaderAPIKey) error {
+	v.Method = "header_api_key"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeToolHTTPAuthHeaderAPIKey performs a merge with any union data inside the ToolHTTPAuth, using the provided ToolHTTPAuthHeaderAPIKey
+func (t *ToolHTTPAuth) MergeToolHTTPAuthHeaderAPIKey(v ToolHTTPAuthHeaderAPIKey) error {
+	v.Method = "header_api_key"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsToolHTTPAuthVolcArk returns the union data inside the ToolHTTPAuth as a ToolHTTPAuthVolcArk
+func (t ToolHTTPAuth) AsToolHTTPAuthVolcArk() (ToolHTTPAuthVolcArk, error) {
+	var body ToolHTTPAuthVolcArk
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromToolHTTPAuthVolcArk overwrites any union data inside the ToolHTTPAuth as the provided ToolHTTPAuthVolcArk
+func (t *ToolHTTPAuth) FromToolHTTPAuthVolcArk(v ToolHTTPAuthVolcArk) error {
+	v.Method = "volc_ark"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeToolHTTPAuthVolcArk performs a merge with any union data inside the ToolHTTPAuth, using the provided ToolHTTPAuthVolcArk
+func (t *ToolHTTPAuth) MergeToolHTTPAuthVolcArk(v ToolHTTPAuthVolcArk) error {
+	v.Method = "volc_ark"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsToolHTTPAuthVolcSearch returns the union data inside the ToolHTTPAuth as a ToolHTTPAuthVolcSearch
+func (t ToolHTTPAuth) AsToolHTTPAuthVolcSearch() (ToolHTTPAuthVolcSearch, error) {
+	var body ToolHTTPAuthVolcSearch
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromToolHTTPAuthVolcSearch overwrites any union data inside the ToolHTTPAuth as the provided ToolHTTPAuthVolcSearch
+func (t *ToolHTTPAuth) FromToolHTTPAuthVolcSearch(v ToolHTTPAuthVolcSearch) error {
+	v.Method = "volc_search"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeToolHTTPAuthVolcSearch performs a merge with any union data inside the ToolHTTPAuth, using the provided ToolHTTPAuthVolcSearch
+func (t *ToolHTTPAuth) MergeToolHTTPAuthVolcSearch(v ToolHTTPAuthVolcSearch) error {
+	v.Method = "volc_search"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsToolHTTPAuthVolcOpenAPI returns the union data inside the ToolHTTPAuth as a ToolHTTPAuthVolcOpenAPI
+func (t ToolHTTPAuth) AsToolHTTPAuthVolcOpenAPI() (ToolHTTPAuthVolcOpenAPI, error) {
+	var body ToolHTTPAuthVolcOpenAPI
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromToolHTTPAuthVolcOpenAPI overwrites any union data inside the ToolHTTPAuth as the provided ToolHTTPAuthVolcOpenAPI
+func (t *ToolHTTPAuth) FromToolHTTPAuthVolcOpenAPI(v ToolHTTPAuthVolcOpenAPI) error {
+	v.Method = "volc_openapi"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeToolHTTPAuthVolcOpenAPI performs a merge with any union data inside the ToolHTTPAuth, using the provided ToolHTTPAuthVolcOpenAPI
+func (t *ToolHTTPAuth) MergeToolHTTPAuthVolcOpenAPI(v ToolHTTPAuthVolcOpenAPI) error {
+	v.Method = "volc_openapi"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsToolHTTPAuthAliyunAppCode returns the union data inside the ToolHTTPAuth as a ToolHTTPAuthAliyunAppCode
+func (t ToolHTTPAuth) AsToolHTTPAuthAliyunAppCode() (ToolHTTPAuthAliyunAppCode, error) {
+	var body ToolHTTPAuthAliyunAppCode
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromToolHTTPAuthAliyunAppCode overwrites any union data inside the ToolHTTPAuth as the provided ToolHTTPAuthAliyunAppCode
+func (t *ToolHTTPAuth) FromToolHTTPAuthAliyunAppCode(v ToolHTTPAuthAliyunAppCode) error {
+	v.Method = "aliyun_app_code"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeToolHTTPAuthAliyunAppCode performs a merge with any union data inside the ToolHTTPAuth, using the provided ToolHTTPAuthAliyunAppCode
+func (t *ToolHTTPAuth) MergeToolHTTPAuthAliyunAppCode(v ToolHTTPAuthAliyunAppCode) error {
+	v.Method = "aliyun_app_code"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsToolHTTPAuthAliyunOpenAPIV3 returns the union data inside the ToolHTTPAuth as a ToolHTTPAuthAliyunOpenAPIV3
+func (t ToolHTTPAuth) AsToolHTTPAuthAliyunOpenAPIV3() (ToolHTTPAuthAliyunOpenAPIV3, error) {
+	var body ToolHTTPAuthAliyunOpenAPIV3
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromToolHTTPAuthAliyunOpenAPIV3 overwrites any union data inside the ToolHTTPAuth as the provided ToolHTTPAuthAliyunOpenAPIV3
+func (t *ToolHTTPAuth) FromToolHTTPAuthAliyunOpenAPIV3(v ToolHTTPAuthAliyunOpenAPIV3) error {
+	v.Method = "aliyun_openapi_v3"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeToolHTTPAuthAliyunOpenAPIV3 performs a merge with any union data inside the ToolHTTPAuth, using the provided ToolHTTPAuthAliyunOpenAPIV3
+func (t *ToolHTTPAuth) MergeToolHTTPAuthAliyunOpenAPIV3(v ToolHTTPAuthAliyunOpenAPIV3) error {
+	v.Method = "aliyun_openapi_v3"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t ToolHTTPAuth) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"method"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t ToolHTTPAuth) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "aliyun_app_code":
+		return t.AsToolHTTPAuthAliyunAppCode()
+	case "aliyun_openapi_v3":
+		return t.AsToolHTTPAuthAliyunOpenAPIV3()
+	case "bearer":
+		return t.AsToolHTTPAuthBearer()
+	case "header_api_key":
+		return t.AsToolHTTPAuthHeaderAPIKey()
+	case "none":
+		return t.AsToolHTTPAuthNone()
+	case "volc_ark":
+		return t.AsToolHTTPAuthVolcArk()
+	case "volc_openapi":
+		return t.AsToolHTTPAuthVolcOpenAPI()
+	case "volc_search":
+		return t.AsToolHTTPAuthVolcSearch()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t ToolHTTPAuth) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *ToolHTTPAuth) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsHTTPToolSpec returns the union data inside the ToolSpec as a HTTPToolSpec
+func (t ToolSpec) AsHTTPToolSpec() (HTTPToolSpec, error) {
+	var body HTTPToolSpec
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromHTTPToolSpec overwrites any union data inside the ToolSpec as the provided HTTPToolSpec
+func (t *ToolSpec) FromHTTPToolSpec(v HTTPToolSpec) error {
+	v.Type = "http_request"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeHTTPToolSpec performs a merge with any union data inside the ToolSpec, using the provided HTTPToolSpec
+func (t *ToolSpec) MergeHTTPToolSpec(v HTTPToolSpec) error {
+	v.Type = "http_request"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsClientRPCToolSpec returns the union data inside the ToolSpec as a ClientRPCToolSpec
+func (t ToolSpec) AsClientRPCToolSpec() (ClientRPCToolSpec, error) {
+	var body ClientRPCToolSpec
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromClientRPCToolSpec overwrites any union data inside the ToolSpec as the provided ClientRPCToolSpec
+func (t *ToolSpec) FromClientRPCToolSpec(v ClientRPCToolSpec) error {
+	v.Type = "client_rpc"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeClientRPCToolSpec performs a merge with any union data inside the ToolSpec, using the provided ClientRPCToolSpec
+func (t *ToolSpec) MergeClientRPCToolSpec(v ClientRPCToolSpec) error {
+	v.Type = "client_rpc"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t ToolSpec) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"type"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t ToolSpec) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "client_rpc":
+		return t.AsClientRPCToolSpec()
+	case "http_request":
+		return t.AsHTTPToolSpec()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t ToolSpec) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *ToolSpec) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }

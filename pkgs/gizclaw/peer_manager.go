@@ -142,7 +142,6 @@ type Manager struct {
 	SpeechLimits     SpeechLimits
 	Tools            *toolkit.Server
 	ToolBuilder      *toolkit.Builder
-	ToolExecutors    *toolkit.ExecutorRegistry
 
 	ProviderTenants providertenants.ProviderTenantsAdminService
 	Metrics         metrics.Store

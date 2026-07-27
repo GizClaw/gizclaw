@@ -8,36 +8,28 @@ import (
 )
 
 type InvokeRequest struct {
-	Build  BuildRequest
-	CallID string
-	Name   string
-	Args   json.RawMessage
+	Build BuildRequest
+	Name  string
+	Args  json.RawMessage
 }
 
-func (b *Builder) Invoke(ctx context.Context, executors *ExecutorRegistry, req InvokeRequest) (Result, error) {
+// ResolveInvoke re-reads and reauthorizes a Tool immediately before dispatch.
+func (b *Builder) ResolveInvoke(ctx context.Context, req InvokeRequest) (Tool, json.RawMessage, error) {
 	name := strings.TrimSpace(req.Name)
 	if name == "" {
-		return Result{}, fmt.Errorf("%w: tool call name is required", ErrInvalidTool)
+		return Tool{}, nil, fmt.Errorf("%w: tool name is required", ErrInvalidTool)
 	}
 	kit, err := b.Build(ctx, req.Build)
 	if err != nil {
-		return Result{}, err
+		return Tool{}, nil, err
 	}
-	tool, ok := kit.FindByName(name)
+	tool, ok := kit.Find(name)
 	if !ok {
-		tool, ok = kit.Find(name)
-	}
-	if !ok {
-		return Result{}, fmt.Errorf("%w: %s", ErrToolNotFound, name)
+		return Tool{}, nil, fmt.Errorf("%w: %s", ErrToolNotFound, name)
 	}
 	args := normalizeToolArgs(req.Args)
 	if err := validateToolArgs(tool, args); err != nil {
-		return Result{}, err
+		return Tool{}, nil, err
 	}
-	return executors.Invoke(ctx, Call{
-		ID:        req.CallID,
-		Tool:      tool,
-		Args:      cloneRaw(args),
-		SubjectID: strings.TrimSpace(req.Build.CallerPublicKey),
-	})
+	return tool, cloneRaw(args), nil
 }

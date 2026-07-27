@@ -761,6 +761,7 @@ test("RPC payload codec preserves safe Tool JSON schema fields", () => {
     runtime_profile_revision: "revision-1",
     value: {
       alias: "lookup",
+      name: "canonical_lookup",
       i18n: {},
       input_schema: {
         type: "string",
@@ -771,10 +772,11 @@ test("RPC payload codec preserves safe Tool JSON schema fields", () => {
   });
 
   const decoded = decodeRPCResponsePayload("server.tool.get", payload) as {
-    value?: { input_schema?: Record<string, unknown> };
+    value?: { input_schema?: Record<string, unknown>; name?: string };
   };
   const parameters = decoded.value?.input_schema;
 
+  assert.equal(decoded.value?.name, "canonical_lookup");
   assert.equal(parameters?.additionalProperties, false);
   assert.equal(parameters?.minLength, 1);
   assert.equal(parameters?.type, "string");
