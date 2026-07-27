@@ -17,7 +17,9 @@ func TestMaterializeLocalServerWorkspaceUsesEmbeddedTemplateAndPreservesIdentity
 		t.Fatalf("first materialization: %v", err)
 	}
 	first := readRenderedWorkspace(t, path)
-	if first.Identity.PrivateKey.IsZero() || first.Listen != "0.0.0.0:19820" || first.AgentHost.RuntimeStore != "agenthost" {
+	if first.Identity.PrivateKey.IsZero() || first.Listen != "0.0.0.0:19820" ||
+		first.AgentHost.RuntimeStore != "agenthost" ||
+		first.AgentHost.Flowcraft.MemoryObjectsStore != "agenthost" {
 		t.Fatalf("first workspace = %+v", first)
 	}
 
@@ -54,6 +56,9 @@ func readRenderedWorkspace(t *testing.T, path string) struct {
 	Listen    string `yaml:"listen"`
 	AgentHost struct {
 		RuntimeStore string `yaml:"runtime_store"`
+		Flowcraft    struct {
+			MemoryObjectsStore string `yaml:"memory_objects_store"`
+		} `yaml:"flowcraft"`
 	} `yaml:"agent_host"`
 } {
 	t.Helper()
@@ -68,6 +73,9 @@ func readRenderedWorkspace(t *testing.T, path string) struct {
 		Listen    string `yaml:"listen"`
 		AgentHost struct {
 			RuntimeStore string `yaml:"runtime_store"`
+			Flowcraft    struct {
+				MemoryObjectsStore string `yaml:"memory_objects_store"`
+			} `yaml:"flowcraft"`
 		} `yaml:"agent_host"`
 	}
 	if err := yaml.Unmarshal(data, &config); err != nil {
