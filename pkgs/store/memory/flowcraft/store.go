@@ -288,6 +288,22 @@ func (s *Store) Recall(ctx context.Context, query memorystore.Query) (memorystor
 	return out, nil
 }
 
+// Rebuild rehydrates Flowcraft projections from the canonical temporal store.
+func (s *Store) Rebuild(ctx context.Context, scope memorystore.Scope) error {
+	native, err := nativeScope(scope)
+	if err != nil {
+		return err
+	}
+	rebuilder, ok := s.memory.(recall.ProjectionRebuilder)
+	if !ok {
+		return fmt.Errorf("%w: flowcraft projections cannot be rebuilt", errUnsupported)
+	}
+	if err := rebuilder.RebuildAll(ctx, native); err != nil {
+		return mapFlowcraftError("rebuild projections", err)
+	}
+	return nil
+}
+
 // Update appends a Flowcraft revision that supersedes the current fact.
 func (s *Store) Update(ctx context.Context, request memorystore.UpdateRequest) (memorystore.Fact, error) {
 	if err := validateUpdate(request); err != nil {
@@ -662,3 +678,4 @@ var _ storeContract = (*Store)(nil)
 var _ operationWaiterContract = (*Store)(nil)
 var _ asyncProcessorContract = (*Store)(nil)
 var _ statisticsContract = (*Store)(nil)
+var _ memorystore.ProjectionRebuilder = (*Store)(nil)

@@ -71,6 +71,8 @@ type Config struct {
 
 	// Initiative controls the optional empty-input Graph turn.
 	Initiative InitiativePolicy
+
+	asyncTasks *taskOwner
 }
 
 // InitiativePolicy controls when an Agent may run without user input.
@@ -212,6 +214,10 @@ func normalizeConfig(source Config) (Config, error) {
 		case "passthrough":
 			if len(node.Config) != 0 {
 				return Config{}, fmt.Errorf("flowcraft: passthrough node %q does not accept config", node.ID)
+			}
+		case "memory_recall", "memory_observe":
+			if config.Memory == nil {
+				return Config{}, fmt.Errorf("flowcraft: %s node %q requires Memory", node.Type, node.ID)
 			}
 		default:
 			return Config{}, fmt.Errorf("flowcraft: unsupported node type %q for node %q", node.Type, node.ID)

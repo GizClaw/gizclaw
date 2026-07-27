@@ -512,6 +512,13 @@ type GeminiTenantUpsert struct {
 	ProjectId      *string `json:"project_id,omitempty"`
 }
 
+// MemoryLayoutList defines model for MemoryLayoutList.
+type MemoryLayoutList struct {
+	HasNext    bool                        `json:"has_next"`
+	Items      []externalRef0.MemoryLayout `json:"items"`
+	NextCursor *string                     `json:"next_cursor,omitempty"`
+}
+
 // MiniMaxSyncVoicesResult defines model for MiniMaxSyncVoicesResult.
 type MiniMaxSyncVoicesResult struct {
 	CreatedCount int32     `json:"created_count"`
@@ -876,6 +883,15 @@ type StreamServerLogsParams struct {
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
+// ListMemoryLayoutsParams defines parameters for ListMemoryLayouts.
+type ListMemoryLayoutsParams struct {
+	// Cursor Opaque cursor returned by the previous list response
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Limit Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
+	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // ListMiniMaxTenantsParams defines parameters for ListMiniMaxTenants.
 type ListMiniMaxTenantsParams struct {
 	// Cursor Opaque cursor returned by the previous list response
@@ -1208,6 +1224,12 @@ type CreateGeminiTenantJSONRequestBody = GeminiTenantUpsert
 
 // PutGeminiTenantJSONRequestBody defines body for PutGeminiTenant for application/json ContentType.
 type PutGeminiTenantJSONRequestBody = GeminiTenantUpsert
+
+// CreateMemoryLayoutJSONRequestBody defines body for CreateMemoryLayout for application/json ContentType.
+type CreateMemoryLayoutJSONRequestBody = externalRef0.MemoryLayout
+
+// PutMemoryLayoutJSONRequestBody defines body for PutMemoryLayout for application/json ContentType.
+type PutMemoryLayoutJSONRequestBody = externalRef0.MemoryLayout
 
 // CreateMiniMaxTenantJSONRequestBody defines body for CreateMiniMaxTenant for application/json ContentType.
 type CreateMiniMaxTenantJSONRequestBody = MiniMaxTenantUpsert
@@ -1560,6 +1582,25 @@ type ClientInterface interface {
 
 	// StreamServerLogs request
 	StreamServerLogs(ctx context.Context, params *StreamServerLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListMemoryLayouts request
+	ListMemoryLayouts(ctx context.Context, params *ListMemoryLayoutsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateMemoryLayoutWithBody request with any body
+	CreateMemoryLayoutWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateMemoryLayout(ctx context.Context, body CreateMemoryLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteMemoryLayout request
+	DeleteMemoryLayout(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetMemoryLayout request
+	GetMemoryLayout(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutMemoryLayoutWithBody request with any body
+	PutMemoryLayoutWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PutMemoryLayout(ctx context.Context, name string, body PutMemoryLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListMiniMaxTenants request
 	ListMiniMaxTenants(ctx context.Context, params *ListMiniMaxTenantsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2750,6 +2791,90 @@ func (c *Client) PutGeminiTenant(ctx context.Context, name string, body PutGemin
 
 func (c *Client) StreamServerLogs(ctx context.Context, params *StreamServerLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewStreamServerLogsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListMemoryLayouts(ctx context.Context, params *ListMemoryLayoutsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListMemoryLayoutsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateMemoryLayoutWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateMemoryLayoutRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateMemoryLayout(ctx context.Context, body CreateMemoryLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateMemoryLayoutRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteMemoryLayout(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteMemoryLayoutRequest(c.Server, name)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetMemoryLayout(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetMemoryLayoutRequest(c.Server, name)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutMemoryLayoutWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutMemoryLayoutRequestWithBody(c.Server, name, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutMemoryLayout(ctx context.Context, name string, body PutMemoryLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutMemoryLayoutRequest(c.Server, name, body)
 	if err != nil {
 		return nil, err
 	}
@@ -6869,6 +6994,226 @@ func NewStreamServerLogsRequest(server string, params *StreamServerLogsParams) (
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewListMemoryLayoutsRequest generates requests for ListMemoryLayouts
+func NewListMemoryLayoutsRequest(server string, params *ListMemoryLayoutsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/memory-layouts")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateMemoryLayoutRequest calls the generic CreateMemoryLayout builder with application/json body
+func NewCreateMemoryLayoutRequest(server string, body CreateMemoryLayoutJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateMemoryLayoutRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateMemoryLayoutRequestWithBody generates requests for CreateMemoryLayout with any type of body
+func NewCreateMemoryLayoutRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/memory-layouts")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteMemoryLayoutRequest generates requests for DeleteMemoryLayout
+func NewDeleteMemoryLayoutRequest(server string, name string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/memory-layouts/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetMemoryLayoutRequest generates requests for GetMemoryLayout
+func NewGetMemoryLayoutRequest(server string, name string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/memory-layouts/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutMemoryLayoutRequest calls the generic PutMemoryLayout builder with application/json body
+func NewPutMemoryLayoutRequest(server string, name string, body PutMemoryLayoutJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutMemoryLayoutRequestWithBody(server, name, "application/json", bodyReader)
+}
+
+// NewPutMemoryLayoutRequestWithBody generates requests for PutMemoryLayout with any type of body
+func NewPutMemoryLayoutRequestWithBody(server string, name string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/memory-layouts/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -12532,6 +12877,25 @@ type ClientWithResponsesInterface interface {
 	// StreamServerLogsWithResponse request
 	StreamServerLogsWithResponse(ctx context.Context, params *StreamServerLogsParams, reqEditors ...RequestEditorFn) (*StreamServerLogsResponse, error)
 
+	// ListMemoryLayoutsWithResponse request
+	ListMemoryLayoutsWithResponse(ctx context.Context, params *ListMemoryLayoutsParams, reqEditors ...RequestEditorFn) (*ListMemoryLayoutsResponse, error)
+
+	// CreateMemoryLayoutWithBodyWithResponse request with any body
+	CreateMemoryLayoutWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateMemoryLayoutResponse, error)
+
+	CreateMemoryLayoutWithResponse(ctx context.Context, body CreateMemoryLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateMemoryLayoutResponse, error)
+
+	// DeleteMemoryLayoutWithResponse request
+	DeleteMemoryLayoutWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteMemoryLayoutResponse, error)
+
+	// GetMemoryLayoutWithResponse request
+	GetMemoryLayoutWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetMemoryLayoutResponse, error)
+
+	// PutMemoryLayoutWithBodyWithResponse request with any body
+	PutMemoryLayoutWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutMemoryLayoutResponse, error)
+
+	PutMemoryLayoutWithResponse(ctx context.Context, name string, body PutMemoryLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*PutMemoryLayoutResponse, error)
+
 	// ListMiniMaxTenantsWithResponse request
 	ListMiniMaxTenantsWithResponse(ctx context.Context, params *ListMiniMaxTenantsParams, reqEditors ...RequestEditorFn) (*ListMiniMaxTenantsResponse, error)
 
@@ -14167,6 +14531,126 @@ func (r StreamServerLogsResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r StreamServerLogsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListMemoryLayoutsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *MemoryLayoutList
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ListMemoryLayoutsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListMemoryLayoutsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateMemoryLayoutResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.MemoryLayout
+	JSON400      *externalRef0.ErrorResponse
+	JSON409      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateMemoryLayoutResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateMemoryLayoutResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteMemoryLayoutResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.MemoryLayout
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteMemoryLayoutResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteMemoryLayoutResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetMemoryLayoutResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.MemoryLayout
+	JSON404      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetMemoryLayoutResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetMemoryLayoutResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PutMemoryLayoutResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.MemoryLayout
+	JSON400      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PutMemoryLayoutResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutMemoryLayoutResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -17523,6 +18007,67 @@ func (c *ClientWithResponses) StreamServerLogsWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseStreamServerLogsResponse(rsp)
+}
+
+// ListMemoryLayoutsWithResponse request returning *ListMemoryLayoutsResponse
+func (c *ClientWithResponses) ListMemoryLayoutsWithResponse(ctx context.Context, params *ListMemoryLayoutsParams, reqEditors ...RequestEditorFn) (*ListMemoryLayoutsResponse, error) {
+	rsp, err := c.ListMemoryLayouts(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListMemoryLayoutsResponse(rsp)
+}
+
+// CreateMemoryLayoutWithBodyWithResponse request with arbitrary body returning *CreateMemoryLayoutResponse
+func (c *ClientWithResponses) CreateMemoryLayoutWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateMemoryLayoutResponse, error) {
+	rsp, err := c.CreateMemoryLayoutWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateMemoryLayoutResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateMemoryLayoutWithResponse(ctx context.Context, body CreateMemoryLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateMemoryLayoutResponse, error) {
+	rsp, err := c.CreateMemoryLayout(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateMemoryLayoutResponse(rsp)
+}
+
+// DeleteMemoryLayoutWithResponse request returning *DeleteMemoryLayoutResponse
+func (c *ClientWithResponses) DeleteMemoryLayoutWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteMemoryLayoutResponse, error) {
+	rsp, err := c.DeleteMemoryLayout(ctx, name, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteMemoryLayoutResponse(rsp)
+}
+
+// GetMemoryLayoutWithResponse request returning *GetMemoryLayoutResponse
+func (c *ClientWithResponses) GetMemoryLayoutWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetMemoryLayoutResponse, error) {
+	rsp, err := c.GetMemoryLayout(ctx, name, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetMemoryLayoutResponse(rsp)
+}
+
+// PutMemoryLayoutWithBodyWithResponse request with arbitrary body returning *PutMemoryLayoutResponse
+func (c *ClientWithResponses) PutMemoryLayoutWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutMemoryLayoutResponse, error) {
+	rsp, err := c.PutMemoryLayoutWithBody(ctx, name, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutMemoryLayoutResponse(rsp)
+}
+
+func (c *ClientWithResponses) PutMemoryLayoutWithResponse(ctx context.Context, name string, body PutMemoryLayoutJSONRequestBody, reqEditors ...RequestEditorFn) (*PutMemoryLayoutResponse, error) {
+	rsp, err := c.PutMemoryLayout(ctx, name, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutMemoryLayoutResponse(rsp)
 }
 
 // ListMiniMaxTenantsWithResponse request returning *ListMiniMaxTenantsResponse
@@ -20911,6 +21456,206 @@ func ParseStreamServerLogsResponse(rsp *http.Response) (*StreamServerLogsRespons
 			return nil, err
 		}
 		response.JSON502 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListMemoryLayoutsResponse parses an HTTP response from a ListMemoryLayoutsWithResponse call
+func ParseListMemoryLayoutsResponse(rsp *http.Response) (*ListMemoryLayoutsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListMemoryLayoutsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MemoryLayoutList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateMemoryLayoutResponse parses an HTTP response from a CreateMemoryLayoutWithResponse call
+func ParseCreateMemoryLayoutResponse(rsp *http.Response) (*CreateMemoryLayoutResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateMemoryLayoutResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.MemoryLayout
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteMemoryLayoutResponse parses an HTTP response from a DeleteMemoryLayoutWithResponse call
+func ParseDeleteMemoryLayoutResponse(rsp *http.Response) (*DeleteMemoryLayoutResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteMemoryLayoutResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.MemoryLayout
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetMemoryLayoutResponse parses an HTTP response from a GetMemoryLayoutWithResponse call
+func ParseGetMemoryLayoutResponse(rsp *http.Response) (*GetMemoryLayoutResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetMemoryLayoutResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.MemoryLayout
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePutMemoryLayoutResponse parses an HTTP response from a PutMemoryLayoutWithResponse call
+func ParsePutMemoryLayoutResponse(rsp *http.Response) (*PutMemoryLayoutResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutMemoryLayoutResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.MemoryLayout
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	}
 
@@ -25891,6 +26636,21 @@ type ServerInterface interface {
 	// Stream server log query results
 	// (GET /logs/stream)
 	StreamServerLogs(c *fiber.Ctx, params StreamServerLogsParams) error
+	// List all memory layouts
+	// (GET /memory-layouts)
+	ListMemoryLayouts(c *fiber.Ctx, params ListMemoryLayoutsParams) error
+	// Create a memory layout
+	// (POST /memory-layouts)
+	CreateMemoryLayout(c *fiber.Ctx) error
+	// Delete a memory layout
+	// (DELETE /memory-layouts/{name})
+	DeleteMemoryLayout(c *fiber.Ctx, name string) error
+	// Get a memory layout
+	// (GET /memory-layouts/{name})
+	GetMemoryLayout(c *fiber.Ctx, name string) error
+	// Create or update a memory layout
+	// (PUT /memory-layouts/{name})
+	PutMemoryLayout(c *fiber.Ctx, name string) error
 	// List all MiniMax tenants
 	// (GET /minimax-tenants)
 	ListMiniMaxTenants(c *fiber.Ctx, params ListMiniMaxTenantsParams) error
@@ -27283,6 +28043,91 @@ func (siw *ServerInterfaceWrapper) StreamServerLogs(c *fiber.Ctx) error {
 	}
 
 	return siw.Handler.StreamServerLogs(c, params)
+}
+
+// ListMemoryLayouts operation middleware
+func (siw *ServerInterfaceWrapper) ListMemoryLayouts(c *fiber.Ctx) error {
+
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListMemoryLayoutsParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", query, &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter cursor: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", query, &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter limit: %w", err).Error())
+	}
+
+	return siw.Handler.ListMemoryLayouts(c, params)
+}
+
+// CreateMemoryLayout operation middleware
+func (siw *ServerInterfaceWrapper) CreateMemoryLayout(c *fiber.Ctx) error {
+
+	return siw.Handler.CreateMemoryLayout(c)
+}
+
+// DeleteMemoryLayout operation middleware
+func (siw *ServerInterfaceWrapper) DeleteMemoryLayout(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+	}
+
+	return siw.Handler.DeleteMemoryLayout(c, name)
+}
+
+// GetMemoryLayout operation middleware
+func (siw *ServerInterfaceWrapper) GetMemoryLayout(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+	}
+
+	return siw.Handler.GetMemoryLayout(c, name)
+}
+
+// PutMemoryLayout operation middleware
+func (siw *ServerInterfaceWrapper) PutMemoryLayout(c *fiber.Ctx) error {
+
+	var err error
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Params("name"), &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter name: %w", err).Error())
+	}
+
+	return siw.Handler.PutMemoryLayout(c, name)
 }
 
 // ListMiniMaxTenants operation middleware
@@ -29926,6 +30771,16 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 
 	router.Get(options.BaseURL+"/logs/stream", wrapper.StreamServerLogs)
 
+	router.Get(options.BaseURL+"/memory-layouts", wrapper.ListMemoryLayouts)
+
+	router.Post(options.BaseURL+"/memory-layouts", wrapper.CreateMemoryLayout)
+
+	router.Delete(options.BaseURL+"/memory-layouts/:name", wrapper.DeleteMemoryLayout)
+
+	router.Get(options.BaseURL+"/memory-layouts/:name", wrapper.GetMemoryLayout)
+
+	router.Put(options.BaseURL+"/memory-layouts/:name", wrapper.PutMemoryLayout)
+
 	router.Get(options.BaseURL+"/minimax-tenants", wrapper.ListMiniMaxTenants)
 
 	router.Post(options.BaseURL+"/minimax-tenants", wrapper.CreateMiniMaxTenant)
@@ -32166,6 +33021,182 @@ type StreamServerLogs502JSONResponse externalRef0.ErrorResponse
 func (response StreamServerLogs502JSONResponse) VisitStreamServerLogsResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(502)
+
+	return ctx.JSON(&response)
+}
+
+type ListMemoryLayoutsRequestObject struct {
+	Params ListMemoryLayoutsParams
+}
+
+type ListMemoryLayoutsResponseObject interface {
+	VisitListMemoryLayoutsResponse(ctx *fiber.Ctx) error
+}
+
+type ListMemoryLayouts200JSONResponse MemoryLayoutList
+
+func (response ListMemoryLayouts200JSONResponse) VisitListMemoryLayoutsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type ListMemoryLayouts500JSONResponse externalRef0.ErrorResponse
+
+func (response ListMemoryLayouts500JSONResponse) VisitListMemoryLayoutsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type CreateMemoryLayoutRequestObject struct {
+	Body *CreateMemoryLayoutJSONRequestBody
+}
+
+type CreateMemoryLayoutResponseObject interface {
+	VisitCreateMemoryLayoutResponse(ctx *fiber.Ctx) error
+}
+
+type CreateMemoryLayout200JSONResponse externalRef0.MemoryLayout
+
+func (response CreateMemoryLayout200JSONResponse) VisitCreateMemoryLayoutResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type CreateMemoryLayout400JSONResponse externalRef0.ErrorResponse
+
+func (response CreateMemoryLayout400JSONResponse) VisitCreateMemoryLayoutResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type CreateMemoryLayout409JSONResponse externalRef0.ErrorResponse
+
+func (response CreateMemoryLayout409JSONResponse) VisitCreateMemoryLayoutResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type CreateMemoryLayout500JSONResponse externalRef0.ErrorResponse
+
+func (response CreateMemoryLayout500JSONResponse) VisitCreateMemoryLayoutResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteMemoryLayoutRequestObject struct {
+	Name string `json:"name"`
+}
+
+type DeleteMemoryLayoutResponseObject interface {
+	VisitDeleteMemoryLayoutResponse(ctx *fiber.Ctx) error
+}
+
+type DeleteMemoryLayout200JSONResponse externalRef0.MemoryLayout
+
+func (response DeleteMemoryLayout200JSONResponse) VisitDeleteMemoryLayoutResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteMemoryLayout404JSONResponse externalRef0.ErrorResponse
+
+func (response DeleteMemoryLayout404JSONResponse) VisitDeleteMemoryLayoutResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteMemoryLayout500JSONResponse externalRef0.ErrorResponse
+
+func (response DeleteMemoryLayout500JSONResponse) VisitDeleteMemoryLayoutResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type GetMemoryLayoutRequestObject struct {
+	Name string `json:"name"`
+}
+
+type GetMemoryLayoutResponseObject interface {
+	VisitGetMemoryLayoutResponse(ctx *fiber.Ctx) error
+}
+
+type GetMemoryLayout200JSONResponse externalRef0.MemoryLayout
+
+func (response GetMemoryLayout200JSONResponse) VisitGetMemoryLayoutResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type GetMemoryLayout404JSONResponse externalRef0.ErrorResponse
+
+func (response GetMemoryLayout404JSONResponse) VisitGetMemoryLayoutResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type GetMemoryLayout500JSONResponse externalRef0.ErrorResponse
+
+func (response GetMemoryLayout500JSONResponse) VisitGetMemoryLayoutResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type PutMemoryLayoutRequestObject struct {
+	Name string `json:"name"`
+	Body *PutMemoryLayoutJSONRequestBody
+}
+
+type PutMemoryLayoutResponseObject interface {
+	VisitPutMemoryLayoutResponse(ctx *fiber.Ctx) error
+}
+
+type PutMemoryLayout200JSONResponse externalRef0.MemoryLayout
+
+func (response PutMemoryLayout200JSONResponse) VisitPutMemoryLayoutResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type PutMemoryLayout400JSONResponse externalRef0.ErrorResponse
+
+func (response PutMemoryLayout400JSONResponse) VisitPutMemoryLayoutResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type PutMemoryLayout500JSONResponse externalRef0.ErrorResponse
+
+func (response PutMemoryLayout500JSONResponse) VisitPutMemoryLayoutResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
 
 	return ctx.JSON(&response)
 }
@@ -36781,6 +37812,21 @@ type StrictServerInterface interface {
 	// Stream server log query results
 	// (GET /logs/stream)
 	StreamServerLogs(ctx context.Context, request StreamServerLogsRequestObject) (StreamServerLogsResponseObject, error)
+	// List all memory layouts
+	// (GET /memory-layouts)
+	ListMemoryLayouts(ctx context.Context, request ListMemoryLayoutsRequestObject) (ListMemoryLayoutsResponseObject, error)
+	// Create a memory layout
+	// (POST /memory-layouts)
+	CreateMemoryLayout(ctx context.Context, request CreateMemoryLayoutRequestObject) (CreateMemoryLayoutResponseObject, error)
+	// Delete a memory layout
+	// (DELETE /memory-layouts/{name})
+	DeleteMemoryLayout(ctx context.Context, request DeleteMemoryLayoutRequestObject) (DeleteMemoryLayoutResponseObject, error)
+	// Get a memory layout
+	// (GET /memory-layouts/{name})
+	GetMemoryLayout(ctx context.Context, request GetMemoryLayoutRequestObject) (GetMemoryLayoutResponseObject, error)
+	// Create or update a memory layout
+	// (PUT /memory-layouts/{name})
+	PutMemoryLayout(ctx context.Context, request PutMemoryLayoutRequestObject) (PutMemoryLayoutResponseObject, error)
 	// List all MiniMax tenants
 	// (GET /minimax-tenants)
 	ListMiniMaxTenants(ctx context.Context, request ListMiniMaxTenantsRequestObject) (ListMiniMaxTenantsResponseObject, error)
@@ -38624,6 +39670,151 @@ func (sh *strictHandler) StreamServerLogs(ctx *fiber.Ctx, params StreamServerLog
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	} else if validResponse, ok := response.(StreamServerLogsResponseObject); ok {
 		if err := validResponse.VisitStreamServerLogsResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListMemoryLayouts operation middleware
+func (sh *strictHandler) ListMemoryLayouts(ctx *fiber.Ctx, params ListMemoryLayoutsParams) error {
+	var request ListMemoryLayoutsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.ListMemoryLayouts(ctx.UserContext(), request.(ListMemoryLayoutsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListMemoryLayouts")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(ListMemoryLayoutsResponseObject); ok {
+		if err := validResponse.VisitListMemoryLayoutsResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateMemoryLayout operation middleware
+func (sh *strictHandler) CreateMemoryLayout(ctx *fiber.Ctx) error {
+	var request CreateMemoryLayoutRequestObject
+
+	var body CreateMemoryLayoutJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateMemoryLayout(ctx.UserContext(), request.(CreateMemoryLayoutRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateMemoryLayout")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(CreateMemoryLayoutResponseObject); ok {
+		if err := validResponse.VisitCreateMemoryLayoutResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DeleteMemoryLayout operation middleware
+func (sh *strictHandler) DeleteMemoryLayout(ctx *fiber.Ctx, name string) error {
+	var request DeleteMemoryLayoutRequestObject
+
+	request.Name = name
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteMemoryLayout(ctx.UserContext(), request.(DeleteMemoryLayoutRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteMemoryLayout")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(DeleteMemoryLayoutResponseObject); ok {
+		if err := validResponse.VisitDeleteMemoryLayoutResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetMemoryLayout operation middleware
+func (sh *strictHandler) GetMemoryLayout(ctx *fiber.Ctx, name string) error {
+	var request GetMemoryLayoutRequestObject
+
+	request.Name = name
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.GetMemoryLayout(ctx.UserContext(), request.(GetMemoryLayoutRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetMemoryLayout")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(GetMemoryLayoutResponseObject); ok {
+		if err := validResponse.VisitGetMemoryLayoutResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// PutMemoryLayout operation middleware
+func (sh *strictHandler) PutMemoryLayout(ctx *fiber.Ctx, name string) error {
+	var request PutMemoryLayoutRequestObject
+
+	request.Name = name
+
+	var body PutMemoryLayoutJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.PutMemoryLayout(ctx.UserContext(), request.(PutMemoryLayoutRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutMemoryLayout")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(PutMemoryLayoutResponseObject); ok {
+		if err := validResponse.VisitPutMemoryLayoutResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {

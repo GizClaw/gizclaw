@@ -18,8 +18,7 @@ func TestApplyWorkflowCreatesResource(t *testing.T) {
 		"metadata": {"name": "workflow"},
 		"spec": {
 			"driver": "flowcraft",
-			"flowcraft": {"agent": {"id": "assistant", "name": "Assistant", "graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}], "edges": [{"from": "answer", "to": "__end__"}]}}}
-		}
+			"flowcraft": {"graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}], "edges": [{"from": "answer", "to": "__end__"}]}}		}
 	}`))
 	if err != nil {
 		t.Fatalf("Apply returned error: %v", err)
@@ -41,8 +40,7 @@ func TestGetWorkflowReturnsResource(t *testing.T) {
 		"name": "workflow",
 		"spec": {
 			"driver": "flowcraft",
-			"flowcraft": {"agent": {"id": "assistant", "name": "Assistant", "graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}], "edges": [{"from": "answer", "to": "__end__"}]}}}
-		}
+			"flowcraft": {"graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}], "edges": [{"from": "answer", "to": "__end__"}]}}		}
 	}`)
 	manager := New(Services{Workflows: workflows})
 
@@ -72,8 +70,7 @@ func TestPutWorkflowWritesResource(t *testing.T) {
 		"metadata": {"name": "workflow"},
 		"spec": {
 			"driver": "flowcraft",
-			"flowcraft": {"agent": {"id": "assistant", "name": "Assistant", "graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}], "edges": [{"from": "answer", "to": "__end__"}]}}}
-		}
+			"flowcraft": {"graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}], "edges": [{"from": "answer", "to": "__end__"}]}}		}
 	}`))
 	if err != nil {
 		t.Fatalf("Put returned error: %v", err)
@@ -89,8 +86,7 @@ func TestApplyWorkflowUnchangedSkipsPut(t *testing.T) {
 		"name": "workflow",
 		"spec": {
 			"driver": "flowcraft",
-			"flowcraft": {"agent": {"id": "assistant", "name": "Assistant", "graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}], "edges": [{"from": "answer", "to": "__end__"}]}}}
-		}
+			"flowcraft": {"graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}], "edges": [{"from": "answer", "to": "__end__"}]}}		}
 	}`)
 	manager := New(Services{Workflows: workflows})
 
@@ -100,8 +96,7 @@ func TestApplyWorkflowUnchangedSkipsPut(t *testing.T) {
 		"metadata": {"name": "workflow"},
 		"spec": {
 			"driver": "flowcraft",
-			"flowcraft": {"agent": {"id": "assistant", "name": "Assistant", "graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}], "edges": [{"from": "answer", "to": "__end__"}]}}}
-		}
+			"flowcraft": {"graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}], "edges": [{"from": "answer", "to": "__end__"}]}}		}
 	}`))
 	if err != nil {
 		t.Fatalf("Apply returned error: %v", err)
@@ -121,8 +116,7 @@ func TestApplyWorkflowNormalizesToolkitPolicyBeforeCompare(t *testing.T) {
 		"spec": {
 			"driver": "flowcraft",
 			"toolkit": {"tool_ids": ["system.mode.switch", "system.music.play"]},
-			"flowcraft": {"agent": {"id": "assistant", "name": "Assistant", "graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}], "edges": [{"from": "answer", "to": "__end__"}]}}}
-		}
+			"flowcraft": {"graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}], "edges": [{"from": "answer", "to": "__end__"}]}}		}
 	}`)
 	manager := New(Services{Workflows: workflows})
 
@@ -133,8 +127,7 @@ func TestApplyWorkflowNormalizesToolkitPolicyBeforeCompare(t *testing.T) {
 		"spec": {
 			"driver": "flowcraft",
 			"toolkit": {"tool_ids": [" system.music.play ", "system.mode.switch", "system.music.play"]},
-			"flowcraft": {"agent": {"id": "assistant", "name": "Assistant", "graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}], "edges": [{"from": "answer", "to": "__end__"}]}}}
-		}
+			"flowcraft": {"graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}], "edges": [{"from": "answer", "to": "__end__"}]}}		}
 	}`))
 	if err != nil {
 		t.Fatalf("Apply returned error: %v", err)
@@ -153,8 +146,7 @@ func TestApplyWorkflowUpdatesResource(t *testing.T) {
 		"name": "workflow",
 		"spec": {
 			"driver": "flowcraft",
-			"flowcraft": {"agent": {"id": "assistant", "name": "Old Assistant", "graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}], "edges": [{"from": "answer", "to": "__end__"}]}}}
-		}
+			"flowcraft": {"graph": {"name": "old-assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}], "edges": [{"from": "answer", "to": "__end__"}]}}		}
 	}`)
 	manager := New(Services{Workflows: workflows})
 
@@ -164,8 +156,7 @@ func TestApplyWorkflowUpdatesResource(t *testing.T) {
 		"metadata": {"name": "workflow"},
 		"spec": {
 			"driver": "flowcraft",
-			"flowcraft": {"agent": {"id": "assistant", "name": "New Assistant", "graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}], "edges": [{"from": "answer", "to": "__end__"}]}}}
-		}
+			"flowcraft": {"graph": {"name": "new-assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}], "edges": [{"from": "answer", "to": "__end__"}]}}		}
 	}`))
 	if err != nil {
 		t.Fatalf("Apply returned error: %v", err)

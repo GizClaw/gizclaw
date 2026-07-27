@@ -15,29 +15,9 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
 type peerAgentHostTestResolver struct{}
-
-type peerAgentHostMemoryStore struct{}
-
-func (*peerAgentHostMemoryStore) Recall(context.Context, memory.Query) (memory.RecallResult, error) {
-	return memory.RecallResult{}, nil
-}
-
-func (*peerAgentHostMemoryStore) Observe(context.Context, memory.Observation) (memory.ObserveResult, error) {
-	return memory.ObserveResult{}, nil
-}
-
-func (*peerAgentHostMemoryStore) Update(context.Context, memory.UpdateRequest) (memory.Fact, error) {
-	return memory.Fact{}, nil
-}
-
-func (*peerAgentHostMemoryStore) Delete(context.Context, memory.DeleteRequest) error {
-	return nil
-}
 
 func (peerAgentHostTestResolver) Resolve(context.Context, string) (agenthost.Spec, error) {
 	return agenthost.Spec{}, nil
@@ -65,9 +45,7 @@ func TestNewPeerAgentHostRegistersBuiltInAgents(t *testing.T) {
 	base := agenthost.New(peerAgentHostTestResolver{})
 	history := &peerAgentHostHistoryStore{}
 	state := kv.NewMemory(nil)
-	memoryObjects := objectstore.Dir(t.TempDir())
-	memoryStore := &peerAgentHostMemoryStore{}
-	got := newPeerAgentHost(base, nil, nil, nil, history, state, memoryObjects, memoryStore, "mem0", memoryStore, "mem0")
+	got := newPeerAgentHost(base, nil, nil, nil, history, state, t.TempDir(), nil)
 	if got == nil {
 		t.Fatal("newPeerAgentHost() = nil")
 	}
@@ -121,12 +99,6 @@ func TestNewPeerAgentHostRegistersBuiltInAgents(t *testing.T) {
 	if flowcraftFactory.State != state {
 		t.Fatal("flowcraft factory did not receive state store")
 	}
-	if flowcraftFactory.MemoryObjects != memoryObjects {
-		t.Fatal("flowcraft factory did not receive memory object store")
-	}
-	if flowcraftFactory.Memory != memoryStore || flowcraftFactory.MemoryKind != "mem0" {
-		t.Fatal("flowcraft factory did not receive configured memory store")
-	}
 	registered, ok = got.Registry.Get(eino.Type)
 	if !ok {
 		t.Fatal("eino agent was not registered")
@@ -135,13 +107,13 @@ func TestNewPeerAgentHostRegistersBuiltInAgents(t *testing.T) {
 	if !ok {
 		t.Fatalf("eino factory = %T, want eino.Factory", registered)
 	}
-	if einoFactory.Memory != memoryStore || einoFactory.MemoryKind != "mem0" {
-		t.Fatal("eino factory did not receive configured memory store")
+	if einoFactory.History != history {
+		t.Fatal("eino factory did not receive history store")
 	}
 }
 
 func TestNewPeerAgentHostNilBase(t *testing.T) {
-	if got := newPeerAgentHost(nil, nil, nil, nil, nil, nil, nil, nil, "", nil, ""); got != nil {
+	if got := newPeerAgentHost(nil, nil, nil, nil, nil, nil, "", nil); got != nil {
 		t.Fatalf("newPeerAgentHost(nil) = %#v, want nil", got)
 	}
 }

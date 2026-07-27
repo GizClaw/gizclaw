@@ -8,6 +8,7 @@
   "workflow": {
     "name": "eino-memory-assistant",
     "description": "Eino prompt and chat model workflow with configured memory",
+    "memory": "default-memory",
     "eino": {
       "graph": {
         "name": "eino-memory-assistant",
@@ -35,6 +36,13 @@
           ]
         },
         "nodes": [
+          {
+            "id": "recall-memory",
+            "type": "memory_recall",
+            "query_from": "input.text",
+            "output": "recalled",
+            "top_k": 5
+          },
           {
             "id": "prompt",
             "type": "prompt",
@@ -74,11 +82,28 @@
             },
             "model": "llm",
             "max_tokens": 256
+          },
+          {
+            "id": "observe-answer",
+            "type": "memory_observe",
+            "facts": [
+              {
+                "text_from": "answer",
+                "attributes": {
+                  "source": "assistant"
+                }
+              }
+            ],
+            "wait_for_completion": true
           }
         ],
         "edges": [
           {
             "from": "start",
+            "to": "recall-memory"
+          },
+          {
+            "from": "recall-memory",
             "to": "prompt"
           },
           {
@@ -87,6 +112,10 @@
           },
           {
             "from": "model",
+            "to": "observe-answer"
+          },
+          {
+            "from": "observe-answer",
             "to": "end"
           }
         ],
@@ -100,19 +129,6 @@
             "primary": true
           }
         ]
-      },
-      "memory": {
-        "recall": [
-          {
-            "query_from": "input.text",
-            "output": "recalled",
-            "top_k": 5
-          }
-        ],
-        "observe": {
-          "enabled": true,
-          "wait_for_completion": true
-        }
       }
     }
   },

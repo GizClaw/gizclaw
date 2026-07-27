@@ -221,14 +221,10 @@ func testFlowcraftWorkflowSpec() *apitypes.FlowcraftWorkflowSpec {
 	}); err != nil {
 		panic(err)
 	}
-	return &apitypes.FlowcraftWorkflowSpec{Agent: apitypes.FlowcraftAgent{
-		Id:   "assistant",
-		Name: "Assistant",
-		Graph: apitypes.FlowcraftGraph{
-			Name:  "Assistant",
-			Entry: "answer",
-			Nodes: []apitypes.FlowcraftNode{node},
-		},
+	return &apitypes.FlowcraftWorkflowSpec{Graph: apitypes.FlowcraftGraph{
+		Name:  "Assistant",
+		Entry: "answer",
+		Nodes: []apitypes.FlowcraftNode{node},
 	}}
 }
 

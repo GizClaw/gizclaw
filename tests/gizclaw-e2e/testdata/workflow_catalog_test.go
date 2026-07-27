@@ -121,18 +121,16 @@ func TestFlowcraftGeneratorsUseProductionTokenBudget(t *testing.T) {
 			var resource struct {
 				Spec struct {
 					Flowcraft struct {
-						Agent struct {
-							Graph struct {
-								Nodes []flowcraftGeneratorNode `yaml:"nodes"`
-							} `yaml:"graph"`
-						} `yaml:"agent"`
+						Graph struct {
+							Nodes []flowcraftGeneratorNode `yaml:"nodes"`
+						} `yaml:"graph"`
 					} `yaml:"flowcraft"`
 				} `yaml:"spec"`
 			}
 			if err := yaml.Unmarshal(raw, &resource); err != nil {
 				t.Fatal(err)
 			}
-			assertFlowcraftGeneratorTokenBudget(t, resource.Spec.Flowcraft.Agent.Graph.Nodes)
+			assertFlowcraftGeneratorTokenBudget(t, resource.Spec.Flowcraft.Graph.Nodes)
 		})
 	}
 
@@ -149,18 +147,16 @@ func TestFlowcraftGeneratorsUseProductionTokenBudget(t *testing.T) {
 			var workspace struct {
 				Workflow struct {
 					Flowcraft struct {
-						Agent struct {
-							Graph struct {
-								Nodes []flowcraftGeneratorNode `json:"nodes"`
-							} `json:"graph"`
-						} `json:"agent"`
+						Graph struct {
+							Nodes []flowcraftGeneratorNode `json:"nodes"`
+						} `json:"graph"`
 					} `json:"flowcraft"`
 				} `json:"workflow"`
 			}
 			if err := json.Unmarshal(raw, &workspace); err != nil {
 				t.Fatal(err)
 			}
-			assertFlowcraftGeneratorTokenBudget(t, workspace.Workflow.Flowcraft.Agent.Graph.Nodes)
+			assertFlowcraftGeneratorTokenBudget(t, workspace.Workflow.Flowcraft.Graph.Nodes)
 		})
 	}
 }
@@ -178,17 +174,9 @@ func TestWerewolfLifecycleToolNodesAreRemoved(t *testing.T) {
 	var resource struct {
 		Spec struct {
 			Flowcraft struct {
-				Agent struct {
-					Graph struct {
-						Nodes []workflowNodePublication `yaml:"nodes"`
-					} `yaml:"graph"`
-				} `yaml:"agent"`
-				Memory struct {
-					Extract struct {
-						Enabled bool   `yaml:"enabled"`
-						Model   string `yaml:"model"`
-					} `yaml:"extract"`
-				} `yaml:"memory"`
+				Graph struct {
+					Nodes []workflowNodePublication `yaml:"nodes"`
+				} `yaml:"graph"`
 			} `yaml:"flowcraft"`
 		} `yaml:"spec"`
 	}
@@ -199,25 +187,14 @@ func TestWerewolfLifecycleToolNodesAreRemoved(t *testing.T) {
 	if err := yaml.Unmarshal(resourceRaw, &resource); err != nil {
 		t.Fatal(err)
 	}
-	assertWerewolfLifecycleNodesRemoved(t, "resource", resource.Spec.Flowcraft.Agent.Graph.Nodes)
-	if !resource.Spec.Flowcraft.Memory.Extract.Enabled || resource.Spec.Flowcraft.Memory.Extract.Model != "llm" {
-		t.Fatalf("resource extraction = enabled %v model %q, want enabled with runtime alias llm", resource.Spec.Flowcraft.Memory.Extract.Enabled, resource.Spec.Flowcraft.Memory.Extract.Model)
-	}
+	assertWerewolfLifecycleNodesRemoved(t, "resource", resource.Spec.Flowcraft.Graph.Nodes)
 
 	var workspace struct {
 		Workflow struct {
 			Flowcraft struct {
-				Agent struct {
-					Graph struct {
-						Nodes []workflowNodePublication `json:"nodes"`
-					} `json:"graph"`
-				} `json:"agent"`
-				Memory struct {
-					Extract struct {
-						Enabled bool   `json:"enabled"`
-						Model   string `json:"model"`
-					} `json:"extract"`
-				} `json:"memory"`
+				Graph struct {
+					Nodes []workflowNodePublication `json:"nodes"`
+				} `json:"graph"`
 			} `json:"flowcraft"`
 		} `json:"workflow"`
 	}
@@ -228,10 +205,7 @@ func TestWerewolfLifecycleToolNodesAreRemoved(t *testing.T) {
 	if err := json.Unmarshal(workspaceRaw, &workspace); err != nil {
 		t.Fatal(err)
 	}
-	assertWerewolfLifecycleNodesRemoved(t, "workspace", workspace.Workflow.Flowcraft.Agent.Graph.Nodes)
-	if !workspace.Workflow.Flowcraft.Memory.Extract.Enabled || workspace.Workflow.Flowcraft.Memory.Extract.Model != "llm" {
-		t.Fatalf("workspace extraction = enabled %v model %q, want enabled with runtime alias llm", workspace.Workflow.Flowcraft.Memory.Extract.Enabled, workspace.Workflow.Flowcraft.Memory.Extract.Model)
-	}
+	assertWerewolfLifecycleNodesRemoved(t, "workspace", workspace.Workflow.Flowcraft.Graph.Nodes)
 }
 
 func assertWerewolfLifecycleNodesRemoved(t *testing.T, source string, nodes []workflowNodePublication) {

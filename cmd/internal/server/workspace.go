@@ -56,7 +56,8 @@ func prepareWorkspaceConfig(workspace string) (Config, error) {
 	}
 
 	cfg, err := mergeFileConfig(Config{
-		KeyPair: keyPair,
+		KeyPair:       keyPair,
+		WorkspaceRoot: root,
 	}, fileCfg)
 	if err != nil {
 		return Config{}, err
@@ -151,13 +152,6 @@ func resolveWorkspaceStoreConfigs(root string, cfgs map[string]stores.Config) ma
 	for name, cfg := range cfgs {
 		if cfg.Dir != "" && !filepath.IsAbs(cfg.Dir) {
 			cfg.Dir = filepath.Join(root, cfg.Dir)
-		}
-		if cfg.Flowcraft != nil {
-			flowcraft := *cfg.Flowcraft
-			if expanded, ok := expandEnvIfAllNonEmpty(flowcraft.Dir); ok {
-				flowcraft.Dir = resolveWorkspaceDir(root, expanded)
-			}
-			cfg.Flowcraft = &flowcraft
 		}
 		resolved[name] = cfg
 	}

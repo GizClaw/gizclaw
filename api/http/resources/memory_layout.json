@@ -1,0 +1,33 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Memory Layout Resource Schema",
+    "description": "MemoryLayoutResource envelope schema.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "MemoryLayoutResource": {
+        "type": "object",
+        "required": ["apiVersion", "kind", "metadata", "spec"],
+        "additionalProperties": false,
+        "properties": {
+          "apiVersion": {
+            "$ref": "./resource.json#/components/schemas/ResourceAPIVersion"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["MemoryLayout"]
+          },
+          "metadata": {
+            "$ref": "./resource.json#/components/schemas/ResourceMetadata"
+          },
+          "spec": {
+            "$ref": "../shared/memory_layout.json#/components/schemas/MemoryLayoutSpec"
+          }
+        }
+      }
+    }
+  }
+}

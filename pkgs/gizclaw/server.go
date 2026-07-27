@@ -11,6 +11,7 @@ import (
 	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/observability"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/credential"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/memorylayout"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/model"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/providertenants"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/voice"
@@ -19,6 +20,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/memorystore"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerroute"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
@@ -34,7 +36,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 	"github.com/jmoiron/sqlx"
@@ -66,6 +67,7 @@ type Server struct {
 	VolcTenantStore              kv.Store
 	ModelStore                   kv.Store
 	VoiceStore                   kv.Store
+	MemoryLayoutStore            kv.Store
 	WorkspaceStore               kv.Store
 	WorkflowStore                kv.Store
 	ToolStore                    kv.Store
@@ -89,11 +91,7 @@ type Server struct {
 	ServerLogQuery               ServerLogQueryService
 	FlowcraftHistory             logstore.MutableStore
 	FlowcraftState               kv.Store
-	FlowcraftMemoryObjects       objectstore.ObjectStore
-	FlowcraftMemory              memory.Store
-	FlowcraftMemoryKind          string
-	EinoMemory                   memory.Store
-	EinoMemoryKind               string
+	MemoryRoot                   string
 	FriendGroupMessageDefaultTTL time.Duration
 	FriendGroupMessageMaxTTL     time.Duration
 	FriendGroupMessageCleanup    time.Duration
@@ -279,6 +277,10 @@ func (s *Server) Close() error {
 		<-s.cleanupDone
 		s.cleanupDone = nil
 	}
+	if s.manager != nil && s.manager.MemoryStores != nil {
+		errs = append(errs, s.manager.MemoryStores.Close())
+		s.manager.MemoryStores = nil
+	}
 	return errors.Join(errs...)
 }
 
@@ -328,7 +330,6 @@ func (s *Server) usesLegacySharedStore() bool {
 		s.FirmwareStore == nil &&
 		s.AgentHostStore == nil &&
 		s.FlowcraftState == nil &&
-		s.FlowcraftMemoryObjects == nil &&
 		s.MiniMaxTenantStore == nil &&
 		s.DeepSeekTenantStore == nil &&
 		s.VolcTenantStore == nil &&
@@ -382,6 +383,7 @@ func (s *Server) init() error {
 	volcTenantStore := moduleStore(s.VolcTenantStore, miniMaxTenantStore, "volc-tenants")
 	modelStore := moduleStore(s.ModelStore, s.PeerStore, "models")
 	voiceStore := moduleStore(s.VoiceStore, s.PeerStore, "voices")
+	memoryLayoutStore := moduleStore(s.MemoryLayoutStore, s.PeerStore, "memory-layouts")
 	workspaceStore := moduleStore(s.WorkspaceStore, s.PeerStore, "workspaces")
 	workflowStore := moduleStore(s.WorkflowStore, s.PeerStore, "workflows")
 	toolStore := moduleStore(s.ToolStore, s.PeerStore, "tools")
@@ -447,11 +449,8 @@ func (s *Server) init() error {
 	}
 	manager.FlowcraftHistory = s.FlowcraftHistory
 	manager.FlowcraftState = s.FlowcraftState
-	manager.FlowcraftMemoryObjects = s.FlowcraftMemoryObjects
-	manager.FlowcraftMemory = s.FlowcraftMemory
-	manager.FlowcraftMemoryKind = s.FlowcraftMemoryKind
-	manager.EinoMemory = s.EinoMemory
-	manager.EinoMemoryKind = s.EinoMemoryKind
+	manager.MemoryRoot = s.MemoryRoot
+	manager.MemoryStores = memorystore.NewRegistry()
 	manager.SpeechLimits = s.SpeechLimits
 	manager.PeerRoutes = &peerroute.Server{
 		Store:           peerRouteStore,
@@ -467,6 +466,7 @@ func (s *Server) init() error {
 
 	modelServer := &model.Server{Store: modelStore}
 	voiceServer := &voice.Server{Store: voiceStore}
+	memoryLayoutServer := &memorylayout.Server{Store: memoryLayoutStore}
 	workflowServer := &workflow.Server{Store: workflowStore}
 	workspaceServer := &workspace.Server{
 		Store: workspaceStore, WorkflowStore: workflowStore,
@@ -550,6 +550,7 @@ func (s *Server) init() error {
 	manager.AgentHost = agenthost.New(agenthost.ServiceResolver{
 		Workspaces:             workspaceServer,
 		Workflows:              workflowServer,
+		MemoryLayouts:          memoryLayoutServer,
 		RuntimeProfileForOwner: manager.runtimeProfileForOwner,
 		ToolBuilder:            manager.ToolBuilder,
 		ToolExecutors:          toolExecutors,
@@ -582,6 +583,7 @@ func (s *Server) init() error {
 		Voices:          voiceServer,
 		Workspaces:      workspaceServer,
 		Workflows:       workflowServer,
+		MemoryLayouts:   memoryLayoutServer,
 		Contacts:        contactServer,
 		Friends:         friendServer,
 		FriendGroups:    friendGroupServer,
@@ -602,6 +604,7 @@ func (s *Server) init() error {
 			PeerAdminService:            peersServer,
 			ModelAdminService:           modelServer,
 			VoiceAdminService:           voiceServer,
+			MemoryLayoutAdminService:    memoryLayoutServer,
 			ProviderTenantsAdminService: providerTenantsServer,
 			WorkspaceAdminService:       workspaceServer,
 			WorkspaceIconAdminService:   workspaceServer,

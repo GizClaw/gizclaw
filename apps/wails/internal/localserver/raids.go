@@ -316,6 +316,9 @@ func buildRaidsCatalog(assetFS fs.FS, archive []byte) (*Catalog, error) {
 	if err := validateWorkflowAliases(profile, selected); err != nil {
 		return nil, err
 	}
+	if err := validateMemoryLayoutAliases(profile, selected); err != nil {
+		return nil, err
+	}
 	mapFS := fstest.MapFS{}
 	resources := make([]ResourceEntry, 0, len(selected)+2)
 	requirements := map[string]EnvironmentRequirement{}
@@ -510,7 +513,7 @@ func allowedRaidsPath(name string) bool {
 		(strings.HasSuffix(name, ".yaml") || strings.HasSuffix(name, ".yml")) {
 		return true
 	}
-	for _, directory := range []string{"credentials/", "tenants/", "models/", "voices/", "workflows/", "petdefs/", "runtime-profiles/", "registration-tokens/"} {
+	for _, directory := range []string{"credentials/", "tenants/", "models/", "voices/", "workflows/", "memory-layouts/", "petdefs/", "runtime-profiles/", "registration-tokens/"} {
 		if strings.HasPrefix(name, directory) && (strings.HasSuffix(name, ".yaml") || strings.HasSuffix(name, ".yml")) {
 			return true
 		}
@@ -530,6 +533,8 @@ func raidsResourceKind(name string) (string, bool) {
 		return "Voice", true
 	case strings.HasPrefix(name, "workflows/"):
 		return "Workflow", true
+	case strings.HasPrefix(name, "memory-layouts/"):
+		return "MemoryLayout", true
 	case strings.HasPrefix(name, "petdefs/"):
 		return "PetDef", true
 	case strings.HasPrefix(name, "runtime-profiles/"):
@@ -583,7 +588,7 @@ func parseRaidsCandidate(data []byte) (raidsCandidate, error) {
 	}
 	candidate := raidsCandidate{kind: header.Kind, name: header.Name, data: data}
 	switch header.Kind {
-	case "Credential", "Workflow", "PetDef", "RuntimeProfile", "RegistrationToken":
+	case "Credential", "Workflow", "MemoryLayout", "PetDef", "RuntimeProfile", "RegistrationToken":
 	case "Model", "Voice":
 		var spec struct {
 			Provider struct {
@@ -639,6 +644,8 @@ func validateResourceKind(resource apitypes.Resource, kind string) error {
 		_, err = resource.AsVoiceResource()
 	case "Workflow":
 		_, err = resource.AsWorkflowResource()
+	case "MemoryLayout":
+		_, err = resource.AsMemoryLayoutResource()
 	case "PetDef":
 		_, err = resource.AsPetDefResource()
 	case "RuntimeProfile":
@@ -679,6 +686,11 @@ func selectRaidsDependencies(profile apitypes.RuntimeProfileResource, index map[
 	if profile.Spec.Resources.PetDefs != nil {
 		for _, binding := range *profile.Spec.Resources.PetDefs {
 			pending = append(pending, struct{ kind, name string }{"PetDef", binding.ResourceId})
+		}
+	}
+	if profile.Spec.Resources.Memories != nil {
+		for _, binding := range *profile.Spec.Resources.Memories {
+			pending = append(pending, struct{ kind, name string }{"MemoryLayout", binding.LayoutId})
 		}
 	}
 	for len(pending) != 0 {
@@ -740,6 +752,68 @@ func validateWorkflowAliases(profile apitypes.RuntimeProfileResource, selected m
 		for _, alias := range voiceAliases {
 			if !voices[alias] {
 				return fmt.Errorf("Workflow/%s references missing Voice alias %q", candidate.name, alias)
+			}
+		}
+	}
+	return nil
+}
+
+func validateMemoryLayoutAliases(profile apitypes.RuntimeProfileResource, selected map[string]raidsCandidate) error {
+	if profile.Spec.Resources.Memories == nil {
+		return nil
+	}
+	models := map[string]bool{}
+	if profile.Spec.Resources.Models != nil {
+		for alias := range *profile.Spec.Resources.Models {
+			models[alias] = true
+		}
+	}
+	for alias, binding := range *profile.Spec.Resources.Memories {
+		connectionType, err := binding.Connection.Discriminator()
+		if err != nil {
+			return fmt.Errorf("RuntimeProfile/default memory alias %q has invalid connection: %w", alias, err)
+		}
+		switch binding.Driver {
+		case apitypes.RuntimeProfileMemoryDriverFlowcraft:
+			if connectionType != "flowcraft_bbh" && connectionType != "flowcraft_object_store" && connectionType != "flowcraft_postgresql" {
+				return fmt.Errorf("RuntimeProfile/default memory alias %q uses flowcraft with incompatible connection type %q", alias, connectionType)
+			}
+		case apitypes.RuntimeProfileMemoryDriverMem0:
+			if connectionType != "mem0" {
+				return fmt.Errorf("RuntimeProfile/default memory alias %q uses mem0 with incompatible connection type %q", alias, connectionType)
+			}
+		case apitypes.RuntimeProfileMemoryDriverVolcMem0:
+			if connectionType != "volc_mem0" {
+				return fmt.Errorf("RuntimeProfile/default memory alias %q uses volc_mem0 with incompatible connection type %q", alias, connectionType)
+			}
+		default:
+			return fmt.Errorf("RuntimeProfile/default memory alias %q has unsupported driver %q", alias, binding.Driver)
+		}
+		if binding.Driver != apitypes.RuntimeProfileMemoryDriverFlowcraft {
+			continue
+		}
+		candidate, exists := selected["MemoryLayout/"+strings.TrimSpace(binding.LayoutId)]
+		if !exists {
+			return fmt.Errorf("RuntimeProfile/default memory alias %q references missing MemoryLayout/%s", alias, binding.LayoutId)
+		}
+		resource, _, err := decodeResource(candidate.data)
+		if err != nil {
+			return fmt.Errorf("decode MemoryLayout/%s: %w", binding.LayoutId, err)
+		}
+		layout, err := resource.AsMemoryLayoutResource()
+		if err != nil {
+			return fmt.Errorf("decode MemoryLayout/%s: %w", binding.LayoutId, err)
+		}
+		aliases := []string{layout.Spec.Flowcraft.Extraction.Model}
+		if layout.Spec.Flowcraft.Embedding != nil {
+			aliases = append(aliases, layout.Spec.Flowcraft.Embedding.Model)
+		}
+		if layout.Spec.Flowcraft.Rerank != nil {
+			aliases = append(aliases, layout.Spec.Flowcraft.Rerank.Model)
+		}
+		for _, modelAlias := range aliases {
+			if !models[modelAlias] {
+				return fmt.Errorf("MemoryLayout/%s references missing model alias %q", binding.LayoutId, modelAlias)
 			}
 		}
 	}
@@ -813,24 +887,13 @@ func workflowSpecAliases(spec map[string]any) ([]string, []string, error) {
 		if !ok {
 			return nil, nil, errors.New("flowcraft workflow has no configuration")
 		}
-		if settings, ok := anyMap(config["settings"]); ok {
-			add(models, settings["extract_model"])
-			add(models, settings["generate_model"])
-		}
-		if agent, ok := anyMap(config["agent"]); ok {
-			if graph, ok := anyMap(agent["graph"]); ok {
-				for _, node := range anySlice(graph["nodes"]) {
-					if node, ok := anyMap(node); ok {
-						if config, ok := anyMap(node["config"]); ok {
-							add(models, config["model"])
-						}
+		if graph, ok := anyMap(config["graph"]); ok {
+			for _, node := range anySlice(graph["nodes"]) {
+				if node, ok := anyMap(node); ok {
+					if config, ok := anyMap(node["config"]); ok {
+						add(models, config["model"])
 					}
 				}
-			}
-		}
-		if memory, ok := anyMap(config["memory"]); ok {
-			if extract, ok := anyMap(memory["extract"]); ok {
-				add(models, extract["model"])
 			}
 		}
 		if adapter, ok := anyMap(config["voice_adapter"]); ok {
@@ -953,6 +1016,7 @@ func raidsCatalogPath(candidate raidsCandidate, key string) string {
 		"Model":             "02-models",
 		"Voice":             "03-voices",
 		"Workflow":          "04-workflows",
+		"MemoryLayout":      "05-memory-layouts",
 		"PetDef":            "05-pet-defs",
 		"RuntimeProfile":    "07-runtime-profiles",
 		"RegistrationToken": "08-registration-tokens",

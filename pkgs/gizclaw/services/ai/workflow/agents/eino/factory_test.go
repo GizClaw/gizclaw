@@ -14,7 +14,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
-func TestFactoryAllowsMemorylessWorkflowAndRequiresConfiguredStore(t *testing.T) {
+func TestFactoryAllowsMemorylessWorkflowAndRequiresResolvedStoreForMemoryNodes(t *testing.T) {
 	t.Parallel()
 	spec := einoFactorySpec(t)
 	factory := Factory{GenX: &peergenx.Service{}}
@@ -22,9 +22,9 @@ func TestFactoryAllowsMemorylessWorkflowAndRequiresConfiguredStore(t *testing.T)
 		t.Fatalf("NewAgent(memoryless) error = %v", err)
 	}
 
-	spec.Workflow.Spec.Eino.Memory = &apitypes.EinoMemory{}
+	addEinoMemoryRecallNode(t, spec.Workflow.Spec.Eino)
 	if _, err := factory.NewAgent(t.Context(), spec); err == nil ||
-		!strings.Contains(err.Error(), "agent_host.eino.memory_store") {
+		!strings.Contains(err.Error(), "Graph Memory nodes require Memory") {
 		t.Fatalf("NewAgent(memory without store) error = %v", err)
 	}
 }
@@ -35,15 +35,14 @@ func TestFactoryBindsOnlyWorkspaceAppAndReportsConfiguredBackend(t *testing.T) {
 	spec := einoFactorySpec(t)
 	owner := "owner-public-key"
 	spec.Workspace.OwnerPublicKey = &owner
-	spec.Workflow.Spec.Eino.Memory = &apitypes.EinoMemory{}
+	spec.Memory = store
+	spec.MemoryKind = "volc_mem0"
 	service := &peergenx.Service{}
 	agent, err := (Factory{
 		GenX: service,
 		GenXForOwner: func(context.Context, string) (*peergenx.Service, error) {
 			return service, nil
 		},
-		Memory:     store,
-		MemoryKind: "volc_memory",
 	}).NewAgent(t.Context(), spec)
 	if err != nil {
 		t.Fatalf("NewAgent() error = %v", err)
@@ -58,8 +57,8 @@ func TestFactoryBindsOnlyWorkspaceAppAndReportsConfiguredBackend(t *testing.T) {
 	store.mu.Lock()
 	scope := store.query.Scope
 	store.mu.Unlock()
-	if scope.AppID != spec.Workspace.Name || scope.AgentID != spec.Workflow.Name {
-		t.Fatalf("Recall scope = %#v, want Workspace AppID and Workflow AgentID", scope)
+	if scope.AppID != spec.Workspace.Name || scope.AgentID != "" {
+		t.Fatalf("Recall scope = %#v, want only Workspace AppID", scope)
 	}
 	if scope.UserID != "" || scope.RunID != "" {
 		t.Fatalf("Recall scope rewrote inner dimensions: %#v", scope)
@@ -68,7 +67,7 @@ func TestFactoryBindsOnlyWorkspaceAppAndReportsConfiguredBackend(t *testing.T) {
 	if err != nil {
 		t.Fatalf("MemoryStats() error = %v", err)
 	}
-	if stats.Backend == nil || *stats.Backend != "volc_memory" {
+	if stats.Backend == nil || *stats.Backend != "volc_mem0" {
 		t.Fatalf("MemoryStats backend = %v", stats.Backend)
 	}
 	if stats.Metadata == nil {
@@ -76,52 +75,28 @@ func TestFactoryBindsOnlyWorkspaceAppAndReportsConfiguredBackend(t *testing.T) {
 	}
 	metadataScope, ok := (*stats.Metadata)["scope"].(map[string]any)
 	if !ok || metadataScope["app_id"] != spec.Workspace.Name ||
-		metadataScope["agent_id"] != spec.Workflow.Name {
+		metadataScope["agent_id"] != "" {
 		t.Fatalf("MemoryStats scope = %#v", (*stats.Metadata)["scope"])
 	}
 }
 
-func TestFactoryRejectsUnsupportedMemoryWaitCapabilityDuringConstruction(t *testing.T) {
-	t.Parallel()
-	spec := einoFactorySpec(t)
-	wait := true
-	spec.Workflow.Spec.Eino.Memory = &apitypes.EinoMemory{
-		Observe: &apitypes.EinoMemoryObserve{
-			Enabled:           true,
-			WaitForCompletion: &wait,
-		},
+func addEinoMemoryRecallNode(t testing.TB, spec *apitypes.EinoWorkflowSpec) {
+	t.Helper()
+	var node apitypes.EinoNode
+	if err := node.FromEinoMemoryRecallNode(apitypes.EinoMemoryRecallNode{
+		Id:        "recall",
+		Type:      apitypes.EinoMemoryRecallNodeTypeMemoryRecall,
+		QueryFrom: "input.text",
+		Output:    "answer",
+		TopK:      5,
+	}); err != nil {
+		t.Fatal(err)
 	}
-	_, err := (Factory{
-		GenX:   &peergenx.Service{},
-		Memory: &einoMemoryStore{},
-	}).NewAgent(t.Context(), spec)
-	if err == nil || !strings.Contains(err.Error(), "OperationWaiter") {
-		t.Fatalf("NewAgent(wait without capability) error = %v", err)
-	}
-}
-
-func TestFactoryRejectsFactsUnsupportedByConfiguredMemory(t *testing.T) {
-	t.Parallel()
-	for _, backend := range []string{"mem0", "volc_memory", ""} {
-		t.Run(backend, func(t *testing.T) {
-			spec := einoFactorySpec(t)
-			spec.Workflow.Spec.Eino.Memory = &apitypes.EinoMemory{
-				Observe: &apitypes.EinoMemoryObserve{
-					Enabled: true,
-					Facts: &[]apitypes.EinoMemoryFact{{
-						TextFrom: "input.text",
-					}},
-				},
-			}
-			_, err := (Factory{
-				GenX:       &peergenx.Service{},
-				Memory:     &einoMemoryStore{},
-				MemoryKind: backend,
-			}).NewAgent(t.Context(), spec)
-			if err == nil || !strings.Contains(err.Error(), "does not support observe.facts") {
-				t.Fatalf("NewAgent(%q facts) error = %v", backend, err)
-			}
-		})
+	spec.Graph.Nodes = append(spec.Graph.Nodes, node)
+	spec.Graph.Edges = []apitypes.EinoEdge{
+		{From: "start", To: "recall"},
+		{From: "recall", To: "answer"},
+		{From: "answer", To: "end"},
 	}
 }
 

@@ -220,6 +220,9 @@
         "additionalProperties": false,
         "properties": {
           "agent_type": { "type": "string", "enum": ["eino"] },
+          "conversation": {
+            "$ref": "#/components/schemas/FlowcraftConversationParameters"
+          },
           "e2e": { "type": "boolean" }
         }
       },

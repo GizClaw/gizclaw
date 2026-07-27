@@ -204,8 +204,9 @@ func createChatRegistrationToken(t *testing.T, selected workspaceCase) string {
 	profileResp, err := api.PutRuntimeProfileWithResponse(ctx, profileName, adminhttp.RuntimeProfileUpsert{
 		Name: profileName,
 		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{
-			Models: ptr(runtimeBindings(modelResources)),
-			Voices: ptr(runtimeBindings(voiceResources)),
+			Memories: ptr(runtimeMemoryBindings(t)),
+			Models:   ptr(runtimeBindings(modelResources)),
+			Voices:   ptr(runtimeBindings(voiceResources)),
 		}, Workflows: apitypes.RuntimeProfileWorkflows{
 			System: apitypes.RuntimeProfileSystemWorkflows{
 				FriendChatroom: "chatroom-direct",
@@ -252,6 +253,23 @@ func runtimeBindings(resources map[string]string) map[string]apitypes.RuntimePro
 		}
 	}
 	return bindings
+}
+
+func runtimeMemoryBindings(t *testing.T) map[string]apitypes.RuntimeProfileMemoryBinding {
+	t.Helper()
+	connection := apitypes.RuntimeProfileMemoryConnection{}
+	if err := connection.FromRuntimeProfileFlowcraftBBHConnection(apitypes.RuntimeProfileFlowcraftBBHConnection{
+		Type: apitypes.RuntimeProfileFlowcraftBBHConnectionTypeFlowcraftBbh,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	return map[string]apitypes.RuntimeProfileMemoryBinding{
+		"default-memory": {
+			LayoutId:   "default-memory",
+			Driver:     apitypes.RuntimeProfileMemoryDriverFlowcraft,
+			Connection: connection,
+		},
+	}
 }
 
 func ptr[T any](value T) *T { return &value }

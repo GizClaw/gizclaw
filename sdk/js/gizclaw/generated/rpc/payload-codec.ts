@@ -394,11 +394,12 @@ export type DoubaoRealtimeWorkspaceParameters = {
 export type EinoWorkflowSpec = {
   "graph": Record<string, unknown>;
   "limits"?: Record<string, unknown>;
-  "memory"?: Record<string, unknown>;
+  "conversation"?: Record<string, unknown>;
 };
 export type EinoWorkspaceParameters = {
   "agent_type": EinoWorkspaceParametersAgentType;
   "e2e"?: boolean;
+  "conversation"?: FlowcraftConversationParameters;
 };
 export type Firmware = {
   "created_at": string;
@@ -3184,8 +3185,8 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "google.protobuf.Struct"
       },
       {
-        "name": "memory",
-        "number": 3,
+        "name": "conversation",
+        "number": 4,
         "optional": true,
         "type": "google.protobuf.Struct"
       }
@@ -3203,6 +3204,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 2,
         "optional": true,
         "type": "bool"
+      },
+      {
+        "name": "conversation",
+        "number": 3,
+        "optional": true,
+        "type": "FlowcraftConversationParameters"
       }
     ]
   },

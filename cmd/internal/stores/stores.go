@@ -14,18 +14,10 @@ import (
 	"strings"
 	"time"
 
-	flowrecall "github.com/GizClaw/flowcraft/memory/recall"
-	flowworkspace "github.com/GizClaw/flowcraft/memory/recall/store/workspace"
-	"github.com/GizClaw/flowcraft/memory/retrieval/bbh"
-	sdkworkspace "github.com/GizClaw/flowcraft/sdk/workspace"
 	"github.com/GizClaw/gizclaw-go/cmd/internal/storage"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/graph"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
-	memorystore "github.com/GizClaw/gizclaw-go/pkgs/store/memory"
-	memoryflowcraft "github.com/GizClaw/gizclaw-go/pkgs/store/memory/flowcraft"
-	memorymem0 "github.com/GizClaw/gizclaw-go/pkgs/store/memory/mem0"
-	memoryvolc "github.com/GizClaw/gizclaw-go/pkgs/store/memory/volc"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/vecstore"
@@ -39,7 +31,6 @@ const (
 	KindGraph       = "graph"
 	KindMetrics     = "metrics"
 	KindLog         = "log"
-	KindMemoryStore = "memory"
 	KindObjectStore = storage.KindObjectStore
 	KindSQL         = storage.KindSQL
 )
@@ -66,9 +57,6 @@ type Config struct {
 	ClickHouse *ClickHouseConfig         `yaml:"clickhouse"`
 	Memory     *struct{}                 `yaml:"memory"`
 	Volc       *logstore.VolcConfig      `yaml:"volc"`
-	Flowcraft  *FlowcraftConfig          `yaml:"flowcraft"`
-	Mem0       *Mem0Config               `yaml:"mem0"`
-	VolcMemory *VolcMemoryConfig         `yaml:"volc_memory"`
 }
 
 // ConfigError identifies the logical Store entry whose construction failed.
@@ -84,50 +72,7 @@ func (e *ConfigError) Error() string { return e.Err.Error() }
 func (e *ConfigError) Unwrap() error { return e.Err }
 
 // Options supplies runtime dependencies that cannot be represented in YAML.
-type Options struct {
-	FlowcraftModelLoader memoryflowcraft.ModelLoader
-	VolcResolver         memoryvolc.CredentialResolver
-	HTTPClient           memorymem0.HTTPClient
-}
-
-// FlowcraftConfig is the process-serializable projection for the embedded
-// provider. Runtime dependencies are constructed below and never decoded by
-// the provider package.
-type FlowcraftConfig struct {
-	Dir             string                       `yaml:"dir"`
-	ExtractionModel string                       `yaml:"extraction_model"`
-	EmbeddingModel  string                       `yaml:"embedding_model"`
-	RerankModel     string                       `yaml:"rerank_model"`
-	ExtractionMode  flowrecall.LLMExtractionMode `yaml:"extraction_mode"`
-	SystemPrompt    string                       `yaml:"system_prompt"`
-	SchemaName      string                       `yaml:"schema_name"`
-	Temperature     *float64                     `yaml:"temperature"`
-	StageTimeout    time.Duration                `yaml:"stage_timeout"`
-	GraphEnabled    bool                         `yaml:"graph_enabled"`
-	Async           FlowcraftAsyncConfig         `yaml:"async"`
-	BBH             bbh.Config                   `yaml:"bbh"`
-}
-
-type FlowcraftAsyncConfig struct {
-	Enabled bool `yaml:"enabled"`
-}
-
-type Mem0Config struct {
-	Endpoint     string            `yaml:"endpoint"`
-	APIKey       string            `yaml:"api_key"`
-	Flavor       memorymem0.Flavor `yaml:"flavor"`
-	PollInterval time.Duration     `yaml:"poll_interval"`
-}
-
-type VolcMemoryConfig struct {
-	Mem0            Mem0Config `yaml:"mem0"`
-	APIKeyID        string     `yaml:"api_key_id"`
-	MemoryProjectID string     `yaml:"memory_project_id"`
-	ControlEndpoint string     `yaml:"control_endpoint"`
-	Region          string     `yaml:"region"`
-	AccessKeyID     string     `yaml:"access_key_id"`
-	AccessKeySecret string     `yaml:"access_key_secret"`
-}
+type Options struct{}
 
 // ClickHouseConfig is the command-layer connection configuration projected
 // into either a metrics or log store driver according to Config.Kind.
@@ -147,7 +92,6 @@ type Stores struct {
 	graphs       map[string]graph.Graph
 	metrics      map[string]metrics.Store
 	logs         map[string]logstore.ImmutableStore
-	memories     map[string]memorystore.Store
 	sqls         map[string]*sqlx.DB
 	logicClosers []io.Closer
 }
@@ -203,9 +147,6 @@ func NewWithStorage(physical *storage.Storage, configs map[string]Config) (*Stor
 // NewWithStorageOptions creates logical stores with explicit remote and model
 // dependencies. The caller owns the physical storage lifecycle.
 func NewWithStorageOptions(ctx context.Context, physical *storage.Storage, configs map[string]Config, options Options) (*Stores, error) {
-	if err := validateMemoryProviderOwnership(configs); err != nil {
-		return nil, err
-	}
 	if physical == nil && needsPhysicalStorage(configs) {
 		return nil, fmt.Errorf("stores: storage registry is nil")
 	}
@@ -213,15 +154,14 @@ func NewWithStorageOptions(ctx context.Context, physical *storage.Storage, confi
 		return nil, err
 	}
 	s := &Stores{
-		storage:  physical,
-		kvs:      make(map[string]kv.Store),
-		vecs:     make(map[string]vecstore.Index),
-		objects:  make(map[string]objectstore.ObjectStore),
-		graphs:   make(map[string]graph.Graph),
-		metrics:  make(map[string]metrics.Store),
-		logs:     make(map[string]logstore.ImmutableStore),
-		memories: make(map[string]memorystore.Store),
-		sqls:     make(map[string]*sqlx.DB),
+		storage: physical,
+		kvs:     make(map[string]kv.Store),
+		vecs:    make(map[string]vecstore.Index),
+		objects: make(map[string]objectstore.ObjectStore),
+		graphs:  make(map[string]graph.Graph),
+		metrics: make(map[string]metrics.Store),
+		logs:    make(map[string]logstore.ImmutableStore),
+		sqls:    make(map[string]*sqlx.DB),
 	}
 	ok := false
 	defer func() {
@@ -279,15 +219,6 @@ func NewWithStorageOptions(ctx context.Context, physical *storage.Storage, confi
 			}
 			s.logs[name] = st
 			s.logicClosers = append(s.logicClosers, st)
-		case KindMemoryStore:
-			st, closer, err := s.newMemory(ctx, name, cfg, options)
-			if err != nil {
-				return nil, &ConfigError{Name: name, Err: err}
-			}
-			s.memories[name] = st
-			if closer != nil {
-				s.logicClosers = append(s.logicClosers, closer)
-			}
 		default:
 			return nil, &ConfigError{Name: name, Err: fmt.Errorf("stores: %q has unknown kind %q", name, cfg.Kind)}
 		}
@@ -304,22 +235,6 @@ func NewWithStorageOptions(ctx context.Context, physical *storage.Storage, confi
 
 	ok = true
 	return s, nil
-}
-
-func hasMemoryProviderConfig(cfg Config) bool {
-	return cfg.Flowcraft != nil || cfg.Mem0 != nil || cfg.VolcMemory != nil
-}
-
-func validateMemoryProviderOwnership(configs map[string]Config) error {
-	for name, cfg := range configs {
-		if cfg.Kind != KindMemoryStore && hasMemoryProviderConfig(cfg) {
-			return &ConfigError{
-				Name: name,
-				Err:  fmt.Errorf("stores: %q kind %q contains memory provider fields", name, cfg.Kind),
-			}
-		}
-	}
-	return nil
 }
 
 func validateObjectStorePrefixes(configs map[string]Config) error {
@@ -435,15 +350,6 @@ func (r *Stores) Log(name string) (logstore.ImmutableStore, error) {
 	s, ok := r.logs[name]
 	if !ok {
 		return nil, fmt.Errorf("stores: log %q not found", name)
-	}
-	return s, nil
-}
-
-// Memory returns the named provider-neutral memory store.
-func (r *Stores) Memory(name string) (memorystore.Store, error) {
-	s, ok := r.memories[name]
-	if !ok {
-		return nil, fmt.Errorf("stores: memory %q not found", name)
 	}
 	return s, nil
 }
@@ -623,206 +529,6 @@ func (r *Stores) newLog(name string, cfg Config) (logstore.ImmutableStore, error
 	return st, nil
 }
 
-func (r *Stores) newMemory(ctx context.Context, name string, cfg Config, options Options) (memorystore.Store, io.Closer, error) {
-	backendCount := 0
-	for _, configured := range []bool{cfg.Flowcraft != nil, cfg.Mem0 != nil, cfg.VolcMemory != nil} {
-		if configured {
-			backendCount++
-		}
-	}
-	if backendCount != 1 {
-		return nil, nil, fmt.Errorf("stores: memory %q requires exactly one of flowcraft, mem0, or volc_memory", name)
-	}
-	if cfg.Storage != "" || cfg.Prefix != "" || cfg.Backend != "" || cfg.Dir != "" || cfg.Store != "" || cfg.Dim != 0 || cfg.DSN != "" || cfg.Prometheus != nil || cfg.ClickHouse != nil || cfg.Memory != nil || cfg.Volc != nil {
-		return nil, nil, fmt.Errorf("stores: memory %q contains fields owned by another store kind", name)
-	}
-	if cfg.Flowcraft != nil {
-		config := *cfg.Flowcraft
-		var err error
-		config.Dir, err = expandFlowcraftDir(config.Dir)
-		if err != nil {
-			return nil, nil, fmt.Errorf("stores: memory %q flowcraft: %w", name, err)
-		}
-		expandFlowcraftConfig(&config)
-		store, closer, err := openFlowcraftMemory(ctx, config, options.FlowcraftModelLoader)
-		if err != nil {
-			return nil, nil, fmt.Errorf("stores: memory %q flowcraft: %w", name, err)
-		}
-		return store, closer, nil
-	}
-	if cfg.Mem0 != nil {
-		config := *cfg.Mem0
-		expandMem0Config(&config)
-		store, err := memorymem0.New(memorymem0.Config{
-			Endpoint: config.Endpoint, APIKey: config.APIKey, Flavor: config.Flavor,
-			PollInterval: config.PollInterval, HTTPClient: options.HTTPClient,
-		})
-		if err != nil {
-			return nil, nil, fmt.Errorf("stores: memory %q mem0: %w", name, err)
-		}
-		return store, nil, nil
-	}
-	config := *cfg.VolcMemory
-	expandVolcMemoryConfig(&config)
-	store, err := memoryvolc.Open(ctx, memoryvolc.Config{
-		Mem0: memorymem0.Config{
-			Endpoint: config.Mem0.Endpoint, APIKey: config.Mem0.APIKey, Flavor: config.Mem0.Flavor,
-			PollInterval: config.Mem0.PollInterval, HTTPClient: options.HTTPClient,
-		},
-		APIKeyID: config.APIKeyID, MemoryProjectID: config.MemoryProjectID,
-		ControlEndpoint: config.ControlEndpoint, Region: config.Region,
-		AccessKeyID: config.AccessKeyID, AccessKeySecret: config.AccessKeySecret,
-		Resolver: options.VolcResolver,
-	})
-	if err != nil {
-		return nil, nil, fmt.Errorf("stores: memory %q volc_memory: %w", name, err)
-	}
-	return store, nil, nil
-}
-
-func openFlowcraftMemory(ctx context.Context, config FlowcraftConfig, loader memoryflowcraft.ModelLoader) (*memoryflowcraft.Store, io.Closer, error) {
-	runtimeConfig := memoryflowcraft.Config{
-		Loader: loader,
-		Extraction: memoryflowcraft.ExtractionConfig{
-			Model: config.ExtractionModel, Mode: config.ExtractionMode,
-			SystemPrompt: config.SystemPrompt, SchemaName: config.SchemaName,
-			Temperature: config.Temperature, StageTimeout: config.StageTimeout,
-		},
-		Embedding:    memoryflowcraft.EmbeddingConfig{Model: config.EmbeddingModel},
-		Rerank:       memoryflowcraft.RerankConfig{Model: config.RerankModel},
-		GraphEnabled: config.GraphEnabled,
-	}
-	owned := make([]io.Closer, 0, 2)
-	closeOwned := func() error {
-		var err error
-		for i := len(owned) - 1; i >= 0; i-- {
-			err = errors.Join(err, owned[i].Close())
-		}
-		return err
-	}
-	if config.Dir != "" {
-		// Keep canonical recall state at the configured root for compatibility
-		// with stores created before retrieval received its own workspace.
-		metadataWorkspace, err := sdkworkspace.NewLocalWorkspace(config.Dir)
-		if err != nil {
-			return nil, nil, err
-		}
-		backend, err := flowworkspace.New(metadataWorkspace)
-		if err != nil {
-			return nil, nil, err
-		}
-		owned = append(owned, backend)
-		runtimeConfig.TemporalStore = backend.TemporalStore()
-		runtimeConfig.EvidenceStore = backend.EvidenceStore()
-		runtimeConfig.SideEffectOutbox = backend.SideEffectOutbox()
-		if config.Async.Enabled {
-			runtimeConfig.AsyncQueue = backend.AsyncSemanticQueue()
-		}
-		retrievalWorkspace, err := sdkworkspace.NewLocalWorkspace(filepath.Join(config.Dir, "retrieval"))
-		if err != nil {
-			return nil, nil, errors.Join(err, closeOwned())
-		}
-		index, err := bbh.New(retrievalWorkspace, bbh.WithConfig(config.BBH))
-		if err != nil {
-			return nil, nil, errors.Join(err, closeOwned())
-		}
-		owned = append(owned, index)
-		runtimeConfig.RetrievalIndex = index
-	} else if config.Async.Enabled {
-		runtimeConfig.AsyncQueue = flowrecall.NewInMemoryAsyncSemanticQueue()
-	}
-	store, err := memoryflowcraft.New(ctx, runtimeConfig)
-	if err != nil {
-		return nil, nil, errors.Join(err, closeOwned())
-	}
-	closers := []io.Closer{store}
-	for i := len(owned) - 1; i >= 0; i-- {
-		closers = append(closers, owned[i])
-	}
-	return store, multiCloser(closers), nil
-}
-
-type multiCloser []io.Closer
-
-func (closers multiCloser) Close() error {
-	var err error
-	for _, closer := range closers {
-		if closer != nil {
-			err = errors.Join(err, closer.Close())
-		}
-	}
-	return err
-}
-
-func expandFlowcraftConfig(config *FlowcraftConfig) {
-	config.ExtractionModel = os.ExpandEnv(config.ExtractionModel)
-	config.EmbeddingModel = os.ExpandEnv(config.EmbeddingModel)
-	config.RerankModel = os.ExpandEnv(config.RerankModel)
-	config.ExtractionMode = flowrecall.LLMExtractionMode(os.ExpandEnv(string(config.ExtractionMode)))
-	config.SystemPrompt = os.ExpandEnv(config.SystemPrompt)
-	config.SchemaName = os.ExpandEnv(config.SchemaName)
-	config.BBH.Bleve.Analyzer = os.ExpandEnv(config.BBH.Bleve.Analyzer)
-	config.BBH.Bleve.Gojieba.Mode = os.ExpandEnv(config.BBH.Bleve.Gojieba.Mode)
-	config.BBH.Bleve.Gojieba.DictPath = os.ExpandEnv(config.BBH.Bleve.Gojieba.DictPath)
-	config.BBH.Bleve.Gojieba.HMMPath = os.ExpandEnv(config.BBH.Bleve.Gojieba.HMMPath)
-	config.BBH.Bleve.Gojieba.UserDictPath = os.ExpandEnv(config.BBH.Bleve.Gojieba.UserDictPath)
-	config.BBH.Bleve.Gojieba.IDFPath = os.ExpandEnv(config.BBH.Bleve.Gojieba.IDFPath)
-	config.BBH.Bleve.Gojieba.StopWordsPath = os.ExpandEnv(config.BBH.Bleve.Gojieba.StopWordsPath)
-}
-
-func expandFlowcraftDir(dir string) (string, error) {
-	if strings.TrimSpace(dir) == "" {
-		return dir, nil
-	}
-	missing := make(map[string]struct{})
-	empty := make(map[string]struct{})
-	expanded := os.Expand(dir, func(name string) string {
-		value, ok := os.LookupEnv(name)
-		if !ok {
-			missing[name] = struct{}{}
-		} else if value == "" {
-			empty[name] = struct{}{}
-		}
-		return value
-	})
-	if len(missing) > 0 {
-		names := make([]string, 0, len(missing))
-		for name := range missing {
-			names = append(names, name)
-		}
-		slices.Sort(names)
-		return "", fmt.Errorf("%w: flowcraft dir references unset environment variables: %s", memorystore.ErrInvalidInput, strings.Join(names, ", "))
-	}
-	if len(empty) > 0 {
-		names := make([]string, 0, len(empty))
-		for name := range empty {
-			names = append(names, name)
-		}
-		slices.Sort(names)
-		return "", fmt.Errorf("%w: flowcraft dir references empty environment variables: %s", memorystore.ErrInvalidInput, strings.Join(names, ", "))
-	}
-	if strings.TrimSpace(expanded) == "" {
-		return "", fmt.Errorf("%w: configured flowcraft dir expands to an empty path", memorystore.ErrInvalidInput)
-	}
-	return expanded, nil
-}
-
-func expandMem0Config(config *Mem0Config) {
-	config.Endpoint = os.ExpandEnv(config.Endpoint)
-	config.APIKey = os.ExpandEnv(config.APIKey)
-	config.Flavor = memorymem0.Flavor(os.ExpandEnv(string(config.Flavor)))
-}
-
-func expandVolcMemoryConfig(config *VolcMemoryConfig) {
-	expandMem0Config(&config.Mem0)
-	config.APIKeyID = os.ExpandEnv(config.APIKeyID)
-	config.MemoryProjectID = os.ExpandEnv(config.MemoryProjectID)
-	config.ControlEndpoint = os.ExpandEnv(config.ControlEndpoint)
-	config.Region = os.ExpandEnv(config.Region)
-	config.AccessKeyID = os.ExpandEnv(config.AccessKeyID)
-	config.AccessKeySecret = os.ExpandEnv(config.AccessKeySecret)
-}
-
 func (r *Stores) newSQL(name string, cfg Config) (*sqlx.DB, error) {
 	if cfg.Storage == "" {
 		return nil, fmt.Errorf("stores: sql %q requires storage reference", name)
@@ -866,7 +572,7 @@ func legacyStorageConfigs(configs map[string]Config) map[string]storage.Config {
 	}
 	out := make(map[string]storage.Config, len(configs))
 	for name, cfg := range configs {
-		if cfg.Kind == KindGraph || cfg.Kind == KindMetrics || cfg.Kind == KindLog || cfg.Kind == KindMemoryStore {
+		if cfg.Kind == KindGraph || cfg.Kind == KindMetrics || cfg.Kind == KindLog {
 			continue
 		}
 		physical := storage.Config{
@@ -892,7 +598,7 @@ func legacyStoreConfigs(configs map[string]Config) map[string]Config {
 	}
 	out := make(map[string]Config, len(configs))
 	for name, cfg := range configs {
-		if cfg.Kind != KindGraph && cfg.Kind != KindMetrics && cfg.Kind != KindLog && cfg.Kind != KindMemoryStore && cfg.Storage == "" {
+		if cfg.Kind != KindGraph && cfg.Kind != KindMetrics && cfg.Kind != KindLog && cfg.Storage == "" {
 			cfg.Storage = name
 		}
 		out[name] = cfg
@@ -903,7 +609,7 @@ func legacyStoreConfigs(configs map[string]Config) map[string]Config {
 func needsPhysicalStorage(configs map[string]Config) bool {
 	for _, cfg := range configs {
 		switch cfg.Kind {
-		case KindGraph, KindMetrics, KindLog, KindMemoryStore:
+		case KindGraph, KindMetrics, KindLog:
 		default:
 			return true
 		}

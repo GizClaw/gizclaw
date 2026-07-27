@@ -50,6 +50,12 @@ spec:
         i18n:
           en: {display_name: Speech Recognition}
           zh-CN: {display_name: 语音识别}
+    memories:
+      pet-memory:
+        layout_id: pet-memory
+        driver: flowcraft
+        connection:
+          type: flowcraft_bbh
     voices:
       cute-pet:
         resource_id: volc-tenant:volc-main:zh_male_naiqimengwa_mars_bigtts
@@ -92,6 +98,10 @@ spec:
 可选 Workflow alias 位于 `workflows.collections.<collection>.<alias>`。Alias ID 在所有 Collection 之间全局唯一；客户端拥有固定的 Collection 菜单、顺序、图标与 Collection 翻译。RuntimeProfile 只提供动态 Workflow 成员，以及 alias 自己的 `en`、`zh-CN` 显示文本，不包含顶层 locale 或 Collection 展示配置。
 
 `resources` 下的 map 把环境 alias 绑定到管理员创建的真实资源 ID。Model alias 表示 `chat`、`extraction`、`embedding`、`asr`、`realtime`、`translation` 这类稳定用途，不包含 provider 或真实 Model 名。Model 和 Voice alias 是互相独立的环境变量，不属于 Workflow Collection。Workflow spec 和 Workspace 参数保存符号 alias；每次 Workspace reload 都从当前 RuntimeProfile 重新解析。因此同一个 App 或固件可以切换生产、调试 RuntimeProfile，而无需重新构建。
+
+`resources.memories` 是产品拥有的长期 Memory 部署 binding。每个 alias 选择一个 Admin `MemoryLayout`、一个 driver 和唯一的 typed connection。封闭的 connection variant 包括：由 Server Workspace root 管理的 `flowcraft_bbh`、显式目录 `flowcraft_object_store`、DSN 形式的 `flowcraft_postgresql`、带 endpoint/API key/Project ID 的 `mem0`，以及带 endpoint/API key/Memory Project ID 的 `volc_mem0`。外部连接值直接保存在这个仅 Admin 可读的 RuntimeProfile 中，不引用 Credential，也不会通过 Peer API projection 暴露。Driver 必须与 connection type 匹配；Flowcraft Layout 使用的 model alias 必须存在于同一 RuntimeProfile。
+
+这个 binding alias 表示 Workflow 标量 `memory` 字段选择的 named physical source。在相同 Workspace、driver 与 physical binding 下，修改 extraction policy、Graph Recall/Observe policy、prompt 或 `top_k` 不会创建新的 canonical data namespace；修改 driver 或 connection 可以切换到另一个数据源，但不会自动迁移或删除旧数据。
 
 每个 `gameplay.adoption.pool` 条目只引用一个 `pet_defs` alias；PetDef 的本地化名称也来自这个 RuntimeProfile binding，不在 PetDef 中重复保存 i18n。PetDef 只保存宠物角色/说话风格、PIXA 元数据和固定行为到动画 clip 的绑定。Pet Workflow 使用的 Model、Voice 和 Tool 都由真实 Workflow spec 中的 alias 声明，并从该 system Workspace owner 的 RuntimeProfile 解析。
 

@@ -25,8 +25,9 @@ func TestReadRaidsArchiveRejectsUnsafeAndAcceptsPackageFiles(t *testing.T) {
 	archive := testRaidsArchive(t, []tar.Header{
 		{Name: "raids-0.2/", Typeflag: tar.TypeDir},
 		{Name: "raids-0.2/credentials/example.yaml", Mode: 0o600, Size: 4},
+		{Name: "raids-0.2/memory-layouts/default.yaml", Mode: 0o600, Size: 4},
 		{Name: "raids-0.2/.github/workflows/validate.yml", Mode: 0o600, Size: 4},
-	}, [][]byte{nil, []byte("test"), []byte("test")})
+	}, [][]byte{nil, []byte("test"), []byte("test"), []byte("test")})
 	files, err := readRaidsArchive(archive)
 	if err != nil {
 		t.Fatal(err)
@@ -36,6 +37,9 @@ func TestReadRaidsArchiveRejectsUnsafeAndAcceptsPackageFiles(t *testing.T) {
 	}
 	if got := string(files[".github/workflows/validate.yml"]); got != "test" {
 		t.Fatalf("workflow metadata = %q", got)
+	}
+	if got := string(files["memory-layouts/default.yaml"]); got != "test" {
+		t.Fatalf("MemoryLayout data = %q", got)
 	}
 	unsafe := testRaidsArchive(t, []tar.Header{{Name: "raids-0.2/../escape.yaml", Mode: 0o600, Size: 4}}, [][]byte{[]byte("test")})
 	if _, err := readRaidsArchive(unsafe); err == nil {
@@ -56,6 +60,7 @@ func TestSelectRaidsDependenciesIncludesOnlyProfileClosure(t *testing.T) {
 	models := map[string]apitypes.RuntimeProfileBinding{"chat": {ResourceId: "chat-model"}}
 	voices := map[string]apitypes.RuntimeProfileBinding{"narrator": {ResourceId: "story-voice"}}
 	petDefs := map[string]apitypes.RuntimeProfileBinding{"pet": {ResourceId: "petdef-codex"}}
+	memories := map[string]apitypes.RuntimeProfileMemoryBinding{"memory": testFlowcraftBBHBinding(t, "pet-memory")}
 	profile := apitypes.RuntimeProfileResource{Spec: apitypes.RuntimeProfileSpec{
 		Workflows: apitypes.RuntimeProfileWorkflows{Collections: apitypes.RuntimeProfileWorkflowCollections{
 			"stories": {"journey": {ResourceId: "journey"}},
@@ -64,21 +69,22 @@ func TestSelectRaidsDependenciesIncludesOnlyProfileClosure(t *testing.T) {
 			GroupChatroom:  "chatroom",
 			Pet:            "chatroom",
 		}},
-		Resources: apitypes.RuntimeProfileResources{Models: &models, Voices: &voices, PetDefs: &petDefs},
+		Resources: apitypes.RuntimeProfileResources{Models: &models, Voices: &voices, PetDefs: &petDefs, Memories: &memories},
 	}}
 	index := map[string]map[string]raidsCandidate{
-		"Workflow":   {"journey": {kind: "Workflow", name: "journey"}, "chatroom": {kind: "Workflow", name: "chatroom"}},
-		"Model":      {"chat-model": {kind: "Model", name: "chat-model", providerKind: "volc-tenant", providerName: "volc"}},
-		"Voice":      {"story-voice": {kind: "Voice", name: "story-voice", providerKind: "volc-tenant", providerName: "volc"}},
-		"PetDef":     {"petdef-codex": {kind: "PetDef", name: "petdef-codex"}},
-		"VolcTenant": {"volc": {kind: "VolcTenant", name: "volc", credentialName: "volc-credential"}},
-		"Credential": {"volc-credential": {kind: "Credential", name: "volc-credential"}},
+		"Workflow":     {"journey": {kind: "Workflow", name: "journey"}, "chatroom": {kind: "Workflow", name: "chatroom"}},
+		"Model":        {"chat-model": {kind: "Model", name: "chat-model", providerKind: "volc-tenant", providerName: "volc"}},
+		"Voice":        {"story-voice": {kind: "Voice", name: "story-voice", providerKind: "volc-tenant", providerName: "volc"}},
+		"PetDef":       {"petdef-codex": {kind: "PetDef", name: "petdef-codex"}},
+		"MemoryLayout": {"pet-memory": {kind: "MemoryLayout", name: "pet-memory"}},
+		"VolcTenant":   {"volc": {kind: "VolcTenant", name: "volc", credentialName: "volc-credential"}},
+		"Credential":   {"volc-credential": {kind: "Credential", name: "volc-credential"}},
 	}
 	selected, err := selectRaidsDependencies(profile, index)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(selected) != 7 {
+	if len(selected) != 8 {
 		t.Fatalf("selection = %#v", selected)
 	}
 	if _, exists := selected["Credential/volc-credential"]; !exists {
@@ -303,7 +309,7 @@ func TestRaidsResolverRejectsSymlinkedCacheDirectory(t *testing.T) {
 	}
 }
 
-func TestWorkflowAliasesIncludesFlowcraftGraphAndMemoryModels(t *testing.T) {
+func TestWorkflowAliasesIncludesFlattenedFlowcraftGraphAndVoiceModels(t *testing.T) {
 	models, voices, err := workflowAliases([]byte(`
 apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
@@ -311,13 +317,9 @@ metadata: {name: flowcraft-example}
 spec:
   driver: flowcraft
   flowcraft:
-    agent:
-      graph:
-        nodes:
-          - config: {model: chat}
-          - config: {model: extraction}
-    memory:
-      extract: {model: extraction}
+    graph:
+      nodes:
+        - config: {model: chat}
     voice_adapter:
       asr_model: asr
       default_voice: narrator
@@ -325,7 +327,7 @@ spec:
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := models; len(got) != 3 || got[0] != "asr" || got[1] != "chat" || got[2] != "extraction" {
+	if got := models; len(got) != 2 || got[0] != "asr" || got[1] != "chat" {
 		t.Fatalf("models = %v", got)
 	}
 	if got := voices; len(got) != 1 || got[0] != "narrator" {
@@ -357,6 +359,46 @@ func TestWorkflowAliasesIncludesRealtimeVoices(t *testing.T) {
 	}
 }
 
+func TestValidateMemoryLayoutAliasesAcceptsPortableFlowcraftBBH(t *testing.T) {
+	models := map[string]apitypes.RuntimeProfileBinding{
+		"extraction": {ResourceId: "extraction-model"},
+		"embedding":  {ResourceId: "embedding-model"},
+		"rerank":     {ResourceId: "rerank-model"},
+	}
+	memories := map[string]apitypes.RuntimeProfileMemoryBinding{
+		"pet-memory": testFlowcraftBBHBinding(t, "pet-memory"),
+	}
+	profile := apitypes.RuntimeProfileResource{Spec: apitypes.RuntimeProfileSpec{
+		Resources: apitypes.RuntimeProfileResources{Models: &models, Memories: &memories},
+	}}
+	layout := []byte(`
+apiVersion: gizclaw.admin/v1alpha1
+kind: MemoryLayout
+metadata: {name: pet-memory}
+spec:
+  flowcraft:
+    extraction: {model: extraction, mode: two_pass}
+    embedding: {model: embedding}
+    rerank: {model: rerank}
+    bbh: {search_overfetch: 2}
+    lanes: [{name: facts, kind: note}]
+    write: {mode: sync, tier: general}
+  mem0: {custom_instructions: "Keep pet facts."}
+  volc_mem0:
+    strategies: [{name: pet, type: user_preference, custom_instructions: "Keep pet facts."}]
+`)
+	selected := map[string]raidsCandidate{
+		"MemoryLayout/pet-memory": {kind: "MemoryLayout", name: "pet-memory", data: layout},
+	}
+	if err := validateMemoryLayoutAliases(profile, selected); err != nil {
+		t.Fatal(err)
+	}
+	delete(models, "embedding")
+	if err := validateMemoryLayoutAliases(profile, selected); err == nil || !strings.Contains(err.Error(), `missing model alias "embedding"`) {
+		t.Fatalf("validateMemoryLayoutAliases() error = %v", err)
+	}
+}
+
 func TestWorkflowAliasesIncludesChatroomAndNestedPetAliases(t *testing.T) {
 	t.Run("chatroom", func(t *testing.T) {
 		models, voices, err := workflowAliases([]byte(`
@@ -379,19 +421,16 @@ spec:
   pet:
     driver: flowcraft
     flowcraft:
-      agent:
-        graph:
-          nodes:
-            - config: {model: pet-chat}
-      memory:
-        extract: {model: pet-extract}
+      graph:
+        nodes:
+          - config: {model: pet-chat}
       voice_adapter:
         default_voice: cute-pet
 `))
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(models) != 2 || models[0] != "pet-chat" || models[1] != "pet-extract" {
+		if len(models) != 1 || models[0] != "pet-chat" {
 			t.Fatalf("models = %v", models)
 		}
 		if len(voices) != 1 || voices[0] != "cute-pet" {
@@ -421,6 +460,21 @@ func testRuntimeProfileFS() fstest.MapFS {
 		"resources/07-runtime-profiles/00-default.yaml": {
 			Data: []byte("apiVersion: gizclaw.admin/v1alpha1\nkind: RuntimeProfile\nmetadata:\n  name: default\nspec:\n  workflows:\n    system: {friend_chatroom: chatroom, group_chatroom: chatroom, pet: chatroom}\n    collections: {}\n  resources: {}\n"),
 		},
+	}
+}
+
+func testFlowcraftBBHBinding(t *testing.T, layoutID string) apitypes.RuntimeProfileMemoryBinding {
+	t.Helper()
+	connection := apitypes.RuntimeProfileMemoryConnection{}
+	if err := connection.FromRuntimeProfileFlowcraftBBHConnection(apitypes.RuntimeProfileFlowcraftBBHConnection{
+		Type: apitypes.RuntimeProfileFlowcraftBBHConnectionTypeFlowcraftBbh,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	return apitypes.RuntimeProfileMemoryBinding{
+		LayoutId:   layoutID,
+		Driver:     apitypes.RuntimeProfileMemoryDriverFlowcraft,
+		Connection: connection,
 	}
 }
 

@@ -1,0 +1,284 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Memory Layout Type",
+    "description": "Portable provider-specific long-term-memory policy.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "MemoryLayout": {
+        "type": "object",
+        "required": ["name", "spec"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 63,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+            "description": "Stable MemoryLayout resource ID."
+          },
+          "spec": {
+            "$ref": "#/components/schemas/MemoryLayoutSpec"
+          }
+        }
+      },
+      "MemoryLayoutSpec": {
+        "type": "object",
+        "required": ["flowcraft", "mem0", "volc_mem0"],
+        "additionalProperties": false,
+        "properties": {
+          "flowcraft": {
+            "$ref": "#/components/schemas/FlowcraftMemoryLayoutPolicy"
+          },
+          "mem0": {
+            "$ref": "#/components/schemas/Mem0MemoryLayoutPolicy"
+          },
+          "volc_mem0": {
+            "$ref": "#/components/schemas/VolcMem0MemoryLayoutPolicy"
+          }
+        }
+      },
+      "FlowcraftMemoryLayoutPolicy": {
+        "type": "object",
+        "required": ["extraction", "bbh", "lanes", "write"],
+        "additionalProperties": false,
+        "properties": {
+          "extraction": {
+            "$ref": "#/components/schemas/FlowcraftMemoryExtractionPolicy"
+          },
+          "embedding": {
+            "$ref": "#/components/schemas/FlowcraftMemoryModelPolicy"
+          },
+          "rerank": {
+            "$ref": "#/components/schemas/FlowcraftMemoryModelPolicy"
+          },
+          "bbh": {
+            "$ref": "#/components/schemas/FlowcraftMemoryBBHPolicy"
+          },
+          "lanes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FlowcraftMemoryLanePolicy"
+            }
+          },
+          "graph_enabled": {
+            "type": "boolean"
+          },
+          "write": {
+            "$ref": "#/components/schemas/FlowcraftMemoryWritePolicy"
+          }
+        }
+      },
+      "FlowcraftMemoryExtractionPolicy": {
+        "type": "object",
+        "required": ["model", "mode"],
+        "additionalProperties": false,
+        "properties": {
+          "model": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 63,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "mode": {
+            "type": "string",
+            "enum": ["single_pass", "two_pass"]
+          },
+          "system_prompt": {
+            "type": "string"
+          },
+          "schema_name": {
+            "type": "string"
+          },
+          "temperature": {
+            "type": "number"
+          },
+          "stage_timeout": {
+            "type": "string"
+          }
+        }
+      },
+      "FlowcraftMemoryModelPolicy": {
+        "type": "object",
+        "required": ["model"],
+        "additionalProperties": false,
+        "properties": {
+          "model": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 63,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          }
+        }
+      },
+      "FlowcraftMemoryBBHPolicy": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "search_overfetch": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "bleve": {
+            "$ref": "#/components/schemas/FlowcraftMemoryBlevePolicy"
+          },
+          "hnsw": {
+            "$ref": "#/components/schemas/FlowcraftMemoryHNSWPolicy"
+          }
+        }
+      },
+      "FlowcraftMemoryBlevePolicy": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "analyzer": {
+            "type": "string",
+            "enum": ["standard", "simple", "keyword", "whitespace", "gojieba"]
+          },
+          "gojieba": {
+            "$ref": "#/components/schemas/FlowcraftMemoryGojiebaPolicy"
+          }
+        }
+      },
+      "FlowcraftMemoryGojiebaPolicy": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": ["search", "full", "accurate"]
+          },
+          "hmm": {
+            "type": "boolean"
+          },
+          "dict_path": {
+            "type": "string"
+          },
+          "hmm_path": {
+            "type": "string"
+          },
+          "user_dict_path": {
+            "type": "string"
+          },
+          "idf_path": {
+            "type": "string"
+          },
+          "stop_words_path": {
+            "type": "string"
+          }
+        }
+      },
+      "FlowcraftMemoryHNSWPolicy": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "flush_interval": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "FlowcraftMemoryLanePolicy": {
+        "type": "object",
+        "required": ["name", "kind"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 63
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["event", "state", "preference", "procedure", "relation", "plan", "note", "episode"]
+          },
+          "description": {
+            "type": "string"
+          },
+          "extract": {
+            "type": "string"
+          },
+          "recall": {
+            "type": "string"
+          }
+        }
+      },
+      "FlowcraftMemoryWritePolicy": {
+        "type": "object",
+        "required": ["mode", "tier"],
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": ["sync", "async_semantic"]
+          },
+          "tier": {
+            "type": "string",
+            "enum": ["core", "general", "data", "storage"]
+          }
+        }
+      },
+      "Mem0MemoryLayoutPolicy": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "custom_instructions": {
+            "type": "string"
+          },
+          "custom_categories": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "multilingual": {
+            "type": "boolean"
+          },
+          "decay": {
+            "type": "boolean"
+          }
+        }
+      },
+      "VolcMem0MemoryLayoutPolicy": {
+        "type": "object",
+        "required": ["strategies"],
+        "additionalProperties": false,
+        "properties": {
+          "strategies": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 50,
+            "items": {
+              "$ref": "#/components/schemas/VolcMem0Strategy"
+            }
+          }
+        }
+      },
+      "VolcMem0Strategy": {
+        "type": "object",
+        "required": ["name", "type"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 63
+          },
+          "type": {
+            "type": "string",
+            "enum": ["summary", "semantic", "user_preference"]
+          },
+          "custom_instructions": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        }
+      }
+    }
+  }
+}

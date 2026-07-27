@@ -66,6 +66,7 @@ type modelConfig struct {
 type workflowConfig struct {
 	Name                 string                                   `json:"name"`
 	Description          string                                   `json:"description,omitempty"`
+	Memory               string                                   `json:"memory,omitempty"`
 	Model                string                                   `json:"model"`
 	Instructions         string                                   `json:"instructions,omitempty"`
 	Audio                *rpcapi.DoubaoRealtimeAudio              `json:"audio,omitempty"`

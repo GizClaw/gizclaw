@@ -16,10 +16,6 @@ agent_host:
   flowcraft:
     state_store: flowcraft-state
     history_store: flowcraft-history
-    memory_objects_store: flowcraft-memory-objects
-    memory_store: agent-memory
-  eino:
-    memory_store: agent-memory
 ```
 
 The references work with both the layered `storage` plus `stores` layout and the supported one-layer `stores` layout. Backend configuration remains on the referenced Store; `agent_host` never contains a directory, DSN, credential, prefix, scope, or inline backend.
@@ -29,17 +25,12 @@ The references work with both the layered `storage` plus `stores` layout and the
 | `agent_host.runtime_store` | `objectstore.ObjectStore` | filesystem ObjectStore |
 | `agent_host.flowcraft.state_store` | `kv.Store` | Memory or Badger KV |
 | `agent_host.flowcraft.history_store` | `logstore.MutableStore` | ClickHouse LogStore; immutable Volc LogStore is rejected |
-| `agent_host.flowcraft.memory_objects_store` | `objectstore.ObjectStore` | filesystem ObjectStore |
-| `agent_host.flowcraft.memory_store` | `memory.Store` | Flowcraft, Mem0, or Volc Memory |
-| `agent_host.eino.memory_store` | `memory.Store` | Flowcraft, Mem0, or Volc Memory |
 
 `agent_host` is the only source of these bindings. Omitting the whole block or a nested reference disables that optional capability; Store names have no reserved binding semantics. An unknown name, wrong Store kind, immutable History Store, unknown field, or empty reference fails Server construction instead of falling back.
 
-For Flowcraft and Pet, a configured `memory_store` takes precedence over the embedded Flowcraft provider backed by `memory_objects_store`. Embedded-only extraction, embedding, rerank, graph, layout, and tier options are rejected when the external Store is selected. Eino Memory is optional when its Workflow has no Memory policy and requires `agent_host.eino.memory_store` when the policy is present.
+`agent_host.flowcraft.memory_store`, `agent_host.eino.memory_store`, `memory_objects_store`, and `stores.kind: memory` are not valid Server Config. The strict parser rejects those legacy fields. Admin `MemoryLayout` owns Memory policy, while RuntimeProfile `resources.memories` owns concrete connections. The Server provides only the MemoryLayout KV store and Server Workspace root; `flowcraft_bbh` constructs managed persistence under that root. See [Memory Store](/en/developing/stores/memory) for the complete contract.
 
-The same logical Memory Store may be bound to both factories. Each Workspace Agent borrows an App-scoped view whose `AppID` is the Workspace name. The view does not derive `UserID` from an owner or Peer key and does not rewrite Agent-supplied User, Agent, or Run dimensions. Memory runtime status reports the configured provider kind rather than inspecting the Store's concrete Go type.
-
-Changing a reference requires a process restart. GizClaw does not migrate, merge, copy, or delete data when a binding changes. Development Memory data is recreated after incompatible Scope or locator changes. The Store Registry owns every shared backend and closes it once during Server shutdown; Workspace reload and Agent teardown close only per-Agent adapters.
+Each Workspace Agent generation resolves its memory alias from the current RuntimeProfile snapshot. Construction failure fails Agent initialization or reload explicitly. Server shutdown closes the shared Memory registry. Workspace reload and release of the final Agent reference close that generation's lease without migrating, merging, copying, or deleting durable data.
 
 ## Core structure and main function
 

@@ -12,54 +12,32 @@
   "workflow": {
     "description": "Flowcraft voice adapter workflow",
     "flowcraft": {
-      "agent": {
-        "graph": {
-          "edges": [
-            {
-              "from": "answer",
-              "to": "__end__"
-            }
-          ],
-          "entry": "answer",
-          "name": "Assistant",
-          "nodes": [
-            {
-              "config": {
-                "max_tokens": 2048,
-                "model": "llm",
-                "system_prompt": "你是一个简短、自然的中文语音聊天助手。直接回答用户，不要解释测试流程。"
-              },
-              "id": "answer",
-              "publish": true,
-              "type": "llm"
-            }
-          ]
-        },
-        "id": "voice-adapter",
-        "max_iterations": 4,
-        "name": "Voice Adapter"
-      },
       "conversation": {
         "starts": "peer"
       },
-      "memory": {
-        "embedding": {
-          "enabled": false
-        },
-        "enabled": true,
-        "extract": {
-          "enabled": true,
-          "mode": "two_pass",
-          "model": "llm",
-          "schema_name": "flowcraft_voice_memory",
-          "temperature": 0
-        },
-        "write": {
-          "mode": "async_semantic",
-          "save_conversation": true,
-          "tier": "general"
-        }
-      }
+      "graph": {
+        "edges": [
+          {
+            "from": "answer",
+            "to": "__end__"
+          }
+        ],
+        "entry": "answer",
+        "name": "Assistant",
+        "nodes": [
+          {
+            "config": {
+              "max_tokens": 2048,
+              "model": "llm",
+              "system_prompt": "你是一个简短、自然的中文语音聊天助手。直接回答用户，不要解释测试流程。"
+            },
+            "id": "answer",
+            "publish": true,
+            "type": "llm"
+          }
+        ]
+      },
+      "max_iterations": 4
     },
     "name": "flowcraft-voice-assistant",
     "parameters": {

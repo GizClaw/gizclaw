@@ -467,6 +467,7 @@ func workflowSpec(cfg config) rpcapi.WorkflowSpec {
 		return rpcapi.WorkflowSpec{
 			Driver:    rpcapi.WorkflowDriver("flowcraft"),
 			Flowcraft: (*rpcapi.FlowcraftWorkflowSpec)(&flowcraft),
+			Memory:    optionalString(cfg.Workflow.Memory),
 		}
 	}
 	if cfg.isASTTranslateAgent() {
@@ -509,6 +510,7 @@ func workflowSpec(cfg config) rpcapi.WorkflowSpec {
 		return rpcapi.WorkflowSpec{
 			Driver: rpcapi.WorkflowDriverEino,
 			Eino:   cfg.Workflow.Eino,
+			Memory: optionalString(cfg.Workflow.Memory),
 		}
 	}
 	return rpcapi.WorkflowSpec{

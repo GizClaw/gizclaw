@@ -639,6 +639,27 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedName string) (a
 		}
 		*resourceMap.values = normalized
 	}
+	if spec.Resources.Memories != nil {
+		normalized := make(map[string]apitypes.RuntimeProfileMemoryBinding, len(*spec.Resources.Memories))
+		for rawAlias, binding := range *spec.Resources.Memories {
+			alias := strings.TrimSpace(rawAlias)
+			if err := ValidateAlias("memory", alias); err != nil {
+				return apitypes.RuntimeProfile{}, err
+			}
+			if _, duplicate := normalized[alias]; duplicate {
+				return apitypes.RuntimeProfile{}, fmt.Errorf("memory alias %q is duplicated after normalization", alias)
+			}
+			if err := registerProfileAlias(allAliases, alias, "memory"); err != nil {
+				return apitypes.RuntimeProfile{}, err
+			}
+			next, err := normalizeMemoryBinding(binding)
+			if err != nil {
+				return apitypes.RuntimeProfile{}, fmt.Errorf("resources.memories.%s: %w", alias, err)
+			}
+			normalized[alias] = next
+		}
+		spec.Resources.Memories = &normalized
+	}
 	if spec.Gameplay != nil && spec.Gameplay.Points != nil && spec.Gameplay.Points.InitialBalance != nil && *spec.Gameplay.Points.InitialBalance < 0 {
 		return apitypes.RuntimeProfile{}, errors.New("gameplay.points.initial_balance must not be negative")
 	}
@@ -670,6 +691,131 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedName string) (a
 		return apitypes.RuntimeProfile{}, err
 	}
 	return item, nil
+}
+
+func normalizeMemoryBinding(binding apitypes.RuntimeProfileMemoryBinding) (apitypes.RuntimeProfileMemoryBinding, error) {
+	binding.LayoutId = strings.TrimSpace(binding.LayoutId)
+	if err := customid.ValidateField("layout_id", binding.LayoutId); err != nil {
+		return binding, err
+	}
+	if !binding.Driver.Valid() {
+		return binding, fmt.Errorf("unsupported driver %q", binding.Driver)
+	}
+	connectionType, err := binding.Connection.Discriminator()
+	if err != nil {
+		return binding, fmt.Errorf("connection: %w", err)
+	}
+	switch connectionType {
+	case "flowcraft_bbh":
+		if binding.Driver != apitypes.RuntimeProfileMemoryDriverFlowcraft {
+			return binding, fmt.Errorf("driver %q cannot use connection type %q", binding.Driver, connectionType)
+		}
+	case "flowcraft_object_store":
+		if binding.Driver != apitypes.RuntimeProfileMemoryDriverFlowcraft {
+			return binding, fmt.Errorf("driver %q cannot use connection type %q", binding.Driver, connectionType)
+		}
+		value, err := binding.Connection.AsRuntimeProfileFlowcraftObjectStoreConnection()
+		value.Directory = strings.TrimSpace(value.Directory)
+		if err != nil || value.Directory == "" {
+			return binding, errors.New("flowcraft_object_store connection requires directory")
+		}
+		if err := binding.Connection.FromRuntimeProfileFlowcraftObjectStoreConnection(value); err != nil {
+			return binding, err
+		}
+	case "flowcraft_postgresql":
+		if binding.Driver != apitypes.RuntimeProfileMemoryDriverFlowcraft {
+			return binding, fmt.Errorf("driver %q cannot use connection type %q", binding.Driver, connectionType)
+		}
+		value, err := binding.Connection.AsRuntimeProfileFlowcraftPostgreSQLConnection()
+		value.Dsn = strings.TrimSpace(value.Dsn)
+		if err != nil || value.Dsn == "" {
+			return binding, errors.New("flowcraft_postgresql connection requires dsn")
+		}
+		if err := binding.Connection.FromRuntimeProfileFlowcraftPostgreSQLConnection(value); err != nil {
+			return binding, err
+		}
+	case "mem0":
+		if binding.Driver != apitypes.RuntimeProfileMemoryDriverMem0 {
+			return binding, fmt.Errorf("driver %q cannot use connection type %q", binding.Driver, connectionType)
+		}
+		value, err := binding.Connection.AsRuntimeProfileMem0Connection()
+		if err != nil {
+			return binding, err
+		}
+		value.ProjectId = strings.TrimSpace(value.ProjectId)
+		value.Endpoint = strings.TrimSpace(value.Endpoint)
+		value.ApiKey = strings.TrimSpace(value.ApiKey)
+		value.PollInterval = trimOptionalString(value.PollInterval)
+		if value.ProjectId == "" || value.ApiKey == "" {
+			return binding, errors.New("mem0 connection requires project_id and api_key")
+		}
+		if err := validateMemoryEndpoint(value.Endpoint); err != nil {
+			return binding, err
+		}
+		if err := validateMemoryPollInterval(value.PollInterval); err != nil {
+			return binding, err
+		}
+		if err := binding.Connection.FromRuntimeProfileMem0Connection(value); err != nil {
+			return binding, err
+		}
+	case "volc_mem0":
+		if binding.Driver != apitypes.RuntimeProfileMemoryDriverVolcMem0 {
+			return binding, fmt.Errorf("driver %q cannot use connection type %q", binding.Driver, connectionType)
+		}
+		value, err := binding.Connection.AsRuntimeProfileVolcMem0Connection()
+		if err != nil {
+			return binding, err
+		}
+		value.MemoryProjectId = strings.TrimSpace(value.MemoryProjectId)
+		value.Endpoint = strings.TrimSpace(value.Endpoint)
+		value.ApiKey = strings.TrimSpace(value.ApiKey)
+		value.PollInterval = trimOptionalString(value.PollInterval)
+		if value.MemoryProjectId == "" || value.ApiKey == "" {
+			return binding, errors.New("volc_mem0 connection requires memory_project_id and api_key")
+		}
+		if err := validateMemoryEndpoint(value.Endpoint); err != nil {
+			return binding, err
+		}
+		if err := validateMemoryPollInterval(value.PollInterval); err != nil {
+			return binding, err
+		}
+		if err := binding.Connection.FromRuntimeProfileVolcMem0Connection(value); err != nil {
+			return binding, err
+		}
+	default:
+		return binding, fmt.Errorf("unsupported connection type %q", connectionType)
+	}
+	return binding, nil
+}
+
+func trimOptionalString(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	trimmed := strings.TrimSpace(*value)
+	return &trimmed
+}
+
+func validateMemoryEndpoint(raw string) error {
+	endpoint, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || endpoint.Host == "" || endpoint.Scheme != "https" && endpoint.Scheme != "http" {
+		return errors.New("connection endpoint must be an absolute http or https URL")
+	}
+	if endpoint.User != nil || endpoint.RawQuery != "" || endpoint.Fragment != "" {
+		return errors.New("connection endpoint must not contain userinfo, query, or fragment")
+	}
+	return nil
+}
+
+func validateMemoryPollInterval(raw *string) error {
+	if raw == nil {
+		return nil
+	}
+	value, err := time.ParseDuration(strings.TrimSpace(*raw))
+	if err != nil || value <= 0 {
+		return errors.New("connection poll_interval must be a positive duration")
+	}
+	return nil
 }
 
 func registerProfileAlias(aliases map[string]string, alias, kind string) error {
@@ -780,6 +926,28 @@ func (s *Server) validateResources(ctx context.Context, spec apitypes.RuntimePro
 			voices[alias] = voice
 		}
 	}
+	memories := make(map[string]apitypes.MemoryLayoutResource)
+	if spec.Resources.Memories != nil {
+		for alias, binding := range *spec.Resources.Memories {
+			path := "resources.memories." + alias
+			resource, err := s.ResolveResource(ctx, apitypes.ResourceKindMemoryLayout, binding.LayoutId)
+			if err != nil {
+				return fmt.Errorf("%s.layout_id %q does not resolve to MemoryLayout: %w", path, binding.LayoutId, err)
+			}
+			discriminator, err := resource.Discriminator()
+			if err != nil || discriminator != string(apitypes.ResourceKindMemoryLayout) && discriminator != string(apitypes.ResourceKindMemoryLayout)+"Resource" {
+				return fmt.Errorf("%s.layout_id %q did not return a MemoryLayout", path, binding.LayoutId)
+			}
+			layout, err := resource.AsMemoryLayoutResource()
+			if err != nil {
+				return fmt.Errorf("%s.layout_id %q returned an invalid MemoryLayout: %w", path, binding.LayoutId, err)
+			}
+			if err := validateMemoryLayoutRuntimeAliases(path, binding.Driver, layout.Spec, models); err != nil {
+				return err
+			}
+			memories[alias] = layout
+		}
+	}
 	groups := []struct {
 		path   string
 		kind   apitypes.ResourceKind
@@ -813,12 +981,42 @@ func (s *Server) validateResources(ctx context.Context, spec apitypes.RuntimePro
 		}
 	}
 	for _, workflow := range workflows {
-		if err := validateWorkflowRuntimeAliases(workflow.path, workflow.resource.Spec, models, voices); err != nil {
+		if err := validateWorkflowRuntimeAliases(workflow.path, workflow.resource.Spec, models, voices, memories); err != nil {
 			return err
 		}
 	}
 	if spec.Gameplay != nil && spec.Gameplay.Pet != nil {
 		if err := validatePetRewardModels(*spec.Gameplay.Pet, models); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateMemoryLayoutRuntimeAliases(path string, driver apitypes.RuntimeProfileMemoryDriver, layout apitypes.MemoryLayoutSpec, models map[string]apitypes.ModelResource) error {
+	if driver != apitypes.RuntimeProfileMemoryDriverFlowcraft {
+		return nil
+	}
+	requireModel := func(field, alias string, kind apitypes.ModelKind) error {
+		model, ok := models[strings.TrimSpace(alias)]
+		if !ok {
+			return fmt.Errorf("%s.layout.%s model alias %q is not declared in resources.models", path, field, alias)
+		}
+		if model.Spec.Kind != kind {
+			return fmt.Errorf("%s.layout.%s model alias %q has kind %q, want %q", path, field, alias, model.Spec.Kind, kind)
+		}
+		return nil
+	}
+	if err := requireModel("flowcraft.extraction.model", layout.Flowcraft.Extraction.Model, apitypes.ModelKindLlm); err != nil {
+		return err
+	}
+	if layout.Flowcraft.Embedding != nil {
+		if err := requireModel("flowcraft.embedding.model", layout.Flowcraft.Embedding.Model, apitypes.ModelKindEmbedding); err != nil {
+			return err
+		}
+	}
+	if layout.Flowcraft.Rerank != nil {
+		if err := requireModel("flowcraft.rerank.model", layout.Flowcraft.Rerank.Model, apitypes.ModelKindLlm); err != nil {
 			return err
 		}
 	}
@@ -835,7 +1033,11 @@ func validatePetRewardModels(pet apitypes.RuntimeProfilePetGameplaySpec, models 
 	return nil
 }
 
-func validateWorkflowRuntimeAliases(path string, workflow apitypes.WorkflowSpec, models map[string]apitypes.ModelResource, voices map[string]apitypes.VoiceResource) error {
+func validateWorkflowRuntimeAliases(path string, workflow apitypes.WorkflowSpec, models map[string]apitypes.ModelResource, voices map[string]apitypes.VoiceResource, memorySets ...map[string]apitypes.MemoryLayoutResource) error {
+	var memories map[string]apitypes.MemoryLayoutResource
+	if len(memorySets) > 0 {
+		memories = memorySets[0]
+	}
 	requireModel := func(field, alias string, kind apitypes.ModelKind) error {
 		alias = strings.TrimSpace(alias)
 		model, ok := models[alias]
@@ -881,6 +1083,12 @@ func validateWorkflowRuntimeAliases(path string, workflow apitypes.WorkflowSpec,
 			return fmt.Errorf("%s.%s voice alias %q is not declared in resources.voices", path, field, alias)
 		}
 		return nil
+	}
+	if workflow.Memory != nil {
+		alias := strings.TrimSpace(string(*workflow.Memory))
+		if _, ok := memories[alias]; !ok {
+			return fmt.Errorf("%s.memory alias %q is not declared in resources.memories", path, alias)
+		}
 	}
 	requireCompatibleVoice := func(field, voiceAlias, modelAlias string) error {
 		if err := requireVoice(field, voiceAlias); err != nil {
@@ -948,7 +1156,7 @@ func validateWorkflowRuntimeAliases(path string, workflow apitypes.WorkflowSpec,
 			AstTranslate:         workflow.Pet.AstTranslate,
 			Chatroom:             workflow.Pet.Chatroom,
 		}
-		return validateWorkflowRuntimeAliases(path+".pet", nested, models, voices)
+		return validateWorkflowRuntimeAliases(path+".pet", nested, models, voices, memories)
 	case apitypes.WorkflowDriverDoubaoRealtime:
 		if workflow.DoubaoRealtime == nil {
 			return fmt.Errorf("%s has no doubao_realtime spec", path)
@@ -997,38 +1205,18 @@ func validateWorkflowRuntimeAliases(path string, workflow apitypes.WorkflowSpec,
 			field string
 			alias string
 			kind  apitypes.ModelKind
-		}, 0, len(flowcraft.Agent.Graph.Nodes)+4)
-		for index, raw := range flowcraft.Agent.Graph.Nodes {
+		}, 0, len(flowcraft.Graph.Nodes)+4)
+		for index, raw := range flowcraft.Graph.Nodes {
 			if discriminator, _ := raw.Discriminator(); discriminator == "llm" {
 				node, err := raw.AsFlowcraftLLMNode()
 				if err != nil {
-					return fmt.Errorf("%s.agent.graph.nodes[%d]: %w", path, index, err)
+					return fmt.Errorf("%s.graph.nodes[%d]: %w", path, index, err)
 				}
 				modelAliases = append(modelAliases, struct {
 					field string
 					alias string
 					kind  apitypes.ModelKind
-				}{field: fmt.Sprintf("agent.graph.nodes[%d].config.model", index), alias: node.Config.Model, kind: apitypes.ModelKindLlm})
-			}
-		}
-		if flowcraft.Memory != nil && flowcraft.Memory.Enabled {
-			if cfg := flowcraft.Memory.Extract; cfg != nil && (cfg.Enabled == nil || *cfg.Enabled) && cfg.Model != nil {
-				modelAliases = append(modelAliases, struct {
-					field, alias string
-					kind         apitypes.ModelKind
-				}{"memory.extract.model", *cfg.Model, apitypes.ModelKindLlm})
-			}
-			if cfg := flowcraft.Memory.Embedding; cfg != nil && cfg.Enabled != nil && *cfg.Enabled && cfg.Model != nil {
-				modelAliases = append(modelAliases, struct {
-					field, alias string
-					kind         apitypes.ModelKind
-				}{"memory.embedding.model", *cfg.Model, apitypes.ModelKindEmbedding})
-			}
-			if cfg := flowcraft.Memory.Rerank; cfg != nil && cfg.Enabled != nil && *cfg.Enabled && cfg.Model != nil {
-				modelAliases = append(modelAliases, struct {
-					field, alias string
-					kind         apitypes.ModelKind
-				}{"memory.rerank.model", *cfg.Model, apitypes.ModelKindLlm})
+				}{field: fmt.Sprintf("graph.nodes[%d].config.model", index), alias: node.Config.Model, kind: apitypes.ModelKindLlm})
 			}
 		}
 		if flowcraft.VoiceAdapter != nil && flowcraft.VoiceAdapter.AsrModel != nil {
@@ -1058,11 +1246,11 @@ func validateWorkflowRuntimeAliases(path string, workflow apitypes.WorkflowSpec,
 				}
 			}
 		}
-		if strings.TrimSpace(flowcraft.Agent.Graph.Entry) == "" || len(flowcraft.Agent.Graph.Nodes) == 0 {
-			return fmt.Errorf("%s.agent.graph must have an entry and at least one node", path)
+		if strings.TrimSpace(flowcraft.Graph.Entry) == "" || len(flowcraft.Graph.Nodes) == 0 {
+			return fmt.Errorf("%s.graph must have an entry and at least one node", path)
 		}
 		entryFound := false
-		for _, raw := range flowcraft.Agent.Graph.Nodes {
+		for _, raw := range flowcraft.Graph.Nodes {
 			data, err := raw.MarshalJSON()
 			if err != nil {
 				return err
@@ -1073,10 +1261,10 @@ func validateWorkflowRuntimeAliases(path string, workflow apitypes.WorkflowSpec,
 			if err := json.Unmarshal(data, &node); err != nil {
 				return err
 			}
-			entryFound = entryFound || node.ID == flowcraft.Agent.Graph.Entry
+			entryFound = entryFound || node.ID == flowcraft.Graph.Entry
 		}
 		if !entryFound {
-			return fmt.Errorf("%s.agent.graph.entry %q is not a defined node", path, flowcraft.Agent.Graph.Entry)
+			return fmt.Errorf("%s.graph.entry %q is not a defined node", path, flowcraft.Graph.Entry)
 		}
 	}
 	return nil

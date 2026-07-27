@@ -5,6 +5,7 @@ metadata:
   name: eino-memory-assistant
 spec:
   driver: eino
+  memory: default-memory
   eino:
     graph:
       name: eino-memory-assistant
@@ -23,6 +24,11 @@ spec:
           type: string
           merge: replace
       nodes:
+      - id: recall-memory
+        type: memory_recall
+        query_from: input.text
+        output: recalled
+        top_k: 5
       - id: prompt
         type: prompt
         inputs:
@@ -50,12 +56,23 @@ spec:
           text: answer
         model: llm
         max_tokens: 256
+      - id: observe-answer
+        type: memory_observe
+        facts:
+        - text_from: answer
+          attributes:
+            source: assistant
+        wait_for_completion: true
       edges:
       - from: start
+        to: recall-memory
+      - from: recall-memory
         to: prompt
       - from: prompt
         to: model
       - from: model
+        to: observe-answer
+      - from: observe-answer
         to: end
       branches: []
       outputs:
@@ -64,11 +81,3 @@ spec:
         name: assistant
         mime_type: text/plain
         primary: true
-    memory:
-      recall:
-      - query_from: input.text
-        output: recalled
-        top_k: 5
-      observe:
-        enabled: true
-        wait_for_completion: true

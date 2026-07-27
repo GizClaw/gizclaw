@@ -307,14 +307,8 @@ run_timed "go:gameplay" run_pkg "./tests/gizclaw-e2e/go/gameplay"
 run_timed "go:rpc" run_pkg "./tests/gizclaw-e2e/go/rpc"
 run_timed "go:social" run_pkg "./tests/gizclaw-e2e/go/social"
 run_timed "cli" run_pkg_serial "./tests/gizclaw-e2e/cmd/..."
+run_timed "go:chat-memory" run_memory_chat_pkg
 
 run_timed "docker:standard-cleanup" bash "$setup_dir/docker-compose-down.sh"
-export GIZCLAW_E2E_MEMORY_STORES=1
-run_timed "docker:memory-setup" start_docker_stack
-set -a
-# shellcheck disable=SC1090
-source "$docker_env_path"
-set +a
-run_timed "go:chat-memory" run_memory_chat_pkg
 
 echo "==> e2e run completed"

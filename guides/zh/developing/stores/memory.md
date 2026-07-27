@@ -68,54 +68,95 @@ Mem0 只通过一个 `mem0.Config` 构造。`FlavorPlatform` 使用 `Authorizati
 
 Volcengine AgentKit/Viking MEM0 只通过一个 `volc.Config` 构造。它接收显式的 Mem0 data-plane key 或 credential resolver，解析 credential 后复用 Mem0 adapter；data-plane endpoint 必填。
 
-## 组合与 YAML
+## MemoryLayout、RuntimeProfile 与 Workflow
 
-`cmd/internal/stores` 是 composition root，负责 serializable YAML DTO、环境变量展开、workspace/index 构造、model loader 注入、credential 解析和 lifecycle。Flowcraft `dir` 属于这一层：command 创建 Flowcraft workspace 和 BBH retrieval index，再把对应 interface 注入 adapter。
+Memory 不再是 Server Config 中的 `stores.kind: memory`。Portable policy、部署连接和 Graph 消费行为分属三个资源面：
 
-```yaml
-stores:
-  agent-memory:
-    kind: memory
-    flowcraft:
-      dir: ${GIZCLAW_MEMORY_DIR}
-      extraction_model: memory-extractor
-      embedding_model: text-embedding
-      extraction_mode: single_pass
-      graph_enabled: true
-      async:
-        enabled: true
-```
-
-Mem0 Platform：
+- Admin `MemoryLayout` 同时声明 Flowcraft、Mem0 和 `volc_mem0` 的 provider policy，不包含 endpoint、API key、DSN 或目录。
+- RuntimeProfile 的 `resources.memories.<alias>` 选择 Layout、实际 driver 和严格类型化 connection。Connection 中的 endpoint、API key、project ID、DSN 或目录直接属于该 RuntimeProfile，不引用 Credential 资源。
+- Workflow 顶层 `memory` 只引用 RuntimeProfile alias。Graph 的 `memory_recall` / `memory_observe` node 决定何时读写、query 从哪里来、结果写到哪里，以及如何从 turn 或 state 构造 fact；这些映射不属于 MemoryLayout。
 
 ```yaml
-stores:
-  agent-memory:
-    kind: memory
-    mem0:
-      endpoint: https://api.mem0.ai
-      api_key: ${MEM0_API_KEY}
-      flavor: platform
+apiVersion: gizclaw.admin/v1alpha1
+kind: MemoryLayout
+metadata:
+  name: pet-memory
+spec:
+  flowcraft:
+    extraction:
+      model: memory-extractor
+      mode: two_pass
+    embedding:
+      model: text-embedding
+    bbh:
+      search_overfetch: 20
+    lanes:
+    - name: owner-profile
+      kind: preference
+    write:
+      mode: sync
+      tier: general
+  mem0:
+    custom_instructions: Extract durable pet and owner facts.
+  volc_mem0:
+    strategies:
+    - name: owner-profile
+      type: user_preference
+      custom_instructions: Extract durable pet and owner facts.
 ```
 
-Volcengine AgentKit/Viking MEM0：
+`MemoryLayout` 的三个 provider block 都必须存在。Flowcraft block 中的 extraction、embedding 和 rerank model 是 RuntimeProfile model alias；只有实际选择 `driver: flowcraft` 时才解析这些 alias。
 
 ```yaml
-stores:
-  agent-memory:
-    kind: memory
-    volc_memory:
-      mem0:
-        endpoint: ${VOLC_MEM0_ENDPOINT}
-      memory_project_id: ${VOLC_MEMORY_PROJECT_ID}
-      region: cn-beijing
-      access_key_id: ${VOLC_ACCESS_KEY_ID}
-      access_key_secret: ${VOLC_ACCESS_KEY_SECRET}
+spec:
+  resources:
+    memories:
+      pet-memory:
+        layout_id: pet-memory
+        driver: flowcraft
+        connection:
+          type: flowcraft_bbh
 ```
 
-一个 logical memory store 必须只选择一个 provider。未知 YAML 字段会被拒绝；scope 和 backend-native routing 字段都不是合法的 server 配置。
+`flowcraft_bbh` 是不需要外部服务的 portable connection。它使用
+`<server-workspace>/data/memory/<runtime-profile>/<memory-alias>`，Workspace 名作为 `Scope.AppID` 隔离数据。其他合法 connection 是 `flowcraft_object_store`（`directory`）、`flowcraft_postgresql`（`dsn`）、`mem0`（`project_id`、`endpoint`、`api_key`）和 `volc_mem0`（`memory_project_id`、`endpoint`、`api_key`）。Driver 与 connection type 必须匹配，未知字段、缺失 key 和无效 endpoint 会在 RuntimeProfile 写入或解析时被拒绝。
 
-Flowcraft fact 和 operation locator 使用包含完整 App/User/Agent scope 的当前版本。旧 `flowcraft:v1` locator 与开发数据不兼容，必须清除并重新创建；没有 compatibility decoder、dual read 或后台迁移。
+对于 Mem0 和火山云，Project ID 记录与所选数据面 API key 配套的部署/控制面身份。运行时 Fact 请求通过该 key 完成 Project 路由，不会再发送独立的 Project ID 字段。
+
+```yaml
+spec:
+  driver: flowcraft
+  memory: pet-memory
+  flowcraft:
+    graph:
+      name: companion
+      entry: recall-memory
+      nodes:
+      - id: recall-memory
+        type: memory_recall
+        config:
+          query: {text_from: input}
+          output: memory_context
+          top_k: 5
+      - id: answer
+        type: llm
+        publish: true
+        config:
+          model: chat
+          system_prompt: "${board.memory_context}"
+      - id: observe-turn
+        type: memory_observe
+        config:
+          observations:
+          - turns_from: conversation
+          wait_for_completion: false
+      edges:
+      - {from: recall-memory, to: answer}
+      - {from: answer, to: observe-turn}
+      - {from: observe-turn, to: __end__}
+```
+
+同一 Workspace 的所有 stream 共用一个 Agent generation。数据可见性的稳定边界是同一 Workspace AppID、同一 memory driver 和同一 RuntimeProfile memory binding 指向的物理 connection。修改 extraction、recall、write、prompt、`top_k` 或 mode 不改变 canonical data；Flowcraft embedding、rerank 或 BBH policy 改变时，从 canonical facts 在 staging index 中重建，成功后原子发布，失败不会发布部分或混合索引。切换 driver 或 binding 可以切换物理数据源，不自动迁移或删除；切回仍存在的原 connection 后可以重新访问原数据。
 
 ## Ownership 与错误
 

@@ -2327,12 +2327,12 @@ class EinoWorkflowSpec extends $pb.GeneratedMessage {
   factory EinoWorkflowSpec({
     $0.Struct? graph,
     $0.Struct? limits,
-    $0.Struct? memory,
+    $0.Struct? conversation,
   }) {
     final result = create();
     if (graph != null) result.graph = graph;
     if (limits != null) result.limits = limits;
-    if (memory != null) result.memory = memory;
+    if (conversation != null) result.conversation = conversation;
     return result;
   }
 
@@ -2353,7 +2353,7 @@ class EinoWorkflowSpec extends $pb.GeneratedMessage {
         subBuilder: $0.Struct.create)
     ..aOM<$0.Struct>(2, _omitFieldNames ? '' : 'limits',
         subBuilder: $0.Struct.create)
-    ..aOM<$0.Struct>(3, _omitFieldNames ? '' : 'memory',
+    ..aOM<$0.Struct>(4, _omitFieldNames ? '' : 'conversation',
         subBuilder: $0.Struct.create)
     ..hasRequiredFields = false;
 
@@ -2398,26 +2398,28 @@ class EinoWorkflowSpec extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   $0.Struct ensureLimits() => $_ensure(1);
 
-  @$pb.TagNumber(3)
-  $0.Struct get memory => $_getN(2);
-  @$pb.TagNumber(3)
-  set memory($0.Struct value) => $_setField(3, value);
-  @$pb.TagNumber(3)
-  $core.bool hasMemory() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearMemory() => $_clearField(3);
-  @$pb.TagNumber(3)
-  $0.Struct ensureMemory() => $_ensure(2);
+  @$pb.TagNumber(4)
+  $0.Struct get conversation => $_getN(2);
+  @$pb.TagNumber(4)
+  set conversation($0.Struct value) => $_setField(4, value);
+  @$pb.TagNumber(4)
+  $core.bool hasConversation() => $_has(2);
+  @$pb.TagNumber(4)
+  void clearConversation() => $_clearField(4);
+  @$pb.TagNumber(4)
+  $0.Struct ensureConversation() => $_ensure(2);
 }
 
 class EinoWorkspaceParameters extends $pb.GeneratedMessage {
   factory EinoWorkspaceParameters({
     $1.EinoWorkspaceParametersAgentType? agentType,
     $core.bool? e2e,
+    FlowcraftConversationParameters? conversation,
   }) {
     final result = create();
     if (agentType != null) result.agentType = agentType;
     if (e2e != null) result.e2e = e2e;
+    if (conversation != null) result.conversation = conversation;
     return result;
   }
 
@@ -2438,6 +2440,9 @@ class EinoWorkspaceParameters extends $pb.GeneratedMessage {
         1, _omitFieldNames ? '' : 'agentType',
         enumValues: $1.EinoWorkspaceParametersAgentType.values)
     ..aOB(2, _omitFieldNames ? '' : 'e2e')
+    ..aOM<FlowcraftConversationParameters>(
+        3, _omitFieldNames ? '' : 'conversation',
+        subBuilder: FlowcraftConversationParameters.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2478,6 +2483,18 @@ class EinoWorkspaceParameters extends $pb.GeneratedMessage {
   $core.bool hasE2e() => $_has(1);
   @$pb.TagNumber(2)
   void clearE2e() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  FlowcraftConversationParameters get conversation => $_getN(2);
+  @$pb.TagNumber(3)
+  set conversation(FlowcraftConversationParameters value) =>
+      $_setField(3, value);
+  @$pb.TagNumber(3)
+  $core.bool hasConversation() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearConversation() => $_clearField(3);
+  @$pb.TagNumber(3)
+  FlowcraftConversationParameters ensureConversation() => $_ensure(2);
 }
 
 class DoubaoRealtimeAIGCMetadata extends $pb.GeneratedMessage {

@@ -293,6 +293,9 @@
       "WorkflowResource": {
         "$ref": "./resources/workflow.json#/components/schemas/WorkflowResource"
       },
+      "MemoryLayoutResource": {
+        "$ref": "./resources/memory_layout.json#/components/schemas/MemoryLayoutResource"
+      },
       "WorkspaceResource": {
         "$ref": "./resources/workspace.json#/components/schemas/WorkspaceResource"
       },
@@ -355,6 +358,12 @@
       },
       "Workflow": {
         "$ref": "./shared/workflow.json#/components/schemas/Workflow"
+      },
+      "MemoryLayout": {
+        "$ref": "./shared/memory_layout.json#/components/schemas/MemoryLayout"
+      },
+      "MemoryLayoutSpec": {
+        "$ref": "./shared/memory_layout.json#/components/schemas/MemoryLayoutSpec"
       },
       "WorkflowSpec": {
         "$ref": "./shared/workflow_spec.json#/components/schemas/WorkflowSpec"

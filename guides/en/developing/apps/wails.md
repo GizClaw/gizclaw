@@ -27,10 +27,12 @@ Schema source of desktop bridge DTO; generated through `gen:sdk` of `sdk/js` aft
 
 `resources/local-server` embeds only Desktop-owned PIXA binaries. The public Raids `v0.2.2`
 release is fetched through its commit-addressed GitHub archive and is the declarative source for `RuntimeProfile/default`,
-`RegistrationToken/default-runtime`, and the Credential, Tenant, Model, Voice, Workflow, and PetDef
+`RegistrationToken/default-runtime`, and the Credential, Tenant, Model, Voice, MemoryLayout, Workflow, and PetDef
 resources referenced by that profile. Desktop validates and caches the archive privately below its
 config root, resolves only the profile dependency closure, and applies dependencies, PIXA binaries,
 the profile, and then the token. `runtime-profile.example.yaml` remains documentation-only.
+
+The portable default profile may bind a Workflow Memory alias to `flowcraft_bbh`; this connection has no endpoint or key and derives its managed directory from the local Server Workspace. Archive selection includes the referenced `MemoryLayout` and validates every selected driver/connection pair plus the Layout's Flowcraft model aliases before applying anything.
 
 Credential templates come from Raids; credential values remain in Desktop's private
 `bootstrap.env` or the process environment. The archive cache, RuntimeProfile, `pod.json`, URLs,

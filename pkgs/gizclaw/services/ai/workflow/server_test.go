@@ -25,15 +25,11 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {
-				"agent": {
-					"id": "assistant",
-					"name": "Assistant",
-					"graph": {
-						"name": "assistant",
-						"entry": "answer",
-						"nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}],
-						"edges": [{"from": "answer", "to": "__end__"}]
-					}
+				"graph": {
+					"name": "assistant",
+					"entry": "answer",
+					"nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}],
+					"edges": [{"from": "answer", "to": "__end__"}]
 				}
 			}
 		}
@@ -81,15 +77,11 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {
-				"agent": {
-					"id": "assistant",
-					"name": "Updated Assistant",
-					"graph": {
-						"name": "assistant",
-						"entry": "answer",
-						"nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}],
-						"edges": [{"from": "answer", "to": "__end__"}]
-					}
+				"graph": {
+					"name": "assistant",
+					"entry": "answer",
+					"nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}],
+					"edges": [{"from": "answer", "to": "__end__"}]
 				}
 			}
 		}
@@ -106,7 +98,7 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 		t.Fatalf("PutWorkflow() response = %#v", putResp)
 	}
 	putSingle := mustSingle(t, apitypes.Workflow(putDoc))
-	if putSingle.Spec.Flowcraft == nil || putSingle.Spec.Flowcraft.Agent.Name != "Updated Assistant" {
+	if putSingle.Spec.Flowcraft == nil || putSingle.Spec.Flowcraft.Graph.Name != "assistant" {
 		t.Fatalf("PutWorkflow() spec = %#v", putSingle.Spec)
 	}
 
@@ -410,8 +402,7 @@ func TestServerCreateWorkflowRequiresName(t *testing.T) {
 		"metadata": {},
 		"spec": {
 			"driver": "flowcraft",
-			"flowcraft": {"agent":{"id":"assistant","name":"Assistant","graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}}
-		}
+			"flowcraft": {"graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}		}
 	}`)
 
 	resp, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &doc})
@@ -432,8 +423,7 @@ func TestServerPutRejectsPathNameMismatch(t *testing.T) {
 		"name": "other-name",
 		"spec": {
 			"driver": "flowcraft",
-			"flowcraft": {"agent":{"id":"assistant","name":"Assistant","graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}}
-		}
+			"flowcraft": {"graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}		}
 	}`)
 
 	resp, err := srv.PutWorkflow(ctx, adminhttp.PutWorkflowRequestObject{
@@ -473,8 +463,7 @@ func TestServerRejectsNonCanonicalWorkflowName(t *testing.T) {
 		"name": " padded-workflow ",
 		"spec": {
 			"driver": "flowcraft",
-			"flowcraft": {"agent":{"id":"assistant","name":"Assistant","graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}}
-		}
+			"flowcraft": {"graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}		}
 	}`)
 
 	resp, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &doc})
@@ -497,8 +486,7 @@ func TestServerListWorkflowsPagination(t *testing.T) {
 			"name": %q,
 			"spec": {
 				"driver": "flowcraft",
-				"flowcraft": {"agent":{"id":"assistant","name":"Assistant","graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}}
-			}
+				"flowcraft": {"graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}			}
 		}`, name))
 		if _, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &doc}); err != nil {
 			t.Fatalf("CreateWorkflow(%q) error = %v", name, err)
@@ -548,8 +536,7 @@ func TestServerWorkflowConflictAndMissingDelete(t *testing.T) {
 		"name": "duplicate",
 		"spec": {
 			"driver": "flowcraft",
-			"flowcraft": {"agent":{"id":"assistant","name":"Assistant","graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}}
-		}
+			"flowcraft": {"graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}		}
 	}`)
 	if _, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &doc}); err != nil {
 		t.Fatalf("CreateWorkflow(seed) error = %v", err)
@@ -580,8 +567,7 @@ func TestServerWorkflowStoreNotConfigured(t *testing.T) {
 		"name": "missing-store",
 		"spec": {
 			"driver": "flowcraft",
-			"flowcraft": {"agent":{"id":"assistant","name":"Assistant","graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}}
-		}
+			"flowcraft": {"graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}		}
 	}`)
 
 	listResp, err := srv.ListWorkflows(ctx, adminhttp.ListWorkflowsRequestObject{})
@@ -657,8 +643,7 @@ func TestWorkflowResponseVisitors(t *testing.T) {
 		"name": "visitor",
 		"spec": {
 			"driver": "flowcraft",
-			"flowcraft": {"agent":{"id":"assistant","name":"Assistant","graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}}
-		}
+			"flowcraft": {"graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}		}
 	}`)
 	cases := map[string]func(*fiber.Ctx) error{
 		"create": createWorkflow200Response{doc: doc}.VisitCreateWorkflowResponse,

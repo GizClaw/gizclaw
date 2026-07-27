@@ -52,6 +52,10 @@
       "description": "Workflow operations"
     },
     {
+      "name": "MemoryLayouts",
+      "description": "Portable Memory Layout operations"
+    },
+    {
       "name": "Workspaces",
       "description": "Workspace instance operations"
     },
@@ -1952,6 +1956,118 @@
           },
           "404": {
             "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/memory-layouts": {
+      "get": {
+        "operationId": "listMemoryLayouts",
+        "summary": "List all memory layouts",
+        "tags": [
+          "MemoryLayouts"
+        ],
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque cursor returned by the previous list response",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "MemoryLayout list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemoryLayoutList"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createMemoryLayout",
+        "summary": "Create a memory layout",
+        "tags": [
+          "MemoryLayouts"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./shared.json#/components/schemas/MemoryLayout"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Created memory layout",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/MemoryLayout"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid memory layout payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "MemoryLayout already exists",
             "content": {
               "application/json": {
                 "schema": {
@@ -5133,6 +5249,168 @@
           },
           "404": {
             "description": "Voice not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/memory-layouts/{name}": {
+      "get": {
+        "operationId": "getMemoryLayout",
+        "summary": "Get a memory layout",
+        "tags": [
+          "MemoryLayouts"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "description": "MemoryLayout name",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "MemoryLayout",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/MemoryLayout"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "MemoryLayout not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "putMemoryLayout",
+        "summary": "Create or update a memory layout",
+        "tags": [
+          "MemoryLayouts"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "description": "MemoryLayout name",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./shared.json#/components/schemas/MemoryLayout"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Stored memory layout",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/MemoryLayout"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid memory layout payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteMemoryLayout",
+        "summary": "Delete a memory layout",
+        "tags": [
+          "MemoryLayouts"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "description": "MemoryLayout name",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted memory layout",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/MemoryLayout"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "MemoryLayout not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -10928,6 +11206,28 @@
             "type": "array",
             "items": {
               "$ref": "./shared.json#/components/schemas/Workspace"
+            }
+          }
+        }
+      },
+      "MemoryLayoutList": {
+        "type": "object",
+        "required": [
+          "items",
+          "has_next"
+        ],
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string",
+            "nullable": true
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "./shared.json#/components/schemas/MemoryLayout"
             }
           }
         }

@@ -24,6 +24,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/memorystore"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerroute"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
@@ -35,9 +36,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
 var (
@@ -68,27 +67,24 @@ type Manager struct {
 	AgentHost       *agenthost.Host
 	RuntimeProfiles *runtimeprofile.Server
 
-	Workspaces             workspace.WorkspaceAdminService
-	Workflows              workflow.WorkflowAdminService
-	Firmwares              *firmware.Server
-	Models                 model.ModelAdminService
-	Credentials            credential.CredentialAdminService
-	Voices                 voice.VoiceAdminService
-	Contacts               *contact.Server
-	Friends                *friend.Server
-	FriendGroups           *friendgroup.Server
-	Gameplay               *gameplay.Runtime
-	FlowcraftHistory       logstore.MutableStore
-	FlowcraftState         kv.Store
-	FlowcraftMemoryObjects objectstore.ObjectStore
-	FlowcraftMemory        memory.Store
-	FlowcraftMemoryKind    string
-	EinoMemory             memory.Store
-	EinoMemoryKind         string
-	SpeechLimits           SpeechLimits
-	Tools                  *toolkit.Server
-	ToolBuilder            *toolkit.Builder
-	ToolExecutors          *toolkit.ExecutorRegistry
+	Workspaces       workspace.WorkspaceAdminService
+	Workflows        workflow.WorkflowAdminService
+	Firmwares        *firmware.Server
+	Models           model.ModelAdminService
+	Credentials      credential.CredentialAdminService
+	Voices           voice.VoiceAdminService
+	Contacts         *contact.Server
+	Friends          *friend.Server
+	FriendGroups     *friendgroup.Server
+	Gameplay         *gameplay.Runtime
+	FlowcraftHistory logstore.MutableStore
+	FlowcraftState   kv.Store
+	MemoryRoot       string
+	MemoryStores     *memorystore.Registry
+	SpeechLimits     SpeechLimits
+	Tools            *toolkit.Server
+	ToolBuilder      *toolkit.Builder
+	ToolExecutors    *toolkit.ExecutorRegistry
 
 	ProviderTenants providertenants.ProviderTenantsAdminService
 	Metrics         metrics.Store

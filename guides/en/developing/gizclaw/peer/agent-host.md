@@ -14,12 +14,18 @@ This file is only responsible for Host wiring on the Peer connection. Agent inst
 | --- | --- |
 | `newPeerAgentHost` | Create a Peer-scoped Agent Host, install the Peer GenX provider, and register Flowcraft, DashScope Realtime, Doubao Realtime Duplex, Eino, and the other supported Workflow factories. |
 
-The Server resolves `agent_host.flowcraft.memory_store` and
-`agent_host.eino.memory_store` once. The Peer AgentHost borrows those
-provider-neutral `memory.Store` capabilities; it does not own or close them.
-Flowcraft and Eino bind the Workspace ID only to `Scope.AppID`. Peer identity
-and public keys are never substituted for `Scope.UserID`, and caller-supplied
-User, Agent, and Run dimensions remain unchanged.
+The Resolver reads the top-level Workflow `memory` alias and resolves its
+`MemoryLayout`, driver, and typed connection from one owner RuntimeProfile
+snapshot. Flowcraft and Eino factories consume the same provider-neutral
+`memory.Store` contract, while Graph nodes own Recall and Observe mappings.
+Workspace ID is `Scope.AppID`; Peer identity and public keys are not substituted
+for `Scope.UserID`.
+
+Runtime Registry uses Workspace as the only live Agent identity. Concurrent
+streams in the same Workspace share one concurrency-safe Agent. The final
+release closes that generation, and reload reconstructs it from the new
+Workflow and RuntimeProfile snapshot. Existing per-invocation model and toolkit
+resolution does not introduce another Workspace Agent identity.
 
 The new Workflow factories are independent configuration adapters. They do not
 require ToolCall or translate Workspace Toolkit policy into provider-native

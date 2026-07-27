@@ -24,6 +24,7 @@ func buildRuntime(config Config) (flowagent.Agent, engine.Engine, error) {
 	// Inline scripts are supported, while a nil Workspace deliberately leaves
 	// filesystem operations unavailable.
 	scriptnode.Register(factory, scriptnode.Deps{ScriptRuntime: jsrt.New()})
+	registerMemoryNodes(factory, config)
 	// Supply complete values because Flowcraft's default-filling closure mutates
 	// its captured config on first use and is therefore not concurrency-safe.
 	options := []runner.Option{runner.WithParallel(runner.ParallelConfig{

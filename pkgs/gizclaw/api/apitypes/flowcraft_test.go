@@ -9,26 +9,25 @@ import (
 )
 
 const flowcraftSpecJSON = `{
-  "agent": {
-    "id": "assistant",
+  "graph": {
     "name": "Assistant",
-    "graph": {
-      "name": "Assistant",
-      "entry": "prepare",
-      "nodes": [
-        {"id":"prepare","type":"script","config":{"source":"board.setVar('ready', true);"}},
-        {"id":"route","type":"passthrough"},
-        {"id":"answer","type":"llm","publish":true,"config":{"model":"llm","max_tokens":2048}}
-      ],
-      "edges": [
-        {"from":"prepare","to":"route"},
-        {"from":"route","to":"answer"},
-        {"from":"answer","to":"__end__"}
-      ]
-    }
+    "entry": "prepare",
+    "nodes": [
+      {"id":"prepare","type":"script","config":{"source":"board.setVar('ready', true);"}},
+      {"id":"route","type":"passthrough"},
+      {"id":"recall","type":"memory_recall","config":{"query":{"text_from":"input"},"output":"memory_context","top_k":5}},
+      {"id":"answer","type":"llm","publish":true,"config":{"model":"llm","max_tokens":2048}},
+      {"id":"observe","type":"memory_observe","config":{"observations":[{"turns_from":"conversation"}],"wait_for_completion":false}}
+    ],
+    "edges": [
+      {"from":"prepare","to":"route"},
+      {"from":"route","to":"recall"},
+      {"from":"recall","to":"answer"},
+      {"from":"answer","to":"observe"},
+      {"from":"observe","to":"__end__"}
+    ]
   },
   "conversation":{"starts":"peer"},
-  "memory":{"enabled":true,"extract":{"model":"extractor"},"write":{"mode":"async_semantic","save_conversation":true,"board_facts":[{"board_var":"state","kind":"state","subject":"story","predicate":"progress","object":"origin","entities":["story","origin"]}]}},
   "voice_adapter":{"asr_model":"asr","default_voice":"narrator"}
 }`
 
@@ -45,36 +44,26 @@ func TestFlowcraftWorkflowSpecJSONRoundTrip(t *testing.T) {
 	if err := json.Unmarshal(encoded, &roundTrip); err != nil {
 		t.Fatal(err)
 	}
-	if roundTrip.Agent.Graph.Entry != "prepare" || len(roundTrip.Agent.Graph.Nodes) != 3 {
+	if roundTrip.Graph.Entry != "prepare" || len(roundTrip.Graph.Nodes) != 5 {
 		t.Fatalf("round trip = %#v", roundTrip)
-	}
-	if roundTrip.Memory == nil || roundTrip.Memory.Write == nil || roundTrip.Memory.Write.BoardFacts == nil || len(*roundTrip.Memory.Write.BoardFacts) != 1 {
-		t.Fatalf("round trip board facts = %#v", roundTrip.Memory)
-	}
-	fact := (*roundTrip.Memory.Write.BoardFacts)[0]
-	if fact.Object == nil || *fact.Object != "origin" || fact.Entities == nil || len(*fact.Entities) != 2 {
-		t.Fatalf("round trip board fact = %#v", fact)
 	}
 }
 
 func TestFlowcraftWorkflowSpecYAMLDecode(t *testing.T) {
 	var spec FlowcraftWorkflowSpec
 	if err := yaml.Unmarshal([]byte(`
-agent:
-  id: assistant
+graph:
   name: Assistant
-  graph:
-    name: Assistant
-    entry: answer
-    nodes:
-      - id: answer
-        type: llm
-        publish: true
-        config: {model: llm}
+  entry: answer
+  nodes:
+    - id: answer
+      type: llm
+      publish: true
+      config: {model: llm}
 `), &spec); err != nil {
 		t.Fatal(err)
 	}
-	if spec.Agent.Graph.Entry != "answer" {
+	if spec.Graph.Entry != "answer" {
 		t.Fatalf("spec = %#v", spec)
 	}
 }
@@ -84,7 +73,7 @@ func TestFlowcraftWorkflowSpecRejectsInvalidConfig(t *testing.T) {
 		raw  string
 		want string
 	}{
-		"empty":             {raw: `{}`, want: "agent.id is required"},
+		"empty":             {raw: `{}`, want: "graph: name is required"},
 		"unknown top level": {raw: strings.TrimSuffix(flowcraftSpecJSON, "}") + `,"history":{}}`, want: "unknown field"},
 		"tool names":        {raw: strings.Replace(flowcraftSpecJSON, `"max_tokens":2048`, `"max_tokens":2048,"tool_names":["echo"]`, 1), want: "unknown field"},
 		"unknown node":      {raw: strings.Replace(flowcraftSpecJSON, `"type":"passthrough"`, `"type":"tool"`, 1), want: "unsupported"},

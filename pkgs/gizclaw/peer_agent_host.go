@@ -15,10 +15,9 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/flowcraft"
 	petagent "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/pet"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/memorystore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
 func newPeerAgentHost(
@@ -28,11 +27,8 @@ func newPeerAgentHost(
 	pets petagent.ContextProvider,
 	history logstore.MutableStore,
 	state kv.Store,
-	memoryObjects objectstore.ObjectStore,
-	flowcraftMemory memory.Store,
-	flowcraftMemoryKind string,
-	einoMemory memory.Store,
-	einoMemoryKind string,
+	memoryRoot string,
+	memoryStores *memorystore.Registry,
 ) *agenthost.Host {
 	if base == nil {
 		return nil
@@ -66,17 +62,17 @@ func newPeerAgentHost(
 	_ = host.Register(eino.Type, eino.Factory{
 		GenX:         peerGenX,
 		GenXForOwner: ownerGenX,
-		Memory:       einoMemory,
-		MemoryKind:   einoMemoryKind,
+		History:      history,
+		ServerRoot:   memoryRoot,
+		MemoryStores: memoryStores,
 	})
 	_ = host.Register(flowcraft.Type, flowcraft.Factory{
-		GenX:          peerGenX,
-		GenXForOwner:  ownerGenX,
-		History:       history,
-		State:         state,
-		MemoryObjects: memoryObjects,
-		Memory:        flowcraftMemory,
-		MemoryKind:    flowcraftMemoryKind,
+		GenX:         peerGenX,
+		GenXForOwner: ownerGenX,
+		History:      history,
+		State:        state,
+		ServerRoot:   memoryRoot,
+		MemoryStores: memoryStores,
 	})
 	_ = host.Register(petagent.Type, petagent.Factory{Pets: pets, Factories: host.Registry})
 	return host

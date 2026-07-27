@@ -585,31 +585,33 @@ func TestPayloadCodecRoundTripsNewWorkflowContracts(t *testing.T) {
 		t.Fatalf("Duplex workflow round trip = %#v", decodedDuplex)
 	}
 
-	eino := EinoWorkflowSpec{Graph: map[string]any{
-		"name":    "rpc-eino",
-		"compile": map[string]any{"node_trigger_mode": "any_predecessor"},
-		"state": map[string]any{"fields": []any{
-			map[string]any{"name": "answer", "type": "string", "merge": "replace"},
-		}},
-		"nodes": []any{
-			map[string]any{
-				"id": "answer", "type": "passthrough",
-				"inputs":  map[string]any{"value": map[string]any{"from": "input.text"}},
-				"outputs": map[string]any{"value": "answer"},
+	eino := EinoWorkflowSpec{
+		Conversation: &map[string]any{"starts": "agent"},
+		Graph: map[string]any{
+			"name":    "rpc-eino",
+			"compile": map[string]any{"node_trigger_mode": "any_predecessor"},
+			"state": map[string]any{"fields": []any{
+				map[string]any{"name": "answer", "type": "string", "merge": "replace"},
+			}},
+			"nodes": []any{
+				map[string]any{
+					"id": "answer", "type": "passthrough",
+					"inputs":  map[string]any{"value": map[string]any{"from": "input.text"}},
+					"outputs": map[string]any{"value": "answer"},
+				},
 			},
-		},
-		"edges": []any{
-			map[string]any{"from": "start", "to": "answer"},
-			map[string]any{"from": "answer", "to": "end"},
-		},
-		"branches": []any{},
-		"outputs": []any{
-			map[string]any{
-				"node": "answer", "field": "answer", "name": "assistant",
-				"mime_type": "text/plain", "primary": true,
+			"edges": []any{
+				map[string]any{"from": "start", "to": "answer"},
+				map[string]any{"from": "answer", "to": "end"},
 			},
-		},
-	}}
+			"branches": []any{},
+			"outputs": []any{
+				map[string]any{
+					"node": "answer", "field": "answer", "name": "assistant",
+					"mime_type": "text/plain", "primary": true,
+				},
+			},
+		}}
 	var einoPayload RPCPayload
 	if err := einoPayload.encode("EinoWorkflowSpec", eino); err != nil {
 		t.Fatalf("encode Eino workflow: %v", err)
@@ -620,6 +622,9 @@ func TestPayloadCodecRoundTripsNewWorkflowContracts(t *testing.T) {
 	}
 	if decodedEino.Graph["name"] != eino.Graph["name"] {
 		t.Fatalf("Eino workflow round trip = %#v", decodedEino)
+	}
+	if decodedEino.Conversation == nil || (*decodedEino.Conversation)["starts"] != "agent" {
+		t.Fatalf("Eino conversation round trip = %#v", decodedEino.Conversation)
 	}
 
 	pet := PetWorkflowSpec{

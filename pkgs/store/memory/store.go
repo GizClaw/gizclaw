@@ -44,6 +44,12 @@ type AsyncOperationProcessor interface {
 	ProcessAsync(context.Context, OperationRequest) (ObserveResult, error)
 }
 
+// ProjectionRebuilder rehydrates provider-derived indexes from canonical Facts
+// without changing the durable scope identity.
+type ProjectionRebuilder interface {
+	Rebuild(context.Context, Scope) error
+}
+
 // Statistics summarizes one product-owned memory scope when a provider can
 // enumerate its materialized facts.
 type Statistics struct {

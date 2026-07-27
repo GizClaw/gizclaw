@@ -9,7 +9,16 @@
   "components": {
     "schemas": {
       "PetWorkflowSpec": {
-        "$ref": "../workflow_spec.json#/components/schemas/ReusableWorkflowSpec"
+        "allOf": [
+          {
+            "$ref": "../workflow_spec.json#/components/schemas/ReusableWorkflowSpec"
+          },
+          {
+            "not": {
+              "required": ["memory"]
+            }
+          }
+        ]
       }
     }
   }

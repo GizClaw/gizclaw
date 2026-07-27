@@ -12,6 +12,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/observability"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/credential"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/memorylayout"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/model"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/providertenants"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/voice"
@@ -40,6 +41,7 @@ type adminService struct {
 	workspace.WorkspaceAdminService
 	workspace.WorkspaceIconAdminService
 	workflow.WorkflowAdminService
+	memorylayout.MemoryLayoutAdminService
 	gameplay.CatalogAdminService
 	gameplay.GameDefIconAdminService
 	runtimeprofile.AdminService

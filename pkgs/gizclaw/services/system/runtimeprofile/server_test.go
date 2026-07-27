@@ -1122,6 +1122,169 @@ func createProfile(t *testing.T, s *Server, name string, models map[string]strin
 	}
 }
 
+func TestNormalizeMemoryBindingEnforcesStrictDriverConnectionOneOf(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name    string
+		raw     string
+		wantErr string
+	}{
+		{name: "managed Flowcraft BBH", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_bbh"}}`},
+		{name: "Flowcraft object store", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_object_store","directory":"/var/lib/gizclaw/memory"}}`},
+		{name: "Flowcraft PostgreSQL", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_postgresql","dsn":"postgres://gizclaw:secret@db/memory"}}`},
+		{name: "Mem0", raw: `{"layout_id":"pet-memory","driver":"mem0","connection":{"type":"mem0","project_id":"project","endpoint":"https://api.mem0.ai","api_key":"key","poll_interval":"500ms"}}`},
+		{name: "Volc Mem0", raw: `{"layout_id":"pet-memory","driver":"volc_mem0","connection":{"type":"volc_mem0","memory_project_id":"project","endpoint":"https://open.volcengineapi.com","api_key":"key"}}`},
+		{name: "driver mismatch", raw: `{"layout_id":"pet-memory","driver":"mem0","connection":{"type":"flowcraft_bbh"}}`, wantErr: "cannot use connection type"},
+		{name: "missing Mem0 key", raw: `{"layout_id":"pet-memory","driver":"mem0","connection":{"type":"mem0","project_id":"project","endpoint":"https://api.mem0.ai","api_key":""}}`, wantErr: "project_id and api_key"},
+		{name: "invalid endpoint", raw: `{"layout_id":"pet-memory","driver":"mem0","connection":{"type":"mem0","project_id":"project","endpoint":"mem0.local","api_key":"key"}}`, wantErr: "absolute http or https URL"},
+		{name: "endpoint userinfo", raw: `{"layout_id":"pet-memory","driver":"mem0","connection":{"type":"mem0","project_id":"project","endpoint":"https://user:pass@api.mem0.ai","api_key":"key"}}`, wantErr: "userinfo, query, or fragment"},
+		{name: "endpoint query", raw: `{"layout_id":"pet-memory","driver":"mem0","connection":{"type":"mem0","project_id":"project","endpoint":"https://api.mem0.ai?tenant=other","api_key":"key"}}`, wantErr: "userinfo, query, or fragment"},
+		{name: "endpoint fragment", raw: `{"layout_id":"pet-memory","driver":"volc_mem0","connection":{"type":"volc_mem0","memory_project_id":"project","endpoint":"https://open.volcengineapi.com#other","api_key":"key"}}`, wantErr: "userinfo, query, or fragment"},
+		{name: "invalid poll interval", raw: `{"layout_id":"pet-memory","driver":"volc_mem0","connection":{"type":"volc_mem0","memory_project_id":"project","endpoint":"https://open.volcengineapi.com","api_key":"key","poll_interval":"0s"}}`, wantErr: "positive duration"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var binding apitypes.RuntimeProfileMemoryBinding
+			if err := json.Unmarshal([]byte(test.raw), &binding); err != nil {
+				t.Fatal(err)
+			}
+			_, err := normalizeMemoryBinding(binding)
+			if test.wantErr == "" {
+				if err != nil {
+					t.Fatal(err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), test.wantErr) {
+				t.Fatalf("normalizeMemoryBinding() error = %v, want %q", err, test.wantErr)
+			}
+		})
+	}
+}
+
+func TestNormalizeMemoryBindingTrimsConnectionValues(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name  string
+		raw   string
+		wants []string
+	}{
+		{
+			name:  "Flowcraft object store",
+			raw:   `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_object_store","directory":" /var/lib/gizclaw/memory "}}`,
+			wants: []string{`"directory":"/var/lib/gizclaw/memory"`},
+		},
+		{
+			name:  "Flowcraft PostgreSQL",
+			raw:   `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_postgresql","dsn":" postgres://db/memory "}}`,
+			wants: []string{`"dsn":"postgres://db/memory"`},
+		},
+		{
+			name:  "Mem0",
+			raw:   `{"layout_id":"pet-memory","driver":"mem0","connection":{"type":"mem0","project_id":" project ","endpoint":" https://api.mem0.ai ","api_key":" key ","poll_interval":" 500ms "}}`,
+			wants: []string{`"project_id":"project"`, `"endpoint":"https://api.mem0.ai"`, `"api_key":"key"`, `"poll_interval":"500ms"`},
+		},
+		{
+			name:  "Volc Mem0",
+			raw:   `{"layout_id":"pet-memory","driver":"volc_mem0","connection":{"type":"volc_mem0","memory_project_id":" project ","endpoint":" https://mem0.volc.example ","api_key":" key "}}`,
+			wants: []string{`"memory_project_id":"project"`, `"endpoint":"https://mem0.volc.example"`, `"api_key":"key"`},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var binding apitypes.RuntimeProfileMemoryBinding
+			if err := json.Unmarshal([]byte(test.raw), &binding); err != nil {
+				t.Fatal(err)
+			}
+			normalized, err := normalizeMemoryBinding(binding)
+			if err != nil {
+				t.Fatal(err)
+			}
+			raw, err := json.Marshal(normalized.Connection)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, want := range test.wants {
+				if !strings.Contains(string(raw), want) {
+					t.Fatalf("normalized connection = %s, want %s", raw, want)
+				}
+			}
+		})
+	}
+}
+
+func TestRuntimeProfileRejectsMissingMemoryLayoutWithoutPersistingRevision(t *testing.T) {
+	t.Parallel()
+	store := kv.NewMemory(nil)
+	server := &Server{
+		Store: store,
+		ResolveResource: func(_ context.Context, kind apitypes.ResourceKind, name string) (apitypes.Resource, error) {
+			if kind == apitypes.ResourceKindMemoryLayout {
+				return apitypes.Resource{}, kv.ErrNotFound
+			}
+			if kind != apitypes.ResourceKindWorkflow {
+				return apitypes.Resource{}, kv.ErrNotFound
+			}
+			spec := apitypes.WorkflowSpec{
+				Driver:   apitypes.WorkflowDriverChatroom,
+				Chatroom: &apitypes.ChatRoomWorkflowSpec{History: apitypes.ChatRoomWorkflowHistorySpec{}},
+			}
+			if name == "pet-care" {
+				spec = apitypes.WorkflowSpec{
+					Driver: apitypes.WorkflowDriverPet,
+					Pet: &apitypes.PetWorkflowSpec{
+						Driver:   apitypes.ReusableWorkflowDriverChatroom,
+						Chatroom: &apitypes.ChatRoomWorkflowSpec{History: apitypes.ChatRoomWorkflowHistorySpec{}},
+					},
+				}
+			}
+			var resource apitypes.Resource
+			err := resource.FromWorkflowResource(apitypes.WorkflowResource{
+				ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
+				Kind:       apitypes.WorkflowResourceKindWorkflow,
+				Metadata:   apitypes.ResourceMetadata{Name: name},
+				Spec:       spec,
+			})
+			return resource, err
+		},
+	}
+	var binding apitypes.RuntimeProfileMemoryBinding
+	if err := json.Unmarshal([]byte(`{
+		"layout_id":"missing-layout",
+		"driver":"mem0",
+		"connection":{
+			"type":"mem0",
+			"project_id":"project",
+			"endpoint":"https://api.mem0.ai",
+			"api_key":"key"
+		}
+	}`), &binding); err != nil {
+		t.Fatal(err)
+	}
+	memories := map[string]apitypes.RuntimeProfileMemoryBinding{"pet-memory": binding}
+	response, err := server.CreateRuntimeProfile(t.Context(), adminhttp.CreateRuntimeProfileRequestObject{
+		Body: &adminhttp.RuntimeProfileUpsert{
+			Name: "default",
+			Spec: apitypes.RuntimeProfileSpec{
+				Workflows: apitypes.RuntimeProfileWorkflows{
+					System: runtimeProfileTestSystemWorkflows(), Collections: apitypes.RuntimeProfileWorkflowCollections{},
+				},
+				Resources: apitypes.RuntimeProfileResources{Memories: &memories},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	invalid, ok := response.(adminhttp.CreateRuntimeProfile400JSONResponse)
+	if !ok || !strings.Contains(invalid.Error.Message, "missing-layout") {
+		t.Fatalf("CreateRuntimeProfile() = %#v, want missing MemoryLayout rejection", response)
+	}
+	if _, err := GetProfile(t.Context(), store, "default"); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("persisted profile after validation failure: %v", err)
+	}
+}
+
 func runtimeProfileTestBinding(resourceID string) apitypes.RuntimeProfileBinding {
 	return apitypes.RuntimeProfileBinding{ResourceId: resourceID, I18n: map[string]apitypes.RuntimeProfileI18nText{
 		"en": {DisplayName: "Test"}, "zh-CN": {DisplayName: "测试"},
@@ -1149,10 +1312,7 @@ func runtimeProfileTestFlowcraftSpec(t *testing.T, modelAlias, voiceAlias string
 		t.Fatal(err)
 	}
 	return &apitypes.FlowcraftWorkflowSpec{
-		Agent: apitypes.FlowcraftAgent{
-			Id: "assistant", Name: "Assistant",
-			Graph: apitypes.FlowcraftGraph{Name: "Assistant", Entry: "answer", Nodes: []apitypes.FlowcraftNode{node}},
-		},
+		Graph:        apitypes.FlowcraftGraph{Name: "Assistant", Entry: "answer", Nodes: []apitypes.FlowcraftNode{node}},
 		VoiceAdapter: &apitypes.FlowcraftVoiceAdapter{DefaultVoice: &voiceAlias},
 	}
 }
