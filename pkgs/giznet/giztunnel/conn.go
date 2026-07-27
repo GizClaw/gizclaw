@@ -66,14 +66,15 @@ type Conn struct {
 	svcs    map[uint64]*serviceListener
 	closed  map[uint64]bool
 
-	acceptAll atomic.Bool
-	serviceCh chan acceptedService
-	nextID    atomic.Uint64
-	buffered  atomic.Int64
-	lastSeen  atomic.Int64
-	closeOnce sync.Once
-	closeCh   chan struct{}
-	closeErr  atomic.Pointer[error]
+	acceptAll     atomic.Bool
+	serviceCh     chan acceptedService
+	nextID        atomic.Uint64
+	localIDParity uint64
+	buffered      atomic.Int64
+	lastSeen      atomic.Int64
+	closeOnce     sync.Once
+	closeCh       chan struct{}
+	closeErr      atomic.Pointer[error]
 }
 
 type acceptedService struct {
@@ -210,6 +211,7 @@ func newConn(stream net.Conn, packets *packetEndpoint, id SessionID, cfg Config,
 	}
 	if initiator {
 		conn.nextID.Store(1)
+		conn.localIDParity = 1
 	} else {
 		conn.nextID.Store(2)
 	}
@@ -241,6 +243,10 @@ func (c *Conn) Dial(service uint64) (net.Conn, error) {
 	if id == 0 || id > ^uint64(0)-2 {
 		c.mu.Unlock()
 		return nil, ErrInvalidState
+	}
+	if c.streams[id] != nil {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("%w: stream ID collision %d", ErrInvalidState, id)
 	}
 	c.nextID.Store(id + 2)
 	stream := newVirtualStream(c, id, service)
@@ -428,7 +434,7 @@ func (c *Conn) handleFrame(typ frameType, payload []byte) error {
 }
 
 func (c *Conn) acceptRemoteStream(id, service uint64) error {
-	if id == 0 {
+	if id == 0 || id&1 == c.localIDParity {
 		return ErrInvalidFrame
 	}
 	if c.cfg.AllowRemoteService != nil && !c.cfg.AllowRemoteService(service) {

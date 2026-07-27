@@ -132,10 +132,13 @@ type liveSession struct {
 	rxBytes  uint64
 	txBytes  uint64
 	closed   atomic.Bool
+	serveFn  func() error
+	closeFn  func() error
 }
 
 type resultState struct {
 	mu                    sync.Mutex
+	serveWG               sync.WaitGroup
 	sessions              []*liveSession
 	rtts                  []time.Duration
 	errors                []string
@@ -268,42 +271,9 @@ func run(ctx context.Context, opts options) (artifact, error) {
 		upstreamDistribution: report.UpstreamDistribution,
 	}
 	sem := make(chan struct{}, opts.concurrency)
-	var establishWG sync.WaitGroup
-	delay := time.Duration(0)
-	if opts.sessions > 1 {
-		delay = opts.ramp / time.Duration(opts.sessions-1)
+	if err := establishSessions(ctx, opts, edges, state, sem, establish); err != nil {
+		return finalize(report, state, resources), err
 	}
-	for i := 0; i < opts.sessions; i++ {
-		if i > 0 && delay > 0 {
-			timer := time.NewTimer(delay)
-			select {
-			case <-ctx.Done():
-				timer.Stop()
-				return finalize(report, state, resources), ctx.Err()
-			case <-timer.C:
-			}
-		}
-		establishWG.Add(1)
-		go func(index int) {
-			defer establishWG.Done()
-			sem <- struct{}{}
-			defer func() { <-sem }()
-			edge := edges[index%len(edges)]
-			session, dialErr := establish(ctx, edge, index, opts.dialTimeout)
-			if dialErr != nil {
-				state.recordError(fmt.Sprintf("session %d dial via %s: %v", index, edge.endpoint, dialErr))
-				return
-			}
-			state.addSession(session)
-			go func() {
-				err := session.client.Serve()
-				if !session.closed.Load() && err != nil {
-					state.recordDisconnect(fmt.Sprintf("session %d disconnected: %v", index, err))
-				}
-			}()
-		}(i)
-	}
-	establishWG.Wait()
 
 	pingAll(ctx, state, opts, sem, 0)
 	if opts.duration > 0 {
@@ -330,6 +300,68 @@ func run(ctx context.Context, opts options) (artifact, error) {
 	closeSessions(state)
 	final := finalize(report, state, resources)
 	return final, acceptanceError(final, opts)
+}
+
+type establishSessionFunc func(
+	context.Context,
+	edgeMetadata,
+	int,
+	time.Duration,
+) (*liveSession, error)
+
+func establishSessions(
+	ctx context.Context,
+	opts options,
+	edges []edgeMetadata,
+	state *resultState,
+	sem chan struct{},
+	establishSession establishSessionFunc,
+) error {
+	var establishWG sync.WaitGroup
+	delay := time.Duration(0)
+	if opts.sessions > 1 {
+		delay = opts.ramp / time.Duration(opts.sessions-1)
+	}
+	for i := 0; i < opts.sessions; i++ {
+		if i > 0 && delay > 0 {
+			timer := time.NewTimer(delay)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				establishWG.Wait()
+				closeSessions(state)
+				return ctx.Err()
+			case <-timer.C:
+			}
+		}
+		establishWG.Go(func() {
+			select {
+			case sem <- struct{}{}:
+			case <-ctx.Done():
+				return
+			}
+			defer func() { <-sem }()
+			edge := edges[i%len(edges)]
+			session, dialErr := establishSession(ctx, edge, i, opts.dialTimeout)
+			if dialErr != nil {
+				state.recordError(fmt.Sprintf("session %d dial via %s: %v", i, edge.endpoint, dialErr))
+				return
+			}
+			state.addSession(session)
+			state.serveWG.Go(func() {
+				err := session.serve()
+				if !session.closed.Load() && err != nil {
+					state.recordDisconnect(fmt.Sprintf("session %d disconnected: %v", i, err))
+				}
+			})
+		})
+	}
+	establishWG.Wait()
+	if err := ctx.Err(); err != nil {
+		closeSessions(state)
+		return err
+	}
+	return nil
 }
 
 func fetchEdges(ctx context.Context, endpoints []string) ([]edgeMetadata, error) {
@@ -471,6 +503,40 @@ func (s *resultState) addSession(session *liveSession) {
 	s.upstreamDistribution[session.edge][session.upstream]++
 }
 
+func (s *liveSession) serve() error {
+	if s == nil {
+		return errors.New("nil live session")
+	}
+	if s.serveFn != nil {
+		return s.serveFn()
+	}
+	if s.client == nil {
+		return errors.New("live session has no client")
+	}
+	return s.client.Serve()
+}
+
+func (s *liveSession) close() error {
+	if s == nil {
+		return nil
+	}
+	s.closed.Store(true)
+	if s.closeFn != nil {
+		return s.closeFn()
+	}
+	if s.client == nil {
+		return nil
+	}
+	return s.client.Close()
+}
+
+func (s *liveSession) peerConn() giznet.Conn {
+	if s == nil || s.client == nil {
+		return nil
+	}
+	return s.client.PeerConn()
+}
+
 func (s *resultState) recordPing(rtt time.Duration, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -510,15 +576,15 @@ func closeSessions(state *resultState) {
 	sessions := append([]*liveSession(nil), state.sessions...)
 	state.mu.Unlock()
 	for _, session := range sessions {
-		if conn := session.client.PeerConn(); conn != nil {
+		if conn := session.peerConn(); conn != nil {
 			if peer := conn.PeerInfo(); peer != nil {
 				session.rxBytes = peer.RxBytes
 				session.txBytes = peer.TxBytes
 			}
 		}
-		session.closed.Store(true)
-		_ = session.client.Close()
+		_ = session.close()
 	}
+	state.serveWG.Wait()
 }
 
 func finalize(report artifact, state *resultState, resources *resourceSampler) artifact {
@@ -536,7 +602,7 @@ func finalize(report artifact, state *resultState, resources *resourceSampler) a
 	var rx, tx uint64
 	for _, session := range state.sessions {
 		sessionRx, sessionTx := session.rxBytes, session.txBytes
-		if conn := session.client.PeerConn(); conn != nil {
+		if conn := session.peerConn(); conn != nil {
 			peer := conn.PeerInfo()
 			if peer != nil {
 				sessionRx = peer.RxBytes

@@ -105,15 +105,12 @@ func (g *Gateway) serveSignaling(w http.ResponseWriter, r *http.Request) {
 	var clientKey giznet.PublicKey
 	if err := clientKey.UnmarshalText([]byte(r.Header.Get("X-Giznet-Public-Key"))); err != nil ||
 		clientKey.IsZero() {
-		g.listener.SignalingHandler().ServeHTTP(w, r)
+		writeGatewaySignalingError(w, http.StatusBadRequest, "invalid_public_key", false)
 		return
 	}
 	admission, err := g.reserveAdmission()
 	if err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("Retry-After", "1")
-		w.WriteHeader(http.StatusServiceUnavailable)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "gateway_over_capacity"})
+		writeGatewaySignalingError(w, http.StatusServiceUnavailable, "gateway_over_capacity", true)
 		return
 	}
 	admission.clientKey = clientKey
@@ -121,10 +118,7 @@ func (g *Gateway) serveSignaling(w http.ResponseWriter, r *http.Request) {
 	entry, release, err := g.pool.acquire(r.Context())
 	if err != nil {
 		admission.releasePending()
-		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("Retry-After", "1")
-		w.WriteHeader(http.StatusServiceUnavailable)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "gateway_over_capacity"})
+		writeGatewaySignalingError(w, http.StatusServiceUnavailable, "gateway_over_capacity", true)
 		return
 	}
 	admission.upstream = entry
@@ -140,6 +134,15 @@ func (g *Gateway) serveSignaling(w http.ResponseWriter, r *http.Request) {
 	if !g.enqueueAdmission(admission) {
 		admission.releasePending()
 	}
+}
+
+func writeGatewaySignalingError(w http.ResponseWriter, status int, name string, retry bool) {
+	w.Header().Set("Content-Type", "application/json")
+	if retry {
+		w.Header().Set("Retry-After", "1")
+	}
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(map[string]string{"error": name})
 }
 
 func (g *Gateway) reserveAdmission() (*gatewayAdmission, error) {

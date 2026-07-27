@@ -211,6 +211,48 @@ func TestConnRejectsForbiddenServiceWithoutAffectingPacketMux(t *testing.T) {
 	}
 }
 
+func TestConnRejectsRemoteStreamIDsFromLocalParity(t *testing.T) {
+	clientConn, serverConn, _ := tunnelTestPair(t, Config{})
+	if err := clientConn.acceptRemoteStream(1, 7); !errors.Is(err, ErrInvalidFrame) {
+		t.Fatalf("initiator accepted odd remote stream ID: %v", err)
+	}
+	if err := serverConn.acceptRemoteStream(2, 7); !errors.Is(err, ErrInvalidFrame) {
+		t.Fatalf("acceptor accepted even remote stream ID: %v", err)
+	}
+	if len(clientConn.streams) != 0 || len(serverConn.streams) != 0 {
+		t.Fatalf("rejected stream IDs mutated stream maps: client=%d server=%d",
+			len(clientConn.streams), len(serverConn.streams))
+	}
+
+	clientListener := clientConn.ListenService(9)
+	serverStream, err := serverConn.Dial(9)
+	if err != nil {
+		t.Fatalf("acceptor Dial error = %v", err)
+	}
+	defer serverStream.Close()
+	clientStream, err := clientListener.Accept()
+	if err != nil {
+		t.Fatalf("initiator Accept error = %v", err)
+	}
+	defer clientStream.Close()
+}
+
+func TestConnDialRejectsLocalStreamIDCollision(t *testing.T) {
+	clientConn, _, _ := tunnelTestPair(t, Config{})
+	collision := newVirtualStream(clientConn, 1, 7)
+	clientConn.mu.Lock()
+	clientConn.addStreamLocked(collision)
+	clientConn.mu.Unlock()
+	t.Cleanup(func() {
+		clientConn.removeStream(collision.id)
+		collision.abort()
+	})
+
+	if _, err := clientConn.Dial(8); !errors.Is(err, ErrInvalidState) {
+		t.Fatalf("Dial collision error = %v, want %v", err, ErrInvalidState)
+	}
+}
+
 func TestConnBufferLimitClosesOnlySession(t *testing.T) {
 	clientConn, serverConn, _ := tunnelTestPair(t, Config{
 		MaxBufferedBytes: 4,

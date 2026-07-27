@@ -326,6 +326,49 @@ func TestGatewayAdmissionRejectsCapacityBeforeHandshake(t *testing.T) {
 	}
 }
 
+func TestGatewayRejectsUnidentifiedSignalingBeforeListener(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		publicKey string
+	}{
+		{name: "missing"},
+		{name: "malformed", publicKey: "not-a-public-key"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			fallbackCalled := false
+			gateway := &Gateway{}
+			handler := gateway.Handler(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+				fallbackCalled = true
+			}))
+			req := httptest.NewRequest(http.MethodPost, gizwebrtc.SignalingPath, nil)
+			if test.publicKey != "" {
+				req.Header.Set("X-Giznet-Public-Key", test.publicKey)
+			}
+			resp := httptest.NewRecorder()
+
+			handler.ServeHTTP(resp, req)
+
+			if fallbackCalled {
+				t.Fatal("gateway forwarded an unidentified signaling offer")
+			}
+			if resp.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want %d", resp.Code, http.StatusBadRequest)
+			}
+			var body map[string]string
+			if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+				t.Fatal(err)
+			}
+			if body["error"] != "invalid_public_key" {
+				t.Fatalf("error = %q, want invalid_public_key", body["error"])
+			}
+			if gateway.pending != 0 || gateway.active != 0 {
+				t.Fatalf("unidentified request changed capacity: pending=%d active=%d",
+					gateway.pending, gateway.active)
+			}
+		})
+	}
+}
+
 func TestGatewayServerInfoTransportRemovesAuthoritativeICE(t *testing.T) {
 	body := `{"public_key":"server","endpoint":"server:9820","signaling_path":"/offer","ice":{"udp":true,"tcp":true},"ice_servers":[{"urls":["turn:server"]}]}`
 	resp := &http.Response{
