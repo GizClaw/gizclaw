@@ -7048,7 +7048,7 @@ func (t Resource) AsCredentialResource() (CredentialResource, error) {
 
 // FromCredentialResource overwrites any union data inside the Resource as the provided CredentialResource
 func (t *Resource) FromCredentialResource(v CredentialResource) error {
-	v.Kind = "CredentialResource"
+	v.Kind = "Credential"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -7056,7 +7056,7 @@ func (t *Resource) FromCredentialResource(v CredentialResource) error {
 
 // MergeCredentialResource performs a merge with any union data inside the Resource, using the provided CredentialResource
 func (t *Resource) MergeCredentialResource(v CredentialResource) error {
-	v.Kind = "CredentialResource"
+	v.Kind = "Credential"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -7076,7 +7076,7 @@ func (t Resource) AsFirmwareResource() (FirmwareResource, error) {
 
 // FromFirmwareResource overwrites any union data inside the Resource as the provided FirmwareResource
 func (t *Resource) FromFirmwareResource(v FirmwareResource) error {
-	v.Kind = "FirmwareResource"
+	v.Kind = "Firmware"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -7084,7 +7084,7 @@ func (t *Resource) FromFirmwareResource(v FirmwareResource) error {
 
 // MergeFirmwareResource performs a merge with any union data inside the Resource, using the provided FirmwareResource
 func (t *Resource) MergeFirmwareResource(v FirmwareResource) error {
-	v.Kind = "FirmwareResource"
+	v.Kind = "Firmware"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -7104,7 +7104,7 @@ func (t Resource) AsContactResource() (ContactResource, error) {
 
 // FromContactResource overwrites any union data inside the Resource as the provided ContactResource
 func (t *Resource) FromContactResource(v ContactResource) error {
-	v.Kind = "ContactResource"
+	v.Kind = "Contact"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -7112,7 +7112,7 @@ func (t *Resource) FromContactResource(v ContactResource) error {
 
 // MergeContactResource performs a merge with any union data inside the Resource, using the provided ContactResource
 func (t *Resource) MergeContactResource(v ContactResource) error {
-	v.Kind = "ContactResource"
+	v.Kind = "Contact"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -7132,7 +7132,7 @@ func (t Resource) AsFriendResource() (FriendResource, error) {
 
 // FromFriendResource overwrites any union data inside the Resource as the provided FriendResource
 func (t *Resource) FromFriendResource(v FriendResource) error {
-	v.Kind = "FriendResource"
+	v.Kind = "Friend"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -7140,7 +7140,7 @@ func (t *Resource) FromFriendResource(v FriendResource) error {
 
 // MergeFriendResource performs a merge with any union data inside the Resource, using the provided FriendResource
 func (t *Resource) MergeFriendResource(v FriendResource) error {
-	v.Kind = "FriendResource"
+	v.Kind = "Friend"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -7160,7 +7160,7 @@ func (t Resource) AsFriendGroupResource() (FriendGroupResource, error) {
 
 // FromFriendGroupResource overwrites any union data inside the Resource as the provided FriendGroupResource
 func (t *Resource) FromFriendGroupResource(v FriendGroupResource) error {
-	v.Kind = "FriendGroupResource"
+	v.Kind = "FriendGroup"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -7168,7 +7168,7 @@ func (t *Resource) FromFriendGroupResource(v FriendGroupResource) error {
 
 // MergeFriendGroupResource performs a merge with any union data inside the Resource, using the provided FriendGroupResource
 func (t *Resource) MergeFriendGroupResource(v FriendGroupResource) error {
-	v.Kind = "FriendGroupResource"
+	v.Kind = "FriendGroup"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -7188,7 +7188,7 @@ func (t Resource) AsFriendGroupInviteTokenResource() (FriendGroupInviteTokenReso
 
 // FromFriendGroupInviteTokenResource overwrites any union data inside the Resource as the provided FriendGroupInviteTokenResource
 func (t *Resource) FromFriendGroupInviteTokenResource(v FriendGroupInviteTokenResource) error {
-	v.Kind = "FriendGroupInviteTokenResource"
+	v.Kind = "FriendGroupInviteToken"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -7196,7 +7196,7 @@ func (t *Resource) FromFriendGroupInviteTokenResource(v FriendGroupInviteTokenRe
 
 // MergeFriendGroupInviteTokenResource performs a merge with any union data inside the Resource, using the provided FriendGroupInviteTokenResource
 func (t *Resource) MergeFriendGroupInviteTokenResource(v FriendGroupInviteTokenResource) error {
-	v.Kind = "FriendGroupInviteTokenResource"
+	v.Kind = "FriendGroupInviteToken"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -7216,7 +7216,7 @@ func (t Resource) AsFriendGroupMemberResource() (FriendGroupMemberResource, erro
 
 // FromFriendGroupMemberResource overwrites any union data inside the Resource as the provided FriendGroupMemberResource
 func (t *Resource) FromFriendGroupMemberResource(v FriendGroupMemberResource) error {
-	v.Kind = "FriendGroupMemberResource"
+	v.Kind = "FriendGroupMember"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -7224,7 +7224,7 @@ func (t *Resource) FromFriendGroupMemberResource(v FriendGroupMemberResource) er
 
 // MergeFriendGroupMemberResource performs a merge with any union data inside the Resource, using the provided FriendGroupMemberResource
 func (t *Resource) MergeFriendGroupMemberResource(v FriendGroupMemberResource) error {
-	v.Kind = "FriendGroupMemberResource"
+	v.Kind = "FriendGroupMember"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -7244,7 +7244,7 @@ func (t Resource) AsModelResource() (ModelResource, error) {
 
 // FromModelResource overwrites any union data inside the Resource as the provided ModelResource
 func (t *Resource) FromModelResource(v ModelResource) error {
-	v.Kind = "ModelResource"
+	v.Kind = "Model"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -7252,7 +7252,7 @@ func (t *Resource) FromModelResource(v ModelResource) error {
 
 // MergeModelResource performs a merge with any union data inside the Resource, using the provided ModelResource
 func (t *Resource) MergeModelResource(v ModelResource) error {
-	v.Kind = "ModelResource"
+	v.Kind = "Model"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -7272,7 +7272,7 @@ func (t Resource) AsDashScopeTenantResource() (DashScopeTenantResource, error) {
 
 // FromDashScopeTenantResource overwrites any union data inside the Resource as the provided DashScopeTenantResource
 func (t *Resource) FromDashScopeTenantResource(v DashScopeTenantResource) error {
-	v.Kind = "DashScopeTenantResource"
+	v.Kind = "DashScopeTenant"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -7280,7 +7280,7 @@ func (t *Resource) FromDashScopeTenantResource(v DashScopeTenantResource) error 
 
 // MergeDashScopeTenantResource performs a merge with any union data inside the Resource, using the provided DashScopeTenantResource
 func (t *Resource) MergeDashScopeTenantResource(v DashScopeTenantResource) error {
-	v.Kind = "DashScopeTenantResource"
+	v.Kind = "DashScopeTenant"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -7300,7 +7300,7 @@ func (t Resource) AsDeepSeekTenantResource() (DeepSeekTenantResource, error) {
 
 // FromDeepSeekTenantResource overwrites any union data inside the Resource as the provided DeepSeekTenantResource
 func (t *Resource) FromDeepSeekTenantResource(v DeepSeekTenantResource) error {
-	v.Kind = "DeepSeekTenantResource"
+	v.Kind = "DeepSeekTenant"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -7308,7 +7308,7 @@ func (t *Resource) FromDeepSeekTenantResource(v DeepSeekTenantResource) error {
 
 // MergeDeepSeekTenantResource performs a merge with any union data inside the Resource, using the provided DeepSeekTenantResource
 func (t *Resource) MergeDeepSeekTenantResource(v DeepSeekTenantResource) error {
-	v.Kind = "DeepSeekTenantResource"
+	v.Kind = "DeepSeekTenant"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -7328,7 +7328,7 @@ func (t Resource) AsGeminiTenantResource() (GeminiTenantResource, error) {
 
 // FromGeminiTenantResource overwrites any union data inside the Resource as the provided GeminiTenantResource
 func (t *Resource) FromGeminiTenantResource(v GeminiTenantResource) error {
-	v.Kind = "GeminiTenantResource"
+	v.Kind = "GeminiTenant"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -7336,7 +7336,7 @@ func (t *Resource) FromGeminiTenantResource(v GeminiTenantResource) error {
 
 // MergeGeminiTenantResource performs a merge with any union data inside the Resource, using the provided GeminiTenantResource
 func (t *Resource) MergeGeminiTenantResource(v GeminiTenantResource) error {
-	v.Kind = "GeminiTenantResource"
+	v.Kind = "GeminiTenant"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -7356,7 +7356,7 @@ func (t Resource) AsMiniMaxTenantResource() (MiniMaxTenantResource, error) {
 
 // FromMiniMaxTenantResource overwrites any union data inside the Resource as the provided MiniMaxTenantResource
 func (t *Resource) FromMiniMaxTenantResource(v MiniMaxTenantResource) error {
-	v.Kind = "MiniMaxTenantResource"
+	v.Kind = "MiniMaxTenant"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -7364,7 +7364,7 @@ func (t *Resource) FromMiniMaxTenantResource(v MiniMaxTenantResource) error {
 
 // MergeMiniMaxTenantResource performs a merge with any union data inside the Resource, using the provided MiniMaxTenantResource
 func (t *Resource) MergeMiniMaxTenantResource(v MiniMaxTenantResource) error {
-	v.Kind = "MiniMaxTenantResource"
+	v.Kind = "MiniMaxTenant"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -7384,7 +7384,7 @@ func (t Resource) AsOpenAITenantResource() (OpenAITenantResource, error) {
 
 // FromOpenAITenantResource overwrites any union data inside the Resource as the provided OpenAITenantResource
 func (t *Resource) FromOpenAITenantResource(v OpenAITenantResource) error {
-	v.Kind = "OpenAITenantResource"
+	v.Kind = "OpenAITenant"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -7392,7 +7392,7 @@ func (t *Resource) FromOpenAITenantResource(v OpenAITenantResource) error {
 
 // MergeOpenAITenantResource performs a merge with any union data inside the Resource, using the provided OpenAITenantResource
 func (t *Resource) MergeOpenAITenantResource(v OpenAITenantResource) error {
-	v.Kind = "OpenAITenantResource"
+	v.Kind = "OpenAITenant"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -7412,7 +7412,7 @@ func (t Resource) AsVolcTenantResource() (VolcTenantResource, error) {
 
 // FromVolcTenantResource overwrites any union data inside the Resource as the provided VolcTenantResource
 func (t *Resource) FromVolcTenantResource(v VolcTenantResource) error {
-	v.Kind = "VolcTenantResource"
+	v.Kind = "VolcTenant"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -7420,7 +7420,7 @@ func (t *Resource) FromVolcTenantResource(v VolcTenantResource) error {
 
 // MergeVolcTenantResource performs a merge with any union data inside the Resource, using the provided VolcTenantResource
 func (t *Resource) MergeVolcTenantResource(v VolcTenantResource) error {
-	v.Kind = "VolcTenantResource"
+	v.Kind = "VolcTenant"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -7440,7 +7440,7 @@ func (t Resource) AsVoiceResource() (VoiceResource, error) {
 
 // FromVoiceResource overwrites any union data inside the Resource as the provided VoiceResource
 func (t *Resource) FromVoiceResource(v VoiceResource) error {
-	v.Kind = "VoiceResource"
+	v.Kind = "Voice"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -7448,7 +7448,7 @@ func (t *Resource) FromVoiceResource(v VoiceResource) error {
 
 // MergeVoiceResource performs a merge with any union data inside the Resource, using the provided VoiceResource
 func (t *Resource) MergeVoiceResource(v VoiceResource) error {
-	v.Kind = "VoiceResource"
+	v.Kind = "Voice"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -7468,7 +7468,7 @@ func (t Resource) AsToolResource() (ToolResource, error) {
 
 // FromToolResource overwrites any union data inside the Resource as the provided ToolResource
 func (t *Resource) FromToolResource(v ToolResource) error {
-	v.Kind = "ToolResource"
+	v.Kind = "Tool"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -7476,7 +7476,7 @@ func (t *Resource) FromToolResource(v ToolResource) error {
 
 // MergeToolResource performs a merge with any union data inside the Resource, using the provided ToolResource
 func (t *Resource) MergeToolResource(v ToolResource) error {
-	v.Kind = "ToolResource"
+	v.Kind = "Tool"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -7496,7 +7496,7 @@ func (t Resource) AsWorkflowResource() (WorkflowResource, error) {
 
 // FromWorkflowResource overwrites any union data inside the Resource as the provided WorkflowResource
 func (t *Resource) FromWorkflowResource(v WorkflowResource) error {
-	v.Kind = "WorkflowResource"
+	v.Kind = "Workflow"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -7504,7 +7504,7 @@ func (t *Resource) FromWorkflowResource(v WorkflowResource) error {
 
 // MergeWorkflowResource performs a merge with any union data inside the Resource, using the provided WorkflowResource
 func (t *Resource) MergeWorkflowResource(v WorkflowResource) error {
-	v.Kind = "WorkflowResource"
+	v.Kind = "Workflow"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -7524,7 +7524,7 @@ func (t Resource) AsWorkspaceResource() (WorkspaceResource, error) {
 
 // FromWorkspaceResource overwrites any union data inside the Resource as the provided WorkspaceResource
 func (t *Resource) FromWorkspaceResource(v WorkspaceResource) error {
-	v.Kind = "WorkspaceResource"
+	v.Kind = "Workspace"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -7532,7 +7532,7 @@ func (t *Resource) FromWorkspaceResource(v WorkspaceResource) error {
 
 // MergeWorkspaceResource performs a merge with any union data inside the Resource, using the provided WorkspaceResource
 func (t *Resource) MergeWorkspaceResource(v WorkspaceResource) error {
-	v.Kind = "WorkspaceResource"
+	v.Kind = "Workspace"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -7552,7 +7552,7 @@ func (t Resource) AsPetDefResource() (PetDefResource, error) {
 
 // FromPetDefResource overwrites any union data inside the Resource as the provided PetDefResource
 func (t *Resource) FromPetDefResource(v PetDefResource) error {
-	v.Kind = "PetDefResource"
+	v.Kind = "PetDef"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -7560,7 +7560,7 @@ func (t *Resource) FromPetDefResource(v PetDefResource) error {
 
 // MergePetDefResource performs a merge with any union data inside the Resource, using the provided PetDefResource
 func (t *Resource) MergePetDefResource(v PetDefResource) error {
-	v.Kind = "PetDefResource"
+	v.Kind = "PetDef"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -7580,7 +7580,7 @@ func (t Resource) AsBadgeDefResource() (BadgeDefResource, error) {
 
 // FromBadgeDefResource overwrites any union data inside the Resource as the provided BadgeDefResource
 func (t *Resource) FromBadgeDefResource(v BadgeDefResource) error {
-	v.Kind = "BadgeDefResource"
+	v.Kind = "BadgeDef"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -7588,7 +7588,7 @@ func (t *Resource) FromBadgeDefResource(v BadgeDefResource) error {
 
 // MergeBadgeDefResource performs a merge with any union data inside the Resource, using the provided BadgeDefResource
 func (t *Resource) MergeBadgeDefResource(v BadgeDefResource) error {
-	v.Kind = "BadgeDefResource"
+	v.Kind = "BadgeDef"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -7608,7 +7608,7 @@ func (t Resource) AsGameDefResource() (GameDefResource, error) {
 
 // FromGameDefResource overwrites any union data inside the Resource as the provided GameDefResource
 func (t *Resource) FromGameDefResource(v GameDefResource) error {
-	v.Kind = "GameDefResource"
+	v.Kind = "GameDef"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -7616,7 +7616,7 @@ func (t *Resource) FromGameDefResource(v GameDefResource) error {
 
 // MergeGameDefResource performs a merge with any union data inside the Resource, using the provided GameDefResource
 func (t *Resource) MergeGameDefResource(v GameDefResource) error {
-	v.Kind = "GameDefResource"
+	v.Kind = "GameDef"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -7636,7 +7636,7 @@ func (t Resource) AsMemoryLayoutResource() (MemoryLayoutResource, error) {
 
 // FromMemoryLayoutResource overwrites any union data inside the Resource as the provided MemoryLayoutResource
 func (t *Resource) FromMemoryLayoutResource(v MemoryLayoutResource) error {
-	v.Kind = "MemoryLayoutResource"
+	v.Kind = "MemoryLayout"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -7644,7 +7644,7 @@ func (t *Resource) FromMemoryLayoutResource(v MemoryLayoutResource) error {
 
 // MergeMemoryLayoutResource performs a merge with any union data inside the Resource, using the provided MemoryLayoutResource
 func (t *Resource) MergeMemoryLayoutResource(v MemoryLayoutResource) error {
-	v.Kind = "MemoryLayoutResource"
+	v.Kind = "MemoryLayout"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -7664,7 +7664,7 @@ func (t Resource) AsRuntimeProfileResource() (RuntimeProfileResource, error) {
 
 // FromRuntimeProfileResource overwrites any union data inside the Resource as the provided RuntimeProfileResource
 func (t *Resource) FromRuntimeProfileResource(v RuntimeProfileResource) error {
-	v.Kind = "RuntimeProfileResource"
+	v.Kind = "RuntimeProfile"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -7672,7 +7672,7 @@ func (t *Resource) FromRuntimeProfileResource(v RuntimeProfileResource) error {
 
 // MergeRuntimeProfileResource performs a merge with any union data inside the Resource, using the provided RuntimeProfileResource
 func (t *Resource) MergeRuntimeProfileResource(v RuntimeProfileResource) error {
-	v.Kind = "RuntimeProfileResource"
+	v.Kind = "RuntimeProfile"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -7692,7 +7692,7 @@ func (t Resource) AsRegistrationTokenResource() (RegistrationTokenResource, erro
 
 // FromRegistrationTokenResource overwrites any union data inside the Resource as the provided RegistrationTokenResource
 func (t *Resource) FromRegistrationTokenResource(v RegistrationTokenResource) error {
-	v.Kind = "RegistrationTokenResource"
+	v.Kind = "RegistrationToken"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -7700,7 +7700,7 @@ func (t *Resource) FromRegistrationTokenResource(v RegistrationTokenResource) er
 
 // MergeRegistrationTokenResource performs a merge with any union data inside the Resource, using the provided RegistrationTokenResource
 func (t *Resource) MergeRegistrationTokenResource(v RegistrationTokenResource) error {
-	v.Kind = "RegistrationTokenResource"
+	v.Kind = "RegistrationToken"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -7720,7 +7720,7 @@ func (t Resource) AsResourceListResource() (ResourceListResource, error) {
 
 // FromResourceListResource overwrites any union data inside the Resource as the provided ResourceListResource
 func (t *Resource) FromResourceListResource(v ResourceListResource) error {
-	v.Kind = "ResourceListResource"
+	v.Kind = "ResourceList"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -7728,7 +7728,7 @@ func (t *Resource) FromResourceListResource(v ResourceListResource) error {
 
 // MergeResourceListResource performs a merge with any union data inside the Resource, using the provided ResourceListResource
 func (t *Resource) MergeResourceListResource(v ResourceListResource) error {
-	v.Kind = "ResourceListResource"
+	v.Kind = "ResourceList"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -7753,55 +7753,55 @@ func (t Resource) ValueByDiscriminator() (interface{}, error) {
 		return nil, err
 	}
 	switch discriminator {
-	case "BadgeDefResource":
+	case "BadgeDef":
 		return t.AsBadgeDefResource()
-	case "ContactResource":
+	case "Contact":
 		return t.AsContactResource()
-	case "CredentialResource":
+	case "Credential":
 		return t.AsCredentialResource()
-	case "DashScopeTenantResource":
+	case "DashScopeTenant":
 		return t.AsDashScopeTenantResource()
-	case "DeepSeekTenantResource":
+	case "DeepSeekTenant":
 		return t.AsDeepSeekTenantResource()
-	case "FirmwareResource":
+	case "Firmware":
 		return t.AsFirmwareResource()
-	case "FriendGroupInviteTokenResource":
-		return t.AsFriendGroupInviteTokenResource()
-	case "FriendGroupMemberResource":
-		return t.AsFriendGroupMemberResource()
-	case "FriendGroupResource":
-		return t.AsFriendGroupResource()
-	case "FriendResource":
+	case "Friend":
 		return t.AsFriendResource()
-	case "GameDefResource":
+	case "FriendGroup":
+		return t.AsFriendGroupResource()
+	case "FriendGroupInviteToken":
+		return t.AsFriendGroupInviteTokenResource()
+	case "FriendGroupMember":
+		return t.AsFriendGroupMemberResource()
+	case "GameDef":
 		return t.AsGameDefResource()
-	case "GeminiTenantResource":
+	case "GeminiTenant":
 		return t.AsGeminiTenantResource()
-	case "MemoryLayoutResource":
+	case "MemoryLayout":
 		return t.AsMemoryLayoutResource()
-	case "MiniMaxTenantResource":
+	case "MiniMaxTenant":
 		return t.AsMiniMaxTenantResource()
-	case "ModelResource":
+	case "Model":
 		return t.AsModelResource()
-	case "OpenAITenantResource":
+	case "OpenAITenant":
 		return t.AsOpenAITenantResource()
-	case "PetDefResource":
+	case "PetDef":
 		return t.AsPetDefResource()
-	case "RegistrationTokenResource":
+	case "RegistrationToken":
 		return t.AsRegistrationTokenResource()
-	case "ResourceListResource":
+	case "ResourceList":
 		return t.AsResourceListResource()
-	case "RuntimeProfileResource":
+	case "RuntimeProfile":
 		return t.AsRuntimeProfileResource()
-	case "ToolResource":
+	case "Tool":
 		return t.AsToolResource()
-	case "VoiceResource":
+	case "Voice":
 		return t.AsVoiceResource()
-	case "VolcTenantResource":
+	case "VolcTenant":
 		return t.AsVolcTenantResource()
-	case "WorkflowResource":
+	case "Workflow":
 		return t.AsWorkflowResource()
-	case "WorkspaceResource":
+	case "Workspace":
 		return t.AsWorkspaceResource()
 	default:
 		return nil, errors.New("unknown discriminator value: " + discriminator)

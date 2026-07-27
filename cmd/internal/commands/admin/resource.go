@@ -242,7 +242,7 @@ func validateResourceKind(resource apitypes.Resource) error {
 	if apitypes.ResourceKind(kind).Valid() {
 		return nil
 	}
-	if _, err := resource.ValueByDiscriminator(); err == nil {
+	if alias, ok := strings.CutSuffix(kind, "Resource"); ok && apitypes.ResourceKind(alias).Valid() {
 		return nil
 	}
 	return fmt.Errorf("unknown resource kind %q", kind)

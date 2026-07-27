@@ -1185,9 +1185,12 @@ func (config *normalizedConfig) validateOptionalConfig() error {
 			if field, ok := config.fields[fact.TextFrom]; !ok || field.Type != StateString {
 				return fmt.Errorf("eino: Memory Observe Fact[%d] TextFrom must be a string State field", index)
 			}
-			for attribute := range fact.Attributes {
+			for attribute, source := range fact.Attributes {
 				if strings.TrimSpace(attribute) == "" {
 					return fmt.Errorf("eino: Memory Observe Fact[%d] has blank attribute", index)
+				}
+				if _, ok := config.fields[source]; !ok {
+					return fmt.Errorf("eino: Memory Observe Fact[%d] references unknown field %q", index, source)
 				}
 			}
 		}

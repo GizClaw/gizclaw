@@ -81,6 +81,14 @@ func TestFlowcraftWorkflowSpecRejectsInvalidConfig(t *testing.T) {
 		"missing publisher": {raw: strings.Replace(flowcraftSpecJSON, `,"publish":true`, ``, 1), want: "publish=true"},
 		"model resource ID": {raw: strings.Replace(flowcraftSpecJSON, `"model":"llm"`, `"model":"model/llm"`, 1), want: "RuntimeProfile alias"},
 		"voice resource ID": {raw: strings.Replace(flowcraftSpecJSON, `"default_voice":"narrator"`, `"default_voice":"voice/narrator"`, 1), want: "RuntimeProfile alias"},
+		"empty observation": {
+			raw:  strings.Replace(flowcraftSpecJSON, `{"turns_from":"conversation"}`, `{}`, 1),
+			want: "must select exactly one",
+		},
+		"empty observation facts": {
+			raw:  strings.Replace(flowcraftSpecJSON, `{"turns_from":"conversation"}`, `{"facts":[]}`, 1),
+			want: "must select exactly one",
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			var spec FlowcraftWorkflowSpec
