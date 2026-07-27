@@ -59,6 +59,16 @@
               "observations": [
                 {
                   "turns_from": "conversation"
+                },
+                {
+                  "facts": [
+                    {
+                      "attributes": {
+                        "lane": "owner-profile"
+                      },
+                      "text_from": "input"
+                    }
+                  ]
                 }
               ],
               "wait_for_completion": true

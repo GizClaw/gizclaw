@@ -103,6 +103,36 @@ func TestStorePersistsStructuredFactCandidatesWithoutExtraction(t *testing.T) {
 	}
 }
 
+func TestStorePersistsStructuredFactCandidatesWithExtractionConfigured(t *testing.T) {
+	t.Parallel()
+	store := newTestStore(t, Config{
+		Loader:     &testFlowcraftLoader{model: testLLM{response: `{"facts":[]}`}},
+		Extraction: ExtractionConfig{Model: "extract"},
+	})
+	const text = "The assistant remembered GIZCLAWMEMORY123."
+	result, err := store.Observe(context.Background(), Observation{
+		Scope: testScope,
+		Facts: []memorystore.FactCandidate{{Text: text}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Facts) != 1 || result.Facts[0].Text != text {
+		t.Fatalf("Observe() facts = %#v, want direct fact %q", result.Facts, text)
+	}
+	recallResult, err := store.Recall(context.Background(), Query{
+		Scope: testScope,
+		Text:  "GIZCLAWMEMORY123",
+		Limit: 1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(recallResult.Matches) != 1 || recallResult.Matches[0].Fact.Text != text {
+		t.Fatalf("Recall() matches = %#v, want direct fact %q", recallResult.Matches, text)
+	}
+}
+
 func TestStoreRecallReturnsStableDescendingScores(t *testing.T) {
 	t.Parallel()
 	base := newTestStore(t, Config{})

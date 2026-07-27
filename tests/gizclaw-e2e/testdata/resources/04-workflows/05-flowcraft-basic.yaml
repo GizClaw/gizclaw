@@ -26,6 +26,10 @@ spec:
       - config:
           observations:
           - turns_from: conversation
+          - facts:
+            - text_from: input
+              attributes:
+                lane: conversation-memory
           wait_for_completion: false
         id: observe-conversation
         type: memory_observe

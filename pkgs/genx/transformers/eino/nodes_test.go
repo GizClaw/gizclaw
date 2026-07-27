@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/components/retriever"
 	"github.com/cloudwego/eino/schema"
@@ -46,6 +47,64 @@ func TestChatModelUsesNativeComponentAndStreams(t *testing.T) {
 	}
 	if chat.inputs[0][0].Role != schema.System || chat.inputs[0][1].Content != "world" {
 		t.Fatalf("model messages = %#v", chat.inputs[0])
+	}
+}
+
+func TestMemoryObserveNodeRunsBeforePublishedAnswer(t *testing.T) {
+	t.Parallel()
+	chat := &fakeChatModel{
+		chunks: []*schema.Message{
+			{Role: schema.Assistant, Content: "hel"},
+			{Role: schema.Assistant, Content: "lo"},
+		},
+		terminalErr: genx.Done(genx.Usage{}),
+	}
+	memories := &recordingMemoryStore{events: &eventRecorder{}}
+	config := chatConfig(&componentMapResolver{chat: chat})
+	config.Memory = &MemoryConfig{
+		Store: memories,
+		Scope: memory.Scope{AppID: "workspace"},
+	}
+	config.Graph.Nodes = append(config.Graph.Nodes, NodeDefinition{
+		ID: "observe",
+		MemoryObserve: &MemoryObserveNode{
+			Facts: []ObserveDefinition{{TextFrom: "answer"}},
+		},
+	}, NodeDefinition{
+		ID:          "publish",
+		Inputs:      map[string]Binding{"value": {From: "answer"}},
+		Outputs:     map[string]string{"value": "published"},
+		Passthrough: &PassthroughNode{},
+	})
+	config.Graph.State.Fields = append(config.Graph.State.Fields, StateField{
+		Name: "published", Type: StateString, Merge: MergeReplace,
+	})
+	config.Graph.Edges = []EdgeDefinition{
+		{From: "start", To: "prompt"},
+		{From: "prompt", To: "model"},
+		{From: "model", To: "observe"},
+		{From: "observe", To: "publish"},
+		{From: "publish", To: "end"},
+	}
+	config.Graph.Outputs[0].Node = "publish"
+	config.Graph.Outputs[0].Field = "published"
+	transformer, err := New(t.Context(), config)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	output, err := transformer.Transform(t.Context(), textInput("world"))
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	chunks := drain(t, output)
+	if got := joinedText(chunks); got != "hello" {
+		t.Fatalf("output = %q", got)
+	}
+	memories.mu.Lock()
+	defer memories.mu.Unlock()
+	if len(memories.observations) != 1 || len(memories.observations[0].Facts) != 1 ||
+		memories.observations[0].Facts[0].Text != "hello" {
+		t.Fatalf("observations = %#v", memories.observations)
 	}
 }
 
@@ -555,9 +614,10 @@ func (resolver *componentMapResolver) ResolveRetriever(context.Context, string) 
 }
 
 type fakeChatModel struct {
-	mu     sync.Mutex
-	chunks []*schema.Message
-	inputs [][]*schema.Message
+	mu          sync.Mutex
+	chunks      []*schema.Message
+	inputs      [][]*schema.Message
+	terminalErr error
 }
 
 type scriptedChatModel struct {
@@ -753,7 +813,17 @@ func (chat *fakeChatModel) Stream(_ context.Context, input []*schema.Message, _ 
 	chat.mu.Lock()
 	chat.inputs = append(chat.inputs, cloneMessages(input))
 	chunks := cloneMessages(chat.chunks)
+	terminalErr := chat.terminalErr
 	chat.mu.Unlock()
+	if terminalErr != nil {
+		reader, writer := schema.Pipe[*schema.Message](len(chunks) + 1)
+		for _, chunk := range chunks {
+			writer.Send(chunk, nil)
+		}
+		writer.Send(nil, terminalErr)
+		writer.Close()
+		return reader, nil
+	}
 	return schema.StreamReaderFromArray(chunks), nil
 }
 

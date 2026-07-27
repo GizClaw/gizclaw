@@ -44,6 +44,16 @@
               "observations": [
                 {
                   "turns_from": "conversation"
+                },
+                {
+                  "facts": [
+                    {
+                      "attributes": {
+                        "lane": "conversation-memory"
+                      },
+                      "text_from": "input"
+                    }
+                  ]
                 }
               ],
               "wait_for_completion": false

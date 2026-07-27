@@ -1,9 +1,13 @@
 package memorystore
 
 import (
+	"context"
+	"errors"
 	"sync"
 	"testing"
 
+	"github.com/GizClaw/flowcraft/sdk/embedding"
+	"github.com/GizClaw/flowcraft/sdk/llm"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
@@ -164,6 +168,37 @@ func TestRegistrySharesPhysicalBackendAcrossWorkspaceScopedStores(t *testing.T) 
 	}
 }
 
+func TestRegistryPersistsDirectFactsWithExtractionConfigured(t *testing.T) {
+	t.Parallel()
+	registry := NewRegistry()
+	t.Cleanup(func() { _ = registry.Close() })
+	request := managedTestRequest(t)
+	request.Layout.Spec.Flowcraft.Extraction.Model = "extract"
+	request.ModelLoader = registryTestModelLoader{}
+
+	result, err := registry.Resolve(t.Context(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer result.Closer.Close()
+	const text = "The workspace code is GIZCLAWMEMORY123."
+	if _, err := result.Store.Observe(t.Context(), memory.Observation{
+		Facts: []memory.FactCandidate{{Text: text}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	recalled, err := result.Store.Recall(t.Context(), memory.Query{
+		Text:  "GIZCLAWMEMORY123",
+		Limit: 1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(recalled.Matches) != 1 || recalled.Matches[0].Fact.Text != text {
+		t.Fatalf("Recall() matches = %#v, want direct fact %q", recalled.Matches, text)
+	}
+}
+
 func TestRegistryRebuildsDerivedIndexWhileOldLogicalStoreIsLive(t *testing.T) {
 	t.Parallel()
 	registry := NewRegistry()
@@ -201,6 +236,26 @@ func TestRegistryRebuildsDerivedIndexWhileOldLogicalStoreIsLive(t *testing.T) {
 	if len(recalled.Matches) == 0 {
 		t.Fatal("old logical Store did not adopt the atomically rebuilt index")
 	}
+}
+
+type registryTestModelLoader struct{}
+
+func (registryTestModelLoader) LoadLLM(context.Context, string) (llm.LLM, error) {
+	return registryTestLLM{}, nil
+}
+
+func (registryTestModelLoader) LoadEmbedder(context.Context, string) (embedding.Embedder, error) {
+	return nil, errors.New("unexpected embedder load")
+}
+
+type registryTestLLM struct{}
+
+func (registryTestLLM) Generate(context.Context, []llm.Message, ...llm.GenerateOption) (llm.Message, llm.TokenUsage, error) {
+	return llm.NewTextMessage(llm.RoleAssistant, `{"facts":[]}`), llm.TokenUsage{}, nil
+}
+
+func (registryTestLLM) GenerateStream(context.Context, []llm.Message, ...llm.GenerateOption) (llm.StreamMessage, error) {
+	return nil, errors.New("unexpected streaming extraction")
 }
 
 func managedTestRequest(t *testing.T) Request {

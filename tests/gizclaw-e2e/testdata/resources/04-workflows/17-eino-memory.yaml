@@ -23,17 +23,30 @@ spec:
         - name: answer
           type: string
           merge: replace
+        - name: observation
+          type: string
+          merge: replace
+        - name: published-answer
+          type: string
+          merge: replace
       nodes:
       - id: recall-memory
         type: memory_recall
         query_from: input.text
         output: recalled
         top_k: 5
+      - id: capture-input
+        type: passthrough
+        inputs:
+          value:
+            from: input.text
+        outputs:
+          value: observation
       - id: prompt
         type: prompt
         inputs:
           text:
-            from: input.text
+            from: observation
           memory:
             from: recalled
         outputs:
@@ -59,25 +72,34 @@ spec:
       - id: observe-answer
         type: memory_observe
         facts:
-        - text_from: answer
-          attributes:
-            source: assistant
+        - text_from: observation
         wait_for_completion: true
+      - id: publish-answer
+        type: passthrough
+        inputs:
+          value:
+            from: answer
+        outputs:
+          value: published-answer
       edges:
       - from: start
         to: recall-memory
       - from: recall-memory
+        to: capture-input
+      - from: capture-input
         to: prompt
       - from: prompt
         to: model
       - from: model
         to: observe-answer
       - from: observe-answer
+        to: publish-answer
+      - from: publish-answer
         to: end
       branches: []
       outputs:
-      - node: model
-        field: answer
+      - node: publish-answer
+        field: published-answer
         name: assistant
         mime_type: text/plain
         primary: true

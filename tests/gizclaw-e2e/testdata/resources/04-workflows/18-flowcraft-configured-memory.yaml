@@ -40,6 +40,10 @@ spec:
         config:
           observations:
           - turns_from: conversation
+          - facts:
+            - text_from: input
+              attributes:
+                lane: owner-profile
           wait_for_completion: true
     max_iterations: 4
     conversation:

@@ -2,9 +2,7 @@ package eino
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"io"
 	"maps"
 	"slices"
 	"strings"
@@ -498,7 +496,7 @@ func (chatModel *streamingChatModel) receiveRound(
 	var chunks []*schema.Message
 	for {
 		chunk, err := reader.Recv()
-		if errors.Is(err, io.EOF) {
+		if err != nil && isStreamEnd(err) {
 			return chunks, nil
 		}
 		if err != nil {
