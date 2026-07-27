@@ -27,7 +27,7 @@ require (
 	github.com/kaptinlin/jsonrepair v0.4.8
 	github.com/kardianos/service v1.3.0
 	github.com/lib/pq v1.12.3
-	github.com/oapi-codegen/runtime v1.3.1
+	github.com/oapi-codegen/runtime v1.6.0
 	github.com/openai/openai-go v1.12.0
 	github.com/pion/datachannel v1.6.2
 	github.com/pion/ice/v4 v4.3.0
