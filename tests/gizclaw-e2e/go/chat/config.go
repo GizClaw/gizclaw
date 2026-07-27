@@ -13,6 +13,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
+	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 	"github.com/goccy/go-yaml"
 )
 
@@ -40,6 +41,8 @@ type config struct {
 	ClientPrivateKey string        `json:"-"`
 	timeout          time.Duration `json:"-"`
 	workspaceSuffix  string        `json:"-"`
+	toolHandlers     map[string]gizcli.ToolHandler
+	toolIDs          []string
 }
 
 type interruptConfig struct {

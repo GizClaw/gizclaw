@@ -24,9 +24,19 @@ for `Scope.UserID`.
 Runtime Registry uses Workspace as the only live Agent identity. Concurrent
 streams in the same Workspace share one concurrency-safe Agent. The final
 release closes that generation, and reload reconstructs it from the new
-Workflow and RuntimeProfile snapshot. Existing per-invocation model and toolkit
-resolution does not introduce another Workspace Agent identity.
+Workflow and RuntimeProfile snapshot.
 
-The new Workflow factories are independent configuration adapters. They do not
-require ToolCall or translate Workspace Toolkit policy into provider-native
-tools.
+The Peer connection also attaches an independent current-Peer Tool execution
+scope to every run. That scope contains only the Peer RuntimeProfile Tool
+binding snapshot and the exact accepted connection used for `client_rpc`.
+Workspace-owner Resource access cannot overwrite it. The shared Agent receives
+one `genx.ToolInvoker`; every Transform resolves Tools from its own context, so
+concurrent Peers never share Tool definitions, handlers, arguments, results, or
+connections even though they share the Agent.
+
+Flowcraft, Eino, DashScope Realtime, and Doubao Realtime Duplex factories inject
+the same interface into their existing Transformer configuration. Provider
+ToolCall IDs and continuation stay inside the Transformer. AgentHost dispatches
+only canonical Resource names to `http_request` or the current connection's
+`client.tool.invoke`, and no Tool control traffic is projected into the public
+assistant stream.

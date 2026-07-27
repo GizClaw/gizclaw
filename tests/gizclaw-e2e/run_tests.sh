@@ -24,6 +24,7 @@ chat_live_tests=(
   TestPushToTalkInterrupt
   TestDashScopeRealtimeWorkflowRoundtrip
   TestDoubaoRealtimeDuplexWorkflowRoundtrip
+  TestEinoWorkflowInvokesHTTPAndCurrentPeerTools
   TestEinoWorkflowRoundtrip
   TestFlowcraftConfiguredMemoryStoreRoundtrip
 )
@@ -36,6 +37,7 @@ chat_standard_live_patterns=(
   '^TestPushToTalkInterrupt$'
   '^TestDashScopeRealtimeWorkflowRoundtrip$'
   '^TestDoubaoRealtimeDuplexWorkflowRoundtrip$'
+  '^TestEinoWorkflowInvokesHTTPAndCurrentPeerTools$'
 )
 chat_memory_live_patterns=(
   '^TestEinoWorkflowRoundtrip$'

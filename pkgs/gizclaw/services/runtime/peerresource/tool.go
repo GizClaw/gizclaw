@@ -79,8 +79,8 @@ func (s *Server) handleToolGet(ctx context.Context, req *rpcapi.RPCRequest) *rpc
 
 func projectTool(alias string, binding apitypes.RuntimeProfileBinding, tool toolkit.Tool) rpcapi.Tool {
 	return rpcapi.Tool{
-		Alias: alias, I18n: bindingI18n(binding),
-		InputSchema: tool.InputSchema, OutputSchema: tool.OutputSchema,
+		Alias: alias, Name: tool.Name, I18n: bindingI18n(binding),
+		InputSchema: tool.InputSchema,
 	}
 }
 

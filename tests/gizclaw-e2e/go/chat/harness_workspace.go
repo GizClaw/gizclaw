@@ -122,6 +122,11 @@ func runLoadedConfigWithResultAndInspect(
 		_ = client.Close()
 		<-serveDone
 	}()
+	for name, handler := range cfg.toolHandlers {
+		if err := client.HandleTool(name, handler); err != nil {
+			return workspaceCaseResult{}, fmt.Errorf("mount client Tool %q: %w", name, err)
+		}
+	}
 	if token := strings.TrimSpace(os.Getenv("GIZCLAW_E2E_CHAT_REGISTRATION_TOKEN")); token != "" {
 		if _, err := client.Register(ctx, "workspacetest.register", token); err != nil {
 			return workspaceCaseResult{}, fmt.Errorf("register chat client: %w", err)
@@ -163,6 +168,9 @@ func runLoadedConfigWithResultAndInspect(
 		printInterruptSummary(interrupt)
 	}
 	if err != nil {
+		if inspect != nil {
+			err = errors.Join(err, inspect(ctx, client, cfg))
+		}
 		return result, err
 	}
 	if selectedCase != workspaceCaseRealtimeAutoSplit && selectedCase != workspaceCaseTextRoundtrip {
@@ -360,6 +368,12 @@ func fetchChatServerInfo(endpoint string) (chatServerInfo, error) {
 		Protocol      string                `json:"protocol"`
 		SignalingPath string                `json:"signaling_path"`
 		ICEServers    []gizwebrtc.ICEServer `json:"ice_servers"`
+		Transport     *struct {
+			Mode          string `json:"mode"`
+			Endpoint      string `json:"endpoint"`
+			PublicKey     string `json:"public_key"`
+			SignalingPath string `json:"signaling_path"`
+		} `json:"transport"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		return chatServerInfo{}, err
@@ -367,21 +381,34 @@ func fetchChatServerInfo(endpoint string) (chatServerInfo, error) {
 	if body.Protocol != "" && body.Protocol != "gizclaw-webrtc" {
 		return chatServerInfo{}, fmt.Errorf("server-info protocol=%q", body.Protocol)
 	}
-	serverPK, err := parsePublicKey(strings.TrimSpace(body.PublicKey))
+	publicKey := strings.TrimSpace(body.PublicKey)
+	signalingEndpoint := endpoint
+	signalingPath := strings.TrimSpace(body.SignalingPath)
+	if body.Transport != nil {
+		if strings.TrimSpace(body.Transport.Mode) != "edge-gateway" {
+			return chatServerInfo{}, fmt.Errorf("server-info transport mode=%q", body.Transport.Mode)
+		}
+		publicKey = strings.TrimSpace(body.Transport.PublicKey)
+		signalingEndpoint = strings.TrimSpace(body.Transport.Endpoint)
+		signalingPath = strings.TrimSpace(body.Transport.SignalingPath)
+		if signalingEndpoint == "" {
+			return chatServerInfo{}, fmt.Errorf("server-info transport endpoint is empty")
+		}
+	}
+	serverPK, err := parsePublicKey(publicKey)
 	if err != nil {
 		return chatServerInfo{}, fmt.Errorf("server-info public_key: %w", err)
 	}
 	if serverPK.IsZero() {
 		return chatServerInfo{}, fmt.Errorf("server-info public_key is zero")
 	}
-	signalingPath := strings.TrimSpace(body.SignalingPath)
 	if signalingPath == "" {
 		signalingPath = gizwebrtc.SignalingPath
 	}
 	if !strings.HasPrefix(signalingPath, "/") || strings.HasPrefix(signalingPath, "//") {
 		return chatServerInfo{}, fmt.Errorf("server-info signaling_path=%q", signalingPath)
 	}
-	signalingURL := url.URL{Scheme: "http", Host: endpoint, Path: signalingPath}
+	signalingURL := url.URL{Scheme: "http", Host: signalingEndpoint, Path: signalingPath}
 	return chatServerInfo{PublicKey: serverPK, SignalingURL: signalingURL.String(), ICEServers: body.ICEServers}, nil
 }
 
@@ -593,12 +620,17 @@ func workspaceDocument(cfg config) (rpcapi.WorkspaceCreateRequest, error) {
 			return rpcapi.WorkspaceCreateRequest{}, fmt.Errorf("encode doubao realtime workspace parameters: %w", err)
 		}
 	}
-	return rpcapi.WorkspaceCreateRequest{
+	request := rpcapi.WorkspaceCreateRequest{
 		Name:          cfg.Workspace,
 		Collection:    "assistants",
 		WorkflowAlias: cfg.Workflow.Name,
 		Parameters:    &parameters,
-	}, nil
+	}
+	if cfg.toolIDs != nil {
+		ids := append([]string(nil), cfg.toolIDs...)
+		request.Toolkit = &rpcapi.ToolkitPolicy{ToolIds: &ids}
+	}
+	return request, nil
 }
 
 func optionalString(value string) *string {

@@ -90,7 +90,45 @@ typedef struct {
   fake_rpc_provider_mode_t mode;
 } fake_rpc_provider_t;
 
+typedef struct {
+  int call_count;
+} fake_tool_handler_t;
+
 static fake_webrtc_t *global_fake_webrtc;
+
+static int test_tool_handler(
+    void *userdata,
+    gzc_str_t request_payload,
+    gzc_rpc_provider_respond_fn respond,
+    void *respond_userdata) {
+  fake_tool_handler_t *handler = (fake_tool_handler_t *)userdata;
+  if (handler == NULL || respond == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  gizclaw_rpc_v1_ToolInvokeRequest request =
+      gizclaw_rpc_v1_ToolInvokeRequest_init_zero;
+  pb_istream_t input =
+      pb_istream_from_buffer((const pb_byte_t *)request_payload.data,
+                             request_payload.len);
+  if (!pb_decode(&input, gizclaw_rpc_v1_ToolInvokeRequest_fields, &request) ||
+      strcmp(request.name, "volume_set") != 0) {
+    return GZC_ERR_RPC;
+  }
+  handler->call_count++;
+  gizclaw_rpc_v1_ToolInvokeResponse result =
+      gizclaw_rpc_v1_ToolInvokeResponse_init_zero;
+  strcpy(result.data_json, "{\"ok\":true}");
+  uint8_t payload[32];
+  pb_ostream_t output = pb_ostream_from_buffer(payload, sizeof(payload));
+  if (!pb_encode(&output, gizclaw_rpc_v1_ToolInvokeResponse_fields, &result)) {
+    return GZC_ERR_RPC;
+  }
+  const gzc_rpc_provider_response_t response = {
+      .payload = payload,
+      .payload_len = output.bytes_written,
+  };
+  return respond(respond_userdata, &response);
+}
 
 static int test_rpc_provider(
     void *userdata,
@@ -1138,6 +1176,15 @@ int main(void) {
   memset(&rpc_provider, 0, sizeof(rpc_provider));
   config.rpc_provider = test_rpc_provider;
   config.rpc_provider_userdata = &rpc_provider;
+  fake_tool_handler_t tool_handler;
+  memset(&tool_handler, 0, sizeof(tool_handler));
+  const gzc_tool_handler_t tool_handlers[] = {{
+      .name = {.data = "volume_set", .len = 10u},
+      .handler = test_tool_handler,
+      .userdata = &tool_handler,
+  }};
+  config.tool_handlers = tool_handlers;
+  config.tool_handler_count = 1u;
 
   gzc_client_t *client = NULL;
   gzc_client_config_t invalid_config = config;
@@ -1174,6 +1221,13 @@ int main(void) {
     return 1;
   }
   if (expect(GZC_API_VERSION == 2, "C API version 2") != 0) {
+    return 1;
+  }
+  invalid_config = config;
+  invalid_config.tool_handler_count = 0u;
+  rc = gzc_client_create(&invalid_config, &client);
+  if (expect(rc == GZC_ERR_INVALID_ARGUMENT && client == NULL,
+             "Tool handlers require a non-empty registration array") != 0) {
     return 1;
   }
   rc = gzc_client_create(&config, &client);
@@ -2196,6 +2250,135 @@ int main(void) {
     return 1;
   }
   close_remote_rpc(&fake_webrtc, 0);
+
+  gizclaw_rpc_v1_ToolInvokeRequest tool_request =
+      gizclaw_rpc_v1_ToolInvokeRequest_init_zero;
+  strcpy(tool_request.name, "volume_set");
+  gzc_buf_t tool_payload;
+  gzc_buf_init(&tool_payload);
+  rc = encode_test_pb_message(
+      platform, gizclaw_rpc_v1_ToolInvokeRequest_fields, &tool_request,
+      &tool_payload);
+  announce_remote_rpc(&fake_webrtc, 0);
+  gzc_buf_reset(&inbound_request);
+  gzc_buf_reset(&inbound_framed);
+  gzc_buf_reset(&fake_webrtc.sent);
+  if (rc == GZC_OK) {
+    rc = gzc_rpc_encode_request_envelope(
+        platform, gzc_str_from_cstr("client-tool"),
+        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_INVOKE,
+        gzc_str_from_parts((const char *)tool_payload.data, tool_payload.len),
+        &inbound_request);
+  }
+  if (rc == GZC_OK) {
+    rc = append_test_frame(platform, &inbound_framed, GZC_RPC_FRAME_BINARY,
+                           inbound_request.data, inbound_request.len);
+  }
+  if (rc == GZC_OK) {
+    rc = append_test_frame(platform, &inbound_framed, GZC_RPC_FRAME_EOS, NULL,
+                           0);
+  }
+  if (expect(rc == GZC_OK, "build inbound client Tool request") != 0) {
+    return 1;
+  }
+  fake_webrtc.callbacks.on_channel_message(
+      fake_webrtc.callbacks.userdata, &fake_webrtc.peer,
+      &fake_webrtc.remote_channels[0], NULL, inbound_framed.data,
+      inbound_framed.len, false);
+  rc = gzc_client_poll(client, 0);
+  inbound_frame_size = first_frame_size(&fake_webrtc.sent);
+  if (rc == GZC_OK) {
+    rc = gzc_rpc_frame_decode(fake_webrtc.sent.data, inbound_frame_size,
+                              &inbound_frame);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_rpc_decode_response_envelope(
+        gzc_str_from_parts((const char *)inbound_frame.data,
+                           inbound_frame.len),
+        &inbound_response);
+  }
+  gizclaw_rpc_v1_ToolInvokeResponse tool_response =
+      gizclaw_rpc_v1_ToolInvokeResponse_init_zero;
+  if (rc == GZC_OK) {
+    rc = decode_test_pb_message(
+        inbound_response.result_payload,
+        gizclaw_rpc_v1_ToolInvokeResponse_fields, &tool_response);
+  }
+  if (expect(rc == GZC_OK && !inbound_response.has_error &&
+                 strcmp(tool_response.data_json, "{\"ok\":true}") == 0 &&
+                 tool_handler.call_count == 1,
+             "inbound client Tool dispatches exact-name handler") != 0) {
+    return 1;
+  }
+  close_remote_rpc(&fake_webrtc, 0);
+
+  strcpy(tool_request.name, "brightness_set");
+  gzc_buf_reset(&tool_payload);
+  rc = encode_test_pb_message(
+      platform, gizclaw_rpc_v1_ToolInvokeRequest_fields, &tool_request,
+      &tool_payload);
+  announce_remote_rpc(&fake_webrtc, 0);
+  gzc_buf_reset(&inbound_request);
+  gzc_buf_reset(&inbound_framed);
+  gzc_buf_reset(&fake_webrtc.sent);
+  if (rc == GZC_OK) {
+    rc = gzc_rpc_encode_request_envelope(
+        platform, gzc_str_from_cstr("missing-client-tool"),
+        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_INVOKE,
+        gzc_str_from_parts((const char *)tool_payload.data, tool_payload.len),
+        &inbound_request);
+  }
+  if (rc == GZC_OK) {
+    rc = append_test_frame(platform, &inbound_framed, GZC_RPC_FRAME_BINARY,
+                           inbound_request.data, inbound_request.len);
+  }
+  if (rc == GZC_OK) {
+    rc = append_test_frame(platform, &inbound_framed, GZC_RPC_FRAME_EOS, NULL,
+                           0);
+  }
+  fake_webrtc.callbacks.on_channel_message(
+      fake_webrtc.callbacks.userdata, &fake_webrtc.peer,
+      &fake_webrtc.remote_channels[0], NULL, inbound_framed.data,
+      inbound_framed.len, false);
+  rc = gzc_client_poll(client, 0);
+  inbound_frame_size = first_frame_size(&fake_webrtc.sent);
+  if (rc == GZC_OK) {
+    rc = gzc_rpc_frame_decode(fake_webrtc.sent.data, inbound_frame_size,
+                              &inbound_frame);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_rpc_decode_response_envelope(
+        gzc_str_from_parts((const char *)inbound_frame.data,
+                           inbound_frame.len),
+        &inbound_response);
+  }
+  if (expect(rc == GZC_OK && inbound_response.has_error &&
+                 inbound_response.error.code ==
+                     gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_METHOD_NOT_FOUND &&
+                 tool_handler.call_count == 1,
+             "missing client Tool handler is unavailable") != 0) {
+    return 1;
+  }
+  gzc_buf_free(&tool_payload, platform);
+  close_remote_rpc(&fake_webrtc, 0);
+
+  gzc_buf_reset(&inbound_request);
+  gzc_buf_reset(&inbound_framed);
+  rc = gzc_rpc_encode_request_envelope(
+      platform, gzc_str_from_cstr("client-info"),
+      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_INFO_GET,
+      gzc_str_from_parts("", 0), &inbound_request);
+  if (rc == GZC_OK) {
+    rc = append_test_frame(platform, &inbound_framed, GZC_RPC_FRAME_BINARY,
+                           inbound_request.data, inbound_request.len);
+  }
+  if (rc == GZC_OK) {
+    rc = append_test_frame(platform, &inbound_framed, GZC_RPC_FRAME_EOS, NULL,
+                           0);
+  }
+  if (expect(rc == GZC_OK, "restore inbound client-info request") != 0) {
+    return 1;
+  }
 
   rpc_provider.mode = FAKE_RPC_PROVIDER_ERROR;
   announce_remote_rpc(&fake_webrtc, 0);

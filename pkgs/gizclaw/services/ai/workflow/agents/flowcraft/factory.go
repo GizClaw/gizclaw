@@ -123,10 +123,10 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if f.Memory != nil && f.MemoryKind == string(apitypes.RuntimeProfileMemoryDriverFlowcraft) && spec.MemoryLayout != nil {
 		f.MemoryLaneRecall = flowcraftLaneRecall(spec.MemoryLayout.Spec.Flowcraft.Lanes)
 	}
-	return f.newAgent(ctx, owner, workspaceName, spec.Workflow.Name, public, spec.BoardInputs, initiativePolicy, memoryCloser)
+	return f.newAgent(ctx, owner, workspaceName, spec.Workflow.Name, public, spec.ToolInvoker, spec.BoardInputs, initiativePolicy, memoryCloser)
 }
 
-func (f Factory) newAgent(ctx context.Context, owner, workspaceName, workflowName string, public apitypes.FlowcraftWorkflowSpec, inputs InputProvider, initiativePolicy string, memoryCloser io.Closer) (agenthost.Agent, error) {
+func (f Factory) newAgent(ctx context.Context, owner, workspaceName, workflowName string, public apitypes.FlowcraftWorkflowSpec, toolInvoker genx.ToolInvoker, inputs InputProvider, initiativePolicy string, memoryCloser io.Closer) (agenthost.Agent, error) {
 	if f.GenX == nil {
 		return nil, fmt.Errorf("flowcraft: peergenx service is required")
 	}
@@ -153,7 +153,7 @@ func (f Factory) newAgent(ctx context.Context, owner, workspaceName, workflowNam
 		ID: agentID, Name: strings.TrimSpace(workflowName), Graph: graph,
 		MaxIterations: intValue(public.MaxIterations), PublishNodes: publishNodes,
 		Models: f.GenX.Generator(), History: f.History, HistoryScope: scope, ContextID: scope,
-		BoardInputs: genxflowcraftBoardInputs(inputs),
+		BoardInputs: genxflowcraftBoardInputs(inputs), ToolInvoker: toolInvoker,
 	}
 	config.Initiative = mapInitiative(public.Conversation, initiativePolicy)
 	if f.State != nil {

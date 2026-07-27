@@ -1,24 +1,41 @@
 package toolkit
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"maps"
+)
 
 func cloneTool(in Tool) Tool {
 	out := in
-	out.Name = cloneStringPtr(in.Name)
 	out.Description = cloneStringPtr(in.Description)
-	out.OwnerPeer = cloneStringPtr(in.OwnerPeer)
 	out.Version = cloneStringPtr(in.Version)
 	out.InputSchema = *in.InputSchema.CloneSchemas()
-	if in.OutputSchema != nil {
-		out.OutputSchema = in.OutputSchema.CloneSchemas()
-	}
 	out.Metadata = cloneRaw(in.Metadata)
-	out.Executor.Name = cloneStringPtr(in.Executor.Name)
-	out.Executor.Method = cloneStringPtr(in.Executor.Method)
-	out.Executor.PeerID = cloneStringPtr(in.Executor.PeerID)
-	out.Executor.Config = cloneRaw(in.Executor.Config)
 	out.Triggers = cloneTriggers(in.Triggers)
+	out.HTTP = cloneHTTPRequest(in.HTTP)
 	return out
+}
+
+func cloneHTTPRequest(in *HTTPRequest) *HTTPRequest {
+	if in == nil {
+		return nil
+	}
+	out := *in
+	out.Headers = make(map[string]string, len(in.Headers))
+	maps.Copy(out.Headers, in.Headers)
+	out.Query = append([]HTTPArgumentBinding(nil), in.Query...)
+	out.Body = append([]HTTPArgumentBinding(nil), in.Body...)
+	out.ResponsePointer = cloneStringPtr(in.ResponsePointer)
+	out.SuccessStatusCodes = append([]int(nil), in.SuccessStatusCodes...)
+	out.Auth.BearerToken = cloneStringPtr(in.Auth.BearerToken)
+	out.Auth.Header = cloneStringPtr(in.Auth.Header)
+	out.Auth.APIKey = cloneStringPtr(in.Auth.APIKey)
+	out.Auth.Credential = cloneStringPtr(in.Auth.Credential)
+	out.Auth.Region = cloneStringPtr(in.Auth.Region)
+	out.Auth.Service = cloneStringPtr(in.Auth.Service)
+	out.Auth.Action = cloneStringPtr(in.Auth.Action)
+	out.Auth.Version = cloneStringPtr(in.Auth.Version)
+	return &out
 }
 
 func cloneTools(in []Tool) []Tool {

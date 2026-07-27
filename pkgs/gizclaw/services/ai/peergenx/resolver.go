@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
@@ -36,12 +37,13 @@ type GeneratorConfig struct {
 type EmbeddingConfig = GeneratorConfig
 
 type TransformerConfig struct {
-	Pattern    string
-	Model      *apitypes.Model
-	Voice      *apitypes.Voice
-	Tenant     Tenant
-	Credential apitypes.Credential
-	Params     map[string]any
+	Pattern     string
+	Model       *apitypes.Model
+	Voice       *apitypes.Voice
+	Tenant      Tenant
+	Credential  apitypes.Credential
+	Params      map[string]any
+	ToolInvoker genx.ToolInvoker
 }
 
 func (s *Service) ListAccessibleGeneratorConfigs(ctx context.Context) ([]GeneratorConfig, error) {

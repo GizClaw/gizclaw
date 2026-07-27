@@ -73,6 +73,7 @@ type Service struct {
 	Host                       genx.TransformerMux
 	PeerRun                    PeerRunStore
 	RuntimeProfile             func() *apitypes.RuntimeProfile
+	ClientTools                ClientToolInvoker
 	ValidateWorkspaceSelection WorkspaceSelectionValidatorFunc
 	AllowRestrictedReload      func(context.Context, string) bool
 	PublicKey                  giznet.PublicKey
@@ -171,6 +172,11 @@ func (s *Service) reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 	if profileSnapshot != nil {
 		baseCtx = withRuntimeProfile(baseCtx, *profileSnapshot)
 	}
+	baseCtx, err = WithToolExecution(baseCtx, profileTools(profileSnapshot), s.ClientTools)
+	if err != nil {
+		_ = input.CloseWithError(err)
+		return s.setErrorStatus(selection.WorkspaceName, err), err
+	}
 	baseCtx = withWorkspaceHistoryNotifier(baseCtx, s.OnWorkspaceHistoryUpdated)
 	runCtx, runCancel := context.WithCancel(baseCtx)
 	stopTransitionCancel := context.AfterFunc(ctx, runCancel)
@@ -263,6 +269,13 @@ func (s *Service) reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 		}
 	}
 	return status, nil
+}
+
+func profileTools(profile *apitypes.RuntimeProfile) *map[string]apitypes.RuntimeProfileBinding {
+	if profile == nil {
+		return nil
+	}
+	return profile.Spec.Resources.Tools
 }
 
 // SetRunAgent persists a pending selection without allowing input recovery to

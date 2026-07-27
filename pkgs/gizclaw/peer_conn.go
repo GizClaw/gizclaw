@@ -383,6 +383,7 @@ func (h *PeerConn) initAgentHost() {
 		PeerRun:        manager.PeerRun,
 		PublicKey:      h.Conn.PublicKey(),
 		RuntimeProfile: h.currentRuntimeProfile,
+		ClientTools:    peerClientToolInvoker{conn: h.Conn},
 		ValidateWorkspaceSelection: func(ctx context.Context, name string) (string, error) {
 			canonicalName, rpcErr := resources.ValidateRunWorkspaceSelection(ctx, name)
 			if rpcErr != nil {

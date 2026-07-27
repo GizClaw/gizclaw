@@ -29,7 +29,7 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if err != nil {
 		return nil, err
 	}
-	transformer, err := service.BuildTransformer(ctx, pattern)
+	transformer, err := service.BuildTransformerWithToolInvoker(ctx, pattern, spec.ToolInvoker)
 	if err != nil {
 		return nil, fmt.Errorf("doubaorealtimeduplex: build transformer: %w", err)
 	}

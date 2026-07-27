@@ -2,89 +2,78 @@ package toolkit
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
-func TestBuilderUsesOnlyRuntimeProfileTools(t *testing.T) {
-	ctx := context.Background()
-	store := &Server{Store: kv.NewMemory(nil)}
-	profileTool := testBuiltinTool("profile")
-	unboundTool := testBuiltinTool("unbound")
-	disabled := testBuiltinTool("disabled")
-	disabled.Enabled = false
-	for _, tool := range []Tool{profileTool, unboundTool, disabled} {
-		if _, err := store.PutTool(ctx, tool); err != nil {
-			t.Fatal(err)
+func TestBuilderSelectsCanonicalNamesAndAppliesPolicy(t *testing.T) {
+	t.Parallel()
+	server := &Server{Store: kv.NewMemory(nil)}
+	for _, tool := range []Tool{testClientTool("volume_set"), testHTTPTool("get_weather")} {
+		if _, err := server.PutTool(context.Background(), tool); err != nil {
+			t.Fatalf("PutTool(%q): %v", tool.Name, err)
 		}
 	}
-
-	kit, err := (&Builder{Tools: store}).Build(ctx, BuildRequest{
-		ProfileToolIDs: []string{"profile", "missing", "profile"},
+	kit, err := (&Builder{Tools: server}).Build(context.Background(), BuildRequest{
+		ProfileTools:  []string{"get_weather", "volume_set", "get_weather"},
+		AllowedTools:  []string{"volume_set"},
+		RestrictTools: true,
 	})
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Build(): %v", err)
 	}
-	if got := toolIDs(kit.Tools); len(got) != 1 || got[0] != "profile" {
-		t.Fatalf("tools = %#v, want only RuntimeProfile-bound resources", got)
+	if len(kit.Tools) != 1 || kit.Tools[0].Name != "volume_set" {
+		t.Fatalf("Build() tools = %#v", kit.Tools)
 	}
-}
-
-func TestBuilderPolicyAndAvailability(t *testing.T) {
-	ctx := context.Background()
-	store := &Server{Store: kv.NewMemory(nil)}
-	for _, id := range []string{"available", "offline"} {
-		if _, err := store.PutTool(ctx, testBuiltinTool(id)); err != nil {
-			t.Fatal(err)
-		}
-	}
-	kit, err := (&Builder{
-		Tools: store,
-		Availability: availabilityFunc(func(_ context.Context, tool Tool) (bool, error) {
-			return tool.ID != "offline", nil
-		}),
-	}).Build(ctx, BuildRequest{ProfileToolIDs: []string{"available", "offline"}, AllowedToolIDs: []string{"available", "offline"}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := toolIDs(kit.Tools); len(got) != 1 || got[0] != "available" {
-		t.Fatalf("tools = %#v", got)
-	}
-
-	want := errors.New("availability failed")
-	_, err = (&Builder{Tools: store, Availability: availabilityFunc(func(context.Context, Tool) (bool, error) { return false, want })}).Build(ctx, BuildRequest{ProfileToolIDs: []string{"available"}})
-	if !errors.Is(err, want) {
-		t.Fatalf("error = %v, want %v", err, want)
+	if _, ok := kit.Find("get_weather"); ok {
+		t.Fatal("policy-excluded Tool was returned")
 	}
 }
 
-func TestBuilderExplicitEmptyPolicyExposesNoTools(t *testing.T) {
-	ctx := context.Background()
-	store := &Server{Store: kv.NewMemory(nil)}
-	if _, err := store.PutTool(ctx, testBuiltinTool("profile")); err != nil {
-		t.Fatal(err)
+func TestBuilderSkipsDisabledAndRejectsDanglingTools(t *testing.T) {
+	t.Parallel()
+	server := &Server{Store: kv.NewMemory(nil)}
+	disabled := testClientTool("volume_set")
+	disabled.Enabled = false
+	if _, err := server.PutTool(context.Background(), disabled); err != nil {
+		t.Fatalf("PutTool(): %v", err)
 	}
-	kit, err := (&Builder{Tools: store}).Build(ctx, BuildRequest{ProfileToolIDs: []string{"profile"}, RestrictToolIDs: true})
+	kit, err := (&Builder{Tools: server}).Build(context.Background(), BuildRequest{
+		ProfileTools: []string{"volume_set"},
+	})
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Build(): %v", err)
 	}
 	if len(kit.Tools) != 0 {
-		t.Fatalf("tools = %#v, want none", toolIDs(kit.Tools))
+		t.Fatalf("Build() returned disabled tools: %#v", kit.Tools)
+	}
+	if _, err := (&Builder{Tools: server}).Build(context.Background(), BuildRequest{
+		ProfileTools: []string{"does_not_exist"},
+	}); err == nil {
+		t.Fatal("Build() accepted a dangling RuntimeProfile Tool binding")
 	}
 }
 
-type availabilityFunc func(context.Context, Tool) (bool, error)
-
-func (f availabilityFunc) ToolAvailable(ctx context.Context, tool Tool) (bool, error) {
-	return f(ctx, tool)
-}
-
-func toolIDs(tools []Tool) []string {
-	out := make([]string, len(tools))
-	for i, tool := range tools {
-		out[i] = tool.ID
+func TestBuilderReturnsDefensiveSnapshots(t *testing.T) {
+	t.Parallel()
+	server := &Server{Store: kv.NewMemory(nil)}
+	tool := testClientTool("volume_set")
+	tool.Metadata = []byte(`{"category":"device"}`)
+	if _, err := server.PutTool(context.Background(), tool); err != nil {
+		t.Fatalf("PutTool(): %v", err)
 	}
-	return out
+	builder := &Builder{Tools: server}
+	first, err := builder.Build(context.Background(), BuildRequest{ProfileTools: []string{"volume_set"}})
+	if err != nil {
+		t.Fatalf("Build(): %v", err)
+	}
+	first.Tools[0].Metadata[0] = '['
+	second, err := builder.Build(context.Background(), BuildRequest{ProfileTools: []string{"volume_set"}})
+	if err != nil {
+		t.Fatalf("Build() second: %v", err)
+	}
+	if string(second.Tools[0].Metadata) != `{"category":"device"}` {
+		t.Fatalf("stored metadata mutated: %s", second.Tools[0].Metadata)
+	}
 }

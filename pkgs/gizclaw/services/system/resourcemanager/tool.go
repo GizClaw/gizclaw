@@ -23,11 +23,15 @@ func (m *Manager) applyTool(ctx context.Context, resource apitypes.Resource) (ap
 	if err != nil {
 		return apitypes.ApplyResult{}, applyError(400, "INVALID_TOOL_RESOURCE", err.Error())
 	}
-	existing, exists, err := m.getTool(ctx, desired.ID)
+	existing, exists, err := m.getTool(ctx, desired.Name)
 	if err != nil {
 		return apitypes.ApplyResult{}, err
 	}
 	if exists {
+		desired, err = toolkit.MergeDirectSecrets(desired, existing)
+		if err != nil {
+			return apitypes.ApplyResult{}, applyError(400, "INVALID_TOOL_RESOURCE", err.Error())
+		}
 		left, err := toolkit.ToSpec(existing)
 		if err != nil {
 			return apitypes.ApplyResult{}, err
@@ -54,8 +58,8 @@ func (m *Manager) applyTool(ctx context.Context, resource apitypes.Resource) (ap
 	return applyResult(action, apitypes.ResourceKindTool, item.Metadata.Name), nil
 }
 
-func (m *Manager) getTool(ctx context.Context, id string) (toolkit.Tool, bool, error) {
-	item, err := m.services.Tools.GetTool(ctx, id)
+func (m *Manager) getTool(ctx context.Context, name string) (toolkit.Tool, bool, error) {
+	item, err := m.services.Tools.GetTool(ctx, name)
 	if errors.Is(err, toolkit.ErrToolNotFound) {
 		return toolkit.Tool{}, false, nil
 	}
@@ -74,29 +78,29 @@ func (m *Manager) putToolResource(ctx context.Context, item apitypes.ToolResourc
 	if err != nil {
 		return apitypes.Resource{}, toolServiceError(err)
 	}
-	return m.Get(ctx, apitypes.ResourceKindTool, stored.ID)
+	return m.Get(ctx, apitypes.ResourceKindTool, stored.Name)
 }
 
-func (m *Manager) deleteTool(ctx context.Context, id string) (toolkit.Tool, bool, error) {
-	item, exists, err := m.getTool(ctx, id)
+func (m *Manager) deleteTool(ctx context.Context, name string) (toolkit.Tool, bool, error) {
+	item, exists, err := m.getTool(ctx, name)
 	if err != nil || !exists {
 		return item, exists, err
 	}
-	if err := m.services.Tools.DeleteTool(ctx, id); err != nil {
+	if err := m.services.Tools.DeleteTool(ctx, name); err != nil {
 		return toolkit.Tool{}, false, toolServiceError(err)
 	}
 	return item, true, nil
 }
 
 func resourceFromTool(item toolkit.Tool) (apitypes.Resource, error) {
-	spec, err := toolkit.ToSpec(item)
+	spec, err := toolkit.ToRedactedSpec(item)
 	if err != nil {
 		return apitypes.Resource{}, err
 	}
 	return marshalResource(apitypes.ToolResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.ToolResourceKindTool,
-		Metadata:   apitypes.ResourceMetadata{Name: item.ID},
+		Metadata:   apitypes.ResourceMetadata{Name: item.Name},
 		Spec:       spec,
 	})
 }

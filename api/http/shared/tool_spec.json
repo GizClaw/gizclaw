@@ -8,37 +8,49 @@
   "components": {
     "schemas": {
       "ToolSpec": {
+        "description": "Strict Tool declaration selected by type. metadata.name is the only Tool identity.",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/HTTPToolSpec"
+          },
+          {
+            "$ref": "#/components/schemas/ClientRPCToolSpec"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "http_request": "#/components/schemas/HTTPToolSpec",
+            "client_rpc": "#/components/schemas/ClientRPCToolSpec"
+          }
+        }
+      },
+      "HTTPToolSpec": {
         "type": "object",
         "required": [
-          "source",
+          "type",
           "input_schema",
-          "executor"
+          "http"
         ],
         "additionalProperties": false,
         "properties": {
-          "name": {
-            "type": "string"
+          "type": {
+            "type": "string",
+            "enum": [
+              "http_request"
+            ]
           },
           "description": {
             "type": "string"
-          },
-          "source": {
-            "$ref": "./tool_source.json#/components/schemas/ToolSource"
           },
           "enabled": {
             "type": "boolean",
             "default": true
           },
-          "owner_peer": {
-            "type": "string"
-          },
           "version": {
             "type": "string"
           },
           "input_schema": {
-            "$ref": "./tool_json_schema.json#/components/schemas/ToolJSONSchema"
-          },
-          "output_schema": {
             "$ref": "./tool_json_schema.json#/components/schemas/ToolJSONSchema"
           },
           "triggers": {
@@ -47,12 +59,363 @@
               "$ref": "./tool_trigger.json#/components/schemas/ToolTrigger"
             }
           },
-          "executor": {
-            "$ref": "./tool_executor.json#/components/schemas/ToolExecutor"
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "http": {
+            "$ref": "#/components/schemas/ToolHTTPRequest"
+          }
+        }
+      },
+      "ClientRPCToolSpec": {
+        "type": "object",
+        "required": [
+          "type",
+          "input_schema"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "client_rpc"
+            ]
+          },
+          "description": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          },
+          "version": {
+            "type": "string"
+          },
+          "input_schema": {
+            "$ref": "./tool_json_schema.json#/components/schemas/ToolJSONSchema"
+          },
+          "triggers": {
+            "type": "array",
+            "items": {
+              "$ref": "./tool_trigger.json#/components/schemas/ToolTrigger"
+            }
           },
           "metadata": {
             "type": "object",
             "additionalProperties": true
+          }
+        }
+      },
+      "ToolHTTPMethod": {
+        "type": "string",
+        "enum": [
+          "GET",
+          "POST"
+        ]
+      },
+      "ToolHTTPArgumentBinding": {
+        "type": "object",
+        "required": [
+          "argument_pointer",
+          "target"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "argument_pointer": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string",
+            "minLength": 1
+          },
+          "required": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
+      "ToolHTTPRequest": {
+        "type": "object",
+        "required": [
+          "url",
+          "method",
+          "auth",
+          "timeout",
+          "max_response_bytes"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "minLength": 1
+          },
+          "method": {
+            "$ref": "#/components/schemas/ToolHTTPMethod"
+          },
+          "auth": {
+            "$ref": "#/components/schemas/ToolHTTPAuth"
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "query": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ToolHTTPArgumentBinding"
+            }
+          },
+          "body": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ToolHTTPArgumentBinding"
+            }
+          },
+          "response_pointer": {
+            "type": "string"
+          },
+          "success_status_codes": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 200,
+              "maximum": 299
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "timeout": {
+            "type": "string",
+            "minLength": 1
+          },
+          "max_response_bytes": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "ToolHTTPAuth": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ToolHTTPAuthNone"
+          },
+          {
+            "$ref": "#/components/schemas/ToolHTTPAuthBearer"
+          },
+          {
+            "$ref": "#/components/schemas/ToolHTTPAuthHeaderAPIKey"
+          },
+          {
+            "$ref": "#/components/schemas/ToolHTTPAuthVolcArk"
+          },
+          {
+            "$ref": "#/components/schemas/ToolHTTPAuthVolcSearch"
+          },
+          {
+            "$ref": "#/components/schemas/ToolHTTPAuthVolcOpenAPI"
+          },
+          {
+            "$ref": "#/components/schemas/ToolHTTPAuthAliyunAppCode"
+          },
+          {
+            "$ref": "#/components/schemas/ToolHTTPAuthAliyunOpenAPIV3"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "method",
+          "mapping": {
+            "none": "#/components/schemas/ToolHTTPAuthNone",
+            "bearer": "#/components/schemas/ToolHTTPAuthBearer",
+            "header_api_key": "#/components/schemas/ToolHTTPAuthHeaderAPIKey",
+            "volc_ark": "#/components/schemas/ToolHTTPAuthVolcArk",
+            "volc_search": "#/components/schemas/ToolHTTPAuthVolcSearch",
+            "volc_openapi": "#/components/schemas/ToolHTTPAuthVolcOpenAPI",
+            "aliyun_app_code": "#/components/schemas/ToolHTTPAuthAliyunAppCode",
+            "aliyun_openapi_v3": "#/components/schemas/ToolHTTPAuthAliyunOpenAPIV3"
+          }
+        }
+      },
+      "ToolHTTPAuthNone": {
+        "type": "object",
+        "required": [
+          "method"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "none"
+            ]
+          }
+        }
+      },
+      "ToolHTTPAuthBearer": {
+        "type": "object",
+        "required": [
+          "method"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "bearer"
+            ]
+          },
+          "bearer_token": {
+            "type": "string",
+            "minLength": 1,
+            "writeOnly": true
+          }
+        }
+      },
+      "ToolHTTPAuthHeaderAPIKey": {
+        "type": "object",
+        "required": [
+          "method",
+          "header"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "header_api_key"
+            ]
+          },
+          "header": {
+            "type": "string",
+            "minLength": 1
+          },
+          "api_key": {
+            "type": "string",
+            "minLength": 1,
+            "writeOnly": true
+          }
+        }
+      },
+      "ToolHTTPAuthVolcArk": {
+        "type": "object",
+        "required": [
+          "method",
+          "credential"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "volc_ark"
+            ]
+          },
+          "credential": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "ToolHTTPAuthVolcSearch": {
+        "type": "object",
+        "required": [
+          "method",
+          "credential"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "volc_search"
+            ]
+          },
+          "credential": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "ToolHTTPAuthVolcOpenAPI": {
+        "type": "object",
+        "required": [
+          "method",
+          "credential",
+          "region",
+          "service"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "volc_openapi"
+            ]
+          },
+          "credential": {
+            "type": "string",
+            "minLength": 1
+          },
+          "region": {
+            "type": "string",
+            "minLength": 1
+          },
+          "service": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "ToolHTTPAuthAliyunAppCode": {
+        "type": "object",
+        "required": [
+          "method",
+          "credential"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "aliyun_app_code"
+            ]
+          },
+          "credential": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "ToolHTTPAuthAliyunOpenAPIV3": {
+        "type": "object",
+        "required": [
+          "method",
+          "credential",
+          "action",
+          "version"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "aliyun_openapi_v3"
+            ]
+          },
+          "credential": {
+            "type": "string",
+            "minLength": 1
+          },
+          "action": {
+            "type": "string",
+            "minLength": 1
+          },
+          "version": {
+            "type": "string",
+            "minLength": 1
           }
         }
       }

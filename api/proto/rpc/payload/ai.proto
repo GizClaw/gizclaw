@@ -563,10 +563,13 @@ message ToolkitPolicy {
 }
 
 message Tool {
+  reserved 4;
+  reserved "output_schema";
+
   string alias = 1;
   map<string, AliasI18nText> i18n = 2;
   google.protobuf.Struct input_schema = 3;
-  optional google.protobuf.Struct output_schema = 4;
+  string name = 5;
 }
 
 message ToolListRequest {
@@ -593,10 +596,11 @@ message ToolGetResponse {
 }
 
 message ToolInvokeRequest {
-  string call_id = 1;
-  string tool_id = 2;
-  string method = 3;
+  reserved 1, 2, 3;
+  reserved "call_id", "tool_id", "method";
+
   google.protobuf.Struct args = 4;
+  string name = 5;
 }
 
 message ToolInvokeResponse {

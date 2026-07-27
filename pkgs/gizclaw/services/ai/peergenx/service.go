@@ -100,6 +100,24 @@ func (s *Service) Transformer() genx.TransformerMux {
 // provider session. Workflow factories use it to reject invalid persisted
 // resources and credentials during AgentHost initialization.
 func (s *Service) BuildTransformer(ctx context.Context, pattern string) (genx.Transformer, error) {
+	return s.buildTransformer(ctx, pattern, nil)
+}
+
+// BuildTransformerWithToolInvoker resolves and validates a transformer with
+// the AgentHost-owned ToolInvoker for the current Peer run.
+func (s *Service) BuildTransformerWithToolInvoker(
+	ctx context.Context,
+	pattern string,
+	toolInvoker genx.ToolInvoker,
+) (genx.Transformer, error) {
+	return s.buildTransformer(ctx, pattern, toolInvoker)
+}
+
+func (s *Service) buildTransformer(
+	ctx context.Context,
+	pattern string,
+	toolInvoker genx.ToolInvoker,
+) (genx.Transformer, error) {
 	if s == nil {
 		return nil, ErrNotConfigured
 	}
@@ -107,6 +125,7 @@ func (s *Service) BuildTransformer(ctx context.Context, pattern string) (genx.Tr
 	if err != nil {
 		return nil, err
 	}
+	cfg.ToolInvoker = toolInvoker
 	return s.builder().BuildTransformer(ctx, cfg)
 }
 

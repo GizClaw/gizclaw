@@ -7170,13 +7170,13 @@ class Tool extends $pb.GeneratedMessage {
     $core.String? alias,
     $core.Iterable<$core.MapEntry<$core.String, AliasI18nText>>? i18n,
     $0.Struct? inputSchema,
-    $0.Struct? outputSchema,
+    $core.String? name,
   }) {
     final result = create();
     if (alias != null) result.alias = alias;
     if (i18n != null) result.i18n.addEntries(i18n);
     if (inputSchema != null) result.inputSchema = inputSchema;
-    if (outputSchema != null) result.outputSchema = outputSchema;
+    if (name != null) result.name = name;
     return result;
   }
 
@@ -7203,8 +7203,7 @@ class Tool extends $pb.GeneratedMessage {
         packageName: const $pb.PackageName('gizclaw.rpc.v1'))
     ..aOM<$0.Struct>(3, _omitFieldNames ? '' : 'inputSchema',
         subBuilder: $0.Struct.create)
-    ..aOM<$0.Struct>(4, _omitFieldNames ? '' : 'outputSchema',
-        subBuilder: $0.Struct.create)
+    ..aOS(5, _omitFieldNames ? '' : 'name')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -7248,16 +7247,14 @@ class Tool extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   $0.Struct ensureInputSchema() => $_ensure(2);
 
-  @$pb.TagNumber(4)
-  $0.Struct get outputSchema => $_getN(3);
-  @$pb.TagNumber(4)
-  set outputSchema($0.Struct value) => $_setField(4, value);
-  @$pb.TagNumber(4)
-  $core.bool hasOutputSchema() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearOutputSchema() => $_clearField(4);
-  @$pb.TagNumber(4)
-  $0.Struct ensureOutputSchema() => $_ensure(3);
+  @$pb.TagNumber(5)
+  $core.String get name => $_getSZ(3);
+  @$pb.TagNumber(5)
+  set name($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(5)
+  $core.bool hasName() => $_has(3);
+  @$pb.TagNumber(5)
+  void clearName() => $_clearField(5);
 }
 
 class ToolListRequest extends $pb.GeneratedMessage {
@@ -7562,16 +7559,12 @@ class ToolGetResponse extends $pb.GeneratedMessage {
 
 class ToolInvokeRequest extends $pb.GeneratedMessage {
   factory ToolInvokeRequest({
-    $core.String? callId,
-    $core.String? toolId,
-    $core.String? method,
     $0.Struct? args,
+    $core.String? name,
   }) {
     final result = create();
-    if (callId != null) result.callId = callId;
-    if (toolId != null) result.toolId = toolId;
-    if (method != null) result.method = method;
     if (args != null) result.args = args;
+    if (name != null) result.name = name;
     return result;
   }
 
@@ -7588,11 +7581,9 @@ class ToolInvokeRequest extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'ToolInvokeRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'callId')
-    ..aOS(2, _omitFieldNames ? '' : 'toolId')
-    ..aOS(3, _omitFieldNames ? '' : 'method')
     ..aOM<$0.Struct>(4, _omitFieldNames ? '' : 'args',
         subBuilder: $0.Struct.create)
+    ..aOS(5, _omitFieldNames ? '' : 'name')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -7614,43 +7605,25 @@ class ToolInvokeRequest extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<ToolInvokeRequest>(create);
   static ToolInvokeRequest? _defaultInstance;
 
-  @$pb.TagNumber(1)
-  $core.String get callId => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set callId($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasCallId() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearCallId() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.String get toolId => $_getSZ(1);
-  @$pb.TagNumber(2)
-  set toolId($core.String value) => $_setString(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasToolId() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearToolId() => $_clearField(2);
-
-  @$pb.TagNumber(3)
-  $core.String get method => $_getSZ(2);
-  @$pb.TagNumber(3)
-  set method($core.String value) => $_setString(2, value);
-  @$pb.TagNumber(3)
-  $core.bool hasMethod() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearMethod() => $_clearField(3);
-
   @$pb.TagNumber(4)
-  $0.Struct get args => $_getN(3);
+  $0.Struct get args => $_getN(0);
   @$pb.TagNumber(4)
   set args($0.Struct value) => $_setField(4, value);
   @$pb.TagNumber(4)
-  $core.bool hasArgs() => $_has(3);
+  $core.bool hasArgs() => $_has(0);
   @$pb.TagNumber(4)
   void clearArgs() => $_clearField(4);
   @$pb.TagNumber(4)
-  $0.Struct ensureArgs() => $_ensure(3);
+  $0.Struct ensureArgs() => $_ensure(0);
+
+  @$pb.TagNumber(5)
+  $core.String get name => $_getSZ(1);
+  @$pb.TagNumber(5)
+  set name($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(5)
+  $core.bool hasName() => $_has(1);
+  @$pb.TagNumber(5)
+  void clearName() => $_clearField(5);
 }
 
 class ToolInvokeResponse extends $pb.GeneratedMessage {

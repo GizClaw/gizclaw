@@ -10,33 +10,26 @@
       "Tool": {
         "type": "object",
         "required": [
-          "id",
-          "source",
+          "name",
+          "type",
           "enabled",
           "input_schema",
-          "executor",
           "created_at",
           "updated_at"
         ],
         "additionalProperties": false,
         "properties": {
-          "id": {
-            "type": "string"
-          },
           "name": {
             "type": "string"
+          },
+          "type": {
+            "$ref": "./tool_type.json#/components/schemas/ToolType"
           },
           "description": {
             "type": "string"
           },
-          "source": {
-            "$ref": "./tool_source.json#/components/schemas/ToolSource"
-          },
           "enabled": {
             "type": "boolean"
-          },
-          "owner_peer": {
-            "type": "string"
           },
           "version": {
             "type": "string"
@@ -44,17 +37,11 @@
           "input_schema": {
             "$ref": "./tool_json_schema.json#/components/schemas/ToolJSONSchema"
           },
-          "output_schema": {
-            "$ref": "./tool_json_schema.json#/components/schemas/ToolJSONSchema"
-          },
           "triggers": {
             "type": "array",
             "items": {
               "$ref": "./tool_trigger.json#/components/schemas/ToolTrigger"
             }
-          },
-          "executor": {
-            "$ref": "./tool_executor.json#/components/schemas/ToolExecutor"
           },
           "metadata": {
             "type": "object",

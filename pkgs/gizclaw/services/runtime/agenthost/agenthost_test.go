@@ -210,9 +210,8 @@ func TestServiceResolverRejectsWorkspaceAgentTypeWorkflowDriverMismatch(t *testi
 	}
 }
 
-func TestServiceResolverRequiresSubjectForToolkit(t *testing.T) {
+func TestServiceResolverDefersCurrentPeerToolkitScopeUntilTransform(t *testing.T) {
 	workspace := systemWorkspace("demo", "workflow-1", nil)
-	workspace.Toolkit = &apitypes.ToolkitPolicy{}
 	resolver := ServiceResolver{
 		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{
 			"demo": workspace,
@@ -220,23 +219,15 @@ func TestServiceResolverRequiresSubjectForToolkit(t *testing.T) {
 		Workflows: fakeWorkflowService{items: map[string]apitypes.Workflow{
 			"workflow-1": mustWorkflow(t, "workflow-1"),
 		}},
-		ToolBuilder:   &toolkit.Builder{},
-		ToolExecutors: toolkit.NewExecutorRegistry(),
+		ToolBuilder: &toolkit.Builder{},
 	}
 
-	if _, err := resolver.Resolve(context.Background(), "demo"); err == nil || !strings.Contains(err.Error(), "resource access context") {
-		t.Fatalf("Resolve() error = %v, want resource access context error", err)
+	resolved, err := resolver.Resolve(context.Background(), "demo")
+	if err != nil {
+		t.Fatalf("Resolve() error = %v", err)
 	}
-}
-
-func TestResolveToolAliasesUsesRuntimeProfileBindings(t *testing.T) {
-	got := resolveToolAliases([]string{"search", "system.clock", "missing"}, map[string]string{
-		"search": "system.search",
-		"clock":  "system.clock",
-	})
-	want := []string{"system.search", "system.clock", "missing"}
-	if !slices.Equal(got, want) {
-		t.Fatalf("resolveToolAliases() = %#v, want %#v", got, want)
+	if resolved.ToolInvoker == nil {
+		t.Fatal("Resolve() ToolInvoker = nil")
 	}
 }
 
@@ -257,22 +248,17 @@ func TestResolveToolkitAppliesNestedPetWorkflowPolicy(t *testing.T) {
 		},
 	}}
 	resolver := ServiceResolver{
-		ToolBuilder:   &toolkit.Builder{},
-		ToolExecutors: toolkit.NewExecutorRegistry(),
+		ToolBuilder: &toolkit.Builder{},
 	}
-	ctx := WithResourceAccess(context.Background(), "owner", map[string]string{
-		"search": "system.search",
-		"clock":  "system.clock",
-	}, nil)
-	resolved, err := resolver.resolveToolkit(ctx, apitypes.Workspace{}, workflow)
+	resolved, err := resolver.resolveToolkit(context.Background(), apitypes.Workspace{}, workflow)
 	if err != nil {
 		t.Fatalf("resolveToolkit() error = %v", err)
 	}
-	if resolved == nil || !resolved.BuildRequest.RestrictToolIDs {
+	if resolved == nil || !resolved.Request.RestrictTools {
 		t.Fatalf("resolved toolkit = %#v", resolved)
 	}
-	if got, want := resolved.BuildRequest.AllowedToolIDs, []string{"system.search"}; !slices.Equal(got, want) {
-		t.Fatalf("AllowedToolIDs = %#v, want %#v", got, want)
+	if got, want := resolved.Request.AllowedTools, []string{"search"}; !slices.Equal(got, want) {
+		t.Fatalf("AllowedTools = %#v, want %#v", got, want)
 	}
 }
 

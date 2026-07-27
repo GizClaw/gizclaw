@@ -7,37 +7,26 @@ import (
 	"github.com/google/jsonschema-go/jsonschema"
 )
 
-type ToolSource string
+type ToolType string
 
 const (
-	ToolSourceBuiltin ToolSource = "builtin"
-	ToolSourceDevice  ToolSource = "device"
-	ToolSourceAdmin   ToolSource = "admin"
+	ToolTypeHTTPRequest ToolType = "http_request"
+	ToolTypeClientRPC   ToolType = "client_rpc"
 )
 
-type ToolExecutorKind string
-
-const (
-	ToolExecutorKindBuiltin   ToolExecutorKind = "builtin"
-	ToolExecutorKindDeviceRPC ToolExecutorKind = "device_rpc"
-)
-
-// Tool is the persisted configuration model for one executable capability.
+// Tool is the persisted configuration for one canonically named capability.
 type Tool struct {
-	ID           string             `json:"id"`
-	Name         *string            `json:"name,omitempty"`
-	Description  *string            `json:"description,omitempty"`
-	Source       ToolSource         `json:"source"`
-	Enabled      bool               `json:"enabled"`
-	OwnerPeer    *string            `json:"owner_peer,omitempty"`
-	Version      *string            `json:"version,omitempty"`
-	InputSchema  jsonschema.Schema  `json:"input_schema"`
-	OutputSchema *jsonschema.Schema `json:"output_schema,omitempty"`
-	Triggers     []ToolTrigger      `json:"triggers,omitempty"`
-	Executor     ToolExecutor       `json:"executor"`
-	Metadata     json.RawMessage    `json:"metadata,omitempty"`
-	CreatedAt    time.Time          `json:"created_at"`
-	UpdatedAt    time.Time          `json:"updated_at"`
+	Name        string            `json:"name"`
+	Type        ToolType          `json:"type"`
+	Description *string           `json:"description,omitempty"`
+	Enabled     bool              `json:"enabled"`
+	Version     *string           `json:"version,omitempty"`
+	InputSchema jsonschema.Schema `json:"input_schema"`
+	Triggers    []ToolTrigger     `json:"triggers,omitempty"`
+	Metadata    json.RawMessage   `json:"metadata,omitempty"`
+	HTTP        *HTTPRequest      `json:"http,omitempty"`
+	CreatedAt   time.Time         `json:"created_at"`
+	UpdatedAt   time.Time         `json:"updated_at"`
 }
 
 type ToolTrigger struct {
@@ -54,12 +43,35 @@ type ToolTriggerExample struct {
 	Output *string         `json:"output,omitempty"`
 }
 
-type ToolExecutor struct {
-	Kind   ToolExecutorKind `json:"kind"`
-	Name   *string          `json:"name,omitempty"`
-	Method *string          `json:"method,omitempty"`
-	PeerID *string          `json:"peer_id,omitempty"`
-	Config json.RawMessage  `json:"config,omitempty"`
+type HTTPRequest struct {
+	URL                string                `json:"url"`
+	Method             string                `json:"method"`
+	Auth               HTTPAuth              `json:"auth"`
+	Headers            map[string]string     `json:"headers,omitempty"`
+	Query              []HTTPArgumentBinding `json:"query,omitempty"`
+	Body               []HTTPArgumentBinding `json:"body,omitempty"`
+	ResponsePointer    *string               `json:"response_pointer,omitempty"`
+	SuccessStatusCodes []int                 `json:"success_status_codes,omitempty"`
+	Timeout            time.Duration         `json:"timeout"`
+	MaxResponseBytes   int64                 `json:"max_response_bytes"`
+}
+
+type HTTPArgumentBinding struct {
+	ArgumentPointer string `json:"argument_pointer"`
+	Target          string `json:"target"`
+	Required        bool   `json:"required"`
+}
+
+type HTTPAuth struct {
+	Method      string  `json:"method"`
+	BearerToken *string `json:"bearer_token,omitempty"`
+	Header      *string `json:"header,omitempty"`
+	APIKey      *string `json:"api_key,omitempty"`
+	Credential  *string `json:"credential,omitempty"`
+	Region      *string `json:"region,omitempty"`
+	Service     *string `json:"service,omitempty"`
+	Action      *string `json:"action,omitempty"`
+	Version     *string `json:"version,omitempty"`
 }
 
 type ToolKit struct {

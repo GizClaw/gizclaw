@@ -2,9 +2,31 @@
 
 #include "gzc_json.h"
 #include "gzc_rpc_frame.h"
+#include "payload/ai.pb.h"
+#include "rpc.pb.h"
+
+#include <pb_decode.h>
 
 #include <stdio.h>
 #include <string.h>
+
+static bool valid_tool_name(gzc_str_t name) {
+  if (name.data == NULL || name.len == 0u || name.len > 64u ||
+      !((name.data[0] >= 'A' && name.data[0] <= 'Z') ||
+        (name.data[0] >= 'a' && name.data[0] <= 'z') ||
+        name.data[0] == '_')) {
+    return false;
+  }
+  for (size_t i = 1; i < name.len; i++) {
+    const char value = name.data[i];
+    if (!((value >= 'A' && value <= 'Z') ||
+          (value >= 'a' && value <= 'z') ||
+          (value >= '0' && value <= '9') || value == '_' || value == '-')) {
+      return false;
+    }
+  }
+  return true;
+}
 
 typedef struct gzc_rpc_inbound gzc_rpc_inbound_t;
 int gzc_rpc_inbound_create(
@@ -935,6 +957,24 @@ int gzc_client_create(const gzc_client_config_t *config, gzc_client_t **out_clie
       config->webrtc->channel_set_buffered_amount_low_threshold == NULL) {
     return GZC_ERR_UNSUPPORTED;
   }
+  if ((config->tool_handlers == NULL && config->tool_handler_count != 0u) ||
+      (config->tool_handlers != NULL && config->tool_handler_count == 0u)) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  for (size_t i = 0; i < config->tool_handler_count; i++) {
+    if (!valid_tool_name(config->tool_handlers[i].name) ||
+        config->tool_handlers[i].handler == NULL) {
+      return GZC_ERR_INVALID_ARGUMENT;
+    }
+    for (size_t j = 0; j < i; j++) {
+      if (config->tool_handlers[i].name.len == config->tool_handlers[j].name.len &&
+          memcmp(config->tool_handlers[i].name.data,
+                 config->tool_handlers[j].name.data,
+                 config->tool_handlers[i].name.len) == 0) {
+        return GZC_ERR_INVALID_ARGUMENT;
+      }
+    }
+  }
   const gzc_platform_t *platform = config->platform == NULL ? gzc_default_platform() : config->platform;
   if (platform->malloc == NULL || platform->realloc == NULL || platform->free == NULL ||
       platform->time_instant_ms == NULL) {
@@ -1224,6 +1264,42 @@ int gzc_client_dispatch_rpc_internal(
   if (client == NULL || respond == NULL ||
       (request_payload.data == NULL && request_payload.len != 0u)) {
     return GZC_ERR_INVALID_ARGUMENT;
+  }
+  if (method == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_INVOKE) {
+    gizclaw_rpc_v1_ToolInvokeRequest request =
+        gizclaw_rpc_v1_ToolInvokeRequest_init_zero;
+    pb_istream_t stream =
+        pb_istream_from_buffer((const pb_byte_t *)request_payload.data,
+                               request_payload.len);
+    if (!pb_decode(&stream, gizclaw_rpc_v1_ToolInvokeRequest_fields, &request) ||
+        request.name[0] == '\0') {
+      const gzc_rpc_provider_response_t response = {
+          .has_error = true,
+          .error_code =
+              gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INVALID_PARAMS,
+          .error_message = {.data = "invalid Tool request", .len = 20u},
+      };
+      return respond(respond_userdata, &response);
+    }
+    const size_t name_len = strlen(request.name);
+    for (size_t i = 0; i < client->config.tool_handler_count; i++) {
+      const gzc_tool_handler_t *registered =
+          &client->config.tool_handlers[i];
+      if (registered->name.len == name_len &&
+          memcmp(registered->name.data, request.name, name_len) == 0) {
+        return registered->handler(registered->userdata,
+                                   request_payload,
+                                   respond,
+                                   respond_userdata);
+      }
+    }
+    const gzc_rpc_provider_response_t response = {
+        .has_error = true,
+        .error_code =
+            gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_METHOD_NOT_FOUND,
+        .error_message = {.data = "Tool unavailable", .len = 16u},
+    };
+    return respond(respond_userdata, &response);
   }
   if (client->config.rpc_provider == NULL) {
     return GZC_ERR_UNSUPPORTED;

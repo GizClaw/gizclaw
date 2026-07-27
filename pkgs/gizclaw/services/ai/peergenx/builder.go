@@ -215,6 +215,7 @@ func (b DefaultBuilder) buildDashScopeRealtime(cfg TransformerConfig) (genx.Tran
 		Model:        firstString(providerData.UpstreamModel),
 		Voice:        mapString(data, "voice", "output_voice"),
 		Instructions: mapString(data, "instructions"),
+		ToolInvoker:  cfg.ToolInvoker,
 		VAD:          mapString(data, "vad"),
 		ASRModel:     mapString(data, "asr_model"),
 	}
@@ -280,6 +281,7 @@ func (b DefaultBuilder) buildVolcRealtimeDuplex(cfg TransformerConfig) (genx.Tra
 		Model:        firstString(providerData.UpstreamModel),
 		Speaker:      mapString(data, "voice", "output_voice", "speaker"),
 		Instructions: mapString(data, "instructions"),
+		ToolInvoker:  cfg.ToolInvoker,
 		Format:       mapString(data, "format"),
 		InputFormat:  mapString(data, "input_format"),
 	}

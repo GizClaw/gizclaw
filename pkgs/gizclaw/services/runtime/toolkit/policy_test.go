@@ -1,7 +1,6 @@
 package toolkit
 
 import (
-	"context"
 	"errors"
 	"testing"
 
@@ -32,15 +31,5 @@ func TestNormalizePolicyRejectsEmptyToolID(t *testing.T) {
 	_, err := NormalizePolicy(&apitypes.ToolkitPolicy{ToolIds: &ids})
 	if !errors.Is(err, ErrInvalidTool) {
 		t.Fatalf("NormalizePolicy() error = %v, want %v", err, ErrInvalidTool)
-	}
-}
-
-func TestEchoExecutorReturnsCallArgs(t *testing.T) {
-	result, err := (EchoExecutor{}).Invoke(context.Background(), Call{Args: []byte(`{"text":"hello"}`)})
-	if err != nil {
-		t.Fatalf("Invoke() error = %v", err)
-	}
-	if string(result.Data) != `{"text":"hello"}` {
-		t.Fatalf("Data = %s", result.Data)
 	}
 }

@@ -3919,21 +3919,13 @@ const Tool$json = {
       '6': '.google.protobuf.Struct',
       '10': 'inputSchema'
     },
-    {
-      '1': 'output_schema',
-      '3': 4,
-      '4': 1,
-      '5': 11,
-      '6': '.google.protobuf.Struct',
-      '9': 0,
-      '10': 'outputSchema',
-      '17': true
-    },
+    {'1': 'name', '3': 5, '4': 1, '5': 9, '10': 'name'},
   ],
   '3': [Tool_I18nEntry$json],
-  '8': [
-    {'1': '_output_schema'},
+  '9': [
+    {'1': 4, '2': 5},
   ],
+  '10': ['output_schema'],
 };
 
 @$core.Deprecated('Use toolDescriptor instead')
@@ -3957,10 +3949,9 @@ const Tool_I18nEntry$json = {
 final $typed_data.Uint8List toolDescriptor = $convert.base64Decode(
     'CgRUb29sEhQKBWFsaWFzGAEgASgJUgVhbGlhcxIyCgRpMThuGAIgAygLMh4uZ2l6Y2xhdy5ycG'
     'MudjEuVG9vbC5JMThuRW50cnlSBGkxOG4SOgoMaW5wdXRfc2NoZW1hGAMgASgLMhcuZ29vZ2xl'
-    'LnByb3RvYnVmLlN0cnVjdFILaW5wdXRTY2hlbWESQQoNb3V0cHV0X3NjaGVtYRgEIAEoCzIXLm'
-    'dvb2dsZS5wcm90b2J1Zi5TdHJ1Y3RIAFIMb3V0cHV0U2NoZW1hiAEBGlYKCUkxOG5FbnRyeRIQ'
-    'CgNrZXkYASABKAlSA2tleRIzCgV2YWx1ZRgCIAEoCzIdLmdpemNsYXcucnBjLnYxLkFsaWFzST'
-    'E4blRleHRSBXZhbHVlOgI4AUIQCg5fb3V0cHV0X3NjaGVtYQ==');
+    'LnByb3RvYnVmLlN0cnVjdFILaW5wdXRTY2hlbWESEgoEbmFtZRgFIAEoCVIEbmFtZRpWCglJMT'
+    'huRW50cnkSEAoDa2V5GAEgASgJUgNrZXkSMwoFdmFsdWUYAiABKAsyHS5naXpjbGF3LnJwYy52'
+    'MS5BbGlhc0kxOG5UZXh0UgV2YWx1ZToCOAFKBAgEEAVSDW91dHB1dF9zY2hlbWE=');
 
 @$core.Deprecated('Use toolListRequestDescriptor instead')
 const ToolListRequest$json = {
@@ -4082,9 +4073,6 @@ final $typed_data.Uint8List toolGetResponseDescriptor = $convert.base64Decode(
 const ToolInvokeRequest$json = {
   '1': 'ToolInvokeRequest',
   '2': [
-    {'1': 'call_id', '3': 1, '4': 1, '5': 9, '10': 'callId'},
-    {'1': 'tool_id', '3': 2, '4': 1, '5': 9, '10': 'toolId'},
-    {'1': 'method', '3': 3, '4': 1, '5': 9, '10': 'method'},
     {
       '1': 'args',
       '3': 4,
@@ -4093,14 +4081,21 @@ const ToolInvokeRequest$json = {
       '6': '.google.protobuf.Struct',
       '10': 'args'
     },
+    {'1': 'name', '3': 5, '4': 1, '5': 9, '10': 'name'},
   ],
+  '9': [
+    {'1': 1, '2': 2},
+    {'1': 2, '2': 3},
+    {'1': 3, '2': 4},
+  ],
+  '10': ['call_id', 'tool_id', 'method'],
 };
 
 /// Descriptor for `ToolInvokeRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List toolInvokeRequestDescriptor = $convert.base64Decode(
-    'ChFUb29sSW52b2tlUmVxdWVzdBIXCgdjYWxsX2lkGAEgASgJUgZjYWxsSWQSFwoHdG9vbF9pZB'
-    'gCIAEoCVIGdG9vbElkEhYKBm1ldGhvZBgDIAEoCVIGbWV0aG9kEisKBGFyZ3MYBCABKAsyFy5n'
-    'b29nbGUucHJvdG9idWYuU3RydWN0UgRhcmdz');
+    'ChFUb29sSW52b2tlUmVxdWVzdBIrCgRhcmdzGAQgASgLMhcuZ29vZ2xlLnByb3RvYnVmLlN0cn'
+    'VjdFIEYXJncxISCgRuYW1lGAUgASgJUgRuYW1lSgQIARACSgQIAhADSgQIAxAEUgdjYWxsX2lk'
+    'Ugd0b29sX2lkUgZtZXRob2Q=');
 
 @$core.Deprecated('Use toolInvokeResponseDescriptor instead')
 const ToolInvokeResponse$json = {

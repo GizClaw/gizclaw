@@ -42,6 +42,23 @@ typedef int (*gzc_rpc_provider_fn)(
     gzc_rpc_provider_respond_fn respond,
     void *respond_userdata);
 
+/*
+ * Handles one canonically named client_rpc Tool. request_payload is the
+ * encoded ToolInvokeRequest and the response payload must be an encoded
+ * ToolInvokeResponse. Views are borrowed for the synchronous call.
+ */
+typedef int (*gzc_tool_handler_fn)(
+    void *userdata,
+    gzc_str_t request_payload,
+    gzc_rpc_provider_respond_fn respond,
+    void *respond_userdata);
+
+typedef struct {
+  gzc_str_t name;
+  gzc_tool_handler_fn handler;
+  void *userdata;
+} gzc_tool_handler_t;
+
 /* Maximum live server-created ServicePeerRPC exchanges per client. */
 #define GZC_RPC_MAX_INBOUND_CHANNELS 4u
 #define GZC_SERVICE_WRITE_CHUNK_SIZE 1400u
@@ -65,6 +82,8 @@ typedef struct {
   void *userdata;
   gzc_rpc_provider_fn rpc_provider;
   void *rpc_provider_userdata;
+  const gzc_tool_handler_t *tool_handlers;
+  size_t tool_handler_count;
 } gzc_client_config_t;
 
 int gzc_client_create(const gzc_client_config_t *config, gzc_client_t **out_client);

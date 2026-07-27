@@ -225,7 +225,6 @@ pkgs/gizclaw/services/gameplay/reward.go:207:6: stringPtr can be an inlinable wr
 pkgs/gizclaw/services/gameplay/runtime.go:1081:12: call of stringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/gameplay/runtime.go:1095:12: call of stringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/runtime/agent/resolver.go:63:5: HasPrefix + TrimPrefix can be simplified to CutPrefix
-pkgs/gizclaw/services/runtime/agenthost/context.go:43:3: Replace m[k]=v loop with maps.Copy
 pkgs/gizclaw/services/runtime/peer/store_ops.go:398:5: if statement can be modernized using min
 pkgs/gizclaw/services/runtime/peerresource/access.go:629:6: ptr can be an inlinable wrapper around new(expr)
 pkgs/gizclaw/services/runtime/peerresource/server.go:1215:19: reflect.TypeOf call can be simplified using TypeFor
@@ -255,22 +254,6 @@ pkgs/gizclaw/services/runtime/peertelemetry/codec_test.go:88:13: call of intPtr(
 pkgs/gizclaw/services/runtime/peertelemetry/mapper.go:240:3: Replace m[k]=v loop with maps.Copy
 pkgs/gizclaw/services/runtime/peertelemetry/status.go:163:4: Replace m[k]=v loop with maps.Copy
 pkgs/gizclaw/services/runtime/peertelemetry/status.go:169:4: Replace m[k]=v loop with maps.Copy
-pkgs/gizclaw/services/runtime/toolkit/invoke_test.go:129:14: call of stringPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/runtime/toolkit/invoke_test.go:18:14: call of stringPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/runtime/toolkit/invoke_test.go:68:20: call of stringPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/runtime/toolkit/invoke_test.go:74:30: call of stringPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/runtime/toolkit/store_test.go:130:16: call of stringPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/runtime/toolkit/store_test.go:135:12: call of stringPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/runtime/toolkit/store_test.go:43:20: call of stringPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/runtime/toolkit/test_helpers_test.go:15:10: call of stringPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/runtime/toolkit/test_helpers_test.go:23:16: call of stringPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/runtime/toolkit/test_helpers_test.go:24:16: call of stringPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/runtime/toolkit/test_helpers_test.go:27:16: call of stringPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/runtime/toolkit/test_helpers_test.go:31:12: call of stringPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/runtime/toolkit/test_helpers_test.go:36:6: stringPtr can be an inlinable wrapper around new(expr)
-pkgs/gizclaw/services/runtime/toolkit/test_helpers_test.go:8:16: call of stringPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/runtime/toolkit/test_helpers_test.go:9:16: call of stringPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/runtime/toolkit/validate.go:57:2: Loop can be simplified using slices.Contains
 pkgs/gizclaw/services/social/contact/server_test.go:105:17: call of strPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/social/contact/server_test.go:106:17: call of strPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/social/contact/server_test.go:111:87: call of strPtr(x) can be simplified to new(x)

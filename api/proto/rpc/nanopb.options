@@ -31,3 +31,5 @@ gizclaw.rpc.v1.SpeechSynthesizeRequest.voice_alias max_size:64
 gizclaw.rpc.v1.SpeechSynthesizeRequest.text max_size:4097
 gizclaw.rpc.v1.SpeechSynthesizeRequest.accepted_content_types max_count:8 max_size:129
 gizclaw.rpc.v1.SpeechSynthesizeResponse.content_type max_size:129
+gizclaw.rpc.v1.ToolInvokeRequest.name max_size:65
+gizclaw.rpc.v1.ToolInvokeResponse.data_json max_size:65400

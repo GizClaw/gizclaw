@@ -6,6 +6,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
@@ -15,11 +16,11 @@ const workspaceAgentTypeParameter = "agent_type"
 
 // Spec is the fully resolved configuration used to construct one agent.
 type Spec struct {
-	Workspace apitypes.Workspace
-	Workflow  apitypes.Workflow
-	AgentType string
-	Runtime   workspace.Runtime
-	Toolkit   *ToolkitContext
+	Workspace   apitypes.Workspace
+	Workflow    apitypes.Workflow
+	AgentType   string
+	Runtime     workspace.Runtime
+	ToolInvoker genx.ToolInvoker
 	// Memory is the Workspace-bound provider-neutral Store selected through
 	// the current RuntimeProfile. MemoryCloser belongs to this Agent generation.
 	Memory       memory.Store

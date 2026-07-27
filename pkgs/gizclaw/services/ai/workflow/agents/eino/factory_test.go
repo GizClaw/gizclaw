@@ -8,11 +8,91 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/cloudwego/eino/components/model"
+	"github.com/cloudwego/eino/schema"
+
+	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
+
+func TestGenXModelContextPreservesToolsCallsAndResults(t *testing.T) {
+	t.Parallel()
+	toolInfo := &schema.ToolInfo{
+		Name: "current_peer", Desc: "Read from the current Peer.",
+		ParamsOneOf: schema.NewParamsOneOfByParams(map[string]*schema.ParameterInfo{
+			"key": {Type: schema.String, Required: true},
+		}),
+	}
+	context, err := genXModelContext([]*schema.Message{
+		schema.UserMessage("read it"),
+		{
+			Role: schema.Assistant,
+			ToolCalls: []schema.ToolCall{{
+				ID: "call-1", Type: "function",
+				Function: schema.FunctionCall{Name: "current_peer", Arguments: `{"key":"x"}`},
+			}},
+		},
+		{
+			Role: schema.Tool, ToolCallID: "call-1", ToolName: "current_peer",
+			Content: `{"value":"ok"}`,
+		},
+	}, model.WithTools([]*schema.ToolInfo{toolInfo}))
+	if err != nil {
+		t.Fatalf("genXModelContext() error = %v", err)
+	}
+	var tools []*genx.FuncTool
+	for item := range context.Tools() {
+		tool, ok := item.(*genx.FuncTool)
+		if !ok {
+			t.Fatalf("Tool type = %T", item)
+		}
+		tools = append(tools, tool)
+	}
+	if len(tools) != 1 || tools[0].Name != "current_peer" || tools[0].Argument == nil {
+		t.Fatalf("Tools = %#v", tools)
+	}
+	var messages []*genx.Message
+	for message := range context.Messages() {
+		messages = append(messages, message)
+	}
+	if len(messages) != 3 {
+		t.Fatalf("Messages = %#v", messages)
+	}
+	call, ok := messages[1].Payload.(*genx.ToolCall)
+	if !ok || call.ID != "call-1" || call.FuncCall == nil ||
+		call.FuncCall.Name != "current_peer" || call.FuncCall.Arguments != `{"key":"x"}` {
+		t.Fatalf("ToolCall = %#v", messages[1].Payload)
+	}
+	result, ok := messages[2].Payload.(*genx.ToolResult)
+	if !ok || result.ID != "call-1" || result.Result != `{"value":"ok"}` {
+		t.Fatalf("ToolResult = %#v", messages[2].Payload)
+	}
+}
+
+func TestEinoToolCallValidatesProviderOutput(t *testing.T) {
+	t.Parallel()
+	got, err := einoToolCall(&genx.ToolCall{
+		ID: "call-1",
+		FuncCall: &genx.FuncCall{
+			Name: "current_peer", Arguments: `{"key":"x"}`,
+		},
+	}, 2)
+	if err != nil {
+		t.Fatalf("einoToolCall() error = %v", err)
+	}
+	if got.Index == nil || *got.Index != 2 || got.ID != "call-1" ||
+		got.Function.Name != "current_peer" || got.Function.Arguments != `{"key":"x"}` {
+		t.Fatalf("einoToolCall() = %#v", got)
+	}
+	if _, err := einoToolCall(&genx.ToolCall{
+		ID: "call-2", FuncCall: &genx.FuncCall{Name: "bad", Arguments: `{`},
+	}, 0); err == nil {
+		t.Fatal("einoToolCall() accepted invalid JSON")
+	}
+}
 
 func TestFactoryAllowsMemorylessWorkflowAndRequiresResolvedStoreForMemoryNodes(t *testing.T) {
 	t.Parallel()

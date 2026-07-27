@@ -2,7 +2,7 @@
 
 [Go API Reference](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost)
 
-`agenthost` 拥有 Agent instance 的在线生命周期。它解析运行规格、取得 workspace lease、建立输入输出 Stream、接入 history 与 ToolKit，并维护当前 runtime registry。
+`agenthost` 拥有 Agent instance 的在线生命周期。它解析运行规格、取得 Workspace lease、建立输入输出 Stream、接入 History 与 Memory、组合 context-scoped ToolInvoker，并维护当前 runtime registry。
 
 ## 运行流程
 
@@ -14,7 +14,8 @@ flowchart TD
     Agent --> Input["StreamSource"]
     Agent --> Output["StreamConsumer"]
     Output --> History["Workspace history / audio output"]
-    Agent --> Toolkit["ToolkitContext"]
+    Agent --> Toolkit["genx.ToolInvoker"]
+    Toolkit --> Profile["当前 Peer RuntimeProfile scope"]
     Input --> Stop["Stop / cancel / release"]
     Output --> Stop
 ```
@@ -33,9 +34,28 @@ flowchart TD
 | `Host` / `Registry` | 根据解析后的 `Spec` 选择并创建 Agent。 |
 | `InputStream` / `PushSource` | 将连续输入转换为 Agent 消费的 GenX Stream。 |
 | `MixerOutput` | 按 `(StreamID, canonical MIME)` 将 Agent audio decode 为 PCM，并接到独立 mixer track；MIME EOS 只关闭对应 track，control-only EOS 关闭 route 下全部 track。 |
-| `ToolkitContext` | 为一次 runtime 组合授权后的 ToolKit。 |
+| `ToolkitInvoker` | 在当前 Transform 的 Peer scope 中重新解析、授权并分发 canonical Tool。 |
 
 所有 runtime 创建路径都必须具有对称的 cancel、stream close、lease release 和 registry cleanup。Agent definition、Workflow 与 Workspace 的持久化仍属于 AI services。
+
+## 当前 Peer 的 Tool scope
+
+Tool execution context 与 Workspace-owner Resource access 相互独立。Workspace
+owner 仍决定 Workspace、Workflow、Model 与 Memory resource，但不能替换当前已连接
+Peer 的 Tool 集合。`Service.Reload` 会快照该 Peer 的 RuntimeProfile Tool binding，
+并把这个连接专属的 execution handle 放入 run context。
+
+`Spec` 只暴露 `genx.ToolInvoker`。Flowcraft、Eino、DashScope Realtime 与豆包
+Realtime Duplex 只接收该接口，不接收 Resource、RuntimeProfile、Credential、
+policy、alias 或 Peer transport 内部对象。`ResolveTools` 与 `InvokeTool` 每次都从
+Transform context 读取 scope，因此一个 Workspace Agent 可以由不同 Profile 和
+handler 的多个 Peer 并发共享；Invoker 不捕获构造 Agent 时的 Peer 状态。
+
+Workspace 与 Workflow policy 只包含 canonical Tool Resource name，并且只能缩小
+当前 Peer Profile 选择的集合。缺少 Tool scope 会返回明确配置错误。Disconnect、
+reload、stop 或 connection replacement 会取消旧 context；迟到调用不能转发到新
+connection 或其他在线 Peer。Resource declaration 与 provider Credential 在调用时
+读取，可能产生副作用的 Tool 永远不会自动 retry。
 
 ## Store 依赖 ownership
 
