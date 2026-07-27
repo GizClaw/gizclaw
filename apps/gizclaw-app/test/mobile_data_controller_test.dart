@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:drift/native.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:gizclaw/gizclaw.dart';
 import 'package:gizclaw_app/connection/gizclaw_connection_controller.dart';
 import 'package:gizclaw_app/data/database/app_database.dart';
@@ -1236,6 +1237,37 @@ void main() {
     expect(controller.activeWorkspaceName, 'workspace-new');
   });
 
+  test('resumes realtime input after activating its workspace', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    final client = _WorkspaceActivationClient()
+      ..workspaces['workspace-realtime'] = Workspace(
+        name: 'workspace-realtime',
+        workflowAlias: 'doubao-realtime',
+        parameters: WorkspaceParameters(
+          doubaoRealtimeWorkspaceParameters: DoubaoRealtimeWorkspaceParameters(
+            input: WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME,
+          ),
+        ),
+      );
+    final connection = _VoiceWorkspaceActivationConnection(
+      profile: _profile('gizclaw.local:9820'),
+      client: client,
+      serverId: 'server-a',
+    );
+    final controller = _VoiceWorkspaceActivationController(
+      database: database,
+      connectionController: connection,
+    )..connectionState = MobileConnectionState.connected;
+    addTearDown(controller.close);
+
+    await controller.start();
+    final chat = await controller.activateWorkspaceChat('workspace-realtime');
+
+    expect(chat.recording, isTrue);
+    expect(connection.microphoneSending, [true]);
+  });
+
   test('404 selection failure evicts only the targeted projection', () async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
     final repository = MobileDataRepository(database);
@@ -2011,11 +2043,13 @@ class _WorkspaceActivationClient extends _RunWorkspaceClient {
   Object? workspaceListError;
   List<Workspace>? workspaceSnapshot;
   int workspaceListCalls = 0;
+  String selectedWorkspaceName = 'workspace-new';
 
   @override
   Future<ServerSetRunWorkspaceResponse> setRunWorkspace(String name) async {
     final error = selectionError;
     if (error != null) throw error;
+    selectedWorkspaceName = name;
     return ServerSetRunWorkspaceResponse(
       value: PeerRunWorkspaceState(
         activeWorkspaceName: 'workspace-old',
@@ -2045,7 +2079,9 @@ class _WorkspaceActivationClient extends _RunWorkspaceClient {
       value: Workflow(
         alias: alias,
         collection: 'raids',
-        driver: WorkflowDriver.WORKFLOW_DRIVER_FLOWCRAFT,
+        driver: alias == 'doubao-realtime'
+            ? WorkflowDriver.WORKFLOW_DRIVER_DOUBAO_REALTIME
+            : WorkflowDriver.WORKFLOW_DRIVER_FLOWCRAFT,
       ),
     );
   }
@@ -2075,9 +2111,75 @@ class _WorkspaceActivationClient extends _RunWorkspaceClient {
   @override
   Future<ServerReloadRunWorkspaceResponse> reloadRunWorkspace() async {
     return ServerReloadRunWorkspaceResponse(
-      value: PeerRunWorkspaceState(activeWorkspaceName: 'workspace-new'),
+      value: PeerRunWorkspaceState(activeWorkspaceName: selectedWorkspaceName),
     );
   }
+
+  @override
+  Future<WorkspaceHistoryListResponse> listWorkspaceHistory({
+    required String workspaceName,
+    String? cursor,
+    int? limit,
+  }) async => WorkspaceHistoryListResponse(
+    value: PeerRunHistoryListResponse(available: true),
+  );
+}
+
+class _VoiceWorkspaceActivationController extends MobileDataController {
+  _VoiceWorkspaceActivationController({
+    required super.database,
+    required super.connectionController,
+  });
+
+  @override
+  Future<void> refresh({GizClawClient? client, String? serverId}) async {}
+}
+
+class _VoiceWorkspaceActivationConnection extends _RefreshTestConnection {
+  _VoiceWorkspaceActivationConnection({
+    required super.profile,
+    required super.client,
+    required super.serverId,
+  });
+
+  final _VoiceEventFactory _eventFactory = _VoiceEventFactory();
+  final _VoicePeerConnection _peerConnection = _VoicePeerConnection();
+  final _VoiceTrack _microphoneTrack = _VoiceTrack();
+  final List<bool> microphoneSending = [];
+
+  @override
+  GizClawDataChannelFactory get dataChannelFactory => _eventFactory;
+
+  @override
+  rtc.MediaStreamTrack get microphoneTrack => _microphoneTrack;
+
+  @override
+  rtc.RTCPeerConnection get peerConnection => _peerConnection;
+
+  @override
+  Future<void> setMicrophoneSending(bool active) async {
+    microphoneSending.add(active);
+  }
+}
+
+class _VoicePeerConnection extends Fake implements rtc.RTCPeerConnection {}
+
+class _VoiceTrack extends Fake implements rtc.MediaStreamTrack {
+  @override
+  bool enabled = true;
+
+  @override
+  String get id => 'microphone';
+}
+
+class _VoiceEventFactory implements GizClawDataChannelFactory {
+  final _OpenDataChannel _channel = _OpenDataChannel('workspace-events');
+
+  @override
+  Future<GizClawDataChannel> createDataChannel(
+    String label, {
+    GizClawDataChannelOptions options = const GizClawDataChannelOptions(),
+  }) async => _channel;
 }
 
 class _NeverDataChannelFactory implements GizClawDataChannelFactory {
