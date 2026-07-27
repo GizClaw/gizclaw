@@ -1523,6 +1523,10 @@ class MobileDataController extends ChangeNotifier {
     );
     await _replaceActiveWorkspaceChat(chat);
     await chat.start(activate: false);
+    if (activeInputMode == WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME &&
+        chat.canRecord) {
+      await chat.startInput();
+    }
     notifyListeners();
     return chat;
   }
