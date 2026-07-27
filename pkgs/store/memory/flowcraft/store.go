@@ -46,6 +46,8 @@ func newStore(config Config, memory recall.Memory, temporal recall.TemporalStore
 	}
 }
 
+func (*Store) SupportsDirectFactObservation() bool { return true }
+
 // Observe extracts and persists facts from raw text or turns.
 func (s *Store) Observe(ctx context.Context, observation memorystore.Observation) (memorystore.ObserveResult, error) {
 	if err := validateObservation(observation); err != nil {
@@ -286,6 +288,22 @@ func (s *Store) Recall(ctx context.Context, query memorystore.Query) (memorystor
 		return out.Matches[i].Score > out.Matches[j].Score
 	})
 	return out, nil
+}
+
+// Rebuild rehydrates Flowcraft projections from the canonical temporal store.
+func (s *Store) Rebuild(ctx context.Context, scope memorystore.Scope) error {
+	native, err := nativeScope(scope)
+	if err != nil {
+		return err
+	}
+	rebuilder, ok := s.memory.(recall.ProjectionRebuilder)
+	if !ok {
+		return fmt.Errorf("%w: flowcraft projections cannot be rebuilt", errUnsupported)
+	}
+	if err := rebuilder.RebuildAll(ctx, native); err != nil {
+		return mapFlowcraftError("rebuild projections", err)
+	}
+	return nil
 }
 
 // Update appends a Flowcraft revision that supersedes the current fact.
@@ -533,6 +551,11 @@ func (s *Store) factFromFlowcraft(ctx context.Context, scope recall.Scope, input
 	}
 	observationID, _ := attributes["observation_id"].(string)
 	delete(attributes, "observation_id")
+	if _, exists := attributes["lane"]; !exists {
+		if lane := extractedLane(input.Content, s.config.LaneNames); lane != "" {
+			attributes["lane"] = lane
+		}
+	}
 	if observationID == "" && s.config.Extraction.Model != "" {
 		resolvedObservationID, err := s.observationIDForFact(ctx, scope, input)
 		if err != nil {
@@ -545,6 +568,16 @@ func (s *Store) factFromFlowcraft(ctx context.Context, scope recall.Scope, input
 		sources = []sourceRef{{ObservationID: observationID, TurnIDs: turnIDs}}
 	}
 	return fact{ID: encodeLocator(scope, rootID), Revision: encodeLocator(scope, input.ID), Text: input.Content, Attributes: attributes, Sources: sources, CreatedAt: createdAt, UpdatedAt: input.ObservedAt}, nil
+}
+
+func extractedLane(content string, laneNames []string) string {
+	content = strings.TrimSpace(content)
+	for _, lane := range laneNames {
+		if strings.HasPrefix(content, lane+":") {
+			return lane
+		}
+	}
+	return ""
 }
 
 func (s *Store) persistObservationProvenance(ctx context.Context, scope recall.Scope, observationID string, result recall.SaveResult) error {
@@ -662,3 +695,4 @@ var _ storeContract = (*Store)(nil)
 var _ operationWaiterContract = (*Store)(nil)
 var _ asyncProcessorContract = (*Store)(nil)
 var _ statisticsContract = (*Store)(nil)
+var _ memorystore.ProjectionRebuilder = (*Store)(nil)

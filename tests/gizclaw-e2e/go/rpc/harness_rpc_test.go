@@ -340,10 +340,9 @@ func adminWorkflow(name, description string) apitypes.Workflow {
 	}); err != nil {
 		panic(err)
 	}
-	spec := apitypes.FlowcraftWorkflowSpec{Agent: apitypes.FlowcraftAgent{
-		Id: "assistant", Name: description,
+	spec := apitypes.FlowcraftWorkflowSpec{
 		Graph: apitypes.FlowcraftGraph{Name: description, Entry: "answer", Nodes: []apitypes.FlowcraftNode{node}},
-	}}
+	}
 	return apitypes.Workflow{
 		Name: name,
 		Spec: apitypes.WorkflowSpec{

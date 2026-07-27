@@ -732,6 +732,24 @@ func (e EinoChatModelNodeType) Valid() bool {
 	}
 }
 
+// Defines values for EinoConversationStarts.
+const (
+	EinoConversationStartsAgent EinoConversationStarts = "agent"
+	EinoConversationStartsPeer  EinoConversationStarts = "peer"
+)
+
+// Valid indicates whether the value is a known member of the EinoConversationStarts enum.
+func (e EinoConversationStarts) Valid() bool {
+	switch e {
+	case EinoConversationStartsAgent:
+		return true
+	case EinoConversationStartsPeer:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for EinoGraphCompileNodeTriggerMode.
 const (
 	EinoGraphCompileNodeTriggerModeAllPredecessor EinoGraphCompileNodeTriggerMode = "all_predecessor"
@@ -744,6 +762,36 @@ func (e EinoGraphCompileNodeTriggerMode) Valid() bool {
 	case EinoGraphCompileNodeTriggerModeAllPredecessor:
 		return true
 	case EinoGraphCompileNodeTriggerModeAnyPredecessor:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EinoMemoryObserveNodeType.
+const (
+	EinoMemoryObserveNodeTypeMemoryObserve EinoMemoryObserveNodeType = "memory_observe"
+)
+
+// Valid indicates whether the value is a known member of the EinoMemoryObserveNodeType enum.
+func (e EinoMemoryObserveNodeType) Valid() bool {
+	switch e {
+	case EinoMemoryObserveNodeTypeMemoryObserve:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EinoMemoryRecallNodeType.
+const (
+	EinoMemoryRecallNodeTypeMemoryRecall EinoMemoryRecallNodeType = "memory_recall"
+)
+
+// Valid indicates whether the value is a known member of the EinoMemoryRecallNodeType enum.
+func (e EinoMemoryRecallNodeType) Valid() bool {
+	switch e {
+	case EinoMemoryRecallNodeTypeMemoryRecall:
 		return true
 	default:
 		return false
@@ -1182,18 +1230,45 @@ func (e FlowcraftLLMNodeType) Valid() bool {
 	}
 }
 
-// Defines values for FlowcraftMemoryExtractMode.
+// Defines values for FlowcraftMemoryBlevePolicyAnalyzer.
 const (
-	FlowcraftMemoryExtractModeSinglePass FlowcraftMemoryExtractMode = "single_pass"
-	FlowcraftMemoryExtractModeTwoPass    FlowcraftMemoryExtractMode = "two_pass"
+	FlowcraftMemoryBlevePolicyAnalyzerGojieba    FlowcraftMemoryBlevePolicyAnalyzer = "gojieba"
+	FlowcraftMemoryBlevePolicyAnalyzerKeyword    FlowcraftMemoryBlevePolicyAnalyzer = "keyword"
+	FlowcraftMemoryBlevePolicyAnalyzerSimple     FlowcraftMemoryBlevePolicyAnalyzer = "simple"
+	FlowcraftMemoryBlevePolicyAnalyzerStandard   FlowcraftMemoryBlevePolicyAnalyzer = "standard"
+	FlowcraftMemoryBlevePolicyAnalyzerWhitespace FlowcraftMemoryBlevePolicyAnalyzer = "whitespace"
 )
 
-// Valid indicates whether the value is a known member of the FlowcraftMemoryExtractMode enum.
-func (e FlowcraftMemoryExtractMode) Valid() bool {
+// Valid indicates whether the value is a known member of the FlowcraftMemoryBlevePolicyAnalyzer enum.
+func (e FlowcraftMemoryBlevePolicyAnalyzer) Valid() bool {
 	switch e {
-	case FlowcraftMemoryExtractModeSinglePass:
+	case FlowcraftMemoryBlevePolicyAnalyzerGojieba:
 		return true
-	case FlowcraftMemoryExtractModeTwoPass:
+	case FlowcraftMemoryBlevePolicyAnalyzerKeyword:
+		return true
+	case FlowcraftMemoryBlevePolicyAnalyzerSimple:
+		return true
+	case FlowcraftMemoryBlevePolicyAnalyzerStandard:
+		return true
+	case FlowcraftMemoryBlevePolicyAnalyzerWhitespace:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FlowcraftMemoryExtractionPolicyMode.
+const (
+	FlowcraftMemoryExtractionPolicyModeSinglePass FlowcraftMemoryExtractionPolicyMode = "single_pass"
+	FlowcraftMemoryExtractionPolicyModeTwoPass    FlowcraftMemoryExtractionPolicyMode = "two_pass"
+)
+
+// Valid indicates whether the value is a known member of the FlowcraftMemoryExtractionPolicyMode enum.
+func (e FlowcraftMemoryExtractionPolicyMode) Valid() bool {
+	switch e {
+	case FlowcraftMemoryExtractionPolicyModeSinglePass:
+		return true
+	case FlowcraftMemoryExtractionPolicyModeTwoPass:
 		return true
 	default:
 		return false
@@ -1215,42 +1290,165 @@ func (e FlowcraftMemoryFilterOperator) Valid() bool {
 	}
 }
 
-// Defines values for FlowcraftMemoryWriteMode.
+// Defines values for FlowcraftMemoryGojiebaPolicyMode.
 const (
-	FlowcraftMemoryWriteModeAsyncSemantic FlowcraftMemoryWriteMode = "async_semantic"
-	FlowcraftMemoryWriteModeSync          FlowcraftMemoryWriteMode = "sync"
+	FlowcraftMemoryGojiebaPolicyModeAccurate FlowcraftMemoryGojiebaPolicyMode = "accurate"
+	FlowcraftMemoryGojiebaPolicyModeFull     FlowcraftMemoryGojiebaPolicyMode = "full"
+	FlowcraftMemoryGojiebaPolicyModeSearch   FlowcraftMemoryGojiebaPolicyMode = "search"
 )
 
-// Valid indicates whether the value is a known member of the FlowcraftMemoryWriteMode enum.
-func (e FlowcraftMemoryWriteMode) Valid() bool {
+// Valid indicates whether the value is a known member of the FlowcraftMemoryGojiebaPolicyMode enum.
+func (e FlowcraftMemoryGojiebaPolicyMode) Valid() bool {
 	switch e {
-	case FlowcraftMemoryWriteModeAsyncSemantic:
+	case FlowcraftMemoryGojiebaPolicyModeAccurate:
 		return true
-	case FlowcraftMemoryWriteModeSync:
+	case FlowcraftMemoryGojiebaPolicyModeFull:
+		return true
+	case FlowcraftMemoryGojiebaPolicyModeSearch:
 		return true
 	default:
 		return false
 	}
 }
 
-// Defines values for FlowcraftMemoryWriteTier.
+// Defines values for FlowcraftMemoryLanePolicyKind.
 const (
-	FlowcraftMemoryWriteTierCore    FlowcraftMemoryWriteTier = "core"
-	FlowcraftMemoryWriteTierData    FlowcraftMemoryWriteTier = "data"
-	FlowcraftMemoryWriteTierGeneral FlowcraftMemoryWriteTier = "general"
-	FlowcraftMemoryWriteTierStorage FlowcraftMemoryWriteTier = "storage"
+	FlowcraftMemoryLanePolicyKindEpisode    FlowcraftMemoryLanePolicyKind = "episode"
+	FlowcraftMemoryLanePolicyKindEvent      FlowcraftMemoryLanePolicyKind = "event"
+	FlowcraftMemoryLanePolicyKindNote       FlowcraftMemoryLanePolicyKind = "note"
+	FlowcraftMemoryLanePolicyKindPlan       FlowcraftMemoryLanePolicyKind = "plan"
+	FlowcraftMemoryLanePolicyKindPreference FlowcraftMemoryLanePolicyKind = "preference"
+	FlowcraftMemoryLanePolicyKindProcedure  FlowcraftMemoryLanePolicyKind = "procedure"
+	FlowcraftMemoryLanePolicyKindRelation   FlowcraftMemoryLanePolicyKind = "relation"
+	FlowcraftMemoryLanePolicyKindState      FlowcraftMemoryLanePolicyKind = "state"
 )
 
-// Valid indicates whether the value is a known member of the FlowcraftMemoryWriteTier enum.
-func (e FlowcraftMemoryWriteTier) Valid() bool {
+// Valid indicates whether the value is a known member of the FlowcraftMemoryLanePolicyKind enum.
+func (e FlowcraftMemoryLanePolicyKind) Valid() bool {
 	switch e {
-	case FlowcraftMemoryWriteTierCore:
+	case FlowcraftMemoryLanePolicyKindEpisode:
 		return true
-	case FlowcraftMemoryWriteTierData:
+	case FlowcraftMemoryLanePolicyKindEvent:
 		return true
-	case FlowcraftMemoryWriteTierGeneral:
+	case FlowcraftMemoryLanePolicyKindNote:
 		return true
-	case FlowcraftMemoryWriteTierStorage:
+	case FlowcraftMemoryLanePolicyKindPlan:
+		return true
+	case FlowcraftMemoryLanePolicyKindPreference:
+		return true
+	case FlowcraftMemoryLanePolicyKindProcedure:
+		return true
+	case FlowcraftMemoryLanePolicyKindRelation:
+		return true
+	case FlowcraftMemoryLanePolicyKindState:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FlowcraftMemoryObserveNodeType.
+const (
+	FlowcraftMemoryObserveNodeTypeMemoryObserve FlowcraftMemoryObserveNodeType = "memory_observe"
+)
+
+// Valid indicates whether the value is a known member of the FlowcraftMemoryObserveNodeType enum.
+func (e FlowcraftMemoryObserveNodeType) Valid() bool {
+	switch e {
+	case FlowcraftMemoryObserveNodeTypeMemoryObserve:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FlowcraftMemoryRecallNodeType.
+const (
+	FlowcraftMemoryRecallNodeTypeMemoryRecall FlowcraftMemoryRecallNodeType = "memory_recall"
+)
+
+// Valid indicates whether the value is a known member of the FlowcraftMemoryRecallNodeType enum.
+func (e FlowcraftMemoryRecallNodeType) Valid() bool {
+	switch e {
+	case FlowcraftMemoryRecallNodeTypeMemoryRecall:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FlowcraftMemoryRecallQueryKinds.
+const (
+	FlowcraftMemoryRecallQueryKindsEpisode    FlowcraftMemoryRecallQueryKinds = "episode"
+	FlowcraftMemoryRecallQueryKindsEvent      FlowcraftMemoryRecallQueryKinds = "event"
+	FlowcraftMemoryRecallQueryKindsNote       FlowcraftMemoryRecallQueryKinds = "note"
+	FlowcraftMemoryRecallQueryKindsPlan       FlowcraftMemoryRecallQueryKinds = "plan"
+	FlowcraftMemoryRecallQueryKindsPreference FlowcraftMemoryRecallQueryKinds = "preference"
+	FlowcraftMemoryRecallQueryKindsProcedure  FlowcraftMemoryRecallQueryKinds = "procedure"
+	FlowcraftMemoryRecallQueryKindsRelation   FlowcraftMemoryRecallQueryKinds = "relation"
+	FlowcraftMemoryRecallQueryKindsState      FlowcraftMemoryRecallQueryKinds = "state"
+)
+
+// Valid indicates whether the value is a known member of the FlowcraftMemoryRecallQueryKinds enum.
+func (e FlowcraftMemoryRecallQueryKinds) Valid() bool {
+	switch e {
+	case FlowcraftMemoryRecallQueryKindsEpisode:
+		return true
+	case FlowcraftMemoryRecallQueryKindsEvent:
+		return true
+	case FlowcraftMemoryRecallQueryKindsNote:
+		return true
+	case FlowcraftMemoryRecallQueryKindsPlan:
+		return true
+	case FlowcraftMemoryRecallQueryKindsPreference:
+		return true
+	case FlowcraftMemoryRecallQueryKindsProcedure:
+		return true
+	case FlowcraftMemoryRecallQueryKindsRelation:
+		return true
+	case FlowcraftMemoryRecallQueryKindsState:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FlowcraftMemoryWritePolicyMode.
+const (
+	FlowcraftMemoryWritePolicyModeAsyncSemantic FlowcraftMemoryWritePolicyMode = "async_semantic"
+	FlowcraftMemoryWritePolicyModeSync          FlowcraftMemoryWritePolicyMode = "sync"
+)
+
+// Valid indicates whether the value is a known member of the FlowcraftMemoryWritePolicyMode enum.
+func (e FlowcraftMemoryWritePolicyMode) Valid() bool {
+	switch e {
+	case FlowcraftMemoryWritePolicyModeAsyncSemantic:
+		return true
+	case FlowcraftMemoryWritePolicyModeSync:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FlowcraftMemoryWritePolicyTier.
+const (
+	FlowcraftMemoryWritePolicyTierCore    FlowcraftMemoryWritePolicyTier = "core"
+	FlowcraftMemoryWritePolicyTierData    FlowcraftMemoryWritePolicyTier = "data"
+	FlowcraftMemoryWritePolicyTierGeneral FlowcraftMemoryWritePolicyTier = "general"
+	FlowcraftMemoryWritePolicyTierStorage FlowcraftMemoryWritePolicyTier = "storage"
+)
+
+// Valid indicates whether the value is a known member of the FlowcraftMemoryWritePolicyTier enum.
+func (e FlowcraftMemoryWritePolicyTier) Valid() bool {
+	switch e {
+	case FlowcraftMemoryWritePolicyTierCore:
+		return true
+	case FlowcraftMemoryWritePolicyTierData:
+		return true
+	case FlowcraftMemoryWritePolicyTierGeneral:
+		return true
+	case FlowcraftMemoryWritePolicyTierStorage:
 		return true
 	default:
 		return false
@@ -1407,6 +1605,21 @@ const (
 func (e GeminiTenantResourceKind) Valid() bool {
 	switch e {
 	case GeminiTenantResourceKindGeminiTenant:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MemoryLayoutResourceKind.
+const (
+	MemoryLayoutResourceKindMemoryLayout MemoryLayoutResourceKind = "MemoryLayout"
+)
+
+// Valid indicates whether the value is a known member of the MemoryLayoutResourceKind enum.
+func (e MemoryLayoutResourceKind) Valid() bool {
+	switch e {
+	case MemoryLayoutResourceKindMemoryLayout:
 		return true
 	default:
 		return false
@@ -1916,6 +2129,7 @@ const (
 	ResourceKindFriendGroupMember      ResourceKind = "FriendGroupMember"
 	ResourceKindGameDef                ResourceKind = "GameDef"
 	ResourceKindGeminiTenant           ResourceKind = "GeminiTenant"
+	ResourceKindMemoryLayout           ResourceKind = "MemoryLayout"
 	ResourceKindMiniMaxTenant          ResourceKind = "MiniMaxTenant"
 	ResourceKindModel                  ResourceKind = "Model"
 	ResourceKindOpenAITenant           ResourceKind = "OpenAITenant"
@@ -1956,6 +2170,8 @@ func (e ResourceKind) Valid() bool {
 	case ResourceKindGameDef:
 		return true
 	case ResourceKindGeminiTenant:
+		return true
+	case ResourceKindMemoryLayout:
 		return true
 	case ResourceKindMiniMaxTenant:
 		return true
@@ -2139,6 +2355,87 @@ func (e ReusableWorkflowDriver) Valid() bool {
 	}
 }
 
+// Defines values for RuntimeProfileFlowcraftBBHConnectionType.
+const (
+	RuntimeProfileFlowcraftBBHConnectionTypeFlowcraftBbh RuntimeProfileFlowcraftBBHConnectionType = "flowcraft_bbh"
+)
+
+// Valid indicates whether the value is a known member of the RuntimeProfileFlowcraftBBHConnectionType enum.
+func (e RuntimeProfileFlowcraftBBHConnectionType) Valid() bool {
+	switch e {
+	case RuntimeProfileFlowcraftBBHConnectionTypeFlowcraftBbh:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RuntimeProfileFlowcraftObjectStoreConnectionType.
+const (
+	RuntimeProfileFlowcraftObjectStoreConnectionTypeFlowcraftObjectStore RuntimeProfileFlowcraftObjectStoreConnectionType = "flowcraft_object_store"
+)
+
+// Valid indicates whether the value is a known member of the RuntimeProfileFlowcraftObjectStoreConnectionType enum.
+func (e RuntimeProfileFlowcraftObjectStoreConnectionType) Valid() bool {
+	switch e {
+	case RuntimeProfileFlowcraftObjectStoreConnectionTypeFlowcraftObjectStore:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RuntimeProfileFlowcraftPostgreSQLConnectionType.
+const (
+	RuntimeProfileFlowcraftPostgreSQLConnectionTypeFlowcraftPostgresql RuntimeProfileFlowcraftPostgreSQLConnectionType = "flowcraft_postgresql"
+)
+
+// Valid indicates whether the value is a known member of the RuntimeProfileFlowcraftPostgreSQLConnectionType enum.
+func (e RuntimeProfileFlowcraftPostgreSQLConnectionType) Valid() bool {
+	switch e {
+	case RuntimeProfileFlowcraftPostgreSQLConnectionTypeFlowcraftPostgresql:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RuntimeProfileMem0ConnectionType.
+const (
+	RuntimeProfileMem0ConnectionTypeMem0 RuntimeProfileMem0ConnectionType = "mem0"
+)
+
+// Valid indicates whether the value is a known member of the RuntimeProfileMem0ConnectionType enum.
+func (e RuntimeProfileMem0ConnectionType) Valid() bool {
+	switch e {
+	case RuntimeProfileMem0ConnectionTypeMem0:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RuntimeProfileMemoryDriver.
+const (
+	RuntimeProfileMemoryDriverFlowcraft RuntimeProfileMemoryDriver = "flowcraft"
+	RuntimeProfileMemoryDriverMem0      RuntimeProfileMemoryDriver = "mem0"
+	RuntimeProfileMemoryDriverVolcMem0  RuntimeProfileMemoryDriver = "volc_mem0"
+)
+
+// Valid indicates whether the value is a known member of the RuntimeProfileMemoryDriver enum.
+func (e RuntimeProfileMemoryDriver) Valid() bool {
+	switch e {
+	case RuntimeProfileMemoryDriverFlowcraft:
+		return true
+	case RuntimeProfileMemoryDriverMem0:
+		return true
+	case RuntimeProfileMemoryDriverVolcMem0:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RuntimeProfileResourceKind.
 const (
 	RuntimeProfileResourceKindRuntimeProfile RuntimeProfileResourceKind = "RuntimeProfile"
@@ -2148,6 +2445,21 @@ const (
 func (e RuntimeProfileResourceKind) Valid() bool {
 	switch e {
 	case RuntimeProfileResourceKindRuntimeProfile:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RuntimeProfileVolcMem0ConnectionType.
+const (
+	RuntimeProfileVolcMem0ConnectionTypeVolcMem0 RuntimeProfileVolcMem0ConnectionType = "volc_mem0"
+)
+
+// Valid indicates whether the value is a known member of the RuntimeProfileVolcMem0ConnectionType enum.
+func (e RuntimeProfileVolcMem0ConnectionType) Valid() bool {
+	switch e {
+	case RuntimeProfileVolcMem0ConnectionTypeVolcMem0:
 		return true
 	default:
 		return false
@@ -2262,6 +2574,27 @@ func (e VoiceSource) Valid() bool {
 	case VoiceSourceManual:
 		return true
 	case VoiceSourceSync:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for VolcMem0StrategyType.
+const (
+	VolcMem0StrategyTypeSemantic       VolcMem0StrategyType = "semantic"
+	VolcMem0StrategyTypeSummary        VolcMem0StrategyType = "summary"
+	VolcMem0StrategyTypeUserPreference VolcMem0StrategyType = "user_preference"
+)
+
+// Valid indicates whether the value is a known member of the VolcMem0StrategyType enum.
+func (e VolcMem0StrategyType) Valid() bool {
+	switch e {
+	case VolcMem0StrategyTypeSemantic:
+		return true
+	case VolcMem0StrategyTypeSummary:
+		return true
+	case VolcMem0StrategyTypeUserPreference:
 		return true
 	default:
 		return false
@@ -3162,6 +3495,14 @@ type EinoChatModelNode struct {
 // EinoChatModelNodeType defines model for EinoChatModelNode.Type.
 type EinoChatModelNodeType string
 
+// EinoConversation defines model for EinoConversation.
+type EinoConversation struct {
+	Starts *EinoConversationStarts `json:"starts,omitempty"`
+}
+
+// EinoConversationStarts defines model for EinoConversation.Starts.
+type EinoConversationStarts string
+
 // EinoEdge defines model for EinoEdge.
 type EinoEdge struct {
 	From string `json:"from"`
@@ -3199,31 +3540,38 @@ type EinoLimits struct {
 	MaxOutputBytes *int `json:"max_output_bytes,omitempty"`
 }
 
-// EinoMemory defines model for EinoMemory.
-type EinoMemory struct {
-	Observe *EinoMemoryObserve  `json:"observe,omitempty"`
-	Recall  *[]EinoMemoryRecall `json:"recall,omitempty"`
-}
-
 // EinoMemoryFact defines model for EinoMemoryFact.
 type EinoMemoryFact struct {
 	Attributes *map[string]string `json:"attributes,omitempty"`
 	TextFrom   string             `json:"text_from"`
 }
 
-// EinoMemoryObserve defines model for EinoMemoryObserve.
-type EinoMemoryObserve struct {
-	Enabled           bool              `json:"enabled"`
-	Facts             *[]EinoMemoryFact `json:"facts,omitempty"`
-	WaitForCompletion *bool             `json:"wait_for_completion,omitempty"`
+// EinoMemoryObserveNode defines model for EinoMemoryObserveNode.
+type EinoMemoryObserveNode struct {
+	Facts             []EinoMemoryFact          `json:"facts"`
+	Id                string                    `json:"id"`
+	Inputs            *map[string]EinoBinding   `json:"inputs,omitempty"`
+	Outputs           *map[string]string        `json:"outputs,omitempty"`
+	Type              EinoMemoryObserveNodeType `json:"type"`
+	WaitForCompletion *bool                     `json:"wait_for_completion,omitempty"`
 }
 
-// EinoMemoryRecall defines model for EinoMemoryRecall.
-type EinoMemoryRecall struct {
-	Output    string `json:"output"`
-	QueryFrom string `json:"query_from"`
-	TopK      int    `json:"top_k"`
+// EinoMemoryObserveNodeType defines model for EinoMemoryObserveNode.Type.
+type EinoMemoryObserveNodeType string
+
+// EinoMemoryRecallNode defines model for EinoMemoryRecallNode.
+type EinoMemoryRecallNode struct {
+	Id        string                   `json:"id"`
+	Inputs    *map[string]EinoBinding  `json:"inputs,omitempty"`
+	Output    string                   `json:"output"`
+	Outputs   *map[string]string       `json:"outputs,omitempty"`
+	QueryFrom string                   `json:"query_from"`
+	TopK      int                      `json:"top_k"`
+	Type      EinoMemoryRecallNodeType `json:"type"`
 }
+
+// EinoMemoryRecallNodeType defines model for EinoMemoryRecallNode.Type.
+type EinoMemoryRecallNodeType string
 
 // EinoNode defines model for EinoNode.
 type EinoNode struct {
@@ -3416,15 +3764,16 @@ type EinoTransformNodeType string
 
 // EinoWorkflowSpec defines model for EinoWorkflowSpec.
 type EinoWorkflowSpec struct {
-	Graph  EinoGraph   `json:"graph"`
-	Limits *EinoLimits `json:"limits,omitempty"`
-	Memory *EinoMemory `json:"memory,omitempty"`
+	Conversation *EinoConversation `json:"conversation,omitempty"`
+	Graph        EinoGraph         `json:"graph"`
+	Limits       *EinoLimits       `json:"limits,omitempty"`
 }
 
 // EinoWorkspaceParameters defines model for EinoWorkspaceParameters.
 type EinoWorkspaceParameters struct {
-	AgentType EinoWorkspaceParametersAgentType `json:"agent_type"`
-	E2e       *bool                            `json:"e2e,omitempty"`
+	AgentType    EinoWorkspaceParametersAgentType `json:"agent_type"`
+	Conversation *FlowcraftConversationParameters `json:"conversation,omitempty"`
+	E2e          *bool                            `json:"e2e,omitempty"`
 }
 
 // EinoWorkspaceParametersAgentType defines model for EinoWorkspaceParameters.AgentType.
@@ -3572,15 +3921,6 @@ type FirmwareSpecSlots struct {
 	Stable  FirmwareSpecSlot `json:"stable"`
 }
 
-// FlowcraftAgent defines model for FlowcraftAgent.
-type FlowcraftAgent struct {
-	Description   *string        `json:"description,omitempty"`
-	Graph         FlowcraftGraph `json:"graph"`
-	Id            string         `json:"id"`
-	MaxIterations *int           `json:"max_iterations,omitempty"`
-	Name          string         `json:"name"`
-}
-
 // FlowcraftConversation defines model for FlowcraftConversation.
 type FlowcraftConversation struct {
 	Starts *FlowcraftConversationStarts `json:"starts,omitempty"`
@@ -3645,47 +3985,42 @@ type FlowcraftLLMNodeConfig struct {
 	TrackSteps      *bool    `json:"track_steps,omitempty"`
 }
 
-// FlowcraftMemory defines model for FlowcraftMemory.
-type FlowcraftMemory struct {
-	Embedding *FlowcraftMemoryEmbedding `json:"embedding,omitempty"`
-	Enabled   bool                      `json:"enabled"`
-	Extract   *FlowcraftMemoryExtract   `json:"extract,omitempty"`
-	Layout    *FlowcraftMemoryLayout    `json:"layout,omitempty"`
-	Recall    *FlowcraftMemoryRecall    `json:"recall,omitempty"`
-	Rerank    *FlowcraftMemoryRerank    `json:"rerank,omitempty"`
-	Write     *FlowcraftMemoryWrite     `json:"write,omitempty"`
+// FlowcraftMemoryBBHPolicy defines model for FlowcraftMemoryBBHPolicy.
+type FlowcraftMemoryBBHPolicy struct {
+	Bleve           *FlowcraftMemoryBlevePolicy `json:"bleve,omitempty"`
+	Hnsw            *FlowcraftMemoryHNSWPolicy  `json:"hnsw,omitempty"`
+	SearchOverfetch *int                        `json:"search_overfetch,omitempty"`
 }
 
-// FlowcraftMemoryBoardFact defines model for FlowcraftMemoryBoardFact.
-type FlowcraftMemoryBoardFact struct {
-	BoardVar       string    `json:"board_var"`
-	Entities       *[]string `json:"entities,omitempty"`
-	Kind           *string   `json:"kind,omitempty"`
-	Object         *string   `json:"object,omitempty"`
-	Predicate      *string   `json:"predicate,omitempty"`
-	RequiredPrefix *string   `json:"required_prefix,omitempty"`
-	Subject        *string   `json:"subject,omitempty"`
+// FlowcraftMemoryBlevePolicy defines model for FlowcraftMemoryBlevePolicy.
+type FlowcraftMemoryBlevePolicy struct {
+	Analyzer *FlowcraftMemoryBlevePolicyAnalyzer `json:"analyzer,omitempty"`
+	Gojieba  *FlowcraftMemoryGojiebaPolicy       `json:"gojieba,omitempty"`
 }
 
-// FlowcraftMemoryEmbedding defines model for FlowcraftMemoryEmbedding.
-type FlowcraftMemoryEmbedding struct {
-	Enabled *bool   `json:"enabled,omitempty"`
-	Model   *string `json:"model,omitempty"`
+// FlowcraftMemoryBlevePolicyAnalyzer defines model for FlowcraftMemoryBlevePolicy.Analyzer.
+type FlowcraftMemoryBlevePolicyAnalyzer string
+
+// FlowcraftMemoryExtractionPolicy defines model for FlowcraftMemoryExtractionPolicy.
+type FlowcraftMemoryExtractionPolicy struct {
+	// Enabled Whether Flowcraft extracts Facts from raw observations. Defaults to true; direct Graph Facts remain writable when false.
+	Enabled      *bool                               `json:"enabled,omitempty"`
+	Mode         FlowcraftMemoryExtractionPolicyMode `json:"mode"`
+	Model        string                              `json:"model"`
+	SchemaName   *string                             `json:"schema_name,omitempty"`
+	StageTimeout *string                             `json:"stage_timeout,omitempty"`
+	SystemPrompt *string                             `json:"system_prompt,omitempty"`
+	Temperature  *float32                            `json:"temperature,omitempty"`
 }
 
-// FlowcraftMemoryExtract defines model for FlowcraftMemoryExtract.
-type FlowcraftMemoryExtract struct {
-	Enabled      *bool                       `json:"enabled,omitempty"`
-	Mode         *FlowcraftMemoryExtractMode `json:"mode,omitempty"`
-	Model        *string                     `json:"model,omitempty"`
-	SchemaName   *string                     `json:"schema_name,omitempty"`
-	StageTimeout *string                     `json:"stage_timeout,omitempty"`
-	SystemPrompt *string                     `json:"system_prompt,omitempty"`
-	Temperature  *float32                    `json:"temperature,omitempty"`
-}
+// FlowcraftMemoryExtractionPolicyMode defines model for FlowcraftMemoryExtractionPolicy.Mode.
+type FlowcraftMemoryExtractionPolicyMode string
 
-// FlowcraftMemoryExtractMode defines model for FlowcraftMemoryExtract.Mode.
-type FlowcraftMemoryExtractMode string
+// FlowcraftMemoryFact defines model for FlowcraftMemoryFact.
+type FlowcraftMemoryFact struct {
+	Attributes *map[string]string `json:"attributes,omitempty"`
+	TextFrom   string             `json:"text_from"`
+}
 
 // FlowcraftMemoryFilter defines model for FlowcraftMemoryFilter.
 type FlowcraftMemoryFilter struct {
@@ -3697,43 +4032,108 @@ type FlowcraftMemoryFilter struct {
 // FlowcraftMemoryFilterOperator defines model for FlowcraftMemoryFilter.Operator.
 type FlowcraftMemoryFilterOperator string
 
-// FlowcraftMemoryLane defines model for FlowcraftMemoryLane.
-type FlowcraftMemoryLane struct {
-	Description *string `json:"description,omitempty"`
-	Extract     *string `json:"extract,omitempty"`
-	Kind        string  `json:"kind"`
-	Name        string  `json:"name"`
-	Recall      *string `json:"recall,omitempty"`
+// FlowcraftMemoryGojiebaPolicy defines model for FlowcraftMemoryGojiebaPolicy.
+type FlowcraftMemoryGojiebaPolicy struct {
+	DictPath      *string                           `json:"dict_path,omitempty"`
+	Hmm           *bool                             `json:"hmm,omitempty"`
+	HmmPath       *string                           `json:"hmm_path,omitempty"`
+	IdfPath       *string                           `json:"idf_path,omitempty"`
+	Mode          *FlowcraftMemoryGojiebaPolicyMode `json:"mode,omitempty"`
+	StopWordsPath *string                           `json:"stop_words_path,omitempty"`
+	UserDictPath  *string                           `json:"user_dict_path,omitempty"`
 }
 
-// FlowcraftMemoryLayout defines model for FlowcraftMemoryLayout.
-type FlowcraftMemoryLayout struct {
-	Lanes *[]FlowcraftMemoryLane `json:"lanes,omitempty"`
+// FlowcraftMemoryGojiebaPolicyMode defines model for FlowcraftMemoryGojiebaPolicy.Mode.
+type FlowcraftMemoryGojiebaPolicyMode string
+
+// FlowcraftMemoryHNSWPolicy defines model for FlowcraftMemoryHNSWPolicy.
+type FlowcraftMemoryHNSWPolicy struct {
+	FlushInterval *string `json:"flush_interval,omitempty"`
 }
 
-// FlowcraftMemoryRecall defines model for FlowcraftMemoryRecall.
-type FlowcraftMemoryRecall struct {
-	Enabled        *bool                                    `json:"enabled,omitempty"`
-	GraphEnabled   *bool                                    `json:"graph_enabled,omitempty"`
-	IncludeRetired *bool                                    `json:"include_retired,omitempty"`
-	Profiles       *map[string]FlowcraftMemoryRecallProfile `json:"profiles,omitempty"`
+// FlowcraftMemoryLanePolicy defines model for FlowcraftMemoryLanePolicy.
+type FlowcraftMemoryLanePolicy struct {
+	Description *string                       `json:"description,omitempty"`
+	Extract     *string                       `json:"extract,omitempty"`
+	Kind        FlowcraftMemoryLanePolicyKind `json:"kind"`
+	Name        string                        `json:"name"`
+	Recall      *string                       `json:"recall,omitempty"`
 }
 
-// FlowcraftMemoryRecallProfile defines model for FlowcraftMemoryRecallProfile.
-type FlowcraftMemoryRecallProfile struct {
+// FlowcraftMemoryLanePolicyKind defines model for FlowcraftMemoryLanePolicy.Kind.
+type FlowcraftMemoryLanePolicyKind string
+
+// FlowcraftMemoryLayoutPolicy defines model for FlowcraftMemoryLayoutPolicy.
+type FlowcraftMemoryLayoutPolicy struct {
+	Bbh          FlowcraftMemoryBBHPolicy        `json:"bbh"`
+	Embedding    *FlowcraftMemoryModelPolicy     `json:"embedding,omitempty"`
+	Extraction   FlowcraftMemoryExtractionPolicy `json:"extraction"`
+	GraphEnabled *bool                           `json:"graph_enabled,omitempty"`
+	Lanes        []FlowcraftMemoryLanePolicy     `json:"lanes"`
+	Rerank       *FlowcraftMemoryModelPolicy     `json:"rerank,omitempty"`
+	Write        FlowcraftMemoryWritePolicy      `json:"write"`
+}
+
+// FlowcraftMemoryModelPolicy defines model for FlowcraftMemoryModelPolicy.
+type FlowcraftMemoryModelPolicy struct {
+	Model string `json:"model"`
+}
+
+// FlowcraftMemoryObservation defines model for FlowcraftMemoryObservation.
+type FlowcraftMemoryObservation struct {
+	Facts     *[]FlowcraftMemoryFact `json:"facts,omitempty"`
+	TextFrom  *string                `json:"text_from,omitempty"`
+	TurnsFrom *string                `json:"turns_from,omitempty"`
+}
+
+// FlowcraftMemoryObserveNode defines model for FlowcraftMemoryObserveNode.
+type FlowcraftMemoryObserveNode struct {
+	Config        FlowcraftMemoryObserveNodeConfig `json:"config"`
+	Id            string                           `json:"id"`
+	Publish       *bool                            `json:"publish,omitempty"`
+	SkipCondition *string                          `json:"skip_condition,omitempty"`
+	Type          FlowcraftMemoryObserveNodeType   `json:"type"`
+}
+
+// FlowcraftMemoryObserveNodeType defines model for FlowcraftMemoryObserveNode.Type.
+type FlowcraftMemoryObserveNodeType string
+
+// FlowcraftMemoryObserveNodeConfig defines model for FlowcraftMemoryObserveNodeConfig.
+type FlowcraftMemoryObserveNodeConfig struct {
+	Observations      []FlowcraftMemoryObservation `json:"observations"`
+	WaitForCompletion *bool                        `json:"wait_for_completion,omitempty"`
+}
+
+// FlowcraftMemoryRecallNode defines model for FlowcraftMemoryRecallNode.
+type FlowcraftMemoryRecallNode struct {
+	Config        FlowcraftMemoryRecallNodeConfig `json:"config"`
+	Id            string                          `json:"id"`
+	Publish       *bool                           `json:"publish,omitempty"`
+	SkipCondition *string                         `json:"skip_condition,omitempty"`
+	Type          FlowcraftMemoryRecallNodeType   `json:"type"`
+}
+
+// FlowcraftMemoryRecallNodeType defines model for FlowcraftMemoryRecallNode.Type.
+type FlowcraftMemoryRecallNodeType string
+
+// FlowcraftMemoryRecallNodeConfig defines model for FlowcraftMemoryRecallNodeConfig.
+type FlowcraftMemoryRecallNodeConfig struct {
 	Output string                       `json:"output"`
-	Query  *FlowcraftMemoryRecallQuery  `json:"query,omitempty"`
+	Query  FlowcraftMemoryRecallQuery   `json:"query"`
 	Render *FlowcraftMemoryRecallRender `json:"render,omitempty"`
 	TopK   int                          `json:"top_k"`
 }
 
 // FlowcraftMemoryRecallQuery defines model for FlowcraftMemoryRecallQuery.
 type FlowcraftMemoryRecallQuery struct {
-	Filters *[]FlowcraftMemoryFilter `json:"filters,omitempty"`
-	Kinds   *[]string                `json:"kinds,omitempty"`
-	Lanes   *[]string                `json:"lanes,omitempty"`
-	Text    *string                  `json:"text,omitempty"`
+	Filters  *[]FlowcraftMemoryFilter           `json:"filters,omitempty"`
+	Kinds    *[]FlowcraftMemoryRecallQueryKinds `json:"kinds,omitempty"`
+	Lanes    *[]string                          `json:"lanes,omitempty"`
+	TextFrom string                             `json:"text_from"`
 }
+
+// FlowcraftMemoryRecallQueryKinds defines model for FlowcraftMemoryRecallQuery.Kinds.
+type FlowcraftMemoryRecallQueryKinds string
 
 // FlowcraftMemoryRecallRender defines model for FlowcraftMemoryRecallRender.
 type FlowcraftMemoryRecallRender struct {
@@ -3742,25 +4142,17 @@ type FlowcraftMemoryRecallRender struct {
 	MaxItems   *int    `json:"max_items,omitempty"`
 }
 
-// FlowcraftMemoryRerank defines model for FlowcraftMemoryRerank.
-type FlowcraftMemoryRerank struct {
-	Enabled *bool   `json:"enabled,omitempty"`
-	Model   *string `json:"model,omitempty"`
+// FlowcraftMemoryWritePolicy defines model for FlowcraftMemoryWritePolicy.
+type FlowcraftMemoryWritePolicy struct {
+	Mode FlowcraftMemoryWritePolicyMode `json:"mode"`
+	Tier FlowcraftMemoryWritePolicyTier `json:"tier"`
 }
 
-// FlowcraftMemoryWrite defines model for FlowcraftMemoryWrite.
-type FlowcraftMemoryWrite struct {
-	BoardFacts       *[]FlowcraftMemoryBoardFact `json:"board_facts,omitempty"`
-	Mode             *FlowcraftMemoryWriteMode   `json:"mode,omitempty"`
-	SaveConversation *bool                       `json:"save_conversation,omitempty"`
-	Tier             *FlowcraftMemoryWriteTier   `json:"tier,omitempty"`
-}
+// FlowcraftMemoryWritePolicyMode defines model for FlowcraftMemoryWritePolicy.Mode.
+type FlowcraftMemoryWritePolicyMode string
 
-// FlowcraftMemoryWriteMode defines model for FlowcraftMemoryWrite.Mode.
-type FlowcraftMemoryWriteMode string
-
-// FlowcraftMemoryWriteTier defines model for FlowcraftMemoryWrite.Tier.
-type FlowcraftMemoryWriteTier string
+// FlowcraftMemoryWritePolicyTier defines model for FlowcraftMemoryWritePolicy.Tier.
+type FlowcraftMemoryWritePolicyTier string
 
 // FlowcraftNode defines model for FlowcraftNode.
 type FlowcraftNode struct {
@@ -3812,10 +4204,10 @@ type FlowcraftVoiceAdapter struct {
 
 // FlowcraftWorkflowSpec defines model for FlowcraftWorkflowSpec.
 type FlowcraftWorkflowSpec struct {
-	Agent        FlowcraftAgent         `json:"agent"`
-	Conversation *FlowcraftConversation `json:"conversation,omitempty"`
-	Memory       *FlowcraftMemory       `json:"memory,omitempty"`
-	VoiceAdapter *FlowcraftVoiceAdapter `json:"voice_adapter,omitempty"`
+	Conversation  *FlowcraftConversation `json:"conversation,omitempty"`
+	Graph         FlowcraftGraph         `json:"graph"`
+	MaxIterations *int                   `json:"max_iterations,omitempty"`
+	VoiceAdapter  *FlowcraftVoiceAdapter `json:"voice_adapter,omitempty"`
 }
 
 // FlowcraftWorkspaceParameters defines model for FlowcraftWorkspaceParameters.
@@ -4078,6 +4470,40 @@ type Icon struct {
 
 	// Png Owner-scoped relative PNG object name.
 	Png *string `json:"png,omitempty"`
+}
+
+// Mem0MemoryLayoutPolicy defines model for Mem0MemoryLayoutPolicy.
+type Mem0MemoryLayoutPolicy struct {
+	CustomCategories   *map[string]string `json:"custom_categories,omitempty"`
+	CustomInstructions *string            `json:"custom_instructions,omitempty"`
+	Decay              *bool              `json:"decay,omitempty"`
+	Multilingual       *bool              `json:"multilingual,omitempty"`
+}
+
+// MemoryLayout defines model for MemoryLayout.
+type MemoryLayout struct {
+	// Name Stable MemoryLayout resource ID.
+	Name string           `json:"name"`
+	Spec MemoryLayoutSpec `json:"spec"`
+}
+
+// MemoryLayoutResource defines model for MemoryLayoutResource.
+type MemoryLayoutResource struct {
+	// ApiVersion API version for declarative GizClaw resources.
+	ApiVersion ResourceAPIVersion       `json:"apiVersion"`
+	Kind       MemoryLayoutResourceKind `json:"kind"`
+	Metadata   ResourceMetadata         `json:"metadata"`
+	Spec       MemoryLayoutSpec         `json:"spec"`
+}
+
+// MemoryLayoutResourceKind defines model for MemoryLayoutResource.Kind.
+type MemoryLayoutResourceKind string
+
+// MemoryLayoutSpec defines model for MemoryLayoutSpec.
+type MemoryLayoutSpec struct {
+	Flowcraft FlowcraftMemoryLayoutPolicy `json:"flowcraft"`
+	Mem0      Mem0MemoryLayoutPolicy      `json:"mem0"`
+	VolcMem0  VolcMem0MemoryLayoutPolicy  `json:"volc_mem0"`
 }
 
 // MiniMaxCredentialBody defines model for MiniMaxCredentialBody.
@@ -4753,15 +5179,16 @@ type PetStats struct {
 	Satiety float64 `json:"satiety"`
 }
 
-// PetWorkflowSpec Reusable non-Pet Workflow union used directly and below the Pet domain wrapper.
-type PetWorkflowSpec = ReusableWorkflowSpec
+// PetWorkflowSpec defines model for PetWorkflowSpec.
+type PetWorkflowSpec = ReusableWorkflowSpecObject
 
 // PetWorkflowVariant defines model for PetWorkflowVariant.
 type PetWorkflowVariant struct {
 	Driver PetWorkflowVariantDriver `json:"driver"`
 
-	// Pet Reusable non-Pet Workflow union used directly and below the Pet domain wrapper.
-	Pet PetWorkflowSpec `json:"pet"`
+	// Memory RuntimeProfile resources.memories alias resolved for the Workspace.
+	Memory *WorkflowMemoryAlias `json:"memory,omitempty"`
+	Pet    PetWorkflowSpec      `json:"pet"`
 
 	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
 	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
@@ -4894,6 +5321,9 @@ type ReusableASTTranslateWorkflowVariant struct {
 	AstTranslate ASTTranslateWorkflowSpec                  `json:"ast_translate"`
 	Driver       ReusableASTTranslateWorkflowVariantDriver `json:"driver"`
 
+	// Memory RuntimeProfile resources.memories alias resolved for the Workspace.
+	Memory *WorkflowMemoryAlias `json:"memory,omitempty"`
+
 	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
 	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
 }
@@ -4905,6 +5335,9 @@ type ReusableASTTranslateWorkflowVariantDriver string
 type ReusableChatroomWorkflowVariant struct {
 	Chatroom ChatRoomWorkflowSpec                  `json:"chatroom"`
 	Driver   ReusableChatroomWorkflowVariantDriver `json:"driver"`
+
+	// Memory RuntimeProfile resources.memories alias resolved for the Workspace.
+	Memory *WorkflowMemoryAlias `json:"memory,omitempty"`
 
 	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
 	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
@@ -4918,6 +5351,9 @@ type ReusableDashScopeRealtimeWorkflowVariant struct {
 	DashscopeRealtime DashScopeRealtimeWorkflowSpec                  `json:"dashscope_realtime"`
 	Driver            ReusableDashScopeRealtimeWorkflowVariantDriver `json:"driver"`
 
+	// Memory RuntimeProfile resources.memories alias resolved for the Workspace.
+	Memory *WorkflowMemoryAlias `json:"memory,omitempty"`
+
 	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
 	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
 }
@@ -4929,6 +5365,9 @@ type ReusableDashScopeRealtimeWorkflowVariantDriver string
 type ReusableDoubaoRealtimeDuplexWorkflowVariant struct {
 	DoubaoRealtimeDuplex DoubaoRealtimeDuplexWorkflowSpec                  `json:"doubao_realtime_duplex"`
 	Driver               ReusableDoubaoRealtimeDuplexWorkflowVariantDriver `json:"driver"`
+
+	// Memory RuntimeProfile resources.memories alias resolved for the Workspace.
+	Memory *WorkflowMemoryAlias `json:"memory,omitempty"`
 
 	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
 	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
@@ -4942,6 +5381,9 @@ type ReusableDoubaoRealtimeWorkflowVariant struct {
 	DoubaoRealtime DoubaoRealtimeWorkflowSpec                  `json:"doubao_realtime"`
 	Driver         ReusableDoubaoRealtimeWorkflowVariantDriver `json:"driver"`
 
+	// Memory RuntimeProfile resources.memories alias resolved for the Workspace.
+	Memory *WorkflowMemoryAlias `json:"memory,omitempty"`
+
 	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
 	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
 }
@@ -4954,6 +5396,9 @@ type ReusableEinoWorkflowVariant struct {
 	Driver ReusableEinoWorkflowVariantDriver `json:"driver"`
 	Eino   EinoWorkflowSpec                  `json:"eino"`
 
+	// Memory RuntimeProfile resources.memories alias resolved for the Workspace.
+	Memory *WorkflowMemoryAlias `json:"memory,omitempty"`
+
 	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
 	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
 }
@@ -4965,6 +5410,9 @@ type ReusableEinoWorkflowVariantDriver string
 type ReusableFlowcraftWorkflowVariant struct {
 	Driver    ReusableFlowcraftWorkflowVariantDriver `json:"driver"`
 	Flowcraft FlowcraftWorkflowSpec                  `json:"flowcraft"`
+
+	// Memory RuntimeProfile resources.memories alias resolved for the Workspace.
+	Memory *WorkflowMemoryAlias `json:"memory,omitempty"`
 
 	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
 	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
@@ -4989,6 +5437,9 @@ type ReusableWorkflowSpecObject struct {
 	Driver               ReusableWorkflowDriver            `json:"driver"`
 	Eino                 *EinoWorkflowSpec                 `json:"eino,omitempty"`
 	Flowcraft            *FlowcraftWorkflowSpec            `json:"flowcraft,omitempty"`
+
+	// Memory RuntimeProfile resources.memories alias resolved for the Workspace.
+	Memory *WorkflowMemoryAlias `json:"memory,omitempty"`
 
 	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
 	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
@@ -5056,6 +5507,32 @@ type RuntimeProfileCareDecaySpec struct {
 	Satiety float64 `json:"satiety"`
 }
 
+// RuntimeProfileFlowcraftBBHConnection defines model for RuntimeProfileFlowcraftBBHConnection.
+type RuntimeProfileFlowcraftBBHConnection struct {
+	Type RuntimeProfileFlowcraftBBHConnectionType `json:"type"`
+}
+
+// RuntimeProfileFlowcraftBBHConnectionType defines model for RuntimeProfileFlowcraftBBHConnection.Type.
+type RuntimeProfileFlowcraftBBHConnectionType string
+
+// RuntimeProfileFlowcraftObjectStoreConnection defines model for RuntimeProfileFlowcraftObjectStoreConnection.
+type RuntimeProfileFlowcraftObjectStoreConnection struct {
+	Directory string                                           `json:"directory"`
+	Type      RuntimeProfileFlowcraftObjectStoreConnectionType `json:"type"`
+}
+
+// RuntimeProfileFlowcraftObjectStoreConnectionType defines model for RuntimeProfileFlowcraftObjectStoreConnection.Type.
+type RuntimeProfileFlowcraftObjectStoreConnectionType string
+
+// RuntimeProfileFlowcraftPostgreSQLConnection defines model for RuntimeProfileFlowcraftPostgreSQLConnection.
+type RuntimeProfileFlowcraftPostgreSQLConnection struct {
+	Dsn  string                                          `json:"dsn"`
+	Type RuntimeProfileFlowcraftPostgreSQLConnectionType `json:"type"`
+}
+
+// RuntimeProfileFlowcraftPostgreSQLConnectionType defines model for RuntimeProfileFlowcraftPostgreSQLConnection.Type.
+type RuntimeProfileFlowcraftPostgreSQLConnectionType string
+
 // RuntimeProfileGameRewardSpec defines model for RuntimeProfileGameRewardSpec.
 type RuntimeProfileGameRewardSpec struct {
 	BadgeExpMaxPerBadge int64  `json:"badge_exp_max_per_badge"`
@@ -5104,6 +5581,35 @@ type RuntimeProfileLifeWeightsSpec struct {
 	Mood    float64 `json:"mood"`
 	Satiety float64 `json:"satiety"`
 }
+
+// RuntimeProfileMem0Connection defines model for RuntimeProfileMem0Connection.
+type RuntimeProfileMem0Connection struct {
+	ApiKey       string  `json:"api_key"`
+	Endpoint     string  `json:"endpoint"`
+	PollInterval *string `json:"poll_interval,omitempty"`
+
+	// ProjectId Deployment/control-plane identity paired with this API key. Mem0 data-plane requests authenticate with api_key and do not send project_id.
+	ProjectId string                           `json:"project_id"`
+	Type      RuntimeProfileMem0ConnectionType `json:"type"`
+}
+
+// RuntimeProfileMem0ConnectionType defines model for RuntimeProfileMem0Connection.Type.
+type RuntimeProfileMem0ConnectionType string
+
+// RuntimeProfileMemoryBinding defines model for RuntimeProfileMemoryBinding.
+type RuntimeProfileMemoryBinding struct {
+	Connection RuntimeProfileMemoryConnection `json:"connection"`
+	Driver     RuntimeProfileMemoryDriver     `json:"driver"`
+	LayoutId   string                         `json:"layout_id"`
+}
+
+// RuntimeProfileMemoryConnection defines model for RuntimeProfileMemoryConnection.
+type RuntimeProfileMemoryConnection struct {
+	union json.RawMessage
+}
+
+// RuntimeProfileMemoryDriver defines model for RuntimeProfileMemoryDriver.
+type RuntimeProfileMemoryDriver string
 
 // RuntimeProfilePetActionSpec defines model for RuntimeProfilePetActionSpec.
 type RuntimeProfilePetActionSpec struct {
@@ -5167,12 +5673,13 @@ type RuntimeProfileResourceKind string
 
 // RuntimeProfileResources defines model for RuntimeProfileResources.
 type RuntimeProfileResources struct {
-	BadgeDefs *map[string]RuntimeProfileBinding `json:"badge_defs,omitempty"`
-	GameDefs  *map[string]RuntimeProfileBinding `json:"game_defs,omitempty"`
-	Models    *map[string]RuntimeProfileBinding `json:"models,omitempty"`
-	PetDefs   *map[string]RuntimeProfileBinding `json:"pet_defs,omitempty"`
-	Tools     *map[string]RuntimeProfileBinding `json:"tools,omitempty"`
-	Voices    *map[string]RuntimeProfileBinding `json:"voices,omitempty"`
+	BadgeDefs *map[string]RuntimeProfileBinding       `json:"badge_defs,omitempty"`
+	GameDefs  *map[string]RuntimeProfileBinding       `json:"game_defs,omitempty"`
+	Memories  *map[string]RuntimeProfileMemoryBinding `json:"memories,omitempty"`
+	Models    *map[string]RuntimeProfileBinding       `json:"models,omitempty"`
+	PetDefs   *map[string]RuntimeProfileBinding       `json:"pet_defs,omitempty"`
+	Tools     *map[string]RuntimeProfileBinding       `json:"tools,omitempty"`
+	Voices    *map[string]RuntimeProfileBinding       `json:"voices,omitempty"`
 }
 
 // RuntimeProfileSpec defines model for RuntimeProfileSpec.
@@ -5193,6 +5700,20 @@ type RuntimeProfileSystemWorkflows struct {
 	// Pet Persisted Workflow resource ID for adopted Pet Workspaces.
 	Pet string `json:"pet"`
 }
+
+// RuntimeProfileVolcMem0Connection defines model for RuntimeProfileVolcMem0Connection.
+type RuntimeProfileVolcMem0Connection struct {
+	ApiKey   string `json:"api_key"`
+	Endpoint string `json:"endpoint"`
+
+	// MemoryProjectId Deployment/control-plane identity paired with this data-plane API key. Runtime fact requests authenticate with api_key and do not send memory_project_id.
+	MemoryProjectId string                               `json:"memory_project_id"`
+	PollInterval    *string                              `json:"poll_interval,omitempty"`
+	Type            RuntimeProfileVolcMem0ConnectionType `json:"type"`
+}
+
+// RuntimeProfileVolcMem0ConnectionType defines model for RuntimeProfileVolcMem0Connection.Type.
+type RuntimeProfileVolcMem0ConnectionType string
 
 // RuntimeProfileWorkflowCollections defines model for RuntimeProfileWorkflowCollections.
 type RuntimeProfileWorkflowCollections map[string]map[string]RuntimeProfileBinding
@@ -5423,6 +5944,21 @@ type VolcCredentialBody struct {
 	SpeechAppId        *string `json:"speech_app_id,omitempty"`
 }
 
+// VolcMem0MemoryLayoutPolicy defines model for VolcMem0MemoryLayoutPolicy.
+type VolcMem0MemoryLayoutPolicy struct {
+	Strategies []VolcMem0Strategy `json:"strategies"`
+}
+
+// VolcMem0Strategy defines model for VolcMem0Strategy.
+type VolcMem0Strategy struct {
+	CustomInstructions *string              `json:"custom_instructions,omitempty"`
+	Name               string               `json:"name"`
+	Type               VolcMem0StrategyType `json:"type"`
+}
+
+// VolcMem0StrategyType defines model for VolcMem0Strategy.Type.
+type VolcMem0StrategyType string
+
 // VolcTenant defines model for VolcTenant.
 type VolcTenant struct {
 	CreatedAt      time.Time  `json:"created_at"`
@@ -5498,6 +6034,9 @@ type Workflow struct {
 // WorkflowDriver defines model for WorkflowDriver.
 type WorkflowDriver string
 
+// WorkflowMemoryAlias RuntimeProfile resources.memories alias resolved for the Workspace.
+type WorkflowMemoryAlias = string
+
 // WorkflowResource defines model for WorkflowResource.
 type WorkflowResource struct {
 	// ApiVersion API version for declarative GizClaw resources.
@@ -5528,8 +6067,9 @@ type WorkflowSpecObject struct {
 	Eino                 *EinoWorkflowSpec                 `json:"eino,omitempty"`
 	Flowcraft            *FlowcraftWorkflowSpec            `json:"flowcraft,omitempty"`
 
-	// Pet Reusable non-Pet Workflow union used directly and below the Pet domain wrapper.
-	Pet *PetWorkflowSpec `json:"pet,omitempty"`
+	// Memory RuntimeProfile resources.memories alias resolved for the Workspace.
+	Memory *WorkflowMemoryAlias `json:"memory,omitempty"`
+	Pet    *PetWorkflowSpec     `json:"pet,omitempty"`
 
 	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
 	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
@@ -6021,6 +6561,62 @@ func (t *EinoNode) MergeEinoPassthroughNode(v EinoPassthroughNode) error {
 	return err
 }
 
+// AsEinoMemoryRecallNode returns the union data inside the EinoNode as a EinoMemoryRecallNode
+func (t EinoNode) AsEinoMemoryRecallNode() (EinoMemoryRecallNode, error) {
+	var body EinoMemoryRecallNode
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromEinoMemoryRecallNode overwrites any union data inside the EinoNode as the provided EinoMemoryRecallNode
+func (t *EinoNode) FromEinoMemoryRecallNode(v EinoMemoryRecallNode) error {
+	v.Type = "memory_recall"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeEinoMemoryRecallNode performs a merge with any union data inside the EinoNode, using the provided EinoMemoryRecallNode
+func (t *EinoNode) MergeEinoMemoryRecallNode(v EinoMemoryRecallNode) error {
+	v.Type = "memory_recall"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsEinoMemoryObserveNode returns the union data inside the EinoNode as a EinoMemoryObserveNode
+func (t EinoNode) AsEinoMemoryObserveNode() (EinoMemoryObserveNode, error) {
+	var body EinoMemoryObserveNode
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromEinoMemoryObserveNode overwrites any union data inside the EinoNode as the provided EinoMemoryObserveNode
+func (t *EinoNode) FromEinoMemoryObserveNode(v EinoMemoryObserveNode) error {
+	v.Type = "memory_observe"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeEinoMemoryObserveNode performs a merge with any union data inside the EinoNode, using the provided EinoMemoryObserveNode
+func (t *EinoNode) MergeEinoMemoryObserveNode(v EinoMemoryObserveNode) error {
+	v.Type = "memory_observe"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsEinoSubgraphNode returns the union data inside the EinoNode as a EinoSubgraphNode
 func (t EinoNode) AsEinoSubgraphNode() (EinoSubgraphNode, error) {
 	var body EinoSubgraphNode
@@ -6067,6 +6663,10 @@ func (t EinoNode) ValueByDiscriminator() (interface{}, error) {
 		return t.AsEinoBatchNode()
 	case "chat_model":
 		return t.AsEinoChatModelNode()
+	case "memory_observe":
+		return t.AsEinoMemoryObserveNode()
+	case "memory_recall":
+		return t.AsEinoMemoryRecallNode()
 	case "passthrough":
 		return t.AsEinoPassthroughNode()
 	case "prompt":
@@ -6178,6 +6778,62 @@ func (t *FlowcraftNode) MergeFlowcraftPassthroughNode(v FlowcraftPassthroughNode
 	return err
 }
 
+// AsFlowcraftMemoryRecallNode returns the union data inside the FlowcraftNode as a FlowcraftMemoryRecallNode
+func (t FlowcraftNode) AsFlowcraftMemoryRecallNode() (FlowcraftMemoryRecallNode, error) {
+	var body FlowcraftMemoryRecallNode
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFlowcraftMemoryRecallNode overwrites any union data inside the FlowcraftNode as the provided FlowcraftMemoryRecallNode
+func (t *FlowcraftNode) FromFlowcraftMemoryRecallNode(v FlowcraftMemoryRecallNode) error {
+	v.Type = "memory_recall"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFlowcraftMemoryRecallNode performs a merge with any union data inside the FlowcraftNode, using the provided FlowcraftMemoryRecallNode
+func (t *FlowcraftNode) MergeFlowcraftMemoryRecallNode(v FlowcraftMemoryRecallNode) error {
+	v.Type = "memory_recall"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFlowcraftMemoryObserveNode returns the union data inside the FlowcraftNode as a FlowcraftMemoryObserveNode
+func (t FlowcraftNode) AsFlowcraftMemoryObserveNode() (FlowcraftMemoryObserveNode, error) {
+	var body FlowcraftMemoryObserveNode
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFlowcraftMemoryObserveNode overwrites any union data inside the FlowcraftNode as the provided FlowcraftMemoryObserveNode
+func (t *FlowcraftNode) FromFlowcraftMemoryObserveNode(v FlowcraftMemoryObserveNode) error {
+	v.Type = "memory_observe"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFlowcraftMemoryObserveNode performs a merge with any union data inside the FlowcraftNode, using the provided FlowcraftMemoryObserveNode
+func (t *FlowcraftNode) MergeFlowcraftMemoryObserveNode(v FlowcraftMemoryObserveNode) error {
+	v.Type = "memory_observe"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 func (t FlowcraftNode) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"type"`
@@ -6194,6 +6850,10 @@ func (t FlowcraftNode) ValueByDiscriminator() (interface{}, error) {
 	switch discriminator {
 	case "llm":
 		return t.AsFlowcraftLLMNode()
+	case "memory_observe":
+		return t.AsFlowcraftMemoryObserveNode()
+	case "memory_recall":
+		return t.AsFlowcraftMemoryRecallNode()
 	case "passthrough":
 		return t.AsFlowcraftPassthroughNode()
 	case "script":
@@ -6388,7 +7048,7 @@ func (t Resource) AsCredentialResource() (CredentialResource, error) {
 
 // FromCredentialResource overwrites any union data inside the Resource as the provided CredentialResource
 func (t *Resource) FromCredentialResource(v CredentialResource) error {
-	v.Kind = "CredentialResource"
+	v.Kind = "Credential"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -6396,7 +7056,7 @@ func (t *Resource) FromCredentialResource(v CredentialResource) error {
 
 // MergeCredentialResource performs a merge with any union data inside the Resource, using the provided CredentialResource
 func (t *Resource) MergeCredentialResource(v CredentialResource) error {
-	v.Kind = "CredentialResource"
+	v.Kind = "Credential"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -6416,7 +7076,7 @@ func (t Resource) AsFirmwareResource() (FirmwareResource, error) {
 
 // FromFirmwareResource overwrites any union data inside the Resource as the provided FirmwareResource
 func (t *Resource) FromFirmwareResource(v FirmwareResource) error {
-	v.Kind = "FirmwareResource"
+	v.Kind = "Firmware"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -6424,7 +7084,7 @@ func (t *Resource) FromFirmwareResource(v FirmwareResource) error {
 
 // MergeFirmwareResource performs a merge with any union data inside the Resource, using the provided FirmwareResource
 func (t *Resource) MergeFirmwareResource(v FirmwareResource) error {
-	v.Kind = "FirmwareResource"
+	v.Kind = "Firmware"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -6444,7 +7104,7 @@ func (t Resource) AsContactResource() (ContactResource, error) {
 
 // FromContactResource overwrites any union data inside the Resource as the provided ContactResource
 func (t *Resource) FromContactResource(v ContactResource) error {
-	v.Kind = "ContactResource"
+	v.Kind = "Contact"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -6452,7 +7112,7 @@ func (t *Resource) FromContactResource(v ContactResource) error {
 
 // MergeContactResource performs a merge with any union data inside the Resource, using the provided ContactResource
 func (t *Resource) MergeContactResource(v ContactResource) error {
-	v.Kind = "ContactResource"
+	v.Kind = "Contact"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -6472,7 +7132,7 @@ func (t Resource) AsFriendResource() (FriendResource, error) {
 
 // FromFriendResource overwrites any union data inside the Resource as the provided FriendResource
 func (t *Resource) FromFriendResource(v FriendResource) error {
-	v.Kind = "FriendResource"
+	v.Kind = "Friend"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -6480,7 +7140,7 @@ func (t *Resource) FromFriendResource(v FriendResource) error {
 
 // MergeFriendResource performs a merge with any union data inside the Resource, using the provided FriendResource
 func (t *Resource) MergeFriendResource(v FriendResource) error {
-	v.Kind = "FriendResource"
+	v.Kind = "Friend"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -6500,7 +7160,7 @@ func (t Resource) AsFriendGroupResource() (FriendGroupResource, error) {
 
 // FromFriendGroupResource overwrites any union data inside the Resource as the provided FriendGroupResource
 func (t *Resource) FromFriendGroupResource(v FriendGroupResource) error {
-	v.Kind = "FriendGroupResource"
+	v.Kind = "FriendGroup"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -6508,7 +7168,7 @@ func (t *Resource) FromFriendGroupResource(v FriendGroupResource) error {
 
 // MergeFriendGroupResource performs a merge with any union data inside the Resource, using the provided FriendGroupResource
 func (t *Resource) MergeFriendGroupResource(v FriendGroupResource) error {
-	v.Kind = "FriendGroupResource"
+	v.Kind = "FriendGroup"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -6528,7 +7188,7 @@ func (t Resource) AsFriendGroupInviteTokenResource() (FriendGroupInviteTokenReso
 
 // FromFriendGroupInviteTokenResource overwrites any union data inside the Resource as the provided FriendGroupInviteTokenResource
 func (t *Resource) FromFriendGroupInviteTokenResource(v FriendGroupInviteTokenResource) error {
-	v.Kind = "FriendGroupInviteTokenResource"
+	v.Kind = "FriendGroupInviteToken"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -6536,7 +7196,7 @@ func (t *Resource) FromFriendGroupInviteTokenResource(v FriendGroupInviteTokenRe
 
 // MergeFriendGroupInviteTokenResource performs a merge with any union data inside the Resource, using the provided FriendGroupInviteTokenResource
 func (t *Resource) MergeFriendGroupInviteTokenResource(v FriendGroupInviteTokenResource) error {
-	v.Kind = "FriendGroupInviteTokenResource"
+	v.Kind = "FriendGroupInviteToken"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -6556,7 +7216,7 @@ func (t Resource) AsFriendGroupMemberResource() (FriendGroupMemberResource, erro
 
 // FromFriendGroupMemberResource overwrites any union data inside the Resource as the provided FriendGroupMemberResource
 func (t *Resource) FromFriendGroupMemberResource(v FriendGroupMemberResource) error {
-	v.Kind = "FriendGroupMemberResource"
+	v.Kind = "FriendGroupMember"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -6564,7 +7224,7 @@ func (t *Resource) FromFriendGroupMemberResource(v FriendGroupMemberResource) er
 
 // MergeFriendGroupMemberResource performs a merge with any union data inside the Resource, using the provided FriendGroupMemberResource
 func (t *Resource) MergeFriendGroupMemberResource(v FriendGroupMemberResource) error {
-	v.Kind = "FriendGroupMemberResource"
+	v.Kind = "FriendGroupMember"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -6584,7 +7244,7 @@ func (t Resource) AsModelResource() (ModelResource, error) {
 
 // FromModelResource overwrites any union data inside the Resource as the provided ModelResource
 func (t *Resource) FromModelResource(v ModelResource) error {
-	v.Kind = "ModelResource"
+	v.Kind = "Model"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -6592,7 +7252,7 @@ func (t *Resource) FromModelResource(v ModelResource) error {
 
 // MergeModelResource performs a merge with any union data inside the Resource, using the provided ModelResource
 func (t *Resource) MergeModelResource(v ModelResource) error {
-	v.Kind = "ModelResource"
+	v.Kind = "Model"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -6612,7 +7272,7 @@ func (t Resource) AsDashScopeTenantResource() (DashScopeTenantResource, error) {
 
 // FromDashScopeTenantResource overwrites any union data inside the Resource as the provided DashScopeTenantResource
 func (t *Resource) FromDashScopeTenantResource(v DashScopeTenantResource) error {
-	v.Kind = "DashScopeTenantResource"
+	v.Kind = "DashScopeTenant"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -6620,7 +7280,7 @@ func (t *Resource) FromDashScopeTenantResource(v DashScopeTenantResource) error 
 
 // MergeDashScopeTenantResource performs a merge with any union data inside the Resource, using the provided DashScopeTenantResource
 func (t *Resource) MergeDashScopeTenantResource(v DashScopeTenantResource) error {
-	v.Kind = "DashScopeTenantResource"
+	v.Kind = "DashScopeTenant"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -6640,7 +7300,7 @@ func (t Resource) AsDeepSeekTenantResource() (DeepSeekTenantResource, error) {
 
 // FromDeepSeekTenantResource overwrites any union data inside the Resource as the provided DeepSeekTenantResource
 func (t *Resource) FromDeepSeekTenantResource(v DeepSeekTenantResource) error {
-	v.Kind = "DeepSeekTenantResource"
+	v.Kind = "DeepSeekTenant"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -6648,7 +7308,7 @@ func (t *Resource) FromDeepSeekTenantResource(v DeepSeekTenantResource) error {
 
 // MergeDeepSeekTenantResource performs a merge with any union data inside the Resource, using the provided DeepSeekTenantResource
 func (t *Resource) MergeDeepSeekTenantResource(v DeepSeekTenantResource) error {
-	v.Kind = "DeepSeekTenantResource"
+	v.Kind = "DeepSeekTenant"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -6668,7 +7328,7 @@ func (t Resource) AsGeminiTenantResource() (GeminiTenantResource, error) {
 
 // FromGeminiTenantResource overwrites any union data inside the Resource as the provided GeminiTenantResource
 func (t *Resource) FromGeminiTenantResource(v GeminiTenantResource) error {
-	v.Kind = "GeminiTenantResource"
+	v.Kind = "GeminiTenant"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -6676,7 +7336,7 @@ func (t *Resource) FromGeminiTenantResource(v GeminiTenantResource) error {
 
 // MergeGeminiTenantResource performs a merge with any union data inside the Resource, using the provided GeminiTenantResource
 func (t *Resource) MergeGeminiTenantResource(v GeminiTenantResource) error {
-	v.Kind = "GeminiTenantResource"
+	v.Kind = "GeminiTenant"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -6696,7 +7356,7 @@ func (t Resource) AsMiniMaxTenantResource() (MiniMaxTenantResource, error) {
 
 // FromMiniMaxTenantResource overwrites any union data inside the Resource as the provided MiniMaxTenantResource
 func (t *Resource) FromMiniMaxTenantResource(v MiniMaxTenantResource) error {
-	v.Kind = "MiniMaxTenantResource"
+	v.Kind = "MiniMaxTenant"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -6704,7 +7364,7 @@ func (t *Resource) FromMiniMaxTenantResource(v MiniMaxTenantResource) error {
 
 // MergeMiniMaxTenantResource performs a merge with any union data inside the Resource, using the provided MiniMaxTenantResource
 func (t *Resource) MergeMiniMaxTenantResource(v MiniMaxTenantResource) error {
-	v.Kind = "MiniMaxTenantResource"
+	v.Kind = "MiniMaxTenant"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -6724,7 +7384,7 @@ func (t Resource) AsOpenAITenantResource() (OpenAITenantResource, error) {
 
 // FromOpenAITenantResource overwrites any union data inside the Resource as the provided OpenAITenantResource
 func (t *Resource) FromOpenAITenantResource(v OpenAITenantResource) error {
-	v.Kind = "OpenAITenantResource"
+	v.Kind = "OpenAITenant"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -6732,7 +7392,7 @@ func (t *Resource) FromOpenAITenantResource(v OpenAITenantResource) error {
 
 // MergeOpenAITenantResource performs a merge with any union data inside the Resource, using the provided OpenAITenantResource
 func (t *Resource) MergeOpenAITenantResource(v OpenAITenantResource) error {
-	v.Kind = "OpenAITenantResource"
+	v.Kind = "OpenAITenant"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -6752,7 +7412,7 @@ func (t Resource) AsVolcTenantResource() (VolcTenantResource, error) {
 
 // FromVolcTenantResource overwrites any union data inside the Resource as the provided VolcTenantResource
 func (t *Resource) FromVolcTenantResource(v VolcTenantResource) error {
-	v.Kind = "VolcTenantResource"
+	v.Kind = "VolcTenant"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -6760,7 +7420,7 @@ func (t *Resource) FromVolcTenantResource(v VolcTenantResource) error {
 
 // MergeVolcTenantResource performs a merge with any union data inside the Resource, using the provided VolcTenantResource
 func (t *Resource) MergeVolcTenantResource(v VolcTenantResource) error {
-	v.Kind = "VolcTenantResource"
+	v.Kind = "VolcTenant"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -6780,7 +7440,7 @@ func (t Resource) AsVoiceResource() (VoiceResource, error) {
 
 // FromVoiceResource overwrites any union data inside the Resource as the provided VoiceResource
 func (t *Resource) FromVoiceResource(v VoiceResource) error {
-	v.Kind = "VoiceResource"
+	v.Kind = "Voice"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -6788,7 +7448,7 @@ func (t *Resource) FromVoiceResource(v VoiceResource) error {
 
 // MergeVoiceResource performs a merge with any union data inside the Resource, using the provided VoiceResource
 func (t *Resource) MergeVoiceResource(v VoiceResource) error {
-	v.Kind = "VoiceResource"
+	v.Kind = "Voice"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -6808,7 +7468,7 @@ func (t Resource) AsToolResource() (ToolResource, error) {
 
 // FromToolResource overwrites any union data inside the Resource as the provided ToolResource
 func (t *Resource) FromToolResource(v ToolResource) error {
-	v.Kind = "ToolResource"
+	v.Kind = "Tool"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -6816,7 +7476,7 @@ func (t *Resource) FromToolResource(v ToolResource) error {
 
 // MergeToolResource performs a merge with any union data inside the Resource, using the provided ToolResource
 func (t *Resource) MergeToolResource(v ToolResource) error {
-	v.Kind = "ToolResource"
+	v.Kind = "Tool"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -6836,7 +7496,7 @@ func (t Resource) AsWorkflowResource() (WorkflowResource, error) {
 
 // FromWorkflowResource overwrites any union data inside the Resource as the provided WorkflowResource
 func (t *Resource) FromWorkflowResource(v WorkflowResource) error {
-	v.Kind = "WorkflowResource"
+	v.Kind = "Workflow"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -6844,7 +7504,7 @@ func (t *Resource) FromWorkflowResource(v WorkflowResource) error {
 
 // MergeWorkflowResource performs a merge with any union data inside the Resource, using the provided WorkflowResource
 func (t *Resource) MergeWorkflowResource(v WorkflowResource) error {
-	v.Kind = "WorkflowResource"
+	v.Kind = "Workflow"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -6864,7 +7524,7 @@ func (t Resource) AsWorkspaceResource() (WorkspaceResource, error) {
 
 // FromWorkspaceResource overwrites any union data inside the Resource as the provided WorkspaceResource
 func (t *Resource) FromWorkspaceResource(v WorkspaceResource) error {
-	v.Kind = "WorkspaceResource"
+	v.Kind = "Workspace"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -6872,7 +7532,7 @@ func (t *Resource) FromWorkspaceResource(v WorkspaceResource) error {
 
 // MergeWorkspaceResource performs a merge with any union data inside the Resource, using the provided WorkspaceResource
 func (t *Resource) MergeWorkspaceResource(v WorkspaceResource) error {
-	v.Kind = "WorkspaceResource"
+	v.Kind = "Workspace"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -6892,7 +7552,7 @@ func (t Resource) AsPetDefResource() (PetDefResource, error) {
 
 // FromPetDefResource overwrites any union data inside the Resource as the provided PetDefResource
 func (t *Resource) FromPetDefResource(v PetDefResource) error {
-	v.Kind = "PetDefResource"
+	v.Kind = "PetDef"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -6900,7 +7560,7 @@ func (t *Resource) FromPetDefResource(v PetDefResource) error {
 
 // MergePetDefResource performs a merge with any union data inside the Resource, using the provided PetDefResource
 func (t *Resource) MergePetDefResource(v PetDefResource) error {
-	v.Kind = "PetDefResource"
+	v.Kind = "PetDef"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -6920,7 +7580,7 @@ func (t Resource) AsBadgeDefResource() (BadgeDefResource, error) {
 
 // FromBadgeDefResource overwrites any union data inside the Resource as the provided BadgeDefResource
 func (t *Resource) FromBadgeDefResource(v BadgeDefResource) error {
-	v.Kind = "BadgeDefResource"
+	v.Kind = "BadgeDef"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -6928,7 +7588,7 @@ func (t *Resource) FromBadgeDefResource(v BadgeDefResource) error {
 
 // MergeBadgeDefResource performs a merge with any union data inside the Resource, using the provided BadgeDefResource
 func (t *Resource) MergeBadgeDefResource(v BadgeDefResource) error {
-	v.Kind = "BadgeDefResource"
+	v.Kind = "BadgeDef"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -6948,7 +7608,7 @@ func (t Resource) AsGameDefResource() (GameDefResource, error) {
 
 // FromGameDefResource overwrites any union data inside the Resource as the provided GameDefResource
 func (t *Resource) FromGameDefResource(v GameDefResource) error {
-	v.Kind = "GameDefResource"
+	v.Kind = "GameDef"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -6956,7 +7616,35 @@ func (t *Resource) FromGameDefResource(v GameDefResource) error {
 
 // MergeGameDefResource performs a merge with any union data inside the Resource, using the provided GameDefResource
 func (t *Resource) MergeGameDefResource(v GameDefResource) error {
-	v.Kind = "GameDefResource"
+	v.Kind = "GameDef"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsMemoryLayoutResource returns the union data inside the Resource as a MemoryLayoutResource
+func (t Resource) AsMemoryLayoutResource() (MemoryLayoutResource, error) {
+	var body MemoryLayoutResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMemoryLayoutResource overwrites any union data inside the Resource as the provided MemoryLayoutResource
+func (t *Resource) FromMemoryLayoutResource(v MemoryLayoutResource) error {
+	v.Kind = "MemoryLayout"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMemoryLayoutResource performs a merge with any union data inside the Resource, using the provided MemoryLayoutResource
+func (t *Resource) MergeMemoryLayoutResource(v MemoryLayoutResource) error {
+	v.Kind = "MemoryLayout"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -6976,7 +7664,7 @@ func (t Resource) AsRuntimeProfileResource() (RuntimeProfileResource, error) {
 
 // FromRuntimeProfileResource overwrites any union data inside the Resource as the provided RuntimeProfileResource
 func (t *Resource) FromRuntimeProfileResource(v RuntimeProfileResource) error {
-	v.Kind = "RuntimeProfileResource"
+	v.Kind = "RuntimeProfile"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -6984,7 +7672,7 @@ func (t *Resource) FromRuntimeProfileResource(v RuntimeProfileResource) error {
 
 // MergeRuntimeProfileResource performs a merge with any union data inside the Resource, using the provided RuntimeProfileResource
 func (t *Resource) MergeRuntimeProfileResource(v RuntimeProfileResource) error {
-	v.Kind = "RuntimeProfileResource"
+	v.Kind = "RuntimeProfile"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -7004,7 +7692,7 @@ func (t Resource) AsRegistrationTokenResource() (RegistrationTokenResource, erro
 
 // FromRegistrationTokenResource overwrites any union data inside the Resource as the provided RegistrationTokenResource
 func (t *Resource) FromRegistrationTokenResource(v RegistrationTokenResource) error {
-	v.Kind = "RegistrationTokenResource"
+	v.Kind = "RegistrationToken"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -7012,7 +7700,7 @@ func (t *Resource) FromRegistrationTokenResource(v RegistrationTokenResource) er
 
 // MergeRegistrationTokenResource performs a merge with any union data inside the Resource, using the provided RegistrationTokenResource
 func (t *Resource) MergeRegistrationTokenResource(v RegistrationTokenResource) error {
-	v.Kind = "RegistrationTokenResource"
+	v.Kind = "RegistrationToken"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -7032,7 +7720,7 @@ func (t Resource) AsResourceListResource() (ResourceListResource, error) {
 
 // FromResourceListResource overwrites any union data inside the Resource as the provided ResourceListResource
 func (t *Resource) FromResourceListResource(v ResourceListResource) error {
-	v.Kind = "ResourceListResource"
+	v.Kind = "ResourceList"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -7040,7 +7728,7 @@ func (t *Resource) FromResourceListResource(v ResourceListResource) error {
 
 // MergeResourceListResource performs a merge with any union data inside the Resource, using the provided ResourceListResource
 func (t *Resource) MergeResourceListResource(v ResourceListResource) error {
-	v.Kind = "ResourceListResource"
+	v.Kind = "ResourceList"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -7065,53 +7753,55 @@ func (t Resource) ValueByDiscriminator() (interface{}, error) {
 		return nil, err
 	}
 	switch discriminator {
-	case "BadgeDefResource":
+	case "BadgeDef":
 		return t.AsBadgeDefResource()
-	case "ContactResource":
+	case "Contact":
 		return t.AsContactResource()
-	case "CredentialResource":
+	case "Credential":
 		return t.AsCredentialResource()
-	case "DashScopeTenantResource":
+	case "DashScopeTenant":
 		return t.AsDashScopeTenantResource()
-	case "DeepSeekTenantResource":
+	case "DeepSeekTenant":
 		return t.AsDeepSeekTenantResource()
-	case "FirmwareResource":
+	case "Firmware":
 		return t.AsFirmwareResource()
-	case "FriendGroupInviteTokenResource":
-		return t.AsFriendGroupInviteTokenResource()
-	case "FriendGroupMemberResource":
-		return t.AsFriendGroupMemberResource()
-	case "FriendGroupResource":
-		return t.AsFriendGroupResource()
-	case "FriendResource":
+	case "Friend":
 		return t.AsFriendResource()
-	case "GameDefResource":
+	case "FriendGroup":
+		return t.AsFriendGroupResource()
+	case "FriendGroupInviteToken":
+		return t.AsFriendGroupInviteTokenResource()
+	case "FriendGroupMember":
+		return t.AsFriendGroupMemberResource()
+	case "GameDef":
 		return t.AsGameDefResource()
-	case "GeminiTenantResource":
+	case "GeminiTenant":
 		return t.AsGeminiTenantResource()
-	case "MiniMaxTenantResource":
+	case "MemoryLayout":
+		return t.AsMemoryLayoutResource()
+	case "MiniMaxTenant":
 		return t.AsMiniMaxTenantResource()
-	case "ModelResource":
+	case "Model":
 		return t.AsModelResource()
-	case "OpenAITenantResource":
+	case "OpenAITenant":
 		return t.AsOpenAITenantResource()
-	case "PetDefResource":
+	case "PetDef":
 		return t.AsPetDefResource()
-	case "RegistrationTokenResource":
+	case "RegistrationToken":
 		return t.AsRegistrationTokenResource()
-	case "ResourceListResource":
+	case "ResourceList":
 		return t.AsResourceListResource()
-	case "RuntimeProfileResource":
+	case "RuntimeProfile":
 		return t.AsRuntimeProfileResource()
-	case "ToolResource":
+	case "Tool":
 		return t.AsToolResource()
-	case "VoiceResource":
+	case "Voice":
 		return t.AsVoiceResource()
-	case "VolcTenantResource":
+	case "VolcTenant":
 		return t.AsVolcTenantResource()
-	case "WorkflowResource":
+	case "Workflow":
 		return t.AsWorkflowResource()
-	case "WorkspaceResource":
+	case "Workspace":
 		return t.AsWorkspaceResource()
 	default:
 		return nil, errors.New("unknown discriminator value: " + discriminator)
@@ -7124,6 +7814,185 @@ func (t Resource) MarshalJSON() ([]byte, error) {
 }
 
 func (t *Resource) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsRuntimeProfileFlowcraftBBHConnection returns the union data inside the RuntimeProfileMemoryConnection as a RuntimeProfileFlowcraftBBHConnection
+func (t RuntimeProfileMemoryConnection) AsRuntimeProfileFlowcraftBBHConnection() (RuntimeProfileFlowcraftBBHConnection, error) {
+	var body RuntimeProfileFlowcraftBBHConnection
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRuntimeProfileFlowcraftBBHConnection overwrites any union data inside the RuntimeProfileMemoryConnection as the provided RuntimeProfileFlowcraftBBHConnection
+func (t *RuntimeProfileMemoryConnection) FromRuntimeProfileFlowcraftBBHConnection(v RuntimeProfileFlowcraftBBHConnection) error {
+	v.Type = "flowcraft_bbh"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRuntimeProfileFlowcraftBBHConnection performs a merge with any union data inside the RuntimeProfileMemoryConnection, using the provided RuntimeProfileFlowcraftBBHConnection
+func (t *RuntimeProfileMemoryConnection) MergeRuntimeProfileFlowcraftBBHConnection(v RuntimeProfileFlowcraftBBHConnection) error {
+	v.Type = "flowcraft_bbh"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsRuntimeProfileFlowcraftObjectStoreConnection returns the union data inside the RuntimeProfileMemoryConnection as a RuntimeProfileFlowcraftObjectStoreConnection
+func (t RuntimeProfileMemoryConnection) AsRuntimeProfileFlowcraftObjectStoreConnection() (RuntimeProfileFlowcraftObjectStoreConnection, error) {
+	var body RuntimeProfileFlowcraftObjectStoreConnection
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRuntimeProfileFlowcraftObjectStoreConnection overwrites any union data inside the RuntimeProfileMemoryConnection as the provided RuntimeProfileFlowcraftObjectStoreConnection
+func (t *RuntimeProfileMemoryConnection) FromRuntimeProfileFlowcraftObjectStoreConnection(v RuntimeProfileFlowcraftObjectStoreConnection) error {
+	v.Type = "flowcraft_object_store"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRuntimeProfileFlowcraftObjectStoreConnection performs a merge with any union data inside the RuntimeProfileMemoryConnection, using the provided RuntimeProfileFlowcraftObjectStoreConnection
+func (t *RuntimeProfileMemoryConnection) MergeRuntimeProfileFlowcraftObjectStoreConnection(v RuntimeProfileFlowcraftObjectStoreConnection) error {
+	v.Type = "flowcraft_object_store"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsRuntimeProfileFlowcraftPostgreSQLConnection returns the union data inside the RuntimeProfileMemoryConnection as a RuntimeProfileFlowcraftPostgreSQLConnection
+func (t RuntimeProfileMemoryConnection) AsRuntimeProfileFlowcraftPostgreSQLConnection() (RuntimeProfileFlowcraftPostgreSQLConnection, error) {
+	var body RuntimeProfileFlowcraftPostgreSQLConnection
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRuntimeProfileFlowcraftPostgreSQLConnection overwrites any union data inside the RuntimeProfileMemoryConnection as the provided RuntimeProfileFlowcraftPostgreSQLConnection
+func (t *RuntimeProfileMemoryConnection) FromRuntimeProfileFlowcraftPostgreSQLConnection(v RuntimeProfileFlowcraftPostgreSQLConnection) error {
+	v.Type = "flowcraft_postgresql"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRuntimeProfileFlowcraftPostgreSQLConnection performs a merge with any union data inside the RuntimeProfileMemoryConnection, using the provided RuntimeProfileFlowcraftPostgreSQLConnection
+func (t *RuntimeProfileMemoryConnection) MergeRuntimeProfileFlowcraftPostgreSQLConnection(v RuntimeProfileFlowcraftPostgreSQLConnection) error {
+	v.Type = "flowcraft_postgresql"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsRuntimeProfileMem0Connection returns the union data inside the RuntimeProfileMemoryConnection as a RuntimeProfileMem0Connection
+func (t RuntimeProfileMemoryConnection) AsRuntimeProfileMem0Connection() (RuntimeProfileMem0Connection, error) {
+	var body RuntimeProfileMem0Connection
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRuntimeProfileMem0Connection overwrites any union data inside the RuntimeProfileMemoryConnection as the provided RuntimeProfileMem0Connection
+func (t *RuntimeProfileMemoryConnection) FromRuntimeProfileMem0Connection(v RuntimeProfileMem0Connection) error {
+	v.Type = "mem0"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRuntimeProfileMem0Connection performs a merge with any union data inside the RuntimeProfileMemoryConnection, using the provided RuntimeProfileMem0Connection
+func (t *RuntimeProfileMemoryConnection) MergeRuntimeProfileMem0Connection(v RuntimeProfileMem0Connection) error {
+	v.Type = "mem0"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsRuntimeProfileVolcMem0Connection returns the union data inside the RuntimeProfileMemoryConnection as a RuntimeProfileVolcMem0Connection
+func (t RuntimeProfileMemoryConnection) AsRuntimeProfileVolcMem0Connection() (RuntimeProfileVolcMem0Connection, error) {
+	var body RuntimeProfileVolcMem0Connection
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRuntimeProfileVolcMem0Connection overwrites any union data inside the RuntimeProfileMemoryConnection as the provided RuntimeProfileVolcMem0Connection
+func (t *RuntimeProfileMemoryConnection) FromRuntimeProfileVolcMem0Connection(v RuntimeProfileVolcMem0Connection) error {
+	v.Type = "volc_mem0"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRuntimeProfileVolcMem0Connection performs a merge with any union data inside the RuntimeProfileMemoryConnection, using the provided RuntimeProfileVolcMem0Connection
+func (t *RuntimeProfileMemoryConnection) MergeRuntimeProfileVolcMem0Connection(v RuntimeProfileVolcMem0Connection) error {
+	v.Type = "volc_mem0"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t RuntimeProfileMemoryConnection) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"type"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t RuntimeProfileMemoryConnection) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "flowcraft_bbh":
+		return t.AsRuntimeProfileFlowcraftBBHConnection()
+	case "flowcraft_object_store":
+		return t.AsRuntimeProfileFlowcraftObjectStoreConnection()
+	case "flowcraft_postgresql":
+		return t.AsRuntimeProfileFlowcraftPostgreSQLConnection()
+	case "mem0":
+		return t.AsRuntimeProfileMem0Connection()
+	case "volc_mem0":
+		return t.AsRuntimeProfileVolcMem0Connection()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t RuntimeProfileMemoryConnection) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *RuntimeProfileMemoryConnection) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }

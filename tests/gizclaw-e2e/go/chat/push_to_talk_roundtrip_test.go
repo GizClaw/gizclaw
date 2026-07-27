@@ -204,8 +204,9 @@ func createChatRegistrationToken(t *testing.T, selected workspaceCase) string {
 	profileResp, err := api.PutRuntimeProfileWithResponse(ctx, profileName, adminhttp.RuntimeProfileUpsert{
 		Name: profileName,
 		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{
-			Models: ptr(runtimeBindings(modelResources)),
-			Voices: ptr(runtimeBindings(voiceResources)),
+			Memories: ptr(runtimeMemoryBindings(t)),
+			Models:   ptr(runtimeBindings(modelResources)),
+			Voices:   ptr(runtimeBindings(voiceResources)),
 		}, Workflows: apitypes.RuntimeProfileWorkflows{
 			System: apitypes.RuntimeProfileSystemWorkflows{
 				FriendChatroom: "chatroom-direct",
@@ -252,6 +253,32 @@ func runtimeBindings(resources map[string]string) map[string]apitypes.RuntimePro
 		}
 	}
 	return bindings
+}
+
+func runtimeMemoryBindings(t *testing.T) map[string]apitypes.RuntimeProfileMemoryBinding {
+	t.Helper()
+	connection := apitypes.RuntimeProfileMemoryConnection{}
+	if err := connection.FromRuntimeProfileFlowcraftBBHConnection(apitypes.RuntimeProfileFlowcraftBBHConnection{
+		Type: apitypes.RuntimeProfileFlowcraftBBHConnectionTypeFlowcraftBbh,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	result := make(map[string]apitypes.RuntimeProfileMemoryBinding)
+	for _, alias := range []string{
+		"default-memory",
+		"voice-assistant-memory",
+		"chat-memory",
+		"journey-memory",
+		"storyteller-memory",
+		"murder-mystery-memory",
+		"poetry-memory",
+		"werewolf-memory",
+	} {
+		result[alias] = apitypes.RuntimeProfileMemoryBinding{
+			LayoutId: alias, Driver: apitypes.RuntimeProfileMemoryDriverFlowcraft, Connection: connection,
+		}
+	}
+	return result
 }
 
 func ptr[T any](value T) *T { return &value }

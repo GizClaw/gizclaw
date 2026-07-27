@@ -52,6 +52,8 @@ func TestFactoryDelegatesNestedWorkflowToRegisteredFactory(t *testing.T) {
 		Factories: registry,
 	}
 	owner := "peer-a"
+	memoryBinding := &apitypes.RuntimeProfileMemoryBinding{LayoutId: "pet-memory", Driver: apitypes.RuntimeProfileMemoryDriverFlowcraft}
+	memoryLayout := &apitypes.MemoryLayout{Name: "pet-memory"}
 	agent, err := factory.NewAgent(t.Context(), agenthost.Spec{
 		Workspace: apitypes.Workspace{Name: "pet-demo", OwnerPublicKey: &owner},
 		Workflow: apitypes.Workflow{Spec: apitypes.WorkflowSpec{
@@ -61,7 +63,12 @@ func TestFactoryDelegatesNestedWorkflowToRegisteredFactory(t *testing.T) {
 				Flowcraft: &flowcraft,
 			},
 		}},
-		AgentType: Type,
+		AgentType:             Type,
+		MemoryBinding:         memoryBinding,
+		MemoryLayout:          memoryLayout,
+		MemoryName:            "pet-memory",
+		MemoryProfileName:     "default",
+		MemoryProfileRevision: "revision-1",
 	})
 	if err != nil {
 		t.Fatalf("NewAgent() error = %v", err)
@@ -71,6 +78,11 @@ func TestFactoryDelegatesNestedWorkflowToRegisteredFactory(t *testing.T) {
 	}
 	if nested.spec.Workspace.Parameters != nil || nested.spec.BoardInputs == nil {
 		t.Fatalf("delegated Workspace/input provider = %#v", nested.spec)
+	}
+	if nested.spec.MemoryBinding != memoryBinding || nested.spec.MemoryLayout != memoryLayout ||
+		nested.spec.MemoryName != "pet-memory" || nested.spec.MemoryProfileName != "default" ||
+		nested.spec.MemoryProfileRevision != "revision-1" {
+		t.Fatalf("delegated outer Memory binding = %#v", nested.spec)
 	}
 	inputs, err := nested.spec.BoardInputs(t.Context())
 	if err != nil || inputs["tmp_pet_character_prompt"] != "character" {

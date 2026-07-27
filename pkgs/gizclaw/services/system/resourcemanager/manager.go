@@ -8,6 +8,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/credential"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/memorylayout"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/model"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/providertenants"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/voice"
@@ -34,6 +35,7 @@ type Services struct {
 	Voices          voice.VoiceAdminService
 	Workspaces      workspace.WorkspaceAdminService
 	Workflows       workflow.WorkflowAdminService
+	MemoryLayouts   memorylayout.MemoryLayoutAdminService
 	Contacts        *contact.Server
 	Friends         *friend.Server
 	FriendGroups    *friendgroup.Server
@@ -276,6 +278,18 @@ func (m *Manager) Get(ctx context.Context, kind apitypes.ResourceKind, name stri
 			return apitypes.Resource{}, notFound(kind, name)
 		}
 		return resourceFromWorkflow(name, item)
+	case apitypes.ResourceKindMemoryLayout:
+		if m.services.MemoryLayouts == nil {
+			return apitypes.Resource{}, missingService("memory layouts")
+		}
+		item, exists, err := m.getMemoryLayout(ctx, string(pathParam(name)))
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromMemoryLayout(item)
 	case apitypes.ResourceKindResourceList:
 		return apitypes.Resource{}, applyError(400, "UNSUPPORTED_RESOURCE_GET", "ResourceList is not stored as a named resource")
 	case apitypes.ResourceKindFriend:
@@ -619,6 +633,21 @@ func (m *Manager) Put(ctx context.Context, resource apitypes.Resource) (apitypes
 			return apitypes.Resource{}, err
 		}
 		return m.Get(ctx, apitypes.ResourceKindWorkflow, item.Metadata.Name)
+	case string(apitypes.ResourceKindMemoryLayout), "MemoryLayoutResource":
+		if m.services.MemoryLayouts == nil {
+			return apitypes.Resource{}, missingService("memory layouts")
+		}
+		item, err := resource.AsMemoryLayoutResource()
+		if err != nil {
+			return apitypes.Resource{}, applyError(400, "INVALID_MEMORY_LAYOUT_RESOURCE", err.Error())
+		}
+		if err := validateResourceHeader(item.ApiVersion, item.Metadata.Name); err != nil {
+			return apitypes.Resource{}, err
+		}
+		if err := m.putMemoryLayout(ctx, string(pathParam(item.Metadata.Name)), memoryLayoutFromResource(item)); err != nil {
+			return apitypes.Resource{}, err
+		}
+		return m.Get(ctx, apitypes.ResourceKindMemoryLayout, item.Metadata.Name)
 	case string(apitypes.ResourceKindFriend), "FriendResource":
 		if m.services.Friends == nil {
 			return apitypes.Resource{}, missingService("friends")
@@ -909,6 +938,18 @@ func (m *Manager) Delete(ctx context.Context, kind apitypes.ResourceKind, name s
 			return apitypes.Resource{}, notFound(kind, name)
 		}
 		return resourceFromWorkflow(name, item)
+	case apitypes.ResourceKindMemoryLayout:
+		if m.services.MemoryLayouts == nil {
+			return apitypes.Resource{}, missingService("memory layouts")
+		}
+		item, exists, err := m.deleteMemoryLayout(ctx, string(pathParam(name)))
+		if err != nil {
+			return apitypes.Resource{}, err
+		}
+		if !exists {
+			return apitypes.Resource{}, notFound(kind, name)
+		}
+		return resourceFromMemoryLayout(item)
 	case apitypes.ResourceKindResourceList:
 		return apitypes.Resource{}, applyError(400, "UNSUPPORTED_RESOURCE_DELETE", "ResourceList is not stored as a named resource")
 	case apitypes.ResourceKindFriend:
@@ -1039,6 +1080,8 @@ func (m *Manager) Apply(ctx context.Context, resource apitypes.Resource) (apityp
 		return m.applyWorkspace(ctx, resource)
 	case string(apitypes.ResourceKindWorkflow), "WorkflowResource":
 		return m.applyWorkflow(ctx, resource)
+	case string(apitypes.ResourceKindMemoryLayout), "MemoryLayoutResource":
+		return m.applyMemoryLayout(ctx, resource)
 	case string(apitypes.ResourceKindFriend), "FriendResource":
 		return m.applyFriend(ctx, resource)
 	case string(apitypes.ResourceKindContact), "ContactResource":

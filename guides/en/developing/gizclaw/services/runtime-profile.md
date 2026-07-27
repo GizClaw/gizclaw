@@ -50,6 +50,12 @@ spec:
         i18n:
           en: {display_name: Speech Recognition}
           zh-CN: {display_name: 语音识别}
+    memories:
+      pet-memory:
+        layout_id: pet-memory
+        driver: flowcraft
+        connection:
+          type: flowcraft_bbh
     voices:
       cute-pet:
         resource_id: volc-tenant:volc-main:zh_male_naiqimengwa_mars_bigtts
@@ -92,6 +98,10 @@ The three `workflows.system` values are canonical Admin-created Workflow IDs, no
 Optional Workflow aliases live under `workflows.collections.<collection>.<alias>`. Alias IDs are globally unique across Collections, while the client owns its fixed Collection navigation, ordering, icons, and Collection translations. RuntimeProfile supplies dynamic Workflow membership and alias-level `en` and `zh-CN` display text; it has no top-level locale or Collection presentation section.
 
 The maps under `resources` bind environment aliases to canonical Admin resource IDs. Model aliases name semantic roles such as `chat`, `extraction`, `embedding`, `asr`, `realtime`, and `translation`; they do not contain provider or canonical Model names. Model and Voice aliases are independent environment variables, not Workflow members. Workflow specs and Workspace parameters store symbolic aliases, so each Workspace reload resolves the latest active binding. The same binary can therefore use production or debug RuntimeProfiles without rebuilding.
+
+`resources.memories` is the product-owned deployment binding for long-term Memory. Each alias selects one Admin `MemoryLayout`, one driver, and exactly one typed connection. The closed connection variants are `flowcraft_bbh` (managed under the Server Workspace root), `flowcraft_object_store` (explicit directory), `flowcraft_postgresql` (DSN), `mem0` (endpoint, API key, Project ID), and `volc_mem0` (endpoint, API key, Memory Project ID). The external values are stored directly in this Admin-only RuntimeProfile; they do not reference a Credential and are never projected through Peer APIs. Driver and connection type must match, and Flowcraft Layout model aliases must exist in the same RuntimeProfile.
+
+The binding alias identifies the named physical source selected by a Workflow's scalar `memory` field. Within the same Workspace, driver, and physical binding, changing extraction policy, Graph Recall/Observe policy, prompts, or `top_k` does not create another canonical data namespace. Changing the driver or connection can select another source without migrating or deleting the old one.
 
 Each `gameplay.adoption.pool` entry references only a `pet_defs` alias. The localized PetDef name also comes from that RuntimeProfile binding rather than duplicated i18n in PetDef. PetDef stores only character/speaking style, PIXA metadata, and fixed behavior-to-animation bindings. Models, Voices, and Tools used by a Pet Workflow are symbolic aliases in the canonical Workflow spec and resolve through the system Workspace owner's RuntimeProfile.
 

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -184,6 +183,7 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 	gizServer = &gizclaw.Server{
 		LocalStatic:    *cfg.KeyPair,
 		PeerStore:      peersKV,
+		MemoryRoot:     cfg.WorkspaceRoot,
 		BuildCommit:    BuildCommit,
 		PublicEndpoint: cfg.Endpoint,
 		PublicICETCP:   newOpts.ICETCPListener != nil,
@@ -273,6 +273,11 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 		if storeExists(cfg, defaultRuntimeProfilesStore) {
 			if gizServer.RuntimeProfileStore, err = ss.KV(defaultRuntimeProfilesStore); err != nil {
 				return nil, fmt.Errorf("server: runtime profiles store: %w", err)
+			}
+		}
+		if storeExists(cfg, defaultMemoryLayoutsStore) {
+			if gizServer.MemoryLayoutStore, err = ss.KV(defaultMemoryLayoutsStore); err != nil {
+				return nil, fmt.Errorf("server: memory layouts store: %w", err)
 			}
 		}
 		if storeExists(cfg, defaultFirmwareAssetsStore) {
@@ -483,46 +488,8 @@ func configureAgentHostStores(server *gizclaw.Server, registry *stores.Stores, c
 			}
 			server.FlowcraftHistory = historyStore
 		}
-		if name := flowcraft.MemoryObjectsStore; name != "" {
-			memoryObjects, err := registry.ObjectStore(name)
-			if err != nil {
-				return agentHostStoreReferenceError("agent_host.flowcraft.memory_objects_store", name, "objectstore.ObjectStore", err)
-			}
-			server.FlowcraftMemoryObjects = memoryObjects
-		}
-		if name := flowcraft.MemoryStore; name != "" {
-			memoryStore, err := registry.Memory(name)
-			if err != nil {
-				return agentHostStoreReferenceError("agent_host.flowcraft.memory_store", name, "memory.Store", err)
-			}
-			server.FlowcraftMemory = memoryStore
-			server.FlowcraftMemoryKind = configuredMemoryProviderKind(cfg.Stores[name])
-		}
-	}
-	if eino := cfg.AgentHost.Eino; eino != nil {
-		if name := eino.MemoryStore; name != "" {
-			memoryStore, err := registry.Memory(name)
-			if err != nil {
-				return agentHostStoreReferenceError("agent_host.eino.memory_store", name, "memory.Store", err)
-			}
-			server.EinoMemory = memoryStore
-			server.EinoMemoryKind = configuredMemoryProviderKind(cfg.Stores[name])
-		}
 	}
 	return nil
-}
-
-func configuredMemoryProviderKind(cfg stores.Config) string {
-	switch {
-	case cfg.Flowcraft != nil:
-		return "flowcraft"
-	case cfg.Mem0 != nil:
-		return "mem0"
-	case cfg.VolcMemory != nil:
-		return "volc_memory"
-	default:
-		return "unknown"
-	}
 }
 
 type agentHostStoreBinding struct {
@@ -552,21 +519,6 @@ func explicitAgentHostStoreBindings(cfg Config) []agentHostStoreBinding {
 				path: "agent_host.flowcraft.history_store", name: name, capability: "logstore.MutableStore",
 			})
 		}
-		if name := flowcraft.MemoryObjectsStore; name != "" {
-			bindings = append(bindings, agentHostStoreBinding{
-				path: "agent_host.flowcraft.memory_objects_store", name: name, capability: "objectstore.ObjectStore",
-			})
-		}
-		if name := flowcraft.MemoryStore; name != "" {
-			bindings = append(bindings, agentHostStoreBinding{
-				path: "agent_host.flowcraft.memory_store", name: name, capability: "memory.Store",
-			})
-		}
-	}
-	if eino := cfg.AgentHost.Eino; eino != nil && eino.MemoryStore != "" {
-		bindings = append(bindings, agentHostStoreBinding{
-			path: "agent_host.eino.memory_store", name: eino.MemoryStore, capability: "memory.Store",
-		})
 	}
 	return bindings
 }
@@ -641,17 +593,6 @@ func newStoreRegistryWithOptions(cfg Config, options stores.Options) (*stores.St
 }
 
 func newStoreRegistryWithOptionsContext(ctx context.Context, cfg Config, options stores.Options) (*stores.Stores, error) {
-	if options.FlowcraftModelLoader == nil {
-		for name, storeConfig := range cfg.Stores {
-			if storeConfig.Flowcraft == nil {
-				continue
-			}
-			flowcraft := storeConfig.Flowcraft
-			if os.ExpandEnv(flowcraft.ExtractionModel) != "" || os.ExpandEnv(flowcraft.EmbeddingModel) != "" || os.ExpandEnv(flowcraft.RerankModel) != "" {
-				return nil, fmt.Errorf("memory store %q flowcraft model fields require an injected model loader", name)
-			}
-		}
-	}
 	if len(cfg.Storage) == 0 {
 		return stores.NewWithOptions(ctx, cfg.Stores, options)
 	}

@@ -23,6 +23,16 @@ type Transformer struct {
 	graph     *compiledGraph
 	contextID string
 	history   *conversationHistory
+
+	initiativeMu      sync.Mutex
+	initiativeClaimed bool
+
+	taskContext context.Context
+	cancelTasks context.CancelCauseFunc
+	taskMu      sync.Mutex
+	tasksClosed bool
+	tasks       sync.WaitGroup
+	closeOnce   sync.Once
 }
 
 // New validates Config, resolves components, and compiles the Graph exactly
@@ -43,12 +53,49 @@ func New(ctx context.Context, source Config) (*Transformer, error) {
 	if contextID == "" {
 		contextID = genx.NewStreamID()
 	}
-	return &Transformer{
+	transformer := &Transformer{
 		config: config, graph: graph, contextID: contextID,
 		history: &conversationHistory{
 			config: config.History, agentID: config.Agent.ID, contextID: contextID,
 		},
-	}, nil
+	}
+	transformer.taskContext, transformer.cancelTasks = context.WithCancelCause(context.Background())
+	if transformer.config.Memory != nil {
+		transformer.config.Memory.runAsync = transformer.runAsync
+	}
+	return transformer, nil
+}
+
+func (transformer *Transformer) runAsync(task func(context.Context)) {
+	if transformer == nil || task == nil {
+		return
+	}
+	transformer.taskMu.Lock()
+	if transformer.tasksClosed {
+		transformer.taskMu.Unlock()
+		return
+	}
+	transformer.tasks.Add(1)
+	transformer.taskMu.Unlock()
+	go func() {
+		defer transformer.tasks.Done()
+		task(transformer.taskContext)
+	}()
+}
+
+// Close cancels and joins asynchronous Memory work owned by this generation.
+func (transformer *Transformer) Close() error {
+	if transformer == nil {
+		return nil
+	}
+	transformer.closeOnce.Do(func() {
+		transformer.taskMu.Lock()
+		transformer.tasksClosed = true
+		transformer.cancelTasks(io.EOF)
+		transformer.taskMu.Unlock()
+		transformer.tasks.Wait()
+	})
+	return nil
 }
 
 // Transform consumes one long-lived GenX Stream. Every completed text input
@@ -144,6 +191,14 @@ func (session *session) run() {
 	activeBypassID := ""
 	var inputFailure error
 	var previous <-chan struct{}
+	initiative, err := session.transformer.claimInitiative(session.invocation.Context())
+	if err != nil {
+		_ = session.invocation.Output().CloseWithError(err)
+		return
+	}
+	if initiative {
+		previous = session.startTurn("", nil, nil, true)
+	}
 	for {
 		chunk, err := session.input.Next()
 		if err != nil {
@@ -271,18 +326,40 @@ func (session *session) run() {
 	_ = session.invocation.Close()
 }
 
+func (transformer *Transformer) claimInitiative(ctx context.Context) (bool, error) {
+	if transformer == nil || transformer.config.Initiative == InitiativeDisabled {
+		return false, nil
+	}
+	transformer.initiativeMu.Lock()
+	defer transformer.initiativeMu.Unlock()
+	if transformer.initiativeClaimed {
+		return false, nil
+	}
+	transformer.initiativeClaimed = true
+	if transformer.config.Initiative == InitiativeOnReload {
+		return true, nil
+	}
+	messages, err := transformer.history.load(ctx)
+	if err != nil {
+		transformer.initiativeClaimed = false
+		return false, fmt.Errorf("eino: inspect History for initiative: %w", err)
+	}
+	return len(messages) == 0, nil
+}
+
 type outputRoute struct {
 	definition OutputDefinition
 	response   *streamkit.Response
 }
 
-func (session *session) startTurn(user string, parts []any, previous <-chan struct{}) <-chan struct{} {
+func (session *session) startTurn(user string, parts []any, previous <-chan struct{}, initiative ...bool) <-chan struct{} {
 	runCtx, cancel := context.WithCancelCause(session.invocation.Context())
 	run := &turnRun{
 		session: session, user: user, parts: parts, ctx: runCtx, cancel: cancel,
 		routes: make(map[string]outputRoute), streamIDs: make(map[string]struct{}),
 		accepting: true, changed: make(chan struct{}, 1), done: make(chan struct{}), previous: previous,
 	}
+	run.initiative = len(initiative) != 0 && initiative[0]
 	for _, output := range session.transformer.graph.definition.Outputs {
 		response, err := session.invocation.StartResponse(streamkit.ResponseConfig{
 			Role: genx.RoleModel, Name: output.Name, Label: output.Name,
@@ -334,6 +411,7 @@ type turnRun struct {
 	accepting      bool
 	interrupted    bool
 	terminal       bool
+	initiative     bool
 	emittedPrimary int
 	deliveredBytes int
 	delivered      strings.Builder
@@ -455,6 +533,11 @@ func (run *turnRun) execute() {
 		errorText = runErr.Error()
 	}
 	run.finishRoutes(errorText, interrupted)
+	if run.initiative && (interrupted || runErr != nil) {
+		run.session.transformer.initiativeMu.Lock()
+		run.session.transformer.initiativeClaimed = false
+		run.session.transformer.initiativeMu.Unlock()
+	}
 	run.session.mu.Lock()
 	for streamID := range run.streamIDs {
 		delete(run.session.runs, streamID)

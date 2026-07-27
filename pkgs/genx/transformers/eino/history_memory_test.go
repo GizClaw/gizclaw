@@ -230,6 +230,8 @@ type waitingMemoryStore struct {
 	waitResult memory.ObserveResult
 }
 
+func (*recordingMemoryStore) SupportsDirectFactObservation() bool { return true }
+
 func (*waitingMemoryStore) Observe(
 	context.Context,
 	memory.Observation,

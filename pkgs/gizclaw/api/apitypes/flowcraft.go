@@ -32,23 +32,14 @@ func (s *FlowcraftWorkflowSpec) UnmarshalJSON(data []byte) error {
 // JSON decoding calls the same validation, so HTTP, YAML, and in-process
 // construction share one contract.
 func (s FlowcraftWorkflowSpec) Validate() error {
-	if strings.TrimSpace(s.Agent.Id) == "" {
-		return errors.New("agent.id is required")
+	if s.MaxIterations != nil && *s.MaxIterations < 1 {
+		return errors.New("max_iterations must be positive")
 	}
-	if strings.TrimSpace(s.Agent.Name) == "" {
-		return errors.New("agent.name is required")
-	}
-	if s.Agent.MaxIterations != nil && *s.Agent.MaxIterations < 1 {
-		return errors.New("agent.max_iterations must be positive")
-	}
-	if err := validateFlowcraftGraph(s.Agent.Graph); err != nil {
-		return fmt.Errorf("agent.graph: %w", err)
+	if err := validateFlowcraftGraph(s.Graph); err != nil {
+		return fmt.Errorf("graph: %w", err)
 	}
 	if s.Conversation != nil && s.Conversation.Starts != nil && !s.Conversation.Starts.Valid() {
 		return fmt.Errorf("conversation.starts %q is invalid", *s.Conversation.Starts)
-	}
-	if err := validateFlowcraftMemory(s.Memory); err != nil {
-		return fmt.Errorf("memory: %w", err)
 	}
 	if err := validateFlowcraftVoiceAdapter(s.VoiceAdapter); err != nil {
 		return fmt.Errorf("voice_adapter: %w", err)
@@ -120,6 +111,51 @@ func validateFlowcraftGraph(graph FlowcraftGraph) error {
 			if node.Publish != nil && *node.Publish {
 				publishers++
 			}
+		case string(FlowcraftMemoryRecallNodeTypeMemoryRecall):
+			var node FlowcraftMemoryRecallNode
+			if err := decodeStrictJSON(data, &node); err != nil {
+				return fmt.Errorf("nodes[%d]: %w", index, err)
+			}
+			id = node.Id
+			if strings.TrimSpace(node.Config.Query.TextFrom) == "" {
+				return fmt.Errorf("nodes[%d].config.query.text_from is required", index)
+			}
+			if strings.TrimSpace(node.Config.Output) == "" {
+				return fmt.Errorf("nodes[%d].config.output is required", index)
+			}
+			if node.Config.TopK < 1 {
+				return fmt.Errorf("nodes[%d].config.top_k must be positive", index)
+			}
+			if node.Publish != nil && *node.Publish {
+				publishers++
+			}
+		case string(FlowcraftMemoryObserveNodeTypeMemoryObserve):
+			var node FlowcraftMemoryObserveNode
+			if err := decodeStrictJSON(data, &node); err != nil {
+				return fmt.Errorf("nodes[%d]: %w", index, err)
+			}
+			id = node.Id
+			if len(node.Config.Observations) == 0 {
+				return fmt.Errorf("nodes[%d].config.observations must not be empty", index)
+			}
+			for observationIndex, observation := range node.Config.Observations {
+				sources := 0
+				if observation.TurnsFrom != nil && strings.TrimSpace(*observation.TurnsFrom) != "" {
+					sources++
+				}
+				if observation.TextFrom != nil && strings.TrimSpace(*observation.TextFrom) != "" {
+					sources++
+				}
+				if observation.Facts != nil && len(*observation.Facts) != 0 {
+					sources++
+				}
+				if sources != 1 {
+					return fmt.Errorf("nodes[%d].config.observations[%d] must select exactly one of turns_from, text_from, or facts", index, observationIndex)
+				}
+			}
+			if node.Publish != nil && *node.Publish {
+				publishers++
+			}
 		default:
 			return fmt.Errorf("nodes[%d].type %q is unsupported", index, discriminator.Type)
 		}
@@ -145,64 +181,6 @@ func validateFlowcraftGraph(graph FlowcraftGraph) error {
 		if edge.To != "__end__" {
 			if _, exists := nodes[edge.To]; !exists {
 				return fmt.Errorf("edges[%d].to %q is not a defined node", index, edge.To)
-			}
-		}
-	}
-	return nil
-}
-
-func validateFlowcraftMemory(memory *FlowcraftMemory) error {
-	if memory == nil || !memory.Enabled {
-		return nil
-	}
-	if memory.Extract != nil && (memory.Extract.Enabled == nil || *memory.Extract.Enabled) {
-		if memory.Extract.Model == nil || strings.TrimSpace(*memory.Extract.Model) == "" {
-			return errors.New("extract.model is required when extraction is enabled")
-		}
-		if memory.Extract.Mode != nil && !memory.Extract.Mode.Valid() {
-			return fmt.Errorf("extract.mode %q is invalid", *memory.Extract.Mode)
-		}
-	}
-	if memory.Extract != nil && memory.Extract.Model != nil && strings.TrimSpace(*memory.Extract.Model) != "" {
-		if err := validateFlowcraftAlias("extract.model", *memory.Extract.Model); err != nil {
-			return err
-		}
-	}
-	if memory.Embedding != nil && memory.Embedding.Enabled != nil && *memory.Embedding.Enabled &&
-		(memory.Embedding.Model == nil || strings.TrimSpace(*memory.Embedding.Model) == "") {
-		return errors.New("embedding.model is required when embedding is enabled")
-	}
-	if memory.Embedding != nil && memory.Embedding.Model != nil && strings.TrimSpace(*memory.Embedding.Model) != "" {
-		if err := validateFlowcraftAlias("embedding.model", *memory.Embedding.Model); err != nil {
-			return err
-		}
-	}
-	if memory.Rerank != nil && memory.Rerank.Enabled != nil && *memory.Rerank.Enabled &&
-		(memory.Rerank.Model == nil || strings.TrimSpace(*memory.Rerank.Model) == "") {
-		return errors.New("rerank.model is required when rerank is enabled")
-	}
-	if memory.Rerank != nil && memory.Rerank.Model != nil && strings.TrimSpace(*memory.Rerank.Model) != "" {
-		if err := validateFlowcraftAlias("rerank.model", *memory.Rerank.Model); err != nil {
-			return err
-		}
-	}
-	if memory.Write != nil && memory.Write.Mode != nil && !memory.Write.Mode.Valid() {
-		return fmt.Errorf("write.mode %q is invalid", *memory.Write.Mode)
-	}
-	if memory.Write != nil && memory.Write.Tier != nil && !memory.Write.Tier.Valid() {
-		return fmt.Errorf("write.tier %q is invalid", *memory.Write.Tier)
-	}
-	if memory.Write != nil && memory.Write.BoardFacts != nil {
-		for index, fact := range *memory.Write.BoardFacts {
-			if strings.TrimSpace(fact.BoardVar) == "" {
-				return fmt.Errorf("write.board_facts[%d].board_var is required", index)
-			}
-		}
-	}
-	if memory.Recall != nil && memory.Recall.Profiles != nil {
-		for name, profile := range *memory.Recall.Profiles {
-			if strings.TrimSpace(name) == "" || strings.TrimSpace(profile.Output) == "" || profile.TopK < 1 {
-				return fmt.Errorf("recall.profiles[%q] requires output and a positive top_k", name)
 			}
 		}
 	}

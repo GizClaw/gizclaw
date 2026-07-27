@@ -1,0 +1,67 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: MemoryLayout
+metadata:
+  name: journey-memory
+spec:
+  flowcraft:
+    extraction:
+      model: llm
+      mode: two_pass
+      system_prompt: |
+        Extract durable facts for an interactive Journey to the West storytelling agent.
+        Never infer story progress from ordinary conversation; the Graph writes that audit lane directly.
+      schema_name: journey_story_memory
+      temperature: 0
+    bbh:
+      search_overfetch: 20
+      bleve:
+        analyzer: standard
+    lanes:
+    - name: story-progress
+      kind: state
+      description: Audit mirror for fine-grained narrative progress.
+      extract: Do not extract this lane from conversation; the Graph writes it directly.
+      recall: Use only as an audit mirror; workspace story state controls routing.
+    - name: story-facts
+      kind: note
+      description: Durable narrative facts already spoken.
+      extract: Capture concrete narrated facts, relationships, places, objects, and consequences.
+      recall: Use as supporting context only after workspace story state chooses the target beat.
+    - name: user-preferences
+      kind: preference
+      description: Durable storytelling preferences.
+      extract: Capture narration style, favorite characters, pacing, language preferences, and corrections.
+      recall: Adapt storytelling without changing story progress.
+    - name: story-questions
+      kind: note
+      description: Questions and explanations raised during the story.
+      extract: Capture the question and answer when it should not advance the story.
+      recall: Avoid repeating explanations and resume the prior story point.
+    graph_enabled: true
+    write:
+      mode: sync
+      tier: general
+  mem0:
+    custom_instructions: Extract durable narrated facts, user storytelling preferences, and answered questions; do not infer story progress.
+    custom_categories:
+      story-progress: Graph-written narrative progress audit.
+      story-facts: Durable narrated facts.
+      user-preferences: Durable storytelling preferences.
+      story-questions: Answered story questions.
+    multilingual: true
+    decay: false
+  volc_mem0:
+    strategies:
+    - name: story-progress
+      type: summary
+      custom_instructions: Retain only Graph-written narrative progress audit facts.
+    - name: story-facts
+      type: semantic
+      custom_instructions: Retain concrete narrated facts.
+    - name: user-preferences
+      type: user_preference
+      custom_instructions: Retain durable storytelling preferences.
+    - name: story-questions
+      type: semantic
+      custom_instructions: Retain answered story questions.

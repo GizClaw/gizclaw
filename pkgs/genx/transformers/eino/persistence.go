@@ -125,7 +125,7 @@ func observeMemory(
 			observation.Context = map[string]any{"interrupted": true}
 		}
 	}
-	for index, definition := range config.Observe.Facts {
+	for _, definition := range config.Observe.Facts {
 		value, err := state.value(definition.TextFrom)
 		if err != nil {
 			continue
@@ -135,10 +135,10 @@ func observeMemory(
 			continue
 		}
 		fact := memory.FactCandidate{Text: text, Attributes: make(map[string]any, len(definition.Attributes))}
-		for attribute, source := range definition.Attributes {
-			value, err := state.value(source)
+		for attribute, field := range definition.Attributes {
+			value, err := state.value(field)
 			if err != nil {
-				return fmt.Errorf("eino: Observe Fact[%d] attribute %q: %w", index, attribute, err)
+				return fmt.Errorf("eino: Memory Fact attribute %q: %w", attribute, err)
 			}
 			fact.Attributes[attribute] = value
 		}
@@ -168,9 +168,13 @@ func observeMemory(
 		}
 		if !config.Observe.WaitForCompletion {
 			if processor, ok := config.Store.(memory.AsyncOperationProcessor); ok {
-				go func(operationID string) {
-					_, _ = processor.ProcessAsync(context.WithoutCancel(ctx), memory.OperationRequest{Scope: config.Scope, ID: operationID})
-				}(result.Operation.ID)
+				if config.runAsync == nil {
+					return fmt.Errorf("eino: asynchronous Memory processor has no generation task owner")
+				}
+				operationID := result.Operation.ID
+				config.runAsync(func(taskContext context.Context) {
+					_, _ = processor.ProcessAsync(taskContext, memory.OperationRequest{Scope: config.Scope, ID: operationID})
+				})
 			}
 			return nil
 		}

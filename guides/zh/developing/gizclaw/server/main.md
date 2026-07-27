@@ -16,10 +16,6 @@ agent_host:
   flowcraft:
     state_store: flowcraft-state
     history_store: flowcraft-history
-    memory_objects_store: flowcraft-memory-objects
-    memory_store: agent-memory
-  eino:
-    memory_store: agent-memory
 ```
 
 这些引用同时适用于分层的 `storage` 加 `stores` 布局和受支持的单层 `stores` 布局。Backend 配置仍属于被引用的 Store；`agent_host` 不接受目录、DSN、credential、prefix、scope 或 inline backend。
@@ -29,17 +25,12 @@ agent_host:
 | `agent_host.runtime_store` | `objectstore.ObjectStore` | filesystem ObjectStore |
 | `agent_host.flowcraft.state_store` | `kv.Store` | Memory 或 Badger KV |
 | `agent_host.flowcraft.history_store` | `logstore.MutableStore` | ClickHouse LogStore；不可变的 Volc LogStore 会被拒绝 |
-| `agent_host.flowcraft.memory_objects_store` | `objectstore.ObjectStore` | filesystem ObjectStore |
-| `agent_host.flowcraft.memory_store` | `memory.Store` | Flowcraft、Mem0 或 Volc Memory |
-| `agent_host.eino.memory_store` | `memory.Store` | Flowcraft、Mem0 或 Volc Memory |
 
 `agent_host` 是这些绑定的唯一依据。省略整个 block 或某个内层引用会禁用对应可选能力；Store 名称本身不具有保留绑定语义。未知名称、错误 Store kind、不可变 History Store、未知字段或空引用都会让 Server 构造失败，不会 fallback。
 
-对于 Flowcraft 和 Pet，已配置的 `memory_store` 优先于由 `memory_objects_store` 支撑的内嵌 Flowcraft provider。选择外部 Store 时，专属于内嵌 provider 的 extraction、embedding、rerank、graph、layout 与 tier 配置会被拒绝。Eino Workflow 未声明 Memory policy 时不要求 Store；声明后必须配置 `agent_host.eino.memory_store`。
+`agent_host.flowcraft.memory_store`、`agent_host.eino.memory_store`、`memory_objects_store` 以及 `stores.kind: memory` 都不是合法 Server Config；严格 parser 会拒绝这些旧字段。Memory policy 由 Admin `MemoryLayout` 管理，实际连接由 RuntimeProfile `resources.memories` 管理。Server 只提供 MemoryLayout KV store 与 Server Workspace root；`flowcraft_bbh` 在后者下面构造 managed persistence。完整 contract 见 [Memory Store](/zh/developing/stores/memory)。
 
-同一个逻辑 Memory Store 可以同时绑定给两个 factory。每个 Workspace Agent 借用一个以 Workspace 名称作为 `AppID` 的 App-scoped view。该 view 不会从 owner 或 Peer public key 推导 `UserID`，也不会改写 Agent 自己提供的 User、Agent 或 Run 维度。Memory runtime status 使用命令层记录的 provider kind，而不是检查 Store 的具体 Go 类型。
-
-修改引用后必须重启进程。GizClaw 不会在绑定变化时迁移、合并、复制或删除数据；Scope 或 locator 发生不兼容变化后会重新创建开发期 Memory 数据。Store Registry 拥有全部共享 backend，并在 Server shutdown 时各关闭一次；Workspace reload 和 Agent teardown 只关闭 per-Agent adapter。
+每个 Workspace Agent generation 根据当前 RuntimeProfile snapshot 解析 memory alias。构造失败会使 Agent 初始化或 reload 显式失败。Server shutdown 关闭共享 Memory registry；Workspace reload 与最后一个 Agent 引用释放会关闭该 generation 的 lease，但不迁移、合并、复制或删除持久数据。
 
 ## 核心结构与主函数
 

@@ -46,6 +46,9 @@ func (s *ReusableWorkflowSpecObject) UnmarshalJSON(data []byte) error {
 	if !value.Driver.Valid() {
 		return fmt.Errorf("unsupported reusable driver %q", value.Driver)
 	}
+	if value.Memory != nil {
+		return fmt.Errorf("memory must be declared by the outer Workflow")
+	}
 	if err := validateWorkflowDriverPayloads(
 		string(value.Driver),
 		value.Flowcraft != nil,

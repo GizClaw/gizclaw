@@ -298,15 +298,11 @@ func createWorkflowForCollectionTest(t *testing.T, ctx context.Context, server *
 	t.Helper()
 	var flowcraftSpec apitypes.FlowcraftWorkflowSpec
 	if err := json.Unmarshal([]byte(`{
-		"agent": {
-			"id": "assistant",
-			"name": "Assistant",
-			"graph": {
-				"name": "assistant",
-				"entry": "answer",
-				"nodes": [{"id": "answer", "type": "passthrough", "publish": true}],
-				"edges": [{"from": "answer", "to": "__end__"}]
-			}
+		"graph": {
+			"name": "assistant",
+			"entry": "answer",
+			"nodes": [{"id": "answer", "type": "passthrough", "publish": true}],
+			"edges": [{"from": "answer", "to": "__end__"}]
 		}
 	}`), &flowcraftSpec); err != nil {
 		t.Fatalf("decode test Flowcraft config: %v", err)

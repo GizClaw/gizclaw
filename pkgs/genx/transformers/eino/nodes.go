@@ -13,16 +13,18 @@ type NodeDefinition struct {
 	Inputs  map[string]Binding
 	Outputs map[string]string
 
-	Prompt      *PromptNode
-	ChatModel   *ChatModelNode
-	Transform   *TransformNode
-	Script      *ScriptNode
-	Lambda      *LambdaRefNode
-	Race        *RaceNode
-	Batch       *BatchNode
-	Passthrough *PassthroughNode
-	Retriever   *RetrieverNode
-	Subgraph    *SubgraphNode
+	Prompt        *PromptNode
+	ChatModel     *ChatModelNode
+	Transform     *TransformNode
+	Script        *ScriptNode
+	Lambda        *LambdaRefNode
+	Race          *RaceNode
+	Batch         *BatchNode
+	Passthrough   *PassthroughNode
+	Retriever     *RetrieverNode
+	MemoryRecall  *MemoryRecallNode
+	MemoryObserve *MemoryObserveNode
+	Subgraph      *SubgraphNode
 }
 
 // ChatModelNode invokes one resolved Eino chat model.
@@ -162,6 +164,19 @@ type RetrieverNode struct {
 	TopK      int
 }
 
+// MemoryRecallNode recalls provider-neutral Memory into one state field.
+type MemoryRecallNode struct {
+	QueryFrom string
+	Output    string
+	TopK      int
+}
+
+// MemoryObserveNode writes provider-neutral facts from state fields.
+type MemoryObserveNode struct {
+	Facts             []ObserveDefinition
+	WaitForCompletion bool
+}
+
 // SubgraphNode runs one nested Graph.
 type SubgraphNode struct {
 	Graph GraphDefinition
@@ -173,7 +188,7 @@ func (node NodeDefinition) kindCount() int {
 		node.Prompt != nil, node.ChatModel != nil, node.Transform != nil,
 		node.Script != nil, node.Lambda != nil, node.Race != nil,
 		node.Batch != nil, node.Passthrough != nil, node.Retriever != nil,
-		node.Subgraph != nil,
+		node.MemoryRecall != nil, node.MemoryObserve != nil, node.Subgraph != nil,
 	} {
 		if present {
 			count++

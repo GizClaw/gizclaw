@@ -2,9 +2,7 @@ package eino
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"io"
 	"maps"
 	"slices"
 	"strings"
@@ -498,7 +496,7 @@ func (chatModel *streamingChatModel) receiveRound(
 	var chunks []*schema.Message
 	for {
 		chunk, err := reader.Recv()
-		if errors.Is(err, io.EOF) {
+		if err != nil && isStreamEnd(err) {
 			return chunks, nil
 		}
 		if err != nil {
@@ -671,6 +669,34 @@ func compileNode(
 				return map[string]any{port: value}, nil, nil
 			}
 			return nil, nil, fmt.Errorf("Passthrough has no input")
+		}
+	case node.MemoryRecall != nil:
+		result.run = func(ctx context.Context, state *runState) (map[string]any, map[string]bool, error) {
+			memoryConfig := *config.Memory
+			memoryConfig.Recall = []RecallDefinition{{
+				QueryFrom: node.MemoryRecall.QueryFrom,
+				Output:    node.MemoryRecall.Output,
+				TopK:      node.MemoryRecall.TopK,
+			}}
+			memoryConfig.Observe = ObservePolicy{}
+			if err := recallMemory(ctx, &memoryConfig, state); err != nil {
+				return nil, nil, err
+			}
+			return nil, nil, nil
+		}
+	case node.MemoryObserve != nil:
+		result.run = func(ctx context.Context, state *runState) (map[string]any, map[string]bool, error) {
+			memoryConfig := *config.Memory
+			memoryConfig.Recall = nil
+			memoryConfig.Observe = ObservePolicy{
+				Enabled:           true,
+				WaitForCompletion: node.MemoryObserve.WaitForCompletion,
+				Facts:             node.MemoryObserve.Facts,
+			}
+			if err := observeMemory(ctx, &memoryConfig, state, "", "", "", false); err != nil {
+				return nil, nil, err
+			}
+			return nil, nil, nil
 		}
 	case node.Subgraph != nil:
 		child, err := buildGraph(ctx, config, node.Subgraph.Graph, path+"."+node.ID)

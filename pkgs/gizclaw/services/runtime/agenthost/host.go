@@ -77,29 +77,51 @@ func (h *Host) OpenAgent(ctx context.Context, pattern string) (Agent, func(), er
 	return h.runtimeRegistry().Acquire(ctx, h, workspaceName, spec)
 }
 
-func (h *Host) openWorkspaceAgent(ctx context.Context, workspaceName string, spec Spec) (Agent, func(), error) {
-	coordinator := h.coordinator()
-	if coordinator == nil {
-		return nil, nil, fmt.Errorf("agenthost: coordinator is required")
+// PrepareReloadAgent constructs a complete replacement generation without
+// publishing it. The caller commits only after the replacement stream and run
+// activation are ready.
+func (h *Host) PrepareReloadAgent(ctx context.Context, pattern string) (*preparedAgentReplacement, error) {
+	if h == nil {
+		return nil, fmt.Errorf("agenthost: host is nil")
 	}
-	lease, err := coordinator.Acquire(ctx, workspaceName)
+	if h.Resolver == nil {
+		return nil, fmt.Errorf("agenthost: resolver is required")
+	}
+	spec, err := h.Resolver.Resolve(ctx, pattern)
+	if err != nil {
+		return nil, err
+	}
+	workspaceName := string(spec.Workspace.Name)
+	if workspaceName == "" {
+		return nil, fmt.Errorf("agenthost: resolved workspace name is required")
+	}
+	return h.runtimeRegistry().PrepareReplacement(ctx, h, workspaceName, spec)
+}
+
+// ReloadAgent is the direct Host API. Service reloads use PrepareReloadAgent so
+// stream construction and run activation can complete before the commit.
+func (h *Host) ReloadAgent(ctx context.Context, pattern string) (Agent, func(), error) {
+	replacement, err := h.PrepareReloadAgent(ctx, pattern)
 	if err != nil {
 		return nil, nil, err
 	}
+	if err := replacement.Commit(); err != nil {
+		replacement.Release()
+		return nil, nil, err
+	}
+	return replacement.Agent(), replacement.Release, nil
+}
 
-	releaseLease := func() { _ = lease.Release(context.Background()) }
+func (h *Host) newWorkspaceAgent(ctx context.Context, spec Spec) (Agent, func(), error) {
 	factory, ok := h.registry().Get(spec.AgentType)
 	if !ok {
-		releaseLease()
 		return nil, nil, fmt.Errorf("agenthost: agent factory not found for %q", spec.AgentType)
 	}
 	agent, err := factory.NewAgent(ctx, spec)
 	if err != nil {
-		releaseLease()
 		return nil, nil, err
 	}
 	if agent == nil {
-		releaseLease()
 		return nil, nil, fmt.Errorf("agenthost: factory %q returned nil agent", spec.AgentType)
 	}
 	var closer io.Closer
@@ -113,7 +135,6 @@ func (h *Host) openWorkspaceAgent(ctx context.Context, workspaceName string, spe
 			if closer != nil {
 				_ = closer.Close()
 			}
-			releaseLease()
 		})
 	}
 	return agent, release, nil

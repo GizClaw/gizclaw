@@ -1,0 +1,38 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: MemoryLayout
+metadata:
+  name: chat-memory
+spec:
+  flowcraft:
+    extraction:
+      model: llm
+      mode: two_pass
+      system_prompt: Extract durable user identity, preference, relationship, and long-term goal facts from the conversation.
+      schema_name: claw_memory_facts
+      temperature: 0
+    bbh:
+      search_overfetch: 20
+      bleve:
+        analyzer: standard
+    lanes:
+    - name: owner-profile
+      kind: preference
+      description: Durable facts about the user.
+      extract: Store stable identity, preference, relationship, and long-term goal facts only.
+      recall: Use these facts for conversational continuity without copying their wording.
+    graph_enabled: true
+    write:
+      mode: async_semantic
+      tier: general
+  mem0:
+    custom_instructions: Extract durable user identity, preference, relationship, and long-term goal facts.
+    custom_categories:
+      owner-profile: Durable facts about the user.
+    multilingual: true
+    decay: false
+  volc_mem0:
+    strategies:
+    - name: owner-profile
+      type: user_preference
+      custom_instructions: Extract durable user identity and preference facts.

@@ -53,6 +53,10 @@ stores:
     kind: keyvalue
     storage: memory
     prefix: runtime-profiles
+  memory-layouts:
+    kind: keyvalue
+    storage: memory
+    prefix: memory-layouts
   firmware-assets:
     kind: objectstore
     storage: local-files
@@ -141,12 +145,8 @@ stores:
   metrics:
     kind: metrics
     memory: {}
-# GIZCLAW_E2E_MEMORY_STORE
 agent_host:
   runtime_store: agenthost
-  flowcraft:
-    memory_objects_store: agenthost
-# GIZCLAW_E2E_MEMORY_BINDINGS
 peers:
   store: peers
 credentials:

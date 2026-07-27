@@ -140,10 +140,7 @@ func (s *Service) reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 		}
 	}
 	s.setStatus(apitypes.PeerRunStatusStateStarting, selection.WorkspaceName, nil, nil)
-	previous := s.swap(nil)
-	if err := previous.stop(ctx); err != nil {
-		return s.setErrorStatus(selection.WorkspaceName, fmt.Errorf("agenthost: stop previous runtime: %w", err)), err
-	}
+	previous := s.currentRuntime()
 
 	input, err := s.Source.OpenAgentInput(ctx)
 	if err != nil {
@@ -160,14 +157,20 @@ func (s *Service) reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 	profileToolBindings := map[string]string{}
 	profileWorkflowBindings := map[string]string{}
 	profileFingerprint := ""
+	var profileSnapshot *apitypes.RuntimeProfile
 	if s.RuntimeProfile != nil {
 		if profile := s.RuntimeProfile(); profile != nil {
 			profileToolBindings = runtimeProfileToolBindings(profile.Spec.Resources.Tools)
 			profileWorkflowBindings = runtimeProfileWorkflowBindings(*profile)
 			profileFingerprint = runtimeProfileFingerprint(*profile)
+			snapshot := *profile
+			profileSnapshot = &snapshot
 		}
 	}
 	baseCtx := WithResourceAccess(withHistoryGearID(context.WithoutCancel(ctx), s.PublicKey.String()), s.PublicKey.String(), profileToolBindings, profileWorkflowBindings, profileFingerprint)
+	if profileSnapshot != nil {
+		baseCtx = withRuntimeProfile(baseCtx, *profileSnapshot)
+	}
 	baseCtx = withWorkspaceHistoryNotifier(baseCtx, s.OnWorkspaceHistoryUpdated)
 	runCtx, runCancel := context.WithCancel(baseCtx)
 	stopTransitionCancel := context.AfterFunc(ctx, runCancel)
@@ -178,7 +181,8 @@ func (s *Service) reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 		runCancel()
 	}
 	pattern := workspacePattern(selection.WorkspaceName)
-	agent, release, output, err := s.openAgentOutput(runCtx, pattern, input)
+	replaceGeneration := previous != nil && previous.workspace == selection.WorkspaceName
+	agent, release, output, commit, err := s.openAgentOutput(runCtx, pattern, input, replaceGeneration)
 	if err != nil {
 		cancel()
 		_ = input.CloseWithError(err)
@@ -240,16 +244,24 @@ func (s *Service) reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 		workspace: selection.WorkspaceName,
 		startedAt: now,
 	}
-	status, published := s.publish(next, now)
+	status, published, err := s.publishWithCommit(next, now, commit)
 	if !published {
 		cancel()
 		if release != nil {
 			release()
 		}
-		_ = errors.Join(output.CloseWithError(ErrServiceClosed), input.CloseWithError(ErrServiceClosed))
-		return status, ErrServiceClosed
+		if err == nil {
+			err = ErrServiceClosed
+		}
+		_ = errors.Join(output.CloseWithError(err), input.CloseWithError(err))
+		return s.setErrorStatus(selection.WorkspaceName, err), err
 	}
 	go s.consume(runCtx, next)
+	if previous != nil {
+		if err := previous.stop(ctx); err != nil {
+			return s.setErrorStatus(selection.WorkspaceName, fmt.Errorf("agenthost: stop previous runtime: %w", err)), err
+		}
+	}
 	return status, nil
 }
 
@@ -479,26 +491,50 @@ type agentOpener interface {
 	OpenAgent(context.Context, string) (Agent, func(), error)
 }
 
-func (s *Service) openAgentOutput(ctx context.Context, pattern string, input genx.Stream) (Agent, func(), genx.Stream, error) {
+type agentReloader interface {
+	ReloadAgent(context.Context, string) (Agent, func(), error)
+}
+
+type agentReloadPreparer interface {
+	PrepareReloadAgent(context.Context, string) (*preparedAgentReplacement, error)
+}
+
+func (s *Service) openAgentOutput(ctx context.Context, pattern string, input genx.Stream, replace bool) (Agent, func(), genx.Stream, func() error, error) {
 	if opener, ok := s.Host.(agentOpener); ok {
-		agent, release, err := opener.OpenAgent(ctx, pattern)
+		var agent Agent
+		var release func()
+		commit := func() error { return nil }
+		var err error
+		if preparer, ok := s.Host.(agentReloadPreparer); replace && ok {
+			replacement, prepareErr := preparer.PrepareReloadAgent(ctx, pattern)
+			if prepareErr != nil {
+				return nil, nil, nil, nil, prepareErr
+			}
+			agent = replacement.Agent()
+			release = replacement.Release
+			commit = replacement.Commit
+		} else if reloader, ok := s.Host.(agentReloader); replace && ok {
+			agent, release, err = reloader.ReloadAgent(ctx, pattern)
+		} else {
+			agent, release, err = opener.OpenAgent(ctx, pattern)
+		}
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, nil, err
 		}
 		output, err := agent.Transform(ctx, input)
 		if err != nil {
 			if release != nil {
 				release()
 			}
-			return nil, nil, nil, err
+			return nil, nil, nil, nil, err
 		}
-		return agent, release, output, nil
+		return agent, release, output, commit, nil
 	}
 	output, err := s.Host.Transform(ctx, pattern, input)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
-	return asAgent(boundTransformer{mux: s.Host, pattern: pattern}), nil, output, nil
+	return asAgent(boundTransformer{mux: s.Host, pattern: pattern}), nil, output, func() error { return nil }, nil
 }
 
 type boundTransformer struct {
@@ -766,16 +802,21 @@ func (s *Service) swap(next *runtime) *runtime {
 	return previous
 }
 
-func (s *Service) publish(next *runtime, now time.Time) (apitypes.PeerRunStatus, bool) {
+func (s *Service) publishWithCommit(next *runtime, now time.Time, commit func() error) (apitypes.PeerRunStatus, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.closed {
-		return s.status, false
+		return s.status, false, ErrServiceClosed
+	}
+	if commit != nil {
+		if err := commit(); err != nil {
+			return s.status, false, err
+		}
 	}
 	s.runtime = next
 	status := runningStatus(next.workspace, next.startedAt, now)
 	s.status = status
-	return status, true
+	return status, true, nil
 }
 
 func (s *Service) isClosed() bool {
@@ -920,6 +961,8 @@ type runtime struct {
 	output    genx.Stream
 	release   func()
 	once      sync.Once
+	stopOnce  sync.Once
+	stopErr   error
 	done      chan struct{}
 	workspace string
 	startedAt time.Time
@@ -929,15 +972,17 @@ func (r *runtime) stop(ctx context.Context) error {
 	if r == nil {
 		return nil
 	}
-	r.cancel()
-	err := errors.Join(r.output.Close(), r.input.Close())
+	r.stopOnce.Do(func() {
+		r.cancel()
+		r.stopErr = errors.Join(r.output.Close(), r.input.Close())
+	})
 	select {
 	case <-r.done:
 		r.releaseOnce()
-		return err
+		return r.stopErr
 	case <-ctx.Done():
 		r.releaseOnce()
-		return errors.Join(err, ctx.Err())
+		return errors.Join(r.stopErr, ctx.Err())
 	}
 }
 

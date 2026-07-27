@@ -40,6 +40,7 @@
           "PetDef",
           "BadgeDef",
           "GameDef",
+          "MemoryLayout",
           "RuntimeProfile",
           "RegistrationToken",
           "ResourceList"
@@ -139,6 +140,9 @@
             "$ref": "./game_def.json#/components/schemas/GameDefResource"
           },
           {
+            "$ref": "./memory_layout.json#/components/schemas/MemoryLayoutResource"
+          },
+          {
             "$ref": "./runtime_profile.json#/components/schemas/RuntimeProfileResource"
           },
           {
@@ -173,6 +177,7 @@
             "PetDef": "./pet_def.json#/components/schemas/PetDefResource",
             "BadgeDef": "./badge_def.json#/components/schemas/BadgeDefResource",
             "GameDef": "./game_def.json#/components/schemas/GameDefResource",
+            "MemoryLayout": "./memory_layout.json#/components/schemas/MemoryLayoutResource",
             "RuntimeProfile": "./runtime_profile.json#/components/schemas/RuntimeProfileResource",
             "RegistrationToken": "./registration_token.json#/components/schemas/RegistrationTokenResource"
           }

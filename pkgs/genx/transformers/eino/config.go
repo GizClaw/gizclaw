@@ -29,7 +29,18 @@ type Config struct {
 	ToolInvoker  genx.ToolInvoker
 	MaxToolCalls int
 	Limits       Limits
+	// Initiative controls the optional empty-input Graph turn.
+	Initiative InitiativePolicy
 }
+
+// InitiativePolicy controls when an Agent may run without Peer input.
+type InitiativePolicy string
+
+const (
+	InitiativeDisabled      InitiativePolicy = ""
+	InitiativeOnceWhenEmpty InitiativePolicy = "once_when_empty"
+	InitiativeOnReload      InitiativePolicy = "on_reload"
+)
 
 // AgentConfig declares stable Transformer and conversation identity.
 type AgentConfig struct {
@@ -72,10 +83,11 @@ type HistoryConfig struct {
 
 // MemoryConfig enables provider-neutral Recall and Observe.
 type MemoryConfig struct {
-	Store   memory.Store
-	Scope   memory.Scope
-	Recall  []RecallDefinition
-	Observe ObservePolicy
+	Store    memory.Store
+	Scope    memory.Scope
+	Recall   []RecallDefinition
+	Observe  ObservePolicy
+	runAsync func(func(context.Context))
 }
 
 // RecallDefinition binds recalled Memory to a Graph state field.
@@ -137,6 +149,11 @@ func normalizeConfig(source Config) (*normalizedConfig, error) {
 	}
 	if config.MaxToolCalls > 0 && config.ToolInvoker == nil {
 		return nil, fmt.Errorf("eino: MaxToolCalls requires ToolInvoker")
+	}
+	switch config.Initiative {
+	case InitiativeDisabled, InitiativeOnceWhenEmpty, InitiativeOnReload:
+	default:
+		return nil, fmt.Errorf("eino: unsupported Initiative %q", config.Initiative)
 	}
 	graph, err := cloneGraph(source.Graph)
 	if err != nil {
@@ -583,6 +600,44 @@ func (config *normalizedConfig) validateNode(node NodeDefinition, fields map[str
 		if err := validateBinding(node.Retriever.Query, fields); err != nil {
 			return fmt.Errorf("eino: %s Retriever Query: %w", nodePath, err)
 		}
+	case node.MemoryRecall != nil:
+		if node.MemoryRecall.TopK <= 0 || strings.TrimSpace(node.MemoryRecall.QueryFrom) == "" ||
+			strings.TrimSpace(node.MemoryRecall.Output) == "" {
+			return fmt.Errorf("eino: %s has invalid MemoryRecall configuration", nodePath)
+		}
+		if node.MemoryRecall.QueryFrom != "input.text" {
+			if field, ok := fields[node.MemoryRecall.QueryFrom]; !ok || field != StateString {
+				return fmt.Errorf("eino: %s MemoryRecall QueryFrom must be input.text or a string State field", nodePath)
+			}
+		}
+		if field, ok := fields[node.MemoryRecall.Output]; !ok || field != StateString {
+			return fmt.Errorf("eino: %s MemoryRecall Output must be a string State field", nodePath)
+		}
+	case node.MemoryObserve != nil:
+		if len(node.MemoryObserve.Facts) == 0 {
+			return fmt.Errorf("eino: %s requires MemoryObserve Facts", nodePath)
+		}
+		if config.Memory != nil && !memory.SupportsDirectFactObservation(config.Memory.Store) {
+			return fmt.Errorf("eino: %s requires direct Fact observation support", nodePath)
+		}
+		for index, fact := range node.MemoryObserve.Facts {
+			if field, ok := fields[fact.TextFrom]; !ok || field != StateString {
+				return fmt.Errorf("eino: %s MemoryObserve Fact[%d] TextFrom must be a string State field", nodePath, index)
+			}
+			for attribute, fieldName := range fact.Attributes {
+				if strings.TrimSpace(attribute) == "" {
+					return fmt.Errorf("eino: %s MemoryObserve Fact[%d] has blank attribute", nodePath, index)
+				}
+				if _, ok := fields[fieldName]; !ok {
+					return fmt.Errorf("eino: %s MemoryObserve Fact[%d] attribute %q references undeclared State field %q", nodePath, index, attribute, fieldName)
+				}
+			}
+		}
+		if node.MemoryObserve.WaitForCompletion && config.Memory != nil {
+			if _, ok := config.Memory.Store.(memory.OperationWaiter); !ok {
+				return fmt.Errorf("eino: %s MemoryObserve wait requires memory.OperationWaiter", nodePath)
+			}
+		}
 	case node.Subgraph != nil:
 		if err := config.validateGraph(node.Subgraph.Graph, nodePath+" Subgraph", depth+1); err != nil {
 			return err
@@ -836,6 +891,10 @@ func validateNodePorts(node NodeDefinition, fields map[string]StateType, path st
 		}
 		if actual, _ := outputType("documents"); actual != StateDocuments {
 			return requireType(actual, StateDocuments, "documents")
+		}
+	case node.MemoryRecall != nil, node.MemoryObserve != nil:
+		if len(node.Inputs) != 0 || len(node.Outputs) != 0 {
+			return fmt.Errorf("eino: %s Memory nodes use declared State fields and cannot define ports", nodePath)
 		}
 	case node.Subgraph != nil:
 		if err := validateCompositeInputs(nodePath, node.Inputs, fields, node.Subgraph.Graph); err != nil {
@@ -1136,7 +1195,32 @@ func (config *normalizedConfig) validateOptionalConfig() error {
 			}
 		}
 	}
+	if graphUsesMemory(config.Graph) && config.Memory == nil {
+		return fmt.Errorf("eino: Graph Memory nodes require Memory")
+	}
 	return nil
+}
+
+func graphUsesMemory(graph GraphDefinition) bool {
+	for _, node := range graph.Nodes {
+		if node.MemoryRecall != nil || node.MemoryObserve != nil {
+			return true
+		}
+		if node.Subgraph != nil && graphUsesMemory(node.Subgraph.Graph) {
+			return true
+		}
+		if node.Batch != nil && graphUsesMemory(node.Batch.Graph) {
+			return true
+		}
+		if node.Race != nil {
+			for _, branch := range node.Race.Branches {
+				if graphUsesMemory(branch.Graph) {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 func normalizeMemoryScope(scope memory.Scope) memory.Scope {

@@ -29,9 +29,11 @@ Desktop App 不复制 `pkgs/gizclaw` 的服务端业务。`api/http/desktop.json
 `resources/local-server` 只内嵌 Desktop 拥有的 PIXA 二进制。Raids `v0.2.2` release
 通过 commit-addressed GitHub archive 获取，是 `RuntimeProfile/default`、
 `RegistrationToken/default-runtime` 及该
-Profile 所引用 Credential、Tenant、Model、Voice、Workflow 与 PetDef 的声明式来源。
+Profile 所引用 Credential、Tenant、Model、Voice、MemoryLayout、Workflow 与 PetDef 的声明式来源。
 Desktop 在配置根目录下私有缓存并校验 archive，只解析 Profile 的依赖闭包，再依次
 apply 依赖、上传 PIXA、apply Profile 和 token；`runtime-profile.example.yaml` 仅作说明。
+
+可移植 default profile 可以把 Workflow Memory alias 绑定到 `flowcraft_bbh`；该 connection 没有 endpoint 或 key，managed directory 从本地 Server Workspace 派生。Archive selection 会包含被引用的 `MemoryLayout`，并在 apply 前验证每个 driver/connection 组合及 Layout 使用的 Flowcraft model alias。
 
 Credential 模板来自 Raids，具体 secret 值仍只来自 Desktop 私有 `bootstrap.env` 或进程
 环境。archive cache、RuntimeProfile、`pod.json`、URL、Web Storage 和日志均不得包含

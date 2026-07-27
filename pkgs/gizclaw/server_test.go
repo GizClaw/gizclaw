@@ -240,9 +240,6 @@ func TestServerInitPreservesExistingModularPeerLayout(t *testing.T) {
 		}},
 		{name: "gameplay", configure: func(server *Server, _ kv.Store, objects objectstore.ObjectStore) { server.GameplayAssets = objects }},
 		{name: "flowcraft state", configure: func(server *Server, state kv.Store, _ objectstore.ObjectStore) { server.FlowcraftState = state }},
-		{name: "flowcraft memory", configure: func(server *Server, _ kv.Store, objects objectstore.ObjectStore) {
-			server.FlowcraftMemoryObjects = objects
-		}},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -294,46 +291,6 @@ func TestServerInitAgentHostStoresDoNotInferFlowcraftBindings(t *testing.T) {
 	if server.manager.FlowcraftState != nil {
 		t.Fatalf("FlowcraftState = %T, want nil", server.manager.FlowcraftState)
 	}
-	if server.manager.FlowcraftMemoryObjects != nil {
-		t.Fatalf("FlowcraftMemoryObjects = %T, want nil", server.manager.FlowcraftMemoryObjects)
-	}
-}
-
-func TestEffectivePeerStoreMemoryBindingsPreserveLegacyLayout(t *testing.T) {
-	t.Parallel()
-	for _, test := range []struct {
-		name      string
-		configure func(*Server)
-	}{
-		{
-			name: "flowcraft",
-			configure: func(server *Server) {
-				server.FlowcraftMemory = &peerAgentHostMemoryStore{}
-			},
-		},
-		{
-			name: "eino",
-			configure: func(server *Server) {
-				server.EinoMemory = &peerAgentHostMemoryStore{}
-			},
-		},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-			base := kv.NewMemory(nil)
-			server := &Server{PeerStore: base}
-			test.configure(server)
-			if err := server.EffectivePeerStore().Set(t.Context(), kv.Key{"marker"}, []byte("value")); err != nil {
-				t.Fatal(err)
-			}
-			if _, err := base.Get(t.Context(), kv.Key{"peers", "marker"}); err != nil {
-				t.Fatalf("prefixed peer key missing: %v", err)
-			}
-			if _, err := base.Get(t.Context(), kv.Key{"marker"}); !errors.Is(err, kv.ErrNotFound) {
-				t.Fatalf("root peer key error = %v, want ErrNotFound", err)
-			}
-		})
-	}
 }
 
 func TestServerInitDoesNotInstallImplicitFlowcraftStores(t *testing.T) {
@@ -350,9 +307,6 @@ func TestServerInitDoesNotInstallImplicitFlowcraftStores(t *testing.T) {
 	}
 	if server.manager.FlowcraftState != nil {
 		t.Fatalf("FlowcraftState = %T, want nil", server.manager.FlowcraftState)
-	}
-	if server.manager.FlowcraftMemoryObjects != nil {
-		t.Fatalf("FlowcraftMemoryObjects = %T, want nil", server.manager.FlowcraftMemoryObjects)
 	}
 }
 

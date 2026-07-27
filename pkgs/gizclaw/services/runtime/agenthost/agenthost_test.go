@@ -12,6 +12,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/memorylayout"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
@@ -147,15 +148,45 @@ func TestServiceResolverUsesWorkspaceOwnerRuntimeProfile(t *testing.T) {
 	if spec.Workflow.Name != "owner-workflow" {
 		t.Fatalf("workflow = %q, want owner-workflow", spec.Workflow.Name)
 	}
-	ownerCtx, err := resolver.ownerRuntimeContext(callerCtx, ws)
+}
+
+func TestServiceResolverUsesCallerRuntimeProfileMemoryForUnownedWorkspace(t *testing.T) {
+	alias := apitypes.WorkflowMemoryAlias("pet-memory")
+	workflow := mustWorkflow(t, "workflow-1")
+	workflow.Spec.Memory = &alias
+	bindings := map[string]apitypes.RuntimeProfileMemoryBinding{
+		"pet-memory": {
+			LayoutId: "pet-layout",
+			Driver:   apitypes.RuntimeProfileMemoryDriverFlowcraft,
+		},
+	}
+	profile := apitypes.RuntimeProfile{
+		Name:     "caller-profile",
+		Revision: "revision-1",
+		Spec: apitypes.RuntimeProfileSpec{
+			Resources: apitypes.RuntimeProfileResources{Memories: &bindings},
+		},
+	}
+	resolver := ServiceResolver{
+		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{
+			"demo": systemWorkspace("demo", "workflow-1", nil),
+		}},
+		Workflows: fakeWorkflowService{items: map[string]apitypes.Workflow{
+			"workflow-1": workflow,
+		}},
+		MemoryLayouts: fakeMemoryLayoutService{
+			item: apitypes.MemoryLayout{Name: "pet-layout"},
+		},
+	}
+
+	spec, err := resolver.Resolve(withRuntimeProfile(t.Context(), profile), "demo")
 	if err != nil {
-		t.Fatalf("ownerRuntimeContext() error = %v", err)
+		t.Fatalf("Resolve() error = %v", err)
 	}
-	if got := resourceAccessFingerprint(ownerCtx); got == resourceAccessFingerprint(callerCtx) {
-		t.Fatal("owner runtime context retained the caller RuntimeProfile fingerprint")
-	}
-	if spec.runtimeAccessFingerprint != resourceAccessFingerprint(ownerCtx) {
-		t.Fatal("resolved spec did not retain the owner RuntimeProfile fingerprint")
+	if spec.MemoryName != "pet-memory" || spec.MemoryBinding == nil ||
+		spec.MemoryLayout == nil || spec.MemoryProfileName != "caller-profile" ||
+		spec.MemoryProfileRevision != "revision-1" {
+		t.Fatalf("resolved Memory spec = %#v", spec)
 	}
 }
 
@@ -412,29 +443,39 @@ func TestHostTransformReusesAgentForConcurrentSameWorkspace(t *testing.T) {
 func TestHostUsesCanonicalWorkspaceLeaseAcrossRuntimeProfiles(t *testing.T) {
 	spec := Spec{Workspace: apitypes.Workspace{Name: "system"}, AgentType: "echo"}
 	host := New(fakeResolver{spec: spec})
+	createCount := 0
 	if err := host.Register("echo", FactoryFunc(func(context.Context, Spec) (genx.Transformer, error) {
+		createCount++
 		return passthroughTransformer{}, nil
 	})); err != nil {
 		t.Fatal(err)
 	}
 	firstContext := WithResourceAccess(t.Context(), "peer-a", nil, nil, "profile-a")
 	secondContext := WithResourceAccess(t.Context(), "peer-b", nil, nil, "profile-b")
-	if runtimeKey(firstContext, "system", spec) == runtimeKey(secondContext, "system", spec) {
-		t.Fatal("test contexts must produce distinct runtime keys")
+	if runtimeKey("system") != runtimeKey("system") {
+		t.Fatal("canonical Workspace identity must be stable across RuntimeProfiles")
 	}
-	_, release, err := host.OpenAgent(firstContext, "system")
+	first, release, err := host.OpenAgent(firstContext, "system")
 	if err != nil {
 		t.Fatalf("OpenAgent(first profile) error = %v", err)
 	}
-	if _, _, err := host.OpenAgent(secondContext, "system"); !errors.Is(err, ErrWorkspaceBusy) {
-		t.Fatalf("OpenAgent(second profile) error = %v, want %v", err, ErrWorkspaceBusy)
+	second, releaseSecond, err := host.OpenAgent(secondContext, "system")
+	if err != nil {
+		t.Fatalf("OpenAgent(second profile) error = %v", err)
+	}
+	if first != second || createCount != 1 {
+		t.Fatalf("canonical Workspace agent = (%p, %p), factory calls = %d; want one shared instance", first, second, createCount)
 	}
 	release()
-	_, releaseSecond, err := host.OpenAgent(secondContext, "system")
+	releaseSecond()
+	_, releaseThird, err := host.OpenAgent(secondContext, "system")
 	if err != nil {
 		t.Fatalf("OpenAgent(second profile after release) error = %v", err)
 	}
-	releaseSecond()
+	if createCount != 2 {
+		t.Fatalf("factory calls after final release = %d, want 2", createCount)
+	}
+	releaseThird()
 }
 
 func TestHostTransformReleasesWhenOutputEnds(t *testing.T) {
@@ -606,6 +647,149 @@ func TestRuntimeRegistrySharesAgentAndClosesOnFinalRelease(t *testing.T) {
 	}
 }
 
+func TestRuntimeRegistryReloadPreservesOldGenerationOnConstructorFailure(t *testing.T) {
+	t.Parallel()
+	spec := Spec{Workspace: apitypes.Workspace{Name: "demo"}, AgentType: "reloadable"}
+	host := New(fakeResolver{spec: spec})
+	wantErr := errors.New("replacement failed")
+	var mu sync.Mutex
+	var agents []*closeTrackingAgent
+	var closed []int
+	calls := 0
+	if err := host.Register("reloadable", agentFactoryFunc(func(context.Context, Spec) (Agent, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		calls++
+		if calls == 2 {
+			return nil, wantErr
+		}
+		index := len(agents)
+		closed = append(closed, 0)
+		agent := &closeTrackingAgent{Agent: NewTransformerAgent(passthroughTransformer{})}
+		agent.close = func() {
+			mu.Lock()
+			closed[index]++
+			mu.Unlock()
+		}
+		agents = append(agents, agent)
+		return agent, nil
+	})); err != nil {
+		t.Fatal(err)
+	}
+
+	first, releaseFirst, err := host.OpenAgent(t.Context(), "demo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := host.ReloadAgent(t.Context(), "demo"); !errors.Is(err, wantErr) {
+		t.Fatalf("ReloadAgent(failed) error = %v, want %v", err, wantErr)
+	}
+	stillCurrent, releaseCurrent, err := host.OpenAgent(t.Context(), "demo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stillCurrent != first {
+		t.Fatal("constructor failure replaced the old Workspace generation")
+	}
+	releaseCurrent()
+
+	replacement, releaseReplacement, err := host.ReloadAgent(t.Context(), "demo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if replacement == first {
+		t.Fatal("successful reload reused the old Agent generation")
+	}
+	mu.Lock()
+	if closed[0] != 0 {
+		mu.Unlock()
+		t.Fatal("old generation closed while its stream attachment was live")
+	}
+	mu.Unlock()
+	releaseFirst()
+	releaseFirst()
+	mu.Lock()
+	if closed[0] != 1 {
+		mu.Unlock()
+		t.Fatalf("old generation close count = %d, want 1", closed[0])
+	}
+	mu.Unlock()
+	releaseReplacement()
+	mu.Lock()
+	defer mu.Unlock()
+	if len(agents) != 2 || closed[1] != 1 {
+		t.Fatalf("replacement generations=%d close counts=%v", len(agents), closed)
+	}
+}
+
+func TestRuntimeRegistryPreparedReplacementPublishesOnlyOnCommit(t *testing.T) {
+	t.Parallel()
+	spec := Spec{Workspace: apitypes.Workspace{Name: "demo"}, AgentType: "reloadable"}
+	host := New(fakeResolver{spec: spec})
+	var mu sync.Mutex
+	var agents []*closeTrackingAgent
+	var closed []int
+	if err := host.Register("reloadable", agentFactoryFunc(func(context.Context, Spec) (Agent, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		index := len(agents)
+		closed = append(closed, 0)
+		agent := &closeTrackingAgent{Agent: NewTransformerAgent(passthroughTransformer{})}
+		agent.close = func() {
+			mu.Lock()
+			closed[index]++
+			mu.Unlock()
+		}
+		agents = append(agents, agent)
+		return agent, nil
+	})); err != nil {
+		t.Fatal(err)
+	}
+
+	first, releaseFirst, err := host.OpenAgent(t.Context(), "demo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	replacement, err := host.PrepareReloadAgent(t.Context(), "demo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if replacement.Agent() == first {
+		t.Fatal("prepared replacement reused the current generation")
+	}
+	stillCurrent, releaseCurrent, err := host.OpenAgent(t.Context(), "demo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stillCurrent != first {
+		t.Fatal("uncommitted replacement changed the current generation")
+	}
+	releaseCurrent()
+	replacement.Release()
+
+	afterAbort, releaseAfterAbort, err := host.OpenAgent(t.Context(), "demo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if afterAbort != first {
+		t.Fatal("aborted replacement changed the current generation")
+	}
+	releaseAfterAbort()
+	mu.Lock()
+	if len(agents) != 2 || closed[0] != 0 || closed[1] != 1 {
+		mu.Unlock()
+		t.Fatalf("prepared agents=%d close counts=%v, want current open and candidate closed", len(agents), closed)
+	}
+	mu.Unlock()
+
+	releaseFirst()
+	mu.Lock()
+	defer mu.Unlock()
+	if closed[0] != 1 {
+		t.Fatalf("current generation close count = %d, want 1", closed[0])
+	}
+}
+
 type fakeResolver struct {
 	spec Spec
 	err  error
@@ -656,6 +840,18 @@ func (s fakeWorkspaceService) GetWorkspaceRuntime(context.Context, string) (work
 type fakeWorkflowService struct {
 	workflow.WorkflowAdminService
 	items map[string]apitypes.Workflow
+}
+
+type fakeMemoryLayoutService struct {
+	memorylayout.MemoryLayoutAdminService
+	item apitypes.MemoryLayout
+}
+
+func (service fakeMemoryLayoutService) GetMemoryLayout(
+	context.Context,
+	adminhttp.GetMemoryLayoutRequestObject,
+) (adminhttp.GetMemoryLayoutResponseObject, error) {
+	return adminhttp.GetMemoryLayout200JSONResponse(service.item), nil
 }
 
 type subjectToolkitResolver struct{}

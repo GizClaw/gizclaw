@@ -28,12 +28,16 @@ func Validate(public apitypes.EinoWorkflowSpec) error {
 		Agent:      genxeino.AgentConfig{ID: "workflow-validation"},
 		Graph:      graph,
 		Components: validationComponents{},
+		// Public Graph validation happens before a Workspace resolves its
+		// RuntimeProfile Memory alias. Supply only the capability shape needed
+		// to validate real Memory nodes; no Store operation is executed here.
+		Memory: &genxeino.MemoryConfig{
+			Store: validationMemoryStore{},
+			Scope: memory.Scope{AppID: "workflow-validation"},
+		},
 	}
 	if public.Limits != nil && public.Limits.MaxOutputBytes != nil {
 		config.Limits.MaxOutputBytes = *public.Limits.MaxOutputBytes
-	}
-	if public.Memory != nil {
-		config.Memory = MapMemory(public.Memory, validationMemoryStore{}, "workflow-validation")
 	}
 	return genxeino.ValidateConfig(config)
 }
@@ -49,6 +53,8 @@ func (validationComponents) ResolveRetriever(context.Context, string) (retriever
 }
 
 type validationMemoryStore struct{}
+
+func (validationMemoryStore) SupportsDirectFactObservation() bool { return true }
 
 func (validationMemoryStore) Observe(context.Context, memory.Observation) (memory.ObserveResult, error) {
 	return memory.ObserveResult{}, memory.ErrUnavailable
@@ -68,49 +74,6 @@ func (validationMemoryStore) Delete(context.Context, memory.DeleteRequest) error
 
 func (validationMemoryStore) Wait(context.Context, memory.OperationRequest) (memory.ObserveResult, error) {
 	return memory.ObserveResult{}, memory.ErrUnavailable
-}
-
-// MapMemory maps the public Eino Memory policy to the Transformer contract.
-func MapMemory(public *apitypes.EinoMemory, store memory.Store, agentID string) *genxeino.MemoryConfig {
-	config := &genxeino.MemoryConfig{
-		Store: store,
-		Scope: memory.Scope{AgentID: agentID},
-	}
-	if public.Recall != nil {
-		config.Recall = make([]genxeino.RecallDefinition, 0, len(*public.Recall))
-		for _, recall := range *public.Recall {
-			config.Recall = append(config.Recall, genxeino.RecallDefinition{
-				QueryFrom: recall.QueryFrom,
-				Output:    recall.Output,
-				TopK:      recall.TopK,
-			})
-		}
-	}
-	if public.Observe != nil {
-		config.Observe.Enabled = public.Observe.Enabled
-		if public.Observe.WaitForCompletion != nil {
-			config.Observe.WaitForCompletion = *public.Observe.WaitForCompletion
-		}
-		if public.Observe.Facts != nil {
-			config.Observe.Facts = make([]genxeino.ObserveDefinition, 0, len(*public.Observe.Facts))
-			for _, fact := range *public.Observe.Facts {
-				config.Observe.Facts = append(config.Observe.Facts, genxeino.ObserveDefinition{
-					TextFrom:   fact.TextFrom,
-					Attributes: cloneStringMap(fact.Attributes),
-				})
-			}
-		}
-	}
-	return config
-}
-
-func cloneStringMap(source *map[string]string) map[string]string {
-	if source == nil {
-		return nil
-	}
-	result := make(map[string]string, len(*source))
-	maps.Copy(result, *source)
-	return result
 }
 
 // MapGraph maps the public Eino Graph to the Transformer contract.
@@ -283,6 +246,37 @@ func mapNode(public apitypes.EinoNode) (genxeino.NodeDefinition, error) {
 		}
 		node := nodeBase(value.Id, value.Inputs, value.Outputs)
 		node.Passthrough = &genxeino.PassthroughNode{}
+		return node, nil
+	case "memory_recall":
+		value, err := public.AsEinoMemoryRecallNode()
+		if err != nil {
+			return genxeino.NodeDefinition{}, err
+		}
+		node := nodeBase(value.Id, value.Inputs, value.Outputs)
+		node.MemoryRecall = &genxeino.MemoryRecallNode{
+			QueryFrom: value.QueryFrom,
+			Output:    value.Output,
+			TopK:      value.TopK,
+		}
+		return node, nil
+	case "memory_observe":
+		value, err := public.AsEinoMemoryObserveNode()
+		if err != nil {
+			return genxeino.NodeDefinition{}, err
+		}
+		node := nodeBase(value.Id, value.Inputs, value.Outputs)
+		node.MemoryObserve = &genxeino.MemoryObserveNode{
+			WaitForCompletion: boolValue(value.WaitForCompletion),
+		}
+		for _, fact := range value.Facts {
+			attributes := map[string]string(nil)
+			if fact.Attributes != nil {
+				attributes = maps.Clone(*fact.Attributes)
+			}
+			node.MemoryObserve.Facts = append(node.MemoryObserve.Facts, genxeino.ObserveDefinition{
+				TextFrom: fact.TextFrom, Attributes: attributes,
+			})
+		}
 		return node, nil
 	case "subgraph":
 		value, err := public.AsEinoSubgraphNode()

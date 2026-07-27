@@ -182,14 +182,18 @@ message DoubaoRealtimeDuplexWorkspaceParameters {
 }
 
 message EinoWorkflowSpec {
+  reserved 3;
+  reserved "memory";
+
   google.protobuf.Struct graph = 1;
   optional google.protobuf.Struct limits = 2;
-  optional google.protobuf.Struct memory = 3;
+  optional google.protobuf.Struct conversation = 4;
 }
 
 message EinoWorkspaceParameters {
   EinoWorkspaceParametersAgentType agent_type = 1;
   optional bool e2e = 2;
+  optional FlowcraftConversationParameters conversation = 3;
 }
 
 message DoubaoRealtimeAIGCMetadata {

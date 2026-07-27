@@ -30,6 +30,19 @@ func (m *recallMemoryWithHits) Recall(_ context.Context, _ recall.Scope, query r
 	return m.hits, nil
 }
 
+func TestExtractedLaneRecognizesOnlyConfiguredExactPrefix(t *testing.T) {
+	t.Parallel()
+	lanes := []string{"story-facts", "story-questions"}
+	if got := extractedLane("story-facts: Monkey found the cave.", lanes); got != "story-facts" {
+		t.Fatalf("extractedLane() = %q", got)
+	}
+	for _, content := range []string{"story-fact: wrong", "prefix story-facts: wrong", "story-facts wrong"} {
+		if got := extractedLane(content, lanes); got != "" {
+			t.Fatalf("extractedLane(%q) = %q", content, got)
+		}
+	}
+}
+
 func TestStoreScopesAreIsolated(t *testing.T) {
 	t.Parallel()
 	store := newTestStore(t, Config{})
@@ -87,6 +100,36 @@ func TestStorePersistsStructuredFactCandidatesWithoutExtraction(t *testing.T) {
 	}
 	if entities, ok := fact.Attributes["entities"].([]string); !ok || !slices.Contains(entities, "wukong") || !slices.Contains(entities, "origin") {
 		t.Fatalf("Observe() entities = %#v, want wukong and origin", fact.Attributes["entities"])
+	}
+}
+
+func TestStorePersistsStructuredFactCandidatesWithExtractionConfigured(t *testing.T) {
+	t.Parallel()
+	store := newTestStore(t, Config{
+		Loader:     &testFlowcraftLoader{model: testLLM{response: `{"facts":[]}`}},
+		Extraction: ExtractionConfig{Model: "extract"},
+	})
+	const text = "The assistant remembered GIZCLAWMEMORY123."
+	result, err := store.Observe(context.Background(), Observation{
+		Scope: testScope,
+		Facts: []memorystore.FactCandidate{{Text: text}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Facts) != 1 || result.Facts[0].Text != text {
+		t.Fatalf("Observe() facts = %#v, want direct fact %q", result.Facts, text)
+	}
+	recallResult, err := store.Recall(context.Background(), Query{
+		Scope: testScope,
+		Text:  "GIZCLAWMEMORY123",
+		Limit: 1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(recallResult.Matches) != 1 || recallResult.Matches[0].Fact.Text != text {
+		t.Fatalf("Recall() matches = %#v, want direct fact %q", recallResult.Matches, text)
 	}
 }
 

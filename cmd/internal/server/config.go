@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"slices"
 	"strings"
 	"time"
 
@@ -17,6 +16,7 @@ import (
 )
 
 type Config struct {
+	WorkspaceRoot  string `yaml:"-"`
 	KeyPair        *giznet.KeyPair
 	Listen         string
 	Endpoint       string
@@ -38,21 +38,13 @@ type Config struct {
 type AgentHostConfig struct {
 	RuntimeStore string                    `yaml:"runtime_store"`
 	Flowcraft    *AgentHostFlowcraftConfig `yaml:"flowcraft"`
-	Eino         *AgentHostEinoConfig      `yaml:"eino"`
 }
 
 // AgentHostFlowcraftConfig binds Flowcraft persistence capabilities to logical
 // Stores owned by the command-layer Store Registry.
 type AgentHostFlowcraftConfig struct {
-	StateStore         string `yaml:"state_store"`
-	HistoryStore       string `yaml:"history_store"`
-	MemoryObjectsStore string `yaml:"memory_objects_store"`
-	MemoryStore        string `yaml:"memory_store"`
-}
-
-// AgentHostEinoConfig binds optional Eino capabilities to registry-owned Stores.
-type AgentHostEinoConfig struct {
-	MemoryStore string `yaml:"memory_store"`
+	StateStore   string `yaml:"state_store"`
+	HistoryStore string `yaml:"history_store"`
 }
 
 type FriendsConfig struct{}
@@ -139,6 +131,7 @@ const (
 	defaultFirmwaresStore                = "firmwares"
 	defaultFirmwareAssetsStore           = "firmware-assets"
 	defaultRuntimeProfilesStore          = "runtime-profiles"
+	defaultMemoryLayoutsStore            = "memory-layouts"
 	defaultMiniMaxTenantsStore           = "minimax-tenants"
 	defaultDeepSeekTenantsStore          = "deepseek-tenants"
 	defaultVoicesStore                   = "voices"
@@ -576,17 +569,8 @@ func validateAgentHostConfig(cfg *AgentHostConfig) error {
 		if err := validateStoreReference("agent_host.flowcraft.history_store", cfg.Flowcraft.HistoryStore); err != nil {
 			return err
 		}
-		if err := validateStoreReference("agent_host.flowcraft.memory_objects_store", cfg.Flowcraft.MemoryObjectsStore); err != nil {
-			return err
-		}
-		if err := validateStoreReference("agent_host.flowcraft.memory_store", cfg.Flowcraft.MemoryStore); err != nil {
-			return err
-		}
 	}
-	if cfg.Eino == nil {
-		return nil
-	}
-	return validateStoreReference("agent_host.eino.memory_store", cfg.Eino.MemoryStore)
+	return nil
 }
 
 func validateStoreReference(path, value string) error {
@@ -665,13 +649,11 @@ func validateConfigShape(data []byte) error {
 		if !ok {
 			continue
 		}
-		if fmt.Sprint(mapping["kind"]) == stores.KindMemoryStore {
-			if err := validateMemoryStoreConfigShape(name, mapping); err != nil {
-				return err
-			}
-			continue
+		kind := fmt.Sprint(mapping["kind"])
+		if kind == "memory" {
+			return fmt.Errorf("server: stores.%s kind %q is no longer supported; configure MemoryLayout resources and RuntimeProfile memory bindings instead", name, kind)
 		}
-		if fmt.Sprint(mapping["kind"]) != stores.KindLog {
+		if kind != stores.KindLog {
 			continue
 		}
 		for field := range mapping {
@@ -718,7 +700,7 @@ func validateAgentHostConfigShape(value any) error {
 	}
 	for field := range agentHost {
 		switch field {
-		case "runtime_store", "flowcraft", "eino":
+		case "runtime_store", "flowcraft":
 		default:
 			return fmt.Errorf("server: agent_host has unknown field %q", field)
 		}
@@ -735,31 +717,17 @@ func validateAgentHostConfigShape(value any) error {
 		}
 		for field := range flowcraft {
 			switch field {
-			case "state_store", "history_store", "memory_objects_store", "memory_store":
+			case "state_store", "history_store":
 			default:
 				return fmt.Errorf("server: agent_host.flowcraft has unknown field %q", field)
 			}
 		}
-		for _, field := range []string{"state_store", "history_store", "memory_objects_store", "memory_store"} {
+		for _, field := range []string{"state_store", "history_store"} {
 			if reference, exists := flowcraft[field]; exists {
 				if err := validateFileStoreReference("agent_host.flowcraft."+field, reference); err != nil {
 					return err
 				}
 			}
-		}
-	}
-	if einoValue, exists := agentHost["eino"]; exists {
-		eino, ok := einoValue.(map[string]any)
-		if !ok {
-			return fmt.Errorf("server: agent_host.eino must be a mapping")
-		}
-		for field := range eino {
-			if field != "memory_store" {
-				return fmt.Errorf("server: agent_host.eino has unknown field %q", field)
-			}
-		}
-		if reference, exists := eino["memory_store"]; exists {
-			return validateFileStoreReference("agent_host.eino.memory_store", reference)
 		}
 	}
 	return nil
@@ -772,97 +740,6 @@ func validateFileStoreReference(path string, value any) error {
 	}
 	if strings.TrimSpace(reference) == "" {
 		return fmt.Errorf("server: %s must not be empty", path)
-	}
-	return nil
-}
-
-func validateMemoryStoreConfigShape(name string, mapping map[string]any) error {
-	for field := range mapping {
-		switch field {
-		case "kind", "flowcraft", "mem0", "volc_memory":
-		default:
-			return fmt.Errorf("server: stores.%s field %q is invalid for kind memory", name, field)
-		}
-	}
-	if value, exists := mapping["flowcraft"]; exists {
-		path := "server: stores." + name + ".flowcraft"
-		if err := validateConfigMappingFields(path, value, []string{
-			"dir", "extraction_model", "embedding_model", "rerank_model", "extraction_mode", "system_prompt",
-			"schema_name", "temperature", "stage_timeout", "graph_enabled", "async", "bbh",
-		}); err != nil {
-			return err
-		}
-		flowcraft := value.(map[string]any)
-		if async, exists := flowcraft["async"]; exists {
-			if err := validateConfigMappingFields(path+".async", async, []string{"enabled"}); err != nil {
-				return err
-			}
-		}
-		if bbh, exists := flowcraft["bbh"]; exists {
-			if err := validateBBHConfigShape(path+".bbh", bbh); err != nil {
-				return err
-			}
-		}
-	}
-	if value, exists := mapping["mem0"]; exists {
-		if err := validateConfigMappingFields("server: stores."+name+".mem0", value, []string{
-			"endpoint", "api_key", "flavor", "poll_interval",
-		}); err != nil {
-			return err
-		}
-	}
-	if value, exists := mapping["volc_memory"]; exists {
-		path := "server: stores." + name + ".volc_memory"
-		if err := validateConfigMappingFields(path, value, []string{
-			"mem0", "api_key_id", "memory_project_id", "control_endpoint", "region", "access_key_id", "access_key_secret",
-		}); err != nil {
-			return err
-		}
-		volc := value.(map[string]any)
-		if mem0, exists := volc["mem0"]; exists {
-			if err := validateConfigMappingFields(path+".mem0", mem0, []string{
-				"endpoint", "api_key", "flavor", "poll_interval",
-			}); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func validateBBHConfigShape(path string, value any) error {
-	if err := validateConfigMappingFields(path, value, []string{"search_overfetch", "bleve", "hnsw"}); err != nil {
-		return err
-	}
-	mapping := value.(map[string]any)
-	if bleve, exists := mapping["bleve"]; exists {
-		if err := validateConfigMappingFields(path+".bleve", bleve, []string{"analyzer", "gojieba"}); err != nil {
-			return err
-		}
-		bleveMapping := bleve.(map[string]any)
-		if gojieba, exists := bleveMapping["gojieba"]; exists {
-			if err := validateConfigMappingFields(path+".bleve.gojieba", gojieba, []string{
-				"mode", "hmm", "dict_path", "hmm_path", "user_dict_path", "idf_path", "stop_words_path",
-			}); err != nil {
-				return err
-			}
-		}
-	}
-	if hnsw, exists := mapping["hnsw"]; exists {
-		return validateConfigMappingFields(path+".hnsw", hnsw, []string{"flush_interval"})
-	}
-	return nil
-}
-
-func validateConfigMappingFields(path string, value any, allowed []string) error {
-	mapping, ok := value.(map[string]any)
-	if !ok {
-		return fmt.Errorf("%s must be a mapping", path)
-	}
-	for field := range mapping {
-		if !slices.Contains(allowed, field) {
-			return fmt.Errorf("%s has unknown field %q", path, field)
-		}
 	}
 	return nil
 }

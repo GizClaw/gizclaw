@@ -373,6 +373,17 @@ func TestNewRejectsAdditionalGraphContractViolations(t *testing.T) {
 				},
 			}
 		}},
+		{name: "invalid observe attribute source", mutate: func(config *Config) {
+			config.Memory = &MemoryConfig{
+				Store: &recordingMemoryStore{}, Scope: memory.Scope{AppID: "app"},
+				Observe: ObservePolicy{
+					Enabled: true,
+					Facts: []ObserveDefinition{{
+						TextFrom: "answer", Attributes: map[string]string{"category": "missing"},
+					}},
+				},
+			}
+		}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

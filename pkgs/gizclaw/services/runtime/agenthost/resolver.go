@@ -9,6 +9,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/memorylayout"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
@@ -21,6 +22,7 @@ type Resolver interface {
 type ServiceResolver struct {
 	Workspaces             workspace.WorkspaceAdminService
 	Workflows              workflow.WorkflowAdminService
+	MemoryLayouts          memorylayout.MemoryLayoutAdminService
 	RuntimeProfileForOwner func(context.Context, string) (apitypes.RuntimeProfile, error)
 	ToolBuilder            *toolkit.Builder
 	ToolExecutors          *toolkit.ExecutorRegistry
@@ -73,14 +75,34 @@ func (r ServiceResolver) Resolve(ctx context.Context, pattern string) (Spec, err
 	if err != nil {
 		return Spec{}, err
 	}
+	memoryName, memoryBinding, memoryLayout, err := r.resolveMemory(resolutionCtx, workflow)
+	if err != nil {
+		return Spec{}, err
+	}
+	var memoryProfileName, memoryProfileRevision string
+	if memoryBinding != nil {
+		profile := resolutionCtx.Value(runtimeProfileContextKey{}).(apitypes.RuntimeProfile)
+		memoryProfileName = profile.Name
+		memoryProfileRevision = profile.Revision
+	}
 	return Spec{
-		Workspace:                ws,
-		Workflow:                 workflow,
-		AgentType:                agentType,
-		Runtime:                  runtime,
-		Toolkit:                  tools,
-		runtimeAccessFingerprint: resourceAccessFingerprint(resolutionCtx),
+		Workspace:             ws,
+		Workflow:              workflow,
+		AgentType:             agentType,
+		Runtime:               runtime,
+		Toolkit:               tools,
+		MemoryName:            memoryName,
+		MemoryProfileName:     memoryProfileName,
+		MemoryProfileRevision: memoryProfileRevision,
+		MemoryBinding:         memoryBinding,
+		MemoryLayout:          memoryLayout,
 	}, nil
+}
+
+type runtimeProfileContextKey struct{}
+
+func withRuntimeProfile(ctx context.Context, profile apitypes.RuntimeProfile) context.Context {
+	return context.WithValue(ctx, runtimeProfileContextKey{}, profile)
 }
 
 func (r ServiceResolver) ownerRuntimeContext(ctx context.Context, ws apitypes.Workspace) (context.Context, error) {
@@ -92,13 +114,54 @@ func (r ServiceResolver) ownerRuntimeContext(ctx context.Context, ws apitypes.Wo
 	if err != nil {
 		return nil, fmt.Errorf("agenthost: resolve workspace %q owner runtime profile: %w", ws.Name, err)
 	}
-	return WithResourceAccess(
+	resolved := WithResourceAccess(
 		ctx,
 		owner,
 		runtimeProfileToolBindings(profile.Spec.Resources.Tools),
 		runtimeProfileWorkflowBindings(profile),
 		runtimeProfileFingerprint(profile),
-	), nil
+	)
+	return withRuntimeProfile(resolved, profile), nil
+}
+
+func (r ServiceResolver) resolveMemory(ctx context.Context, workflow apitypes.Workflow) (string, *apitypes.RuntimeProfileMemoryBinding, *apitypes.MemoryLayout, error) {
+	if workflow.Spec.Memory == nil {
+		return "", nil, nil, nil
+	}
+	alias := strings.TrimSpace(string(*workflow.Spec.Memory))
+	if alias == "" {
+		return "", nil, nil, fmt.Errorf("agenthost: workflow memory alias is empty")
+	}
+	profile, ok := ctx.Value(runtimeProfileContextKey{}).(apitypes.RuntimeProfile)
+	if !ok {
+		return "", nil, nil, fmt.Errorf("agenthost: workflow memory alias %q requires an owner RuntimeProfile", alias)
+	}
+	if profile.Spec.Resources.Memories == nil {
+		return "", nil, nil, fmt.Errorf("agenthost: runtime memory alias %q not found", alias)
+	}
+	binding, ok := (*profile.Spec.Resources.Memories)[alias]
+	if !ok {
+		return "", nil, nil, fmt.Errorf("agenthost: runtime memory alias %q not found", alias)
+	}
+	if r.MemoryLayouts == nil {
+		return "", nil, nil, fmt.Errorf("agenthost: memory layout service is required")
+	}
+	response, err := r.MemoryLayouts.GetMemoryLayout(ctx, adminhttp.GetMemoryLayoutRequestObject{Name: binding.LayoutId})
+	if err != nil {
+		return "", nil, nil, err
+	}
+	var layout apitypes.MemoryLayout
+	switch response := response.(type) {
+	case adminhttp.GetMemoryLayout200JSONResponse:
+		layout = apitypes.MemoryLayout(response)
+	case adminhttp.GetMemoryLayout404JSONResponse:
+		return "", nil, nil, fmt.Errorf("agenthost: memory layout %q not found", binding.LayoutId)
+	case adminhttp.GetMemoryLayout500JSONResponse:
+		return "", nil, nil, fmt.Errorf("agenthost: get memory layout %q failed: %s", binding.LayoutId, response.Error.Message)
+	default:
+		return "", nil, nil, fmt.Errorf("agenthost: unexpected GetMemoryLayout response %T", response)
+	}
+	return alias, &binding, &layout, nil
 }
 
 func resolveWorkspaceWorkflowName(ctx context.Context, ws apitypes.Workspace) (string, error) {

@@ -1,13 +1,17 @@
 package eino
 
 import (
+	"context"
 	"errors"
 	"io"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/cloudwego/eino/schema"
 )
 
 func TestTransformStreamsLifecycle(t *testing.T) {
@@ -73,6 +77,155 @@ func TestTransformerSupportsConcurrentCalls(t *testing.T) {
 	close(failures)
 	for failure := range failures {
 		t.Fatal(failure)
+	}
+}
+
+func TestInitiativeClaimIsAtomicAcrossConcurrentStreams(t *testing.T) {
+	t.Parallel()
+	config := textConfig()
+	config.Initiative = InitiativeOnReload
+	transformer, err := New(t.Context(), config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const count = 32
+	var claimed atomic.Int32
+	var wait sync.WaitGroup
+	failures := make(chan error, count)
+	for range count {
+		wait.Go(func() {
+			ok, claimErr := transformer.claimInitiative(t.Context())
+			if claimErr != nil {
+				failures <- claimErr
+				return
+			}
+			if ok {
+				claimed.Add(1)
+			}
+		})
+	}
+	wait.Wait()
+	close(failures)
+	for failure := range failures {
+		t.Fatal(failure)
+	}
+	if got := claimed.Load(); got != 1 {
+		t.Fatalf("initiative claims = %d, want 1", got)
+	}
+}
+
+func TestInitiativeOnceWhenEmptySkipsExistingHistory(t *testing.T) {
+	t.Parallel()
+	config := textConfig()
+	config.Initiative = InitiativeOnceWhenEmpty
+	transformer, err := New(t.Context(), config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	transformer.history.live = []*schema.Message{{Role: schema.User, Content: "existing turn"}}
+	claimed, err := transformer.claimInitiative(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if claimed {
+		t.Fatal("once_when_empty claimed initiative with existing history")
+	}
+	claimed, err = transformer.claimInitiative(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if claimed {
+		t.Fatal("once_when_empty retried after existing-history decision")
+	}
+}
+
+func TestFailedInitiativeCanBeClaimedAgain(t *testing.T) {
+	t.Parallel()
+	config := textConfig()
+	config.Initiative = InitiativeOnReload
+	config.Graph.Nodes[0].Transform = nil
+	config.Graph.Nodes[0].Script = &ScriptNode{
+		Language: ScriptStarlark,
+		Source:   "def run(input):\n  fail(\"initiative failed\")\n",
+		Limits: ScriptLimits{
+			MaxExecutionSteps: 1_000,
+			Timeout:           time.Second,
+			MaxInputBytes:     1 << 10,
+			MaxOutputBytes:    1 << 10,
+		},
+	}
+	transformer, err := New(t.Context(), config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	output, err := transformer.Transform(t.Context(), textInput(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	drain(t, output)
+
+	claimed, err := transformer.claimInitiative(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !claimed {
+		t.Fatal("failed initiative remained permanently claimed")
+	}
+}
+
+func TestPeerBOSInterruptsInitiativeWithoutMixingTurns(t *testing.T) {
+	t.Parallel()
+	chat := newBlockingChatModel()
+	config := chatConfig(&componentMapResolver{chat: chat})
+	config.Initiative = InitiativeOnReload
+	transformer, err := New(t.Context(), config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := newInputBuilder()
+	output, err := transformer.Transform(context.Background(), input.Stream())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var initiativeStreamID string
+	for {
+		chunk, nextErr := output.Next()
+		if nextErr != nil {
+			t.Fatalf("read initiative: %v", nextErr)
+		}
+		if text, ok := chunk.Part.(genx.Text); ok && text == "first" {
+			initiativeStreamID = chunk.Ctrl.StreamID
+			break
+		}
+	}
+	addTextTurn(t, input, "peer")
+	select {
+	case <-chat.cancelled:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Peer BOS did not interrupt the initiative")
+	}
+	close(chat.release)
+	if err := input.Done(genx.Usage{}); err != nil {
+		t.Fatal(err)
+	}
+	chunks := drain(t, output)
+	var sawInterrupted, sawPeer bool
+	for _, chunk := range chunks {
+		if chunk.Ctrl == nil {
+			continue
+		}
+		if chunk.Ctrl.StreamID == initiativeStreamID && chunk.IsEndOfStream() &&
+			chunk.Ctrl.Error == "interrupted" {
+			sawInterrupted = true
+		}
+		if chunk.Ctrl.StreamID != initiativeStreamID {
+			if text, ok := chunk.Part.(genx.Text); ok && text != "" {
+				sawPeer = true
+			}
+		}
+	}
+	if !sawInterrupted || !sawPeer {
+		t.Fatalf("interrupted=%v peer_output=%v chunks=%#v", sawInterrupted, sawPeer, chunks)
 	}
 }
 

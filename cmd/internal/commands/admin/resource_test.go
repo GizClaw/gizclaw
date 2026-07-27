@@ -341,7 +341,7 @@ func TestAdminResourceApplyRejectsUnknownResourceKind(t *testing.T) {
 }
 
 func TestAdminResourceApplyAcceptsGeneratedResourceKindAlias(t *testing.T) {
-	_, err := decodeResourceData("credential.json", []byte(`{
+	resource, err := decodeResourceData("credential.json", []byte(`{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "CredentialResource",
 		"metadata": {"name": "credential-alias"},
@@ -352,6 +352,16 @@ func TestAdminResourceApplyAcceptsGeneratedResourceKindAlias(t *testing.T) {
 	}`))
 	if err != nil {
 		t.Fatalf("decodeResourceData generated alias error = %v", err)
+	}
+	kind, err := resource.Discriminator()
+	if err != nil {
+		t.Fatalf("resource.Discriminator() error = %v", err)
+	}
+	if kind != string(apitypes.ResourceKindCredential) {
+		t.Fatalf("resource.Discriminator() = %q, want %q", kind, apitypes.ResourceKindCredential)
+	}
+	if _, err := resource.ValueByDiscriminator(); err != nil {
+		t.Fatalf("resource.ValueByDiscriminator() error = %v", err)
 	}
 }
 

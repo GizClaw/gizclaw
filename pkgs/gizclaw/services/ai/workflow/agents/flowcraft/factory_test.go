@@ -9,22 +9,18 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
-	flowmemorystore "github.com/GizClaw/flowcraft/memory/recall/store/workspace"
-	flowretrievalstore "github.com/GizClaw/flowcraft/memory/retrieval/workspace"
 	genxflowcraft "github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/flowcraft"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	memorystore "github.com/GizClaw/gizclaw-go/pkgs/store/memory"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
 func TestMapGraphSupportsPublicNodesAndDerivesPublishers(t *testing.T) {
 	spec := decodeFlowcraftSpec(t, `{
-		"agent":{"id":"assistant","name":"Assistant","graph":{
+		"graph":{
 			"name":"graph","entry":"prepare",
 			"nodes":[
 				{"id":"prepare","type":"script","config":{"source":"board.setVar('ok', true);"}},
@@ -32,9 +28,9 @@ func TestMapGraphSupportsPublicNodesAndDerivesPublishers(t *testing.T) {
 				{"id":"answer","type":"llm","publish":true,"config":{"model":"llm","max_tokens":128}}
 			],
 			"edges":[{"from":"prepare","to":"route"},{"from":"route","to":"answer"},{"from":"answer","to":"__end__"}]
-		}}
+		}
 	}`)
-	graph, publish, err := mapGraph(spec.Agent.Graph)
+	graph, publish, err := mapGraph(spec.Graph)
 	if err != nil {
 		t.Fatalf("mapGraph() error = %v", err)
 	}
@@ -51,11 +47,11 @@ func TestMapGraphSupportsPublicNodesAndDerivesPublishers(t *testing.T) {
 
 func TestFactoryConstructsWithoutLocalWorkspace(t *testing.T) {
 	spec := decodeFlowcraftSpec(t, `{
-		"agent":{"id":"assistant","name":"Assistant","graph":{
+		"graph":{
 			"name":"graph","entry":"route",
 			"nodes":[{"id":"route","type":"passthrough","publish":true}],
 			"edges":[{"from":"route","to":"__end__"}]
-		}}
+		}
 	}`)
 	agent, err := (Factory{GenX: peergenx.New(peergenx.Service{})}).NewAgent(context.Background(), agenthost.Spec{
 		Workspace: apitypes.Workspace{Name: "workspace-a"},
@@ -120,11 +116,11 @@ func TestBuildRuntimeEmbedderRequiresProviderCredential(t *testing.T) {
 
 func TestFactoryUsesWorkspaceOwnerGenX(t *testing.T) {
 	spec := decodeFlowcraftSpec(t, `{
-		"agent":{"id":"assistant","name":"Assistant","graph":{
+		"graph":{
 			"name":"graph","entry":"route",
 			"nodes":[{"id":"route","type":"passthrough","publish":true}],
 			"edges":[{"from":"route","to":"__end__"}]
-		}}
+		}
 	}`)
 	owner := "owner-public-key"
 	called := false
@@ -150,107 +146,36 @@ func TestFactoryUsesWorkspaceOwnerGenX(t *testing.T) {
 	}
 }
 
-func TestFactoryRequiresDurableBackendForEnabledMemory(t *testing.T) {
+func TestFactoryUsesResolvedWorkspaceMemory(t *testing.T) {
+	backing := &recordingExternalMemoryStore{}
 	spec := decodeFlowcraftSpec(t, `{
-		"agent":{"id":"assistant","name":"Assistant","graph":{
+		"graph":{
 			"name":"graph","entry":"route",
 			"nodes":[{"id":"route","type":"passthrough","publish":true}],
 			"edges":[{"from":"route","to":"__end__"}]
+		}
+	}`)
+	agent, err := (Factory{GenX: peergenx.New(peergenx.Service{})}).NewAgent(t.Context(), agenthost.Spec{
+		Workspace: apitypes.Workspace{Name: "workspace-a"},
+		Workflow: apitypes.Workflow{Name: "workflow-a", Spec: apitypes.WorkflowSpec{
+			Driver: apitypes.WorkflowDriverFlowcraft, Flowcraft: &spec,
 		}},
-		"memory":{"enabled":true,"extract":{"enabled":false}}
-	}`)
-	_, err := (Factory{GenX: peergenx.New(peergenx.Service{})}).NewAgent(context.Background(), agenthost.Spec{
-		Workspace: apitypes.Workspace{Name: "workspace-a"},
-		Workflow:  apitypes.Workflow{Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverFlowcraft, Flowcraft: &spec}},
+		Memory: backing, MemoryKind: "mem0",
 	})
-	if err == nil || !strings.Contains(err.Error(), `workspace "workspace-a" memory requires a server object store`) {
+	if err != nil {
 		t.Fatalf("NewAgent() error = %v", err)
-	}
-}
-
-func TestFactoryExternalMemoryBindsOnlyGlobalWorkspaceID(t *testing.T) {
-	backing := &recordingExternalMemoryStore{}
-	built, err := (Factory{Memory: backing}).BuildMemory(
-		t.Context(),
-		"owner-public-key",
-		"workspace-a",
-		"workflow-agent",
-		apitypes.FlowcraftMemory{Enabled: true},
-	)
-	if err != nil {
-		t.Fatalf("BuildMemory() error = %v", err)
-	}
-	inner := memorystore.Scope{UserID: "agent-user", AgentID: "agent-id", RunID: "agent-run"}
-	if _, err := built.Store.Observe(t.Context(), memorystore.Observation{Scope: inner, Text: "remember"}); err != nil {
-		t.Fatalf("Observe() error = %v", err)
-	}
-	want := inner
-	want.AppID = "workspace-a"
-	if got := backing.observation.Scope; got != want {
-		t.Fatalf("Observe() scope = %#v, want globally unique Workspace AppID and unchanged inner scope %#v", got, want)
-	}
-}
-
-func TestFactoryRejectsBoardFactsUnsupportedByConfiguredMemory(t *testing.T) {
-	t.Parallel()
-	facts := []apitypes.FlowcraftMemoryBoardFact{{BoardVar: "profile"}}
-	public := apitypes.FlowcraftMemory{
-		Enabled: true,
-		Write:   &apitypes.FlowcraftMemoryWrite{BoardFacts: &facts},
-	}
-	for _, backend := range []string{"mem0", "volc_memory", ""} {
-		t.Run(backend, func(t *testing.T) {
-			_, err := (Factory{
-				Memory:     &recordingExternalMemoryStore{},
-				MemoryKind: backend,
-			}).BuildMemory(t.Context(), "owner", "workspace-a", "agent-a", public)
-			if err == nil || !strings.Contains(err.Error(), "does not support write.board_facts") {
-				t.Fatalf("BuildMemory(%q board facts) error = %v", backend, err)
-			}
-		})
-	}
-}
-
-func TestFactoryExposesEnabledMemoryRuntimeAPI(t *testing.T) {
-	spec := decodeFlowcraftSpec(t, `{
-		"agent":{"id":"assistant","name":"Assistant","graph":{"name":"graph","entry":"route","nodes":[{"id":"route","type":"passthrough","publish":true}]}},
-		"memory":{"enabled":true,"extract":{"enabled":false}}
-	}`)
-	agent, err := (Factory{
-		GenX: peergenx.New(peergenx.Service{}), MemoryObjects: objectstore.Dir(t.TempDir()),
-	}).NewAgent(t.Context(), agenthost.Spec{
-		Workspace: apitypes.Workspace{Name: "workspace-a"},
-		Workflow:  apitypes.Workflow{Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverFlowcraft, Flowcraft: &spec}},
-	})
-	if err != nil {
-		t.Fatal(err)
 	}
 	t.Cleanup(func() {
 		if closer, ok := agent.(io.Closer); ok {
 			_ = closer.Close()
 		}
 	})
-	status, err := agent.Status(t.Context())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if status.MemoryStatsAvailable == nil || !*status.MemoryStatsAvailable || status.RecallAvailable == nil || !*status.RecallAvailable {
-		t.Fatalf("memory availability = %+v", status)
-	}
 	stats, err := agent.MemoryStats(t.Context(), apitypes.PeerRunMemoryStatsRequest{})
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("MemoryStats() error = %v", err)
 	}
-	if !stats.Available || !stats.Enabled || stats.Backend == nil || *stats.Backend != "flowcraft" {
-		t.Fatalf("memory stats = %+v", stats)
-	}
-	limit := 5
-	recalled, err := agent.Recall(t.Context(), apitypes.PeerRunRecallRequest{Query: "nothing", Limit: &limit})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !recalled.Available || len(recalled.Hits) != 0 {
-		t.Fatalf("recall = %+v", recalled)
+	if !stats.Enabled || stats.Backend == nil || *stats.Backend != "mem0" {
+		t.Fatalf("MemoryStats() = %#v", stats)
 	}
 }
 
@@ -265,180 +190,6 @@ func TestMapInitiativePreservesWorkspacePolicy(t *testing.T) {
 	}
 	if got := mapInitiative(&apitypes.FlowcraftConversation{Starts: &peer}, "once_when_empty"); got != genxflowcraft.InitiativeDisabled {
 		t.Fatalf("peer initiative = %q", got)
-	}
-}
-
-func TestMapMemoryConfigPreservesPolicy(t *testing.T) {
-	spec := decodeFlowcraftSpec(t, `{
-		"agent":{"id":"assistant","name":"Assistant","graph":{"name":"graph","entry":"route","nodes":[{"id":"route","type":"passthrough","publish":true}]}},
-		"memory":{
-			"enabled":true,
-			"extract":{"enabled":true,"model":"extractor"},
-			"layout":{"lanes":[{"name":"owner","kind":"fact","recall":"Use only for owner continuity."}]},
-			"recall":{"enabled":true,"graph_enabled":true,"include_retired":true,"profiles":{"owner":{"output":"memory_context","query":{"text":"${input} owner facts","kinds":["fact"],"lanes":["owner"]},"render":{"header":"Memory:","max_items":3},"top_k":4}}},
-			"write":{"mode":"async_semantic","tier":"core","save_conversation":true,"board_facts":[{"board_var":"profile","kind":"fact","subject":"owner","predicate":"prefers","object":"tea","entities":["owner","tea"],"required_prefix":"profile:"}]}
-		}
-	}`)
-	workspace, err := newObjectWorkspace(objectstore.Dir(t.TempDir()), "memory/workspace-a/assistant")
-	if err != nil {
-		t.Fatalf("newObjectWorkspace() error = %v", err)
-	}
-	backend, err := flowmemorystore.New(workspace)
-	if err != nil {
-		t.Fatalf("memory backend error = %v", err)
-	}
-	t.Cleanup(func() { _ = backend.Close() })
-	retrievalIndex, err := flowretrievalstore.New(workspace)
-	if err != nil {
-		t.Fatalf("retrieval index error = %v", err)
-	}
-	t.Cleanup(func() { _ = retrievalIndex.Close() })
-	runtimeConfig, mapped, err := mapMemoryConfig(*spec.Memory, nil, backend, retrievalIndex)
-	if err != nil {
-		t.Fatalf("mapMemoryConfig() error = %v", err)
-	}
-	if runtimeConfig.AsyncQueue == nil || runtimeConfig.RetrievalIndex != retrievalIndex || runtimeConfig.Tier != "core" || !runtimeConfig.GraphEnabled || !mapped.observe || mapped.observeWait {
-		t.Fatalf("runtime config = %#v, mapped = %#v", runtimeConfig, mapped)
-	}
-	disabledExtraction := *spec.Memory
-	disabled := false
-	disabledExtraction.Extract = &apitypes.FlowcraftMemoryExtract{Enabled: &disabled}
-	disabledRuntimeConfig, disabledMapped, err := mapMemoryConfig(disabledExtraction, nil, backend, retrievalIndex)
-	if err != nil {
-		t.Fatalf("mapMemoryConfig(disabled extraction) error = %v", err)
-	}
-	if disabledRuntimeConfig.AsyncQueue != nil || !disabledMapped.observe || disabledMapped.observeWait {
-		t.Fatalf("disabled extraction runtime config = %#v, mapped = %#v", disabledRuntimeConfig, disabledMapped)
-	}
-	if len(mapped.recallProfiles) != 1 || mapped.recallProfiles[0].BoardVariable != "memory_context" || mapped.recallProfiles[0].QueryText != "${input} owner facts" || mapped.recallProfiles[0].Limit != 4 {
-		t.Fatalf("recall profiles = %#v", mapped.recallProfiles)
-	}
-	filters := mapped.recallProfiles[0].Filters
-	if len(filters) != 3 || filters[2].Field != "include_retired" || filters[2].Value != true {
-		t.Fatalf("recall filters = %#v", filters)
-	}
-	rendered, err := mapped.recallProfiles[0].Renderer(t.Context(), []memorystore.Match{{Fact: memorystore.Fact{Text: "likes tea"}}})
-	if err != nil {
-		t.Fatalf("recall renderer error = %v", err)
-	}
-	if !strings.Contains(rendered, "Use only for owner continuity.") || !strings.Contains(rendered, "Memory:\n- likes tea") {
-		t.Fatalf("rendered recall = %q", rendered)
-	}
-	observation, err := mapped.observationBuilder(t.Context(), genxflowcraft.ObservationInput{
-		UserText: "hello", BoardVariables: map[string]any{"profile": "prefix profile: tea"},
-	})
-	if err != nil {
-		t.Fatalf("observation builder error = %v", err)
-	}
-	if len(observation.Facts) != 1 {
-		t.Fatalf("observation facts = %#v", observation.Facts)
-	}
-	fact := observation.Facts[0]
-	if fact.Text != "profile: tea" || fact.Attributes["kind"] != "fact" || fact.Attributes["subject"] != "owner" || fact.Attributes["predicate"] != "prefers" || fact.Attributes["object"] != "tea" {
-		t.Fatalf("observation fact = %#v", fact)
-	}
-	if entities, ok := fact.Attributes["entities"].([]string); !ok || !reflect.DeepEqual(entities, []string{"owner", "tea"}) {
-		t.Fatalf("observation fact entities = %#v", fact.Attributes["entities"])
-	}
-}
-
-func TestObservationBuilderDoesNotPersistConversationWhenDisabled(t *testing.T) {
-	write := apitypes.FlowcraftMemoryWrite{BoardFacts: &[]apitypes.FlowcraftMemoryBoardFact{{BoardVar: "state"}}}
-	observation, err := observationBuilder(&write)(t.Context(), genxflowcraft.ObservationInput{
-		StreamID: "stream", UserText: "private user turn", DeliveredAssistantText: "private assistant turn",
-		BoardVariables: map[string]any{"state": "durable state"},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if observation.Text != "" || len(observation.Turns) != 0 || len(observation.Facts) != 1 || observation.Facts[0].Text != "durable state" {
-		t.Fatalf("observation = %#v", observation)
-	}
-}
-
-func TestFactoryMemoryRetrievalSurvivesAgentReload(t *testing.T) {
-	spec := decodeFlowcraftSpec(t, `{
-		"agent":{"id":"assistant","name":"Assistant","graph":{"name":"graph","entry":"route","nodes":[{"id":"route","type":"passthrough","publish":true}]}},
-		"memory":{"enabled":true,"extract":{"enabled":false}}
-	}`)
-	factory := Factory{MemoryObjects: objectstore.Dir(t.TempDir())}
-	store, closer, _, err := factory.buildMemory(t.Context(), "", "workspace-a", "assistant", *spec.Memory)
-	if err != nil {
-		t.Fatalf("buildMemory() error = %v", err)
-	}
-	scope := memorystore.Scope{AppID: "workspace-a", AgentID: "assistant"}
-	if _, err := store.Observe(t.Context(), memorystore.Observation{
-		ID: "turn-1", Scope: scope, Text: "the persistent lantern is blue", ObservedAt: time.Now(),
-	}); err != nil {
-		t.Fatalf("Observe() error = %v", err)
-	}
-	if err := closer.Close(); err != nil {
-		t.Fatalf("Close() error = %v", err)
-	}
-
-	reloaded, reloadedCloser, _, err := factory.buildMemory(t.Context(), "", "workspace-a", "assistant", *spec.Memory)
-	if err != nil {
-		t.Fatalf("reload buildMemory() error = %v", err)
-	}
-	t.Cleanup(func() { _ = reloadedCloser.Close() })
-	result, err := reloaded.Recall(t.Context(), memorystore.Query{Scope: scope, Text: "lantern", Limit: 5})
-	if err != nil {
-		t.Fatalf("Recall() after reload error = %v", err)
-	}
-	if len(result.Matches) == 0 || !strings.Contains(result.Matches[0].Fact.Text, "persistent lantern") {
-		t.Fatalf("Recall() after reload = %#v", result)
-	}
-}
-
-func TestFactoryMemoryIsolatesWorkspaces(t *testing.T) {
-	spec := decodeFlowcraftSpec(t, `{
-		"agent":{"id":"assistant","name":"Assistant","graph":{"name":"graph","entry":"route","nodes":[{"id":"route","type":"passthrough","publish":true}]}},
-		"memory":{"enabled":true,"extract":{"enabled":false}}
-	}`)
-	factory := Factory{MemoryObjects: objectstore.Dir(t.TempDir())}
-	workspaceA, closeA, _, err := factory.buildMemory(t.Context(), "", "workspace-a", "assistant", *spec.Memory)
-	if err != nil {
-		t.Fatalf("build workspace A memory error = %v", err)
-	}
-	t.Cleanup(func() { _ = closeA.Close() })
-	workspaceB, closeB, _, err := factory.buildMemory(t.Context(), "", "workspace-b", "assistant", *spec.Memory)
-	if err != nil {
-		t.Fatalf("build workspace B memory error = %v", err)
-	}
-	t.Cleanup(func() { _ = closeB.Close() })
-
-	scopeA := memorystore.Scope{AppID: "workspace-a", AgentID: "assistant"}
-	if _, err := workspaceA.Observe(t.Context(), memorystore.Observation{
-		ID: "turn-a", Scope: scopeA, Text: "the private compass is silver", ObservedAt: time.Now(),
-	}); err != nil {
-		t.Fatalf("observe workspace A error = %v", err)
-	}
-	scopeB := memorystore.Scope{AppID: "workspace-b", AgentID: "assistant"}
-	result, err := workspaceB.Recall(t.Context(), memorystore.Query{Scope: scopeB, Text: "compass", Limit: 5})
-	if err != nil {
-		t.Fatalf("recall workspace B error = %v", err)
-	}
-	if len(result.Matches) != 0 {
-		t.Fatalf("workspace B recalled workspace A facts: %#v", result.Matches)
-	}
-}
-
-func TestMemoryObjectPrefixIsStableShortAndIsolated(t *testing.T) {
-	first := memoryObjectPrefix("owner-a", "flowcraft-poetry-adventure-li-bai-ptt", "poetry-adventure-li-bai")
-	if got, want := len(first), len("fc/")+32; got != want {
-		t.Fatalf("memoryObjectPrefix() length = %d, want %d", got, want)
-	}
-	if repeated := memoryObjectPrefix("owner-a", "flowcraft-poetry-adventure-li-bai-ptt", "poetry-adventure-li-bai"); repeated != first {
-		t.Fatalf("memoryObjectPrefix() is not stable: %q != %q", repeated, first)
-	}
-	if other := memoryObjectPrefix("owner-a", "flowcraft-poetry-adventure-li-bai-ptt", "another-agent"); other == first {
-		t.Fatalf("memoryObjectPrefix() did not isolate agents: %q", first)
-	}
-	if other := memoryObjectPrefix("owner-a", "another-workspace", "poetry-adventure-li-bai"); other == first {
-		t.Fatalf("memoryObjectPrefix() did not isolate workspaces: %q", first)
-	}
-	if other := memoryObjectPrefix("owner-b", "flowcraft-poetry-adventure-li-bai-ptt", "poetry-adventure-li-bai"); other == first {
-		t.Fatalf("memoryObjectPrefix() did not isolate owners: %q", first)
 	}
 }
 

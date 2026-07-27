@@ -228,6 +228,14 @@ func (g *generator) rewriteRefs(currentFile string, value any) (any, error) {
 				out[key] = rewritten
 				continue
 			}
+			if key == "discriminator" {
+				rewritten, err := g.rewriteDiscriminator(currentFile, child)
+				if err != nil {
+					return nil, err
+				}
+				out[key] = rewritten
+				continue
+			}
 
 			rewritten, err := g.rewriteRefs(currentFile, child)
 			if err != nil {
@@ -249,6 +257,38 @@ func (g *generator) rewriteRefs(currentFile string, value any) (any, error) {
 	default:
 		return value, nil
 	}
+}
+
+func (g *generator) rewriteDiscriminator(currentFile string, value any) (any, error) {
+	discriminator, ok := value.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("%s contains a non-object discriminator", rel(g.root, currentFile))
+	}
+	out := make(map[string]any, len(discriminator))
+	for key, child := range discriminator {
+		if key != "mapping" {
+			out[key] = child
+			continue
+		}
+		mapping, ok := child.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("%s contains a non-object discriminator mapping", rel(g.root, currentFile))
+		}
+		rewritten := make(map[string]any, len(mapping))
+		for discriminatorValue, target := range mapping {
+			ref, ok := target.(string)
+			if !ok {
+				return nil, fmt.Errorf("%s discriminator mapping %q has a non-string target", rel(g.root, currentFile), discriminatorValue)
+			}
+			resolved, err := g.rewriteRef(currentFile, ref)
+			if err != nil {
+				return nil, err
+			}
+			rewritten[discriminatorValue] = resolved
+		}
+		out[key] = rewritten
+	}
+	return out, nil
 }
 
 func (g *generator) rewriteRef(currentFile, ref string) (string, error) {

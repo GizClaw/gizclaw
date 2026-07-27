@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync"
 
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/components/retriever"
@@ -13,21 +14,25 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	genxeino "github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/eino"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
+	flowcraftagent "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/flowcraft"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/einoconfig"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/memorystore"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
 const Type = "eino"
 
 // Factory maps the strict product Workflow into the existing Eino Transformer.
-// Memory is borrowed from the command-owned Store Registry.
 type Factory struct {
 	GenX         *peergenx.Service
 	GenXForOwner func(context.Context, string) (*peergenx.Service, error)
-	Memory       memory.Store
-	MemoryKind   string
+	History      logstore.MutableStore
+	MemoryStores *memorystore.Registry
+	ServerRoot   string
 }
 
 func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.Agent, error) {
@@ -43,49 +48,145 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if err != nil {
 		return nil, fmt.Errorf("eino: workflow graph: %w", err)
 	}
+	owner := ""
+	if spec.Workspace.OwnerPublicKey != nil {
+		owner = strings.TrimSpace(*spec.Workspace.OwnerPublicKey)
+	}
+	scope := flowcraftagent.WorkspaceAgentScope(owner, spec.Workspace.Name, spec.Workspace.Name)
 	config := genxeino.Config{
 		Agent: genxeino.AgentConfig{
-			ID:        strings.TrimSpace(spec.Workflow.Name),
+			ID:        strings.TrimSpace(spec.Workspace.Name),
 			Name:      strings.TrimSpace(spec.Workflow.Name),
-			ContextID: strings.TrimSpace(spec.Runtime.DialogID),
+			ContextID: scope,
 		},
 		Graph:      graph,
 		Components: componentResolver{service: service},
+		History: &genxeino.HistoryConfig{
+			Store: f.History, Scope: scope, Limit: 50,
+		},
 	}
+	config.Initiative = mapInitiative(public.Conversation, spec.Workspace.Parameters)
 	if public.Limits != nil && public.Limits.MaxOutputBytes != nil {
 		config.Limits.MaxOutputBytes = *public.Limits.MaxOutputBytes
 	}
-	if public.Memory != nil {
-		if f.Memory == nil {
-			return nil, fmt.Errorf("eino: workflow memory requires agent_host.eino.memory_store")
+	store := spec.Memory
+	backend := strings.TrimSpace(spec.MemoryKind)
+	memoryCloser := spec.MemoryCloser
+	if spec.MemoryBinding != nil || spec.MemoryLayout != nil {
+		if spec.MemoryBinding == nil || spec.MemoryLayout == nil {
+			return nil, fmt.Errorf("eino: incomplete runtime memory binding")
 		}
-		if observe := public.Memory.Observe; observe != nil && observe.Enabled &&
-			observe.Facts != nil && len(*observe.Facts) > 0 && strings.TrimSpace(f.MemoryKind) != "flowcraft" {
-			backend := strings.TrimSpace(f.MemoryKind)
-			if backend == "" {
-				backend = "configured external"
-			}
-			return nil, fmt.Errorf("eino: %s memory does not support observe.facts", backend)
+		request := memorystore.Request{
+			WorkspaceName:   strings.TrimSpace(spec.Workspace.Name),
+			ProfileName:     spec.MemoryProfileName,
+			ProfileRevision: spec.MemoryProfileRevision,
+			BindingName:     spec.MemoryName,
+			Layout:          *spec.MemoryLayout,
+			Binding:         *spec.MemoryBinding,
+			ModelLoader:     flowcraftagent.NewRuntimeMemoryLoader(service),
+			ServerRoot:      f.ServerRoot,
 		}
-		// Workspace names are globally unique resource IDs. Owner identity
-		// controls resource access, but it is deliberately not part of the
-		// provider-neutral Memory AppID contract.
-		bound, err := memory.BindApp(f.Memory, spec.Workspace.Name)
+		var result memorystore.Result
+		var err error
+		if f.MemoryStores != nil {
+			result, err = f.MemoryStores.Resolve(ctx, request)
+		} else {
+			result, err = memorystore.Build(ctx, request)
+		}
 		if err != nil {
-			return nil, fmt.Errorf("eino: bind workspace memory: %w", err)
+			return nil, fmt.Errorf("eino: construct workspace memory: %w", err)
 		}
-		config.Memory = einoconfig.MapMemory(public.Memory, bound, config.Agent.ID)
-		config.Memory.Scope.AppID = strings.TrimSpace(spec.Workspace.Name)
+		store = result.Store
+		backend = result.Driver
+		memoryCloser = result.Closer
+	}
+	if store != nil {
+		bound, err := memory.BindApp(store, spec.Workspace.Name)
+		if err != nil {
+			return nil, errors.Join(fmt.Errorf("eino: bind workspace memory: %w", err), closeMemory(memoryCloser))
+		}
+		config.Memory = &genxeino.MemoryConfig{
+			Store: bound,
+			Scope: memory.Scope{AppID: strings.TrimSpace(spec.Workspace.Name)},
+		}
 	}
 	transformer, err := genxeino.New(ctx, config)
 	if err != nil {
-		return nil, err
+		return nil, errors.Join(err, closeMemory(memoryCloser))
 	}
 	agent := agenthost.NewTransformerAgent(transformer)
 	if config.Memory != nil {
-		agent = agenthost.NewMemoryAgent(agent, config.Memory.Store, config.Memory.Scope, f.MemoryKind)
+		agent = agenthost.NewMemoryAgent(agent, config.Memory.Store, config.Memory.Scope, backend)
+	}
+	if memoryCloser != nil {
+		agent = &managedAgent{Agent: agent, closer: orderedClosers{transformer, memoryCloser}}
+	} else {
+		agent = &managedAgent{Agent: agent, closer: transformer}
 	}
 	return agent, nil
+}
+
+func closeMemory(closer io.Closer) error {
+	if closer == nil {
+		return nil
+	}
+	return closer.Close()
+}
+
+func mapInitiative(conversation *apitypes.EinoConversation, parameters *apitypes.WorkspaceParameters) genxeino.InitiativePolicy {
+	starts := apitypes.EinoConversationStartsPeer
+	if conversation != nil && conversation.Starts != nil {
+		starts = *conversation.Starts
+	}
+	policy := apitypes.FlowcraftConversationParametersAgentInitiativePolicyOnReload
+	if parameters != nil {
+		if value, err := parameters.AsEinoWorkspaceParameters(); err == nil && value.Conversation != nil {
+			if value.Conversation.Initiative != nil {
+				starts = apitypes.EinoConversationStarts(*value.Conversation.Initiative)
+			}
+			if value.Conversation.AgentInitiativePolicy != nil {
+				policy = *value.Conversation.AgentInitiativePolicy
+			}
+		}
+	}
+	if starts != apitypes.EinoConversationStartsAgent {
+		return genxeino.InitiativeDisabled
+	}
+	if policy == apitypes.FlowcraftConversationParametersAgentInitiativePolicyOnceWhenEmpty {
+		return genxeino.InitiativeOnceWhenEmpty
+	}
+	return genxeino.InitiativeOnReload
+}
+
+type managedAgent struct {
+	agenthost.Agent
+	closer    io.Closer
+	closeOnce sync.Once
+	closeErr  error
+}
+
+type orderedClosers []io.Closer
+
+func (closers orderedClosers) Close() error {
+	var result error
+	for _, closer := range closers {
+		if closer != nil {
+			result = errors.Join(result, closer.Close())
+		}
+	}
+	return result
+}
+
+func (a *managedAgent) Close() error {
+	if a == nil {
+		return nil
+	}
+	a.closeOnce.Do(func() {
+		if a.closer != nil {
+			a.closeErr = a.closer.Close()
+		}
+	})
+	return a.closeErr
 }
 
 func (f Factory) serviceForWorkspace(ctx context.Context, spec agenthost.Spec) (*peergenx.Service, error) {

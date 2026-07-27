@@ -36,6 +36,57 @@ func TestValidate(t *testing.T) {
 		t.Fatalf("Validate(valid) error = %v", err)
 	}
 
+	t.Run("valid memory graph", func(t *testing.T) {
+		spec := decodeSpec(t, `{
+			"graph": {
+				"name": "memory",
+				"compile": {"node_trigger_mode": "any_predecessor"},
+				"state": {"fields": [
+					{"name": "recalled", "type": "string", "merge": "replace"},
+					{"name": "answer", "type": "string", "merge": "replace"}
+				]},
+				"nodes": [
+					{
+						"id": "recall",
+						"type": "memory_recall",
+						"query_from": "input.text",
+						"output": "recalled",
+						"top_k": 5
+					},
+					{
+						"id": "answer",
+						"type": "passthrough",
+						"inputs": {"value": {"from": "recalled"}},
+						"outputs": {"value": "answer"}
+					},
+					{
+						"id": "observe",
+						"type": "memory_observe",
+						"facts": [{"text_from": "answer"}],
+						"wait_for_completion": true
+					}
+				],
+				"edges": [
+					{"from": "start", "to": "recall"},
+					{"from": "recall", "to": "answer"},
+					{"from": "answer", "to": "observe"},
+					{"from": "observe", "to": "end"}
+				],
+				"branches": [],
+				"outputs": [{
+					"node": "answer",
+					"field": "answer",
+					"name": "assistant",
+					"mime_type": "text/plain",
+					"primary": true
+				}]
+			}
+		}`)
+		if err := Validate(spec); err != nil {
+			t.Fatalf("Validate(memory graph) error = %v", err)
+		}
+	})
+
 	t.Run("invalid edge", func(t *testing.T) {
 		spec := cloneSpec(t, valid)
 		spec.Graph.Edges[1].To = "missing"
@@ -44,13 +95,24 @@ func TestValidate(t *testing.T) {
 		}
 	})
 	t.Run("invalid memory", func(t *testing.T) {
-		spec := cloneSpec(t, valid)
-		spec.Memory = &apitypes.EinoMemory{Recall: &[]apitypes.EinoMemoryRecall{{
-			QueryFrom: "input.text",
-			Output:    "answer",
-			TopK:      0,
-		}}}
-		if err := Validate(spec); err == nil || !strings.Contains(err.Error(), "Memory.Recall[0] is invalid") {
+		spec := decodeSpec(t, `{
+			"graph": {
+				"name": "invalid-memory",
+				"compile": {"node_trigger_mode": "any_predecessor"},
+				"state": {"fields": [{"name": "answer", "type": "string", "merge": "replace"}]},
+				"nodes": [{
+					"id": "recall",
+					"type": "memory_recall",
+					"query_from": "input.text",
+					"output": "answer",
+					"top_k": 0
+				}],
+				"edges": [{"from": "start", "to": "recall"}, {"from": "recall", "to": "end"}],
+				"branches": [],
+				"outputs": []
+			}
+		}`)
+		if err := Validate(spec); err == nil || !strings.Contains(err.Error(), "MemoryRecall") {
 			t.Fatalf("Validate(invalid memory) error = %v", err)
 		}
 	})

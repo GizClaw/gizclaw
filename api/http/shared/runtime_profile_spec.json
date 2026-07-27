@@ -76,6 +76,155 @@
           }
         }
       },
+      "RuntimeProfileMemoryDriver": {
+        "type": "string",
+        "enum": ["flowcraft", "mem0", "volc_mem0"]
+      },
+      "RuntimeProfileMemoryBinding": {
+        "type": "object",
+        "required": ["layout_id", "driver", "connection"],
+        "additionalProperties": false,
+        "properties": {
+          "layout_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "driver": {
+            "$ref": "#/components/schemas/RuntimeProfileMemoryDriver"
+          },
+          "connection": {
+            "$ref": "#/components/schemas/RuntimeProfileMemoryConnection"
+          }
+        }
+      },
+      "RuntimeProfileMemoryConnection": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/RuntimeProfileFlowcraftBBHConnection"
+          },
+          {
+            "$ref": "#/components/schemas/RuntimeProfileFlowcraftObjectStoreConnection"
+          },
+          {
+            "$ref": "#/components/schemas/RuntimeProfileFlowcraftPostgreSQLConnection"
+          },
+          {
+            "$ref": "#/components/schemas/RuntimeProfileMem0Connection"
+          },
+          {
+            "$ref": "#/components/schemas/RuntimeProfileVolcMem0Connection"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "flowcraft_bbh": "#/components/schemas/RuntimeProfileFlowcraftBBHConnection",
+            "flowcraft_object_store": "#/components/schemas/RuntimeProfileFlowcraftObjectStoreConnection",
+            "flowcraft_postgresql": "#/components/schemas/RuntimeProfileFlowcraftPostgreSQLConnection",
+            "mem0": "#/components/schemas/RuntimeProfileMem0Connection",
+            "volc_mem0": "#/components/schemas/RuntimeProfileVolcMem0Connection"
+          }
+        }
+      },
+      "RuntimeProfileFlowcraftBBHConnection": {
+        "type": "object",
+        "required": ["type"],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["flowcraft_bbh"]
+          }
+        }
+      },
+      "RuntimeProfileFlowcraftObjectStoreConnection": {
+        "type": "object",
+        "required": ["type", "directory"],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["flowcraft_object_store"]
+          },
+          "directory": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "RuntimeProfileFlowcraftPostgreSQLConnection": {
+        "type": "object",
+        "required": ["type", "dsn"],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["flowcraft_postgresql"]
+          },
+          "dsn": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "RuntimeProfileMem0Connection": {
+        "type": "object",
+        "required": ["type", "project_id", "endpoint", "api_key"],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["mem0"]
+          },
+          "project_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Deployment/control-plane identity paired with this API key. Mem0 data-plane requests authenticate with api_key and do not send project_id."
+          },
+          "endpoint": {
+            "type": "string",
+            "format": "uri",
+            "minLength": 1
+          },
+          "api_key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "poll_interval": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "RuntimeProfileVolcMem0Connection": {
+        "type": "object",
+        "required": ["type", "memory_project_id", "endpoint", "api_key"],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["volc_mem0"]
+          },
+          "memory_project_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Deployment/control-plane identity paired with this data-plane API key. Runtime fact requests authenticate with api_key and do not send memory_project_id."
+          },
+          "endpoint": {
+            "type": "string",
+            "format": "uri",
+            "minLength": 1
+          },
+          "api_key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "poll_interval": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
       "RuntimeProfileResources": {
         "type": "object",
         "additionalProperties": false,
@@ -103,6 +252,10 @@
           "badge_defs": {
             "type": "object",
             "additionalProperties": { "$ref": "#/components/schemas/RuntimeProfileBinding" }
+          },
+          "memories": {
+            "type": "object",
+            "additionalProperties": { "$ref": "#/components/schemas/RuntimeProfileMemoryBinding" }
           }
         }
       },

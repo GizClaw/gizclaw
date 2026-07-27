@@ -140,6 +140,24 @@ func TestBindAppPreservesOptionalCapabilitiesExactly(t *testing.T) {
 	}
 }
 
+func TestBindAppPreservesDirectFactCapabilityDiscovery(t *testing.T) {
+	t.Parallel()
+	plain, err := BindApp(&scopeTestStore{}, "workspace")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if SupportsDirectFactObservation(plain) {
+		t.Fatal("plain Store unexpectedly supports direct Facts")
+	}
+	direct, err := BindApp(&scopeDirectFactTestStore{scopeTestStore: &scopeTestStore{}}, "workspace")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !SupportsDirectFactObservation(direct) {
+		t.Fatal("BindApp hid direct Fact capability")
+	}
+}
+
 func TestBindAppDefensivelyCopiesMutableValues(t *testing.T) {
 	t.Parallel()
 
@@ -204,6 +222,10 @@ func (s *scopeTestStore) Delete(_ context.Context, request DeleteRequest) error 
 }
 
 type scopeWaiterTestStore struct{ *scopeTestStore }
+
+type scopeDirectFactTestStore struct{ *scopeTestStore }
+
+func (*scopeDirectFactTestStore) SupportsDirectFactObservation() bool { return true }
 
 func (*scopeWaiterTestStore) Wait(_ context.Context, _ OperationRequest) (ObserveResult, error) {
 	return ObserveResult{}, nil

@@ -3,10 +3,12 @@ package agenthost
 import (
 	"context"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
 const workspaceAgentTypeParameter = "agent_type"
@@ -18,10 +20,23 @@ type Spec struct {
 	AgentType string
 	Runtime   workspace.Runtime
 	Toolkit   *ToolkitContext
-	// runtimeAccessFingerprint identifies the effective owner RuntimeProfile
-	// used while resolving this spec. System runtime cache keys use it so a
-	// profile revision change cannot reuse an agent built from stale aliases.
-	runtimeAccessFingerprint string
+	// Memory is the Workspace-bound provider-neutral Store selected through
+	// the current RuntimeProfile. MemoryCloser belongs to this Agent generation.
+	Memory       memory.Store
+	MemoryKind   string
+	MemoryCloser io.Closer
+	// MemoryBinding and MemoryLayout are the owner RuntimeProfile snapshot
+	// selected for Workflow.Spec.Memory. A peer-local factory turns them into
+	// one Workspace-bound Store generation.
+	MemoryBinding *apitypes.RuntimeProfileMemoryBinding
+	MemoryLayout  *apitypes.MemoryLayout
+	// MemoryName is the stable RuntimeProfile binding alias. It identifies the
+	// selected physical store independently from the portable Layout policy.
+	MemoryName string
+	// MemoryProfileName and MemoryProfileRevision identify the immutable
+	// RuntimeProfile snapshot that selected the binding.
+	MemoryProfileName     string
+	MemoryProfileRevision string
 	// BoardInputs supplies product-owned transient values to drivers that
 	// support a per-turn context board. The outer runtime also injects the same
 	// values into the Transform context for every nested driver. They are never

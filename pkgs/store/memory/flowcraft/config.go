@@ -38,6 +38,10 @@ type Config struct {
 
 	// Tier applies Flowcraft's write-time salience intent to every observation.
 	Tier string
+	// LaneNames are the closed portable Layout lane names. Extracted facts use
+	// the required "<lane>: ..." content prefix, which the adapter projects
+	// back into the provider-neutral "lane" attribute for Graph filtering.
+	LaneNames []string
 }
 
 type ExtractionConfig struct {
@@ -85,6 +89,20 @@ func (c Config) normalized() Config {
 	c.Embedding.Model = strings.TrimSpace(c.Embedding.Model)
 	c.Rerank.Model = strings.TrimSpace(c.Rerank.Model)
 	c.Tier = strings.TrimSpace(c.Tier)
+	lanes := make([]string, 0, len(c.LaneNames))
+	seen := make(map[string]struct{}, len(c.LaneNames))
+	for _, lane := range c.LaneNames {
+		lane = strings.TrimSpace(lane)
+		if lane == "" {
+			continue
+		}
+		if _, duplicate := seen[lane]; duplicate {
+			continue
+		}
+		seen[lane] = struct{}{}
+		lanes = append(lanes, lane)
+	}
+	c.LaneNames = lanes
 	return c
 }
 

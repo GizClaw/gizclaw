@@ -942,26 +942,12 @@ func TestServiceReusesWorkspaceRuntimeForMultipleGears(t *testing.T) {
 	}
 }
 
-func TestRuntimeKeyIsolatesOwnerlessRuntimeProfiles(t *testing.T) {
-	spec := Spec{Workspace: apitypes.Workspace{Name: "system"}}
-	first := WithResourceAccess(t.Context(), "peer-a", nil, nil, "profile-a")
-	second := WithResourceAccess(t.Context(), "peer-b", nil, nil, "profile-b")
-	if runtimeKey(first, "system", spec) == runtimeKey(second, "system", spec) {
-		t.Fatal("ownerless workspace reused a different caller RuntimeProfile")
+func TestRuntimeKeyUsesCanonicalWorkspaceOnly(t *testing.T) {
+	if runtimeKey("system") != runtimeKey("system") {
+		t.Fatal("same Workspace produced different runtime keys")
 	}
-	owner := "owner"
-	spec.Workspace.OwnerPublicKey = &owner
-	if runtimeKey(first, "system", spec) != runtimeKey(second, "system", spec) {
-		t.Fatal("owned workspace did not share the owner's runtime")
-	}
-	system := true
-	spec.Workspace.System = &system
-	firstSpec := spec
-	firstSpec.runtimeAccessFingerprint = resourceAccessFingerprint(WithResourceAccess(t.Context(), owner, nil, nil, "owner-profile-a"))
-	secondSpec := spec
-	secondSpec.runtimeAccessFingerprint = resourceAccessFingerprint(WithResourceAccess(t.Context(), owner, nil, nil, "owner-profile-b"))
-	if runtimeKey(first, "system", firstSpec) == runtimeKey(second, "system", secondSpec) {
-		t.Fatal("system workspace reused an old owner RuntimeProfile revision")
+	if runtimeKey("system") == runtimeKey("other") {
+		t.Fatal("different Workspaces produced the same runtime key")
 	}
 }
 
@@ -1018,6 +1004,87 @@ func TestServiceReloadActivateFailureClosesStreams(t *testing.T) {
 	}
 	if !input.closed() || !output.closed() {
 		t.Fatalf("streams closed after activate failure: input=%v output=%v", input.closed(), output.closed())
+	}
+}
+
+func TestServiceReloadTransformFailureKeepsCurrentWorkspaceGeneration(t *testing.T) {
+	ctx := context.Background()
+	publicKey := testPublicKey(t)
+	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	if _, err := store.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
+		t.Fatal(err)
+	}
+	host := New(fakeResolver{spec: Spec{
+		Workspace: apitypes.Workspace{Name: "demo"},
+		AgentType: "reloadable",
+	}})
+	wantErr := errors.New("replacement transform failed")
+	var mu sync.Mutex
+	var agents []*closeTrackingAgent
+	var closed []int
+	if err := host.Register("reloadable", agentFactoryFunc(func(context.Context, Spec) (Agent, error) {
+		mu.Lock()
+		index := len(agents)
+		closed = append(closed, 0)
+		mu.Unlock()
+		var transformer genx.Transformer
+		if index == 0 {
+			transformer = runtimeTransformerFunc(func(context.Context, genx.Stream) (genx.Stream, error) {
+				return newBlockingStream(), nil
+			})
+		} else {
+			transformer = runtimeTransformerFunc(func(context.Context, genx.Stream) (genx.Stream, error) {
+				return nil, wantErr
+			})
+		}
+		agent := &closeTrackingAgent{Agent: NewTransformerAgent(transformer)}
+		agent.close = func() {
+			mu.Lock()
+			closed[index]++
+			mu.Unlock()
+		}
+		mu.Lock()
+		agents = append(agents, agent)
+		mu.Unlock()
+		return agent, nil
+	})); err != nil {
+		t.Fatal(err)
+	}
+	svc := &Service{
+		Host:      host,
+		PeerRun:   store,
+		PublicKey: publicKey,
+		Source: StreamSourceFunc(func(context.Context) (genx.Stream, error) {
+			return NewInputStream(1), nil
+		}),
+		Consumer: StreamConsumerFunc(func(ctx context.Context, _ genx.Stream) error {
+			<-ctx.Done()
+			return nil
+		}),
+	}
+	if _, err := svc.Reload(ctx); err != nil {
+		t.Fatalf("initial Reload() error = %v", err)
+	}
+	if _, err := svc.Reload(ctx); !errors.Is(err, wantErr) {
+		t.Fatalf("replacement Reload() error = %v, want %v", err, wantErr)
+	}
+	current, release, err := host.OpenAgent(ctx, "demo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mu.Lock()
+	if current != agents[0] {
+		mu.Unlock()
+		t.Fatal("failed replacement changed the current Workspace generation")
+	}
+	if closed[0] != 0 || closed[1] != 1 {
+		mu.Unlock()
+		t.Fatalf("close counts after failed replacement = %v, want [0 1]", closed)
+	}
+	mu.Unlock()
+	release()
+	if _, err := svc.Stop(ctx); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -1380,6 +1447,12 @@ func (h *runtimeTestOpenAgentHost) OpenAgent(_ context.Context, pattern string) 
 type runtimeTestAgent struct {
 	output genx.Stream
 	state  apitypes.PeerRunWorkspaceState
+}
+
+type runtimeTransformerFunc func(context.Context, genx.Stream) (genx.Stream, error)
+
+func (transformer runtimeTransformerFunc) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
+	return transformer(ctx, input)
 }
 
 func (a *runtimeTestAgent) Transform(_ context.Context, input genx.Stream) (genx.Stream, error) {

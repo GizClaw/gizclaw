@@ -68,54 +68,96 @@ Mem0 is constructed with one `mem0.Config`. `FlavorPlatform` uses `Authorization
 
 Volcengine AgentKit/Viking MEM0 is constructed with one `volc.Config`. It accepts either an explicit Mem0 data-plane key or a credential resolver. The adapter resolves credentials and delegates fact operations to the Mem0 adapter; a data-plane endpoint is mandatory.
 
-## Composition and YAML
+## MemoryLayout, RuntimeProfile, and Workflow
 
-`cmd/internal/stores` is the composition root. It owns serializable YAML DTOs, environment expansion, workspace/index construction, model-loader injection, credential resolution, and lifecycle management. A Flowcraft `dir` belongs to this layer: the command creates the Flowcraft workspace and BBH retrieval index, then injects their interfaces into the adapter.
+Memory is no longer a `stores.kind: memory` Server Config entry. Portable policy, deployment connection, and Graph consumption belong to three separate resource surfaces:
 
-```yaml
-stores:
-  agent-memory:
-    kind: memory
-    flowcraft:
-      dir: ${GIZCLAW_MEMORY_DIR}
-      extraction_model: memory-extractor
-      embedding_model: text-embedding
-      extraction_mode: single_pass
-      graph_enabled: true
-      async:
-        enabled: true
-```
-
-Mem0 Platform:
+- The Admin `MemoryLayout` declares provider policy for Flowcraft, Mem0, and `volc_mem0` together. It contains no endpoint, API key, DSN, or directory.
+- `RuntimeProfile.resources.memories.<alias>` selects the Layout, concrete driver, and a strictly typed connection. Endpoint, API key, project ID, DSN, or directory belongs directly to that RuntimeProfile connection and does not reference a Credential resource.
+- A Workflow top-level `memory` field references only a RuntimeProfile alias. Graph `memory_recall` and `memory_observe` nodes own timing, query source, output destination, and turn/state-to-fact construction; those mappings do not belong to MemoryLayout.
 
 ```yaml
-stores:
-  agent-memory:
-    kind: memory
-    mem0:
-      endpoint: https://api.mem0.ai
-      api_key: ${MEM0_API_KEY}
-      flavor: platform
+apiVersion: gizclaw.admin/v1alpha1
+kind: MemoryLayout
+metadata:
+  name: pet-memory
+spec:
+  flowcraft:
+    extraction:
+      enabled: true
+      model: memory-extractor
+      mode: two_pass
+    embedding:
+      model: text-embedding
+    bbh:
+      search_overfetch: 20
+    lanes:
+    - name: owner-profile
+      kind: preference
+    write:
+      mode: sync
+      tier: general
+  mem0:
+    custom_instructions: Extract durable pet and owner facts.
+  volc_mem0:
+    strategies:
+    - name: owner-profile
+      type: user_preference
+      custom_instructions: Extract durable pet and owner facts.
 ```
 
-Volcengine AgentKit/Viking MEM0:
+All three provider blocks are required. Flowcraft extraction, embedding, and rerank models are RuntimeProfile model aliases; they are resolved only when the binding selects `driver: flowcraft`. `extraction.enabled` defaults to `true`; setting it to `false` disables model extraction while Graph-authored direct Facts remain writable.
 
 ```yaml
-stores:
-  agent-memory:
-    kind: memory
-    volc_memory:
-      mem0:
-        endpoint: ${VOLC_MEM0_ENDPOINT}
-      memory_project_id: ${VOLC_MEMORY_PROJECT_ID}
-      region: cn-beijing
-      access_key_id: ${VOLC_ACCESS_KEY_ID}
-      access_key_secret: ${VOLC_ACCESS_KEY_SECRET}
+spec:
+  resources:
+    memories:
+      pet-memory:
+        layout_id: pet-memory
+        driver: flowcraft
+        connection:
+          type: flowcraft_bbh
 ```
 
-A logical memory store selects exactly one provider. Unknown YAML fields are rejected. Scope and backend-native routing fields are not valid server configuration.
+`flowcraft_bbh` is the portable connection that requires no external service. It uses
+`<server-workspace>/data/memory/<runtime-profile>/<memory-alias>` and isolates Workspaces through `Scope.AppID`. Other valid connections are `flowcraft_object_store` (`directory`), `flowcraft_postgresql` (`dsn`), `mem0` (`project_id`, `endpoint`, `api_key`), and `volc_mem0` (`memory_project_id`, `endpoint`, `api_key`). Driver and connection type must match. Unknown fields, missing keys, and invalid endpoints are rejected when a RuntimeProfile is written or resolved.
 
-Current Flowcraft fact and operation locators contain the complete App/User/Agent scope. Legacy `flowcraft:v1` locators and development data are incompatible and must be cleared and recreated; there is no compatibility decoder, dual read, or background migration.
+For Mem0 and Volc, the Project ID records the deployment/control-plane identity paired with the selected data-plane API key. Runtime fact requests authenticate with that key; they do not send a separate Project ID field.
+
+```yaml
+spec:
+  driver: flowcraft
+  memory: pet-memory
+  flowcraft:
+    graph:
+      name: companion
+      entry: recall-memory
+      nodes:
+      - id: recall-memory
+        type: memory_recall
+        config:
+          query: {text_from: input}
+          output: memory_context
+          top_k: 5
+      - id: answer
+        type: llm
+        publish: true
+        config:
+          model: chat
+          system_prompt: "${board.memory_context}"
+      - id: observe-turn
+        type: memory_observe
+        config:
+          observations:
+          - turns_from: conversation
+          wait_for_completion: false
+      edges:
+      - {from: recall-memory, to: answer}
+      - {from: answer, to: observe-turn}
+      - {from: observe-turn, to: __end__}
+```
+
+All streams for one Workspace share one Agent generation. Stable data visibility requires the same Workspace AppID, memory driver, and physical connection selected by the same RuntimeProfile memory binding. Changing extraction, recall, write, prompt, `top_k`, or mode does not change canonical data. When Flowcraft embedding, rerank, or BBH policy changes, a staging index is rebuilt from canonical facts and published atomically; a failed rebuild never publishes a partial or mixed index. Changing driver or binding may select another physical source and does not migrate or delete data automatically. Switching back can access the original data if the original connection still retains it.
 
 ## Ownership and errors
 

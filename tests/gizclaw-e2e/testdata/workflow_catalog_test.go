@@ -7,12 +7,18 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/goccy/go-yaml"
 )
 
 type workflowNodePublication struct {
 	ID      string `json:"id" yaml:"id"`
 	Publish *bool  `json:"publish" yaml:"publish"`
+}
+
+type workflowEdge struct {
+	From string `json:"from" yaml:"from"`
+	To   string `json:"to" yaml:"to"`
 }
 
 type flowcraftGeneratorNode struct {
@@ -77,6 +83,93 @@ func TestWorkflowCatalogFixtures(t *testing.T) {
 	}
 }
 
+func TestMemoryMigratedFlowcraftFixturesDecodeTypedGraph(t *testing.T) {
+	for _, filename := range []string{
+		"05-flowcraft-basic.yaml",
+		"06-flowcraft-chat.yaml",
+		"08-flowcraft-journey.yaml",
+		"10-flowcraft-multi-role-storyteller.yaml",
+		"11-flowcraft-murder-mystery.yaml",
+		"12-flowcraft-poetry-adventure-li-bai.yaml",
+		"13-flowcraft-werewolf.yaml",
+	} {
+		t.Run(filename, func(t *testing.T) {
+			raw, err := os.ReadFile(filepath.Join("resources", "04-workflows", filename))
+			if err != nil {
+				t.Fatal(err)
+			}
+			jsonRaw, err := yaml.YAMLToJSON(raw)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var resource apitypes.Resource
+			if err := json.Unmarshal(jsonRaw, &resource); err != nil {
+				t.Fatal(err)
+			}
+			workflow, err := resource.AsWorkflowResource()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if workflow.Spec.Memory == nil || strings.TrimSpace(string(*workflow.Spec.Memory)) == "" {
+				t.Fatal("memory alias is required")
+			}
+			if workflow.Spec.Flowcraft == nil {
+				t.Fatal("flowcraft config is required")
+			}
+			if err := workflow.Spec.Flowcraft.Validate(); err != nil {
+				t.Fatalf("Flowcraft config: %v", err)
+			}
+			hasObserve := false
+			for _, node := range workflow.Spec.Flowcraft.Graph.Nodes {
+				discriminator, err := node.Discriminator()
+				if err != nil {
+					t.Fatalf("Flowcraft node discriminator: %v", err)
+				}
+				hasObserve = hasObserve || discriminator == "memory_observe"
+			}
+			if !hasObserve {
+				t.Fatal("explicit memory_observe node is required")
+			}
+		})
+	}
+}
+
+func TestMemoryLayoutCatalogFixturesDecodeAllProviders(t *testing.T) {
+	paths, err := filepath.Glob(filepath.Join("resources", "04-memory-layouts", "*.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(paths) < 7 {
+		t.Fatalf("MemoryLayout fixture count = %d, want at least 7", len(paths))
+	}
+	for _, path := range paths {
+		t.Run(filepath.Base(path), func(t *testing.T) {
+			raw, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			jsonRaw, err := yaml.YAMLToJSON(raw)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var resource apitypes.Resource
+			if err := json.Unmarshal(jsonRaw, &resource); err != nil {
+				t.Fatal(err)
+			}
+			layout, err := resource.AsMemoryLayoutResource()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if layout.Spec.Flowcraft.Extraction.Model == "" ||
+				layout.Spec.Mem0.CustomInstructions == nil ||
+				strings.TrimSpace(*layout.Spec.Mem0.CustomInstructions) == "" ||
+				len(layout.Spec.VolcMem0.Strategies) == 0 {
+				t.Fatalf("incomplete provider blocks: %#v", layout.Spec)
+			}
+		})
+	}
+}
+
 func TestSocialFixtures(t *testing.T) {
 	for _, filename := range []string{"00-family-circle.yaml", "10-contacts.yaml"} {
 		t.Run(filename, func(t *testing.T) {
@@ -121,18 +214,16 @@ func TestFlowcraftGeneratorsUseProductionTokenBudget(t *testing.T) {
 			var resource struct {
 				Spec struct {
 					Flowcraft struct {
-						Agent struct {
-							Graph struct {
-								Nodes []flowcraftGeneratorNode `yaml:"nodes"`
-							} `yaml:"graph"`
-						} `yaml:"agent"`
+						Graph struct {
+							Nodes []flowcraftGeneratorNode `yaml:"nodes"`
+						} `yaml:"graph"`
 					} `yaml:"flowcraft"`
 				} `yaml:"spec"`
 			}
 			if err := yaml.Unmarshal(raw, &resource); err != nil {
 				t.Fatal(err)
 			}
-			assertFlowcraftGeneratorTokenBudget(t, resource.Spec.Flowcraft.Agent.Graph.Nodes)
+			assertFlowcraftGeneratorTokenBudget(t, resource.Spec.Flowcraft.Graph.Nodes)
 		})
 	}
 
@@ -149,18 +240,16 @@ func TestFlowcraftGeneratorsUseProductionTokenBudget(t *testing.T) {
 			var workspace struct {
 				Workflow struct {
 					Flowcraft struct {
-						Agent struct {
-							Graph struct {
-								Nodes []flowcraftGeneratorNode `json:"nodes"`
-							} `json:"graph"`
-						} `json:"agent"`
+						Graph struct {
+							Nodes []flowcraftGeneratorNode `json:"nodes"`
+						} `json:"graph"`
 					} `json:"flowcraft"`
 				} `json:"workflow"`
 			}
 			if err := json.Unmarshal(raw, &workspace); err != nil {
 				t.Fatal(err)
 			}
-			assertFlowcraftGeneratorTokenBudget(t, workspace.Workflow.Flowcraft.Agent.Graph.Nodes)
+			assertFlowcraftGeneratorTokenBudget(t, workspace.Workflow.Flowcraft.Graph.Nodes)
 		})
 	}
 }
@@ -174,21 +263,68 @@ func assertFlowcraftGeneratorTokenBudget(t *testing.T, nodes []flowcraftGenerato
 	}
 }
 
+func TestMurderMysterySolvedChatRefreshesAuditBeforeObservation(t *testing.T) {
+	assertSolvedChatAuditEdge := func(t *testing.T, edges []workflowEdge) {
+		t.Helper()
+		for _, edge := range edges {
+			if edge.From == "solved_chat" {
+				if edge.To != "write_case_audit" {
+					t.Fatalf("solved_chat edge targets %q, want write_case_audit", edge.To)
+				}
+				return
+			}
+		}
+		t.Fatal("solved_chat edge is missing")
+	}
+
+	t.Run("resource", func(t *testing.T) {
+		var resource struct {
+			Spec struct {
+				Flowcraft struct {
+					Graph struct {
+						Edges []workflowEdge `yaml:"edges"`
+					} `yaml:"graph"`
+				} `yaml:"flowcraft"`
+			} `yaml:"spec"`
+		}
+		raw, err := os.ReadFile(filepath.Join("resources", "04-workflows", "11-flowcraft-murder-mystery.yaml"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := yaml.Unmarshal(raw, &resource); err != nil {
+			t.Fatal(err)
+		}
+		assertSolvedChatAuditEdge(t, resource.Spec.Flowcraft.Graph.Edges)
+	})
+
+	t.Run("workspace", func(t *testing.T) {
+		var workspace struct {
+			Workflow struct {
+				Flowcraft struct {
+					Graph struct {
+						Edges []workflowEdge `json:"edges"`
+					} `json:"graph"`
+				} `json:"flowcraft"`
+			} `json:"workflow"`
+		}
+		raw, err := os.ReadFile(filepath.Join("workspaces", "flowcraft-murder-mystery.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := json.Unmarshal(raw, &workspace); err != nil {
+			t.Fatal(err)
+		}
+		assertSolvedChatAuditEdge(t, workspace.Workflow.Flowcraft.Graph.Edges)
+	})
+}
+
 func TestWerewolfLifecycleToolNodesAreRemoved(t *testing.T) {
 	var resource struct {
 		Spec struct {
 			Flowcraft struct {
-				Agent struct {
-					Graph struct {
-						Nodes []workflowNodePublication `yaml:"nodes"`
-					} `yaml:"graph"`
-				} `yaml:"agent"`
-				Memory struct {
-					Extract struct {
-						Enabled bool   `yaml:"enabled"`
-						Model   string `yaml:"model"`
-					} `yaml:"extract"`
-				} `yaml:"memory"`
+				Graph struct {
+					Nodes []workflowNodePublication `yaml:"nodes"`
+				} `yaml:"graph"`
 			} `yaml:"flowcraft"`
 		} `yaml:"spec"`
 	}
@@ -199,25 +335,14 @@ func TestWerewolfLifecycleToolNodesAreRemoved(t *testing.T) {
 	if err := yaml.Unmarshal(resourceRaw, &resource); err != nil {
 		t.Fatal(err)
 	}
-	assertWerewolfLifecycleNodesRemoved(t, "resource", resource.Spec.Flowcraft.Agent.Graph.Nodes)
-	if !resource.Spec.Flowcraft.Memory.Extract.Enabled || resource.Spec.Flowcraft.Memory.Extract.Model != "llm" {
-		t.Fatalf("resource extraction = enabled %v model %q, want enabled with runtime alias llm", resource.Spec.Flowcraft.Memory.Extract.Enabled, resource.Spec.Flowcraft.Memory.Extract.Model)
-	}
+	assertWerewolfLifecycleNodesRemoved(t, "resource", resource.Spec.Flowcraft.Graph.Nodes)
 
 	var workspace struct {
 		Workflow struct {
 			Flowcraft struct {
-				Agent struct {
-					Graph struct {
-						Nodes []workflowNodePublication `json:"nodes"`
-					} `json:"graph"`
-				} `json:"agent"`
-				Memory struct {
-					Extract struct {
-						Enabled bool   `json:"enabled"`
-						Model   string `json:"model"`
-					} `json:"extract"`
-				} `json:"memory"`
+				Graph struct {
+					Nodes []workflowNodePublication `json:"nodes"`
+				} `json:"graph"`
 			} `json:"flowcraft"`
 		} `json:"workflow"`
 	}
@@ -228,10 +353,7 @@ func TestWerewolfLifecycleToolNodesAreRemoved(t *testing.T) {
 	if err := json.Unmarshal(workspaceRaw, &workspace); err != nil {
 		t.Fatal(err)
 	}
-	assertWerewolfLifecycleNodesRemoved(t, "workspace", workspace.Workflow.Flowcraft.Agent.Graph.Nodes)
-	if !workspace.Workflow.Flowcraft.Memory.Extract.Enabled || workspace.Workflow.Flowcraft.Memory.Extract.Model != "llm" {
-		t.Fatalf("workspace extraction = enabled %v model %q, want enabled with runtime alias llm", workspace.Workflow.Flowcraft.Memory.Extract.Enabled, workspace.Workflow.Flowcraft.Memory.Extract.Model)
-	}
+	assertWerewolfLifecycleNodesRemoved(t, "workspace", workspace.Workflow.Flowcraft.Graph.Nodes)
 }
 
 func assertWerewolfLifecycleNodesRemoved(t *testing.T, source string, nodes []workflowNodePublication) {

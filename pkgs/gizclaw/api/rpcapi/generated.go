@@ -1653,14 +1653,15 @@ type DoubaoRealtimeDuplexWorkspaceParameters struct {
 type DoubaoRealtimeDuplexWorkspaceParametersAgentType string
 
 type EinoWorkflowSpec struct {
-	Graph  map[string]any  `json:"graph"`
-	Limits *map[string]any `json:"limits,omitempty"`
-	Memory *map[string]any `json:"memory,omitempty"`
+	Conversation *map[string]any `json:"conversation,omitempty"`
+	Graph        map[string]any  `json:"graph"`
+	Limits       *map[string]any `json:"limits,omitempty"`
 }
 
 type EinoWorkspaceParameters struct {
-	AgentType EinoWorkspaceParametersAgentType `json:"agent_type"`
-	E2e       *bool                            `json:"e2e,omitempty"`
+	AgentType    EinoWorkspaceParametersAgentType `json:"agent_type"`
+	Conversation *FlowcraftConversationParameters `json:"conversation,omitempty"`
+	E2e          *bool                            `json:"e2e,omitempty"`
 }
 
 type EinoWorkspaceParametersAgentType string
@@ -3219,6 +3220,7 @@ type WorkflowSpec struct {
 	Driver               WorkflowDriver                    `json:"driver"`
 	Eino                 *EinoWorkflowSpec                 `json:"eino,omitempty"`
 	Flowcraft            *FlowcraftWorkflowSpec            `json:"flowcraft,omitempty"`
+	Memory               *string                           `json:"memory,omitempty"`
 	Pet                  *PetWorkflowSpec                  `json:"pet,omitempty"`
 	Toolkit              *ToolkitPolicy                    `json:"toolkit,omitempty"`
 }

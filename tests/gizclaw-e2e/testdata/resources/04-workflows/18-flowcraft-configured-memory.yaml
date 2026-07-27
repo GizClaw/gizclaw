@@ -5,43 +5,49 @@ metadata:
   name: flowcraft-configured-memory
 spec:
   driver: flowcraft
+  memory: default-memory
   flowcraft:
-    agent:
-      graph:
-        edges:
-        - from: answer
-          to: __end__
-        entry: answer
-        name: Configured Memory Assistant
-        nodes:
-        - config:
-            max_tokens: 2048
-            model: llm
-            system_prompt: |
-              你是一个简短、准确的中文语音助手。
-              相关长期记忆如下；如果为空就忽略：
-              ${board.recalled_memory}
-          id: answer
-          publish: true
-          type: llm
-      id: configured-memory
-      max_iterations: 4
+    graph:
+      edges:
+      - from: recall-memory
+        to: answer
+      - from: answer
+        to: observe-turn
+      - from: observe-turn
+        to: __end__
+      entry: recall-memory
       name: Configured Memory Assistant
+      nodes:
+      - id: recall-memory
+        type: memory_recall
+        config:
+          query:
+            text_from: input
+          output: recalled_memory
+          top_k: 5
+      - config:
+          max_tokens: 2048
+          model: llm
+          system_prompt: |
+            你是一个简短、准确的中文语音助手。
+            相关长期记忆如下；如果为空就忽略：
+            ${board.recalled_memory}
+        id: answer
+        publish: true
+        type: llm
+      - id: observe-turn
+        type: memory_observe
+        config:
+          observations:
+          - turns_from: conversation
+          - facts:
+            - text_from: input
+              attributes:
+                lane: owner-profile
+          wait_for_completion: true
+    max_iterations: 4
     conversation:
       starts: peer
-    memory:
-      enabled: true
-      recall:
-        enabled: true
-        profiles:
-          recalled_memory:
-            output: recalled_memory
-            query:
-              text: input
-            top_k: 5
-      write:
-        mode: sync
-        save_conversation: true
     voice_adapter:
       asr_model: asr
       default_voice: narrator

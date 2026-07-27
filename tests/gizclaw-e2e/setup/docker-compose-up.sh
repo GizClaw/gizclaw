@@ -384,14 +384,10 @@ export GIZCLAW_E2E_DOCKER_BASE_IMAGE="$base_image"
 docker_env="$(materialize_runtime_config)"
 echo "==> docker e2e env: $docker_env"
 echo "==> start Docker e2e stack project=$GIZCLAW_E2E_DOCKER_PROJECT server=$GIZCLAW_E2E_SERVER_ENDPOINT edge=$GIZCLAW_E2E_EDGE_ENDPOINT turn=$GIZCLAW_E2E_TURN_ENDPOINT relay=${GIZCLAW_E2E_TURN_RELAY_MIN_PORT}-${GIZCLAW_E2E_TURN_RELAY_MAX_PORT}"
-compose_profile_args=()
-if [[ "${GIZCLAW_E2E_MEMORY_STORES:-0}" == "1" ]]; then
-  compose_profile_args=(--profile memory)
-fi
 if [[ $# -gt 0 ]]; then
-  docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" -f "$compose_file" "${compose_profile_args[@]}" up "$@"
+  docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" -f "$compose_file" up "$@"
 else
-  docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" -f "$compose_file" "${compose_profile_args[@]}" up -d --build
+  docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" -f "$compose_file" up -d --build
 fi
 
 edge_tcp_port="$(docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" -f "$compose_file" port --protocol tcp edge 9821 | awk -F: '{print $NF}')"

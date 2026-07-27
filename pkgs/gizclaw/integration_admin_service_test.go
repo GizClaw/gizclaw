@@ -23,11 +23,7 @@ func TestIntegrationAdminServiceWorkflowLifecycle(t *testing.T) {
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {
-				"agent": {
-					"id": "assistant",
-					"name": "Assistant",
-					"graph": {"name":"Assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"updated"}}]}
-				}
+				"graph": {"name":"Assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"updated"}}]}
 			}
 		}
 	}`)
@@ -60,11 +56,7 @@ func TestIntegrationAdminServiceWorkflowLifecycle(t *testing.T) {
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {
-				"agent": {
-					"id": "assistant",
-					"name": "Updated Assistant",
-					"graph": {"name":"Assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"updated"}}]}
-				}
+				"graph": {"name":"Updated Assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"updated"}}]}
 			}
 		}
 	}`)
@@ -72,7 +64,7 @@ func TestIntegrationAdminServiceWorkflowLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PutWorkflow error: %v", err)
 	}
-	if updated.Spec.Flowcraft == nil || updated.Spec.Flowcraft.Agent.Name != "Updated Assistant" {
+	if updated.Spec.Flowcraft == nil || updated.Spec.Flowcraft.Graph.Name != "Updated Assistant" {
 		t.Fatalf("PutWorkflow spec = %#v", updated.Spec)
 	}
 
@@ -120,11 +112,7 @@ func TestIntegrationAdminServiceWorkspaceLifecycle(t *testing.T) {
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {
-				"agent": {
-					"id": "assistant",
-					"name": "Assistant",
-					"graph": {"name":"Assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"updated"}}]}
-				}
+				"graph": {"name":"Assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"updated"}}]}
 			}
 		}
 	}`)

@@ -32,7 +32,6 @@ services:
       GIZCLAW_E2E_TURN_USERNAME: ${GIZCLAW_E2E_TURN_USERNAME:?set by docker-compose-up.sh}
       GIZCLAW_E2E_TURN_CREDENTIAL: ${GIZCLAW_E2E_TURN_CREDENTIAL:?set by docker-compose-up.sh}
       GIZCLAW_E2E_SKIP_PROVIDER_SYNC: ${GIZCLAW_E2E_SKIP_PROVIDER_SYNC:-0}
-      GIZCLAW_E2E_MEMORY_STORES: ${GIZCLAW_E2E_MEMORY_STORES:-0}
     depends_on:
       mem0:
         condition: service_healthy

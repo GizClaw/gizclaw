@@ -323,11 +323,8 @@ func (h *PeerConn) initAgentHost() {
 		manager.Gameplay,
 		manager.FlowcraftHistory,
 		manager.FlowcraftState,
-		manager.FlowcraftMemoryObjects,
-		manager.FlowcraftMemory,
-		manager.FlowcraftMemoryKind,
-		manager.EinoMemory,
-		manager.EinoMemoryKind,
+		manager.MemoryRoot,
+		manager.MemoryStores,
 	)
 	h.agentHost = &agenthost.Service{
 		Host:           host,

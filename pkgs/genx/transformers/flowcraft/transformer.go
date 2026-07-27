@@ -31,6 +31,7 @@ type Agent struct {
 	history           *conversationHistory
 	initiativeMu      sync.Mutex
 	initiativeClaimed bool
+	asyncTasks        *taskOwner
 }
 
 // New validates Config and constructs a reusable Flowcraft Agent.
@@ -39,8 +40,10 @@ func New(source Config) (*Agent, error) {
 	if err != nil {
 		return nil, err
 	}
+	config.asyncTasks = newTaskOwner()
 	sdkAgent, graphEngine, err := buildRuntime(config)
 	if err != nil {
+		_ = config.asyncTasks.Close()
 		return nil, err
 	}
 	contextID := config.ContextID
@@ -53,7 +56,62 @@ func New(source Config) (*Agent, error) {
 		history: &conversationHistory{
 			store: config.History, agentID: config.ID, contextID: contextID, scope: config.HistoryScope,
 		},
+		asyncTasks: config.asyncTasks,
 	}, nil
+}
+
+// Close cancels and joins asynchronous Memory work owned by this generation.
+func (t *Agent) Close() error {
+	if t == nil || t.asyncTasks == nil {
+		return nil
+	}
+	return t.asyncTasks.Close()
+}
+
+type taskOwner struct {
+	ctx       context.Context
+	cancel    context.CancelCauseFunc
+	mu        sync.Mutex
+	closed    bool
+	tasks     sync.WaitGroup
+	closeOnce sync.Once
+}
+
+func newTaskOwner() *taskOwner {
+	ctx, cancel := context.WithCancelCause(context.Background())
+	return &taskOwner{ctx: ctx, cancel: cancel}
+}
+
+func (owner *taskOwner) Run(task func(context.Context)) bool {
+	if owner == nil || task == nil {
+		return false
+	}
+	owner.mu.Lock()
+	if owner.closed {
+		owner.mu.Unlock()
+		return false
+	}
+	owner.tasks.Add(1)
+	owner.mu.Unlock()
+	go func() {
+		defer owner.tasks.Done()
+		task(owner.ctx)
+	}()
+	return true
+}
+
+func (owner *taskOwner) Close() error {
+	if owner == nil {
+		return nil
+	}
+	owner.closeOnce.Do(func() {
+		owner.mu.Lock()
+		owner.closed = true
+		owner.cancel(io.EOF)
+		owner.mu.Unlock()
+		owner.tasks.Wait()
+	})
+	return nil
 }
 
 // Transform consumes a long-lived GenX stream. Each completed text BOS/EOS
@@ -539,6 +597,7 @@ func (r *turnRun) runGraph() (*flowagent.Result, error) {
 		}
 		board.SetChannel(engine.MainChannel, messages)
 		board.AppendChannelMessage(engine.MainChannel, req.Message)
+		board.SetVar("input", r.user)
 		for _, profile := range config.RecallProfiles {
 			queryText := profile.QueryText
 			if queryText == "" || queryText == "input" {
@@ -652,9 +711,12 @@ func (r *turnRun) finalize(ctx context.Context, delivered string, interrupted bo
 			// Observe. Drain that caller-owned work independently so a later turn can
 			// recall it without extending the current response lifecycle.
 			if processor, ok := config.Memory.(memory.AsyncOperationProcessor); ok {
-				go func(operationID string) {
-					_, _ = processor.ProcessAsync(context.WithoutCancel(ctx), memory.OperationRequest{Scope: config.MemoryScope, ID: operationID})
-				}(observed.Operation.ID)
+				operationID := observed.Operation.ID
+				if config.asyncTasks == nil || !config.asyncTasks.Run(func(taskContext context.Context) {
+					_, _ = processor.ProcessAsync(taskContext, memory.OperationRequest{Scope: config.MemoryScope, ID: operationID})
+				}) {
+					return fmt.Errorf("flowcraft: asynchronous Memory processor has no generation task owner")
+				}
 			}
 			return nil
 		}

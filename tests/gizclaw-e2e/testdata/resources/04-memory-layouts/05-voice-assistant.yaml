@@ -1,0 +1,37 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: MemoryLayout
+metadata:
+  name: voice-assistant-memory
+spec:
+  flowcraft:
+    extraction:
+      model: llm
+      mode: two_pass
+      schema_name: flowcraft_voice_memory
+      temperature: 0
+    bbh:
+      search_overfetch: 20
+      bleve:
+        analyzer: standard
+    lanes:
+    - name: conversation-memory
+      kind: note
+      description: Durable facts extracted from voice conversations.
+      extract: Store durable identity, preference, relationship, and long-term context facts.
+      recall: Use only when an Agent Graph explicitly recalls this lane.
+    graph_enabled: false
+    write:
+      mode: async_semantic
+      tier: general
+  mem0:
+    custom_instructions: Extract durable identity, preference, relationship, and long-term context facts from voice conversations.
+    custom_categories:
+      conversation-memory: Durable facts extracted from voice conversations.
+    multilingual: true
+    decay: false
+  volc_mem0:
+    strategies:
+    - name: conversation-memory
+      type: semantic
+      custom_instructions: Extract durable identity, preference, relationship, and long-term context facts from voice conversations.

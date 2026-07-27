@@ -146,6 +146,12 @@ export type WorkspaceList = {
     items: Array<Workspace>;
 };
 
+export type MemoryLayoutList = {
+    has_next: boolean;
+    next_cursor?: string | null;
+    items: Array<MemoryLayout>;
+};
+
 export type WorkflowList = {
     has_next: boolean;
     next_cursor?: string | null;
@@ -498,6 +504,13 @@ export type GeminiTenantResource = {
     spec: GeminiTenantSpec;
 };
 
+export type MemoryLayoutResource = {
+    apiVersion: ResourceApiVersion;
+    kind: 'MemoryLayout';
+    metadata: ResourceMetadata;
+    spec: MemoryLayoutSpec;
+};
+
 export type MiniMaxTenantResource = {
     apiVersion: ResourceApiVersion;
     kind: 'MiniMaxTenant';
@@ -600,6 +613,8 @@ export type Resource = ({
 } & BadgeDefResource) | ({
     kind: 'GameDefResource';
 } & GameDefResource) | ({
+    kind: 'MemoryLayoutResource';
+} & MemoryLayoutResource) | ({
     kind: 'RuntimeProfileResource';
 } & RuntimeProfileResource) | ({
     kind: 'RegistrationTokenResource';
@@ -615,7 +630,7 @@ export type ResourceApiVersion = 'gizclaw.admin/v1alpha1';
 /**
  * Declarative GizClaw resource kind.
  */
-export type ResourceKind = 'Credential' | 'Firmware' | 'Contact' | 'Friend' | 'FriendGroup' | 'FriendGroupInviteToken' | 'FriendGroupMember' | 'Model' | 'DashScopeTenant' | 'DeepSeekTenant' | 'GeminiTenant' | 'MiniMaxTenant' | 'OpenAITenant' | 'VolcTenant' | 'Voice' | 'Tool' | 'Workflow' | 'Workspace' | 'PetDef' | 'BadgeDef' | 'GameDef' | 'RuntimeProfile' | 'RegistrationToken' | 'ResourceList';
+export type ResourceKind = 'Credential' | 'Firmware' | 'Contact' | 'Friend' | 'FriendGroup' | 'FriendGroupInviteToken' | 'FriendGroupMember' | 'Model' | 'DashScopeTenant' | 'DeepSeekTenant' | 'GeminiTenant' | 'MiniMaxTenant' | 'OpenAITenant' | 'VolcTenant' | 'Voice' | 'Tool' | 'Workflow' | 'Workspace' | 'PetDef' | 'BadgeDef' | 'GameDef' | 'MemoryLayout' | 'RuntimeProfile' | 'RegistrationToken' | 'ResourceList';
 
 export type ResourceMetadata = {
     /**
@@ -1208,6 +1223,104 @@ export type Icon = {
     png?: string;
 };
 
+export type FlowcraftMemoryBbhPolicy = {
+    search_overfetch?: number;
+    bleve?: FlowcraftMemoryBlevePolicy;
+    hnsw?: FlowcraftMemoryHnswPolicy;
+};
+
+export type FlowcraftMemoryBlevePolicy = {
+    analyzer?: 'standard' | 'simple' | 'keyword' | 'whitespace' | 'gojieba';
+    gojieba?: FlowcraftMemoryGojiebaPolicy;
+};
+
+export type FlowcraftMemoryExtractionPolicy = {
+    /**
+     * Whether Flowcraft extracts Facts from raw observations. Defaults to true; direct Graph Facts remain writable when false.
+     */
+    enabled?: boolean;
+    model: string;
+    mode: 'single_pass' | 'two_pass';
+    system_prompt?: string;
+    schema_name?: string;
+    temperature?: number;
+    stage_timeout?: string;
+};
+
+export type FlowcraftMemoryGojiebaPolicy = {
+    mode?: 'search' | 'full' | 'accurate';
+    hmm?: boolean;
+    dict_path?: string;
+    hmm_path?: string;
+    user_dict_path?: string;
+    idf_path?: string;
+    stop_words_path?: string;
+};
+
+export type FlowcraftMemoryHnswPolicy = {
+    flush_interval?: string;
+};
+
+export type FlowcraftMemoryLanePolicy = {
+    name: string;
+    kind: 'event' | 'state' | 'preference' | 'procedure' | 'relation' | 'plan' | 'note' | 'episode';
+    description?: string;
+    extract?: string;
+    recall?: string;
+};
+
+export type FlowcraftMemoryLayoutPolicy = {
+    extraction: FlowcraftMemoryExtractionPolicy;
+    embedding?: FlowcraftMemoryModelPolicy;
+    rerank?: FlowcraftMemoryModelPolicy;
+    bbh: FlowcraftMemoryBbhPolicy;
+    lanes: Array<FlowcraftMemoryLanePolicy>;
+    graph_enabled?: boolean;
+    write: FlowcraftMemoryWritePolicy;
+};
+
+export type FlowcraftMemoryModelPolicy = {
+    model: string;
+};
+
+export type FlowcraftMemoryWritePolicy = {
+    mode: 'sync' | 'async_semantic';
+    tier: 'core' | 'general' | 'data' | 'storage';
+};
+
+export type Mem0MemoryLayoutPolicy = {
+    custom_instructions?: string;
+    custom_categories?: {
+        [key: string]: string;
+    };
+    multilingual?: boolean;
+    decay?: boolean;
+};
+
+export type MemoryLayout = {
+    /**
+     * Stable MemoryLayout resource ID.
+     */
+    name: string;
+    spec: MemoryLayoutSpec;
+};
+
+export type MemoryLayoutSpec = {
+    flowcraft: FlowcraftMemoryLayoutPolicy;
+    mem0: Mem0MemoryLayoutPolicy;
+    volc_mem0: VolcMem0MemoryLayoutPolicy;
+};
+
+export type VolcMem0MemoryLayoutPolicy = {
+    strategies: Array<VolcMem0Strategy>;
+};
+
+export type VolcMem0Strategy = {
+    name: string;
+    type: 'summary' | 'semantic' | 'user_preference';
+    custom_instructions?: string;
+};
+
 export type MiniMaxTenant = {
     name: string;
     app_id?: string;
@@ -1561,6 +1674,20 @@ export type RuntimeProfileCareDecaySpec = {
     mood: number;
 };
 
+export type RuntimeProfileFlowcraftBbhConnection = {
+    type: 'flowcraft_bbh';
+};
+
+export type RuntimeProfileFlowcraftObjectStoreConnection = {
+    type: 'flowcraft_object_store';
+    directory: string;
+};
+
+export type RuntimeProfileFlowcraftPostgreSqlConnection = {
+    type: 'flowcraft_postgresql';
+    dsn: string;
+};
+
 export type RuntimeProfileGameRewardSpec = {
     model: string;
     pet_exp_max: number;
@@ -1602,6 +1729,37 @@ export type RuntimeProfileLifeWeightsSpec = {
     hygiene: number;
     mood: number;
 };
+
+export type RuntimeProfileMem0Connection = {
+    type: 'mem0';
+    /**
+     * Deployment/control-plane identity paired with this API key. Mem0 data-plane requests authenticate with api_key and do not send project_id.
+     */
+    project_id: string;
+    endpoint: string;
+    api_key: string;
+    poll_interval?: string;
+};
+
+export type RuntimeProfileMemoryBinding = {
+    layout_id: string;
+    driver: RuntimeProfileMemoryDriver;
+    connection: RuntimeProfileMemoryConnection;
+};
+
+export type RuntimeProfileMemoryConnection = ({
+    type: 'flowcraft_bbh';
+} & RuntimeProfileFlowcraftBbhConnection) | ({
+    type: 'flowcraft_object_store';
+} & RuntimeProfileFlowcraftObjectStoreConnection) | ({
+    type: 'flowcraft_postgresql';
+} & RuntimeProfileFlowcraftPostgreSqlConnection) | ({
+    type: 'mem0';
+} & RuntimeProfileMem0Connection) | ({
+    type: 'volc_mem0';
+} & RuntimeProfileVolcMem0Connection);
+
+export type RuntimeProfileMemoryDriver = 'flowcraft' | 'mem0' | 'volc_mem0';
 
 export type RuntimeProfilePetActionSpec = {
     energy_cost: number;
@@ -1665,6 +1823,9 @@ export type RuntimeProfileResources = {
     badge_defs?: {
         [key: string]: RuntimeProfileBinding;
     };
+    memories?: {
+        [key: string]: RuntimeProfileMemoryBinding;
+    };
 };
 
 export type RuntimeProfileSpec = {
@@ -1686,6 +1847,17 @@ export type RuntimeProfileSystemWorkflows = {
      * Persisted Workflow resource ID for adopted Pet Workspaces.
      */
     pet: string;
+};
+
+export type RuntimeProfileVolcMem0Connection = {
+    type: 'volc_mem0';
+    /**
+     * Deployment/control-plane identity paired with this data-plane API key. Runtime fact requests authenticate with api_key and do not send memory_project_id.
+     */
+    memory_project_id: string;
+    endpoint: string;
+    api_key: string;
+    poll_interval?: string;
 };
 
 export type RuntimeProfileWorkflowCollections = {
@@ -2011,48 +2183,56 @@ export type Workflow = {
 export type PetWorkflowVariant = {
     driver: 'pet';
     toolkit?: ToolkitPolicy;
-    pet: ReusableWorkflowSpec;
+    memory?: WorkflowMemoryAlias;
+    pet: PetWorkflowSpec;
 };
 
 export type ReusableAstTranslateWorkflowVariant = {
     driver: 'ast-translate';
     toolkit?: ToolkitPolicy;
+    memory?: WorkflowMemoryAlias;
     ast_translate: AstTranslateWorkflowSpec;
 };
 
 export type ReusableChatroomWorkflowVariant = {
     driver: 'chatroom';
     toolkit?: ToolkitPolicy;
+    memory?: WorkflowMemoryAlias;
     chatroom: ChatRoomWorkflowSpec;
 };
 
 export type ReusableDashScopeRealtimeWorkflowVariant = {
     driver: 'dashscope-realtime';
     toolkit?: ToolkitPolicy;
+    memory?: WorkflowMemoryAlias;
     dashscope_realtime: DashScopeRealtimeWorkflowSpec;
 };
 
 export type ReusableDoubaoRealtimeDuplexWorkflowVariant = {
     driver: 'doubao-realtime-duplex';
     toolkit?: ToolkitPolicy;
+    memory?: WorkflowMemoryAlias;
     doubao_realtime_duplex: DoubaoRealtimeDuplexWorkflowSpec;
 };
 
 export type ReusableDoubaoRealtimeWorkflowVariant = {
     driver: 'doubao-realtime';
     toolkit?: ToolkitPolicy;
+    memory?: WorkflowMemoryAlias;
     doubao_realtime: DoubaoRealtimeWorkflowSpec;
 };
 
 export type ReusableEinoWorkflowVariant = {
     driver: 'eino';
     toolkit?: ToolkitPolicy;
+    memory?: WorkflowMemoryAlias;
     eino: EinoWorkflowSpec;
 };
 
 export type ReusableFlowcraftWorkflowVariant = {
     driver: 'flowcraft';
     toolkit?: ToolkitPolicy;
+    memory?: WorkflowMemoryAlias;
     flowcraft: FlowcraftWorkflowSpec;
 };
 
@@ -2060,6 +2240,11 @@ export type ReusableFlowcraftWorkflowVariant = {
  * Reusable non-Pet Workflow union used directly and below the Pet domain wrapper.
  */
 export type ReusableWorkflowSpec = ReusableFlowcraftWorkflowVariant | ReusableDoubaoRealtimeWorkflowVariant | ReusableDashScopeRealtimeWorkflowVariant | ReusableDoubaoRealtimeDuplexWorkflowVariant | ReusableEinoWorkflowVariant | ReusableAstTranslateWorkflowVariant | ReusableChatroomWorkflowVariant;
+
+/**
+ * RuntimeProfile resources.memories alias resolved for the Workspace.
+ */
+export type WorkflowMemoryAlias = string;
 
 /**
  * Workflow union: one reusable non-Pet variant or the Pet domain wrapper.
@@ -2331,6 +2516,10 @@ export type EinoChatModelNode = EinoNodeBase & {
     max_tokens?: number;
 };
 
+export type EinoConversation = {
+    starts?: 'peer' | 'agent';
+};
+
 export type EinoEdge = {
     from: string;
     to: string;
@@ -2362,11 +2551,6 @@ export type EinoLimits = {
     max_output_bytes?: number;
 };
 
-export type EinoMemory = {
-    recall?: Array<EinoMemoryRecall>;
-    observe?: EinoMemoryObserve;
-};
-
 export type EinoMemoryFact = {
     text_from: string;
     attributes?: {
@@ -2374,13 +2558,28 @@ export type EinoMemoryFact = {
     };
 };
 
-export type EinoMemoryObserve = {
-    enabled: boolean;
+export type EinoMemoryObserveNode = EinoNodeBase & {
+    id: string;
+    type: 'memory_observe';
+    inputs?: {
+        [key: string]: EinoBinding;
+    };
+    outputs?: {
+        [key: string]: string;
+    };
+    facts: Array<EinoMemoryFact>;
     wait_for_completion?: boolean;
-    facts?: Array<EinoMemoryFact>;
 };
 
-export type EinoMemoryRecall = {
+export type EinoMemoryRecallNode = EinoNodeBase & {
+    id: string;
+    type: 'memory_recall';
+    inputs?: {
+        [key: string]: EinoBinding;
+    };
+    outputs?: {
+        [key: string]: string;
+    };
     query_from: string;
     output: string;
     top_k: number;
@@ -2401,6 +2600,10 @@ export type EinoNode = ({
 } & EinoBatchNode) | ({
     type: 'passthrough';
 } & EinoPassthroughNode) | ({
+    type: 'memory_recall';
+} & EinoMemoryRecallNode) | ({
+    type: 'memory_observe';
+} & EinoMemoryObserveNode) | ({
     type: 'subgraph';
 } & EinoSubgraphNode);
 
@@ -2557,16 +2760,8 @@ export type EinoTransformNode = EinoNodeBase & {
 
 export type EinoWorkflowSpec = {
     graph: EinoGraph;
-    memory?: EinoMemory;
+    conversation?: EinoConversation;
     limits?: EinoLimits;
-};
-
-export type FlowcraftAgent = {
-    id: string;
-    name: string;
-    description?: string;
-    max_iterations?: number;
-    graph: FlowcraftGraph;
 };
 
 export type FlowcraftConversation = {
@@ -2607,39 +2802,11 @@ export type FlowcraftLlmNodeConfig = {
     track_steps?: boolean;
 };
 
-export type FlowcraftMemory = {
-    enabled: boolean;
-    extract?: FlowcraftMemoryExtract;
-    embedding?: FlowcraftMemoryEmbedding;
-    rerank?: FlowcraftMemoryRerank;
-    layout?: FlowcraftMemoryLayout;
-    recall?: FlowcraftMemoryRecall;
-    write?: FlowcraftMemoryWrite;
-};
-
-export type FlowcraftMemoryBoardFact = {
-    board_var: string;
-    kind?: string;
-    subject?: string;
-    predicate?: string;
-    object?: string;
-    entities?: Array<string>;
-    required_prefix?: string;
-};
-
-export type FlowcraftMemoryEmbedding = {
-    enabled?: boolean;
-    model?: string;
-};
-
-export type FlowcraftMemoryExtract = {
-    enabled?: boolean;
-    model?: string;
-    mode?: 'single_pass' | 'two_pass';
-    system_prompt?: string;
-    schema_name?: string;
-    temperature?: number;
-    stage_timeout?: string;
+export type FlowcraftMemoryFact = {
+    text_from: string;
+    attributes?: {
+        [key: string]: string;
+    };
 };
 
 export type FlowcraftMemoryFilter = {
@@ -2648,37 +2815,43 @@ export type FlowcraftMemoryFilter = {
     value: unknown;
 };
 
-export type FlowcraftMemoryLane = {
-    name: string;
-    kind: string;
-    description?: string;
-    extract?: string;
-    recall?: string;
+export type FlowcraftMemoryObservation = {
+    turns_from?: string;
+    text_from?: string;
+    facts?: Array<FlowcraftMemoryFact>;
 };
 
-export type FlowcraftMemoryLayout = {
-    lanes?: Array<FlowcraftMemoryLane>;
+export type FlowcraftMemoryObserveNode = {
+    id: string;
+    type: 'memory_observe';
+    publish?: boolean;
+    skip_condition?: string;
+    config: FlowcraftMemoryObserveNodeConfig;
 };
 
-export type FlowcraftMemoryRecall = {
-    enabled?: boolean;
-    graph_enabled?: boolean;
-    include_retired?: boolean;
-    profiles?: {
-        [key: string]: FlowcraftMemoryRecallProfile;
-    };
+export type FlowcraftMemoryObserveNodeConfig = {
+    observations: Array<FlowcraftMemoryObservation>;
+    wait_for_completion?: boolean;
 };
 
-export type FlowcraftMemoryRecallProfile = {
+export type FlowcraftMemoryRecallNode = {
+    id: string;
+    type: 'memory_recall';
+    publish?: boolean;
+    skip_condition?: string;
+    config: FlowcraftMemoryRecallNodeConfig;
+};
+
+export type FlowcraftMemoryRecallNodeConfig = {
+    query: FlowcraftMemoryRecallQuery;
     output: string;
-    query?: FlowcraftMemoryRecallQuery;
     render?: FlowcraftMemoryRecallRender;
     top_k: number;
 };
 
 export type FlowcraftMemoryRecallQuery = {
-    text?: string;
-    kinds?: Array<string>;
+    text_from: string;
+    kinds?: Array<'event' | 'state' | 'preference' | 'procedure' | 'relation' | 'plan' | 'note' | 'episode'>;
     lanes?: Array<string>;
     filters?: Array<FlowcraftMemoryFilter>;
 };
@@ -2689,25 +2862,17 @@ export type FlowcraftMemoryRecallRender = {
     max_items?: number;
 };
 
-export type FlowcraftMemoryRerank = {
-    enabled?: boolean;
-    model?: string;
-};
-
-export type FlowcraftMemoryWrite = {
-    mode?: 'sync' | 'async_semantic';
-    tier?: 'core' | 'general' | 'data' | 'storage';
-    save_conversation?: boolean;
-    board_facts?: Array<FlowcraftMemoryBoardFact>;
-};
-
 export type FlowcraftNode = ({
     type: 'llm';
 } & FlowcraftLlmNode) | ({
     type: 'script';
 } & FlowcraftScriptNode) | ({
     type: 'passthrough';
-} & FlowcraftPassthroughNode);
+} & FlowcraftPassthroughNode) | ({
+    type: 'memory_recall';
+} & FlowcraftMemoryRecallNode) | ({
+    type: 'memory_observe';
+} & FlowcraftMemoryObserveNode);
 
 export type FlowcraftNodeBase = {
     id: string;
@@ -2744,11 +2909,13 @@ export type FlowcraftVoiceAdapter = {
 };
 
 export type FlowcraftWorkflowSpec = {
-    agent: FlowcraftAgent;
+    graph: FlowcraftGraph;
+    max_iterations?: number;
     conversation?: FlowcraftConversation;
-    memory?: FlowcraftMemory;
     voice_adapter?: FlowcraftVoiceAdapter;
 };
+
+export type PetWorkflowSpec = ReusableWorkflowSpec & unknown;
 
 export type Workspace = {
     name: string;
@@ -2894,6 +3061,7 @@ export type DoubaoRealtimeWorkspaceParameters = {
 
 export type EinoWorkspaceParameters = {
     agent_type: 'eino';
+    conversation?: FlowcraftConversationParameters;
     e2e?: boolean;
 };
 
@@ -4067,6 +4235,73 @@ export type PutFriendGroupInviteTokenResponses = {
 };
 
 export type PutFriendGroupInviteTokenResponse = PutFriendGroupInviteTokenResponses[keyof PutFriendGroupInviteTokenResponses];
+
+export type ListMemoryLayoutsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Opaque cursor returned by the previous list response
+         */
+        cursor?: string;
+        /**
+         * Maximum number of items to return. Omitted or non-positive values use the default page size; values above 200 are clamped.
+         */
+        limit?: number;
+    };
+    url: '/memory-layouts';
+};
+
+export type ListMemoryLayoutsErrors = {
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type ListMemoryLayoutsError = ListMemoryLayoutsErrors[keyof ListMemoryLayoutsErrors];
+
+export type ListMemoryLayoutsResponses = {
+    /**
+     * MemoryLayout list
+     */
+    200: MemoryLayoutList;
+};
+
+export type ListMemoryLayoutsResponse = ListMemoryLayoutsResponses[keyof ListMemoryLayoutsResponses];
+
+export type CreateMemoryLayoutData = {
+    body: MemoryLayout;
+    path?: never;
+    query?: never;
+    url: '/memory-layouts';
+};
+
+export type CreateMemoryLayoutErrors = {
+    /**
+     * Invalid memory layout payload
+     */
+    400: ErrorResponse;
+    /**
+     * MemoryLayout already exists
+     */
+    409: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type CreateMemoryLayoutError = CreateMemoryLayoutErrors[keyof CreateMemoryLayoutErrors];
+
+export type CreateMemoryLayoutResponses = {
+    /**
+     * Created memory layout
+     */
+    200: MemoryLayout;
+};
+
+export type CreateMemoryLayoutResponse = CreateMemoryLayoutResponses[keyof CreateMemoryLayoutResponses];
 
 export type ListWorkflowsData = {
     body?: never;
@@ -6020,6 +6255,108 @@ export type PutVoiceResponses = {
 };
 
 export type PutVoiceResponse = PutVoiceResponses[keyof PutVoiceResponses];
+
+export type DeleteMemoryLayoutData = {
+    body?: never;
+    path: {
+        /**
+         * MemoryLayout name
+         */
+        name: string;
+    };
+    query?: never;
+    url: '/memory-layouts/{name}';
+};
+
+export type DeleteMemoryLayoutErrors = {
+    /**
+     * MemoryLayout not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type DeleteMemoryLayoutError = DeleteMemoryLayoutErrors[keyof DeleteMemoryLayoutErrors];
+
+export type DeleteMemoryLayoutResponses = {
+    /**
+     * Deleted memory layout
+     */
+    200: MemoryLayout;
+};
+
+export type DeleteMemoryLayoutResponse = DeleteMemoryLayoutResponses[keyof DeleteMemoryLayoutResponses];
+
+export type GetMemoryLayoutData = {
+    body?: never;
+    path: {
+        /**
+         * MemoryLayout name
+         */
+        name: string;
+    };
+    query?: never;
+    url: '/memory-layouts/{name}';
+};
+
+export type GetMemoryLayoutErrors = {
+    /**
+     * MemoryLayout not found
+     */
+    404: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type GetMemoryLayoutError = GetMemoryLayoutErrors[keyof GetMemoryLayoutErrors];
+
+export type GetMemoryLayoutResponses = {
+    /**
+     * MemoryLayout
+     */
+    200: MemoryLayout;
+};
+
+export type GetMemoryLayoutResponse = GetMemoryLayoutResponses[keyof GetMemoryLayoutResponses];
+
+export type PutMemoryLayoutData = {
+    body: MemoryLayout;
+    path: {
+        /**
+         * MemoryLayout name
+         */
+        name: string;
+    };
+    query?: never;
+    url: '/memory-layouts/{name}';
+};
+
+export type PutMemoryLayoutErrors = {
+    /**
+     * Invalid memory layout payload
+     */
+    400: ErrorResponse;
+    /**
+     * Internal error
+     */
+    500: ErrorResponse;
+};
+
+export type PutMemoryLayoutError = PutMemoryLayoutErrors[keyof PutMemoryLayoutErrors];
+
+export type PutMemoryLayoutResponses = {
+    /**
+     * Stored memory layout
+     */
+    200: MemoryLayout;
+};
+
+export type PutMemoryLayoutResponse = PutMemoryLayoutResponses[keyof PutMemoryLayoutResponses];
 
 export type DeleteWorkflowData = {
     body?: never;

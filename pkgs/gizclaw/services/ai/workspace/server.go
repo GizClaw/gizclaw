@@ -1338,33 +1338,16 @@ func ResolveFlowcraftModelReferences(workflow apitypes.Workflow, workspaceParame
 		return nil, invalidWorkspaceReference("flowcraft workflow config is required")
 	}
 	configured := *workflow.Spec.Flowcraft
-	references := make([]FlowcraftModelReference, 0, len(configured.Agent.Graph.Nodes)+3)
-	for index, raw := range configured.Agent.Graph.Nodes {
+	references := make([]FlowcraftModelReference, 0, len(configured.Graph.Nodes)+3)
+	for index, raw := range configured.Graph.Nodes {
 		if discriminator, _ := raw.Discriminator(); discriminator == "llm" {
 			node, err := raw.AsFlowcraftLLMNode()
 			if err != nil {
 				return nil, invalidWorkspaceReference("flowcraft graph node %d is invalid: %v", index, err)
 			}
 			references = append(references, FlowcraftModelReference{
-				Role: fmt.Sprintf("agent.graph.nodes[%d].config.model", index), ModelID: node.Config.Model, Kind: apitypes.ModelKindLlm,
+				Role: fmt.Sprintf("graph.nodes[%d].config.model", index), ModelID: node.Config.Model, Kind: apitypes.ModelKindLlm,
 			})
-		}
-	}
-	if configured.Memory != nil && configured.Memory.Enabled {
-		if configured.Memory.Extract != nil && (configured.Memory.Extract.Enabled == nil || *configured.Memory.Extract.Enabled) {
-			if alias := stringPointerValue(configured.Memory.Extract.Model); alias != "" {
-				references = append(references, FlowcraftModelReference{Role: "memory.extract.model", ModelID: alias, Kind: apitypes.ModelKindLlm})
-			}
-		}
-		if configured.Memory.Embedding != nil && configured.Memory.Embedding.Enabled != nil && *configured.Memory.Embedding.Enabled {
-			if alias := stringPointerValue(configured.Memory.Embedding.Model); alias != "" {
-				references = append(references, FlowcraftModelReference{Role: "memory.embedding.model", ModelID: alias, Kind: apitypes.ModelKindEmbedding})
-			}
-		}
-		if configured.Memory.Rerank != nil && configured.Memory.Rerank.Enabled != nil && *configured.Memory.Rerank.Enabled {
-			if alias := stringPointerValue(configured.Memory.Rerank.Model); alias != "" {
-				references = append(references, FlowcraftModelReference{Role: "memory.rerank.model", ModelID: alias, Kind: apitypes.ModelKindLlm})
-			}
 		}
 	}
 	if configured.VoiceAdapter != nil {

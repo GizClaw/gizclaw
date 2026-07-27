@@ -1,0 +1,43 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: MemoryLayout
+metadata:
+  name: werewolf-memory
+spec:
+  flowcraft:
+    extraction:
+      model: llm
+      mode: single_pass
+      system_prompt: Do not infer game state from conversation. The Graph writes authoritative game facts directly.
+      schema_name: werewolf_game_audit
+      temperature: 0
+    bbh: {search_overfetch: 20, bleve: {analyzer: standard}}
+    lanes:
+    - {name: game-progress, kind: state, description: Phase day alive seats and winner., extract: Do not extract; the Graph writes this lane., recall: Audit only; workspace game state controls routing.}
+    - {name: public-timeline, kind: event, description: Public speeches deaths nominations and votes., extract: Do not extract; the Graph writes this lane., recall: Inject as public recap for live speech context.}
+    - {name: seat-1-memory, kind: state, description: Seat 1 private continuity., extract: Do not extract; the Graph writes this lane., recall: Private audit only.}
+    - {name: seat-2-memory, kind: state, description: Seat 2 private continuity., extract: Do not extract; the Graph writes this lane., recall: Private audit only.}
+    - {name: seat-3-memory, kind: state, description: Seat 3 player continuity., extract: Do not extract; the Graph writes this lane., recall: Player continuity audit only.}
+    - {name: seat-4-memory, kind: state, description: Seat 4 private continuity., extract: Do not extract; the Graph writes this lane., recall: Private audit only.}
+    - {name: seat-5-memory, kind: state, description: Seat 5 private continuity., extract: Do not extract; the Graph writes this lane., recall: Private audit only.}
+    - {name: seat-6-memory, kind: state, description: Seat 6 private continuity., extract: Do not extract; the Graph writes this lane., recall: Private audit only.}
+    - {name: seat-7-memory, kind: state, description: Seat 7 private continuity., extract: Do not extract; the Graph writes this lane., recall: Private audit only.}
+    - {name: seat-8-memory, kind: state, description: Seat 8 private continuity., extract: Do not extract; the Graph writes this lane., recall: Private audit only.}
+    - {name: resolution-log, kind: event, description: Setup vote exile and final result audit., extract: Do not extract; the Graph writes this lane., recall: Audit only.}
+    graph_enabled: true
+    write: {mode: sync, tier: general}
+  mem0:
+    custom_instructions: Do not infer game state from conversation; accept only Graph-written werewolf game facts.
+    custom_categories:
+      game-progress: Game progress audit.
+      public-timeline: Public timeline.
+      seat-memory: Private per-seat continuity.
+      resolution-log: Resolution event audit.
+    multilingual: true
+    decay: false
+  volc_mem0:
+    strategies:
+    - {name: game-progress, type: summary, custom_instructions: Retain Graph-written game progress facts.}
+    - {name: public-timeline, type: semantic, custom_instructions: Retain Graph-written public timeline facts.}
+    - {name: seat-memory, type: summary, custom_instructions: Retain Graph-written private seat continuity facts.}
+    - {name: resolution-log, type: semantic, custom_instructions: Retain Graph-written resolution events.}

@@ -300,6 +300,8 @@ type adversarialMemoryStore struct {
 	observeErr    error
 }
 
+func (*adversarialMemoryStore) SupportsDirectFactObservation() bool { return true }
+
 func (store *adversarialMemoryStore) Observe(
 	context.Context,
 	memory.Observation,

@@ -10,11 +10,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
-	"time"
 
-	flowmemory "github.com/GizClaw/flowcraft/memory/recall"
-	flowmemorystore "github.com/GizClaw/flowcraft/memory/recall/store/workspace"
-	flowretrievalstore "github.com/GizClaw/flowcraft/memory/retrieval/workspace"
 	flowembedding "github.com/GizClaw/flowcraft/sdk/embedding"
 	flowgraph "github.com/GizClaw/flowcraft/sdk/graph"
 	flowllm "github.com/GizClaw/flowcraft/sdk/llm"
@@ -27,11 +23,11 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/memorystore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 	memoryflowcraft "github.com/GizClaw/gizclaw-go/pkgs/store/memory/flowcraft"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 	"github.com/openai/openai-go/option"
 )
 
@@ -40,14 +36,15 @@ const Type = "flowcraft"
 // Factory maps the public GizClaw Workflow plus AgentHost-owned dependencies
 // into the reusable GenX Flowcraft Transformer and Audio Dock.
 type Factory struct {
-	GenX          *peergenx.Service
-	GenXForOwner  func(context.Context, string) (*peergenx.Service, error)
-	History       logstore.MutableStore
-	State         kv.Store
-	MemoryObjects objectstore.ObjectStore
-	Memory        memory.Store
-	MemoryKind    string
-	MemoryLoader  memoryflowcraft.ModelLoader
+	GenX             *peergenx.Service
+	GenXForOwner     func(context.Context, string) (*peergenx.Service, error)
+	History          logstore.MutableStore
+	State            kv.Store
+	Memory           memory.Store
+	MemoryKind       string
+	MemoryLaneRecall map[string]string
+	MemoryStores     *memorystore.Registry
+	ServerRoot       string
 }
 
 // InputProvider supplies product-owned transient Board values.
@@ -62,6 +59,10 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 		return nil, fmt.Errorf("flowcraft: workspace name is required")
 	}
 	public := *spec.Workflow.Spec.Flowcraft
+	if spec.Memory != nil {
+		f.Memory = spec.Memory
+		f.MemoryKind = spec.MemoryKind
+	}
 	owner := stringValue(spec.Workspace.OwnerPublicKey)
 	initiativePolicy := ""
 	if owner != "" {
@@ -90,17 +91,49 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 			}
 		}
 	}
-	return f.newAgent(ctx, owner, workspaceName, public, spec.BoardInputs, initiativePolicy)
+	memoryCloser := spec.MemoryCloser
+	if spec.MemoryBinding != nil || spec.MemoryLayout != nil {
+		if spec.MemoryBinding == nil || spec.MemoryLayout == nil {
+			return nil, fmt.Errorf("flowcraft: incomplete runtime memory binding")
+		}
+		request := memorystore.Request{
+			WorkspaceName:   workspaceName,
+			ProfileName:     spec.MemoryProfileName,
+			ProfileRevision: spec.MemoryProfileRevision,
+			BindingName:     spec.MemoryName,
+			Layout:          *spec.MemoryLayout,
+			Binding:         *spec.MemoryBinding,
+			ModelLoader:     NewRuntimeMemoryLoader(f.GenX),
+			ServerRoot:      f.ServerRoot,
+		}
+		var result memorystore.Result
+		var err error
+		if f.MemoryStores != nil {
+			result, err = f.MemoryStores.Resolve(ctx, request)
+		} else {
+			result, err = memorystore.Build(ctx, request)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("flowcraft: construct workspace memory: %w", err)
+		}
+		f.Memory = result.Store
+		f.MemoryKind = result.Driver
+		memoryCloser = joinClosers(memoryCloser, result.Closer)
+	}
+	if f.Memory != nil && f.MemoryKind == string(apitypes.RuntimeProfileMemoryDriverFlowcraft) && spec.MemoryLayout != nil {
+		f.MemoryLaneRecall = flowcraftLaneRecall(spec.MemoryLayout.Spec.Flowcraft.Lanes)
+	}
+	return f.newAgent(ctx, owner, workspaceName, spec.Workflow.Name, public, spec.BoardInputs, initiativePolicy, memoryCloser)
 }
 
-func (f Factory) newAgent(ctx context.Context, owner, workspaceName string, public apitypes.FlowcraftWorkflowSpec, inputs InputProvider, initiativePolicy string) (agenthost.Agent, error) {
+func (f Factory) newAgent(ctx context.Context, owner, workspaceName, workflowName string, public apitypes.FlowcraftWorkflowSpec, inputs InputProvider, initiativePolicy string, memoryCloser io.Closer) (agenthost.Agent, error) {
 	if f.GenX == nil {
 		return nil, fmt.Errorf("flowcraft: peergenx service is required")
 	}
 	if err := public.Validate(); err != nil {
 		return nil, fmt.Errorf("flowcraft: invalid workflow config: %w", err)
 	}
-	graph, publishNodes, err := mapGraph(public.Agent.Graph)
+	graph, publishNodes, err := mapGraph(public.Graph)
 	if err != nil {
 		return nil, err
 	}
@@ -113,49 +146,37 @@ func (f Factory) newAgent(ctx context.Context, owner, workspaceName string, publ
 			return nil, fmt.Errorf("flowcraft: resolve model alias %q for node %q: %w", alias, node.ID, err)
 		}
 	}
-	agentID := strings.TrimSpace(public.Agent.Id)
-	if agentID == "" {
-		return nil, fmt.Errorf("flowcraft: agent.id is required")
-	}
+	agentID := workspaceName
 	scope := WorkspaceAgentScope(owner, workspaceName, agentID)
-	memoryScope := memory.Scope{AppID: strings.TrimSpace(workspaceName), AgentID: agentID}
+	memoryScope := memory.Scope{AppID: workspaceName}
 	config := genxflowcraft.Config{
-		ID: agentID, Name: strings.TrimSpace(public.Agent.Name), Graph: graph,
-		MaxIterations: intValue(public.Agent.MaxIterations), PublishNodes: publishNodes,
+		ID: agentID, Name: strings.TrimSpace(workflowName), Graph: graph,
+		MaxIterations: intValue(public.MaxIterations), PublishNodes: publishNodes,
 		Models: f.GenX.Generator(), History: f.History, HistoryScope: scope, ContextID: scope,
 		BoardInputs: genxflowcraftBoardInputs(inputs),
 	}
 	config.Initiative = mapInitiative(public.Conversation, initiativePolicy)
-	if public.Agent.Description != nil {
-		config.Description = *public.Agent.Description
-	}
 	if f.State != nil {
 		config.State = flowcraftStateStore(f.State, scope)
 	}
 
 	var owned []io.Closer
+	if memoryCloser != nil {
+		owned = append(owned, memoryCloser)
+	}
 	var agentMemory memory.Store
-	if public.Memory != nil && public.Memory.Enabled {
-		memoryBuild, err := f.BuildMemory(ctx, owner, workspaceName, agentID, *public.Memory)
-		if err != nil {
-			return nil, err
-		}
-		if memoryBuild.Closer != nil {
-			owned = append(owned, memoryBuild.Closer)
-		}
-		config.Memory = memoryBuild.Store
-		agentMemory = memoryBuild.Store
+	if f.Memory != nil {
+		config.Memory = f.Memory
+		agentMemory = f.Memory
 		config.MemoryScope = memoryScope
-		config.RecallProfiles = memoryBuild.RecallProfiles
-		config.ObserveEnabled = memoryBuild.ObserveEnabled
-		config.ObserveWaitForCompletion = memoryBuild.ObserveWaitForCompletion
-		config.ObservationBuilder = memoryBuild.ObservationBuilder
+		config.MemoryLaneRecall = maps.Clone(f.MemoryLaneRecall)
 	}
 
 	core, err := genxflowcraft.New(config)
 	if err != nil {
 		return nil, errors.Join(err, closeAll(owned))
 	}
+	owned = append(owned, core)
 	var transformer genx.Transformer = core
 	if public.VoiceAdapter != nil {
 		transformer, err = f.wrapAudio(core, *public.VoiceAdapter)
@@ -168,6 +189,18 @@ func (f Factory) newAgent(ctx context.Context, owner, workspaceName string, publ
 		backend = strings.TrimSpace(f.MemoryKind)
 	}
 	return NewManagedAgentWithBackend(transformer, owned, agentMemory, memoryScope, backend), nil
+}
+
+func flowcraftLaneRecall(lanes []apitypes.FlowcraftMemoryLanePolicy) map[string]string {
+	result := make(map[string]string)
+	for _, lane := range lanes {
+		name := strings.TrimSpace(lane.Name)
+		recall := stringValue(lane.Recall)
+		if name != "" && recall != "" {
+			result[name] = recall
+		}
+	}
+	return result
 }
 
 func mapInitiative(conversation *apitypes.FlowcraftConversation, policy string) genxflowcraft.InitiativePolicy {
@@ -190,7 +223,7 @@ func mapGraph(source apitypes.FlowcraftGraph) (flowgraph.GraphDefinition, []stri
 	for index, raw := range source.Nodes {
 		discriminator, err := raw.Discriminator()
 		if err != nil {
-			return flowgraph.GraphDefinition{}, nil, fmt.Errorf("flowcraft: agent.graph.nodes[%d].type: %w", index, err)
+			return flowgraph.GraphDefinition{}, nil, fmt.Errorf("flowcraft: graph.nodes[%d].type: %w", index, err)
 		}
 		var node flowgraph.NodeDefinition
 		switch discriminator {
@@ -221,15 +254,79 @@ func mapGraph(source apitypes.FlowcraftGraph) (flowgraph.GraphDefinition, []stri
 			if boolValue(typed.Publish) {
 				publish = append(publish, typed.Id)
 			}
+		case "memory_recall":
+			typed, err := raw.AsFlowcraftMemoryRecallNode()
+			if err != nil {
+				return flowgraph.GraphDefinition{}, nil, fmt.Errorf("flowcraft: decode memory recall node %d: %w", index, err)
+			}
+			node = flowgraph.NodeDefinition{ID: typed.Id, Type: "memory_recall", SkipCondition: stringValue(typed.SkipCondition), Config: memoryRecallNodeConfig(typed.Config)}
+			if boolValue(typed.Publish) {
+				publish = append(publish, typed.Id)
+			}
+		case "memory_observe":
+			typed, err := raw.AsFlowcraftMemoryObserveNode()
+			if err != nil {
+				return flowgraph.GraphDefinition{}, nil, fmt.Errorf("flowcraft: decode memory observe node %d: %w", index, err)
+			}
+			node = flowgraph.NodeDefinition{ID: typed.Id, Type: "memory_observe", SkipCondition: stringValue(typed.SkipCondition), Config: memoryObserveNodeConfig(typed.Config)}
+			if boolValue(typed.Publish) {
+				publish = append(publish, typed.Id)
+			}
 		default:
-			return flowgraph.GraphDefinition{}, nil, fmt.Errorf("flowcraft: unsupported agent.graph.nodes[%d].type %q", index, discriminator)
+			return flowgraph.GraphDefinition{}, nil, fmt.Errorf("flowcraft: unsupported graph.nodes[%d].type %q", index, discriminator)
 		}
 		graph.Nodes = append(graph.Nodes, node)
 	}
 	if len(publish) == 0 {
-		return flowgraph.GraphDefinition{}, nil, fmt.Errorf("flowcraft: agent.graph requires at least one publish node")
+		return flowgraph.GraphDefinition{}, nil, fmt.Errorf("flowcraft: graph requires at least one publish node")
 	}
 	return graph, publish, nil
+}
+
+func memoryRecallNodeConfig(source apitypes.FlowcraftMemoryRecallNodeConfig) map[string]any {
+	query := map[string]any{"text_from": source.Query.TextFrom}
+	if source.Query.Kinds != nil {
+		kinds := make([]string, 0, len(*source.Query.Kinds))
+		for _, kind := range *source.Query.Kinds {
+			kinds = append(kinds, string(kind))
+		}
+		query["kinds"] = kinds
+	}
+	if source.Query.Lanes != nil {
+		query["lanes"] = slices.Clone(*source.Query.Lanes)
+	}
+	if source.Query.Filters != nil {
+		query["filters"] = slices.Clone(*source.Query.Filters)
+	}
+	result := map[string]any{
+		"query":  query,
+		"output": source.Output,
+		"top_k":  source.TopK,
+	}
+	if source.Render != nil {
+		render := map[string]any{}
+		setString(render, "header", source.Render.Header)
+		setString(render, "item_prefix", source.Render.ItemPrefix)
+		setValue(render, "max_items", source.Render.MaxItems)
+		result["render"] = render
+	}
+	return result
+}
+
+func memoryObserveNodeConfig(source apitypes.FlowcraftMemoryObserveNodeConfig) map[string]any {
+	observations := make([]map[string]any, 0, len(source.Observations))
+	for _, observation := range source.Observations {
+		item := map[string]any{}
+		setString(item, "turns_from", observation.TurnsFrom)
+		setString(item, "text_from", observation.TextFrom)
+		if observation.Facts != nil {
+			item["facts"] = slices.Clone(*observation.Facts)
+		}
+		observations = append(observations, item)
+	}
+	result := map[string]any{"observations": observations}
+	setValue(result, "wait_for_completion", source.WaitForCompletion)
+	return result
 }
 
 func llmNodeConfig(source apitypes.FlowcraftLLMNodeConfig) map[string]any {
@@ -243,407 +340,6 @@ func llmNodeConfig(source apitypes.FlowcraftLLMNodeConfig) map[string]any {
 	setValue(result, "thinking", source.Thinking)
 	setValue(result, "track_steps", source.TrackSteps)
 	return result
-}
-
-// MemoryBuild is the product-owned Store assembly shared by Flowcraft-backed
-// workflow drivers. It never owns Graph execution or stream lifecycle.
-type MemoryBuild struct {
-	Store                    memory.Store
-	Closer                   io.Closer
-	RecallProfiles           []genxflowcraft.MemoryRecallProfile
-	ObserveEnabled           bool
-	ObserveWaitForCompletion bool
-	ObservationBuilder       genxflowcraft.ObservationBuilder
-}
-
-// BuildMemory maps public Flowcraft Memory configuration to the provider-neutral
-// Store used by a particular owner, Workspace, and Agent scope.
-func (f Factory) BuildMemory(ctx context.Context, owner, workspaceName, agentID string, public apitypes.FlowcraftMemory) (MemoryBuild, error) {
-	if f.Memory != nil {
-		if err := validateExternalMemoryConfig(public, f.MemoryKind); err != nil {
-			return MemoryBuild{}, fmt.Errorf("flowcraft: workspace %q memory: %w", workspaceName, err)
-		}
-		// Workspace names are globally unique resource IDs. Owner identity
-		// controls resource access, but it is deliberately not part of the
-		// provider-neutral Memory AppID contract.
-		store, err := memory.BindApp(f.Memory, workspaceName)
-		if err != nil {
-			return MemoryBuild{}, fmt.Errorf("flowcraft: workspace %q memory: %w", workspaceName, err)
-		}
-		return MemoryBuild{
-			Store: store, RecallProfiles: mapRecallProfiles(public),
-			ObserveEnabled:           memoryObserveEnabled(public),
-			ObserveWaitForCompletion: externalMemoryObserveWait(public),
-			ObservationBuilder:       observationBuilder(public.Write),
-		}, nil
-	}
-	if f.MemoryObjects == nil {
-		return MemoryBuild{}, fmt.Errorf("flowcraft: workspace %q memory requires a server object store", workspaceName)
-	}
-	workspace, err := newObjectWorkspace(f.MemoryObjects, memoryObjectPrefix(owner, workspaceName, agentID))
-	if err != nil {
-		return MemoryBuild{}, err
-	}
-	backend, err := flowmemorystore.New(workspace)
-	if err != nil {
-		return MemoryBuild{}, fmt.Errorf("flowcraft: workspace %q memory backend: %w", workspaceName, err)
-	}
-	retrievalIndex, err := flowretrievalstore.New(workspace)
-	if err != nil {
-		_ = backend.Close()
-		return MemoryBuild{}, fmt.Errorf("flowcraft: workspace %q retrieval index: %w", workspaceName, err)
-	}
-	loader := f.MemoryLoader
-	if loader == nil {
-		loader = runtimeMemoryLoader{service: f.GenX}
-	}
-	runtimeConfig, mapped, err := mapMemoryConfig(public, loader, backend, retrievalIndex)
-	if err != nil {
-		_ = retrievalIndex.Close()
-		_ = backend.Close()
-		return MemoryBuild{}, fmt.Errorf("flowcraft: workspace %q memory: %w", workspaceName, err)
-	}
-	store, err := memoryflowcraft.New(ctx, runtimeConfig)
-	if err != nil {
-		_ = retrievalIndex.Close()
-		_ = backend.Close()
-		return MemoryBuild{}, fmt.Errorf("flowcraft: workspace %q memory: %w", workspaceName, err)
-	}
-	// closeAll reverses this construction-order slice: Store first, then its
-	// retrieval and persistence dependencies.
-	return MemoryBuild{
-		Store: store, Closer: multiCloser{backend, retrievalIndex, store},
-		RecallProfiles: mapped.recallProfiles, ObserveEnabled: mapped.observe,
-		ObserveWaitForCompletion: mapped.observeWait, ObservationBuilder: mapped.observationBuilder,
-	}, nil
-}
-
-func validateExternalMemoryConfig(public apitypes.FlowcraftMemory, backend string) error {
-	switch {
-	case public.Extract != nil:
-		return fmt.Errorf("extract is only supported by embedded Flowcraft memory")
-	case public.Embedding != nil:
-		return fmt.Errorf("embedding is only supported by embedded Flowcraft memory")
-	case public.Rerank != nil:
-		return fmt.Errorf("rerank is only supported by embedded Flowcraft memory")
-	case public.Layout != nil:
-		return fmt.Errorf("layout is only supported by embedded Flowcraft memory")
-	case public.Recall != nil && public.Recall.GraphEnabled != nil:
-		return fmt.Errorf("recall.graph_enabled is only supported by embedded Flowcraft memory")
-	case public.Write != nil && public.Write.Tier != nil:
-		return fmt.Errorf("write.tier is only supported by embedded Flowcraft memory")
-	case public.Write != nil && len(valueOrZero(public.Write.BoardFacts)) > 0 &&
-		strings.TrimSpace(backend) != "flowcraft":
-		return fmt.Errorf("%s memory does not support write.board_facts", externalMemoryBackend(backend))
-	default:
-		return nil
-	}
-}
-
-func externalMemoryBackend(backend string) string {
-	if backend = strings.TrimSpace(backend); backend != "" {
-		return backend
-	}
-	return "configured external"
-}
-
-func externalMemoryObserveWait(public apitypes.FlowcraftMemory) bool {
-	if !memoryObserveEnabled(public) {
-		return false
-	}
-	return public.Write == nil || public.Write.Mode == nil || *public.Write.Mode != apitypes.FlowcraftMemoryWriteModeAsyncSemantic
-}
-
-// buildMemory retains the package-local test seam while callers outside this
-// package use the explicit MemoryBuild result.
-func (f Factory) buildMemory(ctx context.Context, owner, workspaceName, agentID string, public apitypes.FlowcraftMemory) (memory.Store, io.Closer, mappedMemoryConfig, error) {
-	built, err := f.BuildMemory(ctx, owner, workspaceName, agentID, public)
-	if err != nil {
-		return nil, nil, mappedMemoryConfig{}, err
-	}
-	return built.Store, built.Closer, mappedMemoryConfig{
-		recallProfiles: built.RecallProfiles, observe: built.ObserveEnabled,
-		observeWait: built.ObserveWaitForCompletion, observationBuilder: built.ObservationBuilder,
-	}, nil
-}
-
-// memoryObjectPrefix keeps the physical object key independent from public
-// workspace and Agent name lengths. Flowcraft adds its native scope to several
-// retrieval filenames, while filesystem-backed ObjectStores also derive
-// metadata filenames from the complete key. A short deterministic prefix keeps
-// those composed names below filesystem component limits without changing the
-// logical memory.Scope stored in facts.
-func memoryObjectPrefix(owner, workspaceName, agentID string) string {
-	digest := sha256.Sum256([]byte(strings.TrimSpace(owner) + "\x00" + strings.TrimSpace(workspaceName) + "\x00" + strings.TrimSpace(agentID)))
-	return fmt.Sprintf("fc/%x", digest[:16])
-}
-
-type mappedMemoryConfig struct {
-	recallProfiles     []genxflowcraft.MemoryRecallProfile
-	observe            bool
-	observeWait        bool
-	observationBuilder genxflowcraft.ObservationBuilder
-}
-
-func mapMemoryConfig(public apitypes.FlowcraftMemory, loader memoryflowcraft.ModelLoader, backend *flowmemorystore.Backend, retrievalIndex *flowretrievalstore.Index) (memoryflowcraft.Config, mappedMemoryConfig, error) {
-	config := memoryflowcraft.Config{
-		Loader: loader, RetrievalIndex: retrievalIndex, TemporalStore: backend.TemporalStore(), EvidenceStore: backend.EvidenceStore(), SideEffectOutbox: backend.SideEffectOutbox(),
-	}
-	if public.Extract != nil && boolDefault(public.Extract.Enabled, true) {
-		config.Extraction.Model = stringValue(public.Extract.Model)
-		config.Extraction.Mode = flowmemory.LLMExtractionMode(stringValue((*string)(public.Extract.Mode)))
-		config.Extraction.SystemPrompt = memoryExtractionPrompt(*public.Extract, public.Layout)
-		config.Extraction.SchemaName = stringValue(public.Extract.SchemaName)
-		if public.Extract.Temperature != nil {
-			value := float64(*public.Extract.Temperature)
-			config.Extraction.Temperature = &value
-		}
-		if value := stringValue(public.Extract.StageTimeout); value != "" {
-			duration, err := time.ParseDuration(value)
-			if err != nil {
-				return memoryflowcraft.Config{}, mappedMemoryConfig{}, fmt.Errorf("extract.stage_timeout: %w", err)
-			}
-			config.Extraction.StageTimeout = duration
-		}
-	}
-	if public.Embedding != nil && boolValue(public.Embedding.Enabled) {
-		config.Embedding.Model = stringValue(public.Embedding.Model)
-		if config.Embedding.Model == "" {
-			return memoryflowcraft.Config{}, mappedMemoryConfig{}, fmt.Errorf("embedding.model is required when embedding is enabled")
-		}
-	}
-	if public.Rerank != nil && boolValue(public.Rerank.Enabled) {
-		config.Rerank.Model = stringValue(public.Rerank.Model)
-		if config.Rerank.Model == "" {
-			return memoryflowcraft.Config{}, mappedMemoryConfig{}, fmt.Errorf("rerank.model is required when rerank is enabled")
-		}
-	}
-	if public.Recall != nil {
-		config.GraphEnabled = boolValue(public.Recall.GraphEnabled)
-	}
-	writeMode := "sync"
-	if public.Write != nil && public.Write.Mode != nil {
-		writeMode = string(*public.Write.Mode)
-	}
-	if public.Write != nil {
-		if public.Write.Tier != nil {
-			config.Tier = string(*public.Write.Tier)
-		}
-	}
-	if writeMode == "async_semantic" && config.Extraction.Model != "" {
-		config.AsyncQueue = backend.AsyncSemanticQueue()
-	}
-	observe := memoryObserveEnabled(public)
-	mapped := mappedMemoryConfig{
-		recallProfiles: mapRecallProfiles(public),
-		observe:        observe,
-		observeWait:    observe && writeMode == "sync",
-	}
-	mapped.observationBuilder = observationBuilder(public.Write)
-	return config, mapped, nil
-}
-
-func mapRecallProfiles(public apitypes.FlowcraftMemory) []genxflowcraft.MemoryRecallProfile {
-	if public.Recall == nil || !boolDefault(public.Recall.Enabled, true) || public.Recall.Profiles == nil {
-		return nil
-	}
-	laneKinds := make(map[string]string)
-	laneRecall := make(map[string]string)
-	if public.Layout != nil && public.Layout.Lanes != nil {
-		for _, lane := range *public.Layout.Lanes {
-			laneKinds[lane.Name] = lane.Kind
-			laneRecall[lane.Name] = stringValue(lane.Recall)
-		}
-	}
-	names := make([]string, 0, len(*public.Recall.Profiles))
-	for name := range *public.Recall.Profiles {
-		names = append(names, name)
-	}
-	slices.Sort(names)
-	result := make([]genxflowcraft.MemoryRecallProfile, 0, len(names))
-	for _, name := range names {
-		profile := (*public.Recall.Profiles)[name]
-		filters := make([]memory.Filter, 0)
-		if profile.Query != nil {
-			for _, kind := range valueOrZero(profile.Query.Kinds) {
-				filters = append(filters, memory.Filter{Field: "kind", Operator: memory.FilterEqual, Value: kind})
-			}
-			for _, lane := range valueOrZero(profile.Query.Lanes) {
-				if kind := laneKinds[lane]; kind != "" {
-					filters = append(filters, memory.Filter{Field: "kind", Operator: memory.FilterEqual, Value: kind})
-				}
-			}
-			for _, filter := range valueOrZero(profile.Query.Filters) {
-				operator := memory.FilterEqual
-				if filter.Operator != nil {
-					operator = memory.FilterOperator(*filter.Operator)
-				}
-				filters = append(filters, memory.Filter{Field: filter.Field, Operator: operator, Value: filter.Value})
-			}
-		}
-		if boolValue(public.Recall.IncludeRetired) {
-			filters = append(filters, memory.Filter{Field: "include_retired", Operator: memory.FilterEqual, Value: true})
-		}
-		result = append(result, genxflowcraft.MemoryRecallProfile{
-			BoardVariable: profile.Output, QueryText: recallQueryText(profile.Query), Limit: profile.TopK, Filters: filters, Renderer: recallRenderer(profile.Render, recallGuidance(profile.Query, laneRecall)),
-		})
-	}
-	return result
-}
-
-func recallQueryText(query *apitypes.FlowcraftMemoryRecallQuery) string {
-	if query == nil {
-		return ""
-	}
-	return stringValue(query.Text)
-}
-
-func recallGuidance(query *apitypes.FlowcraftMemoryRecallQuery, lanes map[string]string) []string {
-	if query == nil {
-		return nil
-	}
-	var guidance []string
-	for _, lane := range valueOrZero(query.Lanes) {
-		if text := strings.TrimSpace(lanes[lane]); text != "" {
-			guidance = append(guidance, text)
-		}
-	}
-	return guidance
-}
-
-func recallRenderer(config *apitypes.FlowcraftMemoryRecallRender, guidance []string) genxflowcraft.RecallRenderer {
-	if config == nil && len(guidance) == 0 {
-		return nil
-	}
-	var header, prefix string
-	var maxItems int
-	if config != nil {
-		header = stringValue(config.Header)
-		prefix = stringValue(config.ItemPrefix)
-		maxItems = intValue(config.MaxItems)
-	}
-	if prefix == "" {
-		prefix = "- "
-	}
-	return func(_ context.Context, matches []memory.Match) (string, error) {
-		if maxItems > 0 && len(matches) > maxItems {
-			matches = matches[:maxItems]
-		}
-		var lines []string
-		for _, match := range matches {
-			if text := strings.TrimSpace(match.Fact.Text); text != "" {
-				lines = append(lines, prefix+text)
-			}
-		}
-		if len(lines) == 0 {
-			return "", nil
-		}
-		if header != "" {
-			lines = append([]string{header}, lines...)
-		}
-		if len(guidance) != 0 {
-			lines = append([]string{"Recall policy:", strings.Join(guidance, "\n")}, lines...)
-		}
-		return strings.Join(lines, "\n"), nil
-	}
-}
-
-func memoryObserveEnabled(public apitypes.FlowcraftMemory) bool {
-	if public.Write == nil {
-		return false
-	}
-	return boolValue(public.Write.SaveConversation) || len(valueOrZero(public.Write.BoardFacts)) > 0
-}
-
-func observationBuilder(write *apitypes.FlowcraftMemoryWrite) genxflowcraft.ObservationBuilder {
-	return func(ctx context.Context, input genxflowcraft.ObservationInput) (memory.Observation, error) {
-		observation := memory.Observation{ID: input.StreamID}
-		if write != nil && boolValue(write.SaveConversation) {
-			var err error
-			observation, err = genxflowcraft.DefaultObservationBuilder(ctx, input)
-			if err != nil {
-				return memory.Observation{}, err
-			}
-		}
-		if write == nil || write.BoardFacts == nil {
-			return observation, nil
-		}
-		for _, fact := range *write.BoardFacts {
-			value, ok := input.BoardVariables[fact.BoardVar]
-			if !ok {
-				continue
-			}
-			text := boardFactText(value)
-			if text == "" {
-				continue
-			}
-			if required := strings.TrimSpace(stringValue(fact.RequiredPrefix)); required != "" {
-				index := strings.Index(text, required)
-				if index < 0 {
-					continue
-				}
-				text = strings.TrimSpace(text[index:])
-			}
-			attributes := make(map[string]any)
-			if kind := strings.TrimSpace(stringValue(fact.Kind)); kind != "" {
-				attributes["kind"] = kind
-			}
-			if subject := strings.TrimSpace(stringValue(fact.Subject)); subject != "" {
-				attributes["subject"] = subject
-			}
-			if predicate := strings.TrimSpace(stringValue(fact.Predicate)); predicate != "" {
-				attributes["predicate"] = predicate
-			}
-			if object := strings.TrimSpace(stringValue(fact.Object)); object != "" {
-				attributes["object"] = object
-			}
-			if fact.Entities != nil {
-				entities := nonEmptyStrings(*fact.Entities)
-				if len(entities) > 0 {
-					attributes["entities"] = entities
-				}
-			}
-			observation.Facts = append(observation.Facts, memory.FactCandidate{Text: text, Attributes: attributes})
-		}
-		return observation, nil
-	}
-}
-
-func boardFactText(value any) string {
-	switch typed := value.(type) {
-	case string:
-		return strings.TrimSpace(typed)
-	case fmt.Stringer:
-		return strings.TrimSpace(typed.String())
-	default:
-		return ""
-	}
-}
-
-func nonEmptyStrings(values []string) []string {
-	result := make([]string, 0, len(values))
-	for _, value := range values {
-		if value = strings.TrimSpace(value); value != "" {
-			result = append(result, value)
-		}
-	}
-	return result
-}
-
-func memoryExtractionPrompt(extract apitypes.FlowcraftMemoryExtract, layout *apitypes.FlowcraftMemoryLayout) string {
-	prompt := stringValue(extract.SystemPrompt)
-	if layout == nil || layout.Lanes == nil || len(*layout.Lanes) == 0 {
-		return prompt
-	}
-	var lines []string
-	for _, lane := range *layout.Lanes {
-		line := fmt.Sprintf("- %s (kind=%s): %s", lane.Name, lane.Kind, stringValue(lane.Description))
-		if instruction := stringValue(lane.Extract); instruction != "" {
-			line += " " + instruction
-		}
-		lines = append(lines, strings.TrimSpace(line))
-	}
-	return strings.TrimSpace(prompt + "\n\nMemory lanes:\n" + strings.Join(lines, "\n"))
 }
 
 func (f Factory) wrapAudio(core genx.Transformer, voice apitypes.FlowcraftVoiceAdapter) (genx.Transformer, error) {
@@ -679,6 +375,12 @@ func (t patternTransformer) Transform(ctx context.Context, input genx.Stream) (g
 }
 
 type runtimeMemoryLoader struct{ service *peergenx.Service }
+
+// NewRuntimeMemoryLoader resolves Flowcraft extraction and embedding aliases
+// through the immutable RuntimeProfile-backed GenX service for one generation.
+func NewRuntimeMemoryLoader(service *peergenx.Service) memoryflowcraft.ModelLoader {
+	return runtimeMemoryLoader{service: service}
+}
 
 func (l runtimeMemoryLoader) LoadLLM(_ context.Context, alias string) (flowllm.LLM, error) {
 	if l.service == nil {
@@ -910,6 +612,23 @@ func valueOrZero[T any](value *T) T {
 	}
 	return *value
 }
+
+func joinClosers(closers ...io.Closer) io.Closer {
+	var filtered []io.Closer
+	for _, closer := range closers {
+		if closer != nil {
+			filtered = append(filtered, closer)
+		}
+	}
+	if len(filtered) == 0 {
+		return nil
+	}
+	return closerList(filtered)
+}
+
+type closerList []io.Closer
+
+func (closers closerList) Close() error { return closeAll(closers) }
 
 func setString(target map[string]any, key string, value *string) {
 	if value != nil {
