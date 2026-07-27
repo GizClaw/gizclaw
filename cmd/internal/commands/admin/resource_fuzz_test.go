@@ -36,8 +36,8 @@ func FuzzDecodeResourceData(f *testing.F) {
 		if _, err := json.Marshal(resource); err != nil {
 			t.Fatalf("json.Marshal(decoded resource) error = %v", err)
 		}
-		if err := validateResourceKind(resource); err != nil {
-			t.Fatalf("decoded resource failed kind validation: %v", err)
+		if _, err := resource.ValueByDiscriminator(); err != nil {
+			t.Fatalf("decoded resource failed discriminator decoding: %v", err)
 		}
 	})
 }

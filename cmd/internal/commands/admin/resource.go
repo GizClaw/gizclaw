@@ -224,28 +224,39 @@ func resourceFileFormat(path string) string {
 }
 
 func decodeJSONResource(data []byte) (apitypes.Resource, error) {
-	var resource apitypes.Resource
-	if err := json.Unmarshal(data, &resource); err != nil {
+	data, err := normalizeResourceKind(data)
+	if err != nil {
 		return apitypes.Resource{}, err
 	}
-	if err := validateResourceKind(resource); err != nil {
+	var resource apitypes.Resource
+	if err := json.Unmarshal(data, &resource); err != nil {
 		return apitypes.Resource{}, err
 	}
 	return resource, nil
 }
 
-func validateResourceKind(resource apitypes.Resource) error {
-	kind, err := resource.Discriminator()
-	if err != nil {
-		return err
+func normalizeResourceKind(data []byte) ([]byte, error) {
+	var envelope map[string]json.RawMessage
+	if err := json.Unmarshal(data, &envelope); err != nil {
+		return nil, err
 	}
+	var kind string
+	if err := json.Unmarshal(envelope["kind"], &kind); err != nil {
+		return nil, err
+	}
+
 	if apitypes.ResourceKind(kind).Valid() {
-		return nil
+		return data, nil
 	}
 	if alias, ok := strings.CutSuffix(kind, "Resource"); ok && apitypes.ResourceKind(alias).Valid() {
-		return nil
+		normalized, err := json.Marshal(alias)
+		if err != nil {
+			return nil, err
+		}
+		envelope["kind"] = normalized
+		return json.Marshal(envelope)
 	}
-	return fmt.Errorf("unknown resource kind %q", kind)
+	return nil, fmt.Errorf("unknown resource kind %q", kind)
 }
 
 func decodeYAMLResource(data []byte) (apitypes.Resource, error) {
