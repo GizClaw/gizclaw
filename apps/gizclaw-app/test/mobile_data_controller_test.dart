@@ -1238,6 +1238,7 @@ void main() {
   });
 
   test('resumes realtime input after activating its workspace', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
     final database = AppDatabase.forTesting(NativeDatabase.memory());
     final client = _WorkspaceActivationClient()
       ..workspaces['workspace-realtime'] = Workspace(
@@ -1254,7 +1255,7 @@ void main() {
       client: client,
       serverId: 'server-a',
     );
-    final controller = MobileDataController(
+    final controller = _VoiceWorkspaceActivationController(
       database: database,
       connectionController: connection,
     )..connectionState = MobileConnectionState.connected;
@@ -2122,6 +2123,16 @@ class _WorkspaceActivationClient extends _RunWorkspaceClient {
   }) async => WorkspaceHistoryListResponse(
     value: PeerRunHistoryListResponse(available: true),
   );
+}
+
+class _VoiceWorkspaceActivationController extends MobileDataController {
+  _VoiceWorkspaceActivationController({
+    required super.database,
+    required super.connectionController,
+  });
+
+  @override
+  Future<void> refresh({GizClawClient? client, String? serverId}) async {}
 }
 
 class _VoiceWorkspaceActivationConnection extends _RefreshTestConnection {
