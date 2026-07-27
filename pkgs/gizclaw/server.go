@@ -279,7 +279,6 @@ func (s *Server) Close() error {
 	}
 	if s.manager != nil && s.manager.MemoryStores != nil {
 		errs = append(errs, s.manager.MemoryStores.Close())
-		s.manager.MemoryStores = nil
 	}
 	return errors.Join(errs...)
 }
