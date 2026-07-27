@@ -1,7 +1,7 @@
 apps/wails/internal/endpointhealth/prober.go:67:5: if statement can be modernized using max
 apps/wails/internal/endpointhealth/prober.go:74:3: copying variable is unneeded
 apps/wails/internal/endpointhealth/prober.go:76:3: Goroutine creation can be simplified using WaitGroup.Go
-cmd/internal/commands/admin/resource.go:368:6: for loop can be modernized using range over int
+cmd/internal/commands/admin/resource.go:379:6: for loop can be modernized using range over int
 cmd/internal/commands/connect/command.go:995:6: stringPtr can be an inlinable wrapper around new(expr)
 cmd/internal/connection/connection.go:100:6: for loop can be modernized using range over int
 cmd/internal/server/tcp_mux.go:32:2: Goroutine creation can be simplified using WaitGroup.Go
