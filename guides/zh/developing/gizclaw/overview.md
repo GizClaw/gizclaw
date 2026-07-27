@@ -55,6 +55,7 @@ pkgs/gizclaw/
 | `ServiceAdminHTTP` | `0x10` | 资源管理与运维 HTTP API | active `admin` Peer |
 | `ServiceEdgeHTTP` | `0x30` | Edge 向权威 Server 转发 public API 请求 | active `edge-node` Peer |
 | `ServiceEdgeRPC` | `0x31` | Edge 查询 Peer、分配 Peer 与解析路由 | active `edge-node` Peer |
+| `ServiceEdgeTunnel` | `0x32` | Edge 向权威 Server 承载 delegated logical Peer connection | active `edge-node` Peer；逻辑连接重新按 client identity 授权 |
 
 ```mermaid
 classDiagram
@@ -83,6 +84,7 @@ classDiagram
         role edge-node
         +ServiceEdgeHTTP 0x30
         +ServiceEdgeRPC 0x31
+        +ServiceEdgeTunnel 0x32
     }
 
     AnyConnectionIdentity <|-- Client : 登记后
@@ -101,6 +103,7 @@ classDiagram
 - **Admin HTTP**：为具有 active `admin` role 的 Peer 提供资源管理 surface。它覆盖 RuntimeProfile、RegistrationToken、workflow、firmware、credential、model、gameplay、AI tenant、workspace、Peer 与 social resource；各领域入口见 [Peer Services](./peer/service/overview)。
 - **Edge HTTP**：Edge 使用 incoming token 的 Peer identity，把 browser/device public API 请求转发到权威 Server；它不是 Admin surface。
 - **Edge RPC**：只提供 `server.peer.lookup`、`server.peer.assign` 和 `server.route.resolve` 三个 edge-node control method；实现边界见 [Edge RPC](./rpc/edge)。
+- **Edge Tunnel**：物理 active `edge-node` 只能提交指向当前 Server、30 秒内有效且不可重放的 delegated identity。Server 校验后创建以 client public key 为 identity 的逻辑 Peer connection；后续 RPC、HTTP、event、packet 和 media 均复用正常 Peer lifecycle 与权限判断，不能继承 Edge 的 role。
 
 ### Event 与 Media 不属于 Service
 

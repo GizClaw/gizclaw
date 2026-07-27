@@ -9,6 +9,10 @@ const (
 
 	// ProtocolOpusPacket identifies raw Opus direct packets.
 	ProtocolOpusPacket byte = 0x10
+
+	// ProtocolTunnelPacket identifies session-tagged, loss-tolerant packets
+	// carried between tunnel endpoints.
+	ProtocolTunnelPacket byte = 0x11
 )
 
 // Direct packet protocol byte registry:

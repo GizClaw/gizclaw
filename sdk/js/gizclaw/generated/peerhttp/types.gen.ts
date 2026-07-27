@@ -205,6 +205,14 @@ export type ServerInfo = {
         username?: string;
         credential?: string;
     }>;
+    transport?: ServerInfoTransport;
+};
+
+export type ServerInfoTransport = {
+    mode: 'edge-gateway';
+    endpoint: string;
+    public_key: string;
+    signaling_path: string;
 };
 
 export type LoginData = {

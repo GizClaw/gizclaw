@@ -11,6 +11,7 @@ ice-servers:
     credential-mode: turn-rest
 edge-nodes:
   - FNSseo3ePDEyJR27qEbDCSKBX4baMg826xXcanV4Huqs
+  - AGWoo4whCSdu2CkNt7WXXMpuoqyu1Mikdop8SzFQtBWw
 admin-public-key: "6Ww6ANsXDCf91Yp7Tvi65hqpywjMmXqAoZDiq33kfCee"
 system_log:
   level: info

@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/goccy/go-yaml"
@@ -27,6 +28,7 @@ type Config struct {
 	Upstream UpstreamConfig
 	TLS      TLSConfig
 	TURN     TURNConfig
+	Gateway  GatewayConfig
 }
 
 type IdentityConfig struct {
@@ -53,6 +55,21 @@ type TURNConfig struct {
 	RelayMaxPort   uint16 `yaml:"relay-max-port"`
 }
 
+type GatewayConfig struct {
+	Enabled                   bool          `yaml:"enabled"`
+	ICEUDPListen              string        `yaml:"ice-udp-listen"`
+	PublicICEUDP              string        `yaml:"public-ice-udp"`
+	MaxSessions               int           `yaml:"max-sessions"`
+	MaxUpstreams              int           `yaml:"max-upstreams"`
+	SessionsPerUpstream       int           `yaml:"sessions-per-upstream"`
+	StreamsPerUpstream        int           `yaml:"streams-per-upstream"`
+	MaxPendingHandshakes      int           `yaml:"max-pending-handshakes"`
+	SessionBufferBytes        int64         `yaml:"session-buffer-bytes"`
+	DelegatedEnvelopeValidity time.Duration `yaml:"delegated-envelope-validity"`
+	IdleTimeout               time.Duration `yaml:"idle-timeout"`
+	DrainTimeout              time.Duration `yaml:"drain-timeout"`
+}
+
 type ConfigFile struct {
 	Identity IdentityConfig `yaml:"identity"`
 	Listen   string         `yaml:"listen"`
@@ -60,6 +77,7 @@ type ConfigFile struct {
 	Upstream UpstreamConfig `yaml:"upstream"`
 	TLS      TLSConfig      `yaml:"tls"`
 	TURN     TURNConfig     `yaml:"turn"`
+	Gateway  GatewayConfig  `yaml:"gateway"`
 }
 
 func LoadConfig(path string) (ConfigFile, error) {
@@ -88,6 +106,22 @@ func DefaultConfig() Config {
 		TLS: TLSConfig{
 			CertSource: TLSCertSourceDisabled,
 		},
+		Gateway: defaultGatewayConfig(),
+	}
+}
+
+func defaultGatewayConfig() GatewayConfig {
+	return GatewayConfig{
+		ICEUDPListen:              "0.0.0.0:9821",
+		MaxSessions:               30000,
+		MaxUpstreams:              16,
+		SessionsPerUpstream:       2048,
+		StreamsPerUpstream:        8192,
+		MaxPendingHandshakes:      64,
+		SessionBufferBytes:        1 << 20,
+		DelegatedEnvelopeValidity: 30 * time.Second,
+		IdleTimeout:               5 * time.Minute,
+		DrainTimeout:              30 * time.Second,
 	}
 }
 
@@ -118,6 +152,7 @@ func prepareConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 	if cfg.TURN.Listen == "" {
 		cfg.TURN = fileCfg.TURN
 	}
+	cfg.Gateway = mergeGatewayConfig(cfg.Gateway, fileCfg.Gateway)
 	if cfg.TLS.CertSource == "" {
 		cfg.TLS.CertSource = TLSCertSourceDisabled
 	}
@@ -135,6 +170,7 @@ func prepareConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 	if cfg.Endpoint == "" {
 		cfg.Endpoint = cfg.Listen
 	}
+	cfg.Gateway = applyGatewayDefaults(cfg.Gateway)
 	if err := cfg.validate(); err != nil {
 		return Config{}, err
 	}
@@ -163,6 +199,9 @@ func (cfg Config) validate() error {
 	if err := cfg.TURN.validate(); err != nil {
 		return err
 	}
+	if err := cfg.Gateway.validate(); err != nil {
+		return err
+	}
 	switch cfg.TLS.CertSource {
 	case TLSCertSourceDisabled:
 		return nil
@@ -171,6 +210,96 @@ func (cfg Config) validate() error {
 	default:
 		return fmt.Errorf("edge: invalid tls.cert-source %q", cfg.TLS.CertSource)
 	}
+}
+
+func mergeGatewayConfig(cfg, file GatewayConfig) GatewayConfig {
+	if !cfg.Enabled {
+		cfg.Enabled = file.Enabled
+	}
+	if cfg.ICEUDPListen == "" {
+		cfg.ICEUDPListen = file.ICEUDPListen
+	}
+	if cfg.PublicICEUDP == "" {
+		cfg.PublicICEUDP = file.PublicICEUDP
+	}
+	if cfg.MaxSessions == 0 {
+		cfg.MaxSessions = file.MaxSessions
+	}
+	if cfg.MaxUpstreams == 0 {
+		cfg.MaxUpstreams = file.MaxUpstreams
+	}
+	if cfg.SessionsPerUpstream == 0 {
+		cfg.SessionsPerUpstream = file.SessionsPerUpstream
+	}
+	if cfg.StreamsPerUpstream == 0 {
+		cfg.StreamsPerUpstream = file.StreamsPerUpstream
+	}
+	if cfg.MaxPendingHandshakes == 0 {
+		cfg.MaxPendingHandshakes = file.MaxPendingHandshakes
+	}
+	if cfg.SessionBufferBytes == 0 {
+		cfg.SessionBufferBytes = file.SessionBufferBytes
+	}
+	if cfg.DelegatedEnvelopeValidity == 0 {
+		cfg.DelegatedEnvelopeValidity = file.DelegatedEnvelopeValidity
+	}
+	if cfg.IdleTimeout == 0 {
+		cfg.IdleTimeout = file.IdleTimeout
+	}
+	if cfg.DrainTimeout == 0 {
+		cfg.DrainTimeout = file.DrainTimeout
+	}
+	return cfg
+}
+
+func applyGatewayDefaults(cfg GatewayConfig) GatewayConfig {
+	defaults := defaultGatewayConfig()
+	return mergeGatewayConfig(cfg, defaults)
+}
+
+func (cfg GatewayConfig) validate() error {
+	if !cfg.Enabled {
+		return nil
+	}
+	if _, _, err := netSplitHostPort("gateway.ice-udp-listen", cfg.ICEUDPListen); err != nil {
+		return err
+	}
+	if cfg.PublicICEUDP != "" {
+		if _, _, err := netSplitHostPort("gateway.public-ice-udp", cfg.PublicICEUDP); err != nil {
+			return err
+		}
+	}
+	if cfg.MaxSessions <= 0 {
+		return fmt.Errorf("edge: gateway.max-sessions must be positive")
+	}
+	if cfg.MaxUpstreams <= 0 || cfg.MaxUpstreams > 64 {
+		return fmt.Errorf("edge: gateway.max-upstreams must be between 1 and 64")
+	}
+	if cfg.SessionsPerUpstream <= 0 || cfg.SessionsPerUpstream > 2048 {
+		return fmt.Errorf("edge: gateway.sessions-per-upstream must be between 1 and 2048")
+	}
+	if cfg.MaxSessions > cfg.MaxUpstreams*cfg.SessionsPerUpstream {
+		return fmt.Errorf("edge: gateway.max-sessions exceeds upstream pool capacity")
+	}
+	if cfg.StreamsPerUpstream < cfg.SessionsPerUpstream || cfg.StreamsPerUpstream > 8192 {
+		return fmt.Errorf("edge: gateway.streams-per-upstream must be between sessions-per-upstream and 8192")
+	}
+	if cfg.MaxPendingHandshakes <= 0 || cfg.MaxPendingHandshakes > cfg.MaxSessions {
+		return fmt.Errorf("edge: gateway.max-pending-handshakes must be between 1 and max-sessions")
+	}
+	if cfg.SessionBufferBytes < 64*1024 || cfg.SessionBufferBytes > 16*1024*1024 {
+		return fmt.Errorf("edge: gateway.session-buffer-bytes must be between 65536 and 16777216")
+	}
+	if cfg.DelegatedEnvelopeValidity <= 0 || cfg.DelegatedEnvelopeValidity > 30*time.Second {
+		return fmt.Errorf("edge: gateway.delegated-envelope-validity must be between 1ns and 30s")
+	}
+	if cfg.IdleTimeout <= 0 {
+		return fmt.Errorf("edge: gateway.idle-timeout must be positive")
+	}
+	if cfg.DrainTimeout <= 0 {
+		return fmt.Errorf("edge: gateway.drain-timeout must be positive")
+	}
+	return nil
 }
 
 func (cfg TURNConfig) enabled() bool {

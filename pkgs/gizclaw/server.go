@@ -207,8 +207,9 @@ func (s *Server) servePeerListener(l giznet.Listener) error {
 			svc = &PeerService{}
 		}
 		host := &PeerConn{
-			Conn:    conn,
-			Service: svc,
+			Conn:            conn,
+			Service:         svc,
+			ServerPublicKey: s.LocalStatic.Public,
 		}
 		go func() {
 			_ = host.serve()

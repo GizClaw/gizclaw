@@ -120,6 +120,15 @@ func TestDialSignalingPacketAndServiceStream(t *testing.T) {
 	if string(buf[:n]) != "hello stream" {
 		t.Fatalf("server stream payload = %q", string(buf[:n]))
 	}
+	clientInfo := clientConn.PeerInfo()
+	serverInfo := serverConn.PeerInfo()
+	minimumBytes := uint64(len("packet") + len(opusFrame) + len("hello stream"))
+	if clientInfo == nil || clientInfo.TxBytes < minimumBytes {
+		t.Fatalf("client TxBytes = %#v, want at least %d", clientInfo, minimumBytes)
+	}
+	if serverInfo == nil || serverInfo.RxBytes < minimumBytes {
+		t.Fatalf("server RxBytes = %#v, want at least %d", serverInfo, minimumBytes)
+	}
 }
 
 func TestDialSignalingWithFixedICEPort(t *testing.T) {
@@ -254,7 +263,7 @@ func TestPacketWriteRejectsLargePayload(t *testing.T) {
 }
 
 func TestPacketRejectsReservedProtocols(t *testing.T) {
-	for _, protocol := range []byte{0x01, 0x0f, 0x11, 0x3f} {
+	for _, protocol := range []byte{0x01, 0x0f, 0x12, 0x3f} {
 		t.Run(fmt.Sprintf("write_%02x", protocol), func(t *testing.T) {
 			if _, err := writePacket(noopPacketRaw{}, protocol, nil); !errors.Is(err, giznet.ErrPacketProtocol) {
 				t.Fatalf("writePacket reserved protocol err = %v, want %v", err, giznet.ErrPacketProtocol)

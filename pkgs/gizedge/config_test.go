@@ -74,6 +74,63 @@ func TestConfigUpstreamURLDefaultsHTTP(t *testing.T) {
 	}
 }
 
+func TestGatewayConfigDefaultsAndBounds(t *testing.T) {
+	cfg := applyGatewayDefaults(GatewayConfig{Enabled: true, ICEUDPListen: "127.0.0.1:0"})
+	if cfg.MaxSessions != 30000 ||
+		cfg.MaxUpstreams != 16 ||
+		cfg.SessionsPerUpstream != 2048 ||
+		cfg.StreamsPerUpstream != 8192 ||
+		cfg.MaxPendingHandshakes != 64 ||
+		cfg.SessionBufferBytes != 1<<20 ||
+		cfg.DelegatedEnvelopeValidity != 30*time.Second ||
+		cfg.IdleTimeout != 5*time.Minute ||
+		cfg.DrainTimeout != 30*time.Second {
+		t.Fatalf("gateway defaults = %+v", cfg)
+	}
+	if err := cfg.validate(); err != nil {
+		t.Fatalf("default gateway validation error = %v", err)
+	}
+	tests := []struct {
+		name   string
+		change func(*GatewayConfig)
+		want   string
+	}{
+		{name: "pool capacity", change: func(cfg *GatewayConfig) {
+			cfg.MaxUpstreams = 1
+		}, want: "pool capacity"},
+		{name: "session cap", change: func(cfg *GatewayConfig) {
+			cfg.SessionsPerUpstream = 2049
+		}, want: "sessions-per-upstream"},
+		{name: "stream rotation", change: func(cfg *GatewayConfig) {
+			cfg.StreamsPerUpstream = cfg.SessionsPerUpstream - 1
+		}, want: "streams-per-upstream"},
+		{name: "pending", change: func(cfg *GatewayConfig) {
+			cfg.MaxPendingHandshakes = 0
+		}, want: "max-pending-handshakes"},
+		{name: "buffer", change: func(cfg *GatewayConfig) {
+			cfg.SessionBufferBytes = 1
+		}, want: "session-buffer-bytes"},
+		{name: "envelope", change: func(cfg *GatewayConfig) {
+			cfg.DelegatedEnvelopeValidity = 31 * time.Second
+		}, want: "delegated-envelope-validity"},
+		{name: "idle", change: func(cfg *GatewayConfig) {
+			cfg.IdleTimeout = 0
+		}, want: "idle-timeout"},
+		{name: "drain", change: func(cfg *GatewayConfig) {
+			cfg.DrainTimeout = 0
+		}, want: "drain-timeout"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			invalid := cfg
+			tt.change(&invalid)
+			if err := invalid.validate(); err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("validation error = %v, want %q", err, tt.want)
+			}
+		})
+	}
+}
+
 func TestPrepareWorkspaceConfigDefaultsEndpointAndTLS(t *testing.T) {
 	edgeKey := testKeyPair(t, 0x33)
 	upstreamKey := testKeyPair(t, 0x44)
@@ -797,7 +854,10 @@ func TestE2EEdgeWorkspaceTemplateParses(t *testing.T) {
 		t.Fatalf("ReadFile edge template: %v", err)
 	}
 	body := strings.NewReplacer(
+		"${GIZCLAW_E2E_EDGE_PRIVATE_KEY}", testKeyPair(t, 0x87).Private.String(),
 		"${GIZCLAW_E2E_SERVER_ENDPOINT}", "127.0.0.1:9821",
+		"${GIZCLAW_E2E_EDGE_ENDPOINT}", "127.0.0.1:9821",
+		"${GIZCLAW_E2E_GATEWAY_ENDPOINT}", "127.0.0.1:9824",
 		"${GIZCLAW_E2E_EDGE_UPSTREAM_ENDPOINT}", "http://server:9822",
 		"${GIZCLAW_E2E_EDGE_UPSTREAM_PUBLIC_KEY}", testKeyPair(t, 0x88).Public.String(),
 		"${GIZCLAW_E2E_TURN_ENDPOINT}", "127.0.0.1:3478",

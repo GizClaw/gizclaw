@@ -25,9 +25,10 @@ var (
 )
 
 type serverInfoMetadata struct {
-	PublicKey    giznet.PublicKey
-	SignalingURL string
-	ICEServers   []gizwebrtc.ICEServer
+	PublicKey          giznet.PublicKey
+	TransportPublicKey giznet.PublicKey
+	SignalingURL       string
+	ICEServers         []gizwebrtc.ICEServer
 }
 
 func DialFromContext(name string) (*gizcli.Client, giznet.PublicKey, string, error) {
@@ -55,10 +56,11 @@ func DialFromContext(name string) (*gizcli.Client, giznet.PublicKey, string, err
 	return &gizcli.Client{
 		KeyPair: cliCtx.KeyPair,
 		DialTransport: func(key *giznet.KeyPair, serverPK giznet.PublicKey, serverAddr string, securityPolicy giznet.SecurityPolicy) (giznet.Listener, giznet.Conn, error) {
+			_ = serverPK
 			_ = serverAddr
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 			defer cancel()
-			l, conn, err := gizwebrtc.Dial(ctx, key, serverPK, gizwebrtc.DialConfig{
+			l, conn, err := gizwebrtc.Dial(ctx, key, info.TransportPublicKey, gizwebrtc.DialConfig{
 				SignalingURL:   info.SignalingURL,
 				ICEServers:     info.ICEServers,
 				SecurityPolicy: securityPolicy,
@@ -97,7 +99,7 @@ func (e *retryableServerInfoError) Unwrap() error {
 
 func fetchServerInfoWithRetry(endpoint string) (serverInfoMetadata, error) {
 	var lastErr error
-	for attempt := 0; attempt < serverInfoRetryAttempts; attempt++ {
+	for attempt := range serverInfoRetryAttempts {
 		ctx, cancel := context.WithTimeout(context.Background(), serverInfoAttemptTimeout)
 		info, err := fetchServerInfo(ctx, endpoint)
 		cancel()
@@ -141,6 +143,12 @@ func fetchPeerHTTPInfo(ctx context.Context, endpoint string) (serverInfoMetadata
 			Username   string   `json:"username"`
 			Credential string   `json:"credential"`
 		} `json:"ice_servers"`
+		Transport *struct {
+			Mode          string `json:"mode"`
+			Endpoint      string `json:"endpoint"`
+			PublicKey     string `json:"public_key"`
+			SignalingPath string `json:"signaling_path"`
+		} `json:"transport"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		return serverInfoMetadata{}, fmt.Errorf("server-info decode: %w", err)
@@ -158,19 +166,65 @@ func fetchPeerHTTPInfo(ctx context.Context, endpoint string) (serverInfoMetadata
 	if serverPK.IsZero() {
 		return serverInfoMetadata{}, fmt.Errorf("server-info invalid public_key: zero key")
 	}
+	transportPK := serverPK
+	signalingEndpoint := endpoint
 	signalingPath := strings.TrimSpace(body.SignalingPath)
+	iceServers := toWebRTCICEServers(body.ICEServers)
+	if body.Transport != nil {
+		if body.Transport.Mode != "edge-gateway" {
+			return serverInfoMetadata{}, fmt.Errorf("server-info unsupported transport mode %q", body.Transport.Mode)
+		}
+		var err error
+		signalingEndpoint, err = normalizeServerInfoEndpoint(body.Transport.Endpoint)
+		if err != nil {
+			return serverInfoMetadata{}, fmt.Errorf("server-info invalid transport.endpoint: %w", err)
+		}
+		if strings.TrimSpace(body.Transport.PublicKey) == "" {
+			return serverInfoMetadata{}, fmt.Errorf("server-info missing transport.public_key")
+		}
+		if err := transportPK.UnmarshalText([]byte(strings.TrimSpace(body.Transport.PublicKey))); err != nil {
+			return serverInfoMetadata{}, fmt.Errorf("server-info invalid transport.public_key: %w", err)
+		}
+		if transportPK.IsZero() {
+			return serverInfoMetadata{}, fmt.Errorf("server-info invalid transport.public_key: zero key")
+		}
+		if transportPK.Equal(serverPK) {
+			return serverInfoMetadata{}, fmt.Errorf("server-info transport.public_key conflicts with authoritative public_key")
+		}
+		signalingPath = strings.TrimSpace(body.Transport.SignalingPath)
+		// Authoritative Server ICE metadata is not valid for an Edge
+		// transport. The Edge answer advertises its shared ICE mux.
+		iceServers = nil
+	}
 	if signalingPath == "" {
 		signalingPath = gizwebrtc.SignalingPath
 	}
 	if !strings.HasPrefix(signalingPath, "/") || strings.HasPrefix(signalingPath, "//") {
 		return serverInfoMetadata{}, fmt.Errorf("server-info invalid signaling_path %q", signalingPath)
 	}
-	signalingURL := url.URL{Scheme: "http", Host: endpoint, Path: signalingPath}
+	signalingURL := url.URL{Scheme: "http", Host: signalingEndpoint, Path: signalingPath}
 	return serverInfoMetadata{
-		PublicKey:    serverPK,
-		SignalingURL: signalingURL.String(),
-		ICEServers:   toWebRTCICEServers(body.ICEServers),
+		PublicKey:          serverPK,
+		TransportPublicKey: transportPK,
+		SignalingURL:       signalingURL.String(),
+		ICEServers:         iceServers,
 	}, nil
+}
+
+func normalizeServerInfoEndpoint(endpoint string) (string, error) {
+	value := strings.TrimSpace(endpoint)
+	if value == "" {
+		return "", errors.New("empty endpoint")
+	}
+	if strings.Contains(value, "://") {
+		return "", errors.New("endpoint must be host[:port]")
+	}
+	parsed, err := url.Parse("http://" + value)
+	if err != nil || parsed.Host == "" || parsed.Hostname() == "" ||
+		parsed.User != nil || parsed.Path != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
+		return "", errors.New("endpoint must be host[:port]")
+	}
+	return parsed.Host, nil
 }
 
 func toWebRTCICEServers(in []struct {

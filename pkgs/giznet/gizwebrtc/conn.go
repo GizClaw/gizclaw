@@ -33,14 +33,23 @@ type Conn struct {
 	services  map[uint64]*ServiceListener
 	streams   map[uint64]map[*dataChannelConn]struct{}
 	closedSvc map[uint64]bool
+	acceptAll atomic.Bool
+	serviceCh chan acceptedService
 
 	readCh  chan directPacket
 	readyCh chan struct{}
 	closeCh chan struct{}
 	once    sync.Once
 	closed  atomic.Bool
+	rxBytes atomic.Uint64
+	txBytes atomic.Uint64
 
 	audioTrack sampleWriter
+}
+
+type acceptedService struct {
+	service uint64
+	stream  net.Conn
 }
 
 type sampleWriter interface {
@@ -68,6 +77,7 @@ func newConn(pk giznet.PublicKey, pc *webrtc.PeerConnection, policy giznet.Secur
 		services:   make(map[uint64]*ServiceListener),
 		streams:    make(map[uint64]map[*dataChannelConn]struct{}),
 		closedSvc:  make(map[uint64]bool),
+		serviceCh:  make(chan acceptedService, serviceQueueSize),
 		readCh:     make(chan directPacket, readPacketQueueSize),
 		readyCh:    make(chan struct{}),
 		closeCh:    make(chan struct{}),
@@ -86,6 +96,29 @@ func newConn(pk giznet.PublicKey, pc *webrtc.PeerConnection, policy giznet.Secur
 		}
 	})
 	return c, nil
+}
+
+// AcceptService accepts the next remotely opened service stream together with
+// its service identifier. Callers must not mix this aggregate surface with
+// ListenService on the same connection.
+func (c *Conn) AcceptService() (uint64, net.Conn, error) {
+	if err := c.validate(); err != nil {
+		return 0, nil, err
+	}
+	c.acceptAll.Store(true)
+	select {
+	case accepted := <-c.serviceCh:
+		return accepted.service, accepted.stream, nil
+	case <-c.closeCh:
+		return 0, nil, giznet.ErrConnClosed
+	}
+}
+
+// EnableServiceAccept selects aggregate delivery for remotely opened streams.
+func (c *Conn) EnableServiceAccept() {
+	if c != nil {
+		c.acceptAll.Store(true)
+	}
 }
 
 func (c *Conn) Dial(service uint64) (net.Conn, error) {
@@ -108,6 +141,8 @@ func (c *Conn) Dial(service uint64) (net.Conn, error) {
 		return nil, err
 	}
 	stream := newDataChannelConn(raw, dc, c.localAddr, c.remoteAddr)
+	stream.rx = &c.rxBytes
+	stream.tx = &c.txBytes
 	c.trackStream(service, stream)
 	return stream, nil
 }
@@ -157,6 +192,7 @@ func (c *Conn) Read(buf []byte) (byte, int, error) {
 			return 0, 0, giznet.ErrPacketBuffer
 		}
 		copy(buf, pkt.payload)
+		c.rxBytes.Add(uint64(len(pkt.payload)))
 		return pkt.protocol, len(pkt.payload), nil
 	case <-c.closeCh:
 		return 0, 0, giznet.ErrConnClosed
@@ -168,12 +204,20 @@ func (c *Conn) Write(protocol byte, payload []byte) (int, error) {
 		return 0, err
 	}
 	if protocol == giznet.ProtocolOpusPacket {
-		return c.writeOpus(payload)
+		n, err := c.writeOpus(payload)
+		if n > 0 {
+			c.txBytes.Add(uint64(n))
+		}
+		return n, err
 	}
 	c.packetMu.RLock()
 	raw := c.packetRaw
 	c.packetMu.RUnlock()
-	return writePacket(raw, protocol, payload)
+	n, err := writePacket(raw, protocol, payload)
+	if n > 0 {
+		c.txBytes.Add(uint64(n))
+	}
+	return n, err
 }
 
 func (c *Conn) PublicKey() giznet.PublicKey {
@@ -195,6 +239,8 @@ func (c *Conn) PeerInfo() *giznet.PeerInfo {
 		PublicKey: c.pk,
 		Endpoint:  c.remoteAddr,
 		State:     state,
+		RxBytes:   c.rxBytes.Load(),
+		TxBytes:   c.txBytes.Load(),
 		LastSeen:  time.Now(),
 	}
 }
@@ -283,7 +329,17 @@ func (c *Conn) handleDataChannel(dc *webrtc.DataChannel) {
 		}
 		c.serviceMu.Unlock()
 		stream := newDataChannelConn(raw, dc, c.localAddr, c.remoteAddr)
+		stream.rx = &c.rxBytes
+		stream.tx = &c.txBytes
 		c.trackStream(service, stream)
+		if c.acceptAll.Load() {
+			select {
+			case c.serviceCh <- acceptedService{service: service, stream: stream}:
+			case <-c.closeCh:
+				_ = stream.Close()
+			}
+			return
+		}
 		_ = l.enqueue(stream)
 	})
 }

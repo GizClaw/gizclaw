@@ -1,5 +1,5 @@
 identity:
-  private-key: 65kcbmbz2Eo2SgSA2Q3QqBoLhyLvYyMuZ7gfTSKaTvpR
+  private-key: ${GIZCLAW_E2E_EDGE_PRIVATE_KEY}
 listen: 0.0.0.0:9821
 endpoint: ${GIZCLAW_E2E_EDGE_ENDPOINT}
 upstream:
@@ -7,6 +7,15 @@ upstream:
   public-key: ${GIZCLAW_E2E_EDGE_UPSTREAM_PUBLIC_KEY}
 tls:
   cert-source: disabled
+gateway:
+  enabled: true
+  ice-udp-listen: 0.0.0.0:9824
+  public-ice-udp: ${GIZCLAW_E2E_GATEWAY_ENDPOINT}
+  max-sessions: 30000
+  max-upstreams: 16
+  sessions-per-upstream: 2048
+  streams-per-upstream: 8192
+  max-pending-handshakes: 512
 turn:
   listen: 0.0.0.0:9823
   public-endpoint: ${GIZCLAW_E2E_TURN_ENDPOINT}

@@ -112,6 +112,9 @@ func (l *Listener) acceptOffer(ctx context.Context, clientPK giznet.PublicKey, o
 		_ = pc.Close()
 		return "", nil, err
 	}
+	if l.cfg.AggregateServices {
+		conn.EnableServiceAccept()
+	}
 	if err := pc.SetRemoteDescription(webrtc.SessionDescription{Type: webrtc.SDPTypeOffer, SDP: offerSDP}); err != nil {
 		_ = conn.Close()
 		return "", nil, err
