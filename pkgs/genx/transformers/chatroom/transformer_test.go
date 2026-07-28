@@ -324,6 +324,34 @@ func TestTransformerRealtimeRejectsPrematureASROutputCompletion(t *testing.T) {
 	}
 }
 
+func TestTransformerPushToTalkRejectsASRCloseBeforeEOSDelivery(t *testing.T) {
+	transformer, err := New(Config{
+		ASR:               closeAfterAudioASR{},
+		TranscriptEnabled: true,
+		ASRPattern:        "model/asr",
+		InputMode:         InputModePushToTalk,
+	})
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	input := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 4)
+	output, err := transformer.Transform(t.Context(), input.Stream())
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	defer output.Close()
+	if err := input.Add(&genx.MessageChunk{
+		Role: genx.RoleUser,
+		Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}},
+		Ctrl: &genx.StreamCtrl{StreamID: "turn-a"},
+	}); err != nil {
+		t.Fatalf("input.Add(audio) error = %v", err)
+	}
+	if _, err := output.Next(); err == nil || isStreamDone(err) || !strings.Contains(err.Error(), "chatroom: ASR") {
+		t.Fatalf("output.Next() error = %v, want premature ASR failure before EOS", err)
+	}
+}
+
 func TestASRInputTransportConsumerCloseBeforeProducerDone(t *testing.T) {
 	transport := newASRInputTransport(nil)
 	consumer := transport.Stream()
@@ -435,6 +463,21 @@ func (immediateDoneASR) Transform(context.Context, string, genx.Stream) (genx.St
 	if err := output.Done(genx.Usage{}); err != nil {
 		return nil, err
 	}
+	return output.Stream(), nil
+}
+
+type closeAfterAudioASR struct{}
+
+func (closeAfterAudioASR) Transform(_ context.Context, _ string, input genx.Stream) (genx.Stream, error) {
+	output := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 1)
+	go func() {
+		if _, err := input.Next(); err != nil {
+			_ = output.Abort(err)
+			return
+		}
+		_ = input.Close()
+		_ = output.Done(genx.Usage{})
+	}()
 	return output.Stream(), nil
 }
 

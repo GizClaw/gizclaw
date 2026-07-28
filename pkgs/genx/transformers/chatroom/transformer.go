@@ -73,6 +73,7 @@ type asrInputTransport struct {
 	terminal       bool
 	terminalErr    error
 	completing     chan struct{}
+	consumerEOS    bool
 	consumerClosed bool
 }
 
@@ -166,10 +167,22 @@ func (t *asrInputTransport) failure() error {
 	return err
 }
 
+func (t *asrInputTransport) markConsumerEOS() {
+	t.mu.Lock()
+	t.consumerEOS = true
+	t.mu.Unlock()
+}
+
+func (t *asrInputTransport) consumerSawEOS() bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.consumerEOS
+}
+
 func (t *asrInputTransport) closeConsumer() bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	if t.terminal || t.consumerClosed {
+	if t.consumerClosed || (t.terminal && t.terminalErr != nil) {
 		return false
 	}
 	t.consumerClosed = true
@@ -182,7 +195,11 @@ type asrInputView struct {
 }
 
 func (s *asrInputView) Next() (*genx.MessageChunk, error) {
-	return s.source.Next()
+	chunk, err := s.source.Next()
+	if chunk != nil && chunk.IsEndOfStream() {
+		s.transport.markConsumerEOS()
+	}
+	return chunk, err
 }
 
 func (s *asrInputView) Close() error {
@@ -291,6 +308,7 @@ type asrSession struct {
 	stopInputCancel func() bool
 
 	expectedCompletion atomic.Bool
+	routeCompletionOK  bool
 	closeOutputOnce    sync.Once
 }
 
@@ -298,6 +316,13 @@ func (s *asrSession) allowCompletion() {
 	if s != nil {
 		s.expectedCompletion.Store(true)
 	}
+}
+
+func (s *asrSession) completionAllowed() bool {
+	if s == nil {
+		return false
+	}
+	return s.expectedCompletion.Load() || (s.routeCompletionOK && s.input.consumerSawEOS())
 }
 
 func (s *asrSession) wait(ctx context.Context) error {
@@ -319,11 +344,13 @@ func (s *asrSession) wait(ctx context.Context) error {
 	}
 }
 
-func (s *asrSession) complete(ctx context.Context) error {
+func (s *asrSession) complete(ctx context.Context, allowWithoutRouteEOS bool) error {
 	if s == nil {
 		return nil
 	}
-	s.allowCompletion()
+	if allowWithoutRouteEOS {
+		s.allowCompletion()
+	}
 	if err := s.input.Done(); err != nil {
 		s.abort(err)
 		return err
@@ -392,11 +419,14 @@ func (a *Transformer) transcribeInput(ctx context.Context, input genx.Stream, ou
 		if session != nil {
 			return session, nil
 		}
-		next := &asrSession{readDone: make(chan error, 1)}
+		next := &asrSession{
+			readDone:          make(chan error, 1),
+			routeCompletionOK: a.config.InputMode == InputModePushToTalk,
+		}
 		var asrInput *asrInputTransport
 		asrInput = newASRInputTransport(func(err error) {
 			if err == nil {
-				if next.expectedCompletion.Load() {
+				if next.completionAllowed() {
 					return
 				}
 				err = errASRInputConsumerClosed
@@ -427,7 +457,7 @@ func (a *Transformer) transcribeInput(ctx context.Context, input genx.Stream, ou
 		next.output = asr
 		go func() {
 			err := readTranscript(ctx, asr, output, streamID)
-			if err == nil && !next.expectedCompletion.Load() && ctx.Err() == nil {
+			if err == nil && !next.completionAllowed() && ctx.Err() == nil {
 				err = errASROutputCompleted
 			}
 			if err != nil && ctx.Err() == nil {
@@ -448,7 +478,7 @@ func (a *Transformer) transcribeInput(ctx context.Context, input genx.Stream, ou
 	}
 	finish := func() {
 		if session != nil {
-			if err := session.complete(ctx); err != nil {
+			if err := session.complete(ctx, true); err != nil {
 				fail(err)
 				return
 			}
@@ -524,9 +554,6 @@ func (a *Transformer) transcribeInput(ctx context.Context, input genx.Stream, ou
 			fail(err)
 			return
 		}
-		if a.config.InputMode == InputModePushToTalk && chunk.IsEndOfStream() {
-			active.allowCompletion()
-		}
 		next := chunk.Clone()
 		if next.Ctrl == nil {
 			next.Ctrl = &genx.StreamCtrl{}
@@ -539,7 +566,7 @@ func (a *Transformer) transcribeInput(ctx context.Context, input genx.Stream, ou
 			return
 		}
 		if a.config.InputMode == InputModePushToTalk && chunk.IsEndOfStream() {
-			if err := active.complete(ctx); err != nil {
+			if err := active.complete(ctx, false); err != nil {
 				fail(err)
 				return
 			}
