@@ -111,6 +111,11 @@ class MobileDataRepository {
               isGroupOwner:
                   group.myRole ==
                   FriendGroupMemberRole.FRIEND_GROUP_MEMBER_ROLE_OWNER,
+              canManageGroupMembers:
+                  group.myRole ==
+                      FriendGroupMemberRole.FRIEND_GROUP_MEMBER_ROLE_OWNER ||
+                  group.myRole ==
+                      FriendGroupMemberRole.FRIEND_GROUP_MEMBER_ROLE_ADMIN,
             );
           })
           .toList(growable: false),

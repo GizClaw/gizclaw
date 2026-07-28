@@ -1111,6 +1111,32 @@ class MobileDataController extends ChangeNotifier {
     return response.value;
   }
 
+  Future<void> deleteFriendGroup(String friendGroupId) async {
+    await _groupClient().deleteFriendGroup(friendGroupId.trim());
+    await refresh();
+  }
+
+  Future<FriendGroupMemberListResponse> listFriendGroupMembers(
+    String friendGroupId, {
+    String? cursor,
+    int? limit,
+  }) => _groupClient().listFriendGroupMembers(
+    friendGroupId.trim(),
+    cursor: cursor,
+    limit: limit,
+  );
+
+  Future<void> deleteFriendGroupMember(
+    String friendGroupId,
+    String memberId,
+  ) async {
+    await _groupClient().deleteFriendGroupMember(
+      friendGroupId.trim(),
+      memberId.trim(),
+    );
+    await refresh();
+  }
+
   Future<FriendGroupInviteTokenGetResponse> getFriendGroupInviteToken(
     String friendGroupId,
   ) => _groupClient().getFriendGroupInviteToken(friendGroupId.trim());

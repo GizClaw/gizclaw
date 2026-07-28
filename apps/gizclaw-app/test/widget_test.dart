@@ -1007,6 +1007,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(GizIcons.ellipsis));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Manage Invite'));
+    await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('group-invite-sheet')), findsOneWidget);
     expect(find.text('No active invite'), findsOneWidget);
@@ -1031,6 +1033,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(GizIcons.ellipsis));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Manage Invite'));
+    await tester.pumpAndSettle();
     expect(find.text('old-group-invite'), findsOneWidget);
 
     await tester.tap(find.byIcon(GizIcons.refresh));
@@ -1041,6 +1045,64 @@ void main() {
     expect(find.text('old-group-invite'), findsNothing);
     expect(find.text('No active invite'), findsOneWidget);
     expect(find.text('invite creation failed'), findsOneWidget);
+  });
+
+  appTestWidgets('lets a group owner remove a member', (tester) async {
+    final controller = _GroupInviteController();
+    await pumpApp(tester, controller: controller);
+
+    await tapPrimaryNav(tester, 'Groups');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(GizIcons.ellipsis));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Members'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('group-members-sheet')), findsOneWidget);
+    expect(find.text('peer-member'), findsOneWidget);
+    final removeButtons = find.widgetWithText(CupertinoButton, 'Remove');
+    expect(removeButtons, findsNWidgets(2));
+    await tester.tap(removeButtons.last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(CupertinoDialogAction, 'Remove'));
+    await tester.pumpAndSettle();
+
+    expect(controller.removedMemberId, 'peer-member');
+    expect(find.text('peer-member'), findsNothing);
+  });
+
+  appTestWidgets('lets a non-owner leave a group', (tester) async {
+    final controller = _GroupInviteController(isOwner: false);
+    await pumpApp(tester, controller: controller);
+
+    await tapPrimaryNav(tester, 'Groups');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(GizIcons.ellipsis));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Leave Group'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(CupertinoDialogAction, 'Leave Group'));
+    await tester.pumpAndSettle();
+
+    expect(controller.removedMemberId, 'peer-owner');
+  });
+
+  appTestWidgets('lets a group owner dissolve a group', (tester) async {
+    final controller = _GroupInviteController();
+    await pumpApp(tester, controller: controller);
+
+    await tapPrimaryNav(tester, 'Groups');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(GizIcons.ellipsis));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Dissolve Group'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.widgetWithText(CupertinoDialogAction, 'Dissolve Group'),
+    );
+    await tester.pumpAndSettle();
+
+    expect(controller.deletedGroupId, 'group-owner');
   });
 
   appTestWidgets('shows friends, pet, and profile surfaces', (tester) async {
@@ -1461,23 +1523,26 @@ class _GroupInviteController extends MobileDataController {
   _GroupInviteController({
     this.initialInviteToken = '',
     this.failCreateInvite = false,
+    this.isOwner = true,
   }) : super(
          database: _testDatabase(),
          profile: const GizClawConnectionProfile(
            endpoint: _testServerEndpoint,
            clientPrivateKey: 'test-key',
+           clientPublicKey: 'peer-owner',
          ),
          servers: const [
            GizClawServer(name: 'Test', accessPoint: _testServerEndpoint),
          ],
        ) {
-    chatroomWorkspaces = const [
+    chatroomWorkspaces = [
       ChatroomWorkspaceMetadata(
         workspaceName: 'owner-group-workspace',
         title: 'Owner Crew',
         kind: ChatroomWorkspaceKind.group,
         resourceId: 'group-owner',
-        isGroupOwner: true,
+        isGroupOwner: isOwner,
+        canManageGroupMembers: isOwner,
       ),
     ];
     workspaces = const [
@@ -1495,8 +1560,11 @@ class _GroupInviteController extends MobileDataController {
   int clearInviteCalls = 0;
   final bool failCreateInvite;
   final String initialInviteToken;
+  final bool isOwner;
+  String? deletedGroupId;
   String? inviteGroupId;
   String? joinedInviteToken;
+  String? removedMemberId;
 
   @override
   Future<void> start() async {}
@@ -1532,6 +1600,53 @@ class _GroupInviteController extends MobileDataController {
   }
 
   @override
+  Future<FriendGroupMemberListResponse> listFriendGroupMembers(
+    String friendGroupId, {
+    String? cursor,
+    int? limit,
+  }) async {
+    expect(friendGroupId, 'group-owner');
+    expect(cursor, isNull);
+    expect(limit, 50);
+    return FriendGroupMemberListResponse(
+      items: [
+        FriendGroupMemberObject(
+          friendGroupId: friendGroupId,
+          id: 'peer-owner',
+          peerPublicKey: 'peer-owner',
+          role: FriendGroupMemberRole.FRIEND_GROUP_MEMBER_ROLE_OWNER,
+        ),
+        FriendGroupMemberObject(
+          friendGroupId: friendGroupId,
+          id: 'peer-admin',
+          peerPublicKey: 'peer-admin',
+          role: FriendGroupMemberRole.FRIEND_GROUP_MEMBER_ROLE_ADMIN,
+        ),
+        FriendGroupMemberObject(
+          friendGroupId: friendGroupId,
+          id: 'peer-member',
+          peerPublicKey: 'peer-member',
+          role: FriendGroupMemberRole.FRIEND_GROUP_MEMBER_ROLE_MEMBER,
+        ),
+      ],
+    );
+  }
+
+  @override
+  Future<void> deleteFriendGroupMember(
+    String friendGroupId,
+    String memberId,
+  ) async {
+    expect(friendGroupId, 'group-owner');
+    removedMemberId = memberId;
+  }
+
+  @override
+  Future<void> deleteFriendGroup(String friendGroupId) async {
+    deletedGroupId = friendGroupId;
+  }
+
+  @override
   Future<FriendGroupObject> joinFriendGroup(String inviteToken) async {
     joinedInviteToken = inviteToken;
     chatroomWorkspaces = const [
@@ -1541,6 +1656,7 @@ class _GroupInviteController extends MobileDataController {
         kind: ChatroomWorkspaceKind.group,
         resourceId: 'group-owner',
         isGroupOwner: true,
+        canManageGroupMembers: true,
       ),
       ChatroomWorkspaceMetadata(
         workspaceName: 'joined-group-workspace',
