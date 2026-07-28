@@ -1,0 +1,9 @@
+services:
+  server:
+    entrypoint:
+      - /src/tests/gizclaw-e2e/docker/entrypoint-server.sh
+      - volc-log
+    environment:
+      GIZCLAW_E2E_VOLC_LOG_ENDPOINT: ${GIZCLAW_E2E_VOLC_LOG_ENDPOINT:?set before run_volc_log_tests.sh}
+      GIZCLAW_E2E_VOLC_LOG_REGION: ${GIZCLAW_E2E_VOLC_LOG_REGION:?set before run_volc_log_tests.sh}
+      GIZCLAW_E2E_VOLC_LOG_TOPIC_ID: ${GIZCLAW_E2E_VOLC_LOG_TOPIC_ID:?set before run_volc_log_tests.sh}

@@ -17,7 +17,7 @@ func TestAdminVoicesUserStory(t *testing.T) {
 	list := h.RunCLI("admin", "voices", "list", "--context", "admin-a")
 	list.MustSucceed(t)
 	if !strings.Contains(list.Stdout, `"id":"minimax-narrator-clone"`) || !strings.Contains(list.Stdout, `"id":"volc-tenant:volc-main:zh_female_vv_mars_bigtts"`) {
-		t.Skipf("provider voice resources are not configured in this e2e environment: %s", strings.TrimSpace(list.Stdout))
+		t.Fatalf("provider voice resources are not configured in this e2e environment: %s", strings.TrimSpace(list.Stdout))
 	}
 	for _, want := range []string{`"id":"minimax-narrator-clone"`, `"id":"volc-tenant:volc-main:zh_female_vv_mars_bigtts"`} {
 		if !strings.Contains(list.Stdout, want) {

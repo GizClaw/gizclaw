@@ -14,26 +14,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 )
 
-func TestAdminLogStreamUnconfiguredBackend(t *testing.T) {
-	h := newAdminAPIHarness(t)
-	resp, err := h.api.StreamServerLogsWithResponse(h.ctx, &adminhttp.StreamServerLogsParams{
-		StartTimeMs: ptr(int64(1783400000000)),
-		EndTimeMs:   ptr(int64(1783403600000)),
-	})
-	if err != nil {
-		t.Fatalf("StreamServerLogs error: %v", err)
-	}
-	if resp.StatusCode() == http.StatusOK {
-		t.Skip("server has a configured system_log.query_store")
-	}
-	if resp.StatusCode() != http.StatusNotImplemented {
-		t.Fatalf("status = %d body=%s", resp.StatusCode(), string(resp.Body))
-	}
-	if resp.JSON501 == nil || resp.JSON501.Error.Code != "LOG_QUERY_NOT_CONFIGURED" {
-		t.Fatalf("JSON501 = %#v body=%s", resp.JSON501, string(resp.Body))
-	}
-}
-
 func TestAdminLogStreamVolcSmoke(t *testing.T) {
 	h := newAdminAPIHarness(t)
 	requestID := "log-store-smoke-" + strconv.FormatInt(time.Now().UnixNano(), 10)
@@ -59,7 +39,7 @@ func TestAdminLogStreamVolcSmoke(t *testing.T) {
 			t.Fatalf("StreamServerLogs error: %v", err)
 		}
 		if resp.StatusCode() == http.StatusNotImplemented && resp.JSON501 != nil && resp.JSON501.Error.Code == "LOG_QUERY_NOT_CONFIGURED" {
-			t.Skip("server has no system_log.query_store; enable GIZCLAW_E2E_VOLC_LOG_ENABLED with a provisioned compatible topic")
+			t.Fatal("server has no system_log.query_store; start it through run_volc_log_tests.sh")
 		}
 		lastBody = string(resp.Body)
 		if resp.StatusCode() != http.StatusOK || !strings.Contains(lastBody, "event: end") {

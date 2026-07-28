@@ -5,7 +5,10 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/../.." && pwd)"
 setup_dir="$script_dir/setup"
 env_file="$script_dir/.env"
-default_skip_regexp='^(TestHumanReview|TestServerSocialRPCHumanReview)$'
+# shellcheck source=setup/credentials.sh
+source "$setup_dir/credentials.sh"
+require_gizclaw_e2e_credentials "$env_file"
+default_skip_regexp='^(TestHumanReview|TestServerSocialRPCHumanReview|TestAdminLogStreamVolcSmoke)$'
 go_test_timeout="45m"
 full_deadline_seconds="${GIZCLAW_E2E_FULL_DEADLINE_SECONDS:-5400}"
 gate_started=$SECONDS
@@ -45,7 +48,6 @@ chat_memory_live_patterns=(
 )
 
 unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy
-export GIZCLAW_E2E_REQUIRE_LIVE=1
 
 cleanup() {
   if [[ -n "$active_command_pid" ]]; then
@@ -207,10 +209,6 @@ build_host_cli() {
 }
 
 start_docker_stack() {
-	if [[ ! -f "$env_file" ]]; then
-		echo "missing $env_file; copy .env.example and fill provider credentials before Docker e2e" >&2
-		exit 2
-	fi
 	bash "$setup_dir/docker-compose-up.sh"
 }
 

@@ -3,6 +3,19 @@
 本页说明仓库级测试 harness。普通 Go 单元测试仍按改动范围运行；带 build tag、
 Docker、真实 provider 或人工判断的套件必须显式启动，不能把未运行记作通过。
 
+## Credential-backed harness 约束
+
+GizClaw、GenX、LoCoMo 和 Memory 的 live suite 各自只拥有一个 ignored `.env`，
+由 committed、仅含 credential 的 `.env.example` 定义。每个字段对该 harness 的每个
+`run*_tests.sh` 都是必填项，即使某个短入口并不消费其中全部 credential。缺文件、
+缺字段、空值、纯空白或占位值必须在安装依赖、build、启动 Docker/service、执行 Go
+测试或访问 provider 前直接失败；诊断只能打印字段名，不能打印值。
+
+每个入口的 package 和 test selection 固定在仓库脚本中。入口选定后可以通过环境变量
+提供非秘密 runtime 参数，但不能用环境变量选择 coverage，也不能把已选测试的失败改成
+skip。Provider、fixture、网络、timeout、rate limit 或 native runtime 问题都必须使
+命令失败。绕过入口的 tagged `go test` 不能作为 live suite 的验收证据。
+
 ## GizClaw Docker E2E
 
 `tests/gizclaw-e2e` 是 Docker-backed 的完整 GizClaw 环境。Go 测试使用
@@ -95,6 +108,31 @@ Workspace history 是运行时数据，不能由 reset 脚本直接 seed。
 bash tests/gizclaw-e2e/run_human_review_tests.sh
 ```
 
+破坏性的 Edge 场景和已 provision 的 Volc LogStore 使用各自固定入口：
+
+```sh
+bash tests/gizclaw-e2e/run_edge_failure_tests.sh
+
+GIZCLAW_E2E_VOLC_LOG_ENDPOINT=... \
+GIZCLAW_E2E_VOLC_LOG_REGION=... \
+GIZCLAW_E2E_VOLC_LOG_TOPIC_ID=... \
+  bash tests/gizclaw-e2e/run_volc_log_tests.sh
+```
+
+四个 GizClaw 入口都要求同一份完整的 `tests/gizclaw-e2e/.env`。
+
+## GenX provider E2E
+
+Provider-backed transformer coverage 使用一份完整 credential inventory：
+
+```sh
+cp tests/genx-e2e/.env.example tests/genx-e2e/.env
+bash tests/genx-e2e/run_tests.sh
+```
+
+Provider-free Match parity 与 deterministic duplex behavior 保持为普通测试，
+由 `go test ./...` 执行。
+
 ## Giznet E2E
 
 `tests/giznet-e2e` 通过 gizwebrtc 验证公开 Giznet transport：
@@ -114,12 +152,18 @@ remote project 配置由部署拥有，harness 不修改它，也不会把一个
 冒充成多条 lane。
 
 当前 lane 包括 Flowcraft BBH BM25 single-pass、hybrid single/two-pass、Mem0 Platform
-default/custom instructions 和 Volc AgentKit Memory default。运行一个明确选择的 lane：
+default/custom instructions 和 Volc AgentKit Memory default。完整入口运行全部 lane：
 
 ```sh
 cp tests/locomo-e2e/.env.example tests/locomo-e2e/.env
 bash tests/locomo-e2e/run_tests.sh
 ```
+
+同目录中的 `run_flowcraft_bm25_tests.sh`、`run_flowcraft_hybrid_tests.sh`、
+`run_mem0_tests.sh` 和 `run_volc_agentkit_tests.sh` 提供固定的短 selection。
+它们仍要求同一份完整 LoCoMo `.env`；dataset、report、timeout、model、endpoint、
+project 与 threshold 是显式非秘密 runtime 参数或 committed default，不属于
+credential 文件。
 
 脚本具有 30 分钟默认总 timeout，并分别限制 session 与 question。Runner 按官方 session
 调用 `memory.Store.Observe`，逐题 recall，再用配置模型回答并在本地计算 EM、F1 和
@@ -149,3 +193,14 @@ go test -race -tags gizclaw_locomo_e2e \
 bash -n tests/locomo-e2e/run_tests.sh
 git lfs fsck
 ```
+
+## Memory provider E2E
+
+三个 live-model Memory case 使用 `gizclaw_memory_e2e` build tag 和一个固定入口：
+
+```sh
+cp tests/memory/.env.example tests/memory/.env
+bash tests/memory/run_tests.sh
+```
+
+普通 Memory 测试保持 credential-free，并由 `go test ./...` 执行。

@@ -55,6 +55,7 @@ type liveNeeds struct {
 
 func requireLiveSettings(t *testing.T, needs liveNeeds) liveSettings {
 	t.Helper()
+	requireCompleteCredentials(t)
 	values := map[string]string{
 		"GIZCLAW_LOCOMO_E2E_MODEL_API_KEY": os.Getenv("GIZCLAW_LOCOMO_E2E_MODEL_API_KEY"),
 	}
@@ -66,7 +67,7 @@ func requireLiveSettings(t *testing.T, needs liveNeeds) liveSettings {
 		baseURL:          os.Getenv("GIZCLAW_LOCOMO_E2E_MODEL_BASE_URL"),
 		region:           envOr("GIZCLAW_LOCOMO_E2E_MODEL_REGION", "cn-beijing"),
 		extractionModel:  envOr("GIZCLAW_LOCOMO_E2E_EXTRACTION_MODEL", defaultDoubaoModel),
-		embeddingModel:   os.Getenv("GIZCLAW_LOCOMO_E2E_EMBEDDING_MODEL"),
+		embeddingModel:   envOr("GIZCLAW_LOCOMO_E2E_EMBEDDING_MODEL", "text-embedding-3-small"),
 		embeddingAPIKey:  os.Getenv("GIZCLAW_LOCOMO_E2E_EMBEDDING_API_KEY"),
 		embeddingBaseURL: os.Getenv("GIZCLAW_LOCOMO_E2E_EMBEDDING_BASE_URL"),
 		rerankModel:      os.Getenv("GIZCLAW_LOCOMO_E2E_RERANK_MODEL"),
@@ -89,6 +90,35 @@ func requireLiveSettings(t *testing.T, needs liveNeeds) liveSettings {
 		t.Fatal(err)
 	}
 	return settings
+}
+
+func requireCompleteCredentials(t *testing.T) {
+	t.Helper()
+	names := []string{
+		"GIZCLAW_LOCOMO_E2E_EMBEDDING_API_KEY",
+		"GIZCLAW_LOCOMO_E2E_MEM0_CUSTOM_INSTRUCTIONS_API_KEY",
+		"GIZCLAW_LOCOMO_E2E_MEM0_DEFAULT_API_KEY",
+		"GIZCLAW_LOCOMO_E2E_MODEL_API_KEY",
+		"GIZCLAW_LOCOMO_E2E_VOLC_ACCESS_KEY_ID",
+		"GIZCLAW_LOCOMO_E2E_VOLC_ACCESS_KEY_SECRET",
+		"GIZCLAW_LOCOMO_E2E_VOLC_API_KEY_ID",
+		"GIZCLAW_LOCOMO_E2E_VOLC_MEM0_API_KEY",
+	}
+	var invalid []string
+	for _, name := range names {
+		value := strings.TrimSpace(os.Getenv(name))
+		lower := strings.ToLower(value)
+		if value == "" || strings.Contains(lower, "dummy") ||
+			strings.Contains(lower, "example") ||
+			strings.Contains(lower, "placeholder") ||
+			strings.Contains(lower, "replace") ||
+			strings.Contains(lower, "changeme") {
+			invalid = append(invalid, name)
+		}
+	}
+	if len(invalid) > 0 {
+		t.Fatalf("invalid or missing LoCoMo E2E credentials: %s", strings.Join(invalid, ", "))
+	}
 }
 
 func validateRequired(values map[string]string, names ...string) error {

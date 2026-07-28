@@ -14,9 +14,9 @@ import (
 
 func TestDashScopeRealtimeToolInvokerContinuation(t *testing.T) {
 	loadGenXE2EEnv(t)
-	apiKey := firstEnv(dashScopeAPIKeyEnv, "GIZCLAW_E2E_DASHSCOPE_API_KEY")
+	apiKey := firstEnv(dashScopeAPIKeyEnv)
 	if apiKey == "" {
-		t.Skipf("set %s in tests/genx-e2e/.env", dashScopeAPIKeyEnv)
+		t.Fatalf("set %s in tests/genx-e2e/.env", dashScopeAPIKeyEnv)
 	}
 
 	invoker := &realtimeE2EToolInvoker{}

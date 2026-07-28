@@ -21,7 +21,7 @@ func TestAdminAPIVoicesListAndGet(t *testing.T) {
 		t.Fatalf("list voices missing JSON200")
 	}
 	if !hasAdminName(resp.JSON200.Items, "minimax-narrator-clone", func(item apitypes.Voice) string { return item.Id }) {
-		t.Skip("minimax-narrator-clone voice is not configured in this e2e environment")
+		t.Fatal("minimax-narrator-clone voice is not configured in this e2e environment")
 	}
 
 	get, err := env.api.GetVoiceWithResponse(env.ctx, "minimax-narrator-clone")

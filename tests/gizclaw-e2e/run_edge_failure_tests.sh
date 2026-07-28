@@ -14,25 +14,12 @@ cleanup() {
 }
 trap cleanup EXIT
 
-run_pkg() {
-  local pkg="$1"
-  local run_regexp="$2"
-  echo "==> go test $pkg -run $run_regexp"
-  (cd "$repo_root" && go test -tags gizclaw_e2e -count=1 -run "$run_regexp" "$pkg")
-}
-
-echo "==> build host e2e CLI"
 mkdir -p "$script_dir/testdata/bin"
 (cd "$repo_root" && go build -o "$script_dir/testdata/bin/gizclaw" ./cmd/gizclaw)
-
-echo "==> start Docker e2e stack"
 bash "$setup_dir/docker-compose-up.sh"
 set -a
-# shellcheck disable=SC1090
+# shellcheck disable=SC1091
 source "$script_dir/testdata/docker/current.env"
 set +a
-
-run_pkg "./tests/gizclaw-e2e/go/chat" '^TestHumanReview$'
-run_pkg "./tests/gizclaw-e2e/go/social" '^TestServerSocialRPCHumanReview$'
-
-echo "==> human-review e2e run completed"
+(cd "$repo_root" && go test -count=1 -v -tags gizclaw_e2e \
+  -run '^TestGatewayOneEdgeFailureIsIsolated$' ./tests/gizclaw-e2e/go/edge)

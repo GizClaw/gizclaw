@@ -69,9 +69,6 @@ func TestGatewayMultiEdgeAPIAndPacketLanes(t *testing.T) {
 }
 
 func TestGatewayOneEdgeFailureIsIsolated(t *testing.T) {
-	if os.Getenv("GIZCLAW_E2E_RUN_EDGE_FAILURE") != "1" {
-		t.Skip("set GIZCLAW_E2E_RUN_EDGE_FAILURE=1 for the disruptive Edge stop/restart case")
-	}
 	first := loadGatewayEndpoint(t, requiredEnv(t, "GIZCLAW_E2E_EDGE_ENDPOINT"))
 	second := loadGatewayEndpoint(t, requiredEnv(t, "GIZCLAW_E2E_EDGE2_ENDPOINT"))
 	firstClient := connect(t, first)
@@ -244,7 +241,7 @@ func requiredEnv(t *testing.T, name string) string {
 	t.Helper()
 	value := strings.TrimSpace(os.Getenv(name))
 	if value == "" {
-		t.Skipf("%s is required; source tests/gizclaw-e2e/testdata/docker/current.env", name)
+		t.Fatalf("%s is required; source tests/gizclaw-e2e/testdata/docker/current.env", name)
 	}
 	if name == "GIZCLAW_E2E_DOCKER_COMPOSE_FILE" {
 		absolute, err := filepath.Abs(value)

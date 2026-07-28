@@ -20,17 +20,15 @@ import (
 )
 
 const (
-	miniMaxAPIKeyEnv  = "GIZCLAW_GENX_E2E_MINIMAX_API_KEY"
-	miniMaxBaseURLEnv = "GIZCLAW_GENX_E2E_MINIMAX_BASE_URL"
-	miniMaxVoiceIDEnv = "GIZCLAW_GENX_E2E_MINIMAX_VOICE_ID"
+	miniMaxAPIKeyEnv = "GIZCLAW_GENX_E2E_MINIMAX_API_KEY"
 )
 
 func TestDoubaoSAUCASR(t *testing.T) {
 	loadGenXE2EEnv(t)
-	appID := firstEnv(doubaoAppIDEnv, "GIZCLAW_E2E_DOUBAO_APP_ID")
-	apiKey := firstEnv(doubaoAPIKeyEnv, "GIZCLAW_E2E_DOUBAO_API_KEY")
+	appID := firstEnv(doubaoAppIDEnv)
+	apiKey := firstEnv(doubaoAPIKeyEnv)
 	if appID == "" || apiKey == "" {
-		t.Skipf("set %s and %s in tests/genx-e2e/.env to run this provider e2e test", doubaoAppIDEnv, doubaoAPIKeyEnv)
+		t.Fatalf("set %s and %s in tests/genx-e2e/.env to run this provider e2e test", doubaoAppIDEnv, doubaoAPIKeyEnv)
 	}
 
 	realtimePacing := false
@@ -93,10 +91,10 @@ func TestDoubaoSAUCASR(t *testing.T) {
 
 func TestDoubaoSeedV2TTS(t *testing.T) {
 	loadGenXE2EEnv(t)
-	appID := firstEnv(doubaoAppIDEnv, "GIZCLAW_E2E_DOUBAO_APP_ID")
-	apiKey := firstEnv(doubaoAPIKeyEnv, "GIZCLAW_E2E_DOUBAO_API_KEY")
+	appID := firstEnv(doubaoAppIDEnv)
+	apiKey := firstEnv(doubaoAPIKeyEnv)
 	if appID == "" || apiKey == "" {
-		t.Skipf("set %s and %s in tests/genx-e2e/.env to run this provider e2e test", doubaoAppIDEnv, doubaoAPIKeyEnv)
+		t.Fatalf("set %s and %s in tests/genx-e2e/.env to run this provider e2e test", doubaoAppIDEnv, doubaoAPIKeyEnv)
 	}
 
 	transformer, err := doubaotts.NewSeedV2(doubaotts.SeedV2Config{
@@ -111,18 +109,12 @@ func TestDoubaoSeedV2TTS(t *testing.T) {
 
 func TestMiniMaxTTS(t *testing.T) {
 	loadGenXE2EEnv(t)
-	apiKey := firstEnv(miniMaxAPIKeyEnv, "GIZCLAW_E2E_MINIMAX_GLOBAL_API_KEY", "GIZCLAW_E2E_MINIMAX_API_KEY")
+	apiKey := firstEnv(miniMaxAPIKeyEnv)
 	if apiKey == "" {
-		t.Skipf("set %s in tests/genx-e2e/.env to run this provider e2e test", miniMaxAPIKeyEnv)
+		t.Fatalf("set %s in tests/genx-e2e/.env to run this provider e2e test", miniMaxAPIKeyEnv)
 	}
-	baseURL := firstEnv(miniMaxBaseURLEnv, "GIZCLAW_E2E_MINIMAX_GLOBAL_VOICE_BASE_URL", "GIZCLAW_E2E_MINIMAX_VOICE_BASE_URL")
-	if baseURL == "" {
-		baseURL = "https://api.minimax.io"
-	}
-	voiceID := firstEnv(miniMaxVoiceIDEnv)
-	if voiceID == "" {
-		voiceID = "female-shaonv"
-	}
+	baseURL := "https://api.minimax.io"
+	voiceID := "female-shaonv"
 	client, err := minimax.NewClient(minimax.Config{BaseURL: baseURL, APIKey: apiKey})
 	if err != nil {
 		t.Fatalf("minimax.NewClient() failed: %v", err)

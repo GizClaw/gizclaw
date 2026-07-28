@@ -4,7 +4,6 @@ package admin_test
 
 import (
 	"context"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -14,8 +13,6 @@ import (
 )
 
 func TestAdminAPISyncVolcTenantVoicesForWorkspaceUse(t *testing.T) {
-	skipProviderSyncE2E(t)
-
 	env := newAdminAPIHarness(t)
 
 	resp, err := env.api.SyncVolcTenantVoicesWithResponse(env.ctx, "volc-main")
@@ -23,7 +20,7 @@ func TestAdminAPISyncVolcTenantVoicesForWorkspaceUse(t *testing.T) {
 		t.Fatalf("sync Volc tenant voices: %v", err)
 	}
 	if resp.StatusCode() == 404 {
-		t.Skip("volc-main tenant is not configured in this e2e environment")
+		t.Fatal("volc-main tenant is not configured in this e2e environment")
 	}
 	requireStatusOK(t, resp, resp.Body)
 	if resp.JSON200 == nil || resp.JSON200.TenantName != "volc-main" || resp.JSON200.SyncedAt.IsZero() {
@@ -50,13 +47,11 @@ func TestAdminAPISyncVolcTenantVoicesForWorkspaceUse(t *testing.T) {
 }
 
 func TestAdminAPISyncMiniMaxTenantVoices(t *testing.T) {
-	skipProviderSyncE2E(t)
-
 	env := newAdminAPIHarness(t)
 
 	tenantName := findRealMiniMaxTenant(t, env)
 	if tenantName == "" {
-		t.Skip("no real MiniMax tenant is configured in this e2e environment")
+		t.Fatal("no real MiniMax tenant is configured in this e2e environment")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
@@ -89,13 +84,6 @@ func TestAdminAPISyncMiniMaxTenantVoices(t *testing.T) {
 	}
 	if len(voices.JSON200.Items) == 0 && resp.JSON200.CreatedCount+resp.JSON200.UpdatedCount+resp.JSON200.DeletedCount == 0 {
 		t.Fatalf("sync MiniMax tenant %q did not produce or reconcile any voices", tenantName)
-	}
-}
-
-func skipProviderSyncE2E(t *testing.T) {
-	t.Helper()
-	if os.Getenv("GIZCLAW_E2E_SKIP_PROVIDER_SYNC") == "1" {
-		t.Skip("provider voice sync is disabled in this e2e environment")
 	}
 }
 

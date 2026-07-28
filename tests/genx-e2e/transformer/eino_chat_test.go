@@ -22,9 +22,9 @@ const einoChatVerificationToken = "EINO_CHAT_HISTORY_OK_7F3A"
 
 func TestEinoWorkflowOpenAICompatibleConversation(t *testing.T) {
 	loadGenXE2EEnv(t)
-	apiKey := firstEnv(einoAPIKeyEnv, "GIZCLAW_E2E_OPENAI_API_KEY", "OPENAI_API_KEY")
+	apiKey := firstEnv(einoAPIKeyEnv)
 	if apiKey == "" {
-		t.Skipf("set %s in tests/genx-e2e/.env", einoAPIKeyEnv)
+		t.Fatalf("set %s in tests/genx-e2e/.env", einoAPIKeyEnv)
 	}
 	client := openai.NewClient(option.WithAPIKey(apiKey))
 	generator := &genx.OpenAIGenerator{

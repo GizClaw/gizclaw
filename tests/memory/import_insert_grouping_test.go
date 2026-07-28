@@ -1,3 +1,5 @@
+//go:build gizclaw_memory_e2e
+
 package memoryintegration_test
 
 import (
@@ -25,12 +27,12 @@ func TestImportAndInsertGrouping(t *testing.T) {
 
 	for j, chunk := range chunkMessages(importMessages, 120) {
 		err := ingestMessagesWithGroup(ctx, mem, compressor, chunk, "group:import")
-		failOrSkipTransient(t, fmt.Sprintf("ingest import chunk=%d", j+1), err)
+		requireNoLiveError(t, fmt.Sprintf("ingest import chunk=%d", j+1), err)
 	}
 
 	for j, chunk := range chunkMessages(insertMessages, 80) {
 		err := ingestMessagesWithGroup(ctx, mem, compressor, chunk, "group:insert")
-		failOrSkipTransient(t, fmt.Sprintf("ingest insert chunk=%d", j+1), err)
+		requireNoLiveError(t, fmt.Sprintf("ingest insert chunk=%d", j+1), err)
 	}
 
 	importResult, err := mem.Recall(ctx, memory.RecallQuery{

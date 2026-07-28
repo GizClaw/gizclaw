@@ -9,6 +9,14 @@ log_file="$workspace_dir/gizclaw-server.log"
 ready_file="/tmp/gizclaw-e2e-server-ready"
 http_ready_file="/tmp/gizclaw-e2e-server-http-ready"
 bin_path="$repo_root/tests/gizclaw-e2e/testdata/bin/gizclaw"
+server_mode="${1:-standard}"
+case "$server_mode" in
+  standard | volc-log) ;;
+  *)
+    echo "unsupported server mode: $server_mode" >&2
+    exit 2
+    ;;
+esac
 
 cd "$repo_root"
 rm -f "$ready_file"
@@ -24,27 +32,18 @@ container_server_endpoint="$GIZCLAW_E2E_SERVER_ENDPOINT"
 container_turn_endpoint="$GIZCLAW_E2E_TURN_ENDPOINT"
 container_turn_username="$GIZCLAW_E2E_TURN_USERNAME"
 container_turn_credential="$GIZCLAW_E2E_TURN_CREDENTIAL"
-if [[ -f "$repo_root/tests/gizclaw-e2e/.env" ]]; then
-  set -a
-  # shellcheck disable=SC1091
-  source "$repo_root/tests/gizclaw-e2e/.env"
-  set +a
-fi
+# shellcheck source=../setup/credentials.sh
+source "$repo_root/tests/gizclaw-e2e/setup/credentials.sh"
+require_gizclaw_e2e_credentials "$repo_root/tests/gizclaw-e2e/.env"
 export GIZCLAW_E2E_CONFIG_HOME="$container_config_home"
 export GIZCLAW_E2E_SERVER_ENDPOINT="$container_server_endpoint"
 export GIZCLAW_E2E_TURN_ENDPOINT="$container_turn_endpoint"
 export GIZCLAW_E2E_TURN_USERNAME="$container_turn_username"
 export GIZCLAW_E2E_TURN_CREDENTIAL="$container_turn_credential"
-: "${GIZCLAW_E2E_VOLC_LOG_ENABLED:=false}"
-: "${GIZCLAW_E2E_VOLC_LOG_ENDPOINT:=}"
-: "${GIZCLAW_E2E_VOLC_LOG_REGION:=}"
-: "${GIZCLAW_E2E_VOLC_LOG_TOPIC_ID:=}"
-: "${GIZCLAW_E2E_VOLC_LOG_ACCESS_KEY_ID:=}"
-: "${GIZCLAW_E2E_VOLC_LOG_ACCESS_KEY_SECRET:=}"
 envsubst '${GIZCLAW_E2E_SERVER_ENDPOINT} ${GIZCLAW_E2E_TURN_ENDPOINT} ${GIZCLAW_E2E_TURN_USERNAME} ${GIZCLAW_E2E_TURN_CREDENTIAL}' \
   < "$repo_root/tests/gizclaw-e2e/testdata/server-workspace/config.yaml.template" \
   > "$workspace_dir/config.yaml"
-if [[ "$GIZCLAW_E2E_VOLC_LOG_ENABLED" == "true" ]]; then
+if [[ "$server_mode" == "volc-log" ]]; then
   : "${GIZCLAW_E2E_VOLC_LOG_ENDPOINT:?missing GIZCLAW_E2E_VOLC_LOG_ENDPOINT}"
   : "${GIZCLAW_E2E_VOLC_LOG_REGION:?missing GIZCLAW_E2E_VOLC_LOG_REGION}"
   : "${GIZCLAW_E2E_VOLC_LOG_TOPIC_ID:?missing GIZCLAW_E2E_VOLC_LOG_TOPIC_ID}"

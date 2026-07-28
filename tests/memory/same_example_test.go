@@ -1,3 +1,5 @@
+//go:build gizclaw_memory_e2e
+
 package memoryintegration_test
 
 import (
@@ -47,7 +49,7 @@ func TestRunSameExampleAcrossDatasetSizes(t *testing.T) {
 			chunks := chunkMessages(variant.messages, 80)
 			for idx, chunk := range chunks {
 				err := ingestMessagesWithGroup(ctx, mem, compressor, chunk, "group:same-example")
-				failOrSkipTransient(t, fmt.Sprintf("ingest %s chunk %d", variant.name, idx+1), err)
+				requireNoLiveError(t, fmt.Sprintf("ingest %s chunk %d", variant.name, idx+1), err)
 			}
 
 			result, err := mem.Recall(ctx, memory.RecallQuery{
