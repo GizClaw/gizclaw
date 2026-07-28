@@ -38,13 +38,6 @@ pkgs/audio/voiceprint/model_ncnn_test.go:333:13: call of ptrToFbankConfig(x) can
 pkgs/audio/voiceprint/model_ncnn_test.go:35:6: ptrToFbankConfig can be an inlinable wrapper around new(expr)
 pkgs/buffer/buffer_test.go:62:7: if statement can be modernized using min
 pkgs/genx/transformers/doubaoasr/history.go:91:6: if statement can be modernized using max
-pkgs/genx/transformers/doubaoasr/transformer_test.go:428:70: call of boolPointer(x) can be simplified to new(x)
-pkgs/genx/transformers/doubaoasr/transformer_test.go:633:70: call of boolPointer(x) can be simplified to new(x)
-pkgs/genx/transformers/doubaoasr/transformer_test.go:720:21: call of boolPointer(x) can be simplified to new(x)
-pkgs/genx/transformers/doubaoasr/transformer_test.go:787:19: call of boolPointer(x) can be simplified to new(x)
-pkgs/genx/transformers/doubaoasr/transformer_test.go:902:19: call of boolPointer(x) can be simplified to new(x)
-pkgs/genx/transformers/doubaoasr/transformer_test.go:96:6: boolPointer can be an inlinable wrapper around new(expr)
-pkgs/genx/transformers/doubaoasr/transformer_test.go:992:19: call of boolPointer(x) can be simplified to new(x)
 pkgs/genx/transformers/doubaoast/implementation_test.go:116:3: Goroutine creation can be simplified using WaitGroup.Go
 pkgs/genx/transformers/doubaoast/implementation_test.go:1408:4: using string += string in a loop is inefficient
 pkgs/genx/transformers/doubaorealtime/implementation_test.go:96:3: Goroutine creation can be simplified using WaitGroup.Go

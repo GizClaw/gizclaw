@@ -95,10 +95,6 @@ func TestConfigValidationDefaultsAndCopies(t *testing.T) {
 	}
 }
 
-func boolPointer(value bool) *bool {
-	return &value
-}
-
 func collectTransformerChunks(t *testing.T, stream genx.Stream) []*genx.MessageChunk {
 	t.Helper()
 	var chunks []*genx.MessageChunk
@@ -213,7 +209,7 @@ func TestTransformerEmitInterimKeepsProviderSessionAcrossLocalEOS(t *testing.T) 
 	transformer := newTransformer(Config{
 		Format:         "pcm",
 		EmitInterim:    true,
-		RealtimePacing: boolPointer(false),
+		RealtimePacing: new(false),
 	})
 	openCalls := 0
 	transformer.newSession = func(context.Context, doubaoASRSessionConfig) (doubaoASRSession, error) {
@@ -291,7 +287,7 @@ func TestTransformerEmitInterimRoutesTranscriptsAcrossLocalStreams(t *testing.T)
 	transformer := newTransformer(Config{
 		Format:         "pcm",
 		EmitInterim:    true,
-		RealtimePacing: boolPointer(false),
+		RealtimePacing: new(false),
 	})
 	transformer.newSession = func(context.Context, doubaoASRSessionConfig) (doubaoASRSession, error) {
 		return session, nil
@@ -395,7 +391,7 @@ func TestTransformerEmitInterimReopensCompletedProviderSession(t *testing.T) {
 	transformer := newTransformer(Config{
 		Format:         "pcm",
 		EmitInterim:    true,
-		RealtimePacing: boolPointer(false),
+		RealtimePacing: new(false),
 	})
 	var sessions []*fakeDoubaoASRSession
 	transformer.newSession = func(context.Context, doubaoASRSessionConfig) (doubaoASRSession, error) {
@@ -691,7 +687,7 @@ func TestTransformerUsesWAVFormatForWAVInput(t *testing.T) {
 
 func TestTransformerPushToTalkKeepsHistoryStreamIDAcrossEOS(t *testing.T) {
 	session := newFakeDoubaoASRSession()
-	transformer := newTransformer(Config{Format: "pcm", RealtimePacing: boolPointer(false)})
+	transformer := newTransformer(Config{Format: "pcm", RealtimePacing: new(false)})
 	transformer.newSession = func(context.Context, doubaoASRSessionConfig) (doubaoASRSession, error) {
 		return session, nil
 	}
@@ -896,7 +892,7 @@ func TestTransformerDecodesMP3ToPCMSession(t *testing.T) {
 
 func TestTransformerEmitsDefiniteUtterancesWithNonMonotonicTimes(t *testing.T) {
 	session := newFakeDoubaoASRSession()
-	transformer := newTransformer(Config{Format: "pcm", RealtimePacing: boolPointer(false)})
+	transformer := newTransformer(Config{Format: "pcm", RealtimePacing: new(false)})
 	transformer.newSession = func(context.Context, doubaoASRSessionConfig) (doubaoASRSession, error) {
 		return session, nil
 	}
@@ -983,7 +979,7 @@ func TestTransformerEmitInterimControlsNonDefiniteUtterances(t *testing.T) {
 			session := newFakeDoubaoASRSession()
 			transformer := newTransformer(Config{
 				Format:         "pcm",
-				RealtimePacing: boolPointer(false),
+				RealtimePacing: new(false),
 				EmitInterim:    tt.emitInterim,
 			})
 			transformer.newSession = func(context.Context, doubaoASRSessionConfig) (doubaoASRSession, error) {
@@ -1050,7 +1046,7 @@ func TestTransformerEmitInterimSplitsDefiniteUtteranceStreamIDs(t *testing.T) {
 	transformer := newTransformer(Config{
 		Format:         "pcm",
 		SampleRate:     sampleRate,
-		RealtimePacing: boolPointer(false),
+		RealtimePacing: new(false),
 		EmitInterim:    true,
 	})
 	transformer.newSession = func(context.Context, doubaoASRSessionConfig) (doubaoASRSession, error) {
@@ -1165,7 +1161,7 @@ func TestTransformerEmitInterimUsesTimestampedOpusBlocksForHistory(t *testing.T)
 	transformer := newTransformer(Config{
 		Format:         "ogg_opus",
 		SampleRate:     sampleRate,
-		RealtimePacing: boolPointer(false),
+		RealtimePacing: new(false),
 		EmitInterim:    true,
 	})
 	transformer.newSession = func(_ context.Context, cfg doubaoASRSessionConfig) (doubaoASRSession, error) {
@@ -1258,7 +1254,7 @@ func TestTransformerEmitInterimDoesNotDuplicateFinalTextResult(t *testing.T) {
 	session := newFakeDoubaoASRSession()
 	transformer := newTransformer(Config{
 		Format:         "pcm",
-		RealtimePacing: boolPointer(false),
+		RealtimePacing: new(false),
 		EmitInterim:    true,
 	})
 	transformer.newSession = func(context.Context, doubaoASRSessionConfig) (doubaoASRSession, error) {
