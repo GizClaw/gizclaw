@@ -341,11 +341,4 @@ pkgs/trie/trie.go:48:12: strings.IndexByte can be simplified using strings.Cut
 sdk/go/gizcli/credential_body_test.go:11:78: call of testStringPtr(x) can be simplified to new(x)
 sdk/go/gizcli/credential_body_test.go:7:6: testStringPtr can be an inlinable wrapper around new(expr)
 sdk/go/gizcli/rpc_firmware_test.go:77:6: for loop can be modernized using range over int
-tests/memory/same_example_test.go:37:3: copying variable is unneeded
-tests/memory/testutils_test.go:183:23: Ranging over SplitSeq is more efficient
-tests/memory/testutils_test.go:317:6: HasPrefix + TrimPrefix can be simplified to CutPrefix
-tests/memory/testutils_test.go:327:6: HasPrefix + TrimPrefix can be simplified to CutPrefix
-tests/memory/testutils_test.go:473:6: if statement can be modernized using min
-tests/memory/testutils_test.go:541:2: Loop can be simplified using slices.Contains
-tests/memory/testutils_test.go:550:2: Loop can be simplified using slices.Contains
 tools/quality/main.go:179:23: Ranging over SplitSeq is more efficient
