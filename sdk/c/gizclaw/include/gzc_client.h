@@ -61,7 +61,8 @@ typedef struct {
 
 /* Maximum live server-created ServicePeerRPC exchanges per client. */
 #define GZC_RPC_MAX_INBOUND_CHANNELS 4u
-#define GZC_SERVICE_WRITE_CHUNK_SIZE 1400u
+/* Balance embedded buffering with fewer native DataChannel messages. */
+#define GZC_SERVICE_WRITE_CHUNK_SIZE (4u * 1024u)
 #define GZC_SERVICE_WRITE_HIGH_WATER_DEFAULT (256u * 1024u)
 #define GZC_SERVICE_WRITE_LOW_WATER_DEFAULT (64u * 1024u)
 

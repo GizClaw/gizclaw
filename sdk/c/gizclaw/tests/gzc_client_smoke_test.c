@@ -1284,8 +1284,8 @@ int main(void) {
   rc = gzc_service_channel_send_frame(bounded_channel, &large_frame);
   if (expect(rc == GZC_OK && fake_webrtc.poll_count > poll_count_before_write,
              "high water waits for low-water notification") != 0 ||
-      expect(fake_webrtc.max_send_len <= GZC_SERVICE_WRITE_CHUNK_SIZE,
-             "service writes are chunked to 1400 bytes") != 0 ||
+      expect(fake_webrtc.max_send_len == GZC_SERVICE_WRITE_CHUNK_SIZE,
+             "service writes are chunked to 4 KiB") != 0 ||
       expect(fake_webrtc.native_sent.len == GZC_RPC_MAX_FRAME_SIZE + 4u &&
                  fake_webrtc.native_sent.data[0] == 0xffu &&
                  fake_webrtc.native_sent.data[1] == 0xffu &&

@@ -271,8 +271,8 @@ test("WebRTCRPCClient serializes logical writes sharing one service channel", as
     signal: secondController.signal,
   });
   const expectedNativeMessages =
-    Math.ceil(encodeRPCRequest(firstRequest).byteLength / 1400) +
-    Math.ceil(encodeRPCRequest(secondRequest).byteLength / 1400);
+    Math.ceil(encodeRPCRequest(firstRequest).byteLength / (16 * 1024)) +
+    Math.ceil(encodeRPCRequest(secondRequest).byteLength / (16 * 1024));
 
   channel.open();
   await channel.waitForSentCount(expectedNativeMessages);
@@ -394,9 +394,9 @@ test("WebRTCRPCClient splits oversized request envelopes into continuation frame
   await new Promise<void>((resolve) => setImmediate(resolve));
 
   const frames = decodeFrames(concatBuffers(channel.sent));
-  assert.equal(
-    channel.sent.every((message) => message.byteLength <= 1400),
-    true,
+  assert.deepEqual(
+    channel.sent.map((message) => message.byteLength),
+    [16 * 1024, 16 * 1024, 16 * 1024, 16 * 1024, 4497],
   );
   assert.equal(frames.length >= 3, true);
   assert.equal(frames[0]?.type, RPC_FRAME_TYPE_TEXT);
