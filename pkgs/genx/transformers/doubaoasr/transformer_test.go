@@ -27,6 +27,8 @@ type fakeDoubaoASRSession struct {
 	sends     []fakeDoubaoASRSend
 	result    chan *doubaospeech.ASRV2Result
 	sendAudio func(context.Context, []byte, bool) error
+	recvDone  chan struct{}
+	recvErr   error
 }
 
 type fakeDoubaoASROpen struct {
@@ -136,10 +138,16 @@ func (s *fakeDoubaoASRSession) SendAudio(_ context.Context, data []byte, isLast 
 
 func (s *fakeDoubaoASRSession) Recv() iter.Seq2[*doubaospeech.ASRV2Result, error] {
 	return func(yield func(*doubaospeech.ASRV2Result, error) bool) {
+		if s.recvDone != nil {
+			defer close(s.recvDone)
+		}
 		for result := range s.result {
 			if !yield(result, nil) {
 				return
 			}
+		}
+		if s.recvErr != nil {
+			yield(nil, s.recvErr)
 		}
 	}
 }
@@ -190,6 +198,264 @@ func TestTransformerSendsLastNonEmptyAudioFrame(t *testing.T) {
 	}
 	if got := string(session.sends[1].data); got != "second" || !session.sends[1].isLast {
 		t.Fatalf("second SendAudio = data %q last %t, want second/true", got, session.sends[1].isLast)
+	}
+}
+
+func TestTransformerEmitInterimKeepsProviderSessionAcrossLocalEOS(t *testing.T) {
+	session := newFakeDoubaoASRSession()
+	session.sendAudio = func(_ context.Context, data []byte, isLast bool) error {
+		session.sends = append(session.sends, fakeDoubaoASRSend{data: slices.Clone(data), isLast: isLast})
+		if isLast {
+			close(session.result)
+		}
+		return nil
+	}
+	transformer := newTransformer(Config{
+		Format:         "pcm",
+		EmitInterim:    true,
+		RealtimePacing: boolPointer(false),
+	})
+	openCalls := 0
+	transformer.newSession = func(context.Context, doubaoASRSessionConfig) (doubaoASRSession, error) {
+		openCalls++
+		return session, nil
+	}
+
+	input := newBufferStream(8)
+	output, err := transformer.Transform(context.Background(), input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	for _, chunk := range []*genx.MessageChunk{
+		{
+			Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}},
+			Ctrl: &genx.StreamCtrl{StreamID: "segment-a", BeginOfStream: true},
+		},
+		{
+			Part: &genx.Blob{MIMEType: "audio/pcm"},
+			Ctrl: &genx.StreamCtrl{StreamID: "segment-a", EndOfStream: true},
+		},
+		{
+			Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{2, 0}},
+			Ctrl: &genx.StreamCtrl{StreamID: "segment-b", BeginOfStream: true},
+		},
+		{
+			Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{3, 0}},
+			Ctrl: &genx.StreamCtrl{StreamID: "segment-b"},
+		},
+	} {
+		if err := input.Push(chunk); err != nil {
+			t.Fatalf("input.Push(%#v) error = %v", chunk.Ctrl, err)
+		}
+	}
+	if err := input.Close(); err != nil {
+		t.Fatalf("input.Close() error = %v", err)
+	}
+	_ = collectTransformerChunks(t, output)
+
+	if openCalls != 1 {
+		t.Fatalf("provider session opens = %d, want 1", openCalls)
+	}
+	if len(session.sends) != 4 {
+		t.Fatalf("SendAudio calls = %#v, want three frames and one terminal marker", session.sends)
+	}
+	for i, send := range session.sends {
+		wantLast := i == len(session.sends)-1
+		if send.isLast != wantLast {
+			t.Fatalf("SendAudio[%d].isLast = %t, want %t", i, send.isLast, wantLast)
+		}
+		if wantLast && len(send.data) != 0 {
+			t.Fatalf("terminal SendAudio data = %x, want empty marker", send.data)
+		}
+	}
+}
+
+func TestTransformerEmitInterimRoutesTranscriptsAcrossLocalStreams(t *testing.T) {
+	session := newFakeDoubaoASRSession()
+	firstAudioSent := make(chan struct{})
+	secondAudioSent := make(chan struct{})
+	session.sendAudio = func(_ context.Context, data []byte, isLast bool) error {
+		session.sends = append(session.sends, fakeDoubaoASRSend{data: slices.Clone(data), isLast: isLast})
+		if isLast {
+			close(session.result)
+			return nil
+		}
+		switch data[0] {
+		case 1:
+			close(firstAudioSent)
+		case 2:
+			close(secondAudioSent)
+		}
+		return nil
+	}
+	transformer := newTransformer(Config{
+		Format:         "pcm",
+		EmitInterim:    true,
+		RealtimePacing: boolPointer(false),
+	})
+	transformer.newSession = func(context.Context, doubaoASRSessionConfig) (doubaoASRSession, error) {
+		return session, nil
+	}
+
+	input := newBufferStream(8)
+	output, err := transformer.Transform(context.Background(), input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	pushAudio := func(streamID string, data byte) {
+		t.Helper()
+		if err := input.Push(&genx.MessageChunk{
+			Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{data, 0}},
+			Ctrl: &genx.StreamCtrl{StreamID: streamID, BeginOfStream: true},
+		}); err != nil {
+			t.Fatalf("push %s audio: %v", streamID, err)
+		}
+	}
+	pushResult := func(text string, start, end int) {
+		t.Helper()
+		session.result <- &doubaospeech.ASRV2Result{
+			Text: text,
+			Utterances: []doubaospeech.ASRV2Utterance{
+				{Text: text, StartTime: start, EndTime: end, Definite: true},
+			},
+		}
+	}
+	assertTranscript := func(streamID, text string) {
+		t.Helper()
+		for i, want := range []struct {
+			text string
+			bos  bool
+			eos  bool
+		}{
+			{bos: true},
+			{text: text},
+			{eos: true},
+		} {
+			chunk := nextNonHistoryChunk(t, output)
+			if chunk.Ctrl == nil || chunk.Ctrl.StreamID != streamID {
+				t.Fatalf("%s output[%d] ctrl = %#v, want stream %q", text, i, chunk.Ctrl, streamID)
+			}
+			if chunk.IsBeginOfStream() != want.bos || chunk.IsEndOfStream() != want.eos {
+				t.Fatalf("%s output[%d] BOS/EOS = %t/%t, want %t/%t", text, i, chunk.IsBeginOfStream(), chunk.IsEndOfStream(), want.bos, want.eos)
+			}
+			if want.text != "" {
+				got, ok := chunk.Part.(genx.Text)
+				if !ok || string(got) != want.text {
+					t.Fatalf("%s output[%d] part = %#v, want %q", text, i, chunk.Part, want.text)
+				}
+			}
+		}
+	}
+
+	pushAudio("segment-a", 1)
+	<-firstAudioSent
+	pushResult("first", 0, 1)
+	assertTranscript("segment-a", "first")
+	if err := input.Push(&genx.MessageChunk{
+		Part: &genx.Blob{MIMEType: "audio/pcm"},
+		Ctrl: &genx.StreamCtrl{StreamID: "segment-a", EndOfStream: true},
+	}); err != nil {
+		t.Fatalf("push segment-a EOS: %v", err)
+	}
+
+	pushAudio("segment-b", 2)
+	<-secondAudioSent
+	pushResult("second", 1, 2)
+	assertTranscript("segment-b", "second")
+	if err := input.Close(); err != nil {
+		t.Fatalf("close input: %v", err)
+	}
+	_ = collectTransformerChunks(t, output)
+
+	if len(session.sends) != 3 || session.sends[0].isLast || session.sends[1].isLast || !session.sends[2].isLast {
+		t.Fatalf("provider sends = %#v, want two non-terminal frames and one terminal marker", session.sends)
+	}
+}
+
+func TestTransformerEmitInterimReopensCompletedProviderSession(t *testing.T) {
+	first := newFakeDoubaoASRSession()
+	first.recvDone = make(chan struct{})
+	first.recvErr = &doubaospeech.Error{Code: doubaoASRPacketWaitTimeout, Message: "waiting next packet timeout"}
+	firstResultSent := false
+	first.sendAudio = func(_ context.Context, data []byte, isLast bool) error {
+		first.sends = append(first.sends, fakeDoubaoASRSend{data: slices.Clone(data), isLast: isLast})
+		if len(data) > 0 && !firstResultSent {
+			firstResultSent = true
+			first.result <- &doubaospeech.ASRV2Result{
+				Text: "first segment",
+				Utterances: []doubaospeech.ASRV2Utterance{
+					{Text: "first segment", StartTime: 0, EndTime: 100, Definite: true},
+				},
+			}
+			close(first.result)
+		}
+		return nil
+	}
+	second := newFakeDoubaoASRSession()
+	transformer := newTransformer(Config{
+		Format:         "pcm",
+		EmitInterim:    true,
+		RealtimePacing: boolPointer(false),
+	})
+	var sessions []*fakeDoubaoASRSession
+	transformer.newSession = func(context.Context, doubaoASRSessionConfig) (doubaoASRSession, error) {
+		var session *fakeDoubaoASRSession
+		switch len(sessions) {
+		case 0:
+			session = first
+		case 1:
+			session = second
+		default:
+			t.Fatalf("opened unexpected provider session %d", len(sessions)+1)
+		}
+		sessions = append(sessions, session)
+		return session, nil
+	}
+
+	input := newBufferStream(8)
+	output, err := transformer.Transform(context.Background(), input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	if err := input.Push(&genx.MessageChunk{
+		Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}},
+		Ctrl: &genx.StreamCtrl{StreamID: "segment-a", BeginOfStream: true},
+	}); err != nil {
+		t.Fatalf("push first segment: %v", err)
+	}
+	if err := input.Push(&genx.MessageChunk{
+		Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}},
+		Ctrl: &genx.StreamCtrl{StreamID: "segment-a"},
+	}); err != nil {
+		t.Fatalf("push first segment continuation: %v", err)
+	}
+	for {
+		chunk := nextNonHistoryChunk(t, output)
+		if chunk.IsEndOfStream() {
+			break
+		}
+	}
+	<-first.recvDone
+
+	if err := input.Push(&genx.MessageChunk{
+		Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{2, 0}},
+		Ctrl: &genx.StreamCtrl{StreamID: "segment-b", BeginOfStream: true},
+	}); err != nil {
+		t.Fatalf("push second segment: %v", err)
+	}
+	if err := input.Close(); err != nil {
+		t.Fatalf("close input: %v", err)
+	}
+	_ = collectTransformerChunks(t, output)
+
+	if len(sessions) != 2 {
+		t.Fatalf("provider session opens = %d, want 2", len(sessions))
+	}
+	if len(first.sends) != 2 || first.sends[0].isLast || first.sends[1].isLast {
+		t.Fatalf("first provider sends = %#v, want two non-terminal audio frames", first.sends)
+	}
+	if len(second.sends) != 2 || second.sends[0].isLast || !second.sends[1].isLast || len(second.sends[1].data) != 0 {
+		t.Fatalf("second provider sends = %#v, want audio followed by an empty terminal marker", second.sends)
 	}
 }
 
@@ -946,11 +1212,14 @@ func TestTransformerEmitInterimUsesTimestampedOpusBlocksForHistory(t *testing.T)
 	}
 
 	chunks := collectTransformerChunks(t, output)
-	if len(session.sends) != 2 {
-		t.Fatalf("SendAudio calls = %#v, want one send per opus packet", session.sends)
+	if len(session.sends) != 3 {
+		t.Fatalf("SendAudio calls = %#v, want one send per opus packet plus a terminal marker", session.sends)
 	}
 	if !bytes.Equal(session.sends[0].data, firstPacket) || !bytes.Equal(session.sends[1].data, secondPacket) {
 		t.Fatalf("provider sends = %#v, want original opus packets", session.sends)
+	}
+	if !session.sends[2].isLast || len(session.sends[2].data) != 0 {
+		t.Fatalf("terminal provider send = %#v, want empty isLast marker", session.sends[2])
 	}
 
 	history := historyAudioChunks(chunks)

@@ -4,6 +4,7 @@ package social_test
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -821,6 +822,14 @@ func waitForWorkspaceHistoryUpdated(stream genx.Stream) <-chan error {
 			}
 			if chunk == nil || chunk.Ctrl == nil {
 				continue
+			}
+			if strings.TrimSpace(chunk.Ctrl.Error) != "" {
+				ch <- fmt.Errorf(
+					"peer output stream %q failed: %s",
+					strings.TrimSpace(chunk.Ctrl.StreamID),
+					strings.TrimSpace(chunk.Ctrl.Error),
+				)
+				return
 			}
 			if chunk.Ctrl.Label == "workspace.history.updated" && chunk.Ctrl.Timestamp > 0 {
 				ch <- nil

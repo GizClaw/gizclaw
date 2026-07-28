@@ -44,6 +44,10 @@ envsubst '${GIZCLAW_E2E_SERVER_ENDPOINT} ${GIZCLAW_E2E_TURN_ENDPOINT} ${GIZCLAW_
   < "$repo_root/tests/gizclaw-e2e/testdata/server-workspace/config.yaml.template" \
   > "$workspace_dir/config.yaml"
 if [[ "$server_mode" == "volc-log" ]]; then
+  # shellcheck disable=SC2154
+  require_gizclaw_e2e_credentials \
+    "$repo_root/tests/gizclaw-e2e/.env" \
+    "${gizclaw_e2e_volc_log_credentials[@]}"
   : "${GIZCLAW_E2E_VOLC_LOG_ENDPOINT:?missing GIZCLAW_E2E_VOLC_LOG_ENDPOINT}"
   : "${GIZCLAW_E2E_VOLC_LOG_REGION:?missing GIZCLAW_E2E_VOLC_LOG_REGION}"
   : "${GIZCLAW_E2E_VOLC_LOG_TOPIC_ID:?missing GIZCLAW_E2E_VOLC_LOG_TOPIC_ID}"

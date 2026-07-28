@@ -8,6 +8,8 @@ env_file="$script_dir/.env"
 # shellcheck source=setup/credentials.sh
 source "$setup_dir/credentials.sh"
 require_gizclaw_e2e_credentials "$env_file"
+# shellcheck disable=SC2154
+require_gizclaw_e2e_credentials "$env_file" "${gizclaw_e2e_volc_log_credentials[@]}"
 : "${GIZCLAW_E2E_VOLC_LOG_ENDPOINT:?set the provisioned LogStore endpoint}"
 : "${GIZCLAW_E2E_VOLC_LOG_REGION:?set the provisioned LogStore region}"
 : "${GIZCLAW_E2E_VOLC_LOG_TOPIC_ID:?set the provisioned LogStore topic id}"

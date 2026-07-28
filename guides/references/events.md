@@ -66,6 +66,11 @@ EOS(kind=AUDIO, stream_id=audio-42)
 Server 只在对应的 `BOS(kind=AUDIO)` 通过本轮授权后接收该轮 Opus packets；
 先到达或绕过 BOS 的 packets 会被丢弃。EOS 会关闭该轮输入 gate。
 
+RTP media 与 reliable Event Stream 是两条独立 transport，接收端不能依赖两个
+transport callback 的 goroutine 调度顺序。SDK 将它们合并为逻辑 stream 时，
+应由一个 owner 串行交付，并在交付 audio EOS 前先交付当前已经收到的该轮 Opus
+packets；这个排序只处理本地 merge，不会开关 connection-scoped media track。
+
 EOS 的 `error` 包含稳定 `code`、安全 fallback `message` 和 `retryable`。带 error
 的 EOS 只结束对应逻辑 stream，不关闭 service `0x20`，其他事件和后续 turn 仍可
 继续传输。

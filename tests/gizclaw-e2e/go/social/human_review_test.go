@@ -33,6 +33,7 @@ const (
 	socialHumanReviewFrameSize              = socialHumanReviewSampleRate / 50
 	socialHumanReviewRuntimeProfile         = "social-human-review"
 	socialHumanReviewTTSModel               = "volc-bigtts"
+	socialHumanReviewVoiceAlias             = "assistant-voice"
 	socialHumanReviewVoiceResource          = "volc-tenant:volc-main:zh_female_vv_mars_bigtts"
 )
 
@@ -84,17 +85,17 @@ func newSocialHumanReviewHarness(t *testing.T) *sharedSocialClients {
 
 	h := clitest.NewSetupHarness(t, "client-social-human-review")
 	configureSocialAdminContext(t, h)
-	admin := h.ConnectClientFromContext("admin-a")
-	defer admin.Close()
-	api, err := admin.ServerAdminClient()
-	if err != nil {
-		t.Fatalf("create social human-review admin client: %v", err)
-	}
 	configureSocialPeerContext(t, h, "peer-a", "GIZCLAW_E2E_SOCIAL_PERSON_A_IDENTITY", "social-a", "client-social-human-review-peer-a-sn")
 	configureSocialPeerContext(t, h, "peer-b", "GIZCLAW_E2E_SOCIAL_PERSON_B_IDENTITY", "social-b", "client-social-human-review-peer-b-sn")
 	for _, peer := range []string{"peer-c"} {
 		h.CreateContext(peer).MustSucceed(t)
 		h.RegisterContext(peer, "--sn", "client-social-human-review-"+peer+"-sn").MustSucceed(t)
+	}
+	admin := h.ConnectClientFromContext("admin-a")
+	defer admin.Close()
+	api, err := admin.ServerAdminClient()
+	if err != nil {
+		t.Fatalf("create social human-review admin client: %v", err)
 	}
 	shared := newSharedSocialClients(t, h)
 	registerSocialHumanReviewProfile(t, api, shared, "peer-a", "peer-b", "peer-c")
@@ -145,14 +146,14 @@ func registerSocialHumanReviewProfile(t *testing.T, api *adminhttp.ClientWithRes
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	workflows := map[string]string{
-		"direct": "chatroom-direct",
+		"direct": "chatroom",
 		"group":  "chatroom",
 	}
 	models := map[string]string{
-		"asr": "volc-asr",
+		"asr": "volc-bigasr-sauc",
 		"tts": socialHumanReviewTTSModel,
 	}
-	voices := map[string]string{"tts": socialHumanReviewVoiceResource}
+	voices := map[string]string{socialHumanReviewVoiceAlias: socialHumanReviewVoiceResource}
 	modelBindings := socialRuntimeBindings(models)
 	voiceBindings := socialRuntimeBindings(voices)
 	profileResp, err := api.PutRuntimeProfileWithResponse(ctx, socialHumanReviewRuntimeProfile, adminhttp.RuntimeProfileUpsert{
@@ -162,8 +163,8 @@ func registerSocialHumanReviewProfile(t *testing.T, api *adminhttp.ClientWithRes
 			Voices: &voiceBindings,
 		}, Workflows: apitypes.RuntimeProfileWorkflows{
 			System: apitypes.RuntimeProfileSystemWorkflows{
-				FriendChatroom: "chatroom-direct",
-				GroupChatroom:  "chatroom-direct",
+				FriendChatroom: "chatroom",
+				GroupChatroom:  "chatroom",
 				Pet:            "pet-chatroom",
 			},
 			Collections: apitypes.RuntimeProfileWorkflowCollections{
@@ -324,7 +325,7 @@ func synthesizeSocialHumanReviewSpeech(t *testing.T, ctx context.Context, client
 	body, err := json.Marshal(map[string]string{
 		"input":           text,
 		"model":           socialHumanReviewTTSModel,
-		"voice":           socialHumanReviewVoiceResource,
+		"voice":           socialHumanReviewVoiceAlias,
 		"response_format": "opus",
 	})
 	if err != nil {

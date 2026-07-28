@@ -294,6 +294,9 @@ func TestTransformerRealtimeKeepsOneASRSessionAcrossAudioRoutes(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("ASR input did not complete with outer input")
 	}
+	if got := asr.LocalEOS(); got != 2 {
+		t.Fatalf("ASR local EOS count = %d, want 2", got)
+	}
 }
 
 func TestTransformerRealtimeRejectsPrematureASROutputCompletion(t *testing.T) {
@@ -551,6 +554,7 @@ func (a *recordingASR) Calls() int {
 type routeAwareRealtimeASR struct {
 	mu        sync.Mutex
 	calls     int
+	localEOS  int
 	inputDone chan struct{}
 	doneOnce  sync.Once
 }
@@ -567,6 +571,7 @@ func (a *routeAwareRealtimeASR) Transform(_ context.Context, _ string, input gen
 	go func() {
 		defer input.Close()
 		defer a.doneOnce.Do(func() { close(a.inputDone) })
+		seen := make(map[string]struct{})
 		for {
 			chunk, err := input.Next()
 			if isStreamDone(err) {
@@ -577,10 +582,24 @@ func (a *routeAwareRealtimeASR) Transform(_ context.Context, _ string, input gen
 				_ = output.Abort(err)
 				return
 			}
-			if chunk == nil || !chunk.IsEndOfStream() {
+			if chunk == nil {
+				continue
+			}
+			if chunk.IsEndOfStream() {
+				a.mu.Lock()
+				a.localEOS++
+				a.mu.Unlock()
+				continue
+			}
+			blob, ok := chunk.Part.(*genx.Blob)
+			if !ok || len(blob.Data) == 0 || chunk.Ctrl == nil {
 				continue
 			}
 			streamID := chunk.Ctrl.StreamID
+			if _, ok := seen[streamID]; ok {
+				continue
+			}
+			seen[streamID] = struct{}{}
 			if err := output.Add(
 				&genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text("heard"), Ctrl: &genx.StreamCtrl{StreamID: streamID}},
 				&genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: streamID, EndOfStream: true}},
@@ -596,6 +615,12 @@ func (a *routeAwareRealtimeASR) Calls() int {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return a.calls
+}
+
+func (a *routeAwareRealtimeASR) LocalEOS() int {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.localEOS
 }
 
 type blockingASR struct {
