@@ -17,7 +17,7 @@ func TestAdminMiniMaxTenantsUserStory(t *testing.T) {
 	list := h.RunCLI("admin", "minimax-tenants", "list", "--context", "admin-a")
 	list.MustSucceed(t)
 	if !strings.Contains(list.Stdout, `"name":"minimax-cn"`) {
-		t.Skipf("minimax-cn tenant is not configured in this e2e environment: %s", strings.TrimSpace(list.Stdout))
+		t.Fatalf("minimax-cn tenant is not configured in this e2e environment: %s", strings.TrimSpace(list.Stdout))
 	}
 
 	get := h.RunCLI("admin", "minimax-tenants", "get", "minimax-cn", "--context", "admin-a")

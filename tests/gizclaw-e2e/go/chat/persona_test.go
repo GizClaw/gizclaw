@@ -996,7 +996,7 @@ func TestAssistantASRPCMHasSignal(t *testing.T) {
 
 func TestTranscribeAssistantAudioFramesSkipsSilence(t *testing.T) {
 	if !opus.IsRuntimeSupported() {
-		t.Skip("requires native opus runtime")
+		t.Fatal("requires native opus runtime")
 	}
 	frames, err := opusPacketsFromPCM16LE(silencePCM16Mono16K(2*time.Second), 16000, 1)
 	if err != nil {
@@ -1021,7 +1021,7 @@ func TestTranscribeAssistantAudioFramesSkipsSilence(t *testing.T) {
 
 func TestRealtimePacketsWithContinuousTailSilence(t *testing.T) {
 	if !opus.IsRuntimeSupported() {
-		t.Skip("requires native opus runtime")
+		t.Fatal("requires native opus runtime")
 	}
 	const sourceDuration = 400 * time.Millisecond
 	const tailDuration = 2100 * time.Millisecond
@@ -1045,7 +1045,7 @@ func TestRealtimePacketsWithContinuousTailSilence(t *testing.T) {
 
 func TestVerifyAssistantAudioASRSplitsFailedLargeChunk(t *testing.T) {
 	if !opus.IsRuntimeSupported() {
-		t.Skip("requires native opus runtime")
+		t.Fatal("requires native opus runtime")
 	}
 	frames, err := opusPacketsFromPCM16LE(
 		testSignalPCM16Mono16K(time.Duration(assistantASRMinRetryFrames*2)*20*time.Millisecond),
@@ -1105,7 +1105,7 @@ func testSignalPCM16Mono16K(duration time.Duration) []byte {
 
 func TestVerifyAssistantAudioASRIgnoresFailedTailAfterExpectedTextIsCovered(t *testing.T) {
 	if !opus.IsRuntimeSupported() {
-		t.Skip("requires native opus runtime")
+		t.Fatal("requires native opus runtime")
 	}
 	frames, err := opusPacketsFromPCM16LE(
 		testSignalPCM16Mono16K(time.Duration(assistantASRFramesPerChunk+100)*20*time.Millisecond),

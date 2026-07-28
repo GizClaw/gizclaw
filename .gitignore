@@ -44,6 +44,7 @@ tests/gizclaw-e2e/.env
 tests/gizclaw-e2e/setup/.env
 tests/gizclaw-e2e/.testbench/
 tests/genx-e2e/.env
+tests/memory/.env
 
 # Local workspace metadata
 .agents/

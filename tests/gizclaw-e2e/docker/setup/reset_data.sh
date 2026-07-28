@@ -9,6 +9,8 @@ workspace_dir="$testdata_dir/server-workspace"
 resource_dir="$testdata_dir/resources"
 bin_path="$testdata_dir/bin/gizclaw"
 env_file="$e2e_dir/.env"
+# shellcheck source=../../setup/credentials.sh
+source "$e2e_dir/setup/credentials.sh"
 mode="${1:-reset}"
 selected_config_home="${GIZCLAW_E2E_CONFIG_HOME:-}"
 
@@ -20,12 +22,6 @@ case "$mode" in
     ;;
 esac
 
-if [[ -f "$env_file" ]]; then
-  set -a
-  # shellcheck disable=SC1090
-  source "$env_file"
-  set +a
-fi
 if [[ -n "$selected_config_home" ]]; then
   export GIZCLAW_E2E_CONFIG_HOME="$selected_config_home"
 fi
@@ -44,51 +40,8 @@ clear_data() {
   "$bin_path" migrate --workspace "$workspace_dir"
 }
 
-require_e2e_credentials() {
-  local missing=()
-  local placeholders=()
-  local name
-  for name in \
-    GIZCLAW_E2E_DASHSCOPE_API_KEY \
-    GIZCLAW_E2E_DOUBAO_API_KEY \
-    GIZCLAW_E2E_DOUBAO_APP_ID \
-    GIZCLAW_E2E_DOUBAO_SEARCH_API_KEY \
-    GIZCLAW_E2E_GEMINI_API_KEY \
-    GIZCLAW_E2E_MINIMAX_CN_API_KEY \
-    GIZCLAW_E2E_MINIMAX_CN_APP_ID \
-    GIZCLAW_E2E_MINIMAX_CN_GROUP_ID \
-    GIZCLAW_E2E_MINIMAX_GLOBAL_API_KEY \
-    GIZCLAW_E2E_MINIMAX_GLOBAL_APP_ID \
-    GIZCLAW_E2E_MINIMAX_GLOBAL_GROUP_ID \
-    GIZCLAW_E2E_OPENAI_API_KEY \
-    GIZCLAW_E2E_VOLC_ARK_API_KEY \
-    GIZCLAW_E2E_VOLC_OPENAPI_ACCESS_KEY \
-    GIZCLAW_E2E_VOLC_OPENAPI_ACCESS_KEY_ID; do
-    local value="${!name:-}"
-    local normalized="${value,,}"
-    if [[ -z "$value" ]]; then
-      missing+=("$name")
-    elif [[ "$normalized" == *dummy* || "$normalized" == *placeholder* || "$normalized" == *replace* || "$normalized" == *example* ]]; then
-      placeholders+=("$name")
-    fi
-  done
-
-  if [[ ${#missing[@]} -gt 0 ]]; then
-    echo "missing required e2e credential env values:" >&2
-    printf '  %s\n' "${missing[@]}" >&2
-    echo "copy tests/gizclaw-e2e/.env.example to tests/gizclaw-e2e/.env and fill every required credential before Docker e2e setup" >&2
-    exit 2
-  fi
-  if [[ ${#placeholders[@]} -gt 0 ]]; then
-    echo "placeholder e2e credential env values are not valid for Docker e2e setup:" >&2
-    printf '  %s\n' "${placeholders[@]}" >&2
-    echo "replace placeholder values in tests/gizclaw-e2e/.env with real provider credentials before Docker e2e setup" >&2
-    exit 2
-  fi
-}
-
 if [[ "$mode" == "init" || "$mode" == "reset" ]]; then
-  require_e2e_credentials
+  require_gizclaw_e2e_credentials "$env_file"
 fi
 
 if [[ ! -x "$bin_path" ]]; then
@@ -135,16 +88,14 @@ init_data() {
     # resources. Materialize those Voices after tenants exist and before the
     # first profile that references them is validated.
     if [[ "$provider_voices_synced" == "0" && "$resource_file" == */07-gameplay/* ]]; then
-      if [[ "${GIZCLAW_E2E_SKIP_PROVIDER_SYNC:-0}" != "1" ]]; then
-        XDG_CONFIG_HOME="$config_home" \
-          "$bin_path" admin volc-tenants sync-voices volc-main --context "$admin_context" >/dev/null
-      fi
+      XDG_CONFIG_HOME="$config_home" \
+        "$bin_path" admin volc-tenants sync-voices volc-main --context "$admin_context" >/dev/null
       provider_voices_synced=1
     fi
     apply_resource "$resource_file"
   done
 
-  if [[ "$provider_voices_synced" == "0" && "${GIZCLAW_E2E_SKIP_PROVIDER_SYNC:-0}" != "1" ]]; then
+  if [[ "$provider_voices_synced" == "0" ]]; then
     XDG_CONFIG_HOME="$config_home" \
       "$bin_path" admin volc-tenants sync-voices volc-main --context "$admin_context" >/dev/null
   fi

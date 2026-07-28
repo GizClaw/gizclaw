@@ -1,3 +1,5 @@
+//go:build gizclaw_memory_e2e
+
 package memoryintegration_test
 
 import (
@@ -43,7 +45,7 @@ func TestLoadDifferentSizeFilesWithRealModelSegmentationAndProfile(t *testing.T)
 		ctx, cancel := context.WithTimeout(context.Background(), runtime.Timeout*2)
 		result, err := compressor.CompressMessages(ctx, messages)
 		cancel()
-		failOrSkipTransient(t, "compress "+selectedNames[idx], err)
+		requireNoLiveError(t, "compress "+selectedNames[idx], err)
 
 		if result == nil || len(result.Segments) == 0 {
 			t.Fatalf("compress %s returned empty segments", selectedNames[idx])
@@ -52,7 +54,7 @@ func TestLoadDifferentSizeFilesWithRealModelSegmentationAndProfile(t *testing.T)
 		ctx, cancel = context.WithTimeout(context.Background(), runtime.Timeout*2)
 		update, err := compressor.ExtractEntities(ctx, messages)
 		cancel()
-		failOrSkipTransient(t, "profile "+selectedNames[idx], err)
+		requireNoLiveError(t, "profile "+selectedNames[idx], err)
 
 		if update == nil {
 			t.Fatalf("profile %s returned nil update", selectedNames[idx])

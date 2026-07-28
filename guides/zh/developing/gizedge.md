@@ -99,10 +99,9 @@ Gateway 的默认总容量为 30,000 sessions，最多 16 条 upstream。信令�
 30,000 是可配置 harness 在具体主机上的验收目标，不是每条 upstream、每个 Edge 或任意硬件的无条件保证。harness 为每个 logical session 创建一个真实客户端 WebRTC PeerConnection；因此 load driver 本身也有显著内存、goroutine、FD 和 CPU 成本。达到 30,000 前必须为 load driver、各 Edge 和 Server 分别制定资源预算；单机不足时应在多个 load-driver 进程或主机间分片总 session 数，不能把降低 activity 或改用 synthetic session 当作通过。Docker topology 暴露两个独立身份的 Edge；可运行：
 
 ```bash
-source tests/gizclaw-e2e/testdata/docker/current.env
-GIZCLAW_E2E_RUN_EDGE_FAILURE=1 \
-  go test -tags gizclaw_e2e ./tests/gizclaw-e2e/go/edge
+tests/gizclaw-e2e/run_edge_failure_tests.sh
 
+source tests/gizclaw-e2e/testdata/docker/current.env
 go run ./tests/giznet-e2e/gateway \
   -edges "$GIZCLAW_E2E_EDGE_ENDPOINT,$GIZCLAW_E2E_EDGE2_ENDPOINT" \
   -sessions 30000 \

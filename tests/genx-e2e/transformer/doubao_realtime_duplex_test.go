@@ -27,10 +27,8 @@ const (
 	doubaoAppIDEnv  = "GIZCLAW_GENX_E2E_DOUBAO_APP_ID"
 	doubaoAPIKeyEnv = "GIZCLAW_GENX_E2E_DOUBAO_API_KEY"
 
-	duplexTranscriptLabel = "transcript"
-	duplexAssistantLabel  = "assistant"
-	duplexInputMIME       = "audio/opus"
-	duplexRounds          = 2
+	duplexInputMIME = "audio/opus"
+	duplexRounds    = 2
 )
 
 //go:embed testdata/doubao_realtime_duplex_prompt.ogg
@@ -44,10 +42,10 @@ var realtimeToolPromptOgg []byte
 
 func TestDoubaoRealtimeDuplexConversation(t *testing.T) {
 	loadGenXE2EEnv(t)
-	appID := firstEnv(doubaoAppIDEnv, "GIZCLAW_E2E_DOUBAO_APP_ID")
-	apiKey := firstEnv(doubaoAPIKeyEnv, "GIZCLAW_E2E_DOUBAO_API_KEY")
+	appID := firstEnv(doubaoAppIDEnv)
+	apiKey := firstEnv(doubaoAPIKeyEnv)
 	if appID == "" || apiKey == "" {
-		t.Skipf("set %s and %s in tests/genx-e2e/.env to run this provider e2e test", doubaoAppIDEnv, doubaoAPIKeyEnv)
+		t.Fatalf("set %s and %s in tests/genx-e2e/.env to run this provider e2e test", doubaoAppIDEnv, doubaoAPIKeyEnv)
 	}
 
 	packets := embeddedPromptOpusPackets(t)
@@ -73,10 +71,10 @@ func TestDoubaoRealtimeDuplexConversation(t *testing.T) {
 
 func TestDoubaoRealtimeDuplexToolInvokerContinuation(t *testing.T) {
 	loadGenXE2EEnv(t)
-	appID := firstEnv(doubaoAppIDEnv, "GIZCLAW_E2E_DOUBAO_APP_ID")
-	apiKey := firstEnv(doubaoAPIKeyEnv, "GIZCLAW_E2E_DOUBAO_API_KEY")
+	appID := firstEnv(doubaoAppIDEnv)
+	apiKey := firstEnv(doubaoAPIKeyEnv)
 	if appID == "" || apiKey == "" {
-		t.Skipf("set %s and %s in tests/genx-e2e/.env", doubaoAppIDEnv, doubaoAPIKeyEnv)
+		t.Fatalf("set %s and %s in tests/genx-e2e/.env", doubaoAppIDEnv, doubaoAPIKeyEnv)
 	}
 
 	invoker := &realtimeE2EToolInvoker{}
@@ -264,121 +262,6 @@ func waitDuplexQuiet(ctx context.Context, events <-chan *genx.MessageChunk, errs
 	}
 }
 
-type duplexRoundResult struct {
-	transcript          strings.Builder
-	assistantText       strings.Builder
-	transcriptDone      bool
-	assistantTextDone   bool
-	assistantAudioDone  bool
-	assistantAudioBytes int
-}
-
-func (r *duplexRoundResult) observe(streamID string, chunk *genx.MessageChunk) error {
-	if chunk == nil {
-		return nil
-	}
-	label := ""
-	chunkStreamID := ""
-	if chunk.Ctrl != nil {
-		label = chunk.Ctrl.Label
-		chunkStreamID = chunk.Ctrl.StreamID
-	}
-	if err := duplexChunkError(chunk); err != nil {
-		if (label == duplexTranscriptLabel || label == duplexAssistantLabel) &&
-			!roundStreamMatches(chunkStreamID, streamID) {
-			return nil
-		}
-		return err
-	}
-	if label == duplexTranscriptLabel && roundStreamMatches(chunkStreamID, streamID) {
-		if text, ok := chunk.Part.(genx.Text); ok && strings.TrimSpace(string(text)) != "" {
-			r.transcript.WriteString(string(text))
-		}
-		if chunk.IsEndOfStream() {
-			r.transcriptDone = true
-		}
-		return nil
-	}
-	if label != duplexAssistantLabel {
-		return nil
-	}
-	switch part := chunk.Part.(type) {
-	case genx.Text:
-		if strings.TrimSpace(string(part)) != "" {
-			r.assistantText.WriteString(string(part))
-		}
-		if chunk.IsEndOfStream() {
-			r.assistantTextDone = true
-		}
-	case *genx.Blob:
-		if len(part.Data) > 0 {
-			r.assistantAudioBytes += len(part.Data)
-		}
-		if chunk.IsEndOfStream() {
-			r.assistantAudioDone = true
-		}
-	}
-	return nil
-}
-
-func TestDuplexRoundResultIgnoresOtherStreamTerminalError(t *testing.T) {
-	var result duplexRoundResult
-	oldStreamError := &genx.MessageChunk{
-		Role: genx.RoleModel,
-		Part: genx.Text(""),
-		Ctrl: &genx.StreamCtrl{
-			StreamID:    "round-1:rt:1",
-			Label:       duplexAssistantLabel,
-			EndOfStream: true,
-			Error:       "interrupted",
-		},
-	}
-	if err := result.observe("round-2", oldStreamError); err != nil {
-		t.Fatalf("observe() unrelated terminal error = %v", err)
-	}
-
-	currentStreamError := oldStreamError.Clone()
-	currentStreamError.Ctrl.StreamID = "round-2:rt:1"
-	if err := result.observe("round-2", currentStreamError); err == nil {
-		t.Fatal("observe() current terminal error = nil")
-	}
-}
-
-func (r *duplexRoundResult) done() bool {
-	return strings.TrimSpace(r.transcript.String()) != "" &&
-		r.transcriptDone &&
-		strings.TrimSpace(r.assistantText.String()) != "" &&
-		r.assistantAudioBytes > 0 &&
-		r.assistantTextDone &&
-		r.assistantAudioDone
-}
-
-func assertDuplexRound(t *testing.T, round int, result duplexRoundResult) {
-	t.Helper()
-	if strings.TrimSpace(result.transcript.String()) == "" {
-		t.Fatalf("round %d missing transcript", round)
-	}
-	if strings.TrimSpace(result.assistantText.String()) == "" {
-		t.Fatalf("round %d missing assistant text", round)
-	}
-	if result.assistantAudioBytes == 0 {
-		t.Fatalf("round %d missing assistant audio", round)
-	}
-}
-
-func roundStreamMatches(got, want string) bool {
-	got = strings.TrimSpace(got)
-	want = strings.TrimSpace(want)
-	return got == want || strings.HasPrefix(got, want+":")
-}
-
-func duplexChunkError(chunk *genx.MessageChunk) error {
-	if chunk == nil || chunk.Ctrl == nil || strings.TrimSpace(chunk.Ctrl.Error) == "" {
-		return nil
-	}
-	return fmt.Errorf("duplex stream %q label=%q returned error: %s", chunk.Ctrl.StreamID, chunk.Ctrl.Label, chunk.Ctrl.Error)
-}
-
 func embeddedPromptOpusPackets(t *testing.T) [][]byte {
 	t.Helper()
 	return opusPacketsFromOgg(t, doubaoRealtimeDuplexPromptOgg)
@@ -416,10 +299,7 @@ func loadGenXE2EEnv(t *testing.T) {
 	path := filepath.Join(filepath.Dir(filename), "..", ".env")
 	file, err := os.Open(path)
 	if err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
-			t.Fatalf("open %s: %v", path, err)
-		}
-		return
+		t.Fatalf("open required GenX credential file %s: %v", path, err)
 	}
 	defer file.Close()
 
@@ -436,13 +316,36 @@ func loadGenXE2EEnv(t *testing.T) {
 		key = strings.TrimSpace(key)
 		value = strings.TrimSpace(value)
 		value = strings.Trim(value, `"'`)
-		if key == "" || os.Getenv(key) != "" {
+		if key == "" {
 			continue
 		}
 		_ = os.Setenv(key, value)
 	}
 	if err := scanner.Err(); err != nil {
 		t.Fatalf("read %s: %v", path, err)
+	}
+	required := []string{
+		"GIZCLAW_GENX_E2E_DASHSCOPE_API_KEY",
+		"GIZCLAW_GENX_E2E_DOUBAO_API_KEY",
+		"GIZCLAW_GENX_E2E_DOUBAO_APP_ID",
+		"GIZCLAW_GENX_E2E_EINO_OPENAI_API_KEY",
+		"GIZCLAW_GENX_E2E_FLOWCRAFT_OPENAI_API_KEY",
+		"GIZCLAW_GENX_E2E_MINIMAX_API_KEY",
+	}
+	var invalid []string
+	for _, name := range required {
+		value := strings.TrimSpace(os.Getenv(name))
+		lower := strings.ToLower(value)
+		if value == "" || strings.Contains(lower, "dummy") ||
+			strings.Contains(lower, "example") ||
+			strings.Contains(lower, "placeholder") ||
+			strings.Contains(lower, "replace") ||
+			strings.Contains(lower, "changeme") {
+			invalid = append(invalid, name)
+		}
+	}
+	if len(invalid) > 0 {
+		t.Fatalf("invalid or missing GenX E2E credentials: %s", strings.Join(invalid, ", "))
 	}
 }
 
@@ -457,10 +360,10 @@ func firstEnv(names ...string) string {
 
 func TestDoubaoRealtimeDuplexCommitDuringDownlinkProbe(t *testing.T) {
 	loadGenXE2EEnv(t)
-	appID := firstEnv(doubaoAppIDEnv, "GIZCLAW_E2E_DOUBAO_APP_ID")
-	apiKey := firstEnv(doubaoAPIKeyEnv, "GIZCLAW_E2E_DOUBAO_API_KEY")
+	appID := firstEnv(doubaoAppIDEnv)
+	apiKey := firstEnv(doubaoAPIKeyEnv)
 	if appID == "" || apiKey == "" {
-		t.Skipf("set %s and %s in tests/genx-e2e/.env to run this provider probe", doubaoAppIDEnv, doubaoAPIKeyEnv)
+		t.Fatalf("set %s and %s in tests/genx-e2e/.env to run this provider probe", doubaoAppIDEnv, doubaoAPIKeyEnv)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
@@ -589,10 +492,10 @@ func TestDoubaoRealtimeDuplexCommitDuringDownlinkProbe(t *testing.T) {
 
 func TestDoubaoRealtimeDuplexDownlinkWithoutUplinkProbe(t *testing.T) {
 	loadGenXE2EEnv(t)
-	appID := firstEnv(doubaoAppIDEnv, "GIZCLAW_E2E_DOUBAO_APP_ID")
-	apiKey := firstEnv(doubaoAPIKeyEnv, "GIZCLAW_E2E_DOUBAO_API_KEY")
+	appID := firstEnv(doubaoAppIDEnv)
+	apiKey := firstEnv(doubaoAPIKeyEnv)
 	if appID == "" || apiKey == "" {
-		t.Skipf("set %s and %s in tests/genx-e2e/.env to run this provider probe", doubaoAppIDEnv, doubaoAPIKeyEnv)
+		t.Fatalf("set %s and %s in tests/genx-e2e/.env to run this provider probe", doubaoAppIDEnv, doubaoAPIKeyEnv)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
@@ -667,10 +570,10 @@ func TestDoubaoRealtimeDuplexDownlinkWithoutUplinkProbe(t *testing.T) {
 
 func TestDoubaoRealtimeDuplexIdleAfterResponseProbe(t *testing.T) {
 	loadGenXE2EEnv(t)
-	appID := firstEnv(doubaoAppIDEnv, "GIZCLAW_E2E_DOUBAO_APP_ID")
-	apiKey := firstEnv(doubaoAPIKeyEnv, "GIZCLAW_E2E_DOUBAO_API_KEY")
+	appID := firstEnv(doubaoAppIDEnv)
+	apiKey := firstEnv(doubaoAPIKeyEnv)
 	if appID == "" || apiKey == "" {
-		t.Skipf("set %s and %s in tests/genx-e2e/.env to run this provider probe", doubaoAppIDEnv, doubaoAPIKeyEnv)
+		t.Fatalf("set %s and %s in tests/genx-e2e/.env to run this provider probe", doubaoAppIDEnv, doubaoAPIKeyEnv)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)

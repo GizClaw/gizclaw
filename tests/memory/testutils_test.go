@@ -1,3 +1,5 @@
+//go:build gizclaw_memory_e2e
+
 package memoryintegration_test
 
 import (
@@ -59,56 +61,16 @@ type scenarioMeta struct {
 func requireRealModelRuntime(t *testing.T) realModelRuntime {
 	t.Helper()
 
-	apiKey := strings.TrimSpace(os.Getenv("MEMORY_IT_API_KEY"))
-	provider := "memory_it"
+	apiKey := strings.TrimSpace(os.Getenv("GIZCLAW_MEMORY_E2E_API_KEY"))
 	if apiKey == "" {
-		if qwen := strings.TrimSpace(os.Getenv("QWEN_API_KEY")); qwen != "" {
-			apiKey = qwen
-			provider = "qwen"
-		}
-	}
-	if apiKey == "" {
-		if openai := strings.TrimSpace(os.Getenv("OPENAI_API_KEY")); openai != "" {
-			apiKey = openai
-			provider = "openai"
-		}
-	}
-	if apiKey == "" {
-		t.Skip("skip real-model integration: set MEMORY_IT_API_KEY or QWEN_API_KEY or OPENAI_API_KEY")
-	}
-
-	baseURL := strings.TrimSpace(os.Getenv("MEMORY_IT_BASE_URL"))
-	model := strings.TrimSpace(os.Getenv("MEMORY_IT_MODEL"))
-
-	if baseURL == "" {
-		switch provider {
-		case "openai":
-			baseURL = "https://api.openai.com/v1"
-			if model == "" {
-				model = "gpt-4o-mini"
-			}
-		default:
-			baseURL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-			if model == "" {
-				model = "qwen-turbo-latest"
-			}
-		}
-	} else if model == "" {
-		model = "qwen-turbo-latest"
-	}
-
-	timeout := 45 * time.Second
-	if raw := strings.TrimSpace(os.Getenv("MEMORY_IT_TIMEOUT_SEC")); raw != "" {
-		if sec, err := strconv.Atoi(raw); err == nil && sec > 0 {
-			timeout = time.Duration(sec) * time.Second
-		}
+		t.Fatal("set GIZCLAW_MEMORY_E2E_API_KEY in tests/memory/.env")
 	}
 
 	return realModelRuntime{
 		APIKey:  apiKey,
-		BaseURL: baseURL,
-		Model:   model,
-		Timeout: timeout,
+		BaseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+		Model:   "qwen-turbo-latest",
+		Timeout: 45 * time.Second,
 	}
 }
 
@@ -576,13 +538,13 @@ func anySegmentHasLabel(segments []memory.ScoredSegment, label string) bool {
 	return false
 }
 
-func failOrSkipTransient(t *testing.T, phase string, err error) {
+func requireNoLiveError(t *testing.T, phase string, err error) {
 	t.Helper()
 	if err == nil {
 		return
 	}
 	if isTransientError(err) {
-		t.Skipf("skip due transient error at %s: %v", phase, err)
+		t.Fatalf("transient provider error at %s: %v", phase, err)
 	}
 	t.Fatalf("%s: %v", phase, err)
 }

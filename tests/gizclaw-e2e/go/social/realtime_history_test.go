@@ -18,7 +18,7 @@ import (
 
 func TestSocialRealtimeHistoryRPC(t *testing.T) {
 	if !opus.IsRuntimeSupported() {
-		t.Skip("opus runtime is unavailable for social realtime history")
+		t.Fatal("opus runtime is unavailable for social realtime history")
 	}
 	requireSocialHumanReviewProviderEnv(t)
 

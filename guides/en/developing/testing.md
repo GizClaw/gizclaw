@@ -5,6 +5,23 @@ still run according to the changed scope. Suites that require a build tag,
 Docker, live providers, or human judgment must be started explicitly and must
 not be reported as passing when they were not run.
 
+## Credential-backed harness contract
+
+GizClaw, GenX, LoCoMo, and Memory live suites each own one ignored `.env`,
+described by a committed credential-only `.env.example`. Every field is
+mandatory for every `run*_tests.sh` entrypoint in that harness, including
+shorter entrypoints that do not consume every credential. Missing files,
+missing/empty/whitespace values, and placeholder values fail before dependency
+installation, builds, Docker or service startup, Go tests, and provider calls.
+Diagnostics print names, never values.
+
+Entrypoints have fixed checked-in package and test selections. Environment
+variables may supply non-secret runtime parameters after an entrypoint is
+chosen, but cannot select coverage or turn a selected failure into a skip.
+Provider, fixture, network, timeout, rate-limit, and native-runtime failures
+therefore fail the command. Direct tagged `go test` commands are not accepted
+as live-suite evidence.
+
 ## GizClaw Docker E2E
 
 `tests/gizclaw-e2e` is the Docker-backed full GizClaw environment. Its Go tests
@@ -103,6 +120,33 @@ Human audio review is separate from the automated gate:
 bash tests/gizclaw-e2e/run_human_review_tests.sh
 ```
 
+The disruptive Edge and provisioned Volc LogStore selections have their own
+fixed entrypoints:
+
+```sh
+bash tests/gizclaw-e2e/run_edge_failure_tests.sh
+
+GIZCLAW_E2E_VOLC_LOG_ENDPOINT=... \
+GIZCLAW_E2E_VOLC_LOG_REGION=... \
+GIZCLAW_E2E_VOLC_LOG_TOPIC_ID=... \
+  bash tests/gizclaw-e2e/run_volc_log_tests.sh
+```
+
+All four GizClaw entrypoints require the same complete
+`tests/gizclaw-e2e/.env`.
+
+## GenX provider E2E
+
+Provider-backed transformer coverage uses one complete credential inventory:
+
+```sh
+cp tests/genx-e2e/.env.example tests/genx-e2e/.env
+bash tests/genx-e2e/run_tests.sh
+```
+
+Provider-free Match parity and deterministic duplex behavior remain ordinary
+tests and run under `go test ./...`.
+
 ## Giznet E2E
 
 `tests/giznet-e2e` exercises the public Giznet transport through gizwebrtc:
@@ -124,12 +168,19 @@ mutates it nor presents one endpoint/project as multiple lanes.
 
 Current lanes cover Flowcraft BBH BM25 single-pass, hybrid single/two-pass,
 Mem0 Platform default/custom-instructions, and Volc AgentKit Memory default.
-Run one explicitly selected lane with:
+The full entrypoint runs every lane:
 
 ```sh
 cp tests/locomo-e2e/.env.example tests/locomo-e2e/.env
 bash tests/locomo-e2e/run_tests.sh
 ```
+
+Shorter fixed selections are
+`run_flowcraft_bm25_tests.sh`, `run_flowcraft_hybrid_tests.sh`,
+`run_mem0_tests.sh`, and `run_volc_agentkit_tests.sh` in the same directory.
+They all require the same complete LoCoMo `.env`; dataset, report, timeout,
+model, endpoint, project, and threshold settings are explicit non-secret
+runtime parameters or committed defaults, not credential-file fields.
 
 The script has a 30-minute default whole-test timeout and bounded session and
 question stages. The runner calls `memory.Store.Observe` by official session,
@@ -164,3 +215,15 @@ go test -race -tags gizclaw_locomo_e2e \
 bash -n tests/locomo-e2e/run_tests.sh
 git lfs fsck
 ```
+
+## Memory provider E2E
+
+The three live-model Memory cases use the `gizclaw_memory_e2e` build tag and one
+fixed entrypoint:
+
+```sh
+cp tests/memory/.env.example tests/memory/.env
+bash tests/memory/run_tests.sh
+```
+
+Ordinary Memory tests remain credential-free and run under `go test ./...`.

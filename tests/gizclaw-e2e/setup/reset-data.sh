@@ -6,6 +6,8 @@ e2e_dir="$(cd "$script_dir/.." && pwd)"
 testdata_dir="$e2e_dir/testdata"
 resource_dir="$testdata_dir/resources"
 env_file="$e2e_dir/.env"
+# shellcheck source=credentials.sh
+source "$script_dir/credentials.sh"
 mode="reset"
 admin_context_arg=""
 config_home_arg=""
@@ -65,13 +67,6 @@ selected_config_home="${GIZCLAW_E2E_CONFIG_HOME:-}"
 selected_admin_context="${GIZCLAW_E2E_ADMIN_CONTEXT:-}"
 selected_bin="${GIZCLAW_BIN:-}"
 
-if [[ -f "$env_file" ]]; then
-  set -a
-  # shellcheck disable=SC1090
-  source "$env_file"
-  set +a
-fi
-
 if [[ -n "$selected_config_home" ]]; then
   export GIZCLAW_E2E_CONFIG_HOME="$selected_config_home"
 fi
@@ -100,50 +95,6 @@ config_home="${GIZCLAW_E2E_CONFIG_HOME:-}"
 # Preserve Flowcraft runtime placeholders while admin apply expands provider
 # credential placeholders from the setup environment.
 export input='${input}'
-
-require_e2e_credentials() {
-  local missing=()
-  local placeholders=()
-  local name
-  for name in \
-    GIZCLAW_E2E_DASHSCOPE_API_KEY \
-    GIZCLAW_E2E_DOUBAO_API_KEY \
-    GIZCLAW_E2E_DOUBAO_APP_ID \
-    GIZCLAW_E2E_DOUBAO_SEARCH_API_KEY \
-    GIZCLAW_E2E_GEMINI_API_KEY \
-    GIZCLAW_E2E_MINIMAX_CN_API_KEY \
-    GIZCLAW_E2E_MINIMAX_CN_APP_ID \
-    GIZCLAW_E2E_MINIMAX_CN_GROUP_ID \
-    GIZCLAW_E2E_MINIMAX_GLOBAL_API_KEY \
-    GIZCLAW_E2E_MINIMAX_GLOBAL_APP_ID \
-    GIZCLAW_E2E_MINIMAX_GLOBAL_GROUP_ID \
-    GIZCLAW_E2E_OPENAI_API_KEY \
-    GIZCLAW_E2E_VOLC_ARK_API_KEY \
-    GIZCLAW_E2E_VOLC_OPENAPI_ACCESS_KEY \
-    GIZCLAW_E2E_VOLC_OPENAPI_ACCESS_KEY_ID; do
-    local value="${!name:-}"
-    local normalized
-    normalized="$(printf '%s' "$value" | tr '[:upper:]' '[:lower:]')"
-    if [[ -z "$value" ]]; then
-      missing+=("$name")
-    elif [[ "$normalized" == *dummy* || "$normalized" == *placeholder* || "$normalized" == *replace* || "$normalized" == *example* ]]; then
-      placeholders+=("$name")
-    fi
-  done
-
-  if [[ ${#missing[@]} -gt 0 ]]; then
-    echo "missing required e2e credential env values:" >&2
-    printf '  %s\n' "${missing[@]}" >&2
-    echo "copy tests/gizclaw-e2e/.env.example to tests/gizclaw-e2e/.env and fill every required credential before reset-data init" >&2
-    exit 2
-  fi
-  if [[ ${#placeholders[@]} -gt 0 ]]; then
-    echo "placeholder e2e credential env values are not valid for reset-data init:" >&2
-    printf '  %s\n' "${placeholders[@]}" >&2
-    echo "replace placeholder values in tests/gizclaw-e2e/.env with real provider credentials before reset-data init" >&2
-    exit 2
-  fi
-}
 
 bin_path() {
   if [[ -n "${GIZCLAW_BIN:-}" ]]; then
@@ -282,9 +233,7 @@ init_data() {
     apply_resource "$file"
   done
 
-  if [[ "${GIZCLAW_E2E_SKIP_PROVIDER_SYNC:-0}" != "1" ]]; then
-    run_gizclaw admin volc-tenants sync-voices volc-main --context "$admin_context" >/dev/null
-  fi
+  run_gizclaw admin volc-tenants sync-voices volc-main --context "$admin_context" >/dev/null
 
   local firmware_id="devkit-firmware-main"
   local channel="stable"
@@ -298,7 +247,7 @@ init_data() {
 }
 
 if [[ "$mode" == "init" || "$mode" == "reset" ]]; then
-  require_e2e_credentials
+  require_gizclaw_e2e_credentials "$env_file"
 fi
 if [[ "$mode" == "clear" || "$mode" == "reset" ]]; then
   clear_data

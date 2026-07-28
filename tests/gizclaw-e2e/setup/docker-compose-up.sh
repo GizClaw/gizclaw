@@ -6,13 +6,24 @@ e2e_dir="$(cd "$script_dir/.." && pwd)"
 repo_root="$(cd "$e2e_dir/../.." && pwd)"
 docker_dir="$e2e_dir/docker"
 compose_file="$docker_dir/docker-compose.yaml"
+volc_log_compose_file="$docker_dir/docker-compose.volc-log.yaml"
 env_file="$e2e_dir/.env"
 state_root="$e2e_dir/testdata/docker"
 default_turn_relay_port_count=100
 
-if [[ ! -f "$env_file" ]]; then
-  echo "missing $env_file; copy .env.example and fill provider credentials before Docker e2e" >&2
-  exit 2
+# shellcheck source=credentials.sh
+source "$script_dir/credentials.sh"
+require_gizclaw_e2e_credentials "$env_file"
+
+stack_mode="standard"
+if [[ "${1:-}" == "--volc-log" ]]; then
+  stack_mode="volc-log"
+  shift
+fi
+if [[ "$stack_mode" == "volc-log" ]]; then
+  : "${GIZCLAW_E2E_VOLC_LOG_ENDPOINT:?set the provisioned LogStore endpoint}"
+  : "${GIZCLAW_E2E_VOLC_LOG_REGION:?set the provisioned LogStore region}"
+  : "${GIZCLAW_E2E_VOLC_LOG_TOPIC_ID:?set the provisioned LogStore topic id}"
 fi
 
 pick_free_tcp_port() {
@@ -231,7 +242,6 @@ GIZCLAW_E2E_TURN_CREDENTIAL=$GIZCLAW_E2E_TURN_CREDENTIAL
 GIZCLAW_E2E_TURN_RELAY_MIN_PORT=$GIZCLAW_E2E_TURN_RELAY_MIN_PORT
 GIZCLAW_E2E_TURN_RELAY_MAX_PORT=$GIZCLAW_E2E_TURN_RELAY_MAX_PORT
 GIZCLAW_E2E_SERVER_PUBLIC_KEY=$server_public_key
-GIZCLAW_E2E_SKIP_PROVIDER_SYNC=${GIZCLAW_E2E_SKIP_PROVIDER_SYNC:-0}
 GIZCLAW_E2E_DESKTOP_URL=$desktop_url
 GIZCLAW_E2E_DOCKER_PROJECT=$GIZCLAW_E2E_DOCKER_PROJECT
 GIZCLAW_E2E_DOCKER_ADMIN_PORT=$GIZCLAW_E2E_DOCKER_ADMIN_PORT
@@ -430,10 +440,14 @@ export GIZCLAW_E2E_DOCKER_BASE_IMAGE="$base_image"
 docker_env="$(materialize_runtime_config)"
 echo "==> docker e2e env: $docker_env"
 echo "==> start Docker e2e stack project=$GIZCLAW_E2E_DOCKER_PROJECT server=$GIZCLAW_E2E_SERVER_ENDPOINT edges=$GIZCLAW_E2E_EDGE_ENDPOINT,$GIZCLAW_E2E_EDGE2_ENDPOINT gateways=$GIZCLAW_E2E_GATEWAY_ENDPOINT,$GIZCLAW_E2E_GATEWAY2_ENDPOINT turn=$GIZCLAW_E2E_TURN_ENDPOINT relay=${GIZCLAW_E2E_TURN_RELAY_MIN_PORT}-${GIZCLAW_E2E_TURN_RELAY_MAX_PORT}"
+compose_files=(-f "$compose_file")
+if [[ "$stack_mode" == "volc-log" ]]; then
+  compose_files+=(-f "$volc_log_compose_file")
+fi
 if [[ $# -gt 0 ]]; then
-  docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" -f "$compose_file" up "$@"
+  docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${compose_files[@]}" up "$@"
 else
-  docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" -f "$compose_file" up -d --build
+  docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${compose_files[@]}" up -d --build
 fi
 
 edge_tcp_port="$(docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" -f "$compose_file" port --protocol tcp edge 9821 | awk -F: '{print $NF}')"

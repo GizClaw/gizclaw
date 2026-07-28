@@ -75,7 +75,7 @@ func TestSharedSetupRPCSocialFixtures(t *testing.T) {
 	env := newSharedSetupRPCHarness(t)
 
 	if got := env.h.ContextPublicKey("gear1"); got != sharedSetupSocialClientPublicKey {
-		t.Skipf("shared social fixture targets default gear1 %s, got %s", sharedSetupSocialClientPublicKey, got)
+		t.Fatalf("shared social fixture targets default gear1 %s, got %s", sharedSetupSocialClientPublicKey, got)
 	}
 
 	friends, err := env.peer.ListFriends(env.ctx, "shared.social.friend.list", rpcapi.FriendListRequest{})

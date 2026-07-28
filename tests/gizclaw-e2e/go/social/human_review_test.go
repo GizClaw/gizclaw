@@ -38,10 +38,10 @@ const (
 
 func TestServerSocialRPCHumanReview(t *testing.T) {
 	if !opus.IsRuntimeSupported() {
-		t.Skip("opus runtime is unavailable for social human review")
+		t.Fatal("opus runtime is unavailable for social human review")
 	}
 	if !portaudio.NativeRuntimeSupported() {
-		t.Skipf("portaudio backend %q is unavailable for social human review", portaudio.BackendName())
+		t.Fatalf("portaudio backend %q is unavailable for social human review", portaudio.BackendName())
 	}
 	requireSocialHumanReviewProviderEnv(t)
 
@@ -122,7 +122,7 @@ func requireSocialHumanReviewProviderEnv(t *testing.T) {
 		}
 	}
 	if len(missing) > 0 {
-		t.Skipf("set %s provider env to run social human-review audio", strings.Join(missing, ", "))
+		t.Fatalf("set %s provider env to run social human-review audio", strings.Join(missing, ", "))
 	}
 }
 

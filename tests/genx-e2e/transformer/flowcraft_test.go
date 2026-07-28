@@ -21,9 +21,9 @@ const flowcraftAPIKeyEnv = "GIZCLAW_GENX_E2E_FLOWCRAFT_OPENAI_API_KEY"
 
 func TestFlowcraftTransformerOpenAICompatibleModel(t *testing.T) {
 	loadGenXE2EEnv(t)
-	apiKey := firstEnv(flowcraftAPIKeyEnv, "GIZCLAW_E2E_OPENAI_API_KEY", "OPENAI_API_KEY")
+	apiKey := firstEnv(flowcraftAPIKeyEnv)
 	if apiKey == "" {
-		t.Skipf("set %s in tests/genx-e2e/.env", flowcraftAPIKeyEnv)
+		t.Fatalf("set %s in tests/genx-e2e/.env", flowcraftAPIKeyEnv)
 	}
 	client := openai.NewClient(option.WithAPIKey(apiKey))
 	generator := &genx.OpenAIGenerator{

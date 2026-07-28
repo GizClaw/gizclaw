@@ -98,10 +98,7 @@ func selectedWorkspaceConfigPaths(t testing.TB, names ...string) []string {
 func runLiveWorkspaceCase(t *testing.T, selected workspaceCase, paths []string) {
 	t.Helper()
 	if err := probeLiveWorkspaceSetup(); err != nil {
-		if os.Getenv("GIZCLAW_E2E_REQUIRE_LIVE") == "1" {
-			t.Fatalf("required e2e setup server is not available: %v", err)
-		}
-		t.Skipf("e2e setup server is not available: %v", err)
+		t.Fatalf("required e2e setup server is not available: %v", err)
 	}
 	t.Setenv("GIZCLAW_E2E_CHAT_REGISTRATION_TOKEN", createChatRegistrationToken(t, selected))
 	for _, path := range paths {
@@ -112,10 +109,7 @@ func runLiveWorkspaceCase(t *testing.T, selected workspaceCase, paths []string) 
 				return
 			}
 			if shouldSkipUnavailableSetup(err) {
-				if os.Getenv("GIZCLAW_E2E_REQUIRE_LIVE") == "1" {
-					t.Fatalf("required e2e setup server became unavailable: %v", err)
-				}
-				t.Skipf("e2e setup server is not available: %v", err)
+				t.Fatalf("required e2e setup server became unavailable: %v", err)
 			}
 			t.Fatalf("%s %s: %v", selected, path, err)
 		})
