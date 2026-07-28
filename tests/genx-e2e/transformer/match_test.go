@@ -20,6 +20,8 @@ import (
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/components/retriever"
 	"github.com/cloudwego/eino/schema"
+	"github.com/openai/openai-go"
+	"github.com/openai/openai-go/option"
 )
 
 func TestMatchNodesProviderFreeParity(t *testing.T) {
@@ -52,7 +54,54 @@ func TestMatchNodesProviderFreeParity(t *testing.T) {
 	}
 }
 
+func TestMatchNodesOpenAICompatibleMusicDirectChat(t *testing.T) {
+	loadGenXE2EEnv(t)
+	tests := []struct {
+		name        string
+		apiKeyNames []string
+		transformer func(*testing.T, *genx.OpenAIGenerator) genx.Transformer
+	}{
+		{
+			name:        "flowcraft",
+			apiKeyNames: []string{flowcraftAPIKeyEnv, "GIZCLAW_E2E_OPENAI_API_KEY", "OPENAI_API_KEY"},
+			transformer: func(t *testing.T, generator *genx.OpenAIGenerator) genx.Transformer {
+				return newFlowcraftMatchTransformerWithGenerator(t, generator)
+			},
+		},
+		{
+			name:        "eino",
+			apiKeyNames: []string{einoAPIKeyEnv, "GIZCLAW_E2E_OPENAI_API_KEY", "OPENAI_API_KEY"},
+			transformer: func(t *testing.T, generator *genx.OpenAIGenerator) genx.Transformer {
+				return newEinoMatchTransformerWithModel(t, &genxChatModel{generator: generator})
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			apiKey := firstEnv(test.apiKeyNames...)
+			if apiKey == "" {
+				t.Skipf("set %s in tests/genx-e2e/.env", test.apiKeyNames[0])
+			}
+			client := openai.NewClient(option.WithAPIKey(apiKey))
+			generator := &genx.OpenAIGenerator{
+				Client: &client, Model: "gpt-4o-mini", TextOnly: true,
+			}
+			output := runMatchTransformer(t, test.transformer(t, generator))
+			assertMusicDirectMatch(t, output)
+			t.Logf("input=%q match=%s", "我想听卡农", output)
+		})
+	}
+}
+
 func newFlowcraftMatchTransformer(t *testing.T) genx.Transformer {
+	t.Helper()
+	return newFlowcraftMatchTransformerWithGenerator(t, &providerFreeMatchGenerator{})
+}
+
+func newFlowcraftMatchTransformerWithGenerator(
+	t *testing.T,
+	generator genx.Generator,
+) genx.Transformer {
 	t.Helper()
 	transformer, err := flowcrafttransformer.New(flowcrafttransformer.Config{
 		ID: "flowcraft-match",
@@ -77,7 +126,7 @@ host.emit("token", {content: JSON.stringify(board.getVar("matches"))});
 			Edges: []flowgraph.EdgeDefinition{{From: "match", To: "emit"}},
 		},
 		PublishNodes: []string{"emit"},
-		Models:       &providerFreeMatchGenerator{},
+		Models:       generator,
 	})
 	if err != nil {
 		t.Fatalf("flowcraft.New() error = %v", err)
@@ -87,9 +136,17 @@ host.emit("token", {content: JSON.stringify(board.getVar("matches"))});
 
 func newEinoMatchTransformer(t *testing.T) genx.Transformer {
 	t.Helper()
+	return newEinoMatchTransformerWithModel(t, &providerFreeMatchChatModel{})
+}
+
+func newEinoMatchTransformerWithModel(
+	t *testing.T,
+	chatModel model.BaseChatModel,
+) genx.Transformer {
+	t.Helper()
 	transformer, err := einotransformer.New(t.Context(), einotransformer.Config{
 		Agent:      einotransformer.AgentConfig{ID: "eino-match"},
-		Components: &providerFreeMatchResolver{},
+		Components: &matchE2EResolver{chatModel: chatModel},
 		Limits:     einotransformer.Limits{MaxOutputBytes: 1 << 20},
 		Graph: einotransformer.GraphDefinition{
 			Name: "match",
@@ -155,6 +212,29 @@ def run(input):
 	return transformer
 }
 
+func assertMusicDirectMatch(t *testing.T, output string) {
+	t.Helper()
+	var matches []struct {
+		Rule string `json:"rule"`
+		Args map[string]struct {
+			Value    any  `json:"value"`
+			HasValue bool `json:"has_value"`
+		} `json:"args"`
+		RawText string `json:"raw_text"`
+	}
+	if err := json.Unmarshal([]byte(output), &matches); err != nil {
+		t.Fatalf("decode Match chat output %q: %v", output, err)
+	}
+	if len(matches) != 1 {
+		t.Fatalf("Match chat output = %#v, want one result", matches)
+	}
+	title, ok := matches[0].Args["title"]
+	if matches[0].Rule != "play_music" || !ok || !title.HasValue ||
+		title.Value != "卡农" || matches[0].RawText != "" {
+		t.Fatalf("Match chat output = %#v, want play_music title 卡农", matches)
+	}
+}
+
 func matchRules() []*genxmatch.Rule {
 	return []*genxmatch.Rule{{
 		Name: "play_music",
@@ -167,6 +247,8 @@ func matchRules() []*genxmatch.Rule {
 
 func runMatchTransformer(t *testing.T, transformer genx.Transformer) string {
 	t.Helper()
+	ctx, cancel := context.WithTimeout(t.Context(), 90*time.Second)
+	defer cancel()
 	input := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 4)
 	if err := input.Add(
 		genx.NewBeginOfStream("match-input"),
@@ -178,7 +260,7 @@ func runMatchTransformer(t *testing.T, transformer genx.Transformer) string {
 	if err := input.Done(genx.Usage{}); err != nil {
 		t.Fatalf("finish input: %v", err)
 	}
-	output, err := transformer.Transform(t.Context(), input.Stream())
+	output, err := transformer.Transform(ctx, input.Stream())
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
@@ -229,16 +311,18 @@ func (*providerFreeMatchGenerator) Invoke(
 	return genx.Usage{}, nil, errors.New("Invoke must not be used")
 }
 
-type providerFreeMatchResolver struct{}
+type matchE2EResolver struct {
+	chatModel model.BaseChatModel
+}
 
-func (*providerFreeMatchResolver) ResolveChatModel(
+func (resolver *matchE2EResolver) ResolveChatModel(
 	context.Context,
 	string,
 ) (model.BaseChatModel, error) {
-	return &providerFreeMatchChatModel{}, nil
+	return resolver.chatModel, nil
 }
 
-func (*providerFreeMatchResolver) ResolveRetriever(
+func (*matchE2EResolver) ResolveRetriever(
 	context.Context,
 	string,
 ) (retriever.Retriever, error) {
