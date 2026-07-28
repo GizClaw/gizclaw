@@ -1106,11 +1106,12 @@ func (r *Runtime) commitDrive(
 			}
 			badgeDelta[ruleset.Spec.BadgeDefs[alias]] = delta
 		}
+		reason := strings.TrimSpace(evaluated.Reason)
 		grant = apitypes.RewardGrant{
 			Id: r.newID(), OwnerPublicKey: owner, RuntimeProfileName: ruleset.Name,
 			PetId: &pet.Id, GameResultId: &gameResult.Id, PetExpDelta: evaluated.PetExpDelta,
 			BadgeExpDelta: badgeDelta, SourceType: "game_result", SourceId: gameResult.Id,
-			Reason: new(strings.TrimSpace(evaluated.Reason)), CreatedAt: now,
+			Reason: &reason, CreatedAt: now,
 		}
 	} else {
 		applyCareBehavior(&pet, behavior, actionPolicy.StatDelta)
@@ -1120,11 +1121,12 @@ func (r *Runtime) commitDrive(
 		if sourceID == "" {
 			sourceID = grantID
 		}
+		reason := "behavior." + string(behavior)
 		grant = apitypes.RewardGrant{
 			Id: grantID, OwnerPublicKey: owner, RuntimeProfileName: ruleset.Name,
 			PetId: &pet.Id, PetExpDelta: expDelta, BadgeExpDelta: map[string]int64{},
 			SourceType: "pet_behavior", SourceId: sourceID,
-			Reason: new("behavior." + string(behavior)), CreatedAt: now,
+			Reason: &reason, CreatedAt: now,
 		}
 	}
 	applyPetExp(&pet, grant.PetExpDelta, ruleset.Spec.Experience.Leveling)
