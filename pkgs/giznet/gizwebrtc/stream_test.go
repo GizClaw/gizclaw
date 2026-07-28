@@ -85,6 +85,31 @@ func TestDataChannelConnWriteChunksLargePayload(t *testing.T) {
 	}
 }
 
+func TestDataChannelConnWriteKeepsTunnelFramesIntact(t *testing.T) {
+	raw := &fakeStreamRaw{}
+	conn := newDataChannelConn(raw, nil, addr("local"), addr("remote"))
+	defer conn.Close()
+
+	const tunnelFrameSize = 16 * 1024
+	payload := make([]byte, 4*tunnelFrameSize)
+	n, err := conn.Write(payload)
+	if err != nil {
+		t.Fatalf("Write error = %v", err)
+	}
+	if n != len(payload) {
+		t.Fatalf("Write n = %d, want %d", n, len(payload))
+	}
+	want := []int{
+		tunnelFrameSize,
+		tunnelFrameSize,
+		tunnelFrameSize,
+		tunnelFrameSize,
+	}
+	if got := raw.writeSizes(); !equalInts(got, want) {
+		t.Fatalf("write sizes = %v, want %v", got, want)
+	}
+}
+
 func TestDataChannelConnReadReassemblesMessageAsByteStream(t *testing.T) {
 	raw := &fakeStreamRaw{reads: [][]byte{[]byte("abcdef")}}
 	conn := newDataChannelConn(raw, nil, addr("local"), addr("remote"))
