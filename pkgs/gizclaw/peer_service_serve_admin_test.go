@@ -110,6 +110,25 @@ type adminGameplayWorkspaceService struct {
 	deleted []string
 }
 
+func newTestFriendServer(store kv.Store) *friend.Server {
+	return &friend.Server{
+		Friends:    store,
+		Workspaces: &adminGameplayWorkspaceService{},
+		RuntimeProfileForOwner: func(
+			context.Context,
+			string,
+		) (apitypes.RuntimeProfile, error) {
+			return apitypes.RuntimeProfile{Spec: apitypes.RuntimeProfileSpec{
+				Workflows: apitypes.RuntimeProfileWorkflows{
+					System: apitypes.RuntimeProfileSystemWorkflows{
+						FriendChatroom: "friend-chatroom",
+					},
+				},
+			}}, nil
+		},
+	}
+}
+
 func (s *adminGameplayWorkspaceService) CreateSystemWorkspace(_ context.Context, body adminhttp.WorkspaceUpsert) (apitypes.Workspace, bool, error) {
 	system := true
 	return apitypes.Workspace{Name: body.Name, WorkflowName: body.WorkflowName, System: &system}, true, nil
@@ -264,7 +283,7 @@ func TestResource200JSONResponseSerializesResourceUnion(t *testing.T) {
 func TestAdminSocialHandlersUseDomainServices(t *testing.T) {
 	t.Parallel()
 
-	friendService := &friend.Server{Friends: kv.NewMemory(nil)}
+	friendService := newTestFriendServer(kv.NewMemory(nil))
 	groupStore := kv.NewMemory(nil)
 	groupService := &friendgroup.Server{
 		Groups:            groupStore,

@@ -444,6 +444,15 @@ func (s *Server) init() error {
 	if !kv.SupportsCreateIfAbsent(workspaceStore) {
 		return fmt.Errorf("gizclaw: workspace store: %w", kv.ErrCreateIfAbsentUnsupported)
 	}
+	if !kv.SupportsCreateIfAbsent(friendStore) {
+		return fmt.Errorf("gizclaw: friend store: %w", kv.ErrCreateIfAbsentUnsupported)
+	}
+	if !kv.SupportsCompareAndMutate(friendStore) {
+		return fmt.Errorf(
+			"gizclaw: friend store: %w",
+			kv.ErrCompareAndMutateUnsupported,
+		)
+	}
 	if !kv.SupportsCreateIfAbsent(friendGroupRelationshipStore) {
 		return fmt.Errorf(
 			"gizclaw: friend group relationship store: %w",
@@ -587,6 +596,9 @@ func (s *Server) init() error {
 	manager.Contacts = contactServer
 	manager.Friends = friendServer
 	manager.FriendGroups = friendGroupServer
+	if err := friendServer.ReconcileCreationIntents(context.Background()); err != nil {
+		return fmt.Errorf("gizclaw: reconcile Friend creation intents: %w", err)
+	}
 	if err := friendServer.ReconcileRetirementIntents(context.Background()); err != nil {
 		return fmt.Errorf("gizclaw: reconcile Friend retirement intents: %w", err)
 	}

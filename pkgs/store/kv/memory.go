@@ -275,6 +275,60 @@ func (m *Memory) CreateIfAbsent(ctx context.Context, guard Entry, entries []Entr
 	return nil, true, nil
 }
 
+func (m *Memory) CompareAndMutate(
+	ctx context.Context,
+	guard Key,
+	expected []byte,
+	entries []Entry,
+	keys []Key,
+) (bool, error) {
+	if err := ctx.Err(); err != nil {
+		return false, err
+	}
+	now := time.Now()
+	type preparedEntry struct {
+		key   string
+		entry memoryEntry
+	}
+	prepared := make([]preparedEntry, 0, len(entries))
+	for _, item := range entries {
+		prepared = append(prepared, preparedEntry{
+			key: string(m.opts.encode(item.Key)),
+			entry: memoryEntry{
+				value:     append([]byte(nil), item.Value...),
+				expiresAt: item.Deadline,
+			},
+		})
+	}
+	encodedDeletes := make([]string, len(keys))
+	for i, key := range keys {
+		encodedDeletes[i] = string(m.opts.encode(key))
+	}
+	guardKey := string(m.opts.encode(guard))
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return false, err
+	}
+	current, ok := m.data[guardKey]
+	if !ok || current.expired(now) || !bytes.Equal(current.value, expected) {
+		return false, nil
+	}
+	for _, item := range prepared {
+		if !item.entry.expiresAt.IsZero() &&
+			!item.entry.expiresAt.After(now) {
+			return false, ErrInvalidDeadline
+		}
+	}
+	for _, item := range prepared {
+		m.data[item.key] = item.entry
+	}
+	for _, key := range encodedDeletes {
+		delete(m.data, key)
+	}
+	return true, nil
+}
+
 func (m *Memory) Close() error {
 	return nil
 }

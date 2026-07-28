@@ -2,6 +2,7 @@ package friend
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"iter"
 	"strings"
@@ -335,6 +336,756 @@ func TestDeleteFriendIsRelationshipFirstAndRetryable(t *testing.T) {
 	if len(notifications) != notificationCount {
 		t.Fatalf("completed retry notifications = %d, want %d", len(notifications), notificationCount)
 	}
+	if len(workspaces.retired) != 2 {
+		t.Fatalf("completed retry retired Workspace again: %v", workspaces.retired)
+	}
+}
+
+func TestStaleRetirementCompletionLeavesNewerIntentUntouched(t *testing.T) {
+	ctx := t.Context()
+	s := newTestServer()
+	workspaces := &recordingWorkspaceService{}
+	s.Workspaces = workspaces
+	relationID := socialutil.RelationID("peer-a", "peer-b")
+	stale := retirementIntent{
+		RelationID: relationID,
+		FirstPeer:  "peer-a",
+		SecondPeer: "peer-b",
+		Workspace:  "stale-workspace",
+		DeletedAt:  s.now(),
+	}
+	newer := retirementIntent{
+		RelationID: relationID,
+		FirstPeer:  "peer-a",
+		SecondPeer: "peer-b",
+		Workspace:  "newer-workspace",
+		DeletedAt:  s.now().Add(time.Second),
+	}
+	if err := socialutil.WriteJSON(
+		ctx,
+		s.Friends,
+		retirementIntentKey(relationID),
+		newer,
+	); err != nil {
+		t.Fatalf("seed newer retirement intent: %v", err)
+	}
+
+	if err := s.completeFriendRetirement(ctx, s.Friends, stale); err != nil {
+		t.Fatalf("complete stale retirement: %v", err)
+	}
+	current, err := readRetirementIntent(ctx, s.Friends, relationID)
+	if err != nil {
+		t.Fatalf("read newer retirement intent: %v", err)
+	}
+	if current.Workspace != newer.Workspace ||
+		!current.DeletedAt.Equal(newer.DeletedAt) {
+		t.Fatalf("stale completion changed newer intent: got %#v, want %#v", current, newer)
+	}
+	if _, err := readRetirementReceipt(
+		ctx,
+		s.Friends,
+		relationID,
+	); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("stale completion receipt error = %v, want not found", err)
+	}
+	if len(workspaces.retired) != 1 || workspaces.retired[0] != stale.Workspace {
+		t.Fatalf("retired Workspaces = %v, want %q", workspaces.retired, stale.Workspace)
+	}
+}
+
+func TestFriendRecreationUsesNewWorkspaceIncarnation(t *testing.T) {
+	ctx := t.Context()
+	workspaces := &recordingWorkspaceService{}
+	s := newTestServer()
+	s.Workspaces = workspaces
+
+	var workspaceNames []string
+	for lifecycle := range 3 {
+		item, err := s.AdminCreateFriend(ctx, "peer-a", "peer-b")
+		if err != nil {
+			t.Fatalf("AdminCreateFriend lifecycle %d: %v", lifecycle, err)
+		}
+		workspaceNames = append(
+			workspaceNames,
+			socialutil.StringValue(item.WorkspaceName),
+		)
+		if lifecycle == 2 {
+			break
+		}
+		if _, err := s.DeleteFriend(
+			ctx,
+			"peer-a",
+			rpcapi.FriendDeleteRequest{Id: "peer-b"},
+		); err != nil {
+			t.Fatalf("DeleteFriend lifecycle %d: %v", lifecycle, err)
+		}
+	}
+	if len(workspaces.created) != 3 {
+		t.Fatalf("created Workspaces = %#v, want three incarnations", workspaces.created)
+	}
+	if workspaceNames[0] == workspaceNames[1] ||
+		workspaceNames[0] == workspaceNames[2] ||
+		workspaceNames[1] == workspaceNames[2] {
+		t.Fatalf("Workspace incarnations are not unique: %v", workspaceNames)
+	}
+	if len(workspaces.retired) != 2 ||
+		workspaces.retired[0] != workspaceNames[0] ||
+		workspaces.retired[1] != workspaceNames[1] {
+		t.Fatalf(
+			"retired Workspaces = %v, want first two incarnations %v",
+			workspaces.retired,
+			workspaceNames[:2],
+		)
+	}
+}
+
+func TestAddFriendAfterDeletionKeepsRetiredWorkspaceIsolated(t *testing.T) {
+	ctx := t.Context()
+	workspaces := &recordingWorkspaceService{}
+	s := newTestServer()
+	s.Workspaces = workspaces
+	token, err := s.CreateFriendInviteToken(
+		ctx,
+		"peer-b",
+		rpcapi.FriendInviteTokenCreateRequest{},
+	)
+	if err != nil {
+		t.Fatalf("CreateFriendInviteToken: %v", err)
+	}
+	first, err := s.AddFriend(
+		ctx,
+		"peer-a",
+		rpcapi.FriendAddRequest{InviteToken: token.InviteToken},
+	)
+	if err != nil {
+		t.Fatalf("AddFriend first lifecycle: %v", err)
+	}
+	firstWorkspace := socialutil.StringValue(first.WorkspaceName)
+	if _, err := s.DeleteFriend(
+		ctx,
+		"peer-a",
+		rpcapi.FriendDeleteRequest{Id: "peer-b"},
+	); err != nil {
+		t.Fatalf("DeleteFriend first lifecycle: %v", err)
+	}
+	second, err := s.AddFriend(
+		ctx,
+		"peer-a",
+		rpcapi.FriendAddRequest{InviteToken: token.InviteToken},
+	)
+	if err != nil {
+		t.Fatalf("AddFriend second lifecycle: %v", err)
+	}
+	secondWorkspace := socialutil.StringValue(second.WorkspaceName)
+	if firstWorkspace == secondWorkspace {
+		t.Fatalf("re-added Friend reused Workspace %q", firstWorkspace)
+	}
+	if len(workspaces.retired) != 1 || workspaces.retired[0] != firstWorkspace {
+		t.Fatalf(
+			"retired Workspaces = %v, want unchanged old Workspace %q",
+			workspaces.retired,
+			firstWorkspace,
+		)
+	}
+	relationID := socialutil.RelationID("peer-a", "peer-b")
+	receipt, err := readRetirementReceipt(ctx, s.Friends, relationID)
+	if err != nil {
+		t.Fatalf("readRetirementReceipt: %v", err)
+	}
+	if receipt.Workspace != firstWorkspace {
+		t.Fatalf("retirement receipt Workspace = %q, want %q", receipt.Workspace, firstWorkspace)
+	}
+	receiptData, err := s.Friends.Get(ctx, retirementReceiptKey(relationID))
+	if err != nil {
+		t.Fatalf("read retirement receipt data: %v", err)
+	}
+	var receiptFields map[string]json.RawMessage
+	if err := json.Unmarshal(receiptData, &receiptFields); err != nil {
+		t.Fatalf("decode retirement receipt data: %v", err)
+	}
+	if _, exists := receiptFields["relationship"]; exists {
+		t.Fatalf("retirement receipt retained full relationship: %s", receiptData)
+	}
+	duplicate, err := s.AddFriend(
+		ctx,
+		"peer-a",
+		rpcapi.FriendAddRequest{InviteToken: token.InviteToken},
+	)
+	if err != nil {
+		t.Fatalf("AddFriend duplicate second lifecycle: %v", err)
+	}
+	if socialutil.StringValue(duplicate.WorkspaceName) != secondWorkspace ||
+		len(workspaces.created) != 2 {
+		t.Fatalf(
+			"duplicate AddFriend = %#v, created Workspaces = %#v",
+			duplicate,
+			workspaces.created,
+		)
+	}
+}
+
+func TestReconcileCreationIntentReusesWorkspaceIdentity(t *testing.T) {
+	ctx := t.Context()
+	baseStore := kv.NewMemory(nil)
+	friendStore := &toggleBatchMutateStore{Store: baseStore, fail: true}
+	workspaces := &recordingWorkspaceService{}
+	s := newTestServer()
+	s.Friends = friendStore
+	s.Workspaces = workspaces
+	resolverCalls := 0
+	s.RuntimeProfileForOwner = func(
+		context.Context,
+		string,
+	) (apitypes.RuntimeProfile, error) {
+		resolverCalls++
+		return apitypes.RuntimeProfile{Spec: apitypes.RuntimeProfileSpec{
+			Workflows: apitypes.RuntimeProfileWorkflows{
+				System: apitypes.RuntimeProfileSystemWorkflows{
+					FriendChatroom: "durable-friend-chatroom",
+				},
+			},
+		}}, nil
+	}
+
+	if _, err := s.AdminCreateFriend(ctx, "peer-a", "peer-b"); err == nil {
+		t.Fatal("AdminCreateFriend commit failure error = nil")
+	}
+	relationID := socialutil.RelationID("peer-a", "peer-b")
+	intent, err := readCreationIntent(ctx, friendStore, relationID)
+	if err != nil {
+		t.Fatalf("readCreationIntent after commit failure: %v", err)
+	}
+	if len(workspaces.created) != 1 || workspaces.created[0].Name != intent.Workspace {
+		t.Fatalf("created Workspaces = %#v, intent = %#v", workspaces.created, intent)
+	}
+	if _, err := s.GetFriendRelation(ctx, "peer-a", "peer-b"); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("GetFriendRelation before reconciliation error = %v, want not found", err)
+	}
+	if _, err := s.AdminCreateFriend(ctx, "peer-b", "peer-a"); err == nil ||
+		!strings.Contains(err.Error(), "invalid Friend creation intent") {
+		t.Fatalf("AdminCreateFriend conflicting owner error = %v", err)
+	}
+
+	friendStore.fail = false
+	restarted := &Server{
+		Friends:    friendStore,
+		Workspaces: workspaces,
+		Now:        s.Now,
+		NotifyPeer: s.NotifyPeer,
+		NewID:      func() string { return "must-not-be-used" },
+		RuntimeProfileForOwner: func(
+			context.Context,
+			string,
+		) (apitypes.RuntimeProfile, error) {
+			return apitypes.RuntimeProfile{}, errors.New(
+				"reconciliation must reuse the persisted Workflow",
+			)
+		},
+	}
+	if err := restarted.ReconcileCreationIntents(ctx); err != nil {
+		t.Fatalf("ReconcileCreationIntents: %v", err)
+	}
+	if resolverCalls != 1 {
+		t.Fatalf("runtime profile resolver calls = %d, want 1", resolverCalls)
+	}
+	for _, pair := range [][2]string{{"peer-a", "peer-b"}, {"peer-b", "peer-a"}} {
+		item, err := restarted.GetFriendRelation(ctx, pair[0], pair[1])
+		if err != nil {
+			t.Fatalf("GetFriendRelation(%s,%s): %v", pair[0], pair[1], err)
+		}
+		if socialutil.StringValue(item.WorkspaceName) != intent.Workspace {
+			t.Fatalf("reconciled Friend = %#v, want Workspace %q", item, intent.Workspace)
+		}
+	}
+	if _, err := readCreationIntent(ctx, friendStore, relationID); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("creation intent after reconciliation error = %v, want not found", err)
+	}
+	if len(workspaces.created) != 1 {
+		t.Fatalf("reconciliation created a second Workspace: %#v", workspaces.created)
+	}
+}
+
+func TestReconcileCommittedDecisionDoesNotRestoreDeletedRelationship(t *testing.T) {
+	ctx := t.Context()
+	workspaces := &recordingWorkspaceService{}
+	s := newTestServer()
+	s.Workspaces = workspaces
+	intent, err := s.getOrCreateCreationIntent(
+		ctx,
+		s.Friends,
+		"peer-a",
+		"peer-b",
+		"peer-a",
+	)
+	if err != nil {
+		t.Fatalf("getOrCreateCreationIntent: %v", err)
+	}
+	if err := s.ensureCreationWorkspace(ctx, intent); err != nil {
+		t.Fatalf("ensureCreationWorkspace: %v", err)
+	}
+	if _, err := s.commitFriendCreation(
+		ctx,
+		s.Friends,
+		"peer-a",
+		"peer-b",
+		intent,
+	); err != nil {
+		t.Fatalf("commitFriendCreation: %v", err)
+	}
+	if err := socialutil.WriteJSON(
+		ctx,
+		s.Friends,
+		creationIntentKey(intent.RelationID),
+		intent,
+	); err != nil {
+		t.Fatalf("restore creation intent to simulate post-commit crash: %v", err)
+	}
+	if _, err := s.DeleteFriend(
+		ctx,
+		"peer-a",
+		rpcapi.FriendDeleteRequest{Id: "peer-b"},
+	); err != nil {
+		t.Fatalf("DeleteFriend: %v", err)
+	}
+
+	if err := s.ReconcileCreationIntents(ctx); err != nil {
+		t.Fatalf("ReconcileCreationIntents: %v", err)
+	}
+	if len(workspaces.created) != 1 {
+		t.Fatalf("reconciliation restored deleted Workspace: %#v", workspaces.created)
+	}
+	if _, err := readCreationIntent(
+		ctx,
+		s.Friends,
+		intent.RelationID,
+	); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("creation intent error = %v, want not found", err)
+	}
+	for _, pair := range [][2]string{{"peer-a", "peer-b"}, {"peer-b", "peer-a"}} {
+		if _, err := s.GetFriendRelation(
+			ctx,
+			pair[0],
+			pair[1],
+		); !errors.Is(err, kv.ErrNotFound) {
+			t.Fatalf(
+				"GetFriendRelation(%s,%s) error = %v, want not found",
+				pair[0],
+				pair[1],
+				err,
+			)
+		}
+	}
+}
+
+func TestDeleteFriendCancelsFailedCreationBeforeReconciliation(t *testing.T) {
+	ctx := t.Context()
+	friendStore := &toggleBatchMutateStore{
+		Store: kv.NewMemory(nil),
+		fail:  true,
+	}
+	workspaces := &recordingWorkspaceService{}
+	s := newTestServer()
+	s.Friends = friendStore
+	s.Workspaces = workspaces
+	var notifications []friendNotification
+	s.NotifyPeer = func(
+		_ context.Context,
+		recipient string,
+		event *eventpb.PeerEvent,
+	) {
+		notifications = append(
+			notifications,
+			friendNotification{recipient: recipient, event: event},
+		)
+	}
+
+	if _, err := s.AdminCreateFriend(ctx, "peer-a", "peer-b"); err == nil {
+		t.Fatal("AdminCreateFriend commit failure error = nil")
+	}
+	relationID := socialutil.RelationID("peer-a", "peer-b")
+	creation, err := readCreationIntent(ctx, friendStore, relationID)
+	if err != nil {
+		t.Fatalf("readCreationIntent: %v", err)
+	}
+	if len(workspaces.created) != 1 ||
+		workspaces.created[0].Name != creation.Workspace {
+		t.Fatalf("created Workspaces = %#v, intent = %#v", workspaces.created, creation)
+	}
+
+	friendStore.fail = false
+	deleted, err := s.DeleteFriend(
+		ctx,
+		"peer-a",
+		rpcapi.FriendDeleteRequest{Id: "peer-b"},
+	)
+	if err != nil {
+		t.Fatalf("DeleteFriend pending creation: %v", err)
+	}
+	if socialutil.StringValue(deleted.WorkspaceName) != creation.Workspace {
+		t.Fatalf("DeleteFriend pending creation = %#v, want %q", deleted, creation.Workspace)
+	}
+	if len(workspaces.deleted) != 1 ||
+		workspaces.deleted[0] != creation.Workspace ||
+		len(workspaces.retired) != 0 {
+		t.Fatalf(
+			"Workspace cancellation calls: deleted=%v retired=%v",
+			workspaces.deleted,
+			workspaces.retired,
+		)
+	}
+	if _, err := readCreationIntent(ctx, friendStore, relationID); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("creation intent after delete error = %v, want not found", err)
+	}
+	receipt, err := readRetirementReceipt(ctx, friendStore, relationID)
+	if err != nil {
+		t.Fatalf("readRetirementReceipt: %v", err)
+	}
+	if receipt.Workspace != creation.Workspace {
+		t.Fatalf("retirement receipt = %#v, want Workspace %q", receipt, creation.Workspace)
+	}
+	newerRetirement := retirementIntent{
+		RelationID: relationID,
+		FirstPeer:  "peer-a",
+		SecondPeer: "peer-b",
+		Workspace:  "newer-direct-workspace",
+		DeletedAt:  s.now().Add(time.Second),
+	}
+	if err := socialutil.WriteJSON(
+		ctx,
+		friendStore,
+		retirementIntentKey(relationID),
+		newerRetirement,
+	); err != nil {
+		t.Fatalf("seed newer retirement intent: %v", err)
+	}
+	duplicate, err := s.cancelFriendCreation(
+		ctx,
+		friendStore,
+		"peer-a",
+		relationID,
+		creation,
+	)
+	if err != nil {
+		t.Fatalf("cancelFriendCreation completed retry: %v", err)
+	}
+	if socialutil.StringValue(duplicate.WorkspaceName) != creation.Workspace ||
+		len(workspaces.deleted) != 1 {
+		t.Fatalf(
+			"completed cancellation retry = %#v, deleted Workspaces = %v",
+			duplicate,
+			workspaces.deleted,
+		)
+	}
+	stillPending, err := readRetirementIntent(ctx, friendStore, relationID)
+	if err != nil {
+		t.Fatalf("read newer retirement intent: %v", err)
+	}
+	if stillPending.Workspace != newerRetirement.Workspace ||
+		stillPending.DeletedAt != newerRetirement.DeletedAt {
+		t.Fatalf(
+			"newer retirement intent changed: got %#v, want %#v",
+			stillPending,
+			newerRetirement,
+		)
+	}
+	if err := s.ReconcileCreationIntents(ctx); err != nil {
+		t.Fatalf("ReconcileCreationIntents after cancellation: %v", err)
+	}
+	for _, pair := range [][2]string{{"peer-a", "peer-b"}, {"peer-b", "peer-a"}} {
+		if _, err := s.GetFriendRelation(ctx, pair[0], pair[1]); !errors.Is(err, kv.ErrNotFound) {
+			t.Fatalf(
+				"GetFriendRelation(%s,%s) after cancellation error = %v, want not found",
+				pair[0],
+				pair[1],
+				err,
+			)
+		}
+	}
+	if len(notifications) != 0 {
+		t.Fatalf("pending creation cancellation notifications = %#v, want none", notifications)
+	}
+}
+
+func TestCreationCommitCannotWinAfterConcurrentCancellation(t *testing.T) {
+	ctx := t.Context()
+	baseStore := kv.NewMemory(nil)
+	commitStarted := make(chan struct{})
+	releaseCommit := make(chan struct{})
+	creatorStore := &blockingCreationDecisionStore{
+		Store:   baseStore,
+		state:   creationDecisionCommitted,
+		started: commitStarted,
+		release: releaseCommit,
+	}
+	workspaces := &recordingWorkspaceService{}
+	creator := newTestServer()
+	creator.Friends = creatorStore
+	creator.Workspaces = workspaces
+	deleter := newTestServer()
+	deleter.Friends = baseStore
+	deleter.Workspaces = workspaces
+	deleter.NewID = func() string { return "incarnation-b" }
+
+	intent, err := creator.getOrCreateCreationIntent(
+		ctx,
+		creatorStore,
+		"peer-a",
+		"peer-b",
+		"peer-a",
+	)
+	if err != nil {
+		t.Fatalf("getOrCreateCreationIntent: %v", err)
+	}
+	if err := creator.ensureCreationWorkspace(ctx, intent); err != nil {
+		t.Fatalf("ensureCreationWorkspace: %v", err)
+	}
+
+	commitResult := make(chan error, 1)
+	go func() {
+		_, err := creator.commitFriendCreation(
+			ctx,
+			creatorStore,
+			"peer-a",
+			"peer-b",
+			intent,
+		)
+		commitResult <- err
+	}()
+	<-commitStarted
+
+	deleted, err := deleter.DeleteFriend(
+		ctx,
+		"peer-a",
+		rpcapi.FriendDeleteRequest{Id: "peer-b"},
+	)
+	if err != nil {
+		t.Fatalf("DeleteFriend during blocked creation commit: %v", err)
+	}
+	if socialutil.StringValue(deleted.WorkspaceName) != intent.Workspace {
+		t.Fatalf("DeleteFriend = %#v, want Workspace %q", deleted, intent.Workspace)
+	}
+	nextIntent, err := deleter.getOrCreateCreationIntent(
+		ctx,
+		baseStore,
+		"peer-a",
+		"peer-b",
+		"peer-a",
+	)
+	if err != nil {
+		t.Fatalf("getOrCreateCreationIntent for re-add: %v", err)
+	}
+	if nextIntent.IncarnationID == intent.IncarnationID {
+		t.Fatalf("re-add reused incarnation: old=%#v new=%#v", intent, nextIntent)
+	}
+	close(releaseCommit)
+	if err := <-commitResult; !errors.Is(err, errFriendCreationCancelled) {
+		t.Fatalf("commitFriendCreation error = %v, want cancellation", err)
+	}
+
+	decision, err := readCreationDecision(ctx, baseStore, intent)
+	if err != nil {
+		t.Fatalf("readCreationDecision: %v", err)
+	}
+	if decision.State != creationDecisionCancelled {
+		t.Fatalf("creation decision = %#v, want cancelled", decision)
+	}
+	currentIntent, err := readCreationIntent(
+		ctx,
+		baseStore,
+		intent.RelationID,
+	)
+	if err != nil {
+		t.Fatalf("read re-add creation intent: %v", err)
+	}
+	if currentIntent.IncarnationID != nextIntent.IncarnationID ||
+		currentIntent.Workspace != nextIntent.Workspace {
+		t.Fatalf(
+			"losing creator changed re-add intent: got %#v, want %#v",
+			currentIntent,
+			nextIntent,
+		)
+	}
+	for _, pair := range [][2]string{{"peer-a", "peer-b"}, {"peer-b", "peer-a"}} {
+		if _, err := deleter.GetFriendRelation(
+			ctx,
+			pair[0],
+			pair[1],
+		); !errors.Is(err, kv.ErrNotFound) {
+			t.Fatalf(
+				"GetFriendRelation(%s,%s) error = %v, want not found",
+				pair[0],
+				pair[1],
+				err,
+			)
+		}
+	}
+	if len(workspaces.deleted) < 1 ||
+		workspaces.deleted[len(workspaces.deleted)-1] != intent.Workspace {
+		t.Fatalf("deleted Workspaces = %v, want %q", workspaces.deleted, intent.Workspace)
+	}
+}
+
+func TestConcurrentCancellationRetiresCreationThatAlreadyCommitted(t *testing.T) {
+	ctx := t.Context()
+	baseStore := kv.NewMemory(nil)
+	cancellationStarted := make(chan struct{})
+	releaseCancellation := make(chan struct{})
+	deleterStore := &blockingCreationDecisionStore{
+		Store:   baseStore,
+		state:   creationDecisionCancelled,
+		started: cancellationStarted,
+		release: releaseCancellation,
+	}
+	workspaces := &recordingWorkspaceService{}
+	creator := newTestServer()
+	creator.Friends = baseStore
+	creator.Workspaces = workspaces
+	deleter := newTestServer()
+	deleter.Friends = deleterStore
+	deleter.Workspaces = workspaces
+
+	intent, err := creator.getOrCreateCreationIntent(
+		ctx,
+		baseStore,
+		"peer-a",
+		"peer-b",
+		"peer-a",
+	)
+	if err != nil {
+		t.Fatalf("getOrCreateCreationIntent: %v", err)
+	}
+	if err := creator.ensureCreationWorkspace(ctx, intent); err != nil {
+		t.Fatalf("ensureCreationWorkspace: %v", err)
+	}
+
+	deleteResult := make(chan error, 1)
+	go func() {
+		_, err := deleter.cancelFriendCreation(
+			ctx,
+			deleterStore,
+			"peer-a",
+			intent.RelationID,
+			intent,
+		)
+		deleteResult <- err
+	}()
+	<-cancellationStarted
+
+	if _, err := creator.commitFriendCreation(
+		ctx,
+		baseStore,
+		"peer-a",
+		"peer-b",
+		intent,
+	); err != nil {
+		t.Fatalf("commitFriendCreation before cancellation: %v", err)
+	}
+	close(releaseCancellation)
+	if err := <-deleteResult; err != nil {
+		t.Fatalf("cancelFriendCreation after committed decision: %v", err)
+	}
+
+	decision, err := readCreationDecision(ctx, baseStore, intent)
+	if err != nil {
+		t.Fatalf("readCreationDecision: %v", err)
+	}
+	if decision.State != creationDecisionCommitted {
+		t.Fatalf("creation decision = %#v, want committed", decision)
+	}
+	for _, pair := range [][2]string{{"peer-a", "peer-b"}, {"peer-b", "peer-a"}} {
+		if _, err := deleter.GetFriendRelation(
+			ctx,
+			pair[0],
+			pair[1],
+		); !errors.Is(err, kv.ErrNotFound) {
+			t.Fatalf(
+				"GetFriendRelation(%s,%s) error = %v, want not found",
+				pair[0],
+				pair[1],
+				err,
+			)
+		}
+	}
+	receipt, err := readRetirementReceipt(ctx, baseStore, intent.RelationID)
+	if err != nil {
+		t.Fatalf("readRetirementReceipt: %v", err)
+	}
+	if receipt.Workspace != intent.Workspace ||
+		len(workspaces.retired) != 1 ||
+		workspaces.retired[0] != intent.Workspace ||
+		len(workspaces.deleted) != 0 {
+		t.Fatalf(
+			"committed-then-deleted lifecycle: receipt=%#v retired=%v deleted=%v",
+			receipt,
+			workspaces.retired,
+			workspaces.deleted,
+		)
+	}
+}
+
+func TestFriendCreationRejectsIncompleteReciprocalRows(t *testing.T) {
+	ctx := t.Context()
+	s := newTestServer()
+	relationID := socialutil.RelationID("peer-a", "peer-b")
+	peer := "peer-b"
+	if err := socialutil.WriteJSON(
+		ctx,
+		s.Friends,
+		socialutil.FriendKey("peer-a", relationID),
+		rpcapi.FriendObject{PeerPublicKey: &peer},
+	); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.AdminCreateFriend(ctx, "peer-a", "peer-b"); err == nil ||
+		!strings.Contains(err.Error(), "incomplete") {
+		t.Fatalf("AdminCreateFriend incomplete relationship error = %v", err)
+	}
+}
+
+func TestLegacyFriendRowsUsePairWorkspaceFallback(t *testing.T) {
+	ctx := t.Context()
+	workspaces := &recordingWorkspaceService{}
+	s := newTestServer()
+	s.Workspaces = workspaces
+	relationID := socialutil.RelationID("peer-a", "peer-b")
+	for _, row := range []struct{ owner, peer string }{
+		{"peer-a", "peer-b"},
+		{"peer-b", "peer-a"},
+	} {
+		item := rpcapi.FriendObject{
+			Id:            &row.peer,
+			PeerPublicKey: &row.peer,
+		}
+		if err := socialutil.WriteJSON(
+			ctx,
+			s.Friends,
+			socialutil.FriendKey(row.owner, relationID),
+			item,
+		); err != nil {
+			t.Fatal(err)
+		}
+	}
+	item, err := s.AdminCreateFriend(ctx, "peer-a", "peer-b")
+	if err != nil {
+		t.Fatalf("AdminCreateFriend legacy rows: %v", err)
+	}
+	legacyWorkspace := socialutil.DirectWorkspaceName(relationID)
+	if socialutil.StringValue(item.WorkspaceName) != legacyWorkspace {
+		t.Fatalf("legacy Friend = %#v, want Workspace %q", item, legacyWorkspace)
+	}
+	if len(workspaces.created) != 0 {
+		t.Fatalf("legacy idempotent create made a Workspace: %#v", workspaces.created)
+	}
+	if _, err := s.DeleteFriend(
+		ctx,
+		"peer-a",
+		rpcapi.FriendDeleteRequest{Id: "peer-b"},
+	); err != nil {
+		t.Fatalf("DeleteFriend legacy rows: %v", err)
+	}
+	if len(workspaces.retired) != 1 || workspaces.retired[0] != legacyWorkspace {
+		t.Fatalf("legacy retired Workspaces = %v, want %q", workspaces.retired, legacyWorkspace)
+	}
 }
 
 func TestDeleteFriendWithoutWorkspaceRetirementKeepsRelationship(t *testing.T) {
@@ -343,6 +1094,7 @@ func TestDeleteFriendWithoutWorkspaceRetirementKeepsRelationship(t *testing.T) {
 	if _, err := s.AdminCreateFriendResource(ctx, "peer-a", "peer-b"); err != nil {
 		t.Fatalf("AdminCreateFriendResource: %v", err)
 	}
+	s.Workspaces = nil
 
 	if _, err := s.DeleteFriend(ctx, "peer-a", rpcapi.FriendDeleteRequest{Id: "peer-b"}); err == nil ||
 		!strings.Contains(err.Error(), "retirement service not configured") {
@@ -475,10 +1227,11 @@ func TestAdminFriendResourceWrappersAndCursorHelpers(t *testing.T) {
 	if created.OwnerPublicKey != "peer-c" || created.PeerPublicKey != "peer-d" || created.Id != "peer-d" {
 		t.Fatalf("AdminCreateFriendResource row = %#v", created)
 	}
-	if created.WorkspaceName != socialutil.DirectWorkspaceName(socialutil.RelationID("peer-c", "peer-d")) {
-		t.Fatalf("AdminCreateFriendResource workspace = %q, want direct workspace", created.WorkspaceName)
+	if created.WorkspaceName == socialutil.DirectWorkspaceName(socialutil.RelationID("peer-c", "peer-d")) ||
+		!strings.HasPrefix(created.WorkspaceName, "social-direct-") {
+		t.Fatalf("AdminCreateFriendResource workspace = %q, want incarnation workspace", created.WorkspaceName)
 	}
-	page, err := s.AdminListFriends(ctx, stringPtr("malformed/cursor/value"), socialutil.IntPtr(10))
+	page, err := s.AdminListFriends(ctx, new("malformed/cursor/value"), new(10))
 	if err != nil {
 		t.Fatalf("AdminListFriends malformed cursor: %v", err)
 	}
@@ -563,16 +1316,22 @@ func newTestServer() *Server {
 	return &Server{
 		InviteTokens: kv.NewMemory(nil),
 		Friends:      kv.NewMemory(nil),
-		Now:          func() time.Time { return now },
+		Workspaces:   &recordingWorkspaceService{},
+		RuntimeProfileForOwner: func(context.Context, string) (apitypes.RuntimeProfile, error) {
+			return apitypes.RuntimeProfile{Spec: apitypes.RuntimeProfileSpec{
+				Workflows: apitypes.RuntimeProfileWorkflows{
+					System: apitypes.RuntimeProfileSystemWorkflows{
+						FriendChatroom: "friend-chatroom",
+					},
+				},
+			}}, nil
+		},
+		Now: func() time.Time { return now },
 		NewID: func() string {
 			nextID++
 			return "id-" + string(rune('a'+nextID-1))
 		},
 	}
-}
-
-func stringPtr(value string) *string {
-	return &value
 }
 
 type failingBatchSetStore struct {
@@ -589,6 +1348,84 @@ type failingBatchMutateStore struct {
 
 func (s failingBatchMutateStore) BatchMutate(context.Context, []kv.Entry, []kv.Key) error {
 	return errors.New("forced batch mutate failure")
+}
+
+type toggleBatchMutateStore struct {
+	kv.Store
+	fail bool
+}
+
+func (s *toggleBatchMutateStore) BatchMutate(
+	ctx context.Context,
+	entries []kv.Entry,
+	keys []kv.Key,
+) error {
+	if s.fail {
+		return errors.New("forced batch mutate failure")
+	}
+	return s.Store.BatchMutate(ctx, entries, keys)
+}
+
+func (s *toggleBatchMutateStore) CreateIfAbsent(
+	ctx context.Context,
+	guard kv.Entry,
+	entries []kv.Entry,
+) ([]byte, bool, error) {
+	if s.fail &&
+		len(guard.Key) > 0 &&
+		guard.Key[0] == creationDecisionsRoot[0] {
+		return nil, false, errors.New("forced creation commit failure")
+	}
+	return kv.CreateIfAbsent(ctx, s.Store, guard, entries)
+}
+
+func (s *toggleBatchMutateStore) CompareAndMutate(
+	ctx context.Context,
+	guard kv.Key,
+	expected []byte,
+	entries []kv.Entry,
+	keys []kv.Key,
+) (bool, error) {
+	return kv.CompareAndMutate(ctx, s.Store, guard, expected, entries, keys)
+}
+
+type blockingCreationDecisionStore struct {
+	kv.Store
+	state   string
+	started chan struct{}
+	release chan struct{}
+}
+
+func (s *blockingCreationDecisionStore) CreateIfAbsent(
+	ctx context.Context,
+	guard kv.Entry,
+	entries []kv.Entry,
+) ([]byte, bool, error) {
+	if len(guard.Key) > 0 && guard.Key[0] == creationDecisionsRoot[0] {
+		var decision creationDecision
+		if err := json.Unmarshal(guard.Value, &decision); err != nil {
+			return nil, false, err
+		}
+		if decision.State == s.state {
+			close(s.started)
+			select {
+			case <-ctx.Done():
+				return nil, false, ctx.Err()
+			case <-s.release:
+			}
+		}
+	}
+	return kv.CreateIfAbsent(ctx, s.Store, guard, entries)
+}
+
+func (s *blockingCreationDecisionStore) CompareAndMutate(
+	ctx context.Context,
+	guard kv.Key,
+	expected []byte,
+	entries []kv.Entry,
+	keys []kv.Key,
+) (bool, error) {
+	return kv.CompareAndMutate(ctx, s.Store, guard, expected, entries, keys)
 }
 
 type failingGetStore struct {

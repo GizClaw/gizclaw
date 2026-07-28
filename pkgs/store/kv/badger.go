@@ -318,6 +318,67 @@ func (b *Badger) CreateIfAbsent(ctx context.Context, guard Entry, entries []Entr
 	}
 }
 
+func (b *Badger) CompareAndMutate(
+	ctx context.Context,
+	guard Key,
+	expected []byte,
+	entries []Entry,
+	keys []Key,
+) (bool, error) {
+	if err := ctx.Err(); err != nil {
+		return false, err
+	}
+	guardKey := b.opts.encode(guard)
+	for {
+		matched := false
+		err := b.db.Update(func(txn *badger.Txn) error {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			item, err := txn.Get(guardKey)
+			if errors.Is(err, badger.ErrKeyNotFound) {
+				return nil
+			}
+			if err != nil {
+				return err
+			}
+			current, err := item.ValueCopy(nil)
+			if err != nil {
+				return err
+			}
+			if !bytes.Equal(current, expected) {
+				return nil
+			}
+			now := time.Now()
+			for _, entry := range entries {
+				item := badger.NewEntry(b.opts.encode(entry.Key), entry.Value)
+				if !entry.Deadline.IsZero() {
+					ttl := entry.Deadline.Sub(now)
+					if ttl <= 0 {
+						return ErrInvalidDeadline
+					}
+					item = item.WithTTL(ttl)
+				}
+				if err := txn.SetEntry(item); err != nil {
+					return err
+				}
+			}
+			for _, key := range keys {
+				if err := txn.Delete(b.opts.encode(key)); err != nil &&
+					!errors.Is(err, badger.ErrKeyNotFound) {
+					return err
+				}
+			}
+			matched = true
+			return nil
+		})
+		if errors.Is(err, badger.ErrConflict) && ctx.Err() == nil {
+			continue
+		}
+		return matched, err
+	}
+}
+
 func (b *Badger) Close() error {
 	return b.db.Close()
 }

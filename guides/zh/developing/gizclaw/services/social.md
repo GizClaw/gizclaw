@@ -21,7 +21,9 @@ services/social/
 
 拥有 friend request 的创建、接受、拒绝，以及 friend relationship 的读取和删除。Friend 关系直接决定双方对 system Workspace 的访问，不创建通用访问 role。
 
-每个好友直聊生命周期拥有一个 system Workspace。创建失败的 rollback 可以立即删除尚未投入使用的 Workspace；正式删除好友时则先在同一个 KV `BatchMutate` 中原子删除双方 relationship 并保存最小 retirement intent，提交成功后才把 Workspace 置入 `PendingDeletion`。Workspace 的 runtime、history 与 artifact 不在 Social 请求路径中同步删除。创建 invite token 的 Peer 是发起人，也是不可变的 Workspace owner；接受邀请的一方获得访问权，但不会共享 ownership。Admin 创建使用显式 owner。服务从 owner RuntimeProfile 的 `workflows.system.friend_chatroom` 选择真实 Chatroom Workflow。
+每个好友直聊生命周期拥有一个独立的 system Workspace。稳定 `RelationID` 只标识双方；每次从无关系进入 active 状态时，服务创建新的 opaque incarnation，并从 `(RelationID, incarnation)` 派生新的 Workspace name。持久化 creation intent 固定本次 incarnation、Workspace owner、Workspace name 和 owner RuntimeProfile `workflows.system.friend_chatroom` 选择的 Chatroom Workflow；Workspace 创建与双方 relationship 提交之间发生失败时，重试或启动恢复会复用同一 intent，不会产生第二个 identity。每个 incarnation 还保留一个不可变 decision，通过原子竞争只允许“提交双方 relationship”或“取消创建”其中一方获胜，因此共享 relationship store 的两个服务实例不能同时提交这两个状态。如果 intent 尚未提交 relationship 时收到删除请求，服务会记录 cancellation decision 并删除从未 active 的 Workspace；延迟的创建方竞争失败后也会再次执行这次幂等清理，启动恢复不会重新建立这段关系。所有清理都只在 pair 当前 creation intent 的存储 incarnation 仍匹配时执行原子 compare-and-delete，因此旧生命周期的延迟工作不能移除重新加好友产生的新恢复意图。
+
+Friend relationship 行保存本次生命周期的精确 Workspace name。正式删除好友时，服务在同一个 KV `BatchMutate` 中原子删除双方 relationship 并保存最小 retirement intent，提交成功后才把该精确 Workspace 置入 `PendingDeletion`；完成后用 compact retirement receipt 保留幂等重试所需的 identity。重新加好友始终创建新的 Workspace，不查询、清除或复用旧 Workspace 的 `PendingDeletion`、清理任务、runtime、history 或 artifact。缺少 `workspace_name` 的旧 relationship 行才回退到 pair-only legacy name。创建 invite token 的 Peer 是发起人和不可变 Workspace owner；接受邀请的一方获得访问权但不共享 ownership，Admin 创建使用显式 owner。
 
 ### friendgroup
 
