@@ -33,6 +33,7 @@ type Store struct {
 	closing     bool
 	closeOnce   sync.Once
 	closeErr    error
+	directMu    sync.Mutex
 }
 
 func newStore(config Config, memory recall.Memory, temporal recall.TemporalStore, queue *flowcraftAsyncQueue) *Store {
@@ -70,20 +71,37 @@ func (s *Store) Observe(ctx context.Context, observation memorystore.Observation
 	if observedAt.IsZero() {
 		observedAt = time.Now()
 	}
+	var directDigest string
+	if observation.ID != "" && len(observation.Facts) > 0 {
+		if s.config.Extraction.Model != "" &&
+			(strings.TrimSpace(observation.Text) != "" || len(observation.Turns) > 0) {
+			return observeResult{}, fmt.Errorf("%w: idempotent direct Facts cannot be combined with model extraction", errUnsupported)
+		}
+		directDigest, err = memorystore.ObservationPayloadDigest(observation)
+		if err != nil {
+			return observeResult{}, err
+		}
+		s.directMu.Lock()
+		defer s.directMu.Unlock()
+		directCount := len(observation.Facts)
+		if s.config.Extraction.Model == "" && flowcraftObservationText(observation) != "" {
+			directCount++
+		}
+		existing, found, err := s.directObservation(ctx, scope, observation.ID, directDigest, directCount)
+		if err != nil {
+			return observeResult{}, err
+		}
+		if found {
+			return observeResult{Facts: existing}, nil
+		}
+	}
 	request := recall.SaveRequest{
 		ObservedAt: observedAt,
 		Tier:       s.config.Tier,
-		Facts:      flowcraftFactCandidates(observation.Facts, observedAt),
+		Facts:      flowcraftFactCandidates(scope, observation.ID, directDigest, observation.Facts, observedAt),
 	}
 	if s.config.Extraction.Model == "" {
-		parts := make([]string, 0, len(observation.Turns)+1)
-		if text := strings.TrimSpace(observation.Text); text != "" {
-			parts = append(parts, text)
-		}
-		for _, turn := range observation.Turns {
-			parts = append(parts, turn.Text)
-		}
-		text := strings.Join(parts, "\n")
+		text := flowcraftObservationText(observation)
 		if text != "" {
 			fact := recall.TemporalFact{Kind: recall.FactNote, Content: text, ObservedAt: observedAt, Metadata: cloneMap(observation.Context)}
 			if observation.ID != "" {
@@ -91,6 +109,10 @@ func (s *Store) Observe(ctx context.Context, observation memorystore.Observation
 					fact.Metadata = make(map[string]any)
 				}
 				fact.Metadata["observation_id"] = observation.ID
+				if len(observation.Facts) > 0 {
+					fact.ID = flowcraftObservationFactID(scope, observation.ID, len(observation.Facts))
+					fact.Metadata[flowcraftObservationDigestAttribute] = directDigest
+				}
 			}
 			for _, turn := range observation.Turns {
 				if turn.ID != "" {
@@ -131,6 +153,17 @@ func (s *Store) Observe(ctx context.Context, observation memorystore.Observation
 	return observeResult{Facts: facts}, nil
 }
 
+func flowcraftObservationText(observation observation) string {
+	parts := make([]string, 0, len(observation.Turns)+1)
+	if text := strings.TrimSpace(observation.Text); text != "" {
+		parts = append(parts, text)
+	}
+	for _, turn := range observation.Turns {
+		parts = append(parts, turn.Text)
+	}
+	return strings.Join(parts, "\n")
+}
+
 // Stats reports materialized, non-internal facts for one scope.
 func (s *Store) Stats(ctx context.Context, scope memorystore.Scope) (memorystore.Statistics, error) {
 	native, err := nativeScope(scope)
@@ -156,6 +189,17 @@ func (s *Store) Stats(ctx context.Context, scope memorystore.Scope) (memorystore
 
 func validateFlowcraftFactCandidates(candidates []memorystore.FactCandidate) error {
 	for index, candidate := range candidates {
+		for _, key := range []string{
+			flowcraftRootIDAttribute,
+			flowcraftOperationStatusAttribute,
+			flowcraftProvenanceMarkerAttribute,
+			flowcraftObservationDigestAttribute,
+			"observation_id",
+		} {
+			if _, exists := candidate.Attributes[key]; exists {
+				return fmt.Errorf("%w: fact candidate %d attribute %q is provider-owned", errUnsupported, index, key)
+			}
+		}
 		for _, key := range []string{"kind", "subject", "predicate", "object"} {
 			if value, exists := candidate.Attributes[key]; exists {
 				if _, ok := value.(string); !ok {
@@ -180,9 +224,9 @@ func validateFlowcraftFactCandidates(candidates []memorystore.FactCandidate) err
 	return nil
 }
 
-func flowcraftFactCandidates(candidates []memorystore.FactCandidate, observedAt time.Time) []recall.TemporalFact {
+func flowcraftFactCandidates(scope recall.Scope, observationID, digest string, candidates []memorystore.FactCandidate, observedAt time.Time) []recall.TemporalFact {
 	facts := make([]recall.TemporalFact, 0, len(candidates))
-	for _, candidate := range candidates {
+	for index, candidate := range candidates {
 		attributes := cloneMap(candidate.Attributes)
 		kind := recall.FactKind(stringAttribute(attributes, "kind"))
 		if !kind.IsValid() {
@@ -203,9 +247,55 @@ func flowcraftFactCandidates(candidates []memorystore.FactCandidate, observedAt 
 			Confidence: 0.9,
 			Metadata:   attributes,
 		}
+		if observationID != "" {
+			fact.ID = flowcraftObservationFactID(scope, observationID, index)
+			if fact.Metadata == nil {
+				fact.Metadata = make(map[string]any)
+			}
+			fact.Metadata["observation_id"] = observationID
+			fact.Metadata[flowcraftObservationDigestAttribute] = digest
+		}
 		facts = append(facts, fact)
 	}
 	return facts
+}
+
+func flowcraftObservationFactID(scope recall.Scope, observationID string, index int) string {
+	sum := sha256.Sum256([]byte(scope.PartitionKey() + "\x00" + observationID + fmt.Sprintf("\x00%d", index)))
+	return fmt.Sprintf("gizclaw-observation-%x", sum)
+}
+
+func (s *Store) directObservation(ctx context.Context, scope recall.Scope, observationID, digest string, count int) ([]fact, bool, error) {
+	facts := make([]fact, 0, count)
+	found := 0
+	for index := range count {
+		native, err := s.temporal.Get(ctx, scope, flowcraftObservationFactID(scope, observationID, index))
+		if err != nil {
+			mapped := mapFlowcraftError("load idempotent observation", err)
+			if errors.Is(mapped, errNotFound) {
+				continue
+			}
+			return nil, false, mapped
+		}
+		found++
+		storedDigest, _ := native.Metadata[flowcraftObservationDigestAttribute].(string)
+		storedObservationID, _ := native.Metadata["observation_id"].(string)
+		if storedDigest != digest || storedObservationID != observationID {
+			return nil, false, fmt.Errorf("%w: observation %q payload changed", errConflict, observationID)
+		}
+		mapped, err := s.factFromFlowcraft(ctx, scope, native)
+		if err != nil {
+			return nil, false, err
+		}
+		facts = append(facts, mapped)
+	}
+	if found == 0 {
+		return nil, false, nil
+	}
+	if found != count {
+		return nil, false, fmt.Errorf("%w: observation %q is only partially materialized", errConflict, observationID)
+	}
+	return facts, true, nil
 }
 
 func stringAttribute(attributes map[string]any, key string) string {
@@ -456,20 +546,22 @@ func flowcraftTurns(observation observation) []recall.TurnContext {
 }
 
 const (
-	flowcraftRootIDAttribute           = "gizclaw.root_id"
-	flowcraftProvenanceMarkerAttribute = "gizclaw.provenance_marker"
+	flowcraftRootIDAttribute            = "gizclaw.root_id"
+	flowcraftProvenanceMarkerAttribute  = "gizclaw.provenance_marker"
+	flowcraftObservationDigestAttribute = "gizclaw.observation_digest"
 )
 
 var flowcraftReservedAttributes = map[string]struct{}{
-	flowcraftRootIDAttribute:           {},
-	flowcraftOperationStatusAttribute:  {},
-	flowcraftProvenanceMarkerAttribute: {},
-	"observation_id":                   {},
-	"kind":                             {},
-	"subject":                          {},
-	"predicate":                        {},
-	"object":                           {},
-	"entities":                         {},
+	flowcraftRootIDAttribute:            {},
+	flowcraftOperationStatusAttribute:   {},
+	flowcraftProvenanceMarkerAttribute:  {},
+	flowcraftObservationDigestAttribute: {},
+	"observation_id":                    {},
+	"kind":                              {},
+	"subject":                           {},
+	"predicate":                         {},
+	"object":                            {},
+	"entities":                          {},
 }
 
 func validateFlowcraftAttributeKeys(attributes map[string]any) error {
@@ -551,6 +643,7 @@ func (s *Store) factFromFlowcraft(ctx context.Context, scope recall.Scope, input
 	}
 	observationID, _ := attributes["observation_id"].(string)
 	delete(attributes, "observation_id")
+	delete(attributes, flowcraftObservationDigestAttribute)
 	if _, exists := attributes["lane"]; !exists {
 		if lane := extractedLane(input.Content, s.config.LaneNames); lane != "" {
 			attributes["lane"] = lane

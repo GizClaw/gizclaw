@@ -273,18 +273,137 @@ func TestStoreSelfHostedVerifiesEncodedScopeBeforeMutation(t *testing.T) {
 	}
 }
 
-func TestStoreRejectsDirectFactCandidates(t *testing.T) {
-	t.Parallel()
-	store, err := New(Config{Endpoint: "https://example.test", APIKey: "secret", Flavor: Platform})
+func TestStoreDirectFactObservationIsIdempotent(t *testing.T) {
+	var (
+		mu        sync.Mutex
+		saved     *mem0Envelope
+		addCalls  int
+		addBodies []map[string]any
+	)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		defer request.Body.Close()
+		var body map[string]any
+		_ = json.NewDecoder(request.Body).Decode(&body)
+		w.Header().Set("Content-Type", "application/json")
+		mu.Lock()
+		defer mu.Unlock()
+		if request.URL.Path == "/v3/memories/" {
+			if saved == nil {
+				_, _ = io.WriteString(w, `{"results":[]}`)
+				return
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"results": []mem0Envelope{*saved}})
+			return
+		}
+		addCalls++
+		addBodies = append(addBodies, body)
+		metadata, _ := body["metadata"].(map[string]any)
+		saved = &mem0Envelope{
+			ID: "fact-1", Memory: "Pet completed care.", AppID: "workspace",
+			Metadata: metadata, CreatedAt: time.Now(), UpdatedAt: time.Now(),
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"results": []mem0Envelope{*saved}})
+	}))
+	defer server.Close()
+	store, err := New(Config{Endpoint: server.URL, APIKey: "secret", Flavor: Platform, HTTPClient: server.Client()})
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = store.Observe(context.Background(), Observation{
-		Scope: Scope{UserID: "scope"},
-		Facts: []FactCandidate{{Text: "structured fact"}},
-	})
-	if !errors.Is(err, ErrUnsupported) {
-		t.Fatalf("Observe() error = %v, want ErrUnsupported", err)
+	observation := Observation{
+		Scope: Scope{AppID: "workspace"}, ID: "gameplay/drive/reward_grant/grant-1",
+		Facts: []FactCandidate{{
+			Text:       "Pet completed care.",
+			Attributes: map[string]any{"kind": "event", "source_id": "grant-1"},
+		}},
+		ObservedAt: time.Date(2026, 7, 28, 1, 2, 3, 0, time.UTC),
+	}
+	const workers = 8
+	var wait sync.WaitGroup
+	errs := make(chan error, workers)
+	for range workers {
+		wait.Go(func() {
+			result, err := store.Observe(context.Background(), observation)
+			if err == nil && (len(result.Facts) != 1 ||
+				len(result.Facts[0].Sources) != 1 ||
+				result.Facts[0].Sources[0].ObservationID != observation.ID ||
+				result.Facts[0].Attributes["source_id"] != "grant-1") {
+				err = fmt.Errorf("unexpected result %#v", result)
+			}
+			errs <- err
+		})
+	}
+	wait.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	mu.Lock()
+	if addCalls != 1 {
+		t.Fatalf("add calls = %d, want 1", addCalls)
+	}
+	if len(addBodies) != 1 || addBodies[0]["infer"] != false {
+		t.Fatalf("direct add body = %#v", addBodies)
+	}
+	mu.Unlock()
+	changed := observation
+	changed.Facts = []FactCandidate{{Text: "changed", Attributes: map[string]any{"kind": "event"}}}
+	if _, err := store.Observe(context.Background(), changed); !errors.Is(err, ErrConflict) {
+		t.Fatalf("Observe(changed) error = %v, want ErrConflict", err)
+	}
+}
+
+func TestStoreDirectFactReconcilesLostProviderResponse(t *testing.T) {
+	var (
+		mu    sync.Mutex
+		saved *mem0Envelope
+	)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		defer request.Body.Close()
+		var body map[string]any
+		_ = json.NewDecoder(request.Body).Decode(&body)
+		mu.Lock()
+		defer mu.Unlock()
+		if request.URL.Path == "/v3/memories/" {
+			w.Header().Set("Content-Type", "application/json")
+			if saved == nil {
+				_, _ = io.WriteString(w, `{"results":[]}`)
+			} else {
+				_ = json.NewEncoder(w).Encode(map[string]any{"results": []mem0Envelope{*saved}})
+			}
+			return
+		}
+		metadata, _ := body["metadata"].(map[string]any)
+		saved = &mem0Envelope{
+			ID: "fact-accepted", Memory: "accepted before disconnect",
+			AppID: "workspace", Metadata: metadata,
+		}
+		hijacker, ok := w.(http.Hijacker)
+		if !ok {
+			t.Error("ResponseWriter does not support hijacking")
+			return
+		}
+		connection, _, err := hijacker.Hijack()
+		if err != nil {
+			t.Errorf("Hijack() error = %v", err)
+			return
+		}
+		_ = connection.Close()
+	}))
+	defer server.Close()
+	store, err := New(Config{Endpoint: server.URL, APIKey: "secret", Flavor: Platform, HTTPClient: server.Client()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	observation := Observation{
+		Scope: Scope{AppID: "workspace"}, ID: "lost-response",
+		Facts:      []FactCandidate{{Text: "accepted before disconnect", Attributes: map[string]any{"kind": "event"}}},
+		ObservedAt: time.Date(2026, 7, 28, 1, 2, 3, 0, time.UTC),
+	}
+	result, err := store.Observe(context.Background(), observation)
+	if err != nil || len(result.Facts) != 1 || result.Facts[0].Sources[0].ObservationID != observation.ID {
+		t.Fatalf("Observe() = %#v, %v", result, err)
 	}
 }
 

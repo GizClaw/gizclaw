@@ -40,7 +40,9 @@ Adapter 只保留 native provider 能准确表达的维度和组合，不能保�
 
 Flowcraft 要求非空 `AppID`，允许空 `UserID` 形成 runtime-global Memory，并保留可选 `AgentID`。Mem0/Volc 支持 App-only、User-only、Agent-only、Run-only scope，也支持这些独立维度的组合。Adapter 会发送所有已选择的维度，并在 recall 与变更校验中使用 `AND` filter。
 
-`Text` 和 `Turns` 是待提取的原始材料；`Facts` 是上层已经结构化的候选事实。Provider 必须保持候选事实的文本与其支持的 attributes，无法直接写入时返回 `ErrUnsupported`，不能把候选事实静默送回模型二次提取。Flowcraft adapter 支持直接写入，并把 `kind`、`subject`、`predicate`、`object` 和 `entities` 映射到 native fact 字段。
+`Text` 和 `Turns` 是待提取的原始材料；`Facts` 是上层已经结构化的候选事实。Provider 必须保持候选事实的文本与其支持的 attributes，无法直接写入时返回 `ErrUnsupported`，不能把候选事实静默送回模型二次提取。Flowcraft、Mem0 和 Volc adapter 都支持 direct Fact；Flowcraft 把 `kind`、`subject`、`predicate`、`object` 和 `entities` 映射到 native fact 字段，Mem0/Volc 使用 `infer=false` direct import。
+
+对于包含 direct Facts 的 Observation，非空 `Observation.ID` 是完整 `Scope` 内的幂等键。相同 ID 和相同 canonical direct-Fact payload 的并发调用或重试返回原 logical Fact 或 durable operation；Fact 文本、attributes 或 `ObservedAt` 改变时返回 `ErrConflict`。Adapter 在 native record 中保存 payload digest，并在提交前先对账；因此 provider 已接受但 response 丢失后的重试不会创建第二个 logical Fact。返回的 `Fact.Sources` 保留 `ObservationID`。这些 provider-owned metadata 不会暴露为业务 attributes。模型 extraction 的 provider-native dedup 行为不属于这个 direct-Fact 保证。
 
 `UpdateRequest`、`DeleteRequest` 和 `OperationRequest` 都必须重新携带调用方的 `Scope`，以及 Store 返回的不透明 fact、revision 或 operation locator。Locator 不是授权来源：Adapter 在 mutation 或完成异步操作前校验请求 Scope 与 locator、provider record 一致。原始 provider ID 不能绕过 App 边界。
 
@@ -64,7 +66,7 @@ store, err := flowcraft.New(ctx, flowcraft.Config{
 })
 ```
 
-Mem0 只通过一个 `mem0.Config` 构造。`FlavorPlatform` 使用 `Authorization: Token`，并将所有已选择的维度映射到对应的 `app_id`、`user_id`、`agent_id` 和 `run_id`。Mem0 OSS 不提供 `app_id`，因此 `FlavorSelfHosted` 会把完整四维 Scope 编码到一个保留的原生 `user_id` 中；配置 key 时使用 `X-API-Key`。这样既能精确保持 Workspace App 隔离，也不会改写调用方逻辑上的 User、Agent 或 Run 维度。Update/Delete 先读取 provider record 并校验完整编码 scope，再执行 ID mutation。
+Mem0 只通过一个 `mem0.Config` 构造。`FlavorPlatform` 使用 `Authorization: Token`，并将所有已选择的维度映射到对应的 `app_id`、`user_id`、`agent_id` 和 `run_id`。Mem0 OSS 不提供 `app_id`，因此 `FlavorSelfHosted` 会把完整四维 Scope 编码到一个保留的原生 `user_id` 中；配置 key 时使用 `X-API-Key`。这样既能精确保持 Workspace App 隔离，也不会改写调用方逻辑上的 User、Agent 或 Run 维度。Update/Delete 先读取 provider record 并校验完整编码 scope，再执行 ID mutation。Direct import 当前一次接受一个带非空 Observation ID 的 Fact；多个 direct candidates 返回 `ErrUnsupported`，不会静默合并 attributes。
 
 Volcengine AgentKit/Viking MEM0 只通过一个 `volc.Config` 构造。它接收显式的 Mem0 data-plane key 或 credential resolver，解析 credential 后复用 Mem0 adapter；data-plane endpoint 必填。
 

@@ -3,7 +3,6 @@ package gizclaw
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"log/slog"
 	"net"
@@ -476,33 +475,10 @@ func (h *PeerConn) ownerRuntimeProfile(ctx context.Context, owner string) (apity
 }
 
 func (h *PeerConn) ownerGenX(ctx context.Context, owner string) (*peergenx.Service, error) {
-	profile, err := h.ownerRuntimeProfile(ctx, owner)
-	if err != nil {
-		return nil, err
+	if h == nil || h.Service == nil || h.Service.manager == nil {
+		return nil, errors.New("gizclaw: manager is not configured")
 	}
-	manager := h.Service.manager
-	var publicKey giznet.PublicKey
-	if err := publicKey.UnmarshalText([]byte(owner)); err != nil {
-		return nil, fmt.Errorf("gizclaw: invalid workspace owner public key %q: %w", owner, err)
-	}
-	resources := &peerresource.Server{
-		Caller:         publicKey,
-		Peers:          manager.Peers,
-		Firmwares:      manager.Firmwares,
-		Workspaces:     manager.Workspaces,
-		Workflows:      manager.Workflows,
-		Models:         manager.Models,
-		Voices:         manager.Voices,
-		Contacts:       manager.Contacts,
-		Friends:        manager.Friends,
-		FriendGroups:   manager.FriendGroups,
-		Gameplay:       manager.Gameplay,
-		Tools:          manager.Tools,
-		RuntimeProfile: func() *apitypes.RuntimeProfile { return &profile },
-	}
-	return peergenx.New(peergenx.Service{
-		Models: resources, Voices: resources, Credentials: manager.Credentials, ProviderTenants: manager.ProviderTenants,
-	}), nil
+	return h.Service.manager.ownerGenX(ctx, owner)
 }
 
 func (h *PeerConn) audioMixer() (*pcm.Mixer, error) {

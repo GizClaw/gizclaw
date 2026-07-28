@@ -1,6 +1,9 @@
 package memory
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -51,6 +54,11 @@ type FactCandidate struct {
 // extraction input. Facts are already-structured candidates. Context is
 // extraction input and is not required to be copied into resulting fact
 // attributes.
+//
+// For an Observation containing direct Facts, a non-empty ID is an
+// idempotency key within the complete Scope. Repeating the same ID and payload
+// returns the original logical result. Reusing it with different direct Fact
+// content, attributes, or ObservedAt returns ErrConflict.
 type Observation struct {
 	Scope      Scope
 	ID         string
@@ -59,6 +67,31 @@ type Observation struct {
 	Facts      []FactCandidate
 	Context    map[string]any
 	ObservedAt time.Time
+}
+
+// ObservationPayloadDigest returns the canonical digest used to reconcile a
+// non-empty Observation.ID. Scope and ID select the idempotency namespace;
+// every other observation field is part of the immutable payload.
+func ObservationPayloadDigest(observation Observation) (string, error) {
+	payload := struct {
+		Text       string
+		Turns      []Turn
+		Facts      []FactCandidate
+		Context    map[string]any
+		ObservedAt time.Time
+	}{
+		Text:       observation.Text,
+		Turns:      observation.Turns,
+		Facts:      observation.Facts,
+		Context:    observation.Context,
+		ObservedAt: observation.ObservedAt.UTC(),
+	}
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return "", fmt.Errorf("%w: encode observation payload: %v", ErrInvalidInput, err)
+	}
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:]), nil
 }
 
 // SourceRef connects an extracted fact to its source observation and turns.

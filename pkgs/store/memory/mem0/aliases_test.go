@@ -19,6 +19,7 @@ const (
 
 var (
 	ErrInvalidInput = memorystore.ErrInvalidInput
+	ErrConflict     = memorystore.ErrConflict
 	ErrUnavailable  = memorystore.ErrUnavailable
 	ErrUnsupported  = memorystore.ErrUnsupported
 )

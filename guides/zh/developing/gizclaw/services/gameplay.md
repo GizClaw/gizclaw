@@ -48,4 +48,12 @@ life 到 0 时，Pet 在公式计算出的死亡 checkpoint 原子进入 `dead` 
 
 每个游戏必须在 `resources.game_defs` 和 `gameplay.pet.games` 中显式配置，不存在 default。未配置游戏的提交是精确 no-op：不结算时间、不扣 points/energy、不写 game result、不调用奖励模型、不增加 EXP/badge。已配置游戏先验证资源，再调用当前连接允许的模型；模型只能在配置上限内发放 Pet EXP 和 eligible badge EXP，失败或非法输出不会产生任何 gameplay 写入。idempotency key 保证成功结果不会重复扣费、调用模型或发奖。
 
+## Drive Fact 与 Workspace Memory
+
+每个成功且改变状态的 care behavior 或已配置 game result 都会生成一个固定模板的 `kind=event` Fact。care 使用已提交的 `RewardGrant.ID`，game 使用已提交的 `GameResult.ID`；对应 `Observation.ID` 分别为 `gameplay/drive/reward_grant/<id>` 和 `gameplay/drive/game_result/<id>`。Observation 只包含一个 direct `FactCandidate`，`Scope.AppID` 固定为 `Pet.WorkspaceName`，其他 scope 维度为空。文本和 attributes 只来自已验证并提交的 Pet、result 和 reward 字段，不包含 owner key、provider 配置、credential、idempotency key 或原始 game payload，也不会经过模型重新提取。
+
+Gameplay 在提交 Pet、result 和 reward 的同一个 SQL transaction 中写入 `gameplay_drive_fact_outbox`。空 tick、拒绝的 Drive、资源不足、dead Pet、未配置 game 和已完成 Drive 的幂等重放都不写 outbox。Server 为整个 Gameplay service 启动一条 dispatcher 循环，不会为每只 Pet 创建常驻服务。dispatcher 通过 compare-and-set claim 推进 `pending`、`submitted`、`delivered` 和 `blocked`；provider 返回异步 operation 时，先保存不透明 locator，再通过 `OperationWaiter` 恢复等待。临时错误指数退避，配置或契约错误进入较慢的 blocked 重试。
+
+投递使用 Pet 外层 Workflow 已选择的 Workspace Memory binding，并通过现有 `memorystore.Registry` 租用 `Scope.AppID = Pet.WorkspaceName` 的逻辑 Store。operation 同时记录不含 credential 的物理 binding digest；RuntimeProfile 在 operation 完成前切换物理 binding 时，旧 locator 不会交给新 backend。Pet death 或普通 Pet deletion 不删除 Workspace、outbox 或已投递 Fact；它们继续遵循 Workspace Memory 自身的生命周期。
+
 Gameplay 使用 Workspace owner 和 Pet 领域关系，不创建额外 role 或 policy binding。领养时会独立于 active Pet row 持久化 Pet-to-Workspace binding。Pet 删除在同一个 gameplay SQL database transaction 中创建或复用一条 `kind=pet` PendingDeletion，同时保留 Pet row 及其 binding；该标记不影响 Pet 的读取、list、authorization 或 mutation。不创建 Workspace pending record；points、badge、result、transaction 和 reward grant 历史全部保留。

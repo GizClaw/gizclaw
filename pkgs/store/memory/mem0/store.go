@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	memorystore "github.com/GizClaw/gizclaw-go/pkgs/store/memory"
@@ -32,13 +33,15 @@ type Config struct {
 
 // Store adapts Mem0's fact-centric remote API to Store.
 type Store struct {
-	config Config
-	client *mem0Client
+	config   Config
+	client   *mem0Client
+	directMu sync.Mutex
 }
 
 const (
-	mem0ObservationIDMetadata = "gizclaw.observation_id"
-	mem0TurnIDsMetadata       = "gizclaw.turn_ids"
+	mem0ObservationIDMetadata     = "gizclaw.observation_id"
+	mem0TurnIDsMetadata           = "gizclaw.turn_ids"
+	mem0ObservationDigestMetadata = "gizclaw.observation_digest"
 )
 
 // New constructs a remote Mem0 adapter without performing I/O.
@@ -69,7 +72,10 @@ func New(config Config) (*Store, error) {
 	return &Store{config: config, client: transport}, nil
 }
 
-// Observe submits raw messages for Mem0 extraction.
+func (*Store) SupportsDirectFactObservation() bool { return true }
+
+// Observe submits raw messages for Mem0 extraction or one structured Fact
+// through Mem0 direct import.
 func (s *Store) Observe(ctx context.Context, observation memorystore.Observation) (memorystore.ObserveResult, error) {
 	if err := validateObservation(observation); err != nil {
 		return observeResult{}, err
@@ -79,7 +85,7 @@ func (s *Store) Observe(ctx context.Context, observation memorystore.Observation
 		return observeResult{}, err
 	}
 	if len(observation.Facts) > 0 {
-		return observeResult{}, fmt.Errorf("%w: mem0 does not expose direct structured fact ingestion", errUnsupported)
+		return s.observeDirectFact(ctx, scope, observation)
 	}
 	if err := validateMem0Metadata(observation.Context); err != nil {
 		return observeResult{}, err
@@ -127,8 +133,126 @@ func (s *Store) Observe(ctx context.Context, observation memorystore.Observation
 	return observeResult{Facts: facts}, nil
 }
 
+func (s *Store) observeDirectFact(ctx context.Context, scope scope, observation observation) (observeResult, error) {
+	if len(observation.Facts) != 1 {
+		return observeResult{}, fmt.Errorf("%w: mem0 direct observation requires exactly one fact", errUnsupported)
+	}
+	if strings.TrimSpace(observation.ID) == "" {
+		return observeResult{}, fmt.Errorf("%w: mem0 direct observation requires an id", errInvalidInput)
+	}
+	if strings.TrimSpace(observation.Text) != "" || len(observation.Turns) > 0 || len(observation.Context) > 0 {
+		return observeResult{}, fmt.Errorf("%w: mem0 direct observation accepts only a structured fact", errUnsupported)
+	}
+	if err := validateMem0Metadata(observation.Facts[0].Attributes); err != nil {
+		return observeResult{}, err
+	}
+	digest, err := memorystore.ObservationPayloadDigest(observation)
+	if err != nil {
+		return observeResult{}, err
+	}
+	s.directMu.Lock()
+	defer s.directMu.Unlock()
+	if existing, found, err := s.findDirectObservation(ctx, scope, observation.ID, digest); err != nil {
+		return observeResult{}, err
+	} else if found {
+		return observeResult{Facts: existing}, nil
+	}
+	metadata := cloneMap(observation.Facts[0].Attributes)
+	if metadata == nil {
+		metadata = make(map[string]any)
+	}
+	metadata[mem0ObservationIDMetadata] = observation.ID
+	metadata[mem0ObservationDigestMetadata] = digest
+	payload := map[string]any{
+		"messages": []mem0Message{{Role: roleUser, Content: strings.TrimSpace(observation.Facts[0].Text)}},
+		"metadata": metadata,
+		"infer":    false,
+	}
+	for key, value := range s.entityFields(scope) {
+		payload[key] = value
+	}
+	path := "/memories"
+	if s.config.Flavor == Platform {
+		path = "/v3/memories/add/"
+	}
+	var response mem0Envelope
+	if err := s.client.do(ctx, http.MethodPost, path, payload, &response); err != nil {
+		if existing, found, reconcileErr := s.findDirectObservation(ctx, scope, observation.ID, digest); reconcileErr == nil && found {
+			return observeResult{Facts: existing}, nil
+		}
+		return observeResult{}, err
+	}
+	if response.EventID != "" {
+		operationID := encodeOperationLocator(scope, response.EventID)
+		return observeResult{Operation: &memorystore.Operation{ID: operationID, Status: operationPending}}, nil
+	}
+	entries := response.entries()
+	for index := range entries {
+		if len(entries[index].Metadata) == 0 {
+			entries[index].Metadata = cloneMap(metadata)
+		}
+		if strings.TrimSpace(entries[index].Memory) == "" && strings.TrimSpace(entries[index].Text) == "" {
+			entries[index].Memory = strings.TrimSpace(observation.Facts[0].Text)
+		}
+	}
+	if len(entries) != 1 {
+		return observeResult{}, fmt.Errorf("%w: mem0 direct import returned %d facts", errUnavailable, len(entries))
+	}
+	facts, err := s.scopedFacts(entries, scope)
+	if err != nil {
+		return observeResult{}, err
+	}
+	return observeResult{Facts: facts}, nil
+}
+
+func (s *Store) findDirectObservation(ctx context.Context, scope scope, observationID, digest string) ([]fact, bool, error) {
+	filters := s.mem0ScopeFilter(scope)
+	metadataFilter := map[string]any{mem0ObservationIDMetadata: observationID}
+	if s.config.Flavor == Platform {
+		metadataFilter = map[string]any{"metadata": metadataFilter}
+	}
+	filters = map[string]any{"AND": []any{filters, metadataFilter}}
+	payload := map[string]any{"query": observationID, "top_k": 10, "filters": filters}
+	path := "/search"
+	if s.config.Flavor == Platform {
+		path = "/v3/memories/"
+		payload = map[string]any{"filters": filters, "page": 1, "page_size": 100}
+	}
+	var response mem0Envelope
+	if err := s.client.do(ctx, http.MethodPost, path, payload, &response); err != nil {
+		return nil, false, err
+	}
+	entries := response.entries()
+	if len(entries) == 0 {
+		return nil, false, nil
+	}
+	facts := make([]fact, 0, len(entries))
+	for _, entry := range entries {
+		storedID, _ := entry.Metadata[mem0ObservationIDMetadata].(string)
+		if storedID != observationID {
+			continue
+		}
+		storedDigest, _ := entry.Metadata[mem0ObservationDigestMetadata].(string)
+		if storedDigest != digest {
+			return nil, false, fmt.Errorf("%w: observation %q payload changed", errConflict, observationID)
+		}
+		mapped, err := s.scopedFact(entry, scope)
+		if err != nil {
+			return nil, false, err
+		}
+		facts = append(facts, mapped)
+	}
+	if len(facts) == 0 {
+		return nil, false, nil
+	}
+	if len(facts) != 1 {
+		return nil, false, fmt.Errorf("%w: observation %q resolved to multiple facts", errConflict, observationID)
+	}
+	return facts, true, nil
+}
+
 func validateMem0Metadata(metadata map[string]any) error {
-	for _, key := range []string{mem0ObservationIDMetadata, mem0TurnIDsMetadata} {
+	for _, key := range []string{mem0ObservationIDMetadata, mem0TurnIDsMetadata, mem0ObservationDigestMetadata} {
 		if _, exists := metadata[key]; exists {
 			return fmt.Errorf("%w: mem0 metadata %q is provider-owned", errUnsupported, key)
 		}
@@ -488,7 +612,7 @@ func validateReturnedEnvelopeScope(entry mem0Envelope, expected scope, flavor Fl
 
 func (s *Store) mem0FilterClause(filter filter) (map[string]any, error) {
 	field := strings.TrimSpace(filter.Field)
-	if field == mem0ObservationIDMetadata || field == mem0TurnIDsMetadata || isMem0RoutingField(field) {
+	if field == mem0ObservationIDMetadata || field == mem0TurnIDsMetadata || field == mem0ObservationDigestMetadata || isMem0RoutingField(field) {
 		return nil, fmt.Errorf("%w: mem0 filter field %q is provider-owned", errUnsupported, field)
 	}
 	if !isMem0NativeFilterField(field) {
@@ -677,6 +801,7 @@ func (e mem0Envelope) fact() fact {
 		}
 	}
 	delete(attributes, mem0TurnIDsMetadata)
+	delete(attributes, mem0ObservationDigestMetadata)
 	var sources []sourceRef
 	if observationID != "" || len(turnIDs) > 0 {
 		sources = []sourceRef{{ObservationID: observationID, TurnIDs: turnIDs}}
@@ -686,3 +811,4 @@ func (e mem0Envelope) fact() fact {
 
 var _ storeContract = (*Store)(nil)
 var _ operationWaiterContract = (*Store)(nil)
+var _ memorystore.DirectFactObserver = (*Store)(nil)

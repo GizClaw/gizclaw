@@ -190,6 +190,48 @@ func TestServiceResolverUsesCallerRuntimeProfileMemoryForUnownedWorkspace(t *tes
 	}
 }
 
+func TestServiceResolverResolveMemorySkipsToolkitConstruction(t *testing.T) {
+	alias := apitypes.WorkflowMemoryAlias("pet-memory")
+	resolvedWorkflow := mustWorkflow(t, "workflow-1")
+	resolvedWorkflow.Spec.Memory = &alias
+	toolIDs := []string{"tool-a"}
+	ws := systemWorkspace("demo", "workflow-1", nil)
+	ws.Toolkit = &apitypes.ToolkitPolicy{ToolIds: &toolIDs}
+	bindings := map[string]apitypes.RuntimeProfileMemoryBinding{
+		"pet-memory": {
+			LayoutId: "pet-layout",
+			Driver:   apitypes.RuntimeProfileMemoryDriverFlowcraft,
+		},
+	}
+	profile := apitypes.RuntimeProfile{
+		Name: "profile", Revision: "revision",
+		Spec: apitypes.RuntimeProfileSpec{
+			Resources: apitypes.RuntimeProfileResources{Memories: &bindings},
+		},
+	}
+	resolver := ServiceResolver{
+		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{"demo": ws}},
+		Workflows:  fakeWorkflowService{items: map[string]apitypes.Workflow{"workflow-1": resolvedWorkflow}},
+		MemoryLayouts: fakeMemoryLayoutService{
+			item: apitypes.MemoryLayout{Name: "pet-layout"},
+		},
+	}
+	ctx := withRuntimeProfile(t.Context(), profile)
+	if _, err := resolver.Resolve(ctx, "demo"); err == nil || !strings.Contains(err.Error(), "toolkit") {
+		t.Fatalf("Resolve() error = %v, want toolkit construction failure", err)
+	}
+	spec, err := resolver.ResolveMemory(ctx, "demo")
+	if err != nil {
+		t.Fatalf("ResolveMemory() error = %v", err)
+	}
+	if spec.MemoryName != "pet-memory" || spec.MemoryBinding == nil || spec.MemoryLayout == nil {
+		t.Fatalf("ResolveMemory() = %#v", spec)
+	}
+	if spec.ToolInvoker != nil || spec.AgentType != "" {
+		t.Fatalf("ResolveMemory() constructed unrelated agent state: %#v", spec)
+	}
+}
+
 func TestServiceResolverRejectsWorkspaceAgentTypeWorkflowDriverMismatch(t *testing.T) {
 	var params apitypes.WorkspaceParameters
 	if err := params.FromChatRoomWorkspaceParameters(apitypes.ChatRoomWorkspaceParameters{
