@@ -3,6 +3,7 @@ package memory
 import (
 	"errors"
 	"testing"
+	"time"
 )
 
 func TestRequestValidation(t *testing.T) {
@@ -28,6 +29,37 @@ func TestRequestValidation(t *testing.T) {
 	text := "updated"
 	if err := validateUpdate(UpdateRequest{ID: "fact", Text: &text, Attributes: AttributePatch{Set: map[string]any{"lane": "clues"}, Delete: []string{"lane"}}}); !errors.Is(err, ErrInvalidInput) {
 		t.Fatalf("validateUpdate() error = %v, want ErrInvalidInput", err)
+	}
+}
+
+func TestObservationPayloadDigestIsStableAndSensitive(t *testing.T) {
+	observation := Observation{
+		Scope: Scope{AppID: "workspace-a"}, ID: "observation-a",
+		Facts:      []FactCandidate{{Text: "fact", Attributes: map[string]any{"b": 2, "a": 1}}},
+		ObservedAt: time.Date(2026, 7, 28, 1, 2, 3, 4, time.UTC),
+	}
+	first, err := ObservationPayloadDigest(observation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reordered := observation
+	reordered.Scope = Scope{AppID: "workspace-b"}
+	reordered.ID = "observation-b"
+	reordered.Facts = []FactCandidate{{Text: "fact", Attributes: map[string]any{"a": 1, "b": 2}}}
+	second, err := ObservationPayloadDigest(reordered)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first != second {
+		t.Fatalf("digest includes Scope/ID or map order: %q != %q", first, second)
+	}
+	reordered.Facts[0].Text = "changed"
+	changed, err := ObservationPayloadDigest(reordered)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if changed == first {
+		t.Fatal("digest did not change with payload")
 	}
 }
 

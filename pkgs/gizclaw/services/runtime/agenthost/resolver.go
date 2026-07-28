@@ -36,6 +36,53 @@ type workspaceRuntimeProvider interface {
 	GetWorkspaceRuntime(context.Context, string) (workspace.Runtime, error)
 }
 
+// ResolveMemory resolves only the Workspace, outer Workflow, and owner
+// RuntimeProfile Memory binding. Background product services use this path
+// without constructing an Agent toolkit or runtime.
+func (r ServiceResolver) ResolveMemory(ctx context.Context, pattern string) (Spec, error) {
+	workspaceName, err := ParseWorkspacePattern(pattern)
+	if err != nil {
+		return Spec{}, err
+	}
+	if r.Workspaces == nil {
+		return Spec{}, fmt.Errorf("agenthost: workspace service is required")
+	}
+	if r.Workflows == nil {
+		return Spec{}, fmt.Errorf("agenthost: workflow service is required")
+	}
+	ws, err := r.getWorkspace(ctx, workspaceName)
+	if err != nil {
+		return Spec{}, err
+	}
+	resolutionCtx, err := r.ownerRuntimeContext(ctx, ws)
+	if err != nil {
+		return Spec{}, err
+	}
+	workflowName, err := resolveWorkspaceWorkflowName(resolutionCtx, ws)
+	if err != nil {
+		return Spec{}, err
+	}
+	resolvedWorkflow, err := r.getWorkflow(ctx, workflowName)
+	if err != nil {
+		return Spec{}, err
+	}
+	memoryName, memoryBinding, memoryLayout, err := r.resolveMemory(resolutionCtx, resolvedWorkflow)
+	if err != nil {
+		return Spec{}, err
+	}
+	var memoryProfileName, memoryProfileRevision string
+	if memoryBinding != nil {
+		profile := resolutionCtx.Value(runtimeProfileContextKey{}).(apitypes.RuntimeProfile)
+		memoryProfileName = profile.Name
+		memoryProfileRevision = profile.Revision
+	}
+	return Spec{
+		Workspace: ws, Workflow: resolvedWorkflow,
+		MemoryName: memoryName, MemoryBinding: memoryBinding, MemoryLayout: memoryLayout,
+		MemoryProfileName: memoryProfileName, MemoryProfileRevision: memoryProfileRevision,
+	}, nil
+}
+
 func (r ServiceResolver) Resolve(ctx context.Context, pattern string) (Spec, error) {
 	workspaceName, err := ParseWorkspacePattern(pattern)
 	if err != nil {

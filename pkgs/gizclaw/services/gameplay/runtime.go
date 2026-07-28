@@ -38,16 +38,19 @@ var (
 )
 
 type Runtime struct {
-	DB          *sqlx.DB
-	Catalog     *Catalog
-	Workflows   WorkflowService
-	Workspaces  workspace.SystemWorkspaceService
-	Now         func() time.Time
-	NewID       func() string
-	PickWeight  func(total int64) int64
-	DecayPeriod time.Duration
-	adoptMu     [64]sync.Mutex
-	driveMu     [64]sync.Mutex
+	DB            *sqlx.DB
+	Catalog       *Catalog
+	Workflows     WorkflowService
+	Workspaces    workspace.SystemWorkspaceService
+	DriveFacts    DriveFactMemory
+	Now           func() time.Time
+	NewID         func() string
+	PickWeight    func(total int64) int64
+	DecayPeriod   time.Duration
+	adoptMu       [64]sync.Mutex
+	driveMu       [64]sync.Mutex
+	driveFactMu   sync.Mutex
+	driveFactWake chan struct{}
 }
 
 type WorkflowService interface {
@@ -175,6 +178,29 @@ func (r *Runtime) Migration(ctx context.Context) error {
 			created_at TEXT NOT NULL,
 			PRIMARY KEY(owner_public_key, id)
 		)`,
+		`CREATE TABLE IF NOT EXISTS gameplay_drive_fact_outbox (
+			observation_id TEXT NOT NULL,
+			payload_digest TEXT NOT NULL,
+			owner_public_key TEXT NOT NULL,
+			runtime_profile_name TEXT NOT NULL,
+			pet_id TEXT NOT NULL,
+			workspace_name TEXT NOT NULL,
+			target_profile_name TEXT NOT NULL,
+			target_profile_revision TEXT NOT NULL,
+			target_binding_name TEXT NOT NULL,
+			target_binding_identity TEXT NOT NULL,
+			payload_json TEXT NOT NULL,
+			state TEXT NOT NULL,
+			operation_id TEXT NOT NULL,
+			attempt_count INTEGER NOT NULL,
+			next_attempt_at TEXT NOT NULL,
+			last_error TEXT NOT NULL,
+			claim_token TEXT NOT NULL,
+			claim_until TEXT NOT NULL,
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL,
+			PRIMARY KEY(workspace_name, observation_id)
+		)`,
 		`CREATE TABLE IF NOT EXISTS gameplay_pending_deletions (
 			deletion_id TEXT NOT NULL PRIMARY KEY,
 			kind TEXT NOT NULL,
@@ -225,6 +251,9 @@ func (r *Runtime) Migration(ctx context.Context) error {
 		return err
 	}
 	if _, err := db.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS gameplay_pet_workspace_bindings_owner_idx ON gameplay_pet_workspace_bindings(owner_public_key, runtime_profile_name, workspace_name)`); err != nil {
+		return err
+	}
+	if _, err := db.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS gameplay_drive_fact_outbox_due_idx ON gameplay_drive_fact_outbox(state, next_attempt_at, claim_until)`); err != nil {
 		return err
 	}
 	return nil
@@ -909,7 +938,8 @@ func (r *Runtime) DrivePet(ctx context.Context, owner string, req apitypes.PetDr
 			}
 		}
 	}
-	return r.commitDrive(ctx, owner, req, ruleset, behavior, actionPolicy, gameRule, evaluated)
+	target, targetError := r.snapshotDriveFactTarget(ctx, pet.WorkspaceName)
+	return r.commitDrive(ctx, owner, req, ruleset, behavior, actionPolicy, gameRule, evaluated, target, targetError)
 }
 
 func (r *Runtime) commitEmptyDrive(ctx context.Context, owner, petID, key string, ruleset ProfileRules) (apitypes.PetDriveResponse, error) {
@@ -981,6 +1011,8 @@ func (r *Runtime) commitDrive(
 	actionPolicy apitypes.RuntimeProfilePetActionSpec,
 	gameRule ProfileGameRule,
 	evaluated apitypes.GameRewardSpec,
+	target DriveFactTarget,
+	targetError string,
 ) (apitypes.PetDriveResponse, error) {
 	db, err := r.db()
 	if err != nil {
@@ -1109,12 +1141,31 @@ func (r *Runtime) commitDrive(
 	}
 	pet.LastActiveAt = now
 	pet.UpdatedAt = now
+	payload, digest, err := canonicalDriveFact(pet, behavior, result, grant, now)
+	if err != nil {
+		return apitypes.PetDriveResponse{}, err
+	}
+	outbox := driveFactOutbox{
+		ObservationID: payload.ID, PayloadDigest: digest,
+		OwnerPublicKey: owner, RuntimeProfile: ruleset.Name, PetID: pet.Id,
+		Target: target, Payload: payload, State: driveFactPending,
+		NextAttemptAt: now, CreatedAt: now, UpdatedAt: now,
+	}
+	if targetError != "" {
+		outbox.State = driveFactBlocked
+		outbox.LastError = targetError
+		outbox.NextAttemptAt = now.Add(driveFactRetryDelay(1, true))
+	}
+	if err := insertDriveFactOutbox(ctx, tx, outbox); err != nil {
+		return apitypes.PetDriveResponse{}, err
+	}
 	if err := updatePet(ctx, tx, pet); err != nil {
 		return apitypes.PetDriveResponse{}, err
 	}
 	if err := tx.Commit(); err != nil {
 		return apitypes.PetDriveResponse{}, err
 	}
+	r.wakeDriveFactDispatcher()
 	return apitypes.PetDriveResponse{Pet: pet, Points: account, GameResult: result, Badges: badges, RewardGrants: grants, Transactions: transactions}, nil
 }
 

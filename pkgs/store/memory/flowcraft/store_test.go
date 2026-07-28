@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/GizClaw/flowcraft/memory/recall"
 	flowworkspace "github.com/GizClaw/flowcraft/memory/recall/store/workspace"
@@ -130,6 +131,62 @@ func TestStorePersistsStructuredFactCandidatesWithExtractionConfigured(t *testin
 	}
 	if len(recallResult.Matches) != 1 || recallResult.Matches[0].Fact.Text != text {
 		t.Fatalf("Recall() matches = %#v, want direct fact %q", recallResult.Matches, text)
+	}
+}
+
+func TestStoreDirectFactObservationIsIdempotent(t *testing.T) {
+	store := newTestStore(t, Config{})
+	observation := Observation{
+		Scope: testScope, ID: "gameplay/drive/reward_grant/grant-1",
+		Facts: []memorystore.FactCandidate{{
+			Text:       "Pet completed care.",
+			Attributes: map[string]any{"kind": "event", "source_id": "grant-1"},
+		}},
+		ObservedAt: time.Date(2026, 7, 28, 1, 2, 3, 0, time.UTC),
+	}
+	const workers = 8
+	results := make(chan memorystore.ObserveResult, workers)
+	errs := make(chan error, workers)
+	var wait sync.WaitGroup
+	for range workers {
+		wait.Add(1)
+		go func() {
+			defer wait.Done()
+			result, err := store.Observe(context.Background(), observation)
+			results <- result
+			errs <- err
+		}()
+	}
+	wait.Wait()
+	close(results)
+	close(errs)
+	var factID string
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("Observe() error = %v", err)
+		}
+	}
+	for result := range results {
+		if len(result.Facts) != 1 {
+			t.Fatalf("Observe() = %#v", result)
+		}
+		if factID == "" {
+			factID = result.Facts[0].ID
+		}
+		if result.Facts[0].ID != factID ||
+			len(result.Facts[0].Sources) != 1 ||
+			result.Facts[0].Sources[0].ObservationID != observation.ID {
+			t.Fatalf("idempotent Fact = %#v", result.Facts[0])
+		}
+	}
+	stats, err := store.Stats(context.Background(), testScope)
+	if err != nil || stats.ItemCount != 1 {
+		t.Fatalf("Stats() = %#v, %v", stats, err)
+	}
+	changed := observation
+	changed.Facts = []memorystore.FactCandidate{{Text: "changed", Attributes: map[string]any{"kind": "event"}}}
+	if _, err := store.Observe(context.Background(), changed); !errors.Is(err, ErrConflict) {
+		t.Fatalf("Observe(changed) error = %v, want ErrConflict", err)
 	}
 }
 

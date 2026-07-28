@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -389,6 +390,193 @@ func insertRewardGrant(ctx context.Context, tx *sqlx.Tx, item apitypes.RewardGra
 	_, err = tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_reward_grants (owner_public_key, id, runtime_profile_name, pet_id, game_result_id, points_delta, pet_exp_delta, badge_exp_delta_json, source_type, source_id, reason, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
 		item.OwnerPublicKey, item.Id, item.RuntimeProfileName, nullableString(item.PetId), nullableString(item.GameResultId), item.PointsDelta, item.PetExpDelta, badgeExpJSON, item.SourceType, item.SourceId, nullableString(item.Reason), formatTime(item.CreatedAt))
 	return err
+}
+
+func driveFactOutboxSelectSQL() string {
+	return `SELECT observation_id, payload_digest, owner_public_key, runtime_profile_name, pet_id,
+		workspace_name, target_profile_name, target_profile_revision, target_binding_name, target_binding_identity,
+		payload_json, state, operation_id, attempt_count, next_attempt_at, last_error,
+		claim_token, claim_until, created_at, updated_at
+		FROM gameplay_drive_fact_outbox`
+}
+
+func scanDriveFactOutbox(row rowScanner) (driveFactOutbox, error) {
+	var item driveFactOutbox
+	var payloadJSON, nextAttemptAt, claimUntil, createdAt, updatedAt string
+	if err := row.Scan(
+		&item.ObservationID, &item.PayloadDigest, &item.OwnerPublicKey, &item.RuntimeProfile, &item.PetID,
+		&item.Target.WorkspaceName, &item.Target.ProfileName, &item.Target.ProfileRevision,
+		&item.Target.BindingName, &item.Target.BindingIdentity,
+		&payloadJSON, &item.State, &item.OperationID, &item.AttemptCount, &nextAttemptAt,
+		&item.LastError, &item.ClaimToken, &claimUntil, &createdAt, &updatedAt,
+	); err != nil {
+		return driveFactOutbox{}, err
+	}
+	decoder := json.NewDecoder(strings.NewReader(payloadJSON))
+	decoder.UseNumber()
+	if err := decoder.Decode(&item.Payload); err != nil {
+		return driveFactOutbox{}, fmt.Errorf("gameplay: decode Drive Fact outbox payload: %w", err)
+	}
+	item.NextAttemptAt = parseTime(nextAttemptAt)
+	item.ClaimUntil = parseTime(claimUntil)
+	item.CreatedAt = parseTime(createdAt)
+	item.UpdatedAt = parseTime(updatedAt)
+	return item, nil
+}
+
+func insertDriveFactOutbox(ctx context.Context, tx *sqlx.Tx, item driveFactOutbox) error {
+	payloadJSON, err := json.Marshal(item.Payload)
+	if err != nil {
+		return fmt.Errorf("gameplay: encode Drive Fact outbox payload: %w", err)
+	}
+	result, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO gameplay_drive_fact_outbox (
+			observation_id, payload_digest, owner_public_key, runtime_profile_name, pet_id,
+			workspace_name, target_profile_name, target_profile_revision, target_binding_name, target_binding_identity,
+			payload_json, state, operation_id, attempt_count, next_attempt_at, last_error,
+			claim_token, claim_until, created_at, updated_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(workspace_name, observation_id) DO NOTHING`),
+		item.ObservationID, item.PayloadDigest, item.OwnerPublicKey, item.RuntimeProfile, item.PetID,
+		item.Target.WorkspaceName, item.Target.ProfileName, item.Target.ProfileRevision,
+		item.Target.BindingName, item.Target.BindingIdentity,
+		string(payloadJSON), item.State, item.OperationID, item.AttemptCount, formatDriveFactTime(item.NextAttemptAt),
+		item.LastError, item.ClaimToken, formatDriveFactTime(item.ClaimUntil), formatDriveFactTime(item.CreatedAt), formatDriveFactTime(item.UpdatedAt),
+	)
+	if err != nil {
+		return err
+	}
+	inserted, err := result.RowsAffected()
+	if err != nil || inserted == 1 {
+		return err
+	}
+	existing, err := scanDriveFactOutbox(tx.QueryRowContext(ctx, tx.Rebind(
+		driveFactOutboxSelectSQL()+` WHERE workspace_name = ? AND observation_id = ?`,
+	), item.Target.WorkspaceName, item.ObservationID))
+	if err != nil {
+		return err
+	}
+	if existing.PayloadDigest != item.PayloadDigest {
+		return fmt.Errorf("%w: Drive Fact observation %q payload changed", memory.ErrConflict, item.ObservationID)
+	}
+	return nil
+}
+
+func (r *Runtime) claimDriveFact(ctx context.Context) (driveFactOutbox, bool, error) {
+	db, err := r.db()
+	if err != nil {
+		return driveFactOutbox{}, false, err
+	}
+	now := r.now()
+	for range 8 {
+		item, err := scanDriveFactOutbox(db.QueryRowContext(ctx, db.Rebind(
+			driveFactOutboxSelectSQL()+` WHERE state <> ? AND next_attempt_at <= ?
+				AND (claim_token = '' OR claim_until <= ?)
+				ORDER BY next_attempt_at, created_at, observation_id LIMIT 1`,
+		), driveFactDelivered, formatDriveFactTime(now), formatDriveFactTime(now)))
+		if errors.Is(err, sql.ErrNoRows) {
+			return driveFactOutbox{}, false, nil
+		}
+		if err != nil {
+			return driveFactOutbox{}, false, err
+		}
+		token := r.newID()
+		claimUntil := now.Add(30 * time.Second)
+		result, err := db.ExecContext(ctx, db.Rebind(`UPDATE gameplay_drive_fact_outbox
+			SET claim_token = ?, claim_until = ?, attempt_count = attempt_count + 1, updated_at = ?
+			WHERE workspace_name = ? AND observation_id = ? AND state <> ? AND next_attempt_at <= ?
+				AND (claim_token = '' OR claim_until <= ?)`),
+			token, formatDriveFactTime(claimUntil), formatDriveFactTime(now),
+			item.Target.WorkspaceName, item.ObservationID, driveFactDelivered, formatDriveFactTime(now), formatDriveFactTime(now))
+		if err != nil {
+			return driveFactOutbox{}, false, err
+		}
+		claimed, err := result.RowsAffected()
+		if err != nil {
+			return driveFactOutbox{}, false, err
+		}
+		if claimed == 1 {
+			item.ClaimToken = token
+			item.ClaimUntil = claimUntil
+			item.AttemptCount++
+			return item, true, nil
+		}
+	}
+	return driveFactOutbox{}, false, nil
+}
+
+func (r *Runtime) finishDriveFactClaim(ctx context.Context, item driveFactOutbox, state, operationID, lastError string, nextAttemptAt time.Time) error {
+	db, err := r.db()
+	if err != nil {
+		return err
+	}
+	result, err := db.ExecContext(ctx, db.Rebind(`UPDATE gameplay_drive_fact_outbox
+		SET state = ?, operation_id = ?, last_error = ?, next_attempt_at = ?,
+			claim_token = '', claim_until = '', updated_at = ?
+		WHERE workspace_name = ? AND observation_id = ? AND claim_token = ?`),
+		state, operationID, lastError, formatDriveFactTime(nextAttemptAt), formatDriveFactTime(r.now()),
+		item.Target.WorkspaceName, item.ObservationID, item.ClaimToken)
+	if err != nil {
+		return err
+	}
+	updated, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if updated != 1 {
+		return fmt.Errorf("%w: Drive Fact claim was lost", memory.ErrConflict)
+	}
+	return nil
+}
+
+func (r *Runtime) extendDriveFactClaim(ctx context.Context, item driveFactOutbox, claimUntil time.Time) error {
+	db, err := r.db()
+	if err != nil {
+		return err
+	}
+	result, err := db.ExecContext(ctx, db.Rebind(`UPDATE gameplay_drive_fact_outbox
+		SET claim_until = ?, updated_at = ?
+		WHERE workspace_name = ? AND observation_id = ? AND claim_token = ?`),
+		formatDriveFactTime(claimUntil), formatDriveFactTime(r.now()),
+		item.Target.WorkspaceName, item.ObservationID, item.ClaimToken)
+	if err != nil {
+		return err
+	}
+	updated, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if updated != 1 {
+		return fmt.Errorf("%w: Drive Fact claim was lost", memory.ErrConflict)
+	}
+	return nil
+}
+
+func (r *Runtime) setDriveFactClaimTarget(ctx context.Context, item driveFactOutbox, target DriveFactTarget) error {
+	db, err := r.db()
+	if err != nil {
+		return err
+	}
+	result, err := db.ExecContext(ctx, db.Rebind(`UPDATE gameplay_drive_fact_outbox
+		SET target_profile_name = ?, target_profile_revision = ?, target_binding_name = ?,
+			target_binding_identity = ?, updated_at = ?
+		WHERE workspace_name = ? AND observation_id = ? AND claim_token = ?`),
+		target.ProfileName, target.ProfileRevision, target.BindingName, target.BindingIdentity, formatDriveFactTime(r.now()),
+		item.Target.WorkspaceName, item.ObservationID, item.ClaimToken)
+	if err != nil {
+		return err
+	}
+	updated, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if updated != 1 {
+		return fmt.Errorf("%w: Drive Fact claim was lost", memory.ErrConflict)
+	}
+	return nil
+}
+
+func formatDriveFactTime(value time.Time) string {
+	return value.UTC().Format("2006-01-02T15:04:05.000000000Z")
 }
 
 func listOwnerRows[T any](ctx context.Context, r *Runtime, owner, table string, profileScoped bool, req apitypes.GameplayListRequest, scan func(rowScanner) (T, error)) ([]T, bool, *string, error) {

@@ -108,15 +108,17 @@ type Server struct {
 	WebRTCSignalingHandler       http.Handler
 	EdgeNodes                    []giznet.PublicKey
 
-	manager     *Manager
-	peerService *PeerService
-	sessions    *publiclogin.SessionManager
-	listenerMu  sync.RWMutex
-	listeners   []giznet.Listener
-	closed      bool
-	httpHandler http.Handler
-	cleanupStop context.CancelFunc
-	cleanupDone <-chan struct{}
+	manager       *Manager
+	peerService   *PeerService
+	sessions      *publiclogin.SessionManager
+	listenerMu    sync.RWMutex
+	listeners     []giznet.Listener
+	closed        bool
+	httpHandler   http.Handler
+	cleanupStop   context.CancelFunc
+	cleanupDone   <-chan struct{}
+	driveFactStop context.CancelFunc
+	driveFactDone <-chan struct{}
 }
 
 type PeerListenerOptions struct {
@@ -170,6 +172,7 @@ func (s *Server) Listen() error {
 	s.closed = false
 	s.listenerMu.Unlock()
 	s.startCleanup()
+	s.startDriveFactDispatcher()
 	return nil
 }
 
@@ -281,10 +284,28 @@ func (s *Server) Close() error {
 		<-s.cleanupDone
 		s.cleanupDone = nil
 	}
+	if s.driveFactStop != nil {
+		s.driveFactStop()
+		s.driveFactStop = nil
+	}
+	if s.driveFactDone != nil {
+		<-s.driveFactDone
+		s.driveFactDone = nil
+	}
 	if s.manager != nil && s.manager.MemoryStores != nil {
 		errs = append(errs, s.manager.MemoryStores.Close())
 	}
 	return errors.Join(errs...)
+}
+
+func (s *Server) startDriveFactDispatcher() {
+	if s == nil || s.driveFactStop != nil || s.manager == nil || s.manager.Gameplay == nil ||
+		s.manager.Gameplay.DB == nil || s.manager.Gameplay.DriveFacts == nil {
+		return
+	}
+	stop, done := s.manager.Gameplay.StartDriveFactDispatcher(context.Background())
+	s.driveFactStop = stop
+	s.driveFactDone = done
 }
 
 func (s *Server) startCleanup() {
@@ -541,7 +562,7 @@ func (s *Server) init() error {
 	}
 	manager.Tools = toolServer
 	manager.ToolBuilder = &toolkit.Builder{Tools: toolServer}
-	manager.AgentHost = agenthost.New(agenthost.ServiceResolver{
+	agentResolver := agenthost.ServiceResolver{
 		Workspaces:             workspaceServer,
 		Workflows:              workflowServer,
 		MemoryLayouts:          memoryLayoutServer,
@@ -550,7 +571,12 @@ func (s *Server) init() error {
 		ToolCredentials:        credentialServer,
 		ClientToolTimeout:      s.ClientToolTimeout,
 		HTTPTools:              s.ToolHTTPExecutor,
-	})
+	}
+	manager.AgentHost = agenthost.New(agentResolver)
+	gameplayRuntime.DriveFacts = &driveWorkspaceMemory{
+		resolver: agentResolver, stores: manager.MemoryStores,
+		serverRoot: s.MemoryRoot, genXForOwner: manager.ownerGenX,
+	}
 	manager.Workspaces = workspaceServer
 	manager.Workflows = workflowServer
 	manager.Firmwares = firmwareServer

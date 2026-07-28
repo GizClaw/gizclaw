@@ -77,6 +77,10 @@ func TestPostgresGameplayContract(t *testing.T) {
 	if drive.GameResult == nil || len(drive.RewardGrants) != 1 || drive.Points.Balance != 25 {
 		t.Fatalf("DrivePet() = %#v", drive)
 	}
+	var outboxRows int
+	if err := db.QueryRowContext(ctx, `SELECT count(*) FROM gameplay_drive_fact_outbox`).Scan(&outboxRows); err != nil || outboxRows != 1 {
+		t.Fatalf("Drive Fact outbox rows = %d, %v", outboxRows, err)
+	}
 	if duplicate, err := runtime.DrivePet(ctx, "peer-postgres", apitypes.PetDriveRequest{
 		PetId: adopted.Pet.Id,
 		GameResult: &apitypes.PetDriveGameResultInput{
@@ -458,6 +462,7 @@ func openGameplayPostgresTestDB(t *testing.T) *sqlx.DB {
 func dropGameplayPostgresTables(t *testing.T, ctx context.Context, db *sqlx.DB) {
 	t.Helper()
 	for _, table := range []string{
+		"gameplay_drive_fact_outbox",
 		"gameplay_pending_deletion_locators",
 		"gameplay_pending_deletions",
 		"gameplay_pet_drive_ticks",
