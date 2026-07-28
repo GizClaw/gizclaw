@@ -28,6 +28,7 @@ var (
 	ErrNoActiveWorkspace     = errors.New("agenthost: no active workspace")
 	ErrServiceClosed         = errors.New("agenthost: service is closed")
 	ErrMissingSelectionStore = errors.New("agenthost: peer run selection store is required")
+	errUnexpectedOutputEnd   = errors.New("agenthost: output consumer completed while runtime remained active")
 )
 
 type PeerRunStore interface {
@@ -873,22 +874,25 @@ func (s *Service) consume(ctx context.Context, rt *runtime) {
 	defer close(rt.done)
 	defer rt.releaseOnce()
 	defer func() {
+		if rt.output != nil {
+			_ = rt.output.Close()
+		}
 		if rt.input != nil {
 			_ = rt.input.Close()
 		}
 	}()
 	err := s.Consumer.ConsumeAgentOutput(ctx, rt.output)
+	if err == nil && ctx.Err() == nil {
+		err = errUnexpectedOutputEnd
+	}
 	if err != nil && ctx.Err() == nil {
-		s.logger().Error("agenthost: output consumer failed", "error", err)
+		if !s.failRuntime(rt, err) {
+			return
+		}
+		s.logger().Error("agenthost: output consumer failed", "workspace", rt.workspace, "error", err)
 		if s.OnConsumerError != nil {
 			s.OnConsumerError(context.WithoutCancel(ctx), rt.workspace, err)
 		}
-		s.mu.Lock()
-		if s.runtime == rt {
-			s.runtime = nil
-		}
-		s.mu.Unlock()
-		s.setErrorStatus(rt.workspace, err)
 		return
 	}
 	s.mu.Lock()
@@ -900,6 +904,26 @@ func (s *Service) consume(ctx context.Context, rt *runtime) {
 			s.status.WorkspaceName = &rt.workspace
 		}
 	}
+}
+
+func (s *Service) failRuntime(rt *runtime, err error) bool {
+	now := s.now()
+	message := err.Error()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.runtime != rt {
+		return false
+	}
+	s.runtime = nil
+	if !s.closed {
+		s.status = apitypes.PeerRunStatus{
+			State:         apitypes.PeerRunStatusStateError,
+			WorkspaceName: &rt.workspace,
+			Message:       &message,
+			UpdatedAt:     &now,
+		}
+	}
+	return true
 }
 
 func (s *Service) setErrorStatus(workspace string, err error) apitypes.PeerRunStatus {

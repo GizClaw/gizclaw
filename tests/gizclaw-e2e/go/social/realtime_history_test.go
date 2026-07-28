@@ -62,13 +62,27 @@ func runSocialRealtimeAudioHistory(t *testing.T, h socialHarness, writerContext,
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 	ensureSocialHumanReviewWorkspace(t, ctx, reader, readerContext, workspaceName)
-	readerInput := newBlockingStream()
-	readerOut, err := reader.Transform(ctx, readerInput)
+	readerState, err := reader.GetServerRunWorkspace(ctx, "social.realtime.reader.workspace.initial")
+	if err != nil {
+		t.Fatalf("%s get initial realtime workspace: %v", readerContext, err)
+	}
+	if readerState.RuntimeState != rpcapi.PeerRunStatusStateRunning || readerState.StartedAt == nil {
+		t.Fatalf("%s initial realtime workspace state = %#v, want running with StartedAt", readerContext, readerState)
+	}
+	readerStartedAt := *readerState.StartedAt
+	readerStream, err := reader.OpenPeerStream(64)
 	if err != nil {
 		t.Fatalf("%s open realtime reader stream: %v", readerContext, err)
 	}
-	defer readerOut.Close()
-	defer readerInput.CloseWithError(io.EOF)
+	defer readerStream.Close()
+	readerOut := genx.Stream(readerStream)
+	readerHistoryIDs := make(map[string]struct{}, 2)
+	readerTimestamp := time.Now().UnixMilli()
+	readerTimestamp, firstReaderEntry := runSocialRealtimeLifecycleProbe(
+		t, ctx, reader, readerStream, workspaceName, h.ContextPublicKey(readerContext),
+		"reader-segment-first", "这是第一段实时生命周期验证。", readerTimestamp, readerHistoryIDs,
+	)
+	assertSocialRealtimeWorkspaceUnchanged(t, ctx, reader, readerContext, workspaceName, readerStartedAt, "first provider-VAD route")
 
 	ensureSocialHumanReviewWorkspace(t, ctx, writer, writerContext, workspaceName)
 	writerStream, err := writer.OpenPeerStream(64)
@@ -76,12 +90,13 @@ func runSocialRealtimeAudioHistory(t *testing.T, h socialHarness, writerContext,
 		t.Fatalf("%s open realtime writer stream: %v", writerContext, err)
 	}
 	defer writerStream.Close()
-	if err := pushSocialRealtimeAudioBOS(ctx, writerStream); err != nil {
+	if err := pushSocialRealtimeAudioBOS(ctx, writerStream, "writer-segment"); err != nil {
 		t.Fatalf("%s start realtime audio stream: %v", writerContext, err)
 	}
 
 	seenHistoryIDs := make(map[string]struct{}, len(texts))
-	entries := make([]rpcapi.PeerRunHistoryEntry, 0, len(texts))
+	entries := make([]rpcapi.PeerRunHistoryEntry, 0, len(texts)+2)
+	entries = append(entries, firstReaderEntry)
 	timestamp := time.Now().UnixMilli()
 	for i, text := range texts {
 		round := i + 1
@@ -125,9 +140,39 @@ func runSocialRealtimeAudioHistory(t *testing.T, h socialHarness, writerContext,
 		if replayPackets == 0 {
 			t.Fatalf("realtime history replay %q round %d produced no audio packets", entry.Id, round)
 		}
+		assertSocialRealtimeWorkspaceUnchanged(t, ctx, reader, readerContext, workspaceName, readerStartedAt, "history replay")
+		if round == 1 {
+			repeat, err := reader.PlayServerRunWorkspaceHistory(ctx, "social.realtime.history.play.repeat", rpcapi.ServerPlayRunWorkspaceHistoryRequest{HistoryId: entry.Id})
+			if err != nil {
+				t.Fatalf("%s repeat realtime history play %q: %v", readerContext, entry.Id, err)
+			}
+			if repeat == nil || !repeat.Accepted {
+				t.Fatalf("repeat realtime history play = %#v, want accepted", repeat)
+			}
+			if packets := waitForSocialRealtimeHistoryReplay(t, ctx, readerOut, entry.Id, got.Text); packets == 0 {
+				t.Fatalf("repeat realtime history replay %q produced no audio packets", entry.Id)
+			}
+			if err := pushSocialRealtimeAudioEOS(ctx, readerStream, "reader-segment-first", readerTimestamp); err != nil {
+				t.Fatalf("%s close first realtime reader segment: %v", readerContext, err)
+			}
+			assertSocialRealtimeWorkspaceUnchanged(t, ctx, reader, readerContext, workspaceName, readerStartedAt, "local reader EOS")
+			var secondReaderEntry rpcapi.PeerRunHistoryEntry
+			readerTimestamp, secondReaderEntry = runSocialRealtimeLifecycleProbe(
+				t, ctx, reader, readerStream, workspaceName, h.ContextPublicKey(readerContext),
+				"reader-segment-second", "这是第二段实时生命周期验证。", readerTimestamp+20, readerHistoryIDs,
+			)
+			entries = append(entries, secondReaderEntry)
+			assertSocialRealtimeWorkspaceUnchanged(t, ctx, reader, readerContext, workspaceName, readerStartedAt, "second provider-VAD route")
+		}
 	}
 	assertWorkspaceHistoryResumeOrder(t, ctx, reader, workspaceName, entries)
-	_ = pushSocialRealtimeAudioEOS(ctx, writerStream, timestamp)
+	if err := pushSocialRealtimeAudioEOS(ctx, writerStream, "writer-segment", timestamp); err != nil {
+		t.Fatalf("%s close realtime writer segment: %v", writerContext, err)
+	}
+	if err := pushSocialRealtimeAudioEOS(ctx, readerStream, "reader-segment-second", readerTimestamp); err != nil {
+		t.Fatalf("%s close second realtime reader segment: %v", readerContext, err)
+	}
+	assertSocialRealtimeWorkspaceUnchanged(t, ctx, reader, readerContext, workspaceName, readerStartedAt, "second local reader EOS")
 	_ = writerStream.CloseWithError(io.EOF)
 }
 
@@ -149,12 +194,72 @@ func getSocialRealtimeHistoryEntry(t *testing.T, ctx context.Context, client *gi
 	return got
 }
 
-func pushSocialRealtimeAudioBOS(ctx context.Context, stream socialHumanReviewChunkPusher) error {
+func runSocialRealtimeLifecycleProbe(
+	t *testing.T,
+	ctx context.Context,
+	client *gizcli.Client,
+	stream *gizcli.PeerStream,
+	workspaceName string,
+	gearID string,
+	streamID string,
+	text string,
+	timestamp int64,
+	seenHistoryIDs map[string]struct{},
+) (int64, rpcapi.PeerRunHistoryEntry) {
+	t.Helper()
+	updatedCh := waitForWorkspaceHistoryUpdated(stream)
+	if err := pushSocialRealtimeAudioBOS(ctx, stream, streamID); err != nil {
+		t.Fatalf("start realtime lifecycle probe %s: %v", streamID, err)
+	}
+	_, packets := synthesizeSocialHumanReviewSpeech(t, ctx, client, text)
+	nextTimestamp, err := pushSocialRealtimeAudioPackets(ctx, stream, packets, timestamp)
+	if err != nil {
+		t.Fatalf("send realtime lifecycle probe %s: %v", streamID, err)
+	}
+	if err := socialHumanReviewSleep(ctx, 1100*time.Millisecond); err != nil {
+		t.Fatalf("wait for realtime lifecycle probe %s: %v", streamID, err)
+	}
+	select {
+	case err := <-updatedCh:
+		if err != nil {
+			t.Fatalf("realtime lifecycle probe %s history update: %v", streamID, err)
+		}
+	case <-ctx.Done():
+		t.Fatalf("realtime lifecycle probe %s timed out: %v", streamID, ctx.Err())
+	}
+	entry := waitForWorkspaceHistoryReplayableGear(t, ctx, client, workspaceName, gearID, seenHistoryIDs)
+	seenHistoryIDs[entry.Id] = struct{}{}
+	return nextTimestamp, entry
+}
+
+func assertSocialRealtimeWorkspaceUnchanged(
+	t *testing.T,
+	ctx context.Context,
+	client *gizcli.Client,
+	contextName string,
+	workspaceName string,
+	startedAt time.Time,
+	phase string,
+) {
+	t.Helper()
+	state, err := client.GetServerRunWorkspace(ctx, "social.realtime.reader.workspace."+strings.ReplaceAll(phase, " ", "_"))
+	if err != nil {
+		t.Fatalf("%s get realtime workspace after %s: %v", contextName, phase, err)
+	}
+	if state.RuntimeState != rpcapi.PeerRunStatusStateRunning ||
+		state.WorkspaceName != workspaceName ||
+		state.StartedAt == nil ||
+		!state.StartedAt.Equal(startedAt) {
+		t.Fatalf("%s workspace after %s = %#v, want same running %q started at %s", contextName, phase, state, workspaceName, startedAt)
+	}
+}
+
+func pushSocialRealtimeAudioBOS(ctx context.Context, stream socialHumanReviewChunkPusher, streamID string) error {
 	return stream.Push(ctx, &genx.MessageChunk{
 		Role: genx.RoleUser,
 		Name: "input",
 		Part: &genx.Blob{MIMEType: "audio/opus"},
-		Ctrl: &genx.StreamCtrl{StreamID: "audio", Label: "input", BeginOfStream: true},
+		Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: "input", BeginOfStream: true},
 	})
 }
 
@@ -180,7 +285,7 @@ func pushSocialRealtimeAudioPackets(ctx context.Context, stream socialHumanRevie
 	return timestamp, nil
 }
 
-func pushSocialRealtimeAudioEOS(ctx context.Context, stream socialHumanReviewChunkPusher, timestamp int64) error {
+func pushSocialRealtimeAudioEOS(ctx context.Context, stream socialHumanReviewChunkPusher, streamID string, timestamp int64) error {
 	if stream == nil {
 		return io.ErrClosedPipe
 	}
@@ -188,7 +293,7 @@ func pushSocialRealtimeAudioEOS(ctx context.Context, stream socialHumanReviewChu
 		Role: genx.RoleUser,
 		Name: "input",
 		Part: &genx.Blob{MIMEType: "audio/opus"},
-		Ctrl: &genx.StreamCtrl{StreamID: "audio", Label: "input", Timestamp: timestamp, EndOfStream: true},
+		Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: "input", Timestamp: timestamp, EndOfStream: true},
 	})
 }
 

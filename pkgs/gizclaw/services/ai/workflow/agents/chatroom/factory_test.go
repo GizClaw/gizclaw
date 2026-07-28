@@ -540,7 +540,7 @@ func TestAgentTransformCancellationAbortsFullASRInputBuffer(t *testing.T) {
 	}
 }
 
-func TestAgentTransformNormalASRConsumerCloseStopsFeeder(t *testing.T) {
+func TestAgentTransformPrematureASRConsumerCloseFailsInvocation(t *testing.T) {
 	transformer := &earlyClosingASRTransformer{}
 	agent, err := (Factory{Transformer: transformer}).NewAgent(context.Background(), agenthost.Spec{
 		Workflow: validWorkflowWithTranscript("asr", true),
@@ -567,11 +567,11 @@ func TestAgentTransformNormalASRConsumerCloseStopsFeeder(t *testing.T) {
 	}()
 	select {
 	case err := <-result:
-		if !isStreamDone(err) {
-			t.Fatalf("output.Next() error = %v, want done", err)
+		if err == nil || !strings.Contains(err.Error(), "chatroom: ASR input consumer closed") {
+			t.Fatalf("output.Next() error = %v, want premature ASR consumer failure", err)
 		}
 	case <-time.After(time.Second):
-		t.Fatal("output.Next() remained blocked after normal ASR consumer close")
+		t.Fatal("output.Next() remained blocked after premature ASR consumer close")
 	}
 	if !input.waitClosed(100 * time.Millisecond) {
 		t.Fatal("input stream was not closed")
