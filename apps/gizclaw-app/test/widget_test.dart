@@ -1033,6 +1033,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(GizIcons.ellipsis));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Manage Invite'));
+    await tester.pumpAndSettle();
     expect(find.text('old-group-invite'), findsOneWidget);
 
     await tester.tap(find.byIcon(GizIcons.refresh));
