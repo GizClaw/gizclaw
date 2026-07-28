@@ -94,7 +94,11 @@ HTTP forwarding 和 gateway upstream 都属于长生命周期 runtime 状态。E
 
 Gateway 的默认总容量为 30,000 sessions，最多 16 条 upstream。信令进入时先同时预留 handshake、总 session 和 upstream stream 容量；没有容量时返回稳定的 `503` JSON error `gateway_over_capacity` 和 `Retry-After: 1`，不会先在 Server 创建半连接。
 
-每个 session 默认最多缓冲 1 MiB tunnel bytes；队列或 frame 越界会关闭该 session，而不是无限增长。5 分钟无 activity 的 session 默认被回收。进程关闭时先停止新 admission，在 30 秒 drain deadline 内保留现有 session，超时后强制关闭。
+每个 session 默认最多缓冲 1 MiB tunnel bytes。单个 logical service 的读取方暂时变慢时，
+tunnel 在有界队列上反压该 session 的可靠 stream，不会因为队列瞬时填满而截断 firmware
+等大文件；超过 session 总 buffer 或单 frame 上限的输入仍会关闭该 session，而不是无限增长。
+5 分钟无 activity 的 session 默认被回收。进程关闭时先停止新 admission，在 30 秒 drain
+deadline 内保留现有 session，超时后强制关闭。
 
 30,000 是可配置 harness 在具体主机上的验收目标，不是每条 upstream、每个 Edge 或任意硬件的无条件保证。harness 为每个 logical session 创建一个真实客户端 WebRTC PeerConnection；因此 load driver 本身也有显著内存、goroutine、FD 和 CPU 成本。达到 30,000 前必须为 load driver、各 Edge 和 Server 分别制定资源预算；单机不足时应在多个 load-driver 进程或主机间分片总 session 数，不能把降低 activity 或改用 synthetic session 当作通过。Docker topology 暴露两个独立身份的 Edge；可运行：
 

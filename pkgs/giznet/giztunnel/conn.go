@@ -600,6 +600,7 @@ type virtualStream struct {
 	remoteOne sync.Once
 	abortOne  sync.Once
 	localOne  sync.Once
+	deliverMu sync.Mutex
 	writeMu   sync.Mutex
 
 	deadlineMu    sync.Mutex
@@ -749,6 +750,9 @@ func stopTimer(timer *time.Timer) {
 }
 
 func (s *virtualStream) deliver(data []byte) error {
+	s.deliverMu.Lock()
+	defer s.deliverMu.Unlock()
+
 	copyData := append([]byte(nil), data...)
 	if !s.conn.reserve(len(copyData)) {
 		return ErrBufferLimit
@@ -759,9 +763,9 @@ func (s *virtualStream) deliver(data []byte) error {
 	case <-s.remoteCh:
 		s.conn.release(len(copyData))
 		return io.ErrClosedPipe
-	default:
+	case <-s.conn.closeCh:
 		s.conn.release(len(copyData))
-		return ErrBufferLimit
+		return s.conn.err()
 	}
 }
 
@@ -774,6 +778,9 @@ func (s *virtualStream) finishRemote() {
 func (s *virtualStream) abort() {
 	s.finishRemote()
 	s.abortOne.Do(func() {
+		s.deliverMu.Lock()
+		defer s.deliverMu.Unlock()
+
 		s.readMu.Lock()
 		s.conn.release(len(s.readBuf))
 		s.readBuf = nil
