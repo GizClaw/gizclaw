@@ -57,20 +57,26 @@ func TestMatchNodesProviderFreeParity(t *testing.T) {
 func TestMatchNodesOpenAICompatibleMusicDirectChat(t *testing.T) {
 	loadGenXE2EEnv(t)
 	tests := []struct {
-		name        string
-		apiKeyNames []string
-		transformer func(*testing.T, *genx.OpenAIGenerator) genx.Transformer
+		name         string
+		apiKeyNames  []string
+		baseURLNames []string
+		modelNames   []string
+		transformer  func(*testing.T, *genx.OpenAIGenerator) genx.Transformer
 	}{
 		{
-			name:        "flowcraft",
-			apiKeyNames: []string{flowcraftAPIKeyEnv, "GIZCLAW_E2E_OPENAI_API_KEY", "OPENAI_API_KEY"},
+			name:         "flowcraft",
+			apiKeyNames:  []string{flowcraftAPIKeyEnv, "GIZCLAW_E2E_OPENAI_API_KEY", "OPENAI_API_KEY"},
+			baseURLNames: []string{"GIZCLAW_GENX_E2E_FLOWCRAFT_OPENAI_BASE_URL", "GIZCLAW_GENX_E2E_OPENAI_BASE_URL", "OPENAI_BASE_URL"},
+			modelNames:   []string{"GIZCLAW_GENX_E2E_FLOWCRAFT_OPENAI_MODEL", "GIZCLAW_GENX_E2E_OPENAI_MODEL", "OPENAI_MODEL"},
 			transformer: func(t *testing.T, generator *genx.OpenAIGenerator) genx.Transformer {
 				return newFlowcraftMatchTransformerWithGenerator(t, generator)
 			},
 		},
 		{
-			name:        "eino",
-			apiKeyNames: []string{einoAPIKeyEnv, "GIZCLAW_E2E_OPENAI_API_KEY", "OPENAI_API_KEY"},
+			name:         "eino",
+			apiKeyNames:  []string{einoAPIKeyEnv, "GIZCLAW_E2E_OPENAI_API_KEY", "OPENAI_API_KEY"},
+			baseURLNames: []string{"GIZCLAW_GENX_E2E_EINO_OPENAI_BASE_URL", "GIZCLAW_GENX_E2E_OPENAI_BASE_URL", "OPENAI_BASE_URL"},
+			modelNames:   []string{"GIZCLAW_GENX_E2E_EINO_OPENAI_MODEL", "GIZCLAW_GENX_E2E_OPENAI_MODEL", "OPENAI_MODEL"},
 			transformer: func(t *testing.T, generator *genx.OpenAIGenerator) genx.Transformer {
 				return newEinoMatchTransformerWithModel(t, &genxChatModel{generator: generator})
 			},
@@ -79,12 +85,22 @@ func TestMatchNodesOpenAICompatibleMusicDirectChat(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			apiKey := firstEnv(test.apiKeyNames...)
-			if apiKey == "" {
-				t.Skipf("set %s in tests/genx-e2e/.env", test.apiKeyNames[0])
+			baseURL := firstEnv(test.baseURLNames...)
+			modelName := firstEnv(test.modelNames...)
+			if apiKey == "" || baseURL == "" || modelName == "" {
+				t.Skipf(
+					"set %s, %s, and %s in tests/genx-e2e/.env",
+					test.apiKeyNames[0],
+					test.baseURLNames[0],
+					test.modelNames[0],
+				)
 			}
-			client := openai.NewClient(option.WithAPIKey(apiKey))
+			client := openai.NewClient(
+				option.WithAPIKey(apiKey),
+				option.WithBaseURL(strings.TrimRight(baseURL, "/")),
+			)
 			generator := &genx.OpenAIGenerator{
-				Client: &client, Model: "gpt-4o-mini", TextOnly: true,
+				Client: &client, Model: modelName, TextOnly: true,
 			}
 			output := runMatchTransformer(t, test.transformer(t, generator))
 			assertMusicDirectMatch(t, output)
