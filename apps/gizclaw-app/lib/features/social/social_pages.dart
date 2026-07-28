@@ -249,19 +249,17 @@ class _GroupsPageState extends State<GroupsPage> {
                           '/groups/'
                           '${Uri.encodeComponent(group.workspaceName)}',
                         ),
-                        trailing: group.isGroupOwner
-                            ? CupertinoButton(
-                                minimumSize: const Size.square(40),
-                                padding: EdgeInsets.zero,
-                                onPressed: () =>
-                                    _showGroupInvite(context, data, group),
-                                child: const Icon(
-                                  GizIcons.ellipsis,
-                                  size: 20,
-                                  color: GizColors.secondaryInk,
-                                ),
-                              )
-                            : null,
+                        trailing: CupertinoButton(
+                          minimumSize: const Size.square(40),
+                          padding: EdgeInsets.zero,
+                          onPressed: () =>
+                              _showGroupActions(context, data, group),
+                          child: const Icon(
+                            GizIcons.ellipsis,
+                            size: 20,
+                            color: GizColors.secondaryInk,
+                          ),
+                        ),
                       )
                       .animate(delay: (index * 45).ms)
                       .fadeIn(duration: 280.ms)
@@ -319,6 +317,139 @@ class _GroupsPageState extends State<GroupsPage> {
       context: context,
       builder: (context) => _GroupInviteSheet(data: data, group: group),
     );
+  }
+
+  Future<void> _showGroupActions(
+    BuildContext context,
+    MobileDataController data,
+    ChatroomWorkspaceMetadata group,
+  ) async {
+    if (group.resourceId.trim().isEmpty) return;
+    final action = await showCupertinoModalPopup<String>(
+      context: context,
+      builder: (context) => CupertinoActionSheet(
+        title: Text(group.title),
+        actions: [
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.pop(context, 'members'),
+            child: Text(context.l10n.groupMembersTitle),
+          ),
+          if (group.isGroupOwner)
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.pop(context, 'invite'),
+              child: Text(context.l10n.groupManageInvite),
+            ),
+          if (group.isGroupOwner)
+            CupertinoActionSheetAction(
+              isDestructiveAction: true,
+              onPressed: () => Navigator.pop(context, 'dissolve'),
+              child: Text(context.l10n.groupDissolve),
+            )
+          else
+            CupertinoActionSheetAction(
+              isDestructiveAction: true,
+              onPressed: () => Navigator.pop(context, 'leave'),
+              child: Text(context.l10n.groupLeave),
+            ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(context),
+          child: Text(context.l10n.commonCancel),
+        ),
+      ),
+    );
+    if (!context.mounted) return;
+    switch (action) {
+      case 'members':
+        await _showGroupMembers(context, data, group);
+      case 'invite':
+        await _showGroupInvite(context, data, group);
+      case 'leave':
+        await _confirmLeaveGroup(context, data, group);
+      case 'dissolve':
+        await _confirmDissolveGroup(context, data, group);
+    }
+  }
+
+  Future<void> _showGroupMembers(
+    BuildContext context,
+    MobileDataController data,
+    ChatroomWorkspaceMetadata group,
+  ) async {
+    await showCupertinoModalPopup<void>(
+      context: context,
+      builder: (context) => _GroupMembersSheet(data: data, group: group),
+    );
+  }
+
+  Future<void> _confirmLeaveGroup(
+    BuildContext context,
+    MobileDataController data,
+    ChatroomWorkspaceMetadata group,
+  ) async {
+    final confirmed = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: Text(context.l10n.groupLeaveTitle(name: group.title)),
+        content: Text(context.l10n.groupLeaveDescription),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(context.l10n.commonCancel),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(context.l10n.groupLeave),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    final peerPublicKey = data.clientPublicKey?.trim() ?? '';
+    if (peerPublicKey.isEmpty) {
+      await _showFriendError(
+        context,
+        StateError(context.l10n.groupIdentityUnavailable),
+      );
+      return;
+    }
+    try {
+      await data.deleteFriendGroupMember(group.resourceId, peerPublicKey);
+    } catch (error) {
+      if (context.mounted) await _showFriendError(context, error);
+    }
+  }
+
+  Future<void> _confirmDissolveGroup(
+    BuildContext context,
+    MobileDataController data,
+    ChatroomWorkspaceMetadata group,
+  ) async {
+    final confirmed = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: Text(context.l10n.groupDissolveTitle(name: group.title)),
+        content: Text(context.l10n.groupDissolveDescription),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(context.l10n.commonCancel),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(context.l10n.groupDissolve),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    try {
+      await data.deleteFriendGroup(group.resourceId);
+    } catch (error) {
+      if (context.mounted) await _showFriendError(context, error);
+    }
   }
 }
 
@@ -631,6 +762,248 @@ class _GroupInviteSheet extends StatefulWidget {
 
   @override
   State<_GroupInviteSheet> createState() => _GroupInviteSheetState();
+}
+
+class _GroupMembersSheet extends StatefulWidget {
+  const _GroupMembersSheet({required this.data, required this.group});
+
+  final MobileDataController data;
+  final ChatroomWorkspaceMetadata group;
+
+  @override
+  State<_GroupMembersSheet> createState() => _GroupMembersSheetState();
+}
+
+class _GroupMembersSheetState extends State<_GroupMembersSheet> {
+  final List<FriendGroupMemberObject> _members = [];
+  bool _hasNext = false;
+  bool _loading = false;
+  String _nextCursor = '';
+  Object? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadMore());
+  }
+
+  Future<void> _loadMore() async {
+    if (_loading || (_members.isNotEmpty && !_hasNext)) return;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final response = await widget.data.listFriendGroupMembers(
+        widget.group.resourceId,
+        cursor: _members.isEmpty ? null : _nextCursor,
+        limit: 50,
+      );
+      if (!mounted) return;
+      final existing = _members
+          .map(_memberId)
+          .where((id) => id.isNotEmpty)
+          .toSet();
+      setState(() {
+        for (final member in response.items) {
+          if (existing.add(_memberId(member))) _members.add(member);
+        }
+        _hasNext = response.hasNext;
+        _nextCursor = response.nextCursor;
+      });
+    } catch (error) {
+      if (mounted) setState(() => _error = error);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  bool _canRemove(FriendGroupMemberObject member) {
+    final memberId = _memberId(member);
+    final localPeerPublicKey = widget.data.clientPublicKey?.trim() ?? '';
+    if (memberId.isEmpty || memberId == localPeerPublicKey) return false;
+    if (member.role == FriendGroupMemberRole.FRIEND_GROUP_MEMBER_ROLE_OWNER) {
+      return false;
+    }
+    if (widget.group.isGroupOwner) return true;
+    return widget.group.canManageGroupMembers &&
+        member.role == FriendGroupMemberRole.FRIEND_GROUP_MEMBER_ROLE_MEMBER;
+  }
+
+  Future<void> _removeMember(FriendGroupMemberObject member) async {
+    final memberId = _memberId(member);
+    if (memberId.isEmpty || _loading) return;
+    final confirmed = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: Text(
+          context.l10n.groupRemoveMemberTitle(name: _memberLabel(member)),
+        ),
+        content: Text(context.l10n.groupRemoveMemberDescription),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(context.l10n.commonCancel),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(context.l10n.groupRemoveMember),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      await widget.data.deleteFriendGroupMember(
+        widget.group.resourceId,
+        memberId,
+      );
+      if (!mounted) return;
+      setState(() {
+        _members.removeWhere((item) => _memberId(item) == memberId);
+      });
+    } catch (error) {
+      if (mounted) setState(() => _error = error);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final background = CupertinoColors.systemBackground.resolveFrom(context);
+    final safeBottom = MediaQuery.viewPaddingOf(context).bottom;
+    return Container(
+      key: const ValueKey('group-members-sheet'),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + safeBottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 36,
+              height: 5,
+              decoration: BoxDecoration(
+                color: CupertinoColors.systemGrey4.resolveFrom(context),
+                borderRadius: BorderRadius.circular(3),
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text(context.l10n.groupMembersTitle, style: GizText.sectionTitle),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 300,
+            child: _loading && _members.isEmpty
+                ? const Center(child: CupertinoActivityIndicator())
+                : _members.isEmpty
+                ? Center(
+                    child: Text(
+                      context.l10n.groupMembersEmpty,
+                      style: GizText.body.copyWith(
+                        color: GizColors.secondaryInk,
+                      ),
+                    ),
+                  )
+                : ListView.separated(
+                    itemCount: _members.length + (_hasNext ? 1 : 0),
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
+                    itemBuilder: (context, index) {
+                      if (index == _members.length) {
+                        return CupertinoButton(
+                          onPressed: _loading ? null : _loadMore,
+                          child: _loading
+                              ? const CupertinoActivityIndicator()
+                              : Text(context.l10n.groupLoadMore),
+                        );
+                      }
+                      final member = _members[index];
+                      return _GroupMemberRow(
+                        member: member,
+                        canRemove: _canRemove(member),
+                        onRemove: () => _removeMember(member),
+                      );
+                    },
+                  ),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              _friendErrorMessage(_error!),
+              textAlign: TextAlign.center,
+              style: GizText.body.copyWith(
+                color: CupertinoColors.systemRed.resolveFrom(context),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _GroupMemberRow extends StatelessWidget {
+  const _GroupMemberRow({
+    required this.member,
+    required this.canRemove,
+    required this.onRemove,
+  });
+
+  final bool canRemove;
+  final FriendGroupMemberObject member;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final secondary = CupertinoColors.secondarySystemBackground.resolveFrom(
+      context,
+    );
+    return GizSquircle(
+      borderRadius: GizCorners.compactCard,
+      child: Container(
+        color: secondary,
+        padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(_memberLabel(member), style: GizText.body),
+                  const SizedBox(height: 2),
+                  Text(
+                    _memberRoleLabel(context, member),
+                    style: GizText.label.copyWith(
+                      color: GizColors.secondaryInk,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (canRemove)
+              CupertinoButton(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                onPressed: onRemove,
+                child: Text(
+                  context.l10n.groupRemoveMember,
+                  style: const TextStyle(color: CupertinoColors.systemRed),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _GroupInviteSheetState extends State<_GroupInviteSheet> {
@@ -1211,6 +1584,29 @@ String _formatInviteExpiry(String value) {
   if (parsed == null) return value;
   String two(int number) => number.toString().padLeft(2, '0');
   return '${parsed.month}/${parsed.day} ${two(parsed.hour)}:${two(parsed.minute)}';
+}
+
+String _memberId(FriendGroupMemberObject member) {
+  final id = member.id.trim();
+  return id.isEmpty ? member.peerPublicKey.trim() : id;
+}
+
+String _memberLabel(FriendGroupMemberObject member) {
+  final value = member.peerPublicKey.trim().isEmpty
+      ? _memberId(member)
+      : member.peerPublicKey.trim();
+  if (value.length <= 20) return value;
+  return '${value.substring(0, 8)}…${value.substring(value.length - 8)}';
+}
+
+String _memberRoleLabel(BuildContext context, FriendGroupMemberObject member) {
+  return switch (member.role) {
+    FriendGroupMemberRole.FRIEND_GROUP_MEMBER_ROLE_OWNER =>
+      context.l10n.groupRoleOwner,
+    FriendGroupMemberRole.FRIEND_GROUP_MEMBER_ROLE_ADMIN =>
+      context.l10n.groupRoleAdmin,
+    _ => context.l10n.groupRoleMember,
+  };
 }
 
 String _friendErrorMessage(Object error) {

@@ -218,6 +218,13 @@ class GizClawClient {
     );
   }
 
+  Future<payload.FriendGroupDeleteResponse> deleteFriendGroup(String id) {
+    return rpc.call<payload.FriendGroupDeleteResponse>(
+      'server.friend_group.delete',
+      payload.FriendGroupDeleteRequest(id: id),
+    );
+  }
+
   Future<payload.FriendGroupInviteTokenGetResponse> getFriendGroupInviteToken(
     String friendGroupId,
   ) {
@@ -247,6 +254,35 @@ class GizClawClient {
     return rpc.call<payload.FriendGroupJoinResponse>(
       'server.friend_group.join',
       payload.FriendGroupJoinRequest(inviteToken: inviteToken),
+    );
+  }
+
+  Future<payload.FriendGroupMemberListResponse> listFriendGroupMembers(
+    String friendGroupId, {
+    String? cursor,
+    int? limit,
+  }) {
+    final request = payload.FriendGroupMemberListRequest(
+      friendGroupId: friendGroupId,
+    );
+    if (cursor != null) request.cursor = cursor;
+    if (limit != null) request.limit = Int64(limit);
+    return rpc.call<payload.FriendGroupMemberListResponse>(
+      'server.friend_group.members.list',
+      request,
+    );
+  }
+
+  Future<payload.FriendGroupMemberDeleteResponse> deleteFriendGroupMember(
+    String friendGroupId,
+    String id,
+  ) {
+    return rpc.call<payload.FriendGroupMemberDeleteResponse>(
+      'server.friend_group.members.delete',
+      payload.FriendGroupMemberDeleteRequest(
+        friendGroupId: friendGroupId,
+        id: id,
+      ),
     );
   }
 

@@ -415,4 +415,62 @@ class AppLocalizationsEn extends AppLocalizations {
   String groupInviteExpiresAt({required String expiresAt}) {
     return 'Expires $expiresAt';
   }
+
+  @override
+  String get groupMembersTitle => 'Members';
+
+  @override
+  String get groupMembersEmpty => 'No members found.';
+
+  @override
+  String get groupLoadMore => 'Load More';
+
+  @override
+  String get groupLeave => 'Leave Group';
+
+  @override
+  String groupLeaveTitle({required String name}) {
+    return 'Leave $name?';
+  }
+
+  @override
+  String get groupLeaveDescription =>
+      'You will lose access to this group chat.';
+
+  @override
+  String get groupDissolve => 'Dissolve Group';
+
+  @override
+  String groupDissolveTitle({required String name}) {
+    return 'Dissolve $name?';
+  }
+
+  @override
+  String get groupDissolveDescription =>
+      'This removes every member and retires the group chat.';
+
+  @override
+  String get groupRemoveMember => 'Remove';
+
+  @override
+  String groupRemoveMemberTitle({required String name}) {
+    return 'Remove $name?';
+  }
+
+  @override
+  String get groupRemoveMemberDescription =>
+      'This member will lose access to the group chat.';
+
+  @override
+  String get groupRoleOwner => 'Owner';
+
+  @override
+  String get groupRoleAdmin => 'Admin';
+
+  @override
+  String get groupRoleMember => 'Member';
+
+  @override
+  String get groupIdentityUnavailable =>
+      'Your device identity is unavailable. Reconnect and try again.';
 }

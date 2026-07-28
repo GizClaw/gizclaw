@@ -90,6 +90,7 @@ void main() {
       expect(groupChats.single.title, 'Builder Crew');
       expect(groupChats.single.description, 'Shipping together');
       expect(groupChats.single.isGroupOwner, isTrue);
+      expect(groupChats.single.canManageGroupMembers, isTrue);
     },
   );
 

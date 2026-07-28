@@ -106,8 +106,10 @@ class ChatroomWorkspaceMetadata {
     this.emoji = '',
     this.peerPublicKey = '',
     this.isGroupOwner = false,
+    this.canManageGroupMembers = false,
   });
 
+  final bool canManageGroupMembers;
   final String description;
   final String emoji;
   final bool isGroupOwner;

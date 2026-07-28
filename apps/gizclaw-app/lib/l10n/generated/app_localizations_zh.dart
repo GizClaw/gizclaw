@@ -396,6 +396,60 @@ class AppLocalizationsZh extends AppLocalizations {
   String groupInviteExpiresAt({required String expiresAt}) {
     return '有效期至 $expiresAt';
   }
+
+  @override
+  String get groupMembersTitle => '成员';
+
+  @override
+  String get groupMembersEmpty => '未找到成员。';
+
+  @override
+  String get groupLoadMore => '加载更多';
+
+  @override
+  String get groupLeave => '退出群组';
+
+  @override
+  String groupLeaveTitle({required String name}) {
+    return '退出$name？';
+  }
+
+  @override
+  String get groupLeaveDescription => '退出后将无法再访问这个群聊。';
+
+  @override
+  String get groupDissolve => '解散群组';
+
+  @override
+  String groupDissolveTitle({required String name}) {
+    return '解散$name？';
+  }
+
+  @override
+  String get groupDissolveDescription => '这会移除所有成员并停止该群聊。';
+
+  @override
+  String get groupRemoveMember => '移除';
+
+  @override
+  String groupRemoveMemberTitle({required String name}) {
+    return '移除$name？';
+  }
+
+  @override
+  String get groupRemoveMemberDescription => '该成员将无法再访问这个群聊。';
+
+  @override
+  String get groupRoleOwner => '群主';
+
+  @override
+  String get groupRoleAdmin => '管理员';
+
+  @override
+  String get groupRoleMember => '成员';
+
+  @override
+  String get groupIdentityUnavailable => '当前设备身份不可用，请重新连接后重试。';
 }
 
 /// The translations for Chinese, as used in China (`zh_CN`).
@@ -790,4 +844,58 @@ class AppLocalizationsZhCn extends AppLocalizationsZh {
   String groupInviteExpiresAt({required String expiresAt}) {
     return '有效期至 $expiresAt';
   }
+
+  @override
+  String get groupMembersTitle => '成员';
+
+  @override
+  String get groupMembersEmpty => '未找到成员。';
+
+  @override
+  String get groupLoadMore => '加载更多';
+
+  @override
+  String get groupLeave => '退出群组';
+
+  @override
+  String groupLeaveTitle({required String name}) {
+    return '退出$name？';
+  }
+
+  @override
+  String get groupLeaveDescription => '退出后将无法再访问这个群聊。';
+
+  @override
+  String get groupDissolve => '解散群组';
+
+  @override
+  String groupDissolveTitle({required String name}) {
+    return '解散$name？';
+  }
+
+  @override
+  String get groupDissolveDescription => '这会移除所有成员并停止该群聊。';
+
+  @override
+  String get groupRemoveMember => '移除';
+
+  @override
+  String groupRemoveMemberTitle({required String name}) {
+    return '移除$name？';
+  }
+
+  @override
+  String get groupRemoveMemberDescription => '该成员将无法再访问这个群聊。';
+
+  @override
+  String get groupRoleOwner => '群主';
+
+  @override
+  String get groupRoleAdmin => '管理员';
+
+  @override
+  String get groupRoleMember => '成员';
+
+  @override
+  String get groupIdentityUnavailable => '当前设备身份不可用，请重新连接后重试。';
 }

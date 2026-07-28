@@ -246,6 +246,87 @@ void main() {
     );
     await clearFuture;
   });
+
+  test('manages friend group membership and deletion', () async {
+    final factory = FakeDataChannelFactory();
+    final client = GizClawClient(factory);
+
+    final listFuture = client.listFriendGroupMembers(
+      'group-a',
+      cursor: 'member-cursor',
+      limit: 20,
+    );
+    final listRequest = await _request(factory, 0);
+    final listPayload =
+        decodeRpcRequestPayload(
+              'server.friend_group.members.list',
+              listRequest.payload,
+            )
+            as payload.FriendGroupMemberListRequest;
+    expect(listPayload.friendGroupId, 'group-a');
+    expect(listPayload.cursor, 'member-cursor');
+    expect(listPayload.limit.toInt(), 20);
+    _respond(
+      factory.channels[0],
+      listRequest.id,
+      'server.friend_group.members.list',
+      payload.FriendGroupMemberListResponse(
+        items: [
+          payload.FriendGroupMemberObject(
+            friendGroupId: 'group-a',
+            id: 'peer-b',
+            peerPublicKey: 'peer-b',
+          ),
+        ],
+      ),
+    );
+    expect((await listFuture).items.single.peerPublicKey, 'peer-b');
+
+    final removeMemberFuture = client.deleteFriendGroupMember(
+      'group-a',
+      'peer-b',
+    );
+    final removeMemberRequest = await _request(factory, 1);
+    final removeMemberPayload =
+        decodeRpcRequestPayload(
+              'server.friend_group.members.delete',
+              removeMemberRequest.payload,
+            )
+            as payload.FriendGroupMemberDeleteRequest;
+    expect(removeMemberPayload.friendGroupId, 'group-a');
+    expect(removeMemberPayload.id, 'peer-b');
+    _respond(
+      factory.channels[1],
+      removeMemberRequest.id,
+      'server.friend_group.members.delete',
+      payload.FriendGroupMemberDeleteResponse(
+        value: payload.FriendGroupMemberObject(
+          friendGroupId: 'group-a',
+          id: 'peer-b',
+        ),
+      ),
+    );
+    expect((await removeMemberFuture).value.id, 'peer-b');
+
+    final deleteGroupFuture = client.deleteFriendGroup('group-a');
+    final deleteGroupRequest = await _request(factory, 2);
+    final deleteGroupPayload =
+        decodeRpcRequestPayload(
+              'server.friend_group.delete',
+              deleteGroupRequest.payload,
+            )
+            as payload.FriendGroupDeleteRequest;
+    expect(deleteGroupPayload.id, 'group-a');
+    _respond(
+      factory.channels[2],
+      deleteGroupRequest.id,
+      'server.friend_group.delete',
+      payload.FriendGroupDeleteResponse(
+        value: payload.FriendGroupObject(id: 'group-a'),
+      ),
+    );
+    expect((await deleteGroupFuture).value.id, 'group-a');
+  });
 }
 
 Future<rpc.RpcRequest> _request(

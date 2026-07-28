@@ -686,6 +686,102 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Expires {expiresAt}'**
   String groupInviteExpiresAt({required String expiresAt});
+
+  /// Title and action for viewing group members.
+  ///
+  /// In en, this message translates to:
+  /// **'Members'**
+  String get groupMembersTitle;
+
+  /// Empty state for a group member list.
+  ///
+  /// In en, this message translates to:
+  /// **'No members found.'**
+  String get groupMembersEmpty;
+
+  /// Action to load another page of group members.
+  ///
+  /// In en, this message translates to:
+  /// **'Load More'**
+  String get groupLoadMore;
+
+  /// Destructive action for leaving a group.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave Group'**
+  String get groupLeave;
+
+  /// Confirmation title for leaving a group.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave {name}?'**
+  String groupLeaveTitle({required String name});
+
+  /// Confirmation detail for leaving a group.
+  ///
+  /// In en, this message translates to:
+  /// **'You will lose access to this group chat.'**
+  String get groupLeaveDescription;
+
+  /// Destructive action for a group owner to dissolve a group.
+  ///
+  /// In en, this message translates to:
+  /// **'Dissolve Group'**
+  String get groupDissolve;
+
+  /// Confirmation title for dissolving a group.
+  ///
+  /// In en, this message translates to:
+  /// **'Dissolve {name}?'**
+  String groupDissolveTitle({required String name});
+
+  /// Confirmation detail for dissolving a group.
+  ///
+  /// In en, this message translates to:
+  /// **'This removes every member and retires the group chat.'**
+  String get groupDissolveDescription;
+
+  /// Destructive action to remove a group member.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get groupRemoveMember;
+
+  /// Confirmation title for removing a member.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove {name}?'**
+  String groupRemoveMemberTitle({required String name});
+
+  /// Confirmation detail for removing a member.
+  ///
+  /// In en, this message translates to:
+  /// **'This member will lose access to the group chat.'**
+  String get groupRemoveMemberDescription;
+
+  /// Role label for a group owner.
+  ///
+  /// In en, this message translates to:
+  /// **'Owner'**
+  String get groupRoleOwner;
+
+  /// Role label for a group administrator.
+  ///
+  /// In en, this message translates to:
+  /// **'Admin'**
+  String get groupRoleAdmin;
+
+  /// Role label for a regular group member.
+  ///
+  /// In en, this message translates to:
+  /// **'Member'**
+  String get groupRoleMember;
+
+  /// Error shown when the local peer identity is unavailable for leaving a group.
+  ///
+  /// In en, this message translates to:
+  /// **'Your device identity is unavailable. Reconnect and try again.'**
+  String get groupIdentityUnavailable;
 }
 
 class _AppLocalizationsDelegate
