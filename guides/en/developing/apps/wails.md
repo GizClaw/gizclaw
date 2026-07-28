@@ -25,7 +25,7 @@ Schema source of desktop bridge DTO; generated through `gen:sdk` of `sdk/js` aft
 
 ## Local Server bootstrap
 
-`resources/local-server` embeds only Desktop-owned PIXA binaries. The public Raids `v0.2.2`
+`resources/local-server` embeds only Desktop-owned PIXA binaries. The public Raids `v0.3.0`
 release is fetched through its commit-addressed GitHub archive and is the declarative source for `RuntimeProfile/default`,
 `RegistrationToken/default-runtime`, and the Credential, Tenant, Model, Voice, MemoryLayout, Workflow, and PetDef
 resources referenced by that profile. Desktop validates and caches the archive privately below its

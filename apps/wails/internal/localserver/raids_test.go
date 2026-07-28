@@ -5,7 +5,10 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/sha256"
+	_ "embed"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -20,6 +23,11 @@ import (
 	desktopresources "github.com/GizClaw/gizclaw-go/apps/wails/resources"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
+
+//go:embed testdata/raids-v0.3.0.tar.gz
+var raidsV030Archive []byte
+
+const raidsV030ArchiveSHA256 = "27bd688a4f61cac741685af4da871281994d4d7ec3d8103dc37d6d0d222497f9"
 
 func TestReadRaidsArchiveRejectsUnsafeAndAcceptsPackageFiles(t *testing.T) {
 	archive := testRaidsArchive(t, []tar.Header{
@@ -59,8 +67,42 @@ func TestReadRaidsArchiveRejectsUnsafeAndAcceptsPackageFiles(t *testing.T) {
 	}
 }
 
+func TestRaidsV030FixtureBuildsPetDependencyClosure(t *testing.T) {
+	if got := fmt.Sprintf("%x", sha256.Sum256(raidsV030Archive)); got != raidsV030ArchiveSHA256 {
+		t.Fatalf("Raids v0.3.0 fixture SHA-256 = %s, want %s", got, raidsV030ArchiveSHA256)
+	}
+	assets, err := desktopresources.LocalServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalog, err := buildRaidsCatalog(assets, raidsV030Archive)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if catalog.DefaultRegistrationToken != expectedDefaultRegistrationToken {
+		t.Fatalf("default RegistrationToken = %q", catalog.DefaultRegistrationToken)
+	}
+	resources := make(map[string]bool, len(catalog.Resources))
+	for _, resource := range catalog.Resources {
+		resources[resource.Kind+"/"+resource.Name] = true
+	}
+	for _, resource := range []string{
+		"Workflow/pet-care",
+		"MemoryLayout/pet-care",
+		"Model/doubao-seed-2-0-lite",
+		"Model/deepseek-v4-flash",
+		"Model/volc-bigasr-sauc",
+		"RuntimeProfile/default",
+		"RegistrationToken/default-runtime",
+	} {
+		if !resources[resource] {
+			t.Errorf("catalog resources do not include %s", resource)
+		}
+	}
+}
+
 func TestRaidsReleaseUsesCommitAddressedArchive(t *testing.T) {
-	if RaidsVersion != "v0.2.2" {
+	if RaidsVersion != "v0.3.0" {
 		t.Fatalf("RaidsVersion = %q", RaidsVersion)
 	}
 	if len(RaidsCommit) != 40 || RaidsArchiveURL != "https://github.com/GizClaw/raids/archive/"+RaidsCommit+".tar.gz" {
