@@ -1,6 +1,7 @@
 package giztunnel
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -279,6 +280,129 @@ func TestConnBufferLimitClosesOnlySession(t *testing.T) {
 	}
 	if !errors.Is(serverConn.err(), ErrBufferLimit) {
 		t.Fatalf("server close error = %v, want %v", serverConn.err(), ErrBufferLimit)
+	}
+}
+
+func TestVirtualStreamBackpressuresUntilReaderDrains(t *testing.T) {
+	clientConn, serverConn, _ := tunnelTestPair(t, Config{
+		MaxBufferedBytes: 2 * streamChunkSize,
+		StreamQueueSize:  1,
+	})
+	listener := serverConn.ListenService(1)
+	stream, err := clientConn.Dial(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stream.Close()
+	accepted, err := listener.Accept()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer accepted.Close()
+
+	payload := make([]byte, 3*streamChunkSize+17)
+	for index := range payload {
+		payload[index] = byte(index)
+	}
+	type writeOutcome struct {
+		n   int
+		err error
+	}
+	writeResult := make(chan writeOutcome, 1)
+	go func() {
+		n, writeErr := stream.Write(payload)
+		writeResult <- writeOutcome{n: n, err: writeErr}
+	}()
+
+	deadline := time.Now().Add(time.Second)
+	for serverConn.buffered.Load() < 2*streamChunkSize &&
+		time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if got := serverConn.buffered.Load(); got != 2*streamChunkSize {
+		t.Fatalf("buffered while backpressured = %d, want %d", got, 2*streamChunkSize)
+	}
+	select {
+	case outcome := <-writeResult:
+		t.Fatalf(
+			"Write completed before the reader drained the bounded queue: n=%d err=%v",
+			outcome.n,
+			outcome.err,
+		)
+	default:
+	}
+	select {
+	case <-serverConn.closeCh:
+		t.Fatalf("bounded stream backpressure closed the session: %v", serverConn.err())
+	default:
+	}
+
+	got := make([]byte, len(payload))
+	if _, err := io.ReadFull(accepted, got); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case outcome := <-writeResult:
+		if outcome.err != nil {
+			t.Fatal(outcome.err)
+		}
+		if outcome.n != len(payload) {
+			t.Fatalf("Write bytes = %d, want %d", outcome.n, len(payload))
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Write did not resume after the reader drained the queue")
+	}
+	if !bytes.Equal(got, payload) {
+		t.Fatal("drained payload did not match the written bytes")
+	}
+}
+
+func TestVirtualStreamCloseReleasesBackpressuredData(t *testing.T) {
+	clientConn, serverConn, _ := tunnelTestPair(t, Config{
+		MaxBufferedBytes: 2 * streamChunkSize,
+		StreamQueueSize:  1,
+	})
+	listener := serverConn.ListenService(1)
+	stream, err := clientConn.Dial(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	accepted, err := listener.Accept()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	writeResult := make(chan error, 1)
+	go func() {
+		_, writeErr := stream.Write(make([]byte, 3*streamChunkSize))
+		writeResult <- writeErr
+	}()
+	deadline := time.Now().Add(time.Second)
+	for serverConn.buffered.Load() < 2*streamChunkSize &&
+		time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if got := serverConn.buffered.Load(); got != 2*streamChunkSize {
+		t.Fatalf("buffered before close = %d, want %d", got, 2*streamChunkSize)
+	}
+
+	if err := accepted.Close(); err != nil {
+		t.Fatal(err)
+	}
+	deadline = time.Now().Add(time.Second)
+	for serverConn.buffered.Load() != 0 && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if got := serverConn.buffered.Load(); got != 0 {
+		t.Fatalf("buffered after close = %d, want 0", got)
+	}
+	select {
+	case err := <-writeResult:
+		if err == nil {
+			t.Fatal("closing a backpressured stream completed the partial write without an error")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("closing a backpressured stream did not unblock its writer")
 	}
 }
 

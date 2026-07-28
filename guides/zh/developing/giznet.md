@@ -47,7 +47,12 @@ WebRTC 与 Pion 相关的实现细节留在这个子目录。上层 GizClaw 服�
 
 `pkgs/giznet/giztunnel` 在一条物理 `giznet.Conn` 上承载多个逻辑 connection。每个逻辑 session 有不可复用的 16-byte session ID、一条可靠有序 control stream，以及共享物理 packet channel 上带 session ID 的不可靠 packet frame。
 
-control stream 使用版本化 binary frame，复用逻辑 service stream 的 open、data、close 和 session close。open envelope 是严格 JSON，供上层验证 client、Edge 与 Server identity；通用 tunnel package 不拥有 GizClaw role 或授权规则。每个 session 的 frame、buffer、queue 和 handshake 都有上界；未知 session、重复 ID、非法 frame 或嵌套 tunnel protocol 会被拒绝。
+control stream 使用版本化 binary frame，复用逻辑 service stream 的 open、data、close 和
+session close。open envelope 是严格 JSON，供上层验证 client、Edge 与 Server identity；
+通用 tunnel package 不拥有 GizClaw role 或授权规则。每个 session 的 frame、buffer、queue
+和 handshake 都有上界；logical service 的消费方变慢时，tunnel 在有界队列上反压该
+session，而不是把瞬时 queue 满误判成非法输入。超过 session 总 buffer、未知 session、
+重复 ID、非法 frame 或嵌套 tunnel protocol 仍会被拒绝。
 
 `ProtocolOpusPacket` 在逻辑 connection API 中仍是 Opus packet，但 tunnel wire 把它放在不可靠 packet lane。它不会进入可靠 control stream，因而不会让丢包敏感媒体等待 RPC/HTTP bytes。
 
