@@ -80,6 +80,7 @@ Edge 映射到 Eino `AddEdge`。`first_match` 选择第一个命中的 route，�
 | `Passthrough` | 仅 `value`。 | 仅同类型 `value`。 |
 | `Script` | 声明的 dictionary key。 | 声明的 dictionary key。 |
 | `Lambda` | Descriptor 声明的 port。 | Descriptor 声明的 port。 |
+| `Match` | 仅一个 `text` string binding。 | 仅一个 `matches` list。 |
 | `Subgraph` | Child Graph input 与 State initialization field。 | 全部 child Graph output name。 |
 | `Race` | 所有 nested Graph 共有的 input。 | 所有 nested Graph 共有的 output name。 |
 | `Batch` | `Items` 是 list binding。 | 一个保持顺序的 `items` list。 |
@@ -87,6 +88,34 @@ Edge 映射到 Eino `AddEdge`。`first_match` 选择第一个命中的 route，�
 Prompt、ChatModel 和 Retriever 通过 Eino 原生 `AddChatTemplateNode`、`AddChatModelNode`、`AddRetrieverNode` 路径加入 typed nested Graph。没有 serializable native component contract 的 Transform、Script、Race、Batch 与 State adapter 使用 Eino Lambda。
 
 ChatModel 调用解析后的 Eino streaming interface。model node 直接拥有 declared text output 时，文本 chunk 会增量发布。配置 `ToolInvoker` 后，`ResolveTools` 取得的函数名、说明和 schema 会通过 Eino model option 传入；带关联 ID 的 ToolCall 按模型顺序通过 `InvokeTool(name, arguments)` 执行，native tool message 被追加后继续同一个 model node。内部 call/result 不公开输出；完成的 model turn 没有文本时，请求 `text` port 仍会失败。
+
+### Match
+
+`MatchNode` 在 `New` 中编译共享的 `pkgs/genx/match` rules，通过 `ComponentResolver.ResolveChatModel` 只解析一次 model alias，并向模型发送一个 system message 和一个 user string。它不声明或执行 tools。
+
+```go
+eino.NodeDefinition{
+    ID: "route",
+    Inputs: map[string]eino.Binding{
+        "text": {From: "input.text"},
+    },
+    Outputs: map[string]string{
+        "matches": "route_matches",
+    },
+    Match: &eino.MatchNode{
+        Model: "router",
+        Rules: []*match.Rule{{
+            Name: "play_music",
+            Vars: map[string]match.Var{
+                "title": {Label: "歌曲名", Type: "string"},
+            },
+            Patterns: []match.Pattern{{Input: "我想听[title]"}},
+        }},
+    },
+}
+```
+
+`text` 可以绑定 `input.text` 或声明为 string 的 State field；`matches` 必须指向已声明的 `StateList` field。空字符串是合法输入。Node 使用共享 Match parser 消费全部模型 chunk，只有 stream 完整成功后才写入 JSON-compatible 有序结果；model、stream、parse 或 cancellation error 都不会发布 partial State value。同一个编译后 node 可以并发运行，也可以用于 Subgraph、Race 或 Batch。
 
 内置 Transform operation：
 

@@ -698,6 +698,12 @@ func compileNode(
 			}
 			return nil, nil, nil
 		}
+	case node.Match != nil:
+		runner, err := compileMatchNode(ctx, config, node)
+		if err != nil {
+			return nil, err
+		}
+		result.run = runner
 	case node.Subgraph != nil:
 		child, err := buildGraph(ctx, config, node.Subgraph.Graph, path+"."+node.ID)
 		if err != nil {

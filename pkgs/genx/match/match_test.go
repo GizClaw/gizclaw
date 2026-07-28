@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -52,6 +53,7 @@ type matchStream struct {
 	idx    int
 	err    error
 	closed bool
+	closes int
 }
 
 func (s *matchStream) Next() (*genx.MessageChunk, error) {
@@ -68,11 +70,13 @@ func (s *matchStream) Next() (*genx.MessageChunk, error) {
 
 func (s *matchStream) Close() error {
 	s.closed = true
+	s.closes++
 	return nil
 }
 
 func (s *matchStream) CloseWithError(error) error {
 	s.closed = true
+	s.closes++
 	return nil
 }
 
@@ -121,6 +125,9 @@ func TestCompileWithTplAndMatchEOF(t *testing.T) {
 	if !stream.closed {
 		t.Fatal("expected stream to be closed")
 	}
+	if stream.closes != 1 {
+		t.Fatalf("stream closes = %d, want 1", stream.closes)
+	}
 	if len(results) != 2 {
 		t.Fatalf("unexpected match result length: %d %#v", len(results), results)
 	}
@@ -133,7 +140,7 @@ func TestCompileWithTplAndMatchEOF(t *testing.T) {
 }
 
 func TestCompileAndMatchErrorPaths(t *testing.T) {
-	if _, err := Compile(nil, WithTpl("{{")); err == nil {
+	if _, err := Compile([]*Rule{{Name: "r"}}, WithTpl("{{")); err == nil {
 		t.Fatal("expected template parse error")
 	}
 
@@ -190,12 +197,9 @@ func TestParseHelpersAndPromptData(t *testing.T) {
 		t.Fatalf("expected raw text for blank, got: %#v", raw)
 	}
 
-	data, err := buildPromptData([]*Rule{nil, {Name: "r", Vars: map[string]Var{}, Patterns: []Pattern{{Input: "x"}}}})
-	if err != nil {
-		t.Fatalf("buildPromptData failed: %v", err)
-	}
-	if len(data.Rules) != 1 {
-		t.Fatalf("unexpected prompt rules: %#v", data.Rules)
+	if _, err := buildPromptData([]*Rule{nil, {Name: "r"}}); err == nil ||
+		!strings.Contains(err.Error(), "rule[0] is nil") {
+		t.Fatalf("buildPromptData(nil rule) error = %v", err)
 	}
 }
 
@@ -260,6 +264,194 @@ func TestRuleJSONAndCompileValidation(t *testing.T) {
 	in, out = expandPattern("rule", "", map[string]Var{})
 	if in != "" || out != "rule" {
 		t.Fatalf("unexpected empty expandPattern output: in=%q out=%q", in, out)
+	}
+}
+
+func TestCompileStrictValidation(t *testing.T) {
+	valid := func() *Rule {
+		return &Rule{
+			Name:     "play_music",
+			Vars:     map[string]Var{"title": {Label: "歌曲名", Type: "string"}},
+			Patterns: []Pattern{{Input: "我想听[title]"}},
+			Examples: []Example{{Subject: "play_music", UserText: "我想听卡农", FormattedTo: "play_music: title=卡农"}},
+		}
+	}
+	tests := []struct {
+		name  string
+		rules []*Rule
+		want  string
+	}{
+		{name: "empty", want: "rules are required"},
+		{name: "nil", rules: []*Rule{nil}, want: "rule[0] is nil"},
+		{name: "duplicate", rules: []*Rule{valid(), valid()}, want: "duplicate rule name"},
+		{name: "blank name", rules: []*Rule{{Name: " "}}, want: "rule name"},
+		{name: "padded name", rules: []*Rule{{Name: " route "}}, want: "rule name"},
+		{name: "invalid variable", rules: []*Rule{{
+			Name: "route", Vars: map[string]Var{"bad-name": {Label: "bad"}},
+		}}, want: "var name"},
+		{name: "padded label", rules: []*Rule{{
+			Name: "route", Vars: map[string]Var{"name": {Label: " Name "}},
+		}}, want: "label must be trimmed"},
+		{name: "invalid type", rules: []*Rule{{
+			Name: "route", Vars: map[string]Var{"name": {Label: "Name", Type: "number"}},
+		}}, want: "invalid type"},
+		{name: "malformed placeholder", rules: []*Rule{{
+			Name: "route", Patterns: []Pattern{{Input: "hello [bad-name]"}},
+		}}, want: "malformed placeholder"},
+		{name: "nested placeholder", rules: []*Rule{{
+			Name: "route", Vars: map[string]Var{"name": {Label: "Name"}},
+			Patterns: []Pattern{{Input: "hello [[name]]"}},
+		}}, want: "malformed placeholder"},
+		{name: "unterminated placeholder", rules: []*Rule{{
+			Name: "route", Patterns: []Pattern{{Input: "hello [name"}},
+		}}, want: "malformed placeholder"},
+		{name: "unknown placeholder", rules: []*Rule{{
+			Name: "route", Patterns: []Pattern{{Input: "hello [name]"}},
+		}}, want: "not defined in vars"},
+		{name: "invalid example", rules: []*Rule{{
+			Name: "route", Examples: []Example{{Subject: "route", FormattedTo: "route"}},
+		}}, want: "output without user text"},
+		{name: "invalid reference", rules: []*Rule{{
+			Name: "route", References: map[string]string{" ": "value"},
+		}}, want: "reference"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := Compile(test.rules)
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("Compile() error = %v, want containing %q", err, test.want)
+			}
+		})
+	}
+}
+
+func TestCompilePreservesEmptyLabelBehavior(t *testing.T) {
+	matcher, err := Compile([]*Rule{{
+		Name:     "route",
+		Vars:     map[string]Var{"name": {}},
+		Patterns: []Pattern{{Input: "hello [name]"}},
+	}})
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	if !strings.Contains(matcher.SystemPrompt(), "hello [name]") {
+		t.Fatalf("SystemPrompt() = %q, want unexpanded empty-label placeholder", matcher.SystemPrompt())
+	}
+}
+
+func TestParseChunkFramingAndProjection(t *testing.T) {
+	rule := &Rule{
+		Name: "measure",
+		Vars: map[string]Var{
+			"count": {Label: "数量", Type: "int"},
+			"ok":    {Label: "是否", Type: "bool"},
+		},
+		Patterns: []Pattern{{Input: "[count] items"}},
+	}
+	matcher, err := Compile([]*Rule{rule})
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	chunks := func(yield func(string, error) bool) {
+		for _, chunk := range []string{
+			"measure: count=12, ", "ok=not-bool\r\nunknown", " output\n\nmeasure",
+		} {
+			if !yield(chunk, nil) {
+				return
+			}
+		}
+	}
+	results, err := Collect(matcher.Parse(chunks))
+	if err != nil {
+		t.Fatalf("Collect(Parse()) error = %v", err)
+	}
+	if len(results) != 3 {
+		t.Fatalf("results = %#v", results)
+	}
+	want := []any{
+		map[string]any{
+			"rule": "measure",
+			"args": map[string]any{
+				"count": map[string]any{
+					"value": int64(12), "var": map[string]any{"label": "数量", "type": "int"}, "has_value": true,
+				},
+				"ok": map[string]any{
+					"value": "not-bool", "var": map[string]any{"label": "是否", "type": "bool"}, "has_value": true,
+				},
+			},
+			"raw_text": "",
+		},
+		map[string]any{"rule": "", "args": map[string]any{}, "raw_text": "unknown output"},
+		map[string]any{
+			"rule": "measure",
+			"args": map[string]any{
+				"count": map[string]any{
+					"value": nil, "var": map[string]any{"label": "数量", "type": "int"}, "has_value": false,
+				},
+				"ok": map[string]any{
+					"value": nil, "var": map[string]any{"label": "是否", "type": "bool"}, "has_value": false,
+				},
+			},
+			"raw_text": "",
+		},
+	}
+	if got := Project(results); !reflect.DeepEqual(got, want) {
+		t.Fatalf("Project() = %#v, want %#v", got, want)
+	}
+
+	rule.Vars["count"] = Var{Label: "mutated", Type: "float"}
+	reparsed, err := Collect(matcher.Parse(func(yield func(string, error) bool) {
+		yield("measure: count=7", nil)
+	}))
+	if err != nil {
+		t.Fatalf("Collect(Parse()) after mutation error = %v", err)
+	}
+	if argument := reparsed[0].Args["count"]; argument.Var.Label != "数量" || argument.Value != int64(7) {
+		t.Fatalf("compiled Matcher observed caller mutation: %#v", argument)
+	}
+}
+
+func TestParsePreservesPrefixBeforeError(t *testing.T) {
+	matcher, err := Compile([]*Rule{{Name: "route", Patterns: []Pattern{{Input: "hello"}}}})
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	streamErr := errors.New("stream failed")
+	results, err := Collect(matcher.Parse(func(yield func(string, error) bool) {
+		if yield("route\n", nil) {
+			yield("", streamErr)
+		}
+	}))
+	if !errors.Is(err, streamErr) {
+		t.Fatalf("Collect(Parse()) error = %v, want %v", err, streamErr)
+	}
+	if len(results) != 1 || results[0].Rule != "route" {
+		t.Fatalf("parsed prefix = %#v", results)
+	}
+}
+
+func TestMatchStopsParsingAndClosesStreamWhenConsumerStops(t *testing.T) {
+	matcher, err := Compile([]*Rule{{Name: "route", Patterns: []Pattern{{Input: "hello"}}}})
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+	stream := &matchStream{chunks: []*genx.MessageChunk{
+		{Part: genx.Text("route\n")},
+		{Part: genx.Text("route\n")},
+	}}
+	for range matcher.Match(
+		t.Context(),
+		"model/router",
+		(&genx.ModelContextBuilder{}).Build(),
+		WithGenerator(matchGenerator{stream: stream}),
+	) {
+		break
+	}
+	if stream.idx != 1 {
+		t.Fatalf("stream Next calls consumed %d chunks, want 1", stream.idx)
+	}
+	if stream.closes != 1 {
+		t.Fatalf("stream closes = %d, want 1", stream.closes)
 	}
 }
 

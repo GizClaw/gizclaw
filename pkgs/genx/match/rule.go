@@ -110,21 +110,34 @@ var validVarTypes = map[string]struct{}{
 	"bool":   {},
 }
 
-var placeholderRe = regexp.MustCompile(`\[(\w+)\]`)
+var (
+	placeholderRe = regexp.MustCompile(`\[([A-Za-z_][A-Za-z0-9_]*)\]`)
+	varNameRe     = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+)
 
 func (r *Rule) compileTo(data *promptData) error {
-	if r == nil {
-		return nil
-	}
 	if data == nil {
-		return fmt.Errorf("rule %q: prompt data is nil", r.Name)
+		return fmt.Errorf("rule: prompt data is nil")
+	}
+	if r == nil {
+		return fmt.Errorf("rule is nil")
+	}
+	if r.Name == "" || strings.TrimSpace(r.Name) != r.Name ||
+		strings.ContainsAny(r.Name, ":\r\n") {
+		return fmt.Errorf("rule name %q is invalid", r.Name)
 	}
 
 	for name, v := range r.Vars {
+		if !varNameRe.MatchString(name) {
+			return fmt.Errorf("rule %q: var name %q is invalid", r.Name, name)
+		}
 		if v.Type != "" {
 			if _, ok := validVarTypes[v.Type]; !ok {
 				return fmt.Errorf("rule %q: var %q has invalid type %q (expected string|int|float|bool)", r.Name, name, v.Type)
 			}
+		}
+		if strings.TrimSpace(v.Label) != v.Label {
+			return fmt.Errorf("rule %q: var %q label must be trimmed", r.Name, name)
 		}
 		if strings.ContainsAny(v.Label, "[]") {
 			return fmt.Errorf("rule %q: var %q label must not contain '[' or ']'", r.Name, name)
@@ -139,11 +152,33 @@ func (r *Rule) compileTo(data *promptData) error {
 			return fmt.Errorf("rule %q: pattern[%d] output contains newline", r.Name, i)
 		}
 		matches := placeholderRe.FindAllStringSubmatch(p.Input, -1)
+		if strings.ContainsAny(placeholderRe.ReplaceAllString(p.Input, ""), "[]") {
+			return fmt.Errorf("rule %q: pattern[%d] has malformed placeholder", r.Name, i)
+		}
 		for _, m := range matches {
 			varName := m[1]
 			if _, ok := r.Vars[varName]; !ok {
 				return fmt.Errorf("rule %q: pattern[%d] has placeholder [%s] not defined in vars", r.Name, i, varName)
 			}
+		}
+	}
+	for i, example := range r.Examples {
+		if strings.TrimSpace(example.Subject) == "" {
+			return fmt.Errorf("rule %q: example[%d] requires subject", r.Name, i)
+		}
+		if strings.ContainsAny(example.Subject, "\r\n") ||
+			strings.ContainsAny(example.UserText, "\r\n") ||
+			strings.ContainsAny(example.FormattedTo, "\r\n") {
+			return fmt.Errorf("rule %q: example[%d] contains newline", r.Name, i)
+		}
+		if example.FormattedTo != "" && example.UserText == "" {
+			return fmt.Errorf("rule %q: example[%d] has output without user text", r.Name, i)
+		}
+	}
+	for name, value := range r.References {
+		if strings.TrimSpace(name) == "" || strings.TrimSpace(name) != name ||
+			strings.TrimSpace(value) == "" || strings.ContainsAny(name+value, "\r\n") {
+			return fmt.Errorf("rule %q: reference %q is invalid", r.Name, name)
 		}
 	}
 
