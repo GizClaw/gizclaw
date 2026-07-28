@@ -60,7 +60,7 @@ func TestReadRaidsArchiveRejectsUnsafeAndAcceptsPackageFiles(t *testing.T) {
 }
 
 func TestRaidsReleaseUsesCommitAddressedArchive(t *testing.T) {
-	if RaidsVersion != "v0.2.2" {
+	if RaidsVersion != "v0.3.0" {
 		t.Fatalf("RaidsVersion = %q", RaidsVersion)
 	}
 	if len(RaidsCommit) != 40 || RaidsArchiveURL != "https://github.com/GizClaw/raids/archive/"+RaidsCommit+".tar.gz" {

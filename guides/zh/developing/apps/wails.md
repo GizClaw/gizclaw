@@ -26,7 +26,7 @@ Desktop App 不复制 `pkgs/gizclaw` 的服务端业务。`api/http/desktop.json
 
 ## 本地 Server Bootstrap
 
-`resources/local-server` 只内嵌 Desktop 拥有的 PIXA 二进制。Raids `v0.2.2` release
+`resources/local-server` 只内嵌 Desktop 拥有的 PIXA 二进制。Raids `v0.3.0` release
 通过 commit-addressed GitHub archive 获取，是 `RuntimeProfile/default`、
 `RegistrationToken/default-runtime` 及该
 Profile 所引用 Credential、Tenant、Model、Voice、MemoryLayout、Workflow 与 PetDef 的声明式来源。

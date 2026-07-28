@@ -17,7 +17,7 @@ private key.
   LAN listening, Admin and Play are still connected from this machine. Front QR code is used in other GizClaw Apps
   Add the Server and enroll with the local App registration token. A new local Pod contains exactly one
   `RuntimeProfile/default` and `RegistrationToken/default-runtime`. Both come from the fixed Raids
-  `v0.2.2` archive together with the profile's Credential, Tenant, Model, Voice, Workflow, and PetDef
+  `v0.3.0` archive together with the profile's Credential, Tenant, Model, Voice, MemoryLayout, Workflow, and PetDef
   dependencies. Desktop uploads the matching PIXA binaries, then applies the profile and its public
   deterministic enrollment token; it does not create Firmware or generate another local token.
   Anyone who can reach the LAN endpoint and knows the public UUID can attempt registration into the
