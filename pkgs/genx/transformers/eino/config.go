@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	genxmatch "github.com/GizClaw/gizclaw-go/pkgs/genx/match"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
@@ -372,7 +373,7 @@ func (config *normalizedConfig) validateGraph(graph GraphDefinition, path string
 		if err := validateNodePorts(node, fields, path); err != nil {
 			return err
 		}
-		needsComponents = needsComponents || node.ChatModel != nil || node.Retriever != nil
+		needsComponents = needsComponents || node.ChatModel != nil || node.Retriever != nil || node.Match != nil
 		needsLambdas = needsLambdas || node.Lambda != nil
 		nodes[node.ID] = node
 		if depth == 0 {
@@ -638,6 +639,16 @@ func (config *normalizedConfig) validateNode(node NodeDefinition, fields map[str
 				return fmt.Errorf("eino: %s MemoryObserve wait requires memory.OperationWaiter", nodePath)
 			}
 		}
+	case node.Match != nil:
+		if node.Match.Model == "" || strings.TrimSpace(node.Match.Model) != node.Match.Model ||
+			strings.Contains(node.Match.Model, "/") {
+			return fmt.Errorf("eino: %s requires a trimmed model alias without '/'", nodePath)
+		}
+		matcher, err := genxmatch.Compile(node.Match.Rules)
+		if err != nil {
+			return fmt.Errorf("eino: %s: %w", nodePath, err)
+		}
+		node.Match.matcher = matcher
 	case node.Subgraph != nil:
 		if err := config.validateGraph(node.Subgraph.Graph, nodePath+" Subgraph", depth+1); err != nil {
 			return err
@@ -895,6 +906,23 @@ func validateNodePorts(node NodeDefinition, fields map[string]StateType, path st
 	case node.MemoryRecall != nil, node.MemoryObserve != nil:
 		if len(node.Inputs) != 0 || len(node.Outputs) != 0 {
 			return fmt.Errorf("eino: %s Memory nodes use declared State fields and cannot define ports", nodePath)
+		}
+	case node.Match != nil:
+		if err := requireExact(node.Inputs, "text"); err != nil {
+			return err
+		}
+		actual, err := inputType("text")
+		if err != nil {
+			return err
+		}
+		if err := requireType(actual, StateString, "text"); err != nil {
+			return err
+		}
+		if err := requireExactOutputs("matches"); err != nil {
+			return err
+		}
+		if actual, _ := outputType("matches"); actual != StateList {
+			return requireType(actual, StateList, "matches")
 		}
 	case node.Subgraph != nil:
 		if err := validateCompositeInputs(nodePath, node.Inputs, fields, node.Subgraph.Graph); err != nil {

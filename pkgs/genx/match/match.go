@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"io"
 	"iter"
-	"log/slog"
+	"maps"
 	"strconv"
 	"strings"
 	"text/template"
@@ -86,79 +86,90 @@ func (m *Matcher) Match(ctx context.Context, pattern string, mc genx.ModelContex
 	combined := genx.ModelContexts(mc, internal)
 
 	return func(yield func(Result, error) bool) {
-		var stream genx.Stream
-		var err error
-
-		if cfg.gen != nil {
-			stream, err = cfg.gen.GenerateStream(ctx, pattern, combined)
-		} else {
-			stream, err = generators.GenerateStream(ctx, pattern, combined)
-		}
+		stream, err := generateMatchStream(ctx, pattern, combined, cfg.gen)
 		if err != nil {
 			yield(Result{}, fmt.Errorf("generate: %w", err))
 			return
 		}
+		if stream == nil {
+			yield(Result{}, fmt.Errorf("generate: returned nil stream"))
+			return
+		}
 		defer stream.Close()
 
-		var sb strings.Builder
-		pending := ""
-		stopped := false
-
-		flush := func(line string) bool {
-			if stopped {
-				return false
-			}
-			line = strings.TrimSpace(line)
-			if line == "" {
-				return true
-			}
-			r, ok := m.parseLine(line)
-			if ok {
-				if !yield(r, nil) {
-					stopped = true
-					return false
-				}
-			}
-			return true
-		}
-
-		for {
-			chunk, err := stream.Next()
-			if err != nil {
-				if !errors.Is(err, genx.ErrDone) && !errors.Is(err, io.EOF) && !stopped {
-					if !yield(Result{}, err) {
-						stopped = true
-					}
-				}
-				break
-			}
-			if chunk != nil && chunk.Part != nil {
-				if text, ok := chunk.Part.(genx.Text); ok {
-					sb.WriteString(string(text))
-				}
-			}
-
-			s := pending + sb.String()
-			sb.Reset()
-
+		chunks := func(yieldChunk func(string, error) bool) {
 			for {
-				i := strings.IndexByte(s, '\n')
-				if i < 0 {
-					pending = s
-					break
+				chunk, nextErr := stream.Next()
+				if nextErr != nil {
+					if errors.Is(nextErr, genx.ErrDone) || errors.Is(nextErr, io.EOF) {
+						return
+					}
+					yieldChunk("", nextErr)
+					return
 				}
-				line := s[:i]
-				s = s[i+1:]
-				if !flush(line) {
+				if chunk == nil || chunk.Part == nil {
+					continue
+				}
+				text, ok := chunk.Part.(genx.Text)
+				if ok && !yieldChunk(string(text), nil) {
 					return
 				}
 			}
 		}
-
-		if !stopped {
-			flush(pending)
+		for result, parseErr := range m.Parse(chunks) {
+			if !yield(result, parseErr) {
+				return
+			}
 		}
 	}
+}
+
+func generateMatchStream(
+	ctx context.Context,
+	pattern string,
+	modelContext genx.ModelContext,
+	generator genx.Generator,
+) (genx.Stream, error) {
+	if generator != nil {
+		return generator.GenerateStream(ctx, pattern, modelContext)
+	}
+	return generators.GenerateStream(ctx, pattern, modelContext)
+}
+
+// Parse converts arbitrary text chunks into ordered Match results. Chunk
+// boundaries do not affect line framing.
+func (m *Matcher) Parse(chunks iter.Seq2[string, error]) iter.Seq2[Result, error] {
+	return func(yield func(Result, error) bool) {
+		pending := ""
+		for chunk, err := range chunks {
+			if err != nil {
+				yield(Result{}, err)
+				return
+			}
+			text := pending + chunk
+			for {
+				index := strings.IndexByte(text, '\n')
+				if index < 0 {
+					pending = text
+					break
+				}
+				if !m.yieldLine(text[:index], yield) {
+					return
+				}
+				text = text[index+1:]
+			}
+		}
+		m.yieldLine(pending, yield)
+	}
+}
+
+func (m *Matcher) yieldLine(line string, yield func(Result, error) bool) bool {
+	line = strings.TrimSpace(line)
+	if line == "" {
+		return true
+	}
+	result, ok := m.parseLine(line)
+	return !ok || yield(result, nil)
 }
 
 func (m *Matcher) parseLine(line string) (Result, bool) {
@@ -248,8 +259,36 @@ func Collect(seq iter.Seq2[Result, error]) ([]Result, error) {
 	return out, nil
 }
 
+// Project returns a JSON-compatible, defensively owned representation of
+// ordered Match results.
+func Project(results []Result) []any {
+	projected := make([]any, len(results))
+	for index, result := range results {
+		args := make(map[string]any, len(result.Args))
+		for name, argument := range result.Args {
+			args[name] = map[string]any{
+				"value": argument.Value,
+				"var": map[string]any{
+					"label": argument.Var.Label,
+					"type":  argument.Var.Type,
+				},
+				"has_value": argument.HasValue,
+			}
+		}
+		projected[index] = map[string]any{
+			"rule":     result.Rule,
+			"args":     args,
+			"raw_text": result.RawText,
+		}
+	}
+	return projected
+}
+
 // Compile compiles rules into a reusable Matcher.
 func Compile(rules []*Rule, opts ...Option) (*Matcher, error) {
+	if len(rules) == 0 {
+		return nil, fmt.Errorf("match: rules are required")
+	}
 	cfg := &compileConfig{tpl: defaultPromptTpl}
 	for _, opt := range opts {
 		opt(cfg)
@@ -274,14 +313,10 @@ func Compile(rules []*Rule, opts ...Option) (*Matcher, error) {
 
 	specs := make(map[string]map[string]Var, len(rules))
 	for _, r := range rules {
-		if r == nil {
-			continue
-		}
 		if _, exists := specs[r.Name]; exists {
-			slog.Warn("match: duplicate rule name, skipping", "name", r.Name)
-			continue
+			return nil, fmt.Errorf("match: duplicate rule name %q", r.Name)
 		}
-		specs[r.Name] = r.Vars
+		specs[r.Name] = maps.Clone(r.Vars)
 	}
 
 	return &Matcher{systemPrompt: buf.String(), specs: specs}, nil
@@ -305,11 +340,17 @@ type patternData struct {
 
 func buildPromptData(rules []*Rule) (*promptData, error) {
 	data := &promptData{References: make(map[string]string)}
-	for _, r := range rules {
-		if r != nil {
-			if err := r.compileTo(data); err != nil {
-				return nil, err
-			}
+	seen := make(map[string]struct{}, len(rules))
+	for index, r := range rules {
+		if r == nil {
+			return nil, fmt.Errorf("match: rule[%d] is nil", index)
+		}
+		if _, duplicate := seen[r.Name]; duplicate {
+			return nil, fmt.Errorf("match: duplicate rule name %q", r.Name)
+		}
+		seen[r.Name] = struct{}{}
+		if err := r.compileTo(data); err != nil {
+			return nil, err
 		}
 	}
 	return data, nil

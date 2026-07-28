@@ -1,6 +1,10 @@
 package eino
 
-import "time"
+import (
+	"time"
+
+	genxmatch "github.com/GizClaw/gizclaw-go/pkgs/genx/match"
+)
 
 // Binding reads one Graph input, History, Memory, or state value.
 type Binding struct {
@@ -24,6 +28,7 @@ type NodeDefinition struct {
 	Retriever     *RetrieverNode
 	MemoryRecall  *MemoryRecallNode
 	MemoryObserve *MemoryObserveNode
+	Match         *MatchNode
 	Subgraph      *SubgraphNode
 }
 
@@ -177,6 +182,14 @@ type MemoryObserveNode struct {
 	WaitForCompletion bool
 }
 
+// MatchNode classifies one string through a compiled GenX Match rule set.
+type MatchNode struct {
+	Model string
+	Rules []*genxmatch.Rule
+
+	matcher *genxmatch.Matcher
+}
+
 // SubgraphNode runs one nested Graph.
 type SubgraphNode struct {
 	Graph GraphDefinition
@@ -188,7 +201,8 @@ func (node NodeDefinition) kindCount() int {
 		node.Prompt != nil, node.ChatModel != nil, node.Transform != nil,
 		node.Script != nil, node.Lambda != nil, node.Race != nil,
 		node.Batch != nil, node.Passthrough != nil, node.Retriever != nil,
-		node.MemoryRecall != nil, node.MemoryObserve != nil, node.Subgraph != nil,
+		node.MemoryRecall != nil, node.MemoryObserve != nil, node.Match != nil,
+		node.Subgraph != nil,
 	} {
 		if present {
 			count++

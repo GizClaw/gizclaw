@@ -80,6 +80,7 @@ Native parallelism executes sibling Graph paths and joins them through Eino sche
 | `Passthrough` | Exactly `value`. | Exactly `value` with the same type. |
 | `Script` | Declared dictionary keys. | Declared dictionary keys. |
 | `Lambda` | Descriptor-defined ports. | Descriptor-defined ports. |
+| `Match` | Exactly one `text` string binding. | Exactly one `matches` list. |
 | `Subgraph` | Child Graph inputs and State initialization fields. | Every child Graph output name. |
 | `Race` | Common nested Graph inputs. | Common nested Graph output names. |
 | `Batch` | `Items` is a list binding. | Exactly one ordered `items` list. |
@@ -87,6 +88,34 @@ Native parallelism executes sibling Graph paths and joins them through Eino sche
 Prompt, ChatModel, and Retriever components are added through Eino's native `AddChatTemplateNode`, `AddChatModelNode`, and `AddRetrieverNode` paths inside typed nested Graphs. Package-owned Transform, Script, Race, Batch, and State adapters use Eino Lambdas when no serializable native component contract exists.
 
 ChatModel uses the resolved Eino streaming interface. Text chunks are published incrementally when the model node owns a declared text output. When a `ToolInvoker` is configured, `ResolveTools` supplies function names, descriptions, and schemas through Eino model options. Correlated ToolCalls execute in model order through `InvokeTool(name, arguments)`, native tool messages are appended, and the same model node continues. Internal calls and results are not published. A requested text port fails when the completed model turn contains no text.
+
+### Match
+
+`MatchNode` compiles the shared `pkgs/genx/match` rules during `New`, resolves its model alias once through `ComponentResolver.ResolveChatModel`, and sends exactly one system message and one user string to that model. It does not advertise or execute tools.
+
+```go
+eino.NodeDefinition{
+    ID: "route",
+    Inputs: map[string]eino.Binding{
+        "text": {From: "input.text"},
+    },
+    Outputs: map[string]string{
+        "matches": "route_matches",
+    },
+    Match: &eino.MatchNode{
+        Model: "router",
+        Rules: []*match.Rule{{
+            Name: "play_music",
+            Vars: map[string]match.Var{
+                "title": {Label: "Song title", Type: "string"},
+            },
+            Patterns: []match.Pattern{{Input: "Play [title]"}},
+        }},
+    },
+}
+```
+
+`text` accepts `input.text` or a declared string State field. `matches` must target a declared `StateList` field. Empty text is valid. The node consumes all model chunks through the shared Match parser and writes the JSON-compatible ordered result only after the stream completes successfully; a model, stream, parsing, or cancellation error publishes no partial State value. The same compiled node may run concurrently and inside Subgraph, Race, or Batch.
 
 The built-in Transform operations are:
 

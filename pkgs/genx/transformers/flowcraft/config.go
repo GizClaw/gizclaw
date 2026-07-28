@@ -77,6 +77,7 @@ type Config struct {
 	Initiative InitiativePolicy
 
 	asyncTasks *taskOwner
+	matchNodes map[string]matchNodeRuntime
 }
 
 // InitiativePolicy controls when an Agent may run without user input.
@@ -212,6 +213,7 @@ func normalizeConfig(source Config) (Config, error) {
 		return Config{}, fmt.Errorf("flowcraft: clone Graph: %w", err)
 	}
 	config.Graph = ownedGraph
+	config.matchNodes = make(map[string]matchNodeRuntime)
 	nodes := make(map[string]struct{}, len(config.Graph.Nodes))
 	for _, node := range config.Graph.Nodes {
 		nodes[node.ID] = struct{}{}
@@ -254,6 +256,12 @@ func normalizeConfig(source Config) (Config, error) {
 					)
 				}
 			}
+		case "match":
+			matchNode, err := compileMatchNode(node.ID, node.Config)
+			if err != nil {
+				return Config{}, err
+			}
+			config.matchNodes[node.ID] = matchNode
 		default:
 			return Config{}, fmt.Errorf("flowcraft: unsupported node type %q for node %q", node.Type, node.ID)
 		}
@@ -267,6 +275,9 @@ func normalizeConfig(source Config) (Config, error) {
 		nodeID = strings.TrimSpace(nodeID)
 		if _, ok := nodes[nodeID]; !ok {
 			return Config{}, fmt.Errorf("flowcraft: PublishNodes contains unknown node %q", nodeID)
+		}
+		if _, matchNode := config.matchNodes[nodeID]; matchNode {
+			return Config{}, fmt.Errorf("flowcraft: Match node %q cannot be a PublishNodes target", nodeID)
 		}
 		if _, duplicate := seen[nodeID]; duplicate {
 			continue

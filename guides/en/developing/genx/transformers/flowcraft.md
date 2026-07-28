@@ -31,11 +31,36 @@ transformer, err := flowcraft.New(flowcraft.Config{
 })
 ```
 
-`Graph` is required and accepts LLM nodes, script nodes with inline `source`, and passthrough nodes. Scripts can operate on the Board and use runtime features such as match, but no Workspace is installed, so filesystem APIs are unavailable. `PublishNodes` explicitly selects which node assistant tokens can enter the output Stream.
+`Graph` is required and accepts LLM, Match, Memory, inline script, and passthrough nodes. Scripts can operate on the Board, but no Workspace is installed, so filesystem APIs are unavailable. `PublishNodes` explicitly selects which node assistant tokens can enter the output Stream.
 
 An LLM node's `model` field is an alias such as `chat`. The Transformer resolves it internally as `Models.GenerateStream(ctx, "model/chat", modelContext)`; a Graph cannot supply a raw provider model ID or bypass the runtime alias.
 
 The model adapter carries the GenX-defined max tokens, temperature, top-p, top-k, penalties, thinking, and extra fields. Flowcraft stop words and structured/image output without their existing typed path return an explicit error instead of applying provider-specific guesses.
+
+## Match node
+
+The native `match` node reads exactly one configured Board string and writes one JSON-compatible ordered list. It compiles the shared `pkgs/genx/match` rules during Transformer construction and invokes `Models.GenerateStream` through `model/<alias>`.
+
+```yaml
+- id: route
+  type: match
+  config:
+    model: router
+    input: input
+    output: route_matches
+    rules:
+      - name: play_music
+        vars:
+          title:
+            label: Song title
+            type: string
+        patterns:
+          - Play [title]
+```
+
+`model`, `input`, `output`, and `rules` are the only accepted config keys. The alias cannot contain `/`; the alias and Board names must be non-empty and have no surrounding whitespace. A missing input or a value whose Go type is not `string` fails the node without coercion. Empty string remains a valid input.
+
+The node publishes no assistant token and should not be listed in `PublishNodes`. It writes its output only after model streaming and Match parsing both complete. Model, stream, parsing, or cancellation failure leaves the output Board variable unpublished. Every returned model stream is closed once. The compiled Matcher is immutable and may run concurrently across independent Boards.
 
 Parallel Graph execution always uses the Flowcraft SDK defaults: up to 10 branches, three nesting levels, and `last_wins` merge. A Graph without a fork creates no extra branches. The Publisher buffers speculative candidates, exposes only the accepted branch, and drops cancelled branches.
 

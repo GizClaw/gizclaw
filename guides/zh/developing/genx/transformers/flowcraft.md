@@ -31,11 +31,36 @@ transformer, err := flowcraft.New(flowcraft.Config{
 })
 ```
 
-`Graph` 必须非空，并且只接受 LLM node、使用内联 `source` 的 script node 和 passthrough node。Script 可以操作 Board 和使用 match 等运行时能力，但没有 Workspace，因此文件读写 API 不可用。`PublishNodes` 明确指定哪些 node 的 assistant token 可以进入输出 Stream。
+`Graph` 必须非空，并且接受 LLM、Match、Memory、使用内联 `source` 的 script 和 passthrough node。Script 可以操作 Board，但没有 Workspace，因此文件读写 API 不可用。`PublishNodes` 明确指定哪些 node 的 assistant token 可以进入输出 Stream。
 
 LLM node 的 `model` 字段填写 alias，例如 `chat`。Transformer 在内部把它解析为 `Models.GenerateStream(ctx, "model/chat", modelContext)`；Graph 不能直接填写 provider model ID 或绕过 Runtime 提供的 alias。
 
 模型适配传递 GenX 已定义的 max tokens、temperature、top-p、top-k、penalty、thinking 和 extra fields。Flowcraft 的 stop words，以及没有现有 typed path 的 structured/image output，会返回明确错误，不做 provider-specific 猜测。
+
+## Match node
+
+原生 `match` node 读取一个配置指定的 Board string，并写入一个 JSON-compatible 有序列表。它在 Transformer 构造期间编译共享的 `pkgs/genx/match` rules，并通过 `model/<alias>` 调用 `Models.GenerateStream`。
+
+```yaml
+- id: route
+  type: match
+  config:
+    model: router
+    input: input
+    output: route_matches
+    rules:
+      - name: play_music
+        vars:
+          title:
+            label: 歌曲名
+            type: string
+        patterns:
+          - 我想听[title]
+```
+
+Config 只接受 `model`、`input`、`output` 和 `rules`。Alias 不能包含 `/`；alias 和 Board variable name 都必须非空且不能带首尾空格。输入缺失或 Go type 不是 `string` 时 node 直接失败，不做类型转换；空字符串仍是合法输入。
+
+该 node 不发布 assistant token，也不应列入 `PublishNodes`。只有模型 stream 与 Match 解析全部成功后才写入输出；model、stream、parse 或 cancellation error 都不会发布 Board output。每个已返回的 model stream 只关闭一次。编译后的 Matcher 不可变，可以在独立 Board 间并发执行。
 
 并行 Graph 始终开启 Flowcraft SDK 默认策略：最多 10 个 branch、最多 3 层嵌套、`last_wins` merge。Graph 本身没有 fork 时不会产生额外 branch。Publisher 缓存 speculative candidate，只输出最终 accept 的 branch，cancel 的 branch 不进入 GenX Stream。
 
