@@ -132,7 +132,16 @@ class WorkspaceChatController extends ChangeNotifier {
   double inputLevel = 0;
   double outputLevel = 0;
 
-  List<WorkspaceChatMessage> get messages => [..._cached, ..._transient];
+  List<WorkspaceChatMessage> get messages => [
+    ..._cached.where(
+      (cached) => !_transient.any(
+        (transient) =>
+            transient.state == WorkspaceMessageState.streaming &&
+            _transientMatchesNewHistory(transient, cached),
+      ),
+    ),
+    ..._transient,
+  ];
 
   bool get canRecord =>
       state == WorkspaceChatState.connected &&
@@ -674,12 +683,8 @@ class WorkspaceChatController extends ChangeNotifier {
     final resolved = <String>{};
     for (final message in _transient) {
       if (message.state != WorkspaceMessageState.complete) continue;
-      final historyAtStart = _historyIdsAtStreamStart[message.id] ?? const {};
       if (_cached.any(
-        (cached) =>
-            !historyAtStart.contains(cached.id) &&
-            cached.incoming == message.incoming &&
-            cached.text == message.text,
+        (cached) => _transientMatchesNewHistory(message, cached),
       )) {
         resolved.add(message.id);
       }
@@ -689,6 +694,16 @@ class WorkspaceChatController extends ChangeNotifier {
     for (final id in resolved) {
       _historyIdsAtStreamStart.remove(id);
     }
+  }
+
+  bool _transientMatchesNewHistory(
+    WorkspaceChatMessage transient,
+    WorkspaceChatMessage cached,
+  ) {
+    final historyAtStart = _historyIdsAtStreamStart[transient.id] ?? const {};
+    return !historyAtStart.contains(cached.id) &&
+        cached.incoming == transient.incoming &&
+        cached.text == transient.text;
   }
 
   void _handleError(Object error, {bool changeState = true}) {

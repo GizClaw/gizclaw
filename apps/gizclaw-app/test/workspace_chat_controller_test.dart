@@ -554,6 +554,74 @@ void main() {
     ]);
   });
 
+  test(
+    'hides a matching cached reply while its live text is streaming',
+    () async {
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(database.close);
+      final repository = _ControlledHistoryRepository(database)
+        ..history = const [
+          CachedWorkspaceMessage(
+            id: 'history-old',
+            incoming: true,
+            text: 'Earlier reply',
+            createdAt: null,
+            replayAvailable: false,
+          ),
+        ];
+      final controller = WorkspaceChatController(
+        workspaceName: 'translator',
+        repository: repository,
+        serverId: 'server-a',
+        client: GizClawClient(_NeverDataChannelFactory()),
+      );
+      addTearDown(controller.close);
+      addTearDown(repository.close);
+      await controller.start(conversation: false);
+
+      controller.handleEventForTesting(
+        PeerStreamEvent(
+          type: 'text.delta',
+          streamId: 'answer-new',
+          label: 'assistant',
+          text: 'New reply',
+        ),
+      );
+      repository.emit([
+        ...repository.history,
+        const CachedWorkspaceMessage(
+          id: 'history-new',
+          incoming: true,
+          text: 'New reply',
+          createdAt: null,
+          replayAvailable: false,
+        ),
+      ]);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(controller.messages, hasLength(2));
+      expect(controller.messages.map((message) => message.id), [
+        'history-old',
+        'stream-answer-new-assistant',
+      ]);
+      expect(controller.messages.last.state, WorkspaceMessageState.streaming);
+
+      controller.handleEventForTesting(
+        PeerStreamEvent(
+          type: 'text.done',
+          streamId: 'answer-new',
+          label: 'assistant',
+          text: '',
+        ),
+      );
+
+      expect(controller.messages.map((message) => message.id), [
+        'history-old',
+        'history-new',
+      ]);
+    },
+  );
+
   test('refreshes history explicitly for lifecycle convergence', () async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(database.close);
