@@ -1110,7 +1110,7 @@ func (r *Runtime) commitDrive(
 			Id: r.newID(), OwnerPublicKey: owner, RuntimeProfileName: ruleset.Name,
 			PetId: &pet.Id, GameResultId: &gameResult.Id, PetExpDelta: evaluated.PetExpDelta,
 			BadgeExpDelta: badgeDelta, SourceType: "game_result", SourceId: gameResult.Id,
-			Reason: stringPtr(strings.TrimSpace(evaluated.Reason)), CreatedAt: now,
+			Reason: new(strings.TrimSpace(evaluated.Reason)), CreatedAt: now,
 		}
 	} else {
 		applyCareBehavior(&pet, behavior, actionPolicy.StatDelta)
@@ -1124,7 +1124,7 @@ func (r *Runtime) commitDrive(
 			Id: grantID, OwnerPublicKey: owner, RuntimeProfileName: ruleset.Name,
 			PetId: &pet.Id, PetExpDelta: expDelta, BadgeExpDelta: map[string]int64{},
 			SourceType: "pet_behavior", SourceId: sourceID,
-			Reason: stringPtr("behavior." + string(behavior)), CreatedAt: now,
+			Reason: new("behavior." + string(behavior)), CreatedAt: now,
 		}
 	}
 	applyPetExp(&pet, grant.PetExpDelta, ruleset.Spec.Experience.Leveling)

@@ -222,8 +222,6 @@ pkgs/gizclaw/services/device/firmware/server_test.go:556:6: int64Ptr can be an i
 pkgs/gizclaw/services/device/firmware/server_test.go:78:81: call of ptr(x) can be simplified to new(x)
 pkgs/gizclaw/services/gameplay/pixa.go:165:6: for loop can be modernized using range over int
 pkgs/gizclaw/services/gameplay/reward.go:207:6: stringPtr can be an inlinable wrapper around new(expr)
-pkgs/gizclaw/services/gameplay/runtime.go:1081:12: call of stringPtr(x) can be simplified to new(x)
-pkgs/gizclaw/services/gameplay/runtime.go:1095:12: call of stringPtr(x) can be simplified to new(x)
 pkgs/gizclaw/services/runtime/agent/resolver.go:63:5: HasPrefix + TrimPrefix can be simplified to CutPrefix
 pkgs/gizclaw/services/runtime/peer/store_ops.go:398:5: if statement can be modernized using min
 pkgs/gizclaw/services/runtime/peerresource/access.go:629:6: ptr can be an inlinable wrapper around new(expr)

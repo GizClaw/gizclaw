@@ -321,9 +321,7 @@ func TestStoreDirectFactObservationIsIdempotent(t *testing.T) {
 	var wait sync.WaitGroup
 	errs := make(chan error, workers)
 	for range workers {
-		wait.Add(1)
-		go func() {
-			defer wait.Done()
+		wait.Go(func() {
 			result, err := store.Observe(context.Background(), observation)
 			if err == nil && (len(result.Facts) != 1 ||
 				len(result.Facts[0].Sources) != 1 ||
@@ -332,7 +330,7 @@ func TestStoreDirectFactObservationIsIdempotent(t *testing.T) {
 				err = fmt.Errorf("unexpected result %#v", result)
 			}
 			errs <- err
-		}()
+		})
 	}
 	wait.Wait()
 	close(errs)
