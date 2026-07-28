@@ -35,6 +35,27 @@ func TestSupportsCreateIfAbsent(t *testing.T) {
 	}
 }
 
+func TestSupportsCompareAndMutate(t *testing.T) {
+	supported := kv.NewMemory(nil)
+	unsupported := storeWithoutCreateIfAbsent{Store: supported}
+	for _, tc := range []struct {
+		name  string
+		store kv.Store
+		want  bool
+	}{
+		{name: "supported", store: supported, want: true},
+		{name: "unsupported", store: unsupported},
+		{name: "prefixed supported", store: kv.Prefixed(supported, kv.Key{"supported"}), want: true},
+		{name: "prefixed unsupported", store: kv.Prefixed(unsupported, kv.Key{"unsupported"})},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := kv.SupportsCompareAndMutate(tc.store); got != tc.want {
+				t.Fatalf("SupportsCompareAndMutate() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestCreateIfAbsentRejectsUnsupportedStore(t *testing.T) {
 	store := storeWithoutCreateIfAbsent{Store: kv.NewMemory(nil)}
 	var _ kv.Store = store
@@ -180,6 +201,69 @@ func TestCreateIfAbsentGuardWinsEntryCollision(t *testing.T) {
 			}
 			if value, err := store.Get(ctx, guard.Key); err != nil || string(value) != "guard" {
 				t.Fatalf("Get(guard) = %q, %v", value, err)
+			}
+		})
+	}
+}
+
+func TestCompareAndMutateRequiresExactGuardValue(t *testing.T) {
+	for _, fixture := range []struct {
+		name string
+		new  func(*testing.T) kv.Store
+	}{
+		{name: "memory", new: func(*testing.T) kv.Store { return kv.NewMemory(nil) }},
+		{name: "badger", new: func(t *testing.T) kv.Store { return newTestStore(t, nil) }},
+		{
+			name: "prefixed memory",
+			new: func(*testing.T) kv.Store {
+				return kv.Prefixed(kv.NewMemory(nil), kv.Key{"scope"})
+			},
+		},
+	} {
+		t.Run(fixture.name, func(t *testing.T) {
+			store := fixture.new(t)
+			ctx := context.Background()
+			guard := kv.Key{"pending", "resource"}
+			record := kv.Key{"records", "winner"}
+			if err := store.Set(ctx, guard, []byte("incarnation-b")); err != nil {
+				t.Fatalf("seed guard: %v", err)
+			}
+			matched, err := kv.CompareAndMutate(
+				ctx,
+				store,
+				guard,
+				[]byte("incarnation-a"),
+				[]kv.Entry{{
+					Key:      record,
+					Value:    []byte("wrong"),
+					Deadline: time.Now().Add(-time.Second),
+				}},
+				[]kv.Key{guard},
+			)
+			if err != nil || matched {
+				t.Fatalf("CompareAndMutate(stale) = %v, %v; want false, nil", matched, err)
+			}
+			if value, err := store.Get(ctx, guard); err != nil ||
+				string(value) != "incarnation-b" {
+				t.Fatalf("Get(guard) after stale compare = %q, %v", value, err)
+			}
+			matched, err = kv.CompareAndMutate(
+				ctx,
+				store,
+				guard,
+				[]byte("incarnation-b"),
+				[]kv.Entry{{Key: record, Value: []byte("winner")}},
+				[]kv.Key{guard},
+			)
+			if err != nil || !matched {
+				t.Fatalf("CompareAndMutate(current) = %v, %v; want true, nil", matched, err)
+			}
+			if _, err := store.Get(ctx, guard); !errors.Is(err, kv.ErrNotFound) {
+				t.Fatalf("Get(guard) error = %v, want ErrNotFound", err)
+			}
+			if value, err := store.Get(ctx, record); err != nil ||
+				string(value) != "winner" {
+				t.Fatalf("Get(record) = %q, %v", value, err)
 			}
 		})
 	}

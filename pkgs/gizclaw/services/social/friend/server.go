@@ -72,15 +72,57 @@ type inviteTokenRecord struct {
 }
 
 type retirementIntent struct {
-	RelationID   string              `json:"relation_id"`
-	FirstPeer    string              `json:"first_peer"`
-	SecondPeer   string              `json:"second_peer"`
-	Workspace    string              `json:"workspace_name"`
-	Relationship rpcapi.FriendObject `json:"relationship"`
-	DeletedAt    time.Time           `json:"deleted_at"`
+	RelationID     string              `json:"relation_id"`
+	FirstPeer      string              `json:"first_peer"`
+	SecondPeer     string              `json:"second_peer"`
+	Workspace      string              `json:"workspace_name"`
+	Relationship   rpcapi.FriendObject `json:"relationship"`
+	DeletedAt      time.Time           `json:"deleted_at"`
+	CancelCreation bool                `json:"cancel_creation,omitempty"`
 }
 
-var retirementIntentsRoot = kv.Key{"friend-retirement-intents"}
+type creationIntent struct {
+	RelationID     string    `json:"relation_id"`
+	FirstPeer      string    `json:"first_peer"`
+	SecondPeer     string    `json:"second_peer"`
+	WorkspaceOwner string    `json:"workspace_owner"`
+	IncarnationID  string    `json:"incarnation_id"`
+	Workspace      string    `json:"workspace_name"`
+	Workflow       string    `json:"workflow_name"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+
+// creationDecision is the immutable, per-incarnation winner between committing
+// reciprocal Friend rows and cancelling a still-pending creation. It remains
+// durable so a delayed creator cannot commit after cancellation has completed.
+type creationDecision struct {
+	RelationID    string `json:"relation_id"`
+	IncarnationID string `json:"incarnation_id"`
+	Workspace     string `json:"workspace_name"`
+	State         string `json:"state"`
+}
+
+type retirementReceipt struct {
+	RelationID string    `json:"relation_id"`
+	FirstPeer  string    `json:"first_peer"`
+	SecondPeer string    `json:"second_peer"`
+	Workspace  string    `json:"workspace_name"`
+	DeletedAt  time.Time `json:"deleted_at"`
+}
+
+var (
+	creationIntentsRoot    = kv.Key{"friend-creation-intents"}
+	creationDecisionsRoot  = kv.Key{"friend-creation-decisions"}
+	retirementIntentsRoot  = kv.Key{"friend-retirement-intents"}
+	retirementReceiptsRoot = kv.Key{"friend-retirement-receipts"}
+)
+
+const (
+	creationDecisionCommitted = "committed"
+	creationDecisionCancelled = "cancelled"
+)
+
+var errFriendCreationCancelled = errors.New("social: Friend creation was cancelled")
 
 func (s *Server) GetFriendInviteToken(ctx context.Context, owner string, _ rpcapi.FriendInviteTokenGetRequest) (rpcapi.FriendInviteTokenGetResponse, error) {
 	store, err := s.inviteTokensStore()
@@ -158,27 +200,7 @@ func (s *Server) AddFriend(ctx context.Context, owner string, req rpcapi.FriendA
 	relationID := socialutil.RelationID(owner, to)
 	unlock := s.lockRelation(relationID)
 	defer unlock()
-	if existing, err := s.GetFriendRelation(ctx, owner, relationID); err == nil {
-		workspaceName := socialutil.DirectWorkspaceName(relationID)
-		if socialutil.StringValue(existing.WorkspaceName) != workspaceName {
-			return rpcapi.FriendAddResponse{}, errors.New("social: existing friend has a different Workspace domain binding")
-		}
-		return existing, nil
-	} else if !errors.Is(err, kv.ErrNotFound) {
-		return rpcapi.FriendAddResponse{}, err
-	}
-	workspaceName, rollback, err := s.ensureDirectChatWorkspace(ctx, owner, to, to)
-	if err != nil {
-		return rpcapi.FriendAddResponse{}, err
-	}
-	friend, err := s.createFriendRows(ctx, owner, to, workspaceName)
-	if err != nil {
-		if rollback != nil {
-			rollback()
-		}
-		return rpcapi.FriendAddResponse{}, err
-	}
-	return friend, nil
+	return s.createFriend(ctx, owner, to, to)
 }
 
 func (s *Server) AdminCreateFriend(ctx context.Context, owner string, peerPublicKey string) (rpcapi.FriendObject, error) {
@@ -193,27 +215,7 @@ func (s *Server) AdminCreateFriend(ctx context.Context, owner string, peerPublic
 	relationID := socialutil.RelationID(owner, peerPublicKey)
 	unlock := s.lockRelation(relationID)
 	defer unlock()
-	if existing, err := s.GetFriendRelation(ctx, owner, relationID); err == nil {
-		workspaceName := socialutil.DirectWorkspaceName(relationID)
-		if socialutil.StringValue(existing.WorkspaceName) != workspaceName {
-			return rpcapi.FriendObject{}, errors.New("social: existing friend has a different Workspace domain binding")
-		}
-		return existing, nil
-	} else if !errors.Is(err, kv.ErrNotFound) {
-		return rpcapi.FriendObject{}, err
-	}
-	workspaceName, rollback, err := s.ensureDirectChatWorkspace(ctx, owner, peerPublicKey, owner)
-	if err != nil {
-		return rpcapi.FriendObject{}, err
-	}
-	friend, err := s.createFriendRows(ctx, owner, peerPublicKey, workspaceName)
-	if err != nil {
-		if rollback != nil {
-			rollback()
-		}
-		return rpcapi.FriendObject{}, err
-	}
-	return friend, nil
+	return s.createFriend(ctx, owner, peerPublicKey, owner)
 }
 
 func (s *Server) lockRelation(relationID string) func() {
@@ -352,12 +354,23 @@ func (s *Server) DeleteFriend(ctx context.Context, owner string, req rpcapi.Frie
 		if !errors.Is(err, kv.ErrNotFound) {
 			return rpcapi.FriendObject{}, err
 		}
+		creation, creationErr := readCreationIntent(ctx, store, relationID)
+		if creationErr == nil {
+			return s.cancelFriendCreation(ctx, store, owner, relationID, creation)
+		}
+		if !errors.Is(creationErr, kv.ErrNotFound) {
+			return rpcapi.FriendObject{}, creationErr
+		}
 		intent, intentErr := readRetirementIntent(ctx, store, relationID)
 		if intentErr != nil {
 			if errors.Is(intentErr, kv.ErrNotFound) {
 				return s.completedFriendDeletion(ctx, owner, relationID)
 			}
 			return rpcapi.FriendObject{}, intentErr
+		}
+		intent, err = validateRetirementIntent(intent, relationID)
+		if err != nil {
+			return rpcapi.FriendObject{}, err
 		}
 		if owner != intent.FirstPeer && owner != intent.SecondPeer {
 			return rpcapi.FriendObject{}, kv.ErrNotFound
@@ -367,6 +380,16 @@ func (s *Server) DeleteFriend(ctx context.Context, owner string, req rpcapi.Frie
 		}
 		return friendObjectForRetirement(owner, intent), nil
 	}
+	return s.retireActiveFriend(ctx, store, owner, relationID, item)
+}
+
+func (s *Server) retireActiveFriend(
+	ctx context.Context,
+	store kv.Store,
+	owner string,
+	relationID string,
+	item rpcapi.FriendObject,
+) (rpcapi.FriendObject, error) {
 	other := strings.TrimSpace(socialutil.StringValue(item.PeerPublicKey))
 	workspaceName := strings.TrimSpace(socialutil.StringValue(item.WorkspaceName))
 	if workspaceName == "" {
@@ -404,6 +427,124 @@ func (s *Server) DeleteFriend(ctx context.Context, owner string, req rpcapi.Frie
 	return friendObjectForOwner(owner, item), nil
 }
 
+func (s *Server) cancelFriendCreation(
+	ctx context.Context,
+	store kv.Store,
+	owner string,
+	relationID string,
+	creation creationIntent,
+) (rpcapi.FriendObject, error) {
+	creation, err := validateCreationIntent(
+		creation,
+		relationID,
+		creation.WorkspaceOwner,
+	)
+	if err != nil {
+		return rpcapi.FriendObject{}, err
+	}
+	if owner != creation.FirstPeer && owner != creation.SecondPeer {
+		return rpcapi.FriendObject{}, kv.ErrNotFound
+	}
+	other := creation.FirstPeer
+	if owner == creation.FirstPeer {
+		other = creation.SecondPeer
+	}
+	if item, active, err := readActiveRelationship(
+		ctx,
+		store,
+		owner,
+		other,
+	); err != nil {
+		return rpcapi.FriendObject{}, err
+	} else if active {
+		return s.retireActiveFriend(ctx, store, owner, relationID, item)
+	}
+	intent := retirementIntent{
+		RelationID:     creation.RelationID,
+		FirstPeer:      creation.FirstPeer,
+		SecondPeer:     creation.SecondPeer,
+		Workspace:      creation.Workspace,
+		DeletedAt:      s.now(),
+		CancelCreation: true,
+	}
+	data, err := json.Marshal(intent)
+	if err != nil {
+		return rpcapi.FriendObject{}, err
+	}
+	decision := creationDecision{
+		RelationID:    creation.RelationID,
+		IncarnationID: creation.IncarnationID,
+		Workspace:     creation.Workspace,
+		State:         creationDecisionCancelled,
+	}
+	decisionData, err := json.Marshal(decision)
+	if err != nil {
+		return rpcapi.FriendObject{}, err
+	}
+	existing, created, err := kv.CreateIfAbsent(
+		ctx,
+		store,
+		kv.Entry{
+			Key:   creationDecisionKey(creation.RelationID, creation.IncarnationID),
+			Value: decisionData,
+		},
+		[]kv.Entry{{Key: retirementIntentKey(intent.RelationID), Value: data}},
+	)
+	if err != nil {
+		return rpcapi.FriendObject{}, err
+	}
+	if !created {
+		if err := json.Unmarshal(existing, &decision); err != nil {
+			return rpcapi.FriendObject{}, err
+		}
+		if err := validateCreationDecision(decision, creation); err != nil {
+			return rpcapi.FriendObject{}, err
+		}
+		if decision.State == creationDecisionCommitted {
+			item, active, err := readActiveRelationship(ctx, store, owner, other)
+			if err != nil {
+				return rpcapi.FriendObject{}, err
+			}
+			if !active {
+				return rpcapi.FriendObject{}, errors.New(
+					"social: committed Friend creation is missing reciprocal rows",
+				)
+			}
+			return s.retireActiveFriend(ctx, store, owner, relationID, item)
+		}
+		persisted, err := readRetirementIntent(ctx, store, relationID)
+		if err == nil {
+			persisted, err = validateRetirementIntent(persisted, relationID)
+			if err != nil {
+				return rpcapi.FriendObject{}, err
+			}
+			if persisted.CancelCreation &&
+				persisted.Workspace == creation.Workspace {
+				intent = persisted
+			} else {
+				if err := deleteCreationIntent(ctx, store, creation); err != nil {
+					return rpcapi.FriendObject{}, err
+				}
+				return friendObjectForRetirement(owner, intent), nil
+			}
+		} else if errors.Is(err, kv.ErrNotFound) {
+			if err := deleteCreationIntent(ctx, store, creation); err != nil {
+				return rpcapi.FriendObject{}, err
+			}
+			return friendObjectForRetirement(owner, intent), nil
+		} else {
+			return rpcapi.FriendObject{}, err
+		}
+	}
+	if err := deleteCreationIntent(ctx, store, creation); err != nil {
+		return rpcapi.FriendObject{}, err
+	}
+	if err := s.completeFriendRetirement(ctx, store, intent); err != nil {
+		return rpcapi.FriendObject{}, err
+	}
+	return friendObjectForRetirement(owner, intent), nil
+}
+
 func (s *Server) completedFriendDeletion(
 	ctx context.Context,
 	owner string,
@@ -412,6 +553,23 @@ func (s *Server) completedFriendDeletion(
 	peer := relationPeer(owner, relationID)
 	if peer == "" {
 		return rpcapi.FriendObject{}, kv.ErrNotFound
+	}
+	store, err := s.friendsStore()
+	if err != nil {
+		return rpcapi.FriendObject{}, err
+	}
+	receipt, err := readRetirementReceipt(ctx, store, relationID)
+	if err == nil {
+		if err := validateRetirementReceipt(receipt, relationID); err != nil {
+			return rpcapi.FriendObject{}, err
+		}
+		if owner != receipt.FirstPeer && owner != receipt.SecondPeer {
+			return rpcapi.FriendObject{}, kv.ErrNotFound
+		}
+		return friendObjectForReceipt(owner, receipt), nil
+	}
+	if !errors.Is(err, kv.ErrNotFound) {
+		return rpcapi.FriendObject{}, err
 	}
 	workspaceName := socialutil.DirectWorkspaceName(relationID)
 	if _, err := s.Workspaces.RetireSystemWorkspace(
@@ -514,18 +672,239 @@ func adminFriendCursorAfter(cursor string) kv.Key {
 	return append(append(kv.Key{}, socialutil.FriendsRoot...), parts[0], parts[1])
 }
 
-func (s *Server) createFriendRows(ctx context.Context, from, to, workspaceName string) (rpcapi.FriendObject, error) {
+func (s *Server) createFriend(
+	ctx context.Context,
+	from string,
+	to string,
+	workspaceOwner string,
+) (rpcapi.FriendObject, error) {
 	store, err := s.friendsStore()
 	if err != nil {
 		return rpcapi.FriendObject{}, err
 	}
-	rel := socialutil.RelationID(from, to)
-	now := s.now()
+	for {
+		existing, active, err := readActiveRelationship(ctx, store, from, to)
+		if err != nil {
+			return rpcapi.FriendObject{}, err
+		}
+		if active {
+			return existing, nil
+		}
+		intent, err := s.getOrCreateCreationIntent(
+			ctx,
+			store,
+			from,
+			to,
+			workspaceOwner,
+		)
+		if err != nil {
+			return rpcapi.FriendObject{}, err
+		}
+		decisionState, err := s.reconcileCreationDecision(ctx, store, intent)
+		if err != nil {
+			return rpcapi.FriendObject{}, err
+		}
+		if decisionState == creationDecisionCancelled {
+			return rpcapi.FriendObject{}, errFriendCreationCancelled
+		}
+		if decisionState != "" {
+			continue
+		}
+		if err := s.ensureCreationWorkspace(ctx, intent); err != nil {
+			return rpcapi.FriendObject{}, err
+		}
+		return s.commitFriendCreation(ctx, store, from, to, intent)
+	}
+}
+
+func readActiveRelationship(
+	ctx context.Context,
+	store kv.Store,
+	from string,
+	to string,
+) (rpcapi.FriendObject, bool, error) {
+	relationID := socialutil.RelationID(from, to)
+	fromItem, fromErr := socialutil.ReadJSONValue[rpcapi.FriendObject](
+		ctx,
+		store,
+		socialutil.FriendKey(from, relationID),
+	)
+	toItem, toErr := socialutil.ReadJSONValue[rpcapi.FriendObject](
+		ctx,
+		store,
+		socialutil.FriendKey(to, relationID),
+	)
+	fromMissing := errors.Is(fromErr, kv.ErrNotFound)
+	toMissing := errors.Is(toErr, kv.ErrNotFound)
+	if fromMissing && toMissing {
+		return rpcapi.FriendObject{}, false, nil
+	}
+	if fromErr != nil && !fromMissing {
+		return rpcapi.FriendObject{}, false, fromErr
+	}
+	if toErr != nil && !toMissing {
+		return rpcapi.FriendObject{}, false, toErr
+	}
+	if fromMissing != toMissing {
+		return rpcapi.FriendObject{}, false, errors.New(
+			"social: reciprocal Friend relationship is incomplete",
+		)
+	}
+	fromWorkspace := strings.TrimSpace(socialutil.StringValue(fromItem.WorkspaceName))
+	toWorkspace := strings.TrimSpace(socialutil.StringValue(toItem.WorkspaceName))
+	if strings.TrimSpace(socialutil.StringValue(fromItem.PeerPublicKey)) != to ||
+		strings.TrimSpace(socialutil.StringValue(toItem.PeerPublicKey)) != from ||
+		fromWorkspace != toWorkspace {
+		return rpcapi.FriendObject{}, false, errors.New(
+			"social: reciprocal Friend relationship is inconsistent",
+		)
+	}
+	if fromWorkspace == "" {
+		legacyWorkspace := socialutil.DirectWorkspaceName(relationID)
+		fromItem.WorkspaceName = &legacyWorkspace
+	}
+	return friendObjectForOwner(from, fromItem), true, nil
+}
+
+func (s *Server) getOrCreateCreationIntent(
+	ctx context.Context,
+	store kv.Store,
+	from string,
+	to string,
+	workspaceOwner string,
+) (creationIntent, error) {
+	relationID := socialutil.RelationID(from, to)
+	if intent, err := readCreationIntent(ctx, store, relationID); err == nil {
+		return validateCreationIntent(intent, relationID, workspaceOwner)
+	} else if !errors.Is(err, kv.ErrNotFound) {
+		return creationIntent{}, err
+	}
+	if s == nil || s.Workspaces == nil {
+		return creationIntent{}, errors.New("social: Workspace creation service not configured")
+	}
+	if s.RuntimeProfileForOwner == nil {
+		return creationIntent{}, errors.New("social: runtime profile resolver is not configured")
+	}
+	profile, err := s.RuntimeProfileForOwner(ctx, workspaceOwner)
+	if err != nil {
+		return creationIntent{}, err
+	}
+	incarnationID := strings.TrimSpace(s.newID())
+	if incarnationID == "" {
+		return creationIntent{}, errors.New("social: friend Workspace incarnation is empty")
+	}
+	first, second := from, to
+	if first > second {
+		first, second = second, first
+	}
+	intent := creationIntent{
+		RelationID:     relationID,
+		FirstPeer:      first,
+		SecondPeer:     second,
+		WorkspaceOwner: strings.TrimSpace(workspaceOwner),
+		IncarnationID:  incarnationID,
+		Workspace:      socialutil.DirectWorkspaceIncarnationName(relationID, incarnationID),
+		Workflow:       strings.TrimSpace(profile.Spec.Workflows.System.FriendChatroom),
+		CreatedAt:      s.now(),
+	}
+	if _, err := validateCreationIntent(intent, relationID, workspaceOwner); err != nil {
+		return creationIntent{}, err
+	}
+	data, err := json.Marshal(intent)
+	if err != nil {
+		return creationIntent{}, err
+	}
+	existing, created, err := kv.CreateIfAbsent(
+		ctx,
+		store,
+		kv.Entry{Key: creationIntentKey(relationID), Value: data},
+		nil,
+	)
+	if err != nil {
+		return creationIntent{}, err
+	}
+	if created {
+		return intent, nil
+	}
+	if err := json.Unmarshal(existing, &intent); err != nil {
+		return creationIntent{}, err
+	}
+	return validateCreationIntent(intent, relationID, workspaceOwner)
+}
+
+func validateCreationIntent(
+	intent creationIntent,
+	relationID string,
+	workspaceOwner string,
+) (creationIntent, error) {
+	first, second := intent.FirstPeer, intent.SecondPeer
+	if first > second {
+		return creationIntent{}, errors.New("social: Friend creation intent peers are not canonical")
+	}
+	if intent.RelationID != strings.TrimSpace(intent.RelationID) ||
+		intent.RelationID != relationID ||
+		first == "" ||
+		second == "" ||
+		first != strings.TrimSpace(first) ||
+		second != strings.TrimSpace(second) ||
+		socialutil.RelationID(first, second) != relationID ||
+		intent.WorkspaceOwner != strings.TrimSpace(intent.WorkspaceOwner) ||
+		intent.WorkspaceOwner != strings.TrimSpace(workspaceOwner) ||
+		(intent.WorkspaceOwner != first && intent.WorkspaceOwner != second) ||
+		intent.IncarnationID == "" ||
+		intent.IncarnationID != strings.TrimSpace(intent.IncarnationID) ||
+		intent.Workflow == "" ||
+		intent.Workflow != strings.TrimSpace(intent.Workflow) ||
+		intent.Workspace != strings.TrimSpace(intent.Workspace) ||
+		intent.Workspace != socialutil.DirectWorkspaceIncarnationName(
+			relationID,
+			intent.IncarnationID,
+		) ||
+		intent.CreatedAt.IsZero() {
+		return creationIntent{}, fmt.Errorf(
+			"social: invalid Friend creation intent %q",
+			relationID,
+		)
+	}
+	return intent, nil
+}
+
+func (s *Server) ensureCreationWorkspace(ctx context.Context, intent creationIntent) error {
+	if s == nil || s.Workspaces == nil {
+		return errors.New("social: Workspace creation service not configured")
+	}
+	body := adminhttp.WorkspaceUpsert{
+		Name:         intent.Workspace,
+		WorkflowName: intent.Workflow,
+		Parameters:   socialutil.ChatRoomWorkspaceParameters(apitypes.ChatRoomModeDirect),
+	}
+	_, _, err := s.Workspaces.CreateSystemWorkspace(
+		ownership.WithOwner(ctx, intent.WorkspaceOwner),
+		body,
+	)
+	return err
+}
+
+func (s *Server) commitFriendCreation(
+	ctx context.Context,
+	store kv.Store,
+	from string,
+	to string,
+	intent creationIntent,
+) (rpcapi.FriendObject, error) {
+	relationID := socialutil.RelationID(from, to)
 	entries := make([]kv.Entry, 0, 2)
 	var ownerRow rpcapi.FriendObject
+	now := s.now()
 	for _, row := range []struct{ owner, peer string }{{from, to}, {to, from}} {
 		peer := row.peer
-		item := rpcapi.FriendObject{Id: &peer, PeerPublicKey: &peer, WorkspaceName: &workspaceName, CreatedAt: &now, UpdatedAt: &now}
+		item := rpcapi.FriendObject{
+			Id:            &peer,
+			PeerPublicKey: &peer,
+			WorkspaceName: &intent.Workspace,
+			CreatedAt:     &intent.CreatedAt,
+			UpdatedAt:     &now,
+		}
 		if row.owner == from {
 			ownerRow = item
 		}
@@ -533,71 +912,289 @@ func (s *Server) createFriendRows(ctx context.Context, from, to, workspaceName s
 		if err != nil {
 			return rpcapi.FriendObject{}, err
 		}
-		entries = append(entries, kv.Entry{Key: socialutil.FriendKey(row.owner, rel), Value: data})
+		entries = append(entries, kv.Entry{
+			Key:   socialutil.FriendKey(row.owner, relationID),
+			Value: data,
+		})
 	}
-	if err := store.BatchSet(ctx, entries); err != nil {
+	decision := creationDecision{
+		RelationID:    intent.RelationID,
+		IncarnationID: intent.IncarnationID,
+		Workspace:     intent.Workspace,
+		State:         creationDecisionCommitted,
+	}
+	decisionData, err := json.Marshal(decision)
+	if err != nil {
 		return rpcapi.FriendObject{}, err
+	}
+	existingDecision, created, err := kv.CreateIfAbsent(
+		ctx,
+		store,
+		kv.Entry{
+			Key:   creationDecisionKey(relationID, intent.IncarnationID),
+			Value: decisionData,
+		},
+		entries,
+	)
+	if err != nil {
+		return rpcapi.FriendObject{}, err
+	}
+	if !created {
+		if err := json.Unmarshal(existingDecision, &decision); err != nil {
+			return rpcapi.FriendObject{}, err
+		}
+		if err := validateCreationDecision(decision, intent); err != nil {
+			return rpcapi.FriendObject{}, err
+		}
+		switch decision.State {
+		case creationDecisionCancelled:
+			if _, err := s.Workspaces.DeleteSystemWorkspace(
+				ctx,
+				intent.Workspace,
+			); err != nil && !errors.Is(err, kv.ErrNotFound) {
+				return rpcapi.FriendObject{}, err
+			}
+			if err := deleteCreationIntent(ctx, store, intent); err != nil {
+				return rpcapi.FriendObject{}, err
+			}
+			return rpcapi.FriendObject{}, errFriendCreationCancelled
+		case creationDecisionCommitted:
+			existing, active, err := readActiveRelationship(ctx, store, from, to)
+			if err != nil {
+				return rpcapi.FriendObject{}, err
+			}
+			if !active {
+				if err := deleteCreationIntent(ctx, store, intent); err != nil {
+					return rpcapi.FriendObject{}, err
+				}
+				return rpcapi.FriendObject{}, errFriendCreationCancelled
+			}
+			if socialutil.StringValue(existing.WorkspaceName) != intent.Workspace {
+				return rpcapi.FriendObject{}, errors.New(
+					"social: committed Friend creation is missing reciprocal rows",
+				)
+			}
+			if err := deleteCreationIntent(ctx, store, intent); err != nil {
+				return rpcapi.FriendObject{}, err
+			}
+			return existing, nil
+		}
 	}
 	s.notifyRelationship(
 		ctx,
 		from,
 		to,
-		workspaceName,
+		intent.Workspace,
 		eventpb.FriendRelationshipChange_FRIEND_RELATIONSHIP_CHANGE_CREATED,
 		now,
 	)
+	if err := deleteCreationIntent(ctx, store, intent); err != nil {
+		return rpcapi.FriendObject{}, err
+	}
 	return ownerRow, nil
 }
 
-func (s *Server) ensureDirectChatWorkspace(ctx context.Context, from, to, owner string) (string, func(), error) {
-	if from == "" || to == "" || strings.TrimSpace(owner) == "" {
-		return "", nil, errors.New("social: friend peers are required")
+func (s *Server) reconcileCreationDecision(
+	ctx context.Context,
+	store kv.Store,
+	intent creationIntent,
+) (string, error) {
+	decision, err := readCreationDecision(ctx, store, intent)
+	if errors.Is(err, kv.ErrNotFound) {
+		return "", nil
 	}
-	workspaceName := socialutil.DirectWorkspaceName(socialutil.RelationID(from, to))
-	created := false
-	if s.Workspaces != nil {
-		if s.RuntimeProfileForOwner == nil {
-			return "", nil, errors.New("social: runtime profile resolver is not configured")
-		}
-		profile, err := s.RuntimeProfileForOwner(ctx, owner)
-		if err != nil {
-			return "", nil, err
-		}
-		body := adminhttp.WorkspaceUpsert{
-			Name:         workspaceName,
-			WorkflowName: profile.Spec.Workflows.System.FriendChatroom,
-			Parameters:   socialutil.ChatRoomWorkspaceParameters(apitypes.ChatRoomModeDirect),
-		}
-		_, wasCreated, err := s.Workspaces.CreateSystemWorkspace(ownership.WithOwner(ctx, owner), body)
-		if err != nil {
-			return "", nil, err
-		}
-		created = wasCreated
+	if err != nil {
+		return "", err
 	}
-	rollback := func() {
-		if created {
-			_ = s.deleteWorkspace(ctx, workspaceName)
-		}
+	if err := validateCreationDecision(decision, intent); err != nil {
+		return "", err
 	}
-	return workspaceName, rollback, nil
+	if decision.State == creationDecisionCancelled {
+		if s == nil || s.Workspaces == nil {
+			return "", errors.New(
+				"social: Workspace creation service not configured",
+			)
+		}
+		if _, err := s.Workspaces.DeleteSystemWorkspace(
+			ctx,
+			intent.Workspace,
+		); err != nil && !errors.Is(err, kv.ErrNotFound) {
+			return "", err
+		}
+		return decision.State, deleteCreationIntent(ctx, store, intent)
+	}
+	existing, active, err := readActiveRelationship(
+		ctx,
+		store,
+		intent.FirstPeer,
+		intent.SecondPeer,
+	)
+	if err != nil {
+		return "", err
+	}
+	if active &&
+		socialutil.StringValue(existing.WorkspaceName) != intent.Workspace {
+		return "", errors.New(
+			"social: active Friend relationship conflicts with creation decision",
+		)
+	}
+	return decision.State, deleteCreationIntent(ctx, store, intent)
 }
 
 func (s *Server) completeFriendRetirement(ctx context.Context, store kv.Store, intent retirementIntent) error {
 	if s == nil || s.Workspaces == nil {
 		return errors.New("social: Workspace retirement service not configured")
 	}
-	if _, err := s.Workspaces.RetireSystemWorkspace(
+	if _, err := validateRetirementIntent(intent, intent.RelationID); err != nil {
+		return err
+	}
+	if intent.CancelCreation {
+		if _, err := s.Workspaces.DeleteSystemWorkspace(
+			ctx,
+			intent.Workspace,
+		); err != nil && !errors.Is(err, kv.ErrNotFound) {
+			return err
+		}
+	} else {
+		if _, err := s.Workspaces.RetireSystemWorkspace(
+			ctx,
+			intent.Workspace,
+			apitypes.ChatRoomModeDirect,
+			intent.RelationID,
+		); err != nil {
+			return err
+		}
+	}
+	receipt := retirementReceipt{
+		RelationID: intent.RelationID,
+		FirstPeer:  intent.FirstPeer,
+		SecondPeer: intent.SecondPeer,
+		Workspace:  intent.Workspace,
+		DeletedAt:  intent.DeletedAt,
+	}
+	data, err := json.Marshal(receipt)
+	if err != nil {
+		return err
+	}
+	intentKey := retirementIntentKey(intent.RelationID)
+	stored, err := store.Get(ctx, intentKey)
+	if errors.Is(err, kv.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	var current retirementIntent
+	if err := json.Unmarshal(stored, &current); err != nil {
+		return err
+	}
+	current, err = validateRetirementIntent(current, intent.RelationID)
+	if err != nil {
+		return err
+	}
+	if current.Workspace != intent.Workspace ||
+		!current.DeletedAt.Equal(intent.DeletedAt) ||
+		current.CancelCreation != intent.CancelCreation {
+		return nil
+	}
+	matched, err := kv.CompareAndMutate(
 		ctx,
-		intent.Workspace,
-		apitypes.ChatRoomModeDirect,
-		intent.RelationID,
-	); err != nil {
+		store,
+		intentKey,
+		stored,
+		[]kv.Entry{{Key: retirementReceiptKey(intent.RelationID), Value: data}},
+		[]kv.Key{intentKey},
+	)
+	if err != nil {
 		return err
 	}
-	if err := store.Delete(ctx, retirementIntentKey(intent.RelationID)); err != nil {
+	if matched && !intent.CancelCreation {
+		s.notifyFriendRetirement(ctx, intent)
+	}
+	return nil
+}
+
+// ReconcileCreationIntents completes Workspace-first relationship creations
+// that stopped before the reciprocal Friend rows committed.
+func (s *Server) ReconcileCreationIntents(ctx context.Context) error {
+	store, err := s.friendsStore()
+	if err != nil {
 		return err
 	}
-	s.notifyFriendRetirement(ctx, intent)
+	for entry, err := range store.List(ctx, creationIntentsRoot) {
+		if err != nil {
+			return err
+		}
+		if len(entry.Key) != len(creationIntentsRoot)+1 {
+			continue
+		}
+		relationID := strings.TrimSpace(
+			socialutil.UnescapeStoreSegment(entry.Key[len(creationIntentsRoot)]),
+		)
+		var listed creationIntent
+		if err := json.Unmarshal(entry.Value, &listed); err != nil {
+			return err
+		}
+		if relationID == "" || strings.TrimSpace(listed.RelationID) != relationID {
+			return fmt.Errorf("social: invalid Friend creation intent %q", relationID)
+		}
+		unlock := s.lockRelation(relationID)
+		current, readErr := readCreationIntent(ctx, store, relationID)
+		if errors.Is(readErr, kv.ErrNotFound) {
+			unlock()
+			continue
+		}
+		if readErr != nil {
+			unlock()
+			return readErr
+		}
+		current, err = validateCreationIntent(
+			current,
+			relationID,
+			current.WorkspaceOwner,
+		)
+		if err == nil {
+			var decisionState string
+			decisionState, err = s.reconcileCreationDecision(ctx, store, current)
+			if err == nil && decisionState == "" {
+				var existing rpcapi.FriendObject
+				var active bool
+				existing, active, err = readActiveRelationship(
+					ctx,
+					store,
+					current.FirstPeer,
+					current.SecondPeer,
+				)
+				if err == nil && active {
+					if socialutil.StringValue(existing.WorkspaceName) != current.Workspace {
+						err = errors.New(
+							"social: active Friend relationship conflicts with creation intent",
+						)
+					} else {
+						err = deleteCreationIntent(ctx, store, current)
+					}
+				} else if err == nil {
+					err = s.ensureCreationWorkspace(ctx, current)
+					if err == nil {
+						_, err = s.commitFriendCreation(
+							ctx,
+							store,
+							current.FirstPeer,
+							current.SecondPeer,
+							current,
+						)
+						if errors.Is(err, errFriendCreationCancelled) {
+							err = nil
+						}
+					}
+				}
+			}
+		}
+		unlock()
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -634,6 +1231,11 @@ func (s *Server) ReconcileRetirementIntents(ctx context.Context) error {
 		if readErr != nil {
 			unlock()
 			return readErr
+		}
+		current, err = validateRetirementIntent(current, relationID)
+		if err != nil {
+			unlock()
+			return err
 		}
 		err = s.completeFriendRetirement(ctx, store, current)
 		unlock()
@@ -692,8 +1294,134 @@ func retirementIntentKey(relationID string) kv.Key {
 	return append(append(kv.Key{}, retirementIntentsRoot...), socialutil.EscapeStoreSegment(relationID))
 }
 
+func creationIntentKey(relationID string) kv.Key {
+	return append(append(kv.Key{}, creationIntentsRoot...), socialutil.EscapeStoreSegment(relationID))
+}
+
+func creationDecisionKey(relationID string, incarnationID string) kv.Key {
+	return append(
+		append(kv.Key{}, creationDecisionsRoot...),
+		socialutil.EscapeStoreSegment(relationID),
+		socialutil.EscapeStoreSegment(incarnationID),
+	)
+}
+
+func retirementReceiptKey(relationID string) kv.Key {
+	return append(
+		append(kv.Key{}, retirementReceiptsRoot...),
+		socialutil.EscapeStoreSegment(relationID),
+	)
+}
+
+func readCreationIntent(ctx context.Context, store kv.Store, relationID string) (creationIntent, error) {
+	return socialutil.ReadJSONValue[creationIntent](ctx, store, creationIntentKey(relationID))
+}
+
+func deleteCreationIntent(
+	ctx context.Context,
+	store kv.Store,
+	intent creationIntent,
+) error {
+	key := creationIntentKey(intent.RelationID)
+	data, err := store.Get(ctx, key)
+	if errors.Is(err, kv.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	var current creationIntent
+	if err := json.Unmarshal(data, &current); err != nil {
+		return err
+	}
+	current, err = validateCreationIntent(
+		current,
+		intent.RelationID,
+		current.WorkspaceOwner,
+	)
+	if err != nil {
+		return err
+	}
+	if current.IncarnationID != intent.IncarnationID ||
+		current.Workspace != intent.Workspace {
+		return nil
+	}
+	_, err = kv.CompareAndMutate(ctx, store, key, data, nil, []kv.Key{key})
+	return err
+}
+
+func readCreationDecision(
+	ctx context.Context,
+	store kv.Store,
+	intent creationIntent,
+) (creationDecision, error) {
+	return socialutil.ReadJSONValue[creationDecision](
+		ctx,
+		store,
+		creationDecisionKey(intent.RelationID, intent.IncarnationID),
+	)
+}
+
+func validateCreationDecision(decision creationDecision, intent creationIntent) error {
+	if decision.RelationID != intent.RelationID ||
+		decision.IncarnationID != intent.IncarnationID ||
+		decision.Workspace != intent.Workspace ||
+		(decision.State != creationDecisionCommitted &&
+			decision.State != creationDecisionCancelled) {
+		return fmt.Errorf(
+			"social: invalid Friend creation decision %q",
+			intent.RelationID,
+		)
+	}
+	return nil
+}
+
 func readRetirementIntent(ctx context.Context, store kv.Store, relationID string) (retirementIntent, error) {
 	return socialutil.ReadJSONValue[retirementIntent](ctx, store, retirementIntentKey(relationID))
+}
+
+func readRetirementReceipt(ctx context.Context, store kv.Store, relationID string) (retirementReceipt, error) {
+	return socialutil.ReadJSONValue[retirementReceipt](ctx, store, retirementReceiptKey(relationID))
+}
+
+func validateRetirementIntent(
+	intent retirementIntent,
+	relationID string,
+) (retirementIntent, error) {
+	if intent.RelationID != strings.TrimSpace(intent.RelationID) ||
+		intent.RelationID != relationID ||
+		intent.FirstPeer == "" ||
+		intent.SecondPeer == "" ||
+		intent.FirstPeer != strings.TrimSpace(intent.FirstPeer) ||
+		intent.SecondPeer != strings.TrimSpace(intent.SecondPeer) ||
+		intent.FirstPeer > intent.SecondPeer ||
+		socialutil.RelationID(intent.FirstPeer, intent.SecondPeer) != relationID ||
+		intent.Workspace == "" ||
+		intent.Workspace != strings.TrimSpace(intent.Workspace) ||
+		intent.DeletedAt.IsZero() {
+		return retirementIntent{}, fmt.Errorf(
+			"social: invalid Friend retirement intent %q",
+			relationID,
+		)
+	}
+	return intent, nil
+}
+
+func validateRetirementReceipt(receipt retirementReceipt, relationID string) error {
+	if receipt.RelationID != strings.TrimSpace(receipt.RelationID) ||
+		receipt.RelationID != relationID ||
+		receipt.FirstPeer == "" ||
+		receipt.SecondPeer == "" ||
+		receipt.FirstPeer != strings.TrimSpace(receipt.FirstPeer) ||
+		receipt.SecondPeer != strings.TrimSpace(receipt.SecondPeer) ||
+		receipt.FirstPeer > receipt.SecondPeer ||
+		socialutil.RelationID(receipt.FirstPeer, receipt.SecondPeer) != relationID ||
+		receipt.Workspace == "" ||
+		receipt.Workspace != strings.TrimSpace(receipt.Workspace) ||
+		receipt.DeletedAt.IsZero() {
+		return fmt.Errorf("social: invalid Friend retirement receipt %q", relationID)
+	}
+	return nil
 }
 
 func friendObjectForRetirement(owner string, intent retirementIntent) rpcapi.FriendObject {
@@ -708,15 +1436,16 @@ func friendObjectForRetirement(owner string, intent retirementIntent) rpcapi.Fri
 	return item
 }
 
-func (s *Server) deleteWorkspace(ctx context.Context, workspaceName string) error {
-	if s == nil || s.Workspaces == nil {
-		return nil
+func friendObjectForReceipt(owner string, receipt retirementReceipt) rpcapi.FriendObject {
+	peer := receipt.FirstPeer
+	if owner == receipt.FirstPeer {
+		peer = receipt.SecondPeer
 	}
-	_, err := s.Workspaces.DeleteSystemWorkspace(ctx, workspaceName)
-	if errors.Is(err, kv.ErrNotFound) {
-		return nil
+	return rpcapi.FriendObject{
+		Id:            &peer,
+		PeerPublicKey: &peer,
+		WorkspaceName: &receipt.Workspace,
 	}
-	return err
 }
 
 func (s *Server) activeInviteToken(ctx context.Context, store kv.Store, owner string) (inviteTokenRecord, bool, error) {

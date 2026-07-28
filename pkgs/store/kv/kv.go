@@ -23,6 +23,9 @@ var (
 	// ErrCreateIfAbsentUnsupported is returned when a Store does not implement
 	// the optional atomic conditional-create capability.
 	ErrCreateIfAbsentUnsupported = errors.New("kv: atomic create-if-absent unsupported")
+	// ErrCompareAndMutateUnsupported is returned when a Store does not implement
+	// the optional atomic compare-and-mutate capability.
+	ErrCompareAndMutateUnsupported = errors.New("kv: atomic compare-and-mutate unsupported")
 )
 
 // Key is a hierarchical path represented as a slice of string segments.
@@ -81,6 +84,27 @@ type createIfAbsentStore interface {
 	CreateIfAbsent(ctx context.Context, guard Entry, entries []Entry) (existing []byte, created bool, err error)
 }
 
+type compareAndMutateStore interface {
+	CompareAndMutate(
+		ctx context.Context,
+		guard Key,
+		expected []byte,
+		entries []Entry,
+		keys []Key,
+	) (matched bool, err error)
+}
+
+// SupportsCompareAndMutate reports whether store provides the atomic
+// compare-and-mutate capability. Prefixed stores inherit support from their
+// underlying store.
+func SupportsCompareAndMutate(store Store) bool {
+	if prefixed, ok := store.(*prefixedStore); ok {
+		return SupportsCompareAndMutate(prefixed.base)
+	}
+	_, ok := store.(compareAndMutateStore)
+	return ok
+}
+
 // SupportsCreateIfAbsent reports whether store provides the atomic
 // conditional-create capability. Prefixed stores inherit support from their
 // underlying store.
@@ -103,6 +127,24 @@ func CreateIfAbsent(ctx context.Context, store Store, guard Entry, entries []Ent
 		return nil, false, ErrCreateIfAbsentUnsupported
 	}
 	return conditional.CreateIfAbsent(ctx, guard, entries)
+}
+
+// CompareAndMutate atomically applies entries and deletes when guard still has
+// the exact expected value. A missing or changed guard returns matched=false
+// without changing any key.
+func CompareAndMutate(
+	ctx context.Context,
+	store Store,
+	guard Key,
+	expected []byte,
+	entries []Entry,
+	keys []Key,
+) (matched bool, err error) {
+	conditional, ok := store.(compareAndMutateStore)
+	if !ok {
+		return false, ErrCompareAndMutateUnsupported
+	}
+	return conditional.CompareAndMutate(ctx, guard, expected, entries, keys)
 }
 
 type listAfterStore interface {

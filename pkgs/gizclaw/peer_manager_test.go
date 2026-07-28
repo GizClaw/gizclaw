@@ -15,7 +15,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
@@ -457,7 +456,7 @@ func TestManagerWorkspaceHistoryEventsUseCurrentDirectChatAccess(t *testing.T) {
 	first := giznet.PublicKey{11}
 	second := giznet.PublicKey{12}
 	unrelated := giznet.PublicKey{13}
-	friends := &friend.Server{Friends: kv.NewMemory(nil)}
+	friends := newTestFriendServer(kv.NewMemory(nil))
 	relation, err := friends.AdminCreateFriendResource(
 		ctx,
 		first.String(),
@@ -576,7 +575,7 @@ func TestManagerChatroomAccessUsesAuthoritativeRelationships(t *testing.T) {
 	caller := giznet.PublicKey{1}
 	other := giznet.PublicKey{2}
 
-	friends := &friend.Server{Friends: kv.NewMemory(nil)}
+	friends := newTestFriendServer(kv.NewMemory(nil))
 	relation, err := friends.AdminCreateFriendResource(ctx, caller.String(), other.String())
 	if err != nil {
 		t.Fatalf("AdminCreateFriendResource: %v", err)

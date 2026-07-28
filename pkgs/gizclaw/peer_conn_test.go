@@ -29,7 +29,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
@@ -97,7 +96,7 @@ func TestPeerConnRejectsRevokedChatroomTurnWithoutPushingAgentInput(t *testing.T
 	ctx := t.Context()
 	caller := giznet.PublicKey{31}
 	other := giznet.PublicKey{32}
-	friends := &friend.Server{Friends: kv.NewMemory(nil)}
+	friends := newTestFriendServer(kv.NewMemory(nil))
 	relation, err := friends.AdminCreateFriendResource(ctx, caller.String(), other.String())
 	if err != nil {
 		t.Fatalf("AdminCreateFriendResource: %v", err)
@@ -171,9 +170,23 @@ func TestPeerConnRejectsRevokedChatroomTurnWithoutPushingAgentInput(t *testing.T
 	}); err != nil {
 		t.Fatalf("write revoked input EOS: %v", err)
 	}
-	friends.Workspaces = nil
-	if _, err := friends.AdminCreateFriendResource(ctx, caller.String(), other.String()); err != nil {
+	restored, err := friends.AdminCreateFriendResource(ctx, caller.String(), other.String())
+	if err != nil {
 		t.Fatalf("restore friend relationship: %v", err)
+	}
+	if restored.WorkspaceName == relation.WorkspaceName {
+		t.Fatalf("restored Workspace = %q, want a new incarnation", restored.WorkspaceName)
+	}
+	manager.Workspaces = staticWorkspaceService{workspace: apitypes.Workspace{
+		Name:       restored.WorkspaceName,
+		Parameters: socialutil.ChatRoomWorkspaceParameters(apitypes.ChatRoomModeDirect),
+	}}
+	if _, err := runs.SetRunAgent(
+		ctx,
+		caller,
+		apitypes.AgentSelection{WorkspaceName: restored.WorkspaceName},
+	); err != nil {
+		t.Fatalf("SetRunAgent restored Workspace: %v", err)
 	}
 	secondBOS := proto.Clone(firstBOS).(*eventpb.PeerEvent)
 	secondBOS.GetBos().StreamId = "turn-2"
@@ -268,7 +281,7 @@ func TestPeerConnReauthorizesAudioPacketsAfterChatroomAccessIsRevoked(t *testing
 	ctx := t.Context()
 	caller := giznet.PublicKey{34}
 	other := giznet.PublicKey{35}
-	friends := &friend.Server{Friends: kv.NewMemory(nil)}
+	friends := newTestFriendServer(kv.NewMemory(nil))
 	relation, err := friends.AdminCreateFriendResource(ctx, caller.String(), other.String())
 	if err != nil {
 		t.Fatalf("AdminCreateFriendResource: %v", err)
@@ -344,9 +357,23 @@ func TestPeerConnReauthorizesAudioPacketsAfterChatroomAccessIsRevoked(t *testing
 	if got := denial.GetEos().GetError().GetCode(); got != chatroom.AccessCodeFriendRemoved {
 		t.Fatalf("denial code = %q, want %q", got, chatroom.AccessCodeFriendRemoved)
 	}
-	friends.Workspaces = nil
-	if _, err := friends.AdminCreateFriendResource(ctx, caller.String(), other.String()); err != nil {
+	restored, err := friends.AdminCreateFriendResource(ctx, caller.String(), other.String())
+	if err != nil {
 		t.Fatalf("restore friend relationship: %v", err)
+	}
+	if restored.WorkspaceName == relation.WorkspaceName {
+		t.Fatalf("restored Workspace = %q, want a new incarnation", restored.WorkspaceName)
+	}
+	peer.Service.manager.Workspaces = staticWorkspaceService{workspace: apitypes.Workspace{
+		Name:       restored.WorkspaceName,
+		Parameters: socialutil.ChatRoomWorkspaceParameters(apitypes.ChatRoomModeDirect),
+	}}
+	if _, err := runs.SetRunAgent(
+		ctx,
+		caller,
+		apitypes.AgentSelection{WorkspaceName: restored.WorkspaceName},
+	); err != nil {
+		t.Fatalf("SetRunAgent restored Workspace: %v", err)
 	}
 	nextBOS := proto.Clone(bos).(*eventpb.PeerEvent)
 	nextBOS.GetBos().StreamId = "turn-after-revoke"

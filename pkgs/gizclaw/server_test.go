@@ -34,6 +34,18 @@ type storeWithoutAtomicCreate struct {
 	kv.Store
 }
 
+type storeWithoutAtomicCompare struct {
+	kv.Store
+}
+
+func (s storeWithoutAtomicCompare) CreateIfAbsent(
+	ctx context.Context,
+	guard kv.Entry,
+	entries []kv.Entry,
+) ([]byte, bool, error) {
+	return kv.CreateIfAbsent(ctx, s.Store, guard, entries)
+}
+
 func (p testGiznetSecurityPolicy) AllowPeer(giznet.PublicKey) bool {
 	return true
 }
@@ -58,7 +70,7 @@ func TestServerListenRequiresPeerStore(t *testing.T) {
 	}
 }
 
-func TestServerInitRequiresPendingDeletionStoreCapabilities(t *testing.T) {
+func TestServerInitRequiresAtomicStoreCapabilities(t *testing.T) {
 	keyPair, err := giznet.GenerateKeyPair()
 	if err != nil {
 		t.Fatalf("GenerateKeyPair() error = %v", err)
@@ -87,6 +99,15 @@ func TestServerInitRequiresPendingDeletionStoreCapabilities(t *testing.T) {
 			wantMessage: "workspace store",
 		},
 		{
+			name: "friend store",
+			server: &Server{
+				LocalStatic: *keyPair,
+				PeerStore:   kv.NewMemory(nil),
+				FriendStore: storeWithoutAtomicCreate{Store: kv.NewMemory(nil)},
+			},
+			wantMessage: "friend store",
+		},
+		{
 			name: "friend group relationship store",
 			server: &Server{
 				LocalStatic:                 *keyPair,
@@ -105,6 +126,43 @@ func TestServerInitRequiresPendingDeletionStoreCapabilities(t *testing.T) {
 				t.Fatalf("init() error = %v, want %q wrapping ErrCreateIfAbsentUnsupported", err, tc.wantMessage)
 			}
 		})
+	}
+	compareServer := &Server{
+		LocalStatic: *keyPair,
+		PeerStore:   kv.NewMemory(nil),
+		FriendStore: storeWithoutAtomicCompare{Store: kv.NewMemory(nil)},
+	}
+	err = compareServer.init()
+	if !errors.Is(err, kv.ErrCompareAndMutateUnsupported) ||
+		!strings.Contains(err.Error(), "friend store") {
+		t.Fatalf(
+			"init() error = %v, want friend store wrapping ErrCompareAndMutateUnsupported",
+			err,
+		)
+	}
+}
+
+func TestServerInitReconcilesFriendCreationIntents(t *testing.T) {
+	keyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair() error = %v", err)
+	}
+	friendStore := mustBadgerInMemory(t, nil)
+	if err := friendStore.Set(
+		t.Context(),
+		kv.Key{"friend-creation-intents", "invalid"},
+		[]byte("{"),
+	); err != nil {
+		t.Fatalf("write malformed Friend creation intent: %v", err)
+	}
+	server := &Server{
+		LocalStatic: *keyPair,
+		PeerStore:   mustBadgerInMemory(t, nil),
+		FriendStore: friendStore,
+	}
+	err = server.init()
+	if err == nil || !strings.Contains(err.Error(), "reconcile Friend creation intents") {
+		t.Fatalf("init() error = %v, want Friend creation reconciliation error", err)
 	}
 }
 

@@ -204,6 +204,14 @@ func DirectWorkspaceName(relationID string) string {
 	return "social-direct-" + shortHash(strings.TrimSpace(relationID))
 }
 
+// DirectWorkspaceIncarnationName returns the system Workspace name for one
+// lifecycle of a direct-friend relationship.
+func DirectWorkspaceIncarnationName(relationID, incarnationID string) string {
+	return "social-direct-" + shortHash(
+		strings.TrimSpace(relationID)+"\x00"+strings.TrimSpace(incarnationID),
+	)
+}
+
 func GroupWorkspaceName(friendGroupID string) string {
 	return "social-group-" + shortHash(strings.TrimSpace(friendGroupID))
 }

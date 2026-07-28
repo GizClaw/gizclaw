@@ -95,6 +95,14 @@ func TestScalarHelpersAndRoles(t *testing.T) {
 	if got := DirectWorkspaceName("peer-a:peer-b"); got == "" || got == DirectWorkspaceName("peer-a:peer-c") || !strings.HasPrefix(got, "social-direct-") {
 		t.Fatalf("DirectWorkspaceName returned unstable value %q", got)
 	}
+	first := DirectWorkspaceIncarnationName("peer-a:peer-b", "incarnation-a")
+	if first == "" ||
+		first != DirectWorkspaceIncarnationName(" peer-a:peer-b ", " incarnation-a ") ||
+		first == DirectWorkspaceIncarnationName("peer-a:peer-b", "incarnation-b") ||
+		first == DirectWorkspaceIncarnationName("peer-a:peer-c", "incarnation-a") ||
+		!strings.HasPrefix(first, "social-direct-") {
+		t.Fatalf("DirectWorkspaceIncarnationName returned invalid value %q", first)
+	}
 	if got := GroupWorkspaceName("group-a"); got == "" || !strings.HasPrefix(got, "social-group-") {
 		t.Fatalf("GroupWorkspaceName = %q", got)
 	}
