@@ -2,7 +2,7 @@ apps/wails/internal/endpointhealth/prober.go:67:5: if statement can be modernize
 apps/wails/internal/endpointhealth/prober.go:74:3: copying variable is unneeded
 apps/wails/internal/endpointhealth/prober.go:76:3: Goroutine creation can be simplified using WaitGroup.Go
 cmd/internal/commands/admin/resource.go:379:6: for loop can be modernized using range over int
-cmd/internal/commands/connect/command.go:995:6: stringPtr can be an inlinable wrapper around new(expr)
+cmd/internal/commands/connect/command.go:997:6: stringPtr can be an inlinable wrapper around new(expr)
 cmd/internal/server/tcp_mux.go:32:2: Goroutine creation can be simplified using WaitGroup.Go
 cmd/internal/server/tcp_mux.go:67:3: Goroutine creation can be simplified using WaitGroup.Go
 cmd/internal/server/workspace_test.go:114:72: Replace []byte(fmt.Sprintf...) with fmt.Appendf

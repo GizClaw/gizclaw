@@ -214,6 +214,8 @@ func newTestSpeedCmd() *cobra.Command {
 			fmt.Fprintf(out, "Up Bytes:     %d\n", result.UpBytes)
 			fmt.Fprintf(out, "Down Bytes:   %d\n", result.DownBytes)
 			fmt.Fprintf(out, "Duration:     %v\n", result.Duration.Round(time.Millisecond))
+			fmt.Fprintf(out, "Up Duration:  %v\n", result.UpDuration.Round(time.Millisecond))
+			fmt.Fprintf(out, "Down Duration: %v\n", result.DownDuration.Round(time.Millisecond))
 			fmt.Fprintf(out, "Up Speed:     %.2f Mbps\n", result.UpMbps())
 			fmt.Fprintf(out, "Down Speed:   %.2f Mbps\n", result.DownMbps())
 			return nil

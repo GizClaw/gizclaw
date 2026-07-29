@@ -47,6 +47,18 @@ func TestRPCSpeedTest(t *testing.T) {
 			if result.Duration <= 0 {
 				t.Fatalf("Duration = %v, want positive", result.Duration)
 			}
+			if tc.upLength > 0 && result.UpDuration <= 0 {
+				t.Fatalf("UpDuration = %v, want positive", result.UpDuration)
+			}
+			if tc.downLength > 0 && result.DownDuration <= 0 {
+				t.Fatalf("DownDuration = %v, want positive", result.DownDuration)
+			}
+			if tc.upLength == 0 && result.UpDuration != 0 {
+				t.Fatalf("UpDuration = %v, want zero", result.UpDuration)
+			}
+			if tc.downLength == 0 && result.DownDuration != 0 {
+				t.Fatalf("DownDuration = %v, want zero", result.DownDuration)
+			}
 			if err := clientSide.Close(); err != nil {
 				t.Fatalf("client close error = %v", err)
 			}
@@ -57,12 +69,81 @@ func TestRPCSpeedTest(t *testing.T) {
 	}
 }
 
+func TestRPCSpeedTestServerEOSAcknowledgesConsumedUpload(t *testing.T) {
+	clientSide, serverSide := net.Pipe()
+	defer clientSide.Close()
+	defer serverSide.Close()
+
+	serverErr := make(chan error, 1)
+	go func() {
+		serverErr <- (&rpcServer{}).Handle(serverSide)
+	}()
+	stream, err := newRPCStream(context.Background(), clientSide)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stream.Close()
+	params, err := newRPCRequestParams(
+		rpcapi.SpeedTestRequest{UpContentLength: 1},
+		(*rpcapi.RPCPayload).FromSpeedTestRequest,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := stream.WriteRequest(newRPCRequest("speed-eos", rpcapi.RPCMethodAllSpeedTestRun, params)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := stream.ReadResponseForMethod(rpcapi.RPCMethodAllSpeedTestRun); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := clientSide.SetReadDeadline(time.Now().Add(50 * time.Millisecond)); err != nil {
+		t.Fatal(err)
+	}
+	if frame, err := stream.ReadFrame(); err == nil {
+		t.Fatalf("server sent frame %v before consuming upload", frame.Type)
+	}
+	if err := clientSide.SetReadDeadline(time.Time{}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := stream.WriteFrame(rpcapi.Frame{Type: rpcapi.FrameTypeBinary, Payload: []byte{1}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := stream.WriteEOS(); err != nil {
+		t.Fatal(err)
+	}
+	if err := stream.ReadEOS(); err != nil {
+		t.Fatal(err)
+	}
+	if err := clientSide.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := <-serverErr; err != nil {
+		t.Fatalf("server Handle error = %v", err)
+	}
+}
+
 func TestRPCSpeedTestRejectsInvalidLength(t *testing.T) {
 	_, err := callRPCSpeedTest(context.Background(), nil, "speed", rpcapi.SpeedTestRequest{
 		UpContentLength: -1,
 	})
 	if err == nil {
 		t.Fatal("callRPCSpeedTest should reject invalid length")
+	}
+}
+
+func TestSpeedTestResultMbpsFallsBackToTotalDuration(t *testing.T) {
+	result := SpeedTestResult{
+		UpBytes:   1_000_000,
+		DownBytes: 2_000_000,
+		Duration:  time.Second,
+	}
+	if got := result.UpMbps(); got != 8 {
+		t.Fatalf("UpMbps() = %v, want 8", got)
+	}
+	if got := result.DownMbps(); got != 16 {
+		t.Fatalf("DownMbps() = %v, want 16", got)
 	}
 }
 

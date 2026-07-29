@@ -125,6 +125,7 @@ fixed entrypoints:
 
 ```sh
 bash tests/gizclaw-e2e/run_edge_failure_tests.sh
+bash tests/gizclaw-e2e/run_gateway_capacity_tests.sh
 
 GIZCLAW_E2E_VOLC_LOG_ENDPOINT=... \
 GIZCLAW_E2E_VOLC_LOG_REGION=... \
@@ -132,8 +133,14 @@ GIZCLAW_E2E_VOLC_LOG_TOPIC_ID=... \
   bash tests/gizclaw-e2e/run_volc_log_tests.sh
 ```
 
-All four GizClaw entrypoints require the same complete
-`tests/gizclaw-e2e/.env`.
+All five GizClaw entrypoints require the same complete
+`tests/gizclaw-e2e/.env`. The gateway-capacity entrypoint fixes the local
+one-Server/two-Edge selection at the 100-session baseline. In addition to
+connection hold and ping rounds, all 100 sessions synchronously upload and
+download 4 MiB each, with aggregate throughput measured over one shared
+wall-clock interval. The single-session control uses a sustained 32 MiB
+payload. The machine-readable artifact is written under ignored `testdata/`;
+this is not a long-soak or higher-session capacity promise.
 
 ## GenX provider E2E
 

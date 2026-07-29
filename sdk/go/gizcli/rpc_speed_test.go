@@ -14,15 +14,28 @@ import (
 
 func TestSpeedTestResultMbps(t *testing.T) {
 	result := SpeedTestResult{
-		UpBytes:   1_000_000,
-		DownBytes: 2_000_000,
-		Duration:  time.Second,
+		UpBytes:      1_000_000,
+		DownBytes:    2_000_000,
+		UpDuration:   time.Second,
+		DownDuration: 2 * time.Second,
+		Duration:     3 * time.Second,
 	}
 	if got := result.UpMbps(); got != 8 {
 		t.Fatalf("UpMbps() = %v, want 8", got)
 	}
-	if got := result.DownMbps(); got != 16 {
-		t.Fatalf("DownMbps() = %v, want 16", got)
+	if got := result.DownMbps(); got != 8 {
+		t.Fatalf("DownMbps() = %v, want 8", got)
+	}
+	legacy := SpeedTestResult{
+		UpBytes:   1_000_000,
+		DownBytes: 2_000_000,
+		Duration:  time.Second,
+	}
+	if got := legacy.UpMbps(); got != 8 {
+		t.Fatalf("legacy UpMbps() = %v, want 8", got)
+	}
+	if got := legacy.DownMbps(); got != 16 {
+		t.Fatalf("legacy DownMbps() = %v, want 16", got)
 	}
 	if got := (SpeedTestResult{}).UpMbps(); got != 0 {
 		t.Fatalf("zero UpMbps() = %v, want 0", got)
@@ -173,6 +186,9 @@ func TestCallRPCSpeedTestRoundTrip(t *testing.T) {
 	}
 	if result.UpBytes != 777 || result.DownBytes != 999 {
 		t.Fatalf("callRPCSpeedTest() result = %+v", result)
+	}
+	if result.UpDuration <= 0 || result.DownDuration <= 0 || result.Duration <= 0 {
+		t.Fatalf("callRPCSpeedTest() durations = %+v, want positive", result)
 	}
 	if err := <-serverErrCh; err != nil {
 		t.Fatalf("server error = %v", err)

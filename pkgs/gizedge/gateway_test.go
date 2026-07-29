@@ -1,14 +1,18 @@
 package gizedge
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -25,6 +29,8 @@ func (gatewayAllowAllPolicy) AllowPeer(giznet.PublicKey) bool { return true }
 func (gatewayAllowAllPolicy) AllowService(giznet.PublicKey, uint64) bool {
 	return true
 }
+
+const gatewayBenchmarkBytesPerStream = 8 * 1024 * 1024
 
 func TestGatewayBridgesServiceAndPacketOverSharedUpstream(t *testing.T) {
 	serverKey, err := giznet.GenerateKeyPair()
@@ -250,6 +256,520 @@ func TestGatewayPoolLeastActiveAndCumulativeRotation(t *testing.T) {
 	if len(pool.entries) != 1 || pool.entries[0] != second {
 		t.Fatalf("rotated entries = %+v", pool.entries)
 	}
+}
+
+func TestGatewayPoolExpandsBeforeSharingSCTPAssociation(t *testing.T) {
+	cfg := Config{Gateway: GatewayConfig{
+		MaxUpstreams:        3,
+		SessionsPerUpstream: 2048,
+		StreamsPerUpstream:  8192,
+	}}
+	first := &gatewayUpstream{active: 1, opened: 1}
+	created := 0
+	pool := &gatewayPool{
+		cfg:     cfg,
+		entries: []*gatewayUpstream{first},
+		newUpstream: func(context.Context) (*gatewayUpstream, error) {
+			created++
+			return &gatewayUpstream{}, nil
+		},
+	}
+	first.pool = pool
+
+	second, releaseSecond, err := pool.acquire(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer releaseSecond()
+	if second == first || created != 1 || len(pool.entries) != 2 {
+		t.Fatalf("second acquisition reused association: selected=%p first=%p created=%d entries=%d",
+			second, first, created, len(pool.entries))
+	}
+
+	third, releaseThird, err := pool.acquire(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer releaseThird()
+	if third == first || third == second || created != 2 || len(pool.entries) != 3 {
+		t.Fatalf("third acquisition reused association: selected=%p first=%p second=%p created=%d entries=%d",
+			third, first, second, created, len(pool.entries))
+	}
+
+	fourth, releaseFourth, err := pool.acquire(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer releaseFourth()
+	if fourth != first || first.active != 2 {
+		t.Fatalf("full pool did not fall back to least-active association: selected=%p first=%p active=%d",
+			fourth, first, first.active)
+	}
+}
+
+func TestGatewayPoolGrowthFailureUsesExistingCapacity(t *testing.T) {
+	cfg := Config{Gateway: GatewayConfig{
+		MaxUpstreams:        2,
+		SessionsPerUpstream: 2,
+		StreamsPerUpstream:  4,
+	}}
+	first := &gatewayUpstream{active: 1, opened: 1}
+	attempts := 0
+	pool := &gatewayPool{
+		cfg:     cfg,
+		entries: []*gatewayUpstream{first},
+		newUpstream: func(context.Context) (*gatewayUpstream, error) {
+			attempts++
+			return nil, errors.New("dial unavailable")
+		},
+	}
+	first.pool = pool
+
+	selected, release, err := pool.acquire(context.Background())
+	if err != nil {
+		t.Fatalf("acquire with existing capacity: %v", err)
+	}
+	if selected != first || first.active != 2 {
+		t.Fatalf("selected=%p first=%p active=%d, want existing association at capacity",
+			selected, first, first.active)
+	}
+	release()
+
+	selected, release, err = pool.acquire(context.Background())
+	if err != nil {
+		t.Fatalf("acquire during growth cooldown: %v", err)
+	}
+	defer release()
+	if selected != first || attempts != 1 {
+		t.Fatalf("cooldown selected=%p first=%p attempts=%d, want existing association without redial",
+			selected, first, attempts)
+	}
+}
+
+func TestGatewayPoolGrowthDoesNotBlockOtherAdmissions(t *testing.T) {
+	cfg := Config{Gateway: GatewayConfig{
+		MaxUpstreams:        2,
+		SessionsPerUpstream: 2,
+		StreamsPerUpstream:  4,
+	}}
+	first := &gatewayUpstream{active: 1, opened: 1}
+	growthStarted := make(chan struct{})
+	allowGrowth := make(chan struct{})
+	pool := &gatewayPool{
+		cfg:     cfg,
+		entries: []*gatewayUpstream{first},
+		newUpstream: func(context.Context) (*gatewayUpstream, error) {
+			close(growthStarted)
+			<-allowGrowth
+			return &gatewayUpstream{}, nil
+		},
+	}
+	first.pool = pool
+
+	type acquireResult struct {
+		entry   *gatewayUpstream
+		release func()
+		err     error
+	}
+	growthResult := make(chan acquireResult, 1)
+	go func() {
+		entry, release, err := pool.acquire(context.Background())
+		growthResult <- acquireResult{entry: entry, release: release, err: err}
+	}()
+	select {
+	case <-growthStarted:
+	case <-time.After(time.Second):
+		t.Fatal("pool growth did not start")
+	}
+
+	admissionCtx, cancelAdmission := context.WithTimeout(context.Background(), time.Second)
+	defer cancelAdmission()
+	admissionResult := make(chan acquireResult, 1)
+	go func() {
+		entry, release, err := pool.acquire(admissionCtx)
+		admissionResult <- acquireResult{entry: entry, release: release, err: err}
+	}()
+
+	time.Sleep(20 * time.Millisecond)
+	close(allowGrowth)
+	results := make([]acquireResult, 0, 2)
+	select {
+	case result := <-growthResult:
+		if result.err != nil {
+			t.Fatalf("growth acquire: %v", result.err)
+		}
+		results = append(results, result)
+	case <-time.After(time.Second):
+		t.Fatal("growth acquire did not complete")
+	}
+	select {
+	case result := <-admissionResult:
+		if result.err != nil {
+			t.Fatalf("concurrent acquire: %v", result.err)
+		}
+		results = append(results, result)
+	case <-time.After(time.Second):
+		t.Fatal("concurrent acquire did not complete")
+	}
+	defer results[0].release()
+	defer results[1].release()
+	if results[0].entry == results[1].entry {
+		t.Fatalf("concurrent admissions selected the same association %p", results[0].entry)
+	}
+	if results[0].entry != first && results[1].entry != first {
+		t.Fatalf("concurrent admissions did not retain existing association %p", first)
+	}
+}
+
+func TestGatewayPoolCancelStopsGrowthAndWaiters(t *testing.T) {
+	poolCtx, cancelPool := context.WithCancel(context.Background())
+	cfg := Config{Gateway: GatewayConfig{
+		MaxUpstreams:        2,
+		SessionsPerUpstream: 2,
+		StreamsPerUpstream:  4,
+	}}
+	first := &gatewayUpstream{active: 1, opened: 1}
+	growthStarted := make(chan struct{})
+	pool := &gatewayPool{
+		ctx:     poolCtx,
+		cfg:     cfg,
+		entries: []*gatewayUpstream{first},
+		newUpstream: func(ctx context.Context) (*gatewayUpstream, error) {
+			close(growthStarted)
+			<-ctx.Done()
+			return nil, ctx.Err()
+		},
+	}
+	first.pool = pool
+
+	firstResult := make(chan error, 1)
+	go func() {
+		_, _, err := pool.acquire(context.Background())
+		firstResult <- err
+	}()
+	select {
+	case <-growthStarted:
+	case <-time.After(time.Second):
+		t.Fatal("pool growth did not start")
+	}
+
+	waiterResult := make(chan error, 1)
+	go func() {
+		_, _, err := pool.acquire(context.Background())
+		waiterResult <- err
+	}()
+	time.Sleep(20 * time.Millisecond)
+	cancelPool()
+
+	select {
+	case err := <-firstResult:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("growth error = %v, want context canceled", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("growth did not stop after pool cancellation")
+	}
+	select {
+	case err := <-waiterResult:
+		if !errors.Is(err, giznet.ErrConnClosed) {
+			t.Fatalf("waiter error = %v, want connection closed", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("growth waiter did not stop after pool cancellation")
+	}
+}
+
+func BenchmarkGatewayServiceThroughput(b *testing.B) {
+	for _, tc := range []struct {
+		name         string
+		clients      int
+		maxUpstreams int
+	}{
+		{name: "one_client/one_upstream", clients: 1, maxUpstreams: 1},
+		{name: "three_clients/one_upstream", clients: 3, maxUpstreams: 1},
+		{name: "three_clients/sharded_upstreams", clients: 3, maxUpstreams: 3},
+		{name: "ten_clients/one_upstream", clients: 10, maxUpstreams: 1},
+		{name: "ten_clients/sharded_upstreams", clients: 10, maxUpstreams: 10},
+	} {
+		b.Run(tc.name, func(b *testing.B) {
+			streams := openGatewayThroughputStreams(b, tc.clients, tc.maxUpstreams)
+			payload := bytes.Repeat([]byte("gateway-throughput"), gatewayBenchmarkBytesPerStream/len("gateway-throughput")+1)
+			payload = payload[:gatewayBenchmarkBytesPerStream]
+
+			b.SetBytes(int64(len(payload) * len(streams)))
+			b.ReportAllocs()
+			b.ResetTimer()
+			for range b.N {
+				observation, err := transferGatewayStreams(streams, payload)
+				if err != nil {
+					b.Fatal(err)
+				}
+				b.ReportMetric(observation.minMbps, "min-client-Mbps")
+				b.ReportMetric(observation.maxMbps, "max-client-Mbps")
+			}
+		})
+	}
+}
+
+type gatewayThroughputStream struct {
+	client net.Conn
+	server net.Conn
+}
+
+type gatewayThroughputObservation struct {
+	minMbps float64
+	maxMbps float64
+}
+
+type acceptedGatewayLogical struct {
+	key     giznet.PublicKey
+	logical *giztunnel.Conn
+	err     error
+}
+
+func openGatewayThroughputStreams(tb testing.TB, clients, maxUpstreams int) []gatewayThroughputStream {
+	tb.Helper()
+	serverKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		tb.Fatal(err)
+	}
+	edgeKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		tb.Fatal(err)
+	}
+	upstreamListener, err := (&gizwebrtc.ListenConfig{
+		SecurityPolicy: gatewayAllowAllPolicy{},
+	}).Listen(serverKey)
+	if err != nil {
+		tb.Fatal(err)
+	}
+	tb.Cleanup(func() { _ = upstreamListener.Close() })
+	upstreamHTTP := httptest.NewServer(upstreamListener.SignalingHandler())
+	tb.Cleanup(upstreamHTTP.Close)
+	upstreamURL, err := url.Parse(upstreamHTTP.URL)
+	if err != nil {
+		tb.Fatal(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	tb.Cleanup(cancel)
+	logicalCh := make(chan acceptedGatewayLogical, clients)
+	go acceptGatewayBenchmarkUpstreams(ctx, upstreamListener, logicalCh)
+
+	gatewayConfig := defaultGatewayConfig()
+	gatewayConfig.Enabled = true
+	gatewayConfig.ICEUDPListen = "127.0.0.1:0"
+	gatewayConfig.MaxSessions = clients
+	gatewayConfig.MaxUpstreams = maxUpstreams
+	gatewayConfig.SessionsPerUpstream = clients
+	gatewayConfig.StreamsPerUpstream = clients * 2
+	gatewayConfig.MaxPendingHandshakes = clients
+	gatewayConfig.DrainTimeout = time.Second
+	cfg := Config{
+		KeyPair: edgeKey,
+		Upstream: UpstreamConfig{
+			Endpoint:  upstreamHTTP.URL,
+			PublicKey: serverKey.Public,
+		},
+		Gateway: gatewayConfig,
+	}
+	gateway, err := newGateway(ctx, cfg, upstreamURL)
+	if err != nil {
+		tb.Fatal(err)
+	}
+	tb.Cleanup(func() { _ = gateway.Close() })
+	edgeHTTP := httptest.NewServer(gateway.Handler(http.NotFoundHandler()))
+	tb.Cleanup(edgeHTTP.Close)
+
+	clientConns := make(map[giznet.PublicKey]giznet.Conn, clients)
+	for range clients {
+		clientKey, err := giznet.GenerateKeyPair()
+		if err != nil {
+			tb.Fatal(err)
+		}
+		dialCtx, cancelDial := context.WithTimeout(ctx, 15*time.Second)
+		clientListener, clientConn, err := gizwebrtc.Dial(
+			dialCtx,
+			clientKey,
+			edgeKey.Public,
+			gizwebrtc.DialConfig{
+				SignalingURL:   edgeHTTP.URL + gizwebrtc.SignalingPath,
+				SecurityPolicy: gatewayAllowAllPolicy{},
+			},
+		)
+		cancelDial()
+		if err != nil {
+			tb.Fatal(err)
+		}
+		tb.Cleanup(func() {
+			_ = clientConn.Close()
+			_ = clientListener.Close()
+		})
+		clientConns[clientKey.Public] = clientConn
+	}
+
+	logicals := make(map[giznet.PublicKey]*giztunnel.Conn, clients)
+	timer := time.NewTimer(15 * time.Second)
+	defer timer.Stop()
+	for len(logicals) < clients {
+		select {
+		case accepted := <-logicalCh:
+			if accepted.err != nil {
+				tb.Fatal(accepted.err)
+			}
+			logicals[accepted.key] = accepted.logical
+			tb.Cleanup(func() { _ = accepted.logical.Close() })
+		case <-timer.C:
+			tb.Fatalf("accepted %d of %d logical gateway sessions", len(logicals), clients)
+		}
+	}
+
+	streams := make([]gatewayThroughputStream, 0, clients)
+	for key, clientConn := range clientConns {
+		logical := logicals[key]
+		service := logical.ListenService(gizclaw.ServicePeerRPC)
+		serverStreamCh := make(chan struct {
+			stream net.Conn
+			err    error
+		}, 1)
+		go func() {
+			stream, err := service.Accept()
+			serverStreamCh <- struct {
+				stream net.Conn
+				err    error
+			}{stream: stream, err: err}
+		}()
+		clientStream, err := clientConn.Dial(gizclaw.ServicePeerRPC)
+		if err != nil {
+			tb.Fatal(err)
+		}
+		var serverStream net.Conn
+		select {
+		case accepted := <-serverStreamCh:
+			if accepted.err != nil {
+				tb.Fatal(accepted.err)
+			}
+			serverStream = accepted.stream
+		case <-time.After(5 * time.Second):
+			tb.Fatal("accept benchmark service stream timed out")
+		}
+		tb.Cleanup(func() {
+			_ = clientStream.Close()
+			_ = serverStream.Close()
+		})
+		streams = append(streams, gatewayThroughputStream{
+			client: clientStream,
+			server: serverStream,
+		})
+	}
+	return streams
+}
+
+func acceptGatewayBenchmarkUpstreams(
+	ctx context.Context,
+	listener *gizwebrtc.Listener,
+	logicalCh chan<- acceptedGatewayLogical,
+) {
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			return
+		}
+		go acceptGatewayBenchmarkSessions(ctx, conn, logicalCh)
+	}
+}
+
+func acceptGatewayBenchmarkSessions(
+	ctx context.Context,
+	conn giznet.Conn,
+	logicalCh chan<- acceptedGatewayLogical,
+) {
+	packetMux := giztunnel.NewPacketMux(conn)
+	defer packetMux.Close()
+	go func() {
+		buf := make([]byte, 64*1024)
+		for {
+			protocol, n, err := conn.Read(buf)
+			if err != nil {
+				return
+			}
+			if protocol == giznet.ProtocolTunnelPacket {
+				_ = packetMux.HandlePacket(buf[:n])
+			}
+		}
+	}()
+	service := conn.ListenService(gizclaw.ServiceEdgeTunnel)
+	for {
+		stream, err := service.Accept()
+		if err != nil {
+			return
+		}
+		go func() {
+			logical, open, err := giztunnel.Accept(
+				ctx,
+				stream,
+				packetMux,
+				func(giztunnel.OpenRequest) error { return nil },
+				giztunnel.Config{
+					AllowRemoteService: func(uint64) bool { return true },
+				},
+			)
+			accepted := acceptedGatewayLogical{logical: logical, err: err}
+			if err == nil {
+				accepted.key = open.ClientPublicKey
+			}
+			select {
+			case logicalCh <- accepted:
+			case <-ctx.Done():
+				if logical != nil {
+					_ = logical.Close()
+				}
+			}
+		}()
+	}
+}
+
+func transferGatewayStreams(
+	streams []gatewayThroughputStream,
+	payload []byte,
+) (gatewayThroughputObservation, error) {
+	var wg sync.WaitGroup
+	errCh := make(chan error, len(streams)*2)
+	start := make(chan struct{})
+	durations := make([]time.Duration, len(streams))
+	for i, stream := range streams {
+		wg.Go(func() {
+			<-start
+			started := time.Now()
+			if _, err := io.CopyN(io.Discard, stream.server, int64(len(payload))); err != nil {
+				errCh <- fmt.Errorf("stream %d read: %w", i, err)
+			}
+			durations[i] = time.Since(started)
+		})
+		wg.Go(func() {
+			<-start
+			if _, err := io.Copy(stream.client, bytes.NewReader(payload)); err != nil {
+				errCh <- fmt.Errorf("stream %d write: %w", i, err)
+			}
+		})
+	}
+	close(start)
+	wg.Wait()
+	close(errCh)
+	for err := range errCh {
+		return gatewayThroughputObservation{}, err
+	}
+	observation := gatewayThroughputObservation{}
+	for i, duration := range durations {
+		mbps := float64(len(payload)*8) / duration.Seconds() / 1_000_000
+		if i == 0 || mbps < observation.minMbps {
+			observation.minMbps = mbps
+		}
+		if mbps > observation.maxMbps {
+			observation.maxMbps = mbps
+		}
+	}
+	return observation, nil
 }
 
 func TestGatewayAdmissionMatchesAcceptedClientIdentity(t *testing.T) {

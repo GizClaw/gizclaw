@@ -16,21 +16,33 @@ const (
 )
 
 // SpeedTestResult is measured locally by the caller while one RPC stream sends
-// upload frames and receives download frames concurrently.
+// upload frames and receives download frames concurrently. Duration is the
+// whole-call wall time; UpDuration and DownDuration measure only their
+// respective transfer direction.
 type SpeedTestResult struct {
 	UpContentLength   int64
 	DownContentLength int64
 	UpBytes           int64
 	DownBytes         int64
+	UpDuration        time.Duration
+	DownDuration      time.Duration
 	Duration          time.Duration
 }
 
 func (r SpeedTestResult) UpMbps() float64 {
-	return mbps(r.UpBytes, r.Duration)
+	duration := r.UpDuration
+	if duration == 0 {
+		duration = r.Duration
+	}
+	return mbps(r.UpBytes, duration)
 }
 
 func (r SpeedTestResult) DownMbps() float64 {
-	return mbps(r.DownBytes, r.Duration)
+	duration := r.DownDuration
+	if duration == 0 {
+		duration = r.Duration
+	}
+	return mbps(r.DownBytes, duration)
 }
 
 func mbps(bytes int64, duration time.Duration) float64 {
@@ -61,8 +73,10 @@ func callRPCSpeedTest(ctx context.Context, conn net.Conn, id string, request rpc
 
 	start := time.Now()
 	var upBytes, downBytes int64
+	var upStarted, downStarted time.Time
 	var responseErr error
 	g.Go(func() error {
+		upStarted = time.Now()
 		n, err := writeBinaryFrames(stream, request.UpContentLength)
 		upBytes = n
 		return err
@@ -95,6 +109,7 @@ func callRPCSpeedTest(ctx context.Context, conn net.Conn, id string, request rpc
 		if ack.UpContentLength != request.UpContentLength || ack.DownContentLength != request.DownContentLength {
 			return stopUpload(fmt.Errorf("rpc: speed test ack mismatch"))
 		}
+		downStarted = time.Now()
 		n, err := readBinaryFrames(stream)
 		downBytes = n
 		return stopUpload(err)
@@ -105,12 +120,25 @@ func callRPCSpeedTest(ctx context.Context, conn net.Conn, id string, request rpc
 		}
 		return SpeedTestResult{}, err
 	}
+	completed := time.Now()
+	var upDuration, downDuration time.Duration
+	if request.UpContentLength > 0 {
+		// The Server does not send its EOS until it has consumed the upload.
+		// Measuring through that completion barrier avoids reporting the local
+		// DataChannel send buffer as path throughput.
+		upDuration = completed.Sub(upStarted)
+	}
+	if request.DownContentLength > 0 {
+		downDuration = completed.Sub(downStarted)
+	}
 	return SpeedTestResult{
 		UpContentLength:   request.UpContentLength,
 		DownContentLength: request.DownContentLength,
 		UpBytes:           upBytes,
 		DownBytes:         downBytes,
-		Duration:          time.Since(start),
+		UpDuration:        upDuration,
+		DownDuration:      downDuration,
+		Duration:          completed.Sub(start),
 	}, nil
 }
 
@@ -161,7 +189,7 @@ func (s *rpcServer) handleSpeedTest(ctx context.Context, stream *rpcStream, req 
 		return nil
 	})
 	g.Go(func() error {
-		_, err := writeBinaryFrames(stream, params.DownContentLength)
+		_, err := writeBinaryFramePayload(stream, params.DownContentLength)
 		return cancelStream(err)
 	})
 	if err := g.Wait(); err != nil {
@@ -170,7 +198,10 @@ func (s *rpcServer) handleSpeedTest(ctx context.Context, stream *rpcStream, req 
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	return nil
+	// EOS is also the upload-consumed acknowledgement. Sending it only after
+	// both directions finish keeps upload-only measurements tied to remote
+	// consumption rather than local DataChannel buffering.
+	return stream.WriteEOS()
 }
 
 func validateSpeedTestRequest(request rpcapi.SpeedTestRequest) error {
@@ -197,6 +228,17 @@ func writeRPCErrorResponse(stream *rpcStream, id string, code rpcapi.RPCErrorCod
 }
 
 func writeBinaryFrames(stream *rpcStream, total int64) (int64, error) {
+	written, err := writeBinaryFramePayload(stream, total)
+	if err != nil {
+		return written, err
+	}
+	if err := stream.WriteEOS(); err != nil {
+		return written, err
+	}
+	return written, nil
+}
+
+func writeBinaryFramePayload(stream *rpcStream, total int64) (int64, error) {
 	chunk := make([]byte, rpcSpeedTestFrameSize)
 	for i := range chunk {
 		chunk[i] = byte(i)
@@ -211,9 +253,6 @@ func writeBinaryFrames(stream *rpcStream, total int64) (int64, error) {
 			return written, err
 		}
 		written += size
-	}
-	if err := stream.WriteEOS(); err != nil {
-		return written, err
 	}
 	return written, nil
 }
