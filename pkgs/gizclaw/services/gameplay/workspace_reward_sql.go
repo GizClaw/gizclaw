@@ -139,8 +139,8 @@ func (r *Runtime) activeWorkspaceRewardWindow(ctx context.Context, workspaceName
 		return workspaceRewardWindow{}, err
 	}
 	return scanWorkspaceRewardWindow(db.QueryRowContext(ctx, db.Rebind(
-		workspaceRewardWindowSelectSQL()+` WHERE workspace_name = ? AND state IN (?, ?, ?, ?) ORDER BY created_at LIMIT 1`,
-	), workspaceName, workspaceRewardPending, workspaceRewardClaimed, workspaceRewardRetry, workspaceRewardBlocked))
+		workspaceRewardWindowSelectSQL()+` WHERE workspace_name = ? AND state IN (?, ?, ?) ORDER BY created_at LIMIT 1`,
+	), workspaceName, workspaceRewardPending, workspaceRewardClaimed, workspaceRewardRetry))
 }
 
 func (r *Runtime) insertWorkspaceRewardWindowAndUpdateSource(

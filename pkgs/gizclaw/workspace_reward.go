@@ -211,11 +211,11 @@ func (m *Manager) handleWorkspaceHistoryUpdated(
 		return
 	}
 	if m.Gameplay != nil {
-		if err := m.Gameplay.ScheduleWorkspaceRewardActivity(ctx, workspaceName, entry); err != nil {
-			slog.Error("schedule Workspace reward",
+		if err := m.Gameplay.EnqueueWorkspaceRewardActivity(workspaceName, entry); err != nil {
+			slog.Error("enqueue Workspace reward",
 				"workspace", workspaceName,
 				"history_id", entry.ID,
-				"error_class", "schedule",
+				"error_class", "enqueue",
 				"error", err,
 			)
 		}

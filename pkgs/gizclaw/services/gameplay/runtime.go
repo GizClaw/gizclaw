@@ -54,6 +54,7 @@ type Runtime struct {
 	driveFactWake        chan struct{}
 	workspaceRewardMu    sync.Mutex
 	workspaceRewardWake  chan struct{}
+	workspaceRewardQueue chan workspaceRewardActivity
 	workspaceRewardLocks [64]sync.Mutex
 }
 
@@ -307,7 +308,7 @@ func (r *Runtime) Migration(ctx context.Context) error {
 	if _, err := db.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS gameplay_drive_fact_outbox_due_idx ON gameplay_drive_fact_outbox(state, next_attempt_at, claim_until)`); err != nil {
 		return err
 	}
-	if _, err := db.ExecContext(ctx, `CREATE UNIQUE INDEX IF NOT EXISTS gameplay_workspace_reward_windows_active_idx ON gameplay_workspace_reward_windows(workspace_name) WHERE state IN ('pending', 'claimed', 'retry', 'blocked')`); err != nil {
+	if _, err := db.ExecContext(ctx, `CREATE UNIQUE INDEX IF NOT EXISTS gameplay_workspace_reward_windows_active_idx ON gameplay_workspace_reward_windows(workspace_name) WHERE state IN ('pending', 'claimed', 'retry')`); err != nil {
 		return err
 	}
 	if _, err := db.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS gameplay_workspace_reward_windows_due_idx ON gameplay_workspace_reward_windows(state, evaluate_after, next_attempt_at, claim_until)`); err != nil {

@@ -28,6 +28,7 @@ const (
 	workspaceRewardBlocked   = "blocked"
 
 	workspaceRewardHistoryPageLimit = 200
+	workspaceRewardActivityCapacity = 256
 	workspaceRewardPollInterval     = time.Second
 	workspaceRewardReconcilePeriod  = 30 * time.Second
 	workspaceRewardClaimLease       = time.Minute
@@ -97,6 +98,11 @@ type WorkspaceRewardUpdate struct {
 	WorkspaceName string
 	RewardGrantID string
 	Revision      time.Time
+}
+
+type workspaceRewardActivity struct {
+	WorkspaceName string
+	Entry         workspace.HistoryEntry
 }
 
 type WorkspaceRewardTranscriptEntry struct {
@@ -273,6 +279,7 @@ func (r *Runtime) StartWorkspaceRewardDispatcher(parent context.Context) (contex
 	ctx, cancel := context.WithCancel(parent)
 	done := make(chan struct{})
 	wake := r.workspaceRewardWakeChannel()
+	activities := r.workspaceRewardActivityChannel()
 	go func() {
 		defer close(done)
 		poll := time.NewTicker(workspaceRewardPollInterval)
@@ -284,6 +291,17 @@ func (r *Runtime) StartWorkspaceRewardDispatcher(parent context.Context) (contex
 			case <-ctx.Done():
 				r.releaseWorkspaceRewardClaims(context.WithoutCancel(ctx))
 				return
+			case activity := <-activities:
+				if err := r.ScheduleWorkspaceRewardActivity(ctx, activity.WorkspaceName, activity.Entry); err != nil &&
+					ctx.Err() == nil {
+					slog.Error(
+						"schedule queued Workspace reward",
+						"workspace", activity.WorkspaceName,
+						"history_id", activity.Entry.ID,
+						"error_class", "schedule",
+						"error", err,
+					)
+				}
 			case <-wake:
 			case <-poll.C:
 			case <-reconcile.C:
@@ -311,8 +329,27 @@ func (r *Runtime) StartWorkspaceRewardDispatcher(parent context.Context) (contex
 	return cancel, done, nil
 }
 
+// EnqueueWorkspaceRewardActivity keeps the AgentHost post-append callback
+// bounded and non-blocking. Durable History reconciliation recovers an entry
+// when the in-memory queue is full or the process stops before consuming it.
+func (r *Runtime) EnqueueWorkspaceRewardActivity(workspaceName string, entry workspace.HistoryEntry) error {
+	if r == nil || r.WorkspaceRewards == nil {
+		return nil
+	}
+	workspaceName = strings.TrimSpace(workspaceName)
+	if workspaceName == "" || strings.TrimSpace(entry.ID) == "" {
+		return errors.New("gameplay: workspace reward activity requires Workspace and History IDs")
+	}
+	activity := workspaceRewardActivity{WorkspaceName: workspaceName, Entry: entry}
+	select {
+	case r.workspaceRewardActivityChannel() <- activity:
+	default:
+	}
+	return nil
+}
+
 // ScheduleWorkspaceRewardActivity durably records the exact History high-water
-// after AgentHost append succeeds. It performs no model invocation.
+// from the Server-owned dispatcher. It performs no model invocation.
 func (r *Runtime) ScheduleWorkspaceRewardActivity(ctx context.Context, workspaceName string, entry workspace.HistoryEntry) error {
 	if r == nil || r.WorkspaceRewards == nil {
 		return nil
@@ -558,12 +595,23 @@ func (r *Runtime) dispatchWorkspaceReward(ctx context.Context) (bool, error) {
 	}
 	var invalid *invalidWorkspaceRewardError
 	if errors.As(err, &invalid) {
-		return true, r.blockWorkspaceRewardWindow(ctx, window, invalid)
+		return true, r.blockAndReconcileWorkspaceRewardWindow(ctx, window, invalid)
 	}
 	if window.AttemptCount >= workspaceRewardMaxAttempts {
-		return true, r.blockWorkspaceRewardWindow(ctx, window, err)
+		return true, r.blockAndReconcileWorkspaceRewardWindow(ctx, window, err)
 	}
 	return true, r.retryWorkspaceRewardWindow(ctx, window, err)
+}
+
+func (r *Runtime) blockAndReconcileWorkspaceRewardWindow(
+	ctx context.Context,
+	window workspaceRewardWindow,
+	cause error,
+) error {
+	if err := r.blockWorkspaceRewardWindow(ctx, window, cause); err != nil {
+		return err
+	}
+	return r.reconcileWorkspaceRewardSource(ctx, window.WorkspaceName, "")
 }
 
 func (r *Runtime) processWorkspaceRewardClaim(ctx context.Context, window workspaceRewardWindow) error {
@@ -694,6 +742,15 @@ func (r *Runtime) workspaceRewardWakeChannel() <-chan struct{} {
 		r.workspaceRewardWake = make(chan struct{}, 1)
 	}
 	return r.workspaceRewardWake
+}
+
+func (r *Runtime) workspaceRewardActivityChannel() chan workspaceRewardActivity {
+	r.workspaceRewardMu.Lock()
+	defer r.workspaceRewardMu.Unlock()
+	if r.workspaceRewardQueue == nil {
+		r.workspaceRewardQueue = make(chan workspaceRewardActivity, workspaceRewardActivityCapacity)
+	}
+	return r.workspaceRewardQueue
 }
 
 func (r *Runtime) wakeWorkspaceRewardDispatcher() {

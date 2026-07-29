@@ -865,7 +865,10 @@ func TestWorkspaceRewardMissingClaimedHistoryBlocksWithoutCheckpoint(t *testing.
 	}
 	runtime := &Runtime{
 		DB: testDB(t), WorkspaceRewards: environment,
-		Now: func() time.Time { return now }, NewID: sequentialIDs("window-blocked", "claim-blocked"),
+		Now: func() time.Time { return now },
+		NewID: sequentialIDs(
+			"window-blocked", "claim-blocked", "window-after-blocked",
+		),
 	}
 	if err := runtime.Migration(ctx); err != nil {
 		t.Fatalf("Migration() error = %v", err)
@@ -911,6 +914,78 @@ func TestWorkspaceRewardMissingClaimedHistoryBlocksWithoutCheckpoint(t *testing.
 			source.CompletedCheckpoint,
 			generator.invokeCount,
 		)
+	}
+	nextEntry := workspace.HistoryEntry{
+		ID: "003", Type: "gear", GearID: "peer-next", Origin: workspace.HistoryOriginAgentHost,
+		Text: "new conversation", CreatedAt: now.Add(time.Second),
+	}
+	environment.entries["workflow-a"] = append(environment.entries["workflow-a"], nextEntry)
+	if err := runtime.ScheduleWorkspaceRewardActivity(ctx, "workflow-a", nextEntry); err != nil {
+		t.Fatalf("ScheduleWorkspaceRewardActivity(after blocked) error = %v", err)
+	}
+	next, err := runtime.activeWorkspaceRewardWindow(ctx, "workflow-a")
+	if err != nil {
+		t.Fatalf("activeWorkspaceRewardWindow(after blocked) error = %v", err)
+	}
+	if next.ID != "window-after-blocked" || next.StartHistoryID != nextEntry.ID ||
+		next.BeneficiaryPublicKey != nextEntry.GearID {
+		t.Fatalf("window after blocked = %#v", next)
+	}
+}
+
+func TestWorkspaceRewardActivityQueueIsBoundedAndDefersIO(t *testing.T) {
+	t.Parallel()
+	runtime := &Runtime{WorkspaceRewards: &workspaceRewardTestEnvironment{}}
+	entry := workspace.HistoryEntry{ID: "history-a"}
+	for range workspaceRewardActivityCapacity + 10 {
+		if err := runtime.EnqueueWorkspaceRewardActivity("workflow-a", entry); err != nil {
+			t.Fatalf("EnqueueWorkspaceRewardActivity() error = %v", err)
+		}
+	}
+	if got := len(runtime.workspaceRewardActivityChannel()); got != workspaceRewardActivityCapacity {
+		t.Fatalf("queued activities = %d, want %d", got, workspaceRewardActivityCapacity)
+	}
+}
+
+func TestWorkspaceRewardDispatcherConsumesQueuedActivity(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 7, 29, 4, 59, 0, 0, time.UTC)
+	policy := workspaceRewardTestPolicy(t)
+	environment := &workspaceRewardTestEnvironment{
+		entries: map[string][]workspace.HistoryEntry{"workflow-a": nil},
+		policy:  &policy,
+	}
+	runtime := &Runtime{
+		DB: testDB(t), WorkspaceRewards: environment,
+		Now: func() time.Time { return now }, NewID: sequentialIDs("window-queued"),
+	}
+	stop, done, err := runtime.StartWorkspaceRewardDispatcher(ctx)
+	if err != nil {
+		t.Fatalf("StartWorkspaceRewardDispatcher() error = %v", err)
+	}
+	defer func() {
+		stop()
+		<-done
+	}()
+	entry := workspace.HistoryEntry{
+		ID: "001", Type: "gear", GearID: "peer-a", Origin: workspace.HistoryOriginAgentHost,
+		Text: "queued conversation", CreatedAt: now,
+	}
+	environment.entries["workflow-a"] = append(environment.entries["workflow-a"], entry)
+	if err := runtime.EnqueueWorkspaceRewardActivity("workflow-a", entry); err != nil {
+		t.Fatalf("EnqueueWorkspaceRewardActivity() error = %v", err)
+	}
+	deadline := time.After(2 * time.Second)
+	for {
+		source, sourceErr := runtime.getWorkspaceRewardSource(ctx, "workflow-a")
+		if sourceErr == nil && source.ScheduledCheckpoint == entry.ID {
+			break
+		}
+		select {
+		case <-deadline:
+			t.Fatalf("queued activity was not scheduled: source=%#v error=%v", source, sourceErr)
+		case <-time.After(10 * time.Millisecond):
+		}
 	}
 }
 
