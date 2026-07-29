@@ -632,6 +632,17 @@ int gzc_rpc_call_stream(
       client, method, params_payload, on_frame, userdata, 5000);
 }
 
+static int64_t speed_test_elapsed_ms(int64_t started_ms, int64_t completed_ms) {
+  return completed_ms > started_ms ? completed_ms - started_ms : 0;
+}
+
+static double speed_test_mbps(int64_t bytes, int64_t duration_ms) {
+  if (bytes <= 0 || duration_ms <= 0) {
+    return 0.0;
+  }
+  return ((double)bytes * 8.0) / ((double)duration_ms * 1000.0);
+}
+
 static int write_speed_test_upload(
     gzc_client_t *client,
     const gzc_platform_t *platform,
@@ -678,7 +689,8 @@ static int read_speed_test_response(
     gzc_client_t *client,
     const gzc_platform_t *platform,
     const gizclaw_rpc_v1_SpeedTestRequest *request,
-    gzc_rpc_speed_test_result_t *out_result) {
+    gzc_rpc_speed_test_result_t *out_result,
+    int64_t *out_down_started_ms) {
   gzc_buf_t frame_bytes;
   gzc_buf_init(&frame_bytes);
   bool saw_response = false;
@@ -730,6 +742,9 @@ static int read_speed_test_response(
       }
       gzc_rpc_response_free(client, &response);
       saw_response = rc == GZC_OK;
+      if (saw_response && request->down_content_length > 0) {
+        *out_down_started_ms = gzc_client_instant_ms_internal(client);
+      }
       continue;
     }
     if (frame.len > (size_t)request->down_content_length ||
@@ -793,13 +808,45 @@ int gzc_rpc_speed_test(
         false);
   }
   gzc_buf_free(&params, platform);
+  int64_t started_ms = 0;
+  int64_t up_started_ms = 0;
+  int64_t down_started_ms = 0;
+  if (rc == GZC_OK) {
+    started_ms = gzc_client_instant_ms_internal(client);
+    if (request->up_content_length > 0) {
+      up_started_ms = gzc_client_instant_ms_internal(client);
+    }
+  }
   if (rc == GZC_OK) {
     rc = write_speed_test_upload(
         client, platform, request->up_content_length);
   }
   if (rc == GZC_OK) {
     rc = read_speed_test_response(
-        client, platform, request, out_result);
+        client, platform, request, out_result, &down_started_ms);
+  }
+  if (rc == GZC_OK) {
+    int64_t completed_ms = gzc_client_instant_ms_internal(client);
+    out_result->duration_ms =
+        speed_test_elapsed_ms(started_ms, completed_ms);
+    if (request->up_content_length > 0) {
+      /*
+       * The Server sends its terminal EOS only after consuming the upload, so
+       * the shared completion point measures path throughput rather than only
+       * the local DataChannel enqueue time.
+       */
+      out_result->up_duration_ms =
+          speed_test_elapsed_ms(up_started_ms, completed_ms);
+    }
+    if (request->down_content_length > 0) {
+      out_result->down_duration_ms =
+          speed_test_elapsed_ms(down_started_ms, completed_ms);
+    }
+    out_result->up_mbps =
+        speed_test_mbps(out_result->up_bytes, out_result->up_duration_ms);
+    out_result->down_mbps =
+        speed_test_mbps(
+            out_result->down_bytes, out_result->down_duration_ms);
   }
   close_rpc_channel_on_error(client, rc);
   return rc;

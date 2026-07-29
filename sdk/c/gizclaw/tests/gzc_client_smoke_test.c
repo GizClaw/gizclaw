@@ -32,6 +32,7 @@ typedef enum {
 typedef struct {
   int64_t instant_ms;
   int64_t unix_ms;
+  int64_t instant_step_ms;
 } fake_clock_t;
 
 typedef struct {
@@ -177,7 +178,11 @@ static int test_rpc_provider(
 
 static int64_t test_time_instant_ms(void *userdata) {
   fake_clock_t *clock = (fake_clock_t *)userdata;
-  return clock == NULL ? 0 : clock->instant_ms;
+  if (clock == NULL) {
+    return 0;
+  }
+  clock->instant_ms += clock->instant_step_ms;
+  return clock->instant_ms;
 }
 
 static int64_t test_time_unix_ms(void *userdata) {
@@ -1186,7 +1191,11 @@ int main(void) {
     return 1;
   }
 
-  fake_clock_t clock = {1000, INT64_C(1700000000000)};
+  fake_clock_t clock = {
+      .instant_ms = 1000,
+      .unix_ms = INT64_C(1700000000000),
+      .instant_step_ms = 0,
+  };
   gzc_platform_t test_platform = *gzc_default_platform();
   test_platform.userdata = &clock;
   test_platform.time_instant_ms = test_time_instant_ms;
@@ -1822,12 +1831,28 @@ int main(void) {
       .up_bytes = -1,
       .down_bytes = -1,
   };
+  clock.instant_step_ms = 5;
   rc = gzc_rpc_speed_test(client, &speed_test, &speed_result);
+  clock.instant_step_ms = 0;
   if (expect(rc == GZC_OK, "persistent RPC speed test") != 0 ||
       expect(
           speed_result.up_bytes == speed_test.up_content_length &&
               speed_result.down_bytes == speed_test.down_content_length,
           "persistent RPC speed test counts both directions") != 0 ||
+      expect(
+          speed_result.duration_ms >= speed_result.up_duration_ms &&
+              speed_result.up_duration_ms >=
+                  speed_result.down_duration_ms &&
+              speed_result.down_duration_ms > 0,
+          "persistent RPC speed test records direction durations") != 0 ||
+      expect(
+          speed_result.up_mbps ==
+                  ((double)speed_result.up_bytes * 8.0) /
+                      ((double)speed_result.up_duration_ms * 1000.0) &&
+              speed_result.down_mbps ==
+                  ((double)speed_result.down_bytes * 8.0) /
+                      ((double)speed_result.down_duration_ms * 1000.0),
+          "persistent RPC speed test records direction rates") != 0 ||
       expect(
           fake_webrtc.speed_upload_bytes ==
               speed_test.up_content_length,
@@ -1852,13 +1877,18 @@ int main(void) {
     return 1;
   }
   speed_test.up_content_length = -1;
-  speed_result.up_bytes = -1;
-  speed_result.down_bytes = -1;
+  memset(&speed_result, 0xff, sizeof(speed_result));
   rc = gzc_rpc_speed_test(client, &speed_test, &speed_result);
   if (expect(rc == GZC_ERR_INVALID_ARGUMENT,
              "speed test rejects negative lengths") != 0 ||
-      expect(speed_result.up_bytes == 0 && speed_result.down_bytes == 0,
-             "failed speed test clears its output") != 0) {
+      expect(
+          speed_result.up_bytes == 0 && speed_result.down_bytes == 0 &&
+              speed_result.duration_ms == 0 &&
+              speed_result.up_duration_ms == 0 &&
+              speed_result.down_duration_ms == 0 &&
+              speed_result.up_mbps == 0.0 &&
+              speed_result.down_mbps == 0.0,
+          "failed speed test clears its output") != 0) {
     return 1;
   }
 

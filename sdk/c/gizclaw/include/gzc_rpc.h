@@ -47,6 +47,11 @@ typedef struct gzc_rpc_speech_upload gzc_rpc_speech_upload_t;
 typedef struct {
   int64_t up_bytes;
   int64_t down_bytes;
+  int64_t duration_ms;
+  int64_t up_duration_ms;
+  int64_t down_duration_ms;
+  double up_mbps;
+  double down_mbps;
 } gzc_rpc_speed_test_result_t;
 
 int gzc_rpc_encode_request_envelope(
@@ -72,6 +77,10 @@ int gzc_rpc_call_stream(
 /*
  * Runs the bidirectional speed-test stream on the client's persistent RPC
  * DataChannel. This avoids consuming an additional native SCTP stream.
+ * duration_ms covers the whole transfer. up_duration_ms and down_duration_ms
+ * use each direction's transfer interval through the shared completion
+ * barrier; up_mbps and down_mbps are calculated from those direction-specific
+ * durations.
  */
 int gzc_rpc_speed_test(
     gzc_client_t *client,
