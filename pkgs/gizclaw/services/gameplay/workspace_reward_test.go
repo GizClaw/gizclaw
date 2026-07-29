@@ -692,7 +692,11 @@ func TestWorkspaceRewardIncompleteAndOverLimitWindowsSkipEvaluator(t *testing.T)
 					t.Fatalf("ScheduleWorkspaceRewardActivity(%s) error = %v", entry.ID, err)
 				}
 			}
-			now = now.Add(2 * time.Minute)
+			if name == "user only" {
+				now = now.Add(policy.MaxWindowAge)
+			} else {
+				now = now.Add(2 * time.Minute)
+			}
 			if processed, err := runtime.dispatchWorkspaceReward(ctx); err != nil || !processed {
 				t.Fatalf("dispatchWorkspaceReward() = %v, %v", processed, err)
 			}
@@ -706,6 +710,81 @@ func TestWorkspaceRewardIncompleteAndOverLimitWindowsSkipEvaluator(t *testing.T)
 				t.Fatalf("skipped window state=%q outcome=%q invokes=%d", state, outcome, generator.invokeCount)
 			}
 		})
+	}
+}
+
+func TestWorkspaceRewardIncompleteWindowWaitsForAgentResponse(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 7, 29, 4, 40, 0, 0, time.UTC)
+	policy := workspaceRewardTestPolicy(t)
+	generator := &workspaceRewardTestGenerator{
+		result: `{"score":90,"reason":"Qualified.","badges":[]}`,
+	}
+	environment := &workspaceRewardTestEnvironment{
+		entries: map[string][]workspace.HistoryEntry{"workflow-a": nil},
+		policy:  &policy, generator: generator,
+	}
+	runtime := &Runtime{
+		DB: testDB(t), WorkspaceRewards: environment,
+		Now: func() time.Time { return now },
+		NewID: sequentialIDs(
+			"window-wait", "claim-incomplete", "claim-complete", "grant-wait", "points-wait",
+		),
+	}
+	if err := runtime.Migration(ctx); err != nil {
+		t.Fatalf("Migration() error = %v", err)
+	}
+	appendEntry := func(entry workspace.HistoryEntry) {
+		environment.entries["workflow-a"] = append(environment.entries["workflow-a"], entry)
+		if err := runtime.ScheduleWorkspaceRewardActivity(ctx, "workflow-a", entry); err != nil {
+			t.Fatalf("ScheduleWorkspaceRewardActivity(%s) error = %v", entry.ID, err)
+		}
+	}
+	appendEntry(workspace.HistoryEntry{
+		ID: "001", Type: "gear", GearID: "peer-a", Origin: workspace.HistoryOriginAgentHost,
+		Text: "I tested a hypothesis.", CreatedAt: now,
+	})
+	now = now.Add(policy.QuietPeriod)
+	if processed, err := runtime.dispatchWorkspaceReward(ctx); err != nil || !processed {
+		t.Fatalf("dispatch incomplete Workspace reward = %v, %v", processed, err)
+	}
+	var state, outcome string
+	var attempts int
+	var evaluateAfterRaw string
+	if err := runtime.DB.QueryRowContext(ctx, `SELECT state, outcome, attempt_count, evaluate_after
+		FROM gameplay_workspace_reward_windows WHERE id = ?`, "window-wait").Scan(
+		&state, &outcome, &attempts, &evaluateAfterRaw,
+	); err != nil {
+		t.Fatalf("read deferred incomplete window: %v", err)
+	}
+	evaluateAfter := parseTime(evaluateAfterRaw)
+	if state != workspaceRewardPending || outcome != "" || attempts != 0 ||
+		!evaluateAfter.Equal(now.Add(policy.QuietPeriod)) || generator.invokeCount != 0 {
+		t.Fatalf(
+			"deferred incomplete window state=%q outcome=%q attempts=%d evaluate_after=%s invokes=%d",
+			state,
+			outcome,
+			attempts,
+			evaluateAfter,
+			generator.invokeCount,
+		)
+	}
+
+	now = now.Add(time.Second)
+	appendEntry(workspace.HistoryEntry{
+		ID: "002", Type: "agent", Origin: workspace.HistoryOriginAgentHost,
+		Text: "The evidence supports your hypothesis.", CreatedAt: now,
+	})
+	now = now.Add(policy.QuietPeriod)
+	if processed, err := runtime.dispatchWorkspaceReward(ctx); err != nil || !processed {
+		t.Fatalf("dispatch completed Workspace reward = %v, %v", processed, err)
+	}
+	var grantCount int
+	if err := runtime.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM gameplay_reward_grants`).Scan(&grantCount); err != nil {
+		t.Fatalf("count deferred Workspace RewardGrant: %v", err)
+	}
+	if generator.invokeCount != 1 || grantCount != 1 {
+		t.Fatalf("completed deferred window invokes=%d grants=%d, want 1/1", generator.invokeCount, grantCount)
 	}
 }
 

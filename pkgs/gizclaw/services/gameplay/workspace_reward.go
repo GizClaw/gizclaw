@@ -620,6 +620,9 @@ func (r *Runtime) processWorkspaceRewardClaim(ctx context.Context, window worksp
 		return &invalidWorkspaceRewardError{cause: err}
 	}
 	if outcome != "" {
+		if outcome == "skipped_incomplete" && r.now().Before(window.OpenedAt.Add(window.Policy.MaxWindowAge)) {
+			return r.deferIncompleteWorkspaceRewardWindow(ctx, window)
+		}
 		if outcome == "skipped_over_limit" {
 			slog.Warn("workspace reward skipped",
 				"workspace", window.WorkspaceName,

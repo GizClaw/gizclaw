@@ -82,7 +82,7 @@ spec:
         workspace_reward:
           enabled: true
           workspace_kinds: [workflow, direct_chatroom, group_chatroom]
-          debounce: {quiet_period: 1s, max_window_age: 10s}
+          debounce: {quiet_period: 1s, max_window_age: 1m}
           transcript: {max_entries: 100, max_text_bytes: 65536}
           evaluation:
             model: pet-chat

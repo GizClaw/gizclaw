@@ -314,6 +314,33 @@ func (r *Runtime) completeWorkspaceRewardWithoutGrant(
 	return tx.Commit()
 }
 
+func (r *Runtime) deferIncompleteWorkspaceRewardWindow(
+	ctx context.Context,
+	window workspaceRewardWindow,
+) error {
+	db, err := r.db()
+	if err != nil {
+		return err
+	}
+	now := r.now()
+	evaluateAfter := minWorkspaceRewardTime(
+		now.Add(window.Policy.QuietPeriod),
+		window.OpenedAt.Add(window.Policy.MaxWindowAge),
+	)
+	result, err := db.ExecContext(ctx, db.Rebind(`UPDATE gameplay_workspace_reward_windows SET
+		state = ?, evaluate_after = ?,
+		attempt_count = CASE WHEN attempt_count > 0 THEN attempt_count - 1 ELSE 0 END,
+		claim_token = '', claim_until = '', last_error = '', updated_at = ?
+		WHERE id = ? AND state = ? AND claim_token = ?`),
+		workspaceRewardPending, formatTime(evaluateAfter), formatTime(now),
+		window.ID, workspaceRewardClaimed, window.ClaimToken,
+	)
+	if err != nil {
+		return err
+	}
+	return requireWorkspaceRewardRow(result, "claim is no longer owned while waiting for a complete transcript")
+}
+
 func completeWorkspaceRewardWindowTx(
 	ctx context.Context,
 	tx *sqlx.Tx,
