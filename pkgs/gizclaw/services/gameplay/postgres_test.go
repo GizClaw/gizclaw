@@ -189,9 +189,39 @@ func TestPostgresGameplayConcurrentMigration(t *testing.T) {
 	ctx := context.Background()
 	dropGameplayPostgresTables(t, ctx, db)
 	t.Cleanup(func() { dropGameplayPostgresTables(t, context.Background(), db) })
-	runtime := &Runtime{DB: db}
+	now := time.Date(2026, 7, 29, 3, 45, 0, 0, time.UTC)
+	runtime := &Runtime{DB: db, Now: func() time.Time { return now }}
 	if err := runtime.Migration(ctx); err != nil {
 		t.Fatalf("initial Migration() error = %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `DROP INDEX gameplay_workspace_reward_windows_active_v2_idx`); err != nil {
+		t.Fatalf("drop v2 active index: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `CREATE UNIQUE INDEX gameplay_workspace_reward_windows_active_idx
+		ON gameplay_workspace_reward_windows(workspace_name)
+		WHERE state IN ('pending', 'claimed', 'retry', 'blocked')`); err != nil {
+		t.Fatalf("create legacy active index: %v", err)
+	}
+	source := workspaceRewardSource{
+		WorkspaceName: "workflow-upgrade", ScheduledCheckpoint: "001",
+		CreatedAt: now, UpdatedAt: now,
+	}
+	if err := runtime.insertWorkspaceRewardSource(ctx, source); err != nil {
+		t.Fatalf("insert upgrade source: %v", err)
+	}
+	policy := workspaceRewardTestPolicy(t)
+	window := workspaceRewardWindow{
+		ID: "window-blocked", WorkspaceName: source.WorkspaceName,
+		WorkspaceKind: WorkspaceRewardKindWorkflow, BeneficiaryPublicKey: "peer-a",
+		RuntimeProfileName: "profile-a", RuntimeProfileRevision: "revision-a",
+		Policy: policy, PolicyDigest: policy.Digest,
+		StartHistoryID: "001", HighWaterHistoryID: "001",
+		StartHistoryAt: now, HighWaterHistoryAt: now, OpenedAt: now,
+		LastActivityAt: now, EvaluateAfter: now, State: workspaceRewardBlocked,
+		NextAttemptAt: now, CreatedAt: now, UpdatedAt: now,
+	}
+	if err := runtime.insertWorkspaceRewardWindowAndUpdateSource(ctx, window, source); err != nil {
+		t.Fatalf("insert legacy blocked window: %v", err)
 	}
 	const workers = 8
 	start := make(chan struct{})
@@ -219,6 +249,15 @@ func TestPostgresGameplayConcurrentMigration(t *testing.T) {
 		if !exists {
 			t.Fatalf("concurrent Migration() lost %s", column)
 		}
+	}
+	window.ID = "window-pending"
+	window.BeneficiaryPublicKey = "peer-b"
+	window.StartHistoryID = "002"
+	window.HighWaterHistoryID = "002"
+	window.State = workspaceRewardPending
+	source.ScheduledCheckpoint = "002"
+	if err := runtime.insertWorkspaceRewardWindowAndUpdateSource(ctx, window, source); err != nil {
+		t.Fatalf("insert pending window after concurrent upgrade: %v", err)
 	}
 }
 
