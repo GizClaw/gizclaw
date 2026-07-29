@@ -14,26 +14,34 @@ gizclaw_e2e_credentials=(
   GIZCLAW_E2E_MINIMAX_GLOBAL_GROUP_ID
   GIZCLAW_E2E_OPENAI_API_KEY
   GIZCLAW_E2E_VOLC_ARK_API_KEY
-  GIZCLAW_E2E_VOLC_LOG_ACCESS_KEY_ID
-  GIZCLAW_E2E_VOLC_LOG_ACCESS_KEY_SECRET
   GIZCLAW_E2E_VOLC_OPENAPI_ACCESS_KEY
   GIZCLAW_E2E_VOLC_OPENAPI_ACCESS_KEY_ID
 )
 
+gizclaw_e2e_volc_log_credentials=(
+  GIZCLAW_E2E_VOLC_LOG_ACCESS_KEY_ID
+  GIZCLAW_E2E_VOLC_LOG_ACCESS_KEY_SECRET
+)
+
 require_gizclaw_e2e_credentials() {
   local env_file="$1"
+  shift
+  local -a credential_names=("$@")
   local name value normalized lower
   local -a invalid=()
 
+  if ((${#credential_names[@]} == 0)); then
+    credential_names=("${gizclaw_e2e_credentials[@]}")
+  fi
   if [[ ! -f "$env_file" ]]; then
     echo "missing credential file: $env_file" >&2
     return 2
   fi
 
-  for name in "${gizclaw_e2e_credentials[@]}"; do
+  for name in "${credential_names[@]}"; do
     unset "$name"
   done
-  for name in "${gizclaw_e2e_credentials[@]}"; do
+  for name in "${credential_names[@]}"; do
     value=""
     local matches=0 line value_length
     while IFS= read -r line || [[ -n "$line" ]]; do

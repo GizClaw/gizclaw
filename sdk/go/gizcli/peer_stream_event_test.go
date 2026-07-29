@@ -3,6 +3,8 @@ package gizcli
 import (
 	"bytes"
 	"context"
+	"errors"
+	"io"
 	"net"
 	"strings"
 	"testing"
@@ -140,12 +142,13 @@ func TestPeerStreamNextReadsEventsAndRoutesOpus(t *testing.T) {
 		events:         clientSide,
 		packets:        packets,
 		out:            make(chan *genx.MessageChunk, 3),
+		eventResults:   make(chan peerStreamEventResult, 3),
 		done:           make(chan struct{}),
 		resourceEvents: make(chan *eventpb.PeerEvent, 3),
 	}
 	defer stream.Close()
 	go stream.readEvents()
-	go stream.readPackets()
+	go stream.mergeOutput()
 
 	if err := WritePeerStreamEvent(serverSide, &eventpb.PeerEvent{
 		Version: eventpb.Version,
@@ -237,6 +240,97 @@ func TestPeerStreamNextReadsEventsAndRoutesOpus(t *testing.T) {
 	chunk, err = stream.Next()
 	if err != nil || !chunk.IsEndOfStream() {
 		t.Fatalf("Next(EOS) = %#v, %v", chunk, err)
+	}
+}
+
+func TestPeerStreamOrdersBufferedOpusBeforeAudioEOS(t *testing.T) {
+	packets := make(chan []byte, 2)
+	packets <- []byte{1, 2}
+	packets <- []byte{3, 4}
+	stream := &PeerStream{
+		packets: packets,
+		out:     make(chan *genx.MessageChunk, 3),
+		done:    make(chan struct{}),
+		audioRoute: genx.StreamCtrl{
+			StreamID: "history-replay",
+			Label:    "transcript",
+		},
+	}
+	defer stream.Close()
+	eos, err := peerStreamEventToChunk(eosEvent("history-replay", "transcript", "audio/opus", nil))
+	if err != nil {
+		t.Fatalf("peerStreamEventToChunk(EOS) error = %v", err)
+	}
+	if err := stream.pushMergedEvent(eos); err != nil {
+		t.Fatalf("pushMergedEvent(EOS) error = %v", err)
+	}
+	for index, want := range [][]byte{{1, 2}, {3, 4}} {
+		chunk, err := stream.Next()
+		if err != nil {
+			t.Fatalf("Next(packet %d) error = %v", index, err)
+		}
+		blob, ok := chunk.Part.(*genx.Blob)
+		if !ok || !bytes.Equal(blob.Data, want) || chunk.Ctrl == nil || chunk.Ctrl.StreamID != "history-replay" {
+			t.Fatalf("packet %d chunk = %#v, want routed data %x", index, chunk, want)
+		}
+	}
+	chunk, err := stream.Next()
+	if err != nil || !chunk.IsEndOfStream() {
+		t.Fatalf("Next(EOS) = %#v, %v", chunk, err)
+	}
+}
+
+func TestPeerStreamDeliversQueuedEventBeforeTerminalError(t *testing.T) {
+	stream := &PeerStream{
+		packets:      make(chan []byte),
+		out:          make(chan *genx.MessageChunk, 1),
+		eventResults: make(chan peerStreamEventResult, 2),
+		done:         make(chan struct{}),
+	}
+	stream.eventResults <- peerStreamEventResult{
+		chunk: &genx.MessageChunk{
+			Part: genx.Text("last"),
+			Ctrl: &genx.StreamCtrl{StreamID: "answer"},
+		},
+	}
+	stream.eventResults <- peerStreamEventResult{err: io.EOF}
+	go stream.mergeOutput()
+
+	chunk, err := stream.Next()
+	if err != nil || chunk == nil || chunk.Part != genx.Text("last") {
+		t.Fatalf("Next(last event) = %#v, %v", chunk, err)
+	}
+	if _, err := stream.Next(); !errors.Is(err, io.EOF) {
+		t.Fatalf("Next(terminal) error = %v, want EOF", err)
+	}
+}
+
+func TestPeerStreamContinuesEventsAfterPacketSubscriptionCloses(t *testing.T) {
+	packets := make(chan []byte)
+	close(packets)
+	stream := &PeerStream{
+		packets:      packets,
+		out:          make(chan *genx.MessageChunk, 1),
+		eventResults: make(chan peerStreamEventResult),
+		done:         make(chan struct{}),
+	}
+	defer stream.Close()
+	go stream.mergeOutput()
+
+	result := peerStreamEventResult{
+		chunk: &genx.MessageChunk{
+			Part: genx.Text("after packets"),
+			Ctrl: &genx.StreamCtrl{StreamID: "answer"},
+		},
+	}
+	select {
+	case stream.eventResults <- result:
+	case <-time.After(time.Second):
+		t.Fatal("mergeOutput stopped after the packet subscription closed")
+	}
+	chunk, err := stream.Next()
+	if err != nil || chunk == nil || chunk.Part != genx.Text("after packets") {
+		t.Fatalf("Next(event after packets closed) = %#v, %v", chunk, err)
 	}
 }
 

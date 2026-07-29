@@ -1138,7 +1138,7 @@ func TestServiceConsumerErrorSetsStatus(t *testing.T) {
 	}
 }
 
-func TestServiceClosesInputWhenOutputEnds(t *testing.T) {
+func TestServiceTreatsActiveOutputCompletionAsFailure(t *testing.T) {
 	ctx := context.Background()
 	publicKey := testPublicKey(t)
 	store := &peerrun.Server{Store: kv.NewMemory(nil)}
@@ -1146,9 +1146,11 @@ func TestServiceClosesInputWhenOutputEnds(t *testing.T) {
 		t.Fatalf("SetRunAgent() error = %v", err)
 	}
 	input := NewInputStream(1)
+	output := newBlockingStream()
 	done := make(chan struct{})
+	hookCh := make(chan error, 1)
 	svc := &Service{
-		Host:      &fakeHost{output: &sliceStream{doneErr: io.EOF}},
+		Host:      &fakeHost{output: output},
 		PeerRun:   store,
 		PublicKey: publicKey,
 		Source: StreamSourceFunc(func(context.Context) (genx.Stream, error) {
@@ -1158,19 +1160,132 @@ func TestServiceClosesInputWhenOutputEnds(t *testing.T) {
 			defer close(done)
 			return nil
 		}),
+		OnConsumerError: func(_ context.Context, workspace string, err error) {
+			if workspace != "demo" {
+				t.Errorf("OnConsumerError() workspace = %q, want demo", workspace)
+			}
+			hookCh <- err
+		},
 	}
 	if _, err := svc.Reload(ctx); err != nil {
 		t.Fatalf("Reload() error = %v", err)
 	}
 	<-done
+	select {
+	case err := <-hookCh:
+		if !errors.Is(err, errUnexpectedOutputEnd) {
+			t.Fatalf("OnConsumerError() error = %v, want %v", err, errUnexpectedOutputEnd)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for consumer error hook")
+	}
 	deadline := time.After(time.Second)
-	for !input.closed() {
+	for !input.closed() || !output.closed() {
 		select {
 		case <-deadline:
-			t.Fatal("input stream was not closed after output ended")
+			t.Fatalf("runtime streams closed after output completion: input=%t output=%t", input.closed(), output.closed())
 		default:
 			time.Sleep(time.Millisecond)
 		}
+	}
+	status, err := svc.Status(ctx)
+	if err != nil {
+		t.Fatalf("Status() error = %v", err)
+	}
+	if status.State != apitypes.PeerRunStatusStateError || status.Message == nil || !strings.Contains(*status.Message, errUnexpectedOutputEnd.Error()) {
+		t.Fatalf("Status() after active output completion = %+v, want error", status)
+	}
+}
+
+func TestServiceKeepsRuntimeAvailableForRepeatedHistoryReplayAfterRouteEOS(t *testing.T) {
+	ctx := context.Background()
+	publicKey := testPublicKey(t)
+	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	if _, err := store.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
+		t.Fatalf("SetRunAgent() error = %v", err)
+	}
+	agent := &multiAttachAgent{}
+	host := &runtimeTestOpenAgentHost{agent: agent}
+	routeDone := make(chan struct{}, 1)
+	svc := &Service{
+		Host:      host,
+		PeerRun:   store,
+		PublicKey: publicKey,
+		Source: StreamSourceFunc(func(context.Context) (genx.Stream, error) {
+			return NewInputStream(4), nil
+		}),
+		Consumer: StreamConsumerFunc(func(ctx context.Context, output genx.Stream) error {
+			for {
+				chunk, err := output.Next()
+				if err != nil {
+					if IsStreamDone(err) || errors.Is(err, io.ErrClosedPipe) {
+						return nil
+					}
+					return err
+				}
+				if chunk != nil && chunk.IsEndOfStream() {
+					select {
+					case routeDone <- struct{}{}:
+					default:
+					}
+				}
+				if err := ctx.Err(); err != nil {
+					return err
+				}
+			}
+		}),
+		Now: fixedClock(time.Unix(100, 0)),
+	}
+	status, err := svc.Reload(ctx)
+	if err != nil {
+		t.Fatalf("Reload() error = %v", err)
+	}
+	if status.StartedAt == nil {
+		t.Fatalf("Reload() status = %+v, want StartedAt", status)
+	}
+	startedAt := *status.StartedAt
+	revision := svc.RuntimeRevision()
+
+	agent.mu.Lock()
+	output := agent.output[0]
+	agent.mu.Unlock()
+	if err := output.Add(&genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: genx.Text(""),
+		Ctrl: &genx.StreamCtrl{StreamID: "response-a", EndOfStream: true},
+	}); err != nil {
+		t.Fatalf("output.Add(route EOS) error = %v", err)
+	}
+	select {
+	case <-routeDone:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for logical output route completion")
+	}
+
+	state, err := svc.WorkspaceState(ctx)
+	if err != nil {
+		t.Fatalf("WorkspaceState() error = %v", err)
+	}
+	if state.RuntimeState != apitypes.PeerRunStatusStateRunning || state.StartedAt == nil || !state.StartedAt.Equal(startedAt) {
+		t.Fatalf("WorkspaceState() after route EOS = %+v, want same running runtime", state)
+	}
+	if got := svc.RuntimeRevision(); got != revision {
+		t.Fatalf("RuntimeRevision() after route EOS = %d, want %d", got, revision)
+	}
+	for _, historyID := range []string{"h1", "h1"} {
+		play, err := svc.PlayWorkspaceHistory(ctx, apitypes.PeerRunHistoryPlayRequest{HistoryId: historyID})
+		if err != nil {
+			t.Fatalf("PlayWorkspaceHistory(%s) error = %v", historyID, err)
+		}
+		if !play.Accepted {
+			t.Fatalf("PlayWorkspaceHistory(%s) = %+v, want accepted", historyID, play)
+		}
+	}
+	if got, want := agent.playGearIDs(), []string{publicKey.String(), publicKey.String()}; !slices.Equal(got, want) {
+		t.Fatalf("PlayHistory gear IDs = %v, want %v", got, want)
+	}
+	if _, err := svc.Stop(ctx); err != nil {
+		t.Fatalf("Stop() error = %v", err)
 	}
 }
 

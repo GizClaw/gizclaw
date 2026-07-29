@@ -7,6 +7,7 @@ import (
 	"io"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
@@ -16,7 +17,10 @@ const (
 	transcriptLabel      = "transcript"
 )
 
-var errASRInputConsumerClosed = errors.New("chatroom: ASR input consumer closed")
+var (
+	errASRInputConsumerClosed = errors.New("chatroom: ASR input consumer closed")
+	errASROutputCompleted     = errors.New("chatroom: ASR output completed while input remained active")
+)
 
 // InputMode controls whether ASR emits interim transcripts.
 type InputMode string
@@ -169,10 +173,16 @@ func (t *asrInputTransport) markConsumerEOS() {
 	t.mu.Unlock()
 }
 
+func (t *asrInputTransport) consumerSawEOS() bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.consumerEOS
+}
+
 func (t *asrInputTransport) closeConsumer() bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	if t.terminal || t.consumerEOS || t.consumerClosed {
+	if t.consumerClosed || (t.terminal && t.terminalErr != nil) {
 		return false
 	}
 	t.consumerClosed = true
@@ -291,22 +301,106 @@ func forwardTextInput(ctx context.Context, input genx.Stream, builder *genx.Stre
 	}
 }
 
+type asrSession struct {
+	input           *asrInputTransport
+	output          genx.Stream
+	readDone        chan error
+	stopInputCancel func() bool
+
+	expectedCompletion atomic.Bool
+	routeCompletionOK  bool
+	closeOutputOnce    sync.Once
+}
+
+func (s *asrSession) allowCompletion() {
+	if s != nil {
+		s.expectedCompletion.Store(true)
+	}
+}
+
+func (s *asrSession) completionAllowed() bool {
+	if s == nil {
+		return false
+	}
+	return s.expectedCompletion.Load() || (s.routeCompletionOK && s.input.consumerSawEOS())
+}
+
+func (s *asrSession) wait(ctx context.Context) error {
+	if s == nil || s.readDone == nil {
+		return nil
+	}
+	select {
+	case err := <-s.readDone:
+		s.readDone = nil
+		s.closeOutput(err)
+		s.stopInputCancellation()
+		return err
+	case <-ctx.Done():
+		s.closeOutput(ctx.Err())
+		err := <-s.readDone
+		s.readDone = nil
+		s.stopInputCancellation()
+		return errors.Join(ctx.Err(), err)
+	}
+}
+
+func (s *asrSession) complete(ctx context.Context, allowWithoutRouteEOS bool) error {
+	if s == nil {
+		return nil
+	}
+	if allowWithoutRouteEOS {
+		s.allowCompletion()
+	}
+	if err := s.input.Done(); err != nil {
+		s.abort(err)
+		return err
+	}
+	return s.wait(ctx)
+}
+
+func (s *asrSession) abort(err error) {
+	if s == nil {
+		return
+	}
+	_ = s.input.Abort(err)
+	s.closeOutput(err)
+	s.stopInputCancellation()
+	if s.readDone != nil {
+		<-s.readDone
+		s.readDone = nil
+	}
+}
+
+func (s *asrSession) closeOutput(err error) {
+	if s == nil {
+		return
+	}
+	s.closeOutputOnce.Do(func() {
+		if s.output == nil {
+			return
+		}
+		if err != nil {
+			_ = s.output.CloseWithError(err)
+			return
+		}
+		_ = s.output.Close()
+	})
+}
+
+func (s *asrSession) stopInputCancellation() {
+	if s != nil && s.stopInputCancel != nil {
+		s.stopInputCancel()
+		s.stopInputCancel = nil
+	}
+}
+
 func (a *Transformer) transcribeInput(ctx context.Context, input genx.Stream, output *genx.StreamBuilder) {
 	defer input.Close()
 	stopInputCancel := context.AfterFunc(ctx, func() {
 		_ = input.CloseWithError(ctx.Err())
 	})
 	defer stopInputCancel()
-	var asrInput *asrInputTransport
-	var asr genx.Stream
-	var readDone chan error
-	var stopASRInputCancel func() bool
-	defer func() {
-		if stopASRInputCancel != nil {
-			stopASRInputCancel()
-		}
-	}()
-	var closeASROnce sync.Once
+	var session *asrSession
 	streamID := &lockedString{value: defaultInputStreamID}
 	textOpen := false
 	textStreamID := ""
@@ -321,95 +415,82 @@ func (a *Transformer) transcribeInput(ctx context.Context, input genx.Stream, ou
 		textStreamID = ""
 		return nil
 	}
-	startASR := func() error {
-		if readDone != nil {
-			return nil
+	startASR := func() (*asrSession, error) {
+		if session != nil {
+			return session, nil
 		}
+		next := &asrSession{
+			readDone:          make(chan error, 1),
+			routeCompletionOK: a.config.InputMode == InputModePushToTalk,
+		}
+		var asrInput *asrInputTransport
 		asrInput = newASRInputTransport(func(err error) {
 			if err == nil {
-				_ = asrInput.Abort(errASRInputConsumerClosed)
-				_ = input.Close()
-				return
+				if next.completionAllowed() {
+					return
+				}
+				err = errASRInputConsumerClosed
+				_ = asrInput.Abort(err)
 			}
-			_ = input.CloseWithError(err)
+			if ctx.Err() == nil {
+				_ = input.CloseWithError(err)
+			}
 		})
+		next.input = asrInput
 		asrInputStream := asrInput
-		stopASRInputCancel = context.AfterFunc(ctx, func() {
+		next.stopInputCancel = context.AfterFunc(ctx, func() {
 			_ = asrInputStream.Abort(ctx.Err())
 		})
-		var err error
-		asr, err = a.config.ASR.Transform(ctx, a.asrPattern(), asrInput.Stream())
+		asr, err := a.config.ASR.Transform(ctx, a.asrPattern(), asrInput.Stream())
 		if err != nil {
 			err = fmt.Errorf("chatroom: start ASR: %w", err)
 			_ = asrInput.Abort(err)
-			return err
+			next.stopInputCancellation()
+			return nil, err
 		}
-		asrStream := asr
-		done := make(chan error, 1)
-		readDone = done
+		if asr == nil {
+			err := errors.New("chatroom: ASR output stream is required")
+			_ = asrInput.Abort(err)
+			next.stopInputCancellation()
+			return nil, err
+		}
+		next.output = asr
 		go func() {
-			err := readTranscript(ctx, asrStream, output, streamID)
+			err := readTranscript(ctx, asr, output, streamID)
+			if err == nil && !next.completionAllowed() && ctx.Err() == nil {
+				err = errASROutputCompleted
+			}
 			if err != nil && ctx.Err() == nil {
 				_ = asrInput.Abort(err)
 				_ = input.CloseWithError(err)
 			}
-			done <- err
+			next.readDone <- err
 		}()
-		return nil
-	}
-	drainTranscript := func() {
-		if readDone == nil {
-			return
-		}
-		done := readDone
-		readDone = nil
-		<-done
-	}
-	closeASR := func(err error) {
-		closeASROnce.Do(func() {
-			if asr == nil {
-				return
-			}
-			if err != nil {
-				_ = asr.CloseWithError(err)
-				return
-			}
-			_ = asr.Close()
-		})
-	}
-	waitTranscript := func() error {
-		if readDone == nil {
-			return nil
-		}
-		done := readDone
-		readDone = nil
-		select {
-		case err := <-done:
-			closeASR(err)
-			return err
-		case <-ctx.Done():
-			closeASR(ctx.Err())
-			<-done
-			return ctx.Err()
-		}
+		session = next
+		return next, nil
 	}
 	fail := func(err error) {
-		if asrInput != nil {
-			_ = asrInput.Abort(err)
+		if session != nil {
+			session.abort(err)
+			session = nil
 		}
-		closeASR(err)
 		_ = output.Abort(err)
-		drainTranscript()
 	}
 	finish := func() {
-		if err := waitTranscript(); err != nil {
+		if session != nil {
+			if err := session.complete(ctx, true); err != nil {
+				fail(err)
+				return
+			}
+			session = nil
+		}
+		if err := flushText(); err != nil {
 			fail(err)
 			return
 		}
 		_ = output.Done(genx.Usage{})
 	}
 
-	audioSeen := false
 	for {
 		if err := ctx.Err(); err != nil {
 			fail(err)
@@ -420,34 +501,14 @@ func (a *Transformer) transcribeInput(ctx context.Context, input genx.Stream, ou
 			fail(ctxErr)
 			return
 		}
-		if asrInput != nil {
-			if asrErr := asrInput.failure(); asrErr != nil {
-				if errors.Is(asrErr, errASRInputConsumerClosed) {
-					finish()
-					return
-				}
-				fail(asrErr)
-				return
-			}
-		}
 		if err != nil {
-			if !isStreamDone(err) {
-				fail(err)
-				return
-			}
-			if err := flushText(); err != nil {
-				fail(err)
-				return
-			}
-			if !audioSeen {
-				_ = output.Done(genx.Usage{})
-				return
-			}
-			if err := asrInput.Done(); err != nil {
-				if errors.Is(err, errASRInputConsumerClosed) {
-					finish()
+			if session != nil {
+				if asrErr := session.input.failure(); asrErr != nil {
+					fail(asrErr)
 					return
 				}
+			}
+			if !isStreamDone(err) {
 				fail(err)
 				return
 			}
@@ -488,8 +549,8 @@ func (a *Transformer) transcribeInput(ctx context.Context, input genx.Stream, ou
 		if !isAudioChunk(chunk) {
 			continue
 		}
-		audioSeen = true
-		if err := startASR(); err != nil {
+		active, err := startASR()
+		if err != nil {
 			fail(err)
 			return
 		}
@@ -500,25 +561,16 @@ func (a *Transformer) transcribeInput(ctx context.Context, input genx.Stream, ou
 		if strings.TrimSpace(next.Ctrl.StreamID) == "" {
 			next.Ctrl.StreamID = streamID.Get()
 		}
-		if err := asrInput.Add(next); err != nil {
-			if errors.Is(err, errASRInputConsumerClosed) {
-				finish()
-				return
-			}
+		if err := active.input.Add(next); err != nil {
 			fail(err)
 			return
 		}
-		if chunk.IsEndOfStream() {
-			if err := asrInput.Done(); err != nil {
-				if errors.Is(err, errASRInputConsumerClosed) {
-					finish()
-					return
-				}
+		if a.config.InputMode == InputModePushToTalk && chunk.IsEndOfStream() {
+			if err := active.complete(ctx, false); err != nil {
 				fail(err)
 				return
 			}
-			finish()
-			return
+			session = nil
 		}
 	}
 }

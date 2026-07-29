@@ -1705,3 +1705,71 @@ func (s *peerConnBlockingStream) closed() bool {
 		return false
 	}
 }
+
+func TestPeerConnSequentialAudioRoutesKeepActiveRuntimeInput(t *testing.T) {
+	ctx := context.Background()
+	keyPair, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair error = %v", err)
+	}
+	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	if _, err := store.SetRunAgent(ctx, keyPair.Public, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
+		t.Fatalf("SetRunAgent(demo) error = %v", err)
+	}
+	source := newPeerRealtimeSource(genx.WithRealtimeStreamDelay(0))
+	runtime := &agenthost.Service{
+		Host:      peerConnTestHost{output: &peerConnBlockingStream{done: make(chan struct{})}},
+		PeerRun:   store,
+		PublicKey: keyPair.Public,
+		Source:    source,
+		Consumer: agenthost.StreamConsumerFunc(func(ctx context.Context, _ genx.Stream) error {
+			<-ctx.Done()
+			return nil
+		}),
+	}
+	status, err := runtime.Reload(ctx)
+	if err != nil {
+		t.Fatalf("Reload() error = %v", err)
+	}
+	defer func() {
+		if _, err := runtime.Stop(ctx); err != nil {
+			t.Errorf("Stop() error = %v", err)
+		}
+	}()
+	if status.StartedAt == nil {
+		t.Fatalf("Reload() status = %+v, want StartedAt", status)
+	}
+	startedAt := *status.StartedAt
+	revision := runtime.RuntimeRevision()
+	source.mu.RLock()
+	activeInput := source.current
+	source.mu.RUnlock()
+
+	peer := &PeerConn{agentHost: runtime, agentInput: source}
+	for _, chunk := range []*genx.MessageChunk{
+		{Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: "first", BeginOfStream: true}},
+		{Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: "first", EndOfStream: true}},
+		{Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: "second", BeginOfStream: true}},
+	} {
+		if err := peer.pushAgentInputChunk(ctx, chunk); err != nil {
+			t.Fatalf("pushAgentInputChunk(%+v) error = %v", chunk.Ctrl, err)
+		}
+	}
+
+	source.mu.RLock()
+	currentInput := source.current
+	source.mu.RUnlock()
+	if currentInput != activeInput {
+		t.Fatal("sequential route completion replaced the active input source")
+	}
+	if got := runtime.RuntimeRevision(); got != revision {
+		t.Fatalf("RuntimeRevision() after sequential routes = %d, want %d", got, revision)
+	}
+	currentStatus, err := runtime.Status(ctx)
+	if err != nil {
+		t.Fatalf("Status() error = %v", err)
+	}
+	if currentStatus.State != apitypes.PeerRunStatusStateRunning || currentStatus.StartedAt == nil || !currentStatus.StartedAt.Equal(startedAt) {
+		t.Fatalf("Status() after sequential routes = %+v, want same running runtime", currentStatus)
+	}
+}

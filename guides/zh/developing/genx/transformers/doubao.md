@@ -32,7 +32,9 @@ doubaorealtimeduplex.New(doubaorealtimeduplex.Config{Client: client})
 
 豆包 ASR provider session 正常结束，但 final result text 和 definite utterance text 均不包含非空白内容时，`doubaoasr.Transformer` 将本次识别作为成功的空结果结束，不发送已识别 transcript text。现有 Stream route 所需的零内容 terminal chunk 仍是成功的内部边界，不表示用户产生了已识别文本。
 
-已经打开 interim transcript route、但始终没有 definite result 的 session 仍是错误。Provider、protocol、timeout、cancellation、interrupted-input、malformed-audio 和 unsupported-format failure 也继续按原有路径传播错误。
+已经打开 interim transcript route、但始终没有 definite result 的 session 仍是错误。Provider、protocol、cancellation、interrupted-input、malformed-audio、unsupported-format failure 和下述例外之外的 timeout 继续按原有路径传播错误。
+
+`EmitInterim` 的 continuous ASR 把本地 audio BOS/EOS 只作为 route boundary；每个 audio frame 立即以 non-final packet 发给当前健康 SAUC session，outer input EOF 才发送 terminal marker。新打开的 transcript 绑定当前本地 audio route，因此切换 route 不需要替换 provider session。SAUC 因空闲返回 packet-wait timeout 时，只回收已经结束的 provider session，outer Transformer stream 保持打开，下一帧 audio 创建 replacement session；其他 provider error 仍终止 outer stream。
 
 ## AST Translate 输入模式
 

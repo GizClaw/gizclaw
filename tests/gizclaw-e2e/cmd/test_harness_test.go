@@ -56,6 +56,9 @@ func TestFetchE2EServerInfoIncludesICEServers(t *testing.T) {
 	if !info.PublicKey.Equal(serverKey.Public) {
 		t.Fatalf("PublicKey = %v, want %v", info.PublicKey, serverKey.Public)
 	}
+	if !info.TransportPublicKey.Equal(serverKey.Public) {
+		t.Fatalf("TransportPublicKey = %v, want %v", info.TransportPublicKey, serverKey.Public)
+	}
 	if info.SignalingURL != server.URL+"/webrtc/v1/offer" {
 		t.Fatalf("SignalingURL = %q", info.SignalingURL)
 	}
@@ -64,6 +67,50 @@ func TestFetchE2EServerInfoIncludesICEServers(t *testing.T) {
 	}
 	if info.ICEServers[0].Username != "edge" || info.ICEServers[0].Credential != "secret" {
 		t.Fatalf("ICE server credentials = %+v", info.ICEServers[0])
+	}
+}
+
+func TestFetchE2EServerInfoSelectsGatewayTransport(t *testing.T) {
+	serverKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair server error = %v", err)
+	}
+	transportKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair transport error = %v", err)
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprintf(w, `{
+			"public_key": %q,
+			"protocol": "gizclaw-webrtc",
+			"signaling_path": "/server/offer",
+			"ice_servers": [{"urls":["turn:server.example.com:3478"]}],
+			"transport": {
+				"mode": "edge-gateway",
+				"endpoint": "edge.example.com:9821",
+				"public_key": %q,
+				"signaling_path": "/edge/offer"
+			}
+		}`, serverKey.Public.String(), transportKey.Public.String())
+	}))
+	defer server.Close()
+
+	info, err := fetchE2EServerInfo(strings.TrimPrefix(server.URL, "http://"))
+	if err != nil {
+		t.Fatalf("fetchE2EServerInfo error = %v", err)
+	}
+	if !info.PublicKey.Equal(serverKey.Public) {
+		t.Fatalf("PublicKey = %v, want %v", info.PublicKey, serverKey.Public)
+	}
+	if !info.TransportPublicKey.Equal(transportKey.Public) {
+		t.Fatalf("TransportPublicKey = %v, want %v", info.TransportPublicKey, transportKey.Public)
+	}
+	if info.SignalingURL != "http://edge.example.com:9821/edge/offer" {
+		t.Fatalf("SignalingURL = %q", info.SignalingURL)
+	}
+	if info.ICEServers != nil {
+		t.Fatalf("ICEServers = %+v, want nil for gateway transport", info.ICEServers)
 	}
 }
 

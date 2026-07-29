@@ -16,6 +16,11 @@ for name in "${gizclaw_e2e_credentials[@]}"; do printf '%s=test-value\n' "$name"
 printf 'UNRELATED=$(/usr/bin/touch %s)\n' "$marker" >>"$env_file"
 require_gizclaw_e2e_credentials "$env_file"
 if [[ -e "$marker" ]]; then exit 1; fi
+# shellcheck disable=SC2154
+for name in "${gizclaw_e2e_volc_log_credentials[@]}"; do printf '%s=log-test-value\n' "$name" >>"$env_file"; done
+require_gizclaw_e2e_credentials "$env_file" "${gizclaw_e2e_volc_log_credentials[@]}"
+grep -v "^${gizclaw_e2e_volc_log_credentials[0]}=" "$env_file" >"$candidate"
+if require_gizclaw_e2e_credentials "$candidate" "${gizclaw_e2e_volc_log_credentials[@]}" >/dev/null 2>&1; then exit 1; fi
 for name in "${gizclaw_e2e_credentials[@]}"; do
   grep -v "^${name}=" "$env_file" >"$candidate"
   if require_gizclaw_e2e_credentials "$candidate" >/dev/null 2>&1; then exit 1; fi

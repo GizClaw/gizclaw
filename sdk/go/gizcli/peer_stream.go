@@ -2,7 +2,6 @@ package gizcli
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -19,12 +18,13 @@ type PeerStream struct {
 	unsubscribe func()
 	conn        peerPacketWriter
 
-	out  chan *genx.MessageChunk
-	done chan struct{}
-	once sync.Once
-	mu   sync.Mutex
-	err  error
-	push func(context.Context, *genx.MessageChunk) error
+	out          chan *genx.MessageChunk
+	eventResults chan peerStreamEventResult
+	done         chan struct{}
+	once         sync.Once
+	mu           sync.Mutex
+	err          error
+	push         func(context.Context, *genx.MessageChunk) error
 
 	resourceEvents chan *eventpb.PeerEvent
 	resourceOnce   sync.Once
@@ -35,6 +35,11 @@ type PeerStream struct {
 
 type peerPacketWriter interface {
 	Write(byte, []byte) (int, error)
+}
+
+type peerStreamEventResult struct {
+	chunk *genx.MessageChunk
+	err   error
 }
 
 var _ genx.Stream = (*PeerStream)(nil)
@@ -54,11 +59,12 @@ func (c *Client) OpenPeerStream(buffer int) (*PeerStream, error) {
 		unsubscribe:    unsubscribe,
 		conn:           c.PeerConn(),
 		out:            make(chan *genx.MessageChunk, buffer),
+		eventResults:   make(chan peerStreamEventResult, buffer),
 		done:           make(chan struct{}),
 		resourceEvents: make(chan *eventpb.PeerEvent, buffer),
 	}
 	go stream.readEvents()
-	go stream.readPackets()
+	go stream.mergeOutput()
 	return stream, nil
 }
 
@@ -157,11 +163,7 @@ func (s *PeerStream) readEvents() {
 	for {
 		event, err := ReadPeerStreamEvent(s.events)
 		if err != nil {
-			if errors.Is(err, io.EOF) {
-				_ = s.Close()
-				return
-			}
-			_ = s.CloseWithError(err)
+			_ = s.pushEventResult(peerStreamEventResult{err: err})
 			return
 		}
 		if isPeerResourceInvalidation(event) {
@@ -175,15 +177,24 @@ func (s *PeerStream) readEvents() {
 		}
 		chunk, err := peerStreamEventToChunk(event)
 		if err != nil {
-			_ = s.CloseWithError(err)
+			_ = s.pushEventResult(peerStreamEventResult{err: err})
 			return
 		}
-		s.observeAudioRouteBeforeOutput(chunk)
-		if err := s.pushOutput(chunk); err != nil {
-			_ = s.CloseWithError(err)
+		if err := s.pushEventResult(peerStreamEventResult{chunk: chunk}); err != nil {
 			return
 		}
-		s.observeAudioRouteAfterOutput(chunk)
+	}
+}
+
+func (s *PeerStream) pushEventResult(result peerStreamEventResult) error {
+	if result.chunk == nil && result.err == nil {
+		return nil
+	}
+	select {
+	case <-s.done:
+		return s.closeErr()
+	case s.eventResults <- result:
+		return nil
 	}
 }
 
@@ -219,26 +230,70 @@ func isPeerResourceInvalidation(event *eventpb.PeerEvent) bool {
 	}
 }
 
-func (s *PeerStream) readPackets() {
+func (s *PeerStream) mergeOutput() {
+	packets := s.packets
 	for {
 		select {
 		case <-s.done:
 			return
-		case payload, ok := <-s.packets:
-			if !ok {
+		case result := <-s.eventResults:
+			if result.err != nil {
+				_ = s.CloseWithError(result.err)
 				return
 			}
-			chunk, ok := opusPacketChunk(payload)
+			if err := s.pushMergedEvent(result.chunk); err != nil {
+				_ = s.CloseWithError(err)
+				return
+			}
+		case payload, ok := <-packets:
 			if !ok {
+				packets = nil
 				continue
 			}
-			chunk = s.bindOpusPacketRoute(chunk)
-			if err := s.pushOutput(chunk); err != nil {
+			if err := s.pushMergedPacket(payload); err != nil {
 				_ = s.CloseWithError(err)
 				return
 			}
 		}
 	}
+}
+
+func (s *PeerStream) pushMergedEvent(chunk *genx.MessageChunk) error {
+	if peerStreamChunkIsOpusControl(chunk) && chunk.IsEndOfStream() {
+		if err := s.drainBufferedOpusPackets(); err != nil {
+			return err
+		}
+	}
+	s.observeAudioRouteBeforeOutput(chunk)
+	if err := s.pushOutput(chunk); err != nil {
+		return err
+	}
+	s.observeAudioRouteAfterOutput(chunk)
+	return nil
+}
+
+func (s *PeerStream) drainBufferedOpusPackets() error {
+	for {
+		select {
+		case payload, ok := <-s.packets:
+			if !ok {
+				return nil
+			}
+			if err := s.pushMergedPacket(payload); err != nil {
+				return err
+			}
+		default:
+			return nil
+		}
+	}
+}
+
+func (s *PeerStream) pushMergedPacket(payload []byte) error {
+	chunk, ok := opusPacketChunk(payload)
+	if !ok {
+		return nil
+	}
+	return s.pushOutput(s.bindOpusPacketRoute(chunk))
 }
 
 func (s *PeerStream) pushOutput(chunk *genx.MessageChunk) error {

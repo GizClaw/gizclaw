@@ -32,7 +32,9 @@ Each Transformer's typed Config defines stable configuration, while the context 
 
 When a Doubao ASR provider session completes normally without non-whitespace final result text or definite utterance text, `doubaoasr.Transformer` completes that recognition successfully without emitting recognized transcript text. A zero-content terminal chunk required by the existing Stream route remains a successful internal boundary rather than recognized user text.
 
-An interim transcript route that never receives a definite result remains an error. Provider, protocol, timeout, cancellation, interrupted-input, malformed-audio, and unsupported-format failures also retain their normal error propagation.
+An interim transcript route that never receives a definite result remains an error. Provider, protocol, cancellation, interrupted-input, malformed-audio, unsupported-format failures, and timeouts other than the exception below retain their normal error propagation.
+
+Continuous ASR with `EmitInterim` treats local audio BOS/EOS only as route boundaries. It sends every audio frame immediately as a non-final packet to the current healthy SAUC session; only outer input EOF sends the terminal marker. A newly opened transcript is bound to the current local audio route, so changing the route does not require replacing the provider session. When an idle SAUC session returns the packet-wait timeout, the transformer reclaims only that completed provider session, keeps the outer Transformer stream open, and creates a replacement session for the next audio frame. Other provider errors still terminate the outer stream.
 
 ## AST Translate input modes
 
