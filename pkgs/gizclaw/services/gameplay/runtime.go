@@ -38,19 +38,23 @@ var (
 )
 
 type Runtime struct {
-	DB            *sqlx.DB
-	Catalog       *Catalog
-	Workflows     WorkflowService
-	Workspaces    workspace.SystemWorkspaceService
-	DriveFacts    DriveFactMemory
-	Now           func() time.Time
-	NewID         func() string
-	PickWeight    func(total int64) int64
-	DecayPeriod   time.Duration
-	adoptMu       [64]sync.Mutex
-	driveMu       [64]sync.Mutex
-	driveFactMu   sync.Mutex
-	driveFactWake chan struct{}
+	DB                   *sqlx.DB
+	Catalog              *Catalog
+	Workflows            WorkflowService
+	Workspaces           workspace.SystemWorkspaceService
+	DriveFacts           DriveFactMemory
+	WorkspaceRewards     WorkspaceRewardEnvironment
+	Now                  func() time.Time
+	NewID                func() string
+	PickWeight           func(total int64) int64
+	DecayPeriod          time.Duration
+	adoptMu              [64]sync.Mutex
+	driveMu              [64]sync.Mutex
+	driveFactMu          sync.Mutex
+	driveFactWake        chan struct{}
+	workspaceRewardMu    sync.Mutex
+	workspaceRewardWake  chan struct{}
+	workspaceRewardLocks [64]sync.Mutex
 }
 
 type WorkflowService interface {
@@ -174,9 +178,49 @@ func (r *Runtime) Migration(ctx context.Context) error {
 			badge_exp_delta_json TEXT NOT NULL,
 			source_type TEXT NOT NULL DEFAULT '',
 			source_id TEXT NOT NULL DEFAULT '',
+			policy_digest TEXT NOT NULL DEFAULT '',
 			reason TEXT,
 			created_at TEXT NOT NULL,
 			PRIMARY KEY(owner_public_key, id)
+		)`,
+		`CREATE TABLE IF NOT EXISTS gameplay_workspace_reward_sources (
+			workspace_name TEXT NOT NULL PRIMARY KEY,
+			scheduled_checkpoint TEXT NOT NULL,
+			completed_checkpoint TEXT NOT NULL,
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL
+		)`,
+		`CREATE TABLE IF NOT EXISTS gameplay_workspace_reward_activation (
+			singleton INTEGER NOT NULL PRIMARY KEY,
+			activated_at TEXT NOT NULL,
+			CHECK (singleton = 1)
+		)`,
+		`CREATE TABLE IF NOT EXISTS gameplay_workspace_reward_windows (
+			id TEXT NOT NULL PRIMARY KEY,
+			workspace_name TEXT NOT NULL,
+			workspace_kind TEXT NOT NULL,
+			beneficiary_public_key TEXT NOT NULL,
+			runtime_profile_name TEXT NOT NULL,
+			runtime_profile_revision TEXT NOT NULL,
+			policy_json TEXT NOT NULL,
+			policy_digest TEXT NOT NULL,
+			start_history_id TEXT NOT NULL,
+			high_water_history_id TEXT NOT NULL,
+			start_history_at TEXT NOT NULL,
+			high_water_history_at TEXT NOT NULL,
+			opened_at TEXT NOT NULL,
+			last_activity_at TEXT NOT NULL,
+			evaluate_after TEXT NOT NULL,
+			state TEXT NOT NULL,
+			attempt_count INTEGER NOT NULL,
+			next_attempt_at TEXT NOT NULL,
+			claim_token TEXT NOT NULL,
+			claim_until TEXT NOT NULL,
+			transcript_digest TEXT NOT NULL,
+			outcome TEXT NOT NULL,
+			last_error TEXT NOT NULL,
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL
 		)`,
 		`CREATE TABLE IF NOT EXISTS gameplay_drive_fact_outbox (
 			observation_id TEXT NOT NULL,
@@ -244,6 +288,13 @@ func (r *Runtime) Migration(ctx context.Context) error {
 	if _, err := db.ExecContext(ctx, `CREATE UNIQUE INDEX IF NOT EXISTS gameplay_reward_grants_source_idx ON gameplay_reward_grants(owner_public_key, runtime_profile_name, source_type, source_id) WHERE source_id <> ''`); err != nil {
 		return err
 	}
+	if exists, err := sqlColumnExists(ctx, db, "gameplay_reward_grants", "policy_digest"); err != nil {
+		return err
+	} else if !exists {
+		if _, err := db.ExecContext(ctx, `ALTER TABLE gameplay_reward_grants ADD COLUMN policy_digest TEXT NOT NULL DEFAULT ''`); err != nil {
+			return err
+		}
+	}
 	if _, err := db.ExecContext(ctx, `CREATE UNIQUE INDEX IF NOT EXISTS gameplay_points_transactions_pet_adoption_idx ON gameplay_points_transactions(owner_public_key, source_id) WHERE source_type = 'pet' AND reason = 'pet.adopt'`); err != nil {
 		return err
 	}
@@ -254,6 +305,12 @@ func (r *Runtime) Migration(ctx context.Context) error {
 		return err
 	}
 	if _, err := db.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS gameplay_drive_fact_outbox_due_idx ON gameplay_drive_fact_outbox(state, next_attempt_at, claim_until)`); err != nil {
+		return err
+	}
+	if _, err := db.ExecContext(ctx, `CREATE UNIQUE INDEX IF NOT EXISTS gameplay_workspace_reward_windows_active_idx ON gameplay_workspace_reward_windows(workspace_name) WHERE state IN ('pending', 'claimed', 'retry', 'blocked')`); err != nil {
+		return err
+	}
+	if _, err := db.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS gameplay_workspace_reward_windows_due_idx ON gameplay_workspace_reward_windows(state, evaluate_after, next_attempt_at, claim_until)`); err != nil {
 		return err
 	}
 	return nil
@@ -1690,21 +1747,26 @@ func (r *Runtime) applyBadgeExp(ctx context.Context, tx *sqlx.Tx, owner, badgeDe
 	if _, err := r.Catalog.GetBadgeDefByID(ctx, badgeDefID); err != nil {
 		return apitypes.Badge{}, err
 	}
-	badge, err := scanBadge(tx.QueryRowContext(ctx, tx.Rebind(badgeSelectSQL()+` WHERE owner_public_key = ? AND id = ?`), owner, badgeDefID))
-	if errors.Is(err, sql.ErrNoRows) {
-		badge = apitypes.Badge{Id: badgeDefID, OwnerPublicKey: owner, BadgeDefId: badgeDefID, CreatedAt: now}
-	} else if err != nil {
-		return apitypes.Badge{}, err
-	}
-	badge.Exp += delta
-	if badge.Exp < 0 {
-		badge.Exp = 0
-	}
-	badge.Level = badge.Exp / 100
-	badge.Active = badge.Exp >= 100
-	badge.Progress = badge.Exp % 100
-	badge.UpdatedAt = now
-	return badge, upsertBadge(ctx, tx, badge)
+	initialExp := max(int64(0), delta)
+	nextExp := `CASE WHEN gameplay_badges.exp + ? < 0 THEN 0 ELSE gameplay_badges.exp + ? END`
+	query := `INSERT INTO gameplay_badges
+		(owner_public_key, id, badge_def_id, exp, level, active, progress, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(owner_public_key, id) DO UPDATE SET
+			exp = ` + nextExp + `,
+			level = (` + nextExp + `) / 100,
+			active = CASE WHEN (` + nextExp + `) >= 100 THEN 1 ELSE 0 END,
+			progress = (` + nextExp + `) % 100,
+			updated_at = excluded.updated_at
+		RETURNING owner_public_key, id, badge_def_id, exp, level, active, progress, created_at, updated_at`
+	return scanBadge(tx.QueryRowContext(ctx, tx.Rebind(query),
+		owner, badgeDefID, badgeDefID, initialExp, initialExp/100, boolInt(initialExp >= 100),
+		initialExp%100, formatTime(now), formatTime(now),
+		delta, delta,
+		delta, delta,
+		delta, delta,
+		delta, delta,
+	))
 }
 
 func (r *Runtime) db() (*sqlx.DB, error) {

@@ -810,6 +810,241 @@ func TestRuntimeProfileRejectsInvalidGameplayReferences(t *testing.T) {
 	}
 }
 
+func TestRuntimeProfileNormalizesWorkspaceRewardPolicy(t *testing.T) {
+	t.Parallel()
+	upsert := validWorkspaceRewardProfileForTest()
+	normalized, err := normalizeProfile(upsert, "")
+	if err != nil {
+		t.Fatalf("normalizeProfile() error = %v", err)
+	}
+	reward := normalized.Spec.Gameplay.WorkspaceReward
+	if reward == nil || !reward.Enabled {
+		t.Fatalf("workspace reward = %#v", reward)
+	}
+	if reward.Debounce.QuietPeriod != "1m0s" ||
+		reward.Debounce.MaxWindowAge != "10m0s" ||
+		reward.RollingBudget.Period != "24h0m0s" {
+		t.Fatalf("normalized durations = %#v, %#v", reward.Debounce, reward.RollingBudget)
+	}
+	if got := *reward.WorkspaceKinds; len(got) != 2 ||
+		got[0] != apitypes.RuntimeProfileWorkspaceRewardSpecWorkspaceKindsDirectChatroom ||
+		got[1] != apitypes.RuntimeProfileWorkspaceRewardSpecWorkspaceKindsWorkflow {
+		t.Fatalf("normalized workspace kinds = %#v", got)
+	}
+	pointsOnly := validWorkspaceRewardProfileForTest()
+	emptyBadges := map[string]apitypes.RuntimeProfileWorkspaceRewardBadgeSpec{}
+	pointsOnly.Spec.Gameplay.WorkspaceReward.Badges = &emptyBadges
+	if _, err := normalizeProfile(pointsOnly, ""); err != nil {
+		t.Fatalf("normalizeProfile(points only) error = %v", err)
+	}
+
+	disabled := upsert
+	disabled.Spec.Gameplay.WorkspaceReward.Enabled = false
+	disabledProfile, err := normalizeProfile(disabled, "")
+	if err != nil {
+		t.Fatalf("normalizeProfile(disabled) error = %v", err)
+	}
+	if got := disabledProfile.Spec.Gameplay.WorkspaceReward; got == nil || got.Enabled ||
+		got.Debounce != nil || got.Evaluation != nil {
+		t.Fatalf("disabled workspace reward = %#v, want canonical disabled policy", got)
+	}
+}
+
+func TestRuntimeProfileRejectsInvalidWorkspaceRewardPolicy(t *testing.T) {
+	t.Parallel()
+	for name, mutate := range map[string]func(*apitypes.RuntimeProfileWorkspaceRewardSpec){
+		"incomplete": func(reward *apitypes.RuntimeProfileWorkspaceRewardSpec) {
+			reward.Transcript = nil
+		},
+		"duplicate kind": func(reward *apitypes.RuntimeProfileWorkspaceRewardSpec) {
+			kinds := []apitypes.RuntimeProfileWorkspaceRewardSpecWorkspaceKinds{
+				apitypes.RuntimeProfileWorkspaceRewardSpecWorkspaceKindsWorkflow,
+				apitypes.RuntimeProfileWorkspaceRewardSpecWorkspaceKindsWorkflow,
+			}
+			reward.WorkspaceKinds = &kinds
+		},
+		"window before quiet": func(reward *apitypes.RuntimeProfileWorkspaceRewardSpec) {
+			reward.Debounce.MaxWindowAge = "30s"
+		},
+		"score bounds": func(reward *apitypes.RuntimeProfileWorkspaceRewardSpec) {
+			reward.Evaluation.QualifyingScore = 101
+		},
+		"tier order": func(reward *apitypes.RuntimeProfileWorkspaceRewardSpec) {
+			reward.Points.Tiers = append(reward.Points.Tiers,
+				apitypes.RuntimeProfileWorkspaceRewardPointsTier{MinScore: 80, Delta: 20})
+		},
+		"unknown badge": func(reward *apitypes.RuntimeProfileWorkspaceRewardSpec) {
+			badges := map[string]apitypes.RuntimeProfileWorkspaceRewardBadgeSpec{
+				"unknown": {MaxExpPerWindow: 5},
+			}
+			reward.Badges = &badges
+		},
+		"unbounded period": func(reward *apitypes.RuntimeProfileWorkspaceRewardSpec) {
+			reward.RollingBudget.Period = "8761h"
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			upsert := validWorkspaceRewardProfileForTest()
+			mutate(upsert.Spec.Gameplay.WorkspaceReward)
+			if _, err := normalizeProfile(upsert, ""); err == nil {
+				t.Fatal("normalizeProfile() succeeded")
+			}
+		})
+	}
+}
+
+func TestRuntimeProfileValidatesWorkspaceRewardResources(t *testing.T) {
+	t.Parallel()
+	normalized, err := normalizeProfile(validWorkspaceRewardProfileForTest(), "")
+	if err != nil {
+		t.Fatalf("normalizeProfile() error = %v", err)
+	}
+	rewardPrompt := "Reward scientific reasoning."
+	for name, test := range map[string]struct {
+		modelKind    apitypes.ModelKind
+		rewardPrompt *string
+		wantError    string
+	}{
+		"valid generic LLM alias": {
+			modelKind: apitypes.ModelKindLlm, rewardPrompt: &rewardPrompt,
+		},
+		"wrong model kind": {
+			modelKind: apitypes.ModelKindAsr, rewardPrompt: &rewardPrompt,
+			wantError: `want "llm"`,
+		},
+		"missing Badge prompt": {
+			modelKind: apitypes.ModelKindLlm,
+			wantError: "requires BadgeDef reward_prompt",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			server := &Server{
+				ResolveResource: workspaceRewardResourceResolverForTest(
+					t,
+					test.modelKind,
+					test.rewardPrompt,
+				),
+			}
+			err := server.validateResources(t.Context(), normalized.Spec)
+			if test.wantError == "" {
+				if err != nil {
+					t.Fatalf("validateResources() error = %v", err)
+				}
+			} else if err == nil || !strings.Contains(err.Error(), test.wantError) {
+				t.Fatalf("validateResources() error = %v, want %q", err, test.wantError)
+			}
+		})
+	}
+}
+
+func workspaceRewardResourceResolverForTest(
+	t *testing.T,
+	modelKind apitypes.ModelKind,
+	rewardPrompt *string,
+) func(context.Context, apitypes.ResourceKind, string) (apitypes.Resource, error) {
+	t.Helper()
+	return func(_ context.Context, kind apitypes.ResourceKind, name string) (apitypes.Resource, error) {
+		var resource apitypes.Resource
+		switch kind {
+		case apitypes.ResourceKindWorkflow:
+			spec := apitypes.WorkflowSpec{
+				Driver:   apitypes.WorkflowDriverChatroom,
+				Chatroom: &apitypes.ChatRoomWorkflowSpec{History: apitypes.ChatRoomWorkflowHistorySpec{}},
+			}
+			if name == "pet-care" {
+				spec = apitypes.WorkflowSpec{
+					Driver: apitypes.WorkflowDriverPet,
+					Pet: &apitypes.PetWorkflowSpec{
+						Driver: apitypes.ReusableWorkflowDriverChatroom,
+						Chatroom: &apitypes.ChatRoomWorkflowSpec{
+							History: apitypes.ChatRoomWorkflowHistorySpec{},
+						},
+					},
+				}
+			}
+			err := resource.FromWorkflowResource(apitypes.WorkflowResource{
+				ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
+				Kind:       apitypes.WorkflowResourceKindWorkflow,
+				Metadata:   apitypes.ResourceMetadata{Name: name},
+				Spec:       spec,
+			})
+			return resource, err
+		case apitypes.ResourceKindModel:
+			err := resource.FromModelResource(apitypes.ModelResource{
+				ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
+				Kind:       apitypes.ModelResourceKindModel,
+				Metadata:   apitypes.ResourceMetadata{Name: name},
+				Spec:       apitypes.ModelSpec{Kind: modelKind},
+			})
+			return resource, err
+		case apitypes.ResourceKindBadgeDef:
+			err := resource.FromBadgeDefResource(apitypes.BadgeDefResource{
+				ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
+				Kind:       apitypes.BadgeDefResourceKindBadgeDef,
+				Metadata:   apitypes.ResourceMetadata{Name: name},
+				Spec: apitypes.BadgeDefSpec{
+					DisplayName: "Science", RewardPrompt: rewardPrompt,
+				},
+			})
+			return resource, err
+		default:
+			return apitypes.Resource{}, kv.ErrNotFound
+		}
+	}
+}
+
+func validWorkspaceRewardProfileForTest() adminhttp.RuntimeProfileUpsert {
+	models := map[string]apitypes.RuntimeProfileBinding{
+		"reward-evaluator": runtimeProfileTestBinding("model-reward"),
+	}
+	badgeDefs := map[string]apitypes.RuntimeProfileBinding{
+		"science": runtimeProfileTestBinding("badge-science"),
+	}
+	kinds := []apitypes.RuntimeProfileWorkspaceRewardSpecWorkspaceKinds{
+		apitypes.RuntimeProfileWorkspaceRewardSpecWorkspaceKindsWorkflow,
+		apitypes.RuntimeProfileWorkspaceRewardSpecWorkspaceKindsDirectChatroom,
+	}
+	badges := map[string]apitypes.RuntimeProfileWorkspaceRewardBadgeSpec{
+		"science": {MaxExpPerWindow: 5},
+	}
+	return adminhttp.RuntimeProfileUpsert{
+		Name: "workspace-reward-profile",
+		Spec: apitypes.RuntimeProfileSpec{
+			Workflows: apitypes.RuntimeProfileWorkflows{
+				System: runtimeProfileTestSystemWorkflows(), Collections: apitypes.RuntimeProfileWorkflowCollections{},
+			},
+			Resources: apitypes.RuntimeProfileResources{Models: &models, BadgeDefs: &badgeDefs},
+			Gameplay: &apitypes.RuntimeProfileGameplaySpec{
+				WorkspaceReward: &apitypes.RuntimeProfileWorkspaceRewardSpec{
+					Enabled:        true,
+					WorkspaceKinds: &kinds,
+					Debounce: &apitypes.RuntimeProfileWorkspaceRewardDebounceSpec{
+						QuietPeriod: " 60s ", MaxWindowAge: "10m",
+					},
+					Transcript: &apitypes.RuntimeProfileWorkspaceRewardTranscriptSpec{
+						MaxEntries: 20, MaxTextBytes: 4096,
+					},
+					Evaluation: &apitypes.RuntimeProfileWorkspaceRewardEvaluationSpec{
+						Model: " reward-evaluator ", PointsPrompt: " Reward good learning. ",
+						ScoreMin: 0, ScoreMax: 100, QualifyingScore: 80,
+					},
+					Points: &apitypes.RuntimeProfileWorkspaceRewardPointsSpec{
+						Tiers: []apitypes.RuntimeProfileWorkspaceRewardPointsTier{
+							{MinScore: 80, Delta: 10}, {MinScore: 90, Delta: 20},
+						},
+					},
+					Badges: &badges,
+					RollingBudget: &apitypes.RuntimeProfileWorkspaceRewardRollingBudgetSpec{
+						Period: "24h", PointsMax: 100, BadgeExpMax: 50,
+					},
+				},
+			},
+		},
+	}
+}
+
 func TestRuntimeProfileRequiresPetPolicyForAdoption(t *testing.T) {
 	t.Parallel()
 	pool := []apitypes.RuntimeProfilePetPoolEntry{{PetDef: "pet", Weight: 1}}

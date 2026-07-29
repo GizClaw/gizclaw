@@ -172,7 +172,7 @@ func (s *PeerStream) readEvents() {
 				continue
 			}
 		}
-		if event.Type > eventpb.PeerEventType_PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED {
+		if event.Type > eventpb.PeerEventType_PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED {
 			continue
 		}
 		chunk, err := peerStreamEventToChunk(event)
@@ -223,7 +223,8 @@ func isPeerResourceInvalidation(event *eventpb.PeerEvent) bool {
 	switch event.Type {
 	case eventpb.PeerEventType_PEER_EVENT_TYPE_WORKSPACE_HISTORY_UPDATED,
 		eventpb.PeerEventType_PEER_EVENT_TYPE_FRIEND_RELATIONSHIP_UPDATED,
-		eventpb.PeerEventType_PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED:
+		eventpb.PeerEventType_PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED,
+		eventpb.PeerEventType_PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED:
 		return true
 	default:
 		return false

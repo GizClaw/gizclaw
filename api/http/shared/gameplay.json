@@ -350,6 +350,10 @@
           "description": {
             "type": "string"
           },
+          "reward_prompt": {
+            "type": "string",
+            "maxLength": 8192
+          },
           "tags": {
             "type": "array",
             "items": {

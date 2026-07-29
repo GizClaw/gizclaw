@@ -40,6 +40,7 @@ spec:
     spec:
       display_name: Starter Badge
       description: First gameplay badge used by e2e coverage.
+      reward_prompt: Award EXP when the conversation demonstrates concrete learning progress.
   - apiVersion: gizclaw.admin/v1alpha1
     kind: GameDef
     metadata:
@@ -78,6 +79,24 @@ spec:
       gameplay:
         points:
           initial_balance: 100
+        workspace_reward:
+          enabled: true
+          workspace_kinds: [workflow, direct_chatroom, group_chatroom]
+          debounce: {quiet_period: 1s, max_window_age: 10s}
+          transcript: {max_entries: 100, max_text_bytes: 65536}
+          evaluation:
+            model: pet-chat
+            points_prompt: Score constructive conversation and demonstrated learning progress.
+            score_min: 0
+            score_max: 100
+            qualifying_score: 0
+          points:
+            tiers:
+            - {min_score: 0, delta: 1}
+            - {min_score: 80, delta: 3}
+          badges:
+            starter-badge: {max_exp_per_window: 5}
+          rolling_budget: {period: 24h, points_max: 30, badge_exp_max: 50}
         adoption:
           pool:
           - pet_def: starter-pet

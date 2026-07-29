@@ -222,6 +222,14 @@ func TestPostgresGameplayConcurrentMigration(t *testing.T) {
 	}
 }
 
+func TestPostgresWorkspaceRewardConcurrentSettlementHonorsBudget(t *testing.T) {
+	db := openGameplayPostgresTestDB(t)
+	ctx := context.Background()
+	dropGameplayPostgresTables(t, ctx, db)
+	t.Cleanup(func() { dropGameplayPostgresTables(t, context.Background(), db) })
+	testConcurrentWorkspaceRewardSettlement(t, db)
+}
+
 func TestPostgresCallerAssignedAdoptionIsConcurrent(t *testing.T) {
 	db := openGameplayPostgresTestDB(t)
 	ctx := context.Background()
@@ -462,6 +470,9 @@ func openGameplayPostgresTestDB(t *testing.T) *sqlx.DB {
 func dropGameplayPostgresTables(t *testing.T, ctx context.Context, db *sqlx.DB) {
 	t.Helper()
 	for _, table := range []string{
+		"gameplay_workspace_reward_windows",
+		"gameplay_workspace_reward_sources",
+		"gameplay_workspace_reward_activation",
 		"gameplay_drive_fact_outbox",
 		"gameplay_pending_deletion_locators",
 		"gameplay_pending_deletions",

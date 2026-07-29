@@ -10,9 +10,11 @@ import (
 	"math"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -31,6 +33,9 @@ const (
 	defaultListLimit            = 50
 	maxListLimit                = 200
 	ownerBindingRollbackTimeout = 5 * time.Second
+	maxWorkspaceRewardPrompt    = 8192
+	maxWorkspaceRewardWindow    = 24 * time.Hour
+	maxWorkspaceRewardPeriod    = 365 * 24 * time.Hour
 )
 
 var runtimeAliasPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
@@ -686,6 +691,11 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedName string) (a
 			return apitypes.RuntimeProfile{}, err
 		}
 	}
+	if spec.Gameplay != nil && spec.Gameplay.WorkspaceReward != nil {
+		if err := normalizeWorkspaceReward(spec.Gameplay.WorkspaceReward, spec.Resources); err != nil {
+			return apitypes.RuntimeProfile{}, err
+		}
+	}
 	item := apitypes.RuntimeProfile{Name: name, Spec: spec}
 	if err := setProfileRevision(&item); err != nil {
 		return apitypes.RuntimeProfile{}, err
@@ -955,7 +965,6 @@ func (s *Server) validateResources(ctx context.Context, spec apitypes.RuntimePro
 	}{
 		{path: "resources.tools", kind: apitypes.ResourceKindTool, values: spec.Resources.Tools},
 		{path: "resources.game_defs", kind: apitypes.ResourceKindGameDef, values: spec.Resources.GameDefs},
-		{path: "resources.badge_defs", kind: apitypes.ResourceKindBadgeDef, values: spec.Resources.BadgeDefs},
 	}
 	for _, group := range groups {
 		if group.values == nil {
@@ -965,6 +974,20 @@ func (s *Server) validateResources(ctx context.Context, spec apitypes.RuntimePro
 			if _, err := resolve(group.path+"."+alias, group.kind, binding); err != nil {
 				return err
 			}
+		}
+	}
+	badgeDefs := make(map[string]apitypes.BadgeDefSpec)
+	if spec.Resources.BadgeDefs != nil {
+		for alias, binding := range *spec.Resources.BadgeDefs {
+			resource, err := resolve("resources.badge_defs."+alias, apitypes.ResourceKindBadgeDef, binding)
+			if err != nil {
+				return err
+			}
+			badgeDef, err := resource.AsBadgeDefResource()
+			if err != nil {
+				return fmt.Errorf("resources.badge_defs.%s.resource_id %q returned an invalid BadgeDef: %w", alias, binding.ResourceId, err)
+			}
+			badgeDefs[alias] = badgeDef.Spec
 		}
 	}
 	if spec.Resources.PetDefs != nil {
@@ -988,6 +1011,30 @@ func (s *Server) validateResources(ctx context.Context, spec apitypes.RuntimePro
 	if spec.Gameplay != nil && spec.Gameplay.Pet != nil {
 		if err := validatePetRewardModels(*spec.Gameplay.Pet, models); err != nil {
 			return err
+		}
+	}
+	if spec.Gameplay != nil && spec.Gameplay.WorkspaceReward != nil && spec.Gameplay.WorkspaceReward.Enabled {
+		reward := spec.Gameplay.WorkspaceReward
+		if reward.Evaluation == nil {
+			return errors.New("gameplay.workspace_reward.evaluation is required when enabled")
+		}
+		model, ok := models[reward.Evaluation.Model]
+		if !ok {
+			return fmt.Errorf("gameplay.workspace_reward.evaluation.model alias %q is not declared in resources.models", reward.Evaluation.Model)
+		}
+		if model.Spec.Kind != apitypes.ModelKindLlm {
+			return fmt.Errorf("gameplay.workspace_reward.evaluation.model alias %q has kind %q, want %q", reward.Evaluation.Model, model.Spec.Kind, apitypes.ModelKindLlm)
+		}
+		if reward.Badges != nil {
+			for alias := range *reward.Badges {
+				badgeDef, ok := badgeDefs[alias]
+				if !ok {
+					return fmt.Errorf("gameplay.workspace_reward.badges.%s is not declared in resources.badge_defs", alias)
+				}
+				if badgeDef.RewardPrompt == nil || strings.TrimSpace(*badgeDef.RewardPrompt) == "" {
+					return fmt.Errorf("gameplay.workspace_reward.badges.%s requires BadgeDef reward_prompt", alias)
+				}
+			}
 		}
 	}
 	return nil
@@ -1458,6 +1505,126 @@ func normalizePetGameplay(pet *apitypes.RuntimeProfilePetGameplaySpec, resources
 	}
 	pet.Games = normalized
 	return nil
+}
+
+func normalizeWorkspaceReward(reward *apitypes.RuntimeProfileWorkspaceRewardSpec, resources apitypes.RuntimeProfileResources) error {
+	if reward == nil {
+		return nil
+	}
+	if !reward.Enabled {
+		*reward = apitypes.RuntimeProfileWorkspaceRewardSpec{Enabled: false}
+		return nil
+	}
+	if reward.WorkspaceKinds == nil || reward.Debounce == nil || reward.Transcript == nil ||
+		reward.Evaluation == nil || reward.Points == nil || reward.Badges == nil ||
+		reward.RollingBudget == nil {
+		return errors.New("gameplay.workspace_reward requires workspace_kinds, debounce, transcript, evaluation, points, badges, and rolling_budget when enabled")
+	}
+	kinds := append([]apitypes.RuntimeProfileWorkspaceRewardSpecWorkspaceKinds(nil), (*reward.WorkspaceKinds)...)
+	if len(kinds) == 0 || len(kinds) > 3 {
+		return errors.New("gameplay.workspace_reward.workspace_kinds requires 1..3 entries")
+	}
+	seenKinds := make(map[apitypes.RuntimeProfileWorkspaceRewardSpecWorkspaceKinds]struct{}, len(kinds))
+	for _, kind := range kinds {
+		if !kind.Valid() {
+			return fmt.Errorf("gameplay.workspace_reward.workspace_kinds contains unsupported kind %q", kind)
+		}
+		if _, exists := seenKinds[kind]; exists {
+			return fmt.Errorf("gameplay.workspace_reward.workspace_kinds contains duplicate kind %q", kind)
+		}
+		seenKinds[kind] = struct{}{}
+	}
+	slices.Sort(kinds)
+	reward.WorkspaceKinds = &kinds
+
+	quietPeriod, err := parseWorkspaceRewardDuration("gameplay.workspace_reward.debounce.quiet_period", reward.Debounce.QuietPeriod, maxWorkspaceRewardWindow)
+	if err != nil {
+		return err
+	}
+	maxWindowAge, err := parseWorkspaceRewardDuration("gameplay.workspace_reward.debounce.max_window_age", reward.Debounce.MaxWindowAge, maxWorkspaceRewardWindow)
+	if err != nil {
+		return err
+	}
+	if maxWindowAge < quietPeriod {
+		return errors.New("gameplay.workspace_reward.debounce.max_window_age must be greater than or equal to quiet_period")
+	}
+	reward.Debounce.QuietPeriod = quietPeriod.String()
+	reward.Debounce.MaxWindowAge = maxWindowAge.String()
+
+	if reward.Transcript.MaxEntries <= 0 || reward.Transcript.MaxEntries > 1000 ||
+		reward.Transcript.MaxTextBytes <= 0 || reward.Transcript.MaxTextBytes > 1<<20 {
+		return errors.New("gameplay.workspace_reward.transcript requires max_entries in 1..1000 and max_text_bytes in 1..1048576")
+	}
+	evaluation := reward.Evaluation
+	evaluation.Model = strings.TrimSpace(evaluation.Model)
+	evaluation.PointsPrompt = strings.TrimSpace(evaluation.PointsPrompt)
+	if evaluation.Model == "" {
+		return errors.New("gameplay.workspace_reward.evaluation.model is required")
+	}
+	if _, ok := bindingByAlias(resources.Models, evaluation.Model); !ok {
+		return fmt.Errorf("gameplay.workspace_reward.evaluation.model %q is not declared in resources.models", evaluation.Model)
+	}
+	if !utf8.ValidString(evaluation.PointsPrompt) || evaluation.PointsPrompt == "" || len([]byte(evaluation.PointsPrompt)) > maxWorkspaceRewardPrompt {
+		return fmt.Errorf("gameplay.workspace_reward.evaluation.points_prompt must be 1..%d UTF-8 bytes", maxWorkspaceRewardPrompt)
+	}
+	if evaluation.ScoreMin < 0 || evaluation.ScoreMax < evaluation.ScoreMin ||
+		evaluation.QualifyingScore < evaluation.ScoreMin || evaluation.QualifyingScore > evaluation.ScoreMax ||
+		evaluation.ScoreMax > 1_000_000 {
+		return errors.New("gameplay.workspace_reward.evaluation requires 0 <= score_min <= qualifying_score <= score_max <= 1000000")
+	}
+	if len(reward.Points.Tiers) == 0 || len(reward.Points.Tiers) > 100 {
+		return errors.New("gameplay.workspace_reward.points.tiers requires 1..100 entries")
+	}
+	previousScore := int64(-1)
+	for i, tier := range reward.Points.Tiers {
+		if tier.MinScore < evaluation.ScoreMin || tier.MinScore > evaluation.ScoreMax || tier.MinScore <= previousScore {
+			return fmt.Errorf("gameplay.workspace_reward.points.tiers[%d].min_score must be strictly increasing inside the score range", i)
+		}
+		if tier.Delta < 0 || tier.Delta > 1_000_000 {
+			return fmt.Errorf("gameplay.workspace_reward.points.tiers[%d].delta must be in 0..1000000", i)
+		}
+		previousScore = tier.MinScore
+	}
+	if len(*reward.Badges) > 64 {
+		return errors.New("gameplay.workspace_reward.badges supports at most 64 entries")
+	}
+	normalizedBadges := make(map[string]apitypes.RuntimeProfileWorkspaceRewardBadgeSpec, len(*reward.Badges))
+	for rawAlias, policy := range *reward.Badges {
+		alias := strings.TrimSpace(rawAlias)
+		if err := ValidateAlias("workspace reward badge alias", alias); err != nil {
+			return err
+		}
+		if _, ok := bindingByAlias(resources.BadgeDefs, alias); !ok {
+			return fmt.Errorf("gameplay.workspace_reward.badges.%s is not declared in resources.badge_defs", alias)
+		}
+		if policy.MaxExpPerWindow <= 0 || policy.MaxExpPerWindow > 1_000_000 {
+			return fmt.Errorf("gameplay.workspace_reward.badges.%s.max_exp_per_window must be in 1..1000000", alias)
+		}
+		if _, duplicate := normalizedBadges[alias]; duplicate {
+			return fmt.Errorf("gameplay.workspace_reward.badges contains duplicate alias %q", alias)
+		}
+		normalizedBadges[alias] = policy
+	}
+	reward.Badges = &normalizedBadges
+
+	period, err := parseWorkspaceRewardDuration("gameplay.workspace_reward.rolling_budget.period", reward.RollingBudget.Period, maxWorkspaceRewardPeriod)
+	if err != nil {
+		return err
+	}
+	reward.RollingBudget.Period = period.String()
+	if reward.RollingBudget.PointsMax < 0 || reward.RollingBudget.PointsMax > 1_000_000_000 ||
+		reward.RollingBudget.BadgeExpMax < 0 || reward.RollingBudget.BadgeExpMax > 1_000_000_000 {
+		return errors.New("gameplay.workspace_reward.rolling_budget limits must be in 0..1000000000")
+	}
+	return nil
+}
+
+func parseWorkspaceRewardDuration(path, raw string, maximum time.Duration) (time.Duration, error) {
+	value, err := time.ParseDuration(strings.TrimSpace(raw))
+	if err != nil || value <= 0 || value > maximum {
+		return 0, fmt.Errorf("%s must be a positive Go duration no greater than %s", path, maximum)
+	}
+	return value, nil
 }
 
 func listProfiles(ctx context.Context, store kv.Store, cursor *string, limit *int32) ([]apitypes.RuntimeProfile, bool, *string, error) {

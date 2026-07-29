@@ -25,6 +25,7 @@ class PeerStreamEvent {
     this.workspaceHistoryUpdated,
     this.friendRelationshipUpdated,
     this.friendGroupUpdated,
+    this.gameplayRewardUpdated,
   }) : eventType = _eventType(type),
        streamKind = _streamKind(kind),
        message = _buildMessage(
@@ -40,6 +41,7 @@ class PeerStreamEvent {
          workspaceHistoryUpdated: workspaceHistoryUpdated,
          friendRelationshipUpdated: friendRelationshipUpdated,
          friendGroupUpdated: friendGroupUpdated,
+         gameplayRewardUpdated: gameplayRewardUpdated,
        );
 
   PeerStreamEvent._(this.message)
@@ -95,6 +97,9 @@ class PeerStreamEvent {
           : null,
       friendGroupUpdated = message.hasFriendGroupUpdated()
           ? message.friendGroupUpdated
+          : null,
+      gameplayRewardUpdated = message.hasGameplayRewardUpdated()
+          ? message.gameplayRewardUpdated
           : null;
 
   final String? errorCode;
@@ -102,6 +107,7 @@ class PeerStreamEvent {
   final bool errorRetryable;
   final events.FriendGroupUpdated? friendGroupUpdated;
   final events.FriendRelationshipUpdated? friendRelationshipUpdated;
+  final events.GameplayRewardUpdated? gameplayRewardUpdated;
   final events.PeerEventType eventType;
   final String? label;
   final DateTime? lastUpdatedAt;
@@ -131,6 +137,8 @@ class PeerStreamEvent {
       'friend.relationship.updated',
     events.PeerEventType.PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED =>
       'friend_group.updated',
+    events.PeerEventType.PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED =>
+      'gameplay.reward.updated',
     _ => 'unknown',
   };
 
@@ -156,6 +164,8 @@ events.PeerEventType _eventType(Object value) {
       events.PeerEventType.PEER_EVENT_TYPE_FRIEND_RELATIONSHIP_UPDATED,
     'friend_group.updated' =>
       events.PeerEventType.PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED,
+    'gameplay.reward.updated' =>
+      events.PeerEventType.PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED,
     _ => throw FormatException('unsupported peer event type $value'),
   };
 }
@@ -295,6 +305,7 @@ events.PeerEvent _buildMessage({
   required events.WorkspaceHistoryUpdated? workspaceHistoryUpdated,
   required events.FriendRelationshipUpdated? friendRelationshipUpdated,
   required events.FriendGroupUpdated? friendGroupUpdated,
+  required events.GameplayRewardUpdated? gameplayRewardUpdated,
 }) {
   final message = events.PeerEvent(version: 1, type: type);
   switch (type) {
@@ -351,6 +362,9 @@ events.PeerEvent _buildMessage({
     case events.PeerEventType.PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED:
       message.friendGroupUpdated =
           friendGroupUpdated ?? events.FriendGroupUpdated();
+    case events.PeerEventType.PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED:
+      message.gameplayRewardUpdated =
+          gameplayRewardUpdated ?? events.GameplayRewardUpdated();
     default:
       throw FormatException('unsupported peer event type ${type.value}');
   }
@@ -379,6 +393,8 @@ void _validateMessage(events.PeerEvent message, {bool allowUnknown = false}) {
           events.PeerEvent_Payload.friendRelationshipUpdated,
     events.PeerEventType.PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED =>
       message.whichPayload() == events.PeerEvent_Payload.friendGroupUpdated,
+    events.PeerEventType.PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED =>
+      message.whichPayload() == events.PeerEvent_Payload.gameplayRewardUpdated,
     _ =>
       allowUnknown && message.whichPayload() == events.PeerEvent_Payload.notSet,
   };
@@ -416,6 +432,15 @@ void _validateMessage(events.PeerEvent message, {bool allowUnknown = false}) {
           payload.workspaceName.trim().isEmpty) {
         throw const FormatException(
           'friend group event requires friendGroupId and workspaceName',
+        );
+      }
+      break;
+    case events.PeerEvent_Payload.gameplayRewardUpdated:
+      final payload = message.gameplayRewardUpdated;
+      if (payload.workspaceName.trim().isEmpty ||
+          payload.rewardGrantId.trim().isEmpty) {
+        throw const FormatException(
+          'gameplay reward event requires workspaceName and rewardGrantId',
         );
       }
       break;

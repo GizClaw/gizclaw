@@ -14,6 +14,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
@@ -81,7 +82,7 @@ type Service struct {
 	Source                     StreamSource
 	Consumer                   StreamConsumer
 	OnConsumerError            func(context.Context, string, error)
-	OnWorkspaceHistoryUpdated  func(context.Context, string, time.Time)
+	OnWorkspaceHistoryUpdated  func(context.Context, string, workspace.HistoryEntry)
 	Logger                     *slog.Logger
 	Now                        func() time.Time
 

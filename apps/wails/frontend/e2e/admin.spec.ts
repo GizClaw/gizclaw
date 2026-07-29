@@ -375,6 +375,10 @@ test("admin view covers provider, AI, social, and settings sections", async ({
   await expect(resourceJSON).toHaveValue(/"collections"/);
   await expect(resourceJSON).toHaveValue(/"resource_id": "general-chat"/);
   await expect(resourceJSON).toHaveValue(/"resource_id": "petdef-starter"/);
+  await expect(resourceJSON).toHaveValue(/"reward-evaluator"/);
+  await expect(resourceJSON).toHaveValue(/"workspace_reward"/);
+  await expect(resourceJSON).toHaveValue(/"qualifying_score": 80/);
+  await expect(resourceJSON).toHaveValue(/"rolling_budget"/);
   await expect(resourceJSON).toHaveValue(/"zh-CN"/);
   await page.getByRole("combobox").click();
   await page.getByRole("option", { name: "RegistrationToken" }).click();
@@ -388,6 +392,10 @@ test("admin view covers provider, AI, social, and settings sections", async ({
   await expect(resourceJSON).toHaveValue(/"kind": "PetDef"/);
   await expect(resourceJSON).not.toHaveValue(/"default_locale"/);
   await expect(resourceJSON).not.toHaveValue(/"i18n"/);
+  await page.getByRole("combobox").click();
+  await page.getByRole("option", { name: "BadgeDef" }).click();
+  await expect(resourceJSON).toHaveValue(/"kind": "BadgeDef"/);
+  await expect(resourceJSON).toHaveValue(/"reward_prompt"/);
 });
 
 test("admin social friend detail loads workspace history and downloads audio", async ({

@@ -397,7 +397,7 @@ func (h *PeerConn) initAgentHost() {
 			Tracks: h,
 		},
 		OnConsumerError:           h.broadcastAgentOutputError,
-		OnWorkspaceHistoryUpdated: manager.broadcastWorkspaceHistoryUpdated,
+		OnWorkspaceHistoryUpdated: manager.handleWorkspaceHistoryUpdated,
 	}
 	if h.rpc != nil {
 		h.rpc.peerRunRuntime = h.agentHost

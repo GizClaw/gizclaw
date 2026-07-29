@@ -57,3 +57,26 @@ Gameplay 在提交 Pet、result 和 reward 的同一个 SQL transaction 中写�
 投递使用 Pet 外层 Workflow 已选择的 Workspace Memory binding，并通过现有 `memorystore.Registry` 租用 `Scope.AppID = Pet.WorkspaceName` 的逻辑 Store。operation 同时记录不含 credential 的物理 binding digest；RuntimeProfile 在 operation 完成前切换物理 binding 时，旧 locator 不会交给新 backend。Pet death 或普通 Pet deletion 不删除 Workspace、outbox 或已投递 Fact；它们继续遵循 Workspace Memory 自身的生命周期。
 
 Gameplay 使用 Workspace owner 和 Pet 领域关系，不创建额外 role 或 policy binding。领养时会独立于 active Pet row 持久化 Pet-to-Workspace binding。Pet 删除在同一个 gameplay SQL database transaction 中创建或复用一条 `kind=pet` PendingDeletion，同时保留 Pet row 及其 binding；该标记不影响 Pet 的读取、list、authorization 或 mutation。不创建 Workspace pending record；points、badge、result、transaction 和 reward grant 历史全部保留。
+
+## Workspace 对话奖励
+
+`gameplay.workspace_reward` 是 RuntimeProfile 可选策略。它把同一 Workspace 中由
+AgentHost 新写入的连续 History 合并成 debounce window；window 的第一条 `gear`
+记录固定受益 Peer，后续群聊参与者不会改变受益人。Server 启动时只把已有 History
+设为 checkpoint，不为导入、回放或升级前的记录补发奖励。只评价同时包含受益人
+输入和 Agent 输出的完整 window。
+
+Gameplay 为整个服务运行一个持久 dispatcher。AgentHost append 成功后的 callback
+只记录精确 History high-water 并唤醒 dispatcher，不调用模型。window 冻结当前
+RuntimeProfile revision、LLM Model resource、Points prompt、BadgeDef `reward_prompt`、
+tier、限额和滚动预算；profile 更新只影响后续 window。dispatcher 读取冻结边界内
+且 `origin=agenthost` 的文本，执行一次 snapshot-specific `genx.FuncTool` structured
+invoke，再在本地验证 score、reason、Badge alias 和 EXP 上限。这个 evaluator 不是
+Admin `Tool`、built-in Tool、Toolkit 或 `giztools` capability。
+
+Points tier 映射、BadgeDef ID 解析、滚动预算、`RewardGrant`、Points transaction、
+Badge EXP、window 完成和 checkpoint 在同一个 Gameplay SQL transaction 中提交。
+模型失败使用有界重试；非法输出进入 terminal blocked 状态；重启后 claim 可以恢复，
+相同 window 不会重复发奖。成功改变状态后只向受益 Peer 发送
+`GAMEPLAY_REWARD_UPDATED` invalidation Event；客户端收到后重新拉取权威 Gameplay
+状态。确定性任务奖励属于独立任务系统，不经过该模型 evaluator。

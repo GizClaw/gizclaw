@@ -26,5 +26,9 @@
   {
     "name": "friend_group_updated",
     "hex": "080110078201190a0767726f75702d61120a67726f75702d726f6f6d18042006"
+  },
+  {
+    "name": "gameplay_reward_updated",
+    "hex": "080110088a01170a0a776f726b666c6f772d6112076772616e742d611807"
   }
 ]

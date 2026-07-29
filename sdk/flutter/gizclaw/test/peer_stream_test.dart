@@ -116,7 +116,7 @@ void main() {
     ).readAsStringSync();
     final vectors = (jsonDecode(source) as List<Object?>)
         .cast<Map<String, Object?>>();
-    expect(vectors, hasLength(7));
+    expect(vectors, hasLength(8));
     for (final vector in vectors) {
       final expected = _hexBytes(vector['hex']! as String);
       final event = PeerEvent.fromBuffer(expected);
@@ -131,7 +131,7 @@ void main() {
   });
 
   test('keeps a future event type consumable', () {
-    final decoded = PeerStreamEvent.decode(_hexBytes('080110638a0100'));
+    final decoded = PeerStreamEvent.decode(_hexBytes('08011063920100'));
     expect(decoded.type, 'unknown');
   });
 

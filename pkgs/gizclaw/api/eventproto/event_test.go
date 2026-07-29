@@ -48,6 +48,13 @@ func TestPeerEventValidate(t *testing.T) {
 			Type:    PeerEventType_PEER_EVENT_TYPE_BOS,
 			Payload: &PeerEvent_Bos{Bos: &StreamBegin{}},
 		},
+		"missing reward grant": {
+			Version: Version,
+			Type:    PeerEventType_PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED,
+			Payload: &PeerEvent_GameplayRewardUpdated{
+				GameplayRewardUpdated: &GameplayRewardUpdated{WorkspaceName: "workflow-a"},
+			},
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
@@ -71,7 +78,7 @@ func TestPeerEventGoldenVectors(t *testing.T) {
 	if err := json.Unmarshal(data, &vectors); err != nil {
 		t.Fatalf("Unmarshal(golden vectors): %v", err)
 	}
-	if len(vectors) != 7 {
+	if len(vectors) != 8 {
 		t.Fatalf("golden vector count = %d, want every oneof arm", len(vectors))
 	}
 	for _, vector := range vectors {

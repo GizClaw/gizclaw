@@ -21,6 +21,7 @@ connection 生命周期内保持一条。实时 Opus bytes 仍通过 WebRTC audi
 | `WORKSPACE_HISTORY_UPDATED` | Server → Client / Device | `workspace_history_updated` | 指定 Workspace 的 history 已持久化更新。 |
 | `FRIEND_RELATIONSHIP_UPDATED` | Server → Client / Device | `friend_relationship_updated` | 好友关系已创建或删除。 |
 | `FRIEND_GROUP_UPDATED` | Server → Client / Device | `friend_group_updated` | 群组或成员关系已变化。 |
+| `GAMEPLAY_REWARD_UPDATED` | Server → Client / Device | `gameplay_reward_updated` | Workspace 对话奖励已原子提交。 |
 
 `kind` 的含义由选中的 payload 决定：
 
@@ -51,6 +52,8 @@ Peer Event Stream 属于 Peer connection，不属于某个 Workspace、Agent 或
 好友关系事件发给关系双方。群组事件发给所有受影响的当前成员和变更前成员。
 Workspace history 事件只发给当前有权访问该 Workspace 的在线 Peer。接收者由
 Server 根据认证连接和权威 relationship 计算，不能由 Client payload 指定。
+Gameplay reward 事件只发给已提交 `RewardGrant` 的受益 Peer；群聊其他成员不会
+收到该奖励事件。它同样只是 best-effort invalidation hint。
 
 ## Logical stream lifecycle
 
@@ -112,6 +115,12 @@ Client 应按 `code` 本地化显示，并结束对应的 loading/recording 状�
 - `revision_unix_ms`
 - `affected_peer_public_key`：成员增删或角色变化时标识被修改的成员；
   群级变化时为空
+
+`gameplay_reward_updated`：
+
+- `workspace_name`
+- `reward_grant_id`
+- `revision_unix_ms`
 
 ## Four different end boundaries
 

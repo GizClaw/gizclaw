@@ -75,6 +75,7 @@ spec:
       gameplay:
         points:
           initial_balance: 100
+        workspace_reward: {enabled: false}
         adoption:
           pool:
           - pet_def: tragon-pet

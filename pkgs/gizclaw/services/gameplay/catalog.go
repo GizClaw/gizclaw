@@ -12,6 +12,7 @@ import (
 	"reflect"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -676,8 +677,22 @@ func (c *Catalog) buildBadgeDef(id string, spec apitypes.BadgeDefSpec, pixaPath 
 	if id == "" {
 		return apitypes.BadgeDef{}, errors.New("id is required")
 	}
-	if strings.TrimSpace(spec.DisplayName) == "" {
+	spec.DisplayName = strings.TrimSpace(spec.DisplayName)
+	if spec.DisplayName == "" {
 		return apitypes.BadgeDef{}, errors.New("display_name is required")
+	}
+	if spec.RewardPrompt != nil {
+		rewardPrompt := strings.TrimSpace(*spec.RewardPrompt)
+		if rewardPrompt == "" {
+			return apitypes.BadgeDef{}, errors.New("reward_prompt must not be empty when present")
+		}
+		if !utf8.ValidString(rewardPrompt) {
+			return apitypes.BadgeDef{}, errors.New("reward_prompt must be valid UTF-8")
+		}
+		if len([]byte(rewardPrompt)) > 8192 {
+			return apitypes.BadgeDef{}, errors.New("reward_prompt must be at most 8192 UTF-8 bytes")
+		}
+		spec.RewardPrompt = &rewardPrompt
 	}
 	now := c.now()
 	if createdAt.IsZero() {

@@ -108,17 +108,19 @@ type Server struct {
 	WebRTCSignalingHandler       http.Handler
 	EdgeNodes                    []giznet.PublicKey
 
-	manager       *Manager
-	peerService   *PeerService
-	sessions      *publiclogin.SessionManager
-	listenerMu    sync.RWMutex
-	listeners     []giznet.Listener
-	closed        bool
-	httpHandler   http.Handler
-	cleanupStop   context.CancelFunc
-	cleanupDone   <-chan struct{}
-	driveFactStop context.CancelFunc
-	driveFactDone <-chan struct{}
+	manager             *Manager
+	peerService         *PeerService
+	sessions            *publiclogin.SessionManager
+	listenerMu          sync.RWMutex
+	listeners           []giznet.Listener
+	closed              bool
+	httpHandler         http.Handler
+	cleanupStop         context.CancelFunc
+	cleanupDone         <-chan struct{}
+	driveFactStop       context.CancelFunc
+	driveFactDone       <-chan struct{}
+	workspaceRewardStop context.CancelFunc
+	workspaceRewardDone <-chan struct{}
 }
 
 type PeerListenerOptions struct {
@@ -173,6 +175,10 @@ func (s *Server) Listen() error {
 	s.listenerMu.Unlock()
 	s.startCleanup()
 	s.startDriveFactDispatcher()
+	if err := s.startWorkspaceRewardDispatcher(); err != nil {
+		_ = s.Close()
+		return err
+	}
 	return nil
 }
 
@@ -292,6 +298,14 @@ func (s *Server) Close() error {
 		<-s.driveFactDone
 		s.driveFactDone = nil
 	}
+	if s.workspaceRewardStop != nil {
+		s.workspaceRewardStop()
+		s.workspaceRewardStop = nil
+	}
+	if s.workspaceRewardDone != nil {
+		<-s.workspaceRewardDone
+		s.workspaceRewardDone = nil
+	}
 	if s.manager != nil && s.manager.MemoryStores != nil {
 		errs = append(errs, s.manager.MemoryStores.Close())
 	}
@@ -306,6 +320,21 @@ func (s *Server) startDriveFactDispatcher() {
 	stop, done := s.manager.Gameplay.StartDriveFactDispatcher(context.Background())
 	s.driveFactStop = stop
 	s.driveFactDone = done
+}
+
+func (s *Server) startWorkspaceRewardDispatcher() error {
+	if s == nil || s.workspaceRewardStop != nil || s.manager == nil ||
+		s.manager.Gameplay == nil || s.manager.Gameplay.DB == nil ||
+		s.manager.Gameplay.WorkspaceRewards == nil {
+		return nil
+	}
+	stop, done, err := s.manager.Gameplay.StartWorkspaceRewardDispatcher(context.Background())
+	if err != nil {
+		return fmt.Errorf("gizclaw: start Workspace reward dispatcher: %w", err)
+	}
+	s.workspaceRewardStop = stop
+	s.workspaceRewardDone = done
+	return nil
 }
 
 func (s *Server) startCleanup() {
@@ -607,6 +636,9 @@ func (s *Server) init() error {
 	}
 	manager.ProviderTenants = providerTenantsServer
 	manager.Gameplay = gameplayRuntime
+	gameplayRuntime.WorkspaceRewards = &workspaceRewardEnvironment{
+		manager: manager, workspaces: workspaceServer,
+	}
 	manager.Metrics = s.MetricsStore
 	resourceManager := resourcemanager.New(resourcemanager.Services{
 		Credentials:     credentialServer,

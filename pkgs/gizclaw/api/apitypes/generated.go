@@ -2496,6 +2496,27 @@ func (e RuntimeProfileVolcMem0ConnectionType) Valid() bool {
 	}
 }
 
+// Defines values for RuntimeProfileWorkspaceRewardSpecWorkspaceKinds.
+const (
+	RuntimeProfileWorkspaceRewardSpecWorkspaceKindsDirectChatroom RuntimeProfileWorkspaceRewardSpecWorkspaceKinds = "direct_chatroom"
+	RuntimeProfileWorkspaceRewardSpecWorkspaceKindsGroupChatroom  RuntimeProfileWorkspaceRewardSpecWorkspaceKinds = "group_chatroom"
+	RuntimeProfileWorkspaceRewardSpecWorkspaceKindsWorkflow       RuntimeProfileWorkspaceRewardSpecWorkspaceKinds = "workflow"
+)
+
+// Valid indicates whether the value is a known member of the RuntimeProfileWorkspaceRewardSpecWorkspaceKinds enum.
+func (e RuntimeProfileWorkspaceRewardSpecWorkspaceKinds) Valid() bool {
+	switch e {
+	case RuntimeProfileWorkspaceRewardSpecWorkspaceKindsDirectChatroom:
+		return true
+	case RuntimeProfileWorkspaceRewardSpecWorkspaceKindsGroupChatroom:
+		return true
+	case RuntimeProfileWorkspaceRewardSpecWorkspaceKindsWorkflow:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ServerInfoTransportMode.
 const (
 	ServerInfoTransportModeEdgeGateway ServerInfoTransportMode = "edge-gateway"
@@ -3026,10 +3047,11 @@ type BadgeDefResourceKind string
 
 // BadgeDefSpec defines model for BadgeDefSpec.
 type BadgeDefSpec struct {
-	Description *string           `json:"description,omitempty"`
-	DisplayName string            `json:"display_name"`
-	Metadata    *GameplayMetadata `json:"metadata,omitempty"`
-	Tags        *[]string         `json:"tags,omitempty"`
+	Description  *string           `json:"description,omitempty"`
+	DisplayName  string            `json:"display_name"`
+	Metadata     *GameplayMetadata `json:"metadata,omitempty"`
+	RewardPrompt *string           `json:"reward_prompt,omitempty"`
+	Tags         *[]string         `json:"tags,omitempty"`
 }
 
 // BadgeListResponse defines model for BadgeListResponse.
@@ -5753,9 +5775,10 @@ type RuntimeProfileGameSpec struct {
 
 // RuntimeProfileGameplaySpec defines model for RuntimeProfileGameplaySpec.
 type RuntimeProfileGameplaySpec struct {
-	Adoption *RuntimeProfileAdoptionSpec    `json:"adoption,omitempty"`
-	Pet      *RuntimeProfilePetGameplaySpec `json:"pet,omitempty"`
-	Points   *RuntimeProfilePointsSpec      `json:"points,omitempty"`
+	Adoption        *RuntimeProfileAdoptionSpec        `json:"adoption,omitempty"`
+	Pet             *RuntimeProfilePetGameplaySpec     `json:"pet,omitempty"`
+	Points          *RuntimeProfilePointsSpec          `json:"points,omitempty"`
+	WorkspaceReward *RuntimeProfileWorkspaceRewardSpec `json:"workspace_reward,omitempty"`
 }
 
 // RuntimeProfileI18nText defines model for RuntimeProfileI18nText.
@@ -5925,6 +5948,65 @@ type RuntimeProfileWorkflowCollections map[string]map[string]RuntimeProfileBindi
 type RuntimeProfileWorkflows struct {
 	Collections RuntimeProfileWorkflowCollections `json:"collections"`
 	System      RuntimeProfileSystemWorkflows     `json:"system"`
+}
+
+// RuntimeProfileWorkspaceRewardBadgeSpec defines model for RuntimeProfileWorkspaceRewardBadgeSpec.
+type RuntimeProfileWorkspaceRewardBadgeSpec struct {
+	MaxExpPerWindow int64 `json:"max_exp_per_window"`
+}
+
+// RuntimeProfileWorkspaceRewardDebounceSpec defines model for RuntimeProfileWorkspaceRewardDebounceSpec.
+type RuntimeProfileWorkspaceRewardDebounceSpec struct {
+	MaxWindowAge string `json:"max_window_age"`
+	QuietPeriod  string `json:"quiet_period"`
+}
+
+// RuntimeProfileWorkspaceRewardEvaluationSpec defines model for RuntimeProfileWorkspaceRewardEvaluationSpec.
+type RuntimeProfileWorkspaceRewardEvaluationSpec struct {
+	Model           string `json:"model"`
+	PointsPrompt    string `json:"points_prompt"`
+	QualifyingScore int64  `json:"qualifying_score"`
+	ScoreMax        int64  `json:"score_max"`
+	ScoreMin        int64  `json:"score_min"`
+}
+
+// RuntimeProfileWorkspaceRewardPointsSpec defines model for RuntimeProfileWorkspaceRewardPointsSpec.
+type RuntimeProfileWorkspaceRewardPointsSpec struct {
+	Tiers []RuntimeProfileWorkspaceRewardPointsTier `json:"tiers"`
+}
+
+// RuntimeProfileWorkspaceRewardPointsTier defines model for RuntimeProfileWorkspaceRewardPointsTier.
+type RuntimeProfileWorkspaceRewardPointsTier struct {
+	Delta    int64 `json:"delta"`
+	MinScore int64 `json:"min_score"`
+}
+
+// RuntimeProfileWorkspaceRewardRollingBudgetSpec defines model for RuntimeProfileWorkspaceRewardRollingBudgetSpec.
+type RuntimeProfileWorkspaceRewardRollingBudgetSpec struct {
+	BadgeExpMax int64  `json:"badge_exp_max"`
+	Period      string `json:"period"`
+	PointsMax   int64  `json:"points_max"`
+}
+
+// RuntimeProfileWorkspaceRewardSpec defines model for RuntimeProfileWorkspaceRewardSpec.
+type RuntimeProfileWorkspaceRewardSpec struct {
+	Badges         *map[string]RuntimeProfileWorkspaceRewardBadgeSpec `json:"badges,omitempty"`
+	Debounce       *RuntimeProfileWorkspaceRewardDebounceSpec         `json:"debounce,omitempty"`
+	Enabled        bool                                               `json:"enabled"`
+	Evaluation     *RuntimeProfileWorkspaceRewardEvaluationSpec       `json:"evaluation,omitempty"`
+	Points         *RuntimeProfileWorkspaceRewardPointsSpec           `json:"points,omitempty"`
+	RollingBudget  *RuntimeProfileWorkspaceRewardRollingBudgetSpec    `json:"rolling_budget,omitempty"`
+	Transcript     *RuntimeProfileWorkspaceRewardTranscriptSpec       `json:"transcript,omitempty"`
+	WorkspaceKinds *[]RuntimeProfileWorkspaceRewardSpecWorkspaceKinds `json:"workspace_kinds,omitempty"`
+}
+
+// RuntimeProfileWorkspaceRewardSpecWorkspaceKinds defines model for RuntimeProfileWorkspaceRewardSpec.WorkspaceKinds.
+type RuntimeProfileWorkspaceRewardSpecWorkspaceKinds string
+
+// RuntimeProfileWorkspaceRewardTranscriptSpec defines model for RuntimeProfileWorkspaceRewardTranscriptSpec.
+type RuntimeProfileWorkspaceRewardTranscriptSpec struct {
+	MaxEntries   int64 `json:"max_entries"`
+	MaxTextBytes int64 `json:"max_text_bytes"`
 }
 
 // ServerInfo defines model for ServerInfo.

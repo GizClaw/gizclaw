@@ -587,7 +587,11 @@ func listOwnerRows[T any](ctx context.Context, r *Runtime, owner, table string, 
 		return nil, false, nil, err
 	}
 	cursor, limit := normalizeRuntimeListParams(req.Cursor, req.Limit)
-	query := fmt.Sprintf(`SELECT * FROM %s WHERE owner_public_key = ?`, table)
+	columns := "*"
+	if table == "gameplay_reward_grants" {
+		columns = strings.TrimSuffix(strings.TrimPrefix(rewardGrantSelectSQL(), "SELECT "), " FROM gameplay_reward_grants")
+	}
+	query := fmt.Sprintf(`SELECT %s FROM %s WHERE owner_public_key = ?`, columns, table)
 	args := []any{owner}
 	if profile, registered := runtimeProfileFromContext(ctx); registered && profileScoped {
 		profileName := strings.TrimSpace(profile.Name)

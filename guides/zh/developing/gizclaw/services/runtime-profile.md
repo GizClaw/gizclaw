@@ -107,6 +107,47 @@ spec:
 
 `gameplay.pet` 必须完整配置固定 Pet 的时间衰减、被动 energy 恢复、升级曲线与四个标准行为。`games` 没有 default；每个 key 必须同时存在于 `resources.game_defs`，并独立配置 energy/points cost 与 reward model、prompt 和奖励上限。未配置 GameDef 的 Drive 是无写入的 no-op。
 
+`gameplay.workspace_reward` 配置基于 Workspace 对话质量的 AI 奖励。启用时必须完整
+声明允许的 Workspace 种类、debounce、transcript 上限、LLM evaluator、Points
+tier、Badge allowlist 和滚动预算。evaluator model 是 `resources.models` 中的普通
+LLM alias；每个 Badge alias 必须存在于 `resources.badge_defs`，对应 BadgeDef 还要
+声明非空 `reward_prompt`。仅发放 Points 时，`badges` map 可以为空。例如：
+
+```yaml
+resources:
+  models:
+    reward-evaluator:
+      resource_id: reward-evaluator-model
+  badge_defs:
+    science:
+      resource_id: badge-science
+gameplay:
+  points:
+    initial_balance: 100
+  workspace_reward:
+    enabled: true
+    workspace_kinds: [workflow, direct_chatroom, group_chatroom]
+    debounce: {quiet_period: 2m, max_window_age: 15m}
+    transcript: {max_entries: 100, max_text_bytes: 65536}
+    evaluation:
+      model: reward-evaluator
+      points_prompt: Reward thoughtful conversation and demonstrated learning progress.
+      score_min: 0
+      score_max: 100
+      qualifying_score: 80
+    points:
+      tiers:
+      - {min_score: 80, delta: 5}
+      - {min_score: 90, delta: 10}
+    badges:
+      science: {max_exp_per_window: 5}
+    rolling_budget: {period: 24h, points_max: 50, badge_exp_max: 20}
+```
+
+`workspace_reward: {enabled: false}` 是规范化的关闭形式；字段缺失也表示不发放对话
+奖励。策略在每个 debounce window 开始时冻结，后续 RuntimeProfile 或 BadgeDef
+更新只作用于新 window。它不注册 Admin Tool、built-in Tool 或 Toolkit。
+
 规范化后的 spec 有确定性的 opaque revision。Catalog list/get 响应携带 RuntimeProfile name 与 revision，分页 cursor 与 revision 绑定。每次 list、get、Workspace reload 和 standalone Speech 调用使用一个一致快照；并发更新从下一次操作开始生效。
 
 ## RegistrationToken

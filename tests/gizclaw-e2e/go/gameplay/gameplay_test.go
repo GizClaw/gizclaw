@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 )
 
@@ -228,6 +229,35 @@ func TestGameplayPetWorkspaceAudioHistory(t *testing.T) {
 		assertGameplayHistoryReplayAudio(t, env.ctx, env.peer, stream, entry)
 		known[entry.Id] = entry
 		entries = append(entries, entry)
+	}
+
+	var rewardEvent *eventpb.GameplayRewardUpdated
+	deadline := time.NewTimer(30 * time.Second)
+	defer deadline.Stop()
+	for rewardEvent == nil {
+		select {
+		case event := <-stream.ResourceEvents():
+			if event != nil && event.Type == eventpb.PeerEventType_PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED {
+				rewardEvent = event.GetGameplayRewardUpdated()
+			}
+		case <-deadline.C:
+			t.Fatal("timed out waiting for Gameplay reward invalidation")
+		}
+	}
+	if rewardEvent.WorkspaceName != adopted.Pet.WorkspaceName || rewardEvent.RewardGrantId == "" {
+		t.Fatalf("Gameplay reward event = %#v", rewardEvent)
+	}
+	reward, err := env.peer.GetRewardGrant(env.ctx, "gameplay.workspace.reward.get", rpcapi.ServerRewardGrantGetRequest{
+		Id: rewardEvent.RewardGrantId,
+	})
+	if err != nil {
+		t.Fatalf("get Workspace RewardGrant: %v", err)
+	}
+	if reward.SourceType != "workspace_history_window" ||
+		reward.PetId != nil || reward.GameResultId != nil ||
+		reward.PetExpDelta != 0 ||
+		reward.PointsDelta == 0 && len(reward.BadgeExpDelta) == 0 {
+		t.Fatalf("Workspace RewardGrant = %#v", reward)
 	}
 
 	first, err := env.peer.GetWorkspaceHistory(env.ctx, "gameplay.pet.history.first.get", rpcapi.WorkspaceHistoryGetRequest{

@@ -26,6 +26,9 @@ const (
 	defaultHistoryAssetTTL  = 7 * 24 * time.Hour
 	historyEntryTypeGear    = "gear"
 	historyEntryTypeAgent   = "agent"
+	// HistoryOriginAgentHost marks entries durably written by the authenticated
+	// AgentHost path. Missing or other origins are never reward-eligible.
+	HistoryOriginAgentHost = "agenthost"
 )
 
 var historyIDSeq uint64
@@ -44,6 +47,7 @@ type HistoryEntry struct {
 	ID              string         `json:"id"`
 	Type            string         `json:"type"`
 	GearID          string         `json:"gear_id,omitempty"`
+	Origin          string         `json:"origin,omitempty"`
 	Name            string         `json:"name"`
 	Text            string         `json:"text"`
 	CreatedAt       time.Time      `json:"created_at"`
@@ -64,6 +68,7 @@ type HistoryAsset struct {
 type AppendHistoryRequest struct {
 	Type      string
 	GearID    string
+	Origin    string
 	Name      string
 	Text      string
 	CreatedAt time.Time
@@ -103,6 +108,7 @@ func (s *HistoryStore) Append(ctx context.Context, req AppendHistoryRequest) (Hi
 		ID:        historyID(createdAt, now),
 		Type:      strings.TrimSpace(req.Type),
 		GearID:    strings.TrimSpace(req.GearID),
+		Origin:    strings.TrimSpace(req.Origin),
 		Name:      strings.TrimSpace(req.Name),
 		Text:      req.Text,
 		CreatedAt: createdAt.UTC(),
@@ -163,6 +169,102 @@ func (s *HistoryStore) List(ctx context.Context, req apitypes.PeerRunHistoryList
 		HasNext:    hasNext,
 		NextCursor: nextCursor,
 	}, nil
+}
+
+// HistoryEntryPage is an internal-history page with origin and authoritative
+// entry identity preserved. It is not an HTTP or RPC response type.
+type HistoryEntryPage struct {
+	Entries    []HistoryEntry
+	HasNext    bool
+	NextCursor string
+}
+
+// ListEntries returns internal persisted entries in ascending ID order after
+// the exclusive cursor and, when provided, through the inclusive high-water.
+func (s *HistoryStore) ListEntries(ctx context.Context, after, through string, limit int) (HistoryEntryPage, error) {
+	after = strings.TrimSpace(after)
+	through = strings.TrimSpace(through)
+	order := apitypes.PeerRunHistoryListRequestOrderAsc
+	req := apitypes.PeerRunHistoryListRequest{Order: &order}
+	if after != "" {
+		req.Cursor = &after
+	}
+	if limit > 0 {
+		req.Limit = &limit
+	}
+	entries, hasNext, next, err := s.listInternal(ctx, req)
+	if err != nil {
+		return HistoryEntryPage{}, err
+	}
+	if through != "" {
+		for i, entry := range entries {
+			if entry.ID > through {
+				entries = entries[:i]
+				hasNext = false
+				next = nil
+				break
+			}
+		}
+		if len(entries) > 0 && entries[len(entries)-1].ID == through {
+			hasNext = false
+			next = nil
+		}
+	}
+	nextCursor := ""
+	if next != nil {
+		nextCursor = *next
+	} else if hasNext && len(entries) > 0 {
+		nextCursor = entries[len(entries)-1].ID
+	}
+	return HistoryEntryPage{Entries: entries, HasNext: hasNext, NextCursor: nextCursor}, nil
+}
+
+// LatestEntry returns the newest retained internal History entry.
+func (s *HistoryStore) LatestEntry(ctx context.Context) (HistoryEntry, bool, error) {
+	order := apitypes.PeerRunHistoryListRequestOrderDesc
+	limit := 1
+	entries, _, _, err := s.listInternal(ctx, apitypes.PeerRunHistoryListRequest{
+		Limit: &limit,
+		Order: &order,
+	})
+	if err != nil {
+		return HistoryEntry{}, false, err
+	}
+	if len(entries) == 0 {
+		return HistoryEntry{}, false, nil
+	}
+	return entries[0], true, nil
+}
+
+// LatestEntryBefore returns the newest retained entry strictly before the
+// supplied activation boundary. It lets a new post-processor establish a
+// non-retroactive checkpoint without losing entries appended after activation.
+func (s *HistoryStore) LatestEntryBefore(ctx context.Context, before time.Time) (HistoryEntry, bool, error) {
+	if before.IsZero() {
+		return HistoryEntry{}, false, fmt.Errorf("workspace history: before is required")
+	}
+	order := apitypes.PeerRunHistoryListRequestOrderDesc
+	limit := maxHistoryListLimit
+	var cursor *string
+	for {
+		entries, hasNext, next, err := s.listInternal(ctx, apitypes.PeerRunHistoryListRequest{
+			Cursor: cursor,
+			Limit:  &limit,
+			Order:  &order,
+		})
+		if err != nil {
+			return HistoryEntry{}, false, err
+		}
+		for _, entry := range entries {
+			if entry.CreatedAt.Before(before) {
+				return entry, true, nil
+			}
+		}
+		if !hasNext || next == nil {
+			return HistoryEntry{}, false, nil
+		}
+		cursor = next
+	}
 }
 
 func (s *HistoryStore) Get(ctx context.Context, id string) (HistoryEntry, error) {
@@ -409,6 +511,9 @@ func validateHistoryEntry(entry HistoryEntry) error {
 	}
 	if strings.TrimSpace(entry.Name) == "" {
 		return fmt.Errorf("name is required")
+	}
+	if len(entry.Origin) > 64 {
+		return fmt.Errorf("origin must be at most 64 bytes")
 	}
 	if entry.CreatedAt.IsZero() {
 		return fmt.Errorf("created_at is required")

@@ -124,6 +124,53 @@ func TestHistoryStoreListSupportsDescAndMissingCursorBoundary(t *testing.T) {
 	}
 }
 
+func TestHistoryStoreInternalRangePreservesOriginAndHighWater(t *testing.T) {
+	t.Parallel()
+	store := NewHistoryStore(objectstore.Dir(t.TempDir()), "demo")
+	base := time.Date(2026, 7, 29, 1, 0, 0, 0, time.UTC)
+	ctx := context.Background()
+	first, err := store.Append(ctx, AppendHistoryRequest{
+		Type: "gear", GearID: "peer-a", Origin: HistoryOriginAgentHost,
+		Text: "first", CreatedAt: base,
+	})
+	if err != nil {
+		t.Fatalf("Append first: %v", err)
+	}
+	second, err := store.Append(ctx, AppendHistoryRequest{
+		Type: "agent", Origin: HistoryOriginAgentHost,
+		Text: "second", CreatedAt: base.Add(time.Second),
+	})
+	if err != nil {
+		t.Fatalf("Append second: %v", err)
+	}
+	third, err := store.Append(ctx, AppendHistoryRequest{
+		Type: "agent", Text: "imported", CreatedAt: base.Add(2 * time.Second),
+	})
+	if err != nil {
+		t.Fatalf("Append third: %v", err)
+	}
+	page, err := store.ListEntries(ctx, first.ID, second.ID, 1)
+	if err != nil {
+		t.Fatalf("ListEntries() error = %v", err)
+	}
+	if page.HasNext || page.NextCursor != "" || len(page.Entries) != 1 ||
+		page.Entries[0].ID != second.ID ||
+		page.Entries[0].Origin != HistoryOriginAgentHost {
+		t.Fatalf("ListEntries() = %#v", page)
+	}
+	latest, ok, err := store.LatestEntry(ctx)
+	if err != nil || !ok || latest.ID != third.ID || latest.Origin != "" {
+		t.Fatalf("LatestEntry() = %#v, %v, %v", latest, ok, err)
+	}
+	beforeSecond, ok, err := store.LatestEntryBefore(ctx, second.CreatedAt)
+	if err != nil || !ok || beforeSecond.ID != first.ID {
+		t.Fatalf("LatestEntryBefore(second) = %#v, %v, %v", beforeSecond, ok, err)
+	}
+	if entry, ok, err := store.LatestEntryBefore(ctx, first.CreatedAt); err != nil || ok {
+		t.Fatalf("LatestEntryBefore(first) = %#v, %v, %v", entry, ok, err)
+	}
+}
+
 func TestHistoryStoreListRejectsUnsupportedOrder(t *testing.T) {
 	store := NewHistoryStore(objectstore.Dir(t.TempDir()), "demo")
 	order := apitypes.PeerRunHistoryListRequestOrder("sideways")
