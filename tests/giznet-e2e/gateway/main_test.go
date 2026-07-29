@@ -2,10 +2,17 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
 func TestNormalizeHTTPBase(t *testing.T) {
@@ -29,6 +36,66 @@ func TestSummarizeLatencyUsesNearestRank(t *testing.T) {
 	got := summarizeLatency(values)
 	if got.Count != 100 || got.P50 != 50 || got.P95 != 95 || got.P99 != 99 || got.Max != 100 {
 		t.Fatalf("summarizeLatency = %+v", got)
+	}
+}
+
+func TestSummarizeNestedPingMetrics(t *testing.T) {
+	summaries := summarizeNestedLatencyMap(map[string]map[string][]time.Duration{
+		"edge-a": {
+			"upstream-1": {time.Millisecond, 3 * time.Millisecond},
+		},
+	})
+	got := summaries["edge-a"]["upstream-1"]
+	if got.Count != 2 || got.P50 != 1 || got.P99 != 3 {
+		t.Fatalf("nested latency summary = %+v", got)
+	}
+	if got := countNested(map[string]map[string]int{
+		"edge-a": {"upstream-1": 2},
+		"edge-b": {"upstream-2": 3},
+	}); got != 5 {
+		t.Fatalf("countNested = %d, want 5", got)
+	}
+}
+
+func TestActiveCPUSecondsExcludesIdleCapacity(t *testing.T) {
+	if got := activeCPUSeconds(12.5, 9.25); got != 3.25 {
+		t.Fatalf("activeCPUSeconds = %f, want 3.25", got)
+	}
+	if got := activeCPUSeconds(1, 2); got != 0 {
+		t.Fatalf("activeCPUSeconds with overestimated idle = %f, want 0", got)
+	}
+}
+
+func TestFetchEdgesRejectsDuplicateTransportIdentity(t *testing.T) {
+	serverKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	transportKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var endpoint string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		info := apitypes.ServerInfo{
+			PublicKey: serverKey.Public.String(),
+			Transport: &apitypes.ServerInfoTransport{
+				Endpoint:      endpoint,
+				Mode:          apitypes.ServerInfoTransportModeEdgeGateway,
+				PublicKey:     transportKey.Public.String(),
+				SignalingPath: "/offer",
+			},
+		}
+		if err := json.NewEncoder(w).Encode(info); err != nil {
+			t.Error(err)
+		}
+	}))
+	defer server.Close()
+	endpoint = server.URL
+
+	_, err = fetchEdges(context.Background(), []string{server.URL, server.URL})
+	if err == nil || !strings.Contains(err.Error(), "duplicates transport identity") {
+		t.Fatalf("fetchEdges error = %v, want duplicate transport identity", err)
 	}
 }
 

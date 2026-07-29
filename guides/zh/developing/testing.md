@@ -112,6 +112,7 @@ bash tests/gizclaw-e2e/run_human_review_tests.sh
 
 ```sh
 bash tests/gizclaw-e2e/run_edge_failure_tests.sh
+bash tests/gizclaw-e2e/run_gateway_capacity_tests.sh
 
 GIZCLAW_E2E_VOLC_LOG_ENDPOINT=... \
 GIZCLAW_E2E_VOLC_LOG_REGION=... \
@@ -119,7 +120,9 @@ GIZCLAW_E2E_VOLC_LOG_TOPIC_ID=... \
   bash tests/gizclaw-e2e/run_volc_log_tests.sh
 ```
 
-四个 GizClaw 入口都要求同一份完整的 `tests/gizclaw-e2e/.env`。
+五个 GizClaw 入口都要求同一份完整的 `tests/gizclaw-e2e/.env`。Gateway capacity
+入口固定运行本机 one-Server/two-Edge 的 100-session 基线，并把 machine-readable
+artifact 写到 ignored 的 `testdata/`；它不属于长时间或更高连接数的容量承诺。
 
 ## GenX provider E2E
 

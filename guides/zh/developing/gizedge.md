@@ -110,19 +110,23 @@ tunnel 在有界队列上反压该 session 的可靠 stream，不会因为队列
 5 分钟无 activity 的 session 默认被回收。进程关闭时先停止新 admission，在 30 秒 drain
 deadline 内保留现有 session，超时后强制关闭。
 
-30,000 是可配置 harness 在具体主机上的验收目标，不是每条 upstream、每个 Edge 或任意硬件的无条件保证。harness 为每个 logical session 创建一个真实客户端 WebRTC PeerConnection；因此 load driver 本身也有显著内存、goroutine、FD 和 CPU 成本。达到 30,000 前必须为 load driver、各 Edge 和 Server 分别制定资源预算；单机不足时应在多个 load-driver 进程或主机间分片总 session 数，不能把降低 activity 或改用 synthetic session 当作通过。Docker topology 暴露两个独立身份的 Edge；可运行：
+30,000 是可配置 harness 在具体主机上的容量模型目标，不是每条 upstream、每个 Edge 或任意硬件的无条件保证。harness 为每个 logical session 创建一个真实客户端 WebRTC PeerConnection；因此 load driver 本身也有显著内存、goroutine、FD 和 CPU 成本。达到 30,000 前必须为 load driver、各 Edge 和 Server 分别制定资源预算；单机不足时应在多个 load-driver 进程或主机间分片总 session 数，不能把降低 activity 或改用 synthetic session 当作通过。
+
+本机基线入口启动一个 Server 和两个独立身份的 Edge，建立并保持 100 个真实客户端
+PeerConnection，并在一分钟内对每个 session 执行多轮有界 ping：
 
 ```bash
-tests/gizclaw-e2e/run_edge_failure_tests.sh
-
-source tests/gizclaw-e2e/testdata/docker/current.env
-go run ./tests/giznet-e2e/gateway \
-  -edges "$GIZCLAW_E2E_EDGE_ENDPOINT,$GIZCLAW_E2E_EDGE2_ENDPOINT" \
-  -sessions 30000 \
-  -artifact gateway-capacity.json
+bash tests/gizclaw-e2e/run_gateway_capacity_tests.sh
 ```
 
-容量 artifact 记录 load-driver 的 GOOS、GOARCH、Go version 和 logical CPU，并包含建立失败、周期 ping RTT、unexpected disconnect、identity crossover、RSS、CPU、FD、heap、收发 bytes，以及 Edge/upstream 分布。平台无法读取 FD 时该值为 `-1`。达到 crossover、unexpected disconnect 或配置阈值时命令以非零状态退出。
+默认 artifact 写入 ignored 的
+`tests/gizclaw-e2e/testdata/gateway-capacity-100.json`；可通过
+`GIZCLAW_E2E_GATEWAY_CAPACITY_ARTIFACT` 选择其他输出路径。该入口要求 100/100
+session 建立成功、所有 ping 成功、无 unexpected disconnect 或 identity crossover，
+且两个 Edge 的每个 session 都有 upstream assignment。它只证明当前本机 Docker
+拓扑的 100 并发基线，不是 30,000-session 实测。
+
+容量 artifact 记录 load-driver 的 GOOS、GOARCH、Go version 和 logical CPU，并包含建立失败、周期 ping RTT、每轮及每个 Edge/upstream 的 RTT/失败汇总、unexpected disconnect、identity crossover、RSS、Go/runtime active CPU estimate、FD、heap、收发 bytes，以及 Edge/upstream 分布。每个内存和 CPU 资源点都携带数据源；无法读取 Linux `/proc/self/statm` 时，`rss_bytes` 明确标记为 `go_memstats_sys` fallback，不能作为完整进程 RSS。平台无法读取 FD 时该值为 `-1`。达到 crossover、unexpected disconnect 或配置阈值时命令以非零状态退出。500/1,000-session 重复运行、长时间 soak、各进程资源斜率和 30,000-session 理论推算属于独立的扩展容量验收。
 
 吞吐 sizing 以实测的单 association 吞吐 `B` 和同路径可用带宽 `W` 为输入。要达到
 80% 路径利用率，所需 active upstream 数可先估为 `ceil(0.8 × W / B)`，并且必须不大于

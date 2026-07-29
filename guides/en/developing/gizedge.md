@@ -146,10 +146,35 @@ active sessions are placed on three associations, so aggregate throughput
 should approach three times `B` until another distributed resource saturates.
 
 At the same defaults, 30,000 mostly idle sessions average 1,875 sessions per
-upstream, below the 2,048 hard limit. This is topology sizing, not capacity
-proof. CPU, memory, file descriptors, establishment rate, and low-rate activity
-must still be fitted from increasing samples such as 100, 500, and 1,000
-sessions. Repeatable transport and full Edge benchmarks are:
+upstream, below the 2,048 hard limit. This is a capacity-model target, not a
+real 30,000-session proof. The local baseline starts one Server and two
+independently identified Edges, establishes 100 real client PeerConnections,
+and runs multiple bounded ping rounds on every session:
+
+```bash
+bash tests/gizclaw-e2e/run_gateway_capacity_tests.sh
+```
+
+The default artifact is the ignored
+`tests/gizclaw-e2e/testdata/gateway-capacity-100.json`;
+`GIZCLAW_E2E_GATEWAY_CAPACITY_ARTIFACT` selects another output path. The run
+requires 100/100 establishments, successful pings, no unexpected disconnect or
+identity crossover, and an upstream assignment for every session on both
+Edges. The artifact records the load-driver host and configuration,
+establishment and ping failures, RTT, bytes, Edge/upstream distribution, RSS,
+Go/runtime active CPU estimates, file descriptors, heap, and goroutines. Ping
+evidence also includes per-round and per-Edge/upstream RTT and failure
+summaries so a transient path is not hidden by one aggregate percentile.
+Memory and CPU points include their measurement source. Without Linux
+`/proc/self/statm`, `rss_bytes` is marked as the `go_memstats_sys` fallback and
+is not complete process RSS. Unsupported file-descriptor sampling is reported
+as `-1`.
+
+CPU, memory, file descriptors, establishment rate, and low-rate activity for
+the complete topology must still be fitted from larger samples. Repeated
+500/1,000-session runs, a long soak, per-process resource slopes, and the
+30,000-session projection are a separate extended-capacity qualification.
+Repeatable transport and full Edge benchmarks are:
 
 ```bash
 go test -tags giznet_e2e ./tests/giznet-e2e/webrtc \

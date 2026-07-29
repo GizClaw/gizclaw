@@ -27,7 +27,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 )
 
-const artifactVersion = 1
+const artifactVersion = 4
 
 type options struct {
 	edges                    []string
@@ -58,6 +58,7 @@ type artifact struct {
 	UnexpectedDisconnects int                       `json:"unexpected_disconnects"`
 	IdentityCrossover     bool                      `json:"identity_crossover"`
 	RTT                   latencySummary            `json:"rtt_ms"`
+	PingRounds            []pingRoundSummary        `json:"ping_rounds"`
 	BytesPerSession       byteSummary               `json:"bytes_per_session"`
 	EdgeDistribution      map[string]int            `json:"edge_distribution"`
 	UpstreamDistribution  map[string]map[string]int `json:"upstream_distribution"`
@@ -95,6 +96,19 @@ type latencySummary struct {
 	Max   float64 `json:"max"`
 }
 
+type pingRoundSummary struct {
+	Round            int                                  `json:"round"`
+	StartedAt        time.Time                            `json:"started_at"`
+	Duration         time.Duration                        `json:"duration"`
+	Attempted        int                                  `json:"attempted"`
+	Failures         int                                  `json:"failures"`
+	RTT              latencySummary                       `json:"rtt_ms"`
+	EdgeRTT          map[string]latencySummary            `json:"edge_rtt_ms"`
+	EdgeFailures     map[string]int                       `json:"edge_failures"`
+	UpstreamRTT      map[string]map[string]latencySummary `json:"upstream_rtt_ms"`
+	UpstreamFailures map[string]map[string]int            `json:"upstream_failures"`
+}
+
 type byteSummary struct {
 	RxTotal uint64  `json:"rx_total"`
 	TxTotal uint64  `json:"tx_total"`
@@ -103,12 +117,14 @@ type byteSummary struct {
 }
 
 type resourcePoint struct {
-	At             time.Time `json:"at"`
-	RSSBytes       uint64    `json:"rss_bytes"`
-	CPUSeconds     float64   `json:"cpu_seconds"`
-	OpenFDs        int       `json:"open_fds"`
-	HeapAllocBytes uint64    `json:"heap_alloc_bytes"`
-	Goroutines     int       `json:"goroutines"`
+	At               time.Time `json:"at"`
+	RSSBytes         uint64    `json:"rss_bytes"`
+	RSSSource        string    `json:"rss_source"`
+	CPUSeconds       float64   `json:"cpu_seconds"`
+	CPUSecondsSource string    `json:"cpu_seconds_source"`
+	OpenFDs          int       `json:"open_fds"`
+	HeapAllocBytes   uint64    `json:"heap_alloc_bytes"`
+	Goroutines       int       `json:"goroutines"`
 }
 
 type resourceSummary struct {
@@ -141,6 +157,7 @@ type resultState struct {
 	serveWG               sync.WaitGroup
 	sessions              []*liveSession
 	rtts                  []time.Duration
+	pingRounds            []pingRoundSummary
 	errors                []string
 	edgeDistribution      map[string]int
 	upstreamDistribution  map[string]map[string]int
@@ -405,6 +422,15 @@ func fetchEdges(ctx context.Context, endpoints []string) ([]edgeMetadata, error)
 		if len(edges) > 0 && !serverKey.Equal(authoritative) {
 			return nil, errors.New("edges advertise different authoritative Server identities")
 		}
+		for _, existing := range edges {
+			if existing.transportKey.Equal(transport) {
+				return nil, fmt.Errorf(
+					"edge %q duplicates transport identity from %q",
+					endpoint,
+					existing.endpoint,
+				)
+			}
+		}
 		serverKey = authoritative
 		transportBase, err := normalizeHTTPBase(info.Transport.Endpoint)
 		if err != nil {
@@ -474,22 +500,102 @@ func pingAll(ctx context.Context, state *resultState, opts options, sem chan str
 	state.mu.Lock()
 	sessions := append([]*liveSession(nil), state.sessions...)
 	state.mu.Unlock()
+	started := time.Now()
+	var roundMu sync.Mutex
+	roundRTTs := make([]time.Duration, 0, len(sessions))
+	edgeRTTs := make(map[string][]time.Duration)
+	edgeFailures := make(map[string]int)
+	upstreamRTTs := make(map[string]map[string][]time.Duration)
+	upstreamFailures := make(map[string]map[string]int)
 	var wg sync.WaitGroup
 	for index, session := range sessions {
 		wg.Add(1)
 		go func(index int, session *liveSession) {
 			defer wg.Done()
-			sem <- struct{}{}
+			select {
+			case sem <- struct{}{}:
+			case <-ctx.Done():
+				err := ctx.Err()
+				state.recordPing(0, err)
+				roundMu.Lock()
+				edgeFailures[session.edge]++
+				if upstreamFailures[session.edge] == nil {
+					upstreamFailures[session.edge] = make(map[string]int)
+				}
+				upstreamFailures[session.edge][session.upstream]++
+				roundMu.Unlock()
+				return
+			}
 			defer func() { <-sem }()
 			pingCtx, cancel := context.WithTimeout(ctx, opts.pingTimeout)
-			started := time.Now()
+			pingStarted := time.Now()
 			id := fmt.Sprintf("gateway-capacity-%d-%d", round, index)
 			_, err := session.client.Ping(pingCtx, id)
+			rtt := time.Since(pingStarted)
 			cancel()
-			state.recordPing(time.Since(started), err)
+			state.recordPing(rtt, err)
+			roundMu.Lock()
+			if upstreamRTTs[session.edge] == nil {
+				upstreamRTTs[session.edge] = make(map[string][]time.Duration)
+			}
+			if upstreamFailures[session.edge] == nil {
+				upstreamFailures[session.edge] = make(map[string]int)
+			}
+			if err == nil {
+				roundRTTs = append(roundRTTs, rtt)
+				edgeRTTs[session.edge] = append(edgeRTTs[session.edge], rtt)
+				upstreamRTTs[session.edge][session.upstream] = append(
+					upstreamRTTs[session.edge][session.upstream],
+					rtt,
+				)
+			} else {
+				edgeFailures[session.edge]++
+				upstreamFailures[session.edge][session.upstream]++
+			}
+			roundMu.Unlock()
 		}(index, session)
 	}
 	wg.Wait()
+	state.recordPingRound(pingRoundSummary{
+		Round:            round,
+		StartedAt:        started,
+		Duration:         time.Since(started),
+		Attempted:        len(sessions),
+		Failures:         countNested(upstreamFailures),
+		RTT:              summarizeLatency(roundRTTs),
+		EdgeRTT:          summarizeLatencyMap(edgeRTTs),
+		EdgeFailures:     edgeFailures,
+		UpstreamRTT:      summarizeNestedLatencyMap(upstreamRTTs),
+		UpstreamFailures: upstreamFailures,
+	})
+}
+
+func summarizeLatencyMap(values map[string][]time.Duration) map[string]latencySummary {
+	summaries := make(map[string]latencySummary, len(values))
+	for key, samples := range values {
+		summaries[key] = summarizeLatency(samples)
+	}
+	return summaries
+}
+
+func summarizeNestedLatencyMap(
+	values map[string]map[string][]time.Duration,
+) map[string]map[string]latencySummary {
+	summaries := make(map[string]map[string]latencySummary, len(values))
+	for key, samples := range values {
+		summaries[key] = summarizeLatencyMap(samples)
+	}
+	return summaries
+}
+
+func countNested(values map[string]map[string]int) int {
+	total := 0
+	for _, entries := range values {
+		for _, count := range entries {
+			total += count
+		}
+	}
+	return total
 }
 
 func (s *resultState) addSession(session *liveSession) {
@@ -552,6 +658,12 @@ func (s *resultState) recordPing(rtt time.Duration, err error) {
 	s.appendErrorLocked("ping: " + err.Error())
 }
 
+func (s *resultState) recordPingRound(round pingRoundSummary) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.pingRounds = append(s.pingRounds, round)
+}
+
 func (s *resultState) recordError(message string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -598,6 +710,7 @@ func finalize(report artifact, state *resultState, resources *resourceSampler) a
 	report.UnexpectedDisconnects = state.unexpectedDisconnects
 	report.IdentityCrossover = state.identityCrossover
 	report.RTT = summarizeLatency(state.rtts)
+	report.PingRounds = append([]pingRoundSummary(nil), state.pingRounds...)
 	report.Errors = append([]string(nil), state.errors...)
 	var rx, tx uint64
 	for _, session := range state.sessions {
@@ -764,33 +877,49 @@ func (s *resourceSampler) summary() resourceSummary {
 func readResourcePoint() resourcePoint {
 	var memory runtime.MemStats
 	runtime.ReadMemStats(&memory)
-	cpu := []metrics.Sample{{Name: "/cpu/classes/total:cpu-seconds"}}
-	metrics.Read(cpu)
-	cpuSeconds := 0.0
-	if cpu[0].Value.Kind() == metrics.KindFloat64 {
-		cpuSeconds = cpu[0].Value.Float64()
-	}
+	rssBytes, rssSource := readRSS(memory.Sys)
 	return resourcePoint{
-		At: time.Now(), RSSBytes: readRSS(memory.Sys), CPUSeconds: cpuSeconds,
+		At: time.Now(), RSSBytes: rssBytes, RSSSource: rssSource,
+		CPUSeconds: readActiveCPUSeconds(), CPUSecondsSource: "go_runtime_total_minus_idle",
 		OpenFDs: readFDCount(), HeapAllocBytes: memory.HeapAlloc,
 		Goroutines: runtime.NumGoroutine(),
 	}
 }
 
-func readRSS(fallback uint64) uint64 {
+func readActiveCPUSeconds() float64 {
+	samples := []metrics.Sample{
+		{Name: "/cpu/classes/total:cpu-seconds"},
+		{Name: "/cpu/classes/idle:cpu-seconds"},
+	}
+	metrics.Read(samples)
+	if samples[0].Value.Kind() != metrics.KindFloat64 ||
+		samples[1].Value.Kind() != metrics.KindFloat64 {
+		return 0
+	}
+	return activeCPUSeconds(
+		samples[0].Value.Float64(),
+		samples[1].Value.Float64(),
+	)
+}
+
+func activeCPUSeconds(total, idle float64) float64 {
+	return max(total-idle, 0)
+}
+
+func readRSS(fallback uint64) (uint64, string) {
 	data, err := os.ReadFile("/proc/self/statm")
 	if err != nil {
-		return fallback
+		return fallback, "go_memstats_sys"
 	}
 	fields := strings.Fields(string(data))
 	if len(fields) < 2 {
-		return fallback
+		return fallback, "go_memstats_sys"
 	}
 	pages, err := strconv.ParseUint(fields[1], 10, 64)
 	if err != nil {
-		return fallback
+		return fallback, "go_memstats_sys"
 	}
-	return pages * uint64(os.Getpagesize())
+	return pages * uint64(os.Getpagesize()), "proc_self_statm"
 }
 
 func readFDCount() int {
