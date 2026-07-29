@@ -78,9 +78,8 @@ int gzc_rpc_call_stream(
  * Runs the bidirectional speed-test stream on the client's persistent RPC
  * DataChannel. This avoids consuming an additional native SCTP stream.
  * duration_ms covers the whole transfer. up_duration_ms and down_duration_ms
- * use each direction's transfer interval through the shared completion
- * barrier; up_mbps and down_mbps are calculated from those direction-specific
- * durations.
+ * stop when their respective direction completes; up_mbps and down_mbps are
+ * calculated from those direction-specific durations.
  */
 int gzc_rpc_speed_test(
     gzc_client_t *client,
