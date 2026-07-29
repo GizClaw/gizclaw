@@ -11,7 +11,10 @@ const (
 	MediaStreamOpus = "audio/opus"
 
 	maxPacketMessageSize = 64 * 1024
-	streamChunkSize      = 1400
+	// Keep stream writes aligned with the 16 KiB GizTunnel frame size. The
+	// previous 1400-byte application-level split multiplied every tunnel frame
+	// into twelve SCTP messages and throttled sustained Edge throughput.
+	streamChunkSize      = 16 * 1024
 	streamWriteHighWater = 1 * 1024 * 1024
 	streamWriteLowWater  = 256 * 1024
 	readPacketQueueSize  = 256

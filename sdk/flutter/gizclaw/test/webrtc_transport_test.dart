@@ -394,10 +394,13 @@ void main() {
 
     await channel.send(bytes);
 
-    expect(
-      native.sent.every((message) => message.binary.length <= 1400),
-      isTrue,
-    );
+    expect(native.sent.map((message) => message.binary.length), [
+      16 * 1024,
+      16 * 1024,
+      16 * 1024,
+      16 * 1024,
+      6 * 1024 + 1,
+    ]);
     expect(native.sent.expand((message) => message.binary).toList(), bytes);
   });
 
@@ -445,8 +448,8 @@ void main() {
       native,
       initialState: GizClawDataChannelState.open,
     );
-    final first = Uint8List(2000)..fillRange(0, 2000, 1);
-    final second = Uint8List(2000)..fillRange(0, 2000, 2);
+    final first = Uint8List(16 * 1024 + 1)..fillRange(0, 16 * 1024 + 1, 1);
+    final second = Uint8List(16 * 1024 + 1)..fillRange(0, 16 * 1024 + 1, 2);
 
     await Future.wait([channel.send(first), channel.send(second)]);
 
@@ -463,7 +466,7 @@ void main() {
       initialState: GizClawDataChannelState.open,
     );
 
-    final active = channel.send(Uint8List(1401));
+    final active = channel.send(Uint8List(16 * 1024 + 1));
     final queued = channel.send(Uint8List(1));
 
     await expectLater(active, throwsStateError);

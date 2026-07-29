@@ -92,11 +92,12 @@ func TestScriptRoundTripsTypedValuesThroughProductionGraph(t *testing.T) {
 func TestScriptEnforcesStepTimeoutAndByteLimits(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name   string
-		source string
-		limits ScriptLimits
-		input  map[string]any
-		want   string
+		name           string
+		source         string
+		limits         ScriptLimits
+		input          map[string]any
+		want           string
+		compileTimeout time.Duration
 	}{
 		{
 			name:   "steps",
@@ -114,7 +115,7 @@ func TestScriptEnforcesStepTimeoutAndByteLimits(t *testing.T) {
 				MaxExecutionSteps: 1_000_000_000, Timeout: time.Millisecond,
 				MaxInputBytes: 1 << 10, MaxOutputBytes: 1 << 10,
 			},
-			input: map[string]any{}, want: "deadline",
+			input: map[string]any{}, want: "deadline", compileTimeout: time.Second,
 		},
 		{
 			name:   "input bytes",
@@ -137,12 +138,20 @@ func TestScriptEnforcesStepTimeoutAndByteLimits(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			script, err := compileScript(t.Context(), ScriptNode{
+			config := ScriptNode{
 				Language: ScriptStarlark, Source: test.source, Limits: test.limits,
-			})
+			}
+			if test.compileTimeout > 0 {
+				// Compile separately from the execution timeout under test.
+				// Race instrumentation can otherwise consume the 1 ms budget
+				// while Starlark initializes the module.
+				config.Limits.Timeout = test.compileTimeout
+			}
+			script, err := compileScript(t.Context(), config)
 			if err != nil {
 				t.Fatalf("compileScript() error = %v", err)
 			}
+			script.config.Limits.Timeout = test.limits.Timeout
 			_, err = script.run(t.Context(), test.input, map[string]StateType{"text": StateString})
 			if err == nil || !strings.Contains(strings.ToLower(err.Error()), test.want) {
 				t.Fatalf("run() error = %v, want %q", err, test.want)

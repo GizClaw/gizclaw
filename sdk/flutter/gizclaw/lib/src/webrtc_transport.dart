@@ -8,7 +8,8 @@ import 'peer_rpc_server.dart';
 import 'signaling.dart';
 import 'transport.dart';
 
-const _dataChannelMessageChunkSize = 1400;
+// Keep GizTunnel-sized writes intact and let SCTP fragment for the path MTU.
+const _dataChannelMessageChunkSize = 16 * 1024;
 const _dataChannelBufferHighWaterMark = 1024 * 1024;
 const _dataChannelBufferLowWaterMark = 256 * 1024;
 const _dataChannelNativeReadyGracePeriod = Duration(milliseconds: 250);
