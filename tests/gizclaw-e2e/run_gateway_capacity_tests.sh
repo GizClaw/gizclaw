@@ -26,7 +26,7 @@ set -a
 source "$script_dir/testdata/docker/current.env"
 set +a
 
-echo "==> run 100-session multi-Edge capacity check"
+echo "==> run 100-session multi-Edge capacity and concurrent throughput check"
 (cd "$repo_root" && go run ./tests/giznet-e2e/gateway \
   -edges "$GIZCLAW_E2E_EDGE_ENDPOINT,$GIZCLAW_E2E_EDGE2_ENDPOINT" \
   -sessions 100 \
@@ -35,6 +35,12 @@ echo "==> run 100-session multi-Edge capacity check"
   -ping-interval 10s \
   -dial-timeout 20s \
   -ping-timeout 10s \
+  -speed-bytes 4194304 \
+  -speed-baseline-bytes 33554432 \
+  -speed-timeout 2m \
+  -min-speed-aggregate-ratio 0.8 \
+  -min-upload-aggregate-mbps 200 \
+  -min-download-aggregate-mbps 200 \
   -concurrency 100 \
   -artifact "$artifact")
 

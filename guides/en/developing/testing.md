@@ -135,9 +135,12 @@ GIZCLAW_E2E_VOLC_LOG_TOPIC_ID=... \
 
 All five GizClaw entrypoints require the same complete
 `tests/gizclaw-e2e/.env`. The gateway-capacity entrypoint fixes the local
-one-Server/two-Edge selection at the 100-session baseline and writes its
-machine-readable artifact under ignored `testdata/`; it is not a long-soak or
-higher-session capacity promise.
+one-Server/two-Edge selection at the 100-session baseline. In addition to
+connection hold and ping rounds, all 100 sessions synchronously upload and
+download 4 MiB each, with aggregate throughput measured over one shared
+wall-clock interval. The single-session control uses a sustained 32 MiB
+payload. The machine-readable artifact is written under ignored `testdata/`;
+this is not a long-soak or higher-session capacity promise.
 
 ## GenX provider E2E
 

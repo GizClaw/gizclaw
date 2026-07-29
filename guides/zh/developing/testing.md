@@ -121,8 +121,10 @@ GIZCLAW_E2E_VOLC_LOG_TOPIC_ID=... \
 ```
 
 五个 GizClaw 入口都要求同一份完整的 `tests/gizclaw-e2e/.env`。Gateway capacity
-入口固定运行本机 one-Server/two-Edge 的 100-session 基线，并把 machine-readable
-artifact 写到 ignored 的 `testdata/`；它不属于长时间或更高连接数的容量承诺。
+入口固定运行本机 one-Server/two-Edge 的 100-session 基线：除保持连接和多轮 ping 外，
+100 个 session 还会同步执行每路 4 MiB upload 和 download，并按共享 wall-clock 记录
+聚合吞吐；单路对照使用 32 MiB sustained payload。machine-readable artifact 写到
+ignored 的 `testdata/`；该入口不属于长时间或更高连接数的容量承诺。
 
 ## GenX provider E2E
 

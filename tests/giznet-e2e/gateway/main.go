@@ -22,12 +22,16 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 )
 
-const artifactVersion = 4
+const (
+	artifactVersion = 5
+	maxSpeedBytes   = int64(1 << 30)
+)
 
 type options struct {
 	edges                    []string
@@ -37,6 +41,12 @@ type options struct {
 	pingInterval             time.Duration
 	dialTimeout              time.Duration
 	pingTimeout              time.Duration
+	speedBytes               int64
+	speedBaselineBytes       int64
+	speedTimeout             time.Duration
+	minSpeedAggregateRatio   float64
+	minUploadAggregateMbps   float64
+	minDownloadAggregateMbps float64
 	concurrency              int
 	artifactPath             string
 	maxEstablishmentFailures int
@@ -59,6 +69,7 @@ type artifact struct {
 	IdentityCrossover     bool                      `json:"identity_crossover"`
 	RTT                   latencySummary            `json:"rtt_ms"`
 	PingRounds            []pingRoundSummary        `json:"ping_rounds"`
+	SpeedTest             speedTestSummary          `json:"speed_test"`
 	BytesPerSession       byteSummary               `json:"bytes_per_session"`
 	EdgeDistribution      map[string]int            `json:"edge_distribution"`
 	UpstreamDistribution  map[string]map[string]int `json:"upstream_distribution"`
@@ -82,6 +93,12 @@ type artifactConfig struct {
 	PingInterval             time.Duration `json:"ping_interval"`
 	DialTimeout              time.Duration `json:"dial_timeout"`
 	PingTimeout              time.Duration `json:"ping_timeout"`
+	SpeedBytes               int64         `json:"speed_bytes"`
+	SpeedBaselineBytes       int64         `json:"speed_baseline_bytes"`
+	SpeedTimeout             time.Duration `json:"speed_timeout"`
+	MinSpeedAggregateRatio   float64       `json:"min_speed_aggregate_ratio"`
+	MinUploadAggregateMbps   float64       `json:"min_upload_aggregate_mbps"`
+	MinDownloadAggregateMbps float64       `json:"min_download_aggregate_mbps"`
 	Concurrency              int           `json:"concurrency"`
 	MaxEstablishmentFailures int           `json:"max_establishment_failures"`
 	MaxPingFailures          int           `json:"max_ping_failures"`
@@ -107,6 +124,64 @@ type pingRoundSummary struct {
 	EdgeFailures     map[string]int                       `json:"edge_failures"`
 	UpstreamRTT      map[string]map[string]latencySummary `json:"upstream_rtt_ms"`
 	UpstreamFailures map[string]map[string]int            `json:"upstream_failures"`
+}
+
+type speedTestSummary struct {
+	Upload   speedDirectionSummary `json:"upload"`
+	Download speedDirectionSummary `json:"download"`
+}
+
+type speedDirectionSummary struct {
+	Direction                 string          `json:"direction"`
+	BaselineBytesPerSession   int64           `json:"baseline_bytes_per_session"`
+	ConcurrentBytesPerSession int64           `json:"concurrent_bytes_per_session"`
+	Baseline                  speedRunSummary `json:"baseline"`
+	Concurrent                speedRunSummary `json:"concurrent"`
+	AggregateToBaselineRatio  float64         `json:"aggregate_to_baseline_ratio"`
+	Passed                    bool            `json:"passed"`
+}
+
+type speedRunSummary struct {
+	StartedAt        time.Time                              `json:"started_at"`
+	Duration         time.Duration                          `json:"duration"`
+	Attempted        int                                    `json:"attempted"`
+	Completed        int                                    `json:"completed"`
+	Failures         int                                    `json:"failures"`
+	RequestedBytes   int64                                  `json:"requested_bytes"`
+	TransferredBytes int64                                  `json:"transferred_bytes"`
+	AggregateMbps    float64                                `json:"aggregate_mbps"`
+	PerSessionMbps   rateSummary                            `json:"per_session_mbps"`
+	Edge             map[string]speedPathSummary            `json:"edge"`
+	Upstream         map[string]map[string]speedPathSummary `json:"upstream"`
+	Sessions         []speedSessionResult                   `json:"sessions"`
+}
+
+type speedPathSummary struct {
+	Attempted        int         `json:"attempted"`
+	Completed        int         `json:"completed"`
+	Failures         int         `json:"failures"`
+	TransferredBytes int64       `json:"transferred_bytes"`
+	AggregateMbps    float64     `json:"aggregate_mbps"`
+	PerSessionMbps   rateSummary `json:"per_session_mbps"`
+}
+
+type speedSessionResult struct {
+	Index    int           `json:"index"`
+	Edge     string        `json:"edge"`
+	Upstream string        `json:"upstream"`
+	Bytes    int64         `json:"bytes"`
+	Duration time.Duration `json:"duration"`
+	Mbps     float64       `json:"mbps"`
+	Error    string        `json:"error,omitempty"`
+}
+
+type rateSummary struct {
+	Count int     `json:"count"`
+	Min   float64 `json:"min"`
+	P50   float64 `json:"p50"`
+	P95   float64 `json:"p95"`
+	P99   float64 `json:"p99"`
+	Max   float64 `json:"max"`
 }
 
 type byteSummary struct {
@@ -150,6 +225,7 @@ type liveSession struct {
 	closed   atomic.Bool
 	serveFn  func() error
 	closeFn  func() error
+	speedFn  func(context.Context, string, rpcapi.SpeedTestRequest) (gizcli.SpeedTestResult, error)
 }
 
 type resultState struct {
@@ -158,6 +234,7 @@ type resultState struct {
 	sessions              []*liveSession
 	rtts                  []time.Duration
 	pingRounds            []pingRoundSummary
+	speedTest             speedTestSummary
 	errors                []string
 	edgeDistribution      map[string]int
 	upstreamDistribution  map[string]map[string]int
@@ -204,8 +281,14 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	fmt.Printf("gateway capacity passed: established=%d p99=%.2fms artifact=%s\n",
-		report.Established, report.RTT.P99, opts.artifactPath)
+	fmt.Printf(
+		"gateway capacity passed: established=%d p99=%.2fms upload=%.2fMbps download=%.2fMbps artifact=%s\n",
+		report.Established,
+		report.RTT.P99,
+		report.SpeedTest.Upload.Concurrent.AggregateMbps,
+		report.SpeedTest.Download.Concurrent.AggregateMbps,
+		opts.artifactPath,
+	)
 }
 
 func parseOptions() (options, error) {
@@ -218,6 +301,12 @@ func parseOptions() (options, error) {
 	flag.DurationVar(&opts.pingInterval, "ping-interval", 30*time.Second, "active ping interval")
 	flag.DurationVar(&opts.dialTimeout, "dial-timeout", 20*time.Second, "per-session dial timeout")
 	flag.DurationVar(&opts.pingTimeout, "ping-timeout", 10*time.Second, "per-ping timeout")
+	flag.Int64Var(&opts.speedBytes, "speed-bytes", 0, "bytes transferred per session and direction; zero disables throughput testing")
+	flag.Int64Var(&opts.speedBaselineBytes, "speed-baseline-bytes", 0, "bytes transferred for each single-session baseline; zero uses -speed-bytes")
+	flag.DurationVar(&opts.speedTimeout, "speed-timeout", 2*time.Minute, "timeout for each baseline or concurrent throughput run")
+	flag.Float64Var(&opts.minSpeedAggregateRatio, "min-speed-aggregate-ratio", 0, "minimum concurrent aggregate Mbps divided by single-session baseline Mbps")
+	flag.Float64Var(&opts.minUploadAggregateMbps, "min-upload-aggregate-mbps", 0, "minimum concurrent upload aggregate Mbps")
+	flag.Float64Var(&opts.minDownloadAggregateMbps, "min-download-aggregate-mbps", 0, "minimum concurrent download aggregate Mbps")
 	flag.IntVar(&opts.concurrency, "concurrency", 512, "maximum concurrent dial and ping operations")
 	flag.StringVar(&opts.artifactPath, "artifact", "gateway-capacity.json", "capacity artifact path")
 	flag.IntVar(&opts.maxEstablishmentFailures, "max-establishment-failures", 0, "accepted dial failures")
@@ -240,8 +329,27 @@ func parseOptions() (options, error) {
 		return options{}, errors.New("-ramp and -duration must be non-negative")
 	case opts.pingInterval <= 0:
 		return options{}, errors.New("-ping-interval must be positive")
-	case opts.dialTimeout <= 0 || opts.pingTimeout <= 0:
-		return options{}, errors.New("-dial-timeout and -ping-timeout must be positive")
+	case opts.dialTimeout <= 0 || opts.pingTimeout <= 0 || opts.speedTimeout <= 0:
+		return options{}, errors.New("-dial-timeout, -ping-timeout, and -speed-timeout must be positive")
+	case opts.speedBytes < 0:
+		return options{}, errors.New("-speed-bytes must be non-negative")
+	case opts.speedBytes > maxSpeedBytes:
+		return options{}, fmt.Errorf("-speed-bytes must not exceed %d", maxSpeedBytes)
+	case opts.speedBaselineBytes < 0 || opts.speedBaselineBytes > maxSpeedBytes:
+		return options{}, fmt.Errorf("-speed-baseline-bytes must be between 0 and %d", maxSpeedBytes)
+	case opts.speedBytes > 0 && int64(opts.sessions) > math.MaxInt64/opts.speedBytes:
+		return options{}, errors.New("-sessions and -speed-bytes overflow aggregate byte accounting")
+	case opts.speedBytes == 0 && opts.speedBaselineBytes > 0:
+		return options{}, errors.New("-speed-baseline-bytes requires positive -speed-bytes")
+	case !nonNegativeFinite(opts.minSpeedAggregateRatio) ||
+		!nonNegativeFinite(opts.minUploadAggregateMbps) ||
+		!nonNegativeFinite(opts.minDownloadAggregateMbps):
+		return options{}, errors.New("speed thresholds must be finite and non-negative")
+	case opts.speedBytes == 0 &&
+		(opts.minSpeedAggregateRatio > 0 ||
+			opts.minUploadAggregateMbps > 0 ||
+			opts.minDownloadAggregateMbps > 0):
+		return options{}, errors.New("speed thresholds require positive -speed-bytes")
 	case opts.concurrency <= 0:
 		return options{}, errors.New("-concurrency must be positive")
 	case strings.TrimSpace(opts.artifactPath) == "":
@@ -249,7 +357,14 @@ func parseOptions() (options, error) {
 	case opts.maxEstablishmentFailures < 0 || opts.maxPingFailures < 0 || opts.maxP99RTT < 0:
 		return options{}, errors.New("failure and RTT thresholds must be non-negative")
 	}
+	if opts.speedBytes > 0 && opts.speedBaselineBytes == 0 {
+		opts.speedBaselineBytes = opts.speedBytes
+	}
 	return opts, nil
+}
+
+func nonNegativeFinite(value float64) bool {
+	return value >= 0 && !math.IsInf(value, 0)
 }
 
 func run(ctx context.Context, opts options) (artifact, error) {
@@ -265,6 +380,11 @@ func run(ctx context.Context, opts options) (artifact, error) {
 			Edges: opts.edges, Sessions: opts.sessions, Ramp: opts.ramp,
 			Duration: opts.duration, PingInterval: opts.pingInterval,
 			DialTimeout: opts.dialTimeout, PingTimeout: opts.pingTimeout,
+			SpeedBytes: opts.speedBytes, SpeedBaselineBytes: opts.speedBaselineBytes,
+			SpeedTimeout:             opts.speedTimeout,
+			MinSpeedAggregateRatio:   opts.minSpeedAggregateRatio,
+			MinUploadAggregateMbps:   opts.minUploadAggregateMbps,
+			MinDownloadAggregateMbps: opts.minDownloadAggregateMbps,
 			Concurrency:              opts.concurrency,
 			MaxEstablishmentFailures: opts.maxEstablishmentFailures,
 			MaxPingFailures:          opts.maxPingFailures, MaxP99RTT: opts.maxP99RTT,
@@ -293,6 +413,9 @@ func run(ctx context.Context, opts options) (artifact, error) {
 	}
 
 	pingAll(ctx, state, opts, sem, 0)
+	if opts.speedBytes > 0 {
+		runSpeedTests(ctx, state, opts)
+	}
 	if opts.duration > 0 {
 		deadline := time.NewTimer(opts.duration)
 		ticker := time.NewTicker(opts.pingInterval)
@@ -570,6 +693,317 @@ func pingAll(ctx context.Context, state *resultState, opts options, sem chan str
 	})
 }
 
+func runSpeedTests(ctx context.Context, state *resultState, opts options) {
+	state.mu.Lock()
+	sessions := append([]*liveSession(nil), state.sessions...)
+	state.mu.Unlock()
+
+	upload := measureSpeedDirection(
+		ctx,
+		sessions,
+		"upload",
+		opts.speedBaselineBytes,
+		opts.speedBytes,
+		opts.speedTimeout,
+		opts.minSpeedAggregateRatio,
+		opts.minUploadAggregateMbps,
+	)
+	download := measureSpeedDirection(
+		ctx,
+		sessions,
+		"download",
+		opts.speedBaselineBytes,
+		opts.speedBytes,
+		opts.speedTimeout,
+		opts.minSpeedAggregateRatio,
+		opts.minDownloadAggregateMbps,
+	)
+
+	state.mu.Lock()
+	state.speedTest = speedTestSummary{Upload: upload, Download: download}
+	for _, direction := range []speedDirectionSummary{upload, download} {
+		for _, run := range []speedRunSummary{direction.Baseline, direction.Concurrent} {
+			for _, session := range run.Sessions {
+				if session.Error != "" {
+					state.appendErrorLocked(fmt.Sprintf(
+						"speed %s session %d via %s upstream %s: %s",
+						direction.Direction,
+						session.Index,
+						session.Edge,
+						session.Upstream,
+						session.Error,
+					))
+				}
+			}
+		}
+		if direction.AggregateToBaselineRatio < opts.minSpeedAggregateRatio {
+			state.appendErrorLocked(fmt.Sprintf(
+				"speed %s aggregate ratio %.3f is below %.3f",
+				direction.Direction,
+				direction.AggregateToBaselineRatio,
+				opts.minSpeedAggregateRatio,
+			))
+		}
+		minAggregateMbps := opts.minUploadAggregateMbps
+		if direction.Direction == "download" {
+			minAggregateMbps = opts.minDownloadAggregateMbps
+		}
+		if direction.Concurrent.AggregateMbps < minAggregateMbps {
+			state.appendErrorLocked(fmt.Sprintf(
+				"speed %s aggregate %.3f Mbps is below %.3f Mbps",
+				direction.Direction,
+				direction.Concurrent.AggregateMbps,
+				minAggregateMbps,
+			))
+		}
+	}
+	state.mu.Unlock()
+}
+
+func measureSpeedDirection(
+	ctx context.Context,
+	sessions []*liveSession,
+	direction string,
+	baselineBytesPerSession int64,
+	concurrentBytesPerSession int64,
+	timeout time.Duration,
+	minAggregateRatio float64,
+	minAggregateMbps float64,
+) speedDirectionSummary {
+	summary := speedDirectionSummary{
+		Direction:                 direction,
+		BaselineBytesPerSession:   baselineBytesPerSession,
+		ConcurrentBytesPerSession: concurrentBytesPerSession,
+	}
+	if len(sessions) == 0 {
+		return summary
+	}
+	summary.Baseline = measureSpeedRun(
+		ctx,
+		sessions[:1],
+		direction,
+		baselineBytesPerSession,
+		timeout,
+		"baseline",
+	)
+	summary.Concurrent = measureSpeedRun(
+		ctx,
+		sessions,
+		direction,
+		concurrentBytesPerSession,
+		timeout,
+		"concurrent",
+	)
+	if summary.Baseline.AggregateMbps > 0 {
+		summary.AggregateToBaselineRatio =
+			summary.Concurrent.AggregateMbps / summary.Baseline.AggregateMbps
+	}
+	summary.Passed = speedDirectionPassed(summary, minAggregateRatio, minAggregateMbps)
+	return summary
+}
+
+func speedDirectionPassed(
+	summary speedDirectionSummary,
+	minAggregateRatio float64,
+	minAggregateMbps float64,
+) bool {
+	return summary.Baseline.Failures == 0 &&
+		summary.Baseline.Completed == summary.Baseline.Attempted &&
+		summary.Concurrent.Failures == 0 &&
+		summary.Concurrent.Completed == summary.Concurrent.Attempted &&
+		summary.AggregateToBaselineRatio >= minAggregateRatio &&
+		summary.Concurrent.AggregateMbps >= minAggregateMbps
+}
+
+type speedAttempt struct {
+	result gizcli.SpeedTestResult
+	err    error
+}
+
+func measureSpeedRun(
+	ctx context.Context,
+	sessions []*liveSession,
+	direction string,
+	bytesPerSession int64,
+	timeout time.Duration,
+	runName string,
+) speedRunSummary {
+	attempts := make([]speedAttempt, len(sessions))
+	start := make(chan struct{})
+	runCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	var wg sync.WaitGroup
+	for index, session := range sessions {
+		wg.Go(func() {
+			<-start
+			request := rpcapi.SpeedTestRequest{}
+			switch direction {
+			case "upload":
+				request.UpContentLength = bytesPerSession
+			case "download":
+				request.DownContentLength = bytesPerSession
+			default:
+				attempts[index].err = fmt.Errorf("unsupported speed direction %q", direction)
+				return
+			}
+			attempts[index].result, attempts[index].err = session.speedTest(
+				runCtx,
+				fmt.Sprintf("gateway-capacity.speed.%s.%s.%d", direction, runName, index),
+				request,
+			)
+		})
+	}
+	started := time.Now()
+	close(start)
+	wg.Wait()
+	elapsed := time.Since(started)
+	return summarizeSpeedRun(started, elapsed, sessions, direction, bytesPerSession, attempts)
+}
+
+func summarizeSpeedRun(
+	started time.Time,
+	elapsed time.Duration,
+	sessions []*liveSession,
+	direction string,
+	bytesPerSession int64,
+	attempts []speedAttempt,
+) speedRunSummary {
+	summary := speedRunSummary{
+		StartedAt:      started,
+		Duration:       elapsed,
+		Attempted:      len(sessions),
+		RequestedBytes: int64(len(sessions)) * bytesPerSession,
+		Edge:           make(map[string]speedPathSummary),
+		Upstream:       make(map[string]map[string]speedPathSummary),
+		Sessions:       make([]speedSessionResult, len(sessions)),
+	}
+	rates := make([]float64, 0, len(sessions))
+	edgeRates := make(map[string][]float64)
+	upstreamRates := make(map[string]map[string][]float64)
+	for index, session := range sessions {
+		result := speedSessionResult{
+			Index: index, Edge: session.edge, Upstream: session.upstream,
+		}
+		path := summary.Edge[session.edge]
+		path.Attempted++
+		if summary.Upstream[session.edge] == nil {
+			summary.Upstream[session.edge] = make(map[string]speedPathSummary)
+		}
+		if upstreamRates[session.edge] == nil {
+			upstreamRates[session.edge] = make(map[string][]float64)
+		}
+		upstreamPath := summary.Upstream[session.edge][session.upstream]
+		upstreamPath.Attempted++
+
+		if index >= len(attempts) {
+			result.Error = "missing speed result"
+		} else if attempts[index].err != nil {
+			result.Error = attempts[index].err.Error()
+		} else {
+			switch direction {
+			case "upload":
+				result.Bytes = attempts[index].result.UpBytes
+				result.Duration = attempts[index].result.UpDuration
+				result.Mbps = attempts[index].result.UpMbps()
+			case "download":
+				result.Bytes = attempts[index].result.DownBytes
+				result.Duration = attempts[index].result.DownDuration
+				result.Mbps = attempts[index].result.DownMbps()
+			default:
+				result.Error = fmt.Sprintf("unsupported speed direction %q", direction)
+			}
+			if result.Error == "" && result.Bytes != bytesPerSession {
+				result.Error = fmt.Sprintf(
+					"transferred bytes %d, want %d",
+					result.Bytes,
+					bytesPerSession,
+				)
+			}
+			if result.Error == "" && (result.Duration <= 0 || result.Mbps <= 0) {
+				result.Error = fmt.Sprintf(
+					"invalid duration/rate %s/%.3f Mbps",
+					result.Duration,
+					result.Mbps,
+				)
+			}
+		}
+		if result.Error == "" {
+			summary.Completed++
+			summary.TransferredBytes += result.Bytes
+			path.Completed++
+			path.TransferredBytes += result.Bytes
+			upstreamPath.Completed++
+			upstreamPath.TransferredBytes += result.Bytes
+			rates = append(rates, result.Mbps)
+			edgeRates[session.edge] = append(edgeRates[session.edge], result.Mbps)
+			upstreamRates[session.edge][session.upstream] = append(
+				upstreamRates[session.edge][session.upstream],
+				result.Mbps,
+			)
+		} else {
+			summary.Failures++
+			path.Failures++
+			upstreamPath.Failures++
+		}
+		summary.Edge[session.edge] = path
+		summary.Upstream[session.edge][session.upstream] = upstreamPath
+		summary.Sessions[index] = result
+	}
+	if elapsed > 0 {
+		summary.AggregateMbps = mbpsForBytes(summary.TransferredBytes, elapsed)
+		for edge, path := range summary.Edge {
+			path.AggregateMbps = mbpsForBytes(path.TransferredBytes, elapsed)
+			path.PerSessionMbps = summarizeRates(edgeRates[edge])
+			summary.Edge[edge] = path
+		}
+		for edge, upstreams := range summary.Upstream {
+			for upstream, path := range upstreams {
+				path.AggregateMbps = mbpsForBytes(path.TransferredBytes, elapsed)
+				path.PerSessionMbps = summarizeRates(upstreamRates[edge][upstream])
+				summary.Upstream[edge][upstream] = path
+			}
+		}
+	}
+	summary.PerSessionMbps = summarizeRates(rates)
+	return summary
+}
+
+func mbpsForBytes(bytes int64, duration time.Duration) float64 {
+	if bytes <= 0 || duration <= 0 {
+		return 0
+	}
+	return float64(bytes*8) / duration.Seconds() / 1_000_000
+}
+
+func summarizeRates(values []float64) rateSummary {
+	if len(values) == 0 {
+		return rateSummary{}
+	}
+	sorted := append([]float64(nil), values...)
+	slices.Sort(sorted)
+	return rateSummary{
+		Count: len(sorted),
+		Min:   sorted[0],
+		P50:   floatPercentile(sorted, 0.50),
+		P95:   floatPercentile(sorted, 0.95),
+		P99:   floatPercentile(sorted, 0.99),
+		Max:   sorted[len(sorted)-1],
+	}
+}
+
+func floatPercentile(sorted []float64, quantile float64) float64 {
+	if len(sorted) == 0 {
+		return 0
+	}
+	index := int(math.Ceil(quantile*float64(len(sorted)))) - 1
+	index = max(index, 0)
+	if index >= len(sorted) {
+		index = len(sorted) - 1
+	}
+	return sorted[index]
+}
+
 func summarizeLatencyMap(values map[string][]time.Duration) map[string]latencySummary {
 	summaries := make(map[string]latencySummary, len(values))
 	for key, samples := range values {
@@ -643,6 +1077,23 @@ func (s *liveSession) peerConn() giznet.Conn {
 	return s.client.PeerConn()
 }
 
+func (s *liveSession) speedTest(
+	ctx context.Context,
+	id string,
+	request rpcapi.SpeedTestRequest,
+) (gizcli.SpeedTestResult, error) {
+	if s == nil {
+		return gizcli.SpeedTestResult{}, errors.New("nil live session")
+	}
+	if s.speedFn != nil {
+		return s.speedFn(ctx, id, request)
+	}
+	if s.client == nil {
+		return gizcli.SpeedTestResult{}, errors.New("live session has no client")
+	}
+	return s.client.SpeedTest(ctx, id, request)
+}
+
 func (s *resultState) recordPing(rtt time.Duration, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -711,6 +1162,7 @@ func finalize(report artifact, state *resultState, resources *resourceSampler) a
 	report.IdentityCrossover = state.identityCrossover
 	report.RTT = summarizeLatency(state.rtts)
 	report.PingRounds = append([]pingRoundSummary(nil), state.pingRounds...)
+	report.SpeedTest = state.speedTest
 	report.Errors = append([]string(nil), state.errors...)
 	var rx, tx uint64
 	for _, session := range state.sessions {
@@ -735,6 +1187,8 @@ func finalize(report artifact, state *resultState, resources *resourceSampler) a
 	report.Passed = report.EstablishmentFailures <= report.Config.MaxEstablishmentFailures &&
 		report.PingFailures <= report.Config.MaxPingFailures &&
 		report.UnexpectedDisconnects == 0 && !report.IdentityCrossover &&
+		(report.Config.SpeedBytes == 0 ||
+			(report.SpeedTest.Upload.Passed && report.SpeedTest.Download.Passed)) &&
 		(report.Config.MaxP99RTT == 0 || time.Duration(report.RTT.P99*float64(time.Millisecond)) <= report.Config.MaxP99RTT)
 	return report
 }
@@ -744,10 +1198,17 @@ func acceptanceError(report artifact, opts options) error {
 		return nil
 	}
 	return fmt.Errorf(
-		"gateway capacity failed: established=%d/%d dial_failures=%d ping_failures=%d disconnects=%d crossover=%t p99=%.2fms thresholds=(%d,%d,%s)",
+		"gateway capacity failed: established=%d/%d dial_failures=%d ping_failures=%d disconnects=%d crossover=%t p99=%.2fms speed=(upload %.2fMbps %.2fx, download %.2fMbps %.2fx) thresholds=(%d,%d,%s,%.2fx,upload %.2fMbps,download %.2fMbps)",
 		report.Established, report.Attempted, report.EstablishmentFailures, report.PingFailures,
 		report.UnexpectedDisconnects, report.IdentityCrossover, report.RTT.P99,
+		report.SpeedTest.Upload.Concurrent.AggregateMbps,
+		report.SpeedTest.Upload.AggregateToBaselineRatio,
+		report.SpeedTest.Download.Concurrent.AggregateMbps,
+		report.SpeedTest.Download.AggregateToBaselineRatio,
 		opts.maxEstablishmentFailures, opts.maxPingFailures, opts.maxP99RTT,
+		opts.minSpeedAggregateRatio,
+		opts.minUploadAggregateMbps,
+		opts.minDownloadAggregateMbps,
 	)
 }
 

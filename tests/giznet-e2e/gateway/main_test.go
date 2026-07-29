@@ -4,15 +4,19 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 )
 
 func TestNormalizeHTTPBase(t *testing.T) {
@@ -63,6 +67,154 @@ func TestActiveCPUSecondsExcludesIdleCapacity(t *testing.T) {
 	}
 	if got := activeCPUSeconds(1, 2); got != 0 {
 		t.Fatalf("activeCPUSeconds with overestimated idle = %f, want 0", got)
+	}
+}
+
+func TestNonNegativeFinite(t *testing.T) {
+	for _, value := range []float64{0, 0.8, 200} {
+		if !nonNegativeFinite(value) {
+			t.Fatalf("nonNegativeFinite(%v) = false", value)
+		}
+	}
+	for _, value := range []float64{-1, math.NaN(), math.Inf(1), math.Inf(-1)} {
+		if nonNegativeFinite(value) {
+			t.Fatalf("nonNegativeFinite(%v) = true", value)
+		}
+	}
+}
+
+func TestSummarizeSpeedRunUsesSharedWallClock(t *testing.T) {
+	const bytesPerSession = int64(1_000_000)
+	sessions := []*liveSession{
+		{edge: "edge-a", upstream: "upstream-1"},
+		{edge: "edge-b", upstream: "upstream-2"},
+	}
+	attempts := []speedAttempt{
+		{result: gizcli.SpeedTestResult{
+			UpBytes: bytesPerSession, UpDuration: time.Second,
+		}},
+		{result: gizcli.SpeedTestResult{
+			UpBytes: bytesPerSession, UpDuration: 2 * time.Second,
+		}},
+	}
+	got := summarizeSpeedRun(
+		time.Unix(1, 0),
+		2*time.Second,
+		sessions,
+		"upload",
+		bytesPerSession,
+		attempts,
+	)
+	if got.Completed != 2 || got.Failures != 0 || got.TransferredBytes != 2*bytesPerSession {
+		t.Fatalf("speed run completion = %+v", got)
+	}
+	if got.AggregateMbps != 8 {
+		t.Fatalf("aggregate Mbps = %f, want 8", got.AggregateMbps)
+	}
+	if got.PerSessionMbps.Min != 4 || got.PerSessionMbps.Max != 8 {
+		t.Fatalf("per-session Mbps = %+v, want min=4 max=8", got.PerSessionMbps)
+	}
+	if got.Edge["edge-a"].AggregateMbps != 4 ||
+		got.Upstream["edge-b"]["upstream-2"].AggregateMbps != 4 {
+		t.Fatalf("path summaries = edge %+v upstream %+v", got.Edge, got.Upstream)
+	}
+	if got.Edge["edge-a"].PerSessionMbps.P50 != 8 ||
+		got.Upstream["edge-b"]["upstream-2"].PerSessionMbps.P50 != 4 {
+		t.Fatalf("path rate summaries = edge %+v upstream %+v", got.Edge, got.Upstream)
+	}
+}
+
+func TestSummarizeSpeedRunRejectsIncompleteDownload(t *testing.T) {
+	const bytesPerSession = int64(1_000_000)
+	got := summarizeSpeedRun(
+		time.Unix(1, 0),
+		time.Second,
+		[]*liveSession{{edge: "edge-a", upstream: "upstream-1"}},
+		"download",
+		bytesPerSession,
+		[]speedAttempt{{result: gizcli.SpeedTestResult{
+			DownBytes: bytesPerSession - 1, DownDuration: time.Second,
+		}}},
+	)
+	if got.Completed != 0 || got.Failures != 1 || got.TransferredBytes != 0 {
+		t.Fatalf("incomplete download summary = %+v", got)
+	}
+	if !strings.Contains(got.Sessions[0].Error, "transferred bytes") {
+		t.Fatalf("incomplete download error = %q", got.Sessions[0].Error)
+	}
+}
+
+func TestMeasureSpeedDirectionStartsConcurrentRunTogether(t *testing.T) {
+	const (
+		sessionCount    = 3
+		bytesPerSession = int64(1_000_000)
+	)
+	var entered atomic.Int32
+	release := make(chan struct{})
+	var releaseOnce sync.Once
+	sessions := make([]*liveSession, sessionCount)
+	for index := range sessions {
+		sessions[index] = &liveSession{
+			edge:     "edge-a",
+			upstream: "upstream-1",
+			speedFn: func(ctx context.Context, id string, request rpcapi.SpeedTestRequest) (gizcli.SpeedTestResult, error) {
+				if strings.Contains(id, ".concurrent.") {
+					if entered.Add(1) == sessionCount {
+						releaseOnce.Do(func() { close(release) })
+					}
+					select {
+					case <-release:
+					case <-ctx.Done():
+						return gizcli.SpeedTestResult{}, ctx.Err()
+					}
+				}
+				return gizcli.SpeedTestResult{
+					UpContentLength: request.UpContentLength,
+					UpBytes:         request.UpContentLength,
+					UpDuration:      time.Millisecond,
+					Duration:        time.Millisecond,
+				}, nil
+			},
+		}
+	}
+
+	got := measureSpeedDirection(
+		context.Background(),
+		sessions,
+		"upload",
+		bytesPerSession,
+		bytesPerSession,
+		time.Second,
+		0,
+		0,
+	)
+	if entered.Load() != sessionCount {
+		t.Fatalf("concurrent starts = %d, want %d", entered.Load(), sessionCount)
+	}
+	if !got.Passed || got.Concurrent.Completed != sessionCount {
+		t.Fatalf("speed direction = %+v", got)
+	}
+}
+
+func TestSpeedDirectionPassedRequiresRetentionAndAbsoluteFloor(t *testing.T) {
+	summary := speedDirectionSummary{
+		Baseline: speedRunSummary{Attempted: 1, Completed: 1},
+		Concurrent: speedRunSummary{
+			Attempted: 100, Completed: 100, AggregateMbps: 250,
+		},
+		AggregateToBaselineRatio: 0.79,
+	}
+	if speedDirectionPassed(summary, 0.8, 200) {
+		t.Fatal("speedDirectionPassed accepted retention below the configured floor")
+	}
+	summary.AggregateToBaselineRatio = 0.8
+	summary.Concurrent.AggregateMbps = 199.99
+	if speedDirectionPassed(summary, 0.8, 200) {
+		t.Fatal("speedDirectionPassed accepted aggregate Mbps below the configured floor")
+	}
+	summary.Concurrent.AggregateMbps = 200
+	if !speedDirectionPassed(summary, 0.8, 200) {
+		t.Fatal("speedDirectionPassed rejected both thresholds at their configured floors")
 	}
 }
 

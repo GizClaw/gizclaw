@@ -113,7 +113,9 @@ deadline 内保留现有 session，超时后强制关闭。
 30,000 是可配置 harness 在具体主机上的容量模型目标，不是每条 upstream、每个 Edge 或任意硬件的无条件保证。harness 为每个 logical session 创建一个真实客户端 WebRTC PeerConnection；因此 load driver 本身也有显著内存、goroutine、FD 和 CPU 成本。达到 30,000 前必须为 load driver、各 Edge 和 Server 分别制定资源预算；单机不足时应在多个 load-driver 进程或主机间分片总 session 数，不能把降低 activity 或改用 synthetic session 当作通过。
 
 本机基线入口启动一个 Server 和两个独立身份的 Edge，建立并保持 100 个真实客户端
-PeerConnection，并在一分钟内对每个 session 执行多轮有界 ping：
+PeerConnection。所有 session 先完成有界 ping，然后通过同一个 start barrier 同时执行
+每路 4 MiB upload，再同时执行每路 4 MiB download；测试最后继续保持连接一分钟并执行
+多轮 ping：
 
 ```bash
 bash tests/gizclaw-e2e/run_gateway_capacity_tests.sh
@@ -123,10 +125,15 @@ bash tests/gizclaw-e2e/run_gateway_capacity_tests.sh
 `tests/gizclaw-e2e/testdata/gateway-capacity-100.json`；可通过
 `GIZCLAW_E2E_GATEWAY_CAPACITY_ARTIFACT` 选择其他输出路径。该入口要求 100/100
 session 建立成功、所有 ping 成功、无 unexpected disconnect 或 identity crossover，
-且两个 Edge 的每个 session 都有 upstream assignment。它只证明当前本机 Docker
-拓扑的 100 并发基线，不是 30,000-session 实测。
+且两个 Edge 的每个 session 都有 upstream assignment。每个测速方向要求 100/100
+完整传输。固定 gate 同时要求每个方向达到 `200 Mbps` aggregate floor，并且不低于
+同一轮 32 MiB 单路 sustained baseline 的 0.8 倍。单路使用更大的 payload，避免短
+burst 把基线抬高而产生 flaky ratio；绝对门槛会拒绝旧的十几 Mbps association ceiling，
+保留倍率避免在单路已经跑满当前路径时错误要求线性扩展，同时仍拒绝明显并发退化。它只
+证明当前本机 Docker 拓扑的 100 路并发传输基线，不是
+30,000-session 实测，也不把本机 aggregate Mbps 当作其他网络的带宽承诺。
 
-容量 artifact 记录 load-driver 的 GOOS、GOARCH、Go version 和 logical CPU，并包含建立失败、周期 ping RTT、每轮及每个 Edge/upstream 的 RTT/失败汇总、unexpected disconnect、identity crossover、RSS、Go/runtime active CPU estimate、FD、heap、收发 bytes，以及 Edge/upstream 分布。每个内存和 CPU 资源点都携带数据源；无法读取 Linux `/proc/self/statm` 时，`rss_bytes` 明确标记为 `go_memstats_sys` fallback，不能作为完整进程 RSS。平台无法读取 FD 时该值为 `-1`。达到 crossover、unexpected disconnect 或配置阈值时命令以非零状态退出。500/1,000-session 重复运行、长时间 soak、各进程资源斜率和 30,000-session 理论推算属于独立的扩展容量验收。
+容量 artifact 记录 load-driver 的 GOOS、GOARCH、Go version 和 logical CPU，并包含建立失败、周期 ping RTT、每轮及每个 Edge/upstream 的 RTT/失败汇总、unexpected disconnect、identity crossover、RSS、Go/runtime active CPU estimate、FD、heap、收发 bytes，以及 Edge/upstream 分布。upload/download 分别记录单路基线、由共享 wall-clock 计算的 100 路 aggregate Mbps、每路速率分位数、完整字节数、失败，以及每个 Edge/upstream 的聚合结果；不能把各客户端 duration 相加或取最大值替代共享起止区间。每个内存和 CPU 资源点都携带数据源；无法读取 Linux `/proc/self/statm` 时，`rss_bytes` 明确标记为 `go_memstats_sys` fallback，不能作为完整进程 RSS。平台无法读取 FD 时该值为 `-1`。达到 crossover、unexpected disconnect、测速失败、绝对 Mbps 或保留倍率阈值时命令以非零状态退出。500/1,000-session 重复运行、长时间 soak、各进程资源斜率和 30,000-session 理论推算属于独立的扩展容量验收。
 
 吞吐 sizing 以实测的单 association 吞吐 `B` 和同路径可用带宽 `W` 为输入。要达到
 80% 路径利用率，所需 active upstream 数可先估为 `ceil(0.8 × W / B)`，并且必须不大于

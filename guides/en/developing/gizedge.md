@@ -149,7 +149,10 @@ At the same defaults, 30,000 mostly idle sessions average 1,875 sessions per
 upstream, below the 2,048 hard limit. This is a capacity-model target, not a
 real 30,000-session proof. The local baseline starts one Server and two
 independently identified Edges, establishes 100 real client PeerConnections,
-and runs multiple bounded ping rounds on every session:
+and verifies a bounded ping on every session. All sessions then cross one start
+barrier to upload 4 MiB each concurrently, followed by a concurrent 4 MiB
+download each. The test keeps the connections alive for another minute and
+runs multiple bounded ping rounds:
 
 ```bash
 bash tests/gizclaw-e2e/run_gateway_capacity_tests.sh
@@ -160,15 +163,30 @@ The default artifact is the ignored
 `GIZCLAW_E2E_GATEWAY_CAPACITY_ARTIFACT` selects another output path. The run
 requires 100/100 establishments, successful pings, no unexpected disconnect or
 identity crossover, and an upstream assignment for every session on both
-Edges. The artifact records the load-driver host and configuration,
-establishment and ping failures, RTT, bytes, Edge/upstream distribution, RSS,
-Go/runtime active CPU estimates, file descriptors, heap, and goroutines. Ping
+Edges. Each throughput direction requires 100/100 complete transfers, at least
+200 Mbps aggregate, and at least 0.8 times the same run's sustained
+single-session rate measured with 32 MiB. The larger baseline payload prevents
+a short burst from inflating the baseline and making the ratio flaky. The
+absolute floor rejects the former low-tens-of-Mbps association ceiling. The
+retention ratio avoids demanding linear scaling when one session already
+saturates the current path while still rejecting material concurrency
+regression. This is evidence for the tested local Docker topology, not a
+bandwidth promise for another network.
+
+The artifact records the load-driver host and configuration, establishment and
+ping failures, RTT, bytes, Edge/upstream distribution, RSS, Go/runtime active
+CPU estimates, file descriptors, heap, and goroutines. Upload and download
+each include the single-session baseline, 100-session aggregate Mbps computed
+over one shared wall-clock interval, per-session rate percentiles, exact byte
+completion, failures, and per-Edge/upstream aggregates. Client durations are
+not summed or substituted for the shared start-to-finish interval. Ping
 evidence also includes per-round and per-Edge/upstream RTT and failure
 summaries so a transient path is not hidden by one aggregate percentile.
 Memory and CPU points include their measurement source. Without Linux
 `/proc/self/statm`, `rss_bytes` is marked as the `go_memstats_sys` fallback and
 is not complete process RSS. Unsupported file-descriptor sampling is reported
-as `-1`.
+as `-1`. A throughput failure, absolute-Mbps violation, or retention-ratio
+violation also makes the entrypoint exit nonzero.
 
 CPU, memory, file descriptors, establishment rate, and low-rate activity for
 the complete topology must still be fitted from larger samples. Repeated
