@@ -25,7 +25,8 @@ typedef enum {
   FAKE_RESPONSE_PROTO_ERROR = 4,
   FAKE_RESPONSE_SPEECH_TRANSCRIBE = 5,
   FAKE_RESPONSE_SPEECH_SYNTHESIZE = 6,
-  FAKE_RESPONSE_SPEECH_EXTRACT = 7
+  FAKE_RESPONSE_SPEECH_EXTRACT = 7,
+  FAKE_RESPONSE_SPEED_TEST = 8
 } fake_response_mode_t;
 
 typedef struct {
@@ -64,6 +65,10 @@ typedef struct {
   bool drain_on_poll;
   bool emit_low_event;
   fake_response_mode_t response_mode;
+  bool speed_request_seen;
+  int64_t speed_upload_bytes;
+  int64_t speed_ack_up_bytes;
+  int64_t speed_ack_down_bytes;
 } fake_webrtc_t;
 
 typedef struct {
@@ -505,6 +510,62 @@ static size_t first_frame_size(const gzc_buf_t *bytes) {
   return 4 + ((size_t)bytes->data[0] | ((size_t)bytes->data[1] << 8));
 }
 
+static int send_fake_speed_response(
+    fake_webrtc_t *fake,
+    gzc_rtc_channel_t *channel) {
+  gzc_buf_t result;
+  gzc_buf_t response;
+  gzc_buf_t framed;
+  gzc_buf_init(&result);
+  gzc_buf_init(&response);
+  gzc_buf_init(&framed);
+  int rc = append_test_proto_varint(
+      fake->platform, &result, 1, (uint64_t)fake->speed_ack_down_bytes);
+  if (rc == GZC_OK) {
+    rc = append_test_proto_varint(
+        fake->platform, &result, 2, (uint64_t)fake->speed_ack_up_bytes);
+  }
+  if (rc == GZC_OK) {
+    rc = append_test_proto_bytes(
+        fake->platform, &response, 1,
+        (const uint8_t *)"1", 1u);
+  }
+  if (rc == GZC_OK) {
+    rc = append_test_proto_bytes(
+        fake->platform, &response, 2, result.data, result.len);
+  }
+  if (rc == GZC_OK) {
+    rc = append_test_frame(
+        fake->platform, &framed, GZC_RPC_FRAME_BINARY,
+        response.data, response.len);
+  }
+  static const uint8_t payload[4096] = {0};
+  int64_t offset = 0;
+  while (rc == GZC_OK && offset < fake->speed_ack_down_bytes) {
+    size_t count = (size_t)(fake->speed_ack_down_bytes - offset);
+    if (count > sizeof(payload)) {
+      count = sizeof(payload);
+    }
+    rc = append_test_frame(
+        fake->platform, &framed, GZC_RPC_FRAME_BINARY,
+        payload, count);
+    offset += (int64_t)count;
+  }
+  if (rc == GZC_OK) {
+    rc = append_test_frame(
+        fake->platform, &framed, GZC_RPC_FRAME_EOS, NULL, 0);
+  }
+  if (rc == GZC_OK) {
+    fake->callbacks.on_channel_message(
+        fake->callbacks.userdata, &fake->peer, channel, NULL,
+        framed.data, framed.len, false);
+  }
+  gzc_buf_free(&result, fake->platform);
+  gzc_buf_free(&response, fake->platform);
+  gzc_buf_free(&framed, fake->platform);
+  return rc;
+}
+
 static int test_channel_send_frame(gzc_rtc_channel_t *channel, const uint8_t *data, size_t len, bool is_text) {
   fake_webrtc_t *fake = global_fake_webrtc;
   if (channel == &fake->packet_channel && !is_text) {
@@ -525,8 +586,40 @@ static int test_channel_send_frame(gzc_rtc_channel_t *channel, const uint8_t *da
   }
   gzc_rtc_channel_t *response_channel = channel;
   gzc_rpc_frame_t request_frame;
-  bool is_eos = gzc_rpc_frame_decode(data, len, &request_frame) == GZC_OK &&
-                request_frame.type == GZC_RPC_FRAME_EOS;
+  int frame_rc = gzc_rpc_frame_decode(data, len, &request_frame);
+  bool is_eos =
+      frame_rc == GZC_OK && request_frame.type == GZC_RPC_FRAME_EOS;
+  if (fake->response_mode == FAKE_RESPONSE_SPEED_TEST) {
+    if (frame_rc != GZC_OK) {
+      return frame_rc;
+    }
+    if (request_frame.type == GZC_RPC_FRAME_BINARY) {
+      if (!fake->speed_request_seen) {
+        unsigned method_id = 0;
+        int rc = read_test_proto_method_id(
+            gzc_str_from_parts(
+                (const char *)request_frame.data, request_frame.len),
+            &method_id);
+        if (rc != GZC_OK ||
+            method_id !=
+                gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_SPEED_TEST_RUN) {
+          return GZC_ERR_RPC;
+        }
+        fake->speed_request_seen = true;
+        return send_fake_speed_response(fake, response_channel);
+      } else {
+        fake->speed_upload_bytes += (int64_t)request_frame.len;
+      }
+      return gzc_buf_append(
+          &fake->sent, fake->platform, data, len);
+    }
+    if (request_frame.type != GZC_RPC_FRAME_EOS ||
+        !fake->speed_request_seen ||
+        fake->speed_upload_bytes != fake->speed_ack_up_bytes) {
+      return GZC_ERR_RPC;
+    }
+    return GZC_OK;
+  }
   if ((fake->response_mode == FAKE_RESPONSE_SPEECH_TRANSCRIBE ||
        fake->response_mode == FAKE_RESPONSE_SPEECH_EXTRACT) &&
       !is_eos) {
@@ -1712,6 +1805,60 @@ int main(void) {
                  stream_count.binary_bytes == 3 &&
                  stream_count.eos_count == 1,
              "stream frames and terminal eos counted") != 0) {
+    return 1;
+  }
+
+  fake_webrtc.response_mode = FAKE_RESPONSE_SPEED_TEST;
+  fake_webrtc.speed_request_seen = false;
+  fake_webrtc.speed_upload_bytes = 0;
+  fake_webrtc.speed_ack_up_bytes = 64 * 1024 + 3;
+  fake_webrtc.speed_ack_down_bytes = 64 * 1024 + 5;
+  int channel_count_before_speed = fake_webrtc.create_channel_count;
+  gizclaw_rpc_v1_SpeedTestRequest speed_test =
+      gizclaw_rpc_v1_SpeedTestRequest_init_zero;
+  speed_test.up_content_length = fake_webrtc.speed_ack_up_bytes;
+  speed_test.down_content_length = fake_webrtc.speed_ack_down_bytes;
+  gzc_rpc_speed_test_result_t speed_result = {
+      .up_bytes = -1,
+      .down_bytes = -1,
+  };
+  rc = gzc_rpc_speed_test(client, &speed_test, &speed_result);
+  if (expect(rc == GZC_OK, "persistent RPC speed test") != 0 ||
+      expect(
+          speed_result.up_bytes == speed_test.up_content_length &&
+              speed_result.down_bytes == speed_test.down_content_length,
+          "persistent RPC speed test counts both directions") != 0 ||
+      expect(
+          fake_webrtc.speed_upload_bytes ==
+              speed_test.up_content_length,
+          "persistent RPC speed test uploads the requested bytes") != 0 ||
+      expect(
+          fake_webrtc.create_channel_count == channel_count_before_speed,
+          "persistent RPC speed test does not create a DataChannel") != 0) {
+    return 1;
+  }
+  fake_webrtc.response_mode = FAKE_RESPONSE_PROTO;
+  memset(&response, 0, sizeof(response));
+  rc = gzc_rpc_call(
+      client,
+      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
+      gzc_str_from_parts((const char *)params.data, params.len),
+      &response);
+  if (expect(rc == GZC_OK,
+             "persistent RPC remains usable after speed test") != 0 ||
+      expect(
+          fake_webrtc.create_channel_count == channel_count_before_speed,
+          "post-speed RPC reuses the same DataChannel") != 0) {
+    return 1;
+  }
+  speed_test.up_content_length = -1;
+  speed_result.up_bytes = -1;
+  speed_result.down_bytes = -1;
+  rc = gzc_rpc_speed_test(client, &speed_test, &speed_result);
+  if (expect(rc == GZC_ERR_INVALID_ARGUMENT,
+             "speed test rejects negative lengths") != 0 ||
+      expect(speed_result.up_bytes == 0 && speed_result.down_bytes == 0,
+             "failed speed test clears its output") != 0) {
     return 1;
   }
 

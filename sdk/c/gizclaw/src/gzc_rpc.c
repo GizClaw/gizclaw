@@ -12,6 +12,9 @@
 #define GZC_RPC_SPEECH_EXTRACTION_TIMEOUT_MS 125000
 #define GZC_RPC_SPEECH_TRANSCRIPTION_TIMEOUT_MS 80000
 #define GZC_RPC_SPEECH_SYNTHESIS_TIMEOUT_MS 125000
+#define GZC_RPC_SPEED_TEST_FRAME_SIZE (32u * 1024u)
+#define GZC_RPC_SPEED_TEST_MAX_CONTENT_LENGTH (INT64_C(1) << 30)
+#define GZC_RPC_SPEED_TEST_TIMEOUT_MS 120000
 #define GZC_SERVICE_PEER_RPC 0x00u
 #define GZC_SERVICE_EDGE_RPC 0x31u
 
@@ -164,11 +167,12 @@ static bool is_edge_rpc_method(gizclaw_rpc_v1_RpcMethod method) {
          method == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_ROUTE_RESOLVE;
 }
 
-static int send_request_envelope(
+static int send_request_envelope_internal(
     gzc_client_t *client,
     const gzc_platform_t *platform,
     gizclaw_rpc_v1_RpcMethod method,
-    gzc_str_t params_payload) {
+    gzc_str_t params_payload,
+    bool end_request) {
   gzc_buf_t request;
   gzc_buf_init(&request);
   int rc = gzc_rpc_encode_request_envelope(platform, gzc_str_from_cstr("1"), method, params_payload, &request);
@@ -189,7 +193,7 @@ static int send_request_envelope(
     rc = gzc_client_write_rpc_frame_internal(client, &frame);
     offset += chunk;
   }
-  if (rc == GZC_OK) {
+  if (rc == GZC_OK && end_request) {
     gzc_rpc_frame_t eos;
     memset(&eos, 0, sizeof(eos));
     eos.type = GZC_RPC_FRAME_EOS;
@@ -197,6 +201,15 @@ static int send_request_envelope(
   }
   gzc_buf_free(&request, platform);
   return rc;
+}
+
+static int send_request_envelope(
+    gzc_client_t *client,
+    const gzc_platform_t *platform,
+    gizclaw_rpc_v1_RpcMethod method,
+    gzc_str_t params_payload) {
+  return send_request_envelope_internal(
+      client, platform, method, params_payload, true);
 }
 
 static int send_request_envelope_service(
@@ -617,6 +630,179 @@ int gzc_rpc_call_stream(
     void *userdata) {
   return gzc_rpc_call_stream_with_timeout(
       client, method, params_payload, on_frame, userdata, 5000);
+}
+
+static int write_speed_test_upload(
+    gzc_client_t *client,
+    const gzc_platform_t *platform,
+    int64_t upload_bytes) {
+  size_t payload_len = upload_bytes < (int64_t)GZC_RPC_SPEED_TEST_FRAME_SIZE
+                           ? (size_t)upload_bytes
+                           : GZC_RPC_SPEED_TEST_FRAME_SIZE;
+  uint8_t *payload = NULL;
+  if (payload_len > 0u) {
+    payload = (uint8_t *)platform->malloc(platform->userdata, payload_len);
+    if (payload == NULL) {
+      return GZC_ERR_NO_MEMORY;
+    }
+    memset(payload, 0, payload_len);
+  }
+  int64_t offset = 0;
+  int rc = GZC_OK;
+  while (rc == GZC_OK && offset < upload_bytes) {
+    size_t count = (size_t)(upload_bytes - offset);
+    if (count > payload_len) {
+      count = payload_len;
+    }
+    gzc_rpc_frame_t frame;
+    memset(&frame, 0, sizeof(frame));
+    frame.type = GZC_RPC_FRAME_BINARY;
+    frame.data = payload;
+    frame.len = count;
+    rc = gzc_client_write_rpc_frame_internal(client, &frame);
+    offset += (int64_t)count;
+  }
+  if (rc == GZC_OK) {
+    gzc_rpc_frame_t eos;
+    memset(&eos, 0, sizeof(eos));
+    eos.type = GZC_RPC_FRAME_EOS;
+    rc = gzc_client_write_rpc_frame_internal(client, &eos);
+  }
+  if (payload != NULL) {
+    platform->free(platform->userdata, payload);
+  }
+  return rc;
+}
+
+static int read_speed_test_response(
+    gzc_client_t *client,
+    const gzc_platform_t *platform,
+    const gizclaw_rpc_v1_SpeedTestRequest *request,
+    gzc_rpc_speed_test_result_t *out_result) {
+  gzc_buf_t frame_bytes;
+  gzc_buf_init(&frame_bytes);
+  bool saw_response = false;
+  bool saw_eos = false;
+  int64_t download_bytes = 0;
+  int rc = GZC_OK;
+  while (rc == GZC_OK && !saw_eos) {
+    gzc_rpc_frame_t frame;
+    rc = read_frame(
+        client, platform, GZC_RPC_SPEED_TEST_TIMEOUT_MS,
+        &frame_bytes, &frame);
+    if (rc != GZC_OK) {
+      break;
+    }
+    if (frame.type == GZC_RPC_FRAME_EOS) {
+      saw_eos = true;
+      continue;
+    }
+    if (frame.type != GZC_RPC_FRAME_BINARY) {
+      rc = GZC_ERR_RPC;
+      break;
+    }
+    if (!saw_response) {
+      gzc_rpc_response_t response;
+      memset(&response, 0, sizeof(response));
+      rc = gzc_rpc_decode_response_envelope(
+          gzc_str_from_parts((const char *)frame.data, frame.len),
+          &response);
+      if (rc == GZC_OK && response.has_error) {
+        rc = GZC_ERR_RPC;
+      }
+      if (rc == GZC_OK) {
+        gizclaw_rpc_v1_SpeedTestResponse decoded =
+            gizclaw_rpc_v1_SpeedTestResponse_init_zero;
+        pb_istream_t payload_stream = pb_istream_from_buffer(
+            (const pb_byte_t *)response.result_payload.data,
+            response.result_payload.len);
+        if (!pb_decode(
+                &payload_stream,
+                gizclaw_rpc_v1_SpeedTestResponse_fields,
+                &decoded)) {
+          rc = GZC_ERR_RPC;
+        }
+        if (rc == GZC_OK &&
+            (decoded.up_content_length != request->up_content_length ||
+             decoded.down_content_length != request->down_content_length)) {
+          rc = GZC_ERR_RPC;
+        }
+      }
+      gzc_rpc_response_free(client, &response);
+      saw_response = rc == GZC_OK;
+      continue;
+    }
+    if (frame.len > (size_t)request->down_content_length ||
+        download_bytes >
+            request->down_content_length - (int64_t)frame.len) {
+      rc = GZC_ERR_RPC;
+      break;
+    }
+    download_bytes += (int64_t)frame.len;
+  }
+  gzc_buf_free(&frame_bytes, platform);
+  if (rc == GZC_OK &&
+      (!saw_response || !saw_eos ||
+       download_bytes != request->down_content_length)) {
+    rc = GZC_ERR_RPC;
+  }
+  if (rc == GZC_OK) {
+    out_result->up_bytes = request->up_content_length;
+    out_result->down_bytes = download_bytes;
+  }
+  return rc;
+}
+
+int gzc_rpc_speed_test(
+    gzc_client_t *client,
+    const gizclaw_rpc_v1_SpeedTestRequest *request,
+    gzc_rpc_speed_test_result_t *out_result) {
+  if (out_result != NULL) {
+    memset(out_result, 0, sizeof(*out_result));
+  }
+  if (client == NULL || request == NULL || out_result == NULL ||
+      request->up_content_length < 0 ||
+      request->down_content_length < 0 ||
+      (request->up_content_length == 0 &&
+       request->down_content_length == 0) ||
+      request->up_content_length > GZC_RPC_SPEED_TEST_MAX_CONTENT_LENGTH ||
+      request->down_content_length > GZC_RPC_SPEED_TEST_MAX_CONTENT_LENGTH) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  const gzc_platform_t *platform = gzc_client_platform(client);
+  if (platform == NULL || platform->malloc == NULL ||
+      platform->free == NULL) {
+    return GZC_ERR_CLOSED;
+  }
+  int rc = gzc_client_open_rpc_channel_internal(client, 5000);
+  gzc_buf_t params;
+  gzc_buf_init(&params);
+  if (rc == GZC_OK) {
+    rc = encode_pb_message(
+        platform,
+        gizclaw_rpc_v1_SpeedTestRequest_fields,
+        request,
+        &params);
+  }
+  if (rc == GZC_OK) {
+    rc = send_request_envelope_internal(
+        client,
+        platform,
+        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_SPEED_TEST_RUN,
+        gzc_str_from_parts((const char *)params.data, params.len),
+        false);
+  }
+  gzc_buf_free(&params, platform);
+  if (rc == GZC_OK) {
+    rc = write_speed_test_upload(
+        client, platform, request->up_content_length);
+  }
+  if (rc == GZC_OK) {
+    rc = read_speed_test_response(
+        client, platform, request, out_result);
+  }
+  close_rpc_channel_on_error(client, rc);
+  return rc;
 }
 
 static int speech_upload_open(
