@@ -26,6 +26,17 @@ func TestSpeedTestResultMbps(t *testing.T) {
 	if got := result.DownMbps(); got != 8 {
 		t.Fatalf("DownMbps() = %v, want 8", got)
 	}
+	legacy := SpeedTestResult{
+		UpBytes:   1_000_000,
+		DownBytes: 2_000_000,
+		Duration:  time.Second,
+	}
+	if got := legacy.UpMbps(); got != 8 {
+		t.Fatalf("legacy UpMbps() = %v, want 8", got)
+	}
+	if got := legacy.DownMbps(); got != 16 {
+		t.Fatalf("legacy DownMbps() = %v, want 16", got)
+	}
 	if got := (SpeedTestResult{}).UpMbps(); got != 0 {
 		t.Fatalf("zero UpMbps() = %v, want 0", got)
 	}

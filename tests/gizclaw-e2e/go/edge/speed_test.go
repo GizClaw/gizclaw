@@ -124,8 +124,10 @@ func measureGatewaySpeed(
 			results[i] = result
 		})
 	}
+	started := time.Now()
 	close(start)
 	wg.Wait()
+	elapsed := time.Since(started)
 	close(errCh)
 	for err := range errCh {
 		t.Fatal(err)
@@ -133,7 +135,6 @@ func measureGatewaySpeed(
 
 	measurement := gatewaySpeedMeasurement{}
 	var totalBytes int64
-	var maxDuration time.Duration
 	for i, result := range results {
 		var bytes int64
 		var duration time.Duration
@@ -151,13 +152,12 @@ func measureGatewaySpeed(
 			t.Fatalf("client %d speed result = %+v, want positive direction measurement", i, result)
 		}
 		totalBytes += bytes
-		maxDuration = max(maxDuration, duration)
 		if i == 0 || mbps < measurement.minClientMbps {
 			measurement.minClientMbps = mbps
 		}
 		measurement.maxClientMbps = max(measurement.maxClientMbps, mbps)
 	}
-	measurement.aggregateMbps = float64(totalBytes*8) / maxDuration.Seconds() / 1_000_000
+	measurement.aggregateMbps = float64(totalBytes*8) / elapsed.Seconds() / 1_000_000
 	return measurement
 }
 

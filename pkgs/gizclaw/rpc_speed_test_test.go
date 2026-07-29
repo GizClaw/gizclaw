@@ -133,6 +133,20 @@ func TestRPCSpeedTestRejectsInvalidLength(t *testing.T) {
 	}
 }
 
+func TestSpeedTestResultMbpsFallsBackToTotalDuration(t *testing.T) {
+	result := SpeedTestResult{
+		UpBytes:   1_000_000,
+		DownBytes: 2_000_000,
+		Duration:  time.Second,
+	}
+	if got := result.UpMbps(); got != 8 {
+		t.Fatalf("UpMbps() = %v, want 8", got)
+	}
+	if got := result.DownMbps(); got != 16 {
+		t.Fatalf("DownMbps() = %v, want 16", got)
+	}
+}
+
 func TestRPCSpeedTestStopsUploadWhenServerReturnsError(t *testing.T) {
 	clientSide, serverSide := net.Pipe()
 	defer clientSide.Close()

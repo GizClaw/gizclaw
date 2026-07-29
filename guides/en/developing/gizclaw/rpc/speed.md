@@ -9,7 +9,9 @@ independently, and calculates Mbps. `Duration` remains the whole-call wall time.
 direction, including the remote-consumption completion barrier, and `UpMbps`
 and `DownMbps` use only the matching duration. In a bidirectional run both
 durations include the shared completion barrier; use separate upload-only and
-download-only runs when measuring each path independently.
+download-only runs when measuring each path independently. Results constructed
+by older callers without a direction duration retain the previous rate
+calculation by falling back to `Duration`.
 
 This capability is used to test the RPC/DataChannel data path and does not represent a guarantee of business throughput.
 

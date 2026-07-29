@@ -30,11 +30,19 @@ type SpeedTestResult struct {
 }
 
 func (r SpeedTestResult) UpMbps() float64 {
-	return mbps(r.UpBytes, r.UpDuration)
+	duration := r.UpDuration
+	if duration == 0 {
+		duration = r.Duration
+	}
+	return mbps(r.UpBytes, duration)
 }
 
 func (r SpeedTestResult) DownMbps() float64 {
-	return mbps(r.DownBytes, r.DownDuration)
+	duration := r.DownDuration
+	if duration == 0 {
+		duration = r.Duration
+	}
+	return mbps(r.DownBytes, duration)
 }
 
 func mbps(bytes int64, duration time.Duration) float64 {
