@@ -1,0 +1,89 @@
+name: GizClaw Runtime Tag
+
+on:
+  push:
+    tags:
+      - gizclaw-runtime/v*
+
+concurrency:
+  group: gizclaw-runtime-tag-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    name: Validate and dispatch Runtime release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the tagged source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Validate immutable Runtime tag
+        id: release
+        env:
+          SOURCE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          pattern='^gizclaw-runtime/v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+          if [[ ! "$SOURCE_TAG" =~ $pattern ]]; then
+            echo "invalid GizClaw Runtime tag: $SOURCE_TAG" >&2
+            exit 1
+          fi
+
+          git fetch --force origin \
+            +refs/heads/main:refs/remotes/origin/main \
+            "+refs/tags/$SOURCE_TAG:refs/tags/$SOURCE_TAG"
+          source_sha="$(git rev-parse "$SOURCE_TAG^{commit}")"
+          remote_sha="$(git ls-remote origin "refs/tags/$SOURCE_TAG^{}" | awk 'NR == 1 { print $1 }')"
+          if [[ -z "$remote_sha" ]]; then
+            remote_sha="$(git ls-remote --exit-code origin "refs/tags/$SOURCE_TAG" | awk 'NR == 1 { print $1 }')"
+          fi
+          test "$source_sha" = "$remote_sha"
+          test "$source_sha" = "$GITHUB_SHA"
+          git merge-base --is-ancestor "$source_sha" refs/remotes/origin/main
+
+          version="${SOURCE_TAG#gizclaw-runtime/v}"
+          {
+            echo "source_sha=$source_sha"
+            echo "version=$version"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch exact Runtime release to deploy
+        env:
+          DEPLOY_RELEASE_TOKEN: ${{ secrets.DEPLOY_RELEASE_TOKEN }}
+          SOURCE_SHA: ${{ steps.release.outputs.source_sha }}
+          SOURCE_TAG: ${{ github.ref_name }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          test -n "$DEPLOY_RELEASE_TOKEN" || {
+            echo "DEPLOY_RELEASE_TOKEN is required to dispatch GizClaw releases" >&2
+            exit 1
+          }
+
+          payload="$(
+            jq -cn \
+              --arg component runtime \
+              --arg tag "$SOURCE_TAG" \
+              --arg sha "$SOURCE_SHA" \
+              --arg version "$VERSION" \
+              '{event_type: "gizclaw-runtime-release", client_payload: {
+                component: $component,
+                source_tag: $tag,
+                source_sha: $sha,
+                version: $version
+              }}'
+          )"
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer $DEPLOY_RELEASE_TOKEN" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/GizClaw/deploy/dispatches \
+            --data "$payload"

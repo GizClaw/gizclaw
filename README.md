@@ -185,3 +185,12 @@ npx skills add . --skill gizclaw-cli
 
 See the [Agent Skills catalog](skills/README.md) for the full list and global
 installation commands.
+
+## Component releases
+
+Component releases use protected stable-SemVer tags:
+`gizclaw-app/vMAJOR.MINOR.PATCH` authorizes the internal mobile build flow and
+`gizclaw-runtime/vMAJOR.MINOR.PATCH` authorizes the private Debian dev release
+flow. Their Actions validate that the exact tag commit remains in `main`, then
+dispatch the full tag and SHA to the private `GizClaw/deploy` repository.
+Ordinary branch pushes and other tags do not authorize these releases.

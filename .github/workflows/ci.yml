@@ -20,6 +20,7 @@ jobs:
       contents: read
     env:
       CGO_ENABLED: "1"
+      ACTIONLINT_VERSION: v1.7.12
       MODERNIZE_VERSION: v0.42.0
     steps:
       - name: Check out repository
@@ -54,8 +55,15 @@ jobs:
       - name: Download root Go modules
         run: go mod download
 
+      - name: Validate component release workflows
+        run: |
+          go install github.com/rhysd/actionlint/cmd/actionlint@"$ACTIONLINT_VERSION"
+          "$(go env GOPATH)/bin/actionlint" -no-color \
+            .github/workflows/gizclaw-app-tag-dispatch.yml \
+            .github/workflows/gizclaw-runtime-tag-dispatch.yml
+
       - name: Install modernize
-        run: go install golang.org/x/tools/go/analysis/passes/modernize/cmd/modernize@${MODERNIZE_VERSION}
+        run: go install golang.org/x/tools/go/analysis/passes/modernize/cmd/modernize@"$MODERNIZE_VERSION"
 
       - name: Check handwritten Go formatting
         run: go run ./tools/quality gofmt
