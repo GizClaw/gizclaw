@@ -86,7 +86,17 @@ Edge ingress 不拥有 Peer HTTP、OpenAI-compatible HTTP 或其他 product rout
 
 Edge Node 使用 `pkgs/giznet/gizwebrtc` 连接配置的 authoritative Server。`ServiceEdgeHTTP` 承载 public HTTP forwarding，`ServiceEdgeTunnel` 承载 gateway logical sessions。
 
-Gateway 使用 least-active 选择的有界 upstream pool。默认每条 upstream 最多保持 2048 个 active logical sessions；一条 upstream 累计打开 8192 个 tunnel streams 后进入 draining，不再接收新会话，现有会话结束后关闭并由新 upstream 替换。单条 upstream 失败只关闭固定在该连接上的会话，其他 upstream 和其他 Edge 不受影响。
+每条 gateway upstream 是一条独立的 WebRTC PeerConnection 和 SCTP
+association；每个 logical session 在选中的 upstream 上拥有自己的
+`ServiceEdgeTunnel` DataChannel。多个 DataChannel 仍共享 association 级的拥塞控制和
+调度，因此 pool 在有剩余 `max-upstreams` 配额时，先为新的 active session 建立独立
+upstream，再开始复用已有 association。pool 满后使用 least-active 选择。
+
+默认每条 upstream 最多保持 2048 个 active logical sessions；一条 upstream 累计打开
+8192 个 tunnel streams 后进入 draining，不再接收新会话，现有会话结束后关闭并由新
+upstream 替换。扩容失败只是吞吐优化失败；只要已有 healthy upstream 仍有 session
+容量，admission 会回退到已有 upstream。单条 upstream 失败只关闭固定在该连接上的会话，
+其他 upstream 和其他 Edge 不受影响。
 
 HTTP forwarding 和 gateway upstream 都属于长生命周期 runtime 状态。Edge package 不应通过自行复制 GizClaw handler 来规避上游不可用。
 
@@ -113,6 +123,40 @@ go run ./tests/giznet-e2e/gateway \
 ```
 
 容量 artifact 记录 load-driver 的 GOOS、GOARCH、Go version 和 logical CPU，并包含建立失败、周期 ping RTT、unexpected disconnect、identity crossover、RSS、CPU、FD、heap、收发 bytes，以及 Edge/upstream 分布。平台无法读取 FD 时该值为 `-1`。达到 crossover、unexpected disconnect 或配置阈值时命令以非零状态退出。
+
+吞吐 sizing 以实测的单 association 吞吐 `B` 和同路径可用带宽 `W` 为输入。要达到
+80% 路径利用率，所需 active upstream 数可先估为 `ceil(0.8 × W / B)`，并且必须不大于
+`max-upstreams`。以 `B = 10.10 Mbps`、`W = 200 Mbps` 的观测为例，估算需要 16 条
+active upstream；这与默认上限一致。三个 active sessions 会先分配到三条 association，
+因此在其他资源未饱和时，聚合吞吐应接近三倍单 association 吞吐，而不是继续停在
+10–14 Mbps。
+
+同一组默认值下，30,000 个 mostly-idle sessions 平均为 1,875 sessions/upstream，低于
+2,048 的硬上限。这只是 topology sizing：CPU、memory、FD、建立速率和低频 activity
+仍须通过 100、500、1,000 等递增样本拟合资源斜率，不能由这个除法或一次吞吐 benchmark
+代替。可重复的 transport 与完整 Edge benchmark 命令为：
+
+```bash
+go test -tags giznet_e2e ./tests/giznet-e2e/webrtc \
+  -run '^$' -bench BenchmarkWebRTCServiceThroughput -benchtime=1x -count=5
+go test ./pkgs/gizedge \
+  -run '^$' -bench BenchmarkGatewayServiceThroughput -benchtime=1x -count=5
+```
+
+部署后的 Docker suite 会分别记录 upload-only 和 download-only 的单客户端与三客户端观测。
+默认只记录结果。受控 runner 可在链路仍有余量时设置最小客户端/聚合倍率，或根据独立测得
+的可用带宽设置分方向 aggregate Mbps 下限：
+
+```bash
+GIZCLAW_E2E_SPEED_MIN_UPLOAD_AGGREGATE_MBPS='<upload floor>' \
+GIZCLAW_E2E_SPEED_MIN_DOWNLOAD_AGGREGATE_MBPS='<download floor>' \
+go test -tags gizclaw_e2e ./tests/gizclaw-e2e/go/edge \
+  -run '^TestGatewaySpeedOneVersusThreeClients$' -count=1 -v
+```
+
+未饱和 runner 仍可使用 `GIZCLAW_E2E_SPEED_MIN_CLIENT_RATIO` 和
+`GIZCLAW_E2E_SPEED_MIN_AGGREGATE_SCALE`。当单客户端已经接近可用链路上限时，不应只用
+倍率门槛判断。
 
 ### TURN
 

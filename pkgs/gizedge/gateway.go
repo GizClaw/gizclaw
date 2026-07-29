@@ -20,6 +20,11 @@ import (
 
 var ErrGatewayOverCapacity = errors.New("edge: gateway over capacity")
 
+const (
+	gatewayGrowthWaitTimeout = time.Second
+	gatewayGrowthRetryDelay  = 5 * time.Second
+)
+
 type Gateway struct {
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -503,12 +508,14 @@ type gatewayPool struct {
 	ctx         context.Context
 	cfg         Config
 	upstreamURL *url.URL
+	newUpstream func(context.Context) (*gatewayUpstream, error)
 
-	acquireMu sync.Mutex
-	mu        sync.Mutex
-	entries   []*gatewayUpstream
-	nextID    uint64
-	closed    bool
+	mu         sync.Mutex
+	entries    []*gatewayUpstream
+	nextID     uint64
+	growthDone chan struct{}
+	growAfter  time.Time
+	closed     bool
 }
 
 type gatewayUpstream struct {
@@ -535,7 +542,7 @@ func (p *gatewayPool) ensureOne(ctx context.Context) error {
 		return err
 	}
 	p.mu.Lock()
-	if p.closed {
+	if p.closed || p.contextErr() != nil {
 		p.mu.Unlock()
 		_ = entry.close()
 		return giznet.ErrConnClosed
@@ -553,7 +560,7 @@ func (p *gatewayPool) canAccept() bool {
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if p.closed {
+	if p.closed || p.contextErr() != nil {
 		return false
 	}
 	for _, entry := range p.entries {
@@ -565,11 +572,10 @@ func (p *gatewayPool) canAccept() bool {
 }
 
 func (p *gatewayPool) acquire(ctx context.Context) (*gatewayUpstream, func(), error) {
-	p.acquireMu.Lock()
-	defer p.acquireMu.Unlock()
+	allowGrowth := true
 	for {
 		p.mu.Lock()
-		if p.closed {
+		if p.closed || p.contextErr() != nil {
 			p.mu.Unlock()
 			return nil, nil, giznet.ErrConnClosed
 		}
@@ -583,7 +589,16 @@ func (p *gatewayPool) acquire(ctx context.Context) (*gatewayUpstream, func(), er
 				selected = entry
 			}
 		}
-		if selected != nil {
+		growthAllowed := allowGrowth &&
+			(p.growAfter.IsZero() || !time.Now().Before(p.growAfter))
+		// A PeerConnection is one SCTP association, so all of its DataChannels
+		// share association-level congestion control and scheduling. Expand the
+		// bounded pool before placing a second active session on an association.
+		// Once the pool reaches MaxUpstreams, continue with least-active
+		// selection for capacity and failure isolation.
+		if selected != nil &&
+			(!growthAllowed || selected.active == 0 ||
+				len(p.entries) >= p.cfg.Gateway.MaxUpstreams) {
 			selected.active++
 			selected.opened++
 			if selected.opened >= p.cfg.Gateway.StreamsPerUpstream {
@@ -599,13 +614,58 @@ func (p *gatewayPool) acquire(ctx context.Context) (*gatewayUpstream, func(), er
 			p.mu.Unlock()
 			return nil, nil, ErrGatewayOverCapacity
 		}
-		p.mu.Unlock()
-		entry, err := p.dial(ctx)
-		if err != nil {
-			return nil, nil, err
+		if p.growthDone != nil {
+			growthDone := p.growthDone
+			p.mu.Unlock()
+			if selected != nil {
+				timer := time.NewTimer(gatewayGrowthWaitTimeout)
+				select {
+				case <-growthDone:
+					timer.Stop()
+					continue
+				case <-timer.C:
+					allowGrowth = false
+					continue
+				case <-ctx.Done():
+					timer.Stop()
+					return nil, nil, ctx.Err()
+				case <-p.contextDone():
+					timer.Stop()
+					return nil, nil, giznet.ErrConnClosed
+				}
+			}
+			select {
+			case <-growthDone:
+				continue
+			case <-ctx.Done():
+				return nil, nil, ctx.Err()
+			case <-p.contextDone():
+				return nil, nil, giznet.ErrConnClosed
+			}
 		}
+		p.growthDone = make(chan struct{})
+		p.mu.Unlock()
+		dialCtx, cancelDial := p.dialContext(ctx)
+		entry, err := p.dial(dialCtx)
+		cancelDial()
 		p.mu.Lock()
-		if p.closed {
+		close(p.growthDone)
+		p.growthDone = nil
+		if err != nil {
+			if selected != nil {
+				p.growAfter = time.Now().Add(gatewayGrowthRetryDelay)
+			}
+			p.mu.Unlock()
+			if ctx.Err() != nil || p.contextErr() != nil || selected == nil {
+				return nil, nil, err
+			}
+			// Pool growth is a throughput optimization. If an existing healthy
+			// association still has capacity, a transient growth failure must
+			// not reject an otherwise admissible session.
+			allowGrowth = false
+			continue
+		}
+		if p.closed || p.contextErr() != nil {
 			p.mu.Unlock()
 			_ = entry.close()
 			return nil, nil, giznet.ErrConnClosed
@@ -613,11 +673,49 @@ func (p *gatewayPool) acquire(ctx context.Context) (*gatewayUpstream, func(), er
 		p.nextID++
 		entry.id = p.nextID
 		p.entries = append(p.entries, entry)
+		p.growAfter = time.Time{}
 		p.mu.Unlock()
 	}
 }
 
+func (p *gatewayPool) dialContext(ctx context.Context) (context.Context, func()) {
+	if p == nil || p.ctx == nil {
+		return ctx, func() {}
+	}
+	dialCtx, cancel := context.WithCancel(ctx)
+	stop := context.AfterFunc(p.ctx, cancel)
+	return dialCtx, func() {
+		stop()
+		cancel()
+	}
+}
+
+func (p *gatewayPool) contextDone() <-chan struct{} {
+	if p == nil || p.ctx == nil {
+		return nil
+	}
+	return p.ctx.Done()
+}
+
+func (p *gatewayPool) contextErr() error {
+	if p == nil || p.ctx == nil {
+		return nil
+	}
+	return p.ctx.Err()
+}
+
 func (p *gatewayPool) dial(ctx context.Context) (*gatewayUpstream, error) {
+	if p.newUpstream != nil {
+		entry, err := p.newUpstream(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if entry == nil {
+			return nil, errors.New("edge: nil gateway upstream")
+		}
+		entry.pool = p
+		return entry, nil
+	}
 	conn, listener, err := dialUpstream(ctx, p.cfg, p.upstreamURL)
 	if err != nil {
 		return nil, err

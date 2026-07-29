@@ -47,6 +47,56 @@ func TestDataChannelConnWriteWaitsForBufferedAmountLow(t *testing.T) {
 	}
 }
 
+func TestDataChannelConnBackpressureIsScopedToOneChannel(t *testing.T) {
+	blockedFlow := newFakeDataChannelFlow()
+	blockedFlow.setBufferedAmount(streamWriteHighWater)
+	blockedRaw := &fakeStreamRaw{}
+	blocked := newDataChannelConn(blockedRaw, blockedFlow, addr("local"), addr("remote"))
+	defer blocked.Close()
+
+	readyRaw := &fakeStreamRaw{}
+	ready := newDataChannelConn(readyRaw, nil, addr("local"), addr("remote"))
+	defer ready.Close()
+
+	blockedDone := make(chan error, 1)
+	go func() {
+		_, err := blocked.Write([]byte("blocked"))
+		blockedDone <- err
+	}()
+	select {
+	case err := <-blockedDone:
+		t.Fatalf("blocked Write returned before low-water signal: %v", err)
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	readyDone := make(chan error, 1)
+	go func() {
+		_, err := ready.Write([]byte("ready"))
+		readyDone <- err
+	}()
+	select {
+	case err := <-readyDone:
+		if err != nil {
+			t.Fatalf("independent Write error = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("independent channel was blocked by unrelated backpressure")
+	}
+	if got := readyRaw.writeCount(); got != 1 {
+		t.Fatalf("independent channel write count = %d, want 1", got)
+	}
+
+	blockedFlow.setBufferedAmount(streamWriteLowWater)
+	select {
+	case err := <-blockedDone:
+		if err != nil {
+			t.Fatalf("blocked Write after low-water signal = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("blocked channel did not resume")
+	}
+}
+
 func TestDataChannelConnWriteDeadlineExpiresWhileWaitingForBackpressure(t *testing.T) {
 	flow := newFakeDataChannelFlow()
 	flow.setBufferedAmount(streamWriteHighWater)

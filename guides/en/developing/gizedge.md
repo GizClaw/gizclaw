@@ -1,8 +1,13 @@
 # pkgs/gizedge
 
-`pkgs/gizedge` Provides GizClaw’s Edge Node ingress runtime. It receives HTTP requests from browsers or devices on the public network and forwards the requests to the configured authoritative GizClaw Server through `giznet` WebRTC connection.
+`pkgs/gizedge` provides the GizClaw Edge Node ingress runtime. It accepts
+public browser and device HTTP requests and forwards them to the configured
+authoritative GizClaw Server over a `giznet` WebRTC connection.
 
-Edge Node is the entry and forwarding node, not the owner of business data. Authentication, final authorization, realm services, and resource storage remain the responsibility of the upstream GizClaw Server.
+When gateway mode is enabled, the Edge also terminates client WebRTC transport
+and proxies logical connections over a bounded Server upstream pool. The Edge
+is still not the owner of business data: client identity, final authorization,
+domain services, and resource storage remain on the authoritative Server.
 
 [Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizedge)
 
@@ -10,16 +15,19 @@ Edge Node is the entry and forwarding node, not the owner of business data. Auth
 
 ```text
 pkgs/gizedge/
-├── config.go    # Edge workspace configuration and boundary validation
-├── edge.go      # public ingress, upstream connections, and request-forwarding runtime
-└── turn.go      # optional TURN server runtime
+├── config.go     # Edge workspace configuration and boundary validation
+├── edge.go       # public ingress, upstream connections, and request forwarding
+├── gateway.go    # client termination, logical connections, and bounded upstream pool
+└── turn.go       # optional TURN server runtime
 ```
 
 `pkgs/gizedge` is currently a flat package. The code here together constitutes a single Edge Node runtime, and there are no internal modules that need to be broken into independent public sub-packages.
 
 ## Device connection lane
 
-After the Edge Node is started, a giznet connection to the authoritative Server has been established through WebRTC. Device then completes Server discovery and WebRTC signaling through Edge:
+After startup, the Edge has a WebRTC giznet connection to the authoritative
+Server. A device then performs Server discovery and gateway signaling through
+the Edge:
 
 ```mermaid
 sequenceDiagram
@@ -29,29 +37,40 @@ sequenceDiagram
 
     Device->>Edge: GET /server-info
     Edge->>Server: GET /server-info over ServiceEdgeHTTP
-    Server-->>Edge: Server public key, ICE config, signaling path
-    Edge-->>Device: Server info with public Edge endpoint
+    Server-->>Edge: Authoritative Server identity
+    Edge-->>Device: Server identity and Edge transport metadata
 
-    Note over Device: Device creates and encrypts SDP offer
+    Note over Device: Offer is authenticated to the Edge transport identity
     Device->>Edge: POST /webrtc/v1/offer
-    Edge->>Server: Forward offer over ServiceEdgeHTTP
-    Note over Server: Validate client and create SDP answer
-    Server-->>Edge: Encrypted SDP answer
-    Edge-->>Device: Encrypted SDP answer
-
-    Device->>Server: Establish WebRTC ICE path
-    Server-->>Device: DataChannel / media traffic
-    Note over Device,Server: ICE traffic may use the optional TURN relay
+    Edge-->>Device: Edge SDP answer
+    Device->>Edge: WebRTC service, packet, and Opus lanes
+    Edge->>Server: Delegated client identity over ServiceEdgeTunnel
+    Edge->>Server: Multiplexed service frames
+    Edge->>Server: Session-tagged packet and Opus frames
+    Note over Server: Normal Peer lifecycle and authorization use the client identity
 ```
 
-The ownership in this link is:
+The ownership boundaries are:
 
-- Device creates SDP offer.
-- Edge proxies `/server-info` and `/webrtc/v1/offer`, do not parse SDP and do not create the Device's WebRTC PeerConnection.
-- Authoritative Server verifies the offer, creates SDP answer, and has the final GizClaw peer connection.
-- TURN only forwards network traffic when ICE cannot be directly connected and does not have a GizClaw connection or business identity.
+- `/server-info.public_key` always identifies the authoritative Server.
+  `transport.public_key`, `transport.endpoint`, and
+  `transport.signaling_path` select only the Edge WebRTC transport.
+- The Edge validates signaling and creates the client PeerConnection, then
+  sends a short-lived, replay-protected delegated envelope containing the
+  physical Edge identity, logical client public key, target Server identity,
+  validity window, and remote address.
+- The Server accepts `ServiceEdgeTunnel` only from active `edge-node` peers,
+  validates the envelope, and attaches the logical client to the normal Peer
+  lifecycle, service policy, and domain authorization.
+- Reliable service streams use one tunnel control DataChannel per logical
+  session. Direct packets and Opus use a separate unreliable, session-tagged
+  packet lane.
+- Gateway transport does not expose authoritative Server ICE/TURN servers to
+  the client, so the normal gateway path creates no per-client Server TURN
+  allocation.
 
-Therefore the Edge Node is a signaling ingress and optional relay, not the end point of the Device WebRTC session. Edge also does not locally execute the GizClaw domain handler or establish a second set of business permissions models.
+The Edge does not execute GizClaw domain handlers locally or establish a second
+business authorization model.
 
 ## Directory Responsibilities
 
@@ -64,6 +83,8 @@ The Edge workspace configuration describes the basic information required to run
 - The endpoint and public key of a single upstream Server.
 - Selection of TLS certificate source.
 - Optional TURN listener, public endpoint, relay address, credential and relay port range.
+- Optional gateway ICE UDP listener, public endpoint, capacity, upstream pool,
+  buffer, idle, and drain bounds.
 
 The configuration belongs to the Edge runtime and does not reuse the storage, service or domain configuration of GizClaw Server. Server config should also not assume the public ingress and TURN parameters of the Edge process.
 
@@ -83,9 +104,77 @@ Edge ingress does not have business implementations of Peer HTTP, OpenAI-compati
 
 ### Upstream Connection
 
-The Edge Node uses `pkgs/giznet/gizwebrtc` to connect to the configured authoritative Server and uses `pkgs/giznet/gizhttp` to host forwarding requests on the `ServiceEdgeHTTP` stream.
+The Edge uses `pkgs/giznet/gizwebrtc` to connect to the configured authoritative
+Server. `ServiceEdgeHTTP` carries public HTTP forwarding and
+`ServiceEdgeTunnel` carries gateway logical sessions.
 
-Upstream connections belong to the long-lived runtime state. The connection can be re-established after a failure; only requests suitable for safe retry will be automatically sent again after reconnection. Edge packages should not copy the GizClaw handler themselves to circumvent upstream unavailability.
+Each gateway upstream is one WebRTC PeerConnection and SCTP association. Every
+logical session has its own `ServiceEdgeTunnel` DataChannel on its selected
+upstream, but those DataChannels still share association-level congestion
+control and scheduling. While `max-upstreams` has room, the pool therefore
+opens a separate upstream for each new active session before sharing an
+association. Once full, it uses least-active selection.
+
+By default, one upstream holds at most 2,048 active logical sessions and enters
+draining after 8,192 cumulatively opened tunnel streams. A growth failure is a
+throughput-optimization failure, not a capacity failure: admission falls back
+to an existing healthy upstream when it still has session capacity. Failure of
+one upstream closes only its pinned sessions.
+
+HTTP forwarding and gateway upstreams are long-lived runtime state. The Edge
+package must not copy GizClaw handlers to bypass upstream unavailability.
+
+### Gateway Capacity and Lifecycle
+
+The default gateway capacity is 30,000 sessions across at most 16 upstreams.
+Signaling reserves handshake, total-session, and upstream-stream capacity
+before creating Server state. Exhaustion returns stable `503`
+`gateway_over_capacity` JSON with `Retry-After: 1`.
+
+Each session has a default 1 MiB bounded tunnel buffer. Temporary reader
+slowdown applies backpressure instead of truncating a large reliable stream;
+exceeding the session or frame bound closes that session. Idle sessions expire
+after five minutes. Shutdown stops admission, drains for 30 seconds, and then
+closes remaining sessions.
+
+For throughput sizing, let `B` be measured single-association throughput and
+`W` be independently measured usable path bandwidth. Reaching 80% path
+utilization initially requires `ceil(0.8 × W / B)` active upstreams, bounded by
+`max-upstreams`. For an observation of `B = 10.10 Mbps` and `W = 200 Mbps`,
+the estimate is 16 upstreams, matching the default. Three
+active sessions are placed on three associations, so aggregate throughput
+should approach three times `B` until another distributed resource saturates.
+
+At the same defaults, 30,000 mostly idle sessions average 1,875 sessions per
+upstream, below the 2,048 hard limit. This is topology sizing, not capacity
+proof. CPU, memory, file descriptors, establishment rate, and low-rate activity
+must still be fitted from increasing samples such as 100, 500, and 1,000
+sessions. Repeatable transport and full Edge benchmarks are:
+
+```bash
+go test -tags giznet_e2e ./tests/giznet-e2e/webrtc \
+  -run '^$' -bench BenchmarkWebRTCServiceThroughput -benchtime=1x -count=5
+go test ./pkgs/gizedge \
+  -run '^$' -bench BenchmarkGatewayServiceThroughput -benchtime=1x -count=5
+```
+
+The deployed Docker suite records separate upload-only and download-only
+one-client versus three-client observations. It is informational by default.
+Controlled runners may set positive minimum client/aggregate ratios when the
+path has enough headroom, or direction-specific aggregate Mbps floors derived
+from independently measured usable bandwidth:
+
+```bash
+GIZCLAW_E2E_SPEED_MIN_UPLOAD_AGGREGATE_MBPS='<upload floor>' \
+GIZCLAW_E2E_SPEED_MIN_DOWNLOAD_AGGREGATE_MBPS='<download floor>' \
+go test -tags gizclaw_e2e ./tests/gizclaw-e2e/go/edge \
+  -run '^TestGatewaySpeedOneVersusThreeClients$' -count=1 -v
+```
+
+`GIZCLAW_E2E_SPEED_MIN_CLIENT_RATIO` and
+`GIZCLAW_E2E_SPEED_MIN_AGGREGATE_SCALE` remain available for an unsaturated
+runner. Do not use a scale-only threshold when one client already approaches
+the usable path limit.
 
 ### TURN
 
@@ -98,7 +187,7 @@ TURN runtime is only responsible for relay listener, authentication and relay po
 ```mermaid
 flowchart TB
     Command["cmd/internal/commands/edge<br/>Process entry"] --> GizEdge["pkgs/gizedge<br/>Edge runtime"]
-    GizEdge --> GizClaw["pkgs/gizclaw<br/>ServiceEdgeHTTP contract"]
+    GizEdge --> GizClaw["pkgs/gizclaw<br/>Edge HTTP / Tunnel contracts"]
     GizEdge --> Giznet["pkgs/giznet<br/>Connection contract"]
     GizEdge --> GizHTTP["pkgs/giznet/gizhttp<br/>HTTP adapter"]
     GizEdge --> GizWebRTC["pkgs/giznet/gizwebrtc<br/>WebRTC transport"]
@@ -119,6 +208,8 @@ Should be placed at `pkgs/gizedge`:
 - Edge workspace configuration and Edge-specific validation.
 - Public ingress listener, proxy and Edge response rewrite.
 - Edge to authoritative Server connection, login, reconnection and forwarding life cycle.
+- Client WebRTC termination, logical-session admission, upstream pool, and
+  gateway shutdown.
 - TURN relay run by Edge Node itself.
 - Shutdown and cleanup behaviors only belong to the Edge process.
 
@@ -135,12 +226,19 @@ These contents belong to `pkgs/gizclaw`, `pkgs/giznet`, `cmd/internal/server` re
 
 ## Current boundary
 
-Currently `pkgs/gizedge` implements an experimental Edge HTTP ingress that connects to a single authoritative Server, and optionally runs TURN relay.
+Currently `pkgs/gizedge` connects to one authoritative Server and supports Edge
+HTTP ingress, optional gateway termination, and optional TURN relay.
 
-It is not equivalent to a full server mesh:- The Edge Node is currently configured to connect to an upstream Server.
-- `ServiceEdgeHTTP` has been used for public request forwarding.
-- Edge control-plane RPC, certificate distribution and TLS certificate source are not fully implemented yet.
-- Edge Node does not maintain mesh membership or global peer/resource route registry.
-- There is no data replication and event synchronization between servers provided by this package.
+It is not a complete server mesh:
+
+- The Edge is configured for one upstream Server.
+- `ServiceEdgeHTTP` carries public request forwarding.
+- `ServiceEdgeTunnel` carries logical client sessions over a bounded upstream
+  pool.
+- Edge control-plane RPC, certificate distribution, and non-disabled TLS
+  certificate sources are not complete.
+- The Edge does not maintain mesh membership or a global peer/resource route
+  registry.
+- This package does not replicate data or events between Servers.
 
 Therefore, when adding a capability, you must first determine whether it is the responsibility of the current Edge ingress or the future work of the server mesh control plane; you cannot directly write `pkgs/gizedge` just because the capability is related to the public network entry point.

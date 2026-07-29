@@ -2,7 +2,14 @@
 
 `Implementation file: rpc_speed.go`
 
-Implement bidirectional RPC speed test: verify test parameters, send and receive binary frames of specified length, count uplink and downlink bytes and time consumption, and calculate Mbps.
+Implements the bidirectional RPC speed test: validates parameters, sends and
+receives the requested binary-frame lengths, records each direction
+independently, and calculates Mbps. `Duration` remains the whole-call wall time.
+`UpDuration` and `DownDuration` run from the start to completion of their own
+direction, including the remote-consumption completion barrier, and `UpMbps`
+and `DownMbps` use only the matching duration. In a bidirectional run both
+durations include the shared completion barrier; use separate upload-only and
+download-only runs when measuring each path independently.
 
 This capability is used to test the RPC/DataChannel data path and does not represent a guarantee of business throughput.
 
@@ -10,7 +17,7 @@ This capability is used to test the RPC/DataChannel data path and does not repre
 
 | Symbol | Function |
 | --- | --- |
-| [`SpeedTestResult`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#SpeedTestResult) | Stores uplink and downlink statistics and test time consumption. |
+| [`SpeedTestResult`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#SpeedTestResult) | Stores direction bytes, direction durations, and total wall time. |
 | [`SpeedTestResult.UpMbps`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#SpeedTestResult.UpMbps) / [`DownMbps`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#SpeedTestResult.DownMbps) | Calculate upstream and downstream Mbps. |
 | `callRPCSpeedTest` | Client-side speed test process. |
 | `handleSpeedTest` | Server-side speed test streaming handler. |

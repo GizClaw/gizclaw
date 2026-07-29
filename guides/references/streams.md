@@ -87,6 +87,12 @@ RPC 使用可靠、有序的 service DataChannel。Service ID 选择 Provider，
 
 Direct packet 和 Opus 不写入 control stream。它们使用 `ProtocolTunnelPacket 0x11` 的独立不可靠 physical packet lane，并在每条消息前带 16-byte session ID。这样可靠 RPC/HTTP backpressure 不会阻塞 packet/media，单 session queue overflow 也只终止该 session。
 
+每条 physical upstream 是一条 WebRTC PeerConnection/SCTP association，每个 logical
+session 使用一条独立 tunnel DataChannel。独立 DataChannel 隔离 writer 和
+buffered-amount backpressure，但不会隔离 association 级拥塞控制。Edge 因此会在有
+`max-upstreams` 配额时先扩展 association，再把多个 active sessions 放到同一
+association；pool 满后才按 least-active 复用。
+
 HTTP endpoint 见 [Admin API](/api/)；RPC method 见 [RPC API Reference](./rpc)。
 
 ### RPC frames
