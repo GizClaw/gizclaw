@@ -531,6 +531,67 @@ func TestWorkspaceRewardCallbackSourceCreationUsesActivationBoundary(t *testing.
 	}
 }
 
+func TestWorkspaceRewardMigrationReplacesBlockedActiveIndex(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 7, 29, 3, 30, 0, 0, time.UTC)
+	runtime := &Runtime{DB: testDB(t), Now: func() time.Time { return now }}
+	if err := runtime.Migration(ctx); err != nil {
+		t.Fatalf("initial Migration() error = %v", err)
+	}
+	if _, err := runtime.DB.ExecContext(ctx, `DROP INDEX gameplay_workspace_reward_windows_active_v2_idx`); err != nil {
+		t.Fatalf("drop v2 active index: %v", err)
+	}
+	if _, err := runtime.DB.ExecContext(ctx, `CREATE UNIQUE INDEX gameplay_workspace_reward_windows_active_idx
+		ON gameplay_workspace_reward_windows(workspace_name)
+		WHERE state IN ('pending', 'claimed', 'retry', 'blocked')`); err != nil {
+		t.Fatalf("create legacy active index: %v", err)
+	}
+	source := workspaceRewardSource{
+		WorkspaceName: "workflow-a", ScheduledCheckpoint: "001",
+		CreatedAt: now, UpdatedAt: now,
+	}
+	if err := runtime.insertWorkspaceRewardSource(ctx, source); err != nil {
+		t.Fatalf("insertWorkspaceRewardSource() error = %v", err)
+	}
+	policy := workspaceRewardTestPolicy(t)
+	window := workspaceRewardWindow{
+		ID: "window-blocked", WorkspaceName: source.WorkspaceName,
+		WorkspaceKind: WorkspaceRewardKindWorkflow, BeneficiaryPublicKey: "peer-a",
+		RuntimeProfileName: "profile-a", RuntimeProfileRevision: "revision-a",
+		Policy: policy, PolicyDigest: policy.Digest,
+		StartHistoryID: "001", HighWaterHistoryID: "001",
+		StartHistoryAt: now, HighWaterHistoryAt: now, OpenedAt: now,
+		LastActivityAt: now, EvaluateAfter: now, State: workspaceRewardBlocked,
+		NextAttemptAt: now, CreatedAt: now, UpdatedAt: now,
+	}
+	if err := runtime.insertWorkspaceRewardWindowAndUpdateSource(ctx, window, source); err != nil {
+		t.Fatalf("insert legacy blocked window: %v", err)
+	}
+
+	if err := runtime.Migration(ctx); err != nil {
+		t.Fatalf("upgrade Migration() error = %v", err)
+	}
+	window.ID = "window-pending"
+	window.BeneficiaryPublicKey = "peer-b"
+	window.StartHistoryID = "002"
+	window.HighWaterHistoryID = "002"
+	window.State = workspaceRewardPending
+	source.ScheduledCheckpoint = "002"
+	if err := runtime.insertWorkspaceRewardWindowAndUpdateSource(ctx, window, source); err != nil {
+		t.Fatalf("insert pending window after upgrade: %v", err)
+	}
+	var legacyIndexes, currentIndexes int
+	if err := runtime.DB.QueryRowContext(ctx, `SELECT
+		COUNT(*) FILTER (WHERE name = 'gameplay_workspace_reward_windows_active_idx'),
+		COUNT(*) FILTER (WHERE name = 'gameplay_workspace_reward_windows_active_v2_idx')
+		FROM sqlite_master WHERE type = 'index'`).Scan(&legacyIndexes, &currentIndexes); err != nil {
+		t.Fatalf("read active indexes: %v", err)
+	}
+	if legacyIndexes != 0 || currentIndexes != 1 {
+		t.Fatalf("active index counts legacy/current = %d/%d", legacyIndexes, currentIndexes)
+	}
+}
+
 func TestWorkspaceRewardDisabledHistoryCannotBecomeRetroactivelyEligible(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 7, 29, 4, 0, 0, 0, time.UTC)
