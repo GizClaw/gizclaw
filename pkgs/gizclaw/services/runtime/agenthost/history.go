@@ -53,7 +53,7 @@ func historyGearID(ctx context.Context) string {
 
 func withWorkspaceHistoryNotifier(
 	ctx context.Context,
-	notify func(context.Context, string, time.Time),
+	notify func(context.Context, string, workspace.HistoryEntry),
 ) context.Context {
 	if notify == nil {
 		return ctx
@@ -61,10 +61,10 @@ func withWorkspaceHistoryNotifier(
 	return context.WithValue(ctx, workspaceHistoryNotifierContextKey{}, notify)
 }
 
-func notifyWorkspaceHistory(ctx context.Context, workspaceName string, lastUpdated time.Time) {
-	notify, _ := ctx.Value(workspaceHistoryNotifierContextKey{}).(func(context.Context, string, time.Time))
+func notifyWorkspaceHistory(ctx context.Context, workspaceName string, entry workspace.HistoryEntry) {
+	notify, _ := ctx.Value(workspaceHistoryNotifierContextKey{}).(func(context.Context, string, workspace.HistoryEntry))
 	if notify != nil {
-		notify(ctx, workspaceName, lastUpdated)
+		notify(ctx, workspaceName, entry)
 	}
 }
 
@@ -141,9 +141,9 @@ func (a *historyAgent) Transform(ctx context.Context, input genx.Stream) (genx.S
 	}
 	a.outputs[outputKey] = outputState
 	a.outputMu.Unlock()
-	recorder := newHistoryRecorder(a.history, historyGearID(ctx), func(lastUpdated time.Time) {
-		a.notifyHistoryUpdated(lastUpdated)
-		notifyWorkspaceHistory(ctx, a.history.Workspace, lastUpdated)
+	recorder := newHistoryRecorder(a.history, historyGearID(ctx), func(entry workspace.HistoryEntry) {
+		a.notifyHistoryUpdated(entry.CreatedAt)
+		notifyWorkspaceHistory(ctx, a.history.Workspace, entry)
 	})
 	agentOutput, err := a.Agent.Transform(ctx, input)
 	if err != nil {
@@ -928,7 +928,7 @@ func historyReplayPendingInterrupts(pending map[historyForwardChunkKey]historyFo
 type historyRecorder struct {
 	history *workspace.HistoryStore
 	gearID  string
-	notify  func(time.Time)
+	notify  func(workspace.HistoryEntry)
 
 	mu      sync.Mutex
 	pending map[string]*historyPendingEntry
@@ -952,7 +952,7 @@ type historyPendingEntry struct {
 	createdAt time.Time
 }
 
-func newHistoryRecorder(history *workspace.HistoryStore, gearID string, notify func(time.Time)) *historyRecorder {
+func newHistoryRecorder(history *workspace.HistoryStore, gearID string, notify func(workspace.HistoryEntry)) *historyRecorder {
 	return &historyRecorder{
 		history: history,
 		gearID:  strings.TrimSpace(gearID),
@@ -1275,6 +1275,7 @@ func (r *historyRecorder) flush(ctx context.Context, key string) error {
 	req := workspace.AppendHistoryRequest{
 		Type:      entry.typ,
 		GearID:    entry.gearID,
+		Origin:    workspace.HistoryOriginAgentHost,
 		Name:      entry.name,
 		Text:      text,
 		CreatedAt: entry.createdAt,
@@ -1299,7 +1300,7 @@ func (r *historyRecorder) flush(ctx context.Context, key string) error {
 		return err
 	}
 	if r.notify != nil {
-		r.notify(stored.CreatedAt)
+		r.notify(stored)
 	}
 	return nil
 }

@@ -33,6 +33,9 @@ PB_BIND(gizclaw_events_v1_FriendRelationshipUpdated, gizclaw_events_v1_FriendRel
 PB_BIND(gizclaw_events_v1_FriendGroupUpdated, gizclaw_events_v1_FriendGroupUpdated, 2)
 
 
+PB_BIND(gizclaw_events_v1_GameplayRewardUpdated, gizclaw_events_v1_GameplayRewardUpdated, 2)
+
+
 
 
 

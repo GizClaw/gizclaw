@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"io"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -27,6 +28,38 @@ func TestCatalogStoresPetDefWithoutLocalI18n(t *testing.T) {
 	created := requireResponse[adminhttp.CreatePetDef200JSONResponse](t, resp)
 	if !reflect.DeepEqual(created.Spec, spec) {
 		t.Fatalf("CreatePetDef() changed core spec\n got: %#v\nwant: %#v", created.Spec, spec)
+	}
+}
+
+func TestCatalogNormalizesAndBoundsBadgeRewardPrompt(t *testing.T) {
+	t.Parallel()
+	catalog := testCatalog(t, time.Unix(1, 0))
+	prompt := "  Award for sustained scientific curiosity.  "
+	item, err := catalog.buildBadgeDef("science", apitypes.BadgeDefSpec{
+		DisplayName:  " Science ",
+		RewardPrompt: &prompt,
+	}, nil, time.Time{})
+	if err != nil {
+		t.Fatalf("buildBadgeDef() error = %v", err)
+	}
+	if item.Spec.DisplayName != "Science" || item.Spec.RewardPrompt == nil ||
+		*item.Spec.RewardPrompt != "Award for sustained scientific curiosity." {
+		t.Fatalf("normalized BadgeDef = %#v", item.Spec)
+	}
+	for name, value := range map[string]string{
+		"empty":    " ",
+		"too long": strings.Repeat("x", 8193),
+		"utf8":     string([]byte{0xff}),
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			_, err := catalog.buildBadgeDef("science", apitypes.BadgeDefSpec{
+				DisplayName: "Science", RewardPrompt: &value,
+			}, nil, time.Time{})
+			if err == nil {
+				t.Fatal("buildBadgeDef() succeeded")
+			}
+		})
 	}
 }
 

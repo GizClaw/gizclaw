@@ -5,6 +5,7 @@ import {
   StreamKind,
   type FriendGroupUpdated,
   type FriendRelationshipUpdated,
+  type GameplayRewardUpdated,
   type PeerEvent,
   type EventError,
   type WorkspaceHistoryUpdated,
@@ -28,6 +29,7 @@ export type DecodedPeerStreamEvent = {
   errorRetryable?: boolean;
   friendGroupUpdated?: FriendGroupUpdated;
   friendRelationshipUpdated?: FriendRelationshipUpdated;
+  gameplayRewardUpdated?: GameplayRewardUpdated;
   kind?: "text" | "audio" | "video" | "mixed";
   label?: string;
   lastUpdatedAt?: string;
@@ -42,7 +44,8 @@ export type DecodedPeerStreamEvent = {
     | "text.done"
     | "workspace.history.updated"
     | "friend.relationship.updated"
-    | "friend_group.updated";
+    | "friend_group.updated"
+    | "gameplay.reward.updated";
   workspaceHistoryUpdated?: WorkspaceHistoryUpdated;
 };
 
@@ -251,6 +254,11 @@ export function peerStreamEventView(event: PeerEvent): DecodedPeerStreamEvent {
         type: "friend_group.updated",
         friendGroupUpdated: event.payload.value,
       };
+    case "gameplayRewardUpdated":
+      return {
+        type: "gameplay.reward.updated",
+        gameplayRewardUpdated: event.payload.value,
+      };
     default:
       return { type: "unknown" };
   }
@@ -322,6 +330,16 @@ function validateResourceIdentifiers(event: PeerEvent): void {
           "friend group event requires friendGroupId and workspaceName",
         );
       }
+      return;
+    case "gameplayRewardUpdated":
+      if (
+        event.payload.value.workspaceName.trim() === "" ||
+        event.payload.value.rewardGrantId.trim() === ""
+      ) {
+        throw new Error(
+          "gameplay reward event requires workspaceName and rewardGrantId",
+        );
+      }
   }
 }
 
@@ -341,6 +359,8 @@ function eventCase(type: PeerEventType): PeerEvent["payload"]["case"] | null {
       return "friendRelationshipUpdated";
     case PeerEventType.FRIEND_GROUP_UPDATED:
       return "friendGroupUpdated";
+    case PeerEventType.GAMEPLAY_REWARD_UPDATED:
+      return "gameplayRewardUpdated";
     default:
       return null;
   }

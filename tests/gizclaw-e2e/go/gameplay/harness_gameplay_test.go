@@ -224,14 +224,24 @@ func sendGameplayAudioTurn(t *testing.T, ctx context.Context, stream *gizcli.Pee
 }
 
 func waitForGameplayAssistantResponse(parent context.Context, stream genx.Stream, inputStreamID string) error {
+	return waitForGameplayAssistantResponseParts(parent, stream, inputStreamID, true)
+}
+
+func waitForGameplayAssistantMediaResponse(parent context.Context, stream genx.Stream, inputStreamID string) error {
+	return waitForGameplayAssistantResponseParts(parent, stream, inputStreamID, false)
+}
+
+func waitForGameplayAssistantResponseParts(parent context.Context, stream genx.Stream, inputStreamID string, requireText bool) error {
 	ctx, cancel := context.WithTimeout(parent, 60*time.Second)
 	defer cancel()
 	var assistantText strings.Builder
 	textDone := false
 	audioDone := false
 	audioPackets := 0
+	pendingAudioPackets := 0
+	currentResponseStarted := false
 	var trace []string
-	for !textDone || !audioDone || audioPackets == 0 {
+	for (requireText && !textDone) || !audioDone || audioPackets == 0 {
 		chunk, err := nextGameplayStreamChunk(ctx, stream)
 		if err != nil {
 			return fmt.Errorf("read pet audio response for %s: %w; text_done=%t audio_done=%t audio_packets=%d chunks=%s", inputStreamID, err, textDone, audioDone, audioPackets, strings.Join(trace, " | "))
@@ -239,34 +249,48 @@ func waitForGameplayAssistantResponse(parent context.Context, stream genx.Stream
 		trace = appendGameplayTrace(trace, gameplayChunkSummary(chunk))
 		label := gameplayChunkLabel(chunk)
 		streamID := gameplayChunkStreamID(chunk)
-		if !gameplayResponseStreamIDMatches(streamID, inputStreamID) {
-			continue
-		}
-		if chunk.Ctrl != nil && strings.TrimSpace(chunk.Ctrl.Error) != "" {
+		responseStreamMatches := gameplayResponseStreamIDMatches(streamID, inputStreamID)
+		if responseStreamMatches && chunk.Ctrl != nil && strings.TrimSpace(chunk.Ctrl.Error) != "" {
 			return fmt.Errorf("pet audio response for %s returned error %q", inputStreamID, chunk.Ctrl.Error)
 		}
 		switch part := chunk.Part.(type) {
 		case genx.Text:
-			if chunk.Role != genx.RoleModel && label != "assistant" {
+			if !responseStreamMatches || label != "assistant" {
 				continue
+			}
+			if !currentResponseStarted {
+				currentResponseStarted = true
+				audioPackets += pendingAudioPackets
+				pendingAudioPackets = 0
 			}
 			assistantText.WriteString(string(part))
 			if chunk.IsEndOfStream() {
 				textDone = true
 			}
 		case *genx.Blob:
+			if chunk.IsEndOfStream() && (responseStreamMatches || currentResponseStarted && label == "assistant") {
+				audioDone = true
+			} else if chunk.IsEndOfStream() && !requireText && label == "assistant" && pendingAudioPackets > 0 {
+				currentResponseStarted = true
+				audioPackets += pendingAudioPackets
+				pendingAudioPackets = 0
+				audioDone = true
+			} else if chunk.IsEndOfStream() && !currentResponseStarted {
+				pendingAudioPackets = 0
+			}
 			if part == nil || !strings.EqualFold(strings.TrimSpace(part.MIMEType), "audio/opus") {
 				continue
 			}
 			if gameplayChunkIsOpusPacket(chunk) {
-				audioPackets++
-			}
-			if chunk.IsEndOfStream() {
-				audioDone = true
+				if currentResponseStarted {
+					audioPackets++
+				} else {
+					pendingAudioPackets++
+				}
 			}
 		}
 	}
-	if strings.TrimSpace(assistantText.String()) == "" {
+	if requireText && strings.TrimSpace(assistantText.String()) == "" {
 		return fmt.Errorf("pet audio response for %s has no assistant text", inputStreamID)
 	}
 	return nil
@@ -278,13 +302,15 @@ func isRetryableGameplayResponseError(err error) bool {
 	}
 	text := err.Error()
 	return strings.Contains(text, "doubaospeech: [Server processing timeout] node execution timeout") ||
-		strings.Contains(text, "doubaospeech: [Server-side generic error]") && strings.Contains(text, "big asr recv err")
+		strings.Contains(text, "doubaospeech: [Server-side generic error]") && strings.Contains(text, "big asr recv err") ||
+		strings.Contains(text, "context deadline exceeded")
 }
 
 func TestRetryableGameplayResponseError(t *testing.T) {
 	retryable := []error{
 		fmt.Errorf("pet audio response returned error %q", "doubaospeech: [Server processing timeout] node execution timeout"),
 		fmt.Errorf("pet audio response returned error %q", "doubaospeech: [Server-side generic error] OperatorWrapper Process failed: big asr recv err. rpc timeout"),
+		fmt.Errorf("read pet audio response: context deadline exceeded"),
 	}
 	for _, err := range retryable {
 		if !isRetryableGameplayResponseError(err) {
@@ -414,7 +440,10 @@ func newGameplayTranscriptItems(items []rpcapi.PeerRunHistoryEntry, known map[st
 		if _, ok := known[item.Id]; ok {
 			continue
 		}
-		if item.Type == rpcapi.PeerRunHistoryEntryTypeGear && item.Name == "transcript" {
+		if item.Type == rpcapi.PeerRunHistoryEntryTypeGear &&
+			item.Name == "transcript" &&
+			strings.TrimSpace(item.Text) != "" &&
+			item.ReplayAvailable {
 			out = append(out, item)
 		}
 	}
@@ -425,6 +454,8 @@ func TestNewGameplayTranscriptItemsSelectsOnlyNewGearTranscripts(t *testing.T) {
 	known := map[string]rpcapi.PeerRunHistoryEntry{"known": {Id: "known"}}
 	items := []rpcapi.PeerRunHistoryEntry{
 		{Id: "known", Name: "transcript", Type: rpcapi.PeerRunHistoryEntryTypeGear},
+		{Id: "empty-transcript", Name: "transcript", ReplayAvailable: true, Type: rpcapi.PeerRunHistoryEntryTypeGear},
+		{Id: "unreplayable-transcript", Name: "transcript", Text: "你好", Type: rpcapi.PeerRunHistoryEntryTypeGear},
 		{Id: "new-transcript", Name: "transcript", Text: "你好", ReplayAvailable: true, Type: rpcapi.PeerRunHistoryEntryTypeGear},
 		{Id: "new-audio", Name: "audio", ReplayAvailable: true, Type: rpcapi.PeerRunHistoryEntryTypeGear},
 		{Id: "new-agent", Name: "assistant", Type: rpcapi.PeerRunHistoryEntryTypeAgent},
@@ -558,6 +589,29 @@ func TestWaitForGameplayAssistantResponseIgnoresPreviousAttempt(t *testing.T) {
 	}}
 	if err := waitForGameplayAssistantResponse(t.Context(), stream, current); err != nil {
 		t.Fatalf("waitForGameplayAssistantResponse() error = %v", err)
+	}
+}
+
+func TestWaitForGameplayAssistantResponseAcceptsProviderAudioStream(t *testing.T) {
+	const current = "gameplay-pet-audio-1-1"
+	stream := &gameplayResponseTestStream{chunks: []*genx.MessageChunk{
+		{Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{0x01}}, Ctrl: &genx.StreamCtrl{StreamID: "audio"}},
+		{Role: genx.RoleModel, Part: genx.Text("current"), Ctrl: &genx.StreamCtrl{StreamID: current + ":ast:1", Label: "assistant", EndOfStream: true}},
+		{Part: &genx.Blob{}, Ctrl: &genx.StreamCtrl{StreamID: "provider-response-id", Label: "assistant", EndOfStream: true}},
+	}}
+	if err := waitForGameplayAssistantResponse(t.Context(), stream, current); err != nil {
+		t.Fatalf("waitForGameplayAssistantResponse() error = %v", err)
+	}
+}
+
+func TestWaitForGameplayAssistantMediaResponseAcceptsAudioWithoutText(t *testing.T) {
+	const current = "gameplay-workspace-reward-1"
+	stream := &gameplayResponseTestStream{chunks: []*genx.MessageChunk{
+		{Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{0x01}}, Ctrl: &genx.StreamCtrl{StreamID: "audio"}},
+		{Part: &genx.Blob{}, Ctrl: &genx.StreamCtrl{StreamID: "provider-response-id", Label: "assistant", EndOfStream: true}},
+	}}
+	if err := waitForGameplayAssistantMediaResponse(t.Context(), stream, current); err != nil {
+		t.Fatalf("waitForGameplayAssistantMediaResponse() error = %v", err)
 	}
 }
 

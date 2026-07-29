@@ -31,7 +31,7 @@ static int peer_event_validate(const gzc_peer_event_t *event, int allow_unknown)
   if (event->which_payload == 0 &&
       !(allow_unknown &&
         event->type >
-            gizclaw_events_v1_PeerEventType_PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED)) {
+            gizclaw_events_v1_PeerEventType_PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED)) {
     return GZC_ERR_RPC;
   }
   switch (event->type) {
@@ -76,6 +76,15 @@ static int peer_event_validate(const gzc_peer_event_t *event, int allow_unknown)
                        gizclaw_events_v1_PeerEvent_friend_group_updated_tag &&
                    has_non_space(event->payload.friend_group_updated.friend_group_id) &&
                    has_non_space(event->payload.friend_group_updated.workspace_name)
+               ? GZC_OK
+               : GZC_ERR_RPC;
+  case gizclaw_events_v1_PeerEventType_PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED:
+    return event->which_payload ==
+                       gizclaw_events_v1_PeerEvent_gameplay_reward_updated_tag &&
+                   has_non_space(
+                       event->payload.gameplay_reward_updated.workspace_name) &&
+                   has_non_space(
+                       event->payload.gameplay_reward_updated.reward_grant_id)
                ? GZC_OK
                : GZC_ERR_RPC;
   default:

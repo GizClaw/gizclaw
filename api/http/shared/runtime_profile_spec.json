@@ -402,13 +402,174 @@
           }
         }
       },
+      "RuntimeProfileWorkspaceRewardDebounceSpec": {
+        "type": "object",
+        "required": ["quiet_period", "max_window_age"],
+        "additionalProperties": false,
+        "properties": {
+          "quiet_period": { "type": "string", "minLength": 1, "maxLength": 32 },
+          "max_window_age": { "type": "string", "minLength": 1, "maxLength": 32 }
+        }
+      },
+      "RuntimeProfileWorkspaceRewardTranscriptSpec": {
+        "type": "object",
+        "required": ["max_entries", "max_text_bytes"],
+        "additionalProperties": false,
+        "properties": {
+          "max_entries": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "max_text_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "maximum": 1048576
+          }
+        }
+      },
+      "RuntimeProfileWorkspaceRewardEvaluationSpec": {
+        "type": "object",
+        "required": ["model", "points_prompt", "score_min", "score_max", "qualifying_score"],
+        "additionalProperties": false,
+        "properties": {
+          "model": { "type": "string", "minLength": 1 },
+          "points_prompt": { "type": "string", "minLength": 1, "maxLength": 8192 },
+          "score_min": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "score_max": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "qualifying_score": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 1000000
+          }
+        }
+      },
+      "RuntimeProfileWorkspaceRewardPointsTier": {
+        "type": "object",
+        "required": ["min_score", "delta"],
+        "additionalProperties": false,
+        "properties": {
+          "min_score": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "delta": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 1000000
+          }
+        }
+      },
+      "RuntimeProfileWorkspaceRewardPointsSpec": {
+        "type": "object",
+        "required": ["tiers"],
+        "additionalProperties": false,
+        "properties": {
+          "tiers": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 100,
+            "items": { "$ref": "#/components/schemas/RuntimeProfileWorkspaceRewardPointsTier" }
+          }
+        }
+      },
+      "RuntimeProfileWorkspaceRewardBadgeSpec": {
+        "type": "object",
+        "required": ["max_exp_per_window"],
+        "additionalProperties": false,
+        "properties": {
+          "max_exp_per_window": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "maximum": 1000000
+          }
+        }
+      },
+      "RuntimeProfileWorkspaceRewardRollingBudgetSpec": {
+        "type": "object",
+        "required": ["period", "points_max", "badge_exp_max"],
+        "additionalProperties": false,
+        "properties": {
+          "period": { "type": "string", "minLength": 1, "maxLength": 32 },
+          "points_max": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "badge_exp_max": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 1000000000
+          }
+        }
+      },
+      "RuntimeProfileWorkspaceRewardSpec": {
+        "type": "object",
+        "required": ["enabled"],
+        "additionalProperties": false,
+        "properties": {
+          "enabled": { "type": "boolean" },
+          "workspace_kinds": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 3,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": ["workflow", "direct_chatroom", "group_chatroom"]
+            }
+          },
+          "debounce": {
+            "$ref": "#/components/schemas/RuntimeProfileWorkspaceRewardDebounceSpec"
+          },
+          "transcript": {
+            "$ref": "#/components/schemas/RuntimeProfileWorkspaceRewardTranscriptSpec"
+          },
+          "evaluation": {
+            "$ref": "#/components/schemas/RuntimeProfileWorkspaceRewardEvaluationSpec"
+          },
+          "points": {
+            "$ref": "#/components/schemas/RuntimeProfileWorkspaceRewardPointsSpec"
+          },
+          "badges": {
+            "type": "object",
+            "maxProperties": 64,
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RuntimeProfileWorkspaceRewardBadgeSpec"
+            }
+          },
+          "rolling_budget": {
+            "$ref": "#/components/schemas/RuntimeProfileWorkspaceRewardRollingBudgetSpec"
+          }
+        }
+      },
       "RuntimeProfileGameplaySpec": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "points": { "$ref": "#/components/schemas/RuntimeProfilePointsSpec" },
           "adoption": { "$ref": "#/components/schemas/RuntimeProfileAdoptionSpec" },
-          "pet": { "$ref": "#/components/schemas/RuntimeProfilePetGameplaySpec" }
+          "pet": { "$ref": "#/components/schemas/RuntimeProfilePetGameplaySpec" },
+          "workspace_reward": { "$ref": "#/components/schemas/RuntimeProfileWorkspaceRewardSpec" }
         }
       },
       "RuntimeProfileSpec": {

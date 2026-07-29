@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 )
 
@@ -104,7 +105,8 @@ func TestGameplayAdoptDriveAndPetWorkspace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("pet.drive: %v", err)
 	}
-	if drive.Pet.Progression.Experience < 2 || drive.Pet.Progression.Experience > 27 || drive.Pet.Stats.Energy != 80 {
+	if drive.Pet.Progression.Experience < 2 || drive.Pet.Progression.Experience > 27 ||
+		drive.Pet.Stats.Energy < 80 || drive.Pet.Stats.Energy > 80.1 {
 		t.Fatalf("pet.drive pet = %#v reward_grants = %#v", drive.Pet, drive.RewardGrants)
 	}
 	if drive.Points.Balance != 80 {
@@ -200,7 +202,7 @@ func TestGameplayPetWorkspaceAudioHistory(t *testing.T) {
 			packets := synthesizeGameplayOpus(t, env, "volc-bigtts", "pet", utterance)
 			streamID := "gameplay-pet-audio-" + strconv.Itoa(round+1) + "-" + strconv.Itoa(attempt)
 			sendGameplayAudioTurn(t, env.ctx, stream, streamID, packets)
-			responseErr = waitForGameplayAssistantResponse(env.ctx, stream, streamID)
+			responseErr = waitForGameplayAssistantMediaResponse(env.ctx, stream, streamID)
 			retryable := isRetryableGameplayResponseError(responseErr)
 			result := "pass"
 			if responseErr != nil {
@@ -239,6 +241,74 @@ func TestGameplayPetWorkspaceAudioHistory(t *testing.T) {
 	}
 	if first.Text != entries[0].Text || !first.ReplayAvailable {
 		t.Fatalf("first pet audio history changed after second turn: before=%#v after=%#v", entries[0], first)
+	}
+}
+
+func TestGameplayWorkspaceConversationReward(t *testing.T) {
+	env := newSetupGameplayHarness(t, "client-gameplay-workspace-reward")
+
+	adopted, err := env.peer.AdoptPet(env.ctx, "gameplay.workspace.reward.pet.adopt", rpcapi.RuntimeAdoptRequest{
+		DisplayName: "Reward Pet",
+	})
+	if err != nil {
+		t.Fatalf("pet.adopt for Workspace reward: %v", err)
+	}
+	t.Cleanup(func() {
+		_, _ = env.peer.DeletePet(env.ctx, "gameplay.workspace.reward.pet.delete.cleanup", rpcapi.ServerPetDeleteRequest{Id: adopted.Pet.Id})
+	})
+	if err := selectGameplayWorkspace(env.ctx, env.peer, adopted.Pet.WorkspaceName); err != nil {
+		t.Fatalf("select Workspace reward Pet workspace %q: %v", adopted.Pet.WorkspaceName, err)
+	}
+	stream, err := env.peer.OpenPeerStream(512)
+	if err != nil {
+		t.Fatalf("open Workspace reward stream: %v", err)
+	}
+	defer stream.Close()
+
+	known := snapshotGameplayHistory(t, env.ctx, env.peer, adopted.Pet.WorkspaceName)
+	packets := synthesizeGameplayOpus(
+		t,
+		env,
+		"volc-bigtts",
+		"pet",
+		"今天我学会了先提出假设，再用实验数据验证，并根据证据修正结论。",
+	)
+	streamID := "gameplay-workspace-reward-" + strconv.FormatInt(time.Now().UnixNano(), 10)
+	sendGameplayAudioTurn(t, env.ctx, stream, streamID, packets)
+	if err := waitForGameplayAssistantMediaResponse(env.ctx, stream, streamID); err != nil {
+		t.Fatalf("wait for Workspace reward conversation response: %v", err)
+	}
+	entry := waitForSingleGameplayTranscript(t, env.ctx, env.peer, adopted.Pet.WorkspaceName, known)
+	if entry.Id == "" || entry.Text == "" {
+		t.Fatalf("Workspace reward conversation History = %#v", entry)
+	}
+
+	var rewardEvent *eventpb.GameplayRewardUpdated
+	deadline := time.NewTimer(90 * time.Second)
+	defer deadline.Stop()
+	for rewardEvent == nil {
+		select {
+		case event := <-stream.ResourceEvents():
+			if event != nil && event.Type == eventpb.PeerEventType_PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED {
+				rewardEvent = event.GetGameplayRewardUpdated()
+			}
+		case <-deadline.C:
+			t.Fatal("timed out waiting for debounced Gameplay reward event")
+		}
+	}
+	if rewardEvent.WorkspaceName != adopted.Pet.WorkspaceName || rewardEvent.RewardGrantId == "" {
+		t.Fatalf("Gameplay reward event = %#v", rewardEvent)
+	}
+	reward, err := env.peer.GetRewardGrant(env.ctx, "gameplay.workspace.reward.get", rpcapi.ServerRewardGrantGetRequest{
+		Id: rewardEvent.RewardGrantId,
+	})
+	if err != nil {
+		t.Fatalf("get Workspace RewardGrant: %v", err)
+	}
+	if reward.SourceType != "workspace_history_window" ||
+		reward.PetId != nil || reward.GameResultId != nil ||
+		reward.PetExpDelta != 0 || reward.PointsDelta <= 0 {
+		t.Fatalf("Workspace RewardGrant = %#v", reward)
 	}
 }
 

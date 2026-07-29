@@ -648,7 +648,7 @@ func TestHistoryRecorderNotifiesOnlyAfterDurableAppend(t *testing.T) {
 		"demo",
 	)
 	notified := false
-	recorder := newHistoryRecorder(history, "", func(time.Time) {
+	recorder := newHistoryRecorder(history, "", func(workspace.HistoryEntry) {
 		notified = true
 	})
 	ctx := t.Context()

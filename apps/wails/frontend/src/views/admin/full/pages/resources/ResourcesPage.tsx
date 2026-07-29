@@ -791,6 +791,13 @@ function resourceSpecTemplate(kind: ResourceKind): unknown {
                 "zh-CN": { display_name: "对话" },
               },
             },
+            "reward-evaluator": {
+              resource_id: "model-default",
+              i18n: {
+                en: { display_name: "Reward evaluator" },
+                "zh-CN": { display_name: "奖励评估" },
+              },
+            },
           },
           voices: {
             "pet-voice": {
@@ -840,6 +847,40 @@ function resourceSpecTemplate(kind: ResourceKind): unknown {
         },
         gameplay: {
           points: { initial_balance: 100 },
+          workspace_reward: {
+            enabled: true,
+            workspace_kinds: ["workflow", "direct_chatroom", "group_chatroom"],
+            debounce: {
+              quiet_period: "2m",
+              max_window_age: "15m",
+            },
+            transcript: {
+              max_entries: 100,
+              max_text_bytes: 65536,
+            },
+            evaluation: {
+              model: "reward-evaluator",
+              points_prompt:
+                "Reward thoughtful, constructive conversation and demonstrated learning progress.",
+              score_min: 0,
+              score_max: 100,
+              qualifying_score: 80,
+            },
+            points: {
+              tiers: [
+                { min_score: 80, delta: 5 },
+                { min_score: 90, delta: 10 },
+              ],
+            },
+            badges: {
+              "starter-badge": { max_exp_per_window: 5 },
+            },
+            rolling_budget: {
+              period: "24h",
+              points_max: 50,
+              badge_exp_max: 20,
+            },
+          },
           adoption: {
             pool: [
               {
@@ -929,7 +970,11 @@ function resourceSpecTemplate(kind: ResourceKind): unknown {
         },
       };
     case "BadgeDef":
-      return { display_name: "Starter Badge" };
+      return {
+        display_name: "Starter Badge",
+        reward_prompt:
+          "Award this Badge EXP for sustained curiosity and clear learning progress.",
+      };
     case "GameDef":
       return { display_name: "Starter Game", outcomes: ["win", "lose"] };
     default:

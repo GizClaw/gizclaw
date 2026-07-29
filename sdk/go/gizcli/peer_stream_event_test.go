@@ -171,6 +171,27 @@ func TestPeerStreamNextReadsEventsAndRoutesOpus(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("OpenPeerStream did not expose the social invalidation")
 	}
+	rewardEvent := &eventpb.PeerEvent{
+		Version: eventpb.Version,
+		Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED,
+		Payload: &eventpb.PeerEvent_GameplayRewardUpdated{
+			GameplayRewardUpdated: &eventpb.GameplayRewardUpdated{
+				WorkspaceName: "workspace-reward",
+				RewardGrantId: "grant-a",
+			},
+		},
+	}
+	if err := WritePeerStreamEvent(serverSide, rewardEvent); err != nil {
+		t.Fatalf("WritePeerStreamEvent(reward invalidation) error = %v", err)
+	}
+	select {
+	case event := <-stream.ResourceEvents():
+		if event.GetGameplayRewardUpdated().GetRewardGrantId() != "grant-a" {
+			t.Fatalf("reward invalidation = %+v", event)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("OpenPeerStream did not expose the Gameplay reward invalidation")
+	}
 	historyEvent := &eventpb.PeerEvent{
 		Version: eventpb.Version,
 		Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_WORKSPACE_HISTORY_UPDATED,

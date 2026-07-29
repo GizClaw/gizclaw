@@ -16,8 +16,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/memorystore"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
-	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
@@ -164,18 +162,5 @@ func (m *Manager) ownerGenX(ctx context.Context, owner string) (*peergenx.Servic
 	if err != nil {
 		return nil, err
 	}
-	var publicKey giznet.PublicKey
-	if err := publicKey.UnmarshalText([]byte(owner)); err != nil {
-		return nil, fmt.Errorf("gizclaw: invalid workspace owner public key %q: %w", owner, err)
-	}
-	resources := &peerresource.Server{
-		Caller: publicKey, Peers: m.Peers, Firmwares: m.Firmwares,
-		Workspaces: m.Workspaces, Workflows: m.Workflows, Models: m.Models,
-		Voices: m.Voices, Contacts: m.Contacts, Friends: m.Friends,
-		FriendGroups: m.FriendGroups, Gameplay: m.Gameplay, Tools: m.Tools,
-		RuntimeProfile: func() *apitypes.RuntimeProfile { return &profile },
-	}
-	return peergenx.New(peergenx.Service{
-		Models: resources, Voices: resources, Credentials: m.Credentials, ProviderTenants: m.ProviderTenants,
-	}), nil
+	return m.ownerGenXForProfile(ctx, owner, profile)
 }

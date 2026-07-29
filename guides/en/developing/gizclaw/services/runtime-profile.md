@@ -107,6 +107,50 @@ Each `gameplay.adoption.pool` entry references only a `pet_defs` alias. The loca
 
 `gameplay.pet` completely configures fixed-Pet time decay, passive energy recovery, leveling, and all four standard behaviors. `games` has no default. Each key must also exist in `resources.game_defs` and independently configures energy/points cost plus reward model, prompt, and maxima. Driving an unconfigured GameDef is a no-write no-op.
 
+`gameplay.workspace_reward` configures AI rewards for Workspace conversation
+quality. When enabled, it must fully declare eligible Workspace kinds, debounce,
+transcript bounds, the LLM evaluator, Points tiers, a Badge allowlist, and a
+rolling budget. The evaluator model is an ordinary LLM alias in
+`resources.models`. Each Badge alias must exist in `resources.badge_defs`, and
+its BadgeDef must declare a non-empty `reward_prompt`. The `badges` map may be
+empty for a Points-only policy. For example:
+
+```yaml
+resources:
+  models:
+    reward-evaluator:
+      resource_id: reward-evaluator-model
+  badge_defs:
+    science:
+      resource_id: badge-science
+gameplay:
+  points:
+    initial_balance: 100
+  workspace_reward:
+    enabled: true
+    workspace_kinds: [workflow, direct_chatroom, group_chatroom]
+    debounce: {quiet_period: 2m, max_window_age: 15m}
+    transcript: {max_entries: 100, max_text_bytes: 65536}
+    evaluation:
+      model: reward-evaluator
+      points_prompt: Reward thoughtful conversation and demonstrated learning progress.
+      score_min: 0
+      score_max: 100
+      qualifying_score: 80
+    points:
+      tiers:
+      - {min_score: 80, delta: 5}
+      - {min_score: 90, delta: 10}
+    badges:
+      science: {max_exp_per_window: 5}
+    rolling_budget: {period: 24h, points_max: 50, badge_exp_max: 20}
+```
+
+`workspace_reward: {enabled: false}` is the canonical disabled form; an absent
+field also grants no conversation rewards. The policy freezes when each
+debounced window opens, so later RuntimeProfile or BadgeDef updates affect only
+new windows. It does not register an Admin Tool, built-in Tool, or Toolkit.
+
 The normalized spec has an opaque deterministic revision. Catalog list/get responses include the RuntimeProfile name and revision. Pagination cursors are revision-bound. Each list, get, Workspace reload, and standalone Speech call obtains one current profile snapshot; a concurrent update affects the next operation.
 
 ## RegistrationToken

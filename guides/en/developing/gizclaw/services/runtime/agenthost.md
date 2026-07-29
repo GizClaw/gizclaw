@@ -38,6 +38,13 @@ flowchart TD
 
 All runtime creation paths must have symmetric cancel, stream close, lease release, and registry cleanup. The persistence of Agent definition, Workflow, and Workspace still belongs to AI services.
 
+History entries written by AgentHost carry the internal `origin=agenthost`
+marker. After persistence succeeds, the callback receives the exact entry
+identity rather than only a timestamp; the Gameplay Workspace-reward scheduler
+uses it as a durable high-water. The callback neither blocks output consumption
+nor invokes GenX, and the reward evaluator is not exposed as an Agent Tool.
+Imported and legacy History lacks this origin and is not new reward activity.
+
 ## Current-Peer Tool scope
 
 Tool execution has a separate context from Workspace-owner Resource access. The

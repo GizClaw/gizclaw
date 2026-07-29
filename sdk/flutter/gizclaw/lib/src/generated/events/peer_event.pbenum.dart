@@ -34,6 +34,9 @@ class PeerEventType extends $pb.ProtobufEnum {
   static const PeerEventType PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED =
       PeerEventType._(
           7, _omitEnumNames ? '' : 'PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED');
+  static const PeerEventType PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED =
+      PeerEventType._(
+          8, _omitEnumNames ? '' : 'PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED');
 
   static const $core.List<PeerEventType> values = <PeerEventType>[
     PEER_EVENT_TYPE_UNSPECIFIED,
@@ -44,10 +47,11 @@ class PeerEventType extends $pb.ProtobufEnum {
     PEER_EVENT_TYPE_WORKSPACE_HISTORY_UPDATED,
     PEER_EVENT_TYPE_FRIEND_RELATIONSHIP_UPDATED,
     PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED,
+    PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED,
   ];
 
   static final $core.List<PeerEventType?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 7);
+      $pb.ProtobufEnum.$_initByValueList(values, 8);
   static PeerEventType? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

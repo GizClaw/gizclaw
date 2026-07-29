@@ -36,6 +36,39 @@ func (s *Server) ListWorkspaceHistory(ctx context.Context, workspaceName string,
 	return store.List(ctx, req)
 }
 
+// ListWorkspaceHistoryEntries returns the internal persisted shape used by
+// Server-owned post-processors. Public History DTOs intentionally omit origin.
+func (s *Server) ListWorkspaceHistoryEntries(ctx context.Context, workspaceName, after, through string, limit int) (HistoryEntryPage, error) {
+	store, err := s.historyStore(ctx, workspaceName)
+	if err != nil {
+		return HistoryEntryPage{}, err
+	}
+	return store.ListEntries(ctx, after, through, limit)
+}
+
+// LatestWorkspaceHistoryEntry returns the newest retained internal entry.
+func (s *Server) LatestWorkspaceHistoryEntry(ctx context.Context, workspaceName string) (HistoryEntry, bool, error) {
+	store, err := s.historyStore(ctx, workspaceName)
+	if err != nil {
+		return HistoryEntry{}, false, err
+	}
+	return store.LatestEntry(ctx)
+}
+
+// LatestWorkspaceHistoryEntryBefore returns the newest retained entry strictly
+// before a non-retroactive activation boundary.
+func (s *Server) LatestWorkspaceHistoryEntryBefore(
+	ctx context.Context,
+	workspaceName string,
+	before time.Time,
+) (HistoryEntry, bool, error) {
+	store, err := s.historyStore(ctx, workspaceName)
+	if err != nil {
+		return HistoryEntry{}, false, err
+	}
+	return store.LatestEntryBefore(ctx, before)
+}
+
 func (s *Server) AdminListWorkspaceHistory(ctx context.Context, workspaceName string, req apitypes.PeerRunHistoryListRequest) (apitypes.PeerRunHistoryListResponse, error) {
 	store, err := s.historyStore(ctx, workspaceName)
 	if err != nil {

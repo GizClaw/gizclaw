@@ -27,6 +27,7 @@ const PeerEventType$json = {
     {'1': 'PEER_EVENT_TYPE_WORKSPACE_HISTORY_UPDATED', '2': 5},
     {'1': 'PEER_EVENT_TYPE_FRIEND_RELATIONSHIP_UPDATED', '2': 6},
     {'1': 'PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED', '2': 7},
+    {'1': 'PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED', '2': 8},
   ],
 };
 
@@ -37,7 +38,8 @@ final $typed_data.Uint8List peerEventTypeDescriptor = $convert.base64Decode(
     'VF9UWVBFX1RFWFRfREVMVEEQAxIdChlQRUVSX0VWRU5UX1RZUEVfVEVYVF9ET05FEAQSLQopUE'
     'VFUl9FVkVOVF9UWVBFX1dPUktTUEFDRV9ISVNUT1JZX1VQREFURUQQBRIvCitQRUVSX0VWRU5U'
     'X1RZUEVfRlJJRU5EX1JFTEFUSU9OU0hJUF9VUERBVEVEEAYSKAokUEVFUl9FVkVOVF9UWVBFX0'
-    'ZSSUVORF9HUk9VUF9VUERBVEVEEAc=');
+    'ZSSUVORF9HUk9VUF9VUERBVEVEEAcSKwonUEVFUl9FVkVOVF9UWVBFX0dBTUVQTEFZX1JFV0FS'
+    'RF9VUERBVEVEEAg=');
 
 @$core.Deprecated('Use streamKindDescriptor instead')
 const StreamKind$json = {
@@ -189,6 +191,15 @@ const PeerEvent$json = {
       '9': 0,
       '10': 'friendGroupUpdated'
     },
+    {
+      '1': 'gameplay_reward_updated',
+      '3': 17,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.events.v1.GameplayRewardUpdated',
+      '9': 0,
+      '10': 'gameplayRewardUpdated'
+    },
   ],
   '8': [
     {'1': 'payload'},
@@ -208,7 +219,9 @@ final $typed_data.Uint8List peerEventDescriptor = $convert.base64Decode(
     'cF91cGRhdGVkGA8gASgLMiwuZ2l6Y2xhdy5ldmVudHMudjEuRnJpZW5kUmVsYXRpb25zaGlwVX'
     'BkYXRlZEgAUhlmcmllbmRSZWxhdGlvbnNoaXBVcGRhdGVkElkKFGZyaWVuZF9ncm91cF91cGRh'
     'dGVkGBAgASgLMiUuZ2l6Y2xhdy5ldmVudHMudjEuRnJpZW5kR3JvdXBVcGRhdGVkSABSEmZyaW'
-    'VuZEdyb3VwVXBkYXRlZEIJCgdwYXlsb2Fk');
+    'VuZEdyb3VwVXBkYXRlZBJiChdnYW1lcGxheV9yZXdhcmRfdXBkYXRlZBgRIAEoCzIoLmdpemNs'
+    'YXcuZXZlbnRzLnYxLkdhbWVwbGF5UmV3YXJkVXBkYXRlZEgAUhVnYW1lcGxheVJld2FyZFVwZG'
+    'F0ZWRCCQoHcGF5bG9hZA==');
 
 @$core.Deprecated('Use streamBeginDescriptor instead')
 const StreamBegin$json = {
@@ -411,3 +424,19 @@ final $typed_data.Uint8List friendGroupUpdatedDescriptor = $convert.base64Decode
     'IAEoDjIkLmdpemNsYXcuZXZlbnRzLnYxLkZyaWVuZEdyb3VwQ2hhbmdlUgZjaGFuZ2USKAoQcm'
     'V2aXNpb25fdW5peF9tcxgEIAEoA1IOcmV2aXNpb25Vbml4TXMSNwoYYWZmZWN0ZWRfcGVlcl9w'
     'dWJsaWNfa2V5GAUgASgJUhVhZmZlY3RlZFBlZXJQdWJsaWNLZXk=');
+
+@$core.Deprecated('Use gameplayRewardUpdatedDescriptor instead')
+const GameplayRewardUpdated$json = {
+  '1': 'GameplayRewardUpdated',
+  '2': [
+    {'1': 'workspace_name', '3': 1, '4': 1, '5': 9, '10': 'workspaceName'},
+    {'1': 'reward_grant_id', '3': 2, '4': 1, '5': 9, '10': 'rewardGrantId'},
+    {'1': 'revision_unix_ms', '3': 3, '4': 1, '5': 3, '10': 'revisionUnixMs'},
+  ],
+};
+
+/// Descriptor for `GameplayRewardUpdated`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List gameplayRewardUpdatedDescriptor = $convert.base64Decode(
+    'ChVHYW1lcGxheVJld2FyZFVwZGF0ZWQSJQoOd29ya3NwYWNlX25hbWUYASABKAlSDXdvcmtzcG'
+    'FjZU5hbWUSJgoPcmV3YXJkX2dyYW50X2lkGAIgASgJUg1yZXdhcmRHcmFudElkEigKEHJldmlz'
+    'aW9uX3VuaXhfbXMYAyABKANSDnJldmlzaW9uVW5peE1z');

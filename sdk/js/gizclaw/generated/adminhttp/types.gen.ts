@@ -970,6 +970,7 @@ export type BadgeDef = {
 export type BadgeDefSpec = {
     display_name: string;
     description?: string;
+    reward_prompt?: string;
     tags?: Array<string>;
     metadata?: GameplayMetadata;
 };
@@ -1713,6 +1714,7 @@ export type RuntimeProfileGameplaySpec = {
     points?: RuntimeProfilePointsSpec;
     adoption?: RuntimeProfileAdoptionSpec;
     pet?: RuntimeProfilePetGameplaySpec;
+    workspace_reward?: RuntimeProfileWorkspaceRewardSpec;
 };
 
 export type RuntimeProfileI18nText = {
@@ -1877,6 +1879,56 @@ export type RuntimeProfileWorkflowCollections = {
 export type RuntimeProfileWorkflows = {
     system: RuntimeProfileSystemWorkflows;
     collections: RuntimeProfileWorkflowCollections;
+};
+
+export type RuntimeProfileWorkspaceRewardBadgeSpec = {
+    max_exp_per_window: number;
+};
+
+export type RuntimeProfileWorkspaceRewardDebounceSpec = {
+    quiet_period: string;
+    max_window_age: string;
+};
+
+export type RuntimeProfileWorkspaceRewardEvaluationSpec = {
+    model: string;
+    points_prompt: string;
+    score_min: number;
+    score_max: number;
+    qualifying_score: number;
+};
+
+export type RuntimeProfileWorkspaceRewardPointsSpec = {
+    tiers: Array<RuntimeProfileWorkspaceRewardPointsTier>;
+};
+
+export type RuntimeProfileWorkspaceRewardPointsTier = {
+    min_score: number;
+    delta: number;
+};
+
+export type RuntimeProfileWorkspaceRewardRollingBudgetSpec = {
+    period: string;
+    points_max: number;
+    badge_exp_max: number;
+};
+
+export type RuntimeProfileWorkspaceRewardSpec = {
+    enabled: boolean;
+    workspace_kinds?: Array<'workflow' | 'direct_chatroom' | 'group_chatroom'>;
+    debounce?: RuntimeProfileWorkspaceRewardDebounceSpec;
+    transcript?: RuntimeProfileWorkspaceRewardTranscriptSpec;
+    evaluation?: RuntimeProfileWorkspaceRewardEvaluationSpec;
+    points?: RuntimeProfileWorkspaceRewardPointsSpec;
+    badges?: {
+        [key: string]: RuntimeProfileWorkspaceRewardBadgeSpec;
+    };
+    rolling_budget?: RuntimeProfileWorkspaceRewardRollingBudgetSpec;
+};
+
+export type RuntimeProfileWorkspaceRewardTranscriptSpec = {
+    max_entries: number;
+    max_text_bytes: number;
 };
 
 export type FriendGroupInviteTokenClearResponse = {

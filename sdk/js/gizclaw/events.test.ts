@@ -82,6 +82,11 @@ const events: PeerEvent[] = [
     change: FriendGroupChange.MEMBER_REMOVED,
     revisionUnixMs: 6n,
   }),
+  peerEvent(PeerEventType.GAMEPLAY_REWARD_UPDATED, "gameplayRewardUpdated", {
+    workspaceName: "workflow-a",
+    rewardGrantId: "grant-a",
+    revisionUnixMs: 7n,
+  }),
 ];
 
 test("round-trips every Peer Event oneof arm", () => {
@@ -132,7 +137,7 @@ test("matches every cross-language Peer Event golden vector", () => {
       "utf8",
     ),
   ) as { hex: string; name: string }[];
-  assert.equal(vectors.length, 7);
+  assert.equal(vectors.length, 8);
   for (const vector of vectors) {
     const bytes = Uint8Array.from(Buffer.from(vector.hex, "hex"));
     const event = decodePeerEvent(bytes);
@@ -145,7 +150,7 @@ test("matches every cross-language Peer Event golden vector", () => {
 
 test("keeps a future event type consumable", () => {
   // A future producer sends type=99 with a oneof arm unknown to this SDK.
-  const bytes = Uint8Array.from([0x08, 0x01, 0x10, 0x63, 0x8a, 0x01, 0x00]);
+  const bytes = Uint8Array.from([0x08, 0x01, 0x10, 0x63, 0x92, 0x01, 0x00]);
   const decoded = decodePeerEvent(bytes);
   assert.equal(decoded.type, 99);
   assert.equal(

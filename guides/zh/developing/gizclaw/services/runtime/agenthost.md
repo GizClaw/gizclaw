@@ -38,6 +38,12 @@ flowchart TD
 
 所有 runtime 创建路径都必须具有对称的 cancel、stream close、lease release 和 registry cleanup。Agent definition、Workflow 与 Workspace 的持久化仍属于 AI services。
 
+AgentHost 写入的 History entry 会带内部 `origin=agenthost` 标记。持久化成功后，
+callback 收到精确 entry identity，而不是仅收到时间戳；Gameplay 的 Workspace
+reward scheduler 用它记录 durable high-water。callback 不阻塞输出消费、不执行
+GenX 调用，也不把奖励 evaluator 暴露为 Agent Tool。导入或旧 History 没有该
+origin，因此不会被对话奖励 dispatcher 当成新活动。
+
 ## 当前 Peer 的 Tool scope
 
 Tool execution context 与 Workspace-owner Resource access 相互独立。Workspace

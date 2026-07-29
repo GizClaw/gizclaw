@@ -37,6 +37,53 @@ func TestGetPointsAllowsProfileWithoutPetGameplay(t *testing.T) {
 	}
 }
 
+func TestApplyBadgeExpAtomicallyPreservesNegativeDeltaSemantics(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 7, 29, 2, 0, 0, 0, time.UTC)
+	catalog := testCatalog(t, now)
+	response, err := catalog.CreateBadgeDef(ctx, adminhttp.CreateBadgeDefRequestObject{
+		Body: &adminhttp.BadgeDefUpsert{
+			Id:   "badge-a",
+			Spec: apitypes.BadgeDefSpec{DisplayName: "Badge A"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("CreateBadgeDef() error = %v", err)
+	}
+	requireResponse[adminhttp.CreateBadgeDef200JSONResponse](t, response)
+	runtime := &Runtime{DB: testDB(t), Catalog: catalog}
+	if err := runtime.Migration(ctx); err != nil {
+		t.Fatalf("Migration() error = %v", err)
+	}
+
+	apply := func(delta int64) apitypes.Badge {
+		t.Helper()
+		tx, err := runtime.DB.BeginTxx(ctx, nil)
+		if err != nil {
+			t.Fatalf("BeginTxx() error = %v", err)
+		}
+		defer tx.Rollback()
+		badge, err := runtime.applyBadgeExp(ctx, tx, "peer-a", "badge-a", delta, now)
+		if err != nil {
+			t.Fatalf("applyBadgeExp(%d) error = %v", delta, err)
+		}
+		if err := tx.Commit(); err != nil {
+			t.Fatalf("Commit() error = %v", err)
+		}
+		return badge
+	}
+
+	if badge := apply(125); badge.Exp != 125 || badge.Level != 1 || !badge.Active || badge.Progress != 25 {
+		t.Fatalf("applyBadgeExp(125) = %#v", badge)
+	}
+	if badge := apply(-30); badge.Exp != 95 || badge.Level != 0 || badge.Active || badge.Progress != 95 {
+		t.Fatalf("applyBadgeExp(-30) = %#v", badge)
+	}
+	if badge := apply(-200); badge.Exp != 0 || badge.Level != 0 || badge.Active || badge.Progress != 0 {
+		t.Fatalf("applyBadgeExp(-200) = %#v", badge)
+	}
+}
+
 func TestListPetWorkspaceNamesMigratesFreshDatabase(t *testing.T) {
 	runtime := &Runtime{DB: testDB(t)}
 	ctx := WithRuntimeProfile(context.Background(), apitypes.RuntimeProfile{Name: "profile-a"})

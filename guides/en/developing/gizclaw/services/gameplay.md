@@ -57,3 +57,31 @@ Gameplay inserts `gameplay_drive_fact_outbox` in the same SQL transaction that c
 Delivery resolves the Workspace Memory binding selected by the Pet's outer Workflow and leases a logical `Scope.AppID = Pet.WorkspaceName` Store through the existing `memorystore.Registry`. An operation records a credential-free digest of its physical binding. If the RuntimeProfile selects a different physical binding before completion, the old locator is never passed to the new backend. Pet death and ordinary Pet deletion do not delete the Workspace, outbox, or delivered Fact; those records continue to follow the Workspace Memory lifecycle.
 
 Gameplay uses Workspace ownership and the Pet domain relationship. It does not create extra roles or policy bindings. Adoption persists a Pet-to-Workspace binding independently of the active Pet row. Pet deletion atomically creates or reuses one `kind=pet` PendingDeletion in the same gameplay SQL database while retaining the Pet row and its binding; the marker does not change Pet reads, lists, authorization, or mutations. No Workspace pending record is created. Points, badges, results, transactions, and reward-grant history are preserved.
+
+## Workspace conversation rewards
+
+`gameplay.workspace_reward` is an optional RuntimeProfile policy. It coalesces
+successive AgentHost-authored History entries in one Workspace into a debounced
+window. The first `gear` entry freezes the beneficiary; later group-chat
+participants do not replace that Peer. Server startup checkpoints existing
+History without retroactive rewards, and imported, replayed, or legacy entries
+are ineligible. A window must contain both beneficiary input and Agent output.
+
+One persistent dispatcher serves the whole Gameplay service. The callback after
+a successful AgentHost append only records the exact History high-water and
+wakes the dispatcher; it never calls a model. Each window freezes the current
+RuntimeProfile revision, LLM Model resource, Points prompt, BadgeDef
+`reward_prompt` values, tiers, limits, and rolling budget. Profile updates affect
+only later windows. The dispatcher reads bounded `origin=agenthost` text and
+performs one snapshot-specific `genx.FuncTool` structured invoke, then locally
+validates score, reason, Badge aliases, and EXP bounds. This evaluator is not an
+Admin `Tool`, built-in Tool, Toolkit, or `giztools` capability.
+
+Points tier mapping, BadgeDef ID resolution, rolling budgets, `RewardGrant`,
+Points transaction, Badge EXP, window completion, and checkpoint advancement
+commit in one Gameplay SQL transaction. Model failures retry within a bound;
+invalid output becomes terminally blocked; claims recover after restart and a
+window cannot grant twice. A successful state change sends
+`GAMEPLAY_REWARD_UPDATED` only to the beneficiary as an invalidation hint, after
+which clients fetch authoritative Gameplay state. Deterministic task rewards
+belong to a separate task system and do not use this evaluator.
