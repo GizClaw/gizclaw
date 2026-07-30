@@ -24,12 +24,17 @@ int gzc_client_reset_rpc_rx_internal(gzc_client_t *client);
 int gzc_client_set_rpc_rx_limit_internal(
     gzc_client_t *client,
     size_t limit);
+typedef int (*gzc_rpc_frame_handler_internal_fn)(
+    void *userdata,
+    const uint8_t *frame_bytes,
+    size_t frame_len);
+int gzc_client_set_rpc_frame_handler_internal(
+    gzc_client_t *client,
+    gzc_rpc_frame_handler_internal_fn handler,
+    void *userdata);
 int gzc_client_open_rpc_channel_internal(gzc_client_t *client, int timeout_ms);
 void gzc_client_close_rpc_channel_internal(gzc_client_t *client);
 int gzc_client_read_rpc_frame_internal(gzc_client_t *client, int timeout_ms, gzc_buf_t *out_frame_bytes);
-int gzc_client_try_read_rpc_frame_internal(
-    gzc_client_t *client,
-    gzc_buf_t *out_frame_bytes);
 int gzc_client_store_rpc_response_internal(gzc_client_t *client, const uint8_t *data, size_t len, gzc_str_t *out_payload);
 int gzc_client_write_rpc_frame_internal(gzc_client_t *client, const gzc_rpc_frame_t *frame);
 int64_t gzc_client_instant_ms_internal(gzc_client_t *client);
@@ -656,7 +661,6 @@ typedef struct {
   const gzc_platform_t *platform;
   const gizclaw_rpc_v1_SpeedTestRequest *request;
   gzc_buf_t tx_frame;
-  gzc_buf_t rx_frame;
   uint8_t *upload_payload;
   size_t tx_offset;
   size_t tx_payload_len;
@@ -735,31 +739,21 @@ static int speed_test_process_response_frame(
   return GZC_OK;
 }
 
-static int speed_test_drain_download(
-    gzc_speed_test_state_t *state,
-    bool *out_progressed) {
-  for (size_t i = 0; i < GZC_RPC_DOWNLOAD_FRAMES_PER_POLL; i++) {
-    int rc = gzc_client_try_read_rpc_frame_internal(
-        state->client,
-        &state->rx_frame);
-    if (rc == GZC_ERR_TIMEOUT) {
-      return GZC_OK;
-    }
-    if (rc != GZC_OK) {
-      return rc;
-    }
-    gzc_rpc_frame_t frame;
-    rc = decode_frame_bytes(&state->rx_frame, &frame);
-    if (rc != GZC_OK) {
-      return rc;
-    }
-    rc = speed_test_process_response_frame(state, &frame);
-    if (rc != GZC_OK) {
-      return rc;
-    }
-    *out_progressed = true;
+static int speed_test_receive_frame(
+    void *userdata,
+    const uint8_t *frame_bytes,
+    size_t frame_len) {
+  gzc_speed_test_state_t *state =
+      (gzc_speed_test_state_t *)userdata;
+  if (state == NULL || frame_bytes == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
   }
-  return GZC_OK;
+  gzc_rpc_frame_t frame;
+  int rc = gzc_rpc_frame_decode(
+      frame_bytes, frame_len, &frame);
+  return rc == GZC_OK
+             ? speed_test_process_response_frame(state, &frame)
+             : rc;
 }
 
 static int speed_test_prepare_upload_frame(
@@ -862,7 +856,6 @@ static int run_speed_test_duplex(
   state.platform = platform;
   state.request = request;
   gzc_buf_init(&state.tx_frame);
-  gzc_buf_init(&state.rx_frame);
   if (request->up_content_length > 0) {
     size_t payload_len =
         request->up_content_length < (int64_t)GZC_RPC_SPEED_TEST_FRAME_SIZE
@@ -871,7 +864,6 @@ static int run_speed_test_duplex(
     state.upload_payload =
         (uint8_t *)platform->malloc(platform->userdata, payload_len);
     if (state.upload_payload == NULL) {
-      gzc_buf_free(&state.rx_frame, platform);
       gzc_buf_free(&state.tx_frame, platform);
       return GZC_ERR_NO_MEMORY;
     }
@@ -881,17 +873,13 @@ static int run_speed_test_duplex(
   if (request->up_content_length > 0) {
     state.up_started_ms = gzc_client_instant_ms_internal(client);
   }
-  int rc = GZC_OK;
+  int rc = gzc_client_set_rpc_frame_handler_internal(
+      client, speed_test_receive_frame, &state);
+  bool handler_installed = rc == GZC_OK;
   while (rc == GZC_OK &&
          (!state.upload_eos_sent || !state.saw_eos)) {
-    bool progressed = false;
-    rc = speed_test_drain_download(&state, &progressed);
-    if (rc != GZC_OK) {
-      break;
-    }
     bool upload_progressed = false;
     rc = speed_test_progress_upload(&state, &upload_progressed);
-    progressed = progressed || upload_progressed;
     if (rc != GZC_OK ||
         (state.upload_eos_sent && state.saw_eos)) {
       break;
@@ -905,8 +893,17 @@ static int run_speed_test_duplex(
     int remaining_ms =
         (int)(GZC_RPC_SPEED_TEST_TIMEOUT_MS - elapsed);
     int poll_timeout_ms =
-        progressed ? 0 : (remaining_ms < 10 ? remaining_ms : 10);
+        upload_progressed ? 0
+                          : (remaining_ms < 10 ? remaining_ms : 10);
     rc = gzc_client_poll(client, poll_timeout_ms);
+  }
+  if (handler_installed) {
+    int handler_rc =
+        gzc_client_set_rpc_frame_handler_internal(
+            client, NULL, NULL);
+    if (rc == GZC_OK && handler_rc != GZC_OK) {
+      rc = handler_rc;
+    }
   }
   if (rc == GZC_OK &&
       (!state.upload_eos_sent || !state.saw_response || !state.saw_eos ||
@@ -939,7 +936,6 @@ static int run_speed_test_duplex(
   if (state.upload_payload != NULL) {
     platform->free(platform->userdata, state.upload_payload);
   }
-  gzc_buf_free(&state.rx_frame, platform);
   gzc_buf_free(&state.tx_frame, platform);
   return rc;
 }

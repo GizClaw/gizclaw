@@ -587,9 +587,13 @@ static int send_fake_speed_download(fake_webrtc_t *fake) {
   }
   gzc_buf_t framed;
   gzc_buf_init(&framed);
-  static const uint8_t payload[4096] = {0};
+  static const uint8_t payload[32u * 1024u] = {0};
   int rc = GZC_OK;
-  if (fake->speed_download_bytes < fake->speed_ack_down_bytes) {
+  for (size_t frame_count = 0;
+       rc == GZC_OK && frame_count < 16u &&
+       fake->speed_download_bytes < fake->speed_ack_down_bytes;
+       frame_count++) {
+    gzc_buf_reset(&framed);
     size_t count =
         (size_t)(fake->speed_ack_down_bytes - fake->speed_download_bytes);
     if (count > sizeof(payload)) {
@@ -608,7 +612,21 @@ static int send_fake_speed_download(fake_webrtc_t *fake) {
         fake->speed_full_duplex_observed = true;
       }
     }
-  } else if (fake->speed_upload_eos_seen) {
+    if (rc == GZC_OK) {
+      fake->callbacks.on_channel_message(
+          fake->callbacks.userdata,
+          &fake->peer,
+          fake->speed_response_channel,
+          NULL,
+          framed.data,
+          framed.len,
+          false);
+    }
+  }
+  gzc_buf_reset(&framed);
+  if (rc == GZC_OK &&
+      fake->speed_download_bytes >= fake->speed_ack_down_bytes &&
+      fake->speed_upload_eos_seen) {
     rc = append_test_frame(
         fake->platform,
         &framed,
@@ -618,16 +636,16 @@ static int send_fake_speed_download(fake_webrtc_t *fake) {
     if (rc == GZC_OK) {
       fake->speed_response_eos_sent = true;
     }
-  }
-  if (rc == GZC_OK && framed.len > 0) {
-    fake->callbacks.on_channel_message(
-        fake->callbacks.userdata,
-        &fake->peer,
-        fake->speed_response_channel,
-        NULL,
-        framed.data,
-        framed.len,
-        false);
+    if (rc == GZC_OK) {
+      fake->callbacks.on_channel_message(
+          fake->callbacks.userdata,
+          &fake->peer,
+          fake->speed_response_channel,
+          NULL,
+          framed.data,
+          framed.len,
+          false);
+    }
   }
   gzc_buf_free(&framed, fake->platform);
   return rc;
@@ -1887,7 +1905,7 @@ int main(void) {
   fake_webrtc.speed_request_seen = false;
   fake_webrtc.speed_upload_bytes = 0;
   fake_webrtc.speed_ack_up_bytes = 64 * 1024 + 3;
-  fake_webrtc.speed_ack_down_bytes = 64 * 1024 + 5;
+  fake_webrtc.speed_ack_down_bytes = 16 * 32 * 1024 + 5;
   fake_webrtc.speed_download_bytes = 0;
   fake_webrtc.speed_response_channel = NULL;
   fake_webrtc.speed_upload_eos_seen = false;
