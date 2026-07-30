@@ -108,6 +108,10 @@ int gzc_cgo_session_send_packet(
     unsigned long payload_len,
     char *errbuf,
     unsigned long errbuf_len);
+int gzc_cgo_session_transport_send_counts(
+    gzc_cgo_session_t *session,
+    unsigned long long *out_packet_data_channel_calls,
+    unsigned long long *out_opus_rtp_calls);
 int gzc_cgo_session_send_battery_telemetry(
     gzc_cgo_session_t *session,
     double percent,

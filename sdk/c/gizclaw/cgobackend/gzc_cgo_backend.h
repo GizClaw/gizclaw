@@ -48,6 +48,10 @@ void gzc_cgo_backend_webrtc_vtable(gzc_cgo_backend_t *backend, gzc_webrtc_vtable
 void gzc_cgo_backend_webrtc_media_vtable(
     gzc_cgo_backend_t *backend,
     gzc_webrtc_media_vtable_t *out_media);
+int gzc_cgo_backend_transport_send_counts(
+    gzc_cgo_backend_t *backend,
+    uint64_t *out_packet_data_channel_calls,
+    uint64_t *out_opus_rtp_calls);
 int gzc_cgo_backend_peer_add_ice_server(gzc_rtc_peer_t *peer, gzc_str_t url, gzc_str_t username, gzc_str_t credential);
 
 void gzc_cgo_emit_channel_state(gzc_cgo_backend_t *backend, int channel_id, gzc_rtc_channel_state_t state);

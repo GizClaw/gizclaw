@@ -58,6 +58,13 @@ func TestSendOpusUsesPacketDuration(t *testing.T) {
 			t.Errorf("sample %d duration = %v, want %v", i, writer.samples[i].Duration, want[i])
 		}
 	}
+	packetCalls, opusCalls := backend.TransportSendCounts()
+	if packetCalls != 0 || opusCalls != uint64(len(want)) {
+		t.Fatalf(
+			"transport counts = packet:%d opus:%d, want packet:0 opus:%d",
+			packetCalls, opusCalls, len(want),
+		)
+	}
 }
 
 func TestOpusEventQueueDropsOldestOnly(t *testing.T) {
@@ -101,6 +108,10 @@ func TestAnswerHasBidirectionalOpus(t *testing.T) {
 		{
 			name:   "recvonly",
 			answer: "v=0\r\nm=audio 9 UDP/TLS/RTP/SAVPF 111\r\na=recvonly\r\na=rtpmap:111 opus/48000/2\r\n",
+		},
+		{
+			name:   "rejected audio section",
+			answer: "v=0\r\nm=audio 0 UDP/TLS/RTP/SAVPF 111\r\na=sendrecv\r\na=rtpmap:111 opus/48000/2\r\n",
 		},
 		{
 			name:   "session recvonly",

@@ -706,6 +706,26 @@ int gzc_cgo_session_send_packet(
   return GZC_OK;
 }
 
+int gzc_cgo_session_transport_send_counts(
+    gzc_cgo_session_t *session,
+    unsigned long long *out_packet_data_channel_calls,
+    unsigned long long *out_opus_rtp_calls) {
+  if (session == NULL || out_packet_data_channel_calls == NULL ||
+      out_opus_rtp_calls == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  uint64_t packet_calls = 0;
+  uint64_t opus_calls = 0;
+  int rc = gzc_cgo_backend_transport_send_counts(
+      &session->backend, &packet_calls, &opus_calls);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  *out_packet_data_channel_calls = (unsigned long long)packet_calls;
+  *out_opus_rtp_calls = (unsigned long long)opus_calls;
+  return GZC_OK;
+}
+
 int gzc_cgo_session_send_battery_telemetry(
     gzc_cgo_session_t *session,
     double percent,

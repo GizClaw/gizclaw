@@ -355,6 +355,18 @@ func gzcGoPeerSendOpus(handle C.uint64_t, data *C.uint8_t, length C.size_t) C.in
 	return C.GZC_OK
 }
 
+//export gzcGoTransportSendCounts
+func gzcGoTransportSendCounts(handle C.uint64_t, packetCalls, opusCalls *C.uint64_t) C.int {
+	b := backendFromHandle(handle)
+	if b == nil || packetCalls == nil || opusCalls == nil {
+		return C.GZC_ERR_INVALID_ARGUMENT
+	}
+	packet, opus := b.TransportSendCounts()
+	*packetCalls = C.uint64_t(packet)
+	*opusCalls = C.uint64_t(opus)
+	return C.GZC_OK
+}
+
 //export gzcGoChannelBufferedAmount
 func gzcGoChannelBufferedAmount(handle C.uint64_t, channelID C.int, outBytes *C.uint64_t) C.int {
 	b := backendFromHandle(handle)

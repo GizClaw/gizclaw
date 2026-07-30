@@ -39,6 +39,11 @@ type StreamFrame struct {
 	Data []byte
 }
 
+type TransportSendCounts struct {
+	PacketDataChannel uint64
+	OpusRTP           uint64
+}
+
 // Registration is the typed result decoded by the C server.register helper.
 type Registration struct {
 	RuntimeProfileName string
@@ -322,6 +327,26 @@ func (c *Client) SendPacket(protocol byte, payload []byte) error {
 		return fmt.Errorf("send packet rc=%d: %s", int(rc), cString(errbuf))
 	}
 	return nil
+}
+
+func (c *Client) TransportSendCounts() (TransportSendCounts, error) {
+	if c == nil || c.session == nil {
+		return TransportSendCounts{}, fmt.Errorf("closed C SDK client")
+	}
+	var packetCalls C.ulonglong
+	var opusCalls C.ulonglong
+	rc := C.gzc_cgo_session_transport_send_counts(
+		c.session,
+		&packetCalls,
+		&opusCalls,
+	)
+	if rc != C.GZC_OK {
+		return TransportSendCounts{}, fmt.Errorf("read transport send counts rc=%d", int(rc))
+	}
+	return TransportSendCounts{
+		PacketDataChannel: uint64(packetCalls),
+		OpusRTP:           uint64(opusCalls),
+	}, nil
 }
 
 func (c *Client) SendBatteryTelemetry(percent float64, charging bool) error {
@@ -762,6 +787,10 @@ func CSDKChatRoundtrip(t *testing.T, identityDir, registrationToken, workspaceNa
 		t.Fatal(err)
 	}
 	defer eventStream.Close()
+	before, err := client.TransportSendCounts()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := eventStream.SendAudioBoundary("cgo-chat", true); err != nil {
 		t.Fatalf("send chat BOS: %v", err)
 	}
@@ -805,6 +834,16 @@ func CSDKChatRoundtrip(t *testing.T, identityDir, registrationToken, workspaceNa
 			t.Fatalf("read chat packet: %v", err)
 		}
 		if sawText && downlinkPackets > 0 && sawEventEOS {
+			after, err := client.TransportSendCounts()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if after.OpusRTP <= before.OpusRTP {
+				t.Fatalf("C SDK Opus send did not use RTP: before=%+v after=%+v", before, after)
+			}
+			if after.PacketDataChannel != before.PacketDataChannel {
+				t.Fatalf("protocol 0x10 leaked into packet DataChannel: before=%+v after=%+v", before, after)
+			}
 			return
 		}
 	}

@@ -23,6 +23,7 @@ int gzcGoPeerCreateDataChannel(uint64_t handle, const char *label, size_t len, i
 int gzcGoPeerPoll(uint64_t handle, int timeout_ms);
 int gzcGoChannelSend(uint64_t handle, int channel_id, const uint8_t *data, size_t len, bool is_text);
 int gzcGoPeerSendOpus(uint64_t handle, const uint8_t *data, size_t len);
+int gzcGoTransportSendCounts(uint64_t handle, uint64_t *packet_calls, uint64_t *opus_calls);
 int gzcGoChannelBufferedAmount(uint64_t handle, int channel_id, uint64_t *out_bytes);
 int gzcGoChannelSetBufferedAmountLowThreshold(uint64_t handle, int channel_id, uint64_t bytes);
 void gzcGoChannelClose(uint64_t handle, int channel_id);
@@ -541,6 +542,20 @@ void gzc_cgo_backend_webrtc_media_vtable(
   out_media->peer_set_opus_frame_callback =
       bridge_peer_set_opus_frame_callback;
   out_media->peer_send_opus = bridge_peer_send_opus;
+}
+
+int gzc_cgo_backend_transport_send_counts(
+    gzc_cgo_backend_t *backend,
+    uint64_t *out_packet_data_channel_calls,
+    uint64_t *out_opus_rtp_calls) {
+  if (backend == NULL || out_packet_data_channel_calls == NULL ||
+      out_opus_rtp_calls == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  return gzcGoTransportSendCounts(
+      backend->handle,
+      out_packet_data_channel_calls,
+      out_opus_rtp_calls);
 }
 
 void gzc_cgo_emit_opus_frame(

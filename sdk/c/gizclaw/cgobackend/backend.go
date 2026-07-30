@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
@@ -73,6 +74,9 @@ type Backend struct {
 	events     []backendEvent
 	eventReady chan struct{}
 	closed     bool
+
+	packetSendCalls atomic.Uint64
+	opusSendCalls   atomic.Uint64
 }
 
 type sampleWriter interface {
@@ -475,7 +479,9 @@ func answerHasBidirectionalOpus(answer string) bool {
 				return true
 			}
 			seenMedia = true
-			audio = strings.HasPrefix(lower, "m=audio ")
+			fields := strings.Fields(lower)
+			audio = len(fields) >= 2 && fields[0] == "m=audio" &&
+				strings.SplitN(fields[1], "/", 2)[0] != "0"
 			sendrecv = sessionSendrecv
 			opus = false
 			continue
@@ -560,6 +566,9 @@ func (b *Backend) Send(channelID int, data []byte, isText bool) error {
 	if state == nil || state.dc == nil {
 		return fmt.Errorf("nil data channel %d", channelID)
 	}
+	if channelID == 0 {
+		b.packetSendCalls.Add(1)
+	}
 	if isText {
 		return state.dc.SendText(string(data))
 	}
@@ -577,11 +586,16 @@ func (b *Backend) SendOpus(opus []byte) error {
 	if closed || track == nil {
 		return fmt.Errorf("Opus media is not open")
 	}
+	b.opusSendCalls.Add(1)
 	ticks := codecconv.OpusPacketRTPTicks(opus)
 	return track.WriteSample(media.Sample{
 		Data:     append([]byte(nil), opus...),
 		Duration: time.Duration(ticks) * time.Second / 48000,
 	})
+}
+
+func (b *Backend) TransportSendCounts() (packetDataChannel, opusRTP uint64) {
+	return b.packetSendCalls.Load(), b.opusSendCalls.Load()
 }
 
 func (b *Backend) BufferedAmount(channelID int) (uint64, error) {
