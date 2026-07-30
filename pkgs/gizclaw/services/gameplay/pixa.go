@@ -22,26 +22,13 @@ const (
 )
 
 func validatePetDefPixa(data []byte, metadata apitypes.PetDefPixaMetadata) error {
-	asset, err := pixa.Parse(data)
+	asset, err := pixa.ParseWithLimits(data, pixa.ParseLimits{
+		MaxClips:            petDefPixaMaxClips,
+		MaxFrames:           petDefPixaMaxFrames,
+		MaxReferencedFrames: petDefPixaMaxReferencedFrames,
+	})
 	if err != nil {
 		return err
-	}
-	if asset.ClipCount > petDefPixaMaxClips {
-		return fmt.Errorf("petdef pixa contains %d clips, limit is %d", asset.ClipCount, petDefPixaMaxClips)
-	}
-	if asset.FrameCount > petDefPixaMaxFrames {
-		return fmt.Errorf("petdef pixa contains %d frames, limit is %d", asset.FrameCount, petDefPixaMaxFrames)
-	}
-	var referencedFrames uint64
-	for _, clip := range asset.Clips {
-		referencedFrames += uint64(clip.FrameCount)
-		if referencedFrames > petDefPixaMaxReferencedFrames {
-			return fmt.Errorf(
-				"petdef pixa clips reference %d frames, limit is %d",
-				referencedFrames,
-				petDefPixaMaxReferencedFrames,
-			)
-		}
 	}
 	if int64(asset.Width) != metadata.Canvas.Width || int64(asset.Height) != metadata.Canvas.Height {
 		return fmt.Errorf("petdef pixa canvas is %dx%d, want %dx%d", asset.Width, asset.Height, metadata.Canvas.Width, metadata.Canvas.Height)

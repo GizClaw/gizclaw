@@ -197,13 +197,13 @@ func TestValidatePetDefPixaRejectsExcessiveTableAndIterationCounts(t *testing.T)
 			name:   "clip count",
 			clips:  make([]testPixaClip, petDefPixaMaxClips+1),
 			frames: []testPixaFrame{validFrame},
-			want:   "contains 257 clips, limit is 256",
+			want:   "clip count 257 exceeds limit 256",
 		},
 		{
 			name:   "declared frame count",
 			clips:  []testPixaClip{{name: "default", firstFrame: 0, frameCount: 1}},
 			frames: make([]testPixaFrame, petDefPixaMaxFrames+1),
-			want:   "contains 4097 frames, limit is 4096",
+			want:   "frame count 4097 exceeds limit 4096",
 		},
 		{
 			name: "referenced frame count",
@@ -212,7 +212,7 @@ func TestValidatePetDefPixaRejectsExcessiveTableAndIterationCounts(t *testing.T)
 				{name: "bath", firstFrame: 0, frameCount: 1},
 			},
 			frames: make([]testPixaFrame, petDefPixaMaxReferencedFrames),
-			want:   "clips reference 4097 frames, limit is 4096",
+			want:   "referenced frame count 4097 exceeds limit 4096",
 		},
 	}
 	for _, tt := range tests {
