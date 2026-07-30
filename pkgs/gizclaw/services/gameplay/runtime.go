@@ -37,6 +37,15 @@ var (
 	errPetWorkspaceAmbiguous = errors.New("gameplay: pet workspace binding is ambiguous")
 )
 
+// gameplayMigrationLockID is the signed first 64 bits of SHA-256("gizclaw/gameplay/migration").
+const gameplayMigrationLockID int64 = -6060437086849530075
+
+type sqlDialectExecutor interface {
+	sqlx.ExtContext
+	DriverName() string
+	QueryRowContext(context.Context, string, ...any) *sql.Row
+}
+
 type Runtime struct {
 	DB                   *sqlx.DB
 	Catalog              *Catalog
@@ -70,6 +79,30 @@ func (r *Runtime) Migration(ctx context.Context) error {
 	if err := validateSQLDialect(db.DriverName()); err != nil {
 		return err
 	}
+	if db.DriverName() != "postgres" {
+		return migrateGameplaySchema(ctx, db)
+	}
+	tx, err := db.BeginTxx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("gameplay: begin migration transaction: %w", err)
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock($1)`, gameplayMigrationLockID); err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			err = errors.Join(ctxErr, err)
+		}
+		return fmt.Errorf("gameplay: acquire migration lock: %w", err)
+	}
+	if err := migrateGameplaySchema(ctx, tx); err != nil {
+		return fmt.Errorf("gameplay: migrate schema: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("gameplay: commit migration: %w", err)
+	}
+	return nil
+}
+
+func migrateGameplaySchema(ctx context.Context, db sqlDialectExecutor) error {
 	for _, stmt := range []string{
 		`CREATE TABLE IF NOT EXISTS gameplay_pets (
 			owner_public_key TEXT NOT NULL,
@@ -1822,7 +1855,7 @@ func (r *Runtime) adoptionMutex(key string) *sync.Mutex {
 	return &r.adoptMu[hash.Sum32()%uint32(len(r.adoptMu))]
 }
 
-func sqlColumnExists(ctx context.Context, db *sqlx.DB, table, column string) (bool, error) {
+func sqlColumnExists(ctx context.Context, db sqlDialectExecutor, table, column string) (bool, error) {
 	switch db.DriverName() {
 	case "sqlite":
 		rows, err := db.QueryContext(ctx, fmt.Sprintf("PRAGMA table_info(%s)", table))
