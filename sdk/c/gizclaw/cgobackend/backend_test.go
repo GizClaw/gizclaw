@@ -121,6 +121,19 @@ func TestAnswerHasBidirectionalOpus(t *testing.T) {
 			name:   "wrong codec",
 			answer: "v=0\r\nm=audio 9 UDP/TLS/RTP/SAVPF 0\r\na=sendrecv\r\na=rtpmap:0 PCMU/8000\r\n",
 		},
+		{
+			name:   "Opus mapping outside audio payload list",
+			answer: "v=0\r\nm=audio 9 UDP/TLS/RTP/SAVPF 0\r\na=sendrecv\r\na=rtpmap:111 opus/48000/2\r\n",
+		},
+		{
+			name:   "invalid Opus channels",
+			answer: "v=0\r\nm=audio 9 UDP/TLS/RTP/SAVPF 111\r\na=sendrecv\r\na=rtpmap:111 opus/48000/99\r\n",
+		},
+		{
+			name:   "Opus mapping in later active audio section",
+			answer: "v=0\r\nm=audio 0 UDP/TLS/RTP/SAVPF 111\r\na=rtpmap:111 opus/48000/2\r\nm=audio 9 UDP/TLS/RTP/SAVPF 112\r\na=sendrecv\r\na=rtpmap:112 opus/48000/2\r\n",
+			want:   true,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := answerHasBidirectionalOpus(tc.answer); got != tc.want {

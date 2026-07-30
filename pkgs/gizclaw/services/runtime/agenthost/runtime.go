@@ -166,7 +166,7 @@ func (s *Service) reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 	}
 	if err := ctx.Err(); err != nil {
 		_ = input.CloseWithError(err)
-		return s.setErrorStatus(selection.WorkspaceName, err), err
+		return s.reloadFailure(ctx, workspaceName, err)
 	}
 	profileToolBindings := map[string]string{}
 	profileWorkflowBindings := map[string]string{}
@@ -293,20 +293,22 @@ func (s *Service) reloadFailure(ctx context.Context, workspaceName string, cause
 }
 
 func (s *Service) installReloadErrorRuntime(ctx context.Context, workspaceName string, cause error) (apitypes.PeerRunStatus, error) {
-	input, err := s.Source.OpenAgentInput(context.WithoutCancel(ctx))
-	if err != nil {
-		return s.setErrorStatus(workspaceName, cause), fmt.Errorf("agenthost: open reload error input: %w", err)
-	}
-	if input == nil {
-		return s.setErrorStatus(workspaceName, cause), errors.New("agenthost: reload error input stream is required")
-	}
-
 	runCtx, runCancel := context.WithCancel(context.WithoutCancel(ctx))
 	stopLifecycleCancel := context.AfterFunc(s.lifecycleContext(), runCancel)
 	cancel := func() {
 		stopLifecycleCancel()
 		runCancel()
 	}
+	input, err := s.Source.OpenAgentInput(runCtx)
+	if err != nil {
+		cancel()
+		return s.setErrorStatus(workspaceName, cause), fmt.Errorf("agenthost: open reload error input: %w", err)
+	}
+	if input == nil {
+		cancel()
+		return s.setErrorStatus(workspaceName, cause), errors.New("agenthost: reload error input stream is required")
+	}
+
 	agent := newReloadErrorAgent()
 	output, err := agent.Transform(runCtx, input)
 	if err != nil {

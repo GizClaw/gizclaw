@@ -470,6 +470,7 @@ func answerHasBidirectionalOpus(answer string) bool {
 	audio := false
 	sendrecv := true
 	opus := false
+	audioPayloads := map[string]struct{}{}
 	sessionSendrecv := true
 	seenMedia := false
 	for line := range strings.SplitSeq(strings.ReplaceAll(answer, "\r\n", "\n"), "\n") {
@@ -484,6 +485,12 @@ func answerHasBidirectionalOpus(answer string) bool {
 				strings.SplitN(fields[1], "/", 2)[0] != "0"
 			sendrecv = sessionSendrecv
 			opus = false
+			audioPayloads = map[string]struct{}{}
+			if audio && len(fields) > 3 {
+				for _, payload := range fields[3:] {
+					audioPayloads[payload] = struct{}{}
+				}
+			}
 			continue
 		}
 		if !seenMedia {
@@ -505,8 +512,19 @@ func answerHasBidirectionalOpus(answer string) bool {
 				sendrecv = false
 			}
 		}
-		opus = opus || (strings.HasPrefix(lower, "a=rtpmap:") &&
-			strings.Contains(lower, " opus/48000"))
+		if !strings.HasPrefix(lower, "a=rtpmap:") {
+			continue
+		}
+		mapping := strings.Fields(strings.TrimPrefix(lower, "a=rtpmap:"))
+		if len(mapping) != 2 {
+			continue
+		}
+		if _, ok := audioPayloads[mapping[0]]; !ok {
+			continue
+		}
+		codec := strings.Split(mapping[1], "/")
+		validChannels := len(codec) == 2 || (len(codec) == 3 && codec[2] == "2")
+		opus = opus || (validChannels && codec[0] == "opus" && codec[1] == "48000")
 	}
 	return audio && sendrecv && opus
 }
