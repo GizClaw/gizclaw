@@ -3,7 +3,6 @@ package gizclaw
 import (
 	"bytes"
 	"context"
-	"errors"
 	"io"
 	"strings"
 	"sync"
@@ -51,17 +50,37 @@ func TestPeerStreamEventRejectsJSONFrame(t *testing.T) {
 	}
 }
 
-func TestPeerStreamEventBrokerAllowsOneConnectionStream(t *testing.T) {
+func TestPeerStreamEventBrokerReplacesStaleConnectionStream(t *testing.T) {
 	broker := newPeerStreamEventBroker()
 	first := &bytes.Buffer{}
-	unsubscribe, err := broker.Subscribe(first)
+	unsubscribeFirst, err := broker.Subscribe(first)
 	if err != nil {
 		t.Fatalf("Subscribe(first) error = %v", err)
 	}
-	defer unsubscribe()
+	defer unsubscribeFirst()
+	second := &bytes.Buffer{}
+	unsubscribeSecond, err := broker.Subscribe(second)
+	if err != nil {
+		t.Fatalf("Subscribe(second) error = %v", err)
+	}
+	defer unsubscribeSecond()
 
-	if _, err := broker.Subscribe(&bytes.Buffer{}); !errors.Is(err, errPeerEventStreamAlreadyOpen) {
-		t.Fatalf("Subscribe(second) error = %v, want errPeerEventStreamAlreadyOpen", err)
+	event := &eventpb.PeerEvent{
+		Version: eventpb.Version,
+		Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_TEXT_DELTA,
+		Payload: &eventpb.PeerEvent_TextDelta{TextDelta: &eventpb.TextDelta{
+			StreamId: "s1",
+			Text:     "hello",
+		}},
+	}
+	if err := broker.Broadcast(event); err != nil {
+		t.Fatalf("Broadcast() error = %v", err)
+	}
+	if first.Len() != 0 {
+		t.Fatalf("replaced subscriber received %d bytes", first.Len())
+	}
+	if second.Len() == 0 {
+		t.Fatal("replacement subscriber did not receive event")
 	}
 }
 

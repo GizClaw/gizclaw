@@ -1197,6 +1197,60 @@ func TestServiceTreatsActiveOutputCompletionAsFailure(t *testing.T) {
 	}
 }
 
+func TestServiceReloadDoesNotReportExpectedOutputEndFromReplacedInput(t *testing.T) {
+	ctx := context.Background()
+	publicKey := testPublicKey(t)
+	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	if _, err := store.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
+		t.Fatalf("SetRunAgent() error = %v", err)
+	}
+	consumerErr := make(chan error, 1)
+	svc := &Service{
+		Host:      inputEndingHost{},
+		PeerRun:   store,
+		PublicKey: publicKey,
+		Source:    NewPushSource(1),
+		Consumer: StreamConsumerFunc(func(_ context.Context, output genx.Stream) error {
+			for {
+				_, err := output.Next()
+				if err != nil {
+					if IsStreamDone(err) {
+						return nil
+					}
+					return err
+				}
+			}
+		}),
+		OnConsumerError: func(_ context.Context, _ string, err error) {
+			consumerErr <- err
+		},
+	}
+	if _, err := svc.Reload(ctx); err != nil {
+		t.Fatalf("initial Reload() error = %v", err)
+	}
+	if _, err := svc.Reload(ctx); err != nil {
+		t.Fatalf("replacement Reload() error = %v", err)
+	}
+	defer func() {
+		if _, err := svc.Stop(ctx); err != nil {
+			t.Errorf("Stop() error = %v", err)
+		}
+	}()
+
+	select {
+	case err := <-consumerErr:
+		t.Fatalf("OnConsumerError() = %v, want no error while replacing input", err)
+	case <-time.After(50 * time.Millisecond):
+	}
+	status, err := svc.Status(ctx)
+	if err != nil {
+		t.Fatalf("Status() error = %v", err)
+	}
+	if status.State != apitypes.PeerRunStatusStateRunning {
+		t.Fatalf("Status() after replacement = %+v, want running", status)
+	}
+}
+
 func TestServiceKeepsRuntimeAvailableForRepeatedHistoryReplayAfterRouteEOS(t *testing.T) {
 	ctx := context.Background()
 	publicKey := testPublicKey(t)
@@ -1493,6 +1547,36 @@ type fakeHost struct {
 	pattern string
 	output  genx.Stream
 	err     error
+}
+
+type inputEndingHost struct{}
+
+func (inputEndingHost) Transform(_ context.Context, _ string, input genx.Stream) (genx.Stream, error) {
+	if input == nil {
+		return nil, errors.New("input required")
+	}
+	return inputEndingOutput{input: input}, nil
+}
+
+type inputEndingOutput struct {
+	input genx.Stream
+}
+
+func (s inputEndingOutput) Next() (*genx.MessageChunk, error) {
+	for {
+		_, err := s.input.Next()
+		if err != nil {
+			return nil, genx.ErrDone
+		}
+	}
+}
+
+func (s inputEndingOutput) Close() error {
+	return s.input.Close()
+}
+
+func (s inputEndingOutput) CloseWithError(err error) error {
+	return s.input.CloseWithError(err)
 }
 
 func (h *fakeHost) Transform(_ context.Context, pattern string, input genx.Stream) (genx.Stream, error) {

@@ -20,9 +20,8 @@ const peerStreamEventHistoryUpdatedLabel = "workspace.history.updated"
 const peerStreamEventQueueSize = 256
 
 var (
-	errPeerEventStreamAlreadyOpen = errors.New("gizclaw: peer event stream already open")
-	errPeerEventStreamClosed      = errors.New("gizclaw: peer event stream closed")
-	errPeerEventQueueFull         = errors.New("gizclaw: peer event stream queue full")
+	errPeerEventStreamClosed = errors.New("gizclaw: peer event stream closed")
+	errPeerEventQueueFull    = errors.New("gizclaw: peer event stream queue full")
 )
 
 type peerStreamEventBroker struct {
@@ -50,18 +49,21 @@ func (b *peerStreamEventBroker) Subscribe(w io.Writer) (func(), error) {
 	if b == nil || w == nil {
 		return func() {}, errPeerEventStreamClosed
 	}
-	b.mu.Lock()
-	if b.subscriber != nil {
-		b.mu.Unlock()
-		return func() {}, errPeerEventStreamAlreadyOpen
-	}
 	subscriber := &peerStreamEventSubscriber{
 		writer: w,
 		queue:  make(chan peerStreamEventWrite, peerStreamEventQueueSize),
 		done:   make(chan struct{}),
 	}
+	b.mu.Lock()
+	previous := b.subscriber
 	b.subscriber = subscriber
 	b.mu.Unlock()
+	if previous != nil {
+		previous.once.Do(func() { close(previous.done) })
+		if closer, ok := previous.writer.(io.Closer); ok {
+			_ = closer.Close()
+		}
+	}
 	go b.serveSubscriber(subscriber)
 	var once sync.Once
 	return func() {
@@ -419,13 +421,18 @@ func isOpusBlob(blob *genx.Blob) bool {
 	return mimeType == "audio/opus"
 }
 
-func opusPacketChunk(payload []byte) (*genx.MessageChunk, bool) {
+// opusPacketChunk associates direct media bytes with the active event-stream
+// turn because ProtocolOpusPacket itself carries no stream identifier.
+func opusPacketChunk(payload []byte, streamID string) (*genx.MessageChunk, bool) {
 	if len(payload) == 0 {
 		return nil, false
 	}
+	if streamID == "" {
+		streamID = "audio"
+	}
 	return &genx.MessageChunk{
 		Part: &genx.Blob{MIMEType: "audio/opus", Data: append([]byte(nil), payload...)},
-		Ctrl: &genx.StreamCtrl{StreamID: "audio"},
+		Ctrl: &genx.StreamCtrl{StreamID: streamID},
 	}, true
 }
 

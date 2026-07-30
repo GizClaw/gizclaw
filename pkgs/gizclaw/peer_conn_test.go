@@ -349,8 +349,18 @@ func TestPeerConnReauthorizesAudioPacketsAfterChatroomAccessIsRevoked(t *testing
 	if authorized {
 		t.Fatal("Opus packet after revocation was admitted")
 	}
-	if got := input.closeCount(); got != 1 {
-		t.Fatalf("Agent input close calls = %d, want 1", got)
+	if got := input.closeCount(); got != 0 {
+		t.Fatalf("Agent input close calls = %d, want 0", got)
+	}
+	select {
+	case chunk := <-input.pushed:
+		if chunk == nil || chunk.Ctrl == nil || !chunk.IsEndOfStream() ||
+			chunk.Ctrl.StreamID != "turn-mid-revoke" ||
+			chunk.Ctrl.ErrorCode != chatroom.AccessCodeFriendRemoved {
+			t.Fatalf("rejected Agent input EOS = %+v", chunk)
+		}
+	default:
+		t.Fatal("revoked turn did not receive an Agent input EOS")
 	}
 	waitForPeerStreamBytes(t, &output)
 	denial := readLockedPeerStreamEvent(t, &output)
@@ -541,7 +551,7 @@ func TestPeerConnAcceptsOpusPacketsOnlyAfterAuthorizedAudioBOS(t *testing.T) {
 	}
 	select {
 	case chunk := <-input.pushed:
-		if chunk == nil || chunk.Ctrl == nil || chunk.Ctrl.StreamID != "audio" {
+		if chunk == nil || chunk.Ctrl == nil || chunk.Ctrl.StreamID != "turn-1" {
 			t.Fatalf("accepted Opus packet chunk = %+v", chunk)
 		}
 	default:

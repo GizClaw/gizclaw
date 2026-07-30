@@ -143,6 +143,9 @@ func (s *Service) reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 	}
 	s.setStatus(apitypes.PeerRunStatusStateStarting, selection.WorkspaceName, nil, nil)
 	previous := s.currentRuntime()
+	// Replacing the source can close the previous runtime's input before the
+	// replacement is published, which lets its long-lived Agent finish normally.
+	s.expectOutputEndDuringReplacement(previous)
 
 	input, err := s.Source.OpenAgentInput(ctx)
 	if err != nil {
@@ -845,6 +848,30 @@ func (s *Service) currentRuntime() *runtime {
 	return s.runtime
 }
 
+func (s *Service) expectOutputEndDuringReplacement(rt *runtime) {
+	if rt == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.runtime == rt {
+		rt.outputEndExpected = true
+	}
+}
+
+func (s *Service) consumeExpectedOutputEnd(rt *runtime) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if rt == nil || !rt.outputEndExpected {
+		return false
+	}
+	rt.outputEndExpected = false
+	if s.runtime == rt {
+		s.runtime = nil
+	}
+	return true
+}
+
 func (s *Service) currentAgent() (Agent, error) {
 	rt := s.currentRuntime()
 	if rt == nil || rt.agent == nil {
@@ -883,6 +910,9 @@ func (s *Service) consume(ctx context.Context, rt *runtime) {
 	}()
 	err := s.Consumer.ConsumeAgentOutput(ctx, rt.output)
 	if err == nil && ctx.Err() == nil {
+		if s.consumeExpectedOutputEnd(rt) {
+			return
+		}
 		err = errUnexpectedOutputEnd
 	}
 	if err != nil && ctx.Err() == nil {
@@ -1003,6 +1033,10 @@ type runtime struct {
 	done      chan struct{}
 	workspace string
 	startedAt time.Time
+
+	// outputEndExpected is guarded by Service.mu. It acknowledges normal output
+	// completion caused by replacing this runtime's input source.
+	outputEndExpected bool
 }
 
 func (r *runtime) stop(ctx context.Context) error {

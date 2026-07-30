@@ -3,6 +3,7 @@ package gizclaw
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net"
@@ -576,9 +577,8 @@ func (h *PeerConn) serveEvents() error {
 			continue
 		}
 		go func(stream net.Conn) {
-			if err := h.handleEventStream(stream); err != nil {
-				_ = stream.Close()
-			}
+			_ = h.handleEventStream(stream)
+			_ = stream.Close()
 		}(stream)
 	}
 }
@@ -681,7 +681,7 @@ func (h *PeerConn) rejectChatroomEvent(
 	}
 	var abortErr error
 	if abortCurrentTurn {
-		abortErr = h.abortAgentInputTurn()
+		abortErr = h.finishAgentInputTurn(context.Background(), streamID, event.StreamKindValue(), denial)
 	}
 	broadcastErr := h.events.Broadcast(&eventpb.PeerEvent{
 		Version: eventpb.Version,
@@ -699,13 +699,35 @@ func (h *PeerConn) rejectChatroomEvent(
 	return false, nil
 }
 
-func (h *PeerConn) abortAgentInputTurn() error {
-	if h == nil || h.agentInput == nil {
+// finishAgentInputTurn ends one rejected input route without closing the
+// connection-wide realtime stream that owns the active Agent runtime.
+func (h *PeerConn) finishAgentInputTurn(
+	ctx context.Context,
+	streamID string,
+	kind eventpb.StreamKind,
+	denial *chatroom.AccessError,
+) error {
+	if h == nil {
 		return nil
 	}
-	h.agentInputMu.Lock()
-	defer h.agentInputMu.Unlock()
-	return h.agentInput.Close()
+	event := &eventpb.PeerEvent{
+		Version: eventpb.Version,
+		Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_EOS,
+		Payload: &eventpb.PeerEvent_Eos{Eos: &eventpb.StreamEnd{
+			StreamId: streamID,
+			Kind:     kind,
+			Label:    "assistant",
+			Error:    chatroomEventError(denial),
+		}},
+	}
+	chunk, err := peerStreamEventToChunk(event)
+	if err != nil {
+		return fmt.Errorf("gizclaw: create rejected input EOS: %w", err)
+	}
+	if err := h.pushAgentInputChunk(ctx, chunk); err != nil {
+		return fmt.Errorf("gizclaw: finish rejected input turn: %w", err)
+	}
+	return nil
 }
 
 func chatroomEventError(err *chatroom.AccessError) *eventpb.EventError {
@@ -831,6 +853,18 @@ func (h *PeerConn) audioInputAccepted() bool {
 	return h.acceptedAudioInput && !h.deniedAudioInput
 }
 
+func (h *PeerConn) acceptedAudioInputStreamID() string {
+	if h == nil {
+		return ""
+	}
+	h.chatroomAccessMu.Lock()
+	defer h.chatroomAccessMu.Unlock()
+	if !h.acceptedAudioInput || h.deniedAudioInput {
+		return ""
+	}
+	return h.acceptedAudioStream
+}
+
 func (h *PeerConn) authorizeChatroomAudioPacket(ctx context.Context) (bool, error) {
 	if h == nil {
 		return false, nil
@@ -916,9 +950,7 @@ func (h *PeerConn) rejectChatroomAudioFromInvalidation(
 	if !h.markDeniedInputStream(streamID, event.StreamKindValue()) {
 		return
 	}
-	if err := h.abortAgentInputTurn(); err != nil {
-		slog.Warn("gizclaw: abort invalid Chatroom audio turn", "error", err)
-	}
+	_ = h.finishAgentInputTurn(context.Background(), streamID, event.StreamKindValue(), denial)
 	if h.events != nil {
 		_ = h.events.Notify(&eventpb.PeerEvent{
 			Version: eventpb.Version,
@@ -1006,15 +1038,16 @@ func (h *PeerConn) serveDirectPackets() error {
 		}
 		switch protocol {
 		case giznet.ProtocolOpusPacket:
-			chunk, ok := opusPacketChunk(buf[:n])
-			if !ok {
-				continue
-			}
 			authorized, err := h.authorizeChatroomAudioPacket(context.Background())
 			if err != nil {
 				return err
 			}
 			if !authorized {
+				continue
+			}
+			streamID := h.acceptedAudioInputStreamID()
+			chunk, ok := opusPacketChunk(buf[:n], streamID)
+			if !ok {
 				continue
 			}
 			if err := h.pushAgentInputChunk(context.Background(), chunk); err != nil {
