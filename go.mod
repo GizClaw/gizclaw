@@ -13,7 +13,7 @@ require (
 	github.com/GizClaw/pixa v0.0.0-20260730044130-e59a9ee62701
 	github.com/cloudwego/eino v0.9.13
 	github.com/coder/websocket v1.8.15
-	github.com/dgraph-io/badger/v4 v4.9.4
+	github.com/dgraph-io/badger/v4 v4.9.5
 	github.com/eino-contrib/jsonschema v1.0.3
 	github.com/felixge/httpsnoop v1.1.0
 	github.com/goccy/go-yaml v1.19.2
