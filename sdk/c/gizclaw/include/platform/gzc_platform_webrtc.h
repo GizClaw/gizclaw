@@ -70,6 +70,16 @@ typedef void (*gzc_rtc_channel_message_cb)(
     size_t len,
     bool is_text);
 
+/*
+ * Delivers one borrowed raw Opus payload from the remote WebRTC audio RTP
+ * track. The payload remains valid only for the duration of the callback.
+ */
+typedef void (*gzc_rtc_remote_opus_cb)(
+    void *userdata,
+    gzc_rtc_peer_t *peer,
+    const uint8_t *opus,
+    size_t len);
+
 typedef void (*gzc_rtc_channel_buffered_amount_low_cb)(
     void *userdata,
     gzc_rtc_peer_t *peer,
@@ -98,6 +108,7 @@ typedef struct {
   gzc_rtc_local_sdp_cb on_local_sdp;
   gzc_rtc_channel_state_cb on_channel_state;
   gzc_rtc_channel_message_cb on_channel_message;
+  gzc_rtc_remote_opus_cb on_remote_opus;
   gzc_rtc_channel_buffered_amount_low_cb on_channel_buffered_amount_low;
   gzc_rtc_remote_channel_cb on_remote_channel;
 } gzc_webrtc_callbacks_t;
