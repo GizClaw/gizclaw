@@ -84,9 +84,11 @@ static int64_t now_ms(gzc_client_t *client) {
 }
 
 static int configure_service_channel(gzc_client_t *client, gzc_rtc_channel_t *channel) {
-  if (client == NULL || channel == NULL || client->config.webrtc == NULL ||
-      client->config.webrtc->channel_set_buffered_amount_low_threshold == NULL) {
-    return GZC_ERR_UNSUPPORTED;
+  if (client == NULL || channel == NULL || client->config.webrtc == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  if (client->config.webrtc->channel_set_buffered_amount_low_threshold == NULL) {
+    return GZC_OK;
   }
   return client->config.webrtc->channel_set_buffered_amount_low_threshold(
       channel, (uint64_t)client->config.service_write_low_water_bytes);
@@ -98,8 +100,13 @@ static int service_write_ready(
     bool *blocked,
     bool *out_ready) {
   if (client == NULL || channel == NULL || blocked == NULL || out_ready == NULL ||
-      client->config.webrtc == NULL || client->config.webrtc->channel_buffered_amount == NULL) {
-    return GZC_ERR_UNSUPPORTED;
+      client->config.webrtc == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  if (client->config.webrtc->channel_buffered_amount == NULL) {
+    *blocked = false;
+    *out_ready = true;
+    return GZC_OK;
   }
   uint64_t amount = 0;
   int rc = client->config.webrtc->channel_buffered_amount(channel, &amount);
@@ -166,6 +173,10 @@ int gzc_client_try_write_bytes_internal(
       count = GZC_SERVICE_WRITE_CHUNK_SIZE;
     }
     rc = client->config.webrtc->channel_send(channel, data + *offset, count, false);
+    if (rc == GZC_ERR_WOULD_BLOCK) {
+      *blocked = true;
+      return GZC_OK;
+    }
     if (rc != GZC_OK) {
       return rc;
     }
@@ -953,9 +964,9 @@ int gzc_client_create(const gzc_client_config_t *config, gzc_client_t **out_clie
       config->write_timeout_ms <= 0) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  if (config->webrtc->channel_buffered_amount == NULL ||
-      config->webrtc->channel_set_buffered_amount_low_threshold == NULL) {
-    return GZC_ERR_UNSUPPORTED;
+  if ((config->webrtc->channel_buffered_amount == NULL) !=
+      (config->webrtc->channel_set_buffered_amount_low_threshold == NULL)) {
+    return GZC_ERR_INVALID_ARGUMENT;
   }
   if ((config->tool_handlers == NULL && config->tool_handler_count != 0u) ||
       (config->tool_handlers != NULL && config->tool_handler_count == 0u)) {
