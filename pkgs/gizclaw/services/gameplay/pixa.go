@@ -8,14 +8,40 @@ import (
 	pixa "github.com/GizClaw/pixa/pkgs/go"
 )
 
-// petDefPixaMaxCanvasRGBABytes bounds the one caller-owned RGBA canvas reused
-// while validating every frame.
-const petDefPixaMaxCanvasRGBABytes uint64 = 16 << 20
+const (
+	// petDefPixaMaxEncodedBytes bounds the untrusted upload before parsing.
+	petDefPixaMaxEncodedBytes = 16 << 20
+	// The encoded-size limit bounds parser output. These count limits then
+	// bound the work performed before VisitClipFramesRGBA starts traversal.
+	petDefPixaMaxClips            = 256
+	petDefPixaMaxFrames           = 4096
+	petDefPixaMaxReferencedFrames = 4096
+	// petDefPixaMaxCanvasRGBABytes bounds the one caller-owned RGBA canvas
+	// reused while validating every frame.
+	petDefPixaMaxCanvasRGBABytes uint64 = 16 << 20
+)
 
 func validatePetDefPixa(data []byte, metadata apitypes.PetDefPixaMetadata) error {
 	asset, err := pixa.Parse(data)
 	if err != nil {
 		return err
+	}
+	if asset.ClipCount > petDefPixaMaxClips {
+		return fmt.Errorf("petdef pixa contains %d clips, limit is %d", asset.ClipCount, petDefPixaMaxClips)
+	}
+	if asset.FrameCount > petDefPixaMaxFrames {
+		return fmt.Errorf("petdef pixa contains %d frames, limit is %d", asset.FrameCount, petDefPixaMaxFrames)
+	}
+	var referencedFrames uint64
+	for _, clip := range asset.Clips {
+		referencedFrames += uint64(clip.FrameCount)
+		if referencedFrames > petDefPixaMaxReferencedFrames {
+			return fmt.Errorf(
+				"petdef pixa clips reference %d frames, limit is %d",
+				referencedFrames,
+				petDefPixaMaxReferencedFrames,
+			)
+		}
 	}
 	if int64(asset.Width) != metadata.Canvas.Width || int64(asset.Height) != metadata.Canvas.Height {
 		return fmt.Errorf("petdef pixa canvas is %dx%d, want %dx%d", asset.Width, asset.Height, metadata.Canvas.Width, metadata.Canvas.Height)

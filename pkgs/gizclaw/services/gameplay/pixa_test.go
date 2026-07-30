@@ -181,6 +181,99 @@ func TestValidatePetDefPixaChecksCanvasLimitBeforeAllocation(t *testing.T) {
 	}
 }
 
+func TestValidatePetDefPixaRejectsExcessiveTableAndIterationCounts(t *testing.T) {
+	validFrame := testPixaFrame{
+		frameType: 0,
+		encoding:  1,
+		payload:   paletteRLE([]byte{0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0}),
+	}
+	tests := []struct {
+		name   string
+		clips  []testPixaClip
+		frames []testPixaFrame
+		want   string
+	}{
+		{
+			name:   "clip count",
+			clips:  make([]testPixaClip, petDefPixaMaxClips+1),
+			frames: []testPixaFrame{validFrame},
+			want:   "contains 257 clips, limit is 256",
+		},
+		{
+			name:   "declared frame count",
+			clips:  []testPixaClip{{name: "default", firstFrame: 0, frameCount: 1}},
+			frames: make([]testPixaFrame, petDefPixaMaxFrames+1),
+			want:   "contains 4097 frames, limit is 4096",
+		},
+		{
+			name: "referenced frame count",
+			clips: []testPixaClip{
+				{name: "default", firstFrame: 0, frameCount: petDefPixaMaxReferencedFrames},
+				{name: "bath", firstFrame: 0, frameCount: 1},
+			},
+			frames: make([]testPixaFrame, petDefPixaMaxReferencedFrames),
+			want:   "clips reference 4097 frames, limit is 4096",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			data := makePixaFixture(t, 4, 4, []uint16{0, 0x07e0}, tt.clips, tt.frames)
+			err := validatePetDefPixa(data, petDefPixaMetadataForClips(4, 4, "default"))
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("validatePetDefPixa() error = %v, want %q", err, tt.want)
+			}
+		})
+	}
+}
+
+func TestValidateBadgeDefPixaPreservesIconContract(t *testing.T) {
+	tests := []struct {
+		name   string
+		clips  []testPixaClip
+		frames []testPixaFrame
+		want   string
+	}{
+		{
+			name:   "valid icon",
+			clips:  []testPixaClip{{name: "icon", firstFrame: 0, frameCount: 1}},
+			frames: []testPixaFrame{{frameType: 0}},
+		},
+		{
+			name:   "missing icon",
+			clips:  []testPixaClip{{name: "other", firstFrame: 0, frameCount: 1}},
+			frames: []testPixaFrame{{frameType: 0}},
+			want:   `must contain an "icon" clip`,
+		},
+		{
+			name:   "multiple frames",
+			clips:  []testPixaClip{{name: "icon", firstFrame: 0, frameCount: 2}},
+			frames: []testPixaFrame{{frameType: 0}, {frameType: 0}},
+			want:   "must contain exactly one frame, got 2",
+		},
+		{
+			name:   "diff frame",
+			clips:  []testPixaClip{{name: "icon", firstFrame: 0, frameCount: 1}},
+			frames: []testPixaFrame{{frameType: 1}},
+			want:   "icon frame must be a key frame",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			data := makePixaFixture(t, 1, 1, nil, tt.clips, tt.frames)
+			err := validateBadgeDefPixa(data)
+			if tt.want == "" {
+				if err != nil {
+					t.Fatalf("validateBadgeDefPixa() error = %v", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("validateBadgeDefPixa() error = %v, want %q", err, tt.want)
+			}
+		})
+	}
+}
+
 func petDefPixaMetadata(width, height int64) apitypes.PetDefPixaMetadata {
 	return petDefPixaMetadataForClips(width, height, "default", "bath")
 }

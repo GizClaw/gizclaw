@@ -213,9 +213,15 @@ func (c *Catalog) UploadPetDefPixa(ctx context.Context, request adminhttp.Upload
 		}
 		return adminhttp.UploadPetDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	data, err := io.ReadAll(request.Body)
+	data, err := io.ReadAll(io.LimitReader(request.Body, petDefPixaMaxEncodedBytes+1))
 	if err != nil {
 		return adminhttp.UploadPetDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
+	if len(data) > petDefPixaMaxEncodedBytes {
+		return adminhttp.UploadPetDefPixa500JSONResponse(apitypes.NewErrorResponse(
+			"INVALID_PET_DEF_PIXA",
+			fmt.Sprintf("petdef pixa upload exceeds %d byte limit", petDefPixaMaxEncodedBytes),
+		)), nil
 	}
 	if err := validatePetDefPixa(data, item.Spec.Visual.Pixa.Metadata); err != nil {
 		return adminhttp.UploadPetDefPixa500JSONResponse(apitypes.NewErrorResponse("INVALID_PET_DEF_PIXA", err.Error())), nil

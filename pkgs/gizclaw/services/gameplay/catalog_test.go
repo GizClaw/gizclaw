@@ -149,6 +149,21 @@ func TestCatalogPetDefPixaUploadRejectsBeforePublication(t *testing.T) {
 	if countedAssets.puts != 0 {
 		t.Fatalf("malformed upload called object store Put %d times", countedAssets.puts)
 	}
+	oversizedResp, err := catalog.UploadPetDefPixa(ctx, adminhttp.UploadPetDefPixaRequestObject{
+		Id:   "transparent-pet",
+		Body: io.NopCloser(io.LimitReader(zeroReader{}, petDefPixaMaxEncodedBytes+1)),
+	})
+	if err != nil {
+		t.Fatalf("UploadPetDefPixa(oversized) error = %v", err)
+	}
+	oversized := requireResponse[adminhttp.UploadPetDefPixa500JSONResponse](t, oversizedResp)
+	if oversized.Error.Code != "INVALID_PET_DEF_PIXA" ||
+		!strings.Contains(oversized.Error.Message, "exceeds 16777216 byte limit") {
+		t.Fatalf("oversized rejection = %#v", oversized.Error)
+	}
+	if countedAssets.puts != 0 {
+		t.Fatalf("oversized upload called object store Put %d times", countedAssets.puts)
+	}
 
 	after, err := catalog.GetPetDefByID(ctx, "transparent-pet")
 	if err != nil {
@@ -173,6 +188,13 @@ func TestCatalogPetDefPixaUploadRejectsBeforePublication(t *testing.T) {
 type countingObjectStore struct {
 	objectstore.ObjectStore
 	puts int
+}
+
+type zeroReader struct{}
+
+func (zeroReader) Read(p []byte) (int, error) {
+	clear(p)
+	return len(p), nil
 }
 
 func (s *countingObjectStore) Put(name string, reader io.Reader) error {
