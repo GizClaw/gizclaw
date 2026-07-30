@@ -339,6 +339,22 @@ func gzcGoChannelSend(handle C.uint64_t, channelID C.int, data *C.uint8_t, lengt
 	return C.GZC_OK
 }
 
+//export gzcGoPeerSendOpus
+func gzcGoPeerSendOpus(handle C.uint64_t, data *C.uint8_t, length C.size_t) C.int {
+	b := backendFromHandle(handle)
+	if b == nil {
+		return C.GZC_ERR_INVALID_ARGUMENT
+	}
+	opus, ok := goBytes(unsafe.Pointer(data), length)
+	if !ok || len(opus) == 0 {
+		return C.GZC_ERR_INVALID_ARGUMENT
+	}
+	if err := b.SendOpus(opus); err != nil {
+		return C.GZC_ERR_WEBRTC
+	}
+	return C.GZC_OK
+}
+
 //export gzcGoChannelBufferedAmount
 func gzcGoChannelBufferedAmount(handle C.uint64_t, channelID C.int, outBytes *C.uint64_t) C.int {
 	b := backendFromHandle(handle)
@@ -411,6 +427,19 @@ func (s cgoSink) BufferedAmountLow(channelID int) {
 	}
 	C.gzc_cgo_emit_channel_buffered_amount_low(
 		(*C.gzc_cgo_backend_t)(s.cBackend), C.int(channelID),
+	)
+}
+
+func (s cgoSink) OpusFrame(opus []byte) {
+	if s.cBackend == nil {
+		return
+	}
+	raw := C.CBytes(opus)
+	defer C.free(raw)
+	C.gzc_cgo_emit_opus_frame(
+		(*C.gzc_cgo_backend_t)(s.cBackend),
+		(*C.uint8_t)(raw),
+		C.size_t(len(opus)),
 	)
 }
 

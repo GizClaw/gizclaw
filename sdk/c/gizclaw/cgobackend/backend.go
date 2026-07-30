@@ -14,8 +14,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/pion/webrtc/v4"
+	"github.com/pion/webrtc/v4/pkg/media"
 	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/hkdf"
 )
@@ -57,18 +59,24 @@ type EventSink interface {
 	ChannelState(channelID int, state int)
 	ChannelMessage(channelID int, data []byte, isText bool)
 	BufferedAmountLow(channelID int)
+	OpusFrame(opus []byte)
 }
 
 type Backend struct {
 	mu         sync.Mutex
 	dispatchMu sync.Mutex
 	pc         *webrtc.PeerConnection
+	opusTrack  sampleWriter
 	dcs        map[int]*dataChannelState
 	nextDCID   int
 	sink       EventSink
 	events     []backendEvent
 	eventReady chan struct{}
 	closed     bool
+}
+
+type sampleWriter interface {
+	WriteSample(media.Sample) error
 }
 
 type dataChannelState struct {
@@ -89,6 +97,7 @@ const (
 	backendEventChannelState
 	backendEventChannelMessage
 	backendEventBufferedAmountLow
+	backendEventOpusFrame
 )
 
 type backendEvent struct {
@@ -220,13 +229,28 @@ func (b *Backend) CreatePeer() error {
 	if err != nil {
 		return err
 	}
-	if _, err := pc.AddTransceiverFromKind(
-		webrtc.RTPCodecTypeAudio,
-		webrtc.RTPTransceiverInit{Direction: webrtc.RTPTransceiverDirectionRecvonly},
-	); err != nil {
+	opusTrack, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{
+		MimeType: MediaStreamOpus, ClockRate: 48000, Channels: 2,
+	}, "gizclaw-opus", "gizclaw")
+	if err != nil {
 		_ = pc.Close()
 		return err
 	}
+	transceiver, err := pc.AddTransceiverFromTrack(
+		opusTrack,
+		webrtc.RTPTransceiverInit{Direction: webrtc.RTPTransceiverDirectionSendrecv},
+	)
+	if err != nil {
+		_ = pc.Close()
+		return err
+	}
+	go func() {
+		for {
+			if _, _, err := transceiver.Sender().ReadRTCP(); err != nil {
+				return
+			}
+		}
+	}()
 	pc.OnTrack(func(track *webrtc.TrackRemote, _ *webrtc.RTPReceiver) {
 		if strings.EqualFold(track.Codec().MimeType, MediaStreamOpus) {
 			go b.forwardRemoteOpus(track)
@@ -236,6 +260,7 @@ func (b *Backend) CreatePeer() error {
 		b.acceptRemoteDataChannel(dc)
 	})
 	b.pc = pc
+	b.opusTrack = opusTrack
 	b.closed = false
 	return nil
 }
@@ -423,6 +448,9 @@ func (b *Backend) SetRemoteSDP(answer string) error {
 	if err := pc.SetRemoteDescription(webrtc.SessionDescription{Type: webrtc.SDPTypeAnswer, SDP: answer}); err != nil {
 		return err
 	}
+	if !answerHasBidirectionalOpus(answer) {
+		return fmt.Errorf("remote answer did not negotiate bidirectional Opus")
+	}
 	deadline := time.After(10 * time.Second)
 	for _, state := range states {
 		select {
@@ -432,6 +460,49 @@ func (b *Backend) SetRemoteSDP(answer string) error {
 		}
 	}
 	return nil
+}
+
+func answerHasBidirectionalOpus(answer string) bool {
+	audio := false
+	sendrecv := true
+	opus := false
+	sessionSendrecv := true
+	seenMedia := false
+	for line := range strings.SplitSeq(strings.ReplaceAll(answer, "\r\n", "\n"), "\n") {
+		lower := strings.ToLower(strings.TrimSpace(line))
+		if strings.HasPrefix(lower, "m=") {
+			if audio && sendrecv && opus {
+				return true
+			}
+			seenMedia = true
+			audio = strings.HasPrefix(lower, "m=audio ")
+			sendrecv = sessionSendrecv
+			opus = false
+			continue
+		}
+		if !seenMedia {
+			switch lower {
+			case "a=sendrecv":
+				sessionSendrecv = true
+			case "a=sendonly", "a=recvonly", "a=inactive":
+				sessionSendrecv = false
+			}
+		}
+		if !audio {
+			continue
+		}
+		if strings.HasPrefix(lower, "a=") {
+			switch lower {
+			case "a=sendrecv":
+				sendrecv = true
+			case "a=sendonly", "a=recvonly", "a=inactive":
+				sendrecv = false
+			}
+		}
+		opus = opus || (strings.HasPrefix(lower, "a=rtpmap:") &&
+			strings.Contains(lower, " opus/48000"))
+	}
+	return audio && sendrecv && opus
 }
 
 func (b *Backend) Poll(timeoutMS int) {
@@ -476,6 +547,8 @@ func (b *Backend) Poll(timeoutMS int) {
 			sink.ChannelMessage(event.channelID, event.data, event.isText)
 		case backendEventBufferedAmountLow:
 			sink.BufferedAmountLow(event.channelID)
+		case backendEventOpusFrame:
+			sink.OpusFrame(event.data)
 		}
 	}
 }
@@ -491,6 +564,24 @@ func (b *Backend) Send(channelID int, data []byte, isText bool) error {
 		return state.dc.SendText(string(data))
 	}
 	return state.dc.Send(data)
+}
+
+func (b *Backend) SendOpus(opus []byte) error {
+	if len(opus) == 0 {
+		return fmt.Errorf("empty Opus packet")
+	}
+	b.mu.Lock()
+	track := b.opusTrack
+	closed := b.closed
+	b.mu.Unlock()
+	if closed || track == nil {
+		return fmt.Errorf("Opus media is not open")
+	}
+	ticks := codecconv.OpusPacketRTPTicks(opus)
+	return track.WriteSample(media.Sample{
+		Data:     append([]byte(nil), opus...),
+		Duration: time.Duration(ticks) * time.Second / 48000,
+	})
 }
 
 func (b *Backend) BufferedAmount(channelID int) (uint64, error) {
@@ -541,6 +632,7 @@ func (b *Backend) Close() {
 	pc := b.pc
 	b.dcs = nil
 	b.pc = nil
+	b.opusTrack = nil
 	b.sink = nil
 	b.events = nil
 	b.closed = true
@@ -572,10 +664,10 @@ func (b *Backend) forwardRemoteOpus(track *webrtc.TrackRemote) {
 		if len(packet.Payload) == 0 {
 			continue
 		}
-		message := make([]byte, 1+len(packet.Payload))
-		message[0] = giznet.ProtocolOpusPacket
-		copy(message[1:], packet.Payload)
-		b.emitChannelMessage(0, message, false)
+		b.enqueue(backendEvent{
+			kind: backendEventOpusFrame,
+			data: append([]byte(nil), packet.Payload...),
+		})
 	}
 }
 
@@ -599,6 +691,23 @@ func (b *Backend) enqueue(event backendEvent) {
 	if b.closed {
 		b.mu.Unlock()
 		return
+	}
+	if event.kind == backendEventOpusFrame {
+		opusCount := 0
+		oldest := -1
+		for i := range b.events {
+			if b.events[i].kind == backendEventOpusFrame {
+				opusCount++
+				if oldest < 0 {
+					oldest = i
+				}
+			}
+		}
+		if opusCount >= 8 && oldest >= 0 {
+			copy(b.events[oldest:], b.events[oldest+1:])
+			b.events[len(b.events)-1] = backendEvent{}
+			b.events = b.events[:len(b.events)-1]
+		}
 	}
 	b.events = append(b.events, event)
 	ready := b.eventReady

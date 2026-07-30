@@ -56,6 +56,7 @@ typedef int (*gzc_rpc_frame_handler_internal_fn)(
 
 struct gzc_client {
   gzc_client_config_t config;
+  const gzc_webrtc_media_vtable_t *media;
   gzc_peer_add_ice_server_fn peer_add_ice_server;
   gzc_rtc_peer_t *peer;
   gzc_rtc_channel_t *packet_channel;
@@ -64,6 +65,11 @@ struct gzc_client {
   gzc_public_key_t server_public_key;
   gzc_buf_t local_sdp;
   gzc_buf_t packet_rx;
+  gzc_buf_t opus_rx[8];
+  size_t opus_rx_count;
+  int opus_rx_error;
+  bool read_opus_next;
+  bool media_callback_registered;
   gzc_buf_t rpc_rx;
   gzc_buf_t rpc_response;
   size_t rpc_rx_limit;
@@ -81,9 +87,88 @@ struct gzc_client {
 };
 
 enum {
-  gzc_protocol_stamped_opus_packet = 0x10,
   gzc_protocol_custom_start = 0x40,
 };
+
+static bool valid_opus_packet(const uint8_t *opus, size_t len) {
+  if (opus == NULL || len == 0 || len > GZC_OPUS_MAX_PACKET_SIZE) {
+    return false;
+  }
+  const uint8_t config = opus[0] >> 3;
+  uint32_t frame_ticks = 0;
+  if (config < 12u) {
+    static const uint16_t silk_ticks[] = {480u, 960u, 1920u, 2880u};
+    frame_ticks = silk_ticks[config & 3u];
+  } else if (config < 16u) {
+    frame_ticks = (config & 1u) == 0u ? 480u : 960u;
+  } else {
+    static const uint16_t celt_ticks[] = {120u, 240u, 480u, 960u};
+    frame_ticks = celt_ticks[config & 3u];
+  }
+  uint32_t frame_count = 1u;
+  switch (opus[0] & 3u) {
+  case 0u:
+    break;
+  case 1u:
+  case 2u:
+    frame_count = 2u;
+    break;
+  case 3u:
+    if (len < 2u) {
+      return false;
+    }
+    frame_count = opus[1] & 0x3fu;
+    if (frame_count == 0u || frame_count > 48u) {
+      return false;
+    }
+    break;
+  }
+  return frame_ticks * frame_count <= 5760u;
+}
+
+static void clear_opus_rx(gzc_client_t *client) {
+  for (size_t i = 0; i < 8u; i++) {
+    gzc_buf_reset(&client->opus_rx[i]);
+  }
+  client->opus_rx_count = 0u;
+  client->opus_rx_error = GZC_OK;
+  client->read_opus_next = false;
+}
+
+static void on_opus_frame(
+    void *userdata,
+    gzc_rtc_peer_t *peer,
+    const uint8_t *opus,
+    size_t opus_len) {
+  gzc_client_t *client = (gzc_client_t *)userdata;
+  if (client == NULL || peer != client->peer || client->closed ||
+      !client->media_callback_registered) {
+    return;
+  }
+  if (!valid_opus_packet(opus, opus_len)) {
+    client->opus_rx_error = GZC_ERR_WEBRTC;
+    return;
+  }
+  gzc_buf_t incoming;
+  gzc_buf_init(&incoming);
+  int rc = gzc_buf_append(
+      &incoming, client->config.platform, opus, opus_len);
+  if (rc != GZC_OK) {
+    gzc_buf_free(&incoming, client->config.platform);
+    client->opus_rx_error = GZC_ERR_NO_MEMORY;
+    return;
+  }
+  if (client->opus_rx_count == 8u) {
+    gzc_buf_free(&client->opus_rx[0], client->config.platform);
+    memmove(&client->opus_rx[0], &client->opus_rx[1], 7u * sizeof(client->opus_rx[0]));
+    client->opus_rx[7] = incoming;
+    return;
+  }
+  gzc_buf_t *frame = &client->opus_rx[client->opus_rx_count];
+  gzc_buf_free(frame, client->config.platform);
+  *frame = incoming;
+  client->opus_rx_count++;
+}
 
 static int64_t now_ms(gzc_client_t *client) {
   if (client->config.platform != NULL && client->config.platform->time_instant_ms != NULL) {
@@ -305,7 +390,7 @@ static bool valid_ice_url(gzc_str_t value) {
 }
 
 static bool valid_packet_protocol(uint8_t protocol) {
-  return protocol == gzc_protocol_stamped_opus_packet || protocol >= gzc_protocol_custom_start;
+  return protocol == GZC_PROTOCOL_OPUS_PACKET || protocol >= gzc_protocol_custom_start;
 }
 
 static bool valid_endpoint(gzc_str_t endpoint) {
@@ -1062,6 +1147,9 @@ int gzc_client_create(const gzc_client_config_t *config, gzc_client_t **out_clie
   client->rpc_rx_error = GZC_OK;
   gzc_buf_init(&client->local_sdp);
   gzc_buf_init(&client->packet_rx);
+  for (size_t i = 0; i < 8u; i++) {
+    gzc_buf_init(&client->opus_rx[i]);
+  }
   gzc_buf_init(&client->rpc_rx);
   gzc_buf_init(&client->rpc_response);
   *out_client = client;
@@ -1073,6 +1161,24 @@ int gzc_client_set_peer_add_ice_server(gzc_client_t *client, gzc_peer_add_ice_se
     return GZC_ERR_INVALID_ARGUMENT;
   }
   client->peer_add_ice_server = fn;
+  return GZC_OK;
+}
+
+int gzc_client_set_webrtc_media(
+    gzc_client_t *client,
+    const gzc_webrtc_media_vtable_t *media) {
+  if (client == NULL || client->peer != NULL || client->packet_channel != NULL ||
+      client->rpc_channel != NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  if (media != NULL &&
+      (media->struct_size < offsetof(gzc_webrtc_media_vtable_t, peer_send_opus) +
+                                sizeof(media->peer_send_opus) ||
+       media->peer_set_opus_frame_callback == NULL ||
+       media->peer_send_opus == NULL)) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  client->media = media;
   return GZC_OK;
 }
 
@@ -1093,6 +1199,7 @@ int gzc_client_connect(gzc_client_t *client) {
   client->rpc_frame_handler_userdata = NULL;
   gzc_buf_reset(&client->local_sdp);
   gzc_buf_reset(&client->packet_rx);
+  clear_opus_rx(client);
   gzc_buf_reset(&client->rpc_rx);
   gzc_buf_reset(&client->rpc_response);
   gzc_webrtc_callbacks_t callbacks;
@@ -1108,6 +1215,16 @@ int gzc_client_connect(gzc_client_t *client) {
   int rc = client->config.webrtc->peer_create(client->config.webrtc->userdata, &callbacks, &client->peer);
   if (rc != GZC_OK) {
     goto fail;
+  }
+  if (client->media != NULL) {
+    rc = client->media->peer_set_opus_frame_callback(
+        client->peer, on_opus_frame, client);
+    if (rc != GZC_OK) {
+      (void)client->media->peer_set_opus_frame_callback(
+          client->peer, NULL, NULL);
+      goto fail;
+    }
+    client->media_callback_registered = true;
   }
 
   gzc_rtc_channel_config_t packet_cfg;
@@ -1209,6 +1326,10 @@ int gzc_client_connect(gzc_client_t *client) {
   return GZC_OK;
 
 fail:
+  if (client->peer != NULL && client->media_callback_registered) {
+    (void)client->media->peer_set_opus_frame_callback(client->peer, NULL, NULL);
+    client->media_callback_registered = false;
+  }
   if (client->rpc_channel != NULL) {
     if (client->config.webrtc->channel_close != NULL) {
       client->config.webrtc->channel_close(client->rpc_channel);
@@ -1234,6 +1355,7 @@ fail:
   client->has_local_sdp = false;
   gzc_buf_reset(&client->rpc_rx);
   gzc_buf_reset(&client->packet_rx);
+  clear_opus_rx(client);
   return rc;
 }
 
@@ -1242,6 +1364,11 @@ int gzc_client_close(gzc_client_t *client) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
   client->closed = true;
+  if (client->peer != NULL && client->media_callback_registered) {
+    (void)client->media->peer_set_opus_frame_callback(client->peer, NULL, NULL);
+    client->media_callback_registered = false;
+  }
+  clear_opus_rx(client);
   if (client->peer != NULL && client->config.webrtc->channel_close != NULL) {
     for (size_t i = 0; i < GZC_RPC_MAX_INBOUND_CHANNELS; i++) {
       if (client->inbound_channels[i] != NULL) {
@@ -1399,6 +1526,9 @@ void gzc_client_destroy(gzc_client_t *client) {
   (void)gzc_client_close(client);
   gzc_buf_free(&client->local_sdp, platform);
   gzc_buf_free(&client->packet_rx, platform);
+  for (size_t i = 0; i < 8u; i++) {
+    gzc_buf_free(&client->opus_rx[i], platform);
+  }
   gzc_buf_free(&client->rpc_rx, platform);
   gzc_buf_free(&client->rpc_response, platform);
   platform->free(platform->userdata, client);
@@ -1762,15 +1892,29 @@ void gzc_service_channel_close(gzc_service_channel_t *channel) {
 }
 
 int gzc_client_send_packet(gzc_client_t *client, uint8_t protocol, const uint8_t *payload, size_t len) {
-  if (client == NULL || (payload == NULL && len != 0) || client->packet_channel == NULL || !client->packet_channel_open ||
-      client->config.webrtc == NULL || client->config.webrtc->channel_send == NULL) {
+  if (client == NULL || (payload == NULL && len != 0) ||
+      !valid_packet_protocol(protocol)) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  if (protocol == GZC_PROTOCOL_OPUS_PACKET) {
+    if (!valid_opus_packet(payload, len)) {
+      return GZC_ERR_INVALID_ARGUMENT;
+    }
+    if (client->closed || client->peer == NULL) {
+      return GZC_ERR_CLOSED;
+    }
+    if (client->media == NULL) {
+      return GZC_ERR_UNSUPPORTED;
+    }
+    return client->media->peer_send_opus(client->peer, payload, len);
+  }
+  if (client->packet_channel == NULL || !client->packet_channel_open ||
+      client->config.webrtc == NULL ||
+      client->config.webrtc->channel_send == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
   if (len > GZC_RPC_MAX_FRAME_SIZE - 1) {
     return GZC_ERR_RPC;
-  }
-  if (!valid_packet_protocol(protocol)) {
-    return GZC_ERR_INVALID_ARGUMENT;
   }
   gzc_buf_t message;
   gzc_buf_init(&message);
@@ -1791,13 +1935,30 @@ int gzc_client_read_packet(gzc_client_t *client, int timeout_ms, uint8_t *out_pr
   }
   const int64_t start = now_ms(client);
   size_t message_size = 0;
+  bool read_opus = false;
   for (;;) {
+    if (client->opus_rx_error != GZC_OK) {
+      int rc = client->opus_rx_error;
+      client->opus_rx_error = GZC_OK;
+      return rc;
+    }
     int rc = rx_next_packet_size(&client->packet_rx, &message_size);
-    if (rc == GZC_OK) {
+    bool packet_ready = rc == GZC_OK;
+    bool opus_ready = client->opus_rx_count != 0u;
+    if (packet_ready || opus_ready) {
+      if (packet_ready && opus_ready) {
+        read_opus = client->read_opus_next;
+        client->read_opus_next = !client->read_opus_next;
+      } else {
+        read_opus = opus_ready;
+      }
       break;
     }
     if (rc != GZC_ERR_TIMEOUT) {
       return rc;
+    }
+    if (timeout_ms >= 0 && now_ms(client) - start >= timeout_ms) {
+      return GZC_ERR_TIMEOUT;
     }
     if (client->closed) {
       return GZC_ERR_CLOSED;
@@ -1809,9 +1970,25 @@ int gzc_client_read_packet(gzc_client_t *client, int timeout_ms, uint8_t *out_pr
     if (rc != GZC_OK) {
       return rc;
     }
-    if (timeout_ms >= 0 && now_ms(client) - start >= timeout_ms) {
-      return GZC_ERR_TIMEOUT;
+  }
+  if (read_opus) {
+    *out_protocol = GZC_PROTOCOL_OPUS_PACKET;
+    gzc_buf_reset(out_payload);
+    int rc = gzc_buf_append(
+        out_payload,
+        client->config.platform,
+        client->opus_rx[0].data,
+        client->opus_rx[0].len);
+    if (rc != GZC_OK) {
+      return rc;
     }
+    gzc_buf_t consumed = client->opus_rx[0];
+    memmove(&client->opus_rx[0], &client->opus_rx[1],
+            7u * sizeof(client->opus_rx[0]));
+    client->opus_rx[7] = consumed;
+    gzc_buf_reset(&client->opus_rx[7]);
+    client->opus_rx_count--;
+    return GZC_OK;
   }
   size_t payload_len = message_size - 3;
   uint8_t protocol = client->packet_rx.data[2];

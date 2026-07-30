@@ -9,7 +9,7 @@
 extern "C" {
 #endif
 
-#define GZC_API_VERSION 2
+#define GZC_API_VERSION 3
 
 typedef enum {
   GZC_OK = 0,

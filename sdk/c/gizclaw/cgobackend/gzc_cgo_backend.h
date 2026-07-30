@@ -27,6 +27,8 @@ struct gzc_rtc_channel {
 struct gzc_cgo_backend {
   uint64_t handle;
   gzc_webrtc_callbacks_t callbacks;
+  gzc_rtc_opus_frame_cb opus_callback;
+  void *opus_callback_userdata;
   struct gzc_rtc_peer peer;
   struct gzc_rtc_channel packet_channel;
   struct gzc_rtc_channel rpc_channel;
@@ -43,12 +45,19 @@ void gzc_cgo_backend_deinit(gzc_cgo_backend_t *backend);
 void gzc_cgo_backend_http_vtable(gzc_cgo_backend_t *backend, gzc_http_vtable_t *out_http);
 void gzc_cgo_backend_crypto_vtable(gzc_cgo_backend_t *backend, gzc_platform_crypto_t *out_crypto);
 void gzc_cgo_backend_webrtc_vtable(gzc_cgo_backend_t *backend, gzc_webrtc_vtable_t *out_webrtc);
+void gzc_cgo_backend_webrtc_media_vtable(
+    gzc_cgo_backend_t *backend,
+    gzc_webrtc_media_vtable_t *out_media);
 int gzc_cgo_backend_peer_add_ice_server(gzc_rtc_peer_t *peer, gzc_str_t url, gzc_str_t username, gzc_str_t credential);
 
 void gzc_cgo_emit_channel_state(gzc_cgo_backend_t *backend, int channel_id, gzc_rtc_channel_state_t state);
 void gzc_cgo_emit_channel_message(gzc_cgo_backend_t *backend, int channel_id, const uint8_t *data, size_t len, bool is_text);
 void gzc_cgo_emit_channel_buffered_amount_low(gzc_cgo_backend_t *backend, int channel_id);
 void gzc_cgo_emit_remote_channel(gzc_cgo_backend_t *backend, int channel_id, const char *label, size_t label_len, bool ordered, bool reliable);
+void gzc_cgo_emit_opus_frame(
+    gzc_cgo_backend_t *backend,
+    const uint8_t *opus,
+    size_t opus_len);
 
 #ifdef __cplusplus
 }

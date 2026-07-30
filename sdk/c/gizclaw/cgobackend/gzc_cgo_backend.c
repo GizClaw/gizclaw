@@ -22,6 +22,7 @@ int gzcGoPeerSetRemoteSDP(uint64_t handle, const char *sdp, size_t len);
 int gzcGoPeerCreateDataChannel(uint64_t handle, const char *label, size_t len, int channel_id, bool ordered, bool reliable);
 int gzcGoPeerPoll(uint64_t handle, int timeout_ms);
 int gzcGoChannelSend(uint64_t handle, int channel_id, const uint8_t *data, size_t len, bool is_text);
+int gzcGoPeerSendOpus(uint64_t handle, const uint8_t *data, size_t len);
 int gzcGoChannelBufferedAmount(uint64_t handle, int channel_id, uint64_t *out_bytes);
 int gzcGoChannelSetBufferedAmountLowThreshold(uint64_t handle, int channel_id, uint64_t bytes);
 void gzcGoChannelClose(uint64_t handle, int channel_id);
@@ -452,6 +453,8 @@ static void bridge_channel_close(gzc_rtc_channel_t *channel) {
 
 static void bridge_peer_close(gzc_rtc_peer_t *peer) {
   if (peer != NULL && peer->backend != NULL) {
+    peer->backend->opus_callback = NULL;
+    peer->backend->opus_callback_userdata = NULL;
     gzcGoPeerClose(peer->backend->handle);
   }
 }
@@ -470,6 +473,89 @@ void gzc_cgo_backend_webrtc_vtable(gzc_cgo_backend_t *backend, gzc_webrtc_vtable
       bridge_channel_set_buffered_amount_low_threshold;
   out_webrtc->channel_close = bridge_channel_close;
   out_webrtc->peer_close = bridge_peer_close;
+}
+
+static int bridge_peer_set_opus_frame_callback(
+    gzc_rtc_peer_t *peer,
+    gzc_rtc_opus_frame_cb callback,
+    void *callback_userdata) {
+  gzc_cgo_backend_t *backend = peer == NULL ? NULL : peer->backend;
+  if (backend == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  backend->opus_callback = callback;
+  backend->opus_callback_userdata = callback_userdata;
+  return GZC_OK;
+}
+
+static bool bridge_valid_opus_packet(const uint8_t *opus, size_t opus_len) {
+  if (opus == NULL || opus_len == 0 || opus_len > GZC_OPUS_MAX_PACKET_SIZE) {
+    return false;
+  }
+  const uint8_t config = opus[0] >> 3;
+  const uint32_t silk_ticks[] = {480u, 960u, 1920u, 2880u};
+  const uint32_t celt_ticks[] = {120u, 240u, 480u, 960u};
+  uint32_t ticks = config < 12u
+                       ? silk_ticks[config & 3u]
+                       : (config < 16u
+                              ? ((config & 1u) == 0u ? 480u : 960u)
+                              : celt_ticks[config & 3u]);
+  uint32_t count = 1u;
+  switch (opus[0] & 3u) {
+  case 0u:
+    break;
+  case 1u:
+  case 2u:
+    count = 2u;
+    break;
+  case 3u:
+    if (opus_len < 2u) {
+      return false;
+    }
+    count = opus[1] & 0x3fu;
+    if (count == 0u || count > 48u) {
+      return false;
+    }
+    break;
+  }
+  return ticks * count <= 5760u;
+}
+
+static int bridge_peer_send_opus(
+    gzc_rtc_peer_t *peer,
+    const uint8_t *opus,
+    size_t opus_len) {
+  gzc_cgo_backend_t *backend = peer == NULL ? NULL : peer->backend;
+  if (backend == NULL || !bridge_valid_opus_packet(opus, opus_len)) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  return gzcGoPeerSendOpus(backend->handle, opus, opus_len);
+}
+
+void gzc_cgo_backend_webrtc_media_vtable(
+    gzc_cgo_backend_t *backend,
+    gzc_webrtc_media_vtable_t *out_media) {
+  memset(out_media, 0, sizeof(*out_media));
+  (void)backend;
+  out_media->struct_size = sizeof(*out_media);
+  out_media->peer_set_opus_frame_callback =
+      bridge_peer_set_opus_frame_callback;
+  out_media->peer_send_opus = bridge_peer_send_opus;
+}
+
+void gzc_cgo_emit_opus_frame(
+    gzc_cgo_backend_t *backend,
+    const uint8_t *opus,
+    size_t opus_len) {
+  if (backend == NULL || opus == NULL || opus_len == 0 ||
+      backend->opus_callback == NULL) {
+    return;
+  }
+  backend->opus_callback(
+      backend->opus_callback_userdata,
+      &backend->peer,
+      opus,
+      opus_len);
 }
 
 static gzc_rtc_channel_t *remote_channel_by_id(gzc_cgo_backend_t *backend, int channel_id) {
