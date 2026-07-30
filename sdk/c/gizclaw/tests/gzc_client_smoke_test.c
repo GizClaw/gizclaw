@@ -1947,6 +1947,22 @@ int main(void) {
     gzc_buf_free(&received_packet_payload, platform);
     return 1;
   }
+  const uint8_t remote_opus[] = {0xf8u, 0x01u, 0x02u};
+  fake_webrtc.callbacks.on_remote_opus(
+      fake_webrtc.callbacks.userdata,
+      &fake_webrtc.peer,
+      remote_opus,
+      sizeof(remote_opus));
+  rc = gzc_client_read_packet(client, 0, &received_protocol,
+                              &received_packet_payload);
+  if (expect(rc == GZC_OK && received_protocol == 0x10u &&
+                 received_packet_payload.len == sizeof(remote_opus) &&
+                 memcmp(received_packet_payload.data, remote_opus,
+                        sizeof(remote_opus)) == 0,
+             "read remote RTP opus packet") != 0) {
+    gzc_buf_free(&received_packet_payload, platform);
+    return 1;
+  }
   gzc_buf_free(&received_packet_payload, platform);
   uint8_t *max_telemetry_payload = (uint8_t *)platform->malloc(platform->userdata, GZC_RPC_MAX_FRAME_SIZE);
   if (expect(max_telemetry_payload != NULL, "allocate max telemetry packet") != 0) {

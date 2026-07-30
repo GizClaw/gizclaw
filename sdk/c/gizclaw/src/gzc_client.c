@@ -701,6 +701,31 @@ static int append_framed_rx(gzc_buf_t *rx, const gzc_platform_t *platform, const
   return gzc_buf_append(rx, platform, data, len);
 }
 
+static int append_protocol_rx(
+    gzc_buf_t *rx,
+    const gzc_platform_t *platform,
+    uint8_t protocol,
+    const uint8_t *payload,
+    size_t len) {
+  if (rx == NULL || (payload == NULL && len != 0) ||
+      len >= GZC_RPC_MAX_FRAME_SIZE || !valid_packet_protocol(protocol)) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  const size_t message_len = len + 1u;
+  uint8_t header[2] = {
+      (uint8_t)(message_len & 0xffu),
+      (uint8_t)((message_len >> 8) & 0xffu),
+  };
+  int rc = gzc_buf_append(rx, platform, header, sizeof(header));
+  if (rc == GZC_OK) {
+    rc = gzc_buf_append(rx, platform, &protocol, 1u);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_buf_append(rx, platform, payload, len);
+  }
+  return rc;
+}
+
 static void on_peer_state(void *userdata, gzc_rtc_peer_t *peer, gzc_rtc_peer_state_t state) {
   (void)peer;
   gzc_client_t *client = (gzc_client_t *)userdata;
@@ -709,6 +734,27 @@ static void on_peer_state(void *userdata, gzc_rtc_peer_t *peer, gzc_rtc_peer_sta
   }
   if (state == GZC_RTC_PEER_FAILED || state == GZC_RTC_PEER_CLOSED) {
     client->closed = true;
+  }
+}
+
+static void on_remote_opus(
+    void *userdata,
+    gzc_rtc_peer_t *peer,
+    const uint8_t *opus,
+    size_t len) {
+  (void)peer;
+  gzc_client_t *client = (gzc_client_t *)userdata;
+  if (client == NULL || client->closed || opus == NULL || len == 0u) {
+    return;
+  }
+  const int rc = append_protocol_rx(
+      &client->packet_rx,
+      client->config.platform,
+      gzc_protocol_stamped_opus_packet,
+      opus,
+      len);
+  if (rc != GZC_OK) {
+    client->dispatch_error = rc;
   }
 }
 
@@ -1035,6 +1081,7 @@ int gzc_client_connect(gzc_client_t *client) {
   callbacks.on_local_sdp = on_local_sdp;
   callbacks.on_channel_state = on_channel_state;
   callbacks.on_channel_message = on_channel_message;
+  callbacks.on_remote_opus = on_remote_opus;
   callbacks.on_channel_buffered_amount_low = on_channel_buffered_amount_low;
   callbacks.on_remote_channel = on_remote_channel;
 
