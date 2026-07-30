@@ -25,12 +25,14 @@ typedef enum {
   FAKE_RESPONSE_PROTO_ERROR = 4,
   FAKE_RESPONSE_SPEECH_TRANSCRIBE = 5,
   FAKE_RESPONSE_SPEECH_SYNTHESIZE = 6,
-  FAKE_RESPONSE_SPEECH_EXTRACT = 7
+  FAKE_RESPONSE_SPEECH_EXTRACT = 7,
+  FAKE_RESPONSE_SPEED_TEST = 8
 } fake_response_mode_t;
 
 typedef struct {
   int64_t instant_ms;
   int64_t unix_ms;
+  int64_t instant_step_ms;
 } fake_clock_t;
 
 typedef struct {
@@ -65,6 +67,16 @@ typedef struct {
   bool drain_on_poll;
   bool emit_low_event;
   fake_response_mode_t response_mode;
+  bool speed_request_seen;
+  int64_t speed_upload_bytes;
+  int64_t speed_ack_up_bytes;
+  int64_t speed_ack_down_bytes;
+  int64_t speed_download_bytes;
+  gzc_rtc_channel_t *speed_response_channel;
+  bool speed_upload_eos_seen;
+  bool speed_response_eos_sent;
+  bool speed_full_duplex_observed;
+  bool speed_flood_download;
 } fake_webrtc_t;
 
 typedef struct {
@@ -96,6 +108,8 @@ typedef struct {
 } fake_tool_handler_t;
 
 static fake_webrtc_t *global_fake_webrtc;
+
+static int send_fake_speed_download(fake_webrtc_t *fake);
 
 static int test_tool_handler(
     void *userdata,
@@ -173,7 +187,11 @@ static int test_rpc_provider(
 
 static int64_t test_time_instant_ms(void *userdata) {
   fake_clock_t *clock = (fake_clock_t *)userdata;
-  return clock == NULL ? 0 : clock->instant_ms;
+  if (clock == NULL) {
+    return 0;
+  }
+  clock->instant_ms += clock->instant_step_ms;
+  return clock->instant_ms;
 }
 
 static int64_t test_time_unix_ms(void *userdata) {
@@ -355,6 +373,10 @@ static int test_peer_poll(gzc_rtc_peer_t *peer, int timeout_ms) {
           &fake->rpc_channel);
     }
   }
+  if (fake->response_mode == FAKE_RESPONSE_SPEED_TEST &&
+      fake->speed_request_seen) {
+    return send_fake_speed_download(fake);
+  }
   return GZC_OK;
 }
 
@@ -506,6 +528,130 @@ static size_t first_frame_size(const gzc_buf_t *bytes) {
   return 4 + ((size_t)bytes->data[0] | ((size_t)bytes->data[1] << 8));
 }
 
+static int send_fake_speed_response_envelope(
+    fake_webrtc_t *fake,
+    gzc_rtc_channel_t *channel) {
+  gzc_buf_t result;
+  gzc_buf_t response;
+  gzc_buf_t framed;
+  gzc_buf_init(&result);
+  gzc_buf_init(&response);
+  gzc_buf_init(&framed);
+  int rc = append_test_proto_varint(
+      fake->platform, &result, 1, (uint64_t)fake->speed_ack_down_bytes);
+  if (rc == GZC_OK) {
+    rc = append_test_proto_varint(
+        fake->platform, &result, 2, (uint64_t)fake->speed_ack_up_bytes);
+  }
+  if (rc == GZC_OK) {
+    rc = append_test_proto_bytes(
+        fake->platform, &response, 1,
+        (const uint8_t *)"1", 1u);
+  }
+  if (rc == GZC_OK) {
+    rc = append_test_proto_bytes(
+        fake->platform, &response, 2, result.data, result.len);
+  }
+  if (rc == GZC_OK) {
+    rc = append_test_frame(
+        fake->platform, &framed, GZC_RPC_FRAME_BINARY,
+        response.data, response.len);
+  }
+  if (rc == GZC_OK) {
+    fake->callbacks.on_channel_message(
+        fake->callbacks.userdata, &fake->peer, channel, NULL,
+        framed.data, framed.len, false);
+  }
+  gzc_buf_free(&result, fake->platform);
+  gzc_buf_free(&response, fake->platform);
+  gzc_buf_free(&framed, fake->platform);
+  return rc;
+}
+
+static int send_fake_speed_download(fake_webrtc_t *fake) {
+  if (fake == NULL || fake->speed_response_channel == NULL ||
+      fake->speed_response_eos_sent) {
+    return GZC_OK;
+  }
+  if (fake->speed_flood_download) {
+    static const uint8_t flood[66u * 1024u] = {0};
+    fake->speed_flood_download = false;
+    fake->callbacks.on_channel_message(
+        fake->callbacks.userdata,
+        &fake->peer,
+        fake->speed_response_channel,
+        NULL,
+        flood,
+        sizeof(flood),
+        false);
+    return GZC_OK;
+  }
+  gzc_buf_t framed;
+  gzc_buf_init(&framed);
+  static const uint8_t payload[32u * 1024u] = {0};
+  int rc = GZC_OK;
+  for (size_t frame_count = 0;
+       rc == GZC_OK && frame_count < 16u &&
+       fake->speed_download_bytes < fake->speed_ack_down_bytes;
+       frame_count++) {
+    gzc_buf_reset(&framed);
+    size_t count =
+        (size_t)(fake->speed_ack_down_bytes - fake->speed_download_bytes);
+    if (count > sizeof(payload)) {
+      count = sizeof(payload);
+    }
+    rc = append_test_frame(
+        fake->platform,
+        &framed,
+        GZC_RPC_FRAME_BINARY,
+        payload,
+        count);
+    if (rc == GZC_OK) {
+      fake->speed_download_bytes += (int64_t)count;
+      if (!fake->speed_upload_eos_seen &&
+          (fake->speed_upload_bytes > 0 || fake->outgoing.len > 0)) {
+        fake->speed_full_duplex_observed = true;
+      }
+    }
+    if (rc == GZC_OK) {
+      fake->callbacks.on_channel_message(
+          fake->callbacks.userdata,
+          &fake->peer,
+          fake->speed_response_channel,
+          NULL,
+          framed.data,
+          framed.len,
+          false);
+    }
+  }
+  gzc_buf_reset(&framed);
+  if (rc == GZC_OK &&
+      fake->speed_download_bytes >= fake->speed_ack_down_bytes &&
+      fake->speed_upload_eos_seen) {
+    rc = append_test_frame(
+        fake->platform,
+        &framed,
+        GZC_RPC_FRAME_EOS,
+        NULL,
+        0);
+    if (rc == GZC_OK) {
+      fake->speed_response_eos_sent = true;
+    }
+    if (rc == GZC_OK) {
+      fake->callbacks.on_channel_message(
+          fake->callbacks.userdata,
+          &fake->peer,
+          fake->speed_response_channel,
+          NULL,
+          framed.data,
+          framed.len,
+          false);
+    }
+  }
+  gzc_buf_free(&framed, fake->platform);
+  return rc;
+}
+
 static int test_channel_send_frame(gzc_rtc_channel_t *channel, const uint8_t *data, size_t len, bool is_text) {
   fake_webrtc_t *fake = global_fake_webrtc;
   if (channel == &fake->packet_channel && !is_text) {
@@ -526,8 +672,44 @@ static int test_channel_send_frame(gzc_rtc_channel_t *channel, const uint8_t *da
   }
   gzc_rtc_channel_t *response_channel = channel;
   gzc_rpc_frame_t request_frame;
-  bool is_eos = gzc_rpc_frame_decode(data, len, &request_frame) == GZC_OK &&
-                request_frame.type == GZC_RPC_FRAME_EOS;
+  int frame_rc = gzc_rpc_frame_decode(data, len, &request_frame);
+  bool is_eos =
+      frame_rc == GZC_OK && request_frame.type == GZC_RPC_FRAME_EOS;
+  if (fake->response_mode == FAKE_RESPONSE_SPEED_TEST) {
+    if (frame_rc != GZC_OK) {
+      return frame_rc;
+    }
+    if (request_frame.type == GZC_RPC_FRAME_BINARY) {
+      if (!fake->speed_request_seen) {
+        unsigned method_id = 0;
+        int rc = read_test_proto_method_id(
+            gzc_str_from_parts(
+                (const char *)request_frame.data, request_frame.len),
+            &method_id);
+        if (rc != GZC_OK ||
+            method_id !=
+                gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_SPEED_TEST_RUN) {
+          return GZC_ERR_RPC;
+        }
+        fake->speed_request_seen = true;
+        fake->speed_response_channel = response_channel;
+        return send_fake_speed_response_envelope(
+            fake,
+            response_channel);
+      } else {
+        fake->speed_upload_bytes += (int64_t)request_frame.len;
+      }
+      return gzc_buf_append(
+          &fake->sent, fake->platform, data, len);
+    }
+    if (request_frame.type != GZC_RPC_FRAME_EOS ||
+        !fake->speed_request_seen ||
+        fake->speed_upload_bytes != fake->speed_ack_up_bytes) {
+      return GZC_ERR_RPC;
+    }
+    fake->speed_upload_eos_seen = true;
+    return GZC_OK;
+  }
   if ((fake->response_mode == FAKE_RESPONSE_SPEECH_TRANSCRIBE ||
        fake->response_mode == FAKE_RESPONSE_SPEECH_EXTRACT) &&
       !is_eos) {
@@ -1098,7 +1280,11 @@ int main(void) {
     return 1;
   }
 
-  fake_clock_t clock = {1000, INT64_C(1700000000000)};
+  fake_clock_t clock = {
+      .instant_ms = 1000,
+      .unix_ms = INT64_C(1700000000000),
+      .instant_step_ms = 0,
+  };
   gzc_platform_t test_platform = *gzc_default_platform();
   test_platform.userdata = &clock;
   test_platform.time_instant_ms = test_time_instant_ms;
@@ -1749,6 +1935,132 @@ int main(void) {
                  stream_count.binary_bytes == 3 &&
                  stream_count.eos_count == 1,
              "stream frames and terminal eos counted") != 0) {
+    return 1;
+  }
+
+  fake_webrtc.response_mode = FAKE_RESPONSE_SPEED_TEST;
+  fake_webrtc.speed_request_seen = false;
+  fake_webrtc.speed_upload_bytes = 0;
+  fake_webrtc.speed_ack_up_bytes = 64 * 1024 + 3;
+  fake_webrtc.speed_ack_down_bytes = 16 * 32 * 1024 + 5;
+  fake_webrtc.speed_download_bytes = 0;
+  fake_webrtc.speed_response_channel = NULL;
+  fake_webrtc.speed_upload_eos_seen = false;
+  fake_webrtc.speed_response_eos_sent = false;
+  fake_webrtc.speed_full_duplex_observed = false;
+  fake_webrtc.speed_flood_download = false;
+  int channel_count_before_speed = fake_webrtc.create_channel_count;
+  gizclaw_rpc_v1_SpeedTestRequest speed_test =
+      gizclaw_rpc_v1_SpeedTestRequest_init_zero;
+  speed_test.up_content_length = fake_webrtc.speed_ack_up_bytes;
+  speed_test.down_content_length = fake_webrtc.speed_ack_down_bytes;
+  gzc_rpc_speed_test_result_t speed_result = {
+      .up_bytes = -1,
+      .down_bytes = -1,
+  };
+  clock.instant_step_ms = 5;
+  rc = gzc_rpc_speed_test(client, &speed_test, &speed_result);
+  clock.instant_step_ms = 0;
+  if (expect(rc == GZC_OK, "persistent RPC speed test") != 0 ||
+      expect(
+          speed_result.up_bytes == speed_test.up_content_length &&
+              speed_result.down_bytes == speed_test.down_content_length,
+          "persistent RPC speed test counts both directions") != 0 ||
+      expect(
+          speed_result.duration_ms >= speed_result.up_duration_ms &&
+              speed_result.duration_ms >=
+                  speed_result.down_duration_ms &&
+              speed_result.up_duration_ms <
+                  speed_result.down_duration_ms &&
+              speed_result.up_duration_ms > 0 &&
+              speed_result.down_duration_ms > 0,
+          "persistent RPC speed test records direction durations") != 0 ||
+      expect(
+          speed_result.up_mbps ==
+                  ((double)speed_result.up_bytes * 8.0) /
+                      ((double)speed_result.up_duration_ms * 1000.0) &&
+              speed_result.down_mbps ==
+                  ((double)speed_result.down_bytes * 8.0) /
+                      ((double)speed_result.down_duration_ms * 1000.0),
+          "persistent RPC speed test records direction rates") != 0 ||
+      expect(
+          fake_webrtc.speed_upload_bytes ==
+              speed_test.up_content_length,
+          "persistent RPC speed test uploads the requested bytes") != 0 ||
+      expect(
+          fake_webrtc.speed_download_bytes ==
+                  speed_test.down_content_length &&
+              fake_webrtc.speed_upload_eos_seen &&
+              fake_webrtc.speed_response_eos_sent &&
+              fake_webrtc.speed_full_duplex_observed,
+          "persistent RPC speed test progresses both directions together") !=
+          0 ||
+      expect(
+          fake_webrtc.create_channel_count == channel_count_before_speed,
+          "persistent RPC speed test does not create a DataChannel") != 0) {
+    return 1;
+  }
+  fake_webrtc.response_mode = FAKE_RESPONSE_PROTO;
+  memset(&response, 0, sizeof(response));
+  rc = gzc_rpc_call(
+      client,
+      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
+      gzc_str_from_parts((const char *)params.data, params.len),
+      &response);
+  if (expect(rc == GZC_OK,
+             "persistent RPC remains usable after speed test") != 0 ||
+      expect(
+          fake_webrtc.create_channel_count == channel_count_before_speed,
+          "post-speed RPC reuses the same DataChannel") != 0) {
+    return 1;
+  }
+  fake_webrtc.response_mode = FAKE_RESPONSE_SPEED_TEST;
+  fake_webrtc.speed_request_seen = false;
+  fake_webrtc.speed_upload_bytes = 0;
+  fake_webrtc.speed_ack_up_bytes = 1024;
+  fake_webrtc.speed_ack_down_bytes = 1;
+  fake_webrtc.speed_download_bytes = 0;
+  fake_webrtc.speed_response_channel = NULL;
+  fake_webrtc.speed_upload_eos_seen = false;
+  fake_webrtc.speed_response_eos_sent = false;
+  fake_webrtc.speed_full_duplex_observed = false;
+  fake_webrtc.speed_flood_download = true;
+  speed_test.up_content_length = fake_webrtc.speed_ack_up_bytes;
+  speed_test.down_content_length = fake_webrtc.speed_ack_down_bytes;
+  int close_count_before_flood = fake_webrtc.close_count;
+  memset(&speed_result, 0xff, sizeof(speed_result));
+  rc = gzc_rpc_speed_test(client, &speed_test, &speed_result);
+  if (expect(rc == GZC_ERR_NO_MEMORY,
+             "speed test rejects an over-limit download buffer") != 0 ||
+      expect(speed_result.up_bytes == 0 &&
+                 speed_result.down_bytes == 0 &&
+                 speed_result.duration_ms == 0 &&
+                 speed_result.up_duration_ms == 0 &&
+                 speed_result.down_duration_ms == 0 &&
+                 speed_result.up_mbps == 0.0 &&
+                 speed_result.down_mbps == 0.0,
+             "failed speed test clears partial metrics") != 0 ||
+      expect(fake_webrtc.close_count == close_count_before_flood + 1 &&
+                 fake_webrtc.last_closed ==
+                     fake_webrtc.speed_response_channel,
+             "speed test receive overflow closes the RPC channel") != 0) {
+    return 1;
+  }
+  gzc_buf_reset(&fake_webrtc.outgoing);
+  fake_webrtc.response_mode = FAKE_RESPONSE_PROTO;
+  speed_test.up_content_length = -1;
+  memset(&speed_result, 0xff, sizeof(speed_result));
+  rc = gzc_rpc_speed_test(client, &speed_test, &speed_result);
+  if (expect(rc == GZC_ERR_INVALID_ARGUMENT,
+             "speed test rejects negative lengths") != 0 ||
+      expect(
+          speed_result.up_bytes == 0 && speed_result.down_bytes == 0 &&
+              speed_result.duration_ms == 0 &&
+              speed_result.up_duration_ms == 0 &&
+              speed_result.down_duration_ms == 0 &&
+              speed_result.up_mbps == 0.0 &&
+              speed_result.down_mbps == 0.0,
+          "failed speed test clears its output") != 0) {
     return 1;
   }
 

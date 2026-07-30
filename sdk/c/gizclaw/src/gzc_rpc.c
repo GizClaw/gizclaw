@@ -12,10 +12,26 @@
 #define GZC_RPC_SPEECH_EXTRACTION_TIMEOUT_MS 125000
 #define GZC_RPC_SPEECH_TRANSCRIPTION_TIMEOUT_MS 80000
 #define GZC_RPC_SPEECH_SYNTHESIS_TIMEOUT_MS 125000
+#define GZC_RPC_SPEED_TEST_FRAME_SIZE (32u * 1024u)
+#define GZC_RPC_SPEED_TEST_MAX_CONTENT_LENGTH (INT64_C(1) << 30)
+#define GZC_RPC_SPEED_TEST_RX_LIMIT \
+  (2u * (GZC_RPC_SPEED_TEST_FRAME_SIZE + 4u))
+#define GZC_RPC_SPEED_TEST_TIMEOUT_MS 120000
 #define GZC_SERVICE_PEER_RPC 0x00u
 #define GZC_SERVICE_EDGE_RPC 0x31u
 
 int gzc_client_reset_rpc_rx_internal(gzc_client_t *client);
+int gzc_client_set_rpc_rx_limit_internal(
+    gzc_client_t *client,
+    size_t limit);
+typedef int (*gzc_rpc_frame_handler_internal_fn)(
+    void *userdata,
+    const uint8_t *frame_bytes,
+    size_t frame_len);
+int gzc_client_set_rpc_frame_handler_internal(
+    gzc_client_t *client,
+    gzc_rpc_frame_handler_internal_fn handler,
+    void *userdata);
 int gzc_client_open_rpc_channel_internal(gzc_client_t *client, int timeout_ms);
 void gzc_client_close_rpc_channel_internal(gzc_client_t *client);
 int gzc_client_read_rpc_frame_internal(gzc_client_t *client, int timeout_ms, gzc_buf_t *out_frame_bytes);
@@ -164,11 +180,12 @@ static bool is_edge_rpc_method(gizclaw_rpc_v1_RpcMethod method) {
          method == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_ROUTE_RESOLVE;
 }
 
-static int send_request_envelope(
+static int send_request_envelope_internal(
     gzc_client_t *client,
     const gzc_platform_t *platform,
     gizclaw_rpc_v1_RpcMethod method,
-    gzc_str_t params_payload) {
+    gzc_str_t params_payload,
+    bool end_request) {
   gzc_buf_t request;
   gzc_buf_init(&request);
   int rc = gzc_rpc_encode_request_envelope(platform, gzc_str_from_cstr("1"), method, params_payload, &request);
@@ -189,7 +206,7 @@ static int send_request_envelope(
     rc = gzc_client_write_rpc_frame_internal(client, &frame);
     offset += chunk;
   }
-  if (rc == GZC_OK) {
+  if (rc == GZC_OK && end_request) {
     gzc_rpc_frame_t eos;
     memset(&eos, 0, sizeof(eos));
     eos.type = GZC_RPC_FRAME_EOS;
@@ -197,6 +214,15 @@ static int send_request_envelope(
   }
   gzc_buf_free(&request, platform);
   return rc;
+}
+
+static int send_request_envelope(
+    gzc_client_t *client,
+    const gzc_platform_t *platform,
+    gizclaw_rpc_v1_RpcMethod method,
+    gzc_str_t params_payload) {
+  return send_request_envelope_internal(
+      client, platform, method, params_payload, true);
 }
 
 static int send_request_envelope_service(
@@ -617,6 +643,362 @@ int gzc_rpc_call_stream(
     void *userdata) {
   return gzc_rpc_call_stream_with_timeout(
       client, method, params_payload, on_frame, userdata, 5000);
+}
+
+static int64_t speed_test_elapsed_ms(int64_t started_ms, int64_t completed_ms) {
+  return completed_ms > started_ms ? completed_ms - started_ms : 0;
+}
+
+static double speed_test_mbps(int64_t bytes, int64_t duration_ms) {
+  if (bytes <= 0 || duration_ms <= 0) {
+    return 0.0;
+  }
+  return ((double)bytes * 8.0) / ((double)duration_ms * 1000.0);
+}
+
+typedef struct {
+  gzc_client_t *client;
+  const gzc_platform_t *platform;
+  const gizclaw_rpc_v1_SpeedTestRequest *request;
+  gzc_buf_t tx_frame;
+  uint8_t *upload_payload;
+  size_t tx_offset;
+  size_t tx_payload_len;
+  int64_t upload_bytes;
+  int64_t download_bytes;
+  int64_t started_ms;
+  int64_t up_started_ms;
+  int64_t down_started_ms;
+  int64_t up_completed_ms;
+  int64_t down_completed_ms;
+  int64_t tx_started_ms;
+  bool tx_is_eos;
+  bool upload_eos_sent;
+  bool saw_response;
+  bool saw_eos;
+  bool write_blocked;
+} gzc_speed_test_state_t;
+
+static int speed_test_process_response_frame(
+    gzc_speed_test_state_t *state,
+    const gzc_rpc_frame_t *frame) {
+  if (frame->type == GZC_RPC_FRAME_EOS) {
+    if (!state->saw_response || state->saw_eos ||
+        state->download_bytes != state->request->down_content_length) {
+      return GZC_ERR_RPC;
+    }
+    state->saw_eos = true;
+    state->down_completed_ms =
+        gzc_client_instant_ms_internal(state->client);
+    return GZC_OK;
+  }
+  if (frame->type != GZC_RPC_FRAME_BINARY || state->saw_eos) {
+    return GZC_ERR_RPC;
+  }
+  if (!state->saw_response) {
+    gzc_rpc_response_t response;
+    memset(&response, 0, sizeof(response));
+    int rc = gzc_rpc_decode_response_envelope(
+        gzc_str_from_parts((const char *)frame->data, frame->len),
+        &response);
+    if (rc == GZC_OK && response.has_error) {
+      rc = GZC_ERR_RPC;
+    }
+    if (rc == GZC_OK) {
+      gizclaw_rpc_v1_SpeedTestResponse decoded =
+          gizclaw_rpc_v1_SpeedTestResponse_init_zero;
+      pb_istream_t payload_stream = pb_istream_from_buffer(
+          (const pb_byte_t *)response.result_payload.data,
+          response.result_payload.len);
+      if (!pb_decode(
+              &payload_stream,
+              gizclaw_rpc_v1_SpeedTestResponse_fields,
+              &decoded) ||
+          decoded.up_content_length != state->request->up_content_length ||
+          decoded.down_content_length != state->request->down_content_length) {
+        rc = GZC_ERR_RPC;
+      }
+    }
+    gzc_rpc_response_free(state->client, &response);
+    if (rc != GZC_OK) {
+      return rc;
+    }
+    state->saw_response = true;
+    if (state->request->down_content_length > 0) {
+      state->down_started_ms =
+          gzc_client_instant_ms_internal(state->client);
+    }
+    return GZC_OK;
+  }
+  if (frame->len > (size_t)state->request->down_content_length ||
+      state->download_bytes >
+          state->request->down_content_length - (int64_t)frame->len) {
+    return GZC_ERR_RPC;
+  }
+  state->download_bytes += (int64_t)frame->len;
+  return GZC_OK;
+}
+
+static int speed_test_receive_frame(
+    void *userdata,
+    const uint8_t *frame_bytes,
+    size_t frame_len) {
+  gzc_speed_test_state_t *state =
+      (gzc_speed_test_state_t *)userdata;
+  if (state == NULL || frame_bytes == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  gzc_rpc_frame_t frame;
+  int rc = gzc_rpc_frame_decode(
+      frame_bytes, frame_len, &frame);
+  return rc == GZC_OK
+             ? speed_test_process_response_frame(state, &frame)
+             : rc;
+}
+
+static int speed_test_prepare_upload_frame(
+    gzc_speed_test_state_t *state) {
+  if (state->tx_offset < state->tx_frame.len) {
+    return GZC_OK;
+  }
+  gzc_buf_reset(&state->tx_frame);
+  state->tx_offset = 0;
+  state->tx_payload_len = 0;
+  state->tx_is_eos = false;
+  gzc_rpc_frame_t frame;
+  memset(&frame, 0, sizeof(frame));
+  if (state->upload_bytes < state->request->up_content_length) {
+    size_t count =
+        (size_t)(state->request->up_content_length - state->upload_bytes);
+    if (count > GZC_RPC_SPEED_TEST_FRAME_SIZE) {
+      count = GZC_RPC_SPEED_TEST_FRAME_SIZE;
+    }
+    frame.type = GZC_RPC_FRAME_BINARY;
+    frame.data = state->upload_payload;
+    frame.len = count;
+    state->tx_payload_len = count;
+  } else if (!state->upload_eos_sent) {
+    frame.type = GZC_RPC_FRAME_EOS;
+    state->tx_is_eos = true;
+  } else {
+    return GZC_OK;
+  }
+  int rc = gzc_rpc_frame_encode(
+      state->platform,
+      &frame,
+      &state->tx_frame);
+  if (rc == GZC_OK) {
+    state->tx_started_ms =
+        gzc_client_instant_ms_internal(state->client);
+  }
+  return rc;
+}
+
+static int speed_test_progress_upload(
+    gzc_speed_test_state_t *state,
+    bool *out_progressed) {
+  if (state->upload_eos_sent) {
+    return GZC_OK;
+  }
+  int rc = speed_test_prepare_upload_frame(state);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  int write_timeout_ms =
+      gzc_client_write_timeout_ms_internal(state->client);
+  if (write_timeout_ms <= 0 ||
+      gzc_client_instant_ms_internal(state->client) -
+              state->tx_started_ms >=
+          write_timeout_ms) {
+    return GZC_ERR_TIMEOUT;
+  }
+  size_t before = state->tx_offset;
+  rc = gzc_client_try_write_bytes_internal(
+      state->client,
+      gzc_client_rpc_channel(state->client),
+      state->tx_frame.data,
+      state->tx_frame.len,
+      &state->tx_offset,
+      &state->write_blocked,
+      GZC_RPC_DOWNLOAD_FRAMES_PER_POLL);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  *out_progressed = state->tx_offset != before;
+  if (*out_progressed) {
+    state->tx_started_ms =
+        gzc_client_instant_ms_internal(state->client);
+  }
+  if (state->tx_offset == state->tx_frame.len) {
+    if (state->tx_is_eos) {
+      state->upload_eos_sent = true;
+      state->up_completed_ms =
+          gzc_client_instant_ms_internal(state->client);
+    } else {
+      state->upload_bytes += (int64_t)state->tx_payload_len;
+    }
+    gzc_buf_reset(&state->tx_frame);
+    state->tx_offset = 0;
+    state->tx_payload_len = 0;
+    state->tx_started_ms = 0;
+  }
+  return GZC_OK;
+}
+
+static int run_speed_test_duplex(
+    gzc_client_t *client,
+    const gzc_platform_t *platform,
+    const gizclaw_rpc_v1_SpeedTestRequest *request,
+    gzc_rpc_speed_test_result_t *out_result) {
+  gzc_speed_test_state_t state;
+  memset(&state, 0, sizeof(state));
+  state.client = client;
+  state.platform = platform;
+  state.request = request;
+  gzc_buf_init(&state.tx_frame);
+  if (request->up_content_length > 0) {
+    size_t payload_len =
+        request->up_content_length < (int64_t)GZC_RPC_SPEED_TEST_FRAME_SIZE
+            ? (size_t)request->up_content_length
+            : GZC_RPC_SPEED_TEST_FRAME_SIZE;
+    state.upload_payload =
+        (uint8_t *)platform->malloc(platform->userdata, payload_len);
+    if (state.upload_payload == NULL) {
+      gzc_buf_free(&state.tx_frame, platform);
+      return GZC_ERR_NO_MEMORY;
+    }
+    memset(state.upload_payload, 0, payload_len);
+  }
+  state.started_ms = gzc_client_instant_ms_internal(client);
+  if (request->up_content_length > 0) {
+    state.up_started_ms = gzc_client_instant_ms_internal(client);
+  }
+  int rc = gzc_client_set_rpc_frame_handler_internal(
+      client, speed_test_receive_frame, &state);
+  bool handler_installed = rc == GZC_OK;
+  while (rc == GZC_OK &&
+         (!state.upload_eos_sent || !state.saw_eos)) {
+    bool upload_progressed = false;
+    rc = speed_test_progress_upload(&state, &upload_progressed);
+    if (rc != GZC_OK ||
+        (state.upload_eos_sent && state.saw_eos)) {
+      break;
+    }
+    int64_t elapsed =
+        gzc_client_instant_ms_internal(client) - state.started_ms;
+    if (elapsed >= GZC_RPC_SPEED_TEST_TIMEOUT_MS) {
+      rc = GZC_ERR_TIMEOUT;
+      break;
+    }
+    int remaining_ms =
+        (int)(GZC_RPC_SPEED_TEST_TIMEOUT_MS - elapsed);
+    int poll_timeout_ms =
+        upload_progressed ? 0
+                          : (remaining_ms < 10 ? remaining_ms : 10);
+    rc = gzc_client_poll(client, poll_timeout_ms);
+  }
+  if (handler_installed) {
+    int handler_rc =
+        gzc_client_set_rpc_frame_handler_internal(
+            client, NULL, NULL);
+    if (rc == GZC_OK && handler_rc != GZC_OK) {
+      rc = handler_rc;
+    }
+  }
+  if (rc == GZC_OK &&
+      (!state.upload_eos_sent || !state.saw_response || !state.saw_eos ||
+       state.upload_bytes != request->up_content_length ||
+       state.download_bytes != request->down_content_length)) {
+    rc = GZC_ERR_RPC;
+  }
+  if (rc == GZC_OK) {
+    int64_t completed_ms = gzc_client_instant_ms_internal(client);
+    out_result->up_bytes = state.upload_bytes;
+    out_result->down_bytes = state.download_bytes;
+    out_result->duration_ms =
+        speed_test_elapsed_ms(state.started_ms, completed_ms);
+    if (request->up_content_length > 0) {
+      out_result->up_duration_ms =
+          speed_test_elapsed_ms(
+              state.up_started_ms, state.up_completed_ms);
+    }
+    if (request->down_content_length > 0) {
+      out_result->down_duration_ms =
+          speed_test_elapsed_ms(
+              state.down_started_ms, state.down_completed_ms);
+    }
+    out_result->up_mbps =
+        speed_test_mbps(out_result->up_bytes, out_result->up_duration_ms);
+    out_result->down_mbps =
+        speed_test_mbps(
+            out_result->down_bytes, out_result->down_duration_ms);
+  }
+  if (state.upload_payload != NULL) {
+    platform->free(platform->userdata, state.upload_payload);
+  }
+  gzc_buf_free(&state.tx_frame, platform);
+  return rc;
+}
+
+int gzc_rpc_speed_test(
+    gzc_client_t *client,
+    const gizclaw_rpc_v1_SpeedTestRequest *request,
+    gzc_rpc_speed_test_result_t *out_result) {
+  if (out_result != NULL) {
+    memset(out_result, 0, sizeof(*out_result));
+  }
+  if (client == NULL || request == NULL || out_result == NULL ||
+      request->up_content_length < 0 ||
+      request->down_content_length < 0 ||
+      (request->up_content_length == 0 &&
+       request->down_content_length == 0) ||
+      request->up_content_length > GZC_RPC_SPEED_TEST_MAX_CONTENT_LENGTH ||
+      request->down_content_length > GZC_RPC_SPEED_TEST_MAX_CONTENT_LENGTH) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  const gzc_platform_t *platform = gzc_client_platform(client);
+  if (platform == NULL || platform->malloc == NULL ||
+      platform->free == NULL) {
+    return GZC_ERR_CLOSED;
+  }
+  int rc = gzc_client_open_rpc_channel_internal(client, 5000);
+  if (rc == GZC_OK) {
+    rc = gzc_client_set_rpc_rx_limit_internal(
+        client,
+        GZC_RPC_SPEED_TEST_RX_LIMIT);
+  }
+  gzc_buf_t params;
+  gzc_buf_init(&params);
+  if (rc == GZC_OK) {
+    rc = encode_pb_message(
+        platform,
+        gizclaw_rpc_v1_SpeedTestRequest_fields,
+        request,
+        &params);
+  }
+  if (rc == GZC_OK) {
+    rc = send_request_envelope_internal(
+        client,
+        platform,
+        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_SPEED_TEST_RUN,
+        gzc_str_from_parts((const char *)params.data, params.len),
+        false);
+  }
+  gzc_buf_free(&params, platform);
+  if (rc == GZC_OK) {
+    rc = run_speed_test_duplex(
+        client,
+        platform,
+        request,
+        out_result);
+  }
+  int limit_rc =
+      gzc_client_set_rpc_rx_limit_internal(client, 0);
+  if (rc == GZC_OK && limit_rc != GZC_OK) {
+    rc = limit_rc;
+  }
+  close_rpc_channel_on_error(client, rc);
+  return rc;
 }
 
 static int speech_upload_open(

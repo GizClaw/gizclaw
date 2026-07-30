@@ -44,6 +44,16 @@ typedef int (*gzc_rpc_speech_audio_cb)(
 
 typedef struct gzc_rpc_speech_upload gzc_rpc_speech_upload_t;
 
+typedef struct {
+  int64_t up_bytes;
+  int64_t down_bytes;
+  int64_t duration_ms;
+  int64_t up_duration_ms;
+  int64_t down_duration_ms;
+  double up_mbps;
+  double down_mbps;
+} gzc_rpc_speed_test_result_t;
+
 int gzc_rpc_encode_request_envelope(
     const gzc_platform_t *platform,
     gzc_str_t id,
@@ -64,6 +74,17 @@ int gzc_rpc_call_stream(
     gzc_str_t params_payload,
     gzc_rpc_frame_cb on_frame,
     void *userdata);
+/*
+ * Runs the bidirectional speed-test stream on the client's persistent RPC
+ * DataChannel. This avoids consuming an additional native SCTP stream.
+ * duration_ms covers the whole transfer. up_duration_ms and down_duration_ms
+ * stop when their respective direction completes; up_mbps and down_mbps are
+ * calculated from those direction-specific durations.
+ */
+int gzc_rpc_speed_test(
+    gzc_client_t *client,
+    const gizclaw_rpc_v1_SpeedTestRequest *request,
+    gzc_rpc_speed_test_result_t *out_result);
 /* frame and frame->data are borrowed until this synchronous call returns. */
 int gzc_rpc_send_frame(gzc_client_t *client, const gzc_rpc_frame_t *frame);
 /* Opens an incremental transcription upload on a dedicated Peer RPC stream. */

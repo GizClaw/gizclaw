@@ -49,6 +49,11 @@ struct gzc_service_channel {
   bool write_blocked;
 };
 
+typedef int (*gzc_rpc_frame_handler_internal_fn)(
+    void *userdata,
+    const uint8_t *frame_bytes,
+    size_t frame_len);
+
 struct gzc_client {
   gzc_client_config_t config;
   gzc_peer_add_ice_server_fn peer_add_ice_server;
@@ -61,9 +66,13 @@ struct gzc_client {
   gzc_buf_t packet_rx;
   gzc_buf_t rpc_rx;
   gzc_buf_t rpc_response;
+  size_t rpc_rx_limit;
+  gzc_rpc_frame_handler_internal_fn rpc_frame_handler;
+  void *rpc_frame_handler_userdata;
   gzc_rpc_inbound_t *inbound[GZC_RPC_MAX_INBOUND_CHANNELS];
   gzc_rtc_channel_t *inbound_channels[GZC_RPC_MAX_INBOUND_CHANNELS];
   int dispatch_error;
+  int rpc_rx_error;
   bool has_local_sdp;
   bool packet_channel_open;
   bool rpc_channel_open;
@@ -82,6 +91,11 @@ static int64_t now_ms(gzc_client_t *client) {
   }
   return 0;
 }
+
+static void consume_rpc_rx(gzc_client_t *client, size_t len);
+static int rpc_rx_next_frame_size(
+    gzc_client_t *client,
+    size_t *out_size);
 
 static int configure_service_channel(gzc_client_t *client, gzc_rtc_channel_t *channel) {
   if (client == NULL || channel == NULL || client->config.webrtc == NULL) {
@@ -854,7 +868,36 @@ static void on_channel_message(
     return;
   }
   if (channel == client->rpc_channel) {
-    (void)gzc_buf_append(&client->rpc_rx, client->config.platform, data, len);
+    if (client->rpc_rx_error != GZC_OK) {
+      return;
+    }
+    if (client->rpc_rx_limit != 0 &&
+        (len > client->rpc_rx_limit ||
+         client->rpc_rx.len > client->rpc_rx_limit - len)) {
+      client->rpc_rx_error = GZC_ERR_NO_MEMORY;
+      return;
+    }
+    int rc =
+        gzc_buf_append(&client->rpc_rx, client->config.platform, data, len);
+    while (rc == GZC_OK && client->rpc_frame_handler != NULL) {
+      size_t frame_size = 0;
+      rc = rpc_rx_next_frame_size(client, &frame_size);
+      if (rc == GZC_ERR_TIMEOUT) {
+        rc = GZC_OK;
+        break;
+      }
+      if (rc != GZC_OK) {
+        break;
+      }
+      rc = client->rpc_frame_handler(
+          client->rpc_frame_handler_userdata,
+          client->rpc_rx.data,
+          frame_size);
+      if (rc == GZC_OK) {
+        consume_rpc_rx(client, frame_size);
+      }
+    }
+    client->rpc_rx_error = rc;
     return;
   }
   for (size_t i = 0; i < GZC_RPC_MAX_INBOUND_CHANNELS; i++) {
@@ -918,6 +961,10 @@ static int open_rpc_channel(gzc_client_t *client, int timeout_ms) {
   client->rpc_channel = NULL;
   client->rpc_channel_open = false;
   client->rpc_write_blocked = false;
+  client->rpc_rx_limit = 0;
+  client->rpc_rx_error = GZC_OK;
+  client->rpc_frame_handler = NULL;
+  client->rpc_frame_handler_userdata = NULL;
   gzc_buf_reset(&client->rpc_rx);
   gzc_buf_reset(&client->rpc_response);
 
@@ -949,6 +996,10 @@ static void close_rpc_channel(gzc_client_t *client) {
   client->rpc_channel = NULL;
   client->rpc_channel_open = false;
   client->rpc_write_blocked = false;
+  client->rpc_rx_limit = 0;
+  client->rpc_rx_error = GZC_OK;
+  client->rpc_frame_handler = NULL;
+  client->rpc_frame_handler_userdata = NULL;
   gzc_buf_reset(&client->rpc_rx);
 }
 
@@ -1008,6 +1059,7 @@ int gzc_client_create(const gzc_client_config_t *config, gzc_client_t **out_clie
   client->config.platform = platform;
   client->config.service_write_high_water_bytes = high_water;
   client->config.service_write_low_water_bytes = low_water;
+  client->rpc_rx_error = GZC_OK;
   gzc_buf_init(&client->local_sdp);
   gzc_buf_init(&client->packet_rx);
   gzc_buf_init(&client->rpc_rx);
@@ -1035,6 +1087,10 @@ int gzc_client_connect(gzc_client_t *client) {
   client->has_local_sdp = false;
   client->packet_channel_open = false;
   client->rpc_channel_open = false;
+  client->rpc_rx_limit = 0;
+  client->rpc_rx_error = GZC_OK;
+  client->rpc_frame_handler = NULL;
+  client->rpc_frame_handler_userdata = NULL;
   gzc_buf_reset(&client->local_sdp);
   gzc_buf_reset(&client->packet_rx);
   gzc_buf_reset(&client->rpc_rx);
@@ -1171,6 +1227,10 @@ fail:
   }
   client->packet_channel_open = false;
   client->rpc_channel_open = false;
+  client->rpc_rx_limit = 0;
+  client->rpc_rx_error = GZC_OK;
+  client->rpc_frame_handler = NULL;
+  client->rpc_frame_handler_userdata = NULL;
   client->has_local_sdp = false;
   gzc_buf_reset(&client->rpc_rx);
   gzc_buf_reset(&client->packet_rx);
@@ -1215,7 +1275,12 @@ int gzc_client_close(gzc_client_t *client) {
   }
   client->packet_channel_open = false;
   client->rpc_channel_open = false;
+  client->rpc_rx_limit = 0;
+  client->rpc_rx_error = GZC_OK;
+  client->rpc_frame_handler = NULL;
+  client->rpc_frame_handler_userdata = NULL;
   client->has_local_sdp = false;
+  gzc_buf_reset(&client->rpc_rx);
   return GZC_OK;
 }
 
@@ -1241,6 +1306,9 @@ int gzc_client_poll(gzc_client_t *client, int timeout_ms) {
   int rc = client->config.webrtc->peer_poll(client->peer, backend_timeout_ms);
   if (rc != GZC_OK) {
     return rc;
+  }
+  if (client->rpc_rx_error != GZC_OK) {
+    return client->rpc_rx_error;
   }
   if (client->dispatch_error != GZC_OK) {
     return client->dispatch_error;
@@ -1407,6 +1475,61 @@ int gzc_client_reset_rpc_rx_internal(gzc_client_t *client) {
   }
   gzc_buf_reset(&client->rpc_rx);
   gzc_buf_reset(&client->rpc_response);
+  client->rpc_rx_error = GZC_OK;
+  return GZC_OK;
+}
+
+int gzc_client_set_rpc_rx_limit_internal(
+    gzc_client_t *client,
+    size_t limit) {
+  if (client == NULL ||
+      (limit != 0 && client->rpc_rx.len > limit)) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  client->rpc_rx_limit = limit;
+  return GZC_OK;
+}
+
+int gzc_client_set_rpc_frame_handler_internal(
+    gzc_client_t *client,
+    gzc_rpc_frame_handler_internal_fn handler,
+    void *userdata) {
+  if (client == NULL ||
+      (handler != NULL && client->rpc_frame_handler != NULL)) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  client->rpc_frame_handler = handler;
+  client->rpc_frame_handler_userdata =
+      handler == NULL ? NULL : userdata;
+  if (handler == NULL) {
+    return client->rpc_rx_error;
+  }
+  if (client->rpc_rx_error != GZC_OK) {
+    client->rpc_frame_handler = NULL;
+    client->rpc_frame_handler_userdata = NULL;
+    return client->rpc_rx_error;
+  }
+  while (client->rpc_rx.len > 0) {
+    size_t frame_size = 0;
+    int rc = rpc_rx_next_frame_size(client, &frame_size);
+    if (rc == GZC_ERR_TIMEOUT) {
+      return GZC_OK;
+    }
+    if (rc != GZC_OK) {
+      client->rpc_rx_error = rc;
+      client->rpc_frame_handler = NULL;
+      client->rpc_frame_handler_userdata = NULL;
+      return rc;
+    }
+    rc = handler(userdata, client->rpc_rx.data, frame_size);
+    if (rc != GZC_OK) {
+      client->rpc_rx_error = rc;
+      client->rpc_frame_handler = NULL;
+      client->rpc_frame_handler_userdata = NULL;
+      return rc;
+    }
+    consume_rpc_rx(client, frame_size);
+  }
   return GZC_OK;
 }
 
@@ -1447,6 +1570,9 @@ int gzc_client_read_rpc_frame_internal(gzc_client_t *client, int timeout_ms, gzc
   const int64_t start = now_ms(client);
   size_t frame_size = 0;
   for (;;) {
+    if (client->rpc_rx_error != GZC_OK) {
+      return client->rpc_rx_error;
+    }
     int rc = rpc_rx_next_frame_size(client, &frame_size);
     if (rc == GZC_OK) {
       break;
