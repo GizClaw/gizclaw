@@ -158,6 +158,7 @@ func (s *Service) reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 
 	input, err := s.Source.OpenAgentInput(ctx)
 	if err != nil {
+		// No input route exists for a fallback to receive BOS, so do not retry.
 		return s.setErrorStatus(selection.WorkspaceName, fmt.Errorf("agenthost: open input stream: %w", err)), err
 	}
 	if input == nil {
