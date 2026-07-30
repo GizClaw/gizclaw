@@ -13,7 +13,7 @@ require (
 	github.com/GizClaw/pixa v0.0.0-20260730044130-e59a9ee62701
 	github.com/cloudwego/eino v0.9.13
 	github.com/coder/websocket v1.8.15
-	github.com/dgraph-io/badger/v4 v4.9.4
+	github.com/dgraph-io/badger/v4 v4.9.5
 	github.com/eino-contrib/jsonschema v1.0.3
 	github.com/felixge/httpsnoop v1.1.0
 	github.com/goccy/go-yaml v1.19.2
@@ -28,7 +28,7 @@ require (
 	github.com/kaptinlin/jsonrepair v0.4.8
 	github.com/kardianos/service v1.3.0
 	github.com/lib/pq v1.12.3
-	github.com/oapi-codegen/runtime v1.3.1
+	github.com/oapi-codegen/runtime v1.6.0
 	github.com/openai/openai-go v1.12.0
 	github.com/pion/datachannel v1.6.2
 	github.com/pion/ice/v4 v4.3.0
@@ -37,15 +37,15 @@ require (
 	github.com/pion/sdp/v3 v3.0.19
 	github.com/pion/turn/v4 v4.1.4
 	github.com/pion/webrtc/v4 v4.2.17
-	github.com/prometheus/prometheus v0.313.0
+	github.com/prometheus/prometheus v0.313.1
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
 	github.com/spf13/cobra v1.10.2
 	github.com/tphakala/go-audio-resampling v0.0.0-20251123212058-a9dde25e8eea
 	github.com/valyala/fasthttp v1.72.0
 	github.com/volcengine/volc-sdk-golang v1.0.246
-	github.com/volcengine/volcengine-go-sdk v1.2.43
+	github.com/volcengine/volcengine-go-sdk v1.2.44
 	go.starlark.net v0.0.0-20260708150628-5395d018f003
-	golang.org/x/crypto v0.53.0
+	golang.org/x/crypto v0.54.0
 	golang.org/x/sync v0.22.0
 	gonum.org/v1/gonum v0.17.0
 	google.golang.org/genai v1.42.0
@@ -207,8 +207,8 @@ require (
 	golang.org/x/exp v0.0.0-20260218203240-3dfff04db8fa // indirect
 	golang.org/x/mod v0.37.0 // indirect
 	golang.org/x/net v0.56.0 // indirect
-	golang.org/x/sys v0.46.0 // indirect
-	golang.org/x/text v0.38.0 // indirect
+	golang.org/x/sys v0.47.0 // indirect
+	golang.org/x/text v0.40.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	golang.org/x/tools v0.47.0 // indirect
 	google.golang.org/api v0.287.1 // indirect
